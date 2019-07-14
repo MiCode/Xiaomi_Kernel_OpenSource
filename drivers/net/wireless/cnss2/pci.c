@@ -1086,22 +1086,24 @@ int cnss_pci_update_status(struct cnss_pci_data *pci_priv,
 static void cnss_pci_dump_shadow_reg(struct cnss_pci_data *pci_priv)
 {
 	int i, j = 0, array_size = SHADOW_REG_COUNT + SHADOW_REG_INTER_COUNT;
-	gfp_t gfp = GFP_KERNEL;
 	u32 reg_offset;
+
+	if (in_interrupt() || irqs_disabled())
+		return;
 
 	if (cnss_pci_check_link_status(pci_priv))
 		return;
 
-	if (in_interrupt() || irqs_disabled())
-		gfp = GFP_ATOMIC;
-
 	if (!pci_priv->debug_reg) {
 		pci_priv->debug_reg = devm_kzalloc(&pci_priv->pci_dev->dev,
 						   sizeof(*pci_priv->debug_reg)
-						   * array_size, gfp);
+						   * array_size, GFP_KERNEL);
 		if (!pci_priv->debug_reg)
 			return;
 	}
+
+	if (cnss_pci_force_wake_get(pci_priv))
+		return;
 
 	cnss_pr_dbg("Start to dump shadow registers\n");
 
@@ -1110,7 +1112,7 @@ static void cnss_pci_dump_shadow_reg(struct cnss_pci_data *pci_priv)
 		pci_priv->debug_reg[j].offset = reg_offset;
 		if (cnss_pci_reg_read(pci_priv, reg_offset,
 				      &pci_priv->debug_reg[j].val))
-			return;
+			goto force_wake_put;
 	}
 
 	for (i = 0; i < SHADOW_REG_INTER_COUNT; i++, j++) {
@@ -1118,8 +1120,11 @@ static void cnss_pci_dump_shadow_reg(struct cnss_pci_data *pci_priv)
 		pci_priv->debug_reg[j].offset = reg_offset;
 		if (cnss_pci_reg_read(pci_priv, reg_offset,
 				      &pci_priv->debug_reg[j].val))
-			return;
+			goto force_wake_put;
 	}
+
+force_wake_put:
+	cnss_pci_force_wake_put(pci_priv);
 }
 
 #ifdef CONFIG_CNSS2_DEBUG
