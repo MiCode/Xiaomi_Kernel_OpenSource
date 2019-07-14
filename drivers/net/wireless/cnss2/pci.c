@@ -52,8 +52,6 @@
 #define EMULATION_HW			0
 #endif
 
-#define TIME_SYNC_PERIOD_JF		msecs_to_jiffies(900000)
-
 static DEFINE_SPINLOCK(pci_link_down_lock);
 static DEFINE_SPINLOCK(pci_reg_window_lock);
 
@@ -891,6 +889,9 @@ static void cnss_pci_time_sync_work_hdlr(struct work_struct *work)
 {
 	struct cnss_pci_data *pci_priv =
 		container_of(work, struct cnss_pci_data, time_sync_work.work);
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	unsigned int time_sync_period_ms =
+		plat_priv->ctrl_params.time_sync_period;
 
 	if (cnss_pci_is_device_down(&pci_priv->pci_dev->dev))
 		return;
@@ -899,7 +900,8 @@ static void cnss_pci_time_sync_work_hdlr(struct work_struct *work)
 		return;
 
 	cnss_pci_update_timestamp(pci_priv);
-	schedule_delayed_work(&pci_priv->time_sync_work, TIME_SYNC_PERIOD_JF);
+	schedule_delayed_work(&pci_priv->time_sync_work,
+			      msecs_to_jiffies(time_sync_period_ms));
 
 	cnss_pci_pm_runtime_mark_last_busy(pci_priv);
 	cnss_pci_pm_runtime_put_autosuspend(pci_priv);

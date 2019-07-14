@@ -261,6 +261,7 @@ struct cnss_control_params {
 	unsigned int mhi_timeout;
 	unsigned int qmi_timeout;
 	unsigned int bdf_type;
+	unsigned int time_sync_period;
 };
 
 struct cnss_cpr_info {
