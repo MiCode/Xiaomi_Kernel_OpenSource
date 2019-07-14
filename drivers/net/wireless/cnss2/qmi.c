@@ -1491,6 +1491,7 @@ static void cnss_wlfw_fw_ready_ind_cb(struct qmi_handle *qmi_wlfw,
 {
 	struct cnss_plat_data *plat_priv =
 		container_of(qmi_wlfw, struct cnss_plat_data, qmi_wlfw);
+	struct cnss_cal_info *cal_info;
 
 	cnss_pr_dbg("Received QMI WLFW FW ready indication\n");
 
@@ -1499,8 +1500,13 @@ static void cnss_wlfw_fw_ready_ind_cb(struct qmi_handle *qmi_wlfw,
 		return;
 	}
 
+	cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
+	if (!cal_info)
+		return;
+
+	cal_info->cal_status = CNSS_CAL_DONE;
 	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE,
-			       0, NULL);
+			       0, cal_info);
 }
 
 static void cnss_wlfw_fw_init_done_ind_cb(struct qmi_handle *qmi_wlfw,
@@ -1555,6 +1561,7 @@ static void cnss_wlfw_cal_done_ind_cb(struct qmi_handle *qmi_wlfw,
 {
 	struct cnss_plat_data *plat_priv =
 		container_of(qmi_wlfw, struct cnss_plat_data, qmi_wlfw);
+	struct cnss_cal_info *cal_info;
 
 	cnss_pr_dbg("Received QMI WLFW calibration done indication\n");
 
@@ -1563,8 +1570,13 @@ static void cnss_wlfw_cal_done_ind_cb(struct qmi_handle *qmi_wlfw,
 		return;
 	}
 
+	cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
+	if (!cal_info)
+		return;
+
+	cal_info->cal_status = CNSS_CAL_DONE;
 	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE,
-			       0, NULL);
+			       0, cal_info);
 }
 
 static void cnss_wlfw_qdss_trace_req_mem_ind_cb(struct qmi_handle *qmi_wlfw,
