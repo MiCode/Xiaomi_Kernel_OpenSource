@@ -282,7 +282,7 @@ static void mmc_release_card(struct device *dev)
 	kfree(card->info);
 
 	kfree(card);
-	if (host)
+	if (host && card == host->card)
 		host->card = NULL;
 }
 
