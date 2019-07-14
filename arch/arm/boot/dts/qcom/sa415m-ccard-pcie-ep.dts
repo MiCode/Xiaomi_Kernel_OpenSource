@@ -52,3 +52,7 @@
 &ipc_router_mhi_dev_xprt {
 	status = "okay";
 };
+
+&mhi_net_device {
+	status = "okay";
+};
