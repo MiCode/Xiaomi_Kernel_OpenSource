@@ -2589,6 +2589,10 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 			continue;
 
 		combined_demand += p->ravg.coloc_demand;
+		if (!trace_sched_set_preferred_cluster_enabled()) {
+			if (combined_demand > sched_group_upmigrate)
+				break;
+		}
 	}
 
 	grp->last_update = wallclock;
