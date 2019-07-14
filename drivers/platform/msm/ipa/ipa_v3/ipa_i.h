@@ -2490,7 +2490,8 @@ int ipa3_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 int ipa3_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 
 int ipa3_conn_wigig_rx_pipe_i(void *in,
-	struct ipa_wigig_conn_out_params *out);
+	struct ipa_wigig_conn_out_params *out,
+	struct dentry **parent);
 
 int ipa3_conn_wigig_client_i(void *in,
 	struct ipa_wigig_conn_out_params *out,
@@ -2511,6 +2512,8 @@ int ipa3_disconn_wigig_pipe_i(enum ipa_client_type client,
 int ipa3_enable_wigig_pipe_i(enum ipa_client_type client);
 
 int ipa3_disable_wigig_pipe_i(enum ipa_client_type client);
+
+int ipa3_wigig_init_debugfs_i(struct dentry *dent);
 
 /*
  * To retrieve doorbell physical address of
@@ -2834,7 +2837,7 @@ const struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info
 	(enum ipa_client_type client);
 
 int ipa3_wigig_init_i(void);
-int ipa3_wigig_uc_init(
+int ipa3_wigig_internal_init(
 	struct ipa_wdi_uc_ready_params *inout,
 	ipa_wigig_misc_int_cb int_notify,
 	phys_addr_t *uc_db_pa);
