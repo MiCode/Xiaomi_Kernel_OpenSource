@@ -4829,6 +4829,14 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	data->released = false;
 	data->client.sb_length = size;
 	data->client.user_virt_sb_base = 0;
+	data->sglistinfo_ptr = (struct sglist_info *)__qseecom_alloc_tzbuf(
+				sizeof(struct sglist_info) * MAX_ION_FD,
+				&data->sglistinfo_shm.paddr,
+				&data->sglistinfo_shm);
+	if (!data->sglistinfo_ptr) {
+		ret = -ENOMEM;
+		goto err;
+	}
 
 	init_waitqueue_head(&data->abort_wq);
 
@@ -4931,6 +4939,7 @@ int qseecom_start_app(struct qseecom_handle **handle,
 err:
 	if (va)
 		__qseecom_free_coherent_buf(size, va, pa);
+	__qseecom_free_tzbuf(&data->sglistinfo_shm);
 	kfree(data);
 	kfree(*handle);
 	*handle = NULL;
@@ -4983,6 +4992,7 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 		if (data->client.sb_virt)
 			__qseecom_free_coherent_buf(data->client.sb_length,
 				data->client.sb_virt, data->client.sb_phys);
+		__qseecom_free_tzbuf(&data->sglistinfo_shm);
 		kzfree(data);
 		kzfree(*handle);
 		kzfree(kclient);
