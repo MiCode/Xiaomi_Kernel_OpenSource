@@ -599,7 +599,7 @@
 		pinctrl-1 = <&qupv3_se13_spi_sleep>;
 		interrupts = <GIC_SPI 585 0>;
 		spi-max-frequency = <50000000>;
-		qcom,wrapper-core = <&qupv3_1>;
+		qcom,wrapper-core = <&qupv3_2>;
 		status = "disabled";
 	};
 
@@ -740,11 +740,11 @@
 		status = "disabled";
 	};
 
-	qupv3_se15_spi: spi@c90000 {
+	qupv3_se15_spi: spi@c94000 {
 		compatible = "qcom,spi-geni";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		reg = <0xc90000 0x4000>;
+		reg = <0xc94000 0x4000>;
 		reg-names = "se_phys";
 		clock-names = "se-clk", "m-ahb", "s-ahb";
 		clocks = <&clock_virt GCC_QUPV3_WRAP2_S5_CLK>,
