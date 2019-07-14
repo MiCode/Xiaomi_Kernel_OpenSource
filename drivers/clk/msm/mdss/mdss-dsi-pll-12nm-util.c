@@ -900,7 +900,7 @@ int pll_vco_prepare_12nm(struct clk *c)
 		rc = c->ops->set_rate(c, pll->vco_cached_rate);
 		if (rc) {
 			pr_err("index=%d vco_set_rate failed. rc=%d\n",
-					rc, pll->index);
+					pll->index, rc);
 			goto error;
 		}
 	}
