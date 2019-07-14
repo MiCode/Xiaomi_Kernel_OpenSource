@@ -494,7 +494,3 @@
 &tlmm {
 	dirconn-list = <37 216 1>;
 };
-
-&qupv3_se13_4uart {
-	status = "ok";
-};
