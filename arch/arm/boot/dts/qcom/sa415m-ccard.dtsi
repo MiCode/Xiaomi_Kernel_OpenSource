@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include "sdxpoorwills-ttp.dtsi"
+#include "sa415m-ttp.dtsi"
 #include "sdxpoorwills-v2.dtsi"
 
 &blsp1_uart2b_hs {
@@ -141,12 +141,13 @@
 	};
 };
 
-&pmxpoorwills_gpios {
-	a2b_cdc_sel {
-		a2b_cdc_sel_default: a2b_cdc_sel_default {
-			pins = "gpio1";
-			power-source = <1>;
-			output-high;
-		};
-	};
+&emac_hw {
+	/delete-property/ vreg_rgmii-supply;
+	pinctrl-names = "default";
+	pinctrl-0 = <&vreg_rgmii_off_default>;
+};
+
+&vreg_rgmii_io_pads {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
 };

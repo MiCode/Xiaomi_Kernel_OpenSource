@@ -12,14 +12,14 @@
 
 /dts-v1/;
 
-#include "sdxpoorwills-ttp.dtsi"
+#include "sa415m-ttp.dtsi"
 #include "sdxpoorwills-v2.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDXPOORWILLS TTP V2";
-	compatible = "qcom,sdxpoorwills-ttp",
+	model = "Qualcomm Technologies, Inc. SA415M TTP USB-EP";
+	compatible = "qcom,sa415m-ttp",
 		"qcom,sdxpoorwills", "qcom,ttp";
-	qcom,board-id = <30 0x100>;
+	qcom,board-id = <30 0x102>;
 };
 
 &blsp1_uart2b_hs {

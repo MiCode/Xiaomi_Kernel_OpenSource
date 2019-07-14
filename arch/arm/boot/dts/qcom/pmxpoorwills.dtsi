@@ -60,16 +60,18 @@
 					<0x0 0xc2 0 IRQ_TYPE_NONE>,
 					<0x0 0xc3 0 IRQ_TYPE_NONE>,
 					<0x0 0xc4 0 IRQ_TYPE_NONE>,
-					<0x0 0xc5 0 IRQ_TYPE_NONE>;
+					<0x0 0xc5 0 IRQ_TYPE_NONE>,
+					<0x0 0xc8 0 IRQ_TYPE_NONE>;
 			interrupt-names = "pmxpoorwills_gpio1",
 					  "pmxpoorwills_gpio2",
 					  "pmxpoorwills_gpio3",
 					  "pmxpoorwills_gpio4",
 					  "pmxpoorwills_gpio5",
-					  "pmxpoorwills_gpio6";
+					  "pmxpoorwills_gpio6",
+					  "pmxpoorwills_gpio9";
 			gpio-controller;
 			#gpio-cells = <2>;
-			qcom,gpios-disallowed = <7 8 9>;
+			qcom,gpios-disallowed = <7 8>;
 		};
 
 		pmxpoorwills_rtc: qcom,pmxpoorwills_rtc {
