@@ -443,6 +443,7 @@ static int bcm_clist_add(struct msm_bus_node_device_type *cur_dev)
 		if (!cur_bcm->dirty) {
 			list_add_tail(&cur_bcm->link,
 					&cur_rsc->rscdev->bcm_clist[cur_vcd]);
+			msm_bus_dbg_add_bcm(cur_bcm);
 			cur_bcm->dirty = true;
 		}
 		cur_bcm->updated = false;
@@ -512,6 +513,7 @@ static int bcm_clist_clean(struct msm_bus_node_device_type *cur_dev)
 			cur_bcm->node_vec[ACTIVE_CTX].vec_b == 0 &&
 			init_time == false) {
 			cur_bcm->dirty = false;
+			msm_bus_dbg_remove_bcm(cur_bcm);
 			list_del_init(&cur_bcm->link);
 		}
 	}

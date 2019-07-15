@@ -243,6 +243,42 @@ TRACE_EVENT(bus_client_status,
 		__entry->active_only)
 );
 
+TRACE_EVENT(bus_bcm_client_status,
+
+	TP_PROTO(const char *bcm, const char *client,
+		unsigned long long act_ab, unsigned long long act_ib,
+		unsigned long long slp_ab, unsigned long long slp_ib),
+
+	TP_ARGS(bcm, client, act_ab, act_ib, slp_ab, slp_ib),
+
+	TP_STRUCT__entry(
+		__string(bcm, bcm)
+		__string(client, client)
+		__field(u64, act_ab)
+		__field(u64, act_ib)
+		__field(u64, slp_ab)
+		__field(u64, slp_ib)
+	),
+
+	TP_fast_assign(
+		__assign_str(bcm, bcm);
+		 __assign_str(client, client);
+		__entry->act_ab = act_ab;
+		__entry->act_ib = act_ib;
+		__entry->slp_ab = slp_ab;
+		__entry->slp_ib = slp_ib;
+	),
+
+	TP_printk(
+		"bcm=%s cl=%s act_ab=%llu act_ib=%llu slp_ab=%llu slp_ib=%llu",
+		__get_str(bcm),
+		__get_str(client),
+		(unsigned long long)__entry->act_ab,
+		(unsigned long long)__entry->act_ib,
+		(unsigned long long)__entry->slp_ab,
+		(unsigned long long)__entry->slp_ib)
+);
+
 TRACE_EVENT(bus_agg_bw,
 
 	TP_PROTO(unsigned int node_id, int rpm_id, int ctx_set,
