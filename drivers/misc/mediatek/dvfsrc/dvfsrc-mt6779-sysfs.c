@@ -104,13 +104,28 @@ static ssize_t dvfsrc_req_vscp_store(struct device *dev,
 
 	return count;
 }
-
 static DEVICE_ATTR_WO(dvfsrc_req_vscp);
+
+static ssize_t dvfsrc_force_vcore_dvfs_opp_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int val = 0;
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	if (kstrtoint(buf, 10, &val))
+		return -EINVAL;
+
+	if (dvfsrc->dvd->force_opp)
+		dvfsrc->dvd->force_opp(dvfsrc, val);
+
+	return count;
+}
+static DEVICE_ATTR_WO(dvfsrc_force_vcore_dvfs_opp);
 
 static ssize_t dvfsrc_opp_table_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	int i;
+	int i, j;
 	char *p = buf;
 	char *buff_end = p + PAGE_SIZE;
 	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
@@ -125,11 +140,12 @@ static ssize_t dvfsrc_opp_table_show(struct device *dev,
 		dvfsrc->opp_desc->num_opp);
 
 	for (i = 0; i < dvfsrc->opp_desc->num_opp; i++) {
+		j = dvfsrc->opp_desc->num_opp - (i + 1);
 		p += snprintf(p, buff_end - p,
 			"[OPP%-2d]: %-8u uv %-8u khz\n",
 			i,
-			dvfsrc->opp_desc->opps[i].vcore_uv,
-			dvfsrc->opp_desc->opps[i].dram_khz);
+			dvfsrc->opp_desc->opps[j].vcore_uv,
+			dvfsrc->opp_desc->opps[j].dram_khz);
 	}
 
 	return p - buf;
@@ -160,6 +176,7 @@ static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_req_vscp.attr,
 	&dev_attr_dvfsrc_opp_table.attr,
 	&dev_attr_dvfsrc_dump.attr,
+	&dev_attr_dvfsrc_force_vcore_dvfs_opp.attr,
 	NULL,
 };
 

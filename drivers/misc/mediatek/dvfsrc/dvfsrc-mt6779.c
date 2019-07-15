@@ -14,6 +14,7 @@
 #include <linux/pm_domain.h>
 #include <linux/pm_opp.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <linux/soc/mediatek/mtk_dvfsrc.h>
 
 #include "dvfsrc-mt6779.h"
 #include "dvfsrc-opp.h"
@@ -351,13 +352,16 @@ static char *dvfsrc_dump_reg(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 			"TARGET_LEVEL",
 			dvfsrc_read(dvfsrc, DVFSRC_TARGET_LEVEL, 0x0));
 	p += snprintf(p, buff_end - p, "%-16s: %d\n",
+			"FORCE_OPP_IDX",
+			dvfsrc->force_opp_idx);
+	p += snprintf(p, buff_end - p, "%-16s: %d\n",
 			"CURR_DVFS_OPP",
 			mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_DVFS_OPP));
 	p += snprintf(p, buff_end - p, "%-16s: %d\n",
-			"CUFF_VCORE_OPP",
+			"CURR_VCORE_OPP",
 			mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_VCORE_OPP));
 	p += snprintf(p, buff_end - p, "%-16s: %d\n",
-			"CUFF_DRAM_OPP",
+			"CURR_DRAM_OPP",
 			mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_DRAM_OPP));
 	p += snprintf(p, buff_end - p, "\n");
 
@@ -380,6 +384,14 @@ static void dvfsrc_setup_opp_table(struct mtk_dvfsrc *dvfsrc)
 		if (!ares.a0)
 			opp->vcore_uv = ares.a1;
 	}
+}
+
+static void dvfsrc_force_opp(struct mtk_dvfsrc *dvfsrc, u32 opp)
+{
+	dvfsrc->force_opp_idx = opp;
+	mtk_dvfsrc_send_request(dvfsrc->dev->parent,
+		MTK_DVFSRC_CMD_FORCE_OPP_REQUEST,
+		opp);
 }
 
 static int dvfsrc_query_opp_info(u32 id)
@@ -515,6 +527,7 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 		dvfsrc->dvfsrc_vscp_power = NULL;
 	}
 
+	dvfsrc->force_opp_idx = dvfsrc->opp_desc->num_opp;
 	mt6779_dvfsrc_register_sysfs(dev);
 	if (dvfsrc->dvd->setup_opp_table)
 		dvfsrc->dvd->setup_opp_table(dvfsrc);
@@ -557,6 +570,7 @@ static const struct dvfsrc_debug_data mt6779_data = {
 	.dump_record = dvfsrc_dump_record,
 	.dump_reg = dvfsrc_dump_reg,
 	.get_current_level = dvfsrc_get_current_level,
+	.force_opp = dvfsrc_force_opp,
 	.ip_verion = 0,
 };
 

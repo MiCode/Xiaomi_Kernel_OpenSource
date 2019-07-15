@@ -26,6 +26,7 @@ struct dvfsrc_debug_data {
 	struct dvfsrc_opp_desc *opps_desc;
 	u32 ip_verion;
 	void (*setup_opp_table)(struct mtk_dvfsrc *dvfsrc);
+	void (*force_opp)(struct mtk_dvfsrc *dvfsrc, u32 opp);
 	char *(*dump_info)(struct mtk_dvfsrc *dvfsrc, char *p, u32 size);
 	char *(*dump_reg)(struct mtk_dvfsrc *dvfsrc, char *p, u32 size);
 	char *(*dump_record)(struct mtk_dvfsrc *dvfsrc, char *p, u32 size);
@@ -42,6 +43,7 @@ struct mtk_dvfsrc {
 	struct dvfsrc_opp_desc *opp_desc;
 	int num_perf;
 	int *perfs;
+	u32 force_opp_idx;
 	void __iomem *regs;
 	const struct dvfsrc_debug_data *dvd;
 };
