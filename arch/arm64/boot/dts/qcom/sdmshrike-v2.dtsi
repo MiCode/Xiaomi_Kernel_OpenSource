@@ -29,3 +29,19 @@
 	qcom,sde-min-core-ib-kbps = <0>;
 	qcom,sde-min-llcc-ib-kbps = <0>;
 };
+
+&clock_npucc {
+	compatible = "qcom,npucc-sm8150-v2", "syscon";
+};
+
+&clock_dispcc {
+	compatible = "qcom,dispcc-sdmshrike-v2", "syscon";
+};
+
+&mdss_dsi0_pll {
+	compatible = "qcom,mdss_dsi_pll_7nm_v2";
+};
+
+&mdss_dsi1_pll {
+	compatible = "qcom,mdss_dsi_pll_7nm_v2";
+};
