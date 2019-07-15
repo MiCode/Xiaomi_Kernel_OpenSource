@@ -9,6 +9,7 @@
 #include <linux/poll.h>
 #include <linux/videodev2.h>
 #include <linux/types.h>
+#include <linux/dma-buf.h>
 #include <linux/msm_ion.h>
 #include <media/msm_cvp_private.h>
 #include <media/msm_cvp_utils.h>
@@ -61,7 +62,7 @@ struct cvp_dma_mapping_info {
 struct msm_cvp_smem {
 	u32 refcount;
 	s32 fd;
-	void *dma_buf;
+	struct dma_buf *dma_buf;
 	void *kvaddr;
 	u32 device_addr;
 	dma_addr_t dma_handle;

@@ -202,6 +202,20 @@ enum dcvs_flags {
 	MSM_CVP_DCVS_DECR = BIT(1),
 };
 
+struct cvp_buf_type {
+	s32 fd;
+	u32 size;
+	u32 offset;
+	u32 flags;
+	union {
+		struct dma_buf *dbuf;
+		struct {
+			u32 reserved1;
+			u32 reserved2;
+		};
+	};
+};
+
 struct cvp_clock_data {
 	int buffer_counter;
 	int load;

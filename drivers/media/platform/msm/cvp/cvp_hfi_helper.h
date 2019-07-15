@@ -590,8 +590,8 @@ struct cvp_buf_desc {
 	u32 size;
 };
 
-struct cvp_buf_type {
-	u32 fd;
+struct cvp_hfi_buf_type {
+	s32 fd;
 	u32 size;
 	u32 offset;
 	u32 flags;
@@ -604,7 +604,7 @@ struct cvp_hfi_cmd_session_set_buffers_packet {
 	u32 packet_type;
 	u32 session_id;
 	struct cvp_hfi_client client_data;
-	struct cvp_buf_type buf_type;
+	struct cvp_hfi_buf_type buf_type;
 };
 
 struct cvp_hfi_cmd_session_set_buffers_packet_d {
