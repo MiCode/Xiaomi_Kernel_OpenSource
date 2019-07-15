@@ -432,13 +432,14 @@ struct ipa_api_controller {
 		struct ipa_smmu_out_params *out);
 	int (*ipa_is_vlan_mode)(enum ipa_vlan_ifaces iface, bool *res);
 
-	int (*ipa_wigig_uc_init)(
+	int (*ipa_wigig_internal_init)(
 		struct ipa_wdi_uc_ready_params *inout,
 		ipa_wigig_misc_int_cb int_notify,
 		phys_addr_t *uc_db_pa);
 
 	int (*ipa_conn_wigig_rx_pipe_i)(void *in,
-		struct ipa_wigig_conn_out_params *out);
+		struct ipa_wigig_conn_out_params *out,
+		struct dentry **parent);
 
 	int (*ipa_conn_wigig_client_i)(void *in,
 		struct ipa_wigig_conn_out_params *out,

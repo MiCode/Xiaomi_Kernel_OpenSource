@@ -4,6 +4,7 @@
  */
 
 #include <linux/ipa_wigig.h>
+#include <linux/debugfs.h>
 #include <linux/string.h>
 #include "../ipa_common_i.h"
 #include "../ipa_v3/ipa_pm.h"
@@ -105,9 +106,20 @@ struct ipa_wigig_context {
 	bool smmu_en;
 	bool shared_cb;
 	u8 conn_pipes;
+	struct dentry *parent;
+	struct dentry *dent_conn_clients;
+	struct dentry *dent_smmu;
 };
 
 static struct ipa_wigig_context *ipa_wigig_ctx;
+
+#ifdef CONFIG_DEBUG_FS
+static int ipa_wigig_init_debugfs(struct dentry *parent);
+static inline void ipa_wigig_deinit_debugfs(void);
+#else
+static int ipa_wigig_init_debugfs(struct dentry *parent) { return 0; }
+static inline void ipa_wigig_deinit_debugfs(void) { }
+#endif
 
 int ipa_wigig_init(struct ipa_wigig_init_in_params *in,
 	struct ipa_wigig_init_out_params *out)
@@ -148,7 +160,8 @@ int ipa_wigig_init(struct ipa_wigig_init_in_params *in,
 
 	inout.notify = in->notify;
 	inout.priv = in->priv;
-	if (ipa_wigig_uc_init(&inout, in->int_notify, &out->uc_db_pa)) {
+	if (ipa_wigig_internal_init(&inout, in->int_notify,
+		&out->uc_db_pa)) {
 		kfree(ipa_wigig_ctx);
 		ipa_wigig_ctx = NULL;
 		return -EFAULT;
@@ -182,6 +195,9 @@ int ipa_wigig_cleanup(void)
 	}
 
 	mutex_destroy(&ipa_wigig_ctx->lock);
+
+	ipa_wigig_deinit_debugfs();
+
 	kfree(ipa_wigig_ctx);
 	ipa_wigig_ctx = NULL;
 
@@ -708,7 +724,7 @@ int ipa_wigig_conn_rx_pipe(struct ipa_wigig_conn_rx_in_params *in,
 		goto fail_msi;
 	}
 
-	if (ipa_conn_wigig_rx_pipe_i(in, out)) {
+	if (ipa_conn_wigig_rx_pipe_i(in, out, &ipa_wigig_ctx->parent)) {
 		IPA_WIGIG_ERR("fail to connect rx pipe\n");
 		ret = -EFAULT;
 		goto fail_connect_pipe;
@@ -716,6 +732,9 @@ int ipa_wigig_conn_rx_pipe(struct ipa_wigig_conn_rx_in_params *in,
 
 	ipa_wigig_ctx->tx_notify = in->notify;
 	ipa_wigig_ctx->priv = in->priv;
+
+	if (ipa_wigig_ctx->parent)
+		ipa_wigig_init_debugfs(ipa_wigig_ctx->parent);
 
 	ipa_wigig_store_pipe_info(ipa_wigig_ctx->pipes.flat,
 		IPA_CLIENT_WIGIG_PROD_IDX);
@@ -1453,11 +1472,14 @@ int ipa_wigig_conn_rx_pipe_smmu(
 		goto fail_msi;
 	}
 
-	if (ipa_conn_wigig_rx_pipe_i(in, out)) {
+	if (ipa_conn_wigig_rx_pipe_i(in, out, &ipa_wigig_ctx->parent)) {
 		IPA_WIGIG_ERR("fail to connect rx pipe\n");
 		ret = -EFAULT;
 		goto fail_connect_pipe;
 	}
+
+	if (ipa_wigig_ctx->parent)
+		ipa_wigig_init_debugfs(ipa_wigig_ctx->parent);
 
 	if (ipa_wigig_store_rx_smmu_info(in)) {
 		IPA_WIGIG_ERR("fail to store smmu data for rx pipe\n");
@@ -1913,3 +1935,156 @@ int ipa_wigig_tx_dp(enum ipa_client_type dst, struct sk_buff *skb)
 	return 0;
 }
 EXPORT_SYMBOL(ipa_wigig_tx_dp);
+
+
+#ifdef CONFIG_DEBUG_FS
+#define IPA_MAX_MSG_LEN 4096
+
+static ssize_t ipa_wigig_read_conn_clients(struct file *file,
+		char __user *ubuf, size_t count, loff_t *ppos)
+{
+	int i;
+	int nbytes = 0;
+	u8 pipe_connected;
+	char *dbg_buff;
+	ssize_t ret;
+
+	dbg_buff = kzalloc(IPA_MAX_MSG_LEN, GFP_KERNEL);
+	if (!dbg_buff)
+		return -ENOMEM;
+
+	if (!ipa_wigig_ctx) {
+		nbytes += scnprintf(dbg_buff + nbytes,
+			IPA_MAX_MSG_LEN - nbytes,
+			"IPA WIGIG not initialized\n");
+		goto finish;
+	}
+
+	if (!ipa_wigig_ctx->conn_pipes) {
+		nbytes += scnprintf(dbg_buff + nbytes,
+			IPA_MAX_MSG_LEN - nbytes,
+			"no WIGIG pipes connected\n");
+		goto finish;
+	}
+
+	for (i = 0; i < IPA_WIGIG_MAX_PIPES; i++) {
+		pipe_connected = (ipa_wigig_ctx->conn_pipes & (0x1 << i));
+		switch (i) {
+		case 0:
+			nbytes += scnprintf(dbg_buff + nbytes,
+				IPA_MAX_MSG_LEN - nbytes,
+				"IPA_CLIENT_WIGIG_PROD");
+			break;
+		case 1:
+		case 2:
+		case 3:
+		case 4:
+			nbytes += scnprintf(dbg_buff + nbytes,
+				IPA_MAX_MSG_LEN - nbytes,
+				"IPA_CLIENT_WIGIG%d_CONS",
+				i);
+			break;
+		default:
+			IPA_WIGIG_ERR("invalid pipe %d\n", i);
+			nbytes += scnprintf(dbg_buff + nbytes,
+				IPA_MAX_MSG_LEN - nbytes,
+				"invalid pipe %d",
+				i);
+			break;
+		}
+		nbytes += scnprintf(dbg_buff + nbytes,
+			IPA_MAX_MSG_LEN - nbytes,
+			" %s connected\n", pipe_connected ? "is" : "not");
+	}
+
+finish:
+	ret = simple_read_from_buffer(
+		ubuf, count, ppos, dbg_buff, nbytes);
+	kfree(dbg_buff);
+	return ret;
+}
+
+static ssize_t ipa_wigig_read_smmu_status(struct file *file,
+	char __user *ubuf, size_t count, loff_t *ppos)
+{
+	int nbytes = 0;
+	char *dbg_buff;
+	ssize_t ret;
+
+	dbg_buff = kzalloc(IPA_MAX_MSG_LEN, GFP_KERNEL);
+	if (!dbg_buff)
+		return -ENOMEM;
+
+	if (!ipa_wigig_ctx) {
+		nbytes += scnprintf(dbg_buff + nbytes,
+			IPA_MAX_MSG_LEN - nbytes,
+			"IPA WIGIG not initialized\n");
+		goto finish;
+	}
+
+	if (ipa_wigig_ctx->smmu_en) {
+		nbytes += scnprintf(dbg_buff + nbytes,
+			IPA_MAX_MSG_LEN - nbytes,
+			"SMMU enabled\n");
+
+		if (ipa_wigig_ctx->shared_cb) {
+			nbytes += scnprintf(dbg_buff + nbytes,
+				IPA_MAX_MSG_LEN - nbytes,
+				"CB shared\n");
+		} else {
+			nbytes += scnprintf(dbg_buff + nbytes,
+				IPA_MAX_MSG_LEN - nbytes,
+				"CB not shared\n");
+		}
+	} else {
+		nbytes += scnprintf(dbg_buff + nbytes,
+			IPA_MAX_MSG_LEN - nbytes,
+			"SMMU in S1 bypass\n");
+	}
+finish:
+	ret = simple_read_from_buffer(
+		ubuf, count, ppos, dbg_buff, nbytes);
+	kfree(dbg_buff);
+	return ret;
+}
+static const struct file_operations ipa_wigig_conn_clients_ops = {
+	.read = ipa_wigig_read_conn_clients,
+};
+
+static const struct file_operations ipa_wigig_smmu_ops = {
+	.read = ipa_wigig_read_smmu_status,
+};
+
+static inline void ipa_wigig_deinit_debugfs(void)
+{
+	debugfs_remove(ipa_wigig_ctx->dent_conn_clients);
+	debugfs_remove(ipa_wigig_ctx->dent_smmu);
+}
+
+static int ipa_wigig_init_debugfs(struct dentry *parent)
+{
+	const mode_t read_only_mode = 0444;
+
+	ipa_wigig_ctx->dent_conn_clients =
+		debugfs_create_file("conn_clients", read_only_mode, parent,
+				NULL, &ipa_wigig_conn_clients_ops);
+	if (IS_ERR_OR_NULL(ipa_wigig_ctx->dent_conn_clients)) {
+		IPA_WIGIG_ERR("fail to create file %s\n", "conn_clients");
+		goto fail_conn_clients;
+	}
+
+	ipa_wigig_ctx->dent_smmu =
+		debugfs_create_file("smmu", read_only_mode, parent, NULL,
+				&ipa_wigig_smmu_ops);
+	if (IS_ERR_OR_NULL(ipa_wigig_ctx->dent_smmu)) {
+		IPA_WIGIG_ERR("fail to create file %s\n", "smmu");
+		goto fail_smmu;
+	}
+
+	return 0;
+fail_smmu:
+	debugfs_remove(ipa_wigig_ctx->dent_conn_clients);
+fail_conn_clients:
+	return -EFAULT;
+}
+#endif
