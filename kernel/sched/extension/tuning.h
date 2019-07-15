@@ -13,4 +13,11 @@ void uclamp_group_get(struct task_struct *p,
 			     struct cgroup_subsys_state *css,
 			     struct uclamp_se *uc_se,
 			     unsigned int clamp_id, unsigned int clamp_value);
+#if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
+int schedtune_css_uclamp(int idx, unsigned int clamp_id,
+		struct cgroup_subsys_state **css, struct uclamp_se **uc_se);
+void cpu_util_update(struct cgroup_subsys_state *css,
+		unsigned int clamp_id, unsigned int group_id,
+		unsigned int value);
+#endif
 #endif

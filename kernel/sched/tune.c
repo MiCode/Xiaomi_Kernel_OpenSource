@@ -514,6 +514,23 @@ int schedtune_prefer_idle(struct task_struct *p)
 }
 
 #ifdef CONFIG_UCLAMP_TASK_GROUP
+int schedtune_css_uclamp(int idx, unsigned int clamp_id,
+		struct cgroup_subsys_state **css, struct uclamp_se **uc_se)
+{
+	struct schedtune *st;
+
+	st = allocated_group[idx];
+	if (!st) {
+		*css = NULL;
+		*uc_se = NULL;
+		return -EINVAL;
+	}
+
+	*css = &st->css;
+	*uc_se = &st->uclamp[clamp_id];
+	return 0;
+}
+
 struct uclamp_se *schedtune_uclamp(struct task_struct *p, unsigned int clamp_id)
 {
 	struct schedtune *st;
@@ -525,7 +542,7 @@ struct uclamp_se *schedtune_uclamp(struct task_struct *p, unsigned int clamp_id)
 	return &st->uclamp[clamp_id];
 }
 
-static void cpu_util_update(struct cgroup_subsys_state *css,
+void cpu_util_update(struct cgroup_subsys_state *css,
 				 unsigned int clamp_id, unsigned int group_id,
 				 unsigned int value)
 {

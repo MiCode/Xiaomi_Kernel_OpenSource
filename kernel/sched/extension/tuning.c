@@ -75,4 +75,74 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(set_task_util_max);
+
+#if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
+int uclamp_min_for_perf_idx(int idx, int min_value)
+{
+	int ret;
+	struct uclamp_se *uc_se_min, *uc_se_max;
+	struct cgroup_subsys_state *css = NULL;
+
+	if (min_value > SCHED_CAPACITY_SCALE || min_value < 0)
+		return -ERANGE;
+
+	ret = schedtune_css_uclamp(idx, UCLAMP_MAX, &css, &uc_se_max);
+	if (ret)
+		return -EINVAL;
+	if (uc_se_max->value < min_value)
+		return -EINVAL;
+
+	ret = schedtune_css_uclamp(idx, UCLAMP_MIN, &css, &uc_se_min);
+	if (ret)
+		return -EINVAL;
+	if (uc_se_min->value == min_value)
+		return 0;
+
+
+	mutex_lock(&uclamp_mutex);
+
+	uclamp_group_get(NULL, css, uc_se_min, UCLAMP_MIN, min_value);
+
+	cpu_util_update(css, UCLAMP_MIN, uc_se_min->group_id, min_value);
+
+	mutex_unlock(&uclamp_mutex);
+
+	return 0;
+}
+EXPORT_SYMBOL(uclamp_min_for_perf_idx);
+
+int uclamp_max_for_perf_idx(int idx, int max_value)
+{
+	int ret;
+	struct uclamp_se *uc_se_min, *uc_se_max;
+	struct cgroup_subsys_state *css = NULL;
+
+	if (max_value > SCHED_CAPACITY_SCALE || max_value < 0)
+		return -ERANGE;
+
+	ret = schedtune_css_uclamp(idx, UCLAMP_MAX, &css, &uc_se_min);
+	if (ret)
+		return -EINVAL;
+	if (uc_se_max->value == max_value)
+		return 0;
+
+	ret = schedtune_css_uclamp(idx, UCLAMP_MIN, &css, &uc_se_min);
+	if (ret)
+		return -EINVAL;
+	if (uc_se_min->value > max_value)
+		return -EINVAL;
+
+
+	mutex_lock(&uclamp_mutex);
+
+	uclamp_group_get(NULL, css, uc_se_max, UCLAMP_MAX, max_value);
+
+	cpu_util_update(css, UCLAMP_MAX, uc_se_max->group_id, max_value);
+
+	mutex_unlock(&uclamp_mutex);
+
+	return 0;
+}
+EXPORT_SYMBOL(uclamp_max_for_perf_idx);
+#endif
 #endif
