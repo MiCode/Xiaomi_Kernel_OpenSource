@@ -150,6 +150,11 @@ static void hal_dma_set_default_setting(enum _ENUM_DMA_DIR_ dma_dir)
 	unsigned int irq_info[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 	unsigned int phy_base;
 
+	if (!g_btif[0].private_data) {
+		BTIF_INFO_FUNC("g_btif[0].private_data is NULL");
+		return;
+	}
+
 	if (dma_dir == DMA_DIR_RX) {
 		node = ((struct device *)(g_btif[0].private_data))->of_node;
 		if (node) {

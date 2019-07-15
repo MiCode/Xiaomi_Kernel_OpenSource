@@ -203,6 +203,11 @@ static void _btif_set_default_setting(void)
 	unsigned int irq_info[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 	unsigned int phy_base;
 
+	if (!g_btif[0].private_data) {
+		BTIF_INFO_FUNC("g_btif[0].private_data is NULL");
+		return;
+	}
+
 	node = ((struct device *)(g_btif[0].private_data))->of_node;
 	if (node) {
 		mtk_btif_info.p_irq->irq_id = irq_of_parse_and_map(node, 0);
