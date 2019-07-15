@@ -567,7 +567,7 @@ END(irq_entries_start)
 #ifdef CONFIG_CONTEXT_TRACKING
 	call enter_from_user_mode
 #endif
-	jmpq	2f
+	jmp	2f
 1:
 	FENCE_SWAPGS_KERNEL_ENTRY
 2:
