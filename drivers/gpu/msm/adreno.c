@@ -2388,6 +2388,31 @@ static int adreno_prop_ucode_version(struct kgsl_device *device,
 	return copy_prop(param, &ucode, sizeof(ucode));
 }
 
+static int adreno_prop_gaming_bin(struct kgsl_device *device,
+		struct kgsl_device_getproperty *param)
+{
+	void *buf;
+	size_t len;
+	int ret;
+	struct nvmem_cell *cell;
+
+	cell = nvmem_cell_get(&device->pdev->dev, "gaming_bin");
+	if (IS_ERR(cell))
+		return -EINVAL;
+
+	buf = nvmem_cell_read(cell, &len);
+	nvmem_cell_put(cell);
+
+	if (!IS_ERR(buf)) {
+		ret = copy_prop(param, buf, len);
+		kfree(buf);
+		return ret;
+	}
+
+	dev_err(device->dev, "failed to read gaming_bin nvmem cell\n");
+	return -EINVAL;
+}
+
 static int adreno_prop_u32(struct kgsl_device *device,
 		struct kgsl_device_getproperty *param)
 {
@@ -2430,6 +2455,7 @@ static const struct {
 	{ KGSL_PROP_UBWC_MODE, adreno_prop_u32 },
 	{ KGSL_PROP_DEVICE_BITNESS, adreno_prop_u32 },
 	{ KGSL_PROP_SPEED_BIN, adreno_prop_u32 },
+	{ KGSL_PROP_GAMING_BIN, adreno_prop_gaming_bin },
 };
 
 static int adreno_getproperty(struct kgsl_device *device,
