@@ -194,7 +194,11 @@ $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT)
 
 # Creating a dtb.img once the kernel is compiled if TARGET_KERNEL_APPEND_DTB is set to be false
 $(INSTALLED_DTBIMAGE_TARGET): $(TARGET_PREBUILT_INT_KERNEL)
-	cat $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts/vendor/qcom/*.dtb > $@
+	$(hide) if [ -d "$(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts/vendor/" ]; then \
+			cat $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts/vendor/qcom/*.dtb > $@; \
+		else \
+			cat $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts/qcom/*.dtb > $@; \
+		fi
 
 .PHONY: kerneltags
 kerneltags: $(KERNEL_OUT) $(KERNEL_CONFIG)
