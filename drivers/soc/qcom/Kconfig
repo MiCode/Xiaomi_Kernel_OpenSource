@@ -197,4 +197,13 @@ config QCOM_SECURE_CHAN_MANAGER
 	  support for  Qualcomm SoC. SCM provides communication
 	  channel to communicate with secure world (EL2 and EL3)
 	  by using smc call.
+
+config QCOM_SECURE_BUFFER
+	tristate "Helper functions for secure buffers through TZ"
+	depends on QCOM_SECURE_CHAN_MANAGER
+	help
+	  Enable for targets that need to call into TZ to secure
+	  memory buffers. This ensures that only the correct clients can
+	  use this memory and no unauthorized access is made to the
+	  buffer.
 endmenu

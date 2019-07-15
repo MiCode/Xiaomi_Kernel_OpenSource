@@ -29,6 +29,11 @@
  * if the IOMMU page table format is equivalent.
  */
 #define IOMMU_PRIV	(1 << 5)
+/* Use upstream device's bus attribute */
+#define IOMMU_USE_UPSTREAM_HINT	(1 << 6)
+
+/* Use upstream device's bus attribute with no write-allocate cache policy */
+#define IOMMU_USE_LLC_NWA	(1 << 7)
 
 struct iommu_ops;
 struct iommu_group;
@@ -39,8 +44,12 @@ struct notifier_block;
 struct iommu_sva;
 
 /* iommu fault flags */
-#define IOMMU_FAULT_READ	0x0
-#define IOMMU_FAULT_WRITE	0x1
+#define IOMMU_FAULT_READ                (1 << 0)
+#define IOMMU_FAULT_WRITE               (1 << 1)
+#define IOMMU_FAULT_TRANSLATION         (1 << 2)
+#define IOMMU_FAULT_PERMISSION          (1 << 3)
+#define IOMMU_FAULT_EXTERNAL            (1 << 4)
+#define IOMMU_FAULT_TRANSACTION_STALLED (1 << 5)
 
 typedef int (*iommu_fault_handler_t)(struct iommu_domain *,
 			struct device *, unsigned long, int, void *);
@@ -51,6 +60,10 @@ struct iommu_domain_geometry {
 	dma_addr_t aperture_start; /* First address that can be mapped    */
 	dma_addr_t aperture_end;   /* Last address that can be mapped     */
 	bool force_aperture;       /* DMA only allowed in mappable range? */
+};
+
+struct iommu_pgtbl_info {
+	void *ops;
 };
 
 /* Domain feature flags */
@@ -77,6 +90,12 @@ struct iommu_domain_geometry {
 #define IOMMU_DOMAIN_DMA	(__IOMMU_DOMAIN_PAGING |	\
 				 __IOMMU_DOMAIN_DMA_API)
 
+#define to_msm_iommu_ops(_iommu_ops) \
+	container_of(_iommu_ops, struct msm_iommu_ops, iommu_ops)
+#define to_msm_iommu_domain(_iommu_domain) \
+	container_of(_iommu_domain, struct msm_iommu_domain, iommu_domain)
+
+#define IOMMU_DOMAIN_NAME_LEN 32
 struct iommu_domain {
 	unsigned type;
 	const struct iommu_ops *ops;
@@ -85,6 +104,11 @@ struct iommu_domain {
 	void *handler_token;
 	struct iommu_domain_geometry geometry;
 	void *iova_cookie;
+};
+
+struct msm_iommu_domain {
+	char name[IOMMU_DOMAIN_NAME_LEN];
+	struct iommu_domain iommu_domain;
 };
 
 enum iommu_cap {
@@ -105,6 +129,11 @@ enum iommu_cap {
  * DOMAIN_ATTR_FSL_PAMUV1 corresponds to the above mentioned contraints.
  * The caller can invoke iommu_domain_get_attr to check if the underlying
  * iommu implementation supports these constraints.
+ *
+ * DOMAIN_ATTR_NO_CFRE
+ * Some bus implementations may enter a bad state if iommu reports an error
+ * on context fault. As context faults are not always fatal, this must be
+ * avoided.
  */
 
 enum iommu_attr {
@@ -118,6 +147,28 @@ enum iommu_attr {
 	DOMAIN_ATTR_DMA_USE_FLUSH_QUEUE,
 	DOMAIN_ATTR_MAX,
 };
+
+#define DOMAIN_ATTR_PT_BASE_ADDR		(DOMAIN_ATTR_MAX + 1)
+#define DOMAIN_ATTR_CONTEXT_BANK		(DOMAIN_ATTR_MAX + 2)
+#define DOMAIN_ATTR_DYNAMIC			(DOMAIN_ATTR_MAX + 3)
+#define DOMAIN_ATTR_TTBR0			(DOMAIN_ATTR_MAX + 4)
+#define DOMAIN_ATTR_CONTEXTIDR			(DOMAIN_ATTR_MAX + 5)
+#define DOMAIN_ATTR_PROCID			(DOMAIN_ATTR_MAX + 6)
+#define DOMAIN_ATTR_NON_FATAL_FAULTS		(DOMAIN_ATTR_MAX + 7)
+#define DOMAIN_ATTR_S1_BYPASS			(DOMAIN_ATTR_MAX + 8)
+#define DOMAIN_ATTR_ATOMIC			(DOMAIN_ATTR_MAX + 9)
+#define DOMAIN_ATTR_SECURE_VMID			(DOMAIN_ATTR_MAX + 10)
+#define DOMAIN_ATTR_FAST			(DOMAIN_ATTR_MAX + 11)
+#define DOMAIN_ATTR_PGTBL_INFO			(DOMAIN_ATTR_MAX + 12)
+#define DOMAIN_ATTR_USE_UPSTREAM_HINT		(DOMAIN_ATTR_MAX + 13)
+#define DOMAIN_ATTR_EARLY_MAP			(DOMAIN_ATTR_MAX + 14)
+#define DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT	(DOMAIN_ATTR_MAX + 15)
+#define DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT	(DOMAIN_ATTR_MAX + 16)
+#define DOMAIN_ATTR_CB_STALL_DISABLE		(DOMAIN_ATTR_MAX + 17)
+#define DOMAIN_ATTR_BITMAP_IOVA_ALLOCATOR	(DOMAIN_ATTR_MAX + 18)
+#define DOMAIN_ATTR_USE_LLC_NWA			(DOMAIN_ATTR_MAX + 19)
+#define DOMAIN_ATTR_NO_CFRE			(DOMAIN_ATTR_MAX + 20)
+#define DOMAIN_ATTR_DEBUG			(DOMAIN_ATTR_MAX + 21)
 
 /* These are the possible reserved region types */
 enum iommu_resv_type {
@@ -147,6 +198,7 @@ struct iommu_resv_region {
 	enum iommu_resv_type	type;
 };
 
+extern struct dentry *iommu_debugfs_top;
 /* Per device IOMMU features */
 enum iommu_dev_features {
 	IOMMU_DEV_FEAT_AUX,	/* Aux-domain feature */
@@ -276,6 +328,34 @@ struct iommu_ops {
 };
 
 /**
+ * struct msm_iommu_ops - standard iommu ops, as well as additional MSM
+ * specific iommu ops
+ * @map_sg: map a scatter-gather list of physically contiguous memory chunks
+ *          to an iommu domain
+ * @iova_to_phys_hard: translate iova to physical address using IOMMU hardware
+ * @is_iova_coherent: checks coherency of the given iova
+ * @trigger_fault: trigger a fault on the device attached to an iommu domain
+ * @tlbi_domain: Invalidate all TLBs covering an iommu domain
+ * @enable_config_clocks: Enable all config clocks for this domain's IOMMU
+ * @disable_config_clocks: Disable all config clocks for this domain's IOMMU
+ * @iova_to_pte: translate iova to Page Table Entry (PTE).
+ * @iommu_ops: the standard iommu ops
+ */
+struct msm_iommu_ops {
+	size_t (*map_sg)(struct iommu_domain *domain, unsigned long iova,
+			 struct scatterlist *sg, unsigned int nents, int prot);
+	phys_addr_t (*iova_to_phys_hard)(struct iommu_domain *domain,
+					 dma_addr_t iova);
+	bool (*is_iova_coherent)(struct iommu_domain *domain, dma_addr_t iova);
+	void (*trigger_fault)(struct iommu_domain *domain, unsigned long flags);
+	void (*tlbi_domain)(struct iommu_domain *domain);
+	int (*enable_config_clocks)(struct iommu_domain *domain);
+	void (*disable_config_clocks)(struct iommu_domain *domain);
+	uint64_t (*iova_to_pte)(struct iommu_domain *domain, dma_addr_t iova);
+	struct iommu_ops iommu_ops;
+};
+
+/**
  * struct iommu_device - IOMMU core representation of one IOMMU hardware
  *			 instance
  * @list: Used by the iommu-core to keep a list of registered iommus
@@ -334,6 +414,8 @@ extern int iommu_attach_device(struct iommu_domain *domain,
 extern void iommu_detach_device(struct iommu_domain *domain,
 				struct device *dev);
 extern struct iommu_domain *iommu_get_domain_for_dev(struct device *dev);
+extern size_t iommu_pgsize(unsigned long pgsize_bitmap,
+			   unsigned long addr_merge, size_t size);
 extern struct iommu_domain *iommu_get_dma_domain(struct device *dev);
 extern int iommu_map(struct iommu_domain *domain, unsigned long iova,
 		     phys_addr_t paddr, size_t size, int prot);
@@ -343,7 +425,14 @@ extern size_t iommu_unmap_fast(struct iommu_domain *domain,
 			       unsigned long iova, size_t size);
 extern size_t iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 			   struct scatterlist *sg,unsigned int nents, int prot);
+extern size_t default_iommu_map_sg(struct iommu_domain *domain,
+				   unsigned long iova, struct scatterlist *sg,
+				   unsigned int nents, int prot);
 extern phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain, dma_addr_t iova);
+extern phys_addr_t iommu_iova_to_phys_hard(struct iommu_domain *domain,
+					   dma_addr_t iova);
+extern bool iommu_is_iova_coherent(struct iommu_domain *domain,
+				dma_addr_t iova);
 extern void iommu_set_fault_handler(struct iommu_domain *domain,
 			iommu_fault_handler_t handler, void *token);
 
@@ -393,6 +482,9 @@ extern int iommu_domain_window_enable(struct iommu_domain *domain, u32 wnd_nr,
 				      int prot);
 extern void iommu_domain_window_disable(struct iommu_domain *domain, u32 wnd_nr);
 
+extern uint64_t iommu_iova_to_pte(struct iommu_domain *domain,
+	    dma_addr_t iova);
+
 extern int report_iommu_fault(struct iommu_domain *domain, struct device *dev,
 			      unsigned long iova, int flags);
 
@@ -415,12 +507,40 @@ static inline void iommu_tlb_sync(struct iommu_domain *domain)
 		domain->ops->iotlb_sync(domain);
 }
 
+extern void iommu_trigger_fault(struct iommu_domain *domain,
+				unsigned long flags);
+
 /* PCI device grouping function */
 extern struct iommu_group *pci_device_group(struct device *dev);
 /* Generic device grouping function */
 extern struct iommu_group *generic_device_group(struct device *dev);
 /* FSL-MC device grouping function */
 struct iommu_group *fsl_mc_device_group(struct device *dev);
+
+static inline void iommu_tlbiall(struct iommu_domain *domain)
+{
+	struct msm_iommu_ops *ops = to_msm_iommu_ops(domain->ops);
+
+	if (ops->tlbi_domain)
+		ops->tlbi_domain(domain);
+}
+
+static inline int iommu_enable_config_clocks(struct iommu_domain *domain)
+{
+	struct msm_iommu_ops *ops = to_msm_iommu_ops(domain->ops);
+
+	if (ops->enable_config_clocks)
+		return ops->enable_config_clocks(domain);
+	return 0;
+}
+
+static inline void iommu_disable_config_clocks(struct iommu_domain *domain)
+{
+	struct msm_iommu_ops *ops = to_msm_iommu_ops(domain->ops);
+
+	if (ops->disable_config_clocks)
+		ops->disable_config_clocks(domain);
+}
 
 /**
  * struct iommu_fwspec - per-device IOMMU instance data
@@ -588,6 +708,18 @@ static inline phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain, dma_ad
 	return 0;
 }
 
+static inline phys_addr_t iommu_iova_to_phys_hard(struct iommu_domain *domain,
+						  dma_addr_t iova)
+{
+	return 0;
+}
+
+static inline bool iommu_is_iova_coherent(struct iommu_domain *domain,
+					  dma_addr_t iova)
+{
+	return false;
+}
+
 static inline void iommu_set_fault_handler(struct iommu_domain *domain,
 				iommu_fault_handler_t handler, void *token)
 {
@@ -744,6 +876,24 @@ static inline int iommu_device_link(struct device *dev, struct device *link)
 }
 
 static inline void iommu_device_unlink(struct device *dev, struct device *link)
+{
+}
+
+static inline void iommu_trigger_fault(struct iommu_domain *domain,
+				       unsigned long flags)
+{
+}
+
+static inline void iommu_tlbiall(struct iommu_domain *domain)
+{
+}
+
+static inline int iommu_enable_config_clocks(struct iommu_domain *domain)
+{
+	return 0;
+}
+
+static inline void iommu_disable_config_clocks(struct iommu_domain *domain)
 {
 }
 

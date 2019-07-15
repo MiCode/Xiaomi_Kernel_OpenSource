@@ -11,6 +11,10 @@
 #include <linux/io-pgtable.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
+#include <linux/iommu.h>
+#include <linux/debugfs.h>
+#include <linux/atomic.h>
+#include <linux/module.h>
 
 static const struct io_pgtable_init_fns *
 io_pgtable_init_table[IO_PGTABLE_NUM_FMTS] = {
@@ -24,7 +28,12 @@ io_pgtable_init_table[IO_PGTABLE_NUM_FMTS] = {
 #ifdef CONFIG_IOMMU_IO_PGTABLE_ARMV7S
 	[ARM_V7S] = &io_pgtable_arm_v7s_init_fns,
 #endif
+#ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
+	[ARM_V8L_FAST] = &io_pgtable_av8l_fast_init_fns,
+#endif
 };
+
+static struct dentry *io_pgtable_top;
 
 struct io_pgtable_ops *alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
 					    struct io_pgtable_cfg *cfg,
@@ -68,3 +77,59 @@ void free_io_pgtable_ops(struct io_pgtable_ops *ops)
 	io_pgtable_init_table[iop->fmt]->free(iop);
 }
 EXPORT_SYMBOL_GPL(free_io_pgtable_ops);
+
+static atomic_t pages_allocated;
+
+void *io_pgtable_alloc_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
+				   size_t size, gfp_t gfp_mask)
+{
+	void *ret;
+	struct msm_iommu_gather_ops *ops = to_msm_iommu_gather_ops(cfg->tlb);
+
+	if (ops->alloc_pages_exact)
+		ret = ops->alloc_pages_exact(cookie, size, gfp_mask);
+	else
+		ret = alloc_pages_exact(size, gfp_mask);
+
+	if (likely(ret))
+		atomic_add(1 << get_order(size), &pages_allocated);
+
+	return ret;
+}
+
+void io_pgtable_free_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
+				 void *virt, size_t size)
+{
+	struct msm_iommu_gather_ops *ops = to_msm_iommu_gather_ops(cfg->tlb);
+
+	if (ops->free_pages_exact)
+		ops->free_pages_exact(cookie, virt, size);
+	else
+		free_pages_exact(virt, size);
+
+	atomic_sub(1 << get_order(size), &pages_allocated);
+}
+
+static int io_pgtable_init(void)
+{
+	io_pgtable_top = debugfs_create_dir("io-pgtable", iommu_debugfs_top);
+
+	if (!io_pgtable_top)
+		return -ENODEV;
+
+	if (!debugfs_create_atomic_t("pages", 0600,
+				     io_pgtable_top, &pages_allocated)) {
+		debugfs_remove_recursive(io_pgtable_top);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static void io_pgtable_exit(void)
+{
+	debugfs_remove_recursive(io_pgtable_top);
+}
+
+module_init(io_pgtable_init);
+module_exit(io_pgtable_exit);
