@@ -27,6 +27,7 @@
 #include <drm/drm_atomic.h>
 
 struct drm_dp_mst_branch;
+struct drm_dp_mst_port;
 
 /**
  * struct drm_dp_vcpi - Virtual Channel Payload Identifier
@@ -40,6 +41,18 @@ struct drm_dp_vcpi {
 	int pbn;
 	int aligned_pbn;
 	int num_slots;
+};
+
+struct drm_dp_mst_dsc_dpcd_cache {
+	bool valid;
+	bool use_parent_dpcd;
+	u8 dsc_dpcd[16];
+};
+
+struct drm_dp_mst_dsc_info {
+	bool dsc_support;
+	struct drm_dp_mst_port *dsc_port;
+	struct drm_dp_mst_dsc_dpcd_cache dsc_dpcd_cache;
 };
 
 /**
@@ -62,6 +75,8 @@ struct drm_dp_vcpi {
  * @vcpi: Virtual Channel Payload info for this port.
  * @connector: DRM connector this port is connected to.
  * @mgr: topology manager this port lives under.
+ * @fec_capability: Tracks full path fec capability.
+ * @dsc_info: stores dpcd and configuration information.
  *
  * This structure represents an MST port endpoint on a device somewhere
  * in the MST topology.
@@ -98,6 +113,16 @@ struct drm_dp_mst_port {
 	 * audio-capable.
 	 */
 	bool has_audio;
+	/**
+	 * @fec_capability: Tracks full path fec capability as reported by
+	 * enum path resources.
+	 */
+	bool fec_capability;
+	/**
+	 * @dsc_info: stores dpcd and configuration information for the mst
+	 * port where dsc decoding will be enabled.
+	 */
+	struct drm_dp_mst_dsc_info dsc_info;
 };
 
 /**
@@ -291,6 +316,7 @@ struct drm_dp_port_number_req {
 
 struct drm_dp_enum_path_resources_ack_reply {
 	u8 port_number;
+	bool fec_capability;
 	u16 full_payload_bw_number;
 	u16 avail_payload_bw_number;
 };
@@ -588,6 +614,10 @@ enum drm_connector_status drm_dp_mst_detect_port(struct drm_connector *connector
 
 bool drm_dp_mst_port_has_audio(struct drm_dp_mst_topology_mgr *mgr,
 					struct drm_dp_mst_port *port);
+
+bool drm_dp_mst_has_fec(struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_port *port);
+
 struct edid *drm_dp_mst_get_edid(struct drm_connector *connector, struct drm_dp_mst_topology_mgr *mgr, struct drm_dp_mst_port *port);
 
 
@@ -634,6 +664,14 @@ int drm_dp_atomic_release_vcpi_slots(struct drm_atomic_state *state,
 int drm_dp_send_power_updown_phy(struct drm_dp_mst_topology_mgr *mgr,
 				 struct drm_dp_mst_port *port, bool power_up);
 
+int drm_dp_mst_get_dsc_info(struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_port *port,
+		struct drm_dp_mst_dsc_info *dsc_info);
+
+int drm_dp_mst_update_dsc_info(struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_port *port,
+		struct drm_dp_mst_dsc_info *dsc_info);
+
 int drm_dp_send_dpcd_write(struct drm_dp_mst_topology_mgr *mgr,
 			   struct drm_dp_mst_port *port,
 			   int offset, int size, u8 *bytes);
@@ -641,5 +679,9 @@ int drm_dp_send_dpcd_write(struct drm_dp_mst_topology_mgr *mgr,
 int drm_dp_send_dpcd_read(struct drm_dp_mst_topology_mgr *mgr,
 				 struct drm_dp_mst_port *port,
 				 int offset, int size, u8 *bytes);
+
+int drm_dp_mst_get_max_sdp_streams_supported(
+		struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_port *port);
 
 #endif
