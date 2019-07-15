@@ -5,6 +5,7 @@
 #include <linux/arm-smccc.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/notifier.h>
@@ -50,6 +51,7 @@ struct dvfsrc_soc_data {
 	void (*set_dram_hrtbw)(struct mtk_dvfsrc *dvfsrc, u64 bw);
 	void (*set_vcore_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
 	void (*set_vscp_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
+	int (*set_force_opp_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
 	int (*wait_for_vcore_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
 	int (*wait_for_opp_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
 };
@@ -60,12 +62,15 @@ struct mtk_dvfsrc {
 	const struct dvfsrc_soc_data *dvd;
 	int dram_type;
 	u32 mode;
+	u32 flag;
 	void __iomem *regs;
 	struct mutex lock;
 	struct notifier_block scpsys_notifier;
+	bool opp_forced;
 };
 
 static DEFINE_MUTEX(pstate_lock);
+static DEFINE_SPINLOCK(force_req_lock);
 static bool is_dvfsrc_init_complete;
 
 static u32 dvfsrc_read(struct mtk_dvfsrc *dvfs, u32 offset)
@@ -89,6 +94,8 @@ enum dvfsrc_regs {
 	DVFSRC_SW_HRT_BW,
 	DVFSRC_TARGET_LEVEL,
 	DVFSRC_VCORE_REQUEST,
+	DVFSRC_BASIC_CONTROL,
+	DVFSRC_TARGET_FORCE,
 };
 
 static const int mt8183_regs[] = {
@@ -104,6 +111,8 @@ static const int mt6779_regs[] = {
 	[DVFSRC_SW_HRT_BW] =	0x290,
 	[DVFSRC_TARGET_LEVEL] =	0xD48,
 	[DVFSRC_VCORE_REQUEST] = 0x6C,
+	[DVFSRC_BASIC_CONTROL] = 0x0,
+	[DVFSRC_TARGET_FORCE] = 0xD70,
 };
 
 static const struct dvfsrc_opp *get_current_opp(struct mtk_dvfsrc *dvfsrc)
@@ -252,6 +261,36 @@ static void mt6779_set_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 	mt6779_set_dram_level(dvfsrc, opp->dram_opp);
 }
 
+static int mt6779_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
+{
+	unsigned long flags;
+	int val;
+	int ret = 0;
+
+	if (level > dvfsrc->dvd->num_opp - 1) {
+		dvfsrc_rmw(dvfsrc, DVFSRC_BASIC_CONTROL, 0, 0x1, 15);
+		dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE, 0);
+		dvfsrc->opp_forced = false;
+		return 0;
+	}
+
+	spin_lock_irqsave(&force_req_lock, flags);
+	dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE, 1 << level);
+	dvfsrc_rmw(dvfsrc, DVFSRC_BASIC_CONTROL, 1, 0x1, 15);
+	ret = readl_poll_timeout_atomic(
+			dvfsrc->regs + dvfsrc->dvd->regs[DVFSRC_LEVEL],
+			val, val == (1 << level), 1, 1000);
+
+	if (ret < 0)
+		dev_info(dvfsrc->dev, "force opp %d fail\n", level);
+
+	dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE, 0);
+	spin_unlock_irqrestore(&force_req_lock, flags);
+	dvfsrc->opp_forced = true;
+
+	return ret;
+}
+
 static int mt8183_get_target_level(struct mtk_dvfsrc *dvfsrc)
 {
 	return DVFSRC_GET_TARGET_LEVEL(dvfsrc_read(dvfsrc, DVFSRC_LEVEL));
@@ -290,6 +329,12 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 	dev_dbg(dvfsrc->dev, "cmd: %d, data: %llu\n", cmd, data);
 	mutex_lock(&dvfsrc->lock);
 
+	if (cmd == MTK_DVFSRC_CMD_FORCE_OPP_REQUEST) {
+		if (dvfsrc->dvd->set_force_opp_level)
+			dvfsrc->dvd->set_force_opp_level(dvfsrc, data);
+		goto out;
+	}
+
 	switch (cmd) {
 	case MTK_DVFSRC_CMD_BW_REQUEST:
 		dvfsrc->dvd->set_dram_bw(dvfsrc, data);
@@ -313,6 +358,9 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 		dev_err(dvfsrc->dev, "unknown command: %d\n", cmd);
 		break;
 	}
+
+	if (dvfsrc->opp_forced)
+		goto out;
 
 	dvfsrc_wait_for_idle(dvfsrc);
 
@@ -369,7 +417,7 @@ EXPORT_SYMBOL(mtk_dvfsrc_query_info);
 static int dvfsrc_set_performance(struct notifier_block *b,
 				 unsigned long l, void *v)
 {
-	int i, val;
+	int i;
 	bool match = false;
 	u32 highest;
 	struct mtk_dvfsrc *dvfsrc;
@@ -399,7 +447,6 @@ static int dvfsrc_set_performance(struct notifier_block *b,
 
 	if (match == false) {
 		dev_err(dvfsrc->dev, "domain not match\n");
-		mutex_unlock(&pstate_lock);
 		goto out;
 	}
 
@@ -409,21 +456,8 @@ static int dvfsrc_set_performance(struct notifier_block *b,
 	mtk_dvfsrc_send_request(dvfsrc->dev, MTK_DVFSRC_CMD_OPP_REQUEST,
 		highest);
 
-	mutex_unlock(&pstate_lock);
-
-	val = dvfsrc->dvd->get_current_level(dvfsrc);
-
-	dev_dbg(dvfsrc->dev, "DVFSRC_LEVEL: %x, val: %x, DVFSRC_SW_REQ: %x\n",
-		dvfsrc_read(dvfsrc, DVFSRC_LEVEL), val,
-		dvfsrc_read(dvfsrc, DVFSRC_SW_REQ));
-
-	if (val < highest) {
-		dev_err(dvfsrc->dev, "current: %d < highest: %x\n",
-			val, highest);
-		goto out;
-	}
-
 out:
+	mutex_unlock(&pstate_lock);
 	return 0;
 }
 
@@ -465,10 +499,11 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 		return ret;
 
 	of_property_read_u32(node, "dvfsrc,mode", &dvfsrc->mode);
+	of_property_read_u32(node, "dvfsrc,flag", &dvfsrc->flag);
 
 	mutex_init(&dvfsrc->lock);
 	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_SPM_DVFSRC_INIT,
-		dvfsrc->mode, 0, 0, 0, 0, 0,
+		dvfsrc->mode, dvfsrc->flag, 0, 0, 0, 0,
 		&ares);
 
 	if (!ares.a0) {
@@ -548,6 +583,7 @@ static const struct dvfsrc_soc_data mt6779_data = {
 	.set_dram_hrtbw = mt6779_set_dram_hrtbw,
 	.set_vcore_level = mt6779_set_vcore_level,
 	.set_vscp_level = mt6779_set_vscp_level,
+	.set_force_opp_level = mt6779_set_force_opp_level,
 };
 
 static int mtk_dvfsrc_remove(struct platform_device *pdev)
