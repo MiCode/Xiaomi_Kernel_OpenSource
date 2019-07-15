@@ -91,6 +91,7 @@ struct qbt_drvdata {
 	bool is_wuhb_connected;
 	struct qbt_touch_config touch_config;
 	struct fd_userspace_buf scrath_buf;
+	atomic_t wakelock_acquired;
 };
 
 static struct qbt_drvdata *drvdata_g;
@@ -283,6 +284,11 @@ static int qbt_release(struct inode *inode, struct file *file)
 		pr_err("Invalid minor number\n");
 		return -EINVAL;
 	}
+	if (atomic_read(&drvdata->wakelock_acquired) != 0) {
+		pr_debug("Releasing wakelock\n");
+		pm_relax(drvdata->dev);
+		atomic_set(&drvdata->wakelock_acquired, 0);
+	}
 	pr_debug("exit : fd_available=%d\n", drvdata->fd_available);
 	return 0;
 }
@@ -409,6 +415,25 @@ static long qbt_ioctl(
 		pr_debug("rad_x: %d rad_y: %d\n",
 			drvdata->touch_config.rad_x,
 			drvdata->touch_config.rad_y);
+		break;
+	}
+	case QBT_ACQUIRE_WAKELOCK:
+	{
+		if (atomic_read(&drvdata->wakelock_acquired) == 0) {
+			pr_debug("Acquiring wakelock\n");
+			pm_stay_awake(drvdata->dev);
+		}
+		atomic_inc(&drvdata->wakelock_acquired);
+		break;
+	}
+	case QBT_RELEASE_WAKELOCK:
+	{
+		if (atomic_read(&drvdata->wakelock_acquired) == 0)
+			break;
+		if (atomic_dec_and_test(&drvdata->wakelock_acquired)) {
+			pr_debug("Releasing wakelock\n");
+			pm_relax(drvdata->dev);
+		}
 		break;
 	}
 	default:
@@ -1018,6 +1043,7 @@ static int qbt_probe(struct platform_device *pdev)
 
 	atomic_set(&drvdata->fd_available, 1);
 	atomic_set(&drvdata->ipc_available, 1);
+	atomic_set(&drvdata->wakelock_acquired, 0);
 
 	mutex_init(&drvdata->mutex);
 	mutex_init(&drvdata->fd_events_mutex);

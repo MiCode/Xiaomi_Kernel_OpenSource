@@ -15,6 +15,8 @@
 #define QBT_ENABLE_FD            104
 #define QBT_DISABLE_FD           105
 #define QBT_CONFIGURE_TOUCH_FD   106
+#define QBT_ACQUIRE_WAKELOCK     107
+#define QBT_RELEASE_WAKELOCK     108
 
 /*
  * enum qbt_fw_event -
