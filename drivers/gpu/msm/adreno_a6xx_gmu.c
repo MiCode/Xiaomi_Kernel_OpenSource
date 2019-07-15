@@ -1223,6 +1223,13 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 	/* Check no outstanding RPMh voting */
 	a6xx_complete_rpmh_votes(device);
 
+	/* Clear the WRITEDROPPED fields and set fence to allow mode */
+	gmu_core_regwrite(device, A6XX_GMU_AHB_FENCE_STATUS_CLR, 0x7);
+	gmu_core_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
+
+	/* Make sure above writes are committed before we proceed to recovery */
+	wmb();
+
 	/*
 	 * This is based on the assumption that GMU is the only one controlling
 	 * the GX HS. This code path is the only client voting for GX through
