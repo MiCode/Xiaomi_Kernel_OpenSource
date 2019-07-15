@@ -699,6 +699,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_LTR) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_ROI_QP) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_HDR10PLUS_METADATA) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_INPUT_CROP) |
 			(1ULL << V4L2_MPEG_VIDC_EXTRADATA_ENC_FRAME_QP)
 			),
 		.qmenu = mpeg_video_vidc_extradata,
@@ -1827,6 +1828,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		case V4L2_MPEG_VIDC_EXTRADATA_ASPECT_RATIO:
 		case V4L2_MPEG_VIDC_EXTRADATA_ROI_QP:
 		case V4L2_MPEG_VIDC_EXTRADATA_HDR10PLUS_METADATA:
+		case V4L2_MPEG_VIDC_EXTRADATA_INPUT_CROP:
 			inst->bufq[OUTPUT_PORT].num_planes = 2;
 			break;
 		case V4L2_MPEG_VIDC_EXTRADATA_LTR:
