@@ -4133,6 +4133,18 @@
 			};
 		};
 
+		trigout_a: trigout_a {
+			mux {
+				pins = "gpio141";
+				function = "qdss_cti";
+			};
+			config {
+				pins = "gpio141";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		/* SE 10 pin mappings */
 		qupv3_se10_2uart_pins: qupv3_se10_2uart_pins {
 			qupv3_se10_2uart_active: qupv3_se10_2uart_active {
