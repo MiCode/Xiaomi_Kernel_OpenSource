@@ -1,0 +1,331 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sdm429-spyro-qrd-mdss-panels.dtsi"
+#include "sdm429-spyro-qrd-evt-camera.dtsi"
+#include "sdm429-spyro-qrd-evt-audio.dtsi"
+
+&gpio_key_active {
+	mux {
+		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		drive-strength = <2>;
+		bias-pull-up;
+	};
+};
+
+&gpio_key_suspend {
+	mux {
+		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		drive-strength = <2>;
+		bias-pull-up;
+	};
+};
+
+&soc {
+	gpio_keys: gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_key_active>;
+		pinctrl-1 = <&gpio_key_suspend>;
+
+		vol_up: vol_up {
+			label = "volume_up";
+			gpios = <&tlmm 35 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			debounce-interval = <15>;
+			linux,can-disable;
+			gpio-key,wakeup;
+		};
+
+		function_1: function_1 {
+			label = "function_1";
+			gpios = <&tlmm 127 0x1>;
+			linux,input-type = <1>;
+			linux,code = <116>;
+			debounce-interval = <15>;
+			linux,can-disable;
+			gpio-key,wakeup;
+		};
+
+		function_2: function_2 {
+			label = "function_2";
+			gpios = <&tlmm 126 0x1>;
+			linux,input-type = <1>;
+			linux,code = <117>;
+			debounce-interval = <15>;
+			linux,can-disable;
+			gpio-key,wakeup;
+		};
+	};
+};
+
+&blsp1_uart2 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_active>;
+};
+
+&sdhc_1 {
+	/* device core power supply */
+	vdd-supply = <&L19A>;
+	qcom,vdd-voltage-level = <2900000 3200000>;
+	qcom,vdd-current-level = <200 570000>;
+
+	/* device communication power supply */
+	vdd-io-supply = <&L13A>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 60000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 192000000
+								384000000>;
+	qcom,nonremovable;
+	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	/* device core power supply for sd card*/
+	vdd-supply = <&vreg_sd_vdd>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <15000 800000>;
+
+	/* device communication power supply for msm_io*/
+	vdd-io-supply = <&vreg_sd_pad>;
+	qcom,vdd-io-voltage-level = <1800000 2950000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+	cd-gpios = <&tlmm 67 0x0>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
+								200000000>;
+
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	status = "ok";
+};
+
+&firmware {
+	android {
+		compatible = "android,firmware";
+		vbmeta {
+			compatible = "android,vbmeta";
+			parts = "vbmeta,boot,system,vendor,dtbo,recovery";
+		};
+		fstab {
+			compatible = "android,fstab";
+			vendor {
+				compatible = "android,vendor";
+				dev =
+		"/dev/block/platform/soc/7824900.sdhci/by-name/vendor";
+				type = "ext4";
+				mnt_flags = "ro,barrier=1,discard";
+				fsmgr_flags = "wait,avb";
+				status = "ok";
+			};
+			system {
+				compatible = "android,system";
+				dev =
+		"/dev/block/platform/soc/7824900.sdhci/by-name/system";
+				type = "ext4";
+				mnt_flags = "ro,barrier=1,discard";
+				fsmgr_flags = "wait,avb";
+				status = "ok";
+			};
+		};
+	};
+};
+
+&modem_mem {
+	reg = <0x0 0x86800000 0x0 0x5000000>;
+};
+
+&adsp_fw_mem {
+	reg = <0x0 0x8b800000 0x0 0x1400000>;
+};
+
+&wcnss_fw_mem {
+	reg = <0x0 0x8cc00000 0x0 0x700000>;
+};
+
+&i2c_4 {
+	status = "ok";
+
+	tsc@24 {
+		compatible = "cy,cyttsp5_i2c_adapter";
+		reg = <0x24>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <65 0x2008>;
+		cy,adapter_id = "cyttsp5_i2c_adapter";
+		vcc_i2c-supply = <&L13A>;
+		vdd-supply = <&L15A>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
+				"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+
+		cy,core {
+			cy,name = "cyttsp5_core";
+			cy,irq_gpio = <65>;
+			cy,rst_gpio = <64>;
+			cy,hid_desc_register = <1>;
+			cy,flags = <4>;
+			cy,easy_wakeup_gesture = <1>;
+			cy,btn_keys = <172 139 158 217 114 115 212 116>;
+			cy,btn_keys-tag = <0>;
+
+			cy,mt {
+				cy,name = "cyttsp5_mt";
+
+				cy,inp_dev_name = "cyttsp5_mt";
+				cy,flags = <0x28>;
+				cy,abs =
+					<0x35 0 320 0 0
+					 0x36 0 360 0 0
+					 0x3a 0 255 0 0
+					 0xffff 0 255 0 0
+					 0x39 0 15 0 0
+					 0x30 0 255 0 0
+					 0x31 0 255 0 0
+					 0x34 0xffffff81 127 0 0
+					 0x37 0 1 0 0
+					 0x3b 0 255 0 0>;
+
+				cy,vkeys_x = <320>;
+				cy,vkeys_y = <360>;
+
+				cy,virtual_keys =
+					<158 1360 90 160 180
+					 139 1360 270 160 180
+					 172 1360 450 160 180
+					 217 1360 630 160 180>;
+			};
+
+			cy,btn {
+				cy,name = "cyttsp5_btn";
+
+				cy,inp_dev_name = "cyttsp5_btn";
+			};
+
+			cy,proximity {
+				cy,name = "cyttsp5_proximity";
+
+				cy,inp_dev_name = "cyttsp5_proximity";
+				cy,abs = <0x19 0 1 0 0>;
+			};
+		};
+	};
+
+};
+
+&tlmm {
+	pmx_ts_int_active {
+		ts_int_active: ts_int_active {
+			mux {
+				pins = "gpio65";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio65";
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	pmx_ts_int_suspend {
+		ts_int_suspend: ts_int_suspend {
+			mux {
+				pins = "gpio65";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio65";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+
+	pmx_ts_reset_active {
+		ts_reset_active: ts_reset_active {
+			mux {
+				pins = "gpio64";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio64";
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	pmx_ts_reset_suspend {
+		ts_reset_suspend: ts_reset_suspend {
+			mux {
+				pins = "gpio64";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio64";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+
+	pmx_ts_release {
+		ts_release: ts_release {
+			mux {
+				pins = "gpio65", "gpio64";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio65", "gpio64";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+
+};
