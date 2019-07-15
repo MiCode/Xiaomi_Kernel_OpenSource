@@ -25,6 +25,7 @@ struct qrtr_mhi_dev {
 	struct device *dev;
 	spinlock_t ul_lock;		/* lock to protect ul_pkts */
 	struct list_head ul_pkts;
+	atomic_t in_reset;
 };
 
 struct qrtr_mhi_pkt {
@@ -68,14 +69,33 @@ static void qcom_mhi_qrtr_ul_callback(struct mhi_device *mhi_dev,
 {
 	struct qrtr_mhi_dev *qdev = dev_get_drvdata(&mhi_dev->dev);
 	struct qrtr_mhi_pkt *pkt;
+	unsigned long flags;
 
-	spin_lock_bh(&qdev->ul_lock);
+	spin_lock_irqsave(&qdev->ul_lock, flags);
 	pkt = list_first_entry(&qdev->ul_pkts, struct qrtr_mhi_pkt, node);
 	list_del(&pkt->node);
 	complete_all(&pkt->done);
 
 	kref_put(&pkt->refcount, qrtr_mhi_pkt_release);
-	spin_unlock_bh(&qdev->ul_lock);
+	spin_unlock_irqrestore(&qdev->ul_lock, flags);
+}
+
+/* fatal error */
+static void qcom_mhi_qrtr_status_callback(struct mhi_device *mhi_dev,
+					  enum MHI_CB mhi_cb)
+{
+	struct qrtr_mhi_dev *qdev = dev_get_drvdata(&mhi_dev->dev);
+	struct qrtr_mhi_pkt *pkt;
+	unsigned long flags;
+
+	if (mhi_cb != MHI_CB_FATAL_ERROR)
+		return;
+
+	atomic_inc(&qdev->in_reset);
+	spin_lock_irqsave(&qdev->ul_lock, flags);
+	list_for_each_entry(pkt, &qdev->ul_pkts, node)
+		complete_all(&pkt->done);
+	spin_unlock_irqrestore(&qdev->ul_lock, flags);
 }
 
 /* from qrtr to mhi */
@@ -83,6 +103,7 @@ static int qcom_mhi_qrtr_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 {
 	struct qrtr_mhi_dev *qdev = container_of(ep, struct qrtr_mhi_dev, ep);
 	struct qrtr_mhi_pkt *pkt;
+	unsigned long flags;
 	int rc;
 
 	rc = skb_linearize(skb);
@@ -102,7 +123,7 @@ static int qcom_mhi_qrtr_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 	kref_get(&pkt->refcount);
 	pkt->skb = skb;
 
-	spin_lock_bh(&qdev->ul_lock);
+	spin_lock_irqsave(&qdev->ul_lock, flags);
 	list_add_tail(&pkt->node, &qdev->ul_pkts);
 	rc = mhi_queue_transfer(qdev->mhi_dev, DMA_TO_DEVICE, skb, skb->len,
 				MHI_EOT);
@@ -110,18 +131,20 @@ static int qcom_mhi_qrtr_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 		list_del(&pkt->node);
 		kfree_skb(skb);
 		kfree(pkt);
-		spin_unlock_bh(&qdev->ul_lock);
+		spin_unlock_irqrestore(&qdev->ul_lock, flags);
 		return rc;
 	}
-	spin_unlock_bh(&qdev->ul_lock);
+	spin_unlock_irqrestore(&qdev->ul_lock, flags);
 	if (skb->sk)
 		sock_hold(skb->sk);
 
 	rc = wait_for_completion_interruptible_timeout(&pkt->done, HZ * 5);
-	if (rc > 0)
-		rc = 0;
+	if (atomic_read(&qdev->in_reset))
+		rc = -ECONNRESET;
 	else if (rc == 0)
 		rc = -ETIMEDOUT;
+	else if (rc > 0)
+		rc = 0;
 
 	kref_put(&pkt->refcount, qrtr_mhi_pkt_release);
 	return rc;
@@ -142,6 +165,7 @@ static int qcom_mhi_qrtr_probe(struct mhi_device *mhi_dev,
 	qdev->mhi_dev = mhi_dev;
 	qdev->dev = &mhi_dev->dev;
 	qdev->ep.xmit = qcom_mhi_qrtr_send;
+	atomic_set(&qdev->in_reset, 0);
 
 	rc = of_property_read_u32(mhi_dev->dev.of_node, "qcom,net-id", &net_id);
 	if (rc < 0)
@@ -181,6 +205,7 @@ static struct mhi_driver qcom_mhi_qrtr_driver = {
 	.remove = qcom_mhi_qrtr_remove,
 	.dl_xfer_cb = qcom_mhi_qrtr_dl_callback,
 	.ul_xfer_cb = qcom_mhi_qrtr_ul_callback,
+	.status_cb = qcom_mhi_qrtr_status_callback,
 	.id_table = qcom_mhi_qrtr_mhi_match,
 	.driver = {
 		.name = "qcom_mhi_qrtr",
