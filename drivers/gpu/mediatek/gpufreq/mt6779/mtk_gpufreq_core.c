@@ -2615,7 +2615,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 
-	g_pmic->reg_vcore = regulator_get(&pdev->dev, "dvfsrc_vcore");
+	g_pmic->reg_vcore = regulator_get(&pdev->dev, "dvfsrc-vcore");
 	if (IS_ERR(g_pmic->reg_vcore)) {
 		gpufreq_perr("@%s: cannot get VCORE\n", __func__);
 		return PTR_ERR(g_pmic->reg_vcore);
