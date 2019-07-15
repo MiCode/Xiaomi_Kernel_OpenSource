@@ -427,6 +427,7 @@ static void cam_cpastop_work(struct work_struct *work)
 					cpas_core, soc_info,
 					&irq_data.u.slave_err);
 				break;
+			case CAM_CAMNOC_HW_IRQ_IFE_UBWC_STATS_ENCODE_ERROR:
 			case CAM_CAMNOC_HW_IRQ_IFE02_UBWC_ENCODE_ERROR:
 			case CAM_CAMNOC_HW_IRQ_IFE13_UBWC_ENCODE_ERROR:
 			case CAM_CAMNOC_HW_IRQ_IPE_BPS_UBWC_ENCODE_ERROR:
@@ -434,6 +435,8 @@ static void cam_cpastop_work(struct work_struct *work)
 					cpas_core, soc_info, i,
 					&irq_data.u.enc_err);
 				break;
+			case CAM_CAMNOC_HW_IRQ_IPE1_BPS_UBWC_DECODE_ERROR:
+			case CAM_CAMNOC_HW_IRQ_IPE0_UBWC_DECODE_ERROR:
 			case CAM_CAMNOC_HW_IRQ_IPE_BPS_UBWC_DECODE_ERROR:
 				cam_cpastop_handle_ubwc_dec_err(
 					cpas_core, soc_info, i,

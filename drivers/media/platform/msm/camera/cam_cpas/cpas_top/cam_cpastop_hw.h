@@ -17,12 +17,21 @@
  *                                 observed at any slave port is logged into
  *                                 the error logger register and an IRQ is
  *                                 triggered
+ * @CAM_CAMNOC_HW_IRQ_IFE_UBWC_STATS_ENCODE_ERROR: Triggered if any error
+ *                                                 detected in the IFE UBWC-
+ *                                                 Stats encoder instance
  * @CAM_CAMNOC_HW_IRQ_IFE02_UBWC_ENCODE_ERROR  : Triggered if any error
  *                                               detected in the IFE0 UBWC
  *                                               encoder instance
  * @CAM_CAMNOC_HW_IRQ_IFE13_UBWC_ENCODE_ERROR  : Triggered if any error
  *                                               detected in the IFE1 or IFE3
  *                                               UBWC encoder instance
+ * @CAM_CAMNOC_HW_IRQ_IPE1_BPS_UBWC_DECODE_ERROR: Triggered if any error
+ *                                                detected in the IPE1/BPS read
+ *                                                path decoder instance
+ * @CAM_CAMNOC_HW_IRQ_IPE0_UBWC_DECODE_ERROR   : Triggered if any error detected
+ *                                               in the IPE0 read path decoder
+ *                                               instance
  * @CAM_CAMNOC_HW_IRQ_IPE_BPS_UBWC_DECODE_ERROR: Triggered if any error
  *                                               detected in the IPE/BPS
  *                                               UBWC decoder instance
@@ -43,6 +52,8 @@
 enum cam_camnoc_hw_irq_type {
 	CAM_CAMNOC_HW_IRQ_SLAVE_ERROR =
 		CAM_CAMNOC_IRQ_SLAVE_ERROR,
+	CAM_CAMNOC_HW_IRQ_IFE_UBWC_STATS_ENCODE_ERROR =
+		CAM_CAMNOC_IRQ_IFE_UBWC_STATS_ENCODE_ERROR,
 	CAM_CAMNOC_HW_IRQ_IFE02_UBWC_ENCODE_ERROR =
 		CAM_CAMNOC_IRQ_IFE02_UBWC_ENCODE_ERROR,
 	CAM_CAMNOC_HW_IRQ_IFE13_UBWC_ENCODE_ERROR =
@@ -51,6 +62,10 @@ enum cam_camnoc_hw_irq_type {
 		CAM_CAMNOC_IRQ_IFE0_UBWC_ENCODE_ERROR,
 	CAM_CAMNOC_HW_IRQ_IFE1_WRITE_UBWC_ENCODE_ERROR =
 		CAM_CAMNOC_IRQ_IFE1_WRITE_UBWC_ENCODE_ERROR,
+	CAM_CAMNOC_HW_IRQ_IPE1_BPS_UBWC_DECODE_ERROR =
+		CAM_CAMNOC_IRQ_IPE1_BPS_UBWC_DECODE_ERROR,
+	CAM_CAMNOC_HW_IRQ_IPE0_UBWC_DECODE_ERROR =
+		CAM_CAMNOC_IRQ_IPE0_UBWC_DECODE_ERROR,
 	CAM_CAMNOC_HW_IRQ_IPE_BPS_UBWC_DECODE_ERROR =
 		CAM_CAMNOC_IRQ_IPE_BPS_UBWC_DECODE_ERROR,
 	CAM_CAMNOC_HW_IRQ_IPE_BPS_UBWC_ENCODE_ERROR =
