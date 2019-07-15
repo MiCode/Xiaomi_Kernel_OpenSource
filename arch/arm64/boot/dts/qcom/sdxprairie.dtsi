@@ -1406,7 +1406,7 @@
 		qcom,arm-smmu;
 		reg = <0x20000 0x10000>,
 		   <0x36000 0x100>,
-		   <0x3900000 0x300000>;
+		   <0xf100000 0x300000>;
 		reg-names = "emac-base", "rgmii-base", "tlmm-central-base";
 		interrupts-extended = <&pdc 0 62 4>, <&pdc 0 60 4>,
 		  <&tlmm 90 2>, <&pdc 0 49 4>,
