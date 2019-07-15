@@ -947,23 +947,16 @@ static int cam_vfe_bus_acquire_wm(
 		case CAM_FORMAT_MIPI_RAW_14:
 		case CAM_FORMAT_MIPI_RAW_16:
 		case CAM_FORMAT_MIPI_RAW_20:
+		case CAM_FORMAT_PLAIN16_10:
+		case CAM_FORMAT_PLAIN16_12:
+		case CAM_FORMAT_PLAIN16_14:
+		case CAM_FORMAT_PLAIN16_16:
 		case CAM_FORMAT_PLAIN128:
+		/*repacking is done in CSID for PLAIN*/
 			rsrc_data->pack_fmt = 0x0;
 			break;
 		case CAM_FORMAT_PLAIN8:
 			rsrc_data->pack_fmt = 0x1;
-			break;
-		case CAM_FORMAT_PLAIN16_10:
-			rsrc_data->pack_fmt = 0x2;
-			break;
-		case CAM_FORMAT_PLAIN16_12:
-			rsrc_data->pack_fmt = 0x3;
-			break;
-		case CAM_FORMAT_PLAIN16_14:
-			rsrc_data->pack_fmt = 0x4;
-			break;
-		case CAM_FORMAT_PLAIN16_16:
-			rsrc_data->pack_fmt = 0x5;
 			break;
 		case CAM_FORMAT_PLAIN64:
 			rsrc_data->pack_fmt = 0xA;
