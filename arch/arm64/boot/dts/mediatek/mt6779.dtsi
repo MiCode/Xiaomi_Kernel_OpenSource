@@ -1930,19 +1930,23 @@
 
 		mfg_lorne: mfg_lorne@13000000 {
 			clock-frequency = <100000000>;
-			clocks = <&mfgcfg CLK_MFGCFG_BG3D>,
-				<&topckgen CLK_TOP_MFG>,
-				<&topckgen CLK_TOP_MFGPLL_CK>,
-				<&topckgen CLK_TOP_UNIVPLL_D3>;
+			compatible = "mediatek,lorne";
+			interrupt-names = "RGX";
+			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_LOW>;
+			reg = <0 0x13000000 0 0x80000>;
+		};
+
+		gpufreq {
 			clock-names = "cg_bg3d",
 				"clk_mux",
 				"clk_main_parent",
 				"clk_sub_parent";
-			compatible = "mediatek,lorne";
-			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_LOW>;
-			interrupt-names = "RGX";
+			clocks = <&mfgcfg CLK_MFGCFG_BG3D>,
+				<&topckgen CLK_TOP_MFG>,
+				<&topckgen CLK_TOP_MFGPLL_CK>,
+				<&topckgen CLK_TOP_UNIVPLL_D3>;
+			compatible = "mediatek,mt6779-gpufreq";
 			power-domains = <&scpsys MT6779_POWER_DOMAIN_MFG3>;
-			reg = <0 0x13000000 0 0x80000>;
 		};
 
 		mfgcfg: clock-controller@13fbf000 {
