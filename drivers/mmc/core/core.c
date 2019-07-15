@@ -3245,26 +3245,43 @@ int mmc_resume_bus(struct mmc_host *host)
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	mmc_bus_get(host);
-	if (host->ops->get_cd)
+	if (host->ops->get_cd) {
 		card_present = host->ops->get_cd(host);
+		if (!card_present) {
+			pr_err("%s: Card removed - card_present:%d\n",
+			       mmc_hostname(host), card_present);
+			mmc_card_set_removed(host->card);
+		}
+	}
 
 	if (host->bus_ops && !host->bus_dead && host->card && card_present) {
 		mmc_power_up(host, host->card->ocr);
 		BUG_ON(!host->bus_ops->resume);
-		host->bus_ops->resume(host);
+		err = host->bus_ops->resume(host);
+		if (err && (err != -ENOMEDIUM)) {
+			pr_err("%s: bus resume: failed: %d\n",
+			       mmc_hostname(host), err);
+			err = mmc_hw_reset(host);
+			if (err) {
+				pr_err("%s: reset: failed: %d\n",
+				       mmc_hostname(host), err);
+				goto err_reset;
+			} else {
+				mmc_card_clr_suspended(host->card);
+			}
+		}
 		if (mmc_card_cmdq(host->card)) {
 			err = mmc_cmdq_halt(host, false);
 			if (err)
 				pr_err("%s: %s: unhalt failed: %d\n",
 				       mmc_hostname(host), __func__, err);
-			else
-				mmc_card_clr_suspended(host->card);
 		}
 	}
 
+err_reset:
 	mmc_bus_put(host);
 	pr_debug("%s: Deferred resume completed\n", mmc_hostname(host));
-	return 0;
+	return err;
 }
 EXPORT_SYMBOL(mmc_resume_bus);
 
