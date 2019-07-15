@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017, 2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -142,6 +142,20 @@ struct bms_battery_data {
 	int			fastchg_current_ma;
 	int			fg_cc_cv_threshold_mv;
 	const char		*battery_type;
+};
+
+/**
+ * struct soh_range -
+ * @batt_age_level:	Battery age level (e.g. 0, 1 etc.,)
+ * @soh_min:		Minimum SOH (state of health) level that this battery
+ *			profile can support.
+ * @soh_max:		Maximum SOH (state of health) level that this battery
+ *			profile can support.
+ */
+struct soh_range {
+	int	batt_age_level;
+	int	soh_min;
+	int	soh_max;
 };
 
 #define is_between(left, right, value) \
