@@ -40,9 +40,9 @@ int physical_channel_send(struct physical_channel *pchan,
 		struct hab_header *header,
 		void *payload)
 {
-	int sizebytes = HAB_HEADER_GET_SIZE(*header);
+	size_t sizebytes = HAB_HEADER_GET_SIZE(*header);
 	struct qvm_channel *dev  = (struct qvm_channel *)pchan->hyp_data;
-	int total_size = sizeof(*header) + sizebytes;
+	size_t total_size = sizeof(*header) + sizebytes;
 	int irqs_disabled = irqs_disabled();
 
 	if (total_size > dev->pipe_ep->tx_info.sh_buf->size)
