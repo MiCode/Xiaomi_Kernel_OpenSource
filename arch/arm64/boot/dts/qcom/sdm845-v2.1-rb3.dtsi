@@ -79,6 +79,10 @@
 		qcom,ipc-gpio = <&tlmm 121 0>;
 		qcom,finger-detect-gpio = <&pm8998_gpios 4 0>;
 	};
+
+	qcom,rmnet-ipa {
+		 status="disabled";
+	};
 };
 
 &ssc_sensors {
@@ -172,4 +176,8 @@
 			output-low;
 		};
 	};
+};
+
+&ipa_hw {
+	status="disabled";
 };
