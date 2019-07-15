@@ -46,7 +46,6 @@ extern int boost_write_for_perf_idx(int group_idx, int boost_value);
 extern int uclamp_min_for_perf_idx(int group_idx, int min_value);
 
 /* perfmgr */
-extern int update_eas_boost_value(int kicker, int cgroup_idx, int value);
 extern int update_eas_uclamp_min(int kicker, int cgroup_idx, int value);
 extern int update_schedplus_down_throttle_ns(int kicker, int nsec);
 extern int update_schedplus_up_throttle_ns(int kicker, int nsec);

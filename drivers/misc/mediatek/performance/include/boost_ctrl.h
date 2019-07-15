@@ -17,6 +17,7 @@ void cpu_ctrl_exit(void);
 int dram_ctrl_init(struct proc_dir_entry *parent);
 
 /*eas controller*/
+int uclamp_ctrl_init(struct proc_dir_entry *parent);
 int eas_ctrl_init(struct proc_dir_entry *parent);
 
 /*topology controller*/
