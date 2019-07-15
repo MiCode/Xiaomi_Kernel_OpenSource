@@ -83,6 +83,24 @@ config MTK_LOW_POWER_MODULE
 	  Select "y" if you want to enable low power features.
 	  Select "n" if unsure.
 
+config MTK_POWER_THROTTLING_COMMON
+	bool "MTK power throttling common"
+	help
+	  For MediaTek power throttling. Provide common interface for MTK
+	  power throttle.
+	  Select "y" if you want to enable power throttling feature
+	  Select "n" if unsure.
+
+config MTK_BATTERY_PERCENTAGE_POWER_THROTTLING
+	bool "MTK battery percentage throttle"
+	select MTK_POWER_THROTTLING_COMMON
+	help
+	  For MediaTek battery percentage power throttling.
+	  Power throttle when battery percentage lower than some threshold
+	  Select "y" if you want to enable battery percentage power throttling
+	  feature
+	  Select "n" if unsure.
+
 source "drivers/misc/mediatek/lpm/Kconfig"
 endmenu # Power
 
