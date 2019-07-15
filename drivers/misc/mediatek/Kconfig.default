@@ -235,7 +235,7 @@ config ANDROID_DEFAULT_SETTING
 
 config MTK_ANDROID_DEFAULT_SETTING
 	bool "Select MTK android common setting by default"
-	select ARM_MTK_CPUIDLE if ARM_CPUIDLE
+	select ARM_MTK_CPUIDLE
 	select BRIDGE
 	select BRIDGE_NETFILTER
 	select CRYPTO
