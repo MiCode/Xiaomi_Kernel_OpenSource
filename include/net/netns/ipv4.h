@@ -88,6 +88,7 @@ struct netns_ipv4 {
 	int sysctl_tcp_fwmark_accept;
 	int sysctl_tcp_mtu_probing;
 	int sysctl_tcp_base_mss;
+	int sysctl_tcp_min_snd_mss;
 	int sysctl_tcp_probe_threshold;
 	u32 sysctl_tcp_probe_interval;
 

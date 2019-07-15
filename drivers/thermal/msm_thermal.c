@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,11 +59,11 @@
 
 #define MSM_LIMITS_DCVSH		0x10
 #define MSM_LIMITS_NODE_DCVS		0x44435653
+#define MSM_LIMITS_SUB_FN_THERMAL	0x54484D4C
 #define MSM_LIMITS_SUB_FN_GENERAL	0x47454E00
 #define MSM_LIMITS_SUB_FN_CRNT		0x43524E54
 #define MSM_LIMITS_SUB_FN_REL		0x52454C00
-#define MSM_LIMITS_DOMAIN_MAX		0x444D4158
-#define MSM_LIMITS_DOMAIN_MIN		0x444D494E
+#define MSM_LIMITS_FREQ_CAP		0x46434150
 #define MSM_LIMITS_CLUSTER_0		0x6370302D
 #define MSM_LIMITS_CLUSTER_1		0x6370312D
 #define MSM_LIMITS_ALGO_MODE_ENABLE	0x454E424C
@@ -1018,55 +1018,58 @@ static struct notifier_block msm_thermal_cpufreq_notifier = {
 	.notifier_call = msm_thermal_cpufreq_callback,
 };
 
-static int msm_lmh_dcvs_write(uint32_t node_id, uint32_t fn, uint32_t setting,
-				uint32_t val)
+static int msm_lmh_dcvs_write(uint32_t node_id, uint32_t fn,
+			      uint32_t setting, uint32_t val, uint32_t val1,
+			      bool enable_val1)
 {
 	int ret;
 	struct scm_desc desc_arg;
 	uint32_t *payload = NULL;
+	uint32_t payload_len;
 
-	payload = kzalloc(sizeof(uint32_t) * 5, GFP_KERNEL);
+	payload_len = ((enable_val1) ? 6 : 5) * sizeof(uint32_t);
+	payload = kcalloc((enable_val1) ? 6 : 5, sizeof(uint32_t), GFP_KERNEL);
 	if (!payload)
 		return -ENOMEM;
 
-	payload[0] = fn;
+	payload[0] = fn; /* algorithm */
 	payload[1] = 0; /* unused sub-algorithm */
 	payload[2] = setting;
-	payload[3] = 1; /* number of values */
+	payload[3] = enable_val1 ? 2 : 1; /* number of values */
 	payload[4] = val;
+	if (enable_val1)
+		payload[5] = val1;
 
 	desc_arg.args[0] = SCM_BUFFER_PHYS(payload);
-	desc_arg.args[1] = sizeof(uint32_t) * 5;
+	desc_arg.args[1] = payload_len;
 	desc_arg.args[2] = MSM_LIMITS_NODE_DCVS;
 	desc_arg.args[3] = node_id;
 	desc_arg.args[4] = 0; /* version */
 	desc_arg.arginfo = SCM_ARGS(5, SCM_RO, SCM_VAL, SCM_VAL,
 					SCM_VAL, SCM_VAL);
 
-	dmac_flush_range(payload, (void *)payload + 5 * (sizeof(uint32_t)));
+	dmac_flush_range(payload, (void *)payload + payload_len);
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_LMH, MSM_LIMITS_DCVSH), &desc_arg);
 
 	kfree(payload);
+
 	return ret;
 }
 
 static int msm_lmh_dcvs_update(int cpu)
 {
 	uint32_t id = cpus[cpu].parent_ptr->cluster_id;
-	uint32_t max_freq = cpus[cpu].limited_max_freq;
-	uint32_t min_freq = cpus[cpu].limited_min_freq;
+	uint32_t max_freq = cpus[cpu].limited_max_freq, hw_max_freq = U32_MAX;
 	uint32_t affinity;
 	int ret;
 
 	/*
-	 * It is better to use max/min limits of cluster for given
+	 * It is better to use max limits of cluster for given
 	 * cpu if cluster mitigation is supported. It ensures that it
-	 * requests aggregated max/min limits of all cpus in that cluster.
+	 * requests aggregated max limits of all cpus in that cluster.
 	 */
-	if (core_ptr) {
+	if (core_ptr)
 		max_freq = cpus[cpu].parent_ptr->limited_max_freq;
-		min_freq = cpus[cpu].parent_ptr->limited_min_freq;
-	}
 
 	switch (id) {
 	case 0:
@@ -1080,13 +1083,14 @@ static int msm_lmh_dcvs_update(int cpu)
 		return -EINVAL;
 	};
 
-	ret = msm_lmh_dcvs_write(affinity, MSM_LIMITS_SUB_FN_GENERAL,
-					MSM_LIMITS_DOMAIN_MAX, max_freq);
-	if (ret)
-		return ret;
+	if (cpus[cpu].parent_ptr->freq_table)
+		hw_max_freq =
+			cpus[cpu].parent_ptr->freq_table[
+				cpus[cpu].parent_ptr->freq_idx_high].frequency;
 
-	ret = msm_lmh_dcvs_write(affinity, MSM_LIMITS_SUB_FN_GENERAL,
-					MSM_LIMITS_DOMAIN_MIN, min_freq);
+	ret = msm_lmh_dcvs_write(affinity, MSM_LIMITS_SUB_FN_THERMAL,
+					MSM_LIMITS_FREQ_CAP, max_freq,
+					max_freq >= hw_max_freq ? 0 : 1, 1);
 	if (ret)
 		return ret;
 	/*
@@ -1729,23 +1733,23 @@ static int msm_thermal_lmh_dcvs_init(struct platform_device *pdev)
 	 */
 	ret = msm_lmh_dcvs_write(MSM_LIMITS_CLUSTER_0,
 				MSM_LIMITS_SUB_FN_REL,
-				MSM_LIMITS_ALGO_MODE_ENABLE, 1);
+				MSM_LIMITS_ALGO_MODE_ENABLE, 1, 0, 0);
 	if (ret)
 		pr_err("Unable to enable REL algo for cluster0\n");
 	ret = msm_lmh_dcvs_write(MSM_LIMITS_CLUSTER_1,
 				MSM_LIMITS_SUB_FN_REL,
-				MSM_LIMITS_ALGO_MODE_ENABLE, 1);
+				MSM_LIMITS_ALGO_MODE_ENABLE, 1, 0, 0);
 	if (ret)
 		pr_err("Unable to enable REL algo for cluster1\n");
 
 	ret = msm_lmh_dcvs_write(MSM_LIMITS_CLUSTER_0,
 				MSM_LIMITS_SUB_FN_CRNT,
-				MSM_LIMITS_ALGO_MODE_ENABLE, 1);
+				MSM_LIMITS_ALGO_MODE_ENABLE, 1, 0, 0);
 	if (ret)
 		pr_err("Unable enable CRNT algo for cluster0\n");
 	ret = msm_lmh_dcvs_write(MSM_LIMITS_CLUSTER_1,
 				MSM_LIMITS_SUB_FN_CRNT,
-				MSM_LIMITS_ALGO_MODE_ENABLE, 1);
+				MSM_LIMITS_ALGO_MODE_ENABLE, 1, 0, 0);
 	if (ret)
 		pr_err("Unable enable CRNT algo for cluster1\n");
 
