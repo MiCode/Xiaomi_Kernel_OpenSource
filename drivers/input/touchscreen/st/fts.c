@@ -2450,6 +2450,8 @@ END:
 	/*here start the reporting phase,*/
 	/* assembling the data to send in the file node */
 	all_strbuff = kmalloc(size, GFP_KERNEL);
+	if (!all_strbuff)
+		return 0;
 	memset(all_strbuff, 0, size);
 
 	snprintf(buff, sizeof(buff), "%02X", 0xAA);
@@ -4049,14 +4051,14 @@ static int fts_chip_power_switch(struct fts_ts_info *info, bool on)
 	}
 
 	if (on) {
-		if (info->pwr_reg) {
+		if (info->bus_reg) {
 			error = regulator_enable(info->bus_reg);
 			if (error < 0)
 				logError(1, "%s %s: Failed to enable AVDD\n",
 					tag, __func__);
 		}
 
-		if (info->bus_reg) {
+		if (info->pwr_reg) {
 			error = regulator_enable(info->pwr_reg);
 			if (error < 0)
 				logError(1, "%s %s: Failed to enable DVDD\n",
