@@ -88,6 +88,32 @@ config MTK_DISP_PLATFORM
 	  for your selection. It's used for display
 	  driver only.
 
+config MTK_SEC_VIDEO_PATH_SUPPORT
+	bool "Enable MTK Secure Video Path Support"
+	depends on MTK_IN_HOUSE_TEE_SUPPORT || TRUSTONIC_TEE_SUPPORT || \
+	           MTK_GOOGLE_TRUSTY_SUPPORT || MICROTRUST_TEE_SUPPORT
+	help
+	  This enable MTK Secure Video Path function of Widevine Level1,
+	  HW protect the online secure video streaming by ARM/Trustzone
+	  support TEE OS of: Trustonic, Microtrust, Blowfish .etc
+	  relative modules include: DRM, vdec, venc, cmdq, m4u, display,
+	  tplay/DXCC,ssvp, secmem, TEE frameworks, keyinstall, DAPC, MPU,
+	  ION, gralloc,RPMB, DXCC, mediacodec, WFD, MDP.etc
+	  relative options including: MTK_TEE_SUPPORT, MTK_GP_SUPPORT,
+	  MTK_DRM_L1_SUPPORT, MTK_PERSIST_PARTITION_SUPPORT,
+	  MTK_DRM_KEY_MNG_SUPPORT.
+
+config MTK_DRM_KEY_MNG_SUPPORT
+	bool "Enable MTK DRM Key Manager Support"
+	depends on MTK_IN_HOUSE_TEE_SUPPORT || TRUSTONIC_TEE_SUPPORT || \
+	           MTK_GOOGLE_TRUSTY_SUPPORT || MICROTRUST_TEE_SUPPORT
+	help
+	  This enable MTK DRM Key Manager Support.
+	  the DRM key install function is used in the feature of SVP .etc
+	  used by DRM/widevine to install and runtime read of keybox.
+	  relative options including: MTK_SEC_VIDEO_PATH_SUPPORT and
+	  MTK_PERSIST_PARTITION_SUPPORT.
+
 source "drivers/misc/mediatek/mmp/Kconfig"
 source "drivers/misc/mediatek/lcm/Kconfig"
 source "drivers/misc/mediatek/sync/Kconfig"
