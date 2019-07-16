@@ -92,9 +92,10 @@ int mtk_lpm_callee_put(struct mtk_lpm_callee const *callee)
 
 	spin_lock(&mtk_lp_plat_call_locker);
 	list_for_each_entry(pos, &mtk_lpm_callees, list) {
-		if (pos && (pos->type == callee->type))
+		if (pos && (pos->type == callee->type)) {
 			pos->ref--;
 			break;
+		}
 	}
 	spin_unlock(&mtk_lp_plat_call_locker);
 
