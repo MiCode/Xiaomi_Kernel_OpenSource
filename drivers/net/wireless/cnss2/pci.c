@@ -897,12 +897,13 @@ static void cnss_pci_time_sync_work_hdlr(struct work_struct *work)
 		return;
 
 	if (cnss_pci_pm_runtime_get_sync(pci_priv) < 0)
-		return;
+		goto runtime_pm_put;
 
 	cnss_pci_update_timestamp(pci_priv);
 	schedule_delayed_work(&pci_priv->time_sync_work,
 			      msecs_to_jiffies(time_sync_period_ms));
 
+runtime_pm_put:
 	cnss_pci_pm_runtime_mark_last_busy(pci_priv);
 	cnss_pci_pm_runtime_put_autosuspend(pci_priv);
 }
@@ -2447,6 +2448,7 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 	if (!plat_priv)
 		return -ENODEV;
 
+	cnss_pci_pm_runtime_resume(pci_priv);
 	cnss_pci_dump_shadow_reg(pci_priv);
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_TRIGGER_RDDM);
