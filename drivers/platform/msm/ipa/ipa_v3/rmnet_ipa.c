@@ -1306,24 +1306,31 @@ send:
 	/* IPA_PM checking end */
 
 	/*
+	 * increase the outstanding_pkts count first
+	 * to avoid suspend happens in parallel
+	 * after unlock
+	 */
+	atomic_inc(&wwan_ptr->outstanding_pkts);
+	spin_unlock_irqrestore(&wwan_ptr->lock, flags);
+
+	/*
 	 * both data packets and command will be routed to
 	 * IPA_CLIENT_Q6_WAN_CONS based on status configuration
 	 */
 	ret = ipa3_tx_dp(IPA_CLIENT_APPS_WAN_PROD, skb, NULL);
 	if (ret) {
+		atomic_dec(&wwan_ptr->outstanding_pkts);
 		if (ret == -EPIPE) {
 			IPAWANERR_RL("[%s] fatal: pipe is not valid\n",
 				dev->name);
 			dev_kfree_skb_any(skb);
 			dev->stats.tx_dropped++;
-			spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 			return NETDEV_TX_OK;
 		}
 		ret = NETDEV_TX_BUSY;
 		goto out;
 	}
 
-	atomic_inc(&wwan_ptr->outstanding_pkts);
 	dev->stats.tx_packets++;
 	dev->stats.tx_bytes += skb->len;
 	ret = NETDEV_TX_OK;
@@ -1333,7 +1340,6 @@ out:
 		ipa_pm_deferred_deactivate(rmnet_ipa3_ctx->q6_pm_hdl);
 
 	}
-	spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 	return ret;
 }
 
