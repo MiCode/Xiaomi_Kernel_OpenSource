@@ -99,6 +99,8 @@ struct iommu_pgtbl_info {
 #define IOMMU_DOMAIN_DMA	(__IOMMU_DOMAIN_PAGING |	\
 				 __IOMMU_DOMAIN_DMA_API)
 
+#define to_msm_iommu_ops(_iommu_ops) \
+	container_of(_iommu_ops, struct msm_iommu_ops, iommu_ops)
 
 #define IOMMU_DOMAIN_NAME_LEN 32
 struct iommu_domain {
@@ -233,8 +235,6 @@ extern struct dentry *iommu_debugfs_top;
  * @of_xlate: add OF master IDs to iommu grouping
  * @pgsize_bitmap: bitmap of all possible supported page sizes
  * @trigger_fault: trigger a fault on the device attached to an iommu domain
- * @reg_read: read an IOMMU register
- * @reg_write: write an IOMMU register
  * @tlbi_domain: Invalidate all TLBs covering an iommu domain
  * @enable_config_clocks: Enable all config clocks for this domain's IOMMU
  * @disable_config_clocks: Disable all config clocks for this domain's IOMMU
@@ -285,10 +285,6 @@ struct iommu_ops {
 	/* Get the number of windows per domain */
 	u32 (*domain_get_windows)(struct iommu_domain *domain);
 	void (*trigger_fault)(struct iommu_domain *domain, unsigned long flags);
-	unsigned long (*reg_read)(struct iommu_domain *domain,
-				  unsigned long offset);
-	void (*reg_write)(struct iommu_domain *domain, unsigned long val,
-			  unsigned long offset);
 	void (*tlbi_domain)(struct iommu_domain *domain);
 	int (*enable_config_clocks)(struct iommu_domain *domain);
 	void (*disable_config_clocks)(struct iommu_domain *domain);
@@ -300,6 +296,34 @@ struct iommu_ops {
 
 	bool (*is_iova_coherent)(struct iommu_domain *domain, dma_addr_t iova);
 	unsigned long pgsize_bitmap;
+};
+
+/**
+ * struct msm_iommu_ops - standard iommu ops, as well as additional MSM
+ * specific iommu ops
+ * @map_sg: map a scatter-gather list of physically contiguous memory chunks
+ *          to an iommu domain
+ * @iova_to_phys_hard: translate iova to physical address using IOMMU hardware
+ * @is_iova_coherent: checks coherency of the given iova
+ * @trigger_fault: trigger a fault on the device attached to an iommu domain
+ * @tlbi_domain: Invalidate all TLBs covering an iommu domain
+ * @enable_config_clocks: Enable all config clocks for this domain's IOMMU
+ * @disable_config_clocks: Disable all config clocks for this domain's IOMMU
+ * @iova_to_pte: translate iova to Page Table Entry (PTE).
+ * @iommu_ops: the standard iommu ops
+ */
+struct msm_iommu_ops {
+	size_t (*map_sg)(struct iommu_domain *domain, unsigned long iova,
+			 struct scatterlist *sg, unsigned int nents, int prot);
+	phys_addr_t (*iova_to_phys_hard)(struct iommu_domain *domain,
+					 dma_addr_t iova);
+	bool (*is_iova_coherent)(struct iommu_domain *domain, dma_addr_t iova);
+	void (*trigger_fault)(struct iommu_domain *domain, unsigned long flags);
+	void (*tlbi_domain)(struct iommu_domain *domain);
+	int (*enable_config_clocks)(struct iommu_domain *domain);
+	void (*disable_config_clocks)(struct iommu_domain *domain);
+	uint64_t (*iova_to_pte)(struct iommu_domain *domain, dma_addr_t iova);
+	struct iommu_ops iommu_ops;
 };
 
 /**

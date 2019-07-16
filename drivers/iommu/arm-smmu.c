@@ -3931,65 +3931,6 @@ static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 	arm_smmu_power_off(smmu->pwr);
 }
 
-static unsigned long arm_smmu_reg_read(struct iommu_domain *domain,
-				       unsigned long offset)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu;
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	void __iomem *cb_base;
-	unsigned long val;
-
-	if (offset >= SZ_4K) {
-		pr_err("Invalid offset: 0x%lx\n", offset);
-		return 0;
-	}
-
-	smmu = smmu_domain->smmu;
-	if (!smmu) {
-		WARN(1, "Can't read registers of a detached domain\n");
-		val = 0;
-		return val;
-	}
-
-	if (arm_smmu_power_on(smmu->pwr))
-		return 0;
-
-	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
-	val = readl_relaxed(cb_base + offset);
-
-	arm_smmu_power_off(smmu->pwr);
-	return val;
-}
-
-static void arm_smmu_reg_write(struct iommu_domain *domain,
-			       unsigned long offset, unsigned long val)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu;
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	void __iomem *cb_base;
-
-	if (offset >= SZ_4K) {
-		pr_err("Invalid offset: 0x%lx\n", offset);
-		return;
-	}
-
-	smmu = smmu_domain->smmu;
-	if (!smmu) {
-		WARN(1, "Can't read registers of a detached domain\n");
-		return;
-	}
-
-	if (arm_smmu_power_on(smmu->pwr))
-		return;
-
-	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
-	writel_relaxed(val, cb_base + offset);
-
-	arm_smmu_power_off(smmu->pwr);
-}
-
 static void arm_smmu_tlbi_domain(struct iommu_domain *domain)
 {
 	arm_smmu_tlb_inv_context_s1(to_smmu_domain(domain));
@@ -4030,8 +3971,6 @@ static struct iommu_ops arm_smmu_ops = {
 	.put_resv_regions	= arm_smmu_put_resv_regions,
 	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
 	.trigger_fault		= arm_smmu_trigger_fault,
-	.reg_read		= arm_smmu_reg_read,
-	.reg_write		= arm_smmu_reg_write,
 	.tlbi_domain		= arm_smmu_tlbi_domain,
 	.enable_config_clocks	= arm_smmu_enable_config_clocks,
 	.disable_config_clocks	= arm_smmu_disable_config_clocks,
