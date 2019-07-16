@@ -86,8 +86,10 @@ const u8 clk_alpha_pll_regs[][PLL_OFF_MAX_REGS] = {
 		[PLL_OFF_ALPHA_VAL] = 0x08,
 		[PLL_OFF_ALPHA_VAL_U] = 0x0c,
 		[PLL_OFF_USER_CTL] = 0x10,
+		[PLL_OFF_USER_CTL_U] = 0x14,
 		[PLL_OFF_CONFIG_CTL] = 0x18,
 		[PLL_OFF_TEST_CTL] = 0x1c,
+		[PLL_OFF_TEST_CTL_U] = 0x20,
 		[PLL_OFF_STATUS] = 0x24,
 	},
 	[CLK_ALPHA_PLL_TYPE_FABIA] =  {
@@ -257,20 +259,41 @@ void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	val |= config->aux2_output_mask;
 	val |= config->early_output_mask;
 	val |= config->pre_div_val;
-	val |= config->post_div_val;
 	val |= config->vco_val;
 	val |= config->alpha_en_mask;
-	val |= config->alpha_mode_mask;
 
 	mask = config->main_output_mask;
 	mask |= config->aux_output_mask;
 	mask |= config->aux2_output_mask;
 	mask |= config->early_output_mask;
 	mask |= config->pre_div_mask;
-	mask |= config->post_div_mask;
 	mask |= config->vco_mask;
+	mask |= config->alpha_en_mask;
 
 	regmap_update_bits(regmap, PLL_USER_CTL(pll), mask, val);
+
+
+	if (config->post_div_mask) {
+		mask = config->post_div_mask;
+		val = config->post_div_val;
+		regmap_update_bits(regmap, PLL_USER_CTL(pll), mask, val);
+	}
+
+	if (config->test_ctl_mask) {
+		mask = config->test_ctl_mask;
+		val = config->test_ctl_val;
+		regmap_update_bits(regmap, PLL_TEST_CTL(pll), mask, val);
+	}
+
+	if (config->test_ctl_hi_mask) {
+		mask = config->test_ctl_hi_mask;
+		val = config->test_ctl_hi_val;
+		regmap_update_bits(regmap, PLL_TEST_CTL_U(pll), mask, val);
+	}
+
+	if (pll->flags & SUPPORTS_DYNAMIC_UPDATE)
+		regmap_update_bits(regmap, PLL_MODE(pll), PLL_UPDATE_BYPASS,
+					PLL_UPDATE_BYPASS);
 
 	if (pll->flags & SUPPORTS_FSM_MODE)
 		qcom_pll_set_fsm_mode(regmap, PLL_MODE(pll), 6, 0);
@@ -446,6 +469,15 @@ alpha_pll_round_rate(unsigned long rate, unsigned long prate, u32 *l, u64 *a,
 	u64 remainder;
 	u64 quotient;
 
+	/*
+	 * The PLLs parent rate is zero probably since the parent hasn't
+	 * registered yet. Return early with the requested rate.
+	 */
+	if (!prate) {
+		pr_warn("PLLs parent rate hasn't been initialized.\n");
+		return rate;
+	}
+
 	quotient = rate;
 	remainder = do_div(quotient, prate);
 	*l = quotient;
@@ -508,7 +540,6 @@ clk_alpha_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 	return alpha_pll_calc_rate(prate, l, a, alpha_width);
 }
 
-
 static int __clk_alpha_pll_update_latch(struct clk_alpha_pll *pll)
 {
 	int ret;
@@ -542,7 +573,10 @@ static int __clk_alpha_pll_update_latch(struct clk_alpha_pll *pll)
 			return ret;
 	}
 
-	ret = wait_for_pll_update_ack_clear(pll);
+	if (pll->flags & SUPPORTS_DYNAMIC_UPDATE)
+		ret = wait_for_pll_enable_lock(pll);
+	else
+		ret = wait_for_pll_update_ack_clear(pll);
 	if (ret)
 		return ret;
 
@@ -570,13 +604,29 @@ static int __clk_alpha_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	const struct pll_vco *vco;
 	u32 l, alpha_width = pll_alpha_width(pll);
 	u64 a;
+	unsigned long rrate;
 
-	rate = alpha_pll_round_rate(rate, prate, &l, &a, alpha_width);
-	vco = alpha_pll_find_vco(pll, rate);
+	rrate = alpha_pll_round_rate(rate, prate, &l, &a, alpha_width);
+	if (rrate != rate) {
+		pr_err("alpha_pll: Call clk_set_rate with rounded rates!\n");
+		return -EINVAL;
+	}
+
+	vco = alpha_pll_find_vco(pll, rrate);
 	if (pll->vco_table && !vco) {
 		pr_err("alpha pll not in a valid vco range\n");
 		return -EINVAL;
 	}
+
+	/*
+	 * For PLLs that do not support dynamic programming (dynamic_update
+	 * is not set), ensure PLL is off before changing rate. For
+	 * optimization reasons, assume no downstream clock is actively
+	 * using it.
+	 */
+	if (is_enabled(&pll->clkr.hw) &&
+	    !(pll->flags & SUPPORTS_DYNAMIC_UPDATE))
+		hw->init->ops->disable(hw);
 
 	regmap_write(pll->clkr.regmap, PLL_L_VAL(pll), l);
 
@@ -596,6 +646,10 @@ static int __clk_alpha_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	regmap_update_bits(pll->clkr.regmap, PLL_USER_CTL(pll),
 			   PLL_ALPHA_EN, PLL_ALPHA_EN);
+
+	if (is_enabled(&pll->clkr.hw) &&
+	    !(pll->flags & SUPPORTS_DYNAMIC_UPDATE))
+		hw->init->ops->enable(hw);
 
 	return clk_alpha_pll_update_latch(pll, is_enabled);
 }
