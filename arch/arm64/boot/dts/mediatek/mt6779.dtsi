@@ -451,6 +451,21 @@
 		};
 	};
 
+	mtk_lpm: mtk_lpm {
+		compatible = "mediatek,mtk-lpm";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		irq-remain = <&edge_keypad>;
+		irq-remain-list {
+			edge_keypad: edge_keypad {
+				target = <&keypad>;
+				value = <1 0 0 0x40>;
+			};
+		};
+	};
+
 	dvfsp: dvfsp@0011bc00 {
 		compatible = "mediatek,sspm-dvfsp";
 		reg = <0 0x0011bc00 0 0x1400>;
