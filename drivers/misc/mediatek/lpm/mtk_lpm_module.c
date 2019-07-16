@@ -357,8 +357,7 @@ static int __init mtk_lpm_init(void)
 	struct device_node *mtk_lpm;
 	unsigned long flags;
 
-	mtk_lpm_system.suspend.flag = 0;
-	mtk_lpm_drv_cpuidle_ops_set(&mtk_lpm_cpu_pm_op);
+	mtk_lpm_system.suspend.flag = MTK_LP_REQ_NOSUSPEND;
 
 	mtk_lpm = of_find_compatible_node(NULL, NULL, MTK_LPM_DTS_COMPATIBLE);
 
@@ -370,7 +369,10 @@ static int __init mtk_lpm_init(void)
 		of_property_read_string(mtk_lpm, "suspend-method", &pMethod);
 
 		if (pMethod) {
-			if (!strcmp(pMethod, "suspend2idle"))
+			mtk_lpm_system.suspend.flag &=
+						~MTK_LP_REQ_NOSUSPEND;
+
+			if (!strcmp(pMethod, "s2idle"))
 				mtk_lpm_system.suspend.flag |=
 						MTK_LP_REQ_NOSYSCORE_CB;
 			else if (!strcmp(pMethod, "system"))
@@ -384,8 +386,7 @@ static int __init mtk_lpm_init(void)
 						pMethod, __func__, __LINE__);
 		}
 		of_node_put(mtk_lpm);
-	} else
-		mtk_lpm_system.suspend.flag |= MTK_LP_REQ_NOSUSPEND;
+	}
 
 	spin_unlock_irqrestore(&mtk_lp_mod_locker, flags);
 
