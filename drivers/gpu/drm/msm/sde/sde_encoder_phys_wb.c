@@ -1063,7 +1063,7 @@ static void _sde_encoder_phys_wb_frame_done_helper(void *arg, bool frame_error)
 		phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
 				phys_enc, event);
 
-	if (phys_enc->parent_ops.handle_vblank_virt)
+	if (phys_enc->parent_ops.handle_vblank_virt && !phys_enc->in_clone_mode)
 		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
 				phys_enc);
 
