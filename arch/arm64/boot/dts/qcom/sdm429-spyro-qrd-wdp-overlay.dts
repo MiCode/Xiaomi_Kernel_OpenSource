@@ -39,3 +39,32 @@
 &sdhc_2 {
 	cd-gpios = <&tlmm 67 0x1>;
 };
+
+&mdss_dsi {
+	vddio-supply = <&L12A>; /* 1.8v */
+};
+
+&mdss_dsi0_pll {
+	vddio-supply = <&L12A>; /* 1.8V */
+};
+
+&mdss_dsi1_pll {
+	vddio-supply = <&L12A>; /* 1.8V */
+};
+
+&mdss_dsi0 {
+	/delete-property/ qcom,platform-enable-gpio;
+	vdd-supply = <&vreg_d322_vdd>; /* 2.8v  */
+	qcom,dsi-pref-prim-pan = <&dsi_truly_rm69090_qvga_cmd>;
+};
+
+&pm660_gpios {
+	gpio@cb00 {
+		status = "ok";
+		qcom,mode = <1>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		qcom,out-strength = <2>;
+	};
+};
