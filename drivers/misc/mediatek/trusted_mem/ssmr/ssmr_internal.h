@@ -7,7 +7,8 @@
 #define __SSMR_INTERNAL_H__
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)                                 \
-	|| defined(CONFIG_MTK_TEE_GP_SUPPORT)                                  \
+	|| defined(CONFIG_TRUSTONIC_TEE_SUPPORT)                               \
+	|| defined(CONFIG_MICROTRUST_TEE_SUPPORT)                              \
 	|| defined(CONFIG_MTK_IRIS_SUPPORT)                                    \
 	|| defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 #define SSMR_SECMEM_REGION_ENABLE
@@ -123,7 +124,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.cmd_offline = "svp=off",
 		.region = SSMR_SECMEM,
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) ||\
-	defined(CONFIG_MTK_TEE_GP_SUPPORT)
+	defined(CONFIG_TRUSTONIC_TEE_SUPPORT) ||\
+	defined(CONFIG_MICROTRUST_TEE_SUPPORT)
 		.enable = "on"
 #else
 		.enable = "off"

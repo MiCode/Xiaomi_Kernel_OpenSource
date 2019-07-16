@@ -54,7 +54,7 @@ obj-y += tee_devices.o
 obj-y += tee_impl.o
 tee_impl-y += tee_impl/tee_invoke.o
 
-ifneq ($(filter y,$(CONFIG_MTK_TEE_GP_SUPPORT) \
+ifneq ($(filter y,$(CONFIG_MICROTRUST_TEE_SUPPORT) \
 		  $(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
 tee_impl-y += tee_impl/tee_ops.o
 endif
