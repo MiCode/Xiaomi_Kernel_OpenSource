@@ -18,7 +18,6 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
-#include <crypto/ice.h>
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/jiffies.h>
@@ -44,6 +43,7 @@
 #define PFK_MAX_KEY_SIZE PFK_KC_KEY_SIZE
 #define PFK_MAX_SALT_SIZE PFK_KC_SALT_SIZE
 #define PFK_UFS "ufs"
+#define PFK_UFS_CARD "ufscard"
 
 static DEFINE_SPINLOCK(kc_lock);
 static unsigned long flags;
@@ -99,8 +99,6 @@ struct kc_entry {
 	int loaded_ref_cnt;
 	int scm_error;
 };
-
-static struct kc_entry kc_table[PFK_KC_TABLE_SIZE];
 
 /**
  * kc_is_ready() - driver is initialized and ready.
@@ -247,9 +245,10 @@ static inline struct kc_entry *kc_min_entry(struct kc_entry *a,
  * Return entry
  * Should be invoked under spinlock
  */
-static struct kc_entry *kc_entry_at_index(int index)
+static struct kc_entry *kc_entry_at_index(int index,
+		struct ice_device *ice_dev)
 {
-	return &(kc_table[index]);
+	return (struct kc_entry *)(ice_dev->key_table) + index;
 }
 
 /**
@@ -266,13 +265,13 @@ static struct kc_entry *kc_entry_at_index(int index)
  */
 static struct kc_entry *kc_find_key_at_index(const unsigned char *key,
 	size_t key_size, const unsigned char *salt, size_t salt_size,
-	int *starting_index)
+	struct ice_device *ice_dev, int *starting_index)
 {
 	struct kc_entry *entry = NULL;
 	int i = 0;
 
 	for (i = *starting_index; i < PFK_KC_TABLE_SIZE; i++) {
-		entry = kc_entry_at_index(i);
+		entry = kc_entry_at_index(i, ice_dev);
 
 		if (salt != NULL) {
 			if (entry->salt_size != salt_size)
@@ -305,11 +304,13 @@ static struct kc_entry *kc_find_key_at_index(const unsigned char *key,
  * Should be invoked under spinlock
  */
 static struct kc_entry *kc_find_key(const unsigned char *key, size_t key_size,
-		const unsigned char *salt, size_t salt_size)
+		const unsigned char *salt, size_t salt_size,
+		struct ice_device *ice_dev)
 {
 	int index = 0;
 
-	return kc_find_key_at_index(key, key_size, salt, salt_size, &index);
+	return kc_find_key_at_index(key, key_size, salt, salt_size,
+				ice_dev, &index);
 }
 
 /**
@@ -321,14 +322,15 @@ static struct kc_entry *kc_find_key(const unsigned char *key, size_t key_size,
  * If all the entries are locked, will return NULL
  * Should be invoked under spin lock
  */
-static struct kc_entry *kc_find_oldest_entry_non_locked(void)
+static struct kc_entry *kc_find_oldest_entry_non_locked(
+		struct ice_device *ice_dev)
 {
 	struct kc_entry *curr_min_entry = NULL;
 	struct kc_entry *entry = NULL;
 	int i = 0;
 
 	for (i = 0; i < PFK_KC_TABLE_SIZE; i++) {
-		entry = kc_entry_at_index(i);
+		entry = kc_entry_at_index(i, ice_dev);
 
 		if (entry->state == FREE)
 			return entry;
@@ -399,7 +401,7 @@ static void kc_clear_entry(struct kc_entry *entry)
  */
 static int kc_update_entry(struct kc_entry *entry, const unsigned char *key,
 	size_t key_size, const unsigned char *salt, size_t salt_size,
-	unsigned int data_unit)
+	unsigned int data_unit, struct ice_device *ice_dev)
 {
 	int ret;
 
@@ -416,7 +418,7 @@ static int kc_update_entry(struct kc_entry *entry, const unsigned char *key,
 	kc_spin_unlock();
 
 	ret = qti_pfk_ice_set_key(entry->key_index, entry->key,
-			entry->salt, s_type, data_unit);
+			entry->salt, ice_dev, data_unit);
 
 	kc_spin_lock();
 	return ret;
@@ -427,14 +429,14 @@ static int kc_update_entry(struct kc_entry *entry, const unsigned char *key,
  *
  * Return 0 in case of success, error otherwise
  */
-int pfk_kc_init(void)
+static int pfk_kc_init(struct ice_device *ice_dev)
 {
 	int i = 0;
 	struct kc_entry *entry = NULL;
 
 	kc_spin_lock();
 	for (i = 0; i < PFK_KC_TABLE_SIZE; i++) {
-		entry = kc_entry_at_index(i);
+		entry = kc_entry_at_index(i, ice_dev);
 		entry->key_index = PFK_KC_STARTING_INDEX + i;
 	}
 	kc_ready = true;
@@ -450,11 +452,9 @@ int pfk_kc_init(void)
  */
 int pfk_kc_deinit(void)
 {
-	int res = pfk_kc_clear();
-
 	kc_ready = false;
 
-	return res;
+	return 0;
 }
 
 /**
@@ -483,7 +483,7 @@ int pfk_kc_deinit(void)
  */
 int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 		const unsigned char *salt, size_t salt_size, u32 *key_index,
-		bool async, unsigned int data_unit)
+		bool async, unsigned int data_unit, struct ice_device *ice_dev)
 {
 	int ret = 0;
 	struct kc_entry *entry = NULL;
@@ -509,7 +509,7 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 
 	kc_spin_lock();
 
-	entry = kc_find_key(key, key_size, salt, salt_size);
+	entry = kc_find_key(key, key_size, salt, salt_size, ice_dev);
 	if (!entry) {
 		if (async) {
 			pr_debug("%s task will populate entry\n", __func__);
@@ -517,7 +517,7 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 			return -EAGAIN;
 		}
 
-		entry = kc_find_oldest_entry_non_locked();
+		entry = kc_find_oldest_entry_non_locked(ice_dev);
 		if (!entry) {
 			/* could not find a single non locked entry,
 			 * return EBUSY to upper layers so that the
@@ -539,7 +539,10 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 			kc_update_timestamp(entry);
 			entry->state = ACTIVE_ICE_LOADED;
 
-			if (!strcmp(s_type, (char *)PFK_UFS)) {
+			if (!strcmp(ice_dev->ice_instance_type,
+				(char *)PFK_UFS) ||
+					!strcmp(ice_dev->ice_instance_type,
+						(char *)PFK_UFS_CARD)) {
 				if (async)
 					entry->loaded_ref_cnt++;
 			} else {
@@ -549,7 +552,7 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 		}
 	case (FREE):
 		ret = kc_update_entry(entry, key, key_size, salt, salt_size,
-					data_unit);
+					data_unit, ice_dev);
 		if (ret) {
 			entry->state = SCM_ERROR;
 			entry->scm_error = ret;
@@ -563,7 +566,10 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 			 * sync calls from within work thread do not pass
 			 * requests further to HW
 			 */
-			if (!strcmp(s_type, (char *)PFK_UFS)) {
+			if (!strcmp(ice_dev->ice_instance_type,
+				(char *)PFK_UFS) ||
+					!strcmp(ice_dev->ice_instance_type,
+						(char *)PFK_UFS_CARD)) {
 				if (async)
 					entry->loaded_ref_cnt++;
 			} else {
@@ -578,7 +584,9 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 	case (ACTIVE_ICE_LOADED):
 		kc_update_timestamp(entry);
 
-		if (!strcmp(s_type, (char *)PFK_UFS)) {
+		if (!strcmp(ice_dev->ice_instance_type, (char *)PFK_UFS) ||
+			!strcmp(ice_dev->ice_instance_type,
+				(char *)PFK_UFS_CARD)) {
 			if (async)
 				entry->loaded_ref_cnt++;
 		} else {
@@ -614,7 +622,8 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
  *
  */
 void pfk_kc_load_key_end(const unsigned char *key, size_t key_size,
-		const unsigned char *salt, size_t salt_size)
+		const unsigned char *salt, size_t salt_size,
+		struct ice_device *ice_dev)
 {
 	struct kc_entry *entry = NULL;
 	struct task_struct *tmp_pending = NULL;
@@ -634,7 +643,7 @@ void pfk_kc_load_key_end(const unsigned char *key, size_t key_size,
 
 	kc_spin_lock();
 
-	entry = kc_find_key(key, key_size, salt, salt_size);
+	entry = kc_find_key(key, key_size, salt, salt_size, ice_dev);
 	if (!entry) {
 		kc_spin_unlock();
 		pr_err("internal error, there should an entry to unlock\n");
@@ -666,7 +675,8 @@ void pfk_kc_load_key_end(const unsigned char *key, size_t key_size,
 }
 
 /**
- * pfk_kc_remove_key() - remove the key from cache and from ICE engine
+ * pfk_kc_remove_key_with_salt() - remove the key and salt from cache
+ * and from ICE engine.
  * @key: pointer to the key
  * @key_size: the size of the key
  * @salt: pointer to the key
@@ -679,6 +689,8 @@ int pfk_kc_remove_key_with_salt(const unsigned char *key, size_t key_size,
 		const unsigned char *salt, size_t salt_size)
 {
 	struct kc_entry *entry = NULL;
+	struct list_head *ice_dev_list = NULL;
+	struct ice_device *ice_dev;
 	int res = 0;
 
 	if (!kc_is_ready())
@@ -698,9 +710,26 @@ int pfk_kc_remove_key_with_salt(const unsigned char *key, size_t key_size,
 
 	kc_spin_lock();
 
-	entry = kc_find_key(key, key_size, salt, salt_size);
+	ice_dev_list = get_ice_dev_list();
+	if (!ice_dev_list) {
+		pr_err("%s: Did not find ICE device head\n", __func__);
+		return -ENODEV;
+	}
+	list_for_each_entry(ice_dev, ice_dev_list, list) {
+		entry = kc_find_key(key, key_size, salt, salt_size, ice_dev);
+		if (entry) {
+			pr_debug("%s: Found entry for ice_dev number %d\n",
+					__func__, ice_dev->device_no);
+
+			break;
+		}
+		pr_debug("%s: Can't find  entry for ice_dev number %d\n",
+					__func__, ice_dev->device_no);
+	}
+
 	if (!entry) {
-		pr_debug("%s: key does not exist\n", __func__);
+		pr_debug("%s: Cannot find entry for any ice device\n",
+				__func__);
 		kc_spin_unlock();
 		return -EINVAL;
 	}
@@ -714,7 +743,7 @@ int pfk_kc_remove_key_with_salt(const unsigned char *key, size_t key_size,
 
 	kc_spin_unlock();
 
-	qti_pfk_ice_invalidate_key(entry->key_index, s_type);
+	qti_pfk_ice_invalidate_key(entry->key_index, ice_dev);
 
 	kc_spin_lock();
 	kc_entry_finish_invalidating(entry);
@@ -724,101 +753,12 @@ int pfk_kc_remove_key_with_salt(const unsigned char *key, size_t key_size,
 }
 
 /**
- * pfk_kc_remove_key() - remove the key from cache and from ICE engine
- * when no salt is available. Will only search key part, if there are several,
- * all will be removed
- *
- * @key: pointer to the key
- * @key_size: the size of the key
- *
- * Return 0 in case of success, error otherwise (also for non-existing key)
- */
-int pfk_kc_remove_key(const unsigned char *key, size_t key_size)
-{
-	struct kc_entry *entry = NULL;
-	int index = 0;
-	int temp_indexes[PFK_KC_TABLE_SIZE] = {0};
-	int temp_indexes_size = 0;
-	int i = 0;
-	int res = 0;
-
-	if (!kc_is_ready())
-		return -ENODEV;
-
-	if (!key)
-		return -EINVAL;
-
-	if (key_size != PFK_KC_KEY_SIZE)
-		return -EINVAL;
-
-	memset(temp_indexes, -1, sizeof(temp_indexes));
-
-	kc_spin_lock();
-
-	entry = kc_find_key_at_index(key, key_size, NULL, 0, &index);
-	if (!entry) {
-		pr_err("%s: key does not exist\n", __func__);
-		kc_spin_unlock();
-		return -EINVAL;
-	}
-
-	res = kc_entry_start_invalidating(entry);
-	if (res != 0) {
-		kc_spin_unlock();
-		return res;
-	}
-
-	temp_indexes[temp_indexes_size++] = index;
-	kc_clear_entry(entry);
-
-	/* let's clean additional entries with the same key if there are any */
-	do {
-		index++;
-		entry = kc_find_key_at_index(key, key_size, NULL, 0, &index);
-		if (!entry)
-			break;
-
-		res = kc_entry_start_invalidating(entry);
-		if (res != 0) {
-			kc_spin_unlock();
-			goto out;
-		}
-
-		temp_indexes[temp_indexes_size++] = index;
-
-		kc_clear_entry(entry);
-
-
-	} while (true);
-
-	kc_spin_unlock();
-
-	temp_indexes_size--;
-	for (i = temp_indexes_size; i >= 0 ; i--)
-		qti_pfk_ice_invalidate_key(
-			kc_entry_at_index(temp_indexes[i])->key_index,
-					s_type);
-
-	/* fall through */
-	res = 0;
-
-out:
-	kc_spin_lock();
-	for (i = temp_indexes_size; i >= 0 ; i--)
-		kc_entry_finish_invalidating(
-				kc_entry_at_index(temp_indexes[i]));
-	kc_spin_unlock();
-
-	return res;
-}
-
-/**
  * pfk_kc_clear() - clear the table and remove all keys from ICE
  *
  * Return 0 on success, error otherwise
  *
  */
-int pfk_kc_clear(void)
+int pfk_kc_clear(struct ice_device *ice_dev)
 {
 	struct kc_entry *entry = NULL;
 	int i = 0;
@@ -829,7 +769,7 @@ int pfk_kc_clear(void)
 
 	kc_spin_lock();
 	for (i = 0; i < PFK_KC_TABLE_SIZE; i++) {
-		entry = kc_entry_at_index(i);
+		entry = kc_entry_at_index(i, ice_dev);
 		res = kc_entry_start_invalidating(entry);
 		if (res != 0) {
 			kc_spin_unlock();
@@ -840,15 +780,15 @@ int pfk_kc_clear(void)
 	kc_spin_unlock();
 
 	for (i = 0; i < PFK_KC_TABLE_SIZE; i++)
-		qti_pfk_ice_invalidate_key(kc_entry_at_index(i)->key_index,
-					s_type);
+		qti_pfk_ice_invalidate_key(
+			kc_entry_at_index(i, ice_dev)->key_index, ice_dev);
 
 	/* fall through */
 	res = 0;
 out:
 	kc_spin_lock();
 	for (i = 0; i < PFK_KC_TABLE_SIZE; i++)
-		kc_entry_finish_invalidating(kc_entry_at_index(i));
+		kc_entry_finish_invalidating(kc_entry_at_index(i, ice_dev));
 	kc_spin_unlock();
 
 	return res;
@@ -862,7 +802,7 @@ out:
  * Return 0 on success, error otherwise
  *
  */
-void pfk_kc_clear_on_reset(void)
+void pfk_kc_clear_on_reset(struct ice_device *ice_dev)
 {
 	struct kc_entry *entry = NULL;
 	int i = 0;
@@ -872,7 +812,7 @@ void pfk_kc_clear_on_reset(void)
 
 	kc_spin_lock();
 	for (i = 0; i < PFK_KC_TABLE_SIZE; i++) {
-		entry = kc_entry_at_index(i);
+		entry = kc_entry_at_index(i, ice_dev);
 		kc_clear_entry(entry);
 	}
 	kc_spin_unlock();
@@ -893,6 +833,24 @@ static int pfk_kc_find_storage_type(char **device)
 		return 0;
 	}
 	return -EINVAL;
+}
+
+int pfk_kc_initialize_key_table(struct ice_device *ice_dev)
+{
+	int res = 0;
+	struct kc_entry *kc_table;
+
+	kc_table = kzalloc(PFK_KC_TABLE_SIZE*sizeof(struct kc_entry),
+			GFP_KERNEL);
+	if (!kc_table) {
+		res = -ENOMEM;
+		pr_err("%s: Error %d allocating memory for key table\n",
+			__func__, res);
+	}
+	ice_dev->key_table = kc_table;
+	pfk_kc_init(ice_dev);
+
+	return res;
 }
 
 static int __init pfk_kc_pre_init(void)

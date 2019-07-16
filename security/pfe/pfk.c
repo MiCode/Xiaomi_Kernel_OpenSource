@@ -99,14 +99,6 @@ static int __init pfk_init(void)
 	if (ret != 0)
 		goto fail;
 
-	ret = pfk_kc_init();
-	if (ret != 0) {
-		pr_err("could init pfk key cache, error %d\n", ret);
-		pfk_ext4_deinit();
-		pfk_f2fs_deinit();
-		goto fail;
-	}
-
 	pfk_ready = true;
 	pr_debug("Driver initialized successfully\n");
 
@@ -343,7 +335,7 @@ static int pfk_get_key_for_bio(const struct bio *bio,
  * Must be followed by pfk_load_key_end when key is no longer used by ice
  *
  */
-int pfk_load_key_start(const struct bio *bio,
+int pfk_load_key_start(const struct bio *bio, struct ice_device *ice_dev,
 		struct ice_crypto_setting *ice_setting, bool *is_pfe,
 		bool async)
 {
@@ -386,7 +378,7 @@ int pfk_load_key_start(const struct bio *bio,
 
 	ret = pfk_kc_load_key_start(key_info.key, key_info.key_size,
 			key_info.salt, key_info.salt_size, &key_index, async,
-			data_unit);
+			data_unit, ice_dev);
 	if (ret) {
 		if (ret != -EBUSY && ret != -EAGAIN)
 			pr_err("start: could not load key into pfk key cache, error %d\n",
@@ -418,7 +410,8 @@ int pfk_load_key_start(const struct bio *bio,
  * @is_pfe: Pointer to is_pfe flag, which will be true if function was invoked
  *			from PFE context
  */
-int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
+int pfk_load_key_end(const struct bio *bio, struct ice_device *ice_dev,
+			bool *is_pfe)
 {
 	int ret = 0;
 	struct pfk_key_info key_info = {NULL, NULL, 0, 0};
@@ -442,7 +435,7 @@ int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
 		return ret;
 
 	pfk_kc_load_key_end(key_info.key, key_info.key_size,
-		key_info.salt, key_info.salt_size);
+		key_info.salt, key_info.salt_size, ice_dev);
 
 	pr_debug("finished using key for file %s\n",
 		inode_to_filename(pfk_bio_get_inode(bio)));
@@ -536,12 +529,22 @@ int pfk_fbe_clear_key(const unsigned char *key, size_t key_size,
  * is lost in ICE. We need to flash the cache, so that the keys will be
  * reconfigured again for every subsequent transaction
  */
-void pfk_clear_on_reset(void)
+void pfk_clear_on_reset(struct ice_device *ice_dev)
 {
 	if (!pfk_is_ready())
 		return;
 
-	pfk_kc_clear_on_reset();
+	pfk_kc_clear_on_reset(ice_dev);
+}
+
+int pfk_remove(struct ice_device *ice_dev)
+{
+	return pfk_kc_clear(ice_dev);
+}
+
+int pfk_initialize_key_table(struct ice_device *ice_dev)
+{
+	return pfk_kc_initialize_key_table(ice_dev);
 }
 
 module_init(pfk_init);
