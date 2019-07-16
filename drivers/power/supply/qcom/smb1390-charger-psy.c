@@ -74,6 +74,7 @@
 #define CORE_FTRIM_CTRL_REG		0x1031
 #define TEMP_ALERT_LVL_MASK		GENMASK(6, 5)
 #define TEMP_ALERT_LVL_SHIFT		5
+#define TEMP_BUFFER_OUTPUT_BIT		BIT(7)
 
 #define CORE_FTRIM_LVL_REG		0x1033
 #define CFG_WIN_HI_MASK			GENMASK(3, 2)
@@ -1828,6 +1829,15 @@ static int smb1390_slave_probe(struct smb1390 *chip)
 	rc = smb1390_triple_init_hw(chip);
 	if (rc < 0)
 		return rc;
+
+	/* Configure Slave CP Temp buffer O/P to High Impedance */
+	rc = smb1390_masked_write(chip, CORE_FTRIM_CTRL_REG,
+				  TEMP_BUFFER_OUTPUT_BIT,
+				  TEMP_BUFFER_OUTPUT_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't configure Slave temp Buffer rc=%d\n", rc);
+		return rc;
+	}
 
 	rc = smb1390_init_cps_psy(chip);
 	if (rc < 0)
