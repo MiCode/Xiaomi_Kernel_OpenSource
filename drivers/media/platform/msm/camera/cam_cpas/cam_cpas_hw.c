@@ -236,6 +236,12 @@ static int cam_cpas_util_axi_cleanup(struct cam_cpas *cpas_core,
 {
 	int i = 0;
 
+	if (cpas_core->num_axi_ports > CAM_CPAS_MAX_AXI_PORTS) {
+		CAM_ERR(CAM_CPAS, "Invalid num_axi_ports: %d",
+			cpas_core->num_axi_ports);
+		return -EINVAL;
+	}
+
 	for (i = 0; i < cpas_core->num_axi_ports; i++) {
 		cam_cpas_util_unregister_bus_client(
 			&cpas_core->axi_port[i].bus_client);
@@ -251,6 +257,12 @@ static int cam_cpas_util_axi_setup(struct cam_cpas *cpas_core,
 {
 	int i = 0, rc = 0;
 	struct device_node *axi_port_mnoc_node = NULL;
+
+	if (cpas_core->num_axi_ports > CAM_CPAS_MAX_AXI_PORTS) {
+		CAM_ERR(CAM_CPAS, "Invalid num_axi_ports: %d",
+			cpas_core->num_axi_ports);
+		return -EINVAL;
+	}
 
 	for (i = 0; i < cpas_core->num_axi_ports; i++) {
 		axi_port_mnoc_node = cpas_core->axi_port[i].axi_port_node;
