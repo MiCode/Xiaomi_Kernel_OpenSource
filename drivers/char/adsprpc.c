@@ -60,8 +60,12 @@
 #define AUDIO_PDR_ADSP_SERVICE_NAME              "avs/audio"
 #define ADSP_AUDIOPD_NAME                        "msm/adsp/audio_pd"
 
-#define SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME "sensors_pdr_sdsprpc"
-#define SENSORS_PDR_SLPI_SERVICE_NAME            "tms/servreg"
+#define SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME   "sensors_pdr_adsprpc"
+#define SENSORS_PDR_ADSP_SERVICE_NAME              "tms/servreg"
+#define ADSP_SENSORPD_NAME                       "msm/adsp/sensor_pd"
+
+#define SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME "sensors_pdr_sdsprpc"
+#define SENSORS_PDR_SLPI_SERVICE_NAME            SENSORS_PDR_ADSP_SERVICE_NAME
 #define SLPI_SENSORPD_NAME                       "msm/slpi/sensor_pd"
 
 #define RPC_TIMEOUT	(5 * HZ)
@@ -408,6 +412,14 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 						fastrpc_pdr_notifier_cb,
 				.cid = ADSP_DOMAIN_ID,
 			},
+			{
+				.servloc_name =
+				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME,
+				.spdname = ADSP_SENSORPD_NAME,
+				.pdrnb.notifier_call =
+						fastrpc_pdr_notifier_cb,
+				.cid = ADSP_DOMAIN_ID,
+			}
 		},
 	},
 	{
@@ -425,7 +437,7 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.spd = {
 			{
 				.servloc_name =
-				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME,
+				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME,
 				.spdname = SLPI_SENSORPD_NAME,
 				.pdrnb.notifier_call =
 						fastrpc_pdr_notifier_cb,
@@ -2046,8 +2058,12 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (init->flags == FASTRPC_INIT_ATTACH)
 			fl->pd = 0;
 		else if (init->flags == FASTRPC_INIT_ATTACH_SENSORS) {
-			fl->servloc_name =
-				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME;
+			if (fl->cid == ADSP_DOMAIN_ID)
+				fl->servloc_name =
+				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME;
+			else if (fl->cid == SDSP_DOMAIN_ID)
+				fl->servloc_name =
+				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME;
 			fl->pd = 2;
 		}
 		VERIFY(err, !(err = fastrpc_internal_invoke(fl,
@@ -2180,7 +2196,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (!strcmp(proc_name, "audiopd")) {
 			fl->servloc_name =
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME;
-			err = fastrpc_mmap_remove_pdr(fl);
+			VERIFY(err, !fastrpc_mmap_remove_pdr(fl));
 			if (err)
 				goto bail;
 		}
@@ -3938,7 +3954,12 @@ static int fastrpc_get_service_location_notify(struct notifier_block *nb,
 				ADSP_AUDIOPD_NAME))) {
 			goto pdr_register;
 		} else if ((!strcmp(spd->servloc_name,
-				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME))
+				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME))
+				&& (!strcmp(pdr->domain_list[i].name,
+				ADSP_SENSORPD_NAME))) {
+			goto pdr_register;
+		} else if ((!strcmp(spd->servloc_name,
+				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME))
 				&& (!strcmp(pdr->domain_list[i].name,
 				SLPI_SENSORPD_NAME))) {
 			goto pdr_register;
@@ -4240,23 +4261,44 @@ static int fastrpc_probe(struct platform_device *pdev)
 	if (of_property_read_bool(dev->of_node,
 					"qcom,fastrpc-adsp-sensors-pdr")) {
 		err = fastrpc_get_spd_session(
-		SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME, &session, &cid);
+		SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME, &session, &cid);
 		if (err)
 			goto spdbail;
 		me->channel[cid].spd[session].get_service_nb.notifier_call =
 					fastrpc_get_service_location_notify;
 		ret = get_service_location(
-				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME,
+				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME,
+				SENSORS_PDR_ADSP_SERVICE_NAME,
+				&me->channel[cid].spd[session].get_service_nb);
+		if (ret)
+			pr_warn("adsprpc: %s: get service location failed with %d for %s (%s)\n",
+				__func__, ret, SENSORS_PDR_SLPI_SERVICE_NAME,
+				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
+		else
+			pr_debug("adsprpc: %s: service location enabled for %s (%s)\n",
+				__func__, SENSORS_PDR_SLPI_SERVICE_NAME,
+				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
+	}
+	if (of_property_read_bool(dev->of_node,
+					"qcom,fastrpc-slpi-sensors-pdr")) {
+		err = fastrpc_get_spd_session(
+		SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME, &session, &cid);
+		if (err)
+			goto spdbail;
+		me->channel[cid].spd[session].get_service_nb.notifier_call =
+					fastrpc_get_service_location_notify;
+		ret = get_service_location(
+				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME,
 				SENSORS_PDR_SLPI_SERVICE_NAME,
 				&me->channel[cid].spd[session].get_service_nb);
 		if (ret)
 			pr_warn("adsprpc: %s: get service location failed with %d for %s (%s)\n",
 				__func__, ret, SENSORS_PDR_SLPI_SERVICE_NAME,
-				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME);
+				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME);
 		else
 			pr_debug("adsprpc: %s: service location enabled for %s (%s)\n",
 				__func__, SENSORS_PDR_SLPI_SERVICE_NAME,
-				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME);
+				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME);
 	}
 spdbail:
 	err = of_platform_populate(pdev->dev.of_node,
