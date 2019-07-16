@@ -802,10 +802,6 @@ static void cnss_pci_deinit_mhi(struct cnss_pci_data *pci_priv)
 	if (test_bit(FBC_BYPASS, &plat_priv->ctrl_params.quirks))
 		return;
 
-	if (plat_priv->ramdump_info_v2.dump_data_valid ||
-	    test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state))
-		return;
-
 	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_DEINIT);
 }
 
@@ -1312,7 +1308,10 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 	ret = cnss_suspend_pci_link(pci_priv);
 	if (ret)
 		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
-	cnss_pci_deinit_mhi(pci_priv);
+	if (!plat_priv->ramdump_info_v2.dump_data_valid &&
+	    !test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state))
+		cnss_pci_deinit_mhi(pci_priv);
+
 	cnss_power_off_device(plat_priv);
 
 	pci_priv->remap_window = 0;
