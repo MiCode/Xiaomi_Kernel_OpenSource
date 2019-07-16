@@ -171,9 +171,8 @@
 
 		config {
 			pins = "gpio12","gpio69";
-			bias-pull-down; /* PULL DOWN */
+			bias-disable; /* No PULL */
 			drive-strength = <2>; /* 2 MA */
-			output-low;
 		};
 	};
 };
