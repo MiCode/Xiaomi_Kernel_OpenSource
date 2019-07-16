@@ -143,6 +143,13 @@ static void mdm_handle_clink_evt(enum esoc_evt evt,
 		mdm_drv->pon_state = PON_FAIL;
 		complete(&mdm_drv->pon_done);
 		break;
+	case ESOC_BOOT_STATE:
+		if (mdm_drv->mode == PWR_OFF) {
+			esoc_mdm_log(
+			"ESOC_BOOT_STATE: Observed status high from modem.\n");
+			mdm_drv->mode = BOOT;
+		}
+		break;
 	case ESOC_RUN_STATE:
 		esoc_mdm_log(
 		"ESOC_RUN_STATE: Calling complete with state: PON_SUCCESS\n");
