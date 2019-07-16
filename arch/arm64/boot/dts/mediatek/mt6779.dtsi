@@ -17,6 +17,7 @@
 #include <dt-bindings/pinctrl/mt6779-pinfunc.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
 #include <dt-bindings/interconnect/mtk,mt6779-emi.h>
+#include <dt-bindings/usb/pd.h>
 
 / {
 	compatible = "mediatek,mt6779";
@@ -3496,7 +3497,7 @@
 		mt6360_chg: chg {
 			compatible = "mediatek,mt6360_chg";
 			vinovp = <14500000>;
-			usb-otg-vbus {
+			otg_vbus: usb-otg-vbus {
 				regulator-compatible = "usb-otg-vbus";
 				regulator-name = "usb-otg-vbus";
 				regulator-min-microvolt = <4425000>;
@@ -3570,6 +3571,29 @@
 				regulator-min-microvolt = <2700000>;
 				regulator-max-microvolt = <3600000>;
 				regulator-allowed-modes = <0 2>;
+			};
+		};
+		tcpc {
+			compatible = "mediatek,mt6360_tcpc";
+			wakeup-source;
+			interrupt-parent = <&pio>;
+			interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
+			interrupt-names = "PD_IRQB";
+			extcon = <&mt6360_chg>;
+			charger = <&mt6360_chg>;
+			otg-vbus-supply = <&otg_vbus>;
+
+			connector {
+				compatible = "usb-c-connector";
+				label = "USB-C";
+				data-role = "dual";
+				power-role = "dual";
+				try-power-role = "sink";
+				source-pdos =
+				    <PDO_FIXED(5000, 1000, PDO_FIXED_USB_COMM)>;
+				sink-pdos =
+				    <PDO_FIXED(5000, 2000, PDO_FIXED_USB_COMM)>;
+				op-sink-microwatt = <10000000>;
 			};
 		};
 	};
