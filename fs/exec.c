@@ -1808,7 +1808,7 @@ static int do_execveat_common(int fd, struct filename *filename,
 	current->in_execve = 0;
 	membarrier_execve(current);
 	acct_update_integrals(current);
-	task_numa_free(current);
+	task_numa_free(current, false);
 	free_bprm(bprm);
 	kfree(pathbuf);
 	putname(filename);
