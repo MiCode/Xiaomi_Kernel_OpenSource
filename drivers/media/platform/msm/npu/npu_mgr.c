@@ -86,11 +86,20 @@ static int load_fw_nolock(struct npu_device *npu_dev, bool enable)
 	}
 
 	/* Boot the NPU subsystem */
+	reinit_completion(&host_ctx->npu_power_up_done);
 	host_ctx->subsystem_handle = subsystem_get_local("npu");
 	if (IS_ERR_OR_NULL(host_ctx->subsystem_handle)) {
 		NPU_ERR("pil load npu fw failed\n");
 		host_ctx->subsystem_handle = NULL;
 		ret = -ENODEV;
+		goto load_fw_fail;
+	}
+
+	ret = wait_for_completion_timeout(
+		&host_ctx->npu_power_up_done, NW_CMD_TIMEOUT);
+	if (!ret) {
+		NPU_ERR("Wait for npu powers up timed out\n");
+		ret = -ETIMEDOUT;
 		goto load_fw_fail;
 	}
 
@@ -106,6 +115,12 @@ static int load_fw_nolock(struct npu_device *npu_dev, bool enable)
 	NPU_DBG("firmware init complete\n");
 
 	host_ctx->fw_state = FW_ENABLED;
+	ret = npu_enable_irq(npu_dev);
+	if (ret) {
+		NPU_ERR("Enable irq failed\n");
+		goto load_fw_fail;
+	}
+
 	if (enable) {
 		ret = npu_notify_fw_pwr_state(npu_dev,
 			npu_dev->pwrctrl.active_pwrlevel, true);
@@ -498,11 +513,7 @@ static int npu_notifier_cb(struct notifier_block *this, unsigned long code,
 
 		/* Initialize the host side IPC before fw boots up */
 		npu_host_ipc_pre_init(npu_dev);
-
-		ret = npu_enable_irq(npu_dev);
-		if (ret)
-			NPU_WARN("Enable irq failed\n");
-
+		complete(&host_ctx->npu_power_up_done);
 		break;
 	}
 	case SUBSYS_AFTER_POWERUP:
@@ -540,6 +551,7 @@ int npu_host_init(struct npu_device *npu_dev)
 	init_completion(&host_ctx->fw_deinit_done);
 	init_completion(&host_ctx->fw_bringup_done);
 	init_completion(&host_ctx->fw_shutdown_done);
+	init_completion(&host_ctx->npu_power_up_done);
 	mutex_init(&host_ctx->lock);
 	spin_lock_init(&host_ctx->bridge_mbox_lock);
 	atomic_set(&host_ctx->ipc_trans_id, 1);
@@ -716,6 +728,7 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 	/* clear FW_CTRL_STATUS register before restart */
 	REGW(npu_dev, REG_NPU_FW_CTRL_STATUS, 0x0);
 
+	reinit_completion(&host_ctx->npu_power_up_done);
 	ret = subsystem_restart_dev(host_ctx->subsystem_handle);
 	if (ret) {
 		NPU_ERR("npu subsystem restart failed\n");
@@ -723,6 +736,14 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 		goto fw_start_done;
 	}
 	NPU_INFO("npu subsystem is restarted\n");
+
+	ret = wait_for_completion_timeout(
+		&host_ctx->npu_power_up_done, NW_CMD_TIMEOUT);
+	if (!ret) {
+		NPU_ERR("Wait for npu powers up timed out\n");
+		ret = -ETIMEDOUT;
+		goto fw_start_done;
+	}
 
 	/* Keep reading ctrl status until NPU is ready */
 	NPU_DBG("waiting for status ready from fw\n");
@@ -737,6 +758,10 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 	NPU_DBG("firmware init complete\n");
 
 	host_ctx->fw_state = FW_ENABLED;
+
+	ret = npu_enable_irq(npu_dev);
+	if (ret)
+		NPU_ERR("Enable irq failed\n");
 
 fw_start_done:
 	/* mark all existing network to error state */
