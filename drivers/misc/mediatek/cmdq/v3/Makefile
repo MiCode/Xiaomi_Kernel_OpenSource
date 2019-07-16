@@ -21,6 +21,14 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include/ \
              -I$(srctree)/drivers/iommu/
 
+ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
+ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public/ \
+             -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public/GP/
+endif	# end pf CONFIG_TRUSTONIC_TEE_SUPPORT
+
+ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
+endif	# end of CONFIG_MICROTRUST_TEE_SUPPORT
+
 # mdp platform code
 #MDP_PLATFORM_DIR=$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)
 
@@ -48,22 +56,10 @@ endif
 ifeq ($(or $(strip $(CONFIG_TRUSTONIC_TEE_SUPPORT)), $(strip $(CONFIG_MICROTRUST_TEE_SUPPORT))),y)
 ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
 
-ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
-include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
-endif
-
-ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
-include $(srctree)/drivers/misc/mediatek/teei/Makefile.include
-endif	# end of CONFIG_MICROTRUST_TEE_SUPPORT
-
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/inc/cmdq_sec_dr \
              -I$(srctree)/drivers/misc/mediatek/cmdq/v3/inc/cmdq_sec_tl
 
 ccflags-y += -DCMDQ_SECURE_PATH_SUPPORT
-
-ifeq ($(strip $(CONFIG_MTK_TEE_GP_SUPPORT)),y)
-ccflags-y += -DCMDQ_GP_SUPPORT
-endif
 
 ccflags-y += -DCMDQ_EVENT_SVP_BACKUP
 endif	# end of CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT or CONFIG_MTK_CAM_SECURITY_SUPPORT
@@ -99,13 +95,7 @@ endif
 #endif
 
 ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
-
 obj-y += cmdq_sec.o
-ifeq ($(strip $(CONFIG_MTK_TEE_GP_SUPPORT)),y)
 obj-y += cmdq_sec_gp.o
-else ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
-obj-y += cmdq_sec_trustonic.o
-endif
-
 endif	# end of CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT or CONFIG_MTK_CAM_SECURITY_SUPPORT
 

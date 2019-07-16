@@ -5,7 +5,6 @@
 
 #include <linux/slab.h>
 #include <linux/delay.h>
-#include <mt-plat/sync_write.h>
 
 #include "cmdq_sec.h"
 #include "cmdq_def.h"
@@ -49,7 +48,8 @@
 #define CMDQ_THR_ACTIVE_SLOT_CYCLES	0x3200
 #define CMDQ_THR_DISABLED		0x0
 #define CMDQ_REG_GET32(addr)		(readl((void *)addr) & 0xFFFFFFFF)
-#define CMDQ_REG_SET32(addr, val)	mt_reg_sync_writel(val, (addr))
+#define CMDQ_REG_SET32(addr, val)	writel(val, ((void *)(unsigned long)\
+					       (addr)))
 #define CMDQ_CMD_CNT			(CMDQ_NUM_CMD(CMDQ_CMD_BUFFER_SIZE) - 1)
 
 
@@ -974,13 +974,13 @@ static void cmdq_sec_irq_notify_start(void)
 		return;
 	}
 
-	cmdq_pkt_cl_create(&cmdq_sec_irq_pkt, clt);
+	cmdq_sec_irq_pkt = cmdq_pkt_create(clt, PAGE_SIZE);
 	cmdq_pkt_wfe(cmdq_sec_irq_pkt, CMDQ_SYNC_TOKEN_SEC_DONE);
 	cmdq_pkt_finalize_loop(cmdq_sec_irq_pkt);
 
 	cmdqCoreClearEvent(CMDQ_SYNC_TOKEN_SEC_DONE);
 
-	err = cmdq_pkt_flush_async(clt, cmdq_sec_irq_pkt,
+	err = cmdq_pkt_flush_async(cmdq_sec_irq_pkt,
 		cmdq_sec_irq_notify_callback, (void *)g_cmdq);
 	if (err < 0) {
 		CMDQ_ERR("fail to start irq thread err:%s\n", err);
@@ -2027,9 +2027,9 @@ static void cmdq_sec_thread_irq_handle_by_cookie(
 	spin_unlock_irqrestore(&cmdq_sec_task_list_lock, flags);
 }
 
-static void cmdq_sec_thread_handle_timeout(unsigned long data)
+static void cmdq_sec_thread_handle_timeout(struct timer_list *t)
 {
-	struct cmdq_sec_thread *thread = (struct cmdq_sec_thread *)data;
+	struct cmdq_sec_thread *thread = from_timer(thread, t, timeout);
 	struct cmdq *cmdq = container_of(thread->chan->mbox, struct cmdq, mbox);
 
 	if (!work_pending(&thread->timeout_work))
@@ -2084,9 +2084,8 @@ static int cmdq_mbox_startup(struct mbox_chan *chan)
 	/* initialize when request channel */
 	struct cmdq_sec_thread *thread = chan->con_priv;
 
-	init_timer(&thread->timeout);
-	thread->timeout.function = cmdq_sec_thread_handle_timeout;
-	thread->timeout.data = (unsigned long)thread;
+	timer_setup(&thread->timeout, cmdq_sec_thread_handle_timeout,
+		(unsigned long)thread);
 	INIT_WORK(&thread->timeout_work, cmdq_sec_task_timeout_work);
 	thread->task_exec_wq = create_singlethread_workqueue("task_exec_wq");
 	thread->occupied = true;

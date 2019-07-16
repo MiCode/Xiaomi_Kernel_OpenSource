@@ -5060,6 +5060,12 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 			cmdq_mbox_set_thread_timeout(clt->chan,
 				CMDQ_NO_TIMEOUT);
 
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+		else if (chan_id == CMDQ_SEC_IRQ_THREAD)
+			cmdq_mbox_set_thread_timeout(clt->chan,
+				CMDQ_NO_TIMEOUT);
+#endif
+
 		if (chan_id < 0 || cmdq_clients[chan_id]) {
 			CMDQ_ERR("channel and client duplicate:%d\n", chan_id);
 			cmdq_mbox_destroy(clt);
