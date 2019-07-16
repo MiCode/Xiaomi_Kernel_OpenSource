@@ -1,5 +1,13 @@
 source "drivers/misc/mediatek/Kconfig.default"
 
+config MTK_ENG_BUILD
+	bool "MTK Engineer Build"
+	help
+	  This is an option for developers. Say Y here for MTK engineering
+	  mode, which will have more debugging features built-in.
+	  Please set N for user mode to avoid performance impact.
+	  If unsure, say N here.
+
 menu "Storage"
 
 endmenu # Storage
