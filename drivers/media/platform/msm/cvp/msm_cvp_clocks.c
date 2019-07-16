@@ -232,87 +232,16 @@ static unsigned long msm_cvp_calc_freq(struct msm_cvp_inst *inst,
 int msm_cvp_set_clocks(struct msm_cvp_core *core)
 {
 	struct cvp_hfi_device *hdev;
-	unsigned long freq_core_1 = 0, freq_core_2 = 0, rate = 0;
-	unsigned long freq_core_max = 0;
-	struct msm_cvp_inst *temp = NULL;
-	int rc = 0, i = 0;
-	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
-	bool increment, decrement;
+	int rc;
 
-	hdev = core->device;
-	allowed_clks_tbl = core->resources.allowed_clks_tbl;
-	if (!allowed_clks_tbl) {
-		dprintk(CVP_ERR,
-			"%s Invalid parameters\n", __func__);
+	if (!core || !core->device) {
+		dprintk(CVP_ERR, "%s Invalid args: %pK\n", __func__, core);
 		return -EINVAL;
 	}
 
-	mutex_lock(&core->lock);
-	increment = false;
-	decrement = true;
-	list_for_each_entry(temp, &core->instances, list) {
-
-		if (temp->clk_data.core_id == CVP_CORE_ID_1)
-			freq_core_1 += temp->clk_data.min_freq;
-		else if (temp->clk_data.core_id == CVP_CORE_ID_2)
-			freq_core_2 += temp->clk_data.min_freq;
-		else if (temp->clk_data.core_id == CVP_CORE_ID_3) {
-			freq_core_1 += temp->clk_data.min_freq;
-			freq_core_2 += temp->clk_data.min_freq;
-		}
-
-		freq_core_max = max_t(unsigned long, freq_core_1, freq_core_2);
-
-		if (msm_cvp_clock_voting) {
-			dprintk(CVP_PROF,
-				"msm_cvp_clock_voting %d\n",
-				 msm_cvp_clock_voting);
-			freq_core_max = msm_cvp_clock_voting;
-			break;
-		}
-
-		if (temp->clk_data.turbo_mode) {
-			dprintk(CVP_PROF,
-				"Found an instance with Turbo request\n");
-			freq_core_max = msm_cvp_max_freq(core);
-			break;
-		}
-		/* increment even if one session requested for it */
-		if (temp->clk_data.dcvs_flags & MSM_CVP_DCVS_INCR)
-			increment = true;
-		/* decrement only if all sessions requested for it */
-		if (!(temp->clk_data.dcvs_flags & MSM_CVP_DCVS_DECR))
-			decrement = false;
-	}
-
-	/*
-	 * keep checking from lowest to highest rate until
-	 * table rate >= requested rate
-	 */
-	for (i = 0; i < core->resources.allowed_clks_tbl_size;  i++) {
-		rate = allowed_clks_tbl[i].clock_rate;
-		if (rate >= freq_core_max)
-			break;
-	}
-	if (increment) {
-		if (i > 0)
-			rate = allowed_clks_tbl[i-1].clock_rate;
-	} else if (decrement) {
-		if (i < (core->resources.allowed_clks_tbl_size - 1))
-			rate = allowed_clks_tbl[i+1].clock_rate;
-	}
-
-	core->min_freq = freq_core_max;
-	core->curr_freq = rate;
-	mutex_unlock(&core->lock);
-
-	dprintk(CVP_PROF,
-		"%s: clock rate %lu requested %lu increment %d decrement %d\n",
-		__func__, core->curr_freq, core->min_freq,
-		increment, decrement);
+	hdev = core->device;
 	rc = call_hfi_op(hdev, scale_clocks,
-			hdev->hfi_device_data, core->curr_freq);
-
+		hdev->hfi_device_data, core->curr_freq);
 	return rc;
 }
 
