@@ -1,0 +1,19 @@
+--- rogue_km/services/server/env/linux/physmem_osmem_linux.c	2019-04-26 02:39:36.000000000 +0800
++++ rogue_km/services/server/env/linux/physmem_osmem_linux.c	2019-06-17 11:14:15.291701094 +0800
+@@ -1258,11 +1258,16 @@
+ 		else if (*psDev->dma_mask == DMA_BIT_MASK(32))
+ 		{
+ 			/* Limit to 32 bit.
+ 			 * Achieved by NOT setting __GFP_HIGHMEM for 32 bit systems and
+ 			 * setting __GFP_DMA32 for 64 bit systems */
++#if defined(CONFIG_MACH_MT6739)
++			/* change to use __GFP_HIGHMEM since __GFP_DMA32 can access only 512 MB DRAM */
++			gfp_flags |= __GFP_HIGHMEM;
++#else
+ 			gfp_flags |= __GFP_DMA32;
++#endif
+ 		}
+ 		else
+ 		{
+ 			/* Limit to size of DMA zone. */
+ 			gfp_flags |= __GFP_DMA;
