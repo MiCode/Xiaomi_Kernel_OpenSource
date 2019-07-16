@@ -308,12 +308,18 @@ static const struct mfd_cell mt6360_devs[] = {
 	MT6360_MFD_CELL(mt6360_led),
 	MT6360_MFD_CELL(mt6360_pmic),
 	MT6360_MFD_CELL(mt6360_ldo),
+	/* tcpc dev */
+	{
+		.name = "mt6360_tcpc",
+		.of_compatible = "mediatek,mt6360_tcpc",
+	},
 };
 
 static const unsigned short mt6360_slave_addr[MT6360_SLAVE_MAX] = {
 	MT6360_PMU_SLAVEID,
 	MT6360_PMIC_SLAVEID,
 	MT6360_LDO_SLAVEID,
+	MT6360_TCPC_SLAVEID,
 };
 
 static int mt6360_pmu_probe(struct i2c_client *client,
