@@ -622,7 +622,7 @@ static void isdb_write(void __iomem *base, u32 offset)
 
 static void set_isdb_breakpoint_registers(struct kgsl_device *device)
 {
-	if (!device->set_isdb_breakpoint || !device->ftbl->is_hwcg_on(device)
+	if (!device->set_isdb_breakpoint || device->ftbl->is_hwcg_on(device)
 					|| device->qdss_gfx_virt == NULL)
 		return;
 
