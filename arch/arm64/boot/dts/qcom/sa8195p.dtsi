@@ -111,3 +111,17 @@
 	qcom,default-mode-host;
 	status = "ok";
 };
+
+&slpi_tlmm {
+	status = "ok";
+};
+
+&pil_ssc {
+	vdd_cx-supply = <&VDD_CX_LEVEL>;
+	vdd_mx-supply = <&VDD_MX_LEVEL>;
+	status = "ok";
+};
+
+&ssc_sensors {
+	status = "disabled";
+};
