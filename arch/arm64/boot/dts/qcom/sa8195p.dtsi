@@ -12,6 +12,10 @@
 
 #include "sdmshrike-v2.dtsi"
 #include "sa8155-audio.dtsi"
+#include "sa8195-pmic.dtsi"
+#include "sm8150-camera.dtsi"
+#include "sm8150-v2-camera.dtsi"
+#include "sa8155-camera-sensor.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SA8195P";
@@ -104,5 +108,120 @@
 			iommus = <&apps_smmu 0x7C0 0x0>;
 			qcom,iova-mapping = <0x80000000 0x40000000>;
 		};
+	};
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4";
+	vdda-phy-supply = <&pm8195_3_l5>;
+	vdda-pll-supply = <&pm8195_1_l9>;
+	vdda-phy-max-microamp = <138000>;
+	vdda-pll-max-microamp = <65100>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8195_3_l10>;
+	vcc-voltage-level = <2894000 2904000>;
+	vcc-low-voltage-sup;
+	vccq-supply = <&pm8195_1_l11>;
+	vccq2-supply = <&pm8195_3_l7>;
+	vcc-max-microamp = <750000>;
+	vccq-max-microamp = <750000>;
+	vccq2-max-microamp = <750000>;
+
+	status= "ok";
+};
+
+&usb2_phy0 {
+	vdd-supply = <&pm8195_3_l5>;
+	vdda18-supply = <&pm8195_1_l12>;
+	vdda33-supply = <&pm8195_3_l16>;
+};
+
+&usb2_phy1 {
+	vdd-supply = <&pm8195_3_l5>;
+	vdda18-supply = <&pm8195_1_l12>;
+	vdda33-supply = <&pm8195_3_l16>;
+	status = "ok";
+};
+
+&mdss_dsi_phy0 {
+	vdda-0p9-supply = <&pm8195_3_l5>;
+};
+
+&mdss_dsi_phy1 {
+	vdda-0p9-supply = <&pm8195_3_l5>;
+};
+
+&mdss_dsi0 {
+	vdda-1p2-supply = <&pm8195_1_l9>;
+};
+
+&mdss_dsi1 {
+	vdda-1p2-supply = <&pm8195_1_l9>;
+};
+
+&sde_dp {
+	vdda-1p2-supply = <&pm8195_1_l9>;
+	vdda-0p9-supply = <&pm8195_3_l5>;
+};
+
+&pil_lpass {
+	vdd_cx-supply = <&VDD_CX_LEVEL>;
+	status = "ok";
+};
+
+&clock_scc {
+	vdd_scc_cx-supply = <&pm8195_3_l8_level>;
+	status = "ok";
+};
+
+&cam_csiphy0 {
+	mipi-csi-vdd-supply = <&pm8195_1_l9>;
+};
+
+&cam_csiphy1 {
+	mipi-csi-vdd-supply = <&pm8195_1_l9>;
+};
+
+&cam_csiphy2 {
+	mipi-csi-vdd-supply = <&pm8195_1_l9>;
+};
+
+&cam_csiphy3 {
+	mipi-csi-vdd-supply = <&pm8195_1_l9>;
+};
+
+&cam_cci0 {
+	qcom,cam-sensor@0 {
+		cam_vio-supply = <&pm8195_s4>;
+		cam_bob-supply = <&pm8195_s4>;
+		cam_vana-supply = <&pm8195_s4>;
+		cam_vdig-supply = <&pm8195_s4>;
+	};
+
+	qcom,cam-sensor@1 {
+		cam_vio-supply = <&pm8195_s4>;
+		cam_bob-supply = <&pm8195_s4>;
+		cam_vana-supply = <&pm8195_s4>;
+		cam_vdig-supply = <&pm8195_s4>;
+	};
+
+	qcom,cam-sensor@2 {
+		cam_vio-supply = <&pm8195_s4>;
+		cam_bob-supply = <&pm8195_s4>;
+		cam_vana-supply = <&pm8195_s4>;
+		cam_vdig-supply = <&pm8195_s4>;
+	};
+
+	qcom,cam-sensor@3 {
+		cam_vio-supply = <&pm8195_s4>;
+		cam_bob-supply = <&pm8195_s4>;
+		cam_vana-supply = <&pm8195_s4>;
+		cam_vdig-supply = <&pm8195_s4>;
 	};
 };
