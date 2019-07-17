@@ -481,7 +481,7 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 	uint32_t qseos_cmd_id = 0;
 	struct scm_desc desc = {0};
 	struct qseecom_command_scm_resp *scm_resp = NULL;
-	struct qtee_shm shm;
+	struct qtee_shm shm = {0};
 	phys_addr_t pa;
 
 	if (!req_buf || !resp_buf) {
@@ -6614,7 +6614,7 @@ static int qseecom_mdtp_cipher_dip(void __user *argp)
 	struct scm_desc desc = {0};
 	int ret;
 	phys_addr_t pain, paout;
-	struct qtee_shm shmin, shmout;
+	struct qtee_shm shmin = {0}, shmout = {0};
 
 	do {
 		/* Copy the parameters from userspace */
