@@ -47,6 +47,9 @@
 #define WDT_SWRST_KEY		0x1209
 
 #define WDT_NONRST2		0x24
+#define WDT_NONRST2_STAGE_OFS	30
+#define RGU_STAGE_MASK		0x3
+#define RGU_STAGE_KERNEL	0x3
 #define WDT_BYPASS_PWR_KEY	(1 << 13)
 
 #define DRV_NAME		"mtk-wdt"
@@ -59,6 +62,18 @@ struct mtk_wdt_dev {
 	struct watchdog_device wdt_dev;
 	void __iomem *wdt_base;
 };
+
+static void mtk_wdt_mark_stage(struct watchdog_device *wdt_dev)
+{
+	struct mtk_wdt_dev *mtk_wdt = watchdog_get_drvdata(wdt_dev);
+	void __iomem *wdt_base = mtk_wdt->wdt_base;
+	u32 reg = readl(wdt_base + WDT_NONRST2);
+
+	reg = (reg & ~(RGU_STAGE_MASK << WDT_NONRST2_STAGE_OFS)) |
+	      (RGU_STAGE_KERNEL << WDT_NONRST2_STAGE_OFS);
+
+	writel(reg, wdt_base + WDT_NONRST2);
+}
 
 static int mtk_wdt_restart(struct watchdog_device *wdt_dev,
 			   unsigned long action, void *cmd)
@@ -202,6 +217,7 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 	mtk_wdt->wdt_dev.max_timeout = WDT_MAX_TIMEOUT;
 	mtk_wdt->wdt_dev.min_timeout = WDT_MIN_TIMEOUT;
 	mtk_wdt->wdt_dev.parent = &pdev->dev;
+	mtk_wdt_mark_stage(&mtk_wdt->wdt_dev);
 
 	watchdog_init_timeout(&mtk_wdt->wdt_dev, timeout, &pdev->dev);
 	watchdog_set_nowayout(&mtk_wdt->wdt_dev, nowayout);
