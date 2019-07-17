@@ -1380,6 +1380,20 @@
 			clock-names = "gce", "GCE_TIMER";
 		};
 
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+		gce_mbox_svp: gce_mbox_svp@10228000 {
+			compatible = "mediatek,mailbox-gce-svp";
+			reg = <0 0x10228000 0 0x4000>;
+			interrupts = <GIC_SPI 185 IRQ_TYPE_LEVEL_LOW>,
+				<GIC_SPI 186 IRQ_TYPE_LEVEL_LOW>;
+			#mbox-cells = <3>;
+			clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>,
+				<&infracfg_ao INFRACFG_AO_GCE_26M_CG>;
+			clock-names = "gce", "GCE_TIMER";
+		};
+#endif
+
 		cmdq-ext@10228000 {
 			compatible = "mediatek,cmdq-ext";
 			reg = <0 0x10228000 0 0x4000>;
@@ -1600,9 +1614,16 @@
 				<&gce 5 CMDQ_THR_PRIO_4 0>,
 				<&gce 6 CMDQ_THR_PRIO_4 0>,
 				<&gce 7 CMDQ_THR_PRIO_2 0>,
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+				<&gce_mbox_svp 8 0 CMDQ_THR_PRIO_4>,
+				<&gce_mbox_svp 9 0 CMDQ_THR_PRIO_4>,
+				<&gce_mbox_svp 10 0 CMDQ_THR_PRIO_1>,
+#else
 				<&gce 8 CMDQ_THR_PRIO_1 0>,
 				<&gce 9 CMDQ_THR_PRIO_1 0>,
 				<&gce 10 CMDQ_THR_PRIO_1 0>,
+#endif
 				<&gce 11 CMDQ_THR_PRIO_1 0>,
 				<&gce 12 CMDQ_THR_PRIO_1 0>,
 				<&gce 13 CMDQ_THR_PRIO_1 0>,
