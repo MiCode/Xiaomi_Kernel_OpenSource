@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -496,7 +496,8 @@ static void __socket_close_channel(struct diag_socket_info *info)
 	if (!atomic_read(&info->opened))
 		return;
 
-	if (bootup_req[info->peripheral] == PEPIPHERAL_SSR_UP) {
+	if ((bootup_req[info->peripheral] == PEPIPHERAL_SSR_UP) &&
+		(info->port_type == PORT_TYPE_SERVER)) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"diag: %s is up, stopping cleanup: bootup_req = %d\n",
 		info->name, (int)bootup_req[info->peripheral]);
