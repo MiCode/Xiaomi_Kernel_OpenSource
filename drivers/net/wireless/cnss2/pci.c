@@ -367,7 +367,7 @@ static int cnss_set_pci_link_status(struct cnss_pci_data *pci_priv,
 {
 	u16 link_speed, link_width;
 
-	cnss_pr_dbg("Set PCI link status to: %u\n", status);
+	cnss_pr_vdbg("Set PCI link status to: %u\n", status);
 
 	switch (status) {
 	case PCI_GEN1:
@@ -401,13 +401,13 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
 	enum msm_pcie_pm_opt pm_ops;
 
-	cnss_pr_dbg("%s PCI link\n", link_up ? "Resuming" : "Suspending");
+	cnss_pr_vdbg("%s PCI link\n", link_up ? "Resuming" : "Suspending");
 
 	if (link_up) {
 		pm_ops = MSM_PCIE_RESUME;
 	} else {
 		if (pci_priv->drv_connected_last) {
-			cnss_pr_dbg("Use PCIe DRV suspend\n");
+			cnss_pr_vdbg("Use PCIe DRV suspend\n");
 			pm_ops = MSM_PCIE_DRV_SUSPEND;
 			cnss_set_pci_link_status(pci_priv, PCI_GEN1);
 		} else {
@@ -692,8 +692,8 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 	if (ret)
 		goto out;
 
-	cnss_pr_dbg("Setting MHI state: %s(%d)\n",
-		    cnss_mhi_state_to_str(mhi_state), mhi_state);
+	cnss_pr_vdbg("Setting MHI state: %s(%d)\n",
+		     cnss_mhi_state_to_str(mhi_state), mhi_state);
 
 	switch (mhi_state) {
 	case CNSS_MHI_INIT:
@@ -1909,7 +1909,7 @@ static int cnss_pci_runtime_suspend(struct device *dev)
 		return -EAGAIN;
 	}
 
-	cnss_pr_dbg("Runtime suspend start\n");
+	cnss_pr_vdbg("Runtime suspend start\n");
 
 	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks))
 		pci_priv->drv_connected_last =
@@ -1925,7 +1925,7 @@ static int cnss_pci_runtime_suspend(struct device *dev)
 	if (ret)
 		pci_priv->drv_connected_last = 0;
 
-	cnss_pr_info("Runtime suspend status: %d\n", ret);
+	cnss_pr_vdbg("Runtime suspend status: %d\n", ret);
 
 	return ret;
 }
@@ -1948,7 +1948,7 @@ static int cnss_pci_runtime_resume(struct device *dev)
 		return -EAGAIN;
 	}
 
-	cnss_pr_dbg("Runtime resume start\n");
+	cnss_pr_vdbg("Runtime resume start\n");
 
 	driver_ops = pci_priv->driver_ops;
 	if (driver_ops && driver_ops->runtime_ops &&
@@ -1960,14 +1960,14 @@ static int cnss_pci_runtime_resume(struct device *dev)
 	if (!ret)
 		pci_priv->drv_connected_last = 0;
 
-	cnss_pr_info("Runtime resume status: %d\n", ret);
+	cnss_pr_vdbg("Runtime resume status: %d\n", ret);
 
 	return ret;
 }
 
 static int cnss_pci_runtime_idle(struct device *dev)
 {
-	cnss_pr_dbg("Runtime idle\n");
+	cnss_pr_vdbg("Runtime idle\n");
 
 	pm_request_autosuspend(dev);
 

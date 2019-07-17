@@ -9,6 +9,7 @@
 #include "pci.h"
 
 void *cnss_ipc_log_context;
+void *cnss_ipc_log_long_context;
 
 static int cnss_pin_connect_show(struct seq_file *s, void *data)
 {
@@ -762,7 +763,15 @@ int cnss_debug_init(void)
 	cnss_ipc_log_context = ipc_log_context_create(CNSS_IPC_LOG_PAGES,
 						      "cnss", 0);
 	if (!cnss_ipc_log_context) {
-		cnss_pr_err("Unable to create IPC log context!\n");
+		cnss_pr_err("Unable to create IPC log context\n");
+		return -EINVAL;
+	}
+
+	cnss_ipc_log_long_context = ipc_log_context_create(CNSS_IPC_LOG_PAGES,
+							   "cnss-long", 0);
+	if (!cnss_ipc_log_long_context) {
+		cnss_pr_err("Unable to create IPC long log context\n");
+		ipc_log_context_destroy(cnss_ipc_log_context);
 		return -EINVAL;
 	}
 
@@ -771,6 +780,11 @@ int cnss_debug_init(void)
 
 void cnss_debug_deinit(void)
 {
+	if (cnss_ipc_log_long_context) {
+		ipc_log_context_destroy(cnss_ipc_log_long_context);
+		cnss_ipc_log_long_context = NULL;
+	}
+
 	if (cnss_ipc_log_context) {
 		ipc_log_context_destroy(cnss_ipc_log_context);
 		cnss_ipc_log_context = NULL;
