@@ -11,6 +11,7 @@
 #include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -407,17 +408,13 @@ MODULE_DEVICE_TABLE(of, video_cc_lito_match_table);
 static int video_multipipe_fixup(struct platform_device *pdev,
 				struct regmap *regmap)
 {
-	void __iomem *base;
-	struct resource *res;
-	struct device *dev = &pdev->dev;
 	u32 val, val_fmax;
+	int ret;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(base))
-		return PTR_ERR(base);
+	ret = nvmem_cell_read_u32(&pdev->dev, "iris-bin", &val);
+	if (ret)
+		return ret;
 
-	val = readl_relaxed(base);
 	val_fmax = (val >> IRIS_DISABLE_VP_FMAX) & 0x1;
 	val = (val >> IRIS_DISABLE_MULTIPIPE) & 0x1;
 
@@ -435,7 +432,7 @@ static int video_multipipe_fixup(struct platform_device *pdev,
 				200000000;
 		video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_HIGH] =
 				200000000;
-		goto done;
+		return 0;
 	}
 
 	if (val_fmax) {
@@ -447,8 +444,7 @@ static int video_multipipe_fixup(struct platform_device *pdev,
 		video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_HIGH] =
 				365000000;
 	}
-done:
-	devm_iounmap(dev, base);
+
 	return 0;
 }
 
