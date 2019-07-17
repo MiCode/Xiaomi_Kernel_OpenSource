@@ -139,13 +139,6 @@
 		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
 		qpic_nand1 = &qnand_1;
 		pci-domain0 = &pcie0; /* PCIe0 domain */
-		mhi0 = &mhi_0;
-		mhi_netdev0 = &mhi_netdev_0;
-		mhi_netdev1 = &mhi_netdev_1;
-		mhi_netdev2 = &mhi_netdev_2;
-		mhi_netdev3 = &mhi_netdev_3;
-		mhi_netdev4 = &mhi_netdev_4;
-		mhi_netdev5 = &mhi_netdev_5;
 	};
 
 	soc: soc { };
@@ -1543,7 +1536,6 @@
 #include "qcs405-coresight.dtsi"
 #include "qcs405-usb.dtsi"
 #include "qcs405-pcie.dtsi"
-#include "qcs405-mhi.dtsi"
 
 &i2c_5 {
 	smb1351_otg_supply: smb1351-charger@55 {
