@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/platform_device.h>
@@ -237,8 +237,7 @@ static int cam_lrme_hw_dev_remove(struct platform_device *pdev)
 	lrme_hw = platform_get_drvdata(pdev);
 	if (!lrme_hw) {
 		CAM_ERR(CAM_LRME, "Invalid lrme_hw from fd_hw_intf");
-		rc = -ENODEV;
-		goto deinit_platform_res;
+		return -ENODEV;
 	}
 
 	lrme_core = (struct cam_lrme_core *)lrme_hw->core_info;
