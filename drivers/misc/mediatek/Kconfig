@@ -101,6 +101,30 @@ config MTK_BATTERY_PERCENTAGE_POWER_THROTTLING
 	  feature
 	  Select "n" if unsure.
 
+config MTK_PTPOD
+	bool "MTK PTPOD"
+	help
+	  This kernel config can be used to enable PTPOD.
+	  When enable this option, voltage will be
+	  changed which will depended on chip.
+	  If unsure, say N.
+
+config MTK_STATIC_POWER
+	bool "MTK STATIC POWER"
+	help
+	  This kernel config can be used to enable static power.
+	  This information can provide power data to someone who
+	  need it
+	  If unsure, say N.
+
+config MTK_UNIFY_POWER
+	bool "MTK UNIFY POWER"
+	help
+	  This kernel config can be used to enable unified power table.
+	  This table can provide power data and capacity to someone who
+	  need it.
+	  If unsure, say Y.
+
 source "drivers/misc/mediatek/lpm/Kconfig"
 source "drivers/misc/mediatek/ppm_v3/Kconfig
 endmenu # Power
