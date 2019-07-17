@@ -3,6 +3,7 @@
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/io.h>
@@ -558,11 +559,6 @@ enum rpmh_vote_type {
 	INVALID_ARC_VOTE,
 };
 
-static const char debug_strs[][8] = {
-	[GPU_ARC_VOTE] = "gpu",
-	[GMU_ARC_VOTE] = "gmu",
-};
-
 /*
  * rpmh_arc_cmds() - query RPMh command database for GX/CX/MX rail
  * VLVL tables. The index of table will be used by GMU to vote rail
@@ -621,7 +617,7 @@ static int rpmh_arc_cmds(struct gmu_device *gmu,
  */
 static int setup_volt_dependency_tbl(uint32_t *votes,
 		struct rpmh_arc_vals *pri_rail, struct rpmh_arc_vals *sec_rail,
-		unsigned int *vlvl, unsigned int num_entries)
+		u16 *vlvl, unsigned int num_entries)
 {
 	int i, j, k;
 	uint16_t cur_vlvl;
@@ -667,9 +663,20 @@ static int setup_volt_dependency_tbl(uint32_t *votes,
 	return 0;
 }
 
+
+static int rpmh_gmu_arc_votes_init(struct gmu_device *gmu,
+		struct rpmh_arc_vals *pri_rail, struct rpmh_arc_vals *sec_rail)
+{
+	/* Hardcoded values of GMU CX voltage levels */
+	u16 gmu_cx_vlvl[] = { 0, RPMH_REGULATOR_LEVEL_MIN_SVS };
+
+	return setup_volt_dependency_tbl(gmu->rpmh_votes.cx_votes, pri_rail,
+						sec_rail, gmu_cx_vlvl, 2);
+}
+
 /*
- * rpmh_arc_votes_init() - initialized RPMh votes needed for rails voltage
- * scaling by GMU.
+ * rpmh_arc_votes_init() - initialized GX RPMh votes needed for rails
+ * voltage scaling by GMU.
  * @device: Pointer to KGSL device
  * @gmu: Pointer to GMU device
  * @pri_rail: Pointer to primary power rail VLVL table
@@ -681,74 +688,50 @@ static int rpmh_arc_votes_init(struct kgsl_device *device,
 		struct gmu_device *gmu, struct rpmh_arc_vals *pri_rail,
 		struct rpmh_arc_vals *sec_rail, unsigned int type)
 {
-	struct device *dev;
 	unsigned int num_freqs;
-	uint32_t *votes;
-	unsigned int vlvl_tbl[MAX_GX_LEVELS];
+	u16 vlvl_tbl[MAX_GX_LEVELS];
 	unsigned int *freq_tbl;
-	int i, ret;
+	int i;
 	struct dev_pm_opp *opp;
 
-	uint16_t cx_vlvl[MAX_GX_LEVELS] = { 64, 128, 192, 256, 384, 416 };
+	if (type == GMU_ARC_VOTE)
+		return rpmh_gmu_arc_votes_init(gmu, pri_rail, sec_rail);
 
-	if (type == GPU_ARC_VOTE) {
-		num_freqs = gmu->num_gpupwrlevels;
-		votes = gmu->rpmh_votes.gx_votes;
-		freq_tbl = gmu->gpu_freqs;
-		dev = &device->pdev->dev;
-	} else if (type == GMU_ARC_VOTE) {
-		num_freqs = gmu->num_gmupwrlevels;
-		votes = gmu->rpmh_votes.cx_votes;
-		freq_tbl = gmu->gmu_freqs;
-		dev = &gmu->pdev->dev;
-	} else {
-		return -EINVAL;
-	}
+	num_freqs = gmu->num_gpupwrlevels;
+	freq_tbl = gmu->gpu_freqs;
 
-	if (num_freqs > pri_rail->num) {
+	if (num_freqs > pri_rail->num || num_freqs > MAX_GX_LEVELS) {
 		dev_err(&gmu->pdev->dev,
-			"%s defined more DCVS levels than RPMh can support\n",
-			debug_strs[type]);
+			"Defined more GPU DCVS levels than RPMh can support\n");
 		return -EINVAL;
 	}
 
 	memset(vlvl_tbl, 0, sizeof(vlvl_tbl));
+
+	/* Get the values from OPP API */
 	for (i = 0; i < num_freqs; i++) {
-		/* Hardcode VLVL for 0 because it is not registered in OPP */
+		/* Hardcode VLVL 0 because it is not present in OPP */
 		if (freq_tbl[i] == 0) {
 			vlvl_tbl[i] = 0;
 			continue;
 		}
 
-		/* Hardcode GMU ARC Vote levels for A650 */
-		if (adreno_is_a650_family(ADRENO_DEVICE(device)) &&
-				type == GMU_ARC_VOTE) {
-			vlvl_tbl[i] = cx_vlvl[i];
-			continue;
-		}
+		opp = dev_pm_opp_find_freq_exact(&device->pdev->dev,
+			freq_tbl[i], true);
 
-		/* Otherwise get the value from the OPP API */
-		opp = dev_pm_opp_find_freq_exact(dev, freq_tbl[i], true);
 		if (IS_ERR(opp)) {
 			dev_err(&gmu->pdev->dev,
-				"Failed to find opp freq %d of %s\n",
-				freq_tbl[i], debug_strs[type]);
+				"Failed to find opp freq %d for GPU\n",
+				freq_tbl[i]);
 			return PTR_ERR(opp);
 		}
 
-		/* Values from OPP framework are offset by 1 */
 		vlvl_tbl[i] = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 	}
 
-	ret = setup_volt_dependency_tbl(votes,
-			pri_rail, sec_rail, vlvl_tbl, num_freqs);
-
-	if (ret)
-		dev_err(&gmu->pdev->dev, "%s rail volt failed to match DT freqs\n",
-				debug_strs[type]);
-
-	return ret;
+	return setup_volt_dependency_tbl(gmu->rpmh_votes.gx_votes, pri_rail,
+						sec_rail, vlvl_tbl, num_freqs);
 }
 
 /*
@@ -998,54 +981,6 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 				status & ~GMU_AO_INT_MASK);
 
 	return IRQ_HANDLED;
-}
-
-static int gmu_pwrlevel_probe(struct gmu_device *gmu, struct device_node *node)
-{
-	int ret;
-	struct device_node *pwrlevel_node, *child;
-
-	/* Add the GMU OPP table if we define it */
-	if (of_find_property(gmu->pdev->dev.of_node,
-			"operating-points-v2", NULL)) {
-		ret = dev_pm_opp_of_add_table(&gmu->pdev->dev);
-		if (ret) {
-			dev_err(&gmu->pdev->dev,
-					"Unable to set the GMU OPP table: %d\n",
-					ret);
-			return ret;
-		}
-	}
-
-	pwrlevel_node = of_find_node_by_name(node, "qcom,gmu-pwrlevels");
-	if (pwrlevel_node == NULL) {
-		dev_err(&gmu->pdev->dev, "Unable to find 'qcom,gmu-pwrlevels'\n");
-		return -EINVAL;
-	}
-
-	gmu->num_gmupwrlevels = 0;
-
-	for_each_child_of_node(pwrlevel_node, child) {
-		unsigned int index;
-
-		if (of_property_read_u32(child, "reg", &index))
-			return -EINVAL;
-
-		if (index >= MAX_CX_LEVELS) {
-			dev_err(&gmu->pdev->dev, "gmu pwrlevel %d is out of range\n",
-				index);
-			continue;
-		}
-
-		if (index >= gmu->num_gmupwrlevels)
-			gmu->num_gmupwrlevels = index + 1;
-
-		if (of_property_read_u32(child, "qcom,gmu-freq",
-					&gmu->gmu_freqs[index]))
-			return -EINVAL;
-	}
-
-	return 0;
 }
 
 static int gmu_reg_probe(struct kgsl_device *device)
@@ -1417,11 +1352,6 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	tasklet_init(&hfi->tasklet, hfi_receiver, (unsigned long) gmu);
 	hfi->kgsldev = device;
 
-	/* Retrieves GMU/GPU power level configurations*/
-	ret = gmu_pwrlevel_probe(gmu, node);
-	if (ret)
-		goto error;
-
 	gmu->num_gpupwrlevels = pwr->num_pwrlevels;
 
 	for (i = 0; i < gmu->num_gpupwrlevels; i++) {
@@ -1491,10 +1421,10 @@ static int gmu_enable_clks(struct kgsl_device *device)
 	if (IS_ERR_OR_NULL(gmu->clks[0]))
 		return -EINVAL;
 
-	ret = clk_set_rate(gmu->clks[0], gmu->gmu_freqs[DEFAULT_GMU_FREQ_IDX]);
+	ret = clk_set_rate(gmu->clks[0], GMU_FREQUENCY);
 	if (ret) {
 		dev_err(&gmu->pdev->dev, "fail to set default GMU clk freq %d\n",
-				gmu->gmu_freqs[DEFAULT_GMU_FREQ_IDX]);
+				GMU_FREQUENCY);
 		return ret;
 	}
 
