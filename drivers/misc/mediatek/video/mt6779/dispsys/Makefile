@@ -57,15 +57,16 @@ subdir-ccflags-$(CONFIG_MTK_LCM) += -I$(srctree)/drivers/misc/mediatek/lcm/inc
 
 ifeq ($(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT),y)
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/tplay/Tltplay/public/
-
-include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
+  ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/tplay/Tltplay/public/
+  ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public
+  ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public/GP
 endif
 
 ifeq ($(CONFIG_MTK_TEE_GP_SUPPORT),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/tplay/Tltplay/public/
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
-  include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
+  ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public
+  ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public/GP
 endif
 ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
   include $(srctree)/drivers/misc/mediatek/teei/Makefile.include
