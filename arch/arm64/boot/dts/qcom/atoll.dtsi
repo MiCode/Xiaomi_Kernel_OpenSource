@@ -2019,7 +2019,7 @@
 		qcom,drv-id = <0>;
 		qcom,tcs-config = <SLEEP_TCS   1>,
 				  <WAKE_TCS    1>,
-				  <ACTIVE_TCS  2>,
+				  <ACTIVE_TCS  0>,
 				  <CONTROL_TCS 0>;
 	};
 
