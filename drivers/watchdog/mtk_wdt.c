@@ -218,13 +218,14 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 	mtk_wdt->wdt_dev.max_timeout = WDT_MAX_TIMEOUT;
 	mtk_wdt->wdt_dev.min_timeout = WDT_MIN_TIMEOUT;
 	mtk_wdt->wdt_dev.parent = &pdev->dev;
-	mtk_wdt_mark_stage(&mtk_wdt->wdt_dev);
 
 	watchdog_init_timeout(&mtk_wdt->wdt_dev, timeout, &pdev->dev);
 	watchdog_set_nowayout(&mtk_wdt->wdt_dev, nowayout);
 	watchdog_set_restart_priority(&mtk_wdt->wdt_dev, 128);
 
 	watchdog_set_drvdata(&mtk_wdt->wdt_dev, mtk_wdt);
+
+	mtk_wdt_mark_stage(&mtk_wdt->wdt_dev);
 
 	if (readl(mtk_wdt->wdt_base + WDT_MODE) & WDT_MODE_EN)
 		mtk_wdt_start(&mtk_wdt->wdt_dev);
