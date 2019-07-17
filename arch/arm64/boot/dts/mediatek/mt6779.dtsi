@@ -3055,8 +3055,10 @@
 
 	ccci_md_clk:ccci_md_clk {
 		compatible = "mediatek,ccci_md_clk";
-		clocks = <&infracfg_ao CLK_INFRA_AES_BCLK>;
-		clock-names = "infra-aes-bclk-md";
+		clocks = <&infracfg_ao CLK_INFRA_AES_BCLK>,
+			<&infracfg_ao CLK_INFRA_MODEM_TEMP_SHARE>;
+		clock-names = "infra-aes-bclk-md",
+			"infra-temp-share-md";
 	};
 
 	gpio_usage_mapping:gpio {
