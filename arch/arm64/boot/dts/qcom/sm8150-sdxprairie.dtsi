@@ -62,7 +62,7 @@
 			label = "IP_HW0_RSC";
 			mhi,num-elements = <512>;
 			mhi,local-elements = <3078>;
-			mhi,event-ring = <5>;
+			mhi,event-ring = <6>;
 			mhi,chan-dir = <2>;
 			mhi,data-type = <5>;
 			mhi,doorbell-mode = <3>;
@@ -71,7 +71,7 @@
 
 		mhi_chan@105 {
 			label = "IP_HW_MHIP_0";
-			mhi,event-ring = <8>;
+			mhi,event-ring = <9>;
 			mhi,chan-dir = <1>;
 			mhi,data-type = <3>;
 			mhi,ee = <0x4>;
@@ -81,7 +81,7 @@
 		mhi_chan@106 {
 			reg = <106>;
 			label = "IP_HW_MHIP_0";
-			mhi,event-ring = <9>;
+			mhi,event-ring = <10>;
 			mhi,chan-dir = <2>;
 			mhi,data-type = <3>;
 			mhi,ee = <0x4>;
