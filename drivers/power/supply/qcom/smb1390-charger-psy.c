@@ -82,6 +82,7 @@
 
 #define CORE_FTRIM_MISC_REG		0x1034
 #define TR_WIN_1P5X_BIT			BIT(0)
+#define TR_IREV_BIT			BIT(1)
 #define WINDOW_DETECTION_DELTA_X1P0	0
 #define WINDOW_DETECTION_DELTA_X1P5	1
 
@@ -106,6 +107,7 @@
 #define HW_DISABLE_VOTER	"HW_DISABLE_VOTER"
 #define CC_MODE_VOTER		"CC_MODE_VOTER"
 #define MAIN_DISABLE_VOTER	"MAIN_DISABLE_VOTER"
+#define TAPER_MAIN_ICL_LIMIT_VOTER	"TAPER_MAIN_ICL_LIMIT_VOTER"
 
 #define CP_MASTER		0
 #define CP_SLAVE		1
@@ -114,6 +116,7 @@
 #define MAX_ILIM_DUAL_CP_UA		6400000
 #define CC_MODE_TAPER_DELTA_UA		200000
 #define DEFAULT_TAPER_DELTA_UA		100000
+#define CC_MODE_TAPER_MAIN_ICL_UA	500000
 
 #define smb1390_dbg(chip, reason, fmt, ...)				\
 	do {								\
@@ -183,6 +186,7 @@ struct smb1390 {
 	struct votable		*fv_votable;
 	struct votable		*cp_awake_votable;
 	struct votable		*slave_disable_votable;
+	struct votable		*usb_icl_votable;
 
 	/* power supplies */
 	struct power_supply	*cps_psy;
@@ -211,6 +215,7 @@ struct smb1390 {
 	enum isns_mode		current_capability;
 	bool			batt_soc_validated;
 	int			cp_slave_thr_taper_ua;
+	int			cc_mode_taper_main_icl_ua;
 };
 
 struct smb_cfg {
@@ -326,6 +331,14 @@ static bool is_psy_voter_available(struct smb1390 *chip)
 		chip->fv_votable = find_votable("FV");
 		if (!chip->fv_votable) {
 			smb1390_dbg(chip, PR_EXT_DEPENDENCY, "Couldn't find FV votable\n");
+			return false;
+		}
+	}
+
+	if (!chip->usb_icl_votable) {
+		chip->usb_icl_votable = find_votable("USB_ICL");
+		if (!chip->usb_icl_votable) {
+			smb1390_dbg(chip, PR_EXT_DEPENDENCY, "Couldn't find ICL votable\n");
 			return false;
 		}
 	}
@@ -1102,6 +1115,8 @@ static void smb1390_status_change_work(struct work_struct *work)
 		vote_override(chip->ilim_votable, CC_MODE_VOTER, false, 0);
 		vote(chip->slave_disable_votable, TAPER_END_VOTER, false, 0);
 		vote(chip->slave_disable_votable, MAIN_DISABLE_VOTER, true, 0);
+		vote_override(chip->usb_icl_votable, TAPER_MAIN_ICL_LIMIT_VOTER,
+								false, 0);
 	}
 
 out:
@@ -1128,6 +1143,10 @@ static int smb1390_validate_slave_chg_taper(struct smb1390 *chip, int fcc_uA)
 									fcc_uA);
 		vote_override(chip->ilim_votable, CC_MODE_VOTER,
 						true, MAX_ILIM_DUAL_CP_UA);
+		if (chip->usb_icl_votable)
+			vote_override(chip->usb_icl_votable,
+				      TAPER_MAIN_ICL_LIMIT_VOTER,
+				      true, chip->cc_mode_taper_main_icl_ua);
 	}
 
 	return rc;
@@ -1180,6 +1199,15 @@ static void smb1390_taper_work(struct work_struct *work)
 			if (fcc_uA < (chip->min_ilim_ua * 2)) {
 				vote(chip->disable_votable, TAPER_END_VOTER,
 								true, 0);
+				/*
+				 * When master CP is disabled, reset all votes
+				 * on ICL to enable Main charger to pump
+				 * charging current.
+				 */
+				if (chip->usb_icl_votable)
+					vote_override(chip->usb_icl_votable,
+						TAPER_MAIN_ICL_LIMIT_VOTER,
+						false, 0);
 				goto out;
 			}
 		} else {
@@ -1432,6 +1460,12 @@ static int smb1390_parse_dt(struct smb1390 *chip)
 	chip->cp_slave_thr_taper_ua = chip->min_ilim_ua * 3;
 	of_property_read_u32(chip->dev->of_node, "qcom,cp-slave-thr-taper-ua",
 			      &chip->cp_slave_thr_taper_ua);
+
+	chip->cc_mode_taper_main_icl_ua = CC_MODE_TAPER_MAIN_ICL_UA;
+	of_property_read_u32(chip->dev->of_node,
+			     "qcom,cc-mode-taper-main-icl-ua",
+			     &chip->cc_mode_taper_main_icl_ua);
+
 	return 0;
 }
 
@@ -1529,6 +1563,12 @@ static int smb1390_init_hw(struct smb1390 *chip)
 		return rc;
 	}
 
+	/* Configure IREV threshold to 200mA */
+	rc = smb1390_masked_write(chip, CORE_FTRIM_MISC_REG, TR_IREV_BIT, 0);
+	if (rc < 0) {
+		pr_err("Couldn't configure IREV threshold rc=%d\n", rc);
+		return rc;
+	}
 	/*
 	 * If the slave charger has registered, configure Master SMB1390 for
 	 * triple-chg config, else configure for dual. Later, if the slave
