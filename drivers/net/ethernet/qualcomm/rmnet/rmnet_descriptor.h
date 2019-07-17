@@ -84,6 +84,8 @@ static inline void *rmnet_frag_pull(struct rmnet_frag_descriptor *frag_desc,
 				    unsigned int size)
 {
 	if (size >= skb_frag_size(&frag_desc->frag)) {
+		pr_info("%s(): Pulling %u bytes from %u byte pkt. Dropping\n",
+			__func__, size, skb_frag_size(&frag_desc->frag));
 		rmnet_recycle_frag_descriptor(frag_desc, port);
 		return NULL;
 	}
@@ -99,6 +101,8 @@ static inline void *rmnet_frag_trim(struct rmnet_frag_descriptor *frag_desc,
 				    unsigned int size)
 {
 	if (!size) {
+		pr_info("%s(): Trimming %u byte pkt to 0. Dropping\n",
+			__func__, skb_frag_size(&frag_desc->frag));
 		rmnet_recycle_frag_descriptor(frag_desc, port);
 		return NULL;
 	}
