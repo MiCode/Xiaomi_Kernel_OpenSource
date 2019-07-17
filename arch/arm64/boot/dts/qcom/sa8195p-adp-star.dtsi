@@ -11,7 +11,6 @@
  */
 
 #include <dt-bindings/gpio/gpio.h>
-#include "sa8195-pmic.dtsi"
 
 &qupv3_se0_spi {
 	status = "ok";
