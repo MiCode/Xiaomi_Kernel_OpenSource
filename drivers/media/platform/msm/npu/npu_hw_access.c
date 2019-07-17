@@ -298,8 +298,6 @@ int npu_mem_map(struct npu_client *client, int buf_hdl, uint32_t size,
 		goto map_end;
 	}
 
-	dma_sync_sg_for_device(&(npu_dev->pdev->dev), ion_buf->table->sgl,
-		ion_buf->table->nents, DMA_BIDIRECTIONAL);
 	ion_buf->iova = ion_buf->table->sgl->dma_address;
 	ion_buf->size = ion_buf->dma_buf->size;
 	*addr = ion_buf->iova;
