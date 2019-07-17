@@ -23,6 +23,11 @@ enum CCCI_HIF_FLAG {
 	CLDMA_NET_DATA = (1<<1),
 };
 
+struct ccci_hif_intf {
+	void *ccci_hif_ptr;
+	struct ccci_hif_ops *ccci_hif_ops;
+};
+
 #if (MD_GENERATION <= 6292)
 #define MD1_NET_HIF		CLDMA_HIF_ID
 #define MD1_NORMAL_HIF		CLDMA_HIF_ID

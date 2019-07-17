@@ -23,6 +23,7 @@
 #define PACKET_HISTORY_DEPTH 16	/* must be power of 2 */
 
 extern void *ccci_hif[CCCI_HIF_NUM];
+extern struct ccci_hif_ops *ccci_hif_op[CCCI_HIF_NUM];
 
 struct ccci_log {
 	struct ccci_header msg;
@@ -61,6 +62,10 @@ struct ccci_hif_traffic {
 		struct work_struct traffic_work_struct;
 };
 
+enum ccci_hif_debug_flg {
+	CCCI_HIF_DEBUG_SET_WAKEUP,
+};
+
 struct ccci_hif_ops {
 	/* must-have */
 	int (*send_skb)(unsigned char hif_id, int qno, struct sk_buff *skb,
@@ -76,6 +81,15 @@ struct ccci_hif_ops {
 		int length);
 	int (*suspend)(unsigned char hif_id);
 	int (*resume)(unsigned char hif_id);
+
+	int (*init)(unsigned char hif_id);
+	int (*late_init)(unsigned char hif_id);
+	int (*start)(unsigned char hif_id);
+	int (*pre_stop)(unsigned char hif_id);
+	int (*stop)(unsigned char hif_id);
+	int (*debug)(unsigned char hif_id, enum ccci_hif_debug_flg debug_id,
+		int *paras);
+
 };
 
 enum RX_COLLECT_RESULT {
@@ -219,6 +233,19 @@ static inline unsigned int ccci_md_get_seq_num(
 	enum CCCI_CH ch)
 {
 	return traffic_info->seq_nums[dir][ch];
+}
+
+static inline void ccci_hif_register(unsigned char hif_id, void *hif_per_data,
+	struct ccci_hif_ops *ops)
+{
+	CCCI_NORMAL_LOG(0, CORE, "hif register: %d\n", hif_id);
+	CCCI_HISTORY_TAG_LOG(0, CORE,
+			"hif register: %d\n", hif_id);
+
+	if (hif_id < CCCI_HIF_NUM) {
+		ccci_hif[hif_id] = hif_per_data;
+		ccci_hif_op[hif_id] = ops;
+	}
 }
 
 #endif

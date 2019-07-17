@@ -309,6 +309,8 @@ struct hif_dpmaif_ctrl {
 	struct timer_list traffic_monitor;
 	char traffic_started;
 #endif
+	struct clk *clk_ref;
+	struct platform_device *plat_dev; /* maybe: no need. */
 
 };
 
@@ -376,7 +378,7 @@ static inline int ccci_dpmaif_hif_set_wakeup_src(unsigned char hif_id,
 }
 
 
-int ccci_dpmaif_hif_init(unsigned char hif_id, unsigned char md_id);
+int ccci_dpmaif_hif_init(struct device *dev);
 int dpmaif_late_init(unsigned char hif_id);
 int dpmaif_start(unsigned char hif_id);
 int dpmaif_stop_rx(unsigned char hif_id);

@@ -10,11 +10,11 @@
 #include "ccci_core.h"
 #include "ccci_hif_cldma.h"
 #include "ccci_hif_ccif.h"
-#include "ccci_hif_dpmaif.h"
 
 #define TAG "hif"
 
 void *ccci_hif[CCCI_HIF_NUM];
+struct ccci_hif_ops *ccci_hif_op[CCCI_HIF_NUM];
 
 int ccci_hif_init(unsigned char md_id, unsigned int hif_flag)
 {
@@ -26,9 +26,7 @@ int ccci_hif_init(unsigned char md_id, unsigned int hif_flag)
 		ret = ccci_cldma_hif_init(CLDMA_HIF_ID, md_id);
 	if (hif_flag & (1 << CCIF_HIF_ID))
 		ret = ccci_ccif_hif_init(CCIF_HIF_ID, md_id);
-	if (hif_flag & (1 << DPMAIF_HIF_ID))
-		ret = ccci_dpmaif_hif_init(DPMAIF_HIF_ID, md_id);
-
+	/* DPMAIF_HIF_ID is moved to a standalone driver. */
 	return ret;
 }
 
@@ -49,7 +47,7 @@ int ccci_hif_late_init(unsigned char md_id, unsigned int hif_flag)
 	/*
 	 * if (hif_flag & (1 << DPMAIF_HIF_ID))
 	 *	ret = dpmaif_late_init(DPMAIF_HIF_ID);
-	 * ==> replaced by dpmaif_start
+	 * ==> replaced by dpmaif_start, DONOT call it.
 	 */
 	return ret;
 }
@@ -65,8 +63,8 @@ int ccci_hif_dump_status(unsigned int hif_flag, enum MODEM_DUMP_FLAG dump_flag,
 	if (hif_flag & (1 << CCIF_HIF_ID))
 		ret = ccci_ccif_hif_dump_status(CCIF_HIF_ID,
 			dump_flag, length);
-	if (hif_flag & (1 << DPMAIF_HIF_ID))
-		ret = ccci_dpmaif_hif_dump_status(DPMAIF_HIF_ID,
+	if (hif_flag & (1 << DPMAIF_HIF_ID) && ccci_hif[DPMAIF_HIF_ID])
+		ret = ccci_hif_op[DPMAIF_HIF_ID]->dump_status(DPMAIF_HIF_ID,
 			dump_flag, length);
 
 	return ret;
@@ -76,12 +74,22 @@ int ccci_hif_set_wakeup_src(unsigned char hif_id, int value)
 {
 	int ret = 0;
 
-	if (hif_id == CLDMA_HIF_ID)
+	switch (hif_id) {
+	case CLDMA_HIF_ID:
 		ret = ccci_cldma_hif_set_wakeup_src(CLDMA_HIF_ID, value);
-	if (hif_id == CCIF_HIF_ID)
+		break;
+	case CCIF_HIF_ID:
 		ret = ccci_ccif_hif_set_wakeup_src(CCIF_HIF_ID, value);
-	if (hif_id == DPMAIF_HIF_ID)
-		ret = ccci_dpmaif_hif_set_wakeup_src(DPMAIF_HIF_ID, value);
+		break;
+	case DPMAIF_HIF_ID:
+		if (ccci_hif[DPMAIF_HIF_ID] &&
+			ccci_hif_op[DPMAIF_HIF_ID]->debug)
+			ret = ccci_hif_op[DPMAIF_HIF_ID]->debug(DPMAIF_HIF_ID,
+			CCCI_HIF_DEBUG_SET_WAKEUP, &value);
+		break;
+	default:
+		break;
+	}
 
 	return ret;
 }
@@ -91,15 +99,28 @@ int ccci_hif_send_skb(unsigned char hif_id, int tx_qno, struct sk_buff *skb,
 {
 	int ret = 0;
 
-	if (hif_id == CLDMA_HIF_ID)
+	switch (hif_id) {
+	case CLDMA_HIF_ID:
 		ret = ccci_cldma_hif_send_skb(CLDMA_HIF_ID, tx_qno,
 			skb, from_pool, blocking);
-	if (hif_id == CCIF_HIF_ID)
+		break;
+	case CCIF_HIF_ID:
 		ret = ccci_ccif_hif_send_skb(CCIF_HIF_ID, tx_qno,
 			skb, from_pool, blocking);
-	if (hif_id == DPMAIF_HIF_ID)
-		ret = ccci_dpma_hif_send_skb(DPMAIF_HIF_ID, tx_qno,
-			skb, from_pool, blocking);
+		break;
+	case DPMAIF_HIF_ID:
+		if (ccci_hif[DPMAIF_HIF_ID] &&
+			ccci_hif_op[DPMAIF_HIF_ID]->send_skb)
+			ret = ccci_hif_op[DPMAIF_HIF_ID]->send_skb(
+				DPMAIF_HIF_ID,
+				tx_qno, skb, from_pool, blocking);
+		CCCI_HISTORY_TAG_LOG(-1, TAG, "ccci_hif_dpmaif: %d (%p, %p)\n",
+			hif_id, ccci_hif[DPMAIF_HIF_ID],
+			ccci_hif_op[DPMAIF_HIF_ID]);
+		break;
+	default:
+		break;
+	}
 
 	return ret;
 }
@@ -108,13 +129,22 @@ int ccci_hif_write_room(unsigned char hif_id, unsigned char qno)
 {
 	int ret = 0;
 
-	if (hif_id == CLDMA_HIF_ID)
+	switch (hif_id) {
+	case CLDMA_HIF_ID:
 		ret = ccci_cldma_hif_write_room(CLDMA_HIF_ID, qno);
-	if (hif_id == CCIF_HIF_ID)
+		break;
+	case CCIF_HIF_ID:
 		ret = ccci_ccif_hif_write_room(CCIF_HIF_ID, qno);
-	if (hif_id == DPMAIF_HIF_ID)
-		ret = ccci_dpma_hif_write_room(DPMAIF_HIF_ID, qno);
-
+		break;
+	case DPMAIF_HIF_ID:
+		if (ccci_hif[DPMAIF_HIF_ID] &&
+			ccci_hif_op[DPMAIF_HIF_ID]->write_room)
+			ret = ccci_hif_op[DPMAIF_HIF_ID]->write_room(
+				DPMAIF_HIF_ID, qno);
+		break;
+	default:
+		break;
+	}
 	return ret;
 }
 
@@ -122,13 +152,22 @@ int ccci_hif_ask_more_request(unsigned char hif_id, int rx_qno)
 {
 	int ret = 0;
 
-	if (hif_id == CLDMA_HIF_ID)
+	switch (hif_id) {
+	case CLDMA_HIF_ID:
 		ret = ccci_cldma_hif_give_more(CLDMA_HIF_ID, rx_qno);
-	if (hif_id == CCIF_HIF_ID)
+		break;
+	case CCIF_HIF_ID:
 		ret = ccci_ccif_hif_give_more(CCIF_HIF_ID, rx_qno);
-	if (hif_id == DPMAIF_HIF_ID)
-		ret = ccci_dpma_hif_give_more(DPMAIF_HIF_ID, rx_qno);
-
+		break;
+	case DPMAIF_HIF_ID:
+		if (ccci_hif[DPMAIF_HIF_ID] &&
+			ccci_hif_op[DPMAIF_HIF_ID]->give_more)
+			ret = ccci_hif_op[DPMAIF_HIF_ID]->give_more(
+				DPMAIF_HIF_ID, rx_qno);
+		break;
+	default:
+		break;
+	}
 	return ret;
 }
 
@@ -265,14 +304,22 @@ void ccci_hif_md_exception(unsigned int hif_flag, unsigned char stage)
 
 }
 
+static int ccci_hif_start(void)
+{
+	int ret = 0;
+
+	if (ccci_hif[DPMAIF_HIF_ID] && ccci_hif_op[DPMAIF_HIF_ID]->start)
+		ret |= ccci_hif_op[DPMAIF_HIF_ID]->start(DPMAIF_HIF_ID);
+	return ret;
+}
+
 int ccci_hif_state_notification(int md_id, unsigned char state)
 {
 	int ret = 0;
 
 	switch (state) {
 	case BOOT_WAITING_FOR_HS1:
-		if (ccci_hif[DPMAIF_HIF_ID] != NULL)
-			ret = dpmaif_start(DPMAIF_HIF_ID);
+		ccci_hif_start();
 		break;
 	case READY:
 		break;
@@ -280,18 +327,20 @@ int ccci_hif_state_notification(int md_id, unsigned char state)
 		break;
 	case EXCEPTION:
 	case WAITING_TO_STOP:
-		if (ccci_hif[DPMAIF_HIF_ID] != NULL) {
+		if (ccci_hif[DPMAIF_HIF_ID] &&
+			ccci_hif_op[DPMAIF_HIF_ID]->pre_stop) {
 			ccci_hif_dump_status(1 << DPMAIF_HIF_ID,
 				DUMP_FLAG_REG, -1);
-			dpmaif_stop_hw();
+			 ccci_hif_op[DPMAIF_HIF_ID]->pre_stop(DPMAIF_HIF_ID);
 		}
 		break;
 	case GATED:
 		/* later than ccmni */
-		if (ccci_hif[DPMAIF_HIF_ID] != NULL) {
+		if (ccci_hif[DPMAIF_HIF_ID] &&
+			ccci_hif_op[DPMAIF_HIF_ID]->stop) {
 			ccci_hif_dump_status(1 << DPMAIF_HIF_ID,
 				DUMP_FLAG_REG, -1);
-			ret = dpmaif_stop(DPMAIF_HIF_ID);
+			ret = ccci_hif_op[DPMAIF_HIF_ID]->stop(DPMAIF_HIF_ID);
 		}
 		break;
 	default:
@@ -302,20 +351,8 @@ int ccci_hif_state_notification(int md_id, unsigned char state)
 
 void ccci_hif_resume(unsigned char md_id, unsigned int hif_flag)
 {
-	if (hif_flag & (1 << DPMAIF_HIF_ID)) {
-		struct hif_dpmaif_ctrl *hif_ctrl =
-		(struct hif_dpmaif_ctrl *)ccci_hif_get_by_id(DPMAIF_HIF_ID);
-
-		hif_ctrl->ops->resume(DPMAIF_HIF_ID);
-	}
 }
 
 void ccci_hif_suspend(unsigned char md_id, unsigned int hif_flag)
 {
-	if (hif_flag & (1 << DPMAIF_HIF_ID)) {
-		struct hif_dpmaif_ctrl *hif_ctrl =
-		(struct hif_dpmaif_ctrl *)ccci_hif_get_by_id(DPMAIF_HIF_ID);
-
-		hif_ctrl->ops->suspend(DPMAIF_HIF_ID);
-	}
 }

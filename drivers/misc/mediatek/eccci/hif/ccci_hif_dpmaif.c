@@ -26,9 +26,11 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/syscore_ops.h>
+#include <linux/dma-mapping.h>
 #if defined(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
+#include <linux/clk.h>
 
 #include "ccci_config.h"
 #include "ccci_core.h"
@@ -143,7 +145,7 @@ static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 
 void dpmaif_dump_reg(void)
 {
-	if (dpmaif_ctrl == NULL)
+	if (!dpmaif_ctrl)
 		return;
 	dpmaif_dump_register(dpmaif_ctrl, CCCI_DUMP_REGISTER);
 }
@@ -361,10 +363,8 @@ static void dpmaif_clear_traffic_data(unsigned char hif_id)
 #endif
 
 #if DPMAIF_TRAFFIC_MONITOR_INTERVAL
-//static void dpmaif_traffic_monitor_func(unsigned long data)
 static void dpmaif_traffic_monitor_func(struct timer_list *t)
 {
-	//struct hif_dpmaif_ctrl *hif_ctrl = (struct hif_dpmaif_ctrl *)data;
 	struct hif_dpmaif_ctrl *hif_ctrl =
 			from_timer(hif_ctrl, t, traffic_monitor);
 
@@ -741,7 +741,7 @@ static int dpmaif_set_rx_frag_to_skb(struct dpmaif_rx_queue *rxq,
 		ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
 		cur_page_info->data_phy_addr, cur_page_info->data_len,
 		DMA_FROM_DEVICE);
-	if (page == NULL) {
+	if (!page) {
 		CCCI_ERROR_LOG(-1, TAG, "frag check fail: 0x%x, 0x%x",
 			pkt_inf_t->buffer_id, skb_idx);
 		return DATA_CHECK_FAIL;
@@ -801,7 +801,7 @@ static int BAT_cur_bid_check(struct dpmaif_bat_request *bat_req,
 			skb_idx)->skb;
 	int ret = 0;
 
-	if (unlikely((skb == NULL) ||
+	if (unlikely(!skb ||
 		(skb_idx >= DPMAIF_DL_BAT_ENTRY_SIZE))) {
 		/*dump*/
 		if (bat_req->check_bid_fail_cnt < 0xFFF)
@@ -1060,6 +1060,7 @@ static int ccci_skb_to_list(struct ccci_skb_queue *queue, struct sk_buff *newsk)
 			queue->max_history = queue->skb_list.qlen;
 
 	} else {
+		spin_unlock_irqrestore(&queue->skb_list.lock, flags);
 		return -1;
 	}
 	spin_unlock_irqrestore(&queue->skb_list.lock, flags);
@@ -1578,7 +1579,7 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 				cur_drb_skb->phy_addr, cur_drb_skb->data_len,
 				DMA_TO_DEVICE);
 			skb_free = cur_drb_skb->skb;
-			if (skb_free == NULL) {
+			if (!skb_free) {
 				CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
 					"txq (%d)pkt(%d): drb check fail, (w/r/rel=%x, %x, %x)\n",
 					q_num, cur_idx,
@@ -1853,7 +1854,7 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 
 	info = skb_shinfo(skb);
 
-	if (info->frag_list != NULL)
+	if (info->frag_list)
 		CCCI_NOTICE_LOG(dpmaif_ctrl->md_id, TAG,
 			"attention:q%d skb frag_list not supported!\n",
 			qno);
@@ -2259,7 +2260,7 @@ static int dpmaif_bat_init(struct dpmaif_bat_request *bat_req,
 
 	bat_req->bat_skb_ptr = kzalloc((bat_req->skb_pkt_cnt *
 		sw_buf_size), GFP_KERNEL);
-	if (bat_req->bat_base == NULL || bat_req->bat_skb_ptr == NULL) {
+	if (!bat_req->bat_base || !bat_req->bat_skb_ptr) {
 		CCCI_ERROR_LOG(-1, TAG, "bat request fail\n");
 		return LOW_MEMORY_BAT;
 	}
@@ -2290,7 +2291,7 @@ static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 	CCCI_HISTORY_LOG(-1, TAG, "pit dma_pool_alloc\n");
 #endif
 #endif
-	if (rxq->pit_base == NULL) {
+	if (!rxq->pit_base) {
 		CCCI_ERROR_LOG(-1, TAG, "pit request fail\n");
 		return LOW_MEMORY_PIT;
 	}
@@ -2464,7 +2465,7 @@ static int dpmaif_tx_buf_init(struct dpmaif_tx_queue *txq)
 #endif
 #endif
 
-	if (txq->drb_base == NULL) {
+	if (!txq->drb_base) {
 		CCCI_ERROR_LOG(-1, TAG, "drb request fail\n");
 		return LOW_MEMORY_DRB;
 	}
@@ -2473,7 +2474,7 @@ static int dpmaif_tx_buf_init(struct dpmaif_tx_queue *txq)
 	txq->drb_skb_base =
 		kzalloc((txq->drb_size_cnt * sizeof(struct dpmaif_drb_skb)),
 				GFP_KERNEL);
-	if (txq->drb_skb_base == NULL) {
+	if (!txq->drb_skb_base) {
 		CCCI_ERROR_LOG(-1, TAG, "drb skb buffer request fail\n");
 		return LOW_MEMORY_DRB;
 	}
@@ -2645,9 +2646,19 @@ int dpmaif_late_init(unsigned char hif_id)
  *
  * ========================================================
  */
-void __weak ccci_set_clk_by_id(int idx, unsigned int on)
+void ccci_hif_dpmaif_set_clk(unsigned int on)
 {
-	CCCI_ERROR_LOG(-1, TAG, "%s: not defined!\n", __func__);
+	int ret = 0;
+
+	if (!dpmaif_ctrl->clk_ref)
+		return;
+	else if (on) {
+		ret = clk_prepare_enable(dpmaif_ctrl->clk_ref);
+		if (ret)
+			CCCI_ERROR_LOG(-1, TAG, "%s: on=%d,ret=%d\n",
+				__func__, on, ret);
+	} else
+		clk_disable_unprepare(dpmaif_ctrl->clk_ref);
 }
 
 int dpmaif_start(unsigned char hif_id)
@@ -2656,13 +2667,15 @@ int dpmaif_start(unsigned char hif_id)
 	struct dpmaif_tx_queue *txq;
 	int i, ret = 0;
 
+	if (dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWRON)
+		return 0;
 	if (dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_MIN)
 		dpmaif_late_init(hif_id);
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_TAG_LOG(-1, TAG, "dpmaif:start\n");
 #endif
 	/* cg set */
-	ccci_set_clk_by_id(0, 1);
+	ccci_hif_dpmaif_set_clk(1);
 	drv_dpmaif_intr_hw_init();
 	/* rx rx */
 	for (i = 0; i < DPMAIF_RXQ_NUM; i++) {
@@ -2850,7 +2863,7 @@ static int dpmaif_stop_txq(struct dpmaif_tx_queue *txq)
 {
 	int j;
 
-	if (txq->drb_base == NULL)
+	if (!txq->drb_base)
 		return -1;
 	txq->que_started = false;
 	/* flush work */
@@ -2895,7 +2908,7 @@ static int dpmaif_stop_rxq(struct dpmaif_rx_queue *rxq)
 #endif
 	int j, cnt;
 
-	if (rxq->pit_base == NULL || rxq->bat_req.bat_base == NULL)
+	if (!rxq->pit_base || !rxq->bat_req.bat_base)
 		return -1;
 
 	/* flush work */
@@ -2926,7 +2939,7 @@ static int dpmaif_stop_rxq(struct dpmaif_rx_queue *rxq)
 		cur_skb = ((struct dpmaif_bat_skb_t *)rxq->bat_req.bat_skb_ptr
 			+ j);
 		skb = cur_skb->skb;
-		if (skb != NULL) {
+		if (skb) {
 			/* rx unmapping */
 			dma_unmap_single(
 				ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
@@ -2941,7 +2954,7 @@ static int dpmaif_stop_rxq(struct dpmaif_rx_queue *rxq)
 		cur_page = ((struct dpmaif_bat_page_t *)
 			rxq->bat_frag.bat_skb_ptr + j);
 		page = cur_page->page;
-		if (page != NULL) {
+		if (page) {
 			/* rx unmapping */
 			dma_unmap_page(
 				ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
@@ -3052,6 +3065,9 @@ void dpmaif_hw_reset(unsigned char md_id)
 
 int dpmaif_stop(unsigned char hif_id)
 {
+	if (dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWROFF
+		|| dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_MIN)
+		return 0;
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_LOG(-1, TAG, "dpmaif:stop\n");
 #else
@@ -3073,8 +3089,8 @@ int dpmaif_stop(unsigned char hif_id)
 
 	/* 3. todo: reset IP */
 	dpmaif_hw_reset(dpmaif_ctrl->md_id);
-	/* todo: CG set */
-	ccci_set_clk_by_id(0, 0);
+	/* CG set */
+	ccci_hif_dpmaif_set_clk(0);
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_LOG(-1, TAG, "dpmaif:stop end\n");
 #endif
@@ -3151,6 +3167,11 @@ static int dpmaif_resume(unsigned char hif_id)
 	}
 	return 0;
 }
+
+static void dpmaif_sysresume(void)
+{
+	dpmaif_resume(dpmaif_ctrl->hif_id);
+}
 /* =======================================================
  *
  * Descriptions: State part start(6/6): Suspend -- 6.
@@ -3168,6 +3189,34 @@ static int dpmaif_suspend(unsigned char hif_id __maybe_unused)
 	return 0;
 }
 
+static int dpmaif_syssuspend(void)
+{
+	return dpmaif_suspend(dpmaif_ctrl->hif_id);
+}
+
+static int dpmaif_debug(unsigned char hif_id,
+		enum ccci_hif_debug_flg flag, int *para)
+{
+	int ret = -1;
+
+	switch (flag) {
+	case CCCI_HIF_DEBUG_SET_WAKEUP:
+		ret = atomic_set(&dpmaif_ctrl->wakeup_src, para[0]);
+		break;
+	default:
+		break;
+	}
+	return ret;
+}
+
+static int dpmaif_pre_stop(unsigned char hif_id)
+{
+	if (hif_id != DPMAIF_HIF_ID)
+		return -1;
+	dpmaif_stop_hw();
+	return 0;
+}
+
 static struct ccci_hif_ops ccci_hif_dpmaif_ops = {
 	.send_skb = &dpmaif_tx_send_skb,
 	.give_more = &dpmaif_give_more,
@@ -3175,8 +3224,19 @@ static struct ccci_hif_ops ccci_hif_dpmaif_ops = {
 	.stop_queue = &dpmaif_stop_queue,
 	.start_queue = &dpmaif_start_queue,
 	.dump_status = &dpmaif_dump_status,
-	.suspend = &dpmaif_suspend,
-	.resume = &dpmaif_resume,
+	/* .suspend = &dpmaif_suspend, */
+	/* .resume = &dpmaif_resume, */
+
+	/* .init = &ccci_dpmaif_hif_init, */
+	.start = &dpmaif_start,
+	.pre_stop = &dpmaif_pre_stop,
+	.stop = &dpmaif_stop,
+	.debug = &dpmaif_debug,
+};
+
+static struct syscore_ops dpmaif_sysops = {
+	.suspend = dpmaif_syssuspend,
+	.resume = dpmaif_sysresume,
 };
 
 /* =======================================================
@@ -3185,34 +3245,44 @@ static struct ccci_hif_ops ccci_hif_dpmaif_ops = {
  *
  * ========================================================
  */
-
-int ccci_dpmaif_hif_init(unsigned char hif_id, unsigned char md_id)
+static u64 dpmaif_dmamask = DMA_BIT_MASK(36);
+int ccci_dpmaif_hif_init(struct device *dev)
 {
-	struct device_node *node = NULL;
+	struct device_node *node = dev->of_node;
 	struct hif_dpmaif_ctrl *hif_ctrl;
 	int ret = 0;
+	unsigned char md_id = 0;
 
+	CCCI_HISTORY_TAG_LOG(-1, TAG,
+			"%s: probe initl\n", __func__);
+	/* get Hif hw information: register etc. */
+	if (!node) {
+		CCCI_ERROR_LOG(-1, TAG, "No dpmaif driver in dtsi\n");
+		ret = -2;
+		goto DPMAIF_INIT_FAIL;
+	}
 	/* init local struct pointer */
 	hif_ctrl = kzalloc(sizeof(struct hif_dpmaif_ctrl), GFP_KERNEL);
-	if (hif_ctrl == NULL) {
+	if (!hif_ctrl) {
 		CCCI_ERROR_LOG(-1, TAG,
 			"%s:alloc hif_ctrl fail\n", __func__);
 		ret = -1;
 		goto DPMAIF_INIT_FAIL;
 	}
 
-	/* get Hif hw information: register etc. */
-	node = of_find_compatible_node(NULL, NULL, "mediatek,dpmaif");
-	if (node == NULL) {
-		CCCI_ERROR_LOG(-1, TAG, "No dpmaif driver in dtsi\n");
-		ret = -2;
-		goto DPMAIF_INIT_FAIL;
-	}
 	memset(hif_ctrl, 0, sizeof(struct hif_dpmaif_ctrl));
 
-	hif_ctrl->md_id = md_id;
-	hif_ctrl->hif_id = hif_id;
+	hif_ctrl->md_id = md_id; /* maybe can get from dtsi or phase-out. */
+	hif_ctrl->hif_id = DPMAIF_HIF_ID;
 	dpmaif_ctrl = hif_ctrl;
+
+	hif_ctrl->clk_ref = devm_clk_get(dev, "infra-dpmaif-clk");
+	if (IS_ERR(hif_ctrl->clk_ref)) {
+		CCCI_ERROR_LOG(md_id, TAG,
+			 "dpmaif get infra-dpmaif-clk failed\n");
+		hif_ctrl->clk_ref = NULL;
+		goto DPMAIF_INIT_FAIL;
+	}
 
 	/* HW: register, interrupt id,  */
 	hif_ctrl->dpmaif_ao_ul_base = of_iomap(node, 0);
@@ -3246,17 +3316,21 @@ int ccci_dpmaif_hif_init(unsigned char hif_id, unsigned char md_id)
 	hif_ctrl->dpmaif_irq_flags = IRQF_TRIGGER_NONE;
 	CCCI_DEBUG_LOG(md_id, TAG, "dpmaif_irq_id:%d\n",
 			hif_ctrl->dpmaif_irq_id);
+	dev->dma_mask = &dpmaif_dmamask;
+	dev->coherent_dma_mask = dpmaif_dmamask;
+	/* hook up to device */
+	dev->platform_data = hif_ctrl; /* maybe no need */
+
 	/* other ops: tx, dump */
 	hif_ctrl->ops = &ccci_hif_dpmaif_ops;
 
 	/* set debug related */
 #if DPMAIF_TRAFFIC_MONITOR_INTERVAL
-	//init_timer(&hif_ctrl->traffic_monitor);
-	//hif_ctrl->traffic_monitor.function = dpmaif_traffic_monitor_func;
-	//hif_ctrl->traffic_monitor.data = (unsigned long)hif_ctrl;
 	timer_setup(&hif_ctrl->traffic_monitor, dpmaif_traffic_monitor_func, 0);
 #endif
-	ccci_hif[hif_id] = (void *)hif_ctrl;
+	ccci_hif_register(DPMAIF_HIF_ID, (void *)dpmaif_ctrl,
+		&ccci_hif_dpmaif_ops);
+	register_syscore_ops(&dpmaif_sysops);
 	return 0;
 
 DPMAIF_INIT_FAIL:
@@ -3265,4 +3339,58 @@ DPMAIF_INIT_FAIL:
 
 	return ret;
 }
+
+int ccci_hif_dpmaif_probe(struct platform_device *pdev)
+{
+	int ret;
+
+	ret = ccci_dpmaif_hif_init(&pdev->dev);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(-1, TAG, "ccci dpmaif init fail");
+		return ret;
+	}
+	dpmaif_ctrl->plat_dev = pdev; /* maybe no need */
+	return 0;
+}
+
+
+static const struct of_device_id ccci_dpmaif_of_ids[] = {
+	{.compatible = "mediatek,dpmaif"},
+	{}
+};
+
+static struct platform_driver ccci_hif_dpmaif_driver = {
+
+	.driver = {
+		.name = "ccci_hif_dpmaif",
+		.of_match_table = ccci_dpmaif_of_ids,
+	},
+
+	.probe = ccci_hif_dpmaif_probe,
+};
+
+static int __init ccci_hif_dpmaif_init(void)
+{
+	int ret;
+
+	ret = platform_driver_register(&ccci_hif_dpmaif_driver);
+	if (ret) {
+		CCCI_ERROR_LOG(-1, TAG, "ccci hif_dpmaif driver init fail %d",
+			ret);
+		return ret;
+	}
+	return 0;
+}
+
+static void __exit ccci_hif_dpmaif_exit(void)
+{
+}
+
+module_init(ccci_hif_dpmaif_init);
+module_exit(ccci_hif_dpmaif_exit);
+
+MODULE_AUTHOR("ccci");
+MODULE_DESCRIPTION("ccci hif dpmaif driver");
+MODULE_LICENSE("GPL");
+
 
