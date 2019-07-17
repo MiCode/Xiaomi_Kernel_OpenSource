@@ -17,3 +17,15 @@ config MTK_IOMMU_MISC_SEC
 	  bit no more than 32. So the secure memory need to map to mva
 	  by m4u. Secure m4u driver can map non-physical continuous
 	  secure memory to continuous modified virtual address.
+
+config MTK_IOMMU_MISC_DBG
+	bool "Enable Mediatek M4U debug feature"
+	depends on MTK_IOMMU_MISC
+	help
+	  Choose this option to enable mediatek iommu debug driver.
+	  According to the characteristic of hardware, we need to add
+	  some debug information. For example translation fault, hardware
+	  dump information and so on. In addition, for ion buffer, we can
+	  use dma_buf information to monitor iova, but if user use
+	  "dma_alloc_attrs" to allocate buffer, we can not monitor iova.
+	  So we can use list to save all iova node and dump it.

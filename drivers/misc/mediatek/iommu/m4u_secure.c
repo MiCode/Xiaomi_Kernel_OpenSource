@@ -27,7 +27,7 @@
 #include "mobicore_driver_api.h"
 #endif
 
-struct m4u_device *m4u_dev;
+static struct m4u_device *m4u_dev;
 static unsigned long m4u_mm_base;
 static unsigned int m4u_dev_irq[SECURE_BANK_NUM];
 
@@ -431,52 +431,6 @@ static int m4u_fb_notifier_callback(
 }
 #endif
 
-static int m4u_debug_set(void *data, u64 val)
-{
-	pr_info("%s:val=%llu\n", __func__, val);
-
-	switch (val) {
-#ifdef M4U_TEE_SERVICE_ENABLE
-	case 1:
-	{
-		m4u_sec_init();
-
-	break;
-	}
-#endif
-	default:
-		pr_err("%s error,val=%llu\n", __func__, val);
-	}
-
-	return 0;
-}
-
-static int m4u_debug_get(void *data, u64 *val)
-{
-	*val = 0;
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(m4u_debug_fops, m4u_debug_get, m4u_debug_set, "%llu\n");
-
-int m4u_debug_init(struct m4u_device *m4u_dev)
-{
-	struct dentry *debug_file;
-
-	m4u_dev->debug_root = debugfs_create_dir("m4u", NULL);
-
-	if (IS_ERR_OR_NULL(m4u_dev->debug_root))
-		pr_err("failed to create debug dir.\n");
-
-	debug_file = debugfs_create_file("debug",
-		0644, m4u_dev->debug_root, NULL, &m4u_debug_fops);
-
-	if (IS_ERR_OR_NULL(debug_file))
-		pr_err("failed to create debug files 2.\n");
-
-	return 0;
-}
-
 irqreturn_t mtk_m4u_isr_sec(int irq, void *dev_id)
 {
 	struct arm_smccc_res res;
@@ -661,8 +615,6 @@ static int m4u_probe(struct platform_device *pdev)
 		dev_info(m4u_dev->dev, "register fb_notifier OK!\n");
 #endif
 
-	m4u_debug_init(m4u_dev);
-
 	dev_info(m4u_dev->dev, "%s done\n", __func__);
 	return 0;
 }
@@ -674,19 +626,19 @@ static int m4u_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id mtk_m4u_of_ids[] = {
+static const struct of_device_id mtk_m4u_sec_of_ids[] = {
 	{ .compatible = "mediatek,secure_m4u",},
 	{}
 };
 
-static struct platform_driver mtk_m4u_driver = {
+static struct platform_driver mtk_m4u_sec_driver = {
 	.probe = m4u_probe,
 	.remove = m4u_remove,
 	.driver = {
 		.name = M4U_DEVNAME,
-		.of_match_table = of_match_ptr(mtk_m4u_of_ids),
+		.of_match_table = of_match_ptr(mtk_m4u_sec_of_ids),
 		.owner = THIS_MODULE,
 	}
 };
 
-module_platform_driver(mtk_m4u_driver);
+module_platform_driver(mtk_m4u_sec_driver);

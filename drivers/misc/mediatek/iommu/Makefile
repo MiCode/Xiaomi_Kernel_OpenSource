@@ -11,9 +11,14 @@
 # GNU General Public License for more details.
 #
 
+ifeq ($(CONFIG_MTK_AEE_FEATURE),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+endif
+
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
 ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public
 ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public/GP
+endif
 
 obj-$(CONFIG_MTK_IOMMU_MISC_SEC) += m4u_secure.o
-endif
+obj-$(CONFIG_MTK_IOMMU_MISC_DBG) += m4u_debug.o
