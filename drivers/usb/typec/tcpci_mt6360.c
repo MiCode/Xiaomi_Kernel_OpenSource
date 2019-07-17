@@ -11,6 +11,9 @@
 #include <linux/interrupt.h>
 #include <linux/usb/tcpm.h>
 #include <linux/regmap.h>
+#include <linux/extcon.h>
+#include <linux/power_supply.h>
+#include <linux/regulator/consumer.h>
 #include "tcpci.h"
 
 #include <linux/mfd/mt6360.h>
@@ -40,6 +43,9 @@ struct mt6360_tcpc_info {
 	struct tcpci *tcpci;
 	struct i2c_client *i2c;
 	struct device *dev;
+	struct extcon_dev *edev;
+	struct power_supply *chg_psy;
+	struct regulator *otg_vbus;
 	int irq;
 };
 
@@ -112,6 +118,98 @@ static int mt6360_tcpc_init(struct tcpci *tcpci, struct tcpci_data *data)
 	return regmap_write(data->regmap, MT6360_REG_MODECTRL2, 0x72);
 }
 
+static int mt6360_tcpc_set_vbus(struct tcpci *tcpci,
+				struct tcpci_data *data, bool source, bool sink)
+{
+	struct mt6360_tcpc_info *mti = (void *)data;
+	union power_supply_propval val;
+	int ret;
+
+	if (!mti->chg_psy || !mti->otg_vbus)
+		return 0;
+	if (!source) {
+		ret = regulator_is_enabled(mti->otg_vbus);
+		if (ret < 0)
+			return ret;
+		if (!!ret) {
+			ret = regulator_disable(mti->otg_vbus);
+			if (ret < 0)
+				return ret;
+		}
+	}
+	if (!sink) {
+		val.intval = 0;
+		ret = power_supply_set_property(mti->chg_psy,
+						POWER_SUPPLY_PROP_ONLINE, &val);
+		if (ret < 0)
+			return ret;
+	}
+	if (source) {
+		ret = regulator_set_voltage(mti->otg_vbus, 5000000, 5050000);
+		if (ret < 0)
+			return ret;
+		ret = regulator_enable(mti->otg_vbus);
+		if (ret < 0)
+			return ret;
+	}
+	if (sink) {
+		val.intval = 1;
+		ret = power_supply_set_property(mti->chg_psy,
+						POWER_SUPPLY_PROP_ONLINE, &val);
+	}
+	return ret;
+}
+
+static int mt6360_tcpc_get_current_limit(struct tcpci *tcpci,
+					 struct tcpci_data *data)
+{
+	struct mt6360_tcpc_info *mti = (void *)data;
+	int current_limit = 0;
+	unsigned long timeout;
+
+	if (!mti->edev)
+		return 0;
+	timeout = jiffies + msecs_to_jiffies(800);
+	do {
+		if (extcon_get_state(mti->edev, EXTCON_CHG_USB_SDP) == 1)
+			current_limit = 500;
+
+		if (extcon_get_state(mti->edev, EXTCON_CHG_USB_CDP) == 1 ||
+		    extcon_get_state(mti->edev, EXTCON_CHG_USB_ACA) == 1)
+			current_limit = 1500;
+
+		if (extcon_get_state(mti->edev, EXTCON_CHG_USB_DCP) == 1)
+			current_limit = 2000;
+
+		msleep(50);
+	} while (current_limit == 0 && time_before(jiffies, timeout));
+
+	return current_limit;
+}
+
+static int mt6360_tcpc_set_current_limit(struct tcpci *tcpci,
+					 struct tcpci_data *data,
+					 u32 max_ma, u32 mv)
+{
+	struct mt6360_tcpc_info *mti = (void *)data;
+	union power_supply_propval val;
+	int ret;
+
+	if (!mti->chg_psy)
+		return 0;
+	dev_dbg(mti->dev, "%s: [mV, mA] = [%d, %d]\n", __func__, mv, max_ma);
+	/* transform to uA */
+	val.intval = max_ma * 1000;
+	ret = power_supply_set_property(mti->chg_psy,
+					POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
+					&val);
+	if (ret < 0)
+		return ret;
+	val.intval = 3000 * 1000;
+	return power_supply_set_property(mti->chg_psy,
+			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT, &val);
+}
+
 static irqreturn_t mt6360_irq(int irq, void *dev_id)
 {
 	struct mt6360_tcpc_info *mti = dev_id;
@@ -167,8 +265,29 @@ static int mt6360_tcpc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to check TCPC id\n");
 		return ret;
 	}
+	/* edev for USB2 BC 1.2 */
+	mti->edev = extcon_get_edev_by_phandle(&pdev->dev, 0);
+	if (IS_ERR(mti->edev)) {
+		dev_err(&pdev->dev, "Failed to get usb2 bc12 edev\n");
+		return PTR_ERR(mti->edev);
+	}
+	/* charger psy */
+	mti->chg_psy = devm_power_supply_get_by_phandle(&pdev->dev, "charger");
+	if (IS_ERR(mti->chg_psy)) {
+		dev_err(&pdev->dev, "Failed to get charger psy\n");
+		return PTR_ERR(mti->chg_psy);
+	}
+	/* otg vbus */
+	mti->otg_vbus = devm_regulator_get_exclusive(&pdev->dev, "otg-vbus");
+	if (IS_ERR(mti->otg_vbus)) {
+		dev_err(&pdev->dev, "Failed to get otg-vbus regulator\n");
+		return PTR_ERR(mti->otg_vbus);
+	}
 	/* register tcpc port */
 	mti->data.init = mt6360_tcpc_init;
+	mti->data.set_vbus = mt6360_tcpc_set_vbus;
+	mti->data.get_current_limit = mt6360_tcpc_get_current_limit;
+	mti->data.set_current_limit = mt6360_tcpc_set_current_limit;
 	mti->tcpci = tcpci_register_port(&pdev->dev, &mti->data);
 	if (IS_ERR_OR_NULL(mti->tcpci)) {
 		dev_err(&pdev->dev, "Failed to register tcpci port\n");
