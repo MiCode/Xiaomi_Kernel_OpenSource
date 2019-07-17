@@ -22,6 +22,7 @@ struct md_ao_clk {
 
 static struct md_ao_clk md_ao_clk_tbl[] = {
 	{NULL, "infra-aes-bclk-md"},
+	{NULL, "infra-temp-share-md"},
 };
 
 static int md_clk_probe(struct platform_device *pdev)

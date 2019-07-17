@@ -105,6 +105,7 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 {
 	struct device_node *node = NULL;
 	int idx = 0;
+	int retval = 0;
 
 	if (dev_ptr->dev.of_node == NULL) {
 		CCCI_ERROR_LOG(0, TAG, "modem OF node NULL\n");
@@ -215,6 +216,15 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		hw_info->md_wdt_irq_id);
 	//xuxin-clk-pg//register_pg_callback(&md1_subsys_handle);
 	pm_runtime_enable(&dev_ptr->dev);
+
+	CCCI_BOOTUP_LOG(dev_cfg->index, TAG, "md mtcmos pm get start\n");
+	retval = pm_runtime_get_sync(&dev_ptr->dev); /* match lk on */
+	if (retval)
+		CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
+			"md mtcmos pm getfail: ret = %d\n", retval);
+
+	CCCI_BOOTUP_LOG(dev_cfg->index, TAG, "md mtcmos pm get done\n");
+
 	return 0;
 }
 
@@ -563,7 +573,6 @@ int md_start_platform(struct ccci_modem *md)
 	void __iomem *sec_ao_base = NULL;
 	int timeout = 100; /* 100 * 20ms = 2s */
 	int ret = -1;
-	int retval = 0;
 
 	if ((md->per_md_data.config.setting&MD_SETTING_FIRST_BOOT) == 0)
 		return 0;
@@ -615,12 +624,6 @@ int md_start_platform(struct ccci_modem *md)
 		msleep(20);
 	}
 
-	CCCI_BOOTUP_LOG(md->index, TAG, "dummy md sys clk\n");
-	retval = pm_runtime_get_sync(&md->plat_dev->dev); /* match lk on */
-	if (retval)
-		CCCI_ERROR_LOG(md->index, TAG,
-			"dummy md sys clk fail: ret = %d\n", retval);
-	CCCI_BOOTUP_LOG(md->index, TAG, "dummy md sys clk done\n");
 	md_cd_dump_md_bootup_status(md);
 
 	md_cd_power_off(md, 0);
