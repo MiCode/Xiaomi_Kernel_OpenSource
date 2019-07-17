@@ -1175,6 +1175,15 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 			{
 				enum MHI_PM_STATE new_state;
 
+				/*
+				 * Don't process sys error if device support
+				 * rddm since we will be processing rddm ee
+				 * event instead of sys error state change event
+				 */
+				if (mhi_cntrl->ee == MHI_EE_RDDM ||
+				    mhi_cntrl->rddm_image)
+					break;
+
 				MHI_ERR("MHI system error detected\n");
 				write_lock_irq(&mhi_cntrl->pm_lock);
 				new_state = mhi_tryset_pm_state(mhi_cntrl,
