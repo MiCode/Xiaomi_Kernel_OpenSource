@@ -68,6 +68,14 @@
 		asoc-codec = <&tlv320aic3x_codec>, <&stub_codec>;
 		asoc-codec-names = "tlv320aic3x-codec", "msm-stub-codec.1";
 	};
+
+	pps {
+		compatible = "pps-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pps>;
+		gpios = <&tlmm 32 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
 };
 
 /* delete pm8150b nodes */

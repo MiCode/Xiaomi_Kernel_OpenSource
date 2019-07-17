@@ -1488,5 +1488,17 @@
 				};
 			};
 		};
+
+		pinctrl_pps: ppsgrp {
+			mux {
+				pins = "gpio32";
+				function = "nav_gpio";
+			};
+
+			config {
+				pins = "gpio32";
+				bias-pull-down;
+			};
+		};
 	};
 };
