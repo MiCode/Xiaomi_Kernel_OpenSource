@@ -95,6 +95,8 @@ int mtk_get_mcupm_buck_mode(void);
 void mtk_notify_mcupm_infra_off(void);
 void mtk_notify_mcupm_infra_on(void);
 
+bool mtk_mcupm_is_ready(void);
+
 void __init mtk_lp_plat_mbox_init(void);
 
 #endif

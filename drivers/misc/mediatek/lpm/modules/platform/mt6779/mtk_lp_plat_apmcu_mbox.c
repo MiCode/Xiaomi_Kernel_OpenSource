@@ -72,7 +72,7 @@ void mtk_clr_sspm_lp_cmd(void)
 
 void mtk_mcupm_pwr_ctrl_en(int dev)
 {
-	unsigned int en_mask;
+	unsigned int en_mask = 0;
 
 	mbox[MBOX_MCUPM].read(APMCU_MCUPM_MBOX_PWR_CTRL_EN, &en_mask, 1);
 	en_mask |= (dev & MCUPM_PWR_CTRL_MASK);
@@ -81,7 +81,7 @@ void mtk_mcupm_pwr_ctrl_en(int dev)
 
 void mtk_mcupm_pwr_ctrl_dis(int dev)
 {
-	unsigned int en_mask;
+	unsigned int en_mask = 0;
 
 	mbox[MBOX_MCUPM].read(APMCU_MCUPM_MBOX_PWR_CTRL_EN, &en_mask, 1);
 	en_mask &= ~(dev & MCUPM_PWR_CTRL_MASK);
@@ -130,6 +130,15 @@ void mtk_notify_mcupm_infra_on(void)
 	int pwrdn = 0;
 
 	mbox[MBOX_MCUPM].write(APMCU_MCUPM_MBOX_INFRA_PWRDN, &pwrdn, 1);
+}
+
+bool mtk_mcupm_is_ready(void)
+{
+	int sta = MCUPM_TASK_INIT_FINISH;
+
+	mbox[MBOX_MCUPM].read(APMCU_MCUPM_MBOX_TASK_STA, &sta, 1);
+
+	return sta == MCUPM_TASK_WAIT || sta ==  MCUPM_TASK_INIT_FINISH;
 }
 
 void __init mtk_lp_plat_mbox_init(void)

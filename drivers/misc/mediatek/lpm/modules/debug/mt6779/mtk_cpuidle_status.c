@@ -234,14 +234,10 @@ void mtk_cpuidle_state_enable(bool en)
 
 static bool mtk_cpuidle_need_dump(unsigned int idx)
 {
-	struct cpuidle_driver *drv;
 	u64 curr_ns;
 	bool dump = false;
 
 	if (!mtk_cpuidle_ctrl.log_en || !idx)
-		return false;
-
-	if (unlikely(!drv))
 		return false;
 
 	curr_ns = sched_clock();
@@ -485,12 +481,13 @@ static void mtk_cpuidle_init_per_cpu(void *info)
 
 	put_cpu();
 
+	hrtimer_init(&mtk_idle->timer,
+		CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+
 	mtk_idle->cpu = cpu;
 	mtk_idle->timer.function = mtk_cpuidle_hrtimer_func;
 	mtk_idle->state_count = drv->state_count;
 
-	hrtimer_init(&mtk_idle->timer,
-		CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 }
 
 int __init mtk_cpuidle_status_init(void)

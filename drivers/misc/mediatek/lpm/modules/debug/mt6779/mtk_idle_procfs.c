@@ -25,7 +25,8 @@ static int idle_proc_info_show(struct seq_file *m, void *v)
 	ts |= mtk_lpm_syssram_read(SYSRAM_RECENT_CNT_TS_L);
 	ts = div64_u64_rem(ts, 1000 * 1000 * 1000, &rem);
 
-	seq_puts(m, "\n========= Power off count ==========\n");
+	seq_puts(m, "\n========= Power off count =========\n");
+
 	seq_puts(m, "\n-- Within 5 seconds before dumped --\n");
 	seq_printf(m, "\nLast dump timestamp = %llu.%09llu\n",
 			ts, rem);
@@ -136,5 +137,5 @@ module_init(mtk_idle_procfs_init);
 module_exit(mtk_idle_procfs_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek Low Power FileSystem");
+MODULE_DESCRIPTION("MediaTek CPU Idle FileSystem");
 MODULE_AUTHOR("MediaTek Inc.");
