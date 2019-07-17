@@ -983,7 +983,7 @@ static void dp_display_clean(struct dp_display_private *dp)
 	}
 
 	dp->power_on = false;
-
+	dp->is_connected = false;
 	dp->ctrl->off(dp->ctrl);
 }
 
