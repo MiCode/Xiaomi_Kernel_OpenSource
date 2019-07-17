@@ -13,7 +13,6 @@
 #include "adreno_llc.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
-#include "kgsl_gmu.h"
 #include "kgsl_trace.h"
 
 static struct a6xx_protected_regs {
@@ -1065,7 +1064,6 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 {
 	int ret;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_firmware *sqe_fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 
@@ -1074,16 +1072,6 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 		if (ret)
 			return ret;
 	}
-
-	ret = gmu_core_dev_load_firmware(device);
-	if (ret)
-		return ret;
-
-	ret = gmu_memory_probe(device);
-	if (ret)
-		return ret;
-
-	hfi_init(gmu);
 
 	return 0;
 }

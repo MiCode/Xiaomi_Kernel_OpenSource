@@ -217,7 +217,6 @@ void gmu_core_dev_oob_clear(struct kgsl_device *device, enum oob_request req);
 int gmu_core_dev_hfi_start_msg(struct kgsl_device *device);
 int gmu_core_dev_wait_for_lowest_idle(struct kgsl_device *device);
 void gmu_core_dev_enable_lm(struct kgsl_device *device);
-int gmu_core_dev_load_firmware(struct kgsl_device *device);
 void gmu_core_dev_snapshot(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot);
 bool gmu_core_dev_gx_is_on(struct kgsl_device *device);
