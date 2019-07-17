@@ -940,8 +940,10 @@ static int vidioc_enum_framesizes(struct file *file, void *priv,
 	for (i = 0; i < MTK_MAX_DEC_CODECS_SUPPORT; i++) {
 		if (mtk_vdec_framesizes[i].fourcc != 0) {
 			mtk_v4l2_debug(1,
-			"vdec_fs[%d] fourcc %d s %d %d %d %d %d %d\n",
+			"vdec_fs[%d] fourcc %d, profile %d, level %d, s %d %d %d %d %d %d\n",
 			i, mtk_vdec_framesizes[i].fourcc,
+			mtk_vdec_framesizes[i].profile,
+			mtk_vdec_framesizes[i].level,
 			mtk_vdec_framesizes[i].stepwise.min_width,
 			mtk_vdec_framesizes[i].stepwise.max_width,
 			mtk_vdec_framesizes[i].stepwise.step_width,
@@ -968,8 +970,10 @@ static int vidioc_enum_framesizes(struct file *file, void *priv,
 			fsize->stepwise.max_height =
 					VCODEC_DEC_4K_CODED_HEIGHT;
 		}
-		mtk_v4l2_debug(1, "%x, %d %d %d %d %d %d %d %d",
+		mtk_v4l2_debug(1, "%x, %d %d %d %d %d %d %d %d %d %d",
 					   ctx->dev->dec_capability,
+					   fsize->reserved[0],
+					   fsize->reserved[1],
 					   fsize->stepwise.min_width,
 					   fsize->stepwise.max_width,
 					   fsize->stepwise.step_width,
