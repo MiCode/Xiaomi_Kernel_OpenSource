@@ -52,7 +52,8 @@ enum venc_ipi_msg_id {
 enum venc_get_param_type {
 	GET_PARAM_CAPABILITY_SUPPORTED_FORMATS,
 	GET_PARAM_CAPABILITY_FRAME_SIZES,
-	GET_PARAM_FREE_BUFFERS
+	GET_PARAM_FREE_BUFFERS,
+	GET_PARAM_ROI_RC_QP
 };
 /*
  * enum venc_set_param_type - The type of set parameter used in
@@ -87,6 +88,7 @@ enum venc_set_param_type {
 	VENC_SET_PARAM_PREPEND_SPSPPS_TO_IDR,
 	VENC_SET_PARAM_OPERATION_RATE,
 	VENC_SET_PARAM_BITRATE_MODE,
+	VENC_SET_PARAM_ROI_ON
 };
 /**
  * struct venc_ap_ipi_msg_init - AP to VPU init cmd structure
@@ -377,6 +379,8 @@ struct venc_vcu_config {
 	__u32 scenario;
 	__u32 prependheader;
 	__u32 bitratemode;
+	__u32 roi_rc_qp;
+	__u32 roion;
 };
 
 /**
@@ -411,6 +415,8 @@ struct venc_info {
 	__u32 fb_num_planes;
 	__u32 index;
 	__u64 timestamp;
+	__u32 roimap;
+	__u32 reserved;
 };
 
 /**

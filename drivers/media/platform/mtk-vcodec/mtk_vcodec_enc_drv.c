@@ -500,10 +500,14 @@ static const struct mtk_vcodec_enc_pdata mt8183_pdata = {
 static const struct mtk_vcodec_enc_pdata mt6779_pdata = {
 	.uses_ext = false,
 };
+static const struct mtk_vcodec_enc_pdata mt2712_pdata = {
+	.uses_ext = false,
+};
+
 static const struct of_device_id mtk_vcodec_enc_match[] = {
 	{.compatible = "mediatek,mt8173-vcodec-enc", .data = &mt8173_pdata},
 	{.compatible = "mediatek,mt8183-vcodec-enc", .data = &mt8183_pdata},
-	{.compatible = "mediatek,mt2712-vcodec-enc",},
+	{.compatible = "mediatek,mt2712-vcodec-enc", .data = &mt2712_pdata},
 	{.compatible = "mediatek,venc_gcon", .data = &mt6779_pdata},
 	{},
 };
