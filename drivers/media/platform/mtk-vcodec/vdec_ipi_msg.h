@@ -327,6 +327,8 @@ struct vdec_dec_info {
 	__u32 index;
 	__u32 wait_key_frame;
 	__u32 error_map;
+	__u32 timestamp;
+	__u32 queued_frame_buf_count;
 };
 
 struct mtk_color_desc {
