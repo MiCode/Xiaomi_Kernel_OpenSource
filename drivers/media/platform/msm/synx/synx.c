@@ -1298,6 +1298,7 @@ static int synx_close(struct inode *inode, struct file *filep)
 	int i;
 	struct synx_device *synx_dev = NULL;
 	struct synx_client *client, *tmp_client;
+	struct synx_import_data *data, *tmp_data;
 
 	pr_debug("Enter %s\n", __func__);
 
@@ -1333,20 +1334,46 @@ static int synx_close(struct inode *inode, struct file *filep)
 		flush_workqueue(synx_dev->work_queue);
 
 		/*
-		 * now that all objs have been signaled,
-		 * destroy them
+		 * now that all objs have been signaled, destroy remaining
+		 * synx objs.
+		 * Start with merged synx objs, thereby releasing references
+		 * owned by the merged obj on its constituing synx objs.
 		 */
 		for (i = 1; i < SYNX_MAX_OBJS; i++) {
 			struct synx_table_row *row =
 				synx_dev->synx_table + i;
 
-			if (row->index) {
+			if (row->index && is_merged_synx(row)) {
 				rc = synx_release_core(row);
-				if (rc < 0) {
+				if (rc < 0)
 					pr_err("cleanup destroy fail at %d\n",
 						row->index);
-				}
 			}
+		}
+
+		for (i = 1; i < SYNX_MAX_OBJS; i++) {
+			struct synx_table_row *row =
+				synx_dev->synx_table + i;
+			/*
+			 * iterate till all un-cleared reference/s for
+			 * synx obj is released since synx_release_core
+			 * removes only one reference per invocation.
+			 */
+			while (row->index) {
+				rc = synx_release_core(row);
+				if (rc < 0)
+					pr_err("cleanup destroy fail at %d\n",
+						row->index);
+			}
+		}
+
+		/* clean remaining un-imported synx data */
+		list_for_each_entry_safe(data, tmp_data,
+			&synx_dev->import_list, list) {
+			pr_debug("clearing import data 0x%x\n",
+				data->synx_obj);
+			list_del_init(&data->list);
+			kfree(data);
 		}
 	}
 
