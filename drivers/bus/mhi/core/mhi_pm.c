@@ -1273,6 +1273,9 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 		}
 	}
 
+	/* do not process control events */
+	tasklet_disable(&mhi_cntrl->mhi_event->task);
+
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	/* restore the states */
 	mhi_cntrl->pm_state = mhi_cntrl->saved_pm_state;
@@ -1284,18 +1287,13 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 		mhi_pm_m0_transition(mhi_cntrl);
 	case MHI_PM_M2:
 		read_lock_bh(&mhi_cntrl->pm_lock);
-		/*
-		 * we're doing a double check of pm_state because by the time we
-		 * grab the pm_lock, device may have already initiate a M0 on
-		 * its own. If that's the case we should not be toggling device
-		 * wake.
-		 */
-		if (mhi_cntrl->pm_state == MHI_PM_M2) {
-			mhi_cntrl->wake_get(mhi_cntrl, true);
-			mhi_cntrl->wake_put(mhi_cntrl, true);
-		}
+		mhi_cntrl->wake_get(mhi_cntrl, true);
+		mhi_cntrl->wake_put(mhi_cntrl, true);
 		read_unlock_bh(&mhi_cntrl->pm_lock);
 	}
+
+	/* now it's safe to process ctrl events */
+	tasklet_enable(&mhi_cntrl->mhi_event->task);
 
 	/*
 	 * In fast suspend/resume case device is not aware host transition
