@@ -289,12 +289,12 @@ static int mmdvfs_probe(struct platform_device *pdev)
 
 	mmdvfs_debugfs_dir = debugfs_create_dir("mmdvfs", NULL);
 	if (IS_ERR(mmdvfs_debugfs_dir))
-		pr_notice("Failed to create debugfs dir mmdvfs: %d\n",
+		pr_notice("Failed to create debugfs dir mmdvfs: %ld\n",
 			PTR_ERR(mmdvfs_debugfs_dir));
 	dentry = debugfs_create_file("setting", 0444,
 			mmdvfs_debugfs_dir, drv_data, &mmdvfs_setting_fops);
 	if (IS_ERR(dentry))
-		pr_notice("Failed to create debugfs setting: %d\n",
+		pr_notice("Failed to create debugfs setting: %ld\n",
 			PTR_ERR(dentry));
 #ifdef MMDVFS_DBG
 	dbg_data = devm_kzalloc(dev, sizeof(*dbg_data), GFP_KERNEL);
@@ -306,7 +306,7 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	dentry = debugfs_create_file("force_clk", 0200,
 			mmdvfs_debugfs_dir, dbg_data, &force_clk_ops);
 	if (IS_ERR(dentry))
-		pr_notice("Failed to create debugfs force_clk: %d\n",
+		pr_notice("Failed to create debugfs force_clk: %ld\n",
 			PTR_ERR(dentry));
 #endif
 
