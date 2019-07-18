@@ -777,34 +777,35 @@ static int idle_pull_cpu_stop(void *data)
 	return ret;
 }
 
-static int
-migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target)
+int
+migrate_running_task(int dst_cpu, struct task_struct *p, struct rq *src_rq)
 {
 	unsigned long flags;
 	unsigned int force = 0;
 
 	/* now we have a candidate */
-	raw_spin_lock_irqsave(&target->lock, flags);
-	if (!target->active_balance &&
-			(task_rq(p) == target) && p->state != TASK_DEAD) {
+	raw_spin_lock_irqsave(&src_rq->lock, flags);
+	if (!src_rq->active_balance &&
+			(task_rq(p) == src_rq) && p->state != TASK_DEAD) {
 		get_task_struct(p);
-		target->push_cpu = this_cpu;
-		target->migrate_task = p;
-		trace_sched_migrate(p, target->push_cpu, MIGR_IDLE_RUNNING);
-		target->active_balance = MIGR_IDLE_RUNNING; /* idle pull */
+		src_rq->push_cpu = dst_cpu;
+		src_rq->migrate_task = p;
+		trace_sched_migrate(p, cpu_of(src_rq), src_rq->push_cpu,
+				MIGR_IDLE_RUNNING);
+		src_rq->active_balance = MIGR_IDLE_RUNNING; /* idle pull */
 		force = 1;
 	}
-	raw_spin_unlock_irqrestore(&target->lock, flags);
+	raw_spin_unlock_irqrestore(&src_rq->lock, flags);
 	if (force) {
-		if (!stop_one_cpu_nowait(cpu_of(target),
+		if (!stop_one_cpu_nowait(cpu_of(src_rq),
 					idle_pull_cpu_stop,
-					target, &target->active_balance_work)) {
+					src_rq, &src_rq->active_balance_work)) {
 			put_task_struct(p); /* out of rq->lock */
-			raw_spin_lock_irqsave(&target->lock, flags);
-			target->active_balance = 0;
-			target->migrate_task = NULL;
+			raw_spin_lock_irqsave(&src_rq->lock, flags);
+			src_rq->active_balance = 0;
+			src_rq->migrate_task = NULL;
 			force = 0;
-			raw_spin_unlock_irqrestore(&target->lock, flags);
+			raw_spin_unlock_irqrestore(&src_rq->lock, flags);
 		}
 	}
 
@@ -816,7 +817,7 @@ static DEFINE_SPINLOCK(force_migration);
 unsigned int aggressive_idle_pull(int this_cpu)
 {
 	int moved = 0;
-	struct rq *target = NULL;
+	struct rq *src_rq = NULL;
 	struct task_struct *p = NULL;
 
 	if (!pod_is_ready())
@@ -829,22 +830,24 @@ unsigned int aggressive_idle_pull(int this_cpu)
 	 * aggressive idle balance for min_cap/idle_prefer
 	 */
 	if (cpu_is_slowest(this_cpu)) {
-		slowest_domain_idle_prefer_pull(this_cpu, &p, &target);
+		slowest_domain_idle_prefer_pull(this_cpu, &p, &src_rq);
 		if (p) {
-			trace_sched_migrate(p, this_cpu, 0x10);
-			moved = migrate_runnable_task(p, this_cpu, target);
+			trace_sched_migrate(p, this_cpu, cpu_of(src_rq),
+							MIGR_IDLE_BALANCE);
+			moved = migrate_runnable_task(p, this_cpu, src_rq);
 			if (moved)
 				goto done;
 		}
 	} else {
-		fastest_domain_idle_prefer_pull(this_cpu, &p, &target);
+		fastest_domain_idle_prefer_pull(this_cpu, &p, &src_rq);
 		if (p) {
-			trace_sched_migrate(p, this_cpu, 0x10);
-			moved = migrate_runnable_task(p, this_cpu, target);
+			trace_sched_migrate(p, this_cpu, cpu_of(src_rq),
+							MIGR_IDLE_BALANCE);
+			moved = migrate_runnable_task(p, this_cpu, src_rq);
 			if (moved)
 				goto done;
 
-			moved = migrate_running_task(this_cpu, p, target);
+			moved = migrate_running_task(this_cpu, p, src_rq);
 		}
 	}
 

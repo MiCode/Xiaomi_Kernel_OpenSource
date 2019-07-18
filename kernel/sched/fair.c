@@ -8205,11 +8205,28 @@ static struct task_struct *detach_one_task(struct lb_env *env)
 
 	list_for_each_entry_reverse(p,
 			&env->src_rq->cfs_tasks, se.group_node) {
+#ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
+		if (env->src_rq->migrate_task) {
+			struct task_struct *pm;
+
+			pm = env->src_rq->migrate_task;
+			if (p != pm)
+				continue;
+
+			env->src_rq->migrate_task = NULL;
+
+			if (!cpumask_test_cpu(env->dst_cpu, &p->cpus_allowed))
+				return NULL;
+
+		} else if (!can_migrate_task(p, env)) {
+			continue;
+		}
+#else
 		if (!can_migrate_task(p, env))
 			continue;
+#endif
 
 		detach_task(p, env);
-
 		/*
 		 * Right now, this is only the second place where
 		 * lb_gained[env->idle] is updated (other is detach_tasks)

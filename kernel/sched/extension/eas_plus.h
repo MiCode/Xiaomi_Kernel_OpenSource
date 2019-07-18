@@ -53,7 +53,8 @@ bool is_intra_domain(int prev, int target);
 unsigned int aggressive_idle_pull(int this_cpu);
 
 #ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
-#define MIGR_IDLE_RUNNING      1
+#define MIGR_IDLE_BALANCE      1
+#define MIGR_IDLE_RUNNING      2
 
 struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
 					struct task_struct *p, int dest_cpu);
