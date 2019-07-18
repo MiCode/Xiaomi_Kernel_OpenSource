@@ -1353,6 +1353,14 @@
 			clock-names = "devapc-infra-clock";
 		};
 
+		bus_dbg@10208000 {
+			compatible = "mediatek,bus_dbg-v2";
+			reg = <0 0x10208000 0 0x1000>,
+			      <0 0x10001000 0 0x1000>;
+			mediatek,bus_dbg_con_offset = <0x2fc>;
+			interrupts = <GIC_SPI 167 IRQ_TYPE_LEVEL_LOW>;
+		};
+
 		infracfg: infracfg@1020e000 {
 			compatible = "syscon";
 			reg = <0 0x1020e000 0 0x1000>;
