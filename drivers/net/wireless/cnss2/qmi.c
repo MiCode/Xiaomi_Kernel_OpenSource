@@ -126,12 +126,21 @@ static int cnss_wlfw_ind_register_send_sync(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
+	if (resp->fw_status_valid) {
+		if (resp->fw_status & QMI_WLFW_ALREADY_REGISTERED_V01) {
+			ret = -EALREADY;
+			goto qmi_registered;
+		}
+	}
+
 	kfree(req);
 	kfree(resp);
 	return 0;
 
 out:
 	CNSS_ASSERT(0);
+
+qmi_registered:
 	kfree(req);
 	kfree(resp);
 	return ret;
@@ -1810,8 +1819,11 @@ int cnss_wlfw_server_arrive(struct cnss_plat_data *plat_priv, void *data)
 		goto out;
 
 	ret = cnss_wlfw_ind_register_send_sync(plat_priv);
-	if (ret < 0)
+	if (ret < 0) {
+		if (ret == -EALREADY)
+			ret = 0;
 		goto out;
+	}
 
 	ret = cnss_wlfw_host_cap_send_sync(plat_priv);
 	if (ret < 0)
