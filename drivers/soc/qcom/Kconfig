@@ -50,6 +50,15 @@ config QCOM_LLCC
 	  to clients that use the LLCC. Say yes here to enable LLCC slice
 	  driver.
 
+config QCOM_LAHAINA_LLCC
+	tristate "Qualcomm Technologies, Inc. LAHAINA LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say y or m here to enable the LLCC driver for Lahaina platform.
+	  This provides data required to configure LLCC so that clients
+	  can start using the LLCC slices.
+	  If unsure, say n.
+
 config QCOM_SDM845_LLCC
 	tristate "Qualcomm Technologies, Inc. SDM845 LLCC driver"
 	depends on QCOM_LLCC
