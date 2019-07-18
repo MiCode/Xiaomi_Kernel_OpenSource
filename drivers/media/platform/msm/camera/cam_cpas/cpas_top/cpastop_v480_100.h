@@ -11,28 +11,26 @@
 static struct cam_camnoc_irq_sbm cam_cpas_v480_100_irq_sbm = {
 	.sbm_enable = {
 		.access_type = CAM_REG_TYPE_READ_WRITE,
-		.enable = false,
-		.offset = 0x2040, /* SBM_FAULTINEN0_LOW */
-		.value = 0x1 | /* SBM_FAULTINEN0_LOW_PORT0_MASK*/
-			0x2 | /* SBM_FAULTINEN0_LOW_PORT1_MASK */
+		.enable = true,
+		.offset = 0x3840, /* SBM_FAULTINEN0_LOW */
+		.value = 0x2 | /* SBM_FAULTINEN0_LOW_PORT1_MASK */
 			0x4 | /* SBM_FAULTINEN0_LOW_PORT2_MASK */
 			0x8 | /* SBM_FAULTINEN0_LOW_PORT3_MASK */
 			0x10 | /* SBM_FAULTINEN0_LOW_PORT4_MASK */
-			0x20 | /* SBM_FAULTINEN0_LOW_PORT5_MASK */
 			(TEST_IRQ_ENABLE ?
-			0x100 : /* SBM_FAULTINEN0_LOW_PORT8_MASK */
+			0x40 : /* SBM_FAULTINEN0_LOW_PORT6_MASK */
 			0x0),
 	},
 	.sbm_status = {
 		.access_type = CAM_REG_TYPE_READ,
 		.enable = true,
-		.offset = 0x2048, /* SBM_FAULTINSTATUS0_LOW */
+		.offset = 0x3848, /* SBM_FAULTINSTATUS0_LOW */
 	},
 	.sbm_clear = {
 		.access_type = CAM_REG_TYPE_WRITE,
 		.enable = true,
-		.offset = 0x2080, /* SBM_FLAGOUTCLR0_LOW */
-		.value = TEST_IRQ_ENABLE ? 0x6 : 0x2,
+		.offset = 0x3880, /* SBM_FLAGOUTCLR0_LOW */
+		.value = TEST_IRQ_ENABLE ? 0x5 : 0x1,
 	}
 };
 
@@ -40,89 +38,89 @@ static struct cam_camnoc_irq_err
 	cam_cpas_v480_100_irq_err[] = {
 	{
 		.irq_type = CAM_CAMNOC_HW_IRQ_SLAVE_ERROR,
-		.enable = true,
+		.enable = false,
 		.sbm_port = 0x1, /* SBM_FAULTINSTATUS0_LOW_PORT0_MASK */
 		.err_enable = {
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.enable = true,
-			.offset = 0x2708, /* ERRLOGGER_MAINCTL_LOW */
+			.offset = 0x7008, /* ERL_MAINCTL_LOW */
 			.value = 1,
 		},
 		.err_status = {
 			.access_type = CAM_REG_TYPE_READ,
 			.enable = true,
-			.offset = 0x2710, /* ERRLOGGER_ERRVLD_LOW */
+			.offset = 0x7010, /* ERL_ERRVLD_LOW */
 		},
 		.err_clear = {
 			.access_type = CAM_REG_TYPE_WRITE,
 			.enable = true,
-			.offset = 0x2718, /* ERRLOGGER_ERRCLR_LOW */
+			.offset = 0x7018, /* ERL_ERRCLR_LOW */
 			.value = 1,
 		},
 	},
 	{
-		.irq_type = CAM_CAMNOC_HW_IRQ_IFE02_UBWC_ENCODE_ERROR,
+		.irq_type = CAM_CAMNOC_HW_IRQ_IFE_UBWC_STATS_ENCODE_ERROR,
 		.enable = true,
 		.sbm_port = 0x2, /* SBM_FAULTINSTATUS0_LOW_PORT1_MASK */
 		.err_enable = {
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.enable = true,
-			.offset = 0x5a0, /* IFE02_ENCERREN_LOW */
+			.offset = 0x1BA0, /* IFE_UBWC_STATS_ENCERREN_LOW */
 			.value = 1,
 		},
 		.err_status = {
 			.access_type = CAM_REG_TYPE_READ,
 			.enable = true,
-			.offset = 0x590, /* IFE02_ENCERRSTATUS_LOW */
+			.offset = 0x1B90, /* IFE_UBWC_STATS_ENCERRSTATUS_LOW */
 		},
 		.err_clear = {
 			.access_type = CAM_REG_TYPE_WRITE,
 			.enable = true,
-			.offset = 0x598, /* IFE02_ENCERRCLR_LOW */
+			.offset = 0x1B98, /* IFE_UBWC_STATS_ENCERRCLR_LOW */
 			.value = 1,
 		},
 	},
 	{
-		.irq_type = CAM_CAMNOC_HW_IRQ_IFE13_UBWC_ENCODE_ERROR,
+		.irq_type = CAM_CAMNOC_HW_IRQ_IPE1_BPS_UBWC_DECODE_ERROR,
 		.enable = true,
 		.sbm_port = 0x4, /* SBM_FAULTINSTATUS0_LOW_PORT2_MASK */
 		.err_enable = {
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.enable = true,
-			.offset = 0x9a0, /* IFE13_ENCERREN_LOW */
+			.offset = 0x2520, /* IPE1_BPS_RD_DECERREN_LOW */
 			.value = 1,
 		},
 		.err_status = {
 			.access_type = CAM_REG_TYPE_READ,
 			.enable = true,
-			.offset = 0x990, /* IFE13_ENCERRSTATUS_LOW */
+			.offset = 0x2510, /* IPE1_BPS_RD_DECERRSTATUS_LOW */
 		},
 		.err_clear = {
 			.access_type = CAM_REG_TYPE_WRITE,
 			.enable = true,
-			.offset = 0x998, /* IFE13_ENCERRCLR_LOW */
+			.offset = 0x2518, /* IPE1_BPS_RD_DECERRCLR_LOW */
 			.value = 1,
 		},
 	},
 	{
-		.irq_type = CAM_CAMNOC_HW_IRQ_IPE_BPS_UBWC_DECODE_ERROR,
+		.irq_type = CAM_CAMNOC_HW_IRQ_IPE0_UBWC_DECODE_ERROR,
 		.enable = true,
 		.sbm_port = 0x8, /* SBM_FAULTINSTATUS0_LOW_PORT3_MASK */
 		.err_enable = {
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.enable = true,
-			.offset = 0xd20, /* IBL_RD_DECERREN_LOW */
+			.offset = 0x1F20, /* IPE0_RD_DECERREN_LOW */
 			.value = 1,
 		},
 		.err_status = {
 			.access_type = CAM_REG_TYPE_READ,
 			.enable = true,
-			.offset = 0xd10, /* IBL_RD_DECERRSTATUS_LOW */
+			.offset = 0x1F10, /* IPE0_RD_DECERRSTATUS_LOW */
 		},
 		.err_clear = {
 			.access_type = CAM_REG_TYPE_WRITE,
 			.enable = true,
-			.offset = 0xd18, /* IBL_RD_DECERRCLR_LOW */
+			.offset = 0x1F18, /* IPE0_RD_DECERRCLR_LOW */
 			.value = 1,
 		},
 	},
@@ -133,36 +131,36 @@ static struct cam_camnoc_irq_err
 		.err_enable = {
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.enable = true,
-			.offset = 0x11a0, /* IBL_WR_ENCERREN_LOW */
+			.offset = 0x29A0, /* IPE_BPS_WR_ENCERREN_LOW */
 			.value = 1,
 		},
 		.err_status = {
 			.access_type = CAM_REG_TYPE_READ,
 			.enable = true,
-			.offset = 0x1190,
-			/* IBL_WR_ENCERRSTATUS_LOW */
+			.offset = 0x2990,
+			/* IPE_BPS_WR_ENCERRSTATUS_LOW */
 		},
 		.err_clear = {
 			.access_type = CAM_REG_TYPE_WRITE,
 			.enable = true,
-			.offset = 0x1198, /* IBL_WR_ENCERRCLR_LOW */
+			.offset = 0x2998, /* IPE_BPS_WR_ENCERRCLR_LOW */
 			.value = 1,
 		},
 	},
 	{
 		.irq_type = CAM_CAMNOC_HW_IRQ_AHB_TIMEOUT,
-		.enable = true,
+		.enable = false,
 		.sbm_port = 0x20, /* SBM_FAULTINSTATUS0_LOW_PORT5_MASK */
 		.err_enable = {
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.enable = true,
-			.offset = 0x2088, /* SBM_FLAGOUTSET0_LOW */
+			.offset = 0x3888, /* SBM_FLAGOUTSET0_LOW */
 			.value = 0x1,
 		},
 		.err_status = {
 			.access_type = CAM_REG_TYPE_READ,
 			.enable = true,
-			.offset = 0x2090, /* SBM_FLAGOUTSTATUS0_LOW */
+			.offset = 0x3890, /* SBM_FLAGOUTSTATUS0_LOW */
 		},
 		.err_clear = {
 			.enable = false,
@@ -179,17 +177,17 @@ static struct cam_camnoc_irq_err
 	{
 		.irq_type = CAM_CAMNOC_HW_IRQ_CAMNOC_TEST,
 		.enable = TEST_IRQ_ENABLE ? true : false,
-		.sbm_port = 0x100, /* SBM_FAULTINSTATUS0_LOW_PORT8_MASK */
+		.sbm_port = 0x40, /* SBM_FAULTINSTATUS0_LOW_PORT6_MASK */
 		.err_enable = {
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.enable = true,
-			.offset = 0x2088, /* SBM_FLAGOUTSET0_LOW */
+			.offset = 0x3888, /* SBM_FLAGOUTSET0_LOW */
 			.value = 0x5,
 		},
 		.err_status = {
 			.access_type = CAM_REG_TYPE_READ,
 			.enable = true,
-			.offset = 0x2090, /* SBM_FLAGOUTSTATUS0_LOW */
+			.offset = 0x3890, /* SBM_FLAGOUTSTATUS0_LOW */
 		},
 		.err_clear = {
 			.enable = false,
