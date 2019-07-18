@@ -840,12 +840,20 @@ int cnss_get_cpr_info(struct cnss_plat_data *plat_priv)
 	struct resource *res;
 	resource_size_t addr_len;
 	void __iomem *tcs_cmd_base_addr;
-	u32 s2f_addr = 0, s6a_addr = 0;
+	const char *cmd_db_name;
+	u32 cpr_pmic_addr = 0;
 	int ret = 0;
 
 	res = platform_get_resource_byname(plat_dev, IORESOURCE_MEM, "tcs_cmd");
 	if (!res) {
 		cnss_pr_dbg("TCS CMD address is not present for CPR\n");
+		goto out;
+	}
+
+	ret = of_property_read_string(plat_dev->dev.of_node,
+				      "qcom,cmd_db_name", &cmd_db_name);
+	if (ret) {
+		cnss_pr_dbg("CommandDB name is not present for CPR\n");
 		goto out;
 	}
 
@@ -855,19 +863,14 @@ int cnss_get_cpr_info(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
-	s2f_addr = cmd_db_read_addr("smpf2");
-	s6a_addr = cmd_db_read_addr("smpa6");
-
-	if (s2f_addr > 0) {
-		cpr_info->cpr_pmic_addr = s2f_addr;
-		cnss_pr_dbg("Get CPR PMIC address 0x%x from s2f\n",
-			    cpr_info->cpr_pmic_addr);
-	} else if (s6a_addr > 0) {
-		cpr_info->cpr_pmic_addr = s6a_addr;
-		cnss_pr_dbg("Get CPR PMIC address 0x%x from s6a\n",
-			    cpr_info->cpr_pmic_addr);
+	cpr_pmic_addr = cmd_db_read_addr(cmd_db_name);
+	if (cpr_pmic_addr > 0) {
+		cpr_info->cpr_pmic_addr = cpr_pmic_addr;
+		cnss_pr_dbg("Get CPR PMIC address 0x%x from %s\n",
+			    cpr_info->cpr_pmic_addr, cmd_db_name);
 	} else {
-		cnss_pr_err("CPR PMIC addresses are not available\n");
+		cnss_pr_err("CPR PMIC address is not available for %s\n",
+			    cmd_db_name);
 		ret = -EINVAL;
 		goto out;
 	}
