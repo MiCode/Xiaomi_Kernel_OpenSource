@@ -783,6 +783,7 @@ static void msm_geni_serial_console_write(struct console *co, const char *s,
 	bool locked = true;
 	unsigned long flags;
 	unsigned int geni_status;
+	int irq_en;
 
 	WARN_ON(co->index < 0 || co->index >= GENI_UART_NR_PORTS);
 
@@ -811,11 +812,21 @@ static void msm_geni_serial_console_write(struct console *co, const char *s,
 		}
 		writel_relaxed(M_CMD_CANCEL_EN, uport->membase +
 							SE_GENI_M_IRQ_CLEAR);
-	} else if ((geni_status & M_GENI_CMD_ACTIVE) && !port->cur_tx_remaining)
+	} else if ((geni_status & M_GENI_CMD_ACTIVE) &&
+						!port->cur_tx_remaining) {
 		/* It seems we can interrupt existing transfers unless all data
 		 * has been sent, in which case we need to look for done first.
 		 */
 		msm_geni_serial_poll_cancel_tx(uport);
+
+		/* Enable WATERMARK interrupt for every new console write op */
+		if (uart_circ_chars_pending(&uport->state->xmit)) {
+			irq_en = geni_read_reg_nolog(uport->membase,
+						SE_GENI_M_IRQ_EN);
+			geni_write_reg_nolog(irq_en | M_TX_FIFO_WATERMARK_EN,
+					uport->membase, SE_GENI_M_IRQ_EN);
+		}
+	}
 
 	__msm_geni_serial_console_write(uport, s, count);
 
