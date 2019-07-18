@@ -167,7 +167,7 @@ static int dramc_probe(struct platform_device *pdev)
 
 	ret = of_property_read_u32(dramc_node, "mr4_version", &mr4_version);
 	if (ret)
-		pr_info("%s: not support mr4\n");
+		pr_info("%s: not support mr4\n", __func__);
 	else if (mr4_version == 1) {
 		dramc_dev_ptr->mr4_dev_ptr = devm_kmalloc(&pdev->dev,
 				sizeof(struct mr4_dev_t), GFP_KERNEL);
@@ -302,14 +302,14 @@ static int dramc_probe(struct platform_device *pdev)
 	ret = driver_create_file(
 		pdev->dev.driver, &driver_attr_dram_data_rate);
 	if (ret) {
-		pr_err("%s: fail to create dram_data_rate sysfs\n");
+		pr_err("%s: fail to create dram_data_rate sysfs\n", __func__);
 		return ret;
 	}
 
 	ret = driver_create_file(
 		pdev->dev.driver, &driver_attr_mr);
 	if (ret) {
-		pr_err("%s: fail to create mr sysfs\n");
+		pr_err("%s: fail to create mr sysfs\n", __func__);
 		return ret;
 	}
 
@@ -317,7 +317,7 @@ static int dramc_probe(struct platform_device *pdev)
 		ret = driver_create_file(
 			pdev->dev.driver, &driver_attr_mr4);
 		if (ret) {
-			pr_err("%s: fail to create mr4 sysfs\n");
+			pr_err("%s: fail to create mr4 sysfs\n", __func__);
 			return ret;
 		}
 	}
