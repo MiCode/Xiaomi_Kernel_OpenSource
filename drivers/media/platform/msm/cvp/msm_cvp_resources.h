@@ -52,7 +52,7 @@ struct context_bank_info {
 	bool is_secure;
 	struct addr_range addr_range;
 	struct device *dev;
-	struct dma_iommu_mapping *mapping;
+	struct iommu_domain *domain;
 };
 
 struct buffer_usage_table {

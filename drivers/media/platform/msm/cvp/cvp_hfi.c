@@ -1067,23 +1067,6 @@ static void __set_threshold_registers(struct iris_hfi_device *device)
 		dprintk(CVP_ERR, "Failed to restore threshold values\n");
 }
 
-static void __iommu_detach(struct iris_hfi_device *device)
-{
-	struct context_bank_info *cb;
-
-	if (!device || !device->res) {
-		dprintk(CVP_ERR, "Invalid parameter: %pK\n", device);
-		return;
-	}
-
-	list_for_each_entry(cb, &device->res->context_banks, list) {
-		if (cb->dev)
-			__depr_arm_iommu_detach_device(cb->dev);
-		if (cb->mapping)
-			__depr_arm_iommu_release_mapping(cb->mapping);
-	}
-}
-
 #ifdef USE_DEVFREQ_SCALE_BUS
 static int __devfreq_target(struct device *devfreq_dev,
 		unsigned long *freq, u32 flags)
@@ -1834,7 +1817,7 @@ static void __interface_queues_release(struct iris_hfi_device *device)
 			false, device->res, 0);
 
 		for (i = 0; cb && i < num_entries; i++) {
-			iommu_unmap(cb->mapping->domain,
+			iommu_unmap(cb->domain,
 						mem_map[i].virtual_addr,
 						mem_map[i].size);
 		}
@@ -1869,7 +1852,7 @@ static void __interface_queues_release(struct iris_hfi_device *device)
 
 static int __get_qdss_iommu_virtual_addr(struct iris_hfi_device *dev,
 		struct cvp_hfi_mem_map *mem_map,
-		struct dma_iommu_mapping *mapping)
+		struct iommu_domain *domain)
 {
 	int i;
 	int rc = 0;
@@ -1881,8 +1864,8 @@ static int __get_qdss_iommu_virtual_addr(struct iris_hfi_device *dev,
 		return -ENODATA;
 
 	for (i = 0; i < num_entries; i++) {
-		if (mapping) {
-			rc = iommu_map(mapping->domain, iova,
+		if (domain) {
+			rc = iommu_map(domain, iova,
 					qdss_addr_tbl[i].start,
 					qdss_addr_tbl[i].size,
 					IOMMU_READ | IOMMU_WRITE);
@@ -1910,8 +1893,8 @@ static int __get_qdss_iommu_virtual_addr(struct iris_hfi_device *dev,
 		dprintk(CVP_ERR,
 			"QDSS mapping failed, Freeing other entries %d\n", i);
 
-		for (--i; mapping && i >= 0; i--) {
-			iommu_unmap(mapping->domain,
+		for (--i; domain && i >= 0; i--) {
+			iommu_unmap(domain,
 				mem_map[i].virtual_addr,
 				mem_map[i].size);
 		}
@@ -2064,7 +2047,7 @@ static int __interface_queues_init(struct iris_hfi_device *dev)
 			return -EINVAL;
 		}
 
-		rc = __get_qdss_iommu_virtual_addr(dev, mem_map, cb->mapping);
+		rc = __get_qdss_iommu_virtual_addr(dev, mem_map, cb->domain);
 		if (rc) {
 			dprintk(CVP_ERR,
 				"IOMMU mapping failed, Freeing qdss memdata\n");
@@ -5072,10 +5055,6 @@ void cvp_venus_hfi_delete_device(void *device)
 		return;
 
 	dev = (struct iris_hfi_device *) device;
-
-	mutex_lock(&dev->lock);
-	__iommu_detach(dev);
-	mutex_unlock(&dev->lock);
 
 	list_for_each_entry_safe(close, tmp, &hal_ctxt.dev_head, list) {
 		if (close->cvp_hal_data->irq == dev->cvp_hal_data->irq) {

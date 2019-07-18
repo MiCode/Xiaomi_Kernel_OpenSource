@@ -51,7 +51,7 @@ enum hal_buffer {
 
 struct cvp_dma_mapping_info {
 	struct device *dev;
-	struct dma_iommu_mapping *mapping;
+	struct iommu_domain *domain;
 	struct sg_table *table;
 	struct dma_buf_attachment *attach;
 	struct dma_buf *buf;

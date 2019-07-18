@@ -238,7 +238,6 @@ static ssize_t boot_store(struct device *dev,
 			const char *buf, size_t count)
 {
 	int rc = 0, val = 0;
-	struct msm_cvp_inst *inst;
 	static int booted;
 
 	rc = kstrtoint(buf, 0, &val);
@@ -249,6 +248,7 @@ static ssize_t boot_store(struct device *dev,
 	}
 
 	if (val > 0 && booted == 0) {
+		struct msm_cvp_inst *inst;
 		inst = msm_cvp_open(MSM_CORE_CVP, MSM_CVP_CORE);
 		if (!inst) {
 			dprintk(CVP_ERR,
@@ -261,8 +261,8 @@ static ssize_t boot_store(struct device *dev,
 			"Failed to close cvp instance\n");
 			return rc;
 		}
-		booted = 1;
 	}
+	booted = 1;
 	return count;
 }
 
