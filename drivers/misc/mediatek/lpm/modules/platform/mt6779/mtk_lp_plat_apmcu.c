@@ -25,7 +25,7 @@ void __iomem *cpu_pm_syssram_base;
 #define plat_node_ready()       (cpu_pm_mcusys_base && cpu_pm_syssram_base)
 #define OF_CPU_PM_CTRL(_offset)	(cpu_pm_mcusys_base + (_offset))
 
-#define BOOT_TIME_LIMIT         30
+#define BOOT_TIME_LIMIT         60
 
 static struct task_struct *mtk_lp_plat_task;
 
@@ -259,7 +259,9 @@ static int mtk_lp_plat_wait_depd_condition(void *arg)
 
 	} while (!(mcupm_rdy && boot_time_pass));
 
-	mtk_cpu_off_allow();
+	/* mtk_cpu_off_allow(); */
+	/* Not validate cluster off yet */
+	pm_qos_update_request(&mtk_lp_plat_qos_req, 200);
 
 	return 0;
 }
@@ -340,6 +342,8 @@ int __init mtk_lp_plat_apmcu_init(void)
 
 	if (!IS_ERR(mtk_lp_plat_task))
 		wake_up_process(mtk_lp_plat_task);
+	else
+		pr_notice("Create thread fail @ %s()\n", __func__);
 
 	return 0;
 }

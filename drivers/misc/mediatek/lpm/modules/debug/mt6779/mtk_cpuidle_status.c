@@ -33,23 +33,32 @@ static struct pm_qos_request mtk_cpuidle_qos_req;
 #define mtk_cpu_pm_allow()\
 	pm_qos_update_request(&mtk_cpuidle_qos_req, PM_QOS_DEFAULT_VALUE)
 
-#define ALL_CPU_WFI         (0)
-#define ALL_CPU_OFF         (1)
-#define ALL_CPU_CLUSTER_OFF (2)
-#define ALL_CPU_MCUSYS_OFF  (3)
+/* CPU off state : core, cluster and mcusys */
+#define CPU_OFF_MAX_LV  (3)
 
+/* all core idle profiling */
+struct all_cpu_idle_data {
+	unsigned long long last_ns;
+	unsigned long long dur_ns;
+	unsigned int cnt;
+	unsigned int bp; /* basis points : 0.01% */
+};
+
+struct all_cpu_idle {
+	unsigned long long start_us;
+	struct all_cpu_idle_data lv[CPU_OFF_MAX_LV];
+};
+
+static struct all_cpu_idle all_core_off;
+
+/* idle ratio profiling */
 struct mtk_cpuidle_ratio {
 	unsigned long long start_us;
-	unsigned long long idle_time[CPUIDLE_STATE_MAX];
-	unsigned int bp[CPUIDLE_STATE_MAX]; /* basis points : 0.01% */
+	unsigned long long idle_time_ns[CPUIDLE_STATE_MAX];
+	unsigned int bp[CPUIDLE_STATE_MAX];
 };
 
-struct mtk_cpuidle_info {
-	u64 enter_time_ns;
-	int idle_index;
-	int cnt[CPUIDLE_STATE_MAX];
-};
-
+/* idle latency profiling */
 struct mtk_cpuidle_prof {
 	unsigned int cnt;
 	unsigned int max;
@@ -59,7 +68,14 @@ struct mtk_cpuidle_prof {
 	};
 };
 
-/* status */
+/* idle information */
+struct mtk_cpuidle_info {
+	u64 enter_time_ns;
+	int idle_index;
+	int cnt[CPUIDLE_STATE_MAX];
+};
+
+/* mtk cpu idle status */
 struct mtk_cpuidle_device {
 	struct mtk_cpuidle_ratio ratio;
 	struct mtk_cpuidle_info info;
@@ -70,15 +86,16 @@ struct mtk_cpuidle_device {
 	bool tmr_running;
 };
 
+static DEFINE_PER_CPU(struct mtk_cpuidle_device, mtk_cpuidle_dev);
+
+/* mtk cpu idle configuration */
 struct mtk_cpuidle_control {
 	bool tmr_en;
 	bool prof_en;
 	bool log_en;
 };
 
-static DEFINE_PER_CPU(struct mtk_cpuidle_device, mtk_cpuidle_dev);
 static struct mtk_cpuidle_control mtk_cpuidle_ctrl;
-static struct mtk_cpuidle_ratio all_cpu_idle;
 
 void mtk_cpuidle_ctrl_timer_en(bool enable)
 {
@@ -120,24 +137,36 @@ static void _mtk_cpuidle_prof_ratio_start(void *data)
 	mtk_idle->ratio.start_us = div64_u64(sched_clock(), 1000);
 
 	for (i = 0; i < mtk_idle->state_count; i++)
-		mtk_idle->ratio.idle_time[i] = 0;
+		mtk_idle->ratio.idle_time_ns[i] = 0;
 }
 
 void mtk_cpuidle_prof_ratio_start(void)
 {
-	all_cpu_idle.start_us = div64_u64(sched_clock(), 1000);
-	all_cpu_idle.idle_time[ALL_CPU_CLUSTER_OFF] = 0;
-	all_cpu_idle.idle_time[ALL_CPU_MCUSYS_OFF] = 0;
+	int i;
+
+	if (mtk_cpuidle_ctrl.prof_en)
+		return;
+
+	mtk_cpu_pm_block();
+
+	for (i = 0; i < CPU_OFF_MAX_LV; i++) {
+		all_core_off.lv[i].dur_ns = 0;
+		all_core_off.lv[i].cnt = 0;
+	}
+
+	all_core_off.start_us = div64_u64(sched_clock(), 1000);
+
+	on_each_cpu(_mtk_cpuidle_prof_ratio_start, NULL, 1);
 
 	mtk_cpuidle_ctrl.prof_en = true;
 
-	on_each_cpu(_mtk_cpuidle_prof_ratio_start, NULL, 0);
+	mtk_cpu_pm_allow();
 }
 
 static void _mtk_cpuidle_prof_ratio_stop(void *stop_time)
 {
 	int i, cpu;
-	uint64_t dur_time;
+	uint64_t dur_us;
 	struct cpuidle_device *dev = cpuidle_get_device();
 	struct mtk_cpuidle_device *mtk_idle;
 
@@ -148,30 +177,36 @@ static void _mtk_cpuidle_prof_ratio_stop(void *stop_time)
 	if (unlikely(!dev || !mtk_idle))
 		return;
 
-	dur_time = div64_u64(sched_clock(), 1000) -
+	dur_us = div64_u64(sched_clock(), 1000) -
 				mtk_idle->ratio.start_us;
 
 	for (i = 0; i < mtk_idle->state_count; i++)
 		mtk_idle->ratio.bp[i] = (unsigned int)div64_u64(
-				mtk_idle->ratio.idle_time[i] * 10000,
-				dur_time);
+				mtk_idle->ratio.idle_time_ns[i] * 10,
+				dur_us);
 }
 
 void mtk_cpuidle_prof_ratio_stop(void)
 {
-	uint64_t time;
+	int i;
+	uint64_t time_us;
 
-	time = div64_u64(sched_clock(), 1000) - all_cpu_idle.start_us;
+	if (!mtk_cpuidle_ctrl.prof_en)
+		return;
+
+	mtk_cpu_pm_block();
+
+	on_each_cpu(_mtk_cpuidle_prof_ratio_stop, NULL, 1);
 
 	mtk_cpuidle_ctrl.prof_en = false;
 
-	all_cpu_idle.bp[ALL_CPU_CLUSTER_OFF] = (unsigned int)div64_u64(
-		all_cpu_idle.idle_time[ALL_CPU_CLUSTER_OFF] * 10000, time);
+	time_us = div64_u64(sched_clock(), 1000) - all_core_off.start_us;
 
-	all_cpu_idle.bp[ALL_CPU_MCUSYS_OFF] = (unsigned int)div64_u64(
-		all_cpu_idle.idle_time[ALL_CPU_MCUSYS_OFF] * 10000, time);
+	for (i = 0; i < CPU_OFF_MAX_LV; i++)
+		all_core_off.lv[i].bp = (unsigned int)div64_u64(
+			all_core_off.lv[i].dur_ns * 10, time_us);
 
-	on_each_cpu(_mtk_cpuidle_prof_ratio_stop, NULL, 0);
+	mtk_cpu_pm_allow();
 }
 
 void mtk_cpuidle_prof_ratio_dump(struct seq_file *m)
@@ -202,13 +237,13 @@ void mtk_cpuidle_prof_ratio_dump(struct seq_file *m)
 		seq_puts(m, "\n");
 	}
 
-	seq_puts(m, "all core off ratio :\n");
-	seq_printf(m, "cluster = %3u.%02u%%\n",
-			all_cpu_idle.bp[ALL_CPU_CLUSTER_OFF] / 100,
-			all_cpu_idle.bp[ALL_CPU_CLUSTER_OFF] % 100);
-	seq_printf(m, " mcusys = %3u.%02u%%\n",
-			all_cpu_idle.bp[ALL_CPU_MCUSYS_OFF] / 100,
-			all_cpu_idle.bp[ALL_CPU_MCUSYS_OFF] % 100);
+	seq_puts(m, "All core off ratio :\n");
+
+	for (i = 0; i < CPU_OFF_MAX_LV; i++)
+		seq_printf(m, "\t C_%d = %3u.%02u%%\n",
+				i + 1,
+				all_core_off.lv[i].bp / 100,
+				all_core_off.lv[i].bp % 100);
 }
 
 void mtk_cpuidle_state_enable(bool en)
@@ -386,44 +421,57 @@ static void mtk_cpuidle_cancel_timer(struct mtk_cpuidle_device *mtk_idle)
 	}
 }
 
-static unsigned long long last_mcusys_off_us;
-static unsigned long long last_cluster_off_us;
-
-static void mtk_cpuidle_set_last_off_ts(int cpu)
+static void mtk_cpuidle_set_last_off_ts(int idx)
 {
-	uint64_t curr_us = sched_clock();
+	int i;
+	uint64_t curr_ns = sched_clock();
 
-	if (mtk_lp_plat_is_mcusys_off())
-		last_mcusys_off_us = div64_u64(curr_us, 1000);
+	if (!idx)
+		return;
 
-	if (mtk_lp_plat_is_cluster_off(cpu))
-		last_cluster_off_us = div64_u64(curr_us, 1000);
+	if (idx > CPU_OFF_MAX_LV)
+		idx = CPU_OFF_MAX_LV;
+
+	for (i = 0; i < idx; i++) {
+
+		all_core_off.lv[i].cnt++;
+
+		if (all_core_off.lv[i].cnt == num_online_cpus())
+			all_core_off.lv[i].last_ns = curr_ns;
+	}
 }
 
-static void mtk_cpuidle_save_idle_time(int cpu)
+static void mtk_cpuidle_save_idle_time(int idx)
 {
-	uint64_t curr_us = sched_clock();
+	int i;
+	uint64_t curr_ns = sched_clock();
 
-	if (mtk_lp_plat_is_mcusys_off())
-		all_cpu_idle.idle_time[ALL_CPU_MCUSYS_OFF] +=
-			(div64_u64(curr_us, 1000) - last_mcusys_off_us);
+	if (!idx)
+		return;
 
-	if (mtk_lp_plat_is_cluster_off(cpu))
-		all_cpu_idle.idle_time[ALL_CPU_CLUSTER_OFF] +=
-			(div64_u64(curr_us, 1000) - last_cluster_off_us);
+	if (idx > CPU_OFF_MAX_LV)
+		idx = CPU_OFF_MAX_LV;
+
+	for (i = 0; i < idx; i++) {
+
+		if (all_core_off.lv[i].cnt == num_online_cpus())
+			all_core_off.lv[i].dur_ns += (curr_ns
+						- all_core_off.lv[i].last_ns);
+
+		all_core_off.lv[i].cnt--;
+	}
 }
 
 static int mtk_cpuidle_status_update(struct notifier_block *nb,
 			unsigned long action, void *data)
 {
-	unsigned long long dur_us;
 	struct mtk_cpuidle_device *mtk_idle;
 	struct mtk_lpm_nb_data *nb_data = (struct mtk_lpm_nb_data *)data;
 
 	if (action & MTK_LPM_NB_AFTER_PROMPT) {
 
 		if (mtk_cpuidle_ctrl.prof_en)
-			mtk_cpuidle_set_last_off_ts(nb_data->cpu);
+			mtk_cpuidle_set_last_off_ts(nb_data->index);
 	}
 
 	if (action & MTK_LPM_NB_PREPARE) {
@@ -439,13 +487,9 @@ static int mtk_cpuidle_status_update(struct notifier_block *nb,
 		mtk_idle->info.idle_index = -1;
 		mtk_idle->info.cnt[nb_data->index]++;
 
-		if (mtk_cpuidle_ctrl.prof_en) {
-			dur_us = div64_u64(
-				sched_clock() - mtk_idle->info.enter_time_ns,
-				1000);
-
-			mtk_idle->ratio.idle_time[nb_data->index] += dur_us;
-		}
+		if (mtk_cpuidle_ctrl.prof_en)
+			mtk_idle->ratio.idle_time_ns[nb_data->index] +=
+				(sched_clock() - mtk_idle->info.enter_time_ns);
 
 		mtk_cpuidle_cancel_timer(mtk_idle);
 	}
@@ -453,7 +497,7 @@ static int mtk_cpuidle_status_update(struct notifier_block *nb,
 	if (action & MTK_LPM_NB_BEFORE_REFLECT) {
 
 		if (mtk_cpuidle_ctrl.prof_en)
-			mtk_cpuidle_save_idle_time(nb_data->cpu);
+			mtk_cpuidle_save_idle_time(nb_data->index);
 
 		if (mtk_cpuidle_need_dump(nb_data->index))
 			mtk_cpuidle_dump_info();
