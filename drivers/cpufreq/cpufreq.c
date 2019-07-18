@@ -2,6 +2,7 @@
  *  linux/drivers/cpufreq/cpufreq.c
  *
  *  Copyright (C) 2001 Russell King
+ *  Copyright (C) 2019 XiaoMi, Inc.
  *            (C) 2002 - 2003 Dominik Brodowski <linux@brodo.de>
  *            (C) 2013 Viresh Kumar <viresh.kumar@linaro.org>
  *
@@ -34,6 +35,7 @@
 #include <linux/sched.h>
 #endif
 #include <trace/events/power.h>
+#include <linux/cpu-boost.h>
 
 static LIST_HEAD(cpufreq_policy_list);
 
@@ -1743,6 +1745,7 @@ void cpufreq_suspend(void)
 
 	pr_debug("%s: Suspending Governors\n", __func__);
 
+	do_suspend_boost();
 	for_each_active_policy(policy) {
 		if (has_target()) {
 			down_write(&policy->rwsem);
@@ -1794,6 +1797,7 @@ void cpufreq_resume(void)
 				       __func__, policy);
 		}
 	}
+	do_suspend_boost_reset();
 }
 
 /**

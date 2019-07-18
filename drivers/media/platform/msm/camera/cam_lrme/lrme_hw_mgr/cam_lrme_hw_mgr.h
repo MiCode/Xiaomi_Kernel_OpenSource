@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,13 +31,13 @@
 #define CAM_LRME_WORKQ_NUM_TASK 10
 
 #define CAM_LRME_DECODE_DEVICE_INDEX(ctxt_to_hw_map) \
-	((uintptr_t)ctxt_to_hw_map & 0xF)
+	((uint64_t)ctxt_to_hw_map & 0xF)
 
 #define CAM_LRME_DECODE_PRIORITY(ctxt_to_hw_map) \
-	(((uintptr_t)ctxt_to_hw_map & 0xF0) >> 4)
+	(((uint64_t)ctxt_to_hw_map & 0xF0) >> 4)
 
 #define CAM_LRME_DECODE_CTX_INDEX(ctxt_to_hw_map) \
-	((uint64_t)(uintptr_t)ctxt_to_hw_map >> CAM_LRME_CTX_INDEX_SHIFT)
+	((uint64_t)ctxt_to_hw_map >> CAM_LRME_CTX_INDEX_SHIFT)
 
 /**
  * enum cam_lrme_hw_mgr_ctx_priority
@@ -52,21 +53,10 @@ enum cam_lrme_hw_mgr_ctx_priority {
 /**
  * struct cam_lrme_mgr_work_data : HW Mgr work data
  *
- * @hw_device                    : Pointer to the hw device
+ * hw_device : Pointer to the hw device
  */
 struct cam_lrme_mgr_work_data {
 	struct cam_lrme_device *hw_device;
-};
-
-/**
- * struct cam_lrme_debugfs_entry : debugfs entry struct
- *
- * @dentry                       : entry of debugfs
- * @dump_register                : flag to dump registers
- */
-struct cam_lrme_debugfs_entry {
-	struct dentry   *dentry;
-	bool             dump_register;
 };
 
 /**
@@ -109,7 +99,6 @@ struct cam_lrme_device {
  * @frame_req       : List of frame request to use
  * @lrme_caps       : LRME capabilities
  * @event_cb        : IRQ callback function
- * @debugfs_entry   : debugfs entry to set debug prop
  */
 struct cam_lrme_hw_mgr {
 	uint32_t                      device_count;
@@ -122,7 +111,6 @@ struct cam_lrme_hw_mgr {
 	struct cam_lrme_frame_request frame_req[CAM_CTX_REQ_MAX * CAM_CTX_MAX];
 	struct cam_lrme_query_cap_cmd lrme_caps;
 	cam_hw_event_cb_func          event_cb;
-	struct cam_lrme_debugfs_entry debugfs_entry;
 };
 
 int cam_lrme_mgr_register_device(struct cam_hw_intf *lrme_hw_intf,

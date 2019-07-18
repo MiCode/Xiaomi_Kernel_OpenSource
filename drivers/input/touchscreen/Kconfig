@@ -11,6 +11,9 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 
+source "drivers/input/touchscreen/xiaomi/Kconfig"
+source "drivers/input/touchscreen/fts_521/Kconfig"
+source "drivers/input/touchscreen/tp_goodix_driver/Kconfig"
 source "drivers/input/touchscreen/synaptics_dsx_2.6/Kconfig"
 
 config TOUCHSCREEN_PROPERTIES
@@ -639,6 +642,16 @@ config TOUCHSCREEN_EDT_FT5X06
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called edt-ft5x06.
+
+config TOUCHSCREEN_ST_FTS
+	tristate "ST FTS I2C Touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have ST FTS series I2C touchscreen.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
 
 config TOUCHSCREEN_MIGOR
 	tristate "Renesas MIGO-R touchscreen"
@@ -1300,8 +1313,6 @@ config TOUCHSCREEN_HIMAX_CHIPSET
 	  report 10 touches at a time.
 
           If unsure, say N.
-
-source "drivers/input/touchscreen/hxchipset/Kconfig"
 
 config TOUCHSCREEN_EKTF3XXX_CHIPSET
 	bool "Elan EKTF3XXX touchpanel CHIPSET"

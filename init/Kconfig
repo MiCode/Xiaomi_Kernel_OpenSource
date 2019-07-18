@@ -966,6 +966,13 @@ config NUMA_BALANCING_DEFAULT_ENABLED
 	  If set, automatic NUMA balancing will be enabled if running on a NUMA
 	  machine.
 
+config PACKAGE_RUNTIME_INFO
+	bool "stat:package runtime info on cluster"
+	default n
+	help
+	  This option can show package runtime info in big/little core.
+
+
 menuconfig CGROUPS
 	bool "Control Group support"
 	select KERNFS

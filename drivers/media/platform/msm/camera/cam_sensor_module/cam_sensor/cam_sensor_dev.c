@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -191,7 +192,6 @@ static int32_t cam_sensor_driver_i2c_probe(struct i2c_client *client,
 		INIT_LIST_HEAD(&(s_ctrl->i2c_data.per_frame[i].list_head));
 
 	s_ctrl->bridge_intf.device_hdl = -1;
-	s_ctrl->bridge_intf.link_hdl = -1;
 	s_ctrl->bridge_intf.ops.get_dev_info = cam_sensor_publish_dev_info;
 	s_ctrl->bridge_intf.ops.link_setup = cam_sensor_establish_link;
 	s_ctrl->bridge_intf.ops.apply_req = cam_sensor_apply_request;
@@ -313,7 +313,6 @@ static int32_t cam_sensor_driver_platform_probe(
 		INIT_LIST_HEAD(&(s_ctrl->i2c_data.per_frame[i].list_head));
 
 	s_ctrl->bridge_intf.device_hdl = -1;
-	s_ctrl->bridge_intf.link_hdl = -1;
 	s_ctrl->bridge_intf.ops.get_dev_info = cam_sensor_publish_dev_info;
 	s_ctrl->bridge_intf.ops.link_setup = cam_sensor_establish_link;
 	s_ctrl->bridge_intf.ops.apply_req = cam_sensor_apply_request;
@@ -341,7 +340,6 @@ static struct platform_driver cam_sensor_platform_driver = {
 		.name = "qcom,camera",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_sensor_driver_dt_match,
-		.suppress_bind_attrs = true,
 	},
 	.remove = cam_sensor_platform_remove,
 };

@@ -18,6 +18,7 @@
  * and processes may not get killed until the normal oom killer is triggered.
  *
  * Copyright (C) 2007-2008 Google, Inc.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -54,6 +55,10 @@
 #include <trace/events/almk.h>
 #include <linux/show_mem_notifier.h>
 
+#if defined(CONFIG_ZRAM)
+#include <linux/zsmalloc.h>
+#endif
+
 #ifdef CONFIG_HIGHMEM
 #define _ZONE ZONE_HIGHMEM
 #else
@@ -63,6 +68,9 @@
 #define CREATE_TRACE_POINTS
 #include "trace/lowmemorykiller.h"
 
+#ifdef CONFIG_MULTIPLE_LMK
+#define LMK_DEPTH 4
+#endif
 /* to enable lowmemorykiller */
 static int enable_lmk = 1;
 module_param_named(enable_lmk, enable_lmk, int, 0644);
@@ -108,6 +116,7 @@ static unsigned long lowmem_count(struct shrinker *s,
 
 static atomic_t shift_adj = ATOMIC_INIT(0);
 static short adj_max_shift = 353;
+static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc);
 module_param_named(adj_max_shift, adj_max_shift, short, 0644);
 
 /* User knob to enable/disable adaptive lmk feature */
@@ -160,6 +169,12 @@ static int lmk_vmpressure_notifier(struct notifier_block *nb,
 	int other_free, other_file;
 	unsigned long pressure = action;
 	int array_size = ARRAY_SIZE(lowmem_adj);
+#ifndef CONFIG_HIGHMEM
+	struct shrinker s;
+	struct shrink_control sc = {
+		.gfp_mask = GFP_KERNEL,
+	};
+#endif
 
 	if (!enable_adaptive_lmk)
 		return 0;
@@ -205,62 +220,17 @@ static int lmk_vmpressure_notifier(struct notifier_block *nb,
 		atomic_set(&shift_adj, 0);
 	}
 
+#ifndef CONFIG_HIGHMEM
+	if (pressure >= 80)
+		lowmem_scan(&s, &sc);
+#endif
+
 	return 0;
 }
 
 static struct notifier_block lmk_vmpr_nb = {
 	.notifier_call = lmk_vmpressure_notifier,
 };
-
-static int test_task_flag(struct task_struct *p, int flag)
-{
-	struct task_struct *t;
-
-	for_each_thread(p, t) {
-		task_lock(t);
-		if (test_tsk_thread_flag(t, flag)) {
-			task_unlock(t);
-			return 1;
-		}
-		task_unlock(t);
-	}
-
-	return 0;
-}
-
-static int test_task_state(struct task_struct *p, int state)
-{
-	struct task_struct *t;
-
-	for_each_thread(p, t) {
-		task_lock(t);
-		if (t->state & state) {
-			task_unlock(t);
-			return 1;
-		}
-		task_unlock(t);
-	}
-
-	return 0;
-}
-
-static int test_task_lmk_waiting(struct task_struct *p)
-{
-	struct task_struct *t;
-
-	for_each_thread(p, t) {
-		task_lock(t);
-		if (task_lmk_waiting(t)) {
-			task_unlock(t);
-			return 1;
-		}
-		task_unlock(t);
-	}
-
-	return 0;
-}
-
-static DEFINE_MUTEX(scan_mutex);
 
 static int can_use_cma_pages(gfp_t gfp_mask)
 {
@@ -447,21 +417,33 @@ static void mark_lmk_victim(struct task_struct *tsk)
 static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
+#ifdef CONFIG_MULTIPLE_LMK
+	struct task_struct *selected[LMK_DEPTH] = {NULL,};
+#else
 	struct task_struct *selected = NULL;
+#endif
 	unsigned long rem = 0;
 	int tasksize;
 	int i;
 	int ret = 0;
 	short min_score_adj = OOM_SCORE_ADJ_MAX + 1;
 	int minfree = 0;
+#ifdef CONFIG_MULTIPLE_LMK
+	int selected_tasksize[LMK_DEPTH] = {0,};
+	int selected_oom_score_adj[LMK_DEPTH] = {OOM_SCORE_ADJ_MAX,};
+	int all_selected = 0;
+	int max_selected = 0;
+	int selected_once = 0;
+#else
 	int selected_tasksize = 0;
 	short selected_oom_score_adj;
+#endif
 	int array_size = ARRAY_SIZE(lowmem_adj);
 	int other_free;
 	int other_file;
-
-	if (!mutex_trylock(&scan_mutex))
-		return 0;
+#if defined(CONFIG_ZRAM)
+	unsigned long total_pool_pages, total_ori_pages;
+#endif
 
 	other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
 
@@ -499,22 +481,25 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		trace_almk_shrink(0, ret, other_free, other_file, 0);
 		lowmem_print(5, "lowmem_scan %lu, %x, return 0\n",
 			     sc->nr_to_scan, sc->gfp_mask);
-		mutex_unlock(&scan_mutex);
-		return 0;
+		return SHRINK_STOP;
 	}
 
+#ifdef CONFIG_MULTIPLE_LMK
+	for (i = 0; i < LMK_DEPTH; i++)
+		selected_oom_score_adj[i] = min_score_adj;
+#else
 	selected_oom_score_adj = min_score_adj;
+#endif
 
 	rcu_read_lock();
 	for_each_process(tsk) {
 		struct task_struct *p;
 		short oom_score_adj;
+#ifdef CONFIG_MULTIPLE_LMK
+		int is_task_exist = 0;
+#endif
 
-		if (tsk->flags & PF_KTHREAD)
-			continue;
-
-		/* if task no longer has any memory ignore it */
-		if (test_task_flag(tsk, TIF_MM_RELEASED))
+		if (tsk->flags & PF_KTHREAD || tsk->state & TASK_UNINTERRUPTIBLE)
 			continue;
 
 		if (oom_reaper) {
@@ -530,33 +515,90 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 						lowmem_deathpending_timeout)) {
 					task_unlock(p);
 					rcu_read_unlock();
-					mutex_unlock(&scan_mutex);
 					return 0;
 				}
 			}
 		} else {
 			if (time_before_eq(jiffies,
-					   lowmem_deathpending_timeout))
-				if (test_task_lmk_waiting(tsk)) {
+					   lowmem_deathpending_timeout)) {
 					rcu_read_unlock();
-					mutex_unlock(&scan_mutex);
 					return 0;
-				}
+			}
 
 			p = find_lock_task_mm(tsk);
 			if (!p)
 				continue;
 		}
 
+		if (task_lmk_waiting(p) &&
+		    time_before_eq(jiffies, lowmem_deathpending_timeout)) {
+			task_unlock(p);
+			rcu_read_unlock();
+			return 0;
+		}
+
 		oom_score_adj = p->signal->oom_score_adj;
-		if (oom_score_adj < min_score_adj) {
+		if (p->state & TASK_UNINTERRUPTIBLE || oom_score_adj < min_score_adj) {
 			task_unlock(p);
 			continue;
 		}
 		tasksize = get_mm_rss(p->mm);
+#if defined(CONFIG_ZRAM)
+		zs_get_page_usage(&total_pool_pages, &total_ori_pages);
+		if (total_pool_pages && total_ori_pages) {
+			lowmem_print(3, "tasksize : %d\n", tasksize);
+			tasksize += (int)total_pool_pages *
+				get_mm_counter(p->mm, MM_SWAPENTS)
+				/ total_ori_pages;
+			lowmem_print(3, "task real size : %d\n", tasksize);
+		}
+#endif
 		task_unlock(p);
 		if (tasksize <= 0)
 			continue;
+#ifdef CONFIG_MULTIPLE_LMK
+		if (all_selected < LMK_DEPTH) {
+			for (i = 0; i < LMK_DEPTH; i++) {
+				if (!selected[i]) {
+					is_task_exist = 1;
+					max_selected = i;
+					break;
+				}
+			}
+		} else if (selected_oom_score_adj[max_selected]
+			< oom_score_adj ||
+			(selected_oom_score_adj[max_selected]
+			== oom_score_adj &&
+			selected_tasksize[max_selected] < tasksize)) {
+			is_task_exist = 1;
+		}
+
+		if (is_task_exist) {
+			selected[max_selected] = p;
+			selected_tasksize[max_selected] = tasksize;
+			selected_oom_score_adj[max_selected] = oom_score_adj;
+
+			if (all_selected < LMK_DEPTH)
+				all_selected++;
+
+			if (all_selected == LMK_DEPTH) {
+				for (i = 0; i < LMK_DEPTH; i++) {
+					if (selected_oom_score_adj[i] <
+					selected_oom_score_adj[max_selected])
+						max_selected = i;
+					else if (selected_oom_score_adj[i] ==
+					selected_oom_score_adj[max_selected] &&
+					selected_tasksize[i] <
+					selected_tasksize[max_selected])
+						max_selected = i;
+				}
+			}
+			lowmem_print(3, "Multiple LMK: max_selected(%d)\n"
+				"select '%s' (%d), adj %d, size %d, to kill\n",
+				max_selected, p->comm, p->pid,
+				oom_score_adj, tasksize);
+		}
+#else
 		if (selected) {
 			if (oom_score_adj < selected_oom_score_adj)
 				continue;
@@ -569,21 +611,72 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		selected_oom_score_adj = oom_score_adj;
 		lowmem_print(3, "select '%s' (%d), adj %hd, size %d, to kill\n",
 			     p->comm, p->pid, oom_score_adj, tasksize);
+#endif
 	}
+
+#ifdef CONFIG_MULTIPLE_LMK
+	for (i = 0; i < LMK_DEPTH; i++) {
+		if (selected[i]) {
+			selected_once = 1;
+			task_lock(selected[i]);
+			send_sig(SIGKILL, selected[i], 0);
+			if (selected[i]->mm) {
+				task_set_lmk_waiting(selected[i]);
+				if (!test_bit(MMF_OOM_SKIP,
+				    &selected[i]->mm->flags) && oom_reaper) {
+					mark_lmk_victim(selected[i]);
+					wake_oom_reaper(selected[i]);
+				}
+			}
+			task_unlock(selected[i]);
+			lowmem_print(1, "Multiple LMK: #%d\n"
+			"Killing %s (%d), adj %d,\n"
+			"to free %ldkB on behalf of '%s' (%d) because\n"
+			"cache %ldkB is below limit %ldkB\n"
+			"for oom_score_adj %hd.\n"
+			"Free memory is %ldkB above reserved.\n"
+			"Free CMA is %ldkB\n"
+			"Total reserve is %ldkB\n"
+			"Total free pages is %ldkB\n"
+			"Total file cache is %ldkB\n"
+			"GFP mask is 0x%x\n", i,
+			selected[i]->comm, selected[i]->pid,
+			selected_oom_score_adj[i],
+			selected_tasksize[i] * (long)(PAGE_SIZE / 1024),
+			current->comm, current->pid,
+			other_file * (long)(PAGE_SIZE / 1024),
+			minfree * (long)(PAGE_SIZE / 1024),
+			min_score_adj,
+			other_free * (long)(PAGE_SIZE / 1024),
+			global_page_state(NR_FREE_CMA_PAGES) *
+			   (long)(PAGE_SIZE / 1024),
+			totalreserve_pages * (long)(PAGE_SIZE / 1024),
+			global_page_state(NR_FREE_PAGES) *
+			   (long)(PAGE_SIZE / 1024),
+			global_node_page_state(NR_FILE_PAGES) *
+			   (long)(PAGE_SIZE / 1024),
+			sc->gfp_mask);
+
+			if (lowmem_debug_level >= 2 &&
+			   selected_oom_score_adj[i] == 0) {
+				show_mem(SHOW_MEM_FILTER_NODES);
+				dump_tasks(NULL, NULL);
+			}
+
+			rem += selected_tasksize[i];
+			trace_almk_shrink(selected_tasksize[i], ret,
+				other_free, other_file,
+				selected_oom_score_adj[i]);
+		}
+	}
+	if (selected_once)
+		lowmem_deathpending_timeout = jiffies + HZ;
+	rcu_read_unlock();
+#else
 	if (selected) {
 		long cache_size = other_file * (long)(PAGE_SIZE / 1024);
 		long cache_limit = minfree * (long)(PAGE_SIZE / 1024);
 		long free = other_free * (long)(PAGE_SIZE / 1024);
-
-		if (test_task_lmk_waiting(selected) &&
-		    (test_task_state(selected, TASK_UNINTERRUPTIBLE))) {
-			lowmem_print(2, "'%s' (%d) is already killed\n",
-				     selected->comm,
-				     selected->pid);
-			rcu_read_unlock();
-			mutex_unlock(&scan_mutex);
-			return 0;
-		}
 
 		task_lock(selected);
 		send_sig(SIGKILL, selected, 0);
@@ -631,8 +724,6 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		lowmem_deathpending_timeout = jiffies + HZ;
 		rem += selected_tasksize;
 		rcu_read_unlock();
-		/* give the system time to free up the memory */
-		msleep_interruptible(20);
 		trace_almk_shrink(selected_tasksize, ret,
 				  other_free, other_file,
 				  selected_oom_score_adj);
@@ -640,11 +731,14 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		trace_almk_shrink(1, ret, other_free, other_file, 0);
 		rcu_read_unlock();
 	}
+#endif
 
 	lowmem_print(4, "lowmem_scan %lu, %x, return %lu\n",
 		     sc->nr_to_scan, sc->gfp_mask, rem);
-	mutex_unlock(&scan_mutex);
-	return rem;
+	if (rem == 0)
+		return SHRINK_STOP;
+	else
+		return rem;
 }
 
 static struct shrinker lowmem_shrinker = {

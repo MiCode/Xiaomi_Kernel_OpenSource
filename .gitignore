@@ -118,3 +118,6 @@ all.config
 
 # fetched Android config fragments
 kernel/configs/android-*.cfg
+
+#techpack/audio/
+techpack/audio/

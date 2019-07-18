@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -213,17 +214,19 @@ static void drain_timer_func(unsigned long data)
 static void diag_drain_apps_data(struct diag_apps_data_t *data)
 {
 	int err = 0;
+	unsigned long flags;
 
 	if (!data || !data->buf)
 		return;
 
 	err = diag_mux_write(DIAG_LOCAL_PROC, data->buf, data->len,
 			     data->ctxt);
+	spin_lock_irqsave(&driver->diagmem_lock, flags);
 	if (err)
 		diagmem_free(driver, data->buf, POOL_TYPE_HDLC);
-
 	data->buf = NULL;
 	data->len = 0;
+	spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 }
 
 void diag_update_user_client_work_fn(struct work_struct *work)
@@ -294,6 +297,8 @@ static void diag_mempool_init(void)
 	diagmem_init(driver, POOL_TYPE_HDLC);
 	diagmem_init(driver, POOL_TYPE_USER);
 	diagmem_init(driver, POOL_TYPE_DCI);
+
+	spin_lock_init(&driver->diagmem_lock);
 }
 
 static void diag_mempool_exit(void)
@@ -552,8 +557,8 @@ static int diagchar_close(struct inode *inode, struct file *file)
 {
 	int ret;
 
-	DIAG_LOG(DIAG_DEBUG_USERSPACE, "diag: process exit %s\n",
-		current->comm);
+	DIAG_LOG(DIAG_DEBUG_USERSPACE, "diag: %s process exit with pid = %d\n",
+		current->comm, current->tgid);
 	ret = diag_remove_client_entry(file);
 
 	return ret;
@@ -2744,6 +2749,7 @@ static int diag_process_apps_data_hdlc(unsigned char *buf, int len,
 	struct diag_apps_data_t *data = &hdlc_data;
 	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
 	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
+	unsigned long flags;
 	/*
 	 * The maximum encoded size of the buffer can be atmost twice the length
 	 * of the packet. Add three bytes foe footer - 16 bit CRC (2 bytes) +
@@ -2848,10 +2854,11 @@ static int diag_process_apps_data_hdlc(unsigned char *buf, int len,
 	return PKT_ALLOC;
 
 fail_free_buf:
+	spin_lock_irqsave(&driver->diagmem_lock, flags);
 	diagmem_free(driver, data->buf, POOL_TYPE_HDLC);
 	data->buf = NULL;
 	data->len = 0;
-
+	spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 fail_ret:
 	return ret;
 }
@@ -2863,6 +2870,7 @@ static int diag_process_apps_data_non_hdlc(unsigned char *buf, int len,
 	int ret = PKT_DROP;
 	struct diag_pkt_frame_t header;
 	struct diag_apps_data_t *data = &non_hdlc_data;
+	unsigned long flags;
 	/*
 	 * The maximum packet size, when the data is non hdlc encoded is equal
 	 * to the size of the packet frame header and the length. Add 1 for the
@@ -2927,10 +2935,11 @@ static int diag_process_apps_data_non_hdlc(unsigned char *buf, int len,
 	return PKT_ALLOC;
 
 fail_free_buf:
+	spin_lock_irqsave(&driver->diagmem_lock, flags);
 	diagmem_free(driver, data->buf, POOL_TYPE_HDLC);
 	data->buf = NULL;
 	data->len = 0;
-
+	spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 fail_ret:
 	return ret;
 }
@@ -3262,6 +3271,8 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 	int exit_stat = 0;
 	int write_len = 0;
 	struct diag_md_session_t *session_info = NULL;
+	struct pid *pid_struct = NULL;
+	struct task_struct *task_s = NULL;
 
 	mutex_lock(&driver->diagchar_mutex);
 	for (i = 0; i < driver->num_clients; i++)
@@ -3506,8 +3517,19 @@ exit:
 		list_for_each_safe(start, temp, &driver->dci_client_list) {
 			entry = list_entry(start, struct diag_dci_client_tbl,
 									track);
-			if (entry->client->tgid != current->tgid)
+			pid_struct = find_get_pid(entry->tgid);
+			if (!pid_struct)
 				continue;
+			task_s = get_pid_task(pid_struct, PIDTYPE_PID);
+			if (!task_s) {
+				DIAG_LOG(DIAG_DEBUG_DCI,
+				"diag: valid task doesn't exist for pid = %d\n",
+				entry->tgid);
+				continue;
+			}
+			if (task_s == entry->client)
+				if (entry->client->tgid != current->tgid)
+					continue;
 			if (!entry->in_service)
 				continue;
 			if (copy_to_user(buf + ret, &data_type, sizeof(int))) {

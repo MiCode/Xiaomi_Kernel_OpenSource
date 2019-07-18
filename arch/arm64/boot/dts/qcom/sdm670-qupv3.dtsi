@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -471,6 +472,22 @@
 		pinctrl-1 = <&qupv3_se12_2uart_sleep>;
 		interrupts = <GIC_SPI 357 0>;
 		qcom,wrapper-core = <&qupv3_1>;
+		status = "disabled";
+	};
+	/*Intercom LS uart interface on SDM670 */
+	qupv3_se0_2uart: qcom,qup_uart@0x880000 {
+		compatible = "qcom,msm-geni-console","qcom,msm-geni-uart";
+		reg = <0x880000 0x4000>;
+		reg-names = "se_phys";
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S0_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se0_2uart_active>;
+		pinctrl-1 = <&qupv3_se0_2uart_sleep>;
+		interrupts = <GIC_SPI 601 0>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 

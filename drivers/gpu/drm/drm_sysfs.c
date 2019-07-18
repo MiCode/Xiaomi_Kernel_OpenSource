@@ -215,16 +215,128 @@ static ssize_t modes_show(struct device *device,
 	return written;
 }
 
+extern int drm_get_panel_info(struct drm_bridge *bridge, char *name);
+static ssize_t panel_info_show(struct device *device,
+			    struct device_attribute *attr,
+			   char *buf)
+{
+	int written = 0;
+	char pname[128] = {0};
+	struct drm_connector *connector = NULL;
+	struct drm_encoder *encoder = NULL;
+	struct drm_bridge *bridge = NULL;
+
+	if (!device)
+		return written;
+
+	connector = to_drm_connector(device);
+	if (!connector)
+		return written;
+
+	encoder = connector->encoder;
+	if (!encoder)
+		return written;
+
+	bridge = encoder->bridge;
+	if (!bridge)
+		return written;
+
+	written = drm_get_panel_info(bridge, pname);
+	if (written)
+		return snprintf(buf, PAGE_SIZE, "panel_name=%s\n", pname);
+
+	return written;
+}
+
+void drm_bridge_disp_param_set(struct drm_bridge *bridge, int cmd);
+static ssize_t disp_param_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	int param;
+	struct drm_connector *connector = NULL;
+	struct drm_encoder *encoder = NULL;
+	struct drm_bridge *bridge = NULL;
+
+	if (!device)
+		return count;
+
+	connector = to_drm_connector(device);
+	if (!connector)
+		return count;
+
+	encoder = connector->encoder;
+	if (!encoder)
+		return count;
+
+	bridge = encoder->bridge;
+	if (!bridge)
+		return count;
+	sscanf(buf, "0x%x", &param);
+
+	drm_bridge_disp_param_set(bridge, param);
+
+	return count;
+}
+
+static ssize_t doze_brightness_show(struct device *device,
+			    struct device_attribute *attr,
+			   char *buf)
+{
+	int writen = 0;
+	struct drm_connector *connector = NULL;
+	struct drm_device *dev = NULL;
+
+	if (!device)
+		return writen;
+
+	connector = to_drm_connector(device);
+	if (!connector)
+		return writen;
+
+	dev = connector->dev;
+	if (!dev)
+		return writen;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			dev->doze_brightness);
+}
+
+extern ssize_t mipi_reg_write(char *buf, size_t count);
+extern ssize_t mipi_reg_read(char *buf);
+
+static ssize_t mipi_reg_show(struct device *device,
+			  struct device_attribute *attr,
+			 char *buf)
+{
+	return mipi_reg_read(buf);
+}
+
+static ssize_t mipi_reg_store(struct device *device,
+			 struct device_attribute *attr,
+			 const char *buf, size_t count)
+{
+	return mipi_reg_write((char *)buf, count);
+}
+
 static DEVICE_ATTR_RW(status);
 static DEVICE_ATTR_RO(enabled);
 static DEVICE_ATTR_RO(dpms);
 static DEVICE_ATTR_RO(modes);
+static DEVICE_ATTR_RO(panel_info);
+static DEVICE_ATTR_WO(disp_param);
+static DEVICE_ATTR_RO(doze_brightness);
+static DEVICE_ATTR_RW(mipi_reg);
 
 static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_status.attr,
 	&dev_attr_enabled.attr,
 	&dev_attr_dpms.attr,
 	&dev_attr_modes.attr,
+	&dev_attr_panel_info.attr,
+	&dev_attr_disp_param.attr,
+	&dev_attr_doze_brightness.attr,
+	&dev_attr_mipi_reg.attr,
 	NULL
 };
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013-2018, Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1325,7 +1326,7 @@ static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 		 * exit command.
 		 */
 		if (enable)
-			udelay(1);
+			udelay(100);
 
 		host->is_dev_ref_clk_enabled = enable;
 	}

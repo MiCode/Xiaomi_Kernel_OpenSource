@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +32,7 @@
 
 #define CAM_FD_MAX_IO_BUFFERS        5
 #define CAM_FD_MAX_HW_ENTRIES        5
+#define CAM_FD_CTX_MAX               16
 
 /**
  * enum cam_fd_hw_type - Enum for FD HW type
@@ -111,7 +113,7 @@ struct cam_fd_hw_io_buffer {
 	struct cam_buf_io_cfg *io_cfg;
 	uint32_t               num_buf;
 	uint64_t               io_addr[CAM_PACKET_MAX_PLANES];
-	uintptr_t              cpu_addr[CAM_PACKET_MAX_PLANES];
+	uint64_t               cpu_addr[CAM_PACKET_MAX_PLANES];
 };
 
 /**

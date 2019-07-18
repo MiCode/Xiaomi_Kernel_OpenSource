@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,9 +70,6 @@ int32_t cam_eeprom_update_i2c_info(struct cam_eeprom_ctrl_t *e_ctrl,
 		cci_client->retries = 3;
 		cci_client->id_map = 0;
 		cci_client->i2c_freq_mode = i2c_info->i2c_freq_mode;
-	} else if (e_ctrl->io_master_info.master_type == I2C_MASTER) {
-		e_ctrl->io_master_info.client->addr = i2c_info->slave_addr;
-		CAM_DBG(CAM_EEPROM, "Slave addr: 0x%x", i2c_info->slave_addr);
 	}
 	return 0;
 }
@@ -261,10 +259,9 @@ static int cam_eeprom_i2c_driver_remove(struct i2c_client *client)
 	for (i = 0; i < soc_info->num_clk; i++)
 		devm_clk_put(soc_info->dev, soc_info->clk[i]);
 
-	mutex_destroy(&(e_ctrl->eeprom_mutex));
-	kfree(soc_private);
-	kfree(e_ctrl->io_master_info.cci_client);
-	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, NULL);
+	if (soc_private)
+		kfree(soc_private);
+
 	kfree(e_ctrl);
 
 	return 0;
@@ -395,8 +392,6 @@ static int cam_eeprom_spi_driver_remove(struct spi_device *sdev)
 		kfree(soc_private->power_info.gpio_num_info);
 		kfree(soc_private);
 	}
-	mutex_destroy(&(e_ctrl->eeprom_mutex));
-	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, NULL);
 	kfree(e_ctrl);
 
 	return 0;
@@ -492,11 +487,8 @@ static int cam_eeprom_platform_driver_remove(struct platform_device *pdev)
 	for (i = 0; i < soc_info->num_clk; i++)
 		devm_clk_put(soc_info->dev, soc_info->clk[i]);
 
-	mutex_destroy(&(e_ctrl->eeprom_mutex));
 	kfree(soc_info->soc_private);
 	kfree(e_ctrl->io_master_info.cci_client);
-	platform_set_drvdata(pdev, NULL);
-	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, NULL);
 	kfree(e_ctrl);
 	return 0;
 }
@@ -514,7 +506,6 @@ static struct platform_driver cam_eeprom_platform_driver = {
 		.name = "qcom,eeprom",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_eeprom_dt_match,
-		.suppress_bind_attrs = true,
 	},
 	.probe = cam_eeprom_platform_driver_probe,
 	.remove = cam_eeprom_platform_driver_remove,

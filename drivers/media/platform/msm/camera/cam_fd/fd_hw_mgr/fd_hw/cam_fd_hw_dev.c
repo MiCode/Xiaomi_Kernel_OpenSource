@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,8 +25,6 @@
 #include "cam_fd_hw_v41.h"
 #include "cam_fd_hw_v501.h"
 
-static char fd_dev_name[8];
-
 static int cam_fd_hw_dev_probe(struct platform_device *pdev)
 {
 	struct cam_hw_info *fd_hw;
@@ -34,7 +33,6 @@ static int cam_fd_hw_dev_probe(struct platform_device *pdev)
 	const struct of_device_id *match_dev = NULL;
 	struct cam_fd_hw_static_info *hw_static_info = NULL;
 	int rc = 0;
-	uint32_t hw_idx;
 	struct cam_fd_hw_init_args init_args;
 	struct cam_fd_hw_deinit_args deinit_args;
 
@@ -54,21 +52,14 @@ static int cam_fd_hw_dev_probe(struct platform_device *pdev)
 		kfree(fd_hw_intf);
 		return -ENOMEM;
 	}
-	of_property_read_u32(pdev->dev.of_node,
-			"cell-index", &hw_idx);
 
 	fd_hw_intf->hw_priv = fd_hw;
 	fd_hw->core_info = fd_core;
-	fd_hw_intf->hw_idx = hw_idx;
-
-	memset(fd_dev_name, 0, sizeof(fd_dev_name));
-	snprintf(fd_dev_name, sizeof(fd_dev_name),
-		"fd%1u", fd_hw_intf->hw_idx);
 
 	fd_hw->hw_state = CAM_HW_STATE_POWER_DOWN;
 	fd_hw->soc_info.pdev = pdev;
 	fd_hw->soc_info.dev = &pdev->dev;
-	fd_hw->soc_info.dev_name = fd_dev_name;
+	fd_hw->soc_info.dev_name = pdev->name;
 	fd_hw->open_count = 0;
 	mutex_init(&fd_hw->hw_mutex);
 	spin_lock_init(&fd_hw->hw_lock);
@@ -113,6 +104,8 @@ static int cam_fd_hw_dev_probe(struct platform_device *pdev)
 		CAM_ERR(CAM_FD, "Failed to init soc, rc=%d", rc);
 		goto free_memory;
 	}
+
+	fd_hw_intf->hw_idx = fd_hw->soc_info.index;
 
 	memset(&init_args, 0x0, sizeof(init_args));
 	memset(&deinit_args, 0x0, sizeof(deinit_args));
@@ -217,7 +210,6 @@ static struct platform_driver cam_fd_hw_driver = {
 		.name = "cam_fd_hw",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_fd_hw_dt_match,
-		.suppress_bind_attrs = true,
 	},
 };
 

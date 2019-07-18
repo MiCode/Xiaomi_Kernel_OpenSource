@@ -1,0 +1,82 @@
+
+qcom,f2_coslight_3070mAh {
+	qcom, = <24>;
+	/* #3740321_Xiaomi_F2_Coslight_3070mAH_averaged_MasterSlave_Nov23rd2018*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fastchg-current-ma = <2950>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,nom-batt-capacity-mah = <3070>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "f2_coslight";
+	qcom,jeita-fcc-ranges = <0   50  275000
+				51  100  875000
+				101 150  2075000
+				151 450  2950000
+				451 600  1475000>;
+	qcom,jeita-fv-ranges = <0   50   4400000
+				51  100  4400000
+				101 150  4400000
+				151 450  4400000
+				451 600  4100000>;
+	qcom,checksum = <0xC067>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		 DE 1F 51 05
+		 9E 0A 81 FC
+		 F8 1C 55 FB
+		 88 04 07 0A
+		 F2 17 C2 23
+		 72 44 4B 5A
+		 80 00 00 00
+		 10 00 00 00
+		 00 00 0F BC
+		 B6 CD 2E C2
+		 25 00 08 00
+		 25 00 E6 ED
+		 BC 05 96 01
+		 FF 0C 65 02
+		 51 07 B0 2A
+		 31 06 09 20
+		 27 00 14 00
+		 EA 1F 5D 05
+		 A1 0A 5D FC
+		 C7 1C FF 02
+		 F2 15 3C 12
+		 83 18 FB 23
+		 BD 4D 8E 5B
+		 6B 00 00 00
+		 0D 00 00 00
+		 00 00 54 CC
+		 0C C3 00 AC
+		 1C 00 00 00
+		 0D EB E6 ED
+		 61 FD 5B F3
+		 5F F5 37 02
+		 75 02 7C 22
+		 C3 33 CC FF
+		 07 10 00 00
+		 F9 0B 66 46
+		 1C 00 40 00
+		 71 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

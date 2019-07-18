@@ -1,0 +1,334 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include "sdm670-pmic-overlay.dtsi"
+#include "sdm670-sde-display.dtsi"
+
+&qupv3_se10_i2c {
+#include "smb1355.dtsi"
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v3";
+
+	vdda-phy-supply = <&pm660l_l1>; /* 0.88v */
+	vdda-pll-supply = <&pm660_l1>; /* 1.2v */
+	vdda-phy-max-microamp = <62900>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm660l_l4>;
+	vcc-voltage-level = <2960000 2960000>;
+	vccq2-supply = <&pm660_l8>;
+	vcc-max-microamp = <600000>;
+	vccq2-max-microamp = <600000>;
+
+	qcom,vddp-ref-clk-supply = <&pm660_l1>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
+};
+
+&pm660l_switch1 {
+        pinctrl-names = "led_enable", "led_disable";
+        pinctrl-0 = <&flash_led3_front_en>;
+        pinctrl-1 = <&flash_led3_front_dis>;
+};
+
+&qupv3_se9_2uart {
+	status = "disabled";
+};
+
+&qupv3_se12_2uart {
+	status = "ok";
+};
+
+&qupv3_se8_spi {
+	status = "disabled";
+};
+
+&qupv3_se3_i2c {
+        status = "ok";
+        nq@28 {
+                compatible = "qcom,nq-nci";
+                reg = <0x28>;
+                qcom,nq-irq = <&tlmm 44 0x00>;
+                qcom,nq-ven = <&tlmm 12 0x00>;
+                qcom,nq-firm = <&tlmm 43 0x00>;
+                qcom,nq-clkreq = <&pm660_gpios 4 0x00>;
+                qcom,nq-esepwr = <&tlmm 116 0x00>;
+                interrupt-parent = <&tlmm>;
+                interrupts = <44 0>;
+                interrupt-names = "nfc_irq";
+                pinctrl-names = "nfc_active", "nfc_suspend","default";
+                pinctrl-0 = <&nfc_int_active &nfc_enable_active>;
+                pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
+                pinctrl-2 = <&nfc_clk_default>;
+        };
+};
+
+&qupv3_se10_i2c {
+	status = "ok";
+};
+
+&qupv3_se6_4uart {
+	status = "ok";
+};
+
+&usb0 {
+        dwc3@a600000 {
+                maximum-speed = "high-speed";
+        };
+};
+
+&sdhc_1 {
+	vdd-supply = <&pm660l_l4>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&pm660_l8>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on  &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm660l_l5>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&pm660l_l2>;
+	qcom,vdd-io-voltage-level = <1800000 2960000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+
+	cd-gpios = <&tlmm 96 0x1>;
+
+	status = "disable";
+};
+
+&tlmm {
+        smb_int_default: smb_int_default {
+                mux {
+                        pins = "gpio54";
+                        function = "gpio";
+                };
+                config {
+                        pins = "gpio54";
+                        drive-strength = <2>;
+                        bias-pull-up;
+                        input-enable;
+                };
+        };
+};
+
+&smb1355_0 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&smb_int_default
+                        &smb_shutdown_default>;
+        interrupt-parent = <&tlmm>;
+        interrupts = <54 IRQ_TYPE_LEVEL_LOW>;
+        smb1355_charger_0: qcom,smb1355-charger@1000 {
+                io-channels = <&pm660_rradc 2>,
+                                <&pm660_rradc 12>;
+                io-channel-names = "charger_temp",
+                                "charger_temp_max";
+                status ="ok";
+        };
+};
+
+&smb1355_1 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&smb_int_default
+                        &smb_shutdown_default>;
+        interrupt-parent = <&tlmm>;
+        interrupts = <54 IRQ_TYPE_LEVEL_LOW>;
+        smb1355_charger_1: qcom,smb1355-charger@1000 {
+                io-channels = <&pm660_rradc 2>,
+                                <&pm660_rradc 12>;
+                io-channel-names = "charger_temp",
+                                "charger_temp_max";
+                status ="ok";
+        };
+};
+
+&dsi_dual_nt35597_truly_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+	qcom,panel-mode-gpio = <&tlmm 76 0>;
+	qcom,platform-reset-gpio = <&tlmm 75 0>;
+};
+
+&dsi_dual_nt35597_truly_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+	qcom,panel-mode-gpio = <&tlmm 76 0>;
+	qcom,platform-reset-gpio = <&tlmm 75 0>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+};
+
+&dsi_nt35597_truly_dsc_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
+	qcom,panel-mode-gpio = <&tlmm 76 0>;
+	qcom,platform-reset-gpio = <&tlmm 75 0>;
+};
+
+&dsi_nt35597_truly_dsc_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
+	qcom,panel-mode-gpio = <&tlmm 76 0>;
+	qcom,platform-reset-gpio = <&tlmm 75 0>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+};
+
+&dsi_sim_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 75 0>;
+};
+
+&dsi_dual_sim_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 75 0>;
+};
+
+&dsi_sim_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 75 0>;
+};
+
+&dsi_dual_sim_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 75 0>;
+};
+
+&dsi_sim_dsc_375_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 75 0>;
+};
+
+&dsi_dual_sim_dsc_375_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 75 0>;
+};
+
+&dsi_dual_nt35597_video {
+        qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+        qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+        qcom,mdss-dsi-bl-min-level = <1>;
+        qcom,mdss-dsi-bl-max-level = <4095>;
+        qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+        qcom,panel-mode-gpio = <&tlmm 76 0>;
+        qcom,platform-reset-gpio = <&tlmm 75 0>;
+};
+
+&dsi_dual_nt35597_cmd {
+        qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+        qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+        qcom,mdss-dsi-bl-min-level = <1>;
+        qcom,mdss-dsi-bl-max-level = <4095>;
+        qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+        qcom,panel-mode-gpio = <&tlmm 76 0>;
+        qcom,platform-reset-gpio = <&tlmm 75 0>;
+        qcom,platform-te-gpio = <&tlmm 10 0>;
+};
+
+&dsi_rm67195_amoled_fhd_cmd {
+        com,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+        qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+        qcom,platform-reset-gpio = <&tlmm 75 0>;
+        qcom,platform-te-gpio = <&tlmm 10 0>;
+};
+
+&dsi_nt35695b_truly_fhd_video {
+        qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+        qcom,mdss-dsi-bl-min-level = <1>;
+        qcom,mdss-dsi-bl-max-level = <4095>;
+        qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+        qcom,platform-reset-gpio = <&tlmm 75 0>;
+};
+
+&dsi_nt35695b_truly_fhd_cmd {
+        qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+        qcom,mdss-dsi-bl-min-level = <1>;
+        qcom,mdss-dsi-bl-max-level = <4095>;
+        qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+        qcom,platform-reset-gpio = <&tlmm 75 0>;
+        qcom,platform-te-gpio = <&tlmm 10 0>;
+};
+
+&pm660_gpios {
+    /* GPIO 13 (AUDIO_SEL) */
+    gpio@cc00 {
+        status = "okay";
+        qcom,mode = <1>;    /* Digital out */
+        qcom,pull = <5>;    /* No pull */
+        /* qcom,vin-sel = <1>;*/ /* 1.8v */
+        /*
+           qcom,src-sel = <0>;
+           qcom,out-strength = <1>;
+           qcom,master-en = <1>;
+           qcom,invert = <1>;
+         */
+    };
+};
+
+&pm660l_wled {
+	status = "okay";
+	qcom,led-strings-list = [01 02];
+};
+
+&mdss_mdp {
+	#cooling-cells = <2>;
+};
+
+&thermal_zones {
+        xo-therm-step {
+                status = "disabled";
+        };
+};
+

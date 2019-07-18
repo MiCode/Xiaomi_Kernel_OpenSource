@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,11 +17,6 @@
 #include "cam_isp_hw.h"
 #include "cam_vfe_top.h"
 
-/*
- * Debug values for camif module
- */
-#define CAMIF_DEBUG_ENABLE_SENSOR_DIAG_STATUS      BIT(0)
-
 struct cam_vfe_camif_ver2_reg {
 	uint32_t     camif_cmd;
 	uint32_t     camif_config;
@@ -32,8 +28,6 @@ struct cam_vfe_camif_ver2_reg {
 	uint32_t     raw_crop_width_cfg;
 	uint32_t     raw_crop_height_cfg;
 	uint32_t     reg_update_cmd;
-	uint32_t     vfe_diag_config;
-	uint32_t     vfe_diag_sensor_status;
 };
 
 struct cam_vfe_camif_reg_data {
@@ -70,8 +64,6 @@ struct cam_vfe_camif_reg_data {
 	uint32_t     eof_irq_mask;
 	uint32_t     error_irq_mask0;
 	uint32_t     error_irq_mask1;
-
-	uint32_t     enable_diagnostic_hw;
 };
 
 struct cam_vfe_camif_ver2_hw_info {

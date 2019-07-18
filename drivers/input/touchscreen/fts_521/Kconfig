@@ -1,0 +1,17 @@
+config TOUCHSCREEN_ST_FTS_V521
+	tristate "ST FTS V521 I2C Touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have ST FTS series I2C touchscreen.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+
+config TOUCHSCREEN_ST_DEBUG_FS
+	tristate "St core driver module"
+	depends on TOUCHSCREEN_ST_FTS_V521
+	help
+          Say Y here to enable  touch debugfs functionality.
+
+          If unsure, say N.

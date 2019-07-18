@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -150,7 +151,7 @@ static int cam_lrme_mgr_util_prepare_io_buffer(int32_t iommu_hdl,
 	int rc = -EINVAL;
 	uint32_t num_in_buf, num_out_buf, i, j, plane;
 	struct cam_buf_io_cfg *io_cfg;
-	dma_addr_t io_addr[CAM_PACKET_MAX_PLANES];
+	uint64_t io_addr[CAM_PACKET_MAX_PLANES];
 	size_t size;
 
 	num_in_buf = 0;
@@ -187,6 +188,12 @@ static int cam_lrme_mgr_util_prepare_io_buffer(int32_t iommu_hdl,
 			}
 
 			io_addr[plane] += io_cfg[i].offsets[plane];
+
+			if (io_addr[plane] >> 32) {
+				CAM_ERR(CAM_LRME, "Invalid io addr for %d %d",
+					plane, rc);
+				return -ENOMEM;
+			}
 
 			CAM_DBG(CAM_LRME, "IO Address[%d][%d] : %llu",
 				io_cfg[i].direction, plane, io_addr[plane]);
@@ -385,14 +392,13 @@ static int cam_lrme_mgr_util_submit_req(void *priv, void *data)
 	work_data = (struct cam_lrme_mgr_work_data *)data;
 	hw_device = work_data->hw_device;
 
-	rc = cam_lrme_mgr_util_get_frame_req(
-		&hw_device->frame_pending_list_high, &frame_req,
-		&hw_device->high_req_lock);
+	rc = cam_lrme_mgr_util_get_frame_req(&hw_device->
+		frame_pending_list_high, &frame_req, &hw_device->high_req_lock);
 
 	if (!frame_req) {
-		rc = cam_lrme_mgr_util_get_frame_req(
-			&hw_device->frame_pending_list_normal, &frame_req,
-			&hw_device->normal_req_lock);
+		rc = cam_lrme_mgr_util_get_frame_req(&hw_device->
+				frame_pending_list_normal, &frame_req,
+				&hw_device->normal_req_lock);
 		if (frame_req)
 			req_prio = 1;
 	}
@@ -565,13 +571,12 @@ static int cam_lrme_mgr_get_caps(void *hw_mgr_priv, void *hw_get_caps_args)
 
 	if (sizeof(struct cam_lrme_query_cap_cmd) != args->size) {
 		CAM_ERR(CAM_LRME,
-			"sizeof(struct cam_query_cap_cmd) = %zu, args->size = %d",
+			"sizeof(struct cam_query_cap_cmd) = %lu, args->size = %d",
 			sizeof(struct cam_query_cap_cmd), args->size);
 		return -EFAULT;
 	}
 
-	if (copy_to_user(u64_to_user_ptr(args->caps_handle),
-		&(hw_mgr->lrme_caps),
+	if (copy_to_user((void __user *)args->caps_handle, &(hw_mgr->lrme_caps),
 		sizeof(struct cam_lrme_query_cap_cmd))) {
 		CAM_ERR(CAM_LRME, "copy to user failed");
 		return -EFAULT;
@@ -586,7 +591,7 @@ static int cam_lrme_mgr_hw_acquire(void *hw_mgr_priv, void *hw_acquire_args)
 	struct cam_hw_acquire_args *args =
 		(struct cam_hw_acquire_args *)hw_acquire_args;
 	struct cam_lrme_acquire_args lrme_acquire_args;
-	uintptr_t device_index;
+	uint64_t device_index;
 
 	if (!hw_mgr_priv || !args) {
 		CAM_ERR(CAM_LRME,
@@ -607,7 +612,7 @@ static int cam_lrme_mgr_hw_acquire(void *hw_mgr_priv, void *hw_acquire_args)
 	CAM_DBG(CAM_LRME, "Get device id %llu", device_index);
 
 	if (device_index >= hw_mgr->device_count) {
-		CAM_ERR(CAM_LRME, "Get wrong device id %lu", device_index);
+		CAM_ERR(CAM_LRME, "Get wrong device id %llu", device_index);
 		return -EINVAL;
 	}
 
@@ -662,7 +667,7 @@ static int cam_lrme_mgr_hw_flush(void *hw_mgr_priv, void *hw_flush_args)
 	}
 
 	args = (struct cam_hw_flush_args *)hw_flush_args;
-	device_index = ((uintptr_t)args->ctxt_to_hw_map & 0xF);
+	device_index = ((uint64_t)args->ctxt_to_hw_map & 0xF);
 	if (device_index >= hw_mgr->device_count) {
 		CAM_ERR(CAM_LRME, "Invalid device index %d", device_index);
 		return -EPERM;
@@ -759,12 +764,6 @@ static int cam_lrme_mgr_hw_start(void *hw_mgr_priv, void *hw_start_args)
 		CAM_ERR(CAM_LRME, "Invald start function");
 		return -EINVAL;
 	}
-
-	rc = hw_device->hw_intf.hw_ops.process_cmd(
-			hw_device->hw_intf.hw_priv,
-			CAM_LRME_HW_CMD_DUMP_REGISTER,
-			&g_lrme_hw_mgr.debugfs_entry.dump_register,
-			sizeof(bool));
 
 	return rc;
 }
@@ -964,35 +963,6 @@ static int cam_lrme_mgr_hw_config(void *hw_mgr_priv,
 	return rc;
 }
 
-static int cam_lrme_mgr_create_debugfs_entry(void)
-{
-	int rc = 0;
-
-	g_lrme_hw_mgr.debugfs_entry.dentry =
-		debugfs_create_dir("camera_lrme", NULL);
-	if (!g_lrme_hw_mgr.debugfs_entry.dentry) {
-		CAM_ERR(CAM_LRME, "failed to create dentry");
-		return -ENOMEM;
-	}
-
-	if (!debugfs_create_bool("dump_register",
-		0644,
-		g_lrme_hw_mgr.debugfs_entry.dentry,
-		&g_lrme_hw_mgr.debugfs_entry.dump_register)) {
-		CAM_ERR(CAM_LRME, "failed to create dump register entry");
-		rc = -ENOMEM;
-		goto err;
-	}
-
-	return rc;
-
-err:
-	debugfs_remove_recursive(g_lrme_hw_mgr.debugfs_entry.dentry);
-	g_lrme_hw_mgr.debugfs_entry.dentry = NULL;
-	return rc;
-}
-
-
 int cam_lrme_mgr_register_device(
 	struct cam_hw_intf *lrme_hw_intf,
 	struct cam_iommu_handle *device_iommu,
@@ -1019,8 +989,7 @@ int cam_lrme_mgr_register_device(
 	CAM_DBG(CAM_LRME, "Create submit workq for %s", buf);
 	rc = cam_req_mgr_workq_create(buf,
 		CAM_LRME_WORKQ_NUM_TASK,
-		&hw_device->work, CRM_WORKQ_USAGE_NON_IRQ,
-		0);
+		&hw_device->work, CRM_WORKQ_USAGE_NON_IRQ);
 	if (rc) {
 		CAM_ERR(CAM_LRME,
 			"Unable to create a worker, rc=%d", rc);
@@ -1142,8 +1111,6 @@ int cam_lrme_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf,
 	hw_mgr_intf->hw_flush = cam_lrme_mgr_hw_flush;
 
 	g_lrme_hw_mgr.event_cb = cam_lrme_dev_buf_done_cb;
-
-	cam_lrme_mgr_create_debugfs_entry();
 
 	CAM_DBG(CAM_LRME, "Hw mgr init done");
 	return rc;

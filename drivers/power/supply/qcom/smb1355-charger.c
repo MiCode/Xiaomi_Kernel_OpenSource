@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +54,9 @@
 #define CHG_EN_SRC_BIT				BIT(7)
 #define CHG_EN_POLARITY_BIT			BIT(6)
 
+#define CHGR_CHARGING_ENABLE			(CHGR_BASE + 0x42)
+#define CHG_EN_CMD						BIT(0)
+
 #define CFG_REG					(CHGR_BASE + 0x53)
 #define CHG_OPTION_PIN_TRIM_BIT			BIT(7)
 #define BATN_SNS_CFG_BIT			BIT(4)
@@ -99,6 +103,11 @@
 #define TEMP_UB_HOT_BIT				BIT(1)
 #define TEMP_LB_HOT_BIT				BIT(0)
 #define SKIN_TEMP_SHIFT				4
+
+#define POWER_PATH_STATUS_REG           (MISC_BASE + 0x0B)
+#define POWER_PATH_MASK                 GENMASK(2, 1)
+#define VALID_INPUT_POWER_SOURCE_STS_BIT    BIT(0)
+#define USE_USBIN_BIT                       BIT(1)
 
 #define MISC_RT_STS_REG				(MISC_BASE + 0x10)
 #define HARD_ILIMIT_RT_STS_BIT			BIT(5)
@@ -521,6 +530,7 @@ static int smb1355_parse_dt(struct smb1355 *chip)
 
 static enum power_supply_property smb1355_parallel_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
+	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_PIN_ENABLED,
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
@@ -564,13 +574,49 @@ static int smb1355_get_prop_batt_charge_type(struct smb1355 *chip,
 	return rc;
 }
 
+static int smb1355_get_prop_online(struct smb1355 *chip, union power_supply_propval *val)
+{
+    int rc;
+    u8 stat;
+
+    rc = smb1355_read(chip, POWER_PATH_STATUS_REG, &stat);
+    if (rc < 0) {
+        pr_err("Couldn't read power path status rc=%d\n", rc);
+        return rc;
+    }
+
+    val->intval = (stat & USE_USBIN_BIT) &&
+                    (stat & VALID_INPUT_POWER_SOURCE_STS_BIT);
+
+    return rc;
+}
+
 static int smb1355_get_prop_health(struct smb1355 *chip, int type)
 {
 	u8 temp;
 	int rc, shift;
+	u8 stat = 0;
+	int usb_present = 0;
+	static int overheat;
+
+	rc = smb1355_read(chip, POWER_PATH_STATUS_REG, &stat);
+	if (rc < 0) {
+		pr_err("Couldn't read power path status rc=%d\n", rc);
+		return POWER_SUPPLY_HEALTH_COOL;
+	}
+	usb_present = (stat & USE_USBIN_BIT) &&
+		(stat & VALID_INPUT_POWER_SOURCE_STS_BIT);
+
+	if (type == CONNECTOR_TEMP && !usb_present) {
+		overheat = 0;
+		return POWER_SUPPLY_HEALTH_COOL;
+	}
 
 	/* Connector-temp uses skin-temp configuration */
 	shift = (type == CONNECTOR_TEMP) ? SKIN_TEMP_SHIFT : 0;
+
+	if (chip->dt.disable_ctm)
+		return POWER_SUPPLY_HEALTH_COOL;
 
 	rc = smb1355_read(chip, TEMP_COMP_STATUS_REG, &temp);
 	if (rc < 0) {
@@ -578,8 +624,22 @@ static int smb1355_get_prop_health(struct smb1355 *chip, int type)
 		return POWER_SUPPLY_HEALTH_UNKNOWN;
 	}
 
-	if (temp & (TEMP_RST_HOT_BIT << shift))
-		return POWER_SUPPLY_HEALTH_OVERHEAT;
+	if (temp & (TEMP_RST_HOT_BIT << shift)) {
+		if (type == CONNECTOR_TEMP) {
+			if (overheat > 5) {
+				pr_info("%s: ntc is overheat:%x!\n", __func__, temp);
+				return POWER_SUPPLY_HEALTH_OVERHEAT;
+			} else {
+				pr_info("%s overheat count:%d\n", __func__, overheat);
+				overheat++;
+				return POWER_SUPPLY_HEALTH_HOT;
+			}
+		} else {
+			return POWER_SUPPLY_HEALTH_OVERHEAT;
+		}
+	}
+	if (type == CONNECTOR_TEMP)
+		overheat = 0;
 
 	if (temp & (TEMP_UB_HOT_BIT << shift))
 		return POWER_SUPPLY_HEALTH_HOT;
@@ -620,6 +680,9 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		rc = smb1355_get_prop_batt_charge_type(chip, val);
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+		rc = smb1355_get_prop_online(chip, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		rc = smb1355_read(chip, BATTERY_STATUS_3_REG, &stat);
@@ -729,14 +792,8 @@ static int smb1355_set_parallel_charging(struct smb1355 *chip, bool disable)
 		disable = true;
 	}
 
-	/*
-	 * Configure charge enable for high polarity and
-	 * When disabling charging set it to cmd register control(cmd bit=0)
-	 * When enabling charging set it to pin control
-	 */
-	rc = smb1355_masked_write(chip, CHGR_CFG2_REG,
-			CHG_EN_POLARITY_BIT | CHG_EN_SRC_BIT,
-			disable ? 0 : CHG_EN_SRC_BIT);
+	rc = smb1355_masked_write(chip, CHGR_CHARGING_ENABLE,
+			CHG_EN_CMD, disable ? 0 : CHG_EN_CMD);
 	if (rc < 0) {
 		pr_err("Couldn't configure charge enable source rc=%d\n", rc);
 		disable = true;

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2018, The Linux foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -107,7 +108,7 @@
 #define STALE_TIMEOUT		(16)
 #define DEFAULT_BITS_PER_CHAR	(10)
 #define GENI_UART_NR_PORTS	(15)
-#define GENI_UART_CONS_PORTS	(1)
+#define GENI_UART_CONS_PORTS	(2)
 #define DEF_FIFO_DEPTH_WORDS	(16)
 #define DEF_TX_WM		(2)
 #define DEF_FIFO_WIDTH_BITS	(32)
@@ -195,7 +196,7 @@ static atomic_t uart_line_id = ATOMIC_INIT(0);
 #define GET_DEV_PORT(uport) \
 	container_of(uport, struct msm_geni_serial_port, uport)
 
-static struct msm_geni_serial_port msm_geni_console_port;
+static struct msm_geni_serial_port msm_geni_console_port[GENI_UART_CONS_PORTS];
 static struct msm_geni_serial_port msm_geni_serial_ports[GENI_UART_NR_PORTS];
 
 static void msm_geni_serial_config_port(struct uart_port *uport, int cfg_flags)
@@ -464,8 +465,8 @@ static struct msm_geni_serial_port *get_port_from_line(int line,
 
 	if (is_console) {
 		if ((line < 0) || (line >= GENI_UART_CONS_PORTS))
-			port = ERR_PTR(-ENXIO);
-		port = &msm_geni_console_port;
+			return ERR_PTR(-ENXIO);
+		port = &msm_geni_console_port[line];
 	} else {
 		if ((line < 0) || (line >= GENI_UART_NR_PORTS))
 			return ERR_PTR(-ENXIO);
@@ -497,6 +498,7 @@ static int msm_geni_serial_power_on(struct uart_port *uport)
 			} else {
 				pm_runtime_get_noresume(uport->dev);
 				pm_runtime_set_active(uport->dev);
+				pm_runtime_get_sync(uport->dev);
 				enable_irq(uport->irq);
 			}
 			pm_runtime_enable(uport->dev);
@@ -2357,6 +2359,12 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	if ((line < 0) || (line >= GENI_UART_NR_PORTS))
 		return -ENXIO;
 	is_console = (drv->cons ? true : false);
+#ifdef CONFIG_SERIAL_MSM_GENI_CONSOLE_USER
+	/* Disable serial0 in user version */
+	if ((line == 0) && (is_console == 1)) {
+		return -ENODEV;
+	}
+#endif
 	dev_port = get_port_from_line(line, is_console);
 	if (IS_ERR_OR_NULL(dev_port)) {
 		ret = PTR_ERR(dev_port);
@@ -2715,10 +2723,10 @@ static int __init msm_geni_serial_init(void)
 	}
 
 	for (i = 0; i < GENI_UART_CONS_PORTS; i++) {
-		msm_geni_console_port.uport.iotype = UPIO_MEM;
-		msm_geni_console_port.uport.ops = &msm_geni_console_pops;
-		msm_geni_console_port.uport.flags = UPF_BOOT_AUTOCONF;
-		msm_geni_console_port.uport.line = i;
+		msm_geni_console_port[i].uport.iotype = UPIO_MEM;
+		msm_geni_console_port[i].uport.ops = &msm_geni_console_pops;
+		msm_geni_console_port[i].uport.flags = UPF_BOOT_AUTOCONF;
+		msm_geni_console_port[i].uport.line = i;
 	}
 
 	ret = console_register(&msm_geni_console_driver);

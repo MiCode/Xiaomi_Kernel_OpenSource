@@ -1,0 +1,70 @@
+
+qcom,c1_atl_3350mah {
+	/* #2689913_Xiaomi_C1scud_3350mAh_averaged_MasterSlave_Jan17th2017*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3350>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "c1_atl";
+	qcom,checksum = <0x23EB>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.54";
+	qcom,fg-profile-data = [
+		 66 1F B6 05
+		 70 0A 9D FC
+		 73 1D 37 F5
+		 41 12 2B 14
+		 BF 18 D7 22
+		 AD 45 96 52
+		 57 00 00 00
+		 0F 00 00 00
+		 00 00 8C C4
+		 9C CD 72 CB
+		 22 00 08 00
+		 41 E3 A1 07
+		 4D FD 6F F3
+		 45 E4 8F 12
+		 FC 0C 23 33
+		 19 06 09 20
+		 27 00 14 00
+		 F9 1F 4E 05
+		 A9 0A 27 06
+		 2B 1D 43 01
+		 45 00 99 04
+		 38 19 CA 22
+		 98 45 CF 52
+		 59 00 00 00
+		 0C 00 00 00
+		 00 00 82 CC
+		 20 C2 57 AD
+		 1C 00 00 00
+		 29 F2 A1 07
+		 27 07 A3 EB
+		 FB E4 FD 02
+		 59 D5 D2 1A
+		 AD 33 CC FF
+		 07 10 00 00
+		 15 0D 66 46
+		 1C 00 40 00
+		 7E 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

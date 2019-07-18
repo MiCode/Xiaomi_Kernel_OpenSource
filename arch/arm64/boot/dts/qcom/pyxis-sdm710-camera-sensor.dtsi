@@ -1,0 +1,375 @@
+/*
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "pyxis-sdm710-pinctrl.dtsi"
+
+/* F3B flash led's typical peak pulse current is 1000mA */
+&pm660l_flash0 {
+	qcom,max-current = <1000>;
+};
+
+&pm660l_torch0 {
+	qcom,max-current = <350>;
+};
+
+&soc {
+	led_flash_rear: qcom,camera-flash@0 {
+		cell-index = <0>;
+		reg = <0x00 0x00>;
+		compatible = "qcom,camera-flash";
+		flash-source = <&pm660l_flash0>;
+		torch-source = <&pm660l_torch0>;
+		switch-source = <&pm660l_switch0>;
+		status = "ok";
+	};
+
+	led_flash_rear_aux: qcom,camera-flash@1{
+		cell-index = <1>;
+		reg = <0x01 0x00>;
+		compatible = "qcom,camera-flash";
+		flash-source = <&pm660l_flash0>;
+		torch-source = <&pm660l_torch0>;
+		switch-source = <&pm660l_switch0>;
+		status = "ok";
+	};
+};
+
+&cam_cci {
+	qcom,cam-res-mgr {
+		compatible = "qcom,cam-res-mgr";
+		status = "ok";
+	};
+
+	actuator_rear: qcom,actuator@0 {
+		cell-index = <0>;
+		reg = <0x0>;
+		compatible = "qcom,actuator";
+		cci-master = <0>;
+		cam_vaf-supply = <&pm660l_bob>;
+		regulator-names = "cam_vaf";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <3312000>;
+		rgltr-max-voltage = <3312000>;
+		rgltr-load-current = <0>;
+		gpios = <&pm660l_gpios 4 0>; //LDO
+		gpio-vaf  = <0>;
+		gpio-req-tbl-num = <0>;
+		gpio-req-tbl-flags = <0>; //1-input,0-output
+		gpio-req-tbl-label = "CAM_VAF";
+		status = "ok";
+	};
+
+	eeprom_rear: qcom,eeprom@0 {
+		cell-index = <0>;
+		reg = <0>;
+		compatible = "qcom,eeprom";
+		slave-addr = <0xb0>;
+		i2c-freq-mode = <1>;
+		num-blocks = <1>;
+		page0 = <0 0 0 0 0 0>;
+		poll0 = <0 0 0 0 0 0>;
+		mem0 = <8192 0x00 2 0 1 0>;
+		cam_vio-supply = <&pm660_l11>;
+		regulator-names = "cam_vio";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <1800000>;
+		rgltr-max-voltage = <1800000>;
+		rgltr-load-current = <0>;
+		cci-master = <0>;
+		status = "ok";
+	};
+
+	eeprom_rear_aux: qcom,eeprom@1 {
+		cell-index = <1>;
+		reg = <1>;
+		compatible = "qcom,eeprom";
+		slave-addr = <0xa0>;
+		i2c-freq-mode = <1>;
+		num-blocks = <1>;
+		page0 = <0 0 0 0 0 0>;
+		poll0 = <0 0 0 0 0 0>;
+		mem0 = <8192 0x00 2 0 1 0>;
+		cam_vio-supply = <&pm660_l11>;
+		cam_vana-supply = <&pm660l_bob>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		regulator-names = "cam_vio", "cam_vana",
+			"cam_clk";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <1800000 3312000 0>;
+		rgltr-max-voltage = <1800000 3312000 0>;
+		rgltr-load-current = <0 80000 0>;
+		gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&pyxis_cam_mclk1_active
+			&pyxis_cam_rear_aux_active
+			&pyxis_cam_rear_aux_ldo_en>;
+		pinctrl-1 = <&pyxis_cam_mclk1_suspend
+			&pyxis_cam_rear_aux_suspend
+			&pyxis_cam_rear_aux_ldo_disable>;
+		gpios = <&tlmm 14 0>, //mclk
+			  <&tlmm 23 0>, //rst
+			  <&pm660l_gpios 3 0>; //vana
+		gpio-reset = <1>;
+		gpio-vana = <2>;
+		gpio-req-tbl-num = <0 1 2>;
+		gpio-req-tbl-flags = <1 0 0>;
+		gpio-req-tbl-label = "CAMIF_MCLK1",
+			"CAM_RESET1",
+			"CAM_VANA1";
+		cci-master = <1>;
+		status = "ok";
+		clocks = <&clock_camcc CAM_CC_MCLK1_CLK>;
+		clock-names = "cam_clk";
+		clock-cntl-level = "turbo";
+		clock-rates = <24000000>;
+	};
+
+	eeprom_front: qcom,eeprom@2 {
+		cell-index = <2>;
+		reg = <0x2>;
+		compatible = "qcom,eeprom";
+		slave-addr = <0xa2>;
+		i2c-freq-mode = <1>;
+		num-blocks = <1>;
+		page0 = <0 0 0 0 0 0>;
+		poll0 = <0 0 0 0 0 0>;
+		mem0 = <8192 0x00 2 0 1 0>;
+		cam_vio-supply = <&pm660_l11>;
+		regulator-names = "cam_vio";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <1800000>;
+		rgltr-max-voltage = <1800000>;
+		rgltr-load-current = <0>;
+		cci-master = <1>;
+		status = "ok";
+	};
+
+	eeprom_rear_ultra: qcom,eeprom@3{
+		cell-index = <3>;
+		reg = <3>;
+		compatible = "qcom,eeprom";
+		slave-addr = <0xa8>;
+		i2c-freq-mode = <1>;
+		num-blocks = <1>;
+		page0 = <0 0 0 0 0 0>;
+		poll0 = <0 0 0 0 0 0>;
+		mem0 = <8192 0x00 2 0 1 0>;
+		cam_vio-supply = <&pm660_l11>;
+		regulator-names = "cam_vio";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <1800000>;
+		rgltr-max-voltage = <1800000>;
+		rgltr-load-current = <0>;
+		cci-master = <0>;
+		status = "ok";
+	};
+
+	qcom,cam-sensor@0 {
+		cell-index = <0>;
+		compatible = "qcom,cam-sensor";
+		reg = <0x0>;
+		csiphy-sd-index = <0>;
+		sensor-position-roll = <90>;
+		sensor-position-pitch = <0>;
+		sensor-position-yaw = <180>;
+		led-flash-src = <&led_flash_rear>;
+		actuator-src = <&actuator_rear>;
+		eeprom-src = <&eeprom_rear>;
+		cam_vio-supply = <&pm660_l11>;
+		cam_vana-supply = <&pm660_s4>; //<AVDD1.8>
+		cam_v_custom1-supply = <&pm660l_bob>; //<AVDD2.8>
+		cam_vdig-supply = <&pm660_s6>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		regulator-names = "cam_vio", "cam_vana", "cam_v_custom1", "cam_vdig",
+			"cam_clk";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <1800000 1808000 3312000 1224000 0>;
+		rgltr-max-voltage = <1800000 2040000 3312000 1352000 0>;
+		rgltr-load-current = <112000 112000 80000 519000 0>;
+		gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&pyxis_cam_mclk0_active
+			&pyxis_cam_rear_active
+			&pyxis_cam_rear_ldo_en>;
+		pinctrl-1 = <&pyxis_cam_mclk0_suspend
+			&pyxis_cam_rear_suspend
+			&pyxis_cam_rear_ldo_disable>;
+		gpios = <&tlmm 13 0>, //mclk
+			  <&tlmm 30 0>, //rst
+			  <&pm660l_gpios 2 0>; //vdig & vana1.8 & vana2.8
+		gpio-reset = <1>;
+		gpio-vdig = <2>;
+		gpio-req-tbl-num = <0 1 2>;
+		gpio-req-tbl-flags = <1 0 0>; //1-input,0-output
+		gpio-req-tbl-label = "CAMIF_MCLK0",
+			"CAM_RESET0",
+			"CAM_VDIG0";
+		sensor-mode = <0>;
+		cci-master = <0>;
+		status = "ok";
+		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
+		clock-names = "cam_clk";
+		clock-cntl-level = "turbo";
+		clock-rates = <19200000>;
+	};
+
+	qcom,cam-sensor@1 {
+		cell-index = <1>;
+		compatible = "qcom,cam-sensor";
+		reg = <0x1>;
+		csiphy-sd-index = <2>;
+		sensor-position-roll = <90>;
+		sensor-position-pitch = <0>;
+		sensor-position-yaw = <180>;
+		eeprom-src = <&eeprom_rear_aux>;
+		cam_vio-supply = <&pm660_l11>;
+		cam_vana-supply = <&pm660l_bob>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		regulator-names = "cam_vio", "cam_vana",
+			"cam_clk";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <1800000 3312000 0>;
+		rgltr-max-voltage = <1800000 3312000 0>;
+		rgltr-load-current = <0 80000 0>;
+		gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&pyxis_cam_mclk1_active
+			&pyxis_cam_rear_aux_active
+			&pyxis_cam_rear_aux_ldo_en>;
+		pinctrl-1 = <&pyxis_cam_mclk1_suspend
+			&pyxis_cam_rear_aux_suspend
+			&pyxis_cam_rear_aux_ldo_disable>;
+		gpios = <&tlmm 14 0>, //mclk
+			  <&tlmm 23 0>, //rst
+			  <&pm660l_gpios 3 0>; //vana
+		gpio-reset = <1>;
+		gpio-vana = <2>;
+		gpio-req-tbl-num = <0 1 2>;
+		gpio-req-tbl-flags = <1 0 0>;
+		gpio-req-tbl-label = "CAMIF_MCLK1",
+			"CAM_RESET1",
+			"CAM_VANA1";
+		sensor-mode = <0>;
+		/*cci-device = <0>;*/
+		cci-master = <1>;
+		status = "ok";
+		clocks = <&clock_camcc CAM_CC_MCLK1_CLK>;
+		clock-names = "cam_clk";
+		clock-cntl-level = "turbo";
+		clock-rates = <24000000>;
+	};
+
+	qcom,cam-sensor@2 {
+		cell-index = <2>;
+		compatible = "qcom,cam-sensor";
+		reg = <0x2>;
+		csiphy-sd-index = <1>;
+		sensor-position-roll = <270>;
+		sensor-position-pitch = <0>;
+		sensor-position-yaw = <0>;
+		eeprom-src = <&eeprom_front>;
+		cam_vio-supply = <&pm660_l11>;
+		cam_vana-supply = <&pm660l_bob>;
+		cam_vdig-supply = <&pm660_s6>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		regulator-names = "cam_vio", "cam_vana","cam_vdig",
+			"cam_clk";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <1800000 3312000 1224000 0>;
+		rgltr-max-voltage = <1800000 3312000 1352000 0>;
+		rgltr-load-current = <0 80000 105000 0>;
+		gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&pyxis_cam_mclk2_active
+			&pyxis_cam_front_active
+			&pyxis_cam_front_mipi_sel_active>;
+		pinctrl-1 = <&pyxis_cam_mclk2_suspend
+			&pyxis_cam_front_suspend
+			&pyxis_cam_front_mipi_sel_suspend>;
+		gpios = <&tlmm 15 0>, //mclk
+			  <&tlmm 9 0>, //rst
+			  <&tlmm 8 0>, //vana & vdig
+			  <&tlmm 25 0>; //mipi_sel
+		gpio-reset = <1>;
+		gpio-vdig = <2>;
+		gpio-custom1 = <3>; //mipi_sel
+		gpio-req-tbl-num = <0 1 2 3>;
+		gpio-req-tbl-flags = <1 0 0 0>;
+		gpio-req-tbl-label = "CAMIF_MCLK2",
+			"CAM_RESET2",
+			"CAM_VDIG2",
+			"CAM_MIPISEL";
+		sensor-mode = <0>;
+		cci-device = <0>;
+		cci-master = <1>;
+		status = "ok";
+		clocks = <&clock_camcc CAM_CC_MCLK2_CLK>;
+		clock-names = "cam_clk";
+		clock-cntl-level = "turbo";
+		clock-rates = <24000000>;
+	};
+
+	qcom,cam-sensor@3 {
+		cell-index = <3>;
+		compatible = "qcom,cam-sensor";
+		reg = <0x3>;
+		csiphy-sd-index = <1>;
+		sensor-position-roll = <90>;
+		sensor-position-pitch = <0>;
+		sensor-position-yaw = <180>;
+		led-flash-src = <&led_flash_rear>;
+		eeprom-src = <&eeprom_rear_ultra>;
+		cam_vio-supply = <&pm660_l11>;
+		cam_vana-supply = <&pm660l_bob>;
+		cam_vdig-supply = <&pm660_s6>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		regulator-names = "cam_vio", "cam_vana","cam_vdig",
+			"cam_clk";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <1800000 3312000 1224000 0>;
+		rgltr-max-voltage = <1800000 3312000 1352000 0>;
+		rgltr-load-current = <0 80000 105000 0>;
+		gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&pyxis_cam_mclk3_active
+			&pyxis_cam_rear_ultra_active
+			&pyxis_cam_rear_ultra_mipi_sel_active>;
+		pinctrl-1 = <&pyxis_cam_mclk3_suspend
+			&pyxis_cam_rear_ultra_suspend
+			&pyxis_cam_rear_ultra_mipi_sel_suspend>;
+		gpios = <&tlmm 16 0>, //mclk
+			  <&tlmm 24 0>, //rst
+			  <&tlmm 27 0>, //vdig
+			  <&tlmm 8 0>, //vana
+			  <&tlmm 25 0>; //mipi_sel
+		gpio-reset = <1>;
+		gpio-vdig = <2>;
+		gpio-vana = <3>;
+		gpio-custom1 = <4>;
+		gpio-req-tbl-num = <0 1 2 3 4>;
+		gpio-req-tbl-flags = <1 0 0 0 0>;
+		gpio-req-tbl-label = "CAMIF_MCLK3",
+			"CAM_RESET3",
+			"CAM_VDIG3",
+			"CAM_VANA3",
+			"CAM_MIPISEL";
+		sensor-mode = <0>;
+		cci-master = <0>;
+		status = "ok";
+		clocks = <&clock_camcc CAM_CC_MCLK3_CLK>;
+		clock-names = "cam_clk";
+		clock-cntl-level = "turbo";
+		clock-rates = <24000000>;
+	};
+};

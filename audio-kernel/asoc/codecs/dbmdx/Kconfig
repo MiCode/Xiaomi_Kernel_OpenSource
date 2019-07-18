@@ -1,0 +1,116 @@
+#
+# DBMDX SoC audio configuration
+#
+#
+
+# DBMDX SOC enabler.
+# y - Enable DSPG VT/VE Chip
+# n - Disable DSPG VT/VE Chip
+# m - Build as module
+config SND_SOC_DBMDX
+	tristate "DSPG Voice Trigger/Enhancement Chip"
+	default n
+	help
+		DSPG Voice Trigger/Enhancement Chip
+		y - Enable DSPG VT/VE Chip
+		n - Disable DSPG VT/VE Chip
+		m - Build as module
+
+# Register DBMDX SOC as a separate sound card.
+# y - Register DBMDX SOC as separate sound card
+# n - Do not register DBMDX SOC as separate sound card
+# .
+config SND_SOC_DBMDX_SND_CAPTURE
+	bool "DSPG Capture Device Support"
+	depends on SND_SOC_DBMDX
+	default y
+	help
+		Register DBMDX SOC as a separate sound card.
+		.
+		y - Register DBMDX SOC as separate sound card
+		n - Do not register DBMDX SOC as separate sound card
+
+# Register DBMDX SOC as a separate sound card.
+# .
+# .
+# .
+config SND_SOC_DBMD4_SPI
+	bool "DSPG Voice Trigger/Enhancement Chip"
+	default y
+	help
+		DSPG Voice Trigger/Enhancement Chip SPI Interface
+		.
+		.
+		.
+
+# Register DBMDX SOC as a separate sound card.
+# .
+# .
+# .
+config SND_SOC_DBMD4_I2C
+	bool "DSPG Voice Trigger/Enhancement Chip"
+	default n
+	help
+		DSPG Voice Trigger/Enhancement Chip SPI Interface
+		.
+		.
+		.
+
+# Register DBMDX SOC as a separate sound card.
+# .
+# .
+# .
+config SND_SOC_DBMD4_UART
+	bool "DSPG Voice Trigger/Enhancement Chip"
+	default n
+	help
+		DSPG Voice Trigger/Enhancement Chip SPI Interface
+		.
+		.
+		.
+
+# Register DBMDX SOC as a separate sound card.
+# .
+# .
+# .
+config SND_SOC_DBMD2_SPI
+	bool "DSPG Voice Trigger/Enhancement Chip"
+	default n
+	help
+		DSPG Voice Trigger/Enhancement Chip SPI Interface
+		.
+		.
+		.
+
+# Register DBMDX SOC as a separate sound card.
+# .
+# .
+# .
+config SND_SOC_DBMD2_I2C
+	bool "DSPG Voice Trigger/Enhancement Chip"
+	default n
+	help
+		DSPG Voice Trigger/Enhancement Chip SPI Interface
+		.
+		.
+		.
+
+# Register DBMDX SOC as a separate sound card.
+# .
+# .
+# .
+config SND_SOC_DBMD2_UART
+	bool "DSPG Voice Trigger/Enhancement Chip"
+	default n
+	help
+		DSPG Voice Trigger/Enhancement Chip SPI Interface
+		.
+		.
+		.
+
+
+
+
+
+
+

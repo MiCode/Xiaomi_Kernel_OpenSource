@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -328,6 +329,8 @@ struct sde_connector_evt {
  * @esd_status_check: Flag to indicate if ESD thread is scheduled or not
  * @bl_scale_dirty: Flag to indicate PP BL scale value(s) is changed
  * @bl_scale: BL scale value for ABA feature
+ * @unset_bl_level: BL level that needs to be set later
+ * @allow_bl_update: Flag to indicate if BL update is allowed currently or not
  * @bl_scale_ad: BL scale value for AD feature
  * last_cmd_tx_sts: status of the last command transfer
  */
@@ -373,6 +376,8 @@ struct sde_connector {
 	bool bl_scale_dirty;
 	u32 bl_scale;
 	u32 bl_scale_ad;
+	u32 unset_bl_level;
+	bool allow_bl_update;
 
 	bool last_cmd_tx_sts;
 };
@@ -788,4 +793,13 @@ int sde_connector_get_panel_vfp(struct drm_connector *connector,
  */
 int sde_connector_esd_status(struct drm_connector *connector);
 
+/**
+ * sde_connector_get_panel_vfp - helper to get panel vfp
+ * @connector: pointer to drm connector
+ * @h_active: panel width
+ * @v_active: panel heigth
+ * Returns: v_front_porch on success error-code on failure
+ */
+int sde_connector_get_panel_vfp(struct drm_connector *connector,
+	struct drm_display_mode *mode);
 #endif /* _SDE_CONNECTOR_H_ */

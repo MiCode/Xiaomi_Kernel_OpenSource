@@ -1,0 +1,798 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "xiaomi-sdm710-common.dtsi"
+#include "xiaomi-sde-display.dtsi"
+#include "sirius-sdm670-camera-sensor.dtsi"
+
+&soc {
+	sound {
+		qcom,msm-micbias1-ext-cap;
+		qcom,msm-micbias2-ext-cap;
+	};
+
+	qcom,msm-dai-mi2s {
+		compatible = "qcom,msm-dai-mi2s";
+		qcom,msm-dai-q6-mi2s-prim {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <0>;
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <2>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&pri_mi2s_active
+				&pri_mi2s_ws_active
+				&pri_mi2s_sd0_active
+				&pri_mi2s_sd1_active>;
+			pinctrl-1 = <&pri_mi2s_sleep
+				&pri_mi2s_ws_sleep
+				&pri_mi2s_sd0_sleep
+				&pri_mi2s_sd1_sleep>;
+		};
+	};
+
+	spk_id_pin: spk-id-pin@116 {
+		compatible = "audio,speaker-id";
+		audio,speaker-id-gpio = <&tlmm 116 0>;
+		pinctrl-names = "pull_down", "pull_up", "no_pull";
+		pinctrl-0 = <&spk_id_pull_down>;
+		pinctrl-1 = <&spk_id_pull_up>;
+		pinctrl-2 = <&spk_id_no_pull>;
+	};
+
+
+	disp_vci_vreg: disp_vci_vreg {
+                compatible = "regulator-fixed";
+                regulator-name = "disp_vci_vreg";
+                start-delay-us = <4000>;
+                enable-active-high;
+                regulator-boot-on;
+                gpio = <&tlmm 5 0>;
+        };
+
+        tp_vddio_vreg: tp_vddio_vreg {
+                compatible = "regulator-fixed";
+                regulator-name = "tp_vddio_vreg";
+                startup-delay-us = <4000>;
+                enable-active-high;
+                regulator-boot-on;
+                gpio = <&tlmm 26 0>;
+         };
+
+
+
+	thermal-message {
+		thermal,batt-array-size = "13";
+		thermal,batt-level-screen-on = "0 2 4 6 8 9 10 11 12 13 14 14 16";
+		thermal,batt-level-screen-off = "0 1 1 1 4 6 6 6 6 7 9 14 16";
+	};
+	fingerprint_fpc {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <121 0x0>;
+		fpc,gpio_rst    = <&tlmm 80 0x0>;
+		fpc,gpio_irq    = <&tlmm 121 0x0>;
+		vdd_ana-supply  = <&fp_vdd_vreg>;
+		pinctrl-names = "fpc1020_reset_reset",
+			"fpc1020_reset_active",
+			"fpc1020_irq_active";
+
+		pinctrl-0 = <&msm_gpio_80>;
+		pinctrl-1 = <&msm_gpio_80_output_high>;
+		pinctrl-2 = <&msm_gpio_121>;
+
+	};
+
+	fingerprint_goodix {
+		compatible = "goodix,fingerprint";
+		gooidx,gpio-reset = <&tlmm 80 0x0>;
+		goodix,gpio-irq = <&tlmm 121 0x0>;
+		status = "ok";
+	};
+
+	fp_vdd_vreg: fp_vdd_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "fp_vdd_vreg";
+		startup-delay-us = <4000>;
+		regulator-always-on;
+		enable-active-high;
+		gpio = <&tlmm 4 0>;
+	};
+
+	dbmdx {
+		compatible = "dspg,dbmdx-codec";
+		status = "okay";
+
+		qcom,use-pinctrl;
+		pinctrl-names = "default";
+		pinctrl-0 = <&dbmdx_clk_out_default>;
+		/* pinctrl-names = "dbmdx_default", "dbmdx_sleep"; */
+		/* pinctrl-names = "dbmdx_default";
+		pinctrl-0 = <&dbmdx_rst_active &dbmdx_wake_active>;
+		*/
+
+		sv-gpio = <&tlmm 43 0>; /* VOICE_INT */
+		wakeup-gpio = <&tlmm 44 0>; /* VOICE_WAKE */
+		reset-gpio = <&tlmm 50 0>; /* VOICE_RST */
+
+		auto_buffering = <1>;
+		multi-interface-support = <1>;
+		cd-interfaces = <&dbmd4_spi >;
+		va-interfaces = <0 0 0 0>;
+		feature-va; /* enable VA */
+		va-firmware-name = "dbmd4_va_fw.bin";
+
+		/* low power cfg */
+		va-config = <0x80000000
+			0x80000000
+			0x80290020
+			0x80330019
+			0x802210e4
+			0x80158E8E
+			0x801b0020
+			0x80230001
+			0x801A0017
+			0x80103015
+			0x80000000
+			0x80000000
+			0x80000000>;
+
+		/* normal power
+		va-config = <0x80000000
+			     0x80000000
+			     0x80290020
+			     0x80330019
+			     0x80220040
+			     0x80158e8e
+			     0x801b0020
+			     0x80230000
+			     0x801A0017
+			     0x80105019
+			     0x80000000
+			     0x80000000
+			     0x80000000>;
+		*/
+		va-speeds = <0x0000 460800  0 960000
+			     0x0000 2000000 0 960000
+			     0x0000 3000000 0 4800000>;
+		va-mic-config = <0xf041 0x1044 0x0008>;
+		va-mic-mode = <4>;
+/*
+		digital_mic_digital_gain = <0x14>;
+		//TODO //PFT tuning
+		analog_mic_analog_gain = <0x3>;
+		analog_mic_digital_gain = <0x14>;
+*/
+		master-clk-rate = <32768>;
+		/* constant-clk-rate = <32768>; */
+		firmware_id = <0xdbd4>;
+		use_gpio_for_wakeup = <1>; /* Use wakeup gpio */
+		wakeup_set_value = <0>;  /* Value to write to wakeup gpio */
+		auto_detection = <1>;
+		detection_buffer_channels = <0>;
+		min_samples_chunk_size = <128>;
+		pcm_streaming_mode = <1>;
+		boot_options = <0x200>; /* Verify chip id */
+		amodel_options = <0x4>;
+		send_uevent_on_detection = <1>;
+		send_uevent_after_buffering = <0>;
+		detection_after_buffering = <0>;
+		va_backlog_length = <0x7d0>;
+	};
+
+	dbmdx-snd-soc-platform {
+		compatible = "dspg,dbmdx-snd-soc-platform";
+	};
+
+	snd-dbmdx-mach-drv {
+		compatible = "dspg,snd-dbmdx-mach-drv";
+	};
+
+	xiaomi_touch {
+		compatible = "xiaomi-touch";
+		status = "ok";
+		touch,name = "xiaomi-touch";
+	};
+
+};
+
+&qupv3_se4_spi{
+	status = "ok";
+
+	dbmd4_spi: dbmd4_interface@0 {
+		compatible = "dspg,dbmd4-spi";
+		status = "ok";
+
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+
+		read-chunk-size  = <0x2000>;    /* 8192 bytes   */
+		/* for the spi load fw -110  timeout fail issue */
+		/* write-chunk-size = <0x20000>;   /* 131072 bytes */
+		write-chunk-size = <0x2000>;   /* 131072 bytes */
+		dma_min_buffer_size = <0>;
+	};
+};
+
+&soc {
+        gpio_keys {
+                compatible = "gpio-keys";
+                label = "gpio-keys";
+
+                pinctrl-names = "default";
+                pinctrl-0 = <&key_cam_snapshot_default
+                             &key_cam_focus_default
+                             &key_vol_up_default
+                             &key_hall_default>;
+
+                vol_up {
+                        label = "volume_up";
+                        gpios = <&pm660l_gpios 7 GPIO_ACTIVE_LOW>;
+                        linux,input-type = <1>;
+                        linux,code = <115>;
+                        gpio-key,wakeup;
+                        debounce-interval = <15>;
+                        linux,can-disable;
+                };
+                hall_key {
+                        label = "hall_key";
+                        gpios = <&tlmm 124 GPIO_ACTIVE_LOW>;
+                        linux,input-type = <5>;
+                        linux,code = <0>;
+                        gpio-key,wakeup;
+                        debounce-interval = <15>;
+                };
+        };
+
+};
+
+&pm660_gpios {
+	dbmdx_clk_out {
+		dbmdx_clk_out_default: dbmdx_clk_out_default {
+			 pins = "gpio6"; /* GPIO 16 */
+			 function = "func1"; /* Special Function 1 */
+			 bias-disable; /* No Pull */
+			 power-source = <0>; /* VIN0 */
+			 output-low; /* digital output, no invert */
+			 input-disable; /* prevent GPIO from being set to DIO */
+		};
+	};
+};
+
+&dsi_ss_fhd_ea8074_cmd {
+        qcom,dsi-display-active;
+        qcom,panel-supply-entries = <&dsi_amoled_panel_pwr_supply>;
+        qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+        qcom,mdss-dsi-bl-min-level = <1>;
+        qcom,mdss-dsi-bl-max-level = <1023>;
+        qcom,platform-reset-gpio = <&tlmm 75 0>;
+        qcom,platform-te-gpio = <&tlmm 10 0>;
+};
+
+&sde_dsi_active {
+	mux {
+		pins = "gpio75", "gpio76";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio75", "gpio76";
+		drive-strength = <8>;	/* 8 mA */
+		bias-disable = <0>;   /* no pull */
+	};
+};
+
+&sde_dsi_suspend {
+	mux {
+		pins = "gpio75", "gpio76";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio75", "gpio76";
+		drive-strength = <2>;	/* 2 mA */
+		bias-pull-down; 		/* PULL DOWN */
+	};
+};
+
+&red_led {
+	linux,name = "white";
+	qcom,start-idx = <0>;
+	qcom,idx-len = <16>;
+	qcom,duty-pcts =
+		[00 01 02 03 04 05 06 07
+		07 06 05 04 03 02 01 00];
+	qcom,ramp-step-ms = <194>;
+	qcom,use-blink;
+};
+
+&green_led {
+	status = "disabled";
+};
+
+&blue_led {
+	status = "disabled";
+};
+
+&qupv3_se7_i2c {
+	status = "ok";
+	tas2557@4c {
+		compatible = "ti,tas2557";
+		reg = <0x4c>;
+		ti,cdc-reset-gpio = <&tlmm 95 0>;
+		ti,irq-gpio = <&tlmm 96 0>;
+		ti,i2s-bits = <16>;
+		ti,bypass-tmax = <0>;
+		ti,spk-id-pin = <&spk_id_pin>;
+	};
+};
+
+&sde_dp {
+	status = "disabled";
+};
+
+&mdss_mdp {
+	connectors = <&sde_rscc &sde_wb>;
+};
+
+&pm660l_lcdb {
+	status = "disabled";
+};
+
+&qupv3_se9_i2c {
+                status = "ok";
+                fts@49 {
+                        compatible = "st,fts";
+                        reg = <0x49>;
+                        interrupt-parent = <&tlmm>;
+                        interrupts = <125 0x2008>;
+                        pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+                        pinctrl-0 = <&ts_active>;
+                        pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+                        vdd-supply = <&tp_vddio_vreg>;
+                        avdd-supply = <&pm660l_l6>;
+                        fts,pwr-reg-name = "avdd";
+                        fts,bus-reg-name = "vdd";
+                        fts,irq-gpio = <&tlmm 125 0x00>;
+                        fts,irq-gpio-name = "fts_irq";
+                        fts,reset-gpio-enable;
+                        fts,reset-gpio = <&tlmm 99 0x00>;
+                        fts,reset-gpio-name = "fts_rst";
+                        fts,irq-flags = <0x2008>; /* IRQF_ONESHOT | IRQF_TRIGGER_LOW */
+                        fts,key-num = <2>;
+                        fts,key-codes = <158 139>;
+						fts,x-max = <1080>;
+						fts,y-max = <2244>;
+						//fts,side-volume;
+						//fts,x-base = <1439>;
+						//fts,y-base = <50>;
+						//fts,y-offset = <300>;
+						//fts,y-skip = <240>;
+						fts,dump-click-count;
+                        fts,config-array-size = <1>;
+                        fts,cfg_0 {
+                                fts,tp-vendor = <0x48>;
+								fts,fw-name = "st_fts_v521.ftb";
+                                fts,limit-name = "stm_fts_production_limits.csv";
+								fts,clicknum-file-name = "fts+sdc";
+                        };
+                };
+};
+&tlmm {
+	/* GPIO_80 : FP_RESET_N */
+	msm_gpio_80: msm_gpio_80 {
+		mux {
+			 pins = "gpio80";
+			 function = "gpio";
+		};
+
+		config {
+			pins = "gpio80";
+			drive-strength = <2>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	/* GPIO_80 : FP_RESET_N, state device active*/
+	msm_gpio_80_output_high: msm_gpio_80_output_high {
+		mux {
+			pins = "gpio80";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio80";
+			drive-strength = <2>;
+			bias-disable;
+			output-high;
+		};
+	};
+
+	/* GPIO_121 : FP_INT_N */
+	msm_gpio_121: msm_gpio_121 {
+		mux {
+			pins = "gpio121";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio121";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+    };
+};
+
+&vendor {
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-e2-atl-3120mAh.dtsi"
+		#include "batterydata-e2-coslight-3120mAh.dtsi"
+	};
+};
+
+&qupv3_se0_spi {
+	status = "ok";
+	irled@0 {
+		compatible = "ir-spi";
+		reg = <0x0>;
+		status = "ok";
+		spi-max-frequency = <19200000>;
+	};
+};
+
+&pm660_charger {
+	qcom,usb-icl-ua = <2700000>;
+	qcom,fcc-max-ua = <3000000>;
+	qcom,fcc-low-temp-delta = <2700000>;
+	qcom,fcc-hot-temp-delta = <1500000>;
+	qcom,fcc-cool-temp-delta = <2100000>;
+	qcom,auto-recharge-soc;
+	qcom,sw-jeita-enable;
+	qcom,thermal-mitigation
+				= <1800000 1600000 1400000 1200000 1000000 1000000 1000000>;
+	qcom,thermal-mitigation-dcp
+				= <1800000 1800000 1800000 1800000 1800000 1800000 1800000
+				1800000 1800000 1800000 1800000 1800000 1600000 1400000
+				1200000 1000000>;
+	qcom,thermal-mitigation-qc3
+				= <2700000 2625000 2575000 2425000 2275000 2125000 2000000
+				1800000 1650000 1500000 1360000 1200000 1060000 900000
+				752500 525000>;
+        qcom,thermal-mitigation-qc2
+				= <1625000 1625000 1625000 1625000 1625000 1525000 1425000
+				1325000 1225000 1125000 10255000 925000 825000 725000
+				625000 525000>;
+	qcom,thermal-mitigation-pd-base
+				= <3000000 2800000 2600000 2400000 2200000 2000000 1800000
+				1600000 1600000 1400000 1200000 1100000 1000000 900000
+				752500 525000>;
+};
+
+&pm660_coincell{
+	qcom,charge-enable = <0>;
+};
+
+&pm660_haptics {
+	qcom,vmax-mv = <2552>;
+	qcom,lra-auto-mode;
+	qcom,wave-play-rate-us = <5128>;
+	qcom,wave-shape = "sine";
+	qcom,lra-high-z = "opt1";
+	qcom,lra-auto-res-mode = "qwd";
+	qcom,lra-res-cal-period = <4>;
+	qcom,effect-max = <4>;
+	qcom,effect-arry = [3e 3e 2f be 00 00 00 00
+	3e 3e 3e 3f be 88 00 00
+	3e 3e 3e 3f be 88 00 00
+	3f 3f 3f 3f 3f 3f be 88];
+	status = "okay";
+};
+
+&pm660_fg {
+	qcom,fg-force-load-profile;
+	qcom,fg-sys-term-current = <(-300)>;
+	qcom,fg-chg-term-current = <200>;
+	qcom,fg-auto-recharge-soc;
+	qcom,fg-recharge-soc-thr = <99>;
+	qcom,fg-cutoff-voltage = <3400>;
+	qcom,fg-empty-voltage = <3100>;
+	qcom,fg-cutoff-current = <200>;
+	qcom,fg-jeita-hyst-temp = <2>;
+	qcom,fg-jeita-thresholds = <0 15 45 60>;
+	qcom,fg-esr-clamp-mohms = <60>;
+	qcom,fg-batt-temp-delta = <6>;
+	qcom,slope-limit-temp-threshold = <100>;
+	qcom,slope-limit-coeffs = <10 11 12 13>;
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&qusb_phy0 {
+                qcom,qusb-phy-init-seq =
+                        /* <value reg_offset> */
+                           <0x23 0x210 /* PWR_CTRL1 */
+                            0x03 0x04  /* PLL_ANALOG_CONTROLS_TWO */
+                            0x7c 0x18c /* PLL_CLOCK_INVERTERS */
+                            0x80 0x2c  /* PLL_CMODE */
+                            0x0a 0x184 /* PLL_LOCK_DELAY */
+                            0x19 0xb4  /* PLL_DIGITAL_TIMERS_TWO */
+                            0x40 0x194 /* PLL_BIAS_CONTROL_1 */
+                            0x20 0x198 /* PLL_BIAS_CONTROL_2 */
+                            0x21 0x214 /* PWR_CTRL2 */
+                            0x08 0x220 /* IMP_CTRL1 */
+                            0x58 0x224 /* IMP_CTRL2 */
+                            0x07 0x240 /* TUNE1 */
+                            0x29 0x244 /* TUNE2 */
+                            0xca 0x248 /* TUNE3 */
+                            0x04 0x24c /* TUNE4 */
+                            0x03 0x250 /* TUNE5 */
+                            0x00 0x23c /* CHG_CTRL2 */
+                            0x22 0x210>; /* PWR_CTRL1 */
+		mi,efuse-pll-bias;
+};
+
+&pm660_adc_tm {
+	chan@4c {
+		label = "xo_therm";
+		reg = <0x4c>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <4>;
+		qcom,hw-settle-time = <2>;
+		qcom,btm-channel-number = <0x78>;
+		qcom,thermal-node;
+	};
+
+	chan@4d {
+		label = "cam_therm0";
+		reg = <0x4d>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,btm-channel-number = <0x68>;
+		qcom,thermal-node;
+	};
+
+	chan@4e {
+		label = "cam_therm1";
+		reg = <0x4e>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,btm-channel-number = <0x80>;
+		qcom,thermal-node;
+	};
+
+	chan@4f {
+		label = "pa_therm0";
+		reg = <0x4f>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,btm-channel-number = <0x88>;
+		qcom,thermal-node;
+	};
+
+	chan@50 {
+		label = "pa_therm1";
+		reg = <0x50>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,btm-channel-number = <0x90>;
+		qcom,thermal-node;
+	};
+
+	chan@51 {
+		label = "quiet_therm";
+		reg = <0x51>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,btm-channel-number = <0x70>;
+		qcom,thermal-node;
+	};
+};
+
+&pm660_vadc {
+	chan@4c {
+		label = "xo_therm";
+		reg = <0x4c>;
+		qcom,decimation = <2>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <4>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@4d {
+		label = "cam_therm0";
+		reg = <0x4d>;
+		qcom,decimation = <2>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@4e {
+		label = "cam_therm1";
+		reg = <0x4e>;
+		qcom,decimation = <2>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@4f {
+		label = "pa_therm0";
+		reg = <0x4f>;
+		qcom,decimation = <2>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@50 {
+		label = "pa_therm1";
+		reg = <0x50>;
+		qcom,decimation = <2>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@51 {
+		label = "quiet_therm";
+		reg = <0x51>;
+		qcom,decimation = <2>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+};
+
+&thermal_zones {
+	xo-therm-adc {
+		status = "disabled";
+	};
+
+	msm-therm-adc {
+		status = "disabled";
+	};
+
+	emmc-therm-adc {
+		status = "disabled";
+	};
+
+	pa-therm0-adc {
+		status = "disabled";
+	};
+
+	quiet-therm-adc {
+		status = "disabled";
+	};
+
+	xo_therm {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660_adc_tm 0x4c>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	cam_therm0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660_adc_tm 0x4d>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	cam_therm1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660_adc_tm 0x4e>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	pa_therm0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660_adc_tm 0x4f>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	pa_therm1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660_adc_tm 0x50>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	quiet_therm {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660_adc_tm 0x51>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+};
+
+&reserved_memory {
+	ramdump_fb_mem: ramdump_fb_region@af000000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0 0xaf000000 0 0x1000000>;
+	};
+};

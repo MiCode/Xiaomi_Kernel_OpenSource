@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -137,7 +138,6 @@ struct cam_lrme_core {
 	struct cam_lrme_frame_request    *req_submit;
 	struct cam_lrme_cdm_info         *hw_cdm_info;
 	uint32_t                          hw_idx;
-	bool                              dump_flag;
 };
 
 /**

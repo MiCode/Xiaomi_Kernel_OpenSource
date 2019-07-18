@@ -1,0 +1,88 @@
+
+qcom,f3b_scud_4030mAh {
+	qcom, = <24>;
+	/* #3918615_Xiaomi_F3B_SCUD_3940mAh_PM670_FG_averaged_MasterSlave_Mar12th2019*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fastchg-current-ma = <3000>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,nom-batt-capacity-mah = <4030>;
+	qcom,batt-id-kohm = <330>;
+	qcom,battery-beta = <4250>;
+	qcom,battery-type = "f3b_scud";
+	qcom,jeita-fcc-ranges = <0	50	375000
+				51	100	1150000
+				101	150	1950000
+				151	450	3000000
+				451	550	1950000>;
+	qcom,jeita-fv-ranges = <0	50	4400000
+				51	100	4400000
+				101	150	4400000
+				151	450	4400000
+				451	550	4100000>;
+	qcom,dynamic-fv-ranges = <0    100  4400000
+				101  200  4380000
+				201  300  4360000
+				301  400  4340000
+				401  500  4340000>;
+	qcom,checksum = <0xAC70>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		98 1F 8F 05
+		7D 0A 55 06
+		E0 1C ED 01
+		CF 0D 82 0A
+		3B 18 80 23
+		B6 44 1F 5A
+		77 00 00 00
+		10 00 00 00
+		00 00 40 CD
+		F7 CD 51 CB
+		19 00 08 00
+		74 D3 C1 DC
+		EE 05 4D 01
+		23 FD 02 1A
+		7E 07 86 2B
+		24 06 09 20
+		27 00 14 00
+		F4 1F 4A 05
+		B6 0A 25 FC
+		C1 1C 0E 03
+		E4 15 4C 12
+		7E 18 FB 23
+		BE 4D 8E 5B
+		6A 00 00 00
+		0D 00 00 00
+		00 00 7D D5
+		2F D2 29 C5
+		15 00 00 00
+		63 E2 C1 DC
+		73 06 AD F3
+		AC 05 EB FB
+		22 EC 91 1A
+		B1 33 CC FF
+		07 10 00 00
+		E4 0F 66 46
+		15 00 40 00
+		C8 01 0A FA
+		FF 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+	];
+};
+

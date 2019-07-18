@@ -659,6 +659,12 @@ config ICNSS
           control messages to FW over QMI channel. It is also responsible for
           handling WLAN PD restart notifications.
 
+config ICNSS_ANT
+        bool "ICNSS ANT switch"
+        default n
+        ---help---
+          Say 'Y' here to enable ICNSS ANT switch support.
+
 config ICNSS_DEBUG
         bool "ICNSS debug support"
         depends on ICNSS

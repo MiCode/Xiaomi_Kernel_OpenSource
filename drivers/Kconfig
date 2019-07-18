@@ -210,4 +210,6 @@ source "drivers/sensors/Kconfig"
 
 source "drivers/tee/Kconfig"
 
+source "drivers/gps/Kconfig"
+
 endmenu

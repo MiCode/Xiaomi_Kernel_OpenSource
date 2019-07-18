@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -881,7 +882,7 @@ static int ufsdbg_dump_device_desc_show(struct seq_file *file, void *data)
 		{"bUD0BaseOffset",	0x1A, BYTE},
 		{"bUDConfigPLength",	0x1B, BYTE},
 		{"bDeviceRTTCap",	0x1C, BYTE},
-		{"wPeriodicRTCUpdate",	0x1D, WORD}
+		{"wPeriodicRTCUpdate",	0x1D, WORD},
 	};
 
 	pm_runtime_get_sync(hba->dev);
@@ -908,8 +909,8 @@ static int ufsdbg_dump_device_desc_show(struct seq_file *file, void *data)
 					   *(u16 *)&desc_buf[tmp->offset]);
 			} else {
 				seq_printf(file,
-				"Device Descriptor[offset 0x%x]: %s. Wrong Width = %d",
-				tmp->offset, tmp->name, tmp->width_byte);
+					   "Device Descriptor[offset 0x%x]: %s. Wrong Width = %d",
+					   tmp->offset, tmp->name, tmp->width_byte);
 			}
 		}
 	} else {
@@ -1020,6 +1021,7 @@ static const struct file_operations ufsdbg_dump_device_desc = {
 	.open		= ufsdbg_dump_device_desc_open,
 	.read		= seq_read,
 };
+
 
 static int ufsdbg_power_mode_show(struct seq_file *file, void *data)
 {
@@ -1528,6 +1530,7 @@ DEFINE_SIMPLE_ATTRIBUTE(ufsdbg_err_state,
 
 void ufsdbg_add_debugfs(struct ufs_hba *hba)
 {
+
 	if (!hba) {
 		pr_err("%s: NULL hba, exiting", __func__);
 		return;
@@ -1559,8 +1562,8 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 
 	hba->debugfs_files.tag_stats =
 		debugfs_create_file("tag_stats", S_IRUSR | S_IWUSR,
-					   hba->debugfs_files.stats_folder, hba,
-					   &ufsdbg_tag_stats_fops);
+				    hba->debugfs_files.stats_folder, hba,
+				    &ufsdbg_tag_stats_fops);
 	if (!hba->debugfs_files.tag_stats) {
 		dev_err(hba->dev, "%s:  NULL tag_stats file, exiting",
 			__func__);
@@ -1569,8 +1572,8 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 
 	hba->debugfs_files.query_stats =
 		debugfs_create_file("query_stats", S_IRUSR | S_IWUSR,
-					   hba->debugfs_files.stats_folder, hba,
-					   &ufsdbg_query_stats_fops);
+				    hba->debugfs_files.stats_folder, hba,
+				    &ufsdbg_query_stats_fops);
 	if (!hba->debugfs_files.query_stats) {
 		dev_err(hba->dev, "%s:  NULL query_stats file, exiting",
 			__func__);
@@ -1579,8 +1582,8 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 
 	hba->debugfs_files.err_stats =
 		debugfs_create_file("err_stats", S_IRUSR | S_IWUSR,
-					   hba->debugfs_files.stats_folder, hba,
-					   &ufsdbg_err_stats_fops);
+				    hba->debugfs_files.stats_folder, hba,
+				    &ufsdbg_err_stats_fops);
 	if (!hba->debugfs_files.err_stats) {
 		dev_err(hba->dev, "%s:  NULL err_stats file, exiting",
 			__func__);
@@ -1593,17 +1596,19 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 		goto err;
 	}
 
-	hba->debugfs_files.host_regs = debugfs_create_file("host_regs", S_IRUSR,
-				hba->debugfs_files.debugfs_root, hba,
-				&ufsdbg_host_regs_fops);
+	hba->debugfs_files.host_regs =
+		debugfs_create_file("host_regs", S_IRUSR,
+				    hba->debugfs_files.debugfs_root, hba,
+				    &ufsdbg_host_regs_fops);
 	if (!hba->debugfs_files.host_regs) {
 		dev_err(hba->dev, "%s:  NULL hcd regs file, exiting", __func__);
 		goto err;
 	}
 
-	hba->debugfs_files.show_hba = debugfs_create_file("show_hba", S_IRUSR,
-				hba->debugfs_files.debugfs_root, hba,
-				&ufsdbg_show_hba_fops);
+	hba->debugfs_files.show_hba =
+		debugfs_create_file("show_hba", S_IRUSR,
+				    hba->debugfs_files.debugfs_root, hba,
+				    &ufsdbg_show_hba_fops);
 	if (!hba->debugfs_files.show_hba) {
 		dev_err(hba->dev, "%s:  NULL hba file, exiting", __func__);
 		goto err;
@@ -1664,8 +1669,8 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 
 	hba->debugfs_files.req_stats =
 		debugfs_create_file("req_stats", S_IRUSR | S_IWUSR,
-			hba->debugfs_files.stats_folder, hba,
-			&ufsdbg_req_stats_desc);
+				    hba->debugfs_files.stats_folder, hba,
+				    &ufsdbg_req_stats_desc);
 	if (!hba->debugfs_files.req_stats) {
 		dev_err(hba->dev,
 			"%s:  failed create req_stats debugfs entry\n",
@@ -1675,8 +1680,8 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 
 	hba->debugfs_files.reset_controller =
 		debugfs_create_file("reset_controller", S_IRUSR | S_IWUSR,
-			hba->debugfs_files.debugfs_root, hba,
-			&ufsdbg_reset_controller);
+				    hba->debugfs_files.debugfs_root, hba,
+				    &ufsdbg_reset_controller);
 	if (!hba->debugfs_files.reset_controller) {
 		dev_err(hba->dev,
 			"%s: failed create reset_controller debugfs entry",
@@ -1685,9 +1690,9 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	}
 
 	hba->debugfs_files.err_state =
-		debugfs_create_file("err_state", S_IRUSR | S_IWUSR,
-			hba->debugfs_files.debugfs_root, hba,
-			&ufsdbg_err_state);
+		debugfs_create_file("err_state", S_IRUSR | S_IWUSR | S_IWUSR,
+				    hba->debugfs_files.debugfs_root, hba,
+				    &ufsdbg_err_state);
 	if (!hba->debugfs_files.err_state) {
 		dev_err(hba->dev,
 		     "%s: failed create err_state debugfs entry", __func__);

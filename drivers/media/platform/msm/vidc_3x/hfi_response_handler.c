@@ -1,4 +1,5 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -608,6 +609,11 @@ static int hfi_fill_codec_info(u8 *data_ptr,
 				vidc_get_hal_codec((1 << i) & codecs);
 			capability->domain =
 				vidc_get_hal_domain(HFI_VIDEO_DOMAIN_DECODER);
+			if (codec_count == VIDC_MAX_DECODE_SESSIONS) {
+				dprintk(VIDC_ERR,
+					"Max supported decoder sessions reached\n");
+				break;
+			}
 		}
 	}
 	codecs = sys_init_done->enc_codec_supported;
@@ -619,6 +625,11 @@ static int hfi_fill_codec_info(u8 *data_ptr,
 				vidc_get_hal_codec((1 << i) & codecs);
 			capability->domain =
 				vidc_get_hal_domain(HFI_VIDEO_DOMAIN_ENCODER);
+			if (codec_count == VIDC_MAX_SESSIONS) {
+				dprintk(VIDC_ERR,
+					"Max supported sessions reached\n");
+				break;
+			}
 		}
 	}
 	sys_init_done->codec_count = codec_count;

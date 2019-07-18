@@ -264,6 +264,11 @@ static int __netlink_deliver_tap_skb(struct sk_buff *skb,
 	if (!net_eq(dev_net(dev), sock_net(sk)))
 		return 0;
 
+	if (!net_eq(dev_net(dev), sock_net(sk)) &&
+	    !net_eq(dev_net(dev), &init_net)) {
+		return 0;
+	}
+
 	dev_hold(dev);
 
 	if (is_vmalloc_addr(skb->head))

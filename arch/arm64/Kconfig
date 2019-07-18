@@ -1297,3 +1297,24 @@ source "arch/arm64/crypto/Kconfig"
 endif
 
 source "lib/Kconfig"
+
+config BOOT_INFO
+        bool "Boot information from bootloader"
+        default y
+        help
+         On embedded linux device, we try to collect more information from
+         bootloader to kernel. eg. powerup reason.
+
+
+config FACTORY_BUILD
+	bool "distiguish factory version from dev version"
+	default n
+	help
+	  This macro will be defined when build factory version. It is used to
+	  distinguish factory and dev codes in kernel.
+
+config CHANGE_DUMPFLAG
+	bool "change dump flag to 0x10 & 0x20"
+	default n
+	help
+	  This macro will be defined when dump flag should be set 0x10 & 0x20

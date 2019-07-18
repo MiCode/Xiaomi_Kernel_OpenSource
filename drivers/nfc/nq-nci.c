@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +22,7 @@
 #include <linux/gpio.h>
 #include <linux/spinlock.h>
 #include <linux/of_gpio.h>
+#include <linux/wakelock.h>
 #include <linux/of_device.h>
 #include <linux/uaccess.h>
 #include "nq-nci.h"
@@ -51,6 +53,7 @@ MODULE_DEVICE_TABLE(of, msm_match_table);
 #define WAKEUP_SRC_TIMEOUT		(2000)
 #define MAX_RETRY_COUNT			3
 
+static struct wake_lock fieldon_wl;
 struct nqx_dev {
 	wait_queue_head_t	read_wq;
 	struct	mutex		read_mutex;
@@ -222,6 +225,10 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 			__func__, ret);
 		ret = -EIO;
 		goto err;
+	}
+
+	if (((tmp[0] & 0xff) == 0x61) && ((tmp[1] & 0xff) == 0x07) && ((tmp[2] & 0xff) == 0x01)) {
+		wake_lock_timeout(&fieldon_wl, msecs_to_jiffies(3*1000));
 	}
 #ifdef NFC_KERNEL_BU
 		dev_dbg(&nqx_dev->client->dev, "%s : NfcNciRx %x %x %x\n",
@@ -648,6 +655,12 @@ static const struct file_operations nfc_dev_fops = {
 #endif
 };
 
+/**
+ * Do not need check availability of NFCC.
+ * This function will block NFCC to enter FW download mode.
+ */
+
+#if 0
 /* Check for availability of NQ_ NFC controller hardware */
 static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 {
@@ -772,6 +785,7 @@ err_nfcc_hw_check:
 done:
 	return ret;
 }
+#endif
 
 /*
  * Routine to enable clock.
@@ -1058,6 +1072,7 @@ static int nqx_probe(struct i2c_client *client,
 	mutex_init(&nqx_dev->read_mutex);
 	spin_lock_init(&nqx_dev->irq_enabled_lock);
 
+	wake_lock_init(&fieldon_wl, WAKE_LOCK_SUSPEND, "nfc_locker");
 	nqx_dev->nqx_device.minor = MISC_DYNAMIC_MINOR;
 	nqx_dev->nqx_device.name = "nq-nci";
 	nqx_dev->nqx_device.fops = &nfc_dev_fops;
@@ -1078,6 +1093,8 @@ static int nqx_probe(struct i2c_client *client,
 	}
 	nqx_disable_irq(nqx_dev);
 
+	/* Do not perform nfcc_hw_check, make sure that nfcc is present */
+#if 0
 	/*
 	 * To be efficient we need to test whether nfcc hardware is physically
 	 * present before attempting further hardware initialisation.
@@ -1090,6 +1107,7 @@ static int nqx_probe(struct i2c_client *client,
 		/* We don't think there is hardware switch NFC OFF */
 		goto err_request_hw_check_failed;
 	}
+#endif
 
 	/* Register reboot notifier here */
 	r = register_reboot_notifier(&nfcc_notifier);
@@ -1180,6 +1198,7 @@ static int nqx_remove(struct i2c_client *client)
 	/* optional gpio, not sure was configured in probe */
 	if (nqx_dev->ese_gpio > 0)
 		gpio_free(nqx_dev->ese_gpio);
+	wake_lock_destroy(&fieldon_wl);
 	gpio_free(nqx_dev->firm_gpio);
 	gpio_free(nqx_dev->irq_gpio);
 	gpio_free(nqx_dev->en_gpio);

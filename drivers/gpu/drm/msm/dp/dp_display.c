@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -700,6 +701,7 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	flush_workqueue(dp->wq);
 
 	dp_display_handle_disconnect(dp);
+	atomic_set(&dp->aborted, 0);
 end:
 	return rc;
 }

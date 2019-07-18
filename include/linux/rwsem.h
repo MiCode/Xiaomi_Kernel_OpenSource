@@ -41,6 +41,10 @@ struct rw_semaphore {
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	struct lockdep_map	dep_map;
 #endif
+#ifdef CONFIG_RWSEM_PRIO_AWARE
+	/* count for waiters preempt to queue in wait list */
+	long m_count;
+#endif
 };
 
 extern struct rw_semaphore *rwsem_down_read_failed(struct rw_semaphore *sem);
@@ -75,12 +79,19 @@ static inline int rwsem_is_locked(struct rw_semaphore *sem)
 #define __RWSEM_OPT_INIT(lockname)
 #endif
 
+#ifdef CONFIG_RWSEM_PRIO_AWARE
+#define __RWSEM_PRIO_AWARE_INIT(lockname)	.m_count = 0
+#else
+#define __RWSEM_PRIO_AWARE_INIT(lockname)
+#endif
+
 #define __RWSEM_INITIALIZER(name)				\
 	{ __RWSEM_INIT_COUNT(name),				\
 	  .wait_list = LIST_HEAD_INIT((name).wait_list),	\
 	  .wait_lock = __RAW_SPIN_LOCK_UNLOCKED(name.wait_lock)	\
 	  __RWSEM_OPT_INIT(name)				\
-	  __RWSEM_DEP_MAP_INIT(name) }
+	  __RWSEM_DEP_MAP_INIT(name),				\
+	  __RWSEM_PRIO_AWARE_INIT(name) }
 
 #define DECLARE_RWSEM(name) \
 	struct rw_semaphore name = __RWSEM_INITIALIZER(name)

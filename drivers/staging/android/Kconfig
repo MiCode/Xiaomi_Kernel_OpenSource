@@ -33,6 +33,18 @@ config ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
 	  /sys/module/lowmemorykiller/parameters/adj and convert them
 	  to oom_score_adj values.
 
+config MULTIPLE_LMK
+	bool "Multiple lowmemorykiller"
+	default n
+	---help---
+	Provide multiple kill in LMK routine
+
+config ANDROID_WHETSTONE
+    bool "Android Whetstone"
+    default N
+    ---help---
+        report to whetstone the memory state when reach target limit value.
+
 config ANDROID_VSOC
 	tristate "Android Virtual SoC support"
 	default n

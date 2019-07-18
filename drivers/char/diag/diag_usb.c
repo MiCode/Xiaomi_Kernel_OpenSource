@@ -1,4 +1,5 @@
-/* Copyright (c) 2014-2016, 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,14 +182,6 @@ static void usb_connect(struct diag_usb_info *ch)
 	if (!ch || !atomic_read(&ch->connected))
 		return;
 
-	num_write = diag_mempools[ch->mempool].poolsize;
-	err = usb_diag_alloc_req(ch->hdl, num_write, num_read);
-	if (err) {
-		pr_err("diag: Unable to allocate usb requests for %s, write: %d read: %d, err: %d\n",
-		       ch->name, num_write, num_read, err);
-		return;
-	}
-
 	if (ch->ops && ch->ops->open) {
 		if (atomic_read(&ch->diag_state)) {
 			ch->ops->open(ch->ctxt, DIAG_USB_MODE);
@@ -201,6 +194,15 @@ static void usb_connect(struct diag_usb_info *ch)
 			 */
 		}
 	}
+
+	num_write = diag_mempools[ch->mempool].poolsize;
+	err = usb_diag_alloc_req(ch->hdl, num_write, num_read);
+	if (err) {
+		pr_err("diag: Unable to allocate usb requests for %s, write: %d read: %d, err: %d\n",
+			 ch->name, num_write, num_read, err);
+		return;
+	}
+
 	/* As soon as we open the channel, queue a read */
 	queue_work(ch->usb_wq, &(ch->read_work));
 }
@@ -324,8 +326,8 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 		DIAG_LOG(DIAG_DEBUG_MUX, "partial write_done ref %d\n",
 			 atomic_read(&entry->ref_count));
 		diag_ws_on_copy_complete(DIAG_WS_MUX);
-		spin_unlock_irqrestore(&ch->write_lock, flags);
 		diagmem_free(driver, req, ch->mempool);
+		spin_unlock_irqrestore(&ch->write_lock, flags);
 		return;
 	}
 	DIAG_LOG(DIAG_DEBUG_MUX, "full write_done, ctxt: %d\n",
@@ -343,8 +345,8 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 	buf = NULL;
 	len = 0;
 	ctxt = 0;
-	spin_unlock_irqrestore(&ch->write_lock, flags);
 	diagmem_free(driver, req, ch->mempool);
+	spin_unlock_irqrestore(&ch->write_lock, flags);
 }
 
 static void diag_usb_notifier(void *priv, unsigned int event,

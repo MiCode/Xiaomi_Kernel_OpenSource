@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,8 +26,8 @@
 #define A5_CSR_BASE             2
 
 #define A5_HOST_INT             0x1
-#define A5_WDT_0                0x2
-#define A5_WDT_1                0x4
+#define A5_WDT_0                0x10
+#define A5_WDT_1                0x100
 
 #define ELF_GUARD_PAGE          (2 * 1024 * 1024)
 
@@ -69,7 +70,7 @@ struct cam_a5_device_core_info {
 	const struct firmware *fw_elf;
 	void *fw;
 	uint32_t fw_buf;
-	uintptr_t fw_kva_addr;
+	uint64_t fw_kva_addr;
 	uint64_t fw_buf_len;
 	struct cam_icp_a5_query_cap query_cap;
 	struct cam_icp_a5_acquire_dev a5_acquire[8];

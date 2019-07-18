@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,7 +82,7 @@ struct cam_cdm_acquire_data {
 	enum cam_cdm_id id;
 	void *userdata;
 	void (*cam_cdm_callback)(uint32_t handle, void *userdata,
-		enum cam_cdm_cb_status status, uint64_t cookie);
+		enum cam_cdm_cb_status status, uint32_t cookie);
 	uint32_t base_array_cnt;
 	struct cam_soc_reg_map *base_array[CAM_SOC_MAX_BLOCK];
 	struct cam_hw_version cdm_version;
@@ -105,10 +106,10 @@ struct cam_cdm_bl_cmd {
 	union {
 		int32_t mem_handle;
 		uint32_t *hw_iova;
-		uintptr_t kernel_iova;
+		void *kernel_iova;
 	} bl_addr;
-	uint32_t offset;
-	uint32_t len;
+	uint32_t  offset;
+	uint32_t  len;
 };
 
 /**
@@ -128,7 +129,7 @@ struct cam_cdm_bl_cmd {
 struct cam_cdm_bl_request {
 	int flag;
 	void *userdata;
-	uint64_t cookie;
+	uint32_t cookie;
 	enum cam_cdm_bl_cmd_addr_type type;
 	uint32_t cmd_arrary_count;
 	struct cam_cdm_bl_cmd cmd[1];

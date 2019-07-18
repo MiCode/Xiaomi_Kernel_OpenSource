@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +22,7 @@ int cam_packet_util_get_cmd_mem_addr(int handle, uint32_t **buf_addr,
 	size_t *len)
 {
 	int rc = 0;
-	uintptr_t kmd_buf_addr = 0;
+	uint64_t kmd_buf_addr = 0;
 
 	rc = cam_mem_get_cpu_buf(handle, &kmd_buf_addr, len);
 	if (rc) {
@@ -30,7 +31,7 @@ int cam_packet_util_get_cmd_mem_addr(int handle, uint32_t **buf_addr,
 		if (kmd_buf_addr && *len) {
 			*buf_addr = (uint32_t *)kmd_buf_addr;
 		} else {
-			CAM_ERR(CAM_UTIL, "Invalid addr and length :%zd", *len);
+			CAM_ERR(CAM_UTIL, "Invalid addr and length :%ld", *len);
 			rc = -ENOMEM;
 		}
 	}
@@ -101,7 +102,7 @@ int cam_packet_util_get_kmd_buffer(struct cam_packet *packet,
 		return rc;
 
 	if (len < cmd_desc->size) {
-		CAM_ERR(CAM_UTIL, "invalid memory len:%zd and cmd desc size:%d",
+		CAM_ERR(CAM_UTIL, "invalid memory len:%ld and cmd desc size:%d",
 			len, cmd_desc->size);
 		return -EINVAL;
 	}
@@ -127,8 +128,8 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 	int32_t iommu_hdl, int32_t sec_mmu_hdl)
 {
 	struct cam_patch_desc *patch_desc = NULL;
-	dma_addr_t iova_addr;
-	uintptr_t   cpu_addr;
+	uint64_t   iova_addr;
+	uint64_t   cpu_addr;
 	uint32_t   temp;
 	uint32_t  *dst_cpu_addr;
 	uint32_t  *src_buf_iova_addr;
@@ -171,24 +172,6 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 			patch_desc[i].dst_buf_hdl, patch_desc[i].dst_offset,
 			patch_desc[i].src_buf_hdl, patch_desc[i].src_offset);
 
-		if (patch_desc[i].src_offset >= src_buf_size) {
-			CAM_ERR_RATE_LIMIT(CAM_UTIL,
-				"Inval src offset:0x%x src len:0x%x reqid:%lld",
-				patch_desc[i].src_offset,
-				(unsigned int)src_buf_size,
-				packet->header.request_id);
-			return -EINVAL;
-		}
-
-		if (patch_desc[i].dst_offset >= dst_buf_len) {
-			CAM_ERR_RATE_LIMIT(CAM_UTIL,
-				"Inval dst offset:0x%x dst len:0x%x reqid:%lld",
-				patch_desc[i].dst_offset,
-				(unsigned int)dst_buf_len,
-				packet->header.request_id);
-			return -EINVAL;
-		}
-
 		dst_cpu_addr = (uint32_t *)((uint8_t *)dst_cpu_addr +
 			patch_desc[i].dst_offset);
 		temp += patch_desc[i].src_offset;
@@ -209,7 +192,7 @@ int cam_packet_util_process_generic_cmd_buffer(
 	cam_packet_generic_blob_handler blob_handler_cb, void *user_data)
 {
 	int       rc;
-	uintptr_t  cpu_addr;
+	uint64_t  cpu_addr;
 	size_t    buf_size;
 	uint32_t *blob_ptr;
 	uint32_t  blob_type, blob_size, blob_block_size, len_read;
@@ -233,8 +216,7 @@ int cam_packet_util_process_generic_cmd_buffer(
 		return rc;
 	}
 
-	blob_ptr = (uint32_t *)(((uint8_t *)cpu_addr) +
-		cmd_buf->offset);
+	blob_ptr = (uint32_t *)((uint8_t *)cpu_addr + cmd_buf->offset);
 
 	CAM_DBG(CAM_UTIL,
 		"GenericCmdBuffer cpuaddr=%pK, blobptr=%pK, len=%d",

@@ -1,0 +1,79 @@
+
+qcom,e2_atl_3120mAh {
+	qcom, = <24>;
+	/* #3256573_Xiaomi_E2sunwoda_3120mAh_averaged_MasterSlave_Dec28th2017*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fastchg-current-ma = <3000>;
+	qcom,nom-batt-capacity-mah = <3120>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "e2_atl";
+	qcom,jeita-fcc-ranges = <0   50   300000
+				 51  150  900000
+				 151 450  3000000
+				 451 600  1500000>;
+	qcom,jeita-fv-ranges =  <0   50   4400000
+				 51  150  4400000
+				 151 450  4400000
+				 451 600  4100000>;
+	qcom,checksum = <0xE945>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		 37 1F 1F FC
+		 1B 0A 61 FD
+		 F1 1C 85 FB
+		 2F 04 3F 0A
+		 AB 17 D5 23
+		 7C 44 34 5A
+		 76 00 00 00
+		 11 00 00 00
+		 00 00 00 A4
+		 CA CD 06 BB
+		 23 00 08 00
+		 E3 E2 4A ED
+		 9D 06 41 F3
+		 2A 0C 47 FB
+		 31 E4 40 2A
+		 28 06 09 20
+		 27 00 14 00
+		 AC 1F A8 05
+		 72 0A 50 06
+		 B9 1C 26 03
+		 CF 15 68 12
+		 7C 18 D5 23
+		 E8 4D 2C 5B
+		 67 00 00 00
+		 0E 00 00 00
+		 00 00 E5 D5
+		 03 00 41 C3
+		 1C 00 00 00
+		 FB EB 4A ED
+		 A2 F4 91 EB
+		 82 F5 23 02
+		 92 EA 20 1B
+		 AA 33 CC FF
+		 07 10 00 00
+		 E0 0B 66 46
+		 1C 00 40 00
+		 98 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};
