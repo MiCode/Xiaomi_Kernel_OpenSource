@@ -1425,6 +1425,33 @@ TRACE_EVENT(core_ctl_update_nr_need,
 		__entry->nrrun, __entry->max_nr, __entry->nr_prev_assist)
 );
 
+TRACE_EVENT(core_ctl_notif_data,
+
+	TP_PROTO(u32 nr_big, u32 ta_load, u32 *ta_util, u32 *cur_cap),
+
+	TP_ARGS(nr_big, ta_load, ta_util, cur_cap),
+
+	TP_STRUCT__entry(
+		__field(u32, nr_big)
+		__field(u32, ta_load)
+		__array(u32, ta_util, MAX_CLUSTERS)
+		__array(u32, cur_cap, MAX_CLUSTERS)
+	),
+
+	TP_fast_assign(
+		__entry->nr_big = nr_big;
+		__entry->ta_load = ta_load;
+		memcpy(__entry->ta_util, ta_util, MAX_CLUSTERS * sizeof(u32));
+		memcpy(__entry->cur_cap, cur_cap, MAX_CLUSTERS * sizeof(u32));
+	),
+
+	TP_printk("nr_big=%u ta_load=%u ta_util=(%u %u %u) cur_cap=(%u %u %u)",
+		  __entry->nr_big, __entry->ta_load,
+		  __entry->ta_util[0], __entry->ta_util[1],
+		  __entry->ta_util[2], __entry->cur_cap[0],
+		  __entry->cur_cap[1], __entry->cur_cap[2])
+);
+
 /*
  * Tracepoint for schedtune_tasks_update
  */
