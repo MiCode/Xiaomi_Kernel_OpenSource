@@ -123,9 +123,23 @@ enum cam_req_mgr_link_state {
 };
 
 /**
+ * struct cam_req_mgr_traverse_result
+ * @req_id        : Req id that is not ready
+ * @pd            : pipeline delay
+ * @masked_value  : Holds the dev bit for devices not ready
+ *                  for the given request
+ */
+struct cam_req_mgr_traverse_result {
+	int64_t  req_id;
+	uint32_t pd;
+	uint32_t masked_value;
+};
+
+/**
  * struct cam_req_mgr_traverse
  * @idx              : slot index
  * @result           : contains which all tables were able to apply successfully
+ * @result_data      : holds the result of traverse in case it fails
  * @tbl              : pointer of pipeline delay based request table
  * @apply_data       : pointer which various tables will update during traverse
  * @in_q             : input request queue pointer
@@ -133,13 +147,14 @@ enum cam_req_mgr_link_state {
  * @open_req_cnt     : Count of open requests yet to be serviced in the kernel.
  */
 struct cam_req_mgr_traverse {
-	int32_t                       idx;
-	uint32_t                      result;
-	struct cam_req_mgr_req_tbl   *tbl;
-	struct cam_req_mgr_apply     *apply_data;
-	struct cam_req_mgr_req_queue *in_q;
-	bool                          validate_only;
-	int32_t                       open_req_cnt;
+	int32_t                            idx;
+	uint32_t                           result;
+	struct cam_req_mgr_traverse_result result_data;
+	struct cam_req_mgr_req_tbl        *tbl;
+	struct cam_req_mgr_apply          *apply_data;
+	struct cam_req_mgr_req_queue      *in_q;
+	bool                               validate_only;
+	int32_t                            open_req_cnt;
 };
 
 /**

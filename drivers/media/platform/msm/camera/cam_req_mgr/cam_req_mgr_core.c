@@ -168,6 +168,40 @@ static int __cam_req_mgr_inject_delay(
 }
 
 /**
+ * __cam_req_mgr_find_dev_name()
+ *
+ * @brief      : Find the dev name whose req is not ready
+ * @link       : link info
+ * @req_id     : req_id which is not ready
+ * @pd         : pipeline delay
+ * @masked_val : masked value holds the bit for all devices
+ *               that don't have the req_id ready for a given
+ *               pipeline delay
+ * @pd         : pipeline delay
+ *
+ */
+static void __cam_req_mgr_find_dev_name(
+	struct cam_req_mgr_core_link *link,
+	int64_t req_id, uint32_t pd, uint32_t masked_val)
+{
+	int i = 0;
+	struct cam_req_mgr_connected_device *dev = NULL;
+
+	for (i = 0; i < link->num_devs; i++) {
+		dev = &link->l_dev[i];
+		if (dev->dev_info.p_delay == pd) {
+			if (masked_val & (1 << dev->dev_bit))
+				continue;
+
+			CAM_INFO(CAM_CRM,
+				"Skip Frame: req: %lld not ready on link: 0x%x for pd: %d dev: %s open_req count: %d",
+				req_id, link->link_hdl, pd, dev->dev_info.name,
+				link->open_req_cnt);
+		}
+	}
+}
+
+/**
  * __cam_req_mgr_notify_error_on_link()
  *
  * @brief : Notify userspace on exceeding max retry
@@ -296,14 +330,15 @@ static int __cam_req_mgr_traverse(struct cam_req_mgr_traverse *traverse_data)
 		}
 	} else {
 		/* This pd table is not ready to proceed with asked idx */
-		CAM_INFO(CAM_CRM,
-			"Skip Frame: req: %lld not ready pd: %d open_req count: %d",
-			CRM_GET_REQ_ID(traverse_data->in_q, curr_idx),
-			tbl->pd,
-			traverse_data->open_req_cnt);
+		traverse_data->result_data.req_id =
+			CRM_GET_REQ_ID(traverse_data->in_q, curr_idx);
+		traverse_data->result_data.pd = tbl->pd;
+		traverse_data->result_data.masked_value =
+			(tbl->dev_mask & slot->req_ready_map);
 		SET_FAILURE_BIT(traverse_data->result, tbl->pd);
 		return -EAGAIN;
 	}
+
 	return 0;
 }
 
@@ -650,6 +685,9 @@ static int __cam_req_mgr_check_link_is_ready(struct cam_req_mgr_core_link *link,
 	traverse_data.tbl = link->req.l_tbl;
 	traverse_data.in_q = in_q;
 	traverse_data.result = 0;
+	traverse_data.result_data.masked_value = 0;
+	traverse_data.result_data.pd = 0;
+	traverse_data.result_data.req_id = 0;
 	traverse_data.validate_only = validate_only;
 	traverse_data.open_req_cnt = link->open_req_cnt;
 
@@ -669,8 +707,13 @@ static int __cam_req_mgr_check_link_is_ready(struct cam_req_mgr_core_link *link,
 			apply_data[2].req_id,
 			apply_data[1].req_id,
 			apply_data[0].req_id);
-	} else
+	} else {
 		rc = -EAGAIN;
+		__cam_req_mgr_find_dev_name(link,
+			traverse_data.result_data.req_id,
+			traverse_data.result_data.pd,
+			traverse_data.result_data.masked_value);
+	}
 
 	return rc;
 }
@@ -2103,6 +2146,7 @@ int cam_req_mgr_process_error(void *priv, void *data)
 			spin_lock_bh(&link->link_state_spin_lock);
 			link->state = CAM_CRM_LINK_STATE_ERR;
 			spin_unlock_bh(&link->link_state_spin_lock);
+			link->open_req_cnt++;
 		}
 	}
 	mutex_unlock(&link->req.lock);
@@ -2544,7 +2588,9 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 		dev->dev_bit = pd_tbl->dev_count++;
 		dev->pd_tbl = pd_tbl;
 		pd_tbl->dev_mask |= (1 << dev->dev_bit);
-
+		CAM_DBG(CAM_CRM, "dev_bit %u name %s pd %u mask %d",
+			dev->dev_bit, dev->dev_info.name, pd_tbl->pd,
+			pd_tbl->dev_mask);
 		/* Communicate with dev to establish the link */
 		dev->ops->link_setup(&link_data);
 
