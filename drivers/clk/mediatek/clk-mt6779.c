@@ -1239,8 +1239,8 @@ static const struct mtk_gate infra_clks[] = {
 		"axi_sel", 20),
 	GATE_INFRA1(CLK_INFRA_CCIF_AP, "infra_ccif_ap",
 		"axi_sel", 23),
-	GATE_INFRA1(CLK_INFRA_DEBUGSYS, "infra_debugsys",
-		"axi_sel", 24),
+	/*GATE_INFRA1(CLK_INFRA_DEBUGSYS, "infra_debugsys",*/
+		/*"axi_sel", 24),*/
 	GATE_INFRA1(CLK_INFRA_AUD, "infra_audio",
 		"axi_sel", 25),
 	GATE_INFRA1(CLK_INFRA_CCIF_MD, "infra_ccif_md",
