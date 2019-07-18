@@ -9,6 +9,11 @@
 #include <linux/of_address.h>
 #include <linux/cpu.h>
 #include <linux/pm_qos.h>
+#include <linux/kthread.h>
+#include <linux/delay.h>
+#include <linux/time.h>
+
+#include <mtk_lpm.h>
 
 #include "mtk_lp_plat_reg.h"
 #include "mtk_lp_plat_apmcu.h"
@@ -17,13 +22,25 @@
 void __iomem *cpu_pm_mcusys_base;
 void __iomem *cpu_pm_syssram_base;
 
+#define plat_node_ready()       (cpu_pm_mcusys_base && cpu_pm_syssram_base)
 #define OF_CPU_PM_CTRL(_offset)	(cpu_pm_mcusys_base + (_offset))
 
+#define BOOT_TIME_LIMIT         30
+
+static struct task_struct *mtk_lp_plat_task;
+
+/* qos */
 static struct pm_qos_request mtk_lp_plat_qos_req;
 
-#define CHK(cond) WARN_ON(cond)
+#define mtk_lp_plat_qos_init()\
+	pm_qos_add_request(&mtk_lp_plat_qos_req,\
+		PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE)
+#define mtk_cpu_off_block()\
+	pm_qos_update_request(&mtk_lp_plat_qos_req, 2)
+#define mtk_cpu_off_allow()\
+	pm_qos_update_request(&mtk_lp_plat_qos_req, PM_QOS_DEFAULT_VALUE)
 
-#define MAX_CLUSTERS	4
+#define CHK(cond) WARN_ON(cond)
 
 #define PWR_LVL_BIT(v)  BIT(4 * v)
 
@@ -56,7 +73,7 @@ struct mtk_lp_device {
 };
 
 static struct mtk_lp_device lp_dev_cpu[NR_CPUS];
-static struct mtk_lp_device lp_dev_cluster[MAX_CLUSTERS];
+static struct mtk_lp_device lp_dev_cluster[nr_cluster_ids];
 static struct mtk_lp_device lp_dev_mcusys;
 
 int mtk_lpm_mcusys_write(int offset, unsigned int val)
@@ -207,7 +224,7 @@ bool mtk_lp_plat_is_cluster_off(int cpu)
 
 static int mtk_lp_cpuhp_notify_enter(unsigned int cpu)
 {
-	pm_qos_update_request(&mtk_lp_plat_qos_req, 2);
+	mtk_cpu_off_block();
 
 	return 0;
 }
@@ -216,17 +233,39 @@ static int mtk_lp_cpuhp_notify_leave(unsigned int cpu)
 {
 	mtk_lp_dev_set_cpus_off();
 	mtk_lp_dev_get_cpus_online();
+	mtk_cpu_off_allow();
 
-	pm_qos_update_request(&mtk_lp_plat_qos_req, PM_QOS_DEFAULT_VALUE);
+	return 0;
+}
+
+static int mtk_lp_plat_wait_depd_condition(void *arg)
+{
+	struct timespec uptime;
+	bool mcupm_rdy = false;
+	bool boot_time_pass = false;
+
+	do {
+		msleep(1000);
+
+		if (!mcupm_rdy && mtk_mcupm_is_ready())
+			mcupm_rdy = true;
+
+		if (!boot_time_pass) {
+			get_monotonic_boottime(&uptime);
+
+			if ((unsigned int)uptime.tv_sec > BOOT_TIME_LIMIT)
+				boot_time_pass = true;
+		}
+
+	} while (!(mcupm_rdy && boot_time_pass));
+
+	mtk_cpu_off_allow();
 
 	return 0;
 }
 
 static void __init mtk_lp_plat_cpuhp_init(void)
 {
-	pm_qos_add_request(&mtk_lp_plat_qos_req,
-		PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
-
 	cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN_END, "cpuidle_cb",
 				mtk_lp_cpuhp_notify_enter,
 				mtk_lp_cpuhp_notify_leave);
@@ -267,6 +306,9 @@ static int __init mtk_lp_plat_mcusys_ctrl_init(void)
 {
 	struct device_node *node = NULL;
 
+	cpu_pm_mcusys_base = NULL;
+	cpu_pm_syssram_base = NULL;
+
 	node = of_find_compatible_node(NULL, NULL,
 						"mediatek,mcusys-ctrl");
 	if (node) {
@@ -281,21 +323,35 @@ static int __init mtk_lp_plat_mcusys_ctrl_init(void)
 		of_node_put(node);
 	}
 
-	return 0;
+	return plat_node_ready() ? 0 : -1;
 }
 
 int __init mtk_lp_plat_apmcu_init(void)
 {
+	if (!plat_node_ready())
+		return 0;
+
 	mtk_lp_plat_pwr_dev_init();
 	mtk_lp_plat_cpuhp_init();
 	mtk_lp_plat_mbox_init();
+
+	mtk_lp_plat_task = kthread_create(mtk_lp_plat_wait_depd_condition,
+					NULL, "mtk_lp_plat_wait_rdy");
+
+	if (!IS_ERR(mtk_lp_plat_task))
+		wake_up_process(mtk_lp_plat_task);
 
 	return 0;
 }
 
 int __init mtk_lp_plat_apmcu_early_init(void)
 {
-	mtk_lp_plat_mcusys_ctrl_init();
+	if (mtk_lp_plat_mcusys_ctrl_init() != 0) {
+		pr_notice("%s(): Not support\n", __func__);
+		return 0;
+	}
+
+	mtk_lp_plat_qos_init();
 
 	if (cpu_pm_syssram_base) {
 		memset_io((void __iomem *)
@@ -303,6 +359,9 @@ int __init mtk_lp_plat_apmcu_early_init(void)
 			0,
 			LP_PM_SYSRAM_SIZE - LP_PM_SYSRAM_INFO_OFS);
 	}
+
+	mtk_cpu_off_block();
+
 	return 0;
 }
 

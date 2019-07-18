@@ -3,7 +3,10 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <linux/workqueue.h>
+
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#include <sspm_common.h>
 #include <sspm_mbox.h>
 #endif
 
@@ -17,14 +20,16 @@ struct mbox_ops {
 static void apmcu_sspm_mailbox_write(int id, int *buf, unsigned int len)
 {
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-	sspm_mbox_write(APMCU_SSPM_MBOX_ID, id, (void *)buf, len);
+	if (is_sspm_ready())
+		sspm_mbox_write(APMCU_SSPM_MBOX_ID, id, (void *)buf, len);
 #endif
 }
 
 static void apmcu_sspm_mailbox_read(int id, int *buf, unsigned int len)
 {
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-	sspm_mbox_read(APMCU_SSPM_MBOX_ID, id, (void *)&buf, len);
+	if (is_sspm_ready())
+		sspm_mbox_read(APMCU_SSPM_MBOX_ID, id, (void *)&buf, len);
 #endif
 }
 
@@ -138,7 +143,7 @@ bool mtk_mcupm_is_ready(void)
 
 	mbox[MBOX_MCUPM].read(APMCU_MCUPM_MBOX_TASK_STA, &sta, 1);
 
-	return sta == MCUPM_TASK_WAIT || sta ==  MCUPM_TASK_INIT_FINISH;
+	return sta == MCUPM_TASK_WAIT || sta == MCUPM_TASK_INIT_FINISH;
 }
 
 void __init mtk_lp_plat_mbox_init(void)
