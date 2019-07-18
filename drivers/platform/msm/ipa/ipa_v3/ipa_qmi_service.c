@@ -313,7 +313,7 @@ static void ipa3_handle_mhi_alloc_channel_req(struct qmi_handle *qmi_handle,
 
 	resp = imp_handle_allocate_channel_req(ch_alloc_req);
 	if (!resp) {
-		IPAWANERR("imp handle allocate channel req fails");
+		IPAWANERR("imp handle allocate channel req fails\n");
 		return;
 	}
 
@@ -338,18 +338,62 @@ static void ipa3_handle_mhi_vote_req(struct qmi_handle *qmi_handle,
 	const void *decoded_msg)
 {
 	struct ipa_mhi_clk_vote_req_msg_v01 *vote_req;
-	struct ipa_mhi_clk_vote_resp_msg_v01 *resp = NULL;
+	struct ipa_mhi_clk_vote_resp_msg_v01 *resp = NULL, resp2;
 	int rc;
+	uint32_t bw_mbps = 0;
 
 	vote_req = (struct ipa_mhi_clk_vote_req_msg_v01 *)decoded_msg;
 	IPAWANDBG("Received QMI_IPA_MHI_CLK_VOTE_REQ_V01(%d)\n",
 		vote_req->mhi_vote);
-	resp = imp_handle_vote_req(vote_req->mhi_vote);
-	if (!resp) {
-		IPAWANERR("imp handle allocate channel req fails");
-		return;
+
+	memset(&resp2, 0, sizeof(struct ipa_mhi_clk_vote_resp_msg_v01));
+
+	/* for mpm used for ipa clk voting */
+	if (ipa3_is_apq()) {
+		IPAWANDBG("Throughput(%d:%d) clk-rate(%d:%d)\n",
+			vote_req->tput_value_valid,
+			vote_req->tput_value,
+			vote_req->clk_rate_valid,
+			vote_req->clk_rate);
+		if (vote_req->clk_rate_valid) {
+			switch (vote_req->clk_rate) {
+			case QMI_IPA_CLOCK_RATE_LOW_SVS_V01:
+				bw_mbps = 0;
+				break;
+			case QMI_IPA_CLOCK_RATE_SVS_V01:
+				bw_mbps = 350;
+				break;
+			case QMI_IPA_CLOCK_RATE_NOMINAL_V01:
+				bw_mbps = 690;
+				break;
+			case QMI_IPA_CLOCK_RATE_TURBO_V01:
+				bw_mbps = 1200;
+				break;
+			default:
+				IPAWANERR("Note supported clk_rate (%d)\n",
+				vote_req->clk_rate);
+				bw_mbps = 0;
+				resp2.resp.result = IPA_QMI_RESULT_FAILURE_V01;
+				resp2.resp.error =
+					IPA_QMI_ERR_NOT_SUPPORTED_V01;
+				break;
+			}
+			if (ipa3_vote_for_bus_bw(&bw_mbps)) {
+				IPAWANERR("Failed to vote BW (%u)\n", bw_mbps);
+				resp2.resp.result = IPA_QMI_RESULT_FAILURE_V01;
+				resp2.resp.error =
+					IPA_QMI_ERR_NOT_SUPPORTED_V01;
+			}
+			resp = &resp2;
+		}
+	} else {
+		resp = imp_handle_vote_req(vote_req->mhi_vote);
+		if (!resp) {
+			IPAWANERR("imp handle allocate channel req fails");
+			return;
+		}
+		IPAWANDBG("start sending QMI_IPA_MHI_CLK_VOTE_RESP_V01\n");
 	}
-	IPAWANDBG("start sending QMI_IPA_MHI_CLK_VOTE_RESP_V01\n");
 
 	IPAWANDBG("qmi_snd_rsp: result %d, err %d\n",
 		resp->resp.result, resp->resp.error);
@@ -1419,7 +1463,7 @@ static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 		return;
 
 	IPAWANDBG("Q6 QMI service available now\n");
-	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
+	if (ipa3_is_apq()) {
 		ipa3_qmi_modem_init_fin = true;
 		IPAWANDBG("QMI-client complete, ipa3_qmi_modem_init_fin : %d\n",
 			ipa3_qmi_modem_init_fin);
@@ -1812,6 +1856,8 @@ int ipa3_vote_for_bus_bw(uint32_t *bw_mbps)
 {
 	int ret;
 
+	IPAWANDBG("Bus BW is %d\n", *bw_mbps);
+
 	if (bw_mbps == NULL) {
 		IPAWANERR("Bus BW is invalid\n");
 		return -EINVAL;
@@ -2160,6 +2206,22 @@ int ipa3_qmi_send_mhi_cleanup_request(struct ipa_mhi_cleanup_req_msg_v01 *req)
 	return ipa3_check_qmi_response(rc,
 		QMI_IPA_MHI_CLEANUP_REQ_V01, resp.resp.result,
 		resp.resp.error, "ipa_mhi_cleanup_req_msg");
+}
+
+int ipa3_qmi_send_rsc_pipe_indication(
+	struct ipa_endp_desc_indication_msg_v01 *req)
+{
+	IPAWANDBG("Sending QMI_IPA_ENDP_DESC_INDICATION_V01\n");
+
+	if (unlikely(!ipa3_svc_handle))
+		return -ETIMEDOUT;
+
+	return qmi_send_indication(ipa3_svc_handle,
+		&ipa3_qmi_ctx->client_sq,
+		QMI_IPA_ENDP_DESC_INDICATION_V01,
+		IPA_ENDP_DESC_INDICATION_MSG_V01_MAX_MSG_LEN,
+		ipa_endp_desc_indication_msg_v01_ei,
+		req);
 }
 
 void ipa3_qmi_init(void)

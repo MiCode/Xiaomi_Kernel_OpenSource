@@ -1,19 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/export.h>
-#include <linux/types.h>
-#include <linux/device.h>
-#include <linux/spinlock.h>
-#include <linux/genalloc.h>
-#include <linux/slab.h>
-#include <linux/sched.h>
-#include <linux/types.h>
 
-#include "kgsl.h"
-#include "kgsl_mmu.h"
+#include <linux/slab.h>
+
 #include "kgsl_device.h"
+#include "kgsl_mmu.h"
 #include "kgsl_sharedmem.h"
 
 static void pagetable_remove_sysfs_objects(struct kgsl_pagetable *pagetable);

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA3_ODL_H_
@@ -56,6 +56,7 @@ struct ipa_odl_context {
 	struct odl_state_bit_mask odl_state;
 	bool odl_ctl_msg_wq_flag;
 	struct ipa3_odlstats stats;
+	u32 odl_pm_hdl;
 };
 
 struct ipa3_push_msg_odl {

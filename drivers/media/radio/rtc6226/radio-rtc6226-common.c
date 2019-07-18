@@ -1244,7 +1244,7 @@ void rtc6226_rds_handler(struct work_struct *worker)
 		grp_type = radio->block[1] >> OFFSET_OF_GRP_TYP;
 		FMDBG("%s grp_type = %d\n", __func__, grp_type);
 	} else {
-		FMDERR("%s invalid data %d\n", __func__, radio->bler[1]);
+		FMDBG("%s invalid data %d\n", __func__, radio->bler[1]);
 		return;
 	}
 	if (grp_type & 0x01)

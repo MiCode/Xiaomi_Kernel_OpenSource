@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017,2019 The Linux Foundation. All rights reserved.
  */
 
 #include "adreno.h"
 #include "adreno_a5xx.h"
-#include "a5xx_reg.h"
-#include "adreno_trace.h"
 #include "adreno_pm4types.h"
+#include "adreno_trace.h"
 
 #define PREEMPT_RECORD(_field) \
 		offsetof(struct a5xx_cp_preemption_record, _field)
@@ -563,9 +562,9 @@ static void a5xx_preemption_iommu_close(struct adreno_device *adreno_dev)
 }
 #endif
 
-static void a5xx_preemption_close(struct kgsl_device *device)
+void a5xx_preemption_close(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_preemption *preempt = &adreno_dev->preempt;
 	struct adreno_ringbuffer *rb;
 	unsigned int i;
@@ -619,7 +618,7 @@ int a5xx_preemption_init(struct adreno_device *adreno_dev)
 
 err:
 	if (ret)
-		a5xx_preemption_close(device);
+		a5xx_preemption_close(adreno_dev);
 
 	return ret;
 }

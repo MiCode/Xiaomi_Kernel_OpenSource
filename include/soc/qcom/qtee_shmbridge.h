@@ -29,9 +29,18 @@ struct qtee_shm {
 bool qtee_shmbridge_is_enabled(void);
 
 /**
+ * Check whether a bridge starting from paddr exists
+ *
+ * @ [IN] paddr: physical addr of the buffer
+ *
+ * return 0 or -EEXIST
+ */
+int32_t qtee_shmbridge_query(phys_addr_t paddr);
+
+/**
  * Register paddr & size as a bridge, get bridge handle
  *
- * @ [IN] addr: paddr of buffer to be turned into bridge
+ * @ [IN] paddr: physical addr of the buffer to be turned into bridge
  * @ [IN] size: size of the bridge
  * @ [IN] ns_vmid_list: non-secure vmids array
  * @ [IN] ns_vm_perm_list: NS VM permission array

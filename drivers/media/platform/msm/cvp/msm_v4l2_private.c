@@ -105,15 +105,13 @@ static int _copy_sysprop_from_user(struct cvp_kmd_arg *kp,
 	if (get_user(k->prop_num, &u->prop_num))
 		return -EFAULT;
 
-	if (k->prop_num != 1) {
-		dprintk(CVP_ERR, "Only one prop allowed\n");
+	if (k->prop_num < 1 || k->prop_num > 32) {
+		dprintk(CVP_ERR, "Num of prop out of range %d\n", k->prop_num);
 		return -EFAULT;
 	}
 
-	if (get_user(k->prop_data.prop_type, &u->prop_data.prop_type))
-		return -EFAULT;
-
-	return 0;
+	return _copy_pkt_from_user(kp, up,
+		(k->prop_num*((sizeof(struct cvp_kmd_sys_property)>>2)+1)));
 }
 
 static int _copy_pkt_to_user(struct cvp_kmd_arg *kp,
@@ -411,6 +409,14 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 		}
 		break;
 	}
+	case CVP_KMD_SET_SYS_PROPERTY:
+	{
+		if (_copy_sysprop_from_user(kp, up)) {
+			dprintk(CVP_ERR, "Failed to set sysprop from user\n");
+			return -EFAULT;
+		}
+		break;
+	}
 	default:
 		dprintk(CVP_ERR, "%s: unknown cmd type 0x%x\n",
 			__func__, kp->type);
@@ -579,6 +585,8 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 		}
 		break;
 	}
+	case CVP_KMD_SET_SYS_PROPERTY:
+		break;
 	default:
 		dprintk(CVP_ERR, "%s: unknown cmd type 0x%x\n",
 			__func__, kp->type);
@@ -614,8 +622,8 @@ static long cvp_ioctl(struct msm_cvp_inst *inst,
 
 	rc = msm_cvp_private((void *)inst, cmd, &karg);
 	if (rc) {
-		dprintk(CVP_ERR, "%s: failed cmd type %x\n",
-			__func__, karg.type);
+		dprintk(CVP_ERR, "%s: failed cmd type %x %d\n",
+			__func__, karg.type, rc);
 		return rc;
 	}
 

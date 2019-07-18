@@ -1,11 +1,9 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_HFI_H
 #define __KGSL_HFI_H
-
-#include <linux/types.h>
 
 #define HFI_QUEUE_SIZE			SZ_4K /* bytes, must be base 4dw */
 #define MAX_RCVD_PAYLOAD_SIZE		16		/* dwords */
@@ -202,14 +200,6 @@ struct hfi_gmu_init_cmd {
 struct hfi_fw_version_cmd {
 	uint32_t hdr;
 	uint32_t supported_ver;
-};
-
-/* H2F */
-struct hfi_lmconfig_cmd {
-	uint32_t hdr;
-	uint32_t limit_conf;
-	uint32_t bcl_conf;
-	uint32_t lm_enable_bitmask;
 };
 
 #define ARC_VOTE_GET_PRI(_v) ((_v) & 0xFF)

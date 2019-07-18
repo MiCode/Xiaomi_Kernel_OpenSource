@@ -36,6 +36,13 @@ struct diag_msg_mask_t {
 	uint32_t *ptr;
 };
 
+struct diag_log_config_get_req_t {
+	uint8_t cmd_code;
+	uint8_t padding[3];
+	uint32_t sub_cmd;
+	uint32_t equip_id;
+} __packed;
+
 struct diag_log_config_req_t {
 	uint8_t cmd_code;
 	uint8_t padding[3];

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 #include <soc/qcom/secure_buffer.h>
 #include "ion.h"
@@ -20,10 +20,20 @@ static const unsigned int orders[] = {0};
 
 #define NUM_ORDERS ARRAY_SIZE(orders)
 
+#define ION_KTHREAD_NICE_VAL 10
+
+enum ion_kthread_type {
+	ION_KTHREAD_UNCACHED,
+	ION_KTHREAD_CACHED,
+	ION_MAX_NUM_KTHREADS
+};
+
 struct ion_system_heap {
 	struct ion_heap heap;
 	struct ion_page_pool *uncached_pools[MAX_ORDER];
 	struct ion_page_pool *cached_pools[MAX_ORDER];
+	/* worker threads to refill the pool */
+	struct task_struct *kworker[ION_MAX_NUM_KTHREADS];
 	struct ion_page_pool *secure_pools[VMID_LAST][MAX_ORDER];
 	/* Prevents unnecessary page splitting */
 	struct mutex split_page_mutex;

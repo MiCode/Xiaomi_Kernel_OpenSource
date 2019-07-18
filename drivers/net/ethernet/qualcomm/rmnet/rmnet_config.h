@@ -21,6 +21,9 @@ struct rmnet_endpoint {
 };
 
 struct rmnet_port_priv_stats {
+	u64 dl_hdr_last_qmap_vers;
+	u64 dl_hdr_last_ep_id;
+	u64 dl_hdr_last_trans_id;
 	u64 dl_hdr_last_seq;
 	u64 dl_hdr_last_bytes;
 	u64 dl_hdr_last_pkts;
@@ -69,6 +72,10 @@ struct rmnet_port {
 	struct list_head dl_list;
 	struct rmnet_port_priv_stats stats;
 	int dl_marker_flush;
+
+	/* Descriptor pool */
+	spinlock_t desc_pool_lock;
+	struct rmnet_frag_descriptor_pool *frag_desc_pool;
 };
 
 extern struct rtnl_link_ops rmnet_link_ops;

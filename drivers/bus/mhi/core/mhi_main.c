@@ -173,12 +173,24 @@ void mhi_ring_chan_db(struct mhi_controller *mhi_cntrl,
 				    db);
 }
 
+static enum mhi_ee mhi_translate_dev_ee(struct mhi_controller *mhi_cntrl,
+					u32 dev_ee)
+{
+	enum mhi_ee i;
+
+	for (i = MHI_EE_PBL; i < MHI_EE_MAX; i++)
+		if (mhi_cntrl->ee_table[i] == dev_ee)
+			return i;
+
+	return MHI_EE_NOT_SUPPORTED;
+}
+
 enum mhi_ee mhi_get_exec_env(struct mhi_controller *mhi_cntrl)
 {
 	u32 exec;
 	int ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_EXECENV, &exec);
 
-	return (ret) ? MHI_EE_MAX : exec;
+	return (ret) ? MHI_EE_MAX : mhi_translate_dev_ee(mhi_cntrl, exec);
 }
 
 enum mhi_dev_state mhi_get_mhi_state(struct mhi_controller *mhi_cntrl)
@@ -625,6 +637,22 @@ int mhi_destroy_device(struct device *dev, void *data)
 	return 0;
 }
 
+int mhi_early_notify_device(struct device *dev, void *data)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	/* skip early notification */
+	if (!mhi_dev->early_notif)
+		return 0;
+
+	MHI_LOG("Early notification for dev:%s\n", mhi_dev->chan_name);
+
+	mhi_notify(mhi_dev, MHI_CB_FATAL_ERROR);
+
+	return 0;
+}
+
 void mhi_notify(struct mhi_device *mhi_dev, enum MHI_CB cb_reason)
 {
 	struct mhi_driver *mhi_drv;
@@ -696,7 +724,8 @@ static ssize_t time_us_show(struct device *dev,
 	}
 
 	return scnprintf(buf, PAGE_SIZE, "local: %llu remote: %llu (us)\n",
-			 TIME_TICKS_TO_US(t_host), TIME_TICKS_TO_US(t_device));
+			 LOCAL_TICKS_TO_US(t_host),
+			 REMOTE_TICKS_TO_US(t_device));
 }
 static DEVICE_ATTR_RO(time_us);
 
@@ -834,6 +863,13 @@ void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 		/* add if there is a matching DT node */
 		mhi_assign_of_node(mhi_cntrl, mhi_dev);
 
+		/*
+		 * if set, these device should get a early notification during
+		 * early notification state
+		 */
+		mhi_dev->early_notif =
+			of_property_read_bool(mhi_dev->dev.of_node,
+					      "mhi,early-notify");
 		/* init wake source */
 		if (mhi_dev->dl_chan && mhi_dev->dl_chan->wake_capable)
 			device_init_wakeup(&mhi_dev->dev, true);
@@ -1170,6 +1206,9 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 			enum MHI_ST_TRANSITION st = MHI_ST_TRANSITION_MAX;
 			enum mhi_ee event = MHI_TRE_GET_EV_EXECENV(local_rp);
 
+			/* convert device ee to host ee */
+			event = mhi_translate_dev_ee(mhi_cntrl, event);
+
 			MHI_LOG("MHI EE received event:%s\n",
 				TO_MHI_EXEC_STR(event));
 			switch (event) {
@@ -1442,15 +1481,17 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 	struct mhi_controller *mhi_cntrl = dev;
 	enum mhi_dev_state state = MHI_STATE_MAX;
 	enum MHI_PM_STATE pm_state = 0;
-	enum mhi_ee ee;
+	enum mhi_ee ee = 0;
 
 	MHI_VERB("Enter\n");
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
 		state = mhi_get_mhi_state(mhi_cntrl);
-		ee = mhi_get_exec_env(mhi_cntrl);
-		MHI_LOG("device ee:%s dev_state:%s\n", TO_MHI_EXEC_STR(ee),
+		ee = mhi_cntrl->ee;
+		mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
+		MHI_LOG("device ee:%s dev_state:%s\n",
+			TO_MHI_EXEC_STR(mhi_cntrl->ee),
 			TO_MHI_STATE_STR(state));
 	}
 
@@ -1460,6 +1501,17 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 					       MHI_PM_SYS_ERR_DETECT);
 	}
 	write_unlock_irq(&mhi_cntrl->pm_lock);
+
+	/* if device in rddm don't bother processing sys error */
+	if (mhi_cntrl->ee == MHI_EE_RDDM) {
+		if (mhi_cntrl->ee != ee) {
+			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+					     MHI_CB_EE_RDDM);
+			wake_up_all(&mhi_cntrl->state_event);
+		}
+		goto exit_intvec;
+	}
+
 	if (pm_state == MHI_PM_SYS_ERR_DETECT) {
 		wake_up_all(&mhi_cntrl->state_event);
 
@@ -1471,6 +1523,7 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 			schedule_work(&mhi_cntrl->syserr_worker);
 	}
 
+exit_intvec:
 	MHI_VERB("Exit\n");
 
 	return IRQ_HANDLED;

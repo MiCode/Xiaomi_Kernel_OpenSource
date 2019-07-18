@@ -137,6 +137,47 @@ DEFINE_EVENT(venus_hfi_var, venus_hfi_var_done,
 	TP_ARGS(cp_start, cp_size, cp_nonpixel_start, cp_nonpixel_size)
 );
 
+DECLARE_EVENT_CLASS(msm_v4l2_vidc_count_events,
+
+	TP_PROTO(char *event_type,
+		 u32 etb, u32 ebd, u32 ftb, u32 fbd),
+
+	TP_ARGS(event_type, etb, ebd, ftb, fbd),
+
+	TP_STRUCT__entry(
+		__field(char *, event_type)
+		__field(u32, etb)
+		__field(u32, ebd)
+		__field(u32, ftb)
+		__field(u32, fbd)
+	),
+
+	TP_fast_assign(
+		__entry->event_type = event_type;
+		__entry->etb = etb;
+		__entry->ebd = ebd;
+		__entry->ftb = ftb;
+		__entry->fbd = fbd;
+	),
+
+	TP_printk(
+		"%s, ETB %u EBD %u FTB %u FBD %u",
+		__entry->event_type,
+		__entry->etb,
+		__entry->ebd,
+		__entry->ftb,
+		__entry->fbd)
+);
+
+DEFINE_EVENT(msm_v4l2_vidc_count_events, msm_v4l2_vidc_buffer_counter,
+
+	TP_PROTO(char *event_type,
+		u32 etb, u32 ebd, u32 ftb, u32 fbd),
+
+	TP_ARGS(event_type,
+		etb, ebd, ftb, fbd)
+);
+
 DECLARE_EVENT_CLASS(msm_v4l2_vidc_buffer_events,
 
 	TP_PROTO(char *event_type, u32 device_addr, int64_t timestamp,

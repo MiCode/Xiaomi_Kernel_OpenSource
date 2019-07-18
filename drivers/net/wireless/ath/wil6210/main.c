@@ -297,14 +297,15 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	/* crypto context */
 	memset(sta->tid_crypto_rx, 0, sizeof(sta->tid_crypto_rx));
 	memset(&sta->group_crypto_rx, 0, sizeof(sta->group_crypto_rx));
+
+	if (wil->ipa_handle)
+		wil_ipa_disconn_client(wil->ipa_handle, cid);
+
 	/* release vrings */
 	for (i = min_ring_id; i < ARRAY_SIZE(wil->ring_tx); i++) {
 		if (wil->ring2cid_tid[i][0] == cid)
 			wil_ring_fini_tx(wil, i);
 	}
-
-	if (wil->ipa_handle)
-		wil_ipa_disconn_client(wil->ipa_handle, cid);
 
 	/* statistics */
 	memset(&sta->stats, 0, sizeof(sta->stats));
@@ -1599,6 +1600,7 @@ int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile)
 
 static void wil_pre_fw_config(struct wil6210_priv *wil)
 {
+	wil_clear_fw_log_addr(wil);
 	/* Mark FW as loaded from host */
 	wil_s(wil, RGF_USER_USAGE_6, 1);
 
@@ -1653,6 +1655,20 @@ static int wil_restore_vifs(struct wil6210_priv *wil)
 	}
 
 	return 0;
+}
+
+/*
+ * Clear FW and ucode log start addr to indicate FW log is not ready. The host
+ * driver clears the addresses before FW starts and FW initializes the address
+ * when it is ready to send logs.
+ */
+void wil_clear_fw_log_addr(struct wil6210_priv *wil)
+{
+	/* FW log addr */
+	wil_w(wil, RGF_USER_USAGE_1, 0);
+	/* ucode log addr */
+	wil_w(wil, RGF_USER_USAGE_2, 0);
+	wil_dbg_misc(wil, "Cleared FW and ucode log address");
 }
 
 /*

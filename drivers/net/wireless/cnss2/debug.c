@@ -100,6 +100,9 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_COEX_CONNECTED:
 			seq_puts(s, "COEX_CONNECTED");
 			continue;
+		case CNSS_IMS_CONNECTED:
+			seq_puts(s, "IMS_CONNECTED");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
@@ -601,6 +604,9 @@ static int cnss_show_quirks_state(struct seq_file *s,
 		case ENABLE_DAEMON_SUPPORT:
 			seq_puts(s, "DAEMON_SUPPORT");
 			continue;
+		case DISABLE_DRV:
+			seq_puts(s, "DISABLE_DRV");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
@@ -644,6 +650,51 @@ static const struct file_operations cnss_control_params_debug_fops = {
 	.llseek = seq_lseek,
 };
 
+static ssize_t cnss_dynamic_feature_write(struct file *fp,
+					  const char __user *user_buf,
+					  size_t count, loff_t *off)
+{
+	struct cnss_plat_data *plat_priv =
+		((struct seq_file *)fp->private_data)->private;
+	int ret = 0;
+	u64 val;
+
+	ret = kstrtou64_from_user(user_buf, count, 0, &val);
+	if (ret)
+		return ret;
+
+	plat_priv->dynamic_feature = val;
+	ret = cnss_wlfw_dynamic_feature_mask_send_sync(plat_priv);
+	if (ret < 0)
+		return ret;
+
+	return count;
+}
+
+static int cnss_dynamic_feature_show(struct seq_file *s, void *data)
+{
+	struct cnss_plat_data *cnss_priv = s->private;
+
+	seq_printf(s, "dynamic_feature: 0x%llx\n", cnss_priv->dynamic_feature);
+
+	return 0;
+}
+
+static int cnss_dynamic_feature_open(struct inode *inode,
+				     struct file *file)
+{
+	return single_open(file, cnss_dynamic_feature_show,
+			   inode->i_private);
+}
+
+static const struct file_operations cnss_dynamic_feature_fops = {
+	.read = seq_read,
+	.write = cnss_dynamic_feature_write,
+	.open = cnss_dynamic_feature_open,
+	.owner = THIS_MODULE,
+	.llseek = seq_lseek,
+};
+
 #ifdef CONFIG_CNSS2_DEBUG
 static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
 {
@@ -659,6 +710,8 @@ static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
 			    &cnss_runtime_pm_debug_fops);
 	debugfs_create_file("control_params", 0600, root_dentry, plat_priv,
 			    &cnss_control_params_debug_fops);
+	debugfs_create_file("dynamic_feature", 0600, root_dentry, plat_priv,
+			    &cnss_dynamic_feature_fops);
 
 	return 0;
 }

@@ -2,6 +2,11 @@
 #ifndef __MSM_MEDIA_INFO_H__
 #define __MSM_MEDIA_INFO_H__
 
+/* Width and Height should be multiple of 16 */
+#define INTERLACE_WIDTH_MAX 1920
+#define INTERLACE_HEIGHT_MAX 1920
+#define INTERLACE_MB_PER_FRAME_MAX ((1920*1088)/256)
+
 #ifndef MSM_MEDIA_ALIGN
 #define MSM_MEDIA_ALIGN(__sz, __align) (((__align) & ((__align) - 1)) ?\
 	((((__sz) + (__align) - 1) / (__align)) * (__align)) :\
@@ -160,7 +165,7 @@ enum color_fmts {
 	 * Y_Stride = align(Width, 128)
 	 * UV_Stride = align(Width, 128)
 	 * Y_Scanlines = align(Height, 32)
-	 * UV_Scanlines = align(Height/2, 16)
+	 * UV_Scanlines = align(Height/2, 32)
 	 * Y_UBWC_Plane_size = align(Y_Stride * Y_Scanlines, 4096)
 	 * UV_UBWC_Plane_size = align(UV_Stride * UV_Scanlines, 4096)
 	 * Y_Meta_Stride = align(roundup(Width, Y_TileWidth), 64)
@@ -422,8 +427,8 @@ enum color_fmts {
 	 * . . . . . . . . . . . . . . . .  -------> Buffer size aligned to 4k
 	 *
 	 *
-	 * Y_Stride = align(Width * 4/3, 128)
-	 * UV_Stride = align(Width * 4/3, 128)
+	 * Y_Stride = align(Width * 4/3, 256)
+	 * UV_Stride = align(Width * 4/3, 256)
 	 * Y_Scanlines = align(Height, 32)
 	 * UV_Scanlines = align(Height/2, 16)
 	 * Y_UBWC_Plane_Size = align(Y_Stride * Y_Scanlines, 4096)
@@ -499,8 +504,8 @@ enum color_fmts {
 	 * . . . . . . . . . . . . . . . .    -------> Buffer size aligned to 4k
 	 * . . . . . . . . . . . . . . . .              V
 	 *
-	 * RGB_Stride = align(Width * 4, 128)
-	 * RGB_Scanlines = align(Height, 32)
+	 * RGB_Stride = align(Width * 4, 256)
+	 * RGB_Scanlines = align(Height, 16)
 	 * RGB_Plane_size = align(RGB_Stride * RGB_Scanlines, 4096)
 	 * RGB_Meta_Stride = align(roundup(Width, RGB_TileWidth), 64)
 	 * RGB_Meta_Scanline = align(roundup(Height, RGB_TileHeight), 16)
@@ -589,7 +594,7 @@ enum color_fmts {
 	 * . . . . . . . . . . . . . . . .    -------> Buffer size aligned to 4k
 	 * . . . . . . . . . . . . . . . .              V
 	 *
-	 * RGB_Stride = align(Width * 2, 128)
+	 * RGB_Stride = align(Width * 2, 256)
 	 * RGB_Scanlines = align(Height, 16)
 	 * RGB_Plane_size = align(RGB_Stride * RGB_Scanlines, 4096)
 	 * RGB_Meta_Stride = align(roundup(Width, RGB_TileWidth), 64)
@@ -1210,8 +1215,9 @@ static inline unsigned int VENUS_BUFFER_SIZE(unsigned int color_fmt,
 	case COLOR_FMT_NV12_UBWC:
 		y_meta_stride = VENUS_Y_META_STRIDE(color_fmt, width);
 		uv_meta_stride = VENUS_UV_META_STRIDE(color_fmt, width);
-		if ((width <= 1920 && height <= 1088) ||
-			(width <= 1088 && height <= 1920)) {
+		if (width <= INTERLACE_WIDTH_MAX &&
+			height <= INTERLACE_HEIGHT_MAX &&
+			(height * width) / 256 <= INTERLACE_MB_PER_FRAME_MAX) {
 			y_sclines =
 				VENUS_Y_SCANLINES(color_fmt, (height+1)>>1);
 			y_ubwc_plane =

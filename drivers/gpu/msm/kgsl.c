@@ -2,42 +2,29 @@
 /*
  * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/module.h>
-#include <linux/fb.h>
-#include <linux/file.h>
-#include <linux/fs.h>
-#include <linux/fdtable.h>
-#include <linux/list.h>
-#include <linux/debugfs.h>
-#include <linux/uaccess.h>
-#include <linux/interrupt.h>
-#include <linux/workqueue.h>
-#include <linux/dma-buf.h>
-#include <linux/pm_runtime.h>
-#include <linux/rbtree.h>
-#include <linux/major.h>
-#include <linux/io.h>
-#include <linux/mman.h>
-#include <linux/sort.h>
-#include <linux/security.h>
-#include <linux/compat.h>
-#include <linux/ctype.h>
-#include <linux/mm.h>
-#include <linux/ion.h>
-#include <asm/cacheflush.h>
-#include <uapi/linux/sched/types.h>
-#include <linux/of_fdt.h>
-#include <linux/msm-bus.h>
 
-#include "kgsl.h"
-#include "kgsl_debugfs.h"
-#include "kgsl_sharedmem.h"
-#include "kgsl_drawobj.h"
-#include "kgsl_device.h"
-#include "kgsl_trace.h"
-#include "kgsl_sync.h"
+#include <uapi/linux/sched/types.h>
+#include <linux/ctype.h>
+#include <linux/debugfs.h>
+#include <linux/dma-buf.h>
+#include <linux/fdtable.h>
+#include <linux/io.h>
+#include <linux/ion.h>
+#include <linux/mman.h>
+#include <linux/module.h>
+#include <linux/msm-bus.h>
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/pm_runtime.h>
+#include <linux/security.h>
+#include <linux/sort.h>
+
 #include "kgsl_compat.h"
-#include "kgsl_pool.h"
+#include "kgsl_debugfs.h"
+#include "kgsl_device.h"
+#include "kgsl_mmu.h"
+#include "kgsl_sync.h"
+#include "kgsl_trace.h"
 
 #ifndef arch_mmap_check
 #define arch_mmap_check(addr, len, flags)	(0)
@@ -1409,6 +1396,81 @@ static inline bool kgsl_mem_entry_set_pend(struct kgsl_mem_entry *entry)
 	return ret;
 }
 
+static int kgsl_get_ctxt_fault_stats(struct kgsl_context *context,
+		struct kgsl_context_property *ctxt_property)
+{
+	struct kgsl_context_property_fault fault_stats;
+	size_t copy;
+
+	/* Return the size of the subtype struct */
+	if (ctxt_property->size == 0) {
+		ctxt_property->size = sizeof(fault_stats);
+		return 0;
+	}
+
+	memset(&fault_stats, 0, sizeof(fault_stats));
+
+	copy = min_t(size_t, ctxt_property->size, sizeof(fault_stats));
+
+	fault_stats.faults = context->total_fault_count;
+	fault_stats.timestamp = context->last_faulted_cmd_ts;
+
+	/*
+	 * Copy the context fault stats to data which also serves as
+	 * the out parameter.
+	 */
+	if (copy_to_user(u64_to_user_ptr(ctxt_property->data),
+				&fault_stats, copy))
+		return -EFAULT;
+
+	return 0;
+}
+
+static long kgsl_get_ctxt_properties(struct kgsl_device_private *dev_priv,
+		struct kgsl_device_getproperty *param)
+{
+	/* Return fault stats of given context */
+	struct kgsl_context_property ctxt_property;
+	struct kgsl_context *context;
+	size_t copy;
+	long ret;
+
+	/*
+	 * If sizebytes is zero, tell the user how big the
+	 * ctxt_property struct should be.
+	 */
+	if (param->sizebytes == 0) {
+		param->sizebytes = sizeof(ctxt_property);
+		return 0;
+	}
+
+	memset(&ctxt_property, 0, sizeof(ctxt_property));
+
+	copy = min_t(size_t, param->sizebytes, sizeof(ctxt_property));
+
+	/* We expect the value passed in to contain the context id */
+	if (copy_from_user(&ctxt_property, param->value, copy))
+		return -EFAULT;
+
+	/* ctxt type zero is not valid, as we consider it as uninitialized. */
+	if (ctxt_property.type == 0)
+		return -EINVAL;
+
+	context = kgsl_context_get_owner(dev_priv,
+			ctxt_property.contextid);
+	if (!context)
+		return -EINVAL;
+
+	if (ctxt_property.type == KGSL_CONTEXT_PROP_FAULTS)
+		ret = kgsl_get_ctxt_fault_stats(context, &ctxt_property);
+	else
+		ret = -EOPNOTSUPP;
+
+	kgsl_context_put(context);
+
+	return ret;
+}
+
 static long kgsl_prop_version(struct kgsl_device_private *dev_priv,
 		struct kgsl_device_getproperty *param)
 {
@@ -1500,6 +1562,106 @@ static long kgsl_prop_secure_ctxt_support(struct kgsl_device_private *dev_priv,
 	return 0;
 }
 
+static int kgsl_query_caps_properties(struct kgsl_device *device,
+		struct kgsl_capabilities *caps)
+{
+	struct kgsl_capabilities_properties props;
+	size_t copy;
+	u32 count, *local;
+	int ret;
+
+	/* Return the size of the subtype struct */
+	if (caps->size == 0) {
+		caps->size = sizeof(props);
+		return 0;
+	}
+
+	memset(&props, 0, sizeof(props));
+
+	copy = min_t(size_t, caps->size, sizeof(props));
+
+	if (copy_from_user(&props, u64_to_user_ptr(caps->data), copy))
+		return -EFAULT;
+
+	/* Get the number of properties */
+	count = kgsl_query_property_list(device, NULL, 0);
+
+	/*
+	 * If the incoming user count is zero, they are querying the number of
+	 * available properties. Set it and return.
+	 */
+	if (props.count == 0) {
+		props.count = count;
+		goto done;
+	}
+
+	/* Copy the lesser of the user or kernel property count */
+	if (props.count < count)
+		count = props.count;
+
+	/* Create a local buffer to store the property list */
+	local = kcalloc(count, sizeof(u32), GFP_KERNEL);
+	if (!local)
+		return -ENOMEM;
+
+	/* Get the properties */
+	props.count = kgsl_query_property_list(device, local, count);
+
+	ret = copy_to_user(u64_to_user_ptr(props.list), local,
+		props.count * sizeof(u32));
+
+	kfree(local);
+
+	if (ret)
+		return -EFAULT;
+
+done:
+	if (copy_to_user(u64_to_user_ptr(caps->data), &props, copy))
+		return -EFAULT;
+
+	return 0;
+}
+
+static long kgsl_prop_query_capabilities(struct kgsl_device_private *dev_priv,
+		struct kgsl_device_getproperty *param)
+{
+	struct kgsl_capabilities caps;
+	long ret;
+	size_t copy;
+
+	/*
+	 * If sizebytes is zero, tell the user how big the capabilities struct
+	 * should be
+	 */
+	if (param->sizebytes == 0) {
+		param->sizebytes = sizeof(caps);
+		return 0;
+	}
+
+	memset(&caps, 0, sizeof(caps));
+
+	copy = min_t(size_t, param->sizebytes, sizeof(caps));
+
+	if (copy_from_user(&caps, param->value, copy))
+		return -EFAULT;
+
+	/* querytype must be non zero */
+	if (caps.querytype == 0)
+		return -EINVAL;
+
+	if (caps.querytype == KGSL_QUERY_CAPS_PROPERTIES)
+		ret = kgsl_query_caps_properties(dev_priv->device, &caps);
+	else {
+		/* Unsupported querytypes should return a unique return value */
+		return -EOPNOTSUPP;
+	}
+
+	if (copy_to_user(param->value, &caps, copy))
+		return -EFAULT;
+
+	return ret;
+}
+
 static const struct {
 	int type;
 	long (*func)(struct kgsl_device_private *dev_priv,
@@ -1509,6 +1671,8 @@ static const struct {
 	{ KGSL_PROP_GPU_RESET_STAT, kgsl_prop_gpu_reset_stat},
 	{ KGSL_PROP_SECURE_BUFFER_ALIGNMENT, kgsl_prop_secure_buf_alignment },
 	{ KGSL_PROP_SECURE_CTXT_SUPPORT, kgsl_prop_secure_ctxt_support },
+	{ KGSL_PROP_QUERY_CAPABILITIES, kgsl_prop_query_capabilities },
+	{ KGSL_PROP_CONTEXT_PROPERTY, kgsl_get_ctxt_properties },
 };
 
 /*call all ioctl sub functions with driver locked*/
@@ -1528,6 +1692,30 @@ long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,
 		return device->ftbl->getproperty_compat(device, param);
 
 	return device->ftbl->getproperty(device, param);
+}
+
+int kgsl_query_property_list(struct kgsl_device *device, u32 *list, u32 count)
+{
+	int num = 0;
+
+	if (!list) {
+		num = ARRAY_SIZE(kgsl_property_funcs);
+
+		if (device->ftbl->query_property_list)
+			num += device->ftbl->query_property_list(device, list,
+				count);
+
+		return num;
+	}
+
+	for (; num < count && num < ARRAY_SIZE(kgsl_property_funcs); num++)
+		list[num] = kgsl_property_funcs[num].type;
+
+	if (device->ftbl->query_property_list)
+		num += device->ftbl->query_property_list(device, &list[num],
+			count - num);
+
+	return num;
 }
 
 long kgsl_ioctl_device_setproperty(struct kgsl_device_private *dev_priv,
@@ -2219,11 +2407,11 @@ static int memdesc_sg_virt(struct kgsl_memdesc *memdesc, struct file *vmfile)
 	if (sglen == 0 || sglen >= LONG_MAX)
 		return -EINVAL;
 
-	pages = kgsl_malloc(sglen * sizeof(struct page *));
+	pages = kvcalloc(sglen, sizeof(*pages), GFP_KERNEL);
 	if (pages == NULL)
 		return -ENOMEM;
 
-	memdesc->sgt = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
+	memdesc->sgt = kmalloc(sizeof(*memdesc->sgt), GFP_KERNEL);
 	if (memdesc->sgt == NULL) {
 		ret = -ENOMEM;
 		goto out;
@@ -2260,7 +2448,7 @@ out:
 		kfree(memdesc->sgt);
 		memdesc->sgt = NULL;
 	}
-	kgsl_free(pages);
+	kvfree(pages);
 	return ret;
 }
 

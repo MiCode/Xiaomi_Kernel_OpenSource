@@ -600,6 +600,7 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 		ram_cfg_base = drvdata->ram_cfg;
 		ret = __dcc_ll_cfg(drvdata, list);
 		if (ret) {
+			dcc_writel(drvdata, 0, DCC_LL_LOCK(list));
 			dev_info(drvdata->dev, "DCC ram programming failed\n");
 			goto err;
 		}

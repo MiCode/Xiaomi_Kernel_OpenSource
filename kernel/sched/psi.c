@@ -189,7 +189,7 @@ static void group_init(struct psi_group *group)
 	for_each_possible_cpu(cpu)
 		seqcount_init(&per_cpu_ptr(group->pcpu, cpu)->seq);
 	group->avg_next_update = sched_clock() + psi_period;
-	INIT_DELAYED_WORK(&group->avgs_work, psi_avgs_work);
+	INIT_DEFERRABLE_WORK(&group->avgs_work, psi_avgs_work);
 	mutex_init(&group->avgs_lock);
 	/* Init trigger-related members */
 	atomic_set(&group->poll_scheduled, 0);
@@ -455,7 +455,7 @@ static void trace_event_helper(struct psi_group *group)
 	u64 memstall = group->total[PSI_POLL][PSI_MEM_SOME];
 
 	for_each_populated_zone(zone) {
-		wmark = zone->watermark[WMARK_HIGH];
+		wmark = high_wmark_pages(zone);
 		free = zone_page_state(zone, NR_FREE_PAGES);
 		cma = zone_page_state(zone, NR_FREE_CMA_PAGES);
 		file = zone_page_state(zone, NR_ZONE_ACTIVE_FILE) +

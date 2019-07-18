@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPAHAL_HW_STATS_I_H_
@@ -38,6 +38,12 @@ struct ipahal_stats_flt_rt_hdr_hw {
 struct ipahal_stats_flt_rt_hw {
 	u64 num_packets_hash:32;
 	u64 num_packets:32;
+};
+
+struct ipahal_stats_flt_rt_v4_5_hw {
+	u64 num_packets_hash:32;
+	u64 num_packets:32;
+	u64 num_bytes;
 };
 
 struct ipahal_stats_drop_hw {

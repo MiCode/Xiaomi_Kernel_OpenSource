@@ -220,7 +220,7 @@ static ssize_t fts_fwupdate_store(struct device *dev,
 	}
 
 	logError(0, "%s Starting flashing procedure...\n", tag);
-	ret = flash_burn(fwD, mode, !mode);
+	ret = flash_burn(&fwD, mode, !mode);
 
 	if (ret < OK && ret != (ERROR_FW_NO_UPDATE | ERROR_FLASH_BURN_FAILED))
 		logError(0, "%s flashProcedure: ERROR %02X\n",
@@ -3287,23 +3287,39 @@ static void fts_fw_update_auto(struct work_struct *work)
 	struct delayed_work, work);
 	int crc_status = 0;
 	int error = 0;
+	struct Firmware fwD;
+	int orig_size;
+	u8 *orig_data;
 
 	info = container_of(fwu_work, struct fts_ts_info, fwu_work);
 	logError(0, "%s Fw Auto Update is starting...\n", tag);
 
-	fts_chip_powercycle(info);
-	retval = flashProcedure(PATH_FILE_FW, crc_status, 1);
-	if ((retval & ERROR_FILE_NOT_FOUND) == ERROR_FILE_NOT_FOUND ||
-		retval == (ERROR_FW_NO_UPDATE | ERROR_FLASH_BURN_FAILED)) {
-		logError(1, "%s %s: no firmware file or no newer firmware!\n",
-			tag, __func__);
+	ret = getFWdata(PATH_FILE_FW, &orig_data, &orig_size, 0);
+	if (ret < OK) {
+		logError(0, "%s %s: impossible retrieve FW... ERROR %08X\n",
+			tag, __func__, ERROR_MEMH_READ);
+		ret = (ret | ERROR_MEMH_READ);
 		goto NO_FIRMWARE_UPDATE;
-	} else if ((retval & 0xFF000000) == ERROR_FLASH_PROCEDURE) {
+	}
+
+	ret = parseBinFile(orig_data, orig_size, &fwD, 1);
+	if (ret < OK) {
+		logError(1, "%s %s: impossible parse ERROR %08X\n",
+			tag, __func__, ERROR_MEMH_READ);
+		ret = (ret | ERROR_MEMH_READ);
+		kfree(fwD.data);
+		goto NO_FIRMWARE_UPDATE;
+	}
+
+	fts_chip_powercycle(info);
+	retval = flash_burn(&fwD, crc_status, 1);
+
+	if ((retval & 0xFF000000) == ERROR_FLASH_PROCEDURE) {
 		logError(1, "%s %s:firmware update retry! ERROR %08X\n",
 			tag, __func__, retval);
 		fts_chip_powercycle(info);
 
-		retval1 = flashProcedure(PATH_FILE_FW, crc_status, 1);
+		retval1 = flash_burn(&fwD, crc_status, 1);
 
 		if ((retval1 & 0xFF000000) == ERROR_FLASH_PROCEDURE) {
 			logError(1, "%s %s: update failed again! ERROR %08X\n",
@@ -3312,6 +3328,7 @@ static void fts_fw_update_auto(struct work_struct *work)
 		}
 	}
 
+	kfree(fwD.data);
 	u16ToU8_be(SYSTEM_RESET_ADDRESS, &cmd[1]);
 	ret = fts_writeCmd(cmd, 4);
 	if (ret < OK) {

@@ -168,6 +168,7 @@ int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
 
 	switch (bandwidth) {
 	case CNSS_BUS_WIDTH_NONE:
+	case CNSS_BUS_WIDTH_IDLE:
 	case CNSS_BUS_WIDTH_LOW:
 	case CNSS_BUS_WIDTH_MEDIUM:
 	case CNSS_BUS_WIDTH_HIGH:
@@ -441,6 +442,8 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 	else if (ret)
 		goto shutdown;
 
+	cnss_vreg_unvote_type(plat_priv, CNSS_VREG_PRIM);
+
 	return 0;
 
 shutdown:
@@ -654,7 +657,7 @@ int cnss_idle_restart(struct device *dev)
 
 	ret = cnss_driver_event_post(plat_priv,
 				     CNSS_DRIVER_EVENT_IDLE_RESTART,
-				     CNSS_EVENT_SYNC, NULL);
+				     CNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
 	if (ret)
 		goto out;
 
@@ -708,7 +711,7 @@ int cnss_idle_shutdown(struct device *dev)
 skip_wait:
 	return cnss_driver_event_post(plat_priv,
 				      CNSS_DRIVER_EVENT_IDLE_SHUTDOWN,
-				      CNSS_EVENT_SYNC, NULL);
+				      CNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
 }
 EXPORT_SYMBOL(cnss_idle_shutdown);
 
@@ -722,19 +725,32 @@ static int cnss_get_resources(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
+	ret = cnss_get_clk(plat_priv);
+	if (ret) {
+		cnss_pr_err("Failed to get clocks, err = %d\n", ret);
+		goto put_vreg;
+	}
+
 	ret = cnss_get_pinctrl(plat_priv);
 	if (ret) {
 		cnss_pr_err("Failed to get pinctrl, err = %d\n", ret);
-		goto out;
+		goto put_clk;
 	}
 
 	return 0;
+
+put_clk:
+	cnss_put_clk(plat_priv);
+put_vreg:
+	cnss_put_vreg_type(plat_priv, CNSS_VREG_PRIM);
 out:
 	return ret;
 }
 
 static void cnss_put_resources(struct cnss_plat_data *plat_priv)
 {
+	cnss_put_clk(plat_priv);
+	cnss_put_vreg_type(plat_priv, CNSS_VREG_PRIM);
 }
 
 static int cnss_modem_notifier_nb(struct notifier_block *nb,
@@ -1524,7 +1540,8 @@ static int cnss_init_dump_entry(struct cnss_plat_data *plat_priv)
 	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
 	dump_entry.addr = virt_to_phys(&ramdump_info->dump_data);
 
-	return msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	return msm_dump_data_register_nominidump(MSM_DUMP_TABLE_APPS,
+						&dump_entry);
 }
 
 static int cnss_register_ramdump_v1(struct cnss_plat_data *plat_priv)
@@ -1631,7 +1648,8 @@ static int cnss_register_ramdump_v2(struct cnss_plat_data *plat_priv)
 	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
 	dump_entry.addr = virt_to_phys(dump_data);
 
-	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	ret = msm_dump_data_register_nominidump(MSM_DUMP_TABLE_APPS,
+						&dump_entry);
 	if (ret) {
 		cnss_pr_err("Failed to setup dump table, err = %d\n", ret);
 		goto free_ramdump;
@@ -1929,6 +1947,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	cnss_set_plat_priv(plat_dev, plat_priv);
 	platform_set_drvdata(plat_dev, plat_priv);
 	INIT_LIST_HEAD(&plat_priv->vreg_list);
+	INIT_LIST_HEAD(&plat_priv->clk_list);
 
 	cnss_get_cpr_info(plat_priv);
 	cnss_init_control_params(plat_priv);
@@ -1976,6 +1995,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 		goto destroy_debugfs;
 
 	cnss_register_coex_service(plat_priv);
+	cnss_register_ims_service(plat_priv);
 
 	ret = cnss_genl_init();
 	if (ret < 0)
@@ -2017,6 +2037,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 	struct cnss_plat_data *plat_priv = platform_get_drvdata(plat_dev);
 
 	cnss_genl_exit();
+	cnss_unregister_ims_service(plat_priv);
 	cnss_unregister_coex_service(plat_priv);
 	cnss_misc_deinit(plat_priv);
 	cnss_debugfs_destroy(plat_priv);

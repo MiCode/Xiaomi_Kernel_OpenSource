@@ -746,8 +746,19 @@ static void msm_gpio_irq_enable(struct irq_data *d)
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
 
-	if (d->parent_data)
+	if (d->parent_data) {
+		/*
+		 * Clear the interrupt that may be pending before we enable
+		 * the line.
+		 * This is especially a problem with the GPIOs routed to the
+		 * PDC. These GPIOs are direct-connect interrupts to the GIC.
+		 * Disabling the interrupt line at the PDC does not prevent
+		 * the interrupt from being latched at the GIC. The state at
+		 * GIC needs to be cleared before enabling.
+		 */
+		irq_chip_set_parent_state(d, IRQCHIP_STATE_PENDING, 0);
 		irq_chip_enable_parent(d);
+	}
 
 	if (test_bit(d->hwirq, pctrl->wakeup_masked_irqs))
 		return;
@@ -1017,11 +1028,12 @@ static int msm_gpio_domain_alloc(struct irq_domain *domain, unsigned int virq,
 
 	parent.fwspec.param_count = 2;
 	parent.fwspec.param[0] = GPIO_NO_WAKE_IRQ;
-	parent.fwspec.param[1] = type;
 	ret = of_irq_domain_map(fwspec, &parent.fwspec);
 	if (ret == -ENOMEM)
 		return ret;
 
+	/* Set something other than IRQ_TYPE_NONE to avoid GIC complaint. */
+	parent.fwspec.param[1] = IRQ_TYPE_EDGE_RISING;
 	parent.fwspec.fwnode = domain->parent->fwnode;
 
 	ret = irq_domain_alloc_irqs_parent(domain, virq, nr_irqs, &parent);
@@ -1043,6 +1055,10 @@ static int msm_gpio_to_irq(struct gpio_chip *chip, unsigned int offset)
 
 	fwspec.fwnode = of_node_to_fwnode(chip->of_node);
 	fwspec.param[0] = offset;
+	/*
+	 * Since we don't know the trigger type, let's create it with
+	 * IRQ_TYPE_NONE and let the driver override it in request_irq.
+	 */
 	fwspec.param[1] = IRQ_TYPE_NONE;
 	fwspec.param_count = 2;
 

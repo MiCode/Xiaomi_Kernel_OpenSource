@@ -17,6 +17,7 @@
 #include "rmnet_vnd.h"
 #include "rmnet_map.h"
 #include "rmnet_handlers.h"
+#include "rmnet_descriptor.h"
 
 #include <soc/qcom/rmnet_qmi.h>
 #include <soc/qcom/qmi_rmnet.h>
@@ -78,6 +79,20 @@ void rmnet_set_skb_proto(struct sk_buff *skb)
 }
 EXPORT_SYMBOL(rmnet_set_skb_proto);
 
+bool (*rmnet_shs_slow_start_detect)(u32 hash_key) __rcu __read_mostly;
+EXPORT_SYMBOL(rmnet_shs_slow_start_detect);
+
+bool rmnet_slow_start_on(u32 hash_key)
+{
+	bool (*rmnet_shs_slow_start_on)(u32 hash_key);
+
+	rmnet_shs_slow_start_on = rcu_dereference(rmnet_shs_slow_start_detect);
+	if (rmnet_shs_slow_start_on)
+		return rmnet_shs_slow_start_on(hash_key);
+	return false;
+}
+EXPORT_SYMBOL(rmnet_slow_start_on);
+
 /* Shs hook handler */
 
 int (*rmnet_shs_skb_entry)(struct sk_buff *skb,
@@ -106,11 +121,14 @@ rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port)
 	skb->pkt_type = PACKET_HOST;
 	skb_set_mac_header(skb, 0);
 
+	rcu_read_lock();
 	rmnet_shs_stamp = rcu_dereference(rmnet_shs_skb_entry);
 	if (rmnet_shs_stamp) {
 		rmnet_shs_stamp(skb, port);
+		rcu_read_unlock();
 		return;
 	}
+	rcu_read_unlock();
 
 	if (port->data_format & RMNET_INGRESS_FORMAT_DL_MARKER) {
 		if (!rmnet_check_skb_can_gro(skb) &&
@@ -151,12 +169,15 @@ rmnet_deliver_skb_wq(struct sk_buff *skb, struct rmnet_port *port,
 	/* packets coming from work queue context due to packet flush timer
 	 * must go through the special workqueue path in SHS driver
 	 */
+	rcu_read_lock();
 	rmnet_shs_stamp = (!ctx) ? rcu_dereference(rmnet_shs_skb_entry) :
 				   rcu_dereference(rmnet_shs_skb_entry_wq);
 	if (rmnet_shs_stamp) {
 		rmnet_shs_stamp(skb, port);
+		rcu_read_unlock();
 		return;
 	}
+	rcu_read_unlock();
 
 	if (ctx == RMNET_NET_RX_CTX) {
 		if (port->data_format & RMNET_INGRESS_FORMAT_DL_MARKER) {
@@ -294,6 +315,14 @@ rmnet_map_ingress_handler(struct sk_buff *skb,
 		skb_push(skb, ETH_HLEN);
 	}
 
+	if (port->data_format & (RMNET_FLAGS_INGRESS_COALESCE |
+				 RMNET_FLAGS_INGRESS_MAP_CKSUMV5)) {
+		if (skb_is_nonlinear(skb)) {
+			rmnet_frag_ingress_handler(skb, port);
+			return;
+		}
+	}
+
 	/* No aggregation. Pass the frame on as is */
 	if (!(port->data_format & RMNET_FLAGS_INGRESS_DEAGGREGATION)) {
 		__rmnet_map_ingress_handler(skb, port);
@@ -301,11 +330,14 @@ rmnet_map_ingress_handler(struct sk_buff *skb,
 	}
 
 	/* Pass off handling to rmnet_perf module, if present */
+	rcu_read_lock();
 	rmnet_perf_core_deaggregate = rcu_dereference(rmnet_perf_deag_entry);
 	if (rmnet_perf_core_deaggregate) {
 		rmnet_perf_core_deaggregate(skb, port);
+		rcu_read_unlock();
 		return;
 	}
+	rcu_read_unlock();
 
 	/* Deaggregation and freeing of HW originating
 	 * buffers is done within here
@@ -361,7 +393,8 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 	if (csum_type)
 		rmnet_map_checksum_uplink_packet(skb, orig_dev, csum_type);
 
-	map_header = rmnet_map_add_map_header(skb, additional_header_len, 0);
+	map_header = rmnet_map_add_map_header(skb, additional_header_len, 0,
+					      port);
 	if (!map_header)
 		return -ENOMEM;
 

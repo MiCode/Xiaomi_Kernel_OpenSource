@@ -399,7 +399,6 @@ struct mmc_card {
 	unsigned int		bouncesz;	/* Bounce buffer size */
 	struct notifier_block   reboot_notify;
 	enum mmc_pon_type	pon_type;
-	u8 cached_ext_csd;
 	struct mmc_bkops_info bkops;
 };
 

@@ -3,23 +3,18 @@
  * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/export.h>
-#include <linux/interrupt.h>
-#include <asm/page.h>
-#include <linux/pm_runtime.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
-#include <linux/ktime.h>
-#include <linux/delay.h>
-#include <linux/msm_adreno_devfreq.h>
+#include <linux/msm_kgsl.h>
 #include <linux/of_device.h>
+#include <linux/pm_runtime.h>
+#include <linux/regulator/consumer.h>
+#include <linux/slab.h>
 #include <linux/thermal.h>
 
-#include "kgsl.h"
-#include "kgsl_pwrscale.h"
 #include "kgsl_device.h"
+#include "kgsl_pwrscale.h"
 #include "kgsl_trace.h"
-#include "kgsl_gmu_core.h"
 
 #define KGSL_PWRFLAGS_POWER_ON 0
 #define KGSL_PWRFLAGS_CLK_ON   1
@@ -53,10 +48,11 @@ static const char * const clocks[] = {
 	"rbcpr_clk",
 	"iref_clk",
 	"gmu_clk",
-	"ahb_clk"
+	"ahb_clk",
+	"smmu_vote",
 };
 
-static unsigned int ib_votes[KGSL_MAX_BUSLEVELS];
+static unsigned long ib_votes[KGSL_MAX_BUSLEVELS];
 static int last_vote_buslevel;
 static int max_vote_buslevel;
 
@@ -120,7 +116,7 @@ static void _record_pwrevent(struct kgsl_device *device,
 /**
  * kgsl_get_bw() - Return latest msm bus IB vote
  */
-static unsigned int kgsl_get_bw(void)
+static unsigned long kgsl_get_bw(void)
 {
 	return ib_votes[last_vote_buslevel];
 }
@@ -134,8 +130,8 @@ static unsigned int kgsl_get_bw(void)
 static void _ab_buslevel_update(struct kgsl_pwrctrl *pwr,
 				unsigned long *ab)
 {
-	unsigned int ib = ib_votes[last_vote_buslevel];
-	unsigned int max_bw = ib_votes[max_vote_buslevel];
+	unsigned long ib = ib_votes[last_vote_buslevel];
+	unsigned long max_bw = ib_votes[max_vote_buslevel];
 
 	if (!ab)
 		return;
@@ -168,6 +164,12 @@ static unsigned int _adjust_pwrlevel(struct kgsl_pwrctrl *pwr, int level,
 	unsigned int min_pwrlevel = min_t(unsigned int,
 					pwr->thermal_pwrlevel_floor,
 					pwr->min_pwrlevel);
+
+	/* Ensure that max/min pwrlevels are within thermal max/min limits */
+	max_pwrlevel = min_t(unsigned int, max_pwrlevel,
+					pwr->thermal_pwrlevel_floor);
+	min_pwrlevel = max_t(unsigned int, min_pwrlevel,
+					pwr->thermal_pwrlevel);
 
 	switch (pwrc->type) {
 	case KGSL_CONSTRAINT_PWRLEVEL: {
@@ -2098,11 +2100,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 				"qcom,l2pc-update-queue");
 
 	pm_runtime_enable(&pdev->dev);
-
-	/* Bus width in bytes, set it to zero if not found */
-	if (of_property_read_u32(pdev->dev.of_node, "qcom,bus-width",
-		&pwr->bus_width))
-		pwr->bus_width = 0;
 
 	/* Check if gpu bandwidth vote device is defined in dts */
 	if (pwr->bus_control)

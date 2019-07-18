@@ -1044,6 +1044,10 @@ vs_block_server_alloc(struct vs_service_device *service)
 	 * 4 in all mainline kernels). That possibility is the only reason we
 	 * can't enable rx_atomic for this driver.
 	 */
+	server->bioset = kzalloc(sizeof(struct bio_set), GFP_KERNEL);
+	if (!server->bioset)
+		goto fail_create_bioset;
+
 	err = bioset_init(server->bioset, min_t(unsigned, service->recv_quota,
 				VSERVICE_BLOCK_IO_READ_MAX_PENDING +
 				VSERVICE_BLOCK_IO_WRITE_MAX_PENDING),

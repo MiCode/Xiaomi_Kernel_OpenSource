@@ -102,7 +102,7 @@ int getFirmwareVersion(u16 *fw_vers, u16 *config_id);
 int getFWdata(const char *pathToFile, u8 **data, int *size, int from);
 int parseBinFile(u8 *fw_data, int fw_size, struct Firmware *fw, int keep_cx);
 int readFwFile(const char *path, struct Firmware *fw, int keep_cx);
-int flash_burn(struct Firmware fw, int force_burn, int keep_cx);
+int flash_burn(struct Firmware *fw, int force_burn, int keep_cx);
 int flashProcedure(const char *path, int force, int keep_cx);
 
 #endif

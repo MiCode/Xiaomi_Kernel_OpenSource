@@ -130,9 +130,7 @@ struct sched_cluster {
 	int max_power_cost;
 	int min_power_cost;
 	int max_possible_capacity;
-	int capacity;
 	int efficiency; /* Differentiate cpus with different IPC capability */
-	int load_scale_factor;
 	unsigned int exec_scale_factor;
 	/*
 	 * max_freq = user maximum
@@ -2729,12 +2727,6 @@ enum sched_boost_policy {
 	SCHED_BOOST_ON_ALL,
 };
 
-/*
- * Returns the rq capacity of any rq in a group. This does not play
- * well with groups where rq capacity can change independently.
- */
-#define group_rq_capacity(group) cpu_capacity(group_first_cpu(group))
-
 #ifdef CONFIG_SCHED_WALT
 
 static inline int cluster_first_cpu(struct sched_cluster *cluster)
@@ -2747,7 +2739,7 @@ struct related_thread_group {
 	raw_spinlock_t lock;
 	struct list_head tasks;
 	struct list_head list;
-	struct sched_cluster *preferred_cluster;
+	bool skip_min;
 	struct rcu_head rcu;
 	u64 last_update;
 	u64 downmigrate_ts;
@@ -2764,8 +2756,6 @@ extern unsigned int max_possible_freq;
 extern unsigned int min_max_freq;
 extern unsigned int max_possible_efficiency;
 extern unsigned int min_possible_efficiency;
-extern unsigned int max_capacity;
-extern unsigned int min_capacity;
 extern unsigned int max_possible_capacity;
 extern unsigned int min_max_possible_capacity;
 extern unsigned int max_power_cost;
@@ -2793,19 +2783,9 @@ static inline int asym_cap_siblings(int cpu1, int cpu2)
 		cpumask_test_cpu(cpu2, &asym_cap_sibling_cpus));
 }
 
-static inline int cpu_capacity(int cpu)
-{
-	return cpu_rq(cpu)->cluster->capacity;
-}
-
 static inline int cpu_max_possible_capacity(int cpu)
 {
 	return cpu_rq(cpu)->cluster->max_possible_capacity;
-}
-
-static inline int cpu_load_scale_factor(int cpu)
-{
-	return cpu_rq(cpu)->cluster->load_scale_factor;
 }
 
 static inline unsigned int cluster_max_freq(struct sched_cluster *cluster)
@@ -2828,65 +2808,6 @@ static inline unsigned int cpu_max_possible_freq(int cpu)
 	return cpu_rq(cpu)->cluster->max_possible_freq;
 }
 
-/* Keep track of max/min capacity possible across CPUs "currently" */
-static inline void __update_min_max_capacity(void)
-{
-	int i;
-	int max_cap = 0, min_cap = INT_MAX;
-
-	for_each_possible_cpu(i) {
-		if (!cpu_active(i))
-			continue;
-
-		max_cap = max(max_cap, cpu_capacity(i));
-		min_cap = min(min_cap, cpu_capacity(i));
-	}
-
-	max_capacity = max_cap;
-	min_capacity = min_cap;
-}
-
-/*
- * Return load_scale_factor of a cpu in reference to "most" efficient cpu, so
- * that "most" efficient cpu gets a load_scale_factor of 1
- */
-static inline unsigned long
-load_scale_cpu_efficiency(struct sched_cluster *cluster)
-{
-	return DIV_ROUND_UP(1024 * max_possible_efficiency,
-			    cluster->efficiency);
-}
-
-/*
- * Return load_scale_factor of a cpu in reference to cpu with best max_freq
- * (max_possible_freq), so that one with best max_freq gets a load_scale_factor
- * of 1.
- */
-static inline unsigned long load_scale_cpu_freq(struct sched_cluster *cluster)
-{
-	return DIV_ROUND_UP(1024 * max_possible_freq,
-			   cluster_max_freq(cluster));
-}
-
-static inline int compute_load_scale_factor(struct sched_cluster *cluster)
-{
-	int load_scale = 1024;
-
-	/*
-	 * load_scale_factor accounts for the fact that task load
-	 * is in reference to "best" performing cpu. Task's load will need to be
-	 * scaled (up) by a factor to determine suitability to be placed on a
-	 * (little) cpu.
-	 */
-	load_scale *= load_scale_cpu_efficiency(cluster);
-	load_scale >>= 10;
-
-	load_scale *= load_scale_cpu_freq(cluster);
-	load_scale >>= 10;
-
-	return load_scale;
-}
-
 static inline bool hmp_capable(void)
 {
 	return max_possible_capacity != min_max_possible_capacity;
@@ -2902,55 +2823,6 @@ static inline bool is_min_capacity_cpu(int cpu)
 	return cpu_max_possible_capacity(cpu) == min_max_possible_capacity;
 }
 
-/*
- * 'load' is in reference to "best cpu" at its best frequency.
- * Scale that in reference to a given cpu, accounting for how bad it is
- * in reference to "best cpu".
- */
-static inline u64 scale_load_to_cpu(u64 task_load, int cpu)
-{
-	u64 lsf = cpu_load_scale_factor(cpu);
-
-	if (lsf != 1024) {
-		task_load *= lsf;
-		task_load /= 1024;
-	}
-
-	return task_load;
-}
-
-/*
- * Return 'capacity' of a cpu in reference to "least" efficient cpu, such that
- * least efficient cpu gets capacity of 1024
- */
-static unsigned long
-capacity_scale_cpu_efficiency(struct sched_cluster *cluster)
-{
-	return (1024 * cluster->efficiency) / min_possible_efficiency;
-}
-
-/*
- * Return 'capacity' of a cpu in reference to cpu with lowest max_freq
- * (min_max_freq), such that one with lowest max_freq gets capacity of 1024.
- */
-static unsigned long capacity_scale_cpu_freq(struct sched_cluster *cluster)
-{
-	return (1024 * cluster_max_freq(cluster)) / min_max_freq;
-}
-
-static inline int compute_capacity(struct sched_cluster *cluster)
-{
-	int capacity = 1024;
-
-	capacity *= capacity_scale_cpu_efficiency(cluster);
-	capacity >>= 10;
-
-	capacity *= capacity_scale_cpu_freq(cluster);
-	capacity >>= 10;
-
-	return capacity;
-}
-
 static inline unsigned int task_load(struct task_struct *p)
 {
 	return p->ravg.demand;
@@ -2960,12 +2832,6 @@ static inline unsigned int task_pl(struct task_struct *p)
 {
 	return p->ravg.pred_demand;
 }
-
-#define pct_to_real(tunable)	\
-		(div64_u64((u64)tunable * (u64)max_task_load(), 100))
-
-#define real_to_pct(tunable)	\
-		(div64_u64((u64)tunable * (u64)100, (u64)max_task_load()))
 
 static inline bool task_in_related_thread_group(struct task_struct *p)
 {
@@ -2995,6 +2861,7 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 #define	CPU_RESERVED	1
 
 extern enum sched_boost_policy boost_policy;
+extern unsigned int sched_task_filter_util;
 static inline enum sched_boost_policy sched_boost_policy(void)
 {
 	return boost_policy;
@@ -3087,8 +2954,6 @@ static inline void walt_fixup_cum_window_demand(struct rq *rq, s64 scaled_delta)
 		rq->cum_window_demand_scaled = 0;
 }
 
-extern void update_cpu_cluster_capacity(const cpumask_t *cpus);
-
 extern unsigned long thermal_cap(int cpu);
 
 extern void clear_walt_request(int cpu);
@@ -3124,15 +2989,12 @@ static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
 		 * under conservative boost.
 		 */
 		if (sched_boost() == CONSERVATIVE_BOOST &&
-				task_util(p) <=
-				sysctl_sched_min_task_util_for_boost)
+				task_util(p) <= sched_task_filter_util)
 			policy = SCHED_BOOST_NONE;
 	}
 
 	return policy;
 }
-
-extern void walt_update_min_max_capacity(void);
 
 static inline bool is_min_capacity_cluster(struct sched_cluster *cluster)
 {
@@ -3200,18 +3062,6 @@ static inline struct sched_cluster *rq_cluster(struct rq *rq)
 
 static inline int asym_cap_siblings(int cpu1, int cpu2) { return 0; }
 
-static inline u64 scale_load_to_cpu(u64 load, int cpu)
-{
-	return load;
-}
-
-#ifdef CONFIG_SMP
-static inline int cpu_capacity(int cpu)
-{
-	return SCHED_CAPACITY_SCALE;
-}
-#endif
-
 static inline void set_preferred_cluster(struct related_thread_group *grp) { }
 
 static inline bool task_in_related_thread_group(struct task_struct *p)
@@ -3246,8 +3096,6 @@ static inline int alloc_related_thread_groups(void) { return 0; }
 
 static inline void walt_fixup_cum_window_demand(struct rq *rq,
 						s64 scaled_delta) { }
-
-static inline void update_cpu_cluster_capacity(const cpumask_t *cpus) { }
 
 #ifdef CONFIG_SMP
 static inline unsigned long thermal_cap(int cpu)
@@ -3285,7 +3133,6 @@ static inline unsigned int power_cost(int cpu, u64 demand)
 #endif
 
 static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
-static inline void walt_update_min_max_capacity(void) { }
 #endif	/* CONFIG_SCHED_WALT */
 
 struct sched_avg_stats {

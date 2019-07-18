@@ -2,22 +2,21 @@
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/module.h>
-#include <linux/device.h>
-#include <linux/iommu.h>
-#include <linux/interrupt.h>
-#include <linux/io.h>
-#include <linux/of_platform.h>
-#include <linux/msm-bus.h>
-#include <linux/msm-bus-board.h>
-#include <linux/pm_opp.h>
-#include <soc/qcom/cmd-db.h>
-#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 
+#include <linux/delay.h>
+#include <linux/firmware.h>
+#include <linux/io.h>
+#include <linux/iommu.h>
+#include <linux/mailbox_client.h>
+#include <linux/msm-bus.h>
+#include <linux/of_platform.h>
+#include <linux/regulator/consumer.h>
+#include <linux/slab.h>
+#include <soc/qcom/cmd-db.h>
+
+#include "adreno.h"
 #include "kgsl_device.h"
 #include "kgsl_gmu.h"
-#include "kgsl_hfi.h"
-#include "adreno.h"
 
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl."
@@ -1649,9 +1648,9 @@ static int gmu_start(struct kgsl_device *device)
 		gmu_enable_clks(device);
 		gmu_dev_ops->irq_enable(device);
 
-		/* Vote for 300MHz DDR for GMU to init */
+		/* Vote for minimal DDR BW for GMU to init */
 		ret = msm_bus_scale_client_update_request(gmu->pcl,
-				pwr->pwrlevels[pwr->default_pwrlevel].bus_freq);
+				pwr->pwrlevels[pwr->default_pwrlevel].bus_min);
 		if (ret)
 			dev_err(&gmu->pdev->dev,
 				"Failed to allocate gmu b/w: %d\n", ret);

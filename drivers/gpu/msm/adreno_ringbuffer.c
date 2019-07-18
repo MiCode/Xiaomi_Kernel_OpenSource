@@ -2,26 +2,16 @@
 /*
  * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/slab.h>
-#include <linux/sched.h>
+
 #include <linux/sched/clock.h>
-#include <linux/log2.h>
-#include <linux/time.h>
-#include <linux/delay.h>
+#include <linux/slab.h>
 
-#include "kgsl.h"
-#include "kgsl_sharedmem.h"
-#include "kgsl_trace.h"
-#include "kgsl_pwrctrl.h"
-
+#include "a3xx_reg.h"
 #include "adreno.h"
-#include "adreno_iommu.h"
 #include "adreno_pm4types.h"
 #include "adreno_ringbuffer.h"
 #include "adreno_trace.h"
-
-#include "a3xx_reg.h"
-#include "adreno_a5xx.h"
+#include "kgsl_trace.h"
 
 #define RB_HOSTPTR(_rb, _pos) \
 	((unsigned int *) ((_rb)->buffer_desc.hostptr + \
@@ -326,6 +316,16 @@ int adreno_ringbuffer_probe(struct adreno_device *adreno_dev)
 			break;
 	}
 
+	if (!status && ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
+		int r = 0;
+
+		if (gpudev->preemption_init)
+			r = gpudev->preemption_init(adreno_dev);
+
+		if (!WARN(r, "adreno: GPU preemption is disabled\n"))
+			set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
+	}
+
 	if (status)
 		adreno_ringbuffer_close(adreno_dev);
 	else
@@ -340,7 +340,6 @@ static void _adreno_ringbuffer_close(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	kgsl_free_global(device, &rb->pagetable_desc);
-	kgsl_free_global(device, &rb->preemption_desc);
 
 	kgsl_free_global(device, &rb->buffer_desc);
 	kgsl_del_event_group(&rb->events);
@@ -350,6 +349,7 @@ static void _adreno_ringbuffer_close(struct adreno_device *adreno_dev,
 void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	int i;
 
@@ -358,6 +358,10 @@ void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i)
 		_adreno_ringbuffer_close(adreno_dev, rb);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		if (gpudev->preemption_close)
+			gpudev->preemption_close(adreno_dev);
 }
 
 /*
@@ -394,6 +398,12 @@ static inline int cp_mem_write(struct adreno_device *adreno_dev,
 	cmds[dwords++] = value;
 
 	return dwords;
+}
+
+static bool _check_secured(struct adreno_context *drawctxt, unsigned int flags)
+{
+	return ((drawctxt->base.flags & KGSL_CONTEXT_SECURE) &&
+		!is_internal_cmds(flags));
 }
 
 static int
@@ -441,8 +451,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 */
 	if (drawctxt) {
 		drawctxt->internal_timestamp = rb->timestamp;
-		if (drawctxt->base.flags & KGSL_CONTEXT_SECURE)
-			secured_ctxt = true;
+		secured_ctxt = _check_secured(drawctxt, flags);
 	}
 
 	/*

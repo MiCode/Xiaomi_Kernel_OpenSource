@@ -140,22 +140,19 @@ struct synx_table_row {
 };
 
 /**
- * struct bind_operations - Function pointers that need to be defined
- *    to achieve bind functionality for external fence with synx obj
+ * struct synx_registered_ops - External sync clients registered for bind
+ * operations with synx driver
  *
- * @register_callback   : Function to register with external sync object
- * @deregister_callback : Function to deregister with external sync object
- * @enable_signaling    : Function to enable the signaling on the external
- *                        sync object (optional)
- * @signal              : Function to signal the external sync object
+ * @valid : Validity of the client registered bind ops
+ * @name  : Name of the external sync client
+ * @ops   : Bind operations struct for the client
+ * @type  : External client type
  */
-struct bind_operations {
-	int (*register_callback)(synx_callback cb_func,
-		void *userdata, s32 sync_obj);
-	int (*deregister_callback)(synx_callback cb_func,
-		void *userdata, s32 sync_obj);
-	int (*enable_signaling)(s32 sync_obj);
-	int (*signal)(s32 sync_obj, u32 status);
+struct synx_registered_ops {
+	bool valid;
+	char name[32];
+	struct bind_operations ops;
+	u32 type;
 };
 
 /**
@@ -171,8 +168,9 @@ struct bind_operations {
  * @work_queue    : Work queue used for dispatching kernel callbacks
  * @bitmap        : Bitmap representation of all synx objects
  * synx_ids       : Global unique ids
+ * idr_lock       : Spin lock for id allocation
  * dma_context    : dma context id
- * bind_vtbl      : Table with bind ops for supported external sync objects
+ * bind_vtbl      : Table with registered bind ops for external sync (bind)
  * client_list    : All the synx clients
  * debugfs_root   : Root directory for debugfs
  * synx_node_head : list head for synx nodes
@@ -189,8 +187,9 @@ struct synx_device {
 	struct workqueue_struct *work_queue;
 	DECLARE_BITMAP(bitmap, SYNX_MAX_OBJS);
 	struct idr synx_ids;
+	spinlock_t idr_lock;
 	u64 dma_context;
-	struct bind_operations bind_vtbl[SYNX_MAX_BIND_TYPES];
+	struct synx_registered_ops bind_vtbl[SYNX_MAX_BIND_TYPES];
 	struct list_head client_list;
 	struct dentry *debugfs_root;
 	struct list_head synx_debug_head;

@@ -1,18 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
-#include "kgsl.h"
-#include "kgsl_sharedmem.h"
-#include "kgsl_snapshot.h"
-
 #include "adreno.h"
-#include "adreno_pm4types.h"
-#include "a3xx_reg.h"
 #include "adreno_cp_parser.h"
+#include "adreno_pm4types.h"
 #include "adreno_snapshot.h"
-#include "adreno_a5xx.h"
 
 #define VPC_MEMORY_BANKS 4
 
@@ -64,6 +58,19 @@ void kgsl_snapshot_push_object(struct kgsl_device *device,
 	for (index = 0; index < objbufptr; index++) {
 		if (objbuf[index].gpuaddr == gpuaddr &&
 			objbuf[index].entry->priv == process) {
+			/*
+			 * Check if newly requested size is within the
+			 * allocated range or not, otherwise continue
+			 * with previous size.
+			 */
+			if (!kgsl_gpuaddr_in_memdesc(
+				&objbuf[index].entry->memdesc,
+				gpuaddr, dwords << 2)) {
+				dev_err(device->dev,
+					"snapshot: gpuaddr 0x%016llX size is less than requested\n",
+					gpuaddr);
+				return;
+			}
 
 			objbuf[index].size = max_t(uint64_t,
 						objbuf[index].size,

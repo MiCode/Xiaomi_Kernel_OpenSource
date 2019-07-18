@@ -22,6 +22,8 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/mailbox/qmp.h>
+#include <linux/msm-bus.h>
+#include <linux/mailbox_controller.h>
 
 #include "npu_mgr.h"
 
@@ -29,7 +31,7 @@
  * Defines
  * -------------------------------------------------------------------------
  */
-#define NPU_MAX_MBOX_NUM	    2
+#define NPU_MAX_MBOX_NUM	    4
 #define NPU_MBOX_LOW_PRI	    0
 #define NPU_MBOX_HIGH_PRI	    1
 
@@ -116,6 +118,9 @@ struct npu_mbox {
 	struct mbox_chan *chan;
 	struct npu_device *npu_dev;
 	uint32_t id;
+	uint32_t client_id;
+	uint32_t signal_id;
+	bool send_data_pending;
 };
 
 /**
@@ -201,6 +206,27 @@ struct npu_io_data {
 	void __iomem *base;
 };
 
+#define MAX_PATHS	2
+#define DBL_BUF	2
+#define MBYTE (1ULL << 20)
+
+struct npu_bwctrl {
+	struct msm_bus_vectors vectors[MAX_PATHS * DBL_BUF];
+	struct msm_bus_paths bw_levels[DBL_BUF];
+	struct msm_bus_scale_pdata bw_data;
+	uint32_t bus_client;
+	int cur_ab;
+	int cur_ib;
+	int cur_idx;
+	uint32_t num_paths;
+};
+
+struct mbox_bridge_data {
+	struct mbox_controller mbox;
+	struct mbox_chan *chans;
+	void *priv_data;
+};
+
 struct npu_device {
 	struct mutex dev_lock;
 
@@ -233,15 +259,20 @@ struct npu_device {
 	struct npu_smmu_ctx smmu_ctx;
 	struct npu_debugfs_ctx debugfs_ctx;
 
-	struct npu_mbox mbox_aop;
+	struct npu_mbox *mbox_aop;
+	struct npu_mbox mbox[NPU_MAX_MBOX_NUM];
+	struct mbox_bridge_data mbox_bridge_data;
 
 	struct thermal_cooling_device *tcdev;
 	struct npu_pwrctrl pwrctrl;
 	struct npu_thermalctrl thermalctrl;
+	struct npu_bwctrl bwctrl;
 
 	struct llcc_slice_desc *sys_cache;
 	uint32_t execute_v2_flag;
 	bool cxlimit_registered;
+
+	uint32_t hw_version;
 };
 
 struct npu_kevent {
@@ -257,6 +288,14 @@ struct npu_client {
 	struct mutex list_lock;
 	struct list_head evt_list;
 	struct list_head mapped_buffer_list;
+};
+
+struct ipcc_mbox_chan {
+	u16 client_id;
+	u16 signal_id;
+	struct mbox_chan *chan;
+	struct npu_mbox *npu_mbox;
+	struct npu_device *npu_dev;
 };
 
 /* -------------------------------------------------------------------------
@@ -283,5 +322,6 @@ int enable_fw(struct npu_device *npu_dev);
 void disable_fw(struct npu_device *npu_dev);
 int load_fw(struct npu_device *npu_dev);
 int unload_fw(struct npu_device *npu_dev);
+int npu_set_bw(struct npu_device *npu_dev, int new_ib, int new_ab);
 
 #endif /* _NPU_COMMON_H */

@@ -5,19 +5,9 @@
 #ifndef __KGSL_DEVICE_H
 #define __KGSL_DEVICE_H
 
-#include <linux/slab.h>
-#include <linux/idr.h>
-#include <linux/pm_qos.h>
-#include <linux/sched.h>
-
 #include "kgsl.h"
-#include "kgsl_mmu.h"
-#include "kgsl_pwrctrl.h"
-#include "kgsl_pwrscale.h"
-#include "kgsl_snapshot.h"
-#include "kgsl_sharedmem.h"
 #include "kgsl_drawobj.h"
-#include "kgsl_gmu_core.h"
+#include "kgsl_mmu.h"
 
 #define KGSL_IOCTL_FUNC(_cmd, _func) \
 	[_IOC_NR((_cmd))] = \
@@ -180,6 +170,15 @@ struct kgsl_functable {
 	void (*stop_fault_timer)(struct kgsl_device *device);
 	void (*dispatcher_halt)(struct kgsl_device *device);
 	void (*dispatcher_unhalt)(struct kgsl_device *device);
+	/**
+	 * @query_property_list: query the list of properties
+	 * supported by the device. If 'list' is NULL just return the total
+	 * number of properties available otherwise copy up to 'count' items
+	 * into the list and return the total number of items copied.
+	 */
+	int (*query_property_list)(struct kgsl_device *device, u32 *list,
+		u32 count);
+	bool (*is_hwcg_on)(struct kgsl_device *device);
 };
 
 struct kgsl_ioctl {
@@ -248,6 +247,9 @@ struct kgsl_device {
 	/* Starting physical address for GPU shader memory */
 	unsigned long shader_mem_phys;
 
+	/* Starting kernel virtual address for QDSS GFX DBG register block */
+	void __iomem *qdss_gfx_virt;
+
 	/* GPU shader memory size */
 	unsigned int shader_mem_len;
 	struct kgsl_memdesc memstore;
@@ -293,6 +295,7 @@ struct kgsl_device {
 	u32 snapshot_faultcount;	/* Total number of faults since boot */
 	bool force_panic;		/* Force panic after snapshot dump */
 	bool prioritize_unrecoverable;	/* Overwrite with new GMU snapshots */
+	bool set_isdb_breakpoint;	/* Set isdb registers before snapshot */
 
 	/* Use CP Crash dumper to get GPU snapshot*/
 	bool snapshot_crashdumper;
@@ -379,6 +382,8 @@ struct kgsl_process_private;
  * @fault_time: time of the first gpu hang in last _context_throttle_time ms
  * @user_ctxt_record: memory descriptor used by CP to save/restore VPC data
  * across preemption
+ * @total_fault_count: number of times gpu faulted in this context
+ * @last_faulted_cmd_ts: last faulted command batch timestamp
  */
 struct kgsl_context {
 	struct kref refcount;
@@ -398,6 +403,8 @@ struct kgsl_context {
 	unsigned int fault_count;
 	unsigned long fault_time;
 	struct kgsl_mem_entry *user_ctxt_record;
+	unsigned int total_fault_count;
+	unsigned int last_faulted_cmd_ts;
 };
 
 #define _context_comm(_c) \
@@ -888,6 +895,21 @@ void kgsl_snapshot_add_section(struct kgsl_device *device, u16 id,
 	struct kgsl_snapshot *snapshot,
 	size_t (*func)(struct kgsl_device *, u8 *, size_t, void *),
 	void *priv);
+
+/**
+ * kgsl_query_property_list - Get a list of valid properties
+ * @device: A KGSL device handle
+ * @list: Pointer to a list of u32s
+ * @count: Number of items in @list
+ *
+ * Populate a list with the IDs for supported properties. If @list is NULL,
+ * just return the number of properties available, otherwise fill up to @count
+ * items in the list with property identifiers.
+ *
+ * Returns the number of total properties if @list is NULL or the number of
+ * properties copied to @list.
+ */
+int kgsl_query_property_list(struct kgsl_device *device, u32 *list, u32 count);
 
 /**
  * kgsl_get_bus_scale_table() - Get the bus scaling table from devicetree

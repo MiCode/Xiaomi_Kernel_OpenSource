@@ -42,7 +42,6 @@
 #define WWAN_METADATA_SHFT 24
 #define WWAN_METADATA_MASK 0xFF000000
 #define WWAN_DATA_LEN 9216
-#define IPA_RM_INACTIVITY_TIMER 100 /* IPA_RM */
 #define HEADROOM_FOR_QMAP   8 /* for mux header */
 #define TAILROOM            0 /* for padding by mux layer */
 #define MAX_NUM_OF_MUX_CHANNEL  15 /* max mux channels */
@@ -137,7 +136,6 @@ struct rmnet_ipa3_context {
 	int rmnet_index;
 	bool egress_set;
 	bool a7_ul_flt_set;
-	struct workqueue_struct *rm_q6_wq;
 	atomic_t is_initialized;
 	atomic_t is_ssr;
 	void *lcl_mdm_subsys_notify_handle;
@@ -1252,29 +1250,25 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 send:
-	/* IPA_RM checking start */
-	if (ipa3_ctx->use_ipa_pm) {
-		/* activate the modem pm for clock scaling */
-		ipa_pm_activate(rmnet_ipa3_ctx->q6_pm_hdl);
-		ret = ipa_pm_activate(rmnet_ipa3_ctx->pm_hdl);
-	} else {
-		ret = ipa_rm_inactivity_timer_request_resource(
-			IPA_RM_RESOURCE_WWAN_0_PROD);
-	}
+	/* IPA_PM checking start */
+	/* activate the modem pm for clock scaling */
+	ipa_pm_activate(rmnet_ipa3_ctx->q6_pm_hdl);
+	ret = ipa_pm_activate(rmnet_ipa3_ctx->pm_hdl);
+
 	if (ret == -EINPROGRESS) {
 		netif_stop_queue(dev);
 		spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 		return NETDEV_TX_BUSY;
 	}
 	if (ret) {
-		IPAWANERR("[%s] fatal: ipa rm timer req resource failed %d\n",
+		IPAWANERR("[%s] fatal: ipa pm activate failed %d\n",
 		       dev->name, ret);
 		dev_kfree_skb_any(skb);
 		dev->stats.tx_dropped++;
 		spin_unlock_irqrestore(&wwan_ptr->lock, flags);
-		return -EFAULT;
+		return NETDEV_TX_OK;
 	}
-	/* IPA_RM checking end */
+	/* IPA_PM checking end */
 
 	/*
 	 * both data packets and command will be routed to
@@ -1282,6 +1276,14 @@ send:
 	 */
 	ret = ipa3_tx_dp(IPA_CLIENT_APPS_WAN_PROD, skb, NULL);
 	if (ret) {
+		if (ret == -EPIPE) {
+			IPAWANERR_RL("[%s] fatal: pipe is not valid\n",
+				dev->name);
+			dev_kfree_skb_any(skb);
+			dev->stats.tx_dropped++;
+			spin_unlock_irqrestore(&wwan_ptr->lock, flags);
+			return NETDEV_TX_OK;
+		}
 		ret = NETDEV_TX_BUSY;
 		goto out;
 	}
@@ -1292,13 +1294,9 @@ send:
 	ret = NETDEV_TX_OK;
 out:
 	if (atomic_read(&wwan_ptr->outstanding_pkts) == 0) {
-		if (ipa3_ctx->use_ipa_pm) {
-			ipa_pm_deferred_deactivate(rmnet_ipa3_ctx->pm_hdl);
-			ipa_pm_deferred_deactivate(rmnet_ipa3_ctx->q6_pm_hdl);
-		} else {
-			ipa_rm_inactivity_timer_release_resource(
-				IPA_RM_RESOURCE_WWAN_0_PROD);
-		}
+		ipa_pm_deferred_deactivate(rmnet_ipa3_ctx->pm_hdl);
+		ipa_pm_deferred_deactivate(rmnet_ipa3_ctx->q6_pm_hdl);
+
 	}
 	spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 	return ret;
@@ -1357,13 +1355,9 @@ static void apps_ipa_tx_complete_notify(void *priv,
 	}
 
 	if (atomic_read(&wwan_ptr->outstanding_pkts) == 0) {
-		if (ipa3_ctx->use_ipa_pm) {
-			ipa_pm_deferred_deactivate(rmnet_ipa3_ctx->pm_hdl);
-			ipa_pm_deferred_deactivate(rmnet_ipa3_ctx->q6_pm_hdl);
-		} else {
-			ipa_rm_inactivity_timer_release_resource(
-			IPA_RM_RESOURCE_WWAN_0_PROD);
-		}
+		ipa_pm_deferred_deactivate(rmnet_ipa3_ctx->pm_hdl);
+		ipa_pm_deferred_deactivate(rmnet_ipa3_ctx->q6_pm_hdl);
+
 	}
 	__netif_tx_unlock_bh(netdev_get_tx_queue(dev, 0));
 	dev_kfree_skb_any(skb);
@@ -1417,6 +1411,26 @@ static void apps_ipa_packet_receive_notify(void *priv,
 	} else {
 		IPAWANERR("Invalid evt %d received in wan_ipa_receive\n", evt);
 	}
+}
+
+/* Send RSC endpoint info to modem using QMI indication message */
+
+static int ipa_send_rsc_pipe_ind_to_modem(void)
+{
+	struct ipa_endp_desc_indication_msg_v01 req;
+	struct ipa_ep_id_type_v01 *ep_info;
+
+	memset(&req, 0, sizeof(struct ipa_endp_desc_indication_msg_v01));
+	req.ep_info_len = 1;
+	req.ep_info_valid = true;
+	req.num_eps_valid = true;
+	req.num_eps = 1;
+	ep_info = &req.ep_info[req.ep_info_len - 1];
+	ep_info->ep_id = rmnet_ipa3_ctx->ipa3_to_apps_hdl;
+	ep_info->ic_type = DATA_IC_TYPE_AP_V01;
+	ep_info->ep_type = DATA_EP_DESC_TYPE_RSC_PROD_V01;
+	ep_info->ep_status = DATA_EP_STATUS_CONNECTED_V01;
+	return ipa3_qmi_send_rsc_pipe_indication(&req);
 }
 
 static int handle3_ingress_format(struct net_device *dev,
@@ -1520,6 +1534,9 @@ static int handle3_ingress_format(struct net_device *dev,
 	if (ret)
 		ipa3_del_a7_qmap_hdr();
 
+	/* Sending QMI indication message share RSC pipe details*/
+	if (dev->features & NETIF_F_GRO_HW)
+		ipa_send_rsc_pipe_ind_to_modem();
 end:
 	if (ret)
 		IPAWANERR("failed to configure ingress\n");
@@ -2044,68 +2061,6 @@ static void ipa3_wwan_setup(struct net_device *dev)
 	dev->watchdog_timeo = 1000;
 }
 
-/* IPA_RM related functions start*/
-static void ipa3_q6_prod_rm_request_resource(struct work_struct *work);
-static DECLARE_DELAYED_WORK(ipa3_q6_con_rm_request,
-		ipa3_q6_prod_rm_request_resource);
-static void ipa3_q6_prod_rm_release_resource(struct work_struct *work);
-static DECLARE_DELAYED_WORK(ipa3_q6_con_rm_release,
-		ipa3_q6_prod_rm_release_resource);
-
-static void ipa3_q6_prod_rm_request_resource(struct work_struct *work)
-{
-	int ret = 0;
-
-	ret = ipa_rm_request_resource(IPA_RM_RESOURCE_Q6_PROD);
-	if (ret < 0 && ret != -EINPROGRESS) {
-		IPAWANERR("ipa_rm_request_resource failed %d\n", ret);
-		return;
-	}
-}
-
-static int ipa3_q6_rm_request_resource(void)
-{
-	queue_delayed_work(rmnet_ipa3_ctx->rm_q6_wq,
-	   &ipa3_q6_con_rm_request, 0);
-	return 0;
-}
-
-static void ipa3_q6_prod_rm_release_resource(struct work_struct *work)
-{
-	int ret = 0;
-
-	ret = ipa_rm_release_resource(IPA_RM_RESOURCE_Q6_PROD);
-	if (ret < 0 && ret != -EINPROGRESS) {
-		IPAWANERR("ipa_rm_release_resource failed %d\n", ret);
-		return;
-	}
-}
-
-
-static int ipa3_q6_rm_release_resource(void)
-{
-	queue_delayed_work(rmnet_ipa3_ctx->rm_q6_wq,
-	   &ipa3_q6_con_rm_release, 0);
-	return 0;
-}
-
-
-static void ipa3_q6_rm_notify_cb(void *user_data,
-		enum ipa_rm_event event,
-		unsigned long data)
-{
-	switch (event) {
-	case IPA_RM_RESOURCE_GRANTED:
-		IPAWANDBG_LOW("Q6_PROD GRANTED CB\n");
-		break;
-	case IPA_RM_RESOURCE_RELEASED:
-		IPAWANDBG_LOW("Q6_PROD RELEASED CB\n");
-		break;
-	default:
-		return;
-	}
-}
-
 /**
  * rmnet_ipa_send_coalesce_notification
  * (uint8_t qmap_id, bool enable, bool tcp, bool udp)
@@ -2150,16 +2105,30 @@ static int rmnet_ipa_send_coalesce_notification(uint8_t qmap_id,
 
 int ipa3_wwan_set_modem_state(struct wan_ioctl_notify_wan_state *state)
 {
+	uint32_t bw_mbps = 0;
+	int ret = 0;
+
 	if (!state)
 		return -EINVAL;
 
-	if (!ipa_pm_is_used())
-		return 0;
-
-	if (state->up)
-		return ipa_pm_activate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
-	else
-		return ipa_pm_deactivate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
+	if (state->up) {
+		bw_mbps = 5200;
+		ret = ipa3_vote_for_bus_bw(&bw_mbps);
+		if (ret) {
+			IPAERR("Failed to vote for bus BW (%u)\n", bw_mbps);
+			return ret;
+		}
+		ret = ipa_pm_activate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
+	} else {
+		bw_mbps = 0;
+		ret = ipa3_vote_for_bus_bw(&bw_mbps);
+		if (ret) {
+			IPAERR("Failed to vote for bus BW (%u)\n", bw_mbps);
+			return ret;
+		}
+		ret = ipa_pm_deactivate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
+	}
+	return ret;
 }
 
 /**
@@ -2206,112 +2175,14 @@ static void ipa3_q6_deregister_pm(void)
 
 int ipa3_wwan_set_modem_perf_profile(int throughput)
 {
-	struct ipa_rm_perf_profile profile;
 	int ret;
-	int tether_bridge_handle = 0;
 
-	if (ipa3_ctx->use_ipa_pm) {
-		/* query rmnet-tethering handle */
-		tether_bridge_handle = ipa3_teth_bridge_get_pm_hdl();
-		if (tether_bridge_handle > 0) {
-			/* only update with valid handle*/
-			ret = ipa_pm_set_throughput(tether_bridge_handle,
-				throughput);
-		}
-		/* for TETH MODEM on softap/rndis */
-		ret = ipa_pm_set_throughput(rmnet_ipa3_ctx->q6_teth_pm_hdl,
-			throughput);
-	} else {
-		memset(&profile, 0, sizeof(profile));
-		profile.max_supported_bandwidth_mbps = throughput;
-		ret = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_Q6_PROD,
-			&profile);
-	}
+	IPAWANDBG("throughput: %d\n", throughput);
+	/* for TETH MODEM on softap/rndis */
+	ret = ipa_pm_set_throughput(rmnet_ipa3_ctx->q6_teth_pm_hdl,
+	throughput);
 
 	return ret;
-}
-
-static int ipa3_q6_initialize_rm(void)
-{
-	struct ipa_rm_create_params create_params;
-	struct ipa_rm_perf_profile profile;
-	int result;
-
-	/* Initialize IPA_RM workqueue */
-	rmnet_ipa3_ctx->rm_q6_wq = create_singlethread_workqueue("clnt_req");
-	if (!rmnet_ipa3_ctx->rm_q6_wq)
-		return -ENOMEM;
-
-	memset(&create_params, 0, sizeof(create_params));
-	create_params.name = IPA_RM_RESOURCE_Q6_PROD;
-	create_params.reg_params.notify_cb = &ipa3_q6_rm_notify_cb;
-	result = ipa_rm_create_resource(&create_params);
-	if (result)
-		goto create_rsrc_err1;
-	memset(&create_params, 0, sizeof(create_params));
-	create_params.name = IPA_RM_RESOURCE_Q6_CONS;
-	create_params.release_resource = &ipa3_q6_rm_release_resource;
-	create_params.request_resource = &ipa3_q6_rm_request_resource;
-	result = ipa_rm_create_resource(&create_params);
-	if (result)
-		goto create_rsrc_err2;
-	/* add dependency*/
-	result = ipa_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
-			IPA_RM_RESOURCE_APPS_CONS);
-	if (result)
-		goto add_dpnd_err;
-	/* setup Performance profile */
-	memset(&profile, 0, sizeof(profile));
-	profile.max_supported_bandwidth_mbps = 100;
-	result = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_Q6_PROD,
-			&profile);
-	if (result)
-		goto set_perf_err;
-	result = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_Q6_CONS,
-			&profile);
-	if (result)
-		goto set_perf_err;
-	return result;
-
-set_perf_err:
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
-			IPA_RM_RESOURCE_APPS_CONS);
-add_dpnd_err:
-	result = ipa_rm_delete_resource(IPA_RM_RESOURCE_Q6_CONS);
-	if (result < 0)
-		IPAWANERR("Error deleting resource %d, ret=%d\n",
-			IPA_RM_RESOURCE_Q6_CONS, result);
-create_rsrc_err2:
-	result = ipa_rm_delete_resource(IPA_RM_RESOURCE_Q6_PROD);
-	if (result < 0)
-		IPAWANERR("Error deleting resource %d, ret=%d\n",
-			IPA_RM_RESOURCE_Q6_PROD, result);
-create_rsrc_err1:
-	destroy_workqueue(rmnet_ipa3_ctx->rm_q6_wq);
-	return result;
-}
-
-void ipa3_q6_deinitialize_rm(void)
-{
-	int ret;
-
-	ret = ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
-			IPA_RM_RESOURCE_APPS_CONS);
-	if (ret < 0)
-		IPAWANERR("Error deleting dependency %d->%d, ret=%d\n",
-			IPA_RM_RESOURCE_Q6_PROD, IPA_RM_RESOURCE_APPS_CONS,
-			ret);
-	ret = ipa_rm_delete_resource(IPA_RM_RESOURCE_Q6_CONS);
-	if (ret < 0)
-		IPAWANERR("Error deleting resource %d, ret=%d\n",
-			IPA_RM_RESOURCE_Q6_CONS, ret);
-	ret = ipa_rm_delete_resource(IPA_RM_RESOURCE_Q6_PROD);
-	if (ret < 0)
-		IPAWANERR("Error deleting resource %d, ret=%d\n",
-			IPA_RM_RESOURCE_Q6_PROD, ret);
-
-	if (rmnet_ipa3_ctx->rm_q6_wq)
-		destroy_workqueue(rmnet_ipa3_ctx->rm_q6_wq);
 }
 
 static void ipa3_wake_tx_queue(struct work_struct *work)
@@ -2325,56 +2196,21 @@ static void ipa3_wake_tx_queue(struct work_struct *work)
 }
 
 /**
- * ipa3_rm_resource_granted() - Called upon
- * IPA_RM_RESOURCE_GRANTED event. Wakes up queue is was stopped.
+ * ipa3_pm_resource_granted() - Called upon
+ * IPA_PM_RESOURCE_GRANTED event. Wakes up the tx workqueue.
  *
  * @work: work object supplied ny workqueue
  *
  * Return codes:
  * None
  */
-static void ipa3_rm_resource_granted(void *dev)
+static void ipa3_pm_resource_granted(void *dev)
 {
 	IPAWANDBG_LOW("Resource Granted - starting queue\n");
 	schedule_work(&ipa3_tx_wakequeue_work);
 }
 
-/**
- * ipa3_rm_notify() - Callback function for RM events. Handles
- * IPA_RM_RESOURCE_GRANTED and IPA_RM_RESOURCE_RELEASED events.
- * IPA_RM_RESOURCE_GRANTED is handled in the context of shared
- * workqueue.
- *
- * @dev: network device
- * @event: IPA RM event
- * @data: Additional data provided by IPA RM
- *
- * Return codes:
- * None
- */
-static void ipa3_rm_notify(void *dev, enum ipa_rm_event event,
-			  unsigned long data)
-{
-	struct ipa3_wwan_private *wwan_ptr = netdev_priv(dev);
-
-	pr_debug("%s: event %d\n", __func__, event);
-	switch (event) {
-	case IPA_RM_RESOURCE_GRANTED:
-		if (wwan_ptr->device_status == WWAN_DEVICE_INACTIVE) {
-			complete_all(&wwan_ptr->resource_granted_completion);
-			break;
-		}
-		ipa3_rm_resource_granted(dev);
-		break;
-	case IPA_RM_RESOURCE_RELEASED:
-		break;
-	default:
-		pr_err("%s: unknown event %d\n", __func__, event);
-		break;
-	}
-}
-
-/* IPA_RM related functions end*/
+/* IPA_PM related functions end*/
 
 static int ipa3_lcl_mdm_ssr_notifier_cb(struct notifier_block *this,
 			   unsigned long code,
@@ -2465,7 +2301,7 @@ static void ipa_pm_wwan_pm_cb(void *p, enum ipa_pm_cb_event event)
 			complete_all(&wwan_ptr->resource_granted_completion);
 			break;
 		}
-		ipa3_rm_resource_granted(dev);
+		ipa3_pm_resource_granted(dev);
 		break;
 	default:
 		pr_err("%s: unknown event %d\n", __func__, event);
@@ -2495,76 +2331,6 @@ static void ipa3_wwan_deregister_netdev_pm_client(void)
 {
 	ipa_pm_deactivate_sync(rmnet_ipa3_ctx->pm_hdl);
 	ipa_pm_deregister(rmnet_ipa3_ctx->pm_hdl);
-}
-
-static int ipa3_wwan_create_wwan_rm_resource(struct net_device *dev)
-{
-	struct ipa_rm_create_params ipa_rm_params;
-	struct ipa_rm_perf_profile profile;
-	int ret;
-
-	memset(&ipa_rm_params, 0, sizeof(struct ipa_rm_create_params));
-	ipa_rm_params.name = IPA_RM_RESOURCE_WWAN_0_PROD;
-	ipa_rm_params.reg_params.user_data = dev;
-	ipa_rm_params.reg_params.notify_cb = ipa3_rm_notify;
-	ret = ipa_rm_create_resource(&ipa_rm_params);
-	if (ret) {
-		pr_err("%s: unable to create resourse %d in IPA RM\n",
-			__func__, IPA_RM_RESOURCE_WWAN_0_PROD);
-		return ret;
-	}
-	ret = ipa_rm_inactivity_timer_init(IPA_RM_RESOURCE_WWAN_0_PROD,
-		IPA_RM_INACTIVITY_TIMER);
-	if (ret) {
-		pr_err("%s: ipa rm timer init failed %d on resourse %d\n",
-			__func__, ret, IPA_RM_RESOURCE_WWAN_0_PROD);
-		goto timer_init_err;
-	}
-	/* add dependency */
-	ret = ipa_rm_add_dependency(IPA_RM_RESOURCE_WWAN_0_PROD,
-		IPA_RM_RESOURCE_Q6_CONS);
-	if (ret)
-		goto add_dpnd_err;
-	/* setup Performance profile */
-	memset(&profile, 0, sizeof(profile));
-	profile.max_supported_bandwidth_mbps = IPA_APPS_MAX_BW_IN_MBPS;
-	ret = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_WWAN_0_PROD,
-		&profile);
-	if (ret)
-		goto set_perf_err;
-
-	return 0;
-
-set_perf_err:
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_WWAN_0_PROD,
-		IPA_RM_RESOURCE_Q6_CONS);
-add_dpnd_err:
-	ipa_rm_inactivity_timer_destroy(
-		IPA_RM_RESOURCE_WWAN_0_PROD); /* IPA_RM */
-timer_init_err:
-	ipa_rm_delete_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
-	return ret;
-}
-
-static void ipa3_wwan_delete_wwan_rm_resource(void)
-{
-	int ret;
-
-	ret = ipa_rm_delete_dependency(IPA_RM_RESOURCE_WWAN_0_PROD,
-		IPA_RM_RESOURCE_Q6_CONS);
-	if (ret < 0)
-		IPAWANERR("Error deleting dependency %d->%d, ret=%d\n",
-		IPA_RM_RESOURCE_WWAN_0_PROD, IPA_RM_RESOURCE_Q6_CONS,
-		ret);
-	ret = ipa_rm_inactivity_timer_destroy(IPA_RM_RESOURCE_WWAN_0_PROD);
-	if (ret < 0)
-		IPAWANERR(
-		"Error ipa_rm_inactivity_timer_destroy resource %d, ret=%d\n",
-		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
-	ret = ipa_rm_delete_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
-	if (ret < 0)
-		IPAWANERR("Error deleting resource %d, ret=%d\n",
-		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
 }
 
 /**
@@ -2677,22 +2443,16 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		&rmnet_ipa3_ctx->wwan_priv->resource_granted_completion);
 
 	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr)) {
-		/* IPA_RM configuration starts */
-		if (ipa3_ctx->use_ipa_pm)
-			ret = ipa3_q6_register_pm();
-		else
-			ret = ipa3_q6_initialize_rm();
+		/* IPA_PM configuration starts */
+		ret = ipa3_q6_register_pm();
 		if (ret) {
-			IPAWANERR("ipa3_q6_initialize_rm failed, ret: %d\n",
+			IPAWANERR("ipa3_q6_register_pm failed, ret: %d\n",
 					ret);
 			goto q6_init_err;
 		}
 	}
 
-	if (ipa3_ctx->use_ipa_pm)
-		ret = ipa3_wwan_register_netdev_pm_client(dev);
-	else
-		ret = ipa3_wwan_create_wwan_rm_resource(dev);
+	ret = ipa3_wwan_register_netdev_pm_client(dev);
 	if (ret) {
 		IPAWANERR("fail to create/register pm resources\n");
 		goto fail_pm;
@@ -2735,6 +2495,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 	}
 	atomic_set(&rmnet_ipa3_ctx->is_ssr, 0);
 	atomic_set(&rmnet_ipa3_ctx->ap_suspend, 0);
+	ipa3_update_ssr_state(false);
 
 	IPAWANERR("rmnet_ipa completed initialization\n");
 	return 0;
@@ -2743,18 +2504,11 @@ config_err:
 		netif_napi_del(&(rmnet_ipa3_ctx->wwan_priv->napi));
 	unregister_netdev(dev);
 set_perf_err:
-	if (ipa3_ctx->use_ipa_pm)
-		ipa3_wwan_deregister_netdev_pm_client();
-	else
-		ipa3_wwan_delete_wwan_rm_resource();
+
+	ipa3_wwan_deregister_netdev_pm_client();
 fail_pm:
-	if (ipa3_ctx->use_ipa_pm) {
-		if (!atomic_read(&rmnet_ipa3_ctx->is_ssr))
-			ipa3_q6_deregister_pm();
-	} else {
-		if (!atomic_read(&rmnet_ipa3_ctx->is_ssr))
-			ipa3_q6_deinitialize_rm();
-	}
+	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr))
+		ipa3_q6_deregister_pm();
 q6_init_err:
 	free_netdev(dev);
 	rmnet_ipa3_ctx->wwan_priv = NULL;
@@ -2785,11 +2539,9 @@ static int ipa3_wwan_remove(struct platform_device *pdev)
 	if (ipa3_rmnet_res.ipa_napi_enable)
 		netif_napi_del(&(rmnet_ipa3_ctx->wwan_priv->napi));
 	mutex_unlock(&rmnet_ipa3_ctx->pipe_handle_guard);
+	IPAWANINFO("rmnet_ipa unregister_netdev\n");
 	unregister_netdev(IPA_NETDEV());
-	if (ipa3_ctx->use_ipa_pm)
-		ipa3_wwan_deregister_netdev_pm_client();
-	else
-		ipa3_wwan_delete_wwan_rm_resource();
+	ipa3_wwan_deregister_netdev_pm_client();
 	cancel_work_sync(&ipa3_tx_wakequeue_work);
 	cancel_delayed_work(&ipa_tether_stats_poll_wakequeue_work);
 	if (IPA_NETDEV())
@@ -2871,11 +2623,8 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 	netif_stop_queue(netdev);
 	spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 
-	IPAWANDBG("De-activating the PM/RM resource.\n");
-	if (ipa3_ctx->use_ipa_pm)
-		ipa_pm_deactivate_sync(rmnet_ipa3_ctx->pm_hdl);
-	else
-		ipa_rm_release_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
+	IPAWANDBG("De-activating the PM resource.\n");
+	ipa_pm_deactivate_sync(rmnet_ipa3_ctx->pm_hdl);
 	ret = 0;
 bail:
 	IPAWANDBG("Exit with %d\n", ret);
@@ -3599,8 +3348,9 @@ static int rmnet_ipa3_query_tethering_stats_modem(
 static int rmnet_ipa3_query_tethering_stats_hw(
 	struct wan_ioctl_query_tether_stats *data, bool reset)
 {
-	int rc = 0;
+	int rc = 0, index = 0;
 	struct ipa_quota_stats_all *con_stats;
+	enum ipa_client_type wlan_client;
 
 	/* qet HW-stats */
 	rc = ipa_get_teth_stats();
@@ -3616,17 +3366,36 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 		IPAWANERR("no memory\n");
 		return -ENOMEM;
 	}
-	rc = ipa_query_teth_stats(IPA_CLIENT_Q6_WAN_PROD, con_stats, reset);
-	if (rc) {
-		IPAERR("IPA_CLIENT_Q6_WAN_PROD query failed %d,\n", rc);
-		kfree(con_stats);
-		return rc;
+
+	if (rmnet_ipa3_ctx->ipa_config_is_apq) {
+		rc = ipa_query_teth_stats(IPA_CLIENT_MHI_PRIME_TETH_PROD,
+			con_stats, reset);
+		if (rc) {
+			IPAERR("MHI_PRIME_TETH_PROD query failed %d,\n", rc);
+			kfree(con_stats);
+			return rc;
+		}
+	} else {
+		rc = ipa_query_teth_stats(IPA_CLIENT_Q6_WAN_PROD,
+			con_stats, reset);
+		if (rc) {
+			IPAERR("IPA_CLIENT_Q6_WAN_PROD query failed %d,\n", rc);
+			kfree(con_stats);
+			return rc;
+		}
 	}
-	IPAWANDBG("wlan: v4_rx_p(%d) b(%lld) v6_rx_p(%d) b(%lld)\n",
-	con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv4_pkts,
-	con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv4_bytes,
-	con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv6_pkts,
-	con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv6_bytes);
+
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+		wlan_client = IPA_CLIENT_WLAN2_CONS;
+	else
+		wlan_client = IPA_CLIENT_WLAN1_CONS;
+
+	IPAWANDBG("wlan: v4_rx_p-b(%d,%lld) v6_rx_p-b(%d,%lld),client(%d)\n",
+	con_stats->client[wlan_client].num_ipv4_pkts,
+	con_stats->client[wlan_client].num_ipv4_bytes,
+	con_stats->client[wlan_client].num_ipv6_pkts,
+	con_stats->client[wlan_client].num_ipv6_bytes,
+	wlan_client);
 
 	IPAWANDBG("usb: v4_rx_p(%d) b(%lld) v6_rx_p(%d) b(%lld)\n",
 	con_stats->client[IPA_CLIENT_USB_CONS].num_ipv4_pkts,
@@ -3636,16 +3405,16 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 
 	/* update the DL stats */
 	data->ipv4_rx_packets =
-		con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv4_pkts +
+		con_stats->client[wlan_client].num_ipv4_pkts +
 			con_stats->client[IPA_CLIENT_USB_CONS].num_ipv4_pkts;
 	data->ipv6_rx_packets =
-		con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv6_pkts +
+		con_stats->client[wlan_client].num_ipv6_pkts +
 			con_stats->client[IPA_CLIENT_USB_CONS].num_ipv6_pkts;
 	data->ipv4_rx_bytes =
-		con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv4_bytes +
+		con_stats->client[wlan_client].num_ipv4_bytes +
 			con_stats->client[IPA_CLIENT_USB_CONS].num_ipv4_bytes;
 	data->ipv6_rx_bytes =
-		con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv6_bytes +
+		con_stats->client[wlan_client].num_ipv6_bytes +
 			con_stats->client[IPA_CLIENT_USB_CONS].num_ipv6_bytes;
 
 	IPAWANDBG("v4_rx_p(%lu) v6_rx_p(%lu) v4_rx_b(%lu) v6_rx_b(%lu)\n",
@@ -3663,46 +3432,63 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 		return rc;
 	}
 
+	if (rmnet_ipa3_ctx->ipa_config_is_apq)
+		index = IPA_CLIENT_MHI_PRIME_TETH_CONS;
+	else
+		index = IPA_CLIENT_Q6_WAN_CONS;
+
 	IPAWANDBG("usb: v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_pkts,
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_bytes,
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_pkts,
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_bytes);
+	con_stats->client[index].num_ipv4_pkts,
+	con_stats->client[index].num_ipv4_bytes,
+	con_stats->client[index].num_ipv6_pkts,
+	con_stats->client[index].num_ipv6_bytes);
 
 	/* update the USB UL stats */
 	data->ipv4_tx_packets =
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_pkts;
+		con_stats->client[index].num_ipv4_pkts;
 	data->ipv6_tx_packets =
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_pkts;
+		con_stats->client[index].num_ipv6_pkts;
 	data->ipv4_tx_bytes =
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_bytes;
+		con_stats->client[index].num_ipv4_bytes;
 	data->ipv6_tx_bytes =
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_bytes;
+		con_stats->client[index].num_ipv6_bytes;
 
 	/* query WLAN UL stats */
 	memset(con_stats, 0, sizeof(struct ipa_quota_stats_all));
-	rc = ipa_query_teth_stats(IPA_CLIENT_WLAN1_PROD, con_stats, reset);
+
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+		rc = ipa_query_teth_stats(IPA_CLIENT_WLAN2_PROD,
+			con_stats, reset);
+	else
+		rc = ipa_query_teth_stats(IPA_CLIENT_WLAN1_PROD,
+			con_stats, reset);
+
 	if (rc) {
-		IPAERR("IPA_CLIENT_WLAN1_PROD query failed %d\n", rc);
+		IPAERR("IPA_CLIENT_WLAN_PROD query failed %d\n", rc);
 		kfree(con_stats);
 		return rc;
 	}
 
-	IPAWANDBG("wlan: v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_pkts,
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_bytes,
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_pkts,
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_bytes);
+	if (rmnet_ipa3_ctx->ipa_config_is_apq)
+		index = IPA_CLIENT_MHI_PRIME_TETH_CONS;
+	else
+		index = IPA_CLIENT_Q6_WAN_CONS;
+
+	IPAWANDBG("wlan1: v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",
+	con_stats->client[index].num_ipv4_pkts,
+	con_stats->client[index].num_ipv4_bytes,
+	con_stats->client[index].num_ipv6_pkts,
+	con_stats->client[index].num_ipv6_bytes);
 
 	/* update the wlan UL stats */
 	data->ipv4_tx_packets +=
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_pkts;
+		con_stats->client[index].num_ipv4_pkts;
 	data->ipv6_tx_packets +=
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_pkts;
+		con_stats->client[index].num_ipv6_pkts;
 	data->ipv4_tx_bytes +=
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_bytes;
+		con_stats->client[index].num_ipv4_bytes;
 	data->ipv6_tx_bytes +=
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_bytes;
+		con_stats->client[index].num_ipv6_bytes;
 
 	IPAWANDBG("v4_tx_p(%lu) v6_tx_p(%lu) v4_tx_b(%lu) v6_tx_b(%lu)\n",
 		(unsigned long) data->ipv4_tx_packets,

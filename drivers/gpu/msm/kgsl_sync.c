@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/err.h>
 #include <linux/file.h>
-#include <linux/sched.h>
 #include <linux/slab.h>
-#include <linux/uaccess.h>
+#include <linux/sync_file.h>
 
-#include <asm/current.h>
-
+#include "kgsl_device.h"
 #include "kgsl_sync.h"
 
 static void kgsl_sync_timeline_signal(struct kgsl_sync_timeline *timeline,

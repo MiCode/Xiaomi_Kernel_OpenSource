@@ -3021,6 +3021,36 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		ipareg_construct_timers_xo_clk_div_cfg,
 		ipareg_parse_timers_xo_clk_div_cfg,
 		0x000000250, 0, 0, 0, 1},
+	[IPA_HW_v4_5][IPA_STAT_QUOTA_BASE_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000700, 0x4, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_QUOTA_MASK_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000708, 0x4, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_TETHERING_BASE_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000710, 0x4, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_TETHERING_MASK_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000718, 0x4, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_FILTER_IPV4_BASE] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000720, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_FILTER_IPV6_BASE] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000724, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_ROUTER_IPV4_BASE] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000728, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_ROUTER_IPV6_BASE] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x0000072C, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_DROP_CNT_BASE_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000750, 0x4, 0, 0, 1},
+	[IPA_HW_v4_5][IPA_STAT_DROP_CNT_MASK_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000758, 0x4, 0, 0, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_SEQ_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x0000083C, 0x70, 0, 12, 1},
@@ -3484,7 +3514,7 @@ u32 ipahal_get_reg_base(void)
 void ipahal_get_aggr_force_close_valmask(int ep_idx,
 	struct ipahal_reg_valmask *valmask)
 {
-	u32 shft;
+	u32 shft = 0;
 	u32 bmsk = 0;
 
 	if (!valmask) {

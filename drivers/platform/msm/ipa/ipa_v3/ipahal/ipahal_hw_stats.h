@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPAHAL_HW_STATS_H_
@@ -152,6 +152,28 @@ struct ipahal_stats_flt_rt {
 };
 
 /*
+ * struct ipahal_stats_flt_rt_v4_5 - flt_rt statistics
+ * @num_packets: Total number of packets hit this rule
+ * @num_packets_hash: Total number of packets hit this rule in hash table
+ * @num_bytes: Total number of bytes hit this rule
+ */
+struct ipahal_stats_flt_rt_v4_5 {
+	u32 num_packets;
+	u32 num_packets_hash;
+	u64 num_bytes;
+};
+
+/*
+ * struct ipahal_stats_get_offset_flt_rt_v4_5 - Get offset parameters for flt_rt
+ * @start_id: start_id to get the offset
+ * @end_id: end_id to get the offset
+ */
+struct ipahal_stats_get_offset_flt_rt_v4_5 {
+	u8 start_id;
+	u8 end_id;
+};
+
+/*
  * struct ipahal_stats_init_drop - Initializations parameters for Drop
  * @enabled_bitmask: bit mask of pipes to be monitored
  */
@@ -237,5 +259,15 @@ int ipahal_stats_get_offset(enum ipahal_hw_stats_type type, void *params,
 int ipahal_parse_stats(enum ipahal_hw_stats_type type, void *init_params,
 	void *raw_stats, void *parsed_stats);
 
+
+/*
+ * ipahal_set_flt_rt_sw_stats - set sw counter stats for FnR
+ * @raw_stats: stats write to IPA SRAM
+ * @sw_stats: FnR sw stats to be written
+ *
+ * Return: None
+ */
+void ipahal_set_flt_rt_sw_stats(void *raw_stats,
+	struct ipa_flt_rt_stats sw_stats);
 
 #endif /* _IPAHAL_HW_STATS_H_ */

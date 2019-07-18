@@ -79,6 +79,7 @@ void qmi_rmnet_work_init(void *port);
 void qmi_rmnet_work_exit(void *port);
 void qmi_rmnet_work_maybe_restart(void *port);
 void qmi_rmnet_set_dl_msg_active(void *port);
+bool qmi_rmnet_ignore_grant(void *port);
 
 int qmi_rmnet_ps_ind_register(void *port,
 			      struct qmi_rmnet_ps_ind *ps_ind);
@@ -104,6 +105,10 @@ static inline void qmi_rmnet_work_maybe_restart(void *port)
 }
 static inline void qmi_rmnet_set_dl_msg_active(void *port)
 {
+}
+static inline bool qmi_rmnet_ignore_grant(void *port)
+{
+	return false;
 }
 
 static inline int qmi_rmnet_ps_ind_register(struct rmnet_port *port,

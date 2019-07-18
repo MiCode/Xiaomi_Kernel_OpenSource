@@ -282,7 +282,7 @@ int free_swap_slot(swp_entry_t entry)
 
 	si = swp_swap_info(entry);
 	cache = raw_cpu_ptr(&swp_slots);
-	if (!(si->flags & SWP_SYNCHRONOUS_IO) &&
+	if ((si && !(si->flags & SWP_SYNCHRONOUS_IO)) &&
 				use_swap_slot_cache && cache->slots_ret) {
 		spin_lock_irq(&cache->free_lock);
 		/* Swap slots cache may be deactivated before acquiring lock */

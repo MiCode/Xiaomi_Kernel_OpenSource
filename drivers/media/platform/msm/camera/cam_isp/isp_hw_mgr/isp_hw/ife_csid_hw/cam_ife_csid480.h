@@ -50,6 +50,8 @@ static struct cam_ife_csid_pxl_reg_offset  cam_ife_csid_480_ipp_reg_offset = {
 	/* configurations */
 	.pix_store_en_shift_val              = 7,
 	.early_eof_en_shift_val              = 29,
+	.horizontal_bin_en_shift_val         = 2,
+	.quad_cfa_bin_en_shift_val           = 30,
 	.ccif_violation_en                   = 1,
 	.overflow_ctrl_en                    = 1,
 };
@@ -289,7 +291,7 @@ static struct cam_ife_csid_csi2_rx_reg_offset
 	.csi2_capture_short_pkt_vc_shift              = 15,
 	.csi2_capture_cphy_pkt_dt_shift               = 20,
 	.csi2_capture_cphy_pkt_vc_shift               = 26,
-	.csi2_rx_phy_num_mask                         = 0x3,
+	.csi2_rx_phy_num_mask                         = 0x7,
 };
 
 static struct cam_ife_csid_csi2_tpg_reg_offset
@@ -354,6 +356,8 @@ static struct cam_ife_csid_common_reg_offset
 	.plain_fmt_shit_val                           = 10,
 	.crop_v_en_shift_val                          = 6,
 	.crop_h_en_shift_val                          = 5,
+	.drop_v_en_shift_val                          = 4,
+	.drop_h_en_shift_val                          = 3,
 	.crop_shift                                   = 16,
 	.ipp_irq_mask_all                             = 0x7FFF,
 	.rdi_irq_mask_all                             = 0x7FFF,

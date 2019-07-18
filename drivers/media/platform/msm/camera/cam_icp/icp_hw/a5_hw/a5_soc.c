@@ -40,6 +40,13 @@ static int cam_a5_get_dt_properties(struct cam_hw_soc_info *soc_info)
 		goto end;
 	}
 
+	rc = of_property_read_u32(of_node, "qos-val",
+		&a5_soc_info->a5_qos_val);
+	if (rc < 0) {
+		CAM_WARN(CAM_ICP, "QoS need not be set");
+		a5_soc_info->a5_qos_val = 0;
+	}
+
 	ubwc_cfg_ext = &a5_soc_info->uconfig.ubwc_cfg_ext;
 	num_ubwc_cfg = of_property_count_u32_elems(of_node,
 		"ubwc-ipe-fetch-cfg");

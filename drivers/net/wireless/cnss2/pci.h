@@ -25,6 +25,12 @@ enum cnss_mhi_state {
 	CNSS_MHI_RDDM_DONE,
 };
 
+enum pci_link_status {
+	PCI_GEN1,
+	PCI_GEN2,
+	PCI_DEF,
+};
+
 struct cnss_msi_user {
 	char *name;
 	int num_vectors;
@@ -60,9 +66,11 @@ struct cnss_pci_data {
 	struct pci_saved_state *default_state;
 	struct msm_pcie_register_event msm_pci_event;
 	atomic_t auto_suspended;
+	atomic_t drv_connected;
 	u8 drv_connected_last;
+	u16 def_link_speed;
+	u16 def_link_width;
 	u8 monitor_wake_intr;
-	struct dma_iommu_mapping smmu_mapping;
 	struct iommu_domain *iommu_domain;
 	u8 smmu_s1_enable;
 	dma_addr_t smmu_iova_start;
@@ -126,6 +134,20 @@ static inline int cnss_pci_get_auto_suspended(void *bus_priv)
 	return atomic_read(&pci_priv->auto_suspended);
 }
 
+static inline void cnss_pci_set_drv_connected(void *bus_priv, int val)
+{
+	struct cnss_pci_data *pci_priv = bus_priv;
+
+	atomic_set(&pci_priv->drv_connected, val);
+}
+
+static inline int cnss_pci_get_drv_connected(void *bus_priv)
+{
+	struct cnss_pci_data *pci_priv = bus_priv;
+
+	return atomic_read(&pci_priv->drv_connected);
+}
+
 int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv);
 int cnss_resume_pci_link(struct cnss_pci_data *pci_priv);
 int cnss_pci_init(struct cnss_plat_data *plat_priv);
@@ -134,10 +156,7 @@ int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv);
 int cnss_pci_alloc_qdss_mem(struct cnss_pci_data *pci_priv);
 void cnss_pci_free_qdss_mem(struct cnss_pci_data *pci_priv);
 int cnss_pci_load_m3(struct cnss_pci_data *pci_priv);
-int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
-			   enum cnss_mhi_state state);
 int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv);
-void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv);
 void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic);
 void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv);
 u32 cnss_pci_get_wake_msi(struct cnss_pci_data *pci_priv);

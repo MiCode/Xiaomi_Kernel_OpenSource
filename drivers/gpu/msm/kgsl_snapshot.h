@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
@@ -278,6 +278,9 @@ struct kgsl_snapshot_gpu_object_v2 {
 	__u64 ptbase;  /* Base for the pagetable the GPU address is valid in */
 	__u64 size;    /* Size of the object (in dwords) */
 } __packed;
+
+struct kgsl_device;
+struct kgsl_process_private;
 
 void kgsl_snapshot_push_object(struct kgsl_device *device,
 		struct kgsl_process_private *process,

@@ -5,8 +5,7 @@
 #ifndef __KGSL_IOMMU_H
 #define __KGSL_IOMMU_H
 
-#include <linux/of.h>
-#include "kgsl.h"
+#include "kgsl_mmu.h"
 
 /*
  * These defines control the address range for allocations that

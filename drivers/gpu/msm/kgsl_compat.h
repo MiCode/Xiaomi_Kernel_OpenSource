@@ -1,14 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017,2019 The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_COMPAT_H
 #define __KGSL_COMPAT_H
 
-#ifdef CONFIG_COMPAT
 #include <linux/compat.h>
-#include "kgsl.h"
-#include "kgsl_device.h"
+#include <uapi/linux/msm_kgsl.h>
+
+#ifdef CONFIG_COMPAT
 
 struct kgsl_ibdesc_compat {
 	compat_ulong_t gpuaddr;
@@ -227,6 +227,9 @@ static inline compat_size_t sizet_to_compat(size_t size)
 	WARN(size >> 32, "Size greater than 4G\n");
 	return (compat_size_t)size;
 }
+
+struct kgsl_device;
+struct kgsl_drawobj;
 
 int kgsl_drawobj_create_compat(struct kgsl_device *device, unsigned int flags,
 			struct kgsl_drawobj *drawobj, void __user *cmdlist,

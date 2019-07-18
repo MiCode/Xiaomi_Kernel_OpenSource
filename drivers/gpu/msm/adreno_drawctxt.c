@@ -3,14 +3,10 @@
  * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/slab.h>
-#include <linux/msm_kgsl.h>
-#include <linux/sched.h>
 #include <linux/debugfs.h>
 
-#include "kgsl.h"
-#include "kgsl_sharedmem.h"
 #include "adreno.h"
+#include "adreno_iommu.h"
 #include "adreno_trace.h"
 
 static void wait_callback(struct kgsl_device *device,

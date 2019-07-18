@@ -117,7 +117,6 @@ struct stats {
  * @odu_prod_hdl: handle for IPA_CLIENT_ODU_PROD pipe
  * @odu_emb_cons_hdl: handle for IPA_CLIENT_ODU_EMB_CONS pipe
  * @odu_teth_cons_hdl: handle for IPA_CLIENT_ODU_TETH_CONS pipe
- * @rm_comp: completion object for IP RM
  * @wakeup_request: client callback to wakeup
  */
 struct odu_bridge_ctx {
@@ -144,7 +143,6 @@ struct odu_bridge_ctx {
 	u32 ipa_sys_desc_size;
 	void *logbuf;
 	void *logbuf_low;
-	struct completion rm_comp;
 	void (*wakeup_request)(void *cl_priv);
 	u32 pm_hdl;
 };
@@ -268,24 +266,6 @@ static int odu_bridge_connect_bridge(void)
 	memset(&odu_prod_params, 0, sizeof(odu_prod_params));
 	memset(&odu_emb_cons_params, 0, sizeof(odu_emb_cons_params));
 
-	if (!ipa_pm_is_used()) {
-		/* Build IPA Resource manager dependency graph */
-		ODU_BRIDGE_DBG_LOW("build dependency graph\n");
-		res = ipa_rm_add_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
-					IPA_RM_RESOURCE_Q6_CONS);
-		if (res && res != -EINPROGRESS) {
-			ODU_BRIDGE_ERR("ipa_rm_add_dependency() failed\n");
-			goto fail_add_dependency_1;
-		}
-
-		res = ipa_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
-					IPA_RM_RESOURCE_ODU_ADAPT_CONS);
-		if (res && res != -EINPROGRESS) {
-			ODU_BRIDGE_ERR("ipa_rm_add_dependency() failed\n");
-			goto fail_add_dependency_2;
-		}
-	}
-
 	/* configure RX (ODU->IPA) EP */
 	odu_prod_params.client = IPA_CLIENT_ODU_PROD;
 	odu_prod_params.desc_fifo_sz = IPA_ODU_SYS_DESC_FIFO_SZ;
@@ -343,14 +323,6 @@ fail_odu_teth_cons:
 	ipa_teardown_sys_pipe(odu_bridge_ctx->odu_prod_hdl);
 	odu_bridge_ctx->odu_prod_hdl = 0;
 fail_odu_prod:
-	if (!ipa_pm_is_used())
-		ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
-				IPA_RM_RESOURCE_ODU_ADAPT_CONS);
-fail_add_dependency_2:
-	if (!ipa_pm_is_used())
-		ipa_rm_delete_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
-				IPA_RM_RESOURCE_Q6_CONS);
-fail_add_dependency_1:
 	return res;
 }
 
@@ -396,27 +368,13 @@ static int odu_bridge_disconnect_bridge(void)
 		ODU_BRIDGE_ERR("teardown ODU EMB CONS failed\n");
 	odu_bridge_ctx->odu_emb_cons_hdl = 0;
 
-	if (!ipa_pm_is_used()) {
-		/* Delete IPA Resource manager dependency graph */
-		ODU_BRIDGE_DBG("deleting dependency graph\n");
-		res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
-			IPA_RM_RESOURCE_Q6_CONS);
-		if (res && res != -EINPROGRESS)
-			ODU_BRIDGE_ERR("ipa_rm_delete_dependency() failed\n");
-
-		res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
-			IPA_RM_RESOURCE_ODU_ADAPT_CONS);
-		if (res && res != -EINPROGRESS)
-			ODU_BRIDGE_ERR("ipa_rm_delete_dependency() failed\n");
-	}
-
 	return 0;
 }
 
 /**
  * odu_bridge_disconnect() - Disconnect odu bridge
  *
- * Disconnect all pipes and deletes IPA RM dependencies on bridge mode
+ * Disconnect all pipes
  *
  * Return codes: 0- success, error otherwise
  */
@@ -464,8 +422,6 @@ EXPORT_SYMBOL(odu_bridge_disconnect);
  * odu_bridge_connect() - Connect odu bridge.
  *
  * Call to the mode-specific connect function for connection IPA pipes
- * and adding IPA RM dependencies
-
  * Return codes: 0: success
  *		-EINVAL: invalid parameters
  *		-EPERM: Operation not permitted as the bridge is already

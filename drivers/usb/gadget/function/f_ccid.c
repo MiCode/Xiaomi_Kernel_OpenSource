@@ -2,7 +2,7 @@
 /*
  * f_ccid.c -- CCID function Driver
  *
- * Copyright (c) 2011, 2013, 2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013, 2017, 2019 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -433,18 +433,11 @@ static void ccid_function_disable(struct usb_function *f)
 	struct f_ccid *ccid_dev = func_to_ccid(f);
 	struct ccid_bulk_dev *bulk_dev = &ccid_dev->bulk_dev;
 	struct ccid_ctrl_dev *ctrl_dev = &ccid_dev->ctrl_dev;
-	struct usb_request *req;
 
 	/* Disable endpoints */
 	usb_ep_disable(ccid_dev->notify);
 	usb_ep_disable(ccid_dev->in);
 	usb_ep_disable(ccid_dev->out);
-	/* Free endpoint related requests */
-	ccid_request_free(ccid_dev->notify_req, ccid_dev->notify);
-	if (!atomic_read(&bulk_dev->rx_req_busy))
-		ccid_request_free(bulk_dev->rx_req, ccid_dev->out);
-	while ((req = ccid_req_get(ccid_dev, &bulk_dev->tx_idle)))
-		ccid_request_free(req, ccid_dev->in);
 
 	ccid_dev->dtr_state = 0;
 	atomic_set(&ccid_dev->online, 0);
@@ -461,47 +454,7 @@ ccid_function_set_alt(struct usb_function *f, unsigned int intf,
 {
 	struct f_ccid *ccid_dev = func_to_ccid(f);
 	struct usb_composite_dev *cdev = f->config->cdev;
-	struct ccid_bulk_dev *bulk_dev = &ccid_dev->bulk_dev;
-	struct usb_request *req;
 	int ret = 0;
-	int i;
-
-	ccid_dev->notify_req = ccid_request_alloc(ccid_dev->notify,
-			sizeof(struct usb_ccid_notification), GFP_ATOMIC);
-	if (IS_ERR(ccid_dev->notify_req)) {
-		pr_err("%s: unable to allocate memory for notify req\n",
-				__func__);
-		return PTR_ERR(ccid_dev->notify_req);
-	}
-	ccid_dev->notify_req->complete = ccid_notify_complete;
-	ccid_dev->notify_req->context = ccid_dev;
-
-	/* now allocate requests for our endpoints */
-	req = ccid_request_alloc(ccid_dev->out, BULK_OUT_BUFFER_SIZE,
-							GFP_ATOMIC);
-	if (IS_ERR(req)) {
-		pr_err("%s: unable to allocate memory for out req\n",
-				__func__);
-		ret = PTR_ERR(req);
-		goto free_notify;
-	}
-	req->complete = ccid_bulk_complete_out;
-	req->context = ccid_dev;
-	bulk_dev->rx_req = req;
-
-	for (i = 0; i < TX_REQ_MAX; i++) {
-		req = ccid_request_alloc(ccid_dev->in, BULK_IN_BUFFER_SIZE,
-				GFP_ATOMIC);
-		if (IS_ERR(req)) {
-			pr_err("%s: unable to allocate memory for in req\n",
-					__func__);
-			ret = PTR_ERR(req);
-			goto free_bulk_out;
-		}
-		req->complete = ccid_bulk_complete_in;
-		req->context = ccid_dev;
-		ccid_req_put(ccid_dev, &bulk_dev->tx_idle, req);
-	}
 
 	/* choose the descriptors and enable endpoints */
 	ret = config_ep_by_speed(cdev->gadget, f, ccid_dev->notify);
@@ -509,13 +462,13 @@ ccid_function_set_alt(struct usb_function *f, unsigned int intf,
 		ccid_dev->notify->desc = NULL;
 		pr_err("%s: config_ep_by_speed failed for ep#%s, err#%d\n",
 				__func__, ccid_dev->notify->name, ret);
-		goto free_bulk_in;
+		return ret;
 	}
 	ret = usb_ep_enable(ccid_dev->notify);
 	if (ret) {
 		pr_err("%s: usb ep#%s enable failed, err#%d\n",
 				__func__, ccid_dev->notify->name, ret);
-		goto free_bulk_in;
+		return ret;
 	}
 	ccid_dev->notify->driver_data = ccid_dev;
 
@@ -555,19 +508,23 @@ disable_ep_in:
 disable_ep_notify:
 	usb_ep_disable(ccid_dev->notify);
 	ccid_dev->notify->driver_data = NULL;
-free_bulk_in:
-	while ((req = ccid_req_get(ccid_dev, &bulk_dev->tx_idle)))
-		ccid_request_free(req, ccid_dev->in);
-free_bulk_out:
-	ccid_request_free(bulk_dev->rx_req, ccid_dev->out);
-free_notify:
-	ccid_request_free(ccid_dev->notify_req, ccid_dev->notify);
 	return ret;
 }
 
 static void ccid_function_unbind(struct usb_configuration *c,
 					struct usb_function *f)
 {
+	struct f_ccid *ccid_dev = func_to_ccid(f);
+	struct ccid_bulk_dev *bulk_dev = &ccid_dev->bulk_dev;
+	struct usb_request *req;
+
+	/* Free endpoint related requests */
+	ccid_request_free(ccid_dev->notify_req, ccid_dev->notify);
+	if (!atomic_read(&bulk_dev->rx_req_busy))
+		ccid_request_free(bulk_dev->rx_req, ccid_dev->out);
+	while ((req = ccid_req_get(ccid_dev, &bulk_dev->tx_idle)))
+		ccid_request_free(req, ccid_dev->in);
+
 	usb_free_all_descriptors(f);
 }
 
@@ -577,7 +534,10 @@ static int ccid_function_bind(struct usb_configuration *c,
 	struct f_ccid *ccid_dev = func_to_ccid(f);
 	struct usb_ep *ep;
 	struct usb_composite_dev *cdev = c->cdev;
+	struct ccid_bulk_dev *bulk_dev = &ccid_dev->bulk_dev;
+	struct usb_request *req;
 	int ret = -ENODEV;
+	int i;
 
 	ccid_dev->ifc_id = usb_interface_id(c, f);
 	if (ccid_dev->ifc_id < 0) {
@@ -632,20 +592,66 @@ static int ccid_function_bind(struct usb_configuration *c,
 	ret = usb_assign_descriptors(f, ccid_fs_descs, ccid_hs_descs,
 						ccid_ss_descs, ccid_ss_descs);
 	if (ret)
-		goto ep_auto_out_fail;
+		goto assign_desc_fail;
 
 	pr_debug("%s: CCID %s Speed, IN:%s OUT:%s\n", __func__,
 			gadget_is_dualspeed(cdev->gadget) ? "dual" : "full",
 			ccid_dev->in->name, ccid_dev->out->name);
 
+	ccid_dev->notify_req = ccid_request_alloc(ccid_dev->notify,
+			sizeof(struct usb_ccid_notification), GFP_KERNEL);
+	if (IS_ERR(ccid_dev->notify_req)) {
+		pr_err("%s: unable to allocate memory for notify req\n",
+				__func__);
+		goto notify_alloc_fail;
+	}
+	ccid_dev->notify_req->complete = ccid_notify_complete;
+	ccid_dev->notify_req->context = ccid_dev;
+
+	/* now allocate requests for our endpoints */
+	req = ccid_request_alloc(ccid_dev->out, BULK_OUT_BUFFER_SIZE,
+							GFP_KERNEL);
+	if (IS_ERR(req)) {
+		pr_err("%s: unable to allocate memory for out req\n",
+				__func__);
+		ret = PTR_ERR(req);
+		goto out_alloc_fail;
+	}
+	req->complete = ccid_bulk_complete_out;
+	req->context = ccid_dev;
+	bulk_dev->rx_req = req;
+
+	for (i = 0; i < TX_REQ_MAX; i++) {
+		req = ccid_request_alloc(ccid_dev->in, BULK_IN_BUFFER_SIZE,
+				GFP_KERNEL);
+		if (IS_ERR(req)) {
+			pr_err("%s: unable to allocate memory for in req\n",
+					__func__);
+			ret = PTR_ERR(req);
+			goto in_alloc_fail;
+		}
+		req->complete = ccid_bulk_complete_in;
+		req->context = ccid_dev;
+		ccid_req_put(ccid_dev, &bulk_dev->tx_idle, req);
+	}
+
 	return 0;
 
-ep_auto_out_fail:
+in_alloc_fail:
+	ccid_request_free(bulk_dev->rx_req, ccid_dev->out);
+out_alloc_fail:
+	ccid_request_free(ccid_dev->notify_req, ccid_dev->notify);
+notify_alloc_fail:
+	usb_free_all_descriptors(f);
+assign_desc_fail:
 	ccid_dev->out->driver_data = NULL;
 	ccid_dev->out = NULL;
-ep_auto_in_fail:
+ep_auto_out_fail:
 	ccid_dev->in->driver_data = NULL;
 	ccid_dev->in = NULL;
+ep_auto_in_fail:
+	ccid_dev->notify->driver_data = NULL;
+	ccid_dev->notify = NULL;
 
 	return ret;
 }

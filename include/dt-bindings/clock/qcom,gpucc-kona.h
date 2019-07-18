@@ -22,6 +22,7 @@
 #define GPU_CC_GX_VSENSE_CLK					13
 #define GPU_CC_PLL1						14
 #define GPU_CC_SLEEP_CLK					15
+#define GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK				16
 
 #define CX_GDSC							0
 #define GX_GDSC							1

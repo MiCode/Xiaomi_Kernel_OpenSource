@@ -314,6 +314,26 @@ struct cvp_session_queue {
 	struct kmem_cache *msg_cache;
 };
 
+struct cvp_session_prop {
+	u32 type;
+	u32 kernel_mask;
+	u32 priority;
+	u32 is_secure;
+	u32 dsp_mask;
+};
+
+enum cvp_event_t {
+	CVP_NO_EVENT,
+	CVP_SSR_EVENT = 1,
+	CVP_INVALID_EVENT,
+};
+
+struct cvp_session_event {
+	spinlock_t lock;
+	enum cvp_event_t event;
+	wait_queue_head_t wq;
+};
+
 struct msm_cvp_core {
 	struct list_head list;
 	struct mutex lock;
@@ -348,6 +368,7 @@ struct msm_cvp_inst {
 	struct msm_cvp_core *core;
 	enum session_type session_type;
 	struct cvp_session_queue session_queue;
+	struct cvp_session_event event_handler;
 	void *session;
 	enum instance_state state;
 	struct msm_cvp_list freqs;
@@ -365,6 +386,15 @@ struct msm_cvp_inst {
 	struct kref kref;
 	unsigned long deprecate_bitmask;
 	struct cvp_kmd_request_power power;
+	struct cvp_session_prop prop;
+	struct kmem_cache *fence_data_cache;
+};
+
+struct msm_cvp_fence_thread_data {
+	struct msm_cvp_inst *inst;
+	unsigned int device_id;
+	struct cvp_kmd_hfi_fence_packet in_fence_pkt;
+	unsigned int arg_type;
 };
 
 extern struct msm_cvp_drv *cvp_driver;

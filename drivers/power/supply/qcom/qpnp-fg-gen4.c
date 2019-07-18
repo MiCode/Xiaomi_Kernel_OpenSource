@@ -257,6 +257,7 @@ struct fg_gen4_chip {
 	struct votable		*cp_disable_votable;
 	struct votable		*parallel_current_en_votable;
 	struct votable		*mem_attn_irq_en_votable;
+	struct votable		*fv_votable;
 	struct work_struct	esr_calib_work;
 	struct work_struct	soc_scale_work;
 	struct alarm		esr_fast_cal_timer;
@@ -860,7 +861,7 @@ static int fg_gen4_get_cell_impedance(struct fg_gen4_chip *chip, int *val)
 {
 	struct fg_dev *fg = &chip->fg;
 	int rc, esr_uohms, temp, vbat_term_mv, v_delta, rprot_uohms = 0;
-	int rslow_uohms;
+	int rslow_uohms, fv_uv = fg->bp.float_volt_uv;
 
 	rc = fg_get_sram_prop(fg, FG_SRAM_ESR_ACT, &esr_uohms);
 	if (rc < 0) {
@@ -879,8 +880,21 @@ static int fg_gen4_get_cell_impedance(struct fg_gen4_chip *chip, int *val)
 	if (!chip->dt.five_pin_battery)
 		goto out;
 
-	if (fg->charge_type != POWER_SUPPLY_CHARGE_TYPE_TAPER ||
-		fg->bp.float_volt_uv <= 0)
+	if (fg->charge_type != POWER_SUPPLY_CHARGE_TYPE_TAPER)
+		goto out;
+
+	if ((fg->charge_type == POWER_SUPPLY_CHARGE_TYPE_TAPER) &&
+		(fg->health != POWER_SUPPLY_HEALTH_GOOD)) {
+		if (!chip->fv_votable)
+			chip->fv_votable = find_votable("FV");
+
+		if (!chip->fv_votable)
+			goto out;
+
+		fv_uv = get_effective_result(chip->fv_votable);
+	}
+
+	if (fv_uv <= 0)
 		goto out;
 
 	rc = fg_get_battery_voltage(fg, &vbat_term_mv);
@@ -893,7 +907,7 @@ static int fg_gen4_get_cell_impedance(struct fg_gen4_chip *chip, int *val)
 		goto out;
 	}
 
-	v_delta = abs(temp - fg->bp.float_volt_uv);
+	v_delta = abs(temp - fv_uv);
 
 	rc = fg_get_sram_prop(fg, FG_SRAM_IBAT_FINAL, &temp);
 	if (rc < 0) {
@@ -957,6 +971,11 @@ static int fg_gen4_get_prop_capacity(struct fg_dev *fg, int *val)
 	}
 
 	return 0;
+}
+
+static int fg_gen4_get_prop_real_capacity(struct fg_dev *fg, int *val)
+{
+	return fg_get_msoc(fg, val);
 }
 
 static int fg_gen4_get_prop_capacity_raw(struct fg_gen4_chip *chip, int *val)
@@ -3917,6 +3936,9 @@ static void status_change_work(struct work_struct *work)
 	if (!chip->cp_disable_votable)
 		chip->cp_disable_votable = find_votable("CP_DISABLE");
 
+	if (!chip->fv_votable)
+		chip->fv_votable = find_votable("FV");
+
 	if (!batt_psy_initialized(fg)) {
 		fg_dbg(fg, FG_STATUS, "Charger not available?!\n");
 		goto out;
@@ -4202,6 +4224,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = fg_gen4_get_prop_capacity(fg, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_REAL_CAPACITY:
+		rc = fg_gen4_get_prop_real_capacity(fg, &pval->intval);
+		break;
 	case POWER_SUPPLY_PROP_CAPACITY_RAW:
 		rc = fg_gen4_get_prop_capacity_raw(chip, &pval->intval);
 		break;
@@ -4445,6 +4470,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 
 static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_REAL_CAPACITY,
 	POWER_SUPPLY_PROP_CAPACITY_RAW,
 	POWER_SUPPLY_PROP_CC_SOC,
 	POWER_SUPPLY_PROP_TEMP,

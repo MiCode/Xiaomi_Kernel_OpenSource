@@ -2,41 +2,30 @@
 /*
  * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/module.h>
-#include <linux/uaccess.h>
-#include <linux/sched.h>
-#include <linux/of.h>
-#include <linux/of_device.h>
-#include <linux/of_fdt.h>
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/io.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_fdt.h>
+#include <linux/module.h>
+#include <linux/msm_kgsl.h>
+#include <linux/regulator/consumer.h>
+#include <linux/nvmem-consumer.h>
 #include <soc/qcom/scm.h>
 
-#include <linux/msm-bus-board.h>
-#include <linux/msm-bus.h>
-
-#include "kgsl.h"
-#include "kgsl_gmu_core.h"
-#include "kgsl_pwrscale.h"
-#include "kgsl_sharedmem.h"
-#include "kgsl_iommu.h"
-#include "kgsl_trace.h"
-#include "adreno_llc.h"
-
 #include "adreno.h"
-#include "adreno_iommu.h"
+#include "adreno_a3xx.h"
+#include "adreno_a5xx.h"
+#include "adreno_a6xx.h"
 #include "adreno_compat.h"
-#include "adreno_pm4types.h"
+#include "adreno_iommu.h"
+#include "adreno_llc.h"
 #include "adreno_trace.h"
-
-#include "a3xx_reg.h"
-#include "a6xx_reg.h"
-#include "adreno_snapshot.h"
+#include "kgsl_trace.h"
 
 /* Include the master list of GPU cores that are supported */
 #include "adreno-gpulist.h"
-#include "adreno_dispatch.h"
 
 static void adreno_input_work(struct work_struct *work);
 static unsigned int counter_delta(struct kgsl_device *device,
@@ -105,6 +94,16 @@ int adreno_wake_nice = -7;
 
 /* Number of milliseconds to stay active active after a wake on touch */
 unsigned int adreno_wake_timeout = 100;
+
+void adreno_reglist_write(struct adreno_device *adreno_dev,
+		const struct adreno_reglist *list, u32 count)
+{
+	int i;
+
+	for (i = 0; list && i < count; i++)
+		kgsl_regwrite(KGSL_DEVICE(adreno_dev),
+			list[i].offset, list[i].value);
+}
 
 /**
  * adreno_readreg64() - Read a 64bit register by getting its offset from the
@@ -684,11 +683,11 @@ static inline const struct adreno_gpu_core *_get_gpu_core(unsigned int chipid)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(adreno_gpulist); i++) {
-		if (core == adreno_gpulist[i].core &&
-		    _rev_match(major, adreno_gpulist[i].major) &&
-		    _rev_match(minor, adreno_gpulist[i].minor) &&
-		    _rev_match(patchid, adreno_gpulist[i].patchid))
-			return &adreno_gpulist[i];
+		if (core == adreno_gpulist[i]->core &&
+		    _rev_match(major, adreno_gpulist[i]->major) &&
+		    _rev_match(minor, adreno_gpulist[i]->minor) &&
+		    _rev_match(patchid, adreno_gpulist[i]->patchid))
+			return adreno_gpulist[i];
 	}
 
 	return NULL;
@@ -1285,6 +1284,37 @@ static bool adreno_is_gpu_disabled(struct adreno_device *adreno_dev)
 			pte_row0_msb[1] ? true : false;
 }
 
+static int adreno_read_speed_bin(struct platform_device *pdev,
+		struct adreno_device *adreno_dev)
+{
+	struct nvmem_cell *cell = nvmem_cell_get(&pdev->dev, "speed_bin");
+	int ret = PTR_ERR_OR_ZERO(cell);
+	void *buf;
+	size_t len;
+
+	if (ret) {
+		/*
+		 * If the cell isn't defined enabled, then revert to
+		 * using the default bin
+		 */
+		if (ret == -ENOENT)
+			return 0;
+
+		return ret;
+	}
+
+	buf = nvmem_cell_read(cell, &len);
+	if (!IS_ERR(buf)) {
+		memcpy(&adreno_dev->speed_bin, buf,
+				min(len, sizeof(adreno_dev->speed_bin)));
+		kfree(buf);
+	}
+
+	nvmem_cell_put(cell);
+
+	return 0;
+}
+
 static int adreno_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id =
@@ -1304,6 +1334,10 @@ static int adreno_probe(struct platform_device *pdev)
 	adreno_efuse_read_soc_hw_rev(adreno_dev);
 
 	adreno_update_soc_hw_revision_quirks(adreno_dev, pdev);
+
+	status = adreno_read_speed_bin(pdev, adreno_dev);
+	if (status)
+		return status;
 
 	/* Get the chip ID from the DT and set up target specific parameters */
 	if (adreno_identify_gpu(adreno_dev))
@@ -1333,6 +1367,8 @@ static int adreno_probe(struct platform_device *pdev)
 	 */
 	if (adreno_support_64bit(adreno_dev))
 		device->mmu.features |= KGSL_MMU_64BIT;
+
+	device->pwrctrl.bus_width = adreno_dev->gpucore->bus_width;
 
 	status = kgsl_device_platform_probe(device);
 	if (status) {
@@ -1629,23 +1665,6 @@ static int adreno_init(struct kgsl_device *device)
 
 	set_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
 
-	/* Use shader offset and length defined in gpudev */
-	if (adreno_dev->gpucore->shader_offset &&
-					adreno_dev->gpucore->shader_size) {
-
-		if (device->shader_mem_phys || device->shader_mem_virt)
-			dev_err(device->dev,
-				     "Shader memory already specified in device tree\n");
-		else {
-			device->shader_mem_phys = device->reg_phys +
-					adreno_dev->gpucore->shader_offset;
-			device->shader_mem_virt = device->reg_virt +
-					adreno_dev->gpucore->shader_offset;
-			device->shader_mem_len =
-					adreno_dev->gpucore->shader_size;
-		}
-	}
-
 	/*
 	 * Allocate a small chunk of memory for precise drawobj profiling for
 	 * those targets that have the always on timer
@@ -1666,16 +1685,6 @@ static int adreno_init(struct kgsl_device *device)
 				PAGE_SIZE);
 		}
 
-	}
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
-		int r = 0;
-
-		if (gpudev->preemption_init)
-			r = gpudev->preemption_init(adreno_dev);
-
-		if (!WARN(r, "adreno: GPU preemption is disabled"))
-			set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
 	}
 
 	return 0;
@@ -2211,8 +2220,9 @@ int adreno_reset(struct kgsl_device *device, int fault)
 		if (ret == 0) {
 			ret = adreno_soft_reset(device);
 			if (ret)
-				dev_err_once(device->dev,
-					"Device soft reset failed\n");
+				dev_err(device->dev,
+					"Device soft reset failed: ret=%d\n",
+					ret);
 		}
 	}
 	if (ret) {
@@ -2365,25 +2375,6 @@ static int adreno_prop_ucode_version(struct kgsl_device *device,
 	return copy_prop(param, &ucode, sizeof(ucode));
 }
 
-static int adreno_prop_gpmu_version(struct kgsl_device *device,
-		struct kgsl_device_getproperty *param)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_gpmu_version gpmu = { 0 };
-
-	if (!adreno_dev->gpucore)
-		return -EINVAL;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
-		return -EOPNOTSUPP;
-
-	gpmu.major = adreno_dev->gpucore->gpmu_major;
-	gpmu.minor = adreno_dev->gpucore->gpmu_minor;
-	gpmu.features = adreno_dev->gpucore->gpmu_features;
-
-	return copy_prop(param, &gpmu, sizeof(gpmu));
-}
-
 static int adreno_prop_u32(struct kgsl_device *device,
 		struct kgsl_device_getproperty *param)
 {
@@ -2421,7 +2412,6 @@ static const struct {
 	{ KGSL_PROP_INTERRUPT_WAITS, adreno_prop_s32 },
 	{ KGSL_PROP_UCHE_GMEM_VADDR, adreno_prop_uche_gmem_addr },
 	{ KGSL_PROP_UCODE_VERSION, adreno_prop_ucode_version },
-	{ KGSL_PROP_GPMU_VERSION, adreno_prop_gpmu_version },
 	{ KGSL_PROP_HIGHEST_BANK_BIT, adreno_prop_u32 },
 	{ KGSL_PROP_MIN_ACCESS_LENGTH, adreno_prop_u32 },
 	{ KGSL_PROP_UBWC_MODE, adreno_prop_u32 },
@@ -2440,6 +2430,20 @@ static int adreno_getproperty(struct kgsl_device *device,
 	}
 
 	return -ENODEV;
+}
+
+static int adreno_query_property_list(struct kgsl_device *device, u32 *list,
+		u32 count)
+{
+	int i;
+
+	if (!list)
+		return ARRAY_SIZE(adreno_property_funcs);
+
+	for (i = 0; i < count && i < ARRAY_SIZE(adreno_property_funcs); i++)
+		list[i] = adreno_property_funcs[i].type;
+
+	return i;
 }
 
 int adreno_set_constraint(struct kgsl_device *device,
@@ -2966,6 +2970,50 @@ static void adreno_read(struct kgsl_device *device, void __iomem *base,
 	rmb();
 }
 
+static void adreno_retry_rbbm_read(struct kgsl_device *device,
+		void __iomem *base, unsigned int offsetwords,
+		unsigned int *value, unsigned int mem_len)
+{
+	int i;
+	void __iomem *reg;
+
+	/* Make sure we're not reading from invalid memory */
+	if (WARN(offsetwords * sizeof(uint32_t) >= mem_len,
+		"Out of bounds register read: 0x%x/0x%x\n",
+		offsetwords, mem_len >> 2))
+		return;
+
+	reg = (base + (offsetwords << 2));
+
+	/*
+	 * If 0xdeafbead was transient, second read is expected to return the
+	 * actual register value. However, if a register value is indeed
+	 * 0xdeafbead, read it enough times to guarantee that.
+	 */
+	for (i = 0; i < 16; i++) {
+		*value = readl_relaxed(reg);
+		/*
+		 * Read barrier needed so that register is read from hardware
+		 * every iteration
+		 */
+		rmb();
+
+		if (*value != 0xdeafbead)
+			return;
+	}
+}
+
+static inline bool adreno_is_a650_rbbm_batch_reg(unsigned int offsetwords)
+{
+	if (((offsetwords > 0x0) && (offsetwords < 0x3FF)) ||
+		((offsetwords > 0x4FA) && (offsetwords < 0x53F)) ||
+		((offsetwords > 0x556) && (offsetwords < 0x5FF)) ||
+		((offsetwords > 0xF400) && (offsetwords < 0xFFFF)))
+		return  true;
+
+	return false;
+}
+
 /**
  * adreno_regread - Used to read adreno device registers
  * @offsetwords - Word (4 Bytes) offset to the register to be read
@@ -2976,6 +3024,11 @@ static void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 {
 	adreno_read(device, device->reg_virt, offsetwords, value,
 						device->reg_len);
+
+	if ((*value == 0xdeafbead) && adreno_is_a650(ADRENO_DEVICE(device)) &&
+		adreno_is_a650_rbbm_batch_reg(offsetwords))
+		adreno_retry_rbbm_read(device, device->reg_virt, offsetwords,
+			value, device->reg_len);
 }
 
 /**
@@ -3470,7 +3523,7 @@ static void adreno_power_stats(struct kgsl_device *device,
 		if (gpudev->read_throttling_counters) {
 			adj = gpudev->read_throttling_counters(adreno_dev);
 			if (adj < 0 && -adj > gpu_busy)
-				adj = -gpu_busy;
+				adj = 0;
 
 			gpu_busy += adj;
 		}
@@ -3707,6 +3760,13 @@ static void adreno_gpu_model(struct kgsl_device *device, char *str,
 			 ADRENO_CHIPID_PATCH(adreno_dev->chipid) + 1);
 }
 
+static bool adreno_is_hwcg_on(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	return test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag);
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
@@ -3750,6 +3810,8 @@ static const struct kgsl_functable adreno_functable = {
 	.stop_fault_timer = adreno_dispatcher_stop_fault_timer,
 	.dispatcher_halt = adreno_dispatcher_halt,
 	.dispatcher_unhalt = adreno_dispatcher_unhalt,
+	.query_property_list = adreno_query_property_list,
+	.is_hwcg_on = adreno_is_hwcg_on,
 };
 
 static struct platform_driver adreno_platform_driver = {

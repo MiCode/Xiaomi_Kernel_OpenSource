@@ -13,16 +13,6 @@
 #include "ipa_pkt_cntxt.h"
 #include "ipa_hw_common_ex.h"
 
-/*
- * The following macros are used to peek and poke register values and
- * are required by some of the macros and include files that follow...
- */
-#define my_in_dword(addr) \
-	(readl(addr))
-
-#define my_out_dword(addr, val) \
-	({ __iowmb(); writel_relaxed((val), (addr)); })
-
 #define IPA_0_IPA_WRAPPER_BASE 0 /* required by following includes */
 
 #include "ipa_hwio.h"
@@ -56,6 +46,10 @@
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_1   (0xC)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_2   (0xD)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_3   (0xE)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_4   (0xF)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_5   (0x10)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_6   (0x11)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_7   (0x12)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_0   (0x13)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_1   (0x14)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_2   (0x15)
@@ -82,6 +76,16 @@
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_RD_WR_2 (0x35)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_RD_WR_3 (0x36)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_CSR     (0x3A)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_SDMA_0  (0x3C)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_SDMA_1  (0x3D)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_IE_2    (0x1D)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_CSR_1   (0x3E)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_CSR_2   (0x3F)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_MCS_5   (0x40)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_IC_5    (0x41)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_CSR_3   (0x42)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_TLV_0   (0x43)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_8   (0x44)
 
 #define IPA_DEBUG_TESTBUS_DEF_EXTERNAL           50
 #define IPA_DEBUG_TESTBUS_DEF_INTERNAL           6
@@ -89,6 +93,9 @@
 #define IPA_REG_SAVE_GSI_NUM_EE                  3
 
 #define IPA_REG_SAVE_NUM_EXTRA_ENDP_REGS         22
+
+#define IPA_GSI_OFFSET_WORDS_SCRATCH4            6
+#define IPA_GSI_OFFSET_WORDS_SCRATCH5            7
 
 #define IPA_DEBUG_TESTBUS_RSRC_TYPE_CNT_BIT_MASK 0x7E000
 #define IPA_DEBUG_TESTBUS_RSRC_TYPE_CNT_SHIFT    13
@@ -945,6 +952,10 @@ static u32 ipa_reg_save_gsi_ch_test_bus_selector_array[] = {
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_1,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_2,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_3,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_4,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_5,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_6,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_7,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_0,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_1,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_2,
@@ -971,6 +982,16 @@ static u32 ipa_reg_save_gsi_ch_test_bus_selector_array[] = {
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_RD_WR_2,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_RD_WR_3,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_CSR,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_SDMA_0,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_SDMA_1,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_IE_2,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_CSR_1,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_CSR_2,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_MCS_5,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_IC_5,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_CSR_3,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_TLV_0,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_8,
 };
 
 /*
@@ -1292,7 +1313,7 @@ struct regs_save_hierarchy_s {
 static inline u32
 act_read(void __iomem *addr)
 {
-	u32 val = my_in_dword(addr);
+	u32 val = ioread32(addr);
 
 	return val;
 }
@@ -1303,7 +1324,7 @@ act_read(void __iomem *addr)
 static inline void
 act_write(void __iomem *addr, u32 val)
 {
-	my_out_dword(addr, val);
+	iowrite32(val, addr);
 }
 
 /*

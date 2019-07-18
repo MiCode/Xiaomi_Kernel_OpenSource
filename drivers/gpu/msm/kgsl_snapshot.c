@@ -3,18 +3,14 @@
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/export.h>
-#include <linux/time.h>
-#include <linux/sysfs.h>
+#include <linux/of.h>
+#include <linux/slab.h>
 #include <linux/utsname.h>
-#include <linux/sched.h>
-#include <linux/idr.h>
 
-#include "kgsl.h"
+#include "adreno_cp_parser.h"
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_snapshot.h"
-#include "adreno_cp_parser.h"
 
 static void kgsl_snapshot_save_frozen_objs(struct work_struct *work);
 
@@ -598,6 +594,47 @@ static void kgsl_free_snapshot(struct kgsl_snapshot *snapshot)
 	dev_err(device->dev, "snapshot: objects released\n");
 }
 
+#define SP0_ISDB_ISDB_BRKPT_CFG 0x40014
+#define SP0_ISDB_ISDB_EN 0x40004
+#define SP0_ISDB_ISDB_CMD 0x4000C
+
+static void isdb_write(void __iomem *base, u32 offset)
+{
+	/* To set the SCHBREAKTYPE bit */
+	__raw_writel(0x800, base + SP0_ISDB_ISDB_BRKPT_CFG + offset);
+
+	/*
+	 * ensure the configurations are set before
+	 * enabling ISDB
+	 */
+	wmb();
+	/* To set the ISDBCLKON and ISDB_EN bits*/
+	__raw_writel(0x03, base + SP0_ISDB_ISDB_EN + offset);
+
+	/*
+	 * ensure previous write to enable isdb posts
+	 * before issuing the break command
+	 */
+	wmb();
+	/*To issue ISDB_0_ISDB_CMD_BREAK*/
+	__raw_writel(0x1, base + SP0_ISDB_ISDB_CMD + offset);
+}
+
+static void set_isdb_breakpoint_registers(struct kgsl_device *device)
+{
+	if (!device->set_isdb_breakpoint || !device->ftbl->is_hwcg_on(device)
+					|| device->qdss_gfx_virt == NULL)
+		return;
+
+	/* Issue break command for all six SPs */
+	isdb_write(device->qdss_gfx_virt, 0x0000);
+	isdb_write(device->qdss_gfx_virt, 0x1000);
+	isdb_write(device->qdss_gfx_virt, 0x2000);
+	isdb_write(device->qdss_gfx_virt, 0x3000);
+	isdb_write(device->qdss_gfx_virt, 0x4000);
+	isdb_write(device->qdss_gfx_virt, 0x5000);
+}
+
 /**
  * kgsl_snapshot() - construct a device snapshot
  * @device: device to snapshot
@@ -614,6 +651,8 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	struct kgsl_snapshot *snapshot;
 	struct timespec boot;
 	phys_addr_t pa;
+
+	set_isdb_breakpoint_registers(device);
 
 	if (device->snapshot_memory.ptr == NULL) {
 		dev_err(device->dev,

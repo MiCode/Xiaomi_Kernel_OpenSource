@@ -1,12 +1,42 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017,2019 The Linux Foundation. All rights reserved.
  */
 
 #ifndef _ADRENO_A5XX_H_
 #define _ADRENO_A5XX_H_
 
 #include "a5xx_reg.h"
+
+/**
+ * struct adreno_a5xx_core - a5xx specific GPU core definitions
+ */
+struct adreno_a5xx_core {
+	/** @base: Container for the generic &struct adreno_gpu_core */
+	struct adreno_gpu_core base;
+	/** @gpmu_tsens: ID for the temperature sensor used by the GPMU */
+	unsigned int gpmu_tsens;
+	/** @max_power: Max possible power draw of a core */
+	unsigned int max_power;
+	/** pm4fw_name: Name of the PM4 microcode file */
+	const char *pm4fw_name;
+	/** pfpfw_name: Name of the PFP microcode file */
+	const char *pfpfw_name;
+	/** gpmufw_name: Name of the GPMU microcode file */
+	const char *gpmufw_name;
+	/** @regfw_name: Filename for the LM registers if applicable */
+	const char *regfw_name;
+	/** @zap_name: Name of the CPZ zap file */
+	const char *zap_name;
+	/** @hwcg: List of registers and values to write for HWCG */
+	const struct adreno_reglist *hwcg;
+	/** @hwcg_count: Number of registers in @hwcg */
+	u32 hwcg_count;
+	/** @vbif: List of registers and values to write for VBIF */
+	const struct adreno_reglist *vbif;
+	/** @vbif_count: Number of registers in @vbif */
+	u32 vbif_count;
+};
 
 #define A5XX_IRQ_FLAGS \
 	{ BIT(A5XX_INT_RBBM_GPU_IDLE), "RBBM_GPU_IDLE" }, \
@@ -213,11 +243,27 @@ static inline bool lm_on(struct adreno_device *adreno_dev)
 		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
 }
 
+/**
+ * to_a5xx_core - return the a5xx specific GPU core struct
+ * @adreno_dev: An Adreno GPU device handle
+ *
+ * Returns:
+ * A pointer to the a5xx specific GPU core struct
+ */
+static inline const struct adreno_a5xx_core *
+to_a5xx_core(struct adreno_device *adreno_dev)
+{
+	const struct adreno_gpu_core *core = adreno_dev->gpucore;
+
+	return container_of(core, struct adreno_a5xx_core, base);
+}
+
 /* Preemption functions */
 void a5xx_preemption_trigger(struct adreno_device *adreno_dev);
 void a5xx_preemption_schedule(struct adreno_device *adreno_dev);
 void a5xx_preemption_start(struct adreno_device *adreno_dev);
 int a5xx_preemption_init(struct adreno_device *adreno_dev);
+void a5xx_preemption_close(struct adreno_device *adreno_dev);
 int a5xx_preemption_yield_enable(unsigned int *cmds);
 
 unsigned int a5xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev,

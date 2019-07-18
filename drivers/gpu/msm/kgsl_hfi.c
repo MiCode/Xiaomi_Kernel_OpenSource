@@ -3,12 +3,14 @@
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
-#include "kgsl_device.h"
-#include "kgsl_hfi.h"
-#include "kgsl_gmu.h"
+#include <linux/delay.h>
+
 #include "adreno.h"
+#include "adreno_a6xx.h"
+#include "kgsl_device.h"
+#include "kgsl_gmu.h"
+#include "kgsl_hfi.h"
 #include "kgsl_trace.h"
-#include "kgsl_pwrctrl.h"
 
 #define HFI_QUEUE_OFFSET(i)		\
 		(ALIGN(sizeof(struct hfi_queue_table), SZ_16) + \
@@ -607,6 +609,7 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 		struct gmu_device *gmu)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	int result;
 	unsigned int ver, major, minor;
 
@@ -614,8 +617,8 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 	if (gmu->ver.core != 0)
 		return 0;
 
-	major = adreno_dev->gpucore->gpmu_major;
-	minor = adreno_dev->gpucore->gpmu_minor;
+	major = a6xx_core->gmu_major;
+	minor = a6xx_core->gmu_minor;
 
 	result = hfi_get_fw_version(gmu, GMU_VERSION(major, minor), &ver);
 	if (result) {
@@ -773,13 +776,6 @@ void hfi_stop(struct gmu_device *gmu)
 int hfi_send_req(struct gmu_device *gmu, unsigned int id, void *data)
 {
 	switch (id) {
-	case H2F_MSG_LM_CFG: {
-		struct hfi_lmconfig_cmd *cmd = data;
-
-		cmd->hdr = CMD_MSG_HDR(H2F_MSG_LM_CFG, sizeof(*cmd));
-
-		return hfi_send_generic_req(gmu, HFI_CMD_ID, &cmd);
-	}
 	case H2F_MSG_GX_BW_PERF_VOTE: {
 		struct hfi_gx_bw_perf_vote_cmd *cmd = data;
 

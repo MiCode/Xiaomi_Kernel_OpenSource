@@ -256,6 +256,9 @@ struct adc_tm_linear_graph {
 	s32 gnd;
 };
 
+int therm_fwd_scale(int64_t code, uint32_t adc_hc_vdd_ref_mv,
+				const struct adc_tm_data *data);
+
 void adc_tm_scale_therm_voltage_100k(struct adc_tm_config *param,
 				const struct adc_tm_data *data);
 

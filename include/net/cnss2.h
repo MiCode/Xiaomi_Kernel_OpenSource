@@ -17,6 +17,7 @@
 
 enum cnss_bus_width_type {
 	CNSS_BUS_WIDTH_NONE,
+	CNSS_BUS_WIDTH_IDLE,
 	CNSS_BUS_WIDTH_LOW,
 	CNSS_BUS_WIDTH_MEDIUM,
 	CNSS_BUS_WIDTH_HIGH
@@ -170,7 +171,6 @@ extern int cnss_get_fw_files_for_target(struct device *dev,
 					u32 target_type, u32 target_version);
 extern int cnss_get_platform_cap(struct device *dev,
 				 struct cnss_platform_cap *cap);
-extern struct dma_iommu_mapping *cnss_smmu_get_mapping(struct device *dev);
 extern struct iommu_domain *cnss_smmu_get_domain(struct device *dev);
 extern int cnss_smmu_map(struct device *dev,
 			 phys_addr_t paddr, uint32_t *iova_addr, size_t size);

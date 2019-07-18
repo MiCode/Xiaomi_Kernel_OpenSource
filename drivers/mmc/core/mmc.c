@@ -986,11 +986,11 @@ static void mmc_set_bus_speed(struct mmc_card *card)
  */
 static int mmc_select_bus_width(struct mmc_card *card)
 {
-	static unsigned int ext_csd_bits[] = {
+	static const unsigned int ext_csd_bits[] = {
 		EXT_CSD_BUS_WIDTH_8,
 		EXT_CSD_BUS_WIDTH_4,
 	};
-	static unsigned int bus_widths[] = {
+	static const unsigned int bus_widths[] = {
 		MMC_BUS_WIDTH_8,
 		MMC_BUS_WIDTH_4,
 	};
@@ -1275,10 +1275,6 @@ int mmc_hs400_to_hs200(struct mmc_card *card)
 	int err;
 	u8 val;
 
-	/* Reduce frequency to HS */
-	max_dtr = card->ext_csd.hs_max_dtr;
-	mmc_set_clock(host, max_dtr);
-
 	/* Switch HS400 to HS DDR */
 	val = EXT_CSD_TIMING_HS;
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_HS_TIMING,
@@ -1288,6 +1284,10 @@ int mmc_hs400_to_hs200(struct mmc_card *card)
 		goto out_err;
 
 	mmc_set_timing(host, MMC_TIMING_MMC_DDR52);
+
+	/* Reduce frequency to HS */
+	max_dtr = card->ext_csd.hs_max_dtr;
+	mmc_set_clock(host, max_dtr);
 
 	err = mmc_switch_status(card);
 	if (err)
@@ -2252,6 +2252,27 @@ static int mmc_poweroff_notify(struct mmc_card *card, unsigned int notify_type)
 	return err;
 }
 
+int mmc_send_pon(struct mmc_card *card)
+{
+	int err = 0;
+	struct mmc_host *host = card->host;
+
+	if (!mmc_can_poweroff_notify(card))
+		goto out;
+
+	mmc_get_card(card, NULL);
+	if (card->pon_type & MMC_LONG_PON)
+		err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_LONG);
+	else if (card->pon_type & MMC_SHRT_PON)
+		err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_SHORT);
+	if (err)
+		pr_warn("%s: error %d sending PON type %u\n",
+			mmc_hostname(host), err, card->pon_type);
+	mmc_put_card(card, NULL);
+out:
+	return err;
+}
+
 /*
  * Host is being removed. Free up the current card.
  */
@@ -2259,7 +2280,9 @@ static void mmc_remove(struct mmc_host *host)
 {
 	mmc_exit_clk_scaling(host);
 	mmc_remove_card(host->card);
+	mmc_claim_host(host);
 	host->card = NULL;
+	mmc_release_host(host);
 }
 
 /*
@@ -2398,12 +2421,37 @@ out:
 	return err;
 }
 
+static int _mmc_deferred_resume(struct mmc_host *host)
+{
+	int err = 0;
+
+	if (!mmc_card_suspended(host->card)) {
+		mmc_release_host(host);
+		goto out;
+	}
+
+	mmc_log_string(host, "Enter\n");
+	mmc_power_up(host, host->card->ocr);
+	err = mmc_init_card(host, host->card->ocr, host->card);
+	mmc_card_clr_suspended(host->card);
+
+	mmc_log_string(host, "Exit err %d\n", err);
+
+	err = mmc_resume_clk_scaling(host);
+	if (err)
+		pr_err("%s: %s: fail to resume clock scaling (%d)\n",
+			mmc_hostname(host), __func__, err);
+out:
+	return err;
+}
+
 /*
  * Shutdown callback
  */
 static int mmc_shutdown(struct mmc_host *host)
 {
 	int err = 0;
+	struct mmc_card *card = host->card;
 
 	/*
 	 * In a specific case for poweroff notify, we need to resume the card
@@ -2420,8 +2468,10 @@ static int mmc_shutdown(struct mmc_host *host)
 	if (host->caps2 & MMC_CAP2_CLK_SCALE)
 		mmc_exit_clk_scaling(host);
 
-	if (!err)
-		err = _mmc_suspend(host, false);
+	/* send power off notification */
+	if (mmc_card_mmc(card))
+		mmc_send_pon(card);
+
 	mmc_log_string(host, "done err %d\n", err);
 	return err;
 }
@@ -2431,9 +2481,33 @@ static int mmc_shutdown(struct mmc_host *host)
  */
 static int mmc_resume(struct mmc_host *host)
 {
+	int err = 0;
+
+	err = _mmc_resume(host);
+	pm_runtime_set_active(&host->card->dev);
+	pm_runtime_mark_last_busy(&host->card->dev);
 	pm_runtime_enable(&host->card->dev);
+
 	mmc_log_string(host, "Done\n");
-	return 0;
+
+	return err;
+}
+
+/*
+ * Callback for deferred resume.
+ */
+static int mmc_deferred_resume(struct mmc_host *host)
+{
+	int err = 0;
+
+	err = _mmc_deferred_resume(host);
+	pm_runtime_set_active(&host->card->dev);
+	pm_runtime_mark_last_busy(&host->card->dev);
+	pm_runtime_enable(&host->card->dev);
+
+	mmc_log_string(host, "Done\n");
+
+	return err;
 }
 
 /*
@@ -2518,6 +2592,7 @@ static const struct mmc_bus_ops mmc_ops = {
 	.detect = mmc_detect,
 	.suspend = mmc_suspend,
 	.resume = mmc_resume,
+	.deferred_resume = mmc_deferred_resume,
 	.runtime_suspend = mmc_runtime_suspend,
 	.runtime_resume = mmc_runtime_resume,
 	.alive = mmc_alive,

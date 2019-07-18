@@ -1066,6 +1066,7 @@ retry:
 		err = mmc_send_relative_addr(host, &card->rca);
 		if (err)
 			goto free_card;
+		host->card = card;
 	}
 
 	if (!oldcard) {
@@ -1170,12 +1171,13 @@ done:
 	card->clk_scaling_highest = mmc_sd_get_max_clock(card);
 	card->clk_scaling_lowest = host->f_min;
 
-	host->card = card;
 	return 0;
 
 free_card:
-	if (!oldcard)
+	if (!oldcard) {
+		host->card = NULL;
 		mmc_remove_card(card);
+	}
 
 	return err;
 }
@@ -1187,7 +1189,10 @@ static void mmc_sd_remove(struct mmc_host *host)
 {
 	mmc_exit_clk_scaling(host);
 	mmc_remove_card(host->card);
+
+	mmc_claim_host(host);
 	host->card = NULL;
+	mmc_release_host(host);
 }
 
 /*
@@ -1266,7 +1271,9 @@ static int mmc_sd_suspend(struct mmc_host *host)
 	if (!err) {
 		pm_runtime_disable(&host->card->dev);
 		pm_runtime_set_suspended(&host->card->dev);
-	}
+	/* if suspend fails, force mmc_detect_change during resume */
+	} else if (mmc_bus_manual_resume(host))
+		host->ignore_bus_resume_flags = true;
 
 	return err;
 }
@@ -1287,8 +1294,15 @@ static int _mmc_sd_resume(struct mmc_host *host)
 
 	mmc_power_up(host, host->card->ocr);
 	err = mmc_sd_init_card(host, host->card->ocr, host->card);
+	if (err == -ENOENT) {
+		pr_debug("%s: %s: found a different card(%d), do detect change\n",
+			mmc_hostname(host), __func__, err);
+		mmc_card_set_removed(host->card);
+		mmc_detect_change(host, msecs_to_jiffies(200));
+	} else if (err) {
+		goto out;
+	}
 	mmc_card_clr_suspended(host->card);
-
 	err = mmc_resume_clk_scaling(host);
 	if (err) {
 		pr_err("%s: %s: fail to resume clock scaling (%d)\n",
@@ -1301,16 +1315,69 @@ out:
 	return err;
 }
 
+static int _mmc_sd_deferred_resume(struct mmc_host *host)
+{
+	int err = 0;
+
+	mmc_log_string(host, "Enter\n");
+
+	if (!mmc_card_suspended(host->card))
+		goto out;
+
+	mmc_power_up(host, host->card->ocr);
+	err = mmc_sd_init_card(host, host->card->ocr, host->card);
+	if (err == -ENOENT) {
+		pr_debug("%s: %s: found a different card(%d), do detect change\n",
+			mmc_hostname(host), __func__, err);
+		mmc_card_set_removed(host->card);
+		mmc_detect_change(host, msecs_to_jiffies(200));
+	} else if (err) {
+		goto out;
+	}
+	mmc_card_clr_suspended(host->card);
+	err = mmc_resume_clk_scaling(host);
+	if (err) {
+		pr_err("%s: %s: fail to resume clock scaling (%d)\n",
+			mmc_hostname(host), __func__, err);
+		goto out;
+	}
+out:
+	mmc_log_string(host, "Exit err: %d\n", err);
+	return err;
+}
+
 /*
  * Callback for resume
  */
 static int mmc_sd_resume(struct mmc_host *host)
 {
+	int err = 0;
+
+	err = _mmc_sd_resume(host);
+	pm_runtime_set_active(&host->card->dev);
+	pm_runtime_mark_last_busy(&host->card->dev);
 	pm_runtime_enable(&host->card->dev);
 	mmc_log_string(host, "done\n");
 
-	return 0;
+	return err;
 }
+
+/*
+ * Callback for deferred resume
+ */
+static int mmc_sd_deferred_resume(struct mmc_host *host)
+{
+	int err = 0;
+
+	err = _mmc_sd_deferred_resume(host);
+	pm_runtime_set_active(&host->card->dev);
+	pm_runtime_mark_last_busy(&host->card->dev);
+	pm_runtime_enable(&host->card->dev);
+	mmc_log_string(host, "done\n");
+
+	return err;
+}
+
 
 /*
  * Callback for runtime_suspend.
@@ -1358,8 +1425,8 @@ static const struct mmc_bus_ops mmc_sd_ops = {
 	.runtime_resume = mmc_sd_runtime_resume,
 	.suspend = mmc_sd_suspend,
 	.resume = mmc_sd_resume,
+	.deferred_resume = mmc_sd_deferred_resume,
 	.alive = mmc_sd_alive,
-	.shutdown = mmc_sd_suspend,
 	.hw_reset = mmc_sd_hw_reset,
 	.change_bus_speed = mmc_sd_change_bus_speed,
 	.change_bus_speed_deferred = mmc_sd_change_bus_speed_deferred,

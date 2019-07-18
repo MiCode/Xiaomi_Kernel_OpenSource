@@ -6,7 +6,7 @@
 #ifndef _IPAHAL_H_
 #define _IPAHAL_H_
 
-#include <linux/msm_ipa.h>
+#include "../ipa_defs.h"
 #include "../../ipa_common_i.h"
 
 /*

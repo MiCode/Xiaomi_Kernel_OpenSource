@@ -14,6 +14,7 @@
 #include <linux/ipa_uc_offload.h>
 #include <linux/pci.h>
 #include "ipa_api.h"
+#include "ipa_v3/ipa_i.h"
 
 /*
  * The following for adding code (ie. for EMULATION) not found on x86.
@@ -934,6 +935,25 @@ int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 EXPORT_SYMBOL(ipa_add_rt_rule);
 
 /**
+ * ipa_add_rt_rule_v2() - Add the specified routing rules to SW
+ * and optionally commit to IPA HW
+ * @rules:	[inout] set of routing rules to add
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_add_rt_rule_v2(struct ipa_ioc_add_rt_rule_v2 *rules)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_add_rt_rule_v2, rules);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_add_rt_rule_v2);
+
+/**
  * ipa_add_rt_rule_usr() - Add the specified routing rules to SW and optionally
  * commit to IPA HW
  * @rules:	[inout] set of routing rules to add
@@ -952,6 +972,26 @@ int ipa_add_rt_rule_usr(struct ipa_ioc_add_rt_rule *rules, bool user_only)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_add_rt_rule_usr);
+
+/**
+ * ipa_add_rt_rule_usr_v2() - Add the specified routing rules to
+ * SW and optionally commit to IPA HW
+ * @rules:	[inout] set of routing rules to add
+ * @user_only:	[in] indicate rules installed by userspace
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_add_rt_rule_usr_v2(struct ipa_ioc_add_rt_rule_v2 *rules, bool user_only)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_add_rt_rule_usr_v2, rules, user_only);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_add_rt_rule_usr_v2);
 
 /**
  * ipa_del_rt_rule() - Remove the specified routing rules to SW and optionally
@@ -1086,6 +1126,24 @@ int ipa_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *hdls)
 EXPORT_SYMBOL(ipa_mdfy_rt_rule);
 
 /**
+ * ipa_mdfy_rt_rule_v2() - Modify the specified routing rules in
+ * SW and optionally commit to IPA HW
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_mdfy_rt_rule_v2(struct ipa_ioc_mdfy_rt_rule_v2 *hdls)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_mdfy_rt_rule_v2, hdls);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_mdfy_rt_rule_v2);
+
+/**
  * ipa_add_flt_rule() - Add the specified filtering rules to SW and optionally
  * commit to IPA HW
  * @rules:	[inout] set of filtering rules to add
@@ -1103,6 +1161,25 @@ int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_add_flt_rule);
+
+/**
+ * ipa_add_flt_rule_v2() - Add the specified filtering rules to
+ * SW and optionally commit to IPA HW
+ * @rules:	[inout] set of filtering rules to add
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_add_flt_rule_v2(struct ipa_ioc_add_flt_rule_v2 *rules)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_add_flt_rule_v2, rules);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_add_flt_rule_v2);
 
 /**
  * ipa_add_flt_rule_usr() - Add the specified filtering rules to
@@ -1123,6 +1200,28 @@ int ipa_add_flt_rule_usr(struct ipa_ioc_add_flt_rule *rules, bool user_only)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_add_flt_rule_usr);
+
+/**
+ * ipa_add_flt_rule_usr_v2() - Add the specified filtering rules
+ * to SW and optionally commit to IPA HW
+ * @rules:		[inout] set of filtering rules to add
+ * @user_only:	[in] indicate rules installed by userspace
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_add_flt_rule_usr_v2(struct ipa_ioc_add_flt_rule_v2 *rules,
+	bool user_only)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_add_flt_rule_usr_v2,
+		rules, user_only);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_add_flt_rule_usr_v2);
 
 /**
  * ipa_del_flt_rule() - Remove the specified filtering rules from SW and
@@ -1159,6 +1258,24 @@ int ipa_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *hdls)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_mdfy_flt_rule);
+
+/**
+ * ipa_mdfy_flt_rule_v2() - Modify the specified filtering rules
+ * in SW and optionally commit to IPA HW
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_mdfy_flt_rule_v2(struct ipa_ioc_mdfy_flt_rule_v2 *hdls)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_mdfy_flt_rule_v2, hdls);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_mdfy_flt_rule_v2);
 
 /**
  * ipa_commit_flt() - Commit the current SW filtering table of specified type to
@@ -2678,23 +2795,18 @@ enum ipa_client_type ipa_get_client_mapping(int pipe_idx)
 EXPORT_SYMBOL(ipa_get_client_mapping);
 
 /**
- * ipa_get_rm_resource_from_ep() - get the IPA_RM resource which is related to
- * the supplied pipe index.
- *
- * @pipe_idx:
- *
- * Return value: IPA_RM resource related to the pipe, -1 if a resource was not
- * found.
+ * ipa_get_rm_resource_from_ep() - this function is part of the deprecated
+ * RM mechanism but is still used by some drivers so we kept the definition.
  */
+
 enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(int pipe_idx)
 {
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_get_rm_resource_from_ep, pipe_idx);
-
-	return ret;
+	IPAERR("IPA RM is not supported idx=%d\n", pipe_idx);
+	return -EFAULT;
 }
 EXPORT_SYMBOL(ipa_get_rm_resource_from_ep);
+
+
 
 /**
  * ipa_get_modem_cfg_emb_pipe_flt()- Return ipa_ctx->modem_cfg_emb_pipe_flt
@@ -3450,11 +3562,15 @@ EXPORT_SYMBOL(ipa_conn_wigig_rx_pipe_i);
 /**
  * ipa_conn_wigig_client_i() - connect a wigig client
  */
-int ipa_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
+int ipa_conn_wigig_client_i(void *in,
+	struct ipa_wigig_conn_out_params *out,
+	ipa_notify_cb tx_notify,
+	void *priv)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_conn_wigig_client_i, in, out);
+	IPA_API_DISPATCH_RETURN(ipa_conn_wigig_client_i, in, out,
+		tx_notify, priv);
 
 	return ret;
 }
@@ -3528,18 +3644,6 @@ void ipa_deregister_client_callback(enum ipa_client_type client)
 		client);
 }
 
-
-/**
- * ipa_pm_is_used() - Returns if IPA PM framework is used
- */
-bool ipa_pm_is_used(void)
-{
-	bool ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_pm_is_used);
-
-	return ret;
-}
 
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,

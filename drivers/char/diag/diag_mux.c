@@ -259,7 +259,7 @@ int diag_mux_switch_logging(int proc, int *req_mode, int *peripheral_mask)
 		break;
 	case DIAG_MEMORY_DEVICE_MODE:
 		if (*req_mode == DIAG_USB_MODE) {
-			diag_mux->md_ptr->log_ops->close();
+			diag_mux->md_ptr->log_ops->close_device(proc);
 			diag_mux->logger[proc] = diag_mux->usb_ptr;
 			diag_mux->usb_ptr->log_ops->open_device(proc);
 		} else if (*req_mode == DIAG_MULTI_MODE) {

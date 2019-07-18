@@ -54,6 +54,9 @@ struct memlat_hwmon {
 	int (*start_hwmon)(struct memlat_hwmon *hw);
 	void (*stop_hwmon)(struct memlat_hwmon *hw);
 	unsigned long (*get_cnt)(struct memlat_hwmon *hw);
+	struct device_node *(*get_child_of_node)(struct device *dev);
+	void (*request_update_ms)(struct memlat_hwmon *hw,
+				  unsigned int update_ms);
 	struct device *dev;
 	struct device_node *of_node;
 
@@ -62,6 +65,7 @@ struct memlat_hwmon {
 
 	struct devfreq *df;
 	struct core_dev_map *freq_map;
+	bool should_ignore_df_monitor;
 };
 
 #ifdef CONFIG_DEVFREQ_GOV_MEMLAT

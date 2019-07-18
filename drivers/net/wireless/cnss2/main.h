@@ -38,6 +38,7 @@ struct cnss_vreg_cfg {
 	u32 max_uv;
 	u32 load_ua;
 	u32 delay_us;
+	u32 need_unvote;
 };
 
 struct cnss_vreg_info {
@@ -49,6 +50,19 @@ struct cnss_vreg_info {
 
 enum cnss_vreg_type {
 	CNSS_VREG_PRIM,
+};
+
+struct cnss_clk_cfg {
+	const char *name;
+	u32 freq;
+	u32 required;
+};
+
+struct cnss_clk_info {
+	struct list_head list;
+	struct clk *clk;
+	struct cnss_clk_cfg cfg;
+	u32 enabled;
 };
 
 struct cnss_pinctrl_info {
@@ -187,6 +201,7 @@ enum cnss_driver_state {
 	CNSS_DEV_ERR_NOTIFY,
 	CNSS_DRIVER_DEBUG,
 	CNSS_COEX_CONNECTED,
+	CNSS_IMS_CONNECTED,
 };
 
 struct cnss_recovery_data {
@@ -222,6 +237,7 @@ enum cnss_debug_quirks {
 	ENABLE_PCI_LINK_DOWN_PANIC,
 	FBC_BYPASS,
 	ENABLE_DAEMON_SUPPORT,
+	DISABLE_DRV,
 };
 
 enum cnss_bdf_type {
@@ -268,6 +284,7 @@ struct cnss_plat_data {
 	void *bus_priv;
 	enum cnss_dev_bus_type bus_type;
 	struct list_head vreg_list;
+	struct list_head clk_list;
 	struct cnss_pinctrl_info pinctrl_info;
 	struct cnss_subsys_info subsys_info;
 	struct cnss_ramdump_info ramdump_info;
@@ -320,6 +337,9 @@ struct cnss_plat_data {
 	u64 antenna;
 	u64 grant;
 	struct qmi_handle coex_qmi;
+	struct qmi_handle ims_qmi;
+	struct qmi_txn txn;
+	u64 dynamic_feature;
 };
 
 #ifdef CONFIG_ARCH_QCOM
@@ -354,9 +374,14 @@ int cnss_vreg_on_type(struct cnss_plat_data *plat_priv,
 		      enum cnss_vreg_type type);
 int cnss_vreg_off_type(struct cnss_plat_data *plat_priv,
 		       enum cnss_vreg_type type);
+int cnss_get_clk(struct cnss_plat_data *plat_priv);
+void cnss_put_clk(struct cnss_plat_data *plat_priv);
+int cnss_vreg_unvote_type(struct cnss_plat_data *plat_priv,
+			  enum cnss_vreg_type type);
 int cnss_get_pinctrl(struct cnss_plat_data *plat_priv);
 int cnss_power_on_device(struct cnss_plat_data *plat_priv);
 void cnss_power_off_device(struct cnss_plat_data *plat_priv);
+bool cnss_is_device_powered_on(struct cnss_plat_data *plat_priv);
 int cnss_register_subsys(struct cnss_plat_data *plat_priv);
 void cnss_unregister_subsys(struct cnss_plat_data *plat_priv);
 int cnss_register_ramdump(struct cnss_plat_data *plat_priv);

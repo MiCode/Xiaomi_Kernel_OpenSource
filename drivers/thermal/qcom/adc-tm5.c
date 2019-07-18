@@ -56,6 +56,10 @@
 #define ADC_TM_LOWER_MASK(n)			((n) & 0x000000ff)
 #define ADC_TM_UPPER_MASK(n)			(((n) & 0xffffff00) >> 8)
 
+#define ADC_TM_Mn_DATA0(n)			((n * 2) + 0xa0)
+#define ADC_TM_Mn_DATA1(n)			((n * 2) + 0xa1)
+#define ADC_TM_DATA_SHIFT			8
+
 static struct adc_tm_trip_reg_type adc_tm_ch_data[] = {
 	[ADC_TM_CHAN0] = {ADC_TM_M0_ADC_CH_SEL_CTL},
 	[ADC_TM_CHAN1] = {ADC_TM_M1_ADC_CH_SEL_CTL},
@@ -871,6 +875,8 @@ static irqreturn_t adc_tm5_handler(int irq, void *data)
 
 	while (i < chip->dt_channels) {
 		bool upper_set = false, lower_set = false;
+		u8 data_low = 0, data_high = 0;
+		u16 code = 0;
 		int temp;
 
 		if (!chip->sensor[i].non_thermal &&
@@ -886,6 +892,17 @@ static irqreturn_t adc_tm5_handler(int irq, void *data)
 				i++;
 				continue;
 			}
+			ret = adc_tm5_read_reg(chip, ADC_TM_Mn_DATA0(i),
+						&data_low, 1);
+			if (ret)
+				pr_err("adc_tm data_low read failed with %d\n",
+							ret);
+			ret = adc_tm5_read_reg(chip, ADC_TM_Mn_DATA1(i),
+						&data_high, 1);
+			if (ret)
+				pr_err("adc_tm data_high read failed with %d\n",
+							ret);
+			code = ((data_high << ADC_TM_DATA_SHIFT) | data_low);
 		}
 
 		spin_lock_irqsave(&chip->adc_tm_lock, flags);
@@ -920,7 +937,10 @@ fail:
 			 * the appropriate trips.
 			 */
 			pr_debug("notifying of_thermal\n");
-			of_thermal_handle_trip(chip->sensor[i].tzd);
+			temp = therm_fwd_scale((int64_t)code,
+						ADC_HC_VDD_REF, chip->data);
+			of_thermal_handle_trip_temp(chip->sensor[i].tzd,
+						temp);
 		} else {
 			if (lower_set) {
 				ret = adc_tm5_reg_update(chip,

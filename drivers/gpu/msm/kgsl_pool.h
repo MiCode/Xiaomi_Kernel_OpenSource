@@ -1,29 +1,9 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017,2019 The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_POOL_H
 #define __KGSL_POOL_H
-
-#include <linux/mm_types.h>
-#include "kgsl_sharedmem.h"
-
-static inline unsigned int
-kgsl_gfp_mask(unsigned int page_order)
-{
-	unsigned int gfp_mask = __GFP_HIGHMEM;
-
-	if (page_order > 0) {
-		gfp_mask |= __GFP_COMP | __GFP_NORETRY | __GFP_NOWARN;
-		gfp_mask &= ~__GFP_RECLAIM;
-	} else
-		gfp_mask |= GFP_KERNEL;
-
-	if (kgsl_sharedmem_get_noretry())
-		gfp_mask |= __GFP_NORETRY | __GFP_NOWARN;
-
-	return gfp_mask;
-}
 
 void kgsl_pool_free_sgt(struct sg_table *sgt);
 void kgsl_pool_free_pages(struct page **pages, unsigned int page_count);

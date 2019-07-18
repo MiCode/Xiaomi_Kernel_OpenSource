@@ -58,7 +58,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/reset.h>
-#include <linux/extcon.h>
+#include <linux/extcon-provider.h>
 #include <linux/devfreq.h>
 #include "unipro.h"
 
@@ -768,6 +768,8 @@ enum ufshcd_card_state {
  * @card_detect_nb: card detector notifier registered with @extcon
  * @card_detect_work: work to exectute the card detect function
  * @card_state: card state event, enum ufshcd_card_state defines possible states
+ * @card_removal_in_progress: to track card removal progress
+ * @pm_notify: used to register for PM events
  * @vreg_info: UFS device voltage regulator information
  * @clk_list_head: UFS host controller clocks list node head
  * @pwr_info: holds current power mode
@@ -1005,6 +1007,8 @@ struct ufs_hba {
 	struct notifier_block card_detect_nb;
 	struct work_struct card_detect_work;
 	atomic_t card_state;
+	int card_removal_in_progress;
+	struct notifier_block pm_notify;
 
 	struct ufs_pa_layer_attr pwr_info;
 	struct ufs_pwr_mode_info max_pwr_info;
@@ -1068,6 +1072,9 @@ struct ufs_hba {
 	struct ufs_desc_size desc_size;
 	atomic_t scsi_block_reqs_cnt;
 	bool restore_needed;
+
+	bool phy_init_g4;
+	bool force_g4;
 };
 
 static inline void ufshcd_mark_shutdown_ongoing(struct ufs_hba *hba)

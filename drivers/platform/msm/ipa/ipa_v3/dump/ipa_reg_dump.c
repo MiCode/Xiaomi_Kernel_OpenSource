@@ -696,7 +696,7 @@ static struct reg_access_funcs_s *get_access_funcs(u32 addr)
 
 	for (i = 0; i < ARRAY_SIZE(mem_access_map); i++) {
 		if (addr >= mem_access_map[i].addr_range_begin &&
-			addr <= mem_access_map[i].addr_range_end) {
+			addr <  mem_access_map[i].addr_range_end) {
 			return mem_access_map[i].access[asub];
 		}
 	}
@@ -879,36 +879,40 @@ void ipa_save_registers(void)
 		if (!ipa_reg_save.gsi.ch_cntxt.a7[
 				i].gsi_map_ee_n_ch_k_vp_table.valid)
 			continue;
+
 		ipa_reg_save.gsi.ch_cntxt.a7[
 			i].mcs_channel_scratch.scratch4.shram =
 			IPA_READ_1xVECTOR_REG(
 				GSI_SHRAM_n,
-				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 2);
+				n + IPA_GSI_OFFSET_WORDS_SCRATCH4);
+
 		ipa_reg_save.gsi.ch_cntxt.a7[
 			i].mcs_channel_scratch.scratch5.shram =
 			IPA_READ_1xVECTOR_REG(
 				GSI_SHRAM_n,
-				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 1);
+				n + IPA_GSI_OFFSET_WORDS_SCRATCH5);
 	}
 
 	for (i = 0; i < IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_UC; i++) {
 		u32 phys_ch_idx = ipa_reg_save.gsi.ch_cntxt.uc[
 			i].gsi_map_ee_n_ch_k_vp_table.phy_ch;
-		u32 n = phys_ch_idx*IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM;
+		u32 n = phys_ch_idx * IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM;
 
 		if (!ipa_reg_save.gsi.ch_cntxt.uc[
 				i].gsi_map_ee_n_ch_k_vp_table.valid)
 			continue;
+
 		ipa_reg_save.gsi.ch_cntxt.uc[
 			i].mcs_channel_scratch.scratch4.shram =
 			IPA_READ_1xVECTOR_REG(
 				GSI_SHRAM_n,
-				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 2);
+				n + IPA_GSI_OFFSET_WORDS_SCRATCH4);
+
 		ipa_reg_save.gsi.ch_cntxt.uc[
 			i].mcs_channel_scratch.scratch5.shram =
 			IPA_READ_1xVECTOR_REG(
 				GSI_SHRAM_n,
-				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 1);
+				n + IPA_GSI_OFFSET_WORDS_SCRATCH5);
 	}
 
 	/*
@@ -989,6 +993,12 @@ void ipa_save_registers(void)
 			ipa_reg_save.ipa.ipa_gsi_ptr[i] =
 				in_dword(IPA_GSI_ADDR + (i * sizeof(u32)));
 		}
+		IPALOG_VnP_ADDRS(ipa_reg_save.ipa.ipa_iu_ptr);
+		IPALOG_VnP_ADDRS(ipa_reg_save.ipa.ipa_sram_ptr);
+		IPALOG_VnP_ADDRS(ipa_reg_save.ipa.ipa_mbox_ptr);
+		IPALOG_VnP_ADDRS(ipa_reg_save.ipa.ipa_hram_ptr);
+		IPALOG_VnP_ADDRS(ipa_reg_save.ipa.ipa_seq_ptr);
+		IPALOG_VnP_ADDRS(ipa_reg_save.ipa.ipa_gsi_ptr);
 	}
 
 	ipa_reg_save_anomaly_check();
@@ -1483,6 +1493,7 @@ int ipa_reg_save_init(u32 value)
 		 i++)
 		*(ipa_regs_to_save_array[num_regs + i].dst_addr) = 0x0;
 
+	ipa_reg_save.ipa.ipa_gsi_ptr  = NULL;
 	ipa_reg_save.ipa.ipa_seq_ptr  = NULL;
 	ipa_reg_save.ipa.ipa_hram_ptr = NULL;
 	ipa_reg_save.ipa.ipa_mbox_ptr = NULL;

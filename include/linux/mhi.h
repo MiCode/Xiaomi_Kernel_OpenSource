@@ -20,6 +20,7 @@ struct mhi_buf_info;
  * @MHI_CB_LPM_ENTER: MHI host entered low power mode
  * @MHI_CB_LPM_EXIT: MHI host about to exit low power mode
  * @MHI_CB_EE_RDDM: MHI device entered RDDM execution enviornment
+ * @MHI_CB_EE_MISSION_MODE: MHI device entered Mission Mode ee
  * @MHI_CB_SYS_ERROR: MHI device enter error state (may recover)
  * @MHI_CB_FATAL_ERROR: MHI device entered fatal error
  * @MHI_CB_BW_REQ: Received a bandwidth switch request from device
@@ -30,6 +31,7 @@ enum MHI_CB {
 	MHI_CB_LPM_ENTER,
 	MHI_CB_LPM_EXIT,
 	MHI_CB_EE_RDDM,
+	MHI_CB_EE_MISSION_MODE,
 	MHI_CB_SYS_ERROR,
 	MHI_CB_FATAL_ERROR,
 	MHI_CB_BW_REQ,
@@ -81,15 +83,16 @@ enum mhi_device_type {
  * @MHI_EE_EDL - device in emergency download mode
  */
 enum mhi_ee {
-	MHI_EE_PBL = 0x0,
-	MHI_EE_SBL = 0x1,
-	MHI_EE_AMSS = 0x2,
-	MHI_EE_RDDM = 0x3,
-	MHI_EE_WFW = 0x4,
-	MHI_EE_PTHRU = 0x5,
-	MHI_EE_EDL = 0x6,
+	MHI_EE_PBL,
+	MHI_EE_SBL,
+	MHI_EE_AMSS,
+	MHI_EE_RDDM,
+	MHI_EE_WFW,
+	MHI_EE_PTHRU,
+	MHI_EE_EDL,
 	MHI_EE_MAX_SUPPORTED = MHI_EE_EDL,
 	MHI_EE_DISABLE_TRANSITION, /* local EE, not related to mhi spec */
+	MHI_EE_NOT_SUPPORTED,
 	MHI_EE_MAX,
 };
 
@@ -254,6 +257,7 @@ struct mhi_controller {
 	u32 saved_pm_state; /* saved state during fast suspend */
 	u32 db_access; /* db access only on these states */
 	enum mhi_ee ee;
+	u32 ee_table[MHI_EE_MAX]; /* ee conversion from dev to host */
 	enum mhi_dev_state dev_state;
 	enum mhi_dev_state saved_dev_state;
 	bool wake_set;
@@ -292,6 +296,7 @@ struct mhi_controller {
 			  struct mhi_buf_info *buf);
 	void (*unmap_single)(struct mhi_controller *mhi_cntrl,
 			     struct mhi_buf_info *buf);
+	void (*tsync_log)(struct mhi_controller *mhi_cntrl, u64 remote_time);
 
 	/* channel to control DTR messaging */
 	struct mhi_device *dtr_dev;
@@ -303,6 +308,8 @@ struct mhi_controller {
 	/* supports time sync feature */
 	struct mhi_timesync *mhi_tsync;
 	struct mhi_device *tsync_dev;
+	u64 local_timer_freq;
+	u64 remote_timer_freq;
 
 	/* kernel log level */
 	enum MHI_DEBUG_LEVEL klog_lvl;
@@ -324,6 +331,8 @@ struct mhi_controller {
  * @ul_chan_id: MHI channel id for UL transfer
  * @dl_chan_id: MHI channel id for DL transfer
  * @tiocm: Device current terminal settings
+ * @early_notif: This device needs an early notification in case of error
+ * with external modem.
  * @dev_vote: Keep external device in active state
  * @bus_vote: Keep physical bus (pci, spi) in active state
  * @priv: Driver private data
@@ -340,6 +349,7 @@ struct mhi_device {
 	int ul_event_id;
 	int dl_event_id;
 	u32 tiocm;
+	bool early_notif;
 	const struct mhi_device_id *id;
 	const char *chan_name;
 	struct mhi_controller *mhi_cntrl;
@@ -691,6 +701,14 @@ static inline bool mhi_is_active(struct mhi_device *mhi_dev)
 	return (mhi_cntrl->dev_state >= MHI_STATE_M0 &&
 		mhi_cntrl->dev_state <= MHI_STATE_M3_FAST);
 }
+
+/**
+ * mhi_control_error - MHI controller went into unrecoverable error state.
+ * Will transition MHI into Linkdown state. Do not call from atomic
+ * context.
+ * @mhi_cntrl: MHI controller
+ */
+void mhi_control_error(struct mhi_controller *mhi_cntrl);
 
 /**
  * mhi_debug_reg_dump - dump MHI registers for debug purpose

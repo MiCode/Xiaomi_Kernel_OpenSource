@@ -82,7 +82,12 @@ struct ipa_api_controller {
 
 	int (*ipa_add_rt_rule)(struct ipa_ioc_add_rt_rule *rules);
 
+	int (*ipa_add_rt_rule_v2)(struct ipa_ioc_add_rt_rule_v2 *rules);
+
 	int (*ipa_add_rt_rule_usr)(struct ipa_ioc_add_rt_rule *rules,
+							bool user_only);
+
+	int (*ipa_add_rt_rule_usr_v2)(struct ipa_ioc_add_rt_rule_v2 *rules,
 							bool user_only);
 
 	int (*ipa_del_rt_rule)(struct ipa_ioc_del_rt_rule *hdls);
@@ -99,14 +104,23 @@ struct ipa_api_controller {
 
 	int (*ipa_mdfy_rt_rule)(struct ipa_ioc_mdfy_rt_rule *rules);
 
+	int (*ipa_mdfy_rt_rule_v2)(struct ipa_ioc_mdfy_rt_rule_v2 *rules);
+
 	int (*ipa_add_flt_rule)(struct ipa_ioc_add_flt_rule *rules);
+
+	int (*ipa_add_flt_rule_v2)(struct ipa_ioc_add_flt_rule_v2 *rules);
 
 	int (*ipa_add_flt_rule_usr)(struct ipa_ioc_add_flt_rule *rules,
 								bool user_only);
 
+	int (*ipa_add_flt_rule_usr_v2)
+		(struct ipa_ioc_add_flt_rule_v2 *rules, bool user_only);
+
 	int (*ipa_del_flt_rule)(struct ipa_ioc_del_flt_rule *hdls);
 
 	int (*ipa_mdfy_flt_rule)(struct ipa_ioc_mdfy_flt_rule *rules);
+
+	int (*ipa_mdfy_flt_rule_v2)(struct ipa_ioc_mdfy_flt_rule_v2 *rules);
 
 	int (*ipa_commit_flt)(enum ipa_ip_type ip);
 
@@ -326,8 +340,6 @@ struct ipa_api_controller {
 
 	enum ipa_client_type (*ipa_get_client_mapping)(int pipe_idx);
 
-	enum ipa_rm_resource_name (*ipa_get_rm_resource_from_ep)(int pipe_idx);
-
 	bool (*ipa_get_modem_cfg_emb_pipe_flt)(void);
 
 	enum ipa_transport_type (*ipa_get_transport_type)(void);
@@ -420,8 +432,6 @@ struct ipa_api_controller {
 		struct ipa_smmu_out_params *out);
 	int (*ipa_is_vlan_mode)(enum ipa_vlan_ifaces iface, bool *res);
 
-	bool (*ipa_pm_is_used)(void);
-
 	int (*ipa_wigig_uc_init)(
 		struct ipa_wdi_uc_ready_params *inout,
 		ipa_wigig_misc_int_cb int_notify,
@@ -431,7 +441,9 @@ struct ipa_api_controller {
 		struct ipa_wigig_conn_out_params *out);
 
 	int (*ipa_conn_wigig_client_i)(void *in,
-		struct ipa_wigig_conn_out_params *out);
+		struct ipa_wigig_conn_out_params *out,
+		ipa_notify_cb tx_notify,
+		void *priv);
 
 	int (*ipa_disconn_wigig_pipe_i)(enum ipa_client_type client,
 		struct ipa_wigig_pipe_setup_info_smmu *pipe_smmu,

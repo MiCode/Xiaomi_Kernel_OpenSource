@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012, 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, 2014-2017, 2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __MSM_MEMORY_DUMP_H
@@ -77,7 +77,9 @@ enum msm_dump_data_ids {
 	MSM_DUMP_DATA_SCANDUMP = 0xEB,
 	MSM_DUMP_DATA_RPMH = 0xEC,
 	MSM_DUMP_DATA_TMC_ETF = 0xF0,
+	MSM_DUMP_DATA_TMC_ETF_SWAO = 0xF1,
 	MSM_DUMP_DATA_TMC_REG = 0x100,
+	MSM_DUMP_DATA_TMC_ETF_SWAO_REG = 0x102,
 	MSM_DUMP_DATA_LOG_BUF = 0x110,
 	MSM_DUMP_DATA_LOG_BUF_FIRST_IDX = 0x111,
 	MSM_DUMP_DATA_SCANDUMP_PER_CPU = 0x130,
@@ -114,8 +116,15 @@ struct msm_dump_entry {
 #ifdef CONFIG_QCOM_MEMORY_DUMP_V2
 extern int msm_dump_data_register(enum msm_dump_table_ids id,
 				  struct msm_dump_entry *entry);
+extern int msm_dump_data_register_nominidump(enum msm_dump_table_ids id,
+				  struct msm_dump_entry *entry);
 #else
 static inline int msm_dump_data_register(enum msm_dump_table_ids id,
+					 struct msm_dump_entry *entry)
+{
+	return -EINVAL;
+}
+static inline int msm_dump_data_register_nominidump(enum msm_dump_table_ids id,
 					 struct msm_dump_entry *entry)
 {
 	return -EINVAL;

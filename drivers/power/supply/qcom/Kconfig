@@ -65,4 +65,16 @@ config QPNP_QG
 	  to determine the battery state-of-charge (SOC) and supports other
 	  battery management features.
 
+config HL6111R
+	bool "HL6111R driver"
+	depends on I2C && OF
+	select REGMAP_I2C
+	help
+	  Say Y here to enable the Halo Microelectronics HL6111R driver.
+	  HL6111R is a wireless charging power receiver IC that supports the
+	  A4WP wireless charging power delivery standard. It supports up to
+	  15W, and the output voltage can be programmed with variable step
+	  sizes. The HL6111R has voltage, current and temperature
+	  protection mechanisms, an I2C interface, and a PSNS output.
+
 endmenu

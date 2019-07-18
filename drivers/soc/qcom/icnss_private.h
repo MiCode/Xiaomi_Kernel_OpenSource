@@ -9,6 +9,7 @@
 #include <linux/adc-tm-clients.h>
 #include <linux/iio/consumer.h>
 #include <asm/dma-iommu.h>
+#include <linux/kobject.h>
 
 #define icnss_ipc_log_string(_x...) do {				\
 	if (icnss_ipc_log_context)					\
@@ -112,6 +113,8 @@ enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
 	ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 	ICNSS_DRIVER_EVENT_FW_EARLY_CRASH_IND,
+	ICNSS_DRIVER_EVENT_IDLE_SHUTDOWN,
+	ICNSS_DRIVER_EVENT_IDLE_RESTART,
 	ICNSS_DRIVER_EVENT_MAX,
 };
 
@@ -145,7 +148,6 @@ enum icnss_driver_state {
 	ICNSS_SSR_REGISTERED,
 	ICNSS_PDR_REGISTERED,
 	ICNSS_PD_RESTART,
-	ICNSS_MSA0_ASSIGNED,
 	ICNSS_WLFW_EXISTS,
 	ICNSS_SHUTDOWN_DONE,
 	ICNSS_HOST_TRIGGERED_PDR,
@@ -155,6 +157,7 @@ enum icnss_driver_state {
 	ICNSS_MODE_ON,
 	ICNSS_BLOCK_SHUTDOWN,
 	ICNSS_PDR,
+	ICNSS_MODEM_CRASHED,
 };
 
 struct ce_irq_list {
@@ -272,25 +275,10 @@ struct wlfw_fw_version_info {
 	char fw_build_timestamp[WLFW_MAX_TIMESTAMP_LEN + 1];
 };
 
-enum icnss_msa_perm {
-	ICNSS_MSA_PERM_HLOS_ALL = 0,
-	ICNSS_MSA_PERM_WLAN_HW_RW = 1,
-	ICNSS_MSA_PERM_MAX,
-};
-
-#define ICNSS_MAX_VMIDS     4
-
 struct icnss_mem_region_info {
 	uint64_t reg_addr;
 	uint32_t size;
 	uint8_t secure_flag;
-	enum icnss_msa_perm perm;
-};
-
-struct icnss_msa_perm_list_t {
-	int vmids[ICNSS_MAX_VMIDS];
-	int perms[ICNSS_MAX_VMIDS];
-	int nelems;
 };
 
 struct icnss_priv {
@@ -303,7 +291,6 @@ struct icnss_priv {
 	u32 ce_irqs[ICNSS_MAX_IRQ_REGISTRATIONS];
 	phys_addr_t mem_base_pa;
 	void __iomem *mem_base_va;
-	struct dma_iommu_mapping smmu_mapping;
 	struct iommu_domain *iommu_domain;
 	dma_addr_t smmu_iova_ipa_start;
 	size_t smmu_iova_ipa_len;
@@ -351,7 +338,6 @@ struct icnss_priv {
 	u8 requesting_sub_system;
 	u16 line_number;
 	struct mutex dev_lock;
-	bool is_hyp_disabled;
 	uint32_t fw_error_fatal_irq;
 	uint32_t fw_early_crash_irq;
 	struct completion unblock_shutdown;
@@ -362,6 +348,9 @@ struct icnss_priv {
 	bool vbatt_supported;
 	char function_name[WLFW_FUNCTION_NAME_LEN + 1];
 	bool is_ssr;
+	struct kobject *icnss_kobject;
+	atomic_t is_shutdown;
+
 };
 
 int icnss_call_driver_uevent(struct icnss_priv *priv,

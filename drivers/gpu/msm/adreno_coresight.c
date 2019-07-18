@@ -3,10 +3,11 @@
  * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/platform_device.h>
 #include <linux/coresight.h>
+#include <linux/of.h>
 
 #include "adreno.h"
+
 #define TO_ADRENO_CORESIGHT_ATTR(_attr) \
 	container_of(_attr, struct adreno_coresight_attr, attr)
 

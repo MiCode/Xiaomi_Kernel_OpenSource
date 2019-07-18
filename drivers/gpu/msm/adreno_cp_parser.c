@@ -3,14 +3,12 @@
  * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
-#include "kgsl.h"
-#include "kgsl_sharedmem.h"
-#include "kgsl_snapshot.h"
+#include <linux/slab.h>
 
 #include "adreno.h"
-#include "adreno_pm4types.h"
-#include "a3xx_reg.h"
 #include "adreno_cp_parser.h"
+#include "adreno_pm4types.h"
+#include "adreno_snapshot.h"
 
 #define MAX_IB_OBJS 1000
 #define NUM_SET_DRAW_GROUPS 32

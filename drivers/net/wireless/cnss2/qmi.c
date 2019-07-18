@@ -24,6 +24,7 @@
 #define QMI_WLFW_TIMEOUT_MS		(plat_priv->ctrl_params.qmi_timeout)
 #define QMI_WLFW_TIMEOUT_JF		msecs_to_jiffies(QMI_WLFW_TIMEOUT_MS)
 #define COEX_TIMEOUT			QMI_WLFW_TIMEOUT_JF
+#define IMS_TIMEOUT                     QMI_WLFW_TIMEOUT_JF
 
 #define QMI_WLFW_MAX_RECV_BUF_SIZE	SZ_8K
 
@@ -1300,6 +1301,137 @@ out:
 	return ret;
 }
 
+static int cnss_wlfw_wfc_call_status_send_sync(struct cnss_plat_data *plat_priv,
+					       u32 data_len, const void *data)
+{
+	struct wlfw_wfc_call_status_req_msg_v01 *req;
+	struct wlfw_wfc_call_status_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+	int ret = 0;
+
+	cnss_pr_dbg("Sending WFC call status: state: 0x%lx\n",
+		    plat_priv->driver_state);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	req->wfc_call_status_len = data_len;
+	memcpy(req->wfc_call_status, data, req->wfc_call_status_len);
+
+	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
+			   wlfw_wfc_call_status_resp_msg_v01_ei, resp);
+	if (ret < 0) {
+		cnss_pr_err("Fail to initialize txn for WFC call status request: err %d\n",
+			    ret);
+		goto out;
+	}
+
+	ret = qmi_send_request(&plat_priv->qmi_wlfw, NULL, &txn,
+			       QMI_WLFW_WFC_CALL_STATUS_REQ_V01,
+			       WLFW_WFC_CALL_STATUS_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_wfc_call_status_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		cnss_pr_err("Fail to send WFC call status request: err %d\n",
+			    ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, QMI_WLFW_TIMEOUT_JF);
+	if (ret < 0) {
+		cnss_pr_err("Fail to wait for response of WFC call status request, err %d\n",
+			    ret);
+		goto out;
+	}
+
+	if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		cnss_pr_err("WFC call status request failed, result: %d, err: %d\n",
+			    resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
+
+	kfree(req);
+	kfree(resp);
+	return 0;
+
+out:
+	kfree(req);
+	kfree(resp);
+	return ret;
+}
+
+int cnss_wlfw_dynamic_feature_mask_send_sync(struct cnss_plat_data *plat_priv)
+{
+	struct wlfw_dynamic_feature_mask_req_msg_v01 *req;
+	struct wlfw_dynamic_feature_mask_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+	int ret = 0;
+
+	cnss_pr_dbg("Sending dynamic feature mask 0x%llx, state: 0x%lx\n",
+		    plat_priv->dynamic_feature,
+		    plat_priv->driver_state);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	req->mask_valid = 1;
+	req->mask = plat_priv->dynamic_feature;
+
+	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
+			   wlfw_dynamic_feature_mask_resp_msg_v01_ei, resp);
+	if (ret < 0) {
+		cnss_pr_err("Fail to initialize txn for dynamic feature mask request: err %d\n",
+			    ret);
+		goto out;
+	}
+
+	ret = qmi_send_request
+		(&plat_priv->qmi_wlfw, NULL, &txn,
+		 QMI_WLFW_DYNAMIC_FEATURE_MASK_REQ_V01,
+		 WLFW_DYNAMIC_FEATURE_MASK_REQ_MSG_V01_MAX_MSG_LEN,
+		 wlfw_dynamic_feature_mask_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		cnss_pr_err("Fail to send dynamic feature mask request: err %d\n",
+			    ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, QMI_WLFW_TIMEOUT_JF);
+	if (ret < 0) {
+		cnss_pr_err("Fail to wait for response of dynamic feature mask request, err %d\n",
+			    ret);
+		goto out;
+	}
+
+	if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		cnss_pr_err("Dynamic feature mask request failed, result: %d, err: %d\n",
+			    resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
+
+out:
+	kfree(req);
+	kfree(resp);
+	return ret;
+}
+
 unsigned int cnss_get_qmi_timeout(struct cnss_plat_data *plat_priv)
 {
 	cnss_pr_dbg("QMI timeout is %u ms\n", QMI_WLFW_TIMEOUT_MS);
@@ -1954,4 +2086,190 @@ int cnss_register_coex_service(struct cnss_plat_data *plat_priv)
 void cnss_unregister_coex_service(struct cnss_plat_data *plat_priv)
 {
 	qmi_handle_release(&plat_priv->coex_qmi);
+}
+
+/* IMS Service */
+int ims_subscribe_for_indication_send_async(struct cnss_plat_data *plat_priv)
+{
+	int ret;
+	struct ims_private_service_subscribe_for_indications_req_msg_v01 *req;
+	struct qmi_txn *txn;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	cnss_pr_dbg("Sending ASYNC ims subscribe for indication\n");
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	req->wfc_call_status_valid = 1;
+	req->wfc_call_status = 1;
+
+	txn = &plat_priv->txn;
+	ret = qmi_txn_init(&plat_priv->ims_qmi, txn, NULL, NULL);
+	if (ret < 0) {
+		cnss_pr_err("Fail to init txn for ims subscribe for indication resp %d\n",
+			    ret);
+		goto out;
+	}
+
+	ret = qmi_send_request
+	(&plat_priv->ims_qmi, NULL, txn,
+	QMI_IMS_PRIVATE_SERVICE_SUBSCRIBE_FOR_INDICATIONS_REQ_V01,
+	IMS_PRIVATE_SERVICE_SUBSCRIBE_FOR_INDICATIONS_REQ_MSG_V01_MAX_MSG_LEN,
+	ims_private_service_subscribe_for_indications_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(txn);
+		cnss_pr_err("Fail to send ims subscribe for indication req %d\n",
+			    ret);
+		goto out;
+	}
+
+	kfree(req);
+	return 0;
+
+out:
+	kfree(req);
+	return ret;
+}
+
+static void ims_subscribe_for_indication_resp_cb(struct qmi_handle *qmi,
+						 struct sockaddr_qrtr *sq,
+						 struct qmi_txn *txn,
+						 const void *data)
+{
+	const
+	struct ims_private_service_subscribe_for_indications_rsp_msg_v01 *resp =
+		data;
+
+	cnss_pr_dbg("Received IMS subscribe indication response\n");
+
+	if (!txn) {
+		cnss_pr_err("spurious response\n");
+		return;
+	}
+
+	if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		cnss_pr_err("IMS subscribe for indication request rejected, result:%d error:%d\n",
+			    resp->resp.result, resp->resp.error);
+		txn->result = -resp->resp.result;
+	}
+}
+
+static void ims_wfc_call_status_ind_cb(struct qmi_handle *ims_qmi,
+				       struct sockaddr_qrtr *sq,
+				       struct qmi_txn *txn, const void *data)
+{
+	struct cnss_plat_data *plat_priv =
+		container_of(ims_qmi, struct cnss_plat_data, ims_qmi);
+	const
+	struct ims_private_service_wfc_call_status_ind_msg_v01 *ind_msg = data;
+	u32 data_len = 0;
+
+	cnss_pr_dbg("Received IMS wfc call status indication\n");
+
+	if (!txn) {
+		cnss_pr_err("Spurious indication\n");
+		return;
+	}
+
+	if (!ind_msg) {
+		cnss_pr_err("Invalid indication\n");
+		return;
+	}
+
+	data_len = sizeof(*ind_msg);
+	if (data_len > QMI_WLFW_MAX_WFC_CALL_STATUS_DATA_SIZE_V01) {
+		cnss_pr_err("Exceed maxinum data len:%u\n", data_len);
+		return;
+	}
+
+	cnss_wlfw_wfc_call_status_send_sync(plat_priv, data_len, ind_msg);
+}
+
+static struct qmi_msg_handler qmi_ims_msg_handlers[] = {
+	{
+		.type = QMI_RESPONSE,
+		.msg_id =
+		QMI_IMS_PRIVATE_SERVICE_SUBSCRIBE_FOR_INDICATIONS_REQ_V01,
+		.ei =
+		ims_private_service_subscribe_for_indications_rsp_msg_v01_ei,
+		.decoded_size = sizeof(struct
+		ims_private_service_subscribe_for_indications_rsp_msg_v01),
+		.fn = ims_subscribe_for_indication_resp_cb
+	},
+	{
+		.type = QMI_INDICATION,
+		.msg_id = QMI_IMS_PRIVATE_SERVICE_WFC_CALL_STATUS_IND_V01,
+		.ei = ims_private_service_wfc_call_status_ind_msg_v01_ei,
+		.decoded_size =
+		sizeof(struct ims_private_service_wfc_call_status_ind_msg_v01),
+		.fn = ims_wfc_call_status_ind_cb
+	},
+	{}
+};
+
+static int ims_new_server(struct qmi_handle *qmi,
+			  struct qmi_service *service)
+{
+	struct cnss_plat_data *plat_priv =
+		container_of(qmi, struct cnss_plat_data, ims_qmi);
+	struct sockaddr_qrtr sq = { 0 };
+	int ret = 0;
+
+	cnss_pr_dbg("IMS server arrive: node %u port %u\n",
+		    service->node, service->port);
+
+	sq.sq_family = AF_QIPCRTR;
+	sq.sq_node = service->node;
+	sq.sq_port = service->port;
+	ret = kernel_connect(qmi->sock, (struct sockaddr *)&sq, sizeof(sq), 0);
+	if (ret < 0) {
+		cnss_pr_err("Fail to connect to remote service port\n");
+		return ret;
+	}
+
+	set_bit(CNSS_IMS_CONNECTED, &plat_priv->driver_state);
+	cnss_pr_dbg("IMS Server Connected: 0x%lx\n",
+		    plat_priv->driver_state);
+
+	ret = ims_subscribe_for_indication_send_async(plat_priv);
+	return ret;
+}
+
+static void ims_del_server(struct qmi_handle *qmi,
+			   struct qmi_service *service)
+{
+	struct cnss_plat_data *plat_priv =
+		container_of(qmi, struct cnss_plat_data, ims_qmi);
+
+	cnss_pr_dbg("IMS server exit\n");
+
+	clear_bit(CNSS_IMS_CONNECTED, &plat_priv->driver_state);
+}
+
+static struct qmi_ops ims_qmi_ops = {
+	.new_server = ims_new_server,
+	.del_server = ims_del_server,
+};
+
+int cnss_register_ims_service(struct cnss_plat_data *plat_priv)
+{	int ret;
+
+	ret = qmi_handle_init(&plat_priv->ims_qmi,
+			      IMSPRIVATE_SERVICE_MAX_MSG_LEN,
+			      &ims_qmi_ops, qmi_ims_msg_handlers);
+	if (ret < 0)
+		return ret;
+
+	ret = qmi_add_lookup(&plat_priv->ims_qmi, IMSPRIVATE_SERVICE_ID_V01,
+			     IMSPRIVATE_SERVICE_VERS_V01, 0);
+	return ret;
+}
+
+void cnss_unregister_ims_service(struct cnss_plat_data *plat_priv)
+{
+	qmi_handle_release(&plat_priv->ims_qmi);
 }

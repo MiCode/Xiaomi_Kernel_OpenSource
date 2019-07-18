@@ -221,6 +221,7 @@ static int mhi_runtime_suspend(struct device *dev)
 
 	if (ret) {
 		MHI_LOG("Abort due to ret:%d\n", ret);
+		mhi_dev->suspend_mode = MHI_ACTIVE_STATE;
 		goto exit_runtime_suspend;
 	}
 
@@ -364,6 +365,7 @@ int mhi_system_suspend(struct device *dev)
 
 	if (ret) {
 		MHI_LOG("Abort due to ret:%d\n", ret);
+		mhi_dev->suspend_mode = MHI_ACTIVE_STATE;
 		goto exit_system_suspend;
 	}
 
@@ -385,6 +387,47 @@ exit_system_suspend:
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 
 	MHI_LOG("Exit with ret:%d\n", ret);
+
+	return ret;
+}
+
+static int mhi_force_suspend(struct mhi_controller *mhi_cntrl)
+{
+	int ret = -EIO;
+	const u32 delayms = 100;
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	int itr = DIV_ROUND_UP(mhi_cntrl->timeout_ms, delayms);
+
+	MHI_LOG("Entered\n");
+
+	mutex_lock(&mhi_cntrl->pm_mutex);
+
+	for (; itr; itr--) {
+		/*
+		 * This function get called soon as device entered mission mode
+		 * so most of the channels are still in disabled state. However,
+		 * sbl channels are active and clients could be trying to close
+		 * channels while we trying to suspend the link. So, we need to
+		 * re-try if MHI is busy
+		 */
+		ret = mhi_pm_suspend(mhi_cntrl);
+		if (!ret || ret != -EBUSY)
+			break;
+
+		MHI_LOG("MHI busy, sleeping and retry\n");
+		msleep(delayms);
+	}
+
+	if (ret)
+		goto exit_force_suspend;
+
+	mhi_dev->suspend_mode = MHI_DEFAULT_SUSPEND;
+	ret = mhi_arch_link_suspend(mhi_cntrl);
+
+exit_force_suspend:
+	MHI_LOG("Force suspend ret with %d\n", ret);
+
+	mutex_unlock(&mhi_cntrl->pm_mutex);
 
 	return ret;
 }
@@ -558,6 +601,7 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 {
 	struct mhi_dev *mhi_dev = priv;
 	struct device *dev = &mhi_dev->pci_dev->dev;
+	int ret;
 
 	switch (reason) {
 	case MHI_CB_IDLE:
@@ -568,6 +612,17 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 	case MHI_CB_BW_REQ:
 		if (mhi_dev->bw_scale)
 			mhi_dev->bw_scale(mhi_cntrl, mhi_dev);
+		break;
+	case MHI_CB_EE_MISSION_MODE:
+		/*
+		 * we need to force a suspend so device can switch to
+		 * mission mode pcie phy settings.
+		 */
+		pm_runtime_get(dev);
+		ret = mhi_force_suspend(mhi_cntrl);
+		if (!ret)
+			mhi_runtime_resume(dev);
+		pm_runtime_put(dev);
 		break;
 	default:
 		MHI_ERR("Unhandled cb:0x%x\n", reason);
@@ -712,6 +767,7 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	mhi_cntrl->lpm_disable = mhi_lpm_disable;
 	mhi_cntrl->lpm_enable = mhi_lpm_enable;
 	mhi_cntrl->time_get = mhi_time_get;
+	mhi_cntrl->remote_timer_freq = 19200000;
 
 	ret = of_register_mhi_controller(mhi_cntrl);
 	if (ret)

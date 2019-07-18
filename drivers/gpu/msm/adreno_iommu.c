@@ -2,9 +2,12 @@
 /*
  * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
-#include "adreno.h"
-#include "kgsl_sharedmem.h"
+
+#include <linux/slab.h>
+
 #include "a3xx_reg.h"
+#include "adreno.h"
+#include "adreno_iommu.h"
 #include "adreno_pm4types.h"
 
 /*

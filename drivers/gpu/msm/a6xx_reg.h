@@ -1016,6 +1016,8 @@
 /* LM registers */
 #define A6XX_GPU_GMU_CX_GMU_PWR_THRESHOLD       0x1F94D
 
+/* FAL10 veto register */
+#define A6XX_GPU_GMU_CX_GMU_CX_FAL_INTF         0x1F8F0
 
 #define A6XX_GMU_AO_INTERRUPT_EN		0x23B03
 #define A6XX_GMU_AO_HOST_INTERRUPT_CLR		0x23B04

@@ -10,10 +10,6 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 
-#ifdef CONFIG_SPECTRA_CAMERA
-#include <cam_sync_api.h>
-#endif
-
 #include "synx_api.h"
 #include "synx_util.h"
 #include "synx_debugfs.h"
@@ -97,9 +93,15 @@ int synx_create(s32 *synx_obj, const char *name)
 
 	/* global synx id */
 	id = synx_create_handle(synx_dev->synx_table + idx);
+	if (id < 0) {
+		pr_err("unable to allocate the synx handle\n");
+		clear_bit(idx, synx_dev->bitmap);
+		return -EINVAL;
+	}
+
 	rc = synx_init_object(synx_dev->synx_table,
 			idx, id, name, &synx_fence_ops);
-	if (rc) {
+	if (rc < 0) {
 		pr_err("unable to init row at idx = %ld\n", idx);
 		clear_bit(idx, synx_dev->bitmap);
 		return -EINVAL;
@@ -221,7 +223,6 @@ int synx_signal_core(struct synx_table_row *row, u32 status)
 	int rc, ret;
 	u32 i = 0;
 	u32 idx = 0;
-	u32 type;
 	s32 sync_id;
 	struct synx_external_data *data = NULL;
 	struct synx_bind_desc bind_descs[SYNX_MAX_NUM_BINDINGS];
@@ -301,45 +302,41 @@ int synx_signal_core(struct synx_table_row *row, u32 status)
 	spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
 
 	for (i = 0; i < idx; i++) {
-		type = bind_descs[i].external_desc.type;
 		sync_id = bind_descs[i].external_desc.id[0];
 		data = bind_descs[i].external_data;
-		if (is_valid_type(type)) {
-			bind_ops = &synx_dev->bind_vtbl[type];
-			if (!bind_ops->deregister_callback ||
-				!bind_ops->signal) {
-				pr_err("invalid bind ops for %u\n", type);
-				kfree(data);
+		bind_ops = synx_get_bind_ops(
+					bind_descs[i].external_desc.type);
+		if (!bind_ops) {
+			pr_err("invalid bind ops for %u\n",
+				bind_descs[i].external_desc.type);
+			kfree(data);
+			continue;
+		}
+		/*
+		 * we are already signaled, so don't want to
+		 * recursively be signaled
+		 */
+		ret = bind_ops->deregister_callback(
+				synx_external_callback, data, sync_id);
+		if (ret < 0)
+			pr_err("de-registration fail on sync: %d, err: %d\n",
+				sync_id, ret);
+		pr_debug("signaling external sync: %d, status: %u\n",
+			sync_id, status);
+		/* optional function to enable external signaling */
+		if (bind_ops->enable_signaling) {
+			ret = bind_ops->enable_signaling(sync_id);
+			if (ret < 0) {
+				pr_err("enable signaling fail on sync: %d, err: %d\n",
+					sync_id, ret);
 				continue;
 			}
-			/*
-			 * we are already signaled, so don't want to
-			 * recursively be signaled
-			 */
-			ret = bind_ops->deregister_callback(
-					synx_external_callback, data, sync_id);
-			if (ret < 0)
-				pr_err("de-registration fail on sync: %d, err: %d\n",
-					sync_id, ret);
-			pr_debug("signaling external sync: %d, status: %u\n",
-				sync_id, status);
-			/* optional function to enable external signaling */
-			if (bind_ops->enable_signaling) {
-				ret = bind_ops->enable_signaling(sync_id);
-				if (ret < 0) {
-					pr_err("enable signaling fail on sync: %d, err: %d\n",
-						sync_id, ret);
-					continue;
-				}
-			}
-
-			ret = bind_ops->signal(sync_id, status);
-			if (ret < 0)
-				pr_err("signaling fail on sync: %d, err: %d\n",
-					sync_id, ret);
-		} else {
-			pr_warn("unimplemented external type: %u\n", type);
 		}
+
+		ret = bind_ops->signal(sync_id, status);
+		if (ret < 0)
+			pr_err("signaling fail on sync: %d, err: %d\n",
+				sync_id, ret);
 
 		/*
 		 * release the memory allocated for external data.
@@ -530,8 +527,10 @@ int synx_bind(s32 synx_obj, struct synx_external_desc external_sync)
 		return -EINVAL;
 	}
 
-	if (!is_valid_type(external_sync.type)) {
-		pr_err("invalid external sync object\n");
+	bind_ops = synx_get_bind_ops(external_sync.type);
+	if (!bind_ops) {
+		pr_err("invalid bind ops for %u\n",
+			external_sync.type);
 		return -EINVAL;
 	}
 
@@ -566,15 +565,6 @@ int synx_bind(s32 synx_obj, struct synx_external_desc external_sync)
 			kfree(data);
 			return -EALREADY;
 		}
-	}
-
-	bind_ops = &synx_dev->bind_vtbl[external_sync.type];
-	if (!bind_ops->register_callback) {
-		pr_err("invalid bind register for %u\n",
-			external_sync.type);
-		spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
-		kfree(data);
-		return -EINVAL;
 	}
 
 	/* data passed to external callback */
@@ -1391,39 +1381,60 @@ static const struct file_operations synx_fops = {
 #endif
 };
 
-#ifdef CONFIG_SPECTRA_CAMERA
-static void synx_bind_ops_csl_type(struct bind_operations *vtbl)
+int synx_register_ops(const struct synx_register_params *params)
 {
-	if (!vtbl)
-		return;
+	s32 rc;
+	struct synx_registered_ops *client_ops;
 
-	vtbl->register_callback = cam_sync_register_callback;
-	vtbl->deregister_callback = cam_sync_deregister_callback;
-	vtbl->enable_signaling = cam_sync_get_obj_ref;
-	vtbl->signal = cam_sync_signal;
-
-	pr_debug("csl bind functionality set\n");
-}
-#else
-static void synx_bind_ops_csl_type(struct bind_operations *vtbl)
-{
-	pr_debug("csl bind functionality not available\n");
-}
-#endif
-
-static void synx_bind_ops_register(struct synx_device *synx_dev)
-{
-	u32 i;
-
-	for (i = 0; i < SYNX_MAX_BIND_TYPES; i++) {
-		switch (i) {
-		case SYNX_TYPE_CSL:
-			synx_bind_ops_csl_type(&synx_dev->bind_vtbl[i]);
-			break;
-		default:
-			pr_err("invalid external sync type\n");
-		}
+	if (!params || !params->name ||
+		!is_valid_type(params->type) ||
+		!params->ops.register_callback ||
+		!params->ops.deregister_callback ||
+		!params->ops.signal) {
+		pr_err("invalid register params\n");
+		return -EINVAL;
 	}
+
+	mutex_lock(&synx_dev->table_lock);
+	client_ops = &synx_dev->bind_vtbl[params->type];
+	if (!client_ops->valid) {
+		client_ops->valid = true;
+		memcpy(&client_ops->ops, &params->ops,
+			sizeof(client_ops->ops));
+		strlcpy(client_ops->name, params->name,
+			sizeof(client_ops->name));
+		client_ops->type = params->type;
+		pr_info("registered bind ops for %s\n",
+			params->name);
+		rc = 0;
+	} else {
+		pr_info("client already registered by %s\n",
+			client_ops->name);
+		rc = -EINVAL;
+	}
+	mutex_unlock(&synx_dev->table_lock);
+
+	return rc;
+}
+
+int synx_deregister_ops(const struct synx_register_params *params)
+{
+	struct synx_registered_ops *client_ops;
+
+	if (!params || !params->name ||
+		!is_valid_type(params->type)) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&synx_dev->table_lock);
+	client_ops = &synx_dev->bind_vtbl[params->type];
+	memset(client_ops, 0, sizeof(*client_ops));
+	pr_info("deregistered bind ops for %s\n",
+		params->name);
+	mutex_unlock(&synx_dev->table_lock);
+
+	return 0;
 }
 
 static int __init synx_init(void)
@@ -1443,6 +1454,7 @@ static int __init synx_init(void)
 		spin_lock_init(&synx_dev->row_spinlocks[idx]);
 
 	idr_init(&synx_dev->synx_ids);
+	spin_lock_init(&synx_dev->idr_lock);
 
 	rc = alloc_chrdev_region(&synx_dev->dev, 0, 1, SYNX_DEVICE_NAME);
 	if (rc < 0) {
@@ -1480,9 +1492,6 @@ static int __init synx_init(void)
 	synx_dev->dma_context = dma_fence_context_alloc(1);
 
 	synx_dev->debugfs_root = init_synx_debug_dir(synx_dev);
-
-	synx_bind_ops_register(synx_dev);
-
 	pr_info("synx device init success\n");
 
 	return 0;

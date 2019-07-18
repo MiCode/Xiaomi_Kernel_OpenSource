@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_GMU_CORE_H
 #define __KGSL_GMU_CORE_H
@@ -87,16 +87,6 @@ enum gpu_idle_level {
 	GPU_HW_SLUMBER = 0xF
 };
 
-static const char * const gpu_idle_level_names[] = {
-	[GPU_HW_ACTIVE] = "GPU_HW_ACTIVE",
-	[GPU_HW_SPTP_PC] = "GPU_HW_SPTP_PC",
-	[GPU_HW_IFPC] = "GPU_HW_IFPC",
-	[GPU_HW_NAP] = "GPU_HW_NAP",
-	[GPU_HW_MIN_VOLT] = "GPU_HW_MIN_VOLT",
-	[GPU_HW_MIN_DDR] = "GPU_HW_MIN_DDR",
-	[GPU_HW_SLUMBER] = "GPU_HW_SLUMBER"
-};
-
 /*
  * Wait time before trying to write the register again.
  * Hopefully the GMU has finished waking up during this delay.
@@ -117,6 +107,7 @@ static const char * const gpu_idle_level_names[] = {
 #define FENCE_STATUS_WRITEDROPPED0_MASK 0x1
 #define FENCE_STATUS_WRITEDROPPED1_MASK 0x2
 
+struct device_node;
 struct kgsl_device;
 struct kgsl_snapshot;
 

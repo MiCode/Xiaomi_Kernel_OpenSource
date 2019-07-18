@@ -135,8 +135,8 @@ static void diag_send_log_mask_update(uint8_t peripheral,
 	int err = 0, send_once = 0, i;
 	int header_len = sizeof(struct diag_ctrl_log_mask);
 	uint8_t *buf = NULL, *temp = NULL;
-	uint8_t upd = 0, status;
-	uint32_t mask_size = 0, pd_mask = 0;
+	uint8_t upd = 0, status, eq_id;
+	uint32_t mask_size = 0, pd_mask = 0, num_items = 0;
 	struct diag_ctrl_log_mask ctrl_pkt;
 	struct diag_ctrl_log_mask_sub ctrl_pkt_sub;
 	struct diag_mask_info *mask_info = NULL;
@@ -197,22 +197,6 @@ static void diag_send_log_mask_update(uint8_t peripheral,
 		goto err;
 	buf = mask_info->update_buf;
 
-	switch (status) {
-	case DIAG_CTRL_MASK_ALL_DISABLED:
-	case DIAG_CTRL_MASK_ALL_ENABLED:
-		ctrl_pkt.equip_id = 0;
-		ctrl_pkt.num_items = 0;
-		ctrl_pkt.log_mask_size = 0;
-		send_once = 1;
-		break;
-	case DIAG_CTRL_MASK_VALID:
-		send_once = 0;
-		break;
-	default:
-		pr_debug("diag: In %s, invalid log_mask status\n", __func__);
-		return;
-	}
-
 	for (i = 0; i < MAX_EQUIP_ID; i++, mask++) {
 		if (!mask->ptr)
 			continue;
@@ -221,22 +205,34 @@ static void diag_send_log_mask_update(uint8_t peripheral,
 			continue;
 
 		mutex_lock(&mask->lock);
+		switch (status) {
+		case DIAG_CTRL_MASK_ALL_DISABLED:
+		case DIAG_CTRL_MASK_ALL_ENABLED:
+			eq_id = 0;
+			num_items = 0;
+			mask_size = 0;
+			send_once = 1;
+			break;
+		case DIAG_CTRL_MASK_VALID:
+			mask_size = LOG_ITEMS_TO_SIZE(mask->num_items_tools);
+			eq_id = i;
+			num_items = mask->num_items_tools;
+			break;
+		default:
+			pr_debug("diag: In %s, invalid log_mask status\n",
+				__func__);
+			mutex_unlock(&mask->lock);
+			return;
+		}
 		if (sub_index >= 0 && preset_id > 0)
 			goto proceed_sub_pkt;
 
 		ctrl_pkt.cmd_type = DIAG_CTRL_MSG_LOG_MASK;
 		ctrl_pkt.stream_id = 1;
 		ctrl_pkt.status = mask_info->status;
-		if (mask_info->status == DIAG_CTRL_MASK_VALID) {
-			mask_size = LOG_ITEMS_TO_SIZE(mask->num_items_tools);
-			ctrl_pkt.equip_id = i;
-			ctrl_pkt.num_items = mask->num_items_tools;
-			ctrl_pkt.log_mask_size = mask_size;
-		} else {
-			ctrl_pkt.equip_id = 0;
-			ctrl_pkt.num_items = 0;
-			ctrl_pkt.log_mask_size = 0;
-		}
+		ctrl_pkt.equip_id = eq_id;
+		ctrl_pkt.num_items = num_items;
+		ctrl_pkt.log_mask_size = mask_size;
 		ctrl_pkt.data_len = LOG_MASK_CTRL_HEADER_LEN + mask_size;
 		header_len = sizeof(struct diag_ctrl_msg_mask);
 		goto send_cntrl_pkt;
@@ -253,16 +249,9 @@ proceed_sub_pkt:
 		}
 		ctrl_pkt_sub.stream_id = 1;
 		ctrl_pkt_sub.status = status;
-		if (status == DIAG_CTRL_MASK_VALID) {
-			mask_size = LOG_ITEMS_TO_SIZE(mask->num_items_tools);
-			ctrl_pkt_sub.equip_id = i;
-			ctrl_pkt_sub.num_items = mask->num_items_tools;
-			ctrl_pkt_sub.log_mask_size = mask_size;
-		} else {
-			ctrl_pkt_sub.equip_id = 0;
-			ctrl_pkt_sub.num_items = 0;
-			ctrl_pkt_sub.log_mask_size = 0;
-		}
+		ctrl_pkt_sub.equip_id = eq_id;
+		ctrl_pkt_sub.num_items = num_items;
+		ctrl_pkt_sub.log_mask_size = mask_size;
 		ctrl_pkt_sub.data_len = LOG_MASK_CTRL_HEADER_LEN_SUB +
 			mask_size;
 		header_len = sizeof(struct diag_ctrl_msg_mask_sub);
@@ -291,9 +280,9 @@ send_cntrl_pkt:
 		mutex_unlock(&mask->lock);
 
 		DIAG_LOG(DIAG_DEBUG_MASKS,
-			 "sending ctrl pkt to %d, e %d num_items %d size %d\n",
-			 peripheral, i, ctrl_pkt.num_items,
-			 ctrl_pkt.log_mask_size);
+			 "sending ctrl pkt to %d, equip_id %d num_items %d size %d\n",
+			 peripheral, eq_id, num_items,
+			 mask_size);
 
 		err = diagfwd_write(peripheral, TYPE_CNTL,
 				    buf, header_len + mask_size);
@@ -616,7 +605,7 @@ proceed_legacy_pkt:
 		header.msg_mask_size = mask_size;
 		mask_size *= sizeof(uint32_t);
 		header.data_len = MSG_MASK_CTRL_HEADER_LEN + mask_size;
-		memcpy(buf, &header, header_len);
+		memcpy(buf, &header, sizeof(header));
 		if (mask_size > 0)
 			memcpy(buf + header_len, mask->ptr, mask_size);
 		mutex_unlock(&mask->lock);
@@ -651,7 +640,7 @@ proceed_sub_pkt:
 		header_sub.msg_mask_size = mask_size;
 		mask_size *= sizeof(uint32_t);
 		header_sub.data_len = MSG_MASK_CTRL_HEADER_LEN_SUB + mask_size;
-		memcpy(buf, &header_sub, header_len);
+		memcpy(buf, &header_sub, sizeof(header_sub));
 		if (mask_size > 0)
 			memcpy(buf + header_len, mask->ptr, mask_size);
 		mutex_unlock(&mask->lock);
@@ -1234,6 +1223,8 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 			peripheral = diag_search_peripheral_by_pd(i);
 		else
 			peripheral = i;
+		if (peripheral < 0 || peripheral >= NUM_PERIPHERALS)
+			continue;
 		if (sub_index >= 0 &&
 			!driver->feature[peripheral].multi_sim_support)
 			continue;
@@ -1365,6 +1356,8 @@ static int diag_cmd_set_all_msg_mask(unsigned char *src_buf, int src_len,
 			peripheral = diag_search_peripheral_by_pd(i);
 		else
 			peripheral = i;
+		if (peripheral < 0 || peripheral >= NUM_PERIPHERALS)
+			continue;
 		if (sub_index >= 0 &&
 			!driver->feature[peripheral].multi_sim_support)
 			continue;
@@ -1506,11 +1499,11 @@ static int diag_cmd_update_event_mask(unsigned char *src_buf, int src_len,
 		ms_ptr = diag_get_ms_ptr_index(mask_info->ms_ptr, sub_index);
 		if (!ms_ptr)
 			goto err;
-		if (src_len >= header_len + mask_len)
+		if (src_len >= header_len + mask_len - 1)
 			memcpy(ms_ptr->sub_ptr, src_buf + header_len, mask_len);
 		ms_ptr->status = DIAG_CTRL_MASK_VALID;
 	} else {
-		if (src_len >= header_len + mask_len)
+		if (src_len >= header_len + mask_len - 1)
 			memcpy(mask_info->ptr, src_buf + header_len, mask_len);
 		mask_info->status = DIAG_CTRL_MASK_VALID;
 	}
@@ -1557,6 +1550,8 @@ static int diag_cmd_update_event_mask(unsigned char *src_buf, int src_len,
 			peripheral = diag_search_peripheral_by_pd(i);
 		else
 			peripheral = i;
+		if (peripheral < 0 || peripheral >= NUM_PERIPHERALS)
+			continue;
 		if (sub_index >= 0 &&
 			!driver->feature[peripheral].multi_sim_support)
 			continue;
@@ -1662,6 +1657,8 @@ static int diag_cmd_toggle_events(unsigned char *src_buf, int src_len,
 			peripheral = diag_search_peripheral_by_pd(i);
 		else
 			peripheral = i;
+		if (peripheral < 0 || peripheral >= NUM_PERIPHERALS)
+			continue;
 		if (sub_index >= 0 &&
 			!driver->feature[peripheral].multi_sim_support)
 			continue;
@@ -1686,7 +1683,7 @@ static int diag_cmd_get_log_mask(unsigned char *src_buf, int src_len,
 	int rsp_header_len = 0;
 	uint32_t mask_size = 0, equip_id;
 	struct diag_log_mask_t *log_item = NULL;
-	struct diag_log_config_req_t *req;
+	struct diag_log_config_get_req_t *req;
 	struct diag_log_config_rsp_t rsp;
 	struct diag_log_config_rsp_sub_t *req_sub;
 	struct diag_log_config_rsp_sub_t rsp_sub;
@@ -1699,7 +1696,7 @@ static int diag_cmd_get_log_mask(unsigned char *src_buf, int src_len,
 
 	mask_info = (!info) ? &log_mask : info->log_mask;
 	if (!src_buf || !dest_buf || dest_len <= 0 || !mask_info ||
-		src_len < sizeof(struct diag_log_config_req_t)) {
+		src_len < sizeof(struct diag_log_config_get_req_t)) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d, mask_info: %pK\n",
 		       __func__, src_buf, src_len, dest_buf, dest_len,
 		       mask_info);
@@ -1713,9 +1710,9 @@ static int diag_cmd_get_log_mask(unsigned char *src_buf, int src_len,
 
 	if (!cmd_ver) {
 		log_item = (struct diag_log_mask_t *)mask_info->ptr;
-		if (src_len < sizeof(struct diag_log_config_req_t))
+		if (src_len < sizeof(struct diag_log_config_get_req_t))
 			goto err;
-		req = (struct diag_log_config_req_t *)src_buf;
+		req = (struct diag_log_config_get_req_t *)src_buf;
 		rsp.cmd_code = DIAG_CMD_LOG_CONFIG;
 		rsp.padding[0] = 0;
 		rsp.padding[1] = 0;
@@ -2088,6 +2085,8 @@ static int diag_cmd_set_log_mask(unsigned char *src_buf, int src_len,
 			peripheral = diag_search_peripheral_by_pd(i);
 		else
 			peripheral = i;
+		if (peripheral < 0 || peripheral >= NUM_PERIPHERALS)
+			continue;
 		if (sub_index >= 0 &&
 			!driver->feature[peripheral].multi_sim_support)
 			continue;
@@ -2203,6 +2202,8 @@ static int diag_cmd_disable_log_mask(unsigned char *src_buf, int src_len,
 			peripheral = diag_search_peripheral_by_pd(i);
 		else
 			peripheral = i;
+		if (peripheral < 0 || peripheral >= NUM_PERIPHERALS)
+			continue;
 		if (sub_index >= 0 &&
 			!driver->feature[peripheral].multi_sim_support)
 			continue;
@@ -3201,7 +3202,8 @@ void diag_send_updates_peripheral(uint8_t peripheral)
 				driver->real_time_mode[DIAG_LOCAL_PROC]);
 		diag_send_peripheral_buffering_mode(
 					&driver->buffering_mode[peripheral]);
-
+		if (P_FMASK_DIAGID_V2(peripheral))
+			diag_send_hw_accel_status(peripheral);
 		/*
 		 * Clear mask_update variable afer updating
 		 * logging masks to peripheral.

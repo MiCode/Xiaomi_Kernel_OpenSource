@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved. */
 
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/pinctrl/consumer.h>
@@ -11,24 +12,29 @@
 #include "debug.h"
 
 static struct cnss_vreg_cfg cnss_vreg_list[] = {
-	{"vdd-wlan-core", 1300000, 1300000, 0, 0},
-	{"vdd-wlan-io", 1800000, 1800000, 0, 0},
-	{"vdd-wlan-xtal-aon", 0, 0, 0, 0},
-	{"vdd-wlan-xtal", 1800000, 1800000, 0, 2},
-	{"vdd-wlan", 0, 0, 0, 0},
-	{"vdd-wlan-ctrl1", 0, 0, 0, 0},
-	{"vdd-wlan-ctrl2", 0, 0, 0, 0},
-	{"vdd-wlan-sp2t", 2700000, 2700000, 0, 0},
-	{"wlan-ant-switch", 1800000, 1800000, 0, 0},
-	{"wlan-soc-swreg", 1200000, 1200000, 0, 0},
-	{"vdd-wlan-aon", 950000, 950000, 0, 0},
-	{"vdd-wlan-dig", 950000, 952000, 0, 0},
-	{"vdd-wlan-rfa1", 1900000, 1900000, 0, 0},
-	{"vdd-wlan-rfa2", 1350000, 1350000, 0, 0},
-	{"vdd-wlan-en", 0, 0, 0, 10},
+	{"vdd-wlan-core", 1300000, 1300000, 0, 0, 0},
+	{"vdd-wlan-io", 1800000, 1800000, 0, 0, 0},
+	{"vdd-wlan-xtal-aon", 0, 0, 0, 0, 0},
+	{"vdd-wlan-xtal", 1800000, 1800000, 0, 2, 0},
+	{"vdd-wlan", 0, 0, 0, 0, 0},
+	{"vdd-wlan-ctrl1", 0, 0, 0, 0, 0},
+	{"vdd-wlan-ctrl2", 0, 0, 0, 0, 0},
+	{"vdd-wlan-sp2t", 2700000, 2700000, 0, 0, 0},
+	{"wlan-ant-switch", 1800000, 1800000, 0, 0, 0},
+	{"wlan-soc-swreg", 1200000, 1200000, 0, 0, 0},
+	{"vdd-wlan-aon", 950000, 950000, 0, 0, 0},
+	{"vdd-wlan-dig", 950000, 952000, 0, 0, 0},
+	{"vdd-wlan-rfa1", 1900000, 1900000, 0, 0, 0},
+	{"vdd-wlan-rfa2", 1350000, 1350000, 0, 0, 0},
+	{"vdd-wlan-en", 0, 0, 0, 10, 0},
+};
+
+static struct cnss_clk_cfg cnss_clk_list[] = {
+	{"rf_clk", 0, 0},
 };
 
 #define CNSS_VREG_INFO_SIZE		ARRAY_SIZE(cnss_vreg_list)
+#define CNSS_CLK_INFO_SIZE		ARRAY_SIZE(cnss_clk_list)
 #define MAX_PROP_SIZE			32
 
 #define BOOTSTRAP_GPIO			"qcom,enable-bootstrap-gpio"
@@ -74,11 +80,11 @@ static int cnss_get_vreg_single(struct cnss_plat_data *plat_priv,
 
 	vreg->reg = reg;
 
-	snprintf(prop_name, MAX_PROP_SIZE, "qcom,%s-info",
+	snprintf(prop_name, MAX_PROP_SIZE, "qcom,%s-config",
 		 vreg->cfg.name);
 
 	prop = of_get_property(dev->of_node, prop_name, &len);
-	if (!prop || len != (4 * sizeof(__be32))) {
+	if (!prop || len != (5 * sizeof(__be32))) {
 		cnss_pr_dbg("Property %s %s, use default\n", prop_name,
 			    prop ? "invalid format" : "doesn't exist");
 	} else {
@@ -86,12 +92,13 @@ static int cnss_get_vreg_single(struct cnss_plat_data *plat_priv,
 		vreg->cfg.max_uv = be32_to_cpup(&prop[1]);
 		vreg->cfg.load_ua = be32_to_cpup(&prop[2]);
 		vreg->cfg.delay_us = be32_to_cpup(&prop[3]);
+		vreg->cfg.need_unvote = be32_to_cpup(&prop[4]);
 	}
 
-	cnss_pr_dbg("Got regulator: %s, min_uv: %u, max_uv: %u, load_ua: %u, delay_us: %u\n",
+	cnss_pr_dbg("Got regulator: %s, min_uv: %u, max_uv: %u, load_ua: %u, delay_us: %u, need_unvote: %u\n",
 		    vreg->cfg.name, vreg->cfg.min_uv,
 		    vreg->cfg.max_uv, vreg->cfg.load_ua,
-		    vreg->cfg.delay_us);
+		    vreg->cfg.delay_us, vreg->cfg.need_unvote);
 
 	return 0;
 }
@@ -155,6 +162,36 @@ static int cnss_vreg_on_single(struct cnss_vreg_info *vreg)
 	vreg->enabled = true;
 
 out:
+	return ret;
+}
+
+static int cnss_vreg_unvote_single(struct cnss_vreg_info *vreg)
+{
+	int ret = 0;
+
+	if (!vreg->enabled) {
+		cnss_pr_dbg("Regulator %s is already disabled\n",
+			    vreg->cfg.name);
+		return 0;
+	}
+
+	cnss_pr_dbg("Removing vote for Regulator %s\n", vreg->cfg.name);
+
+	if (vreg->cfg.load_ua) {
+		ret = regulator_set_load(vreg->reg, 0);
+		if (ret < 0)
+			cnss_pr_err("Failed to set load for regulator %s, err = %d\n",
+				    vreg->cfg.name, ret);
+	}
+
+	if (vreg->cfg.min_uv != 0 && vreg->cfg.max_uv != 0) {
+		ret = regulator_set_voltage(vreg->reg, 0,
+					    vreg->cfg.max_uv);
+		if (ret)
+			cnss_pr_err("Failed to set voltage for regulator %s, err = %d\n",
+				    vreg->cfg.name, ret);
+	}
+
 	return ret;
 }
 
@@ -304,6 +341,22 @@ static int cnss_vreg_off(struct cnss_plat_data *plat_priv,
 	return 0;
 }
 
+static int cnss_vreg_unvote(struct cnss_plat_data *plat_priv,
+			    struct list_head *vreg_list)
+{
+	struct cnss_vreg_info *vreg;
+
+	list_for_each_entry_reverse(vreg, vreg_list, list) {
+		if (IS_ERR_OR_NULL(vreg->reg))
+			continue;
+
+		if (vreg->cfg.need_unvote)
+			cnss_vreg_unvote_single(vreg);
+	}
+
+	return 0;
+}
+
 int cnss_get_vreg_type(struct cnss_plat_data *plat_priv,
 		       enum cnss_vreg_type type)
 {
@@ -372,6 +425,229 @@ int cnss_vreg_off_type(struct cnss_plat_data *plat_priv,
 	}
 
 	return ret;
+}
+
+int cnss_vreg_unvote_type(struct cnss_plat_data *plat_priv,
+			  enum cnss_vreg_type type)
+{
+	int ret = 0;
+
+	switch (type) {
+	case CNSS_VREG_PRIM:
+		ret = cnss_vreg_unvote(plat_priv, &plat_priv->vreg_list);
+		break;
+	default:
+		cnss_pr_err("Unsupported vreg type 0x%x\n", type);
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+static int cnss_get_clk_single(struct cnss_plat_data *plat_priv,
+			       struct cnss_clk_info *clk_info)
+{
+	struct device *dev = &plat_priv->plat_dev->dev;
+	struct clk *clk;
+	int ret;
+
+	clk = devm_clk_get(dev, clk_info->cfg.name);
+	if (IS_ERR(clk)) {
+		ret = PTR_ERR(clk);
+		if (clk_info->cfg.required)
+			cnss_pr_err("Failed to get clock %s, err = %d\n",
+				    clk_info->cfg.name, ret);
+		else
+			cnss_pr_dbg("Failed to get optional clock %s, err = %d\n",
+				    clk_info->cfg.name, ret);
+		return ret;
+	}
+
+	clk_info->clk = clk;
+	cnss_pr_dbg("Got clock: %s, freq: %u\n",
+		    clk_info->cfg.name, clk_info->cfg.freq);
+
+	return 0;
+}
+
+static void cnss_put_clk_single(struct cnss_plat_data *plat_priv,
+				struct cnss_clk_info *clk_info)
+{
+	struct device *dev = &plat_priv->plat_dev->dev;
+
+	cnss_pr_dbg("Put clock: %s\n", clk_info->cfg.name);
+	devm_clk_put(dev, clk_info->clk);
+}
+
+static int cnss_clk_on_single(struct cnss_clk_info *clk_info)
+{
+	int ret;
+
+	if (clk_info->enabled) {
+		cnss_pr_dbg("Clock %s is already enabled\n",
+			    clk_info->cfg.name);
+		return 0;
+	}
+
+	cnss_pr_dbg("Clock %s is being enabled\n", clk_info->cfg.name);
+
+	if (clk_info->cfg.freq) {
+		ret = clk_set_rate(clk_info->clk, clk_info->cfg.freq);
+		if (ret) {
+			cnss_pr_err("Failed to set frequency %u for clock %s, err = %d\n",
+				    clk_info->cfg.freq, clk_info->cfg.name,
+				    ret);
+			return ret;
+		}
+	}
+
+	ret = clk_prepare_enable(clk_info->clk);
+	if (ret) {
+		cnss_pr_err("Failed to enable clock %s, err = %d\n",
+			    clk_info->cfg.name, ret);
+		return ret;
+	}
+
+	clk_info->enabled = true;
+
+	return 0;
+}
+
+static int cnss_clk_off_single(struct cnss_clk_info *clk_info)
+{
+	if (!clk_info->enabled) {
+		cnss_pr_dbg("Clock %s is already disabled\n",
+			    clk_info->cfg.name);
+		return 0;
+	}
+
+	cnss_pr_dbg("Clock %s is being disabled\n", clk_info->cfg.name);
+
+	clk_disable_unprepare(clk_info->clk);
+	clk_info->enabled = false;
+
+	return 0;
+}
+
+int cnss_get_clk(struct cnss_plat_data *plat_priv)
+{
+	struct device *dev;
+	struct list_head *clk_list;
+	struct cnss_clk_info *clk_info;
+	int ret, i;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	dev = &plat_priv->plat_dev->dev;
+	clk_list = &plat_priv->clk_list;
+
+	if (!list_empty(clk_list)) {
+		cnss_pr_dbg("Clocks have already been updated\n");
+		return 0;
+	}
+
+	for (i = 0; i < CNSS_CLK_INFO_SIZE; i++) {
+		clk_info = devm_kzalloc(dev, sizeof(*clk_info), GFP_KERNEL);
+		if (!clk_info) {
+			ret = -ENOMEM;
+			goto cleanup;
+		}
+
+		memcpy(&clk_info->cfg, &cnss_clk_list[i],
+		       sizeof(clk_info->cfg));
+		ret = cnss_get_clk_single(plat_priv, clk_info);
+		if (ret != 0) {
+			if (clk_info->cfg.required) {
+				devm_kfree(dev, clk_info);
+				goto cleanup;
+			} else {
+				devm_kfree(dev, clk_info);
+				continue;
+			}
+		}
+		list_add_tail(&clk_info->list, clk_list);
+	}
+
+	return 0;
+
+cleanup:
+	while (!list_empty(clk_list)) {
+		clk_info = list_first_entry(clk_list, struct cnss_clk_info,
+					    list);
+		list_del(&clk_info->list);
+		if (IS_ERR_OR_NULL(clk_info->clk))
+			continue;
+		cnss_put_clk_single(plat_priv, clk_info);
+		devm_kfree(dev, clk_info);
+	}
+
+	return ret;
+}
+
+void cnss_put_clk(struct cnss_plat_data *plat_priv)
+{
+	struct device *dev;
+	struct list_head *clk_list;
+	struct cnss_clk_info *clk_info;
+
+	if (!plat_priv)
+		return;
+
+	dev = &plat_priv->plat_dev->dev;
+	clk_list = &plat_priv->clk_list;
+
+	while (!list_empty(clk_list)) {
+		clk_info = list_first_entry(clk_list, struct cnss_clk_info,
+					    list);
+		list_del(&clk_info->list);
+		if (IS_ERR_OR_NULL(clk_info->clk))
+			continue;
+		cnss_put_clk_single(plat_priv, clk_info);
+		devm_kfree(dev, clk_info);
+	}
+}
+
+static int cnss_clk_on(struct cnss_plat_data *plat_priv,
+		       struct list_head *clk_list)
+{
+	struct cnss_clk_info *clk_info;
+	int ret = 0;
+
+	list_for_each_entry(clk_info, clk_list, list) {
+		if (IS_ERR_OR_NULL(clk_info->clk))
+			continue;
+		ret = cnss_clk_on_single(clk_info);
+		if (ret)
+			break;
+	}
+
+	if (!ret)
+		return 0;
+
+	list_for_each_entry_continue_reverse(clk_info, clk_list, list) {
+		if (IS_ERR_OR_NULL(clk_info->clk))
+			continue;
+
+		cnss_clk_off_single(clk_info);
+	}
+
+	return ret;
+}
+
+static int cnss_clk_off(struct cnss_plat_data *plat_priv,
+			struct list_head *clk_list)
+{
+	struct cnss_clk_info *clk_info;
+
+	list_for_each_entry_reverse(clk_info, clk_list, list) {
+		if (IS_ERR_OR_NULL(clk_info->clk))
+			continue;
+
+		cnss_clk_off_single(clk_info);
+	}
+
+	return 0;
 }
 
 int cnss_get_pinctrl(struct cnss_plat_data *plat_priv)
@@ -499,14 +775,24 @@ int cnss_power_on_device(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
+	ret = cnss_clk_on(plat_priv, &plat_priv->clk_list);
+	if (ret) {
+		cnss_pr_err("Failed to turn on clocks, err = %d\n", ret);
+		goto vreg_off;
+	}
+
 	ret = cnss_select_pinctrl_state(plat_priv, true);
 	if (ret) {
 		cnss_pr_err("Failed to select pinctrl state, err = %d\n", ret);
-		goto vreg_off;
+		goto clk_off;
 	}
+
 	plat_priv->powered_on = true;
 
 	return 0;
+
+clk_off:
+	cnss_clk_off(plat_priv, &plat_priv->clk_list);
 vreg_off:
 	cnss_vreg_off_type(plat_priv, CNSS_VREG_PRIM);
 out:
@@ -521,8 +807,14 @@ void cnss_power_off_device(struct cnss_plat_data *plat_priv)
 	}
 
 	cnss_select_pinctrl_state(plat_priv, false);
+	cnss_clk_off(plat_priv, &plat_priv->clk_list);
 	cnss_vreg_off_type(plat_priv, CNSS_VREG_PRIM);
 	plat_priv->powered_on = false;
+}
+
+bool cnss_is_device_powered_on(struct cnss_plat_data *plat_priv)
+{
+	return plat_priv->powered_on;
 }
 
 void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv)

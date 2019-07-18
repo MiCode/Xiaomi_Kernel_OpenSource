@@ -1,12 +1,11 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2014, 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014,2018-2019 The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_SYNC_H
 #define __KGSL_SYNC_H
 
-#include <linux/sync_file.h>
-#include "kgsl_device.h"
+#include <linux/dma-fence.h>
 
 /**
  * struct kgsl_sync_timeline - A sync timeline associated with a kgsl context
@@ -68,6 +67,10 @@ struct kgsl_sync_fence_cb {
 	bool (*func)(void *priv);
 };
 
+struct kgsl_device_private;
+struct kgsl_drawobj_sync_event;
+struct event_fence_info;
+struct kgsl_process_private;
 struct kgsl_syncsource;
 
 #if defined(CONFIG_SYNC_FILE)
@@ -100,9 +103,6 @@ void kgsl_syncsource_put(struct kgsl_syncsource *syncsource);
 
 void kgsl_syncsource_process_release_syncsources(
 		struct kgsl_process_private *private);
-
-void kgsl_dump_fence(struct kgsl_drawobj_sync_event *event,
-					char *fence_str, int len);
 
 #else
 static inline int kgsl_add_fence_event(struct kgsl_device *device,
@@ -176,11 +176,6 @@ static inline void kgsl_syncsource_process_release_syncsources(
 		struct kgsl_process_private *private)
 {
 
-}
-
-static inline void kgsl_dump_fence(struct kgsl_drawobj_sync_event *event,
-					char *fence_str, int len)
-{
 }
 
 #endif /* CONFIG_SYNC_FILE */

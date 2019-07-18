@@ -1,9 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_DRAWCTXT_H
 #define __ADRENO_DRAWCTXT_H
+
+#include <linux/types.h>
+
+#include "kgsl_device.h"
 
 struct adreno_context_type {
 	unsigned int type;
@@ -16,7 +20,6 @@ struct adreno_context_type {
 struct kgsl_device;
 struct adreno_device;
 struct kgsl_device_private;
-struct kgsl_context;
 
 /**
  * struct adreno_context - Adreno GPU draw context

@@ -3,15 +3,11 @@
  * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/export.h>
-#include <linux/kernel.h>
-#include <linux/hrtimer.h>
 #include <linux/devfreq_cooling.h>
-#include <linux/pm_opp.h>
+#include <linux/slab.h>
 
-#include "kgsl.h"
-#include "kgsl_pwrscale.h"
 #include "kgsl_device.h"
+#include "kgsl_pwrscale.h"
 #include "kgsl_trace.h"
 
 /*
@@ -928,7 +924,7 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 	struct kgsl_pwrscale *pwrscale;
 	struct kgsl_pwrctrl *pwr;
 	struct devfreq *devfreq;
-	struct devfreq *bus_devfreq;
+	struct devfreq *bus_devfreq = NULL;
 	struct msm_adreno_extended_profile *gpu_profile;
 	struct devfreq_dev_profile *profile;
 	struct devfreq_msm_adreno_tz_data *data;
@@ -1039,9 +1035,20 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 		pwrscale->bus_profile.profile.freq_table
 					= pwrscale->freq_table;
 
-		bus_devfreq = devfreq_add_device(device->busmondev,
-			&pwrscale->bus_profile.profile, "gpubw_mon", NULL);
-		if (!IS_ERR(bus_devfreq))
+		/*
+		 * This is needed because devfreq expects the device
+		 * to have an opp table handle to calculate the min/max
+		 * frequency.
+		 */
+		ret = dev_pm_opp_of_add_table(device->busmondev);
+		if (!ret)
+			bus_devfreq = devfreq_add_device(device->busmondev,
+				&pwrscale->bus_profile.profile, "gpubw_mon",
+				NULL);
+
+		if (IS_ERR_OR_NULL(bus_devfreq))
+			dev_err(device->dev, "Bus scaling not enabled\n");
+		else
 			pwrscale->gpu_profile.bus_devfreq = bus_devfreq;
 	}
 

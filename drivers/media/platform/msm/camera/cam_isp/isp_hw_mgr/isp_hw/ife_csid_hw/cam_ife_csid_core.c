@@ -1015,6 +1015,9 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 	path_data->start_line = reserve->in_port->line_start;
 	path_data->end_line = reserve->in_port->line_stop;
 	path_data->crop_enable = reserve->crop_enable;
+	path_data->drop_enable = reserve->drop_enable;
+	path_data->horizontal_bin = reserve->in_port->horizontal_bin;
+	path_data->qcfa_bin = reserve->in_port->qcfa_bin;
 
 	CAM_DBG(CAM_ISP,
 		"Res id: %d height:%d line_start %d line_stop %d crop_en %d",
@@ -1589,16 +1592,28 @@ static int cam_ife_csid_init_config_pxl_path(
 		csid_reg->cmn_reg->crop_v_en_shift_val) |
 		(1 << 1) | 1;
 
-	val |= (1 << pxl_reg->pix_store_en_shift_val);
-	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
-		pxl_reg->csid_pxl_cfg0_addr);
-
 	rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Failed to get HW version rc:%d", rc);
 		camera_hw_version = 0;
 	}
 	CAM_DBG(CAM_ISP, "HW version: %x", camera_hw_version);
+
+	if (camera_hw_version == CAM_CPAS_TITAN_480_V100)
+		val |= (path_data->drop_enable <<
+			csid_reg->cmn_reg->drop_h_en_shift_val) |
+			(path_data->drop_enable <<
+			csid_reg->cmn_reg->drop_v_en_shift_val);
+
+	if (path_data->horizontal_bin || path_data->qcfa_bin) {
+		val |= (1 << pxl_reg->horizontal_bin_en_shift_val);
+		if (path_data->qcfa_bin)
+			val |= (1 << pxl_reg->quad_cfa_bin_en_shift_val);
+	}
+
+	val |= (1 << pxl_reg->pix_store_en_shift_val);
+	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+		pxl_reg->csid_pxl_cfg0_addr);
 
 	if (path_data->is_valid_vc1_dt1 &&
 		camera_hw_version == CAM_CPAS_TITAN_480_V100) {
@@ -2012,15 +2027,21 @@ static int cam_ife_csid_init_config_rdi_path(
 		csid_reg->cmn_reg->crop_v_en_shift_val) |
 		(1 << 2) | 3;
 
-	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
-			csid_reg->rdi_reg[id]->csid_rdi_cfg0_addr);
-
 	rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Failed to get HW version rc:%d", rc);
 		camera_hw_version = 0;
 	}
 	CAM_DBG(CAM_ISP, "HW version: %x", camera_hw_version);
+
+	if (camera_hw_version == CAM_CPAS_TITAN_480_V100)
+		val |= (path_data->drop_enable <<
+			csid_reg->cmn_reg->drop_h_en_shift_val) |
+			(path_data->drop_enable <<
+			csid_reg->cmn_reg->drop_v_en_shift_val);
+
+	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+			csid_reg->rdi_reg[id]->csid_rdi_cfg0_addr);
 
 	if (path_data->is_valid_vc1_dt1 &&
 		camera_hw_version == CAM_CPAS_TITAN_480_V100) {
@@ -2077,8 +2098,16 @@ static int cam_ife_csid_init_config_rdi_path(
 	/* set pixel drop pattern to 0 and period to 1 */
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[id]->csid_rdi_rpp_pix_drop_pattern_addr);
-	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
+
+	/* Write max value to pixel drop period due to a bug in ver 480 HW */
+	if (camera_hw_version == CAM_CPAS_TITAN_480_V100 &&
+		path_data->drop_enable)
+		cam_io_w_mb(0x1F, soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[id]->csid_rdi_rpp_pix_drop_period_addr);
+	else
+		cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
+		csid_reg->rdi_reg[id]->csid_rdi_rpp_pix_drop_period_addr);
+
 	/* set line drop pattern to 0 and period to 1 */
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[id]->csid_rdi_rpp_line_drop_pattern_addr);

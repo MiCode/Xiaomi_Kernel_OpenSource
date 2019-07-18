@@ -70,6 +70,7 @@ static int ufshcd_parse_clock_info(struct ufs_hba *hba)
 	struct ufs_clk_info *clki;
 	int len = 0;
 	size_t sz = 0;
+	char *str = NULL;
 
 	if (!np)
 		goto out;
@@ -131,7 +132,15 @@ static int ufshcd_parse_clock_info(struct ufs_hba *hba)
 
 		clki->min_freq = clkfreq[i];
 		clki->max_freq = clkfreq[i+1];
-		clki->name = kstrdup(name, GFP_KERNEL);
+		str = devm_kzalloc(dev, strlen(name) + 1, GFP_KERNEL);
+		if (!str) {
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		memcpy(str, name, strlen(name) + 1);
+		clki->name = str;
+
 		dev_dbg(dev, "%s: min %u max %u name %s\n", "freq-table-hz",
 				clki->min_freq, clki->max_freq, clki->name);
 		list_add_tail(&clki->list, &hba->clk_list_head);
@@ -149,6 +158,7 @@ static int ufshcd_populate_vreg(struct device *dev, const char *name,
 	struct ufs_vreg *vreg = NULL;
 	struct device_node *np = dev->of_node;
 	const __be32 *prop;
+	char *str = NULL;
 
 	if (!np) {
 		dev_err(dev, "%s: non DT initialization\n", __func__);
@@ -166,7 +176,11 @@ static int ufshcd_populate_vreg(struct device *dev, const char *name,
 	if (!vreg)
 		return -ENOMEM;
 
-	vreg->name = kstrdup(name, GFP_KERNEL);
+	str = devm_kzalloc(dev, strlen(name) + 1, GFP_KERNEL);
+	if (!str)
+		return -ENOMEM;
+	memcpy(str, name, strlen(name) + 1);
+	vreg->name = str;
 
 	/* if fixed regulator no need further initialization */
 	snprintf(prop_name, MAX_PROP_SIZE, "%s-fixed-regulator", name);
@@ -334,6 +348,14 @@ static void ufshcd_parse_cmd_timeout(struct ufs_hba *hba)
 		hba->scsi_cmd_timeout = 0;
 }
 
+static void ufshcd_parse_force_g4_flag(struct ufs_hba *hba)
+{
+	if (device_property_read_bool(hba->dev, "force-g4"))
+		hba->force_g4 = true;
+	else
+		hba->force_g4 = false;
+}
+
 static void ufshcd_parse_dev_ref_clk_freq(struct ufs_hba *hba)
 {
 	struct device *dev = hba->dev;
@@ -489,6 +511,7 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 	ufshcd_parse_pm_levels(hba);
 	ufshcd_parse_gear_limits(hba);
 	ufshcd_parse_cmd_timeout(hba);
+	ufshcd_parse_force_g4_flag(hba);
 	err = ufshcd_parse_extcon_info(hba);
 	if (err)
 		goto dealloc_host;

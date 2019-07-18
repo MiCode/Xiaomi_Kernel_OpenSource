@@ -432,7 +432,7 @@ void diag_clear_masks(int pid)
 static void diag_close_logging_process(const int pid)
 {
 	int i, j;
-	int session_mask;
+	int session_mask = 0;
 	int device_mask = 0;
 	uint32_t p_mask;
 	struct diag_md_session_t *session_info = NULL;
@@ -456,8 +456,9 @@ static void diag_close_logging_process(const int pid)
 		diag_clear_masks(pid);
 
 	mutex_lock(&driver->diagchar_mutex);
-	p_mask =
-	diag_translate_kernel_to_user_mask(session_mask);
+	if (session_mask)
+		p_mask =
+		diag_translate_kernel_to_user_mask(session_mask);
 
 	for (i = 0; i < NUM_MD_SESSIONS; i++)
 		if (MD_PERIPHERAL_MASK(i) & session_mask)
@@ -2423,8 +2424,27 @@ static int diag_ioctl_query_pd_logging(struct diag_logging_mode_param_t *param)
 	return ret;
 }
 
-int diag_map_hw_accel_type_ver(
-	uint8_t hw_accel_type, uint8_t hw_accel_ver)
+void diag_map_index_to_hw_accel(uint8_t index,
+	uint8_t *hw_accel_type, uint8_t *hw_accel_ver)
+{
+	*hw_accel_type = 0;
+	*hw_accel_ver = 0;
+
+	switch (index) {
+	case DIAG_HW_ACCEL_TYPE_STM:
+		*hw_accel_type = DIAG_HW_ACCEL_TYPE_STM;
+		*hw_accel_ver = DIAG_HW_ACCEL_VER_MIN;
+		break;
+	case DIAG_HW_ACCEL_TYPE_ATB:
+		*hw_accel_type = DIAG_HW_ACCEL_TYPE_ATB;
+		*hw_accel_ver = DIAG_HW_ACCEL_VER_MIN;
+		break;
+	default:
+		break;
+	}
+}
+
+int diag_map_hw_accel_type_ver(uint8_t hw_accel_type, uint8_t hw_accel_ver)
 {
 	int index = -EINVAL;
 
@@ -2483,7 +2503,7 @@ static int diag_ioctl_query_pd_featuremask(
 static int diag_ioctl_passthru_control_func(
 	struct diag_hw_accel_cmd_req_t *req_params)
 {
-	return diag_send_passtru_ctrl_pkt(req_params);
+	return diag_send_passthru_ctrl_pkt(req_params);
 }
 
 static void diag_query_session_pid(struct diag_query_pid_t *param)
@@ -4330,7 +4350,7 @@ static int __init diagchar_init(void)
 	mutex_init(&driver->hdlc_recovery_mutex);
 	for (i = 0; i < NUM_PERIPHERALS; i++) {
 		mutex_init(&driver->diagfwd_channel_mutex[i]);
-		mutex_init(&driver->rpmsginfo_mutex[i]);
+		spin_lock_init(&driver->rpmsginfo_lock[i]);
 		driver->diag_id_sent[i] = 0;
 	}
 	init_waitqueue_head(&driver->wait_q);

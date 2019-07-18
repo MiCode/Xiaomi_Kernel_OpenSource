@@ -51,6 +51,7 @@
 #define VADC5_MAX_CODE				0x7fff
 #define VADC5_FULL_SCALE_CODE			0x70e4
 #define ADC_USR_DATA_CHECK			0x8000
+#define ADC_HC_VDD_REF			1875000
 
 #define IPC_LOGPAGES 10
 

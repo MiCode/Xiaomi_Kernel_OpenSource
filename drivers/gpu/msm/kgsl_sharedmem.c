@@ -3,21 +3,14 @@
  * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/export.h>
-#include <linux/vmalloc.h>
 #include <asm/cacheflush.h>
-#include <linux/slab.h>
-#include <linux/kmemleak.h>
 #include <linux/highmem.h>
-#include <linux/scatterlist.h>
+#include <linux/slab.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
-#include <linux/ratelimit.h>
 
-#include "kgsl.h"
-#include "kgsl_sharedmem.h"
 #include "kgsl_device.h"
-#include "kgsl_mmu.h"
+#include "kgsl_sharedmem.h"
 
 /*
  * The user can set this from debugfs to force failed memory allocations to
@@ -44,6 +37,43 @@ struct cp2_lock_req {
 
 #define MEM_PROTECT_LOCK_ID2		0x0A
 #define MEM_PROTECT_LOCK_ID2_FLAT	0x11
+
+int kgsl_allocate_global(struct kgsl_device *device,
+	struct kgsl_memdesc *memdesc, uint64_t size, uint64_t flags,
+	unsigned int priv, const char *name)
+{
+	int ret;
+
+	kgsl_memdesc_init(device, memdesc, flags);
+	memdesc->priv |= priv;
+
+	if (((memdesc->priv & KGSL_MEMDESC_CONTIG) != 0) ||
+		(kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_NONE))
+		ret = kgsl_sharedmem_alloc_contig(device, memdesc,
+						(size_t) size);
+	else {
+		ret = kgsl_sharedmem_page_alloc_user(memdesc, (size_t) size);
+		if (ret == 0) {
+			if (kgsl_memdesc_map(memdesc) == NULL) {
+				kgsl_sharedmem_free(memdesc);
+				ret = -ENOMEM;
+			}
+		}
+	}
+
+	if (ret == 0)
+		kgsl_mmu_add_global(device, memdesc, name);
+
+	return ret;
+}
+
+void kgsl_free_global(struct kgsl_device *device,
+		struct kgsl_memdesc *memdesc)
+{
+	kgsl_mmu_remove_global(device, memdesc);
+	kgsl_sharedmem_free(memdesc);
+}
+
 
 /* An attribute for showing per-process memory statistics */
 struct kgsl_mem_entry_attribute {
@@ -887,7 +917,8 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 	 * routine by finding the faulted page in constant time.
 	 */
 
-	memdesc->pages = kgsl_malloc(len_alloc * sizeof(struct page *));
+	memdesc->pages = kvcalloc(len_alloc, sizeof(*memdesc->pages),
+		GFP_KERNEL);
 	memdesc->page_count = 0;
 	memdesc->size = 0;
 
@@ -956,7 +987,7 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 			memdesc->sgt = NULL;
 
 			if (ret == -EADDRNOTAVAIL) {
-				kgsl_free(memdesc->pages);
+				kvfree(memdesc->pages);
 				memset(memdesc, 0, sizeof(*memdesc));
 				return ret;
 			}
@@ -974,7 +1005,7 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 		 * We don't need the array for secure buffers because they are
 		 * not mapped to CPU
 		 */
-		kgsl_free(memdesc->pages);
+		kvfree(memdesc->pages);
 		memdesc->pages = NULL;
 		memdesc->page_count = 0;
 
@@ -996,7 +1027,7 @@ done:
 			}
 		}
 
-		kgsl_free(memdesc->pages);
+		kvfree(memdesc->pages);
 		memset(memdesc, 0, sizeof(*memdesc));
 	}
 
@@ -1016,11 +1047,10 @@ void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 
 	if (memdesc->sgt) {
 		sg_free_table(memdesc->sgt);
-		kfree(memdesc->sgt);
+		kvfree(memdesc->sgt);
 	}
 
-	if (memdesc->pages)
-		kgsl_free(memdesc->pages);
+	kvfree(memdesc->pages);
 }
 EXPORT_SYMBOL(kgsl_sharedmem_free);
 
@@ -1248,6 +1278,27 @@ void kgsl_get_memory_usage(char *name, size_t name_size, uint64_t memflags)
 }
 EXPORT_SYMBOL(kgsl_get_memory_usage);
 
+int kgsl_memdesc_sg_dma(struct kgsl_memdesc *memdesc,
+		phys_addr_t addr, u64 size)
+{
+	int ret;
+	struct page *page = phys_to_page(addr);
+
+	memdesc->sgt = kmalloc(sizeof(*memdesc->sgt), GFP_KERNEL);
+	if (memdesc->sgt == NULL)
+		return -ENOMEM;
+
+	ret = sg_alloc_table(memdesc->sgt, 1, GFP_KERNEL);
+	if (ret) {
+		kfree(memdesc->sgt);
+		memdesc->sgt = NULL;
+		return ret;
+	}
+
+	sg_set_page(memdesc->sgt->sgl, page, (size_t) size, 0);
+	return 0;
+}
+
 int kgsl_sharedmem_alloc_contig(struct kgsl_device *device,
 			struct kgsl_memdesc *memdesc, uint64_t size)
 {
@@ -1269,7 +1320,7 @@ int kgsl_sharedmem_alloc_contig(struct kgsl_device *device,
 		goto err;
 	}
 
-	result = memdesc_sg_dma(memdesc, memdesc->physaddr, size);
+	result = kgsl_memdesc_sg_dma(memdesc, memdesc->physaddr, size);
 	if (result)
 		goto err;
 
@@ -1379,7 +1430,7 @@ static int kgsl_cma_alloc_secure(struct kgsl_device *device,
 		goto err;
 	}
 
-	result = memdesc_sg_dma(memdesc, memdesc->physaddr, aligned);
+	result = kgsl_memdesc_sg_dma(memdesc, memdesc->physaddr, aligned);
 	if (result)
 		goto err;
 

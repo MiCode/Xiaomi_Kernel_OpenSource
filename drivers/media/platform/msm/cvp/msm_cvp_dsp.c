@@ -287,8 +287,9 @@ int cvp_dsp_resume(uint32_t session_flag)
 
 int cvp_dsp_shutdown(uint32_t session_flag)
 {
+	struct msm_cvp_core *core;
 	struct cvp_dsp_apps *me = &gfa_cv;
-	int err, local_cmd_msg_rsp;
+	int err, local_cmd_msg_rsp, timeout;
 	struct cvp_dsp_cmd_msg local_cmd_msg;
 	int srcVM[DEST_VM_NUM] = {VMID_HLOS, VMID_CDSP_Q6};
 	int destVM[SRC_VM_NUM] = {VMID_HLOS};
@@ -302,7 +303,13 @@ int cvp_dsp_shutdown(uint32_t session_flag)
 			"%s: cvp_dsp_send_cmd failed with err=%d\n",
 			__func__, err);
 
-	wait_for_completion(&me->shutdown_work);
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	timeout = msecs_to_jiffies(core->resources.msm_cvp_dsp_rsp_timeout);
+	err = wait_for_completion_timeout(&me->shutdown_work, timeout);
+	if (!err) {
+		dprintk(CVP_ERR, "failed to shutdown dsp\n");
+		return -ETIMEDOUT;
+	}
 
 	mutex_lock(&me->smd_mutex);
 	me->cvp_shutdown = STATUS_SSR;

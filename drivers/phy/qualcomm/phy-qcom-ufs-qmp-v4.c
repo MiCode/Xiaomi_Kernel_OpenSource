@@ -18,10 +18,8 @@
 
 static
 int ufs_qcom_phy_qmp_v4_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
-					bool is_rate_B)
+					bool is_rate_B, bool is_g4)
 {
-	struct device_node *np = ufs_qcom_phy->dev->of_node;
-
 	writel_relaxed(0x01, ufs_qcom_phy->mmio + UFS_PHY_SW_RESET);
 	/* Ensure PHY is in reset before writing PHY calibration data */
 	wmb();
@@ -31,14 +29,14 @@ int ufs_qcom_phy_qmp_v4_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	 * 2. Write 2nd lane configuration if needed.
 	 * 3. Write Rate-B calibration overrides
 	 */
-	if (of_device_is_compatible(np, "qcom,ufs-phy-qmp-v4")) {
+	if (is_g4) {
 		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A,
 				       ARRAY_SIZE(phy_cal_table_rate_A));
 		if (ufs_qcom_phy->lanes_per_direction == 2)
 			ufs_qcom_phy_write_tbl(ufs_qcom_phy,
 					phy_cal_table_2nd_lane,
 					ARRAY_SIZE(phy_cal_table_2nd_lane));
-	} else if (of_device_is_compatible(np, "qcom,ufs-phy-qmp-v4-card")) {
+	} else {
 		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A_no_g4,
 				       ARRAY_SIZE(phy_cal_table_rate_A_no_g4));
 		if (ufs_qcom_phy->lanes_per_direction == 2)
@@ -86,6 +84,34 @@ static int ufs_qcom_phy_qmp_v4_exit(struct phy *generic_phy)
 	return 0;
 }
 
+static inline
+void ufs_qcom_phy_qmp_v4_tx_pull_down_ctrl(struct ufs_qcom_phy *phy,
+						bool enable)
+{
+	u32 temp;
+
+	temp = readl_relaxed(phy->mmio + QSERDES_RX0_RX_INTERFACE_MODE);
+	if (enable)
+		temp |= QSERDES_RX_INTERFACE_MODE_CLOCK_EDGE_BIT;
+	else
+		temp &= ~QSERDES_RX_INTERFACE_MODE_CLOCK_EDGE_BIT;
+	writel_relaxed(temp, phy->mmio + QSERDES_RX0_RX_INTERFACE_MODE);
+
+	if (phy->lanes_per_direction == 1)
+		goto out;
+
+	temp = readl_relaxed(phy->mmio + QSERDES_RX1_RX_INTERFACE_MODE);
+	if (enable)
+		temp |= QSERDES_RX_INTERFACE_MODE_CLOCK_EDGE_BIT;
+	else
+		temp &= ~QSERDES_RX_INTERFACE_MODE_CLOCK_EDGE_BIT;
+	writel_relaxed(temp, phy->mmio + QSERDES_RX1_RX_INTERFACE_MODE);
+
+out:
+	/* ensure register value is committed */
+	mb();
+}
+
 static
 void ufs_qcom_phy_qmp_v4_power_control(struct ufs_qcom_phy *phy,
 					 bool power_ctrl)
@@ -98,7 +124,9 @@ void ufs_qcom_phy_qmp_v4_power_control(struct ufs_qcom_phy *phy,
 		 * powered OFF.
 		 */
 		mb();
+		ufs_qcom_phy_qmp_v4_tx_pull_down_ctrl(phy, true);
 	} else {
+		ufs_qcom_phy_qmp_v4_tx_pull_down_ctrl(phy, false);
 		/* bring PHY out of analog power collapse */
 		writel_relaxed(0x1, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
 

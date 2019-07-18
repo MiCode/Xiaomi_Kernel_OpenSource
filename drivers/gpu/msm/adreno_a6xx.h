@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
@@ -6,7 +6,41 @@
 #ifndef _ADRENO_A6XX_H_
 #define _ADRENO_A6XX_H_
 
+#include <linux/delay.h>
+
 #include "a6xx_reg.h"
+
+/**
+ * struct adreno_a6xx_core - a6xx specific GPU core definitions
+ */
+struct adreno_a6xx_core {
+	/** @base: Container for the generic GPU definitions */
+	struct adreno_gpu_core base;
+	/** @gmu_major: The maximum GMU version supported by the core */
+	u32 gmu_major;
+	/** @gmu_minor: The minimum GMU version supported by the core */
+	u32 gmu_minor;
+	/** @prim_fifo_threshold: target specific value for PC_DBG_ECO_CNTL */
+	unsigned int prim_fifo_threshold;
+	/** @pdc_address_offset: Offset for the PDC region for the target */
+	unsigned int pdc_address_offset;
+	/** @sqefw_name: Name of the SQE microcode file */
+	const char *sqefw_name;
+	/** @gmufw_name: Name of the GMU firmware file */
+	const char *gmufw_name;
+	/** @zap_name: Name of the CPZ zap file */
+	const char *zap_name;
+	/** @hwcg: List of registers and values to write for HWCG */
+	const struct adreno_reglist *hwcg;
+	/** @hwcg_count: Number of registers in @hwcg */
+	u32 hwcg_count;
+	/** @vbif: List of registers and values to write for VBIF */
+	const struct adreno_reglist *vbif;
+	/** @vbif_count: Number of registers in @vbif */
+	u32 vbif_count;
+	/** @veto_fal10: veto status for fal10 feature */
+	bool veto_fal10;
+};
 
 #define CP_CLUSTER_FE		0x0
 #define CP_CLUSTER_SP_VS	0x1
@@ -98,6 +132,21 @@ struct cpu_gpu_lock {
 
 #define A6XX_CP_RB_CNTL_DEFAULT (((ilog2(4) << 8) & 0x1F00) | \
 		(ilog2(KGSL_RB_DWORDS >> 1) & 0x3F))
+
+/**
+ * to_a6xx_core - return the a6xx specific GPU core struct
+ * @adreno_dev: An Adreno GPU device handle
+ *
+ * Returns:
+ * A pointer to the a6xx specific GPU core struct
+ */
+static inline const struct adreno_a6xx_core *
+to_a6xx_core(struct adreno_device *adreno_dev)
+{
+	const struct adreno_gpu_core *core = adreno_dev->gpucore;
+
+	return container_of(core, struct adreno_a6xx_core, base);
+}
 
 /*
  * timed_poll_check() - polling *gmu* register at given offset until
@@ -199,6 +248,7 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev);
 void a6xx_preemption_schedule(struct adreno_device *adreno_dev);
 void a6xx_preemption_start(struct adreno_device *adreno_dev);
 int a6xx_preemption_init(struct adreno_device *adreno_dev);
+void a6xx_preemption_close(struct adreno_device *adreno_dev);
 
 unsigned int a6xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev,
 		unsigned int *cmds);

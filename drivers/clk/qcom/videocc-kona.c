@@ -166,6 +166,18 @@ static const struct alpha_pll_config video_pll1_config = {
 	.user_ctl_hi1_val = 0x00000000,
 };
 
+static const struct alpha_pll_config video_pll1_config_sm8250_v2 = {
+	.l = 0x2B,
+	.cal_l = 0x44,
+	.alpha = 0xC000,
+	.config_ctl_val = 0x20485699,
+	.config_ctl_hi_val = 0x00002261,
+	.config_ctl_hi1_val = 0x329A699C,
+	.user_ctl_val = 0x00000000,
+	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi1_val = 0x00000000,
+};
+
 static struct clk_alpha_pll video_pll1 = {
 	.offset = 0x7d0,
 	.vco_table = lucid_vco,
@@ -294,6 +306,13 @@ static struct clk_rcg2 video_cc_mvs0_clk_src = {
 static const struct freq_tbl ftbl_video_cc_mvs1_clk_src[] = {
 	F(806000000, P_VIDEO_PLL1_OUT_MAIN, 1, 0, 0),
 	F(1040000000, P_VIDEO_PLL1_OUT_MAIN, 1, 0, 0),
+	F(1098000000, P_VIDEO_PLL1_OUT_MAIN, 1, 0, 0),
+	F(1332000000, P_VIDEO_PLL1_OUT_MAIN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_video_cc_mvs1_clk_src_kona_v2[] = {
+	F(840000000, P_VIDEO_PLL1_OUT_MAIN, 1, 0, 0),
 	F(1098000000, P_VIDEO_PLL1_OUT_MAIN, 1, 0, 0),
 	F(1332000000, P_VIDEO_PLL1_OUT_MAIN, 1, 0, 0),
 	{ }
@@ -557,9 +576,19 @@ static const struct qcom_cc_desc video_cc_kona_desc = {
 
 static const struct of_device_id video_cc_kona_match_table[] = {
 	{ .compatible = "qcom,videocc-kona" },
+	{ .compatible = "qcom,videocc-kona-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, video_cc_kona_match_table);
+
+static void video_cc_kona_fixup_konav2(struct regmap *regmap)
+{
+	clk_lucid_pll_configure(&video_pll1, regmap,
+		&video_pll1_config_sm8250_v2);
+	video_cc_mvs1_clk_src.freq_tbl = ftbl_video_cc_mvs1_clk_src_kona_v2;
+	video_cc_mvs1_clk_src.clkr.hw.init->rate_max[VDD_LOWER] = 840000000;
+	video_cc_mvs1_clk_src.clkr.hw.init->rate_max[VDD_LOW] = 1098000000;
+}
 
 static int video_cc_kona_probe(struct platform_device *pdev)
 {
@@ -611,6 +640,10 @@ static int video_cc_kona_probe(struct platform_device *pdev)
 
 	clk_lucid_pll_configure(&video_pll0, regmap, &video_pll0_config);
 	clk_lucid_pll_configure(&video_pll1, regmap, &video_pll1_config);
+
+	if (of_device_is_compatible(pdev->dev.of_node,
+				"qcom,videocc-kona-v2"))
+		video_cc_kona_fixup_konav2(regmap);
 
 	ret = qcom_cc_really_probe(pdev, &video_cc_kona_desc, regmap);
 	if (ret) {

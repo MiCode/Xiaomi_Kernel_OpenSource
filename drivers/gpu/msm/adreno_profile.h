@@ -1,10 +1,9 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014,2019 The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_PROFILE_H
 #define __ADRENO_PROFILE_H
-#include <linux/seq_file.h>
 
 /**
  * struct adreno_profile_assigns_list: linked list for assigned perf counters

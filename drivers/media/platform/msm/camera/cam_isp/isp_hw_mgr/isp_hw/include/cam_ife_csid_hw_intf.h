@@ -95,6 +95,8 @@ struct cam_isp_in_port_generic_info {
 	uint32_t                        hbi_cnt;
 	uint32_t                        cust_node;
 	uint32_t                        num_out_res;
+	uint32_t                        horizontal_bin;
+	uint32_t                        qcfa_bin;
 	struct cam_isp_out_port_generic_info    *data;
 };
 
@@ -115,6 +117,7 @@ struct cam_isp_in_port_generic_info {
  *                reserve
  * @node_res :    Reserved resource structure pointer
  * @crop_enable : Flag to indicate CSID crop enable
+ * @drop_enable : Flag to indicate CSID drop enable
  *
  */
 struct cam_csid_hw_reserve_resource_args {
@@ -127,6 +130,7 @@ struct cam_csid_hw_reserve_resource_args {
 	uint32_t                                  cid;
 	struct cam_isp_resource_node             *node_res;
 	bool                                      crop_enable;
+	bool                                      drop_enable;
 };
 
 /**

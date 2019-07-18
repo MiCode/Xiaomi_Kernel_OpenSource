@@ -46,6 +46,10 @@
 #include "compat_qseecom.h"
 #include <linux/pfk.h>
 #include <linux/kthread.h>
+#include <linux/dma-contiguous.h>
+#include <linux/cma.h>
+#include <linux/of_platform.h>
+#include <soc/qcom/qtee_shmbridge.h>
 
 #define QSEECOM_DEV			"qseecom"
 #define QSEOS_VERSION_14		0x14
@@ -198,7 +202,8 @@ struct qseecom_registered_listener_list {
 	bool                       listener_in_use;
 	/* wq for thread blocked on this listener*/
 	wait_queue_head_t          listener_block_app_wq;
-	struct sglist_info         sglistinfo_ptr[MAX_ION_FD];
+	struct sglist_info         *sglistinfo_ptr;
+	struct qtee_shm            sglistinfo_shm;
 	uint32_t                   sglist_cnt;
 	int                        abort;
 	bool                       unregister_pending;
@@ -303,6 +308,8 @@ struct qseecom_control {
 	atomic_t qseecom_state;
 	int is_apps_region_protected;
 	bool smcinvoke_support;
+	uint64_t qseecom_bridge_handle;
+	uint64_t ta_bridge_handle;
 
 	struct list_head  unregister_lsnr_pending_list_head;
 	wait_queue_head_t register_lsnr_pending_wq;
@@ -315,7 +322,8 @@ struct qseecom_sec_buf_fd_info {
 	bool is_sec_buf_fd;
 	size_t size;
 	void *vbase;
-	dma_addr_t pbase;
+	phys_addr_t pbase;
+	struct qtee_shm shm;
 };
 
 struct qseecom_param_memref {
@@ -336,6 +344,7 @@ struct qseecom_client_handle {
 	u32  app_arch;
 	struct qseecom_sec_buf_fd_info sec_buf_fd[MAX_ION_FD];
 	bool from_smcinvoke;
+	struct qtee_shm shm; /* kernel client's shm for req/rsp buf */
 };
 
 struct qseecom_listener_handle {
@@ -359,7 +368,8 @@ struct qseecom_dev_handle {
 	bool  perf_enabled;
 	bool  fast_load_enabled;
 	enum qseecom_bandwidth_request_mode mode;
-	struct sglist_info sglistinfo_ptr[MAX_ION_FD];
+	struct sglist_info *sglistinfo_ptr;
+	struct qtee_shm sglistinfo_shm;
 	uint32_t sglist_cnt;
 	bool use_legacy_cmd;
 };
@@ -444,6 +454,25 @@ static int __qseecom_scm_call2_locked(uint32_t smc_id, struct scm_desc *desc)
 	return ret;
 }
 
+static char *__qseecom_alloc_tzbuf(uint32_t size,
+				phys_addr_t *pa, struct qtee_shm *shm)
+{
+	char *tzbuf = NULL;
+	int ret = qtee_shmbridge_allocate_shm(size, shm);
+
+	if (ret)
+		return NULL;
+	tzbuf = shm->vaddr;
+	memset(tzbuf, 0, size);
+	*pa = shm->paddr;
+	return tzbuf;
+}
+
+static void __qseecom_free_tzbuf(struct qtee_shm *shm)
+{
+	qtee_shmbridge_free_shm(shm);
+}
+
 static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			const void *req_buf, void *resp_buf)
 {
@@ -452,6 +481,8 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 	uint32_t qseos_cmd_id = 0;
 	struct scm_desc desc = {0};
 	struct qseecom_command_scm_resp *scm_resp = NULL;
+	struct qtee_shm shm;
+	phys_addr_t pa;
 
 	if (!req_buf || !resp_buf) {
 		pr_err("Invalid buffer pointer\n");
@@ -481,8 +512,8 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			struct qseecom_save_partition_hash_req *p_hash_req =
 				(struct qseecom_save_partition_hash_req *)
 				req_buf;
-			char *tzbuf = kzalloc(tzbuflen, GFP_KERNEL);
-
+			char *tzbuf = __qseecom_alloc_tzbuf(
+						tzbuflen, &pa, &shm);
 			if (!tzbuf)
 				return -ENOMEM;
 			memset(tzbuf, 0, tzbuflen);
@@ -492,10 +523,10 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			smc_id = TZ_ES_SAVE_PARTITION_HASH_ID;
 			desc.arginfo = TZ_ES_SAVE_PARTITION_HASH_ID_PARAM_ID;
 			desc.args[0] = p_hash_req->partition_id;
-			desc.args[1] = virt_to_phys(tzbuf);
+			desc.args[1] = pa;
 			desc.args[2] = SHA256_DIGEST_LENGTH;
 			ret = __qseecom_scm_call2_locked(smc_id, &desc);
-			kzfree(tzbuf);
+			__qseecom_free_tzbuf(&shm);
 			break;
 		}
 		default: {
@@ -539,14 +570,14 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			smc_id = TZ_OS_APP_SHUTDOWN_ID;
 			desc.arginfo = TZ_OS_APP_SHUTDOWN_ID_PARAM_ID;
 			desc.args[0] = req->app_id;
-			ret = __qseecom_scm_call2_locked(smc_id, &desc);
+			ret = scm_call2(smc_id, &desc);
 			break;
 		}
 		case QSEOS_APP_LOOKUP_COMMAND: {
 			struct qseecom_check_app_ireq *req;
 			u32 tzbuflen = PAGE_ALIGN(sizeof(req->app_name));
-			char *tzbuf = kzalloc(tzbuflen, GFP_KERNEL);
-
+			char *tzbuf = __qseecom_alloc_tzbuf(
+						tzbuflen, &pa, &shm);
 			if (!tzbuf)
 				return -ENOMEM;
 			req = (struct qseecom_check_app_ireq *)req_buf;
@@ -555,11 +586,11 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			dmac_flush_range(tzbuf, tzbuf + tzbuflen);
 			smc_id = TZ_OS_APP_LOOKUP_ID;
 			desc.arginfo = TZ_OS_APP_LOOKUP_ID_PARAM_ID;
-			desc.args[0] = virt_to_phys(tzbuf);
+			desc.args[0] = pa;
 			desc.args[1] = strlen(req->app_name);
 			__qseecom_reentrancy_check_if_no_app_blocked(smc_id);
 			ret = __qseecom_scm_call2_locked(smc_id, &desc);
-			kzfree(tzbuf);
+			__qseecom_free_tzbuf(&shm);
 			break;
 		}
 		case QSEOS_APP_REGION_NOTIFICATION: {
@@ -818,8 +849,8 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			u32 tzbuflen = PAGE_ALIGN(sizeof
 				(struct qseecom_key_generate_ireq) -
 				sizeof(uint32_t));
-			char *tzbuf = kzalloc(tzbuflen, GFP_KERNEL);
-
+			char *tzbuf = __qseecom_alloc_tzbuf(
+						tzbuflen, &pa, &shm);
 			if (!tzbuf)
 				return -ENOMEM;
 			memset(tzbuf, 0, tzbuflen);
@@ -829,19 +860,19 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			dmac_flush_range(tzbuf, tzbuf + tzbuflen);
 			smc_id = TZ_OS_KS_GEN_KEY_ID;
 			desc.arginfo = TZ_OS_KS_GEN_KEY_ID_PARAM_ID;
-			desc.args[0] = virt_to_phys(tzbuf);
+			desc.args[0] = pa;
 			desc.args[1] = tzbuflen;
 			__qseecom_reentrancy_check_if_no_app_blocked(smc_id);
 			ret = __qseecom_scm_call2_locked(smc_id, &desc);
-			kzfree(tzbuf);
+			__qseecom_free_tzbuf(&shm);
 			break;
 		}
 		case QSEOS_DELETE_KEY: {
 			u32 tzbuflen = PAGE_ALIGN(sizeof
 				(struct qseecom_key_delete_ireq) -
 				sizeof(uint32_t));
-			char *tzbuf = kzalloc(tzbuflen, GFP_KERNEL);
-
+			char *tzbuf = __qseecom_alloc_tzbuf(
+						tzbuflen, &pa, &shm);
 			if (!tzbuf)
 				return -ENOMEM;
 			memset(tzbuf, 0, tzbuflen);
@@ -851,19 +882,19 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			dmac_flush_range(tzbuf, tzbuf + tzbuflen);
 			smc_id = TZ_OS_KS_DEL_KEY_ID;
 			desc.arginfo = TZ_OS_KS_DEL_KEY_ID_PARAM_ID;
-			desc.args[0] = virt_to_phys(tzbuf);
+			desc.args[0] = pa;
 			desc.args[1] = tzbuflen;
 			__qseecom_reentrancy_check_if_no_app_blocked(smc_id);
 			ret = __qseecom_scm_call2_locked(smc_id, &desc);
-			kzfree(tzbuf);
+			__qseecom_free_tzbuf(&shm);
 			break;
 		}
 		case QSEOS_SET_KEY: {
 			u32 tzbuflen = PAGE_ALIGN(sizeof
 				(struct qseecom_key_select_ireq) -
 				sizeof(uint32_t));
-			char *tzbuf = kzalloc(tzbuflen, GFP_KERNEL);
-
+			char *tzbuf = __qseecom_alloc_tzbuf(
+						tzbuflen, &pa, &shm);
 			if (!tzbuf)
 				return -ENOMEM;
 			memset(tzbuf, 0, tzbuflen);
@@ -873,19 +904,19 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			dmac_flush_range(tzbuf, tzbuf + tzbuflen);
 			smc_id = TZ_OS_KS_SET_PIPE_KEY_ID;
 			desc.arginfo = TZ_OS_KS_SET_PIPE_KEY_ID_PARAM_ID;
-			desc.args[0] = virt_to_phys(tzbuf);
+			desc.args[0] = pa;
 			desc.args[1] = tzbuflen;
 			__qseecom_reentrancy_check_if_no_app_blocked(smc_id);
 			ret = __qseecom_scm_call2_locked(smc_id, &desc);
-			kzfree(tzbuf);
+			__qseecom_free_tzbuf(&shm);
 			break;
 		}
 		case QSEOS_UPDATE_KEY_USERINFO: {
 			u32 tzbuflen = PAGE_ALIGN(sizeof
 				(struct qseecom_key_userinfo_update_ireq) -
 				sizeof(uint32_t));
-			char *tzbuf = kzalloc(tzbuflen, GFP_KERNEL);
-
+			char *tzbuf = __qseecom_alloc_tzbuf(
+						tzbuflen, &pa, &shm);
 			if (!tzbuf)
 				return -ENOMEM;
 			memset(tzbuf, 0, tzbuflen);
@@ -895,11 +926,11 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			dmac_flush_range(tzbuf, tzbuf + tzbuflen);
 			smc_id = TZ_OS_KS_UPDATE_KEY_ID;
 			desc.arginfo = TZ_OS_KS_UPDATE_KEY_ID_PARAM_ID;
-			desc.args[0] = virt_to_phys(tzbuf);
+			desc.args[0] = pa;
 			desc.args[1] = tzbuflen;
 			__qseecom_reentrancy_check_if_no_app_blocked(smc_id);
 			ret = __qseecom_scm_call2_locked(smc_id, &desc);
-			kzfree(tzbuf);
+			__qseecom_free_tzbuf(&shm);
 			break;
 		}
 		case QSEOS_TEE_OPEN_SESSION: {
@@ -1167,6 +1198,108 @@ exit:
 	return ret;
 }
 
+static int qseecom_destroy_bridge_callback(
+				struct dma_buf *dmabuf, void *dtor_data)
+{
+	int ret = 0;
+	uint64_t handle = (uint64_t)dtor_data;
+
+	if (!dmabuf) {
+		pr_err("dmabuf NULL\n");
+		return -EINVAL;
+	}
+	pr_debug("to destroy shm bridge %lld\n", handle);
+	ret = qtee_shmbridge_deregister(handle);
+	if (ret) {
+		pr_err("failed to destroy shm bridge %lld\n", handle);
+		return ret;
+	}
+	dma_buf_set_destructor(dmabuf, NULL, NULL);
+	return ret;
+}
+
+static int qseecom_create_bridge_for_secbuf(int ion_fd, struct dma_buf *dmabuf,
+				struct sg_table *sgt)
+{
+	int ret = 0, i;
+	phys_addr_t phys;
+	size_t size = 0;
+	uint64_t handle = 0;
+	int tz_perm = PERM_READ|PERM_WRITE;
+	unsigned long dma_buf_flags = 0;
+	uint32_t *vmid_list;
+	uint32_t *perms_list;
+	uint32_t nelems;
+	struct scatterlist *sg = sgt->sgl;
+
+	ret = dma_buf_get_flags(dmabuf, &dma_buf_flags);
+	if (ret) {
+		pr_err("failed to get dmabuf flag for fd %d\n",
+				ion_fd);
+		return ret;
+	}
+
+	if (!(dma_buf_flags & ION_FLAG_SECURE) || (sgt->nents != 1)) {
+		pr_debug("just create bridge for contiguous secure buf\n");
+		return 0;
+	}
+
+	phys = sg_phys(sg);
+	size = sg->length;
+
+	ret = qtee_shmbridge_query(phys);
+	if (ret) {
+		pr_debug("bridge exists\n");
+		return 0;
+	}
+
+	nelems = ion_get_flags_num_vm_elems(dma_buf_flags);
+	if (nelems == 0) {
+		pr_err("failed to get vm num from flag = %x\n", dma_buf_flags);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	vmid_list = kcalloc(nelems, sizeof(*vmid_list), GFP_KERNEL);
+	if (!vmid_list) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	ret = ion_populate_vm_list(dma_buf_flags, vmid_list, nelems);
+	if (ret)
+		goto exit_free_vmid_list;
+
+	perms_list = kcalloc(nelems, sizeof(*perms_list), GFP_KERNEL);
+	if (!perms_list) {
+		ret = -ENOMEM;
+		goto exit_free_vmid_list;
+	}
+
+	for (i = 0; i < nelems; i++)
+		perms_list[i] = msm_secure_get_vmid_perms(vmid_list[i]);
+
+	ret = qtee_shmbridge_register(phys, size, vmid_list, perms_list, nelems,
+				      tz_perm, &handle);
+
+	if (ret && ret != -EEXIST) {
+		pr_err("creation of shm bridge failed with ret: %d\n",
+		       ret);
+		goto exit_free_perms_list;
+	}
+
+	pr_debug("created shm bridge %lld\n", handle);
+	dma_buf_set_destructor(dmabuf, qseecom_destroy_bridge_callback,
+			       (void *)handle);
+
+exit_free_perms_list:
+	kfree(perms_list);
+exit_free_vmid_list:
+	kfree(vmid_list);
+exit:
+	return ret;
+}
+
 static int qseecom_dmabuf_map(int ion_fd, struct sg_table **sgt,
 				struct dma_buf_attachment **attach,
 				struct dma_buf **dmabuf)
@@ -1200,6 +1333,12 @@ static int qseecom_dmabuf_map(int ion_fd, struct sg_table **sgt,
 	*sgt = new_sgt;
 	*attach = new_attach;
 	*dmabuf = new_dma_buf;
+
+	ret = qseecom_create_bridge_for_secbuf(ion_fd, new_dma_buf, new_sgt);
+	if (ret) {
+		pr_err("failed to create bridge for fd %d\n", ion_fd);
+		goto err_detach;
+	}
 	return ret;
 
 err_detach:
@@ -1388,12 +1527,22 @@ static int qseecom_register_listener(struct qseecom_dev_handle *data,
 	memcpy(&new_entry->svc, &rcvd_lstnr, sizeof(rcvd_lstnr));
 	new_entry->rcv_req_flag = 0;
 
+	new_entry->sglistinfo_ptr =
+				(struct sglist_info *)__qseecom_alloc_tzbuf(
+				sizeof(struct sglist_info) * MAX_ION_FD,
+				&new_entry->sglistinfo_shm.paddr,
+				&new_entry->sglistinfo_shm);
+	if (!new_entry->sglistinfo_ptr) {
+		kfree(new_entry);
+		return -ENOMEM;
+	}
 	new_entry->svc.listener_id = rcvd_lstnr.listener_id;
 	new_entry->sb_length = rcvd_lstnr.sb_size;
 	new_entry->user_virt_sb_base = rcvd_lstnr.virt_sb_base;
 	if (__qseecom_set_sb_memory(new_entry, data, &rcvd_lstnr)) {
 		pr_err("qseecom_set_sb_memory failed for listener %d, size %d\n",
 				rcvd_lstnr.listener_id, rcvd_lstnr.sb_size);
+		__qseecom_free_tzbuf(&new_entry->sglistinfo_shm);
 		kzfree(new_entry);
 		return -ENOMEM;
 	}
@@ -1454,7 +1603,7 @@ exit:
 	if (ptr_svc->dmabuf)
 		qseecom_vaddr_unmap(ptr_svc->sb_virt,
 			ptr_svc->sgt, ptr_svc->attach, ptr_svc->dmabuf);
-
+	__qseecom_free_tzbuf(&ptr_svc->sglistinfo_shm);
 	list_del(&ptr_svc->list);
 	kzfree(ptr_svc);
 
@@ -3413,7 +3562,7 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 					data, (uintptr_t)req->resp_buf));
 		send_data_req.rsp_len = req->resp_len;
 		send_data_req.sglistinfo_ptr =
-				(uint32_t)virt_to_phys(table);
+				(uint32_t)data->sglistinfo_shm.paddr;
 		send_data_req.sglistinfo_len = SGLISTINFO_TABLE_SIZE;
 		dmac_flush_range((void *)table,
 				(void *)table + SGLISTINFO_TABLE_SIZE);
@@ -3442,7 +3591,7 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 			return -EFAULT;
 		}
 		send_data_req_64bit.sglistinfo_ptr =
-				(uint64_t)virt_to_phys(table);
+				(uint64_t)data->sglistinfo_shm.paddr;
 		send_data_req_64bit.sglistinfo_len = SGLISTINFO_TABLE_SIZE;
 		dmac_flush_range((void *)table,
 				(void *)table + SGLISTINFO_TABLE_SIZE);
@@ -6454,6 +6603,8 @@ static int qseecom_mdtp_cipher_dip(void __user *argp)
 	char *tzbufin = NULL, *tzbufout = NULL;
 	struct scm_desc desc = {0};
 	int ret;
+	phys_addr_t pain, paout;
+	struct qtee_shm shmin, shmout;
 
 	do {
 		/* Copy the parameters from userspace */
@@ -6480,7 +6631,7 @@ static int qseecom_mdtp_cipher_dip(void __user *argp)
 
 		/* Copy the input buffer from userspace to kernel space */
 		tzbuflenin = PAGE_ALIGN(req.in_buf_size);
-		tzbufin = kzalloc(tzbuflenin, GFP_KERNEL);
+		tzbufin = __qseecom_alloc_tzbuf(tzbuflenin, &pain, &shmin);
 		if (!tzbufin) {
 			pr_err("error allocating in buffer\n");
 			ret = -ENOMEM;
@@ -6497,7 +6648,7 @@ static int qseecom_mdtp_cipher_dip(void __user *argp)
 
 		/* Prepare the output buffer in kernel space */
 		tzbuflenout = PAGE_ALIGN(req.out_buf_size);
-		tzbufout = kzalloc(tzbuflenout, GFP_KERNEL);
+		tzbufout = __qseecom_alloc_tzbuf(tzbuflenout, &paout, &shmout);
 		if (!tzbufout) {
 			pr_err("error allocating out buffer\n");
 			ret = -ENOMEM;
@@ -6508,9 +6659,9 @@ static int qseecom_mdtp_cipher_dip(void __user *argp)
 
 		/* Send the command to TZ */
 		desc.arginfo = TZ_MDTP_CIPHER_DIP_ID_PARAM_ID;
-		desc.args[0] = virt_to_phys(tzbufin);
+		desc.args[0] = pain;
 		desc.args[1] = req.in_buf_size;
-		desc.args[2] = virt_to_phys(tzbufout);
+		desc.args[2] = paout;
 		desc.args[3] = req.out_buf_size;
 		desc.args[4] = req.direction;
 
@@ -6537,8 +6688,8 @@ static int qseecom_mdtp_cipher_dip(void __user *argp)
 		}
 	} while (0);
 
-	kzfree(tzbufin);
-	kzfree(tzbufout);
+	__qseecom_free_tzbuf(&shmin);
+	__qseecom_free_tzbuf(&shmout);
 
 	return ret;
 }
@@ -7897,6 +8048,12 @@ static int qseecom_open(struct inode *inode, struct file *file)
 	data->mode = INACTIVE;
 	init_waitqueue_head(&data->abort_wq);
 	atomic_set(&data->ioctl_count, 0);
+	data->sglistinfo_ptr = (struct sglist_info *)__qseecom_alloc_tzbuf(
+				sizeof(struct sglist_info) * MAX_ION_FD,
+				&data->sglistinfo_shm.paddr,
+				&data->sglistinfo_shm);
+	if (!data->sglistinfo_ptr)
+		return -ENOMEM;
 	return ret;
 }
 
@@ -7957,8 +8114,10 @@ static int qseecom_release(struct inode *inode, struct file *file)
 			qsee_disable_clock_vote(data, CLK_DFAB);
 	}
 
-	if (free_private_data)
+	if (free_private_data) {
+		__qseecom_free_tzbuf(&data->sglistinfo_shm);
 		kfree(data);
+	}
 	return ret;
 }
 
@@ -9035,6 +9194,72 @@ static int qseecom_create_kthread_unregister_lsnr(void)
 	return 0;
 }
 
+static int qseecom_register_heap_shmbridge(uint32_t heapid, uint64_t *handle)
+{
+	phys_addr_t heap_pa = 0;
+	size_t heap_size = 0;
+	uint32_t val = 0;
+	struct device_node *ion_node, *node;
+	struct platform_device *ion_pdev = NULL;
+	struct cma *cma = NULL;
+	int ret = -1;
+	uint32_t ns_vmids[] = {VMID_HLOS};
+	uint32_t ns_vm_perms[] = {PERM_READ | PERM_WRITE};
+
+	ion_node = of_find_compatible_node(NULL, NULL, "qcom,msm-ion");
+	if (!ion_node) {
+		pr_err("Failed to get qcom,msm-ion node\n");
+		return ret;
+	}
+
+	for_each_available_child_of_node(ion_node, node) {
+		if (of_property_read_u32(node, "reg", &val) || val != heapid)
+			continue;
+		ion_pdev = of_find_device_by_node(node);
+		if (!ion_pdev) {
+			pr_err("Failed to find node for heap %d\n", heapid);
+			break;
+		}
+		cma = dev_get_cma_area(&ion_pdev->dev);
+		if (cma) {
+			heap_pa = cma_get_base(cma);
+			heap_size = (size_t)cma_get_size(cma);
+		} else {
+			pr_err("Failed to get Heap %d info\n", heapid);
+		}
+		break;
+	}
+
+	if (heap_pa)
+		ret = qtee_shmbridge_register(heap_pa,
+				heap_size, ns_vmids, ns_vm_perms, 1,
+				PERM_READ | PERM_WRITE, handle);
+	return ret;
+}
+
+static int qseecom_register_shmbridge(void)
+{
+	if (qseecom_register_heap_shmbridge(ION_QSECOM_TA_HEAP_ID,
+					&qseecom.ta_bridge_handle)) {
+		pr_err("Failed to register shmbridge for ta heap\n");
+		return -ENOMEM;
+	}
+
+	if (qseecom_register_heap_shmbridge(ION_QSECOM_HEAP_ID,
+					&qseecom.qseecom_bridge_handle)) {
+		pr_err("Failed to register shmbridge for qseecom heap\n");
+		qtee_shmbridge_deregister(qseecom.ta_bridge_handle);
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+static void qseecom_deregister_shmbridge(void)
+{
+	qtee_shmbridge_deregister(qseecom.ta_bridge_handle);
+	qtee_shmbridge_deregister(qseecom.qseecom_bridge_handle);
+}
+
 static int qseecom_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -9068,6 +9293,10 @@ static int qseecom_probe(struct platform_device *pdev)
 		goto exit_deinit_bus;
 
 	rc = qseecom_create_kthread_unregister_lsnr();
+	if (rc)
+		goto exit_deinit_bus;
+
+	rc = qseecom_register_shmbridge();
 	if (rc)
 		goto exit_deinit_bus;
 
@@ -9122,6 +9351,7 @@ static int qseecom_remove(struct platform_device *pdev)
 	if (qseecom.qseos_version > QSEEE_VERSION_00)
 		qseecom_unload_commonlib_image();
 
+	qseecom_deregister_shmbridge();
 	kthread_stop(qseecom.unregister_lsnr_kthread_task);
 	qseecom_deinit_bus();
 	qseecom_deinit_clk();

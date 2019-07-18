@@ -6,6 +6,8 @@
 #ifndef __MACH_SCM_H
 #define __MACH_SCM_H
 
+#include <soc/qcom/qtee_shmbridge.h>
+
 #define SCM_SVC_BOOT			0x1
 #define SCM_SVC_PIL			0x2
 #define SCM_SVC_UTIL			0x3
@@ -85,7 +87,7 @@ struct scm_desc {
 	u64 ret[MAX_SCM_RETS];
 
 	/* private */
-	void *extra_arg_buf;
+	struct qtee_shm shm;
 	u64 x5;
 };
 

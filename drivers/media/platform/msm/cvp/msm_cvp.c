@@ -16,15 +16,6 @@
 #define MAX_CVP_ISE_CYCLES		(MSM_CVP_NOMINAL_CYCLES - \
 		MSM_CVP_UHD60E_ISE_CYCLES)
 
-struct msm_cvp_fence_thread_data {
-	struct msm_cvp_inst *inst;
-	unsigned int device_id;
-	struct cvp_kmd_hfi_fence_packet in_fence_pkt;
-	unsigned int arg_type;
-};
-
-static struct msm_cvp_fence_thread_data fence_thread_data;
-
 void print_cvp_internal_buffer(u32 tag, const char *str,
 		struct msm_cvp_inst *inst, struct msm_cvp_internal_buffer *cbuf)
 {
@@ -90,15 +81,21 @@ static int msm_cvp_get_session_info(struct msm_cvp_inst *inst,
 		struct cvp_kmd_session_info *session)
 {
 	int rc = 0;
+	struct msm_cvp_inst *s;
 
 	if (!inst || !inst->core || !session) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
 
+	s = cvp_get_inst_validate(inst->core, inst);
+	if (!s)
+		return -ECONNRESET;
+
 	session->session_id = hash32_ptr(inst->session);
 	dprintk(CVP_DBG, "%s: id 0x%x\n", __func__, session->session_id);
 
+	cvp_put_inst(s);
 	return rc;
 }
 
@@ -393,12 +390,17 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 	struct cvp_session_msg *msg = NULL;
 	struct cvp_session_queue *sq;
 	struct cvp_kmd_session_control *sc;
-	int rc;
+	struct msm_cvp_inst *s;
+	int rc = 0;
 
 	if (!inst) {
 		dprintk(CVP_ERR, "%s invalid session\n", __func__);
 		return -EINVAL;
 	}
+
+	s = cvp_get_inst_validate(inst->core, inst);
+	if (!s)
+		return -ECONNRESET;
 
 	sq = &inst->session_queue;
 	sc = (struct cvp_kmd_session_control *)out_pkt;
@@ -408,7 +410,8 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 	if (wait_event_timeout(sq->wq,
 		_cvp_msg_pending(inst, sq, &msg), wait_time) == 0) {
 		dprintk(CVP_DBG, "session queue wait timeout\n");
-		return -ETIMEDOUT;
+		rc = -ETIMEDOUT;
+		goto exit;
 	}
 
 	if (msg == NULL) {
@@ -425,13 +428,15 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 			rc = -ENOLINK;
 		}
 		spin_unlock(&sq->lock);
-		return rc;
+	} else {
+		memcpy(out_pkt, &msg->pkt,
+			sizeof(struct cvp_hfi_msg_session_hdr));
+		kmem_cache_free(inst->session_queue.msg_cache, msg);
 	}
 
-	memcpy(out_pkt, &msg->pkt, get_msg_size());
-	kmem_cache_free(inst->session_queue.msg_cache, msg);
-
-	return 0;
+exit:
+	cvp_put_inst(inst);
+	return rc;
 }
 
 static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
@@ -503,18 +508,24 @@ static int msm_cvp_session_process_hfi(
 	struct cvp_hfi_device *hdev;
 	unsigned int offset, buf_num, signal;
 	struct cvp_session_queue *sq;
+	struct msm_cvp_inst *s;
 
 	if (!inst || !inst->core || !in_pkt) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
 
+	s = cvp_get_inst_validate(inst->core, inst);
+	if (!s)
+		return -ECONNRESET;
+
 	sq = &inst->session_queue;
 	spin_lock(&sq->lock);
 	if (sq->state != QUEUE_ACTIVE) {
 		spin_unlock(&sq->lock);
 		dprintk(CVP_ERR, "%s: invalid queue state\n", __func__);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto exit;
 	}
 	spin_unlock(&sq->lock);
 
@@ -541,7 +552,7 @@ static int msm_cvp_session_process_hfi(
 
 	rc = msm_cvp_map_buf(inst, in_pkt, offset, buf_num);
 	if (rc)
-		return rc;
+		goto exit;
 
 	rc = call_hfi_op(hdev, session_send,
 			(void *)inst->session, in_pkt);
@@ -549,6 +560,7 @@ static int msm_cvp_session_process_hfi(
 		dprintk(CVP_ERR,
 			"%s: Failed in call_hfi_op %d, %x\n",
 			__func__, in_pkt->pkt_data[0], in_pkt->pkt_data[1]);
+		goto exit;
 	}
 
 	if (signal != HAL_NO_RESP) {
@@ -562,7 +574,8 @@ static int msm_cvp_session_process_hfi(
 				signal);
 
 	}
-
+exit:
+	cvp_put_inst(inst);
 	return rc;
 }
 
@@ -579,6 +592,7 @@ static int msm_cvp_thread_fence_run(void *data)
 	int *fence;
 	int ica_enabled = 0;
 	int pkt_idx;
+	int synx_state = SYNX_STATE_SIGNALED_SUCCESS;
 
 	if (!data) {
 		dprintk(CVP_ERR, "%s Wrong input data %pK\n", __func__, data);
@@ -590,7 +604,8 @@ static int msm_cvp_thread_fence_run(void *data)
 				(void *)fence_thread_data->inst);
 	if (!inst) {
 		dprintk(CVP_ERR, "%s Wrong inst %pK\n", __func__, inst);
-		do_exit(-EINVAL);
+		rc = -EINVAL;
+		return rc;
 	}
 	in_fence_pkt = (struct cvp_kmd_hfi_fence_packet *)
 					&fence_thread_data->in_fence_pkt;
@@ -654,15 +669,18 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
-			goto exit;
+			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 
-		rc = wait_for_sess_signal_receipt(inst,
-				HAL_SESSION_DME_FRAME_CMD_DONE);
-		if (rc)	{
-			dprintk(CVP_ERR, "%s: wait for signal failed, rc %d\n",
-			__func__, rc);
-			goto exit;
+		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
+			rc = wait_for_sess_signal_receipt(inst,
+					HAL_SESSION_DME_FRAME_CMD_DONE);
+			if (rc) {
+				dprintk(CVP_ERR,
+				"%s: wait for signal failed, rc %d\n",
+				__func__, rc);
+				synx_state = SYNX_STATE_SIGNALED_ERROR;
+			}
 		}
 
 		if (ica_enabled) {
@@ -672,8 +690,7 @@ static int msm_cvp_thread_fence_run(void *data)
 					__func__);
 				goto exit;
 			}
-			rc = synx_signal(synx_obj,
-					SYNX_STATE_SIGNALED_SUCCESS);
+			rc = synx_signal(synx_obj, synx_state);
 			if (rc) {
 				dprintk(CVP_ERR, "%s: synx_signal failed\n",
 					__func__);
@@ -701,14 +718,9 @@ static int msm_cvp_thread_fence_run(void *data)
 			dprintk(CVP_ERR, "%s: synx_import failed\n", __func__);
 			goto exit;
 		}
-		rc = synx_signal(synx_obj, SYNX_STATE_SIGNALED_SUCCESS);
+		rc = synx_signal(synx_obj, synx_state);
 		if (rc) {
 			dprintk(CVP_ERR, "%s: synx_signal failed\n", __func__);
-			goto exit;
-		}
-		if (synx_get_status(synx_obj) != SYNX_STATE_SIGNALED_SUCCESS) {
-			dprintk(CVP_ERR, "%s: synx_get_status failed\n",
-					__func__);
 			goto exit;
 		}
 		rc = synx_release(synx_obj);
@@ -762,15 +774,18 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
-			goto exit;
+			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 
-		rc = wait_for_sess_signal_receipt(inst,
-				HAL_SESSION_ICA_FRAME_CMD_DONE);
-		if (rc)	{
-			dprintk(CVP_ERR, "%s: wait for signal failed, rc %d\n",
-			__func__, rc);
-			goto exit;
+		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
+			rc = wait_for_sess_signal_receipt(inst,
+					HAL_SESSION_ICA_FRAME_CMD_DONE);
+			if (rc)	{
+				dprintk(CVP_ERR,
+				"%s: wait for signal failed, rc %d\n",
+				__func__, rc);
+				synx_state = SYNX_STATE_SIGNALED_ERROR;
+			}
 		}
 
 		rc = synx_import(fence[2], fence[3], &synx_obj);
@@ -778,14 +793,9 @@ static int msm_cvp_thread_fence_run(void *data)
 			dprintk(CVP_ERR, "%s: synx_import failed\n", __func__);
 			goto exit;
 		}
-		rc = synx_signal(synx_obj, SYNX_STATE_SIGNALED_SUCCESS);
+		rc = synx_signal(synx_obj, synx_state);
 		if (rc) {
 			dprintk(CVP_ERR, "%s: synx_signal failed\n", __func__);
-			goto exit;
-		}
-		if (synx_get_status(synx_obj) != SYNX_STATE_SIGNALED_SUCCESS) {
-			dprintk(CVP_ERR, "%s: synx_get_status failed\n",
-					__func__);
 			goto exit;
 		}
 		rc = synx_release(synx_obj);
@@ -804,6 +814,7 @@ static int msm_cvp_thread_fence_run(void *data)
 	}
 
 exit:
+	kmem_cache_free(inst->fence_data_cache, fence_thread_data);
 	cvp_put_inst(inst);
 	do_exit(rc);
 }
@@ -819,12 +830,26 @@ static int msm_cvp_session_process_hfi_fence(
 	int pkt_idx;
 	struct cvp_kmd_hfi_packet *in_pkt;
 	unsigned int signal, offset, buf_num, in_offset, in_buf_num;
+	struct msm_cvp_inst *s;
+	struct msm_cvp_fence_thread_data *fence_thread_data;
 
-	dprintk(CVP_DBG, "%s: Enter inst = %d", __func__, inst);
+	dprintk(CVP_DBG, "%s: Enter inst = %#x", __func__, inst);
 
-	if (!inst || !inst->core || !arg) {
+	if (!inst || !inst->core || !arg || !inst->core->device) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
+	}
+
+	s = cvp_get_inst_validate(inst->core, inst);
+	if (!s)
+		return -ECONNRESET;
+
+	fence_thread_data = kmem_cache_alloc(inst->fence_data_cache,
+			GFP_KERNEL);
+	if (!fence_thread_data) {
+		dprintk(CVP_ERR, "%s: fence_thread_data alloc failed\n",
+				__func__);
+		return -ENOMEM;
 	}
 
 	in_offset = arg->buf_offset;
@@ -851,19 +876,23 @@ static int msm_cvp_session_process_hfi_fence(
 
 	rc = msm_cvp_map_buf(inst, in_pkt, offset, buf_num);
 	if (rc)
-		return rc;
+		goto exit;
 
 	thread_num = thread_num + 1;
-	fence_thread_data.inst = inst;
-	fence_thread_data.device_id = (unsigned int)inst->core->id;
-	memcpy(&fence_thread_data.in_fence_pkt, &arg->data.hfi_fence_pkt,
+	fence_thread_data->inst = inst;
+	fence_thread_data->device_id = (unsigned int)inst->core->id;
+	memcpy(&fence_thread_data->in_fence_pkt, &arg->data.hfi_fence_pkt,
 				sizeof(struct cvp_kmd_hfi_fence_packet));
-	fence_thread_data.arg_type = arg->type;
+	fence_thread_data->arg_type = arg->type;
 	snprintf(thread_fence_name, sizeof(thread_fence_name),
 				"thread_fence_%d", thread_num);
 	thread = kthread_run(msm_cvp_thread_fence_run,
-			&fence_thread_data, thread_fence_name);
+			fence_thread_data, thread_fence_name);
+	if (!thread)
+		kmem_cache_free(inst->fence_data_cache, fence_thread_data);
 
+exit:
+	cvp_put_inst(s);
 	return rc;
 }
 
@@ -871,173 +900,188 @@ static int msm_cvp_session_cvp_dfs_frame_response(
 	struct msm_cvp_inst *inst,
 	struct cvp_kmd_hfi_packet *dfs_frame)
 {
-	int rc = 0;
-
-	dprintk(CVP_DBG, "%s: Enter inst = %pK\n", __func__, inst);
-
-	if (!inst || !inst->core || !dfs_frame) {
-		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+	dprintk(CVP_ERR, "Deprecated system call: DFS_CMD_RESPONSE\n");
 		return -EINVAL;
-	}
-	rc = wait_for_sess_signal_receipt(inst,
-			HAL_SESSION_DFS_FRAME_CMD_DONE);
-	if (rc)
-		dprintk(CVP_ERR,
-			"%s: wait for signal failed, rc %d\n",
-			__func__, rc);
-	return rc;
 }
 
 static int msm_cvp_session_cvp_dme_frame_response(
 	struct msm_cvp_inst *inst,
 	struct cvp_kmd_hfi_packet *dme_frame)
 {
-	int rc = 0;
-
-	dprintk(CVP_DBG, "%s: Enter inst = %d", __func__, inst);
-
-	if (!inst || !inst->core || !dme_frame) {
-		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+	dprintk(CVP_ERR, "Deprecated system call: DME_CMD_RESPONSE\n");
 		return -EINVAL;
-	}
-	rc = wait_for_sess_signal_receipt(inst,
-			HAL_SESSION_DME_FRAME_CMD_DONE);
-	if (rc)
-		dprintk(CVP_ERR,
-			"%s: wait for signal failed, rc %d\n",
-			__func__, rc);
-	return rc;
 }
 
 static int msm_cvp_session_cvp_persist_response(
 	struct msm_cvp_inst *inst,
 	struct cvp_kmd_hfi_packet *pbuf_cmd)
 {
-	int rc = 0;
-
-	dprintk(CVP_DBG, "%s: Enter inst = %d", __func__, inst);
-
-	if (!inst || !inst->core || !pbuf_cmd) {
-		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+	dprintk(CVP_ERR, "Deprecated system call: PERSIST_CMD_RESPONSE\n");
 		return -EINVAL;
-	}
-	rc = wait_for_sess_signal_receipt(inst,
-			HAL_SESSION_PERSIST_CMD_DONE);
-	if (rc)
-		dprintk(CVP_ERR,
-			"%s: wait for signal failed, rc %d\n",
-			__func__, rc);
-	return rc;
 }
-
-
 
 static int msm_cvp_send_cmd(struct msm_cvp_inst *inst,
 		struct cvp_kmd_send_cmd *send_cmd)
 {
-	dprintk(CVP_ERR, "%s: UMD gave a deprecated cmd", __func__);
+	dprintk(CVP_ERR, "Deprecated system call: cvp_send_cmd\n");
 
 	return 0;
 }
 
-#define C2C_FREQ_RATIO	(1.5)
+static inline int div_by_1dot5(unsigned int a)
+{
+	unsigned long i = a << 1;
 
-static void adjust_bw_freqs(struct allowed_clock_rates_table *tbl,
-		unsigned int tbl_size, unsigned int max_bw,
-		unsigned int *freq, unsigned long *ab, unsigned long *ib)
+	return (unsigned int) i/3;
+}
+
+static inline int max_3(unsigned int a, unsigned int b, unsigned int c)
+{
+	return (a >= b) ? ((a >= c) ? a : c) : ((b >= c) ? b : c);
+}
+
+/**
+ * adjust_bw_freqs(): calculate CVP clock freq and bw required to sustain
+ * required use case.
+ */
+static int adjust_bw_freqs(void)
 {
 	struct msm_cvp_core *core;
 	struct msm_cvp_inst *inst;
-	unsigned long clk_core_sum = 0, clk_ctlr_sum = 0, bw_sum = 0;
-	int i;
+	struct iris_hfi_device *hdev;
+	struct bus_info *bus;
+	struct clock_set *clocks;
+	struct clock_info *cl;
+	struct allowed_clock_rates_table *tbl = NULL;
+	unsigned int tbl_size;
+	unsigned int cvp_min_rate, cvp_max_rate, max_bw;
+	unsigned long core_sum = 0, ctlr_sum = 0, fw_sum = 0;
+	unsigned long op_core_max = 0, op_ctlr_max = 0, op_fw_max = 0;
+	unsigned long bw_sum = 0;
+	int i, rc = 0;
 
 	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
 
+	hdev = core->device->hfi_device_data;
+	clocks = &core->resources.clock_set;
+	cl = &clocks->clock_tbl[clocks->count - 1];
+	tbl = core->resources.allowed_clks_tbl;
+	tbl_size = core->resources.allowed_clks_tbl_size;
+	cvp_min_rate = tbl[0].clock_rate;
+	cvp_max_rate = tbl[tbl_size - 1].clock_rate;
+	bus = &core->resources.bus_set.bus_tbl[1];
+	max_bw = bus->range[1];
+
 	list_for_each_entry(inst, &core->instances, list) {
-		clk_core_sum += inst->power.clock_cycles_a;
-		clk_ctlr_sum += inst->power.clock_cycles_b;
+		core_sum += inst->power.clock_cycles_a;
+		ctlr_sum += inst->power.clock_cycles_b;
+		fw_sum += inst->power.reserved[0];
+		op_core_max = (op_core_max >= inst->power.reserved[1]) ?
+			op_core_max : inst->power.reserved[1];
+		op_ctlr_max = (op_ctlr_max >= inst->power.reserved[2]) ?
+			op_ctlr_max : inst->power.reserved[2];
+		op_fw_max = (op_fw_max >= inst->power.reserved[3]) ?
+			op_fw_max : inst->power.reserved[3];
 		bw_sum += inst->power.ddr_bw;
 	}
 
-	if (clk_core_sum * C2C_FREQ_RATIO < clk_ctlr_sum)
-		clk_core_sum = clk_ctlr_sum/C2C_FREQ_RATIO;
+	core_sum = max_3(core_sum, ctlr_sum, fw_sum);
+	op_core_max = max_3(op_core_max, op_ctlr_max, op_fw_max);
+	op_core_max = (op_core_max > tbl[tbl_size - 1].clock_rate) ?
+				tbl[tbl_size - 1].clock_rate : op_core_max;
+	core_sum = (core_sum >= op_core_max) ? core_sum : op_core_max;
 
-	for (i = 1; i < tbl_size; i++) {
-		if (clk_core_sum < tbl[i].clock_rate)
-			break;
+	if (core_sum < tbl[0].clock_rate) {
+		core_sum = tbl[0].clock_rate;
+	} else {
+		for (i = 1; i < tbl_size; i++)
+			if (core_sum <= tbl[i].clock_rate)
+				break;
+
+		if (i == tbl_size) {
+			dprintk(CVP_WARN, "%s out of range %llx\n",
+					__func__, core_sum);
+			return -ENOTSUPP;
+		}
+		core_sum = tbl[i].clock_rate;
 	}
-
-	if (i == tbl_size)
-		clk_core_sum = tbl[tbl_size - 1].clock_rate;
-	else
-		clk_core_sum = tbl[i].clock_rate;
-
-	*freq = clk_core_sum;
 
 	if (bw_sum > max_bw)
 		bw_sum = max_bw;
 
-	*ab = bw_sum;
-	*ib = 0;
+	dprintk(CVP_DBG, "%s %d %lld %lld\n", __func__, core_sum, bw_sum, 0);
+	if (!cl->has_scaling) {
+		dprintk(CVP_ERR, "Cannot scale CVP clock\n");
+		return -EINVAL;
+	}
+
+	rc = clk_set_rate(cl->clk, core_sum);
+	if (rc) {
+		dprintk(CVP_ERR,
+			"Failed to set clock rate %u %s: %d %s\n",
+			core_sum, cl->name, rc, __func__);
+		return rc;
+	}
+	hdev->clk_freq = core_sum;
+	rc = msm_bus_scale_update_bw(bus->client,
+			bw_sum, 0);
+	if (rc)
+		dprintk(CVP_ERR, "Failed voting bus %s to ab %u\n",
+			bus->name, bw_sum);
+
+	return rc;
 }
 
 /**
- * clock_cycles_a: CVP core clock freq (lower)
+ * Use of cvp_kmd_request_power structure
+ * clock_cycles_a: CVP core clock freq
  * clock_cycles_b: CVP controller clock freq
+ * ddr_bw: b/w vote in Bps
+ * reserved[0]: CVP firmware required clock freq
+ * reserved[1]: CVP core operational clock freq
+ * reserved[2]: CVP controller operational clock freq
+ * reserved[3]: CVP firmware operational clock freq
+ * reserved[4]: CVP operational b/w vote
+ *
+ * session's power record only saves normalized freq or b/w vote
  */
 static int msm_cvp_request_power(struct msm_cvp_inst *inst,
 		struct cvp_kmd_request_power *power)
 {
 	int rc = 0;
-	unsigned int freq;
-	unsigned long ab, ib;
 	struct msm_cvp_core *core;
-	struct bus_info *bus;
-	struct allowed_clock_rates_table *clks_tbl = NULL;
-	unsigned int clks_tbl_size;
-	unsigned int min_rate, max_rate;
-
+	struct msm_cvp_inst *s;
 
 	if (!inst || !power) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
 
-	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	s = cvp_get_inst_validate(inst->core, inst);
+	if (!s)
+		return -ECONNRESET;
+
+	core = inst->core;
 
 	mutex_lock(&core->lock);
 
-	clks_tbl = core->resources.allowed_clks_tbl;
-	clks_tbl_size = core->resources.allowed_clks_tbl_size;
-	min_rate = clks_tbl[0].clock_rate;
-	max_rate = clks_tbl[clks_tbl_size - 1].clock_rate;
-	bus = &core->resources.bus_set.bus_tbl[1];
-
 	memcpy(&inst->power, power, sizeof(*power));
 
-	if (inst->power.clock_cycles_a < min_rate ||
-			inst->power.clock_cycles_a > max_rate)
-		inst->power.clock_cycles_a = min_rate;
-
-	if (inst->power.clock_cycles_b < (min_rate * C2C_FREQ_RATIO) ||
-		inst->power.clock_cycles_b > (max_rate * C2C_FREQ_RATIO))
-		inst->power.clock_cycles_b = min_rate * C2C_FREQ_RATIO;
+	/* Normalize CVP controller clock freqs */
+	inst->power.clock_cycles_b = div_by_1dot5(inst->power.clock_cycles_b);
+	inst->power.reserved[0] = div_by_1dot5(inst->power.reserved[0]);
+	inst->power.reserved[2] = div_by_1dot5(inst->power.reserved[2]);
+	inst->power.reserved[3] = div_by_1dot5(inst->power.reserved[3]);
 
 	/* Convert bps to KBps */
 	inst->power.ddr_bw = inst->power.ddr_bw >> 10;
 
-	if (inst->power.ddr_bw > bus->range[1])
-		inst->power.ddr_bw = bus->range[1] >> 1;
+	rc = adjust_bw_freqs();
+	if (rc)
+		dprintk(CVP_ERR, "Instance %pK power request out of range\n");
 
-	dprintk(CVP_DBG,
-		"%s: cycles_a %d, cycles_b %d, ddr_bw %d sys_cache_bw %d\n",
-		__func__, power->clock_cycles_a, power->clock_cycles_b,
-		power->ddr_bw, power->sys_cache_bw);
-
-	adjust_bw_freqs(clks_tbl, clks_tbl_size, bus->range[1],
-			&freq, &ab, &ib);
-	dprintk(CVP_DBG, "%s %x %llx %llx\n", __func__, freq, ab, ib);
 	mutex_unlock(&core->lock);
+	cvp_put_inst(s);
 
 	return rc;
 }
@@ -1047,29 +1091,42 @@ static int msm_cvp_register_buffer(struct msm_cvp_inst *inst,
 {
 	struct cvp_hfi_device *hdev;
 	struct cvp_hal_session *session;
+	struct msm_cvp_inst *s;
+	int rc = 0;
 
 	if (!inst || !inst->core || !buf) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
 
+	if (!buf->index)
+		return 0;
+
+	s = cvp_get_inst_validate(inst->core, inst);
+	if (!s)
+		return -ECONNRESET;
+
 	session = (struct cvp_hal_session *)inst->session;
 	if (!session) {
 		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto exit;
 	}
 	hdev = inst->core->device;
 	print_client_buffer(CVP_DBG, "register", inst, buf);
 
-	if (!buf->index)
-		return 0;
-
-	return msm_cvp_map_buf_dsp(inst, buf);
+	rc = msm_cvp_map_buf_dsp(inst, buf);
+exit:
+	cvp_put_inst(s);
+	return rc;
 }
 
 static int msm_cvp_unregister_buffer(struct msm_cvp_inst *inst,
 		struct cvp_kmd_buffer *buf)
 {
+	struct msm_cvp_inst *s;
+	int rc = 0;
+
 	if (!inst || !inst->core || !buf) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
@@ -1083,7 +1140,59 @@ static int msm_cvp_unregister_buffer(struct msm_cvp_inst *inst,
 			__func__);
 		return 0;
 	}
-	return msm_cvp_unmap_buf_dsp(inst, buf);
+
+	s = cvp_get_inst_validate(inst->core, inst);
+	if (!s)
+		return -ECONNRESET;
+
+	print_client_buffer(CVP_DBG, "unregister", inst, buf);
+
+	rc = msm_cvp_unmap_buf_dsp(inst, buf);
+	cvp_put_inst(s);
+	return rc;
+}
+
+static int msm_cvp_session_create(struct msm_cvp_inst *inst)
+{
+	int rc = 0;
+
+	if (!inst || !inst->core)
+		return -EINVAL;
+
+	if (inst->state != MSM_CVP_CORE_INIT_DONE ||
+		inst->state > MSM_CVP_OPEN_DONE) {
+		dprintk(CVP_ERR, "not ready create instance %d\n", inst->state);
+		return -EINVAL;
+	}
+
+	rc = msm_cvp_comm_try_state(inst, MSM_CVP_OPEN_DONE);
+	if (rc) {
+		dprintk(CVP_ERR,
+				"Failed to move instance to open done state\n");
+		goto fail_init;
+	}
+
+	rc = cvp_comm_set_arp_buffers(inst);
+	if (rc) {
+		dprintk(CVP_ERR,
+				"Failed to set ARP buffers\n");
+		goto fail_init;
+	}
+
+fail_init:
+	return rc;
+}
+
+static int session_state_check_init(struct msm_cvp_inst *inst)
+{
+	mutex_lock(&inst->lock);
+	if (inst->state >= MSM_CVP_OPEN && inst->state < MSM_CVP_STOP) {
+		mutex_unlock(&inst->lock);
+		return 0;
+	}
+	mutex_unlock(&inst->lock);
+
+	return msm_cvp_session_create(inst);
 }
 
 static int msm_cvp_session_start(struct msm_cvp_inst *inst,
@@ -1134,16 +1243,16 @@ static int msm_cvp_session_ctrl(struct msm_cvp_inst *inst,
 {
 	struct cvp_kmd_session_control *ctrl = &arg->data.session_ctrl;
 	int rc = 0;
+	unsigned int ctrl_type;
 
+	ctrl_type = ctrl->ctrl_type;
 
-
-	if (!inst) {
+	if (!inst && ctrl_type != SESSION_CREATE) {
 		dprintk(CVP_ERR, "%s invalid session\n", __func__);
 		return -EINVAL;
 	}
 
-
-	switch (ctrl->ctrl_type) {
+	switch (ctrl_type) {
 	case SESSION_STOP:
 		rc = msm_cvp_session_stop(inst, arg);
 		break;
@@ -1151,7 +1260,9 @@ static int msm_cvp_session_ctrl(struct msm_cvp_inst *inst,
 		rc = msm_cvp_session_start(inst, arg);
 		break;
 	case SESSION_CREATE:
+		rc = msm_cvp_session_create(inst);
 	case SESSION_DELETE:
+		break;
 	case SESSION_INFO:
 	default:
 		dprintk(CVP_ERR, "%s Unsupported session ctrl%d\n",
@@ -1178,7 +1289,7 @@ static int msm_cvp_get_sysprop(struct msm_cvp_inst *inst,
 	hfi = hdev->hfi_device_data;
 
 	switch (props->prop_data.prop_type) {
-	case CVP_HFI_VERSION:
+	case CVP_KMD_PROP_HFI_VERSION:
 	{
 		props->prop_data.data = hfi->version;
 		break;
@@ -1187,6 +1298,49 @@ static int msm_cvp_get_sysprop(struct msm_cvp_inst *inst,
 		dprintk(CVP_ERR, "unrecognized sys property %d\n",
 			props->prop_data.prop_type);
 		rc = -EFAULT;
+	}
+	return rc;
+}
+
+static int msm_cvp_set_sysprop(struct msm_cvp_inst *inst,
+		struct cvp_kmd_arg *arg)
+{
+	struct cvp_kmd_sys_properties *props = &arg->data.sys_properties;
+	struct cvp_kmd_sys_property *prop_array;
+	struct cvp_session_prop *session_prop;
+	int i, rc = 0;
+
+	if (!inst) {
+		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	prop_array = &arg->data.sys_properties.prop_data;
+	session_prop = &inst->prop;
+
+	for (i = 0; i < props->prop_num; i++) {
+		switch (prop_array[i].prop_type) {
+		case CVP_KMD_PROP_SESSION_TYPE:
+			session_prop->type = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_SESSION_KERNELMASK:
+			session_prop->kernel_mask = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_SESSION_PRIORITY:
+			session_prop->priority = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_SESSION_SECURITY:
+			session_prop->is_secure = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_SESSION_DSPMASK:
+			session_prop->dsp_mask = prop_array[i].data;
+			break;
+		default:
+			dprintk(CVP_ERR,
+				"unrecognized sys property to set %d\n",
+				prop_array[i].prop_type);
+			rc = -EFAULT;
+		}
 	}
 	return rc;
 }
@@ -1200,6 +1354,18 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 		return -EINVAL;
 	}
 	dprintk(CVP_DBG, "%s: arg->type = %x", __func__, arg->type);
+
+	if (arg->type != CVP_KMD_SESSION_CONTROL &&
+		arg->type != CVP_KMD_SET_SYS_PROPERTY &&
+		arg->type != CVP_KMD_GET_SYS_PROPERTY) {
+
+		rc = session_state_check_init(inst);
+		if (rc) {
+			dprintk(CVP_ERR, "session not ready for commands %d",
+					arg->type);
+			return rc;
+		}
+	}
 
 	switch (arg->type) {
 	case CVP_KMD_GET_SESSION_INFO:
@@ -1299,6 +1465,9 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 	case CVP_KMD_GET_SYS_PROPERTY:
 		rc = msm_cvp_get_sysprop(inst, arg);
 		break;
+	case CVP_KMD_SET_SYS_PROPERTY:
+		rc = msm_cvp_set_sysprop(inst, arg);
+		break;
 	default:
 		dprintk(CVP_DBG, "%s: unknown arg type %#x\n",
 				__func__, arg->type);
@@ -1312,6 +1481,8 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 {
 	int rc = 0;
+	struct cvp_hal_session *session;
+	struct msm_cvp_internal_buffer *cbuf, *dummy;
 
 	if (!inst || !inst->core) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -1319,6 +1490,12 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 	}
 	dprintk(CVP_DBG, "%s: inst %pK (%#x)\n", __func__,
 		inst, hash32_ptr(inst->session));
+
+	session = (struct cvp_hal_session *)inst->session;
+	if (!session) {
+		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
+		return -EINVAL;
+	}
 
 	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CLOSE_DONE);
 	if (rc)
@@ -1331,6 +1508,37 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 	if (rc)
 		dprintk(CVP_ERR, "%s: failed to scale_clocks_and_bus\n",
 			__func__);
+
+	mutex_lock(&inst->cvpcpubufs.lock);
+	list_for_each_entry_safe(cbuf, dummy, &inst->cvpcpubufs.list,
+			list) {
+		print_client_buffer(CVP_DBG, "remove from cvpcpubufs",
+				inst, &cbuf->buf);
+		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
+		list_del(&cbuf->list);
+	}
+	mutex_unlock(&inst->cvpcpubufs.lock);
+
+	mutex_lock(&inst->cvpdspbufs.lock);
+	list_for_each_entry_safe(cbuf, dummy, &inst->cvpdspbufs.list,
+			list) {
+		print_client_buffer(CVP_DBG, "remove from cvpdspbufs",
+				inst, &cbuf->buf);
+		rc = cvp_dsp_deregister_buffer(
+			(uint32_t)cbuf->smem.device_addr,
+			cbuf->buf.index, cbuf->buf.size,
+			hash32_ptr(session));
+		if (rc)
+			dprintk(CVP_ERR,
+				"%s: failed dsp deregistration fd=%d rc=%d",
+				__func__, cbuf->buf.fd, rc);
+
+		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
+		list_del(&cbuf->list);
+	}
+	mutex_unlock(&inst->cvpdspbufs.lock);
+
+	msm_cvp_comm_free_freq_table(inst);
 
 	return rc;
 }
@@ -1352,6 +1560,12 @@ int msm_cvp_session_init(struct msm_cvp_inst *inst)
 	inst->clk_data.min_freq = 1000;
 	inst->clk_data.ddr_bw = 1000;
 	inst->clk_data.sys_cache_bw = 1000;
+
+	inst->prop.type = HFI_SESSION_CV;
+	inst->prop.kernel_mask = 0xFFFFFFFF;
+	inst->prop.priority = 0;
+	inst->prop.is_secure = 0;
+	inst->prop.dsp_mask = 0;
 
 	return rc;
 }

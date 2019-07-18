@@ -428,8 +428,6 @@ int ipa_disable_wdi_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 const char *ipa_get_version_string(enum ipa_hw_type ver);
 int ipa_start_gsi_channel(u32 clnt_hdl);
 
-bool ipa_pm_is_used(void);
-
 int ipa_smmu_store_sgt(struct sg_table **out_ch_ptr,
 		struct sg_table *in_sgt_ptr);
 int ipa_smmu_free_sgt(struct sg_table **out_sgt_ptr);
@@ -444,7 +442,9 @@ int ipa_wigig_uc_init(
 
 int ipa_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out);
 
-int ipa_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out);
+int ipa_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out,
+	ipa_notify_cb tx_notify,
+	void *priv);
 
 int ipa_wigig_uc_msi_init(
 	bool init,
@@ -465,6 +465,8 @@ int ipa_disable_wigig_pipe_i(enum ipa_client_type client);
 int ipa_wigig_send_msg(int msg_type,
 	const char *netdev_name, u8 *mac,
 	enum ipa_client_type client, bool to_wigig);
+
+int ipa_wigig_save_regs(void);
 
 void ipa_register_client_callback(int (*client_cb)(bool is_lock),
 			bool (*teth_port_state)(void), u32 ipa_ep_idx);

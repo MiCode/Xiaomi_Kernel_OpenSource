@@ -37,9 +37,26 @@
 			OFFLOAD_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
-#define IPA_WIGIG_RX_PIPE_IDX	0
+#define IPA_WIGIG_ERR_RL(fmt, args...) \
+	do { \
+		pr_err_ratelimited_ipa( \
+		OFFLOAD_DRV_NAME " %s:%d " fmt, __func__,\
+		__LINE__, ## args);\
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			OFFLOAD_DRV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
+
 #define IPA_WIGIG_TX_PIPE_NUM	4
-#define IPA_WIGIG_MAX_PIPES	5
+
+enum ipa_wigig_pipes_idx {
+	IPA_CLIENT_WIGIG_PROD_IDX = 0,
+	IPA_CLIENT_WIGIG1_CONS_IDX = 1,
+	IPA_CLIENT_WIGIG2_CONS_IDX = 2,
+	IPA_CLIENT_WIGIG3_CONS_IDX = 3,
+	IPA_CLIENT_WIGIG4_CONS_IDX = 4,
+	IPA_WIGIG_MAX_PIPES
+};
 
 struct ipa_wigig_intf_info {
 	char netdev_name[IPA_RESOURCE_NAME_MAX];
@@ -47,6 +64,21 @@ struct ipa_wigig_intf_info {
 	u8 hdr_len;
 	u32 partial_hdr_hdl[IPA_IP_MAX];
 	struct list_head link;
+};
+
+struct ipa_wigig_pipe_values {
+	uint8_t dir;
+	uint8_t tx_ring_id;
+	uint32_t desc_ring_HWHEAD;
+	uint32_t desc_ring_HWTAIL;
+	uint32_t status_ring_HWHEAD;
+	uint32_t status_ring_HWTAIL;
+};
+
+struct ipa_wigig_regs_save {
+	struct ipa_wigig_pipe_values pipes_val[IPA_WIGIG_MAX_PIPES];
+	u32 int_gen_tx_val;
+	u32 int_gen_rx_val;
 };
 
 struct ipa_wigig_context {
@@ -58,14 +90,21 @@ struct ipa_wigig_context {
 	phys_addr_t int_gen_tx_pa;
 	phys_addr_t int_gen_rx_pa;
 	phys_addr_t dma_ep_misc_pa;
-	struct ipa_wigig_pipe_setup_info_smmu pipes_smmu[IPA_WIGIG_MAX_PIPES];
+	ipa_notify_cb tx_notify;
+	void *priv;
+	union pipes {
+		struct ipa_wigig_pipe_setup_info flat[IPA_WIGIG_MAX_PIPES];
+		struct ipa_wigig_pipe_setup_info_smmu
+			smmu[IPA_WIGIG_MAX_PIPES];
+	} pipes;
 	struct ipa_wigig_rx_pipe_data_buffer_info_smmu rx_buff_smmu;
 	struct ipa_wigig_tx_pipe_data_buffer_info_smmu
 		tx_buff_smmu[IPA_WIGIG_TX_PIPE_NUM];
 	char clients_mac[IPA_WIGIG_TX_PIPE_NUM][IPA_MAC_ADDR_SIZE];
+	struct ipa_wigig_regs_save regs_save;
 	bool smmu_en;
 	bool shared_cb;
-	bool rx_connected;
+	u8 conn_pipes;
 };
 
 static struct ipa_wigig_context *ipa_wigig_ctx;
@@ -557,6 +596,62 @@ static void ipa_wigig_pm_cb(void *p, enum ipa_pm_cb_event event)
 	IPA_WIGIG_DBG("received pm event %d\n", event);
 }
 
+static int ipa_wigig_store_pipe_info(struct ipa_wigig_pipe_setup_info *pipe,
+	unsigned int idx)
+{
+	IPA_WIGIG_DBG(
+		"idx %d: desc_ring HWHEAD_pa %pa, HWTAIL_pa %pa, status_ring HWHEAD_pa %pa, HWTAIL_pa %pa\n",
+		idx,
+		&pipe->desc_ring_HWHEAD_pa,
+		&pipe->desc_ring_HWTAIL_pa,
+		&pipe->status_ring_HWHEAD_pa,
+		&pipe->status_ring_HWTAIL_pa);
+
+	/* store regs */
+	ipa_wigig_ctx->pipes.flat[idx].desc_ring_HWHEAD_pa =
+		pipe->desc_ring_HWHEAD_pa;
+	ipa_wigig_ctx->pipes.flat[idx].desc_ring_HWTAIL_pa =
+		pipe->desc_ring_HWTAIL_pa;
+
+	ipa_wigig_ctx->pipes.flat[idx].status_ring_HWHEAD_pa =
+		pipe->status_ring_HWHEAD_pa;
+
+	ipa_wigig_ctx->pipes.flat[idx].status_ring_HWTAIL_pa =
+		pipe->status_ring_HWTAIL_pa;
+
+	IPA_WIGIG_DBG("exit\n");
+
+	return 0;
+}
+
+static u8 ipa_wigig_pipe_to_bit_val(int client)
+{
+	u8 shift_val;
+
+	switch (client) {
+	case IPA_CLIENT_WIGIG_PROD:
+		shift_val = 0x1 << IPA_CLIENT_WIGIG_PROD_IDX;
+		break;
+	case IPA_CLIENT_WIGIG1_CONS:
+		shift_val = 0x1 << IPA_CLIENT_WIGIG1_CONS_IDX;
+		break;
+	case IPA_CLIENT_WIGIG2_CONS:
+		shift_val = 0x1 << IPA_CLIENT_WIGIG2_CONS_IDX;
+		break;
+	case IPA_CLIENT_WIGIG3_CONS:
+		shift_val = 0x1 << IPA_CLIENT_WIGIG3_CONS_IDX;
+		break;
+	case IPA_CLIENT_WIGIG4_CONS:
+		shift_val = 0x1 << IPA_CLIENT_WIGIG4_CONS_IDX;
+		break;
+	default:
+		IPA_WIGIG_ERR("invalid pipe %d\n", client);
+		return 1;
+	}
+
+	return shift_val;
+}
+
 int ipa_wigig_conn_rx_pipe(struct ipa_wigig_conn_rx_in_params *in,
 	struct ipa_wigig_conn_out_params *out)
 {
@@ -619,7 +714,14 @@ int ipa_wigig_conn_rx_pipe(struct ipa_wigig_conn_rx_in_params *in,
 		goto fail_connect_pipe;
 	}
 
-	ipa_wigig_ctx->rx_connected = true;
+	ipa_wigig_ctx->tx_notify = in->notify;
+	ipa_wigig_ctx->priv = in->priv;
+
+	ipa_wigig_store_pipe_info(ipa_wigig_ctx->pipes.flat,
+		IPA_CLIENT_WIGIG_PROD_IDX);
+
+	ipa_wigig_ctx->conn_pipes |=
+		ipa_wigig_pipe_to_bit_val(IPA_CLIENT_WIGIG_PROD);
 
 	IPA_WIGIG_DBG("exit\n");
 
@@ -663,7 +765,7 @@ static int ipa_wigig_client_to_idx(enum ipa_client_type client,
 	return 0;
 }
 
-static int ipa_wigig_clean_pipe_smmu_info(unsigned int idx)
+static int ipa_wigig_clean_pipe_info(unsigned int idx)
 {
 	IPA_WIGIG_DBG("cleaning pipe %d info\n", idx);
 
@@ -672,12 +774,19 @@ static int ipa_wigig_clean_pipe_smmu_info(unsigned int idx)
 		return -EINVAL;
 	}
 
-	sg_free_table(&ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base);
-	sg_free_table(&ipa_wigig_ctx->pipes_smmu[idx].status_ring_base);
+	if (ipa_wigig_ctx->smmu_en) {
+		sg_free_table(
+			&ipa_wigig_ctx->pipes.smmu[idx].desc_ring_base);
+		sg_free_table(
+			&ipa_wigig_ctx->pipes.smmu[idx].status_ring_base);
 
-	memset(ipa_wigig_ctx->pipes_smmu + idx,
-		0,
-		sizeof(ipa_wigig_ctx->pipes_smmu[idx]));
+		memset(ipa_wigig_ctx->pipes.smmu + idx,
+			0,
+			sizeof(ipa_wigig_ctx->pipes.smmu[idx]));
+	} else {
+		memset(ipa_wigig_ctx->pipes.flat + idx, 0,
+			sizeof(ipa_wigig_ctx->pipes.flat[idx]));
+	}
 
 	IPA_WIGIG_DBG("exit\n");
 
@@ -710,33 +819,43 @@ static int ipa_wigig_store_pipe_smmu_info
 {
 	int ret;
 
-	IPA_WIGIG_DBG("\n");
+	IPA_WIGIG_DBG(
+		"idx %d: desc_ring HWHEAD_pa %pa, HWTAIL_pa %pa, status_ring HWHEAD_pa %pa, HWTAIL_pa %pa, desc_ring_base 0x%llx, status_ring_base 0x%llx\n",
+		idx,
+		&pipe_smmu->desc_ring_HWHEAD_pa,
+		&pipe_smmu->desc_ring_HWTAIL_pa,
+		&pipe_smmu->status_ring_HWHEAD_pa,
+		&pipe_smmu->status_ring_HWTAIL_pa,
+		(unsigned long long)pipe_smmu->desc_ring_base_iova,
+		(unsigned long long)pipe_smmu->status_ring_base_iova);
 
 	/* store regs */
-	ipa_wigig_ctx->pipes_smmu[idx].desc_ring_HWHEAD_pa =
+	ipa_wigig_ctx->pipes.smmu[idx].desc_ring_HWHEAD_pa =
 		pipe_smmu->desc_ring_HWHEAD_pa;
-	ipa_wigig_ctx->pipes_smmu[idx].desc_ring_HWTAIL_pa =
+	ipa_wigig_ctx->pipes.smmu[idx].desc_ring_HWTAIL_pa =
 		pipe_smmu->desc_ring_HWTAIL_pa;
 
-	ipa_wigig_ctx->pipes_smmu[idx].status_ring_HWHEAD_pa =
+	ipa_wigig_ctx->pipes.smmu[idx].status_ring_HWHEAD_pa =
 		pipe_smmu->status_ring_HWHEAD_pa;
-	ipa_wigig_ctx->pipes_smmu[idx].status_ring_HWTAIL_pa =
+	ipa_wigig_ctx->pipes.smmu[idx].status_ring_HWTAIL_pa =
 		pipe_smmu->status_ring_HWTAIL_pa;
 
 	/* store rings IOVAs */
-	ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base_iova =
+	ipa_wigig_ctx->pipes.smmu[idx].desc_ring_base_iova =
 		pipe_smmu->desc_ring_base_iova;
-	ipa_wigig_ctx->pipes_smmu[idx].status_ring_base_iova =
+	ipa_wigig_ctx->pipes.smmu[idx].status_ring_base_iova =
 		pipe_smmu->status_ring_base_iova;
 
 	/* copy sgt */
-	ret = ipa_wigig_clone_sg_table(&pipe_smmu->desc_ring_base,
-		&ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base);
+	ret = ipa_wigig_clone_sg_table(
+		&pipe_smmu->desc_ring_base,
+		&ipa_wigig_ctx->pipes.smmu[idx].desc_ring_base);
 	if (ret)
 		goto fail_desc;
 
-	ret = ipa_wigig_clone_sg_table(&pipe_smmu->status_ring_base,
-		&ipa_wigig_ctx->pipes_smmu[idx].status_ring_base);
+	ret = ipa_wigig_clone_sg_table(
+		&pipe_smmu->status_ring_base,
+		&ipa_wigig_ctx->pipes.smmu[idx].status_ring_base);
 	if (ret)
 		goto fail_stat;
 
@@ -744,9 +863,9 @@ static int ipa_wigig_store_pipe_smmu_info
 
 	return 0;
 fail_stat:
-	sg_free_table(&ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base);
-	memset(&ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base,
-		0, sizeof(ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base));
+	sg_free_table(&ipa_wigig_ctx->pipes.smmu[idx].desc_ring_base);
+	memset(&ipa_wigig_ctx->pipes.smmu[idx].desc_ring_base, 0,
+	       sizeof(ipa_wigig_ctx->pipes.smmu[idx].desc_ring_base));
 fail_desc:
 	return ret;
 }
@@ -760,11 +879,239 @@ static int ipa_wigig_get_pipe_smmu_info(
 		return -EINVAL;
 	}
 
-	*pipe_smmu = &ipa_wigig_ctx->pipes_smmu[idx];
+	*pipe_smmu = &ipa_wigig_ctx->pipes.smmu[idx];
 
 	return 0;
 }
-static void  ipa_wigig_clean_rx_buff_smmu_info(void)
+
+static int ipa_wigig_get_pipe_info(
+	struct ipa_wigig_pipe_setup_info **pipe, unsigned int idx)
+{
+	if (idx >= IPA_WIGIG_MAX_PIPES) {
+		IPA_WIGIG_ERR("exceeded pipe num %d >= %d\n", idx,
+			IPA_WIGIG_MAX_PIPES);
+		return -EINVAL;
+	}
+
+	*pipe = &ipa_wigig_ctx->pipes.flat[idx];
+
+	return 0;
+}
+
+static int ipa_wigig_get_regs_addr(
+	void __iomem **desc_ring_h, void __iomem **desc_ring_t,
+	void __iomem **status_ring_h, void __iomem **status_ring_t,
+	unsigned int idx)
+{
+	struct ipa_wigig_pipe_setup_info *pipe;
+	struct ipa_wigig_pipe_setup_info_smmu *pipe_smmu;
+	int ret = 0;
+
+	IPA_WIGIG_DBG("\n");
+
+	if (idx >= IPA_WIGIG_MAX_PIPES) {
+		IPA_WIGIG_DBG("exceeded pipe num %d >= %d\n", idx,
+			IPA_WIGIG_MAX_PIPES);
+		return -EINVAL;
+	}
+
+	if (!ipa_wigig_ctx) {
+		IPA_WIGIG_DBG("wigig ctx is not initialized\n");
+		return -EPERM;
+	}
+
+	if (!(ipa_wigig_ctx->conn_pipes &
+		ipa_wigig_pipe_to_bit_val(IPA_CLIENT_WIGIG_PROD))) {
+		IPA_WIGIG_DBG(
+			"must connect rx pipe before connecting any client\n");
+		return -EINVAL;
+	}
+
+	if (ipa_wigig_ctx->smmu_en) {
+		ret = ipa_wigig_get_pipe_smmu_info(&pipe_smmu, idx);
+		if (ret)
+			return -EINVAL;
+
+		*desc_ring_h =
+			ioremap(pipe_smmu->desc_ring_HWHEAD_pa, sizeof(u32));
+		if (!*desc_ring_h) {
+			IPA_WIGIG_DBG(
+				"couldn't ioremap desc ring head address\n");
+			ret = -EINVAL;
+			goto fail_map_desc_h;
+		}
+		*desc_ring_t =
+			ioremap(pipe_smmu->desc_ring_HWTAIL_pa, sizeof(u32));
+		if (!*desc_ring_t) {
+			IPA_WIGIG_DBG(
+				"couldn't ioremap desc ring tail address\n");
+			ret = -EINVAL;
+			goto fail_map_desc_t;
+		}
+		*status_ring_h =
+			ioremap(pipe_smmu->status_ring_HWHEAD_pa, sizeof(u32));
+		if (!*status_ring_h) {
+			IPA_WIGIG_DBG(
+				"couldn't ioremap status ring head address\n");
+			ret = -EINVAL;
+			goto fail_map_status_h;
+		}
+		*status_ring_t =
+			ioremap(pipe_smmu->status_ring_HWTAIL_pa, sizeof(u32));
+		if (!*status_ring_t) {
+			IPA_WIGIG_DBG(
+				"couldn't ioremap status ring tail address\n");
+			ret = -EINVAL;
+			goto fail_map_status_t;
+		}
+	} else {
+		ret = ipa_wigig_get_pipe_info(&pipe, idx);
+		if (ret)
+			return -EINVAL;
+
+		*desc_ring_h = ioremap(pipe->desc_ring_HWHEAD_pa, sizeof(u32));
+		if (!*desc_ring_h) {
+			IPA_WIGIG_DBG(
+				"couldn't ioremap desc ring head address\n");
+			ret = -EINVAL;
+			goto fail_map_desc_h;
+		}
+		*desc_ring_t = ioremap(pipe->desc_ring_HWTAIL_pa, sizeof(u32));
+		if (!*desc_ring_t) {
+			IPA_WIGIG_DBG(
+				"couldn't ioremap desc ring tail address\n");
+			ret = -EINVAL;
+			goto fail_map_desc_t;
+		}
+		*status_ring_h =
+			ioremap(pipe->status_ring_HWHEAD_pa, sizeof(u32));
+		if (!*status_ring_h) {
+			IPA_WIGIG_DBG(
+				"couldn't ioremap status ring head address\n");
+			ret = -EINVAL;
+			goto fail_map_status_h;
+		}
+		*status_ring_t =
+			ioremap(pipe->status_ring_HWTAIL_pa, sizeof(u32));
+		if (!*status_ring_t) {
+			IPA_WIGIG_DBG(
+				"couldn't ioremap status ring tail address\n");
+			ret = -EINVAL;
+			goto fail_map_status_t;
+		}
+	}
+
+	IPA_WIGIG_DBG("exit\n");
+	return 0;
+
+fail_map_status_t:
+	iounmap(*status_ring_h);
+fail_map_status_h:
+	iounmap(*desc_ring_t);
+fail_map_desc_t:
+	iounmap(*desc_ring_h);
+fail_map_desc_h:
+	IPA_WIGIG_DBG("couldn't get regs information idx %d\n", idx);
+	return ret;
+}
+
+int ipa_wigig_save_regs(void)
+{
+	void __iomem *desc_ring_h = NULL, *desc_ring_t = NULL,
+		*status_ring_h = NULL, *status_ring_t = NULL,
+		*int_gen_rx_pa = NULL, *int_gen_tx_pa = NULL;
+	uint32_t readval;
+	u8 pipe_connected;
+	int i, ret = 0;
+
+	IPA_WIGIG_DBG("Start collecting pipes information\n");
+
+	if (!ipa_wigig_ctx) {
+		IPA_WIGIG_ERR("wigig ctx is not initialized\n");
+		return -EPERM;
+	}
+	if (!(ipa_wigig_ctx->conn_pipes &
+		ipa_wigig_pipe_to_bit_val(IPA_CLIENT_WIGIG_PROD))) {
+		IPA_WIGIG_ERR(
+			"must connect rx pipe before connecting any client\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < IPA_WIGIG_MAX_PIPES; i++) {
+		pipe_connected = (ipa_wigig_ctx->conn_pipes & (0x1 << i));
+		if (pipe_connected) {
+			ret = ipa_wigig_get_regs_addr(
+				&desc_ring_h, &desc_ring_t,
+				&status_ring_h, &status_ring_t, i);
+
+			if (ret) {
+				IPA_WIGIG_ERR(
+					"couldn't get registers information on client %d\n",
+					i);
+				return -EINVAL;
+			}
+
+			IPA_WIGIG_DBG("collecting pipe info of index %d\n", i);
+			if (i == IPA_CLIENT_WIGIG_PROD_IDX) {
+				ipa_wigig_ctx->regs_save.pipes_val[i].dir = 0;
+			} else {
+				ipa_wigig_ctx->regs_save.pipes_val[i].dir = 1;
+				/* TX ids start from 2 */
+				ipa_wigig_ctx->regs_save.pipes_val[i]
+					.tx_ring_id = i + 1;
+			}
+
+			readval = readl_relaxed(desc_ring_h);
+			ipa_wigig_ctx->regs_save.pipes_val[i].desc_ring_HWHEAD =
+				readval;
+			readval = readl_relaxed(desc_ring_t);
+			ipa_wigig_ctx->regs_save.pipes_val[i].desc_ring_HWTAIL =
+				readval;
+			readval = readl_relaxed(status_ring_h);
+			ipa_wigig_ctx->regs_save.pipes_val[i]
+				.status_ring_HWHEAD = readval;
+			readval = readl_relaxed(status_ring_t);
+			ipa_wigig_ctx->regs_save.pipes_val[i]
+				.status_ring_HWTAIL = readval;
+			/* unmap all regs */
+			iounmap(desc_ring_h);
+			iounmap(desc_ring_t);
+			iounmap(status_ring_h);
+			iounmap(status_ring_t);
+		}
+	}
+	int_gen_rx_pa = ioremap(ipa_wigig_ctx->int_gen_rx_pa, sizeof(u32));
+	if (!int_gen_rx_pa) {
+		IPA_WIGIG_ERR("couldn't ioremap gen rx address\n");
+		ret = -EINVAL;
+		goto fail_map_gen_rx;
+	}
+	int_gen_tx_pa = ioremap(ipa_wigig_ctx->int_gen_tx_pa, sizeof(u32));
+	if (!int_gen_tx_pa) {
+		IPA_WIGIG_ERR("couldn't ioremap gen tx address\n");
+		ret = -EINVAL;
+		goto fail_map_gen_tx;
+	}
+
+	IPA_WIGIG_DBG("collecting int_gen_rx_pa info\n");
+	readval = readl_relaxed(int_gen_rx_pa);
+	ipa_wigig_ctx->regs_save.int_gen_rx_val = readval;
+
+	IPA_WIGIG_DBG("collecting int_gen_tx_pa info\n");
+	readval = readl_relaxed(int_gen_tx_pa);
+	ipa_wigig_ctx->regs_save.int_gen_tx_val = readval;
+
+	IPA_WIGIG_DBG("Finish collecting pipes info\n");
+	IPA_WIGIG_DBG("exit\n");
+
+	iounmap(int_gen_tx_pa);
+fail_map_gen_tx:
+	iounmap(int_gen_rx_pa);
+fail_map_gen_rx:
+	return ret;
+}
+
+static void ipa_wigig_clean_rx_buff_smmu_info(void)
 {
 	IPA_WIGIG_DBG("clearing rx buff smmu info\n");
 
@@ -774,9 +1121,6 @@ static void  ipa_wigig_clean_rx_buff_smmu_info(void)
 		sizeof(ipa_wigig_ctx->rx_buff_smmu));
 
 	IPA_WIGIG_DBG("\n");
-
-	return;
-
 }
 
 static int ipa_wigig_store_rx_buff_smmu_info(
@@ -926,7 +1270,7 @@ static int ipa_wigig_store_rx_smmu_info
 	IPA_WIGIG_DBG("\n");
 
 	ret = ipa_wigig_store_pipe_smmu_info(&in->pipe_smmu,
-		IPA_WIGIG_RX_PIPE_IDX);
+		IPA_CLIENT_WIGIG_PROD_IDX);
 	if (ret)
 		return ret;
 
@@ -941,7 +1285,7 @@ static int ipa_wigig_store_rx_smmu_info
 	return 0;
 
 fail_buff:
-	ipa_wigig_clean_pipe_smmu_info(IPA_WIGIG_RX_PIPE_IDX);
+	ipa_wigig_clean_pipe_info(IPA_CLIENT_WIGIG_PROD_IDX);
 	return ret;
 }
 
@@ -973,7 +1317,7 @@ static int ipa_wigig_store_client_smmu_info
 	return 0;
 
 fail_buff:
-	ipa_wigig_clean_pipe_smmu_info(IPA_WIGIG_RX_PIPE_IDX);
+	ipa_wigig_clean_pipe_info(IPA_CLIENT_WIGIG_PROD_IDX);
 	return ret;
 }
 
@@ -983,7 +1327,8 @@ static int ipa_wigig_get_rx_smmu_info(
 {
 	int ret;
 
-	ret = ipa_wigig_get_pipe_smmu_info(pipe_smmu, IPA_WIGIG_RX_PIPE_IDX);
+	ret = ipa_wigig_get_pipe_smmu_info(pipe_smmu,
+		IPA_CLIENT_WIGIG_PROD_IDX);
 	if (ret)
 		return ret;
 
@@ -1022,7 +1367,7 @@ static int ipa_wigig_clean_smmu_info(enum ipa_client_type client)
 	int ret;
 
 	if (client == IPA_CLIENT_WIGIG_PROD) {
-		ret = ipa_wigig_clean_pipe_smmu_info(IPA_WIGIG_RX_PIPE_IDX);
+		ret = ipa_wigig_clean_pipe_info(IPA_CLIENT_WIGIG_PROD_IDX);
 		if (ret)
 			return ret;
 		if (!ipa_wigig_ctx->shared_cb)
@@ -1034,7 +1379,7 @@ static int ipa_wigig_clean_smmu_info(enum ipa_client_type client)
 		if (ret)
 			return ret;
 
-		ret = ipa_wigig_clean_pipe_smmu_info(idx);
+		ret = ipa_wigig_clean_pipe_info(idx);
 		if (ret)
 			return ret;
 
@@ -1120,7 +1465,11 @@ int ipa_wigig_conn_rx_pipe_smmu(
 		goto fail_smmu_store;
 	}
 
-	ipa_wigig_ctx->rx_connected = true;
+	ipa_wigig_ctx->tx_notify = in->notify;
+	ipa_wigig_ctx->priv = in->priv;
+
+	ipa_wigig_ctx->conn_pipes |=
+		ipa_wigig_pipe_to_bit_val(IPA_CLIENT_WIGIG_PROD);
 
 	IPA_WIGIG_DBG("exit\n");
 
@@ -1201,6 +1550,7 @@ int ipa_wigig_conn_client(struct ipa_wigig_conn_tx_in_params *in,
 	struct ipa_wigig_conn_out_params *out)
 {
 	char dev_name[IPA_RESOURCE_NAME_MAX];
+	unsigned int idx;
 
 	IPA_WIGIG_DBG("\n");
 
@@ -1214,7 +1564,8 @@ int ipa_wigig_conn_client(struct ipa_wigig_conn_tx_in_params *in,
 		return -EPERM;
 	}
 
-	if (!ipa_wigig_ctx->rx_connected) {
+	if (!(ipa_wigig_ctx->conn_pipes &
+		ipa_wigig_pipe_to_bit_val(IPA_CLIENT_WIGIG_PROD))) {
 		IPA_WIGIG_ERR(
 			"must connect rx pipe before connecting any client\n"
 		);
@@ -1236,13 +1587,21 @@ int ipa_wigig_conn_client(struct ipa_wigig_conn_tx_in_params *in,
 		return -EFAULT;
 	}
 
-	if (ipa_conn_wigig_client_i(in, out)) {
+	if (ipa_conn_wigig_client_i(in, out, ipa_wigig_ctx->tx_notify,
+		ipa_wigig_ctx->priv)) {
 		IPA_WIGIG_ERR(
 			"fail to connect client. MAC [%X][%X][%X][%X][%X][%X]\n"
 		, in->client_mac[0], in->client_mac[1], in->client_mac[2]
 		, in->client_mac[3], in->client_mac[4], in->client_mac[5]);
 		return -EFAULT;
 	}
+
+	if (ipa_wigig_client_to_idx(out->client, &idx)) {
+		IPA_WIGIG_ERR("couldn't acquire idx\n");
+		goto fail_convert_client_to_idx;
+	}
+
+	ipa_wigig_store_pipe_info(&in->pipe, idx);
 
 	if (ipa_wigig_send_msg(WIGIG_CLIENT_CONNECT,
 		dev_name,
@@ -1251,13 +1610,20 @@ int ipa_wigig_conn_client(struct ipa_wigig_conn_tx_in_params *in,
 		goto fail_sendmsg;
 	}
 
+	/* update connected clients */
+	ipa_wigig_ctx->conn_pipes |=
+		ipa_wigig_pipe_to_bit_val(out->client);
+
 	ipa_wigig_store_client_mac(out->client, in->client_mac);
 
 	IPA_WIGIG_DBG("exit\n");
 	return 0;
+
 fail_sendmsg:
+	ipa_wigig_clean_pipe_info(idx);
+fail_convert_client_to_idx:
 	ipa_disconn_wigig_pipe_i(out->client, NULL, NULL);
-	return -EFAULT;
+	return -EINVAL;
 }
 EXPORT_SYMBOL(ipa_wigig_conn_client);
 
@@ -1280,7 +1646,8 @@ int ipa_wigig_conn_client_smmu(
 		return -EPERM;
 	}
 
-	if (!ipa_wigig_ctx->rx_connected) {
+	if (!(ipa_wigig_ctx->conn_pipes &
+		ipa_wigig_pipe_to_bit_val(IPA_CLIENT_WIGIG_PROD))) {
 		IPA_WIGIG_ERR(
 			"must connect rx pipe before connecting any client\n"
 		);
@@ -1303,7 +1670,8 @@ int ipa_wigig_conn_client_smmu(
 		return -EFAULT;
 	}
 
-	if (ipa_conn_wigig_client_i(in, out)) {
+	if (ipa_conn_wigig_client_i(in, out, ipa_wigig_ctx->tx_notify,
+		ipa_wigig_ctx->priv)) {
 		IPA_WIGIG_ERR(
 			"fail to connect client. MAC [%X][%X][%X][%X][%X][%X]\n"
 			, in->client_mac[0], in->client_mac[1]
@@ -1323,6 +1691,10 @@ int ipa_wigig_conn_client_smmu(
 	ret = ipa_wigig_store_client_smmu_info(in, out->client);
 	if (ret)
 		goto fail_smmu;
+
+	/* update connected clients */
+	ipa_wigig_ctx->conn_pipes |=
+		ipa_wigig_pipe_to_bit_val(out->client);
 
 	ipa_wigig_store_client_mac(out->client, in->client_mac);
 
@@ -1352,7 +1724,7 @@ static inline int ipa_wigig_validate_client_type(enum ipa_client_type client)
 	case IPA_CLIENT_WIGIG4_CONS:
 		break;
 	default:
-		IPA_WIGIG_ERR("invalid client type %d\n", client);
+		IPA_WIGIG_ERR_RL("invalid client type %d\n", client);
 		return -EINVAL;
 	}
 
@@ -1439,7 +1811,9 @@ int ipa_wigig_disconn_pipe(enum ipa_client_type client)
 			WARN_ON(1);
 		}
 
-		ipa_wigig_ctx->rx_connected = false;
+		ipa_wigig_ctx->conn_pipes &=
+			~ipa_wigig_pipe_to_bit_val(IPA_CLIENT_WIGIG_PROD);
+		WARN_ON(ipa_wigig_ctx->conn_pipes);
 	} else {
 		/*
 		 * wigig clients are disconnected with legacy message since

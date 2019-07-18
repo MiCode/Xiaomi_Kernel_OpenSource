@@ -1,13 +1,11 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_GMU_H
 #define __KGSL_GMU_H
 
-#include <linux/mailbox_client.h>
 #include "kgsl_gmu_core.h"
-#include <linux/firmware.h>
 #include "kgsl_hfi.h"
 
 #define MAX_GMUFW_SIZE	0x8000	/* in bytes */
@@ -154,10 +152,6 @@ struct kgsl_mailbox {
  * @dump_mem: pointer to GMU debug dump memory
  * @gmu_log: gmu event log memory
  * @hfi: HFI controller
- * @lm_config: GPU LM configuration data
- * @lm_dcvs_level: Minimal DCVS level that enable LM. LM disable in
- *		lower levels
- * @bcl_config: Battery Current Limit configuration data
  * @gmu_freqs: GMU frequency table with lowest freq at index 0
  * @gpu_freqs: GPU frequency table with lowest freq at index 0
  * @num_gmupwrlevels: number GMU frequencies in GMU freq table
@@ -196,9 +190,6 @@ struct gmu_device {
 	struct gmu_memdesc *dump_mem;
 	struct gmu_memdesc *gmu_log;
 	struct kgsl_hfi hfi;
-	unsigned int lm_config;
-	unsigned int lm_dcvs_level;
-	unsigned int bcl_config;
 	unsigned int gmu_freqs[MAX_CX_LEVELS];
 	unsigned int gpu_freqs[MAX_GX_LEVELS];
 	unsigned int num_gmupwrlevels;

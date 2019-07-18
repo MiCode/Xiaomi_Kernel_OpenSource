@@ -178,6 +178,8 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	if (data->irq <= 0)
 		return data->irq;
 
+	data->check_on_resume = true;
+
 	data->supported_cable = devm_kzalloc(dev,
 					     sizeof(*data->supported_cable) * 2,
 					     GFP_KERNEL);
@@ -229,17 +231,29 @@ static int gpio_extcon_remove(struct platform_device *pdev)
 static int gpio_extcon_resume(struct device *dev)
 {
 	struct gpio_extcon_data *data;
+	int state, ret = 0;
 
 	data = dev_get_drvdata(dev);
-	if (data->check_on_resume)
-		queue_delayed_work(system_power_efficient_wq,
-			&data->work, data->debounce_jiffies);
+	if (data->check_on_resume) {
+		state = gpiod_get_value_cansleep(data->gpiod);
+		ret = extcon_set_state_sync(data->edev, data->extcon_id, state);
+		if (ret)
+			dev_err(dev, "%s: Failed to set extcon gpio state\n",
+					__func__);
+	}
 
-	return 0;
+	return ret;
 }
-#endif
 
-static SIMPLE_DEV_PM_OPS(gpio_extcon_pm_ops, NULL, gpio_extcon_resume);
+static const struct dev_pm_ops gpio_extcon_pm_ops = {
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(NULL, gpio_extcon_resume)
+};
+
+#define EXTCON_GPIO_PMOPS (&gpio_extcon_pm_ops)
+
+#else
+#define EXTCON_GPIO_PMOPS NULL
+#endif
 
 static const struct of_device_id extcon_gpio_of_match[] = {
 	{ .compatible = "extcon-gpio"},
@@ -251,7 +265,7 @@ static struct platform_driver gpio_extcon_driver = {
 	.remove		= gpio_extcon_remove,
 	.driver		= {
 		.name	= "extcon-gpio",
-		.pm	= &gpio_extcon_pm_ops,
+		.pm	= EXTCON_GPIO_PMOPS,
 		.of_match_table = of_match_ptr(extcon_gpio_of_match),
 	},
 };

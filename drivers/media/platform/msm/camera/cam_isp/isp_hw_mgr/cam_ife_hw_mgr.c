@@ -1568,6 +1568,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_pxl(
 		csid_acquire.out_port = in_port->data;
 		csid_acquire.node_res = NULL;
 		csid_acquire.crop_enable = crop_enable;
+		csid_acquire.drop_enable = false;
 
 		hw_intf = cid_res->hw_res[i]->hw_intf;
 
@@ -1696,6 +1697,12 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		csid_acquire.out_port = out_port;
 		csid_acquire.sync_mode = CAM_ISP_HW_SYNC_NONE;
 		csid_acquire.node_res = NULL;
+
+		/*
+		 * Enable RDI pixel drop by default. CSID will enable only for
+		 * ver 480 HW to allow userspace to control pixel drop pattern.
+		 */
+		csid_acquire.drop_enable = true;
 
 		/* Enable RDI crop for single ife use case only */
 		if (in_port->usage_type)
@@ -2140,6 +2147,8 @@ static int cam_ife_mgr_acquire_get_unified_structure_v0(
 	port_info->dsp_mode        =  in->dsp_mode;
 	port_info->hbi_cnt         =  in->hbi_cnt;
 	port_info->cust_node       =  0;
+	port_info->horizontal_bin  =  0;
+	port_info->qcfa_bin        =  0;
 	port_info->num_out_res     =  in->num_out_res;
 
 	port_info->data = kcalloc(in->num_out_res,
@@ -2239,6 +2248,8 @@ static int cam_ife_mgr_acquire_get_unified_structure_v2(
 	port_info->dsp_mode       =  in->dsp_mode;
 	port_info->hbi_cnt        =  in->hbi_cnt;
 	port_info->cust_node      =  in->cust_node;
+	port_info->horizontal_bin =  in->horizontal_bin;
+	port_info->qcfa_bin       =  in->qcfa_bin;
 	port_info->num_out_res    =  in->num_out_res;
 
 	port_info->data = kcalloc(in->num_out_res,

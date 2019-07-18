@@ -795,10 +795,7 @@ static void ipa3_handle_rx(struct ipa3_sys_context *sys)
 	int cnt;
 	int ret;
 
-	if (ipa3_ctx->use_ipa_pm)
-		ipa_pm_activate_sync(sys->pm_hdl);
-	else
-		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	ipa_pm_activate_sync(sys->pm_hdl);
 start_poll:
 	inactive_cycles = 0;
 	do {
@@ -827,10 +824,7 @@ start_poll:
 	if (ret == -GSI_STATUS_PENDING_IRQ)
 		goto start_poll;
 
-	if (ipa3_ctx->use_ipa_pm)
-		ipa_pm_deferred_deactivate(sys->pm_hdl);
-	else
-		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	ipa_pm_deferred_deactivate(sys->pm_hdl);
 }
 
 static void ipa3_switch_to_intr_rx_work_func(struct work_struct *work)
@@ -884,6 +878,11 @@ static void ipa_pm_sys_pipe_cb(void *p, enum ipa_pm_cb_event event)
 			usleep_range(SUSPEND_MIN_SLEEP_RX,
 				SUSPEND_MAX_SLEEP_RX);
 			IPA_ACTIVE_CLIENTS_DEC_SPECIAL("PIPE_SUSPEND_LAN");
+		} else if (sys->ep->client == IPA_CLIENT_ODL_DPL_CONS) {
+			IPA_ACTIVE_CLIENTS_INC_SPECIAL("PIPE_SUSPEND_ODL");
+			usleep_range(SUSPEND_MIN_SLEEP_RX,
+				SUSPEND_MAX_SLEEP_RX);
+			IPA_ACTIVE_CLIENTS_DEC_SPECIAL("PIPE_SUSPEND_ODL");
 		} else
 			IPAERR("Unexpected event %d\n for client %d\n",
 				event, sys->ep->client);
@@ -993,8 +992,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->sys->db_timer.function = ipa3_ring_doorbell_timer_fn;
 
 		/* create IPA PM resources for handling polling mode */
-		if (ipa3_ctx->use_ipa_pm &&
-			IPA_CLIENT_IS_CONS(sys_in->client)) {
+		if (IPA_CLIENT_IS_CONS(sys_in->client)) {
 			pm_reg.name = ipa_clients_strings[sys_in->client];
 			pm_reg.callback = ipa_pm_sys_pipe_cb;
 			pm_reg.user_data = ep->sys;
@@ -1086,10 +1084,6 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		atomic_set(&ep->sys->repl->pending, 0);
 		ep->sys->repl->capacity = ep->sys->rx_pool_sz + 1;
 
-		/*double for wan_coal since it will be shared between 2 pipes */
-		if (sys_in->client == IPA_CLIENT_APPS_WAN_COAL_CONS)
-			ep->sys->repl->capacity *= 2;
-
 		ep->sys->repl->cache = kcalloc(ep->sys->repl->capacity,
 				sizeof(void *), GFP_KERNEL);
 		if (!ep->sys->repl->cache) {
@@ -1170,8 +1164,7 @@ fail_repl:
 	ep->sys->repl->capacity = 0;
 	kfree(ep->sys->repl);
 fail_gen2:
-	if (ipa3_ctx->use_ipa_pm)
-		ipa_pm_deregister(ep->sys->pm_hdl);
+	ipa_pm_deregister(ep->sys->pm_hdl);
 fail_pm:
 	destroy_workqueue(ep->sys->repl_wq);
 fail_wq2:
@@ -1204,7 +1197,8 @@ static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
 {
 	struct ipa3_ep_context *ep;
 	int result = -EINVAL;
-	int ipa_ep_idx;
+	int ipa_ep_idx, i;
+	char buff[IPA_RESOURCE_NAME_MAX];
 
 	ipa_ep_idx = ipa3_get_ep_mapping(sys_in->client);
 
@@ -1227,13 +1221,34 @@ static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
 			IPAERR("failed to sys ctx for client %d\n",
 				IPA_CLIENT_APPS_WAN_CONS);
 			result = -ENOMEM;
-			goto fail_wq;
+			goto fail_gen;
 		}
 
 		ep->sys->ep = ep;
-		ep->sys->wq = ep_coalescing->sys->wq;
-		ep->sys->repl_wq = ep_coalescing->sys->repl_wq;
+		snprintf(buff, IPA_RESOURCE_NAME_MAX, "ipawq%d",
+				sys_in->client);
+		ep->sys->wq = alloc_workqueue(buff,
+				WQ_MEM_RECLAIM | WQ_UNBOUND | WQ_SYSFS, 1);
 
+		if (!ep->sys->wq) {
+			IPAERR("failed to create wq for client %d\n",
+					sys_in->client);
+			result = -EFAULT;
+			goto fail_wq;
+		}
+
+		snprintf(buff, IPA_RESOURCE_NAME_MAX, "iparepwq%d",
+				sys_in->client);
+		ep->sys->repl_wq = alloc_workqueue(buff,
+				WQ_MEM_RECLAIM | WQ_UNBOUND | WQ_SYSFS, 1);
+		if (!ep->sys->repl_wq) {
+			IPAERR("failed to create rep wq for client %d\n",
+					sys_in->client);
+			result = -EFAULT;
+			goto fail_wq2;
+		}
+
+		INIT_LIST_HEAD(&ep->sys->rcycl_list);
 		spin_lock_init(&ep->sys->spinlock);
 		hrtimer_init(&ep->sys->db_timer, CLOCK_MONOTONIC,
 			HRTIMER_MODE_REL);
@@ -1248,7 +1263,7 @@ static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
 		IPAERR("failed to sys ctx for client %d\n",
 			IPA_CLIENT_APPS_WAN_CONS);
 		result = -ENOMEM;
-		goto fail_wq;
+		goto fail_gen2;
 	}
 
 	ep->valid = 1;
@@ -1262,17 +1277,17 @@ static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
 	if (!ep->skip_ep_cfg) {
 		if (ipa3_cfg_ep(ipa_ep_idx, &sys_in->ipa_ep_cfg)) {
 			IPAERR("fail to configure EP.\n");
-			goto fail_wq;
+			goto fail_gen2;
 		}
 
 		if (ep->status.status_en) {
 			IPAERR("status should be disabled for this EP.\n");
-			goto fail_wq;
+			goto fail_gen2;
 		}
 
 		if (ipa3_cfg_ep_status(ipa_ep_idx, &ep->status)) {
 			IPAERR("fail to configure status of EP.\n");
-			goto fail_wq;
+			goto fail_gen2;
 		}
 		IPADBG("ep %d configuration successful\n", ipa_ep_idx);
 	} else {
@@ -1282,11 +1297,37 @@ static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
 	result = ipa_gsi_setup_coal_def_channel(sys_in, ep, ep_coalescing);
 	if (result) {
 		IPAERR("Failed to setup default coal GSI channel\n");
-		goto fail_wq;
+		goto fail_gen2;
 	}
 
-	ep->sys->repl = ep_coalescing->sys->repl;
+	if (ep->sys->repl_hdlr == ipa3_fast_replenish_rx_cache) {
+		ep->sys->repl = kzalloc(sizeof(*ep->sys->repl), GFP_KERNEL);
+		if (!ep->sys->repl) {
+			IPAERR("failed to alloc repl for client %d\n",
+					sys_in->client);
+			result = -ENOMEM;
+			goto fail_gen2;
+		}
+		atomic_set(&ep->sys->repl->pending, 0);
+		ep->sys->repl->capacity = ep->sys->rx_pool_sz + 1;
+
+		ep->sys->repl->cache = kcalloc(ep->sys->repl->capacity,
+				sizeof(void *), GFP_KERNEL);
+		if (!ep->sys->repl->cache) {
+			IPAERR("ep=%d fail to alloc repl cache\n", ipa_ep_idx);
+			ep->sys->repl_hdlr = ipa3_replenish_rx_cache;
+			ep->sys->repl->capacity = 0;
+		} else {
+			atomic_set(&ep->sys->repl->head_idx, 0);
+			atomic_set(&ep->sys->repl->tail_idx, 0);
+			ipa3_wq_repl_rx(&ep->sys->repl_work);
+		}
+	}
+
 	ipa3_replenish_rx_cache(ep->sys);
+
+	for (i = 0; i < GSI_VEID_MAX; i++)
+		INIT_LIST_HEAD(&ep->sys->pending_pkts[i]);
 
 	ipa3_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
 
@@ -1294,7 +1335,7 @@ static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
 	if (result) {
 		IPAERR("enable data path failed res=%d ep=%d.\n", result,
 			ipa_ep_idx);
-		goto fail_wq;
+		goto fail_repl;
 	}
 
 	result = gsi_start_channel(ep->gsi_chan_hdl);
@@ -1309,6 +1350,14 @@ static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
 /* the rest of the fails are handled by ipa3_setup_sys_pipe */
 fail_start_channel:
 	ipa3_disable_data_path(ipa_ep_idx);
+fail_repl:
+	ep->sys->repl_hdlr = ipa3_replenish_rx_cache;
+	ep->sys->repl->capacity = 0;
+	kfree(ep->sys->repl);
+fail_gen2:
+	destroy_workqueue(ep->sys->repl_wq);
+fail_wq2:
+	destroy_workqueue(ep->sys->wq);
 fail_wq:
 	kfree(ep->sys);
 	memset(&ipa3_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa3_ep_context));
@@ -1511,6 +1560,17 @@ static int ipa3_teardown_coal_def_pipe(u32 clnt_hdl)
 		ipa_assert();
 		return result;
 	}
+
+	if (IPA_CLIENT_IS_CONS(ep->client))
+		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
+
+	flush_workqueue(ep->sys->wq);
+
+	if (ep->sys->repl_wq)
+		flush_workqueue(ep->sys->repl_wq);
+	if (IPA_CLIENT_IS_CONS(ep->client))
+		ipa3_cleanup_rx(ep->sys);
+
 	ep->valid = 0;
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
@@ -1628,8 +1688,8 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	sys = ipa3_ctx->ep[src_ep_idx].sys;
 
 	if (!sys || !sys->ep->valid) {
-		IPAERR_RL("pipe not valid\n");
-		goto fail_gen;
+		IPAERR_RL("pipe %d not valid\n", src_ep_idx);
+		goto fail_pipe_not_valid;
 	}
 
 	num_frags = skb_shinfo(skb)->nr_frags;
@@ -1797,6 +1857,8 @@ fail_mem:
 		kfree(desc);
 fail_gen:
 	return -EFAULT;
+fail_pipe_not_valid:
+	return -EPIPE;
 }
 
 static void ipa3_wq_handle_rx(struct work_struct *work)
@@ -1806,10 +1868,7 @@ static void ipa3_wq_handle_rx(struct work_struct *work)
 	sys = container_of(work, struct ipa3_sys_context, work);
 
 	if (sys->napi_obj) {
-		if (!ipa3_ctx->use_ipa_pm)
-			IPA_ACTIVE_CLIENTS_INC_SPECIAL("NAPI");
-		else
-			ipa_pm_activate_sync(sys->pm_hdl);
+		ipa_pm_activate_sync(sys->pm_hdl);
 		napi_schedule(sys->napi_obj);
 	} else
 		ipa3_handle_rx(sys);
@@ -3034,6 +3093,13 @@ static struct sk_buff *handle_skb_completion(struct gsi_chan_xfer_notify
 		return NULL;
 	}
 
+	/*Assesrt when WAN consumer channel receive EOB event*/
+	if (notify->evt_id == GSI_CHAN_EVT_EOB &&
+		sys->ep->client == IPA_CLIENT_APPS_WAN_CONS) {
+		IPAERR("EOB event received on WAN consumer channel\n");
+		ipa_assert();
+	}
+
 	head = &rx_pkt->sys->pending_pkts[notify->veid];
 
 	INIT_LIST_HEAD(&rx_pkt->link);
@@ -3248,16 +3314,12 @@ static void ipa3_set_aggr_limit(struct ipa_sys_connect_params *in,
 	sys->ep->status.status_en = false;
 	sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ(adjusted_sz);
 
-	if (in->client == IPA_CLIENT_APPS_WAN_COAL_CONS) {
-		*aggr_byte_limit = sys->rx_buff_sz < *aggr_byte_limit ?
-			IPA_ADJUST_AGGR_BYTE_HARD_LIMIT(sys->rx_buff_sz) :
-			IPA_ADJUST_AGGR_BYTE_HARD_LIMIT(*aggr_byte_limit);
+	if (in->client == IPA_CLIENT_APPS_WAN_COAL_CONS)
 		in->ipa_ep_cfg.aggr.aggr_hard_byte_limit_en = 1;
-	} else {
-		*aggr_byte_limit = sys->rx_buff_sz < *aggr_byte_limit ?
-			IPA_ADJUST_AGGR_BYTE_LIMIT(sys->rx_buff_sz) :
-			IPA_ADJUST_AGGR_BYTE_LIMIT(*aggr_byte_limit);
-	}
+
+	*aggr_byte_limit = sys->rx_buff_sz < *aggr_byte_limit ?
+		IPA_ADJUST_AGGR_BYTE_LIMIT(sys->rx_buff_sz) :
+		IPA_ADJUST_AGGR_BYTE_LIMIT(*aggr_byte_limit);
 
 	IPADBG("set aggr_limit %lu\n", (unsigned long) *aggr_byte_limit);
 }
@@ -3901,29 +3963,15 @@ void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys)
 	 * pm deactivate is done in wq context
 	 * or after NAPI poll
 	 */
-	if (ipa3_ctx->use_ipa_pm) {
-		clk_off = ipa_pm_activate(sys->pm_hdl);
-		if (!clk_off && sys->napi_obj) {
-			napi_schedule(sys->napi_obj);
-			return;
-		}
-		queue_work(sys->wq, &sys->work);
+
+	clk_off = ipa_pm_activate(sys->pm_hdl);
+	if (!clk_off && sys->napi_obj) {
+		napi_schedule(sys->napi_obj);
 		return;
 	}
-
-	if (sys->napi_obj) {
-		struct ipa_active_client_logging_info log;
-
-		IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log, "NAPI");
-		clk_off = ipa3_inc_client_enable_clks_no_block(
-			&log);
-		if (!clk_off) {
-			napi_schedule(sys->napi_obj);
-			return;
-		}
-	}
-
 	queue_work(sys->wq, &sys->work);
+	return;
+
 }
 
 static void ipa_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
@@ -4473,13 +4521,8 @@ start_poll:
 		if (ret == -GSI_STATUS_PENDING_IRQ &&
 				napi_reschedule(ep->sys->napi_obj))
 			goto start_poll;
-
-		if (ipa3_ctx->use_ipa_pm)
-			ipa_pm_deferred_deactivate(ep->sys->pm_hdl);
-		else
-			ipa3_dec_client_disable_clks_no_block(&log);
+		ipa_pm_deferred_deactivate(ep->sys->pm_hdl);
 	}
-
 	return cnt;
 }
 

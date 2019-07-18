@@ -73,6 +73,7 @@ int qcedev_check_and_map_buffer(void *qce_hndl,
 		int fd, unsigned int offset, unsigned int fd_size,
 		unsigned long long *vaddr);
 int qcedev_check_and_unmap_buffer(void *handle, int fd);
+int qcedev_unmap_all_buffers(void *handle);
 
 extern struct qcedev_reg_buf_info *global_binfo_in;
 extern struct qcedev_reg_buf_info *global_binfo_out;

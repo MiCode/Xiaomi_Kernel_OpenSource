@@ -391,6 +391,8 @@ polling_delay_store(struct device *dev, struct device_attribute *attr,
 
 	mutex_lock(&tz->lock);
 	tz->polling_delay = delay;
+	if (tz->ops->set_polling_delay)
+		tz->ops->set_polling_delay(tz, delay);
 	mutex_unlock(&tz->lock);
 	thermal_zone_device_update(tz, THERMAL_EVENT_UNSPECIFIED);
 
@@ -418,6 +420,8 @@ passive_delay_store(struct device *dev, struct device_attribute *attr,
 
 	mutex_lock(&tz->lock);
 	tz->passive_delay = delay;
+	if (tz->ops->set_passive_delay)
+		tz->ops->set_passive_delay(tz, delay);
 	mutex_unlock(&tz->lock);
 	thermal_zone_device_update(tz, THERMAL_EVENT_UNSPECIFIED);
 
