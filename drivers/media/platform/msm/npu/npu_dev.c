@@ -133,6 +133,12 @@ static const char * const npu_exclude_rate_clocks[] = {
 	"s2p_clk",
 };
 
+static const char * const npu_require_reset_clocks[] = {
+	"dpm_temp_clk",
+	"llm_temp_clk",
+	"llm_curr_clk",
+};
+
 static const struct npu_irq npu_irq_info[] = {
 	{"ipc_irq", 0, IRQF_TRIGGER_RISING | IRQF_ONESHOT, npu_ipc_intr_hdlr},
 	{"general_irq", 0,  IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
@@ -583,6 +589,21 @@ static bool npu_is_exclude_rate_clock(const char *clk_name)
 	return ret;
 }
 
+static bool npu_clk_need_reset(const char *clk_name)
+{
+	int ret = false;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(npu_require_reset_clocks); i++) {
+		if (!strcmp(clk_name, npu_require_reset_clocks[i])) {
+			ret = true;
+			break;
+		}
+	}
+
+	return ret;
+}
+
 static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil)
 {
 	int i, rc = 0;
@@ -604,6 +625,14 @@ static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil)
 		}
 
 		NPU_DBG("enabling clock %s\n", core_clks[i].clk_name);
+
+		if (core_clks[i].reset) {
+			NPU_DBG("Deassert %s\n", core_clks[i].clk_name);
+			rc = reset_control_deassert(core_clks[i].reset);
+			if (rc)
+				NPU_WARN("deassert %s reset failed\n",
+					core_clks[i].clk_name);
+		}
 
 		rc = clk_prepare_enable(core_clks[i].clk);
 		if (rc) {
@@ -640,6 +669,14 @@ static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil)
 			}
 			NPU_DBG("disabling clock %s\n", core_clks[i].clk_name);
 			clk_disable_unprepare(core_clks[i].clk);
+
+			if (core_clks[i].reset) {
+				NPU_DBG("Assert %s\n", core_clks[i].clk_name);
+				rc = reset_control_assert(core_clks[i].reset);
+				if (rc)
+					NPU_WARN("assert %s reset failed\n",
+						core_clks[i].clk_name);
+			}
 		}
 	}
 
@@ -674,6 +711,14 @@ static void npu_disable_clocks(struct npu_device *npu_dev, bool post_pil)
 
 		NPU_DBG("disabling clock %s\n", core_clks[i].clk_name);
 		clk_disable_unprepare(core_clks[i].clk);
+
+		if (core_clks[i].reset) {
+			NPU_DBG("Assert %s\n", core_clks[i].clk_name);
+			rc = reset_control_assert(core_clks[i].reset);
+			if (rc)
+				NPU_WARN("assert %s reset failed\n",
+					core_clks[i].clk_name);
+		}
 	}
 }
 
@@ -1460,6 +1505,7 @@ static int npu_parse_dt_clock(struct npu_device *npu_dev)
 	int num_clk;
 	struct npu_clk *core_clks = npu_dev->core_clks;
 	struct platform_device *pdev = npu_dev->pdev;
+	struct reset_control *reset;
 
 	num_clk = of_property_count_strings(pdev->dev.of_node,
 			"clock-names");
@@ -1484,6 +1530,15 @@ static int npu_parse_dt_clock(struct npu_device *npu_dev)
 			NPU_ERR("unable to get clk: %s\n", clock_name);
 			rc = -EINVAL;
 			break;
+		}
+
+		if (npu_clk_need_reset(clock_name)) {
+			reset = devm_reset_control_get(&pdev->dev, clock_name);
+			if (IS_ERR(reset))
+				NPU_WARN("no reset for %s %d\n", clock_name,
+					PTR_ERR(reset));
+			else
+				core_clks[i].reset = reset;
 		}
 	}
 
