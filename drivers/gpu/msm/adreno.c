@@ -3042,14 +3042,17 @@ static void adreno_retry_rbbm_read(struct kgsl_device *device,
 	}
 }
 
-static inline bool adreno_is_a650_rbbm_batch_reg(unsigned int offsetwords)
+static bool adreno_is_rbbm_batch_reg(struct kgsl_device *device,
+	unsigned int offsetwords)
 {
-	if (((offsetwords > 0x0) && (offsetwords < 0x3FF)) ||
-		((offsetwords > 0x4FA) && (offsetwords < 0x53F)) ||
-		((offsetwords > 0x556) && (offsetwords < 0x5FF)) ||
-		((offsetwords > 0xF400) && (offsetwords < 0xFFFF)))
-		return  true;
-
+	if (adreno_is_a650(ADRENO_DEVICE(device)) ||
+		adreno_is_a620v1(ADRENO_DEVICE(device))) {
+		if (((offsetwords > 0x0) && (offsetwords < 0x3FF)) ||
+			((offsetwords > 0x4FA) && (offsetwords < 0x53F)) ||
+			((offsetwords > 0x556) && (offsetwords < 0x5FF)) ||
+			((offsetwords > 0xF400) && (offsetwords < 0xFFFF)))
+			return  true;
+	}
 	return false;
 }
 
@@ -3064,8 +3067,8 @@ static void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 	adreno_read(device, device->reg_virt, offsetwords, value,
 						device->reg_len);
 
-	if ((*value == 0xdeafbead) && adreno_is_a650(ADRENO_DEVICE(device)) &&
-		adreno_is_a650_rbbm_batch_reg(offsetwords))
+	if ((*value == 0xdeafbead) &&
+		adreno_is_rbbm_batch_reg(device, offsetwords))
 		adreno_retry_rbbm_read(device, device->reg_virt, offsetwords,
 			value, device->reg_len);
 }

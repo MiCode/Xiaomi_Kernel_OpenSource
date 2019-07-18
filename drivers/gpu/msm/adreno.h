@@ -1209,6 +1209,12 @@ static inline int adreno_is_a650_family(struct adreno_device *adreno_dev)
 	return (rev == ADRENO_REV_A650 || rev == ADRENO_REV_A620);
 }
 
+static inline int adreno_is_a620v1(struct adreno_device *adreno_dev)
+{
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A620) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
+}
+
 static inline int adreno_is_a640v2(struct adreno_device *adreno_dev)
 {
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A640) &&
