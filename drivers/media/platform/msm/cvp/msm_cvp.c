@@ -219,8 +219,8 @@ static int msm_cvp_map_buf_dsp(struct msm_cvp_inst *inst,
 
 	if (buf->index) {
 		rc = cvp_dsp_register_buffer(hash32_ptr(session), buf->fd,
-			 buf->size, buf->offset, buf->index,
-			(uint32_t)cbuf->smem.device_addr);
+			cbuf->smem.dma_buf->size, buf->size, buf->offset,
+			buf->index, (uint32_t)cbuf->smem.device_addr);
 		if (rc) {
 			dprintk(CVP_ERR,
 				"%s: failed dsp registration for fd=%d rc=%d",
@@ -283,8 +283,9 @@ static int msm_cvp_unmap_buf_dsp(struct msm_cvp_inst *inst,
 	}
 
 	if (buf->index) {
-		rc = cvp_dsp_deregister_buffer((uint32_t)cbuf->smem.device_addr,
-			buf->index, buf->size, hash32_ptr(session));
+		rc = cvp_dsp_deregister_buffer(hash32_ptr(session), buf->fd,
+			cbuf->smem.dma_buf->size, buf->size, buf->offset,
+			buf->index, (uint32_t)cbuf->smem.device_addr);
 		if (rc) {
 			dprintk(CVP_ERR,
 				"%s: failed dsp deregistration fd=%d rc=%d",
@@ -1822,10 +1823,10 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 			list) {
 		print_internal_buffer(CVP_DBG, "remove from cvpdspbufs", inst,
 									cbuf);
-		rc = cvp_dsp_deregister_buffer(
-			(uint32_t)cbuf->smem.device_addr,
-			cbuf->buf.index, cbuf->buf.size,
-			hash32_ptr(session));
+		rc = cvp_dsp_deregister_buffer(hash32_ptr(session),
+			cbuf->buf.fd, cbuf->smem.dma_buf->size, cbuf->buf.size,
+			cbuf->buf.offset, cbuf->buf.index,
+			(uint32_t)cbuf->smem.device_addr);
 		if (rc)
 			dprintk(CVP_ERR,
 				"%s: failed dsp deregistration fd=%d rc=%d",
