@@ -46,6 +46,7 @@
 | pisces-kk-oss | Mi 3 China Mobile | Android KK | tegra-17r18-android-4.2 | [pisces-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pisces-kk-oss) |
 | platina-o-oss | MI 8 Lite | Android O | LA.UM.6.2.r1-07400-sdm660.0 | [platina-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/platina-o-oss) |
 | polaris-o-oss | Mi MIX 2S | Android O | LA.UM.6.3.r1_r00455 | [polaris-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/polaris-o-oss) |
+| pyxis-p-oss | MI CC 9, MI CC 9 Meitu Edition | Android P | LA.UM.7.8.r1-04400-SDM710.0 | [pyxis-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pyxis-p-oss) |
 | raphael-p-oss | Redmi K20 Pro | Android P | LA.UM.7.1.r1-12100-sm8150.0 | [raphael-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/raphael-p-oss) |
 | riva-n-oss | Redmi 4A, Redmi 5, Redmi 5A | Android N | LA.UM.5.6.r1-05900-89xx.0 | [riva-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/riva-n-oss) |
 | sagit-n-oss | Mi 6, Mi MIX 2 | Android N | MSM8998.LA.1.1.r1-00232-STD.PROD-3 | [sagit-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sagit-n-oss) |
