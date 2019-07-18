@@ -20,6 +20,7 @@
 #include <linux/power_supply.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
+#include <linux/timekeeping.h>
 #include <linux/uaccess.h>
 #include <linux/pmic-voter.h>
 #include <linux/iio/consumer.h>
@@ -411,7 +412,7 @@ static int qg_config_s2_state(struct qpnp_qg *chip,
 done:
 	qg_master_hold(chip, false);
 	/* FIFO restarted */
-	chip->last_fifo_update_time = ktime_get();
+	chip->last_fifo_update_time = ktime_get_boottime();
 	return rc;
 }
 
@@ -599,7 +600,7 @@ static int qg_process_rt_fifo(struct qpnp_qg *chip)
 static int process_rt_fifo_data(struct qpnp_qg *chip, bool update_smb)
 {
 	int rc = 0;
-	ktime_t now = ktime_get();
+	ktime_t now = ktime_get_boottime();
 	s64 time_delta;
 
 	/*
@@ -644,7 +645,7 @@ static int process_rt_fifo_data(struct qpnp_qg *chip, bool update_smb)
 			goto done;
 		}
 		/* FIFOs restarted */
-		chip->last_fifo_update_time = ktime_get();
+		chip->last_fifo_update_time = ktime_get_boottime();
 
 		/* signal the read thread */
 		chip->data_ready = true;
@@ -1132,7 +1133,7 @@ static int qg_esr_estimate(struct qpnp_qg *chip)
 		goto done;
 	}
 	/* FIFOs restarted */
-	chip->last_fifo_update_time = ktime_get();
+	chip->last_fifo_update_time = ktime_get_boottime();
 
 	if (chip->esr_avg) {
 		chip->kdata.param[QG_ESR].data = chip->esr_avg;
@@ -1219,7 +1220,7 @@ static void process_udata_work(struct work_struct *work)
 #define MAX_FIFO_DELTA_PERCENT		10
 static irqreturn_t qg_fifo_update_done_handler(int irq, void *data)
 {
-	ktime_t now = ktime_get();
+	ktime_t now = ktime_get_boottime();
 	int rc, hw_delta_ms = 0, margin_ms = 0;
 	u32 fifo_length = 0;
 	s64 time_delta_ms = 0;
@@ -3247,7 +3248,7 @@ done_fifo:
 		pr_err("Failed to release master, rc=%d\n", rc);
 		return rc;
 	}
-	chip->last_fifo_update_time = ktime_get();
+	chip->last_fifo_update_time = ktime_get_boottime();
 
 	if (chip->dt.ocv_timer_expiry_min != -EINVAL) {
 		if (chip->dt.ocv_timer_expiry_min < 2)
@@ -4096,7 +4097,7 @@ static int process_suspend(struct qpnp_qg *chip)
 			return rc;
 		}
 		/* FIFOs restarted */
-		chip->last_fifo_update_time = ktime_get();
+		chip->last_fifo_update_time = ktime_get_boottime();
 
 		chip->suspend_data = true;
 	}
