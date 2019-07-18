@@ -5,6 +5,9 @@
 #ifndef __KGSL_DEVICE_H
 #define __KGSL_DEVICE_H
 
+#include <linux/sched/mm.h>
+#include <linux/sched/task.h>
+
 #include "kgsl.h"
 #include "kgsl_drawobj.h"
 #include "kgsl_mmu.h"
@@ -553,6 +556,31 @@ static inline void kgsl_process_add_stats(struct kgsl_process_private *priv,
 	priv->stats[type].cur += size;
 	if (priv->stats[type].max < priv->stats[type].cur)
 		priv->stats[type].max = priv->stats[type].cur;
+	add_mm_counter(current->mm, MM_UNRECLAIMABLE, (size >> PAGE_SHIFT));
+}
+
+static inline void kgsl_process_sub_stats(struct kgsl_process_private *priv,
+	unsigned int type, uint64_t size)
+{
+	struct pid *pid_struct;
+	struct task_struct *task;
+	struct mm_struct *mm;
+
+	priv->stats[type].cur -= size;
+	pid_struct = find_get_pid(priv->pid);
+	if (pid_struct) {
+		task = get_pid_task(pid_struct, PIDTYPE_PID);
+		if (task) {
+			mm = get_task_mm(task);
+			if (mm) {
+				add_mm_counter(mm, MM_UNRECLAIMABLE,
+					-(size >> PAGE_SHIFT));
+				mmput(mm);
+			}
+			put_task_struct(task);
+		}
+		put_pid(pid_struct);
+	}
 }
 
 static inline bool kgsl_is_register_offset(struct kgsl_device *device,
