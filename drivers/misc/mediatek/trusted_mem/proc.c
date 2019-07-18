@@ -331,7 +331,7 @@ static void trusted_mem_create_proc_entry(void)
 #define UT_SATURATION_STRESS_PMEM_MIN_CHUNK_SIZE (SZ_8M)
 #else
 #define UT_MULTITHREAD_TEST_DEFAULT_WAIT_COMPLETION_TIMEOUT_MS (5000)
-#define UT_SATURATION_STRESS_PMEM_MIN_CHUNK_SIZE (SZ_4K)
+#define UT_SATURATION_STRESS_PMEM_MIN_CHUNK_SIZE (SZ_2M)
 #endif
 
 static unsigned int ut_multithread_wait_completion_timeout_ms =
