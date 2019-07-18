@@ -49,6 +49,8 @@
 #include <linux/earlysuspend.h>
 #endif
 
+#include <drm/drm_panel.h>
+
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 38))
 #define KERNEL_ABOVE_2_6_38
 #endif
@@ -132,6 +134,8 @@ enum exp_fn {
 	RMI_DEBUG,
 	RMI_LAST,
 };
+
+extern struct drm_panel *active_panel;
 
 /*
  * struct synaptics_rmi4_fn_desc - function descriptor fields in PDT entry
