@@ -3134,13 +3134,9 @@
 
 	dispsys {
 		compatible = "mediatek,dispsys";
+		power-domains = <&scpsys MT6779_POWER_DOMAIN_MM>;
 
-		clocks = <&mmsys CLK_MM_SMI_COMMON>,
-			<&mmsys CLK_MM_SMI_LARB0>,
-			<&mmsys CLK_MM_SMI_LARB1>,
-			<&mmsys CLK_MM_GALS_COMM0>,
-			<&mmsys CLK_MM_GALS_COMM1>,
-			<&mmsys CLK_MM_DISP_OVL0>,
+		clocks = <&mmsys CLK_MM_DISP_OVL0>,
 			<&mmsys CLK_MM_DISP_OVL0_2L>,
 			<&mmsys CLK_MM_DISP_OVL1_2L>,
 			<&mmsys CLK_MM_DISP_RDMA0>,
@@ -3176,12 +3172,7 @@
 			<&topckgen CLK_TOP_TVDPLL_CK>,
 			<&apmixed CLK_APMIXED_MIPID0_26M>;
 
-		clock-names = "CLK_SMI_COMMON",
-			"CLK_SMI_LARB0",
-			"CLK_SMI_LARB1",
-			"CLK_GALS_COMM0",
-			"CLK_GALS_COMM1",
-			"CLK_DISP_OVL0",
+		clock-names = "CLK_DISP_OVL0",
 			"CLK_DISP_OVL0_2L",
 			"CLK_DISP_OVL1_2L",
 			"CLK_DISP_RDMA0",
