@@ -253,6 +253,7 @@ int rmnet_map_checksum_downlink_packet(struct sk_buff *skb, u16 len);
 void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
 				      struct net_device *orig_dev,
 				      int csum_type);
+bool rmnet_map_v5_csum_buggy(struct rmnet_map_v5_coal_header *coal_hdr);
 int rmnet_map_process_next_hdr_packet(struct sk_buff *skb,
 				      struct sk_buff_head *list,
 				      u16 len);

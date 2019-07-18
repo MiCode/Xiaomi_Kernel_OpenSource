@@ -626,6 +626,33 @@ static void __rmnet_frag_segment_data(struct rmnet_frag_descriptor *coal_desc,
 	list_add_tail(&new_frag->list, list);
 }
 
+static bool rmnet_frag_validate_csum(struct rmnet_frag_descriptor *frag_desc)
+{
+	u8 *data = rmnet_frag_data_ptr(frag_desc);
+	unsigned int datagram_len;
+	__wsum csum;
+	__sum16 pseudo;
+
+	datagram_len = skb_frag_size(&frag_desc->frag) - frag_desc->ip_len;
+	if (frag_desc->ip_proto == 4) {
+		struct iphdr *iph = (struct iphdr *)data;
+
+		pseudo = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+					    datagram_len,
+					    frag_desc->trans_proto, 0);
+	} else {
+		struct ipv6hdr *ip6h = (struct ipv6hdr *)data;
+
+		pseudo = ~csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
+					  datagram_len, frag_desc->trans_proto,
+					  0);
+	}
+
+	csum = csum_partial(data + frag_desc->ip_len, datagram_len,
+			    csum_unfold(pseudo));
+	return !csum_fold(csum);
+}
+
 /* Converts the coalesced frame into a list of descriptors.
  * NLOs containing csum erros will not be included.
  */
@@ -708,6 +735,21 @@ rmnet_frag_segment_coal_data(struct rmnet_frag_descriptor *coal_desc,
 	}
 
 	coal_desc->hdrs_valid = 1;
+
+	if (rmnet_map_v5_csum_buggy(coal_hdr)) {
+		/* Mark the checksum as valid if it checks out */
+		if (rmnet_frag_validate_csum(coal_desc))
+			coal_desc->csum_valid = true;
+
+		coal_desc->hdr_ptr = rmnet_frag_data_ptr(coal_desc);
+		coal_desc->gso_size = ntohs(coal_hdr->nl_pairs[0].pkt_len);
+		coal_desc->gso_size -= coal_desc->ip_len + coal_desc->trans_len;
+		coal_desc->gso_segs = coal_hdr->nl_pairs[0].num_packets;
+		list_add_tail(&coal_desc->list, list);
+		return;
+	}
+
+	/* Segment the coalesced descriptor into new packets */
 	for (nlo = 0; nlo < coal_hdr->num_nlos; nlo++) {
 		pkt_len = ntohs(coal_hdr->nl_pairs[nlo].pkt_len);
 		pkt_len -= coal_desc->ip_len + coal_desc->trans_len;
