@@ -2170,6 +2170,14 @@
 #include "atoll-usb.dtsi"
 #include "atoll-vidc.dtsi"
 
+&usb0 {
+	extcon = <&pm6150_pdphy>, <&pm6150_charger>;
+};
+
+&usb_qmp_dp_phy {
+	extcon = <&pm6150_pdphy>;
+};
+
 &pm6150_vadc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&nvm_therm_default &sdm_skin_therm_default>;
