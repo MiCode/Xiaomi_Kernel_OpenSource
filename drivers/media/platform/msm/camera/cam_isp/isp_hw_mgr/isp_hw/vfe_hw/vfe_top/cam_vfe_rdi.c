@@ -413,7 +413,9 @@ static int cam_vfe_rdi_handle_irq_bottom_half(void *handler_priv,
 				CAM_ISP_HW_EVENT_SOF, (void *)&evt_info);
 
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
-	} else if (irq_status0 & rdi_priv->reg_data->reg_update_irq_mask) {
+	}
+
+	if (irq_status0 & rdi_priv->reg_data->reg_update_irq_mask) {
 		CAM_DBG(CAM_ISP, "Received REG UPDATE");
 
 		if (rdi_priv->event_cb)
