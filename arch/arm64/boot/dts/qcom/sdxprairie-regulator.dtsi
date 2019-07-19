@@ -502,8 +502,8 @@
 	vreg_rgmii_io_pads: rgmii_io_pads_regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "rgmii_io_pads";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
 		regulator-enable-ramp-delay = <100>;
 		gpio = <&tlmm 102 GPIO_ACTIVE_HIGH>;
 		enable-active-high;

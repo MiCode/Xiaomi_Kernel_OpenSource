@@ -38,3 +38,14 @@
 &usb {
 	extcon = <&pm8150b_pdphy>;
 };
+
+&pmxprairie_gpios {
+	vreg_rgmii_off {
+		vreg_rgmii_off_default: vreg_rgmii_off_default {
+			pins = "gpio9";
+			bias-pull-down;
+			output-disable;
+			input-enable;
+		};
+	};
+};
