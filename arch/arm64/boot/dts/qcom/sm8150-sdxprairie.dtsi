@@ -128,8 +128,9 @@
 		qcom,testbus-collection-on-crash;
 		qcom,non-tn-collection-on-crash;
 		qcom,secure-debug-check-action = <0>;
-		qcom,scaling-exceptions = "USB DPL", "0", "600",
-			"1000", "ODL", "0", "600", "1000";
+		qcom,throughput-threshold = <600 2500 5000>;
+		qcom,scaling-exceptions = "USB DPL", "0", "2500",
+			"5000", "ODL", "0", "2500", "5000";
 	};
 
 	qcom,ipa_fws {
