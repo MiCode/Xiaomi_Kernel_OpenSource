@@ -75,6 +75,8 @@ Optional properties :
 - qcom,gsi-reg-offset: USB GSI wrapper registers offset. It is must to provide this
   if qcom,num-gsi-evt-buffs property is specified. Check dwc3-msm driver for order
   and name of register offset need to provide.
+- qcom,gsi-disable-io-coherency: IO-coherency is enabled by default in usb gsi driver.
+  This property disables io-coherency in usb gsi driver.
 - qcom,pm-qos-latency: This represents max tolerable CPU latency in microsecs,
 	which is used as a vote by driver to get max performance in perf mode.
 - qcom,smmu-s1-bypass: If present, configure SMMU to bypass stage 1 translation.
