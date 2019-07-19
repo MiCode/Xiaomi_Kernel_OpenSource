@@ -823,7 +823,8 @@ static inline void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
 		}
 	}
 
-	if (lrbp->cmd && (lrbp->command_type == UTP_CMD_TYPE_SCSI)) {
+	if (lrbp->cmd && ((lrbp->command_type == UTP_CMD_TYPE_SCSI) ||
+			  (lrbp->command_type == UTP_CMD_TYPE_UFS_STORAGE))) {
 		cmd_type = "scsi";
 		cmd_id = (u8)(*lrbp->cmd->cmnd);
 	} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
