@@ -1241,7 +1241,7 @@ static int q6afe_get_params_v2(u16 port_id, int index,
 	afe_get_param.apr_hdr.hdr_field =
 		APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, APR_HDR_LEN(APR_HDR_SIZE),
 			      APR_PKT_VER);
-	afe_get_param.apr_hdr.pkt_size = sizeof(afe_get_param) + param_size;
+	afe_get_param.apr_hdr.pkt_size = sizeof(afe_get_param);
 	afe_get_param.apr_hdr.src_port = 0;
 	afe_get_param.apr_hdr.dest_port = 0;
 	afe_get_param.apr_hdr.token = index;
