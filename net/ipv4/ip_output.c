@@ -81,10 +81,6 @@
 #include <linux/netlink.h>
 #include <linux/tcp.h>
 
-static int
-ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
-	    unsigned int mtu,
-	    int (*output)(struct net *, struct sock *, struct sk_buff *));
 
 /* Generate a checksum for an outgoing IP datagram. */
 void ip_send_check(struct iphdr *iph)
@@ -540,9 +536,9 @@ static void ip_copy_metadata(struct sk_buff *to, struct sk_buff *from)
 	skb_copy_secmark(to, from);
 }
 
-static int ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
-		       unsigned int mtu,
-		       int (*output)(struct net *, struct sock *, struct sk_buff *))
+int ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+		unsigned int mtu,
+		int (*output)(struct net *, struct sock *, struct sk_buff *))
 {
 	struct iphdr *iph = ip_hdr(skb);
 
