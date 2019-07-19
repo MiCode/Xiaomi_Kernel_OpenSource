@@ -2397,6 +2397,7 @@ static void ipa3_cleanup_rx(struct ipa3_sys_context *sys)
 		kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
 	}
 
+	spin_lock_bh(&sys->spinlock);
 	list_for_each_entry_safe(rx_pkt, r,
 				 &sys->rcycl_list, link) {
 		list_del(&rx_pkt->link);
@@ -2405,6 +2406,7 @@ static void ipa3_cleanup_rx(struct ipa3_sys_context *sys)
 		sys->free_skb(rx_pkt->data.skb);
 		kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
 	}
+	spin_unlock_bh(&sys->spinlock);
 
 	if (sys->repl) {
 		head = atomic_read(&sys->repl->head_idx);
