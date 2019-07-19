@@ -3220,7 +3220,7 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
 		csid_reg->cmn_reg->csid_irq_cmd_addr);
 
-	CAM_DBG(CAM_ISP,
+	CAM_ERR_RATE_LIMIT(CAM_ISP,
 		"CSID %d irq status 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
 		csid_hw->hw_intf->hw_idx, irq_status_top,
 		irq_status_rx, irq_status_ipp, irq_status_ppp,
