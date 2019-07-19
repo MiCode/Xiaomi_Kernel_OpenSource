@@ -18,6 +18,7 @@
 
 #include "atoll-camera-sensor-qrd.dtsi"
 #include "atoll-sde-display.dtsi"
+#include "sdmmagpie-thermal-overlay.dtsi"
 
 &tlmm {
 	fpc_reset_int: fpc_reset_int {
