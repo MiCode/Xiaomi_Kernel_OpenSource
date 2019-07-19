@@ -94,6 +94,7 @@ static void qrtr_mhi_dev_read(struct qrtr_mhi_dev_ep *qep)
 {
 	struct mhi_req req = { 0 };
 	int rc;
+	int bytes_read;
 
 	req.chan = QRTR_MHI_DEV_IN;
 	req.client = qep->in;
@@ -101,15 +102,18 @@ static void qrtr_mhi_dev_read(struct qrtr_mhi_dev_ep *qep)
 	req.buf = qep->buf_in;
 	req.len = QRTR_MAX_PKT_SIZE;
 
-	rc = mhi_dev_read_channel(&req);
-	if (rc < 0) {
-		dev_err(qep->dev, "failed to read channel %d\n", rc);
-		return;
-	}
+	do {
+		bytes_read = mhi_dev_read_channel(&req);
+		if (bytes_read < 0) {
+			dev_err(qep->dev, "failed to read channel %d\n",
+				bytes_read);
+			return;
+		}
 
-	rc = qrtr_endpoint_post(&qep->ep, req.buf, req.transfer_len);
-	if (rc == -EINVAL)
-		dev_err(qep->dev, "invalid ipcrouter packet\n");
+		rc = qrtr_endpoint_post(&qep->ep, req.buf, req.transfer_len);
+		if (rc == -EINVAL)
+			dev_err(qep->dev, "invalid ipcrouter packet\n");
+	} while (bytes_read > 0);
 }
 
 static void qrtr_mhi_dev_event_cb(struct mhi_dev_client_cb_reason *reason)
