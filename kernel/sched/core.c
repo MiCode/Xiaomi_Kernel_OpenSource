@@ -6824,7 +6824,7 @@ static int find_capacity_margin_levels(void)
 	int cpu, max_clusters;
 
 	for (cpu = max_clusters = 0; cpu < num_possible_cpus();) {
-		cpu += cpumask_weight(topology_core_cpumask(cpu));
+		cpu += cpumask_weight(topology_possible_sibling_cpumask(cpu));
 		max_clusters++;
 	}
 
@@ -6886,8 +6886,8 @@ static void sched_update_updown_migrate_values(unsigned int *data,
 
 	for (i = cpu = 0; (!cluster_cpus[i]) &&
 				cpu < num_possible_cpus(); i++) {
-		cluster_cpus[i] = topology_core_cpumask(cpu);
-		cpu += cpumask_weight(topology_core_cpumask(cpu));
+		cluster_cpus[i] = topology_possible_sibling_cpumask(cpu);
+		cpu += cpumask_weight(topology_possible_sibling_cpumask(cpu));
 	}
 
 	if (data == &sysctl_sched_capacity_margin_up[0])
