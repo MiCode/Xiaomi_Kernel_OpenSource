@@ -125,3 +125,7 @@
 &ssc_sensors {
 	status = "disabled";
 };
+
+&clock_rpmh {
+	compatible = "qcom,rpmh-clk-sm8150";
+};
