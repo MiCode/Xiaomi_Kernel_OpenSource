@@ -480,6 +480,7 @@ struct cam_ife_csid_path_cfg {
  * @init_frame_drop           Initial frame drop number
  * @res_sof_cnt               path resource sof count value. it used for initial
  *                            frame drop
+ * @first_sof_ts              flag to mark the first sof has been registered
  *
  */
 struct cam_ife_csid_hw {
@@ -511,6 +512,7 @@ struct cam_ife_csid_hw {
 	uint32_t                         dual_usage;
 	uint32_t                         init_frame_drop;
 	uint32_t                         res_sof_cnt[CAM_IFE_PIX_PATH_RES_MAX];
+	uint32_t                         first_sof_ts;
 };
 
 int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
