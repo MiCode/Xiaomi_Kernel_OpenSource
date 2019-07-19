@@ -29,6 +29,11 @@
 #define SOUTH	0x00D00000
 #define WEST	0x00100000
 #define EAST	0x00500000
+#define NORTH_PDC_OFFSET    0xbc000
+#define SOUTH_PDC_OFFSET    0xbe000
+#define WEST_PDC_OFFSET     0xbb000
+#define EAST_PDC_OFFSET     0xb7000
+#define NUM_TILES 4
 #define REG_SIZE 0x1000
 #define PINGROUP(id, base, f1, f2, f3, f4, f5, f6, f7, f8, f9)	\
 	{						\
@@ -53,9 +58,10 @@
 		.intr_cfg_reg = base + 0x8 + REG_SIZE * id,	\
 		.intr_status_reg = base + 0xc + REG_SIZE * id,	\
 		.intr_target_reg = base + 0x8 + REG_SIZE * id,	\
-		.dir_conn_reg = (base == EAST) ? base + 0xb7000 : \
-			((base == WEST) ? base + 0xbb000 : \
-			((base == NORTH) ? base + 0xbc000 : base + 0xbe000)), \
+		.dir_conn_reg = (base == EAST) ? base + EAST_PDC_OFFSET : \
+			((base == WEST) ? base + WEST_PDC_OFFSET : \
+			((base == NORTH) ? base + NORTH_PDC_OFFSET : \
+			  base + SOUTH_PDC_OFFSET)), \
 		.mux_bit = 2,			\
 		.pull_bit = 0,			\
 		.drv_bit = 6,			\
@@ -1939,6 +1945,15 @@ static struct msm_dir_conn sm8150_dir_conn[] = {
 	{-1, 209},
 };
 
+#ifdef CONFIG_HIBERNATION
+static u32 tile_dir_conn_addr[NUM_TILES] = {
+	[0] =	NORTH + NORTH_PDC_OFFSET,
+	[1] =	SOUTH + SOUTH_PDC_OFFSET,
+	[2] =	WEST + WEST_PDC_OFFSET,
+	[3] =	EAST + EAST_PDC_OFFSET
+};
+#endif
+
 static struct msm_pinctrl_soc_data sm8150_pinctrl = {
 	.pins = sm8150_pins,
 	.npins = ARRAY_SIZE(sm8150_pins),
@@ -1950,6 +1965,10 @@ static struct msm_pinctrl_soc_data sm8150_pinctrl = {
 	.dir_conn = sm8150_dir_conn,
 	.n_dir_conns = ARRAY_SIZE(sm8150_dir_conn),
 	.dir_conn_irq_base = 216,
+#ifdef CONFIG_HIBERNATION
+	.dir_conn_addr = tile_dir_conn_addr,
+	.tile_count = ARRAY_SIZE(tile_dir_conn_addr),
+#endif
 };
 
 static int sm8150_pinctrl_dir_conn_probe(struct platform_device *pdev)
