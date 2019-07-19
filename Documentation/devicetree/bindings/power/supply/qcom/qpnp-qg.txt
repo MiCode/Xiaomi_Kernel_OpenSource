@@ -357,6 +357,38 @@ First Level Node - QGAUGE device
 		    the available power. If this property is not specified,
 		    then the default value used is 2800 mV.
 
+- qcom,qg-sleep-config
+	Usage:      optional
+	Value type: bool
+	Definition: Enables sleep-state configurtion for QG. This
+		    allows configuring the FIFO length, accumulator
+		    interval and the accumulator length when system
+		    enters sleep.
+
+- qcom,sleep-s2-fifo-length
+	Usage:      optional
+	Value type: <u32>
+	Definition: The FIFO length to be applied when system enters sleep
+		    while discharging. Takes effect only if
+		    'qcom,qg-sleep-config' is enabled. the default value
+		    if not specified is 8.
+
+- qcom,sleep-s2-acc-length
+	Usage:      optional
+	Value type: <u32>
+	Definition: The accululator length to be applied when system
+		    enters sleep while discharging. Takes effect only if
+		    'qcom,qg-sleep-config' is enabled. the default value
+		    if not specified is 256.
+
+- qcom,sleep-s2-acc-intvl-ms
+	Usage:      optional
+	Value type: <u32>
+	Definition: The accululator count to be applied when system
+		    enters sleep while discharging. Takes effect only if
+		    'qcom,qg-sleep-config' is enabled. the default value
+		    if not specified is 200ms.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================
