@@ -12,7 +12,7 @@
 #
 
 #obj-m += midware/
-#obj-m += power/
+obj-m += power/
 #obj-m += sample/
 obj-$(CONFIG_MTK_APUSYS_MDLA_SUPPORT) += mdla/
 
