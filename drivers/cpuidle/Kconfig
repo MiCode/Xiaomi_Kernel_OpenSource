@@ -24,6 +24,14 @@ config CPU_IDLE_GOV_LADDER
 config CPU_IDLE_GOV_MENU
 	bool "Menu governor (for tickless system)"
 
+config CPU_IDLE_GOV_MTK
+	bool "MTK governor (for MediaTek SoCs)"
+	help
+	  MTK governor is used for MTK SoCs to select the correct idle state,
+	  which applies system scenario-based policy.
+	  MTK governor is specified for MTK SoCs.
+	  MTK CPUidle drivers should be paired with MTK governer.
+
 config CPU_IDLE_GOV_MTK_MENU
 	bool "MTK menu governor (for MediaTek SoCs)"
 	help
