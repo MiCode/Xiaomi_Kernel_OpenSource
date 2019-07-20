@@ -473,6 +473,8 @@ void ccci_md_smem_layout_config(struct ccci_modem *md)
 			if (md_resv_mem_offset || md_resv_mem_size)
 				md1_6293_cacheable[i].offset =
 					md_resv_mem_offset; /* LK config */
+			else if (i == 0)
+				md1_6293_cacheable[i].offset = 0;
 			else
 				md1_6293_cacheable[i].offset =
 					md1_6293_cacheable[i - 1].offset +
