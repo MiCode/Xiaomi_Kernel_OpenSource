@@ -188,6 +188,9 @@ unsigned int musb_uart_debug = 1;
 struct musb *mtk_musb;
 unsigned int musb_speed = 1;
 bool mtk_usb_power;
+#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
+bool musb_shutted;
+#endif
 
 struct timeval writeTime;
 struct timeval interruptTime;
@@ -1458,10 +1461,6 @@ static void gadget_stop(struct musb *musb)
 			#endif
 		}
 		musb->g.speed = USB_SPEED_UNKNOWN;
-	#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-	} else {
-		spin_unlock(&musb->lock);
-	#endif
 	}
 }
 
@@ -1577,6 +1576,11 @@ static void musb_shutdown(struct platform_device *pdev)
 	#endif
 
 	DBG(0, "shut down\n");
+	#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
+	disable_irq(mtk_musb->nIrq);
+	musb_shutted = true;
+	DBG(0, "%s, start to shut down = %d\n", __func__, musb_shutted);
+	#endif
 	pr_debug("%s, start to shut down\n", __func__);
 	pm_runtime_get_sync(musb->controller);
 
@@ -2877,7 +2881,7 @@ static int musb_suspend_noirq(struct device *dev)
 	/*Turn on USB clock, before reading a batch of regs */
 	mtk_usb_power = true;
 	#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-	mt_usb_clock_prepare();
+	mt_usb_clock_prepare(musb);
 	#endif
 	musb_platform_prepare_clk(musb);
 	musb_platform_enable_clk(musb);
@@ -2890,7 +2894,7 @@ static int musb_suspend_noirq(struct device *dev)
 	musb_platform_unprepare_clk(musb);
 	mtk_usb_power = false;
 	#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-	mt_usb_clock_unprepare();
+	mt_usb_clock_unprepare(musb);
 	#endif
 
 	usb_pre_clock(false);
@@ -2908,7 +2912,7 @@ static int musb_resume_noirq(struct device *dev)
 	/*Turn on USB clock, before writing a batch of regs */
 	mtk_usb_power = true;
 	#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-	mt_usb_clock_prepare();
+	mt_usb_clock_prepare(musb);
 	#endif
 	musb_platform_prepare_clk(musb);
 	musb_platform_enable_clk(musb);
@@ -2920,7 +2924,7 @@ static int musb_resume_noirq(struct device *dev)
 	musb_platform_unprepare_clk(musb);
 	mtk_usb_power = false;
 	#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-	mt_usb_clock_unprepare();
+	mt_usb_clock_unprepare(musb);
 	#endif
 
 	return 0;

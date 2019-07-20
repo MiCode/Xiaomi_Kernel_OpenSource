@@ -135,6 +135,10 @@ extern void musb_bug(void);
 #define MUSB_CONFIG_PROC_FS
 #endif
 
+#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
+extern bool musb_shutted;
+#endif
+
 /****************************** PERIPHERAL ROLE *****************************/
 
 extern irqreturn_t musb_g_ep0_irq(struct musb *musb);
