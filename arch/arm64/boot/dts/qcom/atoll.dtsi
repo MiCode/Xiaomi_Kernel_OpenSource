@@ -2246,7 +2246,7 @@
 
 #include "atoll-gdsc.dtsi"
 #include "atoll-ion.dtsi"
-#include "msm-arm-smmu-sdmatoll.dtsi"
+#include "msm-arm-smmu-atoll.dtsi"
 #include "atoll-qupv3.dtsi"
 #include "sdmmagpie-gpu.dtsi"
 
