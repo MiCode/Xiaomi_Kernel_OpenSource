@@ -706,6 +706,10 @@ static inline uint8_t pe_check_trap_in_idle_state(
 			if (pe_transit_startup_state(pd_port, pd_event))
 				return TII_TRANSIT_STATE;
 		}
+
+		/* The original IDLE2 may trigger by PE_IDLE_TOUT */
+		if (pd_event_hw_msg_match(pd_event, PD_HW_CC_DETACHED))
+			pd_notify_pe_idle(pd_port);
 		break;
 
 	default:

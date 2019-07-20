@@ -109,6 +109,9 @@ enum {
 	TYPEC_TIMER_START_ID,
 	TYPEC_TIMER_CCDEBOUNCE = TYPEC_TIMER_START_ID,
 	TYPEC_TIMER_PDDEBOUNCE,
+#ifdef CONFIG_COMPATIBLE_APPLE_TA
+	TYPEC_TIMER_APPLE_CC_OPEN,
+#endif /* CONFIG_COMPATIBLE_APPLE_TA */
 	TYPEC_TIMER_TRYCCDEBOUNCE,
 	TYPEC_TIMER_SRCDISCONNECT,
 	TYPEC_TIMER_ERROR_RECOVERY,
@@ -130,5 +133,4 @@ extern void tcpc_reset_typec_try_timer(struct tcpc_device *tcpc);
 extern void tcpc_reset_typec_debounce_timer(struct tcpc_device *tcpc);
 
 extern void tcpc_reset_pe_timer(struct tcpc_device *tcpc);
-
 #endif /* TCPC_TIMER_H_INCLUDED */

@@ -135,6 +135,13 @@ int tcpci_init(struct tcpc_device *tcpc, bool sw_reset)
 	return tcpci_get_power_status(tcpc, &power_status);
 }
 
+int tcpci_init_alert_mask(struct tcpc_device *tcpc)
+{
+	PD_BUG_ON(tcpc->ops->init_alert_mask == NULL);
+
+	return tcpc->ops->init_alert_mask(tcpc);
+}
+
 int tcpci_get_cc(struct tcpc_device *tcpc)
 {
 	int ret;
@@ -295,13 +302,71 @@ int tcpci_set_watchdog(struct tcpc_device *tcpc, bool en)
 {
 	int rv = 0;
 
-#ifdef CONFIG_TCPC_WATCHDOG_EN
-	if (tcpc->ops->set_watchdog)
-		rv = tcpc->ops->set_watchdog(tcpc, en);
-#endif
+	if (tcpc->tcpc_flags & TCPC_FLAGS_WATCHDOG_EN) {
+		if (tcpc->ops->set_watchdog)
+			rv = tcpc->ops->set_watchdog(tcpc, en);
+	}
 
 	return rv;
 }
+
+int tcpci_alert_vendor_defined_handler(struct tcpc_device *tcpc)
+{
+	int rv = 0;
+
+	if (tcpc->ops->alert_vendor_defined_handler)
+		rv = tcpc->ops->alert_vendor_defined_handler(tcpc);
+
+	return rv;
+}
+
+#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+int tcpci_is_vsafe0v(struct tcpc_device *tcpc)
+{
+	int rv = -ENOTSUPP;
+
+	if (tcpc->ops->is_vsafe0v)
+		rv = tcpc->ops->is_vsafe0v(tcpc);
+
+	return rv;
+}
+#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
+
+#ifdef CONFIG_WATER_DETECTION
+int tcpci_is_water_detected(struct tcpc_device *tcpc)
+{
+	if (tcpc->ops->is_water_detected)
+		return tcpc->ops->is_water_detected(tcpc);
+	return 0;
+}
+
+int tcpci_set_water_protection(struct tcpc_device *tcpc, bool en)
+{
+	if (tcpc->ops->set_water_protection)
+		return tcpc->ops->set_water_protection(tcpc, en);
+	return 0;
+}
+
+int tcpci_notify_wd_status(struct tcpc_device *tcpc, bool water_detected)
+{
+	struct tcp_notify tcp_noti;
+
+	tcp_noti.wd_status.water_detected = water_detected;
+	return tcpc_check_notify_time(tcpc, &tcp_noti, TCP_NOTIFY_IDX_MISC,
+				      TCP_NOTIFY_WD_STATUS);
+}
+#endif /* CONFIG_WATER_DETECTION */
+
+#ifdef CONFIG_CABLE_TYPE_DETECTION
+int tcpci_notify_cable_type(struct tcpc_device *tcpc)
+{
+	struct tcp_notify tcp_noti;
+
+	tcp_noti.cable_type.type = tcpc->typec_cable_type;
+	return tcpc_check_notify_time(tcpc, &tcp_noti, TCP_NOTIFY_IDX_MISC,
+				      TCP_NOTIFY_CABLE_TYPE);
+}
+#endif /* CONFIG_CABLE_TYPE_DETECTION */
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 
@@ -422,7 +487,9 @@ int tcpci_set_intrst(struct tcpc_device *tcpc, bool en)
 
 int tcpci_enable_watchdog(struct tcpc_device *tcpc, bool en)
 {
-#ifdef CONFIG_TCPC_WATCHDOG_EN
+	if (!(tcpc->tcpc_flags & TCPC_FLAGS_WATCHDOG_EN))
+		return 0;
+
 	TCPC_DBG2("enable_WG: %d\r\n", en);
 
 	if (tcpc->typec_watchdog == en)
@@ -440,7 +507,6 @@ int tcpci_enable_watchdog(struct tcpc_device *tcpc, bool en)
 #endif	/* CONFIG_TCPC_INTRST_EN */
 
 	mutex_unlock(&tcpc->access_lock);
-#endif	/* CONFIG_TCPC_WATCHDOG_EN */
 
 	return 0;
 }
