@@ -1346,7 +1346,7 @@ int ion_sync_for_device(struct ion_client *client, int fd)
 	buffer = dmabuf->priv;
 
 #ifdef CONFIG_MTK_ION
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_IOMMU_V2
 	if (buffer->heap->type == (int)ION_HEAP_TYPE_MULTIMEDIA ||
 	    buffer->heap->type == (int)ION_HEAP_TYPE_MULTIMEDIA_SEC)
 		dma_sync_sg_for_device(g_iommu_device,

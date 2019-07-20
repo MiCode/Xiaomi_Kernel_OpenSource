@@ -162,7 +162,7 @@ static int ion_fb_heap_allocate(struct ion_heap *heap,
 {
 	struct ion_fb_buffer_info *buffer_info = NULL;
 	ion_phys_addr_t paddr;
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_IOMMU_V2
 	ion_phys_addr_t iova = 0;
 	dma_addr_t offset = 0;
 	struct scatterlist *sg;
