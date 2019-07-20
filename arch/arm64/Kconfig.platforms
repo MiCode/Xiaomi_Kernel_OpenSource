@@ -169,6 +169,8 @@ config MACH_MT6771
         select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
         select MTK_SYSIRQ
         select MTK_EMI
+	select MTK_DEBUG_LATCH
+	select MTK_PLAT_SRAM_FLAG
         select ARM64_CRYPTO
         select CRYPTO_SHA2_ARM64_CE
         select CRYPTO_AES_ARM64_CE_BLK
