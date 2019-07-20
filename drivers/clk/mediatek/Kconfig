@@ -72,6 +72,28 @@ config COMMON_CLK_MT6739
 	  instead of old clkmgr architecture.
 	  MT6739 default will use CCF.
 
+config COMMON_CLK_MT6768
+	bool "Clock driver for Mediatek MT6768"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK
+	default y if MACH_MT6768
+	---help---
+	  This driver supports Mediatek MT6768 clocks.
+	  Use the config to support CCF on MT6768,
+	  instead of old clkmgr architecture.
+	  MT6768 default will use CCF.
+
+config COMMON_CLK_MT6785
+	bool "Clock driver for Mediatek MT6785"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK
+	default y if MACH_MT6785
+	---help---
+	  This driver supports Mediatek MT6785 clocks.
+	  Use the config to support CCF on MT6785,
+	  instead of old clkmgr architecture.
+	  MT6785 default will use CCF.
+
 config COMMON_CLK_MT6797
        bool "Clock driver for Mediatek MT6797"
        depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST

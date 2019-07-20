@@ -241,6 +241,11 @@ static inline int m4u_port_2_larbid(int port)
 	return 0xff;
 }
 
+static inline unsigned int m4u_port_2_larb_id(unsigned int port)
+{
+	return m4u_port_2_larbid(port);
+}
+
 static inline int larb_2_m4u_slave_id(int larb)
 {
 	int i;
