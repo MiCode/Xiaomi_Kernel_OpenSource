@@ -18,6 +18,7 @@
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
+#include <linux/of_gpio.h>
 
 #include <mt-plat/mtk_boot_common.h>
 #include "ccci_debug.h"
@@ -189,9 +190,14 @@ int swtp_md_tx_power_req_hdlr(int md_id, int data)
 int swtp_init(int md_id)
 {
 	int ret = 0;
+	struct device_node *node = NULL;
+#ifdef CONFIG_MTK_EIC
 	u32 ints[2] = { 0, 0 };
 	u32 ints1[2] = { 0, 0 };
-	struct device_node *node = NULL;
+#else
+	u32 ints[1] = { 0 };
+	u32 ints1[4] = { 0, 0, 0, 0 };
+#endif
 
 	swtp_data[md_id].md_id = md_id;
 	swtp_data[md_id].curr_mode = SWTP_EINT_PIN_PLUG_OUT;
@@ -208,9 +214,16 @@ int swtp_init(int md_id)
 			CCCI_LEGACY_ERR_LOG(md_id, SYS,
 				"%s get property fail\n", __func__);
 
+#ifdef CONFIG_MTK_EIC /* for chips before mt6739 */
 		swtp_data[md_id].gpiopin = ints[0];
 		swtp_data[md_id].setdebounce = ints[1];
 		swtp_data[md_id].eint_type = ints1[1];
+#else /* for mt6739,and chips after mt6739 */
+		swtp_data[md_id].setdebounce = ints[0];
+		swtp_data[md_id].gpiopin =
+			of_get_named_gpio(node, "deb-gpios", 0);
+		swtp_data[md_id].eint_type = ints1[1];
+#endif
 		gpio_set_debounce(swtp_data[md_id].gpiopin,
 			swtp_data[md_id].setdebounce);
 		swtp_data[md_id].irq = irq_of_parse_and_map(node, 0);
