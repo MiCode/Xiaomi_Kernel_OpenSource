@@ -164,7 +164,6 @@ struct usb_phy {
 			enum usb_device_speed speed);
 	int	(*notify_disconnect)(struct usb_phy *x,
 			enum usb_device_speed speed);
-	int	(*link_training)(struct usb_phy *x, bool start);
 
 	/*
 	 * Charger detection method can be implemented if you need to
@@ -349,24 +348,6 @@ usb_phy_notify_connect(struct usb_phy *x, enum usb_device_speed speed)
 {
 	if (x && x->notify_connect)
 		return x->notify_connect(x, speed);
-	else
-		return 0;
-}
-
-static inline int
-usb_phy_start_link_training(struct usb_phy *x)
-{
-	if (x && x->link_training)
-		return x->link_training(x, true);
-	else
-		return 0;
-}
-
-static inline int
-usb_phy_stop_link_training(struct usb_phy *x)
-{
-	if (x && x->link_training)
-		return x->link_training(x, false);
 	else
 		return 0;
 }
