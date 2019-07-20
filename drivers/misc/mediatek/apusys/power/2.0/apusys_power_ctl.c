@@ -519,10 +519,9 @@ void apusys_power_off(enum DVFS_USER user)
 	}
 }
 
-void apusys_power_init(enum DVFS_USER user, struct platform_device *pdev)
+void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 {
 	int i = 0, j = 0;
-	struct hal_param_init_power init_power_data;
 
 	apusys_opps.opps = dvfs_table;
 	for (i = 0; i < APUSYS_DVFS_USER_NUM; i++)	{
@@ -545,8 +544,7 @@ void apusys_power_init(enum DVFS_USER user, struct platform_device *pdev)
 
 	apusys_opps.power_bit_mask = 0;
 
-	init_power_data.dev = &pdev->dev;
-	hal_config_power(PWR_CMD_INIT_POWER, user, (void *)&init_power_data);
+	hal_config_power(PWR_CMD_INIT_POWER, user, init_power_data);
 	PWR_LOG_INF("%s done,\n", __func__);
 }
 
