@@ -71,6 +71,8 @@ class AdcObj(ModuleObj):
         gen_str += '''\tadc_channel@ {\n'''
         gen_str += '''\t\tcompatible = "mediatek,adc_channel";\n'''
 
+        val = -1
+
         # sort by the key, or the sequence is dissorted
         #sorted_list = sorted(ModuleObj.get_data(self).keys())
         for key in sorted_key(ModuleObj.get_data(self).keys()):
@@ -81,16 +83,28 @@ class AdcObj(ModuleObj):
             else:
                 gen_str += '''\t\tmediatek,%s = <%d>;\n''' %(value.lower(), string.atoi(key[3:]))
 
+            if value == "ADC_FDD_RF_PARAMS_DYNAMIC_CUSTOM_CH":
+                val = string.atoi(key[3:])
+
         gen_str += '''\t\tstatus = \"okay\";\n'''
         gen_str += '''\t};\n'''
         gen_str += '''};\n'''
 
+        gen_str += self.fill_extraNode(val)
+
         return gen_str
 
+    def fill_extraNode(self, val):
+        return ''
 
+class AdcObj_MT6785(AdcObj):
 
+    # for the new fearture from Chao Song
+    def fill_extraNode(self, val):
+        str = '''&md_auxadc {\n'''
+        str += '''\tio-channels = <&auxadc %d>;\n''' %(val)
+        str += '''};\n'''
 
-
-
+        return str
 
 

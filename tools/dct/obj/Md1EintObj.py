@@ -15,6 +15,8 @@
 import ConfigParser
 import string
 import xml.dom.minidom
+from itertools import dropwhile
+import re
 
 from utility import util
 from utility.util import sorted_key
@@ -39,11 +41,19 @@ class Md1EintObj(ModuleObj):
                 self.__bSrcPinEnable = False
 
         if(self.__bSrcPinEnable):
-            for option in cp.options('SRC_PIN'):
-                value = cp.get('SRC_PIN', option)
-                value = value[1:]
-                temp = value.split('=')
-                self.__srcPin[temp[0]] = temp[1]
+            #for option in cp.options('SRC_PIN'):
+                #value = cp.get('SRC_PIN', option)
+                #value = value[1:]
+                #temp = value.split('=')
+                #self.__srcPin[temp[0]] = temp[1]
+
+            with open(ModuleObj.get_figPath()) as file:
+                src_pin_expr = r"^.+\s*::\s*(\w+)\s*=\s*(\w+)\s*$"
+                reg = re.compile(src_pin_expr)
+                for line in dropwhile(lambda line: not line.lstrip().startswith("[SRC_PIN]"), file):
+                    match_obj = reg.match(line)
+                    if match_obj:
+                        self.__srcPin[match_obj.group(1)] = match_obj.group(2)
         else:
             self.__srcPin[''] = '-1'
 

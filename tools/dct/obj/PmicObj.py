@@ -253,7 +253,9 @@ class PmicObj_MT6758(PmicObj):
                     postFix = varName[varName.rfind('_')+1:]
                     bExisted = True
 
-                if varName.find('MAIN_CAMERA_2') != -1:
+                if varName.find('MAIN_CAMERA_3') != -1:
+                    gen_str += '''\tvcam%s_main3-supply = <&mt_pmic_%s_ldo_reg>;\n''' %(postFix.lower(), value.get_ldoName().lower())
+                elif varName.find('MAIN_CAMERA_2') != -1:
                     gen_str += '''\tvcam%s_main2-supply = <&mt_pmic_%s_ldo_reg>;\n''' %(postFix.lower(), value.get_ldoName().lower())
                 elif varName.find('MAIN_CAMERA') != -1:
                     gen_str += '''\tvcam%s-supply = <&mt_pmic_%s_ldo_reg>;\n''' %(postFix.lower(), value.get_ldoName().lower())
