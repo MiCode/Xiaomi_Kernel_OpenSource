@@ -1,5 +1,3 @@
-subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
-
 #
 # Makefile for kernel SPMI framework.
 #
