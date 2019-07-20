@@ -44,6 +44,8 @@
 #define irtx_driver_name "mt_irtx"
 #define IRTX_GPIO_MODE_LED_DEFAULT 0
 #define IRTX_GPIO_MODE_LED_SET 1
+#define IRTX_PWM_CLOCK (26000000)
+//#define IRTX_DEBUG
 
 static atomic_t ir_usage_cnt;
 char *irtx_gpio_cfg[] = {  "irtx_gpio_led_default", "irtx_gpio_led_set"};
@@ -60,10 +62,22 @@ struct pwm_spec_config irtx_pwm_config = {
 	.PWM_MODE_MEMORY_REGS.GUARD_VALUE = GUARD_FALSE,
 	.PWM_MODE_MEMORY_REGS.STOP_BITPOS_VALUE = 31,
 	/* 1 microseconds, assume clock source is 26M */
-	.PWM_MODE_MEMORY_REGS.HDURATION = 25,
-	.PWM_MODE_MEMORY_REGS.LDURATION = 25,
+	.PWM_MODE_MEMORY_REGS.HDURATION = 229,
+	.PWM_MODE_MEMORY_REGS.LDURATION = 229,
 	.PWM_MODE_MEMORY_REGS.GDURATION = 0,
 	.PWM_MODE_MEMORY_REGS.WAVE_NUM = 1,
+};
+
+struct pwm_ir_t {
+	unsigned int carrier;
+	unsigned int cycle;
+	unsigned int duty_cycle;
+};
+
+static struct pwm_ir_t pwm_ir = {
+	.carrier = 38009,
+	.cycle = 3,
+	.duty_cycle = 1
 };
 
 int get_ir_device(void)
@@ -86,28 +100,46 @@ void switch_irtx_gpio(int mode)
 	struct pinctrl_state *pins_irtx = NULL;
 
 	if (mode >= (ARRAY_SIZE(irtx_gpio_cfg))) {
-		pr_notice("%s() IRTX[PinC](%d) fail!! - invalid parameter!\n",
+		pr_notice("%s() [PinC](%d) fail!! - invalid parameter!\n",
 			__func__, mode);
 		return;
 	}
 
 	if (IS_ERR(ppinctrl_irtx)) {
-		pr_notice("%s() IRTX[PinC] ppinctrl_irtx:%p Error! err:%ld\n",
+		pr_notice("%s() [PinC] ppinctrl_irtx:%p Error! err:%ld\n",
 		       __func__, ppinctrl_irtx, PTR_ERR(ppinctrl_irtx));
 		return;
 	}
 
+	if (mt_irtx_dev.buck != NULL) {
+		if (mode == IRTX_GPIO_MODE_LED_SET) {
+			if (!regulator_is_enabled(mt_irtx_dev.buck)
+				&& regulator_enable(mt_irtx_dev.buck) < 0) {
+				pr_notice("%s() regulator_enable fail!\n",
+					__func__);
+				return;
+			}
+		} else {
+			if (regulator_is_enabled(mt_irtx_dev.buck)
+				&& regulator_disable(mt_irtx_dev.buck) < 0) {
+				pr_notice("%s() regulator_disable fail!\n",
+					__func__);
+				return;
+			}
+		}
+	}
+
 	pins_irtx = pinctrl_lookup_state(ppinctrl_irtx, irtx_gpio_cfg[mode]);
 	if (IS_ERR(pins_irtx)) {
-		pr_notice("%s() IRTX[PinC] pinctrl_lockup(%p, %s) fail!\n",
+		pr_notice("%s() [PinC] pinctrl_lockup(%p, %s) fail!\n",
 			__func__, ppinctrl_irtx, irtx_gpio_cfg[mode]);
-		pr_notice("%s() IRTX[PinC] ppinctrl:%p, err:%ld\n",
+		pr_notice("%s() [PinC] ppinctrl:%p, err:%ld\n",
 			__func__, pins_irtx, PTR_ERR(pins_irtx));
 		return;
 	}
 
 	pinctrl_select_state(ppinctrl_irtx, pins_irtx);
-	pr_info("%s() IRTX[PinC] to mode:%d done.\n", __func__, mode);
+	pr_info("%s() [PinC] to mode:%d done.\n", __func__, mode);
 }
 
 static int dev_char_open(struct inode *inode, struct file *file)
@@ -155,6 +187,9 @@ static ssize_t dev_char_write(struct file *file, const char __user *buf,
 	int ret, i;
 	int buf_size = (count + 3) / 4;
 	unsigned char *data_ptr;
+	int h_l_period = 0;
+	int total_time = 0;
+	int *buf_ptr;
 
 	pr_info("%s() irtx write len=0x%x, pwm=%d\n", __func__,
 		(unsigned int)count, (unsigned int)irtx_pwm_config.pwm_no);
@@ -186,19 +221,38 @@ static ssize_t dev_char_write(struct file *file, const char __user *buf,
 		}
 	}
 
+	// pwm_ir.cycle: whole cycle,  pwm_ir.duty_cycle: high period
+	h_l_period = DIV_ROUND_CLOSEST(IRTX_PWM_CLOCK*pwm_ir.duty_cycle,
+			pwm_ir.carrier*pwm_ir.cycle);
+	irtx_pwm_config.PWM_MODE_MEMORY_REGS.HDURATION = h_l_period-1;
+	irtx_pwm_config.PWM_MODE_MEMORY_REGS.LDURATION = h_l_period-1;
 	irtx_pwm_config.PWM_MODE_MEMORY_REGS.BUF0_BASE_ADDR = wave_phy;
-	buf_size = (buf_size ? (buf_size - 1) : 0);
-	irtx_pwm_config.PWM_MODE_MEMORY_REGS.BUF0_SIZE = buf_size;
+	irtx_pwm_config.PWM_MODE_MEMORY_REGS.BUF0_SIZE = buf_size - 2;
 
 	switch_irtx_gpio(IRTX_GPIO_MODE_LED_SET);
 
 	ret = pwm_set_spec_config(&irtx_pwm_config);
-	pr_info("%s() IRTX pwm is triggered, %d\n", __func__, ret);
+	buf_ptr = (int *) wave_vir;
+	total_time = buf_ptr[buf_size - 1];
+	pr_info("irtx ret:%d, period:%d, count:%zu, total:%d, duty:%d/%d\n",
+		ret, h_l_period, count, total_time,
+		pwm_ir.duty_cycle, pwm_ir.cycle);
+#ifdef IRTX_DEBUG
+	pr_info("%s() irtx pwm buf size = %d\n", __func__, buf_size);
+	for (i = 0; i < buf_size; i++) {
+		if (i && i % 16 == 0)
+			pr_info("\n");
+		pr_info("[%d]0x%x, ", i, buf_ptr[i]);
+	}
+	pr_info("\n");
+#endif
+	if (total_time <= 0) {
+		total_time = (count-4)*8*h_l_period;
+		total_time = total_time*NSEC_PER_SEC/IRTX_PWM_CLOCK/1000;
+	}
+	usleep_range(total_time, total_time + 100);
 
-	msleep(count * 8 / 1000);
-	msleep(100);
 	ret = count;
-
 	pr_info("[IRTX] done, clean up\n");
 	mt_pwm_disable(irtx_pwm_config.pwm_no, irtx_pwm_config.pmic_pad);
 	switch_irtx_gpio(IRTX_GPIO_MODE_LED_DEFAULT);
@@ -241,6 +295,30 @@ static long dev_char_ioctl(struct file *file, unsigned int cmd,
 				switch_irtx_gpio(IRTX_GPIO_MODE_LED_DEFAULT);
 		}
 		break;
+	case IRTX_IOC_SET_CARRIER_FREQ:
+		ret = copy_from_user(&para, (void __user *)arg,
+			sizeof(unsigned int));
+		if (ret) {
+			pr_notice("IRTX_IOC_SET_CARRIER_FREQ fail\n");
+			ret = -EFAULT;
+		} else {
+			pwm_ir.carrier = para;
+			pr_info("irtx carrier freq = %d\n", pwm_ir.carrier);
+		}
+		break;
+	case IRTX_IOC_SET_DUTY_CYCLE:
+		ret = copy_from_user(&para, (void __user *)arg,
+			sizeof(unsigned int));
+		if (ret) {
+			pr_notice("IRTX_IOC_SET_DUTY_CYCLE fail\n");
+			ret = -EFAULT;
+		} else {
+			pwm_ir.cycle = para & 0xFFFF;
+			pwm_ir.duty_cycle = (para >> 16) & 0xFFFF;
+			pr_info("irtx duty cycle = %d/%d\n",
+				pwm_ir.duty_cycle, pwm_ir.cycle);
+		}
+		break;
 	default:
 		pr_notice("%s() IRTX invalid ioctl cmd 0x%x\n", __func__, cmd);
 		ret = -ENOTTY;
@@ -249,6 +327,32 @@ static long dev_char_ioctl(struct file *file, unsigned int cmd,
 	return ret;
 }
 
+#ifdef CONFIG_COMPAT
+static long compat_dev_char_ioctl(struct file *file, unsigned int cmd,
+		unsigned long arg)
+{
+	if (!file->f_op || !file->f_op->unlocked_ioctl) {
+		pr_info("irtx file has no f_op or no unlocked_ioctl.\n");
+		return -ENOTTY;
+	}
+
+	switch (cmd) {
+	case COMPAT_IRTX_IOC_GET_SOLUTTION_TYPE:
+	case COMPAT_IRTX_IOC_SET_IRTX_LED_EN:
+	case COMPAT_IRTX_IOC_SET_DUTY_CYCLE:
+	case COMPAT_IRTX_IOC_SET_CARRIER_FREQ:
+		pr_debug("irtx compat_ioctl : command: 0x%x\n", cmd);
+		return file->f_op->unlocked_ioctl(
+			file, cmd, (unsigned long)compat_ptr(arg));
+		break;
+	default:
+		pr_info("irtx compat_ioctl : No such command!! 0x%x\n", cmd);
+		return -ENOIOCTLCMD;
+	}
+}
+#endif
+
+
 static struct file_operations const char_dev_fops = {
 	.owner = THIS_MODULE,
 	.open = &dev_char_open,
@@ -256,7 +360,11 @@ static struct file_operations const char_dev_fops = {
 	.read = &dev_char_read,
 	.write = &dev_char_write,
 	.unlocked_ioctl = &dev_char_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = &compat_dev_char_ioctl,
+#endif
 };
+
 static int irtx_probe(struct platform_device *plat_dev)
 {
 	struct cdev *c_dev;
@@ -286,6 +394,19 @@ static int irtx_probe(struct platform_device *plat_dev)
 			__func__, PTR_ERR(mt_irtx_dev.ppinctrl_irtx));
 		ret = PTR_ERR(mt_irtx_dev.ppinctrl_irtx);
 		goto exit;
+	}
+
+	mt_irtx_dev.buck = regulator_get_optional(NULL, "irtx_ldo");
+	if (IS_ERR(mt_irtx_dev.buck)) {
+		mt_irtx_dev.buck = NULL;
+		pr_notice("%s() irtx_ldo regulator not found\n", __func__);
+	} else {
+		ret = regulator_set_voltage(mt_irtx_dev.buck, 2800000, 2800000);
+		if (ret < 0) {
+			pr_notice("%s() regulator_set_voltage fail! ret:%d.\n",
+				__func__, ret);
+			goto exit;
+		}
 	}
 
 	switch_irtx_gpio(IRTX_GPIO_MODE_LED_DEFAULT);
