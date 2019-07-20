@@ -42,6 +42,10 @@ struct qg_dt {
 	int			s2_vbat_low_fifo_length;
 	int			s2_acc_length;
 	int			s2_acc_intvl_ms;
+	int			sleep_s2_fifo_length;
+	int			sleep_s2_acc_length;
+	int			sleep_s2_acc_intvl_ms;
+	int			fast_chg_s2_fifo_length;
 	int			ocv_timer_expiry_min;
 	int			ocv_tol_threshold_uv;
 	int			s3_entry_fifo_length;
@@ -67,6 +71,8 @@ struct qg_dt {
 	bool			esr_discharge_enable;
 	bool			qg_ext_sense;
 	bool			use_s7_ocv;
+	bool			qg_sleep_config;
+	bool			qg_fast_chg_cfg;
 };
 
 struct qg_esr_data {
@@ -91,6 +97,7 @@ struct qpnp_qg {
 	struct work_struct	udata_work;
 	struct work_struct	scale_soc_work;
 	struct work_struct	qg_status_change_work;
+	struct delayed_work	qg_sleep_exit_work;
 	struct notifier_block	nb;
 	struct mutex		bus_lock;
 	struct mutex		data_lock;
@@ -141,6 +148,8 @@ struct qpnp_qg {
 	u32			charge_counter_uah;
 	u32			esr_avg;
 	u32			esr_last;
+	u32			s2_state;
+	u32			s2_state_mask;
 	ktime_t			last_user_update_time;
 	ktime_t			last_fifo_update_time;
 	unsigned long		last_maint_soc_update_time;
@@ -185,6 +194,13 @@ enum ocv_type {
 	S3_LAST_OCV,
 	SDAM_PON_OCV,
 	PON_OCV_MAX,
+};
+
+enum s2_state {
+	S2_FAST_CHARGING = BIT(0),
+	S2_LOW_VBAT = BIT(1),
+	S2_SLEEP = BIT(2),
+	S2_DEFAULT = BIT(3),
 };
 
 enum debug_mask {
