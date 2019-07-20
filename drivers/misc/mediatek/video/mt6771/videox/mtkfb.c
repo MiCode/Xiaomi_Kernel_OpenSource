@@ -243,15 +243,16 @@ static int mtkfb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
 			   u_int transp, struct fb_info *info)
 {
 	int ret = 0;
-	unsigned int bpp, m;
+	struct mtkfb_device *fbdev = (struct mtkfb_device *)info->par;
+	unsigned int bpp, size;
 
 	NOT_REFERENCED(transp);
 
 	MSG_FUNC_ENTER();
 
 	bpp = info->var.bits_per_pixel;
-	m = 1 << bpp;
-	if (regno >= m) {
+	size = ARRAY_SIZE(fbdev->pseudo_palette);
+	if (regno >= size) {
 		ret = -EINVAL;
 		goto exit;
 	}
