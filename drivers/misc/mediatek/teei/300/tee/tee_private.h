@@ -21,6 +21,8 @@
 #include <linux/kref.h>
 #include <linux/mutex.h>
 #include <linux/types.h>
+#include <linux/version.h>
+#include <linux/dma-buf.h>
 
 struct tee_device;
 
@@ -126,5 +128,21 @@ int tee_shm_get_fd(struct tee_shm *shm);
 
 bool tee_device_get(struct tee_device *teedev);
 void tee_device_put(struct tee_device *teedev);
+
+extern void dma_buf_unmap_attachment(struct dma_buf_attachment *attach,
+				struct sg_table *sg_table,
+				enum dma_data_direction direction);
+
+extern void dma_buf_detach(struct dma_buf *dmabuf,
+				struct dma_buf_attachment *attach);
+
+extern void dma_buf_put(struct dma_buf *dmabuf);
+
+#if KERNEL_VERSION(4, 4, 1) <= LINUX_VERSION_CODE
+extern struct dma_buf *dma_buf_export(
+				const struct dma_buf_export_info *exp_info);
+#endif
+
+extern int dma_buf_fd(struct dma_buf *dmabuf, int flags);
 
 #endif /*TEE_PRIVATE_H*/

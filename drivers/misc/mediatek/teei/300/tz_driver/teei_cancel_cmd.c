@@ -81,7 +81,6 @@ int send_cancel_command(unsigned long share_memory_size)
 	int retVal = 0;
 
 	down(&fdrv_lock);
-	/*ut_pm_mutex_lock(&pm_mutex);*/
 	down(&smc_lock);
 	IMSG_DEBUG("%s start\n", __func__);
 
@@ -99,7 +98,6 @@ int send_cancel_command(unsigned long share_memory_size)
 
 	retVal = add_work_entry(FDRV_CALL, (unsigned long)(&fdrv_ent));
 	if (retVal != 0) {
-		/*ut_pm_mutex_unlock(&pm_mutex);*/
 		up(&fdrv_lock);
 		return retVal;
 	}
@@ -112,7 +110,6 @@ int send_cancel_command(unsigned long share_memory_size)
 	/* with a rmb() */
 	rmb();
 
-	/*ut_pm_mutex_unlock(&pm_mutex);*/
 	up(&fdrv_lock);
 
 	return fdrv_ent.retVal;

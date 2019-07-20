@@ -106,7 +106,7 @@ int teei_forward_call(u32 cmd, unsigned long cmd_addr, int size)
 		.size = size,
 	};
 
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	down(&capi_mutex);
 
@@ -118,7 +118,7 @@ int teei_forward_call(u32 cmd, unsigned long cmd_addr, int size)
 	if (ret) {
 		up(&smc_lock);
 		up(&capi_mutex);
-		ut_pm_mutex_unlock(&pm_mutex);
+		unlock_system_sleep();
 		return ret;
 	}
 
@@ -126,7 +126,7 @@ int teei_forward_call(u32 cmd, unsigned long cmd_addr, int size)
 
 	up(&capi_mutex);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 
 	return 0;
 }
@@ -141,7 +141,7 @@ int teei_forward_call_without_lock(u32 cmd, unsigned long cmd_addr, int size)
 		.size = size,
 	};
 
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	down(&smc_lock);
 
@@ -151,13 +151,13 @@ int teei_forward_call_without_lock(u32 cmd, unsigned long cmd_addr, int size)
 	if (ret) {
 		up(&smc_lock);
 		up(&capi_mutex);
-		ut_pm_mutex_unlock(&pm_mutex);
+		unlock_system_sleep();
 		return ret;
 	}
 
 	wait_for_completion(&wait_completion);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 
 	return 0;
 }

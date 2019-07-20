@@ -15,6 +15,8 @@
 #ifndef __UT_TUI_H_
 #define __UT_TUI_H_
 
+#include <linux/suspend.h>
+
 enum disp_pwm_id_t {
 	DISP_PWM0 = 0x1,
 	DISP_PWM1 = 0x2,
@@ -29,7 +31,6 @@ extern void ut_down_low(struct semaphore *sema);
 
 extern int enter_tui_flag;
 extern int power_down_flag;
-extern struct mutex pm_mutex;
 extern unsigned long tui_display_message_buff;
 extern unsigned long tui_notice_message_buff;
 extern struct semaphore tui_notify_sema;
