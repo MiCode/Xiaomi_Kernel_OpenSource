@@ -15,6 +15,9 @@
 #define __HELIO_DVFSRC_IP_V2_H
 #include <helio-dvfsrc-qos.h>
 #include <mtk_dvfsrc_reg_v2.h>
+#if defined(CONFIG_MACH_MT6885)
+#include <mtk_dvfsrc_smc_reg.h>
+#endif
 
 #define DVFSRC_TIMEOUT          1000
 

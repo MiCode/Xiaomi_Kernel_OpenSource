@@ -82,3 +82,4 @@ obj-$(CONFIG_MTK_CM_MGR) += cm_mgr_v1/
 ifeq ($(CONFIG_MTK_UNIFY_POWER), y)
 obj-$(CONFIG_MTK_UNIFY_POWER) += upower_v2/
 endif
+# obj-$(CONFIG_MACH_MT6885) += dvfsrc/

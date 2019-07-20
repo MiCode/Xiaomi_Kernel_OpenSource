@@ -27,7 +27,6 @@
 #include <helio-dvfsrc-opp.h>
 #include <helio-dvfsrc-ip-v2.h>
 
-#include <mtk_spm_internal.h>
 #include <spm/mtk_vcore_dvfs.h>
 
 #include <linux/mutex.h>
@@ -54,7 +53,6 @@ static char	force_start_stamp[20];
 static char	force_end_stamp[20];
 static char sys_stamp[TIME_STAMP_SIZE];
 static char opp_forced;
-
 
 #define dvfsrc_rmw(offset, val, mask, shift) \
 	dvfsrc_write(offset, (dvfsrc_read(offset) & ~(mask << shift)) \
@@ -205,6 +203,20 @@ void dvfsrc_enable_level_intr(int en)
 			dvfsrc_read(DVFSRC_INT_EN) & ~(0x4));
 }
 
+int helio_dvfsrc_level_mask_get(void)
+{
+	return	dvfsrc_read(DVFSRC_LEVEL_MASK);
+}
+
+int helio_dvfsrc_level_mask_set(bool en, int level)
+{
+	if (en)
+		dvfsrc_rmw(DVFSRC_LEVEL_MASK, 1, 1, level);
+	else
+		dvfsrc_rmw(DVFSRC_LEVEL_MASK, 0, 1, level);
+	return	0;
+}
+
 
 int get_cur_vcore_dvfs_opp(void)
 {
@@ -292,7 +304,7 @@ int commit_data(int type, int data, int check_spmfw)
 					vcore_uv, opp_uv,
 					dvfsrc_read(DVFSRC_CURRENT_LEVEL),
 					dvfsrc_read(DVFSRC_TARGET_LEVEL),
-					spm_get_dvfs_level());
+					get_cur_vcore_dvfs_opp()); /* TODO */
 
 					aee_kernel_warning("DVFSRC",
 						"VCORE failed.",
@@ -467,7 +479,7 @@ int helio_dvfsrc_config(struct helio_dvfsrc *dvfsrc)
 
 	dvfsrc->irq = platform_get_irq(pdev, 0);
 	ret = request_irq(dvfsrc->irq, helio_dvfsrc_interrupt
-		, IRQF_TRIGGER_HIGH, "dvfsrc", dvfsrc);
+		, IRQF_TRIGGER_NONE, "dvfsrc", dvfsrc);
 	if (ret)
 		pr_info("dvfsrc interrupt no use\n");
 
@@ -925,7 +937,7 @@ unsigned int *vcorefs_get_opp_info(void)
 	met_vcorefs_info[INFO_OPP_IDX] = get_cur_vcore_dvfs_opp();
 	met_vcorefs_info[INFO_FREQ_IDX] = get_cur_ddr_khz();
 	met_vcorefs_info[INFO_VCORE_IDX] = get_cur_vcore_uv();
-	met_vcorefs_info[INFO_SPM_LEVEL_IDX] = spm_get_dvfs_level();
+	met_vcorefs_info[INFO_SPM_LEVEL_IDX] = get_cur_vcore_dvfs_opp();
 
 	return met_vcorefs_info;
 }
