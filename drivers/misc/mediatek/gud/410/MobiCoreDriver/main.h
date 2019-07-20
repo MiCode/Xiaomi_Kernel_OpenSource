@@ -21,6 +21,7 @@
 #include <linux/mutex.h>
 #include <linux/version.h>
 #include <xen/xen.h>
+#include <mt-plat/met_drv.h>
 
 #define MC_VERSION(major, minor) \
 		((((major) & 0x0000ffff) << 16) | ((minor) & 0x0000ffff))
@@ -104,6 +105,47 @@ static inline bool is_xen_domu(void)
 #else
 	return false;
 #endif
+}
+
+/* TEE tracing support */
+//#define TEE_TRACING_ENABLED
+
+/* TEE tracing log prefix */
+#define TEE_BEGIN_TRACE         "tee_trace_begin"
+#define TEE_END_TRACE           "tee_trace_end"
+#define TEE_TRACING_MARK	"tee_tracing"
+
+/* [KTRACE] Begin-End */
+#define KATRACE_MESSAGE_LENGTH	1024
+#define BEGINED_PID		(current->tgid)
+
+static inline void tracing_mark_write(const char *buf)
+{
+	TRACE_PUTS(buf);
+}
+
+#define WRITE_MSG(format, pid, name) { \
+	char buf[KATRACE_MESSAGE_LENGTH]; \
+	int len = snprintf(buf, sizeof(buf), format, pid, name); \
+	if (len >= (int) sizeof(buf)) { \
+		int name_len = strlen(name) - (len - sizeof(buf)) - 1; \
+		pr_warn("Truncated name in %s: %s\n", __func__, name); \
+		len = snprintf(buf, sizeof(buf), "B|%d|%.*s", BEGINED_PID, \
+				name_len, name); \
+	} \
+	tracing_mark_write(buf); \
+}
+
+#define KATRACE_BEGIN(name)	katrace_begin_body(name)
+static inline void katrace_begin_body(const char *name)
+{
+	WRITE_MSG("B|%d|%s", BEGINED_PID, name);
+}
+
+#define KATRACE_END(name)	katrace_end(name)
+static inline void katrace_end(const char *name)
+{
+	WRITE_MSG("E|%d|%s", BEGINED_PID, name);
 }
 
 #endif /* _MC_MAIN_H_ */
