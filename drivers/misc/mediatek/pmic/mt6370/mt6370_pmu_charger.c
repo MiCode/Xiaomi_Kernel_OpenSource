@@ -1735,7 +1735,7 @@ err:
 	return ret;
 }
 
-static int mt6370_safety_check(struct charger_device *chg_dev)
+static int mt6370_safety_check(struct charger_device *chg_dev, u32 polling_ieoc)
 {
 	int ret = 0;
 	int adc_ibat = 0;
@@ -1749,15 +1749,15 @@ static int mt6370_safety_check(struct charger_device *chg_dev)
 		return ret;
 	}
 
-	if (adc_ibat <= 300000)
+	if (adc_ibat <= polling_ieoc)
 		counter++;
 	else
 		counter = 0;
 
-	/* If IBAT is less than 300mA for 3 times, trigger EOC event */
+	/* If IBAT is less than polling_ieoc for 3 times, trigger EOC event */
 	if (counter == 3) {
-		dev_info(chg_data->dev, "%s: true, ibat = %d\n", __func__,
-		adc_ibat);
+		dev_info(chg_data->dev, "%s: polling_ieoc = %d, ibat = %d\n",
+			__func__, polling_ieoc, adc_ibat);
 		charger_dev_notify(chg_data->chg_dev, CHARGER_DEV_NOTIFY_EOC);
 		counter = 0;
 	}
