@@ -203,6 +203,12 @@ struct iwcCmdqSecIspMeta {
 	uint64_t DmgiHandle;
 };
 
+/* extension flag for secure driver, must sync with def */
+enum sec_extension_iwc {
+	IWC_MDP_AAL = 0,
+	IWC_MDP_TDSHP,
+};
+
 struct iwcCmdqCommand_t {
 	/* basic execution data */
 	uint32_t thread;
@@ -225,6 +231,10 @@ struct iwcCmdqCommand_t {
 	/* metadata */
 	struct iwcCmdqMetadata_t metadata;
 	struct iwcCmdqSecIspMeta isp_metadata;
+
+	/* client extension bits */
+	uint64_t extension;
+	uint64_t readback_pa;
 
 	/* ISP share memory buffer */
 	uint32_t isp_lcei[CMDQ_SEC_ISP_LCEI_SIZE / sizeof(uint32_t)];
