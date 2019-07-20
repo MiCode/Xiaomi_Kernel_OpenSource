@@ -221,6 +221,10 @@ int gauge_enable_interrupt(int intr_number, int en)
 
 	desc = irq_to_desc(irq);
 
+	if (!desc)
+		return -EINVAL;
+
+
 	mutex_lock(&gm.pmic_intr_mutex);
 	depth = desc->depth;
 
@@ -1756,9 +1760,6 @@ static void nl_data_handler(struct sk_buff *skb)
 			return;
 	}
 
-	if (!fgd_ret_msg)
-		return;
-
 	memset(fgd_ret_msg, 0, size);
 
 	bmd_ctrl_cmd_from_user(data, fgd_ret_msg);
@@ -1802,11 +1803,6 @@ int wakeup_fg_algo(unsigned int flow_state)
 
 			if (fgd_msg == NULL)
 				return -1;
-		}
-
-		if (!fgd_msg) {
-/* bm_err("Error: wakeup_fg_algo() vmalloc fail!!!\n"); */
-			return -1;
 		}
 
 		bm_debug("[%s] malloc size=%d pid=%d cmd:%d\n",
@@ -1862,11 +1858,6 @@ int wakeup_fg_algo_cmd(unsigned int flow_state, int cmd, int para1)
 
 			if (fgd_msg == NULL)
 				return -1;
-		}
-
-		if (!fgd_msg) {
-/* bm_err("Error: wakeup_fg_algo() vmalloc fail!!!\n"); */
-			return -1;
 		}
 
 		bm_debug(
