@@ -187,6 +187,7 @@ static long ion_sys_cache_sync(struct ion_client *client,
 				IONMSG("error: vm_struct is NULL!\n");
 				mutex_unlock(&ion_cache_sync_lock);
 				mutex_unlock(&client->lock);
+				ion_drv_put_kernel_handle(kernel_handle);
 				return -ENOMEM;
 			}
 
@@ -214,6 +215,8 @@ static long ion_sys_cache_sync(struct ion_client *client,
 						mutex_unlock
 						    (&ion_cache_sync_lock);
 						mutex_unlock(&client->lock);
+						ion_drv_put_kernel_handle(
+							kernel_handle);
 						return -EFAULT;
 					}
 
@@ -344,6 +347,7 @@ long ion_dma_op(struct ion_client *client, struct ion_dma_param *param,
 		IONMSG("error: cache_map_vm_st is NULL, no vmalloc area\n");
 		mutex_unlock(&ion_cache_sync_lock);
 		mutex_unlock(&client->lock);
+		ion_drv_put_kernel_handle(kernel_handle);
 		return -ENOMEM;
 	}
 
@@ -365,6 +369,7 @@ long ion_dma_op(struct ion_client *client, struct ion_dma_param *param,
 				       start);
 				mutex_unlock(&ion_cache_sync_lock);
 				mutex_unlock(&client->lock);
+				ion_drv_put_kernel_handle(kernel_handle);
 				return -EFAULT;
 			}
 
