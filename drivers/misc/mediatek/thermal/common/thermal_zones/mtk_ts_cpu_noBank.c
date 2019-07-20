@@ -253,12 +253,15 @@ mt_gpufreq_get_max_power(void)
 	return 0;
 }
 
-	int __attribute__ ((weak))
+#if !defined(CONFIG_MEDIATEK_MT6577_AUXADC)
+int __attribute__ ((weak))
 IMM_IsAdcInitReady(void)
 {
 	pr_notice("E_WF: %s doesn't exist\n", __func__);
 	return 0;
 }
+#endif
+
 #if 0
 #if defined(ATM_USES_PPM)
 	void __attribute__ ((weak))
@@ -1500,6 +1503,9 @@ static int tscpu_thermal_suspend
 #endif
 
 		/*TSCON1[5:4]=2'b11, Buffer off */
+		/*
+		 *mt6768 TSCON0[29:28]=2'b11, Buffer off
+		 */
 		/* turn off the sensor buffer to save power */
 		mt_reg_sync_writel(readl(TS_CONFIGURE) | TS_TURN_OFF,
 								TS_CONFIGURE);
@@ -1537,15 +1543,19 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 #endif
 		tscpu_reset_thermal();
 		/*
-		 *  TS_CON1 default is 0x30, this is buffer off
+		 *  TS_CON0[29:28] default is 0x03, this is buffer off
 		 *  we should turn on this buffer berore we use thermal sensor,
 		 *  or this buffer off will let TC read a very small value
 		 *  from auxadc and this small value will trigger thermal reboot
 		 */
 		temp = readl(TS_CONFIGURE);
 
-		/* TS_CON1[5:4]=2'b00,   00: Buffer on, TSMCU to AUXADC */
-		temp &= ~(TS_TURN_OFF);
+
+		/*
+		 * Please set TS_CON0[29:28]=2'b00 before perform
+		 * thermal measurement. It requires 100uS wait time
+		 */
+		temp &= ~(TS_TURN_OFF); //0x30000000
 
 		mt_reg_sync_writel(temp, TS_CONFIGURE);	/* read abb need */
 		/* RG_TS2AUXADC < set from 2'b11 to 2'b00
@@ -2184,11 +2194,28 @@ static void init_thermal(void)
 	 *  or this buffer off will let TC read a very small value from auxadc
 	 *  and this small value will trigger thermal reboot
 	 */
+
+	/*
+	 *  mt6768 TS_CON0 default is 2'b00, this is buffer off
+	 *  we should turn on this buffer berore we use thermal sensor,
+	 *  or this buffer off will let TC read a very small value from auxadc
+	 *  and this small value will trigger thermal reboot
+	 */
 	temp = readl(TS_CONFIGURE);
 
-	temp &= ~(TS_TURN_OFF);	/* TS_CON1[5:4]=2'b00,   00: Buffer on,
-				 *	TSMCU to AUXADC
-				 */
+
+	/*
+	 * TS_CON1[5:4]=2'b00,   00: Buffer on,
+	 *	TSMCU to AUXADC
+	 */
+
+	/*
+	 * mt6768 TS_CON0[29:28]=2'b00,   00: Buffer on,
+	 *	TSMCU to AUXADC
+	 */
+	temp &= ~(TS_TURN_OFF);
+
+
 
 	mt_reg_sync_writel(temp, TS_CONFIGURE);	/* read abb need */
 	/* RG_TS2AUXADC < set from 2'b11 to 2'b00
@@ -2198,7 +2225,9 @@ static void init_thermal(void)
 
 	WARN_ON_ONCE((readl(TS_CONFIGURE) & TS_TURN_OFF) != 0x0);
 
+#if !defined(CONFIG_MEDIATEK_MT6577_AUXADC)
 	WARN_ON_ONCE(IMM_IsAdcInitReady() != 1);
+#endif
 
 	/* add this function to read all temp first to avoid
 	 * write TEMPPROTTC first will issue an fake signal to RGU
