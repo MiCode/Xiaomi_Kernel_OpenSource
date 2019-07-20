@@ -1088,7 +1088,8 @@ int32_t cmdq_sec_submit_to_secure_world_async_unlocked(uint32_t iwcCommand,
 		}
 
 		/* always check and lunch irq notify loop thread */
-		cmdq_sec_irq_notify_start();
+		if (pTask)
+			cmdq_sec_irq_notify_start();
 
 		if (cmdq_sec_setup_context_session(handle) < 0) {
 			status = -(CMDQ_ERR_SEC_CTX_SETUP);
