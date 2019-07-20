@@ -1010,6 +1010,22 @@ int tscpu_get_min_gpu_pwr(void)
 }
 EXPORT_SYMBOL(tscpu_get_min_gpu_pwr);
 
+#if defined(THERMAL_VPU_SUPPORT)
+int tscpu_get_min_vpu_pwr(void)
+{
+	return MINIMUM_VPU_POWER;
+}
+EXPORT_SYMBOL(tscpu_get_min_vpu_pwr);
+#endif
+
+#if defined(THERMAL_MDLA_SUPPORT)
+int tscpu_get_min_mdla_pwr(void)
+{
+	return MINIMUM_MDLA_POWER;
+}
+EXPORT_SYMBOL(tscpu_get_min_mdla_pwr);
+#endif
+
 #if CONTINUOUS_TM
 /**
  * @brief update cATM+ ttj control loop parameters

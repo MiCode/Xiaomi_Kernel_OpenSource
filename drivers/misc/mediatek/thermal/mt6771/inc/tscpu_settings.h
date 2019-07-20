@@ -118,7 +118,7 @@
 #define CFG_THERM_LVTS							(0)
 
 /* Thermal VPU throttling support */
-#define THERMAL_VPU_SUPPORT
+/* #define THERMAL_VPU_SUPPORT */
 
 /* EARA_Thermal power budget allocation support */
 #define EARA_THERMAL_SUPPORT
