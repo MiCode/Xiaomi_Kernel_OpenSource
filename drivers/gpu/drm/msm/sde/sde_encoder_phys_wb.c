@@ -147,12 +147,13 @@ static void sde_encoder_phys_wb_set_qos_remap(
 	qos_params.xin_id = hw_wb->caps->xin_id;
 	qos_params.clk_ctrl = hw_wb->caps->clk_ctrl;
 	qos_params.num = hw_wb->idx - WB_0;
-	qos_params.is_rt = sde_crtc_get_client_type(crtc) != NRT_CLIENT;
+	qos_params.client_type = phys_enc->in_clone_mode ?
+					VBIF_CWB_CLIENT : VBIF_NRT_CLIENT;
 
-	SDE_DEBUG("[qos_remap] wb:%d vbif:%d xin:%d rt:%d\n",
+	SDE_DEBUG("[qos_remap] wb:%d vbif:%d xin:%d rt:%d clone:%d\n",
 			qos_params.num,
 			qos_params.vbif_idx,
-			qos_params.xin_id, qos_params.is_rt);
+			qos_params.xin_id, qos_params.client_type);
 
 	sde_vbif_set_qos_remap(phys_enc->sde_kms, &qos_params);
 }
@@ -205,11 +206,19 @@ static void sde_encoder_phys_wb_set_qos(struct sde_encoder_phys *phys_enc)
 	qos_cfg.danger_safe_en = true;
 	qos_cfg.danger_lut =
 		catalog->perf.danger_lut_tbl[SDE_QOS_LUT_USAGE_NRT];
-	qos_cfg.safe_lut =
-		(u32) _sde_encoder_phys_wb_get_qos_lut(
+
+	if (phys_enc->in_clone_mode)
+		qos_cfg.safe_lut = (u32) _sde_encoder_phys_wb_get_qos_lut(
+			&catalog->perf.sfe_lut_tbl[SDE_QOS_LUT_USAGE_CWB], 0);
+	else
+		qos_cfg.safe_lut = (u32) _sde_encoder_phys_wb_get_qos_lut(
 			&catalog->perf.sfe_lut_tbl[SDE_QOS_LUT_USAGE_NRT], 0);
-	qos_cfg.creq_lut =
-		_sde_encoder_phys_wb_get_qos_lut(
+
+	if (phys_enc->in_clone_mode)
+		qos_cfg.creq_lut = _sde_encoder_phys_wb_get_qos_lut(
+			&catalog->perf.qos_lut_tbl[SDE_QOS_LUT_USAGE_CWB], 0);
+	else
+		qos_cfg.creq_lut = _sde_encoder_phys_wb_get_qos_lut(
 			&catalog->perf.qos_lut_tbl[SDE_QOS_LUT_USAGE_NRT], 0);
 
 	if (hw_wb->ops.setup_danger_safe_lut)

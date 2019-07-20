@@ -1919,14 +1919,13 @@ static int _sde_encoder_update_rsc_client(
 		qsync_mode = sde_connector_get_qsync_mode(
 				sde_enc->cur_master->connector);
 
-	if (sde_encoder_in_clone_mode(drm_enc))
+	if (sde_encoder_in_clone_mode(drm_enc) || !disp_info->is_primary ||
+			  (disp_info->is_primary && qsync_mode))
 		rsc_state = enable ? SDE_RSC_CLK_STATE : SDE_RSC_IDLE_STATE;
-	else
-		rsc_state = enable ?
-			(((disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE)
-			  && disp_info->is_primary && !qsync_mode) ?
-			 SDE_RSC_CMD_STATE : SDE_RSC_VID_STATE) :
-			SDE_RSC_IDLE_STATE;
+	else if (disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE)
+		rsc_state = enable ? SDE_RSC_CMD_STATE : SDE_RSC_IDLE_STATE;
+	else if (disp_info->capabilities & MSM_DISPLAY_CAP_VID_MODE)
+		rsc_state = enable ? SDE_RSC_VID_STATE : SDE_RSC_IDLE_STATE;
 
 	SDE_EVT32(rsc_state, qsync_mode);
 
@@ -3272,15 +3271,16 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 		input_unregister_handler(sde_enc->input_handler);
 
 	/*
-	 * For primary command mode encoders, execute the resource control
-	 * pre-stop operations before the physical encoders are disabled, to
-	 * allow the rsc to transition its states properly.
+	 * For primary command mode and video mode encoders, execute the
+	 * resource control pre-stop operations before the physical encoders
+	 * are disabled, to allow the rsc to transition its states properly.
 	 *
 	 * For other encoder types, rsc should not be enabled until after
 	 * they have been fully disabled, so delay the pre-stop operations
 	 * until after the physical disable calls have returned.
 	 */
-	if (sde_enc->disp_info.is_primary && intf_mode == INTF_MODE_CMD) {
+	if (sde_enc->disp_info.is_primary &&
+	    (intf_mode == INTF_MODE_CMD || intf_mode == INTF_MODE_VIDEO)) {
 		sde_encoder_resource_control(drm_enc,
 				SDE_ENC_RC_EVENT_PRE_STOP);
 		for (i = 0; i < sde_enc->num_phys_encs; i++) {
@@ -5306,7 +5306,8 @@ struct drm_encoder *sde_encoder_init_with_ops(
 	struct sde_encoder_virt *sde_enc = NULL;
 	int drm_enc_mode = DRM_MODE_ENCODER_NONE;
 	char name[SDE_NAME_SIZE];
-	int ret = 0;
+	int ret = 0, i, intf_index = INTF_MAX;
+	struct sde_encoder_phys *phys = NULL;
 
 	sde_enc = kzalloc(sizeof(*sde_enc), GFP_KERNEL);
 	if (!sde_enc) {
@@ -5335,9 +5336,17 @@ struct drm_encoder *sde_encoder_init_with_ops(
 				sde_encoder_vsync_event_handler,
 				(unsigned long)sde_enc);
 
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		phys = sde_enc->phys_encs[i];
+		if (!phys)
+			continue;
+		if (phys->ops.is_master && phys->ops.is_master(phys))
+			intf_index = phys->intf_idx - INTF_0;
+	}
 	snprintf(name, SDE_NAME_SIZE, "rsc_enc%u", drm_enc->base.id);
 	sde_enc->rsc_client = sde_rsc_client_create(SDE_RSC_INDEX, name,
-					disp_info->is_primary);
+		disp_info->is_primary ? SDE_RSC_PRIMARY_DISP_CLIENT :
+		SDE_RSC_EXTERNAL_DISP_CLIENT, intf_index);
 	if (IS_ERR_OR_NULL(sde_enc->rsc_client)) {
 		SDE_DEBUG("sde rsc client create failed :%ld\n",
 						PTR_ERR(sde_enc->rsc_client));
