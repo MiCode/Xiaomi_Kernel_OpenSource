@@ -178,6 +178,8 @@ int set_shutdown_cond(int shutdown_cond)
 	if (shutdown_cond_flag == 2 && shutdown_cond != LOW_BAT_VOLT)
 		return 0;
 
+	if (shutdown_cond_flag == 3 && shutdown_cond != DLPT_SHUTDOWN)
+		return 0;
 
 	switch (shutdown_cond) {
 	case OVERHEAT:
