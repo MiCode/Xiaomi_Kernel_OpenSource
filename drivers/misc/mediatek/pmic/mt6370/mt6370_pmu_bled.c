@@ -288,13 +288,22 @@ static void mt6370_pmu_bled_bright_set(struct led_classdev *led_cdev,
 				dev_get_drvdata(led_cdev->dev->parent);
 	struct mt6370_pmu_bled_platdata *pdata =
 				dev_get_platdata(bled_data->dev);
+	struct mt6370_pmu_chip *chip = bled_data->chip;
 	uint32_t bright = (pdata->max_bled_brightness << 8) / 255;
 	int ret = 0;
 
 	dev_dbg(led_cdev->dev, "%s: %d\n", __func__, brightness);
 	bright = (bright * brightness) >> 8;
-	ret = mt6370_pmu_reg_update_bits(bled_data->chip, MT6370_PMU_REG_BLDIM2,
-					 MT6370_DIM2_MASK, bright & 0x7);
+	if (chip->chip_vid == 0x90 || chip->chip_vid == 0xB0)
+		ret = mt6370_pmu_reg_update_bits(bled_data->chip,
+						 MT6370_PMU_REG_BLDIM2,
+						 0x3F,
+						 (bright & 0x7) << 3);
+	else
+		ret = mt6370_pmu_reg_update_bits(bled_data->chip,
+						 MT6370_PMU_REG_BLDIM2,
+						 MT6370_DIM2_MASK,
+						 (bright & 0x7));
 	if (ret < 0)
 		goto out_bright_set;
 	ret = mt6370_pmu_reg_write(bled_data->chip, MT6370_PMU_REG_BLDIM1,
@@ -399,6 +408,7 @@ static inline int mt6370_pmu_bled_parse_initdata(
 {
 	struct mt6370_pmu_bled_platdata *pdata = dev_get_platdata(
 							bled_data->dev);
+	struct mt6370_pmu_chip *chip = bled_data->chip;
 	uint32_t bright = (pdata->max_bled_brightness << 8) / 255;
 
 	if (pdata->ext_en_pin) {
@@ -417,7 +427,11 @@ static inline int mt6370_pmu_bled_parse_initdata(
 	bled_init_data[2] |= (pdata->pwm_hys << MT6370_BLED_PWMHSHFT);
 	bled_init_data[3] |= (pdata->bled_ramptime << MT6370_BLED_RAMPTSHFT);
 	bright = (bright * 255) >> 8;
-	bled_init_data[4] |= (bright & 0x7);
+	/* Set bled dimension 11 or 14 bits */
+	if (chip->chip_vid == 0x90 || chip->chip_vid == 0xB0)
+		bled_init_data[4] |= ((bright & 0x7) << 3);
+	else
+		bled_init_data[4] |= (bright & 0x7);
 	bled_init_data[5] |= ((bright >> 3) & 0xff);
 	bled_init_data[7] |= (pdata->bled_flash_ramp << MT6370_BLFLRAMP_SHFT);
 	bled_init_data[10] |= (pdata->pwm_avg_cycle);
