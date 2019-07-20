@@ -1030,6 +1030,10 @@ int m4u_config_prog_dist(int port,
 	struct M4U_PROG_DIST *pProgPfh;
 
 	larb = m4u_port_2_larb_id(port);
+	if (unlikely(larb >= SMI_LARB_NR)) {
+		M4UMSG("%s %d err port[%d]\n", __func__, __LINE__, port);
+		return -1;
+	}
 	larb_port = m4u_port_2_larb_port(port);
 	larb_base = gLarbBaseAddr[larb];
 
@@ -1325,6 +1329,11 @@ static int _m4u_config_port(int port, int virt, int sec, int dis, int dir)
 		int mmu_en = 0;
 
 		larb = m4u_port_2_larb_id(port);
+		if (unlikely(larb >= SMI_LARB_NR)) {
+			M4UMSG("%s %d err port[%d]\n",
+				__func__, __LINE__, port);
+			return -1;
+		}
 		larb_port = m4u_port_2_larb_port(port);
 		larb_base = gLarbBaseAddr[larb];
 		m4uHw_set_field_by_mask(larb_base,
@@ -1391,13 +1400,17 @@ int m4u_config_port(
 {
 	int PortID = (pM4uPort->ePortID);
 	int m4u_index = m4u_port_2_m4u_id(PortID);
-	int larb = m4u_port_2_larb_id(PortID);
+	unsigned int larb = m4u_port_2_larb_id(PortID);
 
 	int ret;
 #ifdef M4U_TEE_SERVICE_ENABLE
 	unsigned int larb_port, mmu_en = 0, sec_en = 0;
 #endif
 
+	if (unlikely(larb >= SMI_LARB_NR)) {
+		M4UMSG("%s %d err port[%d]\n", __func__, __LINE__, PortID);
+		return -1;
+	}
 	_m4u_port_clock_toggle(m4u_index, larb, 1);
 
 
