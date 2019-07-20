@@ -15,12 +15,16 @@
 #include <linux/fdtable.h>
 #include <linux/interrupt.h>
 #include <linux/uaccess.h>
+#include <linux/wait.h>
+#include <media/v4l2-mem2mem.h>
 #include "mtk_vcodec_dec_pm.h"
+#include "mtk_vcodec_dec.h"
 #include "mtk_vcodec_drv.h"
 #include "mtk_vcodec_intr.h"
 #include "mtk_vcodec_util.h"
 #include "vdec_ipi_msg.h"
 #include "vdec_vcu_if.h"
+#include "vdec_drv_if.h"
 
 // ALWAYS disable IOMMU_V2 before IT done
 #ifdef CONFIG_MTK_IOMMU_V2
@@ -100,13 +104,17 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 	}
 
 	spin_lock(&f->file_lock);
-	if ((!lock_task_sighand(task, &irqs)) ||
-		probe_kernel_address(files_fdtable(f), fdt)) {
+	if (probe_kernel_address(files_fdtable(f), fdt)) {
 		spin_unlock(&f->file_lock);
 		vcu_put_file_lock();
 		return -EMFILE;
 	}
 	spin_unlock(&f->file_lock);
+
+	if (!lock_task_sighand(task, &irqs)) {
+		vcu_put_file_lock();
+		return -EMFILE;
+	}
 
 	rlim_cur = task_rlimit(task, RLIMIT_NOFILE);
 	unlock_task_sighand(task, &irqs);
@@ -152,10 +160,15 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 {
 	struct vdec_vcu_ipi_ack *msg = data;
 	struct vdec_vcu_inst *vcu = NULL;
-	int ret = 0;
+	struct vdec_fb *pfb;
 	struct timeval t_s, t_e;
 	struct task_struct *task = NULL;
 	struct files_struct *f = NULL;
+	struct vdec_vsi *vsi;
+	uint64_t vdec_fb_va;
+	long timeout_jiff;
+	int ret = 0;
+	int i = 0;
 
 	vcu_get_file_lock();
 	vcu_get_task(&task, &f, 0);
@@ -168,6 +181,7 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	}
 
 	vcu = (struct vdec_vcu_inst *)(unsigned long)msg->ap_inst_addr;
+	vsi = (struct vdec_vsi *)vcu->vsi;
 	mtk_vcodec_debug(vcu, "+ id=%X status = %d\n",
 		msg->msg_id, msg->status);
 
@@ -200,24 +214,91 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 				(t_e.tv_usec - t_s.tv_usec));
 			ret = 1;
 			break;
-		case VCU_IPIMSG_DEC_CLOCK_ON:
-			/* TEST: need to remove v4l2 code to do experiment.
-			 * It may be removed later
-			 */
-			mtk_vcodec_dec_clock_on(&vcu->ctx->dev->pm);
-			enable_irq(vcu->ctx->dev->dec_irq);
+		case VCU_IPIMSG_DEC_LOCK_LAT:
+			vdec_decode_prepare(vcu->ctx, MTK_VDEC_LAT);
 			ret = 1;
 			break;
-		case VCU_IPIMSG_DEC_CLOCK_OFF:
-			/* TEST: need to remove v4l2 code to do experiment.
-			 * It may be removed later
-			 */
-			disable_irq(vcu->ctx->dev->dec_irq);
-			mtk_vcodec_dec_clock_off(&vcu->ctx->dev->pm);
+		case VCU_IPIMSG_DEC_UNLOCK_LAT:
+			vdec_decode_unprepare(vcu->ctx, MTK_VDEC_LAT);
+			ret = 1;
+			break;
+		case VCU_IPIMSG_DEC_LOCK_CORE:
+			vdec_decode_prepare(vcu->ctx, MTK_VDEC_CORE);
+			ret = 1;
+			break;
+		case VCU_IPIMSG_DEC_UNLOCK_CORE:
+			vdec_decode_unprepare(vcu->ctx, MTK_VDEC_CORE);
 			ret = 1;
 			break;
 		case VCU_IPIMSG_DEC_GET_FRAME_BUFFER:
-			/* TODO: return til it can get available frame buffer */
+			mtk_vcodec_debug(vcu, "+ try get fm form rdy q size=%d\n",
+				v4l2_m2m_num_dst_bufs_ready(vcu->ctx->m2m_ctx));
+
+			pfb = mtk_vcodec_get_fb(vcu->ctx);
+			timeout_jiff = msecs_to_jiffies(1000);
+				/* 1s timeout*/
+			while (pfb == NULL) {
+				ret = wait_event_interruptible_timeout(
+					vcu->ctx->fm_wq,
+					 v4l2_m2m_num_dst_bufs_ready(
+						 vcu->ctx->m2m_ctx) > 0 ||
+					 vcu->ctx->state == MTK_STATE_FLUSH,
+					 timeout_jiff);
+				pfb = mtk_vcodec_get_fb(vcu->ctx);
+				if (vcu->ctx->state == MTK_STATE_FLUSH ||
+					ret == 0)
+					break;
+			}
+			mtk_vcodec_debug(vcu, "- wait get fm pfb=0x%p\n", pfb);
+
+			vdec_fb_va = (u64)pfb;
+			vsi->dec.vdec_fb_va = vdec_fb_va;
+			if (pfb != NULL) {
+				vsi->dec.index = pfb->index;
+				for (i = 0; i < pfb->num_planes; i++) {
+					vsi->dec.fb_dma[i] =  pfb ? (u64)
+						pfb->fb_base[i].dma_addr : 0;
+					vsi->dec.fb_fd[i] = (uint64_t)
+						get_mapped_fd(
+							pfb->fb_base[i].dmabuf);
+					mtk_vcodec_debug(vcu, "+ vsi->dec.fb_fd[%d]:%llx\n",
+						i, vsi->dec.fb_fd[i]);
+				}
+			} else {
+				vsi->dec.index = 0xFF;
+				mtk_vcodec_err(vcu, "Cannot get frame buffer from V4l2\n");
+			}
+			mtk_vcodec_debug(vcu, "+ FB y_fd=%llx c_fd=%llx BS fd=0x%llx index:%d vdec_fb_va:%llx,dma_addr(%llx,%llx)",
+				vsi->dec.fb_fd[0], vsi->dec.fb_fd[1],
+				vsi->dec.bs_fd, vsi->dec.index,
+				vsi->dec.vdec_fb_va,
+				vsi->dec.fb_dma[0], vsi->dec.fb_dma[1]);
+
+#ifdef SVP_NORMAL_SUPPORT
+			if (vcu->ctx->dec_params.svp_mode == 0 &&
+				vcu->ctx->dev->dec_irq != 0) {
+				ret = devm_request_irq(
+					&vcu->ctx->dev->plat_dev->dev,
+					vcu->ctx->dev->dec_irq,
+					mtk_vcodec_dec_irq_handler, 0,
+					vcu->ctx->dev->plat_dev->name,
+					vcu->ctx->dev);
+				vcu->ctx->dev->reqst_irq = true;
+				mtk_vcodec_debug(vcu, "Requset irq:%d ok,rqst_irq:%d",
+					vcu->ctx->dev->dec_irq,
+					vcu->ctx->dev->reqst_irq);
+				if (ret) {
+					mtk_vcodec_err(vcu, "Failed to install dev->dec_irq %d (%d)",
+					vcu->ctx->dev->dec_irq,
+					ret);
+					return -EINVAL;
+				}
+			}
+#endif
+			ret = 1;
+			break;
+		case VCU_IPIMSG_DEC_PUT_FRAME_BUFFER:
+			mtk_vdec_put_fb(vcu->ctx, msg->msg_id);
 			ret = 1;
 			break;
 		default:
@@ -404,6 +485,16 @@ int vcu_dec_set_ctx_for_gce(struct vdec_vcu_inst *vcu)
 	int err = 0;
 
 	vcu_set_codec_ctx(vcu->dev,
+		(void *)vcu->ctx, VCU_VDEC);
+
+	return err;
+}
+
+int vcu_dec_clear_ctx_for_gce(struct vdec_vcu_inst *vcu)
+{
+	int err = 0;
+
+	vcu_clear_codec_ctx(vcu->dev,
 		(void *)vcu->ctx, VCU_VDEC);
 
 	return err;

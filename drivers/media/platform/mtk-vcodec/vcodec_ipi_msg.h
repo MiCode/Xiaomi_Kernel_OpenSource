@@ -17,6 +17,21 @@
 #define _VCODEC_IPI_MSG_H_
 
 #include <linux/videodev2.h>
+#include <linux/v4l2-controls.h>
+#include "videodev2.h"
+#include "v4l2-controls.h"
+
+enum mtk_venc_hw_id {
+	MTK_VENC_CORE_0 = 0,
+	MTK_VENC_CORE_1 = 1,
+	MTK_VENC_HW_NUM = 2,
+};
+
+enum mtk_vdec_hw_id {
+	MTK_VDEC_CORE = 0,
+	MTK_VDEC_LAT = 1,
+	MTK_VDEC_HW_NUM = 2,
+};
 
 enum mtk_fmt_type {
 	MTK_FMT_DEC = 0,

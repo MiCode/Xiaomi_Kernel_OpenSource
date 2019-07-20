@@ -55,8 +55,8 @@ struct mtk_video_enc_buf {
 extern const struct v4l2_ioctl_ops mtk_venc_ioctl_ops;
 extern const struct v4l2_m2m_ops mtk_venc_m2m_ops;
 
-int mtk_venc_unlock(struct mtk_vcodec_ctx *ctx);
-int mtk_venc_lock(struct mtk_vcodec_ctx *ctx);
+void mtk_venc_unlock(struct mtk_vcodec_ctx *ctx, u32 hw_id);
+void mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id);
 int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	struct vb2_queue *dst_vq);
 void mtk_vcodec_enc_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx);

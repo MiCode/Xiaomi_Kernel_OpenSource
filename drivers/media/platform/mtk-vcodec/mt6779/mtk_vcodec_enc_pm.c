@@ -57,6 +57,11 @@ static struct mm_qos_request venc_ref_luma;
 static struct mm_qos_request venc_ref_chroma;
 #endif
 
+void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
+{
+	ctx->use_gce = 0;
+}
+
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 {
 	int ret = 0;
@@ -123,7 +128,7 @@ void mtk_vcodec_release_enc_pm(struct mtk_vcodec_dev *mtkdev)
 	free_all_bw(&venc_bw);
 }
 
-void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm)
+void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
 {
 #ifndef FPGA_PWRCLK_API_DISABLE
 	int ret;
@@ -135,7 +140,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm)
 #endif
 }
 
-void mtk_vcodec_enc_clock_off(struct mtk_vcodec_pm *pm)
+void mtk_vcodec_enc_clock_off(struct mtk_vcodec_pm *pm, int core_id)
 {
 #ifndef FPGA_PWRCLK_API_DISABLE
 	clk_disable_unprepare(pm->clk_MT_CG_VENC);
@@ -242,7 +247,7 @@ void mtk_venc_dvfs_end(struct mtk_vcodec_ctx *ctx)
 	venc_cur_job = venc_jobs;
 	if (venc_cur_job != 0 && (venc_cur_job->handle == &ctx->id)) {
 		venc_cur_job->end = get_time_us();
-		if (ctx->slowmotion == 0) {
+		if (ctx->use_gce == 0) {
 			update_hist(venc_cur_job, &venc_hists, 0);
 		} else {
 			/* Set allowed time for slowmotion 4 buffer pack */
@@ -282,7 +287,7 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 
 	cur_bw = add_bw_by_id(&venc_bw, ctx->id);
 
-	if (ctx->slowmotion == 1 ||
+	if (ctx->use_gce == 1 ||
 		ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H265) {
 		boost_perc = 100;
 	}
@@ -408,7 +413,7 @@ void mtk_venc_emi_bw_end(struct mtk_vcodec_ctx *ctx)
 #endif
 }
 
-void mtk_venc_pmqos_prelock(struct mtk_vcodec_ctx *ctx)
+void mtk_venc_pmqos_prelock(struct mtk_vcodec_ctx *ctx, int core_id)
 {
 	mutex_lock(&ctx->dev->enc_dvfs_mutex);
 	add_job(&ctx->id, &venc_jobs);
