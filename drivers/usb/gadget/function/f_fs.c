@@ -1186,6 +1186,10 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 			ret = __ffs_epfile_read_data(epfile, data, ep->status,
 					&io_data->data);
 		}
+
+		if (!io_data->read)
+			write_out++;
+
 		goto error_mutex;
 	} else if (!(req = usb_ep_alloc_request(ep->ep, GFP_ATOMIC))) {
 		ret = -ENOMEM;
@@ -1221,9 +1225,6 @@ error_mutex:
 	mutex_unlock(&epfile->mutex);
 error:
 	kfree(data);
-
-	if (!io_data->read && !io_data->aio)
-		write_out++;
 
 	return ret;
 }
