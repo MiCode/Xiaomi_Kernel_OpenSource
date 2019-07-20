@@ -291,7 +291,6 @@ extern char *ppm_copy_from_user_for_proc(
 
 /* platform dependent APIs */
 extern void ppm_update_req_by_pwr(struct ppm_policy_req *req);
-extern int ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status);
 extern int ppm_get_min_pwr_idx(void);
 extern int ppm_get_max_pwr_idx(void);
 
