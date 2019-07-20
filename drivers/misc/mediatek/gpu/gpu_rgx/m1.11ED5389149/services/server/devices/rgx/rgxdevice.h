@@ -392,6 +392,7 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 
 	DEVMEM_MEMDESC			*psRGXFWIfTBIBufferMemDesc;	/*!< memdesc of actual FW TBI buffer */
 	RGXFWIF_DEV_VIRTADDR		sRGXFWIfTBIBuffer;		/* TBI buffer data */
+    IMG_UINT32			ui32FWIfTBIBufferSize;
 
 	DEVMEM_MEMDESC			*psRGXFWIfHWRInfoBufCtlMemDesc;
 	RGXFWIF_HWRINFOBUF		*psRGXFWIfHWRInfoBuf;

@@ -1166,34 +1166,16 @@ static void _RGXDecodeBIFReqTags(PVRSRV_RGXDEV_INFO	*psDevInfo,
 		}
 		case 0x5:
 		{
-			if (RGX_IS_FEATURE_SUPPORTED(psDevInfo, CLUSTER_GROUPING))
-			{
-				pszTagID = "PBE";
-			}else
-			{
-				pszTagID = "PBE";
-				break;
-			}
+			pszTagID = "PBE";
 			break;
 		}
 		case 0x6:
 		{
-			if (RGX_IS_FEATURE_SUPPORTED(psDevInfo, CLUSTER_GROUPING))
+			pszTagID = "ISP";
+			switch (ui32TagSB)
 			{
-				pszTagID = "ISP";
-				switch (ui32TagSB)
-				{
-					case 0x00: pszTagSB = "ZLS"; break;
-					case 0x20: pszTagSB = "Occlusion Query"; break;
-				}
-			}else
-			{
-				pszTagID = "ISP";
-				switch (ui32TagSB)
-				{
-					case 0x00: pszTagSB = "ZLS"; break;
-					case 0x20: pszTagSB = "Occlusion Query"; break;
-				}
+				case 0x00: pszTagSB = "ZLS"; break;
+				case 0x20: pszTagSB = "Occlusion Query"; break;
 			}
 			break;
 		}
@@ -4488,7 +4470,7 @@ void RGXDumpFirmwareTrace(DUMPDEBUG_PRINTF_FUNC *pfnDumpDebugPrintf,
 					 * printf function will be able to use. We have already checked
 					 * that no string uses more than this.
 					 */
-					OSStringCopy(&szBuffer[OSStringLength(szBuffer)], SFs[ui32DataToId].sName);
+					OSStringCopy(&szBuffer[OSStringLength(szBuffer)], SFs[ui32DataToId].psName);
 					uiLen = OSStringLength(szBuffer);
 					szBuffer[uiLen ? uiLen - 1 : 0] = '\0';
 					ui64Timestamp = (IMG_UINT64)(pui32TraceBuf[(ui32TracePtr + 0) % ui32TraceBufSizeInDWords]) << 32 |

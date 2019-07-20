@@ -1,9 +1,9 @@
 /*************************************************************************/ /*!
 @File           fwtrace_string.h
-@Title          RGX Firmware trace strings
+@Title          RGX Firmware trace strings for KM
 @Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
 @Platform       Generic
-@Description    This file defines SFs tuple
+@Description    This file defines SFs tuple.
 @License        Dual MIT/GPLv2
 
 The contents of this file are subject to the MIT license as set out below.
@@ -41,17 +41,17 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */ /**************************************************************************/
-#ifndef _FW_TRACE_STRING_H_
-#define _FW_TRACE_STRING_H_
+#ifndef _KM_TRACE_STRING_H_
+#define _KM_TRACE_STRING_H_
 
 #include "rgx_fwif_sf.h"
 
 /*  The tuple pairs that will be generated using XMacros will be stored here.
  *   This macro definition must match the definition of SFids in rgx_fwif_sf.h */
-static const RGXFW_STID_FMT SFs[]= {
+static const RGXKM_STID_FMT SFs[]= {
 #define X(a, b, c, d, e) { RGXFW_LOG_CREATESFID(a,b,e) , d },
 	RGXFW_LOG_SFIDLIST
 #undef X
 };
 
-#endif /* _FW_TRACE_STRING_H_ */
+#endif /* _KM_TRACE_STRING_H_ */

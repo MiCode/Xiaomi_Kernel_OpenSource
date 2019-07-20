@@ -1551,6 +1551,7 @@ static void RGXTBIBufferDeinit(PVRSRV_RGXDEV_INFO *psDevInfo)
 {
 	DevmemFwFree(psDevInfo, psDevInfo->psRGXFWIfTBIBufferMemDesc);
 	psDevInfo->psRGXFWIfTBIBufferMemDesc = NULL;
+    psDevInfo->ui32RGXFWIfHWPerfBufSize = 0;
 }
 
 /*************************************************************************/ /*!
@@ -1567,8 +1568,10 @@ PVRSRV_ERROR RGXTBIBufferInitOnDemandResources(PVRSRV_RGXDEV_INFO *psDevInfo)
 {
 	DEVMEM_FLAGS_T     uiMemAllocFlags;
 	PVRSRV_ERROR       eError = PVRSRV_OK;
-	IMG_UINT32         ui32FWTBIBufsize = sizeof(SFs);
-	IMG_PUINT32        pui32TBIBuffer = NULL;
+	IMG_UINT32         i, ui32Len;
+	const IMG_UINT32   ui32NumFWTBIEntries = sizeof(SFs) / sizeof(SFs[0]);
+	const IMG_UINT32   ui32FWTBIBufsize = ui32NumFWTBIEntries * sizeof(RGXFW_STID_FMT);
+	RGXFW_STID_FMT     *psFW_SFs = NULL;
 
 	uiMemAllocFlags = PVRSRV_MEMALLOCFLAG_DEVICE_FLAG(PMMETA_PROTECT) |
 			PVRSRV_MEMALLOCFLAG_GPU_READABLE |
@@ -1605,7 +1608,7 @@ PVRSRV_ERROR RGXTBIBufferInitOnDemandResources(PVRSRV_RGXDEV_INFO *psDevInfo)
 
 	/* Set an address for the host to be able to write SFs strings in buffer */
 	eError = DevmemAcquireCpuVirtAddr(psDevInfo->psRGXFWIfTBIBufferMemDesc,
-			(void **)&pui32TBIBuffer);
+			(void **)&psFW_SFs);
 	if (eError != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"%s: Failed to acquire kernel tbibuf ctl (Error code: %u)",
@@ -1613,8 +1616,16 @@ PVRSRV_ERROR RGXTBIBufferInitOnDemandResources(PVRSRV_RGXDEV_INFO *psDevInfo)
 		goto fail;
 	}
 
-	/* Write SFs data in buffer */
-	OSDeviceMemCopy(pui32TBIBuffer, SFs, ui32FWTBIBufsize);
+	/* Copy SFs entries to FW buffer */
+	for ( i = 0; i < ui32NumFWTBIEntries; i++)
+	{
+		OSDeviceMemCopy(&psFW_SFs[i].ui32Id, &SFs[i].ui32Id, sizeof(SFs[i].ui32Id));
+		ui32Len = OSStringLength(SFs[i].psName);
+		OSDeviceMemCopy(psFW_SFs[i].sName, SFs[i].psName, MIN(ui32Len, IMG_SF_STRING_MAX_SIZE - 1));
+	}
+
+	/* Set size of TBI buffer */
+	psDevInfo->ui32FWIfTBIBufferSize = ui32FWTBIBufsize;
 
 	/* release CPU mapping */
 	DevmemReleaseCpuVirtAddr(psDevInfo->psRGXFWIfTBIBufferMemDesc);
@@ -2873,7 +2884,7 @@ PVRSRV_ERROR RGXSetupFirmware(PVRSRV_DEVICE_NODE       *psDeviceNode,
 	PDUMPCOMMENT("Dump rgx TBI buffer");
 	DevmemPDumpLoadMem(	psDevInfo->psRGXFWIfTBIBufferMemDesc,
 			0,
-			sizeof(SFs),
+			psDevInfo->ui32FWIfTBIBufferSize,
 			PDUMP_FLAGS_CONTINUOUS);
 
 #if defined(SUPPORT_USER_REGISTER_CONFIGURATION)

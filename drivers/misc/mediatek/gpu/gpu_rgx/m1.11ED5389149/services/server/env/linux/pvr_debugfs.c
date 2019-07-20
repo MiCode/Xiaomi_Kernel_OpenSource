@@ -650,7 +650,7 @@ int PVRDebugFSCreateFile(const char *pszName,
 
 	uiMode = S_IFREG;
 
-	if (psReadOps != NULL)
+	if (psReadOps != NULL || pfnStatsPrint != NULL)
 	{
 		uiMode |= S_IRUGO;
 	}
