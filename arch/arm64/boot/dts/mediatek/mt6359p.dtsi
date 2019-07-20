@@ -503,7 +503,7 @@
 		base = <0x580>;
 	};
 	mt6359_misc: mt6359_misc {
-		compatible = "mediatek,mt6359-misc";
+		compatible = "mediatek,mt6359p-misc";
 		base = <0x580>;
 	};
 };/* End of main_pmic */
