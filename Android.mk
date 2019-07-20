@@ -82,6 +82,14 @@ check-kernel-dotconfig: PRIVATE_COMMAND := $(if $(wildcard device/mediatek/build
 check-kernel-dotconfig: $(TARGET_KERNEL_CONFIG)
 	$(PRIVATE_COMMAND)
 
+### DTB
+ifdef BOARD_PREBUILT_DTBIMAGE_DIR
+INSTALLED_MTK_DTB_TARGET := $(BOARD_PREBUILT_DTBIMAGE_DIR)/mtk_dtb
+$(shell if [ ! -f $(INSTALLED_MTK_DTB_TARGET) ]; then mkdir -p $(dir $(INSTALLED_MTK_DTB_TARGET)); touch $(INSTALLED_MTK_DTB_TARGET);fi)
+$(INSTALLED_MTK_DTB_TARGET): $(INSTALLED_KERNEL_TARGET)
+	@mkdir -p $(dir $@)
+	@cp -f $(KERNEL_DTB_FILE) $@
+endif
 
 endif#TARGET_NO_KERNEL
 endif#LINUX_KERNEL_VERSION
