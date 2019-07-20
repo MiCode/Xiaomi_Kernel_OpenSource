@@ -2219,19 +2219,25 @@ int ipa3_wwan_set_modem_state(struct wan_ioctl_notify_wan_state *state)
 		return 0;
 
 	if (state->up) {
-		bw_mbps = 5200;
-		ret = ipa3_vote_for_bus_bw(&bw_mbps);
-		if (ret) {
-			IPAERR("Failed to vote for bus BW (%u)\n", bw_mbps);
-			return ret;
+		if (rmnet_ipa3_ctx->ipa_config_is_apq) {
+			bw_mbps = 5200;
+			ret = ipa3_vote_for_bus_bw(&bw_mbps);
+			if (ret) {
+				IPAERR("Failed to vote for bus BW (%u)\n",
+							bw_mbps);
+				return ret;
+			}
 		}
 		ret = ipa_pm_activate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
 	} else {
-		bw_mbps = 0;
-		ret = ipa3_vote_for_bus_bw(&bw_mbps);
-		if (ret) {
-			IPAERR("Failed to vote for bus BW (%u)\n", bw_mbps);
-			return ret;
+		if (rmnet_ipa3_ctx->ipa_config_is_apq) {
+			bw_mbps = 0;
+			ret = ipa3_vote_for_bus_bw(&bw_mbps);
+			if (ret) {
+				IPAERR("Failed to vote for bus BW (%u)\n",
+							bw_mbps);
+				return ret;
+			}
 		}
 		ret = ipa_pm_deactivate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
 	}
