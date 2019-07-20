@@ -77,6 +77,23 @@ enum tmc_pa_ctrl_enum {
 	TMC_PA_OFF_1PA,
 };
 
+enum tmc_cooler_lv_ctrl_enum {
+	TMC_COOLER_LV_ENABLE = 0,
+	TMC_COOLER_LV_DISABLE
+};
+
+
+enum tmc_cooler_lv_enum {
+	TMC_COOLER_LV0 = 0,
+	TMC_COOLER_LV1,
+	TMC_COOLER_LV2,
+	TMC_COOLER_LV3,
+	TMC_COOLER_LV4,
+	TMC_COOLER_LV5,
+	TMC_COOLER_LV6,
+	TMC_COOLER_LV7,
+	TMC_COOLER_LV8,
+};
 
 
 #define MUTT_ACTIVATED_OFFSET		16
@@ -101,6 +118,22 @@ enum tmc_pa_ctrl_enum {
 	(TMC_CTRL_CMD_PA_CTRL | TMC_PA_OFF_1PA << 8)
 #define TMC_THROTTLING_THROT_DISABLE \
 	(TMC_CTRL_CMD_THROTTLING | TMC_THROT_DISABLE << 8)
+#define TMC_LEVEL_CTRL_COOLER_LV_ENABLE \
+	(TMC_CTRL_CMD_COOLER_LV | TMC_COOLER_LV_ENABLE << 8)
+#define TMC_LEVEL_CTRL_COOLER_LV_DISABLE \
+	(TMC_CTRL_CMD_COOLER_LV | TMC_COOLER_LV_DISABLE << 8)
+
+
+#define TMC_COOLER_LV_CTRL00 (TMC_CTRL_CMD_COOLER_LV | TMC_COOLER_LV0 << 16)
+#define TMC_COOLER_LV_CTRL01 (TMC_CTRL_CMD_COOLER_LV | TMC_COOLER_LV1 << 16)
+#define TMC_COOLER_LV_CTRL02 (TMC_CTRL_CMD_COOLER_LV | TMC_COOLER_LV2 << 16)
+#define TMC_COOLER_LV_CTRL03 (TMC_CTRL_CMD_COOLER_LV | TMC_COOLER_LV3 << 16)
+#define TMC_COOLER_LV_CTRL04 (TMC_CTRL_CMD_COOLER_LV | TMC_COOLER_LV4 << 16)
+#define TMC_COOLER_LV_CTRL05 (TMC_CTRL_CMD_COOLER_LV | TMC_COOLER_LV5 << 16)
+#define TMC_COOLER_LV_CTRL06 (TMC_CTRL_CMD_COOLER_LV | TMC_COOLER_LV6 << 16)
+#define TMC_COOLER_LV_CTRL07 (TMC_CTRL_CMD_COOLER_LV | TMC_COOLER_LV7 << 16)
+#define TMC_COOLER_LV_CTRL08 (TMC_CTRL_CMD_COOLER_LV | TMC_COOLER_LV8 << 16)
+
 #if FEATURE_MUTT_V2
 /*
  * No UL data(except IMS): active = 1; suspend = 255; bit0 in reserved =0;
@@ -1428,6 +1461,7 @@ static const struct file_operations cl_mutt_fops = {
 static unsigned int cl_mutt_tuning_param;
 static unsigned int cl_mutt_tuning_param_pa;
 static unsigned int cl_mutt_tuning_param_ca;
+static unsigned int cl_mutt_tuning_param_lv;
 static unsigned long last_md_tuning_boot_cnt;
 
 static int _mtk_cl_mutt_tuning_read(struct seq_file *m, void *v)
@@ -1438,14 +1472,58 @@ static int _mtk_cl_mutt_tuning_read(struct seq_file *m, void *v)
 	seq_printf(m,
 	"klog %d\n", cl_mutt_klog_on);
 	seq_printf(m,
-	"curr_limit %x, pa %x, ca %x, boot_cnt: %lul, mdoff: %d\n",
+	"curr_limit %x, pa %x, ca %x, boot_cnt: %lul, mdoff: %d, level: %d\n",
 		cl_mutt_tuning_param,
 		cl_mutt_tuning_param_pa,
 		cl_mutt_tuning_param_ca,
 		last_md_tuning_boot_cnt,
+		cl_mutt_tuning_param_lv,
 		cl_dev_mdoff_state);
 
 	return 0;
+}
+
+unsigned int level_selection(int lv)
+{
+	unsigned int ctrl_lv = 0;
+
+	switch (lv) {
+	case 0:
+		ctrl_lv = TMC_COOLER_LV_CTRL00;
+		break;
+	case 1:
+		ctrl_lv = TMC_COOLER_LV_CTRL01;
+		break;
+	case 2:
+		ctrl_lv = TMC_COOLER_LV_CTRL02;
+		break;
+	case 3:
+		ctrl_lv = TMC_COOLER_LV_CTRL03;
+		break;
+	case 4:
+		ctrl_lv = TMC_COOLER_LV_CTRL04;
+		break;
+	case 5:
+		ctrl_lv = TMC_COOLER_LV_CTRL05;
+		break;
+	case 6:
+		ctrl_lv = TMC_COOLER_LV_CTRL06;
+		break;
+	case 7:
+		ctrl_lv = TMC_COOLER_LV_CTRL07;
+		break;
+	case 8:
+		ctrl_lv = TMC_COOLER_LV_CTRL08;
+		break;
+	default:
+		ctrl_lv = TMC_COOLER_LV_CTRL00;
+		break;
+	}
+
+	mtk_cooler_mutt_dprintk_always(
+		"[%s]lv(%d):ctrl_lv: 0x%08x\n", __func__, lv, ctrl_lv);
+
+	return ctrl_lv;
 }
 
 static ssize_t _mtk_cl_mutt_tuning_write(
@@ -1454,10 +1532,11 @@ struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 	int len = 0;
 	char desc[128];
 	int klog_on = 0, mutt_a = 0, mutt_s = 0;
-	int mutt_off1pa = 0, mutt_off1ca = 0, mutt_noIMS = 0;
+	int mutt_off1pa = 0, mutt_off1ca = 0, mutt_noIMS = 0, mutt_level = 0;
 	//int ret_pa = 0;
-	int ret = 0, ret_ca = 0, ret_pa = 0;
+	int ret = 0, ret_ca = 0, ret_pa = 0, ret_lv = 0;
 	int scan_count = 0;
+	char arg_name[32] = { 0 };
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
@@ -1486,99 +1565,154 @@ struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 	/* cl_mutt_param[2] = 0; */
 	/* cl_mutt_param[3] = 0; */
 
-	scan_count = sscanf(desc, "%d %d %d %d %d %d",
-			&klog_on, &mutt_a, &mutt_s, &mutt_noIMS,
-			&mutt_off1pa, &mutt_off1ca);
+	scan_count =
+	sscanf(desc, "%d %31s %d %d %d %d %d %d", &klog_on, arg_name,
+		&mutt_level, &mutt_a, &mutt_s, &mutt_noIMS, &mutt_off1pa,
+		&mutt_off1ca));
 
-
-
-	mtk_cooler_mutt_dprintk_always(
-		"[%s] log:%d A:%d,S:%d,noIMS:%d,off1pa:%x,off1ca:%x\n",
-		__func__, klog_on, mutt_a, mutt_s, mutt_noIMS,
-		mutt_off1pa, mutt_off1ca);
-
-	if (klog_on == 0 || klog_on == 1)
-		cl_mutt_klog_on = klog_on;
-
-
-	if (mutt_a == 0)
-		cl_mutt_tuning_param = 0;
-	else if (mutt_a >= 100 && mutt_a <= 25500
-	&& mutt_s >= 100 && mutt_s <= 25500)
-		cl_mutt_tuning_param =
-		((mutt_s / 100) << MUTT_SUSPEND_OFFSET) |
-		((mutt_a / 100) << MUTT_ACTIVATED_OFFSET);
-
-
-	if (mutt_noIMS != 0xFF) {
-		if (mutt_noIMS == 0)/*IMS enable*/
-			cl_mutt_tuning_param = cl_mutt_tuning_param |
-				MUTT_ENABLE_IMS_ENABLE;
-		else/*IMS disable*/
-			cl_mutt_tuning_param = cl_mutt_tuning_param |
-				MUTT_ENABLE_IMS_DISABLE;
-	}
-
-	if (mutt_off1pa != 0xFF) {
-		if (mutt_off1pa == 0)/*enable*/
-			cl_mutt_tuning_param_pa = TMC_PA_CTRL_PA_ALL_ON;
-		else/*disable*/
-			cl_mutt_tuning_param_pa = TMC_PA_CTRL_PA_OFF_1PA;
-	}
-
-	if (mutt_off1ca != 0xFF) {
-		if (mutt_off1ca == 0)/*enable*/
-			cl_mutt_tuning_param_ca = TMC_CA_CTRL_CA_ON;
-		else/*disable*/
-			cl_mutt_tuning_param_ca = TMC_CA_CTRL_CA_OFF;
-	}
-
-
-
-	last_md_tuning_boot_cnt = ccci_get_md_boot_count(MD_SYS1);
-
-	if (mutt_noIMS == 0xFF) {
-		cl_mutt_tuning_param = TMC_THROTTLING_THROT_DISABLE;
-
-		ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
-			ID_THROTTLING_CFG,
-			(char *)&cl_mutt_tuning_param, 4);
-		mtk_cooler_mutt_dprintk_always(
-			"[%s]2 ret %d param %x bcnt %lul\n", __func__,
-			ret, cl_mutt_tuning_param, last_md_tuning_boot_cnt);
-	} else {/*Throttle disable*/
-		ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
-			ID_THROTTLING_CFG,
-			(char *)&cl_mutt_tuning_param, 4);
-		mtk_cooler_mutt_dprintk_always(
-			"[%s]Throttle disable: ret %d param %x bcnt %lul\n",
-			__func__,
-			ret, cl_mutt_tuning_param, last_md_tuning_boot_cnt);
-	}
-
-
-	if (mutt_off1pa != 0xFF) {
-		ret_pa = exec_ccci_kern_func_by_md_id(MD_SYS1,
-			ID_THROTTLING_CFG,
-			(char *)&cl_mutt_tuning_param_pa, 4);
+	if (scan_count >= 1) {
 
 		mtk_cooler_mutt_dprintk_always(
-			"[%s]3 ret_pa %d param %x bcnt %lul\n", __func__,
-			ret_pa, cl_mutt_tuning_param_pa,
+			"[%s] log:%d A:%d,S:%d,noIMS:%d,off1pa:%x,off1ca:%x\n",
+			__func__, klog_on, mutt_a, mutt_s, mutt_noIMS,
+			mutt_off1pa, mutt_off1ca);
+
+		if (klog_on == 0 || klog_on == 1)
+			cl_mutt_klog_on = klog_on;
+
+
+		if ((strncmp(arg_name, "mutt_level", 10) == 0)
+				&& (mutt_level >= 0) && (mutt_level <= 8)) {
+
+			last_md_tuning_boot_cnt =
+				ccci_get_md_boot_count(MD_SYS1);
+
+			cl_mutt_tuning_param_lv =
+				level_selection(mutt_level);
+			cl_mutt_tuning_param_lv =
+				cl_mutt_tuning_param_lv |
+				(TMC_COOLER_LV_ENABLE << 8);
+			ret_lv = exec_ccci_kern_func_by_md_id(MD_SYS1,
+				ID_THROTTLING_CFG,
+				(char *)&cl_mutt_tuning_param_lv, 4);
+
+
+			mtk_cooler_mutt_dprintk_always(
+			"[%s]mutt_level:%d, lv: %d param: 0x%08x bcnt: %lul\n",
+			__func__, mutt_level, ret_lv, cl_mutt_tuning_param_lv,
 			last_md_tuning_boot_cnt);
+
+			return len;
+		}
+
+		if ((strncmp(arg_name, "disable_level", 13) == 0)) {
+
+			last_md_tuning_boot_cnt =
+				ccci_get_md_boot_count(MD_SYS1);
+
+			cl_mutt_tuning_param_lv =
+				level_selection(mutt_level);
+			cl_mutt_tuning_param_lv =
+				TMC_LEVEL_CTRL_COOLER_LV_DISABLE;
+			ret_lv = exec_ccci_kern_func_by_md_id(MD_SYS1,
+				ID_THROTTLING_CFG,
+				(char *)&cl_mutt_tuning_param_lv, 4);
+
+
+			mtk_cooler_mutt_dprintk_always(
+			"[%s]disable_lv:%d, lv: %d param: 0x%08x bcnt: %lul\n",
+			__func__, mutt_level, ret_lv, cl_mutt_tuning_param_lv,
+			last_md_tuning_boot_cnt);
+
+			return len;
+		}
+
+
+		if (mutt_a == 0)
+			cl_mutt_tuning_param = 0;
+		else if (mutt_a >= 100 && mutt_a <= 25500
+		&& mutt_s >= 100 && mutt_s <= 25500)
+			cl_mutt_tuning_param =
+			((mutt_s / 100) << MUTT_SUSPEND_OFFSET) |
+			((mutt_a / 100) << MUTT_ACTIVATED_OFFSET);
+
+
+		if (mutt_noIMS != 0xFF) {
+			if (mutt_noIMS == 0)/*IMS enable*/
+				cl_mutt_tuning_param = cl_mutt_tuning_param |
+					MUTT_ENABLE_IMS_ENABLE;
+			else/*IMS disable*/
+				cl_mutt_tuning_param = cl_mutt_tuning_param |
+					MUTT_ENABLE_IMS_DISABLE;
+		}
+
+		if (mutt_off1pa != 0xFF) {
+			if (mutt_off1pa == 0)/*enable*/
+				cl_mutt_tuning_param_pa =
+					TMC_PA_CTRL_PA_ALL_ON;
+			else/*disable*/
+				cl_mutt_tuning_param_pa =
+					TMC_PA_CTRL_PA_OFF_1PA;
+		}
+
+		if (mutt_off1ca != 0xFF) {
+			if (mutt_off1ca == 0)/*enable*/
+				cl_mutt_tuning_param_ca = TMC_CA_CTRL_CA_ON;
+			else/*disable*/
+				cl_mutt_tuning_param_ca = TMC_CA_CTRL_CA_OFF;
+		}
+
+
+
+		last_md_tuning_boot_cnt = ccci_get_md_boot_count(MD_SYS1);
+
+		if (mutt_noIMS == 0xFF) {
+			cl_mutt_tuning_param = TMC_THROTTLING_THROT_DISABLE;
+
+			ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
+				ID_THROTTLING_CFG,
+				(char *)&cl_mutt_tuning_param, 4);
+			mtk_cooler_mutt_dprintk_always(
+				"[%s]2 ret %d param %x bcnt %lul\n", __func__,
+				ret,
+				cl_mutt_tuning_param,
+				last_md_tuning_boot_cnt);
+		} else {/*Throttle disable*/
+			ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
+				ID_THROTTLING_CFG,
+				(char *)&cl_mutt_tuning_param, 4);
+			mtk_cooler_mutt_dprintk_always(
+			"[%s]Throttle disable: ret %d param %x bcnt %lul\n",
+				__func__, ret, cl_mutt_tuning_param,
+				last_md_tuning_boot_cnt);
+		}
+
+
+		if (mutt_off1pa != 0xFF) {
+			ret_pa = exec_ccci_kern_func_by_md_id(MD_SYS1,
+				ID_THROTTLING_CFG,
+				(char *)&cl_mutt_tuning_param_pa, 4);
+
+			mtk_cooler_mutt_dprintk_always(
+				"[%s]3 ret_pa %d param %x bcnt %lul\n",
+				__func__,
+				ret_pa, cl_mutt_tuning_param_pa,
+				last_md_tuning_boot_cnt);
+		}
+
+
+		if (mutt_off1ca != 0xFF) {
+			ret_pa = exec_ccci_kern_func_by_md_id(MD_SYS1,
+				ID_THROTTLING_CFG,
+				(char *)&cl_mutt_tuning_param_ca, 4);
+			mtk_cooler_mutt_dprintk_always(
+			"[%s]4 ret_ca %d param %x bcnt %lul\n", __func__,
+			ret_ca, cl_mutt_tuning_param_ca,
+			last_md_tuning_boot_cnt);
+		}
+
+		return len;
 	}
-
-
-	if (mutt_off1ca != 0xFF) {
-		ret_pa = exec_ccci_kern_func_by_md_id(MD_SYS1,
-			ID_THROTTLING_CFG,
-			(char *)&cl_mutt_tuning_param_ca, 4);
-		mtk_cooler_mutt_dprintk_always(
-		"[%s]4 ret_ca %d param %x bcnt %lul\n", __func__,
-		ret_ca, cl_mutt_tuning_param_ca, last_md_tuning_boot_cnt);
-	}
-
-	return len;
 #else
 #error	\
 "Change correspondent part when changing MAX_NUM_INSTANCE_MTK_COOLER_MUTT!"
