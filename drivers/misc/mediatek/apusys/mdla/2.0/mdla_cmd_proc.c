@@ -81,9 +81,7 @@ void mdla_command_done(int core_id)
 static void
 mdla_run_command_prepare(struct mdla_run_cmd *cd, struct command_entry *ce)
 {
-#if 0//def  __APUSYS_MDLA_UT__
-	int i = 0;
-#endif
+
 	char *ptr = (char *)cd->kva;
 	unsigned int size  = cd->size;
 
@@ -103,12 +101,6 @@ mdla_run_command_prepare(struct mdla_run_cmd *cd, struct command_entry *ce)
 			__func__,
 			ptr,
 			size);
-#if 0//def  __APUSYS_MDLA_UT__
-	for (i = 0;  i < cd->size; i++) {
-		mdla_cmd_debug(" %p: %08x\n", ptr);
-		ptr++;
-	}
-#endif
 
 	ce->state = CE_NONE;
 	ce->flags = CE_NOP;
@@ -306,11 +298,11 @@ process_command:
 	}
 
 #ifdef __APUSYS_MDLA_UT__
-	pr_info("%s: MREG_TOP_G_INTP0: %.8x, MREG_TOP_G_FIN1: %.8x, MREG_TOP_G_FIN0: %.8x\n",
+	pr_info("%s: MREG_TOP_G_INTP0: %.8x, MREG_TOP_G_FIN0: %.8x, MREG_TOP_G_FIN1: %.8x\n",
 		__func__,
 		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_INTP0),
-		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN1),
-		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN0));
+		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN0),
+		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN1));
 
 	/*MDLA-PMU Command Counter*/
 	mdla_cmd_debug("%s: PMU_CFG_PMCR: %8x, pmu_clk_cnt: %.8x\n",

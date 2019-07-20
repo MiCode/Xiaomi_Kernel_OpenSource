@@ -358,7 +358,7 @@ void mdla_debugfs_init(void)
 	cfg_eng0 = 0x0;
 	cfg_eng1 = 0x0;
 	cfg_eng2 = 0x0;
-	cfg_eng11 = 0x600;
+	cfg_eng11 = 0x600;//0x0
 }
 
 void mdla_debugfs_exit(void)
@@ -401,110 +401,6 @@ void mdla_debugfs_exit(void)
 	REMOVE_MDLA_DEBUGFS(root);
 }
 
-//TODO: modify it for multi core
-#define dump_reg_top(core_id, name) \
-	mdla_timeout_debug("%s: %.8x\n", #name,\
-	mdla_reg_read_with_mdlaid(core_id, name))
-
-#define dump_reg_cfg(core_id, name) \
-	mdla_timeout_debug("%s: %.8x\n", #name,\
-	mdla_cfg_read_with_mdlaid(core_id, name))
-
-void dump_timeout_debug_info(int core_id)
-{
-	u32 mreg_top_g_idle, c2r_exe_st, ste_debug_if_1;
-	int i;
-	//TODO, modify for multi core
-	mreg_top_g_idle = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_IDLE);
-	c2r_exe_st = mdla_reg_read_with_mdlaid(core_id, 0x0000);
-	ste_debug_if_1 = mdla_reg_read_with_mdlaid(core_id, 0x0EA8);
-	if (((ste_debug_if_1&0x1C0) != 0x0 && (ste_debug_if_1&0x3) == 0x3)) {
-		mdla_timeout_debug(
-				"Matched, %s, mdla_timeout:%d, mreg_top_g_idle: %08x, c2r_exe_st: %08x, ste_debug_if_1: %08x\n",
-				__func__, mdla_timeout,
-				mreg_top_g_idle, c2r_exe_st, ste_debug_if_1);
-	} else {
-		mdla_timeout_debug(
-				"Not match, %s, mdla_timeout:%d, mreg_top_g_idle: %08x, c2r_exe_st: %08x, ste_debug_if_1: %08x\n",
-				__func__, mdla_timeout,
-				mreg_top_g_idle, c2r_exe_st, ste_debug_if_1);
-	}
-
-	mdla_timeout_debug("0x19000148: %08X\n",
-			ioread32(apu_conn_top + 0x148));
-	mdla_timeout_debug("0x19000150: %08X\n",
-			ioread32(apu_conn_top + 0x150));
-	mdla_timeout_debug("0x1902006C: %08X\n",
-			ioread32(apu_conn_top + 0x2006C));
-	mdla_timeout_debug("0x19020070: %08X\n",
-			ioread32(apu_conn_top + 0x20070));
-	//TODO, modify for multi core
-	for (i = 0x0000; i < 0x1000; i += 4)
-		mdla_timeout_debug("0x1938%04X: %08X\n",
-				i, mdla_reg_read_with_mdlaid(core_id, i));
-	for (i = 0x0000; i < 0x1000; i += 4)
-		mdla_timeout_debug("0x1939%04X: %08X\n",
-				i, mdla_reg_read_with_mdlaid(core_id, i));
-}
-void mdla_dump_reg(int core_id)
-{
-	mdla_timeout_debug("mdla_timeout\n");
-	// TODO: too many registers, dump only debug required ones.
-	dump_reg_cfg(core_id, MDLA_CG_CON);
-	dump_reg_cfg(core_id, MDLA_SW_RST);
-	dump_reg_cfg(core_id, MDLA_MBIST_MODE0);
-	dump_reg_cfg(core_id, MDLA_MBIST_MODE1);
-	dump_reg_cfg(core_id, MDLA_MBIST_CTL);
-	dump_reg_cfg(core_id, MDLA_RP_OK0);
-	dump_reg_cfg(core_id, MDLA_RP_OK1);
-	dump_reg_cfg(core_id, MDLA_RP_OK2);
-	dump_reg_cfg(core_id, MDLA_RP_OK3);
-	dump_reg_cfg(core_id, MDLA_RP_FAIL0);
-	dump_reg_cfg(core_id, MDLA_RP_FAIL1);
-	dump_reg_cfg(core_id, MDLA_RP_FAIL2);
-	dump_reg_cfg(core_id, MDLA_RP_FAIL3);
-	dump_reg_cfg(core_id, MDLA_MBIST_FAIL0);
-	dump_reg_cfg(core_id, MDLA_MBIST_FAIL1);
-	dump_reg_cfg(core_id, MDLA_MBIST_FAIL2);
-	dump_reg_cfg(core_id, MDLA_MBIST_FAIL3);
-	dump_reg_cfg(core_id, MDLA_MBIST_FAIL4);
-	dump_reg_cfg(core_id, MDLA_MBIST_FAIL5);
-	dump_reg_cfg(core_id, MDLA_MBIST_DONE0);
-	dump_reg_cfg(core_id, MDLA_MBIST_DONE1);
-	dump_reg_cfg(core_id, MDLA_MBIST_DEFAULT_DELSEL);
-	dump_reg_cfg(core_id, MDLA_SRAM_DELSEL0);
-	dump_reg_cfg(core_id, MDLA_SRAM_DELSEL1);
-	dump_reg_cfg(core_id, MDLA_RP_RST);
-	dump_reg_cfg(core_id, MDLA_RP_CON);
-	dump_reg_cfg(core_id, MDLA_RP_PRE_FUSE);
-	dump_reg_cfg(core_id, MDLA_AXI_CTRL);
-	dump_reg_cfg(core_id, MDLA_AXI1_CTRL);
-
-	dump_reg_top(core_id, MREG_TOP_G_REV);
-	dump_reg_top(core_id, MREG_TOP_G_INTP0);
-	dump_reg_top(core_id, MREG_TOP_G_INTP1);
-	dump_reg_top(core_id, MREG_TOP_G_INTP2);
-	dump_reg_top(core_id, MREG_TOP_G_CDMA0);
-	dump_reg_top(core_id, MREG_TOP_G_CDMA1);
-	dump_reg_top(core_id, MREG_TOP_G_CDMA2);
-	dump_reg_top(core_id, MREG_TOP_G_CDMA3);
-	dump_reg_top(core_id, MREG_TOP_G_CDMA4);
-	dump_reg_top(core_id, MREG_TOP_G_CDMA5);
-	dump_reg_top(core_id, MREG_TOP_G_CDMA6);
-	dump_reg_top(core_id, MREG_TOP_G_CUR0);
-	dump_reg_top(core_id, MREG_TOP_G_CUR1);
-	dump_reg_top(core_id, MREG_TOP_G_FIN0);
-	dump_reg_top(core_id, MREG_TOP_G_FIN1);
-	dump_reg_top(core_id, MREG_TOP_G_IDLE);
-
-	/* for DCM and CG */
-	dump_reg_top(core_id, MREG_TOP_ENG0);
-	dump_reg_top(core_id, MREG_TOP_ENG1);
-	dump_reg_top(core_id, MREG_TOP_ENG2);
-	dump_reg_top(core_id, MREG_TOP_ENG11);
-	dump_timeout_debug_info(core_id);
-}
-
 void mdla_dump_buf(int mask, void *kva, int group, u32 size)
 {
 	if (mdla_klog & mask) {
@@ -538,7 +434,6 @@ void mdla_dump_ce(struct command_entry *ce)
 }
 
 
-//TODO, need modify for multi core
 int mdla_dump_register(struct seq_file *s)
 {
 #define seq_reg_top(name) \
@@ -552,28 +447,9 @@ int mdla_dump_register(struct seq_file *s)
 	seq_reg_cfg(MDLA_MBIST_MODE0);
 	seq_reg_cfg(MDLA_MBIST_MODE1);
 	seq_reg_cfg(MDLA_MBIST_CTL);
-	seq_reg_cfg(MDLA_RP_OK0);
-	seq_reg_cfg(MDLA_RP_OK1);
-	seq_reg_cfg(MDLA_RP_OK2);
-	seq_reg_cfg(MDLA_RP_OK3);
-	seq_reg_cfg(MDLA_RP_FAIL0);
-	seq_reg_cfg(MDLA_RP_FAIL1);
-	seq_reg_cfg(MDLA_RP_FAIL2);
-	seq_reg_cfg(MDLA_RP_FAIL3);
-	seq_reg_cfg(MDLA_MBIST_FAIL0);
-	seq_reg_cfg(MDLA_MBIST_FAIL1);
-	seq_reg_cfg(MDLA_MBIST_FAIL2);
-	seq_reg_cfg(MDLA_MBIST_FAIL3);
-	seq_reg_cfg(MDLA_MBIST_FAIL4);
-	seq_reg_cfg(MDLA_MBIST_FAIL5);
-	seq_reg_cfg(MDLA_MBIST_DONE0);
-	seq_reg_cfg(MDLA_MBIST_DONE1);
 	seq_reg_cfg(MDLA_MBIST_DEFAULT_DELSEL);
-	seq_reg_cfg(MDLA_SRAM_DELSEL0);
-	seq_reg_cfg(MDLA_SRAM_DELSEL1);
 	seq_reg_cfg(MDLA_RP_RST);
 	seq_reg_cfg(MDLA_RP_CON);
-	seq_reg_cfg(MDLA_RP_PRE_FUSE);
 	seq_reg_cfg(MDLA_AXI_CTRL);
 	seq_reg_cfg(MDLA_AXI1_CTRL);
 
@@ -592,7 +468,7 @@ int mdla_dump_register(struct seq_file *s)
 	seq_reg_top(MREG_TOP_G_CUR1);
 	seq_reg_top(MREG_TOP_G_FIN0);
 	seq_reg_top(MREG_TOP_G_FIN1);
+	seq_reg_top(MREG_TOP_G_FIN3);
 
 	return 0;
 }
-
