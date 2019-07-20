@@ -164,6 +164,16 @@ config REGULATOR_RT5738
 	  Say Y to enable it.
 	  Say N to disable it.
 
+config REGULATOR_MT6691
+	bool "MediaTek I2C Ext Buck MT6691"
+	depends on MTK_EXTBUCK
+	default n
+	---help---
+	  Richtek I2c Interface
+	  Extern Buck for MTK Platform
+	  Say Y to enable it.
+	  Say N to disable it.
+
 config MTK_EXTERNAL_CHARGER_TYPE_DETECT
 	bool "MediaTek external charger type detection"
 	depends on MTK_PMIC_NEW_ARCH
