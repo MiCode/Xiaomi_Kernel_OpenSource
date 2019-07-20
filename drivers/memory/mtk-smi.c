@@ -490,6 +490,10 @@ static const struct of_device_id mtk_smi_common_of_ids[] = {
 	{}
 };
 
+#ifdef CONFIG_MACH_MT8167
+static struct mtk_smi *gmtk_common_dev;
+#endif
+
 static int mtk_smi_common_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -550,6 +554,23 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 	}
 	pm_runtime_enable(dev);
 	platform_set_drvdata(pdev, common);
+
+#ifdef CONFIG_MACH_MT8167
+	/*
+	 * Without pm_runtime_get_sync(dev), the disp power domain
+	 * would be turn off after pm_runtime_enable, meanwhile disp
+	 * hw are still access register, this would cause system
+	 * abnormal.
+	 *
+	 * If we do not call pm_runtime_get_sync, then system would hang
+	 * in larb0's power domain attach, power domain SA and DE are
+	 * still checking that. We would like to bypass this first and
+	 * don't block the software flow.
+	 */
+	pm_runtime_get_sync(dev);
+	gmtk_common_dev = common;
+#endif
+
 	return 0;
 }
 
@@ -595,6 +616,15 @@ static struct platform_driver mtk_smi_common_driver = {
 		.pm             = &smi_common_pm_ops,
 	}
 };
+
+#ifdef CONFIG_MACH_MT8167
+/* put the disp power domain that we got in smi probe */
+static int __init mtk_smi_init_late(void)
+{
+	pm_runtime_put_sync(gmtk_common_dev->dev);
+	return 0;
+}
+#endif
 #else /* IS_ENABLED(CONFIG_MTK_SMI_EXT) */
 #include <linux/of_address.h>
 
@@ -865,6 +895,9 @@ err_unreg_smi:
 
 #if !IS_ENABLED(CONFIG_MTK_SMI_EXT)
 module_init(mtk_smi_init);
+#ifdef CONFIG_MACH_MT8167
+late_initcall(mtk_smi_init_late);
+#endif
 #else
 arch_initcall_sync(mtk_smi_init);
 #endif
