@@ -4949,6 +4949,26 @@ struct qmi_elem_info ipa_add_offload_connection_req_msg_v01_ei[] = {
 			embedded_call_mux_id),
 	},
 	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x15,
+		.offset         = offsetof(
+			struct ipa_add_offload_connection_req_msg_v01,
+			default_mhi_path_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_1_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x15,
+		.offset         = offsetof(
+			struct ipa_add_offload_connection_req_msg_v01,
+			default_mhi_path),
+	},
+	{
 		.data_type      = QMI_EOTI,
 		.is_array       = NO_ARRAY,
 		.tlv_type       = QMI_COMMON_TLV_TYPE,
@@ -5040,6 +5060,26 @@ struct qmi_elem_info ipa_remove_offload_connection_req_msg_v01_ei[] = {
 			filter_handle_list),
 		.ei_array      =
 			ipa3_filter_rule_identifier_to_handle_map_data_v01_ei,
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x11,
+		.offset         = offsetof(
+			struct ipa_remove_offload_connection_req_msg_v01,
+			clean_all_rules_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_1_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x11,
+		.offset         = offsetof(
+			struct ipa_remove_offload_connection_req_msg_v01,
+			clean_all_rules),
 	},
 	{
 		.data_type      = QMI_EOTI,
