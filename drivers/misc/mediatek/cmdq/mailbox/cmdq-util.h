@@ -37,7 +37,7 @@
 			DB_OPT_CMDQ, tag, fmt, ##args); \
 	} while (0)
 
-void cmdq_util_enable(void);
+void cmdq_util_enable(void); // TODO : need be called
 void cmdq_util_disable(void);
 s32 cmdq_util_save_first_error(const char *str, ...);
 
