@@ -29,9 +29,9 @@
 #include <ion.h>
 #include <mtk/ion_drv.h>
 #include <mtk/mtk_ion.h>
-#ifdef MTK_VPU_SMI_DEBUG_ON
-#include <smi_debug.h>
-#endif
+//#ifdef MTK_VPU_SMI_DEBUG_ON
+//#include <smi_debug.h>
+//#endif
 #include <m4u.h>
 #include "mtk_devinfo.h"
 #ifndef MTK_VPU_FPGA_PORTING
@@ -254,6 +254,7 @@ static DECLARE_DELAYED_WORK(sdsp_work, vpu_sdsp_routine);
 static struct mutex power_mutex[MTK_VPU_CORE];
 static bool is_power_on[MTK_VPU_CORE];
 static bool is_power_debug_lock;
+static bool is_power_disable_off;
 static struct mutex power_counter_mutex[MTK_VPU_CORE];
 static int power_counter[MTK_VPU_CORE];
 static struct mutex opp_mutex;
@@ -4747,7 +4748,9 @@ int vpu_shut_down_ex(int core, int logbackup)
 #endif
 	LOG_DBG("[vpu_%d] shutdown +\n", core);
 	mutex_lock(&power_mutex[core]);
-	if (!is_power_on[core]) {
+	if ((!is_power_on[core]) || (is_power_disable_off)) {
+		LOG_ERR("[vpu_%d] shutdown abort pwr_on:%d,dis_off:%d)\n",
+			core, is_power_on[core], is_power_disable_off);
 		mutex_unlock(&power_mutex[core]);
 		return 0;
 	}
@@ -5966,7 +5969,7 @@ void vpu_dump_reg_ipu_core(int core)
 {
 	int i;
 	unsigned int addr = 0x0;
-	unsigned int base;
+	unsigned long base;
 
 	/* ipu_cores */
 	if (core == 0)
@@ -5992,7 +5995,7 @@ void vpu_dump_reg_ipu_conn(void)
 {
 	int i;
 	unsigned int addr;
-	unsigned int base;
+	unsigned long base;
 
 	/* ipu_conn */
 	/* 19000000: 0x0 ~ 0x30*/
@@ -6758,6 +6761,17 @@ int vpu_set_power_parameter(uint8_t param, int argc, int *args)
 			goto out;
 		}
 		apu_dvfs_dump_info();
+		break;
+	case VPU_POWER_PARAM_DISABLE_OFF:
+		ret = (argc == 1) ? 0 : -EINVAL;
+		if (ret) {
+			LOG_ERR("invalid argument, expected:1, received:%d\n",
+				argc);
+			goto out;
+		}
+
+		is_power_disable_off = args[0];
+
 		break;
 	default:
 		LOG_ERR("unsupport the power parameter:%d\n", param);

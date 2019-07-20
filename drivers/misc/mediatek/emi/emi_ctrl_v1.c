@@ -26,9 +26,13 @@
 
 static void __iomem *CEN_EMI_BASE;
 static void __iomem *CHN_EMI_BASE[MAX_CH];
+#ifdef ENABLE_EMI_DEBUG_API
+static void __iomem *EMI_DBG_BASE[MAX_DBG_NR];
+#endif
 static void __iomem *EMI_MPU_BASE;
 
 static struct emi_info_t emi_info;
+static unsigned int emi_dcm;
 
 static int emi_probe(struct platform_device *pdev);
 
@@ -165,9 +169,21 @@ static int emi_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 	}
+#ifdef ENABLE_EMI_DEBUG_API
+	for (i = 0; i < MAX_DBG_NR; i++) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM,
+					    2 + MAX_CH + i);
+		EMI_DBG_BASE[i] = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(EMI_DBG_BASE[i])) {
+			pr_debug("[EMI] unable to map dbg\n");
+			return -EINVAL;
+		}
+	}
 
+	of_property_read_u32(pdev->dev.of_node,
+				"emi_dcm", &emi_dcm);
 	plat_debug_api_init();
-
+#endif
 	pr_info("[EMI] get CEN_EMI_BASE @ %p\n", mt_cen_emi_base_get());
 	pr_info("[EMI] get EMI_MPU_BASE @ %p\n", mt_emi_mpu_base_get());
 	for (i = 0; i < MAX_CH; i++)
@@ -305,8 +321,25 @@ void __iomem *mt_chn_emi_base_get(unsigned int channel_index)
 }
 EXPORT_SYMBOL(mt_chn_emi_base_get);
 
+#ifdef ENABLE_EMI_DEBUG_API
+void __iomem *mt_emi_dbg_base_get(unsigned int index)
+{
+	if (index < MAX_DBG_NR)
+		return EMI_DBG_BASE[index];
+
+	return NULL;
+}
+EXPORT_SYMBOL(mt_emi_dbg_base_get);
+#endif
+
 void __iomem *mt_emi_mpu_base_get(void)
 {
 	return EMI_MPU_BASE;
 }
 EXPORT_SYMBOL(mt_emi_mpu_base_get);
+
+unsigned int mt_emi_dcm_config(void)
+{
+	return emi_dcm;
+}
+EXPORT_SYMBOL(mt_emi_dcm_config);

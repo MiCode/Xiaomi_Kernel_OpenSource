@@ -424,6 +424,7 @@ enum DISP_FEATURE {
 	DISP_FEATURE_RPO = 0x00000080,
 	DISP_FEATURE_FBDC = 0x00000100,
 	DISP_FEATURE_FORCE_DISABLE_AOD = 0x00000200,
+	DISP_FEATURE_ARR = 0x00000400,
 };
 
 struct disp_caps_info {
@@ -528,6 +529,12 @@ enum DISP_SELF_REFRESH_TYPE {
 	REFRESH_TYPE_NUM,
 };
 
+struct dynamic_fps_levels {
+	unsigned int fps_level_num;
+	unsigned int fps_levels[10];
+};
+
+
 /* IOCTL commands. */
 #define DISP_IOW(num, dtype)     _IOW('O', num, dtype)
 #define DISP_IOR(num, dtype)     _IOR('O', num, dtype)
@@ -592,6 +599,13 @@ enum DISP_SELF_REFRESH_TYPE {
 	DISP_IOW(226, unsigned int)
 #define DISP_IOCTL_WAIT_DISP_SELF_REFRESH	\
 	DISP_IOW(227, unsigned int)
+#define DISP_IOCTL_WAIT_FPS_CHANGE \
+	DISP_IOW(228, unsigned int)
+#define DISP_IOCTL_TOUCH_HINT		\
+	DISP_IOW(229, unsigned int)
+#define DISP_IOCTL_GET_SUPPORTED_FPS \
+	DISP_IOW(230, unsigned int)
+
 #ifdef __KERNEL__
 
 int disp_mgr_get_session_info(struct disp_session_info *info);

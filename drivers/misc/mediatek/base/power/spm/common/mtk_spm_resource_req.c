@@ -43,6 +43,7 @@ static const char * const spm_resource_name[] = {
 };
 
 static struct mtk_idle_sysfs_handle spm_resource_req_file;
+static unsigned int spm_console_req_status;
 
 /* Compulsory method for spm resource requirement.
  * This function's implementation depend on platform
@@ -351,4 +352,41 @@ void spm_resource_req_block_dump(void)
 
 	spin_unlock_irqrestore(&spm_resource_desc_update_lock, flags);
 }
+
+unsigned int spm_resource_console_dts_required(
+	struct spm_resource_console_req *req, int count)
+{
+	struct device_node *spm_node = NULL;
+	int res_req_bits = 0;
+
+	do {
+		if (!req || (count <= 0))
+			break;
+
+		spm_node = GET_MTK_SPM_DTS_NODE();
+
+		if (spm_node) {
+			u32 PropValue;
+			int prop_result;
+			int index = 0;
+
+			for (index = 0; (index < count) && req
+				&& req[index].name; index++) {
+
+				prop_result = of_property_read_u32(
+					spm_node, req[index].name, &PropValue);
+
+				if ((prop_result == 0) && (PropValue > 0))
+					res_req_bits |=
+						(1<<req[index].bit_number);
+			}
+
+			of_node_put(spm_node);
+		}
+		spm_console_req_status = res_req_bits;
+	} while (0);
+
+	return res_req_bits;
+}
+EXPORT_SYMBOL(spm_resource_console_dts_required);
 

@@ -49,12 +49,14 @@ static unsigned long mcucfg_base	= 0x0c530000;
 #define MPMM_EN                 (mcucfg_base + 0xcd10)
 #define mcucfg                  0x0c530000
 
+#ifdef IMAX_ENABLE
 static unsigned int imax_reg_addr[REG_LEN] = {
 	0xcd10,
 	0xce0c,
 	0xce10,
 	0xce14,
 };
+#endif
 
 struct cpudvfs_doe dvfs_doe = {
 		.doe_flag = 0,
@@ -615,6 +617,7 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 	unsigned int lv = CPU_LEVEL_1;
 	int val = (get_devinfo_with_index(7) & 0xFF);
+	int efuse_ver = (get_devinfo_with_index(4));
 
 	if ((val == 0xA0) || (val == 0x05) || (val == 0x60) || (val == 0x06))
 		lv = CPU_LEVEL_1;
@@ -627,6 +630,9 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		lv = CPU_LEVEL_2;
 
 	turbo_flag = 0;
+
+	if (efuse_ver == 0x5200)
+		lv = CPU_LEVEL_0;
 
 	tag_pr_info("%d, %d, (%d, %d) efuse_val = 0x%x\n",
 		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val);

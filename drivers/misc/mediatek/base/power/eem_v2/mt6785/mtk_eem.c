@@ -60,6 +60,9 @@
 #include <mt-plat/mtk_chip.h>
 /* #include <mt-plat/mtk_gpio.h> */
 #include "upmu_common.h"
+#ifdef CONFIG_MTK_GPU_SUPPORT
+#include "mtk_gpufreq.h"
+#endif
 #ifdef CONFIG_THERMAL
 #include "mtk_thermal.h"
 #endif
@@ -71,9 +74,6 @@
 #include "mtk_eem_internal_ap.h"
 
 #include "mtk_eem_internal.h"
-#ifdef CONFIG_MTK_GPU_SUPPORT
-#include "mtk_gpufreq.h"
-#endif
 #include <mt-plat/mtk_devinfo.h>
 #include <regulator/consumer.h>
 #include "pmic_regulator.h"

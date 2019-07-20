@@ -705,10 +705,11 @@ void swpm_set_enable(unsigned int type, unsigned int enable)
 
 void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
 {
+	unsigned long flags;
 	if (type != 0xFFFF && type >= NR_POWER_METER)
 		return;
 
-	swpm_lock(&swpm_mutex);
+	swpm_lock(&swpm_spinlock, flags);
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) &&		\
 	defined(CONFIG_MTK_QOS_FRAMEWORK)
 	{
@@ -720,7 +721,7 @@ void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
 		qos_ipi_to_sspm_command(&qos_d, 3);
 	}
 #endif
-	swpm_unlock(&swpm_mutex);
+	swpm_unlock(&swpm_spinlock, flags);
 }
 
 void swpm_update_lkg_table(void)
@@ -751,5 +752,19 @@ void swpm_update_lkg_table(void)
 				swpm_info_ref->cpu_lkg_pwr[i][j] = lkg;
 		}
 	}
+}
+
+void swpm_update_gpu_counter(unsigned int gpu_pmu[])
+{
+	memcpy(swpm_info_ref->gpu_counter, gpu_pmu,
+		sizeof(swpm_info_ref->gpu_counter));
+}
+
+int swpm_get_gpu_enable(void)
+{
+	if (!swpm_info_ref)
+		return 0;
+
+	return swpm_info_ref->gpu_enable;
 }
 

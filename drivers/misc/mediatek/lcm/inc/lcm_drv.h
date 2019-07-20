@@ -519,6 +519,12 @@ enum MIPITX_PHY_PORT {
 	MIPITX_PHY_PORT_NUM
 };
 
+#define DYNAMIC_FPS_LEVELS 10
+struct dynamic_fps_info {
+	unsigned int fps;
+	unsigned int vfp; /*lines*/
+	/*unsigned int idle_check_interval;*//*ms*/
+};
 
 struct LCM_DSI_PARAMS {
 	enum LCM_DSI_MODE_CON mode;
@@ -650,6 +656,24 @@ struct LCM_DSI_PARAMS {
 	unsigned int PHY_SEL1;
 	unsigned int PHY_SEL2;
 	unsigned int PHY_SEL3;
+
+	unsigned int dynamic_switch_mipi;
+	unsigned int vertical_sync_active_dyn;
+	unsigned int vertical_backporch_dyn;
+	unsigned int vertical_frontporch_dyn;
+	unsigned int vertical_active_line_dyn;
+
+	unsigned int horizontal_sync_active_dyn;
+	unsigned int horizontal_backporch_dyn;
+	unsigned int horizontal_frontporch_dyn;
+	unsigned int horizontal_active_pixel_dyn;
+
+	unsigned int PLL_CLOCK_dyn;	/* PLL_CLOCK = (int) PLL_CLOCK */
+	unsigned int data_rate_dyn;	/* data_rate = PLL_CLOCK x 2 */
+
+	/*for ARR*/
+	unsigned int dynamic_fps_levels;
+	struct dynamic_fps_info dynamic_fps_table[DYNAMIC_FPS_LEVELS];
 };
 
 /* ------------------------------------------------------------------------- */
@@ -690,6 +714,10 @@ struct LCM_PARAMS {
 	unsigned int corner_pattern_height_bot;
 	unsigned int corner_pattern_tp_size;
 	void *corner_pattern_lt_addr;
+	int lcm_color_mode;
+	unsigned int min_luminance;
+	unsigned int average_luminance;
+	unsigned int max_luminance;
 };
 
 

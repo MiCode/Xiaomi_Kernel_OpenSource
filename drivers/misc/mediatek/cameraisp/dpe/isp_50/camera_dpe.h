@@ -184,6 +184,19 @@ struct DPE_DVEConfig {
 	unsigned int	DPE_DVE_RESPO_R_STRIDE;
 	/* ReadOnly, DVE Statistic Result 0 */
 	unsigned int	DPE_DVE_STA_0;
+	unsigned int	DPE_DVE_IS_SECURE;
+	unsigned int	DPE_DVE_IMGI_L_BUFSIZE;
+	unsigned int	DPE_DVE_IMGI_R_BUFSIZE;
+	unsigned int	DPE_DVE_DVI_L_BUFSIZE;
+	unsigned int	DPE_DVE_DVI_R_BUFSIZE;
+	unsigned int	DPE_DVE_MASKI_L_BUFSIZE;
+	unsigned int	DPE_DVE_MASKI_R_BUFSIZE;
+	unsigned int	DPE_DVE_DVO_L_BUFSIZE;
+	unsigned int	DPE_DVE_DVO_R_BUFSIZE;
+	unsigned int	DPE_DVE_CONFO_L_BUFSIZE;
+	unsigned int	DPE_DVE_CONFO_R_BUFSIZE;
+	unsigned int	DPE_DVE_RESPO_L_BUFSIZE;
+	unsigned int	DPE_DVE_RESPO_R_BUFSIZE;
 };
 
 
