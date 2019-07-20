@@ -2243,22 +2243,26 @@ static void fbt_update_pwd_tbl(void)
 			break;
 
 		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
-			unsigned long long temp = 0ULL;
-			unsigned int temp2;
-			unsigned long long max_cl_cap =
-				core_energy->cap_states[NR_FREQ_CPU - 1].cap;
+			unsigned long long cap = 0ULL;
+			unsigned int temp;
 
 			cpu_dvfs[cluster].power[opp] =
 				mt_cpufreq_get_freq_by_idx(cluster, opp);
 
-			temp = max_cl_cap * cpu_dvfs[cluster].power[opp];
+#ifdef CONFIG_NONLINEAR_FREQ_CTL
+			cap = core_energy->cap_states[
+					NR_FREQ_CPU - opp - 1].cap;
+#else
+			cap = core_energy->cap_states[NR_FREQ_CPU - 1].cap
+				* cpu_dvfs[cluster].power[opp];
 			if (cpu_dvfs[cluster].power[0])
-				do_div(temp, cpu_dvfs[cluster].power[0]);
-			temp = (temp * 100) >> 10;
+				do_div(cap, cpu_dvfs[cluster].power[0]);
+#endif
 
-			temp2 = (unsigned int)temp;
-			temp2 = clamp(temp2, 1U, 100U);
-			cpu_dvfs[cluster].capacity_ratio[opp] = temp2;
+			cap = (cap * 100) >> 10;
+			temp = (unsigned int)cap;
+			temp = clamp(temp, 1U, 100U);
+			cpu_dvfs[cluster].capacity_ratio[opp] = temp;
 		}
 	}
 
