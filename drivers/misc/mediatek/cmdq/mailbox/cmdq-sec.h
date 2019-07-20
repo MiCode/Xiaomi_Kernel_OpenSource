@@ -213,4 +213,5 @@ s32 cmdq_sec_pkt_set_data(struct cmdq_pkt *pkt, const u64 dapc_engine,
 s32 cmdq_sec_pkt_write_reg(struct cmdq_pkt *pkt, u32 addr, u64 base,
 	const enum CMDQ_SEC_ADDR_METADATA_TYPE type,
 	const u32 offset, const u32 size, const u32 port);
+void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt);
 #endif
