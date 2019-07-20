@@ -20,12 +20,14 @@ int pob_xpufreq_register_client(struct notifier_block *nb)
 {
 	return blocking_notifier_chain_register(&pob_xpufreq_notifier_list, nb);
 }
+EXPORT_SYMBOL(pob_xpufreq_register_client);
 
 int pob_xpufreq_unregister_client(struct notifier_block *nb)
 {
 	return blocking_notifier_chain_unregister(&pob_xpufreq_notifier_list,
 							nb);
 }
+EXPORT_SYMBOL(pob_xpufreq_unregister_client);
 
 int pob_xpufreq_notifier_call_chain(unsigned long val, void *v)
 {
@@ -39,3 +41,4 @@ int pob_xpufreq_update(enum pob_xpufreq_info_num info_num,
 
 	return 0;
 }
+EXPORT_SYMBOL(pob_xpufreq_update);
