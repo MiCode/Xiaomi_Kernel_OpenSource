@@ -168,7 +168,11 @@ static int alloc_buffer_from_dma(size_t size, struct test_buf_info *buf_info)
 		struct sg_table *sg_table = &table;
 		unsigned int mva;
 
-		sg_alloc_table(sg_table, 1, GFP_KERNEL);
+		ret = sg_alloc_table(sg_table, 1, GFP_KERNEL);
+		if (ret) {
+			DISPERR("allocate sg table failed: %d\n", ret);
+			return ret;
+		}
 
 		sg_dma_address(sg_table->sgl) = buf_info->buf_pa;
 		sg_dma_len(sg_table->sgl) = size_align;
