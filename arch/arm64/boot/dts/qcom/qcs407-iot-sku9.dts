@@ -13,15 +13,15 @@
 
 /dts-v1/;
 
-#include "qcs403.dtsi"
+#include "qcs407.dtsi"
 #include "qcs405-audio-overlay.dtsi"
 #include "qcs405-circular-pca9956.dtsi"
+#include "qcs405-pinctrl.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCS403 RCM IOT";
-	compatible = "qcom,qcs403-iot", "qcom,qcs403", "qcom,iot";
+	model = "Qualcomm Technologies, Inc. QCS407 RCM IOT";
+	compatible = "qcom,qcs407-iot", "qcom,qcs407", "qcom,iot";
 	qcom,board-id = <0x010015 0x0>;
-
 };
 
 #include "qcs405-mdss-panels.dtsi"
@@ -51,6 +51,10 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
+&smb1351_otg_supply {
+	status = "disabled";
+};
+
 &usb3 {
 	status = "disabled";
 };
@@ -64,6 +68,6 @@
 	status = "disabled";
 };
 
-&qnand_1 {
-	status = "ok";
+&emac_hw {
+	status = "disabled";
 };

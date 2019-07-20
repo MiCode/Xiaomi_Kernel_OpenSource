@@ -11,23 +11,25 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-#include "qcs403.dtsi"
-#include "qcs405-audio-overlay.dtsi"
-#include "qcs405-circular-pca9956.dtsi"
+#include "qcs405.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCS403 EVB2 1000 IOT";
-	compatible = "qcom,qcs403-iot", "qcom,qcs403", "qcom,iot";
-	qcom,board-id = <0x010020 0x3>;
+	model = "Qualcomm Technologies, Inc. QCS403";
+	qcom,msm-name = "QCS404";
+	qcom,msm-id = <410 0x0>;
 
 };
 
-&qnand_1 {
-	status = "ok";
+&adsp_fw_mem {
+	reg = <0x0 0x87400000 0x0 0x1200000>;
 };
 
-&qseecom_mem {
-	size = <0 0x400000>;
+&reserved_mem {
+	linux,cma {
+		size = <0 0x400000>;
+	};
+};
+
+&qcom_seecom {
+	/delete-property/ qcom,appsbl-qseecom-support;
 };
