@@ -24,7 +24,7 @@
 #include <mt-plat/mtk_secure_api.h>
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#include <sspm_mbox.h>
+#include <v1/sspm_mbox.h>
 #endif
 
 /**

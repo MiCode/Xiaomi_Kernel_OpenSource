@@ -408,8 +408,8 @@ static void ipi_do_recv(struct _mbox_info *mbox, unsigned int in_irq,
 			if (action != NULL) {
 				/* do the action */
 				ret = handle_action(action, (void *)
-					(base + (pin->slot * MBOX_SLOT_SIZE)),
-					pin->size * MBOX_SLOT_SIZE);
+				(base + (pin->slot * SSPM_MBOX_SLOT_SIZE)),
+				pin->size * SSPM_MBOX_SLOT_SIZE);
 				if (ret)
 					complete(&sema_ipi_task[i]);
 			}
@@ -544,7 +544,7 @@ int sspm_ipi_send_async_wait_ex(int mid, int opts, void *retbuf, int retslot)
 		} else {
 			if (retbuf)
 				memcpy_from_sspm(retbuf, pin->prdata,
-						(MBOX_SLOT_SIZE * retslot));
+					(SSPM_MBOX_SLOT_SIZE * retslot));
 		}
 		atomic_set(&lock_ack[mid], 0);
 	} else { /* use spin method */
@@ -563,7 +563,7 @@ int sspm_ipi_send_async_wait_ex(int mid, int opts, void *retbuf, int retslot)
 			if (atomic_read(&lock_ack[mid])) {
 				if (retbuf)
 					memcpy_from_sspm(retbuf, pin->prdata,
-						(MBOX_SLOT_SIZE * retslot));
+					(SSPM_MBOX_SLOT_SIZE * retslot));
 
 				ret = 0;
 				break;
@@ -631,9 +631,6 @@ int sspm_ipi_send_ack_ex(int mid, void *data, int retslot)
 	return 0;
 }
 
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#include <mtk_spm.h>
-#endif
 int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 						   void *retbuf, int retslot)
 {
@@ -655,8 +652,6 @@ int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 	if ((slot > pin->size) || (retslot > pin->size))
 		return IPI_NO_MEMORY;
 
-	sspm_ipi_lock_spm_scenario(1, mid, opts, pin_name[mid]);
-
 	/* check if IPI can be send in different mode */
 	if (opts&IPI_OPT_POLLING) {  /* POLLING mode */
 
@@ -664,7 +659,6 @@ int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 
 		if (mutex_is_locked(&pin->mutex_send)) {
 			spin_unlock_irqrestore(&lock_polling[mid], flags);
-			sspm_ipi_lock_spm_scenario(0, mid, opts, pin_name[mid]);
 			pr_err("Error: IPI pin=%d has been used in WAIT mode\n",
 				mid);
 			BUG_ON(1);
@@ -703,7 +697,6 @@ int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 		else
 			mutex_unlock(&pin->mutex_send);
 
-		sspm_ipi_lock_spm_scenario(0, mid, opts, pin_name[mid]);
 		return IPI_HW_ERROR;
 	}
 
@@ -725,7 +718,7 @@ int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 			if (atomic_read(&lock_ack[mid])) {
 				if (retbuf)
 					memcpy_from_sspm(retbuf, pin->prdata,
-						(MBOX_SLOT_SIZE * retslot));
+					(SSPM_MBOX_SLOT_SIZE * retslot));
 
 				ret = 0;
 				break;
@@ -750,7 +743,7 @@ int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 		} else {
 			if (retbuf)
 				memcpy_from_sspm(retbuf, pin->prdata,
-						(MBOX_SLOT_SIZE * retslot));
+					(SSPM_MBOX_SLOT_SIZE * retslot));
 
 		}
 		atomic_set(&lock_ack[mid], 0);
@@ -759,7 +752,6 @@ int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 		mutex_unlock(&pin->mutex_send);
 	}
 
-	sspm_ipi_lock_spm_scenario(0, mid, opts, pin_name[mid]);
 	return ret;
 }
 EXPORT_SYMBOL(sspm_ipi_send_sync);

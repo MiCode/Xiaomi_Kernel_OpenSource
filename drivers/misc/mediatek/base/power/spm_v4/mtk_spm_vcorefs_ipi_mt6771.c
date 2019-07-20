@@ -14,7 +14,7 @@
 #include <linux/kthread.h>
 
 #include "mtk_spm_vcore_dvfs_ipi.h"
-#include "sspm_ipi.h"
+#include "v1/sspm_ipi.h"
 #include <mtk_vcorefs_governor.h>
 
 #ifdef CONFIG_MTK_QOS_SUPPORT

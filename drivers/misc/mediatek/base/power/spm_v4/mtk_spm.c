@@ -1261,7 +1261,7 @@ EXPORT_SYMBOL(mt_spm_dcs_s1_setting);
 #define SPM_D_LEN		(8) /* # of cmd + arg0 + arg1 + ... */
 /* #define SPM_VCOREFS_D_LEN	(4) *//* # of cmd + arg0 + arg1 + ... */
 
-#include <sspm_ipi.h>
+#include <v1/sspm_ipi.h>
 
 int spm_to_sspm_command_async(u32 cmd, struct spm_data *spm_d)
 {
