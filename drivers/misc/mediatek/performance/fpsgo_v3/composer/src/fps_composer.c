@@ -403,7 +403,7 @@ void fpsgo_ctrl2comp_dequeue_start(int pid,
 	if (!f_render) {
 		struct BQ_id *pair;
 
-		pair = fpsgo_find_BQ_id(pid, 0, identifier, ACTION_FIND, 0);
+		pair = fpsgo_find_BQ_id(pid, 0, identifier, ACTION_FIND);
 		if (pair) {
 			FPSGO_COM_TRACE("%s: find pair enqueuer: %d, %d\n",
 				__func__, pid, pair->queue_pid);
@@ -485,7 +485,7 @@ void fpsgo_ctrl2comp_dequeue_end(int pid,
 	if (!f_render) {
 		struct BQ_id *pair;
 
-		pair = fpsgo_find_BQ_id(pid, 0, identifier, ACTION_FIND, 0);
+		pair = fpsgo_find_BQ_id(pid, 0, identifier, ACTION_FIND);
 		if (pair) {
 			pid = pair->queue_pid;
 			f_render = fpsgo_search_and_add_render_info(pid, 0);
@@ -591,7 +591,10 @@ void fpsgo_ctrl2comp_bqid(int pid, unsigned long long buffer_id,
 {
 	struct BQ_id *pair;
 
-	if (!buffer_id || !identifier || !pid)
+	if (!identifier || !pid)
+		return;
+
+	if (!buffer_id && create)
 		return;
 
 	fpsgo_render_tree_lock(__func__);
@@ -601,7 +604,7 @@ void fpsgo_ctrl2comp_bqid(int pid, unsigned long long buffer_id,
 
 	if (create) {
 		pair = fpsgo_find_BQ_id(pid, 0,
-				identifier, ACTION_FIND_ADD, 0ULL);
+				identifier, ACTION_FIND_ADD);
 
 		if (!pair) {
 			fpsgo_render_tree_unlock(__func__);
@@ -618,7 +621,7 @@ void fpsgo_ctrl2comp_bqid(int pid, unsigned long long buffer_id,
 		pair->queue_SF = queue_SF;
 	} else
 		fpsgo_find_BQ_id(pid, 0,
-			identifier, ACTION_FIND_DEL, buffer_id);
+			identifier, ACTION_FIND_DEL);
 
 	fpsgo_render_tree_unlock(__func__);
 }
