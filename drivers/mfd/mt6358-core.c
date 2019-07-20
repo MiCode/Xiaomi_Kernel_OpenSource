@@ -76,6 +76,9 @@ static const struct mfd_cell mt6359_devs[] = {
 		.name = "mt6359-regulator",
 		.of_compatible = "mediatek,mt6359-regulator",
 	}, {
+		.name = "mt6359p-regulator",
+		.of_compatible = "mediatek,mt6359p-regulator",
+	}, {
 		.name = "mt6359-rtc",
 		.of_compatible = "mediatek,mt6359-rtc",
 	}, {
