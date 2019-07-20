@@ -346,6 +346,9 @@ int ipa3_qmi_get_per_client_packet_stats(
 int ipa3_qmi_send_mhi_ready_indication(
 	struct ipa_mhi_ready_indication_msg_v01 *req);
 
+int ipa3_qmi_send_rsc_pipe_indication(
+	struct ipa_endp_desc_indication_msg_v01 *req);
+
 int ipa3_qmi_send_mhi_cleanup_request(struct ipa_mhi_cleanup_req_msg_v01 *req);
 
 void ipa3_qmi_init(void);
@@ -484,6 +487,12 @@ static inline void ipa3_q6_handshake_complete(bool ssr_bootup) { }
 
 static inline int ipa3_qmi_send_mhi_ready_indication(
 	struct ipa_mhi_ready_indication_msg_v01 *req)
+{
+	return -EPERM;
+}
+
+static int ipa3_qmi_send_rsc_pipe_indication(
+	struct ipa_endp_desc_indication_msg_v01 *req)
 {
 	return -EPERM;
 }

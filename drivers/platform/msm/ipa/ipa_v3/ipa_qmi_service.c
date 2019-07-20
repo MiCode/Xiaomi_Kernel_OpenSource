@@ -2245,6 +2245,22 @@ int ipa3_qmi_send_mhi_cleanup_request(struct ipa_mhi_cleanup_req_msg_v01 *req)
 		resp.resp.error, "ipa_mhi_cleanup_req_msg");
 }
 
+int ipa3_qmi_send_rsc_pipe_indication(
+	struct ipa_endp_desc_indication_msg_v01 *req)
+{
+	IPAWANDBG("Sending QMI_IPA_ENDP_DESC_INDICATION_V01\n");
+
+	if (unlikely(!ipa3_svc_handle))
+		return -ETIMEDOUT;
+
+	return qmi_send_indication(ipa3_svc_handle,
+		&ipa3_qmi_ctx->client_sq,
+		QMI_IPA_ENDP_DESC_INDICATION_V01,
+		IPA_ENDP_DESC_INDICATION_MSG_V01_MAX_MSG_LEN,
+		ipa_endp_desc_indication_msg_v01_ei,
+		req);
+}
+
 void ipa3_qmi_init(void)
 {
 	mutex_init(&ipa3_qmi_lock);
