@@ -3634,7 +3634,7 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 		AUTOK_RAWPRINT("[AUTOK]CMD err while check device status\r\n");
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	/* check QSR status when CQ on */
-	if (mmc_card_cmdq(host->mmc->card)) {
+	if (host->mmc->card && mmc_card_cmdq(host->mmc->card)) {
 		ret = autok_send_tune_cmd(host, CHECK_QSR,
 			TUNE_CMD, &autok_host_para);
 		if (ret == E_RES_PASS) {
