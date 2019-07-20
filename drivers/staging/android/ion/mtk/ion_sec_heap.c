@@ -22,6 +22,8 @@
 #include <linux/slab.h>
 #include <linux/mutex.h>
 #include <linux/fdtable.h>
+//#include <mmprofile.h>
+//#include <mmprofile_function.h>
 #include <linux/debugfs.h>
 #include <linux/kthread.h>
 #include <linux/sched/task.h>
@@ -162,8 +164,8 @@ static enum TRUSTED_MEM_REQ_TYPE get_trusted_mem_type(unsigned int heap_id)
 #endif
 
 static int ion_sec_heap_allocate(struct ion_heap *heap,
-				 struct ion_buffer *buffer,
-				 unsigned long size, unsigned long align,
+		struct ion_buffer *buffer,
+		unsigned long size, unsigned long align,
 		unsigned long flags)
 {
 	u32 sec_handle = 0;
@@ -258,7 +260,10 @@ static int ion_sec_heap_allocate(struct ion_heap *heap,
 	buffer->flags &= ~ION_FLAG_CACHED;
 	buffer->size = size;
 	buffer->sg_table = ion_sec_heap_map_dma(heap, buffer);
-
+#ifdef CONFIG_MTK_IOMMU_V2
+	sg_dma_address(buffer->sg_table->sgl) = (dma_addr_t)sec_handle;
+	sg_dma_len(buffer->sg_table->sgl) = size;
+#endif
 	sec_heap_total_memory += size;
 	caller_pid = 0;
 	caller_tid = 0;
@@ -565,9 +570,9 @@ static int __do_dump_share_fd(
 		ION_DUMP(
 			 s,
 			 "0x%p %9d %16s %5d %5d %16s %4d\n",
-		     buffer, bug_info->pid,
-		     buffer->alloc_dbg, p->pid,
-		     p->tgid, p->comm, fd);
+			 buffer, bug_info->pid,
+			 buffer->alloc_dbg, p->pid,
+			 p->tgid, p->comm, fd);
 
 	return 0;
 }

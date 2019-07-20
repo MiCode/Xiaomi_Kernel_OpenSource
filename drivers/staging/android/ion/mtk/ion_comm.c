@@ -23,6 +23,8 @@
 #include "ion_priv.h"
 #include <linux/slab.h>
 #include <linux/mutex.h>
+//#include <mmprofile.h>
+//#include <mmprofile_function.h>
 #include <linux/debugfs.h>
 #include <linux/kthread.h>
 #include <uapi/linux/sched/types.h>
@@ -82,7 +84,7 @@ static int ion_comm_cache_pool(void *data)
 			continue;
 		}
 
-		IONMSG("%s alloc start, req %d, cached %d\n", __func__,
+		IONMSG("%s alloc start, req %u, cached %u\n", __func__,
 		       req_cache_size, cached_size);
 
 		buffer->heap = ion_cam_heap;

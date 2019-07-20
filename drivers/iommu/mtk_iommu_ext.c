@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016 MediaTek Inc.
+ * Copyright (c) 2019 MediaTek Inc.
  * Author: Yong Wu <yong.wu@mediatek.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -82,10 +82,17 @@ static inline int mtk_iommu_get_tf_larb_port_idx(int tf_id)
 	return ERROR_LARB_PORT_ID;
 }
 
-int mtk_iommu_get_larb_port(unsigned int tf_id,
+int mtk_iommu_get_larb_port(unsigned int tf_id, unsigned int m4uid,
 		unsigned int *larb, unsigned int *port)
 {
 	unsigned int idx;
+#ifdef APU_IOMMU_INDEX
+	if (m4uid >= APU_IOMMU_INDEX) {
+		*larb = MTK_IOMMU_TO_LARB(M4U_PORT_APU);
+		*port = MTK_IOMMU_TO_PORT(M4U_PORT_APU);
+		return 0;
+	}
+#endif
 
 	idx = mtk_iommu_get_tf_larb_port_idx(tf_id);
 	if (idx == ERROR_LARB_PORT_ID) {
@@ -116,10 +123,9 @@ char *mtk_iommu_get_vpu_port_name(unsigned int tf_id)
 {
 	int i;
 
-	tf_id = (tf_id & 0x780) >> 7;
-
 	for (i = 0; i < IOMMU_APU_AXI_PORT_NR; i++) {
-		if (tf_id == vpu_axi_bus_id[i])
+		if (((tf_id & vpu_axi_bus_mask[i]) >> 7) ==
+		    vpu_axi_bus_id[i])
 			return vpu_axi_bus_name[i];
 	}
 	return "APU_UNKNOWN";
@@ -168,7 +174,7 @@ bool report_custom_iommu_fault(
 	char *name;
 
 	if (is_vpu) {
-		port = M4U_PORT_L21_APU_FAKE_DATA;
+		port = M4U_PORT_APU;
 		idx = mtk_iommu_larb_port_idx(port);
 		name = mtk_iommu_get_vpu_port_name(fault_id);
 	} else {
@@ -241,42 +247,6 @@ int mtk_iommu_enable_tf(int port, bool fgenable)
 	iommu_port[idx].enable_tf = fgenable;
 	return 0;
 }
-#if 0
-int mtk_smi_larb_get_ext(struct device *larbdev)
-{
-	struct M4U_PORT_STRUCT sPort;
-	int i = 0, ret = 0;
-
-	sPort.ePortID = 0;
-	sPort.Virtuality = 1;
-	sPort.Security = 0;
-	sPort.Distance = 1;
-	sPort.Direction = 0;
-	pr_info("[MTK_IOMMU] iommu_smi_larb_get larb port!!!\n");
-	for (i = M4U_PORT_L0_DISP_POSTMASK0; i < M4U_PORT_L0_DISP_FAKE0; i++) {
-		sPort.ePortID = i;
-		ret = m4u_config_port(&sPort);
-		if (ret) {
-			pr_info("[MTK_IOMMU] config Port(%d) FAIL(ret=%d)\n",
-				i, ret);
-			return -1;
-		}
-	}
-#ifdef M4U_PORT_DISP_OVL1
-	for (i = M4U_PORT_L1_DISP_POSTMASK1; i < M4U_PORT_L1_DISP_FAKE1; i++) {
-		sPort.ePortID = i;
-		ret = m4u_config_port(&sPort);
-		if (ret) {
-			pr_info("[MTK_IOMMU] config Port(%d) FAIL(ret=%d)\n",
-				i, ret);
-			return -1;
-		}
-	}
-#endif
-	return ret;
-
-}
-#endif
 
 int mtk_iommu_iova_to_pa(struct device *dev,
 			 dma_addr_t iova, unsigned long *pa)
@@ -569,9 +539,17 @@ int m4u_user2kernel_port(int userport)
 	unsigned int larb_id;
 	unsigned int port;
 
+	if (userport < 0 ||
+	    userport >= ARRAY_SIZE(iommu_port) - 1) {
+		pr_notice("%s, %d, invalid port id:%d\n",
+			  __func__, __LINE__, userport);
+		return -1;
+	}
+
 	larb_id = iommu_port[userport].larb_id;
 	port = iommu_port[userport].larb_port;
-	pr_debug("transfer larb_id=%d, port=%d(%d)\n", larb_id, port, userport);
+	pr_notice("transfer larb_id=%d, port=%d(%d)\n",
+		larb_id, port, userport);
 	return MTK_M4U_ID(larb_id, port);
 #endif
 }

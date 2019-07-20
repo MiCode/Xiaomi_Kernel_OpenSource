@@ -26,6 +26,7 @@
 #include "ion_priv.h"
 
 static unsigned long long last_alloc_ts;
+
 static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 {
 	unsigned long long start, end;
