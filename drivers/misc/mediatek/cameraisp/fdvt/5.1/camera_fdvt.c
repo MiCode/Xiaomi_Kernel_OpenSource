@@ -1674,7 +1674,7 @@ static inline void fdvt_prepare_enable_ccf_clock(void)
 	if (ret)
 		log_err("cannot prepare and enable CG_IMGSYS_LARB clock\n");
 #else
-	smi_bus_prepare_enable(SMI_LARB8_REG_INDX, "camera-fdvt");
+	smi_bus_prepare_enable(SMI_LARB8, "camera-fdvt");
 #endif
 	ret = clk_prepare_enable(fdvt_clk.CG_IPESYS_FD);
 	if (ret)
@@ -1702,7 +1702,7 @@ static inline void fdvt_disable_unprepare_ccf_clock(void)
 	clk_disable_unprepare(fdvt_clk.CG_MM_SMI_COMMON);
 	clk_disable_unprepare(fdvt_clk.CG_SCP_SYS_MM0);
 #else
-	smi_bus_disable_unprepare(SMI_LARB8_REG_INDX, "camera-fdvt");
+	smi_bus_disable_unprepare(SMI_LARB8, "camera-fdvt");
 #endif
 }
 #endif

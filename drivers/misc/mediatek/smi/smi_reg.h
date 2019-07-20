@@ -87,6 +87,7 @@
 #define SMI_LARB_REQ_DET		(0xc4)
 #define SMI_LARB_EXT_ONGOING		(0xc8)
 #define SMI_LARB_INT_ONGOING		(0xcc)
+#define SMI_LARB_DBG_CON		(0xf0)
 #define SMI_LARB_WRR_PORT(p)		(0x100 + ((p) << 2))
 #define SMI_LARB_OSTDL_PORT(p)		(0x200 + ((p) << 2))
 #define SMI_LARB_OSTD_MON_PORT(p)	(0x280 + ((p) << 2))
@@ -100,5 +101,6 @@
 #define SMI_LARB_MON_BEAT_CNT		(0x418)
 #define SMI_LARB_MON_BYTE_CNT		(0x41c)
 #define INT_SMI_LARB_CMD_THRT_CON	(0x524)
+#define INT_SMI_LARB_DBG_CON		(0x5f0)
 
 #endif
