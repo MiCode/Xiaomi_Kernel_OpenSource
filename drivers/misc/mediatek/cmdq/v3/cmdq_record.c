@@ -520,8 +520,6 @@ s32 cmdq_task_duplicate(struct cmdqRecStruct *handle,
 	else
 		handle_new->cmd_end = NULL;
 
-	cmdq_op_finalize_command(handle_new, handle->pkt->loop);
-
 	handle_new->pkt->priority = handle->pkt->priority;
 
 	/* copy metadata */
@@ -589,8 +587,6 @@ s32 cmdq_task_duplicate(struct cmdqRecStruct *handle,
 		handle_new->replace_instr.position = (cmdqU32Ptr_t)
 			(unsigned long)p_new_buffer;
 	}
-
-	/* TODO: design secure part copy */
 
 	*handle_out = handle_new;
 
@@ -1300,6 +1296,11 @@ s32 cmdq_task_set_secure(struct cmdqRecStruct *handle, const bool is_secure)
 		return -EFAULT;
 
 	handle->secData.is_secure = is_secure;
+
+	if (handle->finalized) {
+		CMDQ_ERR("config secure after finalized\n");
+		dump_stack();
+	}
 
 	if (handle->pkt->cmd_buf_size > 0)
 		CMDQ_MSG("[warn]set secure after record size:%zu\n",
@@ -2091,7 +2092,7 @@ s32 cmdq_task_flush_async_callback(struct cmdqRecStruct *handle,
 		return status;
 	}
 
-	status = cmdq_op_finalize_command(flush_handle, false);
+	status = cmdq_op_finalize_command(flush_handle, handle->pkt->loop);
 	if (status < 0) {
 		kfree(async);
 		return status;
