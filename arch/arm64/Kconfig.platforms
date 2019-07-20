@@ -98,6 +98,51 @@ config ARCH_MEDIATEK
 	help
 	  Support for Mediatek MT65xx & MT81xx ARMv8 SoCs
 
+config MACH_MT6785
+	bool "MediaTek MT6785"
+	select ARM_DSU_PMU
+	select HIE
+	select MTK_TIMER_SYSTIMER
+	select MTK_GIC_V3_EXT
+	select PINCTRL
+	select PINCTRL_MT6785
+	select IRQ_DOMAIN
+	select MFD_SYSCON
+	select MTK_SYSIRQ
+	select MTK_SYS_CIRQ
+	select FAST_CIRQ_CLONE_FLUSH
+	select EXT4_FS
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select SDCARD_FS
+	select CPU_IDLE
+	select MTK_BASE_POWER
+	select PM_DEVFREQ
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select MTK_SYSTRACKER_V2
+	select MTK_CACHE_PARITY_CHECK
+	select MTK_LASTBUS_INTERFACE
+	select MTK_DRAMC
+	select MTK_EMI
+	select MTK_PID_MAP
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_DEBUG_LATCH
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_SECURITY_SW_SUPPORT
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_DEVMPU
+	select MTK_GIC_TARGET_ALL
+	select DEVAPC_MT6785
+	select CLOCKSOURCE_VALIDATE_LAST_CYCLE
+	help
+	  This enables support for MediaTek MT6785
+	  Support for aarch64 Architecture
+	  Support for fpga_64_mt6785 related projects
+	  Support for mt6785 related projects
+
 config MACH_MT6771
         bool "MediaTek MT6771"
         select GENERIC_TIME
