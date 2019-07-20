@@ -295,7 +295,7 @@ static int mt6370_pmu_ldo_probe(struct platform_device *pdev)
 	mt6370_pmu_ldo_irq_register(pdev);
 
 	dev_info(&pdev->dev, "%s successfully\n", __func__);
-	return ret;
+	return 0;
 probe_err:
 	dev_info(&pdev->dev, "%s: register mtk regulator failed\n", __func__);
 	return ret;
