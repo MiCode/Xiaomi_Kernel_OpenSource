@@ -52,8 +52,8 @@ struct devfreq_msm_adreno_tz_data {
 		u32 width;
 		u32 *up;
 		u32 *down;
-		u32 *p_up;
-		u32 *p_down;
+		s32 *p_up;
+		s32 *p_down;
 		unsigned int *index;
 		uint64_t *ib;
 	} bus;
