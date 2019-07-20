@@ -170,19 +170,19 @@ static inline uint64_t arch_counter_to_ns(uint64_t cyc)
 #define FILTER_FREQ			10000000ULL /* 10 ms */
 struct moving_average {
 	uint64_t last_time;
-	uint64_t input[FILTER_DATAPOINTS];
-	uint64_t output;
+	int64_t input[FILTER_DATAPOINTS];
+	atomic64_t output;
 	uint8_t cnt;
 	uint8_t tail;
 };
 static struct moving_average moving_average_algo;
 static uint8_t rtc_compensation_suspend;
 static void moving_average_filter(struct moving_average *filter,
-	uint64_t ap_time, uint64_t hub_time)
+		uint64_t ap_time, uint64_t hub_time)
 {
 	int i = 0;
 	int64_t avg = 0;
-	uint64_t ret_avg = 0;
+	int64_t ret_avg = 0;
 
 	if (ap_time > filter->last_time + FILTER_TIMEOUT ||
 		filter->last_time == 0) {
@@ -203,12 +203,12 @@ static void moving_average_filter(struct moving_average *filter,
 	for (i = 1, avg = 0; i < filter->cnt; i++)
 		avg += (filter->input[i] - filter->input[0]);
 	ret_avg = div_s64(avg, filter->cnt) + filter->input[0];
-	WRITE_ONCE(filter->output, ret_avg);
+	atomic64_set(&filter->output, ret_avg);
 }
 
 static uint64_t get_filter_output(struct moving_average *filter)
 {
-	return READ_ONCE(filter->output);
+	return atomic64_read(&filter->output);
 }
 
 struct SCP_sensorHub_Cmd {
