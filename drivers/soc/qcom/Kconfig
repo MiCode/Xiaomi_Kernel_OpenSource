@@ -629,7 +629,7 @@ config MSM_SPCOM
 	  or server is allowed per logical channel.
 
 config MSM_TZ_SMMU
-	depends on ARCH_MSM8953 || ARCH_QCS405
+	depends on ARCH_MSM8953 || ARCH_QCS405 || ARCH_QCS403
 	bool "Helper functions for SMMU configuration through TZ"
 	help
 	  Say 'Y' here for targets that need to call into TZ to configure
