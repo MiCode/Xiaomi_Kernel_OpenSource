@@ -1585,10 +1585,6 @@ static int mtk_vcu_write(const char *val, const struct kernel_param *kp)
 {
 	long ret = -1;
 
-	pr_info("[log wakeup VPUD] log_info %p vcu_ptr %p val %p: %s %lu\n",
-		(char *)vcu_ptr->vdec_log_info->log_info,
-		vcu_ptr, val, val, (unsigned long)strlen(val));
-
 	if (vcu_ptr != NULL &&
 		vcu_ptr->vdec_log_info != NULL &&
 		val != NULL &&
@@ -1601,6 +1597,10 @@ static int mtk_vcu_write(const char *val, const struct kernel_param *kp)
 			val, strlen(val));
 	} else
 		return -EFAULT;
+
+	pr_info("[log wakeup VPUD] log_info %p vcu_ptr %p val %p: %s %lu\n",
+		(char *)vcu_ptr->vdec_log_info->log_info,
+		vcu_ptr, val, val, (unsigned long)strlen(val));
 
 	atomic_set(&vcu_ptr->vdec_log_got, 1);
 	wake_up(&vcu_ptr->vdec_log_get_wq);
