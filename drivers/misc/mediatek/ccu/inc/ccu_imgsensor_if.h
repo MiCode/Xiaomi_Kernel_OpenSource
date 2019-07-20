@@ -16,8 +16,10 @@
 
 struct ccu_sensor_info {
 	int32_t slave_addr;
+	int32_t i2c_id;
 	char *sensor_name_string;
 };
+
 
 void ccu_set_current_fps(int32_t sensorType, int32_t current_fps);
 void ccu_set_sensor_info(int32_t sensorType, struct ccu_sensor_info *info);
