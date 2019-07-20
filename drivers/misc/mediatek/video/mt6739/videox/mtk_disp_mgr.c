@@ -1158,8 +1158,9 @@ int _ioctl_get_display_caps(unsigned long arg)
 	if (disp_helper_get_option(DISP_OPT_HRT))
 		caps_info.disp_feature |= DISP_FEATURE_HRT;
 
+#ifdef DISP_SYNC_ENABLE
 	caps_info.disp_feature |= DISP_FEATURE_FENCE_WAIT;
-
+#endif
 	if (copy_to_user(argp, &caps_info, sizeof(caps_info))) {
 		DISPERR("[FB]: copy_to_user failed! line:%d\n", __LINE__);
 		ret = -EFAULT;
