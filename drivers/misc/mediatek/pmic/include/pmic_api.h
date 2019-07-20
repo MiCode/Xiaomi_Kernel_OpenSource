@@ -41,4 +41,8 @@
 #ifdef CONFIG_MTK_PMIC_CHIP_MT6359
 #include "mt6359/mtk_pmic_api.h"
 #endif
+
+#ifdef CONFIG_MTK_PMIC_CHIP_MT6359P
+#include "mt6359p/mtk_pmic_api.h"
+#endif
 #endif				/* _PMIC_API_H_ */
