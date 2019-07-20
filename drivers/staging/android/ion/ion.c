@@ -187,15 +187,6 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	INIT_LIST_HEAD(&buffer->attachments);
 #endif
 	mutex_init(&buffer->lock);
-#ifdef CONFIG_MTK_PSEUDO_M4U_V2
-	if (heap->id < ION_HEAP_TYPE_MULTIMEDIA) {
-		for_each_sg(buffer->sg_table->sgl, sg, buffer->sg_table->nents,
-			    i) {
-			sg_dma_address(sg) = sg_phys(sg);
-			sg_dma_len(sg) = sg->length;
-		}
-	}
-#else
 	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_PA2MVA)
 		goto exit;
 	/*
@@ -221,7 +212,6 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 		sg_dma_len(sg) = sg->length;
 	}
 exit:
-#endif
 	mutex_lock(&dev->buffer_lock);
 	ion_buffer_add(dev, buffer);
 	mutex_unlock(&dev->buffer_lock);
