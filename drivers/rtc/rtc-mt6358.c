@@ -33,6 +33,13 @@
 #include <linux/of_irq.h>
 #include <linux/io.h>
 #include <asm/div64.h>
+/* For KPOC alarm */
+#include <linux/notifier.h>
+#include <linux/suspend.h>
+#include <linux/completion.h>
+#include <linux/workqueue.h>
+#include <linux/jiffies.h>
+#include <linux/cpumask.h>
 #include "../misc/mediatek/include/mt-plat/mtk_boot_common.h"
 #include "../misc/mediatek/include/mt-plat/mtk_reboot.h"
 
@@ -172,17 +179,28 @@ struct mt6358_rtc {
 	struct regmap		*regmap;
 	int			irq;
 	u32			addr_base;
+	struct work_struct work;
+	struct completion comp;
 };
 static struct mt6358_rtc *mt_rtc;
 
 static int rtc_show_time;
 static int rtc_show_alarm = 1;
 static int apply_lpsd_solution;
+/*for KPOC alarm*/
+static bool rtc_pm_notifier_registered;
+static bool kpoc_alarm;
+static unsigned long rtc_pm_status;
+
 module_param(rtc_show_time, int, 0644);
 module_param(rtc_show_alarm, int, 0644);
 
 
 
+void __attribute__((weak)) arch_reset(char mode, const char *cmd)
+{
+	pr_info("arch_reset is not ready\n");
+}
 
 static int rtc_read(unsigned int reg, unsigned int *val)
 {
@@ -272,14 +290,6 @@ static int mtk_rtc_read_time(struct rtc_time *tm)
 	u32 sec;
 
 	do {
-		ret = rtc_update_bits(RTC_BBPU,
-				(RTC_BBPU_KEY | RTC_BBPU_RELOAD),
-				(RTC_BBPU_KEY | RTC_BBPU_RELOAD));
-		if (ret < 0)
-			goto exit;
-		ret = rtc_write_trigger();
-		if (ret < 0)
-			goto exit;
 
 		ret = rtc_bulk_access(BULK_READ, RTC_TC_SEC,
 					data, RTC_OFFSET_COUNT);
@@ -291,15 +301,6 @@ static int mtk_rtc_read_time(struct rtc_time *tm)
 		tm->tm_mday = data[RTC_OFFSET_DOM] & RTC_TC_DOM_MASK;
 		tm->tm_mon = data[RTC_OFFSET_MTH] & RTC_TC_MTH_MASK;
 		tm->tm_year = data[RTC_OFFSET_YEAR] & RTC_TC_YEA_MASK;
-
-		ret = rtc_update_bits(RTC_BBPU,
-				(RTC_BBPU_KEY | RTC_BBPU_RELOAD),
-				(RTC_BBPU_KEY | RTC_BBPU_RELOAD));
-		if (ret < 0)
-			goto exit;
-		ret = rtc_write_trigger();
-		if (ret < 0)
-			goto exit;
 
 		ret = rtc_read(RTC_TC_SEC, &sec);
 		if (ret < 0)
@@ -519,6 +520,81 @@ exit:
 	pr_err("%s error\n", __func__);
 }
 
+#ifdef CONFIG_PM
+
+#define PM_DUMMY 0xFFFF
+
+static int rtc_pm_event(struct notifier_block *notifier, unsigned long pm_event,
+			void *unused)
+{
+	pr_notice("%s = %lu\n", __func__, pm_event);
+
+	switch (pm_event) {
+	case PM_SUSPEND_PREPARE:
+		rtc_pm_status = PM_SUSPEND_PREPARE;
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:
+		rtc_pm_status = PM_POST_SUSPEND;
+		break;
+	default:
+		rtc_pm_status = PM_DUMMY;
+		break;
+	}
+
+	if (kpoc_alarm) {
+		pr_notice("%s trigger reboot\n", __func__);
+		complete(&mt_rtc->comp);
+		kpoc_alarm = false;
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block rtc_pm_notifier_func = {
+	.notifier_call = rtc_pm_event,
+	.priority = 0,
+};
+#endif /* CONFIG_PM */
+
+static void mtk_rtc_work_queue(struct work_struct *work)
+{
+	struct mt6358_rtc *rtc = container_of(work, struct mt6358_rtc, work);
+	unsigned long ret;
+	unsigned int msecs;
+
+	ret = wait_for_completion_timeout(&rtc->comp, msecs_to_jiffies(30000));
+	if (!ret) {
+		pr_notice("%s timeout\n", __func__);
+		BUG_ON(1);
+	} else {
+		msecs = jiffies_to_msecs(ret);
+		pr_notice("%s timeleft= %d\n", __func__, msecs);
+		kernel_restart("kpoc");
+	}
+}
+
+static void mtk_rtc_reboot(void)
+{
+	pm_stay_awake(mt_rtc->dev);
+
+	init_completion(&mt_rtc->comp);
+	schedule_work_on(cpumask_first(cpu_online_mask), &mt_rtc->work);
+
+	if (!rtc_pm_notifier_registered)
+		goto reboot;
+
+	if (rtc_pm_status != PM_SUSPEND_PREPARE)
+		goto reboot;
+
+	kpoc_alarm = true;
+
+	pr_notice("%s:wait\n", __func__);
+	return;
+
+reboot:
+	pr_notice("%s:trigger\n", __func__);
+	complete(&mt_rtc->comp);
+}
+
 #ifndef USER_BUILD_KERNEL
 void mtk_rtc_lp_exception(void)
 {
@@ -600,7 +676,7 @@ static void mtk_rtc_reset_bbpu_alarm_status(void)
 {
 	u32 bbpu;
 	int ret;
-	unsigned long long timeout = sched_clock() + 500000000;
+
 
 	if (apply_lpsd_solution) {
 		pr_notice("%s:lpsd\n", __func__);
@@ -611,22 +687,10 @@ static void mtk_rtc_reset_bbpu_alarm_status(void)
 	rtc_write(RTC_BBPU, bbpu);
 	ret = rtc_write_trigger();
 	if (ret < 0)
-		goto exit;
-
-	do {
-		rtc_read(RTC_BBPU, &bbpu);
-		if ((bbpu & RTC_BBPU_AL_STA) == 0)
-			break;
-		else if (sched_clock() > timeout) {
-			pr_notice("%s, time out, %x,\n",
-				__func__, bbpu);
-			break;
-		}
-	} while (1);
+		pr_err("%s error\n", __func__);
 
 	return;
-exit:
-	pr_err("%s error\n", __func__);
+
 }
 
 static irqreturn_t mtk_rtc_irq_handler(int irq, void *data)
@@ -663,27 +727,10 @@ static irqreturn_t mtk_rtc_irq_handler(int irq, void *data)
 		if (now_time >= time - 1 && now_time <= time + 4) {
 			if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT
 			    || get_boot_mode() == LOW_POWER_OFF_CHARGING_BOOT) {
-				do {
-					now_time += 1;
-					rtc_time64_to_tm(now_time, &tm);
-					tm.tm_year -= RTC_MIN_YEAR_OFFSET;
-					tm.tm_mon += 1;
-					mtk_rtc_set_pwron_alarm_time(&tm);
-					mtk_rtc_set_alarm(&tm);
-					mtk_rtc_is_pwron_alarm(&nowtm, &tm);
-					nowtm.tm_year += RTC_MIN_YEAR;
-					tm.tm_year += RTC_MIN_YEAR;
-					now_time =
-					    mktime(nowtm.tm_year, nowtm.tm_mon,
-						   nowtm.tm_mday, nowtm.tm_hour,
-						   nowtm.tm_min, nowtm.tm_sec);
-					time =
-					    mktime(tm.tm_year, tm.tm_mon,
-						   tm.tm_mday, tm.tm_hour,
-						   tm.tm_min, tm.tm_sec);
-				} while (time <= now_time);
+				mtk_rtc_reboot();
 				spin_unlock_irqrestore(&mt_rtc->lock, flags);
-				arch_reset(0, "kpoc");
+				disable_irq_nosync(mt_rtc->irq);
+				goto out;
 			} else {
 				mtk_rtc_update_pwron_alarm_flag();
 				pwron_alm = true;
@@ -697,7 +744,7 @@ static irqreturn_t mtk_rtc_irq_handler(int irq, void *data)
 		}
 	}
 	spin_unlock_irqrestore(&mt_rtc->lock, flags);
-
+out:
 	if (mt_rtc->rtc_dev != NULL)
 		rtc_update_irq(mt_rtc->rtc_dev, 1, RTC_IRQF | RTC_AF);
 
@@ -999,6 +1046,16 @@ static int mtk_rtc_pdrv_probe(struct platform_device *pdev)
 		apply_lpsd_solution = 1;
 		pr_notice("%s: apply_lpsd_solution\n", __func__);
 	}
+
+#ifdef CONFIG_PM
+	if (register_pm_notifier(&rtc_pm_notifier_func))
+		pr_notice("rtc pm failed\n");
+	else
+		rtc_pm_notifier_registered = true;
+#endif /* CONFIG_PM */
+
+	INIT_WORK(&rtc->work, mtk_rtc_work_queue);
+
 	return 0;
 out_free_irq:
 	free_irq(rtc->irq, rtc->rtc_dev);
@@ -1018,6 +1075,7 @@ static int mtk_rtc_pdrv_remove(struct platform_device *pdev)
 
 static const struct of_device_id mt6358_rtc_of_match[] = {
 	{ .compatible = "mediatek,mt6358-rtc", },
+	{ .compatible = "mediatek,mt6359-rtc", },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, mt6358_rtc_of_match);
