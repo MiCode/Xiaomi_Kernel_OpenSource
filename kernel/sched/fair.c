@@ -3119,6 +3119,18 @@ static inline void cfs_rq_util_change(struct cfs_rq *cfs_rq, int flags)
 	}
 }
 
+static inline int per_task_boost(struct task_struct *p)
+{
+	if (p->boost_period) {
+		if (sched_clock() > p->boost_expires) {
+			p->boost_period = 0;
+			p->boost_expires = 0;
+			p->boost = 0;
+		}
+	}
+	return p->boost;
+}
+
 #ifdef CONFIG_SMP
 #ifdef CONFIG_FAIR_GROUP_SCHED
 /**
@@ -3839,14 +3851,20 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 {
 	unsigned long capacity = capacity_orig_of(cpu);
 	unsigned long max_capacity = cpu_rq(cpu)->rd->max_cpu_capacity.val;
+	unsigned long task_boost = per_task_boost(p);
 
 	if (capacity == max_capacity)
 		return true;
 
-	if ((task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
-			schedtune_task_boost(p) > 0) &&
-			is_min_capacity_cpu(cpu))
-		return false;
+	if (is_min_capacity_cpu(cpu)) {
+		if (task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
+			task_boost > 0 ||
+			schedtune_task_boost(p) > 0)
+			return false;
+	} else { /* mid cap cpu */
+		if (task_boost > 1)
+			return false;
+	}
 
 	return task_fits_capacity(p, capacity, cpu);
 }
@@ -6761,7 +6779,7 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	unsigned long best_active_cuml_util = ULONG_MAX;
 	unsigned long best_idle_cuml_util = ULONG_MAX;
 	bool prefer_idle = schedtune_prefer_idle(p);
-	bool boosted = schedtune_task_boost(p) > 0;
+	bool boosted = schedtune_task_boost(p) > 0 || per_task_boost(p) > 0;
 	/* Initialise with deepest possible cstate (INT_MAX) */
 	int shallowest_idle_cstate = INT_MAX;
 	struct sched_domain *start_sd;
