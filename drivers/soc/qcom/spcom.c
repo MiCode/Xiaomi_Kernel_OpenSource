@@ -1684,7 +1684,7 @@ static int spcom_create_channel_chardev(const char *name)
 	ch = spcom_find_channel_by_name(name);
 	if (ch) {
 		pr_err("channel [%s] already exist.\n", name);
-		return -EINVAL;
+		return -EBUSY;
 	}
 
 	ch = spcom_find_channel_by_name(""); /* find reserved channel */
