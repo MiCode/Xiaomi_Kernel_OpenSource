@@ -1027,9 +1027,14 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	bool pcidev_found = false;
 	struct msm_pcie_register_event *pci_event;
 
+	if (!try_module_get(THIS_MODULE))
+		return -ENODEV;
+
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
-	if (!ctx)
-		return -ENOMEM;
+	if (!ctx) {
+		rc = -ENOMEM;
+		goto out_module;
+	}
 
 	ctx->dev = dev;
 
@@ -1072,19 +1077,22 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	rc_node = of_parse_phandle(of_node, "qcom,pcie-parent", 0);
 	if (!rc_node) {
 		dev_err(ctx->dev, "Parent PCIE device not found\n");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto out_module;
 	}
 	rc = of_property_read_u32(rc_node, "cell-index", &ctx->rc_index);
 	if (rc < 0) {
 		dev_err(ctx->dev, "Parent PCIE device index not found\n");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto out_module;
 	}
 	ctx->keep_radio_on_during_sleep = of_property_read_bool(of_node,
 		"qcom,keep-radio-on-during-sleep");
 	ctx->bus_scale = msm_bus_cl_get_pdata(pdev);
 	if (!ctx->bus_scale) {
 		dev_err(ctx->dev, "Unable to read bus-scaling from DT\n");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto out_module;
 	}
 
 	/*== execute ==*/
@@ -1092,7 +1100,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	rc = msm_11ad_init_vregs(ctx);
 	if (rc) {
 		dev_err(ctx->dev, "msm_11ad_init_vregs failed: %d\n", rc);
-		return rc;
+		goto out_module;
 	}
 	rc = msm_11ad_enable_vregs(ctx);
 	if (rc) {
@@ -1275,6 +1283,9 @@ out_vreg_clk:
 	msm_11ad_disable_vregs(ctx);
 	msm_11ad_release_vregs(ctx);
 
+out_module:
+	module_put(THIS_MODULE);
+
 	return rc;
 }
 
@@ -1306,6 +1317,8 @@ static int msm_11ad_remove(struct platform_device *pdev)
 	msm_11ad_release_clocks(ctx);
 	msm_11ad_disable_vregs(ctx);
 	msm_11ad_release_vregs(ctx);
+
+	module_put(THIS_MODULE);
 
 	return 0;
 }
