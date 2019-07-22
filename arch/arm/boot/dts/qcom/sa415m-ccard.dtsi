@@ -54,6 +54,12 @@
 	};
 };
 
+&spi_2 {
+	can-controller@0 {
+		qcom,max-can-channels = <2>;
+	};
+};
+
 &wcd934x_cdc {
 	status = "disabled";
 };
