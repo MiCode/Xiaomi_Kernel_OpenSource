@@ -357,6 +357,53 @@ static void mmc_manage_gp_partitions(struct mmc_card *card, u8 *ext_csd)
 	}
 }
 
+/* check whether the eMMC card supports HPI */
+void mmc_check_hpi_support(struct mmc_card *card, u8 *ext_csd)
+{
+	if ((ext_csd[EXT_CSD_HPI_FEATURES] & 0x1) &&
+		!(card->quirks & MMC_QUIRK_BROKEN_HPI)) {
+		card->ext_csd.hpi = 1;
+		if (ext_csd[EXT_CSD_HPI_FEATURES] & 0x2)
+			card->ext_csd.hpi_cmd = MMC_STOP_TRANSMISSION;
+		else
+			card->ext_csd.hpi_cmd = MMC_SEND_STATUS;
+		/*
+		 * Indicate the maximum timeout to close
+		 * a command interrupted by HPI
+		 */
+		card->ext_csd.out_of_int_time =
+			ext_csd[EXT_CSD_OUT_OF_INTERRUPT_TIME] * 10;
+		pr_info("%s: Out-of-interrupt timeout is %d[ms]\n",
+				mmc_hostname(card->host),
+				card->ext_csd.out_of_int_time);
+	}
+
+}
+
+/* Check bkops support of card */
+void mmc_check_bkops_support(struct mmc_card *card, u8 *ext_csd)
+{
+	if (!mmc_card_broken_hpi(card) &&
+	    (ext_csd[EXT_CSD_BKOPS_SUPPORT] & 0x1) &&
+			card->ext_csd.hpi) {
+		card->ext_csd.bkops = 1;
+		card->ext_csd.man_bkops_en =
+				(ext_csd[EXT_CSD_BKOPS_EN] &
+					EXT_CSD_MANUAL_BKOPS_MASK);
+		card->ext_csd.raw_bkops_status =
+			ext_csd[EXT_CSD_BKOPS_STATUS];
+		if (card->ext_csd.man_bkops_en)
+			pr_debug("%s: MAN_BKOPS_EN bit is set\n",
+				mmc_hostname(card->host));
+		card->ext_csd.auto_bkops_en =
+				(ext_csd[EXT_CSD_BKOPS_EN] &
+					EXT_CSD_AUTO_BKOPS_MASK);
+		if (card->ext_csd.auto_bkops_en)
+			pr_debug("%s: AUTO_BKOPS_EN bit is set\n",
+				mmc_hostname(card->host));
+	}
+}
+
 /* Minimum partition switch timeout in milliseconds */
 #define MMC_MIN_PART_SWITCH_TIME	300
 
@@ -522,30 +569,15 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			ext_csd[EXT_CSD_PWR_CL_DDR_200_360];
 	}
 
+	mmc_check_hpi_support(card, ext_csd);
+
 	if (card->ext_csd.rev >= 5) {
 		/* Adjust production date as per JEDEC JESD84-B451 */
 		if (card->cid.year < 2010)
 			card->cid.year += 16;
 
 		/* check whether the eMMC card supports BKOPS */
-		if (!mmc_card_broken_hpi(card) &&
-		    ext_csd[EXT_CSD_BKOPS_SUPPORT] & 0x1) {
-			card->ext_csd.bkops = 1;
-			card->ext_csd.man_bkops_en =
-					(ext_csd[EXT_CSD_BKOPS_EN] &
-						EXT_CSD_MANUAL_BKOPS_MASK);
-			card->ext_csd.raw_bkops_status =
-				ext_csd[EXT_CSD_BKOPS_STATUS];
-			if (card->ext_csd.man_bkops_en)
-				pr_debug("%s: MAN_BKOPS_EN bit is set\n",
-					mmc_hostname(card->host));
-			card->ext_csd.auto_bkops_en =
-					(ext_csd[EXT_CSD_BKOPS_EN] &
-						EXT_CSD_AUTO_BKOPS_MASK);
-			if (card->ext_csd.auto_bkops_en)
-				pr_debug("%s: AUTO_BKOPS_EN bit is set\n",
-					mmc_hostname(card->host));
-		}
+		mmc_check_bkops_support(card, ext_csd);
 
 		/* check whether the eMMC card supports HPI */
 		if (!mmc_card_broken_hpi(card) &&
@@ -1841,6 +1873,21 @@ static int mmc_change_bus_speed_deferred(struct mmc_host *host,
 out:
 	return err;
 }
+
+void mmc_init_setup_scaling(struct mmc_card *card,
+			struct mmc_host *host)
+{
+	card->clk_scaling_lowest = host->f_min;
+	if ((card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400) ||
+			(card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200))
+		card->clk_scaling_highest = card->ext_csd.hs200_max_dtr;
+	else if ((card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS) ||
+			(card->mmc_avail_type & EXT_CSD_CARD_TYPE_DDR_52))
+		card->clk_scaling_highest = card->ext_csd.hs_max_dtr;
+	else
+		card->clk_scaling_highest = card->csd.max_dtr;
+}
+
 /*
  * Handle the detection and initialisation of a card.
  *
@@ -2111,15 +2158,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		}
 	}
 
-	card->clk_scaling_lowest = host->f_min;
-	if ((card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400) ||
-			(card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200))
-		card->clk_scaling_highest = card->ext_csd.hs200_max_dtr;
-	else if ((card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS) ||
-			(card->mmc_avail_type & EXT_CSD_CARD_TYPE_DDR_52))
-		card->clk_scaling_highest = card->ext_csd.hs_max_dtr;
-	else
-		card->clk_scaling_highest = card->csd.max_dtr;
+	mmc_init_setup_scaling(card, host);
 
 	/*
 	 * Choose the power class with selected bus interface
@@ -2153,7 +2192,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 * the existence of cache and it can be turned on.
 	 */
 	if (!mmc_card_broken_hpi(card) &&
-	    card->ext_csd.cache_size > 0) {
+	    (card->ext_csd.cache_size > 0) && card->ext_csd.hpi_en) {
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_CACHE_CTRL, 1,
 				card->ext_csd.generic_cmd6_time);
