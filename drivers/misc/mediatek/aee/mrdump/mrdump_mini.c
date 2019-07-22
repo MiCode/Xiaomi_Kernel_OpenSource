@@ -13,6 +13,7 @@
 #include <linux/vmalloc.h>
 #include <linux/bug.h>
 #include <linux/compiler.h>
+#include <linux/printk.h>
 #include <linux/sizes.h>
 #include <linux/spinlock.h>
 #include <linux/stacktrace.h>
@@ -65,11 +66,6 @@ __weak void get_disp_dbg_buffer(unsigned long *addr, unsigned long *size,
 }
 
 __weak void get_disp_dump_buffer(unsigned long *addr, unsigned long *size,
-		unsigned long *start)
-{
-}
-
-__weak void get_kernel_log_buffer(unsigned long *addr, unsigned long *size,
 		unsigned long *start)
 {
 }
@@ -783,7 +779,8 @@ static void mrdump_mini_build_elf_misc(void)
 	mrdump_mini_add_misc_pa(task_info_va, task_info_pa,
 			sizeof(struct aee_process_info), 0, "PROC_CUR_TSK");
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
-	get_kernel_log_buffer(&misc.vaddr, &misc.size, &misc.start);
+	misc.vaddr = (unsigned long)log_buf_addr_get();
+	misc.size = (unsigned long)log_buf_len_get();
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_KERNEL_LOG_");
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
 	aee_rr_get_desc_info(&misc.vaddr, &misc.size, &misc.start);
