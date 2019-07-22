@@ -4131,39 +4131,6 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 		return MSM_PCIE_ERROR;
 	}
 
-	if (dev->bw_scale) {
-		u32 index;
-		u32 current_link_speed;
-		struct msm_pcie_bw_scale_info_t *bw_scale;
-
-		/*
-		 * check if the link up GEN speed is less than the max/default
-		 * supported. If it is, scale down CX corner and rate change
-		 * clock accordingly.
-		 */
-		current_link_speed = readl_relaxed(dev->dm_core +
-						PCIE20_CAP_LINKCTRLSTATUS);
-		current_link_speed = ((current_link_speed >> 16) &
-					PCI_EXP_LNKSTA_CLS);
-
-		index = current_link_speed - PCI_EXP_LNKCTL2_TLS_2_5GT;
-		if (index >= dev->bw_gen_max) {
-			PCIE_ERR(dev,
-				"PCIe: RC%d: unsupported gen speed: %d\n",
-				dev->rc_idx, current_link_speed);
-			return 0;
-		}
-
-		bw_scale = &dev->bw_scale[index];
-
-		if (bw_scale->cx_vreg_min < dev->cx_vreg->min_v) {
-			msm_pcie_write_reg_field(dev->dm_core,
-				PCIE20_CAP + PCI_EXP_LNKCTL2,
-				PCI_EXP_LNKCAP_SLS, current_link_speed);
-			msm_pcie_scale_link_bandwidth(dev, current_link_speed);
-		}
-	}
-
 	return 0;
 }
 
