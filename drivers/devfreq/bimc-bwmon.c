@@ -588,14 +588,15 @@ unsigned long get_zone_count(struct bwmon *m, unsigned int zone,
 		WARN(1, "Invalid\n");
 		return 0;
 	case MON2:
-		count = readl_relaxed(MON2_ZONE_MAX(m, zone)) + 1;
+		count = readl_relaxed(MON2_ZONE_MAX(m, zone));
 		break;
 	case MON3:
 		count = readl_relaxed(MON3_ZONE_MAX(m, zone));
-		if (count)
-			count++;
 		break;
 	}
+
+	if (count)
+		count++;
 
 	return count;
 }
