@@ -1458,17 +1458,15 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 	struct mhi_controller *mhi_cntrl = dev;
 	enum mhi_dev_state state = MHI_STATE_MAX;
 	enum MHI_PM_STATE pm_state = 0;
-	enum mhi_ee ee = 0;
+	enum mhi_ee ee;
 
 	MHI_VERB("Enter\n");
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
 		state = mhi_get_mhi_state(mhi_cntrl);
-		ee = mhi_cntrl->ee;
-		mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
-		MHI_LOG("device ee:%s dev_state:%s\n",
-			TO_MHI_EXEC_STR(mhi_cntrl->ee),
+		ee = mhi_get_exec_env(mhi_cntrl);
+		MHI_LOG("device ee:%s dev_state:%s\n", TO_MHI_EXEC_STR(ee),
 			TO_MHI_STATE_STR(state));
 	}
 
@@ -1478,17 +1476,6 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 					       MHI_PM_SYS_ERR_DETECT);
 	}
 	write_unlock_irq(&mhi_cntrl->pm_lock);
-
-	/* if device in rddm don't bother processing sys error */
-	if (mhi_cntrl->ee == MHI_EE_RDDM) {
-		if (mhi_cntrl->ee != ee) {
-			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
-					     MHI_CB_EE_RDDM);
-			wake_up_all(&mhi_cntrl->state_event);
-		}
-		goto exit_intvec;
-	}
-
 	if (pm_state == MHI_PM_SYS_ERR_DETECT) {
 		wake_up_all(&mhi_cntrl->state_event);
 
@@ -1500,7 +1487,6 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 			schedule_work(&mhi_cntrl->syserr_worker);
 	}
 
-exit_intvec:
 	MHI_VERB("Exit\n");
 
 	return IRQ_HANDLED;
