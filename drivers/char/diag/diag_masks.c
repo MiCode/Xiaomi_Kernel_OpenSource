@@ -1109,7 +1109,7 @@ static int diag_cmd_update_event_mask(unsigned char *src_buf, int src_len,
 	rsp.num_bits = driver->last_event_id + 1;
 	memcpy(dest_buf, &rsp, header_len);
 	write_len += header_len;
-	memcpy(dest_buf + write_len, mask_info->ptr, mask_len);
+	memcpy(dest_buf + write_len, src_buf + header_len, mask_len);
 	write_len += mask_len;
 
 	for (i = 0; i < NUM_MD_SESSIONS; i++) {
