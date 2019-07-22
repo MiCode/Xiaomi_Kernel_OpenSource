@@ -118,8 +118,6 @@ static int ipa_gsi_setup_event_ring(struct ipa3_ep_context *ep,
 	u32 ring_size, gfp_t mem_flag);
 static int ipa_gsi_setup_transfer_ring(struct ipa3_ep_context *ep,
 	u32 ring_size, struct ipa3_sys_context *user_data, gfp_t mem_flag);
-static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
-	struct ipa3_ep_context *ep_coalescing);
 static int ipa3_teardown_coal_def_pipe(u32 clnt_hdl);
 static int ipa_populate_tag_field(struct ipa3_desc *desc,
 		struct ipa3_tx_pkt_wrapper *tx_pkt,
@@ -924,7 +922,7 @@ static void ipa_pm_sys_pipe_cb(void *p, enum ipa_pm_cb_event event)
 int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 {
 	struct ipa3_ep_context *ep;
-	int i, ipa_ep_idx;
+	int i, ipa_ep_idx, wan_handle;
 	int result = -EINVAL;
 	struct ipahal_reg_coal_qmap_cfg qmap_cfg;
 	struct ipahal_reg_coal_evict_lru evict_lru;
@@ -1162,7 +1160,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 
 		sys_in->client = IPA_CLIENT_APPS_WAN_CONS;
 		sys_in->ipa_ep_cfg = ep_cfg_copy;
-		result = ipa_setup_coal_def_pipe(sys_in, ep);
+		result = ipa3_setup_sys_pipe(sys_in, &wan_handle);
 		if (result) {
 			IPAERR("failed to setup default coalescing pipe\n");
 			goto fail_repl;
@@ -1189,193 +1187,6 @@ fail_wq:
 	memset(&ipa3_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa3_ep_context));
 fail_and_disable_clocks:
 	IPA_ACTIVE_CLIENTS_DEC_EP(sys_in->client);
-fail_gen:
-	return result;
-}
-
-/**
- * ipa3_setup_coal_def_pipe() - Setup a crippled default pipe in addition to the
- * coalescing pipe.
- *
- * @sys_in:	[in] input needed to setup the pipe and configure EP
- * @ep_coalescing [in] the ep context of the coal pipe
- *
- *  - configure the end-point registers with the supplied
- *    parameters from the user.
- *  - Creates a GPI connection with IPA.
- *  - allocate descriptor FIFO
- *
- * Returns:	0 on success, negative on failure
- */
-static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
-	struct ipa3_ep_context *ep_coalescing)
-{
-	struct ipa3_ep_context *ep;
-	int result = -EINVAL;
-	int ipa_ep_idx, i;
-	char buff[IPA_RESOURCE_NAME_MAX];
-
-	ipa_ep_idx = ipa3_get_ep_mapping(sys_in->client);
-
-	if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED) {
-		IPAERR("failed to get idx");
-		goto fail_gen;
-	}
-
-	ep = &ipa3_ctx->ep[ipa_ep_idx];
-	if (ep->valid == 1) {
-		IPAERR("EP %d already allocated.\n", ipa_ep_idx);
-		goto fail_gen;
-	}
-
-	memset(ep, 0, offsetof(struct ipa3_ep_context, sys));
-
-	if (!ep->sys) {
-		ep->sys = kzalloc(sizeof(struct ipa3_sys_context), GFP_KERNEL);
-		if (!ep->sys) {
-			IPAERR("failed to sys ctx for client %d\n",
-				IPA_CLIENT_APPS_WAN_CONS);
-			result = -ENOMEM;
-			goto fail_gen;
-		}
-
-		ep->sys->ep = ep;
-		snprintf(buff, IPA_RESOURCE_NAME_MAX, "ipawq%d",
-				sys_in->client);
-		ep->sys->wq = alloc_workqueue(buff,
-				WQ_MEM_RECLAIM | WQ_UNBOUND | WQ_SYSFS, 1);
-
-		if (!ep->sys->wq) {
-			IPAERR("failed to create wq for client %d\n",
-					sys_in->client);
-			result = -EFAULT;
-			goto fail_wq;
-		}
-
-		snprintf(buff, IPA_RESOURCE_NAME_MAX, "iparepwq%d",
-				sys_in->client);
-		ep->sys->repl_wq = alloc_workqueue(buff,
-				WQ_MEM_RECLAIM | WQ_UNBOUND | WQ_SYSFS, 1);
-		if (!ep->sys->repl_wq) {
-			IPAERR("failed to create rep wq for client %d\n",
-					sys_in->client);
-			result = -EFAULT;
-			goto fail_wq2;
-		}
-
-		INIT_LIST_HEAD(&ep->sys->rcycl_list);
-		spin_lock_init(&ep->sys->spinlock);
-		hrtimer_init(&ep->sys->db_timer, CLOCK_MONOTONIC,
-			HRTIMER_MODE_REL);
-		ep->sys->db_timer.function = ipa3_ring_doorbell_timer_fn;
-	} else {
-		memset(ep->sys, 0, offsetof(struct ipa3_sys_context, ep));
-	}
-
-	ep->skip_ep_cfg = ep_coalescing->skip_ep_cfg;
-
-	if (ipa3_assign_policy(sys_in, ep->sys)) {
-		IPAERR("failed to sys ctx for client %d\n",
-			IPA_CLIENT_APPS_WAN_CONS);
-		result = -ENOMEM;
-		goto fail_gen2;
-	}
-
-	ep->valid = 1;
-	ep->client = sys_in->client;
-	ep->client_notify = ep_coalescing->client_notify;
-	ep->priv = ep_coalescing->priv;
-	ep->keep_ipa_awake = ep_coalescing->keep_ipa_awake;
-	atomic_set(&ep->avail_fifo_desc,
-		((sys_in->desc_fifo_sz / IPA_FIFO_ELEMENT_SIZE) - 1));
-
-	if (!ep->skip_ep_cfg) {
-		if (ipa3_cfg_ep(ipa_ep_idx, &sys_in->ipa_ep_cfg)) {
-			IPAERR("fail to configure EP.\n");
-			goto fail_gen2;
-		}
-
-		if (ep->status.status_en) {
-			IPAERR("status should be disabled for this EP.\n");
-			goto fail_gen2;
-		}
-
-		if (ipa3_cfg_ep_status(ipa_ep_idx, &ep->status)) {
-			IPAERR("fail to configure status of EP.\n");
-			goto fail_gen2;
-		}
-		IPADBG("ep %d configuration successful\n", ipa_ep_idx);
-	} else {
-		IPADBG("skipping ep %d configuration\n", ipa_ep_idx);
-	}
-
-	result = ipa_gsi_setup_coal_def_channel(sys_in, ep, ep_coalescing);
-	if (result) {
-		IPAERR("Failed to setup default coal GSI channel\n");
-		goto fail_gen2;
-	}
-
-	if (ep->sys->repl_hdlr == ipa3_fast_replenish_rx_cache) {
-		ep->sys->repl = kzalloc(sizeof(*ep->sys->repl), GFP_KERNEL);
-		if (!ep->sys->repl) {
-			IPAERR("failed to alloc repl for client %d\n",
-					sys_in->client);
-			result = -ENOMEM;
-			goto fail_gen2;
-		}
-		atomic_set(&ep->sys->repl->pending, 0);
-		ep->sys->repl->capacity = ep->sys->rx_pool_sz + 1;
-
-		ep->sys->repl->cache = kcalloc(ep->sys->repl->capacity,
-				sizeof(void *), GFP_KERNEL);
-		if (!ep->sys->repl->cache) {
-			IPAERR("ep=%d fail to alloc repl cache\n", ipa_ep_idx);
-			ep->sys->repl_hdlr = ipa3_replenish_rx_cache;
-			ep->sys->repl->capacity = 0;
-		} else {
-			atomic_set(&ep->sys->repl->head_idx, 0);
-			atomic_set(&ep->sys->repl->tail_idx, 0);
-			ipa3_wq_repl_rx(&ep->sys->repl_work);
-		}
-	}
-
-	ipa3_replenish_rx_cache(ep->sys);
-
-	for (i = 0; i < GSI_VEID_MAX; i++)
-		INIT_LIST_HEAD(&ep->sys->pending_pkts[i]);
-
-	ipa3_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
-
-	result = ipa3_enable_data_path(ipa_ep_idx);
-	if (result) {
-		IPAERR("enable data path failed res=%d ep=%d.\n", result,
-			ipa_ep_idx);
-		goto fail_repl;
-	}
-
-	result = gsi_start_channel(ep->gsi_chan_hdl);
-	if (result != GSI_STATUS_SUCCESS)
-		goto fail_start_channel;
-
-	IPADBG("client %d (ep: %d) connected sys=%pK\n", ep->client,
-			ipa_ep_idx, ep->sys);
-
-	return 0;
-
-/* the rest of the fails are handled by ipa3_setup_sys_pipe */
-fail_start_channel:
-	ipa3_disable_data_path(ipa_ep_idx);
-fail_repl:
-	ep->sys->repl_hdlr = ipa3_replenish_rx_cache;
-	ep->sys->repl->capacity = 0;
-	kfree(ep->sys->repl);
-fail_gen2:
-	destroy_workqueue(ep->sys->repl_wq);
-fail_wq2:
-	destroy_workqueue(ep->sys->wq);
-fail_wq:
-	kfree(ep->sys);
-	memset(&ipa3_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa3_ep_context));
 fail_gen:
 	return result;
 }
@@ -4126,7 +3937,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	u32 ring_size;
 	int result;
 	gfp_t mem_flag = GFP_KERNEL;
-
+	u32 coale_ep_idx;
 
 	if (in->client == IPA_CLIENT_APPS_WAN_CONS ||
 		in->client == IPA_CLIENT_APPS_WAN_COAL_CONS ||
@@ -4137,6 +3948,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		IPAERR("EP context is empty\n");
 		return -EINVAL;
 	}
+	coale_ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
 	/*
 	 * GSI ring length is calculated based on the desc_fifo_sz
 	 * which was meant to define the BAM desc fifo. GSI descriptors
@@ -4155,8 +3967,19 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		}
 		ipa3_ctx->gsi_evt_comm_ring_rem -= (ring_size);
 		ep->gsi_evt_ring_hdl = ipa3_ctx->gsi_evt_comm_hdl;
+	} else if (in->client == IPA_CLIENT_APPS_WAN_CONS &&
+			coale_ep_idx != IPA_EP_NOT_ALLOCATED &&
+			ipa3_ctx->ep[coale_ep_idx].valid == 1) {
+		IPADBG("Wan consumer pipe configured\n");
+		result = ipa_gsi_setup_coal_def_channel(in, ep,
+					&ipa3_ctx->ep[coale_ep_idx]);
+		if (result) {
+			IPAERR("Failed to setup default coal GSI channel\n");
+			goto fail_setup_event_ring;
+		}
+		return result;
 	} else if (ep->sys->policy != IPA_POLICY_NOINTR_MODE ||
-		IPA_CLIENT_IS_CONS(ep->client)) {
+			IPA_CLIENT_IS_CONS(ep->client)) {
 		result = ipa_gsi_setup_event_ring(ep, ring_size, mem_flag);
 		if (result)
 			goto fail_setup_event_ring;
