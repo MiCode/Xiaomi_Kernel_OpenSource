@@ -65,10 +65,9 @@
 				0x0044 0x00  0x0>;
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pcie0_perst_default &pcie0_wake_default>;
+		pinctrl-0 = <&pcie0_perst_default>;
 
 		perst-gpio = <&tlmm 43 0>;
-		wake-gpio = <&tlmm 21 0>;
 
 		vreg-1.8-supply = <&pms405_l5>;
 		vreg-0.9-supply = <&pms405_l3>;
@@ -82,9 +81,13 @@
 		qcom,phy-status-offset = <0x3c>;
 		qcom,phy-status-bit = <0>;
 		qcom,phy-power-down-offset = <0x98>;
-		qcom,boot-option = <0x1>;
+		qcom,boot-option = <0x0>;
 		qcom,keep-powerdown-phy;
+
 		qcom,no-l0s-supported;
+		qcom,no-l1-supported;
+		qcom,no-l1ss-supported;
+		qcom,no-aux-clk-sync;
 
 		linux,pci-domain = <0>;
 
@@ -115,6 +118,13 @@
 		clock-output-names = "pcie_0_pipe_clk";
 		resets = <&clock_gcc GCC_PCIEPHY_0_PHY_BCR>;
 		reset-names = "pcie_0_phy_reset";
+
+		pcie_rc0: pcie_rc0 {
+			#address-cells = <5>;
+			#size-cells = <0>;
+			reg = <0 0 0 0 0>;
+			pci-ids = "17cb:1000";
+		};
 	};
 
 	pcie0_msi: qcom,pcie0_msi@a0000000 {

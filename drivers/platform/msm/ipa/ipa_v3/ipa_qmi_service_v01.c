@@ -2304,7 +2304,7 @@ struct qmi_elem_info ipa3_fltr_installed_notif_req_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_DATA_LEN,
 		.elem_len	= 1,
-		.elem_size	= sizeof(uint8_t),
+		.elem_size	= sizeof(uint32_t),
 		.is_array	= NO_ARRAY,
 		.tlv_type	= 0x19,
 		.offset		= offsetof(

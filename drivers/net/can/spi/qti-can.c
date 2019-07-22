@@ -24,6 +24,7 @@
 #include <linux/of_gpio.h>
 #include <linux/uaccess.h>
 #include <linux/pm.h>
+#include <asm/arch_timer.h>
 #include <asm/div64.h>
 
 #define DEBUG_QTI_CAN	0
@@ -449,7 +450,7 @@ static int qti_can_process_response(struct qti_can *priv_data,
 			(struct can_time_info *)resp->data;
 
 		if (priv_data->use_qtimer)
-			mstime = (((s64)qtimer_time()) / NSEC_PER_MSEC);
+			mstime = div_u64(qtimer_time(), NSEC_PER_MSEC);
 		else
 			mstime = ktime_to_ms(ktime_get_boottime());
 

@@ -691,6 +691,41 @@ int ipa3_copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 			}
 		}
 	}
+
+	if (rule_req->ul_firewall_indices_list_valid) {
+		IPAWANDBG("Receive ul_firewall_indices_list_len = (%d)",
+			rule_req->ul_firewall_indices_list_len);
+
+		if (rule_req->ul_firewall_indices_list_len >
+			rmnet_ipa3_ctx->num_q6_rules) {
+			IPAWANERR("UL rule indices are not valid: (%d/%d)\n",
+					rule_req->xlat_filter_indices_list_len,
+					rmnet_ipa3_ctx->num_q6_rules);
+			goto failure;
+		}
+
+		ipa3_qmi_ctx->ul_firewall_indices_list_valid = 1;
+		ipa3_qmi_ctx->ul_firewall_indices_list_len =
+			rule_req->ul_firewall_indices_list_len;
+
+		for (i = 0; i < rule_req->ul_firewall_indices_list_len; i++) {
+			ipa3_qmi_ctx->ul_firewall_indices_list[i] =
+				rule_req->ul_firewall_indices_list[i];
+		}
+
+		for (i = 0; i < rule_req->ul_firewall_indices_list_len; i++) {
+			if (rule_req->ul_firewall_indices_list[i]
+				>= rmnet_ipa3_ctx->num_q6_rules) {
+				IPAWANERR("UL rule idx is wrong: %d\n",
+					rule_req->ul_firewall_indices_list[i]);
+				goto failure;
+			} else {
+				ipa3_qmi_ctx->q6_ul_filter_rule
+				[rule_req->ul_firewall_indices_list[i]]
+				.replicate_needed = 1;
+			}
+		}
+	}
 	goto success;
 
 failure:

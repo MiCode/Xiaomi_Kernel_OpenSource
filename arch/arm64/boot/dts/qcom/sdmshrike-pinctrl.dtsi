@@ -2868,6 +2868,19 @@
 			};
 		};
 
+		bt_en_active: bt_en_active {
+			mux {
+				pins = "gpio172";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio172";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
 		/* SE0 pin mappings */
 		qupv3_se0_i2c_pins: qupv3_se0_i2c_pins {
 			qupv3_se0_i2c_active: qupv3_se0_i2c_active {
@@ -4117,6 +4130,18 @@
 					drive-strength = <2>;
 					bias-disable;
 				};
+			};
+		};
+
+		trigout_a: trigout_a {
+			mux {
+				pins = "gpio141";
+				function = "qdss_cti";
+			};
+			config {
+				pins = "gpio141";
+				drive-strength = <2>;
+				bias-disable;
 			};
 		};
 

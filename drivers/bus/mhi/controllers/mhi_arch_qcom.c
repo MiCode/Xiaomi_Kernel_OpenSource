@@ -39,6 +39,7 @@ struct arch_info {
 	struct dma_iommu_mapping *mapping;
 	async_cookie_t cookie;
 	void *boot_ipc_log;
+	void *tsync_ipc_log;
 	struct mhi_device *boot_dev;
 	struct mhi_link_info current_link_info;
 	struct work_struct bw_scale_work;
@@ -49,6 +50,8 @@ struct arch_info {
 /* ipc log markings */
 #define DLOG "Dev->Host: "
 #define HLOG "Host: "
+
+#define MHI_TSYNC_LOG_PAGES (10)
 
 #ifdef CONFIG_MHI_DEBUG
 
@@ -79,6 +82,19 @@ static int mhi_arch_pm_notifier(struct notifier_block *nb,
 	}
 
 	return NOTIFY_DONE;
+}
+
+static void mhi_arch_timesync_log(struct mhi_controller *mhi_cntrl,
+				  u64 remote_time)
+{
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	struct arch_info *arch_info = mhi_dev->arch_info;
+
+	if (remote_time != U64_MAX)
+		ipc_log_string(arch_info->tsync_ipc_log, "%6u.%06lu 0x%llx",
+			       REMOTE_TICKS_TO_SEC(remote_time),
+			       REMOTE_TIME_REMAINDER_US(remote_time),
+			       remote_time);
 }
 
 static int mhi_arch_set_bus_request(struct mhi_controller *mhi_cntrl, int index)
@@ -184,17 +200,9 @@ static void mhi_arch_esoc_ops_power_off(void *priv, unsigned int flags)
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	bool mdm_state = (flags & ESOC_HOOK_MDM_CRASH);
 	struct arch_info *arch_info = mhi_dev->arch_info;
+	struct pci_dev *pci_dev = mhi_dev->pci_dev;
 
 	MHI_LOG("Enter: mdm_crashed:%d\n", mdm_state);
-
-	mutex_lock(&mhi_cntrl->pm_mutex);
-	if (!mhi_dev->powered_on) {
-		MHI_LOG("Not in active state\n");
-		mutex_unlock(&mhi_cntrl->pm_mutex);
-		return;
-	}
-	mhi_dev->powered_on = false;
-	mutex_unlock(&mhi_cntrl->pm_mutex);
 
 	/*
 	 * Abort system suspend if system is preparing to go to suspend
@@ -204,6 +212,21 @@ static void mhi_arch_esoc_ops_power_off(void *priv, unsigned int flags)
 	 */
 	pm_stay_awake(&mhi_cntrl->mhi_dev->dev);
 	wait_for_completion(&arch_info->pm_completion);
+
+	/* if link is in drv suspend, wake it up */
+	pm_runtime_get_sync(&pci_dev->dev);
+
+	mutex_lock(&mhi_cntrl->pm_mutex);
+	if (!mhi_dev->powered_on) {
+		MHI_LOG("Not in active state\n");
+		mutex_unlock(&mhi_cntrl->pm_mutex);
+		pm_runtime_put_noidle(&pci_dev->dev);
+		return;
+	}
+	mhi_dev->powered_on = false;
+	mutex_unlock(&mhi_cntrl->pm_mutex);
+
+	pm_runtime_put_noidle(&pci_dev->dev);
 
 	MHI_LOG("Triggering shutdown process\n");
 	mhi_power_down(mhi_cntrl, !mdm_state);
@@ -219,6 +242,18 @@ static void mhi_arch_esoc_ops_power_off(void *priv, unsigned int flags)
 	mhi_arch_pcie_deinit(mhi_cntrl);
 
 	pm_relax(&mhi_cntrl->mhi_dev->dev);
+}
+
+static void mhi_arch_esoc_ops_mdm_error(void *priv)
+{
+	struct mhi_controller *mhi_cntrl = priv;
+
+	MHI_LOG("Enter: mdm asserted\n");
+
+	/* transition MHI state into error state */
+	mhi_control_error(mhi_cntrl);
+
+	MHI_LOG("Exit\n");
 }
 
 static void mhi_bl_dl_cb(struct mhi_device *mhi_device,
@@ -273,9 +308,6 @@ static void mhi_boot_monitor(void *data, async_cookie_t cookie)
 		boot_dev = arch_info->boot_dev;
 		if (boot_dev)
 			mhi_unprepare_from_transfer(boot_dev);
-
-		/* enable link inactivity timer to start auto suspend */
-		msm_pcie_l1ss_timeout_enable(mhi_dev->pci_dev);
 
 		pm_runtime_allow(&mhi_dev->pci_dev->dev);
 	}
@@ -427,6 +459,14 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 							    node, 0);
 		mhi_cntrl->log_lvl = mhi_ipc_log_lvl;
 
+		snprintf(node, sizeof(node), "mhi_tsync_%04x_%02u.%02u.%02u",
+			 mhi_cntrl->dev_id, mhi_cntrl->domain, mhi_cntrl->bus,
+			 mhi_cntrl->slot);
+		arch_info->tsync_ipc_log = ipc_log_context_create(
+					   MHI_TSYNC_LOG_PAGES, node, 0);
+		if (arch_info->tsync_ipc_log)
+			mhi_cntrl->tsync_log = mhi_arch_timesync_log;
+
 		/* register for bus scale if defined */
 		arch_info->msm_bus_pdata = msm_bus_cl_get_pdata_from_dev(
 							&mhi_dev->pci_dev->dev);
@@ -477,6 +517,8 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 				mhi_arch_esoc_ops_power_on;
 			esoc_ops->esoc_link_power_off =
 				mhi_arch_esoc_ops_power_off;
+			esoc_ops->esoc_link_mdm_crash =
+				mhi_arch_esoc_ops_mdm_error;
 
 			ret = esoc_register_client_hook(arch_info->esoc_client,
 							esoc_ops);

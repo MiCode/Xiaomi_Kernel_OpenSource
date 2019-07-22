@@ -1962,6 +1962,8 @@ struct ipa_ioc_ext_intf_prop {
 	uint8_t is_xlat_rule;
 	uint32_t rule_id;
 	uint8_t is_rule_hashable;
+#define IPA_V6_UL_WL_FIREWALL_HANDLE
+	uint8_t replicate_needed;
 };
 
 /**

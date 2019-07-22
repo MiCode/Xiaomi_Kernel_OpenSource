@@ -1730,6 +1730,12 @@ static enum power_supply_property smb1390_cp_slave_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_CAPABILITY,
 };
 
+static int smb1390_slave_prop_is_writeable(struct power_supply *psy,
+				enum power_supply_property prop)
+{
+	return 0;
+}
+
 static int smb1390_cp_slave_get_prop(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
@@ -1788,7 +1794,7 @@ static const struct power_supply_desc cps_psy_desc = {
 	.num_properties = ARRAY_SIZE(smb1390_cp_slave_props),
 	.get_property = smb1390_cp_slave_get_prop,
 	.set_property = smb1390_cp_slave_set_prop,
-	.property_is_writeable	= smb1390_prop_is_writeable,
+	.property_is_writeable = smb1390_slave_prop_is_writeable,
 };
 
 static int smb1390_init_cps_psy(struct smb1390 *chip)
@@ -1930,8 +1936,17 @@ static int smb1390_resume(struct device *dev)
 	struct smb1390 *chip = dev_get_drvdata(dev);
 
 	chip->suspended = false;
-	rerun_election(chip->ilim_votable);
-	rerun_election(chip->disable_votable);
+
+	/* ILIM rerun is applicable for both master and slave */
+	if (!chip->ilim_votable)
+		chip->ilim_votable = find_votable("CP_ILIM");
+
+	if (chip->ilim_votable)
+		rerun_election(chip->ilim_votable);
+
+	/* Run disable votable for master only */
+	if (chip->cp_role == CP_MASTER)
+		rerun_election(chip->disable_votable);
 
 	return 0;
 }

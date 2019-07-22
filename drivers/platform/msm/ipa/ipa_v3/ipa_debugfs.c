@@ -1988,7 +1988,9 @@ static ssize_t ipa3_read_wdi_gsi_stats(struct file *file,
 	int nbytes;
 	int cnt = 0;
 
-	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5
+		&& (ipa3_ctx->ipa_hw_type != IPA_HW_v4_1
+		|| ipa3_ctx->platform_type != IPA_PLAT_TYPE_APQ)) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 				"This feature only support on IPA4.5+\n");
 		cnt += nbytes;
@@ -2036,7 +2038,9 @@ static ssize_t ipa3_read_wdi3_gsi_stats(struct file *file,
 	int nbytes;
 	int cnt = 0;
 
-	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5
+		&& (ipa3_ctx->ipa_hw_type != IPA_HW_v4_1
+		|| ipa3_ctx->platform_type != IPA_PLAT_TYPE_APQ)) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 				"This feature only support on IPA4.5+\n");
 		cnt += nbytes;
@@ -2083,7 +2087,9 @@ static ssize_t ipa3_read_11ad_gsi_stats(struct file *file,
 	int nbytes;
 	int cnt = 0;
 
-	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5
+		&& (ipa3_ctx->ipa_hw_type != IPA_HW_v4_1
+		|| ipa3_ctx->platform_type != IPA_PLAT_TYPE_APQ)) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 				"This feature only support on IPA4.5+\n");
 		cnt += nbytes;
@@ -2100,7 +2106,9 @@ static ssize_t ipa3_read_aqc_gsi_stats(struct file *file,
 	int nbytes;
 	int cnt = 0;
 
-	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5
+		&& (ipa3_ctx->ipa_hw_type != IPA_HW_v4_1
+		|| ipa3_ctx->platform_type != IPA_PLAT_TYPE_APQ)) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 				"This feature only support on IPA4.5+\n");
 		cnt += nbytes;
@@ -2118,7 +2126,9 @@ static ssize_t ipa3_read_mhip_gsi_stats(struct file *file,
 	int nbytes;
 	int cnt = 0;
 
-	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5
+		&& (ipa3_ctx->ipa_hw_type != IPA_HW_v4_1
+		|| ipa3_ctx->platform_type != IPA_PLAT_TYPE_APQ)) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"This feature only support on IPA4.5+\n");
 		cnt += nbytes;
@@ -2190,7 +2200,9 @@ static ssize_t ipa3_read_usb_gsi_stats(struct file *file,
 	int nbytes;
 	int cnt = 0;
 
-	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5
+		&& (ipa3_ctx->ipa_hw_type != IPA_HW_v4_1
+		|| ipa3_ctx->platform_type != IPA_PLAT_TYPE_APQ)) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"This feature only support on IPA4.5+\n");
 		cnt += nbytes;

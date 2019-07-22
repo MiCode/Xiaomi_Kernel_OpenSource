@@ -338,6 +338,8 @@ struct mhi_controller {
  * @ul_chan_id: MHI channel id for UL transfer
  * @dl_chan_id: MHI channel id for DL transfer
  * @tiocm: Device current terminal settings
+ * @early_notif: This device needs an early notification in case of error
+ * with external modem.
  * @dev_vote: Keep external device in active state
  * @bus_vote: Keep physical bus (pci, spi) in active state
  * @priv: Driver private data
@@ -354,6 +356,7 @@ struct mhi_device {
 	int ul_event_id;
 	int dl_event_id;
 	u32 tiocm;
+	bool early_notif;
 	const struct mhi_device_id *id;
 	const char *chan_name;
 	struct mhi_controller *mhi_cntrl;
@@ -704,6 +707,14 @@ static inline bool mhi_is_active(struct mhi_device *mhi_dev)
 	return (mhi_cntrl->dev_state >= MHI_STATE_M0 &&
 		mhi_cntrl->dev_state <= MHI_STATE_M3_FAST);
 }
+
+/**
+ * mhi_control_error - MHI controller went into unrecoverable error state.
+ * Will transition MHI into Linkdown state. Do not call from atomic
+ * context.
+ * @mhi_cntrl: MHI controller
+ */
+void mhi_control_error(struct mhi_controller *mhi_cntrl);
 
 /**
  * mhi_debug_reg_dump - dump MHI registers for debug purpose
