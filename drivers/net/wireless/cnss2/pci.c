@@ -100,9 +100,9 @@ static DEFINE_SPINLOCK(pci_reg_window_lock);
 #define QCA6390_CE_REG_INTERVAL			0x2000
 
 #define SHADOW_REG_COUNT			36
-#define QCA6390_PCIE_SHADOW_REG_VALUE_0		0x8FC
-#define QCA6390_PCIE_SHADOW_REG_VALUE_34	0x984
-#define QCA6390_PCIE_SHADOW_REG_VALUE_35	0x988
+#define QCA6390_PCIE_SHADOW_REG_VALUE_0		0x1E03024
+#define QCA6390_PCIE_SHADOW_REG_VALUE_34	0x1E030AC
+#define QCA6390_PCIE_SHADOW_REG_VALUE_35	0x1E030B0
 #define QCA6390_WLAON_GLOBAL_COUNTER_CTRL3	0x1F80118
 #define QCA6390_WLAON_GLOBAL_COUNTER_CTRL4	0x1F8011C
 #define QCA6390_WLAON_GLOBAL_COUNTER_CTRL5	0x1F80120
@@ -208,11 +208,10 @@ static void cnss_pci_select_window(struct cnss_pci_data *pci_priv, u32 offset)
 {
 	u32 window = (offset >> WINDOW_SHIFT) & WINDOW_VALUE_MASK;
 
-	writel_relaxed(WINDOW_ENABLE_BIT | window,
-		       QCA6390_PCIE_REMAP_BAR_CTRL_OFFSET +
-		       pci_priv->bar);
-
 	if (window != pci_priv->remap_window) {
+		writel_relaxed(WINDOW_ENABLE_BIT | window,
+			       QCA6390_PCIE_REMAP_BAR_CTRL_OFFSET +
+			       pci_priv->bar);
 		pci_priv->remap_window = window;
 		cnss_pr_dbg("Config PCIe remap window register to 0x%x\n",
 			    WINDOW_ENABLE_BIT | window);
