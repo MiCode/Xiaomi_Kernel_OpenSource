@@ -6271,6 +6271,9 @@ static int msm_pcie_link_retrain(struct msm_pcie_dev_t *pcie_dev,
 	u32 cnt_max = 1000; /* 100ms timeout */
 	u32 link_status_lbms_mask = PCI_EXP_LNKSTA_LBMS << PCI_EXP_LNKCTL;
 
+	/* force link to L0 */
+	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_PM_CTRL,  0, BIT(5));
+
 	cnt = 0;
 	/* confirm link is in L0 */
 	while (((readl_relaxed(pcie_dev->parf + PCIE20_PARF_LTSSM) &
@@ -6302,6 +6305,9 @@ static int msm_pcie_link_retrain(struct msm_pcie_dev_t *pcie_dev,
 
 		usleep_range(100, 105);
 	}
+
+	/* re-enable link LPM */
+	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
 
 	return 0;
 }
@@ -6379,16 +6385,12 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 						PCI_EXP_LNKSTA_CLS,
 						target_link_speed);
 
-	/* disable link L1. Need to be in L0 for gen switch */
-	msm_pcie_config_l1(pcie_dev, root_pci_dev, false);
-	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_PM_CTRL,  0, BIT(5));
-
 	if (target_link_speed > current_link_speed)
 		msm_pcie_scale_link_bandwidth(pcie_dev, target_link_speed);
 
 	ret = msm_pcie_link_retrain(pcie_dev, root_pci_dev);
 	if (ret)
-		goto out;
+		return ret;
 
 	pcie_capability_read_word(root_pci_dev, PCI_EXP_LNKSTA, &link_status);
 	if ((link_status & PCI_EXP_LNKSTA_CLS) != target_link_speed ||
@@ -6397,18 +6399,13 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 			"PCIe: RC%d: failed to switch bandwidth: target speed: %d width: %d\n",
 			pcie_dev->rc_idx, target_link_speed,
 			target_link_width >> PCI_EXP_LNKSTA_NLW_SHIFT);
-		ret = -EIO;
-		goto out;
+		return -EIO;
 	}
 
 	if (target_link_speed < current_link_speed)
 		msm_pcie_scale_link_bandwidth(pcie_dev, target_link_speed);
-out:
-	/* re-enable link L1 */
-	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
-	msm_pcie_config_l1(pcie_dev, root_pci_dev, true);
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(msm_pcie_set_link_bandwidth);
 
