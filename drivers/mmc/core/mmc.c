@@ -2006,8 +2006,13 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_PART_CONFIG,
 				 card->ext_csd.part_config,
 				 card->ext_csd.part_time);
-		if (err && err != -EBADMSG)
+		if (err && err != -EBADMSG) {
+			pr_err("%s: %s: mmc_switch() for PART_CONFIG fails %d\n",
+				mmc_hostname(host), __func__, err);
 			goto free_card;
+		}
+		card->part_curr = card->ext_csd.part_config &
+					EXT_CSD_PART_CONFIG_ACC_MASK;
 	}
 
 	/*

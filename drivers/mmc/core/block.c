@@ -871,7 +871,8 @@ static inline int mmc_blk_part_switch(struct mmc_card *card,
 	int ret = 0;
 	struct mmc_blk_data *main_md = dev_get_drvdata(&card->dev);
 
-	if (main_md->part_curr == part_type)
+	if ((main_md->part_curr == part_type) &&
+		(card->part_curr == part_type))
 		return 0;
 
 	if (mmc_card_mmc(card)) {
