@@ -1591,7 +1591,8 @@ static int diag_md_session_check(int curr_mode, int req_mode,
 		*change_mode = 1;
 		return 0;
 	} else if ((req_mode == DIAG_USB_MODE || req_mode == DIAG_PCIE_MODE)
-		&& curr_mode == DIAG_MEMORY_DEVICE_MODE) {
+		&& (curr_mode == DIAG_MEMORY_DEVICE_MODE ||
+		curr_mode == DIAG_MULTI_MODE)) {
 		mutex_lock(&driver->md_session_lock);
 		if (driver->md_session_mode == DIAG_MD_NONE
 		    && driver->md_session_mask == 0 && driver->logging_mask) {

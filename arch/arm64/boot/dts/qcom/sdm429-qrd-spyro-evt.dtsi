@@ -140,7 +140,7 @@
 
 &dsi_edo_rm67162_qvga_cmd {
 	/delete-property/ qcom,mdss-dsi-panel-timings;
-	qcom,mdss-dsi-panel-timings-phy-12nm = [06 05 01 01 00 03 01 03];
+	qcom,mdss-dsi-panel-timings-phy-12nm = [06 05 01 0A 00 03 01 0F];
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,panel-supply-entries = <&dsi_pm660_panel_pwr_supply>;
 };
@@ -504,6 +504,36 @@
 		};
 	};
 
+	smart_pa_int {
+		pa_int_default: pa_int_default {
+			mux {
+				pins = "gpio73", "gpio73";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio73", "gpio73";
+				drive-strength = <4>;
+				bias-disable;
+			};
+		};
+	};
+
+	smart_pa_rst {
+		pa_rst_default: pa_rst_default {
+			mux {
+				pins = "gpio68", "gpio68";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio68", "gpio68";
+				drive-strength = <4>;
+				bias-disable;
+			};
+		};
+	};
+
 };
 
 &modem_mem {
@@ -558,9 +588,12 @@
 	pinctrl-3 = <&quat_mi2s_active &quat_mi2s_din_active
 		&cdc_dmic0_clk_act &cdc_dmic0_data_act>;
 	/delete-property/qcom,cdc-us-euro-gpios;
+	/delete-property/qcom,pri-mi2s-gpios;
+	/delete-property/qcom,cdc-us-eu-gpios;
 
-	asoc-codec = <&stub_codec>, <&msm_dig_codec>;
-	asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec";
+
+	asoc-codec = <&stub_codec>, <&msm_dig_codec>, <&ext_smart_pa>;
+	asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec", "ext-smart-pa";
 };
 
 &soc {
@@ -609,11 +642,26 @@
 	status = "disabled";
 };
 
+&cdc_us_euro_sw {
+	status = "disabled";
+};
+
+&cdc_pri_mi2s_gpios {
+	status = "disabled";
+};
+
+&cdc_quin_mi2s_gpios {
+	status = "disabled";
+};
+
 &i2c_2 {
-	aw8896_smartpa@34 {
+	ext_smart_pa: aw8896_smartpa@34 {
 		compatible = "awinic,aw8896_smartpa";
 		reg = <0x34>;
 		reset-gpio = <&tlmm 68 0>;
+		irq-gpio = <&tlmm 73 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pa_int_default &pa_rst_default>;
 		status = "okay";
 	};
 };

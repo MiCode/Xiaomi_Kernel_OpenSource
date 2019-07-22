@@ -13,6 +13,7 @@
 
 /dts-v1/;
 #include "sdm845-v2.1-rb3.dtsi"
+#include "sdm845-camera-sensor-rb3.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. sda845 v2.1 TurboX-SOM_V01";

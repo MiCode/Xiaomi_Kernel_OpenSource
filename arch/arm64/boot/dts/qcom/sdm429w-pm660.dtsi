@@ -571,6 +571,9 @@
 		qcom,fg-cutoff-current = <50>;
 		qcom,fg-sync-sleep-threshold-ma = <30>;
 		qcom,battery-data = <&mtp_batterydata>;
+		qcom,fg-bmd-en-delay-ms = <300>;
+		qcom,fg-force-load-profile;
+		qcom,fg-jeita-thresholds = <0 20 45 60>;
 		status = "okay";
 
 		qcom,fg-batt-soc@4000 {
@@ -684,7 +687,7 @@
 	hsusb_vdd_dig-supply = <&L6A>;
 	HSUSB_1p8-supply = <&L12A>;
 	HSUSB_3p3-supply = <&L16A>;
-	qcom,vdd-voltage-level = <0 928000 928000>;
+	qcom,vdd-voltage-level = <0 800000 800000>;
 	vbus_otg-supply = <&smb2_vbus>;
 	status = "okay";
 };
@@ -729,7 +732,7 @@
 			reg = <0>;
 			qcom,supply-name = "vdda";
 			qcom,supply-min-voltage = <800000>;
-			qcom,supply-max-voltage = <930000>;
+			qcom,supply-max-voltage = <800000>;
 			qcom,supply-enable-load = <100000>;
 			qcom,supply-disable-load = <100>;
 			qcom,supply-post-on-sleep = <20>;

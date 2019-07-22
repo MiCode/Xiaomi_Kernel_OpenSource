@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -237,6 +237,7 @@ void tmc_etr_byte_cntr_stop(struct byte_cntr *byte_cntr_data)
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 	byte_cntr_data->enable = false;
+	byte_cntr_data->read_active = false;
 	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 
@@ -264,7 +265,7 @@ static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 
-	if (!tmcdrvdata->enable || !byte_cntr_data->block_size) {
+	if (!byte_cntr_data->enable || !byte_cntr_data->block_size) {
 		mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 		return -EINVAL;
 	}
@@ -277,7 +278,6 @@ static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 
 	fp->private_data = byte_cntr_data;
 	nonseekable_open(in, fp);
-	byte_cntr_data->enable = true;
 	byte_cntr_data->read_active = true;
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 
