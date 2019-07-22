@@ -3407,7 +3407,6 @@
 			};
 		};
 
-
 		trigout_a: trigout_a {
 			mux {
 				pins = "gpio90";
@@ -3615,6 +3614,15 @@
 	camera_dvdd_en {
 		camera_dvdd_en_default: camera_dvdd_en_default {
 			pins = "gpio9";
+			function = "normal";
+			power-source = <0>;
+			output-low;
+		};
+	};
+
+	camera_rear_avdd_en {
+		camera_rear_avdd_en_default: camera_rear_avdd_en_default {
+			pins = "gpio10";
 			function = "normal";
 			power-source = <0>;
 			output-low;

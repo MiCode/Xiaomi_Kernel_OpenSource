@@ -43,6 +43,7 @@
 #define AW_READ_CHIPID_RETRIES 5
 #define AW_READ_CHIPID_RETRY_DELAY 5
 #define AW8896_MAX_DSP_START_TRY_COUNT    10
+#define DT_MAX_PROP_SIZE 80
 
 static int aw8896_spk_control;
 static int aw8896_rcv_control;
@@ -1068,6 +1069,14 @@ static irqreturn_t aw8896_irq(int irq, void *data)
 
 static int aw8896_parse_dt(struct device *dev, struct aw8896 *aw8896,
 		struct device_node *np) {
+	int prop_val = 0;
+	int ret = 0;
+	int len = 0;
+	const __be32 *prop = NULL;
+	struct device_node *regnode = NULL;
+	char *dvdd_supply = "dvdd";
+	char prop_name[DT_MAX_PROP_SIZE] = {0};
+
 	aw8896->reset_gpio = of_get_named_gpio(np, "reset-gpio", 0);
 	if (aw8896->reset_gpio < 0) {
 		dev_err(dev,
@@ -1082,7 +1091,47 @@ static int aw8896_parse_dt(struct device *dev, struct aw8896 *aw8896,
 	if (aw8896->irq_gpio < 0)
 		dev_info(dev, "%s: no irq gpio provided.\n", __func__);
 
+	snprintf(prop_name, DT_MAX_PROP_SIZE, "%s-supply", dvdd_supply);
+	regnode = of_parse_phandle(np, prop_name, 0);
+	if (!regnode) {
+		dev_err(dev, "%s: no %s provided\n", __func__, prop_name);
+		goto err_get_regulator;
+	}
+
+	aw8896->supply.regulator = devm_regulator_get(dev, dvdd_supply);
+	if (IS_ERR(aw8896->supply.regulator)) {
+		dev_err(dev, "%s: failed to get supply for %s\n", __func__,
+			dvdd_supply);
+		goto err_get_regulator;
+	}
+
+	snprintf(prop_name, DT_MAX_PROP_SIZE, "%s-voltage", dvdd_supply);
+	prop = of_get_property(np, prop_name, &len);
+	if (!prop || (len != (2 * sizeof(__be32)))) {
+		dev_err(dev, "%s: no %s provided or format invalid\n",
+			__func__, prop_name);
+		goto err_get_voltage;
+	}
+
+	aw8896->supply.min_uv = be32_to_cpup(&prop[0]);
+	aw8896->supply.max_uv = be32_to_cpup(&prop[1]);
+
+	snprintf(prop_name, DT_MAX_PROP_SIZE, "%s-current", dvdd_supply);
+	ret = of_property_read_u32(np, prop_name, &prop_val);
+	if (ret) {
+		dev_err(dev, "%s: no %s provided\n", __func__, prop_name);
+		goto err_get_current;
+	}
+	aw8896->supply.ua = prop_val;
+
 	return 0;
+
+err_get_current:
+err_get_voltage:
+	devm_regulator_put(aw8896->supply.regulator);
+	aw8896->supply.regulator = NULL;
+err_get_regulator:
+	return -EINVAL;
 }
 
 int aw8896_hw_reset(struct aw8896 *aw8896)
@@ -1354,7 +1403,7 @@ static int aw8896_i2c_probe(struct i2c_client *i2c,
 
 	i2c_set_clientdata(i2c, aw8896);
 	mutex_init(&aw8896->lock);
-	/* aw8896 rst & int */
+
 	if (np) {
 		ret = aw8896_parse_dt(&i2c->dev, aw8896, np);
 		if (ret) {
@@ -1386,6 +1435,30 @@ static int aw8896_i2c_probe(struct i2c_client *i2c,
 				__func__);
 			goto err_irq_gpio_request;
 		}
+	}
+
+	ret = regulator_set_voltage(aw8896->supply.regulator,
+				    aw8896->supply.max_uv,
+				    aw8896->supply.min_uv);
+	if (ret) {
+		dev_err(&i2c->dev, "%s: set voltage %d ~ %d failed\n",
+				__func__,
+				aw8896->supply.min_uv,
+				aw8896->supply.max_uv);
+		goto err_supply_set;
+	}
+
+	ret = regulator_set_load(aw8896->supply.regulator, aw8896->supply.ua);
+	if (ret < 0) {
+		dev_err(&i2c->dev, "%s: set current %d failed\n", __func__,
+				aw8896->supply.ua);
+		goto err_supply_set;
+	}
+
+	ret = regulator_enable(aw8896->supply.regulator);
+	if (ret < 0) {
+		dev_err(&i2c->dev, "%s: regulator enable failed\n", __func__);
+		goto err_supply_set;
 	}
 
 	ret = aw8896_hw_reset(aw8896);
@@ -1461,6 +1534,11 @@ err_id:
 	if (gpio_is_valid(aw8896->irq_gpio))
 		devm_gpio_free(&i2c->dev, aw8896->irq_gpio);
 err_hw_rst:
+	if (aw8896->supply.regulator)
+		regulator_disable(aw8896->supply.regulator);
+err_supply_set:
+	if (aw8896->supply.regulator)
+		devm_regulator_put(aw8896->supply.regulator);
 err_irq_gpio_request:
 	if (gpio_is_valid(aw8896->reset_gpio))
 		devm_gpio_free(&i2c->dev, aw8896->reset_gpio);
@@ -1485,6 +1563,11 @@ static int aw8896_i2c_remove(struct i2c_client *i2c)
 		devm_gpio_free(&i2c->dev, aw8896->irq_gpio);
 	if (gpio_is_valid(aw8896->reset_gpio))
 		devm_gpio_free(&i2c->dev, aw8896->reset_gpio);
+
+	if (aw8896->supply.regulator) {
+		regulator_disable(aw8896->supply.regulator);
+		devm_regulator_put(aw8896->supply.regulator);
+	}
 
 	devm_kfree(&i2c->dev, aw8896);
 	aw8896 = NULL;

@@ -1311,6 +1311,46 @@ struct elem_info wlfw_initiate_cal_download_ind_msg_v01_ei[] = {
 				  cal_id),
 	},
 	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(
+				  struct wlfw_initiate_cal_download_ind_msg_v01,
+				  total_size_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(
+				  struct wlfw_initiate_cal_download_ind_msg_v01,
+				  total_size),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x11,
+		.offset         = offsetof(
+				  struct wlfw_initiate_cal_download_ind_msg_v01,
+				  cal_data_location_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x11,
+		.offset         = offsetof(
+				  struct wlfw_initiate_cal_download_ind_msg_v01,
+				  cal_data_location),
+	},
+	{
 		.data_type      = QMI_EOTI,
 		.is_array       = NO_ARRAY,
 		.tlv_type       = QMI_COMMON_TLV_TYPE,
@@ -1427,6 +1467,24 @@ struct elem_info wlfw_cal_download_req_msg_v01_ei[] = {
 					   end),
 	},
 	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x15,
+		.offset         = offsetof(struct wlfw_cal_download_req_msg_v01,
+					   cal_data_location_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x15,
+		.offset         = offsetof(struct wlfw_cal_download_req_msg_v01,
+					   cal_data_location),
+	},
+	{
 		.data_type      = QMI_EOTI,
 		.is_array       = NO_ARRAY,
 		.tlv_type       = QMI_COMMON_TLV_TYPE,
@@ -1472,6 +1530,26 @@ struct elem_info wlfw_initiate_cal_update_ind_msg_v01_ei[] = {
 		.offset         = offsetof(struct
 					   wlfw_initiate_cal_update_ind_msg_v01,
 					   total_size),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(struct
+					   wlfw_initiate_cal_update_ind_msg_v01,
+					   cal_data_location_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(struct
+					   wlfw_initiate_cal_update_ind_msg_v01,
+					   cal_data_location),
 	},
 	{
 		.data_type      = QMI_EOTI,
@@ -1615,6 +1693,24 @@ struct elem_info wlfw_cal_update_resp_msg_v01_ei[] = {
 		.tlv_type       = 0x14,
 		.offset         = offsetof(struct wlfw_cal_update_resp_msg_v01,
 					   end),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x15,
+		.offset         = offsetof(struct wlfw_cal_update_resp_msg_v01,
+					   cal_data_location_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x15,
+		.offset         = offsetof(struct wlfw_cal_update_resp_msg_v01,
+					   cal_data_location),
 	},
 	{
 		.data_type      = QMI_EOTI,

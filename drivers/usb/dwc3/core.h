@@ -517,6 +517,19 @@
 struct dwc3_trb;
 
 /**
+ * struct dwc3_gadget_ep_cmd_params - representation of endpoint command
+ * parameters
+ * @param2: third parameter
+ * @param1: second parameter
+ * @param0: first parameter
+ */
+struct dwc3_gadget_ep_cmd_params {
+	u32	param2;
+	u32	param1;
+	u32	param0;
+};
+
+/**
  * struct dwc3_event_buffer - Software event buffer representation
  * @buf: _THE_ buffer
  * @length: size of this buffer
@@ -606,6 +619,7 @@ struct dwc3_ep_events {
  * @dbg_ep_events_diff: differential events counter for endpoint
  * @dbg_ep_events_ts: timestamp for previous event counters
  * @fifo_depth: allocated TXFIFO depth
+ * @ep_cfg_init_params: Used by GSI EP to save EP_CFG init_cmd params
  */
 struct dwc3_ep {
 	struct usb_ep		endpoint;
@@ -661,6 +675,7 @@ struct dwc3_ep {
 	struct dwc3_ep_events	dbg_ep_events_diff;
 	struct timespec		dbg_ep_events_ts;
 	int			fifo_depth;
+	struct dwc3_gadget_ep_cmd_params ep_cfg_init_params;
 };
 
 enum dwc3_phy {
@@ -1175,6 +1190,7 @@ struct dwc3 {
 	bool			create_reg_debugfs;
 	u32			xhci_imod_value;
 	int			core_id;
+	int			retries_on_error;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -1303,19 +1319,6 @@ union dwc3_event {
 	struct dwc3_event_depevt	depevt;
 	struct dwc3_event_devt		devt;
 	struct dwc3_event_gevt		gevt;
-};
-
-/**
- * struct dwc3_gadget_ep_cmd_params - representation of endpoint command
- * parameters
- * @param2: third parameter
- * @param1: second parameter
- * @param0: first parameter
- */
-struct dwc3_gadget_ep_cmd_params {
-	u32	param2;
-	u32	param1;
-	u32	param0;
 };
 
 /*

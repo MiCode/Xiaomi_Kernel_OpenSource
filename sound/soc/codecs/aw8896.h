@@ -15,6 +15,7 @@
 
 #ifndef _AW8896_H_
 #define _AW8896_H_
+#include <linux/regulator/driver.h>
 
 /*
  * i2c transaction on Linux limited to 64k
@@ -81,10 +82,18 @@ enum aw8896_dsp_cfg_state {
 	AW8896_DSP_CFG_OK,
 };
 
+struct dvdd_supply {
+	struct regulator *regulator;
+	int min_uv;
+	int max_uv;
+	int ua;
+};
+
 struct aw8896 {
 	struct regmap *regmap;
 	struct i2c_client *i2c;
 	struct snd_soc_codec *codec;
+	struct dvdd_supply supply;
 	struct mutex lock;
 	int dsp_init;
 	int dsp_fw_state;

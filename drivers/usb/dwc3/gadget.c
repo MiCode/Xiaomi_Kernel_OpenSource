@@ -37,6 +37,8 @@
 #include "gadget.h"
 #include "io.h"
 
+#define MAX_ERROR_RECOVERY_TRIES	3
+
 static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc, bool remote_wakeup);
 static int dwc3_gadget_wakeup_int(struct dwc3 *dwc);
 static void dwc3_stop_active_transfers(struct dwc3 *dwc);
@@ -2422,9 +2424,12 @@ static int dwc3_gadget_init_hw_endpoints(struct dwc3 *dwc,
 		if ((gsi_ep_index < gsi_ep_count) &&
 				(i > (num - 1 - gsi_ep_count))) {
 			gsi_ep_index++;
-			/* For GSI EPs, name eps as "gsi-epin" or "gsi-epout" */
-			snprintf(dep->name, sizeof(dep->name), "%s",
-				(epnum & 1) ? "gsi-epin" : "gsi-epout");
+			/*
+			 * For GSI EPs, name eps as "gsi-epin<i>" or
+			 * "gsi-epout<i>"
+			 */
+			snprintf(dep->name, sizeof(dep->name), "%s%d",
+			    (epnum & 1) ? "gsi-epin" : "gsi-epout", epnum >> 1);
 			/* Set ep type as GSI */
 			dep->endpoint.ep_type = EP_TYPE_GSI;
 		} else {
@@ -3171,6 +3176,8 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 	speed = reg & DWC3_DSTS_CONNECTSPD;
 	dwc->speed = speed;
 
+	/* Reset the retry on erratic error event count */
+	dwc->retries_on_error = 0;
 	dwc3_update_ram_clk_sel(dwc, speed);
 
 	switch (speed) {
@@ -3545,7 +3552,7 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 		break;
 	case DWC3_DEVICE_EVENT_ERRATIC_ERROR:
 		dwc3_trace(trace_dwc3_gadget, "Erratic Error");
-		dbg_event(0xFF, "ERROR", 0);
+		dbg_event(0xFF, "ERROR", dwc->retries_on_error);
 		dwc->dbg_gadget_events.erratic_error++;
 		break;
 	case DWC3_DEVICE_EVENT_CMD_CMPL:
@@ -3631,9 +3638,12 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3 *dwc)
 			evt->lpos = (evt->lpos + left) %
 					DWC3_EVENT_BUFFERS_SIZE;
 			dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), left);
-			if (dwc3_notify_event(dwc,
+			if (dwc->retries_on_error < MAX_ERROR_RECOVERY_TRIES) {
+				if (dwc3_notify_event(dwc,
 						DWC3_CONTROLLER_ERROR_EVENT, 0))
-				dwc->err_evt_seen = 0;
+					dwc->err_evt_seen = 0;
+				dwc->retries_on_error++;
+			}
 			break;
 		}
 

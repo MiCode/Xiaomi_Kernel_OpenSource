@@ -726,11 +726,13 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	return ret;
 
 end_xfer_ep_out:
-	usb_gsi_ep_op(d_port->out_ep, NULL,
-		GSI_EP_OP_ENDXFER);
+	if (d_port->out_ep)
+		usb_gsi_ep_op(d_port->out_ep, NULL,
+			GSI_EP_OP_ENDXFER);
 free_trb_ep_out:
-	usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
-		GSI_EP_OP_FREE_TRBS);
+	if (d_port->out_ep)
+		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
+			GSI_EP_OP_FREE_TRBS);
 end_xfer_ep_in:
 	usb_gsi_ep_op(d_port->in_ep, NULL,
 		GSI_EP_OP_ENDXFER);
@@ -746,32 +748,33 @@ static void ipa_data_path_enable(struct gsi_data_port *d_port)
 	bool block_db = false;
 
 	log_event_dbg("IN: db_reg_phs_addr_lsb = %x",
-			gsi->d_port.in_request.db_reg_phs_addr_lsb);
-	usb_gsi_ep_op(gsi->d_port.in_ep,
-			&gsi->d_port.in_request,
+			d_port->in_request.db_reg_phs_addr_lsb);
+	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
 			GSI_EP_OP_STORE_DBL_INFO);
 
-	if (gsi->d_port.out_ep) {
+	if (d_port->out_ep) {
 		log_event_dbg("OUT: db_reg_phs_addr_lsb = %x",
-				gsi->d_port.out_request.db_reg_phs_addr_lsb);
-		usb_gsi_ep_op(gsi->d_port.out_ep,
-				&gsi->d_port.out_request,
+				d_port->out_request.db_reg_phs_addr_lsb);
+		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
 				GSI_EP_OP_STORE_DBL_INFO);
 	}
 
-	usb_gsi_ep_op(gsi->d_port.in_ep, &gsi->d_port.in_request,
+	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
 				GSI_EP_OP_ENABLE_GSI);
 
 	/* Unblock doorbell to GSI */
 	usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
 				GSI_EP_OP_SET_CLR_BLOCK_DBL);
 
-	usb_gsi_ep_op(gsi->d_port.in_ep, &gsi->d_port.in_request,
-						GSI_EP_OP_RING_DB);
+	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
+				GSI_EP_OP_RING_DB);
 
-	if (gsi->d_port.out_ep)
-		usb_gsi_ep_op(gsi->d_port.out_ep, &gsi->d_port.out_request,
-						GSI_EP_OP_RING_DB);
+	if (d_port->out_ep) {
+		usb_gsi_ep_op(d_port->out_ep, (void *)&block_db,
+				GSI_EP_OP_SET_CLR_BLOCK_DBL);
+		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
+				GSI_EP_OP_RING_DB);
+	}
 }
 
 static void ipa_disconnect_handler(struct gsi_data_port *d_port)
@@ -792,9 +795,12 @@ static void ipa_disconnect_handler(struct gsi_data_port *d_port)
 				&gsi->d_port.in_request, GSI_EP_OP_DISABLE);
 	}
 
-	if (gsi->d_port.out_ep)
+	if (gsi->d_port.out_ep) {
+		usb_gsi_ep_op(d_port->out_ep, (void *)&block_db,
+				GSI_EP_OP_SET_CLR_BLOCK_DBL);
 		usb_gsi_ep_op(gsi->d_port.out_ep,
 				&gsi->d_port.out_request, GSI_EP_OP_DISABLE);
+	}
 
 	gsi->d_port.net_ready_trigger = false;
 }
@@ -845,7 +851,11 @@ static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
 		ret = -EFAULT;
 		block_db = false;
 		usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
-			GSI_EP_OP_SET_CLR_BLOCK_DBL);
+				GSI_EP_OP_SET_CLR_BLOCK_DBL);
+		if (d_port->out_ep)
+			usb_gsi_ep_op(d_port->out_ep, (void *)&block_db,
+				GSI_EP_OP_SET_CLR_BLOCK_DBL);
+
 		goto done;
 	}
 
@@ -863,7 +873,10 @@ static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
 	if (ret == -EFAULT) {
 		block_db = false;
 		usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
-					GSI_EP_OP_SET_CLR_BLOCK_DBL);
+				GSI_EP_OP_SET_CLR_BLOCK_DBL);
+		if (d_port->out_ep)
+			usb_gsi_ep_op(d_port->out_ep, (void *)&block_db,
+				GSI_EP_OP_SET_CLR_BLOCK_DBL);
 		gsi_wakeup_host(gsi);
 	} else if (ret == -EINPROGRESS) {
 		d_port->sm_state = STATE_SUSPEND_IN_PROGRESS;
@@ -894,6 +907,9 @@ static void ipa_resume_work_handler(struct gsi_data_port *d_port)
 
 	block_db = false;
 	usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
+			GSI_EP_OP_SET_CLR_BLOCK_DBL);
+	if (d_port->out_ep)
+		usb_gsi_ep_op(d_port->out_ep, (void *)&block_db,
 			GSI_EP_OP_SET_CLR_BLOCK_DBL);
 }
 
@@ -1059,8 +1075,10 @@ static void ipa_work_handler(struct work_struct *w)
 				log_event_dbg("%s: ST_CON_HOST_NRDY\n",
 								__func__);
 				block_db = true;
-				/* stop USB ringing doorbell to GSI(OUT_EP) */
+				/* stop USB ringing doorbell to GSI(both EPs) */
 				usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
+						GSI_EP_OP_SET_CLR_BLOCK_DBL);
+				usb_gsi_ep_op(d_port->out_ep, (void *)&block_db,
 						GSI_EP_OP_SET_CLR_BLOCK_DBL);
 				gsi_rndis_ipa_reset_trigger(d_port);
 				usb_gsi_ep_op(d_port->in_ep, NULL,
@@ -2636,6 +2654,9 @@ static void gsi_suspend(struct usb_function *f)
 
 	block_db = true;
 	usb_gsi_ep_op(gsi->d_port.in_ep, (void *)&block_db,
+			GSI_EP_OP_SET_CLR_BLOCK_DBL);
+	if (gsi->d_port.out_ep)
+		usb_gsi_ep_op(gsi->d_port.out_ep, (void *)&block_db,
 			GSI_EP_OP_SET_CLR_BLOCK_DBL);
 	post_event(&gsi->d_port, EVT_SUSPEND);
 	queue_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w);

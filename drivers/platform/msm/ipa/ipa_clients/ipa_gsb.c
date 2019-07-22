@@ -438,7 +438,9 @@ static void ipa_gsb_pm_cb(void *user_data, enum ipa_pm_cb_event event)
 
 	IPA_GSB_DBG_LOW("wake up clients\n");
 	for (i = 0; i < MAX_SUPPORTED_IFACE; i++)
-		if (ipa_gsb_ctx->iface[i] != NULL)
+		if (ipa_gsb_ctx->iface[i] != NULL &&
+			ipa_gsb_ctx->iface[i]->is_connected &&
+			!ipa_gsb_ctx->iface[i]->is_resumed)
 			ipa_gsb_ctx->iface[i]->wakeup_request(
 				ipa_gsb_ctx->iface[i]->priv);
 }
@@ -475,6 +477,53 @@ fail_pm_cons:
 	ipa_pm_deregister(ipa_gsb_ctx->pm_hdl);
 	ipa_gsb_ctx->pm_hdl = ~0;
 fail_pm_reg:
+	return ret;
+}
+
+static int ipa_bridge_stop_channel_deactivate_pm(u32 hdl)
+{
+	int ret = 0;
+
+	if (ipa_gsb_ctx->num_resumed_iface == 1) {
+		ret = ipa_stop_gsi_channel(
+			ipa_gsb_ctx->cons_hdl);
+		if (ret) {
+			IPA_GSB_ERR(
+				"fail to stop cons ep %d\n",
+				ret);
+			return ret;
+		}
+
+		ret = ipa_pm_deactivate_sync(ipa_gsb_ctx->pm_hdl);
+		if (ret) {
+			IPA_GSB_ERR("fail to deactivate ipa pm\n");
+			ipa_start_gsi_channel(ipa_gsb_ctx->cons_hdl);
+			return ret;
+		}
+	}
+	return ret;
+}
+
+static int ipa_bridge_activate_pm_start_channel(u32 hdl)
+{
+	int ret = 0;
+
+	if (ipa_gsb_ctx->num_resumed_iface == 0) {
+		ret = ipa_pm_activate_sync(ipa_gsb_ctx->pm_hdl);
+		if (ret) {
+			IPA_GSB_ERR("fail to activate ipa pm\n");
+			return ret;
+		}
+
+		ret = ipa_start_gsi_channel(
+			ipa_gsb_ctx->cons_hdl);
+		if (ret) {
+			IPA_GSB_ERR(
+				"fail to start con ep %d\n",
+				ret);
+			return ret;
+		}
+	}
 	return ret;
 }
 
@@ -881,9 +930,18 @@ int ipa_bridge_connect(u32 hdl)
 	ipa_gsb_ctx->iface[hdl]->is_connected = true;
 	ipa_gsb_ctx->iface[hdl]->is_resumed = true;
 
+	/* Connected == 0, would have started above already,
+	 * So, ignore it.
+	 */
+	if (ipa_gsb_ctx->num_connected_iface != 0)
+		ipa_bridge_activate_pm_start_channel(hdl);
+
 	ipa_gsb_ctx->num_connected_iface++;
 	IPA_GSB_DBG("connected iface: %d\n",
 		ipa_gsb_ctx->num_connected_iface);
+	/* Wake up remaining clients. */
+	if (ipa_gsb_ctx->num_resumed_iface == 0)
+		ipa_gsb_pm_cb(NULL, IPA_PM_REQUEST_WAKEUP);
 	ipa_gsb_ctx->num_resumed_iface++;
 	IPA_GSB_DBG("num resumed iface: %d\n",
 		ipa_gsb_ctx->num_resumed_iface);
@@ -973,6 +1031,13 @@ int ipa_bridge_disconnect(u32 hdl)
 
 	if (ipa_gsb_ctx->iface[hdl]->is_resumed) {
 		ipa_gsb_ctx->iface[hdl]->is_resumed = false;
+
+		/* Connected < 1, would have stopped above already,
+		 * So, ignore it.
+		 */
+		if (ipa_gsb_ctx->num_connected_iface >= 1)
+			ipa_bridge_stop_channel_deactivate_pm(hdl);
+
 		ipa_gsb_ctx->num_resumed_iface--;
 		IPA_GSB_DBG("num resumed iface: %d\n",
 			ipa_gsb_ctx->num_resumed_iface);
@@ -1022,25 +1087,11 @@ int ipa_bridge_resume(u32 hdl)
 	}
 
 	mutex_lock(&ipa_gsb_ctx->lock);
-	if (ipa_gsb_ctx->num_resumed_iface == 0) {
-		ret = ipa_pm_activate_sync(ipa_gsb_ctx->pm_hdl);
-		if (ret) {
-			IPA_GSB_ERR("fail to activate ipa pm\n");
-			mutex_unlock(&ipa_gsb_ctx->lock);
-			mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
-			return ret;
-		}
-
-		ret = ipa_start_gsi_channel(
-			ipa_gsb_ctx->cons_hdl);
-		if (ret) {
-			IPA_GSB_ERR(
-				"fail to start con ep %d\n",
-				ret);
-			mutex_unlock(&ipa_gsb_ctx->lock);
-			mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
-			return ret;
-		}
+	ret = ipa_bridge_activate_pm_start_channel(hdl);
+	if (ret) {
+		mutex_unlock(&ipa_gsb_ctx->lock);
+		mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
+		return ret;
 	}
 
 	ipa_gsb_ctx->iface[hdl]->is_resumed = true;
@@ -1094,30 +1145,13 @@ int ipa_bridge_suspend(u32 hdl)
 	}
 
 	mutex_lock(&ipa_gsb_ctx->lock);
-	if (ipa_gsb_ctx->num_resumed_iface == 1) {
-		ret = ipa_stop_gsi_channel(
-			ipa_gsb_ctx->cons_hdl);
-		if (ret) {
-			IPA_GSB_ERR(
-				"fail to stop cons ep %d\n",
-				ret);
-			atomic_set(&ipa_gsb_ctx->suspend_in_progress, 0);
-			mutex_unlock(&ipa_gsb_ctx->lock);
-			mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
-			return ret;
-		}
-
-		ret = ipa_pm_deactivate_sync(ipa_gsb_ctx->pm_hdl);
-		if (ret) {
-			IPA_GSB_ERR("fail to deactivate ipa pm\n");
-			ipa_start_gsi_channel(ipa_gsb_ctx->cons_hdl);
-			atomic_set(&ipa_gsb_ctx->suspend_in_progress, 0);
-			mutex_unlock(&ipa_gsb_ctx->lock);
-			mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
-			return ret;
-		}
+	ret = ipa_bridge_stop_channel_deactivate_pm(hdl);
+	if (ret) {
+		atomic_set(&ipa_gsb_ctx->suspend_in_progress, 0);
+		mutex_unlock(&ipa_gsb_ctx->lock);
+		mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
+		return ret;
 	}
-
 	ipa_gsb_ctx->iface[hdl]->is_resumed = false;
 	ipa_gsb_ctx->num_resumed_iface--;
 	IPA_GSB_DBG_LOW("num resumed iface: %d\n",

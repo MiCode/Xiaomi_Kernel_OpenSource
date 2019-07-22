@@ -397,7 +397,7 @@ int cam_soc_util_set_clk_flags(struct cam_hw_soc_info *soc_info,
  * @return:             success or failure
  */
 int cam_soc_util_set_src_clk_rate(struct cam_hw_soc_info *soc_info,
-	int32_t clk_rate);
+	int64_t clk_rate);
 
 /**
  * cam_soc_util_get_option_clk_by_name()

@@ -16,6 +16,10 @@
 	status = "okay";
 };
 
+&qcom_seecom {
+	status = "okay";
+};
+
 &usb {
 	status = "okay";
 	qcom,connector-type-uAB;
@@ -39,6 +43,14 @@
 		regulator-always-on;
 		enable-active-high;
 		gpio = <&tlmm 71 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&i2c_3 {
+	eeprom@52 {
+		compatible = "atmel,24c128";
+		reg = <0x52>;
+		pagesize = <32>;
 	};
 };
 
