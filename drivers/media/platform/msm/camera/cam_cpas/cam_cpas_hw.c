@@ -980,8 +980,10 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 		return -EINVAL;
 	}
 
-	if (!CAM_CPAS_CLIENT_VALID(client_indx))
+	if (!CAM_CPAS_CLIENT_VALID(client_indx)) {
+		CAM_ERR(CAM_CPAS, "Client index invalid %d", client_indx);
 		return -EINVAL;
+	}
 
 	mutex_lock(&cpas_hw->hw_mutex);
 	mutex_lock(&cpas_core->client_mutex[client_indx]);
@@ -1099,8 +1101,10 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 	cmd_hw_stop = (struct cam_cpas_hw_cmd_stop *)stop_args;
 	client_indx = CAM_CPAS_GET_CLIENT_IDX(cmd_hw_stop->client_handle);
 
-	if (!CAM_CPAS_CLIENT_VALID(client_indx))
+	if (!CAM_CPAS_CLIENT_VALID(client_indx)) {
+		CAM_ERR(CAM_CPAS, "Client index invalid %d", client_indx);
 		return -EINVAL;
+	}
 
 	mutex_lock(&cpas_hw->hw_mutex);
 	mutex_lock(&cpas_core->client_mutex[client_indx]);
@@ -1162,14 +1166,20 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 	ahb_vote.vote.level = CAM_SUSPEND_VOTE;
 	rc = cam_cpas_util_apply_client_ahb_vote(cpas_hw, cpas_client,
 		&ahb_vote, NULL);
-	if (rc)
+	if (rc) {
+		CAM_ERR(CAM_CPAS, "ahb vote failed for %s rc %d",
+			cpas_client->data.identifier, rc);
 		goto done;
+	}
 
 	axi_vote.uncompressed_bw = 0;
 	axi_vote.compressed_bw = 0;
 	axi_vote.compressed_bw_ab = 0;
 	rc = cam_cpas_util_apply_client_axi_vote(cpas_hw,
 		cpas_client, &axi_vote);
+	if (rc)
+		CAM_ERR(CAM_CPAS, "axi vote failed for %s rc %d",
+			cpas_client->data.identifier, rc);
 
 done:
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);
