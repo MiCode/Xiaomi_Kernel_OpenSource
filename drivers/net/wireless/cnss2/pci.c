@@ -2447,7 +2447,7 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 	if (!plat_priv)
 		return -ENODEV;
 
-	cnss_pci_pm_runtime_resume(pci_priv);
+	cnss_auto_resume(&pci_priv->pci_dev->dev);
 	cnss_pci_dump_shadow_reg(pci_priv);
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_TRIGGER_RDDM);
