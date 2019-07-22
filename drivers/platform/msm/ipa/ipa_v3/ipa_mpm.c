@@ -290,7 +290,6 @@ struct ipa_mpm_dev_info {
 	struct ipa_mpm_iova_addr data;
 	u32 chdb_base;
 	u32 erdb_base;
-	bool is_cache_coherent;
 };
 
 struct ipa_mpm_event_props {
@@ -484,12 +483,6 @@ static dma_addr_t ipa_mpm_smmu_map(void *va_addr,
 	unsigned long carved_iova = roundup(cb->next_addr, IPA_MPM_PAGE_SIZE);
 	int ret = 0;
 
-	/* check cache coherent */
-	if (ipa_mpm_ctx->dev_info.is_cache_coherent)  {
-		IPA_MPM_DBG(" enable cache coherent\n");
-		prot |= IOMMU_CACHE;
-	}
-
 	if (carved_iova >= cb->va_end) {
 		IPA_MPM_ERR("running out of carved_iova %lx\n", carved_iova);
 		ipa_assert();
@@ -641,12 +634,6 @@ static u32 ipa_mpm_smmu_map_doorbell(enum mhip_smmu_domain_type smmu_domain,
 	unsigned long carved_iova = roundup(cb->next_addr, IPA_MPM_PAGE_SIZE);
 	u32 iova = 0;
 	u64 offset = 0;
-
-	/* check cache coherent */
-	if (ipa_mpm_ctx->dev_info.is_cache_coherent)  {
-		IPA_MPM_DBG(" enable cache coherent\n");
-		prot |= IOMMU_CACHE;
-	}
 
 	if (carved_iova >= cb->va_end) {
 		IPA_MPM_ERR("running out of carved_iova %lx\n", carved_iova);
@@ -2597,8 +2584,6 @@ static int ipa_mpm_populate_smmu_info(struct platform_device *pdev)
 		ipa_mpm_ctx->dev_info.ipa_smmu_enabled =
 		smmu_out.smmu_enable;
 
-	/* get cache_coherent enable or not */
-	ipa_mpm_ctx->dev_info.is_cache_coherent = ap_cb->is_cache_coherent;
 	if (of_property_read_u32_array(pdev->dev.of_node, "qcom,iova-mapping",
 		carved_iova_ap_mapping, 2)) {
 		IPA_MPM_ERR("failed to read of_node %s\n",
