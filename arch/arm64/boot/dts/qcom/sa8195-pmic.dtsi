@@ -75,40 +75,16 @@
 	/delete-property/ vdda33-supply;
 };
 
-&mdss_dsi0 {
-	vdda-1p2-supply = <&pm8195_1_l9>;
+&lmh_dcvs1 {
+	isens_vref_0p8-supply = <&pm8195_3_l5>;
+	isens-vref-0p8-settings = <880000 880000 20000>;
+	isens_vref_1p8-supply = <&pm8195_1_l12>;
+	isens-vref-1p8-settings = <1800000 1800000 20000>;
 };
 
-&mdss_dsi1 {
-	vdda-1p2-supply = <&pm8195_1_l9>;
-};
-
-&mdss_dsi_phy0 {
-	vdda-0p9-supply = <&pm8195_3_l5>;
-};
-
-&mdss_dsi_phy1 {
-	vdda-0p9-supply = <&pm8195_3_l5>;
-};
-
-&clock_cpucc {
-	lmh_dcvs1: qcom,limits-dcvs@18350800 {
-		isens_vref_0p8-supply = <&pm8195_3_l5>;
-		isens-vref-0p8-settings = <880000 880000 20000>;
-		isens_vref_1p8-supply = <&pm8195_1_l12>;
-		isens-vref-1p8-settings = <1800000 1800000 20000>;
-	};
-};
-
-
-&soc {
-	qcom,lpass@17300000 {
-		vdd_cx-supply = <&VDD_CX_LEVEL>;
-	};
-	clock_camcc: qcom,camcc@ad00000 {
-		vdd_mx-supply = <&VDD_MX_LEVEL>;
-		vdd_mm-supply = <&VDD_MMCX_LEVEL>;
-	};
+&clock_camcc {
+	vdd_mx-supply = <&VDD_MX_LEVEL>;
+	vdd_mm-supply = <&VDD_MMCX_LEVEL>;
 };
 
 &gpu_gx_gdsc {
