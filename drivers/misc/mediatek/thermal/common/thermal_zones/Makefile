@@ -1,0 +1,44 @@
+#
+# Copyright (C) 2015 MediaTek Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+
+THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/mt6779
+ccflags-y  += -I$(THERMAL_CHIP_DRIVER_DIR)/inc
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/power/mt6779
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/dramc/mt6779
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/gpu/hal/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/auxadc/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/common/inc/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/eem_v1/inc/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/imgsensor/inc/
+
+
+#obj-$(CONFIG_THERMAL) += mtk_ts_battery.o
+#obj-$(CONFIG_THERMAL) += mtk_ts_bts.o
+#obj-$(CONFIG_THERMAL) += mtk_ts_btsmdpa.o
+
+#obj-$(CONFIG_THERMAL) += mtk_ts_cpu_noBank.o
+#obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
+#obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
+#obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
+#obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
+#obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
+
+
+ifneq ($(CONFIG_MTK_COMBO_WIFI),)
+#    obj-$(CONFIG_THERMAL) += mtk_ts_wmt.o
+endif
+
+#obj-$(CONFIG_THERMAL) += mtk_tsAll.o
+#obj-$(CONFIG_THERMAL) += mtk_ts_imgsensor.o
+#obj-$(CONFIG_THERMAL) += mtk_ts_dctm.o
