@@ -217,12 +217,7 @@ struct cvp_kmd_hfi_packet {
 	unsigned int pkt_data[MAX_HFI_PKT_SIZE];
 };
 
-#define CVP_KMD_PROP_HFI_VERSION	1
-#define CVP_KMD_PROP_SESSION_TYPE	2
-#define CVP_KMD_PROP_SESSION_KERNELMASK	3
-#define CVP_KMD_PROP_SESSION_PRIORITY	4
-#define CVP_KMD_PROP_SESSION_SECURITY	5
-#define CVP_KMD_PROP_SESSION_DSPMASK	6
+#define CVP_HFI_VERSION	1
 struct cvp_kmd_sys_property {
 	unsigned int prop_type;
 	unsigned int data;

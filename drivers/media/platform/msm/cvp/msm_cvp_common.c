@@ -118,6 +118,18 @@ static void put_inst_helper(struct kref *kref)
 {
 	struct msm_cvp_inst *inst = container_of(kref,
 			struct msm_cvp_inst, kref);
+	int rc;
+
+	msm_cvp_cleanup_instance(inst);
+	msm_cvp_session_deinit(inst);
+	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CORE_UNINIT);
+	if (rc) {
+		dprintk(CVP_ERR,
+			"Failed to move inst %pK to uninit state\n", inst);
+		rc = msm_cvp_comm_force_cleanup(inst);
+	}
+
+	msm_cvp_comm_session_clean(inst);
 
 	msm_cvp_destroy(inst);
 }
@@ -276,9 +288,7 @@ static void handle_session_release_buf_done(enum hal_command_response cmd,
 	inst = cvp_get_inst(get_cvp_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(CVP_WARN,
-			"%s: Got a response for an inactive session\n",
-			__func__);
+		dprintk(CVP_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -379,7 +389,7 @@ int wait_for_sess_signal_receipt(struct msm_cvp_inst *inst,
 		msecs_to_jiffies(
 			inst->core->resources.msm_cvp_hw_rsp_timeout));
 	if (!rc) {
-		dprintk(CVP_WARN, "Wait interrupted or timed out: %d\n",
+		dprintk(CVP_ERR, "Wait interrupted or timed out: %d\n",
 				SESSION_MSG_INDEX(cmd));
 		msm_cvp_comm_kill_session(inst);
 		rc = -EIO;
@@ -443,8 +453,7 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 		response->session_id);
 
 	if (!inst) {
-		dprintk(CVP_WARN, "%s:Got a response for an inactive session\n",
-				__func__);
+		dprintk(CVP_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -493,8 +502,7 @@ static void handle_release_res_done(enum hal_command_response cmd, void *data)
 	inst = cvp_get_inst(get_cvp_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(CVP_WARN, "%s:Got a response for an inactive session\n",
-				__func__);
+		dprintk(CVP_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -523,8 +531,7 @@ static void handle_session_error(enum hal_command_response cmd, void *data)
 	inst = cvp_get_inst(get_cvp_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(CVP_WARN, "%s: response for an inactive session\n",
-				__func__);
+		dprintk(CVP_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -695,8 +702,7 @@ static void handle_session_close(enum hal_command_response cmd, void *data)
 	inst = cvp_get_inst(get_cvp_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(CVP_WARN, "%s: response for an inactive session\n",
-				__func__);
+		dprintk(CVP_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -1457,7 +1463,7 @@ int msm_cvp_comm_kill_session(struct msm_cvp_inst *inst)
 		return 0;
 	}
 
-	dprintk(CVP_WARN, "%s: inst %pK, session %x state %d\n", __func__,
+	dprintk(CVP_ERR, "%s: inst %pK, session %x state %d\n", __func__,
 		inst, hash32_ptr(inst->session), inst->state);
 	/*
 	 * We're internally forcibly killing the session, if fw is aware of

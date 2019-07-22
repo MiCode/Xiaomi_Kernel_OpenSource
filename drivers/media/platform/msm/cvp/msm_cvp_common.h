@@ -20,6 +20,7 @@ struct msm_cvp_inst *cvp_get_inst(struct msm_cvp_core *core,
 		void *session_id);
 struct msm_cvp_inst *cvp_get_inst_validate(struct msm_cvp_core *core,
 		void *session_id);
+void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst);
 void cvp_change_inst_state(struct msm_cvp_inst *inst,
 		enum instance_state state);
 struct msm_cvp_core *get_cvp_core(int core_id);
