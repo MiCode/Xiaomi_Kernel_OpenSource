@@ -40,16 +40,16 @@
 #include "mtk_cm_mgr_common.h"
 #include "dvfsrc-opp.h"
 
-#ifdef CONFIG_MTK_DRAMC
+#ifdef CONFIG_MTK_DRAMC_LEGACY
 #include <mtk_dramc.h>
-#endif /* CONFIG_MTK_DRAMC */
+#endif /* CONFIG_MTK_DRAMC_LEGACY */
 
 static int cm_mgr_idx = -1;
 static int *cm_mgr_buf;
 
 static int cm_mgr_check_dram_type(void)
 {
-#ifdef CONFIG_MTK_DRAMC
+#ifdef CONFIG_MTK_DRAMC_LEGACY
 	int ddr_type = get_ddr_type();
 	int ddr_hz = dram_steps_freq(0);
 
@@ -61,7 +61,7 @@ static int cm_mgr_check_dram_type(void)
 	cm_mgr_idx = 0;
 	pr_info("#@# %s(%d) NO CONFIG_MTK_DRAMC !!! set cm_mgr_idx to 0x%x\n",
 			__func__, __LINE__, cm_mgr_idx);
-#endif /* CONFIG_MTK_DRAMC */
+#endif /* CONFIG_MTK_DRAMC_LEGACY */
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	if (cm_mgr_idx >= 0)
