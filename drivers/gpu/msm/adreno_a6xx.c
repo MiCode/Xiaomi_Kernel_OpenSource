@@ -2399,6 +2399,14 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 
 	/* Check efuse bits for various capabilties */
 	a6xx_check_features(adreno_dev);
+
+	/*
+	 * A640 GPUs used a fuse to determine which frequency plan to
+	 * use for the GPU. For A650 GPUs enable using higher frequencies
+	 * based on the LM feature flag.
+	 */
+	if (adreno_is_a650(adreno_dev) && ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		adreno_dev->speed_bin = 1;
 }
 
 
