@@ -523,9 +523,11 @@ static void diag_close_logging_process(const int pid)
 			}
 		}
 	}
+	mutex_lock(&driver->hdlc_disable_mutex);
 	mutex_lock(&driver->md_session_lock);
 	diag_md_session_close(pid);
 	mutex_unlock(&driver->md_session_lock);
+	mutex_unlock(&driver->hdlc_disable_mutex);
 	diag_switch_logging(&params);
 	mutex_unlock(&driver->diagchar_mutex);
 }
@@ -1443,6 +1445,8 @@ static void diag_md_session_close(int pid)
 			driver->md_session_map[proc][i] = NULL;
 			driver->md_session_mask[proc] &=
 				~session_info->peripheral_mask[proc];
+			driver->p_hdlc_disabled[i] =
+				driver->hdlc_disabled;
 		}
 	}
 	diag_log_mask_free(session_info->log_mask);
