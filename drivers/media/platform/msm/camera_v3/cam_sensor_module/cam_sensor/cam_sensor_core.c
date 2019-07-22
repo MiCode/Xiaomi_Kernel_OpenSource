@@ -927,6 +927,16 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	}
 		break;
 	case CAM_CONFIG_DEV: {
+		if (s_ctrl->sensor_state < CAM_SENSOR_ACQUIRE) {
+			rc = -EINVAL;
+			CAM_ERR(CAM_SENSOR,
+				"sensor_id:[0x%x] not acquired to configure [%d] ",
+				s_ctrl->sensordata->slave_info.sensor_id,
+				s_ctrl->sensor_state
+			);
+			goto release_mutex;
+		}
+
 		rc = cam_sensor_i2c_pkt_parse(s_ctrl, arg);
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR, "Failed i2c pkt parse: %d", rc);
