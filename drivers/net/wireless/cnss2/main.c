@@ -654,7 +654,7 @@ int cnss_idle_restart(struct device *dev)
 
 	ret = cnss_driver_event_post(plat_priv,
 				     CNSS_DRIVER_EVENT_IDLE_RESTART,
-				     CNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
+				     CNSS_EVENT_SYNC, NULL);
 	if (ret)
 		goto out;
 
@@ -708,7 +708,7 @@ int cnss_idle_shutdown(struct device *dev)
 skip_wait:
 	return cnss_driver_event_post(plat_priv,
 				      CNSS_DRIVER_EVENT_IDLE_SHUTDOWN,
-				      CNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
+				      CNSS_EVENT_SYNC, NULL);
 }
 EXPORT_SYMBOL(cnss_idle_shutdown);
 
