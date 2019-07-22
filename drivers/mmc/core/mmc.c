@@ -668,6 +668,10 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			ext_csd[EXT_CSD_DEVICE_LIFE_TIME_EST_TYP_A];
 		card->ext_csd.device_life_time_est_typ_b =
 			ext_csd[EXT_CSD_DEVICE_LIFE_TIME_EST_TYP_B];
+		card->ext_csd.fw_version = ext_csd[EXT_CSD_FIRMWARE_VERSION];
+		pr_info("%s: eMMC FW version: 0x%02x\n",
+				mmc_hostname(card->host),
+				card->ext_csd.fw_version);
 	}
 
 	/* eMMC v5.1 or later */
