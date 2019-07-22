@@ -120,6 +120,7 @@ struct mmc_blk_data {
 #define MMC_BLK_DISCARD		BIT(2)
 #define MMC_BLK_SECDISCARD	BIT(3)
 #define MMC_BLK_CQE_RECOVERY	BIT(4)
+#define MMC_BLK_PARTSWITCH     BIT(5)
 
 	/*
 	 * Only set in main mmc_blk_data associated
@@ -889,6 +890,9 @@ static inline int mmc_blk_part_switch(struct mmc_card *card,
 				 EXT_CSD_PART_CONFIG, part_config,
 				 card->ext_csd.part_time);
 		if (ret) {
+			pr_err("%s: %s: switch failure, %d -> %d\n",
+				mmc_hostname(card->host), __func__,
+				main_md->part_curr, part_type);
 			mmc_blk_part_switch_post(card, part_type);
 			return ret;
 		}
@@ -2263,10 +2267,22 @@ enum mmc_issued mmc_blk_mq_issue_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_card *card = md->queue.card;
 	struct mmc_host *host = card->host;
 	int ret;
+	int err;
 
 	ret = mmc_blk_part_switch(card, md->part_type);
-	if (ret)
+	if (ret) {
+		err = mmc_blk_reset(md, card->host, MMC_BLK_PARTSWITCH);
+		if (!err) {
+			pr_err("%s: mmc_blk_reset(MMC_BLK_PARTSWITCH) succeeded.\n",
+					mmc_hostname(card->host));
+			mmc_blk_reset_success(md, MMC_BLK_PARTSWITCH);
+		} else {
+			pr_err("%s: mmc_blk_reset(MMC_BLK_PARTSWITCH) failed.\n",
+					mmc_hostname(card->host));
+		}
+
 		return MMC_REQ_FAILED_TO_START;
+	}
 
 	switch (mmc_issue_type(mq, req)) {
 	case MMC_ISSUE_SYNC:
