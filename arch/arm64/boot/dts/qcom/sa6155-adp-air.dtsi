@@ -51,7 +51,7 @@
 	};
 
 	hsi2s: qcom,hsi2s {
-		compatible = "qcom,hsi2s";
+		compatible = "qcom,sa6155-hsi2s", "qcom,hsi2s";
 		number-of-interfaces = <2>;
 		reg = <0x1B40000 0x28000>;
 		reg-names = "lpa_if";
