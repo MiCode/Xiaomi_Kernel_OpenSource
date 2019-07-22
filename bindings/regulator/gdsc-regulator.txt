@@ -12,6 +12,9 @@ Required properties:
 Optional properties:
  - parent-supply:   phandle to the parent supply/regulator node
  - clock-names:     List of string names for core clocks
+ - qcom,retain-regs: Presence denotes a hardware requirement to enable the
+		     usage of retention registers which maintain their state
+		     after the GDSC is disabled and re-enabled.
  - qcom,skip-logic-collapse: Presence denotes a requirement to leave power to
                              the core's logic enabled.
  - qcom,support-hw-trigger: Presence denotes a hardware feature to switch
