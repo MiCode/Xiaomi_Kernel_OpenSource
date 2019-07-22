@@ -442,8 +442,6 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 	else if (ret)
 		goto shutdown;
 
-	cnss_vreg_unvote_type(plat_priv, CNSS_VREG_PRIM);
-
 	return 0;
 
 shutdown:
