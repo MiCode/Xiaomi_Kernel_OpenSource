@@ -19,6 +19,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 #include <linux/mmc/mmc.h>
+#include <linux/reboot.h>
 
 #include "core.h"
 #include "card.h"
@@ -1529,6 +1530,17 @@ err:
 	return err;
 }
 
+static int mmc_reboot_notify(struct notifier_block *notify_block,
+		unsigned long event, void *unused)
+{
+	struct mmc_card *card = container_of(
+			notify_block, struct mmc_card, reboot_notify);
+
+	card->pon_type = (event != SYS_RESTART) ? MMC_LONG_PON : MMC_SHRT_PON;
+
+	return NOTIFY_OK;
+}
+
 /*
  * Activate High Speed, HS200 or HS400ES mode if supported.
  */
@@ -1899,6 +1911,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		card->rca = 1;
 		memcpy(card->raw_cid, cid, sizeof(card->raw_cid));
 		host->card = card;
+		card->reboot_notify.notifier_call = mmc_reboot_notify;
 	}
 
 	/*
@@ -2284,6 +2297,7 @@ out:
 static void mmc_remove(struct mmc_host *host)
 {
 	mmc_exit_clk_scaling(host);
+	unregister_reboot_notifier(&host->card->reboot_notify);
 	mmc_remove_card(host->card);
 	mmc_claim_host(host);
 	host->card = NULL;
@@ -2666,6 +2680,8 @@ int mmc_attach_mmc(struct mmc_host *host)
 		mmc_release_host(host);
 		goto remove_card;
 	}
+
+	register_reboot_notifier(&host->card->reboot_notify);
 
 	return 0;
 
