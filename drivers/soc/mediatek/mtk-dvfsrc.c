@@ -13,7 +13,6 @@
 #include <linux/platform_device.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
-#include <dt-bindings/power/mt6779-power.h>
 #include "mtk-scpsys.h"
 
 #define DVFSRC_IDLE		0x00
@@ -39,9 +38,7 @@ struct mtk_dvfsrc;
 struct dvfsrc_soc_data {
 	const int *regs;
 	u32 num_opp;
-	u32 num_domains;
 	const struct dvfsrc_opp **opps;
-	struct dvfsrc_domain *domains;
 	int (*get_target_level)(struct mtk_dvfsrc *dvfsrc);
 	int (*get_current_level)(struct mtk_dvfsrc *dvfsrc);
 	u32 (*get_vcore_level)(struct mtk_dvfsrc *dvfsrc);
@@ -63,6 +60,8 @@ struct mtk_dvfsrc {
 	int dram_type;
 	u32 mode;
 	u32 flag;
+	int num_domains;
+	struct dvfsrc_domain *domains;
 	void __iomem *regs;
 	struct mutex lock;
 	struct notifier_block scpsys_notifier;
@@ -429,7 +428,7 @@ static int dvfsrc_set_performance(struct notifier_block *b,
 
 	dvfsrc = container_of(b, struct mtk_dvfsrc, scpsys_notifier);
 
-	d = dvfsrc->dvd->domains;
+	d = dvfsrc->domains;
 
 	if (l > dvfsrc->dvd->num_opp) {
 		dev_err(dvfsrc->dev, "pstate out of range = %ld\n", l);
@@ -437,7 +436,7 @@ static int dvfsrc_set_performance(struct notifier_block *b,
 	}
 
 	mutex_lock(&pstate_lock);
-	for (i = 0, highest = 0; i < dvfsrc->dvd->num_domains; i++, d++) {
+	for (i = 0, highest = 0; i < dvfsrc->num_domains; i++, d++) {
 		if (sc->domain_id == d->id) {
 			d->state = l;
 			match = true;
@@ -473,6 +472,7 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct mtk_dvfsrc *dvfsrc;
 	struct device_node *node = pdev->dev.of_node;
+	int i;
 	int ret;
 
 	dvfsrc = devm_kzalloc(&pdev->dev, sizeof(*dvfsrc), GFP_KERNEL);
@@ -500,6 +500,22 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 
 	of_property_read_u32(node, "dvfsrc,mode", &dvfsrc->mode);
 	of_property_read_u32(node, "dvfsrc,flag", &dvfsrc->flag);
+	dvfsrc->num_domains = of_count_phandle_with_args(node,
+		"perf-domains", NULL);
+
+	if (dvfsrc->num_domains > 0) {
+		dvfsrc->domains = devm_kzalloc(&pdev->dev,
+			sizeof(struct dvfsrc_domain) * dvfsrc->num_domains,
+			GFP_KERNEL);
+
+		if (!dvfsrc->domains)
+			return -ENOMEM;
+
+		for (i = 0; i < dvfsrc->num_domains; i++)
+			of_property_read_u32_index(node, "perf-domains",
+				i, &dvfsrc->domains[i].id);
+	} else
+		dvfsrc->num_domains = 0;
 
 	mutex_init(&dvfsrc->lock);
 	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_SPM_DVFSRC_INIT,
@@ -562,16 +578,10 @@ static const struct dvfsrc_opp *dvfsrc_opp_mt6779[] = {
 	[0] = dvfsrc_opp_mt6779_lp4,
 };
 
-static struct dvfsrc_domain dvfsrc_domains_mt6779[] = {
-	{ MT6779_POWER_DOMAIN_INFRA, 0 },
-};
-
 static const struct dvfsrc_soc_data mt6779_data = {
 	.opps = dvfsrc_opp_mt6779,
 	.num_opp = ARRAY_SIZE(dvfsrc_opp_mt6779_lp4),
 	.regs = mt6779_regs,
-	.domains = dvfsrc_domains_mt6779,
-	.num_domains = ARRAY_SIZE(dvfsrc_domains_mt6779),
 	.get_target_level = mt6779_get_target_level,
 	.get_current_level = mt6779_get_current_level,
 	.get_vcore_level = mt6779_get_vcore_level,
