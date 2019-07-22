@@ -274,7 +274,7 @@
 			"sensor_cam_mclk";
 		qcom,cam-power-seq-cfg-val = <1 1 1 1 1 24000000>;
 		qcom,cam-power-seq-delay = <1 1 1 30 30 5>;
-		status = "ok";
+		status = "disabled";
 		clocks = <&clock_gcc clk_mclk2_clk_src>,
 			<&clock_gcc clk_gcc_camss_mclk2_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
@@ -409,7 +409,7 @@
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
-		status = "ok";
+		status = "disabled";
 		clocks = <&clock_gcc clk_mclk2_clk_src>,
 			<&clock_gcc clk_gcc_camss_mclk2_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
