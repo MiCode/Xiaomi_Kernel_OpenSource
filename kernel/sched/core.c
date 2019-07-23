@@ -962,7 +962,7 @@ static inline unsigned int uclamp_effective_group_id(struct task_struct *p,
 			clamp_value = clamp_max;
 			group_id = group_max;
 		}
-#elif CONFIG_UCLAMP_TASK_GROUP
+#elif defined(CONFIG_UCLAMP_TASK_GROUP)
 		unsigned int clamp_max =
 			task_group(p)->uclamp[clamp_id].effective.value;
 		unsigned int group_max =
@@ -1466,7 +1466,7 @@ static void __init init_uclamp(void)
 
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 		schedtune_init_uclamp();
-#elif CONFIG_UCLAMP_TASK_GROUP
+#elif defined(CONFIG_UCLAMP_TASK_GROUP)
 		/* Init root TG's clamp group */
 		uc_se = &root_task_group.uclamp[clamp_id];
 		uclamp_group_get(NULL, NULL, uc_se, clamp_id,
