@@ -323,6 +323,8 @@ static inline bool walt_should_kick_upmigrate(struct task_struct *p, int cpu)
 	return false;
 }
 
+extern bool is_rtgb_active(void);
+
 #else /* CONFIG_SCHED_WALT */
 
 static inline void walt_sched_init_rq(struct rq *rq) { }
