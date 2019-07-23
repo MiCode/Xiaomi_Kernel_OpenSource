@@ -338,6 +338,7 @@
 &soc {
 	regulator@b018000 {
 		vdd-apc-supply = <&pm660_s3>;
+		qcom,cpr-apc-volt-step = <4000>;
 	};
 
 	vreg_sd_pad: vreg_sd_pad {
