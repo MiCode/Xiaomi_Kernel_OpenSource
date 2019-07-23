@@ -550,6 +550,29 @@ void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
 	}
 }
 
+bool rmnet_map_v5_csum_buggy(struct rmnet_map_v5_coal_header *coal_hdr)
+{
+	/* Only applies to frames with a single packet */
+	if (coal_hdr->num_nlos != 1 || coal_hdr->nl_pairs[0].num_packets != 1)
+		return false;
+
+	/* TCP header has FIN or PUSH set */
+	if (coal_hdr->close_type == RMNET_MAP_COAL_CLOSE_COAL)
+		return true;
+
+	/* Hit packet limit, byte limit, or time limit/EOF on DMA */
+	if (coal_hdr->close_type == RMNET_MAP_COAL_CLOSE_HW) {
+		switch (coal_hdr->close_value) {
+		case RMNET_MAP_COAL_CLOSE_HW_PKT:
+		case RMNET_MAP_COAL_CLOSE_HW_BYTE:
+		case RMNET_MAP_COAL_CLOSE_HW_TIME:
+			return true;
+		}
+	}
+
+	return false;
+}
+
 static void rmnet_map_move_headers(struct sk_buff *skb)
 {
 	struct iphdr *iph;
@@ -742,6 +765,34 @@ __rmnet_map_segment_coal_skb(struct sk_buff *coal_skb,
 	coal_meta->pkt_count = 0;
 }
 
+static bool rmnet_map_validate_csum(struct sk_buff *skb,
+				    struct rmnet_map_coal_metadata *meta)
+{
+	u8 *data = rmnet_map_data_ptr(skb);
+	unsigned int datagram_len;
+	__wsum csum;
+	__sum16 pseudo;
+
+	datagram_len = skb->len - meta->ip_len;
+	if (meta->ip_proto == 4) {
+		struct iphdr *iph = (struct iphdr *)data;
+
+		pseudo = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+					    datagram_len,
+					    meta->trans_proto, 0);
+	} else {
+		struct ipv6hdr *ip6h = (struct ipv6hdr *)data;
+
+		pseudo = ~csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
+					  datagram_len, meta->trans_proto,
+					  0);
+	}
+
+	csum = skb_checksum(skb, meta->ip_len, datagram_len,
+			    csum_unfold(pseudo));
+	return !csum_fold(csum);
+}
+
 /* Converts the coalesced SKB into a list of SKBs.
  * NLOs containing csum erros will not be included.
  * The original coalesced SKB should be treated as invalid and
@@ -825,6 +876,17 @@ static void rmnet_map_segment_coal_skb(struct sk_buff *coal_skb,
 		return;
 	}
 
+	if (rmnet_map_v5_csum_buggy(coal_hdr)) {
+		rmnet_map_move_headers(coal_skb);
+		/* Mark as valid if it checks out */
+		if (rmnet_map_validate_csum(coal_skb, &coal_meta))
+			coal_skb->ip_summed = CHECKSUM_UNNECESSARY;
+
+		__skb_queue_tail(list, coal_skb);
+		return;
+	}
+
+	/* Segment the coalesced SKB into new packets */
 	for (nlo = 0; nlo < coal_hdr->num_nlos; nlo++) {
 		pkt_len = ntohs(coal_hdr->nl_pairs[nlo].pkt_len);
 		pkt_len -= coal_meta.ip_len + coal_meta.trans_len;
@@ -1105,13 +1167,45 @@ enum hrtimer_restart rmnet_map_flush_tx_packet_queue(struct hrtimer *t)
 	return HRTIMER_NORESTART;
 }
 
+static void rmnet_map_linearize_copy(struct sk_buff *dst, struct sk_buff *src)
+{
+	unsigned int linear = src->len - src->data_len, target = src->len;
+	unsigned char *src_buf;
+	struct sk_buff *skb;
+
+	src_buf = src->data;
+	skb_put_data(dst, src_buf, linear);
+	target -= linear;
+
+	skb = src;
+
+	while (target) {
+		unsigned int i = 0, non_linear = 0;
+
+		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+			non_linear = skb_frag_size(&skb_shinfo(skb)->frags[i]);
+			src_buf = skb_frag_address(&skb_shinfo(skb)->frags[i]);
+
+			skb_put_data(dst, src_buf, non_linear);
+			target -= non_linear;
+		}
+
+		if (skb_shinfo(skb)->frag_list) {
+			skb = skb_shinfo(skb)->frag_list;
+			continue;
+		}
+
+		if (skb->next)
+			skb = skb->next;
+	}
+}
+
 void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port)
 {
 	struct timespec diff, last;
 	int size, agg_count = 0;
 	struct sk_buff *agg_skb;
 	unsigned long flags;
-	u8 *dest_buff;
 
 new_packet:
 	spin_lock_irqsave(&port->agg_lock, flags);
@@ -1133,7 +1227,8 @@ new_packet:
 			return;
 		}
 
-		port->agg_skb = skb_copy_expand(skb, 0, size, GFP_ATOMIC);
+		port->agg_skb = alloc_skb(port->egress_agg_params.agg_size,
+					  GFP_ATOMIC);
 		if (!port->agg_skb) {
 			port->agg_skb = 0;
 			port->agg_count = 0;
@@ -1143,6 +1238,8 @@ new_packet:
 			dev_queue_xmit(skb);
 			return;
 		}
+		rmnet_map_linearize_copy(port->agg_skb, skb);
+		port->agg_skb->dev = skb->dev;
 		port->agg_skb->protocol = htons(ETH_P_MAP);
 		port->agg_count = 1;
 		getnstimeofday(&port->agg_time);
@@ -1167,8 +1264,7 @@ new_packet:
 		goto new_packet;
 	}
 
-	dest_buff = skb_put(port->agg_skb, skb->len);
-	memcpy(dest_buff, skb->data, skb->len);
+	rmnet_map_linearize_copy(port->agg_skb, skb);
 	port->agg_count++;
 	dev_kfree_skb_any(skb);
 

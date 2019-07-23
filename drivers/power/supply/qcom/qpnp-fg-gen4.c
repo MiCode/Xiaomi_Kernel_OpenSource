@@ -20,6 +20,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_batterydata.h>
 #include <linux/platform_device.h>
+#include <linux/qpnp/qpnp-pbs.h>
 #include <linux/qpnp/qpnp-revid.h>
 #include <linux/thermal.h>
 #include "fg-core.h"
@@ -255,6 +256,7 @@ struct fg_gen4_chip {
 	struct cycle_counter	*counter;
 	struct cap_learning	*cl;
 	struct ttf		*ttf;
+	struct device_node	*pbs_dev;
 	struct nvmem_device	*fg_nvmem;
 	struct votable		*delta_esr_irq_en_votable;
 	struct votable		*pl_disable_votable;
@@ -289,6 +291,7 @@ struct fg_gen4_chip {
 	int			vbatt_res;
 	int			scale_timer;
 	int			current_now;
+	int			calib_level;
 	bool			first_profile_load;
 	bool			ki_coeff_dischg_en;
 	bool			slope_limit_en;
@@ -1024,6 +1027,59 @@ static int fg_gen4_get_prop_soc_scale(struct fg_gen4_chip *chip)
 		chip->vbatt_now, chip->vbatt_avg, chip->vbatt_res);
 
 	return rc;
+}
+
+#define SDAM1_MEM_127_REG	0xB0BF
+static int fg_gen4_set_calibrate_level(struct fg_gen4_chip *chip, int val)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc;
+	u8 buf;
+
+	if (!chip->pbs_dev)
+		return -ENODEV;
+
+	if (val < 0 || val > 0x83) {
+		pr_err("Incorrect calibration level %d\n", val);
+		return -EINVAL;
+	}
+
+	if (val == chip->calib_level)
+		return 0;
+
+	buf = (u8)val;
+	rc = fg_write(fg, SDAM1_MEM_127_REG, &buf, 1);
+	if (rc < 0) {
+		pr_err("Error in writing to 0xB0BF, rc=%d\n", rc);
+		return rc;
+	}
+
+	buf = 0x1;
+	rc = qpnp_pbs_trigger_event(chip->pbs_dev, buf);
+	if (rc < 0) {
+		pr_err("Error in triggering PBS rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_read(fg, SDAM1_MEM_127_REG, &buf, 1);
+	if (rc < 0) {
+		pr_err("Error in reading from 0xB0BF, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (buf) {
+		pr_err("Incorrect return value: %x\n", buf);
+		return -EINVAL;
+	}
+
+	if (is_parallel_charger_available(fg)) {
+		cancel_work_sync(&chip->pl_current_en_work);
+		schedule_work(&chip->pl_current_en_work);
+	}
+
+	chip->calib_level = val;
+	fg_dbg(fg, FG_POWER_SUPPLY, "Set calib_level to %x\n", val);
+	return 0;
 }
 
 /* ALG callback functions below */
@@ -4225,6 +4281,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_POWER_AVG:
 		rc = fg_gen4_get_power(chip, &pval->intval, true);
 		break;
+	case POWER_SUPPLY_PROP_CALIBRATE:
+		pval->intval = chip->calib_level;
+		break;
 	default:
 		pr_err("unsupported property %d\n", psp);
 		rc = -EINVAL;
@@ -4314,6 +4373,9 @@ static int fg_psy_set_property(struct power_supply *psy,
 		chip->batt_age_level = pval->intval;
 		schedule_delayed_work(&fg->profile_load_work, 0);
 		break;
+	case POWER_SUPPLY_PROP_CALIBRATE:
+		rc = fg_gen4_set_calibrate_level(chip, pval->intval);
+		break;
 	default:
 		break;
 	}
@@ -4333,6 +4395,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SOH:
 	case POWER_SUPPLY_PROP_CLEAR_SOH:
 	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
+	case POWER_SUPPLY_PROP_CALIBRATE:
 		return 1;
 	default:
 		break;
@@ -4377,6 +4440,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_POWER_NOW,
 	POWER_SUPPLY_PROP_POWER_AVG,
 	POWER_SUPPLY_PROP_SCALE_MODE_EN,
+	POWER_SUPPLY_PROP_CALIBRATE,
 };
 
 static const struct power_supply_desc fg_psy_desc = {
@@ -5313,6 +5377,14 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 		return -EINVAL;
 	}
 
+	if (of_find_property(node, "qcom,pmic-pbs", NULL)) {
+		chip->pbs_dev = of_parse_phandle(node, "qcom,pmic-pbs", 0);
+		if (!chip->pbs_dev) {
+			pr_err("Missing qcom,pmic-pbs property\n");
+			return -ENODEV;
+		}
+	}
+
 	rc = fg_gen4_parse_nvmem_dt(chip);
 	if (rc < 0)
 		return rc;
@@ -5628,6 +5700,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	chip->ki_coeff_full_soc[0] = -EINVAL;
 	chip->ki_coeff_full_soc[1] = -EINVAL;
 	chip->esr_soh_cycle_count = -EINVAL;
+	chip->calib_level = -EINVAL;
 	fg->regmap = dev_get_regmap(fg->dev->parent, NULL);
 	if (!fg->regmap) {
 		dev_err(fg->dev, "Parent regmap is unavailable\n");

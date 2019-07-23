@@ -102,6 +102,7 @@ endif
 dtb-$(CONFIG_QTI_GVM) += sa8155-vm.dtb \
 	sa8155-vm-lv.dtb \
 	sa8155-vm-lv-mt.dtb \
+	sa8155-vm-la-mt.dtb \
 	sa6155p-vm.dtb \
 	sa8195-vm.dtb
 
@@ -246,12 +247,15 @@ endif
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_ATOLL) += \
 		atoll-idp-overlay.dtbo\
+		atoll-qrd-overlay.dtbo\
 		atoll-rumi-overlay.dtbo
 
 atoll-idp-overlay.dtbo-base := atoll.dtb
+atoll-qrd-overlay.dtbo-base := atoll.dtb
 atoll-rumi-overlay.dtbo-base := atoll.dtb
 else
 dtb-$(CONFIG_ARCH_ATOLL)	+= atoll-idp.dtb\
+	atoll-qrd.dtb\
 	atoll-rumi.dtb
 endif
 

@@ -30,6 +30,10 @@
 	#include "smb1390.dtsi"
 };
 
+&fsa4480 {
+	status = "disabled";
+};
+
 &pm6150l_gpios {
 	key_vol_up {
 		key_vol_up_default: key_vol_up_default {
@@ -322,13 +326,16 @@
 	regulator-max-microvolt = <2912000>;
 };
 
-&dsi_hx83112a_truly_video {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
-	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
-	qcom,platform-te-gpio = <&tlmm 90 0>;
-	qcom,platform-reset-gpio = <&tlmm 91 0>;
+&sde_dp {
+	status="disabled";
+};
+
+&mdss_dp_pll {
+	status="disabled";
+};
+
+&mdss_mdp {
+	connectors = <&sde_rscc &sde_wb &sde_dsi>;
 };
 
 &qupv3_se1_i2c {

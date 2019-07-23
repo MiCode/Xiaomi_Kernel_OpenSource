@@ -92,13 +92,14 @@ static unsigned long zram_dedup_put(struct zram *zram,
 {
 	struct zram_hash *hash;
 	u32 checksum;
+	unsigned long val;
 
 	checksum = entry->checksum;
 	hash = &zram->hash[checksum % zram->hash_size];
 
 	spin_lock(&hash->lock);
 
-	entry->refcount--;
+	val = --entry->refcount;
 	if (!entry->refcount)
 		rb_erase(&entry->rb_node, &hash->rb_root);
 	else
@@ -106,7 +107,7 @@ static unsigned long zram_dedup_put(struct zram *zram,
 
 	spin_unlock(&hash->lock);
 
-	return entry->refcount;
+	return val;
 }
 
 static struct zram_entry *__zram_dedup_get(struct zram *zram,

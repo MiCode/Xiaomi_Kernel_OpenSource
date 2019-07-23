@@ -32,7 +32,7 @@
 	clock_virt: qcom,virtio-gcc {
 		compatible = "virtio,mmio";
 		reg = <0x1c200000 0x1000>;
-		interrupts = <0 100 0>;
+		interrupts = <0 48 0>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -40,7 +40,7 @@
 	clock_virt_scc: qcom,virtio-scc {
 		compatible = "virtio,mmio";
 		reg = <0x1c300000 0x1000>;
-		interrupts = <0 101 0>;
+		interrupts = <0 49 0>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -493,8 +493,4 @@
 
 &tlmm {
 	dirconn-list = <37 216 1>;
-};
-
-&qupv3_se13_4uart {
-	status = "ok";
 };

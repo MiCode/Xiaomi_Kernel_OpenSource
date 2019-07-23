@@ -23,6 +23,7 @@
 #include "cam_vfe_top.h"
 #include "cam_ife_hw_mgr.h"
 #include "cam_debug_util.h"
+#include "cam_vfe_hw_intf.h"
 
 static const char drv_name[] = "vfe";
 static uint32_t irq_reg_offset[CAM_IFE_IRQ_REGISTERS_MAX] = {
@@ -48,6 +49,26 @@ static uint32_t camif_irq_err_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
 
 static uint32_t rdi_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
 	0x780001e0,
+	0x00000000,
+};
+
+static uint32_t rdi0_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
+	0x08000020,
+	0x00000000,
+};
+
+static uint32_t rdi1_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
+	0x10000040,
+	0x00000000,
+};
+
+static uint32_t rdi2_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
+	0x20000080,
+	0x00000000,
+};
+
+static uint32_t rdi3_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
+	0x40000100,
 	0x00000000,
 };
 
@@ -579,6 +600,7 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 	struct cam_vfe_hw_core_info       *core_info = NULL;
 	struct cam_hw_info                *vfe_hw  = hw_priv;
 	struct cam_isp_resource_node      *isp_res;
+	uint32_t                          *evt_bit_mask_arr = NULL;
 	int rc = 0;
 
 	if (!hw_priv || !start_args ||
@@ -620,16 +642,35 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 			if (isp_res->irq_handle < 1)
 				rc = -ENOMEM;
 		} else if (isp_res->rdi_only_ctx) {
+			switch (isp_res->res_id) {
+			case CAM_ISP_HW_VFE_IN_RDI0:
+				evt_bit_mask_arr = rdi0_irq_reg_mask;
+				break;
+			case CAM_ISP_HW_VFE_IN_RDI1:
+				evt_bit_mask_arr = rdi1_irq_reg_mask;
+				break;
+			case CAM_ISP_HW_VFE_IN_RDI2:
+				evt_bit_mask_arr = rdi2_irq_reg_mask;
+				break;
+			case CAM_ISP_HW_VFE_IN_RDI3:
+				evt_bit_mask_arr = rdi3_irq_reg_mask;
+				break;
+			default:
+				evt_bit_mask_arr = rdi_irq_reg_mask;
+				break;
+			}
+
 			isp_res->irq_handle =
 				cam_irq_controller_subscribe_irq(
 					core_info->vfe_irq_controller,
 					CAM_IRQ_PRIORITY_1,
-					rdi_irq_reg_mask,
+					evt_bit_mask_arr,
 					&core_info->irq_payload,
 					cam_vfe_irq_top_half,
 					cam_ife_mgr_do_tasklet,
 					isp_res->tasklet_info,
 					&tasklet_bh_api);
+
 			if (isp_res->irq_handle < 1)
 				rc = -ENOMEM;
 		}
