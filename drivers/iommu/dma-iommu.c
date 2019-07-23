@@ -31,6 +31,9 @@
 #include <linux/pci.h>
 #include <linux/scatterlist.h>
 #include <linux/vmalloc.h>
+#ifdef CONFIG_MTK_IOMMU_MISC_DBG
+#include "m4u_debug.h"
+#endif
 
 #define IOMMU_MAPPING_ERROR	0
 
@@ -381,7 +384,9 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 	if (!iova)
 		iova = alloc_iova_fast(iovad, iova_len, dma_limit >> shift,
 				       true);
-
+#ifdef CONFIG_MTK_IOMMU_MISC_DBG
+	mtk_iova_dbg_alloc(dev, ((dma_addr_t)iova << shift), size);
+#endif
 	return (dma_addr_t)iova << shift;
 }
 
@@ -396,6 +401,9 @@ static void iommu_dma_free_iova(struct iommu_dma_cookie *cookie,
 	else
 		free_iova_fast(iovad, iova_pfn(iovad, iova),
 				size >> iova_shift(iovad));
+#ifdef CONFIG_MTK_IOMMU_MISC_DBG
+	mtk_iova_dbg_free(iova, size);
+#endif
 }
 
 static void __iommu_dma_unmap(struct iommu_domain *domain, dma_addr_t dma_addr,

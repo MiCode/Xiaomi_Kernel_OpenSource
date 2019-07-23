@@ -26,6 +26,9 @@
 #include <soc/mediatek/smi.h>
 
 #include "mtk_iommu.h"
+#ifdef CONFIG_MTK_IOMMU_MISC_DBG
+#include "m4u_debug.h"
+#endif
 
 #define REG_MMU_PT_BASE_ADDR			0x000
 #define MMU_PT_ADDR_MASK			GENMASK(31, 7)
@@ -369,7 +372,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	struct iommu_domain *domain;
 	u32 int_state, regval, fault_iova, fault_pa;
 	unsigned int fault_larb, fault_port, sub_comm = 0;
-	bool layer, write;
+	bool layer, write, is_vpu = false;
 
 	/* Read error info from registers */
 	int_state = readl_relaxed(data->base + REG_MMU_FAULT_ST1);
@@ -391,6 +394,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 			fault_larb = F_MMU_INT_ID_COMM_APU_ID(regval);
 			sub_comm = F_MMU_INT_ID_SUB_APU_ID(regval);
 			fault_port = 0; /* for mt6779 APU ID is irregular */
+			is_vpu = true;
 		} else {
 			fault_larb = F_MMU_INT_ID_COMM_ID(regval);
 			sub_comm = F_MMU_INT_ID_SUB_COMM_ID(regval);
@@ -402,6 +406,10 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	fault_larb = data->plat_data->larbid_remap[data->m4u_id][fault_larb];
 
 	domain = __mtk_iommu_get_domain(data, fault_larb, fault_port);
+#ifdef CONFIG_MTK_IOMMU_MISC_DBG
+	report_custom_iommu_fault(fault_iova, fault_pa,
+					regval, is_vpu);
+#endif
 	if (report_iommu_fault(domain, data->dev, fault_iova,
 			       write ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ)) {
 		dev_err_ratelimited(

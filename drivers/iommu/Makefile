@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
+ccflags-$(CONFIG_MTK_AEE_FEATURE) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+ccflags-$(CONFIG_MTK_IOMMU_MISC_DBG) += -I$(srctree)/drivers/misc/mediatek/iommu/
+
 obj-$(CONFIG_IOMMU_API) += iommu.o
 obj-$(CONFIG_IOMMU_API) += iommu-traces.o
 obj-$(CONFIG_IOMMU_API) += iommu-sysfs.o

@@ -25,24 +25,9 @@ struct ion_dma_map_info {
 
 #ifdef CONFIG_MTK_ION_DEBUG
 
-void add_map_info(struct device *dev, dma_addr_t dma_addr,
-		  struct dma_buf *dmabuf);
-void del_map_info(struct ion_buf_info *buf_info, struct dma_buf *dmabuf,
-		  struct device *dev, dma_addr_t dma_addr);
-
 int ion_sys_heap_debug_show(struct seq_file *s, void *unused);
 
 #else /* CONFIG_MTK_ION_DEBUG */
-
-void add_map_info(struct device *dev, dma_addr_t dma_addr,
-		  struct dma_buf *dmabuf)
-{
-}
-
-void del_map_info(struct ion_buf_info *buf_info, struct dma_buf *dmabuf,
-		  struct device *dev, dma_addr_t dma_addr)
-{
-}
 
 int ion_sys_heap_debug_show(struct seq_file *s, void *unused)
 {

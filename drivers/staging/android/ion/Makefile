@@ -12,3 +12,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/ssmr
 include $(srctree)/drivers/misc/mediatek/trusted_mem/Makefile.include
 endif
+
+ccflags-$(CONFIG_MTK_AEE_FEATURE) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+ccflags-$(CONFIG_MTK_IOMMU_MISC_DBG) += -I$(srctree)/drivers/misc/mediatek/iommu/

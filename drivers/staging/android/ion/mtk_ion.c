@@ -11,77 +11,9 @@
 #include <linux/sched/signal.h>
 #include <linux/fdtable.h>
 #include "mtk_ion.h"
-
-void add_map_info(struct device *dev, dma_addr_t dma_addr,
-		  struct dma_buf *dmabuf)
-{
-	struct ion_dma_map_info *map_info = NULL;
-	struct ion_buffer *buffer = dmabuf->priv;
-	struct ion_buf_info *buf_info = buffer->priv_virt;
-
-	map_info = kzalloc(sizeof(*map_info), GFP_KERNEL);
-	if (!map_info)
-		return;
-
-	INIT_LIST_HEAD(&map_info->link);
-
-	map_info->dev = dev;
-	map_info->dma_addr = dma_addr;
-	map_info->dmabuf = dmabuf;
-	map_info->buf_addr = (unsigned long)buffer;
-
-	mutex_lock(&buf_info->map_lock);
-	list_add(&map_info->link, &buf_info->map_list);
-	mutex_unlock(&buf_info->map_lock);
-}
-
-void del_map_info(struct ion_buf_info *buf_info, struct dma_buf *dmabuf,
-		  struct device *dev, dma_addr_t dma_addr)
-{
-	struct ion_dma_map_info *plist = NULL;
-	struct ion_dma_map_info *tmp_plist = NULL;
-
-	if (!buf_info) {
-		pr_err("%s(), buf_info is NULL\n", __func__);
-		return;
-	}
-
-	mutex_lock(&buf_info->map_lock);
-
-	list_for_each_entry_safe(plist, tmp_plist, &buf_info->map_list, link) {
-		if (plist->dmabuf == dmabuf &&
-		    plist->dma_addr == dma_addr &&
-		    plist->dev == dev) {
-			list_del(&plist->link);
-			kfree(plist);
-		}
-	}
-
-	mutex_unlock(&buf_info->map_lock);
-}
-
-void dump_map_info(struct seq_file *s, struct ion_buffer *buf)
-{
-	struct ion_dma_map_info *plist = NULL;
-	struct ion_dma_map_info *n = NULL;
-	struct ion_buf_info *buf_info = buf->priv_virt;
-
-	if (!buf_info) {
-		pr_err("%s(), buf_info is NULL\n", __func__);
-		return;
-	}
-
-	mutex_lock(&buf_info->map_lock);
-	list_for_each_entry_safe(plist, n, &buf_info->map_list, link) {
-		seq_printf(s, "0x%p %8zu %16s 0x%lx 0x%p %7.s\n",
-			   buf, buf->size,
-			   buf->heap->name,
-			   (unsigned long)plist->dma_addr,
-			   plist->dmabuf,
-			   dev_name(plist->dev));
-	}
-	mutex_unlock(&buf_info->map_lock);
-}
+#ifdef CONFIG_MTK_IOMMU_MISC_DBG
+#include "m4u_debug.h"
+#endif
 
 struct dump_fd_data {
 	struct task_struct *p;
@@ -195,6 +127,12 @@ int ion_sys_heap_debug_show(struct seq_file *s, void *unused)
 
 	seq_puts(s, "----------------------------------------------------\n");
 
+#ifdef CONFIG_MTK_IOMMU_MISC_DBG
+	mtk_iova_dbg_dump(s);
+	current_ts = sched_clock();
+	do_div(current_ts, 1000000);
+	seq_printf(s, "step 4 current time %lld ms\n\n", current_ts);
+#endif
 	if (heap->debug_show)
 		heap->debug_show(heap, s, unused);
 
