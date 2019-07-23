@@ -2974,8 +2974,7 @@ static int adreno_suspend_context(struct kgsl_device *device)
 }
 
 static void adreno_retry_rbbm_read(struct kgsl_device *device,
-		void __iomem *base, unsigned int offsetwords,
-		unsigned int *value, unsigned int mem_len)
+		unsigned int offsetwords, unsigned int *value)
 {
 	int i;
 
@@ -3002,12 +3001,13 @@ static bool adreno_is_rbbm_batch_reg(struct kgsl_device *device,
 {
 	if (adreno_is_a650(ADRENO_DEVICE(device)) ||
 		adreno_is_a620v1(ADRENO_DEVICE(device))) {
-		if (((offsetwords > 0x0) && (offsetwords < 0x3FF)) ||
-			((offsetwords > 0x4FA) && (offsetwords < 0x53F)) ||
-			((offsetwords > 0x556) && (offsetwords < 0x5FF)) ||
-			((offsetwords > 0xF400) && (offsetwords < 0xFFFF)))
+		if (((offsetwords >= 0x0) && (offsetwords <= 0x3FF)) ||
+		((offsetwords >= 0x4FA) && (offsetwords <= 0x53F)) ||
+		((offsetwords >= 0x556) && (offsetwords <= 0x5FF)) ||
+		((offsetwords >= 0xF400) && (offsetwords <= 0xFFFF)))
 			return  true;
 	}
+
 	return false;
 }
 
@@ -3034,8 +3034,7 @@ static void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 
 	if ((*value == 0xdeafbead) &&
 		adreno_is_rbbm_batch_reg(device, offsetwords))
-		adreno_retry_rbbm_read(device, device->reg_virt, offsetwords,
-			value, device->reg_len);
+		adreno_retry_rbbm_read(device, offsetwords, value);
 }
 
 static void adreno_regwrite(struct kgsl_device *device,
