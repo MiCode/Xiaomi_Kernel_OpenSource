@@ -10,6 +10,17 @@
 #include <mtk_platform_debug.h>
 #endif
 
+static char mrdump_lk_ddr_reserve_ready[4];
+
+static int __init mrdump_get_ddr_reserve_status(char *str)
+{
+	strlcpy(mrdump_lk_ddr_reserve_ready, str,
+			sizeof(mrdump_lk_ddr_reserve_ready));
+	return 0;
+}
+
+early_param("mrdump_ddrsv", mrdump_get_ddr_reserve_status);
+
 #ifdef CONFIG_MTK_WATCHDOG
 #include <mtk_wd_api.h>
 
@@ -41,17 +52,6 @@ static void mrdump_wd_mcu_cache_preserve(bool enabled)
 	}
 }
 #endif /* CONFIG_MTK_LASTPC_V2 */
-
-static char mrdump_lk_ddr_reserve_ready[4];
-
-static int __init mrdump_get_ddr_reserve_status(char *str)
-{
-	strlcpy(mrdump_lk_ddr_reserve_ready, str,
-			sizeof(mrdump_lk_ddr_reserve_ready));
-	return 0;
-}
-
-early_param("mrdump_ddrsv", mrdump_get_ddr_reserve_status);
 
 static bool mrdump_ddr_reserve_is_ready(void)
 {
@@ -114,6 +114,9 @@ int __init mrdump_hw_init(void)
 
 int __init mrdump_hw_init(void)
 {
+	pr_notice("%s: DDR Reserved Mode ready or not? (%s)\n", __func__,
+			mrdump_lk_ddr_reserve_ready);
+
 	return 0;
 }
 

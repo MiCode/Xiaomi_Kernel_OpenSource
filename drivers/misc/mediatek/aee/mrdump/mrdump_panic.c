@@ -22,6 +22,10 @@
 #include "mrdump_mini.h"
 #include <mt-plat/mboot_params.h>
 
+/* for arm_smccc_smc */
+#include <linux/arm-smccc.h>
+#include <uapi/linux/psci.h>
+
 __weak void console_unlock(void)
 {
 	pr_notice("%s weak function\n", __func__);
@@ -33,9 +37,20 @@ static inline unsigned long get_linear_memory_size(void)
 }
 
 /* no export symbol to aee_exception_reboot, only used in exception flow */
+/* PSCI v1.1 extended power state encoding for SYSTEM_RESET2 function */
+#define PSCI_1_1_FN_SYSTEM_RESET2       0x84000012
+#define PSCI_1_1_RESET2_TYPE_VENDOR_SHIFT   31
+#define PSCI_1_1_RESET2_TYPE_VENDOR     \
+	(1 << PSCI_1_1_RESET2_TYPE_VENDOR_SHIFT)
+
 static void aee_exception_reboot(void)
 {
-	emergency_restart();
+	struct arm_smccc_res res;
+	int opt1 = 1, opt2 = 0;
+
+	arm_smccc_smc(PSCI_1_1_FN_SYSTEM_RESET2,
+		PSCI_1_1_RESET2_TYPE_VENDOR | opt1,
+		opt2, 0, 0, 0, 0, 0, &res);
 }
 
 /*save stack as binary into buf,
