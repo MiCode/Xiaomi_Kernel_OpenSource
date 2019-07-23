@@ -10,12 +10,14 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/gpio/gpio.h>
 #include "sdmshrike-v2.dtsi"
 #include "sa8155-audio.dtsi"
 #include "sa8195-pmic.dtsi"
 #include "sm8150-camera.dtsi"
 #include "sm8150-v2-camera.dtsi"
 #include "sa8155-camera-sensor.dtsi"
+#include "sa8195p-pcie.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SA8195P";
@@ -23,7 +25,6 @@
 	qcom,msm-id = <405 0x20000>;
 };
 
-#include <dt-bindings/gpio/gpio.h>
 &soc {
 	emac_hw: qcom,emac@00020000 {
 		compatible = "qcom,emac-dwc-eqos";
