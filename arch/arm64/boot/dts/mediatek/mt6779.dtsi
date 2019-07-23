@@ -3654,6 +3654,10 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		compatible = "mediatek,bat_gm30";
 	};
 
+	mtk_m4u_debug {
+		compatible = "mediatek,mt6779-m4u-debug";
+	};
+
 	secure_m4u {
 		compatible = "mediatek,secure_m4u";
 		mediatek,mm_m4u = <&iommu0>;
