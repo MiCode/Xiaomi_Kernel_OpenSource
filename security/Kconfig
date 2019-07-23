@@ -276,5 +276,7 @@ config DEFAULT_SECURITY
 	default "apparmor" if DEFAULT_SECURITY_APPARMOR
 	default "" if DEFAULT_SECURITY_DAC
 
+source "security/Kconfig.hardening"
+
 endmenu
 
