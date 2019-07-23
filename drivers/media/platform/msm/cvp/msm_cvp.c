@@ -40,35 +40,6 @@ static enum hal_buffer get_hal_buftype(const char *str, unsigned int type)
 	return buftype;
 }
 
-static int msm_cvp_scale_clocks_and_bus(struct msm_cvp_inst *inst)
-{
-	int rc = 0;
-
-	if (!inst || !inst->core) {
-		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-
-	rc = msm_cvp_set_clocks(inst->core);
-	if (rc) {
-		dprintk(CVP_ERR,
-			"%s: failed set_clocks for inst %pK (%#x)\n",
-			__func__, inst, hash32_ptr(inst->session));
-		goto exit;
-	}
-
-	rc = msm_cvp_comm_vote_bus(inst->core);
-	if (rc) {
-		dprintk(CVP_ERR,
-			"%s: failed vote_bus for inst %pK (%#x)\n",
-			__func__, inst, hash32_ptr(inst->session));
-		goto exit;
-	}
-
-exit:
-	return rc;
-}
-
 static int msm_cvp_get_session_info(struct msm_cvp_inst *inst,
 		struct cvp_kmd_session_info *session)
 {
@@ -1245,7 +1216,7 @@ static int adjust_bw_freqs(void)
 	unsigned int cvp_min_rate, cvp_max_rate, max_bw;
 	unsigned long core_sum = 0, ctlr_sum = 0, fw_sum = 0;
 	unsigned long op_core_max = 0, op_ctlr_max = 0, op_fw_max = 0;
-	unsigned long bw_sum = 0;
+	unsigned long bw_sum = 0, op_bw_max = 0;
 	int i, rc = 0;
 
 	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
@@ -1261,6 +1232,9 @@ static int adjust_bw_freqs(void)
 	max_bw = bus->range[1];
 
 	list_for_each_entry(inst, &core->instances, list) {
+		if (inst->state == MSM_CVP_CORE_INVALID ||
+			inst->state == MSM_CVP_CORE_UNINIT)
+			continue;
 		core_sum += inst->power.clock_cycles_a;
 		ctlr_sum += inst->power.clock_cycles_b;
 		fw_sum += inst->power.reserved[0];
@@ -1271,6 +1245,8 @@ static int adjust_bw_freqs(void)
 		op_fw_max = (op_fw_max >= inst->power.reserved[3]) ?
 			op_fw_max : inst->power.reserved[3];
 		bw_sum += inst->power.ddr_bw;
+		op_bw_max = (op_bw_max >= inst->power.reserved[4]) ?
+			op_bw_max : inst->power.reserved[4];
 	}
 
 	core_sum = max_3(core_sum, ctlr_sum, fw_sum);
@@ -1278,6 +1254,7 @@ static int adjust_bw_freqs(void)
 	op_core_max = (op_core_max > tbl[tbl_size - 1].clock_rate) ?
 				tbl[tbl_size - 1].clock_rate : op_core_max;
 	core_sum = (core_sum >= op_core_max) ? core_sum : op_core_max;
+	bw_sum = (bw_sum >= op_bw_max) ? bw_sum : op_bw_max;
 
 	if (core_sum < tbl[0].clock_rate) {
 		core_sum = tbl[0].clock_rate;
@@ -1287,7 +1264,7 @@ static int adjust_bw_freqs(void)
 				break;
 
 		if (i == tbl_size) {
-			dprintk(CVP_WARN, "%s out of range %llx\n",
+			dprintk(CVP_WARN, "%s clk vote out of range %lld\n",
 					__func__, core_sum);
 			return -ENOTSUPP;
 		}
@@ -1297,17 +1274,21 @@ static int adjust_bw_freqs(void)
 	if (bw_sum > max_bw)
 		bw_sum = max_bw;
 
-	dprintk(CVP_DBG, "%s %d %lld %lld\n", __func__, core_sum, bw_sum, 0);
+	dprintk(CVP_DBG, "%s %lld %lld %lld\n", __func__,
+		core_sum, bw_sum, op_bw_max);
 	if (!cl->has_scaling) {
 		dprintk(CVP_ERR, "Cannot scale CVP clock\n");
 		return -EINVAL;
 	}
 
-	rc = clk_set_rate(cl->clk, core_sum);
+	ctlr_sum = core->curr_freq;
+	core->curr_freq = core_sum;
+	rc = msm_cvp_set_clocks(core);
 	if (rc) {
 		dprintk(CVP_ERR,
 			"Failed to set clock rate %u %s: %d %s\n",
 			core_sum, cl->name, rc, __func__);
+		core->curr_freq = ctlr_sum;
 		return rc;
 	}
 	hdev->clk_freq = core_sum;
@@ -1361,6 +1342,7 @@ static int msm_cvp_request_power(struct msm_cvp_inst *inst,
 	inst->power.reserved[0] = div_by_1dot5(inst->power.reserved[0]);
 	inst->power.reserved[2] = div_by_1dot5(inst->power.reserved[2]);
 	inst->power.reserved[3] = div_by_1dot5(inst->power.reserved[3]);
+	inst->power.reserved[4] = div_by_1dot5(inst->power.reserved[4]);
 
 	/* Convert bps to KBps */
 	inst->power.ddr_bw = inst->power.ddr_bw >> 10;
@@ -1797,14 +1779,6 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CLOSE_DONE);
 	if (rc)
 		dprintk(CVP_ERR, "%s: close failed\n", __func__);
-
-	inst->clk_data.min_freq = 0;
-	inst->clk_data.ddr_bw = 0;
-	inst->clk_data.sys_cache_bw = 0;
-	rc = msm_cvp_scale_clocks_and_bus(inst);
-	if (rc)
-		dprintk(CVP_ERR, "%s: failed to scale_clocks_and_bus\n",
-			__func__);
 
 	mutex_lock(&inst->cvpcpubufs.lock);
 	list_for_each_entry_safe(cbuf, dummy, &inst->cvpcpubufs.list,
