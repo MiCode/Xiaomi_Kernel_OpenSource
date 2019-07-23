@@ -114,6 +114,14 @@ static inline int thermal_gov_power_allocator_register(void) { return 0; }
 static inline void thermal_gov_power_allocator_unregister(void) {}
 #endif /* CONFIG_THERMAL_GOV_POWER_ALLOCATOR */
 
+#ifdef CONFIG_THERMAL_GOV_BACKWARD_COMPATIBLE
+int thermal_gov_backward_compatible_register(void);
+void thermal_gov_backward_compatible_unregister(void);
+#else
+static inline int thermal_gov_backward_compatible_register(void) { return 0; }
+static inline void thermal_gov_backward_compatible_unregister(void) {}
+#endif /* CONFIG_THERMAL_GOV_BACKWARD_COMPATIBLE */
+
 /* device tree support */
 #ifdef CONFIG_THERMAL_OF
 int of_parse_thermal_zones(void);
