@@ -565,7 +565,6 @@ __cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 		rq->old_estimated_time = pl;
 
 		nl = div64_u64(nl * (100 + boost), walt_cpu_util_freq_divisor);
-		pl = div64_u64(pl * (100 + boost), 100);
 
 		walt_load->prev_window_util = util;
 		walt_load->nl = nl;
@@ -988,6 +987,8 @@ void set_window_start(struct rq *rq)
 
 unsigned int max_possible_efficiency = 1;
 unsigned int min_possible_efficiency = UINT_MAX;
+
+unsigned int sysctl_sched_conservative_pl;
 
 #define INC_STEP 8
 #define DEC_STEP 2
