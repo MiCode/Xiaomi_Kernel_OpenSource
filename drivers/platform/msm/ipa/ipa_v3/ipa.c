@@ -7702,6 +7702,10 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	}
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-11ad-cb")) {
+		if (ipa3_ctx == NULL) {
+			IPAERR("ipa3_ctx was not initialized\n");
+			return -EPROBE_DEFER;
+		}
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_11AD);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_11AD] = true;
