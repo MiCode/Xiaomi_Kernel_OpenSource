@@ -3448,19 +3448,48 @@ static void qg_create_debugfs(struct qpnp_qg *chip)
 }
 #endif
 
-#define DEFAULT_VBATT_EMPTY_MV		3200
-#define DEFAULT_VBATT_EMPTY_COLD_MV	3000
-#define DEFAULT_VBATT_CUTOFF_MV		3400
-#define DEFAULT_VBATT_LOW_MV		3500
-#define DEFAULT_VBATT_LOW_COLD_MV	3800
-#define DEFAULT_ITERM_MA		100
 #define DEFAULT_S2_FIFO_LENGTH		5
 #define DEFAULT_S2_VBAT_LOW_LENGTH	2
 #define DEFAULT_S2_ACC_LENGTH		128
 #define DEFAULT_S2_ACC_INTVL_MS		100
-#define DEFAULT_DELTA_SOC		1
-#define DEFAULT_SHUTDOWN_SOC_SECS	360
-#define DEFAULT_COLD_TEMP_THRESHOLD	0
+static int qg_parse_s2_dt(struct qpnp_qg *chip)
+{
+	int rc;
+	struct device_node *node = chip->dev->of_node;
+	u32 temp;
+
+	/* S2 state params */
+	rc = of_property_read_u32(node, "qcom,s2-fifo-length", &temp);
+	if (rc < 0)
+		chip->dt.s2_fifo_length = DEFAULT_S2_FIFO_LENGTH;
+	else
+		chip->dt.s2_fifo_length = temp;
+
+	rc = of_property_read_u32(node, "qcom,s2-vbat-low-fifo-length", &temp);
+	if (rc < 0)
+		chip->dt.s2_vbat_low_fifo_length = DEFAULT_S2_VBAT_LOW_LENGTH;
+	else
+		chip->dt.s2_vbat_low_fifo_length = temp;
+
+	rc = of_property_read_u32(node, "qcom,s2-acc-length", &temp);
+	if (rc < 0)
+		chip->dt.s2_acc_length = DEFAULT_S2_ACC_LENGTH;
+	else
+		chip->dt.s2_acc_length = temp;
+
+	rc = of_property_read_u32(node, "qcom,s2-acc-interval-ms", &temp);
+	if (rc < 0)
+		chip->dt.s2_acc_intvl_ms = DEFAULT_S2_ACC_INTVL_MS;
+	else
+		chip->dt.s2_acc_intvl_ms = temp;
+
+	qg_dbg(chip, QG_DEBUG_PON, "DT: S2 FIFO length=%d low_vbat_length=%d acc_length=%d acc_interval=%d\n",
+		chip->dt.s2_fifo_length, chip->dt.s2_vbat_low_fifo_length,
+		chip->dt.s2_acc_length, chip->dt.s2_acc_intvl_ms);
+
+	return 0;
+}
+
 #define DEFAULT_CL_MIN_START_SOC	10
 #define DEFAULT_CL_MAX_START_SOC	15
 #define DEFAULT_CL_MIN_TEMP_DECIDEGC	150
@@ -3470,6 +3499,93 @@ static void qg_create_debugfs(struct qpnp_qg *chip)
 #define DEFAULT_CL_MIN_LIM_DECIPERC	500
 #define DEFAULT_CL_MAX_LIM_DECIPERC	100
 #define DEFAULT_CL_DELTA_BATT_SOC	10
+static int qg_parse_cl_dt(struct qpnp_qg *chip)
+{
+	int rc;
+	struct device_node *node = chip->dev->of_node;
+	u32 temp;
+
+	if (chip->dt.cl_disable)
+		return 0;
+
+	chip->dt.cl_feedback_on = of_property_read_bool(node,
+					"qcom,cl-feedback-on");
+
+	rc = of_property_read_u32(node, "qcom,cl-min-start-soc", &temp);
+	if (rc < 0)
+		chip->cl->dt.min_start_soc = DEFAULT_CL_MIN_START_SOC;
+	else
+		chip->cl->dt.min_start_soc = temp;
+
+	rc = of_property_read_u32(node, "qcom,cl-max-start-soc", &temp);
+	if (rc < 0)
+		chip->cl->dt.max_start_soc = DEFAULT_CL_MAX_START_SOC;
+	else
+		chip->cl->dt.max_start_soc = temp;
+
+	rc = of_property_read_u32(node, "qcom,cl-min-temp", &temp);
+	if (rc < 0)
+		chip->cl->dt.min_temp = DEFAULT_CL_MIN_TEMP_DECIDEGC;
+	else
+		chip->cl->dt.min_temp = temp;
+
+	rc = of_property_read_u32(node, "qcom,cl-max-temp", &temp);
+	if (rc < 0)
+		chip->cl->dt.max_temp = DEFAULT_CL_MAX_TEMP_DECIDEGC;
+	else
+		chip->cl->dt.max_temp = temp;
+
+	rc = of_property_read_u32(node, "qcom,cl-max-increment", &temp);
+	if (rc < 0)
+		chip->cl->dt.max_cap_inc = DEFAULT_CL_MAX_INC_DECIPERC;
+	else
+		chip->cl->dt.max_cap_inc = temp;
+
+	rc = of_property_read_u32(node, "qcom,cl-max-decrement", &temp);
+	if (rc < 0)
+		chip->cl->dt.max_cap_dec = DEFAULT_CL_MAX_DEC_DECIPERC;
+	else
+		chip->cl->dt.max_cap_dec = temp;
+
+	rc = of_property_read_u32(node, "qcom,cl-min-limit", &temp);
+	if (rc < 0)
+		chip->cl->dt.min_cap_limit =
+					DEFAULT_CL_MIN_LIM_DECIPERC;
+	else
+		chip->cl->dt.min_cap_limit = temp;
+
+	rc = of_property_read_u32(node, "qcom,cl-max-limit", &temp);
+	if (rc < 0)
+		chip->cl->dt.max_cap_limit =
+					DEFAULT_CL_MAX_LIM_DECIPERC;
+	else
+		chip->cl->dt.max_cap_limit = temp;
+
+	chip->cl->dt.min_delta_batt_soc = DEFAULT_CL_DELTA_BATT_SOC;
+	/* read from DT property and update, if value exists */
+	of_property_read_u32(node, "qcom,cl-min-delta-batt-soc",
+				&chip->cl->dt.min_delta_batt_soc);
+
+	chip->cl->dt.cl_wt_enable = of_property_read_bool(node,
+						"qcom,cl-wt-enable");
+
+	qg_dbg(chip, QG_DEBUG_PON, "DT: cl_min_start_soc=%d cl_max_start_soc=%d cl_min_temp=%d cl_max_temp=%d chip->cl->dt.cl_wt_enable=%d\n",
+		chip->cl->dt.min_start_soc, chip->cl->dt.max_start_soc,
+		chip->cl->dt.min_temp, chip->cl->dt.max_temp,
+		chip->cl->dt.cl_wt_enable);
+
+	return 0;
+}
+
+#define DEFAULT_VBATT_EMPTY_MV		3200
+#define DEFAULT_VBATT_EMPTY_COLD_MV	3000
+#define DEFAULT_VBATT_CUTOFF_MV		3400
+#define DEFAULT_VBATT_LOW_MV		3500
+#define DEFAULT_VBATT_LOW_COLD_MV	3800
+#define DEFAULT_ITERM_MA		100
+#define DEFAULT_DELTA_SOC		1
+#define DEFAULT_SHUTDOWN_SOC_SECS	360
+#define DEFAULT_COLD_TEMP_THRESHOLD	0
 #define DEFAULT_SHUTDOWN_TEMP_DIFF	60	/* 6 degC */
 #define DEFAULT_ESR_QUAL_CURRENT_UA	130000
 #define DEFAULT_ESR_QUAL_VBAT_UV	7000
@@ -3538,34 +3654,13 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 		return -EINVAL;
 	}
 
-	/* S2 state params */
-	rc = of_property_read_u32(node, "qcom,s2-fifo-length", &temp);
+	rc = qg_parse_s2_dt(chip);
 	if (rc < 0)
-		chip->dt.s2_fifo_length = DEFAULT_S2_FIFO_LENGTH;
-	else
-		chip->dt.s2_fifo_length = temp;
+		pr_err("Failed to parse S2 DT params rc=%d\n", rc);
 
-	rc = of_property_read_u32(node, "qcom,s2-vbat-low-fifo-length", &temp);
+	rc = qg_parse_cl_dt(chip);
 	if (rc < 0)
-		chip->dt.s2_vbat_low_fifo_length = DEFAULT_S2_VBAT_LOW_LENGTH;
-	else
-		chip->dt.s2_vbat_low_fifo_length = temp;
-
-	rc = of_property_read_u32(node, "qcom,s2-acc-length", &temp);
-	if (rc < 0)
-		chip->dt.s2_acc_length = DEFAULT_S2_ACC_LENGTH;
-	else
-		chip->dt.s2_acc_length = temp;
-
-	rc = of_property_read_u32(node, "qcom,s2-acc-interval-ms", &temp);
-	if (rc < 0)
-		chip->dt.s2_acc_intvl_ms = DEFAULT_S2_ACC_INTVL_MS;
-	else
-		chip->dt.s2_acc_intvl_ms = temp;
-
-	qg_dbg(chip, QG_DEBUG_PON, "DT: S2 FIFO length=%d low_vbat_length=%d acc_length=%d acc_interval=%d\n",
-		chip->dt.s2_fifo_length, chip->dt.s2_vbat_low_fifo_length,
-		chip->dt.s2_acc_length, chip->dt.s2_acc_intvl_ms);
+		pr_err("Failed to parse CL parameters rc=%d\n", rc);
 
 	/* OCV params */
 	rc = of_property_read_u32(node, "qcom,ocv-timer-expiry-min", &temp);
@@ -3729,73 +3824,6 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 	else
 		chip->dt.min_sleep_time_secs = temp;
 
-	/* Capacity learning params*/
-	if (!chip->dt.cl_disable) {
-		chip->dt.cl_feedback_on = of_property_read_bool(node,
-						"qcom,cl-feedback-on");
-
-		rc = of_property_read_u32(node, "qcom,cl-min-start-soc", &temp);
-		if (rc < 0)
-			chip->cl->dt.min_start_soc = DEFAULT_CL_MIN_START_SOC;
-		else
-			chip->cl->dt.min_start_soc = temp;
-
-		rc = of_property_read_u32(node, "qcom,cl-max-start-soc", &temp);
-		if (rc < 0)
-			chip->cl->dt.max_start_soc = DEFAULT_CL_MAX_START_SOC;
-		else
-			chip->cl->dt.max_start_soc = temp;
-
-		rc = of_property_read_u32(node, "qcom,cl-min-temp", &temp);
-		if (rc < 0)
-			chip->cl->dt.min_temp = DEFAULT_CL_MIN_TEMP_DECIDEGC;
-		else
-			chip->cl->dt.min_temp = temp;
-
-		rc = of_property_read_u32(node, "qcom,cl-max-temp", &temp);
-		if (rc < 0)
-			chip->cl->dt.max_temp = DEFAULT_CL_MAX_TEMP_DECIDEGC;
-		else
-			chip->cl->dt.max_temp = temp;
-
-		rc = of_property_read_u32(node, "qcom,cl-max-increment", &temp);
-		if (rc < 0)
-			chip->cl->dt.max_cap_inc = DEFAULT_CL_MAX_INC_DECIPERC;
-		else
-			chip->cl->dt.max_cap_inc = temp;
-
-		rc = of_property_read_u32(node, "qcom,cl-max-decrement", &temp);
-		if (rc < 0)
-			chip->cl->dt.max_cap_dec = DEFAULT_CL_MAX_DEC_DECIPERC;
-		else
-			chip->cl->dt.max_cap_dec = temp;
-
-		rc = of_property_read_u32(node, "qcom,cl-min-limit", &temp);
-		if (rc < 0)
-			chip->cl->dt.min_cap_limit =
-						DEFAULT_CL_MIN_LIM_DECIPERC;
-		else
-			chip->cl->dt.min_cap_limit = temp;
-
-		rc = of_property_read_u32(node, "qcom,cl-max-limit", &temp);
-		if (rc < 0)
-			chip->cl->dt.max_cap_limit =
-						DEFAULT_CL_MAX_LIM_DECIPERC;
-		else
-			chip->cl->dt.max_cap_limit = temp;
-
-		chip->cl->dt.min_delta_batt_soc = DEFAULT_CL_DELTA_BATT_SOC;
-		/* read from DT property and update, if value exists */
-		of_property_read_u32(node, "qcom,cl-min-delta-batt-soc",
-					&chip->cl->dt.min_delta_batt_soc);
-
-		chip->cl->dt.cl_wt_enable = of_property_read_bool(node,
-							"qcom,cl-wt-enable");
-
-		qg_dbg(chip, QG_DEBUG_PON, "DT: cl_min_start_soc=%d cl_max_start_soc=%d cl_min_temp=%d cl_max_temp=%d\n",
-			chip->cl->dt.min_start_soc, chip->cl->dt.max_start_soc,
-			chip->cl->dt.min_temp, chip->cl->dt.max_temp);
-	}
 	qg_dbg(chip, QG_DEBUG_PON, "DT: vbatt_empty_mv=%dmV vbatt_low_mv=%dmV delta_soc=%d ext-sns=%d\n",
 			chip->dt.vbatt_empty_mv, chip->dt.vbatt_low_mv,
 			chip->dt.delta_soc, chip->dt.qg_ext_sense);
