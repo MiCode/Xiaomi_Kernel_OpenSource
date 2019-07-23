@@ -270,7 +270,7 @@
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <1000>;
-			cpu-idle-states = <&cpuoff_l &clusteroff>;
+			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
 		};
 
 		cpu1: cpu@001 {
@@ -286,7 +286,7 @@
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <1000>;
-			cpu-idle-states = <&cpuoff_l &clusteroff>;
+			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
 		};
 
 		cpu2: cpu@002 {
@@ -302,7 +302,7 @@
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <1000>;
-			cpu-idle-states = <&cpuoff_l &clusteroff>;
+			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
 		};
 
 		cpu3: cpu@003 {
@@ -318,7 +318,7 @@
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <1000>;
-			cpu-idle-states = <&cpuoff_l &clusteroff>;
+			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
 		};
 
 		cpu4: cpu@100 {
@@ -334,7 +334,7 @@
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <1000>;
-			cpu-idle-states = <&cpuoff_l &clusteroff>;
+			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
 		};
 
 		cpu5: cpu@101 {
@@ -350,7 +350,7 @@
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <1000>;
-			cpu-idle-states = <&cpuoff_l &clusteroff>;
+			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
 		};
 
 		cpu6: cpu@102 {
@@ -366,7 +366,7 @@
 			clock-names = "cpu";
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1000>;
-			cpu-idle-states = <&cpuoff_b &clusteroff>;
+			cpu-idle-states = <&cpuoff_b &clusteroff &mcusysoff>;
 		};
 
 		cpu7: cpu@103 {
@@ -382,7 +382,7 @@
 			clock-names = "cpu";
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1000>;
-			cpu-idle-states = <&cpuoff_b &clusteroff>;
+			cpu-idle-states = <&cpuoff_b &clusteroff &mcusysoff>;
 		};
 
 		cpu-map {
