@@ -206,13 +206,19 @@ int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst,
 		goto exit;
 	}
 
-	dbuf = msm_cvp_smem_get_dma_buf(smem->fd);
-	if (!dbuf) {
-		rc = -EINVAL;
-		goto exit;
+	if (smem->fd > 0) {
+		dbuf = msm_cvp_smem_get_dma_buf(smem->fd);
+		if (!dbuf) {
+			rc = -EINVAL;
+			dprintk(CVP_ERR, "%s: Invalid fd=%d", __func__,
+				smem->fd);
+			goto exit;
+		}
+		smem->dma_buf = dbuf;
+	} else {
+		dbuf = smem->dma_buf;
+		get_dma_buf(dbuf);
 	}
-
-	smem->dma_buf = dbuf;
 
 	rc = dma_buf_get_flags(dbuf, &ion_flags);
 	if (rc) {
