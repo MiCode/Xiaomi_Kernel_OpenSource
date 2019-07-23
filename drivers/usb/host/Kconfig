@@ -804,3 +804,9 @@ config USB_HCD_TEST_MODE
 	  This option is of interest only to developers who need to validate
 	  their USB hardware designs.  It is not needed for normal use.  If
 	  unsure, say N.
+
+config USB_UPD720X
+	tristate "Support for Renesas UPD720X XHCI USB controller"
+	---help---
+	  Enables support for the USB Host controller present on the
+	  Renesas UPD720X chipsets.
