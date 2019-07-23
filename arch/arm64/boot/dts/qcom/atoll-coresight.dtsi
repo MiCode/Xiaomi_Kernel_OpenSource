@@ -240,7 +240,7 @@
 		compatible = "qcom,coresight-remote-etm";
 		coresight-name = "coresight-npu-etm0";
 
-		qcom,inst-id = <2>;
+		qcom,inst-id = <14>;
 
 		port {
 			npu_etm0_out_funnel_npu: endpoint {
