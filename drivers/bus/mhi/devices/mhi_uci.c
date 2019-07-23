@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
 
 #include <linux/cdev.h>
 #include <linux/device.h>
@@ -641,7 +641,7 @@ static void mhi_dl_xfer_cb(struct mhi_device *mhi_dev,
 	spin_unlock_irqrestore(&uci_chan->lock, flags);
 
 	if (mhi_dev->dev.power.wakeup)
-		__pm_wakeup_event(mhi_dev->dev.power.wakeup, 0);
+		pm_wakeup_hard_event(&mhi_dev->dev);
 
 	wake_up(&uci_chan->wq);
 }
