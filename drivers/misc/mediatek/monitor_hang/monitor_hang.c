@@ -1449,9 +1449,9 @@ static int DumpThreadNativeInfo_By_tid(pid_t tid,
 
 			SPStart = userstack_start;
 			SPEnd = SPStart + length;
-			Log2HangInfo("UserSP_start:%x,Length:%x,End:%x\n",
+			Log2HangInfo("UserSP_start:%lx,Length:%lx,End:%lx\n",
 				SPStart, length, SPEnd);
-			hang_log("UserSP_start:%x,Length:%x,End:%x\n",
+			hang_log("UserSP_start:%lx,Length:%lx,End:%lx\n",
 				SPStart, length, SPEnd);
 			while (SPStart < SPEnd) {
 				copied = access_process_vm(current_task,
@@ -1467,13 +1467,13 @@ static int DumpThreadNativeInfo_By_tid(pid_t tid,
 					tempSpContent[1] != 0 ||
 					tempSpContent[2] != 0 ||
 					tempSpContent[3] != 0) {
-					Log2HangInfo("%08x:%x %x %x %x\n",
+					Log2HangInfo("%08lx:%x %x %x %x\n",
 							SPStart,
 							tempSpContent[0],
 							tempSpContent[1],
 							tempSpContent[2],
 							tempSpContent[3]);
-					hang_log("%08x:%x %x %x %x\n",
+					hang_log("%08lx:%x %x %x %x\n",
 							SPStart,
 							tempSpContent[0],
 							tempSpContent[1],
