@@ -891,6 +891,12 @@
 		qcom,qsee-reentrancy-support = <2>;
 	};
 
+	qcom_smcinvoke: smcinvoke@82200000 {
+		compatible = "qcom,smcinvoke";
+		reg = <0x82200000 0x2200000>;
+		reg-names = "secapp-region";
+	};
+
 	aop-msg-client {
 		compatible = "qcom,debugfs-qmp-client";
 		mboxes = <&qmp_aop 0>;
