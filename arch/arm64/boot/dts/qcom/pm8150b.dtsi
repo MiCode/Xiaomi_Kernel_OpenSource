@@ -55,6 +55,11 @@
 			clock-names = "xo";
 		};
 
+		pm8150b_pbs1: qcom,pbs@7200 {
+			compatible = "qcom,qpnp-pbs";
+			reg = <0x7200 0x100>;
+		};
+
 		pm8150b_qnovo: qcom,sdam-qnovo@b000 {
 			compatible = "qcom,qpnp-qnovo5";
 			reg = <0xb000 0x100>;
@@ -382,6 +387,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			qcom,pmic-revid = <&pm8150b_revid>;
+			qcom,pmic-pbs = <&pm8150b_pbs1>;
 			status = "okay";
 
 			qcom,fg-batt-soc@4000 {
