@@ -52,6 +52,11 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
 
+#ifdef CONFIG_QGKI_LPM_IPI_CHECK
+DEFINE_PER_CPU(bool, pending_ipi);
+EXPORT_PER_CPU_SYMBOL(pending_ipi);
+#endif /* CONFIG_QGKI_LPM_IPI_CHECK */
+
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
  * so we need some other way of telling a new secondary core
@@ -521,6 +526,13 @@ static const char *ipi_types[NR_IPI] __tracepoint_string = {
 
 static void smp_cross_call(const struct cpumask *target, unsigned int ipinr)
 {
+#ifdef CONFIG_QGKI_LPM_IPI_CHECK
+	unsigned int cpu;
+
+	for_each_cpu(cpu, target)
+		per_cpu(pending_ipi, cpu) = true;
+#endif /* CONFIG_QGKI_LPM_IPI_CHECK */
+
 	trace_ipi_raise_rcuidle(target, ipi_types[ipinr]);
 	__smp_cross_call(target, ipinr);
 }
@@ -695,6 +707,11 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 
 	if ((unsigned)ipinr < NR_IPI)
 		trace_ipi_exit_rcuidle(ipi_types[ipinr]);
+
+#ifdef CONFIG_QGKI_LPM_IPI_CHECK
+	this_cpu_write(pending_ipi, false);
+#endif /* CONFIG_QGKI_LPM_IPI_CHECK */
+
 	set_irq_regs(old_regs);
 }
 
