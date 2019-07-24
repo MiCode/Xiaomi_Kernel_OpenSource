@@ -48,9 +48,9 @@ bool pod_is_ready(void);
 extern bool is_rt_throttle(int cpu);
 #endif
 
+#ifdef CONFIG_MTK_SCHED_LB_ENHANCEMENT
 bool is_intra_domain(int prev, int target);
-
-unsigned int aggressive_idle_pull(int this_cpu);
+#endif
 
 #ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
 #define MIGR_IDLE_BALANCE      1
@@ -59,9 +59,9 @@ unsigned int aggressive_idle_pull(int this_cpu);
 struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
 					struct task_struct *p, int dest_cpu);
 int active_load_balance_cpu_stop(void *data);
+unsigned int aggressive_idle_pull(int this_cpu);
 #endif
 
-#endif
 
 #ifdef CONFIG_MTK_SCHED_CPU_PREFER
 #define SCHED_PREFER_NONE   0
@@ -74,3 +74,4 @@ int select_task_prefer_cpu(struct task_struct *p, int new_cpu);
 void select_task_prefer_cpu_fair(struct task_struct *p, int *result);
 #endif
 
+#endif

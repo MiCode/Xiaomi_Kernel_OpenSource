@@ -145,4 +145,31 @@ int uclamp_max_for_perf_idx(int idx, int max_value)
 }
 EXPORT_SYMBOL(uclamp_max_for_perf_idx);
 #endif
+
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type)
+{
+	struct task_struct *p;
+	unsigned long flags;
+	int retval = 0;
+
+	if (!valid_cpu_prefer(prefer_type) || pid < 0)
+		return -EINVAL;
+
+	rcu_read_lock();
+	retval = -ESRCH;
+	p = find_task_by_vpid(pid);
+	if (p != NULL) {
+		raw_spin_lock_irqsave(&p->pi_lock, flags);
+		p->cpu_prefer = prefer_type;
+		raw_spin_unlock_irqrestore(&p->pi_lock, flags);
+		trace_sched_set_cpuprefer(p);
+	}
+	rcu_read_unlock();
+
+	return retval;
+}
+EXPORT_SYMBOL(sched_set_cpuprefer);
+#endif
+
 #endif

@@ -19,11 +19,10 @@ config MTK_SCHED_INTEROP
 	   that is, one CPU has more than 2 tasks, however, one CPU is IDLE
 	   We make RT & CFS to check each other and make load more balance.
 
-config MTK_EAS_PLUS
-	bool "mtk energy aware scheduling enhancement"
-	default n
+config MTK_SCHED_LB_ENHANCEMENT
+	bool "mtk enhancement for load balance"
 	help
-	   mtk energy aware scheduling enhancement for
+	   mtk enhancement for load balance
 	   system overutilization,
 	   intra-cluster load balance,
 	   and so on.

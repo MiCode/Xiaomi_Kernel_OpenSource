@@ -5156,15 +5156,21 @@ static inline bool cpu_overutilized(int cpu)
 static inline void update_overutilized_status(struct rq *rq)
 {
 	if (!READ_ONCE(rq->rd->overutilized) && cpu_overutilized(rq->cpu)) {
+#ifdef CONFIG_MTK_SCHED_LB_ENHANCEMENT
 		if (!sched_feat(SCHED_MTK_EAS) || (sched_feat(SCHED_MTK_EAS)
 			&& capacity_orig_of(cpu_of(rq)) <
 				rq->rd->max_cpu_capacity.val)) {
 			WRITE_ONCE(rq->rd->overutilized, SG_OVERUTILIZED);
 			trace_sched_overutilized(1);
 		}
+#else
+		WRITE_ONCE(rq->rd->overutilized, SG_OVERUTILIZED);
+		trace_sched_overutilized(1);
+#endif
 	}
 }
 
+#ifdef CONFIG_MTK_SCHED_LB_ENHANCEMENT
 static
 void update_system_overutilized(struct sched_domain *sd, struct cpumask *cpus)
 {
@@ -5231,6 +5237,7 @@ void update_system_overutilized(struct sched_domain *sd, struct cpumask *cpus)
 		}
 	}
 }
+#endif
 
 #else
 static inline void update_overutilized_status(struct rq *rq) { }
@@ -7238,6 +7245,7 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 		if (cpu == prev_cpu)
 			continue;
 
+#ifdef CONFIG_MTK_SCHED_LB_ENHANCEMENT
 		if (sched_feat(SCHED_MTK_EAS) &&
 				is_intra_domain(prev_cpu, cpu)) {
 			int best_cpu = cpu;
@@ -7262,6 +7270,7 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 			best_energy_cpu = best_cpu;
 			continue;
 		}
+#endif
 
 		cur_energy = compute_energy(p, cpu, pd);
 		if (cur_energy < best_energy) {
@@ -9209,6 +9218,7 @@ next_group:
 
 	env->src_grp_nr_running = sds->busiest_stat.sum_nr_running;
 
+#ifdef CONFIG_MTK_SCHED_LB_ENHANCEMENT
 	if (!env->sd->parent) {
 		struct root_domain *rd = env->dst_rq->rd;
 
@@ -9230,6 +9240,21 @@ next_group:
 			trace_sched_overutilized(1);
 		}
 	}
+#else
+	if (!env->sd->parent) {
+		struct root_domain *rd = env->dst_rq->rd;
+
+		/* update overload indicator if we are at root domain */
+		WRITE_ONCE(rd->overload, sg_status & SG_OVERLOAD);
+
+		/* Updateover-utilization (tipping point, U >= 0) indicator */
+		WRITE_ONCE(rd->overutilized, sg_status & SG_OVERUTILIZED);
+		trace_sched_overutilized(!!(sg_status & SG_OVERUTILIZED));
+	} else if (sg_status & SG_OVERUTILIZED) {
+		WRITE_ONCE(env->dst_rq->rd->overutilized, SG_OVERUTILIZED);
+		trace_sched_overutilized(1);
+	}
+#endif
 
 }
 
@@ -9482,10 +9507,13 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 	 */
 	update_sd_lb_stats(env, &sds);
 
+#ifdef CONFIG_MTK_SCHED_LB_ENHANCEMENT
 	update_system_overutilized(env->sd, env->cpus);
+#endif
 
 	if (static_branch_unlikely(&sched_energy_present)) {
 		struct root_domain *rd = env->dst_rq->rd;
+#ifdef CONFIG_MTK_SCHED_LB_ENHANCEMENT
 		int intra = 0;
 
 		if (sds.busiest) {
@@ -9500,6 +9528,10 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 			if (!sched_feat(SCHED_MTK_EAS) ||
 				(sched_feat(SCHED_MTK_EAS) && !intra))
 				goto out_balanced;
+#else
+		if (rcu_dereference(rd->pd) && !READ_ONCE(rd->overutilized))
+			goto out_balanced;
+#endif
 	}
 
 	local = &sds.local_stat;
@@ -10820,9 +10852,11 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 	}
 	rcu_read_unlock();
 
+#ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
 	/* We could not pull task to this_cpu when this_rq offline */
 	if (this_rq->online && !pulled_task)
 		pulled_task = aggressive_idle_pull(this_cpu);
+#endif
 
 	raw_spin_lock(&this_rq->lock);
 
