@@ -22,6 +22,9 @@ RMNET_INGRESS_FORMAT_DL_MARKER_V2)
 #define RMNET_INGRESS_FORMAT_PS                 BIT(27)
 #define RMNET_FORMAT_PS_NOTIF                   BIT(26)
 
+/* Task boost */
+#define RMNET_FORMAT_TASK_BOOST                 BIT(25)
+
 /* Replace skb->dev to a virtual rmnet device and pass up the stack */
 #define RMNET_EPMODE_VND (1)
 /* Pass the frame directly to another device with dev_queue_xmit() */

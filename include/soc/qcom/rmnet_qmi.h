@@ -10,6 +10,7 @@
 #include <linux/skbuff.h>
 
 void rmnet_map_tx_qmap_cmd(struct sk_buff *qmap_skb);
+void rmnet_set_data_rates(void *port, u64 rx_rate, u64 tx_rate);
 
 #ifdef CONFIG_QCOM_QMI_RMNET
 void *rmnet_get_qmi_pt(void *port);
@@ -22,7 +23,7 @@ void rmnet_enable_all_flows(void *port);
 bool rmnet_all_flows_enabled(void *port);
 void rmnet_set_powersave_format(void *port);
 void rmnet_clear_powersave_format(void *port);
-void rmnet_get_packets(void *port, u64 *rx, u64 *tx);
+void rmnet_get_stats(void *port, u64 *rx, u64 *tx);
 int rmnet_get_powersave_notif(void *port);
 #else
 static inline void *rmnet_get_qmi_pt(void *port)
@@ -67,7 +68,7 @@ static inline void rmnet_set_port_format(void *port)
 {
 }
 
-static inline void rmnet_get_packets(void *port, u64 *rx, u64 *tx)
+static inline void rmnet_get_stats(void *port, u64 *rx, u64 *tx)
 {
 }
 

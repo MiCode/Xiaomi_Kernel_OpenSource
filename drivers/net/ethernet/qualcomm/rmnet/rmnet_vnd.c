@@ -8,6 +8,7 @@
 #include <linux/etherdevice.h>
 #include <linux/if_arp.h>
 #include <linux/ip.h>
+#include <linux/sched.h>
 #include <net/pkt_sched.h>
 #include "rmnet_config.h"
 #include "rmnet_handlers.h"
@@ -18,6 +19,9 @@
 
 #include <soc/qcom/qmi_rmnet.h>
 #include <soc/qcom/rmnet_qmi.h>
+
+/* Task boost time in ms */
+#define RMNET_TASK_BOOST_PERIOD 10000
 
 /* RX/TX Fixup */
 
@@ -160,6 +164,9 @@ static u16 rmnet_vnd_select_queue(struct net_device *dev,
 {
 	struct rmnet_priv *priv = netdev_priv(dev);
 	int txq = 0;
+
+	if (READ_ONCE(rmnet_sched_boost))
+		set_task_boost(1, RMNET_TASK_BOOST_PERIOD);
 
 	if (priv->real_dev)
 		txq = qmi_rmnet_get_queue(dev, skb);
