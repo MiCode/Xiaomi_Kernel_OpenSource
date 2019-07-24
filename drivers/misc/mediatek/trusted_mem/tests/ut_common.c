@@ -244,6 +244,22 @@ enum UT_RET_STATE mem_handle_list_init(enum TRUSTED_MEM_TYPE mem_type)
 	return UT_STATE_PASS;
 }
 
+static enum UT_RET_STATE mem_handle_list_re_init(enum TRUSTED_MEM_TYPE mem_type,
+						 u32 min_chunk_sz)
+{
+	int max_pool_size = tmem_core_get_max_pool_size(mem_type);
+	int max_handle_cnt = max_pool_size / min_chunk_sz;
+
+	mem_handle_list_deinit();
+	if (INVALID(g_mem_handle_list)) {
+		g_mem_handle_list =
+			mld_kmalloc(sizeof(u32) * max_handle_cnt, GFP_KERNEL);
+	}
+	ASSERT_NOTNULL(g_mem_handle_list, "alloc memory for mem handles");
+
+	return UT_STATE_PASS;
+}
+
 enum UT_RET_STATE mem_handle_list_deinit(void)
 {
 	if (VALID(g_mem_handle_list)) {
@@ -656,6 +672,9 @@ mem_alloc_mixed_size_test_with_alignment(enum TRUSTED_MEM_TYPE mem_type,
 	u32 used_size;
 
 	if (!is_mtee_mchunks(mem_type))
+		return UT_STATE_FAIL;
+
+	if (mem_handle_list_re_init(mem_type, SZ_1M))
 		return UT_STATE_FAIL;
 
 	for (try_size = SZ_1M; try_size <= max_try_size; try_size += SZ_1M) {

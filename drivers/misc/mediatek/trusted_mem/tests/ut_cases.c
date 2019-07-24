@@ -221,6 +221,11 @@ static enum UT_RET_STATE tmem_alloc_mixed_size(struct ut_params *params,
 	if (ut_is_halt())
 		return UT_STATE_FAIL;
 
+	/* Make sure region online/offline is okay for single item tests */
+	ASSERT_EQ(0, tmem_core_regmgr_online(mem_type), "regmgr region online");
+	ASSERT_EQ(0, tmem_core_regmgr_offline(mem_type),
+		  "regmgr region offline");
+
 	ASSERT_EQ(0, mem_handle_list_init(mem_type), "alloc handle list check");
 	ret = mem_alloc_mixed_size_test(mem_type, NULL, reg_final_state);
 	mem_handle_list_deinit();
