@@ -37,7 +37,7 @@ static int debug_uclamp_min[NR_CGROUP];
 static int log_enable;
 
 
-#define MAX_UCLAMP_VALUE		(100)
+#define MAX_UCLAMP_VALUE		(1024)
 #define MIN_UCLAMP_VALUE		(0)
 #define MIN_DEBUG_UCLAMP_VALUE	(-1)
 
@@ -116,7 +116,7 @@ int update_eas_uclamp_min(int kicker, int cgroup_idx, int value)
 		return -EIO;
 	}
 	if (debug_uclamp_min[cgroup_idx] == -1)
-		uclamp_min_pct_for_perf_idx(cgroup_idx,
+		uclamp_min_for_perf_idx(cgroup_idx,
 				cur_uclamp_min[cgroup_idx]);
 
 	strncat(msg, msg1, LOG_BUF_SIZE);
@@ -172,7 +172,7 @@ static int perfmgr_boot_boost_proc_show(struct seq_file *m, void *v)
 /****************/
 /* uclamp min   */
 /****************/
-static ssize_t perfmgr_perfserv_uclamp_min_proc_write(struct file *filp
+static ssize_t perfmgr_perf_uclamp_min_proc_write(struct file *filp
 		, const char *ubuf, size_t cnt, loff_t *pos)
 {
 	int data = 0;
@@ -189,7 +189,7 @@ static ssize_t perfmgr_perfserv_uclamp_min_proc_write(struct file *filp
 	return cnt;
 }
 
-static int perfmgr_perfserv_uclamp_min_proc_show(struct seq_file *m, void *v)
+static int perfmgr_perf_uclamp_min_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "%d\n", uclamp_min[CGROUP_ROOT][EAS_UCLAMP_KIR_PERF]);
 
@@ -197,7 +197,7 @@ static int perfmgr_perfserv_uclamp_min_proc_show(struct seq_file *m, void *v)
 }
 
 /************************************************/
-static int perfmgr_current_uclamp_min_proc_show(struct seq_file *m, void *v)
+static int perfmgr_cur_uclamp_min_proc_show(struct seq_file *m, void *v)
 {
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	seq_printf(m, "%d\n", cur_uclamp_min[CGROUP_ROOT]);
@@ -224,10 +224,10 @@ static ssize_t perfmgr_debug_uclamp_min_proc_write(
 
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	if (debug_uclamp_min[CGROUP_ROOT] >= 0)
-		uclamp_min_pct_for_perf_idx(CGROUP_ROOT,
+		uclamp_min_for_perf_idx(CGROUP_ROOT,
 			debug_uclamp_min[CGROUP_ROOT]);
 	else
-		uclamp_min_pct_for_perf_idx(CGROUP_ROOT,
+		uclamp_min_for_perf_idx(CGROUP_ROOT,
 			cur_uclamp_min[CGROUP_ROOT]);
 #endif
 	return cnt;
@@ -240,7 +240,7 @@ static int perfmgr_debug_uclamp_min_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static ssize_t perfmgr_perfserv_fg_uclamp_min_proc_write(struct file *filp
+static ssize_t perfmgr_perf_fg_uclamp_min_proc_write(struct file *filp
 		, const char *ubuf, size_t cnt, loff_t *pos)
 {
 	int data = 0;
@@ -257,7 +257,7 @@ static ssize_t perfmgr_perfserv_fg_uclamp_min_proc_write(struct file *filp
 	return cnt;
 }
 
-static int perfmgr_perfserv_fg_uclamp_min_proc_show(struct seq_file *m, void *v)
+static int perfmgr_perf_fg_uclamp_min_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "%d\n", uclamp_min[CGROUP_FG][EAS_UCLAMP_KIR_PERF]);
 
@@ -265,7 +265,7 @@ static int perfmgr_perfserv_fg_uclamp_min_proc_show(struct seq_file *m, void *v)
 }
 
 /************************************************/
-static int perfmgr_current_fg_uclamp_min_proc_show(struct seq_file *m, void *v)
+static int perfmgr_cur_fg_uclamp_min_proc_show(struct seq_file *m, void *v)
 {
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	seq_printf(m, "%d\n", cur_uclamp_min[CGROUP_FG]);
@@ -292,10 +292,10 @@ static ssize_t perfmgr_debug_fg_uclamp_min_proc_write(
 
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	if (debug_uclamp_min[CGROUP_FG] >= 0)
-		uclamp_min_pct_for_perf_idx(CGROUP_FG,
+		uclamp_min_for_perf_idx(CGROUP_FG,
 			debug_uclamp_min[CGROUP_FG]);
 	else
-		uclamp_min_pct_for_perf_idx(CGROUP_FG,
+		uclamp_min_for_perf_idx(CGROUP_FG,
 			cur_uclamp_min[CGROUP_FG]);
 #endif
 	return cnt;
@@ -308,7 +308,7 @@ static int perfmgr_debug_fg_uclamp_min_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static ssize_t perfmgr_perfserv_bg_uclamp_min_proc_write(struct file *filp
+static ssize_t perfmgr_perf_bg_uclamp_min_proc_write(struct file *filp
 		, const char *ubuf, size_t cnt, loff_t *pos)
 {
 	int data = 0;
@@ -325,7 +325,7 @@ static ssize_t perfmgr_perfserv_bg_uclamp_min_proc_write(struct file *filp
 	return cnt;
 }
 
-static int perfmgr_perfserv_bg_uclamp_min_proc_show(struct seq_file *m, void *v)
+static int perfmgr_perf_bg_uclamp_min_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "%d\n", uclamp_min[CGROUP_BG][EAS_UCLAMP_KIR_PERF]);
 
@@ -333,7 +333,7 @@ static int perfmgr_perfserv_bg_uclamp_min_proc_show(struct seq_file *m, void *v)
 }
 
 /************************************************/
-static int perfmgr_current_bg_uclamp_min_proc_show(struct seq_file *m, void *v)
+static int perfmgr_cur_bg_uclamp_min_proc_show(struct seq_file *m, void *v)
 {
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	seq_printf(m, "%d\n", cur_uclamp_min[CGROUP_BG]);
@@ -360,10 +360,10 @@ static ssize_t perfmgr_debug_bg_uclamp_min_proc_write(
 
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	if (debug_uclamp_min[CGROUP_BG] >= 0)
-		uclamp_min_pct_for_perf_idx(CGROUP_BG,
+		uclamp_min_for_perf_idx(CGROUP_BG,
 			debug_uclamp_min[CGROUP_BG]);
 	else
-		uclamp_min_pct_for_perf_idx(CGROUP_BG,
+		uclamp_min_for_perf_idx(CGROUP_BG,
 			cur_uclamp_min[CGROUP_BG]);
 #endif
 	return cnt;
@@ -376,7 +376,7 @@ static int perfmgr_debug_bg_uclamp_min_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static ssize_t perfmgr_perfserv_ta_uclamp_min_proc_write(struct file *filp
+static ssize_t perfmgr_perf_ta_uclamp_min_proc_write(struct file *filp
 		, const char *ubuf, size_t cnt, loff_t *pos)
 {
 	int data = 0;
@@ -393,7 +393,7 @@ static ssize_t perfmgr_perfserv_ta_uclamp_min_proc_write(struct file *filp
 	return cnt;
 }
 
-static int perfmgr_perfserv_ta_uclamp_min_proc_show(struct seq_file *m, void *v)
+static int perfmgr_perf_ta_uclamp_min_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "%d\n", uclamp_min[CGROUP_TA][EAS_UCLAMP_KIR_PERF]);
 
@@ -401,7 +401,7 @@ static int perfmgr_perfserv_ta_uclamp_min_proc_show(struct seq_file *m, void *v)
 }
 
 /************************************************/
-static int perfmgr_current_ta_uclamp_min_proc_show(struct seq_file *m, void *v)
+static int perfmgr_cur_ta_uclamp_min_proc_show(struct seq_file *m, void *v)
 {
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	seq_printf(m, "%d\n", cur_uclamp_min[CGROUP_TA]);
@@ -428,10 +428,10 @@ static ssize_t perfmgr_debug_ta_uclamp_min_proc_write(
 
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	if (debug_uclamp_min[CGROUP_TA] >= 0)
-		uclamp_min_pct_for_perf_idx(CGROUP_TA,
+		uclamp_min_for_perf_idx(CGROUP_TA,
 			debug_uclamp_min[CGROUP_TA]);
 	else
-		uclamp_min_pct_for_perf_idx(CGROUP_TA,
+		uclamp_min_for_perf_idx(CGROUP_TA,
 			cur_uclamp_min[CGROUP_TA]);
 #endif
 	return cnt;
@@ -469,18 +469,18 @@ static int perfmgr_perfmgr_log_proc_show(struct seq_file *m, void *v)
 
 /* uclamp */
 PROC_FOPS_RW(boot_boost);
-PROC_FOPS_RW(perfserv_uclamp_min);
+PROC_FOPS_RW(perf_uclamp_min);
 PROC_FOPS_RW(debug_uclamp_min);
-PROC_FOPS_RO(current_uclamp_min);
-PROC_FOPS_RW(perfserv_fg_uclamp_min);
+PROC_FOPS_RO(cur_uclamp_min);
+PROC_FOPS_RW(perf_fg_uclamp_min);
 PROC_FOPS_RW(debug_fg_uclamp_min);
-PROC_FOPS_RO(current_fg_uclamp_min);
-PROC_FOPS_RW(perfserv_bg_uclamp_min);
+PROC_FOPS_RO(cur_fg_uclamp_min);
+PROC_FOPS_RW(perf_bg_uclamp_min);
 PROC_FOPS_RW(debug_bg_uclamp_min);
-PROC_FOPS_RO(current_bg_uclamp_min);
-PROC_FOPS_RW(perfserv_ta_uclamp_min);
+PROC_FOPS_RO(cur_bg_uclamp_min);
+PROC_FOPS_RW(perf_ta_uclamp_min);
 PROC_FOPS_RW(debug_ta_uclamp_min);
-PROC_FOPS_RO(current_ta_uclamp_min);
+PROC_FOPS_RO(cur_ta_uclamp_min);
 
 /* others */
 PROC_FOPS_RW(perfmgr_log);
@@ -500,18 +500,18 @@ int uclamp_ctrl_init(struct proc_dir_entry *parent)
 	const struct pentry entries[] = {
 		/* uclamp */
 		PROC_ENTRY(boot_boost),
-		PROC_ENTRY(perfserv_uclamp_min),
+		PROC_ENTRY(perf_uclamp_min),
 		PROC_ENTRY(debug_uclamp_min),
-		PROC_ENTRY(current_uclamp_min),
-		PROC_ENTRY(perfserv_fg_uclamp_min),
+		PROC_ENTRY(cur_uclamp_min),
+		PROC_ENTRY(perf_fg_uclamp_min),
 		PROC_ENTRY(debug_fg_uclamp_min),
-		PROC_ENTRY(current_fg_uclamp_min),
-		PROC_ENTRY(perfserv_bg_uclamp_min),
+		PROC_ENTRY(cur_fg_uclamp_min),
+		PROC_ENTRY(perf_bg_uclamp_min),
 		PROC_ENTRY(debug_bg_uclamp_min),
-		PROC_ENTRY(current_bg_uclamp_min),
-		PROC_ENTRY(perfserv_ta_uclamp_min),
+		PROC_ENTRY(cur_bg_uclamp_min),
+		PROC_ENTRY(perf_ta_uclamp_min),
 		PROC_ENTRY(debug_ta_uclamp_min),
-		PROC_ENTRY(current_ta_uclamp_min),
+		PROC_ENTRY(cur_ta_uclamp_min),
 
 		/* log */
 		PROC_ENTRY(perfmgr_log),
