@@ -260,8 +260,8 @@ static int mtk_lp_plat_wait_depd_condition(void *arg)
 	} while (!(mcupm_rdy && boot_time_pass));
 
 	/* mtk_cpu_off_allow(); */
-	/* Not validate cluster off yet */
-	pm_qos_update_request(&mtk_lp_plat_qos_req, 200);
+	/* Not validate mcusys off yet */
+	pm_qos_update_request(&mtk_lp_plat_qos_req, 1000);
 
 	return 0;
 }

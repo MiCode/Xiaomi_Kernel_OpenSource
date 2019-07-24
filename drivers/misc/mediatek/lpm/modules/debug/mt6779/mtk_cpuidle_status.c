@@ -7,10 +7,13 @@
 #include <linux/cpuidle.h>
 #include <linux/sched/clock.h>
 #include <linux/cpu.h>
+#include <linux/kthread.h>
+#include <linux/delay.h>
 #include <linux/pm_qos.h>
 #include <linux/tick.h>
 #include <linux/timer.h>
 
+#include <mboot_params.h>
 #include <mtk_lpm.h>
 
 #include <mtk_lp_plat_reg.h>
@@ -32,6 +35,10 @@ static struct pm_qos_request mtk_cpuidle_qos_req;
 	pm_qos_update_request(&mtk_cpuidle_qos_req, 2)
 #define mtk_cpu_pm_allow()\
 	pm_qos_update_request(&mtk_cpuidle_qos_req, PM_QOS_DEFAULT_VALUE)
+
+/* stress test */
+static unsigned int timer_interval = 10 * 1000;
+static struct task_struct *stress_tsk[NR_CPUS];
 
 /* CPU off state : core, cluster and mcusys */
 #define CPU_OFF_MAX_LV  (3)
@@ -93,9 +100,70 @@ struct mtk_cpuidle_control {
 	bool tmr_en;
 	bool prof_en;
 	bool log_en;
+	bool stress_en;
 };
 
 static struct mtk_cpuidle_control mtk_cpuidle_ctrl;
+
+static int mtk_cpuidle_stress_task(void *arg)
+{
+	while (mtk_cpuidle_ctrl.stress_en)
+		usleep_range(timer_interval - 10, timer_interval + 10);
+
+	return 0;
+}
+
+static void mtk_cpuidle_stress_start(void)
+{
+	int i;
+	char name[20] = {0};
+	int ret = 0;
+
+	if (mtk_cpuidle_ctrl.stress_en)
+		return;
+
+	mtk_cpuidle_ctrl.stress_en = true;
+
+	for_each_online_cpu(i) {
+		ret = scnprintf(name, sizeof(name), "mtk_cpupm_stress_%d", i);
+		stress_tsk[i] =
+			kthread_create(mtk_cpuidle_stress_task, NULL, name);
+
+		if (!IS_ERR(stress_tsk[i])) {
+			kthread_bind(stress_tsk[i], i);
+			wake_up_process(stress_tsk[i]);
+		}
+	}
+}
+
+static void mtk_cpuidle_stress_stop(void)
+{
+	mtk_cpuidle_ctrl.stress_en = false;
+	msleep(20);
+}
+
+void mtk_cpuidle_set_stress_test(bool en)
+{
+	if (en)
+		mtk_cpuidle_stress_start();
+	else
+		mtk_cpuidle_stress_stop();
+}
+
+bool mtk_cpuidle_get_stress_status(void)
+{
+	return mtk_cpuidle_ctrl.stress_en;
+}
+
+void mtk_cpuidle_set_stress_time(unsigned int val)
+{
+	timer_interval = clamp_val(val, 100, 20000);
+}
+
+unsigned int mtk_cpuidle_get_stress_time(void)
+{
+	return timer_interval;
+}
 
 void mtk_cpuidle_ctrl_timer_en(bool enable)
 {
@@ -468,21 +536,19 @@ static int mtk_cpuidle_status_update(struct notifier_block *nb,
 	struct mtk_cpuidle_device *mtk_idle;
 	struct mtk_lpm_nb_data *nb_data = (struct mtk_lpm_nb_data *)data;
 
-	if (action & MTK_LPM_NB_AFTER_PROMPT) {
+	if (action & MTK_LPM_NB_BEFORE_REFLECT) {
 
+		/* prevent race conditions by mtk_lp_mod_locker */
 		if (mtk_cpuidle_ctrl.prof_en)
-			mtk_cpuidle_set_last_off_ts(nb_data->index);
-	}
+			mtk_cpuidle_save_idle_time(nb_data->index);
 
-	if (action & MTK_LPM_NB_PREPARE) {
-		mtk_idle = &per_cpu(mtk_cpuidle_dev, nb_data->cpu);
-		mtk_idle->info.idle_index = nb_data->index;
-		mtk_idle->info.enter_time_ns = sched_clock();
+		if (mtk_cpuidle_need_dump(nb_data->index))
+			mtk_cpuidle_dump_info();
 
-		mtk_cpuidle_set_timer(mtk_idle);
-	}
+	} else if (action & MTK_LPM_NB_RESUME) {
 
-	if (action & MTK_LPM_NB_RESUME) {
+		aee_rr_rec_mcdi_val(nb_data->cpu,
+				(nb_data->index << 16) | 0x0);
 		mtk_idle = &per_cpu(mtk_cpuidle_dev, nb_data->cpu);
 		mtk_idle->info.idle_index = -1;
 		mtk_idle->info.cnt[nb_data->index]++;
@@ -492,15 +558,23 @@ static int mtk_cpuidle_status_update(struct notifier_block *nb,
 				(sched_clock() - mtk_idle->info.enter_time_ns);
 
 		mtk_cpuidle_cancel_timer(mtk_idle);
-	}
 
-	if (action & MTK_LPM_NB_BEFORE_REFLECT) {
+	} else if (action & MTK_LPM_NB_AFTER_PROMPT) {
 
+		/* prevent race conditions by mtk_lp_mod_locker */
 		if (mtk_cpuidle_ctrl.prof_en)
-			mtk_cpuidle_save_idle_time(nb_data->index);
+			mtk_cpuidle_set_last_off_ts(nb_data->index);
 
-		if (mtk_cpuidle_need_dump(nb_data->index))
-			mtk_cpuidle_dump_info();
+	} else if (action & MTK_LPM_NB_PREPARE) {
+
+		mtk_idle = &per_cpu(mtk_cpuidle_dev, nb_data->cpu);
+		mtk_idle->info.idle_index = nb_data->index;
+		mtk_idle->info.enter_time_ns = sched_clock();
+
+		mtk_cpuidle_set_timer(mtk_idle);
+
+		aee_rr_rec_mcdi_val(nb_data->cpu,
+				(nb_data->index << 16) | 0xff);
 	}
 
 	return NOTIFY_OK;
@@ -541,6 +615,7 @@ int __init mtk_cpuidle_status_init(void)
 	mtk_cpuidle_ctrl.tmr_en = true;
 	mtk_cpuidle_ctrl.prof_en = false;
 	mtk_cpuidle_ctrl.log_en = true;
+	mtk_cpuidle_ctrl.stress_en = false;
 
 	mtk_cpu_pm_block();
 	on_each_cpu(mtk_cpuidle_init_per_cpu, NULL, 0);

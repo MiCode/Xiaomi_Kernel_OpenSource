@@ -175,6 +175,7 @@ extern u32 aee_rr_curr_spm_suspend_val(void);
 extern void aee_rr_rec_vcore_dvfs_status(u32 val);
 extern u32 aee_rr_curr_vcore_dvfs_status(void);
 extern unsigned int *aee_rr_rec_mcdi_wfi(void);
+extern void aee_rr_rec_mcdi_val(int id, u32 val);
 extern void aee_rr_rec_vcore_dvfs_opp(u32 val);
 extern u32 aee_rr_curr_vcore_dvfs_opp(void);
 extern void aee_rr_rec_ocp_target_limit(int id, u32 val);
@@ -778,6 +779,10 @@ static inline u32 aee_rr_curr_vcore_dvfs_status(void)
 static inline unsigned int *aee_rr_rec_mcdi_wfi(void)
 {
 	return NULL;
+}
+
+static inline void aee_rr_rec_mcdi_val(int id, u32 val)
+{
 }
 
 static inline void aee_rr_rec_vcore_dvfs_opp(u32 val)

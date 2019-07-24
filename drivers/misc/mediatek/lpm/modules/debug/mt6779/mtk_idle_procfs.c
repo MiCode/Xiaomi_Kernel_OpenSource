@@ -51,11 +51,11 @@ static int idle_proc_info_show(struct seq_file *m, void *v)
 	seq_puts(m, "\n---- Total ----\n");
 	seq_printf(m, "%8s %d\n",
 			"cluster:",
-			mtk_lpm_syssram_read(SYSRAM_CPC_CPUSYS_CNT_BACKUP)
+			mtk_lpm_syssram_read(SYSRAM_CPUSYS_CNT)
 			+ mtk_lpm_syssram_read(SYSRAM_RECENT_CPUSYS_CNT));
 	seq_printf(m, "%8s %d\n",
 			"mcusys:",
-			mtk_lpm_syssram_read(SYSRAM_CPC_MCUSYS_CNT_BACKUP)
+			mtk_lpm_syssram_read(SYSRAM_MCUSYS_CNT)
 			+ mtk_lpm_syssram_read(SYSRAM_RECENT_MCUSYS_CNT));
 	return 0;
 }

@@ -47,6 +47,11 @@ do {                                                            \
 		get_disabled(drv, state) = !val ;               \
 } while (0)
 
+void mtk_cpuidle_set_stress_test(bool en);
+bool mtk_cpuidle_get_stress_status(void);
+void mtk_cpuidle_set_stress_time(unsigned int val);
+unsigned int mtk_cpuidle_get_stress_time(void);
+
 void mtk_cpuidle_prof_ratio_start(void);
 void mtk_cpuidle_prof_ratio_stop(void);
 void mtk_cpuidle_prof_ratio_dump(struct seq_file *m);
