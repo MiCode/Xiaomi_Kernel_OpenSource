@@ -3148,9 +3148,6 @@ int wmi_set_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data)
 		return -EIO;
 	}
 
-	wil->tt_data = *tt_data;
-	wil->tt_data_set = true;
-
 	return 0;
 }
 
@@ -3177,6 +3174,39 @@ int wmi_get_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data)
 
 	if (tt_data)
 		*tt_data = reply.evt.tt_data;
+
+	return 0;
+}
+
+int wmi_set_tof_tx_rx_offset(struct wil6210_priv *wil, u32 tx_offset,
+			     u32 rx_offset)
+{
+	struct wil6210_vif *vif = ndev_to_vif(wil->main_ndev);
+	struct wmi_tof_set_tx_rx_offset_cmd cmd;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_tof_set_tx_rx_offset_event evt;
+	} __packed reply = {
+		.evt = {.status = WMI_FW_STATUS_FAILURE},
+	};
+	int rc;
+
+	if (!test_bit(WMI_FW_CAPABILITY_FTM, wil->fw_capabilities))
+		return -EOPNOTSUPP;
+
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.tx_offset = cpu_to_le32(tx_offset);
+	cmd.rx_offset = cpu_to_le32(rx_offset);
+	rc = wmi_call(wil, WMI_TOF_SET_TX_RX_OFFSET_CMDID, vif->mid,
+		      &cmd, sizeof(cmd), WMI_TOF_SET_TX_RX_OFFSET_EVENTID,
+		      &reply, sizeof(reply), 100);
+	if (rc < 0)
+		return rc;
+	if (reply.evt.status) {
+		wil_err(wil, "set_tof_tx_rx_offset failed, error %d\n",
+			reply.evt.status);
+		return -EIO;
+	}
 
 	return 0;
 }
