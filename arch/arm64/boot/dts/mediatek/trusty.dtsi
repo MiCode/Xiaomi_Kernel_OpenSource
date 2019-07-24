@@ -29,8 +29,9 @@
 			tee_id = <0>;
 		};
 
-		gz_log {
+		trusty-gz-log {
 			compatible = "android,trusty-gz-log-v1";
+			tee_id = <0>;
 		};
 	};
 };

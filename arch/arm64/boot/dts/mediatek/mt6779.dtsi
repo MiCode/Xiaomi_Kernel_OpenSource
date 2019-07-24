@@ -3466,3 +3466,4 @@
 };
 
 #include "cust_mt6779_msdc.dtsi"
+#include "trusty.dtsi"
