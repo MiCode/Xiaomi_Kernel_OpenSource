@@ -330,6 +330,14 @@ struct cmdqReadAddressStruct {
 	cmdqU32Ptr_t values;
 };
 
+struct cmdqIovaMeta {
+	uint32_t fd;
+	uint32_t iova;
+	uint64_t dma_buf;
+	uint64_t attach;
+	uint64_t sgt;
+};
+
 /*
  * Secure address metadata:
  * According to handle type,

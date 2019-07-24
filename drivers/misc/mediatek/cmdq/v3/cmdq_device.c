@@ -150,7 +150,11 @@ void cmdq_dev_get_module_clock_by_name(const char *ref_name,
 	*clk_module = of_clk_get_by_name(node, clkName);
 	if (IS_ERR(*clk_module)) {
 		/* error status print */
-		CMDQ_ERR("DEV: byName: cannot get module clock:%s\n", clkName);
+		CMDQ_ERR(
+			"DEV: byName: cannot get module clock:%s ref node name:%s node:%#lx of node:%#lx err:%d\n",
+			clkName, ref_name, (unsigned long)node,
+			(unsigned long)gCmdqDev.pDev->of_node,
+			PTR_ERR(*clk_module));
 	} else {
 		/* message print */
 		CMDQ_MSG("DEV: byName: get module clock:%s\n", clkName);
@@ -509,8 +513,6 @@ void cmdq_dev_init(struct platform_device *pDevice)
 	cmdq_mdp_map_mmsys_VA();
 	/* init module VA */
 	cmdq_dev_init_module_base_VA();
-	/* init module clock */
-	cmdq_dev_init_module_clk();
 	/* init module PA for instruction count */
 	cmdq_get_func()->initModulePAStat();
 	/* init load HW information from device tree */

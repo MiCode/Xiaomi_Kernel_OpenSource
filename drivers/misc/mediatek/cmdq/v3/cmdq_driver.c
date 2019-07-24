@@ -39,6 +39,7 @@
 #ifdef CMDQ_USE_LEGACY
 #include <mach/mt_boot.h>
 #endif
+#include <linux/dma-buf.h>
 
 /*
  * @device tree porting note
@@ -54,6 +55,12 @@ static const struct of_device_id cmdq_of_ids[] = {
 static dev_t gCmdqDevNo;
 static struct cdev *gCmdqCDev;
 static struct class *gCMDQClass;
+static struct device *mdp_dev;
+
+static dev_t g_mdp_dev_no;
+static struct cdev *g_mdp_cdev;
+static struct class *g_mdp_class;
+
 
 static ssize_t error_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
@@ -1005,6 +1012,86 @@ static s32 cmdq_driver_ioctl_notify_engine(unsigned long param)
 	return 0;
 }
 
+static s32 cmdq_driver_ioctl_alloc_iova(unsigned long param)
+{
+	struct cmdqIovaMeta meta;
+	struct dma_buf *buf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	dma_addr_t iova;
+
+	if (copy_from_user(&meta, (void *)param, sizeof(meta))) {
+		CMDQ_ERR("%s copy_from_user failed\n",
+			__func__, __func__);
+		return -EFAULT;
+	}
+
+	buf = dma_buf_get(meta.fd);
+	if (IS_ERR(buf)) {
+		CMDQ_ERR("%s fail to get dma buf:%d\n",
+			__func__, PTR_ERR(buf));
+		return -EFAULT;
+	}
+
+	attach = dma_buf_attach(buf, mdp_dev);
+	if (IS_ERR(attach)) {
+		CMDQ_ERR("%s fail to attach dma buf:%d\n",
+			__func__, PTR_ERR(attach));
+		goto err_attach;
+	}
+
+	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+	if (IS_ERR(sgt)) {
+		CMDQ_ERR("%s fail to MAP dma buf:%d\n",
+			__func__, PTR_ERR(sgt));
+		goto err_map;
+	}
+
+	iova = sg_dma_address(sgt->sgl);
+	CMDQ_LOG("mdp map iova:%#lx\n", (unsigned long)iova);
+
+	meta.dma_buf = (uint64_t)(unsigned long)buf;
+	meta.attach = (uint64_t)(unsigned long)attach;
+	meta.sgt = (uint64_t)(unsigned long)sgt;
+	meta.iova = (uint32_t)iova;
+
+	if (copy_to_user((void *)param, (void *)&meta, sizeof(meta))) {
+		CMDQ_ERR("%s fail to return meta\n", __func__);
+		goto err_return;
+	}
+
+	return 0;
+
+err_return:
+	dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
+
+err_map:
+	dma_buf_detach(buf, attach);
+
+err_attach:
+	dma_buf_put(buf);
+
+	return -EFAULT;
+}
+
+static s32 cmdq_driver_ioctl_free_iova(unsigned long param)
+{
+	struct cmdqIovaMeta meta;
+
+	if (copy_from_user(&meta, (void *)param, sizeof(meta))) {
+		CMDQ_ERR("%s copy_from_user failed\n", __func__);
+		return -EFAULT;
+	}
+
+	dma_buf_unmap_attachment((void *)(unsigned long)meta.attach,
+		(void *)(unsigned long)meta.sgt, DMA_BIDIRECTIONAL);
+	dma_buf_detach((void *)(unsigned long)meta.dma_buf,
+		(void *)(unsigned long)meta.attach);
+	dma_buf_put((void *)(unsigned long)meta.dma_buf);
+
+	return 0;
+}
+
 static long cmdq_ioctl(struct file *pf, unsigned int code,
 	unsigned long param)
 {
@@ -1047,6 +1134,7 @@ static long cmdq_ioctl(struct file *pf, unsigned int code,
 	case CMDQ_IOCTL_NOTIFY_ENGINE:
 		status = cmdq_driver_ioctl_notify_engine(param);
 		break;
+
 	default:
 		CMDQ_ERR("unrecognized ioctl 0x%08x\n", code);
 		return -ENOIOCTLCMD;
@@ -1244,6 +1332,120 @@ static int cmdq_remove(struct platform_device *pDevice)
 	return 0;
 }
 
+static int mdp_open(struct inode *node, struct file *f)
+{
+	CMDQ_LOG("%s\n", __func__);
+	return 0;
+}
+
+static int mdp_release(struct inode *node, struct file *f)
+{
+	CMDQ_LOG("%s\n", __func__);
+	return 0;
+}
+
+static long mdp_ioctl(struct file *pf, unsigned int code,
+	unsigned long param)
+{
+	s32 status = 0;
+
+	CMDQ_LOG("[MDP]%s code:0x%08x f:0x%p\n", __func__, code, pf);
+
+	switch (code) {
+	case CMDQ_IOCTL_ALLOC_IOVA:
+		status = cmdq_driver_ioctl_alloc_iova(param);
+		break;
+	case CMDQ_IOCTL_FREE_IOVA:
+		status = cmdq_driver_ioctl_free_iova(param);
+		break;
+	default:
+		CMDQ_ERR("[MDP]unrecognized ioctl 0x%08x\n", code);
+		return -ENOIOCTLCMD;
+	}
+
+	if (status < 0)
+		CMDQ_ERR("[MDP]ioctl return fail:%d\n", status);
+	else
+		CMDQ_LOG("[MDP]ioctl success cmd:%#x\n", code);
+
+	return status;
+}
+
+#ifdef CONFIG_COMPAT
+static long mdp_ioctl_compat(struct file *pFile, unsigned int code,
+	unsigned long param)
+{
+	switch (code) {
+	case CMDQ_IOCTL_ALLOC_IOVA:
+	case CMDQ_IOCTL_FREE_IOVA:
+		/* All ioctl structures should be the same size in
+		 * 32-bit and 64-bit linux.
+		 */
+		return mdp_ioctl(pFile, code, param);
+	default:
+		CMDQ_ERR("[MDP][COMPAT]unrecognized ioctl 0x%08x\n", code);
+		return -ENOIOCTLCMD;
+	}
+
+	CMDQ_ERR("[MDP][COMPAT]unrecognized ioctl 0x%08x\n", code);
+	return -ENOIOCTLCMD;
+}
+#endif
+
+static const struct file_operations mdp_op = {
+	.owner = THIS_MODULE,
+	.open = mdp_open,
+	.release = mdp_release,
+	.unlocked_ioctl = mdp_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = mdp_ioctl_compat,
+#endif
+};
+
+static int mdp_probe(struct platform_device *pdev)
+{
+	int status;
+	struct device *object;
+
+	CMDQ_LOG("%s\n", __func__);
+	mdp_dev = &pdev->dev;
+
+	/* init module clock */
+	cmdq_dev_init_module_clk();
+
+	status = alloc_chrdev_region(&g_mdp_dev_no, 0, 1, "mtk_mdp");
+	if (status != 0) {
+		/* Cannot get MDP device major number */
+		CMDQ_ERR("Get MDP device major number(%d) failed(%d)\n",
+			g_mdp_dev_no, status);
+	} else {
+		/* Get MDP device major number successfully */
+		CMDQ_MSG("Get CMDQ device major number(%d) success(%d)\n",
+			g_mdp_dev_no, status);
+	}
+
+	/* ioctl access point (/dev/mtk_mdp) */
+	g_mdp_cdev = cdev_alloc();
+	g_mdp_cdev->owner = THIS_MODULE;
+	g_mdp_cdev->ops = &mdp_op;
+
+	status = cdev_add(g_mdp_cdev, g_mdp_dev_no, 1);
+
+	g_mdp_class = class_create(THIS_MODULE, "mtk_mdp");
+	object = device_create(g_mdp_class, NULL, g_mdp_dev_no, NULL,
+		"mtk_mdp");
+
+	CMDQ_LOG("%s end\n", __func__);
+
+	return 0;
+}
+
+static int mdp_remove(struct platform_device *pdev)
+{
+	mdp_dev = NULL;
+
+	return 0;
+}
 
 static int cmdq_suspend(struct device *pDevice)
 {
@@ -1284,6 +1486,21 @@ static struct platform_driver gCmdqDriver = {
 	}
 };
 
+static const struct of_device_id mdp_of_ids[] = {
+	{.compatible = "mediatek,mdp",},
+	{}
+};
+
+static struct platform_driver mdp_drv = {
+	.probe = mdp_probe,
+	.remove = mdp_remove,
+	.driver = {
+		.name = "mtk_mdp",
+		.owner = THIS_MODULE,
+		.of_match_table = mdp_of_ids,
+	}
+};
+
 static int __init cmdq_init(void)
 {
 	int status;
@@ -1297,6 +1514,12 @@ static int __init cmdq_init(void)
 	status = platform_driver_register(&gCmdqDriver);
 	if (status != 0) {
 		CMDQ_ERR("Failed to register the CMDQ driver(%d)\n", status);
+		return -ENODEV;
+	}
+
+	status = platform_driver_register(&mdp_drv);
+	if (status != 0) {
+		CMDQ_ERR("Failed to register the MDP driver(%d)\n", status);
 		return -ENODEV;
 	}
 
