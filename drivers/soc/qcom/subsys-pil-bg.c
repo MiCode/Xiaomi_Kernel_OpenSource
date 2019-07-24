@@ -271,6 +271,11 @@ static int bg_powerup(const struct subsys_desc *subsys)
 	struct pil_bg_data *bg_data = subsys_to_data(subsys);
 	int ret;
 
+	if (is_bg_running()) {
+		pr_debug("bg is already up\n");
+		return 0;
+	}
+
 	init_completion(&bg_data->err_ready);
 	if (!bg_data->qseecom_handle) {
 		ret = pil_load_bg_tzapp(bg_data);
@@ -294,7 +299,6 @@ static int bg_powerup(const struct subsys_desc *subsys)
 			__func__, bg_data->status_irq, ret);
 			return ret;
 	}
-	disable_irq(bg_data->status_irq);
 
 	/* Enable status and err fatal irqs */
 	ret = pil_boot(&bg_data->desc);
@@ -303,9 +307,6 @@ static int bg_powerup(const struct subsys_desc *subsys)
 			"%s: BG PIL Boot failed\n", __func__);
 		return ret;
 	}
-	/* wait for msm_gpio_irq_handler to get invoked before enable irq */
-	usleep_range(5000, 6000);
-	enable_irq(bg_data->status_irq);
 	ret = wait_for_err_ready(bg_data);
 	if (ret) {
 		dev_err(bg_data->desc.dev,

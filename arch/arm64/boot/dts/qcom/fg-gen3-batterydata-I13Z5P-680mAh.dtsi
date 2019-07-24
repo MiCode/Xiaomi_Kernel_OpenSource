@@ -12,7 +12,7 @@
  */
 
 qcom,3388014_i13z5p_680mah_averaged_masterslave_mar26th2018 {
-	qcom, = <24>;
+	qcom,fastchg-current-ma = <480>;
 	/* #3388014_I13Z5P_680mAh_averaged_MasterSlave_Mar26th2018*/
 	qcom,max-voltage-uv = <4400000>;
 	qcom,fg-cc-cv-threshold-mv = <4390>;

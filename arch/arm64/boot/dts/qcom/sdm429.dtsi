@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,6 +216,18 @@
 			< 2016000000 6>;
 
 		qcom,speed4-bin-v0-cci =
+			<          0 0>,
+			<  400000000 1>,
+			<  533333333 3>;
+
+		qcom,speed5-bin-v0-c1 =
+			<          0 0>,
+			<  960000000 1>,
+			< 1305600000 1>,
+			< 1497600000 2>,
+			< 1708800000 3>;
+
+		qcom,speed5-bin-v0-cci =
 			<          0 0>,
 			<  400000000 1>,
 			<  533333333 3>;

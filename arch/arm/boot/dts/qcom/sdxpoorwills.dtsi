@@ -510,13 +510,19 @@
 		status = "disabled";
 	};
 
-	qcom,ipc_router_mhi_dev_xprt {
+	ipc_router_mhi_dev_xprt: qcom,ipc_router_mhi_dev_xprt {
 		compatible = "qcom,ipc-router-mhi-dev-xprt";
 		qcom,out-chan-id = <20>;
 		qcom,in-chan-id = <21>;
 		qcom,xprt-remote = "external-ap";
 		qcom,xprt-linkid = <2>;
 		qcom,xprt-version = <1>;
+		status = "disabled";
+	};
+
+	mhi_net_device: qcom,mhi_net_dev {
+		compatible = "qcom,msm-mhi-dev-net";
+		qcom,mhi-ethernet-interface;
 		status = "disabled";
 	};
 
@@ -587,6 +593,9 @@
 		clock-names = "iface_clk", "core_clk";
 
 		qcom,restore-after-cx-collapse;
+
+		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
+		qcom,dll-hsr-list = <0x0007642c 0x0 0x10 0x2c010800 0x80040868>;
 
 		status = "disabled";
 	};

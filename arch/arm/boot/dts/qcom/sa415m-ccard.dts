@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,20 +12,11 @@
 
 /dts-v1/;
 
-#include "sdxpoorwills-ttp.dtsi"
-#include "sdxpoorwills-v2.dtsi"
+#include "sa415m-ccard.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDXPOORWILLS TTP V2";
-	compatible = "qcom,sdxpoorwills-ttp",
-		"qcom,sdxpoorwills", "qcom,ttp";
-	qcom,board-id = <30 0x100>;
-};
-
-&blsp1_uart2b_hs {
-	status = "okay";
-};
-
-&mss_mem {
-	reg = <0x86400000 0x9300000>;
+	model = "Qualcomm Technologies, Inc. SA415M CCARD";
+	compatible = "qcom,sa415m-ccard",
+		"qcom,sdxpoorwills", "qcom,ccard";
+	qcom,board-id = <25 0>, <25 0x100>;
 };

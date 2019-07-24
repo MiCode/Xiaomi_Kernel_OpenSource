@@ -12,11 +12,47 @@
 
 /dts-v1/;
 
-#include "sdxpoorwills-ccard.dtsi"
+#include "sa415m-ccard.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SA415M CCARD";
-	compatible = "qcom,sdxpoorwills-ccard",
+	model = "Qualcomm Technologies, Inc. SA415M CCARD PCIE-EP";
+	compatible = "qcom,sa415m-ccard",
 		"qcom,sdxpoorwills", "qcom,ccard";
-	qcom,board-id = <25 0>, <25 0x100>;
+	qcom,board-id = <25 1>, <25 0x101>;
+};
+
+&usb {
+	/delete-property/ iommus;
+};
+
+&pcie_ep {
+	status = "okay";
+};
+
+&ipa_hw {
+	qcom,use-ipa-in-mhi-mode;
+};
+
+&cnss_pcie {
+	status = "disabled";
+};
+
+&pcie0 {
+	status = "disabled";
+};
+
+&mhi_device {
+	status = "okay";
+};
+
+&restart_pshold {
+	qcom,force-warm-reboot;
+};
+
+&ipc_router_mhi_dev_xprt {
+	status = "okay";
+};
+
+&mhi_net_device {
+	status = "okay";
 };
