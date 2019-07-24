@@ -6209,9 +6209,6 @@ irqreturn_t wdog_bark_irq_handler(int irq, void *data)
 	if (rc < 0)
 		smblib_err(chg, "Couldn't pet the dog rc=%d\n", rc);
 
-	if (chg->step_chg_enabled)
-		power_supply_changed(chg->batt_psy);
-
 	return IRQ_HANDLED;
 }
 
