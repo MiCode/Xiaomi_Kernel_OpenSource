@@ -1694,6 +1694,19 @@
 			dvp_done_async_shot = <453>;
 			dsi0_te_from_infra = <898>;
 			sram_size_cpr_64 = <656>;
+			mmsys_config = <&mmsys>;
+			mm_mutex = <&mm_mutex>;
+			mdp_rdma0 = <&mdp_rdma0>;
+			mdp_rdma1 = <&mdp_rdma1>;
+			mdp_rsz0 = <&mdp_rsz0>;
+			mdp_rsz1 = <&mdp_rsz1>;
+			mdp_wrot0 = <&mdp_wrot0>;
+			mdp_wrot1 = <&mdp_wrot1>;
+			mdp_tdshp0 = <&mdp_tdshp>;
+			mdp_aal0 = <&mdp_aal>;
+			mdp_hdr0 = <&mdp_hdr>;
+			mdp_color0 = <&disp_color0>;
+			smi_larb0 = <&larb0>;
 			sram_share_cnt = <2>;
 			sram_share_engine = <21>, <22>;
 			sram_share_event = <710>, <711>;
@@ -2366,6 +2379,62 @@
 			reg = <0 0x14000000 0 0x1000>;
 			interrupts = <GIC_SPI 263 IRQ_TYPE_LEVEL_LOW>;
 			#clock-cells = <1>;
+			clocks = <&mmsys CLK_MM_MDP_DL_TXCK>,
+				<&mmsys CLK_MM_MDP_DL_RX_CK>,
+				<&mmsys CLK_MM_IPU_DL_TXCK>,
+				<&mmsys CLK_MM_IPU_DL_RX_CK>;
+			clock-names = "CAM_MDP_TX",
+				"CAM_MDP_RX",
+				"CAM_MDP2_TX",
+				"CAM_MDP2_RX";
+		};
+
+		mdp_rdma0: mdp_rdma0@14001000 {
+			compatible = "mediatek,mt6779-mdp_rdma0";
+			reg = <0 0x14001000 0 0x1000>;
+			interrupts = <GIC_SPI 242 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&mmsys CLK_MM_MDP_RDMA0>;
+			clock-names = "MDP_RDMA0";
+		};
+
+		mdp_rdma1: mdp_rdma1@14002000 {
+			compatible = "mediatek,mt6779-mdp_rdma1";
+			reg = <0 0x14002000 0 0x1000>;
+			interrupts = <GIC_SPI 243 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&mmsys CLK_MM_MDP_RDMA1>;
+			clock-names = "MDP_RDMA1";
+		};
+
+		mdp_rsz0: mdp_rsz0@14003000 {
+			compatible = "mediatek,mt6779-mdp_rsz0";
+			reg = <0 0x14003000 0 0x1000>;
+			interrupts = <GIC_SPI 244 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&mmsys CLK_MM_MDP_RSZ0>;
+			clock-names = "MDP_RSZ0";
+		};
+
+		mdp_rsz1: mdp_rsz1@14004000 {
+			compatible = "mediatek,mt6779-mdp_rsz1";
+			reg = <0 0x14004000 0 0x1000>;
+			interrupts = <GIC_SPI 245 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&mmsys CLK_MM_MDP_RSZ1>;
+			clock-names = "MDP_RSZ1";
+		};
+
+		mdp_wrot0: mdp_wrot0@14005000 {
+			compatible = "mediatek,mt6779-mdp_wrot0";
+			reg = <0 0x14005000 0 0x1000>;
+			interrupts = <GIC_SPI 247 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&mmsys CLK_MM_MDP_WROT0>;
+			clock-names = "MDP_WROT0";
+		};
+
+		mdp_tdshp: mdp_tdshp@14007000 {
+			compatible = "mediatek,mt6779-mdp_tdshp";
+			reg = <0 0x14007000 0 0x1000>;
+			interrupts = <GIC_SPI 246 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&mmsys CLK_MM_MDP_TDSHP>;
+			clock-names = "MDP_TDSHP";
 		};
 
 		disp_ovl0@14008000 {
@@ -2511,6 +2580,27 @@
 			compatible = "mediatek,mt6779-disp_rsz0";
 			reg = <0 0x1401a000 0 0x1000>;
 			interrupts = <GIC_SPI 265 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		mdp_aal: mdp_aal0@1401b000 {
+			compatible = "mediatek,mt6779-mdp_aal0";
+			reg = <0 0x1401b000 0 0x1000>;
+			clocks = <&mmsys CLK_MM_MDP_AAL>;
+			clock-names = "MDP_AAL";
+		};
+
+		mdp_hdr: mdp_hdr0@1401c000 {
+			compatible = "mediatek,mt6779-mdp_hdr0";
+			reg = <0 0x1401c000 0 0x1000>;
+			clocks = <&mmsys CLK_MM_MDP_HDR>;
+			clock-names = "MDP_HDR";
+		};
+
+		mdp_wrot1: mdp_wrot1@14020000 {
+			compatible = "mediatek,mt6779-mdp_wrot1";
+			reg = <0 0x14020000 0 0x1000>;
+			clocks = <&mmsys CLK_MM_MDP_WROT1>;
+			clock-names = "MDP_WROT1";
 		};
 
 		disp_postmask0@14021000 {
