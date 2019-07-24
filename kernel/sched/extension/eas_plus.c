@@ -355,6 +355,15 @@ static inline struct cfs_rq *group_cfs_rq(struct sched_entity *grp)
 
 }
 
+#ifdef CONFIG_UCLAMP_TASK
+static unsigned int uclamp_task_effective_util(struct task_struct *p,
+					unsigned int clamp_id)
+{
+	return p->uclamp[clamp_id].effective.value;
+
+}
+#endif
+
 /* must hold runqueue lock for queue se is currently on */
 static const int idle_prefer_max_tasks = 5;
 static struct sched_entity
