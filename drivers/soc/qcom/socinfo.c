@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -317,6 +317,9 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* Lito ID */
 	[400] = {MSM_CPU_LITO, "LITO"},
+
+	/* Bengal ID */
+	[417] = {MSM_CPU_BENGAL, "BENGAL"},
 
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -1184,6 +1187,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_lito()) {
 		dummy_socinfo.id = 400;
 		strlcpy(dummy_socinfo.build_id, "lito - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_bengal()) {
+		dummy_socinfo.id = 417;
+		strlcpy(dummy_socinfo.build_id, "bengal - ",
 		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_sdmshrike()) {
 		dummy_socinfo.id = 340;
