@@ -63,6 +63,7 @@ Optional properties:
 	during bus suspend.
  - snps,usb3-u1u2-disable: If present, disable U1U2 low power modes in Superspeed mode
  - snps,usb2-l1-disable: If present, disable L1 low power modes in Highspeed mode
+ - normal-eps-in-gsi-mode: If present, two normal EPS (1 In, 1 Out) can be used in GSI mode
 
 This is usually a subnode to DWC3 glue to which it is connected.
 
