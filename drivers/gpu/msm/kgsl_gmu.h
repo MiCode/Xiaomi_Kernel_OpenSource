@@ -161,6 +161,8 @@ struct kgsl_mailbox {
  * @idle_level: Minimal GPU idle power level
  * @fault_count: GMU fault count
  * @mailbox: Messages to AOP for ACD enable/disable go through this
+ * @pdc_cfg_base: Base address of PDC cfg registers
+ * @pdc_seq_base: Base address of PDC seq registers
  */
 struct gmu_device {
 	unsigned int ver;
@@ -196,6 +198,8 @@ struct gmu_device {
 	unsigned int idle_level;
 	unsigned int fault_count;
 	struct kgsl_mailbox mailbox;
+	void __iomem *pdc_cfg_base;
+	void __iomem *pdc_seq_base;
 };
 
 struct gmu_memdesc *gmu_get_memdesc(unsigned int addr, unsigned int size);

@@ -2689,7 +2689,11 @@
 			nosmt=force: Force disable SMT, cannot be undone
 				     via the sysfs control file.
 
-	nospectre_v2	[X86] Disable all mitigations for the Spectre variant 2
+	nospectre_v1	[PPC] Disable mitigations for Spectre Variant 1 (bounds
+			check bypass). With this option data leaks are possible
+			in the system.
+
+	nospectre_v2	[X86,PPC_FSL_BOOK3E] Disable all mitigations for the Spectre variant 2
 			(indirect branch prediction) vulnerability. System may
 			allow data leaks with this option, which is equivalent
 			to spectre_v2=off.
@@ -3799,6 +3803,17 @@
 		protect_image	Turn on image protection during restoration
 				(that will set all pages holding image data
 				during restoration read-only).
+
+	noswap_randomize
+			Kernel uses random disk offsets to help with wear-levelling
+			of SSD devices, while saving the hibernation snapshot image to
+			disk. Use this parameter to disable this feature for SSD
+			devices in scenarios when, such randomization is addressed at
+			the firmware level and hibenration image is not re-generated
+			frequently.
+			(Useful for improving hibernation resume time as snapshot pages
+			are available in disk serially and can be read in bigger chunks
+			without seeking)
 
 	retain_initrd	[RAM] Keep initrd memory after extraction
 

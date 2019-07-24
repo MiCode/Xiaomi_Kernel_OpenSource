@@ -30,6 +30,7 @@
 #include "kgsl.h"
 #include "kgsl_hfi.h"
 #include "kgsl_trace.h"
+#include "kgsl_gmu.h"
 
 #define MIN_HBB		13
 
@@ -1445,6 +1446,11 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	int64_t adj = -1;
 	uint32_t counts[ADRENO_GPMU_THROTTLE_COUNTERS];
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+
+	if (!gmu_core_isenabled(device))
+		return 0;
 
 	for (i = 0; i < ARRAY_SIZE(counts); i++) {
 		if (!adreno_dev->gpmu_throttle_counters[i])
@@ -1458,12 +1464,18 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	/*
 	 * The adjustment is the number of cycles lost to throttling, which
 	 * is calculated as a weighted average of the cycles throttled
-	 * at 15%, 50%, and 90%. The adjustment is negative because in A6XX,
+	 * at 5% or 15% based on GMU FW version, 50%, and 90%.
+	 * The adjustment is negative because in A6XX,
 	 * the busy count includes the throttled cycles. Therefore, we want
 	 * to remove them to prevent appearing to be busier than
 	 * we actually are.
 	 */
-	adj *= ((counts[0] * 15) + (counts[1] * 50) + (counts[2] * 90)) / 100;
+	if (GMU_VER_STEP(gmu->ver) > 0x104)
+		adj *= ((counts[0] * 5) + (counts[1] * 50) + (counts[2] * 90))
+			/ 100;
+	else
+		adj *= ((counts[0] * 15) + (counts[1] * 50) + (counts[2] * 90))
+			/ 100;
 
 	trace_kgsl_clock_throttling(0, counts[1], counts[2],
 			counts[0], adj);
@@ -1628,7 +1640,7 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 			| gpu_scid;
 
 	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev) ||
-		adreno_is_a610(adreno_dev)) {
+		adreno_is_a610(adreno_dev) || adreno_is_a680(adreno_dev)) {
 		kgsl_regrmw(KGSL_DEVICE(adreno_dev), A6XX_GBIF_SCACHE_CNTL1,
 			A6XX_GPU_LLC_SCID_MASK, gpu_cntl1_val);
 	} else {
@@ -1651,7 +1663,7 @@ static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev)
 	 * XBL image.
 	 */
 	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev) ||
-		adreno_is_a610(adreno_dev))
+		adreno_is_a610(adreno_dev) || adreno_is_a680(adreno_dev))
 		return;
 
 	gpuhtw_scid = adreno_llc_get_scid(adreno_dev->gpuhtw_llc_slice);
@@ -1673,7 +1685,7 @@ static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev)
 	 * Attributes are used as configured through SMMU pagetable entries.
 	 */
 	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev) ||
-		adreno_is_a610(adreno_dev))
+		adreno_is_a610(adreno_dev) || adreno_is_a680(adreno_dev))
 		return;
 
 	/*

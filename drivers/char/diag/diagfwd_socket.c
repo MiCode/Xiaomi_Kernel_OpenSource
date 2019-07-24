@@ -632,13 +632,10 @@ static void handle_ctrl_pkt(struct diag_socket_info *info, void *buf, int len)
 				 info->name);
 
 			mutex_lock(&driver->diag_notifier_mutex);
-			if (bootup_req[info->peripheral] == PERIPHERAL_SSR_UP) {
+			if (bootup_req[info->peripheral] == PERIPHERAL_SSR_UP)
 				DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
-				"diag: %s is up, stopping cleanup: bootup_req = %d\n",
+				"diag: %s is up, bootup_req = %d\n",
 				info->name, (int)bootup_req[info->peripheral]);
-				mutex_unlock(&driver->diag_notifier_mutex);
-				break;
-			}
 			mutex_unlock(&driver->diag_notifier_mutex);
 			socket_close_channel(info);
 		}

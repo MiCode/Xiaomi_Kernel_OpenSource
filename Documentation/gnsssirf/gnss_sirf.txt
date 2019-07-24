@@ -1,0 +1,17 @@
+GNSS Driver for SiRFStar Chip
+=============================
+
+Description:
+This is a driver to handle SiRFStar GNSS chip power controls, a device node
+is created to interact with driver power controls and exposes set of IOCTLs.
+These IOCTLs provide mechanisms to transition of GNSS receiver power state.
+
+GPIO Usage:
+  probe will provide GPIO pins information to driver to control GNSS power
+
+Device Node Creation:
+ A device node is will be created as /dev/gnss_sirf
+
+Device Node Usage:
+ Device node /dev/gnss_sirf can be used to control ON_OFF & RESET pins of
+ SiRFStar GNSS receiver using exposed IOCTLS

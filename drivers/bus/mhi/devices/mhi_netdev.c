@@ -465,12 +465,12 @@ static int mhi_netdev_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 			/* Request to enable LPM */
 			MSG_VERB("Enable MHI LPM");
 			mhi_netdev->wake--;
-			mhi_device_put(mhi_dev);
+			mhi_device_put(mhi_dev, MHI_VOTE_DEVICE);
 		} else if (!ext_cmd.u.data && !mhi_netdev->wake) {
 			/* Request to disable LPM */
 			MSG_VERB("Disable MHI LPM");
 			mhi_netdev->wake++;
-			mhi_device_get(mhi_dev);
+			mhi_device_get(mhi_dev, MHI_VOTE_DEVICE);
 		}
 		break;
 	default:

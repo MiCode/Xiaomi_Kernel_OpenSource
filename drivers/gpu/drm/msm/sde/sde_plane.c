@@ -2236,7 +2236,7 @@ static void _sde_plane_rot_get_fb(struct drm_plane *plane,
 		SDE_DEBUG("cleared fb_id\n");
 		rstate->out_fb = NULL;
 	} else if (!rstate->out_fb) {
-		fb = drm_framebuffer_lookup(plane->dev, fb_id);
+		fb = drm_framebuffer_lookup(plane->dev, NULL, fb_id);
 		if (fb) {
 			SDE_DEBUG("plane%d.%d get fb:%d\n", plane->base.id,
 					rstate->sequence_id, fb_id);
@@ -3899,7 +3899,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	if (psde->revalidate) {
 		SDE_DEBUG("plane:%d - reconfigure all the parameters\n",
 				plane->base.id);
-		pstate->dirty = SDE_PLANE_DIRTY_ALL;
+		pstate->dirty = SDE_PLANE_DIRTY_ALL | SDE_PLANE_DIRTY_CP;
 		psde->revalidate = false;
 	}
 
@@ -5418,7 +5418,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 	psde->pipe = pipe;
 	psde->is_virtual = (master_plane_id != 0);
 	INIT_LIST_HEAD(&psde->mplane_list);
-	master_plane = drm_plane_find(dev, master_plane_id);
+	master_plane = drm_plane_find(dev, NULL, master_plane_id);
 	if (master_plane) {
 		struct sde_plane *mpsde = to_sde_plane(master_plane);
 

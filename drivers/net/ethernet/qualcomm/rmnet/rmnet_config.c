@@ -22,6 +22,7 @@
 #include "rmnet_vnd.h"
 #include "rmnet_private.h"
 #include "rmnet_map.h"
+#include "rmnet_descriptor.h"
 #include <soc/qcom/rmnet_qmi.h>
 #include <soc/qcom/qmi_rmnet.h>
 
@@ -89,6 +90,8 @@ static int rmnet_unregister_real_device(struct net_device *real_dev,
 	rmnet_map_cmd_exit(port);
 	rmnet_map_tx_aggregate_exit(port);
 
+	rmnet_descriptor_deinit(port);
+
 	kfree(port);
 
 	netdev_rx_handler_unregister(real_dev);
@@ -125,6 +128,12 @@ static int rmnet_register_real_device(struct net_device *real_dev)
 
 	for (entry = 0; entry < RMNET_MAX_LOGICAL_EP; entry++)
 		INIT_HLIST_HEAD(&port->muxed_ep[entry]);
+
+	rc = rmnet_descriptor_init(port);
+	if (rc) {
+		rmnet_descriptor_deinit(port);
+		return rc;
+	}
 
 	rmnet_map_tx_aggregate_init(port);
 	rmnet_map_cmd_init(port);

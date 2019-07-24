@@ -53,14 +53,21 @@
 
 		qcom,rx-proxy = <&atd_proxy_host>,
 				<&atd_proxy_uc>;
+		qcom,rx-proxy-mode = "counter";
 
-		qcom,rx-gsi-mod-count = <20>;
-		qcom,rx-gsi-mod-timer = <1>;
+		qcom,rx-ring-size = <4096>;
+		qcom,rx-buff-size = <2048>;
+		qcom,rx-int-mod-usecs = <64>;
 
-		qcom,tx-gsi-mod-count = <20>;
-		qcom,tx-gsi-mod-timer = <1>;
+		qcom,rx-gsi-mod-pc = <10>;
+		qcom,rx-gsi-mod-timer = <32>;
 
-		qcom,rx-mod-usecs = <30>;
+		qcom,tx-ring-size = <4096>;
+		qcom,tx-buff-size = <2048>;
+		qcom,tx-wrb-mod-pc = <25>;
+
+		qcom,tx-gsi-mod-pc = <10>;
+		qcom,tx-gsi-mod-timer = <32>;
 
 		qcom,use-pci-direct;
 

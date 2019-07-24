@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -143,13 +143,15 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 {
 	struct byte_cntr *byte_cntr_data = fp->private_data;
 	char *bufp;
-
+	int ret = 0;
 	if (!data)
 		return -EINVAL;
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
-	if (!byte_cntr_data->read_active)
+	if (!byte_cntr_data->read_active) {
+		ret = -EINVAL;
 		goto err0;
+	}
 
 	bufp = (char *)(tmcdrvdata->buf + *ppos);
 
@@ -157,11 +159,15 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 		if (!atomic_read(&byte_cntr_data->irq_cnt)) {
 			mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 			if (wait_event_interruptible(byte_cntr_data->wq,
-				atomic_read(&byte_cntr_data->irq_cnt) > 0))
+				atomic_read(&byte_cntr_data->irq_cnt) > 0
+				|| !byte_cntr_data->enable))
 				return -ERESTARTSYS;
 			mutex_lock(&byte_cntr_data->byte_cntr_lock);
-			if (!byte_cntr_data->read_active)
+			if (!byte_cntr_data->read_active) {
+				ret = -EINVAL;
 				goto err0;
+			}
+
 		}
 
 		if (tmcdrvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG)
@@ -183,8 +189,10 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 						    byte_cntr_data->block_size,
 						    1,
 						    &len, &bufp);
-			if (!len)
+			if (!len) {
+				ret = -EINVAL;
 				goto err0;
+			}
 		} else {
 			if (tmcdrvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG)
 				tmc_etr_read_bytes(byte_cntr_data, ppos,
@@ -208,9 +216,14 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 		*ppos = 0;
 	else
 		*ppos += len;
+
+	goto out;
+
 err0:
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
-
+	return ret;
+out:
+	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 	return len;
 }
 
@@ -221,7 +234,8 @@ void tmc_etr_byte_cntr_start(struct byte_cntr *byte_cntr_data)
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 
-	if (byte_cntr_data->block_size == 0) {
+	if (byte_cntr_data->block_size == 0
+		|| byte_cntr_data->read_active) {
 		mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 		return;
 	}
@@ -239,6 +253,8 @@ void tmc_etr_byte_cntr_stop(struct byte_cntr *byte_cntr_data)
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 	byte_cntr_data->enable = false;
+	byte_cntr_data->read_active = false;
+	wake_up(&byte_cntr_data->wq);
 	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 
@@ -266,7 +282,7 @@ static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 
-	if (!tmcdrvdata->enable || !byte_cntr_data->block_size) {
+	if (!byte_cntr_data->enable || !byte_cntr_data->block_size) {
 		mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 		return -EINVAL;
 	}
@@ -279,10 +295,8 @@ static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 
 	fp->private_data = byte_cntr_data;
 	nonseekable_open(in, fp);
-	byte_cntr_data->enable = true;
 	byte_cntr_data->read_active = true;
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
-
 	return 0;
 }
 

@@ -1058,3 +1058,13 @@ struct ipa_eth_resource *ipa_eth_net_ch_to_cb_mem(
 	return cb_mem;
 }
 EXPORT_SYMBOL(ipa_eth_net_ch_to_cb_mem);
+
+int ipa_eth_net_save_regs(struct ipa_eth_device *eth_dev)
+{
+	struct ipa_eth_net_driver *nd = eth_dev->nd;
+
+	if (nd && nd->ops->save_regs)
+		return ipa_eth_nd_op(eth_dev, save_regs, eth_dev, NULL, NULL);
+
+	return 0;
+}

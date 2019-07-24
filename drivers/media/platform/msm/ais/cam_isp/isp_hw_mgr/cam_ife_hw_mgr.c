@@ -2968,6 +2968,7 @@ start_only:
 		}
 	}
 
+	ctx->dual_ife_irq_mismatch_cnt = 0;
 	/* Start IFE root node: do nothing */
 	CAM_DBG(CAM_ISP, "Start success for ctx id:%d", ctx->ctx_index);
 
@@ -3050,6 +3051,7 @@ static int cam_ife_mgr_release_hw(void *hw_mgr_priv,
 	ctx->is_rdi_only_context = 0;
 	ctx->cdm_handle = 0;
 	ctx->cdm_ops = NULL;
+	ctx->dual_ife_irq_mismatch_cnt = 0;
 	atomic_set(&ctx->overflow_pending, 0);
 	for (i = 0; i < CAM_IFE_HW_NUM_MAX; i++) {
 		ctx->sof_cnt[i] = 0;
@@ -4062,6 +4064,36 @@ static void cam_ife_mgr_print_io_bufs(struct cam_packet *packet,
 	}
 }
 
+static void cam_ife_mgr_ctx_irq_dump(struct cam_ife_hw_mgr_ctx *ctx)
+{
+	struct cam_ife_hw_mgr_res        *hw_mgr_res;
+	struct cam_hw_intf               *hw_intf;
+	struct cam_isp_hw_get_cmd_update  cmd_update;
+	int i = 0;
+
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
+		if (hw_mgr_res->res_type == CAM_IFE_HW_MGR_RES_UNINIT)
+			continue;
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+			if (!hw_mgr_res->hw_res[i])
+				continue;
+			switch (hw_mgr_res->hw_res[i]->res_id) {
+			case CAM_ISP_HW_VFE_IN_CAMIF:
+				hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+				cmd_update.res = hw_mgr_res->hw_res[i];
+				cmd_update.cmd_type =
+					CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP;
+				hw_intf->hw_ops.process_cmd(hw_intf->hw_priv,
+					CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP,
+					&cmd_update, sizeof(cmd_update));
+				break;
+			default:
+				break;
+			}
+		}
+	}
+}
+
 static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 {
 	int rc = 0;
@@ -4732,11 +4764,26 @@ static int cam_ife_hw_mgr_check_irq_for_dual_vfe(
 		(event_cnt[core_idx1] &&
 		(event_cnt[core_idx1] - event_cnt[core_idx0] > 1))) {
 
+		if (ife_hw_mgr_ctx->dual_ife_irq_mismatch_cnt > 10) {
+			rc = -1;
+			return rc;
+		}
+
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
 			"One of the VFE could not generate hw event %d",
 			hw_event_type);
-		rc = -1;
-		return rc;
+		if (event_cnt[core_idx0] >= 2) {
+			event_cnt[core_idx0]--;
+			ife_hw_mgr_ctx->dual_ife_irq_mismatch_cnt++;
+		}
+		if (event_cnt[core_idx1] >= 2) {
+			event_cnt[core_idx1]--;
+			ife_hw_mgr_ctx->dual_ife_irq_mismatch_cnt++;
+		}
+
+		if (ife_hw_mgr_ctx->dual_ife_irq_mismatch_cnt == 1)
+			cam_ife_mgr_ctx_irq_dump(ife_hw_mgr_ctx);
+		rc = 0;
 	}
 
 	CAM_DBG(CAM_ISP, "Only one core_index has given hw event %d",

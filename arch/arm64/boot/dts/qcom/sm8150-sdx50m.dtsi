@@ -249,6 +249,10 @@
 };
 
 &soc {
+	ipa_hw: qcom,ipa@1e00000 {
+		qcom,ipa-mhi-proxy;
+	};
+
 	imp: qcom,ipa-mhi-proxy {
 		compatible = "qcom,ipa-mhi-proxy";
 		qcom,mhi-chdb-base = <0x40300300>;

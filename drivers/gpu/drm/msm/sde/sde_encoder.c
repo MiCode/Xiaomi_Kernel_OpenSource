@@ -1966,7 +1966,8 @@ static int _sde_encoder_update_rsc_client(
 			SDE_EVTLOG_FUNC_ENTRY);
 
 	if (crtc->base.id != wait_vblank_crtc_id) {
-		primary_crtc = drm_crtc_find(drm_enc->dev, wait_vblank_crtc_id);
+		primary_crtc = drm_crtc_find(drm_enc->dev,
+				NULL, wait_vblank_crtc_id);
 		if (!primary_crtc) {
 			SDE_ERROR_ENC(sde_enc,
 					"failed to find primary crtc id %d\n",
@@ -2489,8 +2490,14 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 		mutex_lock(&sde_enc->rc_lock);
 
-		/* return if the resource control is already in ON state */
-		if (sde_enc->rc_state != SDE_ENC_RC_STATE_ON) {
+		/* Nothing to do in off state */
+		if (sde_enc->rc_state == SDE_ENC_RC_STATE_OFF) {
+			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, rc in OFF state\n",
+					sw_event);
+			SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state);
+			mutex_unlock(&sde_enc->rc_lock);
+			return 0;
+		} else if (sde_enc->rc_state != SDE_ENC_RC_STATE_ON) {
 			/* enable all the clks and resources */
 			ret = _sde_encoder_resource_control_helper(drm_enc,
 					true);
@@ -2536,8 +2543,14 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 	case SDE_ENC_RC_EVENT_POST_MODESET:
 		mutex_lock(&sde_enc->rc_lock);
 
-		/* return if the resource control is already in ON state */
-		if (sde_enc->rc_state != SDE_ENC_RC_STATE_MODESET) {
+		/* Nothing to do in off state */
+		if (sde_enc->rc_state == SDE_ENC_RC_STATE_OFF) {
+			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, rc in OFF state\n",
+					sw_event);
+			SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state);
+			mutex_unlock(&sde_enc->rc_lock);
+			return 0;
+		} else if (sde_enc->rc_state != SDE_ENC_RC_STATE_MODESET) {
 			SDE_ERROR_ENC(sde_enc,
 					"sw_event:%d, rc:%d !MODESET state\n",
 					sw_event, sde_enc->rc_state);
@@ -2691,8 +2704,6 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	struct sde_kms *sde_kms;
 	struct list_head *connector_list;
 	struct drm_connector *conn = NULL, *conn_iter;
-	struct sde_connector_state *sde_conn_state = NULL;
-	struct sde_connector *sde_conn = NULL;
 	struct sde_rm_hw_iter dsc_iter, pp_iter, qdss_iter;
 	struct sde_rm_hw_request request_hw;
 	bool is_cmd_mode = false;
@@ -2739,20 +2750,6 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	} else if (!conn->state) {
 		SDE_ERROR_ENC(sde_enc, "invalid connector state\n");
 		return;
-	}
-
-	sde_conn = to_sde_connector(conn);
-	sde_conn_state = to_sde_connector_state(conn->state);
-	if (sde_conn && sde_conn_state) {
-		ret = sde_conn->ops.get_mode_info(&sde_conn->base, adj_mode,
-				&sde_conn_state->mode_info,
-				sde_kms->catalog->max_mixer_width,
-				sde_conn->display);
-		if (ret) {
-			SDE_ERROR_ENC(sde_enc,
-				"failed to get mode info from the display\n");
-			return;
-		}
 	}
 
 	/* release resources before seamless mode change */

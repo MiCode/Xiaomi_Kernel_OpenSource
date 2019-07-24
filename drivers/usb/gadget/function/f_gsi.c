@@ -565,7 +565,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	if (ret) {
 		log_event_err("%s: GSI_EP_OP_STARTXFER failed: %d\n",
 				__func__, ret);
-		return ret;
+		goto free_trb_ep_in;
 	}
 
 	d_port->in_xfer_rsc_index = usb_gsi_ep_op(d_port->in_ep, NULL,
@@ -613,7 +613,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		if (ret) {
 			log_event_err("%s: GSI_EP_OP_PREPARE_TRBS failed: %d\n",
 					__func__, ret);
-			return ret;
+			goto end_xfer_ep_in;
 		}
 
 		ret = usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
@@ -621,7 +621,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		if (ret) {
 			log_event_err("%s: GSI_EP_OP_STARTXFER failed: %d\n",
 					__func__, ret);
-			return ret;
+			goto free_trb_ep_out;
 		}
 
 		d_port->out_xfer_rsc_index =
@@ -705,7 +705,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 					conn_params);
 	if (ret) {
 		log_event_err("%s: IPA connect failed %d", __func__, ret);
-		return ret;
+		goto end_xfer_ep_out;
 	}
 	log_event_dbg("%s: xdci_connect done", __func__);
 
@@ -733,6 +733,23 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		d_port->out_request.db_reg_phs_addr_msb =
 			ipa_out_channel_out_params.db_reg_phs_addr_msb;
 	}
+
+	return ret;
+
+end_xfer_ep_out:
+	if (d_port->out_ep)
+		usb_gsi_ep_op(d_port->out_ep, NULL,
+			GSI_EP_OP_ENDXFER);
+free_trb_ep_out:
+	if (d_port->out_ep)
+		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
+			GSI_EP_OP_FREE_TRBS);
+end_xfer_ep_in:
+	usb_gsi_ep_op(d_port->in_ep, NULL,
+		GSI_EP_OP_ENDXFER);
+free_trb_ep_in:
+	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
+		GSI_EP_OP_FREE_TRBS);
 	return ret;
 }
 
@@ -936,14 +953,26 @@ static void ipa_work_handler(struct work_struct *w)
 			if (ret) {
 				log_event_err("%s: gsi_alloc_trb_failed\n",
 								__func__);
+				usb_gadget_autopm_put_async(d_port->gadget);
 				break;
 			}
 
 			d_port->sm_state = STATE_CONNECT_IN_PROGRESS;
 			log_event_dbg("%s: ST_INIT_EVT_CONN_IN_PROG",
 					__func__);
-			if (peek_event(d_port) != EVT_DISCONNECTED)
-				ipa_connect_channels(d_port);
+			if (peek_event(d_port) != EVT_DISCONNECTED) {
+				ret = ipa_connect_channels(d_port);
+				if (ret) {
+					log_event_err("%s: ipa_connect_channels failed\n",
+								__func__);
+					gsi_free_trb_buffer(gsi);
+					usb_gadget_autopm_put_async(
+								d_port->gadget);
+					d_port->sm_state = STATE_INITIALIZED;
+					break;
+				}
+			}
+
 		} else if (event == EVT_HOST_READY) {
 			/*
 			 * When in a composition such as RNDIS + ADB,
@@ -963,10 +992,19 @@ static void ipa_work_handler(struct work_struct *w)
 			if (ret) {
 				log_event_err("%s: gsi_alloc_trb_failed\n",
 								__func__);
+				usb_gadget_autopm_put_async(d_port->gadget);
 				break;
 			}
 
-			ipa_connect_channels(d_port);
+			ret = ipa_connect_channels(d_port);
+			if (ret) {
+				log_event_err("%s: ipa_connect_channels failed\n",
+							__func__);
+				gsi_free_trb_buffer(gsi);
+				usb_gadget_autopm_put_async(d_port->gadget);
+				break;
+			}
+
 			ipa_data_path_enable(d_port);
 			d_port->sm_state = STATE_CONNECTED;
 			log_event_dbg("%s: ST_INIT_EVT_HOST_READY", __func__);
@@ -1076,16 +1114,6 @@ static void ipa_work_handler(struct work_struct *w)
 		} else if (event == EVT_CONNECTED) {
 			d_port->sm_state = STATE_CONNECTED;
 			log_event_dbg("%s: ST_CON_EVT_CON", __func__);
-		}
-		break;
-	case STATE_DISCONNECTED:
-		if (event == EVT_CONNECT_IN_PROGRESS) {
-			ipa_connect_channels(d_port);
-			d_port->sm_state = STATE_CONNECT_IN_PROGRESS;
-			log_event_dbg("%s: ST_DIS_EVT_CON_IN_PROG", __func__);
-		} else if (event == EVT_UNINITIALIZED) {
-			d_port->sm_state = STATE_UNINITIALIZED;
-			log_event_dbg("%s: ST_DIS_EVT_UNINIT", __func__);
 		}
 		break;
 	case STATE_SUSPEND_IN_PROGRESS:
@@ -3185,7 +3213,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		gsi->d_port.in_aggr_size = GSI_IN_MBIM_AGGR_SIZE;
 		info.in_req_buf_len = GSI_IN_MBIM_AGGR_SIZE;
 		info.in_req_num_buf = GSI_NUM_IN_BUFFERS;
-		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
+		gsi->d_port.out_aggr_size = GSI_OUT_MBIM_AGGR_SIZE;
 		info.out_req_buf_len = GSI_OUT_MBIM_BUF_LEN;
 		info.out_req_num_buf = GSI_NUM_OUT_BUFFERS;
 		info.notify_buf_len = sizeof(struct usb_cdc_notification);

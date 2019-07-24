@@ -695,7 +695,8 @@ void msm_isp_process_reg_upd_epoch_irq(struct vfe_device *vfe_dev,
 				uint32_t drop_reconfig =
 					vfe_dev->isp_page->drop_reconfig;
 				if (stream_info->num_isp > 1 &&
-					vfe_dev->pdev->id == ISP_VFE0) {
+					vfe_dev->pdev->id == ISP_VFE0 &&
+					!vfe_dev->dual_vfe_sync_mode) {
 					c_data = vfe_dev->common_data;
 					temp = c_data->dual_vfe_res->vfe_dev[
 						ISP_VFE1];
@@ -3700,8 +3701,14 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		return -EINVAL;
 	}
 
-	/* return early for dual vfe0 */
-	if (stream_info->num_isp > 1 && vfe_dev->pdev->id == ISP_VFE0)
+	/* return early for dual vfe */
+	if (stream_info->num_isp > 1 &&
+		vfe_dev->pdev->id == ISP_VFE1 &&
+		vfe_dev->dual_vfe_sync_mode)
+		return 0;
+	if (stream_info->num_isp > 1 &&
+		vfe_dev->pdev->id == ISP_VFE0 &&
+		!vfe_dev->dual_vfe_sync_mode)
 		return 0;
 
 	if (stream_info->stream_src >= VFE_AXI_SRC_MAX) {

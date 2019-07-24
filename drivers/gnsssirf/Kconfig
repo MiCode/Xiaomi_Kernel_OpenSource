@@ -1,0 +1,11 @@
+#
+# SIRF GNSS receiver configuration
+#
+
+menu "GNSS SIRF controls"
+config GNSS_SIRF
+        bool "GNSS SIRF"
+        help
+          Driver for ports of GNSS SIRF functionality
+
+endmenu

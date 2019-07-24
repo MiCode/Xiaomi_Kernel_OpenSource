@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,12 @@
 #define GMU_DEV_OP_VALID(_devops, _field) \
 	(((_devops) != NULL) && \
 	 ((_devops)->_field != NULL))
+
+#define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
+#define GMU_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)
+#define GMU_VER_STEP(ver) (((ver) >> 0) & 0xFFFF)
+#define GMU_VERSION(major, minor) \
+	((((major) & 0xF) << 28) | (((minor) & 0xFFF) << 16))
 
 #define NUM_BW_LEVELS		100
 #define MAX_GX_LEVELS		16
@@ -134,6 +140,7 @@ struct gmu_core_ops {
 	bool (*regulator_isenabled)(struct kgsl_device *device);
 	int (*suspend)(struct kgsl_device *device);
 	int (*acd_set)(struct kgsl_device *device, unsigned int val);
+	bool (*is_initialized)(struct kgsl_device *device);
 };
 
 struct gmu_dev_ops {
@@ -159,6 +166,7 @@ struct gmu_dev_ops {
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
 	void (*halt_execution)(struct kgsl_device *device);
 	int (*wait_for_active_transition)(struct adreno_device *adreno_dev);
+	bool (*is_initialized)(struct adreno_device *adreno_dev);
 	const unsigned int gmu2host_intr_mask;
 	const unsigned int gmu_ao_intr_mask;
 };
@@ -209,7 +217,18 @@ void gmu_core_regread(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int *value);
 void gmu_core_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int value);
+
+/**
+ * gmu_core_blkwrite() - Do a bulk I/O write to GMU
+ * @device: Pointer to the kgsl device
+ * @offsetwords: Destination dword offset
+ * @buffer: Pointer to the source buffer
+ * @size: Number of bytes to copy
+ */
+void gmu_core_blkwrite(struct kgsl_device *device, unsigned int offsetwords,
+		const void *buffer, size_t size);
 void gmu_core_regrmw(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int mask, unsigned int bits);
 const char *gmu_core_oob_type_str(enum oob_request req);
+bool gmu_core_is_initialized(struct kgsl_device *device);
 #endif /* __KGSL_GMU_CORE_H */

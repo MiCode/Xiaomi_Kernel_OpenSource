@@ -212,6 +212,16 @@ void ipa_eth_offload_unregister_driver(struct ipa_eth_offload_driver *od)
 	mutex_unlock(&ipa_eth_offload_drivers_lock);
 }
 
+int ipa_eth_offload_save_regs(struct ipa_eth_device *eth_dev)
+{
+	struct ipa_eth_offload_driver *od = eth_dev->od;
+
+	if (od && od->ops->save_regs)
+		return eth_dev->od->ops->save_regs(eth_dev, NULL, NULL);
+
+	return 0;
+}
+
 int ipa_eth_offload_modinit(struct dentry *dbgfs_root)
 {
 	int rc;

@@ -38,9 +38,10 @@
  *                  defined via struct ipa_eth_dma_allocator interface
  *                - probe() and remove() offload bus ops are replaced by pair()
  *                  and unpair() callbacks respectively
+ *           3    - Added .save_regs() callback for network and offload drivers
  */
 
-#define IPA_ETH_API_VER 2
+#define IPA_ETH_API_VER 3
 
 /**
  * enum ipa_eth_dev_features - Features supported by an ethernet device or
@@ -687,6 +688,17 @@ struct ipa_eth_net_ops {
 	 */
 	int (*transmit_skb)(struct ipa_eth_device *eth_dev,
 		struct sk_buff *skb);
+
+	/**
+	 * .save_regs() - Save registers for debugging
+	 * @eth_dev: Offloaded device
+	 * @regs: if not NULL, write saved data address to the given pointer
+	 * @size: if not NULL, write the size of saved data to the given pointer
+	 *
+	 * Return: 0 on success, errno otherwise.
+	 */
+	int (*save_regs)(struct ipa_eth_device *eth_dev,
+		void **regs, size_t *size);
 };
 
 /**
@@ -877,6 +889,17 @@ struct ipa_eth_offload_ops {
 	 * Return: 0 on success, negative errno otherwise
 	 */
 	int (*clear_stats)(struct ipa_eth_device *eth_dev);
+
+	/**
+	 * .save_regs() - Save registers for debugging
+	 * @eth_dev: Offloaded device
+	 * @regs: if not NULL, write saved data address to the given pointer
+	 * @size: if not NULL, write the size of saved data to the given pointer
+	 *
+	 * Return: 0 on success, errno otherwise.
+	 */
+	int (*save_regs)(struct ipa_eth_device *eth_dev,
+		void **regs, size_t *size);
 };
 
 /**

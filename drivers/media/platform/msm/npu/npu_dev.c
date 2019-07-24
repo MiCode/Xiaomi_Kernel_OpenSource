@@ -1483,6 +1483,11 @@ static int npu_exec_network(struct npu_client *client,
 		return -EINVAL;
 	}
 
+	if (!req.patching_required) {
+		pr_err("Only support patched network");
+		return -EINVAL;
+	}
+
 	ret = npu_host_exec_network(client, &req);
 
 	if (ret) {
@@ -1513,7 +1518,8 @@ static int npu_exec_network_v2(struct npu_client *client,
 		return -EFAULT;
 	}
 
-	if (req.patch_buf_info_num > NPU_MAX_PATCH_NUM) {
+	if ((req.patch_buf_info_num > NPU_MAX_PATCH_NUM) ||
+		(req.patch_buf_info_num == 0)) {
 		pr_err("Invalid patch buf info num %d[max:%d]\n",
 			req.patch_buf_info_num, NPU_MAX_PATCH_NUM);
 		return -EINVAL;

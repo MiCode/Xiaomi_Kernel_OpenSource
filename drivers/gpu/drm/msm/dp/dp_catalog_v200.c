@@ -121,11 +121,13 @@ static void dp_catalog_aux_setup_v200(struct dp_catalog_aux *aux,
 
 	dp_write(catalog->exe_mode, io_data, DP_PHY_CTRL, 0x4); /* bit 2 */
 	udelay(1000);
-	dp_write(catalog->exe_mode, io_data, DP_PHY_CTRL, 0x0); /* bit 2 */
-	wmb(); /* make sure programming happened */
 
 	io_data = catalog->io->dp_tcsr;
 	dp_write(catalog->exe_mode, io_data, 0x0, 0x1);
+	wmb(); /* make sure programming happened */
+
+	io_data = catalog->io->dp_ahb;
+	dp_write(catalog->exe_mode, io_data, DP_PHY_CTRL, 0x0); /* bit 2 */
 	wmb(); /* make sure programming happened */
 
 	io_data = catalog->io->dp_phy;
@@ -155,6 +157,8 @@ static void dp_catalog_panel_config_msa_v200(struct dp_catalog_panel *panel,
 	u32 const link_rate_hbr3 = 810000;
 	struct dp_catalog_private_v200 *catalog;
 	struct dp_io_data *io_data;
+	u32 strm_reg_off = 0;
+	u32 mvid_reg_off = 0, nvid_reg_off = 0;
 
 	if (!panel) {
 		pr_err("invalid input\n");
@@ -167,11 +171,13 @@ static void dp_catalog_panel_config_msa_v200(struct dp_catalog_panel *panel,
 	}
 
 	catalog = dp_catalog_get_priv_v200(panel);
-
 	io_data = catalog->io->dp_pixel_mn;
 
-	pixel_m = dp_read(catalog->exe_mode, io_data, 0x0);
-	pixel_n = dp_read(catalog->exe_mode, io_data, 0x4);
+	if (panel->stream_id == DP_STREAM_1)
+		strm_reg_off = MMSS_DP_PIXEL1_M_V200 - MMSS_DP_PIXEL_M_V200;
+
+	pixel_m = dp_read(catalog->exe_mode, io_data, strm_reg_off + 0x0);
+	pixel_n = dp_read(catalog->exe_mode, io_data, strm_reg_off + 0x4);
 	pr_debug("pixel_m=0x%x, pixel_n=0x%x\n", pixel_m, pixel_n);
 
 	mvid = (pixel_m & 0xFFFF) * 5;
@@ -198,9 +204,16 @@ static void dp_catalog_panel_config_msa_v200(struct dp_catalog_panel *panel,
 
 	io_data = catalog->io->dp_link;
 
+	if (panel->stream_id == DP_STREAM_1) {
+		mvid_reg_off = DP1_SOFTWARE_MVID - DP_SOFTWARE_MVID;
+		nvid_reg_off = DP1_SOFTWARE_NVID - DP_SOFTWARE_NVID;
+	}
+
 	pr_debug("mvid=0x%x, nvid=0x%x\n", mvid, nvid);
-	dp_write(catalog->exe_mode, io_data, DP_SOFTWARE_MVID, mvid);
-	dp_write(catalog->exe_mode, io_data, DP_SOFTWARE_NVID, nvid);
+	dp_write(catalog->exe_mode, io_data, DP_SOFTWARE_MVID + mvid_reg_off,
+			mvid);
+	dp_write(catalog->exe_mode, io_data, DP_SOFTWARE_NVID + nvid_reg_off,
+			nvid);
 }
 
 static void dp_catalog_ctrl_update_vx_px_v200(struct dp_catalog_ctrl *ctrl,
