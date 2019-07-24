@@ -118,6 +118,10 @@
 			#size-cells = <1>;
 		};
 
+		pmic_lbat_service {
+			compatible = "mediatek,mt6359-lbat_service";
+		};
+
 		mt6359regulator: mt6359regulator {
 			compatible = "mediatek,mt6359-regulator";
 			mt6359_vs1_buck_reg: buck_vs1 {
