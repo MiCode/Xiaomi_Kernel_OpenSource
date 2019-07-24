@@ -2585,7 +2585,11 @@ void update_best_cluster(struct related_thread_group *grp,
 				   u64 demand, bool boost)
 {
 	if (boost) {
-		grp->skip_min = true;
+		/*
+		 * since we are in boost, we can keep grp on min, the boosts
+		 * will ensure tasks get to bigs
+		 */
+		grp->skip_min = false;
 		return;
 	}
 
@@ -3131,9 +3135,6 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 static bool is_rtgb_active(void)
 {
 	struct related_thread_group *grp;
-
-	if (sched_boost() == CONSERVATIVE_BOOST)
-		return false;
 
 	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);
 	return grp && grp->skip_min;
