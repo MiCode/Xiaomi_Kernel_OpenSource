@@ -91,6 +91,16 @@ config MTK_POWER_THROTTLING_COMMON
 	  Select "y" if you want to enable power throttling feature
 	  Select "n" if unsure.
 
+config PMIC_LBAT_SERVICE
+	bool "PMIC lbat service"
+	select MTK_POWER_THROTTLING_COMMON
+	help
+	  For MediaTek PMIC lbat service.
+	  It will detect if VBAT is higher or lower some threshold and trigger
+	  interrupt to notify.
+	  Select "y" if you want to enable PMIC lbat service.
+	  Select "n" if unsure.
+
 config MTK_BATTERY_PERCENTAGE_POWER_THROTTLING
 	bool "MTK battery percentage throttle"
 	select MTK_POWER_THROTTLING_COMMON
