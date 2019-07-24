@@ -114,6 +114,11 @@ static const struct resource mt6359_keys_resources[] = {
 	DEFINE_RES_IRQ(MT6359_IRQ_HOMEKEY_R),
 };
 
+static const struct resource mt6359_lbat_service_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_BAT_H, "bat_h"),
+	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_BAT_L, "bat_l"),
+};
+
 static const struct resource mt6359_regulators_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_VPU_OC, "VPU"),
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_VCORE_OC, "VCORE"),
@@ -208,6 +213,11 @@ static const struct mfd_cell mt6359_devs[] = {
 	}, {
 		.name = "mt6359-efuse",
 		.of_compatible = "mediatek,mt6359-efuse",
+	}, {
+		.name = "mt6359-lbat_service",
+		.of_compatible = "mediatek,mt6359-lbat_service",
+		.num_resources = ARRAY_SIZE(mt6359_lbat_service_resources),
+		.resources = mt6359_lbat_service_resources,
 	}, {
 		.name = "mt6359-regulator",
 		.of_compatible = "mediatek,mt6359-regulator",
