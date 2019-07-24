@@ -82,7 +82,7 @@ static int mtk_fhctl_parse_dt(struct mtk_fhctl *fhctl)
 		}
 
 		if (id >= pll_num) {
-			dev_info(dev, "invalid %s fh-id:%d", id, child->name);
+			dev_info(dev, "invalid %s fh-id:%d", child->name, id);
 			return -EINVAL;
 		}
 
