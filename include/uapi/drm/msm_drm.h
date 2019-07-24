@@ -69,6 +69,21 @@ struct drm_msm_timespec {
 };
 
 /*
+ * Colorimetry Data Block values
+ * These bit nums are defined as per the CTA spec
+ * and indicate the colorspaces supported by the sink
+ */
+#define DRM_EDID_CLRMETRY_xvYCC_601   (1 << 0)
+#define DRM_EDID_CLRMETRY_xvYCC_709   (1 << 1)
+#define DRM_EDID_CLRMETRY_sYCC_601    (1 << 2)
+#define DRM_EDID_CLRMETRY_ADOBE_YCC_601  (1 << 3)
+#define DRM_EDID_CLRMETRY_ADOBE_RGB     (1 << 4)
+#define DRM_EDID_CLRMETRY_BT2020_CYCC (1 << 5)
+#define DRM_EDID_CLRMETRY_BT2020_YCC  (1 << 6)
+#define DRM_EDID_CLRMETRY_BT2020_RGB  (1 << 7)
+#define DRM_EDID_CLRMETRY_DCI_P3      (1 << 15)
+
+/*
  * HDR Metadata
  * These are defined as per EDID spec and shall be used by the sink
  * to set the HDR metadata for playback from userspace.
