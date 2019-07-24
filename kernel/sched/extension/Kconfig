@@ -1,8 +1,17 @@
-menu "MTK load balance and schedule enhancement"
+menu "MTK scheduler extension"
+
+config MTK_SCHED_EXTENSION
+	bool "mtk scheduler extension"
+	help
+	  MTK scheduler extension,
+	  1. include MTK scheduler enhancement.
+	  2. All MTK scheduler sub-feature config should depend on
+	     this config.
+	  Say Y to enable MTK scheduler extension. If unsure, say N.
 
 config MTK_IDLE_BALANCE_ENHANCEMENT
 	bool "mtk load balance enhancement"
-	depends on SMP && ENERGY_MODEL && CPU_FREQ_GOV_SCHEDUTIL
+	depends on MTK_SCHED_EXTENSION && SMP && ENERGY_MODEL && CPU_FREQ_GOV_SCHEDUTIL
 	help
 	  Mediatek aggressive idle balance, include
 	  1. for runnable tasks with idle prefer attributes
@@ -12,7 +21,7 @@ config MTK_IDLE_BALANCE_ENHANCEMENT
 
 config MTK_SCHED_INTEROP
 	bool "mtk scheduling interopation enhancement"
-	default n
+	depends on MTK_SCHED_EXTENSION
 	help
 	   Original Linux Design, RT & CFS do load balance seperatedly,
 	   and let would result in unload balance.
@@ -21,6 +30,7 @@ config MTK_SCHED_INTEROP
 
 config MTK_SCHED_LB_ENHANCEMENT
 	bool "mtk enhancement for load balance"
+	depends on MTK_SCHED_EXTENSION
 	help
 	   mtk enhancement for load balance
 	   system overutilization,
@@ -29,18 +39,16 @@ config MTK_SCHED_LB_ENHANCEMENT
 
 config MTK_SCHED_TRACERS
 	bool "mtk scheduling trace, output mtk schedule trace into FTRACE"
+	depends on MTK_SCHED_EXTENSION
 	help
 	  Mediatek scheduling trace, output mtk schedule trace into FTRACE,
 	  Mediatek enhancements to vanilla linux kernel. Export scheduling
 	  trace in sched_switch events.
 	  Say Y to enable mtk scheduling trace.If unsure, say N
 
-endmenu
-
-menu "MTK Heterogenous MultiProcessor Scheduler"
 config MTK_SCHED_CPU_PREFER
 	bool "mtk scheduling boost enhancement"
-	depends on ENERGY_MODEL && CPU_FREQ_GOV_SCHEDUTIL
+	depends on MTK_SCHED_EXTENSION && ENERGY_MODEL && CPU_FREQ_GOV_SCHEDUTIL
 	help
 	   task level to prefer to put the task
 	   on big core or little core.

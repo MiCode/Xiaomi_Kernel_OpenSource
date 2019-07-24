@@ -860,8 +860,10 @@ static int do_sched_rt_period_timer(struct rt_bandwidth *rt_b, int overrun)
 				rt_rq->rt_throttled = 0;
 				enqueue = 1;
 
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 				printk_deferred("[name:rt&]sched: RT throttling inactivated cpu=%d\n",
 						i);
+#endif
 
 				/*
 				 * When we're idle and a woken (rt) task is
@@ -931,7 +933,11 @@ static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
 		 */
 		if (likely(rt_b->rt_runtime)) {
 			rt_rq->rt_throttled = 1;
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 			printk_deferred("[name:rt&]sched: RT throttling activated\n");
+#else
+			printk_deferred_once("sched: RT throttling activated\n");
+#endif
 		} else {
 			/*
 			 * In case we did anyway, make it go away,

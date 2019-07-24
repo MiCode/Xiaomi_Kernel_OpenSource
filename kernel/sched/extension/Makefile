@@ -1,5 +1,3 @@
 subdir-ccflags-y += -I$(srctree)/kernel/sched
 
-obj-y += eas_plus.o
-obj-y += debug.o
-obj-y += tuning.o
+obj-$(CONFIG_MTK_SCHED_EXTENSION) += eas_plus.o debug.o tuning.o

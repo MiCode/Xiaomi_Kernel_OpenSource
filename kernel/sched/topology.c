@@ -373,9 +373,11 @@ static bool build_perf_domains(const struct cpumask *cpu_map)
 
 	perf_domain_debug(cpu_map, pd);
 
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 	/* Initializing perf order domain. */
 	if (!pod_is_ready())
 		init_perf_order_domains(pd);
+#endif
 
 	/* Attach the new list of performance domains to the root domain. */
 	tmp = rd->pd;

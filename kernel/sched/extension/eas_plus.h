@@ -23,6 +23,8 @@
 #define LB_CPU_PREFER   (0x10  << LB_POLICY_SHIFT)
 #endif
 
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+
 #if defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)
 struct perf_order_domain {
 	struct cpumask cpus;
@@ -73,5 +75,7 @@ int task_prefer_fit(struct task_struct *p, int cpu);
 int select_task_prefer_cpu(struct task_struct *p, int new_cpu);
 void select_task_prefer_cpu_fair(struct task_struct *p, int *result);
 #endif
+
+#endif /* CONFIG_MTK_SCHED_EXTENSION */
 
 #endif

@@ -3,6 +3,11 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#ifndef _EXTENSION_TUNING_H
+#define _EXTENSION_TUNING_H
+
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+
 #include <linux/types.h>
 #include <linux/cgroup.h>
 #include <linux/sched.h>
@@ -20,4 +25,8 @@ void cpu_util_update(struct cgroup_subsys_state *css,
 		unsigned int clamp_id, unsigned int group_id,
 		unsigned int value);
 #endif
+#endif
+
+#endif /* CONFIG_MTK_SCHED_EXTENSION */
+
 #endif
