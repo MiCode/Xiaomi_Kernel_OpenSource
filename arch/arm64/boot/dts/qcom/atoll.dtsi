@@ -573,6 +573,13 @@
 			reg = <0 0x9e000000 0 0x1400000>;
 		};
 
+		qseecom_ta_mem: qseecom_ta_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0x400000>;
+			size = <0x1000000>;
+		};
+
 		cdsp_sec_mem: cdsp_sec_regions@0x9f400000 {
 			compatible = "removed-dma-pool";
 			no-map;
@@ -865,6 +872,23 @@
 		reg = <0xc264000 0x4>,
 		      <0x1fd3000 0x4>;
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
+	};
+
+	qcom_seecom: qseecom@82200000 {
+		compatible = "qcom,qseecom";
+		reg = <0x82200000 0x2200000>;
+		reg-names = "secapp-region";
+		memory-region = <&qseecom_mem>;
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,support-fde;
+		qcom,no-clock-support;
+		qcom,fde-key-size;
+		qcom,appsbl-qseecom-support;
+		qcom,commonlib64-loaded-by-uefi;
+		qcom,qsee-reentrancy-support = <2>;
 	};
 
 	aop-msg-client {
