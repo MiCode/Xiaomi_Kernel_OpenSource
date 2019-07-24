@@ -5130,6 +5130,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->use_ipa_teth_bridge = resource_p->use_ipa_teth_bridge;
 	ipa3_ctx->modem_cfg_emb_pipe_flt = resource_p->modem_cfg_emb_pipe_flt;
 	ipa3_ctx->ipa_wdi2 = resource_p->ipa_wdi2;
+	ipa3_ctx->ipa_config_is_auto = resource_p->ipa_config_is_auto;
 	ipa3_ctx->use_64_bit_dma_mask = resource_p->use_64_bit_dma_mask;
 	ipa3_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
 	ipa3_ctx->lan_rx_ring_size = resource_p->lan_rx_ring_size;
@@ -5701,6 +5702,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa3_hw_mode = 0;
 	ipa_drv_res->modem_cfg_emb_pipe_flt = false;
 	ipa_drv_res->ipa_wdi2 = false;
+	ipa_drv_res->ipa_config_is_auto = false;
 	ipa_drv_res->ipa_mhi_dynamic_config = false;
 	ipa_drv_res->use_64_bit_dma_mask = false;
 	ipa_drv_res->use_bw_vote = false;
@@ -5783,6 +5785,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			"qcom,ipa-wdi2");
 	IPADBG(": WDI-2.0 = %s\n",
 			ipa_drv_res->ipa_wdi2
+			? "True" : "False");
+
+	ipa_drv_res->ipa_config_is_auto =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,ipa-config-is-auto");
+	IPADBG(": ipa-config-is-auto = %s\n",
+			ipa_drv_res->ipa_config_is_auto
 			? "True" : "False");
 
 	ipa_drv_res->use_64_bit_dma_mask =

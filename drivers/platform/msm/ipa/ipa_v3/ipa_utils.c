@@ -144,6 +144,7 @@
 #define IPA_v4_0_GROUP_UL_DL		(1)
 #define IPA_v4_0_MHI_GROUP_DDR		(1)
 #define IPA_v4_0_MHI_GROUP_DMA		(2)
+#define IPA_v4_0_GROUP_CV2X			(2)
 #define IPA_v4_0_GROUP_UC_RX_Q		(3)
 #define IPA_v4_0_SRC_GROUP_MAX		(4)
 #define IPA_v4_0_DST_GROUP_MAX		(4)
@@ -216,6 +217,8 @@ enum ipa_ver {
 	IPA_3_5_1,
 	IPA_4_0,
 	IPA_4_0_MHI,
+	IPA_4_0_AUTO,
+	IPA_4_0_AUTO_MHI,
 	IPA_VER_MAX,
 };
 
@@ -305,6 +308,32 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
 		{14, 14}, {14, 14}, {14, 14}, {0, 0}, {0, 0}, {0, 0} },
 	},
+	[IPA_4_0_AUTO] = {
+		/*not-used  UL_DL    CV2X  not-used, other are invalid */
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
+		{0, 0}, {1, 255}, {1, 1}, {0, 0}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS] = {
+		{0, 0}, {10, 10}, {8, 8}, {0, 0}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
+		{0, 0}, {14, 14}, {8, 8}, {0, 0}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
+		{0, 255}, {0, 255}, {0, 255}, {0, 255},  {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
+		{0, 0}, {20, 20}, {14, 14}, {0, 0}, {0, 0}, {0, 0} },
+	},
+	[IPA_4_0_AUTO_MHI] = {
+		/* PCIE  DDR   DMA/CV2X not used, other are invalid */
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
+		{4, 4}, {5, 5}, {1, 1}, {0, 0}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS] = {
+		{10, 10}, {10, 10}, {8, 8}, {0, 0}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
+		{12, 12}, {12, 12}, {8, 8}, {0, 0}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
+		{0, 255}, {0, 255}, {0, 255}, {0, 255},  {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
+		{14, 14}, {14, 14}, {14, 14}, {0, 0}, {0, 0}, {0, 0} },
+	},
 };
 
 static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
@@ -353,6 +382,20 @@ static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
 		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
 		{2, 255}, {1, 255}, {1, 2}, {0, 2}, {0, 0}, {0, 0} },
 	},
+	[IPA_4_0_AUTO] = {
+		/*PCIE UL/DL/DPL DMA/CV2X, other are invalid */
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
+		{4, 4}, {4, 4}, {3, 3}, {2, 2}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
+		{2, 255}, {1, 255}, {1, 2}, {0, 2}, {0, 0}, {0, 0} },
+	},
+	[IPA_4_0_AUTO_MHI] = {
+		/*PCIE    DDR  DMA/CV2X, other are invalid */
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
+		{4, 4}, {4, 4}, {3, 3}, {2, 2}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
+		{2, 255}, {1, 255}, {1, 2}, {0, 2}, {0, 0}, {0, 0} },
+	},
 };
 
 static const struct rsrc_min_max ipa3_rsrc_rx_grp_config
@@ -387,6 +430,16 @@ static const struct rsrc_min_max ipa3_rsrc_rx_grp_config
 		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
 		{ 3, 3 }, { 7, 7 }, { 2, 2 }, { 0, 0 }, { 0, 0 }, { 0, 0 } },
 	},
+	[IPA_4_0_AUTO] = {
+		/*not-used  UL_DL CV2X  not-used, other are invalid */
+		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
+		{0, 0}, {7, 7}, {2, 2}, {0, 0}, {0, 0}, {0, 0} },
+	},
+	[IPA_4_0_AUTO_MHI] = {
+		/* PCIE  DDR   DMA/CV2X not used, other are invalid */
+		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
+		{ 3, 3 }, { 7, 7 }, { 2, 2 }, { 0, 0 }, { 0, 0 }, { 0, 0 } },
+	},
 };
 
 static const u32 ipa3_rsrc_rx_grp_hps_weight_config
@@ -414,6 +467,14 @@ static const u32 ipa3_rsrc_rx_grp_hps_weight_config
 	[IPA_4_0_MHI] = {
 		/* PCIE   DDR	     DMA       unused   N/A        N/A */
 		[IPA_RSRC_GRP_TYPE_RX_HPS_WEIGHT_CONFIG] = { 3, 5, 1, 1, 0, 0 },
+	},
+	[IPA_4_0_AUTO] = {
+		/*not-used  UL_DL CV2X  not-used, other are invalid */
+		[IPA_RSRC_GRP_TYPE_RX_HPS_WEIGHT_CONFIG] = { 0, 1, 1, 0, 0, 0 },
+	},
+	[IPA_4_0_AUTO_MHI] = {
+		/* PCIE  DDR   DMA/CV2X not used, other are invalid */
+		[IPA_RSRC_GRP_TYPE_RX_HPS_WEIGHT_CONFIG] = { 3, 5, 1, 0, 0, 0 },
 	},
 };
 
@@ -1494,6 +1555,417 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 31, 31, 8, 8, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
+
+	/* IPA_4_0_AUTO */
+	[IPA_4_0_AUTO][IPA_CLIENT_WLAN1_PROD]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			QMB_MASTER_SELECT_DDR,
+			{ 6, 2, 8, 16, IPA_EE_UC, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO][IPA_CLIENT_USB_PROD]            = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			QMB_MASTER_SELECT_DDR,
+			{ 0, 0, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_USB2_PROD]            = {
+			true, IPA_v4_0_GROUP_CV2X,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
+			QMB_MASTER_SELECT_DDR,
+			{ 7, 3, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_APPS_LAN_PROD]   = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 8, 11, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_APPS_WAN_PROD] = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			QMB_MASTER_SELECT_DDR,
+			{ 2, 4, 16, 32, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_APPS_CMD_PROD]	  = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
+			QMB_MASTER_SELECT_DDR,
+			{ 5, 7, 20, 24, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO][IPA_CLIENT_ODU_PROD]            = {
+			false, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			QMB_MASTER_SELECT_DDR,
+			{ 1, 0, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_ETHERNET_PROD]	  = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			QMB_MASTER_SELECT_DDR,
+			{ 9, 0, 8, 16, IPA_EE_UC, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO][IPA_CLIENT_Q6_WAN_PROD]         = {
+			false, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 3, 0, 16, 32, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO][IPA_CLIENT_Q6_CMD_PROD]	  = {
+			false, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 4, 1, 20, 24, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
+	/* Only for test purpose */
+	[IPA_4_0_AUTO][IPA_CLIENT_TEST_PROD]           = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{0, 8, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_TEST1_PROD]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{0, 8, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_TEST2_PROD]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 1, 0, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_TEST3_PROD]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 7, 9, 8, 16, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO][IPA_CLIENT_TEST4_PROD]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{8, 10, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+
+
+	[IPA_4_0_AUTO][IPA_CLIENT_WLAN1_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 18, 3, 6, 9, IPA_EE_UC, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO][IPA_CLIENT_WLAN2_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 20, 12, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_WLAN3_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 21, 13, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_USB_CONS]            = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 19, 6, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_USB_DPL_CONS]        = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 15, 10, 5, 5, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_MHI_DPL_CONS]        = {
+			false, IPA_v4_0_MHI_GROUP_PCIE,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 12, 2, 5, 5, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_APPS_LAN_CONS]       = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 10, 8, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_APPS_WAN_CONS]       = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 11, 9, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_USB2_CONS]        = {
+			true, IPA_v4_0_GROUP_CV2X,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 17, 1, 9, 9, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO][IPA_CLIENT_ETHERNET_CONS]	  = {
+			true, IPA_v4_0_ETHERNET,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 22, 1, 9, 9, IPA_EE_UC, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO][IPA_CLIENT_Q6_LAN_CONS]         = {
+			false, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 14, 4, 9, 9, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO][IPA_CLIENT_Q6_WAN_CONS]         = {
+			false, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 13, 3, 9, 9, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS] = {
+			false, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 16, 5, 9, 9, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
+	/* Only for test purpose */
+	/* MBIM aggregation test pipes should have the same QMB as USB_CONS */
+	[IPA_4_0_AUTO][IPA_CLIENT_TEST_CONS]           = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 11, 6, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_TEST1_CONS]           = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 11, 6, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_TEST2_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 12, 2, 5, 5, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_TEST3_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 19, 12, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO][IPA_CLIENT_TEST4_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 21, 14, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
+	[IPA_4_0_AUTO][IPA_CLIENT_DUMMY_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 31, 31, 8, 8, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
+
+	/* IPA_4_0_AUTO_MHI */
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_APPS_WAN_PROD]   = {
+			true, IPA_v4_0_MHI_GROUP_DDR,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 2, 4, 16, 32, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_APPS_CMD_PROD]	  = {
+			true, IPA_v4_0_MHI_GROUP_DDR,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
+			QMB_MASTER_SELECT_DDR,
+			{ 5, 7, 20, 24, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_MHI_PROD]            = {
+			true, IPA_v4_0_MHI_GROUP_PCIE,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_PCIE,
+			{ 0, 0, 8, 16, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_MHI2_PROD]            = {
+			true, IPA_v4_0_GROUP_CV2X,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_PCIE,
+			{ 6, 5, 8, 16, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_ETHERNET_PROD]	  = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			QMB_MASTER_SELECT_DDR,
+			{ 9, 0, 8, 16, IPA_EE_UC, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_Q6_WAN_PROD]         = {
+			false, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 3, 0, 16, 32, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_Q6_CMD_PROD]	  = {
+			false, IPA_v4_0_MHI_GROUP_PCIE,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 4, 1, 20, 24, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_MEMCPY_DMA_SYNC_PROD] = {
+			true, IPA_v4_0_MHI_GROUP_DMA,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
+			QMB_MASTER_SELECT_DDR,
+			{ 7, 3, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD] = {
+			true, IPA_v4_0_MHI_GROUP_DMA,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
+			QMB_MASTER_SELECT_DDR,
+			{ 8, 11, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	/* Only for test purpose */
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_TEST_PROD]           = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{0, 8, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_TEST1_PROD]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{0, 8, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_TEST2_PROD]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 1, 0, 8, 16, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_TEST3_PROD]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{7, 9, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_TEST4_PROD]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 8, 10, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+
+
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_APPS_LAN_CONS]       = {
+			true, IPA_v4_0_MHI_GROUP_DDR,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 10, 8, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_APPS_WAN_CONS]       = {
+			true, IPA_v4_0_MHI_GROUP_DDR,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 11, 9, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_MHI_CONS]            = {
+			true, IPA_v4_0_MHI_GROUP_PCIE,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 17, 1, 17, 17, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_MHI2_CONS]            = {
+			true, IPA_v4_0_GROUP_CV2X,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 19, 6, 9, 9, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_ETHERNET_CONS]	  = {
+			true, IPA_v4_0_ETHERNET,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 22, 1, 9, 9, IPA_EE_UC, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_Q6_LAN_CONS]         = {
+			false, IPA_v4_0_MHI_GROUP_DDR,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 14, 4, 9, 9, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_Q6_WAN_CONS]         = {
+			false, IPA_v4_0_MHI_GROUP_DDR,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 13, 3, 9, 9, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_MEMCPY_DMA_SYNC_CONS] = {
+			true, IPA_v4_0_MHI_GROUP_DMA,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 20, 12, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS] = {
+			true, IPA_v4_0_MHI_GROUP_DMA,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 21, 13, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS] = {
+			false, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 16, 5, 9, 9, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_USB_DPL_CONS]        = {
+			false, IPA_v4_0_MHI_GROUP_DDR,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 15, 10, 5, 5, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_MHI_DPL_CONS]        = {
+			true, IPA_v4_0_MHI_GROUP_PCIE,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 12, 2, 5, 5, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	/* Only for test purpose */
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_TEST_CONS]           = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 11, 6, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_TEST1_CONS]           = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 11, 6, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_TEST2_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 12, 2, 5, 5, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_TEST3_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 19, 12, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_TEST4_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 21, 14, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_DUMMY_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 31, 31, 8, 8, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
 };
 
 /**
@@ -2131,6 +2603,14 @@ u8 ipa3_get_hw_type_index(void)
 		 */
 		if (ipa3_ctx->ipa_config_is_mhi)
 			hw_type_index = IPA_4_0_MHI;
+
+		if (ipa3_ctx->ipa_config_is_auto)
+			hw_type_index = IPA_4_0_AUTO;
+
+		if (ipa3_ctx->ipa_config_is_auto &&
+			ipa3_ctx->ipa_config_is_mhi)
+			hw_type_index = IPA_4_0_AUTO_MHI;
+
 		break;
 	default:
 		IPAERR("Incorrect IPA version %d\n", ipa3_ctx->ipa_hw_type);
@@ -4777,6 +5257,8 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 		break;
 	case IPA_4_0:
 	case IPA_4_0_MHI:
+	case IPA_4_0_AUTO:
+	case IPA_4_0_AUTO_MHI:
 		if (src) {
 			switch (group_index) {
 			case IPA_v4_0_GROUP_LWA_DL:
@@ -4925,6 +5407,13 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 		dst_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_DST_MAX;
 		src_grp_idx_max = IPA_v4_0_SRC_GROUP_MAX;
 		dst_grp_idx_max = IPA_v4_0_DST_GROUP_MAX;
+		break;
+	case IPA_4_0_AUTO:
+	case IPA_4_0_AUTO_MHI:
+		src_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_SRC_MAX;
+		dst_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_DST_MAX;
+		src_grp_idx_max = IPA_v4_0_GROUP_CV2X;
+		dst_grp_idx_max = IPA_v4_0_GROUP_CV2X;
 		break;
 	default:
 		IPAERR("invalid hw type index\n");
