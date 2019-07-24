@@ -97,15 +97,15 @@ static struct msm_cvp_common_data sm8250_common_data[] = {
 	},
 	{
 		.key = "qcom,power-collapse-delay",
-		.value = 1500,
+		.value = 3000,
 	},
 	{
 		.key = "qcom,hw-resp-timeout",
-		.value = 1000,
+		.value = 2000,
 	},
 	{
 		.key = "qcom,dsp-resp-timeout",
-		.value = 2000
+		.value = 1000
 	},
 	{
 		.key = "qcom,debug-timeout",

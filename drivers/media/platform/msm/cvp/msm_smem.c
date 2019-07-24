@@ -101,7 +101,7 @@ static int msm_dma_get_device_address(struct dma_buf *dbuf, u32 align,
 		}
 
 		mapping_info->dev = cb->dev;
-		mapping_info->mapping = cb->mapping;
+		mapping_info->domain = cb->domain;
 		mapping_info->table = table;
 		mapping_info->attach = attach;
 		mapping_info->buf = dbuf;
@@ -148,7 +148,7 @@ static int msm_dma_put_device_address(u32 flags,
 	trace_msm_cvp_smem_buffer_iommu_op_end("UNMAP", 0, 0, 0, 0, 0);
 
 	mapping_info->dev = NULL;
-	mapping_info->mapping = NULL;
+	mapping_info->domain = NULL;
 	mapping_info->table = NULL;
 	mapping_info->attach = NULL;
 	mapping_info->buf = NULL;
