@@ -1474,6 +1474,19 @@
 		};
 #endif
 
+		mtk-cmdq-mdp@10228000 {
+			compatible = "mediatek,mdp";
+
+			iommus = <&iommu0 M4U_PORT_MDP_PVRIC0>,
+				<&iommu0 M4U_PORT_MDP_PVRIC1>,
+				<&iommu0 M4U_PORT_MDP_RDMA0>,
+				<&iommu0 M4U_PORT_MDP_RDMA1>,
+				<&iommu0 M4U_PORT_MDP_WROT0_R>,
+				<&iommu0 M4U_PORT_MDP_WROT0_W>,
+				<&iommu0 M4U_PORT_MDP_WROT1_R>,
+				<&iommu0 M4U_PORT_MDP_WROT1_W>;
+		};
+
 		cmdq-ext@10228000 {
 			compatible = "mediatek,cmdq-ext";
 			reg = <0 0x10228000 0 0x4000>;
