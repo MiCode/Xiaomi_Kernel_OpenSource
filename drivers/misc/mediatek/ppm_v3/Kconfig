@@ -1,0 +1,9 @@
+config MTK_PPM
+	tristate "MTK Performance and Power Management"
+	help
+	  This kernel config can be used to enable PPM.
+	  Handles power/performance related requests from
+	  kernel or user-space–Calculates appropriate CPU
+	  core number and frequency range accordingly.
+	  If unsure, say N.
+

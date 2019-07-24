@@ -102,6 +102,7 @@ config MTK_BATTERY_PERCENTAGE_POWER_THROTTLING
 	  Select "n" if unsure.
 
 source "drivers/misc/mediatek/lpm/Kconfig"
+source "drivers/misc/mediatek/ppm_v3/Kconfig
 endmenu # Power
 
 menu "MultiMedia, Display, Camera"
