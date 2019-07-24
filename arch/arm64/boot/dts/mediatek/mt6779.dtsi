@@ -520,6 +520,13 @@
 		clock-output-names = "clk32k";
 	};
 
+	clk13m: oscillator@2 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <13000000>;
+		clock-output-names = "clk13m";
+	};
+
 	uart_clk: dummy26m {
 		compatible = "fixed-clock";
 		clock-frequency = <26000000>;
@@ -1399,6 +1406,14 @@
 			interrupts = <GIC_SPI 199 IRQ_TYPE_LEVEL_HIGH>;
 			mediatek,dpmaif_capability = <6>;
 			/*clocks = ; clock-names = ; set in mddriver node */
+		};
+
+		timer: timer@10017000 {
+			compatible = "mediatek,mt6765-timer",
+				     "mediatek,mt6779-timer";
+			reg = <0 0x10017000 0 0x1000>;
+			interrupts = <GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk13m>;
 		};
 
 		devapc: devapc@10207000 {
