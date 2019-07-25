@@ -269,7 +269,7 @@
 			clocks = <&apmixed CLK_APMIXED_ARMPLL_LL>;
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <1000>;
+			capacity-dmips-mhz = <578>;
 			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
 		};
 
@@ -285,7 +285,7 @@
 			clocks = <&apmixed CLK_APMIXED_ARMPLL_LL>;
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <1000>;
+			capacity-dmips-mhz = <578>;
 			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
 		};
 
@@ -301,7 +301,7 @@
 			clocks = <&apmixed CLK_APMIXED_ARMPLL_LL>;
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <1000>;
+			capacity-dmips-mhz = <578>;
 			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
 		};
 
@@ -317,7 +317,7 @@
 			clocks = <&apmixed CLK_APMIXED_ARMPLL_LL>;
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <1000>;
+			capacity-dmips-mhz = <578>;
 			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
 		};
 
@@ -333,7 +333,7 @@
 			clocks = <&apmixed CLK_APMIXED_ARMPLL_LL>;
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <1000>;
+			capacity-dmips-mhz = <578>;
 			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
 		};
 
@@ -349,7 +349,7 @@
 			clocks = <&apmixed CLK_APMIXED_ARMPLL_LL>;
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <1000>;
+			capacity-dmips-mhz = <578>;
 			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
 		};
 
@@ -365,7 +365,7 @@
 			clocks = <&apmixed CLK_APMIXED_ARMPLL_BL>;
 			clock-names = "cpu";
 			dynamic-power-coefficient = <275>;
-			capacity-dmips-mhz = <1000>;
+			capacity-dmips-mhz = <1024>;
 			cpu-idle-states = <&cpuoff_b &clusteroff &mcusysoff>;
 		};
 
@@ -381,7 +381,7 @@
 			clocks = <&apmixed CLK_APMIXED_ARMPLL_BL>;
 			clock-names = "cpu";
 			dynamic-power-coefficient = <275>;
-			capacity-dmips-mhz = <1000>;
+			capacity-dmips-mhz = <1024>;
 			cpu-idle-states = <&cpuoff_b &clusteroff &mcusysoff>;
 		};
 
