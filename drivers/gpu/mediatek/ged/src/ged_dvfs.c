@@ -1832,8 +1832,6 @@ GED_ERROR ged_dvfs_system_init(void)
 	gpu_bw_ratio = 100;
 #endif
 
-	/* GPU HAL fp mount */
-	mt_gpufreq_power_limit_notify_registerCB(ged_dvfs_freq_thermal_limitCB);
 #ifdef ENABLE_COMMON_DVFS
 	mtk_boost_gpu_freq_fp = ged_dvfs_boost_gpu_freq;
 #endif
@@ -1855,7 +1853,7 @@ GED_ERROR ged_dvfs_system_init(void)
 
 	mtk_get_gpu_sub_loading_fp = ged_dvfs_get_sub_gpu_loading;
 	mtk_get_vsync_based_target_freq_fp = ged_dvfs_get_gpu_tar_freq;
-	mtk_get_gpu_dvfs_from_fp = ged_dvfs_track_latest_record;
+	mtk_GetGpuDVFSfromFp = ged_dvfs_track_latest_record;
 
 	mtk_get_gpu_bottom_freq_fp = ged_get_gpu_bottom_freq;
 	mtk_get_gpu_custom_boost_freq_fp = ged_get_gpu_custom_boost_freq;

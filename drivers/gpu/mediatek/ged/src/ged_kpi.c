@@ -19,7 +19,6 @@
 #include "ged_thread.h"
 /* #include <ged_vsync.h> */
 #ifdef MTK_GED_KPI
-#include <primary_display.h>
 #include <mt-plat/mtk_gpu_utility.h>
 #include <mtk_gpufreq.h>
 #endif
@@ -1904,7 +1903,7 @@ GED_ERROR ged_kpi_dequeue_buffer_ts(int pid, u64 ullWdnd, int i32FrameID,
 	(struct GED_KPI_GPU_TS *)ged_alloc(sizeof(struct GED_KPI_GPU_TS));
 
 	if (!psMonitor) {
-		pr_info_ratelimited("[GED_KPI]: GED_ERROR_OOM in %s\n",
+		pr_info("[GED_KPI]: GED_ERROR_OOM in %s\n",
 			__func__);
 		return GED_ERROR_OOM;
 	}
@@ -1955,7 +1954,7 @@ GED_ERROR ged_kpi_queue_buffer_ts(int pid, u64 ullWdnd, int i32FrameID,
 	(struct GED_KPI_GPU_TS *)ged_alloc(sizeof(struct GED_KPI_GPU_TS));
 
 	if (!psMonitor) {
-		pr_info_ratelimited("[GED_KPI]: GED_ERROR_OOM in %s\n",
+		pr_info("[GED_KPI]: GED_ERROR_OOM in %s\n",
 			__func__);
 		return GED_ERROR_OOM;
 	}
