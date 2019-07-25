@@ -427,7 +427,7 @@ static int mtk_vcodec_probe(struct platform_device *pdev)
 		mtk_v4l2_debug(0, "media registered as /dev/media%d",
 			vfd_dec->num);
 	}
-	ret = video_register_device(vfd_dec, VFL_TYPE_GRABBER, 0);
+	ret = video_register_device(vfd_dec, VFL_TYPE_GRABBER, -1);
 	if (ret) {
 		mtk_v4l2_err("Failed to register video device");
 		goto err_dec_reg;

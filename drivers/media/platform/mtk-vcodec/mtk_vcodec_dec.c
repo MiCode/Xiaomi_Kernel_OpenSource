@@ -543,6 +543,8 @@ static int vidioc_vdec_subscribe_evt(struct v4l2_fh *fh,
 		return v4l2_src_change_event_subscribe(fh, sub);
 	case V4L2_EVENT_VDEC_ERROR:
 		return v4l2_event_subscribe(fh, sub, 0, NULL);
+	case V4L2_EVENT_MTK_VDEC_NOHEADER:
+		return v4l2_event_subscribe(fh, sub, 0, NULL);
 	default:
 		return v4l2_ctrl_subscribe_event(fh, sub);
 	}

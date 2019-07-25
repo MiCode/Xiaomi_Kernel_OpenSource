@@ -307,14 +307,24 @@ static void mtk_vdec_queue_stop_play_event(struct mtk_vcodec_ctx *ctx)
 	v4l2_event_queue_fh(&ctx->fh, &ev_eos);
 }
 
+static void mtk_vdec_queue_noseqheader_event(struct mtk_vcodec_ctx *ctx)
+{
+	static const struct v4l2_event ev_noheader = {
+		.type = V4L2_EVENT_MTK_VDEC_NOHEADER,
+	};
+
+	mtk_v4l2_debug(1, "[%d]", ctx->id);
+	v4l2_event_queue_fh(&ctx->fh, &ev_noheader);
+}
+
 static void mtk_vdec_queue_error_event(struct mtk_vcodec_ctx *ctx)
 {
-	static const struct v4l2_event ev_eos = {
+	static const struct v4l2_event ev_error = {
 		.type = V4L2_EVENT_VDEC_ERROR,
 	};
 
 	mtk_v4l2_debug(1, "[%d]", ctx->id);
-	v4l2_event_queue_fh(&ctx->fh, &ev_eos);
+	v4l2_event_queue_fh(&ctx->fh, &ev_error);
 }
 static int mtk_vdec_flush_decoder(struct mtk_vcodec_ctx *ctx)
 {
@@ -510,6 +520,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		true : false;
 	mtk_vcodec_unsupport = ((src_chg & VDEC_HW_NOT_SUPPORT) != 0) ?
 		true : false;
+
 	if (src_chg & VDEC_CROP_CHANGED)
 		dst_buf_info->flags |= CROP_CHANGED;
 
@@ -523,6 +534,8 @@ static void mtk_vdec_worker(struct work_struct *work)
 			dst_buf->vb2_buf.index,
 			ret, res_chg);
 		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+		src_buf_info = container_of(src_buf,
+				struct mtk_video_dec_buf, vb);
 		if (ret == -EIO) {
 			mutex_lock(&ctx->lock);
 			src_buf_info->error = true;
@@ -761,7 +774,10 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 		/* If not support the source, eg: w/h,
 		 * bitdepth, level, we need to stop to play it
 		 */
-		if (mtk_vcodec_unsupport || buf->lastframe  != NON_EOS) {
+		if (wait_seq_header) {
+			mtk_v4l2_err("[%d]Error!! Need seq header!", ctx->id);
+			mtk_vdec_queue_noseqheader_event(ctx);
+		} else if (mtk_vcodec_unsupport || buf->lastframe  != NON_EOS) {
 			mtk_v4l2_err("[%d]Error!! Codec driver not support the file!",
 						 ctx->id);
 			mtk_vdec_queue_error_event(ctx);
