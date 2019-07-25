@@ -445,6 +445,9 @@ static int hfi_process_session_cvp_operation_config(u32 device_id,
 	if (pkt->packet_type == HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS)
 		signal = get_signal_from_pkt_type(
 				HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS);
+	else if (pkt->packet_type == HFI_MSG_SESSION_CVP_SET_MODEL_BUFFERS)
+		signal = get_signal_from_pkt_type(
+				HFI_CMD_SESSION_CVP_SET_MODEL_BUFFERS);
 	else
 		signal = get_signal_from_pkt_type(conf_id);
 
@@ -761,6 +764,7 @@ int cvp_hfi_process_msg_packet(u32 device_id,
 		break;
 	case HFI_MSG_SESSION_CVP_OPERATION_CONFIG:
 	case HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS:
+	case HFI_MSG_SESSION_CVP_SET_MODEL_BUFFERS:
 		pkt_func =
 			(pkt_func_def)hfi_process_session_cvp_operation_config;
 		break;
