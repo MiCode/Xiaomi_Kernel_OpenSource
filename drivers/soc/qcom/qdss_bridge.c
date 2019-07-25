@@ -879,7 +879,7 @@ static int qdss_mhi_probe(struct mhi_device *mhi_dev,
 			return -EINVAL;
 		if (!strcmp(id->chan, "QDSS"))
 			curr_chan = QDSS;
-		if (!strcmp(id->chan, "QDSS_HW"))
+		if (!strcmp(id->chan, "IP_HW_QDSS"))
 			curr_chan = QDSS_HW;
 	} else if (dev_state == MHI_STATE_RESET) {
 		if (strcmp(id->chan, str_mhi_curr_chan[curr_chan]))
@@ -891,7 +891,7 @@ static int qdss_mhi_probe(struct mhi_device *mhi_dev,
 		}
 		if (!strcmp(id->chan, "QDSS"))
 			curr_chan = QDSS;
-		if (!strcmp(id->chan, "QDSS_HW"))
+		if (!strcmp(id->chan, "IP_HW_QDSS"))
 			curr_chan = QDSS_HW;
 	}
 
