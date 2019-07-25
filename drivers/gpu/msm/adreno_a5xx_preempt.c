@@ -562,7 +562,7 @@ static void a5xx_preemption_iommu_close(struct adreno_device *adreno_dev)
 }
 #endif
 
-void a5xx_preemption_close(struct adreno_device *adreno_dev)
+static void _preemption_close(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_preemption *preempt = &adreno_dev->preempt;
@@ -576,6 +576,14 @@ void a5xx_preemption_close(struct adreno_device *adreno_dev)
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
 		kgsl_free_global(device, &rb->preemption_desc);
 	}
+}
+
+void a5xx_preemption_close(struct adreno_device *adreno_dev)
+{
+	if (!test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv))
+		return;
+
+	_preemption_close(adreno_dev);
 }
 
 int a5xx_preemption_init(struct adreno_device *adreno_dev)
@@ -618,7 +626,7 @@ int a5xx_preemption_init(struct adreno_device *adreno_dev)
 
 err:
 	if (ret)
-		a5xx_preemption_close(adreno_dev);
+		_preemption_close(adreno_dev);
 
 	return ret;
 }
