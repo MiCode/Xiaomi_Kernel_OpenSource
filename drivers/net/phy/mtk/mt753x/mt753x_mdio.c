@@ -330,56 +330,6 @@ static void mt753x_remove_gsw(struct gsw_mt753x *gsw)
 	mutex_unlock(&mt753x_devs_lock);
 }
 
-static void mt753x_default_vlan(struct gsw_mt753x *gsw)
-{
-	u32 i, val;
-
-	/* Trapped into security mode and transparent port whitch allows
-	 * packet forwarding through VLAN table lookup by PVID.
-	 */
-	for (i = 0; i < 6; i++) {
-		mt753x_reg_write(gsw, PCR(i), 0xff0003);
-		mt753x_reg_write(gsw, PVC(i), 0x810000c0);
-	}
-
-	/* Port4 and Port5 PVID set to 2, Default PVID is 1. */
-	mt753x_reg_write(gsw, PPBV1(4), 0x10002);
-	mt753x_reg_write(gsw, PPBV1(5), 0x10002);
-
-	/* Port0-3 and Port6(b'01001111) join VLAN 1 GROUP */
-	val = IVL_MAC | (0x4f << PORT_MEM_S) | VENTRY_VALID;
-	mt753x_reg_write(gsw, VAWD1, val);
-	val = VTCR_BUSY | (VTCR_WRITE_VLAN_ENTRY << VTCR_FUNC_S) | 1;
-	mt753x_reg_write(gsw, VTCR, val);
-	for (i = 0; i < 300; i++) {
-		val = mt753x_reg_read(gsw, VTCR);
-
-		if ((val & VTCR_BUSY) == 0)
-			break;
-
-		usleep_range(1000, 1100);
-	}
-
-	if (i == 300)
-		dev_info(gsw->dev, "vtcr timeout\n");
-
-	/* Port4 and Port5(b'00110000) join VLAN 2 GROUP */
-	val = IVL_MAC | (0x30 << PORT_MEM_S) | VENTRY_VALID;
-	mt753x_reg_write(gsw, VAWD1, val);
-	val = VTCR_BUSY | (VTCR_WRITE_VLAN_ENTRY << VTCR_FUNC_S) | 2;
-	mt753x_reg_write(gsw, VTCR, val);
-	for (i = 0; i < 300; i++) {
-		val = mt753x_reg_read(gsw, VTCR);
-
-		if ((val & VTCR_BUSY) == 0)
-			break;
-
-		usleep_range(1000, 1100);
-	}
-
-	if (i == 300)
-		dev_info(gsw->dev, "vtcr timeout\n");
-}
 
 struct gsw_mt753x *mt753x_get_gsw(u32 id)
 {
@@ -486,6 +436,7 @@ static int mt753x_probe(struct platform_device *pdev)
 	struct mii_bus *mdio_bus;
 	int ret = -EINVAL;
 	struct chip_rev rev;
+	struct mt753x_mapping *map;
 	int i;
 
 	mdio = of_parse_phandle(np, "mediatek,mdio", 0);
@@ -511,6 +462,14 @@ static int mt753x_probe(struct platform_device *pdev)
 	/* Fetch the SMI address dirst */
 	if (of_property_read_u32(np, "mediatek,smi-addr", &gsw->smi_addr))
 		gsw->smi_addr = MT753X_DFL_SMI_ADDR;
+
+	/* Get LAN/WAN port mapping */
+	map = mt753x_find_mapping(np);
+	if (map) {
+		mt753x_apply_mapping(gsw, map);
+		gsw->global_vlan_enable = 1;
+		dev_info(gsw->dev, "LAN/WAN VLAN setting=%s\n", map->name);
+	}
 
 	/* Load MAC port configurations */
 	mt753x_load_port_cfg(gsw);
@@ -560,10 +519,7 @@ static int mt753x_probe(struct platform_device *pdev)
 
 	mt753x_add_gsw(gsw);
 
-#ifdef CONFIG_SWCONFIG
 	mt753x_swconfig_init(gsw);
-#endif
-	mt753x_default_vlan(gsw);
 
 	if (sw->post_init)
 		sw->post_init(gsw);

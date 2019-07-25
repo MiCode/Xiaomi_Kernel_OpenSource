@@ -18,13 +18,10 @@
 #include <linux/switch.h>
 #endif
 
-#define MT753X_DFL_CPU_PORT	6
-#define MT753X_NUM_PORTS	7
-#define MT753X_NUM_PHYS		5
-#define MT753X_NUM_VLANS	4095
+#include "mt753x_vlan.h"
 
-#define MT753X_MAX_VID		4095
-#define MT753X_MIN_VID		0
+#define MT753X_DFL_CPU_PORT	6
+#define MT753X_NUM_PHYS		5
 
 #define MT753X_DFL_SMI_ADDR	0x1f
 #define MT753X_SMI_ADDR_MASK	0x1f
@@ -34,16 +31,6 @@ struct gsw_mt753x;
 enum mt753x_model {
 	MT7530 = 0x7530,
 	MT7531 = 0x7531
-};
-
-struct mt753x_port_entry {
-	u16	pvid;
-};
-
-struct mt753x_vlan_entry {
-	u16	vid;
-	u8	member;
-	u8	etags;
 };
 
 struct mt753x_port_cfg {
@@ -89,13 +76,12 @@ struct gsw_mt753x {
 
 #ifdef CONFIG_SWCONFIG
 	struct switch_dev swdev;
-
-	struct mt753x_vlan_entry vlan_entries[MT753X_NUM_VLANS];
-	struct mt753x_port_entry port_entries[MT753X_NUM_PORTS];
-
-	int global_vlan_enable;
 	u32 cpu_port;
 #endif
+
+	int global_vlan_enable;
+	struct mt753x_vlan_entry vlan_entries[MT753X_NUM_VLANS];
+	struct mt753x_port_entry port_entries[MT753X_NUM_PORTS];
 
 	int (*mii_read)(struct gsw_mt753x *gsw, int phy, int reg);
 	void (*mii_write)(struct gsw_mt753x *gsw, int phy, int reg, u16 val);

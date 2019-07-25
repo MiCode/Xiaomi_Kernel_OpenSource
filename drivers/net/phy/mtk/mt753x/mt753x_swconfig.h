@@ -9,12 +9,15 @@
 
 #ifdef CONFIG_SWCONFIG
 #include <linux/switch.h>
+#include "mt753x.h"
 
 int mt753x_swconfig_init(struct gsw_mt753x *gsw);
 void mt753x_swconfig_destroy(struct gsw_mt753x *gsw);
 #else
 static inline int mt753x_swconfig_init(struct gsw_mt753x *gsw)
 {
+	mt753x_apply_vlan_config(gsw);
+
 	return 0;
 }
 
