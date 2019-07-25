@@ -20,25 +20,39 @@ static int st_asm330lhh_i2c_read(struct device *dev, u8 addr, int len, u8 *data)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct i2c_msg msg[2];
+	uint8_t *buf;
+	int ret = 0;
+
+	buf = kmalloc(len + 1, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
 
 	msg[0].addr = client->addr;
 	msg[0].flags = client->flags;
 	msg[0].len = 1;
-	msg[0].buf = &addr;
+	msg[0].buf = buf;
 
 	msg[1].addr = client->addr;
 	msg[1].flags = client->flags | I2C_M_RD;
 	msg[1].len = len;
-	msg[1].buf = data;
+	msg[1].buf = buf+1;
 
-	return i2c_transfer(client->adapter, msg, 2);
+	buf[0] = addr;
+	ret = i2c_transfer(client->adapter, msg, 2);
+	memcpy(data, buf + 1, len);
+
+	return ret;
 }
 
 static int st_asm330lhh_i2c_write(struct device *dev, u8 addr, int len, u8 *data)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct i2c_msg msg;
-	u8 send[len + 1];
+	uint8_t *send;
+
+	send = kmalloc(len + 1, GFP_KERNEL);
+	if (!send)
+		return -ENOMEM;
 
 	send[0] = addr;
 	memcpy(&send[1], data, len * sizeof(u8));
