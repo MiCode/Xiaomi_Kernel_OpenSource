@@ -247,18 +247,12 @@ struct kgsl_device {
 	/* Kernel virtual address for GPU shader memory */
 	void __iomem *shader_mem_virt;
 
-	/* Starting physical address for GPU shader memory */
-	unsigned long shader_mem_phys;
-
 	/* Starting kernel virtual address for QDSS GFX DBG register block */
 	void __iomem *qdss_gfx_virt;
 
-	/* GPU shader memory size */
-	unsigned int shader_mem_len;
 	struct kgsl_memdesc memstore;
 	struct kgsl_memdesc scratch;
 	const char *iomemname;
-	const char *shadermemname;
 
 	struct kgsl_mmu mmu;
 	struct gmu_core_device gmu_core;

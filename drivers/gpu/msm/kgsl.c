@@ -4973,7 +4973,6 @@ int kgsl_request_irq(struct platform_device *pdev, const  char *name,
 int kgsl_device_platform_probe(struct kgsl_device *device)
 {
 	int status = -EINVAL;
-	struct resource *res;
 	int cpu;
 
 	status = _register_device(device);
@@ -4985,34 +4984,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	status = kgsl_pwrctrl_init(device);
 	if (status)
 		goto error;
-
-	/*
-	 * Check if a shadermemname is defined, and then get shader memory
-	 * details including shader memory starting physical address
-	 * and shader memory length
-	 */
-	if (device->shadermemname != NULL) {
-		res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
-						device->shadermemname);
-
-		if (res == NULL) {
-			dev_warn(device->dev,
-				      "Shader memory: platform_get_resource_byname failed\n");
-		}
-
-		else {
-			device->shader_mem_phys = res->start;
-			device->shader_mem_len = resource_size(res);
-		}
-
-		if (!devm_request_mem_region(device->dev,
-					device->shader_mem_phys,
-					device->shader_mem_len,
-						device->name)) {
-			dev_warn(device->dev,
-				      "request_mem_region_failed\n");
-		}
-	}
 
 	if (!devm_request_mem_region(device->dev, device->reg_phys,
 				device->reg_len, device->name)) {

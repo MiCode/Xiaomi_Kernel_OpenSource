@@ -1046,10 +1046,6 @@ int adreno_set_constraint(struct kgsl_device *device,
 				struct kgsl_context *context,
 				struct kgsl_device_constraint *constraint);
 
-void adreno_shadermem_regread(struct kgsl_device *device,
-						unsigned int offsetwords,
-						unsigned int *value);
-
 void adreno_snapshot(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot,
 		struct kgsl_context *context);
