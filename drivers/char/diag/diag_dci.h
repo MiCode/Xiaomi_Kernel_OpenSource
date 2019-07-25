@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, 2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,7 @@
 #define DISABLE_LOG_MASK	0
 #define MAX_EVENT_SIZE		512
 #define DCI_CLIENT_INDEX_INVALID -1
-#define DCI_LOG_CON_MIN_LEN		14
+#define DCI_LOG_CON_MIN_LEN		16
 #define DCI_EVENT_CON_MIN_LEN		16
 
 #define DCI_BUF_PRIMARY		1
