@@ -19,6 +19,7 @@
 #include <dt-bindings/clock/qcom,gpucc-sdmmagpie.h>
 #include <dt-bindings/clock/qcom,npucc-atoll.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/clock/qcom,videocc-atoll.h>
 #include <dt-bindings/clock/qcom,cpucc-sm8150.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -1122,6 +1123,16 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x4080000 0x100>;
 
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		vdd_mss-supply = <&VDD_MSS_LEVEL>;
+		qcom,vdd_mss-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		qcom,proxy-reg-names = "vdd_cx", "vdd_mss";
+
 		qcom,firmware-name = "modem";
 		memory-region = <&pil_modem_mem>;
 		qcom,proxy-timeout-ms = <10000>;
@@ -1158,6 +1169,16 @@
 	qcom,turing@8300000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x8300000 0x100000>;
+
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
+		qcom,vdd_mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		qcom,proxy-reg-names = "vdd_cx", "vdd_mx";
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
 
 		qcom,pas-id = <18>;
 		qcom,proxy-timeout-ms = <10000>;
@@ -1298,6 +1319,16 @@
 	qcom,lpass@62400000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x62400000 0x00100>;
+
+		vdd_lpi_cx-supply = <&L8A_LEVEL>;
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
+		vdd_lpi_mx-supply = <&L7A_LEVEL>;
+		qcom,vdd_mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
+		qcom,proxy-reg-names = "vdd_lpi_cx", "vdd_lpi_mx";
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
 
 		qcom,pas-id = <1>;
 		qcom,proxy-timeout-ms = <10000>;
