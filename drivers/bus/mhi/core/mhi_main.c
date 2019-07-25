@@ -637,6 +637,22 @@ int mhi_destroy_device(struct device *dev, void *data)
 	return 0;
 }
 
+int mhi_early_notify_device(struct device *dev, void *data)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	/* skip early notification */
+	if (!mhi_dev->early_notif)
+		return 0;
+
+	MHI_LOG("Early notification for dev:%s\n", mhi_dev->chan_name);
+
+	mhi_notify(mhi_dev, MHI_CB_FATAL_ERROR);
+
+	return 0;
+}
+
 void mhi_notify(struct mhi_device *mhi_dev, enum MHI_CB cb_reason)
 {
 	struct mhi_driver *mhi_drv;
@@ -847,6 +863,13 @@ void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 		/* add if there is a matching DT node */
 		mhi_assign_of_node(mhi_cntrl, mhi_dev);
 
+		/*
+		 * if set, these device should get a early notification during
+		 * early notification state
+		 */
+		mhi_dev->early_notif =
+			of_property_read_bool(mhi_dev->dev.of_node,
+					      "mhi,early-notify");
 		/* init wake source */
 		if (mhi_dev->dl_chan && mhi_dev->dl_chan->wake_capable)
 			device_init_wakeup(&mhi_dev->dev, true);
@@ -1458,15 +1481,17 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 	struct mhi_controller *mhi_cntrl = dev;
 	enum mhi_dev_state state = MHI_STATE_MAX;
 	enum MHI_PM_STATE pm_state = 0;
-	enum mhi_ee ee;
+	enum mhi_ee ee = 0;
 
 	MHI_VERB("Enter\n");
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
 		state = mhi_get_mhi_state(mhi_cntrl);
-		ee = mhi_get_exec_env(mhi_cntrl);
-		MHI_LOG("device ee:%s dev_state:%s\n", TO_MHI_EXEC_STR(ee),
+		ee = mhi_cntrl->ee;
+		mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
+		MHI_LOG("device ee:%s dev_state:%s\n",
+			TO_MHI_EXEC_STR(mhi_cntrl->ee),
 			TO_MHI_STATE_STR(state));
 	}
 
@@ -1476,6 +1501,17 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 					       MHI_PM_SYS_ERR_DETECT);
 	}
 	write_unlock_irq(&mhi_cntrl->pm_lock);
+
+	/* if device in rddm don't bother processing sys error */
+	if (mhi_cntrl->ee == MHI_EE_RDDM) {
+		if (mhi_cntrl->ee != ee) {
+			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+					     MHI_CB_EE_RDDM);
+			wake_up_all(&mhi_cntrl->state_event);
+		}
+		goto exit_intvec;
+	}
+
 	if (pm_state == MHI_PM_SYS_ERR_DETECT) {
 		wake_up_all(&mhi_cntrl->state_event);
 
@@ -1487,6 +1523,7 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 			schedule_work(&mhi_cntrl->syserr_worker);
 	}
 
+exit_intvec:
 	MHI_VERB("Exit\n");
 
 	return IRQ_HANDLED;
@@ -1540,6 +1577,11 @@ int mhi_send_cmd(struct mhi_controller *mhi_cntrl,
 		cmd_tre->ptr = MHI_TRE_CMD_START_PTR;
 		cmd_tre->dword[0] = MHI_TRE_CMD_START_DWORD0;
 		cmd_tre->dword[1] = MHI_TRE_CMD_START_DWORD1(chan);
+		break;
+	case MHI_CMD_STOP_CHAN:
+		cmd_tre->ptr = MHI_TRE_CMD_STOP_PTR;
+		cmd_tre->dword[0] = MHI_TRE_CMD_STOP_DWORD0;
+		cmd_tre->dword[1] = MHI_TRE_CMD_STOP_DWORD1(chan);
 		break;
 	case MHI_CMD_TIMSYNC_CFG:
 		cmd_tre->ptr = MHI_TRE_CMD_TSYNC_CFG_PTR;
@@ -1993,6 +2035,120 @@ void mhi_unprepare_from_transfer(struct mhi_device *mhi_dev)
 	}
 }
 EXPORT_SYMBOL(mhi_unprepare_from_transfer);
+
+static int mhi_update_channel_state(struct mhi_controller *mhi_cntrl,
+				    struct mhi_chan *mhi_chan,
+				    enum MHI_CMD cmd)
+{
+	int ret = -EIO;
+
+	mutex_lock(&mhi_chan->mutex);
+
+	MHI_VERB("Changing chan:%d to state:%s\n",
+		 mhi_chan->chan, cmd == MHI_CMD_START_CHAN ? "START" : "STOP");
+
+	/* if channel is not active state state do not allow to state change */
+	if (mhi_chan->ch_state != MHI_CH_STATE_ENABLED) {
+		ret = -EINVAL;
+		MHI_LOG("channel:%d is not in active state, ch_state%d\n",
+			mhi_chan->chan, mhi_chan->ch_state);
+		goto error_chan_state;
+	}
+
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
+		MHI_ERR("MHI host is not in active state\n");
+		read_unlock_bh(&mhi_cntrl->pm_lock);
+		ret = -EIO;
+		goto error_chan_state;
+	}
+
+	mhi_cntrl->wake_toggle(mhi_cntrl);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
+	mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
+	mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
+
+	ret = mhi_send_cmd(mhi_cntrl, mhi_chan, cmd);
+	if (ret) {
+		MHI_ERR("Failed to send start chan cmd\n");
+		goto error_chan_state;
+	}
+
+	ret = wait_for_completion_timeout(&mhi_chan->completion,
+				msecs_to_jiffies(mhi_cntrl->timeout_ms));
+	if (!ret || mhi_chan->ccs != MHI_EV_CC_SUCCESS) {
+		MHI_ERR("Failed to receive cmd completion for chan:%d\n",
+			mhi_chan->chan);
+		ret = -EIO;
+		goto error_chan_state;
+	}
+
+	ret = 0;
+
+	MHI_VERB("chan:%d successfully transition to state:%s\n",
+		 mhi_chan->chan, cmd == MHI_CMD_START_CHAN ? "START" : "STOP");
+
+error_chan_state:
+	mutex_unlock(&mhi_chan->mutex);
+
+	return ret;
+}
+
+int mhi_pause_transfer(struct mhi_device *mhi_dev)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	struct mhi_chan *mhi_chan;
+	int dir, ret;
+
+	for (dir = 0; dir < 2; dir++) {
+		mhi_chan = dir ? mhi_dev->ul_chan : mhi_dev->dl_chan;
+
+		if (!mhi_chan)
+			continue;
+
+		/*
+		 * If one channel successful stopped but second channel fail
+		 * to stop, we still bail out because there is no way to
+		 * recover it. Resuming the stopped channel won't be helpful
+		 * and likely to fail.
+		 */
+		ret = mhi_update_channel_state(mhi_cntrl, mhi_chan,
+					       MHI_CMD_STOP_CHAN);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mhi_pause_transfer);
+
+int mhi_resume_transfer(struct mhi_device *mhi_dev)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	struct mhi_chan *mhi_chan;
+	int dir, ret;
+
+	for (dir = 0; dir < 2; dir++) {
+		mhi_chan = dir ? mhi_dev->ul_chan : mhi_dev->dl_chan;
+
+		if (!mhi_chan)
+			continue;
+
+		/*
+		 * Similar to pause, if one channel start, and other channel
+		 * failed to start, we would bail out. No need to pause
+		 * the start channel. Client will be resetting both
+		 * channels upon failure.
+		 */
+		ret = mhi_update_channel_state(mhi_cntrl, mhi_chan,
+					       MHI_CMD_START_CHAN);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mhi_resume_transfer);
 
 int mhi_get_no_free_descriptors(struct mhi_device *mhi_dev,
 				enum dma_data_direction dir)

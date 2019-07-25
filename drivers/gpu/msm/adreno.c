@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/msm_kgsl.h>
 #include <linux/regulator/consumer.h>
+#include <linux/nvmem-consumer.h>
 #include <soc/qcom/scm.h>
 
 #include "adreno.h"
@@ -1283,13 +1284,50 @@ static bool adreno_is_gpu_disabled(struct adreno_device *adreno_dev)
 			pte_row0_msb[1] ? true : false;
 }
 
+static int adreno_read_speed_bin(struct platform_device *pdev,
+		struct adreno_device *adreno_dev)
+{
+	struct nvmem_cell *cell = nvmem_cell_get(&pdev->dev, "speed_bin");
+	int ret = PTR_ERR_OR_ZERO(cell);
+	void *buf;
+	size_t len;
+
+	if (ret) {
+		/*
+		 * If the cell isn't defined enabled, then revert to
+		 * using the default bin
+		 */
+		if (ret == -ENOENT)
+			return 0;
+
+		return ret;
+	}
+
+	buf = nvmem_cell_read(cell, &len);
+	if (!IS_ERR(buf)) {
+		memcpy(&adreno_dev->speed_bin, buf,
+				min(len, sizeof(adreno_dev->speed_bin)));
+		kfree(buf);
+	}
+
+	nvmem_cell_put(cell);
+
+	return 0;
+}
+
 static int adreno_probe(struct platform_device *pdev)
 {
-	const struct of_device_id *of_id =
-		of_match_device(adreno_match_table, &pdev->dev);
-	struct adreno_device *adreno_dev = (struct adreno_device *) of_id->data;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct of_device_id *of_id;
+	struct adreno_device *adreno_dev;
+	struct kgsl_device *device;
 	int status;
+
+	of_id = of_match_device(adreno_match_table, &pdev->dev);
+	if (!of_id)
+		return -EINVAL;
+
+	adreno_dev = (struct adreno_device *) of_id->data;
+	device = KGSL_DEVICE(adreno_dev);
 
 	device->pdev = pdev;
 
@@ -1302,6 +1340,10 @@ static int adreno_probe(struct platform_device *pdev)
 	adreno_efuse_read_soc_hw_rev(adreno_dev);
 
 	adreno_update_soc_hw_revision_quirks(adreno_dev, pdev);
+
+	status = adreno_read_speed_bin(pdev, adreno_dev);
+	if (status)
+		return status;
 
 	/* Get the chip ID from the DT and set up target specific parameters */
 	if (adreno_identify_gpu(adreno_dev))
@@ -1331,6 +1373,8 @@ static int adreno_probe(struct platform_device *pdev)
 	 */
 	if (adreno_support_64bit(adreno_dev))
 		device->mmu.features |= KGSL_MMU_64BIT;
+
+	device->pwrctrl.bus_width = adreno_dev->gpucore->bus_width;
 
 	status = kgsl_device_platform_probe(device);
 	if (status) {
@@ -1444,11 +1488,18 @@ static void _adreno_free_memories(struct adreno_device *adreno_dev)
 
 static int adreno_remove(struct platform_device *pdev)
 {
-	const struct of_device_id *of_id =
-		of_match_device(adreno_match_table, &pdev->dev);
-	struct adreno_device *adreno_dev = (struct adreno_device *) of_id->data;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct of_device_id *of_id;
+	struct adreno_device *adreno_dev;
+	struct kgsl_device *device;
+	struct adreno_gpudev *gpudev;
+
+	of_id = of_match_device(adreno_match_table, &pdev->dev);
+	if (!of_id)
+		return -EINVAL;
+
+	adreno_dev = (struct adreno_device *) of_id->data;
+	device = KGSL_DEVICE(adreno_dev);
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (gpudev->remove != NULL)
 		gpudev->remove(adreno_dev);
@@ -1647,16 +1698,6 @@ static int adreno_init(struct kgsl_device *device)
 				PAGE_SIZE);
 		}
 
-	}
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
-		int r = 0;
-
-		if (gpudev->preemption_init)
-			r = gpudev->preemption_init(adreno_dev);
-
-		if (!WARN(r, "adreno: GPU preemption is disabled"))
-			set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
 	}
 
 	return 0;
@@ -2192,8 +2233,9 @@ int adreno_reset(struct kgsl_device *device, int fault)
 		if (ret == 0) {
 			ret = adreno_soft_reset(device);
 			if (ret)
-				dev_err_once(device->dev,
-					"Device soft reset failed\n");
+				dev_err(device->dev,
+					"Device soft reset failed: ret=%d\n",
+					ret);
 		}
 	}
 	if (ret) {
@@ -2346,6 +2388,31 @@ static int adreno_prop_ucode_version(struct kgsl_device *device,
 	return copy_prop(param, &ucode, sizeof(ucode));
 }
 
+static int adreno_prop_gaming_bin(struct kgsl_device *device,
+		struct kgsl_device_getproperty *param)
+{
+	void *buf;
+	size_t len;
+	int ret;
+	struct nvmem_cell *cell;
+
+	cell = nvmem_cell_get(&device->pdev->dev, "gaming_bin");
+	if (IS_ERR(cell))
+		return -EINVAL;
+
+	buf = nvmem_cell_read(cell, &len);
+	nvmem_cell_put(cell);
+
+	if (!IS_ERR(buf)) {
+		ret = copy_prop(param, buf, len);
+		kfree(buf);
+		return ret;
+	}
+
+	dev_err(device->dev, "failed to read gaming_bin nvmem cell\n");
+	return -EINVAL;
+}
+
 static int adreno_prop_u32(struct kgsl_device *device,
 		struct kgsl_device_getproperty *param)
 {
@@ -2388,6 +2455,7 @@ static const struct {
 	{ KGSL_PROP_UBWC_MODE, adreno_prop_u32 },
 	{ KGSL_PROP_DEVICE_BITNESS, adreno_prop_u32 },
 	{ KGSL_PROP_SPEED_BIN, adreno_prop_u32 },
+	{ KGSL_PROP_GAMING_BIN, adreno_prop_gaming_bin },
 };
 
 static int adreno_getproperty(struct kgsl_device *device,
@@ -2941,6 +3009,53 @@ static void adreno_read(struct kgsl_device *device, void __iomem *base,
 	rmb();
 }
 
+static void adreno_retry_rbbm_read(struct kgsl_device *device,
+		void __iomem *base, unsigned int offsetwords,
+		unsigned int *value, unsigned int mem_len)
+{
+	int i;
+	void __iomem *reg;
+
+	/* Make sure we're not reading from invalid memory */
+	if (WARN(offsetwords * sizeof(uint32_t) >= mem_len,
+		"Out of bounds register read: 0x%x/0x%x\n",
+		offsetwords, mem_len >> 2))
+		return;
+
+	reg = (base + (offsetwords << 2));
+
+	/*
+	 * If 0xdeafbead was transient, second read is expected to return the
+	 * actual register value. However, if a register value is indeed
+	 * 0xdeafbead, read it enough times to guarantee that.
+	 */
+	for (i = 0; i < 16; i++) {
+		*value = readl_relaxed(reg);
+		/*
+		 * Read barrier needed so that register is read from hardware
+		 * every iteration
+		 */
+		rmb();
+
+		if (*value != 0xdeafbead)
+			return;
+	}
+}
+
+static bool adreno_is_rbbm_batch_reg(struct kgsl_device *device,
+	unsigned int offsetwords)
+{
+	if (adreno_is_a650(ADRENO_DEVICE(device)) ||
+		adreno_is_a620v1(ADRENO_DEVICE(device))) {
+		if (((offsetwords > 0x0) && (offsetwords < 0x3FF)) ||
+			((offsetwords > 0x4FA) && (offsetwords < 0x53F)) ||
+			((offsetwords > 0x556) && (offsetwords < 0x5FF)) ||
+			((offsetwords > 0xF400) && (offsetwords < 0xFFFF)))
+			return  true;
+	}
+	return false;
+}
+
 /**
  * adreno_regread - Used to read adreno device registers
  * @offsetwords - Word (4 Bytes) offset to the register to be read
@@ -2951,6 +3066,11 @@ static void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 {
 	adreno_read(device, device->reg_virt, offsetwords, value,
 						device->reg_len);
+
+	if ((*value == 0xdeafbead) &&
+		adreno_is_rbbm_batch_reg(device, offsetwords))
+		adreno_retry_rbbm_read(device, device->reg_virt, offsetwords,
+			value, device->reg_len);
 }
 
 /**
@@ -3445,7 +3565,7 @@ static void adreno_power_stats(struct kgsl_device *device,
 		if (gpudev->read_throttling_counters) {
 			adj = gpudev->read_throttling_counters(adreno_dev);
 			if (adj < 0 && -adj > gpu_busy)
-				adj = -gpu_busy;
+				adj = 0;
 
 			gpu_busy += adj;
 		}
@@ -3682,6 +3802,13 @@ static void adreno_gpu_model(struct kgsl_device *device, char *str,
 			 ADRENO_CHIPID_PATCH(adreno_dev->chipid) + 1);
 }
 
+static bool adreno_is_hwcg_on(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	return test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag);
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
@@ -3726,6 +3853,7 @@ static const struct kgsl_functable adreno_functable = {
 	.dispatcher_halt = adreno_dispatcher_halt,
 	.dispatcher_unhalt = adreno_dispatcher_unhalt,
 	.query_property_list = adreno_query_property_list,
+	.is_hwcg_on = adreno_is_hwcg_on,
 };
 
 static struct platform_driver adreno_platform_driver = {

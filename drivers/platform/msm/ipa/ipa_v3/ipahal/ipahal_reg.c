@@ -3514,7 +3514,7 @@ u32 ipahal_get_reg_base(void)
 void ipahal_get_aggr_force_close_valmask(int ep_idx,
 	struct ipahal_reg_valmask *valmask)
 {
-	u32 shft;
+	u32 shft = 0;
 	u32 bmsk = 0;
 
 	if (!valmask) {

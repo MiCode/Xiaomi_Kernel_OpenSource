@@ -8112,19 +8112,19 @@ static u32 ufshcd_find_max_sup_active_icc_level(struct ufs_hba *hba,
 		goto out;
 	}
 
-	if (hba->vreg_info.vcc)
+	if (hba->vreg_info.vcc && hba->vreg_info.vcc->max_uA)
 		icc_level = ufshcd_get_max_icc_level(
 				hba->vreg_info.vcc->max_uA,
 				POWER_DESC_MAX_ACTV_ICC_LVLS - 1,
 				&desc_buf[PWR_DESC_ACTIVE_LVLS_VCC_0]);
 
-	if (hba->vreg_info.vccq)
+	if (hba->vreg_info.vccq && hba->vreg_info.vccq->max_uA)
 		icc_level = ufshcd_get_max_icc_level(
 				hba->vreg_info.vccq->max_uA,
 				icc_level,
 				&desc_buf[PWR_DESC_ACTIVE_LVLS_VCCQ_0]);
 
-	if (hba->vreg_info.vccq2)
+	if (hba->vreg_info.vccq2 && hba->vreg_info.vccq2->max_uA)
 		icc_level = ufshcd_get_max_icc_level(
 				hba->vreg_info.vccq2->max_uA,
 				icc_level,
@@ -8279,10 +8279,8 @@ static int ufs_get_device_desc(struct ufs_hba *hba,
 	buff_len = max_t(size_t, hba->desc_size.dev_desc,
 			 QUERY_DESC_MAX_SIZE + 1);
 	desc_buf = kmalloc(buff_len, GFP_KERNEL);
-	if (!desc_buf) {
-		err = -ENOMEM;
-		goto out;
-	}
+	if (!desc_buf)
+		return -ENOMEM;
 
 	err = ufshcd_read_device_desc(hba, desc_buf, hba->desc_size.dev_desc);
 	if (err) {
@@ -8685,15 +8683,14 @@ static int ufs_read_device_desc_data(struct ufs_hba *hba)
 	if (hba->desc_size.dev_desc) {
 		desc_buf = kmalloc(hba->desc_size.dev_desc, GFP_KERNEL);
 		if (!desc_buf) {
-			err = -ENOMEM;
 			dev_err(hba->dev,
 				"%s: Failed to allocate desc_buf\n", __func__);
-			return err;
+			return -ENOMEM;
 		}
 	}
 	err = ufshcd_read_device_desc(hba, desc_buf, hba->desc_size.dev_desc);
 	if (err)
-		return err;
+		goto out;
 
 	/*
 	 * getting vendor (manufacturerID) and Bank Index in big endian
@@ -8708,8 +8705,9 @@ static int ufs_read_device_desc_data(struct ufs_hba *hba)
 	hba->dev_info.w_spec_version =
 		desc_buf[DEVICE_DESC_PARAM_SPEC_VER] << 8 |
 		desc_buf[DEVICE_DESC_PARAM_SPEC_VER + 1];
-
-	return 0;
+out:
+	kfree(desc_buf);
+	return err;
 }
 
 static inline bool ufshcd_needs_reinit(struct ufs_hba *hba)
@@ -8744,6 +8742,11 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	ktime_t start = ktime_get();
 
 reinit:
+	if (hba->extcon && (ufshcd_card_get_extcon_state(hba) <= 0)) {
+		ret = -ENOLINK;
+		goto out;
+	}
+
 	ret = ufshcd_link_startup(hba);
 	if (ret)
 		goto out;
@@ -9389,6 +9392,15 @@ static int ufshcd_config_vreg_load(struct device *dev, struct ufs_vreg *vreg,
 	if (!vreg)
 		return 0;
 
+	/*
+	 * "set_load" operation shall be required on those regulators
+	 * which specifically configured current limitation. Otherwise
+	 * zero max_uA may cause unexpected behavior when regulator is
+	 * enabled or set as high power mode.
+	 */
+	if (!vreg->max_uA)
+		return 0;
+
 	ret = regulator_set_load(vreg->reg, ua);
 	if (ret < 0) {
 		dev_err(dev, "%s: %s set load (ua=%d) failed, err=%d\n",
@@ -9440,15 +9452,18 @@ static int ufshcd_config_vreg(struct device *dev,
 		if (ret)
 			goto out;
 
-		min_uV = on ? vreg->min_uV : 0;
-		if (vreg->low_voltage_sup && !vreg->low_voltage_active)
-			min_uV = vreg->max_uV;
+		if (vreg->min_uV && vreg->max_uV) {
+			min_uV = on ? vreg->min_uV : 0;
+			if (vreg->low_voltage_sup && !vreg->low_voltage_active)
+				min_uV = vreg->max_uV;
 
-		ret = regulator_set_voltage(reg, min_uV, vreg->max_uV);
-		if (ret) {
-			dev_err(dev, "%s: %s set voltage failed, err=%d\n",
+			ret = regulator_set_voltage(reg, min_uV, vreg->max_uV);
+			if (ret) {
+				dev_err(dev,
+					"%s: %s set voltage failed, err=%d\n",
 					__func__, name, ret);
-			goto out;
+				goto out;
+			}
 		}
 	}
 out:

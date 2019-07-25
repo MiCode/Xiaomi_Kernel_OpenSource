@@ -486,6 +486,7 @@ static bool drm_dp_sideband_parse_enum_path_resources_ack(struct drm_dp_sideband
 {
 	int idx = 1;
 	repmsg->u.path_resources.port_number = (raw->msg[idx] >> 4) & 0xf;
+	repmsg->u.path_resources.fec_capability = (raw->msg[idx]) & 0x1;
 	idx++;
 	if (idx > raw->curlen)
 		goto fail_len;
@@ -1693,9 +1694,14 @@ static int drm_dp_send_enum_path_resources(struct drm_dp_mst_topology_mgr *mgr,
 		else {
 			if (port->port_num != txmsg->reply.u.path_resources.port_number)
 				DRM_ERROR("got incorrect port in response\n");
-			DRM_DEBUG_KMS("enum path resources %d: %d %d\n", txmsg->reply.u.path_resources.port_number, txmsg->reply.u.path_resources.full_payload_bw_number,
-			       txmsg->reply.u.path_resources.avail_payload_bw_number);
+			DRM_DEBUG_KMS("enum path resources %d: %d %d %d\n",
+			txmsg->reply.u.path_resources.port_number,
+			txmsg->reply.u.path_resources.fec_capability,
+			txmsg->reply.u.path_resources.full_payload_bw_number,
+			txmsg->reply.u.path_resources.avail_payload_bw_number);
 			port->available_pbn = txmsg->reply.u.path_resources.avail_payload_bw_number;
+			port->fec_capability =
+				txmsg->reply.u.path_resources.fec_capability;
 		}
 	}
 
@@ -1849,6 +1855,42 @@ static int drm_dp_send_clear_payload_table(struct drm_dp_mst_topology_mgr *mgr,
 
 	return ret;
 }
+
+int drm_dp_mst_get_dsc_info(struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_port *port,
+		struct drm_dp_mst_dsc_info *dsc_info)
+{
+	if (!dsc_info)
+		return -EINVAL;
+
+	port = drm_dp_get_validated_port_ref(mgr, port);
+	if (!port)
+		return -EINVAL;
+
+	memcpy(dsc_info, &port->dsc_info, sizeof(struct drm_dp_mst_dsc_info));
+	drm_dp_put_port(port);
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_dp_mst_get_dsc_info);
+
+int drm_dp_mst_update_dsc_info(struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_port *port,
+		struct drm_dp_mst_dsc_info *dsc_info)
+{
+	if (!dsc_info)
+		return -EINVAL;
+
+	port = drm_dp_get_validated_port_ref(mgr, port);
+	if (!port)
+		return -EINVAL;
+
+	memcpy(&port->dsc_info, dsc_info, sizeof(struct drm_dp_mst_dsc_info));
+	drm_dp_put_port(port);
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_dp_mst_update_dsc_info);
 
 static int drm_dp_create_payload_step1(struct drm_dp_mst_topology_mgr *mgr,
 				       int id,
@@ -2122,6 +2164,21 @@ fail_put:
 }
 EXPORT_SYMBOL(drm_dp_send_dpcd_write);
 
+int drm_dp_mst_get_max_sdp_streams_supported(
+		struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_port *port)
+{
+	int ret = -1;
+
+	port = drm_dp_get_validated_port_ref(mgr, port);
+	if (!port)
+		return ret;
+	ret = port->num_sdp_streams;
+	drm_dp_put_port(port);
+	return ret;
+}
+EXPORT_SYMBOL(drm_dp_mst_get_max_sdp_streams_supported);
+
 static int drm_dp_encode_up_ack_reply(struct drm_dp_sideband_msg_tx *msg, u8 req_type)
 {
 	struct drm_dp_sideband_msg_reply_body reply;
@@ -2194,6 +2251,8 @@ int drm_dp_mst_topology_mgr_set_mst(struct drm_dp_mst_topology_mgr *mgr, bool ms
 {
 	int ret = 0;
 	struct drm_dp_mst_branch *mstb = NULL;
+	u8 buf;
+	u32 offset = DP_DPCD_REV;
 
 	mutex_lock(&mgr->lock);
 	if (mst_state == mgr->mst_state)
@@ -2204,8 +2263,21 @@ int drm_dp_mst_topology_mgr_set_mst(struct drm_dp_mst_topology_mgr *mgr, bool ms
 	if (mst_state) {
 		WARN_ON(mgr->mst_primary);
 
+		ret = drm_dp_dpcd_read(mgr->aux, DP_TRAINING_AUX_RD_INTERVAL,
+				&buf, 1);
+		if (ret != 1) {
+			DRM_DEBUG_KMS("failed to read aux rd interval\n");
+			ret = -EINVAL;
+			goto out_unlock;
+		}
+
+		/* check for EXTENDED_RECEIVER_CAPABILITY_FIELD_PRESENT */
+		if (buf & BIT(7))
+			offset = DP_DP13_DPCD_REV;
+
 		/* get dpcd info */
-		ret = drm_dp_dpcd_read(mgr->aux, DP_DPCD_REV, mgr->dpcd, DP_RECEIVER_CAP_SIZE);
+		ret = drm_dp_dpcd_read(mgr->aux, offset, mgr->dpcd,
+				DP_RECEIVER_CAP_SIZE);
 		if (ret != DP_RECEIVER_CAP_SIZE) {
 			DRM_DEBUG_KMS("failed to read DPCD\n");
 			goto out_unlock;
@@ -2623,6 +2695,20 @@ bool drm_dp_mst_port_has_audio(struct drm_dp_mst_topology_mgr *mgr,
 	return ret;
 }
 EXPORT_SYMBOL(drm_dp_mst_port_has_audio);
+
+bool drm_dp_mst_has_fec(struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_port *port)
+{
+	bool ret = false;
+
+	port = drm_dp_get_validated_port_ref(mgr, port);
+	if (!port)
+		return ret;
+	ret = port->fec_capability;
+	drm_dp_put_port(port);
+	return ret;
+}
+EXPORT_SYMBOL(drm_dp_mst_has_fec);
 
 /**
  * drm_dp_mst_get_edid() - get EDID for an MST port

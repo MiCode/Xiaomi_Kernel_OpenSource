@@ -225,6 +225,19 @@ config QCOM_DEVFREQ_DEVBW
 	  agnostic interface to so that some of the devfreq governors can be
 	  shared across SoCs.
 
+config ARM_QCOM_DEVFREQ_QOSLAT
+	bool "Qualcomm Technologies Inc. DEVFREQ QOSLAT device driver"
+	depends on ARCH_QCOM
+	select DEVFREQ_GOV_PERFORMANCE
+	select DEVFREQ_GOV_POWERSAVE
+	select DEVFREQ_GOV_USERSPACE
+	default n
+	help
+	  Some Qualcomm Technologies, Inc. (QTI) chipsets have an
+	  interface to vote for a memory latency QoS level. This
+	  driver votes on this interface to request a particular
+	  memory latency QoS level.
+
 source "drivers/devfreq/event/Kconfig"
 
 endif # PM_DEVFREQ

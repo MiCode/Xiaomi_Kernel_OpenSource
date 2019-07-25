@@ -354,6 +354,7 @@ struct adreno_reglist {
  * @gmem_size: Amount of binning memory (GMEM/OCMEM) to reserve for the core
  * @num_protected_regs: number of protected registers
  * @busy_mask: mask to check if GPU is busy in RBBM_STATUS
+ * @bus_width: Bytes transferred in 1 cycle
  */
 struct adreno_gpu_core {
 	enum adreno_gpurev gpurev;
@@ -364,6 +365,7 @@ struct adreno_gpu_core {
 	size_t gmem_size;
 	unsigned int num_protected_regs;
 	unsigned int busy_mask;
+	u32 bus_width;
 };
 
 enum gpu_coresight_sources {
@@ -911,6 +913,7 @@ struct adreno_gpudev {
 				struct adreno_device *adreno_dev,
 				unsigned int *cmds);
 	int (*preemption_init)(struct adreno_device *adreno_dev);
+	void (*preemption_close)(struct adreno_device *adreno_dev);
 	void (*preemption_schedule)(struct adreno_device *adreno_dev);
 	int (*preemption_context_init)(struct kgsl_context *context);
 	void (*preemption_context_destroy)(struct kgsl_context *context);
@@ -1204,6 +1207,12 @@ static inline int adreno_is_a650_family(struct adreno_device *adreno_dev)
 	unsigned int rev = ADRENO_GPUREV(adreno_dev);
 
 	return (rev == ADRENO_REV_A650 || rev == ADRENO_REV_A620);
+}
+
+static inline int adreno_is_a620v1(struct adreno_device *adreno_dev)
+{
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A620) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
 }
 
 static inline int adreno_is_a640v2(struct adreno_device *adreno_dev)
@@ -1815,7 +1824,8 @@ static inline int adreno_wait_for_halt_ack(struct kgsl_device *device,
 			break;
 		if (time_after(jiffies, wait_for_vbif)) {
 			dev_err(device->dev,
-				"Wait limit reached for GBIF/VBIF Halt\n");
+				"GBIF/VBIF Halt ack timeout: reg=%08X mask=%08X status=%08X\n",
+				ack_reg, mask, val);
 			ret = -ETIMEDOUT;
 			break;
 		}

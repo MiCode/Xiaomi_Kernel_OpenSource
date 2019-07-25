@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/ipa.h>
@@ -35,14 +35,12 @@ static int ipa_pm_ut_setup(void **ppriv)
 	/*decouple PM from RPM */
 	ipa3_ctx->enable_clock_scaling = false;
 
-	if (ipa3_ctx->use_ipa_pm) {
-		for (i = 0; i < IPA_PM_MAX_CLIENTS; i++) {
-			ipa_pm_deactivate_sync(i);
-			ipa_pm_deregister(i);
-		}
-
-		ipa_pm_destroy();
+	for (i = 0; i < IPA_PM_MAX_CLIENTS; i++) {
+		ipa_pm_deactivate_sync(i);
+		ipa_pm_deregister(i);
 	}
+
+	ipa_pm_destroy();
 
 	return 0;
 }

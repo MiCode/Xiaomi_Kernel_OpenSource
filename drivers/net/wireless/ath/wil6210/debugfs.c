@@ -810,6 +810,44 @@ static const struct file_operations fops_rxon = {
 	.open  = simple_open,
 };
 
+static ssize_t wil_write_file_rbufcap(struct file *file,
+				      const char __user *buf,
+				      size_t count, loff_t *ppos)
+{
+	struct wil6210_priv *wil = file->private_data;
+	int val;
+	int rc;
+
+	rc = kstrtoint_from_user(buf, count, 0, &val);
+	if (rc) {
+		wil_err(wil, "Invalid argument\n");
+		return rc;
+	}
+	/* input value: negative to disable, 0 to use system default,
+	 * 1..ring size to set descriptor threshold
+	 */
+	wil_info(wil, "%s RBUFCAP, descriptors threshold - %d\n",
+		 val < 0 ? "Disabling" : "Enabling", val);
+
+	if (!wil->ring_rx.va || val > wil->ring_rx.size) {
+		wil_err(wil, "Invalid descriptors threshold, %d\n", val);
+		return -EINVAL;
+	}
+
+	rc = wmi_rbufcap_cfg(wil, val < 0 ? 0 : 1, val < 0 ? 0 : val);
+	if (rc) {
+		wil_err(wil, "RBUFCAP config failed: %d\n", rc);
+		return rc;
+	}
+
+	return count;
+}
+
+static const struct file_operations fops_rbufcap = {
+	.write = wil_write_file_rbufcap,
+	.open  = simple_open,
+};
+
 /* block ack control, write:
  * - "add <ringid> <agg_size> <timeout>" to trigger ADDBA
  * - "del_tx <ringid> <reason>" to trigger DELBA for Tx side
@@ -1364,7 +1402,7 @@ static int wil_bf_debugfs_show(struct seq_file *s, void *data)
 		rc = wmi_call(wil, WMI_NOTIFY_REQ_CMDID, vif->mid,
 			      &cmd, sizeof(cmd),
 			      WMI_NOTIFY_REQ_DONE_EVENTID, &reply,
-			      sizeof(reply), 20);
+			      sizeof(reply), WIL_WMI_CALL_GENERAL_TO_MS);
 		/* if reply is all-0, ignore this CID */
 		if (rc || is_all_zeros(&reply.evt, sizeof(reply.evt)))
 			continue;
@@ -1413,7 +1451,7 @@ static void print_temp(struct seq_file *s, const char *prefix, s32 t)
 {
 	switch (t) {
 	case 0:
-	case ~(u32)0:
+	case WMI_INVALID_TEMPERATURE:
 		seq_printf(s, "%s N/A\n", prefix);
 	break;
 	default:
@@ -1426,17 +1464,41 @@ static void print_temp(struct seq_file *s, const char *prefix, s32 t)
 static int wil_temp_debugfs_show(struct seq_file *s, void *data)
 {
 	struct wil6210_priv *wil = s->private;
-	s32 t_m, t_r;
-	int rc = wmi_get_temperature(wil, &t_m, &t_r);
+	int rc, i;
 
-	if (rc) {
-		seq_puts(s, "Failed\n");
-		return 0;
+	if (test_bit(WMI_FW_CAPABILITY_TEMPERATURE_ALL_RF,
+		     wil->fw_capabilities)) {
+		struct wmi_temp_sense_all_done_event sense_all_evt;
+
+		wil_dbg_misc(wil,
+			     "WMI_FW_CAPABILITY_TEMPERATURE_ALL_RF is supported");
+		rc = wmi_get_all_temperatures(wil, &sense_all_evt);
+		if (rc) {
+			seq_puts(s, "Failed\n");
+			return 0;
+		}
+		print_temp(s, "T_mac   =",
+			   le32_to_cpu(sense_all_evt.baseband_t1000));
+		seq_printf(s, "Connected RFs [0x%08x]\n",
+			   sense_all_evt.rf_bitmap);
+		for (i = 0; i < WMI_MAX_XIF_PORTS_NUM; i++) {
+			seq_printf(s, "RF[%d]   = ", i);
+			print_temp(s, "",
+				   le32_to_cpu(sense_all_evt.rf_t1000[i]));
+		}
+	} else {
+		s32 t_m, t_r;
+
+		wil_dbg_misc(wil,
+			     "WMI_FW_CAPABILITY_TEMPERATURE_ALL_RF is not supported");
+		rc = wmi_get_temperature(wil, &t_m, &t_r);
+		if (rc) {
+			seq_puts(s, "Failed\n");
+			return 0;
+		}
+		print_temp(s, "T_mac   =", t_m);
+		print_temp(s, "T_radio =", t_r);
 	}
-
-	print_temp(s, "T_mac   =", t_m);
-	print_temp(s, "T_radio =", t_r);
-
 	return 0;
 }
 
@@ -2220,6 +2282,29 @@ static const struct file_operations fops_led_cfg = {
 	.open  = simple_open,
 };
 
+int wil_led_blink_set(struct wil6210_priv *wil, const char *buf)
+{
+	int rc;
+
+	/* "<blink_on_slow> <blink_off_slow> <blink_on_med> <blink_off_med>
+	 * <blink_on_fast> <blink_off_fast>"
+	 */
+	rc = sscanf(buf, "%u %u %u %u %u %u",
+		    &led_blink_time[WIL_LED_TIME_SLOW].on_ms,
+		    &led_blink_time[WIL_LED_TIME_SLOW].off_ms,
+		    &led_blink_time[WIL_LED_TIME_MED].on_ms,
+		    &led_blink_time[WIL_LED_TIME_MED].off_ms,
+		    &led_blink_time[WIL_LED_TIME_FAST].on_ms,
+		    &led_blink_time[WIL_LED_TIME_FAST].off_ms);
+
+	if (rc < 0)
+		return rc;
+	if (rc < 6)
+		return -EINVAL;
+
+	return 0;
+}
+
 /* led_blink_time, write:
  * "<blink_on_slow> <blink_off_slow> <blink_on_med> <blink_off_med> <blink_on_fast> <blink_off_fast>
  */
@@ -2227,6 +2312,7 @@ static ssize_t wil_write_led_blink_time(struct file *file,
 					const char __user *buf,
 					size_t len, loff_t *ppos)
 {
+	struct wil6210_priv *wil = file->private_data;
 	int rc;
 	char *kbuf = kmalloc(len + 1, GFP_KERNEL);
 
@@ -2240,19 +2326,11 @@ static ssize_t wil_write_led_blink_time(struct file *file,
 	}
 
 	kbuf[len] = '\0';
-	rc = sscanf(kbuf, "%d %d %d %d %d %d",
-		    &led_blink_time[WIL_LED_TIME_SLOW].on_ms,
-		    &led_blink_time[WIL_LED_TIME_SLOW].off_ms,
-		    &led_blink_time[WIL_LED_TIME_MED].on_ms,
-		    &led_blink_time[WIL_LED_TIME_MED].off_ms,
-		    &led_blink_time[WIL_LED_TIME_FAST].on_ms,
-		    &led_blink_time[WIL_LED_TIME_FAST].off_ms);
+	rc = wil_led_blink_set(wil, kbuf);
 	kfree(kbuf);
 
 	if (rc < 0)
 		return rc;
-	if (rc < 6)
-		return -EINVAL;
 
 	return len;
 }
@@ -2508,6 +2586,7 @@ static const struct {
 	{"tx_latency",	0644,		&fops_tx_latency},
 	{"link_stats",	0644,		&fops_link_stats},
 	{"link_stats_global",	0644,	&fops_link_stats_global},
+	{"rbufcap",	0244,		&fops_rbufcap},
 };
 
 static void wil6210_debugfs_init_files(struct wil6210_priv *wil,

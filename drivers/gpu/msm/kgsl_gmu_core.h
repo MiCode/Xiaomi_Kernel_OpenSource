@@ -22,7 +22,6 @@
 #endif
 
 #define MAX_GMU_CLKS 6
-#define DEFAULT_GMU_FREQ_IDX 1
 
 /*
  * These are the different ways the GMU can boot. GMU_WARM_BOOT is waking up

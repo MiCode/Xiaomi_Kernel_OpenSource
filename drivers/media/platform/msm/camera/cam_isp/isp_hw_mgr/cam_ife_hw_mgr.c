@@ -2147,6 +2147,8 @@ static int cam_ife_mgr_acquire_get_unified_structure_v0(
 	port_info->dsp_mode        =  in->dsp_mode;
 	port_info->hbi_cnt         =  in->hbi_cnt;
 	port_info->cust_node       =  0;
+	port_info->horizontal_bin  =  0;
+	port_info->qcfa_bin        =  0;
 	port_info->num_out_res     =  in->num_out_res;
 
 	port_info->data = kcalloc(in->num_out_res,
@@ -2246,6 +2248,8 @@ static int cam_ife_mgr_acquire_get_unified_structure_v2(
 	port_info->dsp_mode       =  in->dsp_mode;
 	port_info->hbi_cnt        =  in->hbi_cnt;
 	port_info->cust_node      =  in->cust_node;
+	port_info->horizontal_bin =  in->horizontal_bin;
+	port_info->qcfa_bin       =  in->qcfa_bin;
 	port_info->num_out_res    =  in->num_out_res;
 
 	port_info->data = kcalloc(in->num_out_res,
@@ -3330,19 +3334,17 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 		cam_ife_hw_mgr_stop_hw_res(hw_mgr_res);
 	}
 
+	cam_tasklet_stop(ctx->common.tasklet_info);
+
 	cam_ife_mgr_pause_hw(ctx);
 
-	if (stop_isp->stop_only) {
-		cam_tasklet_stop(ctx->common.tasklet_info);
+	if (stop_isp->stop_only)
 		goto end;
-	}
 
 	if (cam_cdm_stream_off(ctx->cdm_handle))
 		CAM_ERR(CAM_ISP, "CDM stream off failed %d", ctx->cdm_handle);
 
 	cam_ife_hw_mgr_deinit_hw(ctx);
-	cam_tasklet_stop(ctx->common.tasklet_info);
-
 	CAM_DBG(CAM_ISP,
 		"Stop success for ctx id:%d rc :%d", ctx->ctx_index, rc);
 

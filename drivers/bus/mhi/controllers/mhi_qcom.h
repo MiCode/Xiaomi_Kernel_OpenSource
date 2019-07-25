@@ -18,6 +18,14 @@
 #define MHI_RPM_SUSPEND_TMR_MS (250)
 #define MHI_PCI_BAR_NUM (0)
 
+/* timesync time calculations */
+#define REMOTE_TICKS_TO_US(x) (div_u64((x) * 100ULL, \
+			       div_u64(mhi_cntrl->remote_timer_freq, 10000ULL)))
+#define REMOTE_TICKS_TO_SEC(x) (div_u64((x), \
+				mhi_cntrl->remote_timer_freq))
+#define REMOTE_TIME_REMAINDER_US(x) (REMOTE_TICKS_TO_US((x)) % \
+					(REMOTE_TICKS_TO_SEC((x)) * 1000000ULL))
+
 extern const char * const mhi_ee_str[MHI_EE_MAX];
 #define TO_MHI_EXEC_STR(ee) (ee >= MHI_EE_MAX ? "INVALID_EE" : mhi_ee_str[ee])
 

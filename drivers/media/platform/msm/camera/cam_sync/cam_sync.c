@@ -13,6 +13,9 @@
 #include "cam_debug_util.h"
 #include "cam_common_util.h"
 
+#ifdef CONFIG_MSM_GLOBAL_SYNX
+#include <synx_api.h>
+#endif
 struct sync_device *sync_dev;
 
 /*
@@ -956,6 +959,25 @@ static int cam_sync_create_debugfs(void)
 	return 0;
 }
 
+#ifdef CONFIG_MSM_GLOBAL_SYNX
+static void cam_sync_register_synx_bind_ops(void)
+{
+	int rc = 0;
+	struct synx_register_params params;
+
+	params.name = CAM_SYNC_NAME;
+	params.type = SYNX_TYPE_CSL;
+	params.ops.register_callback = cam_sync_register_callback;
+	params.ops.deregister_callback = cam_sync_deregister_callback;
+	params.ops.enable_signaling = cam_sync_get_obj_ref;
+	params.ops.signal = cam_sync_signal;
+
+	rc = synx_register_ops(&params);
+	if (rc)
+		CAM_ERR(CAM_SYNC, "synx registration fail with %d", rc);
+}
+#endif
+
 static int cam_sync_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -1023,7 +1045,9 @@ static int cam_sync_probe(struct platform_device *pdev)
 
 	trigger_cb_without_switch = false;
 	cam_sync_create_debugfs();
-
+#ifdef CONFIG_MSM_GLOBAL_SYNX
+	cam_sync_register_synx_bind_ops();
+#endif
 	return rc;
 
 v4l2_fail:

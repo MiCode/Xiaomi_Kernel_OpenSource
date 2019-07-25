@@ -430,7 +430,7 @@ static int hfi_send_dcvstbl_v1(struct gmu_device *gmu)
 	struct hfi_dcvstable_v1_cmd cmd = {
 		.hdr = CMD_MSG_HDR(H2F_MSG_PERF_TBL, sizeof(cmd)),
 		.gpu_level_num = gmu->num_gpupwrlevels,
-		.gmu_level_num = gmu->num_gmupwrlevels,
+		.gmu_level_num = GMU_PWR_LEVELS,
 	};
 	int i;
 
@@ -440,10 +440,10 @@ static int hfi_send_dcvstbl_v1(struct gmu_device *gmu)
 		cmd.gx_votes[i].freq = gmu->gpu_freqs[i] / 1000;
 	}
 
-	for (i = 0; i < gmu->num_gmupwrlevels; i++) {
-		cmd.cx_votes[i].vote = gmu->rpmh_votes.cx_votes[i];
-		cmd.cx_votes[i].freq = gmu->gmu_freqs[i] / 1000;
-	}
+	cmd.cx_votes[0].vote = gmu->rpmh_votes.cx_votes[0];
+	cmd.cx_votes[0].freq = 0;
+	cmd.cx_votes[1].vote = gmu->rpmh_votes.cx_votes[1];
+	cmd.cx_votes[1].freq = GMU_FREQUENCY / 1000;
 
 	return hfi_send_generic_req(gmu, HFI_CMD_ID, &cmd);
 }
@@ -474,7 +474,7 @@ static int hfi_send_dcvstbl(struct gmu_device *gmu)
 	struct hfi_dcvstable_cmd cmd = {
 		.hdr = CMD_MSG_HDR(H2F_MSG_PERF_TBL, sizeof(cmd)),
 		.gpu_level_num = gmu->num_gpupwrlevels,
-		.gmu_level_num = gmu->num_gmupwrlevels,
+		.gmu_level_num = GMU_PWR_LEVELS,
 	};
 	int i;
 
@@ -486,10 +486,10 @@ static int hfi_send_dcvstbl(struct gmu_device *gmu)
 		cmd.gx_votes[i].freq = gmu->gpu_freqs[i] / 1000;
 	}
 
-	for (i = 0; i < gmu->num_gmupwrlevels; i++) {
-		cmd.cx_votes[i].vote = gmu->rpmh_votes.cx_votes[i];
-		cmd.cx_votes[i].freq = gmu->gmu_freqs[i] / 1000;
-	}
+	cmd.cx_votes[0].vote = gmu->rpmh_votes.cx_votes[0];
+	cmd.cx_votes[0].freq = 0;
+	cmd.cx_votes[1].vote = gmu->rpmh_votes.cx_votes[1];
+	cmd.cx_votes[1].freq = GMU_FREQUENCY / 1000;
 
 	return hfi_send_generic_req(gmu, HFI_CMD_ID, &cmd);
 }
@@ -776,13 +776,6 @@ void hfi_stop(struct gmu_device *gmu)
 int hfi_send_req(struct gmu_device *gmu, unsigned int id, void *data)
 {
 	switch (id) {
-	case H2F_MSG_LM_CFG: {
-		struct hfi_lmconfig_cmd *cmd = data;
-
-		cmd->hdr = CMD_MSG_HDR(H2F_MSG_LM_CFG, sizeof(*cmd));
-
-		return hfi_send_generic_req(gmu, HFI_CMD_ID, &cmd);
-	}
 	case H2F_MSG_GX_BW_PERF_VOTE: {
 		struct hfi_gx_bw_perf_vote_cmd *cmd = data;
 

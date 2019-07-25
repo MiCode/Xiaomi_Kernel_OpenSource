@@ -16,6 +16,10 @@
 #include "trace.h"
 #include "ipa.h"
 
+/* Max number of entries (packets to complete) to update the hwtail of tx
+ * status ring. Should be power of 2
+ */
+#define WIL_EDMA_TX_SRING_UPDATE_HW_TAIL 128
 #define WIL_EDMA_MAX_DATA_OFFSET (2)
 /* RX buffer size must be aligned to 4 bytes */
 #define WIL_EDMA_RX_BUF_LEN_DEFAULT (2048)
@@ -223,10 +227,17 @@ static int wil_ring_alloc_skb_edma(struct wil6210_priv *wil,
 }
 
 static inline
-void wil_get_next_rx_status_msg(struct wil_status_ring *sring, void *msg)
+void wil_get_next_rx_status_msg(struct wil_status_ring *sring, u8 *dr_bit,
+				void *msg)
 {
-	memcpy(msg, (void *)(sring->va + (sring->elem_size * sring->swhead)),
-	       sring->elem_size);
+	struct wil_rx_status_compressed *_msg;
+
+	_msg = (struct wil_rx_status_compressed *)
+		(sring->va + (sring->elem_size * sring->swhead));
+	*dr_bit = WIL_GET_BITS(_msg->d0, 31, 31);
+	/* make sure dr_bit is read before the rest of status msg */
+	rmb();
+	memcpy(msg, (void *)_msg, sring->elem_size);
 }
 
 static inline void wil_sring_advance_swhead(struct wil_status_ring *sring)
@@ -606,8 +617,7 @@ static bool wil_is_rx_idle_edma(struct wil6210_priv *wil)
 		if (!sring->va)
 			continue;
 
-		wil_get_next_rx_status_msg(sring, msg);
-		dr_bit = wil_rx_status_get_desc_rdy_bit(msg);
+		wil_get_next_rx_status_msg(sring, &dr_bit, msg);
 
 		/* Check if there are unhandled RX status messages */
 		if (dr_bit == sring->desc_rdy_pol)
@@ -916,8 +926,7 @@ static struct sk_buff *wil_sring_reap_rx_edma(struct wil6210_priv *wil,
 	BUILD_BUG_ON(sizeof(struct wil_rx_status_extended) > sizeof(skb->cb));
 
 again:
-	wil_get_next_rx_status_msg(sring, msg);
-	dr_bit = wil_rx_status_get_desc_rdy_bit(msg);
+	wil_get_next_rx_status_msg(sring, &dr_bit, msg);
 
 	/* Completed handling all the ready status messages */
 	if (dr_bit != sring->desc_rdy_pol)
@@ -1169,12 +1178,15 @@ int wil_tx_desc_map_edma(union wil_tx_desc *desc, dma_addr_t pa, u32 len,
 }
 
 static inline void
-wil_get_next_tx_status_msg(struct wil_status_ring *sring,
+wil_get_next_tx_status_msg(struct wil_status_ring *sring, u8 *dr_bit,
 			   struct wil_ring_tx_status *msg)
 {
 	struct wil_ring_tx_status *_msg = (struct wil_ring_tx_status *)
 		(sring->va + (sring->elem_size * sring->swhead));
 
+	*dr_bit = _msg->desc_ready >> TX_STATUS_DESC_READY_POS;
+	/* make sure dr_bit is read before the rest of status msg */
+	rmb();
 	*msg = *_msg;
 }
 
@@ -1195,7 +1207,7 @@ int wil_tx_sring_handler(struct wil6210_priv *wil,
 	struct wil_net_stats *stats;
 	struct wil_tx_enhanced_desc *_d;
 	unsigned int ring_id;
-	unsigned int num_descs;
+	unsigned int num_descs, num_statuses = 0;
 	int i;
 	u8 dr_bit; /* Descriptor Ready bit */
 	struct wil_ring_tx_status msg;
@@ -1203,8 +1215,7 @@ int wil_tx_sring_handler(struct wil6210_priv *wil,
 	int used_before_complete;
 	int used_new;
 
-	wil_get_next_tx_status_msg(sring, &msg);
-	dr_bit = msg.desc_ready >> TX_STATUS_DESC_READY_POS;
+	wil_get_next_tx_status_msg(sring, &dr_bit, &msg);
 
 	/* Process completion messages while DR bit has the expected polarity */
 	while (dr_bit == sring->desc_rdy_pol) {
@@ -1315,18 +1326,23 @@ int wil_tx_sring_handler(struct wil6210_priv *wil,
 		}
 
 again:
+		num_statuses++;
+		if (num_statuses % WIL_EDMA_TX_SRING_UPDATE_HW_TAIL == 0)
+			/* update HW tail to allow HW to push new statuses */
+			wil_w(wil, sring->hwtail, sring->swhead);
+
 		wil_sring_advance_swhead(sring);
 
-		wil_get_next_tx_status_msg(sring, &msg);
-		dr_bit = msg.desc_ready >> TX_STATUS_DESC_READY_POS;
+		wil_get_next_tx_status_msg(sring, &dr_bit, &msg);
 	}
 
 	/* shall we wake net queues? */
 	if (desc_cnt)
 		wil_update_net_queues(wil, vif, NULL, false);
 
-	/* Update the HW tail ptr (RD ptr) */
-	wil_w(wil, sring->hwtail, (sring->swhead - 1) % sring->size);
+	if (num_statuses % WIL_EDMA_TX_SRING_UPDATE_HW_TAIL != 0)
+		/* Update the HW tail ptr (RD ptr) */
+		wil_w(wil, sring->hwtail, (sring->swhead - 1) % sring->size);
 
 	return desc_cnt;
 }

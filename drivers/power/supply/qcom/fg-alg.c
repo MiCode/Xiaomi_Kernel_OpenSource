@@ -1117,7 +1117,7 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 
 			/* Calculate OCV for each window */
 			if (power_approx) {
-				i_step = pbatt_avg / max((u32)MILLI_UNIT,
+				i_step = pbatt_avg / max(MILLI_UNIT,
 					(step_chg_cfg[i].high_threshold /
 						MILLI_UNIT));
 			} else {

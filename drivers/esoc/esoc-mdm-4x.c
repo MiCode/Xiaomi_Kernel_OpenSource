@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2015, 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/coresight.h>
@@ -262,7 +262,7 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		esoc_mdm_log(
 		"ESOC_FORCE_PWR_OFF: Queueing request: ESOC_REQ_SHUTDOWN\n");
 		esoc_clink_queue_request(ESOC_REQ_SHUTDOWN, esoc);
-		mdm_power_down(mdm);
+		mdm_toggle_soft_reset(mdm, false);
 		mdm_update_gpio_configs(mdm, GPIO_UPDATE_BOOTING_CONFIG);
 		break;
 	case ESOC_RESET:
@@ -484,7 +484,7 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 		mdm->ready = false;
 		esoc_mdm_log(
 		"ESOC_PRIMARY_REBOOT: Powering down the modem\n");
-		mdm_power_down(mdm);
+		mdm_toggle_soft_reset(mdm, false);
 		break;
 	};
 }

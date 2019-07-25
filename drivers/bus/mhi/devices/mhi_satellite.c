@@ -353,7 +353,7 @@ static bool mhi_sat_isvalid_header(struct sat_header *hdr, int len)
 		return false;
 
 	/* validate SAT IPC version */
-	if (hdr->major_ver != SAT_MAJOR_VERSION &&
+	if (hdr->major_ver != SAT_MAJOR_VERSION ||
 	    hdr->minor_ver != SAT_MINOR_VERSION)
 		return false;
 

@@ -430,6 +430,8 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 				struct iommu_domain *domain);
 static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data);
+static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
+				    enum iommu_attr attr, void *data);
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
@@ -2250,6 +2252,20 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 	return &smmu_domain->domain;
 }
 
+static void arm_smmu_put_dma_cookie(struct iommu_domain *domain)
+{
+	int s1_bypass = 0, is_fast = 0;
+
+	iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS,
+					&s1_bypass);
+	iommu_domain_get_attr(domain, DOMAIN_ATTR_FAST, &is_fast);
+
+	if (is_fast)
+		fast_smmu_put_dma_cookie(domain);
+	else if (!s1_bypass)
+		iommu_put_dma_cookie(domain);
+}
+
 static void arm_smmu_domain_free(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
@@ -2258,7 +2274,7 @@ static void arm_smmu_domain_free(struct iommu_domain *domain)
 	 * Free the domain resources. We assume that all devices have
 	 * already been detached.
 	 */
-	arm_iommu_put_dma_cookie(domain);
+	arm_smmu_put_dma_cookie(domain);
 	arm_smmu_destroy_domain_context(domain);
 	kfree(smmu_domain);
 }
@@ -2866,6 +2882,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct arm_smmu_device *smmu;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
+	int s1_bypass = 0;
 
 	if (!fwspec || fwspec->ops != &arm_smmu_ops) {
 		dev_err(dev, "cannot attach to SMMU, is it on the same bus?\n");
@@ -2893,6 +2910,11 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	ret = arm_smmu_init_domain_context(domain, smmu, dev);
 	if (ret < 0)
 		goto out_power_off;
+
+	ret = arm_smmu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS,
+					&s1_bypass);
+	if (s1_bypass)
+		domain->type = IOMMU_DOMAIN_UNMANAGED;
 
 	/* Do not modify the SIDs, HW is still running */
 	if (is_dynamic_domain(domain)) {
@@ -3909,65 +3931,6 @@ static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 	arm_smmu_power_off(smmu->pwr);
 }
 
-static unsigned long arm_smmu_reg_read(struct iommu_domain *domain,
-				       unsigned long offset)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu;
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	void __iomem *cb_base;
-	unsigned long val;
-
-	if (offset >= SZ_4K) {
-		pr_err("Invalid offset: 0x%lx\n", offset);
-		return 0;
-	}
-
-	smmu = smmu_domain->smmu;
-	if (!smmu) {
-		WARN(1, "Can't read registers of a detached domain\n");
-		val = 0;
-		return val;
-	}
-
-	if (arm_smmu_power_on(smmu->pwr))
-		return 0;
-
-	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
-	val = readl_relaxed(cb_base + offset);
-
-	arm_smmu_power_off(smmu->pwr);
-	return val;
-}
-
-static void arm_smmu_reg_write(struct iommu_domain *domain,
-			       unsigned long offset, unsigned long val)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu;
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	void __iomem *cb_base;
-
-	if (offset >= SZ_4K) {
-		pr_err("Invalid offset: 0x%lx\n", offset);
-		return;
-	}
-
-	smmu = smmu_domain->smmu;
-	if (!smmu) {
-		WARN(1, "Can't read registers of a detached domain\n");
-		return;
-	}
-
-	if (arm_smmu_power_on(smmu->pwr))
-		return;
-
-	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
-	writel_relaxed(val, cb_base + offset);
-
-	arm_smmu_power_off(smmu->pwr);
-}
-
 static void arm_smmu_tlbi_domain(struct iommu_domain *domain)
 {
 	arm_smmu_tlb_inv_context_s1(to_smmu_domain(domain));
@@ -4008,8 +3971,6 @@ static struct iommu_ops arm_smmu_ops = {
 	.put_resv_regions	= arm_smmu_put_resv_regions,
 	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
 	.trigger_fault		= arm_smmu_trigger_fault,
-	.reg_read		= arm_smmu_reg_read,
-	.reg_write		= arm_smmu_reg_write,
 	.tlbi_domain		= arm_smmu_tlbi_domain,
 	.enable_config_clocks	= arm_smmu_enable_config_clocks,
 	.disable_config_clocks	= arm_smmu_disable_config_clocks,

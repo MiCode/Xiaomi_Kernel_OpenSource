@@ -3104,21 +3104,19 @@ static struct ipa3_mem_partition ipa_4_5_mem_part = {
 	.apps_hdr_size			= 0x200,
 	.apps_hdr_size_ddr		= 0x800,
 	.modem_hdr_proc_ctx_ofst	= 0xad0,
-	.modem_hdr_proc_ctx_size	= 0xac0,
-	.apps_hdr_proc_ctx_ofst		= 0x1590,
+	.modem_hdr_proc_ctx_size	= 0xb20,
+	.apps_hdr_proc_ctx_ofst		= 0x15f0,
 	.apps_hdr_proc_ctx_size		= 0x200,
 	.apps_hdr_proc_ctx_size_ddr	= 0x0,
-	.nat_tbl_ofst			= 0x17a0,
+	.nat_tbl_ofst			= 0x1800,
 	.nat_tbl_size			= 0x800,
-	.nat_index_tbl_ofst		= 0x1fa0,
+	.nat_index_tbl_ofst		= 0x2000,
 	.nat_index_tbl_size		= 0x100,
-	.nat_exp_tbl_ofst		= 0x20a0,
+	.nat_exp_tbl_ofst		= 0x2100,
 	.nat_exp_tbl_size		= 0x400,
-	.pdn_config_ofst		= 0x24a8,
-	.pdn_config_size		= 0x50,
-	.stats_quota_ofst		= 0x2500,
+	.stats_quota_ofst		= 0x2510,
 	.stats_quota_size		= 0x78,
-	.stats_tethering_ofst		= 0x2578,
+	.stats_tethering_ofst		= 0x2588,
 	.stats_tethering_size		= 0x238,
 	.stats_flt_v4_ofst		= 0,
 	.stats_flt_v4_size		= 0,
@@ -3128,13 +3126,13 @@ static struct ipa3_mem_partition ipa_4_5_mem_part = {
 	.stats_rt_v4_size		= 0,
 	.stats_rt_v6_ofst		= 0,
 	.stats_rt_v6_size		= 0,
-	.stats_fnr_ofst			= 0x27b0,
+	.stats_fnr_ofst			= 0x27c0,
 	.stats_fnr_size			= 0x800,
-	.stats_drop_ofst		= 0x2fb0,
+	.stats_drop_ofst		= 0x2fc0,
 	.stats_drop_size		= 0x20,
 	.modem_comp_decomp_ofst		= 0x0,
 	.modem_comp_decomp_size		= 0x0,
-	.modem_ofst			= 0x2fd8,
+	.modem_ofst			= 0x2fe8,
 	.modem_size			= 0x800,
 	.apps_v4_flt_hash_ofst	= 0x2718,
 	.apps_v4_flt_hash_size	= 0x0,
@@ -3154,7 +3152,9 @@ static struct ipa3_mem_partition ipa_4_5_mem_part = {
 	.apps_v6_rt_nhash_size	= 0x0,
 	.uc_descriptor_ram_ofst	= 0x3800,
 	.uc_descriptor_ram_size	= 0x1000,
-	.end_ofst		= 0x4800,
+	.pdn_config_ofst	= 0x4800,
+	.pdn_config_size	= 0x50,
+	.end_ofst		= 0x4850,
 };
 
 static struct ipa3_mem_partition ipa_4_7_mem_part = {
@@ -3912,7 +3912,7 @@ static void ipa_cfg_qtime(void)
 	memset(&gran_cfg, 0, sizeof(gran_cfg));
 	gran_cfg.gran_0 = IPA_TIMERS_TIME_GRAN_100_USEC;
 	gran_cfg.gran_1 = IPA_TIMERS_TIME_GRAN_1_MSEC;
-	gran_cfg.gran_2 = IPA_TIMERS_TIME_GRAN_10_USEC;
+	gran_cfg.gran_2 = IPA_TIMERS_TIME_GRAN_1_MSEC;
 	val = ipahal_read_reg(IPA_TIMERS_PULSE_GRAN_CFG);
 	IPADBG("timer pulse granularity before cfg: 0x%x\n", val);
 	ipahal_write_reg_fields(IPA_TIMERS_PULSE_GRAN_CFG, &gran_cfg);
@@ -4193,48 +4193,6 @@ bool ipa3_get_client_uplink(int pipe_idx)
 	return ipa3_ctx->ipacm_client[pipe_idx].uplink;
 }
 
-/**
- * ipa3_get_rm_resource_from_ep() - get the IPA_RM resource which is related to
- * the supplied pipe index.
- *
- * @pipe_idx:
- *
- * Return value: IPA_RM resource related to the pipe, -1 if a resource was not
- * found.
- */
-enum ipa_rm_resource_name ipa3_get_rm_resource_from_ep(int pipe_idx)
-{
-	int i;
-	int j;
-	enum ipa_client_type client;
-	struct ipa3_client_names clients;
-	bool found = false;
-
-	if (pipe_idx >= ipa3_ctx->ipa_num_pipes || pipe_idx < 0) {
-		IPAERR("Bad pipe index!\n");
-		return -EINVAL;
-	}
-
-	client = ipa3_ctx->ep[pipe_idx].client;
-
-	for (i = 0; i < IPA_RM_RESOURCE_MAX; i++) {
-		memset(&clients, 0, sizeof(clients));
-		ipa3_get_clients_from_rm_resource(i, &clients);
-		for (j = 0; j < clients.length; j++) {
-			if (clients.names[j] == client) {
-				found = true;
-				break;
-			}
-		}
-		if (found)
-			break;
-	}
-
-	if (!found)
-		return -EFAULT;
-
-	return i;
-}
 
 /**
  * ipa3_get_client_mapping() - provide client mapping
@@ -6824,11 +6782,6 @@ int ipa3_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
 	return 0;
 }
 
-static bool ipa3_pm_is_used(void)
-{
-	return (ipa3_ctx) ? ipa3_ctx->use_ipa_pm : false;
-}
-
 int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	struct ipa_api_controller *api_ctrl)
 {
@@ -6980,7 +6933,6 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_proxy_clk_unvote = ipa3_proxy_clk_unvote;
 	api_ctrl->ipa_is_client_handle_valid = ipa3_is_client_handle_valid;
 	api_ctrl->ipa_get_client_mapping = ipa3_get_client_mapping;
-	api_ctrl->ipa_get_rm_resource_from_ep = ipa3_get_rm_resource_from_ep;
 	api_ctrl->ipa_get_modem_cfg_emb_pipe_flt =
 		ipa3_get_modem_cfg_emb_pipe_flt;
 	api_ctrl->ipa_get_transport_type = ipa3_get_transport_type;
@@ -7022,8 +6974,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_tz_unlock_reg = ipa3_tz_unlock_reg;
 	api_ctrl->ipa_get_smmu_params = ipa3_get_smmu_params;
 	api_ctrl->ipa_is_vlan_mode = ipa3_is_vlan_mode;
-	api_ctrl->ipa_pm_is_used = ipa3_pm_is_used;
-	api_ctrl->ipa_wigig_uc_init = ipa3_wigig_uc_init;
+	api_ctrl->ipa_wigig_internal_init = ipa3_wigig_internal_init;
 	api_ctrl->ipa_conn_wigig_rx_pipe_i = ipa3_conn_wigig_rx_pipe_i;
 	api_ctrl->ipa_conn_wigig_client_i = ipa3_conn_wigig_client_i;
 	api_ctrl->ipa_disconn_wigig_pipe_i = ipa3_disconn_wigig_pipe_i;
@@ -7556,6 +7507,8 @@ static int __ipa3_stop_gsi_channel(u32 clnt_hdl)
 	int res = 0;
 	int i;
 	struct ipa3_ep_context *ep;
+	enum ipa_client_type client_type;
+	struct IpaHwOffloadStatsAllocCmdData_t *gsi_info;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -7564,8 +7517,54 @@ static int __ipa3_stop_gsi_channel(u32 clnt_hdl)
 	}
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
+	client_type = ipa3_get_client_mapping(clnt_hdl);
 	memset(&mem, 0, sizeof(mem));
 
+	/* stop uC gsi dbg stats monitor */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
+		ipa3_ctx->ipa_hw_type != IPA_HW_v4_7) {
+		switch (client_type) {
+		case IPA_CLIENT_MHI_PRIME_TETH_PROD:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_MHIP];
+			gsi_info->ch_id_info[0].ch_id = 0xff;
+			gsi_info->ch_id_info[0].dir = DIR_PRODUCER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_MHI_PRIME_TETH_CONS:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_MHIP];
+			gsi_info->ch_id_info[1].ch_id = 0xff;
+			gsi_info->ch_id_info[1].dir = DIR_CONSUMER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_MHI_PRIME_RMNET_PROD:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_MHIP];
+			gsi_info->ch_id_info[2].ch_id = 0xff;
+			gsi_info->ch_id_info[2].dir = DIR_PRODUCER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_MHI_PRIME_RMNET_CONS:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_MHIP];
+			gsi_info->ch_id_info[3].ch_id = 0xff;
+			gsi_info->ch_id_info[3].dir = DIR_CONSUMER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_USB_PROD:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_USB];
+			gsi_info->ch_id_info[0].ch_id = 0xff;
+			gsi_info->ch_id_info[0].dir = DIR_PRODUCER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_USB_CONS:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_USB];
+			gsi_info->ch_id_info[1].ch_id = 0xff;
+			gsi_info->ch_id_info[1].dir = DIR_CONSUMER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		default:
+			IPADBG("client_type %d not supported\n",
+				client_type);
+		}
+	}
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
 		IPADBG("Calling gsi_stop_channel ch:%lu\n",
 			ep->gsi_chan_hdl);

@@ -23,6 +23,9 @@
 #define WIL_IPA_RX_BUFF_SIZE (8 * 1024)
 #define WIL_IPA_TX_BUFF_SIZE (2 * 1024)
 
+#define WIL_IPA_DEFAULT_OUTSTANDING_HIGH 128
+#define WIL_IPA_DEFAULT_OUTSTANDING_LOW 64
+
 u8 ipa_offload;
 module_param(ipa_offload, byte, 0444);
 MODULE_PARM_DESC(ipa_offload, " Enable IPA offload, default - disabled");
@@ -138,12 +141,29 @@ static void wil_ipa_notify_cb(void *priv, enum ipa_dp_evt_type evt,
 			      unsigned long data)
 {
 	struct wil_ipa *ipa = (struct wil_ipa *)priv;
+	struct wil6210_priv *wil = ipa->wil;
+	struct net_device *ndev = wil->main_ndev;
 	struct sk_buff *skb;
+	int outs;
 
 	switch (evt) {
 	case IPA_RECEIVE:
 		skb = (struct sk_buff *)data;
 		wil_ipa_rx(ipa, skb);
+		break;
+	case IPA_WRITE_DONE:
+		skb = (struct sk_buff *)data;
+		outs = atomic_dec_return(&ipa->outstanding_pkts);
+		wil_dbg_txrx(wil, "ipa tx complete len %d, outstanding %d",
+			     skb->len, outs);
+		if (netif_queue_stopped(ndev) &&
+		    outs <= WIL_IPA_DEFAULT_OUTSTANDING_LOW) {
+			wil_dbg_txrx(wil, "outstanding low reached (%d)\n",
+				     WIL_IPA_DEFAULT_OUTSTANDING_LOW);
+			netif_wake_queue(ndev);
+		}
+
+		dev_kfree_skb_any(skb);
 		break;
 	default:
 		wil_dbg_misc(ipa->wil, "unhandled ipa evt %d\n", evt);
@@ -728,6 +748,7 @@ int wil_ipa_tx(void *ipa_handle, struct wil_ring *ring, struct sk_buff *skb)
 	int cid, rc;
 	const u8 *da;
 	unsigned int len = skb->len;
+	int outs;
 
 	wil_hex_dump_txrx("Tx ", DUMP_PREFIX_OFFSET, 16, 1,
 			  skb->data, skb_headlen(skb), false);
@@ -751,6 +772,14 @@ int wil_ipa_tx(void *ipa_handle, struct wil_ring *ring, struct sk_buff *skb)
 	if (rc)
 		return rc;
 	/* skb could be freed after this point */
+
+	outs = atomic_inc_return(&ipa->outstanding_pkts);
+	wil_dbg_txrx(wil, "ipa tx outstanding %d", outs);
+	if (outs >= WIL_IPA_DEFAULT_OUTSTANDING_HIGH) {
+		wil_dbg_txrx(wil, "outstanding high reached (%d)\n",
+			     WIL_IPA_DEFAULT_OUTSTANDING_HIGH);
+		netif_stop_queue(ndev);
+	}
 
 	stats = &wil->sta[cid].stats;
 	stats->tx_packets++;
@@ -926,6 +955,8 @@ void *wil_ipa_init(struct wil6210_priv *wil)
 	rc = wil_ipa_wigig_init(ipa);
 	if (rc)
 		goto err;
+
+	atomic_set(&ipa->outstanding_pkts, 0);
 
 	return ipa;
 

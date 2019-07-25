@@ -21,6 +21,7 @@
 #include <soc/qcom/scm.h>
 #include <asm/cacheflush.h>
 #include <soc/qcom/qseecomi.h>
+#include <soc/qcom/qtee_shmbridge.h>
 
 #include "smcinvoke_object.h"
 #include "../../misc/qseecom_kernel.h"
@@ -125,6 +126,10 @@
 #define FILE_IS_REMOTE_OBJ(f) ((f)->f_op && (f)->f_op == &g_smcinvoke_fops)
 
 static DEFINE_MUTEX(g_smcinvoke_lock);
+#define NO_LOCK 0
+#define TAKE_LOCK 1
+#define MUTEX_LOCK(x) { if (x) mutex_lock(&g_smcinvoke_lock); }
+#define MUTEX_UNLOCK(x) { if (x) mutex_unlock(&g_smcinvoke_lock); }
 static DEFINE_HASHTABLE(g_cb_servers, 8);
 static LIST_HEAD(g_mem_objs);
 static uint16_t g_last_cb_server_id = CBOBJ_SERVER_ID_START;
@@ -134,6 +139,7 @@ static size_t g_max_cb_buf_size = SMCINVOKE_TZ_MIN_BUF_SIZE;
 static long smcinvoke_ioctl(struct file *, unsigned int, unsigned long);
 static int smcinvoke_open(struct inode *, struct file *);
 static int smcinvoke_release(struct inode *, struct file *);
+static int destroy_cb_server(uint16_t);
 
 static const struct file_operations g_smcinvoke_fops = {
 	.owner		= THIS_MODULE,
@@ -195,6 +201,7 @@ struct smcinvoke_cb_txn {
 	size_t cb_req_bytes;
 	struct file **filp_to_release;
 	struct hlist_node hash;
+	struct kref ref_cnt;
 };
 
 struct smcinvoke_server_info {
@@ -272,10 +279,8 @@ static  struct smcinvoke_mem_obj *find_mem_obj_locked(uint16_t mem_obj_id,
 {
 	struct smcinvoke_mem_obj *mem_obj = NULL;
 
-	if (list_empty(&g_mem_objs)) {
-		pr_err("%s: mem obj %d not found\n", __func__, mem_obj_id);
+	if (list_empty(&g_mem_objs))
 		return NULL;
-	}
 
 	list_for_each_entry(mem_obj, &g_mem_objs, list) {
 		if ((is_mem_rgn_obj &&
@@ -373,8 +378,10 @@ static void free_pending_cbobj_locked(struct kref *kref)
 	server = obj->server;
 	kfree(obj);
 	if ((server->state == SMCINVOKE_SERVER_STATE_DEFUNCT) &&
-				list_empty(&server->pending_cbobjs))
+				list_empty(&server->pending_cbobjs)) {
+		hash_del(&server->hash);
 		kfree(server);
+	}
 }
 
 static int get_pending_cbobj_locked(uint16_t srvr_id, int16_t obj_id)
@@ -445,6 +452,15 @@ static void release_tzhandles(const int32_t *tzhandles, size_t len)
 	mutex_unlock(&g_smcinvoke_lock);
 }
 
+static void delete_cb_txn(struct kref *kref)
+{
+	struct smcinvoke_cb_txn *cb_txn = container_of(kref,
+					struct smcinvoke_cb_txn, ref_cnt);
+
+	kfree(cb_txn->cb_req);
+	kfree(cb_txn);
+}
+
 static struct smcinvoke_cb_txn *find_cbtxn_locked(
 				struct smcinvoke_server_info *server,
 				uint32_t txn_id, int32_t state)
@@ -459,6 +475,7 @@ static struct smcinvoke_cb_txn *find_cbtxn_locked(
 	if (state == SMCINVOKE_REQ_PLACED) {
 		/* pick up 1st req */
 		hash_for_each(server->reqs_table, i, cb_txn, hash) {
+			kref_get(&cb_txn->ref_cnt);
 			hash_del(&cb_txn->hash);
 			return cb_txn;
 		}
@@ -466,6 +483,7 @@ static struct smcinvoke_cb_txn *find_cbtxn_locked(
 		hash_for_each_possible(
 				server->responses_table, cb_txn, hash, txn_id) {
 			if (cb_txn->txn_id == txn_id) {
+				kref_get(&cb_txn->ref_cnt);
 				hash_del(&cb_txn->hash);
 				return cb_txn;
 			}
@@ -612,14 +630,10 @@ static int get_tzhandle_from_uhandle(int32_t uhandle, int32_t server_fd,
 		}
 	}
 out:
-	if (ret && *filp) {
-		fput(*filp);
-		*filp = NULL;
-	}
 	return ret;
 }
 
-static int get_fd_for_obj(uint32_t obj_type, uint32_t obj, int64_t *fd)
+static int get_fd_for_obj(uint32_t obj_type, uint32_t obj, int32_t *fd)
 {
 	int unused_fd = -1, ret = -EINVAL;
 	struct file *f = NULL;
@@ -663,7 +677,7 @@ out:
 }
 
 static int get_uhandle_from_tzhandle(int32_t tzhandle, int32_t srvr_id,
-						int64_t *uhandle)
+				int32_t *uhandle, bool lock)
 {
 	int ret = -1;
 
@@ -674,14 +688,14 @@ static int get_uhandle_from_tzhandle(int32_t tzhandle, int32_t srvr_id,
 		if (srvr_id != TZHANDLE_GET_SERVER(tzhandle))
 			goto out;
 		*uhandle = UHANDLE_MAKE_CB_OBJ(TZHANDLE_GET_OBJID(tzhandle));
-		mutex_lock(&g_smcinvoke_lock);
-		ret = get_pending_cbobj_locked(srvr_id,
+		MUTEX_LOCK(lock)
+		ret = get_pending_cbobj_locked(TZHANDLE_GET_SERVER(tzhandle),
 						TZHANDLE_GET_OBJID(tzhandle));
-		mutex_unlock(&g_smcinvoke_lock);
+		MUTEX_UNLOCK(lock)
 	} else if (TZHANDLE_IS_MEM_RGN_OBJ(tzhandle)) {
 		struct smcinvoke_mem_obj *mem_obj =  NULL;
 
-		mutex_lock(&g_smcinvoke_lock);
+		MUTEX_LOCK(lock)
 		mem_obj = find_mem_obj_locked(TZHANDLE_GET_OBJID(tzhandle),
 						SMCINVOKE_MEM_RGN_OBJ);
 
@@ -699,7 +713,7 @@ static int get_uhandle_from_tzhandle(int32_t tzhandle, int32_t srvr_id,
 			ret = 0;
 		}
 exit_lock:
-		mutex_unlock(&g_smcinvoke_lock);
+		MUTEX_UNLOCK(lock)
 	} else if (TZHANDLE_IS_REMOTE(tzhandle)) {
 		/* if execution comes here => tzhandle is an unsigned int */
 		ret = get_fd_for_obj(SMCINVOKE_OBJ_TYPE_TZ_OBJ,
@@ -826,7 +840,12 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 	if (buf_len < sizeof(struct smcinvoke_tzcb_req))
 		return;
 
-	cb_req = buf;
+	cb_req = kmemdup(buf, buf_len, GFP_KERNEL);
+	if (!cb_req) {
+		ret =  OBJECT_ERROR_KMEM;
+		goto out;
+	}
+
 	/* check whether it is to be served by kernel or userspace */
 	if (TZHANDLE_IS_KERNEL_OBJ(cb_req->hdr.tzhandle)) {
 		return process_kernel_obj(buf, buf_len);
@@ -847,6 +866,7 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 	cb_txn->cb_req = cb_req;
 	cb_txn->cb_req_bytes = buf_len;
 	cb_txn->filp_to_release = arr_filp;
+	kref_init(&cb_txn->ref_cnt);
 
 	mutex_lock(&g_smcinvoke_lock);
 	srvr_info = find_cb_server_locked(
@@ -860,9 +880,11 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 	hash_add(srvr_info->reqs_table, &cb_txn->hash, cb_txn->txn_id);
 	mutex_unlock(&g_smcinvoke_lock);
 	wake_up_interruptible(&srvr_info->req_wait_q);
-	wait_event(srvr_info->rsp_wait_q,
+	ret = wait_event_interruptible(srvr_info->rsp_wait_q,
 			(cb_txn->state == SMCINVOKE_REQ_PROCESSED) ||
 			(srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT));
+	if (ret)
+		pr_err("%s wait_event interrupted: ret = %d\n", __func__, ret);
 out:
 	/*
 	 * If we are here, either req is processed or not
@@ -870,19 +892,19 @@ out:
 	 * if not processed, we should set result with ret which should have
 	 * correct value that TZ/TA can understand
 	 */
+	mutex_lock(&g_smcinvoke_lock);
 	if (!cb_txn || (cb_txn->state != SMCINVOKE_REQ_PROCESSED)) {
 		cb_req->result = ret;
 		if (srvr_info &&
 		    srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT &&
 		    OBJECT_OP_METHODID(cb_req->hdr.op) == OBJECT_OP_RELEASE) {
-			mutex_lock(&g_smcinvoke_lock);
-			put_pending_cbobj_locked(
-				TZHANDLE_GET_SERVER(cb_req->hdr.tzhandle),
-				TZHANDLE_GET_OBJID(cb_req->hdr.tzhandle));
-			mutex_unlock(&g_smcinvoke_lock);
+			release_tzhandle_locked(cb_req->hdr.tzhandle);
 		}
 	}
-	kfree(cb_txn);
+	hash_del(&cb_txn->hash);
+	memcpy(buf, cb_req, buf_len);
+	kref_put(&cb_txn->ref_cnt, delete_cb_txn);
+	mutex_unlock(&g_smcinvoke_lock);
 }
 
 static int marshal_out_invoke_req(const uint8_t *buf, uint32_t buf_size,
@@ -931,7 +953,8 @@ static int marshal_out_invoke_req(const uint8_t *buf, uint32_t buf_size,
 		 * to server who serves it and that info comes from USpace.
 		 */
 		ret = get_uhandle_from_tzhandle(tz_args->handle,
-			args_buf[i].o.cb_server_fd, &(args_buf[i].o.fd));
+					TZHANDLE_GET_SERVER(tz_args->handle),
+				(int32_t *)&(args_buf[i].o.fd), NO_LOCK);
 		if (ret)
 			goto out;
 		tz_args++;
@@ -948,8 +971,10 @@ static bool is_inbound_req(int val)
 		val == QSEOS_RESULT_BLOCKED_ON_LISTENER);
 }
 
-static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
-				uint8_t *out_buf, size_t out_buf_len,
+static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
+				size_t in_buf_len,
+				uint8_t *out_buf, phys_addr_t out_paddr,
+				size_t out_buf_len,
 				struct smcinvoke_cmd_req *req,
 				union smcinvoke_arg *args_buf,
 				bool *tz_acked)
@@ -964,9 +989,9 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 		return -EINVAL;
 
 	desc.arginfo = SMCINVOKE_INVOKE_PARAM_ID;
-	desc.args[0] = (uint64_t)virt_to_phys(in_buf);
+	desc.args[0] = (uint64_t)in_paddr;
 	desc.args[1] = in_buf_len;
-	desc.args[2] = (uint64_t)virt_to_phys(out_buf);
+	desc.args[2] = (uint64_t)out_paddr;
 	desc.args[3] = out_buf_len;
 	cmd = SMCINVOKE_INVOKE_CMD;
 	dmac_flush_range(in_buf, in_buf + in_buf_len);
@@ -1146,7 +1171,7 @@ static int marshal_in_tzcb_req(const struct smcinvoke_cb_txn *cb_txn,
 
 	user_req->txn_id = cb_txn->txn_id;
 	if (get_uhandle_from_tzhandle(tzcb_req->hdr.tzhandle, srvr_id,
-					(int64_t *)&user_req->cbobj_id)) {
+				&user_req->cbobj_id, TAKE_LOCK)) {
 		ret = -EINVAL;
 		goto out;
 	}
@@ -1208,7 +1233,7 @@ static int marshal_in_tzcb_req(const struct smcinvoke_cb_txn *cb_txn,
 		 * context
 		 */
 		ret = get_uhandle_from_tzhandle(tz_args[i].handle, srvr_id,
-							&(tmp_arg.o.fd));
+					(int32_t *)&(tmp_arg.o.fd), TAKE_LOCK);
 		if (ret) {
 			ret = -EINVAL;
 			goto out;
@@ -1233,6 +1258,7 @@ static int marshal_out_tzcb_req(const struct smcinvoke_accept *user_req,
 	struct smcinvoke_tzcb_req *tzcb_req = cb_txn->cb_req;
 	union smcinvoke_tz_args *tz_args = tzcb_req->args;
 
+	release_tzhandles(&cb_txn->cb_req->hdr.tzhandle, 1);
 	tzcb_req->result = user_req->result;
 	FOR_ARGS(i, tzcb_req->hdr.counts, BO) {
 		union smcinvoke_arg tmp_arg;
@@ -1262,11 +1288,16 @@ static int marshal_out_tzcb_req(const struct smcinvoke_accept *user_req,
 			ret = -EFAULT;
 			goto out;
 		}
-		ret = get_tzhandle_from_uhandle(tmp_arg.o.fd, 0, &arr_filp[i],
-							&(tz_args[i].handle));
+		ret = get_tzhandle_from_uhandle(tmp_arg.o.fd,
+				tmp_arg.o.cb_server_fd, &arr_filp[i],
+						&(tz_args[i].handle));
 		if (ret)
 			goto out;
 		tzhandles_to_release[i] = tz_args[i].handle;
+	}
+	FOR_ARGS(i, tzcb_req->hdr.counts, OI) {
+		if (TZHANDLE_IS_CB_OBJ(tz_args[i].handle))
+			release_tzhandles(&tz_args[i].handle, 1);
 	}
 	ret = 0;
 out:
@@ -1324,7 +1355,7 @@ static long process_server_req(struct file *filp, unsigned int cmd,
 						 unsigned long arg)
 {
 	int ret = -1;
-	int64_t server_fd = -1;
+	int32_t server_fd = -1;
 	struct smcinvoke_server server_req = {0};
 	struct smcinvoke_server_info *server_info = NULL;
 
@@ -1359,12 +1390,9 @@ static long process_server_req(struct file *filp, unsigned int cmd,
 	ret = get_fd_for_obj(SMCINVOKE_OBJ_TYPE_SERVER,
 				server_info->server_id, &server_fd);
 
-	if (ret) {
-		mutex_lock(&g_smcinvoke_lock);
-		hash_del(&server_info->hash);
-		mutex_unlock(&g_smcinvoke_lock);
-		kfree(server_info);
-	}
+	if (ret)
+		destroy_cb_server(server_info->server_id);
+
 	return server_fd;
 }
 
@@ -1419,11 +1447,10 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 			cb_txn->cb_req->result = OBJECT_ERROR_UNAVAIL;
 
 		if (OBJECT_OP_METHODID(user_args.op) == OBJECT_OP_RELEASE)
-			put_pending_cbobj_locked(
-			    TZHANDLE_GET_SERVER(cb_txn->cb_req->hdr.tzhandle),
-			    TZHANDLE_GET_OBJID(cb_txn->cb_req->hdr.tzhandle));
+			release_tzhandles(&cb_txn->cb_req->hdr.tzhandle, 1);
 
 		cb_txn->state = SMCINVOKE_REQ_PROCESSED;
+		kref_put(&cb_txn->ref_cnt, delete_cb_txn);
 		wake_up(&server_info->rsp_wait_q);
 		/*
 		 * if marshal_out fails, we should let userspace release
@@ -1439,8 +1466,11 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 	do {
 		ret = wait_event_interruptible(server_info->req_wait_q,
 				!hash_empty(server_info->reqs_table));
-		if (ret)
+		if (ret) {
+			pr_err("%s wait_event interrupted: ret = %d\n",
+							__func__, ret);
 			goto out;
+		}
 
 		mutex_lock(&g_smcinvoke_lock);
 		cb_txn = find_cbtxn_locked(server_info,
@@ -1454,12 +1484,14 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 			if (ret) {
 				cb_txn->cb_req->result = OBJECT_ERROR_UNAVAIL;
 				cb_txn->state = SMCINVOKE_REQ_PROCESSED;
+				kref_put(&cb_txn->ref_cnt, delete_cb_txn);
 				wake_up_interruptible(&server_info->rsp_wait_q);
 				continue;
 			}
 			mutex_lock(&g_smcinvoke_lock);
 			hash_add(server_info->responses_table, &cb_txn->hash,
 							cb_txn->txn_id);
+			kref_put(&cb_txn->ref_cnt, delete_cb_txn);
 			mutex_unlock(&g_smcinvoke_lock);
 			ret =  copy_to_user((void __user *)arg, &user_args,
 					sizeof(struct smcinvoke_accept));
@@ -1478,6 +1510,7 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	size_t inmsg_size = 0, outmsg_size = SMCINVOKE_TZ_MIN_BUF_SIZE;
 	union  smcinvoke_arg *args_buf = NULL;
 	struct smcinvoke_file_data *tzobj = filp->private_data;
+	static struct qtee_shm in_shm = {0}, out_shm = {0};
 	/*
 	 * Hold reference to remote object until invoke op is not
 	 * completed. Release once invoke is done.
@@ -1529,31 +1562,30 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	}
 
 	inmsg_size = compute_in_msg_size(&req, args_buf);
-	in_msg = (void *)__get_free_pages(GFP_KERNEL|__GFP_COMP,
-						get_order(inmsg_size));
-	if (!in_msg) {
+	ret = qtee_shmbridge_allocate_shm(inmsg_size, &in_shm);
+	if (ret) {
 		ret = -ENOMEM;
 		goto out;
 	}
-	memset(in_msg, 0, inmsg_size);
+	in_msg = in_shm.vaddr;
 
 	mutex_lock(&g_smcinvoke_lock);
 	outmsg_size = PAGE_ALIGN(g_max_cb_buf_size);
 	mutex_unlock(&g_smcinvoke_lock);
-	out_msg = (void *)__get_free_pages(GFP_KERNEL | __GFP_COMP,
-						get_order(outmsg_size));
-	if (!out_msg) {
+	ret = qtee_shmbridge_allocate_shm(outmsg_size, &out_shm);
+	if (ret) {
 		ret = -ENOMEM;
 		goto out;
 	}
-	memset(out_msg, 0, outmsg_size);
+	out_msg = out_shm.vaddr;
 
 	ret = marshal_in_invoke_req(&req, args_buf, tzobj->tzhandle, in_msg,
 			inmsg_size, filp_to_release, tzhandles_to_release);
 	if (ret)
 		goto out;
 
-	ret = prepare_send_scm_msg(in_msg, inmsg_size, out_msg, outmsg_size,
+	ret = prepare_send_scm_msg(in_msg, in_shm.paddr, inmsg_size,
+					out_msg, out_shm.paddr, outmsg_size,
 					&req, args_buf, &tz_acked);
 
 	/*
@@ -1589,8 +1621,8 @@ out:
 	release_filp(filp_to_release, OBJECT_COUNTS_MAX_OO);
 	if (ret)
 		release_tzhandles(tzhandles_to_release, OBJECT_COUNTS_MAX_OO);
-	free_pages((long)out_msg, get_order(outmsg_size));
-	free_pages((long)in_msg, get_order(inmsg_size));
+	qtee_shmbridge_free_shm(&in_shm);
+	qtee_shmbridge_free_shm(&out_shm);
 	kfree(args_buf);
 	return ret;
 }
@@ -1669,6 +1701,7 @@ static int smcinvoke_release(struct inode *nodp, struct file *filp)
 	struct smcinvoke_file_data *file_data = filp->private_data;
 	struct smcinvoke_cmd_req req = {0};
 	uint32_t tzhandle = 0;
+	struct qtee_shm in_shm = {0}, out_shm = {0};
 
 	if (file_data->context_type == SMCINVOKE_OBJ_TYPE_SERVER) {
 		ret = destroy_cb_server(file_data->server_id);
@@ -1680,24 +1713,34 @@ static int smcinvoke_release(struct inode *nodp, struct file *filp)
 	if (!tzhandle || tzhandle == SMCINVOKE_TZ_ROOT_OBJ)
 		goto out;
 
-	in_buf = (uint8_t *)__get_free_page(GFP_KERNEL | __GFP_COMP);
-	out_buf = (uint8_t *)__get_free_page(GFP_KERNEL | __GFP_COMP);
-	if (!in_buf || !out_buf) {
+	ret = qtee_shmbridge_allocate_shm(SMCINVOKE_TZ_MIN_BUF_SIZE, &in_shm);
+	if (ret) {
 		ret = -ENOMEM;
 		goto out;
 	}
 
+	ret = qtee_shmbridge_allocate_shm(SMCINVOKE_TZ_MIN_BUF_SIZE, &out_shm);
+	if (ret) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	in_buf = in_shm.vaddr;
+	out_buf = out_shm.vaddr;
 	hdr.tzhandle = tzhandle;
 	hdr.op = OBJECT_OP_RELEASE;
 	hdr.counts = 0;
 	*(struct smcinvoke_msg_hdr *)in_buf = hdr;
 
-	ret = prepare_send_scm_msg(in_buf, SMCINVOKE_TZ_MIN_BUF_SIZE, out_buf,
+	ret = prepare_send_scm_msg(in_buf, in_shm.paddr,
+		SMCINVOKE_TZ_MIN_BUF_SIZE, out_buf, out_shm.paddr,
 		SMCINVOKE_TZ_MIN_BUF_SIZE, &req, NULL, &release_handles);
+
+	process_piggyback_data(out_buf, SMCINVOKE_TZ_MIN_BUF_SIZE);
 out:
 	kfree(filp->private_data);
-	free_page((long)in_buf);
-	free_page((long)out_buf);
+	qtee_shmbridge_free_shm(&in_shm);
+	qtee_shmbridge_free_shm(&out_shm);
 
 	return ret;
 }

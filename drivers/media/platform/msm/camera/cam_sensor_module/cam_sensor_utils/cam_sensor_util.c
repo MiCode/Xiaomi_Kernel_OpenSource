@@ -1658,7 +1658,7 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 		case SENSOR_CUSTOM_GPIO2:
 			if (no_gpio) {
 				CAM_ERR(CAM_SENSOR, "request gpio failed");
-				return no_gpio;
+				goto power_up_failed;
 			}
 			if (!gpio_num_info) {
 				CAM_ERR(CAM_SENSOR, "Invalid gpio_num_info");

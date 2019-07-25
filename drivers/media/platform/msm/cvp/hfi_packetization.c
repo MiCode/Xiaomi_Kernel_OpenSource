@@ -201,18 +201,19 @@ inline int cvp_create_pkt_cmd_sys_session_init(
 		struct cvp_hal_session *session)
 {
 	int rc = 0;
+	struct msm_cvp_inst *inst = session->session_id;
 
-	if (!pkt)
+	if (!pkt || !inst)
 		return -EINVAL;
 
 	pkt->size = sizeof(struct cvp_hfi_cmd_sys_session_init_packet);
 	pkt->packet_type = HFI_CMD_SYS_SESSION_INIT;
 	pkt->session_id = hash32_ptr(session);
-	pkt->session_kmask = 0xFFFFFFFF;
-	pkt->session_type = HFI_SESSION_CV;
-	pkt->session_prio = 0;
-	pkt->is_secure = 0;
-	pkt->dsp_ac_mask = 0;
+	pkt->session_type = inst->prop.type;
+	pkt->session_kmask = inst->prop.kernel_mask;
+	pkt->session_prio = inst->prop.priority;
+	pkt->is_secure = inst->prop.is_secure;
+	pkt->dsp_ac_mask = inst->prop.dsp_mask;
 
 	return rc;
 }

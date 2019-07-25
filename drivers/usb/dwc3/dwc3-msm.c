@@ -296,6 +296,7 @@ struct dwc3_msm {
 	unsigned int		max_power;
 	bool			charging_disabled;
 	enum dwc3_drd_state	drd_state;
+	enum bus_vote		default_bus_vote;
 	enum bus_vote		override_bus_vote;
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
@@ -337,6 +338,7 @@ struct dwc3_msm {
 	enum usb_device_speed override_usb_speed;
 	u32			*gsi_reg;
 	int			gsi_reg_offset_cnt;
+	bool			gsi_io_coherency_disabled;
 
 	struct notifier_block	dpdm_nb;
 	struct regulator	*dpdm_reg;
@@ -1008,6 +1010,10 @@ static void gsi_store_ringbase_dbl_info(struct usb_ep *ep,
 	 * Replace dummy doorbell address with real one as IPA connection
 	 * is setup now and GSI must be ready to handle doorbell updates.
 	 */
+	dwc3_msm_write_reg_field(mdwc->base,
+			GSI_DBL_ADDR_H(mdwc->gsi_reg[DBL_ADDR_H], (n)),
+			~0x0, 0x0);
+
 	dwc3_msm_write_reg(mdwc->base,
 		GSI_DBL_ADDR_L(mdwc->gsi_reg[DBL_ADDR_L], (n)),
 		(u32)request->mapped_db_reg_phs_addr_lsb);
@@ -1105,7 +1111,7 @@ static void gsi_endxfer_for_ep(struct usb_ep *ep)
 }
 
 /**
- * Allocates and configures TRBs for GSI EPs.
+ * Allocates Buffers and TRBs. Configures TRBs for GSI EPs.
  *
  * @usb_ep - pointer to usb_ep instance.
  * @request - pointer to GSI request.
@@ -1115,23 +1121,49 @@ static void gsi_endxfer_for_ep(struct usb_ep *ep)
 static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 {
 	int i = 0;
-	dma_addr_t buffer_addr = req->dma;
+	size_t len;
+	unsigned long dma_attr;
+	dma_addr_t buffer_addr;
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3		*dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct dwc3_trb *trb;
 	int num_trbs = (dep->direction) ? (2 * (req->num_bufs) + 2)
 					: (req->num_bufs + 2);
 	struct scatterlist *sg;
 	struct sg_table *sgt;
 
-	dep->trb_pool = dma_zalloc_coherent(dwc->sysdev,
+	if (mdwc->gsi_io_coherency_disabled)
+		dma_attr = DMA_ATTR_FORCE_NON_COHERENT;
+	else
+		dma_attr = DMA_ATTR_FORCE_COHERENT;
+
+	/* Allocate TRB buffers */
+
+	len = req->buf_len * req->num_bufs;
+	req->buf_base_addr = dma_alloc_attrs(dwc->sysdev, len, &req->dma,
+					GFP_KERNEL, dma_attr);
+	if (!req->buf_base_addr) {
+		dev_err(dwc->dev, "%s: buf_base_addr allocate failed %s\n",
+				dep->name);
+		return -ENOMEM;
+	}
+
+	dma_get_sgtable(dwc->sysdev, &req->sgt_data_buff, req->buf_base_addr,
+			req->dma, len);
+
+	buffer_addr = req->dma;
+
+	/* Allocate and configgure TRBs */
+
+	dep->trb_pool = dma_alloc_attrs(dwc->sysdev,
 				num_trbs * sizeof(struct dwc3_trb),
-				&dep->trb_pool_dma, GFP_KERNEL);
+				&dep->trb_pool_dma, GFP_KERNEL, dma_attr);
 
 	if (!dep->trb_pool) {
 		dev_err(dep->dwc->dev, "failed to alloc trb dma pool for %s\n",
 				dep->name);
-		return -ENOMEM;
+		goto free_trb_buffer;
 	}
 
 	dep->num_trbs = num_trbs;
@@ -1228,10 +1260,17 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	}
 
 	return 0;
+
+free_trb_buffer:
+	dma_free_attrs(dwc->sysdev, len, req->buf_base_addr, req->dma,
+			dma_attr);
+	req->buf_base_addr = NULL;
+	sg_free_table(&req->sgt_data_buff);
+	return -ENOMEM;
 }
 
 /**
- * Frees TRBs for GSI EPs.
+ * Frees TRBs and buffers for GSI EPs.
  *
  * @usb_ep - pointer to usb_ep instance.
  *
@@ -1240,20 +1279,32 @@ static void gsi_free_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 {
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	unsigned long dma_attr;
 
 	if (dep->endpoint.ep_type == EP_TYPE_NORMAL)
 		return;
 
+	if (mdwc->gsi_io_coherency_disabled)
+		dma_attr = DMA_ATTR_FORCE_NON_COHERENT;
+	else
+		dma_attr = DMA_ATTR_FORCE_COHERENT;
+
 	/*  Free TRBs and TRB pool for EP */
 	if (dep->trb_pool_dma) {
-		dma_free_coherent(dwc->sysdev,
+		dma_free_attrs(dwc->sysdev,
 			dep->num_trbs * sizeof(struct dwc3_trb),
-			dep->trb_pool,
-			dep->trb_pool_dma);
+			dep->trb_pool, dep->trb_pool_dma, dma_attr);
 		dep->trb_pool = NULL;
 		dep->trb_pool_dma = 0;
 	}
 	sg_free_table(&req->sgt_trb_xfer_ring);
+
+	/* free TRB buffers */
+	dma_free_attrs(dwc->sysdev, req->buf_len * req->num_bufs,
+		req->buf_base_addr, req->dma, dma_attr);
+	req->buf_base_addr = NULL;
+	sg_free_table(&req->sgt_data_buff);
 }
 /**
  * Configures GSI EPs. For GSI EPs we need to set interrupter numbers.
@@ -1274,6 +1325,10 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 	int ret;
 
 	/* setup dummy doorbell as IPA connection isn't setup yet */
+	dwc3_msm_write_reg_field(mdwc->base,
+			GSI_DBL_ADDR_H(mdwc->gsi_reg[DBL_ADDR_H], (n)),
+			~0x0, (u32)((u64)mdwc->dummy_gsi_db_dma >> 32));
+
 	dwc3_msm_write_reg_field(mdwc->base,
 			GSI_DBL_ADDR_L(mdwc->gsi_reg[DBL_ADDR_L], (n)),
 			~0x0, (u32)mdwc->dummy_gsi_db_dma);
@@ -2330,7 +2385,7 @@ static int dwc3_msm_update_bus_bw(struct dwc3_msm *mdwc, enum bus_vote bv)
 	 * from userspace.
 	 */
 	if (bv >= mdwc->bus_scale_table->num_usecases)
-		bv_index = BUS_VOTE_NOMINAL;
+		bv_index = mdwc->default_bus_vote;
 	else if (bv == BUS_VOTE_NONE)
 		bv_index = BUS_VOTE_NONE;
 
@@ -2560,7 +2615,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	if (mdwc->in_host_mode && mdwc->max_rh_port_speed == USB_SPEED_HIGH)
 		dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_SVS);
 	else
-		dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_NOMINAL);
+		dwc3_msm_update_bus_bw(mdwc, mdwc->default_bus_vote);
 
 	/* Vote for TCXO while waking up USB HSPHY */
 	ret = clk_prepare_enable(mdwc->xo_clk);
@@ -3356,7 +3411,7 @@ static ssize_t bus_vote_store(struct device *dev,
 			&& (mdwc->max_rh_port_speed == USB_SPEED_HIGH))
 			bv = BUS_VOTE_SVS;
 		else
-			bv = BUS_VOTE_NOMINAL;
+			bv = mdwc->default_bus_vote;
 
 		dwc3_msm_update_bus_bw(mdwc, bv);
 	}
@@ -3576,6 +3631,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mdwc->use_pdc_interrupts = of_property_read_bool(node,
 				"qcom,use-pdc-interrupts");
+
+	mdwc->gsi_io_coherency_disabled = of_property_read_bool(node,
+				"qcom,gsi-disable-io-coherency");
+
 	dwc3_set_notifier(&dwc3_msm_notify_event);
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
@@ -3625,10 +3684,20 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		goto put_dwc3;
 	}
 
+	/* use default as nominal bus voting */
+	mdwc->default_bus_vote = BUS_VOTE_NOMINAL;
+	ret = of_property_read_u32(node, "qcom,default-bus-vote",
+			&mdwc->default_bus_vote);
+
 	mdwc->bus_scale_table = msm_bus_cl_get_pdata(pdev);
 	if (mdwc->bus_scale_table) {
 		mdwc->bus_perf_client =
 			msm_bus_scale_register_client(mdwc->bus_scale_table);
+
+		/* default_bus_vote is out of range, use nominal bus voting */
+		if (mdwc->default_bus_vote >=
+				mdwc->bus_scale_table->num_usecases)
+			mdwc->default_bus_vote = BUS_VOTE_NOMINAL;
 	}
 
 	dwc = platform_get_drvdata(mdwc->dwc3);
@@ -3873,7 +3942,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 			dev_dbg(mdwc->dev, "set core clk rate %ld\n",
 				mdwc->core_clk_rate);
 			mdwc->max_rh_port_speed = USB_SPEED_UNKNOWN;
-			dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_NOMINAL);
+			dwc3_msm_update_bus_bw(mdwc, mdwc->default_bus_vote);
 		}
 	}
 
@@ -4251,6 +4320,14 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 
 	psy_type = get_psy_type(mdwc);
 	if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
+		/*
+		 * Do not notify charger driver for any current and
+		 * bail out if suspend happened with float cable
+		 * connected
+		 */
+		if (mA == 2)
+			return 0;
+
 		if (!mA)
 			pval.intval = -ETIMEDOUT;
 		else
@@ -4261,11 +4338,11 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 	if (mdwc->max_power == mA || psy_type != POWER_SUPPLY_TYPE_USB)
 		return 0;
 
-	dev_info(mdwc->dev, "Avail curr from USB = %u\n", mA);
 	/* Set max current limit in uA */
 	pval.intval = 1000 * mA;
 
 set_prop:
+	dev_info(mdwc->dev, "Avail curr from USB = %u\n", mA);
 	ret = power_supply_set_property(mdwc->usb_psy,
 				POWER_SUPPLY_PROP_SDP_CURRENT_MAX, &pval);
 	if (ret) {

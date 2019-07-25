@@ -6,6 +6,7 @@
 #include "ipa_i.h"
 #include <linux/if_ether.h>
 #include <linux/log2.h>
+#include <linux/debugfs.h>
 #include <linux/ipa_wigig.h>
 
 #define IPA_WIGIG_DESC_RING_EL_SIZE	32
@@ -26,6 +27,25 @@
 #define W11AD_TX 1
 #define W11AD_TO_GSI_DB_m 1
 #define W11AD_TO_GSI_DB_n 1
+
+static LIST_HEAD(smmu_reg_addr_list);
+static LIST_HEAD(smmu_ring_addr_list);
+static DEFINE_MUTEX(smmu_lock);
+struct dentry *wigig_dent;
+
+struct ipa_wigig_smmu_reg_addr {
+	struct list_head link;
+	phys_addr_t phys_addr;
+	enum ipa_smmu_cb_type cb_type;
+	u8 count;
+};
+
+struct ipa_wigig_smmu_ring_addr {
+	struct list_head link;
+	u64 iova;
+	enum ipa_smmu_cb_type cb_type;
+	u8 count;
+};
 
 
 static int ipa3_wigig_uc_loaded_handler(struct notifier_block *self,
@@ -68,7 +88,7 @@ int ipa3_wigig_init_i(void)
 	return 0;
 }
 
-int ipa3_wigig_uc_init(
+int ipa3_wigig_internal_init(
 	struct ipa_wdi_uc_ready_params *inout,
 	ipa_wigig_misc_int_cb int_notify,
 	phys_addr_t *uc_db_pa)
@@ -206,6 +226,132 @@ fail_map_buff:
 	return result;
 }
 
+static int ipa3_wigig_smmu_map_reg(phys_addr_t phys_addr, bool map,
+	enum ipa_smmu_cb_type cb_type)
+{
+	struct ipa_wigig_smmu_reg_addr *entry;
+	struct ipa_wigig_smmu_reg_addr *next;
+	int result = 0;
+
+	IPADBG("addr %pa, %s\n", &phys_addr, map ? "map" : "unmap");
+	mutex_lock(&smmu_lock);
+	list_for_each_entry_safe(entry, next, &smmu_reg_addr_list, link) {
+		if ((entry->phys_addr == phys_addr) &&
+			(entry->cb_type == cb_type)) {
+			IPADBG("cb %d, page %pa already mapped, ", cb_type,
+				&phys_addr);
+			if (map) {
+				entry->count++;
+				IPADBG("inc to %d\n", (entry->count));
+			} else {
+				--entry->count;
+				IPADBG("dec to %d\n", entry->count);
+				if (!(entry->count)) {
+					IPADBG("unmap and delete\n");
+					result = ipa3_smmu_map_peer_reg(
+						phys_addr, map, cb_type);
+					if (result) {
+						IPAERR("failed to unmap %pa\n",
+							&phys_addr);
+						goto finish;
+					}
+					list_del(&entry->link);
+					kfree(entry);
+				}
+			}
+			goto finish;
+		}
+	}
+	IPADBG("new page found %pa, map and add to list CB %d\n", &phys_addr,
+		cb_type);
+	result = ipa3_smmu_map_peer_reg(phys_addr, map, cb_type);
+	if (result) {
+		IPAERR("failed to map %pa\n", &phys_addr);
+		goto finish;
+	}
+
+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	if (entry == NULL) {
+		IPAERR("couldn't allocate for %pa\n", &phys_addr);
+		ipa3_smmu_map_peer_reg(phys_addr, !map, cb_type);
+		result = -ENOMEM;
+		goto finish;
+	}
+	INIT_LIST_HEAD(&entry->link);
+	entry->phys_addr = phys_addr;
+	entry->cb_type = cb_type;
+	entry->count = 1;
+	list_add(&entry->link, &smmu_reg_addr_list);
+
+finish:
+	mutex_unlock(&smmu_lock);
+	IPADBG("exit\n");
+	return result;
+}
+
+static int ipa3_wigig_smmu_map_ring(u64 iova, u32 size, bool map,
+	struct sg_table *sgt, enum ipa_smmu_cb_type cb_type)
+{
+	struct ipa_wigig_smmu_ring_addr *entry;
+	struct ipa_wigig_smmu_ring_addr *next;
+	int result = 0;
+
+	IPADBG("iova %llX, %s\n", iova, map ? "map" : "unmap");
+	mutex_lock(&smmu_lock);
+	list_for_each_entry_safe(entry, next, &smmu_ring_addr_list, link) {
+		if ((entry->iova == iova) &&
+			(entry->cb_type == cb_type)) {
+			IPADBG("cb %d, page 0x%llX already mapped, ", cb_type,
+				iova);
+			if (map) {
+				entry->count++;
+				IPADBG("inc to %d\n", (entry->count));
+			} else {
+				--entry->count;
+				IPADBG("dec to %d\n", entry->count);
+				if (!(entry->count)) {
+					IPADBG("unmap and delete\n");
+					result = ipa3_smmu_map_peer_buff(
+						iova, size, map, sgt, cb_type);
+					if (result) {
+						IPAERR(
+							"failed to unmap 0x%llX\n",
+							iova);
+						goto finish;
+					}
+					list_del(&entry->link);
+					kfree(entry);
+				}
+			}
+			goto finish;
+		}
+	}
+	IPADBG("new page found 0x%llX, map and add to list\n", iova);
+	result = ipa3_smmu_map_peer_buff(iova, size, map, sgt, cb_type);
+	if (result) {
+		IPAERR("failed to map 0x%llX\n", iova);
+		goto finish;
+	}
+
+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	if (entry == NULL) {
+		IPAERR("couldn't allocate for 0x%llX\n", iova);
+		ipa3_smmu_map_peer_buff(iova, size, !map, sgt, cb_type);
+		result = -ENOMEM;
+		goto finish;
+	}
+	INIT_LIST_HEAD(&entry->link);
+	entry->iova = iova;
+	entry->cb_type = cb_type;
+	entry->count = 1;
+	list_add(&entry->link, &smmu_ring_addr_list);
+
+finish:
+	mutex_unlock(&smmu_lock);
+	IPADBG("exit\n");
+	return result;
+}
+
 static int ipa3_wigig_smmu_map_channel(bool Rx,
 	struct ipa_wigig_pipe_setup_info_smmu *pipe_smmu,
 	void *buff,
@@ -239,7 +385,10 @@ static int ipa3_wigig_smmu_map_channel(bool Rx,
 	}
 
 	if (Rx) {
-		result = ipa3_smmu_map_peer_reg(
+		IPADBG("RX %s status_ring_HWHEAD_pa %pa uC CB\n",
+			map ? "map" : "unmap",
+			&pipe_smmu->status_ring_HWHEAD_pa);
+		result = ipa3_wigig_smmu_map_reg(
 			rounddown(pipe_smmu->status_ring_HWHEAD_pa, PAGE_SIZE),
 			map,
 			IPA_SMMU_CB_UC);
@@ -251,9 +400,12 @@ static int ipa3_wigig_smmu_map_channel(bool Rx,
 			goto fail;
 		}
 	} else {
-
-		result = ipa3_smmu_map_peer_reg(
-			rounddown(pipe_smmu->status_ring_HWHEAD_pa, PAGE_SIZE),
+		IPADBG("TX %s status_ring_HWHEAD_pa %pa AP CB\n",
+			map ? "map" : "unmap",
+			&pipe_smmu->status_ring_HWHEAD_pa);
+		result = ipa3_wigig_smmu_map_reg(
+			rounddown(pipe_smmu->status_ring_HWHEAD_pa,
+				PAGE_SIZE),
 			map,
 			IPA_SMMU_CB_AP);
 		if (result) {
@@ -264,8 +416,12 @@ static int ipa3_wigig_smmu_map_channel(bool Rx,
 			goto fail;
 		}
 
-		result = ipa3_smmu_map_peer_reg(
-			rounddown(pipe_smmu->desc_ring_HWHEAD_pa, PAGE_SIZE),
+		IPADBG("TX %s desc_ring_HWHEAD_pa %pa uC CB\n",
+			map ? "map" : "unmap",
+			&pipe_smmu->desc_ring_HWHEAD_pa);
+		result = ipa3_wigig_smmu_map_reg(
+			rounddown(pipe_smmu->desc_ring_HWHEAD_pa,
+				PAGE_SIZE),
 			map,
 			IPA_SMMU_CB_UC);
 		if (result) {
@@ -276,7 +432,10 @@ static int ipa3_wigig_smmu_map_channel(bool Rx,
 		}
 	}
 
-	result = ipa3_smmu_map_peer_reg(
+	IPADBG("%s status_ring_HWTAIL_pa %pa AP CB\n",
+		map ? "map" : "unmap",
+		&pipe_smmu->status_ring_HWTAIL_pa);
+	result = ipa3_wigig_smmu_map_reg(
 		rounddown(pipe_smmu->status_ring_HWTAIL_pa, PAGE_SIZE),
 		map,
 		IPA_SMMU_CB_AP);
@@ -288,7 +447,10 @@ static int ipa3_wigig_smmu_map_channel(bool Rx,
 		goto fail_status_HWTAIL;
 	}
 
-	result = ipa3_smmu_map_peer_reg(
+	IPADBG("%s desc_ring_HWTAIL_pa %pa AP CB\n",
+		map ? "map" : "unmap",
+		&pipe_smmu->desc_ring_HWTAIL_pa);
+	result = ipa3_wigig_smmu_map_reg(
 		rounddown(pipe_smmu->desc_ring_HWTAIL_pa, PAGE_SIZE),
 		map,
 		IPA_SMMU_CB_AP);
@@ -300,7 +462,10 @@ static int ipa3_wigig_smmu_map_channel(bool Rx,
 	}
 
 	/* rings */
-	result = ipa3_smmu_map_peer_buff(
+	IPADBG("%s desc_ring_base_iova %llX AP CB\n",
+		map ? "map" : "unmap",
+		pipe_smmu->desc_ring_base_iova);
+	result = ipa3_wigig_smmu_map_ring(
 		pipe_smmu->desc_ring_base_iova,
 		pipe_smmu->desc_ring_size,
 		map,
@@ -313,7 +478,10 @@ static int ipa3_wigig_smmu_map_channel(bool Rx,
 		goto fail_desc_ring;
 	}
 
-	result = ipa3_smmu_map_peer_buff(
+	IPADBG("%s status_ring_base_iova %llX AP CB\n",
+		map ? "map" : "unmap",
+		pipe_smmu->status_ring_base_iova);
+	result = ipa3_wigig_smmu_map_ring(
 		pipe_smmu->status_ring_base_iova,
 		pipe_smmu->status_ring_size,
 		map,
@@ -340,33 +508,33 @@ static int ipa3_wigig_smmu_map_channel(bool Rx,
 	IPADBG("exit\n");
 	return 0;
 fail_buffers:
-	ipa3_smmu_map_peer_buff(
+	ipa3_wigig_smmu_map_ring(
 		pipe_smmu->status_ring_base_iova, pipe_smmu->status_ring_size,
 		!map, &pipe_smmu->status_ring_base, IPA_SMMU_CB_AP);
 fail_status_ring:
-	ipa3_smmu_map_peer_buff(
+	ipa3_wigig_smmu_map_ring(
 		pipe_smmu->desc_ring_base_iova,	pipe_smmu->desc_ring_size,
 		!map, &pipe_smmu->desc_ring_base, IPA_SMMU_CB_AP);
 fail_desc_ring:
-	ipa3_smmu_map_peer_reg(
+	ipa3_wigig_smmu_map_reg(
 		rounddown(pipe_smmu->desc_ring_HWTAIL_pa, PAGE_SIZE),
 		!map, IPA_SMMU_CB_AP);
 fail_desc_HWTAIL:
-	ipa3_smmu_map_peer_reg(
+	ipa3_wigig_smmu_map_reg(
 		rounddown(pipe_smmu->status_ring_HWTAIL_pa, PAGE_SIZE),
 		!map, IPA_SMMU_CB_AP);
 fail_status_HWTAIL:
 	if (Rx)
-		ipa3_smmu_map_peer_reg(
+		ipa3_wigig_smmu_map_reg(
 			rounddown(pipe_smmu->status_ring_HWHEAD_pa, PAGE_SIZE),
 			!map, IPA_SMMU_CB_UC);
 	else
-		ipa3_smmu_map_peer_reg(
+		ipa3_wigig_smmu_map_reg(
 			rounddown(pipe_smmu->desc_ring_HWHEAD_pa, PAGE_SIZE),
 			!map, IPA_SMMU_CB_UC);
 fail_desc_HWHEAD:
 	if (!Rx)
-		ipa3_smmu_map_peer_reg(
+		ipa3_wigig_smmu_map_reg(
 			rounddown(pipe_smmu->status_ring_HWHEAD_pa, PAGE_SIZE),
 			!map, IPA_SMMU_CB_AP);
 fail:
@@ -421,6 +589,11 @@ static void ipa_gsi_evt_ring_err_cb(struct gsi_evt_err_notify *notify)
 	ipa_assert();
 }
 
+static uint16_t int_modt = 15;
+static uint8_t int_modc = 200;
+static uint8_t tx_hwtail_mod_threshold = 200;
+static uint8_t rx_hwtail_mod_threshold = 200;
+
 static int ipa3_wigig_config_gsi(bool Rx,
 	bool smmu_en,
 	void *pipe_info,
@@ -450,8 +623,8 @@ static int ipa3_wigig_config_gsi(bool Rx,
 	evt_props.exclusive = true;
 	evt_props.err_cb = ipa_gsi_evt_ring_err_cb;
 	evt_props.user_data = NULL;
-	evt_props.int_modc = 200;
-	evt_props.int_modt = 15;
+	evt_props.int_modc = int_modc;
+	evt_props.int_modt = int_modt;
 	evt_props.ring_base_vaddr = NULL;
 
 	if (smmu_en) {
@@ -480,7 +653,8 @@ static int ipa3_wigig_config_gsi(bool Rx,
 		union __packed gsi_evt_scratch evt_scratch;
 
 		memset(&evt_scratch, 0, sizeof(evt_scratch));
-		evt_scratch.w11ad.update_status_hwtail_mod_threshold = 200;
+		evt_scratch.w11ad.update_status_hwtail_mod_threshold =
+			rx_hwtail_mod_threshold;
 		gsi_res = gsi_write_evt_ring_scratch(ep->gsi_evt_ring_hdl,
 			evt_scratch);
 		if (gsi_res != GSI_STATUS_SUCCESS) {
@@ -626,7 +800,8 @@ static int ipa3_wigig_config_gsi(bool Rx,
 			gsi_scratch.tx_11ad.fixed_data_buffer_size_pow_2 =
 				ilog2(tx_dbuff->data_buffer_size);
 		}
-		gsi_scratch.tx_11ad.update_status_hwtail_mod_threshold = 200;
+		gsi_scratch.tx_11ad.update_status_hwtail_mod_threshold =
+			tx_hwtail_mod_threshold;
 		IPADBG("tx scratch: status_ring_hwtail_address_lsb 0x%X\n",
 			gsi_scratch.tx_11ad.status_ring_hwtail_address_lsb);
 		IPADBG("tx scratch: status_ring_hwhead_address_lsb 0x%X\n",
@@ -760,7 +935,8 @@ static int ipa3_wigig_config_uc(bool init,
 	return result;
 }
 
-int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
+int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out,
+	struct dentry **parent)
 {
 	int ipa_ep_idx;
 	struct ipa3_ep_context *ep;
@@ -776,6 +952,8 @@ int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
 	int result;
 
 	IPADBG("\n");
+
+	*parent = wigig_dent;
 
 	ipa_ep_idx = ipa_get_ep_mapping(rx_client);
 	if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED ||
@@ -965,7 +1143,10 @@ fail:
 	return result;
 }
 
-int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
+int ipa3_conn_wigig_client_i(void *in,
+	struct ipa_wigig_conn_out_params *out,
+	ipa_notify_cb tx_notify,
+	void *priv)
 {
 	int ipa_ep_idx;
 	struct ipa3_ep_context *ep;
@@ -1107,8 +1288,8 @@ int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
 		goto fail;
 	}
 
-	ep->client_notify = NULL;
-	ep->priv = NULL;
+	ep->client_notify = tx_notify;
+	ep->priv = priv;
 
 	memset(&ep_cfg, 0, sizeof(ep_cfg));
 	ep_cfg.nat.nat_en = IPA_DST_NAT;
@@ -1245,6 +1426,15 @@ int ipa3_disconn_wigig_pipe_i(enum ipa_client_type client,
 		goto fail;
 	}
 
+	/* only gsi ch number and dir are necessary */
+	result = ipa3_wigig_config_uc(
+		false, rx, 0,
+		ep_gsi->ipa_gsi_chan_num, 0);
+	if (result) {
+		IPAERR("failed uC channel teardown %d\n", result);
+		WARN_ON(1);
+	}
+
 	is_smmu_enabled = !ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_11AD];
 	if (is_smmu_enabled) {
 		if (!pipe_smmu || !dbuff) {
@@ -1264,18 +1454,21 @@ int ipa3_disconn_wigig_pipe_i(enum ipa_client_type client,
 				goto fail;
 			}
 		}
+
+		if (rx) {
+			if (!list_empty(&smmu_reg_addr_list)) {
+				IPAERR("smmu_reg_addr_list not empty\n");
+				WARN_ON(1);
+			}
+
+			if (!list_empty(&smmu_ring_addr_list)) {
+				IPAERR("smmu_ring_addr_list not empty\n");
+				WARN_ON(1);
+			}
+		}
 	} else if (pipe_smmu || dbuff) {
 		IPAERR("smmu input is not null %pK %pK\n",
 			pipe_smmu, dbuff);
-		WARN_ON(1);
-	}
-
-	/* only gsi ch number and dir are necessary */
-	result = ipa3_wigig_config_uc(
-		false, rx, 0,
-		ep_gsi->ipa_gsi_chan_num, 0);
-	if (result) {
-		IPAERR("failed uC channel teardown %d\n", result);
 		WARN_ON(1);
 	}
 
@@ -1666,3 +1859,56 @@ fail_stop_channel:
 	ipa_assert();
 	return res;
 }
+
+#ifndef CONFIG_DEBUG_FS
+int ipa3_wigig_init_debugfs_i(struct dentry *parent) { return 0; }
+#else
+int ipa3_wigig_init_debugfs_i(struct dentry *parent)
+{
+	const mode_t read_write_mode = 0664;
+	struct dentry *file = NULL;
+	struct dentry *dent;
+
+	dent = debugfs_create_dir("ipa_wigig", parent);
+	if (IS_ERR_OR_NULL(dent)) {
+		IPAERR("fail to create folder in debug_fs\n");
+		return -EFAULT;
+	}
+
+	wigig_dent = dent;
+
+	file = debugfs_create_u8("modc", read_write_mode, dent,
+		&int_modc);
+	if (IS_ERR_OR_NULL(file)) {
+		IPAERR("fail to create file modc\n");
+		goto fail;
+	}
+
+	file = debugfs_create_u16("modt", read_write_mode, dent,
+		&int_modt);
+	if (IS_ERR_OR_NULL(file)) {
+		IPAERR("fail to create file modt\n");
+		goto fail;
+	}
+
+	file = debugfs_create_u8("rx_mod_th", read_write_mode, dent,
+		&rx_hwtail_mod_threshold);
+	if (IS_ERR_OR_NULL(file)) {
+		IPAERR("fail to create file rx_mod_th\n");
+		goto fail;
+	}
+
+	file = debugfs_create_u8("tx_mod_th", read_write_mode, dent,
+		&tx_hwtail_mod_threshold);
+	if (IS_ERR_OR_NULL(file)) {
+		IPAERR("fail to create file tx_mod_th\n");
+		goto fail;
+	}
+
+	return 0;
+fail:
+	debugfs_remove_recursive(dent);
+	wigig_dent = NULL;
+	return -EFAULT;
+}
+#endif

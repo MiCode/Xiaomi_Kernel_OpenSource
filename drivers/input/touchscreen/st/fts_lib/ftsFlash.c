@@ -78,6 +78,8 @@
 #define LOAD_FW_FROM 0
 #endif
 
+#define FTS_LATEST_VERSION 0x1101
+
 static char tag[8] = "[ FTS ]\0";
 
 int getFirmwareVersion(u16 *fw_vers, u16 *config_id)
@@ -142,6 +144,10 @@ int getFWdata(const char *pathToFile, u8 **data, int *size, int from)
 #endif
 	default:
 		logError(0, "%s Read FW from BIN file!\n", tag);
+
+		if (ftsInfo.u16_fwVer == FTS_LATEST_VERSION)
+			return ERROR_FW_NO_UPDATE;
+
 		dev = getDev();
 
 		if (dev != NULL) {
@@ -219,7 +225,7 @@ int flashProcedure(const char *path, int force, int keep_cx)
 	logError(0, "%s Fw file read COMPLETED!\n", tag);
 
 	logError(0, "%s Starting flashing procedure...\n", tag);
-	res = flash_burn(fw, force, keep_cx);
+	res = flash_burn(&fw, force, keep_cx);
 	if (res < OK && res != (ERROR_FW_NO_UPDATE | ERROR_FLASH_BURN_FAILED)) {
 		logError(1, "%s %s: ERROR %02X\n",
 			tag, __func__, ERROR_FLASH_PROCEDURE);
@@ -453,13 +459,13 @@ int fillMemory(u32 address, u8 *data, int size)
 	return OK;
 }
 
-int flash_burn(Firmware fw, int force_burn, int keep_cx)
+int flash_burn(Firmware *fw, int force_burn, int keep_cx)
 {
 	u8 cmd;
 	int res;
 
-	if (!force_burn && (ftsInfo.u16_fwVer >= fw.fw_ver)
-		&& (ftsInfo.u16_cfgId >= fw.config_id)) {
+	if (!force_burn && (ftsInfo.u16_fwVer >= fw->fw_ver)
+		&& (ftsInfo.u16_cfgId >= fw->config_id)) {
 		logError(0, "Firmware in the chip newer");
 		logError(0, " or equal to the one to burn! ");
 		logError(0, "%s %s:NO UPDATE ERROR %02X\n",
@@ -498,7 +504,7 @@ int flash_burn(Firmware fw, int force_burn, int keep_cx)
 	//Write the lower part of the Program RAM
 	logError(0, "%s 3) PREPARING DATA FOR FLASH BURN:\n", tag);
 
-	res = fillMemory(FLASH_ADDR_CODE, fw.data, fw.data_size);
+	res = fillMemory(FLASH_ADDR_CODE, fw->data, fw->data_size);
 	if (res < 0) {
 		logError(1, "%s Error During filling the memory!%02X\n",
 			tag, ERROR_FLASH_BURN_FAILED);
@@ -567,15 +573,15 @@ int flash_burn(Firmware fw, int force_burn, int keep_cx)
 		return (res | ERROR_FLASH_BURN_FAILED);
 	}
 
-	if ((ftsInfo.u16_fwVer != fw.fw_ver)
-		&& (ftsInfo.u16_cfgId != fw.config_id)) {
+	if ((ftsInfo.u16_fwVer != fw->fw_ver)
+		&& (ftsInfo.u16_cfgId != fw->config_id)) {
 		logError(1, "Firmware in the chip different");
 		logError(1, " from the one that was burn!");
 		logError(1, "%s fw: %x != %x , conf: %x != %x\n",
 			tag, ftsInfo.u16_fwVer,
-			fw.fw_ver,
+			fw->fw_ver,
 			ftsInfo.u16_cfgId,
-			fw.config_id);
+			fw->config_id);
 		return ERROR_FLASH_BURN_FAILED;
 	}
 
@@ -1015,14 +1021,14 @@ int fillFlash(u32 address, u8 *data, int size)
 	return OK;
 }
 
-int flash_burn(struct Firmware fw, int force_burn, int keep_cx)
+int flash_burn(struct Firmware *fw, int force_burn, int keep_cx)
 {
 	int res;
 
-	if (!force_burn && (ftsInfo.u16_fwVer >= fw.fw_ver)
-		&& (ftsInfo.u16_cfgId >= fw.config_id)) {
+	if (!force_burn && (ftsInfo.u16_fwVer >= fw->fw_ver)
+		&& (ftsInfo.u16_cfgId >= fw->config_id)) {
 		for (res = EXTERNAL_RELEASE_INFO_SIZE-1; res >= 0; res--) {
-			if (fw.externalRelease[res] >
+			if (fw->externalRelease[res] >
 				ftsInfo.u8_extReleaseInfo[res])
 				goto start;
 		}
@@ -1045,7 +1051,7 @@ start:
 	if (res < OK) {
 		logError(1, "%s warm boot FAILED!\n", tag);
 		return (res | ERROR_FLASH_BURN_FAILED);
-	} /*else*/
+	}
 	logError(0, "%s warm boot COMPLETED!\n\n", tag);
 
 	//mdelay(FLASH_WAIT_TIME);
@@ -1084,8 +1090,8 @@ start:
 
 	//mdelay(FLASH_WAIT_TIME);
 	logError(0, "%s 6) LOAD PROGRAM:\n", tag);
-	res = fillFlash(FLASH_ADDR_CODE, &fw.data[0],
-					fw.sec0_size);
+	res = fillFlash(FLASH_ADDR_CODE, (u8 *)(&fw->data[0]),
+					fw->sec0_size);
 	if (res < OK) {
 		logError(1, "%s   load program ERROR %02X\n",
 			tag, ERROR_FLASH_BURN_FAILED);
@@ -1094,7 +1100,7 @@ start:
 	logError(0, "%s   load program DONE!\n", tag);
 	logError(0, "%s 7) LOAD CONFIG:\n", tag);
 	res = fillFlash(FLASH_ADDR_CONFIG,
-		&(fw.data[fw.sec0_size]), fw.sec1_size);
+		&(fw->data[fw->sec0_size]), fw->sec1_size);
 	if (res < OK) {
 		logError(1, "%s   load config ERROR %02X\n",
 			tag, ERROR_FLASH_BURN_FAILED);
@@ -1122,12 +1128,12 @@ start:
 		return (res | ERROR_FLASH_BURN_FAILED);
 	}
 
-	if ((ftsInfo.u16_fwVer != fw.fw_ver)
-		&& (ftsInfo.u16_cfgId != fw.config_id)) {
+	if ((ftsInfo.u16_fwVer != fw->fw_ver)
+		&& (ftsInfo.u16_cfgId != fw->config_id)) {
 		pr_err("Firmware is different from the old!\n");
 		logError(1, "%s fw: %x != %x, conf: %x != %x\n",
-			tag, ftsInfo.u16_fwVer, fw.fw_ver,
-			ftsInfo.u16_cfgId, fw.config_id);
+			tag, ftsInfo.u16_fwVer, fw->fw_ver,
+			ftsInfo.u16_cfgId, fw->config_id);
 		return ERROR_FLASH_BURN_FAILED;
 	}
 

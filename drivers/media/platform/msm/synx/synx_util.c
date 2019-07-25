@@ -601,6 +601,25 @@ void *synx_from_key(s32 id, u32 secure_key)
 	return row;
 }
 
+struct bind_operations *synx_get_bind_ops(u32 type)
+{
+	struct synx_registered_ops *client_ops;
+
+	if (!is_valid_type(type))
+		return NULL;
+
+	mutex_lock(&synx_dev->table_lock);
+	client_ops = &synx_dev->bind_vtbl[type];
+	if (!client_ops->valid) {
+		mutex_unlock(&synx_dev->table_lock);
+		return NULL;
+	}
+	pr_debug("found bind ops for %s\n", client_ops->name);
+	mutex_unlock(&synx_dev->table_lock);
+
+	return &client_ops->ops;
+}
+
 void generate_timestamp(char *timestamp, size_t size)
 {
 	struct timeval tv;

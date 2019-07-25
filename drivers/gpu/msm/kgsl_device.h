@@ -5,6 +5,9 @@
 #ifndef __KGSL_DEVICE_H
 #define __KGSL_DEVICE_H
 
+#include <linux/sched/mm.h>
+#include <linux/sched/task.h>
+
 #include "kgsl.h"
 #include "kgsl_drawobj.h"
 #include "kgsl_mmu.h"
@@ -178,6 +181,7 @@ struct kgsl_functable {
 	 */
 	int (*query_property_list)(struct kgsl_device *device, u32 *list,
 		u32 count);
+	bool (*is_hwcg_on)(struct kgsl_device *device);
 };
 
 struct kgsl_ioctl {
@@ -246,6 +250,9 @@ struct kgsl_device {
 	/* Starting physical address for GPU shader memory */
 	unsigned long shader_mem_phys;
 
+	/* Starting kernel virtual address for QDSS GFX DBG register block */
+	void __iomem *qdss_gfx_virt;
+
 	/* GPU shader memory size */
 	unsigned int shader_mem_len;
 	struct kgsl_memdesc memstore;
@@ -291,6 +298,7 @@ struct kgsl_device {
 	u32 snapshot_faultcount;	/* Total number of faults since boot */
 	bool force_panic;		/* Force panic after snapshot dump */
 	bool prioritize_unrecoverable;	/* Overwrite with new GMU snapshots */
+	bool set_isdb_breakpoint;	/* Set isdb registers before snapshot */
 
 	/* Use CP Crash dumper to get GPU snapshot*/
 	bool snapshot_crashdumper;
@@ -377,6 +385,8 @@ struct kgsl_process_private;
  * @fault_time: time of the first gpu hang in last _context_throttle_time ms
  * @user_ctxt_record: memory descriptor used by CP to save/restore VPC data
  * across preemption
+ * @total_fault_count: number of times gpu faulted in this context
+ * @last_faulted_cmd_ts: last faulted command batch timestamp
  */
 struct kgsl_context {
 	struct kref refcount;
@@ -396,6 +406,8 @@ struct kgsl_context {
 	unsigned int fault_count;
 	unsigned long fault_time;
 	struct kgsl_mem_entry *user_ctxt_record;
+	unsigned int total_fault_count;
+	unsigned int last_faulted_cmd_ts;
 };
 
 #define _context_comm(_c) \
@@ -544,6 +556,31 @@ static inline void kgsl_process_add_stats(struct kgsl_process_private *priv,
 	priv->stats[type].cur += size;
 	if (priv->stats[type].max < priv->stats[type].cur)
 		priv->stats[type].max = priv->stats[type].cur;
+	add_mm_counter(current->mm, MM_UNRECLAIMABLE, (size >> PAGE_SHIFT));
+}
+
+static inline void kgsl_process_sub_stats(struct kgsl_process_private *priv,
+	unsigned int type, uint64_t size)
+{
+	struct pid *pid_struct;
+	struct task_struct *task;
+	struct mm_struct *mm;
+
+	priv->stats[type].cur -= size;
+	pid_struct = find_get_pid(priv->pid);
+	if (pid_struct) {
+		task = get_pid_task(pid_struct, PIDTYPE_PID);
+		if (task) {
+			mm = get_task_mm(task);
+			if (mm) {
+				add_mm_counter(mm, MM_UNRECLAIMABLE,
+					-(size >> PAGE_SHIFT));
+				mmput(mm);
+			}
+			put_task_struct(task);
+		}
+		put_pid(pid_struct);
+	}
 }
 
 static inline bool kgsl_is_register_offset(struct kgsl_device *device,

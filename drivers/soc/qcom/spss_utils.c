@@ -29,11 +29,19 @@
 #include <linux/platform_device.h> /* platform_driver_register() */
 #include <linux/of.h>       /* of_property_count_strings() */
 #include <linux/io.h>       /* ioremap_nocache() */
+#include <linux/notifier.h>
+#include <linux/sizes.h>    /* SZ_4K */
+#include <linux/uaccess.h>  /* copy_from_user() */
 
+#include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/secure_buffer.h>     /* VMID_HLOS */
+
+#include <uapi/linux/ioctl.h>       /* ioctl() */
+#include <uapi/linux/spss_utils.h>  /* IOCTL to user space */
 
 /* driver name */
-#define DEVICE_NAME	"spss-utils"
+#define DEVICE_NAME	"spss_utils"
 
 enum spss_firmware_type {
 	SPSS_FW_TYPE_DEV = 'd',
@@ -51,9 +59,40 @@ static const char *firmware_name = "NA";
 static struct device *spss_dev;
 static u32 spss_debug_reg_addr; /* SP_SCSR_MBn_SP2CL_GPm(n,m) */
 static u32 spss_emul_type_reg_addr; /* TCSR_SOC_EMULATION_TYPE */
+static void *iar_notif_handle;
+static struct notifier_block *iar_nb;
+
+#define CMAC_SIZE_IN_BYTES (128/8) /* 128 bit */
+
+static u32 pil_addr;
+static u32 pil_size;
+static u32 cmac_buf[CMAC_SIZE_IN_BYTES/sizeof(u32)]; /* saved cmac */
+static u32 pbl_cmac_buf[CMAC_SIZE_IN_BYTES/sizeof(u32)]; /* pbl cmac */
+static u32 iar_state;
+static bool is_iar_enabled;
+static bool is_pbl_ce; /* Did SPU PBL performed Cryptographic Erase (CE) */
+
+static void __iomem *cmac_mem;
+static size_t cmac_mem_size = SZ_4K; /* XPU align to 4KB */
+static phys_addr_t cmac_mem_addr;
 
 #define SPU_EMULATUION (BIT(0) | BIT(1))
 #define SPU_PRESENT_IN_EMULATION BIT(2)
+
+/**
+ * struct device state
+ */
+struct spss_utils_device {
+	/* char device info */
+	struct cdev *cdev;
+	dev_t device_no;
+	struct class *driver_class;
+	struct device *class_dev;
+	struct platform_device *pdev;
+};
+
+/* Device State */
+static struct spss_utils_device *spss_utils_dev;
 
 /*==========================================================================*/
 /*		Device Sysfs */
@@ -64,6 +103,11 @@ static ssize_t firmware_name_show(struct device *dev,
 		char *buf)
 {
 	int ret;
+
+	if (!dev || !attr || !buf) {
+		pr_err("invalid param.\n");
+		return -EINVAL;
+	}
 
 	if (firmware_name == NULL)
 		ret = scnprintf(buf, PAGE_SIZE, "%s\n", "unknown");
@@ -80,6 +124,11 @@ static ssize_t test_fuse_state_show(struct device *dev,
 		char *buf)
 {
 	int ret;
+
+	if (!dev || !attr || !buf) {
+		pr_err("invalid param.\n");
+		return -EINVAL;
+	}
 
 	switch (firmware_type) {
 	case SPSS_FW_TYPE_DEV:
@@ -108,7 +157,12 @@ static ssize_t spss_debug_reg_show(struct device *dev,
 	void __iomem *spss_debug_reg = NULL;
 	u32 val1, val2;
 
-	pr_debug("spss_debug_reg_addr [0x%x]\n", spss_debug_reg_addr);
+	if (!dev || !attr || !buf) {
+		pr_err("invalid param.\n");
+		return -EINVAL;
+	}
+
+	pr_debug("spss_debug_reg_addr [0x%x].\n", spss_debug_reg_addr);
 
 	spss_debug_reg = ioremap_nocache(spss_debug_reg_addr, sizeof(u32)*2);
 
@@ -130,32 +184,287 @@ static ssize_t spss_debug_reg_show(struct device *dev,
 
 static DEVICE_ATTR_RO(spss_debug_reg);
 
+static ssize_t cmac_buf_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	int ret = 0;
+
+	if (!dev || !attr || !buf) {
+		pr_err("invalid param.\n");
+		return -EINVAL;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "0x%x,0x%x,0x%x,0x%x\n",
+		cmac_buf[0], cmac_buf[1], cmac_buf[2], cmac_buf[3]);
+
+	return ret;
+}
+
+static DEVICE_ATTR_RO(cmac_buf);
+
+static ssize_t iar_state_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	int ret = 0;
+
+	if (!dev || !attr || !buf) {
+		pr_err("invalid param.\n");
+		return -EINVAL;
+	}
+
+	/* show IAR-STATE from soc fuse */
+	ret = snprintf(buf, PAGE_SIZE, "0x%x\n", iar_state);
+
+	return ret;
+}
+
+static DEVICE_ATTR_RO(iar_state);
+
+static ssize_t iar_enabled_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	int ret = 0;
+
+	if (!dev || !attr || !buf) {
+		pr_err("invalid param.\n");
+		return -EINVAL;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "0x%x\n", is_iar_enabled);
+
+	return ret;
+}
+
+static DEVICE_ATTR_RO(iar_enabled);
+
+static ssize_t pbl_ce_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	int ret = 0;
+
+	if (!dev || !attr || !buf) {
+		pr_err("invalid param.\n");
+		return -EINVAL;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "0x%x\n", is_pbl_ce);
+
+	return ret;
+}
+
+static DEVICE_ATTR_RO(pbl_ce);
+
+static ssize_t pbl_cmac_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	int ret = 0;
+
+	if (!dev || !attr || !buf) {
+		pr_err("invalid param.\n");
+		return -EINVAL;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "0x%x,0x%x,0x%x,0x%x\n",
+	    pbl_cmac_buf[0], pbl_cmac_buf[1], pbl_cmac_buf[2], pbl_cmac_buf[3]);
+
+	return ret;
+}
+
+static DEVICE_ATTR_RO(pbl_cmac);
+
+/*--------------------------------------------------------------------------*/
 static int spss_create_sysfs(struct device *dev)
 {
 	int ret;
 
 	ret = device_create_file(dev, &dev_attr_firmware_name);
 	if (ret < 0) {
-		pr_err("failed to create sysfs file for firmware_name\n");
+		pr_err("failed to create sysfs file for firmware_name.\n");
 		return ret;
 	}
 
 	ret = device_create_file(dev, &dev_attr_test_fuse_state);
 	if (ret < 0) {
-		pr_err("failed to create sysfs file for test_fuse_state\n");
-		device_remove_file(dev, &dev_attr_firmware_name);
-		return ret;
+		pr_err("failed to create sysfs file for test_fuse_state.\n");
+		goto remove_firmware_name;
 	}
 
 	ret = device_create_file(dev, &dev_attr_spss_debug_reg);
 	if (ret < 0) {
-		pr_err("failed to create sysfs file for spss_debug_reg\n");
-		device_remove_file(dev, &dev_attr_firmware_name);
-		device_remove_file(dev, &dev_attr_test_fuse_state);
-		return ret;
+		pr_err("failed to create sysfs file for spss_debug_reg.\n");
+		goto remove_test_fuse_state;
+	}
+
+	ret = device_create_file(dev, &dev_attr_cmac_buf);
+	if (ret < 0) {
+		pr_err("failed to create sysfs file for cmac_buf.\n");
+		goto remove_spss_debug_reg;
+	}
+
+	ret = device_create_file(dev, &dev_attr_iar_state);
+	if (ret < 0) {
+		pr_err("failed to create sysfs file for iar_state.\n");
+		goto remove_cmac_buf;
+	}
+
+	ret = device_create_file(dev, &dev_attr_iar_enabled);
+	if (ret < 0) {
+		pr_err("failed to create sysfs file for iar_enabled.\n");
+		goto remove_iar_state;
+	}
+
+	ret = device_create_file(dev, &dev_attr_pbl_ce);
+	if (ret < 0) {
+		pr_err("failed to create sysfs file for pbl_ce.\n");
+		goto remove_iar_enabled;
+	}
+
+	ret = device_create_file(dev, &dev_attr_pbl_cmac);
+	if (ret < 0) {
+		pr_err("failed to create sysfs file for pbl_cmac.\n");
+		goto remove_pbl_ce;
 	}
 
 	return 0;
+
+remove_pbl_ce:
+		device_remove_file(dev, &dev_attr_pbl_ce);
+remove_iar_enabled:
+		device_remove_file(dev, &dev_attr_iar_enabled);
+remove_iar_state:
+		device_remove_file(dev, &dev_attr_iar_state);
+remove_cmac_buf:
+		device_remove_file(dev, &dev_attr_cmac_buf);
+remove_spss_debug_reg:
+		device_remove_file(dev, &dev_attr_spss_debug_reg);
+remove_test_fuse_state:
+		device_remove_file(dev, &dev_attr_test_fuse_state);
+remove_firmware_name:
+		device_remove_file(dev, &dev_attr_firmware_name);
+
+	return ret;
+}
+
+/*==========================================================================*/
+/*  IOCTL */
+/*==========================================================================*/
+static long spss_utils_ioctl(struct file *file,
+	unsigned int cmd, unsigned long arg)
+{
+	void *buf = (void *) arg;
+	unsigned char data[64] = {0};
+	size_t size = 0;
+
+	if (buf == NULL) {
+		pr_err("invalid ioctl arg\n");
+		return -EINVAL;
+	}
+
+	size = _IOC_SIZE(cmd);
+	if (size && (cmd & IOC_IN)) {
+		if (size > sizeof(data)) {
+			pr_err("cmd [0x%x] size [0x%x] too large\n",
+				cmd, size);
+			return -EINVAL;
+		}
+
+		if (copy_from_user(data, (void __user *)arg, size)) {
+			pr_err("copy_from_user() failed, cmd [0x%x]\n",
+				cmd, size);
+			return -EFAULT;
+		}
+	}
+
+	switch (cmd) {
+	case SPSS_IOC_SET_FW_CMAC:
+		if (size != sizeof(cmac_buf)) {
+			pr_err("cmd [0x%x] invalid size [0x%x]\n", cmd, size);
+			return -EINVAL;
+		}
+
+		memcpy(cmac_buf, data, sizeof(cmac_buf));
+		pr_info("cmac_buf: 0x%x,0x%x,0x%x,0x%x\n",
+			cmac_buf[0], cmac_buf[1], cmac_buf[2], cmac_buf[3]);
+		break;
+
+	default:
+		pr_err("invalid ioctl cmd [0x%x]\n", cmd);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static const struct file_operations spss_utils_fops = {
+	.owner = THIS_MODULE,
+	.unlocked_ioctl = spss_utils_ioctl,
+	.compat_ioctl = spss_utils_ioctl,
+};
+
+static int spss_utils_create_chardev(struct device *dev)
+{
+	int ret;
+	unsigned int baseminor = 0;
+	unsigned int count = 1;
+	void *priv = (void *) spss_utils_dev;
+
+	spss_utils_dev->cdev =
+		kzalloc(sizeof(*spss_utils_dev->cdev), GFP_KERNEL);
+	if (!spss_utils_dev->cdev)
+		return -ENOMEM;
+
+	/* get device_no */
+	ret = alloc_chrdev_region(&spss_utils_dev->device_no, baseminor, count,
+				 DEVICE_NAME);
+	if (ret < 0) {
+		pr_err("alloc_chrdev_region failed %d\n", ret);
+		return ret;
+	}
+
+	spss_utils_dev->driver_class = class_create(THIS_MODULE, DEVICE_NAME);
+	if (IS_ERR(spss_utils_dev->driver_class)) {
+		ret = -ENOMEM;
+		pr_err("class_create failed %d\n", ret);
+		goto exit_unreg_chrdev_region;
+	}
+
+	spss_utils_dev->class_dev =
+	    device_create(spss_utils_dev->driver_class, NULL,
+				  spss_utils_dev->device_no, priv,
+				  DEVICE_NAME);
+
+	if (IS_ERR(spss_utils_dev->class_dev)) {
+		pr_err("class_device_create failed %d\n", ret);
+		ret = -ENOMEM;
+		goto exit_destroy_class;
+	}
+
+	cdev_init(spss_utils_dev->cdev, &spss_utils_fops);
+	spss_utils_dev->cdev->owner = THIS_MODULE;
+
+	ret = cdev_add(spss_utils_dev->cdev,
+		       MKDEV(MAJOR(spss_utils_dev->device_no), 0),
+		       1);
+	if (ret < 0) {
+		pr_err("cdev_add failed %d\n", ret);
+		goto exit_destroy_device;
+	}
+
+	pr_debug("char device created.\n");
+	return 0;
+
+exit_destroy_device:
+	device_destroy(spss_utils_dev->driver_class, spss_utils_dev->device_no);
+exit_destroy_class:
+	class_destroy(spss_utils_dev->driver_class);
+exit_unreg_chrdev_region:
+	unregister_chrdev_region(spss_utils_dev->device_no, 1);
+	return ret;
 }
 
 /*==========================================================================*/
@@ -176,6 +485,17 @@ static int spss_parse_dt(struct device_node *node)
 	u32 spss_fuse2_bit = 0;
 	u32 spss_fuse2_mask = 0;
 	void __iomem *spss_fuse2_reg = NULL;
+	/* IAR_FEATURE_ENABLED soc fuse */
+	u32 spss_fuse3_addr = 0;
+	u32 spss_fuse3_bit = 0;
+	u32 spss_fuse3_mask = 0;
+	void __iomem *spss_fuse3_reg = NULL;
+	/* IAR_STATE soc fuses */
+	u32 spss_fuse4_addr = 0;
+	u32 spss_fuse4_bit = 0;
+	u32 spss_fuse4_mask = 0;
+	void __iomem *spss_fuse4_reg = NULL;
+
 	u32 val1 = 0;
 	u32 val2 = 0;
 	void __iomem *spss_emul_type_reg = NULL;
@@ -310,7 +630,200 @@ static int spss_parse_dt(struct device_node *node)
 	}
 	iounmap(spss_emul_type_reg);
 
+	/* PIL-SPSS area */
+	ret = of_property_read_u32(node, "qcom,pil-addr",
+			     &pil_addr);
+	if (ret < 0) {
+		pr_err("can't get pil_addr\n");
+		return -EFAULT;
+	}
+	ret = of_property_read_u32(node, "qcom,pil-size",
+			     &pil_size);
+	if (ret < 0) {
+		pr_err("can't get pil_size\n");
+		return -EFAULT;
+	}
+
+	pr_info("pil_addr [0x%x].\n", pil_addr);
+	pr_info("pil_size [0x%x].\n", pil_size);
+
+	/* cmac buffer after spss firmware end */
+	cmac_mem_addr = pil_addr + pil_size;
+
+	ret = of_property_read_u32(node, "qcom,spss-fuse3-addr",
+		&spss_fuse3_addr);
+	if (ret < 0) {
+		pr_err("can't get fuse3 addr.\n");
+		return -EFAULT;
+	}
+
+	ret = of_property_read_u32(node, "qcom,spss-fuse3-bit",
+		&spss_fuse3_bit);
+	if (ret < 0) {
+		pr_err("can't get fuse3 bit.\n");
+		return -EFAULT;
+	}
+
+	spss_fuse3_reg = ioremap_nocache(spss_fuse3_addr, sizeof(u32));
+
+	if (!spss_fuse3_reg) {
+		pr_err("can't map fuse3 addr.\n");
+		return -EFAULT;
+	}
+
+	/* read IAR_FEATURE_ENABLED from soc fuse */
+	val1 = readl_relaxed(spss_fuse3_reg);
+	spss_fuse3_mask = (1<<spss_fuse3_bit);
+	pr_info("iar_enabled fuse, addr [0x%x] val [0x%x] mask [0x%x].\n",
+		spss_fuse3_addr, val1, spss_fuse3_mask);
+	if (val1 & spss_fuse3_mask)
+		is_iar_enabled = true;
+	else
+		is_iar_enabled = false;
+
+	memset(cmac_buf, 0xA5, sizeof(cmac_buf));
+
+	ret = of_property_read_u32(node, "qcom,spss-fuse4-addr",
+		&spss_fuse4_addr);
+	if (ret < 0) {
+		pr_err("can't get fuse4 addr.\n");
+		return -EFAULT;
+	}
+
+	ret = of_property_read_u32(node, "qcom,spss-fuse4-bit",
+		&spss_fuse4_bit);
+	if (ret < 0) {
+		pr_err("can't get fuse4 bit.\n");
+		return -EFAULT;
+	}
+
+	spss_fuse4_reg = ioremap_nocache(spss_fuse4_addr, sizeof(u32));
+
+	if (!spss_fuse4_reg) {
+		pr_err("can't map fuse4 addr.\n");
+		return -EFAULT;
+	}
+
+	val1 = readl_relaxed(spss_fuse4_reg);
+	spss_fuse4_mask = (0x07 << spss_fuse4_bit); /* 3 bits */
+	pr_info("IAR_STATE fuse, addr [0x%x] val [0x%x] mask [0x%x].\n",
+	spss_fuse4_addr, val1, spss_fuse4_mask);
+	val1 = ((val1 & spss_fuse4_mask) >> spss_fuse4_bit) & 0x07;
+
+	iar_state = val1;
+
+	pr_info("iar_state [%d]\n", iar_state);
+
 	return 0;
+}
+
+static int spss_assign_mem_to_spss_and_hlos(phys_addr_t addr, size_t size)
+{
+	int ret;
+	int srcVM[1] = {VMID_HLOS};
+	int destVM[2] = {VMID_HLOS, VMID_CP_SPSS_HLOS_SHARED};
+	int destVMperm[2] = {PERM_READ | PERM_WRITE, PERM_READ | PERM_WRITE};
+
+	ret = hyp_assign_phys(addr, size, srcVM, 1, destVM, destVMperm, 2);
+	if (ret)
+		pr_err("hyp_assign_phys() failed, addr [%pa] size [%zx] ret [%d]\n",
+				&addr, size, ret);
+
+	return ret;
+}
+
+static int spss_set_fw_cmac(u32 *cmac, size_t cmac_size)
+{
+	int ret;
+	u8 __iomem *reg = NULL;
+	int i;
+
+	if (cmac_mem == NULL) {
+		cmac_mem = ioremap_nocache(cmac_mem_addr, cmac_mem_size);
+		if (!cmac_mem) {
+			pr_err("can't map cmac_mem.\n");
+			return -EFAULT;
+		}
+	}
+
+	ret = spss_assign_mem_to_spss_and_hlos(cmac_mem_addr, cmac_mem_size);
+	if (ret)
+		return ret;
+
+	pr_debug("pil_addr [0x%x]\n", pil_addr);
+	pr_debug("pil_size [0x%x]\n", pil_size);
+	pr_debug("cmac_mem [%pK]\n", cmac_mem);
+	reg = cmac_mem;
+	pr_debug("reg [%pK]\n", reg);
+
+	for (i = 0; i < cmac_size/4; i++) {
+		writel_relaxed(cmac[i], reg + i*sizeof(u32));
+		pr_debug("cmac[%d] [0x%x]\n", i, cmac[i]);
+	}
+	reg += cmac_size;
+
+	for (i = 0; i < cmac_size/4; i++)
+		writel_relaxed(0, reg + i*sizeof(u32));
+
+	return 0;
+}
+
+static int spss_get_pbl_calc_cmac(u32 *cmac, size_t cmac_size)
+{
+	u8 __iomem *reg = NULL;
+	int i;
+	u32 val;
+
+	if (cmac_mem == NULL)
+		return -EFAULT;
+
+	/* PBL calculated cmac after HLOS expected cmac */
+	reg = cmac_mem + cmac_size;
+	pr_debug("reg [%pK]\n", reg);
+
+	for (i = 0; i < cmac_size/4; i++) {
+		val = readl_relaxed(reg + i*sizeof(u32));
+		cmac[i] = val;
+		pr_debug("cmac[%d] [0x%x]\n", (int) i, (int) val);
+	}
+
+	return 0;
+}
+
+static int spss_utils_iar_callback(struct notifier_block *nb,
+				  unsigned long code,
+				  void *data)
+{
+
+	switch (code) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+		pr_debug("[SUBSYS_BEFORE_SHUTDOWN] event.\n");
+		break;
+	case SUBSYS_AFTER_SHUTDOWN:
+		pr_debug("[SUBSYS_AFTER_SHUTDOWN] event.\n");
+		break;
+	case SUBSYS_BEFORE_POWERUP:
+		pr_debug("[SUBSYS_BEFORE_POWERUP] event.\n");
+		break;
+	case SUBSYS_AFTER_POWERUP:
+		pr_debug("[SUBSYS_AFTER_POWERUP] event.\n");
+		spss_get_pbl_calc_cmac(pbl_cmac_buf, sizeof(pbl_cmac_buf));
+		if (memcmp(cmac_buf, pbl_cmac_buf, sizeof(cmac_buf)) != 0)
+			is_pbl_ce = true; /* cmacs not the same */
+		else
+			is_pbl_ce = false;
+		break;
+	case SUBSYS_BEFORE_AUTH_AND_RESET:
+		pr_debug("[SUBSYS_BEFORE_AUTH_AND_RESET] event.\n");
+		spss_set_fw_cmac(cmac_buf, sizeof(cmac_buf));
+		break;
+	default:
+		pr_err("unknown code [0x%x] .\n", (int) code);
+		break;
+
+	}
+
+	return NOTIFY_OK;
 }
 
 /**
@@ -322,9 +835,29 @@ static int spss_probe(struct platform_device *pdev)
 	struct device_node *np = NULL;
 	struct device *dev = NULL;
 
+	if (!pdev) {
+		pr_err("invalid pdev.\n");
+		return -ENODEV;
+	}
+
 	np = pdev->dev.of_node;
+	if (!np) {
+		pr_err("invalid DT node.\n");
+		return -EINVAL;
+	}
+
+	spss_utils_dev = kzalloc(sizeof(*spss_utils_dev), GFP_KERNEL);
+	if (spss_utils_dev == NULL)
+		return -ENOMEM;
+
 	dev = &pdev->dev;
 	spss_dev = dev;
+
+	if (dev == NULL) {
+		pr_err("invalid dev.\n");
+		return -EINVAL;
+	}
+
 	platform_set_drvdata(pdev, dev);
 
 	ret = spss_parse_dt(np);
@@ -356,9 +889,28 @@ static int spss_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	ret = spss_utils_create_chardev(dev);
+	if (ret < 0)
+		return ret;
+
 	ret = spss_create_sysfs(dev);
 	if (ret < 0)
 		return ret;
+
+	pr_info("Initialization completed ok, firmware_name [%s].\n",
+		firmware_name);
+
+	iar_nb = kzalloc(sizeof(*iar_nb), GFP_KERNEL);
+	if (!iar_nb)
+		return -ENOMEM;
+
+	iar_nb->notifier_call = spss_utils_iar_callback;
+
+	iar_notif_handle = subsys_notif_register_notifier("spss", iar_nb);
+	if (IS_ERR_OR_NULL(iar_notif_handle)) {
+		pr_err("register fail for IAR notifier\n");
+		kfree(iar_nb);
+	}
 
 	return 0;
 }

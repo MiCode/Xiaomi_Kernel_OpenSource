@@ -21,6 +21,7 @@
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif
+#include <linux/jiffies.h>
 
 struct nqx_platform_data {
 	unsigned int irq_gpio;
@@ -51,6 +52,7 @@ MODULE_DEVICE_TABLE(of, msm_match_table);
 #define NCI_RESET_NTF_LEN		13
 #define NCI_GET_VERSION_CMD_LEN		8
 #define NCI_GET_VERSION_RSP_LEN		12
+#define MAX_IRQ_WAIT_TIME		(90)	//in ms
 
 struct nqx_dev {
 	wait_queue_head_t	read_wq;
@@ -827,6 +829,9 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 
 reset_enable_gpio:
 	/* making sure that the NFCC starts in a clean state. */
+	gpio_set_value(enable_gpio, 1);/* HPD : Enable*/
+	/* hardware dependent delay */
+	usleep_range(10000, 10100);
 	gpio_set_value(enable_gpio, 0);/* ULPM: Disable */
 	/* hardware dependent delay */
 	usleep_range(10000, 10100);
@@ -892,8 +897,13 @@ reset_enable_gpio:
 		}
 		goto err_nfcc_reset_failed;
 	}
-	/* hardware dependent delay */
-	msleep(30);
+	nqx_enable_irq(nqx_dev);
+	ret = wait_event_interruptible_timeout(nqx_dev->read_wq,
+		!nqx_dev->irq_enabled, msecs_to_jiffies(MAX_IRQ_WAIT_TIME));
+	if (ret <= 0) {
+		nqx_disable_irq(nqx_dev);
+		goto err_nfcc_hw_check;
+	}
 
 	/* Read Response of RESET command */
 	ret = i2c_master_recv(client, nci_reset_rsp, NCI_RESET_RSP_LEN);
@@ -905,9 +915,13 @@ reset_enable_gpio:
 			goto reset_enable_gpio;
 		goto err_nfcc_hw_check;
 	}
-
-	/* hardware dependent delay */
-	msleep(30);
+	nqx_enable_irq(nqx_dev);
+	ret = wait_event_interruptible_timeout(nqx_dev->read_wq,
+		!nqx_dev->irq_enabled, msecs_to_jiffies(MAX_IRQ_WAIT_TIME));
+	if (ret <= 0) {
+		nqx_disable_irq(nqx_dev);
+		goto err_nfcc_hw_check;
+	}
 
 	/* Read Notification of RESET command */
 	ret = i2c_master_recv(client, nci_reset_ntf, NCI_RESET_NTF_LEN);

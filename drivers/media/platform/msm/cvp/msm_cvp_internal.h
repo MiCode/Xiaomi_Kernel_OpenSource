@@ -16,39 +16,19 @@
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include <linux/kref.h>
-#include <media/v4l2-dev.h>
-#include <media/v4l2-device.h>
-#include <media/v4l2-ioctl.h>
-#include <media/v4l2-event.h>
-#include <media/v4l2-ctrls.h>
-#include <media/videobuf2-core.h>
-#include <media/videobuf2-v4l2.h>
+#include <linux/cdev.h>
+#include <linux/slab.h>
+#include <linux/kthread.h>
+#include <linux/dma-mapping.h>
 #include "msm_cvp_core.h"
 #include <media/msm_media_info.h>
 #include <media/msm_cvp_private.h>
 #include "cvp_hfi_api.h"
 
-#define MSM_CVP_DRV_NAME "msm_cvp_driver"
-#define MSM_CVP_VERSION KERNEL_VERSION(0, 0, 1)
-#define MAX_DEBUGFS_NAME 50
-#define DEFAULT_TIMEOUT 3
-#define DEFAULT_HEIGHT 1088
-#define DEFAULT_WIDTH 1920
-#define MIN_SUPPORTED_WIDTH 32
-#define MIN_SUPPORTED_HEIGHT 32
-#define DEFAULT_FPS 15
-#define MIN_NUM_OUTPUT_BUFFERS 1
-#define MIN_NUM_OUTPUT_BUFFERS_VP9 6
-#define MIN_NUM_CAPTURE_BUFFERS 1
-#define MAX_NUM_OUTPUT_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
-#define MAX_NUM_CAPTURE_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
-
 #define MAX_SUPPORTED_INSTANCES 16
-
-/* Maintains the number of FTB's between each FBD over a window */
+#define MAX_NAME_LENGTH 64
+#define MAX_DEBUGFS_NAME 50
 #define DCVS_FTB_WINDOW 16
-
-#define V4L2_EVENT_CVP_BASE  10
 
 #define SYS_MSG_START HAL_SYS_INIT_DONE
 #define SYS_MSG_END HAL_SYS_ERROR
@@ -56,17 +36,6 @@
 #define SESSION_MSG_END HAL_SESSION_ERROR
 #define SYS_MSG_INDEX(__msg) (__msg - SYS_MSG_START)
 #define SESSION_MSG_INDEX(__msg) (__msg - SESSION_MSG_START)
-
-
-#define MAX_NAME_LENGTH 64
-
-#define EXTRADATA_IDX(__num_planes) ((__num_planes) ? (__num_planes) - 1 : 0)
-
-#define NUM_MBS_PER_SEC(__height, __width, __fps) \
-	(NUM_MBS_PER_FRAME(__height, __width) * __fps)
-
-#define NUM_MBS_PER_FRAME(__height, __width) \
-	((ALIGN(__height, 16) / 16) * (ALIGN(__width, 16) / 16))
 
 #define call_core_op(c, op, args...)			\
 	(((c) && (c)->core_ops && (c)->core_ops->op) ? \
@@ -233,6 +202,20 @@ enum dcvs_flags {
 	MSM_CVP_DCVS_DECR = BIT(1),
 };
 
+struct cvp_buf_type {
+	s32 fd;
+	u32 size;
+	u32 offset;
+	u32 flags;
+	union {
+		struct dma_buf *dbuf;
+		struct {
+			u32 reserved1;
+			u32 reserved2;
+		};
+	};
+};
+
 struct cvp_clock_data {
 	int buffer_counter;
 	int load;
@@ -314,6 +297,14 @@ struct cvp_session_queue {
 	struct kmem_cache *msg_cache;
 };
 
+struct cvp_session_prop {
+	u32 type;
+	u32 kernel_mask;
+	u32 priority;
+	u32 is_secure;
+	u32 dsp_mask;
+};
+
 enum cvp_event_t {
 	CVP_NO_EVENT,
 	CVP_SSR_EVENT = 1,
@@ -352,6 +343,7 @@ struct msm_cvp_core {
 	unsigned long min_freq;
 	unsigned long curr_freq;
 	struct msm_cvp_core_ops *core_ops;
+	atomic64_t kernel_trans_id;
 };
 
 struct msm_cvp_inst {
@@ -367,6 +359,7 @@ struct msm_cvp_inst {
 	struct msm_cvp_list persistbufs;
 	struct msm_cvp_list cvpcpubufs;
 	struct msm_cvp_list cvpdspbufs;
+	struct msm_cvp_list frames;
 	struct cvp_buffer_requirements buff_req;
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];
 	struct msm_cvp_smem *extradata_handle;
@@ -378,6 +371,19 @@ struct msm_cvp_inst {
 	struct kref kref;
 	unsigned long deprecate_bitmask;
 	struct cvp_kmd_request_power power;
+	struct cvp_session_prop prop;
+	struct kmem_cache *fence_data_cache;
+	u32 cur_cmd_type;
+	struct kmem_cache *frame_cache;
+	struct kmem_cache *frame_buf_cache;
+	struct kmem_cache *internal_buf_cache;
+};
+
+struct msm_cvp_fence_thread_data {
+	struct msm_cvp_inst *inst;
+	unsigned int device_id;
+	struct cvp_kmd_hfi_fence_packet in_fence_pkt;
+	unsigned int arg_type;
 };
 
 extern struct msm_cvp_drv *cvp_driver;
@@ -400,15 +406,25 @@ struct msm_cvp_internal_buffer {
 	struct cvp_kmd_buffer buf;
 };
 
+struct msm_cvp_frame_buf {
+	struct list_head list;
+	struct cvp_buf_type buf;
+};
+
+struct msm_cvp_frame {
+	struct list_head list;
+	struct msm_cvp_list bufs;
+	u64 ktid;
+};
+
 void msm_cvp_comm_handle_thermal_event(void);
-int msm_cvp_smem_alloc(size_t size, u32 align, u32 flags,
-	enum hal_buffer buffer_type, int map_kernel,
+int msm_cvp_smem_alloc(size_t size, u32 align, u32 flags, int map_kernel,
 	void  *res, u32 session_type, struct msm_cvp_smem *smem);
 int msm_cvp_smem_free(struct msm_cvp_smem *smem);
 
 struct context_bank_info *msm_cvp_smem_get_context_bank(u32 session_type,
 	bool is_secure, struct msm_cvp_platform_resources *res,
-	enum hal_buffer buffer_type);
+	unsigned long ion_flags);
 int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst,
 				struct msm_cvp_smem *smem);
 int msm_cvp_smem_unmap_dma_buf(struct msm_cvp_inst *inst,

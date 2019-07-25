@@ -20,6 +20,8 @@
 #define A5_WDT_0                0x2
 #define A5_WDT_1                0x4
 
+#define ICP_SIERRA_A5_CSR_ACCESS 0x3C
+
 #define ELF_GUARD_PAGE          (2 * 1024 * 1024)
 
 struct cam_a5_device_hw_info {

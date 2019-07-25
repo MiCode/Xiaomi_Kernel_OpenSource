@@ -460,9 +460,6 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	/* enable hardware clockgating */
 	a6xx_hwcg_set(adreno_dev, true);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM))
-		adreno_dev->lm_threshold_count = A6XX_GMU_GENERAL_1;
-
 	/* Set up VBIF registers from the GPU core definition */
 	adreno_reglist_write(adreno_dev, a6xx_core->vbif,
 		a6xx_core->vbif_count);
@@ -620,6 +617,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	/* Set TWOPASSUSEWFI in A6XX_PC_DBG_ECO_CNTL if requested */
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_TWO_PASS_USE_WFI))
 		kgsl_regrmw(device, A6XX_PC_DBG_ECO_CNTL, 0, (1 << 8));
+
+	/* Set the bit vccCacheSkipDis=1 to get rid of TSEskip logic */
+	kgsl_regrmw(device, A6XX_PC_DBG_ECO_CNTL, 0, (1 << 9));
 
 	/* Enable the GMEM save/restore feature for preemption */
 	if (adreno_is_preemption_enabled(adreno_dev))
@@ -1079,8 +1079,6 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int reg;
-	unsigned long time;
-	bool vbif_acked = false;
 
 	/*
 	 * For the soft reset case with GMU enabled this part is done
@@ -1099,21 +1097,6 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, &reg);
 	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 0);
 
-	/* Wait for the VBIF reset ack to complete */
-	time = jiffies + msecs_to_jiffies(VBIF_RESET_ACK_TIMEOUT);
-
-	do {
-		kgsl_regread(device, A6XX_RBBM_VBIF_GX_RESET_STATUS, &reg);
-		if ((reg & VBIF_RESET_ACK_MASK) == VBIF_RESET_ACK_MASK) {
-			vbif_acked = true;
-			break;
-		}
-		cpu_relax();
-	} while (!time_after(jiffies, time));
-
-	if (!vbif_acked)
-		return -ETIMEDOUT;
-
 	/* Clear GBIF client halt and CX arbiter halt */
 	adreno_deassert_gbif_halt(adreno_dev);
 
@@ -1122,12 +1105,18 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+/* Number of throttling counters for A6xx */
+#define A6XX_GMU_THROTTLE_COUNTERS 3
+
 static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 {
 	int i;
 	int64_t adj = -1;
-	uint32_t counts[ADRENO_GPMU_THROTTLE_COUNTERS];
+	uint32_t counts[A6XX_GMU_THROTTLE_COUNTERS];
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		return 0;
 
 	for (i = 0; i < ARRAY_SIZE(counts); i++) {
 		if (!adreno_dev->gpmu_throttle_counters[i])
@@ -1151,18 +1140,6 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	trace_kgsl_clock_throttling(0, counts[1], counts[2],
 			counts[0], adj);
 	return adj;
-}
-
-static void a6xx_count_throttles(struct adreno_device *adreno_dev,
-	uint64_t adj)
-{
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
-		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
-		return;
-
-	gmu_core_regread(KGSL_DEVICE(adreno_dev),
-		adreno_dev->lm_threshold_count,
-		&adreno_dev->lm_threshold_cross);
 }
 
 /**
@@ -1307,22 +1284,21 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 	uint32_t gpu_scid;
 	uint32_t gpu_cntl1_val = 0;
 	int i;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_mmu *mmu = &device->mmu;
 
 	gpu_scid = adreno_llc_get_scid(adreno_dev->gpu_llc_slice);
 	for (i = 0; i < A6XX_LLC_NUM_GPU_SCIDS; i++)
 		gpu_cntl1_val = (gpu_cntl1_val << A6XX_GPU_LLC_SCID_NUM_BITS)
 			| gpu_scid;
 
-	if (adreno_is_a640_family(adreno_dev) ||
-			adreno_is_a612(adreno_dev) ||
-			adreno_is_a650_family(adreno_dev)) {
-		kgsl_regrmw(KGSL_DEVICE(adreno_dev), A6XX_GBIF_SCACHE_CNTL1,
+	if (mmu->subtype == KGSL_IOMMU_SMMU_V500)
+		kgsl_regrmw(device, A6XX_GBIF_SCACHE_CNTL1,
 			A6XX_GPU_LLC_SCID_MASK, gpu_cntl1_val);
-	} else {
+	else
 		adreno_cx_misc_regrmw(adreno_dev,
 				A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
 				A6XX_GPU_LLC_SCID_MASK, gpu_cntl1_val);
-	}
 }
 
 /*
@@ -1332,12 +1308,14 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev)
 {
 	uint32_t gpuhtw_scid;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_mmu *mmu = &device->mmu;
 
 	/*
-	 * On A640, the GPUHTW SCID is configured via a NoC override in the
-	 * XBL image.
+	 * On SMMU-v500, the GPUHTW SCID is configured via a NoC override in
+	 * the XBL image.
 	 */
-	if (adreno_is_a640_family(adreno_dev) || adreno_is_a612(adreno_dev))
+	if (mmu->subtype == KGSL_IOMMU_SMMU_V500)
 		return;
 
 	gpuhtw_scid = adreno_llc_get_scid(adreno_dev->gpuhtw_llc_slice);
@@ -1354,11 +1332,14 @@ static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev)
  */
 static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_mmu *mmu = &device->mmu;
+
 	/*
 	 * Attributes override through GBIF is not supported with MMU-500.
 	 * Attributes are used as configured through SMMU pagetable entries.
 	 */
-	if (adreno_is_a640_family(adreno_dev) || adreno_is_a612(adreno_dev))
+	if (mmu->subtype == KGSL_IOMMU_SMMU_V500)
 		return;
 
 	/*
@@ -2687,7 +2668,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.perfcounters = &a6xx_perfcounters,
 	.enable_pwr_counters = a6xx_enable_pwr_counters,
 	.read_throttling_counters = a6xx_read_throttling_counters,
-	.count_throttles = a6xx_count_throttles,
 	.microcode_read = a6xx_microcode_read,
 	.enable_64bit = a6xx_enable_64bit,
 	.llc_configure_gpu_scid = a6xx_llc_configure_gpu_scid,
@@ -2701,6 +2681,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.preemption_pre_ibsubmit = a6xx_preemption_pre_ibsubmit,
 	.preemption_post_ibsubmit = a6xx_preemption_post_ibsubmit,
 	.preemption_init = a6xx_preemption_init,
+	.preemption_close = a6xx_preemption_close,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.set_marker = a6xx_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,

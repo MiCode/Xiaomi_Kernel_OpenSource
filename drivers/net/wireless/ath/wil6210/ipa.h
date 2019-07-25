@@ -52,6 +52,7 @@ struct wil_ipa {
 	struct wil_ipa_conn conn[WIL6210_MAX_CID];
 	struct wil_ipa_rx_buf rx_buf; /* contiguous memory split into rx bufs */
 	struct msi_msg orig_msi_msg;
+	atomic_t outstanding_pkts;
 };
 
 static inline bool wil_ipa_offload(void) {return ipa_offload; }

@@ -791,6 +791,7 @@ static int __iommu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 {
 	struct vm_struct *area;
 	int ret;
+	unsigned long pfn = 0;
 
 	vma->vm_page_prot = __get_dma_pgprot(attrs, vma->vm_page_prot,
 					     is_dma_coherent(dev, attrs));
@@ -798,20 +799,23 @@ static int __iommu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 	if (dma_mmap_from_dev_coherent(dev, vma, cpu_addr, size, &ret))
 		return ret;
 
-	if (attrs & DMA_ATTR_FORCE_CONTIGUOUS) {
-		/*
-		 * DMA_ATTR_FORCE_CONTIGUOUS allocations are always remapped,
-		 * hence in the vmalloc space.
-		 */
-		unsigned long pfn = vmalloc_to_pfn(cpu_addr);
-		return __swiotlb_mmap_pfn(vma, pfn, size);
-	}
-
 	area = find_vm_area(cpu_addr);
-	if (WARN_ON(!area || !area->pages))
-		return -ENXIO;
 
-	return iommu_dma_mmap(area->pages, size, vma);
+	if (area && area->pages)
+		return iommu_dma_mmap(area->pages, size, vma);
+	else if (!is_vmalloc_addr(cpu_addr))
+		pfn = page_to_pfn(virt_to_page(cpu_addr));
+	else if (is_vmalloc_addr(cpu_addr))
+		/*
+		 * DMA_ATTR_FORCE_CONTIGUOUS and atomic pool allocations are
+		 * always remapped, hence in the vmalloc space.
+		 */
+		pfn = vmalloc_to_pfn(cpu_addr);
+
+	if (pfn)
+		return __swiotlb_mmap_pfn(vma, pfn, size);
+
+	return -ENXIO;
 }
 
 static int __iommu_get_sgtable(struct device *dev, struct sg_table *sgt,
@@ -819,22 +823,24 @@ static int __iommu_get_sgtable(struct device *dev, struct sg_table *sgt,
 			       size_t size, unsigned long attrs)
 {
 	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	struct page *page = NULL;
 	struct vm_struct *area = find_vm_area(cpu_addr);
 
-	if (attrs & DMA_ATTR_FORCE_CONTIGUOUS) {
+	if (area && area->pages)
+		return sg_alloc_table_from_pages(sgt, area->pages, count, 0,
+					size, GFP_KERNEL);
+	else if (!is_vmalloc_addr(cpu_addr))
+		page = virt_to_page(cpu_addr);
+	else if (is_vmalloc_addr(cpu_addr))
 		/*
-		 * DMA_ATTR_FORCE_CONTIGUOUS allocations are always remapped,
-		 * hence in the vmalloc space.
+		 * DMA_ATTR_FORCE_CONTIGUOUS and atomic pool allocations
+		 * are always remapped, hence in the vmalloc space.
 		 */
-		struct page *page = vmalloc_to_page(cpu_addr);
+		page = vmalloc_to_page(cpu_addr);
+
+	if (page)
 		return __swiotlb_get_sgtable_page(sgt, page, size);
-	}
-
-	if (WARN_ON(!area || !area->pages))
-		return -ENXIO;
-
-	return sg_alloc_table_from_pages(sgt, area->pages, count, 0, size,
-					 GFP_KERNEL);
+	return -ENXIO;
 }
 
 static void __iommu_sync_single_for_cpu(struct device *dev,
@@ -1050,38 +1056,20 @@ iommu_init_mapping(struct device *dev, struct dma_iommu_mapping *mapping)
 static int arm_iommu_get_dma_cookie(struct device *dev,
 				    struct dma_iommu_mapping *mapping)
 {
-	int s1_bypass = 0, is_fast = 0;
+	int is_fast = 0;
 	int err = 0;
 
 	mutex_lock(&iommu_dma_init_mutex);
 
-	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
-					&s1_bypass);
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
 
-	if (s1_bypass)
-		mapping->ops = &arm64_swiotlb_dma_ops;
-	else if (is_fast)
+	if (is_fast)
 		err = fast_smmu_init_mapping(dev, mapping);
 	else
 		err = iommu_init_mapping(dev, mapping);
 
 	mutex_unlock(&iommu_dma_init_mutex);
 	return err;
-}
-
-void arm_iommu_put_dma_cookie(struct iommu_domain *domain)
-{
-	int s1_bypass = 0, is_fast = 0;
-
-	iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS,
-					&s1_bypass);
-	iommu_domain_get_attr(domain, DOMAIN_ATTR_FAST, &is_fast);
-
-	if (is_fast)
-		fast_smmu_put_dma_cookie(domain);
-	else if (!s1_bypass)
-		iommu_put_dma_cookie(domain);
 }
 
 /*
@@ -1129,16 +1117,21 @@ static void arm_iommu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size)
 	struct iommu_domain *domain;
 	struct iommu_group *group;
 	struct dma_iommu_mapping mapping = {0};
+	int s1_bypass;
 
 	group = dev->iommu_group;
 	if (!group)
 		return;
 
-	arm_iommu_get_dma_window(dev, &dma_base, &size);
-
 	domain = iommu_get_domain_for_dev(dev);
 	if (!domain)
 		return;
+
+	iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
+	if (s1_bypass)
+		return;
+
+	arm_iommu_get_dma_window(dev, &dma_base, &size);
 
 	/* Allow iommu-debug to call arch_setup_dma_ops to reconfigure itself */
 	if (domain->type != IOMMU_DOMAIN_DMA &&

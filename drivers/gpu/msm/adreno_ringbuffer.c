@@ -316,6 +316,16 @@ int adreno_ringbuffer_probe(struct adreno_device *adreno_dev)
 			break;
 	}
 
+	if (!status && ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
+		int r = 0;
+
+		if (gpudev->preemption_init)
+			r = gpudev->preemption_init(adreno_dev);
+
+		if (!WARN(r, "adreno: GPU preemption is disabled\n"))
+			set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
+	}
+
 	if (status)
 		adreno_ringbuffer_close(adreno_dev);
 	else
@@ -330,7 +340,6 @@ static void _adreno_ringbuffer_close(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	kgsl_free_global(device, &rb->pagetable_desc);
-	kgsl_free_global(device, &rb->preemption_desc);
 
 	kgsl_free_global(device, &rb->buffer_desc);
 	kgsl_del_event_group(&rb->events);
@@ -340,6 +349,7 @@ static void _adreno_ringbuffer_close(struct adreno_device *adreno_dev,
 void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	int i;
 
@@ -348,6 +358,10 @@ void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i)
 		_adreno_ringbuffer_close(adreno_dev, rb);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		if (gpudev->preemption_close)
+			gpudev->preemption_close(adreno_dev);
 }
 
 /*

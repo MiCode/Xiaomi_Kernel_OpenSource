@@ -79,6 +79,20 @@ void rmnet_set_skb_proto(struct sk_buff *skb)
 }
 EXPORT_SYMBOL(rmnet_set_skb_proto);
 
+bool (*rmnet_shs_slow_start_detect)(u32 hash_key) __rcu __read_mostly;
+EXPORT_SYMBOL(rmnet_shs_slow_start_detect);
+
+bool rmnet_slow_start_on(u32 hash_key)
+{
+	bool (*rmnet_shs_slow_start_on)(u32 hash_key);
+
+	rmnet_shs_slow_start_on = rcu_dereference(rmnet_shs_slow_start_detect);
+	if (rmnet_shs_slow_start_on)
+		return rmnet_shs_slow_start_on(hash_key);
+	return false;
+}
+EXPORT_SYMBOL(rmnet_slow_start_on);
+
 /* Shs hook handler */
 
 int (*rmnet_shs_skb_entry)(struct sk_buff *skb,
@@ -387,18 +401,8 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 	map_header->mux_id = mux_id;
 
 	if (port->data_format & RMNET_EGRESS_FORMAT_AGGREGATION) {
-		int non_linear_skb;
-
 		if (rmnet_map_tx_agg_skip(skb, required_headroom))
 			goto done;
-
-		non_linear_skb = (orig_dev->features & NETIF_F_GSO) &&
-				 skb_is_nonlinear(skb);
-
-		if (non_linear_skb) {
-			if (unlikely(__skb_linearize(skb)))
-				goto done;
-		}
 
 		rmnet_map_tx_aggregate(skb, port);
 		return -EINPROGRESS;

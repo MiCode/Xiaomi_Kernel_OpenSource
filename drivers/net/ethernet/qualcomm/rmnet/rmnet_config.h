@@ -14,6 +14,8 @@
 #define RMNET_MAX_LOGICAL_EP 255
 #define RMNET_MAX_VEID 4
 
+extern bool rmnet_sched_boost;
+
 struct rmnet_endpoint {
 	u8 mux_id;
 	struct net_device *egress_dev;
@@ -21,6 +23,9 @@ struct rmnet_endpoint {
 };
 
 struct rmnet_port_priv_stats {
+	u64 dl_hdr_last_qmap_vers;
+	u64 dl_hdr_last_ep_id;
+	u64 dl_hdr_last_trans_id;
 	u64 dl_hdr_last_seq;
 	u64 dl_hdr_last_bytes;
 	u64 dl_hdr_last_pkts;
@@ -70,7 +75,8 @@ struct rmnet_port {
 	struct rmnet_port_priv_stats stats;
 	int dl_marker_flush;
 
-	struct rmnet_descriptor *rmnet_desc;
+	/* Descriptor pool */
+	spinlock_t desc_pool_lock;
 	struct rmnet_frag_descriptor_pool *frag_desc_pool;
 };
 

@@ -631,7 +631,7 @@ static int spcom_handle_restart_sp_command(void *cmd_buf, int cmd_size)
 		}
 
 		pr_debug("restart - Name: %s FW name: %s Depends on: %s\n",
-			desc_p->name, desc_p->fw_name, desc_p->depends_on);
+			desc_p->name, desc_p->fw_name, desc_p->pon_depends_on);
 		desc_powerup = desc_p->powerup;
 		/**
 		 * Overwrite the subsys PIL powerup function with an spcom
@@ -1866,7 +1866,7 @@ static int spcom_create_channel_chardev(const char *name, bool is_sharable)
 	ch = spcom_find_channel_by_name(name);
 	if (ch) {
 		pr_err("channel [%s] already exist\n", name);
-		return -EINVAL;
+		return -EBUSY;
 	}
 
 	ch = spcom_find_channel_by_name(""); /* find reserved channel */

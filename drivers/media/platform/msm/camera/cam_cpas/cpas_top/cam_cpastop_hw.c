@@ -334,6 +334,9 @@ static int cam_cpastop_reset_irq(struct cam_hw_info *cpas_hw)
 {
 	int i;
 
+	if (camnoc_info->irq_sbm->sbm_enable.enable == false)
+		return 0;
+
 	cam_cpas_util_reg_update(cpas_hw, CAM_CPAS_REG_CAMNOC,
 		&camnoc_info->irq_sbm->sbm_clear);
 	for (i = 0; i < camnoc_info->irq_err_size; i++) {
@@ -424,6 +427,7 @@ static void cam_cpastop_work(struct work_struct *work)
 					cpas_core, soc_info,
 					&irq_data.u.slave_err);
 				break;
+			case CAM_CAMNOC_HW_IRQ_IFE_UBWC_STATS_ENCODE_ERROR:
 			case CAM_CAMNOC_HW_IRQ_IFE02_UBWC_ENCODE_ERROR:
 			case CAM_CAMNOC_HW_IRQ_IFE13_UBWC_ENCODE_ERROR:
 			case CAM_CAMNOC_HW_IRQ_IPE_BPS_UBWC_ENCODE_ERROR:
@@ -431,6 +435,8 @@ static void cam_cpastop_work(struct work_struct *work)
 					cpas_core, soc_info, i,
 					&irq_data.u.enc_err);
 				break;
+			case CAM_CAMNOC_HW_IRQ_IPE1_BPS_UBWC_DECODE_ERROR:
+			case CAM_CAMNOC_HW_IRQ_IPE0_UBWC_DECODE_ERROR:
 			case CAM_CAMNOC_HW_IRQ_IPE_BPS_UBWC_DECODE_ERROR:
 				cam_cpastop_handle_ubwc_dec_err(
 					cpas_core, soc_info, i,
@@ -508,6 +514,7 @@ static int cam_cpastop_poweron(struct cam_hw_info *cpas_hw)
 {
 	int i;
 
+	cam_cpastop_reset_irq(cpas_hw);
 	for (i = 0; i < camnoc_info->specific_size; i++) {
 		if (camnoc_info->specific[i].enable) {
 			cam_cpas_util_reg_update(cpas_hw, CAM_CPAS_REG_CAMNOC,

@@ -488,7 +488,7 @@ static ssize_t diag_dbgfs_read_socketinfo(struct file *file, char __user *ubuf,
 	struct diag_socket_info *info = NULL;
 	struct diagfwd_info *fwd_ctxt = NULL;
 
-	if (diag_dbgfs_socketinfo_index >= NUM_PERIPHERALS) {
+	if (diag_dbgfs_socketinfo_index >= NUM_TYPES) {
 		/* Done. Reset to prepare for future requests */
 		diag_dbgfs_socketinfo_index = 0;
 		return 0;
@@ -594,7 +594,7 @@ static ssize_t diag_dbgfs_read_rpmsginfo(struct file *file, char __user *ubuf,
 	struct diag_rpmsg_info *info = NULL;
 	struct diagfwd_info *fwd_ctxt = NULL;
 
-	if (diag_dbgfs_rpmsginfo_index >= NUM_PERIPHERALS) {
+	if (diag_dbgfs_rpmsginfo_index >= NUM_TYPES) {
 		/* Done. Reset to prepare for future requests */
 		diag_dbgfs_rpmsginfo_index = 0;
 		return 0;
@@ -632,7 +632,7 @@ static ssize_t diag_dbgfs_read_rpmsginfo(struct file *file, char __user *ubuf,
 
 			bytes_written = scnprintf(buf+bytes_in_buffer,
 				bytes_remaining,
-				"name\t\t:\t%s\n"
+				"name\t\t:\t%s:\t%s\n"
 				"hdl\t\t:\t%pK\n"
 				"inited\t\t:\t%d\n"
 				"opened\t\t:\t%d\n"
@@ -647,6 +647,7 @@ static ssize_t diag_dbgfs_read_rpmsginfo(struct file *file, char __user *ubuf,
 				"fwd inited\t:\t%d\n"
 				"fwd opened\t:\t%d\n"
 				"fwd ch_open\t:\t%d\n\n",
+				info->edge,
 				info->name,
 				info->hdl,
 				info->inited,
@@ -728,7 +729,7 @@ static ssize_t diag_dbgfs_read_hsicinfo(struct file *file, char __user *ubuf,
 	unsigned int bytes_in_buffer = 0;
 	struct diag_hsic_info *hsic_info = NULL;
 
-	if (diag_dbgfs_hsicinfo_index >= NUM_DIAG_USB_DEV) {
+	if (diag_dbgfs_hsicinfo_index >= NUM_HSIC_DEV) {
 		/* Done. Reset to prepare for future requests */
 		diag_dbgfs_hsicinfo_index = 0;
 		return 0;
@@ -879,7 +880,7 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 	unsigned int bytes_in_buffer = 0;
 	struct diagfwd_bridge_info *info = NULL;
 
-	if (diag_dbgfs_bridgeinfo_index >= NUM_DIAG_USB_DEV) {
+	if (diag_dbgfs_bridgeinfo_index >= NUM_REMOTE_DEV) {
 		/* Done. Reset to prepare for future requests */
 		diag_dbgfs_bridgeinfo_index = 0;
 		return 0;

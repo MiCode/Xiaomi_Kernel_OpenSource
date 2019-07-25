@@ -28,13 +28,14 @@ static struct wiphy_wowlan_support wil_wowlan_support = {
 };
 #endif
 
-static bool country_specific_board_file;
+bool country_specific_board_file;
 module_param(country_specific_board_file, bool, 0444);
 MODULE_PARM_DESC(country_specific_board_file, " switch board file upon regulatory domain change (Default: false)");
 
-static bool ignore_reg_hints = true;
+bool ignore_reg_hints = true;
 module_param(ignore_reg_hints, bool, 0444);
-MODULE_PARM_DESC(ignore_reg_hints, " Ignore OTA regulatory hints (Default: true)");
+MODULE_PARM_DESC(ignore_reg_hints,
+		 " Ignore OTA regulatory hints (Default: true)");
 
 #define CHAN60G(_channel, _flags) {				\
 	.band			= NL80211_BAND_60GHZ,		\
@@ -580,7 +581,8 @@ int wil_cid_fill_sinfo(struct wil6210_vif *vif, int cid,
 	memset(&reply, 0, sizeof(reply));
 
 	rc = wmi_call(wil, WMI_NOTIFY_REQ_CMDID, vif->mid, &cmd, sizeof(cmd),
-		      WMI_NOTIFY_REQ_DONE_EVENTID, &reply, sizeof(reply), 20);
+		      WMI_NOTIFY_REQ_DONE_EVENTID, &reply, sizeof(reply),
+		      WIL_WMI_CALL_GENERAL_TO_MS);
 	if (rc)
 		return rc;
 
@@ -2829,8 +2831,10 @@ static const struct cfg80211_ops wil_cfg80211_ops = {
 	.update_ft_ies = wil_cfg80211_update_ft_ies,
 };
 
-static void wil_wiphy_init(struct wiphy *wiphy)
+void wil_wiphy_init(struct wil6210_priv *wil)
 {
+	struct wiphy *wiphy = wil_to_wiphy(wil);
+
 	wiphy->max_scan_ssids = 1;
 	wiphy->max_scan_ie_len = WMI_MAX_IE_LEN;
 	wiphy->max_remain_on_channel_duration = WIL_MAX_ROC_DURATION_MS;
@@ -2969,13 +2973,11 @@ struct wil6210_priv *wil_cfg80211_init(struct device *dev)
 		return ERR_PTR(-ENOMEM);
 
 	set_wiphy_dev(wiphy, dev);
-	wil_wiphy_init(wiphy);
-
 	wil = wiphy_to_wil(wiphy);
 	wil->wiphy = wiphy;
 
 	/* default monitor channel */
-	ch = wiphy->bands[NL80211_BAND_60GHZ]->channels;
+	ch = wil_band_60ghz.channels;
 	cfg80211_chandef_create(&wil->monitor_chandef, ch, NL80211_CHAN_NO_HT);
 
 	return wil;

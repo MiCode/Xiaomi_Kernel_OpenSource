@@ -71,7 +71,6 @@ struct cnss_pci_data {
 	u16 def_link_speed;
 	u16 def_link_width;
 	u8 monitor_wake_intr;
-	struct dma_iommu_mapping smmu_mapping;
 	struct iommu_domain *iommu_domain;
 	u8 smmu_s1_enable;
 	dma_addr_t smmu_iova_start;
@@ -157,10 +156,7 @@ int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv);
 int cnss_pci_alloc_qdss_mem(struct cnss_pci_data *pci_priv);
 void cnss_pci_free_qdss_mem(struct cnss_pci_data *pci_priv);
 int cnss_pci_load_m3(struct cnss_pci_data *pci_priv);
-int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
-			   enum cnss_mhi_state state);
 int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv);
-void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv);
 void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic);
 void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv);
 u32 cnss_pci_get_wake_msi(struct cnss_pci_data *pci_priv);

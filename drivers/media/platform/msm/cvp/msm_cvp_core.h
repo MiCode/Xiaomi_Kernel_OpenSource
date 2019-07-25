@@ -9,6 +9,7 @@
 #include <linux/poll.h>
 #include <linux/videodev2.h>
 #include <linux/types.h>
+#include <linux/dma-buf.h>
 #include <linux/msm_ion.h>
 #include <media/msm_cvp_private.h>
 #include <media/msm_cvp_utils.h>
@@ -25,6 +26,7 @@ enum smem_prop {
 	SMEM_CACHED = 0x2,
 	SMEM_SECURE = 0x4,
 	SMEM_ADSP = 0x8,
+	SMEM_NON_PIXEL = 0x10
 };
 
 /* NOTE: if you change this enum you MUST update the
@@ -59,15 +61,15 @@ struct cvp_dma_mapping_info {
 
 struct msm_cvp_smem {
 	u32 refcount;
-	int fd;
-	void *dma_buf;
+	s32 fd;
+	struct dma_buf *dma_buf;
 	void *kvaddr;
 	u32 device_addr;
 	dma_addr_t dma_handle;
-	unsigned int offset;
-	unsigned int size;
-	unsigned long flags;
-	enum hal_buffer buffer_type;
+	u32 offset;
+	u32 size;
+	u32 flags;
+	u32 buffer_type;
 	struct cvp_dma_mapping_info mapping_info;
 };
 

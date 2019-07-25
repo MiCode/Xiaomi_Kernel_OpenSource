@@ -20,6 +20,7 @@ struct a5_ubwc_cfg_ext {
 struct a5_soc_info {
 	char *fw_name;
 	bool ubwc_config_ext;
+	uint32_t a5_qos_val;
 	union {
 		uint32_t ubwc_cfg[ICP_UBWC_MAX];
 		struct a5_ubwc_cfg_ext ubwc_cfg_ext;

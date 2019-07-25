@@ -48,12 +48,14 @@ static const char * const clocks[] = {
 	"rbcpr_clk",
 	"iref_clk",
 	"gmu_clk",
-	"ahb_clk"
+	"ahb_clk",
+	"smmu_vote",
 };
 
-static unsigned int ib_votes[KGSL_MAX_BUSLEVELS];
+static unsigned long ib_votes[KGSL_MAX_BUSLEVELS];
 static int last_vote_buslevel;
 static int max_vote_buslevel;
+static unsigned long last_ab;
 
 static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 					int requested_state);
@@ -115,9 +117,16 @@ static void _record_pwrevent(struct kgsl_device *device,
 /**
  * kgsl_get_bw() - Return latest msm bus IB vote
  */
-static unsigned int kgsl_get_bw(void)
+static void kgsl_get_bw(unsigned long *ib, unsigned long *ab, void *data)
 {
-	return ib_votes[last_vote_buslevel];
+	struct kgsl_device *device = (struct kgsl_device *)data;
+
+	if (gmu_core_scales_bandwidth(device))
+		*ib = 0;
+	else
+		*ib = ib_votes[last_vote_buslevel];
+
+	*ab = last_ab;
 }
 #endif
 
@@ -129,8 +138,8 @@ static unsigned int kgsl_get_bw(void)
 static void _ab_buslevel_update(struct kgsl_pwrctrl *pwr,
 				unsigned long *ab)
 {
-	unsigned int ib = ib_votes[last_vote_buslevel];
-	unsigned int max_bw = ib_votes[max_vote_buslevel];
+	unsigned long ib = ib_votes[last_vote_buslevel];
+	unsigned long max_bw = ib_votes[max_vote_buslevel];
 
 	if (!ab)
 		return;
@@ -196,13 +205,13 @@ static unsigned int _adjust_pwrlevel(struct kgsl_pwrctrl *pwr, int level,
 }
 
 #ifdef CONFIG_DEVFREQ_GOV_QCOM_GPUBW_MON
-static void kgsl_pwrctrl_vbif_update(unsigned long ab)
+static void kgsl_pwrctrl_vbif_update(void)
 {
 	/* ask a governor to vote on behalf of us */
-	devfreq_vbif_update_bw(ib_votes[last_vote_buslevel], ab);
+	devfreq_vbif_update_bw();
 }
 #else
-static void kgsl_pwrctrl_vbif_update(unsigned long ab)
+static void kgsl_pwrctrl_vbif_update(void)
 {
 }
 #endif
@@ -294,9 +303,11 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	/* buslevel is the IB vote, update the AB */
 	_ab_buslevel_update(pwr, &ab);
 
+	last_ab = ab;
+
 	kgsl_bus_scale_request(device, buslevel);
 
-	kgsl_pwrctrl_vbif_update(ab);
+	kgsl_pwrctrl_vbif_update();
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_buslevel_update);
 
@@ -1769,15 +1780,13 @@ static void kgsl_thermal_timer(struct timer_list *t)
 }
 
 #ifdef CONFIG_DEVFREQ_GOV_QCOM_GPUBW_MON
-static int kgsl_pwrctrl_vbif_init(void)
+static void kgsl_pwrctrl_vbif_init(struct kgsl_device *device)
 {
-	devfreq_vbif_register_callback(kgsl_get_bw);
-	return 0;
+	devfreq_vbif_register_callback(kgsl_get_bw, device);
 }
 #else
-static int kgsl_pwrctrl_vbif_init(void)
+static void kgsl_pwrctrl_vbif_init(struct kgsl_device *device)
 {
-	return 0;
 }
 #endif
 
@@ -2100,11 +2109,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pm_runtime_enable(&pdev->dev);
 
-	/* Bus width in bytes, set it to zero if not found */
-	if (of_property_read_u32(pdev->dev.of_node, "qcom,bus-width",
-		&pwr->bus_width))
-		pwr->bus_width = 0;
-
 	/* Check if gpu bandwidth vote device is defined in dts */
 	if (pwr->bus_control)
 		/* Check if gpu bandwidth vote device is defined in dts */
@@ -2187,7 +2191,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	spin_lock_init(&pwr->limits_lock);
 	pwr->sysfs_pwr_limit = kgsl_pwr_limits_add(KGSL_DEVICE_3D0);
 
-	kgsl_pwrctrl_vbif_init();
+	kgsl_pwrctrl_vbif_init(device);
 
 	/* temperature sensor name */
 	of_property_read_string(pdev->dev.of_node, "qcom,tzone-name",
@@ -2678,7 +2682,6 @@ _slumber(struct kgsl_device *device)
 		kgsl_pwrctrl_clk_set_options(device, false);
 		kgsl_pwrctrl_disable(device);
 		kgsl_pwrscale_sleep(device);
-		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
 		pm_qos_update_request(&device->pwrctrl.pm_qos_req_dma,
 						PM_QOS_DEFAULT_VALUE);

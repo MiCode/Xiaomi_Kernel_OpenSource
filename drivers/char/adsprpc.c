@@ -60,8 +60,12 @@
 #define AUDIO_PDR_ADSP_SERVICE_NAME              "avs/audio"
 #define ADSP_AUDIOPD_NAME                        "msm/adsp/audio_pd"
 
-#define SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME "sensors_pdr_sdsprpc"
-#define SENSORS_PDR_SLPI_SERVICE_NAME            "tms/servreg"
+#define SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME   "sensors_pdr_adsprpc"
+#define SENSORS_PDR_ADSP_SERVICE_NAME              "tms/servreg"
+#define ADSP_SENSORPD_NAME                       "msm/adsp/sensor_pd"
+
+#define SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME "sensors_pdr_sdsprpc"
+#define SENSORS_PDR_SLPI_SERVICE_NAME            SENSORS_PDR_ADSP_SERVICE_NAME
 #define SLPI_SENSORPD_NAME                       "msm/slpi/sensor_pd"
 
 #define RPC_TIMEOUT	(5 * HZ)
@@ -408,6 +412,14 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 						fastrpc_pdr_notifier_cb,
 				.cid = ADSP_DOMAIN_ID,
 			},
+			{
+				.servloc_name =
+				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME,
+				.spdname = ADSP_SENSORPD_NAME,
+				.pdrnb.notifier_call =
+						fastrpc_pdr_notifier_cb,
+				.cid = ADSP_DOMAIN_ID,
+			}
 		},
 	},
 	{
@@ -425,7 +437,7 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.spd = {
 			{
 				.servloc_name =
-				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME,
+				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME,
 				.spdname = SLPI_SENSORPD_NAME,
 				.pdrnb.notifier_call =
 						fastrpc_pdr_notifier_cb,
@@ -609,8 +621,13 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 			if (va >= map->va &&
 				va + len <= map->va + map->len &&
 				map->fd == fd) {
-				if (refs)
+				if (refs) {
+					if (map->refs + 1 == INT_MAX) {
+						spin_unlock(&me->hlock);
+						return -ETOOMANYREFS;
+					}
 					map->refs++;
+				}
 				match = map;
 				break;
 			}
@@ -621,8 +638,11 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 			if (va >= map->va &&
 				va + len <= map->va + map->len &&
 				map->fd == fd) {
-				if (refs)
+				if (refs) {
+					if (map->refs + 1 == INT_MAX)
+						return -ETOOMANYREFS;
 					map->refs++;
+				}
 				match = map;
 				break;
 			}
@@ -881,6 +901,12 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 				DMA_ATTR_SKIP_CPU_SYNC;
 		else if (map->attr & FASTRPC_ATTR_COHERENT)
 			map->attach->dma_map_attrs |= DMA_ATTR_FORCE_COHERENT;
+		/*
+		 * Skip CPU sync if IO Cohernecy is not supported
+		 * as we flush later
+		 */
+		else if (!sess->smmu.coherent)
+			map->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
 		VERIFY(err, !IS_ERR_OR_NULL(map->table =
 			dma_buf_map_attachment(map->attach,
@@ -1618,9 +1644,9 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			ctx->overps[oix]->mstart) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
+					DMA_TO_DEVICE);
 				dma_buf_end_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
+					DMA_TO_DEVICE);
 			} else
 				dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
 					uint64_to_ptr(rpra[i].buf.pv
@@ -1724,9 +1750,9 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 				uint64_to_ptr(rpra[i].buf.pv))) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
+					DMA_TO_DEVICE);
 				dma_buf_end_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
+					DMA_TO_DEVICE);
 			} else
 				dmac_flush_range(
 					uint64_to_ptr(rpra[i].buf.pv), (char *)
@@ -1738,9 +1764,9 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 		if (!IS_CACHE_ALIGNED(end)) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
+					DMA_TO_DEVICE);
 				dma_buf_end_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
+					DMA_TO_DEVICE);
 			} else
 				dmac_flush_range((char *)end,
 					(char *)end + 1);
@@ -1775,9 +1801,9 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 		}
 		if (map && map->buf) {
 			dma_buf_begin_cpu_access(map->buf,
-				DMA_BIDIRECTIONAL);
+				DMA_FROM_DEVICE);
 			dma_buf_end_cpu_access(map->buf,
-				DMA_BIDIRECTIONAL);
+				DMA_FROM_DEVICE);
 		} else
 			dmac_inv_range((char *)uint64_to_ptr(rpra[i].buf.pv),
 				(char *)uint64_to_ptr(rpra[i].buf.pv
@@ -2032,8 +2058,12 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (init->flags == FASTRPC_INIT_ATTACH)
 			fl->pd = 0;
 		else if (init->flags == FASTRPC_INIT_ATTACH_SENSORS) {
-			fl->servloc_name =
-				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME;
+			if (fl->cid == ADSP_DOMAIN_ID)
+				fl->servloc_name =
+				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME;
+			else if (fl->cid == SDSP_DOMAIN_ID)
+				fl->servloc_name =
+				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME;
 			fl->pd = 2;
 		}
 		VERIFY(err, !(err = fastrpc_internal_invoke(fl,
@@ -2090,8 +2120,10 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		err = fastrpc_buf_alloc(fl, memlen, imem_dma_attr, 0, 0, &imem);
 		if (err)
 			goto bail;
-		fl->init_mem = imem;
+		if (fl->init_mem)
+			fastrpc_buf_free(fl->init_mem, 0);
 
+		fl->init_mem = imem;
 		inbuf.pageslen = 1;
 		ra[0].buf.pv = (void *)&inbuf;
 		ra[0].buf.len = sizeof(inbuf);
@@ -2164,7 +2196,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (!strcmp(proc_name, "audiopd")) {
 			fl->servloc_name =
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME;
-			err = fastrpc_mmap_remove_pdr(fl);
+			VERIFY(err, !fastrpc_mmap_remove_pdr(fl));
 			if (err)
 				goto bail;
 		}
@@ -2248,6 +2280,12 @@ bail:
 		mutex_lock(&fl->map_mutex);
 		fastrpc_mmap_free(mem, 0);
 		mutex_unlock(&fl->map_mutex);
+	}
+	if (err) {
+		if (!IS_ERR_OR_NULL(fl->init_mem)) {
+			fastrpc_buf_free(fl->init_mem, 0);
+			fl->init_mem = NULL;
+		}
 	}
 	if (file) {
 		mutex_lock(&fl->map_mutex);
@@ -3670,8 +3708,6 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 
 	err = fastrpc_check_pd_status(fl,
 			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
-	err |= fastrpc_check_pd_status(fl,
-			SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME);
 	if (err)
 		goto bail;
 
@@ -3918,7 +3954,12 @@ static int fastrpc_get_service_location_notify(struct notifier_block *nb,
 				ADSP_AUDIOPD_NAME))) {
 			goto pdr_register;
 		} else if ((!strcmp(spd->servloc_name,
-				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME))
+				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME))
+				&& (!strcmp(pdr->domain_list[i].name,
+				ADSP_SENSORPD_NAME))) {
+			goto pdr_register;
+		} else if ((!strcmp(spd->servloc_name,
+				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME))
 				&& (!strcmp(pdr->domain_list[i].name,
 				SLPI_SENSORPD_NAME))) {
 			goto pdr_register;
@@ -4220,23 +4261,44 @@ static int fastrpc_probe(struct platform_device *pdev)
 	if (of_property_read_bool(dev->of_node,
 					"qcom,fastrpc-adsp-sensors-pdr")) {
 		err = fastrpc_get_spd_session(
-		SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME, &session, &cid);
+		SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME, &session, &cid);
 		if (err)
 			goto spdbail;
 		me->channel[cid].spd[session].get_service_nb.notifier_call =
 					fastrpc_get_service_location_notify;
 		ret = get_service_location(
-				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME,
+				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME,
+				SENSORS_PDR_ADSP_SERVICE_NAME,
+				&me->channel[cid].spd[session].get_service_nb);
+		if (ret)
+			pr_warn("adsprpc: %s: get service location failed with %d for %s (%s)\n",
+				__func__, ret, SENSORS_PDR_SLPI_SERVICE_NAME,
+				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
+		else
+			pr_debug("adsprpc: %s: service location enabled for %s (%s)\n",
+				__func__, SENSORS_PDR_SLPI_SERVICE_NAME,
+				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
+	}
+	if (of_property_read_bool(dev->of_node,
+					"qcom,fastrpc-slpi-sensors-pdr")) {
+		err = fastrpc_get_spd_session(
+		SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME, &session, &cid);
+		if (err)
+			goto spdbail;
+		me->channel[cid].spd[session].get_service_nb.notifier_call =
+					fastrpc_get_service_location_notify;
+		ret = get_service_location(
+				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME,
 				SENSORS_PDR_SLPI_SERVICE_NAME,
 				&me->channel[cid].spd[session].get_service_nb);
 		if (ret)
 			pr_warn("adsprpc: %s: get service location failed with %d for %s (%s)\n",
 				__func__, ret, SENSORS_PDR_SLPI_SERVICE_NAME,
-				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME);
+				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME);
 		else
 			pr_debug("adsprpc: %s: service location enabled for %s (%s)\n",
 				__func__, SENSORS_PDR_SLPI_SERVICE_NAME,
-				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME);
+				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME);
 	}
 spdbail:
 	err = of_platform_populate(pdev->dev.of_node,

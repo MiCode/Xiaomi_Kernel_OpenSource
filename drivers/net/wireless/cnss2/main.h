@@ -38,6 +38,7 @@ struct cnss_vreg_cfg {
 	u32 max_uv;
 	u32 load_ua;
 	u32 delay_us;
+	u32 need_unvote;
 };
 
 struct cnss_vreg_info {
@@ -200,6 +201,7 @@ enum cnss_driver_state {
 	CNSS_DEV_ERR_NOTIFY,
 	CNSS_DRIVER_DEBUG,
 	CNSS_COEX_CONNECTED,
+	CNSS_IMS_CONNECTED,
 };
 
 struct cnss_recovery_data {
@@ -245,11 +247,21 @@ enum cnss_bdf_type {
 	CNSS_BDF_DUMMY = 255,
 };
 
+enum cnss_cal_status {
+	CNSS_CAL_DONE,
+	CNSS_CAL_TIMEOUT,
+};
+
+struct cnss_cal_info {
+	enum cnss_cal_status cal_status;
+};
+
 struct cnss_control_params {
 	unsigned long quirks;
 	unsigned int mhi_timeout;
 	unsigned int qmi_timeout;
 	unsigned int bdf_type;
+	unsigned int time_sync_period;
 };
 
 struct cnss_cpr_info {
@@ -335,6 +347,9 @@ struct cnss_plat_data {
 	u64 antenna;
 	u64 grant;
 	struct qmi_handle coex_qmi;
+	struct qmi_handle ims_qmi;
+	struct qmi_txn txn;
+	u64 dynamic_feature;
 };
 
 #ifdef CONFIG_ARCH_QCOM
@@ -371,9 +386,12 @@ int cnss_vreg_off_type(struct cnss_plat_data *plat_priv,
 		       enum cnss_vreg_type type);
 int cnss_get_clk(struct cnss_plat_data *plat_priv);
 void cnss_put_clk(struct cnss_plat_data *plat_priv);
+int cnss_vreg_unvote_type(struct cnss_plat_data *plat_priv,
+			  enum cnss_vreg_type type);
 int cnss_get_pinctrl(struct cnss_plat_data *plat_priv);
 int cnss_power_on_device(struct cnss_plat_data *plat_priv);
 void cnss_power_off_device(struct cnss_plat_data *plat_priv);
+bool cnss_is_device_powered_on(struct cnss_plat_data *plat_priv);
 int cnss_register_subsys(struct cnss_plat_data *plat_priv);
 void cnss_unregister_subsys(struct cnss_plat_data *plat_priv);
 int cnss_register_ramdump(struct cnss_plat_data *plat_priv);

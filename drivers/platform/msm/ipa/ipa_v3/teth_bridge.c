@@ -124,7 +124,7 @@ int ipa3_teth_bridge_get_pm_hdl(void)
 		return -EINVAL;
 	}
 
-	TETH_DBG("Return rm-handle %d\n", ipa3_teth_ctx->modem_pm_hdl);
+	TETH_DBG("Return pm-handle %d\n", ipa3_teth_ctx->modem_pm_hdl);
 	TETH_DBG_FUNC_EXIT();
 	return ipa3_teth_ctx->modem_pm_hdl;
 }
@@ -137,20 +137,15 @@ int ipa3_teth_bridge_disconnect(enum ipa_client_type client)
 	int res = 0;
 
 	TETH_DBG_FUNC_ENTRY();
-	if (ipa_pm_is_used()) {
-		res = ipa_pm_deactivate_sync(ipa3_teth_ctx->modem_pm_hdl);
-		if (res) {
-			TETH_ERR("fail to deactivate modem %d\n", res);
-			return res;
-		}
-		res = ipa_pm_deregister(ipa3_teth_ctx->modem_pm_hdl);
-		ipa3_teth_ctx->modem_pm_hdl = ~0;
-	} else {
-		ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
-					IPA_RM_RESOURCE_Q6_CONS);
-		ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
-					IPA_RM_RESOURCE_USB_CONS);
+	res = ipa_pm_deactivate_sync(ipa3_teth_ctx->modem_pm_hdl);
+
+	if (res) {
+		TETH_ERR("fail to deactivate modem %d\n", res);
+		return res;
 	}
+
+	res = ipa_pm_deregister(ipa3_teth_ctx->modem_pm_hdl);
+	ipa3_teth_ctx->modem_pm_hdl = ~0;
 	TETH_DBG_FUNC_EXIT();
 
 	return res;
@@ -174,49 +169,20 @@ int ipa3_teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 
 	TETH_DBG_FUNC_ENTRY();
 
-	if (ipa_pm_is_used()) {
-		reg_params.name = "MODEM (USB RMNET)";
-		reg_params.group = IPA_PM_GROUP_MODEM;
-		reg_params.skip_clk_vote = true;
-		res = ipa_pm_register(&reg_params,
-			&ipa3_teth_ctx->modem_pm_hdl);
-		if (res) {
-			TETH_ERR("fail to register with PM %d\n", res);
-			return res;
-		}
-
-		res = ipa_pm_activate_sync(ipa3_teth_ctx->modem_pm_hdl);
-		goto bail;
+	reg_params.name = "MODEM (USB RMNET)";
+	reg_params.group = IPA_PM_GROUP_MODEM;
+	reg_params.skip_clk_vote = true;
+	res = ipa_pm_register(&reg_params,
+		&ipa3_teth_ctx->modem_pm_hdl);
+	if (res) {
+		TETH_ERR("fail to register with PM %d\n", res);
+		return res;
 	}
+	/* vote for turbo */
+	res = ipa_pm_set_throughput(ipa3_teth_ctx->modem_pm_hdl,
+		5200);
+	res = ipa_pm_activate_sync(ipa3_teth_ctx->modem_pm_hdl);
 
-	/* Build the dependency graph, first add_dependency call is sync
-	 * in order to make sure the IPA clocks are up before we continue
-	 * and notify the USB driver it may continue.
-	 */
-	res = ipa_rm_add_dependency_sync(IPA_RM_RESOURCE_USB_PROD,
-				    IPA_RM_RESOURCE_Q6_CONS);
-	if (res < 0) {
-		TETH_ERR("ipa_rm_add_dependency() failed.\n");
-		goto bail;
-	}
-
-	/* this add_dependency call can't be sync since it will block until USB
-	 * status is connected (which can happen only after the tethering
-	 * bridge is connected), the clocks are already up so the call doesn't
-	 * need to block.
-	 */
-	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
-				    IPA_RM_RESOURCE_USB_CONS);
-	if (res < 0 && res != -EINPROGRESS) {
-		ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
-					IPA_RM_RESOURCE_Q6_CONS);
-		TETH_ERR("ipa_rm_add_dependency() failed.\n");
-		goto bail;
-	}
-
-	res = 0;
-
-bail:
 	TETH_DBG_FUNC_EXIT();
 	return res;
 }

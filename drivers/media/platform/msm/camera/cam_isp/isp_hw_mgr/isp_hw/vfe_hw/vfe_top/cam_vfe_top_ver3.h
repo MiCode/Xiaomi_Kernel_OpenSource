@@ -9,8 +9,7 @@
 #include "cam_vfe_camif_ver3.h"
 #include "cam_vfe_camif_lite_ver3.h"
 #include "cam_vfe_fe_ver1.h"
-
-#define CAM_VFE_TOP_VER3_MUX_MAX     6
+#include "cam_vfe_top_common.h"
 
 #define CAM_SHIFT_TOP_CORE_CFG_MUXSEL_PDAF       31
 #define CAM_SHIFT_TOP_CORE_CFG_VID_DS16_R2PD     30
@@ -86,7 +85,8 @@ struct cam_vfe_top_ver3_hw_info {
 		*rdi_hw_info[CAM_VFE_RDI_VER2_MAX];
 	struct cam_vfe_camif_lite_ver3_hw_info      lcr_hw_info;
 	struct cam_vfe_fe_ver1_hw_info              fe_hw_info;
-	uint32_t mux_type[CAM_VFE_TOP_VER3_MUX_MAX];
+	uint32_t                                    num_mux;
+	uint32_t mux_type[CAM_VFE_TOP_MUX_MAX];
 };
 
 int cam_vfe_top_ver3_init(struct cam_hw_soc_info     *soc_info,

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __PMIC_VOTER_H
@@ -27,6 +28,8 @@ int get_effective_result_locked(struct votable *votable);
 const char *get_effective_client(struct votable *votable);
 const char *get_effective_client_locked(struct votable *votable);
 int vote(struct votable *votable, const char *client_str, bool state, int val);
+int vote_override(struct votable *votable, const char *override_client,
+		  bool state, int val);
 int rerun_election(struct votable *votable);
 struct votable *find_votable(const char *name);
 struct votable *create_votable(const char *name,

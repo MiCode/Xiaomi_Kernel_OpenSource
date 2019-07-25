@@ -2871,6 +2871,7 @@ static bool handle_ctrl_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 			break;
 		}
 		vconn_swap(pd);
+		break;
 	case MSG_GET_SOURCE_CAP_EXTENDED:
 		handle_get_src_cap_extended(pd);
 		break;

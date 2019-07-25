@@ -32,21 +32,64 @@ int ipa_hw_stats_init(void)
 		return -ENOMEM;
 	}
 	/* enable prod mask */
-	teth_stats_init->prod_mask = (
-		IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_PROD) |
-		IPA_CLIENT_BIT_32(IPA_CLIENT_USB_PROD) |
-		IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_PROD));
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
+		teth_stats_init->prod_mask = (
+			IPA_CLIENT_BIT_32(IPA_CLIENT_MHI_PRIME_TETH_PROD) |
+			IPA_CLIENT_BIT_32(IPA_CLIENT_USB_PROD));
+		if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+			teth_stats_init->prod_mask |=
+			IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_PROD);
+		else
+			teth_stats_init->prod_mask |=
+			IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_PROD);
 
-	if (IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_PROD)) {
-		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_Q6_WAN_PROD);
-		if (ep_index == -1) {
-			IPAERR("Invalid client.\n");
-			kfree(teth_stats_init);
-			return -EINVAL;
+		if (IPA_CLIENT_BIT_32(IPA_CLIENT_MHI_PRIME_TETH_PROD)) {
+			ep_index = ipa3_get_ep_mapping(
+				IPA_CLIENT_MHI_PRIME_TETH_PROD);
+			if (ep_index == -1) {
+				IPAERR("Invalid client.\n");
+				kfree(teth_stats_init);
+				return -EINVAL;
+			}
+			teth_stats_init->dst_ep_mask[ep_index] =
+				IPA_CLIENT_BIT_32(IPA_CLIENT_USB_CONS);
+
+			if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+				teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_CONS);
+			else
+				teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_CONS);
 		}
-		teth_stats_init->dst_ep_mask[ep_index] =
-			(IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_CONS) |
-			IPA_CLIENT_BIT_32(IPA_CLIENT_USB_CONS));
+	} else {
+		teth_stats_init->prod_mask = (
+			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_PROD) |
+			IPA_CLIENT_BIT_32(IPA_CLIENT_USB_PROD));
+
+		if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+			teth_stats_init->prod_mask |=
+			IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_PROD);
+		else
+			teth_stats_init->prod_mask |=
+			IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_PROD);
+
+		if (IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_PROD)) {
+			ep_index = ipa3_get_ep_mapping(IPA_CLIENT_Q6_WAN_PROD);
+			if (ep_index == -1) {
+				IPAERR("Invalid client.\n");
+				kfree(teth_stats_init);
+				return -EINVAL;
+			}
+			teth_stats_init->dst_ep_mask[ep_index] =
+			IPA_CLIENT_BIT_32(IPA_CLIENT_USB_CONS);
+
+			if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+				teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_CONS);
+			else
+				teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_CONS);
+		}
 	}
 
 	if (IPA_CLIENT_BIT_32(IPA_CLIENT_USB_PROD)) {
@@ -56,8 +99,16 @@ int ipa_hw_stats_init(void)
 			kfree(teth_stats_init);
 			return -EINVAL;
 		}
-		teth_stats_init->dst_ep_mask[ep_index] =
-			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS);
+		/* enable addtional pipe monitoring for pcie modem */
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_1)
+			teth_stats_init->dst_ep_mask[ep_index] =
+				(IPA_CLIENT_BIT_32(
+					IPA_CLIENT_Q6_WAN_CONS) |
+				IPA_CLIENT_BIT_32(
+					IPA_CLIENT_MHI_PRIME_TETH_CONS));
+		else
+			teth_stats_init->dst_ep_mask[ep_index] =
+				IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS);
 	}
 
 	if (IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_PROD)) {
@@ -67,9 +118,35 @@ int ipa_hw_stats_init(void)
 			kfree(teth_stats_init);
 			return -EINVAL;
 		}
-		teth_stats_init->dst_ep_mask[ep_index] =
-			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS);
+		/* enable addtional pipe monitoring for pcie modem*/
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_1)
+			teth_stats_init->dst_ep_mask[ep_index] =
+				(IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS) |
+				IPA_CLIENT_BIT_32(
+					IPA_CLIENT_MHI_PRIME_TETH_CONS));
+		else
+			teth_stats_init->dst_ep_mask[ep_index] =
+				IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS);
 	}
+
+	if (IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_PROD)) {
+		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_WLAN2_PROD);
+		if (ep_index == -1) {
+			IPAERR("Invalid client.\n");
+			kfree(teth_stats_init);
+			return -EINVAL;
+		}
+		/* enable addtional pipe monitoring for pcie modem*/
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_1)
+			teth_stats_init->dst_ep_mask[ep_index] =
+				(IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS) |
+				IPA_CLIENT_BIT_32(
+					IPA_CLIENT_MHI_PRIME_TETH_CONS));
+		else
+			teth_stats_init->dst_ep_mask[ep_index] =
+				IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS);
+	}
+
 
 	ret = ipa_init_teth_stats(teth_stats_init);
 	if (ret != 0)
@@ -1049,6 +1126,12 @@ int ipa_get_flt_rt_stats(struct ipa_ioc_flt_rt_query *query)
 {
 	if (!ipa3_ctx->hw_stats.enabled) {
 		IPAERR("hw_stats is not enabled\n");
+		return 0;
+	}
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		IPAERR("FnR stats not supported in %d hw_type\n",
+			ipa3_ctx->ipa_hw_type);
 		return 0;
 	}
 

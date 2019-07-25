@@ -47,3 +47,10 @@
 #ifdef CONFIG_CFI_CLANG
 #define __nocfi		__attribute__((no_sanitize("cfi")))
 #endif
+
+#ifdef CONFIG_LTO_CLANG
+#ifdef CONFIG_FTRACE_MCOUNT_RECORD
+#define __norecordmcount \
+	__attribute__((__section__(".text..ftrace")))
+#endif
+#endif

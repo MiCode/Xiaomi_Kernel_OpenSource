@@ -28,8 +28,6 @@ bool rx_large_buf;
 module_param(rx_large_buf, bool, 0444);
 MODULE_PARM_DESC(rx_large_buf, " allocate 8KB RX buffers, default - no");
 
-#define WIL6210_MAX_HEADROOM_SIZE	(256)
-
 ushort headroom_size; /* = 0; */
 static int headroom_size_set(const char *val, const struct kernel_param *kp)
 {
@@ -1064,7 +1062,8 @@ static int wil_vring_init_tx(struct wil6210_vif *vif, int id, int size,
 	if (!vif->privacy)
 		txdata->dot1x_open = true;
 	rc = wmi_call(wil, WMI_VRING_CFG_CMDID, vif->mid, &cmd, sizeof(cmd),
-		      WMI_VRING_CFG_DONE_EVENTID, &reply, sizeof(reply), 100);
+		      WMI_VRING_CFG_DONE_EVENTID, &reply, sizeof(reply),
+		      WIL_WMI_CALL_GENERAL_TO_MS);
 	if (rc)
 		goto out_free;
 
@@ -1152,7 +1151,8 @@ static int wil_tx_vring_modify(struct wil6210_vif *vif, int ring_id, int cid,
 	cmd.vring_cfg.tx_sw_ring.ring_mem_base = cpu_to_le64(vring->pa);
 
 	rc = wmi_call(wil, WMI_VRING_CFG_CMDID, vif->mid, &cmd, sizeof(cmd),
-		      WMI_VRING_CFG_DONE_EVENTID, &reply, sizeof(reply), 100);
+		      WMI_VRING_CFG_DONE_EVENTID, &reply, sizeof(reply),
+		      WIL_WMI_CALL_GENERAL_TO_MS);
 	if (rc)
 		goto fail;
 
@@ -1232,7 +1232,8 @@ int wil_vring_init_bcast(struct wil6210_vif *vif, int id, int size)
 		txdata->dot1x_open = true;
 	rc = wmi_call(wil, WMI_BCAST_VRING_CFG_CMDID, vif->mid,
 		      &cmd, sizeof(cmd),
-		      WMI_VRING_CFG_DONE_EVENTID, &reply, sizeof(reply), 100);
+		      WMI_VRING_CFG_DONE_EVENTID, &reply, sizeof(reply),
+		      WIL_WMI_CALL_GENERAL_TO_MS);
 	if (rc)
 		goto out_free;
 

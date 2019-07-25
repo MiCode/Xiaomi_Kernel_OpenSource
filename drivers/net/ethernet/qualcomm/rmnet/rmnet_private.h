@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2013-2014, 2016-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2019 The Linux Foundation. All rights reserved.
  */
 
 #ifndef _RMNET_PRIVATE_H_
@@ -12,12 +12,18 @@
 
 /* Constants */
 #define RMNET_EGRESS_FORMAT_AGGREGATION         BIT(31)
-#define RMNET_INGRESS_FORMAT_DL_MARKER          BIT(30)
-#define RMNET_INGRESS_FORMAT_RPS_STAMP          BIT(29)
+#define RMNET_INGRESS_FORMAT_DL_MARKER_V1       BIT(30)
+#define RMNET_INGRESS_FORMAT_DL_MARKER_V2       BIT(29)
+
+#define RMNET_INGRESS_FORMAT_DL_MARKER  (RMNET_INGRESS_FORMAT_DL_MARKER_V1 |\
+RMNET_INGRESS_FORMAT_DL_MARKER_V2)
 
 /* Power save feature*/
 #define RMNET_INGRESS_FORMAT_PS                 BIT(27)
 #define RMNET_FORMAT_PS_NOTIF                   BIT(26)
+
+/* Task boost */
+#define RMNET_FORMAT_TASK_BOOST                 BIT(25)
 
 /* Replace skb->dev to a virtual rmnet device and pass up the stack */
 #define RMNET_EPMODE_VND (1)

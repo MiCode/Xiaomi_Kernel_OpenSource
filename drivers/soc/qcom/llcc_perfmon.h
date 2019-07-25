@@ -12,49 +12,50 @@
 #define FEAC_PROF_FILTER_0_CFG3		(0x03700C)
 #define FEAC_PROF_FILTER_0_CFG5		(0x037014)
 #define FEAC_PROF_FILTER_0_CFG6		(0x037018)
-#define FEAC_PROF_EVENT_n_CFG(n)	(0x037060 + 4 * n)
+#define FEAC_PROF_EVENT_n_CFG(n)	(0x037060 + 4 * (n))
 #define FEAC_PROF_CFG			(0x0370A0)
 
 /* FERC */
 #define FERC_PROF_FILTER_0_CFG0		(0x03B000)
-#define FERC_PROF_EVENT_n_CFG(n)	(0x03B020 + 4 * n)
+#define FERC_PROF_EVENT_n_CFG(n)	(0x03B020 + 4 * (n))
 #define FERC_PROF_CFG			(0x03B060)
 
 /* FEWC */
 #define FEWC_PROF_FILTER_0_CFG0		(0x033000)
-#define FEWC_PROF_EVENT_n_CFG(n)	(0x033020 + 4 * n)
+#define FEWC_PROF_EVENT_n_CFG(n)	(0x033020 + 4 * (n))
 
 /* BEAC */
 #define BEAC_PROF_FILTER_0_CFG5		(0x049014)
-#define BEAC_PROF_EVENT_n_CFG(n)	(0x049040 + 4 * n)
+#define BEAC_PROF_EVENT_n_CFG(n)	(0x049040 + 4 * (n))
 #define BEAC_PROF_CFG			(0x049080)
 #define BEAC_INST_OFF			(0x4000)
 
 /* BERC */
 #define BERC_PROF_FILTER_0_CFG0		(0x039000)
-#define BERC_PROF_EVENT_n_CFG(n)	(0x039020 + 4 * n)
+#define BERC_PROF_EVENT_n_CFG(n)	(0x039020 + 4 * (n))
 #define BERC_PROF_CFG			(0x039060)
 
 /* TRP */
 #define TRP_PROF_FILTER_0_CFG1		(0x024004)
-#define TRP_PROF_EVENT_n_CFG(n)		(0x024020 + 4 * n)
-#define TRP_SCID_n_STATUS(n)		(0x000004 + 0x1000 * n)
+#define TRP_PROF_FILTER_0_CFG2		(0x024008)
+#define TRP_PROF_EVENT_n_CFG(n)		(0x024020 + 4 * (n))
+#define TRP_SCID_n_STATUS(n)		(0x000004 + 0x1000 * (n))
 
 /* DRP */
-#define DRP_PROF_EVENT_n_CFG(n)		(0x044010 + 4 * n)
+#define DRP_PROF_EVENT_n_CFG(n)		(0x044010 + 4 * (n))
 #define DRP_PROF_CFG			(0x044050)
 
 /* PMGR */
-#define PMGR_PROF_EVENT_n_CFG(n)	(0x03F000 + 4 * n)
+#define PMGR_PROF_EVENT_n_CFG(n)	(0x03F000 + 4 * (n))
 
-#define PERFMON_COUNTER_n_CONFIG(n)	(0x031020 + 4 * n)
+#define PERFMON_COUNTER_n_CONFIG(n)	(0x031020 + 4 * (n))
 #define PERFMON_MODE			(0x03100C)
 #define PERFMON_DUMP			(0x031010)
-#define BROADCAST_COUNTER_n_VALUE(n)	(0x031060 + 4 * n)
+#define BROADCAST_COUNTER_n_VALUE(n)	(0x031060 + 4 * (n))
 
-#define LLCC_COUNTER_n_VALUE(n)		(0x031060 + 4 * n)
+#define LLCC_COUNTER_n_VALUE(n)		(0x031060 + 4 * (n))
 
-#define EVENT_NUM_MAX			(64)
+#define EVENT_NUM_MAX			(128)
 #define SCID_MAX			(32)
 
 /* Perfmon */
@@ -121,6 +122,8 @@
 						FILTER_SEL_SHIFT)
 #define EVENT_SEL_SHIFT			(0)
 #define EVENT_SEL_MASK			GENMASK(EVENT_SEL_SHIFT + 5,\
+						EVENT_SEL_SHIFT)
+#define EVENT_SEL_MASK7			GENMASK(EVENT_SEL_SHIFT + 6,\
 						EVENT_SEL_SHIFT)
 
 #define CACHEALLOC_MASK_SHIFT		(16)
@@ -263,8 +266,10 @@
 					+ 13, \
 					TRP_SCID_STATUS_CURRENT_CAP_SHIFT)
 
-#define LLCC_VERSION			(0x01010100)
+#define LLCC_VERSION_1			(0x01010200)
+#define LLCC_VERSION_2			(0x02000000)
 #define REV_0				(0x0)
 #define REV_1				(0x1)
+#define REV_2				(0x2)
 #define BANK_OFFSET			(0x80000)
 #endif /* _SOC_QCOM_LLCC_PERFMON_H_ */

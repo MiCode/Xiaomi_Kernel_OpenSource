@@ -133,6 +133,7 @@ struct cam_ife_csid_pxl_reg_offset {
 	/* configuration */
 	uint32_t pix_store_en_shift_val;
 	uint32_t early_eof_en_shift_val;
+	uint32_t horizontal_bin_en_shift_val;
 	uint32_t quad_cfa_bin_en_shift_val;
 	uint32_t ccif_violation_en;
 	uint32_t overflow_ctrl_en;
@@ -448,6 +449,8 @@ struct cam_ife_csid_path_cfg {
 	enum cam_isp_hw_sync_mode       sync_mode;
 	uint32_t                        master_idx;
 	uint64_t                        clk_rate;
+	uint32_t                        horizontal_bin;
+	uint32_t                        qcfa_bin;
 };
 
 /**

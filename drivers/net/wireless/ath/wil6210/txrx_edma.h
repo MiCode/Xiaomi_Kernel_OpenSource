@@ -13,7 +13,7 @@
 #define WIL_SRING_SIZE_ORDER_MAX	(WIL_RING_SIZE_ORDER_MAX)
 /* RX sring order should be bigger than RX ring order */
 #define WIL_RX_SRING_SIZE_ORDER_DEFAULT	(12)
-#define WIL_TX_SRING_SIZE_ORDER_DEFAULT	(12)
+#define WIL_TX_SRING_SIZE_ORDER_DEFAULT	(14)
 #define WIL_RX_BUFF_ARR_SIZE_DEFAULT (2600)
 
 #define WIL_RX_DESC_RING_ID 0
@@ -401,12 +401,6 @@ static inline u8 wil_rx_status_get_tid(void *msg)
 	else
 		/* TID is in bits 0..3 */
 		return val & WIL_RX_EDMA_DLPF_LU_MISS_CID_TID_MASK;
-}
-
-static inline int wil_rx_status_get_desc_rdy_bit(void *msg)
-{
-	return WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d0,
-			    31, 31);
 }
 
 static inline int wil_rx_status_get_eop(void *msg) /* EoP = End of Packet */

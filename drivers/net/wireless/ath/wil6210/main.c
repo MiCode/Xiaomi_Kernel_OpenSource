@@ -27,7 +27,7 @@ bool debug_fw; /* = false; */
 module_param(debug_fw, bool, 0444);
 MODULE_PARM_DESC(debug_fw, " do not perform card reset. For FW debug");
 
-static u8 oob_mode;
+u8 oob_mode;
 module_param(oob_mode, byte, 0444);
 MODULE_PARM_DESC(oob_mode,
 		 " enable out of the box (OOB) mode in FW, for diagnostics and certification");
@@ -73,9 +73,9 @@ static const struct kernel_param_ops mtu_max_ops = {
 module_param_cb(mtu_max, &mtu_max_ops, &mtu_max, 0444);
 MODULE_PARM_DESC(mtu_max, " Max MTU value.");
 
-static uint rx_ring_order;
-static uint tx_ring_order = WIL_TX_RING_SIZE_ORDER_DEFAULT;
-static uint bcast_ring_order = WIL_BCAST_RING_SIZE_ORDER_DEFAULT;
+uint rx_ring_order;
+uint tx_ring_order = WIL_TX_RING_SIZE_ORDER_DEFAULT;
+uint bcast_ring_order = WIL_BCAST_RING_SIZE_ORDER_DEFAULT;
 
 static int ring_order_set(const char *val, const struct kernel_param *kp)
 {
@@ -1600,6 +1600,7 @@ int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile)
 
 static void wil_pre_fw_config(struct wil6210_priv *wil)
 {
+	wil_clear_fw_log_addr(wil);
 	/* Mark FW as loaded from host */
 	wil_s(wil, RGF_USER_USAGE_6, 1);
 
@@ -1654,6 +1655,20 @@ static int wil_restore_vifs(struct wil6210_priv *wil)
 	}
 
 	return 0;
+}
+
+/*
+ * Clear FW and ucode log start addr to indicate FW log is not ready. The host
+ * driver clears the addresses before FW starts and FW initializes the address
+ * when it is ready to send logs.
+ */
+void wil_clear_fw_log_addr(struct wil6210_priv *wil)
+{
+	/* FW log addr */
+	wil_w(wil, RGF_USER_USAGE_1, 0);
+	/* ucode log addr */
+	wil_w(wil, RGF_USER_USAGE_2, 0);
+	wil_dbg_misc(wil, "Cleared FW and ucode log address");
 }
 
 /*
@@ -1860,6 +1875,13 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 		if (wil->snr_thresh.enabled)
 			wmi_set_snr_thresh(wil, wil->snr_thresh.omni,
 					   wil->snr_thresh.direct);
+
+		if (wil->ftm_txrx_offset.enabled) {
+			struct wil_ftm_offsets *ftm = &wil->ftm_txrx_offset;
+
+			wmi_set_tof_tx_rx_offset(wil, ftm->tx_offset,
+						 ftm->rx_offset);
+		}
 
 		if (wil->platform_ops.notify) {
 			rc = wil->platform_ops.notify(wil->platform_handle,

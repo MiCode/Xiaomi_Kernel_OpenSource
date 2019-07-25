@@ -314,6 +314,7 @@ struct msm_slim_ctrl {
 	int			ipc_log_mask;
 	bool			sysfs_created;
 	void			*ipc_slimbus_log;
+	void			*ipc_slimbus_log_err;
 	void (*rx_slim)(struct msm_slim_ctrl *dev, u8 *buf);
 	u32			current_rx_buf[10];
 	int			current_count;
@@ -369,6 +370,9 @@ enum {
 	if (dev->ipc_slimbus_log && dev->ipc_log_mask >= DBG_LEV) { \
 		ipc_log_string(dev->ipc_slimbus_log, x); \
 	} \
+	if (dev->ipc_slimbus_log_err && dev->ipc_log_mask == FATAL_LEV) { \
+		ipc_log_string(dev->ipc_slimbus_log_err, x); \
+	} \
 } while (0)
 
 #define SLIM_INFO(dev, x...) do { \
@@ -376,25 +380,35 @@ enum {
 	if (dev->ipc_slimbus_log && dev->ipc_log_mask >= INFO_LEV) {\
 		ipc_log_string(dev->ipc_slimbus_log, x); \
 	} \
+	if (dev->ipc_slimbus_log_err && dev->ipc_log_mask == FATAL_LEV) { \
+		ipc_log_string(dev->ipc_slimbus_log_err, x); \
+	} \
 } while (0)
 
 /* warnings and errors show up on console always */
 #define SLIM_WARN(dev, x...) do { \
-	pr_warn(x); \
-	if (dev->ipc_slimbus_log && dev->ipc_log_mask >= WARN_LEV) \
+	if (dev->ipc_slimbus_log && dev->ipc_log_mask >= WARN_LEV) { \
+		pr_warn(x); \
 		ipc_log_string(dev->ipc_slimbus_log, x); \
+	} \
+	if (dev->ipc_slimbus_log_err && dev->ipc_log_mask == FATAL_LEV) { \
+		ipc_log_string(dev->ipc_slimbus_log_err, x); \
+	} \
 } while (0)
 
 /* ERROR condition in the driver sets the hs_serial_debug_mask
  * to ERR_FATAL level, so that this message can be seen
- * in IPC logging. Further errors continue to log on the console
+ * in IPC logging. Further errors continue to log on the error IPC logging.
  */
 #define SLIM_ERR(dev, x...) do { \
-	pr_err(x); \
 	if (dev->ipc_slimbus_log && dev->ipc_log_mask >= ERR_LEV) { \
+		pr_err(x); \
 		ipc_log_string(dev->ipc_slimbus_log, x); \
 		dev->default_ipc_log_mask = dev->ipc_log_mask; \
 		dev->ipc_log_mask = FATAL_LEV; \
+	} \
+	if (dev->ipc_slimbus_log_err && dev->ipc_log_mask == FATAL_LEV) { \
+		ipc_log_string(dev->ipc_slimbus_log_err, x); \
 	} \
 } while (0)
 

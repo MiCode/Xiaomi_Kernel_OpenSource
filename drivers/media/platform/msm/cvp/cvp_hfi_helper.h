@@ -413,6 +413,7 @@ struct cvp_hfi_resource_syscache_info_type {
 #define HFI_CMD_SYS_SESSION_INIT	(HFI_CMD_SYS_COMMON_START + 0x007)
 #define HFI_CMD_SYS_SESSION_END		(HFI_CMD_SYS_COMMON_START + 0x008)
 #define HFI_CMD_SYS_SET_BUFFERS		(HFI_CMD_SYS_COMMON_START + 0x009)
+#define HFI_CMD_SYS_SESSION_ABORT	(HFI_CMD_SYS_COMMON_START + 0x00A)
 #define HFI_CMD_SYS_TEST_START		(HFI_CMD_SYS_COMMON_START + 0x100)
 
 #define HFI_CMD_SESSION_COMMON_START		\
@@ -437,6 +438,7 @@ struct cvp_hfi_resource_syscache_info_type {
 #define HFI_MSG_SYS_IDLE		(HFI_MSG_SYS_COMMON_START + 0x8)
 #define HFI_MSG_SYS_COV                 (HFI_MSG_SYS_COMMON_START + 0x9)
 #define HFI_MSG_SYS_PROPERTY_INFO	(HFI_MSG_SYS_COMMON_START + 0xA)
+#define HFI_MSG_SYS_SESSION_ABORT_DONE	(HFI_MSG_SYS_COMMON_START + 0xC)
 #define HFI_MSG_SESSION_SYNC_DONE      (HFI_MSG_SESSION_OX_START + 0xD)
 
 #define HFI_MSG_SESSION_COMMON_START		\
@@ -571,8 +573,8 @@ struct cvp_hfi_client {
 	u32 transaction_id;
 	u32 data1;
 	u32 data2;
-	u32 data3;
-	u32 data4;
+	u32 kdata1;
+	u32 kdata2;
 	u32 reserved1;
 	u32 reserved2;
 };
@@ -588,8 +590,8 @@ struct cvp_buf_desc {
 	u32 size;
 };
 
-struct cvp_buf_type {
-	u32 fd;
+struct cvp_hfi_buf_type {
+	s32 fd;
 	u32 size;
 	u32 offset;
 	u32 flags;
@@ -602,7 +604,7 @@ struct cvp_hfi_cmd_session_set_buffers_packet {
 	u32 packet_type;
 	u32 session_id;
 	struct cvp_hfi_client client_data;
-	struct cvp_buf_type buf_type;
+	struct cvp_hfi_buf_type buf_type;
 };
 
 struct cvp_hfi_cmd_session_set_buffers_packet_d {
@@ -633,6 +635,14 @@ struct cvp_session_release_buffers_packet_d {
 	u32 buffer_type;
 	u32 num_buffers;
 	u32 buffer_idx;
+};
+
+struct cvp_hfi_cmd_session_hdr {
+	u32 size;
+	u32 packet_type;
+	u32 session_id;
+	struct cvp_hfi_client client_data;
+	u32 stream_idx;
 };
 
 struct cvp_hfi_msg_session_hdr {

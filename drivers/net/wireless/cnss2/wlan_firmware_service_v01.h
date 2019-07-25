@@ -9,11 +9,13 @@
 #define WLFW_SERVICE_ID_V01 0x45
 #define WLFW_SERVICE_VERS_V01 0x01
 
+#define QMI_WLFW_WFC_CALL_STATUS_REQ_V01 0x0049
 #define QMI_WLFW_BDF_DOWNLOAD_REQ_V01 0x0025
 #define QMI_WLFW_FW_MEM_READY_IND_V01 0x0037
 #define QMI_WLFW_QDSS_TRACE_CONFIG_DOWNLOAD_REQ_V01 0x0044
 #define QMI_WLFW_INITIATE_CAL_UPDATE_IND_V01 0x002A
 #define QMI_WLFW_CAL_DONE_IND_V01 0x003E
+#define QMI_WLFW_WFC_CALL_STATUS_RESP_V01 0x0049
 #define QMI_WLFW_HOST_CAP_REQ_V01 0x0034
 #define QMI_WLFW_DYNAMIC_FEATURE_MASK_RESP_V01 0x003B
 #define QMI_WLFW_M3_INFO_REQ_V01 0x003C
@@ -86,6 +88,7 @@
 #define QMI_WLFW_MAX_NUM_CE_V01 12
 #define QMI_WLFW_MAX_TIMESTAMP_LEN_V01 32
 #define QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01 6144
+#define QMI_WLFW_MAX_WFC_CALL_STATUS_DATA_SIZE_V01 256
 #define QMI_WLFW_MAX_NUM_GPIO_V01 32
 #define QMI_WLFW_MAX_BUILD_ID_LEN_V01 128
 #define QMI_WLFW_MAX_NUM_MEM_CFG_V01 2
@@ -930,5 +933,20 @@ struct wlfw_antenna_grant_resp_msg_v01 {
 
 #define WLFW_ANTENNA_GRANT_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_antenna_grant_resp_msg_v01_ei[];
+
+struct wlfw_wfc_call_status_req_msg_v01 {
+	u32 wfc_call_status_len;
+	u8 wfc_call_status[QMI_WLFW_MAX_WFC_CALL_STATUS_DATA_SIZE_V01];
+};
+
+#define WLFW_WFC_CALL_STATUS_REQ_MSG_V01_MAX_MSG_LEN 261
+extern struct qmi_elem_info wlfw_wfc_call_status_req_msg_v01_ei[];
+
+struct wlfw_wfc_call_status_resp_msg_v01 {
+	struct qmi_response_type_v01 resp;
+};
+
+#define WLFW_WFC_CALL_STATUS_RESP_MSG_V01_MAX_MSG_LEN 7
+extern struct qmi_elem_info wlfw_wfc_call_status_resp_msg_v01_ei[];
 
 #endif

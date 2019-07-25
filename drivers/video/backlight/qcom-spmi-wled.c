@@ -696,7 +696,7 @@ static void wled_get_ovp_delay(struct wled *wled, int *delay_time_us)
 	pr_debug("delay_time_us: %d\n", *delay_time_us);
 }
 
-#define AUTO_CALIB_BRIGHTNESS		200
+#define AUTO_CALIB_BRIGHTNESS		512
 static int wled_auto_calibrate(struct wled *wled)
 {
 	int rc = 0, i, delay_time_us;
@@ -1146,9 +1146,8 @@ static int wled5_setup(struct wled *wled)
 	if (rc < 0)
 		return rc;
 
-	rc = regmap_update_bits(wled->regmap,
-			wled->sink_addr + WLED_SINK_CURR_SINK_EN,
-			WLED_SINK_CURR_SINK_MASK, sink_en);
+	rc = regmap_write(wled->regmap,
+			wled->sink_addr + WLED_SINK_CURR_SINK_EN, sink_en);
 	if (rc < 0)
 		return rc;
 
@@ -1257,9 +1256,8 @@ static int wled4_setup(struct wled *wled)
 	if (rc < 0)
 		return rc;
 
-	rc = regmap_update_bits(wled->regmap,
-			wled->sink_addr + WLED_SINK_CURR_SINK_EN,
-			WLED_SINK_CURR_SINK_MASK, sink_en);
+	rc = regmap_write(wled->regmap,
+			wled->sink_addr + WLED_SINK_CURR_SINK_EN, sink_en);
 	if (rc < 0)
 		return rc;
 

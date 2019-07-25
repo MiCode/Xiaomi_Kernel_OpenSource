@@ -38,6 +38,7 @@
 #endif
 #define CNSS_QMI_TIMEOUT_DEFAULT	10000
 #define CNSS_BDF_TYPE_DEFAULT		CNSS_BDF_ELF
+#define CNSS_TIME_SYNC_PERIOD_DEFAULT	900000
 
 static struct cnss_plat_data *plat_env;
 
@@ -168,9 +169,11 @@ int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
 
 	switch (bandwidth) {
 	case CNSS_BUS_WIDTH_NONE:
+	case CNSS_BUS_WIDTH_IDLE:
 	case CNSS_BUS_WIDTH_LOW:
 	case CNSS_BUS_WIDTH_MEDIUM:
 	case CNSS_BUS_WIDTH_HIGH:
+	case CNSS_BUS_WIDTH_VERY_HIGH:
 		ret = msm_bus_scale_client_update_request
 			(bus_bw_info->bus_client, bandwidth);
 		if (!ret)
@@ -441,6 +444,8 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 	else if (ret)
 		goto shutdown;
 
+	cnss_vreg_unvote_type(plat_priv, CNSS_VREG_PRIM);
+
 	return 0;
 
 shutdown:
@@ -654,7 +659,7 @@ int cnss_idle_restart(struct device *dev)
 
 	ret = cnss_driver_event_post(plat_priv,
 				     CNSS_DRIVER_EVENT_IDLE_RESTART,
-				     CNSS_EVENT_SYNC, NULL);
+				     CNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
 	if (ret)
 		goto out;
 
@@ -708,7 +713,7 @@ int cnss_idle_shutdown(struct device *dev)
 skip_wait:
 	return cnss_driver_event_post(plat_priv,
 				      CNSS_DRIVER_EVENT_IDLE_SHUTDOWN,
-				      CNSS_EVENT_SYNC, NULL);
+				      CNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
 }
 EXPORT_SYMBOL(cnss_idle_shutdown);
 
@@ -1219,18 +1224,36 @@ out:
 	return ret;
 }
 
-static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv)
+static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv,
+					void *data)
 {
-	if (!test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
-		return 0;
+	struct cnss_cal_info *cal_info = data;
 
-	plat_priv->cal_done = true;
+	if (!test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
+		goto out;
+
+	switch (cal_info->cal_status) {
+	case CNSS_CAL_DONE:
+		cnss_pr_dbg("Calibration completed successfully\n");
+		plat_priv->cal_done = true;
+		break;
+	case CNSS_CAL_TIMEOUT:
+		cnss_pr_dbg("Calibration timed out, force shutdown\n");
+		break;
+	default:
+		cnss_pr_err("Unknown calibration status: %u\n",
+			    cal_info->cal_status);
+		break;
+	}
+
 	cnss_wlfw_wlan_mode_send_sync(plat_priv, CNSS_OFF);
 	cnss_release_antenna_sharing(plat_priv);
 	cnss_bus_dev_shutdown(plat_priv);
 	complete(&plat_priv->cal_complete);
 	clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
 
+out:
+	kfree(data);
 	return 0;
 }
 
@@ -1406,7 +1429,8 @@ static void cnss_driver_event_work(struct work_struct *work)
 			ret = cnss_cold_boot_cal_start_hdlr(plat_priv);
 			break;
 		case CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE:
-			ret = cnss_cold_boot_cal_done_hdlr(plat_priv);
+			ret = cnss_cold_boot_cal_done_hdlr(plat_priv,
+							   event->data);
 			break;
 		case CNSS_DRIVER_EVENT_REGISTER_DRIVER:
 			ret = cnss_bus_register_driver_hdlr(plat_priv,
@@ -1537,7 +1561,8 @@ static int cnss_init_dump_entry(struct cnss_plat_data *plat_priv)
 	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
 	dump_entry.addr = virt_to_phys(&ramdump_info->dump_data);
 
-	return msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	return msm_dump_data_register_nominidump(MSM_DUMP_TABLE_APPS,
+						&dump_entry);
 }
 
 static int cnss_register_ramdump_v1(struct cnss_plat_data *plat_priv)
@@ -1644,7 +1669,8 @@ static int cnss_register_ramdump_v2(struct cnss_plat_data *plat_priv)
 	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
 	dump_entry.addr = virt_to_phys(dump_data);
 
-	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	ret = msm_dump_data_register_nominidump(MSM_DUMP_TABLE_APPS,
+						&dump_entry);
 	if (ret) {
 		cnss_pr_err("Failed to setup dump table, err = %d\n", ret);
 		goto free_ramdump;
@@ -1880,6 +1906,7 @@ static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 	plat_priv->ctrl_params.mhi_timeout = CNSS_MHI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.qmi_timeout = CNSS_QMI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.bdf_type = CNSS_BDF_TYPE_DEFAULT;
+	plat_priv->ctrl_params.time_sync_period = CNSS_TIME_SYNC_PERIOD_DEFAULT;
 }
 
 static const struct platform_device_id cnss_platform_id_table[] = {
@@ -1990,6 +2017,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 		goto destroy_debugfs;
 
 	cnss_register_coex_service(plat_priv);
+	cnss_register_ims_service(plat_priv);
 
 	ret = cnss_genl_init();
 	if (ret < 0)
@@ -2031,6 +2059,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 	struct cnss_plat_data *plat_priv = platform_get_drvdata(plat_dev);
 
 	cnss_genl_exit();
+	cnss_unregister_ims_service(plat_priv);
 	cnss_unregister_coex_service(plat_priv);
 	cnss_misc_deinit(plat_priv);
 	cnss_debugfs_destroy(plat_priv);

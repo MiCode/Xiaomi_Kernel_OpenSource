@@ -70,7 +70,6 @@ static int cam_eeprom_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
 					rc);
 				return rc;
 			}
-			memptr = block->mapdata + emap[j].mem.valid_size;
 		}
 
 		if (emap[j].pageen.valid_size) {
@@ -435,7 +434,8 @@ static int32_t cam_eeprom_parse_memory_map(
 		validate_size = sizeof(struct cam_cmd_unconditional_wait);
 
 	if (remain_buf_len < validate_size ||
-	    *num_map >= MSM_EEPROM_MAX_MEM_MAP_CNT) {
+	    *num_map >= (MSM_EEPROM_MAX_MEM_MAP_CNT *
+		MSM_EEPROM_MEMORY_MAP_MAX_SIZE)) {
 		CAM_ERR(CAM_EEPROM, "not enough buffer");
 		return -EINVAL;
 	}
@@ -445,7 +445,9 @@ static int32_t cam_eeprom_parse_memory_map(
 
 		if (i2c_random_wr->header.count == 0 ||
 		    i2c_random_wr->header.count >= MSM_EEPROM_MAX_MEM_MAP_CNT ||
-		    (size_t)*num_map > U16_MAX - i2c_random_wr->header.count) {
+		    (size_t)*num_map >= ((MSM_EEPROM_MAX_MEM_MAP_CNT *
+				MSM_EEPROM_MEMORY_MAP_MAX_SIZE) -
+				i2c_random_wr->header.count)) {
 			CAM_ERR(CAM_EEPROM, "OOB Error");
 			return -EINVAL;
 		}

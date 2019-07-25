@@ -14,6 +14,7 @@
 #include <linux/ipa_uc_offload.h>
 #include <linux/pci.h>
 #include "ipa_api.h"
+#include "ipa_v3/ipa_i.h"
 
 /*
  * The following for adding code (ie. for EMULATION) not found on x86.
@@ -2070,29 +2071,29 @@ int ipa_uc_reg_rdyCB(
 EXPORT_SYMBOL(ipa_uc_reg_rdyCB);
 
 /**
-* ipa_wigig_uc_init() - get uc db and register uC
+* ipa_wigig_internal_init() - get uc db and register uC
 * ready CB if uC not ready, wigig only.
 * @inout:	[in/out] uc ready input/output parameters
 * from/to client
 * @int_notify: [in] wigig misc interrupt handler function
+* @uc_db_pa: [out] uC db physical address
 *
 * Returns:	0 on success, negative on failure
 *
 */
-
-int ipa_wigig_uc_init(
+int ipa_wigig_internal_init(
 	struct ipa_wdi_uc_ready_params *inout,
 	ipa_wigig_misc_int_cb int_notify,
 	phys_addr_t *uc_db_pa)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_wigig_uc_init, inout,
+	IPA_API_DISPATCH_RETURN(ipa_wigig_internal_init, inout,
 		int_notify, uc_db_pa);
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa_wigig_uc_init);
+EXPORT_SYMBOL(ipa_wigig_internal_init);
 
 /**
  * ipa_uc_dereg_rdyCB() - To de-register uC ready CB
@@ -2794,23 +2795,18 @@ enum ipa_client_type ipa_get_client_mapping(int pipe_idx)
 EXPORT_SYMBOL(ipa_get_client_mapping);
 
 /**
- * ipa_get_rm_resource_from_ep() - get the IPA_RM resource which is related to
- * the supplied pipe index.
- *
- * @pipe_idx:
- *
- * Return value: IPA_RM resource related to the pipe, -1 if a resource was not
- * found.
+ * ipa_get_rm_resource_from_ep() - this function is part of the deprecated
+ * RM mechanism but is still used by some drivers so we kept the definition.
  */
+
 enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(int pipe_idx)
 {
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_get_rm_resource_from_ep, pipe_idx);
-
-	return ret;
+	IPAERR("IPA RM is not supported idx=%d\n", pipe_idx);
+	return -EFAULT;
 }
 EXPORT_SYMBOL(ipa_get_rm_resource_from_ep);
+
+
 
 /**
  * ipa_get_modem_cfg_emb_pipe_flt()- Return ipa_ctx->modem_cfg_emb_pipe_flt
@@ -3553,11 +3549,12 @@ EXPORT_SYMBOL(ipa_wigig_uc_msi_init);
 /**
  * ipa_conn_wigig_rx_pipe_i() - connect wigig rx pipe
  */
-int ipa_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
+int ipa_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out,
+	struct dentry **parent)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_conn_wigig_rx_pipe_i, in, out);
+	IPA_API_DISPATCH_RETURN(ipa_conn_wigig_rx_pipe_i, in, out, parent);
 
 	return ret;
 }
@@ -3566,11 +3563,15 @@ EXPORT_SYMBOL(ipa_conn_wigig_rx_pipe_i);
 /**
  * ipa_conn_wigig_client_i() - connect a wigig client
  */
-int ipa_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
+int ipa_conn_wigig_client_i(void *in,
+	struct ipa_wigig_conn_out_params *out,
+	ipa_notify_cb tx_notify,
+	void *priv)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_conn_wigig_client_i, in, out);
+	IPA_API_DISPATCH_RETURN(ipa_conn_wigig_client_i, in, out,
+		tx_notify, priv);
 
 	return ret;
 }
@@ -3644,18 +3645,6 @@ void ipa_deregister_client_callback(enum ipa_client_type client)
 		client);
 }
 
-
-/**
- * ipa_pm_is_used() - Returns if IPA PM framework is used
- */
-bool ipa_pm_is_used(void)
-{
-	bool ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_pm_is_used);
-
-	return ret;
-}
 
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,

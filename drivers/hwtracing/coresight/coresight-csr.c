@@ -423,6 +423,7 @@ static struct platform_driver csr_driver = {
 	.driver         = {
 		.name   = "coresight-csr",
 		.of_match_table = csr_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

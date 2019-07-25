@@ -403,6 +403,8 @@ static int msm_probe_cvp_device(struct platform_device *pdev)
 		goto err_fail_sub_device_probe;
 	}
 
+	atomic64_set(&core->kernel_trans_id, 0);
+
 	return rc;
 
 err_fail_sub_device_probe:

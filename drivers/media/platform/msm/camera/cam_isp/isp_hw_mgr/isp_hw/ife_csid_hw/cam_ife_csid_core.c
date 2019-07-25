@@ -1016,6 +1016,8 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 	path_data->end_line = reserve->in_port->line_stop;
 	path_data->crop_enable = reserve->crop_enable;
 	path_data->drop_enable = reserve->drop_enable;
+	path_data->horizontal_bin = reserve->in_port->horizontal_bin;
+	path_data->qcfa_bin = reserve->in_port->qcfa_bin;
 
 	CAM_DBG(CAM_ISP,
 		"Res id: %d height:%d line_start %d line_stop %d crop_en %d",
@@ -1602,6 +1604,12 @@ static int cam_ife_csid_init_config_pxl_path(
 			csid_reg->cmn_reg->drop_h_en_shift_val) |
 			(path_data->drop_enable <<
 			csid_reg->cmn_reg->drop_v_en_shift_val);
+
+	if (path_data->horizontal_bin || path_data->qcfa_bin) {
+		val |= (1 << pxl_reg->horizontal_bin_en_shift_val);
+		if (path_data->qcfa_bin)
+			val |= (1 << pxl_reg->quad_cfa_bin_en_shift_val);
+	}
 
 	val |= (1 << pxl_reg->pix_store_en_shift_val);
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
