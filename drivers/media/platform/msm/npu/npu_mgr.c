@@ -578,10 +578,7 @@ int npu_host_init(struct npu_device *npu_dev)
 			npu_disable_fw_work);
 	}
 
-	if (npu_dev->hw_version != 0x20000000)
-		host_ctx->auto_pil_disable = true;
-	else
-		host_ctx->auto_pil_disable = false;
+	host_ctx->auto_pil_disable = false;
 
 	return sts;
 }
