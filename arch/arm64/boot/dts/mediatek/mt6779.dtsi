@@ -2006,6 +2006,15 @@
 			};
 		};
 
+		regulator_vibrator {
+			compatible = "regulator-vibrator";
+			min-volt = <2300000>;
+			max-volt = <3200000>;
+			min-limit = <15>;
+			max-limit = <15000>;
+			vib-supply = <&mt6359_vibr_ldo_reg>;
+		};
+
 		i2c3: i2c@1100f000 {
 			compatible = "mediatek,mt6779-i2c",
 				     "mediatek,mt8183-i2c";
