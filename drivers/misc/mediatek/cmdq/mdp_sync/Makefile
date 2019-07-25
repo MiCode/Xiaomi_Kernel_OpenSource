@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2015 MediaTek Inc.
+# Copyright (C) 2019 MediaTek Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -11,8 +11,7 @@
 # GNU General Public License for more details.
 #
 
-# common driver code for CMDQ
-obj-y += v3/
-# mdp_sw_sync
-obj-y += mdp_sync/
-# EOF
+# common driver code for MDP
+
+# driver module
+obj-y += mdp_fence.o
