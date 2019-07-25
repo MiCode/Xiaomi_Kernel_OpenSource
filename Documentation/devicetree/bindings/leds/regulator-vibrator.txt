@@ -1,0 +1,35 @@
+Regulator Vibrator Device Tree Bindings
+Registers a regulator device as vibrator.
+
+Required Properties:
+- compatible : Should be "regulator-vibrator"
+- vibr-supply : Power supply to the vibrator.
+  refer Documentation/devicetree/bindings/regulator/regulator.txt
+- min-volt : The minimum voltage value supplied to the vibrator regulator.
+- max-volt : The maximum voltage value supplied to the vibrator regulator.
+
+Optional properties:
+- min-limit: Set the minimum time in ms for vibrator , default is 15ms,
+  if user request duration is smaller, this value will be used instead.
+  the default value comes from the smallest unit that can be sensed by the test.
+- max-limit: Set the maximum time in ms for vibrator.
+  if not set, it means no max limitation.
+
+Example:
+
+		mt6359_vibr_ldo_reg: ldo_vibr {
+			regulator-name = "vibr";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-enable-ramp-delay = <240>;
+		};
+
+		regulator_vibrator {
+			compatible = "regulator-vibrator";
+			min-volt = <2300000>;
+			max-volt = <3200000>;
+			max-limit = <15000>;
+			min-limit = <15>;
+			vib-supply = <&mt6359_vibr_ldo_reg>;
+		};
+
