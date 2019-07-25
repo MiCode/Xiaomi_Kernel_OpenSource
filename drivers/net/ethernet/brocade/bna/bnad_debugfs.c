@@ -21,23 +21,7 @@
 #include <linux/module.h>
 #include "bnad.h"
 
-/*
- * BNA debufs interface
- *
- * To access the interface, debugfs file system should be mounted
- * if not already mounted using:
- *	mount -t debugfs none /sys/kernel/debug
- *
- * BNA Hierarchy:
- *	- bna/pci_dev:<pci_name>
- * where the pci_name corresponds to the one under /sys/bus/pci/drivers/bna
- *
- * Debugging service available per pci_dev:
- *	fwtrc:  To collect current firmware trace.
- *	fwsave: To collect last saved fw trace as a result of firmware crash.
- *	regwr:  To write one word to chip register
- *	regrd:  To read one or more words from chip register.
- */
+
 
 struct bnad_debug_info {
 	char *debug_buffer;

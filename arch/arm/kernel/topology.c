@@ -2,6 +2,7 @@
  * arch/arm/kernel/topology.c
  *
  * Copyright (C) 2011 Linaro Limited.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Written by: Vincent Guittot
  *
  * based on arch/sh/kernel/topology.c
@@ -346,9 +347,6 @@ void __init init_cpu_topology(void)
 	smp_wmb();
 
 	parse_dt_topology();
-
-	for_each_possible_cpu(cpu)
-		update_siblings_masks(cpu);
 
 	/* Set scheduler topology descriptor */
 	set_sched_topology(arm_topology);

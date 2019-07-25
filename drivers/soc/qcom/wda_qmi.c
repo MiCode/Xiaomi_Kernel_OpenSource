@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +26,6 @@ struct wda_qmi_data {
 	struct qmi_handle handle;
 	struct sockaddr_qrtr ssctl;
 	struct svc_info svc;
-	int restart_state;
 };
 
 static void wda_svc_config(struct work_struct *work);
@@ -322,22 +322,13 @@ static void wda_svc_config(struct work_struct *work)
 	struct qmi_info *qmi;
 	int rc;
 
-	if (data->restart_state == 1)
-		return;
 	rc = wda_set_powersave_config_req(&data->handle);
 	if (rc < 0) {
 		pr_err("%s Failed to init service, err[%d]\n", __func__, rc);
 		return;
 	}
 
-	if (data->restart_state == 1)
-		return;
-	while (!rtnl_trylock()) {
-		if (!data->restart_state)
-			cond_resched();
-		else
-			return;
-	}
+	rtnl_lock();
 	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
 	if (!qmi) {
 		rtnl_unlock();
@@ -403,7 +394,6 @@ wda_qmi_client_init(void *port, struct svc_info *psvc, struct qmi_info *qmi)
 	}
 
 	data->rmnet_port = port;
-	data->restart_state = 0;
 	memcpy(&data->svc, psvc, sizeof(data->svc));
 	INIT_WORK(&data->svc_arrive, wda_svc_config);
 
@@ -443,7 +433,6 @@ void wda_qmi_client_exit(void *wda_data)
 		return;
 	}
 
-	data->restart_state = 1;
 	trace_wda_client_state_down(0);
 	qmi_handle_release(&data->handle);
 	destroy_workqueue(data->wda_wq);

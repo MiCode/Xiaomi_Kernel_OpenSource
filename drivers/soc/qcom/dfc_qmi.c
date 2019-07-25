@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1365,14 +1366,7 @@ static void dfc_svc_init(struct work_struct *work)
 		return;
 	}
 
-	if (data->restart_state == 1)
-		return;
-	while (!rtnl_trylock()) {
-		if (!data->restart_state)
-			cond_resched();
-		else
-			return;
-	}
+	rtnl_lock();
 	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
 	if (!qmi) {
 		rtnl_unlock();

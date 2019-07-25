@@ -864,16 +864,7 @@ void vme_master_free(struct vme_resource *resource)
 }
 EXPORT_SYMBOL(vme_master_free);
 
-/**
- * vme_dma_request - Request a DMA controller.
- * @vdev: Pointer to VME device struct vme_dev assigned to driver instance.
- * @route: Required src/destination combination.
- *
- * Request a VME DMA controller with capability to perform transfers bewteen
- * requested source/destination combination.
- *
- * Return: Pointer to VME DMA resource on success, NULL on failure.
- */
+
 struct vme_resource *vme_dma_request(struct vme_dev *vdev, u32 route)
 {
 	struct vme_bridge *bridge;

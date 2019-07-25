@@ -1,4 +1,5 @@
 /* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +38,8 @@
 #define TTF_AWAKE_VOTER			"TTF_AWAKE_VOTER"
 
 #define V_RAW_TO_UV(V_RAW)		div_u64(194637ULL * (u64)V_RAW, 1000)
+#define I_RAW_TO_UA(I_RAW)		div_s64(152588LL * (s64)I_RAW, 1000)
+
 #define FIFO_V_RESET_VAL		0x8000
 #define FIFO_I_RESET_VAL		0x8000
 

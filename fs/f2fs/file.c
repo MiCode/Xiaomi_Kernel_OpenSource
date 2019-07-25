@@ -2784,7 +2784,7 @@ static int f2fs_ioc_set_pin_file(struct file *filp, unsigned long arg)
 
 	if (!pin) {
 		clear_inode_flag(inode, FI_PIN_FILE);
-		F2FS_I(inode)->i_gc_failures = 1;
+		f2fs_i_gc_failures_write(inode, 0);
 		goto done;
 	}
 

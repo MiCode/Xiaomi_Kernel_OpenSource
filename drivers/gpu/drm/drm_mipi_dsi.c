@@ -2,6 +2,7 @@
  * MIPI DSI Bus
  *
  * Copyright (C) 2012-2013, Samsung Electronics, Co., Ltd.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Andrzej Hajda <a.hajda@samsung.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -34,7 +35,7 @@
 #include <linux/slab.h>
 
 #include <video/mipi_display.h>
-
+#include "dsi_panel.h"
 /**
  * DOC: dsi helpers
  *
@@ -1044,6 +1045,132 @@ int mipi_dsi_dcs_set_tear_scanline(struct mipi_dsi_device *dsi, u16 scanline)
 }
 EXPORT_SYMBOL(mipi_dsi_dcs_set_tear_scanline);
 
+#if 0
+#define MIPI_DCS_SET_HBM 0x53
+/**
+ * mipi_dsi_dcs_set_display_brightness() - sets the brightness value of the
+ *    display
+ * @dsi: DSI peripheral device
+ * @brightness: brightness value
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+int mipi_dsi_dcs_set_display_brightness(struct mipi_dsi_device *dsi,
+					u16 brightness)
+{
+	u8 payload[2] = { brightness & 0xff, brightness >> 8 };
+	ssize_t err = 0;
+	u8 diming_on[1] = { 0x28 };
+	u8 diming_off[1] = { 0x20 };
+	static int dimmg_flag = 1;
+	struct dsi_panel *panel_hbm;
+	panel_hbm = container_of(dsi,struct dsi_panel,mipi_device);
+
+/*bug430786 add r692a9 amoled  configuration for f9s begin*/
+    payload[0]=(brightness >> 8)& 0xf;
+    payload[1]=brightness & 0xff;
+/*bug430786 add r692a9 amoled  configuration for f9s end*/
+	if ((panel_hbm->dimming == 0)&& dimmg_flag)
+	{
+    pr_info("enter HBM mode\n");
+	err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_HBM, diming_off, sizeof(diming_off));
+	dimmg_flag = 0;
+	}
+
+	else
+	{
+	if (brightness==0)
+	{
+	err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_HBM, diming_off, sizeof(diming_off));
+	dimmg_flag = 0;
+	}
+	else if (!dimmg_flag && !panel_hbm->finger_unlock_back)
+	{
+	pr_info("enter normal mode 1-2047\n");
+	err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_HBM, diming_on, sizeof(diming_on));
+	dimmg_flag = 1;
+	}
+	else if (!dimmg_flag && panel_hbm->finger_unlock_back)
+	{
+	pr_info("enter finger back to normal mode 1-2047\n");
+	err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_HBM, diming_off, sizeof(diming_off));
+	panel_hbm->finger_unlock_back=false;
+	dimmg_flag = 0;
+	}
+	}
+	if (err < 0)
+	return err;
+	err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
+	 payload, sizeof(payload));
+
+	if (err < 0)
+	return err;
+
+	return 0;
+	}
+EXPORT_SYMBOL(mipi_dsi_dcs_set_display_brightness);
+/*bug430786 add samsung brightness HBM mode begin*/
+
+
+int mipi_dsi_dcs_set_display_samsung_brightness(struct mipi_dsi_device *dsi,
+					u16 brightness)
+{
+	u8 payload[2] = { brightness & 0xff, brightness >> 8 };
+	u8 dimming_on[1] = { 0x28 };
+	u8 diming_off[1] = { 0x20 };
+
+	u8 hbm_diming_off[1] = { 0xE0 };
+	static int dimmg_flag = 1;
+	ssize_t err = 0;
+	struct dsi_panel *panel_hbm;
+	panel_hbm = container_of(dsi,struct dsi_panel,mipi_device);
+
+	if (panel_hbm->dimming == 0 && dimmg_flag){
+		pr_info("enter HBM mode\n");
+    		err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_HBM, hbm_diming_off, sizeof(hbm_diming_off));
+		dimmg_flag = 0;
+	}
+
+	else
+	{
+	if (brightness==0){
+		err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_HBM, diming_off, sizeof(diming_off));
+		dimmg_flag = 0;
+	}
+	else if ((brightness > 0) && (brightness < 1024) && !dimmg_flag && !panel_hbm->finger_unlock_back)
+	{
+	    pr_info("enter normal mode 1-1023\n");
+		err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_HBM, dimming_on, sizeof(dimming_on));
+		dimmg_flag = 1;
+	}
+	else if ((brightness > 0) && (brightness < 1024) && panel_hbm->finger_unlock_back)
+	{
+		pr_info("enter finger back to normal mode 1-1023\n");
+	    err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_HBM, diming_off, sizeof(diming_off));
+		panel_hbm->finger_unlock_back=false;
+		dimmg_flag = 0;
+
+	}
+	else if (dimmg_flag && (brightness > 1023))
+	{
+	   pr_info("enter normal mode 1024-2047\n");
+	   err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_HBM, hbm_diming_off, sizeof(hbm_diming_off));
+	   dimmg_flag = 0;
+	}
+	}
+	if (err < 0)
+		return err;
+    payload[0]=(brightness >> 8)& 0xf;
+    payload[1]=brightness & 0xff;
+	err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
+				 payload, sizeof(payload));
+	if (err < 0)
+			return err;
+	return 0;
+}
+EXPORT_SYMBOL(mipi_dsi_dcs_set_display_samsung_brightness);
+/*bug430786 add samsung brightness HBM mode end*/
+#endif
 /**
  * mipi_dsi_dcs_set_display_brightness() - sets the brightness value of the
  *    display

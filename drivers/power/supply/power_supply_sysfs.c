@@ -102,7 +102,9 @@ static ssize_t power_supply_show_property(struct device *dev,
 	const ptrdiff_t off = attr - power_supply_attrs;
 	union power_supply_propval value;
 
-	if (off == POWER_SUPPLY_PROP_TYPE) {
+
+	if ((off == POWER_SUPPLY_PROP_TYPE)&&(strcmp(psy->desc->name, "usb"))){
+
 		value.intval = psy->desc->type;
 	} else {
 		ret = power_supply_get_property(psy, off, &value);
@@ -385,6 +387,9 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(clear_soh),
 	POWER_SUPPLY_ATTR(force_recharge),
 	POWER_SUPPLY_ATTR(fcc_stepper_enable),
+	POWER_SUPPLY_ATTR(StopCharging_Test),
+	POWER_SUPPLY_ATTR(StartCharging_Test),
+	POWER_SUPPLY_ATTR(charging_call_state),
 	POWER_SUPPLY_ATTR(toggle_stat),
 	POWER_SUPPLY_ATTR(main_fcc_max),
 	POWER_SUPPLY_ATTR(fg_reset),
@@ -395,6 +400,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(chip_version),
 	POWER_SUPPLY_ATTR(therm_icl_limit),
 	POWER_SUPPLY_ATTR(dc_reset),
+	POWER_SUPPLY_ATTR(real_capacity),
 	POWER_SUPPLY_ATTR(voltage_max_limit),
 	/* Charge pump properties */
 	POWER_SUPPLY_ATTR(cp_status1),
@@ -510,6 +516,10 @@ int power_supply_uevent(struct device *dev, struct kobj_uevent_env *env)
 	for (j = 0; j < psy->desc->num_properties; j++) {
 		struct device_attribute *attr;
 		char *line;
+
+		if ((psy->desc->properties[j] == POWER_SUPPLY_PROP_STOPCHARGING_TEST)
+			|| (psy->desc->properties[j] == POWER_SUPPLY_PROP_STARTCHARGING_TEST))
+			continue;
 
 		attr = &power_supply_attrs[psy->desc->properties[j]];
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +21,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <wt_sys/wt_boot_reason.h>
 
 #include <linux/msm-bus-board.h>
 #include <linux/msm-bus.h>
@@ -31,6 +33,10 @@
 
 #include <linux/soc/qcom/smem.h>
 #include <linux/soc/qcom/smem_state.h>
+
+#include <linux/slab.h>
+#include <linux/workqueue.h>
+
 
 #include "peripheral-loader.h"
 
@@ -45,6 +51,9 @@
 
 #define desc_to_data(d) container_of(d, struct pil_tz_data, desc)
 #define subsys_to_data(d) container_of(d, struct pil_tz_data, subsys_desc)
+
+
+extern void kernel_restart(char *cmd);
 
 /**
  * struct reg_info - regulator info
@@ -164,6 +173,85 @@ static struct msm_bus_scale_pdata scm_pas_bus_pdata = {
 	.num_usecases = ARRAY_SIZE(scm_pas_bw_tbl),
 	.name = "scm_pas",
 };
+
+
+#define STR_NV_SIGNATURE_DESTROYED "CRITICAL_DATA_CHECK_FAILED"
+static struct kobject *checknv_kobj;
+static struct kset *checknv_kset;
+
+static const struct sysfs_ops checknv_sysfs_ops = {
+};
+
+static void kobj_release(struct kobject *kobj)
+{
+	kfree(kobj);
+}
+
+static struct kobj_type checknv_ktype = {
+	.sysfs_ops = &checknv_sysfs_ops,
+	.release = kobj_release,
+};
+
+static void checknv_kobj_clean(struct work_struct *work)
+{
+	pr_err("checknv_kobj_clean begin");
+	kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+	pr_err("checknv_kobj_clean end");
+}
+
+static void checknv_kobj_create(struct work_struct *work)
+{
+	int ret;
+	pr_err("checknv_kobj_create begin");
+
+	if (checknv_kset != NULL) {
+		pr_err("checknv_kset is not NULL, should clean up.");
+		kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+		kobject_put(checknv_kobj);
+	}
+
+	checknv_kobj = kzalloc(sizeof(struct kobject), GFP_KERNEL);
+	if (!checknv_kobj) {
+		pr_err("kobject alloc failed.");
+		return;
+	}
+	pr_err("checknv_kobj_create begin 2");
+
+	if (checknv_kset == NULL) {
+		pr_err("checknv_kobj_create begin 4");
+		checknv_kset = kset_create_and_add("checknv_errimei", NULL, NULL);
+		pr_err("checknv_kobj_create begin 5");
+		if (!checknv_kset) {
+			pr_err("kset creation failed.");
+			goto free_kobj;
+		}
+	}
+
+	checknv_kobj->kset = checknv_kset;
+	pr_err("checknv_kobj_create begin 3");
+
+	ret = kobject_init_and_add(checknv_kobj, &checknv_ktype, NULL, "%s", "errimei");
+	if (ret) {
+		pr_err("%s: Error in creation kobject", __func__);
+		goto del_kobj;
+	}
+
+	kobject_uevent(checknv_kobj, KOBJ_ADD);
+	pr_err("checknv_kobj_create end");
+	return;
+
+del_kobj:
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+
+free_kobj:
+	kfree(checknv_kobj);
+}
+static DECLARE_DELAYED_WORK(create_kobj_work, checknv_kobj_create);
+static DECLARE_WORK(clean_kobj_work, checknv_kobj_clean);
+
 
 static uint32_t scm_perf_client;
 static int scm_pas_bw_count;
@@ -797,6 +885,10 @@ static struct pil_reset_ops pil_ops_trusted = {
 	.deinit_image = pil_deinit_image_trusted,
 };
 
+
+
+char subsys_restart_reason[WT_MAX_SSR_REASON_LEN];
+
 static void log_failure_reason(const struct pil_tz_data *d)
 {
 	size_t size;
@@ -819,6 +911,10 @@ static void log_failure_reason(const struct pil_tz_data *d)
 
 	strlcpy(reason, smem_reason, min(size, (size_t)MAX_SSR_REASON_LEN));
 	pr_err("%s subsystem failure reason: %s.\n", name, reason);
+
+
+	strlcpy(subsys_restart_reason, smem_reason, min(size, (size_t)WT_MAX_SSR_REASON_LEN));
+
 }
 
 static int subsys_shutdown(const struct subsys_desc *subsys, bool force_stop)
@@ -887,6 +983,24 @@ static void subsys_crash_shutdown(const struct subsys_desc *subsys)
 	}
 }
 
+
+bool subsys_checknv_handler(void)
+{
+	if (strnstr(subsys_restart_reason, STR_NV_SIGNATURE_DESTROYED, strlen(subsys_restart_reason)))
+	{
+		pr_err("errimei_dev: the NV has been destroyed, should restart to recovery\n");
+		return true;
+	}
+	return false;
+}
+
+void susys_checknv_goto_recover(void)
+{
+	pr_err("susys_checknv_goto_recover: the NV has been destroyed, should restart to recovery\n");
+	schedule_delayed_work(&create_kobj_work, msecs_to_jiffies(1*1000));
+}
+
+
 static irqreturn_t subsys_err_fatal_intr_handler (int irq, void *dev_id)
 {
 	struct pil_tz_data *d = subsys_to_data(dev_id);
@@ -899,8 +1013,21 @@ static irqreturn_t subsys_err_fatal_intr_handler (int irq, void *dev_id)
 	}
 	subsys_set_crash_status(d->subsys, CRASH_STATUS_ERR_FATAL);
 	log_failure_reason(d);
-	subsystem_restart_dev(d->subsys);
 
+
+	#if !defined(WT_COMPILE_FACTORY_VERSION)
+	if (subsys_checknv_handler())
+	{
+		susys_checknv_goto_recover();
+
+
+	}
+	else
+	#endif
+
+	{
+		subsystem_restart_dev(d->subsys);
+	}
 	return IRQ_HANDLED;
 }
 

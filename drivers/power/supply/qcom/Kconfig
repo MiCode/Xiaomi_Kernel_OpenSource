@@ -120,4 +120,11 @@ config SMB1390_CHARGE_PUMP_PSY
 	  SMB1390 is a div2 charge pump capable of delivering 6A charge current
 	  with very high efficiency.
 
+config DISABLE_TEMP_PROTECT
+        bool "control of TEMP protect"
+        default n
+        help
+          Say Y here to enable a function which disabled TEMP protect...
+          WARNNING:Only SCM could open it.
+
 endmenu

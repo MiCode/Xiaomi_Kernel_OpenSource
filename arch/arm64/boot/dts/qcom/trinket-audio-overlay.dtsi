@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +46,7 @@
 				<5 DMIC6 0x4>, <5 DMIC7 0x8>;
 			qcom,swr-num-dev = <1>;
 			qcom,swr-clock-stop-mode0 = <1>;
+			qcom,swr-mstr-irq-wakeup-capable = <1>;
 			wcd937x_tx_slave: wcd937x-tx-slave {
 				compatible = "qcom,wcd937x-slave";
 				reg = <0x0 0x01170223>;
@@ -170,9 +172,9 @@
 		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-buck-current = <650000>;
 
-		qcom,cdc-micbias1-mv = <1800>;
-		qcom,cdc-micbias2-mv = <1800>;
-		qcom,cdc-micbias3-mv = <1800>;
+		qcom,cdc-micbias1-mv = <2750>;
+		qcom,cdc-micbias2-mv = <2700>;
+		qcom,cdc-micbias3-mv = <2750>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-ldo-rxtx",
 					   "cdc-vddpx-1";
@@ -183,7 +185,7 @@
 &sm6150_snd {
 	qcom,model = "trinket-idp-snd-card";
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
-	qcom,ext-disp-audio-rx = <1>;
+	qcom,ext-disp-audio-rx = <0>;
 	qcom,audio-routing =
 		"AMIC2", "MIC BIAS2",
 		"MIC BIAS2", "Analog Mic2",
@@ -209,29 +211,15 @@
 		"IN3_AUX", "AUX_OUT",
 		"TX SWR_ADC0", "ADC1_OUTPUT",
 		"TX SWR_ADC2", "ADC2_OUTPUT",
-		"WSA SRC0_INP", "SRC0",
-		"WSA_TX DEC0_INP", "TX DEC0 MUX",
-		"WSA_TX DEC1_INP", "TX DEC1 MUX",
 		"RX_TX DEC0_INP", "TX DEC0 MUX",
 		"RX_TX DEC1_INP", "TX DEC1 MUX",
 		"RX_TX DEC2_INP", "TX DEC2 MUX",
-		"RX_TX DEC3_INP", "TX DEC3 MUX",
-		"SpkrLeft IN", "WSA_SPK1 OUT",
-		"SpkrRight IN", "WSA_SPK2 OUT",
-		"WSA_SPK1 OUT", "VA_MCLK",
-		"WSA_SPK2 OUT", "VA_MCLK";
+		"RX_TX DEC3_INP", "TX DEC3 MUX";
 	qcom,msm-mbhc-hphl-swh = <1>;
-	qcom,msm-mbhc-gnd-swh = <1>;
-	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
-	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
-	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
-	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
-				"msm-ext-disp-audio-codec-rx";
-	qcom,wsa-max-devs = <1>;
-	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
-			<&wsa881x_0213>, <&wsa881x_0214>;
-	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
-				  "SpkrLeft", "SpkrRight";
+	qcom,msm-mbhc-gnd-swh = <0>;
+	qcom,wsa-max-devs = <0>;
+	asoc-codec  = <&stub_codec>, <&bolero>;
+	asoc-codec-names = "msm-stub-codec.1", "bolero_codec";
 	qcom,codec-max-aux-devs = <1>;
 	qcom,codec-aux-devs = <&wcd937x_codec>;
 	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,
@@ -239,18 +227,12 @@
 };
 
 &soc {
-	cdc_dmic01_gpios: cdc_dmic01_pinctrl {
+	/*bug 431523,zhanghao1,20190301,add for audio bringup*/
+		sec_mi2s_gpios: sec_mi2s_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&cdc_dmic01_clk_active &cdc_dmic01_data_active>;
-		pinctrl-1 = <&cdc_dmic01_clk_sleep &cdc_dmic01_data_sleep>;
-	};
-
-	cdc_dmic23_gpios: cdc_dmic23_pinctrl {
-		compatible = "qcom,msm-cdc-pinctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&cdc_dmic23_clk_active &cdc_dmic23_data_active>;
-		pinctrl-1 = <&cdc_dmic23_clk_sleep &cdc_dmic23_data_sleep>;
+		pinctrl-0 = <&sec_mi2s_gpios_active>;
+		pinctrl-1 = <&sec_mi2s_gpios_sleep>;
 	};
 
 	wsa_swr_gpios: wsa_swr_clk_data_pinctrl {

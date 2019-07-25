@@ -1,0 +1,237 @@
+# We can build either as part of a standalone Kernel build or as
+# an external module.  Determine which mechanism is being used
+ifeq ($(MODNAME),)
+	KERNEL_BUILD := 1
+else
+	KERNEL_BUILD := 0
+endif
+
+ifeq ($(KERNEL_BUILD), 1)
+	# These are configurable via Kconfig for kernel-based builds
+	# Need to explicitly configure for Android-based builds
+	AUDIO_BLD_DIR := $(shell pwd)/kernel/msm-4.14
+	AUDIO_ROOT := $(AUDIO_BLD_DIR)/techpack/audio
+endif
+
+ifeq ($(KERNEL_BUILD), 0)
+	ifeq ($(CONFIG_ARCH_SDM845), y)
+		include $(AUDIO_ROOT)/config/sdm845auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sdm845autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_SDM670), y)
+		include $(AUDIO_ROOT)/config/sdm670auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sdm670autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_SDM450), y)
+		include $(AUDIO_ROOT)/config/sdm670auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sdm670autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_SM8150), y)
+		include $(AUDIO_ROOT)/config/sm8150auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sm8150autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_SM6150), y)
+		include $(AUDIO_ROOT)/config/sm6150auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_TRINKET), y)
+		include $(AUDIO_ROOT)/config/trinketauto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/trinketautoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_SDMSHRIKE), y)
+		include $(AUDIO_ROOT)/config/sm8150auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sm8150autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_QCS405), y)
+		include $(AUDIO_ROOT)/config/qcs405auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/qcs405autoconf.h
+	endif
+endif
+
+# As per target team, build is done as follows:
+# Defconfig : build with default flags
+# Slub      : defconfig  + CONFIG_SLUB_DEBUG := y +
+#	      CONFIG_SLUB_DEBUG_ON := y + CONFIG_PAGE_POISONING := y
+# Perf      : Using appropriate msmXXXX-perf_defconfig
+#
+# Shipment builds (user variants) should not have any debug feature
+# enabled. This is identified using 'TARGET_BUILD_VARIANT'. Slub builds
+# are identified using the CONFIG_SLUB_DEBUG_ON configuration. Since
+# there is no other way to identify defconfig builds, QTI internal
+# representation of perf builds (identified using the string 'perf'),
+# is used to identify if the build is a slub or defconfig one. This
+# way no critical debug feature will be enabled for perf and shipment
+# builds. Other OEMs are also protected using the TARGET_BUILD_VARIANT
+# config.
+
+############ UAPI ############
+UAPI_DIR :=	uapi
+UAPI_INC :=	-I$(AUDIO_ROOT)/include/$(UAPI_DIR)
+
+############ COMMON ############
+COMMON_DIR :=	include
+COMMON_INC :=	-I$(AUDIO_ROOT)/$(COMMON_DIR)
+
+############ ASoC Drivers ############
+
+
+# for SDM6xx sound card driver
+ifdef CONFIG_SND_SOC_SDM670
+	MACHINE_OBJS += sdm660-common.o
+endif
+
+# for SDM6xx sound card driver
+ifdef CONFIG_SND_SOC_INT_CODEC
+	MACHINE_OBJS += sdm660-internal.o
+endif
+
+# for SDM6xx sound card driver
+ifdef CONFIG_SND_SOC_EXT_CODEC
+	MACHINE_OBJS += sdm660-external.o
+	MACHINE_OBJS += sdm660-ext-dai-links.o
+endif
+
+# for SDM845 sound card driver
+ifdef CONFIG_SND_SOC_MACHINE_SDM845
+	MACHINE_OBJS += sdm845.o
+endif
+
+# for SM8150 sound card driver
+ifdef CONFIG_SND_SOC_SM8150
+	MACHINE_OBJS += sa8155.o
+	MACHINE_OBJS += sm8150.o
+	MACHINE_OBJS += machine_815x_init.o
+endif
+
+# for SM6150 sound card driver
+ifdef CONFIG_SND_SOC_SM6150
+	MACHINE_OBJS += sm6150.o
+endif
+
+# for qcs405 sound card driver
+ifdef CONFIG_SND_SOC_QCS405
+	MACHINE_OBJS += qcs405.o
+endif
+
+ifdef CONFIG_SND_SOC_CPE
+	CPE_LSM_OBJS += msm-cpe-lsm.o
+endif
+
+ifdef CONFIG_SND_SOC_QDSP6V2
+	PLATFORM_OBJS += msm-audio-effects-q6-v2.o
+	PLATFORM_OBJS += msm-compress-q6-v2.o
+	PLATFORM_OBJS += msm-dai-fe.o
+	PLATFORM_OBJS += msm-dai-q6-hdmi-v2.o
+	PLATFORM_OBJS += msm-dai-q6-v2.o
+	PLATFORM_OBJS += msm-dai-slim.o
+	PLATFORM_OBJS += msm-dai-stub-v2.o
+	PLATFORM_OBJS += msm-lsm-client.o
+	PLATFORM_OBJS += msm-pcm-afe-v2.o
+	PLATFORM_OBJS += msm-pcm-dtmf-v2.o
+	PLATFORM_OBJS += msm-pcm-hostless.o
+	PLATFORM_OBJS += msm-pcm-host-voice-v2.o
+	PLATFORM_OBJS += msm-pcm-loopback-v2.o
+	PLATFORM_OBJS += msm-pcm-q6-noirq.o
+	PLATFORM_OBJS += msm-pcm-q6-v2.o
+	PLATFORM_OBJS += msm-pcm-routing-v2.o
+	PLATFORM_OBJS += msm-pcm-voice-v2.o
+	PLATFORM_OBJS += msm-pcm-voip-v2.o
+	PLATFORM_OBJS += msm-transcode-loopback-q6-v2.o
+	PLATFORM_OBJS += platform_init.o
+endif
+ifdef CONFIG_DOLBY_DS2
+	PLATFORM_OBJS += msm-ds2-dap-config.o
+endif
+ifdef CONFIG_DOLBY_LICENSE
+	PLATFORM_OBJS += msm-ds2-dap-config.o
+endif
+ifdef CONFIG_SND_HWDEP_ROUTING
+	PLATFORM_OBJS += msm-pcm-routing-devdep.o
+endif
+ifdef CONFIG_QTI_PP
+	PLATFORM_OBJS += msm-qti-pp-config.o
+endif
+
+LINUX_INC +=	-Iinclude/linux
+
+INCS +=		$(COMMON_INC) \
+		$(UAPI_INC)
+
+EXTRA_CFLAGS += $(INCS)
+
+CDEFINES +=	-DANI_LITTLE_BYTE_ENDIAN \
+		-DANI_LITTLE_BIT_ENDIAN \
+		-DDOT11F_LITTLE_ENDIAN_HOST \
+		-DANI_COMPILER_TYPE_GCC \
+		-DANI_OS_TYPE_ANDROID=6 \
+		-DPTT_SOCK_SVC_ENABLE \
+		-Wall\
+		-Werror\
+		-D__linux__
+
+KBUILD_CPPFLAGS += $(CDEFINES)
+
+# Currently, for versions of gcc which support it, the kernel Makefile
+# is disabling the maybe-uninitialized warning.  Re-enable it for the
+# AUDIO driver.  Note that we must use EXTRA_CFLAGS here so that it
+# will override the kernel settings.
+ifeq ($(call cc-option-yn, -Wmaybe-uninitialized),y)
+EXTRA_CFLAGS += -Wmaybe-uninitialized
+endif
+#EXTRA_CFLAGS += -Wmissing-prototypes
+
+ifeq ($(call cc-option-yn, -Wheader-guard),y)
+EXTRA_CFLAGS += -Wheader-guard
+endif
+
+ifeq ($(KERNEL_BUILD), 0)
+KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/dsp/Module.symvers
+KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/codecs/Module.symvers
+KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd934x/Module.symvers
+KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd937x/Module.symvers
+KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/codecs/sdm660_cdc/Module.symvers
+KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/codecs/msm_sdw/Module.symvers
+endif
+ifeq ($(KERNEL_BUILD), 1)
+	obj-y += codecs/
+endif
+
+ifeq ($(CONFIG_SND_SOC_GCOV), y)
+GCOV_PROFILE := y
+endif
+
+# Module information used by KBuild framework
+obj-$(CONFIG_SND_SOC_QDSP6V2) += platform_dlkm.o
+platform_dlkm-y := $(PLATFORM_OBJS)
+
+obj-$(CONFIG_SND_SOC_MACHINE_SDM845) += machine_dlkm.o
+machine_dlkm-y := $(MACHINE_OBJS)
+
+obj-$(CONFIG_SND_SOC_SM8150) += machine_dlkm.o
+machine_dlkm-y := $(MACHINE_OBJS)
+
+obj-$(CONFIG_SND_SOC_SM6150) += machine_dlkm.o
+machine_dlkm-y := $(MACHINE_OBJS)
+
+obj-$(CONFIG_SND_SOC_QCS405) += machine_dlkm.o
+machine_dlkm-y := $(MACHINE_OBJS)
+
+obj-$(CONFIG_SND_SOC_EXT_CODEC) += machine_dlkm.o
+machine_dlkm-y := $(MACHINE_OBJS)
+
+obj-$(CONFIG_SND_SOC_INT_CODEC) += machine_dlkm.o
+machine_dlkm-y := $(MACHINE_OBJS)
+
+obj-$(CONFIG_SND_SOC_CPE) += cpe_lsm_dlkm.o
+cpe_lsm_dlkm-y := $(CPE_LSM_OBJS)
+
+# inject some build related information
+DEFINES += -DBUILD_TIMESTAMP=\"$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')\"

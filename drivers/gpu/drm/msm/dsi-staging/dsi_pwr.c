@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -139,8 +140,8 @@ static int dsi_pwr_enable_vregs(struct dsi_regulator_info *regs, bool enable)
 		for (i = 0; i < regs->count; i++) {
 			vreg = &regs->vregs[i];
 			if (vreg->pre_on_sleep)
-				msleep(vreg->pre_on_sleep);
 
+                usleep_range(vreg->pre_on_sleep, vreg->pre_on_sleep);
 			rc = regulator_set_load(vreg->vreg,
 						vreg->enable_load);
 			if (rc < 0) {
@@ -168,12 +169,14 @@ static int dsi_pwr_enable_vregs(struct dsi_regulator_info *regs, bool enable)
 			}
 
 			if (vreg->post_on_sleep)
-				msleep(vreg->post_on_sleep);
+
+				usleep_range(vreg->post_on_sleep, vreg->post_on_sleep);
 		}
 	} else {
 		for (i = (regs->count - 1); i >= 0; i--) {
 			if (regs->vregs[i].pre_off_sleep)
-				msleep(regs->vregs[i].pre_off_sleep);
+
+			usleep_range(regs->vregs[i].pre_off_sleep,regs->vregs[i].pre_off_sleep);
 
 			if (regs->vregs[i].off_min_voltage)
 				(void)regulator_set_voltage(regs->vregs[i].vreg,
@@ -185,7 +188,8 @@ static int dsi_pwr_enable_vregs(struct dsi_regulator_info *regs, bool enable)
 			(void)regulator_disable(regs->vregs[i].vreg);
 
 			if (regs->vregs[i].post_off_sleep)
-				msleep(regs->vregs[i].post_off_sleep);
+
+				usleep_range(regs->vregs[i].post_off_sleep,regs->vregs[i].post_off_sleep);
 		}
 	}
 
@@ -201,7 +205,8 @@ error_disable_voltage:
 error:
 	for (i--; i >= 0; i--) {
 		if (regs->vregs[i].pre_off_sleep)
-			msleep(regs->vregs[i].pre_off_sleep);
+
+			usleep_range(regs->vregs[i].pre_off_sleep,regs->vregs[i].pre_off_sleep);
 
 		(void)regulator_set_load(regs->vregs[i].vreg,
 					 regs->vregs[i].disable_load);
@@ -214,7 +219,8 @@ error:
 		(void)regulator_disable(regs->vregs[i].vreg);
 
 		if (regs->vregs[i].post_off_sleep)
-			msleep(regs->vregs[i].post_off_sleep);
+
+			usleep_range(regs->vregs[i].post_off_sleep,regs->vregs[i].post_off_sleep);
 	}
 
 	return rc;

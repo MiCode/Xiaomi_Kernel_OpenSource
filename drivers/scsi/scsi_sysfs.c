@@ -24,6 +24,8 @@
 #include "scsi_priv.h"
 #include "scsi_logging.h"
 
+struct gendisk *ufs_disk[SD_NUM];
+
 static struct device_type scsi_dev_type;
 
 static const struct {
@@ -377,6 +379,78 @@ shost_rd_attr(prot_capabilities, "%u\n");
 shost_rd_attr(prot_guard_type, "%hd\n");
 shost_rd_attr2(proc_name, hostt->proc_name, "%s\n");
 
+static int calc_mem_size(void)
+{
+	int temp_size;
+	temp_size = (int)totalram_pages/1024;
+
+	if ((temp_size > 0*256) && (temp_size <= 1*256))
+		return 1;
+	else if ((temp_size > 1*256) && (temp_size <= 2*256))
+		return 2;
+	else if ((temp_size > 2*256) && (temp_size <= 3*256))
+		return 3;
+	else if ((temp_size > 3*256) && (temp_size <= 4*256))
+		return 4;
+	else if ((temp_size > 4*256) && (temp_size <= 6*256))
+		return 6;
+	else if ((temp_size > 6*256) && (temp_size <= 8*256))
+		return 8;
+	else
+		return 0;
+}
+
+static int calc_ufs_size(unsigned long long size)
+{
+	int temp_size;
+	temp_size = (int)size/2/1024/1024;
+
+	if ((temp_size > 8) && (temp_size <= 16))
+		return 16;
+	else if ((temp_size > 16) && (temp_size <= 32))
+		return 32;
+	else if ((temp_size > 32) && (temp_size <= 64))
+		return 64;
+	else if ((temp_size > 64) && (temp_size <= 128))
+		return 128;
+	else if ((temp_size > 128) && (temp_size <= 256))
+		return 256;
+	else
+		return 0;
+}
+
+static ssize_t
+show_flash_name(struct device *dev, struct device_attribute *attr,
+	     char *buf)
+{
+	struct scsi_device *sdev;
+	struct hd_struct *p = NULL;
+	struct gendisk **gd_t = ufs_disk;
+	unsigned long long ufs_size = 0;
+	int i=0,ret=0;
+	char vendor_name[32];
+	char model_name[32];
+
+	sdev = to_scsi_device(dev);
+
+	for (;(*gd_t!=NULL) && (i<SD_NUM);gd_t++)
+	{
+		p = &((*gd_t)->part0);
+		ufs_size += (unsigned long long)part_nr_sects_read(p);
+	}
+
+	ret = sscanf(sdev->vendor, "%s %*s", vendor_name);
+	if (ret != 1)
+		return 0;
+
+	ret = sscanf(sdev->model, "%s %*s", model_name);
+	if (ret != 1)
+		return 0;
+
+	return sprintf(buf, "%s_%s_%dGB_%dGB\n",vendor_name,model_name,calc_mem_size(),calc_ufs_size(ufs_size));
+}
+
+static DEVICE_ATTR(flash_name, S_IRUGO, show_flash_name, NULL);
 static ssize_t
 show_host_busy(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -1173,6 +1247,7 @@ static struct attribute *scsi_sdev_attrs[] = {
 	&dev_attr_preferred_path.attr,
 #endif
 	&dev_attr_queue_ramp_up_period.attr,
+	&dev_attr_flash_name.attr,
 	REF_EVT(media_change),
 	REF_EVT(inquiry_change_reported),
 	REF_EVT(capacity_change_reported),

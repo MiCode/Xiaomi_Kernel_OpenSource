@@ -2,6 +2,7 @@
  * FireWire Serial driver
  *
  * Copyright (C) 2012 Peter Hurley <peter@hurleysoftware.com>
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -475,24 +476,7 @@ static void fwtty_throttle_port(struct fwtty_port *port)
 	tty_kref_put(tty);
 }
 
-/**
- * fwtty_do_hangup - wait for ldisc to deliver all pending rx; only then hangup
- *
- * When the remote has finished tx, and all in-flight rx has been received and
- * and pushed to the flip buffer, the remote may close its device. This will
- * drop DTR on the remote which will drop carrier here. Typically, the tty is
- * hung up when carrier is dropped or lost.
- *
- * However, there is a race between the hang up and the line discipline
- * delivering its data to the reader. A hangup will cause the ldisc to flush
- * (ie., clear) the read buffer and flip buffer. Because of firewire's
- * relatively high throughput, the ldisc frequently lags well behind the driver,
- * resulting in lost data (which has already been received and written to
- * the flip buffer) when the remote closes its end.
- *
- * Unfortunately, since the flip buffer offers no direct method for determining
- * if it holds data, ensuring the ldisc has delivered all data is problematic.
- */
+
 
 /* FIXME: drop this workaround when __tty_hangup waits for ldisc completion */
 static void fwtty_do_hangup(struct work_struct *work)
@@ -917,12 +901,7 @@ static void fwtty_port_dtr_rts(struct tty_port *tty_port, int on)
 	spin_unlock_bh(&port->lock);
 }
 
-/**
- * fwtty_port_carrier_raised: required tty_port operation
- *
- * This port operation is polled after a tty has been opened and is waiting for
- * carrier detect -- see drivers/tty/tty_port:tty_port_block_til_ready().
- */
+
 static int fwtty_port_carrier_raised(struct tty_port *tty_port)
 {
 	struct fwtty_port *port = to_port(tty_port, port);
@@ -1324,16 +1303,7 @@ static void fwtty_set_termios(struct tty_struct *tty, struct ktermios *old)
 	}
 }
 
-/**
- * fwtty_break_ctl - start/stop sending breaks
- *
- * Signals the remote to start or stop generating simulated breaks.
- * First, stop dequeueing from the fifo and wait for writer/drain to leave tx
- * before signalling the break line status. This guarantees any pending rx will
- * be queued to the line discipline before break is simulated on the remote.
- * Conversely, turning off break_ctl requires signalling the line status change,
- * then enabling tx.
- */
+
 static int fwtty_break_ctl(struct tty_struct *tty, int state)
 {
 	struct fwtty_port *port = tty->driver_data;

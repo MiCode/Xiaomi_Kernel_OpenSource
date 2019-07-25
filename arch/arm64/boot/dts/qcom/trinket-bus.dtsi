@@ -1,4 +1,5 @@
 /* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -380,8 +381,7 @@
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
 			qcom,qport = <13>;
-			qcom,qos-mode = "fixed";
-			qcom,prio = <4>;
+			qcom,qos-mode = "bypass";
 			qcom,forwarding;
 			qcom,connections = <&slv_snoc_bimc_nrt>;
 			qcom,bus-dev = <&fab_mmnrt_virt>;

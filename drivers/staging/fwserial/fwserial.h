@@ -48,31 +48,7 @@ struct peer_work_params {
 	};
 };
 
-/**
- * fwtty_peer: structure representing local & remote unit devices
- * @unit: unit child device of fw_device node
- * @serial: back pointer to associated fw_serial aggregate
- * @guid: unique 64-bit guid for this unit device
- * @generation: most recent bus generation
- * @node_id: most recent node_id
- * @speed: link speed of peer (0 = S100, 2 = S400, ... 5 = S3200)
- * @mgmt_addr: bus addr region to write mgmt packets to
- * @status_addr: bus addr register to write line status to
- * @fifo_addr: bus addr region to write serial output to
- * @fifo_len:  max length for single write to fifo_addr
- * @list: link for insertion into fw_serial's peer_list
- * @rcu: for deferring peer reclamation
- * @lock: spinlock to synchonize changes to state & port fields
- * @work: only one work item can be queued at any one time
- *        Note: pending work is canceled prior to removal, so this
- *        peer is valid for at least the lifetime of the work function
- * @work_params: parameter block for work functions
- * @timer: timer for resetting peer state if remote request times out
- * @state: current state
- * @connect: work item for auto-connecting
- * @connect_retries: # of connections already attempted
- * @port: associated tty_port (usable if state == FWSC_ATTACHED)
- */
+
 struct fwtty_peer {
 	struct fw_unit		*unit;
 	struct fw_serial	*serial;
@@ -302,7 +278,7 @@ struct fwtty_port {
 #define DRAIN_THRESHOLD         1024
 #define MAX_ASYNC_PAYLOAD       4096    /* ohci-defined limit          */
 #define WRITER_MINIMUM           128
-/* TODO: how to set watermark to AR context size? see fwtty_rx() */
+
 #define HIGH_WATERMARK         32768	/* AR context is 32K	       */
 
 /*

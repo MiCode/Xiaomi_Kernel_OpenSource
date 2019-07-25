@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,7 +51,7 @@ int qg_adjust_sys_soc(struct qpnp_qg *chip)
 {
 	int soc, vbat_uv, rc;
 	int vcutoff_uv = chip->dt.vbatt_cutoff_mv * 1000;
-
+	int ibat = 0;
 	chip->sys_soc = CAP(QG_MIN_SOC, QG_MAX_SOC, chip->sys_soc);
 
 	if (chip->sys_soc < 100) {
@@ -67,7 +68,18 @@ int qg_adjust_sys_soc(struct qpnp_qg *chip)
 		if (chip->last_adj_ssoc == FULL_SOC)
 			soc = FULL_SOC;
 		else /* Hold SOC at 99% until we hit 100% */
+		{
+			rc = qg_get_battery_current(chip, &ibat);
+			if (rc < 0){
+				printk("WT read ibat error\n");
+				ibat = 0;
+
+			}
+		if ((chip->last_adj_ssoc == 99) && (ibat > -330000) && (ibat < 0))
+		    soc = 100;
+		else
 			soc = FULL_SOC - 1;
+		}
 	} else {
 		soc = DIV_ROUND_CLOSEST(chip->sys_soc, 100);
 	}
@@ -177,16 +189,40 @@ static bool maint_soc_timeout(struct qpnp_qg *chip)
 static void update_msoc(struct qpnp_qg *chip)
 {
 	int rc = 0, sdam_soc, batt_temp = 0,  batt_soc_32bit = 0;
+	int last_ibat = 0;
 	bool input_present = is_input_present(chip);
+
+	rc = qg_read(chip, chip->qg_base + QG_LAST_ADC_I_DATA0_REG,
+					(u8 *)&last_ibat, 2);
+	if (rc < 0)
+	{
+		pr_err("Failed to read ibat, rc=%d\n",  rc);
+		last_ibat = 0;
+	}
+	last_ibat = sign_extend32(last_ibat, 15);
+	last_ibat = I_RAW_TO_UA(last_ibat);
+
+
+
 
 	if (chip->catch_up_soc > chip->msoc) {
 		/* SOC increased */
-		if (input_present) /* Increment if input is present */
+		chip->catch_up_soc = chip->msoc;
+		if (input_present &&  last_ibat <= 0) /* Increment if input is present */
+		{
 			chip->msoc += chip->dt.delta_soc;
+			chip->catch_up_soc = chip->msoc;
+		}
 	} else if (chip->catch_up_soc < chip->msoc) {
 		/* SOC dropped */
-		chip->msoc -= chip->dt.delta_soc;
+		chip->catch_up_soc = chip->msoc;
+		if (!input_present || last_ibat > 0)
+		{
+			chip->msoc -= chip->dt.delta_soc;
+			chip->catch_up_soc = chip->msoc;
+		}
 	}
+
 	chip->msoc = CAP(0, 100, chip->msoc);
 
 	if (chip->maint_soc > 0 && chip->msoc < chip->maint_soc

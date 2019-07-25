@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -336,7 +337,7 @@ static ssize_t tgu_set_timers(struct device *dev, struct device_attribute *attr,
 	unsigned long value;
 	int step;
 
-	if (drvdata->timer_refcnt >= MAX_TIMER_COUNTER_SETS) {
+	if (drvdata->select_refcnt >= MAX_TIMER_COUNTER_SETS) {
 		dev_err(drvdata->dev, " Too many groups are being configured");
 		return -EINVAL;
 	}

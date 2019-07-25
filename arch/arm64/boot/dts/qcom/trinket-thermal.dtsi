@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1855,28 +1856,18 @@
 		thermal-sensors = <&pm6125_adc_tm ADC_AMUX_THM2_PU2>;
 		wake-capable-sensor;
 		trips {
-			batt_trip0: batt-trip0 {
-				temperature = <45000>;
-				hysteresis = <2000>;
-				type = "passive";
-			};
 			gold_trip: gold-trip {
-				temperature = <46000>;
+				temperature = <50000>;
 				hysteresis = <0>;
 				type = "passive";
 			};
 			modem_trip0: modem-trip0 {
-				temperature = <46000>;
+				temperature = <74000>;
 				hysteresis = <4000>;
 				type = "passive";
 			};
-			batt_trip1: batt-trip1 {
-				temperature = <47000>;
-				hysteresis = <2000>;
-				type = "passive";
-			};
 			modem_trip1: modem-trip1 {
-				temperature = <48000>;
+				temperature = <76000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
@@ -1885,18 +1876,13 @@
 				hysteresis = <0>;
 				type = "passive";
 			};
-			batt_trip2: batt-trip2 {
-				temperature = <49000>;
-				hysteresis = <2000>;
-				type = "passive";
-			};
 			modem_trip2: modem-trip2 {
-				temperature = <50000>;
+				temperature = <78000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
-			batt_trip3: batt-trip3 {
-				temperature = <51000>;
+			batt_trip0: batt-trip0 {
+				temperature = <38000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
@@ -1906,13 +1892,28 @@
 				type = "passive";
 			};
 			modem_trip3: modem-trip3 {
-				temperature = <52000>;
+				temperature = <90000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
 			cx_emer_trip: cx-emer-trip {
 				temperature = <52000>;
 				hysteresis = <4000>;
+				type = "passive";
+			};
+			batt_trip1: batt-trip1 {
+				temperature = <41000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			batt_trip2: batt-trip2 {
+				temperature = <44000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			batt_trip4: batt-trip4 {
+				temperature = <49000>;
+				hysteresis = <2000>;
 				type = "passive";
 			};
 		};
@@ -1995,10 +1996,14 @@
 			};
 			battery_lvl2 {
 				trip = <&batt_trip2>;
-				cooling-device = <&pmi632_charger 4 4>;
+				cooling-device = <&pmi632_charger 3 3>;
 			};
 			battery_lvl3 {
-				trip = <&batt_trip3>;
+				trip = <&skin_gpu_trip>;
+				cooling-device = <&pmi632_charger 4 4>;
+			};
+			battery_lvl4 {
+				trip = <&batt_trip4>;
 				cooling-device = <&pmi632_charger 5 5>;
 			};
 			cx_skin_gpu {

@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +22,7 @@
 #include "msm_sd.h"
 #include "cam_soc_api.h"
 
-#define CSID_SOF_DEBUG_COUNT                      3
+#define CSID_SOF_DEBUG_COUNT                      5
 
 enum csiphy_lane_assign {
 	PHY_LANE_D0,

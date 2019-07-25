@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Linaro Ltd.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -505,24 +506,25 @@ static void qmi_handle_message(struct qmi_handle *qmi,
 	if (hdr->type == QMI_RESPONSE) {
 		mutex_lock(&qmi->txn_lock);
 		txn = idr_find(&qmi->txns, hdr->txn_id);
-		if (txn)
-			mutex_lock(&txn->lock);
-		mutex_unlock(&qmi->txn_lock);
-	}
+        /* Ignore unexpected responses */
+        if (!txn) {
+            mutex_unlock(&qmi->txn_lock);
+            return;
+        }
+        mutex_lock(&txn->lock);
+        if (txn->dest && txn->ei) {
+            ret = qmi_decode_message(buf, len, txn->ei, txn->dest);
+            if (ret < 0)
+                pr_err("failed to decode incoming message\n");
 
-	if (txn && txn->dest && txn->ei) {
-		ret = qmi_decode_message(buf, len, txn->ei, txn->dest);
-		if (ret < 0)
-			pr_err("failed to decode incoming message\n");
-
-		txn->result = ret;
-		complete(&txn->completion);
+            txn->result = ret;
+            complete(&txn->completion);
+        } else {
+            qmi_invoke_handler(qmi, sq, txn, buf, len);
+        }
 
 		mutex_unlock(&txn->lock);
-	} else if (txn) {
-		qmi_invoke_handler(qmi, sq, txn, buf, len);
-
-		mutex_unlock(&txn->lock);
+        mutex_unlock(&qmi->txn_lock);
 	} else {
 		/* Create a txn based on the txn_id of the incoming message */
 		memset(&tmp_txn, 0, sizeof(tmp_txn));

@@ -1,0 +1,349 @@
+# touchpanel公共接口规范V0.1
+
+## 前言
+
+为了统一测试程序和驱动接口函数，要求TP驱动工程师移植TP驱动程序时尽量遵循这一套规范，同时它大大缓解代码冗余的顽症，这套规范示例程序遵循通用linux编程习惯，需要后续wingtech人将此套程序和文档不断完善。现在我们已经支持开短路测试节点、lockdown信息节点、小米手势节点、魅族手势节点、联想固件升级节点以及工模hardwareinfo信息显示等功能。并且已经实现固件升级脚本、开短路测试脚本以及本驱动移植脚本（一条命令完成本驱动bringup，简直不能再嗨）。
+
+## 如何描述TP设备信息
+
+我们关注TP的主要信息有哪些？主要包括，IC厂商，IC型号和模组厂。我们使用`struct touch_info_dev`结构体描述这些必要的信息。
+
+```c
+/**
+ * struct touch_info_dev - The touch information structure
+ *
+ * @rst_gpio:             The reset gpio num.
+ * @irq_gpio:             The irq gpio num.
+ * @vendor:               The vendor of the touch ic.
+ * @product:              The name of the touch ic.
+ * @panel_maker:          The maker of the touch panel.If you enable
+ *  	CONFIG_TOUCHSCREEN_TID_LOCKDOWNINFO_SUPPORT, @panel_maker can set NULL.Because
+ *  	we will get maker via @tid_ops->get_lockdown_info().
+ * @use_dev_path:         If your driver has implemented the sysfs file,
+ *  	you can set @use_dev_path %true. And also, @reset,
+ *  	@get_version and @firmware_upgrade do not need to
+ *  	implement. Otherwise set @use_dev_path %false. We will
+ *  	help you create those sysfs file.
+ * @fw_name_use_color:    Firmware name should include panel color?
+ * @ini_name_use_color:   Ini(open-short test) name should include panel color?
+ * @tid_ops:              The methods of touch_info_dev.
+ * @p:                    Touch core specific data, your driver should not touch it.
+ * @dev                   Device.
+ */
+struct touch_info_dev {
+	int rst_gpio;
+	int irq_gpio;
+	const char *vendor;
+	const char *product;
+	const char *panel_maker;
+	bool use_dev_path:1;
+	bool fw_name_use_color:1;
+	bool ini_name_use_color:1;
+	bool open_short_not_use_fw:1;
+	struct touch_info_dev_operations *tid_ops;
+
+	/**
+	 * touch core specific data, your driver should
+	 * not touch it.
+	 */
+	struct tid_private *p;
+	struct device dev;
+	const char *panel_color;
+};
+```
+
+注释信息已经非常的详细，vendor、product和panel_maker构成了以上三要素信息。另外，gpio_rst和gpio_irq是复位和中断的gpio num。为了方便调试，我们会导出查看gpio value的节点信息，如果你不需要这些调试信息，就不用理会。如果你希望可以查看gpio value，那么就需要赋正确的值。
+
+## 我们可以对TP设备进行哪些操作
+
+对于TP，我们可以对TP进行复位、获取固件版本号、固件升级、开短路测试、读取lockdown info信息以及开关手势唤醒功能。我们使用`struct touch_info_dev_operations`结构体描述这些方法。
+
+```c
+/**
+ * struct touch_info_dev_operations - The methods of touch_info_dev
+ * @reset:                  Reset the IC.
+ * @get_version:            Get the firmware version of the IC.
+ * @firmware_upgrade:       Firmware upgrade.
+ * @open_short_test:        The callback of the open-short test. If open-short
+ *  	test success return 1 and fail return 0. Return an error
+ *  	number(negative number) if there is an error.
+ * @get_lockdown_info:      Get the lockdown info. The out_values buf size
+ *  	is LOCKDOWN_INFO_SIZE.
+ * @gesture_set_capability: Enable or disable all gesture.
+ *
+ * Notice: If success return 0, otherwise return an error
+ * number(negative number) exclude @open_short_test. You can find all error
+ * numbers in include/uapi/asm-gerneric/errno-base.h.
+ */
+struct touch_info_dev_operations {
+	int (*reset) (struct device *dev);
+	int (*get_version) (struct device *dev, int *major, int *minor);
+	int (*firmware_upgrade) (struct device *dev,
+							 const struct firmware *fw, bool is_force);
+	int (*open_short_test) (struct device *dev, struct seq_file *s,
+							const struct firmware *fw););
+	/* the out_values buf size is LOCKDOWN_INFO_SIZE */
+	int (*get_lockdown_info) (struct device *dev, char *out_values);
+	int (*gesture_set_capability) (struct device *dev, bool enable);
+	int (*resume)(struct device *dev);
+	int (*suspend)(struct device *dev);
+	int (*product_selector)(struct device *dev);
+};
+```
+
+以上`struct device *dev`就是TP驱动对应的device；major为主版本号，minor为次版本号，minor才是我们需要的移植递增的版本号；const struct firmware *fw为固件相关信息；bool is_force为１时强制升级，为０时比较版本号升级。open_short_test是开短路测试接口，如果开短路测试成功函数返回1，失败返回0。当函数出错的时候返回错误码，例如：内存不足返回-ENOMEM。get_lockdown_info获取lockdown info信息，buf是输出型参数，buf size是LOCKDOWN_INFO_SIZE。gesture_set_capability是开关手势接口，enable为true，则打开手势唤醒功能，否则关闭。
+
+这些接口就是我们移植驱动的时候需要实现的接口，当然是根据你的需求实现。没有lockdown info，自然不需要实现接口。这个结构体就类似`struct file_operations`。
+
+## 如何使用这套公共接口
+
+所有的接口以及结构体声明都在linux/input/touch-info.h文件。
+
+### 分配struct touch_info_dev
+
+首先我们需要填充`struct touch_info_dev`结构体，在此之前需要分配内存。我们提供两种方式分配内存。分别是静态定义和动态内存分配。
+
+- 静态分配
+
+  ```c#
+  /* Initialize a touch_info_dev structure */
+  #define TOUCH_INFO_DEV_INIT(name) {       \
+  	.rst_gpio          = -1,            \
+  	.irq_gpio          = -1,            \
+  	.vendor            = NULL,          \
+  	.product           = NULL,          \
+  	.panel_maker       = NULL,          \
+  	.use_dev_path      = false,         \
+  	.fw_name_use_color = false,         \
+  	.tid_ops           = NULL,          \
+  	.p                 = NULL,          \
+  }
+
+  /* Define a touch_info_dev varible statically and initialize it */
+  #define TOUCH_INFO_DEV(name) \
+  	struct touch_info_dev name = TOUCH_INFO_DEV_INIT(name)
+  ```
+
+  使用`TOUCH_INFO_DEV`宏定义定义一个变量病初始化。类似`LIST_INIT`宏。
+
+- 动态分配
+
+  ```c
+  /**
+   * devm_touch_info_dev_allocate: - allocate memory for touch_info_dev
+   * @dev:       pointer to the caller device
+   * @alloc_ops: whether allocate memory for touch_info_dev_operations.
+   *  	if @alloc_ops is %true, the function will allocate memory for
+   *  	touch_info_dev_operations. if @alloc_ops is %false, it will not.
+   **/
+  struct touch_info_dev *devm_touch_info_dev_allocate(struct device *dev,
+  													bool alloc_ops);
+
+  static inline struct touch_info_dev *devm_tid_allocate(struct device *dev);
+  static inline struct touch_info_dev *devm_tid_and_ops_allocate(struct device *dev);
+  ```
+
+  这是一个devm版本的内存分配函数，返回值就是`struct touch_info_dev *`类型。`alloc_ops`决定是否一并分配`struct touch_info_dev_operations`结构体。
+
+  devm_tid_allocate和devm_tid_and_ops_allocate是对devm_touch_info_dev_allocate的封装，接口更简洁明了。
+
+### 填充struct touch_info_dev
+
+`struct touch_info_dev`结构体的信息就需要我们在TP的驱动的probe函数中，在合适的时机填充合适的数据。这部分可以参考[提交](http://192.168.30.13:8081/#/c/53020/)。这部分很重要。
+
+当然部分成员变量除了手动填充以外，同样提供了dts配置的方法。具体的dts配置选项请参考of_touch_info_dev_parse函数。
+
+### 如何注册touch_info_dev
+
+```c
+/**
+ * devm_touch_info_dev_register: - create a device for a managed device
+ * @parent: pointer to the caller device
+ * @name:   name of new device to create
+ * @info:   the device information
+ *
+ * If an device allocated with this function needs to be freed
+ * separately, devm_touch_info_dev_unregister() must be used.
+ **/
+struct device *devm_touch_info_dev_register(struct device *parent,
+											const char *name,
+											struct touch_info_dev *info);
+struct device *touch_info_dev_register(struct device *parent, const char *name,
+									   struct touch_info_dev *info);
+
+static inline int devm_tid_register(struct device *dev,
+									struct touch_info_dev *tid);
+static inline void devm_tid_unregister(struct device *dev,
+									   struct touch_info_dev *tid);
+```
+
+当`struct touch_info_dev`已经准备完毕后，就可以调用devm_touch_info_dev_register注册device。devm_touch_info_dev_register和touch_info_dev_register的区别就像是devm_kmalloc和kamlloc函数的区别。如果使用touch_info_dev_register接口，在TP驱动probe失败的时候，需要调用touch_info_dev_unregister函数注销touch_info_dev。
+
+devm_tid_register和devm_tid_unregister是分别对devm_touch_info_dev_register和devm_touch_info_dev_unregister的封装。
+
+## 如何移植touchpanel公共接口驱动
+
+我们先来看看我们提供了哪些文件。
+
+```c
+.
+├── defconfig
+├── demo.c
+├── fw_upgrade.py
+├── Kconfig
+├── Lindent
+├── Makefile
+├── porting.py
+├── README.md
+├── touch-info.c
+└── touch-info.h
+
+0 directories, 10 files
+```
+
+简单介绍每个文件的功能。
+
+- defconfig：配置选项
+- demo.c：移植参考事例代码
+- fw_upgrade.py：固件升级、开短路测试以及获取IC信息脚本
+- Kconfig：kconfig
+- Makefile：Makedile
+- porting.py：移植脚本
+- README.md：介绍文档信息
+- touch-info.c：实现代码
+- touch-info.h：接口头文件
+
+代码目录下面有一个porting.py的脚本。运行一下命令完成移植操作。
+
+```c
+./porting.py <kernel_root_dir>
+```
+
+例如我的工程kernel的根目录是/home/songmuchun/workspace/88661aa1/ap/android/kernel/msm-4.4，只需要以下方式运行脚本即可。
+
+```c
+./porting.py /home/songmuchun/workspace/88661aa1/ap/android/kernel/msm-4.4
+```
+
+经过以上步骤就完成了移植的工作，剩下就是根据项目需求配置defconfig文件。合法的CONFIG如下：
+
+```c
+CONFIG_TOUCHSCREEN_TID_SUPPORT=y
+CONFIG_TOUCHSCREEN_TID_PROC_SUPPORT=y
+CONFIG_TOUCHSCREEN_TID_OPENSHORT_TEST=y
+CONFIG_TOUCHSCREEN_TID_OPENSHORT_TEST_STORE_RESULT=y
+CONFIG_TOUCHSCREEN_TID_LOCKDOWNINFO_SUPPORT=y
+CONFIG_TOUCHSCREEN_TID_GESTURE_SUPPORT=y
+```
+
+- CONFIG_TOUCHSCREEN_TID_SUPPORT是必选项
+- 如果项目需要相关节点在proc目录，需要配置CONFIG_TOUCHSCREEN_TID_PROC_SUPPORT
+- 支持开短路测试，配置CONFIG_TOUCHSCREEN_TID_OPENSHORT_TEST
+- 支持开短路数据自动写入文件，配置CONFIG_TOUCHSCREEN_TID_OPENSHORT_TEST_STORE_RESULT
+- 支持lockdown info，配置CONFIG_TOUCHSCREEN_TID_LOCKDOWNINFO_SUPPORT
+- 支持手势功能，配置CONFIG_TOUCHSCREEN_TID_GESTURE_SUPPORT
+
+### 手势说明
+
+支持魅族的手势（或者类似魅族项目需要支持很多手势）的情况下，报点请使用如下接口：
+
+```c
+int tid_report_key(struct touch_info_dev *tid, enum gesture_key key);
+```
+
+根据唤醒手势传递不同的参数，合法的参数如下：
+
+```c
+/**
+ * Gesture report core supported key code.
+ * You can report gesture key code via tid_report_key().
+ */
+enum gesture_key {
+	GS_KEY_SWIPE_LEFT = 0,
+	GS_KEY_SWIPE_RIGHT,
+	GS_KEY_SWIPE_UP,
+	GS_KEY_SWIPE_DOWM,
+	GS_KEY_DOUBLE_TAP,
+	GS_KEY_ONECE_TAP,
+	GS_KEY_LONG_PRESS,
+	GS_KEY_E,
+	GS_KEY_C,
+	GS_KEY_W,
+	GS_KEY_M,
+	GS_KEY_O,
+	GS_KEY_S,
+	GS_KEY_V,
+	GS_KEY_Z,
+};
+```
+
+### 工模hardware info信息显示
+
+我们提供一下接口获取TP的hardware info信息。
+
+```c
+/**
+ * tid_hardware_info_get: - get hardware info and print it to the buf
+ * @buf:  the buffer to store hardware info
+ * @size: the buffer size
+ *
+ * If this function get hardware info success, it return 0.
+ * Otherwise, it return errno.
+ **/
+int tid_hardware_info_get(char *buf, int size);
+```
+
+我们公司工模hardware的驱动是drivers/misc/hardware_info.c文件，我们需要修改该文件调用该函数（如果该文件已经调用就不需要修改了）。修改参考[提交](http://192.168.30.13:8081/#/c/53020/1/drivers/misc/hardware_info.c)（注意这个提交有个问题，需要将ARRAY_SIZE(hardwareinfo_name)修改成ARRAY_SIZE(hardwareinfo_name[0])）。添加的如下函数是为了防止其他小组成员提交hardware_info.c文件的时候编译报错。
+
+```c
+int __weak tid_hardware_info_get(char *buf, int size)
+{
+	snprintf(buf, size, "touch info interface is not ready\n");
+
+	return 0;
+}
+```
+
+## fw_upgrade.py使用说明
+
+运行`./fw_upgrade.py -h`会有帮助信息。window必须下载python开发环境。
+
+```c
+Usage: fw_upgrade [file] [option]
+ upgrade firmware with compare the version of firmware
+  -f, --force            Force upgrade firmware
+  -v, --version          Get version of the firmware
+  -t, --open-short-test  Open-short test
+  -a, --all              Display all information about touchpanel
+  -c, --cover            objcopy -I binary -O ihex <file> <file.ihex>\n"
+  -r, --reverse          objcopy -I ihex -O binary <file.ihex> <file>\n"
+  -h, --help             Display this information
+```
+
+如果我们固件升级，使用`./fw_upgrade.py firmware_path_name`即可。强制升级可以`./fw_upgrade.py firmware_path_name -f`。运行`./fw_upgrade.py -t`开短路测试。支持多次测试，例如：`./fw_upgrade.py -t 100`开短路测试100次。
+
+## 开机自动升级
+
+固件升级直接放在probe中是不明智的选择，很明显增加开机时间。因此，我们考虑创建工作队列帮助我们干活。因此，我提供了如下接口用来固件升级。使用该接口的前提是实现了touch_info_dev_operations->firmware_upgrade接口函数。
+
+```c
+/**
+ * tid_upgrade_firmware_nowait: - asynchronous version of request_firmware
+ * @info: struct touch_info_dev
+ *
+ * Notice: If disable lockdown info interface, the firmware name is
+ * 'vendor-product-panelmaker.img'. Otherwise, the firmware name is
+ * 'vendor-product-panelmaker-panelcolor.img'.
+ **/
+int tid_upgrade_firmware_nowait(struct touch_info_dev *info);
+```
+
+该函数中的功能是创建一个workqueue，然后返回。所有的升级工作不需要你操心。只要调用该函数就是触发开机自动升级。需要说明一点，固件的名称是固定的。分别是vendor-product-panelmaker.img或者vendor-product-panelmaker-panelcolor.img。具体哪种方式取决于注册时候touch_info_dev的fw_name_use_color成员。
+
+固件放在kernel根目录下面的firmware文件夹里面，目的是统一管理。假设你有一个二进制固件名称是：**synaptics-td4310-cdot.img**。现在移植需要以下步骤。
+
+1. cp synaptics-td4310-cdot.img ./firmware/synaptics-td4310-cdot.img
+2. 修改firmware/Makefile，增加obj-$(CONFIG_***) += synaptics-td4310-cdot.img
+3. objcopy -I binary -O ihex synaptics-td4310-cdot.img synaptics-td4310-cdot.img.ihex
+4. rm ./firmware/synaptics-td4310-cdot.img，只保留synaptics-td4310-cdot.img.ihex文件即可
+

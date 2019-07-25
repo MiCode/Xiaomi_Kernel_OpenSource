@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -785,13 +786,7 @@ done_isr_handle:
 	return ret;
 }
 
-/**
- * sde_hw_rotator_pending_hwts - Check if the given context is still pending
- * @rot: Pointer to hw rotator
- * @ctx: Pointer to rotator context
- * @phwts: Pointer to returned reference hw timestamp, optional
- * @return: true if context has pending requests
- */
+
 static int sde_hw_rotator_pending_hwts(struct sde_hw_rotator *rot,
 		struct sde_hw_rotator_context *ctx, u32 *phwts)
 {
@@ -840,13 +835,7 @@ static void sde_hw_rotator_update_hwts(struct sde_hw_rotator *rot,
 		SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_ROT_CNTR_0, hwts);
 }
 
-/**
- * sde_hw_rotator_pending_swts - Check if the given context is still pending
- * @rot: Pointer to hw rotator
- * @ctx: Pointer to rotator context
- * @pswts: Pointer to returned reference software timestamp, optional
- * @return: true if context has pending requests
- */
+
 static int sde_hw_rotator_pending_swts(struct sde_hw_rotator *rot,
 		struct sde_hw_rotator_context *ctx, u32 *pswts)
 {
@@ -1364,12 +1353,7 @@ static void sde_hw_rotator_vbif_setting(struct sde_hw_rotator *rot)
 	}
 }
 
-/*
- * sde_hw_rotator_setup_timestamp_packet - setup timestamp writeback command
- * @ctx: Pointer to rotator context
- * @mask: Bit mask location of the timestamp
- * @swts: Software timestamp
- */
+
 static void sde_hw_rotator_setup_timestamp_packet(
 		struct sde_hw_rotator_context *ctx, u32 mask, u32 swts)
 {

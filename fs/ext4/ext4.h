@@ -986,21 +986,7 @@ struct ext4_inode_info {
 
 	struct list_head i_orphan;	/* unlinked but open inodes */
 
-	/*
-	 * i_disksize keeps track of what the inode size is ON DISK, not
-	 * in memory.  During truncate, i_size is set to the new size by
-	 * the VFS prior to calling ext4_truncate(), but the filesystem won't
-	 * set i_disksize to 0 until the truncate is actually under way.
-	 *
-	 * The intent is that i_disksize always represents the blocks which
-	 * are used by this file.  This allows recovery to restart truncate
-	 * on orphans if we crash during truncate.  We actually write i_disksize
-	 * into the on-disk inode when writing inodes out, instead of i_size.
-	 *
-	 * The only time when i_disksize and i_size may be different is when
-	 * a truncate is in progress.  The only things which change i_disksize
-	 * are ext4_get_block (growth) and ext4_truncate (shrinkth).
-	 */
+
 	loff_t	i_disksize;
 
 	/*

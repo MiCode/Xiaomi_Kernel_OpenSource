@@ -1,4 +1,5 @@
 /* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,12 +13,37 @@
 
 #include "dsi-panel-td4330-truly-singlemipi-fhd-cmd.dtsi"
 #include "dsi-panel-td4330-truly-singlemipi-fhd-video.dtsi"
+#include "dsi-panel-r692a9-gvo-amoled-hdp-video.dtsi"
+#include "dsi-panel-s6e8fco-samsung-amoled-hdp-video.dtsi"
 #include "dsi-panel-sim-video.dtsi"
 #include "dsi-panel-hx83112a-truly-singlemipi-fhd-video.dtsi"
 #include "dsi-panel-nt36672-truly-fhd-video.dtsi"
 #include <dt-bindings/clock/mdss-14nm-pll-clk.h>
 
 &soc {
+		panel_ldo: panel_ldo-gpio-regulator {
+		compatible = "regulator-fixed";
+
+		regulator-name = "panel_ldo-gpio-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+
+		gpio = <&tlmm 26 0>;
+		enable-active-high;
+		regulator-boot-on;
+		};
+		panel_iovcc: panel_iovcc-gpio-regulator {
+		compatible = "regulator-fixed";
+
+		regulator-name = "panel_iovcc-gpio-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+
+		gpio = <&tlmm 124 0>;
+		enable-active-high;
+		regulator-boot-on;
+	};
+
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -29,26 +55,22 @@
 			qcom,supply-max-voltage = <1800000>;
 			qcom,supply-enable-load = <62000>;
 			qcom,supply-disable-load = <80>;
-			qcom,supply-post-on-sleep = <20>;
 		};
-
 		qcom,panel-supply-entry@1 {
-			reg = <1>;
-			qcom,supply-name = "lab";
-			qcom,supply-min-voltage = <4600000>;
-			qcom,supply-max-voltage = <6000000>;
-			qcom,supply-enable-load = <100000>;
-			qcom,supply-disable-load = <100>;
-		};
-
+				reg = <1>;
+				qcom,supply-name = "panel_ldo";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
 		qcom,panel-supply-entry@2 {
 			reg = <2>;
-			qcom,supply-name = "ibb";
-			qcom,supply-min-voltage = <4600000>;
-			qcom,supply-max-voltage = <6000000>;
+			qcom,supply-name = "panel_iovcc";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
 			qcom,supply-enable-load = <100000>;
 			qcom,supply-disable-load = <100>;
-			qcom,supply-post-on-sleep = <20>;
 		};
 	};
 
@@ -114,6 +136,29 @@
 
 		qcom,dsi-panel = <&dsi_td4330_truly_cmd>;
 	};
+	dsi_r692a9_gvo_hdp_video_display: qcom,dsi-display@4 {
+		label = "dsi_r692a9_gvo_hdp_video_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_r692a9_gvo_hdp_video>;
+
+	};
+
+    dsi_s6e8fco_samsung_hdp_video_display: qcom,dsi-display@5 {
+		label = "dsi_s6e8fco_samsung_hdp_video_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_s6e8fco_samsung_hdp_video>;
+
+	};
 
 	dsi_sim_vid_display: qcom,dsi-display@2 {
 		label = "dsi_sim_vid_display";
@@ -137,7 +182,7 @@
 		qcom,dsi-panel = <&dsi_hx83112a_truly_video>;
 	};
 
-	dsi_nt36672_truly_vid_display: qcom,dsi-display@4 {
+	dsi_nt36672_truly_vid_display: qcom,dsi-display@6 {
 		label = "dsi_nt36672_truly_vid_display";
 		qcom,display-type = "primary";
 
@@ -164,18 +209,20 @@
 			"src_byte_clk0", "src_pixel_clk0",
 			"shadow_byte_clk0", "shadow_pixel_clk0";
 		pinctrl-names = "panel_active", "panel_suspend";
-		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
-		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
+		pinctrl-0 = <&sde_dsi_active>;
+		pinctrl-1 = <&sde_dsi_suspend>;
 
-		qcom,platform-te-gpio = <&tlmm 89 0>;
+		qcom,error-flag-gpio = <&tlmm 9 0>;
 
 		vddio-supply = <&L9A>;
-		lab-supply = <&lcdb_ldo_vreg>;
-		ibb-supply = <&lcdb_ncp_vreg>;
+		panel_ldo-supply = <&panel_ldo>;
+		panel_iovcc-supply = <&panel_iovcc>;
 
 		qcom,dsi-display-list =
 			<&dsi_td4330_truly_vid_display
 			&dsi_td4330_truly_cmd_display
+			&dsi_r692a9_gvo_hdp_video_display
+			&dsi_s6e8fco_samsung_hdp_video_display
 			&dsi_sim_vid_display
 			&dsi_hx83112a_truly_vid_display
 			&dsi_nt36672_truly_vid_display>;
@@ -220,6 +267,62 @@
 			qcom,default-topology-index = <0>;
 			qcom,partial-update-enabled = "single_roi";
 			qcom,panel-roi-alignment = <40 40 40 40 40 40>;
+		};
+	};
+};
+&dsi_r692a9_gvo_hdp_video {
+	qcom,mdss-dsi-t-clk-post = <0x0d>;
+	qcom,mdss-dsi-t-clk-pre = <0x2c>;
+
+	qcom,white-check-enabled;
+	qcom,mdss-dsi-white-command = [06 01 00 01 00 00 01 7C
+		06 01 00 01 00 00 01 7D];
+	qcom,mdss-dsi-white-command-state = "dsi_hs_mode";
+	qcom,panel-status-read-white-length = <1 1>;
+
+
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "error_flag";
+
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings =
+				[22 1E 07 08 04 02 04 a0
+				22 1E 07 08 04 02 04 a0
+				22 1E 07 08 04 02 04 a0
+				22 1E 07 08 04 02 04 a0
+				22 18 07 08 04 02 04 a0];
+
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_s6e8fco_samsung_hdp_video {
+	qcom,mdss-dsi-t-clk-post = <0x0D>;
+	qcom,mdss-dsi-t-clk-pre = <0x2C>;
+
+	qcom,white-check-enabled;
+	qcom,mdss-dsi-white-command = [06 01 00 01 00 00 01 A1];
+	qcom,mdss-dsi-white-command-state = "dsi_hs_mode";
+	qcom,panel-status-read-white-length = <22>;
+
+
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "error_flag";
+
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings =
+				[22 1E 07 08 04 02 04 a0
+				22 1E 07 08 04 02 04 a0
+				22 1E 07 08 04 02 04 a0
+				22 1E 07 08 04 02 04 a0
+				22 18 07 08 04 02 04 a0];
+
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
 		};
 	};
 };

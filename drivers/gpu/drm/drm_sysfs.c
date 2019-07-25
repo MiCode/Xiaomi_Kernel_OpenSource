@@ -22,6 +22,10 @@
 #include <drm/drmP.h>
 #include "drm_internal.h"
 
+#include "./msm/sde/sde_connector.h"
+#include "./msm/dsi-staging/dsi_display.h"
+
+
 #define to_drm_minor(d) dev_get_drvdata(d)
 #define to_drm_connector(d) dev_get_drvdata(d)
 
@@ -229,16 +233,138 @@ static ssize_t modes_show(struct device *device,
 	return written;
 }
 
+
+
+
+unsigned long disp_param_value = 0 ;
+static ssize_t disp_param_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+	ssize_t count = 0;
+	DRM_ERROR("disp_param_store set brightness and ,disp_param_value = 0x%lx\n",disp_param_value);
+	count = snprintf(buf + count, PAGE_SIZE, "disp_param_value : 0x%lx\n",disp_param_value);
+	return count;
+}
+
+static ssize_t disp_param_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	struct sde_connector *c_conn;
+	struct dsi_display *display;
+	uint32_t param;
+
+
+	c_conn = container_of(connector,struct sde_connector,base);
+	if (!c_conn || !c_conn->display){
+		DRM_ERROR("NULL pionter");
+		return 0;
+	}
+
+	display = (struct dsi_display *) c_conn->display;
+
+	sscanf(buf, "0x%x", &param);
+	DRM_INFO("%s: buf = %s, param = 0x%x\n", __func__, buf, param);
+
+	dsi_display_param_store(display, param);
+
+	return count;
+}
+
+static ssize_t acl_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+	struct dsi_display *display;
+	struct sde_connector *disp_param_set;
+	struct drm_connector *connector = to_drm_connector(device);
+	disp_param_set = container_of(connector,struct sde_connector,base);
+	display = (struct dsi_display *) disp_param_set->display;
+
+	return snprintf(buf, 5, "%d\n",display->panel->last_acl_flag);
+
+
+}
+
+
+
+static ssize_t acl_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+    int flag_debug,ret;
+	struct dsi_display *display;
+	struct sde_connector *disp_param_set;
+	struct drm_connector *connector = to_drm_connector(device);
+	disp_param_set = container_of(connector,struct sde_connector,base);
+	display = (struct dsi_display *) disp_param_set->display;
+	sscanf(buf,"%d",&flag_debug);
+
+	pr_err("flag_debug=%d\n",flag_debug);
+	if (display->panel->panel_initialized)
+	{
+	ret = disp_param_set->ops.set_panel_register(&disp_param_set->base,
+		disp_param_set->display, flag_debug);
+	if (ret) {
+		pr_err("acl set fail\n");
+		}
+	else
+	display->panel->last_acl_flag=flag_debug;
+	}
+
+	return count;
+}
+
+static ssize_t white_read_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+    int ret=0;
+	struct dsi_display *display;
+	struct sde_connector *disp_param_set;
+	struct drm_connector *connector = to_drm_connector(device);
+	disp_param_set = container_of(connector,struct sde_connector,base);
+	display = (struct dsi_display *) disp_param_set->display;
+	if (display->panel->panel_initialized)
+	{
+	if (display->panel->sansumg_flag)
+	{
+	ret = disp_param_set->ops.check_white_status(&disp_param_set->base,
+	disp_param_set->display, true);
+	}
+	else
+	{
+	ret = disp_param_set->ops.set_panel_register(&disp_param_set->base,
+	disp_param_set->display, 2);
+	ret = disp_param_set->ops.check_white_status(&disp_param_set->base,
+	disp_param_set->display, true);
+	ret = disp_param_set->ops.set_panel_register(&disp_param_set->base,
+	disp_param_set->display, 3);
+	}
+	}
+	return snprintf(buf, 10, "%d:%d\n",display->panel->point_read.point_x,display->panel->point_read.point_y);
+}
+
+
+
+
 static DEVICE_ATTR_RW(status);
 static DEVICE_ATTR_RO(enabled);
 static DEVICE_ATTR_RO(dpms);
 static DEVICE_ATTR_RO(modes);
-
+static DEVICE_ATTR_RW(disp_param);
+static DEVICE_ATTR_RW(acl);
+static DEVICE_ATTR_RO(white_read);
 static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_status.attr,
 	&dev_attr_enabled.attr,
 	&dev_attr_dpms.attr,
 	&dev_attr_modes.attr,
+	&dev_attr_disp_param.attr,
+	&dev_attr_acl.attr,
+	&dev_attr_white_read.attr,
 	NULL
 };
 

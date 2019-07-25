@@ -3643,10 +3643,7 @@ bfa_fcp_meminfo(struct bfa_iocfc_cfg_s *cfg, struct bfa_meminfo_s *minfo,
 	u16	nsegs, idx, per_seg_ios, num_io_req;
 	u32	km_len = 0;
 
-	/*
-	 * ZERO for num_ioim_reqs and num_fwtio_reqs is allowed config value.
-	 * So if the values are non zero, adjust them appropriately.
-	 */
+
 	if (cfg->fwcfg.num_ioim_reqs &&
 	    cfg->fwcfg.num_ioim_reqs < BFA_IOIM_MIN)
 		cfg->fwcfg.num_ioim_reqs = BFA_IOIM_MIN;

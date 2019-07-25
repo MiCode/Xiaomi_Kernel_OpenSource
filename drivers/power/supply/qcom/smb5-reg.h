@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -179,6 +180,7 @@ enum {
 #define SHIP_MODE_EN_BIT			BIT(0)
 
 #define BATIF_ADC_CHANNEL_EN_REG		(BATIF_BASE + 0x82)
+#define IBATT_CHANNEL_EN_BIT			BIT(6)
 #define CONN_THM_CHANNEL_EN_BIT			BIT(4)
 #define DIE_TEMP_CHANNEL_EN_BIT			BIT(2)
 #define MISC_THM_CHANNEL_EN_BIT			BIT(1)
@@ -311,6 +313,9 @@ enum {
 #define ENG_SSUPPLY_12V_OV_OPT_BIT		BIT(1)
 
 #define USBIN_5V_AICL_THRESHOLD_REG		(USBIN_BASE + 0x81)
+
+#define USBIN_9V_AICL_THRESHOLD_REG		(USBIN_BASE + 0x82)
+
 #define USBIN_CONT_AICL_THRESHOLD_REG		(USBIN_BASE + 0x84)
 /********************************
  *  DCIN Peripheral Registers   *
@@ -392,6 +397,10 @@ enum {
 #define TYPEC_CCOUT_VALUE_BIT			BIT(1)
 #define TYPEC_CCOUT_SRC_BIT			BIT(0)
 
+#define TYPE_C_DEBUG_ACCESS_SINK_REG	(TYPEC_BASE + 0x4A)
+#define EN_CHG_ON_DEBUG_ACCESS_SNK_BIT		BIT(1)
+#define DAM_DIS_AICL_BIT				BIT(3)
+
 #define DEBUG_ACCESS_SRC_CFG_REG		(TYPEC_BASE + 0x4C)
 #define EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT	BIT(0)
 
@@ -406,6 +415,9 @@ enum {
 
 #define TYPE_C_CURRSRC_CFG_REG			(TYPEC_BASE + 0x52)
 #define TYPEC_SRC_RP_SEL_MASK			GENMASK(1, 0)
+#define TYPE_C_CURRSRC_SNK_SRC_REG		(TYPEC_BASE + 0x0C)
+#define TYPE_C_CURRSRC_LEGACY_CABLE_REG	(TYPEC_BASE + 0x0D)
+
 enum {
 	TYPEC_SRC_RP_STD,
 	TYPEC_SRC_RP_1P5A,
@@ -517,6 +529,8 @@ enum {
 
 #define AICL_RERUN_TIME_CFG_REG			(MISC_BASE + 0x61)
 #define AICL_RERUN_TIME_12S_VAL			0x01
+
+#define AICL_RERUN_TIME_180S_VAL			0x03
 
 #define MISC_THERMREG_SRC_CFG_REG		(MISC_BASE + 0x70)
 #define THERMREG_SW_ICL_ADJUST_BIT		BIT(7)

@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -679,48 +680,13 @@ static void dcc_disable(struct dcc_drvdata *drvdata)
 	mutex_unlock(&drvdata->mutex);
 }
 
-static bool is_dcc_enabled(struct dcc_drvdata *drvdata)
-{
-	bool dcc_enable = false;
-	int list;
-
-	for (list = 0; list < DCC_MAX_LINK_LIST; list++) {
-		if (drvdata->enable[list]) {
-			dcc_enable = true;
-			break;
-		}
-	}
-
-	return dcc_enable;
-}
-
-static ssize_t dcc_show_curr_list(struct device *dev,
-			       struct device_attribute *attr, char *buf)
-{
-	int ret;
-	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
-
-	mutex_lock(&drvdata->mutex);
-	if (drvdata->curr_list == DCC_INVALID_LINK_LIST) {
-		dev_err(dev, "curr_list is not set.\n");
-		ret = -EINVAL;
-		goto err;
-	}
-
-	ret = scnprintf(buf, PAGE_SIZE, "%d\n",	drvdata->curr_list);
-err:
-	mutex_unlock(&drvdata->mutex);
-	return ret;
-}
-
-static ssize_t dcc_store_curr_list(struct device *dev,
+static ssize_t dcc_curr_list(struct device *dev,
 				   struct device_attribute *attr,
 				   const char *buf, size_t size)
 {
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 	unsigned long val;
 	uint32_t lock_reg;
-	bool dcc_enable = false;
 
 	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
@@ -729,13 +695,6 @@ static ssize_t dcc_store_curr_list(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
-
-	dcc_enable = is_dcc_enabled(drvdata);
-	if (drvdata->curr_list != DCC_INVALID_LINK_LIST	&& dcc_enable) {
-		dev_err(drvdata->dev, "DCC is enabled, please disable it first.\n");
-		mutex_unlock(&drvdata->mutex);
-		return -EINVAL;
-	}
 
 	lock_reg = dcc_readl(drvdata, DCC_LL_LOCK(val));
 	if (lock_reg & 0x1) {
@@ -748,8 +707,8 @@ static ssize_t dcc_store_curr_list(struct device *dev,
 
 	return size;
 }
-static DEVICE_ATTR(curr_list, 0644,
-			dcc_show_curr_list, dcc_store_curr_list);
+static DEVICE_ATTR(curr_list, 0200,
+		   NULL, dcc_curr_list);
 
 static ssize_t dcc_show_func_type(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -892,7 +851,6 @@ static ssize_t dcc_show_enable(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
 	int ret;
-	bool dcc_enable = false;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
 	mutex_lock(&drvdata->mutex);
@@ -902,10 +860,8 @@ static ssize_t dcc_show_enable(struct device *dev,
 		goto err;
 	}
 
-	dcc_enable = is_dcc_enabled(drvdata);
-
 	ret = scnprintf(buf, PAGE_SIZE, "%u\n",
-			 (unsigned int)dcc_enable);
+			 (unsigned int)drvdata->enable[drvdata->curr_list]);
 err:
 	mutex_unlock(&drvdata->mutex);
 	return ret;

@@ -600,6 +600,10 @@ static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	unsigned i;
 
 	for (i = 0; i < chip->ngpio; i++, gpio++) {
+/*bug430786 modify for bsp checklist begin*/
+		switch (gpio)
+            case 30 ... 33: continue;
+/*bug430786 modify for bsp checklist end*/
 		msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
 		seq_puts(s, "\n");
 	}

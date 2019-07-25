@@ -500,6 +500,11 @@ config MSM_REMOTEQDSS
 	  enable/disable these events. Interface located in
 	  /sys/class/remoteqdss.
 
+config CPUMAXFREQ
+	bool "Enable CPUMAXFREQ Proc Interface"
+	help
+	  Provide a interface for getting the maximum frequency supported by cpu core
+
 config ICNSS
 	tristate "Platform driver for Q6 integrated connectivity"
 	select CNSS_UTILS

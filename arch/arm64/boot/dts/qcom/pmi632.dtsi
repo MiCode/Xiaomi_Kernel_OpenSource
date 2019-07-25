@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -541,10 +542,10 @@
 			pmi632_flash0: qcom,flash_0 {
 				label = "flash";
 				qcom,led-name = "led:flash_0";
-				qcom,max-current = <1500>;
+				qcom,max-current = <1200>;
 				qcom,default-led-trigger = "flash0_trigger";
 				qcom,id = <0>;
-				qcom,current-ma = <1000>;
+				qcom,current-ma = <1100>;
 				qcom,duration-ms = <1280>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <400>;
@@ -567,10 +568,10 @@
 			pmi632_torch0: qcom,torch_0 {
 				label = "torch";
 				qcom,led-name = "led:torch_0";
-				qcom,max-current = <500>;
+				qcom,max-current = <950>;
 				qcom,default-led-trigger = "torch0_trigger";
 				qcom,id = <0>;
-				qcom,current-ma = <300>;
+				qcom,current-ma = <900>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <400>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -727,7 +728,7 @@
 
 		trips {
 			pmi632_low_soc: low-soc {
-				temperature = <10>;
+				temperature = <5>;
 				hysteresis = <0>;
 				type = "passive";
 			};

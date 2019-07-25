@@ -22,24 +22,7 @@
 #include "bfad_drv.h"
 #include "bfad_im.h"
 
-/*
- * BFA debufs interface
- *
- * To access the interface, debugfs file system should be mounted
- * if not already mounted using:
- * mount -t debugfs none /sys/kernel/debug
- *
- * BFA Hierarchy:
- *	- bfa/pci_dev:<pci_name>
- * where the pci_name corresponds to the one under /sys/bus/pci/drivers/bfa
- *
- * Debugging service available per pci_dev:
- * fwtrc:  To collect current firmware trace.
- * drvtrc: To collect current driver trace
- * fwsave: To collect last saved fw trace as a result of firmware crash.
- * regwr:  To write one word to chip register
- * regrd:  To read one or more words from chip register.
- */
+
 
 struct bfad_debug_info {
 	char *debug_buffer;

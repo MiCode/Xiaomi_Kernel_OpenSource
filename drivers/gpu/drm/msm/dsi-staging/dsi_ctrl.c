@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,9 +41,6 @@
 #define TO_ON_OFF(x) ((x) ? "ON" : "OFF")
 
 #define CEIL(x, y)              (((x) + ((y)-1)) / (y))
-
-#define TICKS_IN_MICRO_SECOND    1000000
-
 /**
  * enum dsi_ctrl_driver_ops - controller driver ops
  */
@@ -834,7 +832,6 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	int rc = 0;
 	u32 num_of_lanes = 0;
 	u32 bpp;
-	u32 refresh_rate = TICKS_IN_MICRO_SECOND;
 	u64 h_period, v_period, bit_rate, pclk_rate, bit_rate_per_lane,
 	    byte_clk_rate;
 	struct dsi_host_common_cfg *host_cfg = &config->common_config;
@@ -857,17 +854,9 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 		num_of_lanes = split_link->lanes_per_sublink;
 
 	if (config->bit_clk_rate_hz_override == 0) {
-		if (config->panel_mode == DSI_OP_CMD_MODE) {
-			h_period = DSI_H_ACTIVE_DSC(timing);
-			v_period = timing->v_active;
-
-			do_div(refresh_rate, timing->mdp_transfer_time_us);
-		} else {
-			h_period = DSI_H_TOTAL_DSC(timing);
-			v_period = DSI_V_TOTAL(timing);
-			refresh_rate = timing->refresh_rate;
-		}
-		bit_rate = h_period * v_period * refresh_rate * bpp;
+		h_period = DSI_H_TOTAL_DSC(timing);
+		v_period = DSI_V_TOTAL(timing);
+		bit_rate = h_period * v_period * timing->refresh_rate * bpp;
 	} else {
 		bit_rate = config->bit_clk_rate_hz_override * num_of_lanes;
 	}

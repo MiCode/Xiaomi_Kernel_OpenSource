@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, The Linux Foundation.All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +34,8 @@
 #define DSI_CLIENT_NAME_SIZE		20
 #define MAX_CMDLINE_PARAM_LEN	 512
 #define MAX_CMD_PAYLOAD_SIZE	256
+#define GPIO_READ_MAX_TIMES 3
+
 /*
  * DSI Validate Mode modifiers
  * @DSI_VALIDATE_FLAG_ALLOW_ADJUST:	Allow mode validation to also do fixup
@@ -235,6 +238,7 @@ struct dsi_display {
 	struct dsi_lane_map lane_map;
 	int cmdline_topology;
 	int cmdline_timing;
+	int esd_error_flag_gpio;
 	bool is_tpg_enabled;
 	bool ulps_enabled;
 	bool clamp_enabled;
@@ -608,6 +612,9 @@ void dsi_display_enable_event(struct drm_connector *connector,
 int dsi_display_set_backlight(struct drm_connector *connector,
 		void *display, u32 bl_lvl);
 
+int dsi_display_set_panel(struct drm_connector *connector,
+		void *display, int value);
+
 /**
  * dsi_display_check_status() - check if panel is dead or alive
  * @connector:          Pointer to drm connector structure
@@ -615,6 +622,9 @@ int dsi_display_set_backlight(struct drm_connector *connector,
  * @te_check_override:	Whether check for TE from panel or default check
  */
 int dsi_display_check_status(struct drm_connector *connector, void *display,
+				bool te_check_override);
+
+int dsi_display_check_white_status(struct drm_connector *connector, void *display,
 				bool te_check_override);
 
 /**
@@ -696,5 +706,8 @@ int dsi_display_cont_splash_config(void *display);
  */
 int dsi_display_get_panel_vfp(void *display,
 	int h_active, int v_active);
+int dsi_lowpower_register_client(struct notifier_block *nb);
+
+int dsi_display_param_store(struct dsi_display *display, uint32_t param);
 
 #endif /* _DSI_DISPLAY_H_ */

@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +26,7 @@
 #include "sde_rm.h"
 
 #define BL_NODE_NAME_SIZE 32
+#define LIMIT_PANEL_ERROR_MAX_TIMES 15
 
 /* Autorefresh will occur after FRAME_CNT frames. Large values are unlikely */
 #define AUTOREFRESH_MAX_FRAME_CNT 6
@@ -37,6 +39,8 @@
 static u32 dither_matrix[DITHER_MATRIX_SZ] = {
 	15, 7, 13, 5, 3, 11, 1, 9, 12, 4, 14, 6, 0, 8, 2, 10
 };
+
+#define PANEL_BRIGHTNESS_MAX_LEVEL 1023
 
 static const struct drm_prop_enum_list e_topology_name[] = {
 	{SDE_RM_TOPOLOGY_NONE,	"sde_none"},
@@ -84,8 +88,8 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 
 	c_conn = bl_get_data(bd);
 	display = (struct dsi_display *) c_conn->display;
-	if (brightness > display->panel->bl_config.bl_max_level)
-		brightness = display->panel->bl_config.bl_max_level;
+	if (brightness > PANEL_BRIGHTNESS_MAX_LEVEL)
+		brightness = PANEL_BRIGHTNESS_MAX_LEVEL;
 
 	/* map UI brightness into driver backlight level with rounding */
 	bl_lvl = mult_frac(brightness, display->panel->bl_config.bl_max_level,
@@ -151,6 +155,8 @@ static int sde_backlight_setup(struct sde_connector *c_conn,
 							display_count);
 	c_conn->bl_device = backlight_device_register(bl_node_name, dev->dev,
 			c_conn, &sde_backlight_device_ops, &props);
+
+
 	if (IS_ERR_OR_NULL(c_conn->bl_device)) {
 		SDE_ERROR("Failed to register backlight: %ld\n",
 				    PTR_ERR(c_conn->bl_device));
@@ -674,7 +680,6 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 end:
 	return rc;
 }
-
 void sde_connector_helper_bridge_disable(struct drm_connector *connector)
 {
 	int rc;
@@ -1129,6 +1134,14 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 	struct sde_connector_state *c_state;
 	int idx, rc;
 	uint64_t fence_fd;
+	const char *sde_mode_dpms_str[] = {
+		[SDE_MODE_DPMS_ON] = "SDE_MODE_DPMS_ON",
+		[SDE_MODE_DPMS_LP1] = "SDE_MODE_DPMS_LP1",
+		[SDE_MODE_DPMS_LP2] = "SDE_MODE_DPMS_LP2",
+		[SDE_MODE_DPMS_STANDBY] = "SDE_MODE_DPMS_STANDBY",
+		[SDE_MODE_DPMS_SUSPEND] = "SDE_MODE_DPMS_SUSPEND",
+		[SDE_MODE_DPMS_OFF] = "SDE_MODE_DPMS_OFF",
+	};
 
 	if (!connector || !state || !property) {
 		SDE_ERROR("invalid argument(s), conn %pK, state %pK, prp %pK\n",
@@ -1148,6 +1161,12 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 	/* connector-specific property handling */
 	idx = msm_property_index(&c_conn->property_info, property);
 	switch (idx) {
+	case CONNECTOR_PROP_LP:
+		if (connector->dev) {
+			connector->dev->sde_power_mode = val;
+			pr_info("sde connector set power mode = %s\n", sde_mode_dpms_str[val]);
+		}
+		break;
 	case CONNECTOR_PROP_OUT_FB:
 		/* clear old fb, if present */
 		if (c_state->out_fb)
@@ -1888,6 +1907,7 @@ int sde_connector_esd_status(struct drm_connector *conn)
 static void sde_connector_check_status_work(struct work_struct *work)
 {
 	struct sde_connector *conn;
+	static int record_panel_error_times = 0;
 	int rc = 0;
 
 	conn = container_of(to_delayed_work(work),
@@ -1919,6 +1939,15 @@ static void sde_connector_check_status_work(struct work_struct *work)
 			conn->esd_status_interval : STATUS_CHECK_INTERVAL_MS;
 		schedule_delayed_work(&conn->status_work,
 			msecs_to_jiffies(interval));
+		return;
+	}
+
+	record_panel_error_times++;
+	if (record_panel_error_times > LIMIT_PANEL_ERROR_MAX_TIMES){
+		SDE_INFO("panel recovery %d times and cancel check work\n",record_panel_error_times);
+		record_panel_error_times = 0;
+		cancel_delayed_work(&conn->status_work);
+		conn->esd_status_check = false;
 		return;
 	}
 

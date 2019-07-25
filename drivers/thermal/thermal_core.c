@@ -129,6 +129,52 @@ static int thermal_set_governor(struct thermal_zone_device *tz,
 	return ret;
 }
 
+static struct device *device_scfg;
+
+static int temp=0;
+static ssize_t
+ temp_state_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", temp);
+}
+
+static ssize_t
+ temp_state_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	int result;
+	if (kstrtoint(buf, 10, &result))
+		return -EINVAL;
+	temp=result;
+
+	sysfs_notify(&device_scfg->kobj, NULL, "temp_state");
+	printk("temp_state_store: temp=%d, result=%d, buf=%s\n",temp,result,buf);
+	return count;
+}
+
+static DEVICE_ATTR(temp_state, 0664, temp_state_show,temp_state_store);
+
+static int sconfg_num=0;
+static ssize_t
+ sconfig_show(struct device *dev, struct device_attribute *attr,
+		   char *buf)
+{
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", sconfg_num);
+}
+
+static ssize_t
+ sconfig_store(struct device *dev, struct device_attribute *attr,
+		    const char *buf, size_t count)
+{
+	int result;
+	if (kstrtoint(buf, 10, &result))
+		return -EINVAL;
+        sconfg_num = result;
+	return count;
+}
+
+static DEVICE_ATTR(sconfig, 0664, sconfig_show,sconfig_store);
+
 int thermal_register_governor(struct thermal_governor *governor)
 {
 	int err;
@@ -1621,6 +1667,8 @@ static int __init thermal_init(void)
 {
 	int result;
 
+	device_scfg = kzalloc(sizeof(struct device), GFP_KERNEL);
+
 	mutex_init(&poweroff_lock);
 	thermal_passive_wq = alloc_workqueue("thermal_passive_wq",
 						WQ_HIGHPRI | WQ_UNBOUND
@@ -1638,6 +1686,20 @@ static int __init thermal_init(void)
 	result = class_register(&thermal_class);
 	if (result)
 		goto unregister_governors;
+
+	dev_set_name(device_scfg, "thermal_message");
+	device_scfg->class = &thermal_class;
+	result = device_register(device_scfg);
+	if (result)
+	goto exit_zone_parse;
+
+	result = device_create_file(device_scfg, &dev_attr_temp_state);
+	if (result)
+	goto exit_zone_parse;
+
+	result = device_create_file(device_scfg, &dev_attr_sconfig);
+	if (result)
+	goto exit_zone_parse;
 
 	result = of_parse_thermal_zones();
 	if (result)
@@ -1662,6 +1724,7 @@ error:
 	mutex_destroy(&thermal_list_lock);
 	mutex_destroy(&thermal_governor_lock);
 	mutex_destroy(&poweroff_lock);
+	kfree(device_scfg);
 	return result;
 }
 

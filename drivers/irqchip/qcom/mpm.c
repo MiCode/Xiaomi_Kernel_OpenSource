@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,11 +125,10 @@ static inline void msm_mpm_write(unsigned int reg,
 	unsigned int offset = MPM_REGISTER(reg, subreg_index);
 	u32 r_value;
 
-	writel_relaxed(value, mpm_reg_base + offset);
-
 	do {
-		r_value = readl_relaxed(mpm_reg_base + offset);
+		writel_relaxed(value, mpm_reg_base + offset);
 		udelay(5);
+		r_value = readl_relaxed(mpm_reg_base + offset);
 	} while (r_value != value);
 }
 

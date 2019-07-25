@@ -4324,6 +4324,7 @@ static int hub_set_address(struct usb_device *udev, int devnum)
  * device says it supports the new USB 2.0 Link PM errata by setting the BESL
  * support bit in the BOS descriptor.
  */
+#if 0
 static void hub_set_initial_usb2_lpm_policy(struct usb_device *udev)
 {
 	struct usb_hub *hub = usb_hub_to_struct_hub(udev->parent);
@@ -4341,7 +4342,7 @@ static void hub_set_initial_usb2_lpm_policy(struct usb_device *udev)
 		usb_set_usb2_hardware_lpm(udev, 1);
 	}
 }
-
+#endif
 static int hub_enable_device(struct usb_device *udev)
 {
 	struct usb_hcd *hcd = bus_to_hcd(udev->bus);
@@ -4693,7 +4694,8 @@ hub_port_init(struct usb_hub *hub, struct usb_device *udev, int port1,
 	/* notify HCD that we have a device connected and addressed */
 	if (hcd->driver->update_device)
 		hcd->driver->update_device(hcd, udev);
-	hub_set_initial_usb2_lpm_policy(udev);
+
+
 fail:
 	if (retval) {
 		hub_port_disable(hub, port1, 0);

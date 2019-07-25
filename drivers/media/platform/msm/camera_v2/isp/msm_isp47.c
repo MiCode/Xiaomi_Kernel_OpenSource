@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -675,8 +676,11 @@ void msm_vfe47_process_reg_update(struct vfe_device *vfe_dev,
 		}
 	}
 	spin_lock_irqsave(&vfe_dev->reg_update_lock, flags);
-	if (reg_updated & BIT(VFE_PIX_0))
+	if (reg_updated & BIT(VFE_PIX_0)) {
+		trace_printk("VFE_PIX_0: vfe %d reg_updated: 1 \n", vfe_dev->pdev->id);
+
 		vfe_dev->reg_updated = 1;
+		}
 	vfe_dev->reg_update_requested &= ~reg_updated;
 	spin_unlock_irqrestore(&vfe_dev->reg_update_lock, flags);
 }
@@ -725,9 +729,14 @@ void msm_isp47_preprocess_camif_irq(struct vfe_device *vfe_dev,
 	if (irq_status0 & BIT(0)) {
 		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame = true;
 		vfe_dev->irq_sof_id++;
+		trace_printk("vfe %d vfe_dev->irq_sof_id %d\n",
+		vfe_dev->pdev->id, vfe_dev->irq_sof_id);
+
 		if (vfe_dev->dual_vfe_sync_mode) {
 			temp->axi_data.src_info[VFE_PIX_0].accept_frame = true;
 			temp->irq_sof_id++;
+			trace_printk("vfe %d temp->irq_sof_id %d\n",
+			vfe_dev->pdev->id, temp->irq_sof_id);
 		}
 	}
 }
@@ -752,7 +761,11 @@ void msm_vfe47_reg_update(struct vfe_device *vfe_dev,
 		update_mask = 0xF;
 	else
 		update_mask = BIT((uint32_t)frame_src);
-	ISP_DBG("%s update_mask %x\n", __func__, update_mask);
+		if (frame_src == VFE_PIX_0) {
+			trace_printk("user issue reg_update: vfeid: %d framesrc: %d frameid: %d \n",
+			vfe_dev->pdev->id, frame_src, vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+		}
+
 
 	spin_lock_irqsave(&vfe_dev->reg_update_lock, flags);
 	vfe_dev->axi_data.src_info[VFE_PIX_0].reg_update_frame_id =
@@ -1433,6 +1446,8 @@ void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 	vfe_dev->dual_vfe_enable = camif_cfg->is_split;
 	vfe_dev->dual_vfe_sync_mode =
 		(vfe_dev->dual_vfe_sync_enable && camif_cfg->is_split);
+		trace_printk("dual_vfe_sync_mode %d is_split %d\n",
+			vfe_dev->dual_vfe_sync_mode, camif_cfg->is_split);
 
 	msm_camera_io_w(pix_cfg->input_mux << 5 | pix_cfg->pixel_pattern,
 		vfe_dev->vfe_base + 0x50);

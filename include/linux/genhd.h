@@ -4,6 +4,7 @@
 
 /*
  * 	genhd.h Copyright (C) 1992 Drew Eckhardt
+ * 	genhd.h Copyright (C) 2019 XiaoMi, Inc.
  *	Generic hard disk header file by  
  * 		Drew Eckhardt
  *
@@ -60,6 +61,8 @@ enum {
 
 #define DISK_MAX_PARTS			256
 #define DISK_NAME_LEN			32
+
+#define SD_NUM 8
 
 #include <linux/major.h>
 #include <linux/device.h>

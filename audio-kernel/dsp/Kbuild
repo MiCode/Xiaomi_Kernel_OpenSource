@@ -1,0 +1,215 @@
+# We can build either as part of a standalone Kernel build or as
+# an external module.  Determine which mechanism is being used
+ifeq ($(MODNAME), )
+	KERNEL_BUILD := 1
+else
+	KERNEL_BUILD := 0
+endif
+
+ifeq ($(KERNEL_BUILD), 1)
+	# These are configurable via Kconfig for kernel-based builds
+	# Need to explicitly configure for Android-based builds
+	AUDIO_BLD_DIR := $(shell pwd)/kernel/msm-4.14
+	AUDIO_ROOT := $(AUDIO_BLD_DIR)/techpack/audio
+endif
+
+ifeq ($(KERNEL_BUILD), 0)
+	ifeq ($(CONFIG_ARCH_SDM845), y)
+		include $(AUDIO_ROOT)/config/sdm845auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sdm845autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_SDM670), y)
+		include $(AUDIO_ROOT)/config/sdm670auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sdm670autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_SDM450), y)
+		include $(AUDIO_ROOT)/config/sdm670auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sdm670autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_SM6150), y)
+		include $(AUDIO_ROOT)/config/sm6150auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_TRINKET), y)
+		include $(AUDIO_ROOT)/config/trinketauto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/trinketautoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_SM8150), y)
+		include $(AUDIO_ROOT)/config/sm8150auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sm8150autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_SDMSHRIKE), y)
+		include $(AUDIO_ROOT)/config/sm8150auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sm8150autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_QCS405), y)
+		include $(AUDIO_ROOT)/config/qcs405auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/qcs405autoconf.h
+	endif
+endif
+
+
+
+# As per target team, build is done as follows:
+# Defconfig : build with default flags
+# Slub      : defconfig  + CONFIG_SLUB_DEBUG := y +
+#	      CONFIG_SLUB_DEBUG_ON := y + CONFIG_PAGE_POISONING := y
+# Perf      : Using appropriate msmXXXX-perf_defconfig
+#
+# Shipment builds (user variants) should not have any debug feature
+# enabled. This is identified using 'TARGET_BUILD_VARIANT'. Slub builds
+# are identified using the CONFIG_SLUB_DEBUG_ON configuration. Since
+# there is no other way to identify defconfig builds, QTI internal
+# representation of perf builds (identified using the string 'perf'),
+# is used to identify if the build is a slub or defconfig one. This
+# way no critical debug feature will be enabled for perf and shipment
+# builds. Other OEMs are also protected using the TARGET_BUILD_VARIANT
+# config.
+
+############ UAPI ############
+UAPI_DIR :=	uapi
+UAPI_INC :=	-I$(AUDIO_ROOT)/include/$(UAPI_DIR)
+
+############ COMMON ############
+COMMON_DIR :=	include
+COMMON_INC :=	-I$(AUDIO_ROOT)/$(COMMON_DIR)
+
+############ QDSP6V2 ############
+
+ifdef CONFIG_SND_SOC_MSM_QDSP6V2_INTF
+	Q6_OBJS += msm-audio-event-notify.o
+	Q6_OBJS += audio_calibration.o
+	Q6_OBJS += audio_cal_utils.o
+	Q6_OBJS += q6adm.o
+	Q6_OBJS += q6afe.o
+	Q6_OBJS += q6asm.o
+	Q6_OBJS += q6audio-v2.o
+	Q6_OBJS += q6voice.o
+	Q6_OBJS += q6core.o
+	Q6_OBJS += q6common.o
+	Q6_OBJS += rtac.o
+	Q6_OBJS += q6lsm.o
+	Q6_OBJS += audio_slimslave.o
+	Q6_OBJS += adsp_err.o
+	Q6_OBJS += msm_audio_ion.o
+	Q6_OBJS += avtimer.o
+	Q6_OBJS += q6_init.o
+endif
+
+ifdef CONFIG_XT_LOGGING
+	Q6_OBJS += sp_params.o
+endif
+
+ifdef CONFIG_DTS_SRS_TM
+	Q6_OBJS += msm-dts-srs-tm-config.o
+endif
+
+ifdef CONFIG_AFE_HWDEP
+	Q6_OBJS += q6afecal-hwdep.o
+endif
+
+ifdef CONFIG_MSM_ADSP_LOADER
+ADSP_LOADER_OBJS += adsp-loader.o
+endif
+
+ifdef CONFIG_MSM_QDSP6_PDR
+QDSP6_PDR_OBJS += audio_pdr.o
+endif
+
+ifdef CONFIG_MSM_QDSP6_NOTIFIER
+QDSP6_NOTIFIER_OBJS += audio_notifier.o audio_ssr.o
+endif
+
+ifdef CONFIG_MSM_ULTRASOUND
+USF_OBJS += usf.o usfcdev.o q6usm.o
+endif
+
+ifdef CONFIG_MSM_MDF
+	Q6_OBJS += msm_mdf.o
+endif
+
+ifdef CONFIG_VOICE_MHI
+	Q6_OBJS += voice_mhi.o
+endif
+
+LINUX_INC +=	-Iinclude/linux
+
+INCS +=		$(COMMON_INC) \
+		$(UAPI_INC)
+
+EXTRA_CFLAGS += $(INCS)
+
+
+CDEFINES +=	-DANI_LITTLE_BYTE_ENDIAN \
+		-DANI_LITTLE_BIT_ENDIAN \
+		-DDOT11F_LITTLE_ENDIAN_HOST \
+		-DANI_COMPILER_TYPE_GCC \
+		-DANI_OS_TYPE_ANDROID=6 \
+		-DPTT_SOCK_SVC_ENABLE \
+		-Wall\
+		-Werror\
+		-D__linux__
+
+KBUILD_CPPFLAGS += $(CDEFINES)
+
+# Currently, for versions of gcc which support it, the kernel Makefile
+# is disabling the maybe-uninitialized warning.  Re-enable it for the
+# AUDIO driver.  Note that we must use EXTRA_CFLAGS here so that it
+# will override the kernel settings.
+ifeq ($(call cc-option-yn, -Wmaybe-uninitialized),y)
+EXTRA_CFLAGS += -Wmaybe-uninitialized
+endif
+#EXTRA_CFLAGS += -Wmissing-prototypes
+
+ifeq ($(call cc-option-yn, -Wheader-guard),y)
+EXTRA_CFLAGS += -Wheader-guard
+endif
+
+# If the module name is not "wlan", then the define MULTI_IF_NAME to be the
+# same a the QCA CHIP name. The host driver will then append MULTI_IF_NAME to
+# any string that must be unique for all instances of the driver on the system.
+# This allows multiple instances of the driver with different module names.
+# If the module name is wlan, leave MULTI_IF_NAME undefined and the code will
+# treat the driver as the primary driver.
+ifneq ($(MODNAME), qdsp6v2)
+CHIP_NAME ?= $(MODNAME)
+CDEFINES += -DMULTI_IF_NAME=\"$(CHIP_NAME)\"
+endif
+
+ifeq ($(KERNEL_BUILD), 0)
+KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/ipc/Module.symvers
+endif
+
+ifeq ($(KERNEL_BUILD), 1)
+	obj-y += codecs/
+endif
+
+ifeq ($(CONFIG_SND_SOC_GCOV), y)
+GCOV_PROFILE := y
+endif
+
+obj-$(CONFIG_SND_SOC_MSM_QDSP6V2_INTF) += q6_dlkm.o
+q6_dlkm-y := $(Q6_OBJS)
+
+obj-$(CONFIG_MSM_ULTRASOUND) += usf_dlkm.o
+usf_dlkm-y := $(USF_OBJS)
+
+obj-$(CONFIG_MSM_ADSP_LOADER) += adsp_loader_dlkm.o
+adsp_loader_dlkm-y := $(ADSP_LOADER_OBJS)
+
+obj-$(CONFIG_MSM_QDSP6_PDR) += q6_pdr_dlkm.o
+q6_pdr_dlkm-y := $(QDSP6_PDR_OBJS)
+
+obj-$(CONFIG_MSM_QDSP6_NOTIFIER) += q6_notifier_dlkm.o
+q6_notifier_dlkm-y := $(QDSP6_NOTIFIER_OBJS)
+
+# inject some build related information
+DEFINES += -DBUILD_TIMESTAMP=\"$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')\"

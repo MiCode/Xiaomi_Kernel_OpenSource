@@ -3,6 +3,7 @@
  *  compress_offload.h - compress offload header definations
  *
  *  Copyright (C) 2011 Intel Corporation
+ *  Copyright (C) 2019 XiaoMi, Inc.
  *  Authors:	Vinod Koul <vinod.koul@linux.intel.com>
  *		Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>
  *  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -136,7 +137,6 @@ struct snd_compr_audio_info {
 
 #define SNDRV_COMPRESS_RENDER_MODE_AUDIO_MASTER 0
 #define SNDRV_COMPRESS_RENDER_MODE_STC_MASTER 1
-#define SNDRV_COMPRESS_RENDER_MODE_TTP 2
 
 #define SNDRV_COMPRESS_CLK_REC_MODE_NONE 0
 #define SNDRV_COMPRESS_CLK_REC_MODE_AUTO 1
@@ -246,5 +246,4 @@ struct snd_compr_metadata {
 #define SND_COMPR_TRIGGER_DRAIN 7 /*FIXME move this to pcm.h */
 #define SND_COMPR_TRIGGER_NEXT_TRACK 8
 #define SND_COMPR_TRIGGER_PARTIAL_DRAIN 9
-#define SNDRV_COMPRESS_DSP_POSITION 10
 #endif

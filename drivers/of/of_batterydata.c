@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +20,7 @@
 #include <linux/types.h>
 #include <linux/batterydata-lib.h>
 #include <linux/power_supply.h>
+#include <linux/hardware_info.h>
 
 static int of_batterydata_read_lut(const struct device_node *np,
 			int max_cols, int max_rows, int *ncols, int *nrows,
@@ -374,6 +376,7 @@ struct device_node *of_batterydata_get_best_profile(
 			}
 		}
 	}
+	pr_err("profile id %d batt id %d pct %d",best_id_kohm, batt_id_kohm, id_range_pct);
 
 	if (best_node == NULL) {
 		pr_err("No battery data found\n");
@@ -390,8 +393,10 @@ struct device_node *of_batterydata_get_best_profile(
 
 	rc = of_property_read_string(best_node, "qcom,battery-type",
 							&battery_type);
-	if (!rc)
+	if (!rc){
 		pr_info("%s found\n", battery_type);
+		hardwareinfo_set_prop(HARDWARE_BATTERY_ID, battery_type);
+	}
 	else
 		pr_info("%s found\n", best_node->name);
 

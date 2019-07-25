@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,7 +56,7 @@
 #define MSM_CSID_DRV_NAME                    "msm_csid"
 
 #define DBG_CSID                             0
-#define SHORT_PKT_CAPTURE                    0
+#define SHORT_PKT_CAPTURE                    1
 #define SHORT_PKT_OFFSET                     0x200
 #define ENABLE_3P_BIT                        1
 #define SOF_DEBUG_ENABLE                     1
@@ -538,7 +539,7 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 	}
 	irq = msm_camera_io_r(csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr);
-	CDBG("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
+		trace_printk("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
 		 __func__, csid_dev->pdev->id, irq);
 	if (irq & (0x1 <<
 		csid_dev->ctrl_reg->csid_reg.csid_rst_done_irq_bitshift))
@@ -549,7 +550,7 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 				.csid_captured_short_pkt_addr);
 		count = (short_dt >> 8) & 0xffff;
 		dt =  short_dt >> 24;
-		CDBG("CSID:: %s:%d core %d dt: 0x%x, count: %d\n",
+		trace_printk("CSID:: %s:%d core %d dt: 0x%x, count: %d\n",
 			__func__, __LINE__, csid_dev->pdev->id, dt, count);
 		msm_camera_io_w(0x101, csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_rst_cmd_addr);
@@ -926,6 +927,7 @@ static long msm_csid_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = msm_csid_cmd(csid_dev, arg);
 		break;
 	case MSM_SD_NOTIFY_FREEZE:
+		trace_printk("%s: MSM_SD_NOTIFY_FREEZE \n",__func__);
 		if (csid_dev->csid_state != CSID_POWER_UP)
 			break;
 		if (csid_dev->csid_sof_debug == SOF_DEBUG_DISABLE) {

@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1694,6 +1695,52 @@ static long msm_eeprom_subdev_fops_ioctl32(struct file *file, unsigned int cmd,
 
 #endif
 
+int main_module_id = -1;
+int sub_module_id = -1;
+int aux_8m_module_id = -1;
+static void fill_module_id(struct msm_eeprom_ctrl_t *e_ctrl, int cell_index)
+{
+	uint16_t rc = 0, addr = 0, complete = 0;
+
+	if (NULL == e_ctrl) {
+		pr_err("%s:%d e_ctrl NULL!", __func__, __LINE__);
+		return;
+	}
+
+	addr = 0x0001;
+	e_ctrl->i2c_client.addr_type = MSM_CAMERA_I2C_WORD_ADDR;
+	e_ctrl->i2c_client.cci_client->sid = 0xA2 >> 1;
+
+	if (cell_index == 0) {
+		e_ctrl->i2c_client.cci_client->sid = 0xA2 >> 1;
+	} else if (cell_index == 1) {
+		e_ctrl->i2c_client.cci_client->sid = 0xA4 >> 1;
+	} else if (cell_index == 2) {
+		e_ctrl->i2c_client.cci_client->sid = 0xA8 >> 1;
+	}
+
+	pr_info("%s:%d cell_index=%d, sid=0x%x, addr=0x%x", __func__, __LINE__, cell_index, e_ctrl->i2c_client.cci_client->sid, addr);
+
+	rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(&(e_ctrl->i2c_client), addr, &complete, 1);
+	if (rc < 0) {
+		pr_err("%s:%d get module id fail!", __func__, __LINE__);
+		return;
+	}
+	pr_info("%s:%d complete=%d rc=%d", __func__, __LINE__, complete, rc);
+
+	if (cell_index == 0) {
+		main_module_id = complete;
+	} else if (cell_index == 1) {
+		sub_module_id = complete;
+	} else if (cell_index == 2) {
+		aux_8m_module_id = complete;
+	}
+	pr_info("%s:%d complete=%d main_module_id=%d sub_module_id=%d aux_8m_module_id=%d",
+		__func__, __LINE__, complete, main_module_id, sub_module_id, aux_8m_module_id);
+
+	return;
+}
+
 static int msm_eeprom_platform_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -1849,6 +1896,23 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 		}
 	} else
 		e_ctrl->is_supported = 1;
+
+	if (e_ctrl->userspace_probe == 1) {\
+		pr_info("%s:%d pdev->id=%d", __func__, __LINE__, pdev->id);
+		rc = msm_camera_power_up(power_info, e_ctrl->eeprom_device_type,
+			&e_ctrl->i2c_client);
+		if (rc < 0) {
+			pr_err("failed msm_camera_power_up rc %d\n", rc);
+			goto board_free;
+		}
+		fill_module_id(e_ctrl, pdev->id);
+		rc = msm_camera_power_down(power_info,
+			e_ctrl->eeprom_device_type, &e_ctrl->i2c_client);
+		if (rc < 0) {
+			pr_err("failed msm_camera_power_down rc %d\n", rc);
+			goto board_free;
+		}
+	}
 
 	v4l2_subdev_init(&e_ctrl->msm_sd.sd,
 		e_ctrl->eeprom_v4l2_subdev_ops);

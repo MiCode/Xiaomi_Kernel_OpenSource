@@ -50,6 +50,7 @@
 #include <asm/system_misc.h>
 #include <asm/sysreg.h>
 #include <trace/events/exception.h>
+#include <wt_sys/wt_boot_reason.h>
 
 static const char *handler[]= {
 	"Synchronous Abort",
@@ -102,6 +103,9 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 {
 	struct stackframe frame;
 	int skip;
+	long cur_state = 0;
+	unsigned long cur_sp = 0;
+	unsigned long cur_fp = 0;
 
 	pr_debug("%s(regs = %p tsk = %p)\n", __func__, regs, tsk);
 
@@ -120,6 +124,9 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 		 */
 		frame.fp = thread_saved_fp(tsk);
 		frame.pc = thread_saved_pc(tsk);
+		cur_state = tsk->state;
+		cur_sp = thread_saved_sp(tsk);
+		cur_fp = frame.fp;
 	}
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
 	frame.graph = tsk->curr_ret_stack;
@@ -128,6 +135,23 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 	skip = !!regs;
 	printk("Call trace:\n");
 	do {
+		if (tsk != current && (cur_state != tsk->state
+		/*
+		 * We would not be printing backtrace for the task
+		 * that has changed state from uninterruptible to
+		 * running before hitting the do-while loop but after
+		 * saving the current state. If task is in running
+		 * state before saving the state, then we may print
+		 * wrong call trace or end up in infinite while loop
+		 * if *(fp) and *(fp+8) are same. While the situation
+		 * will stop print when that task schedule out.
+		 */
+		|| cur_sp != thread_saved_sp(tsk)
+		|| cur_fp != thread_saved_fp(tsk))) {
+			printk("The task:%s had been rescheduled!\n",
+						tsk->comm);
+			break;
+		}
 		/* skip until specified stack frame */
 		if (!skip) {
 			dump_backtrace_entry(frame.pc);
@@ -180,6 +204,11 @@ static int __die(const char *str, int err, struct pt_regs *regs)
 		 TASK_COMM_LEN, tsk->comm, task_pid_nr(tsk),
 		 end_of_stack(tsk));
 
+#ifdef CONFIG_WT_BOOT_REASON
+	save_panic_key_log("Process %.*s (pid: %d)\n", TASK_COMM_LEN, tsk->comm, task_pid_nr(tsk));
+#endif
+
+
 	if (!user_mode(regs)) {
 		dump_backtrace(regs, tsk);
 		dump_instr(KERN_EMERG, regs);
@@ -204,6 +233,13 @@ void die(const char *str, struct pt_regs *regs, int err)
 
 	console_verbose();
 	bust_spinlocks(1);
+
+#ifdef CONFIG_WT_BOOT_REASON
+	wt_panic_oops = 1;
+	save_panic_key_log(str);
+	save_panic_key_log("\n");
+#endif
+
 	ret = __die(str, err, regs);
 
 	if (regs && kexec_should_crash(current))

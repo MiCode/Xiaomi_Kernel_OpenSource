@@ -377,6 +377,7 @@ static int notrace ramoops_pstore_write(struct pstore_record *record)
 	struct ramoops_context *cxt = record->psi->data;
 	struct persistent_ram_zone *prz;
 	size_t size, hlen;
+	size_t off;
 
 	if (record->type == PSTORE_TYPE_CONSOLE) {
 		if (!cxt->cprz)
@@ -433,12 +434,19 @@ static int notrace ramoops_pstore_write(struct pstore_record *record)
 
 	prz = cxt->dprzs[cxt->dump_write_cnt];
 
+
+	persistent_ram_zap(prz);
+
 	/* Build header and append record contents. */
 	hlen = ramoops_write_kmsg_hdr(prz, record);
 	size = record->size;
-	if (size + hlen > prz->buffer_size)
+	if (size + hlen > prz->buffer_size) {
+		off = size - prz->buffer_size + hlen;
 		size = prz->buffer_size - hlen;
-	persistent_ram_write(prz, record->buf, size);
+	} else {
+		off = 0;
+	}
+	persistent_ram_write(prz, record->buf + off, size);
 
 	cxt->dump_write_cnt = (cxt->dump_write_cnt + 1) % cxt->max_dump_cnt;
 

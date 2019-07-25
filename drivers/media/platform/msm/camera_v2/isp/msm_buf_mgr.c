@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -397,6 +398,7 @@ static int msm_isp_buf_prepare(struct msm_isp_buf_mgr *buf_mgr,
 	} else {
 		buf = info->buffer;
 	}
+	trace_printk("%s: stream_id %x paddr %d\n", __func__, bufq->stream_id, buf_info->mapped_info[0].paddr);
 
 	rc = msm_isp_prepare_v4l2_buf(buf_mgr, buf_info, &buf, bufq->stream_id);
 	if (rc < 0) {
@@ -514,6 +516,8 @@ static int msm_isp_buf_unprepare(struct msm_isp_buf_mgr *buf_mgr,
 			buf_mgr->vb2_ops->put_buf(buf_info->vb2_v4l2_buf,
 				bufq->session_id, bufq->stream_id);
 	}
+	trace_printk("%s: stream_id %x buf_idx %d paddr %p\n", __func__, bufq->stream_id, buf_idx, buf_info->mapped_info[0].paddr);
+
 	msm_isp_unprepare_v4l2_buf(buf_mgr, buf_info, bufq->stream_id);
 
 	return 0;
@@ -597,7 +601,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 
 			}
 		} else {
-			CDBG("%s: No HAL Buffer session_id: %d stream_id: %d\n",
+			trace_printk("%s: No HAL Buffer session_id: %d stream_id: %d\n",
 				__func__, bufq->session_id, bufq->stream_id);
 			rc = -EINVAL;
 		}
@@ -784,6 +788,9 @@ static int msm_isp_buf_done(struct msm_isp_buf_mgr *buf_mgr,
 		if (state == MSM_ISP_BUFFER_STATE_DEQUEUED) {
 			buf_info->state = MSM_ISP_BUFFER_STATE_DISPATCHED;
 			spin_unlock_irqrestore(&bufq->bufq_lock, flags);
+			trace_printk("frameid: %d send buf done buf_index %d strmid: 0x%x bufq %x\n",
+						frame_id, buf_index, bufq->stream_id, bufq_handle);
+
 			buf_mgr->vb2_ops->buf_done(buf_info->vb2_v4l2_buf,
 				bufq->session_id, bufq->stream_id,
 				frame_id, tv, output_format);
@@ -1324,6 +1331,7 @@ int msm_isp_proc_buf_cmd(struct msm_isp_buf_mgr *buf_mgr,
 	}
 	case VIDIOC_MSM_ISP_ENQUEUE_BUF: {
 		struct msm_isp_qbuf_info *qbuf_info = arg;
+		trace_printk("%s: VIDIOC_MSM_ISP_DEQUEUE_BUF qbuf_info->buf_idx %d\n",__func__, qbuf_info->buf_idx);
 
 		rc = buf_mgr->ops->enqueue_buf(buf_mgr, qbuf_info);
 		break;
@@ -1417,13 +1425,22 @@ static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr,
 		spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 	}
 
-	pr_err("%s: ==== SMMU page fault addr %lx ====\n", __func__,
+	pr_info("%s: ==== SMMU page fault addr %lx ====\n", __func__,
 		fault_addr);
-	pr_err("%s: nearby stream id %x, frame_id %d\n", __func__,
+	pr_info("%s: nearby stream id %x, frame_id %d\n", __func__,
 		debug_stream_id, debug_frame_id);
-	pr_err("%s: nearby buf index %d, plane %d, state %d\n", __func__,
+	pr_info("%s: nearby buf index %d, plane %d, state %d\n", __func__,
 		debug_buf_idx, debug_buf_plane, debug_state);
-	pr_err("%s: buf address %pK -- %pK\n", __func__,
+		pr_info("%s: buf address %p -- %p\n", __func__,
+			(void *)debug_start_addr, (void *)debug_end_addr);
+		trace_printk("%s: ==== SMMU page fault addr %lx ====\n", __func__,
+			fault_addr);
+		trace_printk("%s: nearby stream id %x, frame_id %d\n", __func__,
+			debug_stream_id, debug_frame_id);
+		trace_printk("%s: nearby buf index %d, plane %d, state %d\n", __func__,
+			debug_buf_idx, debug_buf_plane, debug_state);
+		trace_printk("%s: buf address %p -- %p\n", __func__,
+
 		(void *)debug_start_addr, (void *)debug_end_addr);
 
 	if (BUF_DEBUG_FULL) {
@@ -1478,7 +1495,7 @@ static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr,
 				end_addr = 0;
 			}
 		}
-		pr_err("%s\n", print_buf);
+		pr_info("%s\n", print_buf);
 		kfree(print_buf);
 	}
 	return rc;

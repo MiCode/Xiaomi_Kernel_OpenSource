@@ -363,14 +363,7 @@ static int do_budget_space(struct ubifs_info *c)
 	return 0;
 }
 
-/**
- * calc_idx_growth - calculate approximate index growth from budgeting request.
- * @c: UBIFS file-system description object
- * @req: budgeting request
- *
- * For now we assume each new node adds one znode. But this is rather poor
- * approximation, though.
- */
+
 static int calc_idx_growth(const struct ubifs_info *c,
 			   const struct ubifs_budget_req *req)
 {
@@ -381,12 +374,7 @@ static int calc_idx_growth(const struct ubifs_info *c,
 	return znodes * c->max_idx_node_sz;
 }
 
-/**
- * calc_data_growth - calculate approximate amount of new data from budgeting
- * request.
- * @c: UBIFS file-system description object
- * @req: budgeting request
- */
+
 static int calc_data_growth(const struct ubifs_info *c,
 			    const struct ubifs_budget_req *req)
 {
@@ -401,12 +389,7 @@ static int calc_data_growth(const struct ubifs_info *c,
 	return data_growth;
 }
 
-/**
- * calc_dd_growth - calculate approximate amount of data which makes other data
- * dirty from budgeting request.
- * @c: UBIFS file-system description object
- * @req: budgeting request
- */
+
 static int calc_dd_growth(const struct ubifs_info *c,
 			  const struct ubifs_budget_req *req)
 {
@@ -513,17 +496,7 @@ again:
 	return err;
 }
 
-/**
- * ubifs_release_budget - release budgeted free space.
- * @c: UBIFS file-system description object
- * @req: budget request
- *
- * This function releases the space budgeted by 'ubifs_budget_space()'. Note,
- * since the index changes (which were budgeted for in @req->idx_growth) will
- * only be written to the media on commit, this function moves the index budget
- * from @c->bi.idx_growth to @c->bi.uncommitted_idx. The latter will be zeroed
- * by the commit operation.
- */
+
 void ubifs_release_budget(struct ubifs_info *c, struct ubifs_budget_req *req)
 {
 	ubifs_assert(req->new_page <= 1);
