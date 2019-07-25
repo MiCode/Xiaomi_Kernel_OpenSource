@@ -725,20 +725,33 @@ int ipa3_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(ipa_ep_idx_tx));
 
+	/* enable data path */
+	result = ipa3_enable_data_path(ipa_ep_idx_rx);
+	if (result) {
+		IPAERR("enable data path failed res=%d clnt=%d\n", result,
+			ipa_ep_idx_rx);
+		goto exit;
+	}
+
+	result = ipa3_enable_data_path(ipa_ep_idx_tx);
+	if (result) {
+		IPAERR("enable data path failed res=%d clnt=%d\n", result,
+			ipa_ep_idx_tx);
+		goto fail_enable_path1;
+	}
+
 	/* start gsi tx channel */
 	result = gsi_start_channel(ep_tx->gsi_chan_hdl);
 	if (result) {
 		IPAERR("failed to start gsi tx channel\n");
-		result = -EFAULT;
-		goto exit;
+		goto fail_enable_path2;
 	}
 
 	/* start gsi rx channel */
 	result = gsi_start_channel(ep_rx->gsi_chan_hdl);
 	if (result) {
 		IPAERR("failed to start gsi rx channel\n");
-		result = -EFAULT;
-		goto exit;
+		goto fail_start_channel1;
 	}
 	/* start uC gsi dbg stats monitor */
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
@@ -753,23 +766,14 @@ int ipa3_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 		ipa3_uc_debug_stats_alloc(
 			ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3]);
 	}
-	/* enable data path */
-	result = ipa3_enable_data_path(ipa_ep_idx_rx);
-	if (result) {
-		IPAERR("enable data path failed res=%d clnt=%d.\n", result,
-			ipa_ep_idx_rx);
-		result = -EFAULT;
-		goto exit;
-	}
+	goto exit;
 
-	result = ipa3_enable_data_path(ipa_ep_idx_tx);
-	if (result) {
-		IPAERR("enable data path failed res=%d clnt=%d.\n", result,
-			ipa_ep_idx_tx);
-		result = -EFAULT;
-		goto exit;
-	}
-
+fail_start_channel1:
+	gsi_stop_channel(ep_tx->gsi_chan_hdl);
+fail_enable_path2:
+	ipa3_disable_data_path(ipa_ep_idx_tx);
+fail_enable_path1:
+	ipa3_disable_data_path(ipa_ep_idx_rx);
 exit:
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(ipa_ep_idx_tx));
 	return result;
