@@ -2563,6 +2563,49 @@ end:
 	return rc;
 }
 
+
+
+static int cam_ife_csid_reset_retain_sw_reg(
+	struct cam_ife_csid_hw *csid_hw)
+{
+	int rc = 0;
+	uint32_t status;
+	const struct cam_ife_csid_reg_offset *csid_reg =
+		csid_hw->csid_info->csid_reg;
+	struct cam_hw_soc_info          *soc_info;
+
+	soc_info = &csid_hw->hw_info->soc_info;
+	/* clear the top interrupt first */
+	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_top_irq_clear_addr);
+	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_irq_cmd_addr);
+
+	cam_io_w_mb(csid_reg->cmn_reg->csid_rst_stb,
+		soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_rst_strobes_addr);
+	rc = readl_poll_timeout(soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_top_irq_status_addr,
+			status, (status & 0x1) == 0x1,
+		CAM_IFE_CSID_TIMEOUT_SLEEP_US, CAM_IFE_CSID_TIMEOUT_ALL_US);
+	if (rc < 0) {
+		CAM_ERR(CAM_ISP, "CSID:%d csid_reset fail rc = %d",
+			  csid_hw->hw_intf->hw_idx, rc);
+		rc = -ETIMEDOUT;
+	} else {
+		CAM_DBG(CAM_ISP, "CSID:%d hw reset completed %d",
+			csid_hw->hw_intf->hw_idx, rc);
+		rc = 0;
+	}
+	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_top_irq_clear_addr);
+	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_irq_cmd_addr);
+
+	return rc;
+}
+
+
 static int cam_ife_csid_init_hw(void *hw_priv,
 	void *init_args, uint32_t arg_size)
 {
@@ -2631,6 +2674,12 @@ static int cam_ife_csid_init_hw(void *hw_priv,
 			csid_hw->hw_intf->hw_idx,
 			res->res_type);
 		break;
+	}
+
+	if (csid_hw->device_enabled == 0) {
+		rc = cam_ife_csid_reset_retain_sw_reg(csid_hw);
+		if (rc < 0)
+			CAM_ERR(CAM_ISP, "CSID: Failed in SW reset");
 	}
 
 	if (rc)
