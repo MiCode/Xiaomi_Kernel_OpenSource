@@ -84,6 +84,7 @@ struct npu_host_ctx {
 	struct completion fw_deinit_done;
 	struct completion fw_bringup_done;
 	struct completion fw_shutdown_done;
+	struct completion npu_power_up_done;
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];
 	bool sys_cache_disable;
