@@ -506,6 +506,8 @@
 		      <0x17080000 0xE000>;
 		reg-names = "lpa_if", "lpass_tcsr";
 		interrupts = <GIC_SPI 267 0>;
+		bit-clock-hz = <20000000>;
+		interrupt-interval-ms = <10>;
 
 		sdr0: qcom,hs0_i2s {
 			compatible = "qcom,hsi2s-interface";
