@@ -306,6 +306,7 @@ int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 	struct cam_bps_device_core_info *core_info = NULL;
 	struct cam_bps_device_hw_info *hw_info = NULL;
 	int rc = 0;
+	unsigned long flags;
 
 	if (!device_priv) {
 		CAM_ERR(CAM_ICP, "Invalid arguments");
@@ -395,12 +396,16 @@ int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 		}
 		break;
 	case CAM_ICP_BPS_CMD_DISABLE_CLK:
+		spin_lock_irqsave(&bps_dev->hw_lock, flags);
 		if (core_info->clk_enable == true)
 			cam_bps_toggle_clk(soc_info, false);
 		core_info->clk_enable = false;
+		spin_unlock_irqrestore(&bps_dev->hw_lock, flags);
 		break;
 	case CAM_ICP_BPS_CMD_RESET:
+		spin_lock_irqsave(&bps_dev->hw_lock, flags);
 		rc = cam_bps_cmd_reset(soc_info, core_info);
+		spin_unlock_irqrestore(&bps_dev->hw_lock, flags);
 		break;
 	default:
 		CAM_ERR(CAM_ICP, "Invalid Cmd Type:%u", cmd_type);
