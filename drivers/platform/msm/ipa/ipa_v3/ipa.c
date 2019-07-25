@@ -5634,6 +5634,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 		gsi_props.mhi_er_id_limits[0] = resource_p->mhi_evid_limits[0];
 		gsi_props.mhi_er_id_limits[1] = resource_p->mhi_evid_limits[1];
 	}
+	gsi_props.skip_ieob_mask_wa = resource_p->skip_ieob_mask_wa;
 
 	result = gsi_register_device(&gsi_props,
 		&ipa3_ctx->gsi_dev_hdl);
@@ -6793,6 +6794,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->mhi_evid_limits[1] = IPA_MHI_GSI_EVENT_RING_ID_END;
 	ipa_drv_res->ipa_fltrt_not_hashable = false;
 	ipa_drv_res->ipa_endp_delay_wa = false;
+	ipa_drv_res->skip_ieob_mask_wa = false;
 
 	/* Get IPA HW Version */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
@@ -6918,6 +6920,12 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			"qcom,bandwidth-vote-for-ipa");
 	IPADBG(": use_bw_vote = %s\n",
 			ipa_drv_res->use_bw_vote
+			? "True" : "False");
+	ipa_drv_res->skip_ieob_mask_wa =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,skip-ieob-mask-wa");
+	IPADBG(": skip ieob mask wa = %s\n",
+			ipa_drv_res->skip_ieob_mask_wa
 			? "True" : "False");
 
 	ipa_drv_res->skip_uc_pipe_reset =
