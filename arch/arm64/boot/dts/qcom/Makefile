@@ -464,6 +464,7 @@ msm8953-ext-codec-mtp-overlay.dtbo-base := msm8953.dtb \
 msm8953-ext-codec-rcm-overlay.dtbo-base := msm8953.dtb \
 	apq8053.dtb
 msm8953-cdp-1200p-overlay.dtbo-base := msm8953.dtb
+
 sdm450-cdp-s2-overlay.dtbo-base := sdm450-pmi632.dtb \
 	sdm632.dtb \
 	sdm632-pm8004.dtb \
@@ -543,7 +544,8 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-cdp.dtb \
 	msm8953-pmi8940-ext-codec-mtp.dtb \
 	msm8953-pmi8937-ext-codec-mtp.dtb \
 	msm8953-pmi632-cdp-s2.dtb \
-	apq8053-batcam.dtb
+	apq8053-batcam.dtb \
+	msm8953-no-pmi.dtb
 
 dtb-$(CONFIG_ARCH_MSM8937) += msm8937-pmi8950-mtp.dtb \
 	msm8937-interposer-sdm439-cdp.dtb \
