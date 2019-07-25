@@ -16,6 +16,7 @@
 #define LLCC_AUDIO       6
 #define LLCC_MDMHPGRW    7
 #define LLCC_MDM         8
+#define LLCC_MDMHW       9
 #define LLCC_CMPT        10
 #define LLCC_GPUHTW      11
 #define LLCC_GPU         12
@@ -26,6 +27,12 @@
 #define LLCC_MDMHPFX     20
 #define LLCC_MDMPNG      21
 #define LLCC_AUDHW       22
+#define LLCC_CVP         28
+#define LLCC_MDMVPE      29
+#define LLCC_APTCM       30
+#define LLCC_WRTCH       31
+#define LLCC_CVPFW       32
+#define LLCC_CPUSS1      33
 
 /**
  * llcc_slice_desc - Cache slice descriptor
