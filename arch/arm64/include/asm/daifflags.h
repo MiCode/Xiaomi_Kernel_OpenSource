@@ -41,6 +41,16 @@ static inline unsigned long local_daif_save(void)
 	return flags;
 }
 
+static inline void local_daif_unmask(void)
+{
+	trace_hardirqs_on();
+	asm volatile(
+		"msr	daifclr, #0xf		// local_daif_unmask"
+		:
+		:
+		: "memory");
+}
+
 static inline void local_daif_restore(unsigned long flags)
 {
 	bool irq_disabled = flags & PSR_I_BIT;
