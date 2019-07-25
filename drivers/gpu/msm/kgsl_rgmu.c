@@ -14,6 +14,7 @@
 #include <linux/io.h>
 #include <linux/of_platform.h>
 #include <linux/clk-provider.h>
+#include <linux/firmware.h>
 
 #include "kgsl_device.h"
 #include "kgsl_rgmu.h"
@@ -310,6 +311,19 @@ error:
 	set_bit(GMU_FAULT, &device->gmu_core.flags);
 	rgmu_snapshot(device);
 }
+static void rgmu_remove(struct kgsl_device *device)
+{
+	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
+
+	if (rgmu == NULL || rgmu->pdev == NULL)
+		return;
+
+	rgmu_stop(device);
+	if (rgmu->fw_image) {
+		release_firmware(rgmu->fw_image);
+		rgmu->fw_image = NULL;
+	}
+}
 
 /* Do not access any RGMU registers in RGMU probe function */
 static int rgmu_probe(struct kgsl_device *device, struct device_node *node)
@@ -478,7 +492,7 @@ static bool rgmu_regulator_isenabled(struct kgsl_device *device)
 
 struct gmu_core_ops rgmu_ops = {
 	.probe = rgmu_probe,
-	.remove = rgmu_stop,
+	.remove = rgmu_remove,
 	.start = rgmu_start,
 	.stop = rgmu_stop,
 	.dcvs_set = rgmu_dcvs_set,
