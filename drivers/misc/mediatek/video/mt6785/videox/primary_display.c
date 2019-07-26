@@ -29,12 +29,13 @@
 #include <linux/pm_wakeup.h>
 #include <asm/cacheflush.h>
 #ifdef MTK_FB_ION_SUPPORT
-#  include "mtk_ion.h"
-#  include "ion_drv.h"
+#include "mtk_ion.h"
+#include "ion_drv.h"
 #endif
-
+#ifdef CONFIG_MTK_M4U
 #include "m4u.h"
 #include "m4u_priv.h"
+#endif
 #include "ddp_m4u.h"
 #include "disp_drv_platform.h"
 #include "debug.h"
@@ -66,7 +67,6 @@
 #include "ddp_reg.h"
 #include "mtk_disp_mgr.h"
 #include "ddp_dsi.h"
-#include "m4u.h"
 #include "mtkfb_console.h"
 #if defined(CONFIG_MTK_LEGACY)
 #include <mach/mtk_gpio.h>
@@ -2784,6 +2784,7 @@ static struct disp_internal_buffer_info *allocat_decouple_buffer(int size)
 	}
 
 	mm_data.config_buffer_param.kernel_handle = handle;
+	mm_data.config_buffer_param.module_id = M4U_PORT_DISP_WDMA0;
 	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
 	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
 			     (unsigned long)&mm_data) < 0) {
@@ -2991,7 +2992,7 @@ _trigger_display_interface(int blocking, void *callback, unsigned int userdata)
 					       DISP_PATH_EVENT_FRAME_DONE,
 					       HZ * 1);
 		if (ret <= 0)
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 	}
 
 	if (_should_update_lcm()) {
@@ -3252,7 +3253,7 @@ static int primary_display_cmdq_dump(uint64_t engineFlag, int level)
 	DISPFUNC();
 
 	if (pgc->dpmgr_handle != NULL) {
-		primary_display_diagnose();
+		primary_display_diagnose(__func__, __LINE__);
 
 		if (primary_display_is_decouple_mode())
 			ddp_dump_analysis(DISP_MODULE_OVL0);
@@ -3362,7 +3363,7 @@ static int _Interface_fence_release_callback(unsigned long userdata)
 			/* disp_aee_print("dither_stat 0x%x\n", status); */
 			mmprofile_log_ex(ddp_mmp_get_events()->primary_error,
 					 MMPROFILE_FLAG_PULSE, status, 1);
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 			ret = -1;
 		}
 	}
@@ -3571,7 +3572,7 @@ static int _ovl_fence_release_callback(unsigned long userdata)
 			/* disp_aee_print("ovl_stat 0x%x\n", status); */
 			mmprofile_log_ex(ddp_mmp_get_events()->primary_error,
 					 MMPROFILE_FLAG_PULSE, status, 0);
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 			ret = -1;
 		}
 	}
@@ -3987,7 +3988,7 @@ static int update_primary_intferface_module(void)
 
 static void replace_fb_addr_to_mva(void)
 {
-#ifdef MTKFB_M4U_SUPPORT
+#if (defined CONFIG_MTK_M4U) || (defined CONFIG_MTK_IOMMU_V2)
 	struct ddp_fb_info fb_info;
 
 	if (!disp_helper_get_option(DISP_OPT_USE_M4U))
@@ -4215,7 +4216,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 				DISP_PR_ERR("allocate buffer fail\n");
 
 			disp_ion_get_mva(ion_client, ion_handle,
-				&top_mva, DISP_M4U_PORT_DISP_POSTMASK);
+				&top_mva, 0, DISP_M4U_PORT_DISP_POSTMASK);
 			disp_ion_cache_flush(ion_client, ion_handle,
 				ION_CACHE_INVALID_BY_RANGE);
 
@@ -4341,9 +4342,8 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 		_cmdq_flush_config_handle(1, NULL, 0);
 		_cmdq_reset_config_handle();
 	}
-#ifdef MTKFB_M4U_SUPPORT
-	config_display_m4u_port();
-#endif
+	if (disp_helper_get_option(DISP_OPT_USE_M4U))
+		config_display_m4u_port();
 
 	if (use_cmdq)
 		_cmdq_insert_wait_frame_done_token_mira(
@@ -4467,7 +4467,7 @@ done:
 	lock_primary_wake_lock(1);
 
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
-		primary_display_diagnose();
+		primary_display_diagnose(__func__, __LINE__);
 
 	layering_rule_init();
 	_primary_path_unlock(__func__);
@@ -4998,7 +4998,7 @@ int primary_display_suspend(void)
 			DISP_PR_ERR("wait frame done in suspend timeout\n");
 			mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
 					 MMPROFILE_FLAG_PULSE, 3, 2);
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 			ret = -1;
 		}
 	}
@@ -5465,7 +5465,7 @@ int primary_display_resume(void)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 			 MMPROFILE_FLAG_PULSE, 0, 9);
 
-	/* primary_display_diagnose(); */
+	/* primary_display_diagnose(__func__, __LINE__); */
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 			 MMPROFILE_FLAG_PULSE, 0, 10);
 
@@ -5696,7 +5696,7 @@ skip_resume:
 			DISP_PR_ERR("wait frame done in suspend timeout\n");
 			mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
 				 MMPROFILE_FLAG_PULSE, 3, 2);
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 			ret = -1;
 		}
 	}
@@ -7885,11 +7885,11 @@ int primary_display_is_video_mode(void)
 	return disp_lcm_is_video_mode(pgc->plcm);
 }
 
-int primary_display_diagnose(void)
+int primary_display_diagnose(const char *func, int line)
 {
 	int ret = 0;
 
-	DISPMSG("==== %s ===>\n", __func__);
+	DISPMSG("==== %s of %s at %d ===>\n", __func__, func, line);
 	/* confirm mm clk */
 	/* check_mm0_clk_sts(); */
 	dpmgr_check_status(pgc->dpmgr_handle);
@@ -7904,7 +7904,7 @@ int primary_display_diagnose(void)
 
 int primary_display_diagnose_oneshot(const char *func, int line)
 {
-	DISPMSG("==== %s ===>\n", __func__);
+	DISPMSG("==== %s of %s at %d===>\n", __func__, func, line);
 	if (get_oneshot_dump() == ONESHOT_DUMP_INIT) {
 		set_oneshot_dump(ONESHOT_DUMP_UNDERGOING);
 		DISP_ONESHOT_DUMP("Dump called by func: %s, line: %d\n",
@@ -8720,7 +8720,7 @@ static int _screen_cap_by_cpu(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt,
 					       DISP_PATH_EVENT_FRAME_DONE,
 					       HZ * 1);
 		if (ret <= 0)
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 	}
 
 	_primary_path_lock(__func__);
@@ -8751,7 +8751,7 @@ static int _screen_cap_by_cpu(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt,
 					       DISP_PATH_EVENT_FRAME_DONE,
 					       HZ * 1);
 		if (ret <= 0)
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 	}
 
 	dpmgr_path_remove_memout(pgc->dpmgr_handle, NULL);
@@ -8804,7 +8804,7 @@ int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
 	}
 
 	disp_ion_get_mva(ion_display_client, ion_display_handle, &mva,
-			 DISP_M4U_PORT_DISP_WDMA0);
+			 0, DISP_M4U_PORT_DISP_WDMA0);
 	disp_ion_cache_flush(ion_display_client, ion_display_handle,
 			     ION_CACHE_INVALID_BY_RANGE);
 
@@ -9242,7 +9242,7 @@ int Panel_Master_dsi_config_entry(const char *name, void *config_value)
 		DISPCHECK("[ESD]wait frame done ret:%d\n", ret);
 		if (event_ret <= 0) {
 			DISPCHECK("wait frame done in suspend timeout\n");
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 			ret = -1;
 		}
 	}

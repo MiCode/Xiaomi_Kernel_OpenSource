@@ -32,7 +32,6 @@
 //#ifdef MTK_VPU_SMI_DEBUG_ON
 //#include <smi_debug.h>
 //#endif
-#include <m4u.h>
 #include "mtk_devinfo.h"
 #ifndef MTK_VPU_FPGA_PORTING
 //#include <mmdvfs_mgr.h>
@@ -6122,7 +6121,11 @@ unlock_core:
 	}
 
 	vpu_print_seq(s, LINE_BAR);
+#ifdef CONFIG_MTK_M4U
 	m4u_dump_reg_for_hang_issue(1);
+#elif defined(CONFIG_MTK_IOMMU_V2)
+	mtk_dump_reg_for_hang_issue(1);
+#endif
 
 #undef LINE_BAR
 

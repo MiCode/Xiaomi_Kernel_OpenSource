@@ -2558,8 +2558,8 @@ static int mtkfb_probe(struct platform_device *pdev)
 	}
 
 	ion_display_handle = disp_ion_alloc(ion_display_client,
-					    ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
-					    temp_va, vramsize);
+		ION_HEAP_MULTIMEDIA_PA2MVA_MASK,
+		fb_base, vramsize);
 	if (ret) {
 		DISP_PR_ERR(
 			"%s: fail to allocate buffer\n", __func__);
@@ -2568,7 +2568,7 @@ static int mtkfb_probe(struct platform_device *pdev)
 	}
 
 	disp_ion_get_mva(ion_display_client, ion_display_handle,
-			 (unsigned int *)&fb_mva, DISP_M4U_PORT_DISP_OVL0);
+			 (unsigned int *)&fb_mva, 0, DISP_M4U_PORT_DISP_OVL0);
 #else
 	disp_hal_allocate_framebuffer(fb_base, (fb_base + vramsize - 1),
 				(unsigned long *)(&fbdev->fb_va_base), &fb_mva);
@@ -2668,9 +2668,9 @@ static int mtkfb_probe(struct platform_device *pdev)
 
 #if 0
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
-		primary_display_diagnose();
+		primary_display_diagnose(__func__, __LINE__);
 #else
-	primary_display_diagnose();
+	primary_display_diagnose(__func__, __LINE__);
 #endif
 
 	/*

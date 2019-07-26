@@ -36,8 +36,10 @@
 #include "disp_pm_qos.h"
 #endif
 #include <mmdvfs_pmqos.h>
-#include "m4u.h"
 
+#ifdef CONFIG_MTK_M4U
+#include "m4u.h"
+#endif
 #include "debug.h"
 #include "disp_drv_log.h"
 #include "disp_lcm.h"

@@ -25,8 +25,15 @@
 #include "ddp_hal.h"
 #include "disp_helper.h"
 #include "ddp_path.h"
-
+#ifdef CONFIG_MTK_IOMMU_V2
+#include <soc/mediatek/smi.h>
+#include "ddp_drv.h"
+#else
 #include "m4u.h"
+#endif
+#ifdef CONFIG_MTK_SMI_EXT
+#include "smi_public.h"
+#endif
 
 /* #pragma GCC optimize("O0") */
 
@@ -984,6 +991,11 @@ void ddp_check_path(enum DDP_SCENARIO_ENUM scenario)
 
 int ddp_path_top_clock_on(void)
 {
+#ifdef CONFIG_MTK_IOMMU_V2
+	struct disp_iommu_device *iommu_dev;
+	int larb_idx = 0;
+#endif
+
 	DDPDBG("ddp path top clock on\n");
 
 	if (disp_helper_get_option(DISP_OPT_DYNAMIC_SWITCH_MMSYSCLK))
@@ -993,6 +1005,18 @@ int ddp_path_top_clock_on(void)
 
 	DISP_REG_SET(NULL, DISP_REG_CONFIG_MMSYS_SODI_REQ_MASK, 0x0F005506);
 
+#ifdef CONFIG_MTK_IOMMU_V2
+	iommu_dev = disp_get_iommu_dev();
+	if (!iommu_dev) {
+		DDPMSG("%s iommu is null\n", __func__);
+		return 0;
+	}
+	for (larb_idx = 0; larb_idx < DISP_LARB_COUNT; larb_idx++) {
+		mtk_smi_larb_get(&iommu_dev->larb_pdev[larb_idx]->dev);
+		dev_notice(&iommu_dev->larb_pdev[larb_idx]->dev,
+			   "%s smi larb get of %d\n", __func__, larb_idx);
+	}
+#endif
 	DDPDBG("ddp CG0:%x, CG1:%x\n",
 	       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0),
 	       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1));
@@ -1002,6 +1026,15 @@ int ddp_path_top_clock_on(void)
 
 int ddp_path_top_clock_off(void)
 {
+#ifdef CONFIG_MTK_IOMMU_V2
+	struct disp_iommu_device *iommu_dev;
+	int larb_idx = 0;
+
+	iommu_dev = disp_get_iommu_dev();
+
+	for (larb_idx = 0; larb_idx < DISP_LARB_COUNT; larb_idx++)
+		mtk_smi_larb_put(&iommu_dev->larb_pdev[larb_idx]->dev);
+#endif
 	DISP_REG_SET_FIELD(NULL, FLD_SODI_REQ_MASKEN,
 			   DISP_REG_CONFIG_MMSYS_SODI_REQ_MASK, 0x1);
 	DISP_REG_SET_FIELD(NULL, FLD_SODI_REQ_MASKVAL,

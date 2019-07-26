@@ -57,7 +57,9 @@
 /* #include "mach/mt_irq.h" */
 #include "mt-plat/sync_write.h"
 /* #include "mt-plat/mtk_smi.h" */
+#ifdef CONFIG_MTK_M4U
 #include "m4u.h"
+#endif
 
 #include "ddp_drv.h"
 #include "ddp_reg.h"
@@ -257,7 +259,7 @@ struct disp_iommu_device *disp_get_iommu_dev(void)
 		larb_node[larb_idx] = of_parse_phandle(mydev.dev.of_node,
 						"mediatek,larb", larb_idx);
 		if (!larb_node[larb_idx]) {
-			pr_info("disp driver get larb fail\n");
+			pr_info("disp driver get larb %d fail\n", larb_idx);
 			return NULL;
 		}
 		larb_pdev[larb_idx] =
