@@ -28,7 +28,6 @@
 #include <asm/fixmap.h>
 #include <asm/tlbflush.h>
 #include <asm/pgalloc.h>
-#include <linux/memblock.h>
 
 static void __iomem *__ioremap_caller(phys_addr_t phys_addr, size_t size,
 				      pgprot_t prot, void *caller)
@@ -53,11 +52,6 @@ static void __iomem *__ioremap_caller(phys_addr_t phys_addr, size_t size,
 	if (!size || last_addr < phys_addr || (last_addr & ~PHYS_MASK))
 		return NULL;
 
-	if (last_addr > memblock_end_of_DRAM()) {
-		pr_info("OOB ioremap: last_addr=%lx, dram end=%lx\n",
-				last_addr, memblock_end_of_DRAM());
-		BUG();
-	}
 	/*
 	 * Don't allow RAM to be mapped.
 	 */
