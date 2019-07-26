@@ -621,61 +621,6 @@ static int vidioc_try_fmt(struct v4l2_format *f,
 	return 0;
 }
 
-static  int vidioc_vdec_g_crop(struct file *file, void *priv,
-		struct v4l2_crop *cr)
-{
-	struct mtk_vcodec_ctx *ctx = fh_to_ctx(priv);
-
-	if (ctx->state < MTK_STATE_HEADER)
-		return -EINVAL;
-
-	if ((ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_H264) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_H265) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_HEIF) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_VP8) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_VP9) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_MPEG1) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_MPEG2) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_MPEG4) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_H263) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_S263) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_XVID) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_DIVX3) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_DIVX4) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_DIVX5) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_DIVX6) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_WMV1) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_WMV2) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_WMV3) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_WVC1) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_WMVA) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_RV30) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_RV40)) {
-		if (vdec_if_get_param(ctx, GET_PARAM_CROP_INFO, cr) != 0) {
-			mtk_v4l2_debug(2, "[%d]Error!! Cannot get param : GET_PARAM_CROP_INFO ERR",
-						   ctx->id);
-			cr->c.left = 0;
-			cr->c.top = 0;
-			cr->c.width = ctx->picinfo.pic_w;
-			cr->c.height = ctx->picinfo.pic_h;
-		}
-		mtk_v4l2_debug(2, "Cropping info: l=%d t=%d w=%d h=%d",
-					   cr->c.left, cr->c.top, cr->c.width,
-					   cr->c.height);
-	} else {
-		cr->c.left = 0;
-		cr->c.top = 0;
-		cr->c.width = ctx->picinfo.pic_w;
-		cr->c.height = ctx->picinfo.pic_h;
-		mtk_v4l2_debug(2, "Cropping info: w=%d h=%d fw=%d fh=%d",
-			cr->c.width, cr->c.height,
-			ctx->picinfo.buf_w,
-			ctx->picinfo.buf_h);
-	}
-
-	return 0;
-}
-
 static int vidioc_try_fmt_vid_cap_mplane(struct file *file, void *priv,
 				struct v4l2_format *f)
 {
@@ -1616,7 +1561,6 @@ const struct v4l2_ioctl_ops mtk_vdec_ioctl_ops = {
 
 	.vidioc_decoder_cmd = vidioc_decoder_cmd,
 	.vidioc_try_decoder_cmd = vidioc_try_decoder_cmd,
-	.vidioc_g_crop		= vidioc_vdec_g_crop,
 };
 
 int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
