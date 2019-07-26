@@ -109,7 +109,7 @@ static void update_req_stats(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 {
 	int rq_type;
 	struct request *rq = lrbp->cmd ? lrbp->cmd->request : NULL;
-	s64 delta = ktime_us_delta(lrbp->complete_time_stamp,
+	s64 delta = ktime_us_delta(lrbp->compl_time_stamp,
 		lrbp->issue_time_stamp);
 
 	/* update general request statistics */
@@ -3025,7 +3025,6 @@ static inline
 int ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 {
 	hba->lrb[task_tag].issue_time_stamp = ktime_get();
-	hba->lrb[task_tag].complete_time_stamp = ktime_set(0, 0);
 	hba->lrb[task_tag].compl_time_stamp = ktime_set(0, 0);
 	ufshcd_clk_scaling_start_busy(hba);
 	__set_bit(task_tag, &hba->outstanding_reqs);
@@ -6429,7 +6428,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			scsi_dma_unmap(cmd);
 			cmd->result = result;
 			clear_bit_unlock(index, &hba->lrb_in_use);
-			lrbp->complete_time_stamp = ktime_get();
+			lrbp->compl_time_stamp = ktime_get();
 			update_req_stats(hba, lrbp);
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
@@ -6452,6 +6451,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			cmd->scsi_done(cmd);
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE ||
 			lrbp->command_type == UTP_CMD_TYPE_UFS_STORAGE) {
+			lrbp->compl_time_stamp = ktime_get();
 			if (hba->dev_cmd.complete) {
 				ufshcd_cond_add_cmd_trace(hba, index,
 						"dev_cmd_cmpl");
@@ -6460,8 +6460,6 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 		}
 		if (ufshcd_is_clkscaling_supported(hba))
 			hba->clk_scaling.active_reqs--;
-
-		lrbp->compl_time_stamp = ktime_get();
 	}
 
 	/* clear corresponding bits of completed commands */
@@ -6500,7 +6498,7 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 			ufshcd_clear_cmd(hba, index);
 			ufshcd_outstanding_req_clear(hba, index);
 			clear_bit_unlock(index, &hba->lrb_in_use);
-			lrbp->complete_time_stamp = ktime_get();
+			lrbp->compl_time_stamp = ktime_get();
 			update_req_stats(hba, lrbp);
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
@@ -6519,6 +6517,7 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
+			lrbp->compl_time_stamp = ktime_get();
 			if (hba->dev_cmd.complete) {
 				ufshcd_cond_add_cmd_trace(hba, index,
 							"dev_cmd_failed");
