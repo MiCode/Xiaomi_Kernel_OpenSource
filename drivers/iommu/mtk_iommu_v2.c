@@ -293,8 +293,10 @@ int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id, unsigned int bank)
 	}
 	atf_cmd = IOMMU_ATF_SET_COMMAND(m4u_id, bank, cmd);
 	pr_notice("%s, M4U CALL ATF CMD:%d\n", __func__, atf_cmd);
+#if 0
 	ret = mt_secure_call_ret2(MTK_M4U_DEBUG_DUMP,
 				atf_cmd, 0, 0, 0, &tf_port);
+#endif
 	return ret;
 #else
 	return 0;
