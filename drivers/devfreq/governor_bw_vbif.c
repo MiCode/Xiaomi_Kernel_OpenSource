@@ -27,8 +27,12 @@ static int devfreq_vbif_get_freq(struct devfreq *df,
 {
 	unsigned long ab, ib;
 
-	extern_get_bw(&ib, &ab, extern_get_bw_data);
+	if (!extern_get_bw) {
+		*freq = 0;
+		return 0;
+	}
 
+	extern_get_bw(&ib, &ab, extern_get_bw_data);
 	dev_ib = ib;
 	*dev_ab = ab;
 
