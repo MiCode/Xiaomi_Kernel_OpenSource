@@ -1700,7 +1700,7 @@ EXIT:
  ******************************************************************************/
 static signed int TSF_mmap(struct file *pFile, struct vm_area_struct *pVma)
 {
-	long length = 0;
+	unsigned long length = 0;
 	unsigned int pfn = 0x0;
 
 	length = pVma->vm_end - pVma->vm_start;
