@@ -3675,6 +3675,54 @@ int smblib_get_pe_start(struct smb_charger *chg,
 	return 0;
 }
 
+int smblib_get_prop_smb_health(struct smb_charger *chg)
+{
+	int rc;
+	u8 stat;
+	int input_present;
+
+	rc = smblib_is_input_present(chg, &input_present);
+	if (rc < 0)
+		return rc;
+
+	if (input_present == INPUT_NOT_PRESENT)
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+
+	if (chg->wa_flags & SW_THERM_REGULATION_WA) {
+		if (chg->smb_temp == -ENODATA)
+			return POWER_SUPPLY_HEALTH_UNKNOWN;
+
+		if (chg->smb_temp > SMB_TEMP_RST_THRESH)
+			return POWER_SUPPLY_HEALTH_OVERHEAT;
+
+		if (chg->smb_temp > SMB_TEMP_REG_H_THRESH)
+			return POWER_SUPPLY_HEALTH_HOT;
+
+		if (chg->smb_temp > SMB_TEMP_REG_L_THRESH)
+			return POWER_SUPPLY_HEALTH_WARM;
+
+		return POWER_SUPPLY_HEALTH_COOL;
+	}
+
+	rc = smblib_read(chg, SMB_TEMP_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read SMB_TEMP_STATUS_REG, rc=%d\n",
+				rc);
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+	}
+
+	if (stat & SMB_TEMP_RST_BIT)
+		return POWER_SUPPLY_HEALTH_OVERHEAT;
+
+	if (stat & SMB_TEMP_UB_BIT)
+		return POWER_SUPPLY_HEALTH_HOT;
+
+	if (stat & SMB_TEMP_LB_BIT)
+		return POWER_SUPPLY_HEALTH_WARM;
+
+	return POWER_SUPPLY_HEALTH_COOL;
+}
+
 int smblib_get_prop_die_health(struct smb_charger *chg)
 {
 	int rc;
@@ -3763,10 +3811,13 @@ static int smblib_get_typec_connector_temp_status(struct smb_charger *chg)
 	return POWER_SUPPLY_HEALTH_COOL;
 }
 
-static int smblib_get_skin_temp_status(struct smb_charger *chg)
+int smblib_get_skin_temp_status(struct smb_charger *chg)
 {
 	int rc;
 	u8 stat;
+
+	if (!chg->en_skin_therm_mitigation)
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
 
 	rc = smblib_read(chg, SKIN_TEMP_STATUS_REG, &stat);
 	if (rc < 0) {
