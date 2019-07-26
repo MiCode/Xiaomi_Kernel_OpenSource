@@ -105,10 +105,6 @@
 	status = "okay";
 };
 
-&blsp1_uart4a_hs {
-	status = "okay";
-};
-
 &vbus_detect {
 	status = "okay";
 };
