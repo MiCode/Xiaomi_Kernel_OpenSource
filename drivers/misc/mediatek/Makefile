@@ -50,6 +50,7 @@ obj-y += atf/
 obj-y += devinfo/
 obj-y += sspm/
 obj-$(CONFIG_MTK_APUSYS) += apusys/
+obj-$(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT) += mcupm/
 obj-y += timer/
 obj-$(CONFIG_MTK_ACCDET) += accdet/
 obj-$(CONFIG_MTK_DRAMC) += dramc/
