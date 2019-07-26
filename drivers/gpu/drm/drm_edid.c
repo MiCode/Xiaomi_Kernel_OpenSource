@@ -1566,6 +1566,9 @@ static void connector_bad_edid(struct drm_connector *connector,
 			       u8 *edid, int num_blocks)
 {
 	int i;
+	u32 csum = 0x100 | drm_edid_block_checksum(edid);
+
+	connector->checksum = 0x100 - (csum - edid[EDID_LENGTH - 1]);
 
 	if (connector->bad_edid_counter++ && !(drm_debug & DRM_UT_KMS))
 		return;
@@ -1662,6 +1665,8 @@ struct edid *drm_do_get_edid(struct drm_connector *connector,
 	int i, j = 0, valid_extensions = 0;
 	u8 *edid, *new;
 	struct edid *override;
+
+	connector->checksum = 0;
 
 	override = drm_get_override_edid(connector);
 	if (override)
