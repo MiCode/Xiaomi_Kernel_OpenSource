@@ -556,6 +556,11 @@
 		#interconnect-cells = <1>;
 	};
 
+	pil_scm_pas {
+		compatible = "qcom,pil-tz-scm-pas";
+		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
+	};
+
 	ufsphy_mem: ufsphy_mem@1d87000 {
 		reg = <0x1d8700 0xe10>;
 		reg-names = "phy_mem";
