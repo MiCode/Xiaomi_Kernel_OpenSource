@@ -205,7 +205,7 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 			   sizeof(struct stAF_MotorName)))
 		LOG_INF("copy to user failed when getting motor information\n");
 
-	LOG_INF("GETDRVNAME : set driver name(%s)\n", stMotorName.uMotorName);
+	/* LOG_INF("set driver name(%s)\n", stMotorName.uMotorName); */
 
 	for (i = 0; i < MAX_NUM_OF_LENS; i++) {
 		if (g_stAF_DrvList[i].uEnable != 1)
@@ -214,7 +214,7 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 		LOG_INF("Search Motor Name : %s\n", g_stAF_DrvList[i].uDrvName);
 		if (strcmp(stMotorName.uMotorName,
 			   g_stAF_DrvList[i].uDrvName) == 0) {
-			LOG_INF("Motor Name : %s\n", stMotorName.uMotorName);
+			/* LOG_INF("Name : %s\n", stMotorName.uMotorName); */
 			pstAF_CurDrv = &g_stAF_DrvList[i];
 			break;
 		}
@@ -230,8 +230,7 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 			pstAF_CurDrv->pAF_GetFileName(
 					MotorFileName.uMotorName);
 			i4RetValue = 1;
-			LOG_INF("GETDRVNAME : get file name(%s)\n",
-				MotorFileName.uMotorName);
+
 			if (copy_to_user(
 				    pstMotorName, &MotorFileName,
 				    sizeof(struct stAF_MotorName)))
