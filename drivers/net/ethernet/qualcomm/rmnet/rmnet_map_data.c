@@ -664,30 +664,32 @@ static void rmnet_map_gso_stamp(struct sk_buff *skb,
 				struct rmnet_map_coal_metadata *coal_meta)
 {
 	struct skb_shared_info *shinfo = skb_shinfo(skb);
-	struct iphdr *iph = ip_hdr(skb);
+	unsigned char *data = skb->data;
 	__sum16 pseudo;
 	u16 pkt_len = skb->len - coal_meta->ip_len;
 	bool ipv4 = coal_meta->ip_proto == 4;
 
 	if (ipv4) {
+		struct iphdr *iph = (struct iphdr *)data;
+
 		pseudo = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
 					    pkt_len, coal_meta->trans_proto,
 					    0);
 	} else {
-		struct ipv6hdr *ip6h = ipv6_hdr(skb);
+		struct ipv6hdr *ip6h = (struct ipv6hdr *)data;
 
 		pseudo = ~csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
 					  pkt_len, coal_meta->trans_proto, 0);
 	}
 
 	if (coal_meta->trans_proto == IPPROTO_TCP) {
-		struct tcphdr *tp = tcp_hdr(skb);
+		struct tcphdr *tp = (struct tcphdr *)(data + coal_meta->ip_len);
 
 		tp->check = pseudo;
 		shinfo->gso_type = (ipv4) ? SKB_GSO_TCPV4 : SKB_GSO_TCPV6;
 		skb->csum_offset = offsetof(struct tcphdr, check);
 	} else {
-		struct udphdr *up = udp_hdr(skb);
+		struct udphdr *up = (struct udphdr *)(data + coal_meta->ip_len);
 
 		up->check = pseudo;
 		shinfo->gso_type = SKB_GSO_UDP_L4;
