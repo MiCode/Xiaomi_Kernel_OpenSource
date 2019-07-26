@@ -4,6 +4,7 @@
  */
 
 #include <linux/workqueue.h>
+#include <linux/delay.h>
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #include <sspm_common.h>
@@ -123,18 +124,19 @@ int mtk_get_mcupm_buck_mode(void)
 	return mode;
 }
 
-void mtk_notify_mcupm_infra_off(void)
+void mtk_set_preferred_cpu_wakeup(int cpu)
 {
-	int pwrdn = 1;
-
-	mbox[MBOX_MCUPM].write(APMCU_MCUPM_MBOX_INFRA_PWRDN, &pwrdn, 1);
+	if (cpu_online(cpu))
+		mbox[MBOX_MCUPM].write(APMCU_MCUPM_MBOX_WAKEUP_CPU, &cpu, 1);
 }
 
-void mtk_notify_mcupm_infra_on(void)
+int mtk_get_preferred_cpu_wakeup(void)
 {
-	int pwrdn = 0;
+	int cpu = -1;
 
-	mbox[MBOX_MCUPM].write(APMCU_MCUPM_MBOX_INFRA_PWRDN, &pwrdn, 1);
+	mbox[MBOX_MCUPM].read(APMCU_MCUPM_MBOX_WAKEUP_CPU, &cpu, 1);
+
+	return cpu;
 }
 
 bool mtk_mcupm_is_ready(void)
@@ -146,7 +148,17 @@ bool mtk_mcupm_is_ready(void)
 	return sta == MCUPM_TASK_WAIT || sta == MCUPM_TASK_INIT_FINISH;
 }
 
-void __init mtk_lp_plat_mbox_init(void)
+void mtk_wait_mbox_init_done(void)
+{
+	int sta = MCUPM_TASK_INIT;
+
+	do {
+		msleep(1000);
+		mbox[MBOX_MCUPM].read(APMCU_MCUPM_MBOX_TASK_STA, &sta, 1);
+	} while (sta != MCUPM_TASK_INIT);
+}
+
+void mtk_notify_subsys_ap_ready(void)
 {
 	int ready = 1;
 

@@ -37,7 +37,7 @@ void mtk_clr_sspm_lp_cmd(void);
 #define APMCU_MCUPM_MBOX_ID             3
 
 /* Read/Write */
-#define APMCU_MCUPM_MBOX_INFRA_PWRDN    0
+#define APMCU_MCUPM_MBOX_AP_READY       0
 #define APMCU_MCUPM_MBOX_RESERVED_1     1
 #define APMCU_MCUPM_MBOX_RESERVED_2     2
 #define APMCU_MCUPM_MBOX_RESERVED_3     3
@@ -45,11 +45,14 @@ void mtk_clr_sspm_lp_cmd(void);
 #define APMCU_MCUPM_MBOX_L3_CACHE_MODE  5
 #define APMCU_MCUPM_MBOX_BUCK_MODE      6
 #define APMCU_MCUPM_MBOX_ARMPLL_MODE    7
-#define APMCU_MCUPM_MBOX_AP_READY       8
 /* Read only */
-#define APMCU_MCUPM_MBOX_TASK_STA       9
+#define APMCU_MCUPM_MBOX_TASK_STA       8
+#define APMCU_MCUPM_MBOX_RESERVED_9     9
 #define APMCU_MCUPM_MBOX_RESERVED_10    10
 #define APMCU_MCUPM_MBOX_RESERVED_11    11
+
+/* CPC mode - Read/Write */
+#define APMCU_MCUPM_MBOX_WAKEUP_CPU     12
 
 
 /* Mbox Slot: APMCU_MCUPM_MBOX_PWR_CTRL_EN (4) */
@@ -89,14 +92,16 @@ void mtk_mcupm_pwr_ctrl_dis(int dev);
 
 void mtk_set_mcupm_pll_mode(unsigned int mode);
 int mtk_get_mcupm_pll_mode(void);
+
 void mtk_set_mcupm_buck_mode(unsigned int mode);
 int mtk_get_mcupm_buck_mode(void);
 
-void mtk_notify_mcupm_infra_off(void);
-void mtk_notify_mcupm_infra_on(void);
+void mtk_set_preferred_cpu_wakeup(int cpu);
+int mtk_get_preferred_cpu_wakeup(void);
 
 bool mtk_mcupm_is_ready(void);
 
-void __init mtk_lp_plat_mbox_init(void);
+void mtk_wait_mbox_init_done(void);
+void mtk_notify_subsys_ap_ready(void);
 
 #endif

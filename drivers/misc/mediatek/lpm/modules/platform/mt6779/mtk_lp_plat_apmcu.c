@@ -244,6 +244,9 @@ static int mtk_lp_plat_wait_depd_condition(void *arg)
 	bool mcupm_rdy = false;
 	bool boot_time_pass = false;
 
+	mtk_wait_mbox_init_done();
+	mtk_notify_subsys_ap_ready();
+
 	do {
 		msleep(1000);
 
@@ -335,7 +338,6 @@ int __init mtk_lp_plat_apmcu_init(void)
 
 	mtk_lp_plat_pwr_dev_init();
 	mtk_lp_plat_cpuhp_init();
-	mtk_lp_plat_mbox_init();
 
 	mtk_lp_plat_task = kthread_create(mtk_lp_plat_wait_depd_condition,
 					NULL, "mtk_lp_plat_wait_rdy");

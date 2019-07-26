@@ -6,7 +6,15 @@
 #ifndef __MTK_CPUIDLE_CPC_H__
 #define __MTK_CPUIDLE_CPC_H__
 
+#include <linux/seq_file.h>
 #include <mtk_lpm_module.h>
+
+enum {
+	CPU_TYPE_L,
+	CPU_TYPE_B,
+
+	NF_CPU_TYPE
+};
 
 enum {
 	CPC_SMC_EVENT_DUMP_TRACE_DATA,
@@ -25,6 +33,13 @@ enum {
 
 	NF_CPC_SMC_CONFIG
 };
+
+/**
+ * number of profile type :
+ *  - (number of cpu type) + cluster + mcusys
+ */
+#define DEV_TYPE_NUM (NF_CPU_TYPE + 2)
+
 
 /* smc */
 #define mtk_cpc_smc(act, arg1, arg2)\
@@ -68,7 +83,10 @@ enum {
 	mtk_cpc_smc(CPC_SMC_EVENT_READ_CONFIG\
 			, CPC_SMC_CONFIG_AUTO_OFF_THRES, 0)
 
+#define cpc_tick_to_us(val) ((val) / 13)
+
 void mtk_cpc_prof_start(void);
 void mtk_cpc_prof_stop(void);
+void mtk_cpc_prof_lat_dump(struct seq_file *m);
 
 #endif /* __MTK_CPC_H__ */

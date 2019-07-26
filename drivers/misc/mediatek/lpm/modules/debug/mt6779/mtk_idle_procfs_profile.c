@@ -111,7 +111,7 @@ free:
 
 static int idle_proc_cpc_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "%s()\n", __func__);
+	mtk_cpc_prof_lat_dump(m);
 
 	return 0;
 }
