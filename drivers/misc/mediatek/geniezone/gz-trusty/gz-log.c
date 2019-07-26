@@ -304,6 +304,10 @@ static ssize_t gz_log_read(struct file *file, char __user *buf, size_t size,
 	struct gz_log_state *gls = PDE_DATA(file_inode(file));
 	int ret = 0;
 
+	/* sanity check */
+	if (!buf)
+		return -EINVAL;
+
 	if (atomic_xchg(&gls->readable, 0)) {
 		ret = do_gz_log_read(gls, buf, size);
 		gls->poll_event = atomic_read(&gls->gz_log_event_count);
@@ -386,31 +390,45 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 	gls->get = 0;
 
 	gls->log = glctx.virt;
-	pr_info("gls->log virtual address:%p\n", gls->log);
+	dev_info(&pdev->dev, "gls->log virtual address:%p\n", gls->log);
 	if (!gls->log) {
 		ret = -ENOMEM;
 		goto error_alloc_log;
 	}
 
 	glctx.gls = gls;
-	if (glctx.flag == DYNAMIC) {
-		ret = trusty_std_call32(gls->trusty_dev,
-					SMC_SC_GZ_SHARED_LOG_ADD,
-					(u32)(glctx.paddr),
-					(u32)((u64)glctx.paddr >> 32),
-					glctx.size);
-		if (ret < 0) {
-			pr_info("std call(GZ_SHARED_LOG_ADD) failed: %d %pa\n",
-				ret, &glctx.paddr);
-			goto error_std_call;
-		}
+
+	ret = trusty_std_call32(gls->trusty_dev,
+				SMC_SC_GZ_SHARED_LOG_ADD,
+				(u32)(glctx.paddr),
+				(u32)((u64)glctx.paddr >> 32),
+				glctx.size);
+	if (ret < 0 && glctx.flag == DYNAMIC) {
+		dev_info(&pdev->dev,
+			 "std call(GZ_SHARED_LOG_ADD) failed: %d %pa\n",
+			 ret, &glctx.paddr);
+		goto error_std_call;
+	} else if (glctx.flag == STATIC) {
+		/* NOTE: When static memory used, the gz memlog should
+		 * be registered already and SMC_LOG_ADD should return
+		 * -2(SM_ERR_INVALID_PARAMETERS).
+		 */
+		if (ret == 0)
+			dev_info(&pdev->dev,
+				 "[%s] Detected using old geniezone image\n",
+				 __func__);
+		else if (ret == (-2))
+			dev_info(&pdev->dev,
+				 "[%s] memlog is already registered\n",
+				 __func__, ret);
 	}
 
 	gls->call_notifier.notifier_call = trusty_log_call_notify;
 	ret = trusty_call_notifier_register(gls->trusty_dev,
 					       &gls->call_notifier);
 	if (ret < 0) {
-		dev_info(&pdev->dev, "can not register trusty call notifier\n");
+		dev_info(&pdev->dev,
+			 "can not register trusty call notifier\n");
 		goto error_call_notifier;
 	}
 
@@ -430,7 +448,7 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 	gls->proc = proc_create_data("gz_log", 0444, NULL, &proc_gz_log_fops,
 				     gls);
 	if (!gls->proc) {
-		pr_info("gz_log proc_create failed!\n");
+		dev_info(&pdev->dev, "gz_log proc_create failed!\n");
 		return -ENOMEM;
 	}
 
@@ -465,14 +483,12 @@ static int trusty_gz_log_remove(struct platform_device *pdev)
 					 &gls->panic_notifier);
 	trusty_call_notifier_unregister(gls->trusty_dev, &gls->call_notifier);
 
-	if (glctx.flag == DYNAMIC) {
-		ret = trusty_std_call32(gls->trusty_dev,
-					SMC_SC_GZ_SHARED_LOG_RM,
-					(u32)glctx.paddr,
-					(u32)((u64)glctx.paddr >> 32), 0);
-		if (ret)
-			pr_info("std call(GZ_SHARED_LOG_RM) failed: %d\n", ret);
-	}
+	ret = trusty_std_call32(gls->trusty_dev,
+				SMC_SC_GZ_SHARED_LOG_RM,
+				(u32)glctx.paddr,
+				(u32)((u64)glctx.paddr >> 32), 0);
+	if (ret)
+		pr_info("std call(GZ_SHARED_LOG_RM) failed: %d\n", ret);
 
 	if (glctx.flag == STATIC)
 		iounmap(gls->log);

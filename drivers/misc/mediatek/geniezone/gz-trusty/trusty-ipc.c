@@ -657,7 +657,7 @@ int tipc_chan_connect(struct tipc_chan *chan, const char *name)
 	switch (chan->state) {
 	case TIPC_DISCONNECTED:
 		/* save service name we are connecting to */
-		strcpy(chan->srv_name, body->name);
+		strncpy(chan->srv_name, body->name, sizeof(body->name) - 1);
 
 		fill_msg_hdr(txbuf, chan->local, TIPC_CTRL_ADDR);
 		err = vds_queue_txbuf(chan->vds, txbuf);
@@ -1200,7 +1200,10 @@ static char *strdup(const char *str)
 	size_t lens = strlen(str);
 	char *tmp = kmalloc(lens + 1, GFP_KERNEL);
 
-	tmp = strncpy(tmp, str, lens);
+	if (!tmp)
+		return ERR_PTR(-ENOMEM);
+
+	strncpy(tmp, str, lens);
 	tmp[lens] = '\0';
 	return tmp;
 }
@@ -1224,14 +1227,18 @@ static struct tipc_virtio_dev *port_lookup_vds(struct tipc_cdev_node *cdn,
 	}
 
 	str = strdup(port);
+
+	if (IS_ERR(str))
+		goto err_default;
+
 	p = str;
 	token = strsep(&p, delim);
 
 	if (!token) {
 		/* we can not determine which vds to be delivered,
-		 * just return an error
+		 * just take the default.
 		 */
-		pr_info("[%s] Service name error %s\n", __func__, port);
+		WARN(1, "[%s] Service name error %s\n", __func__, port);
 		goto err_port_name;
 	}
 
@@ -1244,14 +1251,12 @@ static struct tipc_virtio_dev *port_lookup_vds(struct tipc_cdev_node *cdn,
 		}
 	}
 
-	kref_get(&vds->refcount);
-	kfree(str);
-	return vds;
-
+	if (vds)
+		kref_get(&vds->refcount);
 err_port_name:
-	pr_info("[%s] Can't find available tipc_virtio_dev\n", __func__);
 	kfree(str);
-	return ERR_PTR(-EINVAL);
+err_default:
+	return vds;
 }
 
 static int tipc_open_channel(struct tipc_cdev_node *cdn,
@@ -1264,6 +1269,7 @@ static int tipc_open_channel(struct tipc_cdev_node *cdn,
 	vds = port_lookup_vds(cdn, port);
 
 	if (IS_ERR(vds)) {
+		pr_info("[%s] ERROR: virtio device not found\n", __func__);
 		ret = -ENOENT;
 		goto err_vds_lookup;
 	}
