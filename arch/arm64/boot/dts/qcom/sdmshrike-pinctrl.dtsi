@@ -1819,6 +1819,77 @@
 				};
 		};
 
+		ap2mdm {
+			ap2mdm_active: ap2mdm_active {
+				mux {
+					/* ap2mdm-status
+					 * ap2mdm-errfatal
+					 * ap2mdm-vddmin
+					 */
+					pins = "gpio135", "gpio139";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio135", "gpio139";
+					drive-strength = <16>;
+					bias-disable;
+				};
+			};
+			ap2mdm_sleep: ap2mdm_sleep {
+				mux {
+					/* ap2mdm-status
+					 * ap2mdm-errfatal
+					 * ap2mdm-vddmin
+					 */
+					pins = "gpio135", "gpio139";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio135", "gpio139";
+					drive-strength = <8>;
+					bias-disable;
+				};
+
+			};
+		};
+
+		mdm2ap {
+			mdm2ap_active: mdm2ap_active {
+				mux {
+					/* mdm2ap-status
+					 * mdm2ap-errfatal
+					 * mdm2ap-vddmin
+					 */
+					pins = "gpio81", "gpio53";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio81", "gpio53";
+					drive-strength = <8>;
+					bias-disable;
+				};
+			};
+			mdm2ap_sleep: mdm2ap_sleep {
+				mux {
+					/* mdm2ap-status
+					 * mdm2ap-errfatal
+					 * mdm2ap-vddmin
+					 */
+					pins = "gpio81", "gpio53";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio81", "gpio53";
+					drive-strength = <8>;
+					bias-disable;
+				};
+			};
+		};
+
 		cam_sensor_mclk0_active: cam_sensor_mclk0_active {
 			/* MCLK0 */
 			mux {
