@@ -20,7 +20,7 @@
 	model = "Qualcomm Technologies, Inc. SDM429 QRD Spyro DVT Overlay";
 	compatible = "qcom,sdm429w-qrd", "qcom,sdm429w", "qcom,qrd";
 	qcom,msm-id = <416 0x0>;
-	qcom,board-id = <0x01000b 6>;
+	qcom,board-id = <0x00010b 6>;
 	qcom,pmic-id = <0x0002001b 0x0 0x0 0x0>;
 };
 
