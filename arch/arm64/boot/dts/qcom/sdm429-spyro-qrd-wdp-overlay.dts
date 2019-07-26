@@ -35,3 +35,7 @@
 &ext_smart_pa {
 	dvdd-supply = <&pm660_l11>;
 };
+
+&sdhc_2 {
+	cd-gpios = <&tlmm 67 0x1>;
+};
