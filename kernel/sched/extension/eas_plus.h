@@ -83,6 +83,7 @@ unsigned int aggressive_idle_pull(int this_cpu);
 int task_prefer_fit(struct task_struct *p, int cpu);
 int select_task_prefer_cpu(struct task_struct *p, int new_cpu);
 void select_task_prefer_cpu_fair(struct task_struct *p, int *result);
+int cpu_prefer(struct task_struct *task);
 #endif
 
 #ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE

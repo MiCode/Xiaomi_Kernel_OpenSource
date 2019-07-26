@@ -221,14 +221,6 @@ EXPORT_SYMBOL(cpu_is_slowest);
 #endif
 
 #ifdef CONFIG_MTK_SCHED_CPU_PREFER
-/*
- * check if the task or the whole system to prefer to put on big core
- *
- */
-int cpu_prefer(struct task_struct *p)
-{
-	return p->cpu_prefer;
-}
 
 int task_prefer_little(struct task_struct *p)
 {
