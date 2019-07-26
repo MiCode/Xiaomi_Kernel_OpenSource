@@ -1034,9 +1034,6 @@ struct pd_port {
 	struct work_struct fg_bat_work;
 	struct notifier_block fg_bat_nb;
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
-#ifdef CONFIG_COMPATIBLE_APPLE_TA
-	bool apple_ccopen_flag;
-#endif /* CONFIG_COMPATIBLE_APPLE_TA */
 
 	uint8_t cap_miss_match; /* For src_cap miss match */
 };
