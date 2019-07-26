@@ -10222,7 +10222,7 @@ next_group:
 	 * the cpu's in this sched_domain. In this case set the
 	 * overutilized flag at the parent sched_domain.
 	 */
-	if (misfit_task) {
+	if (!sched_feat(SCHED_MTK_EAS) && misfit_task) {
 		struct sched_domain *sd = env->sd->parent;
 
 		/*
