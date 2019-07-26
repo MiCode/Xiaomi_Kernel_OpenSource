@@ -125,7 +125,8 @@ static int mtk_disp_mgr_mmap(struct file *file, struct vm_area_struct *vma)
 
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
-	if (require_size > size || (pa_start < addr_min || pa_end > addr_max)) {
+	if (require_size > size ||
+	    (pa_start < addr_min || pa_end > addr_max || pa_start > pa_end)) {
 		DISPERR("mmap size range over flow!!\n");
 		return -EAGAIN;
 	}
