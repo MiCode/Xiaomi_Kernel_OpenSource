@@ -383,7 +383,11 @@ static int rtfled_probe(struct platform_device *pdev)
 	int rc;
 
 	WARN_ON(fled_dev == NULL);
+	if (!fled_dev)
+		return -ENODEV;
 	WARN_ON(fled_dev->hal == NULL);
+	if (!fled_dev->hal)
+		return -EPERM;
 
 	RTFLED_INFO("Richtek FlashLED Driver is probing\n");
 	rc = rtfled_check_hal_implement(fled_dev->hal);
