@@ -591,7 +591,7 @@ void ovl_get_address(enum DISP_MODULE_ENUM module, unsigned long *add)
 
 void ovl_get_info(enum DISP_MODULE_ENUM module, void *data)
 {
-	int i = 0;
+	unsigned int i = 0;
 	struct OVL_BASIC_STRUCT *pdata = data;
 	unsigned long ovl_base = ovl_base_addr(module);
 	unsigned long layer_off = 0;
