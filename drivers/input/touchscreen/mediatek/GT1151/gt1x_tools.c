@@ -513,7 +513,7 @@ static ssize_t gt1x_tool_read(struct file *filp, char __user *buffer,
 		strncpy(drv_ver, GTP_DRIVER_VERSION,
 			strlen(GTP_DRIVER_VERSION));
 		drv_ver[strlen(GTP_DRIVER_VERSION)] = 0;
-		if (copy_to_user(&buffer, drv_ver, tmp_len)) {
+		if (copy_to_user(buffer, drv_ver, tmp_len)) {
 			GTP_ERROR("[READ]copy_to_user failed");
 			kfree(drv_ver);
 			ret = -1;
