@@ -17,6 +17,7 @@ conditions.
                         "arm,mmu-401"
                         "arm,mmu-500"
                         "cavium,smmu-v2"
+                        "qcom,qsmmu-v500"
                         "qcom,smmu-v2"
 
                   depending on the particular implementation and/or the
@@ -32,6 +33,8 @@ conditions.
                   "qcom,sdm845-smmu-500", "arm,mmu-500"
 
 - reg           : Base address and size of the SMMU.
+
+- reg-names	: For the "qcom,qsmmu-v500" device "tcu-base" is expected.
 
 - #global-interrupts : The number of global interrupts exposed by the
                        device.
@@ -97,6 +100,68 @@ conditions.
 - power-domains:  Specifiers for power domains required to be powered on for
                   the SMMU to operate, as per generic power domain bindings.
 
+- attach-impl-defs : global registers to program at device attach
+                  time. This should be a list of 2-tuples of the format:
+                  <offset reg_value>.
+
+- qcom,fatal-asf : Enable BUG_ON for address size faults.  Some hardware
+                  requires special fixups to recover from address size
+                  faults.  Rather than applying the fixups just BUG since
+                  address size faults are due to a fundamental programming
+                  error from which we don't care about recovering anyways.
+
+- qcom,skip-init : Disable resetting configuration for all context banks
+                  during device reset.  This is useful for targets where
+                  some context banks are dedicated to other execution
+                  environments outside of Linux and those other EEs are
+                  programming their own stream match tables, SCTLR, etc.
+                  Without setting this option we will trample on their
+                  configuration.
+
+- qcom,use-3-lvl-tables:
+		  Some hardware configurations may not be optimized for using
+		  a four level page table configuration. Set to use a three
+		  level page table instead.
+
+- qcom,no-asid-retention:
+		  Some hardware may lose internal state for asid after
+		  retention. No cache invalidation operations involving asid
+		  may be used.
+
+- qcom,actlr:
+		  An array of <sid mask actlr-setting>.
+		  Any sid X for which X&~mask==sid will be programmed with the
+		  given actlr-setting.
+
+-qcom,disable-atos:
+		  Some hardware may not have full support for atos debugging
+		  in tandem with other features like power collapse.
+
+-qcom,opt-out-tbu-halting:
+		  Allow certain TBUs to opt-out from being halted for the
+		  ATOS operation to proceed. Halting certain TBUs would cause
+		  considerable impact to the system such as deadlocks on demand.
+		  Such TBUs can be opted out to be halted from software.
+
+- qcom,deferred-regulator-disable-delay : The time delay for deferred regulator
+                  disable in ms. In case of unmap call, regulator is
+                  enabled/disabled. This may introduce additional delay. For
+                  clients who do not detach, it's not possible to keep regulator
+                  vote while smmu is attached. Type is <u32>.
+
+- (%s)-supply   : Phandle of the regulator that should be powered on during
+                  SMMU register access. (%s) is a string from the
+		  qcom,regulator-names property.
+
+- qcom,regulator-names :
+		  List of strings to use with the (%s)-supply property.
+
+- interconnects:
+		  Pairs of phandles and interconnect provider specifier to
+		  denote the edge source and destination ports of the
+		  interconnect path. For more information, please see
+		  bindings/interconnect/interconnect.txt
+
 ** Deprecated properties:
 
 - mmu-masters (deprecated in favour of the generic "iommus" binding) :
@@ -106,6 +171,68 @@ conditions.
                   linked from this list must have a "#stream-id-cells"
                   property, indicating the number of Stream ID
                   arguments associated with its phandle.
+
+** Additional properties for Iommu Clients:
+- qcom,iommu-dma:
+		Optional, String.
+		Can be one of "bypass", "fastmap", "atomic", "disabled".
+--- "default":
+		Standard iommu translation behavior.
+		The iommu framework will automatically create a domain for the client.
+		iommu and DMA apis may not be called in atomic context.
+--- "bypass":
+		DMA APIs will use 1-to-1 translation between dma_addr and phys_addr.
+		Allows using iommu and DMA apis in atomic context.
+--- "fastmap":
+		DMA APIs will run faster, but use several orders of magnitude more memory.
+		Also allows using iommu and DMA apis in atomic context.
+--- "atomic":
+		Allows using iommu and DMA apis in atomic context.
+--- "disabled":
+		The iommu client is responsible for allocating an iommu domain, as
+		well as calling iommu_map to create the desired mappings.
+
+- qcom,iommu-faults:
+		Optional, List of Strings.
+		The SCTLR register setting which affect iommu faults handling.
+		Any combination of the below strings may be used. Mutliple
+		values are accepted.
+--- "default":
+		Any faults are treated as fatal errors.
+--- "no-CFRE":
+		Iommu faults do not return an abort to the client hardware.
+--- "non-fatal":
+		Iommu faults do not trigger a kernel panic.
+--- "stall-disable":
+		Iommu faults do not stall the client while the fault
+		interrupt is being handled.
+
+- qcom,iommu-vmid:
+		Optional, Int.
+		An identifier indicating the security state of the client.
+
+- qcom,iommu-pagetable:
+		Optional, String.
+		Enables coherency for the IOMMU device, but not for the Client.
+--- "default":
+		Pagetables are not coherent nor cached in the system cache..
+--- "coherent"
+		Pagetables are io-coherent.
+--- "LLC"
+		Pagetables may be saved in the system cache.
+--- "LLC_NWA"
+		Pagetables may be saved in the system cache is used, and
+		 write-allocate hint is disabled.
+
+- qcom,iommu-earlymap:
+		Optional, Bool.
+		Support creating mappings in the page-table before Stage 1 translation is
+		enabled.
+
+- qcom,iommu-dma-addr-pool:
+		Optional, tuple of <address size>.
+		Defaults to <0, SZ_4G> if not present.
+		Indicates the range of addresses that the dma layer will use.
 
 ** Examples:
 
@@ -180,3 +307,37 @@ conditions.
 			 <&mmcc SMMU_MDP_AHB_CLK>;
 		clock-names = "bus", "iface";
 	};
+
+* Qualcomm Technologies, Inc. MMU-500 TBU Device
+
+The qcom,qsmmu-v500 device implements a number of register regions containing
+debug functionality. Each register region maps to a separate tbu from the
+arm mmu-500 implementation.
+
+** TBU required properties:
+
+- compatible    : Should be one of:
+                        "qcom,qsmmuv500-tbu"
+
+- reg           : Base address and size.
+
+- reg-names	: "base" and "status-reg" are expected
+		"base" is the main TBU register region.
+		"status-reg" indicates whether hw can process a new request.
+
+-qcom,stream-id-range:
+		Pair of values describing the smallest supported stream-id
+		and the size of the entire set.
+
+Example:
+smmu {
+	compatible = "qcom,qsmmu-v500";
+	tbu@0x1000 {
+		compatible = "qcom,qsmmuv500-tbu";
+		regs = <0x1000 0x1000>,
+			<0x2000 0x8>;
+		reg-names = "base",
+			"status-reg";
+		qcom,stream-id-range = <0x800 0x400>;
+	};
+};
