@@ -160,8 +160,8 @@ char *iommu_get_port_name(int port)
 bool report_custom_iommu_fault(
 	void __iomem	*base,
 	unsigned int	int_state,
-	unsigned int	fault_iova,
-	unsigned int	fault_pa,
+	unsigned long	fault_iova,
+	unsigned long	fault_pa,
 	unsigned int	fault_id, bool is_vpu)
 {
 	int idx;
@@ -175,7 +175,7 @@ bool report_custom_iommu_fault(
 	} else {
 		idx = mtk_iommu_get_tf_larb_port_idx(fault_id);
 		if (idx == ERROR_LARB_PORT_ID) {
-			pr_info("[MTK_IOMMU] fail,iova 0x%x, port %d\n",
+			pr_info("[MTK_IOMMU] fail,iova 0x%lx, port %d\n",
 				fault_iova, fault_id);
 			return false;
 		}
