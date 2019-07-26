@@ -410,15 +410,21 @@ PHY_INT32 _U3Read_Reg(PHY_INT32 address)
 	PHY_INT32 ret;
 
 	pu1Buf = kmalloc(1, GFP_NOIO);
+	if (!pu1Buf) {
+		ret = -ENOMEM;
+		pr_err("%s - NOMEM\n", __func__);
+		return ret;
+	}
+
 	ret = I2cReadReg(U3_PHY_I2C_DEV, address, pu1Buf);
 	if (ret == PHY_FALSE) {
 		pr_err("Read failed\n");
 		return PHY_FALSE;
 	}
+
 	ret = (char)pu1Buf[0];
 	kfree(pu1Buf);
 	return ret;
-
 }
 
 PHY_INT32 U3PhyWriteReg32(PHY_UINT32 addr, PHY_UINT32 data)
