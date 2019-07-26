@@ -1028,27 +1028,27 @@ static s32 cmdq_driver_ioctl_alloc_iova(unsigned long param)
 
 	buf = dma_buf_get(meta.fd);
 	if (IS_ERR(buf)) {
-		CMDQ_ERR("%s fail to get dma buf:%d\n",
-			__func__, PTR_ERR(buf));
+		CMDQ_ERR("%s fail to get dma buf:%d fd:%#x\n",
+			__func__, PTR_ERR(buf), meta.fd);
 		return -EFAULT;
 	}
 
 	attach = dma_buf_attach(buf, mdp_dev);
 	if (IS_ERR(attach)) {
-		CMDQ_ERR("%s fail to attach dma buf:%d\n",
-			__func__, PTR_ERR(attach));
+		CMDQ_ERR("%s fail to attach dma buf:%d dev:%#p\n",
+			__func__, PTR_ERR(attach), mdp_dev);
 		goto err_attach;
 	}
 
 	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
-		CMDQ_ERR("%s fail to MAP dma buf:%d\n",
-			__func__, PTR_ERR(sgt));
+		CMDQ_ERR("%s fail to MAP dma buf:%d attach:%#p\n",
+			__func__, PTR_ERR(sgt), attach);
 		goto err_map;
 	}
 
 	iova = sg_dma_address(sgt->sgl);
-	CMDQ_LOG("mdp map iova:%#lx\n", (unsigned long)iova);
+	CMDQ_MSG("mdp map iova:%#lx\n", (unsigned long)iova);
 
 	meta.dma_buf = (uint64_t)(unsigned long)buf;
 	meta.attach = (uint64_t)(unsigned long)attach;
@@ -1334,13 +1334,13 @@ static int cmdq_remove(struct platform_device *pDevice)
 
 static int mdp_open(struct inode *node, struct file *f)
 {
-	CMDQ_LOG("%s\n", __func__);
+	CMDQ_MSG("%s\n", __func__);
 	return 0;
 }
 
 static int mdp_release(struct inode *node, struct file *f)
 {
-	CMDQ_LOG("%s\n", __func__);
+	CMDQ_MSG("%s\n", __func__);
 	return 0;
 }
 
@@ -1349,7 +1349,7 @@ static long mdp_ioctl(struct file *pf, unsigned int code,
 {
 	s32 status = 0;
 
-	CMDQ_LOG("[MDP]%s code:0x%08x f:0x%p\n", __func__, code, pf);
+	CMDQ_MSG("[MDP]%s code:0x%08x f:0x%p\n", __func__, code, pf);
 
 	switch (code) {
 	case CMDQ_IOCTL_ALLOC_IOVA:
@@ -1366,7 +1366,7 @@ static long mdp_ioctl(struct file *pf, unsigned int code,
 	if (status < 0)
 		CMDQ_ERR("[MDP]ioctl return fail:%d\n", status);
 	else
-		CMDQ_LOG("[MDP]ioctl success cmd:%#x\n", code);
+		CMDQ_MSG("[MDP]ioctl success cmd:%#x\n", code);
 
 	return status;
 }
