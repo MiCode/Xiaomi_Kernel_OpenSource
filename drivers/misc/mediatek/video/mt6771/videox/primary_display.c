@@ -7004,6 +7004,9 @@ static void rsz_in_out_roi(struct disp_frame_cfg_t *cfg,
 	struct disp_rect src_total_roi = {0, 0, 0, 0};
 	struct disp_input_config *input_cfg = NULL;
 
+	if (cfg->setter == SESSION_USER_AEE)
+		return;
+
 	data_config->rsz_enable = FALSE;
 
 	for (i = 0; i < cfg->input_layer_num; i++) {
