@@ -352,7 +352,16 @@ ssize_t trusty_version_show(struct device *dev, struct device_attribute *attr,
 
 	return scnprintf(buf, PAGE_SIZE, "%s\n", s->version_str);
 }
-DEVICE_ATTR(trusty_version, 0400, trusty_version_show, NULL);
+
+static ssize_t trusty_version_store(struct device *dev,
+			   struct device_attribute *attr, const char *buf,
+			   size_t n)
+{
+
+	return n;
+}
+
+DEVICE_ATTR_RW(trusty_version);
 
 #if 0
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
@@ -384,7 +393,7 @@ static void init_gz_ramconsole(struct device *dev)
 
 #ifdef CONFIG_MT_TRUSTY_DEBUGFS
 
-ssize_t trusty_add(struct device *dev,
+ssize_t trusty_add_show(struct device *dev,
 		   struct device_attribute *attr, char *buf)
 {
 	s32 a, b, ret;
@@ -397,9 +406,17 @@ ssize_t trusty_add(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%d + %d = %d, %s\n", a, b, ret,
 			 (a + b) == ret ? "PASS" : "FAIL");
 }
-DEVICE_ATTR(trusty_add, 0400, trusty_add, NULL);
+static ssize_t trusty_add_store(struct device *dev,
+			   struct device_attribute *attr, const char *buf,
+			   size_t n)
+{
 
-ssize_t trusty_threads(struct device *dev,
+	return n;
+}
+
+DEVICE_ATTR_RW(trusty_add);
+
+ssize_t trusty_threads_show(struct device *dev,
 		       struct device_attribute *attr, char *buf)
 {
 	/* Dump Trusty threads info to memlog */
@@ -408,9 +425,17 @@ ssize_t trusty_threads(struct device *dev,
 	trusty_std_call32(dev, SMC_SC_NOP, 0, 0, 0);
 	return 0;
 }
-DEVICE_ATTR(trusty_threads, 0400, trusty_threads, NULL);
+static ssize_t trusty_threads_store(struct device *dev,
+			   struct device_attribute *attr, const char *buf,
+			   size_t n)
+{
 
-ssize_t trusty_threadstats(struct device *dev,
+	return n;
+}
+
+DEVICE_ATTR_RW(trusty_threads);
+
+ssize_t trusty_threadstats_show(struct device *dev,
 			   struct device_attribute *attr, char *buf)
 {
 	/* Dump Trusty threads info to memlog */
@@ -419,9 +444,17 @@ ssize_t trusty_threadstats(struct device *dev,
 	trusty_std_call32(dev, SMC_SC_NOP, 0, 0, 0);
 	return 0;
 }
-DEVICE_ATTR(trusty_threadstats, 0400, trusty_threadstats, NULL);
+static ssize_t trusty_threadstats_store(struct device *dev,
+			   struct device_attribute *attr, const char *buf,
+			   size_t n)
+{
 
-ssize_t trusty_threadload(struct device *dev,
+	return n;
+}
+
+DEVICE_ATTR_RW(trusty_threadstats);
+
+ssize_t trusty_threadload_show(struct device *dev,
 			  struct device_attribute *attr, char *buf)
 {
 	/* Dump Trusty threads info to memlog */
@@ -430,9 +463,17 @@ ssize_t trusty_threadload(struct device *dev,
 	trusty_std_call32(dev, SMC_SC_NOP, 0, 0, 0);
 	return 0;
 }
-DEVICE_ATTR(trusty_threadload, 0400, trusty_threadload, NULL);
+static ssize_t trusty_threadload_store(struct device *dev,
+			   struct device_attribute *attr, const char *buf,
+			   size_t n)
+{
 
-ssize_t trusty_heap_dump(struct device *dev,
+	return n;
+}
+
+DEVICE_ATTR_RW(trusty_threadload);
+
+ssize_t trusty_heap_dump_show(struct device *dev,
 			 struct device_attribute *attr, char *buf)
 {
 	/* Dump Trusty threads info to memlog */
@@ -441,9 +482,17 @@ ssize_t trusty_heap_dump(struct device *dev,
 	trusty_std_call32(dev, SMC_SC_NOP, 0, 0, 0);
 	return 0;
 }
-DEVICE_ATTR(trusty_heap_dump, 0400, trusty_heap_dump, NULL);
+static ssize_t trusty_heap_dump_store(struct device *dev,
+			   struct device_attribute *attr, const char *buf,
+			   size_t n)
+{
 
-ssize_t trusty_apps(struct device *dev,
+	return n;
+}
+
+DEVICE_ATTR_RW(trusty_heap_dump);
+
+ssize_t trusty_apps_show(struct device *dev,
 		    struct device_attribute *attr, char *buf)
 {
 	/* Dump Trusty threads info to memlog */
@@ -452,15 +501,31 @@ ssize_t trusty_apps(struct device *dev,
 	trusty_std_call32(dev, SMC_SC_NOP, 0, 0, 0);
 	return 0;
 }
-DEVICE_ATTR(trusty_apps, 0400, trusty_apps, NULL);
+static ssize_t trusty_apps_store(struct device *dev,
+			   struct device_attribute *attr, const char *buf,
+			   size_t n)
+{
 
-ssize_t trusty_vdev_reset(struct device *dev,
+	return n;
+}
+
+DEVICE_ATTR_RW(trusty_apps);
+
+ssize_t trusty_vdev_reset_show(struct device *dev,
 			  struct device_attribute *attr, char *buf)
 {
 	trusty_std_call32(dev, SMC_SC_VDEV_RESET, 0, 0, 0);
 	return 0;
 }
-DEVICE_ATTR(trusty_vdev_reset, 0400, trusty_vdev_reset, NULL);
+static ssize_t trusty_vdev_reset_store(struct device *dev,
+			   struct device_attribute *attr, const char *buf,
+			   size_t n)
+{
+
+	return n;
+}
+
+DEVICE_ATTR_RW(trusty_vdev_reset);
 
 
 static void trusty_create_debugfs(struct trusty_state *s, struct device *pdev)
