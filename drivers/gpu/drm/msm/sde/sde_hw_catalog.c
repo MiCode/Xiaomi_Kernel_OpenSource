@@ -3684,12 +3684,15 @@ end:
 
 static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 {
-	int rc = 0;
+	int i, rc = 0;
 
 	if (!sde_cfg)
 		return -EINVAL;
 
 	rc = sde_hardware_format_caps(sde_cfg, hw_rev);
+
+	for (i = 0; i < MDSS_INTR_MAX; i++)
+		set_bit(i, sde_cfg->mdss_irqs);
 
 	if (IS_MSM8996_TARGET(hw_rev)) {
 		sde_cfg->perf.min_prefill_lines = 21;

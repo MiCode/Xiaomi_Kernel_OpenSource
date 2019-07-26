@@ -111,6 +111,27 @@ enum {
 		IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_UBWC_VER_30)
 
 /**
+ * SDE INTERRUPTS - maintains the possible hw irq's allowed by HW
+ * The order in this enum must match the order of the irqs defined
+ * by 'sde_irq_map'
+ */
+enum sde_intr_enum {
+	MDSS_INTR_SSPP_TOP0_INTR,
+	MDSS_INTR_SSPP_TOP0_INTR2,
+	MDSS_INTR_SSPP_TOP0_HIST_INTR,
+	MDSS_INTR_INTF_0_INTR,
+	MDSS_INTR_INTF_1_INTR,
+	MDSS_INTR_INTF_2_INTR,
+	MDSS_INTR_INTF_3_INTR,
+	MDSS_INTR_INTF_4_INTR,
+	MDSS_INTR_AD4_0_INTR,
+	MDSS_INTR_AD4_1_INTR,
+	MDSS_INTF_TEAR_1_INTR,
+	MDSS_INTF_TEAR_2_INTR,
+	MDSS_INTR_MAX
+};
+
+/**
  * MDP TOP BLOCK features
  * @SDE_MDP_PANIC_PER_PIPE Panic configuration needs to be be done per pipe
  * @SDE_MDP_10BIT_SUPPORT, Chipset supports 10 bit pixel formats
@@ -1120,6 +1141,7 @@ struct sde_perf_cfg {
  *                         during secure-ui session
  * @sui_supported_blendstage  secure-ui supported blendstage
  * @has_sui_blendstage  flag to indicate secure-ui has a blendstage restriction
+ * @mdss_irqs	  bitmap with the irqs supported by the target
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -1234,6 +1256,8 @@ struct sde_mdss_cfg {
 	struct sde_format_extended *vig_formats;
 	struct sde_format_extended *wb_formats;
 	struct sde_format_extended *virt_vig_formats;
+
+	DECLARE_BITMAP(mdss_irqs, MDSS_INTR_MAX);
 };
 
 struct sde_mdss_hw_cfg_handler {
