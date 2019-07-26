@@ -3657,6 +3657,8 @@ STREAM_BUFF_END:
 		} else {
 			ioctl_cmd = VIDIOC_MSM_BUF_MNGR_IOCTL_CMD;
 			idx = MSM_CAMERA_BUF_MNGR_IOCTL_ID_GET_BUF_BY_IDX;
+			buff_mgr_info.index =
+				frame_info.output_buffer_info[0].index;
 		}
 		rc = msm_cpp_buffer_ops(cpp_dev, ioctl_cmd, idx,
 			&buff_mgr_info);
@@ -4370,6 +4372,8 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		memset(&k64_frame_info, 0, sizeof(k64_frame_info));
 		k64_frame_info.identity = k32_frame_info.identity;
 		k64_frame_info.frame_id = k32_frame_info.frame_id;
+		k64_frame_info.output_buffer_info[0].index =
+			k32_frame_info.output_buffer_info[0].index;
 
 		kp_ioctl.ioctl_ptr = (__force void __user *)&k64_frame_info;
 
