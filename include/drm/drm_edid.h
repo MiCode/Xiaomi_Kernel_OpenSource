@@ -24,6 +24,7 @@
 #define __DRM_EDID_H__
 
 #include <linux/types.h>
+#include <linux/hdmi.h>
 
 #define EDID_LENGTH 128
 #define DDC_ADDR 0x50
@@ -338,8 +339,6 @@ struct cea_sad {
 struct drm_encoder;
 struct drm_connector;
 struct drm_display_mode;
-struct hdmi_avi_infoframe;
-struct hdmi_vendor_infoframe;
 
 void drm_edid_to_eld(struct drm_connector *connector, struct edid *edid);
 int drm_edid_to_sad(struct edid *edid, struct cea_sad **sads);
