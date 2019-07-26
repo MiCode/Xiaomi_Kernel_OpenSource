@@ -1608,6 +1608,7 @@
 		qcom,pil-mss-memsetup;
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
+		qcom,sequential-fw-load;
 		qcom,override-acc-1 = <0x80800000>;
 		qcom,sysmon-id = <0>;
 		qcom,ssctl-instance-id = <0x12>;
