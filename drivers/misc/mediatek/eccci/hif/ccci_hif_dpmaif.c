@@ -1069,6 +1069,7 @@ static int ccci_skb_to_list(struct ccci_skb_queue *queue, struct sk_buff *newsk)
 			queue->max_history = queue->skb_list.qlen;
 
 	} else {
+		spin_unlock_irqrestore(&queue->skb_list.lock, flags);
 		return -1;
 	}
 	spin_unlock_irqrestore(&queue->skb_list.lock, flags);
