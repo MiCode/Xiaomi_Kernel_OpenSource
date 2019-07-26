@@ -1273,6 +1273,11 @@ static void rmnet_map_linearize_copy(struct sk_buff *dst, struct sk_buff *src)
 	}
 }
 
+static struct sk_buff *rmnet_map_build_skb(struct rmnet_port *port)
+{
+	return alloc_skb(port->egress_agg_params.agg_size, GFP_ATOMIC);
+}
+
 void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port)
 {
 	struct timespec diff, last;
@@ -1300,8 +1305,7 @@ new_packet:
 			return;
 		}
 
-		port->agg_skb = alloc_skb(port->egress_agg_params.agg_size,
-					  GFP_ATOMIC);
+		port->agg_skb = rmnet_map_build_skb(port);
 		if (!port->agg_skb) {
 			port->agg_skb = 0;
 			port->agg_count = 0;
@@ -1351,14 +1355,25 @@ schedule:
 	spin_unlock_irqrestore(&port->agg_lock, flags);
 }
 
+void rmnet_map_update_ul_agg_config(struct rmnet_port *port, u16 size,
+				    u16 count, u32 time)
+{
+	unsigned long irq_flags;
+
+	spin_lock_irqsave(&port->agg_lock, irq_flags);
+	port->egress_agg_params.agg_size = size;
+	port->egress_agg_params.agg_count = count;
+	port->egress_agg_params.agg_time = time;
+	spin_unlock_irqrestore(&port->agg_lock, irq_flags);
+}
+
 void rmnet_map_tx_aggregate_init(struct rmnet_port *port)
 {
 	hrtimer_init(&port->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	port->hrtimer.function = rmnet_map_flush_tx_packet_queue;
-	port->egress_agg_params.agg_size = 8192;
-	port->egress_agg_params.agg_count = 20;
-	port->egress_agg_params.agg_time = 3000000;
 	spin_lock_init(&port->agg_lock);
+
+	rmnet_map_update_ul_agg_config(port, 8192, 20, 3000000);
 
 	INIT_WORK(&port->agg_wq, rmnet_map_flush_tx_packet_work);
 }
