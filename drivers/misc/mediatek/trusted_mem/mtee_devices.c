@@ -43,10 +43,10 @@
 
 static struct trusted_mem_configs mchunk_general_configs = {
 	.session_keep_alive_enable = false,
-	.minimal_chunk_size = SIZE_4K,
+	.minimal_chunk_size = SIZE_2M,
 	.phys_mem_shift_bits = 10,
 	.phys_limit_min_alloc_size = (1 << 10),
-	.min_size_check_enable = true,
+	.min_size_check_enable = false,
 	.alignment_check_enable = false,
 	.caps = 0,
 };
