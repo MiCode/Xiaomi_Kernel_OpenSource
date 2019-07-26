@@ -25,27 +25,35 @@
 extern unsigned int	soidle_profile[4];
 #endif
 
-#define SODI_TAG     "[SODI] "
-#define SODI3_TAG    "[SODI3] "
+#define SODI_TAG     "[name:spm&][SODI] "
+#define SODI3_TAG    "[name:spm&][SODI3] "
 
-#define sodi_err(fmt, args...)     pr_info(SODI_TAG fmt, ##args)
-#define sodi_warn(fmt, args...)    pr_info(SODI_TAG fmt, ##args)
-#define sodi_debug(fmt, args...)   pr_debug(SODI_TAG fmt, ##args)
-#define sodi3_err(fmt, args...)    pr_info(SODI3_TAG fmt, ##args)
-#define sodi3_warn(fmt, args...)   pr_info(SODI3_TAG fmt, ##args)
-#define sodi3_debug(fmt, args...)  pr_debug(SODI3_TAG fmt, ##args)
-#define so_err(fg, fmt, args...)	\
-	((fg&SODI_FLAG_3P0) ?		\
-	 pr_info(SODI3_TAG fmt, ##args):pr_info(SODI_TAG fmt, ##args))
-#define so_warn(fg, fmt, args...)	\
-	((fg&SODI_FLAG_3P0) ?		\
-	 pr_info(SODI3_TAG fmt, ##args):pr_info(SODI_TAG fmt, ##args))
+#define sodi_err(fmt, args...)     printk_deferred(SODI_TAG fmt, ##args)
+#define sodi_warn(fmt, args...)    printk_deferred(SODI_TAG fmt, ##args)
+#define sodi_debug(fmt, args...)   printk_deferred(SODI_TAG fmt, ##args)
+#define sodi3_err(fmt, args...)    printk_deferred(SODI3_TAG fmt, ##args)
+#define sodi3_warn(fmt, args...)   printk_deferred(SODI3_TAG fmt, ##args)
+#define sodi3_debug(fmt, args...)  printk_deferred(SODI3_TAG fmt, ##args)
+#define so_err(fg, fmt, args...)				\
+	do {							\
+		if (fg&SODI_FLAG_3P0)				\
+			printk_deferred(SODI3_TAG fmt, ##args);	\
+		else						\
+			printk_deferred(SODI_TAG fmt, ##args);	\
+	} while (0)
+#define so_warn(fg, fmt, args...)				\
+	do {							\
+		if (fg&SODI_FLAG_3P0)				\
+			printk_deferred(SODI3_TAG fmt, ##args);	\
+		else						\
+			printk_deferred(SODI_TAG fmt, ##args);	\
+	} while (0)
 #define so_debug(fg, fmt, args...)				\
 	do {							\
 		if (fg&SODI_FLAG_3P0)				\
-			pr_debug(SODI3_TAG fmt, ##args);	\
+			printk_deferred(SODI3_TAG fmt, ##args);	\
 		else						\
-			pr_debug(SODI_TAG fmt, ##args);		\
+			printk_deferred(SODI_TAG fmt, ##args);	\
 	} while (0)
 
 #if defined(CONFIG_MACH_MT6763) || defined(CONFIG_MACH_MT6739)
