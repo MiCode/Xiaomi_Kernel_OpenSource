@@ -406,14 +406,14 @@ static int mdlactl_init(void)
 {
 	int ret;
 
+	mdla_sw_multi_devices_init();
+
 	ret = platform_driver_register(&mdla_driver);
 	if (ret != 0)
 		return ret;
 
 	numberOpens = 0;
 	cmd_id = 1;
-	mdla_sw_multi_devices_init();
-
 
 	// Try to dynamically allocate a major number for the device
 	//  more difficult but worth it
@@ -457,6 +457,11 @@ static int mdlactl_init(void)
 		if (ret)
 			mdla_drv_debug("MDLA: set DMA mask failed: %d\n", ret);
 	}
+
+#if 0
+	/* 32-bit will get dummy dma ops, -1 denote no matters */
+	arch_setup_dma_ops(mdlactlDevice, -1, -1, NULL, 0);
+#endif
 
 	mdla_debugfs_init();
 	mdla_profile_init();
@@ -674,7 +679,7 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 		retval = mdla_run_command_sync(
 			&cmd_data.req,
 			&cmd_data.res,
-			&mdla_devices[0]);
+			&mdla_devices[0]);//modify this to UT mdla0/1
 		if (copy_to_user((void *) arg, &cmd_data, sizeof(cmd_data)))
 			return -EFAULT;
 		break;
