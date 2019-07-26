@@ -779,11 +779,25 @@ static int m4u_debug_set(void *data, u64 val)
 	{
 		int i;
 
-		for (i = 0; i < SMI_LARB_NR; i++)
-			larb_clock_on(i, 1);
-
 		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
-			mtk_iommu_atf_test(i);
+			mtk_iommu_atf_test(i, 100);
+	}
+	break;
+	case 52:
+	{
+		int i, ret = 0;
+
+		for (i = 0; i < SMI_LARB_NR; i++) {
+			ret = larb_clock_on(i, 1);
+			if (ret < 0) {
+				M4U_MSG("enable larb%d fail, ret:%d\n", i, ret);
+				return ret;
+			}
+		}
+
+		//IOMMU_ATF_DUMP_SECURE_PORT_CONFIG
+		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
+			mtk_iommu_atf_test(i, 9);
 
 		for (i = 0; i < SMI_LARB_NR; i++)
 			larb_clock_off(i, 1);
@@ -875,7 +889,9 @@ int m4u_debug_help_show(struct seq_file *s, void *unused)
 	M4U_PRINT_SEQ(s,
 		      "echo 50 > /d/m4u/debug:	init the Trustlet and T-drv of secure IOMMU\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 51 > /d/m4u/debug:	IOMMU ATF command test\n");
+		      "echo 51 > /d/m4u/debug:	IOMMU ATF command list test\n");
+	M4U_PRINT_SEQ(s,
+		      "echo 52 > /d/m4u/debug:	dump secure port configuration\n");
 	return 0;
 }
 

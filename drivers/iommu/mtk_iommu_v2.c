@@ -285,6 +285,7 @@ int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id, unsigned int bank)
 #if 0
 	size_t tf_port = 0;
 #endif
+
 	if (cmd >= IOMMU_ATF_CMD_COUNT ||
 	    m4u_id >= MTK_IOMMU_M4U_COUNT ||
 	    bank > MTK_IOMMU_BANK_COUNT) {
@@ -304,33 +305,54 @@ int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id, unsigned int bank)
 #endif
 }
 
-void mtk_iommu_atf_test(unsigned int m4u_id)
+void mtk_iommu_atf_test_recovery(unsigned int m4u_id, unsigned int cmd)
 {
-	int ret, i;
+	int ret = 0;
 
-	for (i = 0; i < IOMMU_ATF_CMD_COUNT; i++) {
+	if (cmd == IOMMU_ATF_SECURITY_DEBUG_DISABLE &&
+	    g_secure_status > 0)
+		ret = mtk_iommu_atf_call(
+				IOMMU_ATF_SECURITY_DEBUG_ENABLE,
+				m4u_id,
+				MTK_IOMMU_BANK_COUNT);
+
+	if (cmd == IOMMU_ATF_SECURITY_DEBUG_ENABLE &&
+	    g_secure_status == 0)
+		ret = mtk_iommu_atf_call(
+				IOMMU_ATF_SECURITY_DEBUG_DISABLE,
+				m4u_id,
+				MTK_IOMMU_BANK_COUNT);
+
+	pr_notice(">>> cmd:%d %s, status:%d, ret:%d\n", cmd,
+		  (ret ? "FAIL" : "PASS"),
+		  g_secure_status, ret);
+}
+
+void mtk_iommu_atf_test(unsigned int m4u_id, unsigned int cmd)
+{
+	int ret = 0, i;
+
+	if (cmd < IOMMU_ATF_CMD_COUNT) {
+		pr_notice("======== IOMMU test ATF cmd %d: %s=========\n",
+			  cmd, iommu_atf_cmd_name[cmd]);
+		ret = mtk_iommu_atf_call(cmd, m4u_id,
+				MTK_IOMMU_BANK_COUNT);
+		pr_notice(">>> cmd:%d %s, status:%d, ret:%d\n", cmd,
+			  (ret ? "FAIL" : "PASS"),
+			  g_secure_status, ret);
+		mtk_iommu_atf_test_recovery(m4u_id, cmd);
+		return;
+	}
+
+	for (i = 0; i < IOMMU_ATF_DUMP_SECURE_PORT_CONFIG; i++) {
 		pr_notice("======== IOMMU test ATF cmd %d: %s=========\n",
 			  i, iommu_atf_cmd_name[i]);
 		ret = mtk_iommu_atf_call(i, m4u_id,
 				MTK_IOMMU_BANK_COUNT);
-
-		if (i == IOMMU_ATF_SECURITY_DEBUG_DISABLE &&
-		    g_secure_status > 0)
-			ret = mtk_iommu_atf_call(
-					IOMMU_ATF_SECURITY_DEBUG_ENABLE,
-					m4u_id,
-					MTK_IOMMU_BANK_COUNT);
-
-		if (i == IOMMU_ATF_SECURITY_DEBUG_ENABLE &&
-		    g_secure_status == 0)
-			ret = mtk_iommu_atf_call(
-					IOMMU_ATF_SECURITY_DEBUG_DISABLE,
-					m4u_id,
-					MTK_IOMMU_BANK_COUNT);
-
 		pr_notice(">>> cmd:%d %s, status:%d, ret:%d\n", i,
 			  (ret ? "FAIL" : "PASS"),
 			  g_secure_status, ret);
+		mtk_iommu_atf_test_recovery(m4u_id, cmd);
 	}
 }
 
@@ -1433,13 +1455,13 @@ static int mtk_iova_reserve_iommu_regions(struct mtk_iommu_domain *dom,
 
 		ret = mtk_do_reserve_iova(mapping, start, end - start, pg_off);
 		if (ret != 0) {
-			pr_notice("%s, %d, err reserve (0x%x+0x%x) in the mapping of group %d, pg_off=0x%x\n",
+			pr_notice("%s, %d, err reserve (0x%llx+0x%lx) in the mapping of group %d, pg_off=0x%x\n",
 				  __func__, __LINE__, region->start,
 				  region->length, dom->id, pg_off);
 			goto out;
 		} else {
 			dom->resv_status = 1;
-			pr_notice("%s, %d, finish reserve (0x%x+0x%x) in the mapping of group %d, pg_off=0x%x\n",
+			pr_notice("%s, %d, finish reserve (0x%llx+0x%lx) in the mapping of group %d, pg_off=0x%x\n",
 				  __func__, __LINE__, region->start,
 				  region->length, dom->id, pg_off);
 		}
