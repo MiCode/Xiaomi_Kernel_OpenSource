@@ -1347,6 +1347,7 @@
 			reg-names = "dvfsrc";
 			clocks = <&infracfg_ao CLK_INFRA_DVFSRC>;
 			clock-names = "dvfsrc";
+			perf-domains = <MT6779_POWER_DOMAIN_INFRA>;
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
