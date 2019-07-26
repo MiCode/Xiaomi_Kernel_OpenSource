@@ -44,10 +44,6 @@ struct mt6360_ldo_platform_data {
 	struct regulator_init_data *init_data[MT6360_LDO_MAX];
 	struct resource *irq_res;
 	int irq_res_cnt;
-	u8 ldo1_ctrls[MT6360_LDO_CTRLS_NUM];
-	u8 ldo2_ctrls[MT6360_LDO_CTRLS_NUM];
-	u8 ldo3_ctrls[MT6360_LDO_CTRLS_NUM];
-	u8 ldo5_ctrls[MT6360_LDO_CTRLS_NUM];
 };
 
 struct mt6360_ldo_info {
