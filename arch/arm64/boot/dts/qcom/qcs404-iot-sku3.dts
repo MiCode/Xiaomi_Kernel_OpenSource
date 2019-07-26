@@ -18,8 +18,8 @@
 #include "qcs405-circular-pca9956.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCS403 SSRD IOT";
-	compatible = "qcom,qcs403-iot", "qcom,qcs403", "qcom,iot";
+	model = "Qualcomm Technologies, Inc. QCS404 SSRD IOT";
+	compatible = "qcom,qcs404-iot", "qcom,qcs404", "qcom,iot";
 	qcom,board-id = <0x010020 0x4>;
 
 };

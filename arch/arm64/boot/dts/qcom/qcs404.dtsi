@@ -14,7 +14,7 @@
 #include "qcs405.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCS403";
+	model = "Qualcomm Technologies, Inc. QCS404";
 	qcom,msm-name = "QCS404";
 	qcom,msm-id = <410 0x0>;
 

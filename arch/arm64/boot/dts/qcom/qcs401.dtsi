@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#include "qcs405.dtsi"
+#include "qcs403.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS401";
@@ -20,29 +20,5 @@
 };
 
 &soc {
-	/delete-node/ qcom,msm-cpufreq;
-
-	msm_cpufreq: qcom,msm-cpufreq {
-		compatible = "qcom,msm-cpufreq";
-		clock-names = "cpu0_clk";
-		clocks = <&clock_cpu APCS_MUX_CLK>;
-
-		qcom,cpufreq-table =
-			 < 1094400 >,
-			 < 1248000 >,
-			 < 1401600 >;
-	};
-
-	/delete-node/ qcom,cpu0-computemon;
-
-	cpu0_computemon: qcom,cpu0-computemon {
-		compatible = "qcom,arm-cpu-mon";
-		qcom,cpulist = <&CPU0 &CPU1>;
-		qcom,target-dev = <&cpu0_cpu_ddr_latfloor>;
-		qcom,core-dev-table =
-			< 1094400 MHZ_TO_MBPS( 297, 8) >,
-			< 1248000 MHZ_TO_MBPS( 597, 8) >,
-			< 1401600 MHZ_TO_MBPS( 710, 8) >;
-	};
+	/delete-node/ qcom,turing@800000;
 };
-
