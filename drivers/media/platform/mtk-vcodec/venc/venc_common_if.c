@@ -290,6 +290,10 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 		inst->vcu_inst.id = IPI_VENC_H265;
 		break;
 	}
+	case V4L2_PIX_FMT_HEIF: {
+		inst->vcu_inst.id = IPI_VENC_HEIF;
+		break;
+	}
 
 	default: {
 		mtk_vcodec_err(inst, "%s fourcc not supported", __func__);
@@ -469,12 +473,14 @@ static int venc_set_param(unsigned long handle,
 		inst->vsi->config.roion = enc_prm->roion;
 		inst->vsi->config.scenario = enc_prm->scenario;
 		inst->vsi->config.prependheader = enc_prm->prependheader;
+		inst->vsi->config.heif_grid_size = enc_prm->heif_grid_size;
 
 		if (inst->vcu_inst.id == IPI_VENC_H264 ||
 			inst->vcu_inst.id == IPI_VENC_HYBRID_H264) {
 			inst->vsi->config.profile = enc_prm->profile;
 			inst->vsi->config.level = enc_prm->level;
-		} else if (inst->vcu_inst.id == IPI_VENC_H265) {
+		} else if (inst->vcu_inst.id == IPI_VENC_H265 ||
+				inst->vcu_inst.id == IPI_VENC_HEIF) {
 			inst->vsi->config.profile =
 				venc_h265_get_profile(inst, enc_prm->profile);
 			inst->vsi->config.level =

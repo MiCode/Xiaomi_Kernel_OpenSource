@@ -288,7 +288,8 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 	cur_bw = add_bw_by_id(&venc_bw, ctx->id);
 
 	if (ctx->use_gce == 1 ||
-		ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H265) {
+		ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H265 ||
+		ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_HEIF) {
 		boost_perc = 100;
 	}
 

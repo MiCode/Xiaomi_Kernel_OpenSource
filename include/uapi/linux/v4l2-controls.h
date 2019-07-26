@@ -723,6 +723,8 @@ enum v4l2_mpeg_cx2341x_video_median_filter_type {
 	(V4L2_CID_MPEG_MTK_BASE+10)
 #define V4L2_CID_MPEG_MTK_SEC_DECODE \
 	(V4L2_CID_MPEG_MTK_BASE+11)
+#define V4L2_CID_MPEG_MTK_ENCODE_GRID_SIZE \
+	(V4L2_CID_MPEG_MTK_BASE+14)
 
 /*  MPEG-class control IDs specific to the Samsung MFC 5.1 driver as defined by V4L2 */
 #define V4L2_CID_MPEG_MFC51_BASE				(V4L2_CTRL_CLASS_MPEG | 0x1100)
