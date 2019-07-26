@@ -155,6 +155,9 @@ static ssize_t power_supply_show_property(struct device *dev,
 	else if (off == POWER_SUPPLY_PROP_CONNECTOR_HEALTH)
 		return scnprintf(buf, PAGE_SIZE, "%s\n",
 			       power_supply_health_text[value.intval]);
+	else if (off == POWER_SUPPLY_PROP_SKIN_HEALTH)
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+			       power_supply_health_text[value.intval]);
 	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME)
 		return sprintf(buf, "%s\n", value.strval);
 
