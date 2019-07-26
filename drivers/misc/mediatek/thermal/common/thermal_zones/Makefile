@@ -24,8 +24,8 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/imgsensor/inc/
 
 
 #obj-$(CONFIG_THERMAL) += mtk_ts_battery.o
-#obj-$(CONFIG_THERMAL) += mtk_ts_bts.o
-#obj-$(CONFIG_THERMAL) += mtk_ts_btsmdpa.o
+obj-$(CONFIG_THERMAL) += mtk_ts_bts.o
+obj-$(CONFIG_THERMAL) += mtk_ts_btsmdpa.o
 
 #obj-$(CONFIG_THERMAL) += mtk_ts_cpu_noBank.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_pa.o

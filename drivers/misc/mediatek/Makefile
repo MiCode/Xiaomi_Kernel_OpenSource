@@ -38,4 +38,4 @@ obj-$(CONFIG_MTK_PERF_COMMON) += perf_common/
 obj-$(CONFIG_MTK_SYSTRACKER_V2) += systracker/
 obj-$(CONFIG_MTK_HANG_DETECT) += monitor_hang/
 obj-$(CONFIG_MTK_POWER_THROTTLING_COMMON) += power_throttling/
-
+obj-$(CONFIG_THERMAL) += thermal/

@@ -245,6 +245,7 @@ source "drivers/misc/mediatek/aee/Kconfig"
 source "drivers/misc/mediatek/cm_mgr/Kconfig"
 source "drivers/misc/mediatek/systracker/Kconfig"
 source "drivers/misc/mediatek/monitor_hang/Kconfig"
+source "drivers/misc/mediatek/thermal/Kconfig"
 endmenu # Debug
 
 menu "Misc"
