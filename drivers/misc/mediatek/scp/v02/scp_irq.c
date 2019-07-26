@@ -16,7 +16,7 @@
 #include <mt-plat/aee.h>
 #include <linux/interrupt.h>
 #include <mt-plat/sync_write.h>
-#include "scp_ipi.h"
+#include "scp_ipi_pin.h"
 #include "scp_helper.h"
 #include "scp_excep.h"
 #include "scp_dvfs.h"
@@ -69,7 +69,7 @@ irqreturn_t scp_A_irq_handler(int irq, void *dev_id)
 		writel(SCP_IRQ_WDT, SCP_A_TO_HOST_REG);
 	} else if (reg & SCP_IRQ_SCP2HOST) {
 		/* if WDT and IPI triggered on the same time, ignore the IPI */
-		scp_A_ipi_handler();
+		//scp_A_ipi_handler();
 		writel(SCP_IRQ_SCP2HOST, SCP_A_TO_HOST_REG);
 	}
 #endif  // SCP_RECOVERY_SUPPORT

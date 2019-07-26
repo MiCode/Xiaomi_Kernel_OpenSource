@@ -22,7 +22,7 @@
 #include <linux/sched_clock.h>
 #include <linux/ratelimit.h>
 #include <linux/delay.h>
-#include "scp_ipi.h"
+#include "scp_ipi_pin.h"
 #include "scp_helper.h"
 #include "scp_excep.h"
 #include "scp_feature_define.h"

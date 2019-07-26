@@ -15,7 +15,8 @@
  */
 
 #include <linux/device.h>       /* needed by device_* */
-#include "scp_ipi.h"
+#include "scp_ipi_pin.h"
+#include "scp_mbox_layout.h"
 #include "scp_scpctl.h"
 
 /*
@@ -46,8 +47,9 @@ static ssize_t scpctl_store(struct device *kobj
 
 	switch (type) {
 	case SCPCTL_TYPE_TMON:
-		ret = scp_ipi_send(IPI_SCPCTL, &cmd, sizeof(cmd), 0, SCP_A_ID);
-		if (ret != SCP_IPI_DONE)
+		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCPCTL_0, 0, &cmd,
+				   PIN_OUT_SIZE_SCPCTL_0, 0);
+		if (ret != IPI_ACTION_DONE)
 			goto _err;
 		break;
 	default:
