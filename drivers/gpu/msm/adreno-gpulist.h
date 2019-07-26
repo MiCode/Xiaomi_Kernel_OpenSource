@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 
 #define ANY_ID (~0)
@@ -1438,6 +1438,36 @@ static const struct adreno_a6xx_core adreno_gpu_core_a610 = {
 	.highest_bank_bit = 14,
 };
 
+static const struct adreno_a6xx_core adreno_gpu_core_a660 = {
+	{
+		DEFINE_ADRENO_REV(ADRENO_REV_A660, 6, 6, 0, ANY_ID),
+		.features = ADRENO_RPMH | ADRENO_GPMU | ADRENO_APRIV,
+		.gpudev = &adreno_a6xx_gpudev,
+		.gmem_base = 0,
+		.gmem_size = SZ_1M + SZ_512K,
+		.busy_mask = 0xfffffffe,
+		.bus_width = 32,
+		.snapshot_size = SZ_1M,
+	},
+	.prim_fifo_threshold = 0x00300000,
+	.pdc_address_offset = 0x0,
+	.gmu_major = 2,
+	.gmu_minor = 0,
+	.sqefw_name = "a660_sqe.fw",
+	.gmufw_name = "a660_gmu.bin",
+	.zap_name = "a660_zap",
+	.hwcg = NULL,
+	.hwcg_count = 0,
+	.vbif = a650_gbif_regs,
+	.vbif_count = ARRAY_SIZE(a650_gbif_regs),
+	.hang_detect_cycles = 0xcfffff,
+	.veto_fal10 = true,
+	.protected_regs = a620_protected_regs,
+	.disable_tseskip = true,
+	.highest_bank_bit = 15,
+	.pdc_in_aop = true,
+};
+
 static const struct adreno_gpu_core *adreno_gpulist[] = {
 	&adreno_gpu_core_a306.base,
 	&adreno_gpu_core_a306a.base,
@@ -1464,6 +1494,7 @@ static const struct adreno_gpu_core *adreno_gpulist[] = {
 	&adreno_gpu_core_a640.base,
 	&adreno_gpu_core_a650.base,
 	&adreno_gpu_core_a650v2.base,
+	&adreno_gpu_core_a660.base,
 	&adreno_gpu_core_a680.base,
 	&adreno_gpu_core_a612.base,
 	&adreno_gpu_core_a616.base,
