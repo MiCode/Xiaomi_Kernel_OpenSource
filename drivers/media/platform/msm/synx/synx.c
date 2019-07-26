@@ -633,74 +633,57 @@ int synx_addrefcount(s32 synx_obj, s32 count)
 	return 0;
 }
 
-int synx_import(s32 synx_obj, u32 secure_key, s32 *new_synx_obj)
+int synx_import(s32 synx_obj, u32 import_key, s32 *new_synx_obj)
 {
-	bool bit;
 	s32 id;
-	long idx = 0;
+	struct dma_fence *fence;
 	struct synx_table_row *row = NULL;
-	struct synx_table_row *new_row = NULL;
 
 	pr_debug("Enter %s\n", __func__);
 
 	if (!new_synx_obj)
 		return -EINVAL;
 
-	row = synx_from_key(synx_obj, secure_key);
+	row = synx_from_import_key(synx_obj, import_key);
 	if (!row)
 		return -EINVAL;
 
-	/*
-	 * Reason for separate metadata (for merged synx) being
-	 * dma fence array has separate release func registed with
-	 * dma fence ops, which doesn't invoke release func registered
-	 * by the framework to clear metadata when all refs are released.
-	 * Hence we need to clear the metadata for merged synx obj
-	 * upon synx_release itself. But this creates a problem if
-	 * the synx obj is exported. Thus we need separate metadata
-	 * structures even though they represent same synx obj.
-	 * Note, only the metadata is released, and the fence reference
-	 * count is decremented still.
-	 */
-	if (is_merged_synx(row)) {
-		do {
-			idx = find_first_zero_bit(synx_dev->bitmap,
-					SYNX_MAX_OBJS);
-			if (idx >= SYNX_MAX_OBJS)
-				return -ENOMEM;
-			bit = test_and_set_bit(idx, synx_dev->bitmap);
-		} while (bit);
-
-		new_row = synx_dev->synx_table + idx;
-		/* new global synx id */
-		id = synx_create_handle(new_row);
-
-		/* both metadata points to same dma fence */
-		new_row->fence = row->fence;
-		new_row->index = idx;
-		new_row->synx_obj = id;
-	} else {
-		/* new global synx id. Imported synx points to same metadata */
-		id = synx_create_handle(row);
+	/* new global synx id */
+	id = synx_create_handle(row);
+	if (id < 0) {
+		fence = row->fence;
+		if (is_merged_synx(row)) {
+			clear_bit(row->index, synx_dev->bitmap);
+			memset(row, 0, sizeof(*row));
+		}
+		/* release the reference obtained during export */
+		dma_fence_put(fence);
+		return -EINVAL;
 	}
 
+	row->synx_obj = id;
 	*new_synx_obj = id;
 	pr_debug("Exit %s\n", __func__);
 
 	return 0;
 }
 
-int synx_export(s32 synx_obj, u32 *key)
+int synx_export(s32 synx_obj, u32 *import_key)
 {
+	int rc;
 	struct synx_table_row *row = NULL;
+
+	pr_debug("Enter %s\n", __func__);
 
 	row = synx_from_handle(synx_obj);
 	if (!row)
 		return -EINVAL;
 
-	spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
-	*key = synx_generate_secure_key(row);
+	rc = synx_generate_import_key(row, import_key);
+	if (rc < 0)
+		return rc;
 
+	spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
 	/*
 	 * to make sure the synx is not lost if the process dies or
 	 * synx is released before any other process gets a chance to
@@ -710,6 +693,7 @@ int synx_export(s32 synx_obj, u32 *key)
 	 */
 	dma_fence_get(row->fence);
 	spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
+	pr_debug("Exit %s\n", __func__);
 
 	return 0;
 }
@@ -1489,6 +1473,7 @@ static int __init synx_init(void)
 	}
 
 	INIT_LIST_HEAD(&synx_dev->client_list);
+	INIT_LIST_HEAD(&synx_dev->import_list);
 	synx_dev->dma_context = dma_fence_context_alloc(1);
 
 	synx_dev->debugfs_root = init_synx_debug_dir(synx_dev);
