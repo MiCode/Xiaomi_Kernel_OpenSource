@@ -11,7 +11,7 @@
  */
 
 #include "skeleton64.dtsi"
-#include <dt-bindings/clock/qcom,gcc-sm8150.h>
+#include <dt-bindings/clock/qcom,gcc-sdmshrike.h>
 #include <dt-bindings/clock/qcom,scc-sm8150.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "quin-vm-common.dtsi"
@@ -147,44 +147,31 @@
 		status = "disabled";
 	};
 
-	pm8150_l2: regulator-pm8150-l2 {
+	pm8195_3_l5: regulator-pm8195-3-l5 {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_l2";
-		regulator-min-microvolt = <3072000>;
-		regulator-max-microvolt = <3072000>;
-		qcom,init-voltage = <3072000>;
-		status = "okay";
+		regulator-name = "pm8195_3_l5";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <920000>;
+		qcom,init-voltage = <800000>;
+		status = "ok";
 	};
 
-	pm8150_l5: regulator-pm8150-l5 {
+	pm8195_1_l12: regulator-pm8195-1-l12 {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_l5";
-		regulator-min-microvolt = <880000>;
-		regulator-max-microvolt = <880000>;
-		qcom,proxy-consumer-enable;
-		qcom,proxy-consumer-current = <23800>;
-		qcom,init-voltage = <880000>;
-		status = "okay";
-	};
-
-	pm8150_l12: regulator-pm8150-l12 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_l12";
+		regulator-name = "pm8195_1_l12";
 		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+		regulator-max-microvolt = <1890000>;
 		qcom,init-voltage = <1800000>;
-		status = "okay";
+		status = "ok";
 	};
 
-	pm8150l_l3: regulator-pm8150l-l3 {
+	pm8195_3_l16: regulator-pm8195-3-l16 {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150l_l3";
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
-		qcom,proxy-consumer-enable;
-		qcom,proxy-consumer-current = <51800>;
-		qcom,init-voltage = <1200000>;
-		status = "okay";
+		regulator-name = "pm8195_3_l16";
+		regulator-min-microvolt = <2921000>;
+		regulator-max-microvolt = <3300000>;
+		qcom,init-voltage = <2921000>;
+		status = "ok";
 	};
 
 	usb30_prim_gdsc: usb30_prim_gdsc {
@@ -203,5 +190,5 @@
 #include "sdmshrike-pinctrl.dtsi"
 #include "sm8150-slpi-pinctrl.dtsi"
 #include "sa8155-vm-qupv3.dtsi"
-#include "sa8155-vm-usb.dtsi"
+#include "sa8195-vm-usb.dtsi"
 #include "sa8155-vm-audio.dtsi"
