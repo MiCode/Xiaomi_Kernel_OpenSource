@@ -151,6 +151,7 @@
 	/delete-property/ vreg_rgmii-supply;
 	pinctrl-names = "default";
 	pinctrl-0 = <&vreg_rgmii_off_default>;
+	qcom,phy-reset-delay-msecs = <10>;
 };
 
 &vreg_rgmii_io_pads {
