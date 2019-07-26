@@ -570,6 +570,7 @@ int pd_core_init(struct tcpc_device *tcpc_dev)
 
 	pd_port->tcpc_dev = tcpc_dev;
 	pd_port->pe_pd_state = PE_IDLE2;
+	pd_port->cap_miss_match = 0; /* For src_cap miss match */
 
 #ifdef CONFIG_COMPATIBLE_APPLE_TA
 	pd_port->apple_ccopen_flag = false;
@@ -752,6 +753,7 @@ int pd_reset_protocol_layer(struct pd_port *pd_port, bool sop_only)
 	pe_data->local_selected_cap = 0;
 	pe_data->remote_selected_cap = 0;
 	pe_data->during_swap = 0;
+	pd_port->cap_miss_match = 0;
 
 #ifdef CONFIG_USB_PD_REV30_ALERT_REMOTE
 	pe_data->remote_alert = 0;

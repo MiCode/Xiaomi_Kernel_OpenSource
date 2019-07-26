@@ -1037,6 +1037,8 @@ struct pd_port {
 #ifdef CONFIG_COMPATIBLE_APPLE_TA
 	bool apple_ccopen_flag;
 #endif /* CONFIG_COMPATIBLE_APPLE_TA */
+
+	uint8_t cap_miss_match; /* For src_cap miss match */
 };
 
 static inline struct dp_data *pd_get_dp_data(struct pd_port *pd_port)
