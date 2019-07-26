@@ -107,7 +107,7 @@ ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCo
 endif # !CONFIG_TRUSTONIC_TEE_SUPPORT
 
 ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
-include $(srctree)/drivers/misc/mediatek/teei/Makefile.include
+ccflags-y += -I$(srctree)/drivers/tee/teei/$(CONFIG_MICROTRUST_TEE_VERSION)/common/include
 endif # !CONFIG_MICROTRUST_TEE_SUPPORT
 
 ifeq ($(CONFIG_BLOWFISH_TEE_SUPPORT),y)
