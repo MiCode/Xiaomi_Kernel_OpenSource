@@ -490,20 +490,8 @@ bool mem_cgroup_oom_synchronize(bool wait);
 extern int do_swap_account;
 #endif
 
-struct mem_cgroup *lock_page_memcg(struct page *page);
-void __unlock_page_memcg(struct mem_cgroup *memcg);
+void lock_page_memcg(struct page *page);
 void unlock_page_memcg(struct page *page);
-
-static inline void __mem_cgroup_update_page_stat(struct page *page,
-						 struct mem_cgroup *memcg,
-						 enum mem_cgroup_stat_index idx,
-						 int val)
-{
-	VM_BUG_ON(!(rcu_read_lock_held() || PageLocked(page)));
-
-	if (memcg && memcg->stat)
-		this_cpu_add(memcg->stat->count[idx], val);
-}
 
 /**
  * mem_cgroup_update_page_stat - update page state statistics
@@ -520,12 +508,13 @@ static inline void __mem_cgroup_update_page_stat(struct page *page,
  *     mem_cgroup_update_page_stat(page, state, -1);
  *   unlock_page(page) or unlock_page_memcg(page)
  */
-
 static inline void mem_cgroup_update_page_stat(struct page *page,
 				 enum mem_cgroup_stat_index idx, int val)
 {
+	VM_BUG_ON(!(rcu_read_lock_held() || PageLocked(page)));
 
-	__mem_cgroup_update_page_stat(page, page->mem_cgroup, idx, val);
+	if (page->mem_cgroup)
+		this_cpu_add(page->mem_cgroup->stat->count[idx], val);
 }
 
 static inline void mem_cgroup_inc_page_stat(struct page *page,
@@ -720,12 +709,7 @@ mem_cgroup_print_oom_info(struct mem_cgroup *memcg, struct task_struct *p)
 {
 }
 
-static inline struct mem_cgroup *lock_page_memcg(struct page *page)
-{
-	return NULL;
-}
-
-static inline void __unlock_page_memcg(struct mem_cgroup *memcg)
+static inline void lock_page_memcg(struct page *page)
 {
 }
 
@@ -758,13 +742,6 @@ static inline bool mem_cgroup_oom_synchronize(bool wait)
 static inline void mem_cgroup_update_page_stat(struct page *page,
 					       enum mem_cgroup_stat_index idx,
 					       int nr)
-{
-}
-
-static inline void __mem_cgroup_update_page_stat(struct page *page,
-						 struct mem_cgroup *memcg,
-						 enum mem_cgroup_stat_index idx,
-						 int nr)
 {
 }
 
