@@ -47,6 +47,8 @@ static bool slp_ck26m_on;
 
 bool slp_dump_gpio;
 bool slp_dump_golden_setting;
+bool slp_dump_subsys_sleep_duration;
+bool slp_dump_ap_awake_duration;
 int slp_dump_golden_setting_type = GS_PMIC;
 
 static int slp_suspend_ops_valid(suspend_state_t state)
@@ -430,6 +432,8 @@ module_param(slp_ck26m_on, bool, 0644);
 
 module_param(slp_dump_gpio, bool, 0644);
 module_param(slp_dump_golden_setting, bool, 0644);
+module_param(slp_dump_subsys_sleep_duration, bool, 0644);
+module_param(slp_dump_ap_awake_duration, bool, 0644);
 module_param(slp_dump_golden_setting_type, int, 0644);
 
 MODULE_DESCRIPTION("Sleep Driver v0.1");

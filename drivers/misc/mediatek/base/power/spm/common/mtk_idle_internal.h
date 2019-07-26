@@ -161,7 +161,8 @@ bool sodi_can_enter(int reason);
 /********************************************************************
  * mtk_idle_internal.c
  *******************************************************************/
-
+void ufs_cb_after_idle(void);
+unsigned int ufs_cb_before_idle(void);
 int mtk_idle_enter(
 	int idle_type, int cpu, unsigned int op_cond, unsigned int idle_flag);
 
@@ -244,6 +245,13 @@ extern u32 aee_rr_curr_spm_suspend_val(void);
 extern u32 aee_rr_curr_deepidle_val(void);
 extern u32 aee_rr_curr_sodi3_val(void);
 extern u32 aee_rr_curr_sodi_val(void);
+extern void aee_rr_rec_cidle_model_val(u32 val);
+extern u32 aee_rr_curr_cidle_model_val(void);
+extern void aee_rr_rec_cidle_data_val(u32 val);
+extern u32 aee_rr_curr_cidle_data_val(void);
+extern void aee_rr_rec_cidle_time_val(u32 val);
+extern u32 aee_rr_curr_cidle_time_val(void);
+
 #endif /* CONFIG_MTK_RAM_CONSOLE */
 
 /* definition of spm resource request functions */
