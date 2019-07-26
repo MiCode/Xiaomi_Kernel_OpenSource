@@ -45,6 +45,10 @@ Optional property:
 - qcom,pmic-revid : Phandle pointing to the revision peripheral node. Use it to query the
 		    PMIC fabrication ID for applying the appropriate temperature
 		    compensation parameters.
+- qcom,batt-id-delay-ms :
+    Value type: <u32>
+    Definition: Used to specify HW settling time in MS for measuring BATT_ID.
+            Possible values are: 0, 1, 4, 12, 20, 40, 60, 80.
 Example:
 
 	/* RRADC node */
