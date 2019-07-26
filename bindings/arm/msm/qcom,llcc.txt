@@ -11,7 +11,8 @@ Properties:
 - compatible:
 	Usage: required
 	Value type: <string>
-	Definition: must be "qcom,sdm845-llcc" or "qcom,llcc-v2".
+	Definition: must be "qcom,sdm845-llcc" or "qcom,lahaina-llcc".
+	            "qcom,llcc-v2" must be appended for V2 hardware.
 
 - reg:
 	Usage: required
