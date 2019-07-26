@@ -1,0 +1,11 @@
+#
+# RMNET CTL driver
+#
+
+menuconfig RMNET_CTL
+	tristate "RmNet Control driver"
+	depends on MHI_BUS
+	---help---
+	  Enable the RMNET CTL module which is used for communicating with
+	  device via map command protocol. This module will receive QMAP
+	  control commands via MHI.

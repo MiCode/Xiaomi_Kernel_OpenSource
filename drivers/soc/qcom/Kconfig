@@ -830,6 +830,7 @@ endif # MSM_PM
 
 source "drivers/soc/qcom/memshare/Kconfig"
 source "drivers/soc/qcom/hab/Kconfig"
+source "drivers/soc/qcom/rmnet_ctl/Kconfig"
 
 config MSM_PERFORMANCE
 	tristate "msm performance driver to support userspace fmin/fmax request"
