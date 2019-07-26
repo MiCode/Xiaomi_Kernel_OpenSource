@@ -20,6 +20,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/fs.h>
 #include <linux/dma-fence.h>
+#include <linux/dma-buf-ref.h>
 #include <linux/wait.h>
 
 struct device;
@@ -391,6 +392,17 @@ struct dma_buf {
 };
 
 /**
+ * struct msm_dma_buf - Holds the meta data associated with a shared buffer
+ * object, as well as the buffer object.
+ * @refs: list entry for dma-buf reference tracking
+ * @dma_buf: the shared buffer object
+ */
+struct msm_dma_buf {
+	struct list_head refs;
+	struct dma_buf dma_buf;
+};
+
+/**
  * struct dma_buf_attachment - holds device-buffer attachment data
  * @dmabuf: buffer for this attachment.
  * @dev: device attached to the buffer.
@@ -455,6 +467,12 @@ struct dma_buf_export_info {
 					 .owner = THIS_MODULE }
 
 /**
+ * to_msm_dma_buf - helper macro for deriving an msm_dma_buf from a dma_buf.
+ */
+#define to_msm_dma_buf(_dma_buf) \
+	container_of(_dma_buf, struct msm_dma_buf, dma_buf)
+
+/**
  * get_dma_buf - convenience wrapper for get_file.
  * @dmabuf:	[in]	pointer to dma_buf
  *
@@ -466,6 +484,7 @@ struct dma_buf_export_info {
 static inline void get_dma_buf(struct dma_buf *dmabuf)
 {
 	get_file(dmabuf->file);
+	dma_buf_ref_mod(to_msm_dma_buf(dmabuf), 1);
 }
 
 struct dma_buf_attachment *dma_buf_attach(struct dma_buf *dmabuf,

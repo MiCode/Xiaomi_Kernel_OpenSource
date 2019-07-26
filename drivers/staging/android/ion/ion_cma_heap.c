@@ -4,6 +4,8 @@
  *
  * Copyright (C) Linaro 2012
  * Author: <benjamin.gaignard@linaro.org> for ST-Ericsson.
+ *
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -12,16 +14,20 @@
 #include <linux/err.h>
 #include <linux/cma.h>
 #include <linux/scatterlist.h>
+#include <soc/qcom/secure_buffer.h>
 #include <linux/highmem.h>
 
 #include "ion.h"
+#include "msm_ion_priv.h"
+#include "ion_secure_util.h"
 
 struct ion_cma_heap {
-	struct ion_heap heap;
+	struct msm_ion_heap heap;
 	struct cma *cma;
 };
 
-#define to_cma_heap(x) container_of(x, struct ion_cma_heap, heap)
+#define to_cma_heap(x) \
+	container_of(to_msm_ion_heap(x), struct ion_cma_heap, heap)
 
 /* ION CMA heap operations functions */
 static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
@@ -35,6 +41,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	unsigned long nr_pages = size >> PAGE_SHIFT;
 	unsigned long align = get_order(size);
 	int ret;
+	struct device *dev = cma_heap->heap.dev;
 
 	if (align > CONFIG_CMA_ALIGNMENT)
 		align = CONFIG_CMA_ALIGNMENT;
@@ -43,21 +50,29 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	if (!pages)
 		return -ENOMEM;
 
-	if (PageHighMem(pages)) {
-		unsigned long nr_clear_pages = nr_pages;
-		struct page *page = pages;
+	if (!(flags & ION_FLAG_SECURE)) {
+		if (PageHighMem(pages)) {
+			unsigned long nr_clear_pages = nr_pages;
+			struct page *page = pages;
 
-		while (nr_clear_pages > 0) {
-			void *vaddr = kmap_atomic(page);
+			while (nr_clear_pages > 0) {
+				void *vaddr = kmap_atomic(page);
 
-			memset(vaddr, 0, PAGE_SIZE);
-			kunmap_atomic(vaddr);
-			page++;
-			nr_clear_pages--;
+				memset(vaddr, 0, PAGE_SIZE);
+				kunmap_atomic(vaddr);
+				page++;
+				nr_clear_pages--;
+			}
+		} else {
+			memset(page_address(pages), 0, size);
 		}
-	} else {
-		memset(page_address(pages), 0, size);
 	}
+
+	if (MAKE_ION_ALLOC_DMA_READY ||
+	    (flags & ION_FLAG_SECURE) ||
+	     (!ion_buffer_cached(buffer)))
+		ion_pages_sync_for_device(dev, pages, size,
+					  DMA_BIDIRECTIONAL);
 
 	table = kmalloc(sizeof(*table), GFP_KERNEL);
 	if (!table)
@@ -71,6 +86,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 
 	buffer->priv_virt = pages;
 	buffer->sg_table = table;
+	ion_prepare_sgl_for_force_dma_sync(buffer->sg_table);
 	return 0;
 
 free_mem:
@@ -101,38 +117,125 @@ static struct ion_heap_ops ion_cma_ops = {
 	.unmap_kernel = ion_heap_unmap_kernel,
 };
 
-static struct ion_heap *__ion_cma_heap_create(struct cma *cma)
+struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data)
 {
 	struct ion_cma_heap *cma_heap;
+	struct device *dev = (struct device *)data->priv;
+
+	if (!dev->cma_area)
+		return ERR_PTR(-EINVAL);
 
 	cma_heap = kzalloc(sizeof(*cma_heap), GFP_KERNEL);
 
 	if (!cma_heap)
 		return ERR_PTR(-ENOMEM);
 
-	cma_heap->heap.ops = &ion_cma_ops;
-	cma_heap->cma = cma;
-	cma_heap->heap.type = ION_HEAP_TYPE_DMA;
-	return &cma_heap->heap;
+	cma_heap->heap.ion_heap.ops = &ion_cma_ops;
+	/*
+	 * get device from private heaps data, later it will be
+	 * used to make the link with reserved CMA memory
+	 */
+	cma_heap->heap.dev = dev;
+	cma_heap->cma = dev->cma_area;
+	cma_heap->heap.ion_heap.type = ION_HEAP_TYPE_DMA;
+	return &cma_heap->heap.ion_heap;
 }
 
-static int __ion_add_cma_heaps(struct cma *cma, void *data)
+static void ion_secure_cma_free(struct ion_buffer *buffer)
 {
-	struct ion_heap *heap;
+	if (ion_hyp_unassign_sg_from_flags(buffer->sg_table, buffer->flags,
+					   true))
+		return;
 
-	heap = __ion_cma_heap_create(cma);
-	if (IS_ERR(heap))
-		return PTR_ERR(heap);
-
-	heap->name = cma_get_name(cma);
-
-	ion_device_add_heap(heap);
-	return 0;
+	ion_cma_free(buffer);
 }
 
-static int ion_add_cma_heaps(void)
+static int ion_secure_cma_allocate(struct ion_heap *heap,
+				   struct ion_buffer *buffer, unsigned long len,
+				   unsigned long flags)
 {
-	cma_for_each_area(__ion_add_cma_heaps, NULL);
-	return 0;
+	int ret;
+	struct ion_cma_heap *cma_heap = to_cma_heap(heap);
+
+	if (!(flags & ION_FLAGS_CP_MASK))
+		return -EINVAL;
+
+	ret = ion_cma_allocate(heap, buffer, len, flags);
+	if (ret) {
+		dev_err(cma_heap->heap.dev, "Unable to allocate cma buffer\n");
+		goto out;
+	}
+
+	ret = ion_hyp_assign_sg_from_flags(buffer->sg_table, flags, true);
+	if (ret) {
+		if (ret == -EADDRNOTAVAIL) {
+			goto out_free_buf;
+		} else {
+			ion_cma_free(buffer);
+			goto out;
+		}
+	}
+
+	return ret;
+
+out_free_buf:
+	ion_secure_cma_free(buffer);
+out:
+	return ret;
 }
-device_initcall(ion_add_cma_heaps);
+
+static void *ion_secure_cma_map_kernel(struct ion_heap *heap,
+				       struct ion_buffer *buffer)
+{
+	if (!hlos_accessible_buffer(buffer)) {
+		pr_info("%s: Mapping non-HLOS accessible buffer disallowed\n",
+			__func__);
+		return NULL;
+	}
+	return ion_heap_map_kernel(heap, buffer);
+}
+
+static int ion_secure_cma_map_user(struct ion_heap *mapper,
+				   struct ion_buffer *buffer,
+				   struct vm_area_struct *vma)
+{
+	if (!hlos_accessible_buffer(buffer)) {
+		pr_info("%s: Mapping non-HLOS accessible buffer disallowed\n",
+			__func__);
+		return -EINVAL;
+	}
+	return ion_heap_map_user(mapper, buffer, vma);
+}
+
+static struct ion_heap_ops ion_secure_cma_ops = {
+	.allocate = ion_secure_cma_allocate,
+	.free = ion_secure_cma_free,
+	.map_user = ion_secure_cma_map_user,
+	.map_kernel = ion_secure_cma_map_kernel,
+	.unmap_kernel = ion_heap_unmap_kernel,
+};
+
+struct ion_heap *ion_cma_secure_heap_create(struct ion_platform_heap *data)
+{
+	struct ion_cma_heap *cma_heap;
+	struct device *dev = (struct device *)data->priv;
+
+	if (!dev->cma_area)
+		return ERR_PTR(-EINVAL);
+
+	cma_heap = kzalloc(sizeof(*cma_heap), GFP_KERNEL);
+
+	if (!cma_heap)
+		return ERR_PTR(-ENOMEM);
+
+	cma_heap->heap.ion_heap.ops = &ion_secure_cma_ops;
+	/*
+	 * get device from private heaps data, later it will be
+	 * used to make the link with reserved CMA memory
+	 */
+	cma_heap->heap.dev = dev;
+	cma_heap->cma = dev->cma_area;
+	cma_heap->heap.ion_heap.type =
+		(enum ion_heap_type)ION_HEAP_TYPE_HYP_CMA;
+	return &cma_heap->heap.ion_heap;
+}

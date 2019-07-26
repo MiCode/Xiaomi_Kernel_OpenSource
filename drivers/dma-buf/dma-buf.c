@@ -79,12 +79,14 @@ static struct file_system_type dma_buf_fs_type = {
 
 static int dma_buf_release(struct inode *inode, struct file *file)
 {
+	struct msm_dma_buf *msm_dma_buf;
 	struct dma_buf *dmabuf;
 
 	if (!is_dma_buf_file(file))
 		return -EINVAL;
 
 	dmabuf = file->private_data;
+	msm_dma_buf = to_msm_dma_buf(dmabuf);
 
 	BUG_ON(dmabuf->vmapping_counter);
 
@@ -98,17 +100,18 @@ static int dma_buf_release(struct inode *inode, struct file *file)
 	 */
 	BUG_ON(dmabuf->cb_shared.active || dmabuf->cb_excl.active);
 
-	dmabuf->ops->release(dmabuf);
-
 	mutex_lock(&db_list.lock);
 	list_del(&dmabuf->list_node);
 	mutex_unlock(&db_list.lock);
+
+	dmabuf->ops->release(dmabuf);
+	dma_buf_ref_destroy(msm_dma_buf);
 
 	if (dmabuf->resv == (struct reservation_object *)&dmabuf[1])
 		reservation_object_fini(dmabuf->resv);
 
 	module_put(dmabuf->owner);
-	kfree(dmabuf);
+	kfree(msm_dma_buf);
 	return 0;
 }
 
@@ -505,10 +508,11 @@ err_alloc_file:
  */
 struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 {
+	struct msm_dma_buf *msm_dma_buf;
 	struct dma_buf *dmabuf;
 	struct reservation_object *resv = exp_info->resv;
 	struct file *file;
-	size_t alloc_size = sizeof(struct dma_buf);
+	size_t alloc_size = sizeof(struct msm_dma_buf);
 	int ret;
 
 	if (!exp_info->resv)
@@ -528,12 +532,13 @@ struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 	if (!try_module_get(exp_info->owner))
 		return ERR_PTR(-ENOENT);
 
-	dmabuf = kzalloc(alloc_size, GFP_KERNEL);
-	if (!dmabuf) {
+	msm_dma_buf = kzalloc(alloc_size, GFP_KERNEL);
+	if (!msm_dma_buf) {
 		ret = -ENOMEM;
 		goto err_module;
 	}
 
+	dmabuf = &msm_dma_buf->dma_buf;
 	dmabuf->priv = exp_info->priv;
 	dmabuf->ops = exp_info->ops;
 	dmabuf->size = exp_info->size;
@@ -561,6 +566,9 @@ struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 	mutex_init(&dmabuf->lock);
 	INIT_LIST_HEAD(&dmabuf->attachments);
 
+	dma_buf_ref_init(msm_dma_buf);
+	dma_buf_ref_mod(msm_dma_buf, 1);
+
 	mutex_lock(&db_list.lock);
 	list_add(&dmabuf->list_node, &db_list.head);
 	mutex_unlock(&db_list.lock);
@@ -568,7 +576,7 @@ struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 	return dmabuf;
 
 err_dmabuf:
-	kfree(dmabuf);
+	kfree(msm_dma_buf);
 err_module:
 	module_put(exp_info->owner);
 	return ERR_PTR(ret);
@@ -620,6 +628,7 @@ struct dma_buf *dma_buf_get(int fd)
 		fput(file);
 		return ERR_PTR(-EINVAL);
 	}
+	dma_buf_ref_mod(to_msm_dma_buf(file->private_data), 1);
 
 	return file->private_data;
 }
@@ -640,6 +649,7 @@ void dma_buf_put(struct dma_buf *dmabuf)
 	if (WARN_ON(!dmabuf || !dmabuf->file))
 		return;
 
+	dma_buf_ref_mod(to_msm_dma_buf(dmabuf), -1);
 	fput(dmabuf->file);
 }
 EXPORT_SYMBOL_GPL(dma_buf_put);
@@ -1280,6 +1290,8 @@ static int dma_buf_debug_show(struct seq_file *s, void *unused)
 
 		seq_printf(s, "Total %d devices attached\n\n",
 				attach_count);
+
+		dma_buf_ref_show(s, to_msm_dma_buf(buf_obj));
 
 		count++;
 		size += buf_obj->size;
