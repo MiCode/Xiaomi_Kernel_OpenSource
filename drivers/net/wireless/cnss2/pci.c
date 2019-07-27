@@ -2084,16 +2084,34 @@ void cnss_pci_pm_runtime_get_noresume(struct cnss_pci_data *pci_priv)
 
 int cnss_pci_pm_runtime_put_autosuspend(struct cnss_pci_data *pci_priv)
 {
+	struct device *dev;
+
 	if (!pci_priv)
 		return -ENODEV;
+
+	dev = &pci_priv->pci_dev->dev;
+
+	if (atomic_read(&dev->power.usage_count) == 0) {
+		cnss_pr_dbg("Ignore excessive runtime PM put operation\n");
+		return -EINVAL;
+	}
 
 	return pm_runtime_put_autosuspend(&pci_priv->pci_dev->dev);
 }
 
 void cnss_pci_pm_runtime_put_noidle(struct cnss_pci_data *pci_priv)
 {
+	struct device *dev;
+
 	if (!pci_priv)
 		return;
+
+	dev = &pci_priv->pci_dev->dev;
+
+	if (atomic_read(&dev->power.usage_count) == 0) {
+		cnss_pr_dbg("Ignore excessive runtime PM put operation\n");
+		return;
+	}
 
 	pm_runtime_put_noidle(&pci_priv->pci_dev->dev);
 }
