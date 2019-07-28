@@ -146,6 +146,8 @@ int uclamp_max_for_perf_idx(int idx, int max_value)
 EXPORT_SYMBOL(uclamp_max_for_perf_idx);
 #endif
 
+#endif
+
 #ifdef CONFIG_MTK_SCHED_CPU_PREFER
 int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type)
 {
@@ -170,8 +172,6 @@ int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type)
 	return retval;
 }
 EXPORT_SYMBOL(sched_set_cpuprefer);
-#endif
-
 #endif
 
 #ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE

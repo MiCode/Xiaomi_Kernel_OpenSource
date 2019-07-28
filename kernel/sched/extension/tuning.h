@@ -11,6 +11,7 @@
 #include <linux/types.h>
 #include <linux/cgroup.h>
 #include <linux/sched.h>
+#include <trace/events/sched.h>
 
 #ifdef CONFIG_UCLAMP_TASK
 extern struct mutex uclamp_mutex;
@@ -26,6 +27,10 @@ void cpu_util_update(struct cgroup_subsys_state *css,
 		unsigned int clamp_id, unsigned int group_id,
 		unsigned int value);
 #endif
+#endif
+
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+extern inline int valid_cpu_prefer(int task_prefer);
 #endif
 
 #ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
