@@ -133,4 +133,11 @@ static inline bool is_max_capacity_cpu(int cpu)
 
 #endif /* CONFIG_MTK_SCHED_EXTENSION */
 
+
+#ifdef CONFIG_MTK_SCHED_TURNING_POINT
+extern unsigned long capacity_curr_of(int cpu);
+extern int check_freq_turning_with_limit(void);
+extern int cpu_eff_tp;
+#endif
+
 #endif
