@@ -85,6 +85,7 @@ static const struct alpha_pll_config scc_pll_config = {
 	.aux_output_mask = BIT(1),
 	.aux2_output_mask = BIT(2),
 	.config_ctl_val = 0x4001055b,
+	.test_ctl_hi_val = 0x1,
 	.test_ctl_hi_mask = 0x1,
 };
 
