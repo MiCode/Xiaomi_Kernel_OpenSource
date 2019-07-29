@@ -44,23 +44,6 @@ static void dump_hfi_queue_info(struct iris_hfi_device *device)
 	}
 }
 
-int msm_cvp_comm_get_inst_load(struct msm_cvp_inst *inst,
-		enum load_calc_quirks quirks)
-{
-	return 0;
-}
-
-int msm_cvp_comm_get_inst_load_per_core(struct msm_cvp_inst *inst,
-		enum load_calc_quirks quirks)
-{
-	int load = msm_cvp_comm_get_inst_load(inst, quirks);
-
-	if (inst->clk_data.core_id == CVP_CORE_ID_3)
-		load = load / 2;
-
-	return load;
-}
-
 struct msm_cvp_core *get_cvp_core(int core_id)
 {
 	struct msm_cvp_core *core;
@@ -428,7 +411,7 @@ err_same_state:
 	return rc;
 }
 
-void msm_cvp_queue_v4l2_event(struct msm_cvp_inst *inst, int event_type)
+void msm_cvp_notify_event(struct msm_cvp_inst *inst, int event_type)
 {
 }
 
@@ -481,16 +464,13 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 		return;
 	}
 
-	if (inst->session_type == MSM_CVP_CORE) {
-		dprintk(CVP_DBG, "%s: cvp session %#x\n",
-			__func__, hash32_ptr(inst->session));
-		signal_session_msg_receipt(cmd, inst);
-		cvp_put_inst(inst);
-		return;
-	}
+	dprintk(CVP_DBG, "%s: cvp session %#x\n", __func__,
+		hash32_ptr(inst->session));
 
-	dprintk(CVP_ERR, "%s Session type must be CVP\n", __func__);
+	signal_session_msg_receipt(cmd, inst);
+	cvp_put_inst(inst);
 	return;
+
 }
 
 static void handle_event_change(enum hal_command_response cmd, void *data)
@@ -531,7 +511,7 @@ static void handle_session_error(enum hal_command_response cmd, void *data)
 	struct msm_cvp_cb_cmd_done *response = data;
 	struct cvp_hfi_device *hdev = NULL;
 	struct msm_cvp_inst *inst = NULL;
-	int event = V4L2_EVENT_MSM_CVP_SYS_ERROR;
+	int event = CVP_SYS_ERROR_EVENT;
 
 	if (!response) {
 		dprintk(CVP_ERR,
@@ -553,7 +533,7 @@ static void handle_session_error(enum hal_command_response cmd, void *data)
 
 	if (response->status == CVP_ERR_MAX_CLIENTS) {
 		dprintk(CVP_WARN, "Too many clients, rejecting %pK", inst);
-		event = V4L2_EVENT_MSM_CVP_MAX_CLIENTS;
+		event = CVP_MAX_CLIENTS_EVENT;
 
 		/*
 		 * Clean the HFI session now. Since inst->state is moved to
@@ -565,16 +545,16 @@ static void handle_session_error(enum hal_command_response cmd, void *data)
 		msm_cvp_comm_session_clean(inst);
 	} else if (response->status == CVP_ERR_NOT_SUPPORTED) {
 		dprintk(CVP_WARN, "Unsupported bitstream in %pK", inst);
-		event = V4L2_EVENT_MSM_CVP_HW_UNSUPPORTED;
+		event = CVP_HW_UNSUPPORTED_EVENT;
 	} else {
 		dprintk(CVP_WARN, "Unknown session error (%d) for %pK\n",
 				response->status, inst);
-		event = V4L2_EVENT_MSM_CVP_SYS_ERROR;
+		event = CVP_SYS_ERROR_EVENT;
 	}
 
 	/* change state before sending error to client */
 	change_cvp_inst_state(inst, MSM_CVP_CORE_INVALID);
-	msm_cvp_queue_v4l2_event(inst, event);
+	msm_cvp_notify_event(inst, event);
 	cvp_put_inst(inst);
 }
 
@@ -596,8 +576,8 @@ static void msm_comm_clean_notify_client(struct msm_cvp_core *core)
 		mutex_unlock(&inst->lock);
 		dprintk(CVP_WARN,
 			"%s Send sys error for inst %pK\n", __func__, inst);
-		msm_cvp_queue_v4l2_event(inst,
-				V4L2_EVENT_MSM_CVP_SYS_ERROR);
+		msm_cvp_notify_event(inst,
+				CVP_SYS_ERROR_EVENT);
 	}
 	mutex_unlock(&core->lock);
 }
@@ -855,7 +835,7 @@ static bool is_thermal_permissible(struct msm_cvp_core *core)
 
 	if (is_turbo && tl >= CVP_THERMAL_LOW) {
 		dprintk(CVP_ERR,
-			"Video session not allowed. Turbo mode %d Thermal level %d\n",
+			"CVP session not allowed. Turbo mode %d Thermal level %d\n",
 			is_turbo, tl);
 		return false;
 	}
@@ -930,8 +910,8 @@ static void handle_thermal_event(struct msm_cvp_core *core)
 			dprintk(CVP_WARN,
 				"%s Send sys error for inst %pK\n",
 				__func__, inst);
-			msm_cvp_queue_v4l2_event(inst,
-					V4L2_EVENT_MSM_CVP_SYS_ERROR);
+			msm_cvp_notify_event(inst,
+					CVP_SYS_ERROR_EVENT);
 		} else {
 			msm_cvp_comm_generate_session_error(inst);
 		}
@@ -963,7 +943,7 @@ int msm_cvp_comm_check_core_init(struct msm_cvp_core *core)
 
 	mutex_lock(&core->lock);
 	if (core->state >= CVP_CORE_INIT_DONE) {
-		dprintk(CVP_INFO, "Video core: %d is already in state: %d\n",
+		dprintk(CVP_INFO, "CVP core: %d is already in state: %d\n",
 				core->id, core->state);
 		goto exit;
 	}
@@ -1047,7 +1027,6 @@ core_already_inited:
 	change_cvp_inst_state(inst, MSM_CVP_CORE_INIT);
 	mutex_unlock(&core->lock);
 
-	rc = msm_cvp_comm_scale_clocks_and_bus(inst);
 	return rc;
 
 fail_core_init:
@@ -1078,11 +1057,6 @@ int msm_cvp_deinit_core(struct msm_cvp_inst *inst)
 				core->id, core->state);
 		goto core_already_uninited;
 	}
-	mutex_unlock(&core->lock);
-
-	msm_cvp_comm_scale_clocks_and_bus(inst);
-
-	mutex_lock(&core->lock);
 
 	if (!core->resources.never_unload_fw) {
 		cancel_delayed_work(&core->fw_unload_work);
@@ -1090,8 +1064,7 @@ int msm_cvp_deinit_core(struct msm_cvp_inst *inst)
 		/*
 		 * Delay unloading of firmware. This is useful
 		 * in avoiding firmware download delays in cases where we
-		 * will have a burst of back to back video playback sessions
-		 * e.g. thumbnail generation.
+		 * will have a burst of back to back cvp sessions
 		 */
 		schedule_delayed_work(&core->fw_unload_work,
 			msecs_to_jiffies(core->state == CVP_CORE_INIT_DONE ?
@@ -1142,22 +1115,10 @@ static int msm_comm_session_init(int flipped_state,
 						inst, inst->state);
 		goto exit;
 	}
-	if (inst->session_type != MSM_CVP_CORE) {
-		dprintk(CVP_ERR, "Invalid session\n");
-		return -EINVAL;
-	}
-
-	rc = msm_cvp_comm_init_clocks_and_bus_data(inst);
-	if (rc) {
-		dprintk(CVP_ERR, "Failed to initialize clocks and bus data\n");
-		goto exit;
-	}
 
 	dprintk(CVP_DBG, "%s: inst %pK\n", __func__, inst);
 	rc = call_hfi_op(hdev, session_init, hdev->hfi_device_data,
-			inst, HAL_VIDEO_DOMAIN_CVP,
-			HAL_VIDEO_CODEC_CVP,
-			&inst->session);
+			inst, &inst->session);
 
 	if (rc || !inst->session) {
 		dprintk(CVP_ERR,
@@ -1228,37 +1189,22 @@ int msm_cvp_comm_suspend(int core_id)
 	return rc;
 }
 
-static int get_flipped_state(int present_state,
-	int desired_state)
+static int get_flipped_state(int present_state, int desired_state)
 {
 	int flipped_state = present_state;
 
-	if (flipped_state < MSM_CVP_STOP
-			&& desired_state > MSM_CVP_STOP) {
-		flipped_state = MSM_CVP_STOP + (MSM_CVP_STOP - flipped_state);
+	if (flipped_state < MSM_CVP_CLOSE && desired_state > MSM_CVP_CLOSE) {
+		flipped_state = MSM_CVP_CLOSE + (MSM_CVP_CLOSE - flipped_state);
 		flipped_state &= 0xFFFE;
 		flipped_state = flipped_state - 1;
-	} else if (flipped_state > MSM_CVP_STOP
-			&& desired_state < MSM_CVP_STOP) {
-		flipped_state = MSM_CVP_STOP -
-			(flipped_state - MSM_CVP_STOP + 1);
+	} else if (flipped_state > MSM_CVP_CLOSE
+			&& desired_state < MSM_CVP_CLOSE) {
+		flipped_state = MSM_CVP_CLOSE -
+			(flipped_state - MSM_CVP_CLOSE + 1);
 		flipped_state &= 0xFFFE;
 		flipped_state = flipped_state - 1;
 	}
 	return flipped_state;
-}
-
-struct cvp_hal_buffer_requirements *get_cvp_buff_req_buffer(
-		struct msm_cvp_inst *inst, enum hal_buffer buffer_type)
-{
-	int i;
-
-	for (i = 0; i < HAL_BUFFER_MAX; i++) {
-		if (inst->buff_req.buffer[i].buffer_type == buffer_type)
-			return &inst->buff_req.buffer[i];
-	}
-	dprintk(CVP_ERR, "Failed to get buff req for : %x", buffer_type);
-	return NULL;
 }
 
 int msm_cvp_comm_try_state(struct msm_cvp_inst *inst, int state)
@@ -1304,21 +1250,6 @@ int msm_cvp_comm_try_state(struct msm_cvp_inst *inst, int state)
 		rc = msm_comm_session_init_done(flipped_state, inst);
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
-	case MSM_CVP_LOAD_RESOURCES:
-		dprintk(CVP_WARN, "Deprecated state LOAD_RESOURCES\n");
-	case MSM_CVP_LOAD_RESOURCES_DONE:
-		dprintk(CVP_WARN, "Deprecated state LOAD_RESOURCES_DONE\n");
-	case MSM_CVP_START:
-		dprintk(CVP_WARN, "Deprecated state START\n");
-	case MSM_CVP_START_DONE:
-		dprintk(CVP_WARN, "Deprecated state START_DONE\n");
-	case MSM_CVP_STOP:
-		dprintk(CVP_WARN, "Deprecated state STOP\n");
-	case MSM_CVP_STOP_DONE:
-		dprintk(CVP_WARN, "Deprecated state STOP_DONE\n");
-	case MSM_CVP_RELEASE_RESOURCES:
-		dprintk(CVP_WARN, "Deprecated state RELEASE_SOURCES\n");
-	case MSM_CVP_RELEASE_RESOURCES_DONE:
 	case MSM_CVP_CLOSE:
 		dprintk(CVP_INFO, "to CVP_CLOSE state\n");
 		rc = msm_comm_session_close(flipped_state, inst);
@@ -1450,7 +1381,7 @@ void msm_cvp_ssr_handler(struct work_struct *work)
 			core->trigger_ssr = false;
 		}
 	} else {
-		dprintk(CVP_WARN, "%s: video core %pK not initialized\n",
+		dprintk(CVP_WARN, "%s: cvp core %pK not initialized\n",
 			__func__, core);
 	}
 	mutex_unlock(&core->lock);
@@ -1698,7 +1629,7 @@ static int allocate_and_set_internal_bufs(struct msm_cvp_inst *inst,
 		goto err_no_mem;
 	}
 
-	binfo->buffer_type = 0;
+	binfo->buffer_type = HFI_BUFFER_INTERNAL_PERSIST_1;
 
 	rc = set_internal_buf_on_fw(inst, &binfo->smem, false);
 	if (rc)

@@ -1463,7 +1463,7 @@ fail_init:
 static int session_state_check_init(struct msm_cvp_inst *inst)
 {
 	mutex_lock(&inst->lock);
-	if (inst->state >= MSM_CVP_OPEN && inst->state < MSM_CVP_STOP) {
+	if (inst->state == MSM_CVP_OPEN || inst->state == MSM_CVP_OPEN_DONE) {
 		mutex_unlock(&inst->lock);
 		return 0;
 	}
@@ -1639,7 +1639,7 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 		rc = session_state_check_init(inst);
 		if (rc) {
 			dprintk(CVP_ERR,
-				"Incorrect session state %d for command %d",
+				"Incorrect session state %d for command %#x",
 				inst->state, arg->type);
 			return rc;
 		}
@@ -1836,8 +1836,6 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 	}
 	mutex_unlock(&inst->frames.lock);
 
-	msm_cvp_comm_free_freq_table(inst);
-
 	return rc;
 }
 
@@ -1854,7 +1852,7 @@ int msm_cvp_session_init(struct msm_cvp_inst *inst)
 		inst, hash32_ptr(inst->session));
 
 	/* set default frequency */
-	inst->clk_data.core_id = CVP_CORE_ID_2;
+	inst->clk_data.core_id = 0;
 	inst->clk_data.min_freq = 1000;
 	inst->clk_data.ddr_bw = 1000;
 	inst->clk_data.sys_cache_bw = 1000;

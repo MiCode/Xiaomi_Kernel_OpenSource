@@ -81,12 +81,6 @@ static inline void msm_cvp_free_bus_vectors(
 	res->bus_set.count = 0;
 }
 
-static inline void msm_cvp_free_buffer_usage_table(
-			struct msm_cvp_platform_resources *res)
-{
-	res->buffer_usage_set.buffer_usage_tbl = NULL;
-}
-
 static inline void msm_cvp_free_regulator_table(
 			struct msm_cvp_platform_resources *res)
 {
@@ -119,7 +113,6 @@ void msm_cvp_free_platform_resources(
 	msm_cvp_free_reg_table(res);
 	msm_cvp_free_qdss_addr_table(res);
 	msm_cvp_free_bus_vectors(res);
-	msm_cvp_free_buffer_usage_table(res);
 }
 
 static int msm_cvp_load_reg_table(struct msm_cvp_platform_resources *res)
@@ -449,60 +442,6 @@ err_bus:
 	return rc;
 }
 
-static int msm_cvp_load_buffer_usage_table(
-		struct msm_cvp_platform_resources *res)
-{
-	int rc = 0;
-	struct platform_device *pdev = res->pdev;
-	struct buffer_usage_set *buffer_usage_set = &res->buffer_usage_set;
-
-	if (!of_find_property(pdev->dev.of_node,
-				"qcom,buffer-type-tz-usage-table", NULL)) {
-		/*
-		 * qcom,buffer-type-tz-usage-table is an optional property.  It
-		 * likely won't be present if the core doesn't support content
-		 * protection
-		 */
-		dprintk(CVP_DBG, "buffer-type-tz-usage-table not found\n");
-		return 0;
-	}
-
-	buffer_usage_set->count = get_u32_array_num_elements(
-		pdev->dev.of_node, "qcom,buffer-type-tz-usage-table");
-	buffer_usage_set->count /=
-		sizeof(*buffer_usage_set->buffer_usage_tbl) / sizeof(u32);
-	if (!buffer_usage_set->count) {
-		dprintk(CVP_DBG, "no elements in buffer usage set\n");
-		return 0;
-	}
-
-	buffer_usage_set->buffer_usage_tbl = devm_kzalloc(&pdev->dev,
-			buffer_usage_set->count *
-			sizeof(*buffer_usage_set->buffer_usage_tbl),
-			GFP_KERNEL);
-	if (!buffer_usage_set->buffer_usage_tbl) {
-		dprintk(CVP_ERR, "%s Failed to alloc buffer usage table\n",
-			__func__);
-		rc = -ENOMEM;
-		goto err_load_buf_usage;
-	}
-
-	rc = of_property_read_u32_array(pdev->dev.of_node,
-		    "qcom,buffer-type-tz-usage-table",
-		(u32 *)buffer_usage_set->buffer_usage_tbl,
-		buffer_usage_set->count *
-		sizeof(*buffer_usage_set->buffer_usage_tbl) / sizeof(u32));
-	if (rc) {
-		dprintk(CVP_ERR, "Failed to read buffer usage table\n");
-		goto err_load_buf_usage;
-	}
-
-	return 0;
-err_load_buf_usage:
-	msm_cvp_free_buffer_usage_table(res);
-	return rc;
-}
-
 static int msm_cvp_load_regulator_table(
 		struct msm_cvp_platform_resources *res)
 {
@@ -742,12 +681,6 @@ int cvp_read_platform_resources_from_drv_data(
 	res->max_load = find_key_value(platform_data,
 			"qcom,max-hw-load");
 
-	res->max_hq_mbs_per_frame = find_key_value(platform_data,
-			"qcom,max-hq-mbs-per-frame");
-
-	res->max_hq_fps = find_key_value(platform_data,
-			"qcom,max-hq-frames-per-sec");
-
 	res->sw_power_collapsible = find_key_value(platform_data,
 			"qcom,sw-power-collapse");
 
@@ -763,8 +696,6 @@ int cvp_read_platform_resources_from_drv_data(
 	res->max_secure_inst_count = find_key_value(platform_data,
 			"qcom,max-secure-instances");
 
-	res->slave_side_cp = find_key_value(platform_data,
-			"qcom,slave-side-cp");
 	res->thermal_mitigable = find_key_value(platform_data,
 			"qcom,enable-thermal-mitigation");
 	res->msm_cvp_pwr_collapse_delay = find_key_value(platform_data,
@@ -775,23 +706,8 @@ int cvp_read_platform_resources_from_drv_data(
 			"qcom,hw-resp-timeout");
 	res->msm_cvp_dsp_rsp_timeout = find_key_value(platform_data,
 			"qcom,dsp-resp-timeout");
-	res->domain_cvp = find_key_value(platform_data,
-			"qcom,domain-cvp");
 	res->non_fatal_pagefaults = find_key_value(platform_data,
 			"qcom,domain-attr-non-fatal-faults");
-	res->cache_pagetables = find_key_value(platform_data,
-			"qcom,domain-attr-cache-pagetables");
-	res->decode_batching = find_key_value(platform_data,
-			"qcom,decode-batching");
-	res->dcvs = find_key_value(platform_data,
-			"qcom,dcvs");
-	res->fw_cycles = find_key_value(platform_data,
-			"qcom,fw-cycles");
-	res->bus_devfreq_on = find_key_value(platform_data,
-			"qcom,use-devfreq-scale-bus");
-
-	res->gcc_register_base = platform_data->gcc_register_base;
-	res->gcc_register_size = platform_data->gcc_register_size;
 
 	res->vpu_ver = platform_data->vpu_ver;
 	res->ubwc_config = platform_data->ubwc_config;
@@ -835,13 +751,6 @@ int cvp_read_platform_resources_from_dt(
 	if (rc) {
 		dprintk(CVP_ERR, "Failed to load reg table: %d\n", rc);
 		goto err_load_reg_table;
-	}
-
-	rc = msm_cvp_load_buffer_usage_table(res);
-	if (rc) {
-		dprintk(CVP_ERR,
-			"Failed to load buffer usage table: %d\n", rc);
-		goto err_load_buffer_usage_table;
 	}
 
 	rc = msm_cvp_load_regulator_table(res);
@@ -891,8 +800,6 @@ err_load_allowed_clocks_table:
 err_load_clock_table:
 	msm_cvp_free_regulator_table(res);
 err_load_regulator_table:
-	msm_cvp_free_buffer_usage_table(res);
-err_load_buffer_usage_table:
 	msm_cvp_free_reg_table(res);
 err_load_reg_table:
 	return rc;
