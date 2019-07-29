@@ -691,6 +691,11 @@
 		};
 	};
 
+	qcom,mhi_dev_qrtr {
+		compatible = "qcom,qrtr-mhi-dev";
+		qcom,net-id = <3>;
+	};
+
 	qcom,glinkpkt {
 		compatible = "qcom,glinkpkt";
 
