@@ -236,6 +236,8 @@ static const char rmnet_port_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"DL header total pkts received",
 	"DL trailer last seen sequence",
 	"DL trailer pkts received",
+	"UL agg reuse",
+	"UL agg alloc",
 };
 
 static void rmnet_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
