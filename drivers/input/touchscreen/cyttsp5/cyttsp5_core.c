@@ -306,8 +306,12 @@ static void cyttsp5_free_hid_reports_(struct cyttsp5_core_data *cd)
 
 	for (i = 0; i < cd->num_hid_reports; i++) {
 		report = cd->hid_reports[i];
-		for (j = 0; j < report->num_fields; j++)
+		if (!report)
+			continue;
+		for (j = 0; j < report->num_fields; j++) {
 			kfree(report->fields[j]);
+			report->fields[j] = NULL;
+		}
 		kfree(report);
 		cd->hid_reports[i] = NULL;
 	}
@@ -4633,7 +4637,7 @@ reset:
 
 	rc = cyttsp5_check_and_deassert_int(cd);
 
-	if (reset || retry != CY_CORE_STARTUP_RETRY_COUNT) {
+	if (rc || retry != CY_CORE_STARTUP_RETRY_COUNT) {
 		/* reset hardware */
 		rc = cyttsp5_reset_and_wait(cd);
 		if (rc < 0) {
@@ -4773,11 +4777,10 @@ reset:
 	/* attention startup */
 	call_atten_cb(cd, CY_ATTEN_STARTUP, 0);
 
+	cyttsp5_start_wd_timer(cd);
 exit:
 	if (!rc)
 		cd->startup_retry_count = 0;
-
-	cyttsp5_start_wd_timer(cd);
 
 	if (!detected)
 		rc = -ENODEV;
@@ -4806,6 +4809,10 @@ static int cyttsp5_startup(struct cyttsp5_core_data *cd, bool reset)
 
 	rc = cyttsp5_startup_(cd, reset);
 
+	/* Wake the waiters for end of startup */
+	if (!rc)
+		wake_up(&cd->wait_q);
+
 	if (release_exclusive(cd, cd->dev) < 0)
 		/* Don't return fail code, mode is already changed. */
 		dev_err(cd->dev, "%s: fail to release exclusive\n", __func__);
@@ -4817,9 +4824,6 @@ exit:
 	mutex_lock(&cd->system_lock);
 	cd->startup_state = STARTUP_NONE;
 	mutex_unlock(&cd->system_lock);
-
-	/* Wake the waiters for end of startup */
-	wake_up(&cd->wait_q);
 
 	return rc;
 }
@@ -5759,6 +5763,8 @@ static struct cyttsp5_core_commands _cyttsp5_core_commands = {
 
 struct cyttsp5_core_commands *cyttsp5_get_commands(void)
 {
+	if (!is_cyttsp5_probe_success)
+		return NULL;
 	return &_cyttsp5_core_commands;
 }
 EXPORT_SYMBOL_GPL(cyttsp5_get_commands);
@@ -6436,12 +6442,12 @@ error_startup_btn:
 	cyttsp5_btn_release(dev);
 error_startup_mt:
 	cyttsp5_mt_release(dev);
+	cyttsp5_free_si_ptrs(cd);
 error_startup:
 	pm_runtime_disable(dev);
 	device_init_wakeup(dev, 0);
 	cancel_work_sync(&cd->startup_work);
 	cyttsp5_stop_wd_timer(cd);
-	cyttsp5_free_si_ptrs(cd);
 	remove_sysfs_interfaces(dev);
 error_attr_create:
 	free_irq(cd->irq, cd);
@@ -6453,7 +6459,7 @@ error_detect:
 	cyttsp5_del_core(dev);
 	dev_set_drvdata(dev, NULL);
 error_power:
-	kfree(cd);
+	cyttsp5_power_init(cd, false);
 error_alloc_data:
 error_no_pdata:
 	dev_err(dev, "%s failed.\n", __func__);
