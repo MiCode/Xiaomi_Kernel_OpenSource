@@ -43,6 +43,8 @@
 
 #define ARP_BUF_SIZE 0x100000
 
+#define CVP_RT_PRIO_THRESHOLD 1
+
 struct msm_cvp_inst;
 
 enum cvp_ports {
