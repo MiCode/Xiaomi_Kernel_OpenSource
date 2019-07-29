@@ -154,7 +154,7 @@ void cmdq_dev_get_module_clock_by_name(const char *ref_name,
 			"DEV: byName: cannot get module clock:%s ref node name:%s node:%#lx of node:%#lx err:%d\n",
 			clkName, ref_name, (unsigned long)node,
 			(unsigned long)gCmdqDev.pDev->of_node,
-			PTR_ERR(*clk_module));
+			(int)PTR_ERR(*clk_module));
 	} else {
 		/* message print */
 		CMDQ_MSG("DEV: byName: get module clock:%s\n", clkName);
