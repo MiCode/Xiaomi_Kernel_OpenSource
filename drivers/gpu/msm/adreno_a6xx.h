@@ -173,6 +173,7 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev);
 void a6xx_preemption_schedule(struct adreno_device *adreno_dev);
 void a6xx_preemption_start(struct adreno_device *adreno_dev);
 int a6xx_preemption_init(struct adreno_device *adreno_dev);
+void a6xx_preemption_close(struct adreno_device *adreno_dev);
 
 unsigned int a6xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev,
 		unsigned int *cmds);

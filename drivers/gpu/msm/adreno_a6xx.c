@@ -3341,6 +3341,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.preemption_pre_ibsubmit = a6xx_preemption_pre_ibsubmit,
 	.preemption_post_ibsubmit = a6xx_preemption_post_ibsubmit,
 	.preemption_init = a6xx_preemption_init,
+	.preemption_close = a6xx_preemption_close,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.set_marker = a6xx_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,

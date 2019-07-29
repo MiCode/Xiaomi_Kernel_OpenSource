@@ -1761,19 +1761,6 @@ static int adreno_init(struct kgsl_device *device)
 
 	}
 
-	if (nopreempt == false &&
-		ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
-		int r = 0;
-
-		if (gpudev->preemption_init)
-			r = gpudev->preemption_init(adreno_dev);
-
-		if (r == 0)
-			set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
-		else
-			WARN(1, "adreno: GPU preemption is disabled\n");
-	}
-
 	return 0;
 }
 

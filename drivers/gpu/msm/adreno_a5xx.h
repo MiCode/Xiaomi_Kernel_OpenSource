@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017,2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -226,6 +226,7 @@ void a5xx_preemption_trigger(struct adreno_device *adreno_dev);
 void a5xx_preemption_schedule(struct adreno_device *adreno_dev);
 void a5xx_preemption_start(struct adreno_device *adreno_dev);
 int a5xx_preemption_init(struct adreno_device *adreno_dev);
+void a5xx_preemption_close(struct adreno_device *adreno_dev);
 int a5xx_preemption_yield_enable(unsigned int *cmds);
 
 unsigned int a5xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev,
