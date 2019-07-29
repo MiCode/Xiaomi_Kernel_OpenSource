@@ -88,7 +88,7 @@ int mtkts_bts_get_hw_temp(void)
 {
 	struct thermal_zone_device *zone;
 	int temperature, ret = 0;
-	static pre_bts_temp;
+	static int pre_bts_temp;
 
 	mutex_lock(&BTS_lock);
 	zone = thermal_zone_get_zone_by_name("ap_ntc");
