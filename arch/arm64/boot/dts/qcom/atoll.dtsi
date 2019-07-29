@@ -2355,6 +2355,7 @@
 #include "msm-arm-smmu-atoll.dtsi"
 #include "atoll-qupv3.dtsi"
 #include "sdmmagpie-gpu.dtsi"
+#include "atoll-bus.dtsi"
 
 &msm_gpu {
 	/delete-property/qcom,gpu-speed-bin;
