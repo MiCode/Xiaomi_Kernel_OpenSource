@@ -73,7 +73,29 @@ module_param(lock_stat, int, 0644);
 #define lock_stat 0
 #endif
 
+static int lockdep_log = 1;
+
+static int lockdep_logging_off(void)
+{
+	if (lockdep_log && xchg(&lockdep_log, 0)) {
+		if (!debug_locks_silent)
+			return 1;
+	}
+	return 0;
+}
+
 #define MAX_ITR 20
+#define lockdep_warn_on(cond)						\
+({									\
+	int __ret = 0;							\
+									\
+	if (!oops_in_progress && unlikely(cond)) {                      \
+		if (lockdep_logging_off() && !debug_locks_silent)       \
+			WARN(1, "lockdep_warn_on(%s)", #cond);          \
+		__ret = 1;						\
+	}								\
+	__ret;								\
+})
 
 /*
  * lockdep_lock: protects the lockdep graph, the hashes and the
@@ -110,12 +132,20 @@ static inline int graph_unlock(void)
 		 * The lockdep graph lock isn't locked while we expect it to
 		 * be, we're confused now, bye!
 		 */
-		return DEBUG_LOCKS_WARN_ON(1);
+		return lockdep_warn_on(1);
 	}
 
 	current->lockdep_recursion--;
 	arch_spin_unlock(&lockdep_lock);
 	return 0;
+}
+
+static int lockdep_logging_off_graph_unlock(void)
+{
+	int ret = lockdep_logging_off();
+
+	graph_unlock();
+	return ret;
 }
 
 /*
@@ -149,7 +179,7 @@ static inline struct lock_class *hlock_class(struct held_lock *hlock)
 		/*
 		 * Someone passed in garbage, we give up.
 		 */
-		DEBUG_LOCKS_WARN_ON(1);
+		lockdep_warn_on(1);
 		return NULL;
 	}
 	return lock_classes + hlock->class_idx - 1;
@@ -416,7 +446,7 @@ static int save_trace(struct stack_trace *trace)
 	nr_stack_trace_entries += trace->nr_entries;
 
 	if (nr_stack_trace_entries >= MAX_STACK_TRACE_ENTRIES-1) {
-		if (!debug_locks_off_graph_unlock())
+		if (!lockdep_logging_off_graph_unlock())
 			return 0;
 
 		print_lockdep_off("BUG: MAX_STACK_TRACE_ENTRIES too low!");
@@ -723,10 +753,8 @@ static bool assign_lock_key(struct lockdep_map *lock)
 		lock->key = (void *)lock;
 	else {
 		/* Debug-check: all keys must be persistent! */
-		debug_locks_off();
 		pr_err("INFO: trying to register non-static key.\n");
 		pr_err("the code is fine but needs lockdep annotation.\n");
-		pr_err("turning off the locking correctness validator.\n");
 		dump_stack();
 		return false;
 	}
@@ -1196,7 +1224,7 @@ static noinline int print_circular_bug(struct lock_list *this,
 	struct lock_list *first_parent;
 	int depth;
 
-	if (!debug_locks_off_graph_unlock() || debug_locks_silent)
+	if (!lockdep_logging_off_graph_unlock() || debug_locks_silent)
 		return 0;
 
 	if (!save_trace(&this->trace))
@@ -1511,7 +1539,7 @@ print_bad_irq_dependency(struct task_struct *curr,
 			 enum lock_usage_bit bit2,
 			 const char *irqclass)
 {
-	if (!debug_locks_off_graph_unlock() || debug_locks_silent)
+	if (!lockdep_logging_off_graph_unlock() || debug_locks_silent)
 		return 0;
 
 	pr_warn("\n");
@@ -1740,7 +1768,7 @@ static int
 print_deadlock_bug(struct task_struct *curr, struct held_lock *prev,
 		   struct held_lock *next)
 {
-	if (!debug_locks_off_graph_unlock() || debug_locks_silent)
+	if (!lockdep_logging_off_graph_unlock() || debug_locks_silent)
 		return 0;
 
 	pr_warn("\n");
@@ -2003,7 +2031,7 @@ check_prevs_add(struct task_struct *curr, struct held_lock *next)
 	}
 	return 1;
 out_bug:
-	if (!debug_locks_off_graph_unlock())
+	if (!lockdep_logging_off_graph_unlock())
 		return 0;
 
 	/*
@@ -2133,7 +2161,7 @@ static int check_no_collision(struct task_struct *curr,
 
 	i = get_first_held_lock(curr, hlock);
 
-	if (DEBUG_LOCKS_WARN_ON(chain->depth != curr->lockdep_depth - (i - 1))) {
+	if (lockdep_warn_on(chain->depth != curr->lockdep_depth - (i - 1))) {
 		print_collision(curr, hlock, chain);
 		return 0;
 	}
@@ -2141,7 +2169,7 @@ static int check_no_collision(struct task_struct *curr,
 	for (j = 0; j < chain->depth - 1; j++, i++) {
 		id = curr->held_locks[i].class_idx - 1;
 
-		if (DEBUG_LOCKS_WARN_ON(chain_hlocks[chain->base + j] != id)) {
+		if (lockdep_warn_on(chain_hlocks[chain->base + j] != id)) {
 			print_collision(curr, hlock, chain);
 			return 0;
 		}
@@ -2510,7 +2538,7 @@ static int
 print_usage_bug(struct task_struct *curr, struct held_lock *this,
 		enum lock_usage_bit prev_bit, enum lock_usage_bit new_bit)
 {
-	if (!debug_locks_off_graph_unlock() || debug_locks_silent)
+	if (!lockdep_logging_off_graph_unlock() || debug_locks_silent)
 		return 0;
 
 	pr_warn("\n");
@@ -2575,7 +2603,7 @@ print_irq_inversion_bug(struct task_struct *curr,
 	struct lock_list *middle = NULL;
 	int depth;
 
-	if (!debug_locks_off_graph_unlock() || debug_locks_silent)
+	if (!lockdep_logging_off_graph_unlock() || debug_locks_silent)
 		return 0;
 
 	pr_warn("\n");
@@ -3135,7 +3163,7 @@ static int mark_lock(struct task_struct *curr, struct held_lock *this,
 		debug_atomic_dec(nr_unused_locks);
 		break;
 	default:
-		if (!debug_locks_off_graph_unlock())
+		if (!lockdep_logging_off_graph_unlock())
 			return 0;
 		WARN_ON(1);
 		return 0;
@@ -3174,7 +3202,7 @@ static void __lockdep_init_map(struct lockdep_map *lock, const char *name,
 	/*
 	 * Can't be having no nameless bastards around this place!
 	 */
-	if (DEBUG_LOCKS_WARN_ON(!name)) {
+	if (lockdep_warn_on(!name)) {
 		lock->name = "NULL";
 		return;
 	}
@@ -3184,17 +3212,22 @@ static void __lockdep_init_map(struct lockdep_map *lock, const char *name,
 	/*
 	 * No key, no joy, we need to hash something.
 	 */
-	if (DEBUG_LOCKS_WARN_ON(!key))
+	if (lockdep_warn_on(!key))
 		return;
 	/*
 	 * Sanity check, the lock-class key must be persistent:
 	 */
 	if (!static_obj(key)) {
+		/*
+		 * to make sure register_lock_class returns NULL
+		 * for a non static key
+		 */
+		lock->key = key;
 		printk("BUG: key %px not in .data!\n", key);
 		/*
 		 * What it says above ^^^^^, I suggest you read it.
 		 */
-		DEBUG_LOCKS_WARN_ON(1);
+		lockdep_warn_on(1);
 		return;
 	}
 	lock->key = key;
@@ -3205,7 +3238,7 @@ static void __lockdep_init_map(struct lockdep_map *lock, const char *name,
 	if (subclass) {
 		unsigned long flags;
 
-		if (DEBUG_LOCKS_WARN_ON(current->lockdep_recursion))
+		if (lockdep_warn_on(current->lockdep_recursion))
 			return;
 
 		raw_local_irq_save(flags);
@@ -3231,9 +3264,7 @@ print_lock_nested_lock_not_held(struct task_struct *curr,
 				struct held_lock *hlock,
 				unsigned long ip)
 {
-	if (!debug_locks_off())
-		return 0;
-	if (debug_locks_silent)
+	if (!lockdep_logging_off() || debug_locks_silent)
 		return 0;
 
 	pr_warn("\n");
@@ -3378,7 +3409,7 @@ static int __lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 	 * Plain impossible, we just registered it and checked it weren't no
 	 * NULL like.. I bet this mushroom I ate was good!
 	 */
-	if (DEBUG_LOCKS_WARN_ON(!class))
+	if (lockdep_warn_on(!class))
 		return 0;
 	hlock->class_idx = class_idx;
 	hlock->acquire_ip = ip;
@@ -3428,7 +3459,7 @@ static int __lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 		/*
 		 * How can we have a chain hash when we ain't got no keys?!
 		 */
-		if (DEBUG_LOCKS_WARN_ON(chain_key != 0))
+		if (lockdep_warn_on(chain_key != 0))
 			return 0;
 		chain_head = 1;
 	}
@@ -3476,9 +3507,7 @@ static int
 print_unlock_imbalance_bug(struct task_struct *curr, struct lockdep_map *lock,
 			   unsigned long ip)
 {
-	if (!debug_locks_off())
-		return 0;
-	if (debug_locks_silent)
+	if (!lockdep_logging_off() || debug_locks_silent)
 		return 0;
 
 	pr_warn("\n");
@@ -3527,7 +3556,7 @@ static int match_held_lock(const struct held_lock *hlock,
 		 * State got messed up, follow the sites that change ->references
 		 * and try to make sense of it.
 		 */
-		if (DEBUG_LOCKS_WARN_ON(!hlock->nest_lock))
+		if (lockdep_warn_on(!hlock->nest_lock))
 			return 0;
 
 		if (hlock->class_idx == class - lock_classes + 1)
@@ -3608,7 +3637,7 @@ __lock_set_class(struct lockdep_map *lock, const char *name,
 	 * This function is about (re)setting the class of a held lock,
 	 * yet we're not actually holding any locks. Naughty user!
 	 */
-	if (DEBUG_LOCKS_WARN_ON(!depth))
+	if (lockdep_warn_on(!depth))
 		return 0;
 
 	hlock = find_held_lock(curr, lock, depth, &i);
@@ -3617,6 +3646,9 @@ __lock_set_class(struct lockdep_map *lock, const char *name,
 
 	lockdep_init_map(lock, name, key, 0);
 	class = register_lock_class(lock, subclass, 0);
+	if (!class)
+		return 0;
+
 	hlock->class_idx = class - lock_classes + 1;
 
 	curr->lockdep_depth = i;
@@ -3629,7 +3661,7 @@ __lock_set_class(struct lockdep_map *lock, const char *name,
 	 * I took it apart and put it back together again, except now I have
 	 * these 'spare' parts.. where shall I put them.
 	 */
-	if (DEBUG_LOCKS_WARN_ON(curr->lockdep_depth != depth))
+	if (lockdep_warn_on(curr->lockdep_depth != depth))
 		return 0;
 	return 1;
 }
@@ -3649,7 +3681,7 @@ static int __lock_downgrade(struct lockdep_map *lock, unsigned long ip)
 	 * This function is about (re)setting the class of a held lock,
 	 * yet we're not actually holding any locks. Naughty user!
 	 */
-	if (DEBUG_LOCKS_WARN_ON(!depth))
+	if (lockdep_warn_on(!depth))
 		return 0;
 
 	hlock = find_held_lock(curr, lock, depth, &i);
@@ -3671,7 +3703,7 @@ static int __lock_downgrade(struct lockdep_map *lock, unsigned long ip)
 	 * I took it apart and put it back together again, except now I have
 	 * these 'spare' parts.. where shall I put them.
 	 */
-	if (DEBUG_LOCKS_WARN_ON(curr->lockdep_depth != depth))
+	if (lockdep_warn_on(curr->lockdep_depth != depth))
 		return 0;
 	return 1;
 }
@@ -3699,8 +3731,8 @@ __lock_release(struct lockdep_map *lock, int nested, unsigned long ip)
 	 * So we're all set to release this lock.. wait what lock? We don't
 	 * own any locks, you've been drinking again?
 	 */
-	if (DEBUG_LOCKS_WARN_ON(depth <= 0))
-		 return print_unlock_imbalance_bug(curr, lock, ip);
+	if (lockdep_warn_on(depth <= 0))
+		return print_unlock_imbalance_bug(curr, lock, ip);
 
 	/*
 	 * Check whether the lock exists in the current stack
@@ -3743,7 +3775,7 @@ __lock_release(struct lockdep_map *lock, int nested, unsigned long ip)
 	 * We had N bottles of beer on the wall, we drank one, but now
 	 * there's not N-1 bottles of beer left on the wall...
 	 */
-	if (DEBUG_LOCKS_WARN_ON(curr->lockdep_depth != depth - 1))
+	if (lockdep_warn_on(curr->lockdep_depth != depth - 1))
 		return 0;
 
 	return 1;
@@ -4042,9 +4074,7 @@ static int
 print_lock_contention_bug(struct task_struct *curr, struct lockdep_map *lock,
 			   unsigned long ip)
 {
-	if (!debug_locks_off())
-		return 0;
-	if (debug_locks_silent)
+	if (!lockdep_logging_off() || debug_locks_silent)
 		return 0;
 
 	pr_warn("\n");
@@ -4081,7 +4111,7 @@ __lock_contended(struct lockdep_map *lock, unsigned long ip)
 	 * Whee, we contended on this lock, except it seems we're not
 	 * actually trying to acquire anything much at all..
 	 */
-	if (DEBUG_LOCKS_WARN_ON(!depth))
+	if (lockdep_warn_on(!depth))
 		return;
 
 	hlock = find_held_lock(curr, lock, depth, &i);
@@ -4123,7 +4153,7 @@ __lock_acquired(struct lockdep_map *lock, unsigned long ip)
 	 * Yay, we acquired ownership of this lock we didn't try to
 	 * acquire, how the heck did that happen?
 	 */
-	if (DEBUG_LOCKS_WARN_ON(!depth))
+	if (lockdep_warn_on(!depth))
 		return;
 
 	hlock = find_held_lock(curr, lock, depth, &i);
@@ -4336,7 +4366,7 @@ void lockdep_reset_lock(struct lockdep_map *lock)
 				match |= class == lock->class_cache[j];
 
 			if (unlikely(match)) {
-				if (debug_locks_off_graph_unlock()) {
+				if (lockdep_logging_off_graph_unlock()) {
 					/*
 					 * We all just reset everything, how did it match?
 					 */
@@ -4385,9 +4415,7 @@ static void
 print_freed_lock_bug(struct task_struct *curr, const void *mem_from,
 		     const void *mem_to, struct held_lock *hlock)
 {
-	if (!debug_locks_off())
-		return;
-	if (debug_locks_silent)
+	if (!lockdep_logging_off() || debug_locks_silent)
 		return;
 
 	pr_warn("\n");
@@ -4443,9 +4471,7 @@ EXPORT_SYMBOL_GPL(debug_check_no_locks_freed);
 
 static void print_held_locks_bug(void)
 {
-	if (!debug_locks_off())
-		return;
-	if (debug_locks_silent)
+	if (!lockdep_logging_off() || debug_locks_silent)
 		return;
 
 	pr_warn("\n");
@@ -4512,7 +4538,7 @@ asmlinkage __visible void lockdep_sys_exit(void)
 	struct task_struct *curr = current;
 
 	if (unlikely(curr->lockdep_depth)) {
-		if (!debug_locks_off())
+		if (!lockdep_logging_off())
 			return;
 		pr_warn("\n");
 		pr_warn("================================================\n");
@@ -4534,6 +4560,9 @@ asmlinkage __visible void lockdep_sys_exit(void)
 void lockdep_rcu_suspicious(const char *file, const int line, const char *s)
 {
 	struct task_struct *curr = current;
+
+	if (!lockdep_logging_off())
+		return;
 
 	/* Note: the following can be executed concurrently, so be careful. */
 	pr_warn("\n");
