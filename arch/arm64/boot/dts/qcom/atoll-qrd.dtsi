@@ -10,5 +10,88 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+#include <dt-bindings/input/input.h>
+
 &soc {
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-atl466271_3300mAh.dtsi"
+	};
+};
+
+&pm6150a_amoled {
+	status = "ok";
+};
+
+&pm6150_qg {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,qg-iterm-ma = <100>;
+	qcom,hold-soc-while-full;
+	qcom,linearize-soc;
+	qcom,cl-feedback-on;
+};
+
+&pm6150_charger {
+	io-channels = <&pm6150_vadc ADC_USB_IN_V_16>,
+		      <&pm6150_vadc ADC_USB_IN_I>,
+		      <&pm6150_vadc ADC_CHG_TEMP>,
+		      <&pm6150_vadc ADC_DIE_TEMP>,
+		      <&pm6150_vadc ADC_AMUX_THM3_PU2>,
+		      <&pm6150_vadc ADC_SBUx>,
+		      <&pm6150_vadc ADC_VPH_PWR>;
+	io-channel-names = "usb_in_voltage",
+			   "usb_in_current",
+			   "chg_temp",
+			   "die_temp",
+			   "conn_temp",
+			   "sbux_res",
+			   "vph_voltage";
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,auto-recharge-soc = <98>;
+	qcom,step-charging-enable;
+	qcom,sw-jeita-enable;
+	qcom,fcc-stepping-enable;
+	qcom,suspend-input-on-debug-batt;
+	qcom,sec-charger-config = <3>;
+	qcom,thermal-mitigation = <4200000 3500000 3000000
+			2500000 2000000 1500000 1000000 500000>;
+	dpdm-supply = <&qusb_phy0>;
+	qcom,charger-temp-max = <800>;
+	qcom,smb-temp-max = <800>;
+};
+
+&pm6150l_gpios {
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio2";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
+	};
+};
+
+&soc {
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_vol_up_default>;
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm6150l_gpios 2 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_VOLUMEUP>;
+			linux,can-disable;
+			debounce-interval = <15>;
+			gpio-key,wakeup;
+		};
+
+	};
 };
