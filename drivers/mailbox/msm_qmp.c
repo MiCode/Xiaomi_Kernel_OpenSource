@@ -378,14 +378,8 @@ static int qmp_send_data(struct mbox_chan *chan, void *data)
 	unsigned long flags;
 	int i;
 
-	if (!mbox || !data)
+	if (!mbox || !data || !completion_done(&mbox->ch_complete))
 		return -EINVAL;
-	/*
-	 * Return -EAGAIN if client tried to send data after hibernation
-	 * and channel is not yet opened
-	 */
-	if (!completion_done(&mbox->ch_complete))
-		return -EAGAIN;
 
 	mdev = mbox->mdev;
 
@@ -1024,8 +1018,8 @@ static int qmp_mbox_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops qmp_mbox_pm_ops = {
-	.freeze = qmp_mbox_suspend,
-	.restore = qmp_mbox_resume,
+	.freeze_late = qmp_mbox_suspend,
+	.restore_early = qmp_mbox_resume,
 };
 
 static struct platform_driver qmp_mbox_driver = {
