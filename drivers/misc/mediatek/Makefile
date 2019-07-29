@@ -40,3 +40,4 @@ obj-$(CONFIG_MTK_HANG_DETECT) += monitor_hang/
 obj-$(CONFIG_MTK_POWER_THROTTLING_COMMON) += power_throttling/
 obj-$(CONFIG_THERMAL) += thermal/
 obj-$(CONFIG_MTK_PLAT_SRAM_FLAG) += debug_latch/
+obj-$(CONFIG_MEDIATEK_CACHE_API) += cache/

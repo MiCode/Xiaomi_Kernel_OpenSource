@@ -1,0 +1,7 @@
+config MEDIATEK_CACHE_API
+	bool "Enable Mediatek Cache API to complement kernel"
+	help
+	  This add several cache api to provide some debug
+	  drivers to use. Ex: aee needs flush all to dump
+	  all cache data to DRAM to get full ramdump.
+	  If in doubt, say N.
