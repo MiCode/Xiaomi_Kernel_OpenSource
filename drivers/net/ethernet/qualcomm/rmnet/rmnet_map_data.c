@@ -1273,9 +1273,121 @@ static void rmnet_map_linearize_copy(struct sk_buff *dst, struct sk_buff *src)
 	}
 }
 
+static void rmnet_free_agg_pages(struct rmnet_port *port)
+{
+	struct rmnet_agg_page *agg_page, *idx;
+
+	list_for_each_entry_safe(agg_page, idx, &port->agg_list, list) {
+		put_page(agg_page->page);
+		kfree(agg_page);
+	}
+
+	port->agg_head = NULL;
+}
+
+static struct page *rmnet_get_agg_pages(struct rmnet_port *port)
+{
+	struct rmnet_agg_page *agg_page;
+	struct page *page = NULL;
+	int i = 0;
+
+	do {
+		agg_page = port->agg_head;
+		if (unlikely(!agg_page))
+			break;
+
+		if (page_ref_count(agg_page->page) == 1) {
+			page = agg_page->page;
+			page_ref_inc(agg_page->page);
+
+			port->stats.agg.ul_agg_reuse++;
+			port->agg_head = list_next_entry(agg_page, list);
+			break;
+		}
+
+		port->agg_head = list_next_entry(agg_page, list);
+		i++;
+	} while (i <= 5);
+
+	if (!page) {
+		page =  __dev_alloc_pages(GFP_ATOMIC, port->agg_size_order);
+		port->stats.agg.ul_agg_alloc++;
+	}
+
+	return page;
+}
+
+static struct rmnet_agg_page *__rmnet_alloc_agg_pages(struct rmnet_port *port)
+{
+	struct rmnet_agg_page *agg_page;
+	struct page *page;
+
+	agg_page = kzalloc(sizeof(*agg_page), GFP_ATOMIC);
+	if (!agg_page)
+		return NULL;
+
+	page = __dev_alloc_pages(GFP_ATOMIC, port->agg_size_order);
+	if (!page) {
+		kfree(agg_page);
+		return NULL;
+	}
+
+	agg_page->page = page;
+
+	return agg_page;
+}
+
+static void rmnet_alloc_agg_pages(struct rmnet_port *port)
+{
+	struct rmnet_agg_page *agg_page = NULL;
+	int i = 0;
+
+	for (i = 0; i < 512; i++) {
+		agg_page = __rmnet_alloc_agg_pages(port);
+
+		if (agg_page)
+			list_add_tail(&agg_page->list, &port->agg_list);
+	}
+
+	port->agg_head = list_first_entry_or_null(&port->agg_list,
+						  struct rmnet_agg_page, list);
+}
+
+static u8 rmnet_get_page_order(u16 size)
+{
+	u8 order = 0;
+
+	size = size / PAGE_SIZE;
+
+	while (size >= 2) {
+		size >>= 1;
+		order++;
+	}
+
+	return order;
+}
+
 static struct sk_buff *rmnet_map_build_skb(struct rmnet_port *port)
 {
-	return alloc_skb(port->egress_agg_params.agg_size, GFP_ATOMIC);
+	struct sk_buff *skb;
+	unsigned int size;
+	struct page *page;
+	void *vaddr;
+
+	page = rmnet_get_agg_pages(port);
+	if (!page)
+		return NULL;
+
+	vaddr = page_address(page);
+	size = PAGE_SIZE << port->agg_size_order;
+
+	skb = build_skb(vaddr, size);
+	if (!skb) {
+		put_page(page);
+		return NULL;
+	}
+
+	return skb;
 }
 
 void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port)
@@ -1361,9 +1473,27 @@ void rmnet_map_update_ul_agg_config(struct rmnet_port *port, u16 size,
 	unsigned long irq_flags;
 
 	spin_lock_irqsave(&port->agg_lock, irq_flags);
-	port->egress_agg_params.agg_size = size;
 	port->egress_agg_params.agg_count = count;
 	port->egress_agg_params.agg_time = time;
+	port->egress_agg_params.agg_size = size;
+
+	rmnet_free_agg_pages(port);
+
+	/* This effectively disables recycling in case the UL aggregation
+	 * size is lesser than PAGE_SIZE.
+	 */
+	if (size < PAGE_SIZE)
+		goto done;
+
+	port->agg_size_order = rmnet_get_page_order(size);
+
+	size = PAGE_SIZE << port->agg_size_order;
+	size -= SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+	port->egress_agg_params.agg_size = size;
+
+	rmnet_alloc_agg_pages(port);
+
+done:
 	spin_unlock_irqrestore(&port->agg_lock, irq_flags);
 }
 
@@ -1372,8 +1502,13 @@ void rmnet_map_tx_aggregate_init(struct rmnet_port *port)
 	hrtimer_init(&port->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	port->hrtimer.function = rmnet_map_flush_tx_packet_queue;
 	spin_lock_init(&port->agg_lock);
+	INIT_LIST_HEAD(&port->agg_list);
 
-	rmnet_map_update_ul_agg_config(port, 8192, 20, 3000000);
+	/* Since PAGE_SIZE - 1 is specified here, no pages are pre-allocated.
+	 * This is done to reduce memory usage in cases where
+	 * UL aggregation is disabled.
+	 */
+	rmnet_map_update_ul_agg_config(port, PAGE_SIZE - 1, 20, 3000000);
 
 	INIT_WORK(&port->agg_wq, rmnet_map_flush_tx_packet_work);
 }
@@ -1397,6 +1532,7 @@ void rmnet_map_tx_aggregate_exit(struct rmnet_port *port)
 		port->agg_state = 0;
 	}
 
+	rmnet_free_agg_pages(port);
 	spin_unlock_irqrestore(&port->agg_lock, flags);
 }
 
