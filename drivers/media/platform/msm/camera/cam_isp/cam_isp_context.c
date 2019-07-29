@@ -2094,6 +2094,14 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 		ctx->hw_mgr_intf->hw_stop(ctx->hw_mgr_intf->hw_mgr_priv,
 				&stop_args);
 
+		CAM_DBG(CAM_ISP, "try to reset hw");
+		/* Reset hw */
+		reset_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+		rc = ctx->hw_mgr_intf->hw_reset(ctx->hw_mgr_intf->hw_mgr_priv,
+			&reset_args);
+		if (rc)
+			goto end;
+
 		spin_lock_bh(&ctx->lock);
 		CAM_DBG(CAM_ISP, "try to flush wait list");
 		rc = __cam_isp_ctx_flush_req(ctx, &ctx->wait_req_list,
@@ -2103,14 +2111,6 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 		flush_req);
 		ctx_isp->active_req_cnt = 0;
 		spin_unlock_bh(&ctx->lock);
-
-		CAM_DBG(CAM_ISP, "try to reset hw");
-		/* Reset hw */
-		reset_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
-		rc = ctx->hw_mgr_intf->hw_reset(ctx->hw_mgr_intf->hw_mgr_priv,
-			&reset_args);
-		if (rc)
-			goto end;
 
 		CAM_DBG(CAM_ISP, "ctx id%d try to start hw", ctx->ctx_id);
 		/* Start hw */
