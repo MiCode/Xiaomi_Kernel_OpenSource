@@ -34,6 +34,7 @@
 
 #define SDE_RSC_REV_1			0x1
 #define SDE_RSC_REV_2			0x2
+#define SDE_RSC_REV_3			0x3
 
 struct sde_rsc_priv;
 
@@ -75,6 +76,7 @@ enum rsc_vsync_req {
  *				TCS command.
  * @hw_vsync:			Enables the vsync on RSC block.
  * @tcs_use_ok:			set TCS set to high to allow RSC to use it.
+ * @bwi_status:			It updates the BW increase/decrease status.
  * @is_amc_mode:		Check current amc mode status
  * @debug_dump:			dump debug bus registers or enable debug bus
  * @state_update:		Enable/override the solver based on rsc state
@@ -90,6 +92,7 @@ struct sde_rsc_hw_ops {
 	int (*hw_vsync)(struct sde_rsc_priv *rsc, enum rsc_vsync_req request,
 		char *buffer, int buffer_size, u32 mode);
 	int (*tcs_use_ok)(struct sde_rsc_priv *rsc);
+	int (*bwi_status)(struct sde_rsc_priv *rsc, bool bw_indication);
 	bool (*is_amc_mode)(struct sde_rsc_priv *rsc);
 	void (*debug_dump)(struct sde_rsc_priv *rsc, u32 mux_sel);
 	int (*state_update)(struct sde_rsc_priv *rsc, enum sde_rsc_state state);
@@ -109,6 +112,9 @@ struct sde_rsc_hw_ops {
  * @rsc_time_slot_0_ns:		mode-0 time slot threshold in nano seconds
  * @rsc_time_slot_1_ns:		mode-1 time slot threshold in nano seconds
  * @rsc_time_slot_2_ns:		mode-2 time slot threshold in nano seconds
+ *
+ * @min_threshold_time_ns:	minimum time required to enter & exit mode0
+ * @bwi_threshold_time_ns:	worst case time to increase the BW vote
  */
 struct sde_rsc_timer_config {
 	u32 static_wakeup_time_ns;
@@ -119,8 +125,26 @@ struct sde_rsc_timer_config {
 	u32 rsc_time_slot_0_ns;
 	u32 rsc_time_slot_1_ns;
 	u32 rsc_time_slot_2_ns;
+
+	u32 min_threshold_time_ns;
+	u32 bwi_threshold_time_ns;
 };
 
+/**
+ * struct sde_rsc_bw_config: bandwidth configuration
+ *
+ * @ab_vote:	Stored ab_vote for SDE_POWER_HANDLE_DBUS_ID_MAX
+ * @ib_vote:	Stored ib_vote for SDE_POWER_HANDLE_DBUS_ID_MAX
+ * @new_ab_vote:	ab_vote for incoming frame.
+ * @new_ib_vote:	ib_vote for incoming frame.
+ */
+struct sde_rsc_bw_config {
+	u64	ab_vote[SDE_POWER_HANDLE_DBUS_ID_MAX];
+	u64	ib_vote[SDE_POWER_HANDLE_DBUS_ID_MAX];
+
+	u64	new_ab_vote[SDE_POWER_HANDLE_DBUS_ID_MAX];
+	u64	new_ib_vote[SDE_POWER_HANDLE_DBUS_ID_MAX];
+};
 /**
  * struct sde_rsc_priv: sde resource state coordinator(rsc) private handle
  * @version:		rsc sequence version
@@ -142,6 +166,7 @@ struct sde_rsc_timer_config {
  * cmd_config:		current panel config
  * current_state:	current rsc state (video/command), solver
  *                      override/enabled.
+ * vsync_source:	Interface index to provide the vsync ticks
  * debug_mode:		enables the logging for each register read/write
  * debugfs_root:	debugfs file system root node
  *
@@ -162,6 +187,7 @@ struct sde_rsc_timer_config {
  *			on crtc id
  * rsc_vsync_wait:   Refcount to indicate if we have to wait for the vsync.
  * rsc_vsync_waitq:   Queue to wait for the vsync.
+ * bw_config:		check sde_rsc_bw_config structure description.
  */
 struct sde_rsc_priv {
 	u32 version;
@@ -182,6 +208,7 @@ struct sde_rsc_priv {
 	struct sde_rsc_timer_config timer_config;
 	struct sde_rsc_cmd_config cmd_config;
 	u32	current_state;
+	u32	vsync_source;
 
 	u32 debug_mode;
 	struct dentry *debugfs_root;
@@ -199,15 +226,26 @@ struct sde_rsc_priv {
 	struct drm_device *master_drm;
 	atomic_t rsc_vsync_wait;
 	wait_queue_head_t rsc_vsync_waitq;
+
+	struct sde_rsc_bw_config bw_config;
 };
 
 /**
- * sde_rsc_hw_register() - register hardware API
+ * sde_rsc_hw_register() - register hardware API. It manages V1 and V2 support.
  *
  * @client:	 Client pointer provided by sde_rsc_client_create().
  *
  * Return: error code.
  */
 int sde_rsc_hw_register(struct sde_rsc_priv *rsc);
+
+/**
+ * sde_rsc_hw_register_v3() - register hardware API. It manages V3 support.
+ *
+ * @client:	 Client pointer provided by sde_rsc_client_create().
+ *
+ * Return: error code.
+ */
+int sde_rsc_hw_register_v3(struct sde_rsc_priv *rsc);
 
 #endif /* _SDE_RSC_PRIV_H_ */

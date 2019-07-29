@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,8 +22,8 @@
 #define SDE_POWER_HANDLE_ENABLE_NRT_BUS_IB_QUOTA	0
 #define SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA	0
 
-#define SDE_POWER_HANDLE_CONT_SPLASH_BUS_IB_QUOTA	1800000000
-#define SDE_POWER_HANDLE_CONT_SPLASH_BUS_AB_QUOTA	1800000000
+#define SDE_POWER_HANDLE_CONT_SPLASH_BUS_IB_QUOTA	3000000000
+#define SDE_POWER_HANDLE_CONT_SPLASH_BUS_AB_QUOTA	3000000000
 
 #include <linux/sde_io_util.h>
 #include <soc/qcom/cx_ipeak.h>

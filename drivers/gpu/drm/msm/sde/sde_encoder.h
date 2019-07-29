@@ -313,6 +313,14 @@ void sde_encoder_recovery_events_handler(struct drm_encoder *encoder,
 bool sde_encoder_in_clone_mode(struct drm_encoder *enc);
 
 /**
+ *sde_encoder_is_topology_ppsplit - checks if the current encoder is in
+	ppsplit topology.
+ *@drm_enc:	Pointer to drm encoder structure
+ *@Return:	true if the present topology is ppsplit
+ */
+bool sde_encoder_is_topology_ppsplit(struct drm_encoder *drm_enc);
+
+/**
  * sde_encoder_is_primary_display - checks if underlying display is primary
  *     display or not.
  * @drm_enc:    Pointer to drm encoder structure

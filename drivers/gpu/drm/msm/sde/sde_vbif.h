@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,14 +57,14 @@ struct sde_vbif_set_xin_halt_params {
  * @xin_id: client interface identifier
  * @clk_ctrl: clock control identifier of the xin
  * @num: pipe identifier (debug only)
- * @is_rt: true if pipe is used in real-time use case
+ * @client_type: client type enumerated by sde_vbif_client_type
  */
 struct sde_vbif_set_qos_params {
 	u32 vbif_idx;
 	u32 xin_id;
 	u32 clk_ctrl;
 	u32 num;
-	bool is_rt;
+	enum sde_vbif_client_type client_type;
 };
 
 /**
