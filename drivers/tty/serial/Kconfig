@@ -1135,6 +1135,15 @@ config SERIAL_MSM_HS
 	  Choose M here to compile it as a module. The module will be
 	  called msm_serial_hs.
 
+config SERIAL_MSM_WITH_HALF_SAMPLING
+	bool "Changes clock divider which impacts sampling rate for QUP HW ver greater than 2.5.0"
+	depends on SERIAL_MSM_GENI
+	help
+	  Clock divider value should get double for QUP Hardware version
+	  greater than 2.5.0.
+	  As earlycon can't have HW version awareness,decision is taken
+	  based on the configuration.
+
 config SERIAL_VT8500
 	bool "VIA VT8500 on-chip serial port support"
 	depends on ARCH_VT8500
