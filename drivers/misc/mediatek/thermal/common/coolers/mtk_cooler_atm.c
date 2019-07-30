@@ -25,7 +25,7 @@
 #include <linux/uidgid.h>
 #include <ap_thermal_limit.h>
 #ifdef ATM_USES_PPM
-#if 0 /* TO-DO */
+#ifdef CONFIG_MTK_PPM
 #include "mtk_ppm_api.h"
 #include "mtk_ppm_platform.h"
 #endif
@@ -35,6 +35,7 @@
 
 #ifdef FAST_RESPONSE_ATM
 #include <linux/time.h>
+#include <linux/timer.h>
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #endif
@@ -219,10 +220,8 @@ struct atm_cpu_min_opp {
 	int min_CPU_power[MAX_CPT_ADAPTIVE_COOLERS];
 	/* To keep min CPU power budgets calculated from a set of CPU OPP */
 	int min_CPU_power_from_opp[MAX_CPT_ADAPTIVE_COOLERS];
-#if 0 /* TO-DO */
 	struct ppm_cluster_status
 		cpu_opp_set[MAX_CPT_ADAPTIVE_COOLERS][NR_PPM_CLUSTERS];
-#endif
 };
 static struct atm_cpu_min_opp g_c_min_opp;
 #endif
@@ -417,22 +416,6 @@ static void set_adaptive_gpu_power_limit(unsigned int limit);
  *Weak functions
  *=============================================================
  */
-#if 0
-#ifdef ATM_USES_PPM
-void __attribute__ ((weak))
-mt_ppm_cpu_thermal_protect(unsigned int limited_power)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-}
-#else
-void __attribute__ ((weak))
-mt_cpufreq_thermal_protect(unsigned int limited_power)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-}
-#endif
-#endif
-
 int __attribute__((weak))
 mtk_eara_thermal_pb_handle(int total_pwr_budget,
 	int max_cpu_power, int max_gpu_power,
@@ -474,6 +457,12 @@ mt_gpufreq_get_cur_freq(void)
 
 unsigned int __attribute__ ((weak))
 mt_ppm_thermal_get_cur_power(void)
+{
+	return 0;
+}
+
+unsigned int __attribute__ ((weak))
+mt_ppm_thermal_get_max_power(void)
 {
 	return 0;
 }
@@ -2241,11 +2230,9 @@ static ssize_t tscpu_write_atm_setting
 		i_budget_change = -1, i_min_cpu_pwr = -1, i_max_cpu_pwr = -1,
 		i_min_gpu_pwr = -1, i_max_gpu_pwr = -1;
 
-#if 0 /* TO-DO */
-#if defined(THERMAL_VPU_SUPPORT)
+#if defined(THERMAL_VPU_SUPPORT) && defined(CONFIG_MTK_VPU_SUPPORT)
 	MINIMUM_VPU_POWER = vpu_power_table[VPU_OPP_NUM - 1].power;
 	MAXIMUM_VPU_POWER = vpu_power_table[VPU_OPP_0].power;
-#endif
 #endif
 #if defined(THERMAL_MDLA_SUPPORT) && defined(CONFIG_MTK_MDLA_SUPPORT)
 	MINIMUM_MDLA_POWER = mdla_power_table[MDLA_OPP_NUM - 1].power;
@@ -2332,12 +2319,10 @@ static ssize_t tscpu_write_atm_setting
 			if (i_max_cpu_pwr > 0)
 				MAXIMUM_CPU_POWERS[i_id] = i_max_cpu_pwr;
 #ifdef ATM_USES_PPM
-#if 0 /* TO-DO */
 			else if (i_max_cpu_pwr == 0)
 				MAXIMUM_CPU_POWERS[i_id] =
 					mt_ppm_thermal_get_max_power() + 1;
 				/* choose OPP with power "<=" limit */
-#endif
 #endif
 			else {
 				#ifdef CONFIG_MTK_AEE_FEATURE
@@ -3018,13 +3003,11 @@ static int tscpu_atm_cpu_min_opp_read(struct seq_file *m, void *v)
 		seq_printf(m, "current min cpu power = %d\n",
 			MINIMUM_CPU_POWERS[i]);
 
-#if 0 /* TO-DO */
 		for (j = 0; j < NR_PPM_CLUSTERS; j++) {
 			seq_printf(m, "cluster%02d core %d, freq_idx %d\n",
 				j, g_c_min_opp.cpu_opp_set[i][j].core_num,
 				g_c_min_opp.cpu_opp_set[i][j].freq_idx);
 		}
-#endif
 		seq_puts(m, "\n");
 	}
 
@@ -3083,10 +3066,8 @@ static ssize_t tscpu_atm_cpu_min_opp_write
 			g_c_min_opp.min_CPU_power[atm_id] =
 				MINIMUM_CPU_POWERS[atm_id];
 
-#if 0 /* TO-DO */
 		g_c_min_opp.min_CPU_power_from_opp[atm_id] =
 			ppm_find_pwr_idx(g_c_min_opp.cpu_opp_set[atm_id]);
-#endif
 		if (g_c_min_opp.min_CPU_power_from_opp[atm_id] == -1) {
 			g_c_min_opp.mode[atm_id] = 0;
 			tscpu_printk("Error: When transfer a CPU opp to a power budget\n");
@@ -3431,7 +3412,7 @@ static enum hrtimer_restart atm_loop(struct hrtimer *timer)
 {
 	ktime_t ktime;
 #elif KRTATM_TIMER == KRTATM_NORMAL
-static int atm_loop(void)
+static void atm_loop(struct timer_list *t)
 {
 #endif
 	int temp;
@@ -3565,10 +3546,7 @@ exit:
 
 	atm_timer.expires = jiffies + msecs_to_jiffies(polling_time);
 	add_timer(&atm_timer);
-
-	return 0;
 #endif
-
 }
 
 #if KRTATM_TIMER == KRTATM_HR
@@ -3599,9 +3577,7 @@ static void atm_timer_init(void)
 	atm_timer_polling_delay = (atm_timer_polling_delay < 100) ?
 		atm_timer_polling_delay : 100;
 
-	init_timer_deferrable(&atm_timer);
-	atm_timer.function = (void *)&atm_loop;
-	atm_timer.data = (unsigned long)&atm_timer;
+	timer_setup(&atm_timer, atm_loop, TIMER_DEFERRABLE);
 	atm_timer.expires =
 		jiffies + msecs_to_jiffies(atm_timer_polling_delay);
 

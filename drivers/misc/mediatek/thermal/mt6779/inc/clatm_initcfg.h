@@ -53,5 +53,9 @@
 
 #define CLATM_INIT_HRTIMER_POLLING_DELAY	(50)
 
+#if defined(CONFIG_MTK_PPM)
 #define CLATM_USE_MIN_CPU_OPP			(1)
+#else
+#define CLATM_USE_MIN_CPU_OPP			(0)
+#endif
 #endif	/* __CLATM_INITCFG_H__ */

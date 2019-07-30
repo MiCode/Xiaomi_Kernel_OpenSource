@@ -17,7 +17,6 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/video/include
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/common/inc/
 ccflags-y  += -I$(srctree)/drivers/power/mediatek/
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/eem_v1/inc/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/dfrc/
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT),y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/
@@ -25,9 +24,12 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/mt6779
 endif
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/vpu/mt6779
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mdla/1.0
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/ppm_v3/src/mach/mt6779
 
-#obj-$(CONFIG_THERMAL) += mtk_ta.o
+obj-$(CONFIG_THERMAL) += mtk_ta.o
 
 ifeq ($(CONFIG_MTK_THERMAL_PA_VIA_ATCMD),y)
 #    obj-$(CONFIG_THERMAL) += mtk_cooler_mutt.o
@@ -45,9 +47,9 @@ endif
 #		obj-$(CONFIG_THERMAL) += mtk_cooler_bcct.o
 #	endif
 #endif
-#obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
-#obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
-#obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
 #obj-$(CONFIG_THERMAL) += mtk_cooler_NR.o
 #obj-$(CONFIG_THERMAL) += mtk_cooler_VR_FPS.o
 #obj-$(CONFIG_THERMAL) += mtk_cooler_ISP.o

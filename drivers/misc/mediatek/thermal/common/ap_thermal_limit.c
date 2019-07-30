@@ -20,7 +20,7 @@
 
 
 #if defined(ATM_USES_PPM)
-#if 0 /* TO-DO */
+#if defined(CONFIG_MTK_PPM)
 #include "mtk_ppm_api.h"
 #endif
 #else

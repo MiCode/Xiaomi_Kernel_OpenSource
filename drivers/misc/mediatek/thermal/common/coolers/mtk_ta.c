@@ -13,6 +13,8 @@
 #include "mt-plat/mtk_thermal_monitor.h"
 #include "mach/mtk_thermal.h"
 #include "mt-plat/mtk_thermal_platform.h"
+#include <mtk_cooler_setting.h>
+#if FEATURE_SPA
 #include "mtk_ts_imgsensor.h"
 #include "mtk_ts_pa.h"
 #include "mtk_ts_wmt.h"
@@ -20,7 +22,7 @@
 #include "mtk_cooler_fps.h"
 #include "mtk_cooler_bcct.h"
 #include "mtk_cooler_bcct_v1.h"
-#include <mtk_cooler_setting.h>
+#endif
 #include <linux/slab.h>
 #include <linux/seq_file.h>
 #include <tscpu_settings.h>

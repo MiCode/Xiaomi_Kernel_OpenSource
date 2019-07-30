@@ -18,17 +18,11 @@
 #else
 #include <linux/clk.h>
 #endif
-#include <mach/wd_api.h>
 #include <linux/slab.h>
 #include <linux/seq_file.h>
 #include <tscpu_settings.h>
 #include <ap_thermal_limit.h>
 
-#if defined(ATM_USES_PPM)
-#include "mtk_ppm_api.h"
-#else
-#include "mtk_cpufreq.h"
-#endif
 #include <linux/uidgid.h>
 #if defined(THERMAL_VPU_SUPPORT)
 #if defined(CONFIG_MTK_VPU_SUPPORT)
@@ -81,21 +75,7 @@ static void set_static_gpu_power_limit(unsigned int limit);
  *Weak functions
  *=============================================================
  */
-#if 0
-#if defined(ATM_USES_PPM)
-void __attribute__ ((weak))
-mt_ppm_cpu_thermal_protect(unsigned int limited_power)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-}
-#else
-void __attribute__ ((weak))
-mt_cpufreq_thermal_protect(unsigned int limited_power)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-}
-#endif
-#endif
+
 /*=============================================================
  */
 static void set_static_cpu_power_limit(unsigned int limit)
