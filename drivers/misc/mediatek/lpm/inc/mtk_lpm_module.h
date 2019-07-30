@@ -12,12 +12,11 @@
 
 
 #define mtk_lpm_smc_impl(p1, p2, p3, p4, p5, res) \
-				arm_smccc_smc(p1, p2, p3, p4\
-							, p5, 0, 0, 0, &res)
+			arm_smccc_smc(p1, p2, p3, p4,\
+			p5, 0, 0, 0, &res)
 
 
-#define mtk_lpm_smc(_funcid, _lp_id, _act\
-						, _val1, _val2) ({\
+#define mtk_lpm_smc(_funcid, _lp_id, _act, _val1, _val2) ({\
 	struct arm_smccc_res res;\
 	mtk_lpm_smc_impl(_funcid, _lp_id, _act, _val1\
 					, _val2, res);\
@@ -25,9 +24,11 @@
 
 
 /* behavior */
-#define MT_LPM_SMC_ACT_SET			(1<<0)
-#define MT_LPM_SMC_ACT_CLR			(1<<1)
-#define MT_LPM_SMC_ACT_GET			(1<<2UL)
+#define MT_LPM_SMC_ACT_SET		(1<<0)
+#define MT_LPM_SMC_ACT_CLR		(1<<1)
+#define MT_LPM_SMC_ACT_GET		(1<<2UL)
+/* compatible action for legacy smc from lk */
+#define MT_LPM_SMC_ACT_COMPAT           (1<<7UL)
 
 
 #define MT_LPM_SMC_MAGIC                        0xDA000000
@@ -47,7 +48,7 @@ enum mt_lpm_smc_user_id {
 #define MT_LPM_SMC_USER_SINK(user, uid) \
 		(((uid & MT_LPM_SMC_USER_ID_MASK)\
 			| ((user & MT_LPM_SMC_USER_MASK)\
-				<< MT_LPM_SMC_USER_SHIFT))\
+			<< MT_LPM_SMC_USER_SHIFT))\
 		| MT_LPM_SMC_MAGIC)
 
 

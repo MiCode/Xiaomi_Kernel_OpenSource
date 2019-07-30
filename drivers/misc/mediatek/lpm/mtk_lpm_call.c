@@ -22,7 +22,7 @@ int mtk_lpm_callee_registry(struct mtk_lpm_callee *callee)
 	spin_lock(&mtk_lp_plat_call_locker);
 	list_for_each_entry(pos, &mtk_lpm_callees, list) {
 		if (pos && (pos != callee) &&
-			(pos->type == callee->type)) {
+		   (pos->uid == callee->uid)) {
 			pos = NULL;
 			break;
 		}
@@ -48,7 +48,7 @@ int mtk_lpm_callee_unregistry(struct mtk_lpm_callee *callee)
 
 	spin_lock(&mtk_lp_plat_call_locker);
 	list_for_each_entry(pos, &mtk_lpm_callees, list) {
-		if (pos && (pos->type == callee->type)) {
+		if (pos && (pos->uid == callee->uid)) {
 			if (!pos->ref)
 				list_del(&pos->list);
 			else
@@ -62,16 +62,17 @@ int mtk_lpm_callee_unregistry(struct mtk_lpm_callee *callee)
 }
 EXPORT_SYMBOL(mtk_lpm_callee_unregistry);
 
-int mtk_lpm_callee_get(int type, const struct mtk_lpm_callee **callee)
+int mtk_lpm_callee_get_impl(int uid, const struct mtk_lpm_callee **callee)
 {
 	struct mtk_lpm_callee *pos;
 
 	if (!callee)
 		return -EINVAL;
 
+	*callee = NULL;
 	spin_lock(&mtk_lp_plat_call_locker);
 	list_for_each_entry(pos, &mtk_lpm_callees, list) {
-		if (pos && pos->type == type) {
+		if (pos && pos->uid == uid) {
 			pos->ref++;
 			*callee = pos;
 			break;
@@ -81,9 +82,9 @@ int mtk_lpm_callee_get(int type, const struct mtk_lpm_callee **callee)
 
 	return *callee ? 0 : -EINVAL;
 }
-EXPORT_SYMBOL(mtk_lpm_callee_get);
+EXPORT_SYMBOL(mtk_lpm_callee_get_impl);
 
-int mtk_lpm_callee_put(struct mtk_lpm_callee const *callee)
+int mtk_lpm_callee_put_impl(struct mtk_lpm_callee const *callee)
 {
 	struct mtk_lpm_callee *pos;
 
@@ -92,7 +93,7 @@ int mtk_lpm_callee_put(struct mtk_lpm_callee const *callee)
 
 	spin_lock(&mtk_lp_plat_call_locker);
 	list_for_each_entry(pos, &mtk_lpm_callees, list) {
-		if (pos && (pos->type == callee->type)) {
+		if (pos && (pos->uid == callee->uid)) {
 			pos->ref--;
 			break;
 		}
@@ -101,5 +102,5 @@ int mtk_lpm_callee_put(struct mtk_lpm_callee const *callee)
 
 	return pos ? 0 : -EPERM;
 }
-EXPORT_SYMBOL(mtk_lpm_callee_put);
+EXPORT_SYMBOL(mtk_lpm_callee_put_impl);
 

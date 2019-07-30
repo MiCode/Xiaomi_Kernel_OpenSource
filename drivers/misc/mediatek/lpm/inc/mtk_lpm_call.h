@@ -10,34 +10,20 @@
 #include <mtk_lpm_type.h>
 
 struct mtk_lpm_callee_ipi {
-	int (*send)(int level, unsigned int ival,
-				const struct mtk_lpm_data *pval);
-	int (*response)(int level, unsigned int ival,
-					struct mtk_lpm_data * const pres);
-};
-
-struct mtk_lpm_callee_mio {
-	int (*write)(unsigned int type, unsigned int ival,
-					const struct mtk_lpm_data *pval);
-	int (*read)(unsigned int type, unsigned int ival,
-					struct mtk_lpm_data * const pres);
+	int (*send)(int id, const struct mtk_lpm_data *val);
+	int (*response)(int id);
 };
 
 struct mtk_lpm_callee_simple {
-	int (*set)(unsigned int type,
-				unsigned int val,
-				const struct mtk_lpm_data *pval);
-	int (*get)(unsigned int type,
-				unsigned int val,
-				struct mtk_lpm_data * const pres);
+	int (*set)(unsigned int type, const struct mtk_lpm_data *val);
+	int (*get)(unsigned int type, struct mtk_lpm_data * const res);
 };
 
 struct mtk_lpm_callee {
-	int type;
+	int uid;
 	unsigned int ref;
 	union {
 		struct mtk_lpm_callee_ipi ipi;
-		struct mtk_lpm_callee_mio mio;
 		struct mtk_lpm_callee_simple simple;
 	} i;
 	struct list_head list;
@@ -46,7 +32,28 @@ struct mtk_lpm_callee {
 int mtk_lpm_callee_registry(struct mtk_lpm_callee *callee);
 int mtk_lpm_callee_unregistry(struct mtk_lpm_callee *callee);
 
-int mtk_lpm_callee_get(int type, const struct mtk_lpm_callee **callee);
-int mtk_lpm_callee_put(struct mtk_lpm_callee const *callee);
+int mtk_lpm_callee_get_impl(int uid, const struct mtk_lpm_callee **callee);
+int mtk_lpm_callee_put_impl(struct mtk_lpm_callee const *callee);
+
+
+#define mtk_lpm_callee_get(uid, callee) ({\
+	int ret;\
+	const struct mtk_lpm_callee *__callee;\
+	do {\
+		ret = mtk_lpm_callee_get_impl(uid, &__callee);\
+		if (ret)\
+			break;\
+		*callee = (typeof(**callee) *)&__callee->i;\
+	} while (0); ret; })
+
+
+#define mtk_lpm_callee_put(callee) ({\
+	int ret;\
+	typeof(((struct mtk_lpm_callee *)0)->i) * __call =\
+	(typeof(((struct mtk_lpm_callee *)0)->i) *)callee;\
+	 mtk_lpm_callee *__callee =\
+		container_of(__call, struct mtk_lpm_callee, i);\
+	ret = mtk_lpm_callee_put_impl(__callee); ret; })
+
 
 #endif

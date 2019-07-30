@@ -8,9 +8,9 @@
 
 struct mtk_lpm_data {
 	union {
-		int v_i32;
-		unsigned int v_u32;
-		void *v_vp;
+		int i32;
+		unsigned int u32;
+		void *p;
 	} d;
 };
 
