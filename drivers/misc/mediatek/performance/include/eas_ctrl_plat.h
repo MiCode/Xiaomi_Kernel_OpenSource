@@ -11,5 +11,8 @@ extern unsigned int sysctl_sched_migration_cost;
 /* EAS */
 extern int uclamp_min_for_perf_idx(int group_idx, int min_value);
 extern void set_sched_rotation_enable(bool enable);
+extern int set_sched_boost_type(int type);
+extern int get_sched_boost_type(void);
+extern int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type);
 
 #endif /* _EAS_CTRL_PLAT_H_ */

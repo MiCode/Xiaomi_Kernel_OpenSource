@@ -22,12 +22,12 @@
 #include <linux/trace_events.h>
 #endif
 
-#define API_READY 0
 /* boost value */
 static struct mutex boost_eas;
 
 static bool perf_sched_big_task_rotation;
-static int  perf_sched_boost;
+static pid_t last_cpu_prefer_pid;
+static int last_cpu_perfer_type;
 
 /************************/
 
@@ -49,7 +49,7 @@ static ssize_t perfmgr_sched_big_task_rotation_proc_write(struct file *filp,
 
 	perf_sched_big_task_rotation = data;
 
-#if API_READY
+#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
 	if (data)
 		set_sched_rotation_enable(true);
 	else
@@ -67,8 +67,8 @@ static int perfmgr_sched_big_task_rotation_proc_show(struct seq_file *m,
 	return 0;
 }
 
-/* Add procfs to control sysctl_sched_rotation_enable */
-/* sysctl_sched_rotation_enable: eas_ctrl_plat.h */
+/* Add procfs to control sched_boost */
+/* set_sched_boost_type: eas_ctrl_plat.h */
 static ssize_t perfmgr_sched_boost_proc_write(struct file *filp,
 		const char *ubuf, size_t cnt, loff_t *pos)
 {
@@ -81,13 +81,9 @@ static ssize_t perfmgr_sched_boost_proc_write(struct file *filp,
 	if (data < 0 || data > 2)
 		return -EINVAL;
 
-	perf_sched_boost = data;
-
-#if API_READY
-	if (data)
-		set_sched_boost_enable(true);
-	else
-		set_sched_boost_enable(false);
+#if defined(CONFIG_CGROUPS) && defined(CONFIG_MTK_SCHED_CPU_PREFER)
+	if (set_sched_boost_type(data) < 0)
+		return -EINVAL;
 #endif
 
 	return cnt;
@@ -95,12 +91,18 @@ static ssize_t perfmgr_sched_boost_proc_write(struct file *filp,
 
 static int perfmgr_sched_boost_proc_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "sched_boost = %d ", perf_sched_boost);
-	if (perf_sched_boost == 0)
+	int boost_type = 0;
+
+#if defined(CONFIG_CGROUPS) && defined(CONFIG_MTK_SCHED_CPU_PREFER)
+	boost_type = get_sched_boost_type();
+#endif
+
+	seq_printf(m, "sched_boost = %d ", boost_type);
+	if (boost_type == 0)
 		seq_puts(m, "(no boost)\n");
-	else if (perf_sched_boost == 1)
+	else if (boost_type == 1)
 		seq_puts(m, "(all boost)\n");
-	else if (perf_sched_boost == 2)
+	else if (boost_type == 2)
 		seq_puts(m, "(foreground boost)\n");
 	else
 		seq_puts(m, "(invalid setting)\n");
@@ -108,9 +110,46 @@ static int perfmgr_sched_boost_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+/* Add procfs to control cpu_prefer */
+/* set_sched_boost_type: eas_ctrl_plat.h */
+static ssize_t perfmgr_cpu_prefer_proc_write(struct file *filp,
+		const char *ubuf, size_t cnt, loff_t *pos)
+{
+	char buf[64];
+	pid_t pid, type;
+
+	if (cnt >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(buf, ubuf, cnt))
+		return -EFAULT;
+	buf[cnt] = '\0';
+
+	if (sscanf(buf, "%d %d", (int *)&pid, &type) != 2)
+		return -EFAULT;
+
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+	if (sched_set_cpuprefer(pid, type) != 0)
+		return -EINVAL;
+#endif
+	last_cpu_prefer_pid = pid;
+	last_cpu_perfer_type = type;
+
+	return cnt;
+}
+
+static int perfmgr_cpu_prefer_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "last pid:%d, type:%d\n",
+		(int)last_cpu_prefer_pid, last_cpu_perfer_type);
+
+	return 0;
+}
+
 /* others */
 PROC_FOPS_RW(sched_big_task_rotation);
 PROC_FOPS_RW(sched_boost);
+PROC_FOPS_RW(cpu_prefer);
 
 /*******************************************/
 int eas_ctrl_init(struct proc_dir_entry *parent)
@@ -126,6 +165,7 @@ int eas_ctrl_init(struct proc_dir_entry *parent)
 		/*--sched migrate cost n--*/
 		PROC_ENTRY(sched_big_task_rotation),
 		PROC_ENTRY(sched_boost),
+		PROC_ENTRY(cpu_prefer),
 	};
 	mutex_init(&boost_eas);
 
@@ -141,7 +181,8 @@ int eas_ctrl_init(struct proc_dir_entry *parent)
 	}
 
 	perf_sched_big_task_rotation = 0;
-	perf_sched_boost = 0;
+	last_cpu_prefer_pid = (pid_t)0;
+	last_cpu_perfer_type = 0;
 
 out:
 	return ret;
