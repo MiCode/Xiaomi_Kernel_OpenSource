@@ -18,6 +18,7 @@
 #include <linux/of_fdt.h>
 
 #include "cam_io_util.h"
+#include <uapi/media/cam_defs.h>
 
 #define NO_SET_RATE  -1
 #define INIT_RATE    -2
@@ -634,5 +635,28 @@ int cam_soc_util_clk_enable_default(struct cam_hw_soc_info *soc_info,
 
 uint32_t cam_soc_util_get_vote_level(struct cam_hw_soc_info *soc_info,
 	uint64_t clock_rate);
+
+/* Callback to get reg space data for specific HW */
+typedef int (*cam_soc_util_regspace_data_cb)(uint32_t reg_base_type,
+	void *ctx, struct cam_hw_soc_info **soc_info_ptr,
+	uint32_t *reg_base_idx);
+
+/**
+ * cam_soc_util_reg_dump_to_cmd_buf()
+ *
+ * @brief:              Camera SOC util for dumping sets of register ranges to
+ *                      to command buffer
+ *
+ * @ctx:                Context info from specific hardware manager
+ * @cmd_desc:           Command buffer descriptor
+ * @req_id:             Last applied req id for which reg dump is required
+ * @reg_data_cb:        Callback function to get reg space info based on type
+ *                      in command buffer
+ *
+ * @return:             Success or Failure
+ */
+int cam_soc_util_reg_dump_to_cmd_buf(void *ctx,
+	struct cam_cmd_buf_desc *cmd_desc, uint64_t req_id,
+	cam_soc_util_regspace_data_cb reg_data_cb);
 
 #endif /* _CAM_SOC_UTIL_H_ */
