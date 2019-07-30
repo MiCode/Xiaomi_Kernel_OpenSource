@@ -982,9 +982,49 @@ static int aw8896_codec_write(struct snd_soc_codec *codec, unsigned int reg,
 	return -EINVAL;
 }
 
+#ifdef CONFIG_PM
+static int aw8896_suspend(struct snd_soc_codec *codec)
+{
+	int ret = 0;
+	struct aw8896 *aw8896 = snd_soc_codec_get_drvdata(codec);
+
+	/* clear FW/DSP status flags so the DSP can get into
+	 * correct status after resume
+	 */
+	aw8896->init = 0;
+	aw8896->dsp_fw_state = AW8896_DSP_FW_FAIL;
+	aw8896->dsp_cfg_state = AW8896_DSP_CFG_FAIL;
+
+	ret = regulator_disable(aw8896->supply.regulator);
+	if (ret < 0)
+		dev_err(codec->dev, "%s: fail to disable regulator, err:%d\n",
+			__func__, ret);
+
+	return 0;
+}
+
+static int aw8896_resume(struct snd_soc_codec *codec)
+{
+	int ret = 0;
+	struct aw8896 *aw8896 = snd_soc_codec_get_drvdata(codec);
+
+	ret = regulator_enable(aw8896->supply.regulator);
+	if (ret < 0)
+		dev_err(codec->dev, "%s: fail to enable regulator, err:%d\n",
+			__func__, ret);
+
+	return 0;
+}
+#else
+#define aw8896_suspend NULL
+#define aw8896_resume NULL
+#endif
+
 static struct snd_soc_codec_driver soc_codec_dev_aw8896 = {
 	.probe = aw8896_probe,
 	.remove = aw8896_remove,
+	.suspend = aw8896_suspend,
+	.resume = aw8896_resume,
 	.read = aw8896_codec_read,
 	.write = aw8896_codec_write,
 	.reg_cache_size = AW8896_REG_MAX,
