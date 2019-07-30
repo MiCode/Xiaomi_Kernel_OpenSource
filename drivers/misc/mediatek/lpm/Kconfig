@@ -1,7 +1,15 @@
+config MTK_LPM_DBG_COMMON
+	bool "Meditaek Low Power common debug Module"
+	help
+	   Select MTK_LPM_DBG_COMMON then Mediatek low module
+	   common debug feature will be enabled. The common debug
+	   feature will support basic debug control and show the
+	   information to console.
+
 config MTK_LPM_MT6779
 	tristate "Specify Mediatek LPM Platform is MT6779"
 	depends on MTK_LOW_POWER_MODULE
-	default n
+	select MTK_LPM_DBG_COMMON
 	help
 	  Select MediaTek Low Power Module Platform is MT6779
 	  for power management.
