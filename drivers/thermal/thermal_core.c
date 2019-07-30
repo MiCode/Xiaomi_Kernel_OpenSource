@@ -247,6 +247,10 @@ static int __init thermal_register_governors(void)
 {
 	int result;
 
+	result = thermal_gov_backward_compatible_register();
+	if (result)
+		return result;
+
 	result = thermal_gov_step_wise_register();
 	if (result)
 		return result;
@@ -268,6 +272,7 @@ static int __init thermal_register_governors(void)
 
 static void thermal_unregister_governors(void)
 {
+	thermal_gov_backward_compatible_unregister();
 	thermal_gov_step_wise_unregister();
 	thermal_gov_fair_share_unregister();
 	thermal_gov_bang_bang_unregister();
