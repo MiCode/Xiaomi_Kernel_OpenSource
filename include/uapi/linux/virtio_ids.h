@@ -44,6 +44,7 @@
 #define VIRTIO_ID_VSOCK        19 /* virtio vsock transport */
 #define VIRTIO_ID_CRYPTO       20 /* virtio crypto */
 #define VIRTIO_ID_CLOCK	       30 /* virtio clock */
+#define VIRTIO_ID_REGULATOR    31 /* virtio regulator */
 
 #define VIRTIO_ID_I2C		32 /* virtio i2c */
 
