@@ -111,7 +111,7 @@
 		status = "okay";
 		S5A: pm660_s5: regulator-s5 {
 			regulator-min-microvolt = <1040000>;
-			regulator-max-microvolt = <1350000>;
+			regulator-max-microvolt = <1420000>;
 			qcom,init-voltage = <1040000>;
 			status = "okay";
 		};
