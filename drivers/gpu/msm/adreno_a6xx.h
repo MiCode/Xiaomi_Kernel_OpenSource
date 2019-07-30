@@ -40,6 +40,8 @@ struct adreno_a6xx_core {
 	u32 vbif_count;
 	/** @veto_fal10: veto status for fal10 feature */
 	bool veto_fal10;
+	/** @pdc_in_aop: True if PDC programmed in AOP */
+	bool pdc_in_aop;
 };
 
 #define CP_CLUSTER_FE		0x0
