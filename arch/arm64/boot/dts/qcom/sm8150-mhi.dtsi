@@ -546,6 +546,11 @@
 				mhi,mru = <0x8000>;
 				mhi,rsc-parent = <&mhi_netdev_0>;
 			};
+
+			mhi_qrtr {
+				 mhi,chan = "IPCR";
+				 mhi,early-notify;
+			};
 		};
 	};
 };
