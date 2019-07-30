@@ -1938,6 +1938,28 @@
 			clock-div = <1>;
 		};
 
+		therm_ctrl@1100b000 {
+			compatible = "mediatek,therm_ctrl";
+			reg = <0 0x1100b000 0 0x1000>;
+			interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&infracfg_ao CLK_INFRA_THERM>;
+			clock-names = "therm-main";
+			/* TOPRGU access */
+			regmap = <&toprgu>;
+			therm_ctrl,toprgu_en_offset = <0x30>;
+			therm_ctrl,toprgu_en_bit = <18>;
+			therm_ctrl,toprgu_en_key = <0x33000000>;
+			therm_ctrl,toprgu_irq_offset = <0x34>;
+			therm_ctrl,toprgu_irq_bit = <18>;
+			therm_ctrl,toprgu_irq_key = <0x44000000>;
+			/* efuse access */
+			nvmem = <&efuse>;
+			nvmem-names = "mtk_efuse";
+			therm_ctrl,efuse_num = <6>;
+			therm_ctrl,efuse_offset =
+				<0x184 0x180 0x188 0x1AC 0x1B0 0x1B8>;
+		};
+
 		btif@1100c000 {
 			compatible = "mediatek,btif";
 				/*btif base*/
