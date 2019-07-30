@@ -1093,6 +1093,7 @@ struct sde_perf_cfg {
  * register offsets, capabilities of the all MDSS HW sub-blocks.
  *
  * @max_sspp_linewidth max source pipe line width support.
+ * @vig_sspp_linewidth max vig source pipe line width support.
  * @max_mixer_width    max layer mixer line width support.
  * @max_mixer_blendstages max layer mixer blend stages or
  *                       supported z order
@@ -1147,6 +1148,7 @@ struct sde_mdss_cfg {
 	u32 hwversion;
 
 	u32 max_sspp_linewidth;
+	u32 vig_sspp_linewidth;
 	u32 max_mixer_width;
 	u32 max_mixer_blendstages;
 	u32 max_wb_linewidth;
