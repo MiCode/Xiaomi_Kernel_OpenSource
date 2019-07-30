@@ -13,3 +13,7 @@
 
 #include "sdm429.dtsi"
 #include "sdm429w-pm660.dtsi"
+
+&pil_mss {
+	qcom,sequential-fw-load;
+};
