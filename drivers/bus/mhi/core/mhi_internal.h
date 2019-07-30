@@ -716,6 +716,13 @@ int mhi_send_cmd(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan,
 		 enum MHI_CMD cmd);
 int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl);
 
+static inline void mhi_trigger_resume(struct mhi_controller *mhi_cntrl)
+{
+	mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
+	mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
+	pm_wakeup_event(&mhi_cntrl->mhi_dev->dev, 0);
+}
+
 /* queue transfer buffer */
 int mhi_gen_tre(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan,
 		void *buf, void *cb, size_t buf_len, enum MHI_FLAGS flags);
