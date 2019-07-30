@@ -146,6 +146,74 @@ static int cam_ife_hw_mgr_is_rdi_res(uint32_t res_id)
 	return rc;
 }
 
+static const char *cam_ife_hw_mgr_get_res_id(
+	enum cam_ife_pix_path_res_id        csid_res_id)
+{
+	char *res_name = NULL;
+
+	switch (csid_res_id) {
+	case CAM_IFE_PIX_PATH_RES_RDI_0:
+		res_name = "RDI_0";
+		break;
+	case CAM_IFE_PIX_PATH_RES_RDI_1:
+		res_name = "RDI_1";
+		break;
+	case CAM_IFE_PIX_PATH_RES_RDI_2:
+		res_name = "RDI_2";
+		break;
+	case CAM_IFE_PIX_PATH_RES_RDI_3:
+		res_name = "RDI_3";
+		break;
+	case CAM_IFE_PIX_PATH_RES_IPP:
+		res_name = "IPP";
+		break;
+	case CAM_IFE_PIX_PATH_RES_PPP:
+		res_name = "PPP";
+		break;
+	case CAM_IFE_PIX_PATH_RES_MAX:
+		res_name = "Invalid Max res";
+		break;
+	default:
+		res_name = "Invalid";
+		break;
+	}
+	return res_name;
+}
+
+static const char *cam_ife_hw_mgr_get_res_type(
+	enum cam_isp_resource_type        csid_res_type)
+{
+	char *res_type = NULL;
+
+	switch (csid_res_type) {
+	case CAM_ISP_RESOURCE_UNINT:
+		res_type = "Unint";
+		break;
+	case CAM_ISP_RESOURCE_SRC:
+		res_type = "Src";
+		break;
+	case CAM_ISP_RESOURCE_CID:
+		res_type = "Cid";
+		break;
+	case CAM_ISP_RESOURCE_PIX_PATH:
+		res_type = "Pix Path";
+		break;
+	case CAM_ISP_RESOURCE_VFE_IN:
+		res_type = "Vfe In";
+		break;
+	case CAM_ISP_RESOURCE_VFE_OUT:
+		res_type = "Vfe Out";
+		break;
+	case CAM_ISP_RESOURCE_MAX:
+		res_type = "Invalid Max res";
+		break;
+	default:
+		res_type = "Invalid";
+		break;
+	}
+	return res_type;
+}
+
 static int cam_ife_hw_mgr_reset_csid_res(
 	struct cam_ife_hw_mgr_res   *isp_hw_res)
 {
@@ -597,6 +665,61 @@ static int cam_ife_hw_mgr_get_ctx(
 	mutex_unlock(&g_ife_hw_mgr.ctx_mutex);
 
 	return rc;
+}
+
+static void cam_ife_hw_mgr_dump_all_ctx(
+	struct cam_ife_hw_mgr_ctx       *ife_ctx)
+{
+	uint32_t                         i;
+	struct cam_ife_hw_mgr_ctx        *ctx;
+	struct cam_ife_hw_mgr_res        *hw_mgr;
+
+	mutex_lock(&g_ife_hw_mgr.ctx_mutex);
+	list_for_each_entry(ctx, &g_ife_hw_mgr.used_ctx_list, list) {
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"ctx id:%d dual:%d in src:%d num_base:%d rdi only:%d",
+			ctx->ctx_index,
+			ctx->res_list_ife_in.is_dual_vfe,
+			ctx->res_list_ife_in.res_id,
+			ctx->num_base, ctx->is_rdi_only_context);
+		list_for_each_entry(hw_mgr, &ctx->res_list_ife_csid,
+			list) {
+			for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+				if (!hw_mgr->hw_res[i])
+					continue;
+				CAM_ERR_RATE_LIMIT(CAM_ISP,
+				    "csid:%d res_type:%s id:%s state:%d",
+				    hw_mgr->hw_res[i]->hw_intf->hw_idx,
+				    cam_ife_hw_mgr_get_res_type(
+					hw_mgr->hw_res[i]->res_type),
+				    cam_ife_hw_mgr_get_res_id(
+					hw_mgr->hw_res[i]->res_id),
+				    hw_mgr->hw_res[i]->res_state);
+			}
+		}
+		list_for_each_entry(hw_mgr, &ctx->res_list_ife_src,
+			list) {
+			for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+				if (!hw_mgr->hw_res[i])
+					continue;
+				CAM_ERR_RATE_LIMIT(CAM_ISP,
+				    "Src IFE:%d res_type:%s id:%s state:%d",
+				    hw_mgr->hw_res[i]->hw_intf->hw_idx,
+				    cam_ife_hw_mgr_get_res_type(
+					hw_mgr->hw_res[i]->res_type),
+				    cam_ife_hw_mgr_get_res_id(
+					hw_mgr->hw_res[i]->res_id),
+				    hw_mgr->hw_res[i]->res_state);
+			}
+		}
+	}
+	CAM_ERR_RATE_LIMIT(CAM_ISP,
+		"Current ctx id:%d dual:%d in src:%d num_base:%d rdi only:%d",
+		ife_ctx->ctx_index,
+		ife_ctx->res_list_ife_in.is_dual_vfe,
+		ife_ctx->res_list_ife_in.res_id,
+		ife_ctx->num_base, ife_ctx->is_rdi_only_context);
+	mutex_unlock(&g_ife_hw_mgr.ctx_mutex);
 }
 
 static void cam_ife_mgr_add_base_info(
@@ -1509,8 +1632,9 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_pxl(
 			&csid_acquire, sizeof(csid_acquire));
 		if (rc) {
 			CAM_ERR(CAM_ISP,
-				"Cannot acquire ife csid pxl path rsrc %s",
-				(is_ipp) ? "IPP" : "PPP");
+				"Cannot acquire ife csid pxl path rsrc %s, hw=%d rc=%d",
+				(is_ipp) ? "IPP" : "PPP",
+				hw_intf->hw_idx, rc);
 			goto put_res;
 		}
 
@@ -1622,7 +1746,6 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 				"CSID Path reserve failed hw=%d rc=%d cid=%d",
 				hw_intf->hw_idx, rc,
 				cid_res->hw_res[0]->res_id);
-
 			goto put_res;
 		}
 
@@ -2018,6 +2141,8 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 
 	return 0;
 free_res:
+	/*Dump all the current acquired resources */
+	cam_ife_hw_mgr_dump_all_ctx(ife_ctx);
 	cam_ife_hw_mgr_release_hw_for_ctx(ife_ctx);
 free_cdm:
 	cam_cdm_release(ife_ctx->cdm_handle);
@@ -2172,11 +2297,13 @@ static int cam_ife_mgr_acquire_dev(void *hw_mgr_priv, void *acquire_hw_args)
 	ife_ctx->ctx_in_use = 1;
 
 	cam_ife_hw_mgr_put_ctx(&ife_hw_mgr->used_ctx_list, &ife_ctx);
-
 	CAM_DBG(CAM_ISP, "Exit...(success)");
 
 	return 0;
+
 free_res:
+	/*Dump all the current acquired resources */
+	cam_ife_hw_mgr_dump_all_ctx(ife_ctx);
 	cam_ife_hw_mgr_release_hw_for_ctx(ife_ctx);
 	cam_cdm_release(ife_ctx->cdm_handle);
 free_ctx:
