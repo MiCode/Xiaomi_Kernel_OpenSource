@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -132,6 +132,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pmi632_adc_tm 0x53>;
 		thermal-governor = "step_wise";
+		wake-capable-sensor;
 
 		trips {
 			quiet_batt_439_trip1: quiet-batt-trip1 {
@@ -302,6 +303,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pmi632_adc_tm 0x53>;
 		thermal-governor = "user_space";
+		wake-capable-sensor;
 
 		trips {
 			active-config0 {
