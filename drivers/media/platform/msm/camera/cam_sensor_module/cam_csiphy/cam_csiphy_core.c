@@ -10,9 +10,11 @@
 #include "cam_common_util.h"
 #include "cam_packet_util.h"
 
+#include <dt-bindings/msm/msm-camera.h>
 
 #include <soc/qcom/scm.h>
 #include <cam_mem_mgr.h>
+#include <cam_cpas_api.h>
 
 #define SCM_SVC_CAMERASS 0x18
 #define SECURE_SYSCALL_ID 0x6
@@ -914,6 +916,15 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		}
 
 		if (csiphy_dev->csiphy_info.secure_mode[offset] == 1) {
+			if (cam_cpas_is_feature_supported(
+					CAM_CPAS_SECURE_CAMERA_ENABLE) != 1) {
+				CAM_ERR(CAM_CSIPHY,
+					"sec_cam: camera fuse bit not set");
+				cam_cpas_stop(csiphy_dev->cpas_handle);
+				rc = -1;
+				goto release_mutex;
+			}
+
 			rc = cam_csiphy_notify_secure_mode(
 				csiphy_dev,
 				CAM_SECURE_MODE_SECURE, offset);

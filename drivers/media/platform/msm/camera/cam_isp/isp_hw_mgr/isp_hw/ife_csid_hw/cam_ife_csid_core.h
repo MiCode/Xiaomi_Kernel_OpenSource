@@ -482,6 +482,8 @@ struct cam_ife_csid_path_cfg {
  * @irq_debug_cnt:            Counter to track sof irq's when above flag is set.
  * @error_irq_count           Error IRQ count, if continuous error irq comes
  *                            need to stop the CSID and mask interrupts.
+ * @binning_enable            Flag is set if hardware supports QCFA binning
+ * @binning_supported         Flag is set if sensor supports QCFA binning
  *
  */
 struct cam_ife_csid_hw {
@@ -510,6 +512,8 @@ struct cam_ife_csid_hw {
 	uint32_t                         error_irq_count;
 	uint32_t                         device_enabled;
 	spinlock_t                       lock_state;
+	uint32_t                         binning_enable;
+	uint32_t                         binning_supported;
 };
 
 int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,

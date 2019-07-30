@@ -4234,6 +4234,54 @@ static int cam_isp_blob_csid_clock_update(
 	return rc;
 }
 
+static int cam_isp_blob_csid_qcfa_update(
+	uint32_t                               blob_type,
+	struct cam_isp_generic_blob_info      *blob_info,
+	struct cam_isp_csid_qcfa_config       *qcfa_config,
+	struct cam_hw_prepare_update_args     *prepare)
+{
+	struct cam_ife_hw_mgr_ctx             *ctx = NULL;
+	struct cam_ife_hw_mgr_res             *hw_mgr_res;
+	struct cam_hw_intf                    *hw_intf;
+	struct cam_ife_csid_qcfa_update_args   csid_qcfa_upd_args;
+	int                                    rc = -EINVAL;
+	uint32_t                               i;
+
+	ctx = prepare->ctxt_to_hw_map;
+
+	CAM_DBG(CAM_ISP,
+		"csid binning=%d", qcfa_config->csid_binning);
+
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_csid, list) {
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+
+			if (!hw_mgr_res->hw_res[i] ||
+				hw_mgr_res->res_id != CAM_IFE_PIX_PATH_RES_IPP)
+				continue;
+
+			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+			if (hw_intf && hw_intf->hw_ops.process_cmd) {
+				csid_qcfa_upd_args.qcfa_binning =
+						qcfa_config->csid_binning;
+				CAM_DBG(CAM_ISP, "i= %d QCFA binning=%d\n",
+				i, csid_qcfa_upd_args.qcfa_binning);
+
+				rc = hw_intf->hw_ops.process_cmd(
+					hw_intf->hw_priv,
+					CAM_ISP_HW_CMD_CSID_QCFA_SUPPORTED,
+					&csid_qcfa_upd_args,
+					sizeof(
+					struct cam_ife_csid_qcfa_update_args));
+				if (rc)
+					CAM_ERR(CAM_ISP, "QCFA Update failed");
+			} else
+				CAM_ERR(CAM_ISP, "NULL hw_intf!");
+		}
+	}
+
+	return rc;
+}
+
 static int cam_isp_blob_core_cfg_update(
 	uint32_t                               blob_type,
 	struct cam_isp_generic_blob_info      *blob_info,
@@ -4846,6 +4894,26 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 			clock_config, prepare);
 		if (rc)
 			CAM_ERR(CAM_ISP, "Clock Update Failed");
+	}
+		break;
+	case CAM_ISP_GENERIC_BLOB_TYPE_CSID_QCFA_CONFIG: {
+		struct cam_isp_csid_qcfa_config *qcfa_config;
+
+		if (blob_size < sizeof(struct cam_isp_csid_qcfa_config)) {
+			CAM_ERR(CAM_ISP,
+				"Invalid qcfa blob size %u expected %u",
+				blob_size,
+				sizeof(struct cam_isp_csid_qcfa_config));
+			return -EINVAL;
+		}
+
+		qcfa_config = (struct cam_isp_csid_qcfa_config *)blob_data;
+
+		rc = cam_isp_blob_csid_qcfa_update(blob_type, blob_info,
+				qcfa_config, prepare);
+		if (rc)
+			CAM_ERR(CAM_ISP, "QCFA Update Failed rc: %d", rc);
+
 	}
 		break;
 	case CAM_ISP_GENERIC_BLOB_TYPE_FE_CONFIG: {
