@@ -76,7 +76,7 @@ static const struct mtk_codec_framesizes mtk_vdec_framesizes[] = {
  * reference list.
  */
 static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx,
-		bool got_early_eos)
+	bool got_early_eos)
 {
 	struct vdec_fb *disp_frame_buffer = NULL;
 	struct mtk_video_dec_buf *dstbuf;
@@ -394,7 +394,6 @@ static void mtk_vdec_worker(struct work_struct *work)
 				decode_work);
 	struct mtk_vcodec_dev *dev = ctx->dev;
 	struct vb2_v4l2_buffer *src_buf, *dst_buf;
-	struct mtk_video_dec_buf *mtk_buf;
 	struct mtk_vcodec_mem *buf;
 	struct vdec_fb *pfb;
 	unsigned int i = 0;
@@ -407,6 +406,12 @@ static void mtk_vdec_worker(struct work_struct *work)
 	struct mtk_video_dec_buf *dst_buf_info, *src_buf_info;
 	unsigned int fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 	unsigned int dpbsize = 0;
+
+	if (ctx->state != MTK_STATE_HEADER) {
+		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
+		mtk_v4l2_debug(1, " %d", ctx->state);
+		return;
+	}
 
 	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
 	if (src_buf == NULL) {
@@ -454,8 +459,6 @@ static void mtk_vdec_worker(struct work_struct *work)
 	if (src_buf_info->lastframe) {
 		mtk_v4l2_debug(1, "Got empty flush input buffer.");
 		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
-		src_buf_info->lastframe = NON_EOS;
-
 		/* update dst buf status */
 		dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 		mutex_lock(&ctx->lock);
@@ -464,23 +467,17 @@ static void mtk_vdec_worker(struct work_struct *work)
 
 		vdec_if_decode(ctx, NULL, NULL, &src_chg);
 		clean_free_bs_buffer(ctx, NULL, NULL);
-		clean_display_buffer(ctx,
-			src_buf->vb2_buf.planes[0].bytesused != 0U);
-		if (src_buf->vb2_buf.planes[0].bytesused == 0U) {
-			src_buf->flags |= V4L2_BUF_FLAG_LAST;
-			vb2_set_plane_payload(&src_buf_info->vb.vb2_buf, 0, 0);
-			v4l2_m2m_buf_done(&src_buf_info->vb,
-				VB2_BUF_STATE_DONE);
+		clean_display_buffer(ctx, src_buf_info->isEarlyEos);
+		clean_free_buffer(ctx);
 
+		if (src_buf_info->isEarlyEos == false) {
 			for (i = 0; i < pfb->num_planes; i++)
-				vb2_set_plane_payload(
-					&dst_buf_info->vb.vb2_buf, i, 0);
+				vb2_set_plane_payload(&dst_buf_info->vb.vb2_buf,
+					i, 0);
 			dst_buf->flags |= V4L2_BUF_FLAG_LAST;
 			v4l2_m2m_buf_done(&dst_buf_info->vb,
 				VB2_BUF_STATE_DONE);
 		}
-
-		clean_free_buffer(ctx);
 		mtk_vdec_queue_stop_play_event(ctx);
 		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
 		return;
@@ -557,21 +554,6 @@ static void mtk_vdec_worker(struct work_struct *work)
 		} else
 			v4l2_m2m_buf_done(&src_buf_info->vb,
 			VB2_BUF_STATE_ERROR);
-	} else if (src_buf_info->lastframe == EOS_WITH_DATA &&
-		need_more_output == false) {
-		/*
-		 * Getting early eos bitstream buffer, after decode this
-		 * buffer, need to flush decoder. Use the flush_buf
-		 * as normal EOS, and flush decoder.
-		 */
-		mtk_v4l2_debug(0, "[%d] EarlyEos: decode last frame %d",
-			ctx->id, src_buf->planes[0].bytesused);
-		src_buf->flags |= V4L2_BUF_FLAG_LAST;
-		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
-		clean_free_bs_buffer(ctx, NULL, NULL);
-		mtk_buf = (struct mtk_video_dec_buf *)ctx->empty_flush_buf;
-		mtk_buf->lastframe = EOS;
-		v4l2_m2m_buf_queue(ctx->m2m_ctx, &ctx->empty_flush_buf->vb);
 	} else if ((ret == 0) && ((fourcc == V4L2_PIX_FMT_RV40) ||
 		(fourcc == V4L2_PIX_FMT_RV30) ||
 		(res_chg == false && need_more_output == false))) {
@@ -591,9 +573,8 @@ static void mtk_vdec_worker(struct work_struct *work)
 			res_chg, need_more_output);
 	}
 
-
 	dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
-	clean_display_buffer(ctx, src_buf_info->lastframe == EOS_WITH_DATA);
+	clean_display_buffer(ctx, src_buf_info->isEarlyEos);
 	clean_free_buffer(ctx);
 
 	if (!ret && res_chg) {
@@ -777,7 +758,7 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 		if (wait_seq_header) {
 			mtk_v4l2_err("[%d]Error!! Need seq header!", ctx->id);
 			mtk_vdec_queue_noseqheader_event(ctx);
-		} else if (mtk_vcodec_unsupport || buf->lastframe  != NON_EOS) {
+		} else if (mtk_vcodec_unsupport || buf->lastframe) {
 			mtk_v4l2_err("[%d]Error!! Codec driver not support the file!",
 						 ctx->id);
 			mtk_vdec_queue_error_event(ctx);

@@ -157,8 +157,7 @@ static int vidioc_try_decoder_cmd(struct file *file, void *priv,
 	case V4L2_DEC_CMD_STOP:
 	case V4L2_DEC_CMD_START:
 		if (cmd->flags != 0) {
-			mtk_v4l2_err("cmd->flags=%u", cmd->flags);
-			return -EINVAL;
+			mtk_v4l2_debug(1, "cmd->flags=%u", cmd->flags);
 		}
 		break;
 	default:
@@ -180,7 +179,7 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 	if (ret)
 		return ret;
 
-	mtk_v4l2_debug(1, "decoder cmd=%u", cmd->cmd);
+	mtk_v4l2_debug(1, "decoder cmd=%u, flag=%u", cmd->cmd, cmd->flags);
 	dst_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
 				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 	switch (cmd->cmd) {
@@ -195,8 +194,13 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 			mtk_v4l2_debug(1, "Capture stream is off. No need to flush.");
 			return 0;
 		}
-		if (!dec_pdata->uses_stateless_api)
-			ctx->empty_flush_buf->lastframe = EOS;
+		if (!dec_pdata->uses_stateless_api) {
+			ctx->empty_flush_buf->lastframe = true;
+			if (cmd->flags & V4L2_BUF_FLAG_EARLY_EOS)
+				ctx->empty_flush_buf->isEarlyEos = true;
+			else
+				ctx->empty_flush_buf->isEarlyEos = false;
+		}
 		v4l2_m2m_buf_queue(ctx->m2m_ctx, &ctx->empty_flush_buf->vb);
 		v4l2_m2m_try_schedule(ctx->m2m_ctx);
 		break;
@@ -238,10 +242,14 @@ void mtk_vdec_lock(struct mtk_vcodec_ctx *ctx)
 void mtk_vcodec_dec_empty_queues(struct mtk_vcodec_ctx *ctx)
 {
 	struct vb2_v4l2_buffer *src_buf = NULL, *dst_buf = NULL;
+	struct vb2_v4l2_buffer *last_buf = NULL;
 	int i = 0;
 
-	while ((src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx)))
-		v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
+	last_buf = &ctx->empty_flush_buf->vb;
+	while ((src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx))) {
+		if (last_buf != src_buf)
+			v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
+	}
 
 	while ((dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
 		for (i = 0; i < dst_buf->vb2_buf.num_planes; i++)
@@ -443,28 +451,18 @@ static int vidioc_vdec_qbuf(struct file *file, void *priv,
 		ctx->input_max_ts =
 			(timeval_to_ns(&buf->timestamp) > ctx->input_max_ts) ?
 			timeval_to_ns(&buf->timestamp) : ctx->input_max_ts;
-		if (buf->m.planes[0].bytesused == 0) {
-			mtkbuf->lastframe = EOS;
-			mtk_v4l2_debug(1, "[%d] index=%d Eos BS(%d,%d) vb=%p pts=%llu",
-				ctx->id, buf->index,
-				buf->bytesused,
-				buf->length, vb,
-				timeval_to_ns(&buf->timestamp));
-		} else if (buf->flags & V4L2_BUF_FLAG_LAST) {
-			mtkbuf->lastframe = EOS_WITH_DATA;
-			mtk_v4l2_debug(1, "[%d] id=%d EarlyEos BS(%d,%d) vb=%p pts=%llu",
-				ctx->id, buf->index, buf->m.planes[0].bytesused,
-				buf->length, vb,
-				timeval_to_ns(&buf->timestamp));
-		} else {
-			mtkbuf->lastframe = NON_EOS;
-			mtk_v4l2_debug(1, "[%d] id=%d getdata BS(%d,%d) vb=%p pts=%llu %llu",
-				ctx->id, buf->index,
-				buf->m.planes[0].bytesused,
-				buf->length, vb,
-				timeval_to_ns(&buf->timestamp),
-				ctx->input_max_ts);
-		}
+
+		mtkbuf->lastframe = false;
+		mtkbuf->isEarlyEos = false;
+		if (buf->flags & V4L2_BUF_FLAG_LAST)
+			mtkbuf->isEarlyEos = true;
+		mtk_v4l2_debug(1, "[%d] id=%d getdata BS(%d,%d) vb=%p pts=%llu %llu %d",
+			ctx->id, buf->index,
+			buf->m.planes[0].bytesused,
+			buf->length, vb,
+			timeval_to_ns(&buf->timestamp),
+			ctx->input_max_ts,
+			mtkbuf->isEarlyEos);
 	} else
 		mtk_v4l2_debug(1, "[%d] id=%d FB (%d) vb=%p",
 				ctx->id, buf->index,
@@ -1331,6 +1329,7 @@ int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 {
 	struct vb2_v4l2_buffer *src_buf = NULL, *dst_buf = NULL;
+	struct vb2_v4l2_buffer *last_buf = NULL;
 	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(q);
 	int i = 0;
 	int ret;
@@ -1338,15 +1337,13 @@ void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 	mtk_v4l2_debug(3, "[%d] (%d) state=(%x) ctx->decoded_frame_cnt=%d",
 			ctx->id, q->type, ctx->state, ctx->decoded_frame_cnt);
 
+	last_buf = &ctx->empty_flush_buf->vb;
 	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		if (ctx->state >= MTK_STATE_HEADER)
 			ctx->dev->vdec_pdata->flush_decoder(ctx);
 		while ((src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx))) {
-			struct mtk_video_dec_buf *buf_info = container_of(
-					src_buf, struct mtk_video_dec_buf, vb);
-			if (!buf_info->lastframe)
-				v4l2_m2m_buf_done(src_buf,
-						VB2_BUF_STATE_ERROR);
+			if (last_buf != src_buf)
+				v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
 		}
 		return;
 	}

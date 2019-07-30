@@ -1080,6 +1080,9 @@ static inline __u64 v4l2_timeval_to_ns(const struct timeval *tv)
 /* Crop changed flags*/
 #define V4L2_BUF_FLAG_CROP_CHANGED		0x00008000
 
+#define V4L2_BUF_FLAG_EARLY_EOS		0x00010000
+
+
 /* Timestamp type */
 #define V4L2_BUF_FLAG_TIMESTAMP_MASK		0x0000e000
 #define V4L2_BUF_FLAG_TIMESTAMP_UNKNOWN		0x00000000
