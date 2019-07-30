@@ -237,18 +237,16 @@ void mtk_vdec_lock(struct mtk_vcodec_ctx *ctx)
 
 void mtk_vcodec_dec_empty_queues(struct mtk_vcodec_ctx *ctx)
 {
-	struct vb2_buffer *src_buf = NULL, *dst_buf = NULL;
+	struct vb2_v4l2_buffer *src_buf = NULL, *dst_buf = NULL;
 	int i = 0;
 
 	while ((src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx)))
-		v4l2_m2m_buf_done(to_vb2_v4l2_buffer(src_buf),
-			VB2_BUF_STATE_ERROR);
+		v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
 
 	while ((dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
-		for (i = 0; i < dst_buf->num_planes; i++)
-			vb2_set_plane_payload(dst_buf, i, 0);
-		v4l2_m2m_buf_done(to_vb2_v4l2_buffer(dst_buf),
-			VB2_BUF_STATE_ERROR);
+		for (i = 0; i < dst_buf->vb2_buf.num_planes; i++)
+			vb2_set_plane_payload(&dst_buf->vb2_buf, i, 0);
+		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_ERROR);
 	}
 
 	ctx->state = MTK_STATE_FREE;
@@ -257,6 +255,7 @@ void mtk_vcodec_dec_empty_queues(struct mtk_vcodec_ctx *ctx)
 void mtk_vcodec_dec_release(struct mtk_vcodec_ctx *ctx)
 {
 	vdec_if_deinit(ctx);
+	memset(mtk_vdec_framesizes, 0, sizeof(mtk_vdec_framesizes));
 	ctx->state = MTK_STATE_FREE;
 }
 
@@ -872,31 +871,32 @@ static int vidioc_enum_framesizes(struct file *file, void *priv,
 
 	if (fsize->index != 0)
 		return -EINVAL;
+	if (mtk_vdec_framesizes[0].fourcc == 0) {
+		memcpy(mtk_vdec_framesizes, dec_pdata->vdec_framesizes,
+			sizeof(struct mtk_codec_framesizes) *
+			dec_pdata->num_framesizes);
 
-	memcpy(mtk_vdec_framesizes, dec_pdata->vdec_framesizes,
-		sizeof(struct mtk_codec_framesizes) *
-		dec_pdata->num_framesizes);
+		if (vdec_if_get_param(ctx, GET_PARAM_CAPABILITY_FRAME_SIZES,
+			&mtk_vdec_framesizes) != 0) {
+			mtk_v4l2_debug(1, "[%d] Error!! Cannot get frame size",
+				ctx->id);
+			return -EINVAL;
+		}
 
-	if (vdec_if_get_param(ctx, GET_PARAM_CAPABILITY_FRAME_SIZES,
-		&mtk_vdec_framesizes) != 0) {
-		mtk_v4l2_debug(1, "[%d] Error!! Cannot get frame size",
-			ctx->id);
-		return -EINVAL;
-	}
-
-	for (i = 0; i < MTK_MAX_DEC_CODECS_SUPPORT; i++) {
-		if (mtk_vdec_framesizes[i].fourcc != 0) {
-			mtk_v4l2_debug(1,
-			"vdec_fs[%d] fourcc %d, profile %d, level %d, s %d %d %d %d %d %d\n",
-			i, mtk_vdec_framesizes[i].fourcc,
-			mtk_vdec_framesizes[i].profile,
-			mtk_vdec_framesizes[i].level,
-			mtk_vdec_framesizes[i].stepwise.min_width,
-			mtk_vdec_framesizes[i].stepwise.max_width,
-			mtk_vdec_framesizes[i].stepwise.step_width,
-			mtk_vdec_framesizes[i].stepwise.min_height,
-			mtk_vdec_framesizes[i].stepwise.max_height,
-			mtk_vdec_framesizes[i].stepwise.step_height);
+		for (i = 0; i < MTK_MAX_DEC_CODECS_SUPPORT; i++) {
+			if (mtk_vdec_framesizes[i].fourcc != 0) {
+				mtk_v4l2_debug(1,
+				"vdec_fs[%d] fourcc %d, profile %d, level %d, s %d %d %d %d %d %d\n",
+				i, mtk_vdec_framesizes[i].fourcc,
+				mtk_vdec_framesizes[i].profile,
+				mtk_vdec_framesizes[i].level,
+				mtk_vdec_framesizes[i].stepwise.min_width,
+				mtk_vdec_framesizes[i].stepwise.max_width,
+				mtk_vdec_framesizes[i].stepwise.step_width,
+				mtk_vdec_framesizes[i].stepwise.min_height,
+				mtk_vdec_framesizes[i].stepwise.max_height,
+				mtk_vdec_framesizes[i].stepwise.step_height);
+			}
 		}
 	}
 
@@ -917,7 +917,7 @@ static int vidioc_enum_framesizes(struct file *file, void *priv,
 			fsize->stepwise.max_height =
 					VCODEC_DEC_4K_CODED_HEIGHT;
 		}
-		mtk_v4l2_debug(1, "%x, %d %d %d %d %d %d %d %d %d %d",
+		mtk_v4l2_debug(4, "%x, %d %d %d %d %d %d %d %d %d %d",
 					   ctx->dev->dec_capability,
 					   fsize->reserved[0],
 					   fsize->reserved[1],
@@ -1351,6 +1351,7 @@ void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 {
 	struct vb2_v4l2_buffer *src_buf = NULL, *dst_buf = NULL;
 	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(q);
+	int i = 0;
 	int ret;
 
 	mtk_v4l2_debug(3, "[%d] (%d) state=(%x) ctx->decoded_frame_cnt=%d",
@@ -1396,9 +1397,8 @@ void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 	ctx->state = MTK_STATE_FLUSH;
 
 	while ((dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
-		vb2_set_plane_payload(&dst_buf->vb2_buf, 0, 0);
-		if (ctx->q_data[MTK_Q_DATA_DST].fmt->num_planes == 2)
-			vb2_set_plane_payload(&dst_buf->vb2_buf, 1, 0);
+		for (i = 0; i < dst_buf->vb2_buf.num_planes; i++)
+			vb2_set_plane_payload(&dst_buf->vb2_buf, i, 0);
 		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_ERROR);
 	}
 
