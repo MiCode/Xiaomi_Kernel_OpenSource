@@ -761,6 +761,7 @@ static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl, u8 ln_cnt)
 	cfg = dp_read(catalog->exe_mode, io_data, DP_CONFIGURATION_CTRL);
 	cfg &= ~(BIT(4) | BIT(5));
 	cfg |= (ln_cnt - 1) << 4;
+	cfg &= ~BIT(10);
 	dp_write(catalog->exe_mode, io_data, DP_CONFIGURATION_CTRL, cfg);
 
 	cfg = dp_read(catalog->exe_mode, io_data, DP_MAINLINK_CTRL);

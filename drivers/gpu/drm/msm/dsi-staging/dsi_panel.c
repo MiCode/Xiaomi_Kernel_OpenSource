@@ -828,6 +828,7 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 {
 	int rc = 0;
 	u64 tmp64 = 0;
+	u32 val = 0;
 	struct dsi_display_mode *display_mode;
 	struct dsi_display_mode_priv_info *priv_info;
 
@@ -854,6 +855,10 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 	}
 	display_mode->priv_info->mdp_transfer_time_us =
 					mode->mdp_transfer_time_us;
+
+	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-overlap-pixels",
+				  &val);
+	priv_info->overlap_pixels = rc ? 0 : val;
 
 	rc = utils->read_u32(utils->data,
 				"qcom,mdss-dsi-panel-framerate",
@@ -2056,7 +2061,8 @@ static int dsi_panel_parse_jitter_config(
 				  &priv_info->panel_prefill_lines);
 	if (rc) {
 		pr_debug("panel prefill lines are not defined rc=%d\n", rc);
-		priv_info->panel_prefill_lines = DEFAULT_PANEL_PREFILL_LINES;
+		priv_info->panel_prefill_lines = mode->timing.v_back_porch +
+			mode->timing.v_sync_width + mode->timing.v_front_porch;
 	} else if (priv_info->panel_prefill_lines >=
 					DSI_V_TOTAL(&mode->timing)) {
 		pr_debug("invalid prefill lines config=%d setting to:%d\n",
@@ -3596,6 +3602,13 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 		rc = dsi_panel_parse_partial_update_caps(mode, utils);
 		if (rc)
 			pr_err("failed to partial update caps, rc=%d\n", rc);
+
+		/*
+		 * No support for pixel overlap in DSC enabled or Partial
+		 * update enabled cases.
+		 */
+		if (prv_info->dsc_enabled || prv_info->roi_caps.enabled)
+			prv_info->overlap_pixels = 0;
 	}
 	goto done;
 
@@ -3640,6 +3653,7 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 			mode->priv_info->mdp_transfer_time_us;
 	config->video_timing.dsc_enabled = mode->priv_info->dsc_enabled;
 	config->video_timing.dsc = &mode->priv_info->dsc;
+	config->video_timing.overlap_pixels = mode->priv_info->overlap_pixels;
 
 	if (dyn_clk_caps->dyn_clk_support)
 		config->bit_clk_rate_hz_override = mode->timing.clk_rate_hz;
