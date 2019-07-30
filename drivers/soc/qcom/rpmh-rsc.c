@@ -92,8 +92,7 @@ static void write_tcs_reg_sync(struct rsc_drv *drv, int reg, int tcs_id,
 
 static bool tcs_is_free(struct rsc_drv *drv, int tcs_id)
 {
-	return !test_bit(tcs_id, drv->tcs_in_use) &&
-	       read_tcs_reg(drv, RSC_DRV_STATUS, tcs_id, 0);
+	return !test_bit(tcs_id, drv->tcs_in_use);
 }
 
 static struct tcs_group *get_tcs_of_type(struct rsc_drv *drv, int type)
