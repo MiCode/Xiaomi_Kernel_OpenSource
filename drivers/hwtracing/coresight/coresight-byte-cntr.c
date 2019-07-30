@@ -198,6 +198,7 @@ int usb_bypass_start(struct byte_cntr *byte_cntr_data)
 
 	atomic_set(&byte_cntr_data->usb_free_buf, USB_BUF_NUM);
 	byte_cntr_data->offset = tmcdrvdata->etr_buf->offset;
+	byte_cntr_data->read_active = true;
 	/*
 	 * IRQ is a '8- byte' counter and to observe interrupt at
 	 * 'block_size' bytes of data
@@ -216,7 +217,9 @@ void usb_bypass_stop(struct byte_cntr *byte_cntr_data)
 		return;
 
 	mutex_lock(&byte_cntr_data->usb_bypass_lock);
+	byte_cntr_data->read_active = false;
 	wake_up(&byte_cntr_data->usb_wait_wq);
+	pr_info("coresight: stop usb bypass\n");
 	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
 	mutex_unlock(&byte_cntr_data->usb_bypass_lock);
 
@@ -320,9 +323,11 @@ static void usb_read_work_fn(struct work_struct *work)
 			ret = wait_event_interruptible(drvdata->usb_wait_wq,
 				atomic_read(&drvdata->irq_cnt) > 0
 				|| !tmcdrvdata->enable || tmcdrvdata->out_mode
-				!= TMC_ETR_OUT_MODE_USB);
+				!= TMC_ETR_OUT_MODE_USB
+				|| !drvdata->read_active);
 			if (ret == -ERESTARTSYS || !tmcdrvdata->enable
-			|| tmcdrvdata->out_mode != TMC_ETR_OUT_MODE_USB)
+			|| tmcdrvdata->out_mode != TMC_ETR_OUT_MODE_USB
+			|| !drvdata->read_active)
 				break;
 		}
 
@@ -356,8 +361,10 @@ static void usb_read_work_fn(struct work_struct *work)
 					usb_req = NULL;
 					drvdata->usb_req = NULL;
 					dev_err(tmcdrvdata->dev,
-						"Write data failed\n");
-					continue;
+						"Write data failed:%d\n", ret);
+					if (ret == -EAGAIN)
+						continue;
+					return;
 				}
 				atomic_dec(&drvdata->usb_free_buf);
 
