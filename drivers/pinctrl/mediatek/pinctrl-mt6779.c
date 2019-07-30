@@ -735,7 +735,7 @@ static const struct mtk_eint_hw mt6779_eint_hw = {
 	.port_mask = 7,
 	.ports     = 6,
 	.ap_num    = 209,
-	.db_cnt    = 13,
+	.db_cnt    = 16,
 };
 
 static const struct mtk_pin_soc mt6779_data = {
