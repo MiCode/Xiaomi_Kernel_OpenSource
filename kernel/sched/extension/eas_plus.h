@@ -176,3 +176,11 @@ int set_cpu_isolation(enum iso_prio_t prio, struct cpumask *cpumask_ptr);
 #endif /* CONFIG_MTK_SCHED_EXTENSION */
 
 #endif
+
+/* sched:  add for print aee log */
+#if defined(CONFIG_SMP) && defined(CONFIG_MTK_SCHED_EXTENSION)
+static inline int rq_cpu(const struct rq *rq) { return rq->cpu; }
+#else
+static inline int rq_cpu(const struct rq *rq) { return 0; }
+#endif
+
