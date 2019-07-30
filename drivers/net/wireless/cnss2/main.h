@@ -18,6 +18,7 @@
 #define MAX_NO_OF_MAC_ADDR		4
 #define QMI_WLFW_MAX_TIMESTAMP_LEN	32
 #define QMI_WLFW_MAX_NUM_MEM_SEG	32
+#define QMI_WLFW_MAX_BUILD_ID_LEN	128
 #define CNSS_RDDM_TIMEOUT_MS		20000
 #define RECOVERY_TIMEOUT		60000
 #define TIME_CLOCK_FREQ_HZ		19200000
@@ -133,6 +134,7 @@ struct cnss_fw_mem {
 	phys_addr_t pa;
 	u8 valid;
 	u32 type;
+	unsigned long attrs;
 };
 
 struct wlfw_rf_chip_info {
@@ -207,6 +209,7 @@ enum cnss_driver_state {
 	CNSS_COEX_CONNECTED,
 	CNSS_IMS_CONNECTED,
 	CNSS_IN_SUSPEND_RESUME,
+	CNSS_IN_REBOOT,
 };
 
 struct cnss_recovery_data {
@@ -243,6 +246,8 @@ enum cnss_debug_quirks {
 	FBC_BYPASS,
 	ENABLE_DAEMON_SUPPORT,
 	DISABLE_DRV,
+	DISABLE_IO_COHERENCY,
+	IGNORE_PCI_LINK_FAILURE,
 };
 
 enum cnss_bdf_type {
@@ -264,6 +269,7 @@ struct cnss_cal_info {
 struct cnss_control_params {
 	unsigned long quirks;
 	unsigned int mhi_timeout;
+	unsigned int mhi_m2_timeout;
 	unsigned int qmi_timeout;
 	unsigned int bdf_type;
 	unsigned int time_sync_period;
@@ -307,6 +313,7 @@ struct cnss_plat_data {
 	struct cnss_esoc_info esoc_info;
 	struct cnss_bus_bw_info bus_bw_info;
 	struct notifier_block modem_nb;
+	struct notifier_block reboot_nb;
 	struct cnss_platform_cap cap;
 	struct pm_qos_request qos_request;
 	struct cnss_device_version device_version;
@@ -323,6 +330,7 @@ struct cnss_plat_data {
 	struct wlfw_rf_board_info board_info;
 	struct wlfw_soc_info soc_info;
 	struct wlfw_fw_version_info fw_version_info;
+	char fw_build_id[QMI_WLFW_MAX_BUILD_ID_LEN + 1];
 	u32 otp_version;
 	u32 fw_mem_seg_len;
 	struct cnss_fw_mem fw_mem[QMI_WLFW_MAX_NUM_MEM_SEG];
@@ -355,6 +363,8 @@ struct cnss_plat_data {
 	struct qmi_handle ims_qmi;
 	struct qmi_txn txn;
 	u64 dynamic_feature;
+	void *get_info_cb_ctx;
+	int (*get_info_cb)(void *ctx, void *event, int event_len);
 };
 
 #ifdef CONFIG_ARCH_QCOM
@@ -404,5 +414,13 @@ void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv);
 int cnss_get_cpr_info(struct cnss_plat_data *plat_priv);
 int cnss_update_cpr_info(struct cnss_plat_data *plat_priv);
+int cnss_va_to_pa(struct device *dev, size_t size, void *va, dma_addr_t dma,
+		  phys_addr_t *pa, unsigned long attrs);
+int cnss_minidump_add_region(struct cnss_plat_data *plat_priv,
+			     enum cnss_fw_dump_type type, int seg_no,
+			     void *va, phys_addr_t pa, size_t size);
+int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
+				enum cnss_fw_dump_type type, int seg_no,
+				void *va, phys_addr_t pa, size_t size);
 
 #endif /* _CNSS_MAIN_H */
