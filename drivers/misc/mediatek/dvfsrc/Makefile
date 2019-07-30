@@ -1,4 +1,7 @@
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 
-obj-y += dvfsrc-opp.o
-obj-y += dvfsrc-mt6779.o dvfsrc-mt6779-sysfs.o
-obj-y += dvfsrc-boost.o
+mtk-dvfsrc-help-objs = dvfsrc.o dvfsrc-opp.o dvfsrc-sysfs.o dvfsrc-ipi.o
+mtk-dvfsrc-help-objs += dvfsrc-mt6779.o dvfsrc-mt6779-met.o
+
+obj-$(CONFIG_MTK_DVFSRC) += mtk-dvfsrc-help.o
+obj-$(CONFIG_MTK_DVFSRC) += dvfsrc-boost.o

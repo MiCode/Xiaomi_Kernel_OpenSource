@@ -10,6 +10,10 @@
 #define MTK_DVFSRC_CURR_DVFS_OPP	3
 #define MTK_DVFSRC_CURR_DRAM_OPP	4
 #define MTK_DVFSRC_CURR_VCORE_OPP	5
+#define MTK_DVFSRC_CURR_DVFS_LEVEL	6
+#define MTK_DVFSRC_CURR_DRAM_KHZ	7
+#define MTK_DVFSRC_CURR_VCORE_UV	8
+
 
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 extern void register_dvfsrc_opp_handler(int (*handler)(u32 id));

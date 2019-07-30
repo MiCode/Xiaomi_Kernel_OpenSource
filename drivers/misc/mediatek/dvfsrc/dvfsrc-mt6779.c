@@ -10,24 +10,11 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
-#include <linux/interconnect.h>
-#include <linux/pm_domain.h>
-#include <linux/pm_opp.h>
-#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
 
-#include "dvfsrc-mt6779.h"
+#include "dvfsrc.h"
 #include "dvfsrc-opp.h"
 #include <memory/mediatek/dramc.h>
-
-
-#define MTK_SIP_VCOREFS_DRAM_TYPE 2
-#define MTK_SIP_VCOREFS_VCORE_UV 4
-
-static u32 dvfsrc_read(struct mtk_dvfsrc *dvfs, u32 reg, u32 offset)
-{
-	return readl(dvfs->regs + dvfs->dvd->regs[reg] + offset);
-}
 
 enum dvfsrc_regs {
 	DVFSRC_BASIC_CONTROL,
@@ -67,15 +54,10 @@ static const int mt6779_regs[] = {
 	[DVFSRC_HRT_REQ_MD_BW_8] = 0xACC,
 };
 
-#define MT_DVFSRC_OPP(_num_vcore, _num_ddr, _opp_table)	\
-{	\
-	.num_vcore_opp = _num_vcore,	\
-	.num_dram_opp = _num_ddr,	\
-	.opps = _opp_table,	\
-	.num_opp = ARRAY_SIZE(_opp_table),	\
+static u32 dvfsrc_read(struct mtk_dvfsrc *dvfs, u32 reg, u32 offset)
+{
+	return readl(dvfs->regs + dvfs->dvd->config->regs[reg] + offset);
 }
-
-static struct mtk_dvfsrc *dvfsrc_drv;
 
 static int dvfsrc_get_current_level(struct mtk_dvfsrc *dvfsrc)
 {
@@ -88,6 +70,11 @@ static int dvfsrc_get_current_level(struct mtk_dvfsrc *dvfsrc)
 		curr_level = dvfsrc->opp_desc->num_opp - curr_level;
 
 	return curr_level;
+}
+
+static u32 dvfsrc_get_current_rglevel(struct mtk_dvfsrc *dvfsrc)
+{
+	return dvfsrc_read(dvfsrc, DVFSRC_CURRENT_LEVEL, 0x0);
 }
 
 static u32 dvfsrc_get_total_emi_req(struct mtk_dvfsrc *dvfsrc)
@@ -224,7 +211,7 @@ static char *dvfsrc_dump_record(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 			"DVFSRC_LAST",
 			dvfsrc_read(dvfsrc, DVFSRC_LAST, 0));
 
-	if (dvfsrc->dvd->ip_verion > 0)
+	if (dvfsrc->dvd->config->ip_verion > 0)
 		rec_offset = 0x20;
 	else
 		rec_offset = 0x1C;
@@ -239,7 +226,7 @@ static char *dvfsrc_dump_record(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 			dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x4),
 			dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x8),
 			dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0xC));
-		if (dvfsrc->dvd->ip_verion > 0) {
+		if (dvfsrc->dvd->config->ip_verion > 0) {
 			p += snprintf(p, buff_end - p,
 			"[%d]%-14s: %08x,%08x,%08x,%08x\n",
 			i,
@@ -294,7 +281,7 @@ static char *dvfsrc_dump_reg(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0xC),
 		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x10));
 
-	if (dvfsrc->dvd->ip_verion > 1)
+	if (dvfsrc->dvd->config->ip_verion > 1)
 		p += snprintf(p, buff_end - p, "%-16s: %d, %d\n",
 		"SW_BW_5~6",
 		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x14),
@@ -374,24 +361,6 @@ static char *dvfsrc_dump_reg(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 	return p;
 }
 
-static void dvfsrc_setup_opp_table(struct mtk_dvfsrc *dvfsrc)
-{
-	int i;
-	struct dvfsrc_opp *opp;
-	struct arm_smccc_res ares;
-
-	for (i = 0; i < dvfsrc->opp_desc->num_opp; i++) {
-		opp = &dvfsrc->opp_desc->opps[i];
-		arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL,
-			MTK_SIP_VCOREFS_VCORE_UV,
-			opp->vcore_opp, 0, 0, 0, 0, 0,
-			&ares);
-
-		if (!ares.a0)
-			opp->vcore_uv = ares.a1;
-	}
-}
-
 static void dvfsrc_force_opp(struct mtk_dvfsrc *dvfsrc, u32 opp)
 {
 	dvfsrc->force_opp_idx = opp;
@@ -400,225 +369,43 @@ static void dvfsrc_force_opp(struct mtk_dvfsrc *dvfsrc, u32 opp)
 		opp);
 }
 
-static int dvfsrc_query_opp_info(u32 id)
+static int dvfsrc_query_request_status(struct mtk_dvfsrc *dvfsrc, u32 id)
 {
-	struct mtk_dvfsrc *dvfsrc = dvfsrc_drv;
-	const struct dvfsrc_opp *opp;
 	int ret = 0;
-	int level;
-
-	if (!dvfsrc)
-		return 0;
-
-	level = dvfsrc->dvd->get_current_level(dvfsrc);
-	opp = &dvfsrc->opp_desc->opps[level];
 
 	switch (id) {
-	case MTK_DVFSRC_NUM_DVFS_OPP:
-		ret = dvfsrc->opp_desc->num_opp;
+	case DVFSRC_MD_RISING_DDR_REQ:
+		ret = dvfsrc_get_md_rising_ddr_gear(dvfsrc);
 		break;
-	case MTK_DVFSRC_NUM_DRAM_OPP:
-		ret = dvfsrc->opp_desc->num_dram_opp;
+	case DVFSRC_MD_HRT_BW:
+		ret = dvfsrc_get_md_bw(dvfsrc);
 		break;
-	case MTK_DVFSRC_NUM_VCORE_OPP:
-		ret = dvfsrc->opp_desc->num_vcore_opp;
+	case DVFSRC_HIFI_VCORE_REQ:
+		ret = dvfsrc_get_hifi_vcore_gear(dvfsrc);
 		break;
-	case MTK_DVFSRC_CURR_DVFS_OPP:
-		ret = dvfsrc->opp_desc->num_opp
-				- (level + 1);
+	case DVFSRC_HIFI_DDR_REQ:
+		ret = dvfsrc_get_hifi_ddr_gear(dvfsrc);
 		break;
-	case MTK_DVFSRC_CURR_DRAM_OPP:
-		ret = dvfsrc->opp_desc->num_dram_opp
-				- (opp->dram_opp + 1);
+	case DVFSRC_HIFI_RISING_DDR_REQ:
+		ret = dvfsrc_get_hifi_rising_ddr_gear(dvfsrc);
 		break;
-	case MTK_DVFSRC_CURR_VCORE_OPP:
-		ret = dvfsrc->opp_desc->num_vcore_opp
-				- (opp->vcore_opp + 1);
+	case DVFSRC_HRT_BW_DDR_REQ:
+		ret = dvfsrc_get_hrt_bw_ddr_gear(dvfsrc);
 		break;
 	}
 
 	return ret;
 }
 
-static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
-{
-	struct arm_smccc_res ares;
-	struct device *dev = &pdev->dev;
-	struct platform_device *parent_dev;
-	struct resource *res;
-	struct mtk_dvfsrc *dvfsrc;
-	struct device_node *np = pdev->dev.of_node;
-	int i;
-
-	parent_dev = to_platform_device(dev->parent);
-	if (!parent_dev)
-		return -ENODEV;
-
-	dvfsrc = devm_kzalloc(&pdev->dev, sizeof(*dvfsrc), GFP_KERNEL);
-	if (!dvfsrc)
-		return -ENOMEM;
-
-	dvfsrc->dvd = of_device_get_match_data(&pdev->dev);
-	dvfsrc->dev = &pdev->dev;
-
-	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_VCOREFS_DRAM_TYPE,
-		0, 0, 0, 0, 0, 0,
-		&ares);
-
-	if (!ares.a0)
-		dvfsrc->dram_type = ares.a1;
-	else {
-		dev_info(dev, "init fails: %lu\n", ares.a0);
-		return ares.a0;
-	}
-
-	if (dvfsrc->dram_type > dvfsrc->dvd->num_opp_desc)
-		return -EINVAL;
-
-	dvfsrc->opp_desc = &dvfsrc->dvd->opps_desc[dvfsrc->dram_type];
-	dvfsrc->num_perf = of_count_phandle_with_args(np,
-		   "required-opps", NULL);
-
-	if (dvfsrc->num_perf > 0) {
-		dvfsrc->perfs = devm_kzalloc(&pdev->dev,
-			 dvfsrc->num_perf * sizeof(int),
-			GFP_KERNEL);
-
-		if (!dvfsrc->perfs)
-			return -ENOMEM;
-
-		for (i = 0; i < dvfsrc->num_perf; i++) {
-			dvfsrc->perfs[i] =
-				of_get_required_opp_performance_state(np, i);
-		}
-	} else {
-		dvfsrc->num_perf = 0;
-	}
-
-	res = platform_get_resource_byname(parent_dev,
-			IORESOURCE_MEM, "dvfsrc");
-	if (!res) {
-		dev_info(dev, "dvfsrc debug resource not found\n");
-		return -ENODEV;
-	}
-
-	dvfsrc->regs = devm_ioremap(&pdev->dev, res->start,
-		resource_size(res));
-
-	if (IS_ERR(dvfsrc->regs))
-		return PTR_ERR(dvfsrc->regs);
-
-	dvfsrc->path = of_icc_get(&pdev->dev, "icc-bw-port");
-	if (IS_ERR(dvfsrc->path))
-		return IS_ERR(dvfsrc->path);
-
-	dvfsrc->vcore_power = regulator_get(&pdev->dev, "vcore");
-	if (IS_ERR(dvfsrc->vcore_power)) {
-		dev_info(dev, "regulator_get vcore failed = %ld\n",
-			PTR_ERR(dvfsrc->vcore_power));
-		dvfsrc->vcore_power = NULL;
-	}
-
-	dvfsrc->dvfsrc_vcore_power = regulator_get(&pdev->dev, "rc-vcore");
-	if (IS_ERR(dvfsrc->dvfsrc_vcore_power)) {
-		dev_info(dev, "mtk_dvfsrc dvfsrc vcore failed = %ld\n",
-			PTR_ERR(dvfsrc->dvfsrc_vcore_power));
-		dvfsrc->dvfsrc_vcore_power = NULL;
-	}
-
-	dvfsrc->dvfsrc_vscp_power = regulator_get(&pdev->dev, "rc-vscp");
-	if (IS_ERR(dvfsrc->dvfsrc_vscp_power)) {
-		dev_info(dev, "regulator_get dvfsrc vscp failed = %ld\n",
-			PTR_ERR(dvfsrc->dvfsrc_vscp_power));
-		dvfsrc->dvfsrc_vscp_power = NULL;
-	}
-
-	dvfsrc->force_opp_idx = dvfsrc->opp_desc->num_opp;
-	mt6779_dvfsrc_register_sysfs(dev);
-	if (dvfsrc->dvd->setup_opp_table)
-		dvfsrc->dvd->setup_opp_table(dvfsrc);
-
-	dvfsrc_drv = dvfsrc;
-
-	register_dvfsrc_opp_handler(dvfsrc_query_opp_info);
-
-	platform_set_drvdata(pdev, dvfsrc);
-
-	return 0;
-}
-
-static struct dvfsrc_opp dvfsrc_opp_mt6779_lp4[] = {
-	{0, 0, 650000, 819000},
-	{0, 1, 650000, 1200000},
-	{0, 2, 650000, 1534000},
-	{0, 3, 650000, 2400000},
-	{1, 1, 725000, 1200000},
-	{1, 2, 725000, 1534000},
-	{1, 3, 725000, 2400000},
-	{1, 4, 725000, 3094000},
-	{2, 1, 825000, 1200000},
-	{2, 2, 825000, 1534000},
-	{2, 3, 825000, 2400000},
-	{2, 4, 825000, 3094000},
-	{2, 5, 825000, 3733000},
-};
-
-static struct dvfsrc_opp_desc dvfsrc_opp_mt6779_desc[] = {
-	MT_DVFSRC_OPP(3, 6, dvfsrc_opp_mt6779_lp4),
-};
-
-static const struct dvfsrc_debug_data mt6779_data = {
-	.opps_desc = dvfsrc_opp_mt6779_desc,
-	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6779_desc),
+const struct dvfsrc_config mt6779_dvfsrc_config = {
+	.ip_verion = 0,
 	.regs = mt6779_regs,
-	.setup_opp_table = dvfsrc_setup_opp_table,
 	.dump_info = dvfsrc_dump_info,
 	.dump_record = dvfsrc_dump_record,
 	.dump_reg = dvfsrc_dump_reg,
 	.get_current_level = dvfsrc_get_current_level,
+	.get_current_rglevel = dvfsrc_get_current_rglevel,
 	.force_opp = dvfsrc_force_opp,
-	.ip_verion = 0,
+	.query_request = dvfsrc_query_request_status,
 };
 
-static int mtk_dvfsrc_debug_remove(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-
-	mt6779_dvfsrc_unregister_sysfs(dev);
-	dvfsrc_drv = NULL;
-	return 0;
-}
-
-
-static const struct of_device_id mtk_dvfsrc_debug_of_match[] = {
-	{
-		.compatible = "mediatek,mt6779-dvfsrc-debug",
-		.data = &mt6779_data,
-	}, {
-		/* sentinel */
-	},
-};
-
-static struct platform_driver mtk_dvfsrc_debug_driver = {
-	.probe	= mtk_dvfsrc_debug_probe,
-	.remove	= mtk_dvfsrc_debug_remove,
-	.driver = {
-		.name = "mtk-dvfsrc-debug",
-		.of_match_table = of_match_ptr(mtk_dvfsrc_debug_of_match),
-	},
-};
-
-static int __init mtk_dvfsrc_debug_init(void)
-{
-	return platform_driver_register(&mtk_dvfsrc_debug_driver);
-}
-late_initcall(mtk_dvfsrc_debug_init)
-
-static void __exit mtk_dvfsrc_debug_exit(void)
-{
-	platform_driver_unregister(&mtk_dvfsrc_debug_driver);
-}
-module_exit(mtk_dvfsrc_debug_exit);
-
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("MTK DVFSRC debug driver");
