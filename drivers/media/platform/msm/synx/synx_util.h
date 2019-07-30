@@ -233,12 +233,14 @@ int synx_generate_secure_key(struct synx_table_row *row);
  *         Generated key for synx object being exported is
  *         verified during import.
  *
- * @param row : Pointer to the synx object row
- * @param key : Pointer to key (filled by the function)
+ * @param row      : Pointer to the synx object row
+ * @param synx_obj : Synx handle
+ * @param key      : Pointer to key (filled by the function)
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int synx_generate_import_key(struct synx_table_row *row,
+	s32 synx_obj,
 	u32 *key);
 
 /**

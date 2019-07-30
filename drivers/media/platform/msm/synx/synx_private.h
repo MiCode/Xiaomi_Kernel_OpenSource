@@ -112,12 +112,24 @@ struct synx_cb_data {
 };
 
 /**
+ * struct synx_obj_node - Single node of info for the synx handle
+ * mapped to synx object metadata
+ *
+ * @synx_obj : Synx integer handle
+ * @list     : List member used to append to synx handle list
+ */
+struct synx_obj_node {
+	s32 synx_obj;
+	struct list_head list;
+};
+
+/**
  * struct synx_table_row - Single row of information about a synx object, used
  * for internal book keeping in the synx driver
  *
  * @name              : Optional string representation of the synx object
  * @fence             : dma fence backing the synx object
- * @synx_obj          : Integer id representing this synx object
+ * @synx_obj_list     : List of synx integer handles mapped
  * @index             : Index of the spin lock table associated with synx obj
  * @num_bound_synxs   : Number of external bound synx objects
  * @signaling_id      : ID of the external sync object invoking the callback
@@ -129,7 +141,7 @@ struct synx_cb_data {
 struct synx_table_row {
 	char name[SYNX_OBJ_NAME_LEN];
 	struct dma_fence *fence;
-	s32 synx_obj;
+	struct list_head synx_obj_list;
 	s32 index;
 	u32 num_bound_synxs;
 	s32 signaling_id;

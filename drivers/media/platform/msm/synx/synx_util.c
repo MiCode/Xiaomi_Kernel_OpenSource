@@ -31,6 +31,7 @@ int synx_init_object(struct synx_table_row *table,
 {
 	struct dma_fence *fence = NULL;
 	struct synx_table_row *row = table + idx;
+	struct synx_obj_node *obj_node;
 
 	if (!table || idx <= 0 || idx >= SYNX_MAX_OBJS)
 		return -EINVAL;
@@ -39,20 +40,28 @@ int synx_init_object(struct synx_table_row *table,
 	if (!fence)
 		return -ENOMEM;
 
+	obj_node = kzalloc(sizeof(*obj_node), GFP_KERNEL);
+	if (!obj_node) {
+		kfree(fence);
+		return -ENOMEM;
+	}
+
 	dma_fence_init(fence, ops, &synx_dev->row_spinlocks[idx],
 		synx_dev->dma_context, 1);
 
 	row->fence = fence;
-	row->synx_obj = id;
+	obj_node->synx_obj = id;
 	row->index = idx;
+	INIT_LIST_HEAD(&row->synx_obj_list);
 	INIT_LIST_HEAD(&row->callback_list);
 	INIT_LIST_HEAD(&row->user_payload_list);
 
+	list_add(&obj_node->list, &row->synx_obj_list);
 	if (name)
 		strlcpy(row->name, name, sizeof(row->name));
 
 	pr_debug("synx obj init: id:0x%x state:%u fence: 0x%pK\n",
-		row->synx_obj, synx_status_locked(row), fence);
+		synx_status_locked(row), fence);
 
 	return 0;
 }
@@ -65,20 +74,27 @@ int synx_init_group_object(struct synx_table_row *table,
 {
 	struct synx_table_row *row = table + idx;
 	struct dma_fence_array *array;
+	struct synx_obj_node *obj_node;
 
 	array = dma_fence_array_create(num_objs,
 				fences, synx_dev->dma_context, 1, false);
 	if (!array)
 		return -EINVAL;
 
+	obj_node = kzalloc(sizeof(*obj_node), GFP_KERNEL);
+	if (!obj_node)
+		return -ENOMEM;
+
 	row->fence = &array->base;
-	row->synx_obj = id;
+	obj_node->synx_obj = id;
 	row->index = idx;
+	INIT_LIST_HEAD(&row->synx_obj_list);
 	INIT_LIST_HEAD(&row->callback_list);
 	INIT_LIST_HEAD(&row->user_payload_list);
 
-	pr_debug("synx group obj init: id:0x%x state:%u fence: 0x%pK\n",
-		row->synx_obj, synx_status_locked(row), row->fence);
+	list_add(&obj_node->list, &row->synx_obj_list);
+	pr_debug("synx group obj init: id:%d state:%u fence: 0x%pK\n",
+		id, synx_status_locked(row), row->fence);
 
 	return 0;
 }
@@ -139,22 +155,30 @@ int synx_activate(struct synx_table_row *row)
 
 int synx_deinit_object(struct synx_table_row *row)
 {
-	s32 synx_obj;
+	s32 index;
+	struct synx_client *client;
 	struct synx_callback_info *synx_cb, *temp_cb;
 	struct synx_cb_data  *upayload_info, *temp_upayload;
+	struct synx_obj_node *obj_node, *temp_obj_node;
 
 	if (!row || !synx_dev)
 		return -EINVAL;
 
-	synx_obj = row->synx_obj;
-
+	index = row->index;
 	spin_lock_bh(&synx_dev->idr_lock);
-	if ((struct synx_table_row *)idr_remove(&synx_dev->synx_ids,
-			row->synx_obj) != row) {
-		pr_err("removing data in idr table failed 0x%x\n",
-			row->synx_obj);
-		spin_unlock_bh(&synx_dev->idr_lock);
-		return -EINVAL;
+	list_for_each_entry_safe(obj_node,
+		temp_obj_node, &row->synx_obj_list, list) {
+		if ((struct synx_table_row *)idr_remove(&synx_dev->synx_ids,
+				obj_node->synx_obj) != row) {
+			pr_err("removing data in idr table failed 0x%x\n",
+				obj_node->synx_obj);
+			spin_unlock_bh(&synx_dev->idr_lock);
+			return -EINVAL;
+		}
+		pr_debug("removed synx obj at 0x%x successful\n",
+			obj_node->synx_obj);
+		list_del_init(&obj_node->list);
+		kfree(obj_node);
 	}
 	spin_unlock_bh(&synx_dev->idr_lock);
 
@@ -163,27 +187,51 @@ int synx_deinit_object(struct synx_table_row *row)
 	 * dma fence array will release all the allocated mem
 	 * in its registered release function.
 	 */
-	if (!is_merged_synx(row))
+	if (!is_merged_synx(row)) {
 		kfree(row->fence);
 
-	list_for_each_entry_safe(upayload_info, temp_upayload,
-			&row->user_payload_list, list) {
-		pr_err("pending user callback payload\n");
-		list_del_init(&upayload_info->list);
-		kfree(upayload_info);
-	}
+		/*
+		 * invoke remaining userspace and kernel callbacks on
+		 * synx obj destroyed, not signaled, with cancellation
+		 * event.
+		 */
+		list_for_each_entry_safe(upayload_info, temp_upayload,
+				&row->user_payload_list, list) {
+			upayload_info->data.status =
+				SYNX_CALLBACK_RESULT_CANCELED;
+			memcpy(&upayload_info->data.payload_data[2],
+				&upayload_info->data.payload_data[0],
+				sizeof(u64));
+			client = upayload_info->client;
+			if (!client) {
+				pr_err("invalid client member in cb list\n");
+				continue;
+			}
+			spin_lock_bh(&client->eventq_lock);
+			list_move_tail(&upayload_info->list, &client->eventq);
+			spin_unlock_bh(&client->eventq_lock);
+			/*
+			 * since cb can be registered by multiple clients,
+			 * wake the process right away
+			 */
+			wake_up_all(&client->wq);
+			pr_debug("dispatched user cb\n");
+		}
 
-	list_for_each_entry_safe(synx_cb, temp_cb,
-			&row->callback_list, list) {
-		pr_err("pending kernel callback payload\n");
-		list_del_init(&synx_cb->list);
-		kfree(synx_cb);
+		list_for_each_entry_safe(synx_cb, temp_cb,
+				&row->callback_list, list) {
+			synx_cb->status = SYNX_CALLBACK_RESULT_CANCELED;
+			list_del_init(&synx_cb->list);
+			queue_work(synx_dev->work_queue,
+				&synx_cb->cb_dispatch_work);
+			pr_debug("dispatched kernel cb\n");
+		}
 	}
 
 	clear_bit(row->index, synx_dev->bitmap);
 	memset(row, 0, sizeof(*row));
 
-	pr_debug("destroying synx obj: 0x%x successful\n", synx_obj);
+	pr_debug("destroying synx obj at %d successful\n", index);
 	return 0;
 }
 
@@ -570,8 +618,8 @@ struct synx_table_row *synx_from_fence(struct dma_fence *fence)
 	for (idx = 0; idx < SYNX_MAX_OBJS; idx++) {
 		if (table[idx].fence == fence) {
 			row = table + idx;
-			pr_debug("synx global data found for 0x%x\n",
-				row->synx_obj);
+			pr_debug("synx global data found at %d\n",
+				row->index);
 			break;
 		}
 	}
@@ -602,6 +650,7 @@ struct synx_table_row *synx_from_import_key(s32 synx_obj, u32 key)
 }
 
 int synx_generate_import_key(struct synx_table_row *row,
+	s32 synx_obj,
 	u32 *key)
 {
 	bool bit;
@@ -623,7 +672,7 @@ int synx_generate_import_key(struct synx_table_row *row,
 	} while (!*key);
 
 	data->key = *key;
-	data->synx_obj = row->synx_obj;
+	data->synx_obj = synx_obj;
 	/*
 	 * Reason for separate metadata (for merged synx)
 	 * being dma fence array has separate release func
@@ -657,6 +706,7 @@ int synx_generate_import_key(struct synx_table_row *row,
 		/* both metadata points to same dma fence */
 		new_row->fence = row->fence;
 		new_row->index = idx;
+		INIT_LIST_HEAD(&new_row->synx_obj_list);
 		INIT_LIST_HEAD(&new_row->callback_list);
 		INIT_LIST_HEAD(&new_row->user_payload_list);
 		data->row = new_row;
@@ -665,7 +715,7 @@ int synx_generate_import_key(struct synx_table_row *row,
 	}
 	list_add(&data->list, &synx_dev->import_list);
 	pr_debug("allocated import key for 0x%x\n",
-		row->synx_obj);
+		synx_obj);
 	mutex_unlock(&synx_dev->table_lock);
 
 	return 0;
