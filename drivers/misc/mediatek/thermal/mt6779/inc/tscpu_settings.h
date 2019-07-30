@@ -10,6 +10,7 @@
 
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/platform_device.h>
 
 #include "tzcpu_initcfg.h"
 #include "clatm_initcfg.h"
@@ -120,7 +121,7 @@
 /* Thermal MDLA throttling support */
 #define THERMAL_MDLA_SUPPORT
 /* EARA_Thermal power budget allocation support */
-#define EARA_THERMAL_SUPPORT
+/* #define EARA_THERMAL_SUPPORT */
 
 
 #define TS_FILL(n) {#n, n}
@@ -176,7 +177,7 @@
 #define MTKTSCPU_TEMP_CRIT 120000 /* 120.000 degree Celsius */
 
 #define y_curr_repeat_times 1
-#define THERMAL_NAME    "mtk-thermal"
+#define THERMAL_NAME    "mtk-thermal-legacy"
 
 #define TS_MS_TO_NS(x) (x * 1000 * 1000)
 
@@ -432,6 +433,7 @@ extern int tscpu_read_curr_temp;
 #if MTKTSCPU_FAST_POLLING
 extern int tscpu_cur_fp_factor;
 #endif
+extern struct platform_device *tscpu_pdev;
 
 #if !defined(CONFIG_MTK_CLKMGR)
 extern struct clk *therm_main;           /* main clock for Thermal*/

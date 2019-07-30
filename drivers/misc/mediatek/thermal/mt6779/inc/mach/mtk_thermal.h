@@ -14,23 +14,9 @@
 #include <linux/io.h>
 #include <linux/uaccess.h>
 
-#if 0 /* TO-DO */
-#include "mt-plat/sync_write.h"
+#ifdef CONFIG_MTK_GPU_SUPPORT
 #include "mtk_gpufreq.h"
-#else
-struct mt_gpufreq_power_table_info {
-	unsigned int gpufreq_khz;
-	unsigned int gpufreq_volt;
-	unsigned int gpufreq_power;
-};
-#endif /* TO-DO */
-/*
- * struct mt_gpufreq_power_table_info {
- *	unsigned int gpufreq_khz;
- *	unsigned int gpufreq_volt;
- *	unsigned int gpufreq_power;
- * };
- */
+#endif
 
 /*=============================================================
  * LVTS SW Configs
@@ -90,6 +76,14 @@ struct TS_PTPOD {
 	unsigned int ts_MTS;
 	unsigned int ts_BTS;
 };
+
+#ifndef CONFIG_MTK_GPU_SUPPORT
+struct mt_gpufreq_power_table_info {
+	unsigned int gpufreq_khz;
+	unsigned int gpufreq_volt;
+	unsigned int gpufreq_power;
+};
+#endif
 
 extern int mtktscpu_limited_dmips;
 

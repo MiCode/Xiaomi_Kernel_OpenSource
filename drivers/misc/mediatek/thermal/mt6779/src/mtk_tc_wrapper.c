@@ -22,7 +22,9 @@
 #endif
 
 #include <tscpu_settings.h>
+#if CFG_THERM_LVTS
 #include "mtk_idle.h"
+#endif
 
 #if CONFIG_LVTS_ERROR_AEE_WARNING
 #include <mt-plat/aee.h>
@@ -873,6 +875,7 @@ int tscpu_read_temperature_info(struct seq_file *m, void *v)
 	return 0;
 }
 
+#if CFG_THERM_LVTS
 static int thermal_idle_notify_call(struct notifier_block *nfb,
 				unsigned long id,
 				void *arg)
@@ -913,6 +916,7 @@ static int thermal_idle_notify_call(struct notifier_block *nfb,
 static struct notifier_block thermal_idle_nfb = {
 	.notifier_call = thermal_idle_notify_call,
 };
+#endif
 
 #ifdef CONFIG_OF
 int get_io_reg_base(void)
@@ -941,7 +945,7 @@ int get_io_reg_base(void)
 		return 0;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,auxadc");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6779-auxadc");
 	WARN_ON_ONCE(node == 0);
 	if (node) {
 		/* Setup IO addresses */
@@ -953,17 +957,19 @@ int get_io_reg_base(void)
 		return 0;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg_ao");
+	node = of_find_compatible_node(NULL, NULL,
+		"mediatek,mt6779-infracfg_ao");
 	WARN_ON_ONCE(node == 0);
 	if (node) {
 		/* Setup IO addresses */
 		infracfg_ao_base = of_iomap(node, 0);
-
+#if CFG_THERM_LVTS
 		if (infracfg_ao_base)
 			mtk_idle_notifier_register(&thermal_idle_nfb);
+#endif
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,apmixed");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6779-apmixed");
 	WARN_ON_ONCE(node == 0);
 	if (node) {
 		/* Setup IO addresses */

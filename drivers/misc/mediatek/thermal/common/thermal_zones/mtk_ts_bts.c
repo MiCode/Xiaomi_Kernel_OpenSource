@@ -22,15 +22,8 @@
 #include "mt-plat/mtk_thermal_platform.h"
 #include <linux/uidgid.h>
 #include <linux/slab.h>
-/*=============================================================
- * Weak functions
- *=============================================================
- */
-int __attribute__ ((weak))
-tsdctm_thermal_get_ttj_on(void)
-{
-	return 0;
-}
+
+
 /*=============================================================*/
 static kuid_t uid = KUIDT_INIT(0);
 static kgid_t gid = KGIDT_INIT(1000);
@@ -106,14 +99,11 @@ int mtkts_bts_get_hw_temp(void)
 	}
 	mutex_unlock(&BTS_lock);
 
-#if 0 /* TO-DO */
-	if ((tsatm_thermal_get_catm_type() == 2) &&
-		(tsdctm_thermal_get_ttj_on() == 0))
-		t_ret2 = wakeup_ta_algo(TA_CATMPLUS_TTJ);
+	if (tsatm_thermal_get_catm_type() == 2) {
+		if (wakeup_ta_algo(TA_CATMPLUS_TTJ) < 0)
+			pr_notice("[Thermal/TZ/BTS] wakeup_ta_algo OOM!\n");
+	}
 
-	if (t_ret2 < 0)
-		pr_notice("[Thermal/TZ/BTS]wakeup_ta_algo out of memory\n");
-#endif
 	bts_cur_temp = temperature;
 	pre_bts_temp = temperature;
 

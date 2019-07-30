@@ -10,15 +10,6 @@
  * Chip related
  *=============================================================
  */
-/* chip dependent */
-/* TODO: change to new reg addr. */
-#define ADDRESS_INDEX_0  101 /* 0x11C10184 */
-#define ADDRESS_INDEX_1	 100 /* 0x11C10180 */
-#define ADDRESS_INDEX_2	 102 /* 0x11C10188 */
-#define ADDRESS_INDEX_3	 111 /* 0x11C101AC */
-#define ADDRESS_INDEX_4	 112 /* 0x11C101B0 */
-#define ADDRESS_INDEX_5	 114 /* 0x11C101B8 */
-
 /* TSCON1 bit table */
 #define TSCON0_bit_6_7_00 0x00  /* TSCON0[7:6]=2'b00*/
 #define TSCON0_bit_6_7_01 0x40  /* TSCON0[7:6]=2'b01*/

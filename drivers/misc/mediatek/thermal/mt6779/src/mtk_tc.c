@@ -21,14 +21,13 @@
 #include <linux/slab.h>
 #include "mach/mtk_thermal.h"
 #include <linux/bug.h>
+#include <linux/regmap.h>
 
 #if defined(CONFIG_MTK_CLKMGR)
 #include <mach/mtk_clkmgr.h>
 #else
 #include <linux/clk.h>
 #endif
-
-#include <mt-plat/mtk_wd_api.h>
 
 #include <linux/time.h>
 
@@ -50,7 +49,10 @@
 #endif
 #define __MT_MTK_TS_CPU_C__
 
-#include <mt-plat/mtk_devinfo.h>
+#ifdef CONFIG_MTK_EFUSE
+#include <linux/nvmem-consumer.h>
+#endif
+
 /*=============================================================
  * Local variable definition
  *=============================================================
@@ -122,6 +124,20 @@ const struct of_device_id mt_thermal_of_match[2] = {
 	{},
 };
 #endif
+
+static struct regmap *map;
+static void __iomem *toprgu_base;
+static unsigned int en_offset;
+static unsigned int en_bit;
+static unsigned int en_key;
+static unsigned int irq_offset;
+static unsigned int irq_bit;
+static unsigned int irq_key;
+static const struct regmap_config toprgu_regmap_config = {
+	.reg_bits = 32,
+	.val_bits = 32,
+	.reg_stride = 4,
+};
 
 int tscpu_debug_log;
 
@@ -199,13 +215,6 @@ mt_ptp_lock(unsigned long *flags)
 mt_ptp_unlock(unsigned long *flags)
 {
 	pr_notice("[Power/CPU_Thermal]%s doesn't exist\n", __func__);
-}
-
-	int __attribute__ ((weak))
-get_wd_api(struct wd_api **obj)
-{
-	pr_notice("[Power/CPU_Thermal]%s doesn't exist\n", __func__);
-	return -1;
 }
 
 /*=============================================================*/
@@ -308,7 +317,7 @@ thermal_bank_name ts_bank)
 EXPORT_SYMBOL(get_thermal_slope_intercept);
 
 /* chip dependent */
-void mtkts_dump_cali_info(void)
+static void mtkts_dump_cali_info(void)
 {
 	tscpu_printk("[cal] g_adc_ge_t      = %d\n", g_adc_ge_t);
 	tscpu_printk("[cal] g_adc_oe_t      = %d\n", g_adc_oe_t);
@@ -331,7 +340,8 @@ void mtkts_dump_cali_info(void)
 	tscpu_printk("[cal] g_o_vtsabb      = %d\n", g_o_vtsabb);
 }
 
-void eDataCorrector(void)
+#ifdef CONFIG_MTK_EFUSE
+static void eDataCorrector(void)
 {
 
 	if (g_adc_ge_t < 265 || g_adc_ge_t > 758) {
@@ -391,46 +401,89 @@ void eDataCorrector(void)
 		g_degc_cali = 40;
 	}
 }
+#endif
 void tscpu_thermal_cal_prepare(void)
 {
-	__u32 temp0, temp1, temp2, temp3, temp4, temp5;
+#ifdef CONFIG_MTK_EFUSE
+	struct device *dev = &tscpu_pdev->dev;
+	struct device_node *node = tscpu_pdev->dev.of_node;
+	struct nvmem_device *nvmem_dev;
+	__u32 *efuse_val, *efuse_offset;
+	__u32 efuse_num;
+	int ret = 0, i;
 
-	temp0 = get_devinfo_with_index(ADDRESS_INDEX_0); /* 0184 */
-	temp1 = get_devinfo_with_index(ADDRESS_INDEX_1); /* 0180 */
-	temp2 = get_devinfo_with_index(ADDRESS_INDEX_2); /* 0188 */
-	temp3 = get_devinfo_with_index(ADDRESS_INDEX_3); /* 01AC */
-	temp4 = get_devinfo_with_index(ADDRESS_INDEX_4); /* 01B0 */
-	temp5 = get_devinfo_with_index(ADDRESS_INDEX_5); /* 01B8 */
+	ret = of_property_read_u32(node, "therm_ctrl,efuse_num", &efuse_num);
+	if (ret || !efuse_num) {
+		tscpu_warn("[thermal] get efuse_num error! ret=%d, num=%d\n",
+			ret, efuse_num);
+		return;
+	}
 
-	pr_notice(
-		"[calibration] tmp0=0x%x, tmp1=0x%x, tmp2=0x%x\n",
-		temp0, temp1, temp2);
-	pr_notice(
-		"[calibration] tmp3=0x%x, tmp4=0x%x, tmp5=0x%x\n",
-		temp3, temp4, temp5);
+	efuse_offset = devm_kzalloc(dev,
+		efuse_num * sizeof(__u32), GFP_KERNEL);
+	if (IS_ERR(efuse_offset)) {
+		tscpu_warn("[thermal] Alloc buf for efuse_offset failed!\n");
+		return;
+	}
 
-	g_adc_ge_t = ((temp0 & _BITMASK_(31:22)) >> 22);
-	g_adc_oe_t = ((temp0 & _BITMASK_(21:12)) >> 12);
+	ret = of_property_read_u32_array(node, "therm_ctrl,efuse_offset",
+			efuse_offset, efuse_num);
+	if (ret) {
+		tscpu_warn("[thermal] get efuse offset error! ret=%d\n", ret);
+		devm_kfree(dev, (void *)efuse_offset);
+		return;
+	}
 
+	efuse_val = devm_kzalloc(dev,
+		efuse_num * sizeof(__u32), GFP_KERNEL);
+	if (IS_ERR(efuse_val)) {
+		tscpu_warn("[thermal] Alloc buf for efuse_val failed!\n");
+		devm_kfree(dev, (void *)efuse_offset);
+		return;
+	}
 
-	g_o_vtsmcu0 = ((temp1 & _BITMASK_(25:17)) >> 17);
-	g_o_vtsmcu1 = ((temp1 & _BITMASK_(16:8)) >> 8);
-	g_o_vtsmcu2 = (temp0 & _BITMASK_(8:0));
-	g_o_vtsmcu3 = ((temp2 & _BITMASK_(31:23)) >> 23);
-	g_o_vtsmcu4 = ((temp2 & _BITMASK_(13:5)) >> 5);
-	g_o_vtsmcu5 = ((temp3 & _BITMASK_(31:23)) >> 23);
-	g_o_vtsmcu6 = ((temp3 & _BITMASK_(22:14)) >> 14);
-	g_o_vtsmcu7 = ((temp3 & _BITMASK_(13:5)) >> 5);
-	g_o_vtsmcu8 = ((temp4 & _BITMASK_(31:23)) >> 23);
-	g_o_vtsmcu9 = ((temp5 & _BITMASK_(31:23)) >> 23);
-	g_o_vtsabb = ((temp2 & _BITMASK_(22:14)) >> 14);
+	nvmem_dev = nvmem_device_get(dev, "mtk_efuse");
+	if (IS_ERR(nvmem_dev)) {
+		tscpu_warn("[thermal] failed to get mtk_efuse device\n");
+		goto end;
+	}
+	for (i = 0; i < efuse_num; i++) {
+		ret = nvmem_device_read(nvmem_dev,
+			efuse_offset[i], sizeof(__u32), &efuse_val[i]);
+		if (ret != sizeof(__u32)) {
+			tscpu_warn(
+				"[thermal] read efuse 0x%x failed, ret=%d\n",
+				efuse_offset[i], ret);
+			nvmem_device_put(nvmem_dev);
+			goto end;
+		} else {
+			tscpu_printk("[calibration] efuse%d = 0x%x\n",
+				efuse_offset[i], efuse_val[i]);
+		}
+	}
+	nvmem_device_put(nvmem_dev);
 
-	g_degc_cali = ((temp1 & _BITMASK_(6:1)) >> 1);
-	g_adc_cali_en_t = (temp1 & _BIT_(0));
-	g_o_slope_sign = ((temp1 & _BIT_(7)) >> 7);
-	g_o_slope = ((temp1 & _BITMASK_(31:26)) >> 26);
+	g_adc_ge_t = ((efuse_val[0] & _BITMASK_(31:22)) >> 22);
+	g_adc_oe_t = ((efuse_val[0] & _BITMASK_(21:12)) >> 12);
 
-	g_id = ((temp0 & _BIT_(9)) >> 9);
+	g_o_vtsmcu0 = ((efuse_val[1] & _BITMASK_(25:17)) >> 17);
+	g_o_vtsmcu1 = ((efuse_val[1] & _BITMASK_(16:8)) >> 8);
+	g_o_vtsmcu2 = (efuse_val[0] & _BITMASK_(8:0));
+	g_o_vtsmcu3 = ((efuse_val[2] & _BITMASK_(31:23)) >> 23);
+	g_o_vtsmcu4 = ((efuse_val[2] & _BITMASK_(13:5)) >> 5);
+	g_o_vtsmcu5 = ((efuse_val[3] & _BITMASK_(31:23)) >> 23);
+	g_o_vtsmcu6 = ((efuse_val[3] & _BITMASK_(22:14)) >> 14);
+	g_o_vtsmcu7 = ((efuse_val[3] & _BITMASK_(13:5)) >> 5);
+	g_o_vtsmcu8 = ((efuse_val[4] & _BITMASK_(31:23)) >> 23);
+	g_o_vtsmcu9 = ((efuse_val[5] & _BITMASK_(31:23)) >> 23);
+	g_o_vtsabb = ((efuse_val[2] & _BITMASK_(22:14)) >> 14);
+
+	g_degc_cali = ((efuse_val[1] & _BITMASK_(6:1)) >> 1);
+	g_adc_cali_en_t = (efuse_val[1] & _BIT_(0));
+	g_o_slope_sign = ((efuse_val[1] & _BIT_(7)) >> 7);
+	g_o_slope = ((efuse_val[1] & _BITMASK_(31:26)) >> 26);
+
+	g_id = ((efuse_val[0] & _BIT_(9)) >> 9);
 
 	if (g_id == 0)
 		g_o_slope = 0;
@@ -458,6 +511,10 @@ void tscpu_thermal_cal_prepare(void)
 		g_o_slope = 0;
 	}
 
+end:
+	devm_kfree(dev, (void *)efuse_val);
+	devm_kfree(dev, (void *)efuse_offset);
+#endif
 	mtkts_dump_cali_info();
 }
 
@@ -579,7 +636,7 @@ static void thermal_interrupt_handler(int tc_num)
 
 	ret = readl(offset + TEMPMONINTSTS);
 	/* write to clear interrupt status */
-	mt_reg_sync_writel(ret, offset + TEMPMONINTSTS);
+	writel(ret, (void *)(offset + TEMPMONINTSTS));
 	tscpu_dprintk(
 		"[tIRQ] thermal_interrupt_handler,tc_num=0x%08x,ret=0x%08x\n",
 		tc_num, ret);
@@ -664,73 +721,73 @@ static void thermal_reset_and_initial(int tc_num)
 	/* bus clock 66M counting unit is 12 * 1/66M * 256 =
 	 * 12 * 3.879us = 46.545 us
 	 */
-	mt_reg_sync_writel(tempMonCtl1, offset + TEMPMONCTL1);
+	writel(tempMonCtl1, (void *)(offset + TEMPMONCTL1));
 	/*
 	 * filt interval is 1 * 46.545us = 46.545us,
 	 * sen interval is 429 * 46.545us = 19.968ms
 	 */
-	mt_reg_sync_writel(tempMonCtl2, offset + TEMPMONCTL2);
+	writel(tempMonCtl2, (void *)(offset + TEMPMONCTL2));
 	/* AHB polling is 781* 1/66M = 11.833us */
-	mt_reg_sync_writel(tempAhbPoll, offset + TEMPAHBPOLL);
+	writel(tempAhbPoll, (void *)(offset + TEMPAHBPOLL));
 
 #if THERMAL_CONTROLLER_HW_FILTER == 2
 	/* temperature sampling control, 2 out of 4 samples */
-	mt_reg_sync_writel(0x00000492, offset + TEMPMSRCTL0);
+	writel(0x00000492, (void *)(offset + TEMPMSRCTL0));
 #elif THERMAL_CONTROLLER_HW_FILTER == 4
 	/* temperature sampling control, 4 out of 6 samples */
-	mt_reg_sync_writel(0x000006DB, offset + TEMPMSRCTL0);
+	writel(0x000006DB, (void *)(offset + TEMPMSRCTL0));
 #elif THERMAL_CONTROLLER_HW_FILTER == 8
 	/* temperature sampling control, 8 out of 10 samples */
-	mt_reg_sync_writel(0x00000924, offset + TEMPMSRCTL0);
+	writel(0x00000924, (void *)(offset + TEMPMSRCTL0));
 #elif THERMAL_CONTROLLER_HW_FILTER == 16
 	/* temperature sampling control, 16 out of 18 samples */
-	mt_reg_sync_writel(0x00000B6D, offset + TEMPMSRCTL0);
+	writel(0x00000B6D, (void *)(offset + TEMPMSRCTL0));
 #else				/* default 1 */
 	/* temperature sampling control, 1 sample */
-	mt_reg_sync_writel(0x00000000, offset + TEMPMSRCTL0);
+	writel(0x00000000, (void *)(offset + TEMPMSRCTL0));
 #endif
 	/* exceed this polling time, IRQ would be inserted */
-	mt_reg_sync_writel(0xFFFFFFFF, offset + TEMPAHBTO);
+	writel(0xFFFFFFFF, (void *)(offset + TEMPAHBTO));
 
 	/* times for interrupt occurrance for SP0*/
-	mt_reg_sync_writel(0x00000000, offset + TEMPMONIDET0);
+	writel(0x00000000, (void *)(offset + TEMPMONIDET0));
 	/* times for interrupt occurrance for SP1*/
-	mt_reg_sync_writel(0x00000000, offset + TEMPMONIDET1);
+	writel(0x00000000, (void *)(offset + TEMPMONIDET1));
 	/* times for interrupt occurrance for SP2*/
-	mt_reg_sync_writel(0x00000000, offset + TEMPMONIDET2);
+	writel(0x00000000, (void *)(offset + TEMPMONIDET2));
 
-	mt_reg_sync_writel(0x800, offset + TEMPADCMUX);
+	writel(0x800, (void *)(offset + TEMPADCMUX));
 	/* AHB address for auxadc mux selection */
-	mt_reg_sync_writel((__u32) AUXADC_CON1_CLR_P,
-			offset + TEMPADCMUXADDR);
+	writel((__u32) AUXADC_CON1_CLR_P,
+			(void *)(offset + TEMPADCMUXADDR));
 
 	/* AHB value for auxadc enable */
-	mt_reg_sync_writel(0x800, offset + TEMPADCEN);
+	writel(0x800, (void *)(offset + TEMPADCEN));
 
 	/*
 	 * AHB address for auxadc enable (channel 0 immediate mode selected)
 	 * this value will be stored to TEMPADCENADDR automatically by hw
 	 */
-	mt_reg_sync_writel((__u32) AUXADC_CON1_SET_P, offset + TEMPADCENADDR);
+	writel((__u32) AUXADC_CON1_SET_P, (void *)(offset + TEMPADCENADDR));
 
 	/* AHB address for auxadc valid bit */
-	mt_reg_sync_writel((__u32) AUXADC_DAT11_P,
-			offset + TEMPADCVALIDADDR);
+	writel((__u32) AUXADC_DAT11_P,
+			(void *)(offset + TEMPADCVALIDADDR));
 
 	/* AHB address for auxadc voltage output */
-	mt_reg_sync_writel((__u32) AUXADC_DAT11_P,
-			offset + TEMPADCVOLTADDR);
+	writel((__u32) AUXADC_DAT11_P,
+			(void *)(offset + TEMPADCVOLTADDR));
 
 	/* read valid & voltage are at the same register */
-	mt_reg_sync_writel(0x0, offset + TEMPRDCTRL);
+	writel(0x0, (void *)(offset + TEMPRDCTRL));
 
 	/* indicate where the valid bit is (the 12th bit
 	 * is valid bit and 1 is valid)
 	 */
-	mt_reg_sync_writel(0x0000002C, offset + TEMPADCVALIDMASK);
+	writel(0x0000002C, (void *)(offset + TEMPADCVALIDMASK));
 
 	/* do not need to shift */
-	mt_reg_sync_writel(0x0, offset + TEMPADCVOLTAGESHIFT);
+	writel(0x0, (void *)(offset + TEMPADCVOLTAGESHIFT));
 }
 
 /**
@@ -771,17 +828,17 @@ static void set_tc_trigger_hw_protect
 
 	temp = readl(offset + TEMPMONINT);
 	/* disable trigger SPM interrupt */
-	mt_reg_sync_writel(temp & 0x00000000, offset + TEMPMONINT);
+	writel(temp & 0x00000000, (void *)(offset + TEMPMONINT));
 
 	/* Select protection sensor */
 	config = ((d_index << 2) + 0x2) << 16;
-	mt_reg_sync_writel(config, offset + TEMPPROTCTL);
+	writel(config, (void *)(offset + TEMPPROTCTL));
 
 	/* set hot to HOT wakeup event */
-	mt_reg_sync_writel(raw_high, offset + TEMPPROTTC);
+	writel(raw_high, (void *)(offset + TEMPPROTTC));
 
 	/* enable trigger Hot SPM interrupt */
-	mt_reg_sync_writel(temp | 0x80000000, offset + TEMPMONINT);
+	writel(temp | 0x80000000, (void *)(offset + TEMPMONINT));
 }
 
 static int read_tc_raw_and_temp(
@@ -887,74 +944,74 @@ int tscpu_thermal_fast_init(int tc_num)
 	temp = THERMAL_INIT_VALUE;
 
 	/* write temp to spare register */
-	mt_reg_sync_writel((0x00001000 + temp), PTPSPARE2);
+	writel((0x00001000 + temp), (void *)PTPSPARE2);
 
 	/* counting unit is 320 * 31.25us = 10ms */
-	mt_reg_sync_writel(1, offset + TEMPMONCTL1);
+	writel(1, (void *)(offset + TEMPMONCTL1));
 
 	/* sensing interval is 200 * 10ms = 2000ms */
-	mt_reg_sync_writel(1, offset + TEMPMONCTL2);
+	writel(1, (void *)(offset + TEMPMONCTL2));
 
 	/* polling interval to check if temperature sense is ready */
-	mt_reg_sync_writel(1, offset + TEMPAHBPOLL);
+	writel(1, (void *)(offset + TEMPAHBPOLL));
 
 	/* exceed this polling time, IRQ would be inserted */
-	mt_reg_sync_writel(0x000000FF, offset + TEMPAHBTO);
+	writel(0x000000FF, (void *)(offset + TEMPAHBTO));
 
 	/* times for interrupt occurrance */
-	mt_reg_sync_writel(0x00000000, offset + TEMPMONIDET0);
+	writel(0x00000000, (void *)(offset + TEMPMONIDET0));
 
 	/* times for interrupt occurrance */
-	mt_reg_sync_writel(0x00000000, offset + TEMPMONIDET1);
+	writel(0x00000000, (void *)(offset + TEMPMONIDET1));
 
 	/* temperature measurement sampling control */
-	mt_reg_sync_writel(0x0000000, offset + TEMPMSRCTL0);
+	writel(0x0000000, (void *)(offset + TEMPMSRCTL0));
 
 	/* this value will be stored to TEMPPNPMUXADDR (TEMPSPARE0)
 	 * automatically by hw
 	 */
-	mt_reg_sync_writel(0x1, offset + TEMPADCPNP0);
-	mt_reg_sync_writel(0x2, offset + TEMPADCPNP1);
-	mt_reg_sync_writel(0x3, offset + TEMPADCPNP2);
-	mt_reg_sync_writel(0x4, offset + TEMPADCPNP3);
+	writel(0x1, (void *)(offset + TEMPADCPNP0));
+	writel(0x2, (void *)(offset + TEMPADCPNP1));
+	writel(0x3, (void *)(offset + TEMPADCPNP2));
+	writel(0x4, (void *)(offset + TEMPADCPNP3));
 
 	/* AHB address for pnp sensor mux selection */
-	mt_reg_sync_writel((__u32) PTPSPARE0_P, offset + TEMPPNPMUXADDR);
+	writel((__u32) PTPSPARE0_P, (void *)(offset + TEMPPNPMUXADDR));
 
 	/* AHB address for auxadc mux selection */
-	mt_reg_sync_writel((__u32) PTPSPARE0_P, offset + TEMPADCMUXADDR);
+	writel((__u32) PTPSPARE0_P, (void *)(offset + TEMPADCMUXADDR));
 
 	/* AHB address for auxadc enable */
-	mt_reg_sync_writel((__u32) PTPSPARE1_P, offset + TEMPADCENADDR);
+	writel((__u32) PTPSPARE1_P, (void *)(offset + TEMPADCENADDR));
 
 	/* AHB address for auxadc valid bit */
-	mt_reg_sync_writel((__u32) PTPSPARE2_P, offset + TEMPADCVALIDADDR);
+	writel((__u32) PTPSPARE2_P, (void *)(offset + TEMPADCVALIDADDR));
 
 	/* AHB address for auxadc voltage output */
-	mt_reg_sync_writel((__u32) PTPSPARE2_P, offset + TEMPADCVOLTADDR);
+	writel((__u32) PTPSPARE2_P, (void *)(offset + TEMPADCVOLTADDR));
 
 	/* read valid & voltage are at the same register */
-	mt_reg_sync_writel(0x0, offset + TEMPRDCTRL);
+	writel(0x0, (void *)(offset + TEMPRDCTRL));
 
 	/* indicate where the valid bit is (the 12th bit
 	 * is valid bit and 1 is valid)
 	 */
-	mt_reg_sync_writel(0x0000002C, offset + TEMPADCVALIDMASK);
+	writel(0x0000002C, (void *)(offset + TEMPADCVALIDMASK));
 
 	/* do not need to shift */
-	mt_reg_sync_writel(0x0, offset + TEMPADCVOLTAGESHIFT);
+	writel(0x0, (void *)(offset + TEMPADCVOLTAGESHIFT));
 
 	/* enable auxadc mux & pnp write transaction */
-	mt_reg_sync_writel(0x3, offset + TEMPADCWRITECTRL);
+	writel(0x3, (void *)(offset + TEMPADCWRITECTRL));
 
 
 	/* enable all interrupt except filter sense and
 	 * immediate sense interrupt
 	 */
-	mt_reg_sync_writel(0x00000000, offset + TEMPMONINT);
+	writel(0x00000000, (void *)(offset + TEMPMONINT));
 
 	/* enable all sensing point(sensing point 2 is unused)*/
-	mt_reg_sync_writel(0x0000000F, offset + TEMPMONCTL0);
+	writel(0x0000000F, (void *)(offset + TEMPMONCTL0));
 
 
 	cunt = 0;
@@ -1044,7 +1101,7 @@ void thermal_pause_all_periodoc_temp_sensing(void)
 		offset = tscpu_g_tc[i].tc_offset;
 		temp = readl(offset + TEMPMSRCTL1);
 		/* set bit8=bit1=bit2=bit3=1 to pause sensing point 0,1,2,3 */
-		mt_reg_sync_writel((temp | 0x10E), offset + TEMPMSRCTL1);
+		writel((temp | 0x10E), (void *)(offset + TEMPMSRCTL1));
 	}
 }
 
@@ -1065,7 +1122,7 @@ void thermal_release_all_periodoc_temp_sensing(void)
 
 		temp = readl(offset + TEMPMSRCTL1);
 		/* set bit1=bit2=bit3=bit8=0 to release sensing point 0,1,2,3*/
-		mt_reg_sync_writel(((temp & (~0x10E))), offset + TEMPMSRCTL1);
+		writel(((temp & (~0x10E))), (void *)(offset + TEMPMSRCTL1));
 	}
 }
 
@@ -1078,19 +1135,19 @@ static void tscpu_thermal_enable_all_periodoc_sensing_point(int tc_num)
 	switch (tscpu_g_tc[tc_num].ts_number) {
 	case 1:
 		/* enable periodoc temperature sensing point 0 */
-		mt_reg_sync_writel(0x00000001, offset + TEMPMONCTL0);
+		writel(0x00000001, (void *)(offset + TEMPMONCTL0));
 		break;
 	case 2:
 		/* enable periodoc temperature sensing point 0,1 */
-		mt_reg_sync_writel(0x00000003, offset + TEMPMONCTL0);
+		writel(0x00000003, (void *)(offset + TEMPMONCTL0));
 		break;
 	case 3:
 		/* enable periodoc temperature sensing point 0,1,2 */
-		mt_reg_sync_writel(0x00000007, offset + TEMPMONCTL0);
+		writel(0x00000007, (void *)(offset + TEMPMONCTL0));
 		break;
 	case 4:
 		/* enable periodoc temperature sensing point 0,1,2,3*/
-		mt_reg_sync_writel(0x0000000F, offset + TEMPMONCTL0);
+		writel(0x0000000F, (void *)(offset + TEMPMONCTL0));
 		break;
 	default:
 		tscpu_printk("Error at %s\n", __func__);
@@ -1112,7 +1169,7 @@ void thermal_disable_all_periodoc_temp_sensing(void)
 		/* tscpu_printk("thermal_disable_all_periodoc_temp_sensing:"
 		 *					"Bank_%d\n",i);
 		 */
-		mt_reg_sync_writel(0x00000000, offset + TEMPMONCTL0);
+		writel(0x00000000, (void *)(offset + TEMPMONCTL0));
 	}
 }
 
@@ -1126,19 +1183,19 @@ static void tscpu_thermal_tempADCPNP(int tc_num, int adc, int order)
 
 	switch (order) {
 	case 0:
-		mt_reg_sync_writel(adc, offset + TEMPADCPNP0);
+		writel(adc, (void *)(offset + TEMPADCPNP0));
 		break;
 	case 1:
-		mt_reg_sync_writel(adc, offset + TEMPADCPNP1);
+		writel(adc, (void *)(offset + TEMPADCPNP1));
 		break;
 	case 2:
-		mt_reg_sync_writel(adc, offset + TEMPADCPNP2);
+		writel(adc, (void *)(offset + TEMPADCPNP2));
 		break;
 	case 3:
-		mt_reg_sync_writel(adc, offset + TEMPADCPNP3);
+		writel(adc, (void *)(offset + TEMPADCPNP3));
 		break;
 	default:
-		mt_reg_sync_writel(adc, offset + TEMPADCPNP0);
+		writel(adc, (void *)(offset + TEMPADCPNP0));
 		break;
 	}
 }
@@ -1153,10 +1210,10 @@ void tscpu_thermal_initial_all_tc(void)
 	temp &= 0xFFFFF7FF;	/* 0: Not AUTOSET mode */
 
 	/* disable auxadc channel 11 synchronous mode */
-	mt_reg_sync_writel(temp, AUXADC_CON0_V);
+	writel(temp, (void *)AUXADC_CON0_V);
 
 	/* disable auxadc channel 11 immediate mode */
-	mt_reg_sync_writel(0x800, AUXADC_CON1_CLR_V);
+	writel(0x800, (void *)AUXADC_CON1_CLR_V);
 
 	for (i = 0; i < ARRAY_SIZE(tscpu_g_tc); i++) {
 		if (tscpu_g_tc[i].ts_number == 0)
@@ -1169,11 +1226,11 @@ void tscpu_thermal_initial_all_tc(void)
 			tscpu_thermal_tempADCPNP(i, tscpu_thermal_ADCValueOfMcu
 					(tscpu_g_tc[i].ts[j]), j);
 
-		mt_reg_sync_writel(TS_CONFIGURE_P, offset + TEMPPNPMUXADDR);
-		mt_reg_sync_writel(0x3, offset + TEMPADCWRITECTRL);
+		writel(TS_CONFIGURE_P, (void *)(offset + TEMPPNPMUXADDR));
+		writel(0x3, (void *)(offset + TEMPADCWRITECTRL));
 	}
 
-	mt_reg_sync_writel(0x800, AUXADC_CON1_SET_V);
+	writel(0x800, (void *)AUXADC_CON1_SET_V);
 
 	for (i = 0; i < ARRAY_SIZE(tscpu_g_tc); i++) {
 		if (tscpu_g_tc[i].ts_number == 0)
@@ -1186,8 +1243,9 @@ void tscpu_thermal_initial_all_tc(void)
 void tscpu_config_all_tc_hw_protect(int temperature, int temperature2)
 {
 	int i = 0;
-	int wd_api_ret;
-	struct wd_api *wd_api;
+	struct device_node *toprgu_np;
+	struct device_node *np = tscpu_pdev->dev.of_node;
+	unsigned int val;
 
 	tscpu_dprintk(
 	"tscpu_config_all_tc_hw_protect,temperature=%d,temperature2=%d,\n",
@@ -1203,14 +1261,75 @@ void tscpu_config_all_tc_hw_protect(int temperature, int temperature2)
 	/* Thermal need to config to direct reset mode
 	 * this API provide by Weiqi Fu(RGU SW owner).
 	 */
-	wd_api_ret = get_wd_api(&wd_api);
-	if (wd_api_ret >= 0) {
-		wd_api->wd_thermal_direct_mode_config(WD_REQ_DIS,
-					WD_REQ_RST_MODE);	/* reset mode */
-	} else {
-		tscpu_warn("%d FAILED TO GET WD API\n", __LINE__);
-		WARN_ON_ONCE(1);
+	if (map == NULL) {
+		toprgu_np = of_parse_phandle(np, "regmap", 0);
+		if (!of_device_is_compatible(toprgu_np, "mediatek,toprgu")) {
+			tscpu_warn("[thermal] get toprgu base failed!\n");
+			return;
+		}
+
+		if (of_property_read_u32(np, "therm_ctrl,toprgu_en_offset",
+			&en_offset)) {
+			tscpu_warn("[thermal] get en_offset failed!\n");
+			return;
+		}
+
+		if (of_property_read_u32(np, "therm_ctrl,toprgu_en_bit",
+			&en_bit)) {
+			tscpu_warn("[thermal] get en_mask failed!\n");
+			return;
+		}
+
+		if (of_property_read_u32(np, "therm_ctrl,toprgu_en_key",
+			&en_key)) {
+			tscpu_warn("[thermal] get en_key failed!\n");
+			return;
+		}
+
+		if (of_property_read_u32(np, "therm_ctrl,toprgu_irq_offset",
+			&irq_offset)) {
+			tscpu_warn("[thermal] get irq_offset failed!\n");
+			return;
+		}
+
+		if (of_property_read_u32(np, "therm_ctrl,toprgu_irq_bit",
+			&irq_bit)) {
+			tscpu_warn("[thermal] get irq_bit failed!\n");
+			return;
+		}
+
+		if (of_property_read_u32(np, "therm_ctrl,toprgu_irq_key",
+			&irq_key)) {
+			tscpu_warn("[thermal] get irq_key failed!\n");
+			return;
+		}
+
+		toprgu_base = of_iomap(toprgu_np, 0);
+		if (IS_ERR(toprgu_base)) {
+			tscpu_warn("[thermal] iomap toprgu base failed!\n");
+			return;
+		}
+
+		map = devm_regmap_init_mmio(&tscpu_pdev->dev, toprgu_base,
+						     &toprgu_regmap_config);
+		if (IS_ERR(map)) {
+			tscpu_warn("[thermal] init mmio failed!\n");
+			return;
+		}
 	}
+
+	/* disable reset */
+	regmap_read(map, en_offset, &val);
+	val &= ~(1 << en_bit);
+	val |= en_key;
+	regmap_write(map, en_offset, val);
+
+	/* set to trigger reset instead of irq */
+	regmap_read(map, irq_offset, &val);
+	val &= ~(1 << irq_bit);
+	val |= irq_key;
+	regmap_write(map, irq_offset, val);
+
 #if THERMAL_PERFORMANCE_PROFILE
 	do_gettimeofday(&end);
 
@@ -1227,16 +1346,11 @@ void tscpu_config_all_tc_hw_protect(int temperature, int temperature2)
 		set_tc_trigger_hw_protect(temperature, temperature2, i);
 	}
 
-	/*Thermal need to config to direct reset mode
-	 *  this API provide by Weiqi Fu(RGU SW owner).
-	 */
-	if (wd_api_ret >= 0) {
-		wd_api->wd_thermal_direct_mode_config(WD_REQ_EN,
-					WD_REQ_RST_MODE);	/* reset mode */
-	} else {
-		tscpu_warn("%d FAILED TO GET WD API\n", __LINE__);
-		WARN_ON_ONCE(1);
-	}
+	/* enable reset */
+	regmap_read(map, en_offset, &val);
+	val |= 1 << en_bit;
+	val |= en_key;
+	regmap_write(map, en_offset, val);
 }
 
 void tscpu_reset_thermal(void)
@@ -1251,7 +1365,7 @@ void tscpu_reset_thermal(void)
 	/* 1: Enables thermal control software reset */
 	temp |= 0x00000001;
 
-	mt_reg_sync_writel(temp, INFRA_GLOBALCON_RST_0_SET);
+	writel(temp, (void *)INFRA_GLOBALCON_RST_0_SET);
 
 	/* TODO: How long to set the reset bit? */
 
@@ -1260,7 +1374,7 @@ void tscpu_reset_thermal(void)
 	temp = readl(INFRA_GLOBALCON_RST_0_CLR);
 	/* 1: Enable reset Disables thermal control software reset */
 	temp |= 0x00000001;
-	mt_reg_sync_writel(temp, INFRA_GLOBALCON_RST_0_CLR);
+	writel(temp, (void *)INFRA_GLOBALCON_RST_0_CLR);
 }
 
 int tscpu_dump_cali_info(struct seq_file *m, void *v)

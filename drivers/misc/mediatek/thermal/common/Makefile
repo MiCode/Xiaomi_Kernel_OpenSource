@@ -14,13 +14,15 @@
 THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/mt6779
 ccflags-y  += -I$(THERMAL_CHIP_DRIVER_DIR)/inc
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/gpu/hal/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/common/inc/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/vpu/mt6779
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mdla/1.0
+ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 
-#obj-$(CONFIG_THERMAL) += mtk_thermal_platform.o
-#obj-$(CONFIG_THERMAL) += ap_thermal_limit.o
+obj-$(CONFIG_THERMAL) += mtk_thermal_platform.o
+obj-$(CONFIG_THERMAL) += ap_thermal_limit.o
 
 obj-y += thermal_zones/
 obj-y += coolers/

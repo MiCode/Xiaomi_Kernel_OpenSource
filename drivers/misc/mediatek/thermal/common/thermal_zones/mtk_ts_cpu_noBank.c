@@ -29,12 +29,6 @@
 #else
 #include <linux/clk.h>
 #endif
-
-#include <mtk_spm_vcore_dvfs.h>
-
-/* #include <mach/mt_wtd.h> */
-#include <mach/wd_api.h>
-#include <mtk_gpu_utility.h>
 #include <linux/time.h>
 
 #include <tscpu_settings.h>
@@ -52,14 +46,14 @@
 #endif
 
 #if defined(ATM_USES_PPM)
+#ifdef CONFIG_MTK_PPM
 #include "mtk_ppm_api.h"
+#endif
 #else
 #include "mt_cpufreq.h"
 #endif
 
 #include <linux/uidgid.h>
-
-#include "mtk_auxadc.h"
 
 #include <ap_thermal_limit.h>
 
@@ -200,6 +194,8 @@ int Num_of_GPU_OPP;
 struct regulator *vcore_reg_id;
 #endif
 #endif
+struct platform_device *tscpu_pdev;
+
 /*=============================================================
  * Local function definition
  *=============================================================
@@ -273,22 +269,6 @@ IMM_IsAdcInitReady(void)
 	pr_notice("E_WF: %s doesn't exist\n", __func__);
 	return 0;
 }
-#endif
-
-#if 0
-#if defined(ATM_USES_PPM)
-	void __attribute__ ((weak))
-mt_ppm_cpu_thermal_protect(unsigned int limited_power)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-}
-#else
-	void __attribute__ ((weak))
-mt_cpufreq_thermal_protect(unsigned int limited_power)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-}
-#endif
 #endif
 
 	bool __attribute__ ((weak))
@@ -735,14 +715,14 @@ static ssize_t tscpu_write_Tj_out
 			/* TS_CON0[19:16] = 0x8: Tj sensor
 			 * Analog signal output via HW pin
 			 */
-			mt_reg_sync_writel(readl(TS_CON0_TM) | 0x00010000,
-								TS_CON0_TM);
+			writel(readl(TS_CON0_TM) | 0x00010000,
+				(void *)TS_CON0_TM);
 		} else {
 			/* TS_CON0[19:16] = 0x8: Tj sensor
 			 * Analog signal output via HW pin
 			 */
-			mt_reg_sync_writel(readl(TS_CON0_TM) & 0xfffeffff,
-								TS_CON0_TM);
+			writel(readl(TS_CON0_TM) & 0xfffeffff,
+				(void *)TS_CON0_TM);
 		}
 
 		tscpu_dprintk("%s lv_Tj_out_flag=%d\n", __func__,
@@ -1524,8 +1504,8 @@ static int tscpu_thermal_suspend
 		 *mt6768 TSCON0[29:28]=2'b11, Buffer off
 		 */
 		/* turn off the sensor buffer to save power */
-		mt_reg_sync_writel(readl(TS_CONFIGURE) | TS_TURN_OFF,
-								TS_CONFIGURE);
+		writel(readl(TS_CONFIGURE) | TS_TURN_OFF,
+			(void *)TS_CONFIGURE);
 #if defined(THERMAL_EBABLE_TC_CG)
 		tscpu_thermal_clock_off();
 #endif
@@ -1574,7 +1554,7 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 		 */
 		temp &= ~(TS_TURN_OFF); //0x30000000
 
-		mt_reg_sync_writel(temp, TS_CONFIGURE);	/* read abb need */
+		writel(temp, (void *)TS_CONFIGURE);	/* read abb need */
 		/* RG_TS2AUXADC < set from 2'b11 to 2'b00
 		 * when resume.wait 100uS than turn on thermal controller.
 		 */
@@ -2266,7 +2246,7 @@ static void init_thermal(void)
 
 
 
-	mt_reg_sync_writel(temp, TS_CONFIGURE);	/* read abb need */
+	writel(temp, (void *)TS_CONFIGURE);	/* read abb need */
 	/* RG_TS2AUXADC < set from 2'b11 to 2'b00
 	 * when resume.wait 100uS than turn on thermal controller.
 	 */
@@ -2399,6 +2379,9 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 #endif
 
 	tscpu_thermal_clock_on();
+
+	/* let mtk_tc.c to use pdev pointer to access DT */
+	tscpu_pdev = dev;
 	init_thermal();
 
 #if MTK_TS_CPU_RT
@@ -2492,7 +2475,6 @@ static int __init tscpu_init(void)
 	}
 
 	tscpu_create_fs();
-
 
 	return 0;
 
