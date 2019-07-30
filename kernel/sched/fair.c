@@ -6733,8 +6733,8 @@ static int get_start_cpu(struct task_struct *p)
 	int start_cpu = rd->min_cap_orig_cpu;
 	bool boosted = schedtune_task_boost(p) > 0 ||
 			task_boost_policy(p) == SCHED_BOOST_ON_BIG;
-	bool task_skip_min = get_rtg_status(p) &&
-		(task_util(p) > sched_task_filter_util);
+	bool task_skip_min = (sched_boost() != CONSERVATIVE_BOOST)
+				&& get_rtg_status(p) && p->unfilter;
 
 	/*
 	 * note about min/mid/max_cap_orig_cpu - either all of them will be -ve
