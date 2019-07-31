@@ -16,16 +16,32 @@
 #include <linux/dma-direct.h>
 #include <linux/dma-noncoherent.h>
 #include <linux/dma-contiguous.h>
+#include <linux/iommu.h>
 #include <linux/vmalloc.h>
 #include <linux/swiotlb.h>
 #include <linux/pci.h>
 
 #include <asm/cacheflush.h>
+#include <linux/of_address.h>
+#include <linux/dma-mapping-fast.h>
+
+
+static bool is_dma_coherent(struct device *dev, unsigned long attrs)
+{
+	if (attrs & DMA_ATTR_FORCE_COHERENT)
+		return true;
+	else if (attrs & DMA_ATTR_FORCE_NON_COHERENT)
+		return false;
+	else if (dev_is_dma_coherent(dev))
+		return true;
+	else
+		return false;
+}
 
 pgprot_t arch_dma_mmap_pgprot(struct device *dev, pgprot_t prot,
 		unsigned long attrs)
 {
-	if (!dev_is_dma_coherent(dev) || (attrs & DMA_ATTR_WRITE_COMBINE))
+	if (!is_dma_coherent(dev, attrs) || (attrs & DMA_ATTR_WRITE_COMBINE))
 		return pgprot_writecombine(prot);
 	return prot;
 }
@@ -103,7 +119,7 @@ static void *__iommu_alloc_attrs(struct device *dev, size_t size,
 				 dma_addr_t *handle, gfp_t gfp,
 				 unsigned long attrs)
 {
-	bool coherent = dev_is_dma_coherent(dev);
+	bool coherent = is_dma_coherent(dev, attrs);
 	int ioprot = dma_info_to_prot(DMA_BIDIRECTIONAL, coherent, attrs);
 	size_t iosize = size;
 	void *addr;
@@ -117,7 +133,8 @@ static void *__iommu_alloc_attrs(struct device *dev, size_t size,
 	 * Some drivers rely on this, and we probably don't want the
 	 * possibility of stale kernel data being read by devices anyway.
 	 */
-	gfp |= __GFP_ZERO;
+	if (!(attrs & DMA_ATTR_SKIP_ZEROING))
+		gfp |= __GFP_ZERO;
 
 	if (!gfpflags_allow_blocking(gfp)) {
 		struct page *page;
@@ -232,31 +249,30 @@ static int __iommu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 {
 	struct vm_struct *area;
 	int ret;
+	unsigned long pfn = 0;
 
 	vma->vm_page_prot = arch_dma_mmap_pgprot(dev, vma->vm_page_prot, attrs);
 
 	if (dma_mmap_from_dev_coherent(dev, vma, cpu_addr, size, &ret))
 		return ret;
 
-	if (!is_vmalloc_addr(cpu_addr)) {
-		unsigned long pfn = page_to_pfn(virt_to_page(cpu_addr));
-		return __swiotlb_mmap_pfn(vma, pfn, size);
-	}
-
-	if (attrs & DMA_ATTR_FORCE_CONTIGUOUS) {
-		/*
-		 * DMA_ATTR_FORCE_CONTIGUOUS allocations are always remapped,
-		 * hence in the vmalloc space.
-		 */
-		unsigned long pfn = vmalloc_to_pfn(cpu_addr);
-		return __swiotlb_mmap_pfn(vma, pfn, size);
-	}
-
 	area = find_vm_area(cpu_addr);
-	if (WARN_ON(!area || !area->pages))
-		return -ENXIO;
 
-	return iommu_dma_mmap(area->pages, size, vma);
+	if (area && area->pages)
+		return iommu_dma_mmap(area->pages, size, vma);
+	else if (!is_vmalloc_addr(cpu_addr))
+		pfn = page_to_pfn(virt_to_page(cpu_addr));
+	else if (is_vmalloc_addr(cpu_addr))
+		/*
+		 * DMA_ATTR_FORCE_CONTIGUOUS and atomic pool allocations are
+		 * always remapped, hence in the vmalloc space.
+		 */
+		pfn = vmalloc_to_pfn(cpu_addr);
+
+	if (pfn)
+		return __swiotlb_mmap_pfn(vma, pfn, size);
+
+	return -ENXIO;
 }
 
 static int __iommu_get_sgtable(struct device *dev, struct sg_table *sgt,
@@ -264,27 +280,24 @@ static int __iommu_get_sgtable(struct device *dev, struct sg_table *sgt,
 			       size_t size, unsigned long attrs)
 {
 	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	struct page *page = NULL;
 	struct vm_struct *area = find_vm_area(cpu_addr);
 
-	if (!is_vmalloc_addr(cpu_addr)) {
-		struct page *page = virt_to_page(cpu_addr);
-		return __swiotlb_get_sgtable_page(sgt, page, size);
-	}
-
-	if (attrs & DMA_ATTR_FORCE_CONTIGUOUS) {
+	if (area && area->pages)
+		return sg_alloc_table_from_pages(sgt, area->pages, count, 0,
+					size, GFP_KERNEL);
+	else if (!is_vmalloc_addr(cpu_addr))
+		page = virt_to_page(cpu_addr);
+	else if (is_vmalloc_addr(cpu_addr))
 		/*
-		 * DMA_ATTR_FORCE_CONTIGUOUS allocations are always remapped,
-		 * hence in the vmalloc space.
+		 * DMA_ATTR_FORCE_CONTIGUOUS and atomic pool allocations
+		 * are always remapped, hence in the vmalloc space.
 		 */
-		struct page *page = vmalloc_to_page(cpu_addr);
+		page = vmalloc_to_page(cpu_addr);
+
+	if (page)
 		return __swiotlb_get_sgtable_page(sgt, page, size);
-	}
-
-	if (WARN_ON(!area || !area->pages))
-		return -ENXIO;
-
-	return sg_alloc_table_from_pages(sgt, area->pages, count, 0, size,
-					 GFP_KERNEL);
+	return -ENXIO;
 }
 
 static void __iommu_sync_single_for_cpu(struct device *dev,
@@ -292,11 +305,12 @@ static void __iommu_sync_single_for_cpu(struct device *dev,
 					enum dma_data_direction dir)
 {
 	phys_addr_t phys;
+	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
 
-	if (dev_is_dma_coherent(dev))
+	if (!domain || iommu_is_iova_coherent(domain, dev_addr))
 		return;
 
-	phys = iommu_iova_to_phys(iommu_get_dma_domain(dev), dev_addr);
+	phys = iommu_iova_to_phys(domain, dev_addr);
 	arch_sync_dma_for_cpu(dev, phys, size, dir);
 }
 
@@ -305,11 +319,12 @@ static void __iommu_sync_single_for_device(struct device *dev,
 					   enum dma_data_direction dir)
 {
 	phys_addr_t phys;
+	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
 
-	if (dev_is_dma_coherent(dev))
+	if (!domain || iommu_is_iova_coherent(domain, dev_addr))
 		return;
 
-	phys = iommu_iova_to_phys(iommu_get_dma_domain(dev), dev_addr);
+	phys = iommu_iova_to_phys(domain, dev_addr);
 	arch_sync_dma_for_device(dev, phys, size, dir);
 }
 
@@ -318,7 +333,7 @@ static dma_addr_t __iommu_map_page(struct device *dev, struct page *page,
 				   enum dma_data_direction dir,
 				   unsigned long attrs)
 {
-	bool coherent = dev_is_dma_coherent(dev);
+	bool coherent = is_dma_coherent(dev, attrs);
 	int prot = dma_info_to_prot(dir, coherent, attrs);
 	dma_addr_t dev_addr = iommu_dma_map_page(dev, page, offset, size, prot);
 
@@ -344,9 +359,11 @@ static void __iommu_sync_sg_for_cpu(struct device *dev,
 				    enum dma_data_direction dir)
 {
 	struct scatterlist *sg;
+	dma_addr_t iova = sg_dma_address(sgl);
+	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
 	int i;
 
-	if (dev_is_dma_coherent(dev))
+	if (!domain || iommu_is_iova_coherent(domain, iova))
 		return;
 
 	for_each_sg(sgl, sg, nelems, i)
@@ -358,9 +375,11 @@ static void __iommu_sync_sg_for_device(struct device *dev,
 				       enum dma_data_direction dir)
 {
 	struct scatterlist *sg;
+	dma_addr_t iova = sg_dma_address(sgl);
+	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
 	int i;
 
-	if (dev_is_dma_coherent(dev))
+	if (!domain || iommu_is_iova_coherent(domain, iova))
 		return;
 
 	for_each_sg(sgl, sg, nelems, i)
@@ -371,13 +390,18 @@ static int __iommu_map_sg_attrs(struct device *dev, struct scatterlist *sgl,
 				int nelems, enum dma_data_direction dir,
 				unsigned long attrs)
 {
-	bool coherent = dev_is_dma_coherent(dev);
+	bool coherent = is_dma_coherent(dev, attrs);
+	int ret;
+
+	ret =  iommu_dma_map_sg(dev, sgl, nelems,
+				dma_info_to_prot(dir, coherent, attrs));
+	if (!ret)
+		return ret;
 
 	if ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
 		__iommu_sync_sg_for_device(dev, sgl, nelems, dir);
 
-	return iommu_dma_map_sg(dev, sgl, nelems,
-				dma_info_to_prot(dir, coherent, attrs));
+	return ret;
 }
 
 static void __iommu_unmap_sg_attrs(struct device *dev,
@@ -414,10 +438,30 @@ static int __init __iommu_dma_init(void)
 }
 arch_initcall(__iommu_dma_init);
 
+static int __iommu_init_dma_resources(struct device *dev,
+				      struct iommu_domain *domain, u64 dma_base,
+				      u64 size)
+{
+	int is_fast, ret = 0;
+
+	iommu_domain_get_attr(domain, DOMAIN_ATTR_FAST, &is_fast);
+
+	if (is_fast) {
+		dev->dma_ops = fast_smmu_get_dma_ops();
+	} else {
+		ret = iommu_dma_init_domain(domain, dma_base, size, dev);
+		if (!ret)
+			dev->dma_ops = &iommu_dma_ops;
+	}
+
+	return ret;
+}
+
 static void __iommu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 				  const struct iommu_ops *ops)
 {
 	struct iommu_domain *domain;
+	int s1_bypass;
 
 	if (!ops)
 		return;
@@ -431,12 +475,19 @@ static void __iommu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 	if (!domain)
 		goto out_err;
 
-	if (domain->type == IOMMU_DOMAIN_DMA) {
-		if (iommu_dma_init_domain(domain, dma_base, size, dev))
-			goto out_err;
+	iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
+	if (s1_bypass)
+		return;
 
-		dev->dma_ops = &iommu_dma_ops;
+	/* Allow iommu-debug to call arch_setup_dma_ops to reconfigure itself */
+	if (domain->type != IOMMU_DOMAIN_DMA &&
+	    !of_device_is_compatible(dev->of_node, "iommu-debug-test")) {
+		dev_err(dev, "Invalid iommu domain type!\n");
+		return;
 	}
+
+	if (__iommu_init_dma_resources(dev, domain, dma_base, size))
+		goto out_err;
 
 	return;
 

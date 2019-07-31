@@ -14,6 +14,8 @@
 #include <linux/iommu.h>
 #include <linux/msi.h>
 
+struct iova_domain;
+
 int iommu_dma_init(void);
 
 /* Domain management interface for IOMMU drivers */
@@ -45,6 +47,11 @@ dma_addr_t iommu_dma_map_page(struct device *dev, struct page *page,
 		unsigned long offset, size_t size, int prot);
 int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 		int nents, int prot);
+size_t iommu_dma_prepare_map_sg(struct device *dev, struct iova_domain *iovad,
+				struct scatterlist *sg, int nents);
+int iommu_dma_finalise_sg(struct device *dev, struct scatterlist *sg,
+		int nents, dma_addr_t dma_addr);
+void iommu_dma_invalidate_sg(struct scatterlist *sg, int nents);
 
 /*
  * Arch code with no special attribute handling may use these
