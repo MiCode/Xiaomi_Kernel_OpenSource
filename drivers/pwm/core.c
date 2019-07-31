@@ -312,10 +312,12 @@ int pwmchip_add_with_polarity(struct pwm_chip *chip,
 	if (IS_ENABLED(CONFIG_OF))
 		of_pwmchip_add(chip);
 
-	pwmchip_sysfs_export(chip);
-
 out:
 	mutex_unlock(&pwm_lock);
+
+	if (!ret)
+		pwmchip_sysfs_export(chip);
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pwmchip_add_with_polarity);
@@ -349,7 +351,7 @@ int pwmchip_remove(struct pwm_chip *chip)
 	unsigned int i;
 	int ret = 0;
 
-	pwmchip_sysfs_unexport_children(chip);
+	pwmchip_sysfs_unexport(chip);
 
 	mutex_lock(&pwm_lock);
 
@@ -368,8 +370,6 @@ int pwmchip_remove(struct pwm_chip *chip)
 		of_pwmchip_remove(chip);
 
 	free_pwms(chip);
-
-	pwmchip_sysfs_unexport(chip);
 
 out:
 	mutex_unlock(&pwm_lock);

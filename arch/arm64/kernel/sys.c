@@ -49,7 +49,7 @@ SYSCALL_DEFINE1(arm64_personality, unsigned int, personality)
 
 asmlinkage long sys_ni_syscall(void);
 
-SYSCALL_DEFINE0(ni_syscall)
+asmlinkage long __arm64_sys_ni_syscall(const struct pt_regs *__unused)
 {
 	return sys_ni_syscall();
 }
@@ -57,7 +57,7 @@ SYSCALL_DEFINE0(ni_syscall)
 /*
  * Wrappers to pass the pt_regs argument.
  */
-#define sys_personality		sys_arm64_personality
+#define __arm64_sys_personality		__arm64_sys_arm64_personality
 
 #undef __SYSCALL
 #define __SYSCALL(nr, sym)	asmlinkage long __arm64_##sym(const struct pt_regs *);
