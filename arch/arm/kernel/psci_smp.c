@@ -47,13 +47,19 @@
  *
  */
 
+#ifdef CONFIG_THUMB2_KERNEL
+#define secondary_start secondary_startup_arm
+extern void secondary_startup_arm(void);
+#else
+#define secondary_start secondary_startup
 extern void secondary_startup(void);
+#endif
 
 static int psci_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	if (psci_ops.cpu_on)
 		return psci_ops.cpu_on(cpu_logical_map(cpu),
-					virt_to_idmap(&secondary_startup));
+					virt_to_idmap(&secondary_start));
 	return -ENODEV;
 }
 
