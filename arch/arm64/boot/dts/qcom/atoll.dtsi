@@ -3097,6 +3097,7 @@
 
 #include "atoll-audio.dtsi"
 #include "atoll-thermal.dtsi"
+#include "atoll-camera.dtsi"
 
 &qupv3_se9_i2c {
 	status = "ok";
