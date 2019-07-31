@@ -24,7 +24,15 @@
  * will collect the data for 15 windows(300ms) and then update
  * sysfs nodes with aggregated data
  */
-#define POLL_INT 15
+#define POLL_INT 25
+#define NODE_NAME_MAX_CHARS 16
+
+enum cpu_clusters {
+	MIN = 0,
+	MID = 1,
+	MAX = 2,
+	CLUSTER_MAX
+};
 
 /* To handle cpufreq min/max request */
 struct cpu_status {
@@ -43,6 +51,8 @@ static struct task_struct *events_notify_thread;
 
 static unsigned int aggr_big_nr;
 static unsigned int aggr_top_load;
+static unsigned int top_load[CLUSTER_MAX];
+static unsigned int curr_cap[CLUSTER_MAX];
 
 /*******************************sysfs start************************************/
 static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
@@ -211,7 +221,8 @@ static struct attribute_group events_attr_group = {
 };
 
 static ssize_t show_big_nr(struct kobject *kobj,
-	struct kobj_attribute *attr, char *buf)
+			   struct kobj_attribute *attr,
+			   char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%u\n", aggr_big_nr);
 }
@@ -220,7 +231,8 @@ static struct kobj_attribute big_nr_attr =
 __ATTR(aggr_big_nr, 0444, show_big_nr, NULL);
 
 static ssize_t show_top_load(struct kobject *kobj,
-	struct kobj_attribute *attr, char *buf)
+				 struct kobj_attribute *attr,
+				 char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%u\n", aggr_top_load);
 }
@@ -229,9 +241,35 @@ static struct kobj_attribute top_load_attr =
 __ATTR(aggr_top_load, 0444, show_top_load, NULL);
 
 
+static ssize_t show_top_load_cluster(struct kobject *kobj,
+				 struct kobj_attribute *attr,
+				 char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u %u %u\n",
+					top_load[MIN], top_load[MID],
+					top_load[MAX]);
+}
+
+static struct kobj_attribute cluster_top_load_attr =
+__ATTR(top_load_cluster, 0444, show_top_load_cluster, NULL);
+
+static ssize_t show_curr_cap_cluster(struct kobject *kobj,
+				 struct kobj_attribute *attr,
+				 char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u %u %u\n",
+					curr_cap[MIN], curr_cap[MID],
+					curr_cap[MAX]);
+}
+
+static struct kobj_attribute cluster_curr_cap_attr =
+__ATTR(curr_cap_cluster, 0444, show_curr_cap_cluster, NULL);
+
 static struct attribute *notify_attrs[] = {
 	&big_nr_attr.attr,
 	&top_load_attr.attr,
+	&cluster_top_load_attr.attr,
+	&cluster_curr_cap_attr.attr,
 	NULL,
 };
 
@@ -381,23 +419,37 @@ static void nr_notify_userspace(struct work_struct *work)
 {
 	sysfs_notify(notify_kobj, NULL, "aggr_top_load");
 	sysfs_notify(notify_kobj, NULL, "aggr_big_nr");
+	sysfs_notify(notify_kobj, NULL, "top_load_cluster");
+	sysfs_notify(notify_kobj, NULL, "curr_cap_cluster");
 }
 
 static int msm_perf_core_ctl_notify(struct notifier_block *nb,
-				    unsigned long unused,
-				    void *data)
+					unsigned long unused,
+					void *data)
 {
 	static unsigned int tld, nrb, i;
+	static unsigned int top_ld[CLUSTER_MAX], curr_cp[CLUSTER_MAX];
 	static DECLARE_WORK(sysfs_notify_work, nr_notify_userspace);
 	struct core_ctl_notif_data *d = data;
-
+	int cluster = 0;
 
 	nrb += d->nr_big;
 	tld += d->coloc_load_pct;
+	for (cluster = 0; cluster < CLUSTER_MAX; cluster++) {
+		top_ld[cluster] += d->ta_util_pct[cluster];
+		curr_cp[cluster] += d->cur_cap_pct[cluster];
+	}
 	i++;
 	if (i == POLL_INT) {
 		aggr_big_nr = ((nrb%POLL_INT) ? 1 : 0) + nrb/POLL_INT;
 		aggr_top_load = tld/POLL_INT;
+		for (cluster = 0; cluster < CLUSTER_MAX; cluster++) {
+			top_load[cluster] = top_ld[cluster]/POLL_INT;
+			curr_cap[cluster] = curr_cp[cluster]/POLL_INT;
+			top_ld[cluster] = 0;
+			curr_cp[cluster] = 0;
+		}
+		//reset Counters
 		tld = 0;
 		nrb = 0;
 		i = 0;
