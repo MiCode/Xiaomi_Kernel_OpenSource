@@ -11,6 +11,7 @@ obj-y += mtk_cpuidle_cpc.o
 obj-y += mt6779_dbg_fs.o
 obj-y += mt6779_dbg_idle_fs.o
 obj-y += mt6779_dbg_spm_fs.o
+obj-y += mt6779_logger.o
 
 obj-y += mtk_cpuidle_procfs.o
 mtk_cpuidle_procfs-y += mtk_idle_procfs.o mtk_idle_procfs_state.o mtk_idle_procfs_cpc.o mtk_idle_procfs_profile.o  mtk_idle_procfs_control.o
