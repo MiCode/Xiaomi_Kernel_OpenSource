@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -957,13 +957,17 @@ error:
 
 void hdmi_ddc_config(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 {
+	u32 ddc_speed;
+
 	if (!ddc_ctrl || !ddc_ctrl->io) {
 		pr_err("invalid input\n");
 		return;
 	}
 
 	/* Configure Pre-Scale multiplier & Threshold */
-	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_SPEED, (10 << 16) | (2 << 0));
+	ddc_speed = DSS_REG_R_ND(ddc_ctrl->io, HDMI_DDC_SPEED);
+	ddc_speed |= (12 << 16) | (2 << 0);
+	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_SPEED, ddc_speed);
 
 	/*
 	 * Setting 31:24 bits : Time units to wait before timeout
