@@ -175,7 +175,7 @@ static inline void msm_cvp_handle_hw_error(struct msm_cvp_core *core)
 		enable_fatal = false;
 	}
 
-	/* Video driver can decide FATAL handling of HW errors
+	/* CVP driver can decide FATAL handling of HW errors
 	 * based on multiple factors. This condition check will
 	 * be enhanced later.
 	 */

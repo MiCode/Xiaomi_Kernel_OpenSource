@@ -189,14 +189,7 @@ int msm_cvp_private(void *cvp_inst, unsigned int cmd,
 		return -EINVAL;
 	}
 
-	if (inst->session_type == MSM_CVP_CORE) {
-		rc = msm_cvp_handle_syscall(inst, arg);
-	} else {
-		dprintk(CVP_ERR,
-			"%s: private cmd %#x not supported for session_type %d\n",
-			__func__, cmd, inst->session_type);
-		rc = -EINVAL;
-	}
+	rc = msm_cvp_handle_syscall(inst, arg);
 
 	return rc;
 }
@@ -292,7 +285,6 @@ void *msm_cvp_open(int core_id, int session_type)
 	mutex_init(&inst->lock);
 	spin_lock_init(&inst->event_handler.lock);
 
-	INIT_MSM_CVP_LIST(&inst->freqs);
 	INIT_MSM_CVP_LIST(&inst->persistbufs);
 	INIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	INIT_MSM_CVP_LIST(&inst->cvpdspbufs);
@@ -310,7 +302,7 @@ void *msm_cvp_open(int core_id, int session_type)
 	inst->clk_data.ddr_bw = 0;
 	inst->clk_data.sys_cache_bw = 0;
 	inst->clk_data.bitrate = 0;
-	inst->clk_data.core_id = CVP_CORE_ID_DEFAULT;
+	inst->clk_data.core_id = 0;
 	inst->deprecate_bitmask = 0;
 	inst->fence_data_cache = KMEM_CACHE(msm_cvp_fence_thread_data, 0);
 	inst->frame_cache = KMEM_CACHE(msm_cvp_frame, 0);
@@ -322,9 +314,7 @@ void *msm_cvp_open(int core_id, int session_type)
 		init_completion(&inst->completions[i]);
 	}
 
-	if (session_type == MSM_CVP_CORE) {
-		msm_cvp_session_init(inst);
-	}
+	msm_cvp_session_init(inst);
 
 	mutex_lock(&core->lock);
 	list_add_tail(&inst->list, &core->instances);
@@ -337,11 +327,10 @@ void *msm_cvp_open(int core_id, int session_type)
 	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CORE_INIT_DONE);
 	if (rc) {
 		dprintk(CVP_ERR,
-			"Failed to move video instance to init state\n");
+			"Failed to move cvp instance to init state\n");
 		goto fail_init;
 	}
 
-	msm_cvp_dcvs_try_enable(inst);
 	core->resources.max_inst_count = MAX_SUPPORTED_INSTANCES;
 	if (msm_cvp_check_for_inst_overload(core)) {
 		dprintk(CVP_ERR, "Instance num reached Max, rejecting session");
@@ -354,8 +343,6 @@ void *msm_cvp_open(int core_id, int session_type)
 
 		goto fail_init;
 	}
-
-	msm_cvp_comm_scale_clocks_and_bus(inst);
 
 	inst->debugfs_root =
 		msm_cvp_debugfs_init_inst(inst, core->debugfs_root);
@@ -372,7 +359,6 @@ fail_init:
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
-	DEINIT_MSM_CVP_LIST(&inst->freqs);
 	DEINIT_MSM_CVP_LIST(&inst->frames);
 
 	kmem_cache_destroy(inst->fence_data_cache);
@@ -418,7 +404,6 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
-	DEINIT_MSM_CVP_LIST(&inst->freqs);
 	DEINIT_MSM_CVP_LIST(&inst->frames);
 
 	kmem_cache_destroy(inst->fence_data_cache);

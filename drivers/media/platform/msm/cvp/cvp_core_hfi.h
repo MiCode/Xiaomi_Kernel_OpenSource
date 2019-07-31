@@ -27,8 +27,6 @@
 #define HFI_Q_ID_CTRL_TO_HOST_DEBUG_Q	0x02
 #define HFI_MASK_QHDR_STATUS			0x000000FF
 
-#define CVP_MAX_UNCOMPRESSED_FMT_PLANES	3
-
 #define CVP_IFACEQ_NUMQ					3
 #define CVP_IFACEQ_CMDQ_IDX				0
 #define CVP_IFACEQ_MSGQ_IDX				1
@@ -104,19 +102,6 @@ struct cvp_hfi_mem_map {
 #define SHARED_QSIZE ALIGN(ALIGNED_SFR_SIZE + ALIGNED_QUEUE_SIZE + \
 			ALIGNED_QDSS_SIZE, SZ_1M)
 
-enum cvp_hw_reg {
-	CVP_HWREG_CTRL_STATUS =  0x1,
-	CVP_HWREG_QTBL_INFO =  0x2,
-	CVP_HWREG_QTBL_ADDR =  0x3,
-	CVP_HWREG_CTRLR_RESET =  0x4,
-	CVP_HWREG_IFACEQ_FWRXREQ =  0x5,
-	CVP_HWREG_IFACEQ_FWTXREQ =  0x6,
-	CVP_HWREG_VHI_SOFTINTEN =  0x7,
-	CVP_HWREG_VHI_SOFTINTSTATUS =  0x8,
-	CVP_HWREG_VHI_SOFTINTCLR =  0x9,
-	CVP_HWREG_HVI_SOFTINTEN =  0xA,
-};
-
 struct cvp_mem_addr {
 	u32 align_device_addr;
 	u8 *align_virtual_addr;
@@ -137,11 +122,11 @@ struct cvp_iface_q_info {
  */
 
 /* Read as "for each 'thing' in a set of 'thingies'" */
-#define venus_hfi_for_each_thing(__device, __thing, __thingy) \
-	venus_hfi_for_each_thing_continue(__device, __thing, __thingy, 0)
+#define iris_hfi_for_each_thing(__device, __thing, __thingy) \
+	iris_hfi_for_each_thing_continue(__device, __thing, __thingy, 0)
 
-#define venus_hfi_for_each_thing_reverse(__device, __thing, __thingy) \
-	venus_hfi_for_each_thing_reverse_continue(__device, __thing, __thingy, \
+#define iris_hfi_for_each_thing_reverse(__device, __thing, __thingy) \
+	iris_hfi_for_each_thing_reverse_continue(__device, __thing, __thingy, \
 			(__device)->res->__thingy##_set.count - 1)
 
 /* TODO: the __from parameter technically not required since we can figure it
@@ -149,14 +134,14 @@ struct cvp_iface_q_info {
  * sees extensive use, probably worth cleaning it up but for now omitting it
  * since it introduces unnecessary complexity.
  */
-#define venus_hfi_for_each_thing_continue(__device, __thing, __thingy, __from) \
+#define iris_hfi_for_each_thing_continue(__device, __thing, __thingy, __from) \
 	for (__thing = &(__device)->res->\
 			__thingy##_set.__thingy##_tbl[__from]; \
 		__thing < &(__device)->res->__thingy##_set.__thingy##_tbl[0] + \
 			((__device)->res->__thingy##_set.count - __from); \
 		++__thing)
 
-#define venus_hfi_for_each_thing_reverse_continue(__device, __thing, __thingy, \
+#define iris_hfi_for_each_thing_reverse_continue(__device, __thing, __thingy, \
 		__from) \
 	for (__thing = &(__device)->res->\
 			__thingy##_set.__thingy##_tbl[__from]; \
@@ -164,46 +149,45 @@ struct cvp_iface_q_info {
 		--__thing)
 
 /* Regular set helpers */
-#define venus_hfi_for_each_regulator(__device, __rinfo) \
-	venus_hfi_for_each_thing(__device, __rinfo, regulator)
+#define iris_hfi_for_each_regulator(__device, __rinfo) \
+	iris_hfi_for_each_thing(__device, __rinfo, regulator)
 
-#define venus_hfi_for_each_regulator_reverse(__device, __rinfo) \
-	venus_hfi_for_each_thing_reverse(__device, __rinfo, regulator)
+#define iris_hfi_for_each_regulator_reverse(__device, __rinfo) \
+	iris_hfi_for_each_thing_reverse(__device, __rinfo, regulator)
 
-#define venus_hfi_for_each_regulator_reverse_continue(__device, __rinfo, \
+#define iris_hfi_for_each_regulator_reverse_continue(__device, __rinfo, \
 		__from) \
-	venus_hfi_for_each_thing_reverse_continue(__device, __rinfo, \
+	iris_hfi_for_each_thing_reverse_continue(__device, __rinfo, \
 			regulator, __from)
 
 /* Clock set helpers */
-#define venus_hfi_for_each_clock(__device, __cinfo) \
-	venus_hfi_for_each_thing(__device, __cinfo, clock)
+#define iris_hfi_for_each_clock(__device, __cinfo) \
+	iris_hfi_for_each_thing(__device, __cinfo, clock)
 
-#define venus_hfi_for_each_clock_reverse(__device, __cinfo) \
-	venus_hfi_for_each_thing_reverse(__device, __cinfo, clock)
+#define iris_hfi_for_each_clock_reverse(__device, __cinfo) \
+	iris_hfi_for_each_thing_reverse(__device, __cinfo, clock)
 
-#define venus_hfi_for_each_clock_reverse_continue(__device, __rinfo, \
+#define iris_hfi_for_each_clock_reverse_continue(__device, __rinfo, \
 		__from) \
-	venus_hfi_for_each_thing_reverse_continue(__device, __rinfo, \
+	iris_hfi_for_each_thing_reverse_continue(__device, __rinfo, \
 			clock, __from)
 
 /* Bus set helpers */
-#define venus_hfi_for_each_bus(__device, __binfo) \
-	venus_hfi_for_each_thing(__device, __binfo, bus)
-#define venus_hfi_for_each_bus_reverse(__device, __binfo) \
-	venus_hfi_for_each_thing_reverse(__device, __binfo, bus)
+#define iris_hfi_for_each_bus(__device, __binfo) \
+	iris_hfi_for_each_thing(__device, __binfo, bus)
+#define iris_hfi_for_each_bus_reverse(__device, __binfo) \
+	iris_hfi_for_each_thing_reverse(__device, __binfo, bus)
 
 /* Subcache set helpers */
-#define venus_hfi_for_each_subcache(__device, __sinfo) \
-	venus_hfi_for_each_thing(__device, __sinfo, subcache)
-#define venus_hfi_for_each_subcache_reverse(__device, __sinfo) \
-	venus_hfi_for_each_thing_reverse(__device, __sinfo, subcache)
+#define iris_hfi_for_each_subcache(__device, __sinfo) \
+	iris_hfi_for_each_thing(__device, __sinfo, subcache)
+#define iris_hfi_for_each_subcache_reverse(__device, __sinfo) \
+	iris_hfi_for_each_thing_reverse(__device, __sinfo, subcache)
 
-#define call_venus_op(d, op, args...)			\
+#define call_iris_op(d, op, args...)			\
 	(((d) && (d)->vpu_ops && (d)->vpu_ops->op) ? \
 	((d)->vpu_ops->op(args)):0)
 
-/* Internal data used in vidc_hal not exposed to msm_vidc*/
 struct cvp_hal_data {
 	u32 irq;
 	phys_addr_t firmware_base;
@@ -222,9 +206,9 @@ enum dsp_flag {
 	DSP_SUSPEND = BIT(1),
 };
 
-enum venus_hfi_state {
-	VENUS_STATE_DEINIT = 1,
-	VENUS_STATE_INIT,
+enum iris_hfi_state {
+	IRIS_STATE_DEINIT = 1,
+	IRIS_STATE_INIT,
 };
 
 enum reset_state {
@@ -268,12 +252,12 @@ struct iris_hfi_device {
 	u32 dsp_flags;
 	struct cvp_hal_data *cvp_hal_data;
 	struct workqueue_struct *cvp_workq;
-	struct workqueue_struct *venus_pm_workq;
+	struct workqueue_struct *iris_pm_workq;
 	int spur_count;
 	int reg_count;
 	struct iris_resources resources;
 	struct msm_cvp_platform_resources *res;
-	enum venus_hfi_state state;
+	enum iris_hfi_state state;
 	struct cvp_hfi_packetization_ops *pkt_ops;
 	enum hfi_packetization_type packetization_type;
 	struct msm_cvp_cb_info *response_pkt;
@@ -284,9 +268,9 @@ struct iris_hfi_device {
 	struct iris_hfi_vpu_ops *vpu_ops;
 };
 
-void cvp_venus_hfi_delete_device(void *device);
+void cvp_iris_hfi_delete_device(void *device);
 
-int cvp_venus_hfi_initialize(struct cvp_hfi_device *hdev, u32 device_id,
+int cvp_iris_hfi_initialize(struct cvp_hfi_device *hdev, u32 device_id,
 		struct msm_cvp_platform_resources *res,
 		hfi_cmd_response_callback callback);
 
