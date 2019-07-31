@@ -41,6 +41,7 @@
 #include <asm/cacheflush.h>
 #include <linux/soc/qcom/smem_state.h>
 #include <linux/of_irq.h>
+#include <linux/ctype.h>
 
 #ifdef CONFIG_ARM64
 
@@ -5970,6 +5971,8 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 
 	char dbg_buff[32] = { 0 };
 
+	int i = 0;
+
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
 
@@ -5988,6 +5991,17 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	/* Prevent consequent calls from trying to load the FW again. */
 	if (ipa3_is_ready())
 		return count;
+
+	/*Ignore empty ipa_config file*/
+	for (i = 0 ; i < count ; ++i) {
+		if (!isspace(dbg_buff[i]))
+			break;
+	}
+
+	if (i == count) {
+		IPADBG("Empty ipa_config file\n");
+		return count;
+	}
 
 	/* Check MHI configuration on MDM devices */
 	if (!ipa3_is_msm_device()) {
