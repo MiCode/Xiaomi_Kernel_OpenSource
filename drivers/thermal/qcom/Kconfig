@@ -23,7 +23,7 @@ config QCOM_SPMI_TEMP_ALARM
 
 config QTI_ADC_TM
 	tristate "Qualcomm Technologies Inc. Thermal Monitor ADC Driver"
-	depends on SPMI && THERMAL
+	depends on SPMI && THERMAL && QTI_THERMAL
 	depends on QCOM_SPMI_ADC5
 	help
 	  This enables the thermal Sysfs driver for the ADC thermal monitoring
