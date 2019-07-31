@@ -1106,6 +1106,7 @@ static void smb1390_status_change_work(struct work_struct *work)
 		vote(chip->fcc_votable, CP_VOTER, false, 0);
 		vote(chip->disable_votable, SOC_LEVEL_VOTER, true, 0);
 		vote_override(chip->ilim_votable, CC_MODE_VOTER, false, 0);
+		vote(chip->ilim_votable, WIRELESS_VOTER, false, 0);
 		vote(chip->slave_disable_votable, TAPER_END_VOTER, false, 0);
 		vote(chip->slave_disable_votable, MAIN_DISABLE_VOTER, true, 0);
 		vote_override(chip->usb_icl_votable, TAPER_MAIN_ICL_LIMIT_VOTER,
