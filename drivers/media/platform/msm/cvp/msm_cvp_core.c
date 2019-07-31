@@ -446,7 +446,10 @@ int msm_cvp_close(void *instance)
 	}
 
 	msm_cvp_cleanup_instance(inst);
-	msm_cvp_session_deinit(inst);
+
+	if (inst->session_type != MSM_CVP_BOOT)
+		msm_cvp_session_deinit(inst);
+
 	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CORE_UNINIT);
 	if (rc) {
 		dprintk(CVP_ERR,

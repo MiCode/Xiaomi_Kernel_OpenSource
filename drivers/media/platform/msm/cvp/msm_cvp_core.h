@@ -86,6 +86,7 @@ enum core_id {
 enum session_type {
 	MSM_CVP_USER = 1,
 	MSM_CVP_KERNEL,
+	MSM_CVP_BOOT,
 	MSM_CVP_UNKNOWN,
 	MSM_CVP_MAX_DEVICES = MSM_CVP_UNKNOWN,
 };
