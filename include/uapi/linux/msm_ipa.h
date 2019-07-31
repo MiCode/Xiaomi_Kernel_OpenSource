@@ -334,11 +334,14 @@ enum ipa_client_type {
 
 	IPA_CLIENT_MHI2_PROD			= 86,
 	IPA_CLIENT_MHI2_CONS			= 87,
+
+	IPA_CLIENT_Q6_CV2X_PROD			= 88,
+	IPA_CLIENT_Q6_CV2X_CONS			= 89,
 };
 
 #define IPA_CLIENT_DUMMY_CONS IPA_CLIENT_DUMMY_CONS1
 #define IPA_CLIENT_WIGIG4_CONS IPA_CLIENT_WIGIG4_CONS
-#define IPA_CLIENT_MAX (IPA_CLIENT_MHI2_CONS + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_Q6_CV2X_CONS + 1)
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \
@@ -367,20 +370,23 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_Q6_DUN_CONS || \
 	(client) == IPA_CLIENT_Q6_DECOMP_CONS || \
 	(client) == IPA_CLIENT_Q6_DECOMP2_CONS || \
-	(client) == IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS)
+	(client) == IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS || \
+	(client) == IPA_CLIENT_Q6_CV2X_CONS)
 
 #define IPA_CLIENT_IS_Q6_PROD(client) \
 	((client) == IPA_CLIENT_Q6_LAN_PROD || \
 	(client) == IPA_CLIENT_Q6_WAN_PROD || \
 	(client) == IPA_CLIENT_Q6_CMD_PROD || \
 	(client) == IPA_CLIENT_Q6_DECOMP_PROD || \
-	(client) == IPA_CLIENT_Q6_DECOMP2_PROD)
+	(client) == IPA_CLIENT_Q6_DECOMP2_PROD || \
+	(client) == IPA_CLIENT_Q6_CV2X_PROD)
 
 #define IPA_CLIENT_IS_Q6_NON_ZIP_CONS(client) \
 	((client) == IPA_CLIENT_Q6_LAN_CONS || \
 	(client) == IPA_CLIENT_Q6_WAN_CONS || \
 	(client) == IPA_CLIENT_Q6_DUN_CONS || \
-	(client) == IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS)
+	(client) == IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS || \
+	(client) == IPA_CLIENT_Q6_CV2X_CONS)
 
 #define IPA_CLIENT_IS_Q6_ZIP_CONS(client) \
 	((client) == IPA_CLIENT_Q6_DECOMP_CONS || \
@@ -389,7 +395,8 @@ enum ipa_client_type {
 #define IPA_CLIENT_IS_Q6_NON_ZIP_PROD(client) \
 	((client) == IPA_CLIENT_Q6_LAN_PROD || \
 	(client) == IPA_CLIENT_Q6_WAN_PROD || \
-	(client) == IPA_CLIENT_Q6_CMD_PROD)
+	(client) == IPA_CLIENT_Q6_CMD_PROD || \
+	(client) == IPA_CLIENT_Q6_CV2X_PROD)
 
 #define IPA_CLIENT_IS_Q6_ZIP_PROD(client) \
 	((client) == IPA_CLIENT_Q6_DECOMP_PROD || \
