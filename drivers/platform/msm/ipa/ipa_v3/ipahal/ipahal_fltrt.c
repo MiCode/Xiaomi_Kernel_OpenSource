@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3164,6 +3164,7 @@ bdy_alloc_fail:
 int ipahal_fltrt_allocate_hw_sys_tbl(struct ipa_mem_buffer *tbl_mem)
 {
 	struct ipahal_fltrt_obj *obj;
+	gfp_t flag = GFP_KERNEL;
 
 	IPAHAL_DBG_LOW("Entry\n");
 
@@ -3181,10 +3182,14 @@ int ipahal_fltrt_allocate_hw_sys_tbl(struct ipa_mem_buffer *tbl_mem)
 
 	/* add word for rule-set terminator */
 	tbl_mem->size += obj->tbl_width;
-
+alloc:
 	tbl_mem->base = dma_alloc_coherent(ipahal_ctx->ipa_pdev, tbl_mem->size,
-		&tbl_mem->phys_base, GFP_KERNEL);
+		&tbl_mem->phys_base, flag);
 	if (!tbl_mem->base) {
+		if (flag == GFP_KERNEL) {
+			flag = GFP_ATOMIC;
+			goto alloc;
+		}
 		IPAHAL_ERR("fail to alloc DMA buf of size %d\n",
 			tbl_mem->size);
 		return -ENOMEM;
