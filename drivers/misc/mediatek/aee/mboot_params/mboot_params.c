@@ -24,6 +24,7 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/pstore.h>
 #include <linux/io.h>
+#include <linux/sizes.h>
 #include <mt-plat/aee.h>
 #include "mboot_params_internal.h"
 
@@ -37,6 +38,12 @@ static int mtk_cpu_num;
 static int mboot_params_init_done;
 static unsigned int old_wdt_status;
 static int mboot_params_clear;
+
+static char mbootlog_buffer[SZ_128K];
+static char *mbootlog_buf = mbootlog_buffer;
+static u32 mbootlog_buf_len = SZ_128K;
+static u32 mbootlog_first_idx;
+static u32 mbootlog_size;
 
 /*
  *  This group of API call by sub-driver module to report reboot reasons
@@ -215,12 +222,7 @@ struct mboot_params_buffer {
 	uint32_t padding[3];
 	uint32_t sz_buffer;
 	uint32_t off_linux;	/* struct last_reboot_reason */
-	uint32_t off_console;
-
-	/* console buffer */
-	uint32_t log_start;
-	uint32_t log_size;
-	uint32_t sz_console;
+	uint32_t filling[4];
 };
 
 #define REBOOT_REASON_SIG (0x43474244)	/* DBRR */
@@ -277,95 +279,43 @@ static void *_memcpy(void *dest, const void *src, size_t count)
 #define LAST_RRPL_VAL(rr_item)	\
 	LAST_RR_SEC_VAL(mboot_params_old, pl, struct reboot_reason_pl, rr_item)
 
-unsigned int mboot_params_size(void)
+void get_mbootlog_buffer(unsigned long *addr,
+		unsigned long *size, unsigned long *start)
 {
-	return mboot_params_buffer->sz_console;
-}
-
-#ifdef CONFIG_PSTORE
-void __weak pstore_bconsole_write(struct console *con, const char *s,
-		unsigned int c)
-{
+	*addr = (unsigned long)mbootlog_buf;
+	*size = mbootlog_buf_len;
+	if (mbootlog_size >= mbootlog_buf_len)
+		*start = (unsigned long)&mbootlog_first_idx;
 }
 
 void sram_log_save(const char *msg, int count)
 {
-	pstore_bconsole_write(NULL, msg, count);
-}
-
-void pstore_console_show(enum pstore_type_id type_id, struct seq_file *m,
-		void *v)
-{
-	struct pstore_info *psi = psinfo;
-	ssize_t size;
-	struct pstore_record record;
-
-	pstore_record_init(&record, psinfo);
-	record.buf = NULL;
-
-	if (!psi)
-		return;
-	mutex_lock(&psi->read_mutex);
-	if (psi->open && psi->open(psi))
-		goto out;
-
-	while ((size = psi->read(&record)) > 0) {
-		if (record.type == type_id)
-			seq_write(m, record.buf, size);
-		if (record.buf != NULL) {
-			kfree(record.buf);
-			record.buf = NULL;
-		}
-	}
-
-	if (psi->close)
-		psi->close(psi);
-out:
-	mutex_unlock(&psi->read_mutex);
-}
-#else
-void sram_log_save(const char *msg, int count)
-{
-	struct mboot_params_buffer *buffer;
-	char *mp_console;
 	int rem;
-	unsigned int mboot_params_buffer_size = mboot_params_size();
-
-	if (!mboot_params_buffer) {
-		pr_notice("mboot params buffer is NULL!\n");
-		return;
-	}
-
-	buffer = mboot_params_buffer;
-	mp_console = (char *)mboot_params_buffer +
-		mboot_params_buffer->off_console;
 
 	/* count >= buffer_size, full the buffer */
-	if (count >= mboot_params_buffer_size) {
-		memcpy(mp_console, msg + (count - mboot_params_buffer_size),
-		       mboot_params_buffer_size);
-		buffer->log_start = 0;
-		buffer->log_size = mboot_params_buffer_size;
-	} else if (count > (mboot_params_buffer_size - buffer->log_start)) {
+	if (count >= mbootlog_buf_len) {
+		memcpy(mbootlog_buf, msg + (count - mbootlog_buf_len),
+				mbootlog_buf_len);
+		mbootlog_first_idx = 0;
+		mbootlog_size = mbootlog_buf_len;
+	} else if (count > (mbootlog_buf_len - mbootlog_first_idx)) {
 		/* count > last buffer, full them and fill the head buffer */
-		rem = mboot_params_buffer_size - buffer->log_start;
-		memcpy(mp_console + buffer->log_start, msg, rem);
-		memcpy(mp_console, msg + rem, count - rem);
-		buffer->log_start = count - rem;
-		buffer->log_size = mboot_params_buffer_size;
+		rem = mbootlog_buf_len - mbootlog_first_idx;
+		memcpy(mbootlog_buf + mbootlog_first_idx, msg, rem);
+		memcpy(mbootlog_buf, msg + rem, count - rem);
+		mbootlog_first_idx = count - rem;
+		mbootlog_size = mbootlog_buf_len;
 	} else {
 		/* count <=  last buffer, fill in free buffer */
-		memcpy(mp_console + buffer->log_start, msg, count);
-		buffer->log_start += count;
-		buffer->log_size += count;
-		if (buffer->log_start >= mboot_params_buffer_size)
-			buffer->log_start = 0;
-		if (buffer->log_size > mboot_params_buffer_size)
-			buffer->log_size = mboot_params_buffer_size;
+		memcpy(mbootlog_buf + mbootlog_first_idx, msg, count);
+		mbootlog_first_idx += count;
+		mbootlog_size += count;
+		if (mbootlog_first_idx >= mbootlog_buf_len)
+			mbootlog_first_idx = 0;
+		if (mbootlog_size > mbootlog_buf_len)
+			mbootlog_size = mbootlog_buf_len;
 	}
-
 }
-#endif
 
 #ifdef __aarch64__
 #define FORMAT_LONG "%016lx "
@@ -396,12 +346,9 @@ void aee_sram_fiq_log(const char *msg)
 {
 	unsigned int count = strlen(msg);
 	int delay = 100;
-#ifndef CONFIG_PSTORE
-	unsigned int mboot_params_buffer_size = mboot_params_size();
 
-	if (FIQ_log_size + count > mboot_params_buffer_size)
+	if (FIQ_log_size + count > mbootlog_buf_len)
 		return;
-#endif
 
 	atomic_set(&mp_in_fiq, 1);
 
@@ -450,7 +397,6 @@ static int mboot_params_check_header(struct mboot_params_buffer *buffer)
 		|| buffer->off_pl > buffer->sz_buffer
 		|| buffer->off_lk > buffer->sz_buffer
 		|| buffer->off_linux > buffer->sz_buffer
-		|| buffer->off_console > buffer->sz_buffer
 		|| buffer->off_pl + ALIGN(buffer->sz_pl, 64) != buffer->off_lpl
 		|| buffer->off_lk + ALIGN(buffer->sz_lk, 64)
 			!= buffer->off_llk) {
@@ -458,60 +404,6 @@ static int mboot_params_check_header(struct mboot_params_buffer *buffer)
 		return -1;
 	} else
 		return 0;
-}
-
-static int mboot_params_lastk_show(struct mboot_params_buffer *buffer,
-		struct seq_file *m, void *v)
-{
-	unsigned int wdt_status;
-
-	if (!buffer) {
-		pr_notice("mboot_params: buffer is null\n");
-		seq_puts(m, "buffer is null.\n");
-		return 0;
-	}
-
-	if (mboot_params_check_header(buffer) && buffer->sz_buffer != 0) {
-		pr_notice("mboot_params: buffer %p, size %x(%x)\n",
-			buffer, buffer->sz_buffer,
-			mboot_params_buffer->sz_buffer);
-		seq_write(m, buffer, mboot_params_buffer->sz_buffer);
-		return 0;
-	}
-	if (buffer->off_pl == 0 || buffer->off_pl + ALIGN(buffer->sz_pl, 64)
-			!= buffer->off_lpl) {
-		/* workaround for compatibility to old preloader & lk (OTA) */
-		wdt_status = *((unsigned char *)buffer + 12);
-	} else
-		wdt_status = LAST_RRPL_BUF_VAL(buffer, wdt_status);
-
-	seq_printf(m, "mboot params header, hw_status: %u, fiq step %u.\n",
-		   wdt_status, LAST_RRR_BUF_VAL(buffer, fiq_step));
-	seq_printf(m, "%s, old status is %u.\n",
-			mboot_params_clear ?
-			"Clear" : "Not Clear", old_wdt_status);
-
-#ifdef CONFIG_PSTORE_CONSOLE
-	pstore_console_show(PSTORE_TYPE_CONSOLE, m, v);
-#else
-	if (buffer->off_console != 0
-	    && buffer->off_linux + ALIGN(sizeof(struct last_reboot_reason),
-					 64) == buffer->off_console
-	    && buffer->sz_console == buffer->sz_buffer - buffer->off_console
-	    && buffer->log_size <= buffer->sz_console
-	    && buffer->log_start <= buffer->sz_console) {
-		seq_write(m, (void *)buffer + buffer->off_console +
-				buffer->log_start,
-				buffer->log_size - buffer->log_start);
-		seq_write(m, (void *)buffer + buffer->off_console,
-				buffer->log_start);
-	} else {
-		seq_puts(m,
-			"header may be corrupted, dump the raw buffer for reference only\n");
-		seq_write(m, buffer, mboot_params_buffer->sz_buffer);
-	}
-#endif
-	return 0;
 }
 
 static void aee_rr_show_in_log(void)
@@ -570,11 +462,6 @@ static int __init mboot_params_init(struct mboot_params_buffer *buffer,
 		/* OTA:leave enough space for pl/lk */
 		buffer->off_linux = 512;
 	buffer->sz_buffer = buffer_size;
-	buffer->off_console = buffer->off_linux +
-		ALIGN(sizeof(struct last_reboot_reason), 64);
-	buffer->sz_console = buffer->sz_buffer - buffer->off_console;
-	buffer->log_start = 0;
-	buffer->log_size = 0;
 	memset_io((void *)buffer + buffer->off_linux, 0,
 			buffer_size - buffer->off_linux);
 	mboot_params_init_desc(buffer->off_linux);
@@ -825,41 +712,7 @@ static int __init mboot_params_early_init(void)
 		return -ENODEV;
 }
 
-static int mboot_params_show(struct seq_file *m, void *v)
-{
-	mboot_params_lastk_show(mboot_params_old, m, v);
-	return 0;
-}
-
-static int mboot_params_file_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, mboot_params_show, inode->i_private);
-}
-
-static const struct file_operations mboot_params_file_ops = {
-	.owner = THIS_MODULE,
-	.open = mboot_params_file_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
-static int __init mboot_params_late_init(void)
-{
-	struct proc_dir_entry *entry;
-
-	entry = proc_create("last_kmsg", 0444, NULL, &mboot_params_file_ops);
-	if (!entry) {
-		pr_info("mboot_params: failed to create proc entry\n");
-		kfree(mboot_params_old);
-		mboot_params_old = NULL;
-		return 0;
-	}
-	return 0;
-}
-
 console_initcall(mboot_params_early_init);
-late_initcall(mboot_params_late_init);
 
 int mboot_params_pstore_reserve_memory(struct reserved_mem *rmem)
 {

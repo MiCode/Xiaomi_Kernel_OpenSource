@@ -398,6 +398,7 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_FIQ_LOOP);
 		aee_wdt_percpu_printf(cpu,
 				"Other CPU already enter WDT FIQ handler\n");
+		dis_D_inner_flush_all();
 		local_irq_disable();
 
 		while (1)
@@ -515,7 +516,6 @@ void notrace aee_wdt_atf_entry(void)
 	/* for per-cpu control registers */
 	mrdump_save_ctrlreg(cpu);
 
-	dis_D_inner_flush_all();
 
 	if (atf_aee_debug_virt_addr && cpu >= 0) {
 		regs = (void *)(atf_aee_debug_virt_addr +

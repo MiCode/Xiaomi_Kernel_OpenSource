@@ -489,7 +489,7 @@ static int mrdump_mini_cpu_regs(int cpu, struct pt_regs *regs,
 		return -1;
 	}
 	if (!regs) {
-		pr_notice("mrdump: invalid ehdr");
+		pr_notice("mrdump: invalid regs");
 		return -1;
 	}
 	id = main ? 0 : cpu + 1;
@@ -782,6 +782,9 @@ static void mrdump_mini_build_elf_misc(void)
 	misc.vaddr = (unsigned long)log_buf_addr_get();
 	misc.size = (unsigned long)log_buf_len_get();
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_KERNEL_LOG_");
+	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
+	get_mbootlog_buffer(&misc.vaddr, &misc.size, &misc.start);
+	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_LAST_KMSG");
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
 	aee_rr_get_desc_info(&misc.vaddr, &misc.size, &misc.start);
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_RR_DESC_");
