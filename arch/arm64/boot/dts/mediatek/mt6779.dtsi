@@ -3503,6 +3503,10 @@
 				regulator-max-microvolt = <5825000>;
 			};
 		};
+		mt6360_adc: adc {
+			compatible = "mediatek,mt6360_adc";
+			#io-channel-cells = <1>;
+		};
 		pmic {
 			compatible = "mediatek,mt6360_pmic";
 			buck1 {
