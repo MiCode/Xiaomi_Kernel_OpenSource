@@ -492,6 +492,10 @@
 		compatible = "qcom,secure-chan-manager";
 	};
 
+	qcom-secure-buffer {
+		compatible = "qcom,secure-buffer";
+	};
+
 	aggre1_noc: interconnect@16e0000 {
 		compatible = "qcom,lahaina-aggre1_noc";
 		#interconnect-cells = <1>;
@@ -601,3 +605,4 @@
 };
 
 #include "lahaina-pinctrl.dtsi"
+#include "msm-arm-smmu-lahaina.dtsi"
