@@ -1361,6 +1361,12 @@
 		status = "disabled";
 	};
 
+	mhi_net_device: qcom,mhi_net_dev {
+		compatible = "qcom,msm-mhi-dev-net";
+		qcom,mhi-ethernet-interface;
+		status = "disabled";
+	};
+
 	sdhc_1: sdhci@8804000 {
 		compatible = "qcom,sdhci-msm-v5";
 		reg = <0x8804000 0x1000>;
