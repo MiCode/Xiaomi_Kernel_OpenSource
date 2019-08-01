@@ -35,7 +35,7 @@
 #include "mtk_vcodec_mem.h"
 #include <uapi/linux/mtk_vcu_controls.h>
 #include "mtk_vcu.h"
-#define UNUSED_PARAM(X) {X = X; }
+#define UNUSED_PARAM(X) ((void)(X))
 
 /*
  * #undef pr_debug
@@ -548,7 +548,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	int i = 0, ret;
 	unsigned char *user_data_addr = NULL;
 	struct gce_callback_data *buff;
-	struct cmdq_pkt *pkt_ptr;
+	struct cmdq_pkt *pkt_ptr = NULL;
 	struct cmdq_client *cl;
 	struct gce_cmds *cmds;
 	unsigned int suspend_block_cnt = 0;
