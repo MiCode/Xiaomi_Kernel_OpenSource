@@ -30,7 +30,7 @@ void cpu_util_update(struct cgroup_subsys_state *css,
 #endif
 
 #ifdef CONFIG_MTK_SCHED_CPU_PREFER
-extern inline int valid_cpu_prefer(int task_prefer);
+extern int valid_cpu_prefer(int task_prefer);
 #endif
 
 #ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
