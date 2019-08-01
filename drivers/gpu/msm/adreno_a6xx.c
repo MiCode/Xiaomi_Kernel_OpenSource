@@ -1112,7 +1112,8 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	u32 a, b, c;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
+			!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		return 0;
 
 	/* The counters are selected in a6xx_gmu_enable_lm() */
@@ -1129,14 +1130,26 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	/*
 	 * The adjustment is the number of cycles lost to throttling, which
 	 * is calculated as a weighted average of the cycles throttled
-	 * at 15%, 50%, and 90%. The adjustment is negative because in A6XX,
+	 * at different levels. The adjustment is negative because in A6XX,
 	 * the busy count includes the throttled cycles. Therefore, we want
 	 * to remove them to prevent appearing to be busier than
 	 * we actually are.
 	 */
-	adj *= ((a * 15) + (b * 50) + (c * 90)) / 100;
+	if (adreno_is_a620(adreno_dev) || adreno_is_a650(adreno_dev))
+		/*
+		 * With the newer generations, CRC throttle from SIDs of 0x14
+		 * and above cannot be observed in power counters. Since 90%
+		 * throttle uses SID 0x16 the adjustment calculation needs
+		 * correction. The throttling is in increments of 4.2%, and the
+		 * 91.7% counter does a weighted count by the value of sid used
+		 * which are taken into consideration for the final formula.
+		 */
+		adj *= ((a * 42) + (b * 500) +
+			((((int64_t)c - a - b * 12) / 22) * 917)) / 1000;
+	else
+		adj *= ((a * 5) + (b * 50) + (c * 90)) / 100;
 
-	trace_kgsl_clock_throttling(0, a, b, c, adj);
+	trace_kgsl_clock_throttling(0, b, c, a, adj);
 
 	return adj;
 }
