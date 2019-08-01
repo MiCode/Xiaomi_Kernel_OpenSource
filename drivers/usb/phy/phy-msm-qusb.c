@@ -97,6 +97,8 @@
 
 #define QUSB2PHY_REFCLK_ENABLE		BIT(0)
 
+#define HSTX_TRIMSIZE			4
+
 static unsigned int tune1;
 module_param(tune1, uint, 0644);
 MODULE_PARM_DESC(tune1, "QUSB PHY TUNE1");
@@ -358,7 +360,6 @@ err_vdd:
 
 static void qusb_phy_get_tune2_param(struct qusb_phy *qphy)
 {
-	u8 num_of_bits;
 	u32 bit_mask = 1;
 	u8 reg_val;
 
@@ -367,22 +368,30 @@ static void qusb_phy_get_tune2_param(struct qusb_phy *qphy)
 				qphy->tune2_efuse_bit_pos);
 
 	/* get bit mask based on number of bits to use with efuse reg */
-	if (qphy->tune2_efuse_num_of_bits) {
-		num_of_bits = qphy->tune2_efuse_num_of_bits;
-		bit_mask = (bit_mask << num_of_bits) - 1;
-	}
+	bit_mask = (bit_mask << qphy->tune2_efuse_num_of_bits) - 1;
 
 	/*
 	 * Read EFUSE register having TUNE2 parameter's high nibble.
 	 * If efuse register shows value as 0x0, then use previous value
 	 * as it is. Otherwise use efuse register based value for this purpose.
 	 */
-	qphy->tune2_val = readl_relaxed(qphy->tune2_efuse_reg);
-	pr_debug("%s(): bit_mask:%d efuse based tune2 value:%d\n",
-				__func__, bit_mask, qphy->tune2_val);
+	if (qphy->tune2_efuse_num_of_bits < HSTX_TRIMSIZE) {
+		qphy->tune2_val =
+		     TUNE2_HIGH_NIBBLE_VAL(readl_relaxed(qphy->tune2_efuse_reg),
+		     qphy->tune2_efuse_bit_pos, bit_mask);
+		bit_mask =
+		     (1 << (HSTX_TRIMSIZE - qphy->tune2_efuse_num_of_bits)) - 1;
+		qphy->tune2_val |=
+		 TUNE2_HIGH_NIBBLE_VAL(readl_relaxed(qphy->tune2_efuse_reg + 4),
+				0, bit_mask) << qphy->tune2_efuse_num_of_bits;
+	} else {
+		qphy->tune2_val = readl_relaxed(qphy->tune2_efuse_reg);
+		qphy->tune2_val = TUNE2_HIGH_NIBBLE_VAL(qphy->tune2_val,
+					qphy->tune2_efuse_bit_pos, bit_mask);
+	}
 
-	qphy->tune2_val = TUNE2_HIGH_NIBBLE_VAL(qphy->tune2_val,
-				qphy->tune2_efuse_bit_pos, bit_mask);
+	pr_debug("%s(): efuse based tune2 value:%d\n",
+				__func__, qphy->tune2_val);
 
 	/* Update higher nibble of TUNE2 value for better rise/fall times */
 	if (qphy->tune2_efuse_correction && qphy->tune2_val) {
