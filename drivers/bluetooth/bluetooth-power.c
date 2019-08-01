@@ -116,6 +116,38 @@ out:
 	return rc;
 }
 
+static int bt_vreg_unvote(struct bt_power_vreg_data *vreg)
+{
+	int rc = 0;
+
+	if (!vreg)
+		return rc;
+
+	BT_PWR_DBG("vreg_unvote for : %s", vreg->name);
+
+	if (vreg->is_enabled) {
+		if (vreg->set_voltage_sup) {
+			/* Set the min voltage to 0 */
+			rc = regulator_set_voltage(vreg->reg, 0,
+					vreg->high_vol_level);
+			if (rc < 0) {
+				BT_PWR_ERR("vreg_set_vol(%s) failed rc=%d\n",
+						vreg->name, rc);
+				goto out;
+			}
+		}
+		if (vreg->load_uA >= 0) {
+			rc = regulator_set_load(vreg->reg, 0);
+			if (rc < 0) {
+				BT_PWR_ERR("vreg_set_mode(%s) failed rc=%d\n",
+						vreg->name, rc);
+			}
+		}
+	}
+out:
+	return rc;
+}
+
 static int bt_vreg_disable(struct bt_power_vreg_data *vreg)
 {
 	int rc = 0;
@@ -254,7 +286,8 @@ static int bluetooth_power(int on)
 
 	BT_PWR_DBG("on: %d", on);
 
-	if (on) {
+	if (on == 1) {
+		// Power On
 		if (bt_power_pdata->bt_vdd_io) {
 			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_io);
 			if (rc < 0) {
@@ -349,7 +382,8 @@ static int bluetooth_power(int on)
 				goto gpio_fail;
 			}
 		}
-	} else {
+	} else if (on == 0) {
+		// Power Off
 		if (bt_power_pdata->bt_gpio_sys_rst > 0)
 			bt_configure_gpios(on);
 gpio_fail:
@@ -390,6 +424,19 @@ vdd_core_fail:
 vdd_xtal_fail:
 		if (bt_power_pdata->bt_vdd_io)
 			bt_vreg_disable(bt_power_pdata->bt_vdd_io);
+	} else if (on == 2) {
+		/* Retention mode */
+		if (bt_power_pdata->bt_vdd_rfa2)
+			bt_vreg_unvote(bt_power_pdata->bt_vdd_rfa2);
+		if (bt_power_pdata->bt_vdd_rfa1)
+			bt_vreg_unvote(bt_power_pdata->bt_vdd_rfa1);
+		if (bt_power_pdata->bt_vdd_dig)
+			bt_vreg_unvote(bt_power_pdata->bt_vdd_dig);
+		if (bt_power_pdata->bt_vdd_aon)
+			bt_vreg_unvote(bt_power_pdata->bt_vdd_aon);
+	} else {
+		BT_PWR_ERR("Invalid power mode: %d", on);
+		rc = -1;
 	}
 out:
 	return rc;
