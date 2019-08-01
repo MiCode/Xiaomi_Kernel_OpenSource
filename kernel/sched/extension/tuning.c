@@ -120,7 +120,7 @@ int uclamp_max_for_perf_idx(int idx, int max_value)
 	if (max_value > SCHED_CAPACITY_SCALE || max_value < 0)
 		return -ERANGE;
 
-	ret = schedtune_css_uclamp(idx, UCLAMP_MAX, &css, &uc_se_min);
+	ret = schedtune_css_uclamp(idx, UCLAMP_MAX, &css, &uc_se_max);
 	if (ret)
 		return -EINVAL;
 	if (uc_se_max->value == max_value)
