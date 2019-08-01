@@ -534,6 +534,7 @@
 		#size-cells = <0>;
 		#io-channel-cells = <1>;
 		qcom,pmic-revid = <&pm660_revid>;
+		qcom,batt-id-delay-ms = <80>;
 	};
 
 	pm660_fg: qpnp,fg {
