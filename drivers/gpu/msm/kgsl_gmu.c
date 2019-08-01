@@ -1122,20 +1122,18 @@ struct mbox_message {
 	void *msg;
 };
 
-static void gmu_aop_send_acd_state(struct kgsl_device *device)
+static void gmu_aop_send_acd_state(struct kgsl_device *device, bool flag)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct mbox_message msg;
 	char msg_buf[33];
-	bool state = test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
 	int ret;
 
 	if (!gmu->mailbox.client)
 		return;
 
 	msg.len = scnprintf(msg_buf, sizeof(msg_buf),
-			"{class: gpu, res: acd, value: %d}", state);
+			"{class: gpu, res: acd, value: %d}", flag);
 	msg.msg = msg_buf;
 
 	ret = mbox_send_message(gmu->mailbox.channel, &msg);
@@ -1204,10 +1202,15 @@ static int gmu_acd_set(struct kgsl_device *device, unsigned int val)
 
 	/* Power down the GPU before enabling or disabling ACD */
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	if (val)
+
+	if (val) {
 		set_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
-	else
+		gmu_aop_send_acd_state(device, true);
+	} else {
 		clear_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+		gmu_aop_send_acd_state(device, false);
+	}
+
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 
 	mutex_unlock(&device->mutex);
@@ -1574,10 +1577,11 @@ static int gmu_start(struct kgsl_device *device)
 
 	switch (device->state) {
 	case KGSL_STATE_INIT:
+		gmu_aop_send_acd_state(device, test_bit(ADRENO_ACD_CTRL,
+					&adreno_dev->pwrctrl_flag));
+
 	case KGSL_STATE_SUSPEND:
 		WARN_ON(test_bit(GMU_CLK_ON, &device->gmu_core.flags));
-
-		gmu_aop_send_acd_state(device);
 
 		gmu_enable_gdsc(gmu);
 		gmu_enable_clks(device);
@@ -1607,8 +1611,6 @@ static int gmu_start(struct kgsl_device *device)
 	case KGSL_STATE_SLUMBER:
 		WARN_ON(test_bit(GMU_CLK_ON, &device->gmu_core.flags));
 
-		gmu_aop_send_acd_state(device);
-
 		gmu_enable_gdsc(gmu);
 		gmu_enable_clks(device);
 		gmu_dev_ops->irq_enable(device);
@@ -1627,8 +1629,6 @@ static int gmu_start(struct kgsl_device *device)
 
 	case KGSL_STATE_RESET:
 		gmu_suspend(device);
-
-		gmu_aop_send_acd_state(device);
 
 		gmu_enable_gdsc(gmu);
 		gmu_enable_clks(device);
