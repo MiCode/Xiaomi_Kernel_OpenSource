@@ -21,6 +21,8 @@
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data);
 int mtk_dvfsrc_query_info(const struct device *dev, u32 cmd, int *data);
+int dvfsrc_get_required_opp_performance_state(struct device_node *np,
+	int index);
 #else
 static inline void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd,
 						u64 data)
@@ -28,6 +30,12 @@ static inline void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd,
 static inline int mtk_dvfsrc_query_info(const struct device *dev, u32 cmd,
 						int *data)
 { return -EINVAL; }
+
+static inline int
+dvfsrc_get_required_opp_performance_state(struct device_node *np, int index)
+{
+	return -ENOTSUPP;
+}
 
 #endif /* CONFIG_MTK_DVFSRC */
 

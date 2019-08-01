@@ -15,6 +15,8 @@
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include "mtk-scpsys.h"
 
+#define DVFSRC_OPP_PSTATE_QUERY 1
+
 #define DVFSRC_IDLE		0x00
 #define DVFSRC_GET_TARGET_LEVEL(x)	(((x) >> 0) & 0x0000ffff)
 #define DVFSRC_GET_CURRENT_LEVEL(x)	(((x) >> 16) & 0x0000ffff)
@@ -70,6 +72,7 @@ struct mtk_dvfsrc {
 
 static DEFINE_MUTEX(pstate_lock);
 static DEFINE_SPINLOCK(force_req_lock);
+
 static bool is_dvfsrc_init_complete;
 
 static u32 dvfsrc_read(struct mtk_dvfsrc *dvfs, u32 offset)
@@ -459,6 +462,38 @@ out:
 	mutex_unlock(&pstate_lock);
 	return 0;
 }
+
+#if DVFSRC_OPP_PSTATE_QUERY
+static struct device_node *dvfsrc_parse_required_opp(struct device_node *np,
+	 int index)
+{
+	struct device_node *required_np;
+
+	required_np = of_parse_phandle(np, "required-opps", index);
+	if (unlikely(!required_np)) {
+		pr_notice("%s: Unable to parse required-opps: %pOF, index: %d\n",
+		       __func__, np, index);
+	}
+
+	return required_np;
+}
+
+int dvfsrc_get_required_opp_performance_state(struct device_node *np, int index)
+{
+	struct device_node *required_np;
+	int pstate = -EINVAL;
+
+	required_np = dvfsrc_parse_required_opp(np, index);
+	if (!required_np)
+		return -EINVAL;
+
+	of_property_read_u32(required_np, "opp-level", &pstate);
+	of_node_put(required_np);
+
+	return pstate;
+}
+EXPORT_SYMBOL_GPL(dvfsrc_get_required_opp_performance_state);
+#endif
 
 static void pstate_notifier_register(struct mtk_dvfsrc *dvfsrc)
 {
