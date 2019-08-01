@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -360,6 +360,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pm8953_adc_tm 0x32>;
 		thermal-governor = "user_space";
+		wake-capable-sensor;
 
 		trips {
 			active-config0 {
@@ -375,6 +376,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pm8953_vadc 0x3c>;
 		thermal-governor = "user_space";
+		wake-capable-sensor;
 
 		trips {
 			active-config0 {
@@ -389,6 +391,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&pm8953_tz>;
+		wake-capable-sensor;
 
 		trips {
 			pm8953_trip0: pm8953-trip0 {
