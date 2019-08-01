@@ -855,6 +855,7 @@ static void ipi_cpu_stop(unsigned int cpu, struct pt_regs *regs)
 	}
 	set_cpu_online(cpu, false);
 
+	flush_cache_all();
 	local_daif_mask();
 	sdei_mask_local_cpu();
 
