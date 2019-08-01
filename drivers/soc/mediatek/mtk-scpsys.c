@@ -765,7 +765,17 @@ static int mtk_pd_set_performance(struct generic_pm_domain *genpd,
 static unsigned int mtk_pd_get_performance(struct generic_pm_domain *genpd,
 					   struct dev_pm_opp *opp)
 {
-	return dev_pm_opp_get_level(opp);
+	struct device_node *np;
+	unsigned int val = 0;
+
+	np = dev_pm_opp_get_of_node(opp);
+
+	if (np) {
+		of_property_read_u32(np, "opp-level", &val);
+		of_node_put(np);
+	}
+
+	return val;
 }
 
 static struct scp *init_scp(struct platform_device *pdev,
