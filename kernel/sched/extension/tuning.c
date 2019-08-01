@@ -159,13 +159,14 @@ int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type)
 		return -EINVAL;
 
 	rcu_read_lock();
-	retval = -ESRCH;
 	p = find_task_by_vpid(pid);
 	if (p != NULL) {
 		raw_spin_lock_irqsave(&p->pi_lock, flags);
 		p->cpu_prefer = prefer_type;
 		raw_spin_unlock_irqrestore(&p->pi_lock, flags);
 		trace_sched_set_cpuprefer(p);
+	} else {
+		retval = -ESRCH;
 	}
 	rcu_read_unlock();
 
