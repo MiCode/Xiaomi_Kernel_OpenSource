@@ -23,7 +23,7 @@ static struct hrtimer hrt1;
 static int usrtch_dbg;
 static int  touch_boost_value;
 static int touch_boost_opp; /* boost freq of touch boost */
-static struct ppm_limit_data *target_freq, *reset_freq;
+static struct cpu_ctrl_data *target_freq, *reset_freq;
 static int touch_boost_duration;
 static int prev_boost_pid;
 static long long active_time;
@@ -281,9 +281,9 @@ int init_utch(struct proc_dir_entry *parent)
 	active_time = TOUCH_FSTB_ACTIVE_US;
 
 	target_freq = kcalloc(perfmgr_clusters,
-			sizeof(struct ppm_limit_data), GFP_KERNEL);
+			sizeof(struct cpu_ctrl_data), GFP_KERNEL);
 	reset_freq = kcalloc(perfmgr_clusters,
-			sizeof(struct ppm_limit_data), GFP_KERNEL);
+			sizeof(struct cpu_ctrl_data), GFP_KERNEL);
 
 	for (i = 0; i < perfmgr_clusters; i++) {
 		target_freq[i].min =

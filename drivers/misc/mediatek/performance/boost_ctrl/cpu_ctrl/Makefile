@@ -11,13 +11,6 @@
 # GNU General Public License for more details.
 #
 
-
-obj-y += boostctrl_main.o
-
-obj-y += dram_ctrl/
-
-obj-$(CONFIG_MTK_PPM) += cpu_ctrl/
-
-obj-y += eas_ctrl/
-
-obj-y += topo_ctrl/
+obj-y += cpu_ctrl.o
+obj-$(CONFIG_MTK_CPU_CTRL_CFP) += cpu_ctrl_cfp.o
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/

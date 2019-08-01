@@ -54,7 +54,7 @@ int ktch_get_target_freq(void)
 
 void set_freq(int enable, int core, int freq)
 {
-	struct ppm_limit_data freq_to_set[perfmgr_clusters];
+	struct cpu_ctrl_data freq_to_set[perfmgr_clusters];
 	int i, targetclu;
 
 	targetclu = get_min_clstr_cap();
