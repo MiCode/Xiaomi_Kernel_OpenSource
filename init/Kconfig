@@ -16,6 +16,9 @@ config DEFCONFIG_LIST
 	default "$ARCH_DEFCONFIG"
 	default "arch/$ARCH/defconfig"
 
+config TOOLS_SUPPORT_RELR
+	bool "Declare tool support for RELR"
+
 config CONSTRUCTORS
 	bool
 	depends on !UML
