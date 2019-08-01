@@ -2535,6 +2535,31 @@
 				<&apps_smmu 0x102f 0x0>,
 				<&apps_smmu 0x1030 0x1>;
 		};
+
+		btfmslim_codec: wcn3990 {
+			compatible = "qcom,btfmslim_slave";
+			elemental-addr = [00 01 20 02 17 02];
+			qcom,btfm-slim-ifd = "btfmslim_slave_ifd";
+			qcom,btfm-slim-ifd-elemental-addr = [00 00 20 02 17 02];
+		};
+	};
+
+	bluetooth: bt_wcn3990 {
+		compatible = "qca,wcn3990";
+		qca,bt-vdd-io-supply = <&pm6150_l10>; /* IO */
+		qca,bt-vdd-core-supply = <&pm6150l_l2>; /* RFA */
+		qca,bt-vdd-pa-supply = <&pm6150l_l10>;  /* CH0 */
+		qca,bt-vdd-xtal-supply = <&pm6150l_l1>;/* X0 */
+
+		qca,bt-vdd-io-voltage-level = <1721000 1829000>;
+		qca,bt-vdd-core-voltage-level = <1200000 1350000>;
+		qca,bt-vdd-pa-voltage-level = <3300000 3400000>;
+		qca,bt-vdd-xtal-voltage-level = <1620000 1980000>;
+
+		qca,bt-vdd-io-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-xtal-current-level = <1>; /* LPM/PFM */
 	};
 
 	keepalive_opp_table: keepalive-opp-table {
@@ -2639,6 +2664,10 @@
 };
 
 &qupv3_se8_2uart {
+	status = "ok";
+};
+
+&qupv3_se3_4uart {
 	status = "ok";
 };
 
