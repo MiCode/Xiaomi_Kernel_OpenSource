@@ -70,7 +70,7 @@ config MTK_SCHED_BIG_TASK_MIGRATE
 
 config MTK_SCHED_TURNING_POINT
 	bool "mtk turning point"
-	depends on MTK_UNIFY_POWER
+	depends on MTK_SCHED_EXTENSION && MTK_UNIFY_POWER
 	help
 	  Mediatek turning point for power efficiency
 	  When the power efficiency of little core high frequency is
