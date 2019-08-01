@@ -3100,11 +3100,14 @@ static int ipa3_odu_rx_pyld_hdlr(struct sk_buff *rx_skb,
 static int ipa3_odl_dpl_rx_pyld_hdlr(struct sk_buff *rx_skb,
 	struct ipa3_sys_context *sys)
 {
-	if (WARN(!sys->ep->client_notify, "sys->ep->client_notify is NULL\n"))
+	if (WARN(!sys->ep->client_notify, "sys->ep->client_notify is NULL\n")) {
 		dev_kfree_skb_any(rx_skb);
-	else
+	} else {
 		sys->ep->client_notify(sys->ep->priv, IPA_RECEIVE,
 			(unsigned long)(rx_skb));
+		/*Recycle the SKB before reusing it*/
+		ipa3_skb_recycle(rx_skb);
+	}
 
 	return 0;
 }
