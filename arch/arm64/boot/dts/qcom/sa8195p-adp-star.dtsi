@@ -55,3 +55,35 @@
 
 	status = "ok";
 };
+
+&pil_lpass {
+	status = "ok";
+};
+
+&pil_ssc {
+	status = "disabled";
+};
+
+&pil_spss {
+	status = "ok";
+};
+
+&pil_turing {
+	status = "ok";
+};
+
+&pil_venus {
+	status = "ok";
+};
+
+&pil_npu {
+	status = "ok";
+};
+
+&glink_modem {
+	status = "disabled";
+};
+
+&ssc_sensors {
+	status = "disabled";
+};
