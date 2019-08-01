@@ -11,6 +11,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
+#include <linux/soc/mediatek/mtk_dvfsrc.h>
 
 struct mtk_dram_ctrl {
 	struct device *dev;
@@ -104,7 +105,7 @@ static int mtk_dram_ctrl_probe(struct platform_device *pdev)
 
 		for (i = 0; i < dram_ctrl->num_perf; i++) {
 			dram_ctrl->perfs[i] =
-				of_get_required_opp_performance_state(node, i);
+				dvfsrc_get_required_opp_performance_state(node, i);
 		}
 	} else
 		dram_ctrl->num_perf = 0;

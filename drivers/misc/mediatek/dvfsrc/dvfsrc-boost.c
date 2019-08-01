@@ -8,6 +8,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_opp.h>
+#include <linux/soc/mediatek/mtk_dvfsrc.h>
 
 struct mtk_dvfsrc_boost {
 	struct device *dev;
@@ -54,7 +55,8 @@ static int mtk_dvfsrc_boost_probe(struct platform_device *pdev)
 	if (!dramboost)
 		return -ENOMEM;
 
-	dramboost->perf_state = of_get_required_opp_performance_state(node, 0);
+	dramboost->perf_state =
+		dvfsrc_get_required_opp_performance_state(node, 0);
 
 	if (dramboost->perf_state < 0)
 		return -EINVAL;

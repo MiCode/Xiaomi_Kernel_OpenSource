@@ -33,7 +33,7 @@
 
 #include <linux/pm_domain.h>
 #include <linux/pm_opp.h>
-
+#include <linux/soc/mediatek/mtk_dvfsrc.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include "mtk_cm_mgr_mt6779.h"
@@ -250,7 +250,7 @@ static int mt6779_cm_mgr_probe(struct platform_device *pdev)
 
 		for (i = 0; i < cm_mgr_num_perf; i++) {
 			cm_mgr_perfs[i] =
-				of_get_required_opp_performance_state(node, i);
+				dvfsrc_get_required_opp_performance_state(node, i);
 		}
 		cm_mgr_num_array = cm_mgr_num_perf - 2;
 	} else

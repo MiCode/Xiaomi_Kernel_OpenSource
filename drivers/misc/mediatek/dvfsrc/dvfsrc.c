@@ -14,6 +14,7 @@
 #include <linux/pm_domain.h>
 #include <linux/pm_opp.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <linux/soc/mediatek/mtk_dvfsrc.h>
 
 #include "dvfsrc.h"
 #include "dvfsrc-opp.h"
@@ -268,7 +269,7 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 
 		for (i = 0; i < dvfsrc->num_perf; i++) {
 			dvfsrc->perfs[i] =
-				of_get_required_opp_performance_state(np, i);
+				dvfsrc_get_required_opp_performance_state(np, i);
 		}
 	} else {
 		dvfsrc->num_perf = 0;
