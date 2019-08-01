@@ -687,6 +687,9 @@ static int shd_conn_set_info_blob(struct drm_connector *connector,
 	sde_kms_info_add_keyint(info, "max_blendstages",
 				shd_display->stage_range.size);
 
+	sde_kms_info_add_keystr(info, "display type",
+				shd_display->display_type);
+
 	return 0;
 }
 
@@ -1119,6 +1122,11 @@ static int shd_parse_display(struct shd_display *display)
 		display->roi.w, display->roi.h,
 		display->stage_range.start,
 		display->stage_range.size);
+
+	display->display_type = of_get_property(of_node,
+		"qcom,display-type", NULL);
+	if (!display->display_type)
+		display->display_type = "unknown";
 
 error:
 	return rc;
