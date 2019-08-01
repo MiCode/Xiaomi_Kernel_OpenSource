@@ -1931,7 +1931,7 @@ static ssize_t mt6779_spm_res_rq_write(char *FromUserBuf, size_t sz, void *priv)
 					    MT_LPM_SMC_ACT_SET,
 					    0, parm);
 		return sz;
-	} else if (sscanf(FromUserBuf, "%127s %x", cmd) == 1) {
+	} else if (sscanf(FromUserBuf, "%127s", cmd) == 1) {
 		if (!strcmp(cmd, "release"))
 			mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RES_REQ,
 					    MT_LPM_SMC_ACT_CLR,

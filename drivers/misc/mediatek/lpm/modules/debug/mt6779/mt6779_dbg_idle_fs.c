@@ -67,7 +67,7 @@ static ssize_t mt6779_idle_dram_read(char *ToUserBuf,
 	block = mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_COND_BLOCK,
 				    MT_LPM_SMC_ACT_GET,
 				    MT_RM_CONSTRAINT_ID_DRAM, 0);
-	mtk_idle_log("enable=%d. count=%d, is_cond_check = %d\n\n",
+	mtk_idle_log("enable=%lu. count=%lu, is_cond_check = %lu\n\n",
 		mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RC_SWITCH,
 				    MT_LPM_SMC_ACT_GET,
 				    MT_RM_CONSTRAINT_ID_DRAM, 0)
@@ -82,7 +82,7 @@ static ssize_t mt6779_idle_dram_read(char *ToUserBuf,
 	mtk_idle_log("is_cond_block = 0x%08x\n", block);
 	for (i = 0, b = block >> SPM_COND_BLOCKED_CG_IDX;
 	     i < PLAT_SPM_COND_MAX; i++)
-		mtk_idle_log("%8s = 0x%08x\n", mt6779_spm_cond_cg_str[i],
+		mtk_idle_log("%8s = 0x%08lx\n", mt6779_spm_cond_cg_str[i],
 				((b >> i) & 0x1) ?
 		    mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_DETAIL,
 					MT_LPM_SMC_ACT_GET,
@@ -137,7 +137,7 @@ static ssize_t mt6779_idle_syspll_read(char *ToUserBuf,
 	block = mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_COND_BLOCK,
 				    MT_LPM_SMC_ACT_GET,
 				    MT_RM_CONSTRAINT_ID_SYSPLL, 0);
-	mtk_idle_log("enable=%d. count=%d, is_cond_check = %d\n\n",
+	mtk_idle_log("enable=%lu. count=%lu, is_cond_check = %lu\n\n",
 		mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RC_SWITCH,
 				    MT_LPM_SMC_ACT_GET,
 				    MT_RM_CONSTRAINT_ID_SYSPLL, 0)
@@ -152,7 +152,7 @@ static ssize_t mt6779_idle_syspll_read(char *ToUserBuf,
 	mtk_idle_log("is_cond_block = 0x%08x\n", block);
 	for (i = 0, b = block >> SPM_COND_BLOCKED_CG_IDX;
 	     i < PLAT_SPM_COND_MAX; i++)
-		mtk_idle_log("%8s = 0x%08x\n", mt6779_spm_cond_cg_str[i],
+		mtk_idle_log("%8s = 0x%08lx\n", mt6779_spm_cond_cg_str[i],
 				((b >> i) & 0x1) ?
 		    mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_DETAIL,
 					MT_LPM_SMC_ACT_GET,
@@ -207,7 +207,7 @@ static ssize_t mt6779_idle_bus26m_read(char *ToUserBuf,
 	block = mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_COND_BLOCK,
 				    MT_LPM_SMC_ACT_GET,
 				    MT_RM_CONSTRAINT_ID_BUS26M, 0);
-	mtk_idle_log("enable=%d. count=%d, is_cond_check = %d\n\n",
+	mtk_idle_log("enable=%lu. count=%lu, is_cond_check = %lu\n\n",
 		mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RC_SWITCH,
 				    MT_LPM_SMC_ACT_GET,
 				    MT_RM_CONSTRAINT_ID_BUS26M, 0)
@@ -222,7 +222,7 @@ static ssize_t mt6779_idle_bus26m_read(char *ToUserBuf,
 	mtk_idle_log("is_cond_block = 0x%08X\n", block);
 	for (i = 0, b = block >> SPM_COND_BLOCKED_CG_IDX;
 	     i < PLAT_SPM_COND_MAX; i++)
-		mtk_idle_log("%8s = 0x%08X\n", mt6779_spm_cond_cg_str[i],
+		mtk_idle_log("%8s = 0x%08lX\n", mt6779_spm_cond_cg_str[i],
 				((b >> i) & 0x1) ?
 		    mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_DETAIL,
 					MT_LPM_SMC_ACT_GET,
