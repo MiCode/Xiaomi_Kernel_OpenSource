@@ -113,7 +113,7 @@ config QCOM_IOMMU_IO_PGTABLE_QUIRKS
 	  saved in the system cache, and disabling the write-allocate
 	  hint when saving page tables in the system cache.
 
-	  If unsure, say Y here.
+	  If unsure, say N here.
 
 endmenu
 
