@@ -403,6 +403,8 @@
 		qcom,use-extcon;
 		qcom,pd-not-supported;
 
+		dpdm-supply = <&usb_otg>;
+
 		qcom,chgr@1000 {
 			reg = <0x1000 0x100>;
 			interrupts =
