@@ -266,12 +266,54 @@ static int ufs_mtk_link_startup_notify(struct ufs_hba *hba,
 	return ret;
 }
 
+static int ufs_mtk_refclk_ctrl(struct ufs_hba *hba, bool on)
+{
+	u32 value;
+	int retry;
+
+	/*
+	 * REG_UFS_ADDR_XOUFS_ST[0] is xoufs_req_s
+	 * REG_UFS_ADDR_XOUFS_ST[1] is xoufs_ack_s
+	 * xoufs_req_s is used for XOUFS Clock request to SPM
+	 * SW sets xoufs_ack_s to trigger Clock Request for XOUFS, and
+	 * check xoufs_ack_s set for clock avialable.
+	 * SW clears xoufs_ack_s to trigger Clock Release for XOUFS, and
+	 * check xoufs_ack_s clear for clock off.
+	 */
+
+	if (on)
+		ufshcd_writel(hba, XOUFS_REQUEST, REG_UFS_ADDR_XOUFS_ST);
+	else
+		ufshcd_writel(hba, XOUFS_RELEASE, REG_UFS_ADDR_XOUFS_ST);
+
+	retry = 3; /* 2.4ms wosrt case */
+	do {
+		value = ufshcd_readl(hba, REG_UFS_ADDR_XOUFS_ST);
+
+		/* Bit[1] ack should equal to Bit[0] req */
+		if (((value & XOUFS_ACK) >> 1) == (value & XOUFS_REQUEST))
+			break;
+
+		mdelay(1);
+		if (retry) {
+			retry--;
+		} else {
+			dev_err(hba->dev, "ref-clk ack failed\n");
+			return -EIO;
+		}
+	} while (1);
+
+	return 0;
+}
+
 static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
-	if (ufshcd_is_link_hibern8(hba))
+	if (ufshcd_is_link_hibern8(hba)) {
 		phy_power_off(host->mphy);
+		ufs_mtk_refclk_ctrl(hba, false);
+	}
 
 	return 0;
 }
@@ -280,8 +322,10 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
-	if (ufshcd_is_link_hibern8(hba))
+	if (ufshcd_is_link_hibern8(hba)) {
+		ufs_mtk_refclk_ctrl(hba, true);
 		phy_power_on(host->mphy);
+	}
 
 	return 0;
 }

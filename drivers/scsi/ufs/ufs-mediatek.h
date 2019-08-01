@@ -7,6 +7,16 @@
 #define _UFS_MEDIATEK_H
 
 /*
+ * Vendor specific UFSHCI Registers
+ */
+#define REG_UFS_ADDR_XOUFS_ST       0x144
+
+/* UFS_ADDR_XOUFS_ST 0x144 */
+#define XOUFS_RELEASE               0x0
+#define XOUFS_REQUEST               0x1
+#define XOUFS_ACK                   0x2
+
+/*
  * Vendor specific pre-defined parameters
  */
 #define UFS_MTK_LIMIT_NUM_LANES_RX  1
