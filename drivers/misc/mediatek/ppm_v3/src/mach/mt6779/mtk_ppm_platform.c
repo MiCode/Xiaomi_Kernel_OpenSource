@@ -11,15 +11,14 @@
 #include <linux/cpufreq.h>
 #include <linux/cpumask.h>
 #include <linux/notifier.h>
+/* #include <linux/regulator/consumer.h> */
+/* #include <linux/device.h> */
 
 #include "mtk_ppm_platform.h"
 #include "mtk_ppm_internal.h"
 
 
-unsigned int __attribute__((weak)) mt_cpufreq_get_cur_volt(unsigned int id)
-{
-	return 0;
-}
+
 int __attribute__((weak)) mt_spower_get_leakage(
 	int dev, unsigned int voltage, int degree)
 {
@@ -39,6 +38,8 @@ int __attribute__((weak)) get_immediate_cpuB_wrap(void)
 
 struct cpufreq_frequency_table mtk_dvfs_tbl_cl0[DVFS_OPP_NUM];
 struct cpufreq_frequency_table mtk_dvfs_tbl_cl1[DVFS_OPP_NUM];
+/* static struct device *cpu_dev[NR_PPM_CLUSTERS]; */
+/* static struct regulator *proc_reg[NR_PPM_CLUSTERS]; */
 
 /* APIs */
 void mt_ppm_set_dvfs_table(unsigned int cpu,
@@ -91,6 +92,42 @@ void mt_ppm_set_dvfs_table(unsigned int cpu,
 	FUNC_EXIT(FUNC_LV_API);
 }
 
+unsigned int ppm_get_cur_freq(enum ppm_cluster cluster)
+{
+	if (cluster >= NR_PPM_CLUSTERS)
+		return 0;
+
+	return ppm_main_info.cluster_info[cluster].freq_khz;
+}
+
+static unsigned int ppm_get_cur_volt(enum ppm_cluster cluster)
+{
+#if PPM_TODO
+	int volt;
+
+	if (cluster >= NR_PPM_CLUSTERS)
+		return 0;
+
+	if (cpu_dev[cluster] == NULL || proc_reg[cluster] == NULL)
+		return 0;
+
+	volt = regulator_get_voltage(proc_reg[cluster]);
+	if (volt < 0) {
+		ppm_err("%s: invalid cl %d Vproc value: %d\n",
+			__func__, cluster, volt);
+		return ppm_main_info.cluster_info[cluster].volt_uv;
+	}
+
+	ppm_main_info.cluster_info[cluster].volt_uv = volt;
+	ppm_warn("cl %d volt = %d uV\n", cluster,
+		ppm_main_info.cluster_info[cluster].volt_uv);
+
+	return volt;
+#else
+	return 1000;
+#endif
+}
+
 static void ppm_get_cluster_status(struct ppm_cluster_status *cl_status)
 {
 	struct cpumask cluster_cpu, online_cpu;
@@ -101,11 +138,10 @@ static void ppm_get_cluster_status(struct ppm_cluster_status *cl_status)
 		cpumask_and(&online_cpu, &cluster_cpu, cpu_online_mask);
 
 		cl_status[i].core_num = cpumask_weight(&online_cpu);
-		cl_status[i].volt = mt_cpufreq_get_cur_volt(i) / 100;
+		cl_status[i].volt = ppm_get_cur_volt(i) / 1000;
 		cl_status[i].freq_idx =
 			ppm_main_freq_to_idx(i,
-					mt_cpufreq_get_cur_phy_freq_no_lock(i),
-					CPUFREQ_RELATION_L);
+				ppm_get_cur_freq(i), CPUFREQ_RELATION_L);
 	}
 }
 
@@ -133,7 +169,10 @@ static int ppm_cpu_freq_callback(struct notifier_block *nb,
 
 	switch (val) {
 	case CPUFREQ_POSTCHANGE:
-		ppm_dbg(DLPT, "%s: POSTCHANGE!, cpu = %d\n", __func__, cpu);
+		ppm_main_info.cluster_info[i].freq_khz = freq->new;
+		ppm_dbg(DLPT, "%s: POSTCHANGE!, cpu = %d, freq = %dKHz\n",
+			__func__, cpu,
+			ppm_main_info.cluster_info[i].freq_khz);
 		ppm_get_cluster_status(cl_status);
 		mt_ppm_dlpt_kick_PBM(cl_status, ppm_main_info.cluster_num);
 		break;
@@ -179,6 +218,26 @@ static int ppm_get_spower_devid(enum ppm_cluster cluster)
 
 int ppm_platform_init(void)
 {
+#if PPM_TODO
+	unsigned int cpu;
+	int i;
+
+	for_each_ppm_clusters(i) {
+		cpu = ppm_main_info.cluster_info[i].cpu_id;
+		cpu_dev[i] = get_cpu_device(cpu);
+		if (!cpu_dev[i]) {
+			ppm_err("failed to get cpu%d device\n", cpu);
+			return 0;
+		}
+
+		proc_reg[i] = regulator_get_exclusive(cpu_dev[i], "proc");
+		if (IS_ERR(proc_reg[i])) {
+			ppm_err("failed to get cpu%d proc regulator\n", cpu);
+			return 0;
+		}
+	}
+#endif
+
 #ifdef CONFIG_CPU_FREQ
 	cpufreq_register_notifier(
 		&ppm_cpu_freq_notifier, CPUFREQ_TRANSITION_NOTIFIER);
@@ -332,7 +391,7 @@ unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
 #else
 			temp = 85;
 #endif
-			volt = mt_cpufreq_get_cur_volt(i) / 100;
+			volt = ppm_get_cur_volt(i) / 1000;
 			dev_id = ppm_get_spower_devid((enum ppm_cluster)i);
 			if (dev_id < 0)
 				return 0;
@@ -345,7 +404,7 @@ unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
 #else
 		temp = 85;
 #endif
-		volt = mt_cpufreq_get_cur_volt(cluster) / 100;
+		volt = ppm_get_cur_volt((enum ppm_cluster)cluster) / 1000;
 		dev_id = ppm_get_spower_devid((enum ppm_cluster)cluster);
 		if (dev_id < 0)
 			return 0;

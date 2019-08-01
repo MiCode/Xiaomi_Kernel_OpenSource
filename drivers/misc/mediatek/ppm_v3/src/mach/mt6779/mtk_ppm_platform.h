@@ -129,13 +129,7 @@ extern void ppm_cobra_lookup_get_result(
 extern void mt_ppm_set_dvfs_table(unsigned int cpu,
 	struct cpufreq_frequency_table *tbl,
 	unsigned int num, enum dvfs_table_type type);
-
-
-unsigned int __attribute__((weak))
-	mt_cpufreq_get_cur_phy_freq_no_lock(unsigned int id)
-{
-	return 0;
-}
+extern unsigned int ppm_get_cur_freq(enum ppm_cluster cluster);
 
 static inline void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
 {

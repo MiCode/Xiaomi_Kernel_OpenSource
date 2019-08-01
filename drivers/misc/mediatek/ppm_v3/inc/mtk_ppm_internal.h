@@ -25,6 +25,10 @@ extern "C" {
 #include "mtk_ppm_platform.h"
 #include "mtk_ppm_ipi.h"
 
+#ifdef CONFIG_MTK_UNIFY_POWER
+#include "mtk_upower.h"
+#endif
+
 /*==============================================================*/
 /* Definitions                                                  */
 /*==============================================================*/
@@ -214,6 +218,8 @@ struct ppm_cluster_info {
 	unsigned int cpu_id;	/* cpu id of the dvfs policy owner */
 	unsigned int dvfs_opp_num;
 	unsigned int max_freq_except_userlimit;
+	unsigned int freq_khz;
+	/* unsigned int volt_uv; */
 	struct cpufreq_frequency_table *dvfs_tbl;	/* from DVFS driver */
 	int	doe_max;
 	int	doe_min;

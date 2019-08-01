@@ -244,10 +244,8 @@ void ppm_cobra_update_limit(void *user_req)
 	int curr_power = 0;
 	struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS];
 
-	/* skip if DVFS is not ready (we cannot get current freq...) */
 	/* skip if COBRA is not init yet */
-	if (!ppm_main_info.client_info[PPM_CLIENT_DVFS].limit_cb ||
-		!cobra_init_done)
+	if (!cobra_init_done)
 		return;
 
 	if (!user_req)
@@ -275,7 +273,7 @@ void ppm_cobra_update_limit(void *user_req)
 			cl_status[i].freq_idx = -1;
 		else
 			cl_status[i].freq_idx = ppm_main_freq_to_idx(i,
-				mt_cpufreq_get_cur_phy_freq_no_lock(i),
+				ppm_get_cur_freq(i),
 				CPUFREQ_RELATION_L);
 
 		ppm_ver("[%d] core = %d, freq_idx = %d\n",

@@ -100,7 +100,7 @@ unsigned int mt_ppm_thermal_get_cur_power(void)
 		else
 			cluster_status[i].freq_idx = ppm_main_freq_to_idx(
 					i,
-					mt_cpufreq_get_cur_phy_freq_no_lock(i),
+					ppm_get_cur_freq(i),
 					CPUFREQ_RELATION_L);
 
 		ppm_ver("[%d] core = %d, freq_idx = %d\n",
