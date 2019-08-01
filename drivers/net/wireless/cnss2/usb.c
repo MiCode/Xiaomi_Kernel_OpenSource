@@ -52,6 +52,8 @@ int cnss_usb_dev_powerup(struct cnss_plat_data *plat_priv)
 	switch (plat_priv->device_id) {
 	case QCN7605_COMPOSITE_DEVICE_ID:
 	case QCN7605_STANDALONE_DEVICE_ID:
+	case QCN7605_VER20_STANDALONE_DEVICE_ID:
+	case QCN7605_VER20_COMPOSITE_DEVICE_ID:
 		ret = cnss_qcn7605_usb_powerup(plat_priv);
 		break;
 	default:

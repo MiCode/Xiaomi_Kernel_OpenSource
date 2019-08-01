@@ -199,17 +199,20 @@ static int drm_helper_probe_single_connector_modes_merge_bits(struct drm_connect
 		goto prune;
 	}
 
-#ifdef CONFIG_DRM_LOAD_EDID_FIRMWARE
-	count = drm_load_edid_firmware(connector);
-	if (count == 0)
-#endif
-	{
-		if (connector->override_edid) {
-			struct edid *edid = (struct edid *) connector->edid_blob_ptr->data;
+	if (connector->override_edid) {
+		struct edid *edid = (struct edid *) connector->edid_blob_ptr->data;
 
+		count = drm_add_edid_modes(connector, edid);
+		drm_edid_to_eld(connector, edid);
+	} else {
+		struct edid *edid = drm_load_edid_firmware(connector);
+		if (!IS_ERR_OR_NULL(edid)) {
+			drm_mode_connector_update_edid_property(connector, edid);
 			count = drm_add_edid_modes(connector, edid);
 			drm_edid_to_eld(connector, edid);
-		} else
+			kfree(edid);
+		}
+		if (count == 0)
 			count = (*connector_funcs->get_modes)(connector);
 	}
 

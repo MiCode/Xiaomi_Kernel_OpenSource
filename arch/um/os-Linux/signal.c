@@ -14,7 +14,9 @@
 #include <as-layout.h>
 #include <kern_util.h>
 #include <os.h>
+#include <sys/ucontext.h>
 #include <sysdep/mcontext.h>
+#include <um_malloc.h>
 
 void (*sig_info[NSIG])(int, struct siginfo *, struct uml_pt_regs *) = {
 	[SIGTRAP]	= relay_signal,
