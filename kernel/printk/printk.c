@@ -58,6 +58,11 @@
 #include "braille.h"
 #include "internal.h"
 
+
+#ifdef CONFIG_PRINTK_PREFIX_ENHANCE
+static DEFINE_PER_CPU(char, printk_state);
+#endif
+
 int console_printk[4] = {
 	CONSOLE_LOGLEVEL_DEFAULT,	/* console_loglevel */
 	MESSAGE_LOGLEVEL_DEFAULT,	/* default_message_loglevel */
@@ -591,8 +596,35 @@ static int log_store(int facility, int level,
 	u32 size, pad_len;
 	u16 trunc_msg_len = 0;
 
-	/* number of '\0' padding bytes to next message */
-	size = msg_used_size(text_len, dict_len, &pad_len);
+#ifdef CONFIG_PRINTK_PREFIX_ENHANCE
+	int this_cpu = smp_processor_id();
+	char state = this_cpu_read(printk_state);
+	char tbuf[50];
+	unsigned int tlen = 0;
+#endif
+
+#ifdef CONFIG_PRINTK_PREFIX_ENHANCE
+		if (state == 0) {
+			this_cpu_write(printk_state, ' ');
+			state = ' ';
+		}
+		if (!(flags & LOG_CONT)) {
+			if (console_suspended == 0)
+				tlen = snprintf(tbuf, sizeof(tbuf),
+					"%c(%x)[%d:%s]", state, this_cpu,
+					current->pid, current->comm);
+			else
+				tlen = snprintf(tbuf, sizeof(tbuf), "%c(%x)",
+					state, this_cpu);
+		}
+#endif
+
+		/* number of '\0' padding bytes to next message */
+#ifdef CONFIG_PRINTK_PREFIX_ENHANCE
+		size = msg_used_size(text_len + tlen, dict_len, &pad_len);
+#else
+		size = msg_used_size(text_len, dict_len, &pad_len);
+#endif
 
 	if (log_make_free_space(size)) {
 		/* truncate the message if it is too long for empty buffer */
@@ -615,7 +647,16 @@ static int log_store(int facility, int level,
 
 	/* fill message */
 	msg = (struct printk_log *)(log_buf + log_next_idx);
+#ifdef CONFIG_PRINTK_PREFIX_ENHANCE
+	memcpy(log_text(msg), tbuf, tlen);
+	if (tlen + text_len > LOG_LINE_MAX)
+		text_len = LOG_LINE_MAX - tlen;
+
+	memcpy(log_text(msg) + tlen, text, text_len);
+	text_len += tlen;
+#else
 	memcpy(log_text(msg), text, text_len);
+#endif
 	msg->text_len = text_len;
 	if (trunc_msg_len) {
 		memcpy(log_text(msg) + text_len, trunc_msg, trunc_msg_len);
@@ -1896,6 +1937,13 @@ asmlinkage int vprintk_emit(int facility, int level,
 	int printed_len;
 	bool in_sched = false;
 	unsigned long flags;
+
+#ifdef CONFIG_PRINTK_PREFIX_ENHANCE
+	if (irqs_disabled())
+		this_cpu_write(printk_state, '-');
+	else
+		this_cpu_write(printk_state, ' ');
+#endif
 
 	if (level == LOGLEVEL_SCHED) {
 		level = LOGLEVEL_DEFAULT;

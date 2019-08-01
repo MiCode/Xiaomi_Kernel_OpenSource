@@ -17,6 +17,15 @@ config PRINTK_TIME
 	  The behavior is also controlled by the kernel command line
 	  parameter printk.time=1. See Documentation/admin-guide/kernel-parameters.rst
 
+config PRINTK_PREFIX_ENHANCE
+	bool "Prefix cpu_id/status/pid/process_name to each kernel log"
+	depends on PRINTK
+	help
+	  PRINTK_PREFIX_ENHANCE which is used to control whether to show
+	  other information about this log. The information include
+	  which cpu about this process in, whether in isr, pid and thread
+	  name. These information can help to analyze issue.
+
 config CONSOLE_LOGLEVEL_DEFAULT
 	int "Default console loglevel (1-15)"
 	range 1 15
