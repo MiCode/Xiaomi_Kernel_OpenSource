@@ -201,3 +201,7 @@
 	qcom,vdd-wlan-rfa1-info = <1350000 1350000 0 0>;
 	qcom,vdd-wlan-rfa3-info = <1904000 1904000 450000 0>;
 };
+
+&mhi_dev_qrtr {
+	status = "disabled";
+};

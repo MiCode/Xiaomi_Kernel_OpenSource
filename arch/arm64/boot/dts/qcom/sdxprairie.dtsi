@@ -691,7 +691,7 @@
 		};
 	};
 
-	qcom,mhi_dev_qrtr {
+	mhi_dev_qrtr: qcom,mhi_dev_qrtr {
 		compatible = "qcom,qrtr-mhi-dev";
 		qcom,net-id = <3>;
 	};
