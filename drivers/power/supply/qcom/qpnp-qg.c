@@ -460,6 +460,9 @@ static int qg_process_fifo(struct qpnp_qg *chip, u32 fifo_length)
 		chip->kdata.fifo[j].interval = sample_interval;
 		chip->kdata.fifo[j].count = sample_count;
 
+		chip->last_fifo_v_uv = chip->kdata.fifo[j].v;
+		chip->last_fifo_i_ua = chip->kdata.fifo[j].i;
+
 		qg_dbg(chip, QG_DEBUG_FIFO, "FIFO %d raw_v=%d uV=%d raw_i=%d uA=%d interval=%d count=%d\n",
 					j, fifo_v,
 					chip->kdata.fifo[j].v,
@@ -523,6 +526,9 @@ static int qg_process_accumulator(struct qpnp_qg *chip)
 	chip->kdata.fifo_length++;
 	if (chip->kdata.fifo_length == MAX_FIFO_LENGTH)
 		chip->kdata.fifo_length = MAX_FIFO_LENGTH - 1;
+
+	chip->last_fifo_v_uv = chip->kdata.fifo[index].v;
+	chip->last_fifo_i_ua = chip->kdata.fifo[index].i;
 
 	if (chip->kdata.fifo_length == 1)	/* Only accumulator data */
 		chip->kdata.seq_no = chip->seq_no++ % U32_MAX;
@@ -2068,6 +2074,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_POWER_AVG:
 		rc = qg_get_power(chip, &pval->intval, true);
 		break;
+	case POWER_SUPPLY_PROP_SCALE_MODE_EN:
+		pval->intval = chip->fvss_active;
+		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
 		break;
@@ -2126,6 +2135,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_AVG,
 	POWER_SUPPLY_PROP_POWER_AVG,
 	POWER_SUPPLY_PROP_POWER_NOW,
+	POWER_SUPPLY_PROP_SCALE_MODE_EN,
 };
 
 static const struct power_supply_desc qg_psy_desc = {
@@ -3601,6 +3611,7 @@ static int qg_alg_init(struct qpnp_qg *chip)
 #define DEFAULT_SLEEP_TIME_SECS		1800 /* 30 mins */
 #define DEFAULT_SYS_MIN_VOLT_MV		2800
 #define DEFAULT_FAST_CHG_S2_FIFO_LENGTH	1
+#define DEFAULT_FVSS_VBAT_MV		3500
 static int qg_parse_dt(struct qpnp_qg *chip)
 {
 	int rc = 0;
@@ -3894,6 +3905,18 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 		chip->dt.min_sleep_time_secs = DEFAULT_SLEEP_TIME_SECS;
 	else
 		chip->dt.min_sleep_time_secs = temp;
+
+	if (of_property_read_bool(node, "qcom,fvss-enable")) {
+
+		chip->dt.fvss_enable = true;
+
+		rc = of_property_read_u32(node,
+				"qcom,fvss-vbatt-mv", &temp);
+		if (rc < 0)
+			chip->dt.fvss_vbat_mv = DEFAULT_FVSS_VBAT_MV;
+		else
+			chip->dt.fvss_vbat_mv = temp;
+	}
 
 	/* Capacity learning params*/
 	if (!chip->dt.cl_disable) {
