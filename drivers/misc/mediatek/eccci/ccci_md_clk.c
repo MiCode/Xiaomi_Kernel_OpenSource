@@ -35,7 +35,7 @@ static int md_clk_probe(struct platform_device *pdev)
 		name = md_ao_clk_tbl[i].clk_name;
 		clk = devm_clk_get(&pdev->dev, name);
 		if (IS_ERR(clk)) {
-			CCCI_ERROR_LOG(-1, TAG, "%s n/a\r\n", clk);
+			CCCI_ERROR_LOG(-1, TAG, "%s n/a\r\n", name);
 			continue;
 		}
 		md_ao_clk_tbl[i].clk_ref = clk;

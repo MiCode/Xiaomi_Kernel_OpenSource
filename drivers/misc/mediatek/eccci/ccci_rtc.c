@@ -37,7 +37,7 @@ static int ccci_get_rtc_info(struct platform_device *pdev)
 
 	cell = nvmem_cell_get(&pdev->dev, "external-32k");
 	if (IS_ERR(cell)) {
-		CCCI_ERROR_LOG(-1, TAG, "[%s] nvmem_cell_get fail: %d",
+		CCCI_ERROR_LOG(-1, TAG, "[%s] nvmem_cell_get fail: %zu",
 				__func__, PTR_ERR(cell));
 
 		if (PTR_ERR(cell) == -EPROBE_DEFER)
@@ -50,7 +50,7 @@ static int ccci_get_rtc_info(struct platform_device *pdev)
 	nvmem_cell_put(cell);
 
 	if (IS_ERR(buf)) {
-		CCCI_ERROR_LOG(-1, TAG, "[%s] nvmem_cell_read fail: %d",
+		CCCI_ERROR_LOG(-1, TAG, "[%s] nvmem_cell_read fail: %zu",
 				__func__, PTR_ERR(buf));
 		goto fail;
 	}
@@ -59,7 +59,7 @@ static int ccci_get_rtc_info(struct platform_device *pdev)
 
 	kfree(buf);
 
-	CCCI_NORMAL_LOG(-1, TAG, "[%s] g_ccci_rtc_val = %d; len = %d",
+	CCCI_NORMAL_LOG(-1, TAG, "[%s] g_ccci_rtc_val = %d; len = %zu",
 			__func__, g_ccci_rtc_val, len);
 
 	return 0;
