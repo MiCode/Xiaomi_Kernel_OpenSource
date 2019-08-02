@@ -55,6 +55,7 @@
 			 0x130 /* GSI_RING_BASE_ADDR_L */
 			 0x144 /* GSI_RING_BASE_ADDR_H */
 			 0x1a4>; /* GSI_IF_STS */
+		qcom,gsi-disable-io-coherency;
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 		qcom,pm-qos-latency = <61>;
 
