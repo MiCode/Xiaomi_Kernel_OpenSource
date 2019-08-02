@@ -72,6 +72,8 @@ signed int battery_get_bat_voltage(void)
 	struct iio_channel *channel;
 	int ret, val, number;
 
+	if (!md_adc_pdev)
+		return -1;
 	channel = iio_channel_get(&md_adc_pdev->dev, "md-battery");
 
 	ret = IS_ERR(channel);
@@ -104,6 +106,7 @@ int get_auxadc_probe(struct platform_device *pdev)
 		CCCI_ERROR_LOG(-1, TAG, "ccci get adc info fail");
 		return ret;
 	}
+	md_adc_pdev = pdev;
 	return 0;
 }
 
