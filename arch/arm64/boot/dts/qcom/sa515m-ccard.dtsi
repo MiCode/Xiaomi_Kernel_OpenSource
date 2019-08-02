@@ -116,10 +116,6 @@
 	status = "okay";
 };
 
-&blsp1_uart4a_hs {
-	status = "okay";
-};
-
 &vbus_detect {
 	status = "okay";
 };
@@ -193,4 +189,15 @@
 &vreg_rgmii_io_pads {
 	regulator-min-microvolt = <1800000>;
 	regulator-max-microvolt = <1800000>;
+};
+
+&cnss_qca6390 {
+	vdd-wlan-ctrl1-supply = <&vreg_conn_pa>;
+	vdd-wlan-aon-supply = <&pmxprairie_s3>;
+	vdd-wlan-rfa1-supply = <&pmxprairie_s2>;
+	vdd-wlan-rfa3-supply = <&pmxprairie_s4>;
+	qcom,vdd-wlan-ctrl1-info = <0 0 0 0>;
+	qcom,vdd-wlan-aon-info = <950000 950000 0 0>;
+	qcom,vdd-wlan-rfa1-info = <1350000 1350000 0 0>;
+	qcom,vdd-wlan-rfa3-info = <1904000 1904000 450000 0>;
 };
