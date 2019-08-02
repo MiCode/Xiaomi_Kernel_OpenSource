@@ -3,7 +3,7 @@
 &soc {
 	kgsl_smmu: kgsl-smmu@3da0000 {
 		compatible = "qcom,qsmmu-v500";
-		reg = <0x3DA0000 0x10000>,
+		reg = <0x3DA0000 0x20000>,
 			<0x3DC2000 0x20>;
 		reg-names = "base", "tcu-base";
 		#iommu-cells = <2>;
@@ -13,7 +13,6 @@
 		#size-cells = <1>;
 		#address-cells = <1>;
 		ranges;
-		status = "disabled";
 
 		clocks = <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
 			 <&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
@@ -43,7 +42,6 @@
 				<0x3DC2200 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x0 0x400>;
-			status = "disabled";
 		};
 
 		gfx_1_tbu: gfx_1_tbu@3dc9000 {
@@ -52,7 +50,6 @@
 				<0x3DC2208 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x400 0x400>;
-			status = "disabled";
 		};
 	};
 
@@ -272,14 +269,12 @@
 	};
 
 	kgsl_iommu_test_device {
-		status = "disabled";
 		compatible = "iommu-debug-test";
 		iommus = <&kgsl_smmu 0x7 0>;
 		qcom,iommu-dma = "disabled";
 	};
 
 	kgsl_iommu_coherent_test_device {
-		status = "disabled";
 		compatible = "iommu-debug-test";
 		iommus = <&kgsl_smmu 0x9 0>;
 		qcom,iommu-dma = "disabled";
