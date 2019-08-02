@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, 2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -73,7 +73,12 @@ static ssize_t _sde_hdmi_debugfs_dump_info_read(struct file *file,
 	if (!buf)
 		return -ENOMEM;
 
-	len += snprintf(buf, SZ_4K, "name = %s\n", display->name);
+	len += snprintf(buf, SZ_1K, "name = %s\n", display->name);
+
+	if (len > count) {
+		kfree(buf);
+		return -ENOMEM;
+	}
 
 	if (copy_to_user(buff, buf, len)) {
 		kfree(buf);
