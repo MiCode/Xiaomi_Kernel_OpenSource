@@ -10,17 +10,22 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-/plugin/;
+#ifndef __AUDIO_EXT_CLK_V2_H
+#define __AUDIO_EXT_CLK_V2_H
 
-#include <dt-bindings/interrupt-controller/arm-gic.h>
+/* Audio External Clocks */
+#define AUDIO_PMI_CLK		0
+#define AUDIO_PMIC_LNBB_CLK	1
+#define AUDIO_LPASS_MCLK_1	2
+#define AUDIO_LPASS_MCLK_2	3
+#define AUDIO_LPASS_MCLK_3	4
+#define AUDIO_LPASS_MCLK_4	5
+#define AUDIO_LPASS_MCLK_5	6
+#define AUDIO_LPASS_MCLK_6	7
+#define AUDIO_LPASS_MCLK_7	8
+#define AUDIO_LPASS_CORE_HW_VOTE	9
+#define AUDIO_LPASS_MCLK_8	10
+#define AUDIO_LPASS_AUDIO_HW_VOTE	11
+#define AUDIO_EXTERNAL_PLL	12
 
-#include "atoll-idp.dtsi"
-#include "atoll-audio-overlay.dtsi"
-
-/ {
-	model = "IDP";
-	compatible = "qcom,atoll-idp", "qcom,atoll", "qcom,idp";
-	qcom,msm-id = <407 0x0>;
-	qcom,board-id = <34 0>;
-};
+#endif
