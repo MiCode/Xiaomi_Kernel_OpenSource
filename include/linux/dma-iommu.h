@@ -20,6 +20,8 @@ int iommu_get_dma_cookie(struct iommu_domain *domain);
 int iommu_get_msi_cookie(struct iommu_domain *domain, dma_addr_t base);
 void iommu_put_dma_cookie(struct iommu_domain *domain);
 
+int dma_info_to_prot(enum dma_data_direction dir, bool coherent,
+		     unsigned long attrs);
 size_t iommu_dma_prepare_map_sg(struct device *dev, struct iova_domain *iovad,
 				struct scatterlist *sg, int nents);
 int iommu_dma_finalise_sg(struct device *dev, struct scatterlist *sg,

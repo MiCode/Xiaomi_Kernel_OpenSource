@@ -362,7 +362,7 @@ static int iommu_dma_init_domain(struct iommu_domain *domain, dma_addr_t base,
  *
  * Return: corresponding IOMMU API page protection flags
  */
-static int dma_info_to_prot(enum dma_data_direction dir, bool coherent,
+int dma_info_to_prot(enum dma_data_direction dir, bool coherent,
 		     unsigned long attrs)
 {
 	int prot = coherent ? IOMMU_CACHE : 0;
