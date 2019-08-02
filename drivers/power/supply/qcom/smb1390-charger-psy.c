@@ -1229,6 +1229,7 @@ static enum power_supply_property smb1390_charge_pump_props[] = {
 	POWER_SUPPLY_PROP_CHIP_VERSION,
 	POWER_SUPPLY_PROP_PARALLEL_OUTPUT_MODE,
 	POWER_SUPPLY_PROP_MIN_ICL,
+	POWER_SUPPLY_PROP_MODEL_NAME,
 };
 
 static int smb1390_get_prop(struct power_supply *psy,
@@ -1323,6 +1324,10 @@ static int smb1390_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_MIN_ICL:
 		val->intval = chip->min_ilim_ua;
+		break;
+	case POWER_SUPPLY_PROP_MODEL_NAME:
+		val->strval = (chip->pmic_rev_id->rev4 > 2) ? "SMB1390_V3" :
+								"SMB1390_V2";
 		break;
 	default:
 		smb1390_dbg(chip, PR_MISC, "charge pump power supply get prop %d not supported\n",
