@@ -366,11 +366,11 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 	struct venc_ap_ipi_msg_enc out;
 	unsigned int i, ret;
 
-	mtk_vcodec_debug(vcu, "bs_mode %d -> (sizeof(out):%d",
+	mtk_vcodec_debug(vcu, "bs_mode %d -> (sizeof(out):%zu",
 		bs_mode, sizeof(out));
 
 	if (sizeof(out) > SHARE_BUF_SIZE) {
-		mtk_vcodec_err(vcu, "venc_ap_ipi_msg_enc %d cannot be large than %d",
+		mtk_vcodec_err(vcu, "venc_ap_ipi_msg_enc %zu cannot be large than %d",
 			sizeof(out), SHARE_BUF_SIZE);
 		return -EINVAL;
 	}
