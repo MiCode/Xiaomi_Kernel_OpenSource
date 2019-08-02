@@ -168,6 +168,22 @@
 	};
 };
 
+&soc {
+	qcom,ion {
+		qcom,ion-heap@8 { /* CP_MM HEAP */
+			reg = <8>;
+			memory-region = <&secure_mem>;
+			qcom,ion-heap-type = "SECURE_DMA";
+		};
+	};
+};
+
+&secure_mem {
+	alignment = <0 0x400000>;
+	size = <0 0x400000>;
+	status = "okay";
+};
+
 &modem_mem {
 	reg = <0x0 0x86800000 0x0 0x5000000>;
 };
