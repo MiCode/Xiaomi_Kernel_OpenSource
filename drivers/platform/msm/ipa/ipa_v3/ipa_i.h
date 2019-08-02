@@ -3008,6 +3008,7 @@ int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
 	enum ipa_client_type dst_pipe);
 int ipa_mpm_panic_handler(char *buf, int size);
 int ipa3_get_mhip_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats);
+int ipa3_mpm_enable_adpl_over_odl(bool enable);
 #else
 static inline int ipa_mpm_mhip_xdci_pipe_enable(
 	enum ipa_usb_teth_prot prot)
@@ -3043,6 +3044,11 @@ static inline int ipa3_get_mhip_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats)
 	return 0;
 }
 
+static inline int ipa3_mpm_enable_adpl_over_odl(bool enable)
+{
+	return 0;
+}
+
 static inline void *alloc_and_init(u32 size, u32 init_val)
 {
 	return 0;
@@ -3052,4 +3058,6 @@ static inline void *alloc_and_init(u32 size, u32 init_val)
 
 /* query ipa APQ mode*/
 bool ipa3_is_apq(void);
+/* check if odl is connected */
+bool ipa3_is_odl_connected(void);
 #endif /* _IPA3_I_H_ */
