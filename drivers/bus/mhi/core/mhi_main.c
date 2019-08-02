@@ -1690,8 +1690,8 @@ int mhi_send_cmd(struct mhi_controller *mhi_cntrl,
 	return 0;
 }
 
-static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
-				 struct mhi_chan *mhi_chan)
+int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
+			struct mhi_chan *mhi_chan)
 {
 	int ret = 0;
 
@@ -2078,7 +2078,7 @@ int mhi_prepare_for_transfer(struct mhi_device *mhi_dev)
 		if (!mhi_chan)
 			continue;
 
-		ret = __mhi_prepare_channel(mhi_cntrl, mhi_chan);
+		ret = mhi_prepare_channel(mhi_cntrl, mhi_chan);
 		if (ret) {
 			MHI_ERR("Error moving chan %s,%d to START state\n",
 				mhi_chan->name, mhi_chan->chan);
