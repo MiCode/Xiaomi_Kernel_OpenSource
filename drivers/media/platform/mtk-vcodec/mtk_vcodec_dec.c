@@ -1432,13 +1432,6 @@ static int m2mops_vdec_job_ready(void *m2m_priv)
 	return 1;
 }
 
-static void m2mops_vdec_job_abort(void *priv)
-{
-	struct mtk_vcodec_ctx *ctx = priv;
-
-	ctx->state = MTK_STATE_ABORT;
-}
-
 int mtk_vdec_g_v_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_vcodec_ctx *ctx = ctrl_to_ctx(ctrl);
@@ -1526,7 +1519,6 @@ int mtk_vdec_g_v_ctrl(struct v4l2_ctrl *ctrl)
 const struct v4l2_m2m_ops mtk_vdec_m2m_ops = {
 	.device_run	= m2mops_vdec_device_run,
 	.job_ready	= m2mops_vdec_job_ready,
-	.job_abort	= m2mops_vdec_job_abort,
 };
 
 const struct v4l2_ioctl_ops mtk_vdec_ioctl_ops = {
