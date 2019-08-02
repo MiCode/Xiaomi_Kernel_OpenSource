@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, 2016-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,7 +46,7 @@ int of_batterydata_read_data(struct device_node *container_node,
  * from device tree based on the battery id reading.
  */
 struct device_node *of_batterydata_get_best_profile(
-		struct device_node *batterydata_container_node,
+		const struct device_node *batterydata_container_node,
 		int batt_id_kohm, const char *batt_type);
 
 /**
@@ -71,7 +71,7 @@ static inline int of_batterydata_read_data(struct device_node *container_node,
 	return -ENXIO;
 }
 static inline struct device_node *of_batterydata_get_best_profile(
-		struct device_node *batterydata_container_node,
+		const struct device_node *batterydata_container_node,
 		int batt_id_kohm, const char *batt_type)
 {
 	return NULL;
