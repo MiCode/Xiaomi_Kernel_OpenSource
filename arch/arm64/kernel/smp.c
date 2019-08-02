@@ -182,11 +182,7 @@ static void init_gic_priority_masking(void)
 
 	WARN_ON(!(cpuflags & PSR_I_BIT));
 
-	gic_write_pmr(GIC_PRIO_IRQOFF);
-
-	/* We can only unmask PSR.I if we can take aborts */
-	if (!(cpuflags & PSR_A_BIT))
-		write_sysreg(cpuflags & ~PSR_I_BIT, daif);
+	gic_write_pmr(GIC_PRIO_IRQON | GIC_PRIO_PSR_I_SET);
 }
 
 /*
@@ -425,11 +421,6 @@ void __init smp_cpus_done(unsigned int max_cpus)
 void __init smp_prepare_boot_cpu(void)
 {
 	set_my_cpu_offset(per_cpu_offset(smp_processor_id()));
-	/*
-	 * Initialise the static keys early as they may be enabled by the
-	 * cpufeature code.
-	 */
-	jump_label_init();
 	cpuinfo_store_boot_cpu();
 
 	/*
@@ -839,11 +830,11 @@ static DEFINE_RAW_SPINLOCK(stop_lock);
 
 static DEFINE_PER_CPU(struct pt_regs, regs_before_stop);
 
-/*
- * ipi_cpu_stop - handle IPI from smp_send_stop()
- */
-static void ipi_cpu_stop(unsigned int cpu, struct pt_regs *regs)
+static void local_cpu_stop()
 {
+	unsigned int cpu = smp_processor_id();
+	struct pt_regs *regs = get_irq_regs();
+
 	if (system_state == SYSTEM_BOOTING ||
 	    system_state == SYSTEM_RUNNING) {
 		per_cpu(regs_before_stop, cpu) = *regs;
@@ -853,14 +844,23 @@ static void ipi_cpu_stop(unsigned int cpu, struct pt_regs *regs)
 		dump_stack();
 		raw_spin_unlock(&stop_lock);
 	}
+
 	set_cpu_online(cpu, false);
 
 	flush_cache_all();
 	local_daif_mask();
 	sdei_mask_local_cpu();
+	cpu_park_loop();
+}
 
-	while (1)
-		cpu_relax();
+/*
+ * We need to implement panic_smp_self_stop() for parallel panic() calls, so
+ * that cpu_online_mask gets correctly updated and smp_send_stop() can skip
+ * CPUs that have already stopped themselves.
+ */
+void panic_smp_self_stop()
+{
+	local_cpu_stop();
 }
 
 #ifdef CONFIG_KEXEC_CORE
@@ -913,7 +913,7 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 
 	case IPI_CPU_STOP:
 		irq_enter();
-		ipi_cpu_stop(cpu, regs);
+		local_cpu_stop();
 		irq_exit();
 		break;
 
