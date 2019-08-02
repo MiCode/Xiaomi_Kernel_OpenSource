@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight System Trace Macrocell driver
  *
@@ -26,6 +26,7 @@
 #include <linux/perf_event.h>
 #include <linux/pm_runtime.h>
 #include <linux/stm.h>
+#include <linux/nvmem-consumer.h>
 
 #include "coresight-ost.h"
 #include "coresight-priv.h"
@@ -778,12 +779,8 @@ static void stm_init_generic_data(struct stm_drvdata *drvdata)
 	drvdata->stm.set_options = stm_generic_set_options;
 }
 
-static bool is_apps_debug_disabled(struct stm_drvdata *drvdata)
+static bool is_apps_debug_disabled(u32 val)
 {
-	u32 val;
-
-	val = readl_relaxed(drvdata->debug_status_chs.base);
-
 	val &= BIT(APPS_NIDEN_SHIFT);
 
 	return val == 0;
@@ -803,6 +800,7 @@ static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 	size_t res_size, bitmap_size;
 	struct coresight_desc desc = { 0 };
 	struct device_node *np = adev->dev.of_node;
+	u32 val;
 
 	if (np) {
 		pdata = of_get_coresight_platform_data(dev, np);
@@ -848,11 +846,18 @@ static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 		base = devm_ioremap_resource(dev, &debug_ch_res);
 		if (!IS_ERR(base)) {
 			drvdata->debug_status_chs.base = base;
+			val = readl_relaxed(drvdata->debug_status_chs.base);
 			drvdata->master_enable =
-				!is_apps_debug_disabled(drvdata);
+				!is_apps_debug_disabled(val);
 		}
-	} else
-		drvdata->master_enable = true;
+	} else {
+		ret = nvmem_cell_read_u32(&adev->dev, "debug_fuse", &val);
+		if (!ret) {
+			drvdata->master_enable =
+				!is_apps_debug_disabled(val);
+		} else
+			drvdata->master_enable = true;
+	}
 
 	drvdata->write_bytes = stm_fundamental_data_size(drvdata);
 
