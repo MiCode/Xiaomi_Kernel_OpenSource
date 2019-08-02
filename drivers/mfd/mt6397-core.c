@@ -169,6 +169,11 @@ static const struct resource mt6359_gauge_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_BAT2_L, "VBAT_L"),
 };
 
+static const struct resource mt6359_battery_oc_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_FG_CUR_H, "fg_cur_h"),
+	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_FG_CUR_L, "fg_cur_l"),
+};
+
 static const struct mfd_cell mt6323_devs[] = {
 	{
 		.name = "mt6323-regulator",
@@ -228,6 +233,11 @@ static const struct mfd_cell mt6359_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6359_rtc_resources),
 		.resources = mt6359_rtc_resources,
 		.of_compatible = "mediatek,mt6359-rtc",
+	}, {
+		.name = "mtk-battery-oc-throttling",
+		.of_compatible = "mediatek,mt6359-battery_oc_throttling",
+		.num_resources = ARRAY_SIZE(mt6359_battery_oc_resources),
+		.resources = mt6359_battery_oc_resources,
 	}, {
 		.name = "mtk-clock-buffer",
 		.of_compatible = "mediatek,clock_buffer",
