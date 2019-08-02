@@ -14,3 +14,6 @@ qrtr-fifo-y	:= fifo.o
 
 obj-$(CONFIG_QRTR_MHI_DEV) += qrtr-mhi-dev.o
 qrtr-mhi-dev-y	:= mhi_dev.o
+
+obj-$(CONFIG_QRTR_USB_DEV) += qrtr-usb-dev.o
+qrtr-usb-dev-y      := usb_dev.o
