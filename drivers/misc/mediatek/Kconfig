@@ -101,6 +101,17 @@ config PMIC_LBAT_SERVICE
 	  Select "y" if you want to enable PMIC lbat service.
 	  Select "n" if unsure.
 
+config MTK_BATTERY_OC_POWER_THROTTLING
+	bool "MTK battery over current throttle"
+	select MTK_POWER_THROTTLING_COMMON
+	help
+	  For MediaTek battery over current power throttling.
+	  Power throttle when battery current loading higher than some
+	  threshold.
+	  Select "y" if you want to enable battery over current power
+	  throttling feature.
+	  Select "n" if unsure.
+
 config MTK_BATTERY_PERCENTAGE_POWER_THROTTLING
 	bool "MTK battery percentage throttle"
 	select MTK_POWER_THROTTLING_COMMON
