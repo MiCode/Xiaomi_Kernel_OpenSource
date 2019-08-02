@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (c) 2015-2019 TrustKernel Incorporated
+
+config TRUSTKERNEL_TEE_SUPPORT
+	bool "TrustKernel Trusted Execution Environment Support"
+	default n
+	help
+	  Enable the support of TrustKernel TEE drivers.
+	  All Trustkernel related functions will depend on this option.
+	  Say Y if you would like yo enable this feature.
+	  If unsure, say N.
+
+config TRUSTKERNEL_TEE_FP_SUPPORT
+	bool "TrustKernel Trusted Execution Environment Finger Print Support"
+	depends on TRUSTKERNEL_TEE_SUPPORT
+	default n
+	help
+	  Enable TrustKernel TEE clock management mechanism.
+	  This feature allows TEE OS to manage clock already
+	  used by Linux.
+	  Say Y if you would like yo enable this feature.
+	  If unsure, say Y.
+
+config TRUSTKERNEL_TEE_RPMB_SUPPORT
+	bool "TrustKernel Trusted Execution Environment RPMB Support"
+	depends on TRUSTKERNEL_TEE_SUPPORT
+	default n
+	help
+	  Enable the access of Replay Protected Memory Block
+	  region for Trustkernel TEE.
+	  Say Y if you would like yo enable this feature.
+	  If unsure, say Y.

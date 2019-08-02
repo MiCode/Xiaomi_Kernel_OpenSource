@@ -163,7 +163,6 @@ endmenu # CONN
 
 menu "Security"
 
-source "drivers/misc/mediatek/tkcore/Kconfig"
 source "drivers/misc/mediatek/trusted_mem/Kconfig"
 source "drivers/misc/mediatek/geniezone/Kconfig"
 endmenu # Security
