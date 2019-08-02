@@ -1326,6 +1326,7 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 
 	return 0;
 }
+EXPORT_SYMBOL(mhi_pm_resume);
 
 int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
 {
