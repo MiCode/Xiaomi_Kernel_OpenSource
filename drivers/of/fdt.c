@@ -603,6 +603,52 @@ void *initial_boot_params;
 
 static u32 of_fdt_crc32;
 
+/*
+ * Reserve memory via command line if needed.
+ */
+static int __init early_memory_reserve(char *p)
+{
+	phys_addr_t base, size;
+	int nomap;
+	char *endp = p;
+
+	while (1) {
+		base = memparse(endp, &endp);
+		if (base && (*endp == ',')) {
+			size = memparse(endp + 1, &endp);
+			if (size && (*endp == ',')) {
+				if (memcmp(endp + 1, "nomap", 5) == 0) {
+					nomap = 1;
+					endp += 6;
+				} else if (memcmp(endp + 1, "map", 3) == 0) {
+					nomap = 0;
+					endp += 4;
+				} else
+					break;
+
+				if (early_init_dt_reserve_memory_arch(base,
+					size, nomap) == 0)
+					pr_debug(
+					"Early reserved memory: region : base %pa, size %ld MiB\n",
+					&base, (unsigned long)size / SZ_1M);
+				else
+					pr_info(
+					"Early reserved memory: failed : base %pa, size %ld MiB\n",
+					&base, (unsigned long)size / SZ_1M);
+
+				if (*endp == ';')
+					endp++;
+				else
+					break;
+			} else
+				break;
+		} else
+			break;
+	}
+	return 0;
+}
+early_param("memrsv", early_memory_reserve);
+
 /**
  * res_mem_reserve_reg() - reserve all memory described in 'reg' property
  */
