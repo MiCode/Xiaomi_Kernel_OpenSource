@@ -137,3 +137,13 @@ Description:
 		The writeback_limit file is read-write and specifies the maximum
 		amount of writeback ZRAM can do. The limit could be changed
 		in run time.
+
+What:		/sys/block/zram<id>/use_dedup
+Date:		March 2017
+Contact:	Joonsoo Kim <iamjoonsoo.kim@lge.com>
+Description:
+		The use_dedup file is read-write and specifies deduplication
+		feature is used or not. If enabled, duplicated data is
+		managed by reference count and will not be stored in memory
+		twice. Benefit of this feature largely depends on the workload
+		so keep attention when use.
