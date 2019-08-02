@@ -102,7 +102,7 @@ unsigned int ppm_get_cur_freq(enum ppm_cluster cluster)
 
 static unsigned int ppm_get_cur_volt(enum ppm_cluster cluster)
 {
-#if PPM_TODO
+#ifdef PPM_TODO
 	int volt;
 
 	if (cluster >= NR_PPM_CLUSTERS)
@@ -218,7 +218,7 @@ static int ppm_get_spower_devid(enum ppm_cluster cluster)
 
 int ppm_platform_init(void)
 {
-#if PPM_TODO
+#ifdef PPM_TODO
 	unsigned int cpu;
 	int i;
 
