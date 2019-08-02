@@ -32,6 +32,7 @@
  * @chans:		The mailbox clients' channel array (created dynamically)
  * @base:		Base address of the IPCC frame associated to APPS
  * @dev:		Device associated with this instance
+ * @irq:		Summary irq
  */
 struct ipcc_protocol_data {
 	struct irq_domain *irq_domain;
@@ -39,6 +40,7 @@ struct ipcc_protocol_data {
 	struct mbox_chan *chans;
 	void __iomem *base;
 	struct device *dev;
+	int irq;
 };
 
 /**
@@ -305,7 +307,7 @@ static int qcom_ipcc_setup_mbox(struct ipcc_protocol_data *proto_data,
 static int qcom_ipcc_probe(struct platform_device *pdev)
 {
 	char *name;
-	int ret, irq;
+	int ret;
 	static int id;
 	struct resource *res;
 	struct ipcc_protocol_data *proto_data;
@@ -332,10 +334,10 @@ static int qcom_ipcc_probe(struct platform_device *pdev)
 	if (!name)
 		return -ENOMEM;
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
+	proto_data->irq = platform_get_irq(pdev, 0);
+	if (proto_data->irq < 0) {
 		dev_err(&pdev->dev, "Failed to get the IRQ\n");
-		return irq;
+		return proto_data->irq;
 	}
 
 	/* Perform a SW reset on this client's protocol state */
@@ -355,13 +357,14 @@ static int qcom_ipcc_probe(struct platform_device *pdev)
 		goto err_mbox;
 	}
 
-	ret = devm_request_irq(&pdev->dev, irq, qcom_ipcc_irq_fn,
+	ret = devm_request_irq(&pdev->dev, proto_data->irq, qcom_ipcc_irq_fn,
 				IRQF_TRIGGER_HIGH, name, proto_data);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to register the irq: %d\n", ret);
 		goto err_req_irq;
 	}
 
+	enable_irq_wake(proto_data->irq);
 	platform_set_drvdata(pdev, proto_data);
 
 	return 0;
@@ -377,6 +380,7 @@ static int qcom_ipcc_remove(struct platform_device *pdev)
 {
 	struct ipcc_protocol_data *proto_data = platform_get_drvdata(pdev);
 
+	disable_irq_wake(proto_data->irq);
 	mbox_controller_unregister(&proto_data->mbox);
 	irq_domain_remove(proto_data->irq_domain);
 
