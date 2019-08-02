@@ -1439,9 +1439,9 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 	gsi = inst_cur->opts->gsi;
 	c_port = &gsi->c_port;
 
-	if (!c_port) {
-		log_event_err("%s: gsi ctrl port %pK", __func__, c_port);
-		return -ENODEV;
+	if (!atomic_read(&gsi->connected)) {
+		log_event_err("USB cable not connected\n");
+		return -ECONNRESET;
 	}
 
 	switch (cmd) {
@@ -1801,7 +1801,7 @@ static int gsi_ctrl_send_notification(struct f_gsi *gsi)
 	__le32 *data;
 	struct usb_cdc_notification *event;
 	struct usb_request *req = gsi->c_port.notify_req;
-	struct usb_composite_dev *cdev = gsi->function.config->cdev;
+	struct usb_composite_dev *cdev;
 	struct gsi_ctrl_pkt *cpkt;
 	unsigned long flags;
 	bool del_free_cpkt = false;
@@ -1832,6 +1832,7 @@ static int gsi_ctrl_send_notification(struct f_gsi *gsi)
 	log_event_dbg("%s: cpkt->type:%d\n", __func__, cpkt->type);
 
 	event = req->buf;
+	cdev = gsi->function.config->cdev;
 
 	switch (cpkt->type) {
 	case GSI_CTRL_NOTIFY_CONNECT:
