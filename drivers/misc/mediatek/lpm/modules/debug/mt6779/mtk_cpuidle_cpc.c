@@ -7,22 +7,10 @@
 #include <linux/pm_qos.h>
 
 #include <mtk_lpm.h>
-
 #include <mtk_lp_plat_reg.h>
-#include <mtk_lp_plat_apmcu.h>
 
+#include "mtk_cpupm_dbg.h"
 #include "mtk_cpuidle_cpc.h"
-
-/* qos */
-static struct pm_qos_request mtk_cpc_qos_req;
-
-#define mtk_cpc_qos_init()\
-	pm_qos_add_request(&mtk_cpc_qos_req,\
-		PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE)
-#define mtk_cpc_cpu_pm_block()\
-	pm_qos_update_request(&mtk_cpc_qos_req, 2)
-#define mtk_cpc_cpu_pm_allow()\
-	pm_qos_update_request(&mtk_cpc_qos_req, PM_QOS_DEFAULT_VALUE)
 
 static DEFINE_SPINLOCK(cpc_prof_spin_lock);
 
@@ -50,7 +38,6 @@ struct mtk_cpc_device {
 			struct mtk_cpc_lat_data mcusys;
 		};
 	};
-	int cpu_off_cnt;
 	bool prof_en;
 };
 
@@ -68,7 +55,6 @@ static void mtk_cpc_clr_lat(void)
 
 	for (i = 0; i < DEV_TYPE_NUM; i++)
 		memset((char *)&cpc.p[i] + ofs, 0, size);
-	cpc.cpu_off_cnt = 0;
 }
 
 static void mtk_cpc_cal_lat(void)
@@ -79,7 +65,7 @@ static void mtk_cpc_get_cpu_lat(int cpu, unsigned int *on, unsigned int *off)
 {
 	unsigned int lat;
 
-	lat = mtk_lpm_mcusys_read(CPC_CPU_LATENCY(cpu));
+	lat = mtk_cpupm_mcusys_read(CPC_CPU_LATENCY(cpu));
 
 	*on = (lat >> 16) & 0xFFFF;
 	*off = lat & 0xFFFF;
@@ -90,8 +76,8 @@ static void mtk_cpc_get_cpusys_lat(unsigned int *on, unsigned int *off)
 	unsigned int lat_on;
 	unsigned int lat_off;
 
-	lat_on = mtk_lpm_mcusys_read(CPC_CLUSTER_ON_LATENCY);
-	lat_off = mtk_lpm_mcusys_read(CPC_CLUSTER_OFF_LATENCY);
+	lat_on = mtk_cpupm_mcusys_read(CPC_CLUSTER_ON_LATENCY);
+	lat_off = mtk_cpupm_mcusys_read(CPC_CLUSTER_OFF_LATENCY);
 
 	*on = lat_on & 0xFFFF;
 	*off = lat_off & 0xFFFF;
@@ -101,7 +87,7 @@ static void mtk_cpc_get_mcusys_lat(unsigned int *on, unsigned int *off)
 {
 	unsigned int lat;
 
-	lat = mtk_lpm_mcusys_read(CPC_MCUSYS_LATENCY);
+	lat = mtk_cpupm_mcusys_read(CPC_MCUSYS_LATENCY);
 
 	*on = (lat >> 16) & 0xFFFF;
 	*off = lat & 0xFFFF;
@@ -149,7 +135,7 @@ static void mtk_cpc_off_record_lat(struct mtk_cpc_lat_data *lat,
 static bool mtk_cpc_did_cluster_pwr_off(void)
 {
 	static unsigned int last_cnt;
-	unsigned int cnt = mtk_lpm_mcusys_read(CPC_DORMANT_COUNTER);
+	unsigned int cnt = mtk_cpupm_mcusys_read(CPC_DORMANT_COUNTER);
 
 	/**
 	 * Cluster off count
@@ -161,7 +147,7 @@ static bool mtk_cpc_did_cluster_pwr_off(void)
 	else
 		cnt = cnt & 0x7FFF;
 
-	cnt += mtk_lpm_syssram_read(SYSRAM_CPC_CPUSYS_CNT_BACKUP);
+	cnt += mtk_cpupm_syssram_read(SYSRAM_CPC_CPUSYS_CNT_BACKUP);
 
 	if (last_cnt == cnt)
 		return false;
@@ -174,9 +160,9 @@ static bool mtk_cpc_did_cluster_pwr_off(void)
 static bool mtk_cpc_did_mcusys_pwr_off(void)
 {
 	static unsigned int last_cnt;
-	unsigned int cnt = mtk_lpm_syssram_read(SYSRAM_CPC_MCUSYS_CNT_BACKUP);
+	unsigned int cnt = mtk_cpupm_syssram_read(SYSRAM_CPC_MCUSYS_CNT_BACKUP);
 
-	cnt += mtk_lpm_syssram_read(SYSRAM_MCUSYS_CNT);
+	cnt += mtk_cpupm_syssram_read(SYSRAM_MCUSYS_CNT);
 
 	if (last_cnt == cnt)
 		return false;
@@ -248,7 +234,7 @@ void mtk_cpc_prof_lat_dump(struct seq_file *m)
 
 void mtk_cpc_prof_start(void)
 {
-	mtk_cpc_cpu_pm_block();
+	mtk_cpupm_block();
 
 	cpc_prof_en();
 
@@ -256,12 +242,12 @@ void mtk_cpc_prof_start(void)
 
 	cpc.prof_en = true;
 
-	mtk_cpc_cpu_pm_allow();
+	mtk_cpupm_allow();
 }
 
 void mtk_cpc_prof_stop(void)
 {
-	mtk_cpc_cpu_pm_block();
+	mtk_cpupm_block();
 
 	cpc.prof_en = false;
 
@@ -269,7 +255,7 @@ void mtk_cpc_prof_stop(void)
 
 	cpc_prof_dis();
 
-	mtk_cpc_cpu_pm_allow();
+	mtk_cpupm_allow();
 }
 
 int mtk_cpc_notify(struct notifier_block *nb,
@@ -280,13 +266,8 @@ int mtk_cpc_notify(struct notifier_block *nb,
 	if (!cpc.prof_en)
 		return NOTIFY_OK;
 
-	if (action & MTK_LPM_NB_BEFORE_REFLECT) {
+	if (action & MTK_LPM_NB_BEFORE_REFLECT)
 		mtk_cpc_save_latency(nb_data->cpu);
-		cpc.cpu_off_cnt--;
-	}
-
-	if (action & MTK_LPM_NB_AFTER_PROMPT)
-		cpc.cpu_off_cnt++;
 
 	return NOTIFY_OK;
 }
@@ -304,10 +285,12 @@ int __init mtk_cpc_init(void)
 	snprintf(cpc.cluster.name, PROF_DEV_NAME_SIZE, "cluster");
 	snprintf(cpc.mcusys.name, PROF_DEV_NAME_SIZE, "mcusys");
 
-	mtk_cpc_qos_init();
-
 	mtk_lpm_notifier_register(&mtk_cpc_nb);
 	return 0;
 }
-late_initcall_sync(mtk_cpc_init);
+
+void __exit mtk_cpc_exit(void)
+{
+	mtk_lpm_notifier_unregister(&mtk_cpc_nb);
+}
 

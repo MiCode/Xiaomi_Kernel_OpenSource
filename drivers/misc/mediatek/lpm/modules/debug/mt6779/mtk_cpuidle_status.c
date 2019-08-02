@@ -15,26 +15,14 @@
 
 #include <mboot_params.h>
 #include <mtk_lpm.h>
-
 #include <mtk_lp_plat_reg.h>
-#include <mtk_lp_plat_apmcu.h>
 
+#include "mtk_cpupm_dbg.h"
 #include "mtk_cpuidle_status.h"
 #include "mtk_cpuidle_cpc.h"
 
 #define DUMP_INTERVAL       sec_to_ns(5)
 static u64 last_dump_ns;
-
-/* qos */
-static struct pm_qos_request mtk_cpuidle_qos_req;
-
-#define mtk_cpu_pm_init()\
-	pm_qos_add_request(&mtk_cpuidle_qos_req,\
-		PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE)
-#define mtk_cpu_pm_block()\
-	pm_qos_update_request(&mtk_cpuidle_qos_req, 2)
-#define mtk_cpu_pm_allow()\
-	pm_qos_update_request(&mtk_cpuidle_qos_req, PM_QOS_DEFAULT_VALUE)
 
 /* stress test */
 static unsigned int timer_interval = 10 * 1000;
@@ -167,9 +155,9 @@ unsigned int mtk_cpuidle_get_stress_time(void)
 
 void mtk_cpuidle_ctrl_timer_en(bool enable)
 {
-	mtk_cpu_pm_block();
+	mtk_cpupm_block();
 	mtk_cpuidle_ctrl.tmr_en = enable;
-	mtk_cpu_pm_allow();
+	mtk_cpupm_allow();
 }
 
 bool mtk_cpuidle_ctrl_timer_sta_get(void)
@@ -179,9 +167,9 @@ bool mtk_cpuidle_ctrl_timer_sta_get(void)
 
 void mtk_cpuidle_ctrl_log_en(bool enable)
 {
-	mtk_cpu_pm_block();
+	mtk_cpupm_block();
 	mtk_cpuidle_ctrl.log_en = enable;
-	mtk_cpu_pm_allow();
+	mtk_cpupm_allow();
 }
 
 bool mtk_cpuidle_ctrl_log_sta_get(void)
@@ -192,14 +180,13 @@ bool mtk_cpuidle_ctrl_log_sta_get(void)
 static void _mtk_cpuidle_prof_ratio_start(void *data)
 {
 	int i, cpu;
-	struct cpuidle_device *dev = cpuidle_get_device();
 	struct mtk_cpuidle_device *mtk_idle;
 
 	cpu = get_cpu();
 	mtk_idle = &per_cpu(mtk_cpuidle_dev, cpu);
 	put_cpu();
 
-	if (unlikely(!dev || !mtk_idle))
+	if (unlikely(!mtk_idle))
 		return;
 
 	mtk_idle->ratio.start_us = div64_u64(sched_clock(), 1000);
@@ -215,7 +202,7 @@ void mtk_cpuidle_prof_ratio_start(void)
 	if (mtk_cpuidle_ctrl.prof_en)
 		return;
 
-	mtk_cpu_pm_block();
+	mtk_cpupm_block();
 
 	for (i = 0; i < CPU_OFF_MAX_LV; i++) {
 		all_core_off.lv[i].dur_ns = 0;
@@ -228,21 +215,20 @@ void mtk_cpuidle_prof_ratio_start(void)
 
 	mtk_cpuidle_ctrl.prof_en = true;
 
-	mtk_cpu_pm_allow();
+	mtk_cpupm_allow();
 }
 
 static void _mtk_cpuidle_prof_ratio_stop(void *stop_time)
 {
 	int i, cpu;
 	uint64_t dur_us;
-	struct cpuidle_device *dev = cpuidle_get_device();
 	struct mtk_cpuidle_device *mtk_idle;
 
 	cpu = get_cpu();
 	mtk_idle = &per_cpu(mtk_cpuidle_dev, cpu);
 	put_cpu();
 
-	if (unlikely(!dev || !mtk_idle))
+	if (unlikely(!mtk_idle))
 		return;
 
 	dur_us = div64_u64(sched_clock(), 1000) -
@@ -262,7 +248,7 @@ void mtk_cpuidle_prof_ratio_stop(void)
 	if (!mtk_cpuidle_ctrl.prof_en)
 		return;
 
-	mtk_cpu_pm_block();
+	mtk_cpupm_block();
 
 	on_each_cpu(_mtk_cpuidle_prof_ratio_stop, NULL, 1);
 
@@ -274,7 +260,7 @@ void mtk_cpuidle_prof_ratio_stop(void)
 		all_core_off.lv[i].bp = (unsigned int)div64_u64(
 			all_core_off.lv[i].dur_ns * 10, time_us);
 
-	mtk_cpu_pm_allow();
+	mtk_cpupm_allow();
 }
 
 void mtk_cpuidle_prof_ratio_dump(struct seq_file *m)
@@ -319,7 +305,7 @@ void mtk_cpuidle_state_enable(bool en)
 	struct cpuidle_driver *drv;
 	int i, cpu;
 
-	mtk_cpu_pm_block();
+	mtk_cpupm_block();
 
 	for_each_possible_cpu(cpu) {
 
@@ -332,7 +318,7 @@ void mtk_cpuidle_state_enable(bool en)
 			mtk_cpuidle_set_param(drv, i, IDLE_PARAM_EN, en);
 	}
 
-	mtk_cpu_pm_allow();
+	mtk_cpupm_allow();
 }
 
 static bool mtk_cpuidle_need_dump(unsigned int idx)
@@ -355,7 +341,7 @@ static bool mtk_cpuidle_need_dump(unsigned int idx)
 
 static unsigned int mtk_cpuidle_get_cluster_off_cnt(void)
 {
-	unsigned int cnt = mtk_lpm_mcusys_read(CPC_DORMANT_COUNTER);
+	unsigned int cnt = mtk_cpupm_mcusys_read(CPC_DORMANT_COUNTER);
 
 	/**
 	 * Cluster off count
@@ -367,26 +353,26 @@ static unsigned int mtk_cpuidle_get_cluster_off_cnt(void)
 	else
 		cnt = cnt & 0x7FFF;
 
-	cnt += mtk_lpm_syssram_read(SYSRAM_CPC_CPUSYS_CNT_BACKUP);
+	cnt += mtk_cpupm_syssram_read(SYSRAM_CPC_CPUSYS_CNT_BACKUP);
 
 	cpc_cluster_cnt_clr();
 
-	mtk_lpm_syssram_write(SYSRAM_CPC_CPUSYS_CNT_BACKUP, 0);
+	mtk_cpupm_syssram_write(SYSRAM_CPC_CPUSYS_CNT_BACKUP, 0);
 
-	mtk_lpm_syssram_write(SYSRAM_CPUSYS_CNT,
-			mtk_lpm_syssram_read(SYSRAM_CPUSYS_CNT) + cnt);
+	mtk_cpupm_syssram_write(SYSRAM_CPUSYS_CNT,
+			mtk_cpupm_syssram_read(SYSRAM_CPUSYS_CNT) + cnt);
 
 	return cnt;
 }
 
 static unsigned int mtk_cpuidle_get_mcusys_off_cnt(void)
 {
-	unsigned int cnt = mtk_lpm_syssram_read(SYSRAM_CPC_MCUSYS_CNT_BACKUP);
+	unsigned int cnt = mtk_cpupm_syssram_read(SYSRAM_CPC_MCUSYS_CNT_BACKUP);
 
-	mtk_lpm_syssram_write(SYSRAM_CPC_MCUSYS_CNT_BACKUP, 0);
+	mtk_cpupm_syssram_write(SYSRAM_CPC_MCUSYS_CNT_BACKUP, 0);
 
-	mtk_lpm_syssram_write(SYSRAM_MCUSYS_CNT,
-			mtk_lpm_syssram_read(SYSRAM_MCUSYS_CNT) + cnt);
+	mtk_cpupm_syssram_write(SYSRAM_MCUSYS_CNT,
+			mtk_cpupm_syssram_read(SYSRAM_MCUSYS_CNT) + cnt);
 	return cnt;
 }
 
@@ -408,28 +394,28 @@ static void mtk_cpuidle_dump_info(void)
 
 		ofs = SYSRAM_RECENT_CPU_CNT(cpu);
 
-		mtk_lpm_syssram_write(ofs, 0);
+		mtk_cpupm_syssram_write(ofs, 0);
 
 		for (idx = 1; idx < mtk_idle->state_count ; idx++) {
 
-			mtk_lpm_syssram_write(ofs, mtk_lpm_syssram_read(ofs)
+			mtk_cpupm_syssram_write(ofs, mtk_cpupm_syssram_read(ofs)
 						+ mtk_idle->info.cnt[idx]);
 			mtk_idle->info.cnt[idx] = 0;
 		}
 	}
 
-	mtk_lpm_syssram_write(SYSRAM_RECENT_CPUSYS_CNT,
+	mtk_cpupm_syssram_write(SYSRAM_RECENT_CPUSYS_CNT,
 				mtk_cpuidle_get_cluster_off_cnt());
 
-	mtk_lpm_syssram_write(SYSRAM_RECENT_MCUSYS_CNT,
+	mtk_cpupm_syssram_write(SYSRAM_RECENT_MCUSYS_CNT,
 				mtk_cpuidle_get_mcusys_off_cnt());
 
-	mtk_lpm_syssram_write(SYSRAM_CPU_ONLINE, avail_cpu_mask);
+	mtk_cpupm_syssram_write(SYSRAM_CPU_ONLINE, avail_cpu_mask);
 
-	mtk_lpm_syssram_write(SYSRAM_RECENT_CNT_TS_H,
+	mtk_cpupm_syssram_write(SYSRAM_RECENT_CNT_TS_H,
 			(unsigned int)((last_dump_ns >> 32) & 0xFFFFFFFF));
 
-	mtk_lpm_syssram_write(SYSRAM_RECENT_CNT_TS_L,
+	mtk_cpupm_syssram_write(SYSRAM_RECENT_CNT_TS_L,
 			(unsigned int)(last_dump_ns & 0xFFFFFFFF));
 }
 
@@ -587,11 +573,7 @@ struct notifier_block mtk_cpuidle_status_nb = {
 static void mtk_cpuidle_init_per_cpu(void *info)
 {
 	struct mtk_cpuidle_device *mtk_idle;
-	struct cpuidle_driver *drv = cpuidle_get_driver();
 	int cpu;
-
-	if (unlikely(!drv))
-		return;
 
 	cpu = get_cpu();
 
@@ -604,25 +586,27 @@ static void mtk_cpuidle_init_per_cpu(void *info)
 
 	mtk_idle->cpu = cpu;
 	mtk_idle->timer.function = mtk_cpuidle_hrtimer_func;
-	mtk_idle->state_count = drv->state_count;
-
+	mtk_idle->state_count = mtk_cpupm_get_idle_state_count(cpu);
 }
 
 int __init mtk_cpuidle_status_init(void)
 {
-	mtk_cpu_pm_init();
-
 	mtk_cpuidle_ctrl.tmr_en = true;
 	mtk_cpuidle_ctrl.prof_en = false;
 	mtk_cpuidle_ctrl.log_en = true;
 	mtk_cpuidle_ctrl.stress_en = false;
 
-	mtk_cpu_pm_block();
+	mtk_cpupm_block();
 	on_each_cpu(mtk_cpuidle_init_per_cpu, NULL, 0);
-	mtk_cpu_pm_allow();
+	mtk_cpupm_allow();
 
 	mtk_lpm_notifier_register(&mtk_cpuidle_status_nb);
 	return 0;
 }
-late_initcall_sync(mtk_cpuidle_status_init);
+
+void __exit mtk_cpuidle_status_exit(void)
+{
+	mtk_lpm_notifier_unregister(&mtk_cpuidle_status_nb);
+}
+
 

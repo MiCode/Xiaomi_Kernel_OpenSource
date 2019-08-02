@@ -38,11 +38,6 @@ do {								\
 			uval = __raw_readl(MT_CPU_PM_KERNEL_SRAM(slot));\
 		uval; })
 
-int mtk_lpm_mcusys_write(int offset, unsigned int value);
-unsigned int mtk_lpm_mcusys_read(int offset);
-int mtk_lpm_syssram_write(int offset, unsigned int value);
-unsigned int mtk_lpm_syssram_read(int offset);
-
 void mtk_lp_plat_set_mcusys_off(int cpu);
 void mtk_lp_plat_clr_mcusys_off(int cpu);
 

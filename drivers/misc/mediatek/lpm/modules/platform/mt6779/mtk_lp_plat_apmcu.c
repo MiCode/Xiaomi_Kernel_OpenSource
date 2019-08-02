@@ -39,6 +39,8 @@ static struct pm_qos_request mtk_lp_plat_qos_req;
 	pm_qos_update_request(&mtk_lp_plat_qos_req, 2)
 #define mtk_cpu_off_allow()\
 	pm_qos_update_request(&mtk_lp_plat_qos_req, PM_QOS_DEFAULT_VALUE)
+#define mtk_lp_plat_qos_uninit()\
+	pm_qos_remove_request(&mtk_lp_plat_qos_req)
 
 #define CHK(cond) WARN_ON(cond)
 
@@ -75,40 +77,6 @@ struct mtk_lp_device {
 static struct mtk_lp_device lp_dev_cpu[NR_CPUS];
 static struct mtk_lp_device lp_dev_cluster[nr_cluster_ids];
 static struct mtk_lp_device lp_dev_mcusys;
-
-int mtk_lpm_mcusys_write(int offset, unsigned int val)
-{
-	if (!cpu_pm_mcusys_base)
-		return -EADDRNOTAVAIL;
-
-	cpu_pm_sync_writel(val, OF_CPU_PM_CTRL(offset));
-	return 0;
-}
-
-unsigned int mtk_lpm_mcusys_read(int offset)
-{
-	if (!cpu_pm_mcusys_base)
-		return 0;
-
-	return __raw_readl(OF_CPU_PM_CTRL(offset));
-}
-
-int mtk_lpm_syssram_write(int offset, unsigned int val)
-{
-	if (!cpu_pm_syssram_base)
-		return -EADDRNOTAVAIL;
-
-	cpu_pm_sync_writel(val, cpu_pm_syssram_base + offset);
-	return 0;
-}
-
-unsigned int mtk_lpm_syssram_read(int offset)
-{
-	if (!cpu_pm_syssram_base)
-		return -EADDRNOTAVAIL;
-
-	return __raw_readl(cpu_pm_syssram_base + offset);
-}
 
 static void _mtk_lp_plat_inc_pwr_cnt(struct mtk_lp_device *dev,
 					unsigned int lvl)
@@ -238,6 +206,17 @@ static int mtk_lp_cpuhp_notify_leave(unsigned int cpu)
 	return 0;
 }
 
+static void mtk_lp_plat_cpuhp_init(void)
+{
+	cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN_END, "cpuidle_cb",
+				mtk_lp_cpuhp_notify_enter,
+				mtk_lp_cpuhp_notify_leave);
+
+	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN, "cpuidle_cb",
+				mtk_lp_cpuhp_notify_leave,
+				mtk_lp_cpuhp_notify_enter);
+}
+
 static int mtk_lp_plat_wait_depd_condition(void *arg)
 {
 	struct timespec uptime;
@@ -262,22 +241,10 @@ static int mtk_lp_plat_wait_depd_condition(void *arg)
 
 	} while (!(mcupm_rdy && boot_time_pass));
 
-	/* mtk_cpu_off_allow(); */
-	/* Not validate mcusys off yet */
-	pm_qos_update_request(&mtk_lp_plat_qos_req, 1000);
+	mtk_cpu_off_allow();
+	mtk_lp_plat_cpuhp_init();
 
 	return 0;
-}
-
-static void __init mtk_lp_plat_cpuhp_init(void)
-{
-	cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN_END, "cpuidle_cb",
-				mtk_lp_cpuhp_notify_enter,
-				mtk_lp_cpuhp_notify_leave);
-
-	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN, "cpuidle_cb",
-				mtk_lp_cpuhp_notify_leave,
-				mtk_lp_cpuhp_notify_enter);
 }
 
 static void __init mtk_lp_plat_pwr_dev_init(void)
@@ -333,11 +300,12 @@ static int __init mtk_lp_plat_mcusys_ctrl_init(void)
 
 int __init mtk_lp_plat_apmcu_init(void)
 {
-	if (!plat_node_ready())
+	if (!plat_node_ready()) {
+		mtk_lp_plat_qos_uninit();
 		return 0;
+	}
 
 	mtk_lp_plat_pwr_dev_init();
-	mtk_lp_plat_cpuhp_init();
 
 	mtk_lp_plat_task = kthread_create(mtk_lp_plat_wait_depd_condition,
 					NULL, "mtk_lp_plat_wait_rdy");

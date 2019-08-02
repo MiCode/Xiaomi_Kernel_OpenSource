@@ -30,21 +30,21 @@ static void apmcu_sspm_mailbox_read(int id, int *buf, unsigned int len)
 {
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	if (is_sspm_ready())
-		sspm_mbox_read(APMCU_SSPM_MBOX_ID, id, (void *)&buf, len);
+		sspm_mbox_read(APMCU_SSPM_MBOX_ID, id, (void *)buf, len);
 #endif
 }
 
 static void apmcu_mcupm_mailbox_write(int id, int *buf, unsigned int len)
 {
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
-	mcupm_mbox_read(APMCU_MCUPM_MBOX_ID, id, (void *)&buf, len);
+	mcupm_mbox_write(APMCU_MCUPM_MBOX_ID, id, (void *)buf, len);
 #endif
 }
 
 static void apmcu_mcupm_mailbox_read(int id, int *buf, unsigned int len)
 {
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
-	mcupm_mbox_read(APMCU_MCUPM_MBOX_ID, id, (void *)&buf, len);
+	mcupm_mbox_read(APMCU_MCUPM_MBOX_ID, id, (void *)buf, len);
 #endif
 }
 
