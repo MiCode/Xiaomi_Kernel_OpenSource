@@ -43,6 +43,7 @@
 #include <linux/mmu_notifier.h>
 #include <linux/memory_hotplug.h>
 #include <linux/show_mem_notifier.h>
+#include <linux/psi.h>
 
 #include <asm/tlb.h>
 #include "internal.h"
@@ -74,13 +75,39 @@ DEFINE_MUTEX(oom_lock);
 
 #ifdef CONFIG_HAVE_USERSPACE_LOW_MEMORY_KILLER
 static atomic64_t ulmk_kill_jiffies = ATOMIC64_INIT(INITIAL_JIFFIES);
+static unsigned long psi_emergency_jiffies = INITIAL_JIFFIES;
+static DEFINE_MUTEX(ulmk_retry_lock);
 
 
+/*
+ * psi_emergency_jiffies represents the last ULMK emergency event.
+ * Give ULMK a 2 second window to handle this event.
+ * If ULMK has made some progress since then, send another.
+ * Repeat as necessary.
+ */
 bool should_ulmk_retry(void)
 {
-	unsigned long j = atomic64_read(&ulmk_kill_jiffies);
+	unsigned long now, last_kill;
+	bool ret = false;
 
-	return time_before(jiffies, j + 2 * HZ);
+	mutex_lock(&ulmk_retry_lock);
+	now = jiffies;
+	last_kill = atomic64_read(&ulmk_kill_jiffies);
+	if (time_before(now, psi_emergency_jiffies + 2 * HZ)) {
+		ret = true;
+		goto out;
+	}
+
+	if (time_after_eq(last_kill, psi_emergency_jiffies)) {
+		psi_emergency_jiffies = now;
+		psi_emergency_trigger();
+		ret = true;
+		goto out;
+	}
+
+out:
+	mutex_unlock(&ulmk_retry_lock);
+	return ret;
 }
 
 void ulmk_update_last_kill(void)

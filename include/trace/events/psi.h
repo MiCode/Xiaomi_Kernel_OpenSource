@@ -14,13 +14,14 @@
 
 TRACE_EVENT(psi_window_vmstat,
 
-	TP_PROTO(u64 memstall, const char *zone_name, u64 high,
+	TP_PROTO(u64 mem_some, u64 mem_full, const char *zone_name, u64 high,
 		u64 free, u64 cma, u64 file),
 
-	TP_ARGS(memstall, zone_name, high, free, cma, file),
+	TP_ARGS(mem_some, mem_full, zone_name, high, free, cma, file),
 
 	TP_STRUCT__entry(
-		__field(u64, memstall)
+		__field(u64, mem_some)
+		__field(u64, mem_full)
 		__string(name, zone_name)
 		__field(u64, high)
 		__field(u64, free)
@@ -29,7 +30,8 @@ TRACE_EVENT(psi_window_vmstat,
 	),
 
 	TP_fast_assign(
-		__entry->memstall = memstall;
+		__entry->mem_some = mem_some;
+		__entry->mem_full = mem_full;
 		__assign_str(name, zone_name);
 		__entry->high = high;
 		__entry->free = free;
@@ -37,9 +39,9 @@ TRACE_EVENT(psi_window_vmstat,
 		__entry->file = file;
 	),
 
-	TP_printk("%16s: Memstall: %#16llx High: %#8llx Free: %#8llx CMA: %#8llx File: %#8llx",
-		__get_str(name), __entry->memstall,  __entry->high,
-		__entry->free, __entry->cma, __entry->file
+	TP_printk("%16s: MEMSOME: %9lluns MEMFULL: %9lluns High: %9llukB Free: %9llukB CMA: %8llukB File: %9llukB",
+		__get_str(name), __entry->mem_some, __entry->mem_full,
+		__entry->high, __entry->free, __entry->cma, __entry->file
 	)
 );
 
