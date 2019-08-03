@@ -9,6 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+ #include <dt-bindings/msm/msm-bus-ids.h>
 
 &soc {
 	/* Rome 3.3V supply */
@@ -77,16 +78,21 @@
 		qcom,bus-type=<0>;
 		qcom,notify-modem-status;
 		qcom,msm-bus,name = "msm-cnss";
-		qcom,msm-bus,num-cases = <4>;
-		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,num-cases = <6>;
+		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
-			<45 512 0 0>, <1 512 0 0>,
-			/* Upto 200 Mbps */
-			<45 512 41421 655360>, <1 512 41421 655360>,
-			/* Upto 400 Mbps */
-			<45 512 98572 655360>, <1 512 98572 1600000>,
-			/* Upto 800 Mbps */
-			<45 512 207108 1146880>, <1 512 207108 3124992>;
+		/* no vote */
+		<MSM_BUS_MASTER_PCIE MSM_BUS_SLAVE_FIRST 0 0>,
+		/* idle: 0-18 Mbps, ddr freq: 100 MHz */
+		<MSM_BUS_MASTER_PCIE MSM_BUS_SLAVE_FIRST 2250 400000>,
+		/* low: 18-60 Mbps, ddr freq: 200 MHz*/
+		<MSM_BUS_MASTER_PCIE MSM_BUS_SLAVE_FIRST 7500 800000>,
+		/* medium: 60-240 Mbps, ddr freq: 451.2 MHz */
+		<MSM_BUS_MASTER_PCIE MSM_BUS_SLAVE_FIRST 30000 1804800>,
+		/* high: 240 - 800 Mbps, ddr freq: 451.2 MHz */
+		<MSM_BUS_MASTER_PCIE MSM_BUS_SLAVE_FIRST 100000 1804800>,
+		/* very high: 800 - 1400 Mbps, ddr freq: 1555.2 MHz */
+		<MSM_BUS_MASTER_PCIE MSM_BUS_SLAVE_FIRST 175000 6220800>;
 
 		#address-cells=<1>;
 		#size-cells=<1>;
