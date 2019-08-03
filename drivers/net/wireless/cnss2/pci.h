@@ -53,6 +53,12 @@ struct cnss_pci_debug_reg {
 	u32 val;
 };
 
+struct cnss_misc_reg {
+	u8 wr;
+	u32 offset;
+	u32 val;
+};
+
 struct cnss_pci_data {
 	struct pci_dev *pci_dev;
 	struct cnss_plat_data *plat_priv;
@@ -87,6 +93,12 @@ struct cnss_pci_data {
 	struct delayed_work time_sync_work;
 	u8 disable_pc;
 	struct cnss_pci_debug_reg *debug_reg;
+	struct cnss_misc_reg *wcss_reg;
+	u32 wcss_reg_size;
+	struct cnss_misc_reg *pcie_reg;
+	u32 pcie_reg_size;
+	struct cnss_misc_reg *wlaon_reg;
+	u32 wlaon_reg_size;
 };
 
 static inline void cnss_set_pci_priv(struct pci_dev *pci_dev, void *data)
