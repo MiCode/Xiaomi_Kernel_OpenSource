@@ -162,6 +162,7 @@
 #define ARM_LPAE_MAIR_ATTR_MASK		0xff
 #define ARM_LPAE_MAIR_ATTR_DEVICE	0x04
 #define ARM_LPAE_MAIR_ATTR_NC		0x44
+#define ARM_LPAE_MAIR_ATTR_INC_OWBRWA	0xf4
 #define ARM_LPAE_MAIR_ATTR_WBRWA	0xff
 #define ARM_LPAE_MAIR_ATTR_UPSTREAM	0xf4
 #define ARM_LPAE_MAIR_ATTR_LLC_NWA	0xe4
@@ -170,6 +171,7 @@
 #define ARM_LPAE_MAIR_ATTR_IDX_DEV	2
 #define ARM_LPAE_MAIR_ATTR_IDX_UPSTREAM	3
 #define ARM_LPAE_MAIR_ATTR_IDX_LLC_NWA	0x4ULL
+#define ARM_LPAE_MAIR_ATTR_IDX_INC_OCACHE	3
 
 #define ARM_MALI_LPAE_TTBR_ADRMODE_TABLE (3u << 0)
 #define ARM_MALI_LPAE_TTBR_READ_INNER	BIT(2)
@@ -435,7 +437,7 @@ static arm_lpae_iopte arm_lpae_install_table(arm_lpae_iopte *table,
 	old = cmpxchg64_relaxed(ptep, curr, new);
 
 	if ((cfg->quirks & IO_PGTABLE_QUIRK_NO_DMA) ||
-	    (old & ARM_LPAE_PTE_SW_SYNC))
+	     (old & ARM_LPAE_PTE_SW_SYNC))
 		return old;
 
 	/* Even if it's not ours, there's no point waiting; just kick it */
@@ -583,6 +585,9 @@ static arm_lpae_iopte arm_lpae_prot_to_pte(struct arm_lpae_io_pgtable *data,
 				<< ARM_LPAE_PTE_ATTRINDX_SHIFT);
 		else if (prot & IOMMU_CACHE)
 			pte |= (ARM_LPAE_MAIR_ATTR_IDX_CACHE
+				<< ARM_LPAE_PTE_ATTRINDX_SHIFT);
+		else if (prot & IOMMU_QCOM_SYS_CACHE)
+			pte |= (ARM_LPAE_MAIR_ATTR_IDX_INC_OCACHE
 				<< ARM_LPAE_PTE_ATTRINDX_SHIFT);
 		else if (prot & IOMMU_USE_UPSTREAM_HINT)
 			pte |= (ARM_LPAE_MAIR_ATTR_IDX_UPSTREAM
@@ -1199,7 +1204,9 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 	      (ARM_LPAE_MAIR_ATTR_DEVICE
 	       << ARM_LPAE_MAIR_ATTR_SHIFT(ARM_LPAE_MAIR_ATTR_IDX_DEV)) |
 	      (ARM_LPAE_MAIR_ATTR_UPSTREAM
-	       << ARM_LPAE_MAIR_ATTR_SHIFT(ARM_LPAE_MAIR_ATTR_IDX_UPSTREAM));
+	       << ARM_LPAE_MAIR_ATTR_SHIFT(ARM_LPAE_MAIR_ATTR_IDX_UPSTREAM)) |
+	      (ARM_LPAE_MAIR_ATTR_INC_OWBRWA
+	       << ARM_LPAE_MAIR_ATTR_SHIFT(ARM_LPAE_MAIR_ATTR_IDX_INC_OCACHE));
 
 	cfg->arm_lpae_s1_cfg.mair[0] = reg;
 
@@ -1242,8 +1249,7 @@ arm_64_lpae_alloc_pgtable_s2(struct io_pgtable_cfg *cfg, void *cookie)
 	struct arm_lpae_io_pgtable *data;
 
 	/* The NS quirk doesn't apply at stage 2 */
-	if (cfg->quirks & ~(IO_PGTABLE_QUIRK_NO_DMA |
-			    IO_PGTABLE_QUIRK_NON_STRICT))
+	if (cfg->quirks & ~(IO_PGTABLE_QUIRK_NON_STRICT))
 		return NULL;
 
 	data = arm_lpae_alloc_pgtable(cfg);
@@ -1731,6 +1737,7 @@ static int __init arm_lpae_do_selftests(void)
 		.tlb = &dummy_tlb_ops,
 		.oas = 48,
 		.quirks = IO_PGTABLE_QUIRK_NO_DMA,
+		.coherent_walk = true,
 	};
 
 	for (i = 0; i < ARRAY_SIZE(pgsize); ++i) {

@@ -69,6 +69,8 @@ struct msm_iommu_gather_ops {
  *                 tables.
  * @ias:           Input address (iova) size, in bits.
  * @oas:           Output address (paddr) size, in bits.
+ * @coherent_walk  A flag to indicate whether or not page table walks made
+ *                 by the IOMMU are coherent with the CPU caches.
  * @tlb:           TLB management callbacks for this set of tables.
  * @iommu_dev:     The device representing the DMA configuration for the
  *                 page table walker.
@@ -93,16 +95,15 @@ struct io_pgtable_cfg {
 	 *	when the SoC is in "4GB mode" and they can only access the high
 	 *	remap of DRAM (0x1_00000000 to 0x1_ffffffff).
 	 *
-
+	 * IO_PGTABLE_QUIRK_NON_STRICT: Skip issuing synchronous leaf TLBIs
+	 *	on unmap, for DMA domains using the flush queue mechanism for
+	 *	delayed invalidation.
+	 *
 	 * IO_PGTABLE_QUIRK_NO_DMA: Guarantees that the tables will only ever
 	 *	be accessed by a fully cache-coherent IOMMU or CPU (e.g. for a
 	 *	software-emulated IOMMU), such that pagetable updates need not
 	 *	be treated as explicit DMA data.
 	 *
-	 * IO_PGTABLE_QUIRK_NON_STRICT: Skip issuing synchronous leaf TLBIs
-	 *	on unmap, for DMA domains using the flush queue mechanism for
-	 *	delayed invalidation.
-
 	 * IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT: Override the attributes
 	 *	set in TCR for the page table walker. Use attributes specified
 	 *	by the upstream hw instead.
@@ -116,14 +117,15 @@ struct io_pgtable_cfg {
 	#define IO_PGTABLE_QUIRK_NO_PERMS	BIT(1)
 	#define IO_PGTABLE_QUIRK_TLBI_ON_MAP	BIT(2)
 	#define IO_PGTABLE_QUIRK_ARM_MTK_4GB	BIT(3)
-	#define IO_PGTABLE_QUIRK_NO_DMA		BIT(4)
-	#define IO_PGTABLE_QUIRK_NON_STRICT	BIT(5)
+	#define IO_PGTABLE_QUIRK_NON_STRICT	BIT(4)
+	#define IO_PGTABLE_QUIRK_NO_DMA		BIT(5)
 	#define IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT	BIT(6)
 	#define IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA	BIT(7)
 	unsigned long			quirks;
 	unsigned long			pgsize_bitmap;
 	unsigned int			ias;
 	unsigned int			oas;
+	bool				coherent_walk;
 	const struct iommu_gather_ops	*tlb;
 	struct device			*iommu_dev;
 
