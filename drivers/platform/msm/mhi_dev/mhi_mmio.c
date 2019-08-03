@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -950,6 +950,11 @@ int mhi_dev_mmio_init(struct mhi_dev *dev)
 
 	rc = mhi_dev_mmio_masked_read(dev, MHICFG, MHICFG_NER_MASK,
 				MHICFG_NER_SHIFT, &dev->cfg.event_rings);
+	if (rc)
+		return rc;
+
+	rc = mhi_dev_mmio_masked_read(dev, MHICFG, MHICFG_NHWER_MASK,
+				MHICFG_NHWER_SHIFT, &dev->cfg.hw_event_rings);
 	if (rc)
 		return rc;
 
