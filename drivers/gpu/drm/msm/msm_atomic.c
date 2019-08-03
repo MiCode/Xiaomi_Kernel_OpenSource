@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2014 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -27,22 +27,26 @@ struct msm_commit {
 	uint32_t fence;
 	struct msm_fence_cb fence_cb;
 	uint32_t crtc_mask;
+	uint32_t plane_mask;
 	struct kthread_work commit_work;
 };
 
 /* block until specified crtcs are no longer pending update, and
  * atomically mark them as pending update
  */
-static int start_atomic(struct msm_drm_private *priv, uint32_t crtc_mask)
+static int start_atomic(struct msm_drm_private *priv, uint32_t crtc_mask,
+			uint32_t plane_mask)
 {
 	int ret;
 
 	spin_lock(&priv->pending_crtcs_event.lock);
 	ret = wait_event_interruptible_locked(priv->pending_crtcs_event,
-			!(priv->pending_crtcs & crtc_mask));
+			!(priv->pending_crtcs & crtc_mask) &&
+			!(priv->pending_planes & plane_mask));
 	if (ret == 0) {
 		DBG("start: %08x", crtc_mask);
 		priv->pending_crtcs |= crtc_mask;
+		priv->pending_planes |= plane_mask;
 	}
 	spin_unlock(&priv->pending_crtcs_event.lock);
 
@@ -51,18 +55,21 @@ static int start_atomic(struct msm_drm_private *priv, uint32_t crtc_mask)
 
 /* clear specified crtcs (no longer pending update)
  */
-static void end_atomic(struct msm_drm_private *priv, uint32_t crtc_mask)
+static void end_atomic(struct msm_drm_private *priv, uint32_t crtc_mask,
+			uint32_t plane_mask)
 {
 	spin_lock(&priv->pending_crtcs_event.lock);
 	DBG("end: %08x", crtc_mask);
 	priv->pending_crtcs &= ~crtc_mask;
+	priv->pending_planes &= ~plane_mask;
 	wake_up_all_locked(&priv->pending_crtcs_event);
 	spin_unlock(&priv->pending_crtcs_event.lock);
 }
 
 static void commit_destroy(struct msm_commit *commit)
 {
-	end_atomic(commit->dev->dev_private, commit->crtc_mask);
+	end_atomic(commit->dev->dev_private, commit->crtc_mask,
+			commit->plane_mask);
 	kfree(commit);
 }
 
@@ -593,7 +600,7 @@ int msm_atomic_commit(struct drm_device *dev,
 		struct drm_crtc *crtc = state->crtcs[i];
 		if (!crtc)
 			continue;
-		commit->crtc_mask |= (1 << drm_crtc_index(crtc));
+		commit->crtc_mask |= (1 << i);
 	}
 
 	/*
@@ -608,13 +615,16 @@ int msm_atomic_commit(struct drm_device *dev,
 
 		if ((plane->state->fb != new_state->fb) && new_state->fb)
 			commit_set_fence(commit, new_state->fb);
+
+		commit->plane_mask |= (1 << i);
 	}
 
 	/*
 	 * Wait for pending updates on any of the same crtc's and then
 	 * mark our set of crtc's as busy:
 	 */
-	ret = start_atomic(dev->dev_private, commit->crtc_mask);
+	ret = start_atomic(dev->dev_private, commit->crtc_mask,
+			commit->plane_mask);
 	if (ret) {
 		DRM_ERROR("start_atomic failed: %d\n", ret);
 		commit_destroy(commit);
