@@ -139,4 +139,19 @@
 		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
 	};
+	qcom,usbbam@a704000 {
+		status = "disabled";
+	};
+};
+
+&qusb_phy0 {
+	status = "disabled";
+};
+
+&usb_qmp_dp_phy {
+	status = "disabled";
+};
+
+&pm6150_pdphy {
+	status = "disabled";
 };
