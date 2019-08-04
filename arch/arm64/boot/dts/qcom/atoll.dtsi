@@ -2360,6 +2360,28 @@
 		qcom,firmware-name = "venus";
 		memory-region = <&pil_video_mem>;
 	};
+
+	slim_aud: slim@62ec0000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x62ec0000 0x2c000>,
+			<0x62e84000 0x2a000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x700000>;
+		qcom,ea-pc = <0x340>;
+		qcom,iommu-s1-bypass;
+		status = "ok";
+
+		iommu_slim_aud_ctrl_cb: qcom,iommu_slim_ctrl_cb {
+			compatible = "qcom,iommu-slim-ctrl-cb";
+			iommus = <&apps_smmu 0x1026 0x0>,
+				<&apps_smmu 0x102f 0x0>,
+				<&apps_smmu 0x1030 0x1>;
+		};
+	};
 };
 
 #include "atoll-gdsc.dtsi"
