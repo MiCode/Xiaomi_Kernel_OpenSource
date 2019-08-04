@@ -30,6 +30,10 @@
 	status = "ok";
 };
 
+&qupv3_se7_4uart {
+	status = "ok";
+};
+
 &usb0 {
 	status = "ok";
 };
