@@ -802,7 +802,7 @@ static int mmc_send_hpi_cmd(struct mmc_card *card, u32 *status)
 	unsigned int opcode;
 	int err;
 
-	if (!card->ext_csd.hpi) {
+	if (!card->ext_csd.hpi_en) {
 		pr_warn("%s: Card didn't support HPI command\n",
 			mmc_hostname(card->host));
 		return -EINVAL;
@@ -1017,7 +1017,8 @@ int mmc_flush_cache(struct mmc_card *card)
 
 	if (mmc_card_mmc(card) &&
 			(card->ext_csd.cache_size > 0) &&
-			(card->ext_csd.cache_ctrl & 1)) {
+			(card->ext_csd.cache_ctrl & 1) &&
+			(!(card->quirks & MMC_QUIRK_CACHE_DISABLE))) {
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_FLUSH_CACHE, 1, 0);
 		if (err)

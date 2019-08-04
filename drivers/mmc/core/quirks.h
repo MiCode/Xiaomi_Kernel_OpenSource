@@ -117,6 +117,10 @@ static const struct mmc_fixup mmc_blk_fixups[] = {
 	MMC_FIXUP("SEM04G", 0x45, CID_OEMID_ANY, add_quirk_mmc,
 		  MMC_QUIRK_INAND_DATA_TIMEOUT),
 
+	/* Disable cache for specific cards */
+	MMC_FIXUP("MMC16G", CID_MANFID_KINGSTON, CID_OEMID_ANY, add_quirk_mmc,
+		  MMC_QUIRK_CACHE_DISABLE),
+
 	END_FIXUP
 };
 
@@ -133,6 +137,10 @@ static const struct mmc_fixup mmc_ext_csd_fixups[] = {
 	 */
 	MMC_FIXUP_EXT_CSD_REV(CID_NAME_ANY, CID_MANFID_NUMONYX,
 			      0x014e, add_quirk, MMC_QUIRK_BROKEN_HPI, 6),
+
+	/* avoid HPI for specific cards */
+	MMC_FIXUP_EXT_CSD_REV("MMC16G", CID_MANFID_KINGSTON, CID_OEMID_ANY,
+			add_quirk, MMC_QUIRK_BROKEN_HPI, MMC_V4_41),
 
 	END_FIXUP
 };
