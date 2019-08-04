@@ -40,7 +40,7 @@
 #define NPU_CC_RSC_XO_CLK					22
 #define NPU_CC_S2P_CLK						23
 #define NPU_CC_XO_CLK						24
-#define NPU_CC_XO_CLK_SRC					25
+#define NPU_DSP_CORE_CLK_SRC					25
 
 /* NPU_CC resets */
 #define NPU_CC_CAL_HM0_BCR					0
