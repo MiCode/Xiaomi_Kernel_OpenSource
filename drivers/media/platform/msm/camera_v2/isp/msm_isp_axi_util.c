@@ -1150,6 +1150,19 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 		break;
 	}
 
+	if ((vfe_dev->nanosec_ts_enable) &&
+		(event_type == ISP_EVENT_SOF) &&
+			(frame_src == VFE_PIX_0)) {
+		struct msm_isp_event_data_nanosec event_data_nanosec;
+
+		event_data_nanosec.frame_id =
+			vfe_dev->axi_data.src_info[frame_src].frame_id;
+		event_data_nanosec.nano_timestamp = ts->buf_time_ns;
+		msm_isp_send_event_update_nanosec(vfe_dev,
+			ISP_EVENT_SOF_UPDATE_NANOSEC,
+			&event_data_nanosec);
+	}
+
 	event_data.frame_id = vfe_dev->axi_data.src_info[frame_src].frame_id;
 	event_data.timestamp = ts->event_time;
 	event_data.mono_timestamp = ts->buf_time;
