@@ -389,7 +389,6 @@ static void rmnet_frag_gso_stamp(struct sk_buff *skb,
 	bool ipv4 = frag_desc->ip_proto == 4;
 
 	if (ipv4) {
-		iph->tot_len = htons(skb->len);
 		iph->check = 0;
 		iph->check = ip_fast_csum(iph, iph->ihl);
 		pseudo = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
@@ -398,8 +397,6 @@ static void rmnet_frag_gso_stamp(struct sk_buff *skb,
 	} else {
 		struct ipv6hdr *ip6h = (struct ipv6hdr *)iph;
 
-		/* Payload length includes any extension headers */
-		ip6h->payload_len = htons(skb->len - sizeof(*ip6h));
 		pseudo = ~csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
 					  pkt_len, frag_desc->trans_proto, 0);
 	}
@@ -415,7 +412,6 @@ static void rmnet_frag_gso_stamp(struct sk_buff *skb,
 		struct udphdr *up = (struct udphdr *)
 				    ((u8 *)iph + frag_desc->ip_len);
 
-		up->len = htons(pkt_len);
 		up->check = pseudo;
 		shinfo->gso_type = SKB_GSO_UDP_L4;
 		skb->csum_offset = offsetof(struct udphdr, check);
@@ -440,6 +436,7 @@ static struct sk_buff *rmnet_alloc_skb(struct rmnet_frag_descriptor *frag_desc,
 	/* Use the exact sizes if we know them (i.e. RSB/RSC, rmnet_perf) */
 	if (frag_desc->hdrs_valid) {
 		u16 hdr_len = frag_desc->ip_len + frag_desc->trans_len;
+		u16 data_len = frag_desc->gso_size * frag_desc->gso_segs;
 
 		head_skb = alloc_skb(hdr_len + RMNET_MAP_DEAGGR_HEADROOM,
 				     GFP_ATOMIC);
@@ -449,8 +446,30 @@ static struct sk_buff *rmnet_alloc_skb(struct rmnet_frag_descriptor *frag_desc,
 		skb_reserve(head_skb, RMNET_MAP_DEAGGR_HEADROOM);
 		skb_put_data(head_skb, frag_desc->hdr_ptr, hdr_len);
 		skb_reset_network_header(head_skb);
-		if (frag_desc->trans_len)
+
+		/* Update header lengths after RSB/RSC/perf */
+		if (frag_desc->ip_proto == 4) {
+			struct iphdr *iph = ip_hdr(head_skb);
+			__be16 tot_len = htons(hdr_len + data_len);
+
+			csum_replace2(&iph->check, iph->tot_len, tot_len);
+			iph->tot_len = tot_len;
+		} else {
+			struct ipv6hdr *ip6h = ipv6_hdr(head_skb);
+
+			ip6h->payload_len = htons(hdr_len + data_len -
+						  sizeof(*ip6h));
+		}
+
+		if (frag_desc->trans_len) {
 			skb_set_transport_header(head_skb, frag_desc->ip_len);
+
+			if (frag_desc->trans_proto == IPPROTO_UDP) {
+				struct udphdr *uh = udp_hdr(head_skb);
+
+				uh->len = htons(data_len + sizeof(*uh));
+			}
+		}
 
 		/* Packets that have no data portion don't need any frags */
 		if (hdr_len == skb_frag_size(&frag_desc->frag))
@@ -548,8 +567,52 @@ skip_frags:
 	}
 
 	/* Handle csum offloading */
-	if (frag_desc->csum_valid)
+	if (frag_desc->csum_valid) {
 		head_skb->ip_summed = CHECKSUM_UNNECESSARY;
+	} else if (frag_desc->hdrs_valid &&
+		   (frag_desc->trans_proto == IPPROTO_TCP ||
+		    frag_desc->trans_proto == IPPROTO_UDP)) {
+		/* Unfortunately, we have to fake a bad checksum here, since
+		 * the original bad value is lost by the hardware. The only
+		 * reliable way to do it is to calculate the actual checksum
+		 * and corrupt it.
+		 */
+		__sum16 *check;
+		__wsum csum;
+		unsigned int offset = skb_transport_offset(head_skb);
+		__sum16 pseudo;
+
+		/* Calculate pseudo header */
+		if (frag_desc->ip_proto == 4) {
+			struct iphdr *iph = ip_hdr(head_skb);
+
+			pseudo = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+						    head_skb->len -
+						    frag_desc->ip_len,
+						    frag_desc->trans_proto, 0);
+		} else {
+			struct ipv6hdr *ip6h = ipv6_hdr(head_skb);
+
+			pseudo = ~csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
+						  head_skb->len -
+						  frag_desc->ip_len,
+						  frag_desc->trans_proto, 0);
+		}
+
+		if (frag_desc->trans_proto == IPPROTO_TCP)
+			check = &tcp_hdr(head_skb)->check;
+		else
+			check = &udp_hdr(head_skb)->check;
+
+		*check = pseudo;
+		csum = skb_checksum(head_skb, offset, head_skb->len - offset,
+				    0);
+		/* Add 1 to corrupt. This cannot produce a final value of 0
+		 * since csum_fold() can't return a value of 0xFFFF
+		 */
+		*check = csum16_add(csum_fold(csum), htons(1));
+		head_skb->ip_summed = CHECKSUM_NONE;
+	}
 
 	/* Handle any rmnet_perf metadata */
 	if (frag_desc->hash) {
@@ -582,8 +645,8 @@ EXPORT_SYMBOL(rmnet_frag_deliver);
 
 static void __rmnet_frag_segment_data(struct rmnet_frag_descriptor *coal_desc,
 				      struct rmnet_port *port,
-				      struct list_head *list,
-				      u8 pkt_id)
+				      struct list_head *list, u8 pkt_id,
+				      bool csum_valid)
 {
 	struct rmnet_priv *priv = netdev_priv(coal_desc->dev);
 	struct rmnet_frag_descriptor *new_frag;
@@ -623,7 +686,7 @@ static void __rmnet_frag_segment_data(struct rmnet_frag_descriptor *coal_desc,
 	}
 
 	new_frag->hdr_ptr = hdr_start;
-	new_frag->csum_valid = true;
+	new_frag->csum_valid = csum_valid;
 	priv->stats.coal.coal_reconstruct++;
 
 	/* Update meta information to move past the data we just segmented */
@@ -753,38 +816,62 @@ rmnet_frag_segment_coal_data(struct rmnet_frag_descriptor *coal_desc,
 		return;
 	}
 
+	/* Fast-forward the case where we have 1 NLO (i.e. 1 packet length),
+	 * no checksum errors, and are allowing GRO. We can just reuse this
+	 * descriptor unchanged.
+	 */
+	if (gro && coal_hdr->num_nlos == 1 && coal_hdr->csum_valid) {
+		coal_desc->csum_valid = true;
+		coal_desc->hdr_ptr = rmnet_frag_data_ptr(coal_desc);
+		coal_desc->gso_size = ntohs(coal_hdr->nl_pairs[0].pkt_len);
+		coal_desc->gso_size -= coal_desc->ip_len + coal_desc->trans_len;
+		coal_desc->gso_segs = coal_hdr->nl_pairs[0].num_packets;
+		list_add_tail(&coal_desc->list, list);
+		return;
+	}
+
 	/* Segment the coalesced descriptor into new packets */
 	for (nlo = 0; nlo < coal_hdr->num_nlos; nlo++) {
 		pkt_len = ntohs(coal_hdr->nl_pairs[nlo].pkt_len);
 		pkt_len -= coal_desc->ip_len + coal_desc->trans_len;
 		coal_desc->gso_size = pkt_len;
 		for (pkt = 0; pkt < coal_hdr->nl_pairs[nlo].num_packets;
-		     pkt++, total_pkt++) {
-			nlo_err_mask <<= 1;
-			if (nlo_err_mask & (1ULL << 63)) {
+		     pkt++, total_pkt++, nlo_err_mask >>= 1) {
+			bool csum_err = nlo_err_mask & 1;
+
+			/* Segment the packet if we're not sending the larger
+			 * packet up the stack.
+			 */
+			if (!gro) {
+				coal_desc->gso_segs = 1;
+				if (csum_err)
+					priv->stats.coal.coal_csum_err++;
+
+				__rmnet_frag_segment_data(coal_desc, port,
+							  list, total_pkt,
+							  !csum_err);
+				continue;
+			}
+
+			if (csum_err) {
 				priv->stats.coal.coal_csum_err++;
 
 				/* Segment out the good data */
-				if (gro && coal_desc->gso_segs)
+				if (coal_desc->gso_segs)
 					__rmnet_frag_segment_data(coal_desc,
 								  port,
 								  list,
-								  total_pkt);
+								  total_pkt,
+								  true);
 
-				/* skip over bad packet */
-				coal_desc->data_offset += pkt_len;
-				coal_desc->pkt_id = total_pkt + 1;
+				/* Segment out the bad checksum */
+				coal_desc->gso_segs = 1;
+				__rmnet_frag_segment_data(coal_desc, port,
+							  list, total_pkt,
+							  false);
 			} else {
 				coal_desc->gso_segs++;
 
-				/* Segment the packet if we aren't sending the
-				 * larger packet up the stack.
-				 */
-				if (!gro)
-					__rmnet_frag_segment_data(coal_desc,
-								  port,
-								  list,
-								  total_pkt);
 			}
 		}
 
@@ -792,25 +879,9 @@ rmnet_frag_segment_coal_data(struct rmnet_frag_descriptor *coal_desc,
 		 * the previous one, if we haven't done so. NLOs only switch
 		 * when the packet length changes.
 		 */
-		if (gro && coal_desc->gso_segs) {
-			/* Fast forward the (hopefully) common case.
-			 * Frames with only one NLO (i.e. one packet length) and
-			 * no checksum errors don't need to be segmented here.
-			 * We can just pass off the original skb.
-			 */
-			if (coal_desc->gso_size * coal_desc->gso_segs ==
-			    skb_frag_size(&coal_desc->frag) -
-			    coal_desc->ip_len - coal_desc->trans_len) {
-				coal_desc->hdr_ptr =
-					rmnet_frag_data_ptr(coal_desc);
-				coal_desc->csum_valid = true;
-				list_add_tail(&coal_desc->list, list);
-				return;
-			}
-
+		if (coal_desc->gso_segs)
 			__rmnet_frag_segment_data(coal_desc, port, list,
-						  total_pkt);
-		}
+						  total_pkt, true);
 	}
 }
 
@@ -891,7 +962,7 @@ rmnet_frag_data_check_coal_header(struct rmnet_frag_descriptor *frag_desc,
 		u8 err = coal_hdr->nl_pairs[i].csum_error_bitmap;
 		u8 pkt = coal_hdr->nl_pairs[i].num_packets;
 
-		mask |= ((u64)err) << (7 - i) * 8;
+		mask |= ((u64)err) << (8 * i);
 
 		/* Track total packets in frame */
 		pkts += pkt;
