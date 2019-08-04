@@ -34,6 +34,16 @@ config SPMI_MSM_PMIC_ARB_DEBUG
 	  Inc. (QTI) MSM family processors.  This feature is available on chips
 	  with PMIC arbiter version 5 and above.
 
+config VIOSPMI_MSM_PMIC_ARB
+	tristate "QTI Virtio SPMI Controller (Virtio PMIC Arbiter)"
+	select IRQ_DOMAIN
+	depends on ARCH_QCOM || COMPILE_TEST
+	depends on HAS_IOMEM
+	depends on VIRTIO
+	default ARCH_QCOM
+	help
+	  This is virtio SPMI frontend driver for QTI MSM virtual platform.
+
 source "drivers/spmi/simulator/Kconfig"
 
 endif

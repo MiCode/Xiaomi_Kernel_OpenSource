@@ -47,5 +47,6 @@
 #define VIRTIO_ID_REGULATOR    31 /* virtio regulator */
 
 #define VIRTIO_ID_I2C		32 /* virtio i2c */
+#define VIRTIO_ID_SPMI		33 /* virtio spmi */
 
 #endif /* _LINUX_VIRTIO_IDS_H */

@@ -323,6 +323,7 @@
 #include "sa6155p-vm-usb.dtsi"
 #include "sa8155-vm-audio.dtsi"
 #include "sa6155p-vm-pcie.dtsi"
+#include "pm6155-vm.dtsi"
 
 &tlmm {
 	dirconn-list =  <100 216 1>,
