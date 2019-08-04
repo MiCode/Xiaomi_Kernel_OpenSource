@@ -2879,7 +2879,7 @@ static void dwc3_resume_work(struct work_struct *w)
 			dwc->maximum_speed = USB_SPEED_HIGH;
 
 		if (mdwc->override_usb_speed &&
-				mdwc->override_usb_speed < dwc->maximum_speed) {
+			mdwc->override_usb_speed <= dwc->maximum_speed) {
 			dwc->maximum_speed = mdwc->override_usb_speed;
 			dwc->gadget.max_speed = dwc->maximum_speed;
 			dbg_event(0xFF, "override_speed",
