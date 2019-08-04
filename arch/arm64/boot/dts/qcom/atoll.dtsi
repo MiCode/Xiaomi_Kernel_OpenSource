@@ -2678,3 +2678,89 @@
 };
 
 #include "atoll-thermal.dtsi"
+
+
+&qupv3_se9_i2c {
+	status = "ok";
+	#include "pm8008.dtsi"
+};
+
+&tlmm {
+	pm8008_active: pm8008_active {
+		mux {
+			pins = "gpio42";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio42";
+			bias-pull-up;
+			output-high;
+			drive-strength = <2>;
+		};
+	};
+};
+
+&pm8008_gpios {
+	gpio1_active {
+		pm8008_gpio1_active: pm8008_gpio1_active {
+			pins = "gpio1";
+			function = "normal";
+			power-source = <1>;
+			bias-disable;
+			input-enable;
+		};
+	};
+};
+
+&pm8008_chip {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pm8008_active>;
+};
+
+&pm8008_regulators {
+	vdd_l1_l2-supply = <&S8C>;
+	vdd_l3_l4-supply = <&BOB>;
+	vdd_l5-supply = <&S5A>;
+	vdd_l6-supply = <&BOB>;
+	vdd_l7-supply = <&BOB>;
+};
+
+&pm8008_9 {
+	/* GPIO1 pinctrl config */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pm8008_gpio1_active>;
+};
+
+&L1P {
+	regulator-max-microvolt = <1104000>;
+	qcom,min-dropout-voltage = <225000>;
+};
+
+&L2P {
+	regulator-max-microvolt = <1200000>;
+	qcom,min-dropout-voltage = <75000>;
+};
+
+&L3P {
+	regulator-min-microvolt = <2800000>;
+	regulator-max-microvolt = <2800000>;
+	qcom,min-dropout-voltage = <200000>;
+};
+
+&L4P {
+	regulator-min-microvolt = <2800000>;
+	regulator-max-microvolt = <2800000>;
+	qcom,min-dropout-voltage = <200000>;
+};
+
+&L5P {
+	regulator-max-microvolt = <1800000>;
+	qcom,min-dropout-voltage = <200000>;
+};
+
+&L6P {
+	regulator-max-microvolt = <2800000>;
+	qcom,min-dropout-voltage = <300000>;
+};
+

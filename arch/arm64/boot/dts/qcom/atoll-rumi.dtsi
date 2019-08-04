@@ -155,3 +155,7 @@
 &pm6150_pdphy {
 	status = "disabled";
 };
+
+&qupv3_se9_i2c {
+	status = "disabled";
+};
