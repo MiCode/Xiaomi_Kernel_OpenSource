@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,16 +13,17 @@
 #ifndef _ATL_QCOM_H_
 #define _ATL_QCOM_H_
 
+#include <linux/pci.h>
+
 #ifdef CONFIG_AQFWD_QCOM
 
-int atl_qcom_parse_dt(struct device *dev);
+int atl_qcom_register(struct pci_driver *pdrv);
+void atl_qcom_unregister(struct pci_driver *pdrv);
 
 #else
 
-static inline int atl_qcom_parse_dt(struct device *dev)
-{
-	return 0;
-}
+static inline int atl_qcom_register(struct pci_driver *pdrv) { return 0; }
+static inline void atl_qcom_unregister(struct pci_driver *pdrv) { return; }
 
 #endif // CONFIG_AQFWD_QCOM
 
