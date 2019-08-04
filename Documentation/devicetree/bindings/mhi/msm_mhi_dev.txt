@@ -31,6 +31,18 @@ Optional property:
 		MHI driver on the host. This property is required if iatu
 		property qcom,mhi-config-iatu is present.
 
+MSM MHI DEV NET
+
+MSM MHI DEV enables communication with the host over a PCIe link using the
+Network Interface.
+
+Required properties:
+  - compatible: should be "qcom,msm-mhi-dev-net" for MHI net device driver.
+
+Optional property:
+  - qcom,mhi-ethernet-interface;: If property is present use ethernet packet
+	parsing support.
+
 Example:
 
 	mhi: qcom,msm-mhi-dev {
@@ -43,4 +55,9 @@ Example:
 		qcom,mhi-ifc-id = <0x030017cb>;
 		qcom,mhi-ep-msi = <1>;
 		qcom,mhi-version = <0x1000000>;
+	};
+
+	qcom,mhi_net_dev {
+		compatible = "qcom,msm-mhi-dev-net";
+		qcom,mhi-ethernet-interface;
 	};

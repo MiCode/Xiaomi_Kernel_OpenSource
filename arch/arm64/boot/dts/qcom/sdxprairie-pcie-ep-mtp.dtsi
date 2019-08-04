@@ -40,3 +40,7 @@
 &mhi_device {
 	status = "ok";
 };
+
+&mhi_net_device {
+	status = "okay";
+};
