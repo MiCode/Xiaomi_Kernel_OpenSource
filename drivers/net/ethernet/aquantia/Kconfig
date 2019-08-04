@@ -29,20 +29,4 @@ config AQFWD
 
 source "drivers/net/ethernet/aquantia/atlantic-fwd/Kconfig"
 
-config AQFWD_QCOM
-	bool "QTI MSM/MDM target support"
-	depends on AQFWD
-	depends on ARCH_QCOM
-	help
-	  Enable support for integration with Qualcomm Technologies, Inc. chipsets.
-
-config AQFWD_QCOM_IPA
-	bool "QTI IPA offload support"
-	depends on IPA_ETH
-	select AQFWD_QCOM
-	select ATLFWD_FWD
-	help
-	  Enable support for Qualcomm Technologies, Inc. IPA (Internet Protocol Accelerator).
-	  If unsure, say N.
-
 endif # NET_VENDOR_AQUANTIA

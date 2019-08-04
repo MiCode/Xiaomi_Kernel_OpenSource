@@ -13,9 +13,7 @@
 #include <linux/etherdevice.h>
 #include <linux/rtnetlink.h>
 
-#include "atl_qcom_ipa.h"
-
-#include "atl_of.h"
+#include "atl_qcom.h"
 
 const char atl_driver_name[] = "atlantic-fwd";
 
@@ -357,10 +355,6 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	struct atl_nic *nic = NULL;
 	struct atl_hw *hw;
 	int disable_needed;
-
-	ret = atl_parse_dt(&pdev->dev);
-	if (ret)
-		return ret;
 
 	ret = pci_enable_device_mem(pdev);
 	if (ret)
@@ -704,9 +698,9 @@ static int __init atl_module_init(void)
 		return -ENOMEM;
 	}
 
-	ret = atl_qcom_ipa_register(&atl_pci_ops);
+	ret = atl_qcom_register(&atl_pci_ops);
 	if (ret) {
-		pr_err("%s: Failed to register driver with IPA\n",
+		pr_err("%s: Failed to register driver with platform\n",
 		       atl_driver_name);
 		destroy_workqueue(atl_wq);
 		return ret;
@@ -714,7 +708,7 @@ static int __init atl_module_init(void)
 
 	ret = pci_register_driver(&atl_pci_ops);
 	if (ret) {
-		atl_qcom_ipa_unregister(&atl_pci_ops);
+		atl_qcom_unregister(&atl_pci_ops);
 		destroy_workqueue(atl_wq);
 		return ret;
 	}
@@ -727,7 +721,7 @@ static void __exit atl_module_exit(void)
 {
 	pci_unregister_driver(&atl_pci_ops);
 
-	atl_qcom_ipa_unregister(&atl_pci_ops);
+	atl_qcom_unregister(&atl_pci_ops);
 
 	if (atl_wq) {
 		destroy_workqueue(atl_wq);
