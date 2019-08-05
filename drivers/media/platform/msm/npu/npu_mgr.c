@@ -1784,7 +1784,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
-	ret = wait_for_completion_timeout(
+	ret = wait_for_completion_interruptible_timeout(
 		&network->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
@@ -1795,6 +1795,9 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 		NPU_ERR("npu: NPU_IPC_CMD_LOAD time out\n");
 		ret = -ETIMEDOUT;
 		goto error_load_network;
+	} else if (ret < 0) {
+		NPU_ERR("NPU_IPC_CMD_LOAD_V2 is interrupted by signal\n");
+		goto error_free_network;
 	}
 
 	if (network->fw_error) {
@@ -1898,7 +1901,7 @@ int32_t npu_host_unload_network(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
-	ret = wait_for_completion_timeout(
+	ret = wait_for_completion_interruptible_timeout(
 		&network->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
@@ -1909,6 +1912,10 @@ int32_t npu_host_unload_network(struct npu_client *client,
 		NPU_ERR("npu: NPU_IPC_CMD_UNLOAD time out\n");
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
+		goto free_network;
+	} else if (ret < 0) {
+		NPU_ERR("Wait for unload done interrupted by signal\n");
+		network->cmd_pending = false;
 		goto free_network;
 	}
 
@@ -2024,7 +2031,7 @@ int32_t npu_host_exec_network(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
-	ret = wait_for_completion_timeout(
+	ret = wait_for_completion_interruptible_timeout(
 		&network->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
@@ -2036,6 +2043,10 @@ int32_t npu_host_exec_network(struct npu_client *client,
 		npu_dump_debug_timeout_stats(npu_dev);
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
+		goto exec_done;
+	} else if (ret == -ERESTARTSYS) {
+		NPU_ERR("Wait for execution done interrupted by signal\n");
+		network->cmd_pending = false;
 		goto exec_done;
 	}
 
@@ -2158,7 +2169,7 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
-	ret = wait_for_completion_timeout(
+	ret = wait_for_completion_interruptible_timeout(
 		&network->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
@@ -2170,6 +2181,10 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 		npu_dump_debug_timeout_stats(npu_dev);
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
+		goto free_exec_packet;
+	} else if (ret == -ERESTARTSYS) {
+		NPU_ERR("Wait for execution_v2 done interrupted by signal\n");
+		network->cmd_pending = false;
 		goto free_exec_packet;
 	}
 
