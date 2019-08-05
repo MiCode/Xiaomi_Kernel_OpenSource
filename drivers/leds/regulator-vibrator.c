@@ -75,7 +75,7 @@ static int mt_vibra_parse_dt(struct device *dev,
 	vibr_conf->reg = devm_regulator_get(dev, "vib");
 	if (IS_ERR(vibr_conf->reg)) {
 		ret = PTR_ERR(vibr_conf->reg);
-		pr_notice("Error load dts: get regulator return %ld\n", ret);
+		pr_notice("Error load dts: get regulator return %d\n", ret);
 		vibr_conf->reg = NULL;
 		return ret;
 	}
@@ -102,9 +102,9 @@ static int mt_vibra_parse_dt(struct device *dev,
 		return ret;
 	}
 
-	pr_info("vibr_conf = %d, %d, %d-%d, %d, %ld\n",
+	pr_info("vibr_conf = %d, %d, %d-%d\n",
 		vibr_conf->min_limit, vibr_conf->max_limit,
-		vibr_conf->min_volt, vibr_conf->max_volt, &vibr_conf->reg);
+		vibr_conf->min_volt, vibr_conf->max_volt);
 
 	return ret;
 
