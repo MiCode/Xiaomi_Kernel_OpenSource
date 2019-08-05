@@ -3368,6 +3368,21 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 		goto end;
 	}
 
+	/*
+	 * In case of CSID TPG we might receive SOF and RUP IRQs
+	 * before hw_mgr_intf->hw_start has returned. So move
+	 * req out of pending list before hw_start and add it
+	 * back to pending list if hw_start fails.
+	 */
+	list_del_init(&req->list);
+
+	if (req_isp->num_fence_map_out) {
+		list_add_tail(&req->list, &ctx->active_req_list);
+		ctx_isp->active_req_cnt++;
+	} else {
+		list_add_tail(&req->list, &ctx->wait_req_list);
+	}
+
 	start_isp.hw_config.ctxt_to_hw_map = ctx_isp->hw_ctx;
 	start_isp.hw_config.request_id = req->request_id;
 	start_isp.hw_config.hw_update_entries = req_isp->cfg;
@@ -3401,18 +3416,12 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 		CAM_ERR(CAM_ISP, "Start HW failed");
 		ctx->state = CAM_CTX_READY;
 		trace_cam_context_state("ISP", ctx);
+		list_del_init(&req->list);
+		list_add(&req->list, &ctx->pending_req_list);
 		goto end;
 	}
 	CAM_DBG(CAM_ISP, "start device success ctx %u", ctx->ctx_id);
 
-	list_del_init(&req->list);
-
-	if (req_isp->num_fence_map_out) {
-		list_add_tail(&req->list, &ctx->active_req_list);
-		ctx_isp->active_req_cnt++;
-	} else {
-		list_add_tail(&req->list, &ctx->wait_req_list);
-	}
 end:
 	return rc;
 }
