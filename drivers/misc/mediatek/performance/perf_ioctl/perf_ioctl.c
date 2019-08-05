@@ -371,7 +371,7 @@ static long device_ioctl(struct file *filp,
 				msgKM->start);
 		break;
 	case FPSGO_TOUCH:
-		usrtch_ioctl(cmd, msgKM->frame_time);
+		//usrtch_ioctl(cmd, msgKM->frame_time);
 		break;
 	case FPSGO_VSYNC:
 		if (fpsgo_notify_vsync_fp)
