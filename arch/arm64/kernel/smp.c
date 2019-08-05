@@ -830,7 +830,7 @@ static DEFINE_RAW_SPINLOCK(stop_lock);
 
 static DEFINE_PER_CPU(struct pt_regs, regs_before_stop);
 
-static void local_cpu_stop()
+static void local_cpu_stop(void)
 {
 	unsigned int cpu = smp_processor_id();
 	struct pt_regs *regs = get_irq_regs();
@@ -858,7 +858,7 @@ static void local_cpu_stop()
  * that cpu_online_mask gets correctly updated and smp_send_stop() can skip
  * CPUs that have already stopped themselves.
  */
-void panic_smp_self_stop()
+void panic_smp_self_stop(void)
 {
 	local_cpu_stop();
 }
