@@ -17,9 +17,6 @@
 #include <linux/netdevice.h>
 #include <linux/skbuff.h>
 
-#define IP_VER_4 4
-#define IP_VER_6 6
-
 #define MAX_MQ_NUM 10
 #define MAX_CLIENT_NUM 2
 #define MAX_FLOW_NUM 32
@@ -29,6 +26,7 @@
 #define DFC_MODE_FLOW_ID 2
 #define DFC_MODE_MQ_NUM 3
 extern int dfc_mode;
+extern int dfc_qmap;
 
 struct rmnet_bearer_map {
 	struct list_head list;
@@ -133,6 +131,14 @@ void dfc_qmi_query_flow(void *dfc_data);
 int dfc_bearer_flow_ctl(struct net_device *dev,
 			struct rmnet_bearer_map *bearer,
 			struct qos_info *qos);
+
+int dfc_qmap_client_init(void *port, int index, struct svc_info *psvc,
+			 struct qmi_info *qmi);
+
+void dfc_qmap_client_exit(void *dfc_data);
+
+void dfc_qmap_send_query(u8 mux_id, u8 bearer_id);
+void dfc_qmap_send_end_marker_cnf(struct qos_info *qos, u8 bearer_id, u16 seq);
 #else
 static inline struct rmnet_flow_map *
 qmi_rmnet_get_flow_map(struct qos_info *qos_info,
@@ -158,23 +164,23 @@ static inline void dfc_qmi_client_exit(void *dfc_data)
 {
 }
 
-static inline void
-dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
-		    int ip_type, u32 mark, unsigned int len)
-{
-}
-
-static inline void
-dfc_qmi_query_flow(void *dfc_data)
-{
-}
-
 static inline int
 dfc_bearer_flow_ctl(struct net_device *dev,
 		    struct rmnet_bearer_map *bearer,
 		    struct qos_info *qos)
 {
 	return 0;
+}
+
+static inline int
+dfc_qmap_client_init(void *port, int index, struct svc_info *psvc,
+		     struct qmi_info *qmi)
+{
+	return -EINVAL;
+}
+
+static inline void dfc_qmap_client_exit(void *dfc_data)
+{
 }
 #endif
 
