@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, 2019 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -1317,12 +1317,16 @@ static inline int coresight_search_device_idx(struct coresight_dev_list *dict,
  * duplicate indices for the same device (e.g, if we defer probing of
  * a device due to dependencies), in case the index is requested again.
  */
-char *coresight_alloc_device_name(struct coresight_dev_list *dict,
+const char *coresight_alloc_device_name(struct coresight_dev_list *dict,
 				  struct device *dev)
 {
 	int idx;
-	char *name = NULL;
+	const char *name = NULL;
 	struct fwnode_handle **list;
+	struct device_node *node = dev->of_node;
+
+	if (!of_property_read_string(node, "coresight-name", &name))
+		return name;
 
 	mutex_lock(&coresight_mutex);
 
