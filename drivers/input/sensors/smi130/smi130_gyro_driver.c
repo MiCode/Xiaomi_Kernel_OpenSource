@@ -295,6 +295,7 @@ struct smi_gyro_client_data {
 	bool read_gyro_boot_sample;
 	int gyro_bufsample_cnt;
 	bool gyro_buffer_smi130_samples;
+	bool gyro_enable;
 	struct kmem_cache *smi_gyro_cachepool;
 	struct smi_gyro_sample *smi130_gyro_samplist[SMI_GYRO_MAXSAMPLE];
 	int max_buffer_time;
@@ -860,11 +861,23 @@ static inline int smi130_check_gyro_early_buff_enable_flag(
 	else
 		return 0;
 }
+static void smi130_check_gyro_enable_flag(
+		struct smi_gyro_client_data *client_data, unsigned long data)
+{
+	if (data == SMI130_GYRO_MODE_NORMAL)
+		client_data->gyro_enable = true;
+	else
+		client_data->gyro_enable = false;
+}
 #else
 static inline int smi130_check_gyro_early_buff_enable_flag(
 		struct smi_gyro_client_data *client_data)
 {
 	return 0;
+}
+static void smi130_check_gyro_enable_flag(
+		struct smi_gyro_client_data *client_data, unsigned long data)
+{
 }
 #endif
 
@@ -895,13 +908,17 @@ static ssize_t smi_gyro_store_op_mode(struct device *dev,
 
 	long op_mode;
 
-	err = smi130_check_gyro_early_buff_enable_flag(client_data);
-	if (err)
-		return count;
 
 	err = kstrtoul(buf, 10, &op_mode);
 	if (err)
 		return err;
+
+	smi130_check_gyro_enable_flag(client_data, op_mode);
+
+	err = smi130_check_gyro_early_buff_enable_flag(client_data);
+	if (err)
+		return count;
+
 	mutex_lock(&client_data->mutex_op_mode);
 
 	err = SMI_GYRO_CALL_API(set_mode)(op_mode);
@@ -1742,6 +1759,10 @@ static void store_gyro_boot_sample(struct smi_gyro_client_data *client_data,
 		PINFO("End of GYRO buffering %d",
 				client_data->gyro_bufsample_cnt);
 		client_data->gyro_buffer_smi130_samples = false;
+		if (client_data->gyro_enable == false) {
+			smi130_gyro_set_mode(SMI130_GYRO_MODE_SUSPEND);
+			smi130_gyro_delay(5);
+		}
 	}
 }
 #else
@@ -1810,6 +1831,7 @@ static int smi130_gyro_early_buff_init(struct smi_gyro_client_data *client_data)
 	}
 
 	client_data->gyro_buffer_smi130_samples = true;
+	client_data->gyro_enable = false;
 
 	smi130_gyro_set_mode(SMI130_GYRO_MODE_NORMAL);
 	smi130_gyro_delay(5);

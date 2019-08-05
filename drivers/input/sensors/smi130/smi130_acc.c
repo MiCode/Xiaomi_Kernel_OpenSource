@@ -1604,6 +1604,7 @@ struct smi130_acc_data {
 	bool read_acc_boot_sample;
 	int acc_bufsample_cnt;
 	bool acc_buffer_smi130_samples;
+	bool acc_enable;
 	struct kmem_cache *smi_acc_cachepool;
 	struct smi_acc_sample *smi130_acc_samplist[SMI_ACC_MAXSAMPLE];
 	int max_buffer_time;
@@ -4073,11 +4074,24 @@ static inline int smi130_check_acc_early_buff_enable_flag(
 	else
 		return 0;
 }
+static void smi130_check_acc_enable_flag(struct smi130_acc_data *client_data,
+		unsigned long data)
+{
+	if (data == SMI_ACC2X2_MODE_NORMAL)
+		client_data->acc_enable = true;
+	else
+		client_data->acc_enable = false;
+}
 #else
 static inline int smi130_check_acc_early_buff_enable_flag(
 		struct smi130_acc_data *client_data)
 {
 	return 0;
+}
+static void smi130_check_acc_enable_flag(struct smi130_acc_data *client_data,
+		unsigned long data)
+{
+
 }
 #endif
 
@@ -5481,13 +5495,17 @@ static ssize_t smi130_acc_mode_store(struct device *dev,
 	struct i2c_client *client = to_i2c_client(dev);
 	struct smi130_acc_data *smi130_acc = i2c_get_clientdata(client);
 
-	error = smi130_check_acc_early_buff_enable_flag(smi130_acc);
-	if (error)
-		return count;
 
 	error = kstrtoul(buf, 10, &data);
 	if (error)
 		return error;
+
+	smi130_check_acc_enable_flag(smi130_acc, data);
+
+	error = smi130_check_acc_early_buff_enable_flag(smi130_acc);
+	if (error)
+		return count;
+
 	if (smi130_acc_set_mode(smi130_acc->smi130_acc_client,
 		(unsigned char) data, SMI_ACC_ENABLED_BSX) < 0)
 			return -EINVAL;
@@ -6915,6 +6933,9 @@ static void store_acc_boot_sample(struct smi130_acc_data *client_data,
 		PINFO("End of ACC buffering %d\n",
 				client_data->acc_bufsample_cnt);
 		client_data->acc_buffer_smi130_samples = false;
+		if (client_data->acc_enable == false)
+			smi130_acc_set_mode(client_data->smi130_acc_client,
+					SMI_ACC2X2_MODE_SUSPEND, 1);
 	}
 }
 #else
@@ -6982,6 +7003,7 @@ static int smi130_acc_early_buff_init(struct i2c_client *client,
 	}
 
 	client_data->acc_buffer_smi130_samples = true;
+	client_data->acc_enable = false;
 
 	smi130_acc_set_mode(client, SMI_ACC2X2_MODE_NORMAL, 1);
 	smi130_acc_set_bandwidth(client, SMI_ACC2X2_BW_62_50HZ);
