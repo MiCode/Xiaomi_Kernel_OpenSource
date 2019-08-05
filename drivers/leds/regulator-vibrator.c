@@ -40,7 +40,7 @@ struct reg_vibr {
 	struct work_struct vibr_work;
 	struct hrtimer vibr_timer;
 	spinlock_t vibr_lock;
-	int vibr_dur;
+	unsigned int vibr_dur;
 	bool vibr_active;
 	bool vibr_state;
 	bool reg_status;
@@ -102,7 +102,7 @@ static int mt_vibra_parse_dt(struct device *dev,
 		return ret;
 	}
 
-	pr_info("vibr_conf = %d, %d, %d-%d\n",
+	pr_info("vibr_conf = %u, %u, %u-%u\n",
 		vibr_conf->min_limit, vibr_conf->max_limit,
 		vibr_conf->min_volt, vibr_conf->max_volt);
 
@@ -114,15 +114,12 @@ static int vibr_power_set(struct reg_vibr *vibr)
 {
 	int ret;
 
-	pr_info("set voltage = %d-%d\n",
+	pr_info("set voltage = %u-%u\n",
 		vibr->vibr_conf.min_volt, vibr->vibr_conf.max_volt);
 	ret = regulator_set_voltage(vibr->vibr_conf.reg,
 		vibr->vibr_conf.min_volt, vibr->vibr_conf.max_volt);
 	if (ret < 0)
-		pr_notice("set voltage fail, volt = %d-%d,  ret = %d\n",
-			vibr->vibr_conf.min_volt,
-			vibr->vibr_conf.max_volt,
-			ret);
+		pr_notice("set voltage fail, ret = %d\n", ret);
 
 	return ret;
 }
@@ -135,7 +132,7 @@ static void vibr_enable(struct reg_vibr *vibr)
 		else
 			vibr->reg_status = 1;
 	} else {
-		pr_notice("vibr_reg already enabled.%d:%d\n");
+		pr_notice("vibr_reg already enabled.\n");
 	}
 }
 
@@ -147,7 +144,7 @@ static void vibr_disable(struct reg_vibr *vibr)
 		else
 			vibr->reg_status = 0;
 	} else {
-		pr_notice("vibr_reg already disabled.%d:%d\n");
+		pr_notice("vibr_reg already disabled.\n");
 	}
 }
 
@@ -168,11 +165,11 @@ static void vibrator_enable(struct reg_vibr *vibr,
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&vibr->vibr_lock, flags);
-	hrtimer_cancel(&vibr->vibr_timer);
-	pr_info("cancel hrtimer, cust:%d-%d, dur:%u, shutdown:%d\n",
+	pr_info("cancel hrtimer, cust:%u-%u, dur:%u, shutdown:%d\n",
 		vibr->vibr_conf.min_limit, vibr->vibr_conf.max_limit,
 		dur, vibr->vibr_shutdown);
+	spin_lock_irqsave(&vibr->vibr_lock, flags);
+	hrtimer_cancel(&vibr->vibr_timer);
 
 	if (!activate || vibr->vibr_shutdown || !dur) {
 		vibr->vibr_state = 0;
@@ -184,9 +181,6 @@ static void vibrator_enable(struct reg_vibr *vibr,
 		hrtimer_start(&vibr->vibr_timer,
 			      ktime_set(dur / 1000, (dur % 1000) * 1000000),
 			      HRTIMER_MODE_REL);
-		pr_debug("start hrtimer, cust:%dms, dur:%u, shutdown:%d\n",
-			vibr->vibr_conf.min_limit, vibr->vibr_conf.max_limit,
-			dur, vibr->vibr_shutdown);
 	}
 	spin_unlock_irqrestore(&vibr->vibr_lock, flags);
 	queue_work(vibr->vibr_queue, &vibr->vibr_work);
@@ -228,7 +222,7 @@ static ssize_t activate_store(struct device *dev,
 		return ret;
 	}
 	duration = vibr->vibr_dur;
-	pr_info("set activate duration = %d, %d\n",
+	pr_info("set activate duration = %u, %u\n",
 		activate, duration);
 	vibrator_enable(vibr, duration, activate);
 
@@ -267,7 +261,7 @@ static ssize_t duration_show(struct device *dev,
 {
 	struct reg_vibr *vibr = dev_get_drvdata(dev->parent);
 
-	return sprintf(buf, "%d\n", vibr->vibr_dur);
+	return sprintf(buf, "%u\n", vibr->vibr_dur);
 }
 
 static ssize_t duration_store(struct device *dev,
@@ -279,13 +273,13 @@ static ssize_t duration_store(struct device *dev,
 
 	ret = kstrtouint(buf, 10, &duration);
 	if (ret) {
-		pr_notice("set duration fail\n");
+		pr_notice("set duration fail!\n");
 		return ret;
 	}
 	vibr = dev_get_drvdata(dev->parent);
 	vibr->vibr_dur = duration;
 	activate = vibr->vibr_active;
-	pr_debug("set activate duration = %d, %d\n",
+	pr_debug("set activate duration = %u, %u\n",
 		activate, duration);
 
 	ret = size;
