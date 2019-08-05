@@ -21,7 +21,6 @@
 #include <trace/events/sched.h>
 #include <trace/events/ipi.h>
 #include <trace/events/irq.h>
-#include <trace/events/mtk_events.h>
 
 #include "xgf.h"
 #include "fpsgo_base.h"

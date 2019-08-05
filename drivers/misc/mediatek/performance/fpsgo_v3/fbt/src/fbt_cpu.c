@@ -59,6 +59,8 @@
 #include "fbt_fteh.h"
 //#include "mtk_upower.h"
 
+#define API_READY 0
+
 #define GED_VSYNC_MISS_QUANTUM_NS 16666666
 #define TIME_3MS  3000000
 #define TIME_2MS  2000000
@@ -478,11 +480,11 @@ static int fbt_find_freerun(void)
 
 static void fbt_free_bhr(void)
 {
-	struct ppm_limit_data *pld;
+	struct cpu_ctrl_data *pld;
 	int i;
 
 	pld =
-		kcalloc(cluster_num, sizeof(struct ppm_limit_data),
+		kcalloc(cluster_num, sizeof(struct cpu_ctrl_data),
 				GFP_KERNEL);
 	if (!pld) {
 		FPSGO_LOGE("ERROR OOM %d\n", __LINE__);
@@ -496,7 +498,7 @@ static void fbt_free_bhr(void)
 
 	xgf_trace("fpsgo free bhr");
 
-#if API_READY
+#ifdef CONFIG_MTK_PPM
 	update_userlimit_cpu_freq(CPU_KIR_FPSGO, cluster_num, pld);
 #endif
 	kfree(pld);
@@ -897,7 +899,7 @@ static unsigned int fbt_must_enhance_floor(unsigned int blc_wt,
 	return blc_wt;
 }
 
-static unsigned int fbt_get_new_base_blc(struct ppm_limit_data *pld, int jerkid)
+static unsigned int fbt_get_new_base_blc(struct cpu_ctrl_data *pld, int jerkid)
 {
 	int cluster;
 	unsigned int blc_wt = 0U;
@@ -1014,7 +1016,7 @@ static void fbt_do_jerk(struct work_struct *work)
 		&& thr->linger == 0) {
 
 		unsigned int blc_wt = 0U;
-		struct ppm_limit_data *pld;
+		struct cpu_ctrl_data *pld;
 		int temp_blc = 0;
 
 		mutex_lock(&blc_mlock);
@@ -1026,7 +1028,7 @@ static void fbt_do_jerk(struct work_struct *work)
 			int do_jerk;
 
 			pld = kcalloc(cluster_num,
-				sizeof(struct ppm_limit_data),
+				sizeof(struct cpu_ctrl_data),
 				GFP_KERNEL);
 			if (!pld)
 				goto leave;
@@ -1050,7 +1052,7 @@ static void fbt_do_jerk(struct work_struct *work)
 			}
 
 			if (do_jerk != FPSGO_JERK_POSTPONE) {
-#if API_READY
+#ifdef CONFIG_MTK_PPM
 				update_userlimit_cpu_freq(
 					CPU_KIR_FPSGO, cluster_num, pld);
 #endif
@@ -1287,7 +1289,7 @@ static void fbt_check_var(long loading,
 
 static void fbt_do_boost(unsigned int blc_wt, int pid)
 {
-	struct ppm_limit_data *pld;
+	struct cpu_ctrl_data *pld;
 	int *clus_opp;
 	unsigned int *clus_floor_freq;
 
@@ -1298,7 +1300,7 @@ static void fbt_do_boost(unsigned int blc_wt, int pid)
 	int min_ceiling = 0;
 
 	pld =
-		kcalloc(cluster_num, sizeof(struct ppm_limit_data),
+		kcalloc(cluster_num, sizeof(struct cpu_ctrl_data),
 				GFP_KERNEL);
 	if (!pld) {
 		FPSGO_LOGE("ERROR OOM %d\n", __LINE__);
@@ -1368,7 +1370,7 @@ static void fbt_do_boost(unsigned int blc_wt, int pid)
 
 	if (boost_ta)
 		fbt_set_boost_value(blc_wt);
-#if API_READY
+#ifdef CONFIG_MTK_PPM
 	update_userlimit_cpu_freq(CPU_KIR_FPSGO, cluster_num, pld);
 #endif
 	kfree(pld);
