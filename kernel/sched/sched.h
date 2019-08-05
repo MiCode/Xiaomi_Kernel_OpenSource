@@ -3007,6 +3007,11 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 	return 1;
 }
 
+static inline int mark_reserved(int cpu)
+{
+	return 0;
+}
+
 static inline void clear_reserved(int cpu) { }
 static inline int alloc_related_thread_groups(void) { return 0; }
 

@@ -27,7 +27,6 @@
 #include "walt.h"
 
 #ifdef CONFIG_SMP
-static inline bool get_rtg_status(struct task_struct *p);
 static inline bool task_fits_max(struct task_struct *p, int cpu);
 #endif /* CONFIG_SMP */
 
@@ -6727,14 +6726,47 @@ unsigned long capacity_curr_of(int cpu)
 	return cap_scale(max_cap, scale_freq);
 }
 
+#ifdef CONFIG_SCHED_WALT
+static inline bool get_rtg_status(struct task_struct *p)
+{
+	struct related_thread_group *grp;
+	bool ret = false;
+
+	rcu_read_lock();
+
+	grp = task_related_thread_group(p);
+	if (grp)
+		ret = grp->skip_min;
+
+	rcu_read_unlock();
+
+	return ret;
+}
+
+static inline bool task_skip_min_cpu(struct task_struct *p)
+{
+	return sched_boost() != CONSERVATIVE_BOOST &&
+		get_rtg_status(p) && p->unfilter;
+}
+#else
+static inline bool get_rtg_status(struct task_struct *p)
+{
+	return false;
+}
+
+static inline bool task_skip_min_cpu(struct task_struct *p)
+{
+	return false;
+}
+#endif
+
 static int get_start_cpu(struct task_struct *p)
 {
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	int start_cpu = rd->min_cap_orig_cpu;
 	bool boosted = schedtune_task_boost(p) > 0 ||
 			task_boost_policy(p) == SCHED_BOOST_ON_BIG;
-	bool task_skip_min = (sched_boost() != CONSERVATIVE_BOOST)
-				&& get_rtg_status(p) && p->unfilter;
+	bool task_skip_min = task_skip_min_cpu(p);
 
 	/*
 	 * note about min/mid/max_cap_orig_cpu - either all of them will be -ve
@@ -7430,29 +7462,6 @@ static inline int wake_to_idle(struct task_struct *p)
 	return (current->flags & PF_WAKE_UP_IDLE) ||
 			(p->flags & PF_WAKE_UP_IDLE);
 }
-
-#ifdef CONFIG_SCHED_WALT
-static inline bool get_rtg_status(struct task_struct *p)
-{
-	struct related_thread_group *grp;
-	bool ret = false;
-
-	rcu_read_lock();
-
-	grp = task_related_thread_group(p);
-	if (grp)
-		ret = grp->skip_min;
-
-	rcu_read_unlock();
-
-	return ret;
-}
-#else
-static inline bool get_rtg_status(struct task_struct *p)
-{
-	return false;
-}
-#endif
 
 /* return true if cpu should be chosen over best_energy_cpu */
 static inline bool select_cpu_same_energy(int cpu, int best_cpu, int prev_cpu)
