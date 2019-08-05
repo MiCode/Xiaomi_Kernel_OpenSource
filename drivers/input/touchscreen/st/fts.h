@@ -40,7 +40,7 @@
 #define FTS_TS_DRV_NAME      "fts"
 #define FTS_TS_DRV_VERSION   "4.2.14" /* version */
 
-#define SCRIPTLESS /*allow to work in scriptless mode with the GUI*/
+/*#define SCRIPTLESS*/ /*allow to work in scriptless mode with the GUI*/
 #ifdef SCRIPTLESS
 #define SCRIPTLESS_DEBUG
 /**
