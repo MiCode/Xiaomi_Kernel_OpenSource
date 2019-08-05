@@ -57,7 +57,7 @@
 #include "console_cmdline.h"
 #include "braille.h"
 #include "internal.h"
-
+#include "mt-plat/mtk_printk_ctrl.h"
 
 #ifdef CONFIG_PRINTK_PREFIX_ENHANCE
 static DEFINE_PER_CPU(char, printk_state);
@@ -445,6 +445,26 @@ static u32 clear_idx;
 static char __log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
 static char *log_buf = __log_buf;
 static u32 log_buf_len = __LOG_BUF_LEN;
+
+
+/* console duration detect */
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+struct __conwrite_stat_struct {
+	struct console *con; /* current console */
+	u64 time_before_conwrite; /* the last record before write */
+	u64 time_after_conwrite; /* the last record after write */
+	char con_write_statbuf[512]; /* con write status buf*/
+};
+u64 time_con_write_ttyS, time_con_write_pstore;
+u64 len_con_write_ttyS, len_con_write_pstore;
+static struct __conwrite_stat_struct conwrite_stat_struct = {
+	.con = NULL,
+	.time_before_conwrite = 0,
+	.time_after_conwrite = 0
+};
+unsigned long rem_nsec_con_write_ttyS, rem_nsec_con_write_pstore;
+bool console_status_detected;
+#endif
 
 /* Return log buffer address */
 char *log_buf_addr_get(void)
@@ -1291,6 +1311,18 @@ static size_t print_prefix(const struct printk_log *msg, bool syslog, char *buf)
 	}
 
 	len += print_time(msg->ts_nsec, buf ? buf + len : NULL);
+
+#if defined(CONFIG_PRINTK_PREFIX_ENHANCE) \
+	 && defined(CONFIG_PRINTK_MTK_UART_CONSOLE)
+	/* if uart printk enabled */
+	if (syslog == false && mt_get_uartlog_status()) {
+		if (buf)
+			len += sprintf(buf+len, "<%d>", smp_processor_id());
+		else
+			len += snprintf(NULL, 0, "<%d>", smp_processor_id());
+	}
+#endif
+
 	return len;
 }
 
@@ -1748,6 +1780,9 @@ static void call_console_drivers(const char *ext_text, size_t ext_len,
 				 const char *text, size_t len)
 {
 	struct console *con;
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+	unsigned long interval_con_write = 0;
+#endif
 
 	trace_console_rcuidle(text, len);
 
@@ -1755,6 +1790,11 @@ static void call_console_drivers(const char *ext_text, size_t ext_len,
 		return;
 
 	for_each_console(con) {
+#ifdef CONFIG_PRINTK_MTK_UART_CONSOLE
+		/* if uart printk disabled */
+		if (!mt_get_uartlog_status() && (con->flags & CON_CONSDEV))
+			continue;
+#endif
 		if (exclusive_console && con != exclusive_console)
 			continue;
 		if (!(con->flags & CON_ENABLED))
@@ -1766,10 +1806,31 @@ static void call_console_drivers(const char *ext_text, size_t ext_len,
 			continue;
 		if (con->flags & CON_EXTENDED)
 			con->write(con, ext_text, ext_len);
-		else
+		else {
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+			conwrite_stat_struct.con = con;
+			conwrite_stat_struct.time_before_conwrite
+				= local_clock();
 			con->write(con, text, len);
+			conwrite_stat_struct.time_after_conwrite
+				= local_clock();
+			interval_con_write =
+				conwrite_stat_struct.time_after_conwrite -
+				conwrite_stat_struct.time_before_conwrite;
+			if (!strcmp(con->name, "ttyS")) {
+				time_con_write_ttyS += interval_con_write;
+				len_con_write_ttyS += len;
+			} else if (!strcmp(con->name, "pstore")) {
+				time_con_write_pstore += interval_con_write;
+				len_con_write_pstore += len;
+			}
+#else
+			con->write(con, text, len);
+#endif
+		}
 	}
 }
+
 
 int printk_delay_msec __read_mostly;
 
@@ -1849,6 +1910,9 @@ static bool cont_add(int facility, int level, enum log_flags flags, const char *
 
 static size_t log_output(int facility, int level, enum log_flags lflags, const char *dict, size_t dictlen, char *text, size_t text_len)
 {
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+	u64 log_enter_time = local_clock();
+#endif
 	/*
 	 * If an earlier line was buffered, and we're a continuation
 	 * write from the same process, try to add it to the buffer.
@@ -1873,7 +1937,12 @@ static size_t log_output(int facility, int level, enum log_flags lflags, const c
 	}
 
 	/* Store it in the record log */
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+	return log_store(facility, level, lflags,
+		log_enter_time, dict, dictlen, text, text_len);
+#else
 	return log_store(facility, level, lflags, 0, dict, dictlen, text, text_len);
+#endif
 }
 
 /* Must be called under logbuf_lock. */
@@ -2361,6 +2430,15 @@ void console_unlock(void)
 	static char text[LOG_LINE_MAX + PREFIX_MAX];
 	unsigned long flags;
 	bool do_cond_resched, retry;
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+	bool block_overtime = false;
+	u64 con_dura_time = local_clock();
+	u64 current_time;
+
+	len_con_write_ttyS = len_con_write_pstore = 0;
+	time_con_write_ttyS = time_con_write_pstore = 0;
+	rem_nsec_con_write_ttyS = rem_nsec_con_write_pstore = 0;
+#endif
 
 	if (console_suspended) {
 		up_console_sem();
@@ -2416,6 +2494,50 @@ again:
 skip:
 		if (console_seq == log_next_seq)
 			break;
+
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+		/* console_unlock block time over 2 seconds */
+		current_time = local_clock();
+		if ((current_time - con_dura_time) > 2000000000ULL) {
+			unsigned long tmp_rem_nsec_start = 0,
+				tmp_rem_nsec_end = 0;
+			block_overtime = true;
+			console_status_detected = true;
+
+			rem_nsec_con_write_ttyS = do_div
+				(time_con_write_ttyS, 1000000000);
+			rem_nsec_con_write_pstore = do_div
+				(time_con_write_pstore, 1000000000);
+			tmp_rem_nsec_start = do_div(con_dura_time, 1000000000);
+			tmp_rem_nsec_end = do_div(current_time, 1000000000);
+			memset(conwrite_stat_struct.con_write_statbuf, 0x0,
+				sizeof(conwrite_stat_struct.con_write_statbuf)
+				- 1);
+			snprintf(conwrite_stat_struct.con_write_statbuf,
+				sizeof(conwrite_stat_struct.con_write_statbuf)
+				- 1,
+"cpu%d [%lu.%06lu]--[%lu.%06lu] 'ttyS' %lubytes %lu.%06lus, 'pstore' %lubytes %lu.%06lus\n",
+				smp_processor_id(),
+				(unsigned long)con_dura_time,
+				tmp_rem_nsec_start/1000,
+				(unsigned long)current_time,
+				tmp_rem_nsec_end/1000,
+				(unsigned long)len_con_write_ttyS,
+				(unsigned long)time_con_write_ttyS,
+				rem_nsec_con_write_ttyS/1000,
+				(unsigned long)len_con_write_pstore,
+				(unsigned long)time_con_write_pstore,
+				rem_nsec_con_write_pstore/1000);
+			break;
+		}
+		/* print the uart status next time enter the console_unlock */
+		if (console_status_detected) {
+			len += snprintf(text + len,
+				strlen(conwrite_stat_struct.con_write_statbuf),
+				conwrite_stat_struct.con_write_statbuf);
+			console_status_detected = false;
+		}
+#endif
 
 		msg = log_from_idx(console_idx);
 		if (suppress_message_printing(msg->level)) {
@@ -2486,7 +2608,11 @@ skip:
 	 * flush, no worries.
 	 */
 	raw_spin_lock(&logbuf_lock);
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+	retry = !block_overtime && (console_seq != log_next_seq);
+#else
 	retry = console_seq != log_next_seq;
+#endif
 	raw_spin_unlock(&logbuf_lock);
 	printk_safe_exit_irqrestore(flags);
 

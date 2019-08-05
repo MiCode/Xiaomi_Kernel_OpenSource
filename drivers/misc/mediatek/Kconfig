@@ -293,6 +293,7 @@ source "drivers/misc/mediatek/monitor_hang/Kconfig"
 source "drivers/misc/mediatek/thermal/Kconfig"
 source "drivers/misc/mediatek/debug_latch/Kconfig"
 source "drivers/misc/mediatek/cache/Kconfig"
+source "drivers/misc/mediatek/mtprintk/Kconfig"
 endmenu # Debug
 
 menu "Misc"
