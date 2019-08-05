@@ -12,4 +12,6 @@
 #
 
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/mt6779/inc/mach/
+
 obj-y += mtk_gpufreq_core.o

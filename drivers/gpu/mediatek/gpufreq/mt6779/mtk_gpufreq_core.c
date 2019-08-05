@@ -47,7 +47,7 @@
 #include "mtk_gpufreq.h"
 
 /* #include "mtk_thermal_typedefs.h" */
-/* #include "mtk_thermal.h" */
+#include "mtk_thermal.h"
 #ifdef FHCTL_READY
 #include "mt_freqhopping.h"
 #include "mt_fhreg.h"
@@ -71,12 +71,7 @@
 
 #include <linux/string.h>
 
-/*
- * CONFIG_THERMAL to be done, dependent APIs not existed
- */
-#ifdef CONFIG_THERMAL
-#undef CONFIG_THERMAL
-#endif
+
 
 /**
  * ===============================================
