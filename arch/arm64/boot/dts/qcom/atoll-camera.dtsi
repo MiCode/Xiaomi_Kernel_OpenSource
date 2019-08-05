@@ -25,11 +25,16 @@
 		reg-cam-base = <0x65000>;
 		interrupts = <0 477 0>;
 		interrupt-names = "csiphy";
-		regulator-names = "gdscr", "refgen";
+		regulator-names = "gdscr", "refgen",
+			"mipi-csi-vdd1", "mipi-csi-vdd2";
 		gdscr-supply = <&titan_top_gdsc>;
 		refgen-supply = <&refgen>;
-		csi-vdd-voltage = <900000>;
-		mipi-csi-vdd-supply = <&L4A>;
+		mipi-csi-vdd1-supply = <&L4A>;
+		mipi-csi-vdd2-supply = <&L3C>;
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <0 0 900000 1200000>;
+		rgltr-max-voltage = <0 0 900000 1200000>;
+		rgltr-load-current = <0 0 80000 80000>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -63,11 +68,16 @@
 		reg-cam-base = <0x66000>;
 		interrupts = <0 478 0>;
 		interrupt-names = "csiphy";
-		regulator-names = "gdscr", "refgen";
+		regulator-names = "gdscr", "refgen",
+			"mipi-csi-vdd1", "mipi-csi-vdd2";
 		gdscr-supply = <&titan_top_gdsc>;
 		refgen-supply = <&refgen>;
-		csi-vdd-voltage = <900000>;
-		mipi-csi-vdd-supply = <&L4A>;
+		mipi-csi-vdd1-supply = <&L4A>;
+		mipi-csi-vdd2-supply = <&L3C>;
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <0 0 900000 1200000>;
+		rgltr-max-voltage = <0 0 900000 1200000>;
+		rgltr-load-current = <0 0 80000 80000>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -101,11 +111,16 @@
 		reg-cam-base = <0x67000>;
 		interrupts = <0 479 0>;
 		interrupt-names = "csiphy";
-		regulator-names = "gdscr", "refgen";
+		regulator-names = "gdscr", "refgen",
+			"mipi-csi-vdd1", "mipi-csi-vdd2";
 		gdscr-supply = <&titan_top_gdsc>;
 		refgen-supply = <&refgen>;
-		csi-vdd-voltage = <900000>;
-		mipi-csi-vdd-supply = <&L4A>;
+		mipi-csi-vdd1-supply = <&L4A>;
+		mipi-csi-vdd2-supply = <&L3C>;
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <0 0 900000 1200000>;
+		rgltr-max-voltage = <0 0 900000 1200000>;
+		rgltr-load-current = <0 0 80000 80000>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -139,11 +154,16 @@
 		reg-cam-base = <0x68000>;
 		interrupts = <0 461 0>;
 		interrupt-names = "csiphy";
-		regulator-names = "gdscr", "refgen";
+		regulator-names = "gdscr", "refgen",
+			"mipi-csi-vdd1", "mipi-csi-vdd2";
 		gdscr-supply = <&titan_top_gdsc>;
 		refgen-supply = <&refgen>;
-		csi-vdd-voltage = <900000>;
-		mipi-csi-vdd-supply = <&L4A>;
+		mipi-csi-vdd1-supply = <&L4A>;
+		mipi-csi-vdd2-supply = <&L3C>;
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <0 0 900000 1200000>;
+		rgltr-max-voltage = <0 0 900000 1200000>;
+		rgltr-load-current = <0 0 80000 80000>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
