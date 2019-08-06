@@ -621,6 +621,8 @@ extern bool corestack_driver_control;
  */
 extern bool platform_power_down_only;
 
+extern bool l2_always_on;
+
 #ifdef ENABLE_COMMON_DVFS
 struct kbase_device *mtk_get_mali_dev(void);
 void MTKCalGpuUtilization(unsigned int *pui32Loading, unsigned int *pui32Block, unsigned int *pui32Idle);
