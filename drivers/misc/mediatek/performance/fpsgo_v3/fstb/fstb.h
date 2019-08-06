@@ -57,6 +57,7 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 void fpsgo_fbt2fstb_query_fps(int pid, int *target_fps,
 			int *target_cpu_time, int tgid, unsigned long long mid);
 int fpsgo_fbt2fstb_query_fteh_list(int pid);
+void fpsgo_ctrl2fstb_dfrc_fps(int dfrc_fps);
 
 #else
 static inline int fpsgo_fstb2fbt_reset_asfc(int level) { return 0; }
@@ -85,6 +86,7 @@ static inline void fpsgo_fbt2fstb_query_fps(int pid,
 			int *target_fps, int *target_cpu_time,
 			int tgid, unsigned long long mid) { }
 static inline int fpsgo_fbt2fstb_query_fteh_list(int pid) { return 0; }
+static void fpsgo_ctrl2fstb_dfrc_fps(int dfrc_fps) { }
 
 #endif
 

@@ -26,15 +26,12 @@
 #include "fps_composer.h"
 #include "xgf.h"
 #include "eara_job.h"
+#include "disp_arr.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/fpsgo.h>
 
-#ifdef CONFIG_MTK_DYNAMIC_FPS_FRAMEWORK_SUPPORT
-#include "dfrc.h"
-#include "dfrc_drv.h"
-#endif
-
+#define API_READY 0
 #define TARGET_UNLIMITED_FPS 60
 
 enum FPSGO_NOTIFIER_PUSH_TYPE {
@@ -120,10 +117,7 @@ static void fpsgo_notifier_wq_cb_dfrc_fps(int dfrc_fps)
 {
 	FPSGO_LOGI("[FPSGO_CB] dfrc_fps %d\n", dfrc_fps);
 
-	if (!fpsgo_is_enable())
-		return;
-
-	fpsgo_ctrl2fbt_dfrc_fps(dfrc_fps);
+	fpsgo_ctrl2fstb_dfrc_fps(dfrc_fps);
 }
 
 static void fpsgo_notifier_wq_cb_connect(int pid,
@@ -645,8 +639,7 @@ void fpsgo_notify_cpufreq(int cid, unsigned long freq)
 	fpsgo_ctrl2fbt_cpufreq_cb(cid, freq);
 }
 
-#ifdef CONFIG_MTK_DYNAMIC_FPS_FRAMEWORK_SUPPORT
-void dfrc_fps_limit_cb(int fps_limit)
+void dfrc_fps_limit_cb(unsigned int fps_limit)
 {
 	unsigned int vTmp = TARGET_UNLIMITED_FPS;
 	struct FPSGO_NOTIFIER_PUSH_TAG *vpPush;
@@ -654,7 +647,7 @@ void dfrc_fps_limit_cb(int fps_limit)
 	if (!fpsgo_is_enable())
 		return;
 
-	if (fps_limit != DFRC_DRV_FPS_NON_ASSIGN)
+	if (fps_limit > 0 && fps_limit <= TARGET_UNLIMITED_FPS)
 		vTmp = fps_limit;
 
 	FPSGO_LOGI("[FPSGO_CTRL] dfrc_fps %d\n", vTmp);
@@ -680,8 +673,6 @@ void dfrc_fps_limit_cb(int fps_limit)
 	INIT_WORK(&vpPush->sWork, fpsgo_notifier_wq_cb);
 	queue_work(g_psNotifyWorkQueue, &vpPush->sWork);
 }
-EXPORT_SYMBOL(dfrc_fps_limit_cb);
-#endif
 
 /* FPSGO control */
 void fpsgo_switch_enable(int enable)
@@ -770,11 +761,6 @@ int fpsgo_fstb_thread_fps_range(pid_t pid,
 	return switch_thread_fps_range(pid, nr_level, level);
 }
 
-int fpsgo_fstb_dfps_ceiling(int fps)
-{
-	return switch_dfps_ceiling(fps);
-}
-
 int fpsgo_fstb_fps_error_threhosld(int threshold)
 {
 	return switch_fps_error_threhosld(threshold);
@@ -794,7 +780,9 @@ static void __exit fpsgo_exit(void)
 		destroy_workqueue(g_psNotifyWorkQueue);
 		g_psNotifyWorkQueue = NULL;
 	}
-
+#if API_READY
+	disp_unregister_fps_chg_callback(dfrc_fps_limit_cb);
+#endif
 	fbt_cpu_exit();
 	mtk_fstb_exit();
 	fpsgo_composer_exit();
@@ -836,6 +824,9 @@ static int __init fpsgo_init(void)
 	fpsgo_notify_nn_job_end_fp = fpsgo_notify_nn_job_end;
 	fpsgo_get_nn_priority_fp = fpsgo_get_nn_priority;
 	fpsgo_get_nn_ttime_fp = fpsgo_get_nn_ttime;
+#if API_READY
+	disp_register_fps_chg_callback(dfrc_fps_limit_cb);
+#endif
 
 	return 0;
 }

@@ -46,11 +46,6 @@
 #include "ged_kpi.h"
 #endif
 
-#ifdef CONFIG_MTK_DYNAMIC_FPS_FRAMEWORK_SUPPORT
-#include "dfrc.h"
-#include "dfrc_drv.h"
-#endif
-
 #define mtk_fstb_dprintk_always(fmt, args...) \
 	pr_debug("[FSTB]" fmt, ##args)
 
@@ -250,43 +245,12 @@ int switch_margin_mode(int mode)
 	return 0;
 }
 
-int switch_dfps_ceiling(int fps)
-{
-#ifdef CONFIG_MTK_DYNAMIC_FPS_FRAMEWORK_SUPPORT
-	int ret = 0;
-
-	mutex_lock(&fstb_lock);
-
-	if (fps <= CFG_MAX_FPS_LIMIT && fps >= CFG_MIN_FPS_LIMIT) {
-		ret = dfrc_set_kernel_policy(DFRC_DRV_API_LOADING,
-				((fps != 60) ? fps : -1),
-				DFRC_DRV_MODE_INTERNAL_SW, 0, 0);
-
-		dfps_ceiling = fps;
-		max_fps_limit = min(dfps_ceiling,
-				fps_levels[0].start);
-		min_fps_limit =	min(dfps_ceiling,
-				fps_levels[nr_fps_levels - 1].end);
-
-		mutex_unlock(&fstb_lock);
-	} else {
-		mutex_unlock(&fstb_lock);
-		return -1;
-	}
-
-	return ret;
-#endif
-	return -1;
-
-}
-
 int switch_fps_range(int nr_level, struct fps_level *level)
 {
 	if (nr_level != 1)
 		return 1;
 
-	if (!set_soft_fps_level(nr_level, level) &&
-			!switch_dfps_ceiling(level[0].start))
+	if (!set_soft_fps_level(nr_level, level))
 		return 0;
 	else
 		return 1;
@@ -496,11 +460,25 @@ int switch_percentile_frametime(int ratio)
 	return 0;
 }
 
-void (*update_lppcap)(unsigned int cap);
-
 static int cmplonglong(const void *a, const void *b)
 {
 	return *(long long *)a - *(long long *)b;
+}
+
+void fpsgo_ctrl2fstb_dfrc_fps(int fps)
+{
+	mutex_lock(&fstb_lock);
+
+	if (fps <= CFG_MAX_FPS_LIMIT && fps >= CFG_MIN_FPS_LIMIT) {
+		dfps_ceiling = fps;
+		max_fps_limit = min(dfps_ceiling,
+				fps_levels[0].start);
+		min_fps_limit =	min(dfps_ceiling,
+				fps_levels[nr_fps_levels - 1].end);
+
+		mutex_unlock(&fstb_lock);
+	} else
+		mutex_unlock(&fstb_lock);
 }
 
 void gpu_time_update(long long t_gpu, unsigned int cur_freq,
@@ -1445,6 +1423,10 @@ static void fstb_fps_stats(struct work_struct *work)
 
 			iter->target_fps =
 				calculate_fps_limit(iter, target_fps);
+
+			fpsgo_systrace_c_fstb_man(iter->pid,
+					dfps_ceiling, "dfrc");
+
 			fpsgo_systrace_c_fstb(iter->pid,
 				iter->target_fps_margin, "target_fps_margin");
 			ged_kpi_set_target_FPS_margin(iter->bufid,
@@ -1536,7 +1518,6 @@ static void reset_fps_level(void)
 	level[0].end = CFG_MIN_FPS_LIMIT;
 
 	set_soft_fps_level(1, level);
-	switch_dfps_ceiling(level[0].start);
 }
 
 static int fstb_soft_level_read(struct seq_file *m, void *v)
@@ -1643,109 +1624,6 @@ static const struct file_operations fstb_soft_level_fops = {
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.write = fstb_soft_level_write,
-	.release = single_release,
-};
-
-static int fstb_level_read(struct seq_file *m, void *v)
-{
-	seq_printf(m, "%d ", nr_fps_levels);
-	seq_printf(m, "%d-%d ", dfps_ceiling, fps_levels[0].end);
-	seq_puts(m, "\n");
-
-	return 0;
-}
-
-/* format example: 1 60-45
- * compatible: 1 45
- */
-static ssize_t fstb_level_write(struct file *file,
-		const char __user *buffer,
-		size_t count, loff_t *data)
-{
-	char *buf, *sepstr, *substr;
-	int ret = -EINVAL, new_nr_fps_levels, i, start_fps, end_fps;
-	struct fps_level *new_levels;
-
-	/* we do not allow change fps_level during fps throttling,
-	 * because fps_levels would be changed.
-	 */
-
-	if (count > 256)
-		return -ENOMEM;
-
-	buf = kmalloc(count + 1, GFP_KERNEL);
-	if (buf == NULL)
-		return -ENOMEM;
-
-	new_levels = kmalloc(sizeof(fps_levels), GFP_KERNEL);
-	if (new_levels == NULL) {
-		ret = -ENOMEM;
-		goto err_freebuf;
-	}
-
-	if (copy_from_user(buf, buffer, count)) {
-		ret = -EFAULT;
-		goto err;
-	}
-	buf[count] = '\0';
-	sepstr = buf;
-
-	substr = strsep(&sepstr, " ");
-	if (!substr || kstrtoint(substr, 10, &new_nr_fps_levels) != 0 ||
-			new_nr_fps_levels > MAX_NR_FPS_LEVELS) {
-		ret = -EINVAL;
-		goto err;
-	}
-
-	for (i = 0; i < new_nr_fps_levels; i++) {
-		substr = strsep(&sepstr, " ");
-		if (!substr) {
-			ret = -EINVAL;
-			goto err;
-		}
-		if (strchr(substr, '-')) { /* maybe contiguous */
-			if (sscanf(substr, "%d-%d",
-				&start_fps, &end_fps) != 2) {
-				ret = -EINVAL;
-				goto err;
-			}
-			new_levels[i].start = start_fps;
-			new_levels[i].end = end_fps;
-		} else { /* discrete */
-			if (kstrtoint(substr, 10, &start_fps) != 0) {
-				ret = -EINVAL;
-				goto err;
-			}
-			new_levels[i].start = start_fps;
-			new_levels[i].end = start_fps;
-		}
-	}
-
-	if (switch_fps_range(new_nr_fps_levels, new_levels)) {
-		ret = -EINVAL;
-		goto err;
-	} else
-		ret = count;
-
-err:
-	kfree(new_levels);
-err_freebuf:
-	kfree(buf);
-
-	return ret;
-}
-
-static int fstb_level_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, fstb_level_read, NULL);
-}
-
-static const struct file_operations fstb_level_fops = {
-	.owner = THIS_MODULE,
-	.open = fstb_level_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = fstb_level_write,
 	.release = single_release,
 };
 
@@ -1987,42 +1865,6 @@ static const struct file_operations fstb_margin_mode_fops = {
 	.release = single_release,
 };
 
-static int fstb_tune_dfps_ceiling_read(struct seq_file *m, void *v)
-{
-	seq_printf(m, "%d\n", dfps_ceiling);
-	return 0;
-}
-
-static ssize_t fstb_tune_dfps_ceiling_write(struct file *file,
-		const char __user *buffer,
-		size_t count, loff_t *data)
-{
-	int ret;
-	int arg;
-
-	if (!kstrtoint_from_user(buffer, count, 0, &arg))
-		ret = switch_dfps_ceiling(arg);
-	else
-		ret = -EINVAL;
-
-	return (ret < 0) ? ret : count;
-}
-
-static int fstb_tune_dfps_ceiling_open(struct inode *inode,
-		struct file *file)
-{
-	return single_open(file, fstb_tune_dfps_ceiling_read, NULL);
-}
-
-static const struct file_operations fstb_tune_dfps_ceiling_fops = {
-	.owner = THIS_MODULE,
-	.open = fstb_tune_dfps_ceiling_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = fstb_tune_dfps_ceiling_write,
-	.release = single_release,
-};
-
 static int fstb_tune_quantile_read(struct seq_file *m, void *v)
 {
 	seq_printf(m, "%d ", QUANTILE);
@@ -2232,6 +2074,7 @@ static int fpsgo_status_read(struct seq_file *m, void *v)
 	seq_printf(m, "\t%d\t%d\n", fteh_state, fteh_pid);
 
 	seq_printf(m, "fstb_is_cam_active:%d\n", fstb_is_cam_active);
+	seq_printf(m, "dfps_ceiling:%d\n", dfps_ceiling);
 
 	return 0;
 }
@@ -2292,12 +2135,6 @@ int mtk_fstb_init(void)
 			NULL,
 			&fstb_soft_level_fops);
 
-	debugfs_create_file("fstb_level",
-			0664,
-			fstb_debugfs_dir,
-			NULL,
-			&fstb_level_fops);
-
 	debugfs_create_file("fstb_fps_list",
 			0664,
 			fstb_debugfs_dir,
@@ -2327,12 +2164,6 @@ int mtk_fstb_init(void)
 			fstb_debugfs_dir,
 			NULL,
 			&fstb_tune_window_size_fops);
-
-	debugfs_create_file("fstb_tune_dfps_ceiling",
-			0664,
-			fstb_debugfs_dir,
-			NULL,
-			&fstb_tune_dfps_ceiling_fops);
 
 	debugfs_create_file("margin_mode",
 			0664,
