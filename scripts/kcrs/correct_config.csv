@@ -671,6 +671,7 @@ CONFIG_MTK_PQ_COLOR_MODE,PROJECT,Yj.li, new config I1b7b0441f385f77703b529b6efe6
 CONFIG_MTK_PSCI,PLATFORM,scott.shu,,y,X,y,X,y,X,y,X,y,X,y,X,y
 CONFIG_MTK_PSEUDO_M4U,PROJECT,Cui.Zhang,,N,N,X,N,N,X,X,X,X,X,X,X,X
 CONFIG_MTK_PTPOD,PLATFORM,charles.yang,,X,X,y,X,X,y,y,y,y,y,y,y,y
+CONFIG_MTK_PTPOD_GPU,PLATFORM,wei-chia.su,,X,X,y,X,X,y,y,y,y,y,y,y,y
 CONFIG_MTK_PUMP_EXPRESS_PLUS_20_SUPPORT,PROJECT,elvin.lin,,,,,,,,,,,,,,
 CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT,PROJECT,wy.chuang,,,,,,,,,,,,,,
 CONFIG_MTK_PUMP_EXPRESS_PLUS_SUPPORT,PROJECT,wy.chuang,(<NEW>new config in this commit 0a8d9b64437012ca7ccadfe1338fa26d74f49b16),,,,,,,,,,,,,
