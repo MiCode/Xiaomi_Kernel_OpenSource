@@ -215,6 +215,7 @@ struct tcpc_ops {
 #ifdef CONFIG_WATER_DETECTION
 	int (*is_water_detected)(struct tcpc_device *tcpc);
 	int (*set_water_protection)(struct tcpc_device *tcpc, bool en);
+	int (*set_usbid_polling)(struct tcpc_device *tcpc, bool en);
 #endif /* CONFIG_WATER_DETECTION */
 
 #ifdef CONFIG_TCPC_LOW_POWER_MODE

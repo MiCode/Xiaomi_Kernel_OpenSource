@@ -347,6 +347,13 @@ int tcpci_set_water_protection(struct tcpc_device *tcpc, bool en)
 	return 0;
 }
 
+int tcpci_set_usbid_polling(struct tcpc_device *tcpc, bool en)
+{
+	if (tcpc->ops->set_usbid_polling)
+		return tcpc->ops->set_usbid_polling(tcpc, en);
+	return 0;
+}
+
 int tcpci_notify_wd_status(struct tcpc_device *tcpc, bool water_detected)
 {
 	struct tcp_notify tcp_noti;
