@@ -25,7 +25,7 @@
 #include <linux/sort.h>
 #include <linux/slab.h>
 
-#define MAX_RESERVED_REGIONS	32
+#define MAX_RESERVED_REGIONS	64
 static struct reserved_mem reserved_mem[MAX_RESERVED_REGIONS];
 static int reserved_mem_count;
 
@@ -93,6 +93,7 @@ void __init fdt_reserved_mem_save_node(unsigned long node, const char *uname,
 
 	if (reserved_mem_count == ARRAY_SIZE(reserved_mem)) {
 		pr_info("not enough space all defined regions.\n");
+		BUG();
 		return;
 	}
 
