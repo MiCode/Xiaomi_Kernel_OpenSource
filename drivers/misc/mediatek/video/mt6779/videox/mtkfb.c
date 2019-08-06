@@ -2507,7 +2507,9 @@ static int mtkfb_probe(struct platform_device *pdev)
 	fbdev->dev = &(pdev->dev);
 	dev_set_drvdata(&(pdev->dev), fbdev);
 	mtk_disp_mgr_set_dev(&(pdev->dev));
+#ifdef CONFIG_MTK_IOMMU_V2
 	disp_aosp_set_dev(&(pdev->dev));
+#endif
 
 	DISPMSG("%s: fb_pa = %pa\n", __func__, &fb_base);
 
