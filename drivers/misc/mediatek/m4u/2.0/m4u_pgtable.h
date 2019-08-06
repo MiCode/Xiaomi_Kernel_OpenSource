@@ -104,14 +104,14 @@
 #define MMU_SUPERSECTION_SIZE (SZ_16M)
 
 typedef unsigned int imu_pteval_t;
-typedef struct {imu_pteval_t imu_pte; } imu_pte_t;
-typedef struct {imu_pteval_t imu_pgd; } imu_pgd_t;
+struct imu_pte_t {imu_pteval_t imu_pte; };
+struct imu_pgd_t {imu_pteval_t imu_pgd; };
 
 #define imu_pte_val(x) ((x).imu_pte)
 #define imu_pgd_val(x) ((x).imu_pgd)
 
-#define __imu_pte(x) ((imu_pte_t){(x)})
-#define __imu_pgd(x) ((imu_pgd_t){(x)})
+#define __imu_pte(x) ((struct imu_pte_t){(x)})
+#define __imu_pgd(x) ((struct imu_pgd_t){(x)})
 
 #define imu_pte_none(pte) (!imu_pte_val(pte))
 #define imu_pte_type(pte) (imu_pte_val(pte) & 0x3)
@@ -125,28 +125,29 @@ typedef struct {imu_pteval_t imu_pgd; } imu_pgd_t;
 
 extern int gM4U_4G_DRAM_Mode;
 
-static inline imu_pte_t *imu_pte_map(imu_pgd_t *pgd)
+static inline struct imu_pte_t *imu_pte_map(struct imu_pgd_t *pgd)
 {
 	imu_pteval_t pte_pa = imu_pgd_val(*pgd);
 
 	if (gM4U_4G_DRAM_Mode) {
 		if (pte_pa < 0x40000000)
-			return (imu_pte_t *)(__va(
+			return (struct imu_pte_t *)(__va(
 				(pte_pa & F_PGD_PA_PAGETABLE_MSK) +
 				0x100000000L));
 		else
-			return (imu_pte_t *)(__va(pte_pa &
+			return (struct imu_pte_t *)(__va(pte_pa &
 						  F_PGD_PA_PAGETABLE_MSK));
 	} else
-		return (imu_pte_t *)(__va(pte_pa & F_PGD_PA_PAGETABLE_MSK));
+		return (struct imu_pte_t *)(__va(pte_pa &
+			F_PGD_PA_PAGETABLE_MSK));
 }
 
-static inline int imu_pte_unmap(imu_pte_t *pte)
+static inline int imu_pte_unmap(struct imu_pte_t *pte)
 {
 	return 0;
 }
 
-static inline unsigned int imu_pgd_entry_pa(imu_pgd_t pgd)
+static inline unsigned int imu_pgd_entry_pa(struct imu_pgd_t pgd)
 {
 	if (F_PGD_TYPE_IS_PAGE(pgd))
 		return imu_pgd_val(pgd) & F_PGD_PA_PAGETABLE_MSK;
@@ -158,13 +159,13 @@ static inline unsigned int imu_pgd_entry_pa(imu_pgd_t pgd)
 		return 0;
 }
 
-static inline imu_pgd_t *imu_supersection_start(imu_pgd_t *pgd)
+static inline struct imu_pgd_t *imu_supersection_start(struct imu_pgd_t *pgd)
 {
-	return (imu_pgd_t *)(round_down((unsigned long)pgd, (16 * 4)));
+	return (struct imu_pgd_t *)(round_down((unsigned long)pgd, (16 * 4)));
 }
-static inline imu_pte_t *imu_largepage_start(imu_pte_t *pte)
+static inline struct imu_pte_t *imu_largepage_start(struct imu_pte_t *pte)
 {
-	return (imu_pte_t *)(round_down((unsigned long)pte, (16 * 4)));
+	return (struct imu_pte_t *)(round_down((unsigned long)pte, (16 * 4)));
 }
 
 static inline unsigned long long m4u_calc_next_mva(unsigned long long addr,

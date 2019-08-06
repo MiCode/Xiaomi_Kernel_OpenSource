@@ -204,8 +204,8 @@ static inline unsigned int larb_port_2_m4u_port(int larb, int larb_port)
 	return M4U_PORT_UNKNOWN;
 }
 
-void m4u_print_perf_counter(unsigned int m4u_index, const char *msg);
-int m4u_dump_reg(unsigned int m4u_index, unsigned int start, unsigned int end);
+void m4u_print_perf_counter(int m4u_index, int m4u_slave_id, const char *msg);
+int m4u_dump_reg(int m4u_index, unsigned int start);
 
 extern struct m4u_device *gM4uDev;
 
