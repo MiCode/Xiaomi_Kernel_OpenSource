@@ -15,7 +15,10 @@
 #include <linux/clk-provider.h>
 #include <linux/io.h>
 
+#include <mt-plat/devapc_public.h>
+
 #include "clkdbg.h"
+#include "clkchk-mt6768.h"
 
 #define DUMP_INIT_STATE		0
 
@@ -292,10 +295,50 @@ static const struct fmeter_clk fclks[] = {
 	{}
 };
 
-#define CLK_MISC_CFG_0		(rb[topckgen].virt + 0x104)
-#define CLK_DBG_CFG		(rb[topckgen].virt + 0x10C)
-#define CLK26CALI_0		(rb[topckgen].virt + 0x220)
-#define CLK26CALI_1		(rb[topckgen].virt + 0x224)
+#define _CKGEN(x)		(rb[topckgen].virt + (x))
+#define CLK_CFG_0		_CKGEN(0x40)
+#define CLK_CFG_1		_CKGEN(0x50)
+#define CLK_CFG_2		_CKGEN(0x60)
+#define CLK_CFG_3		_CKGEN(0x70)
+#define CLK_CFG_4		_CKGEN(0x80)
+#define CLK_CFG_5		_CKGEN(0x90)
+#define CLK_CFG_6		_CKGEN(0xA0)
+#define CLK_CFG_7		_CKGEN(0xB0)
+#define CLK_MISC_CFG_0		_CKGEN(0x104)
+#define CLK_DBG_CFG		_CKGEN(0x10C)
+#define CLK26CALI_0		_CKGEN(0x220)
+#define CLK26CALI_1		_CKGEN(0x224)
+
+#define _SCPSYS(x)		(rb[scpsys].virt + (x))
+#define SPM_PWR_STATUS		_SCPSYS(0x180)
+#define SPM_PWR_STATUS_2ND	_SCPSYS(0x184)
+
+#define _INFRA_AO(x)		(rb[infracfg].virt + (x))
+#define INFRA_AO_0		_INFRA_AO(0x90)
+#define INFRA_AO_1		_INFRA_AO(0x94)
+#define INFRA_AO_2		_INFRA_AO(0xAC)
+#define INFRA_AO_3		_INFRA_AO(0xC8)
+
+static void devapc_dump_regs(void)
+{
+	print_enabled_clks();
+	pr_notice("[devapc] CLK_CFG_0-7 = 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+		clk_readl(CLK_CFG_0), clk_readl(CLK_CFG_1),
+		clk_readl(CLK_CFG_2), clk_readl(CLK_CFG_3),
+		clk_readl(CLK_CFG_4), clk_readl(CLK_CFG_5),
+		clk_readl(CLK_CFG_6), clk_readl(CLK_CFG_7));
+	pr_notice("[devapc] PWR_STATUS(0x180,0x184) = 0x%08x 0x%08x\n",
+		clk_readl(SPM_PWR_STATUS), clk_readl(SPM_PWR_STATUS_2ND));
+
+	pr_notice("[devapc] INFRA_AO(0x90,0x94,0xAC,0xC8) = 0x%08x 0x%08x 0x%08x 0x%08x\n",
+		clk_readl(INFRA_AO_0), clk_readl(INFRA_AO_1),
+		clk_readl(INFRA_AO_2), clk_readl(INFRA_AO_3));
+}
+
+static struct devapc_vio_callbacks devapc_vio_handle = {
+	.id = DEVAPC_SUBSYS_CLKMGR,
+	.debug_dump = devapc_dump_regs,
+};
 
 static unsigned int mt_get_ckgen_freq(unsigned int ID)
 {
@@ -815,6 +858,8 @@ static int __init clkdbg_mt6768_init(void)
 
 	init_custom_cmds();
 	set_clkdbg_ops(&clkdbg_mt6768_ops);
+
+	register_devapc_vio_callback(&devapc_vio_handle);
 
 #if DUMP_INIT_STATE
 	print_regs();
