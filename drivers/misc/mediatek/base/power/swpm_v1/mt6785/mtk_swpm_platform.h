@@ -115,8 +115,7 @@ struct aphy_pwr {
 
 /* unit: uW / V^2 */
 struct aphy_pwr_data {
-	struct aphy_pwr read_pwr[NR_DDR_FREQ];
-	struct aphy_pwr write_pwr[NR_DDR_FREQ];
+	struct aphy_pwr pwr[NR_DDR_FREQ];
 	unsigned short coef_idle[NR_DDR_FREQ];
 };
 

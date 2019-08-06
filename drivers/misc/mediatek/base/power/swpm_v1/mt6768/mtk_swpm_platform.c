@@ -79,41 +79,41 @@ static struct aphy_pwr_data aphy_def_pwr_tbl[] = {
 	[APHY_VCORE] = {
 		.read_pwr = {
 			[DDR_OPP0] = { /* freq = 800 */
-				.bw = {768, 1184, 2208, 3328, 5120},
-				.coef = {6021, 7460, 8812, 10059, 12059},
+				.bw = {227, 658, 1663, 2328, 4908},
+				.coef = {2298, 3570, 5264, 5972, 8564},
 			},
 			[DDR_OPP1] = { /* freq = 1200 */
-				.bw = {768, 1184, 2240, 3328, 7872},
-				.coef = {7680, 9168, 12136, 12877, 17375},
+				.bw = {227, 658, 1664, 2330, 7659},
+				.coef = {2698, 4354, 6387, 7263, 11574},
 			},
 			[DDR_OPP2] = { /* freq = 1600 */
-				.bw = {768, 1152, 2208, 3360, 9216},
-				.coef = {13299, 15269, 19891, 22394, 31044},
+				.bw = {329, 766, 1778, 2448, 8815},
+				.coef = {3893, 6478, 9223, 10693, 17757},
 			},
 			[DDR_OPP3] = { /* freq = 1800 */
-				.bw = {768, 1152, 2208, 3360, 9216},
-				.coef = {11084, 12554, 16135, 18389, 25918},
+				.bw = {329, 766, 1778, 2448, 8815},
+				.coef = {3893, 6478, 9223, 10693, 17757},
 			},
 		},
 		.write_pwr = {
 			[DDR_OPP0] = { /* freq = 800 */
-				.bw = {768, 1184, 2208, 3328, 5120},
-				.coef = {6021, 7460, 8812, 10059, 12059},
+				.bw = {227, 658, 1663, 2328, 4908},
+				.coef = {2298, 3570, 5264, 5972, 8564},
 			},
 			[DDR_OPP1] = { /* freq = 1200 */
-				.bw = {768, 1184, 2240, 3328, 7872},
-				.coef = {7680, 9168, 12136, 12877, 17375},
+				.bw = {227, 658, 1664, 2330, 7659},
+				.coef = {2698, 4354, 6387, 7263, 11574},
 			},
 			[DDR_OPP2] = { /* freq = 1600 */
-				.bw = {768, 1152, 2208, 3360, 9216},
-				.coef = {13299, 15269, 19891, 22394, 31044},
+				.bw = {329, 766, 1778, 2448, 8815},
+				.coef = {3893, 6478, 9223, 10693, 17757},
 			},
 			[DDR_OPP3] = { /* freq = 1800 */
-				.bw = {768, 1152, 2208, 3360, 9216},
-				.coef = {11084, 12554, 16135, 18389, 25918},
+				.bw = {329, 766, 1778, 2448, 8815},
+				.coef = {3893, 6478, 9223, 10693, 17757},
 			},
 		},
-		.coef_idle = {4269, 4665, 6785, 5545},
+		.coef_idle = {2198, 2288, 3197, 3197},
 	},
 	[APHY_VDDQ_0P6V] = {
 		.read_pwr = {
@@ -236,31 +236,31 @@ static struct aphy_pwr_data aphy_def_pwr_tbl[] = {
 
 static struct dram_pwr_conf dram_def_pwr_conf[] = {
 	[DRAM_VDD1_1P8V] = {
-		.i_dd0 = 6500,
-		.i_dd2p = 600,
-		.i_dd2n = 900,
-		.i_dd4r = 8000,
-		.i_dd4w = 9000,
-		.i_dd5 = 15000,
-		.i_dd6 = 900,
+		.i_dd0 = 10037,
+		.i_dd2p = 293,
+		.i_dd2n = 428,
+		.i_dd4r = 14243,
+		.i_dd4w = 15620,
+		.i_dd5 = 1248,
+		.i_dd6 = 218,
 	},
 	[DRAM_VDD2_1P1V] = {
-		.i_dd0 = 57400,
-		.i_dd2p = 600,
-		.i_dd2n = 16000,
-		.i_dd4r = 160000,
-		.i_dd4w = 210000,
-		.i_dd5 = 40000,
-		.i_dd6 = 1100,
+		.i_dd0 = 37913,
+		.i_dd2p = 314,
+		.i_dd2n = 10530,
+		.i_dd4r = 115136,
+		.i_dd4w = 160981,
+		.i_dd5 = 12040,
+		.i_dd6 = 266,
 	},
 	[DRAM_VDDQ_0P6V] = {
-		.i_dd0 = 200,
-		.i_dd2p = 200,
-		.i_dd2n = 200,
-		.i_dd4r = 250000,
-		.i_dd4w = 600,
-		.i_dd5 = 200,
-		.i_dd6 = 100,
+		.i_dd0 = 140,
+		.i_dd2p = 75,
+		.i_dd2n = 75,
+		.i_dd4r = 152994,
+		.i_dd4w = 511,
+		.i_dd5 = 75,
+		.i_dd6 = 36,
 	},
 };
 
@@ -731,7 +731,6 @@ void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
 	if (type != 0xFFFF && type >= NR_POWER_METER)
 		return;
 
-	swpm_lock(&swpm_mutex);
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	{
 		struct qos_ipi_data qos_d;
@@ -742,7 +741,6 @@ void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
 		qos_ipi_to_sspm_command(&qos_d, 3);
 	}
 #endif
-	swpm_unlock(&swpm_mutex);
 }
 
 void swpm_update_lkg_table(void)
