@@ -154,6 +154,8 @@ void mt_bio_queue_alloc(struct task_struct *thread, struct request_queue *q)
 	int i;
 	pid_t pid;
 	struct mt_bio_context *ctx = BTAG_CTX(mtk_btag_mmc);
+	if (!ctx)
+		return;
 
 	pid = task_pid_nr(thread);
 
@@ -172,6 +174,8 @@ void mt_bio_queue_free(struct task_struct *thread)
 	int i;
 	pid_t pid;
 	struct mt_bio_context *ctx = BTAG_CTX(mtk_btag_mmc);
+	if (!ctx)
+		return;
 
 	pid = task_pid_nr(thread);
 
