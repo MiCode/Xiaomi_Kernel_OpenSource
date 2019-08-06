@@ -16,20 +16,20 @@
 
 #include <linux/types.h>
 
-enum subsys_id {
-	SUBSYS_MD = 0,
-	SUBSYS_CONN,
-	SUBSYS_ADSP,
-	SUBSYS_GCE,
-	SUBSYS_CLKMGR,
-	SUBSYS_APMCU,
-	SUBSYS_TEST,
-	SUBSYS_RESERVED,
+enum infra_subsys_id {
+	INFRA_SUBSYS_MD = 0,
+	INFRA_SUBSYS_CONN,
+	INFRA_SUBSYS_ADSP,
+	INFRA_SUBSYS_GCE,
+	INFRA_SUBSYS_APMCU,
+	DEVAPC_SUBSYS_CLKMGR,
+	DEVAPC_SUBSYS_TEST,
+	DEVAPC_SUBSYS_RESERVED,
 };
 
 struct devapc_vio_callbacks {
 	struct list_head list;
-	enum subsys_id id;
+	enum infra_subsys_id id;
 	void (*debug_dump)(void);
 };
 

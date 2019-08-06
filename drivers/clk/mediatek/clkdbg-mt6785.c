@@ -372,7 +372,7 @@ static void devapc_dump_regs(void)
 }
 
 static struct devapc_vio_callbacks devapc_vio_handle = {
-	.id = SUBSYS_CLKMGR,
+	.id = DEVAPC_SUBSYS_CLKMGR,
 	.debug_dump = devapc_dump_regs,
 };
 #endif
