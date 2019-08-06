@@ -1731,7 +1731,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		rcu_read_lock();
 		task = find_task_by_vpid(stack_raw.tid);
-		if (task->mm == NULL) {
+		if (task == NULL || task->mm == NULL) {
 			rcu_read_unlock();
 			ret = -EFAULT;
 			goto EXIT;
@@ -1844,6 +1844,10 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			}
 
 			maps = vmalloc(MaxMapsSize);
+			if (!maps) {
+				ret = -ENOMEM;
+				goto EXIT;
+			}
 			memset(maps, 0, MaxMapsSize);
 			down_read(&task->mm->mmap_sem);
 			vma = task->mm->mmap;
@@ -1855,6 +1859,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 			if (copy_to_user(thread_info.Userthread_maps,
 				maps, mapsLength)) {
+				vfree(maps);
 				ret = -EFAULT;
 				goto EXIT;
 			}
