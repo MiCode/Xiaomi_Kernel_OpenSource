@@ -123,7 +123,9 @@
 
 /* TODO: Check VPU for MT6785 */
 /* Thermal VPU throttling support */
+/* #ifdef CONFIG_MTK_VPU_SUPPORT */
 /* #define THERMAL_VPU_SUPPORT */
+/* #endif */
 /* Thermal MDLA throttling support */
 /* #define THERMAL_MDLA_SUPPORT */
 /* EARA_Thermal power budget allocation support */

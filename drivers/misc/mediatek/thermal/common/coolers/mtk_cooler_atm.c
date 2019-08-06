@@ -51,12 +51,16 @@
 #include "linux/delay.h"
 #endif
 #if defined(THERMAL_VPU_SUPPORT)
-#if defined(CONFIG_MTK_VPU_SUPPORT)
+#if defined(CONFIG_MTK_APUSYS_SUPPORT)
+#include "apu_power_table.h"
+#else
 #include "vpu_dvfs.h"
 #endif
 #endif
 #if defined(THERMAL_MDLA_SUPPORT)
-#if defined(CONFIG_MTK_MDLA_SUPPORT)
+#if defined(CONFIG_MTK_APUSYS_SUPPORT)
+#include "apu_power_table.h"
+#else
 #include "mdla_dvfs.h"
 #endif
 #endif
@@ -2196,12 +2200,22 @@ static ssize_t tscpu_write_atm_setting
 		i_min_gpu_pwr = -1, i_max_gpu_pwr = -1;
 
 #if defined(THERMAL_VPU_SUPPORT)
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	MINIMUM_VPU_POWER = vpu_power_table[APU_OPP_NUM - 1].power;
+	MAXIMUM_VPU_POWER = vpu_power_table[APU_OPP_0].power;
+#else
 	MINIMUM_VPU_POWER = vpu_power_table[VPU_OPP_NUM - 1].power;
 	MAXIMUM_VPU_POWER = vpu_power_table[VPU_OPP_0].power;
 #endif
-#if defined(THERMAL_MDLA_SUPPORT) && defined(CONFIG_MTK_MDLA_SUPPORT)
+#endif
+#if defined(THERMAL_MDLA_SUPPORT)
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	MINIMUM_MDLA_POWER = mdla_power_table[APU_OPP_NUM - 1].power;
+	MAXIMUM_MDLA_POWER = mdla_power_table[APU_OPP_0].power;
+#else
 	MINIMUM_MDLA_POWER = mdla_power_table[MDLA_OPP_NUM - 1].power;
 	MAXIMUM_MDLA_POWER = mdla_power_table[MDLA_OPP_0].power;
+#endif
 #endif
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
