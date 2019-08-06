@@ -135,5 +135,6 @@ config TOUCHSCREEN_MTK_GT5688
 	  module will be called.
 
 source "drivers/input/touchscreen/mediatek/GT5688/Kconfig"
+source "drivers/input/touchscreen/mediatek/hxchipset/Kconfig"
 
 endif
