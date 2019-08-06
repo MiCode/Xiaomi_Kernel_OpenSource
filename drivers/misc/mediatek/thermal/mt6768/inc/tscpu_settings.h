@@ -129,7 +129,7 @@
 /* Thermal workaround for DDR/stressapptest fail
  * 8core@OPP0 can't over 70 degreeC
  */
-#define DDR_STRESS_WORKAROUND
+/* #define DDR_STRESS_WORKAROUND */
 
 /* Perf 1st thermal config for turbo
  * Extend steady Tpcb
