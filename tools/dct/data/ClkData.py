@@ -18,8 +18,6 @@ class ClkData:
 
     def __init__(self):
         self.__varName = ''
-        self.__current = ''
-        self.__curList = []
 
     def set_defVarName(self, idx):
         self.__varName = self._varList[idx]
