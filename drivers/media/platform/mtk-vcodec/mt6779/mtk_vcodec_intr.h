@@ -42,8 +42,8 @@
 struct mtk_vcodec_ctx;
 
 /* timeout is ms */
-int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx *data, int command,
-	unsigned int timeout_ms);
+int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx  *ctx,
+	int core_id, int command, unsigned int timeout_ms);
 
 irqreturn_t mtk_vcodec_dec_irq_handler(int irq, void *priv);
 irqreturn_t mtk_vcodec_enc_irq_handler(int irq, void *priv);

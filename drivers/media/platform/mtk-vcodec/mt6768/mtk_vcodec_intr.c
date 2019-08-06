@@ -19,15 +19,16 @@
 #include "mtk_vcodec_util.h"
 #include "smi_public.h"
 
-int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx  *ctx, int command,
-	unsigned int timeout_ms)
+int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx  *ctx,
+	int core_id, int command, unsigned int timeout_ms)
 {
 	int status = 0;
 #ifndef FPGA_INTERRUPT_API_DISABLE
 	wait_queue_head_t *waitqueue;
 	long timeout_jiff, ret;
 
-	waitqueue = (wait_queue_head_t *)&ctx->queue;
+	core_id = 0;
+	waitqueue = (wait_queue_head_t *)&ctx->queue[core_id];
 	timeout_jiff = msecs_to_jiffies(timeout_ms);
 
 	ret = wait_event_interruptible_timeout(*waitqueue,
@@ -58,7 +59,7 @@ EXPORT_SYMBOL(mtk_vcodec_wait_for_done_ctx);
 void wake_up_dec_ctx(struct mtk_vcodec_ctx *ctx)
 {
 	ctx->int_cond = 1;
-	wake_up_interruptible(&ctx->queue);
+	wake_up_interruptible(&ctx->queue[0]);
 }
 
 irqreturn_t mtk_vcodec_dec_irq_handler(int irq, void *priv)
@@ -133,7 +134,7 @@ void wake_up_enc_ctx(struct mtk_vcodec_ctx *ctx, unsigned int reason)
 {
 	ctx->int_cond = 1;
 	ctx->int_type = reason;
-	wake_up_interruptible(&ctx->queue);
+	wake_up_interruptible(&ctx->queue[0]);
 }
 
 irqreturn_t mtk_vcodec_enc_irq_handler(int irq, void *priv)
@@ -202,16 +203,16 @@ int mtk_vcodec_dec_irq_setup(struct platform_device *pdev,
 #ifndef FPGA_INTERRUPT_API_DISABLE
 	int ret = 0;
 
-	dev->dec_irq = platform_get_irq(pdev, 0);
-	ret = devm_request_irq(&pdev->dev, dev->dec_irq,
+	dev->dec_irq[0] = platform_get_irq(pdev, 0);
+	ret = devm_request_irq(&pdev->dev, dev->dec_irq[0],
 		mtk_vcodec_dec_irq_handler, 0, pdev->name, dev);
 	if (ret) {
 		mtk_v4l2_debug(1, "Failed to install dev->dec_irq %d (%d)",
-				dev->dec_irq,
+				dev->dec_irq[0],
 				ret);
 		return -1;
 	}
-	disable_irq(dev->dec_irq);
+	disable_irq(dev->dec_irq[0]);
 #endif
 	return 0;
 

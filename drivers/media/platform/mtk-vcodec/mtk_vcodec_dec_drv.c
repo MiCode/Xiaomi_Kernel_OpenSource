@@ -45,6 +45,7 @@ static int fops_vcodec_open(struct file *file)
 	struct mtk_vcodec_ctx *ctx = NULL;
 	struct mtk_video_dec_buf *mtk_buf = NULL;
 	int ret = 0;
+	int i = 0;
 	struct vb2_queue *src_vq;
 
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
@@ -64,7 +65,8 @@ static int fops_vcodec_open(struct file *file)
 	v4l2_fh_add(&ctx->fh);
 	INIT_LIST_HEAD(&ctx->list);
 	ctx->dev = dev;
-	init_waitqueue_head(&ctx->queue);
+	for (i = 0; i < MTK_VDEC_HW_NUM; i++)
+		init_waitqueue_head(&ctx->queue[i]);
 	mutex_init(&ctx->buf_lock);
 	mutex_init(&ctx->worker_lock);
 
