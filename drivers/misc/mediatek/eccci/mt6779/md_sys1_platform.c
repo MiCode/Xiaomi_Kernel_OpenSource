@@ -216,6 +216,7 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		hw_info->md_wdt_irq_id);
 	//xuxin-clk-pg//register_pg_callback(&md1_subsys_handle);
 	pm_runtime_enable(&dev_ptr->dev);
+	dev_pm_syscore_device(&dev_ptr->dev, true);
 
 	CCCI_BOOTUP_LOG(dev_cfg->index, TAG, "md mtcmos pm get start\n");
 	retval = pm_runtime_get_sync(&dev_ptr->dev); /* match lk on */
