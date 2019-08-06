@@ -313,7 +313,7 @@
 
 		zmc-default {
 			compatible = "mediatek,zone_movable_cma";
-			size = <0 0x28000000>;
+			size = <0 0x2d000000>;
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0xc0000000 4 0x00000000>;
 		};
