@@ -95,6 +95,7 @@ static atomic_t ext_idlemgr_task_wakeup = ATOMIC_INIT(1);
 #ifdef MTK_FB_MMDVFS_SUPPORT
 /* dvfs */
 static atomic_t dvfs_ovl_req_status = ATOMIC_INIT(HRT_LEVEL_LEVEL0);
+static int dvfs_before_idle = HRT_LEVEL_NUM - 1;
 #endif
 static int register_share_sram;
 
@@ -925,6 +926,7 @@ void _cmd_mode_leave_idle(void)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_END,
 			!primary_display_is_decouple_mode(), bandwidth);
+	primary_display_request_dvfs_perf(0, dvfs_before_idle);
 #endif
 
 }
@@ -1072,6 +1074,7 @@ static int _primary_path_idlemgr_monitor_thread(void *data)
 			primary_display_set_idle_stat(1);
 		}
 #ifdef MTK_FB_MMDVFS_SUPPORT
+		dvfs_before_idle = atomic_read(&dvfs_ovl_req_status);
 		/* when screen idle: LP4 enter ULPM; LP3 enter LPM */
 		primary_display_request_dvfs_perf(0,
 			HRT_LEVEL_LEVEL0);
@@ -1082,11 +1085,6 @@ static int _primary_path_idlemgr_monitor_thread(void *data)
 		wait_event_interruptible(idlemgr_pgc->idlemgr_wait_queue,
 			!primary_display_is_idle());
 
-#ifdef MTK_FB_MMDVFS_SUPPORT
-		/* when leave screen idle: reset to default */
-		primary_display_request_dvfs_perf(0,
-			HRT_LEVEL_DEFAULT);
-#endif
 		if (kthread_should_stop())
 			break;
 	}

@@ -615,7 +615,11 @@ static int disp_validate_output_params(struct disp_output_config *cfg)
 
 int disp_validate_ioctl_params(struct disp_frame_cfg_t *cfg)
 {
-	int i;
+	int i, max_layer_num;
+
+	max_layer_num = _get_max_layer(cfg->session_id);
+	if (max_layer_num <= 0)
+		return -1;
 
 	if (cfg->input_layer_num > _get_max_layer(cfg->session_id)) {
 		disp_aee_print("sess:0x%x layer_num %d>%d\n",
@@ -1032,18 +1036,17 @@ long _frame_config(unsigned long arg)
 		return -EFAULT;
 	}
 
+	if (disp_validate_ioctl_params(frame_cfg)) {
+		kfree(frame_cfg);
+		return -EINVAL;
+	}
+
 	DISPDBG("%s\n", __func__);
 	frame_cfg->setter = SESSION_USER_HWC;
 
 	input_config_preprocess(frame_cfg);
 	if (frame_cfg->output_en)
 		output_config_preprocess(frame_cfg);
-
-	if (disp_validate_ioctl_params(frame_cfg)) {
-		disp_input_free_dirty_roi(frame_cfg);
-		kfree(frame_cfg);
-		return -EINVAL;
-	}
 
 	if (DISP_SESSION_TYPE(frame_cfg->session_id) == DISP_SESSION_PRIMARY)
 		primary_display_frame_cfg(frame_cfg);
@@ -1500,7 +1503,6 @@ const char *_session_ioctl_spy(unsigned int cmd)
 long mtk_disp_mgr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = -1;
-	static DEFINE_RATELIMIT_STATE(ioctl_ratelimit, 1 * HZ, 10);
 
 	switch (cmd) {
 	case DISP_IOCTL_CREATE_SESSION:
@@ -1609,11 +1611,9 @@ long mtk_disp_mgr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	}
 	default:
-	{
-		if (__ratelimit(&ioctl_ratelimit))
-			DISPWARN("[session]ioctl not supported, 0x%08x\n",
+		DISPWARN("[session]ioctl not supported, 0x%08x\n",
 				cmd);
-	}
+		break;
 	}
 
 	return ret;
@@ -1821,16 +1821,9 @@ static long mtk_disp_mgr_compat_ioctl(struct file *file, unsigned int cmd,
 
 	default:
 		{
-			void __user *data32;
-
-			data32 = compat_ptr(arg);
-			ret = file->f_op->unlocked_ioctl(file,
-						cmd, (unsigned long)data32);
-			if (ret)
-				DISPERR("[%s]not supported 0x%08x\n",
-					__func__, cmd);
-
-			return ret;
+			DISPWARN("[%s] ioctl not support, 0x%08x\n", __func__,
+				cmd);
+			break;
 		}
 	}
 

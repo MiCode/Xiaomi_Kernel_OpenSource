@@ -372,7 +372,7 @@ int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 {
 	int ret = 0;
 
-	*va = (unsigned long)ioremap_nocache(pa_start, pa_end - pa_start + 1);
+	*va = (unsigned long)ioremap_wc(pa_start, pa_end - pa_start + 1);
 	pr_info("disphal_allocate_fb, pa_start=0x%pa, pa_end=0x%pa, va=0x%lx\n",
 		&pa_start, &pa_end, *va);
 
@@ -381,8 +381,9 @@ int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 
 		struct sg_table *sg_table = &table;
 
-		sg_alloc_table(sg_table, 1, GFP_KERNEL);
-
+		ret = sg_alloc_table(sg_table, 1, GFP_KERNEL);
+		if (ret)
+			return ret;
 		sg_dma_address(sg_table->sgl) = pa_start;
 		sg_dma_len(sg_table->sgl) = (pa_end - pa_start + 1);
 		client = m4u_create_client();

@@ -34,6 +34,8 @@
 static unsigned int rdma_fps[RDMA_INSTANCES] = { 60, 60 };
 static struct golden_setting_context *rdma_golden_setting;
 
+int polling_rdma_output_line_enable = 1;
+
 /*****************************************************************************/
 unsigned int rdma_index(enum DISP_MODULE_ENUM module)
 {
@@ -1547,10 +1549,61 @@ static int rdma_build_cmdq(enum DISP_MODULE_ENUM module, void *handle,
 		 * rdma will hold dvfs request forever
 		 * we reset here to solve this issue
 		 */
-		rdma_reset_by_cmdq(module, handle);
+
+		/*
+		 * Because SPM DVFS isn't reference to RDMA.
+		 * Revert this workaround.
+		 */
+		/* rdma_reset_by_cmdq(module, handle); */
+		;
 	}
 
 	return 0;
+}
+
+/* SW workaround.
+ * Polling RDMA output line isn't 0 && RDMA status is run,
+ * before switching mm clock mux in cmd mode.
+ */
+void polling_rdma_output_line_is_not_zero(void)
+{
+	unsigned int idx = rdma_index(DISP_MODULE_RDMA0);
+	unsigned int offset = DISP_RDMA_INDEX_OFFSET * idx;
+	unsigned int loop_cnt = 0;
+
+	if (polling_rdma_output_line_enable &&
+		!primary_display_is_video_mode()) {
+		/* pr_info("%s start\n", __func__); */
+
+		while (loop_cnt < 1*1000) {
+			if (DISP_REG_GET(offset +
+					DISP_REG_RDMA_OUT_LINE_CNT) ||
+				!(DISP_REG_GET(offset +
+					DISP_REG_RDMA_DBG_OUT1) & 0x1))
+				break;
+			loop_cnt++;
+			udelay(1);
+		}
+#if 0
+		if (loop_cnt)
+			pr_info(
+			"%s delay loop_cnt=%d, outline=0x%x\n",
+				__func__,
+				loop_cnt,
+				DISP_REG_GET(offset +
+					DISP_REG_RDMA_OUT_LINE_CNT));
+#endif
+
+		if (loop_cnt == 1000)
+			DDPAEE(
+				"%s delay loop_cnt=%d, outline=0x%x\n",
+				__func__,
+				loop_cnt,
+				DISP_REG_GET(offset +
+					DISP_REG_RDMA_OUT_LINE_CNT));
+
+		/* pr_info("%s done\n", __func__); */
+	}
 }
 
 struct DDP_MODULE_DRIVER ddp_driver_rdma = {

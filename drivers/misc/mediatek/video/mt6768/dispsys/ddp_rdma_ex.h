@@ -53,6 +53,8 @@ struct rdma_color_post {
 	UINT32 ADD2;
 };
 
+extern int polling_rdma_output_line_enable;
+
 int rdma_clock_on(enum DISP_MODULE_ENUM module, void *handle);
 int rdma_clock_off(enum DISP_MODULE_ENUM module, void *handle);
 
@@ -64,5 +66,6 @@ void rdma_set_color_matrix(enum DISP_MODULE_ENUM module,
 	struct rdma_color_matrix *matrix, struct rdma_color_pre *pre,
 	struct rdma_color_post *post);
 int rdma_reset_by_cmdq(enum DISP_MODULE_ENUM module, void *handle);
+void polling_rdma_output_line_is_not_zero(void);
 
 #endif

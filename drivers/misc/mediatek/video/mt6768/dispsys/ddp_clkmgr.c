@@ -143,6 +143,9 @@ int ddp_clk_prepare_enable(enum DDP_CLK_ID id)
 
 	ret = clk_prepare_enable(ddp_clks[id].pclk);
 	ddp_clks[id].refcnt++;
+	if (id == 0)
+		pr_info("disp %s mtcmos refcnt 0x%x\n",
+			__func__, ddp_clks[id].refcnt);
 	if (ret)
 		DDPERR("DISPSYS CLK prepare failed: errno %d\n",
 			ret);
@@ -172,6 +175,9 @@ int ddp_clk_disable_unprepare(enum DDP_CLK_ID id)
 	}
 	clk_disable_unprepare(ddp_clks[id].pclk);
 	ddp_clks[id].refcnt--;
+	if (id == 0)
+		pr_info("disp %s mtcmos refcnt 0x%x\n",
+		__func__, ddp_clks[id].refcnt);
 
 	return ret;
 }

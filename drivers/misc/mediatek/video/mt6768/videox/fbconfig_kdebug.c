@@ -357,6 +357,10 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		pr_debug("LCM_GET_DSI_CLK=>dsi:%d\n", clk);
+		if (clk < 63 || clk > 1250) {
+			pr_debug(" %s is too lower too larger\n", __func__);
+			return 0;
+		}
 		Panel_Master_dsi_config_entry("PM_CLK", &clk);
 		return 0;
 	}

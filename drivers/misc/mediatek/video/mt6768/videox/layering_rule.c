@@ -40,13 +40,13 @@ static struct layering_rule_info_t l_rule_info;
 
 int emi_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 	/* HRT_BOUND_TYPE_LP4 */
-	{500, 600, 700, 700},
+	{350, 600, 700, 700},
 	/* HRT_BOUND_TYPE_LP4_PLUS */
-	{400, 500, 600, 600},
+	{300, 500, 600, 600},
 	/* HRT_BOUND_TYPE_LP3 */
 	{350, 350, 350, 350},
 	/* HRT_BOUND_TYPE_LP3_PLUS */
-	{250, 250, 250, 250},
+	{300, 300, 300, 300},
 	/* HRT_BOUND_TYPE_LP4_1CH */
 	{350, 350, 350, 350},
 	/* HRT_BOUND_TYPE_LP4_HYBRID */
@@ -54,11 +54,11 @@ int emi_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 	/* HRT_BOUND_TYPE_LP3_HD */
 	{750, 750, 750, 750},
 	/* HRT_BOUND_TYPE_LP4_HD */
-	{1100, 1350, 1550, 1550},
+	{750, 1350, 1550, 1550},
 	/* HRT_BOUND_TYPE_LP3_HD_PLUS */
-	{550, 550, 550, 550},
+	{650, 650, 650, 650},
 	/* HRT_BOUND_TYPE_LP4_HD_PLUS */
-	{900, 1100, 1350, 1350},
+	{650, 1100, 1350, 1350},
 };
 
 int larb_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
@@ -85,21 +85,12 @@ int larb_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 };
 
 int mm_freq_table[HRT_DRAMC_TYPE_NUM][HRT_OPP_LEVEL_NUM] = {
-#if defined(CONFIG_MACH_MT6765)
 	/* HRT_DRAMC_TYPE_LP4_3733 */
 	{457, 312, 228},
 	/* HRT_DRAMC_TYPE_LP4_3200 */
 	{457, 312, 228},
 	/* HRT_DRAMC_TYPE_LP3 */
 	{457, 312, 228},
-#elif defined(CONFIG_MACH_MT6761)
-	/* HRT_DRAMC_TYPE_LP4_3733 */
-	{436, 312, 227},
-	/* HRT_DRAMC_TYPE_LP4_3200 */
-	{436, 312, 227},
-	/* HRT_DRAMC_TYPE_LP3 */
-	{436, 312, 227},
-#endif
 };
 
 static enum HRT_LEVEL max_hrt_level = HRT_LEVEL_NUM - 1;
