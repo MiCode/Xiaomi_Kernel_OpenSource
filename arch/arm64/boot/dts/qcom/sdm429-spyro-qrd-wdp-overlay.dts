@@ -53,9 +53,12 @@
 };
 
 &mdss_dsi0 {
-	/delete-property/ qcom,platform-enable-gpio;
-	vdd-supply = <&vreg_d322_vdd>; /* 2.8v  */
+	qcom,platform-enable-gpio = <&pm660_gpios 12 0>;
+	/delete-property/ vdd-supply;
 	qcom,dsi-pref-prim-pan = <&dsi_truly_rm69090_qvga_cmd>;
+};
+&dsi_pm660_panel_pwr_supply {
+	/delete-node/ qcom,panel-supply-entry@0;
 };
 
 &pm660_gpios {

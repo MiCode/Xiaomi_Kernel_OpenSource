@@ -376,19 +376,6 @@
 	qcom,gpios-disallowed = <1 2 3 5 6 7 8 9 10 11 13>;
 };
 
-/* pm660 gpio pinctrl configuration */
-&pm660_gpios {
-	/* GPIO 12 (DISPLAY_AVDD_EN) */
-	vreg_d322 {
-		vreg_regulator_d322: vreg_regulator-d322 {
-			pins = "gpio12";
-			function = "normal";
-			output-enable;
-			qcom,drive-strength = <2>;
-		};
-	};
-};
-
 &pm660_vadc {
 	/delete-node/ chan@1d;
 };
