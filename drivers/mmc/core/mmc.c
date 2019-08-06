@@ -2079,6 +2079,7 @@ out_release:
 	return err;
 }
 
+#ifdef CONFIG_MMC_MTK_PRO
 static int mmc_awake(struct mmc_host *host)
 {
 	struct mmc_command cmd = {0};
@@ -2098,6 +2099,7 @@ static int mmc_awake(struct mmc_host *host)
 	return err;
 
 }
+#endif
 
 static int mmc_can_poweroff_notify(const struct mmc_card *card)
 {
@@ -2293,6 +2295,7 @@ static int _mmc_resume(struct mmc_host *host)
 
 	mmc_power_up(host, host->card->ocr);
 
+#ifdef CONFIG_MMC_MTK_PRO
 	if (mmc_can_sleep(host->card)) {
 		err = mmc_awake(host);
 		if (err) {
@@ -2304,6 +2307,9 @@ static int _mmc_resume(struct mmc_host *host)
 		host->ops->set_ios(host, &host->ios);
 	} else
 		err = mmc_init_card(host, host->card->ocr, host->card);
+#else
+		err = mmc_init_card(host, host->card->ocr, host->card);
+#endif
 
 	/* Turn on cache if eMMC reversion before v5.0 */
 	if (!err && host->card->ext_csd.rev < 7)
