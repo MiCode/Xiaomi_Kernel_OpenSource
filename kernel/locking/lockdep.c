@@ -161,6 +161,8 @@ static bool is_log_lock_held(struct task_struct *curr)
 		/* used by console */
 		if (!strcmp(instance->name, "&(&port->lock)->rlock"))
 			return true;
+		if (!strcmp(instance->name, "&port_lock_key"))
+			return true;
 	}
 	return false;
 }
