@@ -229,4 +229,13 @@ config QCOM_SECURE_BUFFER
 	  memory buffers. This ensures that only the correct clients can
 	  use this memory and no unauthorized access is made to the
 	  buffer.
+
+config QMP_DEBUGFS_CLIENT
+	bool "Debugfs Client to communicate with AOP using QMP protocol"
+	depends on DEBUG_FS
+	help
+	  This options enables a driver which allows clients to send messages
+	  to Alway On processor using QMP transport. Users can echo a message
+	  into an exposed debugfs node to send to AOP. The driver expects the
+	  passed in string argument to be formatted correctly for AOP to read.
 endmenu

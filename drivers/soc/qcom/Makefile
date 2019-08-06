@@ -29,3 +29,4 @@ obj-$(CONFIG_QCOM_LAHAINA_LLCC) += llcc-lahaina.o
 obj-$(CONFIG_QCOM_SDM845_LLCC) += llcc-sdm845.o
 obj-$(CONFIG_QCOM_RPMHPD) += rpmhpd.o
 obj-$(CONFIG_QCOM_RPMPD) += rpmpd.o
+obj-$(CONFIG_QMP_DEBUGFS_CLIENT) += qmp-debugfs-client.o
