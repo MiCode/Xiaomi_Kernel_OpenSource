@@ -1424,13 +1424,13 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 #if defined(CONFIG_MACH_MT6785)
 	/*just a workaround, since m4u design didn't define VPU_DATA*/
 	if (!(flags & (M4U_FLAGS_FIX_MVA | M4U_FLAGS_START_FROM))) {
-		M4U_MSG("%s,%d, vpu data, flags=0x%x\n",
+		M4U_DBG("%s,%d, vpu data, flags=0x%x\n",
 			__func__, __LINE__, flags);
 		if (port == M4U_PORT_VPU)
 			port = M4U_PORT_VPU_DATA;
 		dev = pseudo_get_larbdev(port);
 	} else {
-		M4U_MSG("%s,%d, vpu code, flags=0x%x\n",
+		M4U_DBG("%s,%d, vpu code, flags=0x%x\n",
 			__func__, __LINE__, flags);
 	}
 #endif
@@ -3100,7 +3100,7 @@ static int pseudo_port_probe(struct platform_device *pdev)
 		pseudo_dev_larb[larbid].name = pseudo_larbname[larbid];
 		if (pseudo_dev_larb[larbid].mmuen)
 			return 0;
-	} else if (larbid < SMI_LARB_NR + fake_nr) {
+	} else {
 		for (i = 0; i < fake_nr; i++) {
 			if (!pseudo_dev_larb_fake[i].dev &&
 			    larbid == pseudo_dev_larb_fake[i].larbid) {

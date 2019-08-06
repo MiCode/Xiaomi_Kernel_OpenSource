@@ -863,6 +863,14 @@
 		interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_LOW>;
 		#iommu-cells = <1>;
 	};
+
+	iommu0_sec: m4u@10224000 {
+		cell-index = <0>;
+		compatible = "mediatek,sec_m4u0";
+		reg = <0 0x10224000 0 0x1000>;
+		interrupts = <GIC_SPI 191 IRQ_TYPE_LEVEL_LOW>;
+	};
+
 	ion: iommu {
 		compatible = "mediatek,ion";
 		iommus = <&iommu0 M4U_PORT_DISP_RDMA0>;
