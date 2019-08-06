@@ -20,7 +20,7 @@
 #endif
 
 #include <dt-bindings/mmc/mt6771-msdc.h>
-#define CONFIG_MTK_MSDC_BRING_UP_BYPASS
+/* #define CONFIG_MTK_MSDC_BRING_UP_BYPASS */
 #if !defined(FPGA_PLATFORM)
 #include <dt-bindings/clock/mt6771-clk.h>
 #endif

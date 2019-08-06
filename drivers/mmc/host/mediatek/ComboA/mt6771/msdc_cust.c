@@ -412,7 +412,7 @@ void msdc_dump_vcore(char **buff, unsigned long *size, struct seq_file *m)
 {
 #if !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS) && defined(VCOREFS_READY)
 	SPREAD_PRINTF(buff, size, m, "%s: Vcore %d\n", __func__,
-		get_cur_vcore_opp());
+		vcorefs_get_hw_opp());
 #endif
 }
 
