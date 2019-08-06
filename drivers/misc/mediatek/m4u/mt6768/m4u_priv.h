@@ -143,7 +143,7 @@ struct M4U_MAU_STRUCT {
 	bool force;
 };
 
-struct M4U_TF_STRUCT {
+struct M4U_TF {
 	unsigned int port;
 	bool fgEnable;
 };
@@ -234,9 +234,9 @@ int m4u_unmap(struct m4u_domain *domain, unsigned int mva, unsigned int size);
 
 
 void m4u_get_pgd(struct m4u_client_t *client,
-	unsigned int port, void **pgd_va, void **pgd_pa, unsigned int *size);
+	M4U_PORT_ID port, void **pgd_va, void **pgd_pa, unsigned int *size);
 unsigned long m4u_mva_to_pa(struct m4u_client_t *client,
-	unsigned int port, unsigned int mva);
+	M4U_PORT_ID port, unsigned int mva);
 int m4u_query_mva_info(unsigned int mva, unsigned int size,
 	unsigned int *real_mva, unsigned int *real_size);
 
@@ -335,7 +335,7 @@ enum M4U_MMP_TYPE {
 };
 extern mmp_event M4U_MMP_Events[M4U_MMP_MAX];
 
-struct M4U_MOUDLE_STRUCT {
+struct M4U_MOUDLE {
 	unsigned int port;
 	unsigned long BufAddr;
 	unsigned int BufSize;
@@ -345,7 +345,7 @@ struct M4U_MOUDLE_STRUCT {
 	unsigned int flags;
 };
 
-struct M4U_CACHE_STRUCT {
+struct M4U_CACHE {
 	unsigned int port;
 	enum M4U_CACHE_SYNC_ENUM eCacheSync;
 	unsigned long va;
@@ -353,7 +353,7 @@ struct M4U_CACHE_STRUCT {
 	unsigned int mva;
 };
 
-struct M4U_DMA_STRUCT {
+struct M4U_DMA {
 	unsigned int port;
 	enum M4U_DMA_TYPE eDMAType;
 	enum M4U_DMA_DIR eDMADir;

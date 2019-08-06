@@ -2186,8 +2186,8 @@ void m4u_print_port_status(struct seq_file *seq, int only_print_active)
 	unsigned int m4u_index, larb, last_larb = M4U_PORT_NR, larb_port;
 	unsigned long larb_base;
 
-	M4U_PRINT_SEQ(seq, "%s of larb%d  ========>\n",
-			__func__, target_larb);
+	M4U_PRINT_SEQ(seq, "%s of larb ========>\n",
+			__func__);
 
 	for (port = 0; port < M4U_PORT_NR; port++) {
 		m4u_index = m4u_port_2_m4u_id(port);

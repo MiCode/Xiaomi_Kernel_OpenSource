@@ -194,9 +194,10 @@ static int mtkfb_get_overlay_layer_info(
 #ifdef CONFIG_OF
 static int _parse_tag_videolfb(void);
 #endif
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void mtkfb_late_resume(void);
 static void mtkfb_early_suspend(void);
-
+#endif
 
 void mtkfb_log_enable(int enable)
 {
@@ -2798,7 +2799,7 @@ int mtkfb_ipo_init(void)
 void mtkfb_clear_lcm(void)
 {
 }
-
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void mtkfb_early_suspend(void)
 {
 	int ret = 0;
@@ -2818,7 +2819,9 @@ static void mtkfb_early_suspend(void)
 	DISPMSG("[FB Driver] leave early_suspend\n");
 
 }
+#endif
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void mtkfb_late_resume(void)
 {
 	int ret = 0;
@@ -2838,6 +2841,7 @@ static void mtkfb_late_resume(void)
 	DISPMSG("[FB Driver] leave late_resume\n");
 
 }
+#endif
 
 /*---------------------------------------------------------------------------*/
 #ifdef CONFIG_PM
