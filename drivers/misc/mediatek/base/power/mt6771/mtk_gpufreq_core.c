@@ -288,7 +288,7 @@ static int g_clock_on;
 /*
  * API : handle frequency change request
  */
-unsigned int mt_gpufreq_target(unsigned int idx)
+unsigned int mt_gpufreq_target(unsigned int idx, bool is_real_idx)
 {
 	unsigned int target_freq;
 	unsigned int target_volt;
@@ -580,7 +580,7 @@ void mt_gpufreq_disable_by_ptpod(void)
 		}
 	}
 	g_DVFS_off_by_ptpod_idx = (unsigned int)target_idx;
-	mt_gpufreq_target(target_idx);
+	mt_gpufreq_target(target_idx, true);
 
 	/* Set GPU Buck to enter PWM mode */
 	__mt_gpufreq_vgpu_set_mode(REGULATOR_MODE_FAST);
@@ -890,7 +890,7 @@ void mt_gpufreq_thermal_protect(unsigned int limited_power)
 				g_limited_idx_array[IDX_THERMAL_PROTECT_LIMITED] = i;
 				__mt_gpufreq_update_max_limited_idx();
 				if (g_cur_opp_freq > g_opp_table[i].gpufreq_khz)
-					mt_gpufreq_target(i);
+					mt_gpufreq_target(i, true);
 				break;
 			}
 		}
@@ -1450,7 +1450,7 @@ static ssize_t mt_gpufreq_opp_freq_proc_write(struct file *file,
 					g_keep_opp_freq_idx = i;
 					g_keep_opp_freq_state = true;
 					g_keep_opp_freq = value;
-					mt_gpufreq_target(i);
+					mt_gpufreq_target(i, true);
 					break;
 				}
 			}
