@@ -33,6 +33,10 @@
 #include <mtk_qos_sram.h>
 #endif
 
+#ifdef CONFIG_MTK_PERF_OBSERVER
+#include <mt-plat/mtk_perfobserver.h>
+#endif
+
 #include <mt-plat/perf_tracker.h>
 #include <linux/arch_topology.h>
 
@@ -138,6 +142,10 @@ void __perf_tracker(u64 wallclock,
 	int stall[max_cpus] = {0};
 	unsigned int sched_freq[3] = {0};
 	int cid;
+
+#ifdef CONFIG_MTK_PERF_OBSERVER
+	pob_qos_tracker(wallclock);
+#endif
 
 	if (!perf_tracker_on || !perf_tracker_init)
 		return;
