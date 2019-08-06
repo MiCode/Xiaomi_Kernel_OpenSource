@@ -153,6 +153,7 @@ int uncali_acc_flush_report(void);
 int uncali_gyro_data_report(int *data, int status, int64_t nt);
 int uncali_gyro_temperature_data_report(int *data,
 	int status, int64_t nt);
+int uncali_gyro_temperature_flush_report(void);
 int uncali_gyro_flush_report(void);
 int uncali_mag_data_report(int *data, int status, int64_t nt);
 int uncali_mag_flush_report(void);

@@ -102,6 +102,27 @@ static int uncali_gyro_recv_data(struct data_unit_t *event, void *reserved)
 
 	return err;
 }
+static int uncali_gyro_temp_open_report_data(int open)
+{
+	return 0;
+}
+static int uncali_gyro_temp_enable_nodata(int en)
+{
+	return 0;
+}
+static int uncali_gyro_temp_set_delay(u64 delay)
+{
+	return 0;
+}
+static int uncali_gyro_temp_batch(int flag,
+	int64_t samplingPeriodNs, int64_t maxBatchReportLatencyNs)
+{
+	return 0;
+}
+static int uncali_gyro_temp_flush(void)
+{
+	return uncali_gyro_temperature_flush_report();
+}
 static int uncali_gyrohub_local_init(void)
 {
 	struct fusion_control_path ctl = {0};
@@ -134,6 +155,20 @@ static int uncali_gyrohub_local_init(void)
 		pr_err("register uncali_gyro data path err\n");
 		goto exit;
 	}
+
+	ctl.open_report_data = uncali_gyro_temp_open_report_data;
+	ctl.enable_nodata = uncali_gyro_temp_enable_nodata;
+	ctl.set_delay = uncali_gyro_temp_set_delay;
+	ctl.batch = uncali_gyro_temp_batch;
+	ctl.flush = uncali_gyro_temp_flush;
+	ctl.is_report_input_direct = true;
+	ctl.is_support_batch = false;
+	err = fusion_register_control_path(&ctl, ID_GYRO_TEMPERATURE);
+	if (err) {
+		pr_err("register uncali_gyro control path err\n");
+		goto exit;
+	}
+
 	err = scp_sensorHub_data_registration(ID_GYROSCOPE_UNCALIBRATED,
 		uncali_gyro_recv_data);
 	if (err < 0) {
