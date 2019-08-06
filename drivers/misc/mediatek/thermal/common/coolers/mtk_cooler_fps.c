@@ -169,6 +169,13 @@ enum {
 };
 #endif
 
+int __attribute__ ((weak))
+disp_mgr_get_session_info(struct disp_session_info *info)
+{
+	pr_notice("E_WF: %s doesn't exist\n", __func__);
+	return 0;
+}
+
 unsigned long  __attribute__ ((weak))
 ged_query_info(enum GED_INFO_TAG eType)
 {
