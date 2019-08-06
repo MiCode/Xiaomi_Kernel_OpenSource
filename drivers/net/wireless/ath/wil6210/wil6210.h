@@ -954,6 +954,17 @@ struct wil_ftm_offsets {
 	unsigned int rx_offset;
 };
 
+enum wil_fw_state {
+	/* When driver loaded with debug_fw the FW state is unknown */
+	WIL_FW_STATE_UNKNOWN,
+	WIL_FW_STATE_DOWN, /* FW not loaded or not ready yet */
+	WIL_FW_STATE_READY,/* FW is ready*/
+	/* Detected FW error before FW sent ready indication */
+	WIL_FW_STATE_ERROR_BEFORE_READY,
+	/* Detected FW error after FW sent ready indication */
+	WIL_FW_STATE_ERROR,
+};
+
 struct wil6210_priv {
 	struct pci_dev *pdev;
 	u32 bar_size;
@@ -1123,6 +1134,7 @@ struct wil6210_priv {
 	u8 multicast_to_unicast;
 	s32 cqm_rssi_thold;
 
+	enum wil_fw_state fw_state;
 	struct work_struct pci_linkdown_recovery_worker;
 	void *ipa_handle;
 
@@ -1404,6 +1416,9 @@ int wil_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 			 struct cfg80211_mgmt_tx_params *params,
 			 u64 *cookie);
 void wil_cfg80211_ap_recovery(struct wil6210_priv *wil);
+
+void wil_nl_60g_fw_state_change(struct wil6210_priv *wil,
+				enum wil_fw_state fw_state);
 int wil_cfg80211_iface_combinations_from_fw(
 	struct wil6210_priv *wil,
 	const struct wil_fw_record_concurrency *conc);
