@@ -48,6 +48,9 @@
 #if UPOWER_ENABLE_TINYSYS_SSPM
 #include <mtk_spm_vcore_dvfs_ipi.h>
 #include <mtk_vcorefs_governor.h>
+#if defined(CONFIG_MACH_MT6768)
+#include <helio-dvfsrc-ipi.h>
+#endif
 #endif
 #endif
 
@@ -574,7 +577,11 @@ static int upower_cal_turn_point(void)
 #if UPOWER_ENABLE_TINYSYS_SSPM
 void upower_send_data_ipi(phys_addr_t phy_addr, unsigned long long size)
 {
+#if defined(CONFIG_MACH_MT6771)
 	struct qos_data qos_d;
+#else
+	struct qos_ipi_data qos_d;
+#endif
 
 	qos_d.cmd = QOS_IPI_UPOWER_DATA_TRANSFER;
 	qos_d.u.upower_data.arg[0] = phy_addr;
@@ -584,7 +591,11 @@ void upower_send_data_ipi(phys_addr_t phy_addr, unsigned long long size)
 
 void upower_dump_data_ipi(void)
 {
+#if defined(CONFIG_MACH_MT6771)
 	struct qos_data qos_d;
+#else
+	struct qos_ipi_data qos_d;
+#endif
 
 	qos_d.cmd = QOS_IPI_UPOWER_DUMP_TABLE;
 	qos_ipi_to_sspm_command(&qos_d, 1);
