@@ -26,6 +26,9 @@ enum cpu_level {
 	CPU_LEVEL_0,	/* 6768 */
 	CPU_LEVEL_1,	/* 6767 */
 	CPU_LEVEL_2,	/* PRO */
+	CPU_LEVEL_3,	/* 6768_v7 */
+	CPU_LEVEL_4,	/* 6767_v7 */
+	CPU_LEVEL_5,	/* PRO_v7 */
 
 	NUM_CPU_LEVEL,
 };

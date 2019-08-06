@@ -60,7 +60,7 @@ extern "C" {
 #define NR_UPOWER_CSTATES 2 /* only use c0, c1 */
 #define UPOWER_C1_VOLT 60000 /* 0.6v */
 #define UPOWER_C1_IDX 1 /* idx of c1 in idle_states[][idx] */
-#define NR_UPOWER_TBL_LIST 3 /* num of all tables */
+#define NR_UPOWER_TBL_LIST 6 /* num of all tables */
 /* upower banks */
 enum upower_bank {
 	UPOWER_BANK_LL,
