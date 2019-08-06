@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -337,7 +337,7 @@ static void mdss_pll_free_bootmem(u32 mem_addr, u32 size)
 		free_reserved_page(pfn_to_page(pfn_idx));
 }
 
-static int mdss_pll_util_parse_dt_dfps(struct platform_device *pdev,
+static int mdss_pll_util_parse_dt_dfps_sub(struct platform_device *pdev,
 					struct mdss_pll_resources *pll_res)
 {
 	int rc = 0;
@@ -424,9 +424,6 @@ int mdss_pll_util_resource_parse(struct platform_device *pdev,
 		goto clk_err;
 	}
 
-	if (mdss_pll_util_parse_dt_dfps(pdev, pll_res))
-		pr_err("dfps not enabled!\n");
-
 	return rc;
 
 clk_err:
@@ -434,4 +431,14 @@ clk_err:
 	mp->num_vreg = 0;
 end:
 	return rc;
+}
+
+void mdss_pll_util_parse_dt_dfps(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res)
+{
+	int rc = 0;
+
+	rc = mdss_pll_util_parse_dt_dfps_sub(pdev, pll_res);
+	if (rc)
+		pr_err("dfps not enabled!\n");
 }
