@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 #include "mtk_ppm_api.h"
+#include <linux/cpufreq.h>
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 /* #define PPM_SSPM_SUPPORT        (0) */
@@ -156,8 +157,10 @@ static inline void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
 
 static inline void mtk_cpu_update_policy(void)
 {
+#ifdef CONFIG_CPU_FREQ
 	cpufreq_update_policy(0); /* little core */
 	cpufreq_update_policy(CORE_NUM_L); /* big core */
+#endif
 }
 
 #ifdef __cplusplus

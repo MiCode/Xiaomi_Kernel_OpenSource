@@ -1,1 +1,1 @@
-obj-y += $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))/
+obj-y += mt6779/

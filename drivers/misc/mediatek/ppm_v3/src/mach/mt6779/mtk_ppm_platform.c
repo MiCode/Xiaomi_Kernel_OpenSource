@@ -46,6 +46,7 @@ void mt_ppm_set_dvfs_table(unsigned int cpu,
 	struct cpufreq_frequency_table *tbl,
 	unsigned int num, enum dvfs_table_type type)
 {
+#ifdef CONFIG_CPU_FREQ
 	struct ppm_data *p = &ppm_main_info;
 	int i, j;
 	struct cpufreq_policy *policy;
@@ -88,8 +89,8 @@ void mt_ppm_set_dvfs_table(unsigned int cpu,
 
 		/* ppm_unlock(&(p->lock)); */
 	}
-
 	FUNC_EXIT(FUNC_LV_API);
+#endif
 }
 
 unsigned int ppm_get_cur_freq(enum ppm_cluster cluster)
