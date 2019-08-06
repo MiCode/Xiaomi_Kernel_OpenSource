@@ -2407,8 +2407,8 @@ static void fbt_update_pwd_tbl(void)
 			cap = core_energy->cap_states[
 					NR_FREQ_CPU - opp - 1].cap;
 #else
-			cap = core_energy->cap_states[NR_FREQ_CPU - 1].cap
-				* cpu_dvfs[cluster].power[opp];
+			cap = core_energy->cap_states[NR_FREQ_CPU - 1].cap;
+			cap = cap * cpu_dvfs[cluster].power[opp];
 			if (cpu_dvfs[cluster].power[0])
 				do_div(cap, cpu_dvfs[cluster].power[0]);
 #endif
