@@ -137,4 +137,15 @@ config TOUCHSCREEN_MTK_GT5688
 source "drivers/input/touchscreen/mediatek/GT5688/Kconfig"
 source "drivers/input/touchscreen/mediatek/hxchipset/Kconfig"
 
+config TOUCHSCREEN_MTK_GT911
+	bool "GT911 for Mediatek package"
+	help
+	  Say Y here if you have GT911 touch panel.
+
+	  If unsure, say N.
+	  this is a GT911 touch driver config, you can use it
+	  if you want.
+
+source "drivers/input/touchscreen/mediatek/GT911/Kconfig"
+
 endif
