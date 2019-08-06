@@ -969,7 +969,8 @@ static unsigned int _fps_ctx_calc_cur_fps(struct fps_ctx_t *fps_ctx,
 	unsigned long long fps = 1000000000;
 
 	delta = cur_ns - fps_ctx->last_trig;
-	do_div(fps, delta);
+	if (delta)
+		do_div(fps, delta);
 
 	if (fps > 120ULL)
 		fps = 120ULL;
@@ -1141,7 +1142,8 @@ static int fps_ext_ctx_update(struct fps_ext_ctx_t *fps_ctx)
 	if (delta_us > fps_ctx->interval) {
 		/* calculate fps */
 		fps = fps_ctx->interval * fps_ctx->total * fps_ctx->frequency;
-		do_div(fps, delta_us);
+		if (delta_us)
+			do_div(fps, delta_us);
 		do_div(fps, INTERVAL_MS / 1000);
 		fps_ctx->fps = (unsigned int)fps;
 		fps_ctx->last_trig = ns;
