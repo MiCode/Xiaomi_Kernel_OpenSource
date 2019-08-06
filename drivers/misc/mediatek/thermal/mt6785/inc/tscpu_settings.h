@@ -121,11 +121,10 @@
 #define THERMAL_INIT_VALUE						(0xDA1)
 #define CLEAR_TEMP 26111
 
-/* TODO: Check VPU for MT6785 */
 /* Thermal VPU throttling support */
-/* #ifdef CONFIG_MTK_VPU_SUPPORT */
-/* #define THERMAL_VPU_SUPPORT */
-/* #endif */
+#ifdef CONFIG_MTK_VPU_SUPPORT
+#define THERMAL_VPU_SUPPORT
+#endif
 /* Thermal MDLA throttling support */
 /* #define THERMAL_MDLA_SUPPORT */
 /* EARA_Thermal power budget allocation support */
