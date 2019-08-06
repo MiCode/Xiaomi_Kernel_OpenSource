@@ -302,11 +302,12 @@ static long pmic_ftm_ioctl(struct file *file,
 			   unsigned long arg)
 {
 	void __user *user_data = (void __user *)arg;
+	int adc_in_data[2] = { 1, 1 };
 	int adc_out_data[2] = { 1, 1 };
 
-	if (sizeof(arg) != sizeof(adc_out_data))
+	/* adc_in_data is used to check userspace data size */
+	if (copy_from_user(adc_in_data, user_data, sizeof(adc_in_data)))
 		return -EFAULT;
-
 	switch (cmd) {
 	case Get_IS_EXT_BUCK_EXIST:
 #ifdef CONFIG_MTK_EXTBUCK
