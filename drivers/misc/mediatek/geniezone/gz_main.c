@@ -753,7 +753,7 @@ static TZ_RESULT _get_US_PAMapAry(struct user_shm_param *shm_data,
 	cret = _map_user_pages(pin, (unsigned long)(*shm_data).param.buffer,
 			(*shm_data).param.size, 0);
 
-	if (!cret) {
+	if (cret) {
 		pin->pageArray = NULL;
 		KREE_DEBUG("[%s]_map_user_pages fail. map user pages = 0x%x\n",
 			__func__, (uint32_t) cret);
