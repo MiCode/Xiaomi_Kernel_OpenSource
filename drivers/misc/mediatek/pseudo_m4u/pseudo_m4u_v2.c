@@ -1428,11 +1428,10 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	dma_addr = sg_dma_address(table->sgl);
 	current_ts = sched_clock();
 
-	if (dma_addr == ARM_MAPPING_ERROR) {
-		M4U_ERR("err map, port:%s, dma:0x%lx, s:0x%x\n",
+	if (!dma_addr || dma_addr == ARM_MAPPING_ERROR) {
+		M4U_ERR("err map, %s, iova:0x%lx+0x%x, f:0x%x, n:%d-%d\n",
 			iommu_get_port_name(port),
-			(unsigned long)dma_addr, size);
-		M4U_ERR("SUSPECT that iova have been all exhaust 0x%x, %d-%d\n",
+			(unsigned long)dma_addr, size,
 			flags, table->nents, table->orig_nents);
 		goto ERR_EXIT;
 	}
@@ -3042,7 +3041,12 @@ static int pseudo_port_probe(struct platform_device *pdev)
 	int ret;
 	struct device *dev;
 	struct device_dma_parameters *dma_param;
+#if 0 //(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	unsigned long start, end;
+	LIST_HEAD(list);
+#endif
 
+	M4U_MSG("%s start\n");
 	/* dma will split the iova into max size to 65535 byte by default */
 	/* if we do not set this.*/
 	dma_param = kzalloc(sizeof(*dma_param), GFP_KERNEL);
@@ -3054,9 +3058,27 @@ static int pseudo_port_probe(struct platform_device *pdev)
 	dev = &pdev->dev;
 	dev->dma_parms = dma_param;
 
+#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	/* correct iova limit of pseudo device by update dma mask */
+#if 0
+	ret = mtk_iommu_get_iova_space(dev, &start, &end, &list);
+	mtk_iommu_put_iova_space(dev, &resv_regions);
+	if (ret) {
+		dev_notice(dev, "%s, failed to get dma mask, ret:%d",
+			  __func__, ret);
+		goto out;
+	}
+	*dev->dma_mask = (u64)end;
+	dev->coherent_dma_mask = (u64)end;
+#else
+	*dev->dma_mask = DMA_BIT_MASK(35);
+	dev->coherent_dma_mask = DMA_BIT_MASK(35);
+#endif
+#endif
+
 	ret = of_property_read_u32(dev->of_node, "mediatek,larbid", &larbid);
 	if (ret)
-		return ret;
+		goto out;
 
 	fake_nr = ARRAY_SIZE(pseudo_dev_larb_fake);
 	if (larbid >= 0 && larbid < SMI_LARB_NR) {
@@ -3076,12 +3098,18 @@ static int pseudo_port_probe(struct platform_device *pdev)
 		if (i == fake_nr) {
 			M4U_ERR("%s, pseudo not matched of dev larb%d\n",
 				__func__, larbid);
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto out;
 		}
 	}
 
-	M4U_MSG("done, larbid:%d, dev:%p)\n", larbid, dev);
+	dev_notice(dev, "%s done, larbid:%d, mask:0x%lx)\n",
+		__func__, larbid, dev->coherent_dma_mask);
 	return 0;
+
+out:
+	kfree(dma_param);
+	return ret;
 }
 
 /*

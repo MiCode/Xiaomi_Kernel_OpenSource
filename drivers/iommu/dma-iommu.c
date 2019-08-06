@@ -294,8 +294,18 @@ int iommu_dma_init_domain(struct iommu_domain *domain, dma_addr_t base,
 	if (domain->geometry.force_aperture) {
 		if (base > domain->geometry.aperture_end ||
 		    base + size <= domain->geometry.aperture_start) {
-			pr_warn("specified DMA range outside IOMMU capability\n");
+#ifndef CONFIG_MTK_IOMMU_V2
+			pr_warn("specified DMA range outside IOMMU capability, base:0x%lx, size:0x%lx, aperture(0x%lx, 0x%lx)\n",
+				base, size, domain->geometry.aperture_start,
+				domain->geometry.aperture_end);
 			return -EFAULT;
+#else
+			base = domain->geometry.aperture_start;
+			size = domain->geometry.aperture_end -
+				domain->geometry.aperture_start + 1;
+			pr_notice("correct the domain base/size to 0x%lx+0x%lx\n",
+				base, size);
+#endif
 		}
 		/* ...then finally give it a kicking to make sure it fits */
 		base_pfn = max_t(unsigned long, base_pfn,
@@ -402,7 +412,22 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 		 * and the size limit is totally decided by the
 		 * limit_pfn send from user.
 		 */
-		WARN_ON(dma_limit <= domain->geometry.aperture_start);
+		if (dma_limit <= domain->geometry.aperture_start) {
+			dev_notice(dev, "dma limit:0x%lx, is out of domain boundary(0x%lx~0x%lx)",
+				   dma_limit, domain->geometry.aperture_start,
+				   domain->geometry.aperture_end);
+			WARN_ON(1);
+			return 0;
+		}
+
+		if (size >= (dma_limit -
+			domain->geometry.aperture_start + 1)) {
+			dev_notice(dev, "size:0x%lx, is out of dma limit(0x%lx~0x%lx)",
+				   size, domain->geometry.aperture_start,
+				   dma_limit);
+			WARN_ON(1);
+			return 0;
+		}
 #endif
 	}
 
