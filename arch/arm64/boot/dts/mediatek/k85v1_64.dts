@@ -36,26 +36,16 @@
 
 /* TOUCH start */
 &i2c0 {
-	pinctrl-names = "default", "state_eint_as_int",
-		"state_eint_output0","state_eint_output1",
-		"state_rst_output0", "state_rst_output1",
+	clock-frequency = <400000>;
+	pinctrl-names = "default",
 		"ts_int_active","ts_reset_active",
 		"ts_int_suspend","ts_reset_suspend";
-	pinctrl-0 = <&ctp_pins_default>;
-	pinctrl-1 = <&ctp_pins_eint_as_int>;
-	pinctrl-2 = <&ctp_pins_eint_output0>;
-	pinctrl-3 = <&ctp_pins_eint_output1>;
-	pinctrl-4 = <&ctp_pins_rst_output0>;
-	pinctrl-5 = <&ctp_pins_rst_output1>;
-	pinctrl-6 = <&ctp_ts_int_active>;
-	pinctrl-7 = <&ctp_ts_reset_active>;
-	pinctrl-8 = <&ctp_ts_int_suspend>;
-	pinctrl-9 = <&ctp_ts_reset_suspend>;
+	pinctrl-0 = <&ctp_ts_pins_default>;
+	pinctrl-1 = <&ctp_ts_int_active>;
+	pinctrl-2 = <&ctp_ts_reset_active>;
+	pinctrl-3 = <&ctp_ts_int_suspend>;
+	pinctrl-4 = <&ctp_ts_reset_suspend>;
 	status = "okay";
-};
-
-&i2c0 {
-	clock-frequency = <400000>;
 
 	gt9886@5d {
 		compatible = "goodix,gt9886";
@@ -76,6 +66,8 @@
 		goodix,power-on-delay-us = <10000>; /*10ms*/
 		goodix,power-off-delay-us = <5000>;
 		/*goodix,swap-axis;*/
+		goodix,firmware-version = "6785a4";
+		goodix,config-version = "6785v96";
 		goodix,x2x;
 		goodix,y2y;
 		goodix,pen-enable;
@@ -84,13 +76,38 @@
 			normal-cfg = [
 			];
 		};
-
 	};
 
 };
 
+&touch {
+	tpd-resolution = <1080 2160>;
+	pinctrl-names = "default", "state_eint_as_int",
+		"state_eint_output0","state_eint_output1",
+		"state_rst_output0", "state_rst_output1";
+	pinctrl-0 = <&ctp_pins_default>;
+	pinctrl-1 = <&ctp_pins_eint_as_int>;
+	pinctrl-2 = <&ctp_pins_eint_output0>;
+	pinctrl-3 = <&ctp_pins_eint_output1>;
+	pinctrl-4 = <&ctp_pins_rst_output0>;
+	pinctrl-5 = <&ctp_pins_rst_output1>;
+	use-tpd-button = <0>;
+	tpd-key-num = <3>;
+	tpd-key-local= <139 172 158 0>;
+	tpd-key-dim-local = <90 883 100 40 230
+				883 100 40 370 883 100 40 0 0 0 0>;
+	tpd-max-touch-num = <10>;
+	tpd-filter-enable = <1>;
+	tpd-filter-pixel-density = <168>;
+	tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
+	tpd-filter-custom-speed = <0 0 0>;
+	status = "okay";
+};
+
 &pio {
 	ctp_pins_default: eint0default {
+	};
+	ctp_ts_pins_default: eint1default {
 	};
 	ctp_pins_eint_as_int: eint@0 {
 		pins_cmd_dat {
@@ -155,21 +172,6 @@
 			output-low;
 		};
 	};
-};
-
-&touch {
-	tpd-resolution = <1080 2160>;
-	use-tpd-button = <0>;
-	tpd-key-num = <3>;
-	tpd-key-local= <139 172 158 0>;
-	tpd-key-dim-local = <90 883 100 40 230
-				883 100 40 370 883 100 40 0 0 0 0>;
-	tpd-max-touch-num = <10>;
-	tpd-filter-enable = <1>;
-	tpd-filter-pixel-density = <168>;
-	tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
-	tpd-filter-custom-speed = <0 0 0>;
-	status = "okay";
 };
 /* TOUCH end */
 
