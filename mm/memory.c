@@ -3041,6 +3041,7 @@ int do_swap_page(struct vm_fault *vmf)
 	int exclusive = 0;
 	int ret;
 	bool vma_readahead = swap_use_vma_readahead();
+	bool vma_readmore = vma_readahead || !!page_cluster;
 
 	if (vma_readahead)
 		page = swap_readahead_detect(vmf, &swap_ra);
@@ -3085,7 +3086,7 @@ int do_swap_page(struct vm_fault *vmf)
 		page = lookup_swap_cache(entry, vma_readahead ? vma : NULL,
 					 vmf->address);
 	if (!page) {
-		if (vmf->flags & FAULT_FLAG_SPECULATIVE) {
+		if (vma_readmore && (vmf->flags & FAULT_FLAG_SPECULATIVE)) {
 			/*
 			 * Don't try readahead during a speculative page fault
 			 * as the VMA's boundaries may change in our back.
