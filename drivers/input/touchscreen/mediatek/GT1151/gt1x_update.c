@@ -956,7 +956,7 @@ int __gt1x_hold_ss51_dsp_20(void)
 	u8 buf[1];
 	int hold_times = 0;
 
-	while (retry++ < 5) {
+	while (retry++ < 2000) {
 		/*Hold ss51 & dsp*/
 		buf[0] = 0x0C;
 		ret = gt1x_i2c_write(_rRW_MISCTL__SWRST_B0_, buf, 1);
@@ -980,7 +980,7 @@ int __gt1x_hold_ss51_dsp_20(void)
 		GTP_DEBUG("Hold ss51 & dsp confirm 0x4180 failed,value:%d",
 				buf[0]);
 	}
-	if (retry >= 5) {
+	if (retry >= 2000) {
 		GTP_ERROR("Hold ss51&dsp failed!");
 		return ERROR_RETRY;
 	}
