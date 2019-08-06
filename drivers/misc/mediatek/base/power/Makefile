@@ -22,6 +22,7 @@ obj-$(CONFIG_MACH_MT6739) += cpufreq_v2/
 obj-$(CONFIG_MACH_MT6768) += dcm_v1/
 obj-$(CONFIG_MACH_MT6785) += dcm_v1/
 obj-$(CONFIG_MTK_PTPOD) += eem_v2/
+obj-$(CONFIG_MTK_PTPOD_GPU) += eemgpu_v2/
 obj-$(CONFIG_MACH_MT6739) += eem_v2/
 obj-$(CONFIG_MACH_MT6771) += eem_v2/
 ifeq ($(CONFIG_MTK_UNIFY_POWER), y)
