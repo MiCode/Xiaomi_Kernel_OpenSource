@@ -950,8 +950,8 @@ CONFIG_TMPFS,COMMON,,,y,y,y,y,y,y,y,y,y,y
 CONFIG_TOI_CORE,PROJECT,Calvin.Hung,new config a372ef1d80a0d446e63feb21e84729437a7d1861,,,,,,,,,,
 CONFIG_TOI_DEFAULT_WAIT,PROJECT,Calvin.Hung,new config a372ef1d80a0d446e63feb21e84729437a7d1861,,,,,,,,,,
 CONFIG_TOI_FILE,PROJECT,Calvin.Hung,new config a372ef1d80a0d446e63feb21e84729437a7d1861,,,,,,,,,,
-CONFIG_TOUCHSCREEN_MTK,COMMON,,,y,y,y,y,y,y,y,y,y,y
-CONFIG_TOUCHSCREEN_MTK_GT1151,PROJECT,wenqiang.zhang,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_TOUCHSCREEN_MTK,PROJECT,,,y,y,y,y,y,y,y,y,N,N
+CONFIG_TOUCHSCREEN_MTK_GT1151,PROJECT,wenqiang.zhang,y,y,y,y,y,y,y,y,y,N,N
 CONFIG_TOUCHSCREEN_MTK_TOUCH,PROJECT,wenqiang.zhang,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_TOUCHSCREEN_MTK_NT36xxx,PROJECT,lomen.wu,,y,,,y,,y,,y,,y
 CONFIG_TOUCHSCREEN_MTK_SYNAPTICS_3320_50,PROJECT,joan.cho,new config in this commit 9505b005d1c3680df7f8749a00217a8101f44a1b,,,,,,,,,,
