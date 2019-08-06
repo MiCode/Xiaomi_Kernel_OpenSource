@@ -31,7 +31,7 @@
 #if defined(CONFIG_MTK_LEGACY_SECMEM_SUPPORT)
 #include "secmem.h"
 #elif defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
-#include "secmem_api.h"
+#include "trusted_mem_api.h"
 #endif
 
 int test_mva;

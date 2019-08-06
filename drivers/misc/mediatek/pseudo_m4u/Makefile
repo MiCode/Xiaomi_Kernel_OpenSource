@@ -49,3 +49,7 @@ else
 obj-y += pseudo_m4u.o
 obj-y += m4u_hw_$(MTK_PLATFORM).o
 endif
+
+ifeq ($(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM),y)
+include $(srctree)/drivers/misc/mediatek/trusted_mem/Makefile.include
+endif
