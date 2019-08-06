@@ -53,6 +53,7 @@ void __iomem *toprgu_base;
 int	wdt_irq_id;
 int wdt_sspm_irq_id;
 int ext_debugkey_io_eint = -1;
+static int g_apwdt_en_doe = 1;
 
 static const struct of_device_id rgu_of_match[] = {
 	{ .compatible = "mediatek,toprgu", },
@@ -277,6 +278,11 @@ void mtk_wdt_mode_config(bool dual_mode_en,
 int mtk_wdt_enable(enum wk_wdt_en en)
 {
 	unsigned int tmp = 0;
+
+	if (g_apwdt_en_doe == 0) {
+		pr_info("%s skip, apwdt is disabled by doe\n", __func__);
+		return 0;
+	}
 
 	spin_lock(&rgu_reg_operation_spinlock);
 	#ifdef CONFIG_KICK_SPM_WDT
@@ -784,6 +790,10 @@ int mtk_wdt_request_en_set(int mark_bit, enum wk_req_en en)
 		pr_info("RGU base: 0x%p, RGU irq: %d\n",
 			toprgu_base, wdt_irq_id);
 	}
+	if (g_apwdt_en_doe == 0) {
+		pr_info("[WDT][DOE] set req(0x%x) to disable\n", mark_bit);
+		en = WD_REQ_DIS;
+	}
 
 	spin_lock(&rgu_reg_operation_spinlock);
 	tmp = __raw_readl(MTK_WDT_REQ_MODE);
@@ -1144,6 +1154,11 @@ static int mtk_wdt_probe(struct platform_device *dev)
 			return -ENODEV;
 		}
 	}
+
+	if (of_property_read_u32(dev->dev.of_node,
+					"apwdt_en", &g_apwdt_en_doe) < 0)
+		g_apwdt_en_doe = 1;
+
 #ifndef __USING_DUMMY_WDT_DRV__
 	mtk_wdt_mark_stage(RGU_STAGE_KERNEL);
 #endif
@@ -1238,8 +1253,14 @@ static int mtk_wdt_probe(struct platform_device *dev)
 	mtk_wdt_restart(WD_TYPE_NORMAL);
 
 	#ifdef CONFIG_MTK_WD_KICKER	/* Initialize to dual mode */
-	pr_debug("WDT (dual mode) enabled.\n");
-	mtk_wdt_mode_config(TRUE, TRUE, TRUE, FALSE, TRUE);
+	if (g_apwdt_en_doe == 1) {
+		pr_debug("WDT (dual mode) enabled.\n");
+		mtk_wdt_mode_config(TRUE, TRUE, TRUE, FALSE, TRUE);
+	} else {
+		pr_debug("WDT disabled by DOE.\n");
+		mtk_wdt_mode_config(FALSE, FALSE, TRUE, FALSE, FALSE);
+		wdt_enable = 0;
+	}
 	#else				/* Initialize to disable wdt */
 	pr_debug("WDT disabled.\n");
 	mtk_wdt_mode_config(FALSE, FALSE, TRUE, FALSE, FALSE);
