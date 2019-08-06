@@ -41,6 +41,7 @@
 #include <linux/completion.h>
 #include <linux/rtc.h>
 #include "aed.h"
+#include <linux/highmem.h>
 
 struct aee_req_queue {
 	struct list_head list;
@@ -70,7 +71,7 @@ static struct proc_dir_entry *aed_proc_dir;
 static spinlock_t msg_destroy_lock;
 
 #define MaxStackSize 8100
-#define MaxMapsSize 8100
+#define MaxMapsSize 65536
 
 /******************************************************************************
  * DEBUG UTILITIES
@@ -1334,6 +1335,178 @@ static ssize_t aed_ke_write(struct file *filp, const char __user *buf,
 	return count;
 }
 
+
+void Maps2Buffer(unsigned char *Userthread_maps, int *Userthread_mapsLength,
+	const char *fmt, ...)
+{
+	char buf[256] = {0};
+	int len = 0;
+	va_list ap;
+
+	va_start(ap, fmt);
+	len = strlen(Userthread_maps);
+
+	if ((len + sizeof(buf)) < MaxMapsSize) {
+		vsnprintf(&Userthread_maps[len], sizeof(buf), fmt, ap);
+		*Userthread_mapsLength = len + sizeof(buf);
+	}
+	va_end(ap);
+}
+
+static void print_vma_name(unsigned char *Userthread_maps,
+	int *Userthread_mapsLength, struct vm_area_struct *vma, char *str)
+{
+	const char __user *name = vma_get_anon_name(vma);
+	struct mm_struct *mm = vma->vm_mm;
+
+	unsigned long page_start_vaddr;
+	unsigned long page_offset;
+	unsigned long num_pages;
+	unsigned long max_len = NAME_MAX;
+	int i;
+
+	page_start_vaddr = (unsigned long)name & PAGE_MASK;
+	page_offset = (unsigned long)name - page_start_vaddr;
+	num_pages = DIV_ROUND_UP(page_offset + max_len, PAGE_SIZE);
+
+	for (i = 0; i < num_pages; i++) {
+		int len;
+		int write_len;
+		const char *kaddr;
+		long pages_pinned;
+		struct page *page;
+
+		pages_pinned = get_user_pages_remote(current, mm,
+				page_start_vaddr, 1, 0, &page, NULL, NULL);
+		if (pages_pinned < 1)
+			return;
+
+		kaddr = (const char *)kmap(page);
+		len = min(max_len, PAGE_SIZE - page_offset);
+		write_len = strnlen(kaddr + page_offset, len);
+		if (strstr((kaddr + page_offset), "signal stack")) {
+			Maps2Buffer(Userthread_maps, Userthread_mapsLength,
+				"%s[anon:%s]\n", str, (kaddr + page_offset));
+		}
+		kunmap(page);
+		put_page(page);
+
+		/* if strnlen hit a null terminator then we're done */
+		if (write_len != len)
+			break;
+
+		max_len -= len;
+		page_offset = 0;
+		page_start_vaddr += PAGE_SIZE;
+	}
+}
+
+static int is_stack(struct vm_area_struct *vma)
+{
+	return vma->vm_start <= vma->vm_mm->start_stack &&
+		vma->vm_end >= vma->vm_mm->start_stack;
+}
+
+static void show_map_vma(unsigned char *Userthread_maps,
+	int *Userthread_mapsLength, struct vm_area_struct *vma)
+{
+	struct mm_struct *mm = vma->vm_mm;
+	struct file *file = vma->vm_file;
+	vm_flags_t flags = vma->vm_flags;
+	unsigned long ino = 0;
+	unsigned long long pgoff = 0;
+	unsigned long start, end;
+	dev_t dev = 0;
+	const char *name = NULL;
+	struct path base_path;
+	char tpath[512];
+	char *path_p = NULL;
+	char str[512];
+
+	if (file) {
+		struct inode *inode = file_inode(vma->vm_file);
+
+		dev = inode->i_sb->s_dev;
+		ino = inode->i_ino;
+		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
+	}
+
+	// We don't show the stack guard page in /proc/maps
+	start = vma->vm_start;
+	end = vma->vm_end;
+
+	//
+	// * Print the dentry name for named mappings, and a
+	// * special [heap] marker for the heap:
+	//
+	if (file) {
+		base_path = file->f_path;
+		path_p = d_path(&base_path, tpath, 512);
+		goto done;
+	}
+
+	if (vma->vm_ops && vma->vm_ops->name) {
+		name = vma->vm_ops->name(vma);
+		if (name)
+			goto done;
+	}
+	name = arch_vma_name(vma);
+	if (!name) {
+		if (!mm) {
+			name = "[vdso]";
+			goto done;
+		}
+
+		if (vma->vm_start <= mm->brk &&
+			vma->vm_end >= mm->start_brk) {
+			name = "[heap]";
+			goto done;
+		}
+
+		if (is_stack(vma)) {
+			name = "[stack]";
+			goto done;
+		}
+
+		if (vma_get_anon_name(vma)) {
+			snprintf(str, sizeof(str),
+				"%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
+				start, end, flags & VM_READ ? 'r' : '-',
+				flags & VM_WRITE ? 'w' : '-',
+				flags & VM_EXEC ? 'x' : '-',
+				flags & VM_MAYSHARE ? 's' : 'p',
+				pgoff, MAJOR(dev), MINOR(dev), ino);
+			print_vma_name(Userthread_maps, Userthread_mapsLength,
+				vma, str);
+			return;
+		}
+	}
+
+done:
+
+	if (file && (flags & VM_EXEC)) {
+		Maps2Buffer(Userthread_maps, Userthread_mapsLength,
+			"%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu %s\n",
+			start, end, flags & VM_READ ? 'r' : '-',
+			flags & VM_WRITE ? 'w' : '-',
+			flags & VM_EXEC ? 'x' : '-',
+			flags & VM_MAYSHARE ? 's' : 'p',
+			pgoff,
+			MAJOR(dev), MINOR(dev), ino, path_p);
+	}
+
+	if (name && (flags & VM_WRITE)) {
+		Maps2Buffer(Userthread_maps, Userthread_mapsLength,
+			"%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu %s\n",
+			start, end, flags & VM_READ ? 'r' : '-',
+			flags & VM_WRITE ? 'w' : '-',
+			flags & VM_EXEC ? 'x' : '-',
+			flags & VM_MAYSHARE ? 's' : 'p',
+			pgoff, MAJOR(dev), MINOR(dev), ino, name);
+	}
+
+}
+
 /*
  * aed process daemon and other command line may access me
  * concurrently
@@ -1537,7 +1710,220 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 			break;
 		}
+	case AEEIOCTL_GET_THREAD_STACK_RAW:
+	{
+		struct unwind_info_stack stack_raw;
+		struct task_struct *task;
+		struct vm_area_struct *vma;
+		unsigned long start = 0;
+		unsigned long end = 0, length = 0;
+		unsigned char *stack;
+		int copied;
 
+		pr_info("Get direct unwind backtrace stack");
+
+		if (copy_from_user((void *)(&stack_raw),
+			(struct unwind_info_stack __user *)arg,
+			sizeof(struct unwind_info_stack))) {
+			ret = -EFAULT;
+			goto EXIT;
+		}
+
+		rcu_read_lock();
+		task = find_task_by_vpid(stack_raw.tid);
+		if (task->mm == NULL) {
+			rcu_read_unlock();
+			ret = -EFAULT;
+			goto EXIT;
+		}
+		rcu_read_unlock();
+
+		start = stack_raw.sp;
+		down_read(&task->mm->mmap_sem);
+		vma = task->mm->mmap;
+		while (vma != NULL) {
+			if (vma->vm_start <= start &&
+				vma->vm_end >= start) {
+				end = vma->vm_end;
+				break;
+			}
+			vma = vma->vm_next;
+			if (vma == task->mm->mmap)
+				break;
+		}
+		up_read(&task->mm->mmap_sem);
+
+		if (end == 0) {
+			pr_info("Dump native stack failed:\n");
+			ret = -EFAULT;
+			goto EXIT;
+		}
+
+		length = ((end - start) < (MaxStackSize-1))
+			? (end - start) : (MaxStackSize-1);
+		stack_raw.StackLength = length;
+
+		stack = vmalloc(MaxStackSize);
+		if (!stack) {
+			ret = -ENOMEM;
+			goto EXIT;
+		}
+
+		copied = access_process_vm(task, start, stack,
+				length, 0);
+		if (copied != length) {
+			pr_info("Access stack error");
+			vfree(stack);
+			ret = -EIO;
+			goto EXIT;
+		}
+
+		if (copy_to_user(stack_raw.Userthread_Stack, stack, length)) {
+			vfree(stack);
+			ret = -EFAULT;
+			goto EXIT;
+		}
+
+		if (copy_to_user((struct unwind_info_stack __user *)arg,
+			&stack_raw, sizeof(struct unwind_info_stack))) {
+			vfree(stack);
+			ret = -EFAULT;
+			goto EXIT;
+		}
+
+		vfree(stack);
+		break;
+	}
+	case AEEIOCTL_GET_THREAD_RMS:
+	{
+		struct unwind_info_rms  thread_info;
+		struct vm_area_struct *vma;
+		int mapcount = 0;
+		unsigned long start = 0;
+		unsigned long end = 0, length = 0;
+		unsigned char *maps;
+		int mapsLength;
+		unsigned char *stack;
+		int copied;
+
+		pr_info("Get direct unwind backtrace info");
+
+		if (copy_from_user(&thread_info,
+			(struct unwind_info_rms  __user *)arg,
+			sizeof(struct unwind_info_rms))) {
+			ret = -EFAULT;
+			goto EXIT;
+		}
+
+		if (thread_info.tid > 0) {
+			struct task_struct *task;
+			struct pt_regs *user_ret = NULL;
+
+			rcu_read_lock();
+			task = find_task_by_vpid(thread_info.tid);
+			if (task == NULL || task->stack == NULL) {
+				rcu_read_unlock();
+				ret = -EINVAL;
+				goto EXIT;
+			}
+
+			rcu_read_unlock();
+			// 1. get registers
+			user_ret = task_pt_regs(task);
+
+			if (copy_to_user((void *)thread_info.regs, user_ret,
+				sizeof(struct pt_regs))) {
+				ret = -EFAULT;
+				goto EXIT;
+			}
+
+			// 2. get maps
+			if ((!user_mode(user_ret)) || (task->mm == NULL)) {
+				ret = -EFAULT;
+				goto EXIT;
+			}
+
+			maps = vmalloc(MaxMapsSize);
+			memset(maps, 0, MaxMapsSize);
+			down_read(&task->mm->mmap_sem);
+			vma = task->mm->mmap;
+			while (vma && (mapcount < task->mm->map_count)) {
+				show_map_vma(maps, &mapsLength, vma);
+				vma = vma->vm_next;
+				mapcount++;
+			}
+
+			if (copy_to_user(thread_info.Userthread_maps,
+				maps, mapsLength)) {
+				ret = -EFAULT;
+				goto EXIT;
+			}
+			thread_info.Userthread_mapsLength = mapsLength;
+
+			// 3. get stack
+#ifndef __aarch64__ //K32+U32
+			start = (ulong)user_ret->ARM_sp;
+#else
+			if (is_compat_task()) //K64+U32
+				start = (ulong)user_ret->user_regs.regs[13];
+			else //K64+U64
+				start = (ulong)user_ret->user_regs.sp;
+#endif
+			vma = task->mm->mmap;
+			while (vma != NULL) {
+				if (vma->vm_start <= start &&
+					vma->vm_end >= start) {
+					end = vma->vm_end;
+					break;
+				}
+				vma = vma->vm_next;
+				if (vma == task->mm->mmap)
+					break;
+			}
+
+			up_read(&task->mm->mmap_sem);
+			if (end == 0) {
+				pr_info("Dump native stack failed:\n");
+				ret = -EFAULT;
+				goto EXIT;
+			}
+
+			length = ((end - start) < (MaxStackSize-1)) ?
+				(end - start) : (MaxStackSize-1);
+			thread_info.StackLength = length;
+
+			stack = vmalloc(MaxStackSize);
+			if (!stack) {
+				ret = -ENOMEM;
+				goto EXIT;
+			}
+
+			copied = access_process_vm(task, start,
+				stack, length, 0);
+			if (copied != length) {
+				pr_info("Access stack error");
+				vfree(stack);
+				ret = -EIO;
+				goto EXIT;
+			}
+
+			if (copy_to_user(thread_info.Userthread_Stack,
+				stack, length)) {
+				vfree(stack);
+				ret = -EFAULT;
+				goto EXIT;
+			}
+
+			if (copy_to_user((struct unwind_info_rms __user *)arg,
+				&thread_info, sizeof(struct unwind_info_rms))) {
+				vfree(stack);
+				ret = -EFAULT;
+				goto EXIT;
+			}
+			vfree(stack);
+		}
+		break;
+	}
 	case  AEEIOCTL_USER_IOCTL_TO_KERNEL_WANING:
 		/* get current user space reg when call
 		 * aee_kernel_warning_api

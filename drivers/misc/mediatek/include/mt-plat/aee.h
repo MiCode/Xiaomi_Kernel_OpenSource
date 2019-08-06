@@ -110,6 +110,26 @@ struct aee_user_thread_maps {
 	unsigned char *Userthread_maps;
 };
 
+struct unwind_info_stack {
+	pid_t tid __packed __aligned(8);
+#ifdef __aarch64__
+	__u64 sp;
+#else
+	long sp __packed __aligned(8);
+#endif
+	int StackLength __packed __aligned(8);
+	unsigned char *Userthread_Stack __packed __aligned(8);
+};
+
+struct unwind_info_rms {
+	pid_t tid __packed __aligned(8);
+	struct pt_regs *regs __packed __aligned(8);
+	int StackLength __packed __aligned(8);
+	unsigned char *Userthread_Stack __packed __aligned(8);
+	int Userthread_mapsLength __packed __aligned(8);
+	unsigned char *Userthread_maps __packed __aligned(8);
+};
+
 #ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
 extern int printk_disable_uart;
 #endif
