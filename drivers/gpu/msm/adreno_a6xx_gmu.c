@@ -117,7 +117,7 @@ static int a6xx_load_pdc_ucode(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct resource *res_pdc, *res_cfg, *res_seq;
 	unsigned int cfg_offset, seq_offset;
-	void __iomem *cfg, *seq;
+	void __iomem *cfg = NULL, *seq = NULL;
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	u32 vrm_resource_addr = cmd_db_read_addr("vrm.soc");
 
