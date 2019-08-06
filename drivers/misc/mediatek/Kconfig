@@ -126,7 +126,7 @@ config MTK_UNIFY_POWER
 	  If unsure, say Y.
 
 source "drivers/misc/mediatek/lpm/Kconfig"
-source "drivers/misc/mediatek/ppm_v3/Kconfig
+source "drivers/misc/mediatek/ppm_v3/Kconfig"
 endmenu # Power
 
 menu "MultiMedia, Display, Camera"
