@@ -17,6 +17,9 @@
 /* Define this macro if detecting apple samsung TA is needed */
 /* #define MT6370_APPLE_SAMSUNG_TA_SUPPORT */
 
+/* Define this macro if DCD timeout is supported */
+#define CONFIG_MT6370_DCDTOUT_SUPPORT
+
 /* Parameter */
 /* uA */
 #define MT6370_ICHG_NUM		64
@@ -251,11 +254,13 @@
 
 /* ========== CHG_DEVICETYPE 0x22 ============ */
 #define MT6370_SHIFT_USBCHGEN	7
+#define MT6370_SHFT_DCDTOUTEN	6
 #define MT6370_SHIFT_DCPSTD	2
 #define MT6370_SHIFT_CDP	1
 #define MT6370_SHIFT_SDP	0
 
 #define MT6370_MASK_USBCHGEN	(1 << MT6370_SHIFT_USBCHGEN)
+#define MT6370_MASK_DCDTOUTEN	(1 << MT6370_SHFT_DCDTOUTEN)
 #define MT6370_MASK_DCPSTD	(1 << MT6370_SHIFT_DCPSTD)
 #define MT6370_MASK_CDP		(1 << MT6370_SHIFT_CDP)
 #define MT6370_MASK_SDP		(1 << MT6370_SHIFT_SDP)
