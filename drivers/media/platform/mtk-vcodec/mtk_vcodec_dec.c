@@ -1176,62 +1176,42 @@ int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 
 	if (!(mtkbuf->flags & NO_CAHCE_CLEAN) &&
-		!(ctx->dec_params.svp_mode)) {
-		if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-			struct mtk_vcodec_mem src_mem;
+		!(ctx->dec_params.svp_mode) &&
+		(vb->vb2_queue->memory == VB2_MEMORY_DMABUF)) {
+		struct vdec_fb fb_param;
 
+		for (plane = 0; plane < vb->num_planes; plane++) {
 			mtk_v4l2_debug(4, "[%d] Cache sync+", ctx->id);
-
-			buf_att = dma_buf_attach(vb->planes[0].dbuf,
+			buf_att = dma_buf_attach(vb->planes[plane].dbuf,
 				&ctx->dev->plat_dev->dev);
-			sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
+			sgt = dma_buf_map_attachment(buf_att,
+				DMA_TO_DEVICE);
 			dma_sync_sg_for_device(&ctx->dev->plat_dev->dev,
 				sgt->sgl,
 				sgt->orig_nents,
 				DMA_TO_DEVICE);
-			dma_buf_unmap_attachment(buf_att, sgt, DMA_TO_DEVICE);
-
-			src_mem.dma_addr = vb2_dma_contig_plane_dma_addr(vb, 0);
-			src_mem.size = (size_t)vb->planes[0].bytesused;
-			dma_buf_detach(vb->planes[0].dbuf, buf_att);
+			dma_buf_unmap_attachment(buf_att,
+				sgt, DMA_TO_DEVICE);
+			dma_buf_detach(vb->planes[plane].dbuf, buf_att);
+			fb_param.fb_base[plane].dma_addr =
+				vb2_dma_contig_plane_dma_addr(vb,
+				plane);
+			if (vb->vb2_queue->type ==
+					V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+				fb_param.fb_base[plane].size =
+					(size_t)vb->planes[0].bytesused;
+			else
+				fb_param.fb_base[plane].size =
+					ctx->picinfo.fb_sz[plane];
 
 			mtk_v4l2_debug(4,
-			   "[%d] Cache sync- TD for %p sz=%d dev %p",
-			   ctx->id,
-			   (void *)src_mem.dma_addr,
-			   (unsigned int)src_mem.size,
-			   &ctx->dev->plat_dev->dev);
-		} else {
-			for (plane = 0; plane < vb->num_planes; plane++) {
-				struct vdec_fb dst_mem;
-
-				mtk_v4l2_debug(4, "[%d] Cache sync+", ctx->id);
-
-				buf_att = dma_buf_attach(vb->planes[plane].dbuf,
-					&ctx->dev->plat_dev->dev);
-				sgt = dma_buf_map_attachment(buf_att,
-					DMA_TO_DEVICE);
-				dma_sync_sg_for_device(&ctx->dev->plat_dev->dev,
-					sgt->sgl,
-					sgt->orig_nents,
-					DMA_TO_DEVICE);
-				dma_buf_unmap_attachment(buf_att,
-					sgt, DMA_TO_DEVICE);
-
-				dst_mem.fb_base[plane].dma_addr =
-					vb2_dma_contig_plane_dma_addr(vb,
-					plane);
-				dst_mem.fb_base[plane].size =
-					ctx->picinfo.fb_sz[plane];
-				dma_buf_detach(vb->planes[plane].dbuf, buf_att);
-
-				mtk_v4l2_debug(4,
-				  "[%d] Cache sync- TD for %p sz=%d dev %p",
-				  ctx->id,
-				  (void *)dst_mem.fb_base[plane].dma_addr,
-				  (unsigned int)dst_mem.fb_base[plane].size,
-				  &ctx->dev->plat_dev->dev);
-			}
+			  "[%d] [%d] [%d]Cache sync- TD for %p sz=%d dev %p",
+			  ctx->id,
+			  vb->vb2_queue->type,
+			  plane,
+			  (void *)fb_param.fb_base[plane].dma_addr,
+			  (unsigned int)fb_param.fb_base[plane].size,
+			  &ctx->dev->plat_dev->dev);
 		}
 	}
 
@@ -1270,7 +1250,8 @@ void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 
 	if (!(mtkbuf->flags & NO_CAHCE_INVALIDATE) &&
-		!(ctx->dec_params.svp_mode)) {
+		!(ctx->dec_params.svp_mode) &&
+		(vb->vb2_queue->memory == VB2_MEMORY_DMABUF)) {
 		for (plane = 0; plane < buf->frame_buffer.num_planes; plane++) {
 			struct vdec_fb dst_mem;
 			struct dma_buf_attachment *buf_att;
