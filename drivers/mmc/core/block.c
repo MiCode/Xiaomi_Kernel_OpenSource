@@ -3262,6 +3262,11 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 
 	if (new_req) {
 		mqrq_cur = req_to_mmc_queue_req(new_req);
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+		if (mmc_card_cmdq(card))
+			mqrq_cur->sg =
+				mq->mqrq[atomic_read(&mqrq_cur->index) - 1].sg;
+#endif
 		atomic_inc(&mq->qcnt);
 	}
 
@@ -3445,7 +3450,12 @@ bool mmc_blk_part_cmdq_en(struct mmc_queue *mq)
 #if defined(CONFIG_MTK_EMMC_CQ_SUPPORT) || defined(CONFIG_MTK_EMMC_HW_CQ)
 	int ret = false;
 	struct mmc_blk_data *md = mq->blkdata;
-	struct mmc_card *card = md->queue.card;
+	struct mmc_card *card;
+
+	if (!md)
+		return false;
+
+	card = md->queue.card;
 
 	/* enable cmdq at support partition */
 	if (card->ext_csd.cmdq_support
