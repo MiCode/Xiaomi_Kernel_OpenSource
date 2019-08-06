@@ -3,7 +3,11 @@
 
 #include "goodix_ts_core.h"
 
-#define TS_DEFAULT_CFG_BIN "goodix_cfg_group.bin"
+#define TS_DEFAULT_FIRMWARE  "gt9886_firmware_"
+#define TS_DEFAULT_CFG_BIN   "gt9886_cfg_"
+extern const char *gt9886_firmware_buf;
+extern const char *gt9886_config_buf;
+
 #define TS_BIN_VERSION_START_INDEX	5
 #define TS_BIN_VERSION_LEN	4
 #define TS_CFG_BIN_HEAD_RESERVED_LEN	6
