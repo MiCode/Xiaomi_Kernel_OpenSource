@@ -3292,11 +3292,6 @@
 				<&dvfsrc_freq_opp1>;
 	};
 
-	mtk_scpsys_bringup_venc {
-		compatible = "mediatek,scpsys-bringup-mt6779";
-		power-domains = <&scpsys MT6779_POWER_DOMAIN_VEN>;
-	};
-
 	mtkfb: mtkfb {
 		compatible = "mediatek,mtkfb";
 
