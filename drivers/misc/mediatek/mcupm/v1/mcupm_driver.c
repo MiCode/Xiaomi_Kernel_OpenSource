@@ -52,6 +52,7 @@ int mcupm_plt_ackdata;
 static atomic_t mcupm_inited = ATOMIC_INIT(0);
 static atomic_t mcupm_dev_inited = ATOMIC_INIT(0);
 static unsigned int mcupm_ready;
+spinlock_t mcupm_mbox_lock[MCUPM_MBOX_TOTAL];
 
 /* MCUPM SYSFS */
 static wait_queue_head_t logwait;
@@ -476,7 +477,7 @@ int __init mcupm_plt_init(void)
 	phys_addr_t phys_addr, virt_addr, mem_sz;
 	struct mcupm_ipi_data_s ipi_data;
 	struct plt_ctrl_s *plt_ctl;
-	int ret;
+	int ret, i;
 	unsigned int last_ofs;
 #if MCUPM_LOGGER_SUPPORT
 	unsigned int last_sz;
@@ -530,6 +531,7 @@ int __init mcupm_plt_init(void)
 	plt_ctl->logger_ofs = last_ofs;
 	last_sz = mcupm_logger_init(virt_addr + last_ofs, mem_sz - last_ofs);
 
+
 	if (last_sz == 0) {
 		pr_err("MCUPM: mcupm_logger_init return fail\n");
 		goto error;
@@ -566,6 +568,9 @@ int __init mcupm_plt_init(void)
 	mcupm_logger_init_done();
 #endif
 
+	for (i = 0; i < MCUPM_MBOX_TOTAL; i++)
+		spin_lock_init(&mcupm_mbox_lock[i]);
+
 	return 0;
 error:
 	return -1;
@@ -588,7 +593,6 @@ int mcupm_mbox_read(unsigned int mbox, unsigned int slot, void *buf,
 int mcupm_mbox_write(unsigned int mbox, unsigned int slot, void *buf,
 			unsigned int len)
 {
-	spinlock_t mcupm_mbox_lock;
 	unsigned long flags;
 	unsigned int status;
 	int ret;
@@ -599,14 +603,14 @@ int mcupm_mbox_write(unsigned int mbox, unsigned int slot, void *buf,
 		return -EINVAL;
 	}
 
-	spin_lock_irqsave(&mcupm_mbox_lock, flags);
+	spin_lock_irqsave(&mcupm_mbox_lock[mbox], flags);
 	status = mtk_mbox_check_send_irq(&mcupm_mboxdev, mbox,
 				(mcupm_mboxdev.pin_send_table[mbox]).pin_index);
 	if (status != 0) {
-		spin_unlock_irqrestore(&mcupm_mbox_lock, flags);
+		spin_unlock_irqrestore(&mcupm_mbox_lock[mbox], flags);
 		return MBOX_PIN_BUSY;
 	}
-	spin_unlock_irqrestore(&mcupm_mbox_lock, flags);
+	spin_unlock_irqrestore(&mcupm_mbox_lock[mbox], flags);
 
 	ret = mtk_mbox_write(&mcupm_mboxdev, mbox, slot
 				, buf, len * MBOX_SLOT_SIZE);
