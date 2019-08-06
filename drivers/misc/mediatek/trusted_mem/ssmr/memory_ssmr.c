@@ -1240,9 +1240,6 @@ static int memory_ssmr_show(struct seq_file *m, void *v)
 		return 0;
 	}
 
-	pr_info("PAGE_OFFSET = 0x%llx, VMEMMAP_START= 0x%llx\n", PAGE_OFFSET,
-		VMEMMAP_START);
-
 	if (cma) {
 		cma_base = cma_get_base(cma);
 		cma_end = cma_base + cma_get_size(cma);
