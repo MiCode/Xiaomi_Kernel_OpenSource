@@ -108,14 +108,14 @@ static bool trusty_supports_logging(struct device *device)
 {
 	int result;
 
-	result = trusty_std_call32(device, SMC_SC_GZ_SHARED_LOG_VERSION,
+	result = trusty_std_call32(device, SMC_SC_SHARED_LOG_VERSION,
 				   TRUSTY_LOG_API_VERSION, 0, 0);
 	if (result == SM_ERR_UNDEFINED_SMC) {
 		pr_info("trusty-log not supported on secure side.\n");
 		return false;
 	} else if (result < 0) {
-		pr_err("trusty std call (SMC_SC_GZ_SHARED_LOG_VERSION) failed: %d\n",
-		       result);
+		pr_info("trusty std call (SHARED_LOG_VERSION) failed: %d\n",
+			result);
 		return false;
 	}
 
@@ -312,7 +312,7 @@ int gz_log_page_init(void)
 }
 arch_initcall(gz_log_page_init);
 
-static int trusty_gz_log_probe(struct platform_device *pdev)
+static int trusty_log_probe(struct platform_device *pdev)
 {
 	int result;
 	phys_addr_t pa;
@@ -341,13 +341,12 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 
 	pa = page_to_phys(tls->log_pages);
 	pr_info("tls->log physical address:%x\n", (unsigned int)pa);
-	result = trusty_std_call32(tls->trusty_dev,
-				   SMC_SC_GZ_SHARED_LOG_ADD,
+	result = trusty_std_call32(tls->trusty_dev, SMC_SC_SHARED_LOG_ADD,
 				   (u32)(pa), (u32)((u64)pa >> 32),
 				   TRUSTY_LOG_SIZE);
 	if (result < 0) {
-		pr_err("trusty std call (SMC_SC_GZ_SHARED_LOG_ADD) failed: %d %pa\n",
-		       result, &pa);
+		pr_info("trusty std call (SHARED_LOG_ADD) failed: %d %pa\n",
+			result, &pa);
 		goto error_std_call;
 	}
 
@@ -376,8 +375,8 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 error_panic_notifier:
 	trusty_call_notifier_unregister(tls->trusty_dev, &tls->call_notifier);
 error_call_notifier:
-	trusty_std_call32(tls->trusty_dev, SMC_SC_GZ_SHARED_LOG_RM,
-			  (u32)pa, (u32)((u64)pa >> 32), 0);
+	trusty_std_call32(tls->trusty_dev, SMC_SC_SHARED_LOG_RM, (u32)pa,
+			  (u32)((u64)pa >> 32), 0);
 error_std_call:
 	__free_pages(tls->log_pages, get_order(TRUSTY_LOG_SIZE));
 error_alloc_log:
@@ -386,7 +385,7 @@ error_alloc_state:
 	return result;
 }
 
-static int trusty_gz_log_remove(struct platform_device *pdev)
+static int trusty_log_remove(struct platform_device *pdev)
 {
 	int result;
 	phys_addr_t pa = page_to_phys(tls->log_pages);
@@ -397,11 +396,11 @@ static int trusty_gz_log_remove(struct platform_device *pdev)
 					 &tls->panic_notifier);
 	trusty_call_notifier_unregister(tls->trusty_dev, &tls->call_notifier);
 
-	result = trusty_std_call32(tls->trusty_dev, SMC_SC_GZ_SHARED_LOG_RM,
+	result = trusty_std_call32(tls->trusty_dev, SMC_SC_SHARED_LOG_RM,
 				   (u32)pa, (u32)((u64)pa >> 32), 0);
 	if (result) {
-		pr_err("trusty std call (SMC_SC_GZ_SHARED_LOG_RM) failed: %d\n",
-		       result);
+		pr_info("trusty std call (SMC_SC_SHARED_LOG_RM) failed: %d\n",
+			result);
 	}
 	__free_pages(tls->log_pages, get_order(TRUSTY_LOG_SIZE));
 	kfree(tls);
@@ -409,19 +408,21 @@ static int trusty_gz_log_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id trusty_gz_test_of_match[] = {
-	{ .compatible = "android,trusty-gz-log-v1", },
+static const struct of_device_id trusty_test_of_match[] = {
+	{
+		.compatible = "android,trusty-log-v1",
+	},
 	{},
 };
 
-static struct platform_driver trusty_gz_log_driver = {
-	.probe = trusty_gz_log_probe,
-	.remove = trusty_gz_log_remove,
+static struct platform_driver trusty_log_driver = {
+	.probe = trusty_log_probe,
+	.remove = trusty_log_remove,
 	.driver = {
-		.name = "trusty-gz-log",
-		.owner = THIS_MODULE,
-		.of_match_table = trusty_gz_test_of_match,
-	},
+			.name = "trusty-log",
+			.owner = THIS_MODULE,
+			.of_match_table = trusty_test_of_match,
+		},
 };
 
-module_platform_driver(trusty_gz_log_driver);
+module_platform_driver(trusty_log_driver);

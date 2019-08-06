@@ -137,9 +137,7 @@ static void kick_vqs(struct work_struct *work)
 	struct trusty_ctx *tctx = container_of(work, struct trusty_ctx,
 					       kick_vqs);
 
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
 	set_user_nice(current, -20);
-#endif
 
 	mutex_lock(&tctx->mlock);
 	list_for_each_entry(tvdev, &tctx->vdev_list, node) {
@@ -153,9 +151,7 @@ static void kick_vqs(struct work_struct *work)
 
 	mutex_unlock(&tctx->mlock);
 
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
 	set_user_nice(current, 0);
-#endif
 }
 
 static bool trusty_virtio_notify(struct virtqueue *vq)
@@ -688,8 +684,6 @@ err_load_descr:
 	return ret;
 }
 
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
-
 static struct workqueue_attrs *attrs[TEE_NUM];
 
 /* parse dtsi to find big core and set to mask */
@@ -740,8 +734,6 @@ static int bind_big_core(struct cpumask *mask)
 
 	return 0;
 }
-
-#endif
 
 static int trusty_virtio_probe(struct platform_device *pdev)
 {
@@ -796,7 +788,6 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "Failed create trusty-kick-wq\n");
 		goto err_create_kick_wq;
 	}
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
 	attrs[tctx->tee_id] = alloc_workqueue_attrs(GFP_KERNEL);
 	if (!attrs[tctx->tee_id]) {
 		ret = -ENOMEM;
@@ -806,7 +797,6 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 	if (ret)
 		dev_info(&pdev->dev, "Failed to bind big cores\n");
 	apply_workqueue_attrs(tctx->kick_wq, attrs[tctx->tee_id]);
-#endif
 
 	ret = trusty_virtio_add_devices(tctx);
 
@@ -854,10 +844,8 @@ static int trusty_virtio_remove(struct platform_device *pdev)
 	/* free shared area */
 	free_pages_exact(tctx->shared_va, tctx->shared_sz);
 
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
 	/* free workqueue attrs */
 	free_workqueue_attrs(attrs[tctx->tee_id]);
-#endif
 
 	/* free context */
 	kfree(tctx);

@@ -1191,9 +1191,6 @@ static const struct file_operations tipc_fops = {
 	.owner = THIS_MODULE,
 };
 
-/*****************************************************************************/
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
-
 /* strdup do not free the string memory, pls free it after using */
 static char *strdup(const char *str)
 {
@@ -1450,8 +1447,6 @@ err_out:
 	return ret;
 }
 EXPORT_SYMBOL(tipc_k_write);
-#endif				/* end of CONFIG_MTK_ENABLE_GENIEZONE */
-/*****************************************************************************/
 
 static void chan_trigger_event(struct tipc_chan *chan, int event)
 {

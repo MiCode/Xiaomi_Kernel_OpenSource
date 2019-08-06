@@ -159,11 +159,7 @@ static bool trusty_virtio_notify(struct virtqueue *vq)
 		atomic_set(&tvr->needs_kick, 1);
 		queue_work(tctx->kick_wq, &tctx->kick_vqs);
 	} else {
-#if defined(CONFIG_MTK_NEBULA_VM_SUPPORT) && defined(CONFIG_GZ_SMC_CALL_REMAP)
-		trusty_enqueue_nop(tctx->dev->parent, &tvr->kick_nop, true);
-#else
 		trusty_enqueue_nop(tctx->dev->parent, &tvr->kick_nop);
-#endif
 	}
 
 	return true;
