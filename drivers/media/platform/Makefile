@@ -67,4 +67,6 @@ obj-$(CONFIG_VIDEO_MEDIATEK_VPU)	+= mtk-vpu/
 
 obj-$(CONFIG_VIDEO_MEDIATEK_VCODEC)	+= mtk-vcodec/
 
+obj-$(CONFIG_VIDEO_ALTEK_ISP)		+= altek/
+
 obj-y  += msm/

@@ -15,6 +15,11 @@ void usb_asmedia_modifyflowcontrol(struct pci_dev *pdev);
 void usb_enable_intel_xhci_ports(struct pci_dev *xhci_pdev);
 void usb_disable_xhci_ports(struct pci_dev *xhci_pdev);
 void sb800_prefetch(struct device *dev, int on);
+#ifdef CONFIG_USB_UPD720X
+void upd720x_finish_download(struct pci_dev *pDev);
+#else
+#define upd720x_finish_download(pDev)
+#endif
 #else
 struct pci_dev;
 static inline void usb_amd_quirk_pll_disable(void) {}
@@ -23,6 +28,7 @@ static inline void usb_asmedia_modifyflowcontrol(struct pci_dev *pdev) {}
 static inline void usb_amd_dev_put(void) {}
 static inline void usb_disable_xhci_ports(struct pci_dev *xhci_pdev) {}
 static inline void sb800_prefetch(struct device *dev, int on) {}
+#define upd720x_finish_download(pDev)
 #endif  /* CONFIG_PCI */
 
 #endif  /*  __LINUX_USB_PCI_QUIRKS_H  */

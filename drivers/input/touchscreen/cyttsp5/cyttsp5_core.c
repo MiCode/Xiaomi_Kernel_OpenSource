@@ -4099,7 +4099,7 @@ static int cyttsp5_read_input(struct cyttsp5_core_data *cd)
 				goto read;
 			t = wait_event_timeout(cd->wait_q,
 					(cd->wait_until_wake == 1),
-					msecs_to_jiffies(2000));
+					msecs_to_jiffies(20));
 			if (IS_TMO(t))
 				cyttsp5_queue_startup(cd);
 			goto read;

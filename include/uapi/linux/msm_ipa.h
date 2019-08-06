@@ -152,6 +152,11 @@
 #define QMI_IPA_MAX_CLIENT_DST_PIPES 4
 
 /**
+ * New feature flag for CV2X config
+ */
+#define IPA_CV2X_SUPPORT
+
+/**
  * the attributes of the rule (routing or filtering)
  */
 #define IPA_FLT_TOS			(1ul << 0)
@@ -326,11 +331,14 @@ enum ipa_client_type {
 
 	/* RESERVERD PROD			     = 84, */
 	IPA_CLIENT_WIGIG4_CONS			= 85,
+
+	IPA_CLIENT_MHI2_PROD			= 86,
+	IPA_CLIENT_MHI2_CONS			= 87,
 };
 
 #define IPA_CLIENT_DUMMY_CONS IPA_CLIENT_DUMMY_CONS1
 #define IPA_CLIENT_WIGIG4_CONS IPA_CLIENT_WIGIG4_CONS
-#define IPA_CLIENT_MAX (IPA_CLIENT_WIGIG4_CONS + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_MHI2_CONS + 1)
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \

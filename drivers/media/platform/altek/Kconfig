@@ -1,0 +1,8 @@
+config VIDEO_ALTEK_ISP
+	tristate "Altek mini isp support"
+	depends on I2C && SPI
+	---help---
+	  This is a camera driver for Altek mini isp which is to process
+	  depth data from dual IR camera sensors.
+	  Say Y here to enable Altek mini isp support.
+

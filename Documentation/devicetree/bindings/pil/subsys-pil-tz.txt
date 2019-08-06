@@ -70,6 +70,12 @@ Optional properties:
 - qcom,ignore-ssr-failure: Boolean. If set, SSR failures are not considered fatal.
 - qcom,mas-crypto: Reference to the bus master of crypto core.
 
+- qcom,sequential-fw-load: Boolean. If set, PIL loads the firmware image blobs in a
+				serial fashion. Else, they are loaded in
+				parallel. The property is specially useful for
+				low-end (single core) systems to prevent it from
+				degrading the performance.
+
 Example:
 	qcom,venus@fdce0000 {
 		compatible = "qcom,pil-tz-generic";
