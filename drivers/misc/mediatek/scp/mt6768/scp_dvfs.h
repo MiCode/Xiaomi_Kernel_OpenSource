@@ -14,8 +14,6 @@
 #ifndef __SCP_DVFS_H__
 #define __SCP_DVFS_H__
 
-#define SCP_DVFS_USE_PLL		1
-
 #define PLL_ENABLE				(1)
 #define PLL_DISABLE				(0)
 
@@ -48,9 +46,10 @@ enum {
 
 enum clk_opp_enum {
 	CLK_26M	 = 26,
-	CLK_OPP0 = 125,
-	CLK_OPP1 = 330,
-	CLK_OPP2 = 416,
+	CLK_OPP0 = 165,
+	CLK_OPP1 = 250,
+	CLK_OPP2 = 330,
+	CLK_OPP3 = 416,
 };
 
 enum clk_div_enum {
