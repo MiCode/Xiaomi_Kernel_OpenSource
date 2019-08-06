@@ -23,6 +23,12 @@ struct mt_gpufreq_power_table_info {
 	unsigned int gpufreq_power;
 };
 
+/*
+ * mutex for mt_gpufreq_enable_by_ptpod() & mt_gpufreq_disable_by_ptpod()
+ * to avoid calling pm_callback_power_off_nolock() during PTPOD initializing
+ */
+extern struct mutex g_mfg_lock;
+
 /**************************************************
  * Condition Setting
  **************************************************/

@@ -60,7 +60,8 @@
 #define EEMCTRLSPARE0_OFFSET	(0xCF0)
 #define EEMSPARE0_OFFSET	(0xF20)
 
-#define PICACHU_DVTFIXED	(9)
+#define PICACHU_DVTFIXED_V1	(9)
+#define PICACHU_DVTFIXED_V2	(6)
 
 #undef TAG
 #define TAG     "[Picachu] "
@@ -198,9 +199,12 @@ static void picachu_apply_efuse_to_eem(enum mt_picachu_vproc_id id,
 
 	for (i = 0; i < NR_EEM_EFUSE_PER_VPROC; i++, array_idx++) {
 
-		if (p->pi_dvtfixed == PICACHU_DVTFIXED)
+		if (p->pi_dvtfixed == PICACHU_DVTFIXED_V1 ||
+			p->pi_dvtfixed == PICACHU_DVTFIXED_V2) {
+
 			eem_set_pi_dvtfixed(*(ctrl_id + array_idx),
 							p->pi_dvtfixed);
+		}
 
 		if (!p->ptp1_efuse[i] || *(ctrl_id + array_idx) == -1)
 			continue;
