@@ -123,7 +123,6 @@ struct sw_jeita_data {
 	int sm;
 	int pre_sm;
 	int cv;
-	int pre_cv;
 	bool charging;
 	bool error_recovery_flag;
 };
