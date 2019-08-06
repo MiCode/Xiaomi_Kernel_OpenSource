@@ -42,6 +42,7 @@
 #endif
 #include <mtk_sleep_internal.h>
 #include <mtk_idle_module.h>
+#include <mtk_power_gs_api.h>
 
 static int spm_dormant_sta;
 int spm_ap_mdsrc_req_cnt;
@@ -53,6 +54,8 @@ u8 spm_snapshot_golden_setting;
 
 struct wake_status spm_wakesta; /* record last wakesta */
 unsigned int spm_sleep_count;
+u64 app_last_wakeup_time;
+u64 app_last_sleep_time;
 u64 md_slp_duration;
 
 int __attribute__ ((weak)) mtk_enter_idle_state(int idx)
@@ -400,6 +403,19 @@ unsigned int spm_go_to_sleep_ex(unsigned int ex_flag)
 	if (slp_dump_subsys_sleep_duration)
 		md_slp_duration = get_md_slp_duration();
 
+	if (slp_dump_ap_awake_duration) {
+		app_last_sleep_time =
+			(u64)_golden_read_reg(WORLD_CLK_CNTCV_H) << 32
+			| _golden_read_reg(WORLD_CLK_CNTCV_L);
+		printk_deferred(
+			"[name:spm&][SPM] Awaked for %lld.%03lld seconds",
+			WORLD_CLK_TICK_TO_SEC((app_last_sleep_time
+				- app_last_wakeup_time)),
+			WORLD_CLK_TICK_TO_SEC(((app_last_sleep_time
+				- app_last_wakeup_time)
+			% WORLD_CLK_13M_TICKS_PER_SEC) * 1000));
+	}
+
 	spm_suspend_footprint(SPM_SUSPEND_ENTER_UART_SLEEP);
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
@@ -435,6 +451,12 @@ RESTORE_IRQ:
 	/* record last wakesta */
 	last_wr = spm_output_wake_reason(ex_flag, &spm_wakesta);
 	mtk_spm_irq_restore();
+
+	if (slp_dump_ap_awake_duration) {
+		app_last_wakeup_time =
+			(u64)_golden_read_reg(WORLD_CLK_CNTCV_H) << 32
+			| _golden_read_reg(WORLD_CLK_CNTCV_L);
+	}
 
 	if (slp_dump_subsys_sleep_duration &&
 		spm_wakesta.timer_out >= PCM_32K_TICKS_FIVE_SEC)

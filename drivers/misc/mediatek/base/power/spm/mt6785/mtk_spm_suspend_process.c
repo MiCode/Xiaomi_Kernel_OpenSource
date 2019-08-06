@@ -33,9 +33,6 @@
 
 #define MTK_SUSPEND_GS_DUMP_READY (1)
 
-#define WORLD_CLK_CNTCV_L        (0x10017008)
-#define WORLD_CLK_CNTCV_H        (0x1001700C)
-
 __attribute__ ((weak))
 unsigned int pmic_read_interface_nolock(unsigned int RegNum, unsigned int *val,
 	unsigned int MASK, unsigned int SHIFT)
