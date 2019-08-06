@@ -12,7 +12,7 @@
  */
 #ifndef _SSPM_RESERVEDMEM_DEFINE_H_
 #define _SSPM_RESERVEDMEM_DEFINE_H_
-#include <sspm_reservedmem.h>
+#include <v1/sspm_reservedmem.h>
 
 enum {
 	SSPM_MEM_ID = 0,

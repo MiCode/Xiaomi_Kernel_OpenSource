@@ -9,6 +9,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/cpuidle_v3/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 # Include sspm header "sspm_ipi.h"
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
 # Include mtk idle headers and cpuidle driver header for external modules
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/

@@ -300,7 +300,8 @@ mtk_iommu_callback_ret_t cmdq_TranslationFault_callback(int port, unsigned	int	m
 	return MTK_IOMMU_CALLBACK_HANDLED;
 }
 #elif defined(CONFIG_MTK_M4U)
-m4u_callback_ret_t cmdq_TranslationFault_callback(int port, unsigned	int	mva, void *data)
+enum m4u_callback_ret_t cmdq_TranslationFault_callback(
+			int port, unsigned int mva, void *data)
 {
 	char dispatchModel[MDP_DISPATCH_KEY_STR_LEN] = "MDP";
 

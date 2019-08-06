@@ -32,6 +32,7 @@
 #ifdef CONFIG_MTK_GPU_SUPPORT
 #include "mtk_gpufreq.h"
 #endif
+extern unsigned int mt_gpufreq_get_cur_volt(void);
 /*
  * operation of EEM detectors
  */

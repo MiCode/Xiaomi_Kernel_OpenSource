@@ -81,6 +81,8 @@ extern struct pwr_ctrl pwrctrl_dp;
 extern struct pwr_ctrl pwrctrl_so3;
 extern struct pwr_ctrl pwrctrl_so;
 
+/* SMC secure magic number */
+#define SPM_LP_SMC_MAGIC	0xDAF10000
 
 /* SMC: defined parameters for MTK_SIP_KERNEL_SPM_ARGS */
 enum {
@@ -93,6 +95,12 @@ enum {
 	SPM_ARGS_DPIDLE,
 	SPM_ARGS_DPIDLE_FINISH,
 	SPM_ARGS_PCM_WDT,
+	SPM_ARGS_IDLE_DRAM,
+	SPM_ARGS_IDLE_DRAM_FINISH,
+	SPM_ARGS_IDLE_SYSPLL,
+	SPM_ARGS_IDLE_SYSPLL_FINISH,
+	SPM_ARGS_IDLE_BUS26M,
+	SPM_ARGS_IDLE_BUS26M_FINISH,
 	SPM_ARGS_NUM,
 };
 
@@ -121,6 +129,9 @@ enum {
 	SPM_PWR_CTRL_SODI3,
 	SPM_PWR_CTRL_VCOREFS,
 	SPM_TWAM_ENABLE,
+	SPM_PWR_CTRL_IDLE_DRAM,
+	SPM_PWR_CTRL_IDLE_SYSPLL,
+	SPM_PWR_CTRL_IDLE_BUS26M,
 };
 
 enum vcorefs_smc_cmd {
@@ -252,6 +263,7 @@ struct ddrphy_golden_cfg {
 enum {
 	SPMFW_LP4_2CH_3200 = 0,
 	SPMFW_LP4X_2CH_3200,
+	SPMFW_LP4X_2CH_3600,
 	SPMFW_LP3_1CH_1866,
 };
 
