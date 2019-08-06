@@ -137,6 +137,7 @@ obj-$(CONFIG_USB) += usb_boost/
 obj-$(CONFIG_MTK_USB_TYPEC) += typec/
 obj-$(CONFIG_MTK_SELINUX_AEE_WARNING) += selinux_warning/
 obj-$(CONFIG_THERMAL)   += thermal/
+obj-$(CONFIG_MTK_MTD_NAND) += nand/
 obj-y += performance/
 obj-$(CONFIG_MEDIATEK_SOLUTION) += cmo/
 obj-$(CONFIG_MTK_VOW_SUPPORT)  += vow/
