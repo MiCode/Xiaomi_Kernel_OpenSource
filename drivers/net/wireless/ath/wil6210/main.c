@@ -621,6 +621,12 @@ static void wil_fw_error_worker(struct work_struct *work)
 	struct net_device *ndev = wil->main_ndev;
 
 	wil_dbg_misc(wil, "fw error worker\n");
+	if (wil->fw_state == WIL_FW_STATE_READY)
+		wil_nl_60g_fw_state_change(wil,
+					   WIL_FW_STATE_ERROR);
+	else
+		wil_nl_60g_fw_state_change(wil,
+					   WIL_FW_STATE_ERROR_BEFORE_READY);
 
 	if (!ndev || !(ndev->flags & IFF_UP)) {
 		wil_info(wil, "No recovery - interface is down\n");
@@ -798,6 +804,7 @@ int wil_priv_init(struct wil6210_priv *wil)
 	wil->rx_buff_id_count = WIL_RX_BUFF_ARR_SIZE_DEFAULT;
 
 	wil->amsdu_en = 1;
+	wil->fw_state = WIL_FW_STATE_DOWN;
 
 	return 0;
 
@@ -1508,6 +1515,7 @@ static int wil_wait_for_fw_ready(struct wil6210_priv *wil)
 	} else {
 		wil_info(wil, "FW ready after %d ms. HW version 0x%08x\n",
 			 jiffies_to_msecs(to-left), wil->hw_version);
+		wil_nl_60g_fw_state_change(wil, WIL_FW_STATE_READY);
 	}
 	return 0;
 }
@@ -1703,6 +1711,7 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 
 		ether_addr_copy(ndev->perm_addr, mac);
 		ether_addr_copy(ndev->dev_addr, ndev->perm_addr);
+		wil->fw_state = WIL_FW_STATE_UNKNOWN;
 		return 0;
 	}
 
@@ -1737,6 +1746,7 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 				rc);
 	}
 
+	wil_nl_60g_fw_state_change(wil, WIL_FW_STATE_DOWN);
 	set_bit(wil_status_resetting, wil->status);
 	mutex_lock(&wil->vif_mutex);
 	wil_abort_scan_all_vifs(wil, false);
