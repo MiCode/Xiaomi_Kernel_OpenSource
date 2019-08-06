@@ -170,6 +170,7 @@ config MACH_MT6739
 	select ARM_CRYPTO
 	select CRYPTO_SHA2_ARM_CE
 	select CRYPTO_AES_ARM_CE
+	select MTK_SECURITY_SW_SUPPORT
 	help
 	  This enables support for MediaTek MT6739
 	  Support for arm Architecture
@@ -220,6 +221,7 @@ config MACH_MT6771
 	select MTK_EMI
 	select MTK_DRAMC
 	select OVERLAY_FS
+	select MTK_SECURITY_SW_SUPPORT
 	help
 	  This enables support for MediaTek MT6771
 	  Support for aarch64 Architecture
