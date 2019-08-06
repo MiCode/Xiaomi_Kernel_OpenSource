@@ -339,7 +339,8 @@ void apusys_frequency_check(void)
 		if (apusys_opps.opps[cur_opp_index][buck_domain_index].freq !=
 		apusys_opps.opps[prev_opp_index][buck_domain_index].freq){
 			freq_data.target_volt_domain = buck_domain_index;
-			freq_data.target_opp = cur_opp_index;
+			freq_data.target_freq = apusys_opps.opps[cur_opp_index]
+						[buck_domain_index].freq;
 		hal_config_power(PWR_CMD_SET_FREQ, user, (void *)&freq_data);
 
 		PWR_LOG_INF("%s, %s, freq from %d --> %d\n",	__func__,
