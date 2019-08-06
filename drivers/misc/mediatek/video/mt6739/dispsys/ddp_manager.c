@@ -290,7 +290,7 @@ int dpmgr_path_set_video_mode(disp_path_handle dp_handle, int is_vdo_mode)
 {
 	struct ddp_path_handle *phandle = NULL;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	if (!dp_handle)
 		return 0;
 
@@ -1172,7 +1172,7 @@ int dpmgr_path_power_off_bypass_pwm(disp_path_handle dp_handle,
 	int *list;
 	struct DDP_MODULE_DRIVER *m_drv;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	phandle = (struct ddp_path_handle *)dp_handle;
 	list = ddp_get_scenario_list(phandle->scenario);
 	m_num = ddp_get_module_num(phandle->scenario);
@@ -1512,7 +1512,7 @@ int dpmgr_check_status(disp_path_handle dp_handle)
 	struct ddp_path_handle *phandle;
 	struct DDP_MANAGER_CONTEXT *c = _get_context();
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	phandle = (struct ddp_path_handle *)dp_handle;
 	list = ddp_get_scenario_list(phandle->scenario);
 	m_num = ddp_get_module_num(phandle->scenario);
