@@ -79,12 +79,6 @@ static int load_fw_nolock(struct npu_device *npu_dev, bool enable)
 		return 0;
 	}
 
-	ret = npu_set_bw(npu_dev, 100, 100);
-	if (ret) {
-		NPU_ERR("Vote bandwidth failed\n");
-		return ret;
-	}
-
 	/* Boot the NPU subsystem */
 	reinit_completion(&host_ctx->npu_power_up_done);
 	host_ctx->subsystem_handle = subsystem_get_local("npu");
@@ -155,10 +149,9 @@ load_fw_fail:
 	if (!ret) {
 		host_ctx->fw_state = FW_LOADED;
 	} else {
-		if (!IS_ERR_OR_NULL(host_ctx->subsystem_handle)) {
+		if (!IS_ERR_OR_NULL(host_ctx->subsystem_handle))
 			subsystem_put_local(host_ctx->subsystem_handle);
-			npu_set_bw(npu_dev, 0, 0);
-		}
+
 		host_ctx->fw_state = FW_UNLOADED;
 	}
 
@@ -218,7 +211,6 @@ int unload_fw(struct npu_device *npu_dev)
 	}
 
 	subsystem_put_local(host_ctx->subsystem_handle);
-	npu_set_bw(npu_dev, 0, 0);
 	host_ctx->fw_state = FW_UNLOADED;
 	NPU_DBG("fw is unloaded\n");
 	mutex_unlock(&host_ctx->lock);
@@ -384,7 +376,6 @@ static void disable_fw_nolock(struct npu_device *npu_dev)
 		subsystem_put_local(host_ctx->subsystem_handle);
 		host_ctx->fw_state = FW_UNLOADED;
 		NPU_DBG("fw is unloaded\n");
-		npu_set_bw(npu_dev, 0, 0);
 	}
 }
 
