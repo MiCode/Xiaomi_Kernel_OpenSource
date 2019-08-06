@@ -22,6 +22,8 @@
 
 #ifndef UNIFIED_POWER_DATA_H
 #define UNIFIED_POWER_DATA_H
+#include "mtk_unified_power.h"
+#include "mtk_unified_power_mt6768.h"
 
 /* remember to sync to sspm upower */
 #define UPOWER_CSRAM_BASE 0x0012a000
