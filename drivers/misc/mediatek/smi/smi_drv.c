@@ -31,6 +31,11 @@
 #if IS_ENABLED(CONFIG_MTK_MMDVFS)
 #include <mmdvfs_pmqos.h>
 #endif
+#if IS_ENABLED(CONFIG_MTK_EMI)
+#include <plat_debug_api.h>
+#elif IS_ENABLED(CONFIG_MTK_EMI_BWL)
+#include <emi_mbw.h>
+#endif
 #if IS_ENABLED(CONFIG_MTK_M4U)
 #include <m4u.h>
 #endif
@@ -343,10 +348,11 @@ s32 smi_sysram_enable(const u32 master_id, const bool enable, const char *user)
 	u32 ostd[2], val;
 
 	smi_bus_prepare_enable(larb, user);
-	ostd[0] = readl(smi_dev[larb]->base + SMI_LARB_OSTD_MON_PORT(p));
-	ostd[1] = readl(smi_dev[larb]->base + INT_SMI_LARB_OSTD_MON_PORT(p));
+	ostd[0] = readl(smi_dev[larb]->base + SMI_LARB_OSTD_MON_PORT(port));
+	ostd[1] = readl(smi_dev[larb]->base + INT_SMI_LARB_OSTD_MON_PORT(port));
 	if (ostd[0] || ostd[1]) {
-		SMIWRN(1, "%s set larb%u port%u sysram %d failed ostd:%u %u\n",
+		aee_kernel_exception(user,
+			"%s set larb%u port%u sysram %d failed ostd:%u %u\n",
 			user, larb, port, enable, ostd[0], ostd[1]);
 		return (ostd[1] << 16) | ostd[0];
 	}
@@ -354,7 +360,7 @@ s32 smi_sysram_enable(const u32 master_id, const bool enable, const char *user)
 	val = readl(smi_dev[larb]->base + SMI_LARB_NON_SEC_CON(port));
 	writel(val | ((enable ? 0xf : 0) << 16),
 		smi_dev[larb]->base + SMI_LARB_NON_SEC_CON(port));
-	SMIWRN(1, "%s set larb%u port%u sysram %d succeeded\n",
+	SMIDBG("%s set larb%u port%u sysram %d succeeded\n",
 		user, larb, port, enable);
 	smi_bus_disable_unprepare(larb, user);
 #endif
@@ -461,8 +467,12 @@ s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 	u32 time = 5, busy[SMI_DEV_NUM] = {0};
 	s32 i, j, ret = 0;
 
-	/* dump_emi_outstanding(); */
-#if IS_ENABLED(CONFIG_MTK_M4U)
+#if IS_ENABLED(CONFIG_MTK_EMI) || IS_ENABLED(CONFIG_MTK_EMI_BWL)
+	dump_emi_outstanding();
+#endif
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+	mtk_dump_reg_for_hang_issue();
+#elif IS_ENABLED(CONFIG_MTK_M4U)
 	m4u_dump_reg_for_smi_hang_issue();
 #endif
 	for (i = 0; i < time; i++) {
