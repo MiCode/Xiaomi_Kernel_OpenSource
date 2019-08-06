@@ -30,6 +30,9 @@
 #define MTK_SIP_KERNEL_ATF_DEBUG \
 	(0x82000204 | MTK_SIP_SMC_AARCH_BIT)
 
+/* CCCI debug feature */
+#define MTK_SIP_KERNEL_CCCI_GET_INFO \
+	(0x82000206 | MTK_SIP_SMC_AARCH_BIT)
 /* Security related SMC call */
 /* TRNG */
 #define MTK_SIP_KERNEL_GET_RND \
@@ -41,9 +44,7 @@
 	(0x8200026C | MTK_SIP_SMC_AARCH_BIT)
 #define MTK_SIP_KERNEL_DAPC_DUMP \
 	(0x8200026D | MTK_SIP_SMC_AARCH_BIT)
-/* CCCI debug feature */
-#define MTK_SIP_KERNEL_CCCI_GET_INFO \
-	(0x82000209 | MTK_SIP_SMC_AARCH_BIT)
+
 /* Debug related SMC call */
 #define MTK_SIP_CCCI_CONTROL \
 	(0x82000505 | MTK_SIP_SMC_AARCH_BIT)
