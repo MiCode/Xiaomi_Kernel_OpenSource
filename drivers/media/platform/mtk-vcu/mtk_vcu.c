@@ -280,6 +280,7 @@ struct mtk_vcu {
 	struct cmdq_base *clt_base;
 	struct cmdq_client *clt_vdec[GCE_THNUM_MAX];
 	struct cmdq_client *clt_venc[GCE_THNUM_MAX];
+	struct vcu_pa_pages pa_pages;
 	int gce_th_num[VCU_CODEC_MAX];
 	int gce_codec_eid[GCE_EVENT_MAX];
 	void *curr_ctx[VCU_CODEC_MAX];
@@ -603,8 +604,8 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 			data, CMDQ_THR_SPR_IDX1);
 	break;
 	case CMD_POLL_ADDR:
-		cmdq_pkt_poll_timeout(pkt, vcu->clt_base,
-			data, addr, mask, ~0, CMDQ_GPR_R10);
+		cmdq_pkt_poll_timeout(pkt, data, SUBSYS_NO_SUPPORT,
+			addr, mask, ~0, CMDQ_GPR_R10);
 	break;
 	default:
 		pr_debug("[VCU] unknown GCE cmd %d\n", cmd);
@@ -1018,15 +1019,17 @@ static int vcu_init_ipi_handler(void *data, unsigned int len, void *priv)
 
 			/* wait for GCE done & let IPI ack power off */
 			while (
-			atomic_read(&vcu_ptr->gce_job_cnt[VCU_VDEC]) > 0 ||
-			atomic_read(&vcu_ptr->gce_job_cnt[VCU_VENC]) > 0) {
+			atomic_read(&vcu_ptr->gce_job_cnt[VCU_VDEC][0]) > 0 ||
+			atomic_read(&vcu_ptr->gce_job_cnt[VCU_VDEC][1]) > 0 ||
+			atomic_read(&vcu_ptr->gce_job_cnt[VCU_VENC][0]) > 0 ||
+			atomic_read(&vcu_ptr->gce_job_cnt[VCU_VENC][1]) > 0) {
 				wait_cnt++;
 				if (wait_cnt > 5) {
 					pr_info("[VCU] Vpud killed gce status %d %d\n",
 					atomic_read(
-					&vcu_ptr->gce_job_cnt[VCU_VDEC]),
+					&vcu_ptr->gce_job_cnt[VCU_VDEC][0]),
 					atomic_read(
-					&vcu_ptr->gce_job_cnt[VCU_VENC]));
+					&vcu_ptr->gce_job_cnt[VCU_VENC][0]));
 					break;
 				}
 				usleep_range(10000, 20000);

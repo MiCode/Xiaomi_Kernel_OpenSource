@@ -120,11 +120,11 @@ static int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	case VCU_IPIMSG_ENC_DEINIT_DONE:
 		break;
 	case VCU_IPIMSG_ENC_POWER_ON:
-		venc_encode_prepare(ctx, &flags);
+		venc_encode_prepare(ctx, 0, &flags);
 		ret = 1;
 		break;
 	case VCU_IPIMSG_ENC_POWER_OFF:
-		venc_encode_unprepare(ctx, &flags);
+		venc_encode_unprepare(ctx, 0, &flags);
 		ret = 1;
 		break;
 	case VCU_IPIMSG_ENC_QUERY_CAP_ACK:
