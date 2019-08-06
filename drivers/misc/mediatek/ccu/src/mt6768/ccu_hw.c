@@ -64,13 +64,13 @@ static  bool cmd_done;
 static int32_t g_ccu_sensor_current_fps = -1;
 
 #define SENSOR_NAME_MAX_LEN 32
-static struct ccu_sensor_info g_ccu_sensor_info_main  = {-1, NULL};
+static struct ccu_sensor_info g_ccu_sensor_info_main  = {0};
 static char g_ccu_sensor_name_main[SENSOR_NAME_MAX_LEN];
-static struct ccu_sensor_info g_ccu_sensor_info_main2  = {-1, NULL};
+static struct ccu_sensor_info g_ccu_sensor_info_main2  = {0};
 static char g_ccu_sensor_name_main2[SENSOR_NAME_MAX_LEN];
-static struct ccu_sensor_info g_ccu_sensor_info_main3  = {-1, NULL};
+static struct ccu_sensor_info g_ccu_sensor_info_main3  = {0};
 static char g_ccu_sensor_name_main3[SENSOR_NAME_MAX_LEN];
-static struct ccu_sensor_info g_ccu_sensor_info_sub  = {-1, NULL};
+static struct ccu_sensor_info g_ccu_sensor_info_sub  = {0};
 static char g_ccu_sensor_name_sub[SENSOR_NAME_MAX_LEN];
 
 struct ccu_mailbox_t *pMailBox[MAX_MAILBOX_NUM];
