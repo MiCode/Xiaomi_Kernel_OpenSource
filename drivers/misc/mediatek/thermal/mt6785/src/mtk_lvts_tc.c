@@ -52,6 +52,7 @@
 #define __MT_MTK_LVTS_TC_C__
 
 #include <mt-plat/mtk_devinfo.h>
+#include "mtk_thermal_ipi.h"
 /*=============================================================
  * Local variable definition
  *=============================================================
@@ -281,7 +282,7 @@ unsigned int data, int tc_num)
 static unsigned int lvts_read_device(unsigned int config,
 unsigned int dev_reg_idx, int tc_num)
 {
-	int offset, cut;
+	int offset, cnt;
 	unsigned int data;
 
 	dev_reg_idx &= 0xFF;
@@ -337,7 +338,7 @@ static void lvts_device_check_counting_status(int tc_num)
 
 	int offset, cnt;
 
-	offset = lvts_tscpu_g_tc[i].tc_offset; //tc offset
+	offset = lvts_tscpu_g_tc[tc_num].tc_offset; //tc offset
 
 	cnt = 0;
 	while ((readl(LVTS_CONFIG_0 + offset) & _BIT_(25))) {
@@ -359,7 +360,7 @@ static void lvts_device_check_read_write_status(int tc_num)
 
 	int offset, cnt;
 
-	offset = lvts_tscpu_g_tc[i].tc_offset;
+	offset = lvts_tscpu_g_tc[tc_num].tc_offset;
 
 	cnt = 0;
 	while ((readl(LVTS_CONFIG_0 + offset) & _BIT_(24))) {
@@ -518,9 +519,9 @@ void dump_efuse_data(void)
 
 	lvts_printk("[LVTS_ERROR][GOLDEN_TEMP][DUMP] %d\n", g_golden_temp);
 
-	offset = sprintf(buffer, "[LVTS_ERROR][COUNT][DUMP] ");
+	offset = sprintf(buffer, "[LVTS_ERROR][COUNT_R][DUMP] ");
 	for (i = 0; i < L_TS_LVTS_NUM; i++)
-		offset += sprintf(buffer + offset, "%d:%d ", i, g_count[i]);
+		offset += sprintf(buffer + offset, "%d:%d ", i, g_count_r[i]);
 
 	buffer[offset] = '\0';
 	lvts_printk("%s\n", buffer);
@@ -542,8 +543,11 @@ void dump_efuse_data(void)
 
 	offset = sprintf(buffer, "[LVTS_ERROR][LVTSEDATA][DUMP] ");
 	for (i = 0; i < L_TS_LVTS_NUM; i++) {
-		efuse = (((unsigned long long int) g_count_rc_now[i])
-				* g_count[i]) / g_count_rc[i];
+#if LVTS_DEVICE_AUTO_RCK == 0
+		efuse = g_count_rc_now[i] * g_count_r[i];
+#else
+		efuse = g_count_r[i];
+#endif
 		offset += sprintf(buffer + offset, "%d:%d ", i, efuse);
 	}
 
@@ -797,6 +801,9 @@ void lvts_thermal_cal_prepare(void)
 	unsigned int temp[16];
 	int i, offset;
 	char buffer[512];
+#if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
+	struct thermal_ipi_data thermal_data;
+#endif
 
 	temp[0] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_1); /* 0x01B0 */
 	temp[1] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_2); /* 0x01C8 */
@@ -891,6 +898,13 @@ void lvts_thermal_cal_prepare(void)
 	buffer[offset] = '\0';
 	lvts_printk("%s\n", buffer);
 
+#if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
+	thermal_data.u.data.arg[0] = g_golden_temp;
+	thermal_data.u.data.arg[1] = 0;
+	thermal_data.u.data.arg[2] = 0;
+	while (thermal_to_sspm(THERMAL_IPI_LVTS_INIT_GRP1, &thermal_data) != 0)
+		udelay(100);
+#endif
 }
 
 static unsigned int lvts_temp_to_raw(int temp, enum lvts_sensor_enum ts_name)
@@ -1443,7 +1457,7 @@ void lvts_sodi3_release_thermal_controller(void)
 	 * thermal driver check and release LVTS thermal controllers if
 	 * necessary after leaving SODI3
 	 */
-	int i = 0, temp, cnt, lvts_paused = 0;
+	int i = 0, temp, lvts_paused = 0;
 	__u32 offset;
 
 	lvts_dbg_printk("%s\n", __func__);
@@ -1500,9 +1514,9 @@ void lvts_enable_all_sensing_points(void)
 		offset = lvts_tscpu_g_tc[i].tc_offset;
 
 		lvts_dbg_printk("%s %d:%d\n", __func__, i,
-			lvts_tscpu_g_tc[tc_num].ts_number);
+			lvts_tscpu_g_tc[i].ts_number);
 
-		switch (lvts_tscpu_g_tc[tc_num].ts_number) {
+		switch (lvts_tscpu_g_tc[i].ts_number) {
 		case 1:
 			/* enable sensing point 0 */
 			mt_reg_sync_writel_print(0x00000201,
@@ -1642,7 +1656,7 @@ void get_lvts_slope_intercept(struct TS_PTPOD *ts_info, enum
 
 	temp = (0 - LVTS_COEFF_A_X_1000) * 2;
 	temp /= 1000;
-	ts_ptpod.ts_MTS = temp0;
+	ts_ptpod.ts_MTS = temp;
 
 	temp = 500 * g_golden_temp + LVTS_COEFF_B_X_1000;
 	temp /= 1000;
@@ -1663,8 +1677,8 @@ int lvts_tscpu_dump_cali_info(struct seq_file *m, void *v)
 	seq_printf(m, "[lvts_cal] g_golden_temp %d\n", g_golden_temp);
 
 	for (i = 0; i < L_TS_LVTS_NUM; i++)
-		seq_printf(m, "[lvts_cal] g_count%d = 0x%x\n",
-				i, g_count[i]);
+		seq_printf(m, "[lvts_cal] g_count_r%d = 0x%x\n",
+				i, g_count_r[i]);
 
 	for (i = 0; i < L_TS_LVTS_NUM; i++)
 		seq_printf(m, "[lvts_cal] g_count_rc%d = 0x%x\n",

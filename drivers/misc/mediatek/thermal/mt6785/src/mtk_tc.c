@@ -466,6 +466,7 @@ void tscpu_thermal_cal_prepare_2(__u32 ret)
 	__s32 format[L_TS_MCU_NUM] = { 0 };
 	int i = 0;
 #if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
+	int count = 0, offset = 0;
 	struct thermal_ipi_data thermal_data;
 #endif
 
@@ -507,13 +508,26 @@ void tscpu_thermal_cal_prepare_2(__u32 ret)
 
 	thermal_data.u.data.arg[0] = g_oe;
 	thermal_data.u.data.arg[1] = g_gain;
-	thermal_data.u.data.arg[2] = g_x_roomt[L_TS_MCU8];
+	thermal_data.u.data.arg[2] = g_x_roomt[0];
 	while (thermal_to_sspm(THERMAL_IPI_INIT_GRP2, &thermal_data) != 0)
 		udelay(100);
 
-	thermal_data.u.data.arg[0] = g_x_roomt[L_TS_MCU9];
-	while (thermal_to_sspm(THERMAL_IPI_INIT_GRP3, &thermal_data) != 0)
-		udelay(100);
+	for (i = 1 ; i < L_TS_MCU_NUM; i++) {
+		thermal_data.u.data.arg[count] = g_x_roomt[i];
+		if (count == (THERMAL_SLOT_NUM - 2)) {
+			while (thermal_to_sspm(THERMAL_IPI_INIT_GRP3 + offset,
+						&thermal_data) != 0)
+				udelay(100);
+			offset++;
+		}
+		count = (count + 1) % (THERMAL_SLOT_NUM - 1);
+	}
+
+	if (count != 0) {
+		while (thermal_to_sspm(THERMAL_IPI_INIT_GRP3 + offset,
+					&thermal_data) != 0)
+			udelay(100);
+	}
 #endif
 }
 
@@ -886,10 +900,7 @@ static void set_tc_trigger_hw_protect
 	ts_name = tscpu_g_tc[tc_num].ts[d_index];
 
 	/* temperature to trigger SPM state2 */
-	if (tc_num == THERMAL_CONTROLLER2)
-		raw_high = temperature_to_raw_room(105000, ts_name);
-	else
-		raw_high = temperature_to_raw_room(temperature, ts_name);
+	raw_high = temperature_to_raw_room(temperature, ts_name);
 
 	temp = readl(offset + TEMPMONINT);
 	/* disable trigger SPM interrupt */

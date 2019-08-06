@@ -552,6 +552,7 @@ int mt6359vgpu_get_hw_temp(void)
 	return temp1;
 }
 
+#ifdef THERMAL_USE_IIO_CHANNEL
 static int u_table[126] = {
 	64078,
 	63972,
@@ -680,8 +681,11 @@ static int u_table[126] = {
 	5510,
 	5339
 };
+#endif
+
 #define MIN_TSX_TEMP (-40000)
 #define MAX_TSX_TEMP (+85000)
+
 /* Original formula is
  * u = auxadc raw * 2^16 / (2^32 - 1)
  * Because kernel is not able to deal with floating point
@@ -690,7 +694,7 @@ static int u_table[126] = {
  * => u = auxadc raw / 2^16
  * => u * 2^16 = auxadc raw
  */
-
+#ifdef THERMAL_USE_IIO_CHANNEL
 static int tsx_u2t(int auxadc_raw)
 {
 	int i;
@@ -724,6 +728,7 @@ static int tsx_u2t(int auxadc_raw)
 
 	return ret;
 }
+#endif
 
 int mt6359tsx_get_hw_temp(void)
 {
