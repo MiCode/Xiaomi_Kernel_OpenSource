@@ -84,6 +84,8 @@ static void __iomem *pwrap_base;
 #define SIG_CTRL_M				2
 #define CO_BUF_M				3
 
+#define BBLPM_RETRY 6
+
 #define CLKBUF_STATUS_INFO_SIZE 2048
 
 static unsigned int xo2_mode_set[4] = {WCN_EN_M,
@@ -154,6 +156,8 @@ static enum CLK_BUF_SWCTRL_STATUS_T  pmic_clk_buf_swctrl[CLKBUF_NUM] = {
 };
 #endif
 
+static u32 dcxo_dbg_read_auxout(u16 sel);
+
 static void pmic_clk_buf_ctrl_ext(short on)
 {
 	if (on)
@@ -168,24 +172,44 @@ static void pmic_clk_buf_ctrl_ext(short on)
 
 void clk_buf_ctrl_bblpm_hw(short on)
 {
-	u32 bblpm_sel = 0;
+	u32 bblpm_sel = 0, aac_sta = 0, i = 0;
 
 	if (!is_pmic_clkbuf)
 		return;
 
+	mutex_lock(&clk_buf_ctrl_lock);
 	if (on) {
-		pmic_config_interface(PMIC_XO_BB_LPM_CEL_ADDR, 0x1,
-				      PMIC_XO_BB_LPM_CEL_MASK,
-				      PMIC_XO_BB_LPM_CEL_SHIFT);
+		for (i = 0; i < BBLPM_RETRY; i++) {
+			aac_sta = dcxo_dbg_read_auxout(51);
+			/* aac status bit[4:1] means doing AAC */
+			if (!(aac_sta & 0x1E))
+				break;
+
+			mdelay(1);
+			pr_debug("retry=%d, aac_sta=0x%x\n", i, aac_sta);
+		}
+
+		if (i < BBLPM_RETRY) {
+			pmic_config_interface(PMIC_XO_BB_LPM_CEL_ADDR, 0x1,
+					      PMIC_XO_BB_LPM_CEL_MASK,
+					      PMIC_XO_BB_LPM_CEL_SHIFT);
+			pmic_read_interface_nolock(PMIC_XO_BB_LPM_CEL_ADDR,
+				&bblpm_sel, PMIC_REG_MASK, PMIC_REG_SHIFT);
+			pr_debug("%s(%u): bblpm_sel=0x%x\n", __func__,
+				(on ? 1 : 0), bblpm_sel);
+		} else
+			pr_notice("%s: NOT set bblpm because aac_sta=0x%x\n",
+				__func__, aac_sta);
 	} else {
 		pmic_config_interface(PMIC_XO_BB_LPM_CEL_ADDR, 0x0,
 				      PMIC_XO_BB_LPM_CEL_MASK,
 				      PMIC_XO_BB_LPM_CEL_SHIFT);
+		pmic_read_interface_nolock(PMIC_XO_BB_LPM_CEL_ADDR, &bblpm_sel,
+					PMIC_REG_MASK, PMIC_REG_SHIFT);
+		pr_debug("%s(%u): bblpm_sel=0x%x\n", __func__, (on ? 1 : 0),
+			bblpm_sel);
 	}
-
-	pmic_read_interface_nolock(PMIC_XO_BB_LPM_CEL_ADDR, &bblpm_sel,
-			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pr_debug("%s(%u): bblpm_sel=0x%x\n", __func__, (on ? 1 : 0), bblpm_sel);
+	mutex_unlock(&clk_buf_ctrl_lock);
 }
 
 void clk_buf_control_bblpm(bool on)
