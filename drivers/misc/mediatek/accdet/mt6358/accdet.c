@@ -1998,6 +1998,51 @@ static int accdet_get_dts_data(void)
 	return 0;
 }
 
+static inline void accdet_eint_high_level_support(void)
+{
+	unsigned int reg_val = 0;
+
+	reg_val = 0;
+	pr_debug("[accdet]eint_high_level_support enter--->\n");
+
+	/* set high level trigger */
+#ifdef CONFIG_ACCDET_EINT_IRQ
+#ifdef CONFIG_ACCDET_SUPPORT_EINT0
+		if (cur_eint_state == EINT_PIN_PLUG_OUT &&
+			accdet_dts.eint_pol == IRQ_TYPE_LEVEL_HIGH) {
+			reg_val = pmic_read(ACCDET_IRQ_STS);
+			pr_info("[accdet]pol = %d\n", accdet_dts.eint_pol);
+			accdet_eint_type = IRQ_TYPE_LEVEL_HIGH;
+			pmic_write(ACCDET_IRQ_STS, reg_val|
+				ACCDET_EINT0_IRQ_POL_B14);
+
+			reg_val = pmic_read(ACCDET_CTRL);
+			/* set bit3 to enable default EINT init status */
+			pmic_write(ACCDET_CTRL, reg_val|
+				ACCDET_EINT0_SEQ_INIT_EN_B3);
+			mdelay(2);
+			reg_val = pmic_read(ACCDET_CTRL);
+			reg_val = pmic_read(ACCDET_DEFAULT_STATE_RG);
+			/* set default EINT init status */
+			pmic_write(ACCDET_DEFAULT_STATE_RG,
+				(reg_val|ACCDET_EINT0_IVAL_SEL_B14)&
+				(~ACCDET_EINT0_IVAL_B2_6_10));
+			mdelay(2);
+			reg_val = pmic_read(ACCDET_DEFAULT_STATE_RG);
+			/* clear bit3 to disable default EINT init status */
+			reg_val = pmic_read(ACCDET_CTRL);
+			pmic_write(ACCDET_CTRL, reg_val&
+				(~ACCDET_EINT0_SEQ_INIT_EN_B3));
+			reg_val = pmic_read(ACCDET_EINT0_CTL)&(~(0x0F<<3));
+			pmic_write(ACCDET_EINT0_CTL, reg_val);
+			pmic_write(ACCDET_EINT0_CTL, reg_val|
+				ACCDET_EINT0_DEB_IN_256);
+		}
+#endif
+#endif
+}
+
+
 static void accdet_init_once(void)
 {
 	unsigned int reg = 0;
@@ -2043,9 +2088,14 @@ static void accdet_init_once(void)
 	 */
 
 #ifdef ANALOG_FASTDISCHARGE_SUPPORT
-	reg = pmic_read(AUDENC_ANA_CON6) | RG_AUDSPARE_FSTDSCHRG_IMPR_EN |
-		RG_AUDSPARE_FSTDSCHRG_ANALOG_DIR_EN;
-	pmic_write(AUDENC_ANA_CON6, reg);
+	if (accdet_dts.eint_pol == IRQ_TYPE_LEVEL_LOW) {
+		reg = pmic_read(AUDENC_ANA_CON6) |
+			RG_AUDSPARE_FSTDSCHRG_IMPR_EN |
+			RG_AUDSPARE_FSTDSCHRG_ANALOG_DIR_EN;
+		pmic_write(AUDENC_ANA_CON6, reg);
+	} else
+		pmic_write(AUDENC_ANA_CON6,
+			pmic_read(AUDENC_ANA_CON6) & (0xE0));
 #endif
 
 	/* hw mode config , disable accdet */
@@ -2135,6 +2185,7 @@ static void accdet_init_once(void)
 	pwrap_write(ACCDET_CTRL,
 		pmic_read(ACCDET_CTRL) | ACCDET_EINT_EN_B2_4);
 #endif
+	accdet_eint_high_level_support();
 #endif
 	pr_info("%s() done.\n", __func__);
 #if PMIC_ACCDET_DEBUG
