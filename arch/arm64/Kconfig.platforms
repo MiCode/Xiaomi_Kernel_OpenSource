@@ -153,6 +153,7 @@ config MACH_MT6771
         select HAVE_SMP
 	select HIE
 	select MTK_PID_MAP
+	select MTK_IO_BOOST
         select NEED_MACH_MEMORY_H
         select IRQ_DOMAIN
         select IRQ_DOMAIN_DEBUG

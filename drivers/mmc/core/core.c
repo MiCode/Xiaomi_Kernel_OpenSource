@@ -36,6 +36,7 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
 #include <linux/mmc/slot-gpio.h>
+#include <mt-plat/mtk_io_boost.h>
 #include <mt-plat/aee.h>
 
 #define CREATE_TRACE_POINTS
@@ -476,6 +477,8 @@ int mmc_run_queue_thread(void *data)
 
 	pr_notice("[CQ] start cmdq thread\n");
 	mt_bio_queue_alloc(current, NULL);
+
+	mtk_iobst_register_tid(current->pid);
 
 	while (1) {
 
