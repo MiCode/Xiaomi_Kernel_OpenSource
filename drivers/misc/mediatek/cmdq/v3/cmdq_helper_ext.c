@@ -3291,8 +3291,11 @@ static void cmdq_core_attach_engine_error(
 		print_eng_flag |= nginfo->engine_flag;
 
 	/* Dump MMSYS configuration */
-	CMDQ_ERR("============ [CMDQ] MMSYS_CONFIG ============\n");
-	cmdq_mdp_get_func()->dumpMMSYSConfig();
+	if ((handle->engineFlag & CMDQ_ENG_MDP_GROUP_BITS) ||
+		(handle->engineFlag & CMDQ_ENG_DISP_GROUP_BITS)) {
+		CMDQ_ERR("============ [CMDQ] MMSYS_CONFIG ============\n");
+		cmdq_mdp_get_func()->dumpMMSYSConfig();
+	}
 
 	/* ask each module to print their status */
 	CMDQ_ERR("============ [CMDQ] Engine Status ============\n");
