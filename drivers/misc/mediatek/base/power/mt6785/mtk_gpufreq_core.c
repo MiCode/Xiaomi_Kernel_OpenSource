@@ -56,8 +56,6 @@
 #include "mtk_static_power_mt6785.h"
 #endif
 
-extern int mtk_gpufreq_register
-(struct mt_gpufreq_power_table_info *freqs, int num);
 /**
  * ===============================================
  * SECTION : Local functions declaration
@@ -136,7 +134,7 @@ static unsigned int g_ptpod_opp_idx_table_segment[] = {
 	0, 3, 6, 8,
 	10, 12, 14, 16,
 	18, 20, 22, 24,
-	27, 30, 33, 36
+	26, 28, 29, 30
 };
 
 static struct g_opp_table_info g_opp_table_segment[] = {
@@ -171,12 +169,6 @@ static struct g_opp_table_info g_opp_table_segment[] = {
 	GPUOP(SEG_GPU_DVFS_FREQ28, SEG_GPU_DVFS_VOLT28, SEG_GPU_DVFS_VSRAM8),
 	GPUOP(SEG_GPU_DVFS_FREQ29, SEG_GPU_DVFS_VOLT29, SEG_GPU_DVFS_VSRAM8),
 	GPUOP(SEG_GPU_DVFS_FREQ30, SEG_GPU_DVFS_VOLT30, SEG_GPU_DVFS_VSRAM8),
-	GPUOP(SEG_GPU_DVFS_FREQ31, SEG_GPU_DVFS_VOLT31, SEG_GPU_DVFS_VSRAM8),
-	GPUOP(SEG_GPU_DVFS_FREQ32, SEG_GPU_DVFS_VOLT32, SEG_GPU_DVFS_VSRAM8),
-	GPUOP(SEG_GPU_DVFS_FREQ33, SEG_GPU_DVFS_VOLT33, SEG_GPU_DVFS_VSRAM8),
-	GPUOP(SEG_GPU_DVFS_FREQ34, SEG_GPU_DVFS_VOLT34, SEG_GPU_DVFS_VSRAM8),
-	GPUOP(SEG_GPU_DVFS_FREQ35, SEG_GPU_DVFS_VOLT35, SEG_GPU_DVFS_VSRAM8),
-	GPUOP(SEG_GPU_DVFS_FREQ36, SEG_GPU_DVFS_VOLT36, SEG_GPU_DVFS_VSRAM8),
 };
 
 static const struct of_device_id g_gpufreq_of_match[] = {
@@ -794,11 +786,7 @@ unsigned int mt_gpufreq_update_volt(
 			int smaller = pmic_volt[i + 1];
 			int interpolation;
 			if (target_idx == 0 ||
-				target_idx == 3 ||
-				target_idx == 24 ||
-				target_idx == 27 ||
-				target_idx == 30 ||
-				target_idx == 33) {
+				target_idx == 3) {
 				/* After opp 20, 2 opps need intepolation */
 				interpolation =	((larger << 1) + smaller) / 3;
 				g_opp_table[target_idx + 1].gpufreq_volt =
@@ -813,7 +801,8 @@ unsigned int mt_gpufreq_update_volt(
 				g_opp_table[target_idx + 2].gpufreq_vsram =
 				__mt_gpufreq_get_vsram_gpu_by_vgpu(
 				g_opp_table[target_idx + 2].gpufreq_volt);
-			} else {
+			} else if (target_idx != 28 &&
+				target_idx != 29) {
 				interpolation =	(larger + smaller) >> 1;
 				g_opp_table[target_idx + 1].gpufreq_volt =
 				VOLT_NORMALIZATION(interpolation);
@@ -1884,7 +1873,7 @@ void __mt_gpufreq_update_aging(bool apply_aging_setting)
 				g_opp_table[i].gpufreq_volt -= 1875;
 			else if (i >= 7 && i <= 19)
 				g_opp_table[i].gpufreq_volt -= 1250;
-			else if (i >= 20 && i <= 36)
+			else if (i >= 20 && i <= 30)
 				g_opp_table[i].gpufreq_volt -= 625;
 
 			g_opp_table[i].gpufreq_vsram =
@@ -1905,7 +1894,7 @@ void __mt_gpufreq_update_aging(bool apply_aging_setting)
 				g_opp_table[i].gpufreq_volt += 1875;
 			else if (i >= 7 && i <= 19)
 				g_opp_table[i].gpufreq_volt += 1250;
-			else if (i >= 20 && i <= 36)
+			else if (i >= 20 && i <= 30)
 				g_opp_table[i].gpufreq_volt += 625;
 
 			g_opp_table[i].gpufreq_vsram =
@@ -2167,7 +2156,7 @@ static void __mt_gpufreq_set(
 static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 {
 	enum g_posdiv_power_enum posdiv_power;
-	unsigned int dds;
+	unsigned int dds, pll;
 	bool parking = false;
 
 	/*
@@ -2180,6 +2169,7 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	 */
 	posdiv_power = __mt_gpufreq_get_posdiv_power(freq_new);
 	dds = __mt_gpufreq_calculate_dds(freq_new, posdiv_power);
+	pll = (0x80000000) | (posdiv_power << POSDIV_SHIFT) | dds;
 
 #ifndef CONFIG_MTK_FREQ_HOPPING
 	/* force parking if FHCTL not ready */
@@ -2194,27 +2184,39 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 #endif
 
 	if (parking) {
-		/* mfgpll_ck to univpll_d3(416MHz) */
+		/* mfgpll_ck to mainpll_d5(218.4MHz) */
 		__mt_gpufreq_switch_to_clksrc(CLOCK_SUB);
-
 		/*
 		 * MFGPLL_CON1[31:31] = MFGPLL_SDM_PCW_CHG
 		 * MFGPLL_CON1[26:24] = MFGPLL_POSDIV
 		 * MFGPLL_CON1[21:0]  = MFGPLL_SDM_PCW (dds)
 		 */
-		DRV_WriteReg32(
-				MFGPLL_CON1,
-				(0x80000000) |
-				(posdiv_power << POSDIV_SHIFT) |
-				dds);
+		DRV_WriteReg32(MFGPLL_CON1, pll);
 		udelay(20);
-
-		/* univpll_d3(416MHz) to mfgpll_ck */
+		/* mainpll_d5(218.4MHz) to mfgpll_ck */
 		__mt_gpufreq_switch_to_clksrc(CLOCK_MAIN);
+#if MT_GPUFREQ_GED_READY == 1
+		ged_log_buf_print2(
+			gpufreq_ged_log,
+			GED_LOG_ATTR_TIME,
+			"[MFGPLL_CON1] posdiv_power=%d dds=0x%x, set MFGPLL_CON1 to 0x%08x\n",
+			posdiv_power,
+			dds,
+			pll);
+#endif
 	} else {
 #ifdef CONFIG_MTK_FREQ_HOPPING
 		/* FHCTL_HP_EN[4] = MFGPLL_HP_EN */
 		mt_dfs_general_pll(MFGPLL_FH_PLL, dds);
+#endif
+#if MT_GPUFREQ_GED_READY == 1
+		ged_log_buf_print2(
+			gpufreq_ged_log,
+			GED_LOG_ATTR_TIME,
+			"[FHCTL_HP] posdiv_power=%d dds=0x%x, MFGPLL_CON1 should be 0x%08x\n",
+			posdiv_power,
+			dds,
+			pll);
 #endif
 	}
 }
@@ -2306,6 +2308,13 @@ static void __mt_gpufreq_volt_switch(
 			vgpu_old,
 			vsram_gpu_new,
 			vsram_gpu_old);
+
+	if (g_fixed_freq_volt_state) {
+		gpufreq_pr_debug(
+			"@%s: skip DVS when both freq and volt are fixed\n",
+			__func__);
+		return;
+	}
 
 #if MT_GPUFREQ_SETTLE_TIME_PROFILE == 0
 	if (vgpu_new > vgpu_old) {
@@ -2614,9 +2623,9 @@ static enum g_posdiv_power_enum __mt_gpufreq_get_posdiv_power(
 
 	/*
 	 * only use posdiv 4 or 8
-	 * sub-clksrc is UNIVPLL_D3, please make sure don't overclock
+	 * sub-clksrc is MAINPLL_D5(218.4MHz), please make sure don't overclock
 	 */
-	if (freq < UNIVPLL_D3_DEFAULT_FREQ)
+	if (freq < POSDIV_4_MIN_FREQ)
 		posdiv_power = POSDIV_POWER_8;
 
 	return posdiv_power;
@@ -3002,11 +3011,11 @@ static void __mt_gpufreq_setup_opp_table(
 	else if (g_segment_id == MT6785_SEGMENT)
 		g_segment_max_opp_idx = 9;
 	else if (g_segment_id == MT6783_SEGMENT)
-		g_segment_max_opp_idx = 19;
+		g_segment_max_opp_idx = 18;
 	else
 		g_segment_max_opp_idx = 3;
 
-	g_segment_min_opp_idx = 36;
+	g_segment_min_opp_idx = NUM_OF_OPP_IDX - 1;
 
 	g_max_opp_idx_num = num;
 	g_max_limited_idx = g_segment_max_opp_idx;
@@ -3109,8 +3118,9 @@ static void __mt_gpufreq_set_initial(void)
 	g_cur_opp_idx = g_segment_max_opp_idx;
 
 	/* set POST DIVIDER initial value */
-	g_posdiv_power = __mt_gpufreq_get_posdiv_power(
-			g_opp_table[g_cur_opp_idx].gpufreq_khz);
+	g_posdiv_power =
+			(DRV_Reg32(MFGPLL_CON1) & (0x7 << POSDIV_SHIFT))
+			>> POSDIV_SHIFT;
 
 	gpufreq_pr_info(
 			"@%s: preloader opp index = %d(%d), initial opp index = %d, g_posdiv_power = %d\n",
