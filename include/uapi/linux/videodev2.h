@@ -720,8 +720,12 @@ struct v4l2_pix_format {
 	/* MTK 10-bit tile compressed block jump mode, two contiguous planes */
 #define V4L2_PIX_FMT_MT21CS10RJ   v4l2_fourcc('J', 'C', 'S', 'R')
 	/* MTK 10-bit raster compressed block jump mode, two cont. planes */
+#define V4L2_PIX_FMT_MT10S     v4l2_fourcc('M', '1', '0', 'S')
+	/* MTK 10-bit compressed mode, three contiguous planes */
 #define V4L2_PIX_FMT_MT10     v4l2_fourcc('M', 'T', '1', '0')
-	/* MTK 10-bit compressed block mode, three non-contiguous planes */
+	/* MTK 10-bit compressed mode, three non-contiguous planes */
+#define V4L2_PIX_FMT_P010S   v4l2_fourcc('P', '0', '1', 'S')
+	/* 10-bit each pixel needs 2 bytes, LSB 6-bit is not used contiguous*/
 
 /* SDR formats - used only for Software Defined Radio devices */
 #define V4L2_SDR_FMT_CU8          v4l2_fourcc('C', 'U', '0', '8') /* IQ u8 */
