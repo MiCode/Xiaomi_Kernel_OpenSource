@@ -340,7 +340,8 @@ struct tee_session *session_create(struct tee_client *client,
 		ret = check_prepare_identity(identity, &mcp_identity, current);
 		if (ret)
 			return ERR_PTR(ret);
-	}
+	} else
+		memset(&mcp_identity, 0, sizeof(mcp_identity));
 
 	/* Allocate session object */
 	session = kzalloc(sizeof(*session), GFP_KERNEL);
