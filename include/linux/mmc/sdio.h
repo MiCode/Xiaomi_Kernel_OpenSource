@@ -163,6 +163,10 @@
 #define  SDIO_DTSx_SET_TYPE_A	(1 << SDIO_DRIVE_DTSx_SHIFT)
 #define  SDIO_DTSx_SET_TYPE_C	(2 << SDIO_DRIVE_DTSx_SHIFT)
 #define  SDIO_DTSx_SET_TYPE_D	(3 << SDIO_DRIVE_DTSx_SHIFT)
+
+#define SDIO_CCCR_INTERRUPT_EXT 0x16
+#define SDIO_INTERRUPT_EXT_SAI (1<<0)
+#define SDIO_INTERRUPT_EXT_EAI (1<<1)
 /*
  * Function Basic Registers (FBR)
  */
