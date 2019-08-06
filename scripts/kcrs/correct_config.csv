@@ -845,11 +845,11 @@ CONFIG_RAWFS_FS,PROJECT,perry.hsu,,,,,,,,,,,,,,
 CONFIG_RCU_CPU_STALL_TIMEOUT,PROJECT,miles.lin,Need to enable or modify this option according to https://github.com/google/syzkaller/blob/master/docs/linux/kernel_configs.md,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_RCU_FANOUT,PLATFORM,,,32,X,32,X,32,X,32,X,32,X,32,X,32
 CONFIG_RCU_TRACE,USER,,,N,N,N,N,N,N,N,N,N,N,N,N,N
-CONFIG_RD_BZIP2,PLATFORM,,,X,X,N,X,X,N,N,N,N,N,N,N,N
-CONFIG_RD_LZ4,PLATFORM,,,X,X,N,X,X,N,N,N,N,N,N,N,N
-CONFIG_RD_LZMA,PLATFORM,,,X,X,N,X,X,N,N,N,N,N,N,N,N
-CONFIG_RD_LZO,PLATFORM,,,X,X,N,X,X,N,N,N,N,N,N,N,N
-CONFIG_RD_XZ,PLATFORM,,,X,X,N,X,X,N,N,N,N,N,N,N,N
+CONFIG_RD_BZIP2,COMMON,,,N,N,N,N,N,N,N,N,N,N,N,N,N
+CONFIG_RD_LZ4,COMMON,,,N,N,N,N,N,N,N,N,N,N,N,N,N
+CONFIG_RD_LZMA,COMMON,,,N,N,N,N,N,N,N,N,N,N,N,N,N
+CONFIG_RD_LZO,COMMON,,,N,N,N,N,N,N,N,N,N,N,N,N,N
+CONFIG_RD_XZ,COMMON,,,N,N,N,N,N,N,N,N,N,N,N,N,N
 CONFIG_REFCOUNT_FULL,PROJECT,miles.lin,Need to enable or modify this option according to https://github.com/google/syzkaller/blob/master/docs/linux/kernel_configs.md,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_REG_MONITOR_DRIVER,PLATFORM,argus.lin,,,N,,N,,N,,N,,N,,N,
 CONFIG_REGULATOR,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
