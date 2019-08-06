@@ -120,10 +120,10 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 
 	if (cur_freq == CLK_OPP0) {
 		ret_vc = pmic_scp_set_vcore(575000);
-		ret_vs = pmic_scp_set_vsram_vcore(825000);
+		ret_vs = pmic_scp_set_vsram_vcore(800000);
 	} else if (cur_freq == CLK_OPP1) {
 		ret_vc = pmic_scp_set_vcore(600000);
-		ret_vs = pmic_scp_set_vsram_vcore(875000);
+		ret_vs = pmic_scp_set_vsram_vcore(800000);
 	} else if (cur_freq == CLK_OPP2 || cur_freq == CLK_OPP3) {
 		get_vcore_val = get_vcore_uv_table(VCORE_OPP_2);
 		pr_debug("get_vcore_val = %d\n", get_vcore_val);
@@ -919,7 +919,7 @@ void mt_pmic_sshub_init(void)
 		pr_notice("Set wrong vcore voltage\n");
 
 	/* set SCP VSRAM voltage */
-	if (pmic_scp_set_vsram_vcore(825000) != 0)
+	if (pmic_scp_set_vsram_vcore(800000) != 0)
 		pr_notice("Set wrong vsram voltage\n");
 
 #if SCP_VOW_LOW_POWER_MODE
