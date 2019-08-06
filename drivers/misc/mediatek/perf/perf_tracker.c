@@ -23,6 +23,12 @@
 #include <mt-plat/mtk_blocktag.h>
 #include <helio-dvfsrc.h>
 
+#include <linux/module.h>
+#ifndef __CHECKER__
+#define CREATE_TRACE_POINTS
+#include "perf_tracker_trace.h"
+#endif
+
 #ifdef CONFIG_MTK_QOS_FRAMEWORK
 #include <mtk_qos_sram.h>
 #endif
@@ -33,6 +39,17 @@
 static int perf_tracker_on, perf_tracker_init;
 static DEFINE_MUTEX(perf_ctl_mutex);
 static int cluster_nr = -1;
+
+#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+unsigned int gpu_pmu_enable;
+unsigned int is_gpu_pmu_worked;
+unsigned int gpu_pmu_period = 8000000; //8ms
+
+void (*MTKGPUPower_model_start_symbol)(unsigned int interval_ns);
+void (*MTKGPUPower_model_stop_symbol)(void);
+void (*MTKGPUPower_model_suspend_symbol)(void);
+void (*MTKGPUPower_model_resume_symbol)(void);
+#endif
 
 #if !defined(CONFIG_MTK_BLOCK_TAG) || !defined(MTK_BTAG_FEATURE_MICTX_IOSTAT)
 struct mtk_btag_mictx_iostat_struct {
@@ -61,6 +78,23 @@ int __attribute__((weak)) mtk_btag_mictx_get_data(
 	return -1;
 }
 #endif
+
+static void init_function_symbols(void)
+{
+#define _FUNC_SYMBOL_GET(_func_name_) \
+	do { \
+		_func_name_##_symbol = (void *)symbol_get(_func_name_); \
+		if (_func_name_##_symbol == NULL) { \
+			pr_debug("Symbol : %s is not found!\n", #_func_name_); \
+		} \
+	} while (0)
+#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+	_FUNC_SYMBOL_GET(MTKGPUPower_model_start);
+	_FUNC_SYMBOL_GET(MTKGPUPower_model_stop);
+	_FUNC_SYMBOL_GET(MTKGPUPower_model_suspend);
+	_FUNC_SYMBOL_GET(MTKGPUPower_model_resume);
+#endif
+}
 
 int perf_tracer_enable(int on)
 {
@@ -164,6 +198,69 @@ void __perf_tracker(u64 wallclock,
 			stall);
 }
 
+#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+void perf_update_gpu_counter(unsigned int gpu_data[], unsigned int len)
+{
+	trace_perf_index_gpu(gpu_data, len);
+}
+EXPORT_SYMBOL(perf_update_gpu_counter);
+
+static ssize_t show_gpu_pmu_enable(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len = 0;
+	unsigned int max_len = 4096;
+	uint is_inited = 0;
+
+	if (MTKGPUPower_model_start_symbol)
+		is_inited = 1;
+
+	len += snprintf(buf, max_len, "gpu_pmu_enable = %u, is_inited = %u\n",
+			gpu_pmu_enable, is_inited);
+	return len;
+}
+
+static ssize_t store_gpu_pmu_enable(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	mutex_lock(&perf_ctl_mutex);
+
+	if (kstrtouint(buf, 10, &gpu_pmu_enable) == 0)
+		gpu_pmu_enable = (gpu_pmu_enable > 0) ? 1 : 0;
+
+	mutex_unlock(&perf_ctl_mutex);
+
+	return count;
+}
+
+
+static ssize_t show_gpu_pmu_period(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len = 0;
+	unsigned int max_len = 4096;
+
+	len += snprintf(buf, max_len, "gpu_pmu_period = %u\n",
+			gpu_pmu_period);
+	return len;
+}
+
+static ssize_t store_gpu_pmu_period(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	mutex_lock(&perf_ctl_mutex);
+
+	if (kstrtouint(buf, 10, &gpu_pmu_period) == 0) {
+		if (gpu_pmu_period < 1000000) // 1ms
+			gpu_pmu_period = 1000000;
+	}
+
+	mutex_unlock(&perf_ctl_mutex);
+
+	return count;
+}
+#endif
+
 /*
  * make perf tracker on
  * /sys/devices/system/cpu/perf/enable
@@ -195,6 +292,19 @@ static ssize_t store_perf_enable(struct kobject *kobj,
 #ifdef CONFIG_MTK_BLOCK_TAG
 		mtk_btag_mictx_enable(val);
 #endif
+
+#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+		// GPU PMU Recording
+		if (val == 1 && gpu_pmu_enable && !is_gpu_pmu_worked) {
+			if (MTKGPUPower_model_start_symbol)
+				MTKGPUPower_model_start_symbol(gpu_pmu_period);
+			is_gpu_pmu_worked = 1;
+		} else if (val == 0 && is_gpu_pmu_worked) {
+			if (MTKGPUPower_model_stop_symbol)
+				MTKGPUPower_model_stop_symbol();
+			is_gpu_pmu_worked = 0;
+		}
+#endif
 	}
 
 	mutex_unlock(&perf_ctl_mutex);
@@ -202,11 +312,22 @@ static ssize_t store_perf_enable(struct kobject *kobj,
 	return count;
 }
 
+
 static struct kobj_attribute perf_enable_attr =
 __ATTR(enable, 0600, show_perf_enable, store_perf_enable);
+#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+static struct kobj_attribute perf_gpu_pmu_enable_attr =
+__ATTR(gpu_pmu_enable, 0600, show_gpu_pmu_enable, store_gpu_pmu_enable);
+static struct kobj_attribute perf_gpu_pmu_period_attr =
+__ATTR(gpu_pmu_period, 0600, show_gpu_pmu_period, store_gpu_pmu_period);
+#endif
 
 static struct attribute *perf_attrs[] = {
 	&perf_enable_attr.attr,
+#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+	&perf_gpu_pmu_enable_attr.attr,
+	&perf_gpu_pmu_period_attr.attr,
+#endif
 	NULL,
 };
 
@@ -234,6 +355,8 @@ static int init_perf_tracker(void)
 		else
 			kobject_uevent(kobj, KOBJ_ADD);
 	}
+
+	init_function_symbols();
 
 	return 0;
 }
