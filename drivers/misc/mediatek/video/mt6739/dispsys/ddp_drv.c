@@ -442,44 +442,6 @@ static int disp_flush(struct file *file, fl_owner_t a_id)
 	return 0;
 }
 
-/* remap register to user space */
-#if defined(CONFIG_MTK_ENG_BUILD)
-static int disp_mmap(struct file *file, struct vm_area_struct *a_pstVMArea)
-{
-#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
-	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-	static const unsigned long addr_min = 0x14000000;
-	static const unsigned long addr_max = 0x14025000;
-	static const unsigned long size = addr_max - addr_min;
-	const unsigned long require_size =
-			    a_pstVMArea->vm_end - a_pstVMArea->vm_start;
-	unsigned long pa_start = a_pstVMArea->vm_pgoff << PAGE_SHIFT;
-	unsigned long pa_end = pa_start + require_size;
-
-	DISPDBG("mmap size %ld, vmpg0ff 0x%lx, pastart 0x%lx, paend 0x%lx\n",
-		require_size, a_pstVMArea->vm_pgoff, pa_start, pa_end);
-
-	a_pstVMArea->vm_page_prot = pgprot_noncached(a_pstVMArea->vm_page_prot);
-	if (require_size > size ||
-	    (pa_start < addr_min || pa_end > addr_max || pa_start > pa_end)) {
-		DISPERR("disp mmap size range over flow!!\n");
-		return -EAGAIN;
-	}
-
-	if (remap_pfn_range(a_pstVMArea,
-			    a_pstVMArea->vm_start,
-			    a_pstVMArea->vm_pgoff,
-			    (a_pstVMArea->vm_end - a_pstVMArea->vm_start),
-			    a_pstVMArea->vm_page_prot)) {
-		DDPERR("MMAP failed!!\n");
-		return -1;
-	}
-#endif
-
-	return 0;
-}
-#endif
-
 struct dispsys_device {
 	struct device *dev;
 };
@@ -502,9 +464,6 @@ static const struct file_operations disp_fops = {
 	.release = disp_release,
 	.flush = disp_flush,
 	.read = disp_read,
-#if defined(CONFIG_MTK_ENG_BUILD)
-	.mmap = disp_mmap
-#endif
 };
 
 /* disp_clk_init
