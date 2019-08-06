@@ -121,7 +121,7 @@ unsigned long mmsys_ovl_ultra_offset(enum DISP_MODULE_ENUM module)
 	return 0;
 }
 
-static inline unsigned long ovl_layer_num(enum DISP_MODULE_ENUM module)
+static inline int ovl_layer_num(enum DISP_MODULE_ENUM module)
 {
 	switch (module) {
 	case DISP_MODULE_OVL0:
@@ -203,7 +203,7 @@ enum DISP_MODULE_ENUM ovl_index_to_mod_for_debug(int index)
 	return ovl_index;
 }
 
-unsigned long ovl_layer_num_for_debug(enum DISP_MODULE_ENUM module)
+int ovl_layer_num_for_debug(enum DISP_MODULE_ENUM module)
 {
 	int layer_num;
 
