@@ -75,7 +75,7 @@ TRACE_EVENT(smmu_init,
 #endif /* _TRACE_ARM_SMMU_H */
 
 #undef TRACE_INCLUDE_PATH
-#define TRACE_INCLUDE_PATH .
+#define TRACE_INCLUDE_PATH ../../drivers/iommu
 
 #undef TRACE_INCLUDE_FILE
 #define TRACE_INCLUDE_FILE arm-smmu-trace
