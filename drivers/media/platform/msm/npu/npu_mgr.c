@@ -193,6 +193,7 @@ int load_fw(struct npu_device *npu_dev)
 int unload_fw(struct npu_device *npu_dev)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	int ret = 0;
 
 	if (host_ctx->auto_pil_disable) {
 		NPU_WARN("auto pil is disabled\n");
@@ -210,7 +211,16 @@ int unload_fw(struct npu_device *npu_dev)
 		return -EBUSY;
 	}
 
+	/* vote minimum bandwidth before unload npu fw via PIL */
+	ret = npu_set_bw(npu_dev, 100, 100);
+	if (ret) {
+		NPU_ERR("Can't update bandwidth\n");
+		mutex_unlock(&host_ctx->lock);
+		return ret;
+	}
+
 	subsystem_put_local(host_ctx->subsystem_handle);
+	npu_set_bw(npu_dev, 0, 0);
 	host_ctx->fw_state = FW_UNLOADED;
 	NPU_DBG("fw is unloaded\n");
 	mutex_unlock(&host_ctx->lock);
