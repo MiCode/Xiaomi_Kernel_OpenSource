@@ -122,9 +122,14 @@ static void ssusb_phy_power_off(struct ssusb_mtk *ssusb)
 		phy_power_off(ssusb->phys[i]);
 }
 
-static int ssusb_clks_enable(struct ssusb_mtk *ssusb)
+int ssusb_clks_enable(struct ssusb_mtk *ssusb)
 {
 	int ret;
+
+	if (ssusb->clk_on == true) {
+		dev_info(ssusb->dev, "clk already enabled\n");
+		return 0;
+	}
 
 	ret = clk_prepare_enable(ssusb->sys_clk);
 	if (ret) {
@@ -150,6 +155,8 @@ static int ssusb_clks_enable(struct ssusb_mtk *ssusb)
 		goto dma_clk_err;
 	}
 
+	ssusb->clk_on = true;
+
 	return 0;
 
 dma_clk_err:
@@ -162,12 +169,13 @@ sys_clk_err:
 	return ret;
 }
 
-static void ssusb_clks_disable(struct ssusb_mtk *ssusb)
+void ssusb_clks_disable(struct ssusb_mtk *ssusb)
 {
 	clk_disable_unprepare(ssusb->dma_clk);
 	clk_disable_unprepare(ssusb->mcu_clk);
 	clk_disable_unprepare(ssusb->ref_clk);
 	clk_disable_unprepare(ssusb->sys_clk);
+	ssusb->clk_on = false;
 }
 
 static int ssusb_rscs_init(struct ssusb_mtk *ssusb)
@@ -290,6 +298,7 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 		return PTR_ERR(ssusb->ippc_base);
 
 	ssusb->force_vbus = of_property_read_bool(node, "mediatek,force-vbus");
+	ssusb->clk_mgr = of_property_read_bool(node, "mediatek,clk-mgr");
 
 	ssusb->dr_mode = usb_get_dr_mode(dev);
 	if (ssusb->dr_mode == USB_DR_MODE_UNKNOWN)
