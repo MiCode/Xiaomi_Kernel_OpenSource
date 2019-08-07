@@ -27,6 +27,7 @@
 #include <linux/vmalloc.h>
 
 #include "ion.h"
+#include "msm_ion_priv.h"
 
 static struct ion_device *internal_dev;
 
@@ -427,7 +428,11 @@ static struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
 	if (IS_ERR(buffer))
 		return ERR_CAST(buffer);
 
+#if IS_ENABLED(CONFIG_ION_MSM_HEAPS)
+	exp_info.ops = &msm_ion_dma_buf_ops;
+#else
 	exp_info.ops = &dma_buf_ops;
+#endif
 	exp_info.size = buffer->size;
 	exp_info.flags = O_RDWR;
 	exp_info.priv = buffer;
