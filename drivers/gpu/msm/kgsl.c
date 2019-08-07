@@ -4858,6 +4858,8 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 			vm_insert_page(vma, addr, page);
 			addr += PAGE_SIZE;
 		}
+		m->mapsize = m->size;
+		entry->priv->gpumem_mapped += m->mapsize;
 	}
 
 	vma->vm_file = file;
