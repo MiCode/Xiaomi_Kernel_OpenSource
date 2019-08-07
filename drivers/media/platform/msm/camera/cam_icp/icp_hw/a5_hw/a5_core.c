@@ -519,6 +519,25 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 
 		break;
 	}
+	case CAM_ICP_A5_CMD_CLK_UPDATE: {
+		int32_t clk_level = 0;
+
+		if (!cmd_args) {
+			CAM_ERR(CAM_ICP, "Invalid args");
+			return -EINVAL;
+		}
+
+		clk_level = *((int32_t *)cmd_args);
+		CAM_DBG(CAM_ICP,
+			"Update ICP clock to level [%d]", clk_level);
+		rc = cam_a5_update_clk_rate(soc_info, clk_level);
+		if (rc)
+			CAM_ERR(CAM_ICP,
+				"Failed to update clk to level: %d rc: %d",
+				clk_level, rc);
+
+		break;
+	}
 	default:
 		break;
 	}

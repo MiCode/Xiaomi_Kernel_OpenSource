@@ -361,6 +361,7 @@ int cam_ipe_process_cmd(void *device_priv, uint32_t cmd_type,
 		struct cam_a5_clk_update_cmd *clk_upd_cmd =
 			(struct cam_a5_clk_update_cmd *)cmd_args;
 		uint32_t clk_rate = clk_upd_cmd->curr_clk_rate;
+		int32_t clk_level  = 0, err = 0;
 
 		CAM_DBG(CAM_ICP, "ipe_src_clk rate = %d", (int)clk_rate);
 		if (!core_info->clk_enable) {
@@ -386,8 +387,15 @@ int cam_ipe_process_cmd(void *device_priv, uint32_t cmd_type,
 		rc = cam_ipe_update_clk_rate(soc_info, clk_rate);
 		if (rc)
 			CAM_ERR(CAM_ICP, "Failed to update clk");
-		}
+
+		err = cam_soc_util_get_clk_level(soc_info,
+				clk_rate, soc_info->src_clk_idx,
+				&clk_level);
+		if (err == 0)
+			clk_upd_cmd->clk_level = clk_level;
+
 		break;
+	}
 	case CAM_ICP_IPE_CMD_DISABLE_CLK:
 		if (core_info->clk_enable == true)
 			cam_ipe_toggle_clk(soc_info, false);
