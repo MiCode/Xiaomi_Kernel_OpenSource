@@ -415,7 +415,8 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 		mq->queue = blk_alloc_queue(GFP_KERNEL);
 		if (!mq->queue)
 			return -ENOMEM;
-		mq->queue->queue_lock = lock;
+		if (lock)
+			mq->queue->queue_lock = lock;
 		mq->queue->request_fn = mmc_cmdq_dispatch_req;
 		mq->queue->init_rq_fn = mmc_init_request;
 		mq->queue->exit_rq_fn = mmc_exit_request;
@@ -455,7 +456,8 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 	mq->queue = blk_alloc_queue(GFP_KERNEL);
 	if (!mq->queue)
 		return -ENOMEM;
-	mq->queue->queue_lock = lock;
+	if (lock)
+		mq->queue->queue_lock = lock;
 	mq->queue->request_fn = mmc_request_fn;
 	mq->queue->init_rq_fn = mmc_init_request;
 	mq->queue->exit_rq_fn = mmc_exit_request;
@@ -549,15 +551,13 @@ int mmc_queue_suspend(struct mmc_queue *mq, int wait)
 		if (wait) {
 
 			/*
-			 * After blk_stop_queue is called, wait for all
+			 * After blk_cleanup_queue is called, wait for all
 			 * active_reqs to complete.
 			 * Then wait for cmdq thread to exit before calling
 			 * cmdq shutdown to avoid race between issuing
 			 * requests and shutdown of cmdq.
 			 */
-			spin_lock_irqsave(q->queue_lock, flags);
-			blk_stop_queue(q);
-			spin_unlock_irqrestore(q->queue_lock, flags);
+			blk_cleanup_queue(q);
 
 			if (host->cmdq_ctx.active_reqs)
 				wait_for_completion(
