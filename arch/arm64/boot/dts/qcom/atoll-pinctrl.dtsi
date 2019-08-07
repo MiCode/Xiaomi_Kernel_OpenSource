@@ -1218,5 +1218,46 @@
 				drive-strength = <2>; /* 2 MA */
 			};
 		};
+
+		pmx_sde_te {
+			sde_te_active: sde_te_active {
+				mux {
+					pins = "gpio10";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio10";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_te_suspend: sde_te_suspend {
+				mux {
+					pins = "gpio10";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio10";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
+	};
+};
+
+&pm6150l_gpios {
+	disp_pins {
+		disp_pins_default: disp_pins_default{
+			pins = "gpio3";
+			function = "func1";
+			qcom,drive-strength = <2>;
+			power-source = <0>;
+			bias-disable;
+			output-low;
+		};
 	};
 };

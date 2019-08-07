@@ -22,6 +22,7 @@
 #include <dt-bindings/clock/qcom,videocc-atoll.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
 
 / {
@@ -2801,7 +2802,8 @@
 
 #include "atoll-thermal.dtsi"
 #include "atoll-camera.dtsi"
-
+#include "atoll-sde-pll.dtsi"
+#include "atoll-sde.dtsi"
 
 &qupv3_se9_i2c {
 	status = "ok";
@@ -2886,4 +2888,3 @@
 	regulator-max-microvolt = <2800000>;
 	qcom,min-dropout-voltage = <300000>;
 };
-
