@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -214,6 +214,27 @@
 #define HFI_DEBUG_CFG_ARM9WD     0x10000000
 
 #define HFI_DEV_VERSION_MAX      0x5
+
+/* General errors and HFI Specific errors. */
+enum hfi_errors {
+	CAMERAICP_SUCCESS,
+	CAMERAICP_EFAILED,
+	CAMERAICP_ENOMEMORY,
+	CAMERAICP_EBADSTATE,
+	CAMERAICP_EBADPARM,
+	CAMERAICP_EBADITEM,
+	CAMERAICP_EINVALIDFORMAT,
+	CAMERAICP_EUNSUPPORTED,
+	CAMERAICP_EOUTOFBOUND,
+	CAMERAICP_ETIMEDOUT,
+	CAMERAICP_EABORTED,
+	CAMERAICP_EHWVIOLATION,
+	CAMERAICP_ECDMERROR,
+	CAMERAICP_HFI_ERR_COMMAND_SIZE = 1000,
+	CAMERAICP_HFI_ERR_MESSAGE_SIZE,
+	CAMERAICP_HFI_QUEUE_EMPTY,
+	CAMERAICP_HFI_QUEUE_FULL,
+};
 
 /**
  * start of sys command packet types

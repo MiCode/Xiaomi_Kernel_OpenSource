@@ -278,26 +278,49 @@ static long cam_private_ioctl(struct file *file, void *fh,
 		break;
 
 	case CAM_REQ_MGR_LINK: {
-		struct cam_req_mgr_link_info link_info;
+		struct cam_req_mgr_ver_info ver_info;
 
-		if (k_ioctl->size != sizeof(link_info))
+		if (k_ioctl->size != sizeof(ver_info.u.link_info_v1))
 			return -EINVAL;
 
-		if (copy_from_user(&link_info,
+		if (copy_from_user(&ver_info.u.link_info_v1,
 			u64_to_user_ptr(k_ioctl->handle),
 			sizeof(struct cam_req_mgr_link_info))) {
 			return -EFAULT;
 		}
-
-		rc = cam_req_mgr_link(&link_info);
+		ver_info.version = VERSION_1;
+		rc = cam_req_mgr_link(&ver_info);
 		if (!rc)
 			if (copy_to_user(
 				u64_to_user_ptr(k_ioctl->handle),
-				&link_info,
+				&ver_info.u.link_info_v1,
 				sizeof(struct cam_req_mgr_link_info)))
 				rc = -EFAULT;
 		}
 		break;
+
+	case CAM_REQ_MGR_LINK_V2: {
+			struct cam_req_mgr_ver_info ver_info;
+
+			if (k_ioctl->size != sizeof(ver_info.u.link_info_v2))
+				return -EINVAL;
+
+			if (copy_from_user(&ver_info.u.link_info_v2,
+				u64_to_user_ptr(k_ioctl->handle),
+				sizeof(struct cam_req_mgr_link_info_v2))) {
+				return -EFAULT;
+			}
+			ver_info.version = VERSION_2;
+			rc = cam_req_mgr_link_v2(&ver_info);
+			if (!rc)
+				if (copy_to_user(
+					u64_to_user_ptr(k_ioctl->handle),
+					&ver_info.u.link_info_v2,
+					sizeof(struct
+						cam_req_mgr_link_info_v2)))
+					rc = -EFAULT;
+			}
+			break;
 
 	case CAM_REQ_MGR_UNLINK: {
 		struct cam_req_mgr_unlink_info unlink_info;
