@@ -629,6 +629,7 @@ static int qcom_smp2p_probe(struct platform_device *pdev)
 		goto unwind_interfaces;
 	}
 
+	enable_irq_wake(smp2p->irq);
 
 	return 0;
 
