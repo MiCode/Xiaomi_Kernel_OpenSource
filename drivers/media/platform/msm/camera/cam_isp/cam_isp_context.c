@@ -1116,6 +1116,22 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 		(error_type == CAM_ISP_HW_ERROR_BUSIF_OVERFLOW))
 		notify.error = CRM_KMD_ERR_OVERFLOW;
 
+
+	if ((error_type == CAM_ISP_HW_ERROR_OVERFLOW) ||
+		(error_type == CAM_ISP_HW_ERROR_BUSIF_OVERFLOW) ||
+		(error_type == CAM_ISP_HW_ERROR_VIOLATION)) {
+		struct cam_hw_cmd_args hw_cmd_args;
+
+		memset(&hw_cmd_args, 0, sizeof(hw_cmd_args));
+		hw_cmd_args.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+		hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_REG_DUMP_ON_ERROR;
+		rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+			&hw_cmd_args);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Reg dump on error failed rc: %d", rc);
+			rc = 0;
+		}
+	}
 	/*
 	 * The error is likely caused by first request on the active list.
 	 * If active list is empty check wait list (maybe error hit as soon
@@ -1932,6 +1948,8 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 {
 	int rc = 0;
 	struct cam_isp_context *ctx_isp;
+	struct cam_hw_cmd_args hw_cmd_args;
+
 
 	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
@@ -1944,6 +1962,16 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	spin_lock_bh(&ctx->lock);
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
 	spin_unlock_bh(&ctx->lock);
+
+	memset(&hw_cmd_args, 0, sizeof(hw_cmd_args));
+	hw_cmd_args.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+	hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_REG_DUMP_ON_FLUSH;
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+		&hw_cmd_args);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Reg dump on flush failed rc: %d", rc);
+		rc = 0;
+	}
 
 	atomic_set(&ctx_isp->process_bubble, 0);
 	return rc;

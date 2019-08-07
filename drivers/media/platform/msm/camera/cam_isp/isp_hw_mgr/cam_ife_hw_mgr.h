@@ -124,6 +124,11 @@ struct cam_ife_hw_mgr_debug {
  *                          context
  * @is_rdi_only_context     flag to specify the context has only rdi resource
  * @config_done_complete    indicator for configuration complete
+ * @reg_dump_buf_desc:      cmd buffer descriptors for reg dump
+ * @num_reg_dump_buf:       Count of descriptors in reg_dump_buf_desc
+ * @applied_req_id:         Last request id to be applied
+ * @last_dump_flush_req_id  Last req id for which reg dump on flush was called
+ * @last_dump_err_req_id    Last req id for which reg dump on error was called
  * @init_done               indicate whether init hw is done
  * @is_fe_enable            indicate whether fetch engine\read path is enabled
  * @is_dual                 indicate whether context is in dual VFE mode
@@ -161,6 +166,12 @@ struct cam_ife_hw_mgr_ctx {
 	atomic_t                        overflow_pending;
 	uint32_t                        is_rdi_only_context;
 	struct completion               config_done_complete;
+	struct cam_cmd_buf_desc         reg_dump_buf_desc[
+						CAM_REG_DUMP_MAX_BUF_ENTRIES];
+	uint32_t                        num_reg_dump_buf;
+	uint64_t                        applied_req_id;
+	uint64_t                        last_dump_flush_req_id;
+	uint64_t                        last_dump_err_req_id;
 	bool                            init_done;
 	bool                            is_fe_enable;
 	bool                            is_dual;

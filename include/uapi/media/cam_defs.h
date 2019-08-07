@@ -219,6 +219,18 @@ struct cam_iommu_handle {
 #define CAM_PACKET_DEV_LRME                     17
 #define CAM_PACKET_DEV_MAX                      18
 
+/* Register base type */
+#define CAM_REG_DUMP_BASE_TYPE_ISP_LEFT         1
+#define CAM_REG_DUMP_BASE_TYPE_ISP_RIGHT        2
+#define CAM_REG_DUMP_BASE_TYPE_CAMNOC           3
+
+/* Register dump read type */
+#define CAM_REG_DUMP_READ_TYPE_CONT_RANGE       1
+#define CAM_REG_DUMP_READ_TYPE_DMI              2
+
+/* Max number of config writes to read from DMI */
+#define CAM_REG_DUMP_DMI_CONFIG_MAX             5
+
 
 /* constants */
 #define CAM_PACKET_MAX_PLANES                   3
@@ -740,6 +752,108 @@ struct cam_cmd_mem_regions {
 	uint32_t version;
 	uint32_t num_regions;
 	struct cam_cmd_mem_region_info map_info_array[1];
+};
+
+/**
+ * struct cam_reg_write_desc - Register write descriptor
+ *
+ * @offset               : Register offset at which 'value' needs to written
+ * @value                : Register value to write
+ */
+struct cam_reg_write_desc {
+	uint32_t   offset;
+	uint32_t   value;
+};
+
+/**
+ * struct cam_reg_range_read_desc - Descriptor to provide read info
+ *
+ * @offset               : Register offset address to start with
+ * @num_values           : Number of values to read
+ */
+struct cam_reg_range_read_desc {
+	uint32_t   offset;
+	uint32_t   num_values;
+};
+
+/**
+ * struct cam_dmi_read_desc - Descriptor to provide DMI read info
+ *
+ * @num_pre_writes       : Number of registers to write before reading DMI data
+ * @num_post_writes      : Number of registers to write after reading DMI data
+ * @pre_read_config      : Registers to write before reading DMI data
+ * @dmi_data_read        : DMI Register, number of values to read to dump
+ *                         DMI data
+ * @post_read_config     : Registers to write after reading DMI data
+ */
+struct cam_dmi_read_desc {
+	uint32_t                         num_pre_writes;
+	uint32_t                         num_post_writes;
+	struct cam_reg_write_desc        pre_read_config[
+						CAM_REG_DUMP_DMI_CONFIG_MAX];
+	struct cam_reg_range_read_desc   dmi_data_read;
+	struct cam_reg_write_desc        post_read_config[
+						CAM_REG_DUMP_DMI_CONFIG_MAX];
+};
+
+/**
+ * struct cam_reg_read_info - Register read info for both reg continuous read
+ *                            or DMI read
+ *
+ * @type                 : Whether Register range read or DMI read
+ * @reg_read             : Range of registers to read
+ * @dmi_read             : DMI data to read
+ */
+struct cam_reg_read_info {
+	uint32_t                                type;
+	uint32_t                                reserved;
+	union {
+		struct cam_reg_range_read_desc  reg_read;
+		struct cam_dmi_read_desc        dmi_read;
+	};
+};
+
+/**
+ * struct cam_reg_dump_out_buffer -Buffer info for dump data to be provided
+ *
+ * @req_id               : Request ID corresponding to reg dump data
+ * @bytes_written        : Number of bytes written
+ * @dump_data            : Register dump data
+ */
+struct cam_reg_dump_out_buffer {
+	uint64_t   req_id;
+	uint32_t   bytes_written;
+	uint32_t   dump_data[1];
+};
+
+/**
+ * struct cam_reg_dump_desc - Descriptor to provide dump info
+ *
+ * @reg_base_type        : Register base type, e.g. ISP_LEFT, ISP_RIGHT, CAMNOC
+ * @dump_buffer_offset   : Offset from base of mem_handle at which Register dump
+ *                         will be written for this set
+ * @dump_buffer_size     : Available size in bytes for writing dump values
+ * @num_read_range       : Number register range reads (Continuous + DMI)
+ * @read_range           : Read range info
+ */
+struct cam_reg_dump_desc {
+	uint32_t                   reg_base_type;
+	uint32_t                   dump_buffer_offset;
+	uint32_t                   dump_buffer_size;
+	uint32_t                   num_read_range;
+	struct cam_reg_read_info   read_range[1];
+};
+
+/**
+ * struct cam_reg_dump_input_info - Info about required dump sets
+ *
+ * @num_dump_sets        : Number of different dump sets (base types) given
+ * @dump_set_offsets     : Points to the given dump description structures
+ *                         (cam_reg_dump_desc)
+ */
+struct cam_reg_dump_input_info {
+	uint32_t                   num_dump_sets;
+	uint32_t                   dump_set_offsets[1];
 };
 
 

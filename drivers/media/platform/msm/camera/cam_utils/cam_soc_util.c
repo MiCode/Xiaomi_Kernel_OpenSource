@@ -11,6 +11,7 @@
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
 #include "cam_cx_ipeak.h"
+#include "cam_mem_mgr.h"
 
 static char supported_clk_info[256];
 static char debugfs_dir_name[64];
@@ -1822,6 +1823,280 @@ int cam_soc_util_reg_dump(struct cam_hw_soc_info *soc_info,
 	 * hence ignoring the return value below.
 	 */
 	cam_io_dump(base_addr, offset, size);
+
+	return 0;
+}
+
+static int cam_soc_util_dump_cont_reg_range(
+	struct cam_hw_soc_info *soc_info,
+	struct cam_reg_range_read_desc *reg_read, uint32_t base_idx,
+	struct cam_reg_dump_out_buffer *dump_out_buf, size_t max_out_size)
+{
+	int         i = 0;
+	uint32_t    write_idx = 0;
+
+	if (!soc_info || !dump_out_buf) {
+		CAM_ERR(CAM_UTIL,
+			"Invalid input args soc_info: %pK, dump_out_buffer: %pK",
+			soc_info, dump_out_buf);
+		return -EINVAL;
+	}
+
+	if (reg_read->num_values >= ((max_out_size -
+		(size_t)dump_out_buf->bytes_written) / sizeof(uint32_t))) {
+		CAM_ERR(CAM_UTIL,
+			"Invalid num values to read: %d max values: %d bytes written: %d",
+			reg_read->num_values, (max_out_size /
+			sizeof(uint32_t)), dump_out_buf->bytes_written);
+		return -EINVAL;
+	}
+
+	write_idx = dump_out_buf->bytes_written / sizeof(uint32_t);
+	for (i = 0; i < reg_read->num_values; i++) {
+		dump_out_buf->dump_data[write_idx++] = reg_read->offset +
+			(i * 4);
+		dump_out_buf->dump_data[write_idx++] =
+			cam_soc_util_r(soc_info, base_idx,
+			(reg_read->offset + (i * 4)));
+		dump_out_buf->bytes_written += (2 * sizeof(uint32_t));
+	}
+
+	return 0;
+}
+
+static int cam_soc_util_dump_dmi_reg_range(
+	struct cam_hw_soc_info *soc_info,
+	struct cam_dmi_read_desc *dmi_read, uint32_t base_idx,
+	struct cam_reg_dump_out_buffer *dump_out_buf, size_t max_out_size)
+{
+	int        i = 0;
+	uint32_t   write_idx = 0;
+
+	if (!soc_info || !dump_out_buf) {
+		CAM_ERR(CAM_UTIL,
+			"Invalid input args soc_info: %pK, dump_out_buffer: %pK",
+			soc_info, dump_out_buf);
+		return -EINVAL;
+	}
+
+	if (dmi_read->num_pre_writes > CAM_REG_DUMP_DMI_CONFIG_MAX ||
+		dmi_read->num_post_writes > CAM_REG_DUMP_DMI_CONFIG_MAX) {
+		CAM_ERR(CAM_UTIL,
+			"Invalid number of requested writes, pre: %d post: %d",
+			dmi_read->num_pre_writes, dmi_read->num_post_writes);
+		return -EINVAL;
+	}
+
+	if (dmi_read->dmi_data_read.num_values >= ((max_out_size -
+		(size_t)dump_out_buf->bytes_written) / sizeof(uint32_t))) {
+		CAM_ERR(CAM_UTIL,
+			"Invalid num values to read: %d max values: %d bytes written: %d",
+			dmi_read->dmi_data_read.num_values, (max_out_size /
+			sizeof(uint32_t)), dump_out_buf->bytes_written);
+		return -EINVAL;
+	}
+
+	write_idx = dump_out_buf->bytes_written / sizeof(uint32_t);
+	for (i = 0; i < dmi_read->num_pre_writes; i++) {
+		cam_soc_util_w_mb(soc_info, base_idx,
+			dmi_read->pre_read_config[i].offset,
+			dmi_read->pre_read_config[i].value);
+		dump_out_buf->dump_data[write_idx++] =
+			dmi_read->pre_read_config[i].offset;
+		dump_out_buf->dump_data[write_idx++] =
+			dmi_read->pre_read_config[i].value;
+		dump_out_buf->bytes_written += (2 * sizeof(uint32_t));
+	}
+
+	for (i = 0; i < dmi_read->dmi_data_read.num_values; i++) {
+		dump_out_buf->dump_data[write_idx++] =
+			dmi_read->dmi_data_read.offset;
+		dump_out_buf->dump_data[write_idx++] =
+			cam_soc_util_r_mb(soc_info, base_idx,
+			dmi_read->dmi_data_read.offset);
+		dump_out_buf->bytes_written += (2 * sizeof(uint32_t));
+	}
+
+	for (i = 0; i < dmi_read->num_post_writes; i++) {
+		cam_soc_util_w_mb(soc_info, base_idx,
+			dmi_read->post_read_config[i].offset,
+			dmi_read->post_read_config[i].value);
+	}
+
+	return 0;
+}
+
+int cam_soc_util_reg_dump_to_cmd_buf(void *ctx,
+	struct cam_cmd_buf_desc *cmd_desc, uint64_t req_id,
+	cam_soc_util_regspace_data_cb reg_data_cb)
+{
+	int                               rc = 0, i, j;
+	uintptr_t                         cpu_addr = 0;
+	uintptr_t                         cmd_buf_start = 0;
+	uintptr_t                         cmd_in_data_end = 0;
+	uintptr_t                         cmd_buf_end = 0;
+	uint32_t                          reg_base_type = 0;
+	size_t                            buf_size = 0, remain_len = 0;
+	size_t                            max_out_size = 0;
+	struct cam_reg_dump_input_info   *reg_input_info = NULL;
+	struct cam_reg_dump_desc         *reg_dump_desc = NULL;
+	struct cam_reg_dump_out_buffer   *dump_out_buf = NULL;
+	struct cam_reg_read_info         *reg_read_info = NULL;
+	struct cam_hw_soc_info           *soc_info;
+	uint32_t                          reg_base_idx = 0;
+
+	if (!ctx || !cmd_desc || !reg_data_cb) {
+		CAM_ERR(CAM_UTIL, "Invalid args to reg dump [%pK] [%pK]",
+			cmd_desc, reg_data_cb);
+		return -EINVAL;
+	}
+
+	if (!cmd_desc->length || !cmd_desc->size) {
+		CAM_ERR(CAM_UTIL, "Invalid cmd buf size %d %d",
+			cmd_desc->length, cmd_desc->size);
+		return -EINVAL;
+	}
+
+	rc = cam_mem_get_cpu_buf(cmd_desc->mem_handle, &cpu_addr, &buf_size);
+	if (rc || !cpu_addr || (buf_size == 0)) {
+		CAM_ERR(CAM_UTIL, "Failed in Get cpu addr, rc=%d, cpu_addr=%pK",
+			rc, (void *)cpu_addr);
+		return rc;
+	}
+
+	CAM_DBG(CAM_UTIL, "Get cpu buf success req_id: %llu buf_size: %zu",
+		req_id, buf_size);
+	if ((buf_size < sizeof(uint32_t)) ||
+		((size_t)cmd_desc->offset > (buf_size - sizeof(uint32_t)))) {
+		CAM_ERR(CAM_UTIL, "Invalid offset for cmd buf: %zu",
+			(size_t)cmd_desc->offset);
+		return -EINVAL;
+	}
+
+	remain_len = buf_size - (size_t)cmd_desc->offset;
+	if (remain_len < (size_t)cmd_desc->length) {
+		CAM_ERR(CAM_UTIL, "Invalid length for cmd buf: %zu",
+			(size_t)cmd_desc->length);
+		return -EINVAL;
+	}
+
+	cmd_buf_start = (uintptr_t)(((uint8_t *)cpu_addr) + cmd_desc->offset);
+	cmd_in_data_end = (uintptr_t)(((uint8_t *)cmd_buf_start) +
+		cmd_desc->length);
+	cmd_buf_end = (uintptr_t)(((uint8_t *)cmd_buf_start) +
+		cmd_desc->size);
+	if (cmd_buf_end < cmd_in_data_end) {
+		CAM_ERR(CAM_UTIL,
+			"Invalid length and size for cmd buf: [%zu] [%zu]",
+			(size_t)cmd_desc->length, (size_t)cmd_desc->size);
+		return -EINVAL;
+	}
+
+	CAM_DBG(CAM_UTIL,
+		"Buffer params start [%pK] input_end [%pK] buf_end [%pK]",
+		cmd_buf_start, cmd_in_data_end, cmd_buf_end);
+	reg_input_info = (struct cam_reg_dump_input_info *) cmd_buf_start;
+	if (!reg_input_info->num_dump_sets) {
+		CAM_ERR(CAM_UTIL, "Zero dump sets found in input info");
+		return -EINVAL;
+	}
+
+	CAM_DBG(CAM_UTIL,
+		"reg_input_info req_id: %llu ctx %pK num_dump_sets: %d",
+		req_id, ctx, reg_input_info->num_dump_sets);
+	for (i = 0; i < reg_input_info->num_dump_sets; i++) {
+		if ((remain_len - sizeof(uint32_t)) <=
+			(size_t)reg_input_info->dump_set_offsets[i]) {
+			CAM_ERR(CAM_UTIL,
+				"Invalid dump set offset: [%zu], remain len: [%zu]",
+				(size_t)reg_input_info->dump_set_offsets[i],
+				remain_len);
+			return -EINVAL;
+		}
+
+		reg_dump_desc = (struct cam_reg_dump_desc *)
+			((uint8_t *)cmd_buf_start +
+			reg_input_info->dump_set_offsets[i]);
+		if (!reg_dump_desc->num_read_range) {
+			CAM_ERR(CAM_UTIL, "Zero ranges found in input info");
+			return -EINVAL;
+		}
+
+		if ((remain_len - sizeof(uint32_t))
+			<= (size_t)reg_dump_desc->dump_buffer_offset) {
+			CAM_ERR(CAM_UTIL,
+				"Invalid out buffer offset: [%zu], remain len: [%zu]",
+				(size_t)reg_dump_desc->dump_buffer_offset,
+				remain_len);
+			return -EINVAL;
+		}
+
+		dump_out_buf = (struct cam_reg_dump_out_buffer *)
+			((uint8_t *)cmd_buf_start +
+			reg_dump_desc->dump_buffer_offset);
+		dump_out_buf->req_id = req_id;
+		dump_out_buf->bytes_written = 0;
+		max_out_size = (size_t)(cmd_desc->size -
+			reg_dump_desc->dump_buffer_offset);
+
+		reg_base_type = reg_dump_desc->reg_base_type;
+		if (reg_base_type == 0 || reg_base_type >
+			CAM_REG_DUMP_BASE_TYPE_CAMNOC) {
+			CAM_ERR(CAM_UTIL,
+				"Invalid Reg dump base type: %d",
+				reg_base_type);
+			return -EINVAL;
+		}
+
+		rc = reg_data_cb(reg_base_type, ctx, &soc_info, &reg_base_idx);
+		if (rc || !soc_info) {
+			CAM_ERR(CAM_UTIL,
+				"Reg space data callback failed rc: %d soc_info: [%pK]",
+				rc, soc_info);
+			return -EINVAL;
+		}
+
+		if (reg_base_idx > soc_info->num_reg_map) {
+			CAM_ERR(CAM_UTIL,
+				"Invalid reg base idx: %d num reg map: %d",
+				reg_base_idx, soc_info->num_reg_map);
+			return -EINVAL;
+		}
+
+		CAM_DBG(CAM_UTIL,
+			"Reg data callback success req_id: %llu base_type: %d base_idx: %d num_read_range: %d",
+			req_id, reg_base_type, reg_base_idx,
+			reg_dump_desc->num_read_range);
+		for (j = 0; j < reg_dump_desc->num_read_range; j++) {
+			CAM_DBG(CAM_UTIL,
+				"Number of bytes written to cmd buffer: %u req_id: %llu",
+				dump_out_buf->bytes_written, req_id);
+			reg_read_info = &reg_dump_desc->read_range[j];
+			if (reg_read_info->type ==
+				CAM_REG_DUMP_READ_TYPE_CONT_RANGE) {
+				rc = cam_soc_util_dump_cont_reg_range(soc_info,
+					&reg_read_info->reg_read, reg_base_idx,
+					dump_out_buf, max_out_size);
+			} else if (reg_read_info->type ==
+				CAM_REG_DUMP_READ_TYPE_DMI) {
+				rc = cam_soc_util_dump_dmi_reg_range(soc_info,
+					&reg_read_info->dmi_read, reg_base_idx,
+					dump_out_buf, max_out_size);
+			} else {
+				CAM_ERR(CAM_UTIL,
+					"Invalid Reg dump read type: %d",
+					reg_read_info->type);
+				return -EINVAL;
+			}
+
+			if (rc) {
+				CAM_ERR(CAM_UTIL,
+					"Reg range read failed rc: %d reg_base_idx: %d dump_out_buf: %pK",
+					rc, reg_base_idx, dump_out_buf);
+				return rc;
+			}
+		}
+	}
 
 	return 0;
 }
