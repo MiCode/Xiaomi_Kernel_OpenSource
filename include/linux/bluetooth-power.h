@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,4 +88,7 @@ int get_chipset_version(void);
 #define BT_CMD_SLIM_TEST		0xbfac
 #define BT_CMD_PWR_CTRL			0xbfad
 #define BT_CMD_CHIPSET_VERS		0xbfae
+
+#define BT_RESET_GPIO_HIGH_VAL	0x1
+
 #endif /* __LINUX_BLUETOOTH_POWER_H */
