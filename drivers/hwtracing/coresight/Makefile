@@ -17,3 +17,5 @@ obj-$(CONFIG_CORESIGHT_SOURCE_ETM4X) += coresight-etm4x.o \
 obj-$(CONFIG_CORESIGHT_STM) += coresight-stm.o
 obj-$(CONFIG_CORESIGHT_CPU_DEBUG) += coresight-cpu-debug.o
 obj-$(CONFIG_CORESIGHT_CATU) += coresight-catu.o
+obj-$(CONFIG_CORESIGHT_TPDA) += coresight-tpda.o
+obj-$(CONFIG_CORESIGHT_TPDM) += coresight-tpdm.o
