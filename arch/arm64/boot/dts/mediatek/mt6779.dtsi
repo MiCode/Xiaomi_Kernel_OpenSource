@@ -1466,7 +1466,6 @@
 			clocks = <&infracfg_ao CLK_INFRA_GCE>,
 				<&infracfg_ao CLK_INFRA_GCE_26M>;
 			clock-names = "gce", "GCE_TIMER";
-			dma_mask_bit = <35>;
 		};
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
@@ -1751,7 +1750,6 @@
 			clocks = <&infracfg_ao CLK_INFRA_GCE>,
 				<&infracfg_ao CLK_INFRA_GCE_26M>;
 			clock-names = "GCE", "GCE_TIMER";
-			dma_mask_bit = <35>;
 		};
 
 		dramc@10230000 {
