@@ -126,6 +126,7 @@ struct msm11ad_ctx {
 	struct cpumask boost_cpu_1;
 
 	bool keep_radio_on_during_sleep;
+	bool use_ap_ps;
 	int features;
 };
 
@@ -1054,6 +1055,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	 *	qcom,msm-bus,vectors-KBps =
 	 *		<100 512 0 0>,
 	 *		<100 512 600000 800000>;
+	 *	qcom,use-ap-power-save; (ctx->use_ap_ps)
 	 *};
 	 * rc_node stands for "qcom,pcie", selected entries:
 	 * cell-index = <1>; (ctx->rc_index)
@@ -1094,6 +1096,8 @@ static int msm_11ad_probe(struct platform_device *pdev)
 		rc = -EINVAL;
 		goto out_module;
 	}
+	ctx->use_ap_ps = of_property_read_bool(of_node,
+					       "qcom,use-ap-power-save");
 
 	/*== execute ==*/
 	/* turn device on */
@@ -1557,6 +1561,12 @@ static int ops_get_capa(void *handle)
 		BIT(WIL_PLATFORM_CAPA_EXT_CLK);
 	if (!ctx->smmu_s1_bypass)
 		capa |= BIT(WIL_PLATFORM_CAPA_SMMU);
+
+	pr_debug("%s: use AP power save is %s\n", __func__, ctx->use_ap_ps ?
+		 "allowed" : "not allowed");
+
+	if (ctx->use_ap_ps)
+		capa |= BIT(WIL_PLATFORM_CAPA_AP_PS);
 
 	return capa;
 }
