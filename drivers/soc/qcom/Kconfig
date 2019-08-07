@@ -238,4 +238,14 @@ config QMP_DEBUGFS_CLIENT
 	  to Alway On processor using QMP transport. Users can echo a message
 	  into an exposed debugfs node to send to AOP. The driver expects the
 	  passed in string argument to be formatted correctly for AOP to read.
+
+config QCOM_SMP2P_SLEEPSTATE
+	tristate "SMP2P Sleepstate notifier"
+	depends on QCOM_SMP2P
+	help
+	  When this option is enabled, notifications are sent to remote procs
+	  for the power state changes on the local processor. The notifications
+	  are sent through the smp2p framework. This driver can also receive
+	  notifications from the remote to prevent suspend on the local
+	  processor.
 endmenu
