@@ -2302,6 +2302,18 @@ static int npu_probe(struct platform_device *pdev)
 		goto error_res_init;
 	}
 
+	rc = npu_debugfs_init(npu_dev);
+	if (rc)
+		goto error_driver_init;
+
+	mutex_init(&npu_dev->dev_lock);
+
+	rc = npu_host_init(npu_dev);
+	if (rc) {
+		NPU_ERR("unable to init host\n");
+		goto error_driver_init;
+	}
+
 	if (IS_ENABLED(CONFIG_THERMAL)) {
 		tcdev = thermal_of_cooling_device_register(pdev->dev.of_node,
 							  "npu", npu_dev,
@@ -2314,18 +2326,6 @@ static int npu_probe(struct platform_device *pdev)
 		}
 		npu_dev->tcdev = tcdev;
 		thermal_cdev_update(tcdev);
-	}
-
-	rc = npu_debugfs_init(npu_dev);
-	if (rc)
-		goto error_driver_init;
-
-	mutex_init(&npu_dev->dev_lock);
-
-	rc = npu_host_init(npu_dev);
-	if (rc) {
-		NPU_ERR("unable to init host\n");
-		goto error_driver_init;
 	}
 
 	g_npu_dev = npu_dev;
