@@ -57,6 +57,7 @@
 #define PCIE20_PARF_DBI_BASE_ADDR       0x350
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE 0x358
 
+#define PCIE_GEN3_PRESET_DEFAULT		0x55555555
 #define PCIE_GEN3_SPCIE_CAP			0x0154
 #define PCIE_GEN3_GEN2_CTRL			0x080c
 #define PCIE_GEN3_RELATED			0x0890
@@ -687,6 +688,7 @@ struct msm_pcie_dev_t {
 	uint32_t			phy_status_offset;
 	uint32_t			phy_status_bit;
 	uint32_t			phy_power_down_offset;
+	uint32_t			core_preset;
 	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
 	uint32_t			perst_delay_us_min;
@@ -1331,6 +1333,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->phy_status_bit);
 	PCIE_DBG_FS(dev, "phy_power_down_offset: 0x%x\n",
 		dev->phy_power_down_offset);
+	PCIE_DBG_FS(dev, "core_preset: 0x%x\n",
+		dev->core_preset);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
 		dev->cpl_timeout);
 	PCIE_DBG_FS(dev, "current_bdf: 0x%x\n",
@@ -4044,7 +4048,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	msm_pcie_write_reg_field(dev->dm_core,
 		PCIE_GEN3_MISC_CONTROL, BIT(0), 1);
 	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_SPCIE_CAP, 0x77777777);
+		PCIE_GEN3_SPCIE_CAP, dev->core_preset);
 	msm_pcie_write_reg_field(dev->dm_core,
 		PCIE_GEN3_MISC_CONTROL, BIT(0), 0);
 
@@ -5734,6 +5738,16 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		PCIE_DBG(&msm_pcie_dev[rc_idx],
 			"RC%d: phy-power-down-offset: 0x%x.\n",
 			rc_idx, msm_pcie_dev[rc_idx].phy_power_down_offset);
+
+	msm_pcie_dev[rc_idx].core_preset = 0;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,core-preset",
+				&msm_pcie_dev[rc_idx].core_preset);
+	if (ret)
+		msm_pcie_dev[rc_idx].core_preset = PCIE_GEN3_PRESET_DEFAULT;
+
+	PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: core-preset: 0x%x.\n",
+		rc_idx, msm_pcie_dev[rc_idx].core_preset);
 
 	msm_pcie_dev[rc_idx].cpl_timeout = 0;
 	ret = of_property_read_u32((&pdev->dev)->of_node,
