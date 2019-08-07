@@ -110,6 +110,7 @@ enum fg_debug_flag {
 	FG_BUS_READ		= BIT(6), /* Show REGMAP reads */
 	FG_CAP_LEARN		= BIT(7), /* Show capacity learning */
 	FG_TTF			= BIT(8), /* Show time to full */
+	FG_FVSS			= BIT(9), /* Show FVSS */
 };
 
 /* SRAM access */
