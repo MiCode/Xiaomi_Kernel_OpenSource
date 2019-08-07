@@ -22,7 +22,7 @@
 #include "mt-plat/mtk_thermal_platform.h"
 #include <linux/uidgid.h>
 #include <linux/slab.h>
-
+#include "mtk_monitor_tz.h"
 
 /*=============================================================*/
 static kuid_t uid = KUIDT_INIT(0);
@@ -76,28 +76,11 @@ do {                                    \
 #define mtkts_bts_printk(fmt, args...) \
 pr_debug("[Thermal/TZ/BTS]" fmt, ##args)
 
-static DEFINE_MUTEX(BTS_lock);
 int mtkts_bts_get_hw_temp(void)
 {
-	struct thermal_zone_device *zone;
-	int temperature, ret = 0;
-	static int pre_bts_temp;
+	int temperature;
 
-	mutex_lock(&BTS_lock);
-	zone = thermal_zone_get_zone_by_name("ap_ntc");
-
-	if (IS_ERR(zone)) {
-		mtkts_bts_printk("AP NTC is not ready\n");
-		temperature = -127000;
-	} else {
-		ret = thermal_zone_get_temp(zone, &temperature);
-
-		if (ret != 0) {
-			mtkts_bts_printk("Get temperature error. Use the previous temperature instead.\n");
-			temperature = pre_bts_temp;
-		}
-	}
-	mutex_unlock(&BTS_lock);
+	temperature = get_monitor_thermal_zone_temp(TZ_AP_NTC);
 
 	if (tsatm_thermal_get_catm_type() == 2) {
 		if (wakeup_ta_algo(TA_CATMPLUS_TTJ) < 0)
@@ -105,7 +88,6 @@ int mtkts_bts_get_hw_temp(void)
 	}
 
 	bts_cur_temp = temperature;
-	pre_bts_temp = temperature;
 
 	if (temperature > 40000)	/* abnormal high temp */
 		mtkts_bts_printk("T_AP=%d\n", temperature);

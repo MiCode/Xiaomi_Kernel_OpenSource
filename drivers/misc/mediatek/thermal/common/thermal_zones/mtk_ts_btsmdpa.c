@@ -21,6 +21,8 @@
 #include "mach/mtk_thermal.h"
 #include <linux/uidgid.h>
 #include <linux/slab.h>
+#include "mtk_monitor_tz.h"
+
 /*=============================================================
  *Weak functions
  *=============================================================
@@ -75,35 +77,17 @@ do {                                    \
 #define mtkts_btsmdpa_printk(fmt, args...) \
 pr_debug("[Thermal/TZ/BTSMDPA]" fmt, ##args)
 
-static DEFINE_MUTEX(BTSMDPA_lock);
 int mtkts_btsmdpa_get_hw_temp(void)
 {
-	struct thermal_zone_device *zone;
-	int temperature, ret = 0;
-	static int pre_btsmdpa_temp;
+	int temperature;
 
-	mutex_lock(&BTSMDPA_lock);
-	zone = thermal_zone_get_zone_by_name("mdpa_ntc");
-
-	if (IS_ERR(zone)) {
-		mtkts_btsmdpa_printk("MD PA NTC is not ready\n");
-		temperature = -127000;
-	} else {
-		ret = thermal_zone_get_temp(zone, &temperature);
-
-		if (ret != 0) {
-			mtkts_btsmdpa_printk("Get temperature error. Use the previous temperature instead.\n");
-			temperature = pre_btsmdpa_temp;
-		}
-	}
-	mutex_unlock(&BTSMDPA_lock);
-
-	pre_btsmdpa_temp = temperature;
+	temperature = get_monitor_thermal_zone_temp(TZ_MDPA_NTC);
 
 	if (temperature > 40000)	/* abnormal high temp */
 		mtkts_btsmdpa_printk("T_btsmdpa=%d\n", temperature);
 
 	mtkts_btsmdpa_dprintk("[%s] T_btsmdpa, %d\n", __func__, temperature);
+
 	return temperature;
 }
 
