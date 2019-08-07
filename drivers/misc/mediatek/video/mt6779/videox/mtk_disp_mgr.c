@@ -1862,6 +1862,12 @@ static int mtk_disp_mgr_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+#ifdef CONFIG_MTK_IOMMU_V2
+	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+#else
+	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+#endif
+
 	mtk_disp_mgr_class = class_create(THIS_MODULE, DISP_SESSION_DEVICE);
 	class_dev = (struct class_device *)device_create(mtk_disp_mgr_class,
 						NULL, mtk_disp_mgr_devno,
@@ -1907,15 +1913,11 @@ static void mtk_disp_mgr_device_release(struct device *dev)
 {
 }
 
-static u64 mtk_disp_mgr_dmamask = ~(u32)0;
-
 static struct platform_device mtk_disp_mgr_device = {
 	.name = DISP_SESSION_DEVICE,
 	.id = 0,
 	.dev = {
 		.release = mtk_disp_mgr_device_release,
-		.dma_mask = &mtk_disp_mgr_dmamask,
-		.coherent_dma_mask = 0xffffffff,
 	},
 	.num_resources = 0,
 };
