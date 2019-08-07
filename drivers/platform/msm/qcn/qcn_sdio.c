@@ -34,6 +34,9 @@ module_param(rx_dump, bool, S_IRUGO | S_IWUSR | S_IWGRP);
 static int dump_len = 32;
 module_param(dump_len, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
+static bool retune;
+module_param(retune, bool, S_IRUGO | S_IWUSR | S_IWGRP);
+
 static struct mmc_host *current_host;
 
 #define HEX_DUMP(mode, buf, len)				\
@@ -734,7 +737,13 @@ int qcn_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
 
 	current_host = func->card->host;
 
+	if (!retune) {
+		pr_debug("%s Probing driver with retune disabled\n", __func__);
+		mmc_retune_disable(current_host);
+	}
+
 	atomic_set(&xport_status, 1);
+
 	return 0;
 err:
 	kfree(sdio_ctxt);
@@ -777,6 +786,7 @@ static void qcn_sdio_remove(struct sdio_func *func)
 
 	kfree(sdio_ctxt);
 	sdio_ctxt = NULL;
+	mmc_retune_enable(current_host);
 }
 
 static const struct sdio_device_id qcn_sdio_devices[] = {
