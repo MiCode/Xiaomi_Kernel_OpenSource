@@ -381,17 +381,8 @@ create_pagelist(char __user *buf, size_t count, unsigned short type,
 	int run, addridx, actual_pages;
         unsigned long *need_release;
 
-	if (count >= INT_MAX - PAGE_SIZE)
-		return NULL;
-
 	offset = (unsigned int)buf & (PAGE_SIZE - 1);
 	num_pages = (count + offset + PAGE_SIZE - 1) / PAGE_SIZE;
-
-	if (num_pages > (SIZE_MAX - sizeof(PAGELIST_T) -
-			 sizeof(struct vchiq_pagelist_info)) /
-			(sizeof(u32) + sizeof(pages[0]) +
-			 sizeof(struct scatterlist)))
-		return NULL;
 
 	*ppagelist = NULL;
 
