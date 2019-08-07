@@ -19,6 +19,7 @@
 #include <linux/of_platform.h>
 #include <linux/delay.h>
 #include <linux/pm_runtime.h>
+#include <linux/regulator/consumer.h>
 
 #include "coresight-etm-perf.h"
 #include "coresight-priv.h"
@@ -144,6 +145,60 @@ static void coresight_reset_all_sink(void)
 {
 	bus_for_each_dev(&coresight_bustype, NULL, NULL, coresight_reset_sink);
 }
+
+#ifdef CONFIG_CORESIGHT_QGKI
+int coresight_enable_reg_clk(struct coresight_device *csdev)
+{
+	struct coresight_reg_clk *reg_clk = csdev->reg_clk;
+	int ret;
+	int i, j;
+
+	if (IS_ERR_OR_NULL(reg_clk))
+		return -EINVAL;
+
+	for (i = 0; i < reg_clk->nr_reg; i++) {
+		ret = regulator_enable(reg_clk->reg[i]);
+		if (ret)
+			goto err_regs;
+	}
+
+	for (j = 0; j < reg_clk->nr_clk; j++) {
+		ret = clk_prepare_enable(reg_clk->clk[j]);
+		if (ret)
+			goto err_clks;
+	}
+
+	return 0;
+err_clks:
+	for (j--; j >= 0; j--)
+		clk_disable_unprepare(reg_clk->clk[j]);
+err_regs:
+	for (i--; i >= 0; i--)
+		regulator_disable(reg_clk->reg[i]);
+
+	return ret;
+}
+EXPORT_SYMBOL(coresight_enable_reg_clk);
+
+void coresight_disable_reg_clk(struct coresight_device *csdev)
+{
+	struct coresight_reg_clk *reg_clk = csdev->reg_clk;
+	int i;
+
+	if (IS_ERR_OR_NULL(reg_clk))
+		return;
+
+	for (i = reg_clk->nr_clk - 1; i >= 0; i--)
+		clk_disable_unprepare(reg_clk->clk[i]);
+	for (i = reg_clk->nr_reg - 1; i >= 0; i--)
+		regulator_disable(reg_clk->reg[i]);
+}
+EXPORT_SYMBOL(coresight_disable_reg_clk);
+#else
+int coresight_enable_reg_clk(struct coresight_device *csdev)
+{ return 0; }
+void coresight_disable_reg_clk(struct coresight_device *csdev) { }
+#endif
 
 static int coresight_find_link_inport(struct coresight_device *csdev,
 				      struct coresight_device *parent,
@@ -285,9 +340,12 @@ static int coresight_enable_sink(struct coresight_device *csdev,
 	if (!sink_ops(csdev)->enable)
 		return -EINVAL;
 
+	coresight_enable_reg_clk(csdev);
 	ret = sink_ops(csdev)->enable(csdev, mode, data);
-	if (ret)
+	if (ret) {
+		coresight_disable_reg_clk(csdev);
 		return ret;
+	}
 	csdev->enable = true;
 
 	return 0;
@@ -303,6 +361,7 @@ static void coresight_disable_sink(struct coresight_device *csdev)
 	ret = sink_ops(csdev)->disable(csdev);
 	if (ret)
 		return;
+	coresight_disable_reg_clk(csdev);
 	csdev->activated = false;
 	csdev->enable = false;
 }
@@ -335,8 +394,10 @@ static int coresight_enable_link(struct coresight_device *csdev,
 
 	if (atomic_inc_return(&csdev->refcnt[refport]) == 1) {
 		if (link_ops(csdev)->enable) {
+			coresight_enable_reg_clk(csdev);
 			ret = link_ops(csdev)->enable(csdev, inport, outport);
 			if (ret) {
+				coresight_disable_reg_clk(csdev);
 				atomic_dec(&csdev->refcnt[refport]);
 				return ret;
 			}
@@ -376,8 +437,10 @@ static void coresight_disable_link(struct coresight_device *csdev,
 	}
 
 	if (atomic_dec_return(&csdev->refcnt[refport]) == 0) {
-		if (link_ops(csdev)->disable)
+		if (link_ops(csdev)->disable) {
 			link_ops(csdev)->disable(csdev, inport, outport);
+			coresight_disable_reg_clk(csdev);
+		}
 	}
 
 	for (i = 0; i < nr_conns; i++)
@@ -399,9 +462,12 @@ static int coresight_enable_source(struct coresight_device *csdev, u32 mode)
 
 	if (!csdev->enable) {
 		if (source_ops(csdev)->enable) {
+			coresight_enable_reg_clk(csdev);
 			ret = source_ops(csdev)->enable(csdev, NULL, mode);
-			if (ret)
+			if (ret) {
+				coresight_disable_reg_clk(csdev);
 				return ret;
+			}
 		}
 		csdev->enable = true;
 	}
@@ -422,8 +488,10 @@ static int coresight_enable_source(struct coresight_device *csdev, u32 mode)
 static bool coresight_disable_source(struct coresight_device *csdev)
 {
 	if (atomic_dec_return(csdev->refcnt) == 0) {
-		if (source_ops(csdev)->disable)
+		if (source_ops(csdev)->disable) {
 			source_ops(csdev)->disable(csdev, NULL);
+			coresight_disable_reg_clk(csdev);
+		}
 		csdev->enable = false;
 	}
 	return !csdev->enable;
@@ -1352,6 +1420,9 @@ struct coresight_device *coresight_register(struct coresight_desc *desc)
 	csdev->subtype = desc->subtype;
 	csdev->ops = desc->ops;
 	csdev->orphan = false;
+#ifdef CONFIG_CORESIGHT_QGKI
+	csdev->reg_clk = desc->pdata->reg_clk;
+#endif
 
 	csdev->dev.type = &coresight_dev_type[desc->type];
 	csdev->dev.groups = desc->groups;
