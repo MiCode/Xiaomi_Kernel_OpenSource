@@ -2425,6 +2425,25 @@ static void free_rx_pkt(void *chan_user_data, void *xfer_user_data)
 }
 
 /**
+ * free_rx_page() - function to free the page and rx_pkt_wrapper
+ *
+ * @chan_user_data: ipa_sys_context used for skb size and skb_free func
+ * @xfer_uder_data: rx_pkt wrapper to be freed
+ *
+ */
+static void free_rx_page(void *chan_user_data, void *xfer_user_data)
+{
+	struct ipa3_rx_pkt_wrapper *rx_pkt = (struct ipa3_rx_pkt_wrapper *)
+		xfer_user_data;
+
+	dma_unmap_page(ipa3_ctx->pdev, rx_pkt->page_data.dma_addr,
+		rx_pkt->len, DMA_FROM_DEVICE);
+	__free_pages(rx_pkt->page_data.page,
+		IPA_WAN_PAGE_ORDER);
+	kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
+}
+
+/**
  * ipa3_cleanup_rx() - release RX queue resources
  *
  */
@@ -4450,6 +4469,11 @@ static int ipa_gsi_setup_transfer_ring(struct ipa3_ep_context *ep,
 
 	if (IPA_CLIENT_IS_CONS(ep->client))
 		gsi_channel_props.cleanup_cb = free_rx_pkt;
+
+	/* overwrite the cleanup_cb for page recycling */
+	if (ipa3_ctx->ipa_wan_skb_page &&
+		(IPA_CLIENT_IS_WAN_CONS(ep->client)))
+		gsi_channel_props.cleanup_cb = free_rx_page;
 
 	result = gsi_alloc_channel(&gsi_channel_props, ipa3_ctx->gsi_dev_hdl,
 		&ep->gsi_chan_hdl);
