@@ -773,6 +773,7 @@ void cvp_handle_cmd_response(enum hal_command_response cmd, void *data)
 	case HAL_SESSION_FD_CONFIG_CMD_DONE:
 	case HAL_SESSION_MODEL_BUF_CMD_DONE:
 	case HAL_SESSION_ICA_FRAME_CMD_DONE:
+	case HAL_SESSION_FD_FRAME_CMD_DONE:
 		cvp_handle_session_cmd_done(cmd, data);
 		break;
 	default:
