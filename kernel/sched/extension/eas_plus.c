@@ -384,7 +384,7 @@ int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
 
 	task_prefer = cpu_prefer(p);
 
-	if (!hinted_cpu_prefer(task_prefer))
+	if (!hinted_cpu_prefer(task_prefer) && !cpu_isolated(new_cpu))
 		return new_cpu;
 
 	for_each_perf_domain_ascending(domain) {
@@ -397,14 +397,16 @@ int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
 				domain_cnt-i-1 : i;
 		domain = tmp_domain[iter_domain];
 
-		if (cpumask_test_cpu(new_cpu, &domain->possible_cpus))
+		if (cpumask_test_cpu(new_cpu, &domain->possible_cpus)
+			&& !cpu_isolated(new_cpu))
 			return new_cpu;
 
 		for_each_cpu(iter_cpu, &domain->possible_cpus) {
 
 			/* tsk with prefer idle to find bigger idle cpu */
 			if (!cpu_online(iter_cpu) ||
-				!cpumask_test_cpu(iter_cpu, tsk_cpus_allow))
+				!cpumask_test_cpu(iter_cpu, tsk_cpus_allow) ||
+				cpu_isolated(iter_cpu))
 				continue;
 
 			/* favoring tasks that prefer idle cpus
@@ -600,6 +602,8 @@ slowest_domain_idle_prefer_pull(int this_cpu, struct task_struct **p,
 	 *     order: fast to slow perf domain
 	 */
 
+	if (cpu_isolated(this_cpu))
+		return;
 	check_min_cap = 0;
 	list_for_each(pos, &perf_order_domains) {
 		domain = list_entry(pos, struct perf_order_domain,
@@ -607,6 +611,8 @@ slowest_domain_idle_prefer_pull(int this_cpu, struct task_struct **p,
 
 		for_each_cpu(cpu, &domain->cpus) {
 			if (cpu == this_cpu)
+				continue;
+			if (cpu_isolated(cpu))
 				continue;
 
 			rq = cpu_rq(cpu);
@@ -671,6 +677,8 @@ fastest_domain_idle_prefer_pull(int this_cpu, struct task_struct **p,
 	 *
 	 *     order: target->next to slow perf domain
 	 */
+	if (cpu_isolated(this_cpu))
+		return;
 	check_min_cap = 1;
 	list_for_each(pos, &perf_domain->perf_order_domains) {
 		domain = list_entry(pos, struct perf_order_domain,
@@ -678,6 +686,8 @@ fastest_domain_idle_prefer_pull(int this_cpu, struct task_struct **p,
 
 		for_each_cpu(cpu, &domain->cpus) {
 			if (cpu == this_cpu)
+				continue;
+			if (cpu_isolated(cpu))
 				continue;
 
 			rq = cpu_rq(cpu);
@@ -722,6 +732,8 @@ fastest_domain_idle_prefer_pull(int this_cpu, struct task_struct **p,
 
 		for_each_cpu(cpu, &domain->cpus) {
 			if (cpu == this_cpu)
+				continue;
+			if (cpu_isolated(cpu))
 				continue;
 
 			rq = cpu_rq(cpu);
@@ -775,6 +787,9 @@ fastest_domain_idle_prefer_pull(int this_cpu, struct task_struct **p,
 		for_each_cpu(cpu, &domain->cpus) {
 			if (cpu == this_cpu)
 				continue;
+			if (cpu_isolated(cpu))
+				continue;
+
 #ifdef CONFIG_UCLAMP_TASK
 			rq = cpu_rq(cpu);
 			raw_spin_lock_irqsave(&rq->lock, flags);
@@ -979,3 +994,341 @@ void task_rotate_work_init(void)
 	}
 }
 #endif /* CONFIG_MTK_SCHED_BIG_TASK_MIGRATE */
+
+/**
+ *for isolation
+ */
+void init_cpu_isolated(const struct cpumask *src)
+{
+	cpumask_copy(&__cpu_isolated_mask, src);
+}
+
+DEFINE_MUTEX(sched_isolation_mutex);
+struct cpumask cpu_all_masks;
+struct cpumask available_cpus;
+enum iso_prio_t iso_prio = ISO_UNSET;
+
+/*
+ * Remove a task from the runqueue and pretend that it's migrating. This
+ * should prevent migrations for the detached task and disallow further
+ * changes to tsk_cpus_allowed.
+ */
+void
+iso_detach_one_task(struct task_struct *p, struct rq *rq,
+			struct list_head *tasks)
+{
+	lockdep_assert_held(&rq->lock);
+
+	p->on_rq = TASK_ON_RQ_MIGRATING;
+	deactivate_task(rq, p, 0);
+	list_add(&p->se.group_node, tasks);
+}
+
+void iso_attach_tasks(struct list_head *tasks, struct rq *rq)
+{
+	struct task_struct *p;
+
+	lockdep_assert_held(&rq->lock);
+
+	while (!list_empty(tasks)) {
+		p = list_first_entry(tasks, struct task_struct, se.group_node);
+		list_del_init(&p->se.group_node);
+
+		WARN_ON(task_rq(p) != rq);
+		activate_task(rq, p, 0);
+		p->on_rq = TASK_ON_RQ_QUEUED;
+	}
+}
+
+static inline bool iso_is_per_cpu_kthread(struct task_struct *p)
+{
+	if (!(p->flags & PF_KTHREAD))
+		return false;
+
+	if (p->nr_cpus_allowed != 1)
+		return false;
+
+	return true;
+}
+
+/*
+ * Per-CPU kthreads are allowed to run on !actie && online CPUs, see
+ * __set_cpus_allowed_ptr() and select_fallback_rq().
+ */
+static inline bool iso_is_cpu_allowed(struct task_struct *p, int cpu)
+{
+	if (!cpumask_test_cpu(cpu, &p->cpus_allowed))
+		return false;
+
+	if (iso_is_per_cpu_kthread(p))
+		return cpu_online(cpu);
+
+	return cpu_active(cpu);
+}
+
+int do_isolation_work_cpu_stop(void *data)
+{
+	unsigned int cpu = smp_processor_id();
+	struct rq *rq = cpu_rq(cpu);
+	struct rq_flags rf;
+
+	local_irq_disable();
+
+	sched_ttwu_pending();
+
+	rq_lock_irqsave(rq, &rf);
+
+	/*
+	 * Temporarily mark the rq as offline. This will allow us to
+	 * move tasks off the CPU.
+	 */
+	if (rq->rd) {
+		WARN_ON(!cpumask_test_cpu(cpu, rq->rd->span));
+		set_rq_offline(rq);
+	}
+
+
+	migrate_tasks(rq, &rf, false);
+
+
+	if (rq->rd)
+		set_rq_online(rq);
+
+	rq_unlock_irqrestore(rq, &rf);
+
+	/*
+	 * We might have been in tickless state. Clear NOHZ flags to avoid
+	 * us being kicked for helping out with balancing
+	 */
+	nohz_balance_clear_nohz_mask(cpu);
+
+	local_irq_enable();
+	return 0;
+}
+
+static void sched_update_group_capacities(int cpu)
+{
+	struct sched_domain *sd;
+
+	mutex_lock(&sched_domains_mutex);
+	rcu_read_lock();
+
+	for_each_domain(cpu, sd) {
+		int balance_cpu = group_balance_cpu(sd->groups);
+
+		iso_init_sched_groups_capacity(cpu, sd);
+		/*
+		 * Need to ensure this is also called with balancing
+		 * cpu.
+		 */
+		if (cpu != balance_cpu)
+			iso_init_sched_groups_capacity(balance_cpu, sd);
+	}
+
+	rcu_read_unlock();
+	mutex_unlock(&sched_domains_mutex);
+}
+
+static unsigned int cpu_isolation_vote[NR_CPUS];
+
+
+
+static inline void
+set_cpumask_isolated(unsigned int cpu, bool isolated)
+{
+	if (isolated)
+		cpumask_set_cpu(cpu, &__cpu_isolated_mask);
+	else
+		cpumask_clear_cpu(cpu, &__cpu_isolated_mask);
+}
+
+/*
+ * 1) CPU is isolated and cpu is offlined:
+ *	Unisolate the core.
+ * 2) CPU is not isolated and CPU is offlined:
+ *	No action taken.
+ * 3) CPU is offline and request to isolate
+ *	Request ignored.
+ * 4) CPU is offline and isolated:
+ *	Not a possible state.
+ * 5) CPU is online and request to isolate
+ *	Normal case: Isolate the CPU
+ * 6) CPU is not isolated and comes back online
+ *	Nothing to do
+ *
+ * Note: The client calling sched_isolate_cpu() is repsonsible for ONLY
+ * calling sched_deisolate_cpu() on a CPU that the client previously isolated.
+ * Client is also responsible for deisolating when a core goes offline
+ * (after CPU is marked offline).
+ */
+int _sched_isolate_cpu(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+	cpumask_t avail_cpus;
+	int ret_code = 0;
+	u64 start_time = 0;
+
+	if (trace_sched_isolate_enabled())
+		start_time = sched_clock();
+
+	cpu_maps_update_begin();
+
+	cpumask_andnot(&avail_cpus, cpu_online_mask, cpu_isolated_mask);
+
+	/* We cannot isolate ALL cpus in the system */
+	if (cpumask_weight(&avail_cpus) == 1) {
+		ret_code = -EINVAL;
+		goto out;
+	}
+
+	if (!cpu_online(cpu)) {
+		ret_code = -EINVAL;
+		goto out;
+	}
+
+	if (++cpu_isolation_vote[cpu] > 1)
+		goto out;
+
+	set_cpumask_isolated(cpu, true);
+	/*wait mcdi api*/
+	//mcdi_cpu_iso_mask(cpu_isolated_mask->bits[0]);
+	cpumask_clear_cpu(cpu, &avail_cpus);
+	/* Migrate timers */
+	/*wait hrtimer_quiesce_cpu api ready*/
+	//smp_call_function_any(&avail_cpus, hrtimer_quiesce_cpu, &cpu, 1);
+	//smp_call_function_any(&avail_cpus, timer_quiesce_cpu, &cpu, 1);
+
+	stop_cpus(cpumask_of(cpu), do_isolation_work_cpu_stop, 0);
+
+	iso_calc_load_migrate(rq);
+	update_max_interval();
+	sched_update_group_capacities(cpu);
+
+out:
+	cpu_maps_update_done();
+	trace_sched_isolate(cpu, cpumask_bits(cpu_isolated_mask)[0],
+			    start_time, 1);
+	printk_deferred("%s: prio=%d, cpu=%d, isolation_cpus=0x%lx\n",
+			__func__, iso_prio, cpu, cpu_isolated_mask->bits[0]);
+	return ret_code;
+}
+
+/*
+ * Note: The client calling sched_isolate_cpu() is repsonsible for ONLY
+ * calling sched_deisolate_cpu() on a CPU that the client previously isolated.
+ * Client is also responsible for deisolating when a core goes offline
+ * (after CPU is marked offline).
+ */
+int __sched_deisolate_cpu_unlocked(int cpu)
+{
+	int ret_code = 0;
+	u64 start_time = 0;
+
+	if (trace_sched_isolate_enabled())
+		start_time = sched_clock();
+
+	if (!cpu_isolation_vote[cpu]) {
+		ret_code = -EINVAL;
+		goto out;
+	}
+
+	if (--cpu_isolation_vote[cpu])
+		goto out;
+
+	set_cpumask_isolated(cpu, false);
+
+	/*wait mcdi api*/
+	//mcdi_cpu_iso_mask(cpu_isolated_mask->bits[0]);
+
+	update_max_interval();
+	sched_update_group_capacities(cpu);
+
+	if (cpu_online(cpu)) {
+		/* Kick CPU to immediately do load balancing */
+		if ((atomic_fetch_or(NOHZ_BALANCE_KICK, nohz_flags(cpu)) &
+			NOHZ_BALANCE_KICK) != NOHZ_BALANCE_KICK)
+			smp_send_reschedule(cpu);
+	}
+
+out:
+	trace_sched_isolate(cpu, cpumask_bits(cpu_isolated_mask)[0],
+			    start_time, 0);
+
+	printk_deferred("%s: prio=%d, cpu=%d, isolation_cpus=0x%lx\n",
+			__func__, iso_prio, cpu, cpu_isolated_mask->bits[0]);
+	return ret_code;
+}
+
+int _sched_deisolate_cpu(int cpu)
+{
+	int ret_code;
+
+	cpu_maps_update_begin();
+	ret_code = __sched_deisolate_cpu_unlocked(cpu);
+	cpu_maps_update_done();
+	return ret_code;
+}
+
+/*called when sched_init for get all cpu masks*/
+void iso_cpumask_init(void)
+{
+	cpumask_copy(&cpu_all_masks, cpu_possible_mask);
+	cpumask_setall(&available_cpus);
+}
+
+/* Use available_cpus to determine cpu isolated or deisolated */
+int set_cpu_isolation(enum iso_prio_t prio, struct cpumask *cpumask_ptr)
+{
+	struct cpumask iso_mask;
+	struct cpumask deiso_mask;
+	int i = 0;
+
+	if (prio > iso_prio)
+		return -1;
+
+	if (!cpumask_ptr)
+		return -1;
+
+	might_sleep();
+	mutex_lock(&sched_isolation_mutex);
+	iso_prio = prio;
+
+	/* cpumask of isolated */
+	cpumask_or(&iso_mask, cpumask_ptr, cpu_isolated_mask);
+	cpumask_complement(&iso_mask, &iso_mask);
+
+	/* cpumask of de-isolated */
+	cpumask_and(&deiso_mask, cpumask_ptr, cpu_isolated_mask);
+
+	/* set cpu isolated */
+	if (!cpumask_empty(&iso_mask)) {
+		for_each_cpu(i, &iso_mask)
+			_sched_isolate_cpu(i);
+	}
+
+	/* set cpu de-isolated */
+	if (!cpumask_empty(&deiso_mask)) {
+		for_each_cpu(i, &deiso_mask)
+			_sched_deisolate_cpu(i);
+	}
+
+	/* all possible cpu de-isolated*/
+	if (cpumask_empty(cpu_isolated_mask)) {
+		iso_prio = ISO_UNSET;
+		cpumask_setall(&available_cpus);
+	}
+	mutex_unlock(&sched_isolation_mutex);
+
+	return 0;
+}
+
+/* de-isolated all cpu */
+int unset_cpu_isolation(enum iso_prio_t prio)
+{
+	int err;
+
+	err = set_cpu_isolation(prio, &cpu_all_masks);
+
+	return err;
+}
+

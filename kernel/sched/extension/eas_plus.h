@@ -131,6 +131,42 @@ static inline bool is_max_capacity_cpu(int cpu)
 }
 #endif
 
+/**
+ *for isolation
+ */
+enum iso_prio_t {
+	ISO_CUSTOMIZE,
+	ISO_TURBO,
+	ISO_SCHED,
+	ISO_UNSET
+};
+
+extern struct cpumask cpu_all_masks;
+extern struct cpumask available_cpus;
+extern enum iso_prio_t iso_prio;
+
+#define tsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)
+
+static inline struct cpumask *sched_group_cpus(struct sched_group *sg)
+{
+	return to_cpumask(sg->cpumask);
+}
+
+static inline struct cpumask *sched_group_mask(struct sched_group *sg)
+{
+	return to_cpumask(sg->sgc->cpumask);
+}
+
+void
+iso_detach_one_task(struct task_struct *p, struct rq *rq,
+				struct list_head *tasks);
+void iso_attach_tasks(struct list_head *tasks, struct rq *rq);
+void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf,
+			bool migrate_pinned_tasks);
+void iso_init_sched_groups_capacity(int cpu, struct sched_domain *sd);
+void iso_calc_load_migrate(struct rq *rq);
+void nohz_balance_clear_nohz_mask(int cpu);
+int set_cpu_isolation(enum iso_prio_t prio, struct cpumask *cpumask_ptr);
 #endif /* CONFIG_MTK_SCHED_EXTENSION */
 
 
@@ -139,5 +175,4 @@ extern unsigned long capacity_curr_of(int cpu);
 extern int check_freq_turning_with_limit(void);
 extern int cpu_eff_tp;
 #endif
-
 #endif

@@ -223,6 +223,9 @@ static struct cpu_attr cpu_attrs[] = {
 	_CPU_ATTR(online, &__cpu_online_mask),
 	_CPU_ATTR(possible, &__cpu_possible_mask),
 	_CPU_ATTR(present, &__cpu_present_mask),
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+	_CPU_ATTR(sched_isolated, &__cpu_isolated_mask),
+#endif
 };
 
 /*
@@ -470,6 +473,9 @@ static struct attribute *cpu_root_attrs[] = {
 	&cpu_attrs[0].attr.attr,
 	&cpu_attrs[1].attr.attr,
 	&cpu_attrs[2].attr.attr,
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+	&cpu_attrs[3].attr.attr,
+#endif
 	&dev_attr_kernel_max.attr,
 	&dev_attr_offline.attr,
 	&dev_attr_isolated.attr,

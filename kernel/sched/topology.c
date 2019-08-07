@@ -1121,14 +1121,22 @@ build_sched_groups(struct sched_domain *sd, int cpu)
 static void init_sched_groups_capacity(int cpu, struct sched_domain *sd)
 {
 	struct sched_group *sg = sd->groups;
-
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+	cpumask_t avail_mask;
+#endif
 	WARN_ON(!sg);
 
 	do {
 		int cpu, max_cpu = -1;
-
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+		cpumask_andnot(&avail_mask, sched_group_span(sg),
+							cpu_isolated_mask);
+#endif
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+		sg->group_weight = cpumask_weight(&avail_mask);
+#else
 		sg->group_weight = cpumask_weight(sched_group_span(sg));
-
+#endif
 		if (!(sd->flags & SD_ASYM_PACKING))
 			goto next;
 
@@ -1149,6 +1157,13 @@ next:
 
 	update_group_capacity(sd, cpu);
 }
+
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+void iso_init_sched_groups_capacity(int cpu, struct sched_domain *sd)
+{
+	 init_sched_groups_capacity(cpu, sd);
+}
+#endif
 
 /*
  * Initializers for schedule domains
