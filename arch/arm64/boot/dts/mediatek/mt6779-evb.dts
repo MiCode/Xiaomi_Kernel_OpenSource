@@ -564,9 +564,10 @@
 /* DISPSYS GPIO standardization end */
 
 &ssusb {
-	dr_mode = "peripheral";
-	mediatek,force_vbus = <1>;
+	dr_mode = "otg";
+	mediatek,force-vbus = <1>;
 	maximum-speed = "high-speed";
+	extcon = <&mt6360_chg>;
 	status = "okay";
 };
 
