@@ -817,7 +817,7 @@ void qmi_rmnet_ps_on_notify(void *port)
 {
 	struct qmi_rmnet_ps_ind *tmp;
 
-	list_for_each_entry(tmp, &ps_list, list)
+	list_for_each_entry_rcu(tmp, &ps_list, list)
 		tmp->ps_on_handler(port);
 }
 EXPORT_SYMBOL(qmi_rmnet_ps_on_notify);
@@ -826,8 +826,9 @@ void qmi_rmnet_ps_off_notify(void *port)
 {
 	struct qmi_rmnet_ps_ind *tmp;
 
-	list_for_each_entry(tmp, &ps_list, list)
+	list_for_each_entry_rcu(tmp, &ps_list, list)
 		tmp->ps_off_handler(port);
+
 }
 EXPORT_SYMBOL(qmi_rmnet_ps_off_notify);
 
@@ -853,13 +854,12 @@ int qmi_rmnet_ps_ind_deregister(void *port,
 	if (!port || !ps_ind)
 		return -EINVAL;
 
-	list_for_each_entry(tmp, &ps_list, list) {
+	list_for_each_entry_rcu(tmp, &ps_list, list) {
 		if (tmp == ps_ind) {
 			list_del_rcu(&ps_ind->list);
 			goto done;
 		}
 	}
-
 done:
 	return 0;
 }
