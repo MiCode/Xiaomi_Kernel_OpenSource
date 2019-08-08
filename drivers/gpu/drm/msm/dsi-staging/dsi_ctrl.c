@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,6 +123,9 @@ static ssize_t debugfs_state_info_read(struct file *file,
 			dsi_ctrl->clk_info.link_clks.pixel_clk_rate,
 			dsi_ctrl->clk_info.link_clks.esc_clk_rate);
 
+	if (len > count)
+		len = count;
+
 	/* TODO: make sure that this does not exceed 4K */
 	if (copy_to_user(buff, buf, len)) {
 		kfree(buf);
@@ -161,6 +164,9 @@ static ssize_t debugfs_reg_dump_read(struct file *file,
 		len = snprintf((buf + len), (SZ_4K - len),
 			       "Core clocks are not turned on, cannot read\n");
 	}
+
+	if (len > count)
+		len = count;
 
 	/* TODO: make sure that this does not exceed 4K */
 	if (copy_to_user(buff, buf, len)) {
