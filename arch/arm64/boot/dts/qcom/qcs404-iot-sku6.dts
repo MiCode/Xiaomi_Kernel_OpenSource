@@ -14,7 +14,7 @@
 /dts-v1/;
 
 #include "qcs404.dtsi"
-#include "qcs405-audio-overlay.dtsi"
+#include "qcs404-csra1-audio-overlay.dtsi"
 #include "qcs405-circular-pca9956.dtsi"
 
 / {
