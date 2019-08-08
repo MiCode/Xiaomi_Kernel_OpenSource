@@ -3702,7 +3702,7 @@ static int cyttsp5_core_wake_device_from_easy_wakeup_(
 	rc = cyttsp5_hid_output_exit_easywake_state_(cd,
 			cd->easy_wakeup_gesture, &status);
 	if (rc || status == 0) {
-		dev_err(cd->dev, "%s: failed, rc=%d, status=%d\n",
+		dev_dbg(cd->dev, "%s: failed, rc=%d, status=%d\n",
 			__func__, rc, status);
 		return -EBUSY;
 	}
@@ -4399,7 +4399,8 @@ static int cyttsp5_core_wake_device_(struct cyttsp5_core_data *cd)
 	if (!IS_DEEP_SLEEP_CONFIGURED(cd->easy_wakeup_gesture)) {
 
 		#ifdef CY_GES_WAKEUP
-		return cyttsp5_core_wake_device_from_easy_wakeup_(cd);
+		if (!cyttsp5_core_wake_device_from_easy_wakeup_(cd))
+			return 0;
 		#endif
 	}
 
