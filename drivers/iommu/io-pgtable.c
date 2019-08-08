@@ -89,6 +89,7 @@ void free_io_pgtable_ops(struct io_pgtable_ops *ops)
 
 	iop = container_of(ops, struct io_pgtable, ops);
 	io_pgtable_tlb_flush_all(iop);
+	io_pgtable_tlb_sync(iop);
 	io_pgtable_init_table[iop->fmt]->free(iop);
 }
 
