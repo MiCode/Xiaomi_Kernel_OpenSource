@@ -1038,7 +1038,7 @@ int ipa3_qmi_rmv_offload_request_send(
 	}
 
 	/* check if the # of handles from IPACM is valid */
-	if (req->filter_handle_list_len == 0) {
+	if (!req->clean_all_rules_valid && req->filter_handle_list_len == 0) {
 		IPAWANDBG("IPACM deleted zero rules !\n");
 		return -EINVAL;
 	}
