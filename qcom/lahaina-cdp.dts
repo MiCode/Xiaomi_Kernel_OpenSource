@@ -6,5 +6,5 @@
 / {
 	model = "Qualcomm Technologies, Inc. Lahaina CDP";
 	compatible = "qcom,lahaina-cdp", "qcom,lahaina", "qcom,cdp";
-	qcom,board-id = <1 0>;
+	qcom,board-id = <0x10001 0>;
 };
