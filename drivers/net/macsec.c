@@ -15,10 +15,12 @@
 #include <linux/module.h>
 #include <crypto/aead.h>
 #include <linux/etherdevice.h>
+#include <linux/netdevice.h>
 #include <linux/rtnetlink.h>
 #include <net/genetlink.h>
 #include <net/sock.h>
 #include <net/gro_cells.h>
+#include <linux/phy.h>
 
 #include <uapi/linux/if_macsec.h>
 
@@ -316,6 +318,44 @@ static void macsec_set_shortlen(struct macsec_eth_header *h, size_t data_len)
 {
 	if (data_len < MIN_NON_SHORT_LEN)
 		h->short_length = data_len;
+}
+
+/* Checks if underlying layers implement MACsec offloading functions
+ * and returns a pointer to the MACsec ops struct if any (also updates
+ * the MACsec context device reference if provided).
+ */
+static const struct macsec_ops *macsec_get_ops(struct macsec_dev *dev,
+					       struct macsec_context *ctx)
+{
+	struct phy_device *phydev;
+
+	if (!dev || !dev->real_dev)
+		return NULL;
+
+	/* Check if the PHY device provides MACsec ops */
+	phydev = dev->real_dev->phydev;
+	if (phydev && phydev->macsec_ops) {
+		if (ctx) {
+			memset(ctx, 0, sizeof(*ctx));
+			ctx->phydev = phydev;
+			ctx->is_phy = 1;
+		}
+
+		return phydev->macsec_ops;
+	}
+
+	/* Check if the net device provides MACsec ops */
+	if (dev->real_dev->features & NETIF_F_HW_MACSEC &&
+	    dev->real_dev->macsec_ops) {
+		if (ctx) {
+			memset(ctx, 0, sizeof(*ctx));
+			ctx->netdev = dev->real_dev;
+		}
+
+		return dev->real_dev->macsec_ops;
+	}
+
+	return NULL;
 }
 
 /* validate MACsec packet according to IEEE 802.1AE-2006 9.12 */
@@ -866,8 +906,10 @@ static struct macsec_rx_sc *find_rx_sc_rtnl(struct macsec_secy *secy, sci_t sci)
 	return NULL;
 }
 
-static void handle_not_macsec(struct sk_buff *skb)
+static enum rx_handler_result handle_not_macsec(struct sk_buff *skb)
 {
+	/* Deliver to the uncontrolled port by default */
+	enum rx_handler_result ret = RX_HANDLER_PASS;
 	struct macsec_rxh_data *rxd;
 	struct macsec_dev *macsec;
 
@@ -882,7 +924,8 @@ static void handle_not_macsec(struct sk_buff *skb)
 		struct sk_buff *nskb;
 		struct pcpu_secy_stats *secy_stats = this_cpu_ptr(macsec->stats);
 
-		if (macsec->secy.validate_frames == MACSEC_VALIDATE_STRICT) {
+		if (!macsec_get_ops(macsec, NULL) &&
+		    macsec->secy.validate_frames == MACSEC_VALIDATE_STRICT) {
 			u64_stats_update_begin(&secy_stats->syncp);
 			secy_stats->stats.InPktsNoTag++;
 			u64_stats_update_end(&secy_stats->syncp);
@@ -901,9 +944,17 @@ static void handle_not_macsec(struct sk_buff *skb)
 			secy_stats->stats.InPktsUntagged++;
 			u64_stats_update_end(&secy_stats->syncp);
 		}
+
+		if (netif_running(macsec->secy.netdev) &&
+		    macsec_get_ops(macsec, NULL)) {
+			ret = RX_HANDLER_EXACT;
+			goto out;
+		}
 	}
 
+out:
 	rcu_read_unlock();
+	return ret;
 }
 
 static rx_handler_result_t macsec_handle_frame(struct sk_buff **pskb)
@@ -928,12 +979,8 @@ static rx_handler_result_t macsec_handle_frame(struct sk_buff **pskb)
 		goto drop_direct;
 
 	hdr = macsec_ethhdr(skb);
-	if (hdr->eth.h_proto != htons(ETH_P_MACSEC)) {
-		handle_not_macsec(skb);
-
-		/* and deliver to the uncontrolled port */
-		return RX_HANDLER_PASS;
-	}
+	if (hdr->eth.h_proto != htons(ETH_P_MACSEC))
+		return handle_not_macsec(skb);
 
 	skb = skb_unshare(skb, GFP_ATOMIC);
 	if (!skb) {
@@ -1439,6 +1486,40 @@ static const struct nla_policy macsec_genl_sa_policy[NUM_MACSEC_SA_ATTR] = {
 				 .len = MACSEC_MAX_KEY_LEN, },
 };
 
+/* Offloads an operation to a device driver */
+static int macsec_offload(int (* const func)(struct macsec_context *),
+			  struct macsec_context *ctx)
+{
+	int ret;
+
+	if (unlikely(!func))
+		return 0;
+
+	if (ctx->is_phy)
+		mutex_lock(&ctx->phydev->lock);
+
+	/* Phase I: prepare. The drive should fail here if there are going to be
+	 * issues in the commit phase.
+	 */
+	ctx->prepare = true;
+	ret = (*func)(ctx);
+	if (ret)
+		goto phy_unlock;
+
+	/* Phase II: commit. This step cannot fail. */
+	ctx->prepare = false;
+	ret = (*func)(ctx);
+	/* This should never happen: commit is not allowed to fail */
+	if (unlikely(ret))
+		WARN(1, "MACsec offloading commit failed (%d)\n", ret);
+
+phy_unlock:
+	if (ctx->is_phy)
+		mutex_unlock(&ctx->phydev->lock);
+
+	return ret;
+}
+
 static int parse_sa_config(struct nlattr **attrs, struct nlattr **tb_sa)
 {
 	if (!attrs[MACSEC_ATTR_SA_CONFIG])
@@ -1494,11 +1575,14 @@ static int macsec_add_rxsa(struct sk_buff *skb, struct genl_info *info)
 	struct net_device *dev;
 	struct nlattr **attrs = info->attrs;
 	struct macsec_secy *secy;
-	struct macsec_rx_sc *rx_sc;
+	struct macsec_rx_sc *rx_sc, *prev_sc;
 	struct macsec_rx_sa *rx_sa;
+	const struct macsec_ops *ops;
+	struct macsec_context ctx;
 	unsigned char assoc_num;
 	struct nlattr *tb_rxsc[MACSEC_RXSC_ATTR_MAX + 1];
 	struct nlattr *tb_sa[MACSEC_SA_ATTR_MAX + 1];
+	bool was_active;
 	int err;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
@@ -1555,11 +1639,32 @@ static int macsec_add_rxsa(struct sk_buff *skb, struct genl_info *info)
 		spin_unlock_bh(&rx_sa->lock);
 	}
 
+	was_active = rx_sa->active;
 	if (tb_sa[MACSEC_SA_ATTR_ACTIVE])
 		rx_sa->active = !!nla_get_u8(tb_sa[MACSEC_SA_ATTR_ACTIVE]);
 
-	nla_memcpy(rx_sa->key.id, tb_sa[MACSEC_SA_ATTR_KEYID], MACSEC_KEYID_LEN);
+	prev_sc = rx_sa->sc;
 	rx_sa->sc = rx_sc;
+
+	/* If h/w offloading is available, propagate to the device */
+	ops = macsec_get_ops(netdev_priv(dev), &ctx);
+	if (ops) {
+		ctx.sa.assoc_num = assoc_num;
+		ctx.sa.rx_sa = rx_sa;
+		memcpy(ctx.sa.key, nla_data(tb_sa[MACSEC_SA_ATTR_KEY]),
+		       MACSEC_KEYID_LEN);
+
+		err = macsec_offload(ops->mdo_add_rxsa, &ctx);
+		if (err) {
+			rx_sa->active = was_active;
+			rx_sa->sc = prev_sc;
+			kfree(rx_sa);
+			rtnl_unlock();
+			return err;
+		}
+	}
+
+	nla_memcpy(rx_sa->key.id, tb_sa[MACSEC_SA_ATTR_KEYID], MACSEC_KEYID_LEN);
 	rcu_assign_pointer(rx_sc->sa[assoc_num], rx_sa);
 
 	rtnl_unlock();
@@ -1587,6 +1692,10 @@ static int macsec_add_rxsc(struct sk_buff *skb, struct genl_info *info)
 	struct nlattr **attrs = info->attrs;
 	struct macsec_rx_sc *rx_sc;
 	struct nlattr *tb_rxsc[MACSEC_RXSC_ATTR_MAX + 1];
+	const struct macsec_ops *ops;
+	struct macsec_context ctx;
+	bool was_active;
+	int ret;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
 		return -EINVAL;
@@ -1612,8 +1721,21 @@ static int macsec_add_rxsc(struct sk_buff *skb, struct genl_info *info)
 		return PTR_ERR(rx_sc);
 	}
 
+	was_active = rx_sc->active;
 	if (tb_rxsc[MACSEC_RXSC_ATTR_ACTIVE])
 		rx_sc->active = !!nla_get_u8(tb_rxsc[MACSEC_RXSC_ATTR_ACTIVE]);
+
+	ops = macsec_get_ops(netdev_priv(dev), &ctx);
+	if (ops) {
+		ctx.rx_sc = rx_sc;
+
+		ret = macsec_offload(ops->mdo_add_rxsc, &ctx);
+		if (ret) {
+			rx_sc->active = was_active;
+			rtnl_unlock();
+			return ret;
+		}
+	}
 
 	rtnl_unlock();
 
@@ -1652,8 +1774,12 @@ static int macsec_add_txsa(struct sk_buff *skb, struct genl_info *info)
 	struct macsec_secy *secy;
 	struct macsec_tx_sc *tx_sc;
 	struct macsec_tx_sa *tx_sa;
+	const struct macsec_ops *ops;
+	struct macsec_context ctx;
 	unsigned char assoc_num;
 	struct nlattr *tb_sa[MACSEC_SA_ATTR_MAX + 1];
+	bool was_operational, was_active;
+	u32 prev_pn;
 	int err;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
@@ -1704,18 +1830,42 @@ static int macsec_add_txsa(struct sk_buff *skb, struct genl_info *info)
 		return err;
 	}
 
-	nla_memcpy(tx_sa->key.id, tb_sa[MACSEC_SA_ATTR_KEYID], MACSEC_KEYID_LEN);
-
 	spin_lock_bh(&tx_sa->lock);
+	prev_pn = tx_sa->next_pn;
 	tx_sa->next_pn = nla_get_u32(tb_sa[MACSEC_SA_ATTR_PN]);
 	spin_unlock_bh(&tx_sa->lock);
 
+	was_active = tx_sa->active;
 	if (tb_sa[MACSEC_SA_ATTR_ACTIVE])
 		tx_sa->active = !!nla_get_u8(tb_sa[MACSEC_SA_ATTR_ACTIVE]);
 
+	was_operational = secy->operational;
 	if (assoc_num == tx_sc->encoding_sa && tx_sa->active)
 		secy->operational = true;
 
+	/* If h/w offloading is available, propagate to the device */
+	ops = macsec_get_ops(netdev_priv(dev), &ctx);
+	if (ops) {
+		ctx.sa.assoc_num = assoc_num;
+		ctx.sa.tx_sa = tx_sa;
+		memcpy(ctx.sa.key, nla_data(tb_sa[MACSEC_SA_ATTR_KEY]),
+		       MACSEC_KEYID_LEN);
+
+		err = macsec_offload(ops->mdo_add_txsa, &ctx);
+		if (err) {
+			spin_lock_bh(&tx_sa->lock);
+			tx_sa->next_pn = prev_pn;
+			spin_unlock_bh(&tx_sa->lock);
+
+			tx_sa->active = was_active;
+			secy->operational = was_operational;
+			kfree(tx_sa);
+			rtnl_unlock();
+			return err;
+		}
+	}
+
+	nla_memcpy(tx_sa->key.id, tb_sa[MACSEC_SA_ATTR_KEYID], MACSEC_KEYID_LEN);
 	rcu_assign_pointer(tx_sc->sa[assoc_num], tx_sa);
 
 	rtnl_unlock();
@@ -1730,9 +1880,12 @@ static int macsec_del_rxsa(struct sk_buff *skb, struct genl_info *info)
 	struct macsec_secy *secy;
 	struct macsec_rx_sc *rx_sc;
 	struct macsec_rx_sa *rx_sa;
+	const struct macsec_ops *ops;
+	struct macsec_context ctx;
 	u8 assoc_num;
 	struct nlattr *tb_rxsc[MACSEC_RXSC_ATTR_MAX + 1];
 	struct nlattr *tb_sa[MACSEC_SA_ATTR_MAX + 1];
+	int ret;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
 		return -EINVAL;
@@ -1756,6 +1909,19 @@ static int macsec_del_rxsa(struct sk_buff *skb, struct genl_info *info)
 		return -EBUSY;
 	}
 
+	/* If h/w offloading is available, propagate to the device */
+	ops = macsec_get_ops(netdev_priv(dev), &ctx);
+	if (ops) {
+		ctx.sa.assoc_num = assoc_num;
+		ctx.sa.rx_sa = rx_sa;
+
+		ret = macsec_offload(ops->mdo_del_rxsa, &ctx);
+		if (ret) {
+			rtnl_unlock();
+			return ret;
+		}
+	}
+
 	RCU_INIT_POINTER(rx_sc->sa[assoc_num], NULL);
 	clear_rx_sa(rx_sa);
 
@@ -1770,8 +1936,11 @@ static int macsec_del_rxsc(struct sk_buff *skb, struct genl_info *info)
 	struct net_device *dev;
 	struct macsec_secy *secy;
 	struct macsec_rx_sc *rx_sc;
+	const struct macsec_ops *ops;
+	struct macsec_context ctx;
 	sci_t sci;
 	struct nlattr *tb_rxsc[MACSEC_RXSC_ATTR_MAX + 1];
+	int ret;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
 		return -EINVAL;
@@ -1798,6 +1967,17 @@ static int macsec_del_rxsc(struct sk_buff *skb, struct genl_info *info)
 		return -ENODEV;
 	}
 
+	/* If h/w offloading is available, propagate to the device */
+	ops = macsec_get_ops(netdev_priv(dev), &ctx);
+	if (ops) {
+		ctx.rx_sc = rx_sc;
+		ret = macsec_offload(ops->mdo_del_rxsc, &ctx);
+		if (ret) {
+			rtnl_unlock();
+			return ret;
+		}
+	}
+
 	free_rx_sc(rx_sc);
 	rtnl_unlock();
 
@@ -1811,8 +1991,11 @@ static int macsec_del_txsa(struct sk_buff *skb, struct genl_info *info)
 	struct macsec_secy *secy;
 	struct macsec_tx_sc *tx_sc;
 	struct macsec_tx_sa *tx_sa;
+	const struct macsec_ops *ops;
+	struct macsec_context ctx;
 	u8 assoc_num;
 	struct nlattr *tb_sa[MACSEC_SA_ATTR_MAX + 1];
+	int ret;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
 		return -EINVAL;
@@ -1831,6 +2014,19 @@ static int macsec_del_txsa(struct sk_buff *skb, struct genl_info *info)
 	if (tx_sa->active) {
 		rtnl_unlock();
 		return -EBUSY;
+	}
+
+	/* If h/w offloading is available, propagate to the device */
+	ops = macsec_get_ops(netdev_priv(dev), &ctx);
+	if (ops) {
+		ctx.sa.assoc_num = assoc_num;
+		ctx.sa.tx_sa = tx_sa;
+
+		ret = macsec_offload(ops->mdo_del_txsa, &ctx);
+		if (ret) {
+			rtnl_unlock();
+			return ret;
+		}
 	}
 
 	RCU_INIT_POINTER(tx_sc->sa[assoc_num], NULL);
@@ -1869,8 +2065,13 @@ static int macsec_upd_txsa(struct sk_buff *skb, struct genl_info *info)
 	struct macsec_secy *secy;
 	struct macsec_tx_sc *tx_sc;
 	struct macsec_tx_sa *tx_sa;
+	const struct macsec_ops *ops;
+	struct macsec_context ctx;
 	u8 assoc_num;
 	struct nlattr *tb_sa[MACSEC_SA_ATTR_MAX + 1];
+	bool was_operational, was_active;
+	u32 prev_pn = 0;
+	int ret = 0;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
 		return -EINVAL;
@@ -1891,19 +2092,41 @@ static int macsec_upd_txsa(struct sk_buff *skb, struct genl_info *info)
 
 	if (tb_sa[MACSEC_SA_ATTR_PN]) {
 		spin_lock_bh(&tx_sa->lock);
+		prev_pn = tx_sa->next_pn;
 		tx_sa->next_pn = nla_get_u32(tb_sa[MACSEC_SA_ATTR_PN]);
 		spin_unlock_bh(&tx_sa->lock);
 	}
 
+	was_active = tx_sa->active;
 	if (tb_sa[MACSEC_SA_ATTR_ACTIVE])
 		tx_sa->active = nla_get_u8(tb_sa[MACSEC_SA_ATTR_ACTIVE]);
 
+	was_operational = secy->operational;
 	if (assoc_num == tx_sc->encoding_sa)
 		secy->operational = tx_sa->active;
 
+	/* If h/w offloading is available, propagate to the device */
+	ops = macsec_get_ops(netdev_priv(dev), &ctx);
+	if (ops) {
+		ctx.sa.assoc_num = assoc_num;
+		ctx.sa.tx_sa = tx_sa;
+
+		ret = macsec_offload(ops->mdo_upd_txsa, &ctx);
+		if (ret) {
+			if (tb_sa[MACSEC_SA_ATTR_PN]) {
+				spin_lock_bh(&tx_sa->lock);
+				tx_sa->next_pn = prev_pn;
+				spin_unlock_bh(&tx_sa->lock);
+			}
+
+			tx_sa->active = was_active;
+			secy->operational = was_operational;
+		}
+	}
+
 	rtnl_unlock();
 
-	return 0;
+	return ret;
 }
 
 static int macsec_upd_rxsa(struct sk_buff *skb, struct genl_info *info)
@@ -1913,9 +2136,14 @@ static int macsec_upd_rxsa(struct sk_buff *skb, struct genl_info *info)
 	struct macsec_secy *secy;
 	struct macsec_rx_sc *rx_sc;
 	struct macsec_rx_sa *rx_sa;
+	const struct macsec_ops *ops;
+	struct macsec_context ctx;
 	u8 assoc_num;
 	struct nlattr *tb_rxsc[MACSEC_RXSC_ATTR_MAX + 1];
 	struct nlattr *tb_sa[MACSEC_SA_ATTR_MAX + 1];
+	bool was_active;
+	u32 prev_pn = 0;
+	int ret = 0;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
 		return -EINVAL;
@@ -1939,15 +2167,35 @@ static int macsec_upd_rxsa(struct sk_buff *skb, struct genl_info *info)
 
 	if (tb_sa[MACSEC_SA_ATTR_PN]) {
 		spin_lock_bh(&rx_sa->lock);
+		prev_pn = rx_sa->next_pn;
 		rx_sa->next_pn = nla_get_u32(tb_sa[MACSEC_SA_ATTR_PN]);
 		spin_unlock_bh(&rx_sa->lock);
 	}
 
+	was_active = rx_sa->active;
 	if (tb_sa[MACSEC_SA_ATTR_ACTIVE])
 		rx_sa->active = nla_get_u8(tb_sa[MACSEC_SA_ATTR_ACTIVE]);
 
+	/* If h/w offloading is available, propagate to the device */
+	ops = macsec_get_ops(netdev_priv(dev), &ctx);
+	if (ops) {
+		ctx.sa.assoc_num = assoc_num;
+		ctx.sa.rx_sa = rx_sa;
+
+		ret = macsec_offload(ops->mdo_upd_rxsa, &ctx);
+		if (ret) {
+			if (tb_sa[MACSEC_SA_ATTR_PN]) {
+				spin_lock_bh(&rx_sa->lock);
+				rx_sa->next_pn = prev_pn;
+				spin_unlock_bh(&rx_sa->lock);
+			}
+
+			rx_sa->active = was_active;
+		}
+	}
+
 	rtnl_unlock();
-	return 0;
+	return ret;
 }
 
 static int macsec_upd_rxsc(struct sk_buff *skb, struct genl_info *info)
@@ -1957,6 +2205,11 @@ static int macsec_upd_rxsc(struct sk_buff *skb, struct genl_info *info)
 	struct macsec_secy *secy;
 	struct macsec_rx_sc *rx_sc;
 	struct nlattr *tb_rxsc[MACSEC_RXSC_ATTR_MAX + 1];
+	const struct macsec_ops *ops;
+	struct macsec_context ctx;
+	unsigned int prev_n_rx_sc;
+	bool was_active;
+	int ret;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
 		return -EINVAL;
@@ -1974,6 +2227,8 @@ static int macsec_upd_rxsc(struct sk_buff *skb, struct genl_info *info)
 		return PTR_ERR(rx_sc);
 	}
 
+	was_active = rx_sc->active;
+	prev_n_rx_sc = secy->n_rx_sc;
 	if (tb_rxsc[MACSEC_RXSC_ATTR_ACTIVE]) {
 		bool new = !!nla_get_u8(tb_rxsc[MACSEC_RXSC_ATTR_ACTIVE]);
 
@@ -1981,6 +2236,19 @@ static int macsec_upd_rxsc(struct sk_buff *skb, struct genl_info *info)
 			secy->n_rx_sc += new ? 1 : -1;
 
 		rx_sc->active = new;
+	}
+
+	ops = macsec_get_ops(netdev_priv(dev), &ctx);
+	if (ops) {
+		ctx.rx_sc = rx_sc;
+
+		ret = macsec_offload(ops->mdo_upd_rxsc, &ctx);
+		if (ret) {
+			secy->n_rx_sc = prev_n_rx_sc;
+			rx_sc->active = was_active;
+			rtnl_unlock();
+			return 0;
+		}
 	}
 
 	rtnl_unlock();
@@ -2533,11 +2801,15 @@ static netdev_tx_t macsec_start_xmit(struct sk_buff *skb,
 {
 	struct macsec_dev *macsec = netdev_priv(dev);
 	struct macsec_secy *secy = &macsec->secy;
+	struct macsec_tx_sc *tx_sc = &secy->tx_sc;
 	struct pcpu_secy_stats *secy_stats;
+	struct macsec_tx_sa *tx_sa;
 	int ret, len;
 
+	tx_sa = macsec_txsa_get(tx_sc->sa[tx_sc->encoding_sa]);
+
 	/* 10.5 */
-	if (!secy->protect_frames) {
+	if (!secy->protect_frames || macsec_get_ops(netdev_priv(dev), NULL)) {
 		secy_stats = this_cpu_ptr(macsec->stats);
 		u64_stats_update_begin(&secy_stats->syncp);
 		secy_stats->stats.OutPktsUntagged++;
@@ -2632,6 +2904,8 @@ static int macsec_dev_open(struct net_device *dev)
 {
 	struct macsec_dev *macsec = macsec_priv(dev);
 	struct net_device *real_dev = macsec->real_dev;
+	const struct macsec_ops *ops;
+	struct macsec_context ctx;
 	int err;
 
 	if (!(real_dev->flags & IFF_UP))
@@ -2653,6 +2927,14 @@ static int macsec_dev_open(struct net_device *dev)
 			goto clear_allmulti;
 	}
 
+	/* If h/w offloading is available, propagate to the device */
+	ops = macsec_get_ops(netdev_priv(dev), &ctx);
+	if (ops) {
+		err = macsec_offload(ops->mdo_dev_open, &ctx);
+		if (err)
+			goto clear_allmulti;
+	}
+
 	if (netif_carrier_ok(real_dev))
 		netif_carrier_on(dev);
 
@@ -2670,8 +2952,15 @@ static int macsec_dev_stop(struct net_device *dev)
 {
 	struct macsec_dev *macsec = macsec_priv(dev);
 	struct net_device *real_dev = macsec->real_dev;
+	const struct macsec_ops *ops;
+	struct macsec_context ctx;
 
 	netif_carrier_off(dev);
+
+	/* If h/w offloading is available, propagate to the device */
+	ops = macsec_get_ops(netdev_priv(dev), &ctx);
+	if (ops)
+		macsec_offload(ops->mdo_dev_stop, &ctx);
 
 	dev_mc_unsync(real_dev, dev);
 	dev_uc_unsync(real_dev, dev);
@@ -2898,6 +3187,10 @@ static int macsec_changelink(struct net_device *dev, struct nlattr *tb[],
 			     struct nlattr *data[],
 			     struct netlink_ext_ack *extack)
 {
+	struct macsec_dev *macsec = macsec_priv(dev);
+	struct macsec_context ctx;
+	const struct macsec_ops *ops;
+
 	if (!data)
 		return 0;
 
@@ -2906,6 +3199,13 @@ static int macsec_changelink(struct net_device *dev, struct nlattr *tb[],
 	    data[IFLA_MACSEC_SCI] ||
 	    data[IFLA_MACSEC_PORT])
 		return -EINVAL;
+
+	/* If h/w offloading is available, propagate to the device */
+	ops = macsec_get_ops(netdev_priv(dev), &ctx);
+	if (ops) {
+		ctx.secy = &macsec->secy;
+		return macsec_offload(ops->mdo_upd_secy, &ctx);
+	}
 
 	macsec_changelink_common(dev, data);
 
@@ -2951,6 +3251,15 @@ static void macsec_dellink(struct net_device *dev, struct list_head *head)
 	struct macsec_dev *macsec = macsec_priv(dev);
 	struct net_device *real_dev = macsec->real_dev;
 	struct macsec_rxh_data *rxd = macsec_data_rtnl(real_dev);
+	struct macsec_context ctx;
+	const struct macsec_ops *ops;
+
+	/* If h/w offloading is available, propagate to the device */
+	ops = macsec_get_ops(netdev_priv(dev), &ctx);
+	if (ops) {
+		ctx.secy = &macsec->secy;
+		macsec_offload(ops->mdo_del_secy, &ctx);
+	}
 
 	macsec_common_dellink(dev, head);
 
@@ -3047,7 +3356,10 @@ static int macsec_newlink(struct net *net, struct net_device *dev,
 			  struct netlink_ext_ack *extack)
 {
 	struct macsec_dev *macsec = macsec_priv(dev);
-	struct net_device *real_dev;
+	struct net_device *real_dev, *loop_dev;
+	struct macsec_context ctx;
+	const struct macsec_ops *ops;
+	struct net *loop_net;
 	int err;
 	sci_t sci;
 	u8 icv_len = DEFAULT_ICV_LEN;
@@ -3058,6 +3370,25 @@ static int macsec_newlink(struct net *net, struct net_device *dev,
 	real_dev = __dev_get_by_index(net, nla_get_u32(tb[IFLA_LINK]));
 	if (!real_dev)
 		return -ENODEV;
+
+	for_each_net(loop_net) {
+		for_each_netdev(loop_net, loop_dev) {
+			struct macsec_dev *priv;
+
+			if (!netif_is_macsec(loop_dev))
+				continue;
+
+			priv = macsec_priv(loop_dev);
+
+			/* A limitation of the MACsec h/w offloading is only a
+			 * single MACsec interface can be created for a given
+			 * real interface.
+			 */
+			if (macsec_get_ops(netdev_priv(dev), NULL) &&
+			    priv->real_dev == real_dev)
+				return -EBUSY;
+		}
+	}
 
 	dev->priv_flags |= IFF_MACSEC;
 
@@ -3108,6 +3439,15 @@ static int macsec_newlink(struct net *net, struct net_device *dev,
 
 	if (data)
 		macsec_changelink_common(dev, data);
+
+	/* If h/w offloading is available, propagate to the device */
+	ops = macsec_get_ops(netdev_priv(dev), &ctx);
+	if (ops) {
+		ctx.secy = &macsec->secy;
+		err = macsec_offload(ops->mdo_add_secy, &ctx);
+		if (err)
+			goto del_dev;
+	}
 
 	err = register_macsec_dev(real_dev, dev);
 	if (err < 0)
