@@ -120,6 +120,7 @@
 					<0x4 0xc3 0 IRQ_TYPE_NONE>,
 					<0x4 0xc4 0 IRQ_TYPE_NONE>,
 					<0x4 0xc5 0 IRQ_TYPE_NONE>,
+					<0x4 0xc6 0 IRQ_TYPE_NONE>,
 					<0x4 0xc7 0 IRQ_TYPE_NONE>,
 					<0x4 0xc8 0 IRQ_TYPE_NONE>,
 					<0x4 0xc9 0 IRQ_TYPE_NONE>,
@@ -128,12 +129,11 @@
 			interrupt-names = "pm6150l_gpio1", "pm6150l_gpio2",
 					"pm6150l_gpio3", "pm6150l_gpio4",
 					"pm6150l_gpio5", "pm6150l_gpio6",
-					"pm6150l_gpio8", "pm6150l_gpio9",
-					"pm6150l_gpio10", "pm6150l_gpio11",
-					"pm6150l_gpio12";
+					"pm6150l_gpio7", "pm6150l_gpio8",
+					"pm6150l_gpio9", "pm6150l_gpio10",
+					"pm6150l_gpio11", "pm6150l_gpio12";
 			gpio-controller;
 			#gpio-cells = <2>;
-			qcom,gpios-disallowed = <7>;
 		};
 	};
 
