@@ -10,17 +10,18 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-/plugin/;
+#ifndef __BOLERO_CODEC_CLK_RSC_H
+#define __BOLERO_CODEC_CLK_RSC_H
 
-#include <dt-bindings/interrupt-controller/arm-gic.h>
+/* Bolero clock types */
+#define TX_CORE_CLK	0
+#define RX_CORE_CLK	1
+#define WSA_CORE_CLK	2
+#define VA_CORE_CLK	3
+#define TX_NPL_CLK	4
+#define RX_NPL_CLK	5
+#define WSA_NPL_CLK	6
+#define VA_NPL_CLK	7
+#define MAX_CLK	8
 
-#include "atoll-idp.dtsi"
-#include "atoll-audio-overlay.dtsi"
-
-/ {
-	model = "IDP";
-	compatible = "qcom,atoll-idp", "qcom,atoll", "qcom,idp";
-	qcom,msm-id = <407 0x0>;
-	qcom,board-id = <34 0>;
-};
+#endif /* __BOLERO_CODEC_CLK_RSC_H */
