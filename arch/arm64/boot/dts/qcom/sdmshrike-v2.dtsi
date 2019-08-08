@@ -391,3 +391,24 @@
 		< 2649600 MHZ_TO_MBPS( 933, 16) >,
 		< 3000000 MHZ_TO_MBPS(1000, 16) >;
 };
+
+&msm_vidc {
+	qcom,allowed-clock-rates = <240000000 338000000
+				365000000 444000000 533000000>;
+
+	non_secure_cb {
+		iommus = <&apps_smmu 0x2300 0x60>;
+	};
+
+	secure_bitstream_cb {
+		iommus = <&apps_smmu 0x2301 0x4>;
+	};
+
+	secure_pixel_cb {
+		iommus = <&apps_smmu 0x2303 0x20>;
+	};
+
+	secure_non_pixel_cb {
+		iommus = <&apps_smmu 0x2304 0x60>;
+	};
+};
