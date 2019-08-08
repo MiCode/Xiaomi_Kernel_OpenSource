@@ -16,7 +16,7 @@
 #include <dt-bindings/clock/qcom,cpucc-sm8150.h>
 #include <dt-bindings/clock/qcom,dispcc-atoll.h>
 #include <dt-bindings/clock/qcom,gcc-atoll.h>
-#include <dt-bindings/clock/qcom,gpucc-atoll.h>
+#include <dt-bindings/clock/qcom,gpucc-sdmmagpie.h>
 #include <dt-bindings/clock/qcom,npucc-atoll.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,videocc-atoll.h>
@@ -1563,56 +1563,88 @@
 		};
 	};
 
+	clocks {
+		sleep_clk: sleep-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <32000>;
+			clock-output-names = "chip_sleep_clk";
+			#clock-cells = <1>;
+		};
+	};
+
 	clock_rpmh: qcom,rpmh {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpm_clocks";
+		compatible = "qcom,rpmh-clk-atoll";
+		mboxes = <&apps_rsc 0>;
+		mbox-names = "apps";
 		#clock-cells = <1>;
 	};
 
 	clock_aop: qcom,aopclk {
-		compatible = "qcom,dummycc";
-		clock-output-names = "aop_clocks";
+		compatible = "qcom,aop-qmp-clk";
 		#clock-cells = <1>;
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "qdss_clk";
 	};
 
-	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
-		#clock-cells = <1>;
-		#reset-cells = <1>;
-	};
-
-	clock_camcc: qcom,camcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "camcc_clocks";
+	clock_gcc: qcom,gcc@100000 {
+		compatible = "qcom,atoll-gcc", "syscon";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_cx_ao-supply = <&VDD_CX_LEVEL_AO>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
-	clock_dispcc: qcom,dispcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "dispcc_clocks";
+	clock_camcc: qcom,camcc@ad00000 {
+		compatible = "qcom,atoll-camcc", "syscon";
+		reg = <0xad00000 0x10000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
-	clock_gpucc: qcom,gpucc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gpucc_clocks";
+	clock_dispcc: qcom,dispcc@af00000 {
+		compatible = "qcom,atoll-dispcc", "syscon";
+		reg = <0xaf00000 0x20000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
-	clock_npucc: qcom,npucc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "npucc_clocks";
+	clock_gpucc: qcom,gpucc@5090000 {
+		compatible = "qcom,atoll-gpucc", "syscon";
+		reg = <0x5090000 0x9000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
+		vdd_gfx-supply = <&VDD_GFX_LEVEL>;
+		qcom,gpu_cc_gx_gfx3d_clk_src-opp-handle = <&msm_gpu>;
+		qcom,gpu_cc_gmu_clk_src-opp-handle = <&gmu>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
-	clock_videocc: qcom,videocc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "videocc_clocks";
+	clock_npucc: qcom,npucc@9980000 {
+		compatible = "qcom,atoll-npucc", "syscon";
+		reg = <0x9980000 0x10000>,
+			<0x9800000 0x10000>,
+			<0x9810000 0x10000>;
+		reg-names = "cc", "qdsp6ss", "qdsp6ss_pll";
+		npu_gdsc-supply = <&npu_core_gdsc>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_videocc: qcom,videocc@ab00000 {
+		compatible = "qcom,atoll-videocc", "syscon";
+		reg = <0xab00000 0x10000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1626,6 +1658,32 @@
 			"osm_perfcl_base";
 		#clock-cells = <1>;
 		status = "disabled";
+	};
+
+	cpucc_debug: syscon@182a0018 {
+		compatible = "syscon";
+		reg = <0x182a0018 0x4>;
+	};
+
+	mccc_debug: syscon@90b0000 {
+		compatible = "syscon";
+		reg = <0x090b0000 0x100>;
+	};
+
+	clock_debug: qcom,cc-debug {
+		compatible = "qcom,atoll-debugcc";
+		qcom,cc-count = <8>;
+		qcom,gcc = <&clock_gcc>;
+		qcom,gpucc = <&clock_gpucc>;
+		qcom,camcc = <&clock_camcc>;
+		qcom,videocc = <&clock_videocc>;
+		qcom,dispcc = <&clock_dispcc>;
+		qcom,npucc = <&clock_npucc>;
+		qcom,cpucc = <&cpucc_debug>;
+		qcom,mccc = <&mccc_debug>;
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo_clk_src";
+		#clock-cells = <1>;
 	};
 
 	tcsr_mutex_block: syscon@01F40000 {
