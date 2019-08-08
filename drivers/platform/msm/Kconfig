@@ -1,0 +1,193 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menu "Qualcomm technologies inc. MSM specific device drivers"
+	depends on ARCH_QCOM
+
+config GSI
+	bool "GSI support"
+	help
+	  This driver provides the transport needed to talk to the
+	  IPA core. It replaces the BAM transport used previously.
+
+	  The GSI connects to a peripheral component via uniform TLV
+	  interface, and allows it to interface with other peripherals
+	  and CPUs over various types of interfaces such as MHI, xDCI,
+	  xHCI, GPI, WDI, Ethernet, etc.
+
+config GSI_REGISTER_VERSION_2
+	bool "GSI core Version 2 Registers SWI Support"
+	depends on GSI
+	help
+	  GSI core registers Software interface version 2 has updated
+	  registers interface to communicate with GSI. This includes
+	  new registers offsets, new registers fields structure and
+	  new registers.
+
+config IPA3
+	tristate "IPA3 support"
+	select GSI
+	depends on NET
+	help
+	  This driver supports the Internet Packet Accelerator (IPA3) core.
+	  IPA is a programmable protocol processor HW block.
+	  It is designed to support generic HW processing of UL/DL IP packets
+	  for various use cases independent of radio technology.
+	  The driver support client connection and configuration
+	  for the IPA core.
+	  Kernel and user-space processes can call the IPA driver
+	  to configure IPA core.
+
+config IPA_DEBUG
+	bool "IPA DEBUG for non-perf build"
+	depends on IPA3
+	help
+	  This driver support more debug info for non-perf build.
+	  If you use the non-perf build and want to have more debug
+	  info enabled, then this flag can be enabled.
+	  It is not suggested to enable this flag for perf build.
+
+config IPA_WDI_UNIFIED_API
+	bool "IPA WDI unified API support"
+	depends on IPA3
+	help
+	  This driver supports IPA WDI unified API.
+	  WDI is the interface between IPA micro controller and WLAN chipset.
+	  It is designed to support IPA HW accelerating path for WLAN use case.
+	  The IPA WDI unified API supports all WDI versions through a unified
+	  interface.
+
+config RMNET_IPA3
+	tristate "IPA3 RMNET WWAN Network Device"
+	depends on IPA3
+	select QCOM_QMI_HELPERS
+	help
+	  This WWAN Network Driver implements network stack class device.
+	  It supports Embedded data transfer from A7 to Q6. Configures IPA HW
+	  for RmNet Data Driver and also exchange of QMI messages between
+	  A7 and Q6 IPA-driver.
+
+config ECM_IPA
+	tristate "STD ECM LAN Driver support"
+	depends on IPA3
+	help
+	  Enables LAN between applications processor and a tethered
+	  host using the STD ECM protocol.
+	  This Network interface is aimed to allow data path go through
+	  IPA core while using STD ECM protocol.
+
+config RNDIS_IPA
+	tristate "RNDIS_IPA Network Interface Driver support"
+	depends on IPA3
+	help
+	  Enables LAN between applications processor and a tethered
+	  host using the RNDIS protocol.
+	  This Network interface is aimed to allow data path go through
+	  IPA core while using RNDIS protocol.
+
+config IPA3_MHI_PROXY
+	tristate "IPA3 MHI proxy driver"
+	depends on RMNET_IPA3
+	help
+	  This driver is used as a proxy between modem and MHI host driver.
+	  Its main functionality is to setup MHI Satellite channels on behalf of
+	  modem and provide the ability of modem to MHI device communication.
+	  Once the configuration is done modem will communicate directly with
+	  the MHI device without AP involvement, with the exception of
+	  power management.
+
+config IPA3_MHI_PRIME_MANAGER
+	tristate "IPA3_MHI Prime Manager driver"
+	depends on IPA3
+	help
+	  This driver functionality is to setup MHI Prime channels between Host and
+	  modem and enable the ability for MHI Prime communication.
+	  Once the configuration is done modem will communicate directly with
+	  the Host without AP involvement for tethering data offload.
+
+config IPA_UT
+	tristate "IPA Unit-Test Framework and Test Suites"
+	depends on IPA3 && DEBUG_FS
+	help
+	  This Module implements IPA in-kernel test framework.
+	  The framework supports defining and running tests, grouped
+	  into suites according to the sub-unit of the IPA being tested.
+	  The user interface to run and control the tests is debugfs file
+	  system.
+
+config MSM_11AD
+	tristate "Platform driver for 11ad chip"
+	depends on PCI
+	depends on PCI_MSM
+	default n
+	help
+	  This module adds required platform support for wireless adapter based on
+	  Qualcomm Technologies, Inc. 11ad chip, integrated into MSM platform
+
+	  If you choose to build it as a module, it will be called
+	  msm_11ad_proxy.
+
+config IPA_EMULATION
+	bool "IPA on X86 Linux (IPA emulation support)"
+	depends on X86 && IPA3
+	help
+	  This options is used only when building the X86 version of
+	  the IPA/GSI driver. On this mode, IPA driver will be probed
+	  as PCIE device (and not platform device) where IPA emulation
+	  shall be connected via PCIE to X86 machine.
+
+config USB_BAM
+	bool "USB BAM Driver"
+	depends on SPS && USB_GADGET
+	help
+	  Enabling this option adds USB BAM Driver.
+	  USB BAM driver was added to supports Smart Peripheral Subsystem
+	  Peripheral-to-Peripheral transfers between the USB and other
+	  peripheral.
+
+config QCOM_GENI_SE
+	tristate "QCOM GENI Serial Engine Driver"
+	help
+	  This module is used to interact with GENI based Serial Engines on
+	  Qualcomm Technologies, Inc. Universal Peripheral(QUPv3). This
+	  module is used to configure and read the configuration from the
+	  Serial Engines.
+
+config IPA3_REGDUMP
+	bool "Dump or collect IPA/GSI register values on Linux crash"
+	depends on IPA3
+	help
+	  This option is to be used when the saving of IPA register state is
+	  desired upon a fatal system exception. When an exception occurs,
+	  an IPA register collection algorithm will be run in the context of
+	  the exception handler.  A predefined set of registers will be read
+	  and their values will be placed into a static hierarchical data
+	  structure that can be perused post crash.
+
+choice
+	prompt "Platform whose registers are to be dumped/collected"
+	depends on IPA3_REGDUMP
+	help
+	  The choices within represent the possible platforms this build is
+	  intended for. The choices are mutually exclusive.  By selecting
+	  one, you effect the inclusion path used, such that the relevant
+	  register definitions will be found.  Each platform has unique
+	  register definitions.
+
+config IPA3_REGDUMP_IPA_4_5
+	bool "The 4.5 IPA"
+	depends on IPA3_REGDUMP
+	depends on ARCH_KONA
+	help
+	  Set this to enable the 4.5 IPA's registers to be dumped/collected.
+
+endchoice
+
+config IPA3_REGDUMP_NUM_EXTRA_ENDP_REGS
+	int "The number of extra endp registers for remaining pipes"
+	depends on IPA3_REGDUMP
+	default 0
+	help
+	  If the platform has extra endpoint registers for remaining
+	  pipes, please express how many here.
+
+endmenu
