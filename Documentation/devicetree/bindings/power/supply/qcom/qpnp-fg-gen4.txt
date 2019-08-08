@@ -342,7 +342,8 @@ First Level Node - FG Gen4 device
 		    qcom,ki-coeff-soc-dischg. Array limit is set to 3. This
 		    property should be specified if qcom,ki-coeff-soc-dischg
 		    is specified to make it fully functional. Value has no
-		    unit. Allowed range is 62 to 15564 in micro units.
+		    unit. Allowed range is 0 to 15564 in micro units. If this
+		    is not specified, the default value used will be 122.
 
 - qcom,ki-coeff-med-dischg
 	Usage:      optional
@@ -353,7 +354,8 @@ First Level Node - FG Gen4 device
 		    qcom,ki-coeff-soc-dischg. Array limit is set to 3. This
 		    property should be specified if qcom,ki-coeff-soc-dischg
 		    is specified to make it fully functional. Value has no
-		    unit. Allowed range is 62 to 15564 in micro units.
+		    unit. Allowed range is 0 to 15564 in micro units. If this
+		    is not specified, the default value used will be 62.
 
 - qcom,ki-coeff-hi-dischg
 	Usage:      optional
@@ -364,28 +366,71 @@ First Level Node - FG Gen4 device
 		    qcom,ki-coeff-soc-dischg. Array limit is set to 3. This
 		    property should be specified if qcom,ki-coeff-soc-dischg
 		    is specified to make it fully functional. Value has no
-		    unit. Allowed range is 62 to 15564 in micro units.
+		    unit. Allowed range is 0 to 15564 in micro units. If this
+		    is not specified, the default value used will be 0.
+
+- qcom,ki-coeff-dischg-low-med-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold value of discharging current that decides which ki
+		    coefficient will be applied: qcom,ki-coeff-low-dischg if the
+		    threshold is not breached, and qcom,ki-coeff-med-dischg
+		    otherwise. Allowed range is 0 to 3984 milliamperes. If this
+		    is not specified, the default value used will be 50 (50 mA).
+
+- qcom,ki-coeff-dischg-med-hi-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold value of discharging current that decides which ki
+		    coefficient will be applied: qcom,ki-coeff-med-dischg if the
+		    threshold is not breached, and qcom,ki-coeff-hi-dischg
+		    otherwise. Allowed range is 0 to 3984 milliamperes. If this
+		    is not specified, the default value used will be 100
+		    (100 mA).
 
 - qcom,ki-coeff-low-chg
 	Usage:      optional
 	Value type: <u32>
 	Definition: ki coefficient value for low charge current during
-		    charging. Value has no unit. Allowed range is 62 to 15564
-		    in micro units.
+		    charging. Value has no unit. Allowed range is 0 to 15564
+		    in micro units. If this is not specified, the default value
+		    used will be 183.
 
 - qcom,ki-coeff-med-chg
 	Usage:      optional
 	Value type: <u32>
 	Definition: ki coefficient value for medium charge current during
-		    charging. Value has no unit. Allowed range is 62 to 15564
-		    in micro units.
+		    charging. Value has no unit. Allowed range is 0 to 15564
+		    in micro units. If this is not specified, the default value
+		    used will be 62.
 
 - qcom,ki-coeff-hi-chg
 	Usage:      optional
 	Value type: <u32>
 	Definition: ki coefficient value for high charge current during
-		    charging. Value has no unit. Allowed range is 62 to 15564
-		    in micro units.
+		    charging. Value has no unit. Allowed range is 0 to 15564
+		    in micro units. If this is not specified, the default value
+		    used will be 0.
+
+- qcom,ki-coeff-chg-low-med-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold value of charging current that decides which ki
+		    coefficient will be applied: qcom,ki-coeff-low-chg if the
+		    threshold is not breached, and qcom,ki-coeff-med-chg
+		    otherwise. Allowed range is 0 to 3984 milliamperes. If this
+		    is not specified, the default value used will be 1000
+		    (1000 mA).
+
+- qcom,ki-coeff-chg-med-hi-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold value of charging current that decides which ki
+		    coefficient will be applied: qcom,ki-coeff-med-chg if the
+		    threshold is not breached, and qcom,ki-coeff-hi-chg
+		    otherwise. Allowed range is 0 to 3984 milliamperes. If this
+		    is not specified, the default value used will be 1500
+		    (1500 mA).
 
 - qcom,ki-coeff-cutoff
 	Usage:      optional
