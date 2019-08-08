@@ -794,6 +794,124 @@ int cap_learning_init(struct cap_learning *cl)
 	return 0;
 }
 
+/* SOH based profile loading */
+
+/**
+ * soh_get_batt_age_level -
+ * @sp: SOH profile object
+ * @soh: SOH level
+ * @batt_age_level: Battery age level if exists for the SOH passed
+ *
+ */
+static int soh_get_batt_age_level(struct soh_profile *sp, int soh,
+				int *batt_age_level)
+{
+	struct soh_range *range = sp->soh_data;
+	int i;
+
+	for (i = 0; i < sp->profile_count; i++) {
+		if (is_between(range[i].soh_min, range[i].soh_max, soh)) {
+			*batt_age_level = range[i].batt_age_level;
+			return 0;
+		}
+	}
+
+	return -ENOENT;
+}
+
+/**
+ * soh_profile_update -
+ * @sp: SOH profile object
+ * @new_soh: SOH level that is updated and notified to FG/QG driver
+ *
+ * FG/QG have to call this whenever SOH is notified by the userspace.
+ *
+ */
+int soh_profile_update(struct soh_profile *sp, int new_soh)
+{
+	union power_supply_propval pval = {0, };
+	int rc, batt_age_level = 0;
+
+	if (!sp->bms_psy)
+		return -ENODEV;
+
+	if (new_soh <= 0)
+		return 0;
+
+	if (new_soh != sp->last_soh)
+		pr_debug("SOH changed from %d to %d\n", sp->last_soh, new_soh);
+
+	if (sp->last_soh <= 0) {
+		sp->last_soh = new_soh;
+		pr_debug("SOH initialized to %d\n", sp->last_soh);
+	}
+
+	rc = soh_get_batt_age_level(sp, new_soh, &batt_age_level);
+	if (rc < 0)
+		return rc;
+
+	if (batt_age_level != sp->last_batt_age_level) {
+		pval.intval = batt_age_level;
+		rc = power_supply_set_property(sp->bms_psy,
+			POWER_SUPPLY_PROP_BATT_AGE_LEVEL, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't set batt_age_level rc=%d\n", rc);
+			return rc;
+		}
+
+		sp->last_batt_age_level = batt_age_level;
+		pr_info("Batt_age_level set to %d for SOH %d\n",
+			batt_age_level, new_soh);
+	}
+
+	return 0;
+}
+
+/**
+ * soh_profile_init -
+ * @dev: Device node of FG/QG
+ * @sp: SOH profile object
+ *
+ * FG/QG have to call this after parsing battery profile node and multiple
+ * profile load feature is enabled. SOH profile object should have atleast
+ * the power supply of FG/QG and battery profile node. SOH specific range
+ * data is allocated by this function.
+ *
+ */
+int soh_profile_init(struct device *dev, struct soh_profile *sp)
+{
+	int rc, profile_count = 0;
+
+	if (!dev || !sp || !sp->bp_node || !sp->bms_psy)
+		return -ENODEV;
+
+	rc = of_batterydata_get_aged_profile_count(sp->bp_node,
+				sp->batt_id_kohms, &profile_count);
+	if (rc < 0) {
+		pr_err("Couldn't get profile count rc=%d\n", rc);
+		return rc;
+	}
+
+	sp->soh_data = devm_kcalloc(dev, profile_count, sizeof(*sp->soh_data),
+				GFP_KERNEL);
+	if (!sp->soh_data)
+		return -ENOMEM;
+
+	rc = of_batterydata_read_soh_aged_profiles(sp->bp_node,
+				sp->batt_id_kohms, sp->soh_data);
+	if (rc < 0) {
+		pr_err("Couldn't read SOH data for profile loading, rc=%d\n",
+			rc);
+		devm_kfree(dev, sp->soh_data);
+		return rc;
+	}
+
+	sp->profile_count = profile_count;
+	sp->last_soh = -EINVAL;
+	sp->initialized = true;
+	return 0;
+}
+
 /* Time to full/empty algorithm  helper functions */
 
 static void ttf_circ_buf_add(struct ttf_circ_buf *buf, int val)
