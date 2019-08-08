@@ -5713,33 +5713,6 @@ sub process {
 			      $herecurr);
 		}
 
-# dsb is too ARMish, and should usually be mb.
-		if ($line =~ /\bdsb\b/) {
-			WARN("ARM_BARRIER",
-			     "Use of dsb is discouranged: prefer mb.\n" .
-			     $herecurr);
-		}
-
-# unbounded string functions are overflow risks
-		my %str_fns = (
-			"sprintf" => "snprintf",
-			"strcpy"  => "strlcpy",
-			"strncpy"  => "strlcpy",
-			"strcat"  => "strlcat",
-			"strncat"  => "strlcat",
-			"vsprintf"  => "vsnprintf",
-			"strchr" => "strnchr",
-			"strstr" => "strnstr",
-		);
-		foreach my $k (keys %str_fns) {
-			if ($line =~ /\b$k\b/) {
-				ERROR("UNBOUNDED_STRING_FNS",
-				      "Use of $k is deprecated: " .
-				      "use $str_fns{$k} instead.\n" .
-				      $herecurr);
-			}
-		}
-
 # warn about #if 0
 		if ($line =~ /^.\s*\#\s*if\s+0\b/) {
 			WARN("IF_0",
