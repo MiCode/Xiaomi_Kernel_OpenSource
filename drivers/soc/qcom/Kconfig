@@ -558,4 +558,13 @@ config QTEE_SHM_BRIDGE
 	  memory sub-allocation and free from the default kernel bridge
 	  created by bridge driver.
 
+config QCOM_WATCHDOG
+	tristate "Qualcomm Watchdog Support"
+	depends on ARCH_QCOM
+	help
+          This enables the watchdog module. It causes kernel panic if the
+          watchdog times out. It allows for detection of cpu hangs and
+          deadlocks. It does not run during the bootup process, so it will
+          not catch any early lockups.
+
 endmenu
