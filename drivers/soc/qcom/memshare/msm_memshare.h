@@ -38,6 +38,8 @@ struct mem_blocks {
 	uint32_t guard_band;
 	/* Size required for client */
 	uint32_t size;
+	/* Available memory size for client */
+	uint32_t init_size;
 	/*
 	 * start address of the memory block reserved by server memory
 	 * subsystem to client
