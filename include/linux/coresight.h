@@ -127,6 +127,7 @@ struct coresight_desc {
  * struct coresight_connection - representation of a single connection
  * @outport:	a connection's output port number.
  * @child_port:	remote component's port number @output is connected to.
+ * @source_name:source component's name.
  * @chid_fwnode: remote component's fwnode handle.
  * @child_dev:	a @coresight_device representation of the component
 		connected to @outport.
@@ -134,6 +135,9 @@ struct coresight_desc {
 struct coresight_connection {
 	int outport;
 	int child_port;
+#ifdef CONFIG_CORESIGHT_QGKI
+	const char *source_name;
+#endif
 	struct fwnode_handle *child_fwnode;
 	struct coresight_device *child_dev;
 };
