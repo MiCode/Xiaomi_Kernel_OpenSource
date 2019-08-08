@@ -310,6 +310,7 @@
 		reg = <0x1800000 0x80000>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&pms405_s1_level>;
+		vdd_sr_pll-supply = <&pms405_l3>;
 		clocks = <&clock_rpmcc RPM_SMD_XO_CLK_SRC>;
 		qcom,gcc_oxili_gfx3d_clk-opp-handle = <&msm_gpu>;
 		clock-names = "cxo";
