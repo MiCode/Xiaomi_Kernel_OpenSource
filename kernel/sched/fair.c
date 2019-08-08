@@ -3937,6 +3937,7 @@ struct find_best_target_env {
 	bool is_rtg;
 	int placement_boost;
 	bool need_idle;
+	bool boosted;
 	int fastpath;
 	int start_cpu;
 };
@@ -6872,7 +6873,7 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	unsigned long best_active_cuml_util = ULONG_MAX;
 	unsigned long best_idle_cuml_util = ULONG_MAX;
 	bool prefer_idle = schedtune_prefer_idle(p);
-	bool boosted = schedtune_task_boost(p) > 0 || per_task_boost(p) > 0;
+	bool boosted = fbt_env->boosted;
 	/* Initialise with deepest possible cstate (INT_MAX) */
 	int shallowest_idle_cstate = INT_MAX;
 	struct sched_domain *start_sd;
@@ -7650,6 +7651,7 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 		fbt_env.placement_boost = placement_boost;
 		fbt_env.need_idle = need_idle;
 		fbt_env.start_cpu = start_cpu;
+		fbt_env.boosted = boosted;
 
 		find_best_target(NULL, candidates, p, &fbt_env);
 	} else {
