@@ -1672,43 +1672,26 @@ static int gmu_start(struct kgsl_device *device)
 		break;
 
 	case KGSL_STATE_RESET:
-		if (test_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv) ||
-			test_bit(GMU_FAULT, &device->gmu_core.flags)) {
-			gmu_suspend(device);
+		gmu_suspend(device);
 
-			gmu_aop_send_acd_state(device);
+		gmu_aop_send_acd_state(device);
 
-			gmu_enable_gdsc(gmu);
-			gmu_enable_clks(device);
-			gmu_dev_ops->irq_enable(device);
+		gmu_enable_gdsc(gmu);
+		gmu_enable_clks(device);
+		gmu_dev_ops->irq_enable(device);
 
-			ret = gmu_dev_ops->rpmh_gpu_pwrctrl(
+		ret = gmu_dev_ops->rpmh_gpu_pwrctrl(
 				adreno_dev, GMU_FW_START, GMU_COLD_BOOT, 0);
-			if (ret)
-				goto error_gmu;
+		if (ret)
+			goto error_gmu;
 
 
-			ret = hfi_start(device, gmu, GMU_COLD_BOOT);
-			if (ret)
-				goto error_gmu;
+		ret = hfi_start(device, gmu, GMU_COLD_BOOT);
+		if (ret)
+			goto error_gmu;
 
-			/* Send DCVS level prior to reset*/
-			kgsl_pwrctrl_set_default_gpu_pwrlevel(device);
-		} else {
-			/* GMU fast boot */
-			hfi_stop(gmu);
-
-			gmu_aop_send_acd_state(device);
-
-			ret = gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev,
-					GMU_FW_START, GMU_COLD_BOOT, 0);
-			if (ret)
-				goto error_gmu;
-
-			ret = hfi_start(device, gmu, GMU_COLD_BOOT);
-			if (ret)
-				goto error_gmu;
-		}
+		/* Send DCVS level prior to reset*/
+		kgsl_pwrctrl_set_default_gpu_pwrlevel(device);
 		break;
 	default:
 		break;
