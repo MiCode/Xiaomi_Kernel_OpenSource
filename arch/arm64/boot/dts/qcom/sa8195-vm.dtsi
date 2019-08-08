@@ -14,6 +14,7 @@
 #include <dt-bindings/clock/qcom,gcc-sdmshrike.h>
 #include <dt-bindings/clock/qcom,scc-sm8150.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include "quin-vm-common.dtsi"
 
 / {
@@ -225,6 +226,30 @@
 		status = "ok";
 	};
 
+	pm8195_1_l9: regulator-pm8195-1-l9 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8195_1_l9";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		status = "okay";
+	};
+
+	pm8195_3_l5: regulator-pm8195-3-l5 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8195_3_l5";
+		regulator-min-microvolt = <880000>;
+		regulator-max-microvolt = <880000>;
+		status = "okay";
+	};
+
+	VDD_CX_LEVEL:
+	S3E_LEVEL: pm8195_3_s3_level: regulator-pm8195-3-s3-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8195_3_s3_level";
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
 	usb30_prim_gdsc: usb30_prim_gdsc {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "usb30_prim_gdsc";
@@ -236,6 +261,12 @@
 		regulator-name = "usb30_sec_gdsc";
 		status = "okay";
 	};
+
+	pcie_0_gdsc: pcie_0_gdsc {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pcie_0_gdsc";
+		status = "okay";
+	};
 };
 
 #include "sdmshrike-pinctrl.dtsi"
@@ -243,3 +274,4 @@
 #include "sa8155-vm-qupv3.dtsi"
 #include "sa8195-vm-usb.dtsi"
 #include "sa8155-vm-audio.dtsi"
+#include "sa8195-vm-pcie.dtsi"
