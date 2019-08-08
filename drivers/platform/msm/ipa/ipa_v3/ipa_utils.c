@@ -2717,7 +2717,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
 			QMB_MASTER_SELECT_DDR,
-			{ 7, 5, 20, 24, IPA_EE_AP, GSI_SMART_PRE_FETCH, 8 } },
+			{ 7, 5, 20, 24, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 8 } },
 	[IPA_4_7][IPA_CLIENT_Q6_WAN_PROD]         = {
 			true, IPA_v4_7_GROUP_UL_DL,
 			true,
@@ -2729,7 +2729,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 6, 1, 20, 24, IPA_EE_Q6, GSI_SMART_PRE_FETCH, 8 } },
+			{ 6, 1, 20, 24, IPA_EE_Q6, GSI_ESCAPE_BUF_ONLY, 8 } },
 	[IPA_4_7][IPA_CLIENT_Q6_DL_NLO_DATA_PROD] = {
 			true, IPA_v4_7_GROUP_UL_DL,
 			true,
