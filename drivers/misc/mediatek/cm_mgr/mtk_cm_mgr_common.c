@@ -491,3 +491,6 @@ int cm_mgr_common_init(void)
 }
 EXPORT_SYMBOL_GPL(cm_mgr_common_init);
 
+MODULE_DESCRIPTION("Mediatek cm_mgr driver");
+MODULE_AUTHOR("Morven-CF Yeh<morven-cf.yeh@mediatek.com>");
+MODULE_LICENSE("GPL");
