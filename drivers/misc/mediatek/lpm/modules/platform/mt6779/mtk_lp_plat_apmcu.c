@@ -15,9 +15,9 @@
 
 #include <mtk_lpm.h>
 
-#include "mtk_lp_plat_reg.h"
-#include "mtk_lp_plat_apmcu.h"
-#include "mtk_lp_plat_apmcu_mbox.h"
+#include <mtk_lp_plat_reg.h>
+#include <mtk_lp_plat_apmcu.h>
+#include <mtk_lp_plat_apmcu_mbox.h>
 
 void __iomem *cpu_pm_mcusys_base;
 void __iomem *cpu_pm_syssram_base;
