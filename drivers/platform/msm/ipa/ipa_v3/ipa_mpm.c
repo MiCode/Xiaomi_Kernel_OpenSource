@@ -532,7 +532,7 @@ static dma_addr_t ipa_mpm_smmu_map(void *va_addr,
 
 	/* check cache coherent */
 	if (ipa_mpm_ctx->dev_info.is_cache_coherent)  {
-		IPA_MPM_DBG(" enable cache coherent\n");
+		IPA_MPM_DBG_LOW(" enable cache coherent\n");
 		prot |= IOMMU_CACHE;
 	}
 
