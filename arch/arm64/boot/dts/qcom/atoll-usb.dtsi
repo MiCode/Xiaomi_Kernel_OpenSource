@@ -137,7 +137,7 @@
 	qusb_phy0: qusb@88e2000 {
 		compatible = "qcom,qusb2phy-v2";
 		reg = <0x088e2000 0x400>,
-			<0x00780200 0x4>,
+			<0x00780258 0x4>,
 			<0x088e7014 0x4>;
 		reg-names = "qusb_phy_base", "efuse_addr",
 				"refgen_north_bg_reg_addr";
