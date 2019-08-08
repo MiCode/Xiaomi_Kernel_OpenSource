@@ -3975,8 +3975,6 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
 	for (i = 0; i < CAM_CTX_REQ_MAX; i++) {
 		ctx->req_base[i].req_priv = &ctx->req_isp[i];
 		ctx->req_isp[i].base = &ctx->req_base[i];
-		/*Set default fps value to 30 FPS*/
-		ctx->req_isp[i].hw_update_data.fps = CAM_ISP_CTX_DEFAULT_FPS;
 	}
 
 	/* camera context setup */
