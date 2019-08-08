@@ -805,6 +805,20 @@ struct ipa_rx_data {
 };
 
 /**
+ * struct  ipa_rx_page_data - information needed
+ * to send to wlan driver on receiving data from ipa hw
+ * @page: skb page
+ * @dma_addr: DMA address of this Rx packet
+ * @is_tmp_alloc: skb page from tmp_alloc or recycle_list
+ */
+struct ipa_rx_page_data {
+	struct page *page;
+	dma_addr_t dma_addr;
+	bool is_tmp_alloc;
+};
+
+
+/**
  * enum ipa_irq_type - IPA Interrupt Type
  * Used to register handlers for IPA interrupts
  *
