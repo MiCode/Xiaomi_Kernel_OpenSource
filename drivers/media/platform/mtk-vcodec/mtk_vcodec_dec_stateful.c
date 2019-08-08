@@ -840,17 +840,6 @@ static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
 				   ctx->id, ctrl->id, ctrl->val,
 				   ctrl->p_new.p_u32[0], ctrl->p_new.p_u32[1]);
 
-	if (ctrl->id == V4L2_CID_MPEG_MTK_SEC_DECODE) {
-		ctx->dec_params.svp_mode = ctrl->val;
-		ctx->dec_param_change |= MTK_DEC_PARAM_SEC_DECODE;
-#ifdef CONFIG_VB2_MEDIATEK_DMA
-		mtk_dma_contig_set_secure_mode(&ctx->dev->plat_dev->dev,
-					ctx->dec_params.svp_mode);
-#endif
-		mtk_v4l2_debug(0, "[%d] V4L2_CID_MPEG_MTK_SEC_DECODE id %d val %d",
-			ctx->id, ctrl->id, ctrl->val);
-	}
-
 	switch (ctrl->id) {
 	case V4L2_CID_MPEG_MTK_DECODE_MODE:
 		ctx->dec_params.decode_mode = ctrl->val;
