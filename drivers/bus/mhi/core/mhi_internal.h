@@ -17,6 +17,7 @@ extern struct bus_type mhi_bus_type;
 
 /* MHI mmio register mapping */
 #define PCI_INVALID_READ(val) (val == U32_MAX)
+#define MHI_REG_SIZE (SZ_4K)
 
 #define MHIREGLEN (0x0)
 #define MHIREGLEN_MHIREGLEN_MASK (0xFFFFFFFF)
