@@ -80,6 +80,7 @@ enum {
 	NETIF_F_HW_ESP_BIT,		/* Hardware ESP transformation offload */
 	NETIF_F_HW_ESP_TX_CSUM_BIT,	/* ESP with TX checksum offload */
 	NETIF_F_RX_UDP_TUNNEL_PORT_BIT, /* Offload of RX port for UDP tunnels */
+	NETIF_F_HW_MACSEC_BIT,          /* Offload MACsec operations */
 
 	NETIF_F_GRO_HW_BIT,		/* Hardware Generic receive offload */
 
@@ -149,6 +150,7 @@ enum {
 #define NETIF_F_HW_ESP_TX_CSUM	__NETIF_F(HW_ESP_TX_CSUM)
 #define	NETIF_F_RX_UDP_TUNNEL_PORT  __NETIF_F(RX_UDP_TUNNEL_PORT)
 #define NETIF_F_GSO_UDP_L4	__NETIF_F(GSO_UDP_L4)
+#define NETIF_F_HW_MACSEC      __NETIF_F(HW_MACSEC)
 
 /* Finds the next feature with the highest number of the range of start till 0.
  */
