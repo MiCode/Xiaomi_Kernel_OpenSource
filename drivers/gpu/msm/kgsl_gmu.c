@@ -1532,6 +1532,9 @@ static int gmu_suspend(struct kgsl_device *device)
 		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_NORMAL);
 
 	dev_err(&gmu->pdev->dev, "Suspended GMU\n");
+
+	clear_bit(GMU_FAULT, &device->gmu_core.flags);
+
 	return 0;
 }
 

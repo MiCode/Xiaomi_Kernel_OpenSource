@@ -2740,7 +2740,6 @@ static int
 _aware(struct kgsl_device *device)
 {
 	int status = 0;
-	unsigned int state = device->state;
 
 	switch (device->state) {
 	case KGSL_STATE_RESET:
@@ -2767,65 +2766,23 @@ _aware(struct kgsl_device *device)
 		kgsl_pwrscale_midframe_timer_cancel(device);
 		break;
 	case KGSL_STATE_SLUMBER:
-		/* if GMU already in FAULT */
-		if (gmu_core_isenabled(device) &&
-			test_bit(GMU_FAULT, &device->gmu_core.flags)) {
-			status = -EINVAL;
-			break;
-		}
-
 		status = kgsl_pwrctrl_enable(device);
+		if (status && gmu_core_isenabled(device))
+			/*
+			 * SLUMBER -> AWARE failed which means GMU boot failed.
+			 * Make sure we reset the GMU while transitioning back
+			 * to SLUMBER.
+			 */
+			kgsl_pwrctrl_set_state(device, KGSL_STATE_RESET);
+
 		break;
 	default:
 		status = -EINVAL;
 	}
 
-	if (status) {
-		if (gmu_core_isenabled(device)) {
-			/* GMU hang recovery */
-			kgsl_pwrctrl_set_state(device, KGSL_STATE_RESET);
-			set_bit(GMU_FAULT, &device->gmu_core.flags);
-			status = kgsl_pwrctrl_enable(device);
-			/* Cannot recover GMU failure GPU will not power on */
-
-			if (WARN_ONCE(status, "Failed to recover GMU\n")) {
-				if (device->snapshot)
-					device->snapshot->recovered = false;
-				/*
-				 * On recovery failure, we are clearing
-				 * GMU_FAULT bit and also not keeping
-				 * the state as RESET to make sure any
-				 * attempt to wake GMU/GPU after this
-				 * is treated as a fresh start. But on
-				 * recovery failure, GMU HS, clocks and
-				 * IRQs are still ON/enabled because of
-				 * which next GMU/GPU wakeup results in
-				 * multiple warnings from GMU start as HS,
-				 * clocks and IRQ were ON while doing a
-				 * fresh start i.e. wake from SLUMBER.
-				 *
-				 * Suspend the GMU on recovery failure
-				 * to make sure next attempt to wake up
-				 * GMU/GPU is indeed a fresh start.
-				 */
-				kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
-				gmu_core_suspend(device);
-				kgsl_pwrctrl_set_state(device, state);
-			} else {
-				if (device->snapshot)
-					device->snapshot->recovered = true;
-				kgsl_pwrctrl_set_state(device,
-					KGSL_STATE_AWARE);
-			}
-
-			clear_bit(GMU_FAULT, &device->gmu_core.flags);
-			return status;
-		}
-
-		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
-	} else {
+	if (!status)
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_AWARE);
-	}
+
 	return status;
 }
 
@@ -2911,6 +2868,13 @@ _slumber(struct kgsl_device *device)
 	case KGSL_STATE_AWARE:
 		kgsl_pwrctrl_disable(device);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
+		break;
+	case KGSL_STATE_RESET:
+		if (gmu_core_isenabled(device)) {
+			 /* Reset the GMU if we failed to boot the GMU */
+			gmu_core_suspend(device);
+			kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
+		}
 		break;
 	default:
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
