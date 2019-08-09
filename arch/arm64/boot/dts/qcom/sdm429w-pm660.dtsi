@@ -370,9 +370,10 @@
 
 /* over-write the PM660 GPIO mappings for 429w */
 &pm660_gpios {
-	interrupts  = <0x0 0xc3 0 IRQ_TYPE_NONE>;
-	interrupt-names = "pm660_gpio4";
-	qcom,gpios-disallowed = <1 2 3 5 6 7 8 9 10 11 12 13>;
+	interrupts  = <0x0 0xc3 0 IRQ_TYPE_NONE>,
+		      <0x0 0xcb 0 IRQ_TYPE_NONE>;
+	interrupt-names = "pm660_gpio4", "pm660_gpio12";
+	qcom,gpios-disallowed = <1 2 3 5 6 7 8 9 10 11 13>;
 };
 
 &pm660_vadc {
