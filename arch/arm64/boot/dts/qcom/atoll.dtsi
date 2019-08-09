@@ -590,11 +590,12 @@
 			reg = <0 0x9e000000 0 0x1400000>;
 		};
 
-		qseecom_ta_mem: qseecom_ta_region@0 {
+		qseecom_ta_mem: qseecom_ta_region {
 			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
 			reusable;
-			alignment = <0x400000>;
-			size = <0x1000000>;
+			alignment = <0 0x400000>;
+			size = <0 0x1000000>;
 		};
 
 		cdsp_sec_mem: cdsp_sec_regions@0x9f400000 {
