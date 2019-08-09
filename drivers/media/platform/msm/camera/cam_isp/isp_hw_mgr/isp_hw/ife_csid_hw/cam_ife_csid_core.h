@@ -16,6 +16,7 @@
 #include "cam_hw.h"
 #include "cam_ife_csid_hw_intf.h"
 #include "cam_ife_csid_soc.h"
+#include "cam_csid_ppi_core.h"
 
 #define CAM_IFE_CSID_HW_RES_MAX      4
 #define CAM_IFE_CSID_CID_RES_MAX     4
@@ -481,7 +482,9 @@ struct cam_ife_csid_path_cfg {
  * @res_sof_cnt               path resource sof count value. it used for initial
  *                            frame drop
  * @first_sof_ts              flag to mark the first sof has been registered
- *
+ * @ppi_hw_intf               interface to ppi hardware
+ * @ppi_enabled               flag to specify if the hardware has ppi bridge
+ *                            or not
  */
 struct cam_ife_csid_hw {
 	struct cam_hw_intf              *hw_intf;
@@ -513,6 +516,8 @@ struct cam_ife_csid_hw {
 	uint32_t                         init_frame_drop;
 	uint32_t                         res_sof_cnt[CAM_IFE_PIX_PATH_RES_MAX];
 	uint32_t                         first_sof_ts;
+	struct cam_hw_intf              *ppi_hw_intf[CAM_CSID_PPI_HW_MAX];
+	bool                             ppi_enable;
 };
 
 int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,

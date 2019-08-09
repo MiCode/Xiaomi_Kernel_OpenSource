@@ -16,6 +16,7 @@
 #include <uapi/media/cam_defs.h>
 
 #include "cam_ife_csid_core.h"
+#include "cam_csid_ppi_core.h"
 #include "cam_isp_hw.h"
 #include "cam_soc_util.h"
 #include "cam_io_util.h"
@@ -1423,10 +1424,12 @@ static int cam_ife_csid_enable_csi2(
 	struct cam_isp_resource_node    *res)
 {
 	int rc = 0;
-	const struct cam_ife_csid_reg_offset       *csid_reg;
-	struct cam_hw_soc_info                     *soc_info;
-	struct cam_ife_csid_cid_data               *cid_data;
+	const struct cam_ife_csid_reg_offset   *csid_reg;
+	struct cam_hw_soc_info                 *soc_info;
+	struct cam_ife_csid_cid_data           *cid_data;
+	struct cam_csid_ppi_cfg                 ppi_lane_cfg;
 	uint32_t val = 0;
+	uint32_t ppi_index = 0;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -1517,6 +1520,24 @@ static int cam_ife_csid_enable_csi2(
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_irq_mask_addr);
 
+	ppi_index = csid_hw->csi2_rx_cfg.phy_sel;
+	if (csid_hw->ppi_hw_intf[ppi_index] && csid_hw->ppi_enable) {
+		ppi_lane_cfg.lane_type = csid_hw->csi2_rx_cfg.lane_type;
+		ppi_lane_cfg.lane_num  = csid_hw->csi2_rx_cfg.lane_num;
+		ppi_lane_cfg.lane_cfg  = csid_hw->csi2_rx_cfg.lane_cfg;
+
+		CAM_DBG(CAM_ISP, "ppi_index to init %d", ppi_index);
+		rc = csid_hw->ppi_hw_intf[ppi_index]->hw_ops.init(
+				csid_hw->ppi_hw_intf[ppi_index]->hw_priv,
+				&ppi_lane_cfg,
+				sizeof(struct cam_csid_ppi_cfg));
+		if (rc < 0) {
+			CAM_ERR(CAM_ISP, "PPI:%d Init Failed",
+					ppi_index);
+			return rc;
+		}
+	}
+
 	return 0;
 }
 
@@ -1524,8 +1545,10 @@ static int cam_ife_csid_disable_csi2(
 	struct cam_ife_csid_hw          *csid_hw,
 	struct cam_isp_resource_node    *res)
 {
-	const struct cam_ife_csid_reg_offset      *csid_reg;
-	struct cam_hw_soc_info                    *soc_info;
+	int rc = 0;
+	const struct cam_ife_csid_reg_offset *csid_reg;
+	struct cam_hw_soc_info               *soc_info;
+	uint32_t ppi_index = 0;
 
 	if (res->res_id >= CAM_IFE_CSID_CID_MAX) {
 		CAM_ERR(CAM_ISP, "CSID:%d Invalid res id :%d",
@@ -1555,6 +1578,19 @@ static int cam_ife_csid_disable_csi2(
 		csid_reg->csi2_reg->csid_csi2_rx_cfg1_addr);
 
 	res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
+
+	ppi_index = csid_hw->csi2_rx_cfg.phy_sel;
+	if (csid_hw->ppi_hw_intf[ppi_index] && csid_hw->ppi_enable) {
+		/* De-Initialize the PPI bridge */
+		CAM_DBG(CAM_ISP, "ppi_index to de-init %d\n", ppi_index);
+		rc = csid_hw->ppi_hw_intf[ppi_index]->hw_ops.deinit(
+				csid_hw->ppi_hw_intf[ppi_index]->hw_priv,
+				NULL, 0);
+		if (rc < 0) {
+			CAM_ERR(CAM_ISP, "PPI:%d De-Init Failed", ppi_index);
+			return rc;
+		}
+	}
 
 	return 0;
 }
@@ -3169,14 +3205,13 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	uint32_t sof_irq_debug_en = 0;
 	unsigned long flags;
 
-	csid_hw = (struct cam_ife_csid_hw *)data;
-
-	CAM_DBG(CAM_ISP, "CSID %d IRQ Handling", csid_hw->hw_intf->hw_idx);
-
 	if (!data) {
 		CAM_ERR(CAM_ISP, "CSID: Invalid arguments");
 		return IRQ_HANDLED;
 	}
+
+	csid_hw = (struct cam_ife_csid_hw *)data;
+	CAM_DBG(CAM_ISP, "CSID %d IRQ Handling", csid_hw->hw_intf->hw_idx);
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -3640,7 +3675,6 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 	CAM_DBG(CAM_ISP, "type %d index %d",
 		ife_csid_hw->hw_intf->hw_type, csid_idx);
 
-
 	ife_csid_hw->device_enabled = 0;
 	ife_csid_hw->hw_info->hw_state = CAM_HW_STATE_POWER_DOWN;
 	mutex_init(&ife_csid_hw->hw_info->hw_mutex);
@@ -3654,7 +3688,6 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 	init_completion(&ife_csid_hw->csid_ppp_complete);
 	for (i = 0; i < CAM_IFE_CSID_RDI_MAX; i++)
 		init_completion(&ife_csid_hw->csid_rdin_complete[i]);
-
 
 	rc = cam_ife_csid_init_soc_resources(&ife_csid_hw->hw_info->soc_info,
 			cam_ife_csid_irq, ife_csid_hw);
@@ -3750,7 +3783,22 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 	ife_csid_hw->error_irq_count = 0;
 	ife_csid_hw->first_sof_ts = 0;
 
-	return 0;
+	/* Check if ppi bridge is present or not? */
+	ife_csid_hw->ppi_enable = of_property_read_bool(
+		csid_hw_info->soc_info.pdev->dev.of_node,
+		"ppi-enable");
+
+	if (!ife_csid_hw->ppi_enable)
+		return 0;
+
+	/* Initialize the PPI bridge */
+	for (i = 0; i < CAM_CSID_PPI_HW_MAX; i++) {
+		rc = cam_csid_ppi_hw_init(&ife_csid_hw->ppi_hw_intf[i], i);
+		if (rc < 0) {
+			CAM_ERR(CAM_ISP, "PPI init failed for PPI %d", i);
+			break;
+		}
+	}
 err:
 	if (rc) {
 		kfree(ife_csid_hw->ipp_res.res_priv);
