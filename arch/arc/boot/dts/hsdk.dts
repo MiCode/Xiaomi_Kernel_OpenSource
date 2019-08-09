@@ -163,11 +163,15 @@
 			interrupt-names = "macirq";
 			phy-mode = "rgmii";
 			snps,pbl = <32>;
+			snps,multicast-filter-bins = <256>;
 			clocks = <&gmacclk>;
 			clock-names = "stmmaceth";
 			phy-handle = <&phy0>;
 			resets = <&cgu_rst HSDK_ETH_RESET>;
 			reset-names = "stmmaceth";
+
+			tx-fifo-depth = <4096>;
+			rx-fifo-depth = <4096>;
 
 			mdio {
 				#address-cells = <1>;

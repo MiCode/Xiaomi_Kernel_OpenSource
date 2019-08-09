@@ -126,6 +126,11 @@ static inline void *bio_data(struct bio *bio)
 	return NULL;
 }
 
+static inline bool bio_full(struct bio *bio)
+{
+	return bio->bi_vcnt >= bio->bi_max_vecs;
+}
+
 /*
  * will die
  */
@@ -268,7 +273,7 @@ static inline void bio_cnt_set(struct bio *bio, unsigned int count)
 {
 	if (count != 1) {
 		bio->bi_flags |= (1 << BIO_REFFED);
-		smp_mb__before_atomic();
+		smp_mb();
 	}
 	atomic_set(&bio->__bi_cnt, count);
 }
@@ -467,6 +472,10 @@ void bio_chain(struct bio *, struct bio *);
 extern int bio_add_page(struct bio *, struct page *, unsigned int,unsigned int);
 extern int bio_add_pc_page(struct request_queue *, struct bio *, struct page *,
 			   unsigned int, unsigned int);
+bool __bio_try_merge_page(struct bio *bio, struct page *page,
+		unsigned int len, unsigned int off);
+void __bio_add_page(struct bio *bio, struct page *page,
+		unsigned int len, unsigned int off);
 int bio_iov_iter_get_pages(struct bio *bio, struct iov_iter *iter);
 struct rq_map_data;
 extern struct bio *bio_map_user_iov(struct request_queue *,
