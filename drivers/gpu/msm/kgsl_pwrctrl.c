@@ -2632,12 +2632,22 @@ static int _init(struct kgsl_device *device)
 	int status = 0;
 
 	switch (device->state) {
+	case KGSL_STATE_RESET:
+		if (gmu_core_isenabled(device)) {
+			/*
+			 * If we fail a INIT -> AWARE transition, we will
+			 * transition back to INIT. However, we must hard reset
+			 * the GMU as we go back to INIT. This is done by
+			 * forcing a RESET -> INIT transition.
+			 */
+			gmu_core_suspend(device);
+			kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
+		}
+		break;
 	case KGSL_STATE_NAP:
 		/* Force power on to do the stop */
 		status = kgsl_pwrctrl_enable(device);
 	case KGSL_STATE_ACTIVE:
-		/* fall through */
-	case KGSL_STATE_RESET:
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 		del_timer_sync(&device->idle_timer);
 		kgsl_pwrscale_midframe_timer_cancel(device);
@@ -2749,12 +2759,6 @@ _aware(struct kgsl_device *device)
 		status = gmu_core_start(device);
 		break;
 	case KGSL_STATE_INIT:
-		/* if GMU already in FAULT */
-		if (gmu_core_isenabled(device) &&
-			test_bit(GMU_FAULT, &device->gmu_core.flags)) {
-			status = -EINVAL;
-			break;
-		}
 		status = kgsl_pwrctrl_enable(device);
 		break;
 	/* The following 3 cases shouldn't occur, but don't panic. */
@@ -2767,20 +2771,23 @@ _aware(struct kgsl_device *device)
 		break;
 	case KGSL_STATE_SLUMBER:
 		status = kgsl_pwrctrl_enable(device);
-		if (status && gmu_core_isenabled(device))
-			/*
-			 * SLUMBER -> AWARE failed which means GMU boot failed.
-			 * Make sure we reset the GMU while transitioning back
-			 * to SLUMBER.
-			 */
-			kgsl_pwrctrl_set_state(device, KGSL_STATE_RESET);
-
 		break;
 	default:
 		status = -EINVAL;
 	}
 
-	if (!status)
+	if (status && gmu_core_isenabled(device))
+	/*
+	 * If a SLUMBER/INIT -> AWARE fails, we transition back to
+	 * SLUMBER/INIT state. We must hard reset the GMU while
+	 * transitioning back to SLUMBER/INIT. A RESET -> AWARE
+	 * transition is different. It happens when dispatcher is
+	 * attempting reset/recovery as part of fault handling. If it
+	 * fails, we should still transition back to RESET in case
+	 * we want to attempt another reset/recovery.
+	 */
+		kgsl_pwrctrl_set_state(device, KGSL_STATE_RESET);
+	else
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_AWARE);
 
 	return status;
