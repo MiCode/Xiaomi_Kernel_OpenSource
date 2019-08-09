@@ -150,6 +150,7 @@ enum sde_prop {
 	SDE_OFF,
 	SDE_LEN,
 	SSPP_LINEWIDTH,
+	VIG_SSPP_LINEWIDTH,
 	MIXER_LINEWIDTH,
 	MIXER_BLEND,
 	WB_LINEWIDTH,
@@ -434,6 +435,8 @@ static struct sde_prop_type sde_prop[] = {
 	{SDE_OFF, "qcom,sde-off", true, PROP_TYPE_U32},
 	{SDE_LEN, "qcom,sde-len", false, PROP_TYPE_U32},
 	{SSPP_LINEWIDTH, "qcom,sde-sspp-linewidth", false, PROP_TYPE_U32},
+	{VIG_SSPP_LINEWIDTH, "qcom,sde-vig-sspp-linewidth", false,
+			PROP_TYPE_U32},
 	{MIXER_LINEWIDTH, "qcom,sde-mixer-linewidth", false, PROP_TYPE_U32},
 	{MIXER_BLEND, "qcom,sde-mixer-blendstages", false, PROP_TYPE_U32},
 	{WB_LINEWIDTH, "qcom,sde-wb-linewidth", false, PROP_TYPE_U32},
@@ -1018,6 +1021,7 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 	struct sde_sspp_cfg *sspp, struct sde_sspp_sub_blks *sblk,
 	bool *prop_exists, struct sde_prop_value *prop_value, u32 *vig_count)
 {
+	sblk->maxlinewidth = sde_cfg->vig_sspp_linewidth;
 	sblk->maxupscale = MAX_UPSCALE_RATIO;
 	sblk->maxdwnscale = MAX_DOWNSCALE_RATIO;
 	sspp->id = SSPP_VIG0 + *vig_count;
@@ -2984,6 +2988,11 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 			SSPP_LINEWIDTH, 0);
 	if (!prop_exists[SSPP_LINEWIDTH])
 		cfg->max_sspp_linewidth = DEFAULT_SDE_LINE_WIDTH;
+
+	cfg->vig_sspp_linewidth = PROP_VALUE_ACCESS(prop_value,
+			VIG_SSPP_LINEWIDTH, 0);
+	if (!prop_exists[VIG_SSPP_LINEWIDTH])
+		cfg->vig_sspp_linewidth = cfg->max_sspp_linewidth;
 
 	cfg->max_mixer_width = PROP_VALUE_ACCESS(prop_value,
 			MIXER_LINEWIDTH, 0);
