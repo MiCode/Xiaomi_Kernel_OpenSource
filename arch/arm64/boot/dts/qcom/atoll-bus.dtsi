@@ -27,6 +27,7 @@
 			<0x1620000 0x4000>,
 			<0x1700000 0x1F880>,
 			<0x9990000 0x1600>,
+			<0x1620000 0x4000>,
 			<0x1620000 0x4000>;
 
 		reg-names = "aggre1_noc-base", "aggre2_noc-base",
@@ -34,7 +35,8 @@
 			"gem_noc-base", "mc_virt-base",
 			"mmss_noc-base", "system_noc-base",
 			"ipa_virt-base", "compute_noc-base",
-			"npu_noc-base", "qup_virt-base";
+			"npu_noc-base", "qup_virt-base",
+			"camnoc_virt-base";
 
 		mbox-names = "apps_rsc", "disp_rsc";
 		mboxes = <&apps_rsc 0 &disp_rsc 0>;
@@ -519,6 +521,18 @@
 			clocks = <>;
 		};
 
+		fab_camnoc_virt: fab-camnoc_virt{
+			cell-id = <MSM_BUS_FAB_CAMNOC_VIRT>;
+			label = "fab-camnoc_virt";
+			qcom,fab-dev;
+			qcom,base-name = "camnoc_virt-base";
+			qcom,qos-off = <0>;
+			qcom,base-offset = <0>;
+			qcom,sbm-offset = <0>;
+			qcom,bypass-qos-prg;
+			clocks = <>;
+		};
+
 		/*Masters*/
 		mas_qhm_a1noc_cfg: mas-qhm-a1noc-cfg {
 			cell-id = <MSM_BUS_MASTER_A1NOC_CFG>;
@@ -676,6 +690,36 @@
 			qcom,bus-dev = <&fab_aggre2_noc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
+		};
+
+		mas_qxm_camnoc_hf0_uncomp: mas-qxm-camnoc-hf0-uncomp {
+			cell-id = <MSM_BUS_MASTER_CAMNOC_HF0_UNCOMP>;
+			label = "mas-qxm-camnoc-hf0-uncomp";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,connections = <&slv_qns_camnoc_uncomp>;
+			qcom,bus-dev = <&fab_camnoc_virt>;
+			qcom,bcms = <&bcm_mm1>;
+		};
+
+		mas_qxm_camnoc_hf1_uncomp: mas-qxm-camnoc-hf1-uncomp {
+			cell-id = <MSM_BUS_MASTER_CAMNOC_HF1_UNCOMP>;
+			label = "mas-qxm-camnoc-hf1-uncomp";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,connections = <&slv_qns_camnoc_uncomp>;
+			qcom,bus-dev = <&fab_camnoc_virt>;
+			qcom,bcms = <&bcm_mm1>;
+		};
+
+		mas_qxm_camnoc_sf_uncomp: mas-qxm-camnoc-sf-uncomp {
+			cell-id = <MSM_BUS_MASTER_CAMNOC_SF_UNCOMP>;
+			label = "mas-qxm-camnoc-sf-uncomp";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,connections = <&slv_qns_camnoc_uncomp>;
+			qcom,bus-dev = <&fab_camnoc_virt>;
+			qcom,bcms = <&bcm_mm1>;
 		};
 
 		mas_qnm_npu: mas-qnm-npu {
@@ -938,12 +982,26 @@
 			qcom,bcms = <&bcm_mm1>;
 		};
 
-		mas_qxm_camnoc_hf: mas-qxm-camnoc-hf {
+		mas_qxm_camnoc_hf0: mas-qxm-camnoc-hf0 {
 			cell-id = <MSM_BUS_MASTER_CAMNOC_HF0>;
-			label = "mas-qxm-camnoc-hf";
+			label = "mas-qxm-camnoc-hf0";
 			qcom,buswidth = <32>;
-			qcom,agg-ports = <2>;
-			qcom,qport = <1 2>;
+			qcom,agg-ports = <1>;
+			qcom,qport = <1>;
+			qcom,connections = <&slv_qns_mem_noc_hf>;
+			qcom,bus-dev = <&fab_mmss_noc>;
+			qcom,ap-owned;
+			qcom,prio = <0>;
+			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
+		};
+
+		mas_qxm_camnoc_hf1: mas-qxm-camnoc-hf1 {
+			cell-id = <MSM_BUS_MASTER_CAMNOC_HF1>;
+			label = "mas-qxm-camnoc-hf1";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,qport = <2>;
 			qcom,connections = <&slv_qns_mem_noc_hf>;
 			qcom,bus-dev = <&fab_mmss_noc>;
 			qcom,ap-owned;
@@ -1209,6 +1267,14 @@
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
+		};
+
+		slv_qns_camnoc_uncomp:slv-qns-camnoc-uncomp {
+			cell-id = <MSM_BUS_SLAVE_CAMNOC_UNCOMP>;
+			label = "slv-qns-camnoc-uncomp";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_camnoc_virt>;
 		};
 
 		slv_qns_cdsp_gemnoc:slv-qns-cdsp-gemnoc {
