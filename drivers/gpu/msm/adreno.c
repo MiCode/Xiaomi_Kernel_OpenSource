@@ -3065,7 +3065,15 @@ void adreno_spin_idle_debug(struct adreno_device *adreno_dev,
 
 	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
 
-	kgsl_device_snapshot(device, NULL, adreno_gmu_gpu_fault(adreno_dev));
+	/*
+	 * If CP is stuck, gmu may not perform as expected. So force a gmu
+	 * snapshot which captures entire state as well as sets the gmu fault
+	 * because things need to be reset anyway.
+	 */
+	if (gmu_core_isenabled(device))
+		gmu_core_snapshot(device);
+	else
+		kgsl_device_snapshot(device, NULL, false);
 }
 
 /**
