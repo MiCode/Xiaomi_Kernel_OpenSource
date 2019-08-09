@@ -1,0 +1,11 @@
+config MTK_USBFSH
+	bool "MTK_USBFSH, using enable usb port1"
+	help
+	  Enable USB port1. before enable, you must
+	  confirm that your hw can support. if you can't
+	  sure, please set n.
+
+config MTK_USB_RESET_WIFI_DONGLE
+	bool "Mediatek USB host reset WIFI dongle support"
+	help
+	  Say Y here if your system needs use reset USB WIFI dongle by USB host driver.

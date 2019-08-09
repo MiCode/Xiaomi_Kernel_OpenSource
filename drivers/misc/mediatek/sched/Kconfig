@@ -1,0 +1,223 @@
+menu "MTK userspace global cpuset"
+config MTK_USER_SPACE_GLOBAL_CPUSET
+	bool "Enable user space global cpuset"
+	depends on CPUSETS
+	default n
+	help
+	  Interface for set user space global cpuset.
+	  It can set user space global cpuset to child
+	  group and once unsets, the child cpuset will
+	  restore by cpus.
+
+endmenu
+
+menu "MTK load balance and schedule enhancement"
+
+config MTK_IDLE_BALANCE_ENHANCEMENT
+	bool "mtk load balance enhancement"
+	depends on SMP && CGROUP_SCHEDTUNE
+	default n
+	help
+	  Mediatek aggressive idle balance, include
+	  1. aggressive idle balance for runnable tasks with idle prefer attributes
+	  2. aggressive idle balance for runnable and running tasks with min_cap(dynamic floor)
+	  3. migrate runnable task directly and use stop machine to migrate running task
+config MTK_SCHED_INTEROP
+	bool "mtk scheduling interopation enhancement"
+	default y
+	help
+	   Original Linux Design, RT & CFS do load balance seperatedly,
+	   and let would result in unload balance.
+	   that is, one CPU has more than 2 tasks, however, one CPU is IDLE
+	   We make RT & CFS to check each other and make load more balance.
+
+config MTK_SCHED_TRACE
+	bool "mtk scheduling trace, output mtk schedule trace into FTRACE"
+	default n
+	help
+	  MTK scheduling trace, output schedule trace into FTRACE
+	  the ftrace api for scheduling is mt_sched_printf and
+	  used for scheduling module to output info to ftrace
+	  Say Y to enable mtk scheduling trace
+
+config MTK_SCHED_DEBUG
+	bool "mtk scheduling log, also output the scheduling log into Kernel log"
+	depends on MTK_SCHED_TRACE
+	default n
+	help
+	  MTK scheduling log, add scheduling log into Kernel log.
+	  Including print scheduler debug information at KE and print load balance
+	  information at kernel log.
+	  Say no if not sure.
+
+config MTK_RT_THROTTLE_MON
+	bool "mtk rt throttle monitor"
+	default n
+	help
+	  MTK_RT_THROTTLE_MON is used to monitor rt throttle.
+	  When rt throttle activated print 5 longest execusion time rt tasks.
+	  Say Y here to enable rt throttle monitor.
+	  If you are not sure about whether to enable it or not, please set n.
+endmenu
+
+menu "MTK Energy Aware Scheduler Plus"
+config MTK_SCHED_EAS_POWER_SUPPORT
+	bool "Enable MTK power calculation for EAS"
+	depends on MTK_UNIFY_POWER
+	default n
+	help
+	  Power calculation for mtk Soc.
+	  According to platform characters(share-buck..etc),
+	  return correct power of core and cluster for
+	  scheduler to refer.
+
+config CPU_FREQ_DEFAULT_GOV_SCHEDPLUS
+	bool "To make sched+ as default governor"
+	select CPU_FREQ_GOV_SCHEDPLUS
+	help
+	  Use the CPUfreq governor 'schedplus' as default.
+	  This scales cpu frequency using CPU utilization estimates
+	  from the scheduler not only but also support some of
+	  platform dependent features.
+
+config CPU_FREQ_SCHED_ASSIST
+	bool "'sched-assist sched' cpufreq"
+	select CPU_FREQ_GOV_SCHEDPLUS
+	help
+	  sched-assist is NOT a governor, which MUST be dependent on
+	  sched+ governor which scales cpu frequency from the scheduler as a function
+	  of cpu capacity utilization. It does not evaluate utilization on
+	  a periodic basis (as ondemand does) but instead is event-driven
+	  by the scheduler. Also provided hint of scheduler for other governors
+	  and workable with hotplug.
+
+	  If in doubt, say N.
+
+config CPU_FREQ_GOV_SCHEDPLUS
+	bool "'sched+' cpufreq governor"
+	depends on CPU_FREQ
+	select CPU_FREQ_GOV_COMMON
+	help
+	  'sched+' - this governor scales cpu frequency from the
+	  scheduler as a function of cpu capacity utilization. It does
+	  not evaluate utilization on a periodic basis (as ondemand
+	  does) but instead is event-driven by the scheduler and support
+	  below additional features.
+	  1) platform dependent(micro controller).
+	  2) sched-assistant (a assistnat for major governor).
+	  3) hotplug (cpu on/off).
+
+	  If in doubt, say N.
+
+endmenu
+
+menu "MTK Heterogenous MultiProcessor Scheduler"
+
+config SCHED_HMP
+	bool "Heterogenous multiprocessor scheduling"
+	default n
+	depends on SCHED_MC && FAIR_GROUP_SCHED && !SCHED_AUTOGROUP
+	help
+	  Scheduler optimizations for heterogeneous platforms.
+	  Attempts to introspectively select task affinity to optimize power
+	  and performance. Basic support for multiple (>2) cpu types is in place,
+	  but it has only been tested with two types of cpus.
+	  There is currently no support for migration of task groups, hence
+	  !SCHED_AUTOGROUP.
+
+config SCHED_HMP_PRIO_FILTER
+	bool "(EXPERIMENTAL) Filter HMP migrations by task priority"
+	default y
+	depends on SCHED_HMP
+	help
+	  Enables task priority based HMP migration filter. Any task with
+	  a NICE value above the threshold will always be on low-power cpus
+	  with less compute capacity.
+	  If unsure say N here.
+
+config SCHED_HMP_PRIO_FILTER_VAL
+	int "NICE priority threshold"
+	default 5
+	depends on SCHED_HMP_PRIO_FILTER
+
+config HMP_FREQUENCY_INVARIANT_SCALE
+	bool "(EXPERIMENTAL) Frequency-Invariant Tracked Load for HMP"
+	depends on !ARCH_SCALE_INVARIANT_CPU_CAPACITY
+	help
+	  Scales the current load contribution in line with the frequency
+	  of the CPU that the task was executed on.
+	  In this version, we use a simple linear scale derived from the
+	  maximum frequency reported by CPUFreq.
+	  Restricting tracked load to be scaled by the CPU's frequency
+	  represents the consumption of possible compute capacity
+	  (rather than consumption of actual instantaneous capacity as
+	  normal) and allows the HMP migration's simple threshold
+	  migration strategy to interact more predictably with CPUFreq's
+	  asynchronous compute capacity changes.
+
+config SCHED_HMP_PLUS
+	bool "(EXPERIMENTAL) Corepilot enhancement"
+	depends on SCHED_HMP
+	default y
+	help
+	  Corepilot hmp enhancement.
+	  1. Do hmp_idle_pull at idle_balance
+	  2. At global balance, consider the tasks in rq, move heaviest/lightest
+	  of first 5 tasks in rq.
+	  3. Enhance down migration rule: Do not migrate task when big core
+	  is idle
+
+config MTK_SCHED_BOOST
+	bool "mtk scheduling boost enhancement"
+	depends on SCHED_HMP && CPUSETS && MTK_USER_SPACE_GLOBAL_CPUSET
+	default n
+	help
+	   Sched Boost type:
+	   0:  cancel sched boost
+	   1:  prefer boost  ALL tasks to big cores
+	   2:  foreground task move to big cores
+
+config MTK_RT_ENHANCEMENT
+	bool "mt RT scheduling enhancement for big.LITTLE"
+	depends on SCHED_HMP && MTK_SCHED_BOOST
+	default y
+
+endmenu
+
+menu "MTK runqueue statistic calculation"
+config MTK_SCHED_RQAVG_KS
+	bool "Enable runqueue statistic calculation used in kernel space operation"
+	depends on SMP
+	help
+	  MTK ruqueue statistic kernel space CPUfreq governors, e.g., hotplug
+	  TLP estimation,
+	  heavy task detection and
+	  per CPU load for kernel space CPUfreq governors
+
+config MTK_SCHED_RQAVG_US
+	bool "Enable runqueue staticsic calculation used in user space operation"
+	depends on SMP && HIGH_RES_TIMERS
+	help
+	  MTK runqueue staticsic calculation
+	  used in user space operation.
+	  TLP estimation for user space
+	  CPUfreq governors.
+
+config MTK_SCHED_CPULOAD
+	bool "Enable timing-base CPU loading tracking in scheduler"
+	depends on MTK_SCHED_RQAVG_US
+	help
+	  Support timing-base CPU loading tracking
+	  in scheduler tick.
+	  Which helps load tracking in time-base view
+	  and more quick response in loading change.
+
+config MTK_SCHED_SYSHINT
+	bool "Enable asynchronus hint for external modules to get loading change in time"
+	help
+	  Support asynchronus hint for external modules
+	  to get loading change notification from scheduler
+	  in time that helps resource control
+	  in low latency.
+
+endmenu

@@ -1,0 +1,6 @@
+menuconfig MTK_MIX_DEVICES
+	bool "mix Devices"
+	default y
+	help
+	  Say Y here to enable mix dev support.
+

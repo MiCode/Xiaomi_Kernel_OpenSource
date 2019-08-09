@@ -1,0 +1,554 @@
+
+menuconfig MEDIATEK_SOLUTION
+	bool "MediaTek Properitary Configuration"
+	select FW_LOADER_USER_HELPER_FALLBACK
+	select I2C
+	help
+	  Check this to enable MediaTek properity configuration.
+
+if MEDIATEK_SOLUTION
+config MTK_PLATFORM
+	string "MTK platform name"
+
+config ARCH_MTK_PROJECT
+	string "MTK project name"
+
+config FPGA_EARLY_PORTING
+	bool "MTK FPGA EARLY PORTING"
+	help
+	  Used for FPGA early porting to separate code segments between FPGA
+	  platform and non-FPGA platform.
+	  Say Y here if you are doing FPGA early porting.
+	  If unsure, say N
+
+config MTK_LM_MODE
+	bool "MTK Large Memory mode"
+	select ARM_LPAE if !ARM64
+	select ARCH_PHYS_ADDR_T_64BIT
+	select ARCH_DMA_ADDR_T_64BIT
+	help
+	  Large Memory mode for supporting more than 4GB DRAM access
+	  It should only be enabled if hardware can support
+	  more than 4GB DRAM mapping.
+	  If you are not sure about this, set n
+
+config MTK_DTBO_FEATURE
+	bool "Support Device Tree Overlay"
+	default y
+	select BUILD_ARM_DTB_OVERLAY_IMAGE if !ARM64
+	select BUILD_ARM64_DTB_OVERLAY_IMAGE if ARM64
+	help
+	  This allows a central DTB and overlays it dynamically.
+	  An overlay can add nodes to the tree and make changes to properties
+	  in the existing tree.
+	  If you are not sure about this, set y
+
+config MTK_AB_OTA_UPDATER
+	bool "Support Android A/B system updates"
+	default n
+	help
+	  MediaTek A/B system updates support.
+	  Partitions which need OTA update have both A and B partition.
+	  Y means this kernel enabled OTA A/B system updates feature.
+	  If you are not sure about this, set n
+
+config SYSTEM_AS_ROOT
+	bool "Support system-as-root"
+	default y
+	help
+	  Y means to enable system-as-root.
+	  This option merges ramdisk into system image
+	  All new launched projects in android P should enable it.
+	  If you are not sure about this, set n
+
+config MTK_ENG_BUILD
+	bool "flag for MTK eng/usr build verification"
+	default n
+	help
+	  Y means this kernel version is engineering mode and has more debugging
+	  features built-in. This option is supposed to specifiy engineering or
+	  user load for this build.
+	  If you are not sure about this, set n
+
+config EXTREME_LOW_RAM
+	bool "Support the device with memory smaller than 512M"
+	default n
+	help
+	  This config decide if device memory < 512M
+	  For 512M device, it has many low mem shrinking mechanism
+	  Normal project will disable it first
+	  If you are not sure about this, do not set it to y
+
+config MTK_LDVT
+	bool "MTK LDVT"
+	help
+	  This option is used for the MTK Linux Design Verification Test
+	  Platform support.
+	  Say Y here if you are doing LDVT
+	  If unsure, say N
+
+config MTK_BOUNCING_CHECK
+	bool "Enable bouncing buffer check"
+	default n
+	help
+	  In order to avoid misusing the DMA_MASK, an auto-check detection
+	  is hooked in kernel to check whether the DMA_MASK value is correct.
+	  This config can only be enabled for platforms which support Large DRAM.
+	  Must not be enabled for those platforms which only support 4GB DRAM.
+
+endif
+
+menu "Storage: EMMC, NAND, partition..."
+
+config MTK_GPT_SCHEME_SUPPORT
+	bool "MTK GPT SCHEME SUPPORT"
+	help
+	  GPT is GUID Partition Table
+	  MTK driver support gpt scheme layout
+	  GPT is a better partition layout scheme
+	  GPT is instead of PMT
+
+source "drivers/misc/mediatek/partition/Kconfig"
+source "drivers/misc/mediatek/mtk_sdio/Kconfig"
+source "drivers/misc/mediatek/blocktag/Kconfig"
+source "drivers/misc/mediatek/io_boost/Kconfig"
+source "drivers/misc/mediatek/pidmap/Kconfig"
+source "drivers/misc/mediatek/keyhint/Kconfig"
+
+endmenu  # Storage
+
+menu "Power, PMIC, Battery & Low Power related configs"
+
+config MTK_BASE_POWER
+	bool "MediaTek power management"
+	help
+	  For MediaTek power management features, such as CPU idle,
+	  CPU suspend, CPU DVFS, GPU DVFS,
+	  Select if you want to enable MediaTek power
+	  management feature.
+
+config MTK_FREQ_HOPPING
+	bool "MediaTek FREQHOPPING SUPPORT"
+	help
+	  If you want to use MediaTek freqhopping,
+	  say Y here.If unsure, say N.
+	  Please choose your desired freqhopping driver as well.
+	  E.g: MTK2712_FREQ_HOPPING=y
+
+config MTK_MEMORY_LOWPOWER
+	bool "Support Mediatek memory lowpower technology"
+	depends on CMA && ZONE_MOVABLE_CMA
+	default n
+	help
+	  Mediatek DRAM low power technology.
+	  It tries to safe DRAM power by switching
+	  different DRAM mode dynamically. It's a
+	  platform-dependent feature.
+
+config MTK_PASR
+	bool "Support Mediatek DRAM PASR mechanism"
+	depends on MTK_MEMORY_LOWPOWER && (MTK_EMI || MTK_EMI_MPU)
+	default n
+	help
+	  Mediatek DRAM PASR mechanism.
+	  It tries to turn off free DRAM segment's self-refresh.
+	  This can help system reduce power consumption.
+	  It is based on MTK_MEMORY_LOWPOWER technology.
+
+config MTK_PERIODIC_DATA_COLLECTION
+	bool "Support Mediatek memory lowpower technology"
+	depends on MTK_MEMORY_LOWPOWER
+	default n
+	help
+	  Mediatek DRAM low power technology.
+	  It tries to compact memory periodically and
+	  to create a unused contiguous memory. The
+	  DRAM can enter low power state if it is idle.
+
+source "drivers/misc/mediatek/base/power/Kconfig"
+source "drivers/misc/mediatek/freqhopping/Kconfig"
+source "drivers/misc/mediatek/pmic/Kconfig"
+source "drivers/misc/mediatek/pmic_wrap/Kconfig"
+source "drivers/misc/mediatek/power/Kconfig"
+source "drivers/misc/mediatek/thermal/Kconfig"
+
+config MTK_PSCI
+	bool "MediaTek PSCI boot method"
+	depends on ARM64
+	help
+	  For MediaTek PSCI wrapper feature, such as cpu_init,
+	  cpu_prepare, cpu_boot, cpu_disable, cpu_die, cpu_kill,
+	  cpu_init_idle, cpu_suspend, select if you want to enable
+	  PSCI boot method on MediaTek platform.
+
+endmenu  # Power
+
+menu "MultiMedia, Display, Camera related configs"
+
+config CUSTOM_KERNEL_IMGSENSOR
+	string "Custom image sensor driver"
+	help
+	  Kernel space image sensor driver. Define  project used all image
+	  sensors .The value is combination of CUSTOM_KERNEL_MAIN_IMGSENSOR,
+	  CUSTOM_KERNEL_MAIN_BACKUP_IMGSENSOR, CUSTOM_KERNEL_SUB_IMGSENSOR,
+	  and CUSTOM_KERNEL_SUB_BACKUP_IMGSENSOR
+
+config MTK_SEC_VIDEO_PATH_SUPPORT
+	bool "Enable MTK Secure Video Path Support"
+	default n
+	depends on MTK_IN_HOUSE_TEE_SUPPORT || TRUSTONIC_TEE_SUPPORT || \
+	           MTK_GOOGLE_TRUSTY_SUPPORT || MICROTRUST_TEE_SUPPORT
+	help
+	  This enable MTK Secure Video Path function of Widevine Level1,
+	  HW protect the online secure video streaming by ARM/Trustzone
+	  support TEE OS of: Trustonic, Microtrust, Blowfish .etc
+	  relative modules include: DRM, vdec, venc, cmdq, m4u, display,
+	  tplay/DXCC,ssvp, secmem, TEE frameworks, keyinstall, DAPC, MPU,
+	  ION, gralloc,RPMB, DXCC, mediacodec, WFD, MDP.etc
+	  relative options including: MTK_TEE_SUPPORT, MTK_GP_SUPPORT,
+	  MTK_DRM_L1_SUPPORT, MTK_PERSIST_PARTITION_SUPPORT,
+	  MTK_DRM_KEY_MNG_SUPPORT.
+
+config MTK_DRM_KEY_MNG_SUPPORT
+	bool "Enable MTK DRM Key Manager Support"
+	depends on MTK_IN_HOUSE_TEE_SUPPORT || TRUSTONIC_TEE_SUPPORT || \
+	           MTK_GOOGLE_TRUSTY_SUPPORT || MICROTRUST_TEE_SUPPORT
+	help
+	  This enable MTK DRM Key Manager Support.
+	  the DRM key install function is used in the feature of SVP .etc
+	  used by DRM/widevine to install and runtime read of keybox.
+	  relative options including: MTK_SEC_VIDEO_PATH_SUPPORT and
+	  MTK_PERSIST_PARTITION_SUPPORT.
+
+config MTK_LCM_PHYSICAL_ROTATION_HW
+	bool "Rotate LCM display for 180 degree using HW"
+	help
+	  Rotate LCM display for 180 degree using mediatek hardware engine
+	  Enable it when LCM hardware is intalled upside down,
+	  and you need to rotate the display content to adapting.
+
+source "drivers/misc/mediatek/videocodec/Kconfig"
+source "drivers/misc/mediatek/cameraisp/Kconfig"
+source "drivers/misc/mediatek/m4u/Kconfig"
+source "drivers/misc/mediatek/smi/Kconfig"
+source "drivers/misc/mediatek/mmp/Kconfig"
+source "drivers/misc/mediatek/cmdq/Kconfig"
+source "drivers/misc/mediatek/cqdma/Kconfig"
+source "drivers/misc/mediatek/hdmi/Kconfig"
+source "drivers/misc/mediatek/imgsensor/Kconfig"
+source "drivers/misc/mediatek/cam_cal/Kconfig"
+source "drivers/misc/mediatek/jpeg/Kconfig"
+source "drivers/misc/mediatek/lcm/Kconfig"
+source "drivers/misc/mediatek/trusted_mem/Kconfig"
+source "drivers/misc/mediatek/geniezone/Kconfig"
+source "drivers/misc/mediatek/sync/Kconfig"
+source "drivers/misc/mediatek/video/Kconfig"
+source "drivers/misc/mediatek/dfrc/Kconfig"
+
+config MTK_CAM_SECURITY_SUPPORT
+	bool "Secure Camera Infrastructure Support"
+	default n
+	help
+	  This is an option for MTK secure camera infrastructure.
+	  It provides hardware-based security that guarantees the data integrity
+	  form image sensor, ISP DMA port access to secure memory.
+	  If you are not sure about this, do not set it to y.
+
+endmenu  # MM
+
+menu "Sensors"
+
+config MTK_SENSOR_SUPPORT
+	bool "MTK SENSOR SUPPORT"
+	help
+	  Sensor config for sensor feature in project.
+	  Please say Y here if you want to support and sensors
+	  with mediatek sensor architecture.
+	  If unsure, say N.
+
+config MTK_SENSORS_1_0
+	bool "MTK SENSORs driver 1.0 SUPPORT"
+	help
+	  This is an option for MTK SENSOR 1.0 driver.
+	  we use BIO architecture instead of linux input
+	  architecture, BIO means boost io transfer data
+	  between kernel space and user space.
+	  And we support loadble drivers
+
+source "drivers/misc/mediatek/sensors-1.0/Kconfig"
+
+endmenu  # Sensors
+
+menu "Modem & Connectivity related configs"
+
+source "drivers/misc/mediatek/ccci_util/Kconfig"
+source "drivers/misc/mediatek/mixdev/Kconfig"
+source "drivers/misc/mediatek/ccmni/Kconfig"
+source "drivers/misc/mediatek/connectivity/Kconfig"
+source "drivers/misc/mediatek/eccci/Kconfig"
+source "drivers/misc/mediatek/conn_md/Kconfig"
+source "drivers/misc/mediatek/btif/Kconfig"
+source "drivers/misc/mediatek/mddp/Kconfig"
+
+endmenu  # CONN
+
+menu "Security"
+
+config MTK_TEE_GP_SUPPORT
+	bool "Enable MTK GlobalPlatform support in TEE related modules"
+	default n
+	depends on (TRUSTONIC_TEE_SUPPORT) || (MICROTRUST_TEE_SUPPORT)
+	help
+	  GlobalPlatform defines common/consistent APIs and this option
+	  enables TEE related modules to use GPAPIs. (depending on
+	  Trustonic TEE Support or Microtrust TEE Support or Google Trusty
+	  TEE or other 3rd-party TEE)
+
+config MTK_IN_HOUSE_TEE_SUPPORT
+	bool "Enable MTK In House TEE Support"
+	help
+	  Set to yes if MTK TEE is supported. If you don't know if it is
+	  supported, set to no.
+
+config MTEE_CMA_SECURE_MEMORY
+	bool "MTEE using CMA for secure memory allocation"
+	depends on OF
+	depends on CMA
+	depends on MTK_IN_HOUSE_TEE_SUPPORT
+	help
+	  Enable allocation secure memory from CMA to free the memory
+	  back to Linux CMA when secure memory buffer was not used.
+
+source "drivers/misc/mediatek/gud/Kconfig"
+source "drivers/misc/mediatek/masp/Kconfig"
+
+endmenu  # Security
+
+menu "Other Peripherals"
+
+source "drivers/misc/mediatek/accdet/Kconfig"
+source "drivers/misc/mediatek/ice_debug/Kconfig"
+source "drivers/misc/mediatek/log_store/Kconfig"
+source "drivers/misc/mediatek/udi/Kconfig"
+source "drivers/misc/mediatek/emi/Kconfig"
+source "drivers/misc/mediatek/emi_mpu/Kconfig"
+source "drivers/misc/mediatek/auxadc/Kconfig"
+source "drivers/misc/mediatek/devapc/Kconfig"
+source "drivers/misc/mediatek/trng/Kconfig"
+source "drivers/misc/mediatek/dramc/Kconfig"
+source "drivers/misc/mediatek/ext_gic/Kconfig"
+source "drivers/misc/mediatek/gpio/Kconfig"
+source "drivers/misc/mediatek/irtx/Kconfig"
+source "drivers/misc/mediatek/leds/Kconfig"
+source "drivers/misc/mediatek/md32/Kconfig"
+source "drivers/misc/mediatek/pseudo_m4u/Kconfig"
+source "drivers/misc/mediatek/pwm/Kconfig"
+source "drivers/misc/mediatek/debug_latch/Kconfig"
+source "drivers/misc/mediatek/dfd/Kconfig"
+source "drivers/misc/mediatek/systracker/Kconfig"
+source "drivers/misc/mediatek/vibrator/Kconfig"
+source "drivers/misc/mediatek/boot/Kconfig"
+source "drivers/misc/mediatek/boot_reason/Kconfig"
+source "drivers/misc/mediatek/chip/Kconfig"
+source "drivers/misc/mediatek/sched/Kconfig"
+source "drivers/misc/mediatek/selinux_warning/Kconfig"
+source "drivers/misc/mediatek/sysenv/Kconfig"
+source "drivers/misc/mediatek/scp/Kconfig"
+source "drivers/misc/mediatek/audio_ipi/Kconfig"
+source "drivers/misc/mediatek/adsp/Kconfig"
+source "drivers/misc/mediatek/sspm/Kconfig"
+source "drivers/misc/mediatek/typec/Kconfig"
+source "drivers/misc/mediatek/gpu/Kconfig"
+source "drivers/misc/mediatek/ccu/src/Kconfig"
+source "drivers/misc/mediatek/rtc/Kconfig"
+source "drivers/misc/mediatek/xo/Kconfig"
+source "drivers/misc/mediatek/teei/Kconfig"
+source "drivers/misc/mediatek/ram_console/Kconfig"
+source "drivers/misc/mediatek/aee/Kconfig"
+source "drivers/misc/mediatek/lens/Kconfig"
+source "drivers/misc/mediatek/flashlight/Kconfig"
+source "drivers/misc/mediatek/flashlight/richtek/Kconfig"
+source "drivers/misc/mediatek/rt-regmap/Kconfig"
+source "drivers/misc/mediatek/smartpa/Kconfig"
+source "drivers/misc/mediatek/usb11/Kconfig"
+source "drivers/misc/mediatek/usb20/Kconfig"
+source "drivers/misc/mediatek/mu3phy/Kconfig"
+source "drivers/misc/mediatek/mu3d/Kconfig"
+source "drivers/misc/mediatek/cirq/Kconfig"
+source "drivers/misc/mediatek/atf/Kconfig"
+source "drivers/misc/mediatek/vpu/Kconfig"
+source "drivers/misc/mediatek/mdla/Kconfig"
+source "drivers/misc/mediatek/nfc/Kconfig"
+source "drivers/misc/mediatek/performance/Kconfig"
+source "drivers/misc/mediatek/usb2jtag/Kconfig"
+
+source "drivers/misc/mediatek/devmpu/Kconfig"
+
+endmenu # Peripheral
+
+menu "Performance, Power, and Thermal"
+
+config MTK_FPSGO
+	bool "Support FPSGO framework"
+	default n
+	help
+	  Support FPSGO framework for UX & Gaming FPS performance and
+	  low power balance. As a perquisite to ensure FPS performance,
+	  FPSGO persuades lowest power consumption for better DoU
+	  endurance and gaming experience.
+	  If you are not sure about this, set n.
+
+config MTK_FPSGO_V3
+	bool "Support FPSGO_V3 framework"
+	default n
+	help
+	  Support FPSGO_V3 framework for most FPS performance and
+	  low power balance. As a perquisite to ensure FPS performance,
+	  FPSGO_V3 persuades lowest power consumption for better DoU
+	  endurance and gaming experience.
+	  FPSGO_V3 include AI performance and low power.
+	  If you are not sure about this, set n.
+
+config MTK_PERF_TRACKER
+	bool "MTK system performance index support"
+	help
+	  CONFIG_PERF_TRACKER define if system performance index should
+	  be built-in or not. It supports system related performance index
+	  via trace. If you are not sure about whether to enable it or not,
+	  please set n.
+
+endmenu  # PPT
+
+menu "Memory configs"
+
+config MTK_MEM
+	bool "Support platform memory information"
+	default y
+	help
+	  MTK_MEM provides basic platform memory information
+	  for mediatek platform drivers. It also provides
+	  some debug features. Please see
+	  MTK_MEMCFG.
+
+config MTK_MEMCFG
+	bool "Support enhanced memory configurations"
+	depends on MTK_MEM
+	help
+	  MTK_MEMCFG provides debug features such as
+	  platform memory layout information and
+	  fragmentation test tools. The features
+	  cost additional memory.
+
+config MTK_SSMR
+	bool "Support Mediatek Shareable Secure Memory Region technology"
+	depends on CMA
+	default y if (ARM || ARM64)
+	help
+	  Mediatek Shareable SMR technology.
+	  It tries to save memory by switching
+	  different DRAM mode dynamically. It's a
+	  platform-dependent feature.
+
+config MTK_GMO_RAM_OPTIMIZE
+	bool "MTK ram optimize"
+	default n
+	select MTK_ENABLE_GMO
+	select MTK_ENABLE_AGO
+	select DM_ANDROID_VERITY_AT_MOST_ONCE_DEFAULT_ENABLED
+	help
+	  Provide centeral config to use memory efficiently.
+	  GMO must set both in kernel & project config to prevent
+	  different flow.
+	  If you are not familiar with this config, please set it to n.
+
+config MTK_ENABLE_GMO
+	bool "Enable/Disable GMO related feautre"
+	default n
+	select CC_OPTIMIZE_FOR_SIZE
+	select ZRAM_LZ4K_COMPRESS
+	help
+	  Enable/Disable GMO related feautre
+	  Do not use this options in Kernel directly
+	  this is a group kernel setting of GMO
+	  must set CONFIG_LOG_BUF_SHIFT=17 manually
+
+config DMAUSER_PAGES
+	bool "allocate highuser movable pages from dma zone"
+	default n
+	depends on MTK_LM_MODE && !MTK_MEMORY_LOWPOWER
+	help
+	  An internal debug kernel config for testing large memory mode.
+	  To test if kernel drivers are fully compatible to large
+	  memorys, we replace all GFP_HIGHUSER_MOVABLE/GFP_USER pages by
+	  DMA (<= 4GB) pages. It makes all drivers have more chances
+	  to allocate >= 4GB physical memory.
+
+config NORMALKERNEL_PAGES
+	bool "allocate kernel pages from normal zone"
+	default n
+	depends on MTK_LM_MODE && !MTK_MEMORY_LOWPOWER && DMAUSER_PAGES
+	help
+	  An internal debug kernel config for testing large memory mode.
+	  To test if kernel drivers are fully compatible to large
+	  memorys, we replace all GFP_DMA pages by
+	  normal (> 4GB) pages. It makes all drivers have more chances
+	  to allocate >= 4GB physical memory.
+
+config MTK_ENABLE_AGO
+	bool "Enable/Disable A-Go related feautre"
+	default n
+	select SWAP
+	select ZRAM
+	select ZRAM_LZ4_COMPRESS
+	select MEMCG
+	select MEMCG_SWAP
+	select HZ_300
+	select UID_CPUTIME
+	select SDCARD_FS
+	help
+	  Enable/Disable GMO related feautre
+	  Do not use this options in Kernel directly
+	  this is a group kernel setting of AGO
+
+source "drivers/misc/mediatek/edmc/Kconfig"
+
+endmenu  # Memory
+
+menu "Misc configs"
+
+source "drivers/misc/mediatek/mtprintk/Kconfig"
+source "drivers/misc/mediatek/mtprof/Kconfig"
+source "drivers/misc/mediatek/vow/Kconfig"
+source "drivers/misc/mediatek/timer/Kconfig"
+source "drivers/misc/mediatek/mlog/Kconfig"
+source "drivers/misc/mediatek/cache-auditor/Kconfig"
+source "drivers/misc/mediatek/fiq_cache/Kconfig"
+source "drivers/misc/mediatek/debug_latch/Kconfig"
+source "drivers/misc/mediatek/watchpoint/Kconfig"
+source "drivers/misc/mediatek/Kconfig.default"
+source "drivers/misc/mediatek/tkcore/Kconfig"
+source "drivers/misc/mediatek/cmo/Kconfig"
+
+config MTK_FD_LEAK_DETECT
+	bool "Enable MTK fd leak detection"
+	help
+	  This feature is for detecting fd leak.
+	  When kernel can not alloc fd, will print error information.
+	  This feature should be enbled only on Engineer load; User/Userdebug
+	  load should be enabled by demand.
+
+config MTK_FD_LEAK_SPECIFIC_DEBUG
+	bool "Specific demand in fd leak debug"
+	default n
+	depends on MTK_FD_LEAK_DETECT
+	help
+	  Specific demand in fd leak debug.
+	  Eg,
+	  For some specific processes, may need backtrace, coredump
+	  and other debug information.
+
+config MTK_DM_VERITY_OFF
+	bool "Disable dm-verity"
+	default n
+
+endmenu    # Misc

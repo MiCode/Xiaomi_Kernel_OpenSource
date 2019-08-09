@@ -1,0 +1,34 @@
+This is a introduction for flashlight chip MT6370
+
+[Scope]
+- Two channel for two LEDs
+
+
+[Hardware Interface]
+- I2C
+	* For general control
+	* Slave address 0x34
+
+
+[Limit]
+- Channel couple:
+	* Torch/Strobe mode
+	* Strobe mode watchdog timer
+
+- Channel decouple:
+	* Current source
+	* Brightness level
+
+- Torch Mode
+	* Step current: 12.5 mA
+	* Min currnet: 25 mA
+	* Max current: 400 mA
+
+- Strobe Mode
+	* Step current: 12.5 mA
+	* Min currnet: 25 mA
+	* Max current: 1500 mA
+	* Max current for two channel: 2500 mA
+	* Min protected timeout: 64 ms
+	* Max protected timeout: 2432 ms
+

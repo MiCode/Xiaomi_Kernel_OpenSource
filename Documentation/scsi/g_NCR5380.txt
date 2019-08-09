@@ -1,0 +1,68 @@
+README file for the Linux g_NCR5380 driver.
+
+(c) 1993 Drew Eckhard
+NCR53c400 extensions (c) 1994,1995,1996 Kevin Lentin
+
+This file documents the NCR53c400 extensions by Kevin Lentin and some
+enhancements to the NCR5380 core.
+
+This driver supports both NCR5380 and NCR53c400 cards in port or memory
+mapped modes. Currently this driver can only support one of those mapping
+modes at a time but it does support both of these chips at the same time.
+The next release of this driver will support port & memory mapped cards at
+the same time. It should be able to handle multiple different cards in the
+same machine.
+
+The drivers/scsi/Makefile has an override in it for the most common
+NCR53c400 card, the Trantor T130B in its default configuration:
+	Port: 0x350
+	IRQ : 5
+
+The NCR53c400 does not support DMA but it does have Pseudo-DMA which is
+supported by the driver.
+
+This driver provides some information on what it has detected in
+/proc/scsi/g_NCR5380/x where x is the scsi card number as detected at boot
+time. More info to come in the future.
+
+This driver works as a module.
+When included as a module, parameters can be passed on the insmod/modprobe
+command line:
+  irq=xx[,...]	the interrupt(s)
+  base=xx[,...]	the port or base address(es) (for port or memory mapped, resp.)
+  card=xx[,...]	card type(s):
+		0 = NCR5380,
+		1 = NCR53C400,
+		2 = NCR53C400A,
+		3 = Domex Technology Corp 3181E (DTC3181E)
+		4 = Hewlett Packard C2502
+
+These old-style parameters can support only one card:
+  ncr_irq=xx   the interrupt
+  ncr_addr=xx  the port or base address (for port or memory
+               mapped, resp.)
+  ncr_5380=1   to set up for a NCR5380 board
+  ncr_53c400=1 to set up for a NCR53C400 board
+  ncr_53c400a=1 to set up for a NCR53C400A board
+  dtc_3181e=1  to set up for a Domex Technology Corp 3181E board
+  hp_c2502=1   to set up for a Hewlett Packard C2502 board
+
+e.g.
+OLD: modprobe g_NCR5380 ncr_irq=5 ncr_addr=0x350 ncr_5380=1
+NEW: modprobe g_NCR5380 irq=5 base=0x350 card=0
+  for a port mapped NCR5380 board or
+
+OLD: modprobe g_NCR5380 ncr_irq=255 ncr_addr=0xc8000 ncr_53c400=1
+NEW: modprobe g_NCR5380 irq=255 base=0xc8000 card=1
+  for a memory mapped NCR53C400 board with interrupts disabled or
+
+NEW: modprobe g_NCR5380 irq=0,7 base=0x240,0x300 card=3,4
+  for two cards: DTC3181 (in non-PnP mode) at 0x240 with no IRQ
+             and HP C2502 at 0x300 with IRQ 7
+
+(255 should be specified for no or DMA interrupt, 254 to autoprobe for an 
+     IRQ line if overridden on the command line.)
+
+
+Kevin Lentin
+K.Lentin@cs.monash.edu.au

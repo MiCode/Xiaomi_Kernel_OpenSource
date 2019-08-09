@@ -1,0 +1,12 @@
+#
+#Kconfig for mediatek/gpio
+#
+config MTK_MT6306_GPIO_SUPPORT
+	tristate "MediaTek MT6306 GPIO Controller support"
+	default n
+	---help---
+	  This selects the MediaTek(R) MT6306 GPIO driver.
+	  Some pinctrl functions need the utilities from this driver.
+	  If you want to use MediaTek(R) GPIO driver, say Y or M here.
+	  If unsure, say N.
+

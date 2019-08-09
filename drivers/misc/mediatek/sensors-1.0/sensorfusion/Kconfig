@@ -1,0 +1,90 @@
+
+config CUSTOM_KERNEL_SENSOR_FUSION
+	bool "CUSTOM KERNEL SENSOR FUSION config"
+	help
+	  fusion sensor is a sensor conclusion.
+	  If the platform is supported for fusion, this
+	  configuration should be configured, and the fusion
+	  driver configuration should be configured as well.
+
+config CUSTOM_KERNEL_GRV_SENSOR
+	bool "CUSTOM KERNEL GRV SENSOR config"
+	help
+	  grv sensor is a sensor fusion type.
+	  If the platform is supported for grv, this
+	  configuration should be configured, and the grv
+	  driver configuration should be configured as well.
+
+config CUSTOM_KERNEL_GMRV_SENSOR
+	bool "CUSTOM KERNEL GMRV SENSOR config"
+	help
+	  gmrv sensor is a sensor fusion type.
+	  If the platform is supported for gmrv, this
+	  configuration should be configured, and the gmrv
+	  driver configuration should be configured as well.
+
+config CUSTOM_KERNEL_RV_SENSOR
+	bool "CUSTOM KERNEL RV SENSOR config"
+	help
+	  rv sensor is a sensor fusion type.
+	  If the platform is supported for rv, this
+	  configuration should be configured, and the rv
+	  driver configuration should be configured as well.
+
+config CUSTOM_KERNEL_LINEARACCEL_SENSOR
+	bool "CUSTOM KERNEL LINEARACCEL SENSOR config"
+	help
+	  linearacc sensor is a sensor fusion type.
+	  If the platform is supported for linearacc, this
+	  configuration should be configured, and the linearacc
+	  driver configuration should be configured as well.
+
+config CUSTOM_KERNEL_GRAVITY_SENSOR
+	bool "CUSTOM KERNEL GRAVITY SENSOR config"
+	help
+	  gravity sensor is a sensor fusion type.
+	  If the platform is supported for gravity, this
+	  configuration should be configured, and the gravity
+	  driver configuration should be configured as well.
+
+config CUSTOM_KERNEL_ORIENTATION
+	bool "CUSTOM KERNEL ORIENTATION config"
+	help
+	  orient sensor is a sensor fusion type.
+	  If the platform is supported for orient, this
+	  configuration should be configured, and the orient
+	  driver configuration should be configured as well.
+
+config CUSTOM_KERNEL_UNCALI_ACC_SENSOR
+	bool "CUSTOM KERNEL UNCALI ACC SENSOR config"
+	help
+	  ungyro sensor is a sensor fusion type.
+	  If the platform is supported for unacc, this
+	  configuration should be configured, and the unacc
+	  driver configuration should be configured as well.
+
+config CUSTOM_KERNEL_UNCALI_GYRO_SENSOR
+	bool "CUSTOM KERNEL UNCALI GYRO SENSOR config"
+	help
+	  ungyro sensor is a sensor fusion type.
+	  If the platform is supported for ungyro, this
+	  configuration should be configured, and the ungyro
+	  driver configuration should be configured as well.
+
+config CUSTOM_KERNEL_UNCALI_MAG_SENSOR
+	bool "CUSTOM KERNEL UNCALI MAG SENSOR config"
+	help
+	  unmag sensor is a sensor fusion type.
+	  If the platform is supported for unmag, this
+	  configuration should be configured, and the unmag
+	  driver configuration should be configured as well.
+
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/uncali_maghub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/uncali_gyrohub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/gamerotvechub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/rotatvechub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/gmagrotvechub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/gravityhub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/linearacchub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/orienthub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/uncali_acchub/Kconfig"

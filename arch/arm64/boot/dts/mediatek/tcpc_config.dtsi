@@ -1,0 +1,67 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	rt5081_typec: type_c_port0 {
+		rt-dual,supported_modes = <0>; /* 0: dfp/ufp, 1: dfp, 2: ufp */
+		rt-tcpc,name = "type_c_port0"; /* tcpc_device's name */
+		rt-tcpc,role_def = <4>;
+		/* 0: SNK Only, 1: SRC Only, 2: DRP, 3: Try.SRC, 4: Try.SNK */
+		rt-tcpc,rp_level = <0>; /* 0: Default, 1: 1.5, 2: 3.0 */
+		rt-tcpc,notifier_supply_num = <2>;
+		/* the number of notifier supply */
+		rt5081pd,intr_gpio = <&pio 24 0x0>;
+		rt5081pd,intr_gpio_num = <24>;
+
+		pd-data {
+			pd,source-pdo-size = <1>;
+			pd,source-pdo-data = <0x00019032>; /*<0x019014>;*/
+			pd,sink-pdo-size = <2>;
+			pd,sink-pdo-data = <0x000190c8 0x000190c8>;
+			/* 0x0002d0c8 : 9V, 2A<0x04019032 0x04019064> */
+
+			pd,id-vdo-size = <3>;
+			pd,id-vdo-data = <0xd40029cf 0x0 0x00010000>;
+		};
+
+		dpm_caps {
+			local_dr_power;
+			local_dr_data;
+			//local_ext_power;
+			local_usb_comm;
+			//local_usb_suspend;
+			//local_high_cap;
+			//local_give_back;
+			//local_no_suspend;
+			local_vconn_supply;
+
+			//attemp_discover_cable_dfp;
+			attemp_enter_dp_mode;
+			attemp_discover_cable;
+			attemp_discover_id;
+			/* 0: disable, 1: prefer_snk, 2: prefer_src */
+			pr_check = <0>;
+			//pr_reject_as_source;
+			//pr_reject_as_sink;
+			pr_check_gp_source;
+			//pr_check_gp_sink;
+
+			/* 0: disable, 1: prefer_ufp, 2: prefer_dfp */
+			dr_check = <0>;
+			//dr_reject_as_dfp;
+			//dr_reject_as_ufp;
+			nk_prefer_low_voltage;
+			snk_ignore_mismatch_current;
+		};
+	};
+};
+

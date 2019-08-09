@@ -1,0 +1,71 @@
+menu "Storage Hardware Inline Encryption"
+
+config HIE
+	bool  "Hardware-Inline-Encryption (HIE)"
+	default n
+	select KEYS
+	help
+	  This driver provides an interface for storage driver to
+	  retrieve file-oriented encrypt keys from file system.
+	  The storage driver must register hardware encryption
+	  capability to HIE.
+
+config HIE_DEBUG
+	bool  "HIE debug"
+	default n
+	depends on DEBUG_FS
+	depends on HIE
+	help
+	  Enable debug facility. Print logs when encryption,
+	  decryption, attach/retrieve key from bio.
+
+	  /d/hie/debug: debug log control
+	  Mask    Debug Messages
+	  0x02    print logs when accessing certain inode.
+	  0x04    dump bio basic info when decrypt/encrypt.
+	  0x08    print keys when decrypt/encrypt.
+	  0x10    print pointer to the bio when decrypt/encrypt.
+	  Example: "echo 16 > /d/hie/debug"
+
+	  /d/hie/ino: target inode number, when log mask = 0x02.
+
+config HIE_NO_CRYPT
+	bool  "HIE no crypt"
+	default n
+	depends on HIE
+	help
+	  Skip calling driver registered encryption/decryption
+	  function. Used to simulate theoretical speed limit of
+	  hardware encryption, that is, encryption overhead time
+	  equals zero.
+
+config HIE_DUMMY_CRYPT
+	bool "HIE dummy crypt"
+	default n
+	depends on HIE
+	help
+	  XOR the buffer with 0xFFFF, instead of calling driver
+	  registered encryption/decryption function. Used to
+	  verify the correctness of hie_encrypt(), hie_decrypt()
+	  insertion points in the driver.
+
+config HIE_DUMMY_CRYPT_KEY_SWITCH
+	bool "HIE dummy crypt with key switch"
+	default n
+	depends on HIE_DUMMY_CRYPT
+	help
+	  XOR the buffer with real keys. Used to verify the
+	  correctness of key passing from the file system to
+	  the block layer, and finally to the HIE driver.
+
+config HIE_DUMMY_CRYPT_IV
+	bool "HIE dummy crypt with iv"
+	default n
+	depends on HIE_DUMMY_CRYPT
+	help
+	  XOR the buffer with the initialzation vector(iv.),
+	  if BC_IV_PAGE_IDX flag is set in the bio crypt
+	  context. Used to verify the correctness of iv.
+	  calculation and block merge.
+
+endmenu

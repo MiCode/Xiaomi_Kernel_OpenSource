@@ -1,0 +1,18 @@
+config MTK_EDMC_SUPPORT
+	bool "EDMC (External DMA) Driver"
+	default n
+	help
+	  The purpose of Mediatek eDMC is performing
+	  data transfer between external memory such as
+	  DRAM/TCM, It will cooperate with MDLA. eDMC
+	  support different modes for image process.
+
+config MTK_EDMC_ION
+	bool "MDMC use ION memory"
+	depends on MTK_MDLA_ION
+	default y
+	help
+	  Enable MDMC to use MTK ION for better memory
+	  utilization. It will automatically enable ION
+	  feature of MDLA. It depens on the config of
+	  MTK_MDLA_ION.

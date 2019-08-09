@@ -1,0 +1,37 @@
+config MTK_PERFMGR_TOUCH_BOOST
+	tristate "touch boost in performance manager"
+	default n
+	help
+	  MTK_PERFMGR_TOUCH_BOOST is the kernel config of touch boost
+	  feature designed by MTK, which is a performance improving
+	  feature for user experience. When the device receives touch
+	  event, it will raise system resources(CPU frequency / CPU cores)
+	  for better user experience.
+
+config MTK_LOAD_TRACKER
+	tristate "CPU Loading Tracking Service"
+	depends on CPU_FREQ
+	default y
+	help
+	  MTK_LOAD_TRACKER is the kernel config of CPU Loading Tracking
+	  Service designed by MTK, which is a service to get CPU Loading
+	  information.
+
+config MTK_CPU_CTRL_CFP
+	tristate "CPU CTRL Ceiling-Fool-Proof"
+	depends on MTK_LOAD_TRACKER
+	default n
+	help
+	  MTK_CPU_CTRL_CFP is the kernel config of CPU controller
+	  Ceiling-Fool-Proof Mechanism designed by MTK. CPU controller
+	  will free CPU frequency ceiling during heavy CPU loading.
+
+config MTK_PERF_OBSERVER
+	bool "MTK system performance observer support"
+	default n
+	help
+	  MTK_PERF_OBSERVER define if system performance observer should
+	  be built-in or not. It supports system related performance index
+	  via notifier. If you are not sure about whether to enable it or not,
+	  please set n.
+

@@ -1,0 +1,7 @@
+config MT6360_PMIC
+	bool "Support for MT6360 PMIC part"
+	depends on I2C
+	select RT_REGMAP
+	help
+	  This selects for MediaTek(R) Sub PMIC MT6360 PMU parts.
+	  Select Y to enable support for MT6360 PMU.

@@ -1,0 +1,363 @@
+/*
+ * SAMSUNG EXYNOS5410 SoC device tree source
+ *
+ * Copyright (c) 2013 Samsung Electronics Co., Ltd.
+ *		http://www.samsung.com
+ *
+ * SAMSUNG EXYNOS5410 SoC device nodes are listed in this file.
+ * EXYNOS5410 based board files can include this file and provide
+ * values for board specfic bindings.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "exynos54xx.dtsi"
+#include "exynos-syscon-restart.dtsi"
+#include <dt-bindings/clock/exynos5410.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/ {
+	compatible = "samsung,exynos5410", "samsung,exynos5";
+	interrupt-parent = <&gic>;
+
+	aliases {
+		pinctrl0 = &pinctrl_0;
+		pinctrl1 = &pinctrl_1;
+		pinctrl2 = &pinctrl_2;
+		pinctrl3 = &pinctrl_3;
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a15";
+			reg = <0x0>;
+			clock-frequency = <1600000000>;
+		};
+
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a15";
+			reg = <0x1>;
+			clock-frequency = <1600000000>;
+		};
+
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a15";
+			reg = <0x2>;
+			clock-frequency = <1600000000>;
+		};
+
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a15";
+			reg = <0x3>;
+			clock-frequency = <1600000000>;
+		};
+	};
+
+	soc: soc {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		pmu_system_controller: system-controller@10040000 {
+			compatible = "samsung,exynos5410-pmu", "syscon";
+			reg = <0x10040000 0x5000>;
+			clock-names = "clkout16";
+			clocks = <&fin_pll>;
+			#clock-cells = <1>;
+		};
+
+		clock: clock-controller@10010000 {
+			compatible = "samsung,exynos5410-clock";
+			reg = <0x10010000 0x30000>;
+			#clock-cells = <1>;
+		};
+
+		tmu_cpu0: tmu@10060000 {
+			compatible = "samsung,exynos5420-tmu";
+			reg = <0x10060000 0x100>;
+			interrupts = <GIC_SPI 65 0>;
+			clocks = <&clock CLK_TMU>;
+			clock-names = "tmu_apbif";
+			#include "exynos4412-tmu-sensor-conf.dtsi"
+		};
+
+		tmu_cpu1: tmu@10064000 {
+			compatible = "samsung,exynos5420-tmu";
+			reg = <0x10064000 0x100>;
+			interrupts = <GIC_SPI 183 0>;
+			clocks = <&clock CLK_TMU>;
+			clock-names = "tmu_apbif";
+			#include "exynos4412-tmu-sensor-conf.dtsi"
+		};
+
+		tmu_cpu2: tmu@10068000 {
+			compatible = "samsung,exynos5420-tmu";
+			reg = <0x10068000 0x100>;
+			interrupts = <GIC_SPI 184 0>;
+			clocks = <&clock CLK_TMU>;
+			clock-names = "tmu_apbif";
+			#include "exynos4412-tmu-sensor-conf.dtsi"
+		};
+
+		tmu_cpu3: tmu@1006c000 {
+			compatible = "samsung,exynos5420-tmu";
+			reg = <0x1006c000 0x100>;
+			interrupts = <GIC_SPI 185 0>;
+			clocks = <&clock CLK_TMU>;
+			clock-names = "tmu_apbif";
+			#include "exynos4412-tmu-sensor-conf.dtsi"
+		};
+
+		mmc_0: mmc@12200000 {
+			compatible = "samsung,exynos5250-dw-mshc";
+			reg = <0x12200000 0x1000>;
+			interrupts = <0 75 0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&clock CLK_MMC0>, <&clock CLK_SCLK_MMC0>;
+			clock-names = "biu", "ciu";
+			fifo-depth = <0x80>;
+			status = "disabled";
+		};
+
+		mmc_1: mmc@12210000 {
+			compatible = "samsung,exynos5250-dw-mshc";
+			reg = <0x12210000 0x1000>;
+			interrupts = <0 76 0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&clock CLK_MMC1>, <&clock CLK_SCLK_MMC1>;
+			clock-names = "biu", "ciu";
+			fifo-depth = <0x80>;
+			status = "disabled";
+		};
+
+		mmc_2: mmc@12220000 {
+			compatible = "samsung,exynos5250-dw-mshc";
+			reg = <0x12220000 0x1000>;
+			interrupts = <0 77 0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&clock CLK_MMC2>, <&clock CLK_SCLK_MMC2>;
+			clock-names = "biu", "ciu";
+			fifo-depth = <0x80>;
+			status = "disabled";
+		};
+
+		pinctrl_0: pinctrl@13400000 {
+			compatible = "samsung,exynos5410-pinctrl";
+			reg = <0x13400000 0x1000>;
+			interrupts = <0 45 0>;
+
+			wakeup-interrupt-controller {
+				compatible = "samsung,exynos4210-wakeup-eint";
+				interrupt-parent = <&gic>;
+				interrupts = <0 32 0>;
+			};
+		};
+
+		pinctrl_1: pinctrl@14000000 {
+			compatible = "samsung,exynos5410-pinctrl";
+			reg = <0x14000000 0x1000>;
+			interrupts = <0 46 0>;
+		};
+
+		pinctrl_2: pinctrl@10d10000 {
+			compatible = "samsung,exynos5410-pinctrl";
+			reg = <0x10d10000 0x1000>;
+			interrupts = <0 50 0>;
+		};
+
+		pinctrl_3: pinctrl@03860000 {
+			compatible = "samsung,exynos5410-pinctrl";
+			reg = <0x03860000 0x1000>;
+			interrupts = <0 47 0>;
+		};
+	};
+
+	thermal-zones {
+		cpu0_thermal: cpu0-thermal {
+			thermal-sensors = <&tmu_cpu0>;
+			#include "exynos5420-trip-points.dtsi"
+		};
+		cpu1_thermal: cpu1-thermal {
+		       thermal-sensors = <&tmu_cpu1>;
+		       #include "exynos5420-trip-points.dtsi"
+		};
+		cpu2_thermal: cpu2-thermal {
+		       thermal-sensors = <&tmu_cpu2>;
+		       #include "exynos5420-trip-points.dtsi"
+		};
+		cpu3_thermal: cpu3-thermal {
+		       thermal-sensors = <&tmu_cpu3>;
+		       #include "exynos5420-trip-points.dtsi"
+		};
+	};
+};
+
+&i2c_0 {
+	clocks = <&clock CLK_I2C0>;
+	clock-names = "i2c";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_bus>;
+};
+
+&i2c_1 {
+	clocks = <&clock CLK_I2C1>;
+	clock-names = "i2c";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_bus>;
+};
+
+&i2c_2 {
+	clocks = <&clock CLK_I2C2>;
+	clock-names = "i2c";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_bus>;
+};
+
+&i2c_3 {
+	clocks = <&clock CLK_I2C3>;
+	clock-names = "i2c";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_bus>;
+};
+
+&hsi2c_4 {
+	clocks = <&clock CLK_USI0>;
+	clock-names = "hsi2c";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c4_hs_bus>;
+};
+
+&hsi2c_5 {
+	clocks = <&clock CLK_USI1>;
+	clock-names = "hsi2c";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c5_hs_bus>;
+};
+
+&hsi2c_6 {
+	clocks = <&clock CLK_USI2>;
+	clock-names = "hsi2c";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c6_hs_bus>;
+};
+
+&hsi2c_7 {
+	clocks = <&clock CLK_USI3>;
+	clock-names = "hsi2c";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c7_hs_bus>;
+};
+
+&mct {
+	clocks = <&fin_pll>, <&clock CLK_MCT>;
+	clock-names = "fin_pll", "mct";
+};
+
+&pwm {
+	clocks = <&clock CLK_PWM>;
+	clock-names = "timers";
+};
+
+&rtc {
+	clocks = <&clock CLK_RTC>;
+	clock-names = "rtc";
+	status = "disabled";
+};
+
+&serial_0 {
+	clocks = <&clock CLK_UART0>, <&clock CLK_SCLK_UART0>;
+	clock-names = "uart", "clk_uart_baud0";
+};
+
+&serial_1 {
+	clocks = <&clock CLK_UART1>, <&clock CLK_SCLK_UART1>;
+	clock-names = "uart", "clk_uart_baud0";
+};
+
+&serial_2 {
+	clocks = <&clock CLK_UART2>, <&clock CLK_SCLK_UART2>;
+	clock-names = "uart", "clk_uart_baud0";
+};
+
+&serial_3 {
+	clocks = <&clock CLK_UART3>, <&clock CLK_SCLK_UART3>;
+	clock-names = "uart", "clk_uart_baud0";
+};
+
+&sss {
+	clocks = <&clock CLK_SSS>;
+	clock-names = "secss";
+};
+
+&sromc {
+	#address-cells = <2>;
+	#size-cells = <1>;
+	ranges = <0 0 0x04000000 0x20000
+		  1 0 0x05000000 0x20000
+		  2 0 0x06000000 0x20000
+		  3 0 0x07000000 0x20000>;
+};
+
+&usbdrd3_0 {
+	clocks = <&clock CLK_USBD300>;
+	clock-names = "usbdrd30";
+};
+
+&usbdrd_phy0 {
+	clocks = <&clock CLK_USBD300>, <&clock CLK_SCLK_USBPHY300>;
+	clock-names = "phy", "ref";
+	samsung,pmu-syscon = <&pmu_system_controller>;
+};
+
+&usbdrd3_1 {
+	clocks = <&clock CLK_USBD301>;
+	clock-names = "usbdrd30";
+};
+
+&usbdrd_dwc3_1 {
+	interrupts = <GIC_SPI 200 0>;
+};
+
+&usbdrd_phy1 {
+	clocks = <&clock CLK_USBD301>, <&clock CLK_SCLK_USBPHY301>;
+	clock-names = "phy", "ref";
+	samsung,pmu-syscon = <&pmu_system_controller>;
+};
+
+&usbhost1 {
+	clocks = <&clock CLK_USBH20>;
+	clock-names = "usbhost";
+};
+
+&usbhost2 {
+	clocks = <&clock CLK_USBH20>;
+	clock-names = "usbhost";
+};
+
+&usb2_phy {
+	clocks = <&clock CLK_USBH20>, <&clock CLK_SCLK_USBPHY300>;
+	clock-names = "phy", "ref";
+	samsung,sysreg-phandle = <&sysreg_system_controller>;
+	samsung,pmureg-phandle = <&pmu_system_controller>;
+};
+
+&watchdog {
+	clocks = <&clock CLK_WDT>;
+	clock-names = "watchdog";
+	samsung,syscon-phandle = <&pmu_system_controller>;
+};
+
+#include "exynos5410-pinctrl.dtsi"

@@ -1,0 +1,178 @@
+#
+# MediaTek SoC drivers
+#
+config COMMON_CLK_MEDIATEK
+	bool
+	---help---
+	  Mediatek SoCs' clock support.
+
+config COMMON_CLK_MT2701
+	bool "Clock driver for Mediatek MT2701"
+	select COMMON_CLK_MEDIATEK
+	default ARCH_MEDIATEK
+	---help---
+	  This driver supports Mediatek MT2701 basic clocks.
+
+config COMMON_CLK_MT2701_MMSYS
+	bool "Clock driver for Mediatek MT2701 mmsys"
+	select COMMON_CLK_MT2701
+	---help---
+	  This driver supports Mediatek MT2701 mmsys clocks.
+
+config COMMON_CLK_MT2701_IMGSYS
+	bool "Clock driver for Mediatek MT2701 imgsys"
+	select COMMON_CLK_MT2701
+	---help---
+	  This driver supports Mediatek MT2701 imgsys clocks.
+
+config COMMON_CLK_MT2701_VDECSYS
+	bool "Clock driver for Mediatek MT2701 vdecsys"
+	select COMMON_CLK_MT2701
+	---help---
+	  This driver supports Mediatek MT2701 vdecsys clocks.
+
+config COMMON_CLK_MT2701_HIFSYS
+	bool "Clock driver for Mediatek MT2701 hifsys"
+	select COMMON_CLK_MT2701
+	---help---
+	  This driver supports Mediatek MT2701 hifsys clocks.
+
+config COMMON_CLK_MT2701_ETHSYS
+	bool "Clock driver for Mediatek MT2701 ethsys"
+	select COMMON_CLK_MT2701
+	---help---
+	  This driver supports Mediatek MT2701 ethsys clocks.
+
+config COMMON_CLK_MT2701_BDPSYS
+	bool "Clock driver for Mediatek MT2701 bdpsys"
+	select COMMON_CLK_MT2701
+	---help---
+	  This driver supports Mediatek MT2701 bdpsys clocks.
+
+config COMMON_CLK_MT2712
+	bool "Clock driver for Mediatek MT2712"
+	select COMMON_CLK_MEDIATEK
+	default ARCH_MEDIATEK
+	---help---
+	  This driver supports Mediatek MT2712 clocks.
+
+config COMMON_CLK_MT2712_BDPSYS
+	bool "Clock driver for Mediatek MT2712 bdpsys"
+	select COMMON_CLK_MT2712
+	---help---
+	  This driver supports Mediatek MT2712 bdpsys clocks.
+
+config COMMON_CLK_MT2712_IMGSYS
+	bool "Clock driver for Mediatek MT2712 imgsys"
+	select COMMON_CLK_MT2712
+	---help---
+	  This driver supports Mediatek MT2712 imgsys clocks.
+
+config COMMON_CLK_MT2712_JPGDECSYS
+	bool "Clock driver for Mediatek MT2712 jpgdecsys"
+	select COMMON_CLK_MT2712
+	---help---
+	  This driver supports Mediatek MT2712 jpgdecsys clocks.
+
+config COMMON_CLK_MT2712_MFGCFG
+	bool "Clock driver for Mediatek MT2712 mfgcfg"
+	select COMMON_CLK_MT2712
+	---help---
+	  This driver supports Mediatek MT2712 mfgcfg clocks.
+
+config COMMON_CLK_MT2712_MMSYS
+	bool "Clock driver for Mediatek MT2712 mmsys"
+	select COMMON_CLK_MT2712
+	---help---
+	  This driver supports Mediatek MT2712 mmsys clocks.
+
+config COMMON_CLK_MT2712_VDECSYS
+	bool "Clock driver for Mediatek MT2712 vdecsys"
+	select COMMON_CLK_MT2712
+	---help---
+	  This driver supports Mediatek MT2712 vdecsys clocks.
+
+config COMMON_CLK_MT2712_VENCSYS
+	bool "Clock driver for Mediatek MT2712 vencsys"
+	select COMMON_CLK_MT2712
+	---help---
+	  This driver supports Mediatek MT2712 vencsys clocks.
+
+config COMMON_CLK_MT3967
+	bool "Clock driver for Mediatek MT3967"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK
+	default y if MACH_MT3967
+	---help---
+	  This driver supports Mediatek MT3967 clocks.
+	  Use the config to support CCF on MT3967,
+	  instead of old clkmgr architecture.
+	  MT3967 default will use CCF.
+
+config COMMON_CLK_MT6758
+	bool "Clock driver for Mediatek MT6758"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK
+	default y if MACH_MT6758
+	---help---
+	  This driver supports Mediatek MT6758 clocks.
+	  Use the config to support CCF on MT6758,
+	  instead of old clkmgr architecture.
+	  MT6758 default will use CCF.
+
+config COMMON_CLK_MT6765
+	bool "Clock driver for Mediatek MT6765"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK
+	default y if MACH_MT6765 && !MTK_CLKMGR && !FPGA_EARLY_PORTING
+	---help---
+	  This driver supports Mediatek MT6765 clocks.
+	  Use the config to support CCF on MT6765,
+	  instead of old clkmgr architecture.
+	  MT6765 default will use CCF.
+
+config COMMON_CLK_MT6761
+	bool "Clock driver for Mediatek MT6761"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK
+	default y if MACH_MT6761 && !MTK_CLKMGR && !FPGA_EARLY_PORTING
+	---help---
+	  This driver supports Mediatek MT6761 clocks.
+	  Use the config to support CCF on MT6761,
+	  instead of old clkmgr architecture.
+	  MT6761 default will use CCF.
+
+config COMMON_CLK_MT6779
+	bool "Clock driver for Mediatek MT6779"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK
+	default y if MACH_MT6779
+	---help---
+	  This driver supports Mediatek MT6779 clocks.
+	  Use the config to support CCF on MT6779,
+	  instead of old clkmgr architecture.
+	  MT6779 default will use CCF.
+
+config COMMON_CLK_MT8135
+	bool "Clock driver for Mediatek MT8135"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	select COMMON_CLK_MEDIATEK
+	default ARCH_MEDIATEK
+	---help---
+	  This driver supports Mediatek MT8135 clocks.
+
+config COMMON_CLK_MT8163
+	bool "Clock driver for Mediatek MT8163"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK
+	default y if MACH_MT8163
+	---help---
+	  This driver supports Mediatek MT8163 clocks.
+
+config COMMON_CLK_MT8173
+	bool "Clock driver for Mediatek MT8173"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	select COMMON_CLK_MEDIATEK
+	default ARCH_MEDIATEK
+	---help---
+	  This driver supports Mediatek MT8173 clocks.

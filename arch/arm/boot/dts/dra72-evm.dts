@@ -1,0 +1,45 @@
+/*
+ * Copyright (C) 2014-2016 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+#include "dra72-evm-common.dtsi"
+/ {
+	model = "TI DRA722";
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x40000000>; /* 1024 MB */
+	};
+};
+
+&tps65917_regulators {
+	ldo2_reg: ldo2 {
+		/* LDO2_OUT --> TP1017 (UNUSED)  */
+		regulator-name = "ldo2";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-allow-bypass;
+	};
+};
+
+&hdmi {
+	vdda-supply = <&ldo3_reg>;
+};
+
+&pcf_gpio_21 {
+	interrupt-parent = <&gpio6>;
+	interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
+};
+
+&mac {
+	slaves = <1>;
+	mode-gpios = <&pcf_gpio_21 4 GPIO_ACTIVE_HIGH>;
+};
+
+&cpsw_emac0 {
+	phy_id = <&davinci_mdio>, <3>;
+	phy-mode = "rgmii";
+};

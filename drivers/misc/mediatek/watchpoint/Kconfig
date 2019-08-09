@@ -1,0 +1,8 @@
+config MTK_WATCHPOINT
+	bool "Enable MTK WATCH POINT Driver"
+	default n
+	help
+	  Watch pointer driver is a debugging feature,
+	  which allows user to monitor on certain hardware
+	  physical address. After enabling a watchpoint, any
+	  access to this address would trigger an interrupt.

@@ -1,0 +1,8 @@
+config MTK_DEVAPC_DRIVER
+	bool "Enable MTK Device APC driver"
+	default y if (MACH_MT6779)
+	help
+	  Device APC is a kernel driver controlling internal device security.
+	  If someone tries to access a device, which is not allowed by the
+	  device, he cannot access the device and will get a violation
+	  interrupt. Device APC prevents malicious access to internal devices.

@@ -1,0 +1,26 @@
+This is a introduction for flashlight chip LM3642
+
+[Scope]
+- one channel for one LED
+- Two silicon revision
+	* LM3642
+	* LM3642LT (Half torch current)
+
+
+[Hardware Interface]
+- I2C
+	* For general control
+	* Slave address 0x63
+
+
+[Limit]
+- Torch Mode
+	* Min currnet: 48.4 mA (24 mA for LM3642LT)
+	* Max current: 375 mA (187.5 mA for LM3642LT)
+
+- Strobe Mode
+	* Min currnet: 93.75 mA
+	* Max current: 1500 mA
+	* Min protected timeout: 100 ms
+	* Max protected timeout: 800 ms
+

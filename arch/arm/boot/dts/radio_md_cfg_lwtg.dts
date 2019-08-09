@@ -1,0 +1,14 @@
+/* radio modem configure start */
+&radio_md_cfg {
+	radio_md_g_en = <1>;
+	radio_md_t_en = <1>;
+	radio_md_c_en = <0>;
+	radio_md_w_en = <1>;
+	radio_md_lf_en = <1>;
+	radio_md_lt_en = <1>;
+	radio_md_nr_en = <0>;
+	radio_md_c2k_lte_mode = <0>;
+};
+/* radio modem configure end */
+
+

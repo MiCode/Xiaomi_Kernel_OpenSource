@@ -1,0 +1,125 @@
+config PINCTRL_MTK
+	bool
+	depends on OF
+	select PINMUX
+	select GENERIC_PINCONF
+	select GPIOLIB
+	select OF_GPIO
+
+config PINCTRL_MT6758
+	bool "Mediatek MT6758 pin control"
+	default n
+	depends on (!ARCH_MEDIATEK) && MACH_MT6758
+	select PINCTRL_MTK
+	select PINCTRL_MTK_NO_UPSTREAM
+	select MTK_EINT_MULTI_TRIGGER_DESIGN
+
+config PINCTRL_MT6761
+	bool "Mediatek MT6761 pin control"
+	default n
+	depends on (!ARCH_MEDIATEK) && MACH_MT6761
+	select PINCTRL_MTK
+	select PINCTRL_MTK_NO_UPSTREAM
+	select MTK_EINT_MULTI_TRIGGER_DESIGN
+
+config PINCTRL_MT6765
+	bool "Mediatek MT6765 pin control"
+	default n
+	depends on (!ARCH_MEDIATEK) && MACH_MT6765
+	select PINCTRL_MTK
+	select PINCTRL_MTK_NO_UPSTREAM
+	select MTK_EINT_MULTI_TRIGGER_DESIGN
+
+config PINCTRL_MT3967
+	bool "Mediatek MT3967 pin control"
+	default n
+	depends on (!ARCH_MEDIATEK) && MACH_MT3967
+	select PINCTRL_MTK
+	select PINCTRL_MTK_NO_UPSTREAM
+	select MTK_EINT_MULTI_TRIGGER_DESIGN
+
+config PINCTRL_MT6779
+	bool "Mediatek MT6779 pin control"
+	default n
+	depends on (!ARCH_MEDIATEK) && MACH_MT6779
+	select PINCTRL_MTK
+	select PINCTRL_MTK_NO_UPSTREAM
+	select MTK_EINT_MULTI_TRIGGER_DESIGN
+
+config MTK_EINT_MULTI_TRIGGER_DESIGN
+	bool "Mediatek EINT multi-trigger design"
+	depends on PINCTRL_MTK
+	default n
+	help
+	  On MTK EINT design, a GPIO pin is connected to 2 EINT pin  in order to
+	  save pins for assignments. Which EINT pin is actually occupied by a GPIO
+	  is described in *pins and it is decided in run time.
+
+config PINCTRL_MTK_NO_UPSTREAM
+	bool "Mediatek pin control"
+	depends on OF
+	select PINCTRL_MTK
+	help
+	  Say yes here to enable support for MediaTek pinctrl debug command.
+	  It can provide gpio status debug shell command.
+	  We also can use these shell command to change gpio status.
+	  It is common for all ICs.
+	  We can use the command to debug gpio status issues.
+	  we also can use it in user space.
+
+if ARCH_MEDIATEK || COMPILE_TEST
+# For ARMv7 SoCs
+config PINCTRL_MT2701
+	bool "Mediatek MT2701 pin control" if COMPILE_TEST && !MACH_MT2701
+	depends on OF
+	default MACH_MT2701
+	select PINCTRL_MTK
+
+config PINCTRL_MT7623
+	bool "Mediatek MT7623 pin control" if COMPILE_TEST && !MACH_MT7623
+	depends on OF
+	default MACH_MT7623
+	select PINCTRL_MTK_COMMON
+
+config PINCTRL_MT8135
+	bool "Mediatek MT8135 pin control" if COMPILE_TEST && !MACH_MT8135
+	depends on OF
+	default MACH_MT8135
+	select PINCTRL_MTK
+
+config PINCTRL_MT8127
+	bool "Mediatek MT8127 pin control" if COMPILE_TEST && !MACH_MT8127
+	depends on OF
+	default MACH_MT8127
+	select PINCTRL_MTK
+
+# For ARMv8 SoCs
+config PINCTRL_MT2712
+	bool "Mediatek MT2712 pin control"
+	depends on OF
+	depends on ARM64 || COMPILE_TEST
+	default ARM64 && ARCH_MEDIATEK
+	select PINCTRL_MTK
+
+config PINCTRL_MT8163
+	bool "Mediatek MT8163 pin control"
+	depends on OF
+	depends on ARM64 || COMPILE_TEST
+	default ARM64 && ARCH_MEDIATEK
+	select PINCTRL_MTK
+
+config PINCTRL_MT8173
+	bool "Mediatek MT8173 pin control"
+	depends on OF
+	depends on ARM64 || COMPILE_TEST
+	default ARM64 && ARCH_MEDIATEK
+	select PINCTRL_MTK
+
+# For PMIC
+config PINCTRL_MT6397
+	bool "Mediatek MT6397 pin control" if COMPILE_TEST && !MFD_MT6397
+	depends on OF
+	default MFD_MT6397
+	select PINCTRL_MTK
+
+endif

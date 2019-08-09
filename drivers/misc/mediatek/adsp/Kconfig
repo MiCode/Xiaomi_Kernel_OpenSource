@@ -1,0 +1,9 @@
+config MTK_AUDIODSP_SUPPORT
+	bool "Specifiy If Platform Support Audio dsp"
+	default n
+	help
+	  AUDIO_DSP is a MediaTek in-house DSP which can do
+	  different audio process.
+	  Set Y to enable this feature.
+	  If unsure,
+	  Set N to stay with legancy feature.

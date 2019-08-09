@@ -1,0 +1,32 @@
+config MTK_UNIFIED_DEBUG_INTERFACE
+	bool "Mediatek Unified Debug Interface"
+	help
+	  UDI config to support Unified Debug Interface
+	  Note:
+	  Please select correct project id when you enable this feature,
+	  otherwise the feature cannot work well.
+	  You also need a proper UDI command when you turn on this feature.
+	  If unsure, say N.
+
+if MTK_UNIFIED_DEBUG_INTERFACE
+
+choice
+	prompt "Support UDI debug function"
+	default MTK_UDI_MT2712
+	help
+	  Each project includes the different UDI settings.
+	  Select the correct project ID, otherwise UDI cannot work.
+	  You also need a proper UDI command when you turn on this feature.
+	  If unsure, turn off MTK_UNIFIED_DEBUG_INTERFACE.
+
+config MTK_UDI_MT2712
+	bool "MT2712"
+	help
+	  Say Y here by your project.
+	  Select the correct project ID, otherwise UDI cannot work.
+	  You also need a proper UDI command when you turn on this feature.
+	  If unsure, turn off MTK_UNIFIED_DEBUG_INTERFACE.
+
+endchoice
+
+endif #MTK_UNIFIED_DEBUG_INTERFACE

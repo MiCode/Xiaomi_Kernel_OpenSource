@@ -1,0 +1,9 @@
+
+config MTK_BMP280_NEW
+	bool "BMP280 for MediaTek package"
+	default n
+	help
+	  It support different type sensor
+	  in this platform. If this option
+	  is set, it will support pressure
+	  BMP280.

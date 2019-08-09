@@ -1,0 +1,6 @@
+The "alps/kernel/include/trustzone/tz_cross" directory is intended for headers files
+sharing between TEE & REE (both kernel & user level)
+
+The content under folders below should be identical
+1. alps/device/mediatek/proprietary/trustzone/mtk/include/tz_cross
+2. alps/kernel/include/trustzone/tz_cross

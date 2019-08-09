@@ -1,0 +1,9 @@
+config MTK_CAMERA_ISP_RSC_SUPPORT
+	bool "[RSC]Rolling Shutter Cancellation Support"
+	default n
+	depends on MTK_CAMERA_ISP
+	help
+	  Rolling Shutter Cancellation. Enable to compensate
+	  any distortion due to the interplay of moving objects
+	  and rolling shutters of CMOS sensors. Disable if it is
+	  not supported or not wanted.

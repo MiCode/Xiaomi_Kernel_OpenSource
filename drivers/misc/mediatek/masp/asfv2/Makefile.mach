@@ -1,0 +1,26 @@
+###################################################################
+#[mach_obj][HACC]: if TEE is enabled, HACC is done in secure world.
+###################################################################
+
+mach_obj += $(asf_link)/mach/hacc_lib.o
+mach_obj += $(asf_link)/mach/hacc_export.o
+mach_obj += $(asf_link)/mach/hacc_hk.o
+mach_obj += $(asf_link)/mach/hacc_sk.o
+mach_obj += $(asf_link)/mach/sec_lib.o
+
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6761)))
+MTK_PLATFORM := mt6765
+else ifeq (y, $(filter y, $(CONFIG_MACH_MT3967)))
+MTK_PLATFORM := mt6779
+else
+MTK_PLATFORM := CONFIG_MTK_PLATFORM
+endif
+
+ifeq (,$(wildcard $(MASP_CORE_DRIVER_DIR)/$(asf_link)/mach/$(MTK_PLATFORM)))
+mach_obj += $(asf_link)/mach/security_ao_dummy.o
+else
+mach_obj += $(asf_link)/mach/$(MTK_PLATFORM)/security_ao.o
+endif
+
+ccflags-y += -I$(src)/$(asf_link)/asf_inc
+

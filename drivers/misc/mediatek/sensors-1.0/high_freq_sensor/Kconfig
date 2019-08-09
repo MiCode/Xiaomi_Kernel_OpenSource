@@ -1,0 +1,10 @@
+
+config MTK_HIGH_FREQ_SENSOR
+	bool "MTK HIGH FREQUENCY SENSOR Config"
+	help
+	  high frequency sensor is an architecture to detect
+	  sensor raw data. If the platform is supported for high
+	  frequency sensor, this configuration should be configured,
+	  and the subdevice driver configuration should be configured as well.
+
+source "drivers/misc/mediatek/sensors-1.0/high_freq_sensor/lsm6dsm_secondary/Kconfig"
