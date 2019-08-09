@@ -6,6 +6,7 @@
 #include "ipa_i.h"
 #include <linux/if_ether.h>
 #include <linux/log2.h>
+#include <linux/debugfs.h>
 #include <linux/ipa_wigig.h>
 
 #define IPA_WIGIG_DESC_RING_EL_SIZE	32
@@ -30,6 +31,7 @@
 static LIST_HEAD(smmu_reg_addr_list);
 static LIST_HEAD(smmu_ring_addr_list);
 static DEFINE_MUTEX(smmu_lock);
+struct dentry *wigig_dent;
 
 struct ipa_wigig_smmu_reg_addr {
 	struct list_head link;
@@ -86,7 +88,7 @@ int ipa3_wigig_init_i(void)
 	return 0;
 }
 
-int ipa3_wigig_uc_init(
+int ipa3_wigig_internal_init(
 	struct ipa_wdi_uc_ready_params *inout,
 	ipa_wigig_misc_int_cb int_notify,
 	phys_addr_t *uc_db_pa)
@@ -587,6 +589,11 @@ static void ipa_gsi_evt_ring_err_cb(struct gsi_evt_err_notify *notify)
 	ipa_assert();
 }
 
+static uint16_t int_modt = 15;
+static uint8_t int_modc = 200;
+static uint8_t tx_hwtail_mod_threshold = 200;
+static uint8_t rx_hwtail_mod_threshold = 200;
+
 static int ipa3_wigig_config_gsi(bool Rx,
 	bool smmu_en,
 	void *pipe_info,
@@ -616,8 +623,8 @@ static int ipa3_wigig_config_gsi(bool Rx,
 	evt_props.exclusive = true;
 	evt_props.err_cb = ipa_gsi_evt_ring_err_cb;
 	evt_props.user_data = NULL;
-	evt_props.int_modc = 200;
-	evt_props.int_modt = 15;
+	evt_props.int_modc = int_modc;
+	evt_props.int_modt = int_modt;
 	evt_props.ring_base_vaddr = NULL;
 
 	if (smmu_en) {
@@ -646,7 +653,8 @@ static int ipa3_wigig_config_gsi(bool Rx,
 		union __packed gsi_evt_scratch evt_scratch;
 
 		memset(&evt_scratch, 0, sizeof(evt_scratch));
-		evt_scratch.w11ad.update_status_hwtail_mod_threshold = 200;
+		evt_scratch.w11ad.update_status_hwtail_mod_threshold =
+			rx_hwtail_mod_threshold;
 		gsi_res = gsi_write_evt_ring_scratch(ep->gsi_evt_ring_hdl,
 			evt_scratch);
 		if (gsi_res != GSI_STATUS_SUCCESS) {
@@ -792,7 +800,8 @@ static int ipa3_wigig_config_gsi(bool Rx,
 			gsi_scratch.tx_11ad.fixed_data_buffer_size_pow_2 =
 				ilog2(tx_dbuff->data_buffer_size);
 		}
-		gsi_scratch.tx_11ad.update_status_hwtail_mod_threshold = 200;
+		gsi_scratch.tx_11ad.update_status_hwtail_mod_threshold =
+			tx_hwtail_mod_threshold;
 		IPADBG("tx scratch: status_ring_hwtail_address_lsb 0x%X\n",
 			gsi_scratch.tx_11ad.status_ring_hwtail_address_lsb);
 		IPADBG("tx scratch: status_ring_hwhead_address_lsb 0x%X\n",
@@ -926,7 +935,8 @@ static int ipa3_wigig_config_uc(bool init,
 	return result;
 }
 
-int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
+int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out,
+	struct dentry **parent)
 {
 	int ipa_ep_idx;
 	struct ipa3_ep_context *ep;
@@ -942,6 +952,8 @@ int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
 	int result;
 
 	IPADBG("\n");
+
+	*parent = wigig_dent;
 
 	ipa_ep_idx = ipa_get_ep_mapping(rx_client);
 	if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED ||
@@ -1847,3 +1859,56 @@ fail_stop_channel:
 	ipa_assert();
 	return res;
 }
+
+#ifndef CONFIG_DEBUG_FS
+int ipa3_wigig_init_debugfs_i(struct dentry *parent) { return 0; }
+#else
+int ipa3_wigig_init_debugfs_i(struct dentry *parent)
+{
+	const mode_t read_write_mode = 0664;
+	struct dentry *file = NULL;
+	struct dentry *dent;
+
+	dent = debugfs_create_dir("ipa_wigig", parent);
+	if (IS_ERR_OR_NULL(dent)) {
+		IPAERR("fail to create folder in debug_fs\n");
+		return -EFAULT;
+	}
+
+	wigig_dent = dent;
+
+	file = debugfs_create_u8("modc", read_write_mode, dent,
+		&int_modc);
+	if (IS_ERR_OR_NULL(file)) {
+		IPAERR("fail to create file modc\n");
+		goto fail;
+	}
+
+	file = debugfs_create_u16("modt", read_write_mode, dent,
+		&int_modt);
+	if (IS_ERR_OR_NULL(file)) {
+		IPAERR("fail to create file modt\n");
+		goto fail;
+	}
+
+	file = debugfs_create_u8("rx_mod_th", read_write_mode, dent,
+		&rx_hwtail_mod_threshold);
+	if (IS_ERR_OR_NULL(file)) {
+		IPAERR("fail to create file rx_mod_th\n");
+		goto fail;
+	}
+
+	file = debugfs_create_u8("tx_mod_th", read_write_mode, dent,
+		&tx_hwtail_mod_threshold);
+	if (IS_ERR_OR_NULL(file)) {
+		IPAERR("fail to create file tx_mod_th\n");
+		goto fail;
+	}
+
+	return 0;
+fail:
+	debugfs_remove_recursive(dent);
+	wigig_dent = NULL;
+	return -EFAULT;
+}
+#endif

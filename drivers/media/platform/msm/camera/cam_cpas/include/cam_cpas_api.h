@@ -526,6 +526,19 @@ int cam_cpas_get_cpas_hw_version(
 	uint32_t				 *hw_version);
 
 /**
+ * cam_cpas_is_feature_supported()
+ *
+ * @brief: API to get camera features
+ *
+ * @flag  : Camera hw features to check
+ *
+ * @return 1 if feature is supported
+ *
+ */
+int cam_cpas_is_feature_supported(
+	uint32_t flag);
+
+/**
  * cam_cpas_axi_util_path_type_to_string()
  *
  * @brief: API to get string for given path type

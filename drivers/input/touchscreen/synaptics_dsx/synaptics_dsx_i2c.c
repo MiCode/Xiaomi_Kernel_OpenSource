@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2012-2016 Synaptics Incorporated. All rights reserved.
  *
- * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
  *
@@ -97,9 +97,8 @@ static int parse_dt(struct device *dev, struct synaptics_dsx_board_data *bdata)
 			dev_err(dev, "%s: Unable to read synaptics,power-on-state property\n",
 					__func__);
 			return retval;
-		} else {
-			bdata->power_on_state = value;
 		}
+		bdata->power_on_state = value;
 	} else {
 		bdata->power_gpio = -1;
 	}
@@ -112,9 +111,8 @@ static int parse_dt(struct device *dev, struct synaptics_dsx_board_data *bdata)
 			dev_err(dev, "%s: Unable to read synaptics,power-delay-ms property\n",
 					__func__);
 			return retval;
-		} else {
-			bdata->power_delay_ms = value;
 		}
+		bdata->power_delay_ms = value;
 	} else {
 		bdata->power_delay_ms = 0;
 	}
@@ -129,18 +127,16 @@ static int parse_dt(struct device *dev, struct synaptics_dsx_board_data *bdata)
 			dev_err(dev, "%s: Unable to read synaptics,reset-on-state property\n",
 					__func__);
 			return retval;
-		} else {
-			bdata->reset_on_state = value;
 		}
+		bdata->reset_on_state = value;
 		retval = of_property_read_u32(np, "synaptics,reset-active-ms",
 				&value);
 		if (retval < 0) {
 			dev_err(dev, "%s: Unable to read synaptics,reset-active-ms property\n",
 					__func__);
 			return retval;
-		} else {
-			bdata->reset_active_ms = value;
 		}
+		bdata->reset_active_ms = value;
 	} else {
 		bdata->reset_gpio = -1;
 	}
@@ -153,9 +149,8 @@ static int parse_dt(struct device *dev, struct synaptics_dsx_board_data *bdata)
 			dev_err(dev, "%s: Unable to read synaptics,reset-delay-ms property\n",
 					__func__);
 			return retval;
-		} else {
-			bdata->reset_delay_ms = value;
 		}
+		bdata->reset_delay_ms = value;
 	} else {
 		bdata->reset_delay_ms = 0;
 	}
@@ -168,9 +163,8 @@ static int parse_dt(struct device *dev, struct synaptics_dsx_board_data *bdata)
 			dev_err(dev, "%s: Unable to read synaptics,max-y-for-2d property\n",
 					__func__);
 			return retval;
-		} else {
-			bdata->max_y_for_2d = value;
 		}
+		bdata->max_y_for_2d = value;
 	} else {
 		bdata->max_y_for_2d = -1;
 	}
@@ -187,9 +181,8 @@ static int parse_dt(struct device *dev, struct synaptics_dsx_board_data *bdata)
 			dev_err(dev, "%s: Unable to read synaptics,ub-i2c-addr property\n",
 					__func__);
 			return retval;
-		} else {
-			bdata->ub_i2c_addr = (unsigned short)value;
 		}
+		bdata->ub_i2c_addr = (unsigned short)value;
 	} else {
 		bdata->ub_i2c_addr = -1;
 	}
@@ -273,8 +266,6 @@ static void synaptics_rmi4_i2c_check_addr(struct synaptics_rmi4_data *rmi4_data,
 		hw_if.board_data->i2c_addr = hw_if.board_data->ub_i2c_addr;
 	else
 		hw_if.board_data->i2c_addr = i2c->addr;
-
-	return;
 }
 
 static int synaptics_rmi4_i2c_set_page(struct synaptics_rmi4_data *rmi4_data,
@@ -460,6 +451,30 @@ exit:
 	return retval;
 }
 
+int check_dt(struct device_node *np)
+{
+	int i;
+	int count;
+	struct device_node *node;
+	struct drm_panel *panel;
+
+	count = of_count_phandle_with_args(np, "panel", NULL);
+	if (count <= 0)
+		return 0;
+
+	for (i = 0; i < count; i++) {
+		node = of_parse_phandle(np, "panel", i);
+		panel = of_drm_find_panel(node);
+		of_node_put(node);
+		if (!IS_ERR(panel)) {
+			active_panel = panel;
+			return 0;
+		}
+	}
+
+	return -ENODEV;
+}
+
 static struct synaptics_dsx_bus_access bus_access = {
 	.type = BUS_I2C,
 	.read = synaptics_rmi4_i2c_read,
@@ -469,14 +484,15 @@ static struct synaptics_dsx_bus_access bus_access = {
 static void synaptics_rmi4_i2c_dev_release(struct device *dev)
 {
 	kfree(synaptics_dsx_i2c_device);
-
-	return;
 }
 
 static int synaptics_rmi4_i2c_probe(struct i2c_client *client,
 		const struct i2c_device_id *dev_id)
 {
 	int retval;
+
+	if (check_dt(client->dev.of_node))
+		return -ENODEV;
 
 	if (!i2c_check_functionality(client->adapter,
 			I2C_FUNC_SMBUS_BYTE_DATA)) {
@@ -566,7 +582,7 @@ static const struct i2c_device_id synaptics_rmi4_id_table[] = {
 MODULE_DEVICE_TABLE(i2c, synaptics_rmi4_id_table);
 
 #ifdef CONFIG_OF
-static struct of_device_id synaptics_rmi4_of_match_table[] = {
+static const struct of_device_id synaptics_rmi4_of_match_table[] = {
 	{
 		.compatible = "synaptics,dsx-i2c",
 	},
@@ -599,8 +615,6 @@ void synaptics_rmi4_bus_exit(void)
 	kfree(wr_buf);
 
 	i2c_del_driver(&synaptics_rmi4_i2c_driver);
-
-	return;
 }
 EXPORT_SYMBOL(synaptics_rmi4_bus_exit);
 

@@ -1122,7 +1122,10 @@ struct ipa3_desc {
  */
 struct ipa3_rx_pkt_wrapper {
 	struct list_head link;
-	struct ipa_rx_data data;
+	union {
+		struct ipa_rx_data data;
+		struct ipa_rx_page_data page_data;
+	};
 	u32 len;
 	struct work_struct work;
 	struct ipa3_sys_context *sys;
@@ -1888,6 +1891,7 @@ struct ipa3_context {
 	atomic_t is_ssr;
 	struct IpaHwOffloadStatsAllocCmdData_t
 		gsi_info[IPA_HW_PROTOCOL_MAX];
+	bool ipa_wan_skb_page;
 };
 
 struct ipa3_plat_drv_res {
@@ -1933,6 +1937,8 @@ struct ipa3_plat_drv_res {
 	bool do_ram_collection_on_crash;
 	u32 secure_debug_check_action;
 	bool ipa_endp_delay_wa;
+	bool skip_ieob_mask_wa;
+	bool ipa_wan_skb_page;
 };
 
 /**
@@ -2490,7 +2496,8 @@ int ipa3_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 int ipa3_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 
 int ipa3_conn_wigig_rx_pipe_i(void *in,
-	struct ipa_wigig_conn_out_params *out);
+	struct ipa_wigig_conn_out_params *out,
+	struct dentry **parent);
 
 int ipa3_conn_wigig_client_i(void *in,
 	struct ipa_wigig_conn_out_params *out,
@@ -2511,6 +2518,8 @@ int ipa3_disconn_wigig_pipe_i(enum ipa_client_type client,
 int ipa3_enable_wigig_pipe_i(enum ipa_client_type client);
 
 int ipa3_disable_wigig_pipe_i(enum ipa_client_type client);
+
+int ipa3_wigig_init_debugfs_i(struct dentry *dent);
 
 /*
  * To retrieve doorbell physical address of
@@ -2834,7 +2843,7 @@ const struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info
 	(enum ipa_client_type client);
 
 int ipa3_wigig_init_i(void);
-int ipa3_wigig_uc_init(
+int ipa3_wigig_internal_init(
 	struct ipa_wdi_uc_ready_params *inout,
 	ipa_wigig_misc_int_cb int_notify,
 	phys_addr_t *uc_db_pa);
@@ -2988,6 +2997,7 @@ int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
 	enum ipa_client_type dst_pipe);
 int ipa_mpm_panic_handler(char *buf, int size);
 int ipa3_get_mhip_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats);
+int ipa3_mpm_enable_adpl_over_odl(bool enable);
 #else
 static inline int ipa_mpm_mhip_xdci_pipe_enable(
 	enum ipa_usb_teth_prot prot)
@@ -3022,6 +3032,12 @@ static inline int ipa3_get_mhip_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats)
 {
 	return 0;
 }
+
+static inline int ipa3_mpm_enable_adpl_over_odl(bool enable)
+{
+	return 0;
+}
+
 #endif /* CONFIG_IPA3_MHI_PRIME_MANAGER */
 
 static inline void *alloc_and_init(u32 size, u32 init_val)
@@ -3036,4 +3052,6 @@ static inline void *alloc_and_init(u32 size, u32 init_val)
 
 /* query ipa APQ mode*/
 bool ipa3_is_apq(void);
+/* check if odl is connected */
+bool ipa3_is_odl_connected(void);
 #endif /* _IPA3_I_H_ */

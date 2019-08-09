@@ -890,6 +890,12 @@ static void wmi_evt_rx_mgmt(struct wil6210_vif *vif, int id, void *d, int len)
 
 	if (ieee80211_is_beacon(fc) || ieee80211_is_probe_resp(fc)) {
 		struct cfg80211_bss *bss;
+		struct cfg80211_inform_bss data = {
+			.chan = channel,
+			.scan_width = NL80211_BSS_CHAN_WIDTH_20,
+			.signal = signal,
+			.boottime_ns = ktime_to_ns(ktime_get_boottime()),
+		};
 		u64 tsf = le64_to_cpu(rx_mgmt_frame->u.beacon.timestamp);
 		u16 cap = le16_to_cpu(rx_mgmt_frame->u.beacon.capab_info);
 		u16 bi = le16_to_cpu(rx_mgmt_frame->u.beacon.beacon_int);
@@ -909,8 +915,9 @@ static void wmi_evt_rx_mgmt(struct wil6210_vif *vif, int id, void *d, int len)
 			return;
 		}
 
-		bss = cfg80211_inform_bss_frame(wiphy, channel, rx_mgmt_frame,
-						d_len, signal, GFP_KERNEL);
+		bss = cfg80211_inform_bss_frame_data(wiphy, &data,
+						     rx_mgmt_frame,
+						     d_len, GFP_KERNEL);
 		if (bss) {
 			wil_dbg_wmi(wil, "Added BSS %pM\n",
 				    rx_mgmt_frame->bssid);
@@ -3148,9 +3155,6 @@ int wmi_set_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data)
 		return -EIO;
 	}
 
-	wil->tt_data = *tt_data;
-	wil->tt_data_set = true;
-
 	return 0;
 }
 
@@ -3177,6 +3181,39 @@ int wmi_get_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data)
 
 	if (tt_data)
 		*tt_data = reply.evt.tt_data;
+
+	return 0;
+}
+
+int wmi_set_tof_tx_rx_offset(struct wil6210_priv *wil, u32 tx_offset,
+			     u32 rx_offset)
+{
+	struct wil6210_vif *vif = ndev_to_vif(wil->main_ndev);
+	struct wmi_tof_set_tx_rx_offset_cmd cmd;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_tof_set_tx_rx_offset_event evt;
+	} __packed reply = {
+		.evt = {.status = WMI_FW_STATUS_FAILURE},
+	};
+	int rc;
+
+	if (!test_bit(WMI_FW_CAPABILITY_FTM, wil->fw_capabilities))
+		return -EOPNOTSUPP;
+
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.tx_offset = cpu_to_le32(tx_offset);
+	cmd.rx_offset = cpu_to_le32(rx_offset);
+	rc = wmi_call(wil, WMI_TOF_SET_TX_RX_OFFSET_CMDID, vif->mid,
+		      &cmd, sizeof(cmd), WMI_TOF_SET_TX_RX_OFFSET_EVENTID,
+		      &reply, sizeof(reply), 100);
+	if (rc < 0)
+		return rc;
+	if (reply.evt.status) {
+		wil_err(wil, "set_tof_tx_rx_offset failed, error %d\n",
+			reply.evt.status);
+		return -EIO;
+	}
 
 	return 0;
 }

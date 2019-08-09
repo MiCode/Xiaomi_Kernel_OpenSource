@@ -7,8 +7,8 @@
 #define _MSM_CVP_CORE_H_
 
 #include <linux/poll.h>
-#include <linux/videodev2.h>
 #include <linux/types.h>
+#include <linux/dma-buf.h>
 #include <linux/msm_ion.h>
 #include <media/msm_cvp_private.h>
 #include <media/msm_cvp_utils.h>
@@ -25,6 +25,7 @@ enum smem_prop {
 	SMEM_CACHED = 0x2,
 	SMEM_SECURE = 0x4,
 	SMEM_ADSP = 0x8,
+	SMEM_NON_PIXEL = 0x10
 };
 
 /* NOTE: if you change this enum you MUST update the
@@ -50,7 +51,7 @@ enum hal_buffer {
 
 struct cvp_dma_mapping_info {
 	struct device *dev;
-	struct dma_iommu_mapping *mapping;
+	struct iommu_domain *domain;
 	struct sg_table *table;
 	struct dma_buf_attachment *attach;
 	struct dma_buf *buf;
@@ -59,15 +60,15 @@ struct cvp_dma_mapping_info {
 
 struct msm_cvp_smem {
 	u32 refcount;
-	int fd;
-	void *dma_buf;
+	s32 fd;
+	struct dma_buf *dma_buf;
 	void *kvaddr;
 	u32 device_addr;
 	dma_addr_t dma_handle;
-	unsigned int offset;
-	unsigned int size;
-	unsigned long flags;
-	enum hal_buffer buffer_type;
+	u32 offset;
+	u32 size;
+	u32 flags;
+	u32 buffer_type;
 	struct cvp_dma_mapping_info mapping_info;
 };
 
@@ -79,20 +80,14 @@ enum smem_cache_ops {
 
 enum core_id {
 	MSM_CORE_CVP = 0,
-	MSM_CVP_CORE_Q6,
 	MSM_CVP_CORES_MAX,
 };
+
 enum session_type {
-	MSM_CVP_ENCODER = 0,
-	MSM_CVP_DECODER,
-	MSM_CVP_CORE,
+	MSM_CVP_USER = 1,
+	MSM_CVP_KERNEL,
 	MSM_CVP_UNKNOWN,
 	MSM_CVP_MAX_DEVICES = MSM_CVP_UNKNOWN,
-};
-
-union msm_v4l2_cmd {
-	struct v4l2_decoder_cmd dec;
-	struct v4l2_encoder_cmd enc;
 };
 
 void *msm_cvp_open(int core_id, int session_type);

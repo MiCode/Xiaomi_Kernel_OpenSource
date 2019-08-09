@@ -34,8 +34,6 @@ static DEFINE_IDA(gsi_ida);
 static void gsi_inst_clean(struct gsi_opts *opts);
 static void gsi_rndis_ipa_reset_trigger(struct gsi_data_port *d_port);
 static int gsi_ctrl_send_notification(struct f_gsi *gsi);
-static int gsi_alloc_trb_buffer(struct f_gsi *gsi);
-static void gsi_free_trb_buffer(struct f_gsi *gsi);
 static struct gsi_ctrl_pkt *gsi_ctrl_pkt_alloc(unsigned int len, gfp_t flags);
 static void gsi_ctrl_pkt_free(struct gsi_ctrl_pkt *pkt);
 
@@ -44,7 +42,7 @@ static inline bool usb_gsi_remote_wakeup_allowed(struct usb_function *f)
 	bool remote_wakeup_allowed;
 	struct f_gsi *gsi = func_to_gsi(f);
 
-	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER)
+	if (f->config->cdev->gadget->speed >= USB_SPEED_SUPER)
 		remote_wakeup_allowed = f->func_wakeup_allowed;
 	else
 		remote_wakeup_allowed = f->config->cdev->gadget->remote_wakeup;
@@ -163,7 +161,7 @@ static int gsi_wakeup_host(struct f_gsi *gsi)
 	 * allowed to do so by the host. This is done in order to support non
 	 * fully USB 3.0 compatible hosts.
 	 */
-	if ((gadget->speed == USB_SPEED_SUPER) && (func->func_is_suspended)) {
+	if ((gadget->speed >= USB_SPEED_SUPER) && (func->func_is_suspended)) {
 		log_event_dbg("%s: Calling usb_func_wakeup", __func__);
 		ret = usb_func_wakeup(func);
 	} else {
@@ -486,7 +484,9 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	struct ipa_req_chan_out_params ipa_in_channel_out_params;
 	struct ipa_req_chan_out_params ipa_out_channel_out_params;
 
-	log_event_dbg("%s: USB GSI IN OPS", __func__);
+	log_event_dbg("IN: num_bufs:=%zu, buf_len=%zu\n",
+		d_port->in_request.num_bufs, d_port->in_request.buf_len);
+
 	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
 		GSI_EP_OP_PREPARE_TRBS);
 	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
@@ -530,7 +530,9 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		gsi_channel_info.depcmd_hi_addr;
 
 	if (d_port->out_ep) {
-		log_event_dbg("%s: USB GSI OUT OPS", __func__);
+		log_event_dbg("OUT: num_bufs:=%zu, buf_len=%zu\n",
+			d_port->out_request.num_bufs,
+			d_port->out_request.buf_len);
 		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
 			GSI_EP_OP_PREPARE_TRBS);
 		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
@@ -596,7 +598,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	conn_params->teth_prot_params.max_packet_number_to_dev =
 		DEFAULT_MAX_PKT_PER_XFER;
 	conn_params->max_supported_bandwidth_mbps =
-		(cdev->gadget->speed == USB_SPEED_SUPER) ? 3600 : 400;
+		(cdev->gadget->speed >= USB_SPEED_SUPER) ? 3600 : 400;
 
 	memset(&ipa_in_channel_out_params, 0x0,
 				sizeof(ipa_in_channel_out_params));
@@ -721,9 +723,6 @@ static void ipa_disconnect_channel(struct gsi_data_port *d_port)
 	if (gsi->d_port.out_ep)
 		usb_gsi_ep_op(gsi->d_port.out_ep, &gsi->d_port.out_request,
 							GSI_EP_OP_FREE_TRBS);
-
-	/* free buffers allocated with each TRB */
-	gsi_free_trb_buffer(gsi);
 }
 
 static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
@@ -883,13 +882,6 @@ static void ipa_work_handler(struct work_struct *w)
 				break;
 			}
 
-			/* allocate buffers used with each TRB */
-			ret = gsi_alloc_trb_buffer(gsi);
-			if (ret) {
-				log_event_err("%s: gsi_alloc_trb_failed\n",
-								__func__);
-				break;
-			}
 			ipa_connect_channels(d_port);
 			d_port->sm_state = STATE_WAIT_FOR_IPA_RDY;
 			log_event_dbg("%s: ST_INIT_EVT_SET_ALT",
@@ -1028,13 +1020,6 @@ static void ipa_work_handler(struct work_struct *w)
 			usb_gadget_autopm_get(d_port->gadget);
 			log_event_dbg("%s: get = %d", __func__,
 				atomic_read(&gad_dev->power.usage_count));
-			/* allocate buffers used with each TRB */
-			ret = gsi_alloc_trb_buffer(gsi);
-			if (ret) {
-				log_event_err("%s: gsi_alloc_trb_failed\n",
-								__func__);
-				break;
-			}
 
 			ipa_connect_channels(d_port);
 			ipa_data_path_enable(d_port);
@@ -1659,7 +1644,7 @@ static const struct file_operations gsi_ctrl_dev_fops = {
 /* peak (theoretical) bulk transfer rate in bits-per-second */
 static unsigned int gsi_xfer_bitrate(struct usb_gadget *g)
 {
-	if (gadget_is_superspeed(g) && g->speed == USB_SPEED_SUPER)
+	if (gadget_is_superspeed(g) && g->speed >= USB_SPEED_SUPER)
 		return 13 * 1024 * 8 * 1000 * 8;
 	else if (gadget_is_dualspeed(g) && g->speed == USB_SPEED_HIGH)
 		return 13 * 512 * 8 * 1000 * 8;
@@ -2260,106 +2245,6 @@ static int gsi_get_alt(struct usb_function *f, unsigned int intf)
 	return -EINVAL;
 }
 
-static int gsi_alloc_trb_buffer(struct f_gsi *gsi)
-{
-	u32 len_in = 0, len_out = 0;
-	int ret = 0;
-	struct device *dev;
-
-	log_event_dbg("allocate trb's buffer\n");
-
-	dev = gsi->d_port.gadget->dev.parent;
-	if (gsi->d_port.in_ep && !gsi->d_port.in_request.buf_base_addr) {
-		log_event_dbg("IN: num_bufs:=%zu, buf_len=%zu\n",
-			gsi->d_port.in_request.num_bufs,
-			gsi->d_port.in_request.buf_len);
-
-		len_in = gsi->d_port.in_request.buf_len *
-				gsi->d_port.in_request.num_bufs;
-		gsi->d_port.in_request.buf_base_addr =
-			dma_zalloc_coherent(dev->parent,
-			len_in, &gsi->d_port.in_request.dma, GFP_KERNEL);
-		if (!gsi->d_port.in_request.buf_base_addr) {
-			dev_err(&gsi->d_port.gadget->dev,
-					"IN buf_base_addr allocate failed %s\n",
-					gsi->function.name);
-			ret = -ENOMEM;
-			goto fail1;
-		}
-
-		dma_get_sgtable(dev->parent,
-			&gsi->d_port.in_request.sgt_data_buff,
-			gsi->d_port.in_request.buf_base_addr,
-			gsi->d_port.in_request.dma, len_in);
-	}
-
-	if (gsi->d_port.out_ep && !gsi->d_port.out_request.buf_base_addr) {
-		log_event_dbg("OUT: num_bufs:=%zu, buf_len=%zu\n",
-			gsi->d_port.out_request.num_bufs,
-			gsi->d_port.out_request.buf_len);
-
-		len_out = gsi->d_port.out_request.buf_len *
-				gsi->d_port.out_request.num_bufs;
-		gsi->d_port.out_request.buf_base_addr =
-			dma_zalloc_coherent(dev->parent,
-			len_out, &gsi->d_port.out_request.dma, GFP_KERNEL);
-		if (!gsi->d_port.out_request.buf_base_addr) {
-			dev_err(&gsi->d_port.gadget->dev,
-					"OUT buf_base_addr allocate failed %s\n",
-					gsi->function.name);
-			ret = -ENOMEM;
-			goto fail;
-		}
-
-		dma_get_sgtable(dev->parent,
-			&gsi->d_port.out_request.sgt_data_buff,
-			gsi->d_port.out_request.buf_base_addr,
-			gsi->d_port.out_request.dma, len_out);
-	}
-
-	log_event_dbg("finished allocating trb's buffer\n");
-	return ret;
-
-fail:
-	if (len_in && gsi->d_port.in_request.buf_base_addr) {
-		dma_free_coherent(dev->parent, len_in,
-				gsi->d_port.in_request.buf_base_addr,
-				gsi->d_port.in_request.dma);
-		gsi->d_port.in_request.buf_base_addr = NULL;
-	}
-fail1:
-	return ret;
-}
-
-static void gsi_free_trb_buffer(struct f_gsi *gsi)
-{
-	u32 len;
-
-	log_event_dbg("freeing trb's buffer\n");
-
-	if (gsi->d_port.out_ep &&
-			gsi->d_port.out_request.buf_base_addr) {
-		len = gsi->d_port.out_request.buf_len *
-			gsi->d_port.out_request.num_bufs;
-		dma_free_coherent(gsi->d_port.gadget->dev.parent->parent, len,
-			gsi->d_port.out_request.buf_base_addr,
-			gsi->d_port.out_request.dma);
-		gsi->d_port.out_request.buf_base_addr = NULL;
-		sg_free_table(&gsi->d_port.out_request.sgt_data_buff);
-	}
-
-	if (gsi->d_port.in_ep &&
-			gsi->d_port.in_request.buf_base_addr) {
-		len = gsi->d_port.in_request.buf_len *
-			gsi->d_port.in_request.num_bufs;
-		dma_free_coherent(gsi->d_port.gadget->dev.parent->parent, len,
-			gsi->d_port.in_request.buf_base_addr,
-			gsi->d_port.in_request.dma);
-		gsi->d_port.in_request.buf_base_addr = NULL;
-		sg_free_table(&gsi->d_port.in_request.sgt_data_buff);
-	}
-}
-
 static int gsi_set_alt(struct usb_function *f, unsigned int intf,
 						unsigned int alt)
 {
@@ -2561,7 +2446,7 @@ static void gsi_resume(struct usb_function *f)
 	 * If the function is in USB3 Function Suspend state, resume is
 	 * canceled. In this case resume is done by a Function Resume request.
 	 */
-	if ((cdev->gadget->speed == USB_SPEED_SUPER) &&
+	if ((cdev->gadget->speed >= USB_SPEED_SUPER) &&
 		f->func_is_suspended)
 		return;
 

@@ -2282,6 +2282,29 @@ static const struct file_operations fops_led_cfg = {
 	.open  = simple_open,
 };
 
+int wil_led_blink_set(struct wil6210_priv *wil, const char *buf)
+{
+	int rc;
+
+	/* "<blink_on_slow> <blink_off_slow> <blink_on_med> <blink_off_med>
+	 * <blink_on_fast> <blink_off_fast>"
+	 */
+	rc = sscanf(buf, "%u %u %u %u %u %u",
+		    &led_blink_time[WIL_LED_TIME_SLOW].on_ms,
+		    &led_blink_time[WIL_LED_TIME_SLOW].off_ms,
+		    &led_blink_time[WIL_LED_TIME_MED].on_ms,
+		    &led_blink_time[WIL_LED_TIME_MED].off_ms,
+		    &led_blink_time[WIL_LED_TIME_FAST].on_ms,
+		    &led_blink_time[WIL_LED_TIME_FAST].off_ms);
+
+	if (rc < 0)
+		return rc;
+	if (rc < 6)
+		return -EINVAL;
+
+	return 0;
+}
+
 /* led_blink_time, write:
  * "<blink_on_slow> <blink_off_slow> <blink_on_med> <blink_off_med> <blink_on_fast> <blink_off_fast>
  */
@@ -2289,6 +2312,7 @@ static ssize_t wil_write_led_blink_time(struct file *file,
 					const char __user *buf,
 					size_t len, loff_t *ppos)
 {
+	struct wil6210_priv *wil = file->private_data;
 	int rc;
 	char *kbuf = kmalloc(len + 1, GFP_KERNEL);
 
@@ -2302,19 +2326,11 @@ static ssize_t wil_write_led_blink_time(struct file *file,
 	}
 
 	kbuf[len] = '\0';
-	rc = sscanf(kbuf, "%d %d %d %d %d %d",
-		    &led_blink_time[WIL_LED_TIME_SLOW].on_ms,
-		    &led_blink_time[WIL_LED_TIME_SLOW].off_ms,
-		    &led_blink_time[WIL_LED_TIME_MED].on_ms,
-		    &led_blink_time[WIL_LED_TIME_MED].off_ms,
-		    &led_blink_time[WIL_LED_TIME_FAST].on_ms,
-		    &led_blink_time[WIL_LED_TIME_FAST].off_ms);
+	rc = wil_led_blink_set(wil, kbuf);
 	kfree(kbuf);
 
 	if (rc < 0)
 		return rc;
-	if (rc < 6)
-		return -EINVAL;
 
 	return len;
 }

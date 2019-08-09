@@ -2524,6 +2524,8 @@ void ipa3_debugfs_init(void)
 
 	ipa_debugfs_init_stats(dent);
 
+	ipa3_wigig_init_debugfs_i(dent);
+
 	return;
 
 fail:

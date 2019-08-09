@@ -8,7 +8,7 @@
 #include "msm_cvp_debug.h"
 #include "cvp_hfi_api.h"
 
-int msm_cvp_debug = CVP_ERR | CVP_WARN | CVP_FW;
+int msm_cvp_debug = CVP_ERR | CVP_WARN;
 EXPORT_SYMBOL(msm_cvp_debug);
 
 int msm_cvp_debug_out = CVP_OUT_PRINTK;
@@ -23,10 +23,6 @@ int msm_cvp_clock_voting = !1;
 bool msm_cvp_syscache_disable = !true;
 
 #define MAX_DBG_BUF_SIZE 4096
-
-#define DYNAMIC_BUF_OWNER(__binfo) ({ \
-	atomic_read(&__binfo->ref_count) >= 2 ? "video driver" : "firmware";\
-})
 
 struct cvp_core_inst_pair {
 	struct msm_cvp_core *core;
@@ -308,7 +304,7 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 
 	cur += write_str(cur, end - cur, "==============================\n");
 	cur += write_str(cur, end - cur, "INSTANCE: %pK (%s)\n", inst,
-		inst->session_type == MSM_CVP_ENCODER ? "Encoder" : "Decoder");
+		inst->session_type == MSM_CVP_USER ? "User" : "Kernel");
 	cur += write_str(cur, end - cur, "==============================\n");
 	cur += write_str(cur, end - cur, "core: %pK\n", inst->core);
 	cur += write_str(cur, end - cur, "state: %d\n", inst->state);

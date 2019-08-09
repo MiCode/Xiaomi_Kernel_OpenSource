@@ -404,12 +404,20 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_APPS_WAN_CONS || \
 	(client) == IPA_CLIENT_APPS_WAN_COAL_CONS)
 
+#define IPA_CLIENT_IS_APPS_PROD(client) \
+	((client) == IPA_CLIENT_APPS_LAN_PROD || \
+	(client) == IPA_CLIENT_APPS_WAN_PROD)
+
 #define IPA_CLIENT_IS_USB_CONS(client) \
 	((client) == IPA_CLIENT_USB_CONS || \
 	(client) == IPA_CLIENT_USB2_CONS || \
 	(client) == IPA_CLIENT_USB3_CONS || \
 	(client) == IPA_CLIENT_USB_DPL_CONS || \
 	(client) == IPA_CLIENT_USB4_CONS)
+
+#define IPA_CLIENT_IS_WAN_CONS(client) \
+	((client) == IPA_CLIENT_APPS_WAN_CONS || \
+	(client) == IPA_CLIENT_APPS_WAN_COAL_CONS)
 
 #define IPA_CLIENT_IS_WLAN_CONS(client) \
 	((client) == IPA_CLIENT_WLAN1_CONS || \
@@ -1988,6 +1996,8 @@ struct ipa_ioc_ext_intf_prop {
 	uint8_t is_xlat_rule;
 	uint32_t rule_id;
 	uint8_t is_rule_hashable;
+#define IPA_V6_UL_WL_FIREWALL_HANDLE
+	uint8_t replicate_needed;
 };
 
 /**

@@ -180,6 +180,25 @@ static const struct edid_quirk {
 	/* Rotel RSX-1058 forwards sink's EDID but only does HDMI 1.1*/
 	{ "ETR", 13896, EDID_QUIRK_FORCE_8BPC },
 
+	/* Valve Index Headset */
+	{ "VLV", 0x91a8, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91b0, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91b1, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91b2, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91b3, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91b4, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91b5, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91b6, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91b7, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91b8, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91b9, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91ba, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91bb, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91bc, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91bd, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91be, EDID_QUIRK_NON_DESKTOP },
+	{ "VLV", 0x91bf, EDID_QUIRK_NON_DESKTOP },
+
 	/* HTC Vive and Vive Pro VR Headsets */
 	{ "HVR", 0xaa01, EDID_QUIRK_NON_DESKTOP },
 	{ "HVR", 0xaa02, EDID_QUIRK_NON_DESKTOP },
@@ -201,6 +220,12 @@ static const struct edid_quirk {
 
 	/* Sony PlayStation VR Headset */
 	{ "SNY", 0x0704, EDID_QUIRK_NON_DESKTOP },
+
+	/* Sensics VR Headsets */
+	{ "SEN", 0x1019, EDID_QUIRK_NON_DESKTOP },
+
+	/* OSVR HDK and HDK2 VR Headsets */
+	{ "SVR", 0x1019, EDID_QUIRK_NON_DESKTOP },
 };
 
 /*
@@ -1541,6 +1566,9 @@ static void connector_bad_edid(struct drm_connector *connector,
 			       u8 *edid, int num_blocks)
 {
 	int i;
+	u32 csum = 0x100 | drm_edid_block_checksum(edid);
+
+	connector->checksum = 0x100 - (csum - edid[EDID_LENGTH - 1]);
 
 	if (connector->bad_edid_counter++ && !(drm_debug & DRM_UT_KMS))
 		return;
@@ -1564,6 +1592,50 @@ static void connector_bad_edid(struct drm_connector *connector,
 			       block, EDID_LENGTH, false);
 	}
 }
+
+/* Get override or firmware EDID */
+static struct edid *drm_get_override_edid(struct drm_connector *connector)
+{
+	struct edid *override = NULL;
+
+	if (connector->override_edid)
+		override = drm_edid_duplicate(connector->edid_blob_ptr->data);
+
+	if (!override)
+		override = drm_load_edid_firmware(connector);
+
+	return IS_ERR(override) ? NULL : override;
+}
+
+/**
+ * drm_add_override_edid_modes - add modes from override/firmware EDID
+ * @connector: connector we're probing
+ *
+ * Add modes from the override/firmware EDID, if available. Only to be used from
+ * drm_helper_probe_single_connector_modes() as a fallback for when DDC probe
+ * failed during drm_get_edid() and caused the override/firmware EDID to be
+ * skipped.
+ *
+ * Return: The number of modes added or 0 if we couldn't find any.
+ */
+int drm_add_override_edid_modes(struct drm_connector *connector)
+{
+	struct edid *override;
+	int num_modes = 0;
+
+	override = drm_get_override_edid(connector);
+	if (override) {
+		drm_connector_update_edid_property(connector, override);
+		num_modes = drm_add_edid_modes(connector, override);
+		kfree(override);
+
+		DRM_DEBUG_KMS("[CONNECTOR:%d:%s] adding %d modes via fallback override/firmware EDID\n",
+			      connector->base.id, connector->name, num_modes);
+	}
+
+	return num_modes;
+}
+EXPORT_SYMBOL(drm_add_override_edid_modes);
 
 /**
  * drm_do_get_edid - get EDID data using a custom EDID block read function
@@ -1592,15 +1664,12 @@ struct edid *drm_do_get_edid(struct drm_connector *connector,
 {
 	int i, j = 0, valid_extensions = 0;
 	u8 *edid, *new;
-	struct edid *override = NULL;
+	struct edid *override;
 
-	if (connector->override_edid)
-		override = drm_edid_duplicate(connector->edid_blob_ptr->data);
+	connector->checksum = 0;
 
-	if (!override)
-		override = drm_load_edid_firmware(connector);
-
-	if (!IS_ERR_OR_NULL(override))
+	override = drm_get_override_edid(connector);
+	if (override)
 		return override;
 
 	if ((edid = kmalloc(EDID_LENGTH, GFP_KERNEL)) == NULL)
@@ -2848,6 +2917,7 @@ add_detailed_modes(struct drm_connector *connector, struct edid *edid,
 #define VSVDB_HDR10_PLUS_IEEE_CODE 0x90848b
 #define VSVDB_HDR10_PLUS_APP_VER_MASK 0x3
 #define HDR_STATIC_METADATA_EXTENDED_DATA_BLOCK 0x06
+#define COLORIMETRY_EXTENDED_DATA_BLOCK 0x05
 #define USE_EXTENDED_TAG 0x07
 #define EXT_VIDEO_CAPABILITY_BLOCK 0x00
 #define EXT_VIDEO_DATA_BLOCK_420	0x0E
@@ -3907,6 +3977,53 @@ u32 block_length, enum luminance_value value)
 }
 
 /*
+ * drm_extract_clrmetry_db - Parse the HDMI colorimetry extended block
+ * @connector: connector corresponding to the HDMI sink
+ * @db: start of the HDMI colorimetry extended block
+ *
+ * Parses the HDMI colorimetry block to extract sink info for @connector.
+ */
+static void
+drm_extract_clrmetry_db(struct drm_connector *connector, const u8 *db)
+{
+
+	if (!db) {
+		DRM_ERROR("invalid db\n");
+		return;
+	}
+
+	/* Byte 3 Bit 0: xvYCC_601 */
+	if (db[2] & BIT(0))
+		connector->color_enc_fmt |= DRM_EDID_CLRMETRY_xvYCC_601;
+	/* Byte 3 Bit 1: xvYCC_709 */
+	if (db[2] & BIT(1))
+		connector->color_enc_fmt |= DRM_EDID_CLRMETRY_xvYCC_709;
+	/* Byte 3 Bit 2: sYCC_601 */
+	if (db[2] & BIT(2))
+		connector->color_enc_fmt |= DRM_EDID_CLRMETRY_sYCC_601;
+	/* Byte 3 Bit 3: ADBYCC_601 */
+	if (db[2] & BIT(3))
+		connector->color_enc_fmt |= DRM_EDID_CLRMETRY_ADBYCC_601;
+	/* Byte 3 Bit 4: ADB_RGB */
+	if (db[2] & BIT(4))
+		connector->color_enc_fmt |= DRM_EDID_CLRMETRY_ADB_RGB;
+	/* Byte 3 Bit 5: BT2020_CYCC */
+	if (db[2] & BIT(5))
+		connector->color_enc_fmt |= DRM_EDID_CLRMETRY_BT2020_CYCC;
+	/* Byte 3 Bit 6: BT2020_YCC */
+	if (db[2] & BIT(6))
+		connector->color_enc_fmt |= DRM_EDID_CLRMETRY_BT2020_YCC;
+	/* Byte 3 Bit 7: BT2020_RGB */
+	if (db[2] & BIT(7))
+		connector->color_enc_fmt |= DRM_EDID_CLRMETRY_BT2020_RGB;
+	/* Byte 4 Bit 7: DCI-P3 */
+	if (db[3] & BIT(7))
+		connector->color_enc_fmt |= DRM_EDID_CLRMETRY_DCI_P3;
+
+	DRM_DEBUG_KMS("colorimetry fmts = 0x%x\n", connector->color_enc_fmt);
+}
+
+/*
  * drm_extract_hdr_db - Parse the HDMI HDR extended block
  * @connector: connector corresponding to the HDMI sink
  * @db: start of the HDMI HDR extended block
@@ -3986,6 +4103,9 @@ drm_hdmi_extract_extended_blk_info(struct drm_connector *connector,
 					break;
 				case HDR_STATIC_METADATA_EXTENDED_DATA_BLOCK:
 					drm_extract_hdr_db(connector, db);
+					break;
+				case COLORIMETRY_EXTENDED_DATA_BLOCK:
+					drm_extract_clrmetry_db(connector, db);
 					break;
 				default:
 					break;

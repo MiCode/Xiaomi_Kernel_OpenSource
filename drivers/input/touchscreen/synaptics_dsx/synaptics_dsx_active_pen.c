@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2012-2016 Synaptics Incorporated. All rights reserved.
  *
- * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
  *
@@ -244,8 +244,6 @@ static void apen_set_params(void)
 			apen->rmi4_data->sensor_max_y, 0, 0);
 	input_set_abs_params(apen->apen_dev, ABS_PRESSURE, 0,
 			apen->max_pressure, 0, 0);
-
-	return;
 }
 
 static int apen_pressure(struct synaptics_rmi4_f12_query_8 *query_8)

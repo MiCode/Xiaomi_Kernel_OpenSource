@@ -14,12 +14,10 @@
  */
 
 #include <linux/types.h>
-
-int pfk_ice_init(void);
-int pfk_ice_deinit(void);
+#include <crypto/ice.h>
 
 int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
-			char *storage_type, unsigned int data_unit);
-int qti_pfk_ice_invalidate_key(uint32_t index, char *storage_type);
+			struct ice_device *ice_dev, unsigned int data_unit);
+int qti_pfk_ice_invalidate_key(uint32_t index, struct ice_device *ice_dev);
 
 #endif /* PFK_ICE_H_ */

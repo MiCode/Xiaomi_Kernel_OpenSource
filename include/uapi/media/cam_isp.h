@@ -99,6 +99,7 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_IFE_CORE_CONFIG     7
 #define CAM_ISP_GENERIC_BLOB_TYPE_VFE_OUT_CONFIG      8
 #define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG_V2        9
+#define CAM_ISP_GENERIC_BLOB_TYPE_CSID_QCFA_CONFIG    12
 
 #define CAM_ISP_VC_DT_CFG    4
 
@@ -489,6 +490,15 @@ struct cam_isp_clock_config {
  */
 struct cam_isp_csid_clock_config {
 	uint64_t                       csid_clock;
+} __attribute__((packed));
+
+/**
+ * struct cam_isp_csid_qcfa_config - CSID qcfa binning support configuration
+ *
+ * @csid_binning                CSID binning
+ */
+struct cam_isp_csid_qcfa_config {
+	uint32_t                       csid_binning;
 } __attribute__((packed));
 
 /**

@@ -1085,6 +1085,7 @@ struct v4l2_buffer {
 #define V4L2_BUF_FLAG_EOS			0x02000000
 #define V4L2_BUF_FLAG_READONLY		0x04000000
 #define V4L2_BUF_FLAG_PERF_MODE		0x20000000
+#define V4L2_BUF_FLAG_CVPMETADATA_SKIP	    0x40000000
 
 /**
  * struct v4l2_exportbuffer - export of video buffer as DMABUF file descriptor

@@ -36,7 +36,7 @@
 #include <linux/notifier.h>
 #include <linux/fb.h>
 #else
-#include <linux/msm_drm_notify.h>
+#include <drm/drm_panel.h>
 #endif
 
 #ifdef KERNEL_ABOVE_2_6_38
@@ -128,6 +128,8 @@ static int fts_mode_handler(struct fts_ts_info *info, int force);
 static int fts_command(struct fts_ts_info *info, unsigned char cmd);
 static int fts_chip_initialization(struct fts_ts_info *info);
 static int fts_enable_reg(struct fts_ts_info *info, bool enable);
+
+static struct drm_panel *active_panel;
 
 void touch_callback(unsigned int status)
 {
@@ -2232,9 +2234,11 @@ static ssize_t fts_stm_cmd_show(struct device *dev,
 		}
 
 #if defined(CONFIG_FB_MSM)
-	res = fb_unregister_client(&info->notifier);
+		res = fb_unregister_client(&info->notifier);
 #else
-	res = msm_drm_unregister_client(&info->notifier);
+		if (active_panel)
+			res = drm_panel_notifier_unregister(active_panel,
+				&info->notifier);
 #endif
 		if (res < 0) {
 			logError(1, "%s ERROR: unregister notifier failed!\n",
@@ -2437,7 +2441,8 @@ static ssize_t fts_stm_cmd_show(struct device *dev,
 	if (fb_register_client(&info->notifier) < 0)
 		logError(1, "%s ERROR: register notifier failed!\n", tag);
 #else
-	if (msm_drm_register_client(&info->notifier) < 0)
+	if (active_panel &&
+		drm_panel_notifier_register(active_panel, &info->notifier) < 0)
 		logError(1, "%s ERROR: register notifier failed!\n", tag);
 #endif
 
@@ -2445,6 +2450,8 @@ END:
 	/*here start the reporting phase,*/
 	/* assembling the data to send in the file node */
 	all_strbuff = kmalloc(size, GFP_KERNEL);
+	if (!all_strbuff)
+		return 0;
 	memset(all_strbuff, 0, size);
 
 	snprintf(buff, sizeof(buff), "%02X", 0xAA);
@@ -3726,7 +3733,9 @@ static int fts_init_afterProbe(struct fts_ts_info *info)
 #if defined(CONFIG_FB_MSM)
 	error |= fb_register_client(&info->notifier);
 #else
-	error |= msm_drm_register_client(&info->notifier);
+	if (active_panel)
+		error |= drm_panel_notifier_register(active_panel,
+			&info->notifier);
 #endif
 
 	if (error < OK)
@@ -4042,14 +4051,14 @@ static int fts_chip_power_switch(struct fts_ts_info *info, bool on)
 	}
 
 	if (on) {
-		if (info->pwr_reg) {
+		if (info->bus_reg) {
 			error = regulator_enable(info->bus_reg);
 			if (error < 0)
 				logError(1, "%s %s: Failed to enable AVDD\n",
 					tag, __func__);
 		}
 
-		if (info->bus_reg) {
+		if (info->pwr_reg) {
 			error = regulator_enable(info->pwr_reg);
 			if (error < 0)
 				logError(1, "%s %s: Failed to enable DVDD\n",
@@ -4199,21 +4208,21 @@ static int fts_fb_state_chg_callback(struct notifier_block *nb,
 {
 	struct fts_ts_info *info = container_of(nb, struct fts_ts_info,
 				notifier);
-	struct msm_drm_notifier *evdata = data;
+	struct drm_panel_notifier *evdata = data;
 	unsigned int blank;
 
-	if (!evdata || (evdata->id != 0))
+	if (!evdata)
 		return 0;
 
-	if (val != MSM_DRM_EVENT_BLANK)
+	if (val != DRM_PANEL_EVENT_BLANK)
 		return 0;
+
 	logError(0, "%s %s: fts notifier begin!\n", tag, __func__);
-
-	if (evdata->data && val == MSM_DRM_EVENT_BLANK && info) {
+	if (evdata->data && val == DRM_PANEL_EVENT_BLANK && info) {
 		blank = *(int *) (evdata->data);
 
 		switch (blank) {
-		case MSM_DRM_BLANK_POWERDOWN:
+		case DRM_PANEL_BLANK_POWERDOWN:
 			if (info->sensor_sleep)
 				break;
 
@@ -4228,7 +4237,7 @@ static int fts_fb_state_chg_callback(struct notifier_block *nb,
 				queue_work(info->event_wq, &info->suspend_work);
 			break;
 
-		case MSM_DRM_BLANK_UNBLANK:
+		case DRM_PANEL_BLANK_UNBLANK:
 			if (!info->sensor_sleep)
 				break;
 
@@ -4504,6 +4513,30 @@ static int parse_dt(struct device *dev,
 	return OK;
 }
 
+static int check_dt(struct device_node *np)
+{
+	int i;
+	int count;
+	struct device_node *node;
+	struct drm_panel *panel;
+
+	count = of_count_phandle_with_args(np, "panel", NULL);
+	if (count <= 0)
+		return OK;
+
+	for (i = 0; i < count; i++) {
+		node = of_parse_phandle(np, "panel", i);
+		panel = of_drm_find_panel(node);
+		of_node_put(node);
+		if (!IS_ERR(panel)) {
+			active_panel = panel;
+			return OK;
+		}
+	}
+
+	return -ENODEV;
+}
+
 static int fts_probe(struct i2c_client *client,
 		const struct i2c_device_id *idp)
 {
@@ -4515,15 +4548,16 @@ static int fts_probe(struct i2c_client *client,
 
 	logError(0, "%s %s: driver probe begin!\n", tag, __func__);
 
-	logError(0, "%s SET I2C Functionality and Dev INFO:\n", tag);
-	openChannel(client);
-	logError(0, "%s driver ver. %s (built on)\n", tag, FTS_TS_DRV_VERSION);
+	error = check_dt(dp);
 
-	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+	if (error != OK ||
+		!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		logError(1, "%s Unsupported I2C functionality\n", tag);
 		error = -EIO;
 		goto ProbeErrorExit_0;
 	}
+
+	openChannel(client);
 
 	info = kzalloc(sizeof(struct fts_ts_info), GFP_KERNEL);
 	if (!info) {
@@ -4921,7 +4955,8 @@ static int fts_remove(struct i2c_client *client)
 #if defined(CONFIG_FB_MSM)
 	fb_unregister_client(&info->notifier);
 #else
-	msm_drm_unregister_client(&info->notifier);
+	if (active_panel)
+		drm_panel_notifier_register(active_panel, &info->notifier);
 #endif
 
 	/* unregister the device */

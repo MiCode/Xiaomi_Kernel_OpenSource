@@ -350,6 +350,7 @@ enum mhi_cmd_type {
 enum MHI_CMD {
 	MHI_CMD_RESET_CHAN,
 	MHI_CMD_START_CHAN,
+	MHI_CMD_STOP_CHAN,
 	MHI_CMD_TIMSYNC_CFG,
 };
 
@@ -714,6 +715,13 @@ int mhi_process_tsync_event_ring(struct mhi_controller *mhi_cntrl,
 int mhi_send_cmd(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan,
 		 enum MHI_CMD cmd);
 int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl);
+
+static inline void mhi_trigger_resume(struct mhi_controller *mhi_cntrl)
+{
+	mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
+	mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
+	pm_wakeup_event(&mhi_cntrl->mhi_dev->dev, 0);
+}
 
 /* queue transfer buffer */
 int mhi_gen_tre(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan,

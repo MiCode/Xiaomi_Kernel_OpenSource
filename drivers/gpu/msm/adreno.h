@@ -555,7 +555,6 @@ struct adreno_device {
  * attached and enabled
  * @ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED - Set if a CACHE_FLUSH_TS irq storm
  * is in progress
- * @ADRENO_DEVICE_HARD_RESET - Set if soft reset fails and hard reset is needed
  */
 enum adreno_device_flags {
 	ADRENO_DEVICE_PWRON = 0,
@@ -572,8 +571,7 @@ enum adreno_device_flags {
 	ADRENO_DEVICE_GPMU_INITIALIZED = 11,
 	ADRENO_DEVICE_ISDB_ENABLED = 12,
 	ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED = 13,
-	ADRENO_DEVICE_HARD_RESET = 14,
-	ADRENO_DEVICE_CORESIGHT_CX = 16,
+	ADRENO_DEVICE_CORESIGHT_CX = 14,
 };
 
 /**
@@ -1207,6 +1205,12 @@ static inline int adreno_is_a650_family(struct adreno_device *adreno_dev)
 	unsigned int rev = ADRENO_GPUREV(adreno_dev);
 
 	return (rev == ADRENO_REV_A650 || rev == ADRENO_REV_A620);
+}
+
+static inline int adreno_is_a620v1(struct adreno_device *adreno_dev)
+{
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A620) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
 }
 
 static inline int adreno_is_a640v2(struct adreno_device *adreno_dev)

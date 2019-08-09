@@ -1523,7 +1523,7 @@ void diag_send_hw_accel_status(uint8_t peripheral)
 		return;
 	}
 
-	for (feature = 0; feature < DIAGID_V2_FEATURE_COUNT - 1; feature++) {
+	for (feature = 0; feature < DIAGID_V2_FEATURE_COUNT; feature++) {
 		if (!driver->diag_hw_accel[feature])
 			continue;
 		for (pd = 0; pd <= MAX_PERIPHERAL_UPD; pd++) {
@@ -1552,7 +1552,8 @@ void diag_send_hw_accel_status(uint8_t peripheral)
 				req_params.op_req.hw_accel_ver = hw_accel_ver;
 				req_params.op_req.diagid_mask = diagid_mask_bit;
 				DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
-					"Sending passthru packet for diag_id: %d\n",
+					"Sending feature(%d) passthru packet to pd(%d) on peripheral(%d) for diag_id: %d\n",
+					feature, diagid_struct->pd, peripheral,
 					diagid_struct->diagid_val);
 				if (P_FMASK_DIAGID_V2(peripheral))
 					diag_send_passthru_ctrl_pkt(
@@ -1560,7 +1561,9 @@ void diag_send_hw_accel_status(uint8_t peripheral)
 			}
 			diagid_struct = &fwd_info->upd_diag_id[pd];
 			diagid_mask_bit = 0;
-			diagid_mask_bit = 1 << (diagid_struct->diagid_val - 1);
+			if (diagid_struct->diagid_val)
+				diagid_mask_bit =
+				1 << (diagid_struct->diagid_val - 1);
 		}
 	}
 }

@@ -167,6 +167,8 @@
 #define MAX_DRV_TYPES_SUPPORTED_HS200	4
 #define MSM_AUTOSUSPEND_DELAY_MS 100
 
+#define RCLK_TOGGLE 0x2
+
 struct sdhci_msm_offset {
 	u32 CORE_MCI_DATA_CNT;
 	u32 CORE_MCI_STATUS;
@@ -2308,14 +2310,15 @@ int sdhci_msm_cqe_crypto_cfg(struct mmc_host *mmc,
 	if (!host->is_crypto_en)
 		return 0;
 
-	if (host->crypto_reset_reqd && host->ops->crypto_engine_reset) {
+	if (host->mmc->inlinecrypt_reset_needed &&
+			host->ops->crypto_engine_reset) {
 		err = host->ops->crypto_engine_reset(host);
 		if (err) {
 			pr_err("%s: crypto reset failed\n",
 					mmc_hostname(host->mmc));
 			goto out;
 		}
-		host->crypto_reset_reqd = false;
+		host->mmc->inlinecrypt_reset_needed = false;
 	}
 
 	err = sdhci_msm_ice_cqe_cfg(host, mrq, slot, ice_ctx);
@@ -3722,6 +3725,33 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 					| CORE_HC_SELECT_IN_HS400
 					| CORE_HC_SELECT_IN_EN), host->ioaddr +
 					msm_host_offset->CORE_VENDOR_SPEC);
+		}
+		/*
+		 * After MCLK ugating, toggle the FIFO write clock to get
+		 * the FIFO pointers and flags to valid state.
+		 */
+		if (msm_host->tuning_done ||
+				(card && mmc_card_strobe(card) &&
+				msm_host->enhanced_strobe)) {
+			/*
+			 * set HC_REG_DLL_CONFIG_3[1] to select MCLK as
+			 * DLL input clock
+			 */
+			writel_relaxed(((readl_relaxed(host->ioaddr +
+				msm_host_offset->CORE_DLL_CONFIG_3))
+				| RCLK_TOGGLE), host->ioaddr +
+				msm_host_offset->CORE_DLL_CONFIG_3);
+			/* ensure above write as toggling same bit quickly */
+			wmb();
+			udelay(2);
+			/*
+			 * clear HC_REG_DLL_CONFIG_3[1] to select RCLK as
+			 * DLL input clock
+			 */
+			writel_relaxed(((readl_relaxed(host->ioaddr +
+				msm_host_offset->CORE_DLL_CONFIG_3))
+				& ~RCLK_TOGGLE), host->ioaddr +
+				msm_host_offset->CORE_DLL_CONFIG_3);
 		}
 		if (!host->mmc->ios.old_rate && !msm_host->use_cdclp533) {
 			/*

@@ -612,7 +612,6 @@ done:
 static void rtc6226_get_rds(struct rtc6226_device *radio)
 {
 	int retval = 0;
-	int i;
 
 	mutex_lock(&radio->lock);
 	retval = rtc6226_get_all_registers(radio);
@@ -626,9 +625,6 @@ static void rtc6226_get_rds(struct rtc6226_device *radio)
 	radio->block[1] = radio->registers[BB_DATA];
 	radio->block[2] = radio->registers[BC_DATA];
 	radio->block[3] = radio->registers[BD_DATA];
-
-	for (i = 0; i < 4; i++)
-		FMDBG("%s block[%d] %x\n", __func__, i, radio->block[i]);
 
 	radio->bler[0] = (radio->registers[RSSI] & RSSI_RDS_BA_ERRS) >> 14;
 	radio->bler[1] = (radio->registers[RSSI] & RSSI_RDS_BB_ERRS) >> 12;
@@ -1244,7 +1240,7 @@ void rtc6226_rds_handler(struct work_struct *worker)
 		grp_type = radio->block[1] >> OFFSET_OF_GRP_TYP;
 		FMDBG("%s grp_type = %d\n", __func__, grp_type);
 	} else {
-		FMDBG("%s invalid data %d\n", __func__, radio->bler[1]);
+		/* invalid data case */
 		return;
 	}
 	if (grp_type & 0x01)

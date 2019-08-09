@@ -38,6 +38,7 @@
 #endif
 #define CNSS_QMI_TIMEOUT_DEFAULT	10000
 #define CNSS_BDF_TYPE_DEFAULT		CNSS_BDF_ELF
+#define CNSS_TIME_SYNC_PERIOD_DEFAULT	900000
 
 static struct cnss_plat_data *plat_env;
 
@@ -172,6 +173,7 @@ int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
 	case CNSS_BUS_WIDTH_LOW:
 	case CNSS_BUS_WIDTH_MEDIUM:
 	case CNSS_BUS_WIDTH_HIGH:
+	case CNSS_BUS_WIDTH_VERY_HIGH:
 		ret = msm_bus_scale_client_update_request
 			(bus_bw_info->bus_client, bandwidth);
 		if (!ret)
@@ -694,6 +696,11 @@ int cnss_idle_shutdown(struct device *dev)
 		return -ENODEV;
 	}
 
+	if (test_bit(CNSS_IN_SUSPEND_RESUME, &plat_priv->driver_state)) {
+		cnss_pr_dbg("System suspend or resume in progress, ignore idle shutdown\n");
+		return -EAGAIN;
+	}
+
 	cnss_pr_dbg("Doing idle shutdown\n");
 
 	if (!test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) &&
@@ -1130,7 +1137,7 @@ int cnss_force_fw_assert(struct device *dev)
 		return -EOPNOTSUPP;
 	}
 
-	if (cnss_pci_is_device_down(dev)) {
+	if (cnss_bus_is_device_down(plat_priv)) {
 		cnss_pr_info("Device is already in bad state, ignore force assert\n");
 		return 0;
 	}
@@ -1166,7 +1173,7 @@ int cnss_force_collect_rddm(struct device *dev)
 		return -EOPNOTSUPP;
 	}
 
-	if (cnss_pci_is_device_down(dev)) {
+	if (cnss_bus_is_device_down(plat_priv)) {
 		cnss_pr_info("Device is already in bad state, ignore force collect rddm\n");
 		return 0;
 	}
@@ -1222,18 +1229,36 @@ out:
 	return ret;
 }
 
-static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv)
+static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv,
+					void *data)
 {
-	if (!test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
-		return 0;
+	struct cnss_cal_info *cal_info = data;
 
-	plat_priv->cal_done = true;
+	if (!test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
+		goto out;
+
+	switch (cal_info->cal_status) {
+	case CNSS_CAL_DONE:
+		cnss_pr_dbg("Calibration completed successfully\n");
+		plat_priv->cal_done = true;
+		break;
+	case CNSS_CAL_TIMEOUT:
+		cnss_pr_dbg("Calibration timed out, force shutdown\n");
+		break;
+	default:
+		cnss_pr_err("Unknown calibration status: %u\n",
+			    cal_info->cal_status);
+		break;
+	}
+
 	cnss_wlfw_wlan_mode_send_sync(plat_priv, CNSS_OFF);
 	cnss_release_antenna_sharing(plat_priv);
 	cnss_bus_dev_shutdown(plat_priv);
 	complete(&plat_priv->cal_complete);
 	clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
 
+out:
+	kfree(data);
 	return 0;
 }
 
@@ -1409,7 +1434,8 @@ static void cnss_driver_event_work(struct work_struct *work)
 			ret = cnss_cold_boot_cal_start_hdlr(plat_priv);
 			break;
 		case CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE:
-			ret = cnss_cold_boot_cal_done_hdlr(plat_priv);
+			ret = cnss_cold_boot_cal_done_hdlr(plat_priv,
+							   event->data);
 			break;
 		case CNSS_DRIVER_EVENT_REGISTER_DRIVER:
 			ret = cnss_bus_register_driver_hdlr(plat_priv,
@@ -1796,7 +1822,7 @@ static ssize_t fs_ready_store(struct device *dev,
 	if (fs_ready == FILE_SYSTEM_READY) {
 		cnss_driver_event_post(plat_priv,
 				       CNSS_DRIVER_EVENT_COLD_BOOT_CAL_START,
-				       CNSS_EVENT_SYNC, NULL);
+				       0, NULL);
 	}
 
 	return count;
@@ -1885,6 +1911,7 @@ static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 	plat_priv->ctrl_params.mhi_timeout = CNSS_MHI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.qmi_timeout = CNSS_QMI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.bdf_type = CNSS_BDF_TYPE_DEFAULT;
+	plat_priv->ctrl_params.time_sync_period = CNSS_TIME_SYNC_PERIOD_DEFAULT;
 }
 
 static const struct platform_device_id cnss_platform_id_table[] = {

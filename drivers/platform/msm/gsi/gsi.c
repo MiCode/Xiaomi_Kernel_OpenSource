@@ -3752,8 +3752,9 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 		 * to losing an interrupt. For these versions an
 		 * explicit check is needed after enabling the interrupt
 		 */
-		if (gsi_ctx->per.ver == GSI_VER_2_2 ||
-		    gsi_ctx->per.ver == GSI_VER_2_5) {
+		if ((gsi_ctx->per.ver == GSI_VER_2_2 ||
+		    gsi_ctx->per.ver == GSI_VER_2_5) &&
+			!gsi_ctx->per.skip_ieob_mask_wa) {
 			u32 src = gsi_readl(gsi_ctx->base +
 				GSI_EE_n_CNTXT_SRC_IEOB_IRQ_OFFS(
 					gsi_ctx->per.ee));

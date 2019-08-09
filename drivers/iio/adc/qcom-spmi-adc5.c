@@ -80,7 +80,8 @@
  */
 #define ADC_CONV_TIME_MIN_US			263
 #define ADC_CONV_TIME_MAX_US			264
-#define ADC_CONV_TIME_RETRY			400
+#define ADC_CONV_TIME_RETRY_POLL		570
+#define ADC_CONV_TIME_RETRY				190
 #define ADC_CONV_TIMEOUT			msecs_to_jiffies(100)
 
 /* CAL peripheral */
@@ -268,13 +269,16 @@ static int adc_read_voltage_data(struct adc_chip *adc, u16 *data)
 	return ret;
 }
 
-static int adc_poll_wait_eoc(struct adc_chip *adc)
+static int adc_poll_wait_eoc(struct adc_chip *adc, bool poll_only)
 {
 	unsigned int count, retry;
 	u8 status1;
 	int ret;
 
-	retry = ADC_CONV_TIME_RETRY;
+	if (poll_only)
+		retry = ADC_CONV_TIME_RETRY_POLL;
+	else
+		retry = ADC_CONV_TIME_RETRY;
 
 	for (count = 0; count < retry; count++) {
 		ret = adc_read(adc, ADC_USR_STATUS1, &status1, 1);
@@ -295,7 +299,7 @@ static int adc_wait_eoc(struct adc_chip *adc)
 	int ret;
 
 	if (adc->poll_eoc) {
-		ret = adc_poll_wait_eoc(adc);
+		ret = adc_poll_wait_eoc(adc, true);
 		if (ret < 0) {
 			pr_err("EOC bit not set\n");
 			return ret;
@@ -305,7 +309,7 @@ static int adc_wait_eoc(struct adc_chip *adc)
 							ADC_CONV_TIMEOUT);
 		if (!ret) {
 			pr_debug("Did not get completion timeout.\n");
-			ret = adc_poll_wait_eoc(adc);
+			ret = adc_poll_wait_eoc(adc, false);
 			if (ret < 0) {
 				pr_err("EOC bit not set\n");
 				return ret;

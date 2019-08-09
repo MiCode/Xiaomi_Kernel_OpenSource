@@ -618,6 +618,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_TWO_PASS_USE_WFI))
 		kgsl_regrmw(device, A6XX_PC_DBG_ECO_CNTL, 0, (1 << 8));
 
+	/* Set the bit vccCacheSkipDis=1 to get rid of TSEskip logic */
+	kgsl_regrmw(device, A6XX_PC_DBG_ECO_CNTL, 0, (1 << 9));
+
 	/* Enable the GMEM save/restore feature for preemption */
 	if (adreno_is_preemption_enabled(adreno_dev))
 		kgsl_regwrite(device, A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
@@ -1077,14 +1080,8 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int reg;
 
-	/*
-	 * For the soft reset case with GMU enabled this part is done
-	 * by the GMU firmware
-	 */
-	if (gmu_core_isenabled(device) &&
-		!test_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv))
+	if (gmu_core_isenabled(device))
 		return 0;
-
 
 	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 1);
 	/*
@@ -1161,23 +1158,17 @@ static int a6xx_reset(struct kgsl_device *device, int fault)
 	/* Transition from ACTIVE to RESET state */
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_RESET);
 
-	if (ret) {
-		/* If soft reset failed/skipped, then pull the power */
-		set_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv);
-		/* since device is officially off now clear start bit */
-		clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
+	/* since device is officially off now clear start bit */
+	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
-		/* Keep trying to start the device until it works */
-		for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
-			ret = adreno_start(device, 0);
-			if (!ret)
-				break;
+	/* Keep trying to start the device until it works */
+	for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
+		ret = adreno_start(device, 0);
+		if (!ret)
+			break;
 
-			msleep(20);
-		}
+		msleep(20);
 	}
-
-	clear_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv);
 
 	if (ret)
 		return ret;

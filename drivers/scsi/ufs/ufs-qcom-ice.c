@@ -235,7 +235,13 @@ int ufs_qcom_ice_init(struct ufs_qcom_host *qcom_host)
 			err = -ENOMEM;
 			goto out;
 		}
-		INIT_WORK(&qcom_host->ice_cfg_work, ufs_qcom_ice_cfg_work);
+	}
+	if (ice_workqueue) {
+		if (!qcom_host->is_ice_cfg_work_set) {
+			INIT_WORK(&qcom_host->ice_cfg_work,
+					ufs_qcom_ice_cfg_work);
+			qcom_host->is_ice_cfg_work_set = true;
+		}
 	}
 
 out:
@@ -319,7 +325,6 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 					}
 					qcom_host->work_pending = true;
 				}
-
 			} else {
 				if (err != -EBUSY)
 					dev_err(qcom_host->hba->dev,
@@ -553,7 +558,7 @@ int ufs_qcom_ice_cfg_end(struct ufs_qcom_host *qcom_host, struct request *req)
 	struct device *dev = qcom_host->hba->dev;
 
 	if (qcom_host->ice.vops->config_end) {
-		err = qcom_host->ice.vops->config_end(req);
+		err = qcom_host->ice.vops->config_end(qcom_host->ice.pdev, req);
 		if (err) {
 			dev_err(dev, "%s: error in ice_vops->config_end %d\n",
 				__func__, err);

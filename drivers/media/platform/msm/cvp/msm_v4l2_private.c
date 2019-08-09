@@ -204,7 +204,7 @@ static void print_hfi_short(struct cvp_kmd_arg __user *up)
 			get_user(words[4], &pkt->pkt_data[1]))
 		dprintk(CVP_ERR, "Failed to print ioctl cmd\n");
 
-	dprintk(CVP_DBG, "IOCTL cmd type %d, offset %d, num %d, pkt %d %d\n",
+	dprintk(CVP_DBG, "IOCTL cmd type %#x, offset %d, num %d, pkt %d %#x\n",
 			words[0], words[1], words[2], words[3], words[4]);
 }
 
@@ -607,10 +607,6 @@ static long cvp_ioctl(struct msm_cvp_inst *inst,
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
-
-	/* Only handle VIDIOC_CVP_CMD as of now */
-	if (cmd != VIDIOC_CVP_CMD)
-		return 0;
 
 	memset(&karg, 0, sizeof(struct cvp_kmd_arg));
 

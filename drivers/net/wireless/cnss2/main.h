@@ -202,6 +202,7 @@ enum cnss_driver_state {
 	CNSS_DRIVER_DEBUG,
 	CNSS_COEX_CONNECTED,
 	CNSS_IMS_CONNECTED,
+	CNSS_IN_SUSPEND_RESUME,
 };
 
 struct cnss_recovery_data {
@@ -247,11 +248,21 @@ enum cnss_bdf_type {
 	CNSS_BDF_DUMMY = 255,
 };
 
+enum cnss_cal_status {
+	CNSS_CAL_DONE,
+	CNSS_CAL_TIMEOUT,
+};
+
+struct cnss_cal_info {
+	enum cnss_cal_status cal_status;
+};
+
 struct cnss_control_params {
 	unsigned long quirks;
 	unsigned int mhi_timeout;
 	unsigned int qmi_timeout;
 	unsigned int bdf_type;
+	unsigned int time_sync_period;
 };
 
 struct cnss_cpr_info {

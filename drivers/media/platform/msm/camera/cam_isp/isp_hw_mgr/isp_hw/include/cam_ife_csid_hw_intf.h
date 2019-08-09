@@ -222,5 +222,14 @@ struct cam_ife_csid_clock_update_args {
 	uint64_t                           clk_rate;
 };
 
+/*
+ * struct cam_ife_csid_qcfa_update_args:
+ *
+ * @qcfa_binning:                QCFA binning supported
+ */
+struct cam_ife_csid_qcfa_update_args {
+	uint32_t                           qcfa_binning;
+};
+
 
 #endif /* _CAM_CSID_HW_INTF_H_ */

@@ -25,12 +25,10 @@
 	(__t + __tsz >= __a + __asz) \
 )
 
-#define MAX_PROFILE_COUNT	16
-#define VENUS_VERSION_LENGTH 128
+#define CVP_VERSION_LENGTH 128
 
 /* 16 encoder and 16 decoder sessions */
 #define CVP_MAX_SESSIONS	32
-#define HAL_VIDEO_CODEC_CVP	0x00010000
 
 #define HFI_DFS_CONFIG_CMD_SIZE	38
 #define HFI_DFS_FRAME_CMD_SIZE	16
@@ -91,6 +89,15 @@
 #define HFI_PYS_HCD_BUFFERS_OFFSET 14
 #define HFI_PYS_HCD_BUF_NUM 26
 
+#define HFI_FD_CONFIG_CMD_SIZE 28
+#define HFI_FD_FRAME_CMD_SIZE  10
+#define HFI_FD_BUFFERS_OFFSET  6
+#define HFI_FD_BUF_NUM 2
+
+#define HFI_MODEL_CMD_SIZE 9
+#define HFI_MODEL_BUFFERS_OFFSET 7
+#define HFI_MODEL_BUF_NUM 1
+
 #define DFS_BIT_OFFSET (CVP_KMD_HFI_DFS_FRAME_CMD - CVP_KMD_CMD_START)
 #define DME_BIT_OFFSET (CVP_KMD_HFI_DME_FRAME_CMD - CVP_KMD_CMD_START)
 #define PERSIST_BIT_OFFSET (CVP_KMD_HFI_PERSIST_CMD - CVP_KMD_CMD_START)
@@ -135,33 +142,11 @@ enum hal_property {
 	HAL_UNUSED_PROPERTY = 0xFFFFFFFF,
 };
 
-enum hal_domain {
-	HAL_VIDEO_DOMAIN_VPE,
-	HAL_VIDEO_DOMAIN_ENCODER,
-	HAL_VIDEO_DOMAIN_DECODER,
-	HAL_VIDEO_DOMAIN_CVP,
-	HAL_UNUSED_DOMAIN = 0x10000000,
-};
-
-enum hal_default_properties {
-	HAL_VIDEO_DYNAMIC_BUF_MODE = 0x00000001,
-	HAL_VIDEO_CONTINUE_DATA_TRANSFER = 0x00000002,
-};
-
 enum hal_ssr_trigger_type {
 	SSR_ERR_FATAL = 1,
 	SSR_SW_DIV_BY_ZERO,
 	SSR_HW_WDOG_IRQ,
-};
-
-struct cvp_hal_profile_level {
-	u32 profile;
-	u32 level;
-};
-
-struct cvp_hal_profile_level_supported {
-	u32 profile_count;
-	struct cvp_hal_profile_level profile_level[MAX_PROFILE_COUNT];
+	SSR_SESSION_ABORT,
 };
 
 enum hal_intra_refresh_mode {
@@ -169,67 +154,6 @@ enum hal_intra_refresh_mode {
 	HAL_INTRA_REFRESH_CYCLIC,
 	HAL_INTRA_REFRESH_RANDOM,
 	HAL_UNUSED_INTRA = 0x10000000,
-};
-
-struct cvp_hal_intra_refresh {
-	enum hal_intra_refresh_mode mode;
-	u32 ir_mbs;
-};
-
-struct cvp_hal_buffer_requirements {
-	enum hal_buffer buffer_type;
-	u32 buffer_size;
-	u32 buffer_region_size;
-	u32 buffer_count_min;
-	u32 buffer_count_min_host;
-	u32 buffer_count_actual;
-	u32 contiguous;
-	u32 buffer_alignment;
-};
-
-struct cvp_hal_uncompressed_format_supported {
-	enum hal_buffer buffer_type;
-	u32 format_entries;
-	u32 rg_format_info[1];
-};
-
-enum hal_interlace_format {
-	HAL_INTERLACE_FRAME_PROGRESSIVE                 = 0x01,
-	HAL_INTERLACE_INTERLEAVE_FRAME_TOPFIELDFIRST    = 0x02,
-	HAL_INTERLACE_INTERLEAVE_FRAME_BOTTOMFIELDFIRST = 0x04,
-	HAL_INTERLACE_FRAME_TOPFIELDFIRST               = 0x08,
-	HAL_INTERLACE_FRAME_BOTTOMFIELDFIRST            = 0x10,
-	HAL_UNUSED_INTERLACE = 0x10000000,
-};
-
-struct cvp_hal_interlace_format_supported {
-	enum hal_buffer buffer_type;
-	enum hal_interlace_format format;
-};
-
-struct cvp_hal_capability_supported {
-	u32 capability_type;
-	u32 min;
-	u32 max;
-	u32 step_size;
-};
-
-struct cvp_hal_nal_stream_format_supported {
-	u32 nal_stream_format_supported;
-};
-
-enum hal_core_id {
-	CVP_CORE_ID_DEFAULT = 0,
-	CVP_CORE_ID_1 = 1, /* 0b01 */
-	CVP_CORE_ID_2 = 2, /* 0b10 */
-	CVP_CORE_ID_3 = 3, /* 0b11 */
-	CVP_CORE_ID_UNUSED = 0x10000000,
-};
-
-enum hal_work_mode {
-	CVP_WORK_MODE_1 = 1,
-	CVP_WORK_MODE_2 = 2,
-	CVP_WORK_MODE_UNUSED = 0x10000000,
 };
 
 enum cvp_resource_id {
@@ -260,7 +184,7 @@ struct cvp_hal_buffer_info {
 };
 
 struct cvp_hal_fw_info {
-	char version[VENUS_VERSION_LENGTH];
+	char version[CVP_VERSION_LENGTH];
 	phys_addr_t base_addr;
 	int register_base;
 	int register_size;
@@ -279,15 +203,6 @@ enum hal_event_type {
 	HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES,
 	HAL_EVENT_RELEASE_BUFFER_REFERENCE,
 	HAL_UNUSED_SEQCHG = 0x10000000,
-};
-
-enum buffer_mode_type {
-	HAL_BUFFER_MODE_DYNAMIC = 0x100,
-	HAL_BUFFER_MODE_STATIC = 0x001,
-};
-
-struct cvp_buffer_requirements {
-	struct cvp_hal_buffer_requirements buffer[HAL_BUFFER_MAX];
 };
 
 /* HAL Response */
@@ -347,51 +262,7 @@ enum hal_command_response {
 };
 
 struct msm_cvp_capability {
-	enum hal_domain domain;
-	u32 codec;
-	struct cvp_hal_capability_supported width;
-	struct cvp_hal_capability_supported height;
-	struct cvp_hal_capability_supported mbs_per_frame;
-	struct cvp_hal_capability_supported mbs_per_sec;
-	struct cvp_hal_capability_supported frame_rate;
-	struct cvp_hal_capability_supported scale_x;
-	struct cvp_hal_capability_supported scale_y;
-	struct cvp_hal_capability_supported bitrate;
-	struct cvp_hal_capability_supported bframe;
-	struct cvp_hal_capability_supported peakbitrate;
-	struct cvp_hal_capability_supported hier_p;
-	struct cvp_hal_capability_supported ltr_count;
-	struct cvp_hal_capability_supported secure_output2_threshold;
-	struct cvp_hal_capability_supported hier_b;
-	struct cvp_hal_capability_supported lcu_size;
-	struct cvp_hal_capability_supported hier_p_hybrid;
-	struct cvp_hal_capability_supported mbs_per_sec_power_save;
-	struct cvp_hal_capability_supported extradata;
-	struct cvp_hal_capability_supported profile;
-	struct cvp_hal_capability_supported level;
-	struct cvp_hal_capability_supported i_qp;
-	struct cvp_hal_capability_supported p_qp;
-	struct cvp_hal_capability_supported b_qp;
-	struct cvp_hal_capability_supported rc_modes;
-	struct cvp_hal_capability_supported blur_width;
-	struct cvp_hal_capability_supported blur_height;
-	struct cvp_hal_capability_supported slice_delivery_mode;
-	struct cvp_hal_capability_supported slice_bytes;
-	struct cvp_hal_capability_supported slice_mbs;
-	struct cvp_hal_capability_supported secure;
-	struct cvp_hal_capability_supported max_num_b_frames;
-	struct cvp_hal_capability_supported max_video_cores;
-	struct cvp_hal_capability_supported max_work_modes;
-	struct cvp_hal_capability_supported ubwc_cr_stats;
-	struct cvp_hal_profile_level_supported profile_level;
-	struct cvp_hal_uncompressed_format_supported uncomp_format;
-	struct cvp_hal_interlace_format_supported HAL_format;
-	struct cvp_hal_nal_stream_format_supported nal_stream_format;
-	struct cvp_hal_intra_refresh intra_refresh;
-	enum buffer_mode_type alloc_mode_out;
-	enum buffer_mode_type alloc_mode_in;
-	u32 pixelprocess_capabilities;
-	u32 tme_version;
+	u32 reserved[183];
 };
 
 struct cvp_hal_sys_init_done {
@@ -469,7 +340,7 @@ struct msm_cvp_cb_info {
 };
 
 enum msm_cvp_hfi_type {
-	CVP_HFI_VENUS,
+	CVP_HFI_IRIS,
 };
 
 enum msm_cvp_thermal_level {
@@ -491,23 +362,11 @@ enum msm_cvp_power_mode {
 };
 
 struct cvp_bus_vote_data {
-	enum hal_domain domain;
-	u32 codec;
-	u32 color_formats[2];
-	int num_formats; /* 1 = DPB-OPB unified; 2 = split */
-	int input_height, input_width, fps, bitrate;
-	int output_height, output_width;
-	int compression_ratio;
-	int complexity_factor;
-	int input_cr;
+	u32 domain;
 	u32 ddr_bw;
 	u32 sys_cache_bw;
-	bool use_dpb_read;
-	unsigned int lcu_size;
 	enum msm_cvp_power_mode power_mode;
-	enum hal_work_mode work_mode;
 	bool use_sys_cache;
-	bool b_frames_enabled;
 };
 
 struct cvp_hal_cmd_sys_get_property_packet {
@@ -534,29 +393,15 @@ struct cvp_hfi_device {
 	int (*core_init)(void *device);
 	int (*core_release)(void *device);
 	int (*core_trigger_ssr)(void *device, enum hal_ssr_trigger_type);
-	int (*session_init)(void *device, void *session_id,
-		enum hal_domain session_type, u32 codec_type,
-		void **new_session);
+	int (*session_init)(void *device, void *session_id, void **new_session);
 	int (*session_end)(void *session);
 	int (*session_abort)(void *session);
 	int (*session_set_buffers)(void *sess,
 				struct cvp_buffer_addr_info *buffer_info);
 	int (*session_release_buffers)(void *sess,
 				struct cvp_buffer_addr_info *buffer_info);
-	int (*session_load_res)(void *sess);
-	int (*session_release_res)(void *sess);
-	int (*session_start)(void *sess);
-	int (*session_continue)(void *sess);
-	int (*session_stop)(void *sess);
 	int (*session_send)(void *sess,
 		struct cvp_kmd_hfi_packet *in_pkt);
-	int (*session_get_buf_req)(void *sess);
-	int (*session_flush)(void *sess, enum hal_flush flush_mode);
-	int (*session_set_property)(void *sess, enum hal_property ptype,
-			void *pdata);
-	int (*session_get_property)(void *sess, enum hal_property ptype);
-	int (*session_pause)(void *sess);
-	int (*session_resume)(void *sess);
 	int (*scale_clocks)(void *dev, u32 freq);
 	int (*vote_bus)(void *dev, struct cvp_bus_vote_data *data,
 			int num_data);

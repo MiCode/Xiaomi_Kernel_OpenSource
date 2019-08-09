@@ -97,13 +97,6 @@ struct msm_hsphy {
 	struct mutex		phy_lock;
 	struct regulator_desc	dpdm_rdesc;
 	struct regulator_dev	*dpdm_rdev;
-
-	/* emulation targets specific */
-	void __iomem		*emu_phy_base;
-	int			*emu_init_seq;
-	int			emu_init_seq_len;
-	int			*emu_dcm_reset_seq;
-	int			emu_dcm_reset_seq_len;
 };
 
 static void msm_hsphy_enable_clocks(struct msm_hsphy *phy, bool on)
@@ -316,37 +309,6 @@ static void hsusb_phy_write_seq(void __iomem *base, u32 *seq, int cnt,
 		if (delay)
 			usleep_range(delay, (delay + 2000));
 	}
-}
-
-static int msm_hsphy_emu_init(struct usb_phy *uphy)
-{
-	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
-	int ret;
-
-	dev_dbg(uphy->dev, "%s\n", __func__);
-
-	ret = msm_hsphy_enable_power(phy, true);
-	if (ret)
-		return ret;
-
-	msm_hsphy_enable_clocks(phy, true);
-	msm_hsphy_reset(phy);
-
-	if (phy->emu_init_seq) {
-		hsusb_phy_write_seq(phy->base,
-			phy->emu_init_seq,
-			phy->emu_init_seq_len, 10000);
-
-		/* Wait for 5ms as per QUSB2 RUMI sequence */
-		usleep_range(5000, 7000);
-
-		if (phy->emu_dcm_reset_seq)
-			hsusb_phy_write_seq(phy->emu_phy_base,
-					phy->emu_dcm_reset_seq,
-					phy->emu_dcm_reset_seq_len, 10000);
-	}
-
-	return 0;
 }
 
 static int msm_hsphy_init(struct usb_phy *uphy)
@@ -604,8 +566,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	struct msm_hsphy *phy;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int ret = 0, size = 0;
-
+	int ret = 0;
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
 	if (!phy) {
@@ -647,16 +608,6 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 				phy->phy_rcal_reg);
 	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-							"emu_phy_base");
-	if (res) {
-		phy->emu_phy_base = devm_ioremap_resource(dev, res);
-		if (IS_ERR(phy->emu_phy_base)) {
-			dev_dbg(dev, "couldn't ioremap emu_phy_base\n");
-			phy->emu_phy_base = NULL;
-		}
-	}
-
 	/* ref_clk_src is needed irrespective of SE_CLK or DIFF_CLK usage */
 	phy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
 	if (IS_ERR(phy->ref_clk_src)) {
@@ -680,51 +631,6 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	phy->phy_reset = devm_reset_control_get(dev, "phy_reset");
 	if (IS_ERR(phy->phy_reset))
 		return PTR_ERR(phy->phy_reset);
-
-	of_get_property(dev->of_node, "qcom,emu-init-seq", &size);
-	if (size) {
-		phy->emu_init_seq = devm_kzalloc(dev,
-						size, GFP_KERNEL);
-		if (phy->emu_init_seq) {
-			phy->emu_init_seq_len =
-				(size / sizeof(*phy->emu_init_seq));
-			if (phy->emu_init_seq_len % 2) {
-				dev_err(dev, "invalid emu_init_seq_len\n");
-				return -EINVAL;
-			}
-
-			of_property_read_u32_array(dev->of_node,
-				"qcom,emu-init-seq",
-				phy->emu_init_seq,
-				phy->emu_init_seq_len);
-		} else {
-			dev_dbg(dev,
-			"error allocating memory for emu_init_seq\n");
-		}
-	}
-
-	size = 0;
-	of_get_property(dev->of_node, "qcom,emu-dcm-reset-seq", &size);
-	if (size) {
-		phy->emu_dcm_reset_seq = devm_kzalloc(dev,
-						size, GFP_KERNEL);
-		if (phy->emu_dcm_reset_seq) {
-			phy->emu_dcm_reset_seq_len =
-				(size / sizeof(*phy->emu_dcm_reset_seq));
-			if (phy->emu_dcm_reset_seq_len % 2) {
-				dev_err(dev, "invalid emu_dcm_reset_seq_len\n");
-				return -EINVAL;
-			}
-
-			of_property_read_u32_array(dev->of_node,
-				"qcom,emu-dcm-reset-seq",
-				phy->emu_dcm_reset_seq,
-				phy->emu_dcm_reset_seq_len);
-		} else {
-			dev_dbg(dev,
-			"error allocating memory for emu_dcm_reset_seq\n");
-		}
-	}
 
 	phy->no_rext_present = of_property_read_bool(dev->of_node,
 					"qcom,no-rext-present");
@@ -790,10 +696,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	mutex_init(&phy->phy_lock);
 	platform_set_drvdata(pdev, phy);
 
-	if (phy->emu_init_seq)
-		phy->phy.init			= msm_hsphy_emu_init;
-	else
-		phy->phy.init			= msm_hsphy_init;
+	phy->phy.init			= msm_hsphy_init;
 	phy->phy.set_suspend		= msm_hsphy_set_suspend;
 	phy->phy.notify_connect		= msm_hsphy_notify_connect;
 	phy->phy.notify_disconnect	= msm_hsphy_notify_disconnect;

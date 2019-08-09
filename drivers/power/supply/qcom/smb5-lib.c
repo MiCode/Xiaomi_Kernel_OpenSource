@@ -751,35 +751,22 @@ int smblib_set_dc_suspend(struct smb_charger *chg, bool suspend)
 	return rc;
 }
 
-static int smblib_set_adapter_allowance(struct smb_charger *chg,
+static int smblib_usb_pd_adapter_allowance_override(struct smb_charger *chg,
 					u8 allowed_voltage)
 {
 	int rc = 0;
 
-	/* PMI632 only support max. 9V */
-	if (chg->smb_version == PMI632_SUBTYPE) {
-		switch (allowed_voltage) {
-		case USBIN_ADAPTER_ALLOW_12V:
-		case USBIN_ADAPTER_ALLOW_9V_TO_12V:
-			allowed_voltage = USBIN_ADAPTER_ALLOW_9V;
-			break;
-		case USBIN_ADAPTER_ALLOW_5V_OR_12V:
-		case USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V:
-			allowed_voltage = USBIN_ADAPTER_ALLOW_5V_OR_9V;
-			break;
-		case USBIN_ADAPTER_ALLOW_5V_TO_12V:
-			allowed_voltage = USBIN_ADAPTER_ALLOW_5V_TO_9V;
-			break;
-		}
-	}
+	if (chg->smb_version == PMI632_SUBTYPE)
+		return 0;
 
-	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG, allowed_voltage);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't write 0x%02x to USBIN_ADAPTER_ALLOW_CFG rc=%d\n",
+	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_OVERRIDE_REG,
+						allowed_voltage);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't write 0x%02x to USBIN_ADAPTER_ALLOW_OVERRIDE_REG rc=%d\n",
 			allowed_voltage, rc);
-		return rc;
-	}
 
+	smblib_dbg(chg, PR_MISC, "set USBIN_ALLOW_OVERRIDE: %d\n",
+			allowed_voltage);
 	return rc;
 }
 
@@ -808,34 +795,52 @@ static int smblib_set_usb_pd_fsw(struct smb_charger *chg, int voltage)
 	return rc;
 }
 
+#define CONT_AICL_HEADROOM_MV		1000
+#define AICL_THRESHOLD_MV_IN_CC		5000
 static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
 					int min_allowed_uv, int max_allowed_uv)
 {
-	int rc;
-	u8 allowed_voltage;
+	int rc, aicl_threshold;
+	u8 vbus_allowance;
 
-	if (min_allowed_uv == MICRO_5V && max_allowed_uv == MICRO_5V) {
-		allowed_voltage = USBIN_ADAPTER_ALLOW_5V;
+	if (chg->smb_version == PMI632_SUBTYPE)
+		return 0;
+
+	if (chg->pd_active == POWER_SUPPLY_PD_PPS_ACTIVE) {
+		vbus_allowance = CONTINUOUS;
+	} else if (min_allowed_uv == MICRO_5V && max_allowed_uv == MICRO_5V) {
+		vbus_allowance = FORCE_5V;
 	} else if (min_allowed_uv == MICRO_9V && max_allowed_uv == MICRO_9V) {
-		allowed_voltage = USBIN_ADAPTER_ALLOW_9V;
+		vbus_allowance = FORCE_9V;
 	} else if (min_allowed_uv == MICRO_12V && max_allowed_uv == MICRO_12V) {
-		allowed_voltage = USBIN_ADAPTER_ALLOW_12V;
-	} else if (min_allowed_uv < MICRO_9V && max_allowed_uv <= MICRO_9V) {
-		allowed_voltage = USBIN_ADAPTER_ALLOW_5V_TO_9V;
-	} else if (min_allowed_uv < MICRO_9V && max_allowed_uv <= MICRO_12V) {
-		allowed_voltage = USBIN_ADAPTER_ALLOW_5V_TO_12V;
+		vbus_allowance = FORCE_12V;
 	} else if (min_allowed_uv < MICRO_12V && max_allowed_uv <= MICRO_12V) {
-		allowed_voltage = USBIN_ADAPTER_ALLOW_9V_TO_12V;
+		vbus_allowance = CONTINUOUS;
 	} else {
 		smblib_err(chg, "invalid allowed voltage [%d, %d]\n",
-			min_allowed_uv, max_allowed_uv);
+				min_allowed_uv, max_allowed_uv);
 		return -EINVAL;
 	}
 
-	rc = smblib_set_adapter_allowance(chg, allowed_voltage);
+	rc = smblib_usb_pd_adapter_allowance_override(chg, vbus_allowance);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't configure adapter allowance rc=%d\n",
+		smblib_err(chg, "set CONTINUOUS allowance failed, rc=%d\n",
 				rc);
+		return rc;
+	}
+
+	if (vbus_allowance != CONTINUOUS)
+		return 0;
+
+	if (chg->adapter_cc_mode)
+		aicl_threshold = AICL_THRESHOLD_MV_IN_CC;
+	else
+		aicl_threshold = min_allowed_uv / 1000 - CONT_AICL_HEADROOM_MV;
+	rc = smblib_set_charge_param(chg, &chg->param.aicl_cont_threshold,
+							aicl_threshold);
+	if (rc < 0) {
+		smblib_err(chg, "set CONT_AICL_THRESHOLD failed, rc=%d\n",
+							rc);
 		return rc;
 	}
 
@@ -1147,13 +1152,6 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	if (chg->cp_disable_votable)
 		vote(chg->cp_disable_votable, SW_THERM_REGULATION_VOTER,
 								false, 0);
-
-	/* reconfigure allowed voltage for HVDCP */
-	rc = smblib_set_adapter_allowance(chg,
-			USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't set USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V rc=%d\n",
-			rc);
 
 	/* reset USBOV votes and cancel work */
 	cancel_delayed_work_sync(&chg->usbov_dbc_work);
@@ -3757,6 +3755,54 @@ int smblib_get_pe_start(struct smb_charger *chg,
 	return 0;
 }
 
+int smblib_get_prop_smb_health(struct smb_charger *chg)
+{
+	int rc;
+	u8 stat;
+	int input_present;
+
+	rc = smblib_is_input_present(chg, &input_present);
+	if (rc < 0)
+		return rc;
+
+	if (input_present == INPUT_NOT_PRESENT)
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+
+	if (chg->wa_flags & SW_THERM_REGULATION_WA) {
+		if (chg->smb_temp == -ENODATA)
+			return POWER_SUPPLY_HEALTH_UNKNOWN;
+
+		if (chg->smb_temp > SMB_TEMP_RST_THRESH)
+			return POWER_SUPPLY_HEALTH_OVERHEAT;
+
+		if (chg->smb_temp > SMB_TEMP_REG_H_THRESH)
+			return POWER_SUPPLY_HEALTH_HOT;
+
+		if (chg->smb_temp > SMB_TEMP_REG_L_THRESH)
+			return POWER_SUPPLY_HEALTH_WARM;
+
+		return POWER_SUPPLY_HEALTH_COOL;
+	}
+
+	rc = smblib_read(chg, SMB_TEMP_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read SMB_TEMP_STATUS_REG, rc=%d\n",
+				rc);
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+	}
+
+	if (stat & SMB_TEMP_RST_BIT)
+		return POWER_SUPPLY_HEALTH_OVERHEAT;
+
+	if (stat & SMB_TEMP_UB_BIT)
+		return POWER_SUPPLY_HEALTH_HOT;
+
+	if (stat & SMB_TEMP_LB_BIT)
+		return POWER_SUPPLY_HEALTH_WARM;
+
+	return POWER_SUPPLY_HEALTH_COOL;
+}
+
 int smblib_get_prop_die_health(struct smb_charger *chg)
 {
 	int rc;
@@ -3877,10 +3923,13 @@ static int smblib_get_typec_connector_temp_status(struct smb_charger *chg)
 	return POWER_SUPPLY_HEALTH_COOL;
 }
 
-static int smblib_get_skin_temp_status(struct smb_charger *chg)
+int smblib_get_skin_temp_status(struct smb_charger *chg)
 {
 	int rc;
 	u8 stat;
+
+	if (!chg->en_skin_therm_mitigation)
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
 
 	rc = smblib_read(chg, SKIN_TEMP_STATUS_REG, &stat);
 	if (rc < 0) {
@@ -4311,6 +4360,8 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 		}
 	}
 
+	smblib_usb_pd_adapter_allowance_override(chg,
+			!!chg->pd_active ? FORCE_5V : FORCE_NULL);
 	smblib_update_usb_type(chg);
 	power_supply_changed(chg->usb_psy);
 	return rc;
@@ -5432,6 +5483,7 @@ static bool smblib_src_lpd(struct smb_charger *chg)
 				pval.intval, rc);
 		chg->lpd_reason = LPD_MOISTURE_DETECTED;
 		chg->moisture_present =  true;
+		vote(chg->usb_icl_votable, LPD_VOTER, true, 0);
 		alarm_start_relative(&chg->lpd_recheck_timer,
 						ms_to_ktime(60000));
 		power_supply_changed(chg->usb_psy);
@@ -5568,6 +5620,7 @@ static void typec_src_removal(struct smb_charger *chg)
 	vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, false, 0);
 	vote(chg->usb_icl_votable, CHG_TERMINATION_VOTER, false, 0);
 	vote(chg->usb_icl_votable, THERMAL_THROTTLE_VOTER, false, 0);
+	vote(chg->usb_icl_votable, LPD_VOTER, false, 0);
 
 	/* reset usb irq voters */
 	vote(chg->limited_irq_disable_votable, CHARGER_TYPE_VOTER,
@@ -5614,13 +5667,18 @@ static void typec_src_removal(struct smb_charger *chg)
 		smblib_err(chg, "Couldn't write float charger options rc=%d\n",
 			rc);
 
-	/* reconfigure allowed voltage for HVDCP */
-	rc = smblib_set_adapter_allowance(chg,
-			USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't set USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V rc=%d\n",
-			rc);
+	if (!chg->pr_swap_in_progress) {
+		rc = smblib_usb_pd_adapter_allowance_override(chg, FORCE_NULL);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't set FORCE_NULL rc=%d\n", rc);
 
+		rc = smblib_set_charge_param(chg,
+				&chg->param.aicl_cont_threshold,
+				chg->default_aicl_cont_threshold_mv);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't restore aicl_cont_threshold, rc=%d",
+					rc);
+	}
 	/*
 	 * if non-compliant charger caused UV, restore original max pulses
 	 * and turn SUSPEND_ON_COLLAPSE_USBIN_BIT back on.
@@ -5876,14 +5934,13 @@ increment:
 	if (rc < 0)
 		goto unlock;
 
-	if (icl == DCIN_ICL_MAX_UA) {
+	if (icl == chg->wls_icl_ua) {
 		/* Upper limit reached; do nothing */
 		smblib_dbg(chg, PR_WLS, "hit max ICL: stop\n");
 		goto unlock;
 	}
 
-	icl += DCIN_ICL_STEP_UA;
-
+	icl = min(chg->wls_icl_ua, icl + DCIN_ICL_STEP_UA);
 	icl_save = icl;
 
 	rc = smblib_set_charge_param(chg, &chg->param.dc_icl, icl);
@@ -6209,9 +6266,6 @@ irqreturn_t wdog_bark_irq_handler(int irq, void *data)
 	rc = smblib_write(chg, BARK_BITE_WDOG_PET_REG, BARK_BITE_WDOG_PET_BIT);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't pet the dog rc=%d\n", rc);
-
-	if (chg->step_chg_enabled)
-		power_supply_changed(chg->batt_psy);
 
 	return IRQ_HANDLED;
 }
@@ -6929,6 +6983,7 @@ static void smblib_lpd_ra_open_work(struct work_struct *work)
 
 		chg->lpd_reason = LPD_MOISTURE_DETECTED;
 		chg->moisture_present =  true;
+		vote(chg->usb_icl_votable, LPD_VOTER, true, 0);
 
 	} else {
 		/* Floating cable, disable water detection irq temporarily */

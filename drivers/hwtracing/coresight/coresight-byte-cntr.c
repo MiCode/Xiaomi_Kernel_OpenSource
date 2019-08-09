@@ -72,23 +72,29 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 {
 	struct byte_cntr *byte_cntr_data = fp->private_data;
 	char *bufp;
-
+	int ret = 0;
 	if (!data)
 		return -EINVAL;
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
-	if (!byte_cntr_data->read_active)
+	if (!byte_cntr_data->read_active) {
+		ret = -EINVAL;
 		goto err0;
+	}
 
 	if (byte_cntr_data->enable) {
 		if (!atomic_read(&byte_cntr_data->irq_cnt)) {
 			mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 			if (wait_event_interruptible(byte_cntr_data->wq,
-				atomic_read(&byte_cntr_data->irq_cnt) > 0))
+				atomic_read(&byte_cntr_data->irq_cnt) > 0
+				|| !byte_cntr_data->enable))
 				return -ERESTARTSYS;
 			mutex_lock(&byte_cntr_data->byte_cntr_lock);
-			if (!byte_cntr_data->read_active)
+			if (!byte_cntr_data->read_active) {
+				ret = -EINVAL;
 				goto err0;
+			}
+
 		}
 
 		tmc_etr_read_bytes(byte_cntr_data, ppos,
@@ -98,8 +104,10 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 		if (!atomic_read(&byte_cntr_data->irq_cnt)) {
 			tmc_etr_flush_bytes(ppos, byte_cntr_data->block_size,
 						  &len);
-			if (!len)
+			if (!len) {
+				ret = -EINVAL;
 				goto err0;
+			}
 		} else {
 			tmc_etr_read_bytes(byte_cntr_data, ppos,
 						   byte_cntr_data->block_size,
@@ -117,9 +125,14 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 		*ppos = 0;
 	else
 		*ppos += len;
+
+	goto out;
+
 err0:
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
-
+	return ret;
+out:
+	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 	return len;
 }
 
@@ -130,7 +143,8 @@ void tmc_etr_byte_cntr_start(struct byte_cntr *byte_cntr_data)
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 
-	if (byte_cntr_data->block_size == 0) {
+	if (byte_cntr_data->block_size == 0
+		|| byte_cntr_data->read_active) {
 		mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 		return;
 	}
@@ -148,6 +162,8 @@ void tmc_etr_byte_cntr_stop(struct byte_cntr *byte_cntr_data)
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 	byte_cntr_data->enable = false;
+	byte_cntr_data->read_active = false;
+	wake_up(&byte_cntr_data->wq);
 	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 
@@ -182,6 +198,7 @@ int usb_bypass_start(struct byte_cntr *byte_cntr_data)
 
 	atomic_set(&byte_cntr_data->usb_free_buf, USB_BUF_NUM);
 	byte_cntr_data->offset = tmcdrvdata->etr_buf->offset;
+	byte_cntr_data->read_active = true;
 	/*
 	 * IRQ is a '8- byte' counter and to observe interrupt at
 	 * 'block_size' bytes of data
@@ -200,7 +217,9 @@ void usb_bypass_stop(struct byte_cntr *byte_cntr_data)
 		return;
 
 	mutex_lock(&byte_cntr_data->usb_bypass_lock);
+	byte_cntr_data->read_active = false;
 	wake_up(&byte_cntr_data->usb_wait_wq);
+	pr_info("coresight: stop usb bypass\n");
 	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
 	mutex_unlock(&byte_cntr_data->usb_bypass_lock);
 
@@ -214,7 +233,7 @@ static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 
-	if (!tmcdrvdata->enable || !byte_cntr_data->block_size) {
+	if (!byte_cntr_data->enable || !byte_cntr_data->block_size) {
 		mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 		return -EINVAL;
 	}
@@ -227,10 +246,8 @@ static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 
 	fp->private_data = byte_cntr_data;
 	nonseekable_open(in, fp);
-	byte_cntr_data->enable = true;
 	byte_cntr_data->read_active = true;
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
-
 	return 0;
 }
 
@@ -306,9 +323,11 @@ static void usb_read_work_fn(struct work_struct *work)
 			ret = wait_event_interruptible(drvdata->usb_wait_wq,
 				atomic_read(&drvdata->irq_cnt) > 0
 				|| !tmcdrvdata->enable || tmcdrvdata->out_mode
-				!= TMC_ETR_OUT_MODE_USB);
+				!= TMC_ETR_OUT_MODE_USB
+				|| !drvdata->read_active);
 			if (ret == -ERESTARTSYS || !tmcdrvdata->enable
-			|| tmcdrvdata->out_mode != TMC_ETR_OUT_MODE_USB)
+			|| tmcdrvdata->out_mode != TMC_ETR_OUT_MODE_USB
+			|| !drvdata->read_active)
 				break;
 		}
 
@@ -342,8 +361,10 @@ static void usb_read_work_fn(struct work_struct *work)
 					usb_req = NULL;
 					drvdata->usb_req = NULL;
 					dev_err(tmcdrvdata->dev,
-						"Write data failed\n");
-					continue;
+						"Write data failed:%d\n", ret);
+					if (ret == -EAGAIN)
+						continue;
+					return;
 				}
 				atomic_dec(&drvdata->usb_free_buf);
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"core_ctl: " fmt
@@ -19,9 +19,6 @@
 #include <trace/events/sched.h>
 #include "sched.h"
 #include "walt.h"
-
-#define MAX_CPUS_PER_CLUSTER 6
-#define MAX_CLUSTERS 3
 
 struct cluster_data {
 	bool inited;
@@ -915,7 +912,7 @@ void core_ctl_notifier_unregister(struct notifier_block *n)
 
 static void core_ctl_call_notifier(void)
 {
-	struct core_ctl_notif_data ndata;
+	struct core_ctl_notif_data ndata = {0};
 	struct notifier_block *nb;
 
 	/*
@@ -930,7 +927,9 @@ static void core_ctl_call_notifier(void)
 		return;
 
 	ndata.nr_big = last_nr_big;
-	ndata.coloc_load_pct = walt_get_default_coloc_group_load();
+	walt_fill_ta_data(&ndata);
+	trace_core_ctl_notif_data(ndata.nr_big, ndata.coloc_load_pct,
+			ndata.ta_util_pct, ndata.cur_cap_pct);
 
 	atomic_notifier_call_chain(&core_ctl_notifier, 0, &ndata);
 }

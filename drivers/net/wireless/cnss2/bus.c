@@ -372,3 +372,18 @@ int cnss_bus_update_status(struct cnss_plat_data *plat_priv,
 		return -EINVAL;
 	}
 }
+
+int cnss_bus_is_device_down(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pcie_is_device_down(plat_priv->bus_priv);
+	default:
+		cnss_pr_dbg("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return 0;
+	}
+}

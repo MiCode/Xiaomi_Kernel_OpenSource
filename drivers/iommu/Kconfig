@@ -476,6 +476,7 @@ config MTK_IOMMU_V1
 
 menuconfig IOMMU_DEBUG
 	bool "IOMMU Profiling and Debugging"
+	select IOMMU_DEBUGFS
 	help
 	  This option is used to enable profiling and debugging in
 	  the IOMMU framework code. IOMMU profiling and debugging
@@ -498,6 +499,7 @@ config IOMMU_DEBUG_TRACKING
 config IOMMU_TESTS
 	bool "Interactive IOMMU performance/functional tests"
 	select IOMMU_API
+	select ARM64_PTDUMP_CORE
 	help
 	  Enables a suite of IOMMU unit tests.  The tests are runnable
 	  through debugfs.  Unlike the IOMMU_DEBUG_TRACKING option, the

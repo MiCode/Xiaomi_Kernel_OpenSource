@@ -112,6 +112,8 @@ struct alpha_pll_config {
 	u32 pre_div_mask;
 	u32 post_div_val;
 	u32 post_div_mask;
+	u32 test_ctl_mask;
+	u32 test_ctl_hi_mask;
 	u32 vco_val;
 	u32 vco_mask;
 	const u32 *custom_reg_offset;

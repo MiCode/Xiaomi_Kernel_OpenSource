@@ -18,10 +18,12 @@ struct synx_device *synx_dev;
 
 void synx_external_callback(s32 sync_obj, int status, void *data)
 {
+	s32 synx_obj;
 	struct synx_table_row *row = NULL;
 	struct synx_external_data *bind_data = data;
 
 	if (bind_data) {
+		synx_obj = bind_data->synx_obj;
 		row = synx_from_key(bind_data->synx_obj, bind_data->secure_key);
 		kfree(bind_data);
 	}
@@ -32,7 +34,7 @@ void synx_external_callback(s32 sync_obj, int status, void *data)
 		spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
 
 		pr_debug("signaling synx 0x%x from external callback %d\n",
-			row->synx_obj, sync_obj);
+			synx_obj, sync_obj);
 		synx_signal_core(row, status);
 	} else {
 		pr_err("invalid callback from sync external obj %d\n",
@@ -115,10 +117,10 @@ int synx_create(s32 *synx_obj, const char *name)
 		return -EINVAL;
 	}
 
-	*synx_obj = row->synx_obj;
+	*synx_obj = id;
 
 	pr_debug("row: synx id: 0x%x, index: %d\n",
-		row->synx_obj, row->index);
+		id, row->index);
 	pr_debug("Exit %s\n", __func__);
 
 	return rc;
@@ -144,7 +146,7 @@ int synx_register_callback(s32 synx_obj,
 		if (temp_cb_info->callback_func == cb_func &&
 			temp_cb_info->cb_data == userdata) {
 			pr_err("duplicate registration for synx 0x%x\n",
-				row->synx_obj);
+				synx_obj);
 			spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
 			return -EALREADY;
 		}
@@ -198,7 +200,7 @@ int synx_deregister_callback(s32 synx_obj,
 
 	state = synx_status_locked(row);
 	pr_debug("de-registering callback for synx 0x%x\n",
-		row->synx_obj);
+		synx_obj);
 	list_for_each_entry_safe(synx_cb, temp, &row->callback_list, list) {
 		if (synx_cb->callback_func == cb_func &&
 			synx_cb->cb_data == userdata) {
@@ -243,8 +245,8 @@ int synx_signal_core(struct synx_table_row *row, u32 status)
 	}
 
 	if (is_merged_synx(row)) {
-		pr_err("signaling a composite synx object 0x%x\n",
-			row->synx_obj);
+		pr_err("signaling a composite synx object at %d\n",
+			row->index);
 		return -EINVAL;
 	}
 
@@ -252,8 +254,8 @@ int synx_signal_core(struct synx_table_row *row, u32 status)
 
 	if (synx_status_locked(row) != SYNX_STATE_ACTIVE) {
 		spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
-		pr_err("object already signaled synx = 0x%x\n",
-			row->synx_obj);
+		pr_err("object already signaled synx at %d\n",
+			row->index);
 		return -EALREADY;
 	}
 
@@ -263,8 +265,8 @@ int synx_signal_core(struct synx_table_row *row, u32 status)
 
 	rc = dma_fence_signal_locked(row->fence);
 	if (rc < 0) {
-		pr_err("unable to signal synx 0x%x, err: %d\n",
-			row->synx_obj, rc);
+		pr_err("unable to signal synx at %d, err: %d\n",
+			row->index, rc);
 		if (status != SYNX_STATE_SIGNALED_ERROR) {
 			dma_fence_set_error(row->fence, -EINVAL);
 			status = SYNX_STATE_SIGNALED_ERROR;
@@ -414,10 +416,10 @@ int synx_merge(s32 *synx_objs, u32 num_objs, s32 *synx_merged)
 		goto clear;
 	}
 
-	*synx_merged = row->synx_obj;
+	*synx_merged = id;
 
 	pr_debug("row (merged): synx 0x%x, index: %d\n",
-		row->synx_obj, row->index);
+		id, row->index);
 	pr_debug("Exit %s\n", __func__);
 
 	return 0;
@@ -431,19 +433,10 @@ free:
 	return rc;
 }
 
-int synx_release(s32 synx_obj)
+static int synx_release_core(struct synx_table_row *row)
 {
 	s32 idx;
 	struct dma_fence *fence = NULL;
-	struct synx_table_row *row  = NULL;
-
-	pr_debug("Enter %s\n", __func__);
-
-	row = synx_from_handle(synx_obj);
-	if (!row) {
-		pr_err("invalid synx: 0x%x\n", synx_obj);
-		return -EINVAL;
-	}
 
 	/*
 	 * metadata might be cleared after invoking dma_fence_put
@@ -453,13 +446,6 @@ int synx_release(s32 synx_obj)
 	fence = row->fence;
 	idx = row->index;
 	spin_lock_bh(&synx_dev->row_spinlocks[idx]);
-	if (synx_status_locked(row) == SYNX_STATE_ACTIVE) {
-		pr_err("need to signal before release synx = 0x%x\n",
-			synx_obj);
-		spin_unlock_bh(&synx_dev->row_spinlocks[idx]);
-		return -EINVAL;
-	}
-
 	/*
 	 * we need to clear the metadata for merged synx obj upon synx_release
 	 * itself as it does not invoke the synx_fence_release function.
@@ -474,6 +460,21 @@ int synx_release(s32 synx_obj)
 	pr_debug("Exit %s\n", __func__);
 
 	return 0;
+}
+
+int synx_release(s32 synx_obj)
+{
+	struct synx_table_row *row  = NULL;
+
+	pr_debug("Enter %s\n", __func__);
+
+	row = synx_from_handle(synx_obj);
+	if (!row) {
+		pr_err("invalid synx: 0x%x\n", synx_obj);
+		return -EINVAL;
+	}
+
+	return synx_release_core(row);
 }
 
 int synx_wait(s32 synx_obj, u64 timeout_ms)
@@ -568,7 +569,7 @@ int synx_bind(s32 synx_obj, struct synx_external_desc external_sync)
 	}
 
 	/* data passed to external callback */
-	data->synx_obj = row->synx_obj;
+	data->synx_obj = synx_obj;
 	data->secure_key = synx_generate_secure_key(row);
 
 	rc = bind_ops->register_callback(synx_external_callback,
@@ -633,56 +634,44 @@ int synx_addrefcount(s32 synx_obj, s32 count)
 	return 0;
 }
 
-int synx_import(s32 synx_obj, u32 secure_key, s32 *new_synx_obj)
+int synx_import(s32 synx_obj, u32 import_key, s32 *new_synx_obj)
 {
-	bool bit;
 	s32 id;
-	long idx = 0;
+	struct dma_fence *fence;
+	struct synx_obj_node *obj_node;
 	struct synx_table_row *row = NULL;
-	struct synx_table_row *new_row = NULL;
 
 	pr_debug("Enter %s\n", __func__);
 
 	if (!new_synx_obj)
 		return -EINVAL;
 
-	row = synx_from_key(synx_obj, secure_key);
+	row = synx_from_import_key(synx_obj, import_key);
 	if (!row)
 		return -EINVAL;
 
-	/*
-	 * Reason for separate metadata (for merged synx) being
-	 * dma fence array has separate release func registed with
-	 * dma fence ops, which doesn't invoke release func registered
-	 * by the framework to clear metadata when all refs are released.
-	 * Hence we need to clear the metadata for merged synx obj
-	 * upon synx_release itself. But this creates a problem if
-	 * the synx obj is exported. Thus we need separate metadata
-	 * structures even though they represent same synx obj.
-	 * Note, only the metadata is released, and the fence reference
-	 * count is decremented still.
-	 */
-	if (is_merged_synx(row)) {
-		do {
-			idx = find_first_zero_bit(synx_dev->bitmap,
-					SYNX_MAX_OBJS);
-			if (idx >= SYNX_MAX_OBJS)
-				return -ENOMEM;
-			bit = test_and_set_bit(idx, synx_dev->bitmap);
-		} while (bit);
+	obj_node = kzalloc(sizeof(*obj_node), GFP_KERNEL);
+	if (!obj_node)
+		return -ENOMEM;
 
-		new_row = synx_dev->synx_table + idx;
-		/* new global synx id */
-		id = synx_create_handle(new_row);
-
-		/* both metadata points to same dma fence */
-		new_row->fence = row->fence;
-		new_row->index = idx;
-		new_row->synx_obj = id;
-	} else {
-		/* new global synx id. Imported synx points to same metadata */
-		id = synx_create_handle(row);
+	/* new global synx id */
+	id = synx_create_handle(row);
+	if (id < 0) {
+		fence = row->fence;
+		if (is_merged_synx(row)) {
+			clear_bit(row->index, synx_dev->bitmap);
+			memset(row, 0, sizeof(*row));
+		}
+		/* release the reference obtained during export */
+		dma_fence_put(fence);
+		kfree(obj_node);
+		return -EINVAL;
 	}
+
+	spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
+	obj_node->synx_obj = id;
+	list_add(&obj_node->list, &row->synx_obj_list);
+	spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
 
 	*new_synx_obj = id;
 	pr_debug("Exit %s\n", __func__);
@@ -690,17 +679,22 @@ int synx_import(s32 synx_obj, u32 secure_key, s32 *new_synx_obj)
 	return 0;
 }
 
-int synx_export(s32 synx_obj, u32 *key)
+int synx_export(s32 synx_obj, u32 *import_key)
 {
+	int rc;
 	struct synx_table_row *row = NULL;
+
+	pr_debug("Enter %s\n", __func__);
 
 	row = synx_from_handle(synx_obj);
 	if (!row)
 		return -EINVAL;
 
-	spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
-	*key = synx_generate_secure_key(row);
+	rc = synx_generate_import_key(row, synx_obj, import_key);
+	if (rc < 0)
+		return rc;
 
+	spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
 	/*
 	 * to make sure the synx is not lost if the process dies or
 	 * synx is released before any other process gets a chance to
@@ -710,6 +704,7 @@ int synx_export(s32 synx_obj, u32 *key)
 	 */
 	dma_fence_get(row->fence);
 	spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
+	pr_debug("Exit %s\n", __func__);
 
 	return 0;
 }
@@ -897,6 +892,7 @@ static int synx_handle_wait(struct synx_private_ioctl_arg *k_ioctl)
 static int synx_handle_register_user_payload(
 	struct synx_private_ioctl_arg *k_ioctl)
 {
+	s32 synx_obj;
 	u32 state = SYNX_STATE_INVALID;
 	struct synx_userpayload_info userpayload_info;
 	struct synx_cb_data *user_payload_kernel;
@@ -914,9 +910,10 @@ static int synx_handle_register_user_payload(
 		k_ioctl->size))
 		return -EFAULT;
 
-	row = synx_from_handle(userpayload_info.synx_obj);
+	synx_obj = userpayload_info.synx_obj;
+	row = synx_from_handle(synx_obj);
 	if (!row) {
-		pr_err("invalid synx: 0x%x\n", userpayload_info.synx_obj);
+		pr_err("invalid synx: 0x%x\n", synx_obj);
 		return -EINVAL;
 	}
 
@@ -934,7 +931,7 @@ static int synx_handle_register_user_payload(
 		return -ENOMEM;
 
 	user_payload_kernel->client = client;
-	user_payload_kernel->data.synx_obj = row->synx_obj;
+	user_payload_kernel->data.synx_obj = synx_obj;
 	memcpy(user_payload_kernel->data.payload_data,
 		userpayload_info.payload,
 		SYNX_PAYLOAD_WORDS * sizeof(__u64));
@@ -960,7 +957,7 @@ static int synx_handle_register_user_payload(
 			user_payload_iter->data.payload_data[1] ==
 				user_payload_kernel->data.payload_data[1]) {
 			pr_err("callback already registered on 0x%x\n",
-				row->synx_obj);
+				synx_obj);
 			spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
 			kfree(user_payload_kernel);
 			return -EALREADY;
@@ -977,6 +974,7 @@ static int synx_handle_register_user_payload(
 static int synx_handle_deregister_user_payload(
 	struct synx_private_ioctl_arg *k_ioctl)
 {
+	s32 synx_obj;
 	u32 state = SYNX_STATE_INVALID;
 	struct synx_client *client = NULL;
 	struct synx_userpayload_info userpayload_info;
@@ -994,9 +992,10 @@ static int synx_handle_deregister_user_payload(
 		k_ioctl->size))
 		return -EFAULT;
 
-	row = synx_from_handle(userpayload_info.synx_obj);
+	synx_obj = userpayload_info.synx_obj;
+	row = synx_from_handle(synx_obj);
 	if (!row) {
-		pr_err("invalid synx: 0x%x\n", userpayload_info.synx_obj);
+		pr_err("invalid synx: 0x%x\n", synx_obj);
 		return -EINVAL;
 	}
 
@@ -1044,7 +1043,7 @@ static int synx_handle_deregister_user_payload(
 			SYNX_PAYLOAD_WORDS * sizeof(__u64));
 
 		user_payload_kernel->client = client;
-		data->synx_obj = row->synx_obj;
+		data->synx_obj = synx_obj;
 		data->status = SYNX_CALLBACK_RESULT_CANCELED;
 
 		spin_lock_bh(&client->eventq_lock);
@@ -1315,15 +1314,15 @@ static int synx_close(struct inode *inode, struct file *filep)
 			 * signal all ACTIVE objects as ERR, but we don't care
 			 * about the return status here apart from logging it.
 			 */
-			if (row->synx_obj && !is_merged_synx(row) &&
+			if (row->index && !is_merged_synx(row) &&
 				(synx_status(row) == SYNX_STATE_ACTIVE)) {
-				pr_debug("synx 0x%x still active at shutdown\n",
-					row->synx_obj);
+				pr_debug("synx still active at shutdown at %d\n",
+					row->index);
 				rc = synx_signal_core(row,
 						SYNX_STATE_SIGNALED_ERROR);
 				if (rc < 0)
-					pr_err("cleanup signal fail idx:0x%x\n",
-						row->synx_obj);
+					pr_err("cleanup signal fail at %d\n",
+						row->index);
 			}
 		}
 
@@ -1341,11 +1340,11 @@ static int synx_close(struct inode *inode, struct file *filep)
 			struct synx_table_row *row =
 				synx_dev->synx_table + i;
 
-			if (row->synx_obj) {
-				rc = synx_release(row->synx_obj);
+			if (row->index) {
+				rc = synx_release_core(row);
 				if (rc < 0) {
-					pr_err("cleanup destroy fail idx:0x%x\n",
-						row->synx_obj);
+					pr_err("cleanup destroy fail at %d\n",
+						row->index);
 				}
 			}
 		}
@@ -1489,6 +1488,7 @@ static int __init synx_init(void)
 	}
 
 	INIT_LIST_HEAD(&synx_dev->client_list);
+	INIT_LIST_HEAD(&synx_dev->import_list);
 	synx_dev->dma_context = dma_fence_context_alloc(1);
 
 	synx_dev->debugfs_root = init_synx_debug_dir(synx_dev);

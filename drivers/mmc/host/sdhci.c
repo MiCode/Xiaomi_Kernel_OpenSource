@@ -317,8 +317,6 @@ static void sdhci_do_reset(struct sdhci_host *host, u8 mask)
 		/* Resetting the controller clears many */
 		host->preset_enabled = false;
 	}
-	if (host->is_crypto_en)
-		host->crypto_reset_reqd = true;
 }
 
 static void sdhci_set_default_irqs(struct sdhci_host *host)
@@ -893,6 +891,12 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd,
 	/* Unspecified timeout, assume max */
 	if (!data && !cmd->busy_timeout)
 		return 0xE;
+
+	/* During initialization, don't use max timeout as the clock is slow */
+	if ((host->quirks2 & SDHCI_QUIRK2_USE_RESERVED_MAX_TIMEOUT) &&
+		(host->clock > 400000)) {
+		return 0xF;
+	}
 
 	/* timeout in us */
 	target_timeout = sdhci_target_timeout(host, cmd, data);
@@ -1923,14 +1927,15 @@ static int sdhci_crypto_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 {
 	int err = 0;
 
-	if (host->crypto_reset_reqd && host->ops->crypto_engine_reset) {
+	if (host->mmc->inlinecrypt_reset_needed &&
+			host->ops->crypto_engine_reset) {
 		err = host->ops->crypto_engine_reset(host);
 		if (err) {
 			pr_err("%s: crypto reset failed\n",
 					mmc_hostname(host->mmc));
 			goto out;
 		}
-		host->crypto_reset_reqd = false;
+		host->mmc->inlinecrypt_reset_needed = false;
 	}
 
 	if (host->ops->crypto_engine_cfg) {
@@ -2047,6 +2052,8 @@ end_req:
 	mrq->cmd->error = -EIO;
 	if (mrq->data)
 		mrq->data->error = -EIO;
+	host->mrq = NULL;
+	sdhci_dumpregs(host);
 	mmc_request_done(host->mmc, mrq);
 }
 

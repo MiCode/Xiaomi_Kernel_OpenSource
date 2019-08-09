@@ -29,7 +29,6 @@ static enum cvp_status hfi_map_err_status(u32 hfi_err)
 
 	switch (hfi_err) {
 	case HFI_ERR_NONE:
-	case HFI_ERR_SESSION_SAME_STATE_OPERATION:
 		cvp_err = CVP_ERR_NONE;
 		break;
 	case HFI_ERR_SYS_FATAL:
@@ -70,54 +69,11 @@ static enum cvp_status hfi_map_err_status(u32 hfi_err)
 	case HFI_ERR_SESSION_INCORRECT_STATE_OPERATION:
 		cvp_err = CVP_ERR_BAD_STATE;
 		break;
-	case HFI_ERR_SESSION_STREAM_CORRUPT:
-	case HFI_ERR_SESSION_STREAM_CORRUPT_OUTPUT_STALLED:
-		cvp_err = CVP_ERR_BITSTREAM_ERR;
-		break;
-	case HFI_ERR_SESSION_SYNC_FRAME_NOT_DETECTED:
-		cvp_err = CVP_ERR_IFRAME_EXPECTED;
-		break;
-	case HFI_ERR_SESSION_START_CODE_NOT_FOUND:
-		cvp_err = CVP_ERR_START_CODE_NOT_FOUND;
-		break;
-	case HFI_ERR_SESSION_EMPTY_BUFFER_DONE_OUTPUT_PENDING:
 	default:
 		cvp_err = CVP_ERR_FAIL;
 		break;
 	}
 	return cvp_err;
-}
-
-static int hfi_process_evt_release_buffer_ref(u32 device_id,
-		struct cvp_hfi_msg_event_notify_packet *pkt,
-		struct msm_cvp_cb_info *info)
-{
-	struct msm_cvp_cb_event event_notify = {0};
-	struct cvp_hfi_msg_release_buffer_ref_event_packet *data;
-
-	dprintk(CVP_DBG,
-			"RECEIVED: EVENT_NOTIFY - release_buffer_reference\n");
-	if (sizeof(struct cvp_hfi_msg_event_notify_packet)
-		> pkt->size) {
-		dprintk(CVP_ERR,
-				"hal_process_session_init_done: bad_pkt_size\n");
-		return -E2BIG;
-	}
-
-	data = (struct cvp_hfi_msg_release_buffer_ref_event_packet *)
-				pkt->rg_ext_event_data;
-
-	event_notify.device_id = device_id;
-	event_notify.session_id = (void *)(uintptr_t)pkt->session_id;
-	event_notify.status = CVP_ERR_NONE;
-	event_notify.hal_event_type = HAL_EVENT_RELEASE_BUFFER_REFERENCE;
-	event_notify.packet_buffer = data->packet_buffer;
-	event_notify.extra_data_buffer = data->extra_data_buffer;
-
-	info->response_type = HAL_SESSION_EVENT_CHANGE;
-	info->response.event = event_notify;
-
-	return 0;
 }
 
 static int hfi_process_sys_error(u32 device_id,
@@ -158,7 +114,7 @@ static int hfi_process_session_error(u32 device_id,
 		dprintk(CVP_ERR,
 			"%s: session %x data1 %#x, data2 %#x\n", __func__,
 			pkt->session_id, pkt->event_data1, pkt->event_data2);
-		info->response_type = HAL_SESSION_ERROR;
+		info->response_type = HAL_RESPONSE_UNUSED;
 		break;
 	}
 
@@ -181,22 +137,12 @@ static int hfi_process_event_notify(u32 device_id,
 		dprintk(CVP_ERR, "HFI_EVENT_SYS_ERROR: %d, %#x\n",
 			pkt->event_data1, pkt->event_data2);
 		return hfi_process_sys_error(device_id, pkt, info);
+
 	case HFI_EVENT_SESSION_ERROR:
 		dprintk(CVP_INFO, "HFI_EVENT_SESSION_ERROR[%#x]\n",
 				pkt->session_id);
 		return hfi_process_session_error(device_id, pkt, info);
 
-	case HFI_EVENT_SESSION_SEQUENCE_CHANGED:
-		dprintk(CVP_WARN, "HFI_EVENT_SESSION_SEQUENCE_CHANGED [%#x]\n",
-			pkt->session_id);
-		return 0;
-
-	case HFI_EVENT_RELEASE_BUFFER_REFERENCE:
-		dprintk(CVP_INFO, "HFI_EVENT_RELEASE_BUFFER_REFERENCE[%#x]\n",
-			pkt->session_id);
-		return hfi_process_evt_release_buffer_ref(device_id, pkt, info);
-
-	case HFI_EVENT_SESSION_PROPERTY_CHANGED:
 	default:
 		*info = (struct msm_cvp_cb_info) {
 			.response_type =  HAL_RESPONSE_UNUSED,
@@ -445,6 +391,9 @@ static int hfi_process_session_cvp_operation_config(u32 device_id,
 	if (pkt->packet_type == HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS)
 		signal = get_signal_from_pkt_type(
 				HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS);
+	else if (pkt->packet_type == HFI_MSG_SESSION_CVP_SET_MODEL_BUFFERS)
+		signal = get_signal_from_pkt_type(
+				HFI_CMD_SESSION_CVP_SET_MODEL_BUFFERS);
 	else
 		signal = get_signal_from_pkt_type(conf_id);
 
@@ -652,7 +601,7 @@ static void hfi_process_sys_get_prop_image_version(
 	u8 *smem_table_ptr;
 	char version[256];
 	const u32 version_string_size = 128;
-	const u32 smem_image_index_venus = 14 * 128;
+	const u32 smem_image_index = 14 * 128;
 	u8 *str_image_version;
 	int req_bytes;
 
@@ -680,9 +629,9 @@ static void hfi_process_sys_get_prop_image_version(
 
 	smem_table_ptr = qcom_smem_get(QCOM_SMEM_HOST_ANY,
 			SMEM_IMAGE_VERSION_TABLE, &smem_block_size);
-	if ((smem_image_index_venus + version_string_size) <= smem_block_size &&
+	if ((smem_image_index + version_string_size) <= smem_block_size &&
 			smem_table_ptr)
-		memcpy(smem_table_ptr + smem_image_index_venus,
+		memcpy(smem_table_ptr + smem_image_index,
 				str_image_version, version_string_size);
 }
 
@@ -761,6 +710,7 @@ int cvp_hfi_process_msg_packet(u32 device_id,
 		break;
 	case HFI_MSG_SESSION_CVP_OPERATION_CONFIG:
 	case HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS:
+	case HFI_MSG_SESSION_CVP_SET_MODEL_BUFFERS:
 		pkt_func =
 			(pkt_func_def)hfi_process_session_cvp_operation_config;
 		break;

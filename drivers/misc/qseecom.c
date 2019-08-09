@@ -481,7 +481,7 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 	uint32_t qseos_cmd_id = 0;
 	struct scm_desc desc = {0};
 	struct qseecom_command_scm_resp *scm_resp = NULL;
-	struct qtee_shm shm;
+	struct qtee_shm shm = {0};
 	phys_addr_t pa;
 
 	if (!req_buf || !resp_buf) {
@@ -3703,6 +3703,33 @@ int __boundary_checks_offset(struct qseecom_send_modfd_cmd_req *req,
 	return 0;
 }
 
+static int __boundary_checks_offset_64(struct qseecom_send_modfd_cmd_req *req,
+			struct qseecom_send_modfd_listener_resp *lstnr_resp,
+			struct qseecom_dev_handle *data, int i)
+{
+
+	if ((data->type != QSEECOM_LISTENER_SERVICE) &&
+						(req->ifd_data[i].fd > 0)) {
+		if ((req->cmd_req_len < sizeof(uint64_t)) ||
+			(req->ifd_data[i].cmd_buf_offset >
+			req->cmd_req_len - sizeof(uint64_t))) {
+			pr_err("Invalid offset (req len) 0x%x\n",
+				req->ifd_data[i].cmd_buf_offset);
+			return -EINVAL;
+		}
+	} else if ((data->type == QSEECOM_LISTENER_SERVICE) &&
+					(lstnr_resp->ifd_data[i].fd > 0)) {
+		if ((lstnr_resp->resp_len < sizeof(uint64_t)) ||
+			(lstnr_resp->ifd_data[i].cmd_buf_offset >
+			lstnr_resp->resp_len - sizeof(uint64_t))) {
+			pr_err("Invalid offset (lstnr resp len) 0x%x\n",
+				lstnr_resp->ifd_data[i].cmd_buf_offset);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 			struct qseecom_dev_handle *data)
 {
@@ -4046,7 +4073,8 @@ static int __qseecom_update_cmd_buf_64(void *msg, bool cleanup,
 		if (sg_ptr->nents == 1) {
 			uint64_t *update_64bit;
 
-			if (__boundary_checks_offset(req, lstnr_resp, data, i))
+			if (__boundary_checks_offset_64(req, lstnr_resp,
+							data, i))
 				goto err;
 				/* 64bit app uses 64bit address */
 			update_64bit = (uint64_t *) field;
@@ -4829,6 +4857,14 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	data->released = false;
 	data->client.sb_length = size;
 	data->client.user_virt_sb_base = 0;
+	data->sglistinfo_ptr = (struct sglist_info *)__qseecom_alloc_tzbuf(
+				sizeof(struct sglist_info) * MAX_ION_FD,
+				&data->sglistinfo_shm.paddr,
+				&data->sglistinfo_shm);
+	if (!data->sglistinfo_ptr) {
+		ret = -ENOMEM;
+		goto err;
+	}
 
 	init_waitqueue_head(&data->abort_wq);
 
@@ -4931,6 +4967,7 @@ int qseecom_start_app(struct qseecom_handle **handle,
 err:
 	if (va)
 		__qseecom_free_coherent_buf(size, va, pa);
+	__qseecom_free_tzbuf(&data->sglistinfo_shm);
 	kfree(data);
 	kfree(*handle);
 	*handle = NULL;
@@ -4983,6 +5020,7 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 		if (data->client.sb_virt)
 			__qseecom_free_coherent_buf(data->client.sb_length,
 				data->client.sb_virt, data->client.sb_phys);
+		__qseecom_free_tzbuf(&data->sglistinfo_shm);
 		kzfree(data);
 		kzfree(*handle);
 		kzfree(kclient);
@@ -6604,7 +6642,7 @@ static int qseecom_mdtp_cipher_dip(void __user *argp)
 	struct scm_desc desc = {0};
 	int ret;
 	phys_addr_t pain, paout;
-	struct qtee_shm shmin, shmout;
+	struct qtee_shm shmin = {0}, shmout = {0};
 
 	do {
 		/* Copy the parameters from userspace */
@@ -6832,9 +6870,11 @@ static int __qseecom_update_qteec_req_buf(struct qseecom_qteec_modfd_req *req,
 	for (i = 0; i < MAX_ION_FD; i++) {
 		if (req->ifd_data[i].fd > 0) {
 			ion_fd = req->ifd_data[i].fd;
-			if ((req->req_len < sizeof(uint32_t)) ||
+			if ((req->req_len <
+				sizeof(struct qseecom_param_memref)) ||
 				(req->ifd_data[i].cmd_buf_offset >
-				req->req_len - sizeof(uint32_t))) {
+				req->req_len -
+				sizeof(struct qseecom_param_memref))) {
 				pr_err("Invalid offset/req len 0x%x/0x%x\n",
 					req->req_len,
 					req->ifd_data[i].cmd_buf_offset);
@@ -7309,7 +7349,7 @@ static void __qseecom_clean_data_sglistinfo(struct qseecom_dev_handle *data)
 	}
 }
 
-static inline long qseecom_ioctl(struct file *file,
+static long qseecom_ioctl(struct file *file,
 			unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;

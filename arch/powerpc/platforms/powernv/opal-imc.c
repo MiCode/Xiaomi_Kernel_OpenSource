@@ -127,7 +127,7 @@ static int imc_get_mem_addr_nest(struct device_node *node,
 								nr_chips))
 		goto error;
 
-	pmu_ptr->mem_info = kcalloc(nr_chips, sizeof(*pmu_ptr->mem_info),
+	pmu_ptr->mem_info = kcalloc(nr_chips + 1, sizeof(*pmu_ptr->mem_info),
 				    GFP_KERNEL);
 	if (!pmu_ptr->mem_info)
 		goto error;
@@ -160,6 +160,10 @@ static int imc_pmu_create(struct device_node *parent, int pmu_index, int domain)
 	int ret = 0;
 	struct imc_pmu *pmu_ptr;
 	u32 offset;
+
+	/* Return for unknown domain */
+	if (domain < 0)
+		return -EINVAL;
 
 	/* memory for pmu */
 	pmu_ptr = kzalloc(sizeof(*pmu_ptr), GFP_KERNEL);

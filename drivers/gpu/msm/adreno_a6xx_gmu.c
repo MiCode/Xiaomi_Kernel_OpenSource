@@ -67,80 +67,15 @@ static void _regwrite(void __iomem *regbase,
 	__raw_writel(value, reg);
 }
 
-/*
- * _load_gmu_rpmh_ucode() - Load the ucode into the GPU PDC/RSC blocks
- * PDC and RSC execute GPU power on/off RPMh sequence
- * @device: Pointer to KGSL device
- */
-static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
+static void a6xx_load_rsc_ucode(struct kgsl_device *device)
 {
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct resource *res_pdc, *res_cfg, *res_seq;
-	void __iomem *cfg = NULL, *seq = NULL, *rscc;
-	unsigned int cfg_offset, seq_offset;
-	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
-	u32 vrm_resource_addr = cmd_db_read_addr("vrm.soc");
-
-	/* Offsets from the base PDC (if no PDC subsections in the DTSI) */
-	if (adreno_is_a640v2(adreno_dev)) {
-		cfg_offset = 0x90000;
-		seq_offset = 0x290000;
-	} else {
-		cfg_offset = 0x80000;
-		seq_offset = 0x280000;
-	}
+	void __iomem *rscc;
 
 	if (adreno_is_a650_family(adreno_dev))
 		rscc = adreno_dev->rscc_virt;
 	else
 		rscc = device->gmu_core.reg_virt + 0x23000;
-	/*
-	 * Older A6x platforms specified PDC registers in the DT using a
-	 * single base pointer that encompassed the entire PDC range. Current
-	 * targets specify the individual GPU-owned PDC register blocks
-	 * (sequence and config).
-	 *
-	 * This code handles both possibilities and generates individual
-	 * pointers to the GPU PDC blocks, either as offsets from the single
-	 * base, or as directly specified ranges.
-	 */
-
-	/* Get pointers to each of the possible PDC resources */
-	res_pdc = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM,
-			"kgsl_gmu_pdc_reg");
-	res_cfg = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM,
-			"kgsl_gmu_pdc_cfg");
-	res_seq = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM,
-			"kgsl_gmu_pdc_seq");
-	/*
-	 * Map the starting address for pdc_cfg programming. If the pdc_cfg
-	 * resource is not available use an offset from the base PDC resource.
-	 */
-	if (res_cfg)
-		cfg = ioremap(res_cfg->start, resource_size(res_cfg));
-	else if (res_pdc)
-		cfg = ioremap(res_pdc->start + cfg_offset, 0x10000);
-
-	if (!cfg) {
-		dev_err(&gmu->pdev->dev, "Failed to map PDC CFG\n");
-		return -ENODEV;
-	}
-
-	/*
-	 * Map the starting address for pdc_seq programming. If the pdc_seq
-	 * resource is not available use an offset from the base PDC resource.
-	 */
-	if (res_seq)
-		seq = ioremap(res_seq->start, resource_size(res_seq));
-	else if (res_pdc)
-		seq = ioremap(res_pdc->start + seq_offset, 0x10000);
-
-	if (!seq) {
-		dev_err(&gmu->pdev->dev, "Failed to map PDC SEQ\n");
-		iounmap(cfg);
-		return -ENODEV;
-	}
 
 	/* Disable SDE clock gating */
 	_regwrite(rscc, A6XX_GPU_RSCC_RSC_STATUS0_DRV0, BIT(24));
@@ -174,6 +109,80 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 		_regwrite(rscc, A6XX_RSCC_SEQ_MEM_0_DRV0 + 3, 0xE9A982E2);
 		_regwrite(rscc, A6XX_RSCC_SEQ_MEM_0_DRV0 + 4, 0x0020E8A8);
 	}
+}
+
+static int a6xx_load_pdc_ucode(struct kgsl_device *device)
+{
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct resource *res_pdc, *res_cfg, *res_seq;
+	unsigned int cfg_offset, seq_offset;
+	void __iomem *cfg = NULL, *seq = NULL;
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
+	u32 vrm_resource_addr = cmd_db_read_addr("vrm.soc");
+
+	/*
+	 * Older A6x platforms specified PDC registers in the DT using a
+	 * single base pointer that encompassed the entire PDC range. Current
+	 * targets specify the individual GPU-owned PDC register blocks
+	 * (sequence and config).
+	 *
+	 * This code handles both possibilities and generates individual
+	 * pointers to the GPU PDC blocks, either as offsets from the single
+	 * base, or as directly specified ranges.
+	 *
+	 * PDC programming has moved to AOP for newer A6x platforms.
+	 * However registers to enable GPU PDC and set the sequence start
+	 * address still need to be programmed.
+	 */
+
+	/* Offsets from the base PDC (if no PDC subsections in the DTSI) */
+	if (adreno_is_a640v2(adreno_dev)) {
+		cfg_offset = 0x90000;
+		seq_offset = 0x290000;
+	} else {
+		cfg_offset = 0x80000;
+		seq_offset = 0x280000;
+	}
+
+	/*
+	 * Map the starting address for pdc_cfg programming. If the pdc_cfg
+	 * resource is not available use an offset from the base PDC resource.
+	 */
+	res_pdc = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM,
+			"kgsl_gmu_pdc_reg");
+	res_cfg = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM,
+			"kgsl_gmu_pdc_cfg");
+	if (res_cfg)
+		cfg = ioremap(res_cfg->start, resource_size(res_cfg));
+	else if (res_pdc)
+		cfg = ioremap(res_pdc->start + cfg_offset, 0x10000);
+
+	if (!cfg) {
+		dev_err(&gmu->pdev->dev, "Failed to map PDC CFG\n");
+		return -ENODEV;
+	}
+
+	/* PDC is programmed in AOP for newer platforms */
+	if (a6xx_core->pdc_in_aop)
+		goto done;
+
+	/*
+	 * Map the starting address for pdc_seq programming. If the pdc_seq
+	 * resource is not available use an offset from the base PDC resource.
+	 */
+	res_seq = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM,
+			"kgsl_gmu_pdc_seq");
+	if (res_seq)
+		seq = ioremap(res_seq->start, resource_size(res_seq));
+	else if (res_pdc)
+		seq = ioremap(res_pdc->start + seq_offset, 0x10000);
+
+	if (!seq) {
+		dev_err(&gmu->pdev->dev, "Failed to map PDC SEQ\n");
+		iounmap(cfg);
+		return -ENODEV;
+	}
 
 	/* Load PDC sequencer uCode for power up and power down sequence */
 	_regwrite(seq, PDC_GPU_SEQ_MEM_0, 0xFEBEA1E1);
@@ -181,6 +190,8 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	_regwrite(seq, PDC_GPU_SEQ_MEM_0 + 2, 0x8382A6E0);
 	_regwrite(seq, PDC_GPU_SEQ_MEM_0 + 3, 0xBCE3E284);
 	_regwrite(seq, PDC_GPU_SEQ_MEM_0 + 4, 0x002081FC);
+
+	iounmap(seq);
 
 	/* Set TCS commands used by PDC sequence for low power modes */
 	_regwrite(cfg, PDC_GPU_TCS1_CMD_ENABLE_BANK, 7);
@@ -238,17 +249,21 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 				0x1);
 	}
 
+done:
 	/* Setup GPU PDC */
 	_regwrite(cfg, PDC_GPU_SEQ_START_ADDR, 0);
 	_regwrite(cfg, PDC_GPU_ENABLE_PDC, 0x80000001);
 
 	/* ensure no writes happen before the uCode is fully written */
 	wmb();
-
-	iounmap(seq);
 	iounmap(cfg);
-
 	return 0;
+}
+
+static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
+{
+	a6xx_load_rsc_ucode(device);
+	return a6xx_load_pdc_ucode(device);
 }
 
 /* GMU timeouts */
@@ -645,7 +660,12 @@ static int a6xx_gmu_hfi_start_msg(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct hfi_start_cmd req;
 
-	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
+	/*
+	 * This HFI was not supported in legacy firmware and this quirk
+	 * serves as a better means to identify targets that depend on
+	 * legacy firmware.
+	 */
+	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
 		return hfi_send_req(KGSL_GMU_DEVICE(device),
 					 H2F_MSG_START, &req);
 
@@ -1222,6 +1242,13 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 
 	/* Check no outstanding RPMh voting */
 	a6xx_complete_rpmh_votes(device);
+
+	/* Clear the WRITEDROPPED fields and set fence to allow mode */
+	gmu_core_regwrite(device, A6XX_GMU_AHB_FENCE_STATUS_CLR, 0x7);
+	gmu_core_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
+
+	/* Make sure above writes are committed before we proceed to recovery */
+	wmb();
 
 	/*
 	 * This is based on the assumption that GMU is the only one controlling

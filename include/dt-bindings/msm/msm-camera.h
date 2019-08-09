@@ -53,4 +53,10 @@
 #define CAM_CPAS_TRAFFIC_MERGE_SUM 0
 #define CAM_CPAS_TRAFFIC_MERGE_SUM_INTERLEAVE 1
 
+
+/* Feature support bit positions in feature fuse register*/
+#define CAM_CPAS_QCFA_BINNING_ENABLE 0
+#define CAM_CPAS_SECURE_CAMERA_ENABLE 1
+#define CAM_CPAS_FUSE_FEATURE_MAX 2
+
 #endif

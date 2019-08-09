@@ -260,6 +260,24 @@ static int ipa3_clean_modem_rule(void)
 	return val;
 }
 
+static int ipa3_clean_mhip_dl_rule(void)
+{
+	struct ipa_remove_offload_connection_req_msg_v01 req;
+
+	memset(&req, 0, sizeof(struct
+		ipa_remove_offload_connection_req_msg_v01));
+
+	req.clean_all_rules_valid = true;
+	req.clean_all_rules = true;
+
+	if (ipa3_qmi_rmv_offload_request_send(&req)) {
+		IPAWANDBG("clean dl rule cache failed\n");
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
 static int ipa3_active_clients_panic_notifier(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
@@ -2553,7 +2571,10 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		memset(&nat_del, 0, sizeof(nat_del));
 		nat_del.table_index = 0;
 		retval = ipa3_nat_del_cmd(&nat_del);
-		retval = ipa3_clean_modem_rule();
+		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
+			retval = ipa3_clean_mhip_dl_rule();
+		else
+			retval = ipa3_clean_modem_rule();
 		ipa3_counter_id_remove_all();
 		break;
 
@@ -2632,6 +2653,10 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
+
+		/* null terminate the string */
+		fst_switch.netdev_name[IPA_RESOURCE_NAME_MAX - 1] = '\0';
+
 		retval = ipa_wigig_send_msg(WIGIG_FST_SWITCH,
 			fst_switch.netdev_name,
 			fst_switch.client_mac_addr,
@@ -5613,6 +5638,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 		gsi_props.mhi_er_id_limits[0] = resource_p->mhi_evid_limits[0];
 		gsi_props.mhi_er_id_limits[1] = resource_p->mhi_evid_limits[1];
 	}
+	gsi_props.skip_ieob_mask_wa = resource_p->skip_ieob_mask_wa;
 
 	result = gsi_register_device(&gsi_props,
 		&ipa3_ctx->gsi_dev_hdl);
@@ -6155,6 +6181,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->use_64_bit_dma_mask = resource_p->use_64_bit_dma_mask;
 	ipa3_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
 	ipa3_ctx->lan_rx_ring_size = resource_p->lan_rx_ring_size;
+	ipa3_ctx->ipa_wan_skb_page = resource_p->ipa_wan_skb_page;
 	ipa3_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
 	ipa3_ctx->tethered_flow_control = resource_p->tethered_flow_control;
 	ipa3_ctx->ee = resource_p->ee;
@@ -6757,6 +6784,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->platform_type = 0;
 	ipa_drv_res->modem_cfg_emb_pipe_flt = false;
 	ipa_drv_res->ipa_wdi2 = false;
+	ipa_drv_res->ipa_wan_skb_page = false;
 	ipa_drv_res->ipa_wdi2_over_gsi = false;
 	ipa_drv_res->ipa_wdi3_over_gsi = false;
 	ipa_drv_res->ipa_mhi_dynamic_config = false;
@@ -6772,6 +6800,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->mhi_evid_limits[1] = IPA_MHI_GSI_EVENT_RING_ID_END;
 	ipa_drv_res->ipa_fltrt_not_hashable = false;
 	ipa_drv_res->ipa_endp_delay_wa = false;
+	ipa_drv_res->skip_ieob_mask_wa = false;
 
 	/* Get IPA HW Version */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
@@ -6878,6 +6907,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			ipa_drv_res->ipa_wdi2
 			? "True" : "False");
 
+	ipa_drv_res->ipa_wan_skb_page =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,wan-use-skb-page");
+	IPADBG(": Use skb page = %s\n",
+			ipa_drv_res->ipa_wan_skb_page
+			? "True" : "False");
+
 	ipa_drv_res->ipa_fltrt_not_hashable =
 			of_property_read_bool(pdev->dev.of_node,
 			"qcom,ipa-fltrt-not-hashable");
@@ -6897,6 +6933,12 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			"qcom,bandwidth-vote-for-ipa");
 	IPADBG(": use_bw_vote = %s\n",
 			ipa_drv_res->use_bw_vote
+			? "True" : "False");
+	ipa_drv_res->skip_ieob_mask_wa =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,skip-ieob-mask-wa");
+	IPADBG(": skip ieob mask wa = %s\n",
+			ipa_drv_res->skip_ieob_mask_wa
 			? "True" : "False");
 
 	ipa_drv_res->skip_uc_pipe_reset =
@@ -7702,6 +7744,10 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	}
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-11ad-cb")) {
+		if (ipa3_ctx == NULL) {
+			IPAERR("ipa3_ctx was not initialized\n");
+			return -EPROBE_DEFER;
+		}
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_11AD);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_11AD] = true;

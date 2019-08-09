@@ -11,20 +11,6 @@
 #include "msm_cvp_core.h"
 #include <linux/soc/qcom/llcc-qcom.h>
 
-#define MAX_BUFFER_TYPES 32
-
-struct cvp_dcvs_table {
-	u32 load;
-	u32 load_low;
-	u32 load_high;
-	u32 supported_codecs;
-};
-
-struct cvp_dcvs_limit {
-	u32 min_mbpf;
-	u32 fps;
-};
-
 struct reg_value_pair {
 	u32 reg;
 	u32 value;
@@ -52,17 +38,7 @@ struct context_bank_info {
 	bool is_secure;
 	struct addr_range addr_range;
 	struct device *dev;
-	struct dma_iommu_mapping *mapping;
-};
-
-struct buffer_usage_table {
-	u32 buffer_type;
-	u32 tz_usage;
-};
-
-struct buffer_usage_set {
-	struct buffer_usage_table *buffer_usage_tbl;
-	u32 count;
+	struct iommu_domain *domain;
 };
 
 struct regulator_info {
@@ -152,26 +128,18 @@ struct msm_cvp_mem_cdsp {
 struct msm_cvp_platform_resources {
 	phys_addr_t firmware_base;
 	phys_addr_t register_base;
-	phys_addr_t gcc_register_base;
 	uint32_t register_size;
-	uint32_t gcc_register_size;
 	uint32_t irq;
 	uint32_t sku_version;
 	struct allowed_clock_rates_table *allowed_clks_tbl;
 	u32 allowed_clks_tbl_size;
 	struct clock_freq_table clock_freq_tbl;
-	struct cvp_dcvs_table *dcvs_tbl;
-	uint32_t dcvs_tbl_size;
-	struct cvp_dcvs_limit *cvp_dcvs_limit;
 	bool sys_cache_present;
 	bool sys_cache_res_set;
 	struct subcache_set subcache_set;
 	struct reg_set reg_set;
 	struct addr_set qdss_addr_set;
-	struct buffer_usage_set buffer_usage_set;
 	uint32_t max_load;
-	uint32_t max_hq_mbs_per_frame;
-	uint32_t max_hq_fps;
 	struct platform_device *pdev;
 	struct regulator_set regulator_set;
 	struct clock_set clock_set;
@@ -179,7 +147,6 @@ struct msm_cvp_platform_resources {
 	struct reset_set reset_set;
 	bool use_non_secure_pil;
 	bool sw_power_collapsible;
-	bool slave_side_cp;
 	struct list_head context_banks;
 	bool thermal_mitigable;
 	const char *fw_name;
@@ -193,15 +160,10 @@ struct msm_cvp_platform_resources {
 	int msm_cvp_dsp_rsp_timeout;
 	int msm_cvp_firmware_unload_delay;
 	uint32_t msm_cvp_pwr_collapse_delay;
-	bool domain_cvp;
 	bool non_fatal_pagefaults;
-	bool cache_pagetables;
-	bool decode_batching;
-	bool dcvs;
 	struct msm_cvp_mem_cdsp mem_cdsp;
 	uint32_t vpu_ver;
 	uint32_t fw_cycles;
-	uint32_t bus_devfreq_on;
 	struct msm_cvp_ubwc_config_data *ubwc_config;
 };
 

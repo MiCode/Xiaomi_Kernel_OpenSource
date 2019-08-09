@@ -979,6 +979,7 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 		CAM_DBG(CAM_CRM, "Req: %lld not found on link: %x [other link]",
 			req_id, sync_link->link_hdl);
 		sync_ready = false;
+		return -EAGAIN;
 	}
 
 	sync_rd_idx = sync_link->req.in_q->rd_idx;

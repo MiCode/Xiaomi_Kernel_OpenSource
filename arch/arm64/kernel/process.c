@@ -480,6 +480,20 @@ void uao_thread_switch(struct task_struct *next)
 	}
 }
 
+static void ssbs_thread_switch(struct task_struct *next)
+{
+	if (likely(!(next->flags & PF_KTHREAD)) &&
+	    arm64_get_ssbd_state() != ARM64_SSBD_FORCE_ENABLE &&
+	    !test_tsk_thread_flag(next, TIF_SSBD)) {
+		struct pt_regs *regs = task_pt_regs(next);
+
+		if (compat_user_mode(regs))
+			set_compat_ssbs_bit(regs);
+		else if (user_mode(regs))
+			set_ssbs_bit(regs);
+	}
+}
+
 /*
  * We store our current task in sp_el0, which is clobbered by userspace. Keep a
  * shadow copy so that we can restore this upon entry from userspace.
@@ -508,6 +522,7 @@ __notrace_funcgraph struct task_struct *__switch_to(struct task_struct *prev,
 	contextidr_thread_switch(next);
 	entry_task_switch(next);
 	uao_thread_switch(next);
+	ssbs_thread_switch(next);
 
 	/*
 	 * Complete any pending TLB or cache maintenance on this CPU in case

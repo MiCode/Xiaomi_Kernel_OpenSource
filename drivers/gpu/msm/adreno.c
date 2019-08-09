@@ -1317,11 +1317,17 @@ static int adreno_read_speed_bin(struct platform_device *pdev,
 
 static int adreno_probe(struct platform_device *pdev)
 {
-	const struct of_device_id *of_id =
-		of_match_device(adreno_match_table, &pdev->dev);
-	struct adreno_device *adreno_dev = (struct adreno_device *) of_id->data;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct of_device_id *of_id;
+	struct adreno_device *adreno_dev;
+	struct kgsl_device *device;
 	int status;
+
+	of_id = of_match_device(adreno_match_table, &pdev->dev);
+	if (!of_id)
+		return -EINVAL;
+
+	adreno_dev = (struct adreno_device *) of_id->data;
+	device = KGSL_DEVICE(adreno_dev);
 
 	device->pdev = pdev;
 
@@ -1482,11 +1488,18 @@ static void _adreno_free_memories(struct adreno_device *adreno_dev)
 
 static int adreno_remove(struct platform_device *pdev)
 {
-	const struct of_device_id *of_id =
-		of_match_device(adreno_match_table, &pdev->dev);
-	struct adreno_device *adreno_dev = (struct adreno_device *) of_id->data;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct of_device_id *of_id;
+	struct adreno_device *adreno_dev;
+	struct kgsl_device *device;
+	struct adreno_gpudev *gpudev;
+
+	of_id = of_match_device(adreno_match_table, &pdev->dev);
+	if (!of_id)
+		return -EINVAL;
+
+	adreno_dev = (struct adreno_device *) of_id->data;
+	device = KGSL_DEVICE(adreno_dev);
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (gpudev->remove != NULL)
 		gpudev->remove(adreno_dev);
@@ -2375,6 +2388,31 @@ static int adreno_prop_ucode_version(struct kgsl_device *device,
 	return copy_prop(param, &ucode, sizeof(ucode));
 }
 
+static int adreno_prop_gaming_bin(struct kgsl_device *device,
+		struct kgsl_device_getproperty *param)
+{
+	void *buf;
+	size_t len;
+	int ret;
+	struct nvmem_cell *cell;
+
+	cell = nvmem_cell_get(&device->pdev->dev, "gaming_bin");
+	if (IS_ERR(cell))
+		return -EINVAL;
+
+	buf = nvmem_cell_read(cell, &len);
+	nvmem_cell_put(cell);
+
+	if (!IS_ERR(buf)) {
+		ret = copy_prop(param, buf, len);
+		kfree(buf);
+		return ret;
+	}
+
+	dev_err(device->dev, "failed to read gaming_bin nvmem cell\n");
+	return -EINVAL;
+}
+
 static int adreno_prop_u32(struct kgsl_device *device,
 		struct kgsl_device_getproperty *param)
 {
@@ -2417,6 +2455,7 @@ static const struct {
 	{ KGSL_PROP_UBWC_MODE, adreno_prop_u32 },
 	{ KGSL_PROP_DEVICE_BITNESS, adreno_prop_u32 },
 	{ KGSL_PROP_SPEED_BIN, adreno_prop_u32 },
+	{ KGSL_PROP_GAMING_BIN, adreno_prop_gaming_bin },
 };
 
 static int adreno_getproperty(struct kgsl_device *device,
@@ -3003,14 +3042,17 @@ static void adreno_retry_rbbm_read(struct kgsl_device *device,
 	}
 }
 
-static inline bool adreno_is_a650_rbbm_batch_reg(unsigned int offsetwords)
+static bool adreno_is_rbbm_batch_reg(struct kgsl_device *device,
+	unsigned int offsetwords)
 {
-	if (((offsetwords > 0x0) && (offsetwords < 0x3FF)) ||
-		((offsetwords > 0x4FA) && (offsetwords < 0x53F)) ||
-		((offsetwords > 0x556) && (offsetwords < 0x5FF)) ||
-		((offsetwords > 0xF400) && (offsetwords < 0xFFFF)))
-		return  true;
-
+	if (adreno_is_a650(ADRENO_DEVICE(device)) ||
+		adreno_is_a620v1(ADRENO_DEVICE(device))) {
+		if (((offsetwords > 0x0) && (offsetwords < 0x3FF)) ||
+			((offsetwords > 0x4FA) && (offsetwords < 0x53F)) ||
+			((offsetwords > 0x556) && (offsetwords < 0x5FF)) ||
+			((offsetwords > 0xF400) && (offsetwords < 0xFFFF)))
+			return  true;
+	}
 	return false;
 }
 
@@ -3025,8 +3067,8 @@ static void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 	adreno_read(device, device->reg_virt, offsetwords, value,
 						device->reg_len);
 
-	if ((*value == 0xdeafbead) && adreno_is_a650(ADRENO_DEVICE(device)) &&
-		adreno_is_a650_rbbm_batch_reg(offsetwords))
+	if ((*value == 0xdeafbead) &&
+		adreno_is_rbbm_batch_reg(device, offsetwords))
 		adreno_retry_rbbm_read(device, device->reg_virt, offsetwords,
 			value, device->reg_len);
 }

@@ -236,16 +236,17 @@ static void rtc6226_i2c_interrupt_handler(struct rtc6226_device *radio)
 		FMDERR("%s read fail to STATUS\n", __func__);
 		goto end;
 	}
-	FMDBG("%s : STATUS=0x%4.4hx\n", __func__, radio->registers[STATUS]);
-
-	retval = rtc6226_get_register(radio, RSSI);
-	if (retval < 0) {
-		FMDERR("%s read fail to RSSI\n", __func__);
-		goto end;
-	}
-	FMDBG("%s : RSSI=0x%4.4hx\n", __func__, radio->registers[RSSI]);
 
 	if (radio->registers[STATUS] & STATUS_STD) {
+		FMDBG("%s : STATUS=0x%4.4hx\n", __func__,
+				radio->registers[STATUS]);
+
+		retval = rtc6226_get_register(radio, RSSI);
+		if (retval < 0) {
+			FMDERR("%s read fail to RSSI\n", __func__);
+			goto end;
+		}
+		FMDBG("%s : RSSI=0x%4.4hx\n", __func__, radio->registers[RSSI]);
 			/* stop seeking : clear STD*/
 		radio->registers[SEEKCFG1] &= ~SEEKCFG1_CSR0_SEEK;
 		retval = rtc6226_set_register(radio, SEEKCFG1);
@@ -294,7 +295,6 @@ static void rtc6226_i2c_interrupt_handler(struct rtc6226_device *radio)
 			/* avoid RDS interrupt lock disable_irq*/
 			if ((radio->registers[SYSCFG] &
 						SYSCFG_CSR0_RDS_EN) != 0) {
-				FMDBG("%s start rds handler\n", __func__);
 				schedule_work(&radio->rds_worker);
 			}
 		}

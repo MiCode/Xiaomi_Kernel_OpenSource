@@ -671,7 +671,7 @@ static void a6xx_preemption_iommu_close(struct adreno_device *adreno_dev)
 }
 #endif
 
-void a6xx_preemption_close(struct adreno_device *adreno_dev)
+static void _preemption_close(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_preemption *preempt = &adreno_dev->preempt;
@@ -689,6 +689,14 @@ void a6xx_preemption_close(struct adreno_device *adreno_dev)
 				&rb->secure_preemption_desc);
 		kgsl_sharedmem_free(&rb->secure_preemption_desc);
 	}
+}
+
+void a6xx_preemption_close(struct adreno_device *adreno_dev)
+{
+	if (!test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv))
+		return;
+
+	_preemption_close(adreno_dev);
 }
 
 int a6xx_preemption_init(struct adreno_device *adreno_dev)
@@ -731,7 +739,7 @@ int a6xx_preemption_init(struct adreno_device *adreno_dev)
 
 err:
 	if (ret)
-		a6xx_preemption_close(adreno_dev);
+		_preemption_close(adreno_dev);
 
 	return ret;
 }

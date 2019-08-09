@@ -97,7 +97,7 @@ enum gsi_intr_type {
  * @rel_clk_cb: callback to release peripheral clock
  * @user_data:  cookie used for notifications
  * @clk_status_cb: callback to update the current msm bus clock vote
- *
+ * @skip_ieob_mask_wa: flag for skipping ieob_mask_wa
  * All the callbacks are in interrupt context
  *
  */
@@ -120,6 +120,7 @@ struct gsi_per_props {
 	int (*rel_clk_cb)(void *user_data);
 	void *user_data;
 	int (*clk_status_cb)(void);
+	bool skip_ieob_mask_wa;
 };
 
 enum gsi_evt_err {

@@ -24,6 +24,7 @@
 #include <linux/mailbox/qmp.h>
 #include <linux/msm-bus.h>
 #include <linux/mailbox_controller.h>
+#include <linux/reset.h>
 
 #include "npu_mgr.h"
 
@@ -92,6 +93,7 @@ struct npu_ion_buf {
 struct npu_clk {
 	struct clk *clk;
 	char clk_name[NPU_MAX_DT_NAME_LEN];
+	struct reset_control *reset;
 };
 
 struct npu_regulator {

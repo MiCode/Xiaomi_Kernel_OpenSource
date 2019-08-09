@@ -112,12 +112,24 @@ struct synx_cb_data {
 };
 
 /**
+ * struct synx_obj_node - Single node of info for the synx handle
+ * mapped to synx object metadata
+ *
+ * @synx_obj : Synx integer handle
+ * @list     : List member used to append to synx handle list
+ */
+struct synx_obj_node {
+	s32 synx_obj;
+	struct list_head list;
+};
+
+/**
  * struct synx_table_row - Single row of information about a synx object, used
  * for internal book keeping in the synx driver
  *
  * @name              : Optional string representation of the synx object
  * @fence             : dma fence backing the synx object
- * @synx_obj          : Integer id representing this synx object
+ * @synx_obj_list     : List of synx integer handles mapped
  * @index             : Index of the spin lock table associated with synx obj
  * @num_bound_synxs   : Number of external bound synx objects
  * @signaling_id      : ID of the external sync object invoking the callback
@@ -129,7 +141,7 @@ struct synx_cb_data {
 struct synx_table_row {
 	char name[SYNX_OBJ_NAME_LEN];
 	struct dma_fence *fence;
-	s32 synx_obj;
+	struct list_head synx_obj_list;
 	s32 index;
 	u32 num_bound_synxs;
 	s32 signaling_id;
@@ -156,6 +168,22 @@ struct synx_registered_ops {
 };
 
 /**
+ * struct synx_import_data - Import metadata for sharing synx handles
+ * with processes
+ *
+ * @key      : Import key for sharing synx handle
+ * @synx_obj : Synx handle being exported
+ * @row      : Pointer to synx object
+ * @list     : List member used to append the node to import list
+ */
+struct synx_import_data {
+	u32 key;
+	s32 synx_obj;
+	struct synx_table_row *row;
+	struct list_head list;
+};
+
+/**
  * struct synx_device - Internal struct to book keep synx driver details
  *
  * @cdev          : Character device
@@ -175,6 +203,7 @@ struct synx_registered_ops {
  * debugfs_root   : Root directory for debugfs
  * synx_node_head : list head for synx nodes
  * synx_node_list_lock : Spinlock for synx nodes
+ * import_list    : List to validate synx import requests
  */
 struct synx_device {
 	struct cdev cdev;
@@ -194,6 +223,7 @@ struct synx_device {
 	struct dentry *debugfs_root;
 	struct list_head synx_debug_head;
 	spinlock_t synx_node_list_lock;
+	struct list_head import_list;
 };
 
 /**
