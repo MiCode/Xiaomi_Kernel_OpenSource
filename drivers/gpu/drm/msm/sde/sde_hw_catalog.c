@@ -150,6 +150,7 @@ enum sde_prop {
 	SDE_OFF,
 	SDE_LEN,
 	SSPP_LINEWIDTH,
+	VIG_SSPP_LINEWIDTH,
 	MIXER_LINEWIDTH,
 	MIXER_BLEND,
 	WB_LINEWIDTH,
@@ -434,6 +435,8 @@ static struct sde_prop_type sde_prop[] = {
 	{SDE_OFF, "qcom,sde-off", true, PROP_TYPE_U32},
 	{SDE_LEN, "qcom,sde-len", false, PROP_TYPE_U32},
 	{SSPP_LINEWIDTH, "qcom,sde-sspp-linewidth", false, PROP_TYPE_U32},
+	{VIG_SSPP_LINEWIDTH, "qcom,sde-vig-sspp-linewidth", false,
+			PROP_TYPE_U32},
 	{MIXER_LINEWIDTH, "qcom,sde-mixer-linewidth", false, PROP_TYPE_U32},
 	{MIXER_BLEND, "qcom,sde-mixer-blendstages", false, PROP_TYPE_U32},
 	{WB_LINEWIDTH, "qcom,sde-wb-linewidth", false, PROP_TYPE_U32},
@@ -1018,6 +1021,7 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 	struct sde_sspp_cfg *sspp, struct sde_sspp_sub_blks *sblk,
 	bool *prop_exists, struct sde_prop_value *prop_value, u32 *vig_count)
 {
+	sblk->maxlinewidth = sde_cfg->vig_sspp_linewidth;
 	sblk->maxupscale = MAX_UPSCALE_RATIO;
 	sblk->maxdwnscale = MAX_DOWNSCALE_RATIO;
 	sspp->id = SSPP_VIG0 + *vig_count;
@@ -1837,8 +1841,9 @@ static int sde_intf_parse_dt(struct device_node *np,
 		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
 			set_bit(SDE_INTF_INPUT_CTRL, &intf->features);
 
-		if (IS_SDE_MAJOR_SAME((sde_cfg->hwversion),
-				SDE_HW_VER_500))
+		if (IS_SDE_MAJOR_SAME((sde_cfg->hwversion), SDE_HW_VER_500) ||
+			(IS_SDE_MAJOR_MINOR_SAME((sde_cfg->hwversion),
+					SDE_HW_VER_620)))
 			set_bit(SDE_INTF_TE, &intf->features);
 	}
 
@@ -2984,6 +2989,11 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	if (!prop_exists[SSPP_LINEWIDTH])
 		cfg->max_sspp_linewidth = DEFAULT_SDE_LINE_WIDTH;
 
+	cfg->vig_sspp_linewidth = PROP_VALUE_ACCESS(prop_value,
+			VIG_SSPP_LINEWIDTH, 0);
+	if (!prop_exists[VIG_SSPP_LINEWIDTH])
+		cfg->vig_sspp_linewidth = cfg->max_sspp_linewidth;
+
 	cfg->max_mixer_width = PROP_VALUE_ACCESS(prop_value,
 			MIXER_LINEWIDTH, 0);
 	if (!prop_exists[MIXER_LINEWIDTH])
@@ -3595,7 +3605,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	virt_vig_list_size += ARRAY_SIZE(rgb_10bit_formats);
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
 		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)) ||
-		(IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500)))
+		(IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500)) ||
+		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_620)))
 		vig_list_size += ARRAY_SIZE(p010_ubwc_formats);
 
 	wb2_list_size += ARRAY_SIZE(rgb_10bit_formats)
@@ -3633,7 +3644,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_300) ||
 	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
 	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410) ||
-	    IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500))
+	    IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500) ||
+		IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_620))
 		sde_cfg->has_hdr = true;
 
 	/* Disable HDR for SM6150 target only */
@@ -3656,7 +3668,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 		index, p010_formats, ARRAY_SIZE(p010_formats));
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
 		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)) ||
-		(IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500)))
+		(IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500)) ||
+		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_620)))
 		index += sde_copy_formats(sde_cfg->vig_formats,
 			vig_list_size, index, p010_ubwc_formats,
 			ARRAY_SIZE(p010_ubwc_formats));
@@ -3787,6 +3800,22 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->has_sui_blendstage = true;
 		sde_cfg->has_qos_fl_nocalc = true;
 		sde_cfg->has_decimation = true;
+	} else if (IS_ATOLL_TARGET(hw_rev)) {
+		sde_cfg->has_cwb_support = true;
+		sde_cfg->has_qsync = true;
+		sde_cfg->perf.min_prefill_lines = 24;
+		sde_cfg->vbif_qos_nlvl = 8;
+		sde_cfg->ts_prefill_rev = 2;
+		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
+		sde_cfg->delay_prg_fetch_start = true;
+		sde_cfg->sui_ns_allowed = true;
+		sde_cfg->sui_misr_supported = true;
+		sde_cfg->sui_block_xin_mask = 0x261;
+		sde_cfg->has_sui_blendstage = true;
+		sde_cfg->has_qos_fl_nocalc = true;
+		sde_cfg->has_3d_merge_reset = true;
+		clear_bit(MDSS_INTR_AD4_0_INTR, sde_cfg->mdss_irqs);
+		clear_bit(MDSS_INTR_AD4_1_INTR, sde_cfg->mdss_irqs);
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
