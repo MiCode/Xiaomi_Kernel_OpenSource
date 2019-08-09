@@ -3414,7 +3414,9 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 		rot->downscale_caps =
 			"LINEAR/1.5/2/4/8/16/32/64 TILE/1.5/2/4 TP10/1.5/2";
 	} else if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
-				SDE_MDP_HW_REV_540)) {
+				SDE_MDP_HW_REV_540) ||
+				IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+				SDE_MDP_HW_REV_620)) {
 		SDEROT_DBG("Sys cache inline rotation not supported\n");
 		set_bit(SDE_CAPS_UBWC_2,  mdata->sde_caps_map);
 		set_bit(SDE_CAPS_PARTIALWR,  mdata->sde_caps_map);
