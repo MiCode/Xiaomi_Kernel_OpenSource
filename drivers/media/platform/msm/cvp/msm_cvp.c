@@ -584,7 +584,6 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 	if (wait_event_timeout(sq->wq,
 		_cvp_msg_pending(inst, sq, &msg), wait_time) == 0) {
 		dprintk(CVP_WARN, "session queue wait timeout\n");
-		msm_cvp_comm_kill_session(inst);
 		rc = -ETIMEDOUT;
 		goto exit;
 	}
@@ -786,16 +785,6 @@ static int msm_cvp_session_process_hfi(
 		return -ECONNRESET;
 
 	inst->cur_cmd_type = CVP_KMD_SEND_CMD_PKT;
-	sq = &inst->session_queue;
-	spin_lock(&sq->lock);
-	if (sq->state != QUEUE_ACTIVE) {
-		spin_unlock(&sq->lock);
-		dprintk(CVP_ERR, "%s: invalid queue state\n", __func__);
-		rc = -EINVAL;
-		goto exit;
-	}
-	spin_unlock(&sq->lock);
-
 	hdev = inst->core->device;
 
 	pkt_idx = get_pkt_index((struct cvp_hal_session_cmd_pkt *)in_pkt);
@@ -810,6 +799,18 @@ static int msm_cvp_session_process_hfi(
 		offset = cvp_hfi_defs[pkt_idx].buf_offset;
 		buf_num = cvp_hfi_defs[pkt_idx].buf_num;
 		signal = cvp_hfi_defs[pkt_idx].resp;
+	}
+	if (signal == HAL_NO_RESP) {
+		/* Frame packets are not allowed before session starts*/
+		sq = &inst->session_queue;
+		spin_lock(&sq->lock);
+		if (sq->state != QUEUE_ACTIVE) {
+			spin_unlock(&sq->lock);
+			dprintk(CVP_ERR, "%s: invalid queue state\n", __func__);
+			rc = -EINVAL;
+			goto exit;
+		}
+		spin_unlock(&sq->lock);
 	}
 
 	if (in_offset && in_buf_num) {
@@ -1636,6 +1637,7 @@ static int msm_cvp_session_start(struct msm_cvp_inst *inst,
 	}
 	sq->state = QUEUE_ACTIVE;
 	spin_unlock(&sq->lock);
+
 	return 0;
 }
 
