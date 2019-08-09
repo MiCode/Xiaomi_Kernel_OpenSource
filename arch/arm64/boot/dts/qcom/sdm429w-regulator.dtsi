@@ -111,7 +111,7 @@
 		status = "okay";
 		S5A: pm660_s5: regulator-s5 {
 			regulator-min-microvolt = <1040000>;
-			regulator-max-microvolt = <1350000>;
+			regulator-max-microvolt = <1420000>;
 			qcom,init-voltage = <1040000>;
 			status = "okay";
 		};
@@ -177,7 +177,7 @@
 		L6A: pm660_l6: regulator-l6 {
 			regulator-min-microvolt = <670000>;
 			regulator-max-microvolt = <930000>;
-			qcom,init-voltage = <670000>;
+			qcom,init-voltage = <800000>;
 			status = "okay";
 		};
 	};
@@ -338,6 +338,7 @@
 &soc {
 	regulator@b018000 {
 		vdd-apc-supply = <&pm660_s3>;
+		qcom,cpr-apc-volt-step = <4000>;
 	};
 
 	vreg_sd_pad: vreg_sd_pad {

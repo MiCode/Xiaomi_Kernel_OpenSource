@@ -1,0 +1,3 @@
+# ///ALTEK_TAG_HwMiniISP>>>
+header-y += miniISP_ioctl.h
+# ///ALTEK_TAG_HwMiniISP<<<

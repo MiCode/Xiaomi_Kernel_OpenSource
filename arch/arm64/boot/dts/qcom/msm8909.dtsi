@@ -1914,6 +1914,7 @@
 
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
+		qcom,sequential-fw-load;
 		qcom,sysmon-id = <0>;
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,reset-clk;

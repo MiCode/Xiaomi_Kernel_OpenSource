@@ -1549,6 +1549,7 @@
 		vdd_mss-supply = <&pm8005_s2_level>;
 		vdd_mss-uV = <RPMH_REGULATOR_LEVEL_TURBO>;
 		qcom,firmware-name = "modem";
+		qcom,sequential-fw-load;
 		qcom,pil-self-auth;
 		qcom,sysmon-id = <0>;
 		qcom,minidump-id = <3>;
@@ -2508,6 +2509,7 @@
 		qcom,support-fde;
 		qcom,no-clock-support;
 		qcom,fde-key-size;
+		qcom,commonlib64-loaded-by-uefi;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;

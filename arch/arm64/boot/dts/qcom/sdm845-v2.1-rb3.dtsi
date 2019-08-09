@@ -21,6 +21,18 @@
 #include "sdm845-rb3.dtsi"
 #include "sdm845-audio-overlay.dtsi"
 
+&usb1 {
+	status = "ok";
+};
+
+&qusb_phy1 {
+	status = "ok";
+};
+
+&usb_qmp_phy {
+	status = "ok";
+};
+
 &qupv3_se3_i2c {
 	status = "disabled";
 };
@@ -56,6 +68,18 @@
 	config {
 		pins = "gpio31","gpio77","gpio32";
 	};
+};
+
+&pcie0 {
+	pinctrl-names = "default", "slot_power_on";
+	pinctrl-1 = <&pcie0_3v3_on &pcie0_1v5_on>;
+	3v3_gpio = <&tlmm 90 0>;
+	1v5_gpio = <&tlmm 90 0>;
+	status = "ok";
+};
+
+&pcie1 {
+	/delete-property/ wake-gpio;
 };
 
 &max_rst_suspend {
@@ -171,13 +195,105 @@
 
 		config {
 			pins = "gpio12","gpio69";
-			bias-pull-down; /* PULL DOWN */
+			bias-disable; /* No PULL */
 			drive-strength = <2>; /* 2 MA */
-			output-low;
 		};
 	};
 };
 
 &ipa_hw {
 	status="disabled";
+};
+
+&dsi_nt35597_truly_dsc_cmd_display {
+	/delete-property/ qcom,dsi-display-active;
+};
+
+&mdss_mdp {
+	bridges = <&lt9611>;
+};
+
+&soc {
+	lt9611_vcc_eldo: lt9611-gpio-regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "lt9611_vcc_eldo";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-enable-ramp-delay = <233>;
+		gpio = <&tlmm 89 0>;
+		enable-active-high;
+	};
+};
+
+&qupv3_se10_i2c {
+	status = "ok";
+	lt9611: lt,lt9611@3b {
+		compatible = "lt,lt9611";
+		reg = <0x3b>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <84 0>;
+		interrupt-names = "lt_irq";
+		lt,irq-gpio = <&tlmm 84 0x0>;
+		lt,reset-gpio = <&tlmm 128 0x0>;
+		lt,non-pluggable;
+		lt,preferred-mode = "1920x1080";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&lt9611_pins>;
+
+		vdd-supply = <&lt9611_vcc_eldo>;
+		lt,supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			lt,supply-entry@0 {
+				reg = <0>;
+				lt,supply-name = "vdd";
+				lt,supply-min-voltage = <1800000>;
+				lt,supply-max-voltage = <1800000>;
+				lt,supply-enable-load = <200000>;
+				lt,supply-post-on-sleep = <150>;
+			};
+		};
+
+		lt,customize-modes {
+			lt,customize-mode-id@0 {
+				lt,mode-h-active = <1920>;
+				lt,mode-h-front-porch = <88>;
+				lt,mode-h-pulse-width = <44>;
+				lt,mode-h-back-porch = <148>;
+				lt,mode-h-active-high;
+				lt,mode-v-active = <1080>;
+				lt,mode-v-front-porch = <4>;
+				lt,mode-v-pulse-width = <5>;
+				lt,mode-v-back-porch = <36>;
+				lt,mode-v-active-high;
+				lt,mode-refresh-rate = <60>;
+				lt,mode-clock-in-khz = <148500>;
+			};
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				lt9611_in: endpoint {
+					remote-endpoint = <&ext_dsi_out>;
+				};
+			};
+		};
+	};
+};
+
+&ext_dsi_bridge_display {
+	qcom,dsi-display-active;
+	ports {
+		port@0 {
+			ext_dsi_out: endpoint {
+				remote-endpoint = <&lt9611_in>;
+			};
+		};
+	};
 };

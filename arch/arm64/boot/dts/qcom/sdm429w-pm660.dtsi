@@ -206,21 +206,21 @@
 	qcom,csid@1b30000 {
 		/delete-property/ qcom,mipi-csi-vdd-supply;
 		/delete-property/ qcom,csi-vdd-voltage;
-		qcom,csi-vdd-voltage = <928000>;
+		qcom,csi-vdd-voltage = <800000>;
 		qcom,mipi-csi-vdd-supply = <&pm660_l6>;
 	};
 
 	qcom,csid@1b30400 {
 		/delete-property/ qcom,mipi-csi-vdd-supply;
 		/delete-property/ qcom,csi-vdd-voltage;
-		qcom,csi-vdd-voltage = <928000>;
+		qcom,csi-vdd-voltage = <800000>;
 		qcom,mipi-csi-vdd-supply = <&pm660_l6>;
 	};
 
 	qcom,csid@1b30800 {
 		/delete-property/ qcom,mipi-csi-vdd-supply;
 		/delete-property/ qcom,csi-vdd-voltage;
-		qcom,csi-vdd-voltage = <928000>;
+		qcom,csi-vdd-voltage = <800000>;
 		qcom,mipi-csi-vdd-supply = <&pm660_l6>;
 	};
 
@@ -337,14 +337,6 @@
 	/delete-node/ qcom,pm8953@1;
 	/delete-node/ qcom,pmi632@2;
 	/delete-node/ qcom,pmi632@3;
-};
-
-&dsi_hx8399c_truly_vid {
-	/delete-property/ qcom,mdss-dsi-pwm-gpio;
-};
-
-&dsi_hx8399c_hd_vid {
-	/delete-property/ qcom,mdss-dsi-pwm-gpio;
 };
 
 &tlmm {
@@ -542,6 +534,7 @@
 		#size-cells = <0>;
 		#io-channel-cells = <1>;
 		qcom,pmic-revid = <&pm660_revid>;
+		qcom,batt-id-delay-ms = <80>;
 	};
 
 	pm660_fg: qpnp,fg {
@@ -687,7 +680,7 @@
 	hsusb_vdd_dig-supply = <&L6A>;
 	HSUSB_1p8-supply = <&L12A>;
 	HSUSB_3p3-supply = <&L16A>;
-	qcom,vdd-voltage-level = <0 928000 928000>;
+	qcom,vdd-voltage-level = <0 800000 800000>;
 	vbus_otg-supply = <&smb2_vbus>;
 	status = "okay";
 };
@@ -732,7 +725,7 @@
 			reg = <0>;
 			qcom,supply-name = "vdda";
 			qcom,supply-min-voltage = <800000>;
-			qcom,supply-max-voltage = <930000>;
+			qcom,supply-max-voltage = <800000>;
 			qcom,supply-enable-load = <100000>;
 			qcom,supply-disable-load = <100>;
 			qcom,supply-post-on-sleep = <20>;
