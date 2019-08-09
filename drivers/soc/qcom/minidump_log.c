@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <asm/sections.h>
 #include <linux/mm.h>
 #include <linux/sched/task.h>
+#include <linux/async.h>
 
 static void __init register_log_buf(void)
 {
@@ -163,10 +164,22 @@ void dump_stack_minidump(u64 sp)
 		pr_err("Failed to add current task %d in Minidump\n", cpu);
 }
 
-static int __init msm_minidump_log_init(void)
+static int __init do_msm_minidump_log_init(void)
 {
 	register_kernel_sections();
 	register_log_buf();
 	return 0;
 }
+
+static __init void msm_minidump_async_init(void *data, async_cookie_t cookie)
+{
+	do_msm_minidump_log_init();
+}
+
+static int __init msm_minidump_log_init(void)
+{
+	async_schedule(msm_minidump_async_init, NULL);
+	return 0;
+}
+
 late_initcall(msm_minidump_log_init);
