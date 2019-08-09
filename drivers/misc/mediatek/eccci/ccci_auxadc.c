@@ -89,10 +89,8 @@ signed int battery_get_bat_voltage(void)
 	}
 	CCCI_NORMAL_LOG(0, TAG, "md_battery = %d, val = %d", number, val);
 
-	kfree(channel);
 	return val;
 BAT_Fail:
-	kfree(channel);
 	return -1;
 
 }
