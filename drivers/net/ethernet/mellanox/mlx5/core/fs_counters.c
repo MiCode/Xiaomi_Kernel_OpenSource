@@ -312,6 +312,11 @@ void mlx5_cleanup_fc_stats(struct mlx5_core_dev *dev)
 	}
 }
 
+u64 mlx5_fc_query_lastuse(struct mlx5_fc *counter)
+{
+	return counter->cache.lastuse;
+}
+
 void mlx5_fc_query_cached(struct mlx5_fc *counter,
 			  u64 *bytes, u64 *packets, u64 *lastuse)
 {
