@@ -6,5 +6,5 @@
 / {
 	model = "Qualcomm Technologies, Inc. Lahaina QRD";
 	compatible = "qcom,lahaina-qrd", "qcom,lahaina", "qcom,qrd";
-	qcom,board-id = <11 0>;
+	qcom,board-id = <0x1000B 0>;
 };
