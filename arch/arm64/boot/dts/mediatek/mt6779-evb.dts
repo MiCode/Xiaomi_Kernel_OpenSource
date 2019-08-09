@@ -867,5 +867,6 @@
 };
 
 &md_auxadc {
-	io-channels = <&auxadc 2>;
+	io-channels = <&auxadc 2>,
+		<&pmic_auxadc AUXADC_BATADC>;
 };
