@@ -191,7 +191,7 @@ static struct cam_iommu_cb_set iommu_cb_set;
 
 static struct dentry *smmu_dentry;
 
-static bool smmu_fatal_flag;
+static bool smmu_fatal_flag = true;
 
 static enum dma_data_direction cam_smmu_translate_dir(
 	enum cam_smmu_map_dir dir);
