@@ -731,6 +731,14 @@
 		mbox-names = "aop";
 	};
 
+	qcom,smp2p_sleepstate {
+		compatible = "qcom,smp2p-sleepstate";
+		qcom,smem-states = <&sleepstate_smp2p_out 0>;
+		interrupt-parent = <&sleepstate_smp2p_in>;
+		interrupts = <0 0>;
+		interrupt-names = "smp2p-sleepstate-in";
+	};
+
 	pdc: interrupt-controller@b220000 {
 		compatible = "qcom,lahaina-pdc";
 		reg = <0xb220000 0x30000>, <0x17c000f0 0x60>;
