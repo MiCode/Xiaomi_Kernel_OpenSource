@@ -44,8 +44,6 @@
 
 #define LLCC_TRP_C_AS_NC	      0x21F90
 #define LLCC_TRP_NC_AS_C	      0x21F94
-#define LLCC_FEAC_C_AS_NC	      0x35030
-#define LLCC_FEAC_NC_AS_C	      0x35034
 #define LLCC_TRP_WRSC_EN              0x21F20
 #define LLCC_WRSC_SCID_EN(n)          BIT(n)
 
@@ -260,16 +258,6 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 
 		ret = regmap_write(drv_data->bcast_regmap,
 						 LLCC_TRP_NC_AS_C, mask);
-		if (ret)
-			return ret;
-	} else {
-		ret  = regmap_write(drv_data->bcast_regmap,
-						 LLCC_FEAC_C_AS_NC, 0);
-		if (ret)
-			return ret;
-
-		ret = regmap_write(drv_data->bcast_regmap,
-						 LLCC_FEAC_NC_AS_C, mask);
 		if (ret)
 			return ret;
 	}
