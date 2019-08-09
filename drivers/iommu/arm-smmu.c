@@ -367,7 +367,7 @@ struct arm_smmu_domain {
 	spinlock_t			cb_lock; /* Serialises ATS1* ops */
 	spinlock_t			sync_lock; /* Serialises TLB syncs */
 	struct msm_io_pgtable_info	pgtbl_info;
-	u32 attributes;
+	u64 attributes;
 	u32				secure_vmid;
 	struct list_head		pte_info_list;
 	struct list_head		unassign_list;
@@ -468,13 +468,13 @@ static bool is_dynamic_domain(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
-	return !!(smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC));
+	return !!(smmu_domain->attributes & (1ULL << DOMAIN_ATTR_DYNAMIC));
 }
 
 static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
 {
 	if (smmu_domain->attributes &
-			(1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT))
+			(1ULL << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT))
 		return true;
 	else if (smmu_domain->smmu && smmu_domain->smmu->dev)
 		return dev_is_dma_coherent(smmu_domain->smmu->dev);
@@ -1043,7 +1043,8 @@ static int arm_smmu_domain_power_on(struct iommu_domain *domain,
 				struct arm_smmu_device *smmu)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
+	int atomic_domain = smmu_domain->attributes &
+		(1ULL << DOMAIN_ATTR_ATOMIC);
 
 	if (atomic_domain)
 		return arm_smmu_power_on_atomic(smmu->pwr);
@@ -1059,7 +1060,8 @@ static void arm_smmu_domain_power_off(struct iommu_domain *domain,
 				struct arm_smmu_device *smmu)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
+	int atomic_domain = smmu_domain->attributes &
+		(1ULL << DOMAIN_ATTR_ATOMIC);
 
 	if (atomic_domain) {
 		arm_smmu_power_off_atomic(smmu->pwr);
@@ -1459,7 +1461,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	phys_addr_t phys_soft;
 	uint64_t pte;
 	bool non_fatal_fault = !!(smmu_domain->attributes &
-					(1 << DOMAIN_ATTR_NON_FATAL_FAULTS));
+					(1ULL << DOMAIN_ATTR_NON_FATAL_FAULTS));
 
 	static DEFINE_RATELIMIT_STATE(_rs,
 				      DEFAULT_RATELIMIT_INTERVAL,
@@ -1762,16 +1764,16 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	} else
 		reg |= SCTLR_SHCFG_NSH << SCTLR_SHCFG_SHIFT;
 
-	if (attributes & (1 << DOMAIN_ATTR_CB_STALL_DISABLE)) {
+	if (attributes & (1ULL << DOMAIN_ATTR_CB_STALL_DISABLE)) {
 		reg &= ~SCTLR_CFCFG;
 		reg |= SCTLR_HUPCF;
 	}
 
-	if (attributes & (1 << DOMAIN_ATTR_NO_CFRE))
+	if (attributes & (1ULL << DOMAIN_ATTR_NO_CFRE))
 		reg &= ~SCTLR_CFRE;
 
-	if ((!(attributes & (1 << DOMAIN_ATTR_S1_BYPASS)) &&
-	     !(attributes & (1 << DOMAIN_ATTR_EARLY_MAP))) || !stage1)
+	if ((!(attributes & (1ULL << DOMAIN_ATTR_S1_BYPASS)) &&
+	     !(attributes & (1ULL << DOMAIN_ATTR_EARLY_MAP))) || !stage1)
 		reg |= SCTLR_M;
 	if (stage1)
 		reg |= SCTLR_S1_ASIDPNE;
@@ -1883,9 +1885,9 @@ static int arm_smmu_adjust_domain_geometry(struct device *dev,
 static int arm_smmu_get_dma_cookie(struct device *dev,
 				    struct arm_smmu_domain *smmu_domain)
 {
-	int is_fast = !!(smmu_domain->attributes & (1 << DOMAIN_ATTR_FAST));
+	int is_fast = !!(smmu_domain->attributes & (1ULL << DOMAIN_ATTR_FAST));
 	int s1_bypass = !!(smmu_domain->attributes &
-			   (1 << DOMAIN_ATTR_S1_BYPASS));
+			   (1ULL << DOMAIN_ATTR_S1_BYPASS));
 	struct iommu_domain *domain = &smmu_domain->domain.iommu_domain;
 	struct io_pgtable_ops *pgtbl_ops = smmu_domain->pgtbl_ops;
 
@@ -1916,11 +1918,11 @@ static void arm_smmu_domain_get_qcom_quirks(struct arm_smmu_domain *smmu_domain,
 					    struct arm_smmu_device *smmu,
 					    unsigned long *quirks)
 {
-	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_USE_UPSTREAM_HINT))
+	if (smmu_domain->attributes & (1ULL << DOMAIN_ATTR_USE_UPSTREAM_HINT))
 		*quirks |= IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT;
 	if (is_iommu_pt_coherent(smmu_domain))
 		*quirks |= IO_PGTABLE_QUIRK_NO_DMA;
-	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_USE_LLC_NWA))
+	if (smmu_domain->attributes & (1ULL << DOMAIN_ATTR_USE_LLC_NWA))
 		*quirks |= IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA;
 }
 
@@ -2099,7 +2101,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	}
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
-	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_FAST))
+	if (smmu_domain->attributes & (1ULL << DOMAIN_ATTR_FAST))
 		fmt = ARM_V8L_FAST;
 #endif
 
@@ -2573,8 +2575,9 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
-	int dynamic = smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC);
-	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
+	int dynamic = smmu_domain->attributes & (1ULL << DOMAIN_ATTR_DYNAMIC);
+	int atomic_domain = smmu_domain->attributes &
+		(1ULL << DOMAIN_ATTR_ATOMIC);
 
 	if (dynamic)
 		return;
@@ -2691,7 +2694,7 @@ static void arm_smmu_prealloc_memory(struct arm_smmu_domain *smmu_domain,
 	u32 nr = 0;
 	struct page *page;
 
-	if ((smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC)) ||
+	if ((smmu_domain->attributes & (1ULL << DOMAIN_ATTR_ATOMIC)) ||
 			arm_smmu_has_secure_vmid(smmu_domain))
 		return;
 
@@ -2880,7 +2883,8 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
 	struct arm_smmu_device *smmu;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
+	int atomic_domain = smmu_domain->attributes &
+		(1ULL << DOMAIN_ATTR_ATOMIC);
 	int s1_bypass = 0;
 
 	if (!fwspec || fwspec->ops != &arm_smmu_ops.iommu_ops) {
@@ -3517,17 +3521,17 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		break;
 	case DOMAIN_ATTR_DYNAMIC:
 		*((int *)data) = !!(smmu_domain->attributes
-					& (1 << DOMAIN_ATTR_DYNAMIC));
+					& (1ULL << DOMAIN_ATTR_DYNAMIC));
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_NON_FATAL_FAULTS:
 		*((int *)data) = !!(smmu_domain->attributes
-				    & (1 << DOMAIN_ATTR_NON_FATAL_FAULTS));
+				    & (1ULL << DOMAIN_ATTR_NON_FATAL_FAULTS));
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_S1_BYPASS:
 		*((int *)data) = !!(smmu_domain->attributes
-				    & (1 << DOMAIN_ATTR_S1_BYPASS));
+				    & (1ULL << DOMAIN_ATTR_S1_BYPASS));
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_SECURE_VMID:
@@ -3537,7 +3541,7 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	case DOMAIN_ATTR_PGTBL_INFO: {
 		struct iommu_pgtbl_info *info = data;
 
-		if (!(smmu_domain->attributes & (1 << DOMAIN_ATTR_FAST))) {
+		if (!(smmu_domain->attributes & (1ULL << DOMAIN_ATTR_FAST))) {
 			ret = -ENODEV;
 			break;
 		}
@@ -3547,27 +3551,27 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	}
 	case DOMAIN_ATTR_FAST:
 		*((int *)data) = !!(smmu_domain->attributes
-					& (1 << DOMAIN_ATTR_FAST));
+					& (1ULL << DOMAIN_ATTR_FAST));
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
 		*((int *)data) = !!(smmu_domain->attributes &
-				   (1 << DOMAIN_ATTR_USE_UPSTREAM_HINT));
+				   (1ULL << DOMAIN_ATTR_USE_UPSTREAM_HINT));
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_USE_LLC_NWA:
 		*((int *)data) = !!(smmu_domain->attributes &
-				   (1 << DOMAIN_ATTR_USE_LLC_NWA));
+				   (1ULL << DOMAIN_ATTR_USE_LLC_NWA));
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_EARLY_MAP:
 		*((int *)data) = !!(smmu_domain->attributes
-				    & (1 << DOMAIN_ATTR_EARLY_MAP));
+				    & (1ULL << DOMAIN_ATTR_EARLY_MAP));
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_BITMAP_IOVA_ALLOCATOR:
 		*((int *)data) = !!(smmu_domain->attributes
-				& (1 << DOMAIN_ATTR_BITMAP_IOVA_ALLOCATOR));
+				& (1ULL << DOMAIN_ATTR_BITMAP_IOVA_ALLOCATOR));
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT:
@@ -3580,22 +3584,22 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		break;
 	case DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT:
 		*((int *)data) = !!(smmu_domain->attributes
-			& (1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT));
+			& (1ULL << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT));
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_CB_STALL_DISABLE:
 		*((int *)data) = !!(smmu_domain->attributes
-			& (1 << DOMAIN_ATTR_CB_STALL_DISABLE));
+			& (1ULL << DOMAIN_ATTR_CB_STALL_DISABLE));
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_NO_CFRE:
 		*((int *)data) = !!(smmu_domain->attributes
-			& (1 << DOMAIN_ATTR_NO_CFRE));
+			& (1ULL << DOMAIN_ATTR_NO_CFRE));
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_DEBUG:
 		*((int *)data) = !!(smmu_domain->attributes &
-				    (1 << DOMAIN_ATTR_DEBUG));
+				    (1ULL << DOMAIN_ATTR_DEBUG));
 		ret = 0;
 		break;
 	default:
@@ -3652,9 +3656,10 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		}
 
 		if (dynamic)
-			smmu_domain->attributes |= 1 << DOMAIN_ATTR_DYNAMIC;
+			smmu_domain->attributes |= 1ULL << DOMAIN_ATTR_DYNAMIC;
 		else
-			smmu_domain->attributes &= ~(1 << DOMAIN_ATTR_DYNAMIC);
+			smmu_domain->attributes &=
+				~(1ULL << DOMAIN_ATTR_DYNAMIC);
 		ret = 0;
 		break;
 	}
@@ -3665,7 +3670,8 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 			break;
 		}
 		/* ... and it can only be set for dynamic contexts. */
-		if (!(smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC))) {
+		if (!(smmu_domain->attributes &
+			(1ULL << DOMAIN_ATTR_DYNAMIC))) {
 			ret = -EINVAL;
 			break;
 		}
@@ -3679,10 +3685,10 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 
 		if (non_fatal_faults)
 			smmu_domain->attributes |=
-					1 << DOMAIN_ATTR_NON_FATAL_FAULTS;
+					1ULL << DOMAIN_ATTR_NON_FATAL_FAULTS;
 		else
 			smmu_domain->attributes &=
-					~(1 << DOMAIN_ATTR_NON_FATAL_FAULTS);
+					~(1ULL << DOMAIN_ATTR_NON_FATAL_FAULTS);
 		ret = 0;
 		break;
 	}
@@ -3695,10 +3701,11 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 			break;
 		}
 		if (bypass)
-			smmu_domain->attributes |= 1 << DOMAIN_ATTR_S1_BYPASS;
+			smmu_domain->attributes |=
+				1ULL << DOMAIN_ATTR_S1_BYPASS;
 		else
 			smmu_domain->attributes &=
-					~(1 << DOMAIN_ATTR_S1_BYPASS);
+					~(1ULL << DOMAIN_ATTR_S1_BYPASS);
 
 		ret = 0;
 		break;
@@ -3713,9 +3720,10 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 			break;
 		}
 		if (atomic_ctx)
-			smmu_domain->attributes |= (1 << DOMAIN_ATTR_ATOMIC);
+			smmu_domain->attributes |= (1ULL << DOMAIN_ATTR_ATOMIC);
 		else
-			smmu_domain->attributes &= ~(1 << DOMAIN_ATTR_ATOMIC);
+			smmu_domain->attributes &=
+				~(1ULL << DOMAIN_ATTR_ATOMIC);
 		break;
 	}
 	case DOMAIN_ATTR_SECURE_VMID:
@@ -3735,9 +3743,9 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		if (*((int *)data)) {
 			if (IS_ENABLED(CONFIG_IOMMU_IO_PGTABLE_FAST)) {
 				smmu_domain->attributes |=
-					1 << DOMAIN_ATTR_FAST;
+					1ULL << DOMAIN_ATTR_FAST;
 				smmu_domain->attributes |=
-					1 << DOMAIN_ATTR_ATOMIC;
+					1ULL << DOMAIN_ATTR_ATOMIC;
 				ret = 0;
 			} else {
 				ret = -ENOTSUPP;
@@ -3781,7 +3789,7 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 		ret = 0;
 		if (early_map) {
 			smmu_domain->attributes |=
-						1 << DOMAIN_ATTR_EARLY_MAP;
+						1ULL << DOMAIN_ATTR_EARLY_MAP;
 		} else {
 			if (smmu_domain->smmu)
 				ret = arm_smmu_enable_s1_translations(
@@ -3789,7 +3797,7 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 
 			if (!ret)
 				smmu_domain->attributes &=
-					~(1 << DOMAIN_ATTR_EARLY_MAP);
+					~(1ULL << DOMAIN_ATTR_EARLY_MAP);
 		}
 		break;
 	}
@@ -3811,11 +3819,12 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 				ret = -EBUSY;
 			} else if (force_coherent) {
 				smmu_domain->attributes |=
-				1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT;
+				1ULL << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT;
 				ret = 0;
 			} else {
 				smmu_domain->attributes &=
-				~(1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT);
+				~(1ULL <<
+				  DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT);
 				ret = 0;
 			}
 		} else {
@@ -3827,9 +3836,9 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 		int is_debug_domain = *((int *)data);
 
 		if (is_debug_domain)
-			smmu_domain->attributes |= 1 << DOMAIN_ATTR_DEBUG;
+			smmu_domain->attributes |= 1ULL << DOMAIN_ATTR_DEBUG;
 		else
-			smmu_domain->attributes &= ~(1 << DOMAIN_ATTR_DEBUG);
+			smmu_domain->attributes &= ~(1ULL << DOMAIN_ATTR_DEBUG);
 		ret = 0;
 		break;
 	}
@@ -4374,7 +4383,7 @@ static int arm_smmu_init_interconnect(struct arm_smmu_power_resources *pwr)
 	pwr->icc_path = of_icc_get(dev, NULL);
 	if (IS_ERR_OR_NULL(pwr->icc_path)) {
 		if (PTR_ERR(pwr->icc_path) != -EPROBE_DEFER)
-			dev_err(dev, "Unable to read interconnect path from devicetree rc: %d\n",
+			dev_err(dev, "Unable to read interconnect path from devicetree rc: %ld\n",
 				PTR_ERR(pwr->icc_path));
 		return pwr->icc_path ? PTR_ERR(pwr->icc_path) : -EINVAL;
 	}
