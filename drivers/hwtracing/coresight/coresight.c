@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, 2019 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -14,6 +14,7 @@
 #include <linux/stringhash.h>
 #include <linux/mutex.h>
 #include <linux/clk.h>
+#include <dt-bindings/clock/qcom,aop-qmp.h>
 #include <linux/coresight.h>
 #include <linux/of_platform.h>
 #include <linux/delay.h>
@@ -1194,6 +1195,14 @@ struct coresight_device *coresight_register(struct coresight_desc *desc)
 	int nr_refcnts = 1;
 	atomic_t *refcnts = NULL;
 	struct coresight_device *csdev;
+	struct clk *pclk;
+
+	pclk = clk_get(desc->dev, "apb_pclk");
+	if (!IS_ERR(pclk)) {
+		ret = clk_set_rate(pclk, QDSS_CLK_LEVEL_DYNAMIC);
+		if (ret)
+			dev_err(desc->dev, "clk set rate failed\n");
+	}
 
 	csdev = kzalloc(sizeof(*csdev), GFP_KERNEL);
 	if (!csdev) {
@@ -1317,12 +1326,16 @@ static inline int coresight_search_device_idx(struct coresight_dev_list *dict,
  * duplicate indices for the same device (e.g, if we defer probing of
  * a device due to dependencies), in case the index is requested again.
  */
-char *coresight_alloc_device_name(struct coresight_dev_list *dict,
+const char *coresight_alloc_device_name(struct coresight_dev_list *dict,
 				  struct device *dev)
 {
 	int idx;
-	char *name = NULL;
+	const char *name = NULL;
 	struct fwnode_handle **list;
+	struct device_node *node = dev->of_node;
+
+	if (!of_property_read_string(node, "coresight-name", &name))
+		return name;
 
 	mutex_lock(&coresight_mutex);
 
