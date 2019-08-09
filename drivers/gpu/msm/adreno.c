@@ -2055,12 +2055,16 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	/* Send OOB request to turn on the GX */
 	status = gmu_core_dev_oob_set(device, oob_gpu);
-	if (status)
+	if (status) {
+		gmu_core_snapshot(device);
 		goto error_mmu_off;
+	}
 
 	status = gmu_core_dev_hfi_start_msg(device);
-	if (status)
+	if (status) {
+		gmu_core_snapshot(device);
 		goto error_oob_clear;
+	}
 
 	_set_secvid(device);
 
@@ -2310,25 +2314,14 @@ static int adreno_stop(struct kgsl_device *device)
 	error = gmu_core_dev_oob_set(device, oob_gpu);
 	if (error) {
 		gmu_core_dev_oob_clear(device, oob_gpu);
-
-		if (gmu_core_regulator_isenabled(device)) {
-			/* GPU is on. Try recovery */
-			set_bit(GMU_FAULT, &device->gmu_core.flags);
 			gmu_core_snapshot(device);
 			error = -EINVAL;
-		}
+			goto no_gx_power;
 	}
-
-	adreno_dispatcher_stop(adreno_dev);
-
-	adreno_ringbuffer_stop(adreno_dev);
 
 	kgsl_pwrscale_update_stats(device);
 
 	adreno_irqctrl(adreno_dev, 0);
-
-	adreno_llc_deactivate_slice(adreno_dev->gpu_llc_slice);
-	adreno_llc_deactivate_slice(adreno_dev->gpuhtw_llc_slice);
 
 	/* Save active coresight registers if applicable */
 	adreno_coresight_stop(adreno_dev);
@@ -2347,7 +2340,6 @@ static int adreno_stop(struct kgsl_device *device)
 	 */
 
 	if (!error && gmu_core_dev_wait_for_lowest_idle(device)) {
-		set_bit(GMU_FAULT, &device->gmu_core.flags);
 		gmu_core_snapshot(device);
 		/*
 		 * Assume GMU hang after 10ms without responding.
@@ -2359,6 +2351,17 @@ static int adreno_stop(struct kgsl_device *device)
 	}
 
 	adreno_clear_pending_transactions(device);
+
+no_gx_power:
+	adreno_dispatcher_stop(adreno_dev);
+
+	adreno_ringbuffer_stop(adreno_dev);
+
+	if (!IS_ERR_OR_NULL(adreno_dev->gpu_llc_slice))
+		llcc_slice_deactivate(adreno_dev->gpu_llc_slice);
+
+	if (!IS_ERR_OR_NULL(adreno_dev->gpuhtw_llc_slice))
+		llcc_slice_deactivate(adreno_dev->gpuhtw_llc_slice);
 
 	/*
 	 * The halt is not cleared in the above function if we have GBIF.
