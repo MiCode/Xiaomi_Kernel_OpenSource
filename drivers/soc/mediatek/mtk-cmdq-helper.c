@@ -774,8 +774,8 @@ int cmdq_pkt_write_mask(struct cmdq_pkt *pkt, u32 value,
 	int err = 0;
 
 	if (mask != 0xffffffff) {
-		err = cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(mask),
-			CMDQ_GET_ARG_B(mask), 0, 0, CMDQ_IMMEDIATE_VALUE,
+		err = cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(~mask),
+			CMDQ_GET_ARG_B(~mask), 0, 0, CMDQ_IMMEDIATE_VALUE,
 			CMDQ_IMMEDIATE_VALUE, CMDQ_IMMEDIATE_VALUE,
 			CMDQ_CODE_MASK);
 		offset |= CMDQ_WRITE_ENABLE_MASK;
