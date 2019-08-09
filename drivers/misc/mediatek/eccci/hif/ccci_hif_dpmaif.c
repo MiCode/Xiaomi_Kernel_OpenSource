@@ -86,6 +86,13 @@ TRACE_EVENT(ccci_skb_rx,
 
 static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 {
+	if (hif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWROFF
+		|| hif_ctrl->dpmaif_state == HIFDPMAIF_STATE_MIN) {
+		CCCI_MEM_LOG_TAG(hif_ctrl->md_id, TAG,
+			"DPMAIF not power on, skip dump\n");
+		return;
+	}
+
 	CCCI_BUF_LOG_TAG(hif_ctrl->md_id, buf_type, TAG,
 		"dump AP DPMAIF Tx pdn register\n");
 	ccci_util_mem_dump(hif_ctrl->md_id, buf_type,
