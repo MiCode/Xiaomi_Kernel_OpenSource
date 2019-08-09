@@ -2517,6 +2517,15 @@
 		memory-region = <&pil_video_mem>;
 	};
 
+	qfprom: qfprom@780000 {
+		compatible = "qcom,qfprom";
+		reg = <0x00786018 0x4>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		read-only;
+		ranges;
+	};
+
 	slim_aud: slim@62ec0000 {
 		cell-index = <1>;
 		compatible = "qcom,slim-ngd";
