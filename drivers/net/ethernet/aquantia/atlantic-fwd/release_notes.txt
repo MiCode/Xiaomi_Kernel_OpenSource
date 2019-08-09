@@ -1,3 +1,13 @@
+Version 1.0.20
+==============
+net: aquantia: Re-initialize fwd rings on driver resume
+Do entire suspend from dev_pm_ops->suspend() (AQ052)
+Prevent atl_update_global_stats() calls when suspended (AQ056) (ATLDRV-1021)
+Implement thermal throttling (ATLDRV-1009)
+Add log message when high temperature treshold is reached (ATLDRV-998))
+Implement FW heartbeat watchdog (AQ010) (ATLDRV-502)
+Workaround checksum offload bugs (ATLDRV-1013)
+
 Version 1.0.19
 ==============
 Fix freeing of buf vaddr vector in FWD API (AQ050)
