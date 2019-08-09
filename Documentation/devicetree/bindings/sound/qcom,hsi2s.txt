@@ -15,8 +15,16 @@ Required properties:
  - interrupts : Interrupt number used by this interface
  - clocks : Core clocks used by this interface
  - clock-names : Clock names for each core clock
- - bit-clock-hz : Default bit clock frequency in hertz
- - interrupt-interval-ms : Default interrupt interval in milliseconds
+
+Optional properties:
+
+ - number-of-rate-detectors : Number of rate detectors to enable
+			      0 - Doesn't enable rate detectors
+			      1 - Enables primary rate detector
+			      2 - Enables both primary and secondary
+				  rate detectors
+ - rate-detector-interfaces : Specifies the minor number of the interfaces
+			      to have rate detection enabled
 
 * HS-I2S interface nodes
 
@@ -33,6 +41,11 @@ Required properties:
  - pinctrl-x : Defines pinctrl state for each pin group
  - iommus: The phandle and stream IDs for the SMMU used by this root
  - qcom,iova-mapping: Specifies the start address and size of iova space
+ - bit-clock-hz : Default bit clock frequency in hertz
+ - data-buffer-ms : Default periodic interrupt interval in milliseconds
+ - bit-depth : Bit depth of the I2S data
+ - spkr-channel-count : Number of speaker channels
+ - mic-channel-count : Number of mic channels
 
 Optional properties:
 
@@ -54,6 +67,8 @@ hsi2s: qcom,hsi2s {
 	clock-names = "core_clk", "wr0_mem_clk",
 		      "wr1_mem_clk", "wr2_mem_clk",
 		      "csr_hclk";
+	number-of-rate-detectors = <2>;
+	rate-detector-interfaces = <0 1>;
 
 	sdr0: qcom,hs0_i2s {
 		compatible = "qcom,hsi2s-interface";
@@ -68,6 +83,11 @@ hsi2s: qcom,hsi2s {
 		iommus = <&apps_smmu 0x035C 0x0>;
 		qcom,smmu-s1-bypass;
 		qcom,iova-mapping = <0x0 0xFFFFFFFF>;
+		bit-clock-hz = <12288000>;
+		data-buffer-ms = <10>;
+		bit-depth = <32>;
+		spkr-channel-count = <2>;
+		mic-channel-count = <2>;
 	};
 
 	sdr1: qcom,hs1_i2s {
@@ -83,5 +103,10 @@ hsi2s: qcom,hsi2s {
 		iommus = <&apps_smmu 0x035D 0x0>;
 		qcom,smmu-s1-bypass;
 		qcom,iova-mapping = <0x0 0xFFFFFFFF>;
+		bit-clock-hz = <12288000>;
+		data-buffer-ms = <10>;
+		bit-depth = <32>;
+		spkr-channel-count = <2>;
+		mic-channel-count = <2>;
 	};
 };
