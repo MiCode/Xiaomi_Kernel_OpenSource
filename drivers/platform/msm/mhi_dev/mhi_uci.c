@@ -225,7 +225,10 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
 		NULL,
-		NULL
+		NULL,
+		NULL,
+		false,
+		true
 	},
 	{
 		MHI_CLIENT_DUN_IN,
@@ -245,7 +248,11 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
 		mhi_uci_adb_client_cb,
-		NULL
+		NULL,
+		NULL,
+		NULL,
+		false,
+		true
 	},
 	{
 		MHI_CLIENT_ADB_IN,
@@ -975,6 +982,24 @@ static int mhi_state_uevent(struct device *dev, struct kobj_uevent_env *env)
 	nbytes = 0;
 	mhi_parse_state(buf, &nbytes, info);
 	add_uevent_var(env, "MHI_CHANNEL_STATE_12=%s", buf);
+
+	rc = mhi_ctrl_state_info(MHI_CLIENT_DUN_OUT, &info);
+	if (rc) {
+		pr_err("Failed to obtain channel 32 state\n");
+		return -EINVAL;
+	}
+	nbytes = 0;
+	mhi_parse_state(buf, &nbytes, info);
+	add_uevent_var(env, "MHI_CHANNEL_STATE_32=%s", buf);
+
+	rc = mhi_ctrl_state_info(MHI_CLIENT_ADB_OUT, &info);
+	if (rc) {
+		pr_err("Failed to obtain channel 36 state\n");
+		return -EINVAL;
+	}
+	nbytes = 0;
+	mhi_parse_state(buf, &nbytes, info);
+	add_uevent_var(env, "MHI_CHANNEL_STATE_36=%s", buf);
 
 	return 0;
 }
