@@ -2223,11 +2223,13 @@ static inline bool adreno_try_soft_reset(struct kgsl_device *device, int fault)
 
 	/*
 	 * Do not do soft reset for a IOMMU fault (because the IOMMU hardware
-	 * needs a reset too) or for the A304 because it can't do SMMU
-	 * programming of any kind after a soft reset
+	 * needs a reset too) and also for below gpu
+	 * A304: It can't do SMMU programming of any kind after a soft reset
+	 * A612: IPC protocol between RGMU and CP will not restart after reset
 	 */
 
-	if ((fault & ADRENO_IOMMU_PAGE_FAULT) || adreno_is_a304(adreno_dev))
+	if ((fault & ADRENO_IOMMU_PAGE_FAULT) || adreno_is_a304(adreno_dev) ||
+			adreno_is_a612(adreno_dev))
 		return false;
 
 	return true;
