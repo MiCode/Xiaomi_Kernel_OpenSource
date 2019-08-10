@@ -75,7 +75,7 @@
 #define DIAG_CON_UPD_WLAN		(0x1000) /*Bit mask for WLAN PD*/
 #define DIAG_CON_UPD_AUDIO		(0x2000) /*Bit mask for AUDIO PD*/
 #define DIAG_CON_UPD_SENSORS	(0x4000) /*Bit mask for SENSORS PD*/
-
+#define DIAG_CON_UPD_CHARGER	(0x8000) /* Bit mask for CHARGER PD */
 #define DIAG_CON_NONE		(0x0000)	/* Bit mask for No SS*/
 #define DIAG_CON_ALL		(DIAG_CON_APSS | DIAG_CON_MPSS \
 				| DIAG_CON_LPASS | DIAG_CON_WCNSS \
@@ -83,7 +83,8 @@
 				| DIAG_CON_CDSP | DIAG_CON_NPU)
 #define DIAG_CON_UPD_ALL	(DIAG_CON_UPD_WLAN \
 				| DIAG_CON_UPD_AUDIO \
-				| DIAG_CON_UPD_SENSORS)
+				| DIAG_CON_UPD_SENSORS \
+				| DIAG_CON_UPD_CHARGER)
 
 #define DIAG_STM_MODEM	0x01
 #define DIAG_STM_LPASS	0x02
@@ -241,9 +242,10 @@
 #define UPD_WLAN		8
 #define UPD_AUDIO		9
 #define UPD_SENSORS		10
-#define NUM_UPD			3
+#define UPD_CHARGER		11
+#define NUM_UPD			4
 
-#define MAX_PERIPHERAL_UPD			2
+#define MAX_PERIPHERAL_UPD			3
 /* Number of sessions possible in Memory Device Mode. +1 for Apps data */
 #define NUM_MD_SESSIONS		(NUM_PERIPHERALS \
 					+ NUM_UPD + 1)
