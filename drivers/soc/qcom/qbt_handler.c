@@ -109,13 +109,13 @@ static void qbt_add_touch_event(struct touch_event *evt)
 	event.touch_valid = true;
 	switch (evt->type) {
 	case 'D':
-		event.state = 1;
+		event.state = QBT_EVENT_FINGER_DOWN;
 		break;
 	case 'U':
-		event.state = 0;
+		event.state = QBT_EVENT_FINGER_UP;
 		break;
 	case 'M':
-		event.state = 2;
+		event.state = QBT_EVENT_FINGER_MOVE;
 		break;
 	default:
 		pr_err("Invalid touch event type\n");
@@ -132,7 +132,8 @@ static void qbt_radius_filter(struct touch_event *evt)
 {
 	struct qbt_drvdata *drvdata = drvdata_g;
 	struct fd_event event;
-	int fifo_len = 0, last_x = 0, last_y = 0, last_state = 0,
+	int fifo_len = 0, last_x = 0, last_y = 0,
+			last_state = QBT_EVENT_FINGER_UP,
 			delta_x = 0, delta_y = 0, i = 0;
 
 	fifo_len = kfifo_len(&drvdata->fd_events);
@@ -148,7 +149,8 @@ static void qbt_radius_filter(struct touch_event *evt)
 			kfifo_put(&drvdata->fd_events, event);
 		}
 	}
-	if (last_state == 1 || last_state == 3) {
+	if (last_state == QBT_EVENT_FINGER_DOWN ||
+			last_state == QBT_EVENT_FINGER_MOVE) {
 		delta_x = abs(last_x - evt->x);
 		delta_y = abs(last_y - evt->y);
 		if (delta_x > drvdata->touch_config.rad_x ||
@@ -768,7 +770,7 @@ static void qbt_fd_report_event(struct qbt_drvdata *drvdata, int state)
 	drvdata->fd_gpio.event_reported = 1;
 	drvdata->fd_gpio.last_gpio_state = state;
 
-	event.state = state ? 1 : 2;
+	event.state = state;
 	event.touch_valid = false;
 	do_gettimeofday(&event.timestamp);
 
@@ -796,7 +798,8 @@ static void qbt_gpio_work_func(struct work_struct *work)
 
 	drvdata = container_of(work, struct qbt_drvdata, fd_gpio.work);
 
-	state = (__gpio_get_value(drvdata->fd_gpio.gpio) ? 1 : 0)
+	state = (__gpio_get_value(drvdata->fd_gpio.gpio) ?
+			QBT_EVENT_FINGER_DOWN : QBT_EVENT_FINGER_UP)
 			^ drvdata->fd_gpio.active_low;
 
 	qbt_fd_report_event(drvdata, state);
