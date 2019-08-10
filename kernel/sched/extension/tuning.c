@@ -183,15 +183,10 @@ void set_sched_rotation_enable(bool enable)
 EXPORT_SYMBOL(set_sched_rotation_enable);
 #endif /* CONFIG_MTK_SCHED_BIG_TASK_MIGRATE */
 
-#if defined(CONFIG_CGROUPS) && defined(CONFIG_MTK_SCHED_CPU_PREFER)
-#include <linux/sched.h>
-#include "sched.h"
-#include <linux/cgroup.h>
-
+#if defined(CONFIG_CPUSETS) && defined(CONFIG_MTK_SCHED_CPU_PREFER)
 enum {
 	SCHED_NO_BOOST = 0,
 	SCHED_ALL_BOOST,
-	SCHED_FG_BOOST,
 };
 
 /*global variable for recording customer's setting type*/
@@ -202,15 +197,16 @@ int get_task_group_path(struct task_group *tg, char *buf, size_t buf_len)
 	return cgroup_path(tg->css.cgroup, buf, buf_len);
 }
 
-/*set sched boost type
- *@type: reference sched boost type
- *@return :success current type,else return -1
+/*
+ * set sched boost type
+ * @type: reference sched boost type
+ * @return :success current type,else return -1
  */
 int set_sched_boost_type(int type)
 {
-	if (type < SCHED_NO_BOOST || type > SCHED_FG_BOOST) {
-		pr_info("value of sched boost type should between %d-%d but your valuse is %d\n",
-		       SCHED_PREFER_NONE, SCHED_PREFER_END, type);
+	if (type < SCHED_NO_BOOST || type > SCHED_ALL_BOOST) {
+		pr_info("Sched boost type should between %d-%d but your valuse is %d\n",
+		       SCHED_NO_BOOST, SCHED_ALL_BOOST, type);
 		return -1;
 	}
 
@@ -226,51 +222,34 @@ int get_sched_boost_type(void)
 }
 EXPORT_SYMBOL(get_sched_boost_type);
 
-bool should_sched_boost(struct task_struct *task)
-{
-	static const char * const priority_list[] = {"foreground", "top-app"};
-	char group_path[256] = {0};
-	int i = 0, len = sizeof(priority_list) / sizeof(char *);
-	bool check_result = false;
-
-	get_task_group_path(task->sched_task_group, group_path, PATH_MAX);
-	for (; i < len; i++) {
-		if (strstr(group_path, priority_list[i])) {
-			check_result = true;
-			break;
-		}
-	}
-
-	return check_result;
-}
 /*
- * note:wait cpu_prefer defined
+ * get orig cpu prefer of task
  */
-int task_orig_cpu_prefer(struct task_struct *task)
+inline int task_orig_cpu_prefer(struct task_struct *task)
 {
 	return task->cpu_prefer;
 }
-/*check task's boost type
- *first priority is SCHED_ALL_BOOST. if current task is fg task &
- *current is fg_boost return prefer_big
+/*
+ * modify task's boost type
+ * first priority is SCHED_ALL_BOOST.
+ * priority: task < group < all_boost
  */
 int cpu_prefer(struct task_struct *task)
 {
 	int cpu_prefer = task_orig_cpu_prefer(task);
+	int cs_prefer = task_cs_cpu_perfer(task);
+
+	if (cpu_prefer == SCHED_PREFER_LITTLE &&
+		schedtune_task_boost(task))
+		cpu_prefer = SCHED_PREFER_NONE;
+
+	if (cs_prefer >= SCHED_PREFER_NONE && cs_prefer < SCHED_PREFER_END)
+		cpu_prefer = cs_prefer;
 
 	switch (sched_boost_type) {
 	case SCHED_ALL_BOOST:
 		cpu_prefer = SCHED_PREFER_BIG;
 		break;
-	case SCHED_FG_BOOST:
-		if (should_sched_boost(task)) {
-			cpu_prefer = SCHED_PREFER_BIG;
-			break;
-		}
-	default:
-		if (cpu_prefer == SCHED_PREFER_LITTLE &&
-			schedtune_task_boost(task))
-			cpu_prefer = SCHED_PREFER_NONE;
 	}
 
 	return cpu_prefer;
@@ -290,17 +269,11 @@ int get_sched_boost_type(void)
 	return 0;
 }
 EXPORT_SYMBOL(get_sched_boost_type);
-/*
- * note:wait cpu_prefer defined
- */
-int task_orig_cpu_prefer(struct task_struct *task)
-{
-	return 0;
-}
+
 #if defined(CONFIG_MTK_SCHED_CPU_PREFER)
 
 /*check task's boost type*/
-int cpu_prefer(struct task_struct *task)
+inline int cpu_prefer(struct task_struct *task)
 {
 	int cpu_prefer = task->cpu_prefer;
 
@@ -312,7 +285,7 @@ int cpu_prefer(struct task_struct *task)
 }
 #else
 /*check task's boost type*/
-int cpu_prefer(struct task_struct *task)
+inline int cpu_prefer(struct task_struct *task)
 {
 	return 0;
 }

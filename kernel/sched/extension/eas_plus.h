@@ -173,6 +173,13 @@ void iso_init_sched_groups_capacity(int cpu, struct sched_domain *sd);
 void iso_calc_load_migrate(struct rq *rq);
 void nohz_balance_clear_nohz_mask(int cpu);
 int set_cpu_isolation(enum iso_prio_t prio, struct cpumask *cpumask_ptr);
+
+/*
+ * for sched_boost
+ */
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+int task_cs_cpu_perfer(struct task_struct *task);
+#endif
 #endif /* CONFIG_MTK_SCHED_EXTENSION */
 
 #endif
