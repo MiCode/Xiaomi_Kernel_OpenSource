@@ -6609,6 +6609,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		/* map SMEM memory for IPA table accesses */
 		smem_addr = smem_alloc(SMEM_IPA_FILTER_TABLE, IPA_SMEM_SIZE,
 				SMEM_MODEM, 0);
+		q6_smem_size = IPA_SMEM_SIZE;
 	} else {
 		IPADBG("ipa q6 smem size = %d\n", q6_smem_size);
 		smem_addr = smem_alloc(SMEM_IPA_FILTER_TABLE, q6_smem_size,
@@ -6621,7 +6622,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		phys_addr_t pa_p;
 		u32 size_p;
 
-		IPA_SMMU_ROUND_TO_PAGE(iova, pa, IPA_SMEM_SIZE,
+		IPA_SMMU_ROUND_TO_PAGE(iova, pa, q6_smem_size,
 			iova_p, pa_p, size_p);
 		IPADBG("mapping 0x%lx to 0x%pa size %d\n",
 			iova_p, &pa_p, size_p);
