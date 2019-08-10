@@ -1060,6 +1060,88 @@ static int msm_cvp_thread_fence_run(void *data)
 		}
 		break;
 	}
+	case HFI_CMD_SESSION_CVP_FD_FRAME:
+	{
+		int in_fence_num = fence[0];
+		int out_fence_num = fence[1];
+		int start_out = in_fence_num + 1;
+
+		for (i = 1; i < in_fence_num + 1; i++) {
+			if (fence[(i<<1)]) {
+				rc = synx_import(fence[(i<<1)],
+					fence[((i<<1)+1)], &synx_obj);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_import %d failed\n",
+						__func__, i<<1);
+					goto exit;
+				}
+				rc = synx_wait(synx_obj, timeout_ms);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_wait %d failed\n",
+						__func__, i<<1);
+					goto exit;
+				}
+				rc = synx_release(synx_obj);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_release %d failed\n",
+						__func__, i<<1);
+					goto exit;
+				}
+			}
+		}
+
+		rc = call_hfi_op(hdev, session_send,
+				(void *)inst->session, in_pkt);
+		if (rc) {
+			dprintk(CVP_ERR,
+				"%s: Failed in call_hfi_op %d, %x\n",
+				__func__, in_pkt->pkt_data[0],
+				in_pkt->pkt_data[1]);
+			synx_state = SYNX_STATE_SIGNALED_ERROR;
+		}
+
+		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
+			rc = wait_for_sess_signal_receipt(inst,
+					HAL_SESSION_FD_FRAME_CMD_DONE);
+			if (rc)	{
+				dprintk(CVP_ERR,
+				"%s: wait for signal failed, rc %d\n",
+				__func__, rc);
+				synx_state = SYNX_STATE_SIGNALED_ERROR;
+			}
+		}
+
+		for (i = start_out; i <  start_out + out_fence_num; i++) {
+			if (fence[(i<<1)]) {
+				rc = synx_import(fence[(i<<1)],
+					fence[((i<<1)+1)], &synx_obj);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_import %d failed\n",
+						__func__, i<<1);
+					goto exit;
+				}
+				rc = synx_signal(synx_obj, synx_state);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_signal %d failed\n",
+						__func__, i<<1);
+					goto exit;
+				}
+				rc = synx_release(synx_obj);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_release %d failed\n",
+						__func__, i<<1);
+					goto exit;
+				}
+			}
+		}
+		break;
+	}
 	default:
 		dprintk(CVP_ERR, "%s: unknown hfi cmd type 0x%x\n",
 			__func__, fence_thread_data->arg_type);
@@ -1751,6 +1833,7 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 	case CVP_KMD_HFI_DFS_FRAME_CMD:
 	case CVP_KMD_HFI_DME_CONFIG_CMD:
 	case CVP_KMD_HFI_DME_FRAME_CMD:
+	case CVP_KMD_HFI_FD_FRAME_CMD:
 	case CVP_KMD_HFI_PERSIST_CMD:
 	{
 		struct cvp_kmd_hfi_packet *in_pkt =

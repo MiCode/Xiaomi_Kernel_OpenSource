@@ -186,6 +186,11 @@ static void _set_deprecate_bitmask(struct cvp_kmd_arg *kp,
 		set_bit(DME_BIT_OFFSET, &inst->deprecate_bitmask);
 		break;
 	}
+	case CVP_KMD_HFI_FD_FRAME_CMD:
+	{
+		set_bit(FD_BIT_OFFSET, &inst->deprecate_bitmask);
+		break;
+	}
 	default:
 		break;
 	}
@@ -351,6 +356,7 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 	case CVP_KMD_HFI_DME_CONFIG_CMD:
 	case CVP_KMD_HFI_DME_FRAME_CMD:
 	case CVP_KMD_HFI_PERSIST_CMD:
+	case CVP_KMD_HFI_FD_FRAME_CMD:
 	{
 		if (_get_pkt_hdr_from_user(up, &pkt_hdr)) {
 			dprintk(CVP_ERR, "Invalid syscall: %x, %x, %x\n",
@@ -547,6 +553,7 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 	case CVP_KMD_HFI_DME_FRAME_CMD_RESPONSE:
 	case CVP_KMD_HFI_PERSIST_CMD:
 	case CVP_KMD_HFI_PERSIST_CMD_RESPONSE:
+	case CVP_KMD_HFI_FD_FRAME_CMD:
 	{
 		if (_get_pkt_hdr_from_user(up, &pkt_hdr))
 			return -EFAULT;

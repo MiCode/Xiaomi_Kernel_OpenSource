@@ -367,6 +367,11 @@ int set_feature_bitmask(int pkt_idx, unsigned long *bitmask)
 		return 0;
 	}
 
+	if (cvp_hfi_defs[pkt_idx].type == HFI_CMD_SESSION_CVP_FD_FRAME) {
+		set_bit(FD_BIT_OFFSET, bitmask);
+		return 0;
+	}
+
 	dprintk(CVP_ERR, "%s: invalid pkt_idx %d\n", __func__, pkt_idx);
 	return -EINVAL;
 }
@@ -3048,6 +3053,7 @@ static void **get_session_id(struct msm_cvp_cb_info *info)
 	case HAL_SESSION_DFS_FRAME_CMD_DONE:
 	case HAL_SESSION_DME_FRAME_CMD_DONE:
 	case HAL_SESSION_ICA_FRAME_CMD_DONE:
+	case HAL_SESSION_FD_FRAME_CMD_DONE:
 	case HAL_SESSION_PERSIST_CMD_DONE:
 	case HAL_SESSION_FD_CONFIG_CMD_DONE:
 	case HAL_SESSION_MODEL_BUF_CMD_DONE:
