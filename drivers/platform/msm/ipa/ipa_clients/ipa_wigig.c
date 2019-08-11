@@ -71,8 +71,10 @@ struct ipa_wigig_pipe_values {
 	uint8_t dir;
 	uint8_t tx_ring_id;
 	uint32_t desc_ring_HWHEAD;
+	uint16_t desc_ring_HWHEAD_masked;
 	uint32_t desc_ring_HWTAIL;
 	uint32_t status_ring_HWHEAD;
+	uint16_t status_ring_HWHEAD_masked;
 	uint32_t status_ring_HWTAIL;
 };
 
@@ -1059,6 +1061,9 @@ int ipa_wigig_save_regs(void)
 	for (i = 0; i < IPA_WIGIG_MAX_PIPES; i++) {
 		pipe_connected = (ipa_wigig_ctx->conn_pipes & (0x1 << i));
 		if (pipe_connected) {
+			uint32_t mask;
+			uint8_t shift;
+
 			ret = ipa_wigig_get_regs_addr(
 				&desc_ring_h, &desc_ring_t,
 				&status_ring_h, &status_ring_t, i);
@@ -1083,12 +1088,38 @@ int ipa_wigig_save_regs(void)
 			readval = readl_relaxed(desc_ring_h);
 			ipa_wigig_ctx->regs_save.pipes_val[i].desc_ring_HWHEAD =
 				readval;
+			/* HWHEAD LSbs are for even IDs, MSbs for odd IDs */
+			if (i != IPA_CLIENT_WIGIG_PROD_IDX) {
+				mask = 0xFFFF0000;
+				shift = 16;
+
+				if ((ipa_wigig_ctx->regs_save.pipes_val[i]
+					.tx_ring_id % 2) == 0) {
+					mask = 0x0000FFFF;
+					shift = 0;
+				}
+				ipa_wigig_ctx->regs_save.pipes_val[i]
+					.desc_ring_HWHEAD_masked =
+					(readval & mask) >> shift;
+			}
 			readval = readl_relaxed(desc_ring_t);
 			ipa_wigig_ctx->regs_save.pipes_val[i].desc_ring_HWTAIL =
 				readval;
 			readval = readl_relaxed(status_ring_h);
 			ipa_wigig_ctx->regs_save.pipes_val[i]
 				.status_ring_HWHEAD = readval;
+			/* two status rings, MSbs for RX LSbs for TX */
+			if (i == IPA_CLIENT_WIGIG_PROD_IDX) {
+				mask = 0xFFFF0000;
+				shift = 16;
+			} else {
+				mask = 0x0000FFFF;
+				shift = 0;
+			}
+			ipa_wigig_ctx->regs_save.pipes_val[i]
+				.status_ring_HWHEAD_masked =
+				(readval & mask) >> shift;
+
 			readval = readl_relaxed(status_ring_t);
 			ipa_wigig_ctx->regs_save.pipes_val[i]
 				.status_ring_HWTAIL = readval;
