@@ -1174,6 +1174,8 @@
 		interrupts = <0 170 0>;
 		clocks = <&clock_camcc CAM_CC_CSIPHY0_CLK>;
 		clock-names = "csiphy0_clk";
+		clock-cntl-level = "svs";
+		clock-rates = <0>;
 		status = "ok";
 	};
 
@@ -1187,6 +1189,8 @@
 		interrupts = <0 171 0>;
 		clocks = <&clock_camcc CAM_CC_CSIPHY1_CLK>;
 		clock-names = "csiphy1_clk";
+		clock-cntl-level = "svs";
+		clock-rates = <0>;
 		status = "ok";
 	};
 
@@ -1200,6 +1204,8 @@
 		interrupts = <0 172 0>;
 		clocks = <&clock_camcc CAM_CC_CSIPHY2_CLK>;
 		clock-names = "csiphy2_clk";
+		clock-cntl-level = "svs";
+		clock-rates = <0>;
 		status = "ok";
 	};
 
@@ -1213,6 +1219,8 @@
 		interrupts = <0 173 0>;
 		clocks = <&clock_camcc CAM_CC_CSIPHY3_CLK>;
 		clock-names = "csiphy3_clk";
+		clock-cntl-level = "svs";
+		clock-rates = <0>;
 		status = "ok";
 	};
 };
