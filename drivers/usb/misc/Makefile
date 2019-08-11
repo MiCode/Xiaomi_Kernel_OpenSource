@@ -34,3 +34,4 @@ obj-$(CONFIG_USB_SISUSBVGA)		+= sisusbvga/
 obj-$(CONFIG_USB_LINK_LAYER_TEST)	+= lvstest.o
 obj-$(CONFIG_USB_REDRIVER_NB7VPQ904M)	+= ssusb-redriver-nb7vpq904m.o
 obj-$(CONFIG_USB_QCOM_DIAG_BRIDGE)	+= diag_bridge.o
+obj-$(CONFIG_USB_QCOM_MDM_DATA_BRIDGE)	+= mdm_data_bridge.o

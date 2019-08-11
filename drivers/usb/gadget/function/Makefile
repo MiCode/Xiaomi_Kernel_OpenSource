@@ -71,3 +71,5 @@ usb_f_qdss-y			:= f_qdss.o u_qdss.o
 obj-$(CONFIG_USB_F_QDSS)	+= usb_f_qdss.o
 usb_f_ipc-y			:= f_ipc.o
 obj-$(CONFIG_USB_F_IPC)		+= usb_f_ipc.o
+usb_f_mdm_data-y		:= f_mdm_data.o
+obj-$(CONFIG_USB_F_MDM_DATA)	+= usb_f_mdm_data.o
