@@ -14,6 +14,7 @@
 
 #include "atoll.dtsi"
 #include "atoll-idp.dtsi"
+#include "atoll-wcd937x-idp-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. ATOLL PM6150 wcd937x Audio Codec IDP";
