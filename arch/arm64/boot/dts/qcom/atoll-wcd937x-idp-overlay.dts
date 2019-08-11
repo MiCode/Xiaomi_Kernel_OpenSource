@@ -15,6 +15,7 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "atoll-idp.dtsi"
+#include "atoll-wcd937x-idp-audio-overlay.dtsi"
 
 / {
 	model = "wcd937x Audio Codec IDP";
