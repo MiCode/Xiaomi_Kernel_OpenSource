@@ -698,8 +698,6 @@ struct msm_pcie_dev_t {
 	bool l1_2_pcipm_supported;
 	bool l1_1_aspm_supported;
 	bool l1_2_aspm_supported;
-	uint32_t l1_2_th_scale;
-	uint32_t l1_2_th_value;
 	bool common_clk_en;
 	bool clk_power_manage_en;
 	bool aux_clk_sync;
@@ -1326,10 +1324,6 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->l1_1_aspm_supported ? "" : "not");
 	PCIE_DBG_FS(dev, "l1_2_aspm_supported is %s supported\n",
 		dev->l1_2_aspm_supported ? "" : "not");
-	PCIE_DBG_FS(dev, "l1_2_th_scale is %d\n",
-		dev->l1_2_th_scale);
-	PCIE_DBG_FS(dev, "l1_2_th_value is %d\n",
-		dev->l1_2_th_value);
 	PCIE_DBG_FS(dev, "common_clk_en is %d\n",
 		dev->common_clk_en);
 	PCIE_DBG_FS(dev, "clk_power_manage_en is %d\n",
@@ -5850,41 +5844,6 @@ static void msm_pcie_config_l1ss_disable_all(struct msm_pcie_dev_t *dev,
 	}
 }
 
-static int msm_pcie_config_l1_2_threshold(struct pci_dev *pdev, void *dev)
-{
-	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)dev;
-	u32 l1ss_cap_id_offset, l1ss_ctl1_offset;
-	u32 l1_2_th_scale_shift = 29;
-	u32 l1_2_th_value_shift = 16;
-
-	/* LTR is not supported */
-	if (!pcie_dev->l1_2_th_value)
-		return 0;
-
-	PCIE_DBG(pcie_dev, "PCIe: RC%d: PCI device %02x:%02x.%01x\n",
-		pcie_dev->rc_idx, pdev->bus->number, PCI_SLOT(pdev->devfn),
-		PCI_FUNC(pdev->devfn));
-
-	l1ss_cap_id_offset = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_L1SS);
-	if (!l1ss_cap_id_offset) {
-		PCIE_DBG(pcie_dev,
-			"PCIe: RC%d: PCI device %02x:%02x.%01x could not find L1ss capability register\n",
-			pcie_dev->rc_idx, pdev->bus->number,
-			PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
-		return 0;
-	}
-
-	l1ss_ctl1_offset = l1ss_cap_id_offset + PCI_L1SS_CTL1;
-
-	msm_pcie_config_clear_set_dword(pdev, l1ss_ctl1_offset, 0,
-		(PCI_L1SS_CTL1_LTR_L12_TH_SCALE &
-		(pcie_dev->l1_2_th_scale << l1_2_th_scale_shift)) |
-		(PCI_L1SS_CTL1_LTR_L12_TH_VALUE &
-		(pcie_dev->l1_2_th_value << l1_2_th_value_shift)));
-
-	return 0;
-}
-
 static int msm_pcie_config_l1ss_enable(struct pci_dev *pdev, void *dev)
 {
 	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)dev;
@@ -5895,11 +5854,8 @@ static int msm_pcie_config_l1ss_enable(struct pci_dev *pdev, void *dev)
 
 static void msm_pcie_config_l1ss_enable_all(struct msm_pcie_dev_t *dev)
 {
-	if (dev->l1ss_supported) {
-		pci_walk_bus(dev->dev->bus, msm_pcie_config_l1_2_threshold,
-				dev);
+	if (dev->l1ss_supported)
 		pci_walk_bus(dev->dev->bus, msm_pcie_config_l1ss_enable, dev);
-	}
 }
 
 static void msm_pcie_config_link_pm(struct msm_pcie_dev_t *dev, bool enable)
@@ -6029,14 +5985,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	pcie_dev->l1_2_aspm_supported = pcie_dev->l1ss_supported;
 	pcie_dev->l1_1_pcipm_supported = pcie_dev->l1ss_supported;
 	pcie_dev->l1_2_pcipm_supported = pcie_dev->l1ss_supported;
-
-	of_property_read_u32(of_node, "qcom,l1-2-th-scale",
-				&pcie_dev->l1_2_th_scale);
-	of_property_read_u32(of_node, "qcom,l1-2-th-value",
-				&pcie_dev->l1_2_th_value);
-	PCIE_DBG(pcie_dev, "PCIe: RC%d: L1.2 threshold scale: %d value: %d.\n",
-		pcie_dev->rc_idx, pcie_dev->l1_2_th_scale,
-		pcie_dev->l1_2_th_value);
 
 	pcie_dev->common_clk_en = of_property_read_bool(of_node,
 				"qcom,common-clk-en");
