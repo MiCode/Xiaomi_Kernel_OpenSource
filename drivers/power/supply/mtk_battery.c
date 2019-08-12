@@ -476,15 +476,28 @@ static int mtk_battery_notifier(struct notifier_block *nb,
 {
 	struct battery_data *bs_data =
 		container_of(nb, struct battery_data, battery_nb);
+	struct power_supply *psy = ptr;
+	union power_supply_propval prop;
+	int ret;
 
-	pr_notice("%s: %ld\n", __func__, event);
+	/* Properties on chg_psy changed */
+	if (event == PSY_EVENT_PROP_CHANGED && psy == bs_data->chg_psy) {
+		ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_ONLINE,
+						&prop);
+		if (ret != 0) {
+			pr_notice("failed to get psy prop, ret=%d\n", ret);
+			return NOTIFY_DONE;
+		}
+		pr_notice("%s: psy=%s, online=%d\n", __func__, psy->desc->name,
+			  prop.intval);
 
-	if (event)
-		bs_data->bat_status = POWER_SUPPLY_STATUS_CHARGING;
-	else
-		bs_data->bat_status = POWER_SUPPLY_STATUS_DISCHARGING;
+		if (prop.intval)
+			bs_data->bat_status = POWER_SUPPLY_STATUS_CHARGING;
+		else
+			bs_data->bat_status = POWER_SUPPLY_STATUS_DISCHARGING;
 
-	power_supply_changed(bs_data->psy);
+		power_supply_changed(bs_data->psy);
+	}
 
 	return NOTIFY_DONE;
 }
@@ -495,6 +508,7 @@ static int battery_probe(struct platform_device *pdev)
 	struct mtk_battery *gm;
 	static int cnt;
 	int ret;
+	union power_supply_propval prop;
 
 	pr_notice("[%s]\n", __func__);
 	psy = power_supply_get_by_name("mtk-gauge");
@@ -534,23 +548,29 @@ static int battery_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	gm->bs_data.edev = extcon_get_edev_by_phandle(&pdev->dev, 0);
-	if (IS_ERR(gm->bs_data.edev)) {
-		pr_notice("couldn't get extcon device: %ld\n",
-			PTR_ERR(gm->bs_data.edev));
-		ret = PTR_ERR(gm->bs_data.edev);
+	gm->bs_data.chg_psy = devm_power_supply_get_by_phandle(&pdev->dev,
+							       "charger");
+	if (IS_ERR(gm->bs_data.chg_psy)) {
+		pr_notice("Couldn't get chg_psy\n");
+		ret = PTR_ERR(gm->bs_data.chg_psy);
 		goto err_power_supply;
 	}
 
 	gm->bs_data.battery_nb.notifier_call = mtk_battery_notifier;
-	ret = devm_extcon_register_notifier(&pdev->dev, gm->bs_data.edev,
-				EXTCON_USB, &gm->bs_data.battery_nb);
-	if (ret < 0) {
-		pr_notice("failed to register notifier for EXTCON_USB\n");
+	ret = power_supply_reg_notifier(&gm->bs_data.battery_nb);
+	if (ret) {
+		pr_notice("failed to reg notifier: %d\n", ret);
 		goto err_power_supply;
 	}
 
-	if (extcon_get_state(gm->bs_data.edev, EXTCON_USB)) {
+	ret = power_supply_get_property(gm->bs_data.chg_psy,
+					POWER_SUPPLY_PROP_ONLINE, &prop);
+	if (ret != 0) {
+		pr_notice("failed to get chg_psy prop:%d\n", ret);
+		goto err_power_supply;
+	}
+
+	if (prop.intval) {
 		gm->bs_data.bat_status = POWER_SUPPLY_STATUS_CHARGING;
 		power_supply_changed(gm->bs_data.psy);
 	}

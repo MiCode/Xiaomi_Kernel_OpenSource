@@ -8,7 +8,6 @@
 #define __MTK_BATTERY_INTF_H__
 
 #include <linux/alarmtimer.h>
-#include <linux/extcon.h>
 #include <linux/hrtimer.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/power_supply.h>
@@ -63,7 +62,7 @@ struct battery_data {
 	struct power_supply_desc psd;
 	struct power_supply_config psy_cfg;
 	struct power_supply *psy;
-	struct extcon_dev *edev;
+	struct power_supply *chg_psy;
 	struct notifier_block battery_nb;
 	int bat_status;
 	int bat_health;
