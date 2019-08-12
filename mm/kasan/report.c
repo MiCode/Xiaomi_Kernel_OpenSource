@@ -337,6 +337,10 @@ void kasan_report_invalid_free(void *object, unsigned long ip)
 	pr_err("\n");
 	print_shadow_for_address(object);
 	kasan_end_report(&flags);
+#ifdef CONFIG_MTK_MM_DEBUG
+	/* trigger KE to get the KAsan corruption message */
+	BUG();
+#endif
 }
 
 static void kasan_report_error(struct kasan_access_info *info)
@@ -357,6 +361,10 @@ static void kasan_report_error(struct kasan_access_info *info)
 	}
 
 	kasan_end_report(&flags);
+#ifdef CONFIG_MTK_MM_DEBUG
+	/* trigger KE to get the KAsan corruption message */
+	BUG();
+#endif
 }
 
 static unsigned long kasan_flags;
