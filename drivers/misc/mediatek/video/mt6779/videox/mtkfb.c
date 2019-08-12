@@ -489,7 +489,8 @@ static int _convert_fb_layer_to_disp_input(struct fb_overlay_layer *src,
 	dst->src_base_addr = src->src_base_addr;
 	dst->security = src->security;
 	dst->src_phy_addr = src->src_phy_addr;
-	DISPDBG("%s, dst->addr=0x%p\n", __func__, dst->src_phy_addr);
+	DISPDBG("%s, dst->addr=0x%lx\n", __func__,
+		(unsigned long)dst->src_phy_addr);
 
 	dst->isTdshp = src->isTdshp;
 	dst->next_buff_idx = src->next_buff_idx;
@@ -529,9 +530,10 @@ static int _convert_fb_layer_to_disp_input(struct fb_overlay_layer *src,
 	dst->layer_enable = src->layer_enable;
 	dst->ext_sel_layer = -1;
 
-	DISPDBG("%s:id=%u,en=%u,next_idx=%u,vaddr=%p,pa=%p,src,dstfmt=%u,%u\n",
+	DISPDBG("%s:id=%u,en=%u,next_idx=%u,va=%lx,pa=%lx,src,dstfmt=%u,%u\n",
 		__func__, dst->layer_id, dst->layer_enable, dst->next_buff_idx,
-		dst->src_base_addr, dst->src_phy_addr,
+		(unsigned long)dst->src_base_addr,
+		(unsigned long)dst->src_phy_addr,
 		src->src_fmt, dst->src_fmt);
 	DISPDBG("%s:pitch=%u,src(%u,%u,%ux%u),target(%u,%u,%ux%u),aen=%u\n",
 		__func__, dst->src_pitch, dst->src_offset_x, dst->src_offset_y,
@@ -569,9 +571,11 @@ static int mtkfb_pan_display_impl(struct fb_var_screeninfo *var,
 	info->var.yoffset = var->yoffset;
 	offset = var->yoffset * info->fix.line_length;
 	paStart = fb_mva + offset;
-	vaStart = info->screen_base + offset;
+	vaStart = (unsigned long)info->screen_base + offset;
 	vaEnd = vaStart + info->var.yres * info->fix.line_length;
 
+	DISPCHECK("%s:%d, va=0x%lx, pa=0x%lx\n", __func__, __LINE__,
+		  (unsigned long)vaStart, (unsigned long)paStart);
 	DISPCHECK("fb dump: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
 		  *(unsigned int *)vaStart, *(unsigned int *)(vaStart+4),
 		  *(unsigned int *)(vaStart+8), *(unsigned int *)(vaStart+0xC));
@@ -586,8 +590,8 @@ static int mtkfb_pan_display_impl(struct fb_var_screeninfo *var,
 	/* pan display use layer 0 */
 	input = &session_input->config[0];
 	input->layer_id = 0;
-	input->src_phy_addr = (void *)((unsigned long)paStart);
-	input->src_base_addr = (void *)((unsigned long)vaStart);
+	input->src_phy_addr = (unsigned long)paStart;
+	input->src_base_addr = (unsigned long)vaStart;
 	input->layer_id = primary_display_get_option("FB_LAYER");
 	input->layer_enable = 1;
 	input->src_offset_x = 0;
@@ -680,7 +684,7 @@ static void set_fb_fix(struct mtkfb_device *fbdev)
 	fix->line_length = ALIGN_TO(var->xres_virtual, MTK_FB_ALIGNMENT) *
 				var->bits_per_pixel / 8;
 	fix->smem_len = fbdev->fb_size_in_byte;
-	fix->smem_start = fbdev->fb_pa_base;
+	fix->smem_start = (unsigned long)fbdev->fb_pa_base;
 
 	fix->xpanstep = 0;
 	fix->ypanstep = 1;
@@ -867,12 +871,12 @@ static int mtkfb_set_par(struct fb_info *fbi)
 
 	fb_layer.layer_id = primary_display_get_option("FB_LAYER");
 	fb_layer.layer_enable = 1;
-	fb_layer.src_base_addr = (void *)((unsigned long)fbdev->fb_va_base +
-					var->yoffset * fbi->fix.line_length);
+	fb_layer.src_base_addr = (unsigned long)fbdev->fb_va_base +
+					var->yoffset * fbi->fix.line_length;
 	DISPDBG("fb_pa=0x%08lx,var->yoffset=%u,fbi->fix.line_length=%u\n",
 		fb_mva, var->yoffset, fbi->fix.line_length);
-	fb_layer.src_phy_addr = (void *)(fb_mva + var->yoffset *
-					 fbi->fix.line_length);
+	fb_layer.src_phy_addr = fb_mva + var->yoffset *
+					 fbi->fix.line_length;
 	fb_layer.src_direct_link = 0;
 	fb_layer.src_offset_x = fb_layer.src_offset_y = 0;
 	fb_layer.src_pitch = ALIGN_TO(var->xres, MTK_FB_ALIGNMENT);
@@ -1525,15 +1529,15 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 
 		input = &session_input.config[0];
 		input->layer_id = 0;
-		input->src_phy_addr = (void *)(unsigned long)
-					(fbdev->fb_pa_base);
+		input->src_phy_addr = (unsigned long)
+					fbdev->fb_pa_base;
 
 		input = &session_input.config[1];
 		input->layer_id = 3;
-		input->src_phy_addr = (void *)(unsigned long)
-				(fbdev->fb_pa_base +
+		input->src_phy_addr =
+				(unsigned long)fbdev->fb_pa_base +
 				 (ALIGN_TO(MTK_FB_XRES, MTK_FB_ALIGNMENT) *
-				  ALIGN_TO(MTK_FB_YRES, MTK_FB_ALIGNMENT) * 4));
+				  ALIGN_TO(MTK_FB_YRES, MTK_FB_ALIGNMENT) * 4);
 
 		session_input.setter = SESSION_USER_PANDISP;
 		primary_display_config_input_multiple(&session_input);
@@ -1925,7 +1929,7 @@ static int mtkfb_fbinfo_init(struct fb_info *info)
 	ASSERT(fbdev->fb_va_base);
 	info->fbops = &mtkfb_ops;
 	info->flags = FBINFO_FLAG_DEFAULT;
-	info->screen_base = (char *)fbdev->fb_va_base;
+	info->screen_base = (unsigned long)(fbdev->fb_va_base);
 	info->screen_size = fbdev->fb_size_in_byte;
 	info->pseudo_palette = fbdev->pseudo_palette;
 
@@ -1992,7 +1996,8 @@ static int init_framebuffer(struct fb_info *info)
 	int size;
 	struct fb_var_screeninfo *var = &info->var;
 
-	buffer = info->screen_base + var->yoffset * info->fix.line_length;
+	buffer = (unsigned long)info->screen_base + var->yoffset *
+		info->fix.line_length;
 	size = var->xres_virtual * var->yres * var->bits_per_pixel / 8;
 
 	memset_io(buffer, 0, size);
@@ -2562,8 +2567,9 @@ static int mtkfb_probe(struct platform_device *pdev)
 	fbdev->fb_size_in_byte = MTK_FB_SIZEV;
 
 	/* allocate and initialize video frame buffer */
-	DISPCHECK("[FB Driver] fbdev->fb_pa_base=0x%p,fbdev->fb_va_base=0x%p\n",
-		  &(fbdev->fb_pa_base), fbdev->fb_va_base);
+	DISPCHECK("[FB Driver] fb_pa_base=0x%lx, fb_va_base=0x%lx\n",
+		  (unsigned long)fbdev->fb_pa_base,
+		  (unsigned long)fbdev->fb_va_base);
 
 	if (!fbdev->fb_va_base) {
 		DISP_PR_ERR("unable to allocate memory for frame buffer\n");
@@ -2886,7 +2892,7 @@ int mtkfb_get_debug_state(char *stringbuf, int buf_len)
 
 	unsigned long va = (unsigned long)fbdev->fb_va_base;
 	unsigned long mva = (unsigned long)fbdev->fb_pa_base;
-	unsigned long pa = fbdev->fb_pa_base;
+	unsigned long pa = (unsigned long)fbdev->fb_pa_base;
 	unsigned int resv_size = vramsize;
 
 	len += scnprintf(stringbuf + len, buf_len - len,
