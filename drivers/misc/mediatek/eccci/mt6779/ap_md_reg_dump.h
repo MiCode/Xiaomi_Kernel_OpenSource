@@ -16,6 +16,8 @@ enum MD_REG_ID {
 	MD_REG_CSC_REG,
 	MD_REG_ELM_REG,
 	MD_REG_USIP,
+	MD_REG_AP_MDSRC_ACK,
+	MD_REG_AP_MDSRC_SETTLE,
 };
 
 void internal_md_dump_debug_register(unsigned int md_index);

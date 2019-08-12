@@ -3,6 +3,7 @@
  * Copyright (C) 2015 MediaTek Inc.
  */
 
+#include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -40,6 +41,7 @@
 #include "ccci_platform.h"
 
 #include "md_sys1_platform.h"
+#include "modem_secure_base.h"
 #include "modem_reg_base.h"
 #include "ap_md_reg_dump.h"
 
@@ -333,7 +335,24 @@ void md_cd_lock_cldma_clock_src(int locked)
 
 void md_cd_lock_modem_clock_src(int locked)
 {
-	spm_ap_mdsrc_req(locked);
+	size_t ret;
+
+	/* spm_ap_mdsrc_req(locked); */
+	mt_secure_call(MTK_SIP_KERNEL_CCCI_GET_INFO,
+		       MD_REG_AP_MDSRC_REQ, locked, 0, 0, 0, 0, 0);
+	if (locked) {
+		int settle =
+			mt_secure_call(MTK_SIP_KERNEL_CCCI_GET_INFO,
+				       MD_REG_AP_MDSRC_SETTLE, 0, 0, 0,
+				       0, 0, 0);
+		mdelay(settle);
+		ret = mt_secure_call(MTK_SIP_KERNEL_CCCI_GET_INFO,
+			       MD_REG_AP_MDSRC_ACK, 0, 0, 0, 0, 0, 0);
+
+		if (ret > 0)
+			CCCI_NOTICE_LOG(-1, TAG,
+				"error: mt_secure_call() = %u\n", ret);
+	}
 }
 
 void md_cd_dump_md_bootup_status(struct ccci_modem *md)
