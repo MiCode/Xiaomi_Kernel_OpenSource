@@ -7,9 +7,11 @@
 #include <linux/module.h>
 #include <linux/init.h>
 
-#include "mach/upmu_sw.h"
 #include "mtk_ppm_internal.h"
-#include "mach/mtk_pmic.h"
+
+#include "mtk_low_battery_throttling.h"
+#include "mtk_battery_oc_throttling.h"
+#include "mtk_battery_percentage_throttling.h"
 
 
 static void ppm_pwrthro_update_limit_cb(void);
@@ -85,7 +87,7 @@ end:
 #endif
 
 #ifndef DISABLE_BATTERY_OC_PROTECT
-static void ppm_pwrthro_bat_oc_protect(BATTERY_OC_LEVEL level)
+static void ppm_pwrthro_bat_oc_protect(enum BATTERY_OC_LEVEL_TAG level)
 {
 	unsigned int limited_power = ~0;
 
@@ -122,7 +124,7 @@ end:
 #endif
 
 #ifndef DISABLE_LOW_BATTERY_PROTECT
-void ppm_pwrthro_low_bat_protect(LOW_BATTERY_LEVEL level)
+void ppm_pwrthro_low_bat_protect(enum LOW_BATTERY_LEVEL_TAG level)
 {
 	unsigned int limited_power = ~0;
 
@@ -173,20 +175,14 @@ static int __init ppm_pwrthro_policy_init(void)
 		goto out;
 	}
 
-#ifndef DISABLE_BATTERY_PERCENT_PROTECT
 	register_battery_percent_notify(&ppm_pwrthro_bat_per_protect,
 		BATTERY_PERCENT_PRIO_CPU_L);
-#endif
 
-#ifndef DISABLE_BATTERY_OC_PROTECT
 	register_battery_oc_notify(&ppm_pwrthro_bat_oc_protect,
 		BATTERY_OC_PRIO_CPU_L);
-#endif
 
-#ifndef DISABLE_LOW_BATTERY_PROTECT
 	register_low_battery_notify(&ppm_pwrthro_low_bat_protect,
 		LOW_BATTERY_PRIO_CPU_L);
-#endif
 
 	ppm_info("@%s: register %s done!\n", __func__, pwrthro_policy.name);
 

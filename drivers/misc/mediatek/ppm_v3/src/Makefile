@@ -17,6 +17,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include	\
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)	\
+	-I$(srctree)/drivers/misc/mediatek/power_throttling	\
 
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 ccflags-y += \
@@ -44,7 +45,7 @@ obj-y += mtk_ppm_profile.o
 obj-y += mtk_ppm_policy_dlpt.o
 obj-y += mtk_ppm_policy_sys_boost.o
 # obj-y += mtk_ppm_policy_ptpod.o
-# obj-y += mtk_ppm_policy_pwr_thro.o
+obj-y += mtk_ppm_policy_pwr_thro.o
 obj-y += mtk_ppm_policy_thermal.o
 obj-y += mtk_ppm_policy_lcm_off.o
 obj-y += mtk_ppm_policy_hard_user_limit.o
