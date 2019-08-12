@@ -304,7 +304,7 @@ int qpic_init_sps(struct platform_device *pdev,
 	sps_config->source = SPS_DEV_HANDLE_MEM;
 	sps_config->destination = bam_handle;
 	sps_config->mode = SPS_MODE_DEST;
-	sps_config->dest_pipe_index = 6;
+	sps_config->dest_pipe_index = 8;
 
 	sps_config->options = SPS_O_AUTO_ENABLE | SPS_O_EOT;
 	sps_config->lock_group = 0;
