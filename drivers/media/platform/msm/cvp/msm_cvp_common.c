@@ -1267,7 +1267,7 @@ int msm_cvp_comm_try_state(struct msm_cvp_inst *inst, int state)
 	case MSM_CVP_CORE_INVALID:
 		dprintk(CVP_INFO, "Sending core uninit\n");
 		rc = msm_cvp_deinit_core(inst);
-		if (rc || state == get_flipped_state(inst->state, state))
+		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	default:
 		dprintk(CVP_ERR, "State not recognized\n");

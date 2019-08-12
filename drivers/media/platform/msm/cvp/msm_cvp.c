@@ -20,10 +20,10 @@ void print_internal_buffer(u32 tag, const char *str,
 		return;
 
 	dprintk(tag,
-		"%s: %x : idx %2d fd %d off %d %s size %d flags 0x%x",
+		"%s: %x : idx %2d fd %d off %d %s size %d flags %#x iova %#x",
 		str, hash32_ptr(inst->session), cbuf->buf.index, cbuf->buf.fd,
 		cbuf->buf.offset, cbuf->smem.dma_buf->name, cbuf->buf.size,
-		cbuf->buf.flags);
+		cbuf->buf.flags, cbuf->smem.device_addr);
 }
 
 static enum hal_buffer get_hal_buftype(const char *str, unsigned int type)
@@ -387,10 +387,9 @@ static int msm_cvp_map_buf_cpu(struct msm_cvp_inst *inst,
 	if (in_buf->fd > 0) {
 		dma_buf = msm_cvp_smem_get_dma_buf(in_buf->fd);
 		if (!dma_buf) {
-			rc = -EINVAL;
 			dprintk(CVP_ERR, "%s: Invalid fd=%d", __func__,
 				in_buf->fd);
-			goto exit;
+			return -EINVAL;
 		}
 		in_buf->dbuf = dma_buf;
 		msm_cvp_smem_put_dma_buf(dma_buf);
@@ -414,7 +413,7 @@ static int msm_cvp_map_buf_cpu(struct msm_cvp_inst *inst,
 	cbuf->smem.fd = cbuf->buf.fd;
 	cbuf->smem.size = cbuf->buf.size;
 	cbuf->smem.flags = 0;
-	cbuf->smem.offset = 0;
+	cbuf->smem.offset = in_buf->offset;
 	cbuf->smem.dma_buf = in_buf->dbuf;
 
 	rc = msm_cvp_smem_map_dma_buf(inst, &cbuf->smem);
@@ -674,6 +673,21 @@ static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
 
 		if (version >= 1) {
 			new_buf = (struct cvp_buf_type *)buf_ptr;
+
+			/*
+			 * Make sure fd or dma_buf field doesn't have any
+			 * garbage value.
+			 */
+			if (inst->session_type == MSM_CVP_USER) {
+				new_buf->dbuf = 0;
+			} else if (inst->session_type == MSM_CVP_KERNEL) {
+				new_buf->fd = -1;
+			} else if (inst->session_type >= MSM_CVP_UNKNOWN) {
+				dprintk(CVP_ERR,
+					"%s: unknown session type %d\n",
+					__func__, inst->session_type);
+				return -EINVAL;
+			}
 
 			if (new_buf->fd <= 0 && !new_buf->dbuf)
 				continue;
