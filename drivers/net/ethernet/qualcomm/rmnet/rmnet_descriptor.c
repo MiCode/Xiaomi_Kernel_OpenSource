@@ -383,12 +383,28 @@ static void rmnet_frag_gso_stamp(struct sk_buff *skb,
 				 struct rmnet_frag_descriptor *frag_desc)
 {
 	struct skb_shared_info *shinfo = skb_shinfo(skb);
+
+	if (frag_desc->trans_proto == IPPROTO_TCP)
+		shinfo->gso_type = (frag_desc->ip_proto == 4) ?
+				   SKB_GSO_TCPV4 : SKB_GSO_TCPV6;
+	else
+		shinfo->gso_type = SKB_GSO_UDP_L4;
+
+	shinfo->gso_size = frag_desc->gso_size;
+	shinfo->gso_segs = frag_desc->gso_segs;
+}
+
+/* Set the partial checksum information. Sets the transport checksum tot he
+ * pseudoheader checksum and sets the offload metadata.
+ */
+static void rmnet_frag_partial_csum(struct sk_buff *skb,
+				    struct rmnet_frag_descriptor *frag_desc)
+{
 	struct iphdr *iph = (struct iphdr *)skb->data;
 	__sum16 pseudo;
 	u16 pkt_len = skb->len - frag_desc->ip_len;
-	bool ipv4 = frag_desc->ip_proto == 4;
 
-	if (ipv4) {
+	if (frag_desc->ip_proto == 4) {
 		iph->tot_len = htons(skb->len);
 		iph->check = 0;
 		iph->check = ip_fast_csum(iph, iph->ihl);
@@ -409,7 +425,6 @@ static void rmnet_frag_gso_stamp(struct sk_buff *skb,
 				    ((u8 *)iph + frag_desc->ip_len);
 
 		tp->check = pseudo;
-		shinfo->gso_type = (ipv4) ? SKB_GSO_TCPV4 : SKB_GSO_TCPV6;
 		skb->csum_offset = offsetof(struct tcphdr, check);
 	} else {
 		struct udphdr *up = (struct udphdr *)
@@ -417,14 +432,11 @@ static void rmnet_frag_gso_stamp(struct sk_buff *skb,
 
 		up->len = htons(pkt_len);
 		up->check = pseudo;
-		shinfo->gso_type = SKB_GSO_UDP_L4;
 		skb->csum_offset = offsetof(struct udphdr, check);
 	}
 
 	skb->ip_summed = CHECKSUM_PARTIAL;
 	skb->csum_start = (u8 *)iph + frag_desc->ip_len - skb->head;
-	shinfo->gso_size = frag_desc->gso_size;
-	shinfo->gso_segs = frag_desc->gso_segs;
 }
 
 /* Allocate and populate an skb to contain the packet represented by the
@@ -550,7 +562,8 @@ skip_frags:
 
 	/* Handle csum offloading */
 	if (frag_desc->csum_valid) {
-		head_skb->ip_summed = CHECKSUM_UNNECESSARY;
+		/* Set the partial checksum information */
+		rmnet_frag_partial_csum(head_skb, frag_desc);
 	} else if (frag_desc->hdrs_valid &&
 		   (frag_desc->trans_proto == IPPROTO_TCP ||
 		    frag_desc->trans_proto == IPPROTO_UDP)) {
