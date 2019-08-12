@@ -123,8 +123,8 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 		break;
 	}
 	mrdump_mini_ke_cpu_regs(regs);
-	dis_D_inner_flush_all();
 	console_unlock();
+	dis_D_inner_flush_all();
 	aee_exception_reboot();
 	return NOTIFY_DONE;
 }
