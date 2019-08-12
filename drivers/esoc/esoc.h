@@ -193,3 +193,7 @@ static inline void notify_esoc_clients(struct esoc_clink *esoc_clink,
 bool esoc_req_eng_enabled(struct esoc_clink *esoc_clink);
 bool esoc_cmd_eng_enabled(struct esoc_clink *esoc_clink);
 #endif
+
+/* Modem boot fail actions */
+int esoc_set_boot_fail_action(struct esoc_clink *esoc_clink, u32 action);
+int esoc_set_n_pon_tries(struct esoc_clink *esoc_clink, u32 n_tries);

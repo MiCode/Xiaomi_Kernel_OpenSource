@@ -445,7 +445,8 @@ static long ipa3_wan_ioctl(struct file *filp,
 			break;
 		}
 
-		if (ipa_mpm_notify_wan_state()) {
+		if (ipa_mpm_notify_wan_state(
+			(struct wan_ioctl_notify_wan_state *)param)) {
 			IPAWANERR("WAN_IOC_NOTIFY_WAN_STATE failed\n");
 			retval = -EPERM;
 		}

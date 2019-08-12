@@ -186,6 +186,16 @@ config ARCH_QCS405
 	 If you do not wish to build a kernel that runs on this chipset,
 	 say 'N' here.
 
+config ARCH_QCS403
+        bool "Enable Support for Qualcomm Technologies, Inc. QCS403"
+        depends on ARCH_QCOM
+        select COMMON_CLK_QCOM
+        help
+         This configuration option enables support to build kernel for
+         QCS403 SoC.
+         If you do not wish to build a kernel that runs on this chipset,
+         say 'N' here.
+
 config ARCH_SDMMAGPIE
 	bool "Enable Support for Qualcomm Technologies, Inc. SDMMAGPIE"
 	depends on ARCH_QCOM

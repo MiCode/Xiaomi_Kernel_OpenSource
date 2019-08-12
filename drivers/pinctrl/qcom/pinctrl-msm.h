@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -177,6 +177,10 @@ struct msm_pinctrl_soc_data {
 	struct msm_gpio_mux_input *gpio_mux_in;
 	unsigned int n_gpio_mux_in;
 	unsigned int n_pdc_mux_offset;
+#ifdef CONFIG_HIBERNATION
+	u32 *dir_conn_addr;
+	u32 tile_count;
+#endif
 #ifdef CONFIG_FRAGMENTED_GPIO_ADDRESS_SPACE
 	const u32 *tile_start;
 	const u32 *tile_offsets;

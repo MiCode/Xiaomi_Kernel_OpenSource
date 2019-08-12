@@ -17,7 +17,8 @@ Required properties:
 
 Optional properties:
 
-- gpio-reset - gpio pin number used for codec reset
+- gpio-reset - gpio pin number used for codec reset, default active low
+- reset-inverted - set the reset gpio mode as active high
 - ai3x-gpio-func - <array of 2 int> - AIC3X_GPIO1 & AIC3X_GPIO2 Functionality
 				    - Not supported on tlv320aic3104
 - ai3x-micbias-vg - MicBias Voltage required.

@@ -157,6 +157,12 @@ static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 
 	cmd_buf_kaddr = (uint32_t *)kaddr;
 
+	if ((p_cfg_req->hw_cfg_args.hw_update_entries[CAM_JPEG_PARAM].offset /
+			sizeof(uint32_t)) >= cmd_buf_len) {
+		CAM_ERR(CAM_JPEG, "Not enough buf");
+		return -EINVAL;
+	}
+
 	cmd_buf_kaddr =
 		(cmd_buf_kaddr +
 		(p_cfg_req->hw_cfg_args.hw_update_entries[CAM_JPEG_PARAM].offset

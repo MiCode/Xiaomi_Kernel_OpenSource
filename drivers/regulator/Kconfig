@@ -1084,5 +1084,11 @@ config REGULATOR_STUB
 	  Clients can use the real regulator device names with proper
 	  constraint checking while the real driver is being developed.
 
+config VIRTIO_REGULATOR
+	tristate "Virtio regulator driver"
+	depends on VIRTIO
+	---help---
+	  This is the virtual regulator driver for virtio.
+
 endif
 

@@ -33,7 +33,8 @@
 #include "trace/events/pdc.h"
 
 #define MAX_IRQS 126
-#define MAX_ENABLE_REGS ((MAX_IRQS/32) + 1)
+#define IRQS_PER_REG 32
+#define MAX_ENABLE_REGS ((MAX_IRQS/IRQS_PER_REG) + 1)
 #define CLEAR_INTR(reg, intr) (reg & ~(1 << intr))
 #define ENABLE_INTR(reg, intr) (reg | (1 << intr))
 
@@ -48,7 +49,7 @@ struct pdc_type_info {
 };
 static struct pdc_type_info pdc_type_config[MAX_IRQS];
 static u32 pdc_enabled[MAX_ENABLE_REGS];
-
+static u32 max_enable_regs;
 static DEFINE_SPINLOCK(pdc_lock);
 static void __iomem *pdc_base;
 
@@ -292,7 +293,7 @@ static int pdc_suspend(void)
 {
 	int i;
 
-	for (i = 0; i < MAX_ENABLE_REGS; i++)
+	for (i = 0; i < max_enable_regs; i++)
 		pdc_enabled[i] = readl_relaxed(pdc_base + IRQ_ENABLE_BANK
 						+ (i * sizeof(uint32_t)));
 
@@ -319,7 +320,7 @@ static void pdc_resume(void)
 		}
 	}
 
-	for (i = 0; i < MAX_ENABLE_REGS; i++)
+	for (i = 0; i < max_enable_regs; i++)
 		writel_relaxed(pdc_enabled[i], pdc_base + IRQ_ENABLE_BANK
 					+ (i * sizeof(uint32_t)));
 }
@@ -340,8 +341,9 @@ int qcom_pdc_init(struct device_node *node,
 		struct device_node *parent, void *data)
 {
 	struct irq_domain *parent_domain;
-	int ret;
+	int i, ret, pin_count = 0;
 	struct irq_domain *pdc_domain;
+	struct pdc_pin *pdc_data = (struct pdc_pin *) data;
 
 	pdc_base = of_iomap(node, 0);
 	if (!pdc_base) {
@@ -363,6 +365,13 @@ int qcom_pdc_init(struct device_node *node,
 		ret = -ENOMEM;
 		goto failure;
 	}
+
+	for (i = 0; pdc_data[i].pin >= 0; i++)
+		pin_count++;
+
+	max_enable_regs = pin_count / IRQS_PER_REG;
+	if (pin_count % IRQS_PER_REG)
+		max_enable_regs++;
 
 	pdc_domain->name = "qcom,pdc";
 

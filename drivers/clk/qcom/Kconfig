@@ -562,3 +562,9 @@ config QCOM_CLK_VIRT
 	  This is the virtual clock frontend driver which is based on HAB for
 	  the QTI virtual machine.
 	  Say Y if you want to support virtual clock.
+
+config VIRTIO_CLK
+	tristate "Virtio clock driver"
+	depends on VIRTIO
+	---help---
+	  This is the virtual clock driver for virtio.

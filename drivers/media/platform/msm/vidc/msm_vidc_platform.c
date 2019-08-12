@@ -63,6 +63,19 @@ static struct msm_vidc_codec_data default_codec_data[] =  {
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_DECODER, 125, 675, 320),
 };
 
+/* Update with atoll data */
+static struct msm_vidc_codec_data atoll_codec_data[] =  {
+	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_ENCODER, 125, 675, 320),
+	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_VIDC_ENCODER, 125, 675, 320),
+	CODEC_ENTRY(V4L2_PIX_FMT_VP8, MSM_VIDC_ENCODER, 125, 675, 320),
+	CODEC_ENTRY(V4L2_PIX_FMT_TME, MSM_VIDC_ENCODER, 0, 540, 540),
+	CODEC_ENTRY(V4L2_PIX_FMT_MPEG2, MSM_VIDC_DECODER, 50, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_DECODER, 50, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_VIDC_DECODER, 50, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_VP8, MSM_VIDC_DECODER, 50, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_VP9, MSM_VIDC_DECODER, 50, 200, 200),
+};
+
 /* Update with SM6150 data */
 static struct msm_vidc_codec_data sm6150_codec_data[] =  {
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_ENCODER, 125, 675, 320),
@@ -162,6 +175,65 @@ static struct msm_vidc_common_data default_common_data[] = {
 	{
 		.key = "qcom,never-unload-fw",
 		.value = 1,
+	},
+};
+
+static struct msm_vidc_common_data atoll_common_data[] = {
+	{
+		.key = "qcom,never-unload-fw",
+		.value = 1,
+	},
+	{
+		.key = "qcom,sw-power-collapse",
+		.value = 1,
+	},
+	{
+		.key = "qcom,domain-attr-non-fatal-faults",
+		.value = 1,
+	},
+	{
+		.key = "qcom,max-secure-instances",
+		.value = 3,
+	},
+	{
+		.key = "qcom,max-hw-load",
+		.value = 1944000,
+	},
+	{
+		.key = "qcom,max-hq-mbs-per-frame",
+		.value = 8160,
+	},
+	{
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 244800,  /* 1920 x 1088 @ 30 fps */
+	},
+	{
+		.key = "qcom,max-b-frame-size",
+		.value = 8160,
+	},
+	{
+		.key = "qcom,max-b-frames-per-sec",
+		.value = 60,
+	},
+	{
+		.key = "qcom,power-collapse-delay",
+		.value = 1500,
+	},
+	{
+		.key = "qcom,hw-resp-timeout",
+		.value = 1000,
+	},
+	{
+		.key = "qcom,dcvs",
+		.value = 1,
+	},
+	{
+		.key = "qcom,fw-cycles",
+		.value = 733003,
+	},
+	{
+		.key = "qcom,fw-vpp-cycles",
+		.value = 225975,
 	},
 };
 
@@ -690,6 +762,22 @@ static struct msm_vidc_platform_data default_data = {
 	.vpu_ver = VPU_VERSION_5,
 };
 
+static struct msm_vidc_platform_data atoll_data = {
+	.codec_data = atoll_codec_data,
+	.codec_data_length =  ARRAY_SIZE(atoll_codec_data),
+	.common_data = atoll_common_data,
+	.common_data_length =  ARRAY_SIZE(atoll_common_data),
+	.ubwc_config = NULL,
+	.ubwc_config_length = 0,
+	.csc_data.vpe_csc_custom_bias_coeff = vpe_csc_custom_bias_coeff,
+	.csc_data.vpe_csc_custom_matrix_coeff = vpe_csc_custom_matrix_coeff,
+	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
+	.efuse_data = NULL,
+	.efuse_data_length = 0,
+	.sku_version = 0,
+	.vpu_ver = VPU_VERSION_4,
+};
+
 static struct msm_vidc_platform_data sm6150_data = {
 	.codec_data = sm6150_codec_data,
 	.codec_data_length =  ARRAY_SIZE(sm6150_codec_data),
@@ -787,6 +875,10 @@ static struct msm_vidc_platform_data sdm670_data = {
 };
 
 static const struct of_device_id msm_vidc_dt_match[] = {
+	{
+		.compatible = "qcom,atoll-vidc",
+		.data = &atoll_data,
+	},
 	{
 		.compatible = "qcom,sm6150-vidc",
 		.data = &sm6150_data,

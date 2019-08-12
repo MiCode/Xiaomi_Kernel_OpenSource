@@ -522,6 +522,7 @@ static const struct of_device_id clk_rpmh_match_table[] = {
 	{ .compatible = "qcom,rpmh-clk-sdmmagpie", .data = &clk_rpmh_sm6150},
 	{ .compatible = "qcom,rpmh-clk-sdxprairie",
 						.data = &clk_rpmh_sdxprairie},
+	{ .compatible = "qcom,rpmh-clk-atoll", .data = &clk_rpmh_sm6150},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, clk_rpmh_match_table);

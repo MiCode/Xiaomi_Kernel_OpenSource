@@ -61,9 +61,14 @@ struct msm_pcie_register_event {
 };
 
 #ifdef CONFIG_PCI_MSM_MSI
+void msm_msi_config_access(struct irq_domain *domain, bool allow);
 void msm_msi_config(struct irq_domain *domain);
 int msm_msi_init(struct device *dev);
 #else
+static inline void msm_msi_config_access(struct irq_domain *domain, bool allow)
+{
+}
+
 static inline void msm_msi_config(struct irq_domain *domain)
 {
 }

@@ -580,6 +580,17 @@ static struct npu_network *alloc_network(struct npu_host_ctx *ctx,
 	WARN_ON(!mutex_is_locked(&ctx->lock));
 
 	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
+		if ((network->id != 0) &&
+			(network->client != client)) {
+			pr_err("NPU is used by other client now\n");
+			return NULL;
+		}
+
+		network++;
+	}
+
+	network = ctx->networks;
+	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
 		if (network->id == 0)
 			break;
 
@@ -1078,8 +1089,16 @@ int32_t npu_host_get_info(struct npu_device *npu_dev,
 int32_t npu_host_map_buf(struct npu_client *client,
 			struct msm_npu_map_buf_ioctl *map_ioctl)
 {
-	return npu_mem_map(client, map_ioctl->buf_ion_hdl, map_ioctl->size,
+	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	int ret;
+
+	mutex_lock(&host_ctx->lock);
+	ret = npu_mem_map(client, map_ioctl->buf_ion_hdl, map_ioctl->size,
 		&map_ioctl->npu_phys_addr);
+	mutex_unlock(&host_ctx->lock);
+
+	return ret;
 }
 
 int32_t npu_host_unmap_buf(struct npu_client *client,
@@ -1097,8 +1116,10 @@ int32_t npu_host_unmap_buf(struct npu_client *client,
 		&host_ctx->fw_deinit_done, NW_CMD_TIMEOUT))
 		pr_warn("npu: wait for fw_deinit_done time out\n");
 
+	mutex_lock(&host_ctx->lock);
 	npu_mem_unmap(client, unmap_ioctl->buf_ion_hdl,
 		unmap_ioctl->npu_phys_addr);
+	mutex_unlock(&host_ctx->lock);
 	return 0;
 }
 

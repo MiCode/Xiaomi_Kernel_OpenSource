@@ -2219,8 +2219,15 @@
 
 		coresight-name = "coresight-cti-gpu_isdb_cti";
 
-		clocks = <&clock_rpmcc RPM_SMD_QDSS_CLK>;
-		clock-names = "apb_pclk";
+		clocks = <&clock_rpmcc RPM_SMD_QDSS_CLK>,
+			<&clock_gpucc GPU_CC_CX_APB_CLK>;
+		clock-names = "apb_pclk", "gpu_apb_clk";
+		qcom,proxy-clks = "gpu_apb_clk";
+
+		vddcx-supply = <&gpu_cx_gdsc>;
+		vdd-supply = <&gpu_gx_gdsc>;
+		regulator-names = "vddcx", "vdd";
+		qcom,proxy-regs  = "vddcx", "vdd";
 	};
 
 	cti_lpass_q6_cti: cti@8987000 {

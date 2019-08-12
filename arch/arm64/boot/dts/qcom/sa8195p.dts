@@ -12,7 +12,7 @@
 
 /dts-v1/;
 
-#include "sdmshrike-v2.dtsi"
+#include "sa8195p.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SA8195P AU SoC";

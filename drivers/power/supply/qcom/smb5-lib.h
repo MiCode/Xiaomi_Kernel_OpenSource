@@ -80,6 +80,8 @@ enum print_reason {
 #define CHARGER_TYPE_VOTER		"CHARGER_TYPE_VOTER"
 #define HDC_IRQ_VOTER			"HDC_IRQ_VOTER"
 #define DETACH_DETECT_VOTER		"DETACH_DETECT_VOTER"
+#define CC_MODE_VOTER			"CC_MODE_VOTER"
+#define MAIN_FCC_VOTER			"MAIN_FCC_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -227,6 +229,17 @@ enum chg_term_config_src {
 	ITERM_SRC_UNSPECIFIED,
 	ITERM_SRC_ADC,
 	ITERM_SRC_ANALOG
+};
+
+enum comp_clamp_levels {
+	CLAMP_LEVEL_DEFAULT = 0,
+	CLAMP_LEVEL_1,
+	MAX_CLAMP_LEVEL,
+};
+
+struct clamp_config {
+	u16 reg[3];
+	u16 val[3];
 };
 
 struct smb_irq_info {
@@ -398,6 +411,9 @@ struct smb_charger {
 	/* parallel charging */
 	struct parallel_params	pl;
 
+	/* CC Mode */
+	int	adapter_cc_mode;
+
 	/* regulators */
 	struct smb_regulator	*vbus_vreg;
 	struct smb_regulator	*vconn_vreg;
@@ -406,6 +422,7 @@ struct smb_charger {
 	/* votables */
 	struct votable		*dc_suspend_votable;
 	struct votable		*fcc_votable;
+	struct votable		*fcc_main_votable;
 	struct votable		*fv_votable;
 	struct votable		*usb_icl_votable;
 	struct votable		*awake_votable;
@@ -514,7 +531,9 @@ struct smb_charger {
 	bool			hw_die_temp_mitigation;
 	bool			hw_connector_mitigation;
 	bool			hw_skin_temp_mitigation;
+	bool			en_skin_therm_mitigation;
 	int			connector_pull_up;
+	int			smb_pull_up;
 	int			aicl_5v_threshold_mv;
 	int			default_aicl_5v_threshold_mv;
 	int			aicl_cont_threshold_mv;
@@ -526,6 +545,7 @@ struct smb_charger {
 	int			dr_mode;
 	int			usbin_forced_max_uv;
 	int			init_thermal_ua;
+	u32			comp_clamp_level;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -700,7 +720,9 @@ int smblib_get_pe_start(struct smb_charger *chg,
 int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_die_health(struct smb_charger *chg);
+int smblib_get_prop_smb_health(struct smb_charger *chg);
 int smblib_get_prop_connector_health(struct smb_charger *chg);
+int smblib_get_skin_temp_status(struct smb_charger *chg);
 int smblib_get_prop_vph_voltage_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_pd_current_max(struct smb_charger *chg,

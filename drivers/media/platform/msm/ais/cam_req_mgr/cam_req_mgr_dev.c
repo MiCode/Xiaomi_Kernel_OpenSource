@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,10 +103,6 @@ static int cam_req_mgr_open(struct file *filep)
 	int rc;
 
 	mutex_lock(&g_dev.cam_lock);
-	if (g_dev.open_cnt >= 1) {
-		rc = -EALREADY;
-		goto end;
-	}
 
 	rc = v4l2_fh_open(filep);
 	if (rc) {
@@ -114,11 +110,18 @@ static int cam_req_mgr_open(struct file *filep)
 		goto end;
 	}
 
+	g_dev.open_cnt++;
+
+	/* return if already initialized before */
+	if (g_dev.open_cnt > 1) {
+		CAM_ERR(CAM_CRM, "Already opened", rc);
+		goto end;
+	}
+
 	spin_lock_bh(&g_dev.cam_eventq_lock);
 	g_dev.cam_eventq = filep->private_data;
 	spin_unlock_bh(&g_dev.cam_eventq_lock);
 
-	g_dev.open_cnt++;
 	rc = cam_mem_mgr_init();
 	if (rc) {
 		g_dev.open_cnt--;
@@ -165,27 +168,34 @@ static int cam_req_mgr_close(struct file *filep)
 		return -EINVAL;
 	}
 
-	cam_req_mgr_handle_core_shutdown();
+	g_dev.open_cnt--;
 
-	list_for_each_entry(sd, &g_dev.v4l2_dev->subdevs, list) {
-		if (!(sd->flags & V4L2_SUBDEV_FL_HAS_DEVNODE))
-			continue;
-		if (sd->internal_ops && sd->internal_ops->close) {
-			CAM_DBG(CAM_CRM, "Invoke subdev close for device %s",
-				sd->name);
-			sd->internal_ops->close(sd, subdev_fh);
+	if (g_dev.open_cnt == 0) {
+		cam_req_mgr_handle_core_shutdown();
+
+		list_for_each_entry(sd, &g_dev.v4l2_dev->subdevs, list) {
+			if (!(sd->flags & V4L2_SUBDEV_FL_HAS_DEVNODE))
+				continue;
+			if (sd->internal_ops && sd->internal_ops->close) {
+				CAM_DBG(CAM_CRM,
+					"Invoke subdev close for device %s",
+					sd->name);
+				sd->internal_ops->close(sd, subdev_fh);
+			}
 		}
 	}
 
-	g_dev.open_cnt--;
 	v4l2_fh_release(filep);
 
-	spin_lock_bh(&g_dev.cam_eventq_lock);
-	g_dev.cam_eventq = NULL;
-	spin_unlock_bh(&g_dev.cam_eventq_lock);
+	if (g_dev.open_cnt == 0) {
+		spin_lock_bh(&g_dev.cam_eventq_lock);
+		g_dev.cam_eventq = NULL;
+		spin_unlock_bh(&g_dev.cam_eventq_lock);
 
-	cam_req_mgr_util_free_hdls();
-	cam_mem_mgr_deinit();
+		cam_req_mgr_util_free_hdls();
+		cam_mem_mgr_deinit();
+	}
+
 	mutex_unlock(&g_dev.cam_lock);
 
 	return 0;

@@ -670,7 +670,6 @@ struct hfi_bit_depth {
 };
 
 struct hfi_picture_type {
-	u32 is_sync_frame;
 	u32 picture_type;
 };
 
@@ -915,6 +914,11 @@ struct vidc_hal_session_cmd_pkt {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
+};
+
+struct hfi_packet_header {
+	u32 size;
+	u32 packet_type;
 };
 
 struct hfi_cmd_sys_init_packet {

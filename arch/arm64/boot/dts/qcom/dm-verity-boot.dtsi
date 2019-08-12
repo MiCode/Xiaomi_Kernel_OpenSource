@@ -1,0 +1,28 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+dm_verity {
+	dmname="disabled";
+	version="1";
+	data_device="/dev/sda6";
+	hash_device="/dev/sda6";
+	data_block_size="4096";
+	hash_block_size="4096";
+	number_of_data_blocks="262144";
+	hash_start_block="262145";
+	algorithm="sha256";
+	// root hash: 64 bytes long
+	digest=
+	"b0fe12d7da6e23a1e19b5a69252c7aaf7b249191eb13bba3f566d630b3f2828a";
+	salt="a2df040e00f02c3b2a19e90e5aa76fe1a303f4e08584aaf40e87f088a32b7709";
+	// restart_on_corruption ignore_corruption ignore_zero_blocks
+	opt="restart_on_corruption";
+};

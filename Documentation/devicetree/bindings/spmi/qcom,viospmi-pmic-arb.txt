@@ -1,0 +1,38 @@
+QTI Virtio SPMI controller (Virtio PMIC Arbiter)
+
+The Virtio SPMI PMIC Arbiter is a frontend proxy based on backend virtio device.
+
+Required properties:
+- compatible : should be "qcom,viospmi-pmic-arb".
+- #address-cells : must be set to 2
+- #size-cells : must be set to 0
+- interrupt-controller : boolean indicator that the PMIC arbiter is an interrupt controller
+- #interrupt-cells :  must be set to 4. Interrupts are specified as a 4-tuple:
+    cell 1: slave ID for the requested interrupt (0-15)
+    cell 2: peripheral ID for requested interrupt (0-255)
+    cell 3: the requested peripheral interrupt (0-7)
+    cell 4: interrupt flags indicating level-sense information, as defined in
+            dt-bindings/interrupt-controller/irq.h
+
+Example Virtio PMIC-Arbiter:
+
+     spmi_bus: qcom,spmi {
+         compatible = "qcom,viospmi-pmic-arb";
+         interrupt-names = "periph_irq";
+         interrupts = <GIC_SPI 481 IRQ_TYPE_NONE>;
+         qcom,ee = <0>;
+         #address-cells = <2>;
+         #size-cells = <0>;
+         interrupt-controller;
+         #interrupt-cells = <4>;
+         cell-index = <0>;
+     };
+
+     viospmi: virtio-spmi@c440000 {
+         compatible = "virtio,mmio";
+         #address-cells = <1>;
+         #size-cells = <1>;
+         reg = <0xc440000 0x1100>;
+         interrupts = <GIC_SPI 100 IRQ_TYPE_NONE>;
+         status = "okay";
+     };

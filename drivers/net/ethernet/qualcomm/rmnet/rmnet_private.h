@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, 2016-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,8 +20,11 @@
 
 /* Constants */
 #define RMNET_EGRESS_FORMAT_AGGREGATION         BIT(31)
-#define RMNET_INGRESS_FORMAT_DL_MARKER          BIT(30)
-#define RMNET_INGRESS_FORMAT_RPS_STAMP          BIG(29)
+#define RMNET_INGRESS_FORMAT_DL_MARKER_V1       BIT(30)
+#define RMNET_INGRESS_FORMAT_DL_MARKER_V2       BIT(29)
+
+#define RMNET_INGRESS_FORMAT_DL_MARKER  (RMNET_INGRESS_FORMAT_DL_MARKER_V1 |\
+RMNET_INGRESS_FORMAT_DL_MARKER_V2)
 
 /* Power save feature*/
 #define RMNET_INGRESS_FORMAT_PS                 BIT(27)

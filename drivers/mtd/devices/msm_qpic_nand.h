@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2012-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,9 @@
 #include <linux/msm-sps.h>
 #include <linux/msm-bus.h>
 #include <linux/soc/qcom/smem.h>
+#include <linux/spinlock.h>
+#include <linux/ktime.h>
+
 #define PAGE_SIZE_2K 2048
 #define PAGE_SIZE_4K 4096
 
@@ -302,6 +305,23 @@ struct msm_nand_clk_data {
 	bool rpmh_clk;
 };
 
+struct msm_nand_perf_stats {
+	u64 total_read_size;
+	u64 total_write_size;
+	u64 total_erase_blks;
+	ktime_t total_read_time;
+	ktime_t total_write_time;
+	ktime_t total_erase_time;
+	ktime_t min_read_time;
+	ktime_t min_write_time;
+	ktime_t min_erase_time;
+	ktime_t max_read_time;
+	ktime_t max_write_time;
+	ktime_t max_erase_time;
+	spinlock_t lock;
+};
+
+
 /* Structure that defines NANDc private data. */
 struct msm_nand_info {
 	struct mtd_info		mtd;
@@ -326,6 +346,7 @@ struct msm_nand_info {
 	struct mutex lock;
 	struct flash_identification flash_dev;
 	struct msm_nand_clk_data clk_data;
+	struct msm_nand_perf_stats perf;
 	u64 dma_mask;
 };
 

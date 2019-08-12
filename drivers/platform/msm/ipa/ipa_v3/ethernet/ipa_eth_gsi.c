@@ -222,6 +222,14 @@ int ipa_eth_gsi_dealloc(struct ipa_eth_channel *ch)
 	}
 
 	if (ep_ctx->gsi_chan_hdl != ~0) {
+		gsi_rc = gsi_reset_channel(ep_ctx->gsi_chan_hdl);
+		if (gsi_rc != GSI_STATUS_SUCCESS) {
+			ipa_eth_dev_err(ch->eth_dev,
+				"Failed to reset channel %u",
+				ep_ctx->gsi_chan_hdl);
+			return gsi_rc;
+		}
+
 		gsi_rc = gsi_dealloc_channel(ep_ctx->gsi_chan_hdl);
 		if (gsi_rc != GSI_STATUS_SUCCESS) {
 			ipa_eth_dev_err(ch->eth_dev,

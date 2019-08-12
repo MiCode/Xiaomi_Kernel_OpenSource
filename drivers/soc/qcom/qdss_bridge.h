@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,7 @@ enum open_status {
 
 struct qdss_bridge_drvdata {
 	int alias;
+	int nr_trbs;
 	enum open_status opened;
 	struct completion completion;
 	size_t mtu;

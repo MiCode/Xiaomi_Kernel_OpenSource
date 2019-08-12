@@ -1013,6 +1013,7 @@ struct adreno_gpudev {
 				struct adreno_device *adreno_dev,
 				unsigned int *cmds);
 	int (*preemption_init)(struct adreno_device *);
+	void (*preemption_close)(struct adreno_device *);
 	void (*preemption_schedule)(struct adreno_device *);
 	int (*preemption_context_init)(struct kgsl_context *);
 	void (*preemption_context_destroy)(struct kgsl_context *);

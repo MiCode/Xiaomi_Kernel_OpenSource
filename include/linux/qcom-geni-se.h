@@ -138,6 +138,7 @@ struct se_geni_rsc {
 #define SE_DMA_DEBUG_REG0		(0xE40)
 #define SLAVE_MODE_EN			(BIT(3))
 #define START_TRIGGER			(BIT(0))
+#define QUPV3_HW_VER			(0x4)
 
 /* GENI_OUTPUT_CTRL fields */
 #define DEFAULT_IO_OUTPUT_CTRL_MSK	(GENMASK(6, 0))

@@ -119,9 +119,9 @@
 			"tune2_efuse_addr",
 			"tcsr_conn_box_spare_0";
 
-		vdd-supply = <&pm6150_l4>;
-		vdda18-supply = <&pm6150_l11>;
-		vdda33-supply = <&pm6150_l17>;
+		vdd-supply = <&L5A>;
+		vdda18-supply = <&L12A>;
+		vdda33-supply = <&L13A>;
 		qcom,vdd-voltage-level = <0 925000 975000>;
 		qcom,tune2-efuse-bit-pos = <25>;
 		qcom,tune2-efuse-num-bits = <4>;
@@ -159,8 +159,8 @@
 		reg-names = "qmp_phy_base",
 			"vls_clamp_reg";
 
-		vdd-supply = <&pm6150_l4>;
-		core-supply = <&pm6150_l11>;
+		vdd-supply = <&L5A>;
+		core-supply = <&L12A>;
 		qcom,vdd-voltage-level = <0 925000 975000>;
 		qcom,core-voltage-level = <0 1800000 1800000>;
 		qcom,qmp-phy-init-seq =
@@ -370,9 +370,9 @@
 		reg-names = "qusb_phy_base",
 			"tcsr_conn_box_spare_0";
 
-		vdd-supply = <&pm6150_l4>;
-		vdda18-supply = <&pm6150_l11>;
-		vdda33-supply = <&pm6150_l17>;
+		vdd-supply = <&L5A>;
+		vdda18-supply = <&L12A>;
+		vdda33-supply = <&L13A>;
 		qcom,vdd-voltage-level = <0 925000 975000>;
 		qcom,qusb-phy-init-seq = <0xc8 0x80
 					0xb3 0x84

@@ -2854,12 +2854,14 @@ static int ep_pcie_probe(struct platform_device *pdev)
 	}
 skip_mapping:
 	ret = ep_pcie_enumeration(&ep_pcie_dev);
-	if (IS_ENABLED(CONFIG_QCOM_PCI_EDMA))
-		qcom_edma_init(&pdev->dev);
+	if (ret && !ep_pcie_debug_keep_resource)
+		goto irq_deinit;
 
-	if (!ret || ep_pcie_debug_keep_resource)
-		return 0;
+	qcom_edma_init(&pdev->dev);
 
+	return 0;
+
+irq_deinit:
 	ep_pcie_irq_deinit(&ep_pcie_dev);
 irq_failure:
 	ep_pcie_gpio_deinit(&ep_pcie_dev);

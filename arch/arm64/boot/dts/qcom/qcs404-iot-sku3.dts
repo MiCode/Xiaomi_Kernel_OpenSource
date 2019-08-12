@@ -1,0 +1,97 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "qcs404.dtsi"
+#include "qcs405-wsa-audio-overlay.dtsi"
+#include "qcs405-circular-pca9956.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS404 SSRD IOT";
+	compatible = "qcom,qcs404-iot", "qcom,qcs404", "qcom,iot";
+	qcom,board-id = <0x010020 0x4>;
+
+};
+
+&soc {
+	spi@78b5000 {
+		status = "ok";
+		spi@0 {
+			compatible = "qcom,spi-msm-codec-slave";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+		};
+	};
+
+	gpio_keys {
+		vol_mute {
+			gpios = <&tlmm 19 GPIO_ACTIVE_LOW>;
+		};
+	};
+};
+
+&qnand_1 {
+	status = "ok";
+};
+
+&soc {
+	usb2_extcon: usb2_extcon {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&tlmm 27 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb2_ssrd_det_default>;
+	};
+};
+
+&usb2s {
+	extcon = <&usb2_extcon>;
+};
+
+&usb3 {
+	status = "disabled";
+};
+
+&usb_ss_phy {
+	status = "ok";
+	qcom,keep-powerdown;
+};
+
+&usb2_phy1 {
+	status = "disabled";
+};
+
+&tlmm {
+	evb_tlmm_gpio_key{
+		tlmm_gpio_key_active: tlmm_gpio_key_active {
+			mux {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+
+			config {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+		};
+
+		tlmm_gpio_key_suspend: tlmm_gpio_key_suspend {
+			mux {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+
+			config {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+		};
+	};
+};

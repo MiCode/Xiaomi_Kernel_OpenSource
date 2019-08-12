@@ -502,10 +502,19 @@
 	vreg_rgmii_io_pads: rgmii_io_pads_regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "rgmii_io_pads";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
 		regulator-enable-ramp-delay = <100>;
 		gpio = <&tlmm 102 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+	};
+
+	/* PWR_CTR1_VDD_PA supply */
+	vreg_conn_pa: vreg_conn_pa {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_conn_pa";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pmxprairie_gpios 2 GPIO_ACTIVE_HIGH>;
 	};
 };

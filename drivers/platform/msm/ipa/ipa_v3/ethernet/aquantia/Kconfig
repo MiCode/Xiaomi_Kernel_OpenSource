@@ -11,6 +11,7 @@ config AQC_IPA
 
 choice
 	prompt "Default Rx Interrupt Proxy Method"
+	depends on AQC_IPA
 	default AQC_IPA_PROXY_HOST
 
 config AQC_IPA_PROXY_UC

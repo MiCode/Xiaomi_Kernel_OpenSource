@@ -32,8 +32,8 @@ Subsystem properties:
 	Definition: Remote sensor names. Below strings
 		are the only acceptable sensor names,
 		1. pa
-		2. pa1
-		3. pa2
+		2. pa_1
+		3. pa_2
 		4. qfe_pa0
 		5. qfe_wtr0
 		6. modem_tsens
@@ -44,6 +44,19 @@ Subsystem properties:
 		11. xo_therm
 		12. qfe_pa_mdm
 		13. qfe_pa_wtr
+		14. qfe_mmw_streamer0
+		15. qfe_mmw0_mod
+		16. qfe_mmw1_mod
+		17. qfe_mmw2_mod
+		18. qfe_mmw3_mod
+		19. qfe_ret_pa0
+		20. qfe_wtr_pa0
+		21. qfe_wtr_pa1
+		22. qfe_wtr_pa2
+		23. qfe_wtr_pa3
+		24. sys_therm1
+		25. sys_therm2
+		26. modem_tsens1
 
 Example:
 

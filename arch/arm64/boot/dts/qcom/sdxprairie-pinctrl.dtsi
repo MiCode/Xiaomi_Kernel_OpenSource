@@ -1473,5 +1473,32 @@
 			};
 		};
 
+		a2b_cdc_sel {
+			a2b_cdc_sel_default: a2b_cdc_sel_default {
+				mux {
+					pins = "gpio97";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio97";
+					drive-strength = <8>;
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		pinctrl_pps: ppsgrp {
+			mux {
+				pins = "gpio32";
+				function = "nav_gpio";
+			};
+
+			config {
+				pins = "gpio32";
+				bias-pull-down;
+			};
+		};
 	};
 };

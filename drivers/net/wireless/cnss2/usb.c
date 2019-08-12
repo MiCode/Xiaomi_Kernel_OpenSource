@@ -185,7 +185,8 @@ int cnss_usb_call_driver_remove(struct cnss_usb_data *usb_priv)
 }
 
 static struct usb_driver cnss_usb_driver;
-#define QCN7605_WLAN_INTERFACE_NUM      0x0000
+#define QCN7605_WLAN_STANDALONE_INTERFACE_NUM	0x0000
+#define QCN7605_WLAN_COMPOSITE_INTERFACE_NUM	0x0002
 
 static int cnss_usb_probe(struct usb_interface *interface,
 			  const struct usb_device_id *id)
@@ -207,15 +208,6 @@ static int cnss_usb_probe(struct usb_interface *interface,
 		goto out;
 	}
 
-	if (interface->cur_altsetting->desc.bInterfaceNumber ==
-	    QCN7605_WLAN_INTERFACE_NUM) {
-		if (usb_driver_claim_interface(&cnss_usb_driver,
-					       interface,
-					       NULL)) {
-			ret = -ENODEV;
-			goto reset_priv;
-		}
-	}
 	bcd_device = le16_to_cpu(usb_dev->descriptor.bcdDevice);
 	usb_priv->plat_priv = plat_priv;
 	usb_priv->usb_intf = interface;
@@ -256,7 +248,6 @@ unregister_subsys:
 	cnss_unregister_subsys(plat_priv);
 reset_ctx:
 	plat_priv->bus_priv = NULL;
-reset_priv:
 	devm_kfree(&usb_dev->dev, usb_priv);
 out:
 	return ret;
@@ -317,15 +308,13 @@ static int cnss_usb_reset_resume(struct usb_interface *interface)
 }
 
 static struct usb_device_id cnss_usb_id_table[] = {
-	{ USB_DEVICE_AND_INTERFACE_INFO(QCN7605_USB_VENDOR_ID,
-				       QCN7605_COMPOSITE_PRODUCT_ID,
-				       QCN7605_WLAN_INTERFACE_NUM,
-				       0xFF, 0xFF) },
-	{ USB_DEVICE_AND_INTERFACE_INFO(QCN7605_USB_VENDOR_ID,
-				       QCN7605_STANDALONE_PRODUCT_ID,
-				       QCN7605_WLAN_INTERFACE_NUM,
-				       0xFF, 0xFF) },
-	{}			/* Terminating entry */
+	{ USB_DEVICE_INTERFACE_NUMBER(QCN7605_USB_VENDOR_ID,
+				      QCN7605_COMPOSITE_PRODUCT_ID,
+				      QCN7605_WLAN_COMPOSITE_INTERFACE_NUM) },
+	{ USB_DEVICE_INTERFACE_NUMBER(QCN7605_USB_VENDOR_ID,
+				      QCN7605_STANDALONE_PRODUCT_ID,
+				      QCN7605_WLAN_STANDALONE_INTERFACE_NUM) },
+	{}                      /* Terminating entry */
 };
 
 static struct usb_driver cnss_usb_driver = {

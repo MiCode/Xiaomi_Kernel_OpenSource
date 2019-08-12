@@ -351,8 +351,9 @@
 	qcom,msm-dai-tdm-quin-rx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37184>;
-		qcom,msm-cpudai-tdm-group-num-ports = <4>;
-		qcom,msm-cpudai-tdm-group-port-id = <36928 36930 36932 36934>;
+		qcom,msm-cpudai-tdm-group-num-ports = <5>;
+		qcom,msm-cpudai-tdm-group-port-id = <36928 36930 36932
+							36934 36942>;
 		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
 		qcom,msm-cpudai-tdm-clk-internal = <1>;
 		qcom,msm-cpudai-tdm-sync-mode = <1>;
@@ -383,13 +384,20 @@
 			qcom,msm-cpudai-tdm-dev-id = <36934>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
+
+		dai_quin_tdm_rx_7: qcom,msm-dai-q6-tdm-quin-rx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36942>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
 	};
 
 	qcom,msm-dai-tdm-quin-tx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37185>;
-		qcom,msm-cpudai-tdm-group-num-ports = <4>;
-		qcom,msm-cpudai-tdm-group-port-id = <36929 36931 36933 36935>;
+		qcom,msm-cpudai-tdm-group-num-ports = <5>;
+		qcom,msm-cpudai-tdm-group-port-id = <36929 36931 36933
+							36935 36943>;
 		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
 		qcom,msm-cpudai-tdm-clk-internal = <1>;
 		qcom,msm-cpudai-tdm-sync-mode = <1>;
@@ -418,6 +426,12 @@
 		dai_quin_tdm_tx_3: qcom,msm-dai-q6-tdm-quin-tx-3 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36935>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quin_tdm_tx_7: qcom,msm-dai-q6-tdm-quin-tx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36943>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 	};
@@ -489,9 +503,10 @@
 				<&dai_quat_tdm_tx_2>, <&dai_quat_tdm_tx_3>,
 				<&dai_quat_tdm_tx_7>, <&dai_quin_tdm_rx_0>,
 				<&dai_quin_tdm_rx_1>, <&dai_quin_tdm_rx_2>,
-				<&dai_quin_tdm_rx_3>, <&dai_quin_tdm_tx_0>,
-				<&dai_quin_tdm_tx_1>, <&dai_quin_tdm_tx_2>,
-				<&dai_quin_tdm_tx_3>;
+				<&dai_quin_tdm_rx_3>, <&dai_quin_tdm_rx_7>,
+				<&dai_quin_tdm_tx_0>, <&dai_quin_tdm_tx_1>,
+				<&dai_quin_tdm_tx_2>, <&dai_quin_tdm_tx_3>,
+				<&dai_quin_tdm_tx_7>;
 		asoc-cpu-names = "msm-dai-q6-hdmi.8",  "msm-dai-q6-dp.24608",
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
@@ -523,9 +538,10 @@
 				"msm-dai-q6-tdm.36917", "msm-dai-q6-tdm.36919",
 				"msm-dai-q6-tdm.36927", "msm-dai-q6-tdm.36928",
 				"msm-dai-q6-tdm.36930", "msm-dai-q6-tdm.36932",
-				"msm-dai-q6-tdm.36934", "msm-dai-q6-tdm.36929",
-				"msm-dai-q6-tdm.36931", "msm-dai-q6-tdm.36933",
-				"msm-dai-q6-tdm.36935";
+				"msm-dai-q6-tdm.36934", "msm-dai-q6-tdm.36942",
+				"msm-dai-q6-tdm.36929", "msm-dai-q6-tdm.36931",
+				"msm-dai-q6-tdm.36933", "msm-dai-q6-tdm.36935",
+				"msm-dai-q6-tdm.36943";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
 		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>;

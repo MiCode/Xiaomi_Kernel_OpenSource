@@ -257,6 +257,16 @@ static void ipa3_uc_save_dbg_stats(u32 size)
 		break;
 	case IPA_HW_PROTOCOL_ETH:
 		break;
+	case IPA_HW_PROTOCOL_MHIP:
+		ipa3_ctx->mhip_ctx.dbg_stats.uc_dbg_stats_size = size;
+		ipa3_ctx->mhip_ctx.dbg_stats.uc_dbg_stats_ofst = addr_offset;
+		ipa3_ctx->mhip_ctx.dbg_stats.uc_dbg_stats_mmio = mmio;
+		break;
+	case IPA_HW_PROTOCOL_USB:
+		ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_size = size;
+		ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_ofst = addr_offset;
+		ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio = mmio;
+		break;
 	default:
 		IPAERR("unknown protocols %d\n", protocol_id);
 	}

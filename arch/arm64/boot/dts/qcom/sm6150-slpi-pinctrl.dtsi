@@ -258,7 +258,7 @@
 			config {
 				pins = "gpio23";
 				drive-strength = <8>;
-				bias-bus-hold;
+				bias-disable;
 			};
 		};
 
@@ -271,7 +271,7 @@
 			config {
 				pins = "gpio23";
 				drive-strength = <2>;
-				bias-bus-hold;
+				bias-disable;
 			};
 		};
 
@@ -284,7 +284,7 @@
 			config {
 				pins = "gpio24";
 				drive-strength = <8>;
-				bias-bus-hold;
+				bias-disable;
 			};
 		};
 
@@ -297,7 +297,7 @@
 			config {
 				pins = "gpio24";
 				drive-strength = <2>;
-				bias-bus-hold;
+				bias-disable;
 			};
 		};
 
@@ -310,7 +310,7 @@
 			config {
 				pins = "gpio26";
 				drive-strength = <8>;
-				bias-bus-hold;
+				bias-disable;
 			};
 		};
 
@@ -323,7 +323,7 @@
 			config {
 				pins = "gpio26";
 				drive-strength = <2>;
-				bias-bus-hold;
+				bias-disable;
 			};
 		};
 
@@ -335,8 +335,8 @@
 
 			config {
 				pins = "gpio25";
-				drive-strength = <8>;
-				bias-bus-hold;
+				drive-strength = <2>;
+				bias-disable;
 			};
 		};
 
@@ -349,7 +349,7 @@
 			config {
 				pins = "gpio25";
 				drive-strength = <2>;
-				bias-bus-hold;
+				bias-pull-up;
 			};
 		};
 
@@ -361,8 +361,8 @@
 
 			config {
 				pins = "gpio18";
-				drive-strength = <8>;
-				bias-bus-hold;
+				drive-strength = <2>;
+				bias-disable;
 			};
 		};
 
@@ -375,7 +375,7 @@
 			config {
 				pins = "gpio18";
 				drive-strength = <2>;
-				bias-bus-hold;
+				bias-pull-down;
 			};
 		};
 
@@ -387,8 +387,8 @@
 
 			config {
 				pins = "gpio20";
-				drive-strength = <8>;
-				bias-bus-hold;
+				drive-strength = <2>;
+				bias-disable;
 			};
 		};
 
@@ -401,7 +401,7 @@
 			config {
 				pins = "gpio20";
 				drive-strength = <2>;
-				bias-bus-hold;
+				bias-pull-up;
 			};
 		};
 
@@ -413,8 +413,8 @@
 
 			config {
 				pins = "gpio21";
-				drive-strength = <8>;
-				bias-bus-hold;
+				drive-strength = <2>;
+				bias-disable;
 			};
 		};
 
@@ -427,7 +427,7 @@
 			config {
 				pins = "gpio21";
 				drive-strength = <2>;
-				bias-bus-hold;
+				bias-pull-down;
 			};
 		};
 
@@ -440,7 +440,7 @@
 			config {
 				pins = "gpio22";
 				drive-strength = <8>;
-				bias-bus-hold;
+				bias-disable;
 			};
 		};
 
@@ -453,7 +453,7 @@
 			config {
 				pins = "gpio22";
 				drive-strength = <2>;
-				bias-bus-hold;
+				bias-disable;
 			};
 		};
 

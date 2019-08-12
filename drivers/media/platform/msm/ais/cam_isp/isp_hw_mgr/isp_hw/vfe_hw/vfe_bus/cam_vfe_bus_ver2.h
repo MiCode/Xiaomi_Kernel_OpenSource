@@ -203,6 +203,7 @@ struct cam_vfe_bus_ver2_reg_data {
 struct cam_vfe_bus_ver2_hw_info {
 	struct cam_vfe_bus_ver2_reg_offset_common common_reg;
 	uint32_t num_client;
+	uint32_t is_lite;
 	struct cam_vfe_bus_ver2_reg_offset_bus_client
 		bus_client_reg[CAM_VFE_BUS_VER2_MAX_CLIENTS];
 	struct cam_vfe_bus_ver2_reg_offset_comp_grp

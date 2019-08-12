@@ -1960,6 +1960,7 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	if (IS_ERR(glink->task)) {
 		dev_err(dev, "failed to spawn intent kthread %ld\n",
 			PTR_ERR(glink->task));
+		mbox_free_channel(glink->mbox_chan);
 		return ERR_CAST(glink->task);
 	}
 
@@ -2010,6 +2011,8 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 
 unregister:
 	subsys_unregister_early_notifier(glink->name, XPORT_LAYER_NOTIF);
+	kthread_stop(glink->task);
+	mbox_free_channel(glink->mbox_chan);
 	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL_GPL(qcom_glink_native_probe);

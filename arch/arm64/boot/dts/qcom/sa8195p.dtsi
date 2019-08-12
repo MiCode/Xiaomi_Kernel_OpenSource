@@ -10,8 +10,14 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/gpio/gpio.h>
 #include "sdmshrike-v2.dtsi"
 #include "sa8155-audio.dtsi"
+#include "sa8195-pmic.dtsi"
+#include "sm8150-camera.dtsi"
+#include "sm8150-v2-camera.dtsi"
+#include "sa8155-camera-sensor.dtsi"
+#include "sa8195p-pcie.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SA8195P";
@@ -19,7 +25,6 @@
 	qcom,msm-id = <405 0x20000>;
 };
 
-#include <dt-bindings/gpio/gpio.h>
 &soc {
 	emac_hw: qcom,emac@00020000 {
 		compatible = "qcom,emac-dwc-eqos";
@@ -104,5 +109,221 @@
 			iommus = <&apps_smmu 0x7C0 0x0>;
 			qcom,iova-mapping = <0x80000000 0x40000000>;
 		};
+	};
+
+	qcom,cam_smmu {
+		msm_cam_smmu_ife {
+			iommus = <&apps_smmu 0xAA0 0x4E0>,
+				<&apps_smmu 0xA20 0x4E0>,
+				<&apps_smmu 0xA00 0x4E0>,
+				<&apps_smmu 0xA80 0x4E0>,
+				<&apps_smmu 0xEA0 0x4E0>,
+				<&apps_smmu 0xE20 0x4E0>,
+				<&apps_smmu 0xE00 0x4E0>,
+				<&apps_smmu 0xE80 0x4E0>;
+		};
+
+		msm_cam_smmu_jpeg {
+			iommus = <&apps_smmu 0x2100 0x20>,
+				<&apps_smmu 0x2120 0x20>;
+		};
+
+		msm_cam_smmu_icp {
+			iommus = <&apps_smmu 0x2042 0x0>,
+				<&apps_smmu 0x2080 0x320>,
+				<&apps_smmu 0x20A0 0x320>,
+				<&apps_smmu 0x2380 0x320>,
+				<&apps_smmu 0x23A0 0x320>,
+				<&apps_smmu 0x20C0 0x300>,
+				<&apps_smmu 0x23C0 0x300>;
+		};
+
+		msm_cam_smmu_fd {
+			iommus = <&apps_smmu 0x2140 0x20>,
+				<&apps_smmu 0x2160 0x20>;
+		};
+
+		msm_cam_smmu_lrme {
+			iommus = <&apps_smmu 0x20e0 0x300>,
+				<&apps_smmu 0x23E0 0x300>;
+		};
+	};
+
+	cam_csid0 {
+		clock-rates =
+			<400000000 0 0 0 400000000 0 0>,
+			<400000000 0 0 0 558000000 0 0>,
+			<480000000 0 0 0 637000000 0 0>,
+			<600000000 0 0 0 760000000 0 0>;
+		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
+	};
+
+	cam_csid1 {
+		clock-rates =
+			<400000000 0 0 0 400000000 0 0>,
+			<400000000 0 0 0 558000000 0 0>,
+			<480000000 0 0 0 637000000 0 0>,
+			<600000000 0 0 0 760000000 0 0>;
+		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
+	};
+
+	cam_vfe0 {
+		clock-rates =
+			<400000000 0 0>,
+			<558000000 0 0>,
+			<637000000 0 0>,
+			<760000000 0 0>;
+		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
+	};
+
+	cam_vfe1 {
+		clock-rates =
+			<400000000 0 0>,
+			<558000000 0 0>,
+			<637000000 0 0>,
+			<760000000 0 0>;
+		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
+	};
+};
+
+&usb1 {
+	qcom,default-mode-host;
+	status = "ok";
+};
+
+&slpi_tlmm {
+	status = "ok";
+};
+
+&pil_ssc {
+	vdd_cx-supply = <&VDD_CX_LEVEL>;
+	vdd_mx-supply = <&VDD_MX_LEVEL>;
+	status = "ok";
+};
+
+&ssc_sensors {
+	status = "disabled";
+};
+
+&clock_rpmh {
+	compatible = "qcom,rpmh-clk-sm8150";
+};
+
+&clock_scc {
+	compatible = "qcom,scc-sa8195";
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4";
+	vdda-phy-supply = <&pm8195_3_l5>;
+	vdda-pll-supply = <&pm8195_1_l9>;
+	vdda-phy-max-microamp = <138000>;
+	vdda-pll-max-microamp = <65100>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8195_3_l10>;
+	vcc-voltage-level = <2894000 2904000>;
+	vcc-low-voltage-sup;
+	vccq-supply = <&pm8195_1_l11>;
+	vccq2-supply = <&pm8195_3_l7>;
+	vcc-max-microamp = <750000>;
+	vccq-max-microamp = <750000>;
+	vccq2-max-microamp = <750000>;
+
+	status= "ok";
+};
+
+&usb2_phy0 {
+	vdd-supply = <&pm8195_3_l5>;
+	vdda18-supply = <&pm8195_1_l12>;
+	vdda33-supply = <&pm8195_3_l16>;
+};
+
+&usb2_phy1 {
+	vdd-supply = <&pm8195_3_l5>;
+	vdda18-supply = <&pm8195_1_l12>;
+	vdda33-supply = <&pm8195_3_l16>;
+	status = "ok";
+};
+
+&mdss_dsi_phy0 {
+	vdda-0p9-supply = <&pm8195_3_l5>;
+};
+
+&mdss_dsi_phy1 {
+	vdda-0p9-supply = <&pm8195_3_l5>;
+};
+
+&mdss_dsi0 {
+	vdda-1p2-supply = <&pm8195_1_l9>;
+};
+
+&mdss_dsi1 {
+	vdda-1p2-supply = <&pm8195_1_l9>;
+};
+
+&sde_dp {
+	vdda-1p2-supply = <&pm8195_1_l9>;
+	vdda-0p9-supply = <&pm8195_3_l5>;
+};
+
+&pil_lpass {
+	vdd_cx-supply = <&VDD_CX_LEVEL>;
+	status = "ok";
+};
+
+&clock_scc {
+	vdd_scc_cx-supply = <&pm8195_3_l8_level>;
+	status = "ok";
+};
+
+&cam_csiphy0 {
+	mipi-csi-vdd-supply = <&pm8195_1_l9>;
+};
+
+&cam_csiphy1 {
+	mipi-csi-vdd-supply = <&pm8195_1_l9>;
+};
+
+&cam_csiphy2 {
+	mipi-csi-vdd-supply = <&pm8195_1_l9>;
+};
+
+&cam_csiphy3 {
+	mipi-csi-vdd-supply = <&pm8195_1_l9>;
+};
+
+&cam_cci0 {
+	qcom,cam-sensor@0 {
+		cam_vio-supply = <&pm8195_s4>;
+		cam_bob-supply = <&pm8195_s4>;
+		cam_vana-supply = <&pm8195_s4>;
+		cam_vdig-supply = <&pm8195_s4>;
+	};
+
+	qcom,cam-sensor@1 {
+		cam_vio-supply = <&pm8195_s4>;
+		cam_bob-supply = <&pm8195_s4>;
+		cam_vana-supply = <&pm8195_s4>;
+		cam_vdig-supply = <&pm8195_s4>;
+	};
+
+	qcom,cam-sensor@2 {
+		cam_vio-supply = <&pm8195_s4>;
+		cam_bob-supply = <&pm8195_s4>;
+		cam_vana-supply = <&pm8195_s4>;
+		cam_vdig-supply = <&pm8195_s4>;
+	};
+
+	qcom,cam-sensor@3 {
+		cam_vio-supply = <&pm8195_s4>;
+		cam_bob-supply = <&pm8195_s4>;
+		cam_vana-supply = <&pm8195_s4>;
+		cam_vdig-supply = <&pm8195_s4>;
 	};
 };

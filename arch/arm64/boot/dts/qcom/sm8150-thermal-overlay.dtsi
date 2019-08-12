@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -154,149 +154,107 @@
 		};
 	};
 
-	pm8150b-vbat-lvl0 {
+	pm8150b-bcl-lvl0 {
 		cooling-maps {
 			vbat_cpu4 {
-				trip = <&vbat_lvl0>;
+				trip = <&b_bcl_lvl0>;
 				cooling-device =
 					<&CPU4 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 			vbat_cpu5 {
-				trip = <&vbat_lvl0>;
+				trip = <&b_bcl_lvl0>;
 				cooling-device =
 					<&CPU5 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 			vbat_gpu0 {
-				trip = <&vbat_lvl0>;
+				trip = <&b_bcl_lvl0>;
 				cooling-device = <&msm_gpu 2 2>;
 			};
 		};
 	};
 
-	pm8150b-vbat-lvl1 {
+	pm8150b-bcl-lvl1 {
 		cooling-maps {
 			vbat_cpu6 {
-				trip = <&vbat_lvl1>;
+				trip = <&b_bcl_lvl1>;
 				cooling-device =
 					<&CPU6 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 			vbat_cpu7 {
-				trip = <&vbat_lvl1>;
+				trip = <&b_bcl_lvl1>;
 				cooling-device =
 					<&CPU7 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 			vbat_gpu1 {
-				trip = <&vbat_lvl1>;
+				trip = <&b_bcl_lvl1>;
 				cooling-device = <&msm_gpu 4 4>;
 			};
 		};
 	};
 
-	pm8150b-vbat-lvl2 {
+	pm8150b-bcl-lvl2 {
 		cooling-maps {
 			vbat_gpu2 {
-				trip = <&vbat_lvl2>;
+				trip = <&b_bcl_lvl2>;
 				cooling-device = <&msm_gpu THERMAL_MAX_LIMIT
 							THERMAL_MAX_LIMIT>;
 			};
 		};
 	};
 
-	pm8150b-ibat-lvl0 {
-		cooling-maps {
-			ibat_cpu4 {
-				trip = <&ibat_lvl0>;
-				cooling-device =
-					<&CPU4 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
-			};
-			ibat_cpu5 {
-				trip = <&ibat_lvl0>;
-				cooling-device =
-					<&CPU5 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
-			};
-			ibat_gpu0 {
-				trip = <&ibat_lvl0>;
-				cooling-device = <&msm_gpu 2 2>;
-			};
-		};
-	};
-
-	pm8150b-ibat-lvl1 {
-		cooling-maps {
-			ibat_cpu6 {
-				trip = <&ibat_lvl1>;
-				cooling-device =
-					<&CPU6 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
-			};
-			ibat_cpu7 {
-				trip = <&ibat_lvl1>;
-				cooling-device =
-					<&CPU7 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
-			};
-			ibat_gpu1 {
-				trip = <&ibat_lvl1>;
-				cooling-device = <&msm_gpu 4 4>;
-			};
-		};
-	};
-
-	pm8150l-vph-lvl0 {
+	pm8150l-bcl-lvl0 {
 		disable-thermal-zone;
 		cooling-maps {
 			vph_cpu4 {
-				trip = <&vph_lvl0>;
+				trip = <&l_bcl_lvl0>;
 				cooling-device =
 					<&CPU4 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 			vph_cpu5 {
-				trip = <&vph_lvl0>;
+				trip = <&l_bcl_lvl0>;
 				cooling-device =
 					<&CPU5 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 			vph_gpu0 {
-				trip = <&vph_lvl0>;
+				trip = <&l_bcl_lvl0>;
 				cooling-device = <&msm_gpu 2 2>;
 			};
 		};
 	};
 
-	pm8150l-vph-lvl1 {
+	pm8150l-bcl-lvl1 {
 		disable-thermal-zone;
 		cooling-maps {
 			vph_cpu6 {
-				trip = <&vph_lvl1>;
+				trip = <&l_bcl_lvl1>;
 				cooling-device =
 					<&CPU6 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 			vph_cpu7 {
-				trip = <&vph_lvl1>;
+				trip = <&l_bcl_lvl1>;
 				cooling-device =
 					<&CPU7 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 			vph_gpu1 {
-				trip = <&vph_lvl1>;
+				trip = <&l_bcl_lvl1>;
 				cooling-device = <&msm_gpu 4 4>;
 			};
 		};
 	};
 
-	pm8150l-vph-lvl2 {
+	pm8150l-bcl-lvl2 {
 		disable-thermal-zone;
 		cooling-maps {
 			vph_gpu2 {
-				trip = <&vph_lvl2>;
+				trip = <&l_bcl_lvl2>;
 				cooling-device = <&msm_gpu THERMAL_MAX_LIMIT
 							THERMAL_MAX_LIMIT>;
 			};

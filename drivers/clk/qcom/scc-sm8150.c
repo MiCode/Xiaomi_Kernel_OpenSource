@@ -576,9 +576,18 @@ static const struct qcom_cc_desc scc_sm8150_desc = {
 static const struct of_device_id scc_sm8150_match_table[] = {
 	{ .compatible = "qcom,scc-sm8150" },
 	{ .compatible = "qcom,scc-sm8150-v2" },
+	{ .compatible = "qcom,scc-sa8195" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, scc_sm8150_match_table);
+
+static void scc_sa8195_fixup(struct platform_device *pdev)
+{
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,scc-sa8195")) {
+		vdd_scc_cx.num_levels = VDD_MM_NUM;
+		vdd_scc_cx.cur_level = VDD_MM_NUM;
+	}
+}
 
 static void scc_sm8150_fixup_sm8150v2(struct regmap *regmap)
 {
@@ -635,7 +644,8 @@ static int scc_sm8150_fixup(struct platform_device *pdev, struct regmap *regmap)
 	if (!compat || (compatlen <= 0))
 		return -EINVAL;
 
-	if (!strcmp(compat, "qcom,scc-sm8150-v2"))
+	if (!strcmp(compat, "qcom,scc-sm8150-v2") ||
+			!strcmp(compat, "qcom,scc-sa8195"))
 		scc_sm8150_fixup_sm8150v2(regmap);
 
 	return 0;
@@ -651,6 +661,8 @@ static int scc_sm8150_probe(struct platform_device *pdev)
 		pr_err("Failed to map the scc registers\n");
 		return PTR_ERR(regmap);
 	}
+
+	scc_sa8195_fixup(pdev);
 
 	vdd_scc_cx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_scc_cx");
 	if (IS_ERR(vdd_scc_cx.regulator[0])) {

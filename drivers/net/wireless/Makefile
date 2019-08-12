@@ -30,6 +30,7 @@ obj-$(CONFIG_MAC80211_HWSIM)	+= mac80211_hwsim.o
 
 obj-$(CONFIG_CNSS2) += cnss2/
 
+obj-$(CONFIG_CNSS)              += cnss/
 obj-$(CONFIG_WCNSS_MEM_PRE_ALLOC) += cnss_prealloc/
 obj-$(CONFIG_CNSS_UTILS) += cnss_utils/
 obj-$(CONFIG_CNSS_GENL) += cnss_genl/

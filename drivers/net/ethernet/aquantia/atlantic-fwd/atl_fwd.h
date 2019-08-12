@@ -364,6 +364,7 @@ int atl_fwd_transmit_skb(struct net_device *ndev, struct sk_buff *skb);
 
 enum atl_fwd_ring_state {
 	ATL_FWR_ST_ENABLED = BIT(0),
+	ATL_FWR_ST_EVT_ENABLED = BIT(1),
 };
 
 #endif

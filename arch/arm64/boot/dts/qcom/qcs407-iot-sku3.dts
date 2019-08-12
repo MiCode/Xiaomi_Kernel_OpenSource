@@ -1,0 +1,52 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "qcs407.dtsi"
+#include "qcs405-audio-overlay.dtsi"
+#include "qcs405-geni-ir-overlay.dtsi"
+#include "qcs405-pinctrl.dtsi"
+#include "qcs405-circular-pca9956.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS407 sEVB/SLT IOT";
+	compatible = "qcom,qcs407-iot", "qcom,qcs407", "qcom,iot";
+	qcom,board-id = <0x010020 0x2>;
+};
+#include "qcs405-mdss-panels.dtsi"
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8394d_720_vid>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	qcom,platform-te-gpio = <&tlmm 41 0>;
+	qcom,platform-reset-gpio = <&tlmm 39 0>;
+	qcom,platform-bklight-en-gpio = <&tlmm 48 0>;
+};
+
+&dsi_hx8394d_720_vid {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_tlmm_gpio";
+	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};

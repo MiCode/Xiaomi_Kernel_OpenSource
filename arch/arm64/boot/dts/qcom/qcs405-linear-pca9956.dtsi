@@ -11,10 +11,6 @@
  * GNU General Public License for more details.
  */
 
-&va_macro {
-	qcom,va-dmic-sample-rate = <2400000>;
-};
-
 &i2c_2 {
 	status = "ok";
 	qcom,clk-freq-out = <100000>;

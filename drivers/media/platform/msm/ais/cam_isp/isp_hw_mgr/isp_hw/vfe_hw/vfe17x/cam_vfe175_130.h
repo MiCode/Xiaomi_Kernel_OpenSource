@@ -410,6 +410,7 @@ static struct cam_vfe_bus_ver2_hw_info vfe175_130_bus_hw_info = {
 		.addr_sync_no_sync            = 0x00002084,
 	},
 	.num_client = 24,
+	.is_lite = 0,
 	.bus_client_reg = {
 		/* BUS Client 0 */
 		{

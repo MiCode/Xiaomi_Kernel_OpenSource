@@ -209,6 +209,7 @@ struct smcinvoke_cb_txn {
 	size_t cb_req_bytes;
 	struct file **filp_to_release;
 	struct hlist_node hash;
+	struct kref ref_cnt;
 };
 
 struct smcinvoke_server_info {
@@ -456,6 +457,15 @@ static void release_tzhandles(const int32_t *tzhandles, size_t len)
 	mutex_unlock(&g_smcinvoke_lock);
 }
 
+static void delete_cb_txn(struct kref *kref)
+{
+	struct smcinvoke_cb_txn *cb_txn = container_of(kref,
+					struct smcinvoke_cb_txn, ref_cnt);
+
+	kfree(cb_txn->cb_req);
+	kfree(cb_txn);
+}
+
 static struct smcinvoke_cb_txn *find_cbtxn_locked(
 				struct smcinvoke_server_info *server,
 				uint32_t txn_id, int32_t state)
@@ -470,6 +480,7 @@ static struct smcinvoke_cb_txn *find_cbtxn_locked(
 	if (state == SMCINVOKE_REQ_PLACED) {
 		/* pick up 1st req */
 		hash_for_each(server->reqs_table, i, cb_txn, hash) {
+			kref_get(&cb_txn->ref_cnt);
 			hash_del(&cb_txn->hash);
 			return cb_txn;
 		}
@@ -477,6 +488,7 @@ static struct smcinvoke_cb_txn *find_cbtxn_locked(
 		hash_for_each_possible(
 				server->responses_table, cb_txn, hash, txn_id) {
 			if (cb_txn->txn_id == txn_id) {
+				kref_get(&cb_txn->ref_cnt);
 				hash_del(&cb_txn->hash);
 				return cb_txn;
 			}
@@ -833,7 +845,13 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 	if (buf_len < sizeof(struct smcinvoke_tzcb_req))
 		return;
 
-	cb_req = buf;
+	cb_req = kzalloc(buf_len, GFP_KERNEL);
+	if (!cb_req) {
+		ret =  OBJECT_ERROR_KMEM;
+		goto out;
+	}
+	memcpy(cb_req, buf, buf_len);
+
 	/* check whether it is to be served by kernel or userspace */
 	if (TZHANDLE_IS_KERNEL_OBJ(cb_req->hdr.tzhandle)) {
 		return process_kernel_obj(buf, buf_len);
@@ -854,6 +872,7 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 	cb_txn->cb_req = cb_req;
 	cb_txn->cb_req_bytes = buf_len;
 	cb_txn->filp_to_release = arr_filp;
+	kref_init(&cb_txn->ref_cnt);
 
 	mutex_lock(&g_smcinvoke_lock);
 	srvr_info = find_cb_server_locked(
@@ -867,9 +886,11 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 	hash_add(srvr_info->reqs_table, &cb_txn->hash, cb_txn->txn_id);
 	mutex_unlock(&g_smcinvoke_lock);
 	wake_up_interruptible(&srvr_info->req_wait_q);
-	wait_event(srvr_info->rsp_wait_q,
+	ret = wait_event_interruptible(srvr_info->rsp_wait_q,
 			(cb_txn->state == SMCINVOKE_REQ_PROCESSED) ||
 			(srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT));
+	if (ret)
+		pr_err("%s wait_event interrupted: ret = %d\n", __func__, ret);
 out:
 	/*
 	 * If we are here, either req is processed or not
@@ -877,17 +898,19 @@ out:
 	 * if not processed, we should set result with ret which should have
 	 * correct value that TZ/TA can understand
 	 */
+	mutex_lock(&g_smcinvoke_lock);
 	if (!cb_txn || (cb_txn->state != SMCINVOKE_REQ_PROCESSED)) {
 		cb_req->result = ret;
 		if (srvr_info &&
 		    srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT &&
 		    OBJECT_OP_METHODID(cb_req->hdr.op) == OBJECT_OP_RELEASE) {
-			mutex_lock(&g_smcinvoke_lock);
 			release_tzhandle_locked(cb_req->hdr.tzhandle);
-			mutex_unlock(&g_smcinvoke_lock);
 		}
 	}
-	kfree(cb_txn);
+	hash_del(&cb_txn->hash);
+	memcpy(buf, cb_req, buf_len);
+	kref_put(&cb_txn->ref_cnt, delete_cb_txn);
+	mutex_unlock(&g_smcinvoke_lock);
 }
 
 static int marshal_out_invoke_req(const uint8_t *buf, uint32_t buf_size,
@@ -1431,6 +1454,7 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 			release_tzhandles(&cb_txn->cb_req->hdr.tzhandle, 1);
 
 		cb_txn->state = SMCINVOKE_REQ_PROCESSED;
+		kref_put(&cb_txn->ref_cnt, delete_cb_txn);
 		wake_up(&server_info->rsp_wait_q);
 		/*
 		 * if marshal_out fails, we should let userspace release
@@ -1447,7 +1471,8 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 		ret = wait_event_interruptible(server_info->req_wait_q,
 				!hash_empty(server_info->reqs_table));
 		if (ret) {
-			destroy_cb_server(server_obj->server_id);
+			pr_err("%s wait_event interrupted: ret = %d\n",
+							__func__, ret);
 			goto out;
 		}
 
@@ -1463,12 +1488,14 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 			if (ret) {
 				cb_txn->cb_req->result = OBJECT_ERROR_UNAVAIL;
 				cb_txn->state = SMCINVOKE_REQ_PROCESSED;
+				kref_put(&cb_txn->ref_cnt, delete_cb_txn);
 				wake_up_interruptible(&server_info->rsp_wait_q);
 				continue;
 			}
 			mutex_lock(&g_smcinvoke_lock);
 			hash_add(server_info->responses_table, &cb_txn->hash,
 							cb_txn->txn_id);
+			kref_put(&cb_txn->ref_cnt, delete_cb_txn);
 			mutex_unlock(&g_smcinvoke_lock);
 			ret =  copy_to_user((void __user *)arg, &user_args,
 					sizeof(struct smcinvoke_accept));
