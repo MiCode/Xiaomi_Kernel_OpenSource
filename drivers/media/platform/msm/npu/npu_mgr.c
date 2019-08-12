@@ -954,10 +954,8 @@ static int npu_notify_aop(struct npu_device *npu_dev, bool on)
 	struct qmp_pkt pkt;
 	int buf_size, rc = 0;
 
-	if (!npu_dev->mbox_aop || !npu_dev->mbox_aop->chan) {
-		NPU_WARN("aop mailbox channel is not available\n");
+	if (!npu_dev->mbox_aop || !npu_dev->mbox_aop->chan)
 		return 0;
-	}
 
 	buf_size = scnprintf(buf, MAX_LEN, "{class: bcm, res: npu_on, val: %d}",
 		on ? 1 : 0);
