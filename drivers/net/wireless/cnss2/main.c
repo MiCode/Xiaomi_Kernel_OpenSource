@@ -1822,7 +1822,7 @@ static ssize_t fs_ready_store(struct device *dev,
 	if (fs_ready == FILE_SYSTEM_READY) {
 		cnss_driver_event_post(plat_priv,
 				       CNSS_DRIVER_EVENT_COLD_BOOT_CAL_START,
-				       0, NULL);
+				       CNSS_EVENT_SYNC, NULL);
 	}
 
 	return count;
