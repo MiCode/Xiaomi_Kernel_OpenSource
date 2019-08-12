@@ -524,7 +524,7 @@ void kgsl_context_dump(struct kgsl_context *context)
 	device = context->device;
 
 	if (kgsl_context_detached(context)) {
-		dev_err(device->dev, "  context[%d]: context detached\n",
+		dev_err(device->dev, "  context[%u]: context detached\n",
 			context->id);
 	} else if (device->ftbl->drawctxt_dump != NULL)
 		device->ftbl->drawctxt_dump(device, context);
