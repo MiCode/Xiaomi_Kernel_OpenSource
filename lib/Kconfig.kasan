@@ -16,7 +16,7 @@ config KASAN
 choice
 	prompt "KASAN mode"
 	depends on KASAN
-	default KASAN_SW_TAGS
+	default KASAN_GENERIC
 	help
 	  KASAN has two modes: generic KASAN (similar to userspace ASan,
 	  x86_64/arm64/xtensa, enabled with CONFIG_KASAN_GENERIC) and
