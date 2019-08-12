@@ -581,6 +581,7 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 	if (WDOG_BITE_ON_PANIC && in_panic)
 		msm_trigger_wdog_bite();
 
+	scm_disable_sdi();
 	halt_spmi_pmic_arbiter();
 	deassert_ps_hold();
 
