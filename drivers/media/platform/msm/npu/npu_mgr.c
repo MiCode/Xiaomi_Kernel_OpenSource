@@ -36,6 +36,7 @@ static void npu_ipc_irq_work(struct work_struct *work);
 static void npu_wdg_err_irq_work(struct work_struct *work);
 static void npu_bridge_mbox_work(struct work_struct *work);
 static void npu_disable_fw_work(struct work_struct *work);
+static void npu_update_pwr_work(struct work_struct *work);
 static void turn_off_fw_logging(struct npu_device *npu_dev);
 static int wait_for_status_ready(struct npu_device *npu_dev,
 	uint32_t status_reg, uint32_t status_bits);
@@ -542,6 +543,33 @@ static int npu_notifier_cb(struct notifier_block *this, unsigned long code,
 	return ret;
 }
 
+static void npu_update_pwr_work(struct work_struct *work)
+{
+	int ret;
+	struct npu_host_ctx *host_ctx;
+	struct npu_device *npu_dev;
+
+	host_ctx = container_of(work, struct npu_host_ctx, update_pwr_work);
+	npu_dev = container_of(host_ctx, struct npu_device, host_ctx);
+
+	mutex_lock(&host_ctx->lock);
+	ret = npu_set_power_level(npu_dev, true);
+	mutex_unlock(&host_ctx->lock);
+
+	if (ret)
+		NPU_ERR("Update power level failed %d\n", ret);
+}
+
+int npu_host_update_power(struct npu_device *npu_dev)
+{
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+
+	if (host_ctx->wq)
+		queue_work(host_ctx->wq, &host_ctx->update_pwr_work);
+
+	return 0;
+}
+
 int npu_host_init(struct npu_device *npu_dev)
 {
 	int sts = 0;
@@ -575,6 +603,7 @@ int npu_host_init(struct npu_device *npu_dev)
 		INIT_WORK(&host_ctx->wdg_err_irq_work, npu_wdg_err_irq_work);
 		INIT_WORK(&host_ctx->bridge_mbox_work, npu_bridge_mbox_work);
 		INIT_WORK(&host_ctx->load_fw_work, npu_load_fw_work);
+		INIT_WORK(&host_ctx->update_pwr_work, npu_update_pwr_work);
 		INIT_DELAYED_WORK(&host_ctx->disable_fw_work,
 			npu_disable_fw_work);
 	}

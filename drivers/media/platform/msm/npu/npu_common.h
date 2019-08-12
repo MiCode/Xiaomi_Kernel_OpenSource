@@ -319,6 +319,7 @@ irqreturn_t npu_wdg_intr_hdlr(int irq, void *ptr);
 
 int npu_set_uc_power_level(struct npu_device *npu_dev,
 	uint32_t pwr_level);
+int npu_set_power_level(struct npu_device *npu_dev, bool notify_cxlimit);
 
 int enable_fw(struct npu_device *npu_dev);
 void disable_fw(struct npu_device *npu_dev);
