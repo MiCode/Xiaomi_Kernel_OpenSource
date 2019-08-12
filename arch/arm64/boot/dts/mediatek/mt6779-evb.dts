@@ -830,6 +830,7 @@
 
 &bat_gm30 {
 	extcon = <&mt6360_chg>;
+	charger = <&mt6360_chg>;
 };
 
 /* MD SIM GPIO */
