@@ -1623,6 +1623,28 @@ int adreno_clear_pending_transactions(struct kgsl_device *device)
 
 	if (adreno_has_gbif(adreno_dev)) {
 
+		/* This is taken care by GMU firmware if GMU is enabled */
+		if (!gmu_core_gpmu_isenabled(device)) {
+			/* Halt GBIF GX traffic and poll for halt ack */
+			if (adreno_is_a615_family(adreno_dev)) {
+				adreno_writereg(adreno_dev,
+					ADRENO_REG_RBBM_GPR0_CNTL,
+					GBIF_HALT_REQUEST);
+				ret = adreno_wait_for_halt_ack(device,
+					A6XX_RBBM_VBIF_GX_RESET_STATUS,
+					VBIF_RESET_ACK_MASK);
+			} else {
+				adreno_writereg(adreno_dev,
+					ADRENO_REG_RBBM_GBIF_HALT,
+					gpudev->gbif_gx_halt_mask);
+				ret = adreno_wait_for_halt_ack(device,
+					ADRENO_REG_RBBM_GBIF_HALT_ACK,
+					gpudev->gbif_gx_halt_mask);
+			}
+			if (ret)
+				return ret;
+		}
+
 		/* Halt new client requests */
 		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT,
 				gpudev->gbif_client_halt_mask);
