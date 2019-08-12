@@ -3797,6 +3797,9 @@ static void adreno_iommu_sync(struct kgsl_device *device, bool sync)
 	struct scm_desc desc = {0};
 	int ret;
 
+	if (!ADRENO_QUIRK(ADRENO_DEVICE(device), ADRENO_QUIRK_IOMMU_SYNC))
+		return;
+
 	if (sync) {
 		mutex_lock(&kgsl_mmu_sync);
 		desc.args[0] = true;
@@ -3814,22 +3817,28 @@ static void adreno_iommu_sync(struct kgsl_device *device, bool sync)
 }
 
 static void _regulator_disable(struct device *dev,
-		struct kgsl_regulator *regulator)
+		struct kgsl_regulator *regulator, unsigned int timeout)
 {
-	unsigned long wait_time = jiffies + msecs_to_jiffies(200);
+	unsigned long wait_time;
 
 	if (IS_ERR_OR_NULL(regulator->reg))
 		return;
 
 	regulator_disable(regulator->reg);
 
+	wait_time = jiffies + msecs_to_jiffies(timeout);
+
+	/* Poll for regulator status to ensure it's OFF */
 	while (!time_after(jiffies, wait_time)) {
 		if (!regulator_is_enabled(regulator->reg))
 			return;
-		cpu_relax();
+		usleep_range(10, 100);
 	}
 
-	dev_err(dev, "regulator '%s' still on after 200ms\n", regulator->name);
+	if (!regulator_is_enabled(regulator->reg))
+		return;
+
+	dev_err(dev, "regulator '%s' disable timed out\n", regulator->name);
 }
 
 static void adreno_regulator_disable_poll(struct kgsl_device *device)
@@ -3837,20 +3846,13 @@ static void adreno_regulator_disable_poll(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int i;
-
-	/* Fast path - hopefully we don't need this quirk */
-	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_IOMMU_SYNC)) {
-		for (i = KGSL_MAX_REGULATORS - 1; i >= 0; i--) {
-			if (!IS_ERR_OR_NULL(pwr->regulators[i].reg))
-				regulator_disable(pwr->regulators[i].reg);
-		}
-		return;
-	}
+	unsigned int timeout =
+		ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_IOMMU_SYNC) ? 200 : 5000;
 
 	adreno_iommu_sync(device, true);
 
-	for (i = 0; i < KGSL_MAX_REGULATORS; i++)
-		_regulator_disable(device->dev, &pwr->regulators[i]);
+	for (i = KGSL_MAX_REGULATORS - 1; i >= 0; i--)
+		_regulator_disable(device->dev, &pwr->regulators[i], timeout);
 
 	adreno_iommu_sync(device, false);
 }
