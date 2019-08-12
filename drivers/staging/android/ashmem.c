@@ -458,9 +458,15 @@ ashmem_shrink_scan(struct shrinker *shrink, struct shrink_control *sc)
 
 		freed += range_size(range);
 		mutex_unlock(&ashmem_mutex);
-		f->f_op->fallocate(f,
+
+		lockdep_off();
+		/* test if corresponding inode is locked */
+		if (!inode_is_locked(file_inode(f)))
+			f->f_op->fallocate(f,
 				   FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
 				   start, end - start);
+		lockdep_on();
+
 		fput(f);
 		if (atomic_dec_and_test(&ashmem_shrink_inflight))
 			wake_up_all(&ashmem_shrink_wait);
