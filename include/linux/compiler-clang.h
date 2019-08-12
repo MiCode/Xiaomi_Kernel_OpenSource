@@ -16,12 +16,11 @@
 #define KASAN_ABI_VERSION 5
 
 /* emulate gcc's __SANITIZE_ADDRESS__ flag */
-#if __has_feature(address_sanitizer) || __has_feature(hwaddress_sanitizer)
+#if __has_feature(address_sanitizer)
 #define __SANITIZE_ADDRESS__
 #endif
 
-#define __no_sanitize_address	\
-	__attribute__((no_sanitize("address", "hwaddress")))
+#define __no_sanitize_address __attribute__((no_sanitize("address")))
 
 /*
  * Not all versions of clang implement the the type-generic versions
