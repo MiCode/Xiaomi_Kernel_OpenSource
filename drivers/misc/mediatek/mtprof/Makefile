@@ -13,6 +13,7 @@
 
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 ccflags-y += -Idrivers/misc/mediatek/mtprof
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 LINUXINCLUDE += -include $(srctree)/kernel/sched/sched.h
 
 obj-$(CONFIG_MTPROF) = bootprof.o

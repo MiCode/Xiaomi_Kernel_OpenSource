@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/utsname.h>
 #include <linux/uaccess.h>
+#include "mtk_printk_ctrl.h"
 
 #define BOOT_STR_SIZE 256
 #define BUF_COUNT 12
@@ -171,6 +172,7 @@ void bootprof_pdev_register(unsigned long long ts, struct platform_device *pdev)
 static void bootup_finish(void)
 {
 	initcall_debug = 0;
+	mt_disable_uart();
 }
 
 static void mt_bootprof_switch(int on)
