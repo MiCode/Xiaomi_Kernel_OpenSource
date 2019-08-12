@@ -1510,7 +1510,7 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	size_t inmsg_size = 0, outmsg_size = SMCINVOKE_TZ_MIN_BUF_SIZE;
 	union  smcinvoke_arg *args_buf = NULL;
 	struct smcinvoke_file_data *tzobj = filp->private_data;
-	struct qtee_shm in_shm = {0}, out_shm = {0};
+	static struct qtee_shm in_shm = {0}, out_shm = {0};
 	/*
 	 * Hold reference to remote object until invoke op is not
 	 * completed. Release once invoke is done.
