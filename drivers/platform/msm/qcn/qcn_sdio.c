@@ -37,6 +37,16 @@ module_param(dump_len, int, S_IRUGO | S_IWUSR | S_IWGRP);
 static bool retune;
 module_param(retune, bool, S_IRUGO | S_IWUSR | S_IWGRP);
 
+/* driver_state :
+ *	QCN_SDIO_SW_RESET = 0,
+ *	QCN_SDIO_SW_PBL,
+ *	QCN_SDIO_SW_SBL,
+ *	QCN_SDIO_SW_RDDM,
+ *	QCN_SDIO_SW_MROM,
+*/
+static int driver_state;
+module_param(driver_state, int, S_IRUGO | S_IRUSR | S_IRGRP);
+
 static struct mmc_host *current_host;
 
 #define HEX_DUMP(mode, buf, len)				\
@@ -459,6 +469,7 @@ int qcn_sw_mode_change(enum qcn_sdio_sw_mode mode)
 		pr_err("Invalid mode\n");
 	}
 
+	driver_state = mode;
 	sdio_ctxt->curr_sw_mode = mode;
 	return 0;
 }
