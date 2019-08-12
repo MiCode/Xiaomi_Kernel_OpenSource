@@ -2436,6 +2436,10 @@ static void dwc3_en_sleep_mode(struct dwc3_msm *mdwc)
 	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0));
 	reg |= DWC3_GUSB2PHYCFG_ENBLSLPM;
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0), reg);
+
+	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUCTL1);
+	reg |= DWC3_GUCTL1_L1_SUSP_THRLD_EN_FOR_HOST;
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUCTL1, reg);
 }
 
 static void dwc3_dis_sleep_mode(struct dwc3_msm *mdwc)
@@ -2445,6 +2449,10 @@ static void dwc3_dis_sleep_mode(struct dwc3_msm *mdwc)
 	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0));
 	reg &= ~DWC3_GUSB2PHYCFG_ENBLSLPM;
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0), reg);
+
+	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUCTL1);
+	reg &= ~DWC3_GUCTL1_L1_SUSP_THRLD_EN_FOR_HOST;
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUCTL1, reg);
 }
 
 static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
