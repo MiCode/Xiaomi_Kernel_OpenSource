@@ -188,11 +188,20 @@ do {                \
 
 static int monitor_hang_show(struct seq_file *m, void *v)
 {
+	struct name_list *pList = NULL;
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 	SEQ_printf(m, "[Hang_Detect] show Hang_info size %d\n ",
 			(int)strlen(Hang_Info));
 	SEQ_printf(m, "%s", Hang_Info);
 #endif
+	raw_spin_lock(&white_list_lock);
+	pList = white_list;
+	while (pList) {
+		SEQ_printf(m, "white list process %s\n", pList->name);
+		pList = pList->next;
+	}
+	raw_spin_unlock(&white_list_lock);
+
 	return 0;
 }
 
@@ -298,16 +307,13 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 		unsigned long arg)
 {
 	int ret = 0;
-	int value;
 	static long long monitor_status;
 	void __user *argp = (void __user *)arg;
 	char name[TASK_COMM_LEN];
 
 	if (cmd == HANG_KICK) {
-		if (get_user(value, (int __user *)argp))
-			return -EFAULT;
-		pr_info("HANG_KICK ( %d)\n", value);
-		MonitorHangKick(value);
+		pr_info("hang_detect HANG_KICK ( %d)\n", (int)arg);
+		MonitorHangKick((int)arg);
 		return ret;
 	}
 
@@ -357,13 +363,17 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 		if (copy_from_user(name, argp, TASK_COMM_LEN))
 			ret = -EFAULT;
 		ret = add_white_list(name);
+		pr_info("hang_detect: add white list %s status %d.\n",
+			name, ret);
 		return ret;
 	}
 
 	if (cmd == HANG_DEL_WHITE_LIST) {
 		if (copy_from_user(name, argp, TASK_COMM_LEN))
 			ret = -EFAULT;
-		del_white_list(name);
+		ret = del_white_list(name);
+		pr_info("hang_detect: del white list %s status %d.\n",
+			name, ret);
 		return ret;
 	}
 
@@ -386,7 +396,7 @@ static const struct file_operations Hang_Monitor_fops = {
 
 static struct miscdevice Hang_Monitor_dev = {
 	.minor = MISC_DYNAMIC_MINOR,
-	.name = "Hang_Monitor",
+	.name = "RT_Monitor",
 	.fops = &Hang_Monitor_fops,
 };
 

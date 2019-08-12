@@ -33,13 +33,14 @@ struct name_list {
 #define	COUNT_COREDUMP_DONE	19
 
 /*monitor hang ioctl*/
-#define HANG_KICK _IOR('p', 0x01, int)
-#define HANG_SET_SF_STATE _IOR('p', 0x02, long long)
-#define HANG_GET_SF_STATE _IOW('p', 0x03, long long)
-#define HANG_SET_FLAG _IOW('p', 0x04, int)
-#define HANG_SET_REBOOT _IO('p', 0x05)
-#define HANG_ADD_WHITE_LIST _IOR('p', 0x06, char [TASK_COMM_LEN])
-#define HANG_DEL_WHITE_LIST _IOR('p', 0x07, char [TASK_COMM_LEN])
+#define HANG_KICK _IOR('p', 0x0A, int)
+#define HANG_SET_SF_STATE _IOR('p', 0x0C, long long)
+#define HANG_GET_SF_STATE _IOW('p', 0x0D, long long)
+#define HANG_SET_FLAG _IOW('p', 0x11, int)
+#define HANG_SET_REBOOT _IO('p', 0x12)
+#define HANG_ADD_WHITE_LIST _IOR('p', 0x13, char [TASK_COMM_LEN])
+#define HANG_DEL_WHITE_LIST _IOR('p', 0x14, char [TASK_COMM_LEN])
+
 
 extern void show_task_mem(void) __attribute__((weak));
 extern void mtk_dump_gpu_memory_usage(void) __attribute__((weak));
