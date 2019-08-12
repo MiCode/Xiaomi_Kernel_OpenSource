@@ -147,6 +147,7 @@ void npu_host_cleanup_networks(struct npu_client *client);
 int npu_host_notify_fw_pwr_state(struct npu_device *npu_dev,
 	uint32_t pwr_level, bool post);
 
-void npu_dump_debug_timeout_stats(struct npu_device *npu_dev);
+void npu_dump_debug_info(struct npu_device *npu_dev);
+void npu_dump_ipc_packet(struct npu_device *npu_dev, void *cmd_ptr);
 
 #endif /* _NPU_MGR_H */

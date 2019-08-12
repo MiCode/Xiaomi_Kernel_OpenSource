@@ -1668,6 +1668,7 @@ int32_t npu_host_load_network(struct npu_client *client,
 	mutex_lock(&host_ctx->lock);
 	if (!ret) {
 		NPU_ERR("NPU_IPC_CMD_LOAD time out\n");
+		npu_dump_debug_info(npu_dev);
 		ret = -ETIMEDOUT;
 		goto error_free_network;
 	} else if (ret < 0) {
@@ -1794,6 +1795,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 
 	if (!ret) {
 		NPU_ERR("npu: NPU_IPC_CMD_LOAD time out\n");
+		npu_dump_debug_info(npu_dev);
 		ret = -ETIMEDOUT;
 		goto error_load_network;
 	}
@@ -1908,6 +1910,7 @@ int32_t npu_host_unload_network(struct npu_client *client,
 
 	if (!ret) {
 		NPU_ERR("npu: NPU_IPC_CMD_UNLOAD time out\n");
+		npu_dump_debug_info(npu_dev);
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
 		goto free_network;
@@ -2032,9 +2035,9 @@ int32_t npu_host_exec_network(struct npu_client *client,
 
 	mutex_lock(&host_ctx->lock);
 	if (!ret) {
-		NPU_ERR("npu: NPU_IPC_CMD_EXECUTE time out\n");
-		/* dump debug stats */
-		npu_dump_debug_timeout_stats(npu_dev);
+		NPU_ERR("npu: %x NPU_IPC_CMD_EXECUTE time out\n",
+			network->id);
+		npu_dump_debug_info(npu_dev);
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
 		goto exec_done;
@@ -2166,9 +2169,9 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 
 	mutex_lock(&host_ctx->lock);
 	if (!ret) {
-		NPU_ERR("npu: NPU_IPC_CMD_EXECUTE_V2 time out\n");
-		/* dump debug stats */
-		npu_dump_debug_timeout_stats(npu_dev);
+		NPU_ERR("npu: %x NPU_IPC_CMD_EXECUTE_V2 time out\n",
+			network->id);
+		npu_dump_debug_info(npu_dev);
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
 		goto free_exec_packet;
@@ -2249,6 +2252,7 @@ int32_t npu_host_loopback_test(struct npu_device *npu_dev)
 
 	if (!ret) {
 		NPU_ERR("npu: NPU_IPC_CMD_LOOPBACK time out\n");
+		npu_dump_debug_info(npu_dev);
 		ret = -ETIMEDOUT;
 	} else if (ret < 0) {
 		NPU_ERR("Wait for loopback done interrupted by signal\n");
