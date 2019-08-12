@@ -53,7 +53,6 @@ static int ppm_main_pdrv_remove(struct platform_device *pdev);
 /*==============================================================*/
 struct ppm_data ppm_main_info = {
 	.is_enabled = true,
-	.is_doe_enabled = 0,
 	.is_in_suspend = false,
 	.min_power_budget = ~0,
 	.dvfs_tbl_type = DVFS_TABLE_TYPE_FY,
@@ -465,28 +464,6 @@ static void ppm_main_calc_new_limit(void)
 
 	/* fill ptpod activate flag */
 	c_req->is_ptp_policy_activate = is_ptp_activate;
-
-	/* DoE */
-	if (!is_ptp_activate &&
-			ppm_main_info.client_info[PPM_CLIENT_DVFS].limit_cb) {
-		if (ppm_main_info.is_doe_enabled == 1) {
-			for_each_ppm_clusters(i) {
-				pr_debug_ratelimited(
-					"[DoE] cl: %d max: %d min: %d\n",
-					i,
-					ppm_main_info.cluster_info[i].doe_max,
-					ppm_main_info.cluster_info[i].doe_min
-					);
-				c_req->cpu_limit[i].max_cpufreq_idx =
-					ppm_main_info.cluster_info[i].doe_max;
-				c_req->cpu_limit[i].min_cpufreq_idx =
-					ppm_main_info.cluster_info[i].doe_min;
-				c_req->cpu_limit[i].has_advise_freq = false;
-				c_req->cpu_limit[i].advise_cpufreq_idx = -1;
-			}
-		}
-	}
-	/* DoE */
 
 	/* Trigger exception if all cluster max core limit is 0 */
 	if (is_all_cluster_zero) {
@@ -1055,10 +1032,6 @@ static struct notifier_block ppm_notifier = {
 static int __init ppm_main_init(void)
 {
 	int ret = 0;
-	struct device_node *cn, *map, *c, *d;
-	int max, min;
-	char name[10];
-	int i = 0;
 
 	FUNC_ENTER(FUNC_LV_MODULE);
 
@@ -1099,71 +1072,6 @@ static int __init ppm_main_init(void)
 		goto profile_init_fail;
 	}
 
-	/* DoE */
-	cn = of_find_node_by_path("/cpus");
-
-	if (!cn)
-		goto NO_DOE;
-
-	map = of_get_child_by_name(cn, "virtual-cpu-map");
-
-	if (!map) {
-		map = of_get_child_by_name(cn, "cpu-map");
-
-		if (!map)
-			goto NO_DOE;
-	}
-
-	i = 0;
-
-	do {
-		snprintf(name, sizeof(name), "cluster%d", i);
-		c = of_get_child_by_name(map, name);
-
-		if (!c)
-			goto NO_DOE;
-
-		d = of_get_child_by_name(c, "doe");
-
-		if (!d)
-			goto NO_DOE;
-
-		ret = of_property_read_u32(d, "max", &max);
-
-		if (ret != 0)
-			goto NO_DOE;
-
-		ret = of_property_read_u32(d, "min", &min);
-
-		if (ret != 0)
-			goto NO_DOE;
-
-		of_node_put(d);
-		of_node_put(c);
-
-		ppm_main_info.cluster_info[i].doe_max = max;
-		ppm_main_info.cluster_info[i].doe_min = min;
-		ppm_main_info.is_doe_enabled = 1;
-
-		i++;
-
-	} while (i < NR_PPM_CLUSTERS);
-
-	of_node_put(map);
-
-	ppm_info("DoE: %d\n", ppm_main_info.is_doe_enabled);
-	i = 0;
-
-	do {
-		ppm_info("cl: %d max: %d min: %d\n",
-			i,
-			ppm_main_info.cluster_info[i].doe_max,
-			ppm_main_info.cluster_info[i].doe_min);
-		i++;
-	} while (i < NR_PPM_CLUSTERS);
-
-	/* DoE */
-
 	ppm_info("ppm driver init done!\n");
 
 	return ret;
@@ -1179,16 +1087,6 @@ fail:
 	ppm_err("ppm driver init fail!\n");
 
 	FUNC_EXIT(FUNC_LV_MODULE);
-
-	return ret;
-NO_DOE:
-	of_node_put(cn);
-	of_node_put(map);
-	of_node_put(c);
-	of_node_put(d);
-
-	ppm_main_info.is_doe_enabled = 0;
-	ppm_info("ppm driver init done (no DoE)!\n");
 
 	return ret;
 }
