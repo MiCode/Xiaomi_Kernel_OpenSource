@@ -320,7 +320,9 @@ struct arm_smmu_device {
 
 	struct arm_smmu_arch_ops	*arch_ops;
 	void				*archdata;
-
+#ifdef CONFIG_HIBERNATION
+	bool				smmu_restore;
+#endif
 	enum tz_smmu_device_id		sec_id;
 };
 
@@ -1857,6 +1859,9 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	struct arm_smmu_cb *cb = &smmu->cbs[idx];
 	struct arm_smmu_cfg *cfg = cb->cfg;
 	void __iomem *cb_base, *gr1_base;
+#ifdef CONFIG_HIBERNATION
+	struct arm_smmu_domain *smmu_domain;
+#endif
 
 	cb_base = ARM_SMMU_CB(smmu, idx);
 
@@ -1934,7 +1939,12 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 
 	/* Ensure bypass transactions are Non-shareable */
 	reg |= SCTLR_SHCFG_NSH << SCTLR_SHCFG_SHIFT;
-
+#ifdef CONFIG_HIBERNATION
+	if (smmu->smmu_restore) {
+		smmu_domain = container_of(cfg, struct arm_smmu_domain, cfg);
+		attributes = smmu_domain->attributes;
+	}
+#endif
 	if (attributes & (1 << DOMAIN_ATTR_CB_STALL_DISABLE)) {
 		reg &= ~SCTLR_CFCFG;
 		reg |= SCTLR_HUPCF;
@@ -3797,7 +3807,9 @@ static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain)
 
 	reg = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
 	reg |= SCTLR_M;
-
+#ifdef CONFIG_HIBERNATION
+	smmu_domain->attributes &= ~(1 << DOMAIN_ATTR_S1_BYPASS);
+#endif
 	writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
 	arm_smmu_power_off(smmu->pwr);
 	return ret;
@@ -5119,13 +5131,29 @@ static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
 	arm_smmu_device_reset(smmu);
 	arm_smmu_power_off(smmu->pwr);
 
+#ifdef CONFIG_HIBERNATION
+	smmu->smmu_restore = false;
+#endif
+
 	return 0;
 }
+
+#ifdef CONFIG_HIBERNATION
+static int __maybe_unused arm_smmu_pm_restore(struct device *dev)
+{
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+
+	smmu->smmu_restore = true;
+	return  arm_smmu_pm_resume(dev);
+}
+#endif
 
 static const struct dev_pm_ops arm_smmu_pm_ops = {
 	.resume = arm_smmu_pm_resume,
 	.thaw_early = arm_smmu_pm_resume,
-	.restore_early = arm_smmu_pm_resume,
+#ifdef CONFIG_HIBERNATION
+	.restore_early = arm_smmu_pm_restore,
+#endif
 };
 
 static struct platform_driver arm_smmu_driver = {
