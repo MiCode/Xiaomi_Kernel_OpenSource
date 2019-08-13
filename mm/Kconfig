@@ -764,4 +764,12 @@ config GUP_BENCHMARK
 config ARCH_HAS_PTE_SPECIAL
 	bool
 
+config MTK_MM_DEBUG
+	bool "For MTK MM subsystem debugging"
+	help
+	  This config is used for MTK MM subsystem debugging,
+	  sometimes we need to use BUG() to catch specific
+	  type of errors. Wrap the debug code with this config,
+	  so we can remove the debug code by disabling it.
+
 endmenu
