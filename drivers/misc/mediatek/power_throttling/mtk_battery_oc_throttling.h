@@ -29,7 +29,7 @@ void register_battery_oc_notify(battery_oc_callback oc_cb,
 				enum BATTERY_OC_PRIO_TAG prio_val);
 #else
 static void register_battery_oc_notify(battery_oc_callback oc_cb,
-				       enum BATTERY_OC_PRIO_TAG prio_val);
+				       enum BATTERY_OC_PRIO_TAG prio_val)
 {};
 #endif
 
