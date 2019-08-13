@@ -5094,6 +5094,7 @@ struct qsmmuv500_archdata {
 	u32				version;
 	struct actlr_setting		*actlrs;
 	u32				actlr_tbl_size;
+	u32				testbus_version;
 };
 #define get_qsmmuv500_archdata(smmu)				\
 	((struct qsmmuv500_archdata *)(smmu->archdata))
@@ -5584,6 +5585,22 @@ static int qsmmuv500_read_actlr_tbl(struct arm_smmu_device *smmu)
 	return 0;
 }
 
+static int qsmmuv500_get_testbus_version(struct arm_smmu_device *smmu)
+{
+	struct device *dev = smmu->dev;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	u32 testbus_version;
+	const __be32 *cell;
+
+	cell = of_get_property(dev->of_node, "qcom,testbus-version", NULL);
+	if (!cell)
+		return 0;
+
+	testbus_version = of_read_number(cell, 1);
+
+	data->testbus_version = testbus_version;
+	return 0;
+}
 static ssize_t arm_smmu_debug_testbus_read(struct file *file,
 		char __user *ubuf, size_t count, loff_t *offset,
 		enum testbus_sel tbu, enum testbus_ops ops)
@@ -5601,16 +5618,28 @@ static ssize_t arm_smmu_debug_testbus_read(struct file *file,
 
 	if (tbu == SEL_TBU) {
 		struct qsmmuv500_tbu_device *tbu = file->private_data;
+		struct arm_smmu_device *smmu = tbu->smmu;
 		void __iomem *tbu_base = tbu->base;
+		struct qsmmuv500_archdata *data = smmu->archdata;
+		void __iomem *tcu_base = data->tcu_base;
+		u32 testbus_version = data->testbus_version;
+		struct arm_smmu_power_resources *pwr;
 		long val;
 
-		arm_smmu_power_on(tbu->pwr);
+		if (testbus_version == 1)
+			pwr = smmu->pwr;
+		else
+			pwr = tbu->pwr;
+
+		arm_smmu_power_on(pwr);
+
 		if (ops == TESTBUS_SELECT)
 			val = arm_smmu_debug_tbu_testbus_select(tbu_base,
-							READ, 0);
+					tcu_base, testbus_version, READ, 0);
 		else
-			val = arm_smmu_debug_tbu_testbus_output(tbu_base);
-		arm_smmu_power_off(tbu->pwr);
+			val = arm_smmu_debug_tbu_testbus_output(tbu_base,
+							testbus_version);
+		arm_smmu_power_off(pwr);
 
 		snprintf(buf, buf_len, "0x%0x\n", val);
 	} else {
@@ -5781,6 +5810,11 @@ static ssize_t arm_smmu_debug_tbu_testbus_sel_write(struct file *file,
 {
 	struct qsmmuv500_tbu_device *tbu = file->private_data;
 	void __iomem *tbu_base = tbu->base;
+	struct arm_smmu_device *smmu = tbu->smmu;
+	struct arm_smmu_power_resources *pwr;
+	struct qsmmuv500_archdata *data = smmu->archdata;
+	void __iomem *tcu_base = data->tcu_base;
+	u32 testbus_version = data->testbus_version;
 	u64 val;
 
 	if (kstrtoull_from_user(ubuf, count, 0, &val)) {
@@ -5788,9 +5822,15 @@ static ssize_t arm_smmu_debug_tbu_testbus_sel_write(struct file *file,
 		return -EINVAL;
 	}
 
-	arm_smmu_power_on(tbu->pwr);
-	arm_smmu_debug_tbu_testbus_select(tbu_base, WRITE, val);
-	arm_smmu_power_off(tbu->pwr);
+	if (testbus_version == 1)
+		pwr = smmu->pwr;
+	else
+		pwr = tbu->pwr;
+
+	arm_smmu_power_on(pwr);
+	arm_smmu_debug_tbu_testbus_select(tbu_base, tcu_base,
+			testbus_version, WRITE, val);
+	arm_smmu_power_off(pwr);
 
 	return count;
 }
@@ -5841,21 +5881,21 @@ static int qsmmuv500_tbu_testbus_init(struct qsmmuv500_tbu_device *tbu)
 
 	if (!testbus_dir) {
 		pr_err_ratelimited("Couldn't create iommu/testbus/%s debugfs directory\n",
-		       dev_name(tbu->dev));
+				dev_name(tbu->dev));
 		goto err;
 	}
 
 	if (!debugfs_create_file("tbu_testbus_sel", 0400, testbus_dir, tbu,
 			&arm_smmu_debug_tbu_testbus_sel_fops)) {
 		pr_err_ratelimited("Couldn't create iommu/testbus/%s/tbu_testbus_sel debugfs file\n",
-		       dev_name(tbu->dev));
+				dev_name(tbu->dev));
 		goto err_rmdir;
 	}
 
 	if (!debugfs_create_file("tbu_testbus_output", 0400, testbus_dir, tbu,
 			&arm_smmu_debug_tbu_testbus_fops)) {
 		pr_err_ratelimited("Couldn't create iommu/testbus/%s/tbu_testbus_output debugfs file\n",
-		       dev_name(tbu->dev));
+				dev_name(tbu->dev));
 		goto err_rmdir;
 	}
 
@@ -5894,6 +5934,10 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 
 	data->version = readl_relaxed(data->tcu_base + TCU_HW_VERSION_HLOS1);
 	smmu->archdata = data;
+
+	ret = qsmmuv500_get_testbus_version(smmu);
+	if (ret)
+		return ret;
 
 	qsmmuv500_tcu_testbus_init(smmu);
 
