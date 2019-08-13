@@ -313,6 +313,8 @@ static const struct mfd_cell mt6360_devs[] = {
 		.name = "mt6360_tcpc",
 		.of_compatible = "mediatek,mt6360_tcpc",
 	},
+	/* debug dev */
+	{ .name = "mt6360_dbg", },
 };
 
 static const unsigned short mt6360_slave_addr[MT6360_SLAVE_MAX] = {
