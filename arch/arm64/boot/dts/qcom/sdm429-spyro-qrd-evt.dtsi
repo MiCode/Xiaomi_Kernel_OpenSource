@@ -15,14 +15,46 @@
 #include "sdm429-spyro-qrd-evt-camera.dtsi"
 #include "sdm429-spyro-qrd-evt-audio.dtsi"
 
+&tlmm {
+	sd_eldo_active {
+		sd_eldo_active: sd_eldo_active {
+			mux {
+				pins = "gpio91";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio91";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	sd_eldo_suspend {
+		sd_eldo_suspend: sd_eldo_suspend {
+			mux {
+				pins = "gpio91";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio91";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
+};
+
 &gpio_key_active {
 	mux {
-		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		pins = "gpio127", "gpio128", "gpio35", "gpio126";
 		function = "gpio";
 	};
 
 	config {
-		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		pins = "gpio127", "gpio128", "gpio35", "gpio126";
 		drive-strength = <2>;
 		bias-pull-up;
 	};
@@ -30,12 +62,12 @@
 
 &gpio_key_suspend {
 	mux {
-		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		pins = "gpio127", "gpio128", "gpio35", "gpio126";
 		function = "gpio";
 	};
 
 	config {
-		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		pins = "gpio127", "gpio128", "gpio35", "gpio126";
 		drive-strength = <2>;
 		bias-pull-up;
 	};
@@ -124,8 +156,10 @@
 	qcom,vdd-io-current-level = <200 22000>;
 
 	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
-	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on
+							&sd_eldo_active>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off
+							&sd_eldo_suspend>;
 
 	cd-gpios = <&tlmm 67 0x0>;
 
