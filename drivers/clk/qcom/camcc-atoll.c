@@ -331,7 +331,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll2_out_aux2 = {
 /* 1080MHz configuration */
 static const struct alpha_pll_config cam_cc_pll3_config = {
 	.l = 0x38,
-	.alpha = 0x4000,
+	.frac = 0x4000,
 	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00004805,
 };
