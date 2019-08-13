@@ -275,7 +275,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	struct mtk_vcodec_mem *buf;
 	struct mtk_video_dec_buf *src_buf_info;
 	struct vb2_v4l2_buffer *src_vb2_v4l2;
-	struct media_request *src_buf_req;
+	struct media_request *src_buf_req = NULL;
 	unsigned int  res_chg;
 	int ret;
 
