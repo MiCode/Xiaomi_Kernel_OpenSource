@@ -3131,6 +3131,8 @@ static char *cnss_mhi_notify_status_to_str(enum MHI_CB status)
 		return "SYS_ERROR";
 	case MHI_CB_FATAL_ERROR:
 		return "FATAL_ERROR";
+	case MHI_CB_EE_MISSION_MODE:
+		return "MISSION_MODE";
 	default:
 		return "UNKNOWN";
 	}
@@ -3181,6 +3183,7 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 
 	switch (reason) {
 	case MHI_CB_IDLE:
+	case MHI_CB_EE_MISSION_MODE:
 		return;
 	case MHI_CB_FATAL_ERROR:
 		set_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
