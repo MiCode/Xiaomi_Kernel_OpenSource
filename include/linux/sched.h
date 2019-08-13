@@ -712,11 +712,6 @@ struct task_struct {
 	struct sched_entity		se;
 	struct sched_rt_entity		rt;
 
-#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
-	/* Used for big task rotation */
-	u64 last_enqueued_ts;
-#endif
-
 #ifdef CONFIG_CGROUP_SCHED
 	struct task_group		*sched_task_group;
 #endif

@@ -1028,10 +1028,6 @@ struct rq {
 #ifdef CONFIG_MTK_SCHED_EXTENSION
 	struct task_struct *migrate_task;
 #endif
-
-#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
-	unsigned long		rotate_flags;
-#endif
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED

@@ -966,6 +966,7 @@ done:
 
 #ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
 DEFINE_PER_CPU(struct task_rotate_work, task_rotate_works);
+DEFINE_PER_CPU(unsigned long, rotate_flags);
 bool big_task_rotation_enable;
 
 static void task_rotate_work_func(struct work_struct *work)

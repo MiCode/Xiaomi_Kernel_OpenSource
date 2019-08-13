@@ -1496,11 +1496,6 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 
 	uclamp_cpu_get(rq, p);
 	p->sched_class->enqueue_task(rq, p, flags);
-
-#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
-	/* update last_enqueued_ts for big task rotation */
-	p->last_enqueued_ts = ktime_get_ns();
-#endif
 }
 
 static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
@@ -3300,9 +3295,6 @@ void wake_up_new_task(struct task_struct *p)
 	update_rq_clock(rq);
 	post_init_entity_util_avg(&p->se);
 
-#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
-	p->last_enqueued_ts = ktime_get_ns();
-#endif
 	activate_task(rq, p, ENQUEUE_NOCLOCK);
 	p->on_rq = TASK_ON_RQ_QUEUED;
 	trace_sched_wakeup_new(p);
@@ -7014,9 +7006,6 @@ void __init sched_init(void)
 #endif /* CONFIG_SMP */
 		hrtick_rq_init(rq);
 		atomic_set(&rq->nr_iowait, 0);
-#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
-		rq->rotate_flags = 0;
-#endif
 	}
 
 	set_load_weight(&init_task, false);

@@ -11075,7 +11075,7 @@ static void rq_offline_fair(struct rq *rq)
 #ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
 void task_check_for_rotation(struct rq *src_rq)
 {
-	u64 wc, wait, max_wait = 0, run, max_run = 0;
+	u64 wait, max_wait = 0, run, max_run = 0;
 	int deserved_cpu = nr_cpu_ids, dst_cpu = nr_cpu_ids;
 	int i, src_cpu = cpu_of(src_rq);
 	struct rq *dst_rq;
@@ -11100,7 +11100,6 @@ void task_check_for_rotation(struct rq *src_rq)
 	if (heavy_task < HEAVY_TASK_NUM)
 		return;
 
-	wc = ktime_get_ns();
 	for_each_possible_cpu(i) {
 		struct rq *rq = cpu_rq(i);
 
@@ -11114,7 +11113,9 @@ void task_check_for_rotation(struct rq *src_rq)
 						&fair_sched_class)
 			continue;
 
-		wait = wc - rq->curr->last_enqueued_ts;
+		wait = (rq->curr->se.sum_exec_runtime) -
+			(rq->curr->se.prev_sum_exec_runtime);
+
 		if (wait > max_wait) {
 			max_wait = wait;
 			deserved_cpu = i;
@@ -11139,7 +11140,8 @@ void task_check_for_rotation(struct rq *src_rq)
 		if (rq->nr_running > 1)
 			continue;
 
-		run = wc - rq->curr->last_enqueued_ts;
+		run = (rq->curr->se.sum_exec_runtime) -
+			(rq->curr->se.prev_sum_exec_runtime);
 
 		if (run < TASK_ROTATION_THRESHOLD_NS)
 			continue;

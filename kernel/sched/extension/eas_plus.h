@@ -87,7 +87,6 @@ int cpu_prefer(struct task_struct *task);
 #endif
 
 #ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
-#define CPU_RESERVED 1
 #define TASK_ROTATION_THRESHOLD_NS      6000000
 #define HEAVY_TASK_NUM  4
 
@@ -100,29 +99,24 @@ struct task_rotate_work {
 };
 
 DECLARE_PER_CPU(struct task_rotate_work, task_rotate_works);
+DECLARE_PER_CPU(unsigned long, rotate_flags);
 extern bool big_task_rotation_enable;
 extern void task_rotate_work_init(void);
 extern void check_for_migration(struct task_struct *p);
 
 static inline int is_reserved(int cpu)
 {
-	struct rq *rq = cpu_rq(cpu);
-
-	return test_bit(CPU_RESERVED, &rq->rotate_flags);
+	return (per_cpu(rotate_flags, cpu) == 1);
 }
 
-static inline int mark_reserved(int cpu)
+static inline void mark_reserved(int cpu)
 {
-	struct rq *rq = cpu_rq(cpu);
-
-	return test_and_set_bit(CPU_RESERVED, &rq->rotate_flags);
+	per_cpu(rotate_flags, cpu) = 1;
 }
 
 static inline void clear_reserved(int cpu)
 {
-	struct rq *rq = cpu_rq(cpu);
-
-	clear_bit(CPU_RESERVED, &rq->rotate_flags);
+	per_cpu(rotate_flags, cpu) = 0;
 }
 
 static inline bool is_max_capacity_cpu(int cpu)
