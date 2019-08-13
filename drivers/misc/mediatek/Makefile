@@ -44,3 +44,4 @@ obj-$(CONFIG_MEDIATEK_CACHE_API) += cache/
 obj-$(CONFIG_MTK_STATIC_POWER) += leakage_table_v2/
 obj-$(CONFIG_MTK_UNIFY_POWER) += upower_v2/
 obj-$(CONFIG_PRINTK_MTK) += mtprintk/
+obj-$(CONFIG_MT6360_DBG) += subpmic/

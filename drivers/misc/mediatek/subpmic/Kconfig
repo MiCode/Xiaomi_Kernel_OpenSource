@@ -1,0 +1,5 @@
+config MT6360_DBG
+	tristate "Mediatek MT6360 Debug core"
+	depends on MFD_MT6360
+	help
+	  Say Y here to enable MT6360 Debug support.
