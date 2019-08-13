@@ -709,7 +709,7 @@ int atl_update_thermal_flag(struct atl_hw *hw, int bit, bool val)
 		else
 			if (!(hw->mcp.caps_high & atl_fw2_set_thermal)) {
 				atl_dev_err("Thermal monitoring not supported by firmware\n");
-				return -EINVAL;
+				ret = -EINVAL;
 			}
 		break;
 
