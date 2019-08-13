@@ -1178,10 +1178,14 @@ int npu_enable_sys_cache(struct npu_device *npu_dev)
 
 		pr_debug("prior to activate sys cache\n");
 		rc = llcc_slice_activate(npu_dev->sys_cache);
-		if (rc)
-			pr_err("failed to activate sys cache\n");
-		else
-			pr_debug("sys cache activated\n");
+		if (rc) {
+			pr_warn("failed to activate sys cache\n");
+			llcc_slice_putd(npu_dev->sys_cache);
+			npu_dev->sys_cache = NULL;
+			return 0;
+		}
+
+		pr_debug("sys cache activated\n");
 	}
 
 	return rc;
