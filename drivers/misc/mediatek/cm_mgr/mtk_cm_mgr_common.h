@@ -84,6 +84,7 @@ extern void cm_mgr_perf_set_force_status(int status);
 extern void cm_mgr_enable_fn(int enable);
 extern int cm_mgr_to_sspm_command(u32 cmd, int val);
 extern int cm_mgr_common_init(void);
+extern void cm_mgr_common_exit(void);
 
 /* platform api */
 extern void cm_mgr_perf_platform_set_status(int enable);

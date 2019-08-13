@@ -40,6 +40,7 @@
 #include <sspm_ipi.h>
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 
+static struct proc_dir_entry *cm_mgr_dir;
 struct platform_device *cm_mgr_pdev;
 void __iomem *cm_mgr_base;
 int cm_mgr_num_perf;
@@ -434,19 +435,24 @@ static const struct file_operations dbg_cm_mgr_proc_fops = {
 
 static int create_cm_mgr_debug_fs(void)
 {
-	struct proc_dir_entry *dir = NULL;
 
 	/* create /proc/cm_mgr */
-	dir = proc_mkdir("cm_mgr", NULL);
-	if (!dir) {
+	cm_mgr_dir = proc_mkdir("cm_mgr", NULL);
+	if (!cm_mgr_dir) {
 		pr_info("fail to create /proc/cm_mgr @ %s()\n", __func__);
 		return -ENOMEM;
 	}
 
 	proc_create_data("dbg_cm_mgr", 0644,
-		dir, &dbg_cm_mgr_proc_fops, NULL);
+		cm_mgr_dir, &dbg_cm_mgr_proc_fops, NULL);
 
 	return 0;
+}
+
+static void delete_cm_mgr_debug_fs(void)
+{
+	remove_proc_entry("dbg_cm_mgr", cm_mgr_dir);
+	remove_proc_entry("cm_mgr", NULL);
 }
 
 int cm_mgr_common_init(void)
@@ -491,6 +497,14 @@ int cm_mgr_common_init(void)
 }
 EXPORT_SYMBOL_GPL(cm_mgr_common_init);
 
-MODULE_DESCRIPTION("Mediatek cm_mgr driver");
-MODULE_AUTHOR("Morven-CF Yeh<morven-cf.yeh@mediatek.com>");
-MODULE_LICENSE("GPL");
+void cm_mgr_common_exit(void)
+{
+	int ret;
+
+	delete_cm_mgr_debug_fs();
+
+	ret = fb_unregister_client(&cm_mgr_fb_notifier);
+	if (ret)
+		pr_info("[CM_MGR] FAILED TO UNREGISTER FB CLIENT (%d)\n", ret);
+}
+EXPORT_SYMBOL_GPL(cm_mgr_common_exit);

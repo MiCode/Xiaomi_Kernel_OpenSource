@@ -307,6 +307,8 @@ ERROR:
 
 static int mt6779_cm_mgr_remove(struct platform_device *pdev)
 {
+	cm_mgr_common_exit();
+
 	kfree(cm_mgr_perfs);
 	kfree(cm_mgr_buf);
 
@@ -351,3 +353,6 @@ static void __exit mt6779_cm_mgr_exit(void)
 subsys_initcall(mt6779_cm_mgr_init);
 module_exit(mt6779_cm_mgr_exit);
 
+MODULE_DESCRIPTION("Mediatek cm_mgr driver");
+MODULE_AUTHOR("Morven-CF Yeh<morven-cf.yeh@mediatek.com>");
+MODULE_LICENSE("GPL");
