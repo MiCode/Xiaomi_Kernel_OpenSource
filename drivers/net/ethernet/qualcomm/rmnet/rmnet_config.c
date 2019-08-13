@@ -402,6 +402,7 @@ static int rmnet_changelink(struct net_device *dev, struct nlattr *tb[],
 		agg_params = nla_data(data[IFLA_RMNET_UL_AGG_PARAMS]);
 		rmnet_map_update_ul_agg_config(port, agg_params->agg_size,
 					       agg_params->agg_count,
+					       agg_params->agg_features,
 					       agg_params->agg_time);
 	}
 

@@ -1291,6 +1291,9 @@ static struct page *rmnet_get_agg_pages(struct rmnet_port *port)
 	struct page *page = NULL;
 	int i = 0;
 
+	if (!(port->egress_agg_params.agg_features & RMNET_PAGE_RECYCLE))
+		goto alloc;
+
 	do {
 		agg_page = port->agg_head;
 		if (unlikely(!agg_page))
@@ -1309,6 +1312,7 @@ static struct page *rmnet_get_agg_pages(struct rmnet_port *port)
 		i++;
 	} while (i <= 5);
 
+alloc:
 	if (!page) {
 		page =  __dev_alloc_pages(GFP_ATOMIC, port->agg_size_order);
 		port->stats.agg.ul_agg_alloc++;
@@ -1468,7 +1472,7 @@ schedule:
 }
 
 void rmnet_map_update_ul_agg_config(struct rmnet_port *port, u16 size,
-				    u16 count, u32 time)
+				    u8 count, u8 features, u32 time)
 {
 	unsigned long irq_flags;
 
@@ -1476,6 +1480,7 @@ void rmnet_map_update_ul_agg_config(struct rmnet_port *port, u16 size,
 	port->egress_agg_params.agg_count = count;
 	port->egress_agg_params.agg_time = time;
 	port->egress_agg_params.agg_size = size;
+	port->egress_agg_params.agg_features = features;
 
 	rmnet_free_agg_pages(port);
 
@@ -1491,7 +1496,8 @@ void rmnet_map_update_ul_agg_config(struct rmnet_port *port, u16 size,
 	size -= SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
 	port->egress_agg_params.agg_size = size;
 
-	rmnet_alloc_agg_pages(port);
+	if (port->egress_agg_params.agg_features == RMNET_PAGE_RECYCLE)
+		rmnet_alloc_agg_pages(port);
 
 done:
 	spin_unlock_irqrestore(&port->agg_lock, irq_flags);
@@ -1507,8 +1513,9 @@ void rmnet_map_tx_aggregate_init(struct rmnet_port *port)
 	/* Since PAGE_SIZE - 1 is specified here, no pages are pre-allocated.
 	 * This is done to reduce memory usage in cases where
 	 * UL aggregation is disabled.
+	 * Additionally, the features flag is also set to 0.
 	 */
-	rmnet_map_update_ul_agg_config(port, PAGE_SIZE - 1, 20, 3000000);
+	rmnet_map_update_ul_agg_config(port, PAGE_SIZE - 1, 20, 0, 3000000);
 
 	INIT_WORK(&port->agg_wq, rmnet_map_flush_tx_packet_work);
 }

@@ -51,7 +51,8 @@ struct rmnet_port_priv_stats {
 
 struct rmnet_egress_agg_params {
 	u16 agg_size;
-	u16 agg_count;
+	u8 agg_count;
+	u8 agg_features;
 	u32 agg_time;
 };
 
