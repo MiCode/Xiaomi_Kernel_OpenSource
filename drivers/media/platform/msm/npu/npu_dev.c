@@ -347,8 +347,15 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 		if (ret)
 			return ret;
 
+		ret = npu_set_bw(npu_dev, 100, 100);
+		if (ret) {
+			npu_disable_regulators(npu_dev);
+			return ret;
+		}
+
 		ret = npu_enable_core_clocks(npu_dev);
 		if (ret) {
+			npu_set_bw(npu_dev, 0, 0);
 			npu_disable_regulators(npu_dev);
 			pwr->pwr_vote_num = 0;
 			return ret;
@@ -368,6 +375,7 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 	pwr->pwr_vote_num--;
 	if (!pwr->pwr_vote_num) {
 		npu_disable_core_clocks(npu_dev);
+		npu_set_bw(npu_dev, 0, 0);
 		npu_disable_regulators(npu_dev);
 		pwr->active_pwrlevel = pwr->default_pwrlevel;
 		pwr->uc_pwrlevel = pwr->max_pwrlevel;
@@ -2079,7 +2087,6 @@ static int npu_hw_info_init(struct npu_device *npu_dev)
 {
 	int rc = 0;
 
-	npu_set_bw(npu_dev, 100, 100);
 	rc = npu_enable_core_power(npu_dev);
 	if (rc) {
 		NPU_ERR("Failed to enable power\n");
@@ -2089,7 +2096,6 @@ static int npu_hw_info_init(struct npu_device *npu_dev)
 	npu_dev->hw_version = REGR(npu_dev, NPU_HW_VERSION);
 	NPU_DBG("NPU_HW_VERSION 0x%x\n", npu_dev->hw_version);
 	npu_disable_core_power(npu_dev);
-	npu_set_bw(npu_dev, 0, 0);
 
 	return rc;
 }

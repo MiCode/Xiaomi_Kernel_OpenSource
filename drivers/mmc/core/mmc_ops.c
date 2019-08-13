@@ -802,7 +802,7 @@ static int mmc_send_hpi_cmd(struct mmc_card *card, u32 *status)
 	unsigned int opcode;
 	int err;
 
-	if (!card->ext_csd.hpi) {
+	if (!card->ext_csd.hpi_en) {
 		pr_warn("%s: Card didn't support HPI command\n",
 			mmc_hostname(card->host));
 		return -EINVAL;
@@ -937,8 +937,14 @@ static int mmc_read_bkops_status(struct mmc_card *card)
 	if (err)
 		return err;
 
-	card->ext_csd.raw_bkops_status = ext_csd[EXT_CSD_BKOPS_STATUS];
-	card->ext_csd.raw_exception_status = ext_csd[EXT_CSD_EXP_EVENTS_STATUS];
+	card->ext_csd.raw_bkops_status = ext_csd[EXT_CSD_BKOPS_STATUS] &
+						MMC_BKOPS_URGENCY_MASK;
+	card->ext_csd.raw_exception_status =
+					ext_csd[EXT_CSD_EXP_EVENTS_STATUS] &
+					(EXT_CSD_URGENT_BKOPS |
+					 EXT_CSD_DYNCAP_NEEDED |
+					 EXT_CSD_SYSPOOL_EXHAUSTED
+					 | EXT_CSD_PACKED_FAILURE);
 	kfree(ext_csd);
 	return 0;
 }
@@ -1017,7 +1023,8 @@ int mmc_flush_cache(struct mmc_card *card)
 
 	if (mmc_card_mmc(card) &&
 			(card->ext_csd.cache_size > 0) &&
-			(card->ext_csd.cache_ctrl & 1)) {
+			(card->ext_csd.cache_ctrl & 1) &&
+			(!(card->quirks & MMC_QUIRK_CACHE_DISABLE))) {
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_FLUSH_CACHE, 1, 0);
 		if (err)

@@ -21,14 +21,7 @@ struct cvp_hfi_device *cvp_hfi_initialize(enum msm_cvp_hfi_type hfi_type,
 		return NULL;
 	}
 
-	switch (hfi_type) {
-	case CVP_HFI_VENUS:
-		rc = cvp_venus_hfi_initialize(hdev, device_id, res, callback);
-		break;
-	default:
-		dprintk(CVP_ERR, "Unsupported host-firmware interface\n");
-		goto err_hfi_init;
-	}
+	rc = cvp_iris_hfi_initialize(hdev, device_id, res, callback);
 
 	if (rc) {
 		if (rc != -EPROBE_DEFER)
@@ -52,13 +45,7 @@ void cvp_hfi_deinitialize(enum msm_cvp_hfi_type hfi_type,
 		return;
 	}
 
-	switch (hfi_type) {
-	case CVP_HFI_VENUS:
-		cvp_venus_hfi_delete_device(hdev->hfi_device_data);
-		break;
-	default:
-		dprintk(CVP_ERR, "Unsupported host-firmware interface\n");
-	}
+	cvp_iris_hfi_delete_device(hdev->hfi_device_data);
 
 	kfree(hdev);
 }

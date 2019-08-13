@@ -196,3 +196,47 @@ int cam_a5_disable_soc_resources(struct cam_hw_soc_info *soc_info)
 
 	return rc;
 }
+
+int cam_a5_update_clk_rate(struct cam_hw_soc_info *soc_info,
+	int32_t clk_level)
+{
+	int32_t src_clk_idx = 0;
+	int32_t clk_rate = 0;
+
+	if (!soc_info) {
+		CAM_ERR(CAM_ICP, "Invalid args");
+		return -EINVAL;
+	}
+
+	if ((clk_level < 0) || (clk_level >= CAM_MAX_VOTE)) {
+		CAM_ERR(CAM_ICP, "clock level %d is not valid",
+			clk_level);
+		return -EINVAL;
+	}
+
+	if (!soc_info->clk_level_valid[clk_level]) {
+		CAM_ERR(CAM_ICP,
+			"Clock level %d not supported",
+			clk_level);
+		return -EINVAL;
+	}
+
+	src_clk_idx = soc_info->src_clk_idx;
+	if ((src_clk_idx < 0) || (src_clk_idx >= CAM_SOC_MAX_CLK)) {
+		CAM_WARN(CAM_ICP, "src_clk not defined for %s",
+			soc_info->dev_name);
+		return -EINVAL;
+	}
+
+	clk_rate = soc_info->clk_rate[clk_level][src_clk_idx];
+	if ((soc_info->clk_level_valid[CAM_TURBO_VOTE]) &&
+		(soc_info->clk_rate[CAM_TURBO_VOTE][src_clk_idx] != 0) &&
+		(clk_rate > soc_info->clk_rate[CAM_TURBO_VOTE][src_clk_idx])) {
+		CAM_DBG(CAM_ICP, "clk_rate %d greater than max, reset to %d",
+			clk_rate,
+			soc_info->clk_rate[CAM_TURBO_VOTE][src_clk_idx]);
+		clk_rate = soc_info->clk_rate[CAM_TURBO_VOTE][src_clk_idx];
+	}
+
+	return cam_soc_util_set_src_clk_rate(soc_info, clk_rate);
+}

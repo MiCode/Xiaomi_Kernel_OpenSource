@@ -57,26 +57,32 @@ int cvp_dsp_shutdown(uint32_t session_flag);
  *
  * @session_id:     cvp session id
  * @buff_fd:        buffer fd
+ * @buff_fd_size:   total size of fd in bytes
  * @buff_size:      size in bytes of cvp buffer
  * @buff_offset:    buffer offset
  * @buff_index:     buffer index
  * @iova_buff_addr: IOVA buffer address
  */
 int cvp_dsp_register_buffer(uint32_t session_id, uint32_t buff_fd,
-			uint32_t buff_size, uint32_t buff_offset,
-			uint32_t buff_index, uint32_t iova_buff_addr);
+			uint32_t buff_fd_size, uint32_t buff_size,
+			uint32_t buff_offset, uint32_t buff_index,
+			uint32_t buff_fd_iova);
 
 /*
  * API to de-register iova buffer address from CDSP
  *
- * @iova_buff_addr: IOVA buffer address
- * @buff_index:     buffer index
- * @buff_size:      size in bytes of cvp buffer
  * @session_id:     cvp session id
+ * @buff_fd:        buffer fd
+ * @buff_fd_size:   total size of fd in bytes
+ * @buff_size:      size in bytes of cvp buffer
+ * @buff_offset:    buffer offset
+ * @buff_index:     buffer index
+ * @iova_buff_addr: IOVA buffer address
  */
-int cvp_dsp_deregister_buffer(uint32_t iova_buff_addr,
-	uint32_t buff_index, uint32_t buff_size,
-	uint32_t session_id);
+int cvp_dsp_deregister_buffer(uint32_t session_id, uint32_t buff_fd,
+			uint32_t buff_fd_size, uint32_t buff_size,
+			uint32_t buff_offset, uint32_t buff_index,
+			uint32_t buff_fd_iova);
 
 #endif // MSM_CVP_DSP_H
 

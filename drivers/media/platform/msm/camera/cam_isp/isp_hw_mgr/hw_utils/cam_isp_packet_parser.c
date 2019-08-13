@@ -420,6 +420,26 @@ int cam_isp_add_command_buffers(
 			num_ent = prepare->num_hw_update_entries;
 		}
 			break;
+		case CAM_ISP_PACKET_META_REG_DUMP_ON_FLUSH:
+		case CAM_ISP_PACKET_META_REG_DUMP_ON_ERROR:
+			if (split_id == CAM_ISP_HW_SPLIT_LEFT) {
+				if (prepare->num_reg_dump_buf >=
+					CAM_REG_DUMP_MAX_BUF_ENTRIES) {
+					CAM_ERR(CAM_ISP,
+					"Descriptor count out of bounds: %d",
+					prepare->num_reg_dump_buf);
+					return -EINVAL;
+				}
+				prepare->reg_dump_buf_desc[
+					prepare->num_reg_dump_buf] =
+					cmd_desc[i];
+				prepare->num_reg_dump_buf++;
+				CAM_DBG(CAM_ISP,
+					"Added command buffer: %d desc_count: %d",
+					cmd_desc[i].meta_data,
+					prepare->num_reg_dump_buf);
+			}
+			break;
 		default:
 			CAM_ERR(CAM_ISP, "invalid cdm command meta data %d",
 				cmd_meta_data);

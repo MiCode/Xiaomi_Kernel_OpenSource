@@ -890,6 +890,12 @@ static void wmi_evt_rx_mgmt(struct wil6210_vif *vif, int id, void *d, int len)
 
 	if (ieee80211_is_beacon(fc) || ieee80211_is_probe_resp(fc)) {
 		struct cfg80211_bss *bss;
+		struct cfg80211_inform_bss data = {
+			.chan = channel,
+			.scan_width = NL80211_BSS_CHAN_WIDTH_20,
+			.signal = signal,
+			.boottime_ns = ktime_to_ns(ktime_get_boottime()),
+		};
 		u64 tsf = le64_to_cpu(rx_mgmt_frame->u.beacon.timestamp);
 		u16 cap = le16_to_cpu(rx_mgmt_frame->u.beacon.capab_info);
 		u16 bi = le16_to_cpu(rx_mgmt_frame->u.beacon.beacon_int);
@@ -909,8 +915,9 @@ static void wmi_evt_rx_mgmt(struct wil6210_vif *vif, int id, void *d, int len)
 			return;
 		}
 
-		bss = cfg80211_inform_bss_frame(wiphy, channel, rx_mgmt_frame,
-						d_len, signal, GFP_KERNEL);
+		bss = cfg80211_inform_bss_frame_data(wiphy, &data,
+						     rx_mgmt_frame,
+						     d_len, GFP_KERNEL);
 		if (bss) {
 			wil_dbg_wmi(wil, "Added BSS %pM\n",
 				    rx_mgmt_frame->bssid);

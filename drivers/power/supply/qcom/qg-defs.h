@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QG_DEFS_H__
@@ -28,6 +28,8 @@
 #define PROFILE_IRQ_DISABLE		"NO_PROFILE_IRQ_DISABLE"
 #define QG_INIT_STATE_IRQ_DISABLE	"QG_INIT_STATE_IRQ_DISABLE"
 #define TTF_AWAKE_VOTER			"TTF_AWAKE_VOTER"
+#define SLEEP_EXIT_DATA_VOTER		"SLEEP_EXIT_DATA_VOTER"
+#define SLEEP_EXIT_VOTER		"SLEEP_EXIT_VOTER"
 
 #define V_RAW_TO_UV(V_RAW)		div_u64(194637ULL * (u64)V_RAW, 1000)
 #define FIFO_V_RESET_VAL		0x8000

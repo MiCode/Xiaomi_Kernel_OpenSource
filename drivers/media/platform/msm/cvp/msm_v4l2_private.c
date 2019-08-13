@@ -608,10 +608,6 @@ static long cvp_ioctl(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
-	/* Only handle VIDIOC_CVP_CMD as of now */
-	if (cmd != VIDIOC_CVP_CMD)
-		return 0;
-
 	memset(&karg, 0, sizeof(struct cvp_kmd_arg));
 
 	if (convert_from_user(&karg, arg, inst)) {

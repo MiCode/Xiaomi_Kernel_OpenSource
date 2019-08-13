@@ -3027,6 +3027,9 @@ static ssize_t proc_sched_task_boost_period_write(struct file *file,
 	unsigned int sched_boost_period;
 	int err;
 
+	if (!task)
+		return -ESRCH;
+
 	memset(buffer, 0, sizeof(buffer));
 	if (count > sizeof(buffer) - 1)
 		count = sizeof(buffer) - 1;

@@ -479,7 +479,8 @@ static int ion_system_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
 	if (!nr_to_scan)
 		only_scan = 1;
 
-	for (i = 0; i < NUM_ORDERS; i++) {
+	/* shrink the pools starting from lower order ones */
+	for (i = NUM_ORDERS - 1; i >= 0; i--) {
 		nr_freed = 0;
 
 		for (j = 0; j < VMID_LAST; j++) {

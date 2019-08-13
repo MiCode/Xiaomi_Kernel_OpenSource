@@ -69,19 +69,22 @@
 #define CAM_ISP_PACKET_OP_MAX                   3
 
 /* ISP packet meta_data type for command buffer */
-#define CAM_ISP_PACKET_META_BASE                0
-#define CAM_ISP_PACKET_META_LEFT                1
-#define CAM_ISP_PACKET_META_RIGHT               2
-#define CAM_ISP_PACKET_META_COMMON              3
-#define CAM_ISP_PACKET_META_DMI_LEFT            4
-#define CAM_ISP_PACKET_META_DMI_RIGHT           5
-#define CAM_ISP_PACKET_META_DMI_COMMON          6
-#define CAM_ISP_PACKET_META_CLOCK               7
-#define CAM_ISP_PACKET_META_CSID                8
-#define CAM_ISP_PACKET_META_DUAL_CONFIG         9
-#define CAM_ISP_PACKET_META_GENERIC_BLOB_LEFT   10
-#define CAM_ISP_PACKET_META_GENERIC_BLOB_RIGHT  11
-#define CAM_ISP_PACKET_META_GENERIC_BLOB_COMMON 12
+#define CAM_ISP_PACKET_META_BASE                  0
+#define CAM_ISP_PACKET_META_LEFT                  1
+#define CAM_ISP_PACKET_META_RIGHT                 2
+#define CAM_ISP_PACKET_META_COMMON                3
+#define CAM_ISP_PACKET_META_DMI_LEFT              4
+#define CAM_ISP_PACKET_META_DMI_RIGHT             5
+#define CAM_ISP_PACKET_META_DMI_COMMON            6
+#define CAM_ISP_PACKET_META_CLOCK                 7
+#define CAM_ISP_PACKET_META_CSID                  8
+#define CAM_ISP_PACKET_META_DUAL_CONFIG           9
+#define CAM_ISP_PACKET_META_GENERIC_BLOB_LEFT     10
+#define CAM_ISP_PACKET_META_GENERIC_BLOB_RIGHT    11
+#define CAM_ISP_PACKET_META_GENERIC_BLOB_COMMON   12
+#define CAM_ISP_PACKET_META_REG_DUMP_PER_REQUEST  13
+#define CAM_ISP_PACKET_META_REG_DUMP_ON_FLUSH     14
+#define CAM_ISP_PACKET_META_REG_DUMP_ON_ERROR     15
 
 /* DSP mode */
 #define CAM_ISP_DSP_MODE_NONE                   0
@@ -99,6 +102,7 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_IFE_CORE_CONFIG     7
 #define CAM_ISP_GENERIC_BLOB_TYPE_VFE_OUT_CONFIG      8
 #define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG_V2        9
+#define CAM_ISP_GENERIC_BLOB_TYPE_CSID_QCFA_CONFIG    12
 
 #define CAM_ISP_VC_DT_CFG    4
 
@@ -489,6 +493,15 @@ struct cam_isp_clock_config {
  */
 struct cam_isp_csid_clock_config {
 	uint64_t                       csid_clock;
+} __attribute__((packed));
+
+/**
+ * struct cam_isp_csid_qcfa_config - CSID qcfa binning support configuration
+ *
+ * @csid_binning                CSID binning
+ */
+struct cam_isp_csid_qcfa_config {
+	uint32_t                       csid_binning;
 } __attribute__((packed));
 
 /**

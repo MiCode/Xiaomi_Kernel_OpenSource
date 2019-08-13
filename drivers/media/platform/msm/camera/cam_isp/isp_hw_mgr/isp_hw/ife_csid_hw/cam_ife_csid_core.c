@@ -8,6 +8,8 @@
 #include <uapi/media/cam_isp.h>
 #include <uapi/media/cam_defs.h>
 
+#include <dt-bindings/msm/msm-camera.h>
+
 #include "cam_ife_csid_core.h"
 #include "cam_isp_hw.h"
 #include "cam_soc_util.h"
@@ -1082,9 +1084,10 @@ end:
 static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 {
 	int rc = 0;
-	const struct cam_ife_csid_reg_offset      *csid_reg;
-	struct cam_hw_soc_info              *soc_info;
-	uint32_t i, val, clk_lvl;
+	const struct cam_ife_csid_reg_offset   *csid_reg;
+	struct cam_hw_soc_info                 *soc_info;
+	uint32_t                               i, val;
+	int                                    clk_lvl;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -1106,8 +1109,15 @@ static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 	CAM_DBG(CAM_ISP, "CSID:%d init CSID HW",
 		csid_hw->hw_intf->hw_idx);
 
-	clk_lvl = cam_soc_util_get_vote_level(soc_info, csid_hw->clk_rate);
-	CAM_DBG(CAM_ISP, "CSID clock lvl %u", clk_lvl);
+	rc = cam_soc_util_get_clk_level(soc_info, csid_hw->clk_rate,
+		soc_info->src_clk_idx, &clk_lvl);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Failed to get clk level for rate %d",
+			csid_hw->clk_rate);
+		goto err;
+	}
+
+	CAM_DBG(CAM_ISP, "CSID clock lvl %d", clk_lvl);
 
 	rc = cam_ife_csid_enable_soc_resources(soc_info, clk_lvl);
 	if (rc) {
@@ -1610,6 +1620,10 @@ static int cam_ife_csid_init_config_pxl_path(
 		if (path_data->qcfa_bin)
 			val |= (1 << pxl_reg->quad_cfa_bin_en_shift_val);
 	}
+
+	if (is_ipp && csid_hw->binning_supported &&
+		csid_hw->binning_enable)
+		val |= (1 << pxl_reg->quad_cfa_bin_en_shift_val);
 
 	val |= (1 << pxl_reg->pix_store_en_shift_val);
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
@@ -3124,6 +3138,23 @@ static int cam_ife_csid_set_csid_clock(
 	return 0;
 }
 
+static int cam_ife_csid_set_csid_qcfa(
+	struct cam_ife_csid_hw *csid_hw, void *cmd_args)
+{
+	struct cam_ife_csid_qcfa_update_args *qcfa_update = NULL;
+
+	if (!csid_hw)
+		return -EINVAL;
+
+	qcfa_update =
+		(struct cam_ife_csid_qcfa_update_args *)cmd_args;
+
+	csid_hw->binning_supported = qcfa_update->qcfa_binning;
+	CAM_DBG(CAM_ISP, "CSID QCFA binning %d", csid_hw->binning_supported);
+
+	return 0;
+}
+
 static int cam_ife_csid_process_cmd(void *hw_priv,
 	uint32_t cmd_type, void *cmd_args, uint32_t arg_size)
 {
@@ -3157,6 +3188,9 @@ static int cam_ife_csid_process_cmd(void *hw_priv,
 		break;
 	case CAM_ISP_HW_CMD_CSID_CLOCK_UPDATE:
 		rc = cam_ife_csid_set_csid_clock(csid_hw, cmd_args);
+		break;
+	case CAM_ISP_HW_CMD_CSID_QCFA_SUPPORTED:
+		rc = cam_ife_csid_set_csid_qcfa(csid_hw, cmd_args);
 		break;
 	default:
 		CAM_ERR(CAM_ISP, "CSID:%d unsupported cmd:%d",
@@ -3600,6 +3634,9 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 		CAM_ERR(CAM_ISP, "CSID:%d Failed to init_soc", csid_idx);
 		goto err;
 	}
+
+	if (cam_cpas_is_feature_supported(CAM_CPAS_QCFA_BINNING_ENABLE) == 1)
+		ife_csid_hw->binning_enable = 1;
 
 	ife_csid_hw->hw_intf->hw_ops.get_hw_caps = cam_ife_csid_get_hw_caps;
 	ife_csid_hw->hw_intf->hw_ops.init        = cam_ife_csid_init_hw;

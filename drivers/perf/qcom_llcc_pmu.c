@@ -63,7 +63,7 @@ static void mon_disable(struct llcc_pmu *llccpmu, int cpu)
 		break;
 	case LLCC_PMU_VER2:
 		reg = readl_relaxed(MON_CFG(llccpmu));
-		reg &= (DISABLE << cpu);
+		reg &= ~(ENABLE << cpu);
 		writel_relaxed(reg, MON_CFG(llccpmu));
 		break;
 	}
@@ -86,6 +86,8 @@ static void mon_clear(struct llcc_pmu *llccpmu, int cpu)
 	case LLCC_PMU_VER2:
 		reg = readl_relaxed(MON_CFG(llccpmu));
 		reg |= (ENABLE << clear_bit);
+		writel_relaxed(reg, MON_CFG(llccpmu));
+		reg &= ~(ENABLE << clear_bit);
 		writel_relaxed(reg, MON_CFG(llccpmu));
 		break;
 	}

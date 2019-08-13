@@ -1306,24 +1306,31 @@ send:
 	/* IPA_PM checking end */
 
 	/*
+	 * increase the outstanding_pkts count first
+	 * to avoid suspend happens in parallel
+	 * after unlock
+	 */
+	atomic_inc(&wwan_ptr->outstanding_pkts);
+	spin_unlock_irqrestore(&wwan_ptr->lock, flags);
+
+	/*
 	 * both data packets and command will be routed to
 	 * IPA_CLIENT_Q6_WAN_CONS based on status configuration
 	 */
 	ret = ipa3_tx_dp(IPA_CLIENT_APPS_WAN_PROD, skb, NULL);
 	if (ret) {
+		atomic_dec(&wwan_ptr->outstanding_pkts);
 		if (ret == -EPIPE) {
 			IPAWANERR_RL("[%s] fatal: pipe is not valid\n",
 				dev->name);
 			dev_kfree_skb_any(skb);
 			dev->stats.tx_dropped++;
-			spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 			return NETDEV_TX_OK;
 		}
 		ret = NETDEV_TX_BUSY;
 		goto out;
 	}
 
-	atomic_inc(&wwan_ptr->outstanding_pkts);
 	dev->stats.tx_packets++;
 	dev->stats.tx_bytes += skb->len;
 	ret = NETDEV_TX_OK;
@@ -1333,7 +1340,6 @@ out:
 		ipa_pm_deferred_deactivate(rmnet_ipa3_ctx->q6_pm_hdl);
 
 	}
-	spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 	return ret;
 }
 
@@ -2147,19 +2153,25 @@ int ipa3_wwan_set_modem_state(struct wan_ioctl_notify_wan_state *state)
 		return -EINVAL;
 
 	if (state->up) {
-		bw_mbps = 5200;
-		ret = ipa3_vote_for_bus_bw(&bw_mbps);
-		if (ret) {
-			IPAERR("Failed to vote for bus BW (%u)\n", bw_mbps);
-			return ret;
+		if (rmnet_ipa3_ctx->ipa_config_is_apq) {
+			bw_mbps = 5200;
+			ret = ipa3_vote_for_bus_bw(&bw_mbps);
+			if (ret) {
+				IPAERR("Failed to vote for bus BW (%u)\n",
+							bw_mbps);
+				return ret;
+			}
 		}
 		ret = ipa_pm_activate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
 	} else {
-		bw_mbps = 0;
-		ret = ipa3_vote_for_bus_bw(&bw_mbps);
-		if (ret) {
-			IPAERR("Failed to vote for bus BW (%u)\n", bw_mbps);
-			return ret;
+		if (rmnet_ipa3_ctx->ipa_config_is_apq) {
+			bw_mbps = 0;
+			ret = ipa3_vote_for_bus_bw(&bw_mbps);
+			if (ret) {
+				IPAERR("Failed to vote for bus BW (%u)\n",
+							bw_mbps);
+				return ret;
+			}
 		}
 		ret = ipa_pm_deactivate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
 	}
@@ -3380,10 +3392,29 @@ static int rmnet_ipa3_query_tethering_stats_modem(
 	return 0;
 }
 
+static inline enum ipa_client_type rmnet_ipa3_get_wigig_cons(int idx)
+{
+	switch (idx) {
+	case 0:
+		return IPA_CLIENT_WIGIG1_CONS;
+	case 1:
+		return IPA_CLIENT_WIGIG2_CONS;
+	case 2:
+		return IPA_CLIENT_WIGIG3_CONS;
+	case 3:
+		return IPA_CLIENT_WIGIG4_CONS;
+	default:
+		IPAWANERR("invalid index %d\n", idx);
+		return IPA_CLIENT_MAX;
+	}
+}
+
 static int rmnet_ipa3_query_tethering_stats_hw(
 	struct wan_ioctl_query_tether_stats *data, bool reset)
 {
-	int rc = 0, index = 0;
+#define MAX_WIGIG_CLIENTS 4
+
+	int rc = 0, index = 0, i = 0;
 	struct ipa_quota_stats_all *con_stats;
 	enum ipa_client_type wlan_client;
 
@@ -3438,6 +3469,21 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 	con_stats->client[IPA_CLIENT_USB_CONS].num_ipv6_pkts,
 	con_stats->client[IPA_CLIENT_USB_CONS].num_ipv6_bytes);
 
+	for (i = 0; i < MAX_WIGIG_CLIENTS; i++) {
+		enum ipa_client_type wigig_client =
+			rmnet_ipa3_get_wigig_cons(i);
+
+		if (wigig_client > IPA_CLIENT_WIGIG4_CONS)
+			break;
+
+		IPAWANDBG("wigig%d: v4_rx_p(%d) b(%lld) v6_rx_p(%d) b(%lld)\n",
+			i + 1,
+			con_stats->client[wigig_client].num_ipv4_pkts,
+			con_stats->client[wigig_client].num_ipv4_bytes,
+			con_stats->client[wigig_client].num_ipv6_pkts,
+			con_stats->client[wigig_client].num_ipv6_bytes);
+	}
+
 	/* update the DL stats */
 	data->ipv4_rx_packets =
 		con_stats->client[wlan_client].num_ipv4_pkts +
@@ -3451,6 +3497,23 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 	data->ipv6_rx_bytes =
 		con_stats->client[wlan_client].num_ipv6_bytes +
 			con_stats->client[IPA_CLIENT_USB_CONS].num_ipv6_bytes;
+
+	for (i = 0; i < MAX_WIGIG_CLIENTS; i++) {
+		enum ipa_client_type wigig_client =
+			rmnet_ipa3_get_wigig_cons(i);
+
+		if (wigig_client > IPA_CLIENT_WIGIG4_CONS)
+			break;
+
+		data->ipv4_rx_packets +=
+			con_stats->client[wigig_client].num_ipv4_pkts;
+		data->ipv6_rx_packets +=
+			con_stats->client[wigig_client].num_ipv6_pkts;
+		data->ipv4_rx_bytes +=
+			con_stats->client[wigig_client].num_ipv4_bytes;
+		data->ipv6_rx_bytes +=
+			con_stats->client[wigig_client].num_ipv6_bytes;
+	}
 
 	IPAWANDBG("v4_rx_p(%lu) v6_rx_p(%lu) v4_rx_b(%lu) v6_rx_b(%lu)\n",
 		(unsigned long) data->ipv4_rx_packets,
@@ -3516,6 +3579,36 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 	con_stats->client[index].num_ipv6_bytes);
 
 	/* update the wlan UL stats */
+	data->ipv4_tx_packets +=
+		con_stats->client[index].num_ipv4_pkts;
+	data->ipv6_tx_packets +=
+		con_stats->client[index].num_ipv6_pkts;
+	data->ipv4_tx_bytes +=
+		con_stats->client[index].num_ipv4_bytes;
+	data->ipv6_tx_bytes +=
+		con_stats->client[index].num_ipv6_bytes;
+
+	/* query WIGIG UL stats */
+	memset(con_stats, 0, sizeof(struct ipa_quota_stats_all));
+	rc = ipa_query_teth_stats(IPA_CLIENT_WIGIG_PROD, con_stats, reset);
+	if (rc) {
+		IPAERR("IPA_CLIENT_WIGIG_PROD query failed %d\n", rc);
+		kfree(con_stats);
+		return rc;
+	}
+
+	if (rmnet_ipa3_ctx->ipa_config_is_apq)
+		index = IPA_CLIENT_MHI_PRIME_TETH_CONS;
+	else
+		index = IPA_CLIENT_Q6_WAN_CONS;
+
+	IPAWANDBG("wigig: v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",
+		con_stats->client[index].num_ipv4_pkts,
+		con_stats->client[index].num_ipv4_bytes,
+		con_stats->client[index].num_ipv6_pkts,
+		con_stats->client[index].num_ipv6_bytes);
+
+	/* update the WIGIG UL stats */
 	data->ipv4_tx_packets +=
 		con_stats->client[index].num_ipv4_pkts;
 	data->ipv6_tx_packets +=

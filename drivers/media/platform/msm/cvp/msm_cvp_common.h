@@ -26,8 +26,6 @@ struct msm_cvp_core *get_cvp_core(int core_id);
 int msm_cvp_comm_try_state(struct msm_cvp_inst *inst, int state);
 int msm_cvp_deinit_core(struct msm_cvp_inst *inst);
 int msm_cvp_comm_suspend(int core_id);
-struct cvp_hal_buffer_requirements *get_cvp_buff_req_buffer(
-			struct msm_cvp_inst *inst, u32 buffer_type);
 void msm_cvp_comm_session_clean(struct msm_cvp_inst *inst);
 int msm_cvp_comm_kill_session(struct msm_cvp_inst *inst);
 void msm_cvp_comm_generate_session_error(struct msm_cvp_inst *inst);
@@ -35,10 +33,6 @@ void msm_cvp_comm_generate_sys_error(struct msm_cvp_inst *inst);
 int msm_cvp_comm_smem_cache_operations(struct msm_cvp_inst *inst,
 		struct msm_cvp_smem *mem, enum smem_cache_ops cache_ops);
 int msm_cvp_comm_check_core_init(struct msm_cvp_core *core);
-int msm_cvp_comm_get_inst_load(struct msm_cvp_inst *inst,
-			enum load_calc_quirks quirks);
-int msm_cvp_comm_get_inst_load_per_core(struct msm_cvp_inst *inst,
-			enum load_calc_quirks quirks);
 void msm_cvp_comm_print_inst_info(struct msm_cvp_inst *inst);
 int msm_cvp_comm_unmap_cvp_buffer(struct msm_cvp_inst *inst,
 		struct msm_cvp_internal_buffer *cbuf);

@@ -27,7 +27,7 @@
 
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
 
-#if defined(CONFIG_SCHED_DEBUG) && defined(HAVE_JUMP_LABEL)
+#if defined(CONFIG_SCHED_DEBUG) && defined(CONFIG_JUMP_LABEL)
 /*
  * Debugging: various feature bits
  *
@@ -6824,7 +6824,7 @@ static int find_capacity_margin_levels(void)
 	int cpu, max_clusters;
 
 	for (cpu = max_clusters = 0; cpu < num_possible_cpus();) {
-		cpu += cpumask_weight(topology_core_cpumask(cpu));
+		cpu += cpumask_weight(topology_possible_sibling_cpumask(cpu));
 		max_clusters++;
 	}
 
@@ -6884,10 +6884,10 @@ static void sched_update_updown_migrate_values(unsigned int *data,
 	int i, cpu;
 	static const struct cpumask *cluster_cpus[MAX_CLUSTERS];
 
-	for (i = cpu = 0; (!cluster_cpus[i]) &&
+	for (i = cpu = 0; i < MAX_CLUSTERS &&
 				cpu < num_possible_cpus(); i++) {
-		cluster_cpus[i] = topology_core_cpumask(cpu);
-		cpu += cpumask_weight(topology_core_cpumask(cpu));
+		cluster_cpus[i] = topology_possible_sibling_cpumask(cpu);
+		cpu += cpumask_weight(topology_possible_sibling_cpumask(cpu));
 	}
 
 	if (data == &sysctl_sched_capacity_margin_up[0])

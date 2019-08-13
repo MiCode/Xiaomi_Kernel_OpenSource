@@ -8,6 +8,11 @@
 #include <synx_api.h>
 #include "cvp_core_hfi.h"
 
+struct cvp_power_level {
+	unsigned long core_sum;
+	unsigned long bw_sum;
+};
+
 void print_internal_buffer(u32 tag, const char *str,
 		struct msm_cvp_inst *inst, struct msm_cvp_internal_buffer *cbuf)
 {
@@ -190,8 +195,8 @@ static int msm_cvp_map_buf_dsp(struct msm_cvp_inst *inst,
 
 	if (buf->index) {
 		rc = cvp_dsp_register_buffer(hash32_ptr(session), buf->fd,
-			 buf->size, buf->offset, buf->index,
-			(uint32_t)cbuf->smem.device_addr);
+			cbuf->smem.dma_buf->size, buf->size, buf->offset,
+			buf->index, (uint32_t)cbuf->smem.device_addr);
 		if (rc) {
 			dprintk(CVP_ERR,
 				"%s: failed dsp registration for fd=%d rc=%d",
@@ -254,8 +259,9 @@ static int msm_cvp_unmap_buf_dsp(struct msm_cvp_inst *inst,
 	}
 
 	if (buf->index) {
-		rc = cvp_dsp_deregister_buffer((uint32_t)cbuf->smem.device_addr,
-			buf->index, buf->size, hash32_ptr(session));
+		rc = cvp_dsp_deregister_buffer(hash32_ptr(session), buf->fd,
+			cbuf->smem.dma_buf->size, buf->size, buf->offset,
+			buf->index, (uint32_t)cbuf->smem.device_addr);
 		if (rc) {
 			dprintk(CVP_ERR,
 				"%s: failed dsp deregistration fd=%d rc=%d",
@@ -1199,14 +1205,79 @@ static inline int max_3(unsigned int a, unsigned int b, unsigned int c)
 	return (a >= b) ? ((a >= c) ? a : c) : ((b >= c) ? b : c);
 }
 
+static void aggregate_power_request(struct msm_cvp_core *core,
+	struct cvp_power_level *nrt_pwr,
+	struct cvp_power_level *rt_pwr,
+	unsigned int max_clk_rate)
+{
+	struct msm_cvp_inst *inst;
+	int i;
+	unsigned long core_sum[2] = {0}, ctlr_sum[2] = {0}, fw_sum[2] = {0};
+	unsigned long op_core_max[2] = {0}, op_ctlr_max[2] = {0};
+	unsigned long op_fw_max[2] = {0}, bw_sum[2] = {0}, op_bw_max[2] = {0};
+
+	list_for_each_entry(inst, &core->instances, list) {
+		if (inst->state == MSM_CVP_CORE_INVALID ||
+			inst->state == MSM_CVP_CORE_UNINIT)
+			continue;
+		if (inst->prop.priority <= CVP_RT_PRIO_THRESHOLD) {
+			/* Non-realtime session use index 0 */
+			i = 0;
+		} else {
+			i = 1;
+		}
+		core_sum[i] += inst->power.clock_cycles_a;
+		ctlr_sum[i] += inst->power.clock_cycles_b;
+		fw_sum[i] += inst->power.reserved[0];
+		op_core_max[i] =
+			(op_core_max[i] >= inst->power.reserved[1]) ?
+			op_core_max[i] : inst->power.reserved[1];
+		op_ctlr_max[i] =
+			(op_ctlr_max[i] >= inst->power.reserved[2]) ?
+			op_ctlr_max[i] : inst->power.reserved[2];
+		op_fw_max[i] =
+			(op_fw_max[i] >= inst->power.reserved[3]) ?
+			op_fw_max[i] : inst->power.reserved[3];
+		bw_sum[i] += inst->power.ddr_bw;
+		op_bw_max[i] =
+			(op_bw_max[i] >= inst->power.reserved[4]) ?
+			op_bw_max[i] : inst->power.reserved[4];
+	}
+
+	for (i = 0; i < 2; i++) {
+		core_sum[i] = max_3(core_sum[i], ctlr_sum[i], fw_sum[i]);
+		op_core_max[i] = max_3(op_core_max[i],
+			op_ctlr_max[i], op_fw_max[i]);
+		op_core_max[i] =
+			(op_core_max[i] > max_clk_rate) ?
+			max_clk_rate : op_core_max[i];
+		core_sum[i] =
+			(core_sum[i] >= op_core_max[i]) ?
+			core_sum[i] : op_core_max[i];
+		bw_sum[i] = (bw_sum[i] >= op_bw_max[i]) ?
+			bw_sum[i] : op_bw_max[i];
+	}
+
+	nrt_pwr->core_sum = core_sum[0];
+	nrt_pwr->bw_sum = bw_sum[0];
+	rt_pwr->core_sum = core_sum[1];
+	rt_pwr->bw_sum = bw_sum[1];
+}
+
 /**
  * adjust_bw_freqs(): calculate CVP clock freq and bw required to sustain
  * required use case.
+ * Bandwidth vote will be best-effort, not returning error if the request
+ * b/w exceeds max limit.
+ * Clock vote from non-realtime sessions will be best effort, not returning
+ * error if the aggreated session clock request exceeds max limit.
+ * Clock vote from realtime session will be hard request. If aggregated
+ * session clock request exceeds max limit, the function will return
+ * error.
  */
 static int adjust_bw_freqs(void)
 {
 	struct msm_cvp_core *core;
-	struct msm_cvp_inst *inst;
 	struct iris_hfi_device *hdev;
 	struct bus_info *bus;
 	struct clock_set *clocks;
@@ -1214,9 +1285,8 @@ static int adjust_bw_freqs(void)
 	struct allowed_clock_rates_table *tbl = NULL;
 	unsigned int tbl_size;
 	unsigned int cvp_min_rate, cvp_max_rate, max_bw;
-	unsigned long core_sum = 0, ctlr_sum = 0, fw_sum = 0;
-	unsigned long op_core_max = 0, op_ctlr_max = 0, op_fw_max = 0;
-	unsigned long bw_sum = 0, op_bw_max = 0;
+	struct cvp_power_level rt_pwr, nrt_pwr;
+	unsigned long tmp, core_sum, bw_sum;
 	int i, rc = 0;
 
 	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
@@ -1231,67 +1301,49 @@ static int adjust_bw_freqs(void)
 	bus = &core->resources.bus_set.bus_tbl[1];
 	max_bw = bus->range[1];
 
-	list_for_each_entry(inst, &core->instances, list) {
-		if (inst->state == MSM_CVP_CORE_INVALID ||
-			inst->state == MSM_CVP_CORE_UNINIT)
-			continue;
-		core_sum += inst->power.clock_cycles_a;
-		ctlr_sum += inst->power.clock_cycles_b;
-		fw_sum += inst->power.reserved[0];
-		op_core_max = (op_core_max >= inst->power.reserved[1]) ?
-			op_core_max : inst->power.reserved[1];
-		op_ctlr_max = (op_ctlr_max >= inst->power.reserved[2]) ?
-			op_ctlr_max : inst->power.reserved[2];
-		op_fw_max = (op_fw_max >= inst->power.reserved[3]) ?
-			op_fw_max : inst->power.reserved[3];
-		bw_sum += inst->power.ddr_bw;
-		op_bw_max = (op_bw_max >= inst->power.reserved[4]) ?
-			op_bw_max : inst->power.reserved[4];
+	aggregate_power_request(core, &nrt_pwr, &rt_pwr, cvp_max_rate);
+
+	if (rt_pwr.core_sum > cvp_max_rate) {
+		dprintk(CVP_WARN, "%s clk vote out of range %lld\n",
+			__func__, rt_pwr.core_sum);
+		return -ENOTSUPP;
 	}
 
-	core_sum = max_3(core_sum, ctlr_sum, fw_sum);
-	op_core_max = max_3(op_core_max, op_ctlr_max, op_fw_max);
-	op_core_max = (op_core_max > tbl[tbl_size - 1].clock_rate) ?
-				tbl[tbl_size - 1].clock_rate : op_core_max;
-	core_sum = (core_sum >= op_core_max) ? core_sum : op_core_max;
-	bw_sum = (bw_sum >= op_bw_max) ? bw_sum : op_bw_max;
+	core_sum = rt_pwr.core_sum + nrt_pwr.core_sum;
 
-	if (core_sum < tbl[0].clock_rate) {
-		core_sum = tbl[0].clock_rate;
+	if (core_sum > cvp_max_rate) {
+		core_sum = cvp_max_rate;
+	} else	if (core_sum < cvp_min_rate) {
+		core_sum = cvp_min_rate;
 	} else {
 		for (i = 1; i < tbl_size; i++)
 			if (core_sum <= tbl[i].clock_rate)
 				break;
-
-		if (i == tbl_size) {
-			dprintk(CVP_WARN, "%s clk vote out of range %lld\n",
-					__func__, core_sum);
-			return -ENOTSUPP;
-		}
 		core_sum = tbl[i].clock_rate;
 	}
 
+	bw_sum = rt_pwr.bw_sum + nrt_pwr.bw_sum;
 	if (bw_sum > max_bw)
 		bw_sum = max_bw;
 
-	dprintk(CVP_DBG, "%s %lld %lld %lld\n", __func__,
-		core_sum, bw_sum, op_bw_max);
+	dprintk(CVP_DBG, "%s %lld %lld\n", __func__,
+		core_sum, bw_sum);
 	if (!cl->has_scaling) {
 		dprintk(CVP_ERR, "Cannot scale CVP clock\n");
 		return -EINVAL;
 	}
 
-	ctlr_sum = core->curr_freq;
+	tmp = core->curr_freq;
 	core->curr_freq = core_sum;
 	rc = msm_cvp_set_clocks(core);
 	if (rc) {
 		dprintk(CVP_ERR,
 			"Failed to set clock rate %u %s: %d %s\n",
 			core_sum, cl->name, rc, __func__);
-		core->curr_freq = ctlr_sum;
+		core->curr_freq = tmp;
 		return rc;
 	}
-	hdev->clk_freq = core_sum;
+	hdev->clk_freq = core->curr_freq;
 	rc = msm_bus_scale_update_bw(bus->client,
 			bw_sum, 0);
 	if (rc)
@@ -1348,8 +1400,10 @@ static int msm_cvp_request_power(struct msm_cvp_inst *inst,
 	inst->power.ddr_bw = inst->power.ddr_bw >> 10;
 
 	rc = adjust_bw_freqs();
-	if (rc)
+	if (rc) {
+		memset(&inst->power, 0x0, sizeof(inst->power));
 		dprintk(CVP_ERR, "Instance %pK power request out of range\n");
+	}
 
 	mutex_unlock(&core->lock);
 	inst->cur_cmd_type = 0;
@@ -1462,7 +1516,7 @@ fail_init:
 static int session_state_check_init(struct msm_cvp_inst *inst)
 {
 	mutex_lock(&inst->lock);
-	if (inst->state >= MSM_CVP_OPEN && inst->state < MSM_CVP_STOP) {
+	if (inst->state == MSM_CVP_OPEN || inst->state == MSM_CVP_OPEN_DONE) {
 		mutex_unlock(&inst->lock);
 		return 0;
 	}
@@ -1638,7 +1692,7 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 		rc = session_state_check_init(inst);
 		if (rc) {
 			dprintk(CVP_ERR,
-				"Incorrect session state %d for command %d",
+				"Incorrect session state %d for command %#x",
 				inst->state, arg->type);
 			return rc;
 		}
@@ -1796,10 +1850,10 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 			list) {
 		print_internal_buffer(CVP_DBG, "remove from cvpdspbufs", inst,
 									cbuf);
-		rc = cvp_dsp_deregister_buffer(
-			(uint32_t)cbuf->smem.device_addr,
-			cbuf->buf.index, cbuf->buf.size,
-			hash32_ptr(session));
+		rc = cvp_dsp_deregister_buffer(hash32_ptr(session),
+			cbuf->buf.fd, cbuf->smem.dma_buf->size, cbuf->buf.size,
+			cbuf->buf.offset, cbuf->buf.index,
+			(uint32_t)cbuf->smem.device_addr);
 		if (rc)
 			dprintk(CVP_ERR,
 				"%s: failed dsp deregistration fd=%d rc=%d",
@@ -1835,8 +1889,6 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 	}
 	mutex_unlock(&inst->frames.lock);
 
-	msm_cvp_comm_free_freq_table(inst);
-
 	return rc;
 }
 
@@ -1853,7 +1905,7 @@ int msm_cvp_session_init(struct msm_cvp_inst *inst)
 		inst, hash32_ptr(inst->session));
 
 	/* set default frequency */
-	inst->clk_data.core_id = CVP_CORE_ID_2;
+	inst->clk_data.core_id = 0;
 	inst->clk_data.min_freq = 1000;
 	inst->clk_data.ddr_bw = 1000;
 	inst->clk_data.sys_cache_bw = 1000;

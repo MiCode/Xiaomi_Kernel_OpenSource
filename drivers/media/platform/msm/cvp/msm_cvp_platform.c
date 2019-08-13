@@ -80,57 +80,21 @@ static struct msm_cvp_common_data sm8250_common_data[] = {
 					 */
 	},
 	{
-		.key = "qcom,max-hq-mbs-per-frame",
-		.value = 8160,
-	},
-	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
-	},
-	{
-		.key = "qcom,max-b-frame-size",
-		.value = 8160,
-	},
-	{
-		.key = "qcom,max-b-frames-per-sec",
-		.value = 60,
-	},
-	{
 		.key = "qcom,power-collapse-delay",
-		.value = 1500,
+		.value = 3000,
 	},
 	{
 		.key = "qcom,hw-resp-timeout",
-		.value = 1000,
+		.value = 2000,
 	},
 	{
 		.key = "qcom,dsp-resp-timeout",
-		.value = 2000
+		.value = 1000
 	},
 	{
 		.key = "qcom,debug-timeout",
 		.value = 0,
-	},
-	{
-		.key = "qcom,domain-cvp",
-		.value = 1,
-	},
-	{
-		.key = "qcom,decode-batching",
-		.value = 1,
-	},
-	{
-		.key = "qcom,dcvs",
-		.value = 1,
-	},
-	{
-		.key = "qcom,fw-cycles",
-		.value = 760000,
-	},
-	{
-		.key = "qcom,use-devfreq-scale-bus",
-		.value = 0,
-	},
+	}
 };
 
 /* Default UBWC config for LPDDR5 */
@@ -143,8 +107,6 @@ static struct msm_cvp_platform_data default_data = {
 	.common_data = default_common_data,
 	.common_data_length =  ARRAY_SIZE(default_common_data),
 	.sku_version = 0,
-	.gcc_register_base = 0,
-	.gcc_register_size = 0,
 	.vpu_ver = VPU_VERSION_5,
 	.ubwc_config = 0x0,
 };

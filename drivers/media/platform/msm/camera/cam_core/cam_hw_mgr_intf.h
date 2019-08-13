@@ -21,6 +21,9 @@
 /* maximum buf done irqs */
 #define CAM_NUM_OUT_PER_COMP_IRQ_MAX        12
 
+/* Maximum reg dump cmd buffer entries in a context */
+#define CAM_REG_DUMP_MAX_BUF_ENTRIES        10
+
 /* hardware event callback function type */
 typedef int (*cam_hw_event_cb_func)(void *context, uint32_t evt_id,
 	void *evt_data);
@@ -166,6 +169,8 @@ struct cam_hw_mgr_dump_pf_data {
  * @max_in_map_entries:    Maximum input fence mapping supported
  * @in_map_entries:        Actual input fence mapping list (returned)
  * @num_in_map_entries:    Number of acutal input fence mapping (returned)
+ * @reg_dump_buf_desc:     cmd buffer descriptors for reg dump
+ * @num_reg_dump_buf:      Count of descriptors in reg_dump_buf_desc
  * @priv:                  Private pointer of hw update
  * @pf_data:               Debug data for page fault
  *
@@ -183,6 +188,9 @@ struct cam_hw_prepare_update_args {
 	uint32_t                        max_in_map_entries;
 	struct cam_hw_fence_map_entry  *in_map_entries;
 	uint32_t                        num_in_map_entries;
+	struct cam_cmd_buf_desc         reg_dump_buf_desc[
+					CAM_REG_DUMP_MAX_BUF_ENTRIES];
+	uint32_t                        num_reg_dump_buf;
 	void                           *priv;
 	struct cam_hw_mgr_dump_pf_data *pf_data;
 };
@@ -266,6 +274,8 @@ struct cam_hw_dump_pf_args {
 enum cam_hw_mgr_command {
 	CAM_HW_MGR_CMD_INTERNAL,
 	CAM_HW_MGR_CMD_DUMP_PF_INFO,
+	CAM_HW_MGR_CMD_REG_DUMP_ON_FLUSH,
+	CAM_HW_MGR_CMD_REG_DUMP_ON_ERROR,
 };
 
 /**

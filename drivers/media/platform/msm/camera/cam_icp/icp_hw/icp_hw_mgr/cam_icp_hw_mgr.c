@@ -1320,12 +1320,14 @@ static int cam_icp_update_clk_rate(struct cam_icp_hw_mgr *hw_mgr,
 	struct cam_hw_intf *ipe0_dev_intf = NULL;
 	struct cam_hw_intf *ipe1_dev_intf = NULL;
 	struct cam_hw_intf *bps_dev_intf = NULL;
+	struct cam_hw_intf *a5_dev_intf = NULL;
 	struct cam_hw_intf *dev_intf = NULL;
 	struct cam_a5_clk_update_cmd clk_upd_cmd;
 
 	ipe0_dev_intf = hw_mgr->ipe0_dev_intf;
 	ipe1_dev_intf = hw_mgr->ipe1_dev_intf;
 	bps_dev_intf = hw_mgr->bps_dev_intf;
+	a5_dev_intf = hw_mgr->a5_dev_intf;
 
 
 	if ((!ipe0_dev_intf) || (!bps_dev_intf)) {
@@ -1347,16 +1349,26 @@ static int cam_icp_update_clk_rate(struct cam_icp_hw_mgr *hw_mgr,
 		ctx_data->icp_dev_acquire_info->dev_type);
 	clk_upd_cmd.curr_clk_rate = curr_clk_rate;
 	clk_upd_cmd.ipe_bps_pc_enable = icp_hw_mgr.ipe_bps_pc_flag;
+	clk_upd_cmd.clk_level = -1;
 
 	dev_intf->hw_ops.process_cmd(dev_intf->hw_priv, id,
 		&clk_upd_cmd, sizeof(struct cam_a5_clk_update_cmd));
 
-	if (ctx_data->icp_dev_acquire_info->dev_type != CAM_ICP_RES_TYPE_BPS)
-		if (ipe1_dev_intf)
+	if (ctx_data->icp_dev_acquire_info->dev_type != CAM_ICP_RES_TYPE_BPS) {
+		if (ipe1_dev_intf) {
 			ipe1_dev_intf->hw_ops.process_cmd(
 				ipe1_dev_intf->hw_priv, id,
 				&clk_upd_cmd,
 				sizeof(struct cam_a5_clk_update_cmd));
+		}
+
+		/* update a5 clock */
+		CAM_DBG(CAM_ICP, "Update ICP clk to level [%d]",
+			clk_upd_cmd.clk_level);
+		a5_dev_intf->hw_ops.process_cmd(a5_dev_intf->hw_priv,
+			CAM_ICP_A5_CMD_CLK_UPDATE, &clk_upd_cmd.clk_level,
+			sizeof(clk_upd_cmd.clk_level));
+	}
 
 	return 0;
 }

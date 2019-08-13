@@ -260,18 +260,23 @@ static int icnss_vreg_on(struct icnss_priv *priv)
 		if (!vreg_info->reg)
 			continue;
 
-		icnss_pr_vdbg("Regulator %s being enabled\n", vreg_info->name);
-
-		ret = regulator_set_voltage(vreg_info->reg, vreg_info->min_v,
-					    vreg_info->max_v);
-		if (ret) {
-			icnss_pr_err("Regulator %s, can't set voltage: min_v: %u, max_v: %u, ret: %d\n",
-				     vreg_info->name, vreg_info->min_v,
-				     vreg_info->max_v, ret);
-			break;
+		if (vreg_info->min_v || vreg_info->max_v) {
+			icnss_pr_vdbg("Set voltage for regulator %s\n",
+							vreg_info->name);
+			ret = regulator_set_voltage(vreg_info->reg,
+						    vreg_info->min_v,
+						    vreg_info->max_v);
+			if (ret) {
+				icnss_pr_err("Regulator %s, can't set voltage: min_v: %u, max_v: %u, ret: %d\n",
+					     vreg_info->name, vreg_info->min_v,
+					     vreg_info->max_v, ret);
+				break;
+			}
 		}
 
 		if (vreg_info->load_ua) {
+			icnss_pr_vdbg("Set load for regulator %s\n",
+							vreg_info->name);
 			ret = regulator_set_load(vreg_info->reg,
 						 vreg_info->load_ua);
 			if (ret < 0) {
@@ -281,6 +286,8 @@ static int icnss_vreg_on(struct icnss_priv *priv)
 				break;
 			}
 		}
+
+		icnss_pr_vdbg("Regulator %s being enabled\n", vreg_info->name);
 
 		ret = regulator_enable(vreg_info->reg);
 		if (ret) {
@@ -303,8 +310,13 @@ static int icnss_vreg_on(struct icnss_priv *priv)
 			continue;
 
 		regulator_disable(vreg_info->reg);
-		regulator_set_load(vreg_info->reg, 0);
-		regulator_set_voltage(vreg_info->reg, 0, vreg_info->max_v);
+
+		if (vreg_info->load_ua)
+			regulator_set_load(vreg_info->reg, 0);
+
+		if (vreg_info->min_v || vreg_info->max_v)
+			regulator_set_voltage(vreg_info->reg, 0,
+					      vreg_info->max_v);
 	}
 
 	return ret;
@@ -329,16 +341,20 @@ static int icnss_vreg_off(struct icnss_priv *priv)
 			icnss_pr_err("Regulator %s, can't disable: %d\n",
 				     vreg_info->name, ret);
 
-		ret = regulator_set_load(vreg_info->reg, 0);
-		if (ret < 0)
-			icnss_pr_err("Regulator %s, can't set load: %d\n",
-				     vreg_info->name, ret);
+		if (vreg_info->load_ua) {
+			ret = regulator_set_load(vreg_info->reg, 0);
+			if (ret < 0)
+				icnss_pr_err("Regulator %s, can't set load: %d\n",
+					     vreg_info->name, ret);
+		}
 
-		ret = regulator_set_voltage(vreg_info->reg, 0,
-					    vreg_info->max_v);
-		if (ret)
-			icnss_pr_err("Regulator %s, can't set voltage: %d\n",
-				     vreg_info->name, ret);
+		if (vreg_info->min_v || vreg_info->max_v) {
+			ret = regulator_set_voltage(vreg_info->reg, 0,
+						    vreg_info->max_v);
+			if (ret)
+				icnss_pr_err("Regulator %s, can't set voltage: %d\n",
+					     vreg_info->name, ret);
+		}
 	}
 
 	return ret;
@@ -841,6 +857,10 @@ static int icnss_driver_event_server_arrive(void *data)
 
 	ret = wlfw_ind_register_send_sync_msg(penv);
 	if (ret < 0) {
+		if (ret == -EALREADY) {
+			ret = 0;
+			goto qmi_registered;
+		}
 		ignore_assert = true;
 		goto err_power_on;
 	}
@@ -889,6 +909,7 @@ clear_server:
 	icnss_clear_server(penv);
 fail:
 	ICNSS_ASSERT(ignore_assert);
+qmi_registered:
 	return ret;
 }
 
@@ -1401,7 +1422,10 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed &&
 	    atomic_read(&priv->is_shutdown)) {
 		atomic_set(&priv->is_shutdown, false);
-		icnss_call_driver_remove(priv);
+		if (!test_bit(ICNSS_PD_RESTART, &priv->state) &&
+		    !test_bit(ICNSS_SHUTDOWN_DONE, &priv->state)) {
+			icnss_call_driver_remove(priv);
+		}
 	}
 
 	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed &&
@@ -2505,6 +2529,15 @@ static void icnss_allow_recursive_recovery(struct device *dev)
 	icnss_pr_info("Recursive recovery allowed for WLAN\n");
 }
 
+static void icnss_disallow_recursive_recovery(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	priv->allow_recursive_recovery = false;
+
+	icnss_pr_info("Recursive recovery disallowed for WLAN\n");
+}
+
 static ssize_t icnss_fw_debug_write(struct file *fp,
 				    const char __user *user_buf,
 				    size_t count, loff_t *off)
@@ -2555,6 +2588,9 @@ static ssize_t icnss_fw_debug_write(struct file *fp,
 			break;
 		case 4:
 			icnss_allow_recursive_recovery(&priv->pdev->dev);
+			break;
+		case 5:
+			icnss_disallow_recursive_recovery(&priv->pdev->dev);
 			break;
 		default:
 			return -EINVAL;
@@ -3203,6 +3239,8 @@ static int icnss_probe(struct platform_device *pdev)
 	priv->pdev = pdev;
 
 	priv->vreg_info = icnss_vreg_info;
+
+	icnss_allow_recursive_recovery(dev);
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,icnss-adc_tm")) {
 		ret = icnss_get_vbatt_info(priv);

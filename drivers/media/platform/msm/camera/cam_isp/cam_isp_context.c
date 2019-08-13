@@ -1116,6 +1116,22 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 		(error_type == CAM_ISP_HW_ERROR_BUSIF_OVERFLOW))
 		notify.error = CRM_KMD_ERR_OVERFLOW;
 
+
+	if ((error_type == CAM_ISP_HW_ERROR_OVERFLOW) ||
+		(error_type == CAM_ISP_HW_ERROR_BUSIF_OVERFLOW) ||
+		(error_type == CAM_ISP_HW_ERROR_VIOLATION)) {
+		struct cam_hw_cmd_args hw_cmd_args;
+
+		memset(&hw_cmd_args, 0, sizeof(hw_cmd_args));
+		hw_cmd_args.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+		hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_REG_DUMP_ON_ERROR;
+		rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+			&hw_cmd_args);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Reg dump on error failed rc: %d", rc);
+			rc = 0;
+		}
+	}
 	/*
 	 * The error is likely caused by first request on the active list.
 	 * If active list is empty check wait list (maybe error hit as soon
@@ -1932,6 +1948,8 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 {
 	int rc = 0;
 	struct cam_isp_context *ctx_isp;
+	struct cam_hw_cmd_args hw_cmd_args;
+
 
 	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
@@ -1944,6 +1962,16 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	spin_lock_bh(&ctx->lock);
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
 	spin_unlock_bh(&ctx->lock);
+
+	memset(&hw_cmd_args, 0, sizeof(hw_cmd_args));
+	hw_cmd_args.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+	hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_REG_DUMP_ON_FLUSH;
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+		&hw_cmd_args);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Reg dump on flush failed rc: %d", rc);
+		rc = 0;
+	}
 
 	atomic_set(&ctx_isp->process_bubble, 0);
 	return rc;
@@ -3368,6 +3396,21 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 		goto end;
 	}
 
+	/*
+	 * In case of CSID TPG we might receive SOF and RUP IRQs
+	 * before hw_mgr_intf->hw_start has returned. So move
+	 * req out of pending list before hw_start and add it
+	 * back to pending list if hw_start fails.
+	 */
+	list_del_init(&req->list);
+
+	if (req_isp->num_fence_map_out) {
+		list_add_tail(&req->list, &ctx->active_req_list);
+		ctx_isp->active_req_cnt++;
+	} else {
+		list_add_tail(&req->list, &ctx->wait_req_list);
+	}
+
 	start_isp.hw_config.ctxt_to_hw_map = ctx_isp->hw_ctx;
 	start_isp.hw_config.request_id = req->request_id;
 	start_isp.hw_config.hw_update_entries = req_isp->cfg;
@@ -3401,18 +3444,12 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 		CAM_ERR(CAM_ISP, "Start HW failed");
 		ctx->state = CAM_CTX_READY;
 		trace_cam_context_state("ISP", ctx);
+		list_del_init(&req->list);
+		list_add(&req->list, &ctx->pending_req_list);
 		goto end;
 	}
 	CAM_DBG(CAM_ISP, "start device success ctx %u", ctx->ctx_id);
 
-	list_del_init(&req->list);
-
-	if (req_isp->num_fence_map_out) {
-		list_add_tail(&req->list, &ctx->active_req_list);
-		ctx_isp->active_req_cnt++;
-	} else {
-		list_add_tail(&req->list, &ctx->wait_req_list);
-	}
 end:
 	return rc;
 }
@@ -3852,6 +3889,36 @@ static int cam_isp_context_dump_active_request(void *data, unsigned long iova,
 
 	list_for_each_entry_safe(req, req_temp,
 		&ctx->wait_req_list, list) {
+		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
+		hw_update_data = &req_isp->hw_update_data;
+		pf_dbg_entry = &(req->pf_data);
+		CAM_INFO(CAM_ISP, "req_id : %lld ", req->request_id);
+
+		rc = cam_context_dump_pf_info_to_hw(ctx, pf_dbg_entry->packet,
+			iova, buf_info, &mem_found);
+		if (rc)
+			CAM_ERR(CAM_ISP, "Failed to dump pf info");
+
+		if (mem_found)
+			CAM_ERR(CAM_ISP, "Found page fault in req %lld %d",
+				req->request_id, rc);
+	}
+
+	/*
+	 * In certain scenarios we observe both overflow and SMMU pagefault
+	 * for a particular request. If overflow is handled before page fault
+	 * we need to traverse through pending request list because if
+	 * bubble recovery is enabled on any request we move that request
+	 * and all the subsequent requests to the pending list while handling
+	 * overflow error.
+	 */
+
+	CAM_INFO(CAM_ISP,
+		"Iterating over pending req list of isp ctx %d state %d",
+		ctx->ctx_id, ctx->state);
+
+	list_for_each_entry_safe(req, req_temp,
+		&ctx->pending_req_list, list) {
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 		hw_update_data = &req_isp->hw_update_data;
 		pf_dbg_entry = &(req->pf_data);

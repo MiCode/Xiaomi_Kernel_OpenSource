@@ -66,6 +66,9 @@
 #define ION_POOL_LOW_MARK 0UL
 #endif
 
+/* if low watermark of zones have reached, defer the refill in this window */
+#define ION_POOL_REFILL_DEFER_WINDOW_MS	10
+
 /**
  * struct ion_platform_heap - defines a heap in the given platform
  * @type:	type of the heap from ion_heap_type enum
@@ -435,6 +438,7 @@ struct ion_page_pool {
 	bool cached;
 	struct list_head high_items;
 	struct list_head low_items;
+	ktime_t last_low_watermark_ktime;
 	/* Protect the pool */
 	struct mutex mutex;
 	gfp_t gfp_mask;

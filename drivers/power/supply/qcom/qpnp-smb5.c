@@ -428,6 +428,7 @@ static int smb5_configure_internal_pull(struct smb_charger *chg, int type,
 #define MICRO_3PA			3000000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS	50
 #define DEFAULT_WD_BARK_TIME		64
+#define DEFAULT_WD_SNARL_TIME_8S	0x07
 static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 {
 	int rc = 0, byte_len;
@@ -465,7 +466,7 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 	rc = of_property_read_u32(node, "qcom,wd-snarl-time-config",
 					&chip->dt.wd_snarl_time_cfg);
 	if (rc < 0)
-		chip->dt.wd_snarl_time_cfg = -EINVAL;
+		chip->dt.wd_snarl_time_cfg = DEFAULT_WD_SNARL_TIME_8S;
 
 	chip->dt.no_battery = of_property_read_bool(node,
 						"qcom,batteryless-platform");
@@ -548,12 +549,18 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 	chg->hw_skin_temp_mitigation = of_property_read_bool(node,
 					"qcom,hw-skin-temp-mitigation");
 
+	chg->en_skin_therm_mitigation = of_property_read_bool(node,
+					"qcom,en-skin-therm-mitigation");
+
 	chg->connector_pull_up = -EINVAL;
 	of_property_read_u32(node, "qcom,connector-internal-pull-kohm",
 					&chg->connector_pull_up);
 
 	chip->dt.disable_suspend_on_collapse = of_property_read_bool(node,
 					"qcom,disable-suspend-on-collapse");
+	chg->smb_pull_up = -EINVAL;
+	of_property_read_u32(node, "qcom,smb-internal-pull-kohm",
+					&chg->smb_pull_up);
 
 	chip->dt.adc_based_aicl = of_property_read_bool(node,
 					"qcom,adc-based-aicl");
@@ -777,6 +784,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_QC_OPTI_DISABLE,
 	POWER_SUPPLY_PROP_VOLTAGE_VPH,
 	POWER_SUPPLY_PROP_THERM_ICL_LIMIT,
+	POWER_SUPPLY_PROP_SKIN_HEALTH,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -916,6 +924,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_ADAPTER_CC_MODE:
 		val->intval = chg->adapter_cc_mode;
+		break;
+	case POWER_SUPPLY_PROP_SKIN_HEALTH:
+		val->intval = smblib_get_skin_temp_status(chg);
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -1178,6 +1189,7 @@ static enum power_supply_property smb5_usb_main_props[] = {
 	POWER_SUPPLY_PROP_FORCE_MAIN_FCC,
 	POWER_SUPPLY_PROP_FORCE_MAIN_ICL,
 	POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL,
+	POWER_SUPPLY_PROP_HEALTH,
 };
 
 static int smb5_usb_main_get_prop(struct power_supply *psy,
@@ -1236,6 +1248,10 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL:
 		val->intval = chg->comp_clamp_level;
+		break;
+	/* Use this property to report SMB health */
+	case POWER_SUPPLY_PROP_HEALTH:
+		val->intval = smblib_get_prop_smb_health(chg);
 		break;
 	default:
 		pr_debug("get prop %d is not supported in usb-main\n", psp);
@@ -2595,11 +2611,7 @@ static int smb5_init_hw(struct smb5 *chip)
 	val = (ilog2(chip->dt.wd_bark_time / 16) << BARK_WDOG_TIMEOUT_SHIFT)
 			& BARK_WDOG_TIMEOUT_MASK;
 	val |= (BITE_WDOG_TIMEOUT_8S | BITE_WDOG_DISABLE_CHARGING_CFG_BIT);
-
-	if (chip->dt.wd_snarl_time_cfg == -EINVAL)
-		val |= SNARL_WDOG_TMOUT_8S;
-	else
-		val |= (chip->dt.wd_snarl_time_cfg << SNARL_WDOG_TIMEOUT_SHIFT)
+	val |= (chip->dt.wd_snarl_time_cfg << SNARL_WDOG_TIMEOUT_SHIFT)
 			& SNARL_WDOG_TIMEOUT_MASK;
 
 	rc = smblib_masked_write(chg, SNARL_BARK_BITE_WD_CFG_REG,
@@ -2612,11 +2624,8 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 	}
 
-	val = WDOG_TIMER_EN_ON_PLUGIN_BIT;
-	if (chip->dt.wd_snarl_time_cfg == -EINVAL)
-		val |= BARK_WDOG_INT_EN_BIT;
-
 	/* enable WD BARK and enable it on plugin */
+	val = WDOG_TIMER_EN_ON_PLUGIN_BIT | BARK_WDOG_INT_EN_BIT;
 	rc = smblib_masked_write(chg, WD_CFG_REG,
 			WATCHDOG_TRIGGER_AFP_EN_BIT |
 			WDOG_TIMER_EN_ON_PLUGIN_BIT |
@@ -2704,6 +2713,17 @@ static int smb5_init_hw(struct smb5 *chip)
 		if (rc < 0) {
 			dev_err(chg->dev,
 				"Couldn't configure CONN_THERM pull-up rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (chg->smb_pull_up != -EINVAL) {
+		rc = smb5_configure_internal_pull(chg, SMB_THERM,
+				get_valid_pullup(chg->smb_pull_up));
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't configure SMB pull-up rc=%d\n",
 				rc);
 			return rc;
 		}
@@ -3114,19 +3134,6 @@ static int smb5_request_interrupts(struct smb5 *chip)
 			if (rc < 0)
 				return rc;
 		}
-	}
-
-	/*
-	 * WDOG_SNARL_IRQ is required for SW Thermal Regulation WA. In case
-	 * the WA is not required and neither is the snarl timer configuration
-	 * defined, disable the WDOG_SNARL_IRQ to prevent interrupt storm.
-	 */
-
-	if (chg->irq_info[WDOG_SNARL_IRQ].irq && (!(chg->wa_flags &
-				SW_THERM_REGULATION_WA) &&
-				chip->dt.wd_snarl_time_cfg == -EINVAL)) {
-		disable_irq_wake(chg->irq_info[WDOG_SNARL_IRQ].irq);
-		disable_irq_nosync(chg->irq_info[WDOG_SNARL_IRQ].irq);
 	}
 
 	vote(chg->limited_irq_disable_votable, CHARGER_TYPE_VOTER, true, 0);

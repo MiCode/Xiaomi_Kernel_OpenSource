@@ -1122,20 +1122,18 @@ struct mbox_message {
 	void *msg;
 };
 
-static void gmu_aop_send_acd_state(struct kgsl_device *device)
+static void gmu_aop_send_acd_state(struct kgsl_device *device, bool flag)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct mbox_message msg;
 	char msg_buf[33];
-	bool state = test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
 	int ret;
 
 	if (!gmu->mailbox.client)
 		return;
 
 	msg.len = scnprintf(msg_buf, sizeof(msg_buf),
-			"{class: gpu, res: acd, value: %d}", state);
+			"{class: gpu, res: acd, value: %d}", flag);
 	msg.msg = msg_buf;
 
 	ret = mbox_send_message(gmu->mailbox.channel, &msg);
@@ -1204,10 +1202,15 @@ static int gmu_acd_set(struct kgsl_device *device, unsigned int val)
 
 	/* Power down the GPU before enabling or disabling ACD */
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	if (val)
+
+	if (val) {
 		set_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
-	else
+		gmu_aop_send_acd_state(device, true);
+	} else {
 		clear_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+		gmu_aop_send_acd_state(device, false);
+	}
+
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 
 	mutex_unlock(&device->mutex);
@@ -1399,10 +1402,6 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 				"ACD probe failed: missing or invalid table\n");
 	}
 
-	/* disable LM if the feature is not enabled */
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
-		clear_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
-
 	set_bit(GMU_ENABLED, &device->gmu_core.flags);
 	device->gmu_core.dev_ops = &adreno_a6xx_gmudev;
 
@@ -1574,10 +1573,11 @@ static int gmu_start(struct kgsl_device *device)
 
 	switch (device->state) {
 	case KGSL_STATE_INIT:
+		gmu_aop_send_acd_state(device, test_bit(ADRENO_ACD_CTRL,
+					&adreno_dev->pwrctrl_flag));
+
 	case KGSL_STATE_SUSPEND:
 		WARN_ON(test_bit(GMU_CLK_ON, &device->gmu_core.flags));
-
-		gmu_aop_send_acd_state(device);
 
 		gmu_enable_gdsc(gmu);
 		gmu_enable_clks(device);
@@ -1607,8 +1607,6 @@ static int gmu_start(struct kgsl_device *device)
 	case KGSL_STATE_SLUMBER:
 		WARN_ON(test_bit(GMU_CLK_ON, &device->gmu_core.flags));
 
-		gmu_aop_send_acd_state(device);
-
 		gmu_enable_gdsc(gmu);
 		gmu_enable_clks(device);
 		gmu_dev_ops->irq_enable(device);
@@ -1626,43 +1624,25 @@ static int gmu_start(struct kgsl_device *device)
 		break;
 
 	case KGSL_STATE_RESET:
-		if (test_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv) ||
-			test_bit(GMU_FAULT, &device->gmu_core.flags)) {
-			gmu_suspend(device);
+		gmu_suspend(device);
 
-			gmu_aop_send_acd_state(device);
+		gmu_enable_gdsc(gmu);
+		gmu_enable_clks(device);
+		gmu_dev_ops->irq_enable(device);
 
-			gmu_enable_gdsc(gmu);
-			gmu_enable_clks(device);
-			gmu_dev_ops->irq_enable(device);
-
-			ret = gmu_dev_ops->rpmh_gpu_pwrctrl(
-				device, GMU_FW_START, GMU_COLD_BOOT, 0);
-			if (ret)
-				goto error_gmu;
+		ret = gmu_dev_ops->rpmh_gpu_pwrctrl(
+			device, GMU_FW_START, GMU_COLD_BOOT, 0);
+		if (ret)
+			goto error_gmu;
 
 
-			ret = hfi_start(device, gmu, GMU_COLD_BOOT);
-			if (ret)
-				goto error_gmu;
+		ret = hfi_start(device, gmu, GMU_COLD_BOOT);
+		if (ret)
+			goto error_gmu;
 
-			/* Send DCVS level prior to reset*/
-			kgsl_pwrctrl_set_default_gpu_pwrlevel(device);
-		} else {
-			/* GMU fast boot */
-			hfi_stop(gmu);
+		/* Send DCVS level prior to reset*/
+		kgsl_pwrctrl_set_default_gpu_pwrlevel(device);
 
-			gmu_aop_send_acd_state(device);
-
-			ret = gmu_dev_ops->rpmh_gpu_pwrctrl(device,
-					GMU_FW_START, GMU_COLD_BOOT, 0);
-			if (ret)
-				goto error_gmu;
-
-			ret = hfi_start(device, gmu, GMU_COLD_BOOT);
-			if (ret)
-				goto error_gmu;
-		}
 		break;
 	default:
 		break;

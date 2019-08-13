@@ -124,6 +124,9 @@ extern void dvb_ringbuffer_flush_spinlock_wakeup(struct dvb_ringbuffer *rbuf);
  */
 #define DVB_RINGBUFFER_PEEK(rbuf, offs)	\
 			((rbuf)->data[((rbuf)->pread + (offs)) % (rbuf)->size])
+#define DVB_RINGBUFFER_PUSH(rbuf, num)	\
+			((rbuf)->pwrite = (((rbuf)->pwrite+(num))%(rbuf)->size))
+
 
 /**
  * DVB_RINGBUFFER_SKIP - advance read ptr by @num bytes
@@ -276,5 +279,32 @@ extern void dvb_ringbuffer_pkt_dispose(struct dvb_ringbuffer *rbuf, size_t idx);
  */
 extern ssize_t dvb_ringbuffer_pkt_next(struct dvb_ringbuffer *rbuf,
 				       size_t idx, size_t *pktlen);
+
+
+/**
+ * Start a new packet that will be written directly by the user to the packet
+ * buffer.
+ * The function only writes the header of the packet into the packet buffer,
+ * and the packet is in pending state (can't be read by the reader) until it is
+ * closed using dvb_ringbuffer_pkt_close. You must write the data into the
+ * packet buffer using dvb_ringbuffer_write followed by
+ * dvb_ringbuffer_pkt_close.
+ *
+ * @rbuf: Ringbuffer concerned.
+ * @len: Size of the packet's data
+ * returns Index of the packet's header that was started.
+ */
+extern ssize_t dvb_ringbuffer_pkt_start(struct dvb_ringbuffer *rbuf,
+						size_t len);
+
+/**
+ * Close a packet that was started using dvb_ringbuffer_pkt_start.
+ * The packet will be marked as ready to be ready.
+ *
+ * @rbuf: Ringbuffer concerned.
+ * @idx: Packet index that was returned by dvb_ringbuffer_pkt_start
+ * returns error status, -EINVAL if the provided index is invalid
+ */
+extern int dvb_ringbuffer_pkt_close(struct dvb_ringbuffer *rbuf, ssize_t idx);
 
 #endif /* _DVB_RINGBUFFER_H_ */

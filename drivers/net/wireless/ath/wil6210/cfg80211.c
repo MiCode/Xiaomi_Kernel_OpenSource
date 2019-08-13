@@ -107,6 +107,7 @@ enum wil_nl_60g_debug_cmd {
 	NL_60G_DBG_FORCE_WMI_SEND,
 	NL_60G_GEN_RADAR_ALLOC_BUFFER,
 	NL_60G_GEN_FW_RESET,
+	NL_60G_GEN_GET_DRIVER_CAPA,
 };
 
 struct wil_nl_60g_send_receive_wmi {
@@ -116,6 +117,21 @@ struct wil_nl_60g_send_receive_wmi {
 	u16 buf_len;
 	u8 buf[0];
 } __packed;
+
+enum wil_nl_60g_driver_capa {
+	NL_60G_DRIVER_CAPA_WMI_OVER_NL, /* NL command for WMI */
+	NL_60G_DRIVER_CAPA_FW_STATE, /* notifications of FW state changes */
+	/* ioctl to write to the device address space */
+	NL_60G_DRIVER_CAPA_IOCTL_WRITE,
+};
+
+struct wil_nl_60g_driver_capabilities_reply {
+	u32 drv_cap[0]; /* bit mask of wil_nl_60g_driver_capa */
+} __packed;
+
+enum qca_wlan_vendor_driver_capa {
+	QCA_WLAN_VENDOR_ATTR_DRIVER_CAPA,
+};
 
 struct wil_nl_60g_event {
 	u32 evt_type; /* wil_nl_60g_evt_type */
@@ -3653,6 +3669,33 @@ static int wil_nl_60g_handle_cmd(struct wiphy *wiphy, struct wireless_dev *wdev,
 			mutex_unlock(&wil->mutex);
 
 			break;
+
+		case NL_60G_GEN_GET_DRIVER_CAPA:
+		{
+			struct sk_buff *skb;
+			u32 capa;
+
+			skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy,
+								  sizeof(capa));
+			if (!skb)
+				return -ENOMEM;
+
+			capa = BIT(NL_60G_DRIVER_CAPA_FW_STATE) |
+#if defined(CONFIG_WIL6210_WRITE_IOCTL)
+			       BIT(NL_60G_DRIVER_CAPA_IOCTL_WRITE) |
+#endif
+			       BIT(NL_60G_DRIVER_CAPA_WMI_OVER_NL);
+			rc = nla_put_u32(skb,
+					 QCA_WLAN_VENDOR_ATTR_DRIVER_CAPA,
+					 capa);
+			if (rc) {
+				wil_err(wil,
+					"Failed to return driver capa\n");
+				kfree_skb(skb);
+				return rc;
+			}
+			return cfg80211_vendor_cmd_reply(skb);
+		}
 		default:
 			rc = -EINVAL;
 			wil_err(wil, "invalid debug_cmd id %d",

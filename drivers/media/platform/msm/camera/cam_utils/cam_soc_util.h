@@ -18,6 +18,7 @@
 #include <linux/of_fdt.h>
 
 #include "cam_io_util.h"
+#include <uapi/media/cam_defs.h>
 
 #define NO_SET_RATE  -1
 #define INIT_RATE    -2
@@ -152,6 +153,8 @@ struct cam_soc_gpio_data {
  * @prev_clk_level          Last vote level
  * @src_clk_idx:            Source clock index that is rate-controllable
  * @clk_level_valid:        Indicates whether corresponding level is valid
+ * @scl_clk_count:          Number of scalable clocks present
+ * @scl_clk_idx:            Index of scalable clocks
  * @gpio_data:              Pointer to gpio info
  * @pinctrl_info:           Pointer to pinctrl info
  * @dentry:                 Debugfs entry
@@ -198,6 +201,8 @@ struct cam_hw_soc_info {
 	int32_t                         prev_clk_level;
 	int32_t                         src_clk_idx;
 	bool                            clk_level_valid[CAM_MAX_VOTE];
+	int32_t                         scl_clk_count;
+	int32_t                         scl_clk_idx[CAM_SOC_MAX_CLK];
 
 	struct cam_soc_gpio_data       *gpio_data;
 	struct cam_soc_pinctrl_info     pinctrl_info;
@@ -632,7 +637,30 @@ void cam_soc_util_clk_disable_default(struct cam_hw_soc_info *soc_info);
 int cam_soc_util_clk_enable_default(struct cam_hw_soc_info *soc_info,
 	enum cam_vote_level clk_level);
 
-uint32_t cam_soc_util_get_vote_level(struct cam_hw_soc_info *soc_info,
-	uint64_t clock_rate);
+int cam_soc_util_get_clk_level(struct cam_hw_soc_info *soc_info,
+	int32_t clk_rate, int clk_idx, int32_t *clk_lvl);
+
+/* Callback to get reg space data for specific HW */
+typedef int (*cam_soc_util_regspace_data_cb)(uint32_t reg_base_type,
+	void *ctx, struct cam_hw_soc_info **soc_info_ptr,
+	uint32_t *reg_base_idx);
+
+/**
+ * cam_soc_util_reg_dump_to_cmd_buf()
+ *
+ * @brief:              Camera SOC util for dumping sets of register ranges to
+ *                      to command buffer
+ *
+ * @ctx:                Context info from specific hardware manager
+ * @cmd_desc:           Command buffer descriptor
+ * @req_id:             Last applied req id for which reg dump is required
+ * @reg_data_cb:        Callback function to get reg space info based on type
+ *                      in command buffer
+ *
+ * @return:             Success or Failure
+ */
+int cam_soc_util_reg_dump_to_cmd_buf(void *ctx,
+	struct cam_cmd_buf_desc *cmd_desc, uint64_t req_id,
+	cam_soc_util_regspace_data_cb reg_data_cb);
 
 #endif /* _CAM_SOC_UTIL_H_ */

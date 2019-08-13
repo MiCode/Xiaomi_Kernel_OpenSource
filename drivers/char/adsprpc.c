@@ -314,6 +314,8 @@ struct fastrpc_apps {
 	spinlock_t ctxlock;
 	struct smq_invoke_ctx *ctxtable[FASTRPC_CTX_MAX];
 	bool legacy_remote_heap;
+	/* Unique job id for each message */
+	uint64_t jobid[NUM_CHANNELS];
 };
 
 struct fastrpc_mmap {
@@ -1170,6 +1172,7 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_ctx_lst *clst = &fl->clst;
 	struct fastrpc_ioctl_invoke *invoke = &invokefd->inv;
+	unsigned int cid;
 
 	bufs = REMOTE_SCALARS_LENGTH(invoke->sc);
 	size = bufs * sizeof(*ctx->lpra) + bufs * sizeof(*ctx->maps) +
@@ -1229,10 +1232,12 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	spin_unlock(&fl->hlock);
 
 	spin_lock(&me->ctxlock);
+	cid = (fl->cid >= 0 && fl->cid < NUM_CHANNELS) ? fl->cid : 0;
+	me->jobid[cid]++;
 	for (ii = 0; ii < FASTRPC_CTX_MAX; ii++) {
 		if (!me->ctxtable[ii]) {
 			me->ctxtable[ii] = ctx;
-			ctx->ctxid = (ptr_to_uint64(ctx) & ~0xFFF)|(ii << 4);
+			ctx->ctxid = (me->jobid[cid] << 12) | (ii << 4);
 			break;
 		}
 	}
@@ -4409,6 +4414,7 @@ static int __init fastrpc_device_init(void)
 		goto device_create_bail;
 
 	for (i = 0; i < NUM_CHANNELS; i++) {
+		me->jobid[i] = 1;
 		me->channel[i].dev = secure_dev;
 		if (i == CDSP_DOMAIN_ID)
 			me->channel[i].dev = dev;

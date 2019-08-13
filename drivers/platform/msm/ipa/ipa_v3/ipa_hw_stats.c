@@ -43,6 +43,9 @@ int ipa_hw_stats_init(void)
 			teth_stats_init->prod_mask |=
 			IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_PROD);
 
+		teth_stats_init->prod_mask |=
+			IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG_PROD);
+
 		if (IPA_CLIENT_BIT_32(IPA_CLIENT_MHI_PRIME_TETH_PROD)) {
 			ep_index = ipa3_get_ep_mapping(
 				IPA_CLIENT_MHI_PRIME_TETH_PROD);
@@ -60,6 +63,15 @@ int ipa_hw_stats_init(void)
 			else
 				teth_stats_init->dst_ep_mask[ep_index] |=
 				IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_CONS);
+
+			teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG1_CONS);
+			teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG2_CONS);
+			teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG3_CONS);
+			teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG4_CONS);
 		}
 	} else {
 		teth_stats_init->prod_mask = (
@@ -72,6 +84,9 @@ int ipa_hw_stats_init(void)
 		else
 			teth_stats_init->prod_mask |=
 			IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_PROD);
+
+		teth_stats_init->prod_mask |=
+			IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG_PROD);
 
 		if (IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_PROD)) {
 			ep_index = ipa3_get_ep_mapping(IPA_CLIENT_Q6_WAN_PROD);
@@ -89,6 +104,15 @@ int ipa_hw_stats_init(void)
 			else
 				teth_stats_init->dst_ep_mask[ep_index] |=
 				IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_CONS);
+
+			teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG1_CONS);
+			teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG2_CONS);
+			teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG3_CONS);
+			teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG4_CONS);
 		}
 	}
 
@@ -100,7 +124,7 @@ int ipa_hw_stats_init(void)
 			return -EINVAL;
 		}
 		/* enable addtional pipe monitoring for pcie modem */
-		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_1)
+		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
 			teth_stats_init->dst_ep_mask[ep_index] =
 				(IPA_CLIENT_BIT_32(
 					IPA_CLIENT_Q6_WAN_CONS) |
@@ -118,8 +142,8 @@ int ipa_hw_stats_init(void)
 			kfree(teth_stats_init);
 			return -EINVAL;
 		}
-		/* enable addtional pipe monitoring for pcie modem*/
-		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_1)
+		/* enable additional pipe monitoring for pcie modem*/
+		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
 			teth_stats_init->dst_ep_mask[ep_index] =
 				(IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS) |
 				IPA_CLIENT_BIT_32(
@@ -136,8 +160,8 @@ int ipa_hw_stats_init(void)
 			kfree(teth_stats_init);
 			return -EINVAL;
 		}
-		/* enable addtional pipe monitoring for pcie modem*/
-		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_1)
+		/* enable additional pipe monitoring for pcie modem*/
+		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
 			teth_stats_init->dst_ep_mask[ep_index] =
 				(IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS) |
 				IPA_CLIENT_BIT_32(
@@ -145,6 +169,25 @@ int ipa_hw_stats_init(void)
 		else
 			teth_stats_init->dst_ep_mask[ep_index] =
 				IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS);
+	}
+
+	if (IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG_PROD)) {
+		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_WIGIG_PROD);
+		if (ep_index == -1) {
+			IPAERR("Invalid client.\n");
+			kfree(teth_stats_init);
+			return -EINVAL;
+		}
+		/* enable additional pipe monitoring for pcie modem */
+		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
+			teth_stats_init->dst_ep_mask[ep_index] =
+			(IPA_CLIENT_BIT_32(
+				IPA_CLIENT_Q6_WAN_CONS) |
+				IPA_CLIENT_BIT_32(
+					IPA_CLIENT_MHI_PRIME_TETH_CONS));
+		else
+			teth_stats_init->dst_ep_mask[ep_index] =
+			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS);
 	}
 
 

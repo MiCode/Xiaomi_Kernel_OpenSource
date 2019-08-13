@@ -1727,6 +1727,8 @@ account_busy_for_task_demand(struct rq *rq, struct task_struct *p, int event)
 	return 1;
 }
 
+unsigned int sysctl_sched_task_unfilter_nr_windows = 10;
+
 /*
  * Called when new window is starting for a task, to record cpu usage over
  * recently concluded window(s). Normally 'samples' should be 1. It can be > 1
@@ -1806,6 +1808,12 @@ static void update_history(struct rq *rq, struct task_struct *p,
 	p->ravg.coloc_demand = div64_u64(sum, sched_ravg_hist_size);
 	p->ravg.pred_demand = pred_demand;
 	p->ravg.pred_demand_scaled = pred_demand_scaled;
+
+	if (demand_scaled > sched_task_filter_util)
+		p->unfilter = sysctl_sched_task_unfilter_nr_windows;
+	else
+		if (p->unfilter)
+			p->unfilter = p->unfilter - 1;
 
 done:
 	trace_sched_update_history(rq, p, runtime, samples, event);
@@ -2087,6 +2095,7 @@ void init_new_task_load(struct task_struct *p)
 	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
 		p->ravg.sum_history[i] = init_load_windows;
 	p->misfit = false;
+	p->unfilter = sysctl_sched_task_unfilter_nr_windows;
 }
 
 /*
@@ -2360,7 +2369,7 @@ void update_cluster_topology(void)
 	INIT_LIST_HEAD(&new_head);
 
 	for_each_cpu(i, &cpus) {
-		cluster_cpus = cpu_possible_coregroup_mask(i);
+		cluster_cpus = topology_possible_sibling_cpumask(i);
 		cpumask_or(&all_cluster_cpus, &all_cluster_cpus, cluster_cpus);
 		cpumask_andnot(&cpus, &cpus, cluster_cpus);
 		add_cluster(cluster_cpus, &new_head);
@@ -2536,14 +2545,19 @@ core_initcall(register_walt_callback);
 
 int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
 {
+	unsigned long flags;
+
 	mutex_lock(&cluster_lock);
 	if (!cb->get_cpu_cycle_counter) {
 		mutex_unlock(&cluster_lock);
 		return -EINVAL;
 	}
 
+	acquire_rq_locks_irqsave(cpu_possible_mask, &flags);
 	cpu_cycle_counter_cb = *cb;
 	use_cycle_counter = true;
+	release_rq_locks_irqrestore(cpu_possible_mask, &flags);
+
 	mutex_unlock(&cluster_lock);
 
 	cpufreq_unregister_notifier(&notifier_trans_block,

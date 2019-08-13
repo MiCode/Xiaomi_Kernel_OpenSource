@@ -14,8 +14,6 @@
 #define RMNET_MAX_LOGICAL_EP 255
 #define RMNET_MAX_VEID 4
 
-extern bool rmnet_sched_boost;
-
 struct rmnet_endpoint {
 	u8 mux_id;
 	struct net_device *egress_dev;

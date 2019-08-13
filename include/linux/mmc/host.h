@@ -529,6 +529,7 @@ struct mmc_host {
 	unsigned int		retune_now:1;	/* do re-tuning at next req */
 	unsigned int		retune_paused:1; /* re-tuning is temporarily disabled */
 	unsigned int		use_blk_mq:1;	/* use blk-mq */
+	unsigned int		retune_crc_disable:1; /* don't trigger retune upon crc */
 
 	int			rescan_disable;	/* disable card detection */
 	int			rescan_entered;	/* used with nonremovable devices */
@@ -626,6 +627,8 @@ struct mmc_host {
 #endif
 	enum dev_state dev_status;
 	bool inlinecrypt_support;  /* Inline encryption support */
+	bool inlinecrypt_reset_needed;  /* Inline crypto reset */
+
 	bool crash_on_err;	/* crash the system on error */
 	atomic_t active_reqs;
 	unsigned long		private[0] ____cacheline_aligned;
@@ -667,6 +670,7 @@ static inline void *mmc_priv(struct mmc_host *host)
 #define mmc_bus_manual_resume(host) ((host)->bus_resume_flags & \
 				MMC_BUSRESUME_MANUAL_RESUME)
 
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
 static inline void mmc_set_bus_resume_policy(struct mmc_host *host, int manual)
 {
 	if (manual)
@@ -674,6 +678,11 @@ static inline void mmc_set_bus_resume_policy(struct mmc_host *host, int manual)
 	else
 		host->bus_resume_flags &= ~MMC_BUSRESUME_MANUAL_RESUME;
 }
+#else
+static inline void mmc_set_bus_resume_policy(struct mmc_host *host, int manual)
+{
+}
+#endif
 
 extern int mmc_resume_bus(struct mmc_host *host);
 

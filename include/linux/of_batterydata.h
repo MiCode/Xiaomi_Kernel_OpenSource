@@ -39,7 +39,7 @@ int of_batterydata_read_data(struct device_node *container_node,
  * from device tree based on the battery id reading.
  */
 struct device_node *of_batterydata_get_best_profile(
-		struct device_node *batterydata_container_node,
+		const struct device_node *batterydata_container_node,
 		int batt_id_kohm, const char *batt_type);
 
 /**
@@ -56,6 +56,33 @@ struct device_node *of_batterydata_get_best_profile(
 struct device_node *of_batterydata_get_best_aged_profile(
 		const struct device_node *batterydata_container_node,
 		int batt_id_kohm, int batt_age_level, int *avail_age_level);
+
+/**
+ * of_batterydata_get_aged_profile_count() - Gets the number of aged profiles
+ * @batterydata_node: pointer to the battery-data container device
+ *		node containing the profile nodes.
+ * @batt_id_kohm: Battery ID in KOhms for which we want to find the profile.
+ * @count: Number of aged profiles available to support SOH based profile
+ * loading.
+ *
+ * This routine returns zero if valid number of aged profiles are available.
+ */
+int of_batterydata_get_aged_profile_count(
+		const struct device_node *batterydata_node,
+		int batt_id_kohm, int *count);
+
+/**
+ * of_batterydata_read_soh_aged_profiles() - Reads the data from aged profiles
+ * @batterydata_node: pointer to the battery-data container device
+ *		node containing the profile nodes.
+ * @batt_id_kohm: Battery ID in KOhms for which we want to find the profile.
+ * @soh_data: SOH data from the profile if it is found to be valid.
+ *
+ * This routine returns zero if SOH data of aged profiles is valid.
+ */
+int of_batterydata_read_soh_aged_profiles(
+		const struct device_node *batterydata_node,
+		int batt_id_kohm, struct soh_range *soh_data);
 #else
 static inline int of_batterydata_read_data(struct device_node *container_node,
 				struct bms_battery_data *batt_data,
@@ -64,7 +91,7 @@ static inline int of_batterydata_read_data(struct device_node *container_node,
 	return -ENXIO;
 }
 static inline struct device_node *of_batterydata_get_best_profile(
-		struct device_node *batterydata_container_node,
+		const struct device_node *batterydata_container_node,
 		int batt_id_kohm, const char *batt_type)
 {
 	return NULL;
@@ -74,5 +101,17 @@ static inline struct device_node *of_batterydata_get_best_aged_profile(
 		int batt_id_kohm, u32 batt_age_level)
 {
 	return NULL;
+}
+static inline int of_batterydata_get_aged_profile_count(
+		const struct device_node *batterydata_node,
+		int batt_id_kohm, int *count)
+{
+	return -EINVAL;
+}
+static inline int of_batterydata_read_soh_aged_profiles(
+		const struct device_node *batterydata_node,
+		int batt_id_kohm, struct soh_range *soh_data)
+{
+	return -EINVAL;
 }
 #endif /* CONFIG_OF_BATTERYDATA */

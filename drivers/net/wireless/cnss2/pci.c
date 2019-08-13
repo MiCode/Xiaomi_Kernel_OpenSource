@@ -545,24 +545,30 @@ int cnss_pci_link_down(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_pci_link_down);
 
-int cnss_pci_is_device_down(struct device *dev)
+int cnss_pcie_is_device_down(struct cnss_pci_data *pci_priv)
 {
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-	struct cnss_pci_data *pci_priv;
+	struct cnss_plat_data *plat_priv;
 
-	if (!plat_priv) {
-		cnss_pr_err("plat_priv is NULL\n");
-		return -ENODEV;
-	}
-
-	pci_priv = plat_priv->bus_priv;
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL\n");
 		return -ENODEV;
 	}
 
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return -ENODEV;
+	}
+
 	return test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state) |
 		pci_priv->pci_link_down_ind;
+}
+
+int cnss_pci_is_device_down(struct device *dev)
+{
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(to_pci_dev(dev));
+
+	return cnss_pcie_is_device_down(pci_priv);
 }
 EXPORT_SYMBOL(cnss_pci_is_device_down);
 
@@ -1008,6 +1014,7 @@ out:
 int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv;
+	int ret;
 
 	if (!pci_priv)
 		return -ENODEV;
@@ -1037,7 +1044,12 @@ int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv)
 		clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
 	} else if (test_bit(CNSS_DRIVER_IDLE_SHUTDOWN,
 			    &plat_priv->driver_state)) {
-		pci_priv->driver_ops->idle_shutdown(pci_priv->pci_dev);
+		ret = pci_priv->driver_ops->idle_shutdown(pci_priv->pci_dev);
+		if (ret == -EAGAIN) {
+			clear_bit(CNSS_DRIVER_IDLE_SHUTDOWN,
+				  &plat_priv->driver_state);
+			return ret;
+		}
 		clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
 	}
 
@@ -1173,7 +1185,9 @@ static int cnss_qca6174_shutdown(struct cnss_pci_data *pci_priv)
 
 	cnss_pci_pm_runtime_resume(pci_priv);
 
-	cnss_pci_call_driver_remove(pci_priv);
+	ret = cnss_pci_call_driver_remove(pci_priv);
+	if (ret == -EAGAIN)
+		goto out;
 
 	cnss_request_bus_bandwidth(&plat_priv->plat_dev->dev,
 				   CNSS_BUS_WIDTH_NONE);
@@ -1189,6 +1203,7 @@ static int cnss_qca6174_shutdown(struct cnss_pci_data *pci_priv)
 	clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 	clear_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state);
 
+out:
 	return ret;
 }
 
@@ -1289,7 +1304,9 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 
 	cnss_pci_pm_runtime_resume(pci_priv);
 
-	cnss_pci_call_driver_remove(pci_priv);
+	ret = cnss_pci_call_driver_remove(pci_priv);
+	if (ret == -EAGAIN)
+		goto out;
 
 	cnss_request_bus_bandwidth(&plat_priv->plat_dev->dev,
 				   CNSS_BUS_WIDTH_NONE);
@@ -1322,6 +1339,7 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 	clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 	clear_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state);
 
+out:
 	return ret;
 }
 
@@ -1731,6 +1749,8 @@ static int cnss_pci_suspend(struct device *dev)
 	if (!cnss_is_device_powered_on(plat_priv))
 		goto out;
 
+	set_bit(CNSS_IN_SUSPEND_RESUME, &plat_priv->driver_state);
+
 	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks))
 		pci_priv->drv_connected_last =
 			cnss_pci_get_drv_connected(pci_priv);
@@ -1742,7 +1762,7 @@ static int cnss_pci_suspend(struct device *dev)
 			cnss_pr_err("Failed to suspend host driver, err = %d\n",
 				    ret);
 			ret = -EAGAIN;
-			goto out;
+			goto clear_flag;
 		}
 	}
 
@@ -1785,7 +1805,9 @@ resume_mhi:
 resume_driver:
 	if (driver_ops && driver_ops->resume)
 		driver_ops->resume(pci_dev);
+clear_flag:
 	pci_priv->drv_connected_last = 0;
+	clear_bit(CNSS_IN_SUSPEND_RESUME, &plat_priv->driver_state);
 out:
 	return ret;
 }
@@ -1795,9 +1817,14 @@ static int cnss_pci_resume(struct device *dev)
 	int ret = 0;
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct cnss_plat_data *plat_priv;
 	struct cnss_wlan_driver *driver_ops;
 
 	if (!pci_priv)
+		goto out;
+
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv)
 		goto out;
 
 	if (pci_priv->pci_link_down_ind)
@@ -1842,8 +1869,7 @@ skip_enable_pci:
 	}
 
 	pci_priv->drv_connected_last = 0;
-
-	return 0;
+	clear_bit(CNSS_IN_SUSPEND_RESUME, &plat_priv->driver_state);
 
 out:
 	return ret;
@@ -2064,16 +2090,34 @@ void cnss_pci_pm_runtime_get_noresume(struct cnss_pci_data *pci_priv)
 
 int cnss_pci_pm_runtime_put_autosuspend(struct cnss_pci_data *pci_priv)
 {
+	struct device *dev;
+
 	if (!pci_priv)
 		return -ENODEV;
+
+	dev = &pci_priv->pci_dev->dev;
+
+	if (atomic_read(&dev->power.usage_count) == 0) {
+		cnss_pr_dbg("Ignore excessive runtime PM put operation\n");
+		return -EINVAL;
+	}
 
 	return pm_runtime_put_autosuspend(&pci_priv->pci_dev->dev);
 }
 
 void cnss_pci_pm_runtime_put_noidle(struct cnss_pci_data *pci_priv)
 {
+	struct device *dev;
+
 	if (!pci_priv)
 		return;
+
+	dev = &pci_priv->pci_dev->dev;
+
+	if (atomic_read(&dev->power.usage_count) == 0) {
+		cnss_pr_dbg("Ignore excessive runtime PM put operation\n");
+		return;
+	}
 
 	pm_runtime_put_noidle(&pci_priv->pci_dev->dev);
 }
@@ -2447,7 +2491,7 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 	if (!plat_priv)
 		return -ENODEV;
 
-	cnss_pci_pm_runtime_resume(pci_priv);
+	cnss_auto_resume(&pci_priv->pci_dev->dev);
 	cnss_pci_dump_shadow_reg(pci_priv);
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_TRIGGER_RDDM);

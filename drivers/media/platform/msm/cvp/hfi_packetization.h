@@ -63,13 +63,6 @@ struct cvp_hfi_packetization_ops {
 		struct cvp_hal_session *session);
 	int (*session_flush)(struct cvp_hfi_cmd_session_flush_packet *pkt,
 		struct cvp_hal_session *session, enum hal_flush flush_mode);
-	int (*session_get_property)(
-		struct cvp_hfi_cmd_session_get_property_packet *pkt,
-		struct cvp_hal_session *session, enum hal_property ptype);
-	int (*session_set_property)(
-		struct cvp_hfi_cmd_session_set_property_packet *pkt,
-		struct cvp_hal_session *session,
-		enum hal_property ptype, void *pdata);
 	int (*session_sync_process)(
 		struct cvp_hfi_cmd_session_sync_process_packet *pkt,
 		struct cvp_hal_session *session);

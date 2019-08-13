@@ -696,6 +696,11 @@ int cnss_idle_shutdown(struct device *dev)
 		return -ENODEV;
 	}
 
+	if (test_bit(CNSS_IN_SUSPEND_RESUME, &plat_priv->driver_state)) {
+		cnss_pr_dbg("System suspend or resume in progress, ignore idle shutdown\n");
+		return -EAGAIN;
+	}
+
 	cnss_pr_dbg("Doing idle shutdown\n");
 
 	if (!test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) &&
@@ -1132,7 +1137,7 @@ int cnss_force_fw_assert(struct device *dev)
 		return -EOPNOTSUPP;
 	}
 
-	if (cnss_pci_is_device_down(dev)) {
+	if (cnss_bus_is_device_down(plat_priv)) {
 		cnss_pr_info("Device is already in bad state, ignore force assert\n");
 		return 0;
 	}
@@ -1168,7 +1173,7 @@ int cnss_force_collect_rddm(struct device *dev)
 		return -EOPNOTSUPP;
 	}
 
-	if (cnss_pci_is_device_down(dev)) {
+	if (cnss_bus_is_device_down(plat_priv)) {
 		cnss_pr_info("Device is already in bad state, ignore force collect rddm\n");
 		return 0;
 	}
@@ -1817,7 +1822,7 @@ static ssize_t fs_ready_store(struct device *dev,
 	if (fs_ready == FILE_SYSTEM_READY) {
 		cnss_driver_event_post(plat_priv,
 				       CNSS_DRIVER_EVENT_COLD_BOOT_CAL_START,
-				       CNSS_EVENT_SYNC, NULL);
+				       0, NULL);
 	}
 
 	return count;

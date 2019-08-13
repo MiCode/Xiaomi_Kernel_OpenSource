@@ -503,6 +503,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"mc_cc_debug_mux",
 	"measure_only_cnoc_clk",
 	"measure_only_ipa_2x_clk",
+	"measure_only_memnoc_clk",
 	"measure_only_snoc_clk",
 	"npu_cc_debug_mux",
 	"video_cc_debug_mux",
@@ -655,6 +656,7 @@ static int gcc_debug_mux_sels[] = {
 	0xD1,		/* mc_cc_debug_mux */
 	0x19,		/* measure_only_cnoc_clk */
 	0x147,		/* measure_only_ipa_2x_clk */
+	0xCC,		/* measure_only_memnoc_clk */
 	0x7,		/* measure_only_snoc_clk */
 	0x180,		/* npu_cc_debug_mux */
 	0x57,		/* video_cc_debug_mux */
@@ -972,6 +974,14 @@ static struct clk_dummy measure_only_mccc_clk = {
 	},
 };
 
+static struct clk_dummy measure_only_memnoc_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_memnoc_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct clk_dummy measure_only_ipa_2x_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
@@ -998,6 +1008,7 @@ struct clk_hw *debugcc_kona_hws[] = {
 	&measure_only_gpu_cc_cx_gfx3d_slv_clk.hw,
 	&measure_only_gpu_cc_gx_gfx3d_clk.hw,
 	&measure_only_mccc_clk.hw,
+	&measure_only_memnoc_clk.hw,
 	&measure_only_ipa_2x_clk.hw,
 	&measure_only_snoc_clk.hw,
 };

@@ -906,7 +906,8 @@ static int wil_ipa_wigig_init(struct wil_ipa *ipa)
 
 err:
 	if (ipa->smmu_enabled && ipa->uc_db_pa) {
-		iommu_unmap(ipa->domain, ipa->uc_db_pa, PAGE_SIZE);
+		iommu_unmap(ipa->domain, rounddown(ipa->uc_db_pa, PAGE_SIZE),
+			    PAGE_SIZE);
 		ipa->uc_db_pa = 0;
 	}
 	ipa_wigig_cleanup();

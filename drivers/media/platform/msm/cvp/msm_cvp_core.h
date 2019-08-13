@@ -7,7 +7,6 @@
 #define _MSM_CVP_CORE_H_
 
 #include <linux/poll.h>
-#include <linux/videodev2.h>
 #include <linux/types.h>
 #include <linux/dma-buf.h>
 #include <linux/msm_ion.h>
@@ -52,7 +51,7 @@ enum hal_buffer {
 
 struct cvp_dma_mapping_info {
 	struct device *dev;
-	struct dma_iommu_mapping *mapping;
+	struct iommu_domain *domain;
 	struct sg_table *table;
 	struct dma_buf_attachment *attach;
 	struct dma_buf *buf;
@@ -81,20 +80,14 @@ enum smem_cache_ops {
 
 enum core_id {
 	MSM_CORE_CVP = 0,
-	MSM_CVP_CORE_Q6,
 	MSM_CVP_CORES_MAX,
 };
+
 enum session_type {
-	MSM_CVP_ENCODER = 0,
-	MSM_CVP_DECODER,
-	MSM_CVP_CORE,
+	MSM_CVP_USER = 1,
+	MSM_CVP_KERNEL,
 	MSM_CVP_UNKNOWN,
 	MSM_CVP_MAX_DEVICES = MSM_CVP_UNKNOWN,
-};
-
-union msm_v4l2_cmd {
-	struct v4l2_decoder_cmd dec;
-	struct v4l2_encoder_cmd enc;
 };
 
 void *msm_cvp_open(int core_id, int session_type);

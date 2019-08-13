@@ -512,6 +512,15 @@ void msm_trigger_wdog_bite(void)
 		__raw_readl(wdog_data->base + WDT0_EN),
 		__raw_readl(wdog_data->base + WDT0_BARK_TIME),
 		__raw_readl(wdog_data->base + WDT0_BITE_TIME));
+	/*
+	 * This function induces the non-secure bite and control
+	 * should not return to the calling function. Non-secure
+	 * bite interrupt is affined to all the cores and it may
+	 * not be handled by the same cores which configured
+	 * non-secure bite. So add forever loop here.
+	 */
+	while (1)
+		udelay(1);
 }
 
 static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
@@ -529,8 +538,8 @@ static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 			(unsigned long) wdog_dd->last_pet, nanosec_rem / 1000);
 	if (wdog_dd->do_ipi_ping)
 		dump_cpu_alive_mask(wdog_dd);
+
 	msm_trigger_wdog_bite();
-	panic("Failed to cause a watchdog bite! - Falling back to kernel panic!");
 	return IRQ_HANDLED;
 }
 

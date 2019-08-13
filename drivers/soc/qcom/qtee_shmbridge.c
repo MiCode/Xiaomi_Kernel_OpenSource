@@ -343,15 +343,16 @@ static int __init qtee_shmbridge_init(void)
 		return 0;
 	}
 
-	/* allocate a contiguous buffer */
+	/* allocate a contiguous page aligned buffer */
 	default_bridge.size = DEFAULT_BRIDGE_SIZE;
-	default_bridge.vaddr = kzalloc(default_bridge.size, GFP_KERNEL);
+	default_bridge.vaddr = (void *)__get_free_pages(GFP_KERNEL|__GFP_COMP,
+				get_order(default_bridge.size));
 	if (!default_bridge.vaddr)
 		return -ENOMEM;
 	default_bridge.paddr = virt_to_phys(default_bridge.vaddr);
 
 	/* create a general mem pool */
-	default_bridge.min_alloc_order = 3; /* 8 byte aligned */
+	default_bridge.min_alloc_order = PAGE_SHIFT; /* 4K page size aligned */
 	default_bridge.genpool = gen_pool_create(
 					default_bridge.min_alloc_order, -1);
 	if (!default_bridge.genpool) {
@@ -402,7 +403,7 @@ static int __init qtee_shmbridge_init(void)
 exit_destroy_pool:
 	gen_pool_destroy(default_bridge.genpool);
 exit_freebuf:
-	kfree(default_bridge.vaddr);
+	free_pages((long)default_bridge.vaddr, get_order(default_bridge.size));
 exit:
 	return ret;
 }

@@ -2821,7 +2821,7 @@ static void dwc3_resume_work(struct work_struct *w)
 			dwc->maximum_speed = USB_SPEED_HIGH;
 
 		if (mdwc->override_usb_speed &&
-				mdwc->override_usb_speed < dwc->maximum_speed) {
+			mdwc->override_usb_speed <= dwc->maximum_speed) {
 			dwc->maximum_speed = mdwc->override_usb_speed;
 			dwc->gadget.max_speed = dwc->maximum_speed;
 			dbg_event(0xFF, "override_speed",
@@ -3433,7 +3433,7 @@ static int dwc_dpdm_cb(struct notifier_block *nb, unsigned long evt, void *p)
 		dev_dbg(mdwc->dev, "%s: disable state:%s\n", __func__,
 				dwc3_drd_state_string(mdwc->drd_state));
 		if (mdwc->drd_state == DRD_STATE_UNDEFINED)
-			schedule_delayed_work(&mdwc->sm_work, 0);
+			queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
 		break;
 	default:
 		dev_dbg(mdwc->dev, "%s: unknown event state:%s\n", __func__,

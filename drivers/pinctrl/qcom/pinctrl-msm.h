@@ -63,6 +63,8 @@ struct msm_function {
  * @intr_detection_width: Number of bits used for specifying interrupt type,
  *                        Should be 2 for SoCs that can detect both edges in hardware,
  *                        otherwise 1.
+ * @wake_reg:             Offset of the WAKEUP_INT_EN register from base tile
+ * @wake_bit:             Bit number for the corresponding gpio
  */
 struct msm_pingroup {
 	const char *name;
@@ -99,6 +101,9 @@ struct msm_pingroup {
 	unsigned intr_polarity_bit:5;
 	unsigned intr_detection_bit:5;
 	unsigned intr_detection_width:5;
+
+	u32 wake_reg;
+	unsigned int wake_bit;
 };
 
 /*

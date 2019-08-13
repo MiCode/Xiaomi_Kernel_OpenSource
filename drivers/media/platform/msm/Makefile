@@ -8,3 +8,5 @@ obj-$(CONFIG_MSM_CVP_V4L2) += cvp/
 obj-$(CONFIG_MSM_NPU) += npu/
 obj-$(CONFIG_MSM_GLOBAL_SYNX) += synx/
 obj-$(CONFIG_SPECTRA_CAMERA) += camera/
+obj-$(CONFIG_TSPP) += broadcast/
+obj-$(CONFIG_DVB_MPQ) += dvb/

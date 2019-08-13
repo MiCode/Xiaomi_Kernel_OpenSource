@@ -104,6 +104,9 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_IMS_CONNECTED:
 			seq_puts(s, "IMS_CONNECTED");
 			continue;
+		case CNSS_IN_SUSPEND_RESUME:
+			seq_puts(s, "IN_SUSPEND_RESUME");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
@@ -191,7 +194,7 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 		ret = -EINVAL;
 	}
 
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	return count;
@@ -479,7 +482,7 @@ static ssize_t cnss_runtime_pm_debug_write(struct file *fp,
 		ret = -EINVAL;
 	}
 
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	return count;
@@ -490,6 +493,8 @@ static int cnss_runtime_pm_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "\nUsage: echo <action> > <debugfs_path>/cnss/runtime_pm\n");
 	seq_puts(s, "<action> can be one of below:\n");
 	seq_puts(s, "usage_count: get runtime PM usage count\n");
+	seq_puts(s, "reques_resume: do async runtime PM resume\n");
+	seq_puts(s, "resume: do sync runtime PM resume\n");
 	seq_puts(s, "get: do runtime PM get\n");
 	seq_puts(s, "get_noresume: do runtime PM get noresume\n");
 	seq_puts(s, "put_noidle: do runtime PM put noidle\n");

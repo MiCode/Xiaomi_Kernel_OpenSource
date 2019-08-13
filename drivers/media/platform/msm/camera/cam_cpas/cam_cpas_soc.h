@@ -87,6 +87,7 @@ struct cam_cpas_tree_node {
  * @camnoc_axi_clk_bw_margin : BW Margin in percentage to add while calculating
  *      camnoc axi clock
  * @camnoc_axi_min_ib_bw: Min camnoc BW which varies based on target
+ * @feature_mask: feature mask value for hw supported features
  *
  */
 struct cam_cpas_private_soc {
@@ -103,6 +104,7 @@ struct cam_cpas_private_soc {
 	uint32_t camnoc_bus_width;
 	uint32_t camnoc_axi_clk_bw_margin;
 	uint64_t camnoc_axi_min_ib_bw;
+	uint32_t feature_mask;
 };
 
 void cam_cpas_util_debug_parse_data(struct cam_cpas_private_soc *soc_private);

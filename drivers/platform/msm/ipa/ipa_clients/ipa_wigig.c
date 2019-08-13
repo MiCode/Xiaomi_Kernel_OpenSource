@@ -1845,6 +1845,9 @@ int ipa_wigig_disconn_pipe(enum ipa_client_type client)
 		ipa_wigig_send_wlan_msg(WLAN_CLIENT_DISCONNECT, dev_name,
 			client_mac);
 		ipa_wigig_clean_client_mac(client);
+
+		ipa_wigig_ctx->conn_pipes &=
+			~ipa_wigig_pipe_to_bit_val(client);
 	}
 	if (ipa_wigig_is_smmu_enabled())
 		ipa_wigig_clean_smmu_info(client);

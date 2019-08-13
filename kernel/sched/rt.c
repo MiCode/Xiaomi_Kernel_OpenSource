@@ -1771,9 +1771,11 @@ static int rt_energy_aware_wake_cpu(struct task_struct *task)
 
 	rcu_read_lock();
 
-	sd = rcu_dereference(*this_cpu_ptr(&sd_asym_cpucapacity));
-	while (sd && !cpumask_test_cpu(task_cpu(task), sched_domain_span(sd)))
-		sd = sd->parent;
+	cpu = cpu_rq(smp_processor_id())->rd->min_cap_orig_cpu;
+	if (cpu < 0)
+		goto unlock;
+
+	sd = rcu_dereference(*per_cpu_ptr(&sd_asym_cpucapacity, cpu));
 	if (!sd)
 		goto unlock;
 

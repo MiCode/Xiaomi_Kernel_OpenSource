@@ -27,7 +27,6 @@
 #include "walt.h"
 
 #ifdef CONFIG_SMP
-static inline bool get_rtg_status(struct task_struct *p);
 static inline bool task_fits_max(struct task_struct *p, int cpu);
 #endif /* CONFIG_SMP */
 
@@ -3840,9 +3839,9 @@ static inline bool task_fits_capacity(struct task_struct *p,
 	unsigned int margin;
 
 	if (capacity_orig_of(task_cpu(p)) > capacity_orig_of(cpu))
-		margin = sysctl_sched_capacity_margin_down[task_cpu(p)];
+		margin = sched_capacity_margin_down[task_cpu(p)];
 	else
-		margin = sysctl_sched_capacity_margin_up[task_cpu(p)];
+		margin = sched_capacity_margin_up[task_cpu(p)];
 
 	return capacity * 1024 > task_util_est(p) * margin;
 }
@@ -4429,7 +4428,7 @@ entity_tick(struct cfs_rq *cfs_rq, struct sched_entity *curr, int queued)
 
 #ifdef CONFIG_CFS_BANDWIDTH
 
-#ifdef HAVE_JUMP_LABEL
+#ifdef CONFIG_JUMP_LABEL
 static struct static_key __cfs_bandwidth_used;
 
 static inline bool cfs_bandwidth_used(void)
@@ -4446,7 +4445,7 @@ void cfs_bandwidth_usage_dec(void)
 {
 	static_key_slow_dec_cpuslocked(&__cfs_bandwidth_used);
 }
-#else /* HAVE_JUMP_LABEL */
+#else /* CONFIG_JUMP_LABEL */
 static bool cfs_bandwidth_used(void)
 {
 	return true;
@@ -4454,7 +4453,7 @@ static bool cfs_bandwidth_used(void)
 
 void cfs_bandwidth_usage_inc(void) {}
 void cfs_bandwidth_usage_dec(void) {}
-#endif /* HAVE_JUMP_LABEL */
+#endif /* CONFIG_JUMP_LABEL */
 
 /*
  * default period for cfs group bandwidth.
@@ -6727,14 +6726,47 @@ unsigned long capacity_curr_of(int cpu)
 	return cap_scale(max_cap, scale_freq);
 }
 
+#ifdef CONFIG_SCHED_WALT
+static inline bool get_rtg_status(struct task_struct *p)
+{
+	struct related_thread_group *grp;
+	bool ret = false;
+
+	rcu_read_lock();
+
+	grp = task_related_thread_group(p);
+	if (grp)
+		ret = grp->skip_min;
+
+	rcu_read_unlock();
+
+	return ret;
+}
+
+static inline bool task_skip_min_cpu(struct task_struct *p)
+{
+	return sched_boost() != CONSERVATIVE_BOOST &&
+		get_rtg_status(p) && p->unfilter;
+}
+#else
+static inline bool get_rtg_status(struct task_struct *p)
+{
+	return false;
+}
+
+static inline bool task_skip_min_cpu(struct task_struct *p)
+{
+	return false;
+}
+#endif
+
 static int get_start_cpu(struct task_struct *p)
 {
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	int start_cpu = rd->min_cap_orig_cpu;
 	bool boosted = schedtune_task_boost(p) > 0 ||
 			task_boost_policy(p) == SCHED_BOOST_ON_BIG;
-	bool task_skip_min = get_rtg_status(p) &&
-		(task_util(p) > sched_task_filter_util);
+	bool task_skip_min = task_skip_min_cpu(p);
 
 	/*
 	 * note about min/mid/max_cap_orig_cpu - either all of them will be -ve
@@ -7431,29 +7463,6 @@ static inline int wake_to_idle(struct task_struct *p)
 			(p->flags & PF_WAKE_UP_IDLE);
 }
 
-#ifdef CONFIG_SCHED_WALT
-static inline bool get_rtg_status(struct task_struct *p)
-{
-	struct related_thread_group *grp;
-	bool ret = false;
-
-	rcu_read_lock();
-
-	grp = task_related_thread_group(p);
-	if (grp)
-		ret = grp->skip_min;
-
-	rcu_read_unlock();
-
-	return ret;
-}
-#else
-static inline bool get_rtg_status(struct task_struct *p)
-{
-	return false;
-}
-#endif
-
 /* return true if cpu should be chosen over best_energy_cpu */
 static inline bool select_cpu_same_energy(int cpu, int best_cpu, int prev_cpu)
 {
@@ -7543,6 +7552,10 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 	if (trace_sched_task_util_enabled())
 		start_t = sched_clock();
 
+	/* Pre-select a set of candidate CPUs. */
+	candidates = this_cpu_ptr(&energy_cpus);
+	cpumask_clear(candidates);
+
 	if (need_idle)
 		sync = 0;
 
@@ -7571,10 +7584,6 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 	sync_entity_load_avg(&p->se);
 	if (!task_util_est(p))
 		goto unlock;
-
-	/* Pre-select a set of candidate CPUs. */
-	candidates = this_cpu_ptr(&energy_cpus);
-	cpumask_clear(candidates);
 
 	if (sched_feat(FIND_BEST_TARGET)) {
 		fbt_env.is_rtg = is_rtg;
@@ -7637,22 +7646,21 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 unlock:
 	rcu_read_unlock();
 
-sync_wakeup:
-	trace_sched_task_util(p, best_energy_cpu, sync,
-			need_idle, fbt_env.fastpath, placement_boost, start_t,
-			boosted, is_rtg, get_rtg_status(p), start_cpu);
-
 	/*
-	 * Pick the best CPU if prev_cpu cannot be used, or if it saves at
-	 * least 6% of the energy used by prev_cpu.
+	 * Pick the prev CPU, if best energy CPU can't saves at least 6% of
+	 * the energy used by prev_cpu.
 	 */
-	if (prev_energy == ULONG_MAX)
-		return best_energy_cpu;
+	if ((prev_energy != ULONG_MAX) && (best_energy_cpu != prev_cpu)  &&
+	    ((prev_energy - best_energy) <= prev_energy >> 4))
+		best_energy_cpu = prev_cpu;
 
-	if ((prev_energy - best_energy) > (prev_energy >> 4))
-		return best_energy_cpu;
+sync_wakeup:
 
-	return prev_cpu;
+	trace_sched_task_util(p, cpumask_bits(candidates)[0], best_energy_cpu,
+			sync, need_idle, fbt_env.fastpath, placement_boost,
+			start_t, boosted, is_rtg, get_rtg_status(p), start_cpu);
+
+	return best_energy_cpu;
 
 fail:
 	rcu_read_unlock();
@@ -9178,7 +9186,7 @@ void update_group_capacity(struct sched_domain *sd, int cpu)
 				capacity += sgc->capacity;
 				min_capacity = min(sgc->min_capacity,
 							min_capacity);
-				max_capacity = min(sgc->max_capacity,
+				max_capacity = max(sgc->max_capacity,
 							max_capacity);
 			}
 			group = group->next;

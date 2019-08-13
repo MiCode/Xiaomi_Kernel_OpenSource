@@ -43,13 +43,9 @@
 
 #define ARP_BUF_SIZE 0x100000
 
-struct msm_cvp_inst;
+#define CVP_RT_PRIO_THRESHOLD 1
 
-enum cvp_ports {
-	OUTPUT_PORT,
-	CAPTURE_PORT,
-	MAX_PORT_NUM
-};
+struct msm_cvp_inst;
 
 enum cvp_core_state {
 	CVP_CORE_UNINIT = 0,
@@ -67,14 +63,6 @@ enum instance_state {
 	MSM_CVP_CORE_INIT_DONE,
 	MSM_CVP_OPEN,
 	MSM_CVP_OPEN_DONE,
-	MSM_CVP_LOAD_RESOURCES,
-	MSM_CVP_LOAD_RESOURCES_DONE,
-	MSM_CVP_START,
-	MSM_CVP_START_DONE,
-	MSM_CVP_STOP,
-	MSM_CVP_STOP_DONE,
-	MSM_CVP_RELEASE_RESOURCES,
-	MSM_CVP_RELEASE_RESOURCES_DONE,
 	MSM_CVP_CLOSE,
 	MSM_CVP_CLOSE_DONE,
 	MSM_CVP_CORE_UNINIT,
@@ -113,7 +101,7 @@ struct cvp_freq_data {
 
 struct cvp_internal_buf {
 	struct list_head list;
-	enum hal_buffer buffer_type;
+	u32 buffer_type;
 	struct msm_cvp_smem smem;
 	enum buffer_owner buffer_ownership;
 	bool mark_remove;
@@ -162,21 +150,8 @@ struct msm_cvp_platform_data {
 	struct msm_cvp_common_data *common_data;
 	unsigned int common_data_length;
 	unsigned int sku_version;
-	phys_addr_t gcc_register_base;
-	uint32_t gcc_register_size;
 	uint32_t vpu_ver;
 	struct msm_cvp_ubwc_config_data *ubwc_config;
-};
-
-struct msm_cvp_format {
-	char name[MAX_NAME_LENGTH];
-	u8 description[32];
-	u32 fourcc;
-	int type;
-	u32 (*get_frame_size)(int plane, u32 height, u32 width);
-	bool defer_outputs;
-	u32 input_min_count;
-	u32 output_min_count;
 };
 
 struct msm_cvp_drv {
@@ -195,11 +170,6 @@ enum profiling_points {
 	FRAME_PROCESSING,
 	FW_IDLE,
 	MAX_PROFILING_POINTS,
-};
-
-enum dcvs_flags {
-	MSM_CVP_DCVS_INCR = BIT(0),
-	MSM_CVP_DCVS_DECR = BIT(1),
 };
 
 struct cvp_buf_type {
@@ -225,23 +195,15 @@ struct cvp_clock_data {
 	int min_threshold;
 	int max_threshold;
 	enum hal_buffer buffer_type;
-	bool dcvs_mode;
 	unsigned long bitrate;
 	unsigned long min_freq;
 	unsigned long curr_freq;
-	u32 vpss_cycles;
-	u32 ise_cycles;
 	u32 ddr_bw;
 	u32 sys_cache_bw;
 	u32 operating_rate;
 	u32 core_id;
-	u32 dpb_fourcc;
-	u32 opb_fourcc;
-	enum hal_work_mode work_mode;
 	bool low_latency_mode;
 	bool turbo_mode;
-	u32 work_route;
-	u32 dcvs_flags;
 };
 
 struct cvp_profile_data {
@@ -265,12 +227,6 @@ enum msm_cvp_modes {
 	CVP_THUMBNAIL = BIT(2),
 	CVP_LOW_POWER = BIT(3),
 	CVP_REALTIME = BIT(4),
-};
-
-struct msm_cvp_core_ops {
-	unsigned long (*calc_freq)(struct msm_cvp_inst *inst, u32 filled_len);
-	int (*decide_work_route)(struct msm_cvp_inst *inst);
-	int (*decide_work_mode)(struct msm_cvp_inst *inst);
 };
 
 #define MAX_NUM_MSGS_PER_SESSION	128
@@ -308,6 +264,9 @@ struct cvp_session_prop {
 enum cvp_event_t {
 	CVP_NO_EVENT,
 	CVP_SSR_EVENT = 1,
+	CVP_SYS_ERROR_EVENT,
+	CVP_MAX_CLIENTS_EVENT,
+	CVP_HW_UNSUPPORTED_EVENT,
 	CVP_INVALID_EVENT,
 };
 
@@ -360,9 +319,7 @@ struct msm_cvp_inst {
 	struct msm_cvp_list cvpcpubufs;
 	struct msm_cvp_list cvpdspbufs;
 	struct msm_cvp_list frames;
-	struct cvp_buffer_requirements buff_req;
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];
-	struct msm_cvp_smem *extradata_handle;
 	struct dentry *debugfs_root;
 	struct msm_cvp_debug debug;
 	struct cvp_clock_data clk_data;
