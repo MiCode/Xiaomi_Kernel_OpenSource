@@ -790,8 +790,8 @@ fastest_domain_idle_prefer_pull(int this_cpu, struct task_struct **p,
 			if (cpu_isolated(cpu))
 				continue;
 
-#ifdef CONFIG_UCLAMP_TASK
 			rq = cpu_rq(cpu);
+#ifdef CONFIG_UCLAMP_TASK
 			raw_spin_lock_irqsave(&rq->lock, flags);
 
 			se = rq->cfs.curr;
