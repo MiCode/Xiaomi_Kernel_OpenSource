@@ -732,6 +732,7 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 
 	if (host_ctx->wdg_irq_sts) {
 		NPU_INFO("watchdog irq triggered\n");
+		npu_dump_debug_info(npu_dev);
 		fw_alive = false;
 	}
 
@@ -895,6 +896,12 @@ static void npu_bridge_mbox_work(struct work_struct *work)
 	mutex_lock(&host_ctx->lock);
 	if (host_ctx->fw_state == FW_UNLOADED) {
 		NPU_WARN("NPU fw is not loaded\n");
+		mutex_unlock(&host_ctx->lock);
+		return;
+	}
+
+	if ((host_ctx->wdg_irq_sts != 0) || (host_ctx->err_irq_sts != 0)) {
+		NPU_WARN("SSR is triggered, skip this time\n");
 		mutex_unlock(&host_ctx->lock);
 		return;
 	}

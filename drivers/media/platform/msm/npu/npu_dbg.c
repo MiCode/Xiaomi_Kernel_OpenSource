@@ -103,6 +103,13 @@ static void npu_dump_all_ipc_queue(struct npu_device *npu_dev)
 
 void npu_dump_debug_info(struct npu_device *npu_dev)
 {
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+
+	if (host_ctx->fw_state != FW_ENABLED) {
+		NPU_WARN("NPU is disabled\n");
+		return;
+	}
+
 	npu_dump_debug_timeout_stats(npu_dev);
 	npu_dump_dbg_registers(npu_dev);
 	npu_dump_all_ipc_queue(npu_dev);
