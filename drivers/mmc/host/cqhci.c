@@ -712,6 +712,10 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	/* Ensure the task descriptor list is flushed before ringing doorbell */
 	wmb();
+	if (cqhci_readl(cq_host, CQHCI_TDBR) & (1 << tag)) {
+		cqhci_dumpregs(cq_host);
+		BUG();
+	}
 	mmc_log_string(mmc, "tag: %d\n", tag);
 	cqhci_writel(cq_host, 1 << tag, CQHCI_TDBR);
 	/* Commit the doorbell write immediately */
