@@ -77,6 +77,7 @@
 #define PWRAP_CAP_INT1_EN	BIT(4)
 #define PWRAP_CAP_MONITOR_V1	BIT(5)
 #define PWRAP_CAP_MONITOR_V2	BIT(6)
+#define PWRAP_CAP_ULPOSC_CLK	BIT(7)
 
 /* defines for slave device wrapper registers */
 enum dew_regs {
@@ -819,6 +820,7 @@ struct pmic_wrapper {
 	const struct pwrap_slv_type *slave;
 	struct clk *clk_spi;
 	struct clk *clk_wrap;
+	struct clk *clk_ulposc;
 	struct reset_control *rstc;
 
 	struct reset_control *rstc_bridge;
@@ -1648,7 +1650,7 @@ static const struct pmic_wrapper_type pwrap_mt6779 = {
 	.spi_w = PWRAP_MAN_CMD_SPI_WRITE,
 	.wdt_src = 0x4000, /* only for MD DVFS HW */
 	.has_bridge = 0,
-	.caps = PWRAP_CAP_INT1_EN | PWRAP_CAP_MONITOR_V2,
+	.caps = PWRAP_CAP_INT1_EN | PWRAP_CAP_MONITOR_V2 | PWRAP_CAP_ULPOSC_CLK,
 	.slv_switch = 0,
 	.init_reg_clock = pwrap_common_init_reg_clock,
 	.init_soc_specific = NULL,
@@ -1806,6 +1808,15 @@ static int pwrap_probe(struct platform_device *pdev)
 		return PTR_ERR(wrp->clk_wrap);
 	}
 
+	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ULPOSC_CLK)) {
+		wrp->clk_ulposc = devm_clk_get(wrp->dev, "ulposc");
+		if (IS_ERR(wrp->clk_ulposc)) {
+			dev_dbg(wrp->dev, "failed to get clock: %ld\n",
+				PTR_ERR(wrp->clk_ulposc));
+			return PTR_ERR(wrp->clk_ulposc);
+		}
+	}
+
 	ret = clk_prepare_enable(wrp->clk_spi);
 	if (ret)
 		return ret;
@@ -1813,6 +1824,12 @@ static int pwrap_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(wrp->clk_wrap);
 	if (ret)
 		goto err_out1;
+
+	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ULPOSC_CLK)) {
+		ret = clk_prepare_enable(wrp->clk_ulposc);
+		if (ret)
+			goto err_out2;
+	}
 
 	/* Enable internal dynamic clock */
 	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_DCM)) {
@@ -1901,6 +1918,8 @@ static int pwrap_probe(struct platform_device *pdev)
 	return 0;
 
 err_out2:
+	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ULPOSC_CLK))
+		clk_disable_unprepare(wrp->clk_ulposc);
 	clk_disable_unprepare(wrp->clk_wrap);
 err_out1:
 	clk_disable_unprepare(wrp->clk_spi);
