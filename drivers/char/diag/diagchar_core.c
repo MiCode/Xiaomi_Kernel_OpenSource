@@ -457,7 +457,7 @@ static void diag_close_logging_process(const int pid)
 	int i, j;
 	int session_mask = 0;
 	int device_mask = 0;
-	uint32_t p_mask;
+	uint32_t p_mask = 0;
 	struct diag_md_session_t *session_info = NULL;
 	struct diag_logging_mode_param_t params;
 
