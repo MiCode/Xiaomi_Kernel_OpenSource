@@ -2435,12 +2435,19 @@ static void free_rx_page(void *chan_user_data, void *xfer_user_data)
 {
 	struct ipa3_rx_pkt_wrapper *rx_pkt = (struct ipa3_rx_pkt_wrapper *)
 		xfer_user_data;
+	struct ipa3_sys_context *sys = rx_pkt->sys;
+	int i;
 
+	for (i = 0; i < sys->repl->capacity; i++)
+		if (sys->repl->cache[i] == rx_pkt)
+			break;
 	dma_unmap_page(ipa3_ctx->pdev, rx_pkt->page_data.dma_addr,
 		rx_pkt->len, DMA_FROM_DEVICE);
 	__free_pages(rx_pkt->page_data.page,
 		IPA_WAN_PAGE_ORDER);
 	kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
+	if (i < sys->repl->capacity)
+		sys->repl->cache[i] = NULL;
 }
 
 /**
@@ -2489,14 +2496,17 @@ static void ipa3_cleanup_rx(struct ipa3_sys_context *sys)
 		} else {
 			for (i = 0; i < sys->repl->capacity; i++) {
 				rx_pkt = sys->repl->cache[i];
-				dma_unmap_page(ipa3_ctx->pdev,
-					rx_pkt->page_data.dma_addr,
-					rx_pkt->len,
-					DMA_FROM_DEVICE);
-				__free_pages(rx_pkt->page_data.page,
-					IPA_WAN_PAGE_ORDER);
-				kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache,
-					rx_pkt);
+				if (rx_pkt) {
+					dma_unmap_page(ipa3_ctx->pdev,
+						rx_pkt->page_data.dma_addr,
+						rx_pkt->len,
+						DMA_FROM_DEVICE);
+					__free_pages(rx_pkt->page_data.page,
+						IPA_WAN_PAGE_ORDER);
+					kmem_cache_free(
+						ipa3_ctx->rx_pkt_wrapper_cache,
+						rx_pkt);
+				}
 			}
 		}
 		kfree(sys->repl->cache);
