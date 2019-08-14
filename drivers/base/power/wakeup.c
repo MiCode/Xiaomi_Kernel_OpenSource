@@ -171,6 +171,13 @@ static void wakeup_source_record(struct wakeup_source *ws)
 	spin_unlock_irqrestore(&deleted_ws.lock, flags);
 }
 
+static void wakeup_source_free(struct wakeup_source *ws)
+{
+	ida_simple_remove(&wakeup_ida, ws->id);
+	kfree_const(ws->name);
+	kfree(ws);
+}
+
 /**
  * wakeup_source_destroy - Destroy a struct wakeup_source object.
  * @ws: Wakeup source to destroy.
@@ -184,9 +191,7 @@ void wakeup_source_destroy(struct wakeup_source *ws)
 
 	wakeup_source_drop(ws);
 	wakeup_source_record(ws);
-	ida_simple_remove(&wakeup_ida, ws->id);
-	kfree_const(ws->name);
-	kfree(ws);
+	wakeup_source_free(ws);
 }
 EXPORT_SYMBOL_GPL(wakeup_source_destroy);
 
@@ -251,7 +256,7 @@ struct wakeup_source *wakeup_source_register(struct device *dev,
 	if (ws) {
 		ret = wakeup_source_sysfs_add(dev, ws);
 		if (ret) {
-			wakeup_source_destroy(ws);
+			wakeup_source_free(ws);
 			return NULL;
 		}
 		wakeup_source_add(ws);
