@@ -144,7 +144,7 @@ print_task_at_AEE(struct seq_file *m, struct rq *rq, struct task_struct *p)
 #endif
 	}
 #else
-	SEQ_printf_at_AEE(m, "%9lld.%06ld %9lld.%06ld %9lld.%06ld",
+	SEQ_printf_at_AEE(m, "%9lld.%06ld %9lu %9lld.%06ld",
 		0LL, 0L,
 		SPLIT_NS(p->se.sum_exec_runtime),
 		0LL, 0L);
@@ -275,9 +275,9 @@ int spin_trylock_n_irqsave(spinlock_t *lock,
 			   (long)&rlock, rlock.magic,
 			   owner ? owner->comm : "<<none>>",
 			   owner ? task_pid_nr(owner) : -1);
-		SEQ_printf_at_AEE(m, ".owner_cpu: %d, owner: %hu, next: %hu\n",
+		SEQ_printf_at_AEE(m, " .owner_cpu: %d, pending: %u",
 			   rlock.owner_cpu,
-			   rlock.raw_lock, rlock.raw_lock);
+			   rlock.raw_lock.pending);
 #else
 		SEQ_printf_at_AEE(m, " lock: %lx, .magic: %08x, .owner: %s/%d",
 			   (long)&rlock, rlock.magic,
@@ -332,8 +332,8 @@ static void print_cfs_group_stats_at_AEE(struct seq_file *m,
 
 #define P(F)		SEQ_printf_at_AEE(m, "  .%-30s: %lld\n",	#F, (long long)F)
 #define P_SCHEDSTAT(F)	SEQ_printf_at_AEE(m, "  .%-30s: %lld\n",	#F, (long long)schedstat_val(F))
-#define PN(F)		SEQ_printf_at_AEE(m, "  .%-30s: %lld.%06ld\n", #F, SPLIT_NS((long long)F))
-#define PN_SCHEDSTAT(F)	SEQ_printf_at_AEE(m, "  .%-30s: %lld.%06ld\n", #F, SPLIT_NS((long long)schedstat_val(F)))
+#define PN(F)		SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", #F, SPLIT_NS((long long)F))
+#define PN_SCHEDSTAT(F)	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", #F, SPLIT_NS((long long)schedstat_val(F)))
 
 	if (!se)
 		return;
@@ -380,7 +380,7 @@ void print_cfs_rq_at_AEE(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 	SEQ_printf_at_AEE(m, "\n");
 	SEQ_printf_at_AEE(m, "cfs_rq[%d]:\n", cpu);
 #endif
-	SEQ_printf_at_AEE(m, "  .%-30s: %lld.%06ld\n", "exec_clock",
+	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", "exec_clock",
 			SPLIT_NS(cfs_rq->exec_clock));
 
 	locked = raw_spin_trylock_n_irqsave(&rq->lock,
@@ -394,21 +394,21 @@ void print_cfs_rq_at_AEE(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 	rq0_min_vruntime = cpu_rq(0)->cfs.min_vruntime;
 	if (locked)
 		raw_spin_unlock_irqrestore(&rq->lock, flags);
-	SEQ_printf_at_AEE(m, "  .%-30s: %lld.%06ld\n", "MIN_vruntime",
+	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", "MIN_vruntime",
 			SPLIT_NS(MIN_vruntime));
-	SEQ_printf_at_AEE(m, "  .%-30s: %lld.%06ld\n", "min_vruntime",
+	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", "min_vruntime",
 			SPLIT_NS(min_vruntime));
-	SEQ_printf_at_AEE(m, "  .%-30s: %lld.%06ld\n", "max_vruntime",
+	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", "max_vruntime",
 			SPLIT_NS(max_vruntime));
 
 	spread = max_vruntime - MIN_vruntime;
 #ifdef DEBUG
-	SEQ_printf_at_AEE(m, "  .%-30s: %lld.%06ld\n", "spread",
+	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", "spread",
 			SPLIT_NS(spread));
 #endif
 	spread0 = min_vruntime - rq0_min_vruntime;
 #ifdef DEBUG
-	SEQ_printf_at_AEE(m, "  .%-30s: %lld.%06ld\n", "spread0",
+	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", "spread0",
 		SPLIT_NS(spread0));
 	SEQ_printf_at_AEE(m, "  .%-30s: %d\n", "nr_spread_over",
 		cfs_rq->nr_spread_over);
@@ -485,7 +485,7 @@ void print_rt_rq_at_AEE(struct seq_file *m, int cpu, struct rt_rq *rt_rq)
 #define PU(x) \
 	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", #x, (unsigned long)(rt_rq->x))
 #define PN(x) \
-	SEQ_printf_at_AEE(m, "  .%-30s: %lld.%06ld\n", #x, SPLIT_NS(rt_rq->x))
+	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", #x, SPLIT_NS(rt_rq->x))
 
 	P(rt_nr_running);
 #ifdef CONFIG_SMP
@@ -601,7 +601,7 @@ do { \
 } while (0)
 
 #define PN(x) \
-	SEQ_printf_at_AEE(m, "  .%-30s: %lld.%06ld\n", #x, SPLIT_NS(rq->x))
+	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", #x, SPLIT_NS(rq->x))
 
 	P(nr_running);
 	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", "load",
@@ -675,7 +675,7 @@ static void sched_debug_header_at_AEE(struct seq_file *m)
 #define P(x) \
 	SEQ_printf_at_AEE(m, "%-40s: %lld\n", #x, (long long)(x))
 #define PN(x) \
-	SEQ_printf_at_AEE(m, "%-40s: %lld.%06ld\n", #x, SPLIT_NS(x))
+	SEQ_printf_at_AEE(m, "%-40s: %lu\n", #x, SPLIT_NS(x))
 	PN(sched_clk);
 	PN(cpu_clk);
 	P(jiffies);
@@ -691,7 +691,7 @@ static void sched_debug_header_at_AEE(struct seq_file *m)
 #define P(x) \
 	SEQ_printf_at_AEE(m, "  .%-40s: %lld\n", #x, (long long)(x))
 #define PN(x) \
-	SEQ_printf_at_AEE(m, "  .%-40s: %lld.%06ld\n", #x, SPLIT_NS(x))
+	SEQ_printf_at_AEE(m, "  .%-40s: %lu\n", #x, SPLIT_NS(x))
 	PN(sysctl_sched_latency);
 	PN(sysctl_sched_min_granularity);
 	PN(sysctl_sched_wakeup_granularity);
