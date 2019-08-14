@@ -2406,7 +2406,7 @@ static void profile_load_work(struct work_struct *work)
 				profile_load_work.work);
 	struct fg_gen4_chip *chip = container_of(fg,
 				struct fg_gen4_chip, fg);
-	int64_t nom_cap_uah;
+	int64_t nom_cap_uah, learned_cap_uah = 0;
 	u8 val, buf[2];
 	int rc;
 
@@ -2440,6 +2440,16 @@ static void profile_load_work(struct work_struct *work)
 
 	fg_dbg(fg, FG_STATUS, "profile loading started\n");
 
+	if (chip->dt.multi_profile_load &&
+		chip->batt_age_level != chip->last_batt_age_level) {
+		rc = fg_gen4_get_learned_capacity(chip, &learned_cap_uah);
+		if (rc < 0)
+			pr_err("Error in getting learned capacity rc=%d\n", rc);
+		else
+			fg_dbg(fg, FG_STATUS, "learned capacity: %lld uAh\n",
+				learned_cap_uah);
+	}
+
 	rc = qpnp_fg_gen4_load_profile(chip);
 	if (rc < 0)
 		goto out;
@@ -2450,21 +2460,26 @@ static void profile_load_work(struct work_struct *work)
 	if (fg->wa_flags & PM8150B_V1_DMA_WA)
 		msleep(1000);
 
-	/*
-	 * Whenever battery profile is loaded, read nominal capacity and write
-	 * it to actual (or aged) capacity as it is outside the profile region
-	 * and might contain OTP values.
-	 */
-	rc = fg_sram_read(fg, NOM_CAP_WORD, NOM_CAP_OFFSET, buf, 2,
-			FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in reading %04x[%d] rc=%d\n", NOM_CAP_WORD,
-			NOM_CAP_OFFSET, rc);
-	} else {
-		nom_cap_uah = (buf[0] | buf[1] << 8) * 1000;
-		rc = fg_gen4_store_learned_capacity(chip, nom_cap_uah);
-		if (rc < 0)
-			pr_err("Error in writing to ACT_BATT_CAP rc=%d\n", rc);
+	if (learned_cap_uah == 0) {
+		/*
+		 * Whenever battery profile is loaded, read nominal capacity and
+		 * write it to actual (or aged) capacity as it is outside the
+		 * profile region and might contain OTP values. learned_cap_uah
+		 * would have non-zero value if multiple profile loading is
+		 * enabled and a profile got loaded already.
+		 */
+		rc = fg_sram_read(fg, NOM_CAP_WORD, NOM_CAP_OFFSET, buf, 2,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in reading %04x[%d] rc=%d\n",
+				NOM_CAP_WORD, NOM_CAP_OFFSET, rc);
+		} else {
+			nom_cap_uah = (buf[0] | buf[1] << 8) * 1000;
+			rc = fg_gen4_store_learned_capacity(chip, nom_cap_uah);
+			if (rc < 0)
+				pr_err("Error in writing to ACT_BATT_CAP rc=%d\n",
+					rc);
+		}
 	}
 done:
 	rc = fg_sram_read(fg, PROFILE_INTEGRITY_WORD,
