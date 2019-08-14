@@ -61,6 +61,10 @@
 
 #define DCE_SEL                           0x450
 
+#define ROT_SID_RD			  0x20
+#define ROT_SID_WR			  0x24
+#define ROT_SID_ID_VAL			  0x1c
+
 static void sde_hw_setup_split_pipe(struct sde_hw_mdp *mdp,
 		struct split_pipe_cfg *cfg)
 {
@@ -134,6 +138,8 @@ static void sde_hw_setup_pp_split(struct sde_hw_mdp *mdp,
 	} else if (cfg->en && cfg->pp_split_slave != INTF_MAX) {
 		ppb_config |= (cfg->pp_split_slave - INTF_0 + 1) << 20;
 		ppb_config |= BIT(16); /* split enable */
+		/* overlap pixel width */
+		ppb_config |= ((cfg->overlap_pixel_width & 0x1F) << 24);
 		ppb_control = BIT(5); /* horz split*/
 	}
 
@@ -410,6 +416,35 @@ static void sde_hw_mdp_events(struct sde_hw_mdp *mdp, bool enable)
 	c = &mdp->hw;
 
 	SDE_REG_WRITE(c, HW_EVENTS_CTL, enable);
+}
+
+struct sde_hw_sid *sde_hw_sid_init(void __iomem *addr,
+	u32 sid_len, const struct sde_mdss_cfg *m)
+{
+	struct sde_hw_sid *c;
+
+	if (!addr) {
+		SDE_DEBUG("Invalid addr\n");
+		return NULL;
+	}
+
+	c = kzalloc(sizeof(*c), GFP_KERNEL);
+	if (!c)
+		return ERR_PTR(-ENOMEM);
+
+	c->hw.base_off = addr;
+	c->hw.blk_off = 0;
+	c->hw.length = sid_len;
+	c->hw.hwversion = m->hwversion;
+	c->hw.log_mask = SDE_DBG_MASK_SID;
+
+	return c;
+}
+
+void sde_hw_sid_rotator_set(struct sde_hw_sid *sid)
+{
+	SDE_REG_WRITE(&sid->hw, ROT_SID_RD, ROT_SID_ID_VAL);
+	SDE_REG_WRITE(&sid->hw, ROT_SID_WR, ROT_SID_ID_VAL);
 }
 
 static void sde_hw_program_cwb_ppb_ctrl(struct sde_hw_mdp *mdp,

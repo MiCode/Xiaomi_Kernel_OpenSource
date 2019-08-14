@@ -145,7 +145,7 @@ enum MHI_PM_STATE __must_check mhi_tryset_pm_state(
 	MHI_VERB("Transition to pm state from:%s to:%s\n",
 		 to_mhi_pm_state_str(cur_state), to_mhi_pm_state_str(state));
 
-	if (MHI_REG_ACCESS_VALID(cur_state) || MHI_REG_ACCESS_VALID(state))
+	if (MHI_REG_ACCESS_VALID(cur_state) && MHI_REG_ACCESS_VALID(state))
 		mhi_timesync_log(mhi_cntrl);
 
 	mhi_cntrl->pm_state = state;
@@ -1326,6 +1326,7 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 
 	return 0;
 }
+EXPORT_SYMBOL(mhi_pm_resume);
 
 int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
 {

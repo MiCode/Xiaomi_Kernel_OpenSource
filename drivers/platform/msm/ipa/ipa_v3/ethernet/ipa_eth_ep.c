@@ -95,7 +95,7 @@ static void ipa_eth_init_vlan_header_v4(struct ipa_eth_device *eth_dev,
 	eth_hdr.h_vlan_proto = htons(ETH_P_8021Q);
 	eth_hdr.h_vlan_encapsulated_proto = htons(ETH_P_IP);
 
-	hdr_add->hdr_len = ETH_HLEN;
+	hdr_add->hdr_len = VLAN_ETH_HLEN;
 	memcpy(hdr_add->hdr, &eth_hdr, hdr_add->hdr_len);
 
 	ipa_eth_init_header_common(eth_dev, hdr_add);
@@ -113,7 +113,7 @@ static void ipa_eth_init_vlan_header_v6(struct ipa_eth_device *eth_dev,
 	eth_hdr.h_vlan_proto = htons(ETH_P_8021Q);
 	eth_hdr.h_vlan_encapsulated_proto = htons(ETH_P_IPV6);
 
-	hdr_add->hdr_len = ETH_HLEN;
+	hdr_add->hdr_len = VLAN_ETH_HLEN;
 	memcpy(hdr_add->hdr, &eth_hdr, hdr_add->hdr_len);
 
 	ipa_eth_init_header_common(eth_dev, hdr_add);

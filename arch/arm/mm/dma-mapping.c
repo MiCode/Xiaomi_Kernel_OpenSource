@@ -2718,10 +2718,13 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 	if (dev->dma_ops)
 		return;
 
-	if (arm_setup_iommu_dma_ops(dev, dma_base, size, iommu))
+	if (arm_setup_iommu_dma_ops(dev, dma_base, size, iommu)) {
 		dma_ops = arm_get_iommu_dma_map_ops(coherent);
-	else
+		dev->archdata.dma_ops_setup = true;
+	} else {
 		dma_ops = arm_get_dma_map_ops(coherent);
+		dev->archdata.dma_ops_setup = false;
+	}
 
 	set_dma_ops(dev, dma_ops);
 
@@ -2731,7 +2734,6 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 		dev->dma_ops = xen_dma_ops;
 	}
 #endif
-	dev->archdata.dma_ops_setup = true;
 }
 EXPORT_SYMBOL(arch_setup_dma_ops);
 

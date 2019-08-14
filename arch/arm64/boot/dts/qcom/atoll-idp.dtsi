@@ -57,6 +57,14 @@
 	};
 };
 
+&usb0 {
+	extcon = <&pm6150_pdphy>, <&pm6150_charger>;
+};
+
+&usb_qmp_dp_phy {
+	extcon = <&pm6150_pdphy>;
+};
+
 &spmi_bus {
 	qcom,pm6150l@4 {
 		pm6150l_adc_tm_iio: adc_tm@3400 {

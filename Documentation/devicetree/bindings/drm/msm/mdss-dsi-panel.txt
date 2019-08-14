@@ -143,6 +143,8 @@ Optional properties:
 					0 = default value
 - qcom,mdss-dsi-v-bottom-border:	Vertical bottom border in pixel.
 					0 = default value
+- qcom,mdss-dsi-overlap-pixels:		Horizontal overlap pixels for certain panels.
+					0 = default value
 - qcom,mdss-dsi-underflow-color:	Specifies the controller settings for the
 					panel under flow color.
 					0xff = default value.

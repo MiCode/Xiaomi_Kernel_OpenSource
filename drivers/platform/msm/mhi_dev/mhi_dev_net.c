@@ -27,11 +27,14 @@
 #include <linux/spinlock.h>
 #include <linux/errno.h>
 #include <linux/ktime.h>
+#include <linux/platform_device.h>
+#include <linux/etherdevice.h>
+#include <linux/of.h>
 
 #include "mhi.h"
 
 #define MHI_NET_DRIVER_NAME  "mhi_dev_net_drv"
-#define MHI_NET_DEV_NAME     "mhi_dev_net%d"
+#define MHI_NET_DEV_NAME     "mhi_swip%d"
 #define MHI_NET_DEFAULT_MTU   8192
 #define MHI_NET_IPC_PAGES     (100)
 #define MHI_MAX_RX_REQ        (128)
@@ -90,6 +93,7 @@ struct mhi_dev_net_client {
 	u32 out_chan;
 	/* read channel - always odd */
 	u32 in_chan;
+	bool eth_iface;
 	struct mhi_dev_client *out_handle;
 	struct mhi_dev_client *in_handle;
 	/*process pendig packets */
@@ -113,6 +117,7 @@ struct mhi_dev_net_client {
 struct mhi_dev_net_ctxt {
 	struct mhi_dev_net_chan_attr chan_attr[MHI_MAX_SOFTWARE_CHANNELS];
 	struct mhi_dev_net_client *client_handle;
+	struct platform_device		*pdev;
 	void (*net_event_notifier)(struct mhi_dev_client_cb_reason *cb);
 };
 
@@ -247,8 +252,12 @@ static void mhi_dev_net_read_completion_cb(void *req)
 	unsigned long   flags;
 
 	skb->len = mreq->transfer_len;
-	skb->protocol =
-		mhi_dev_net_eth_type_trans(skb);
+
+	if (net_handle->eth_iface)
+		skb->protocol = eth_type_trans(skb, net_handle->dev);
+	else
+		skb->protocol = mhi_dev_net_eth_type_trans(skb);
+
 	skb_put(skb, mreq->transfer_len);
 	net_handle->dev->stats.rx_packets++;
 	skb->dev = net_handle->dev;
@@ -433,17 +442,28 @@ static const struct net_device_ops mhi_dev_net_ops_ip = {
 	.ndo_change_mtu = mhi_dev_net_change_mtu,
 };
 
-static void mhi_dev_net_setup(struct net_device *dev)
+static void mhi_dev_net_rawip_setup(struct net_device *dev)
 {
 	dev->netdev_ops = &mhi_dev_net_ops_ip;
 	ether_setup(dev);
+	mhi_dev_net_log(MHI_INFO,
+			"mhi_dev_net Raw IP setup\n");
 
 	/* set this after calling ether_setup */
+	dev->header_ops = NULL;
 	dev->type = ARPHRD_RAWIP;
 	dev->hard_header_len = 0;
 	dev->mtu = MHI_NET_DEFAULT_MTU;
 	dev->addr_len = 0;
 	dev->flags &= ~(IFF_BROADCAST | IFF_MULTICAST);
+}
+
+static void mhi_dev_net_ether_setup(struct net_device *dev)
+{
+	dev->netdev_ops = &mhi_dev_net_ops_ip;
+	ether_setup(dev);
+	mhi_dev_net_log(MHI_INFO,
+			"mhi_dev_net Ethernet setup\n");
 }
 
 static int mhi_dev_net_enable_iface(struct mhi_dev_net_client *mhi_dev_net_ptr)
@@ -462,10 +482,18 @@ static int mhi_dev_net_enable_iface(struct mhi_dev_net_client *mhi_dev_net_ptr)
 			"mhi_dev_net interface registration\n");
 	netdev = alloc_netdev(sizeof(struct mhi_dev_net_client),
 			MHI_NET_DEV_NAME, NET_NAME_PREDICTABLE,
-			mhi_dev_net_setup);
+			mhi_net_ctxt.client_handle->eth_iface ?
+			mhi_dev_net_ether_setup :
+			mhi_dev_net_rawip_setup);
 	if (!netdev) {
 		pr_err("Failed to allocate netdev for mhi_dev_net\n");
 		goto net_dev_alloc_fail;
+	}
+
+	if (mhi_net_ctxt.client_handle->eth_iface) {
+		eth_random_addr(netdev->dev_addr);
+		if (!is_valid_ether_addr(netdev->dev_addr))
+			return -EADDRNOTAVAIL;
 	}
 
 	mhi_dev_net_ctxt = netdev_priv(netdev);
@@ -621,6 +649,12 @@ int mhi_dev_net_interface_init(void)
 				"Failed to create IPC logging for mhi_dev_net\n");
 	mhi_net_ctxt.client_handle = mhi_net_client;
 
+	if (mhi_net_ctxt.pdev)
+		mhi_net_ctxt.client_handle->eth_iface =
+			of_property_read_bool
+			((&mhi_net_ctxt.pdev->dev)->of_node,
+				"qcom,mhi-ethernet-interface");
+
 	/*Process pending packet work queue*/
 	mhi_net_client->pending_pckt_wq =
 		create_singlethread_workqueue("pending_xmit_pckt_wq");
@@ -665,3 +699,47 @@ void __exit mhi_dev_net_exit(void)
 	mhi_dev_net_close();
 }
 EXPORT_SYMBOL(mhi_dev_net_exit);
+
+static int mhi_dev_net_probe(struct platform_device *pdev)
+{
+	if (pdev->dev.of_node) {
+		mhi_net_ctxt.pdev = pdev;
+		mhi_dev_net_log(MHI_INFO,
+				"MHI Network probe success");
+	}
+
+	return 0;
+}
+
+static int mhi_dev_net_remove(struct platform_device *pdev)
+{
+	platform_set_drvdata(pdev, NULL);
+
+	return 0;
+}
+
+static const struct of_device_id mhi_dev_net_match_table[] = {
+	{	.compatible = "qcom,msm-mhi-dev-net" },
+	{}
+};
+
+static struct platform_driver mhi_dev_net_driver = {
+	.driver		= {
+		.name	= "qcom,msm-mhi-dev-net",
+		.of_match_table = mhi_dev_net_match_table,
+	},
+	.probe		= mhi_dev_net_probe,
+	.remove		= mhi_dev_net_remove,
+};
+
+static int __init mhi_dev_net_init(void)
+{
+	return platform_driver_register(&mhi_dev_net_driver);
+}
+subsys_initcall(mhi_dev_net_init);
+
+static void __exit mhi_dev_exit(void)
+{
+	platform_driver_unregister(&mhi_dev_net_driver);
+}
+module_exit(mhi_dev_net_exit);

@@ -389,6 +389,21 @@ First Level Node - QGAUGE device
 		    'qcom,qg-sleep-config' is enabled. the default value
 		    if not specified is 200ms.
 
+- qcom,qg-fast-chg-config
+	Usage:      optional
+	Value type: bool
+	Definition: Enables fast-charge configurtion for QG. This
+		    allows configuring the FIFO length during
+		    fast charge.
+
+- qcom,fast-chg-s2-fifo-length
+	Usage:      optional
+	Value type: <u32>
+	Definition: The FIFO length to be applied when system enters
+		    fast-chargging. Takes effect only if
+		    'qcom,qg-fast-chg-config' is enabled. The
+		    default value if not specified is 1.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================

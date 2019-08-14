@@ -568,3 +568,56 @@ config VIRTIO_CLK
 	depends on VIRTIO
 	---help---
 	  This is the virtual clock driver for virtio.
+
+config SM_GCC_ATOLL
+	tristate "ATOLL Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	select QCOM_GDSC
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config SM_CAMCC_ATOLL
+	tristate "ATOLL Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
+config SM_VIDEOCC_ATOLL
+	tristate "ATOLL Video Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  ATOLL devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
+config SM_DISPCC_ATOLL
+	tristate "ATOLL Display Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
+config SM_NPUCC_ATOLL
+	tristate "ATOLL NPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the NPU clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to enable use of the Network Processing Unit.
+
+config SM_DEBUGCC_ATOLL
+	tristate "ATOLL Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to support the clock measurement functionality.

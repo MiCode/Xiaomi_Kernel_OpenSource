@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -578,6 +578,7 @@ static const struct qcom_cc_desc gpu_cc_sdmmagpie_desc = {
 
 static const struct of_device_id gpu_cc_sdmmagpie_match_table[] = {
 	{ .compatible = "qcom,gpucc-sdmmagpie" },
+	{ .compatible = "qcom,atoll-gpucc" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gpu_cc_sdmmagpie_match_table);

@@ -42,7 +42,8 @@
 		};
 
 		mhi_chan@25 {
-			status = "disabled";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
 		};
 
 		mhi_chan@80 {
@@ -90,7 +91,6 @@
 
 	mhi_devices {
 		mhi_qrtr {
-			mhi,chan = "IPCR";
 			qcom,net-id = <3>;
 		};
 	};

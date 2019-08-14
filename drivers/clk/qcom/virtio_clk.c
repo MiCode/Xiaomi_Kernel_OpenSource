@@ -718,7 +718,7 @@ static void __exit virtio_clk_fini(void)
 {
 	unregister_virtio_driver(&virtio_clk_driver);
 }
-subsys_initcall(virtio_clk_init);
+subsys_initcall_sync(virtio_clk_init);
 module_exit(virtio_clk_fini);
 
 MODULE_DEVICE_TABLE(virtio, id_table);

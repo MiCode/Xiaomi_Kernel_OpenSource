@@ -20,6 +20,7 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
 #include <linux/msi.h>
+#include <linux/msm_pcie.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_pci.h>
@@ -56,7 +57,6 @@ struct msm_msi_grp {
 	void __iomem *int_mask_reg;
 	void __iomem *int_status_reg;
 	u32 mask; /* tracks masked/unmasked MSI */
-	spinlock_t cfg_lock; /* lock for configuring Synopsys MSI registers */
 
 	struct msm_msi_irq irqs[MSI_IRQ_PER_GRP];
 };
@@ -75,6 +75,8 @@ struct msm_msi {
 	struct irq_domain *msi_domain; /* child domain; pci related */
 	phys_addr_t msi_addr;
 	enum msi_type type;
+	spinlock_t cfg_lock; /* lock for configuring Synopsys MSI registers */
+	bool cfg_access; /* control access to Synopsys MSI registers */
 	void __iomem *pcie_cfg;
 
 	void (*mask_irq)(struct irq_data *data);
@@ -94,9 +96,6 @@ static void msm_msi_snps_handler(struct irq_desc *desc)
 {
 	struct irq_chip *chip = irq_desc_get_chip(desc);
 	struct msm_msi *msi;
-	struct msm_msi_grp *msi_grp;
-	unsigned long val = 0;
-	u32 index;
 	int i;
 
 	chained_irq_enter(chip, desc);
@@ -104,12 +103,25 @@ static void msm_msi_snps_handler(struct irq_desc *desc)
 	msi = irq_desc_get_handler_data(desc);
 
 	for (i = 0; i < msi->nr_grps; i++) {
-		msi_grp = &msi->grps[i];
-		val = readl_relaxed(msi_grp->int_status_reg);
-		writel_relaxed(val, msi_grp->int_status_reg);
+		struct msm_msi_grp *msi_grp = &msi->grps[i];
+		u32 mask = msi_grp->mask;
+		u32 status;
+		u32 index;
 
-		for (index = 0; val; index++, val >>= 1)
-			if (val & 0x1)
+		status = readl_relaxed(msi_grp->int_status_reg);
+		if (!status)
+			continue;
+
+		/* always update the mask set in msm_msi_snps_mask_irq */
+		mask = msi_grp->mask;
+		writel_relaxed(mask, msi_grp->int_mask_reg);
+
+		/* process only interrupts which are not masked */
+		status ^= (status & mask);
+		writel_relaxed(status, msi_grp->int_status_reg);
+
+		for (index = 0; status; index++, status >>= 1)
+			if (status & 0x1)
 				generic_handle_irq(msi_grp->irqs[index].virq);
 	}
 
@@ -136,12 +148,12 @@ static void msm_msi_snps_mask_irq(struct irq_data *data)
 {
 	struct msm_msi_irq *msi_irq = irq_data_get_irq_chip_data(data);
 	struct msm_msi_grp *msi_grp = msi_irq->grp;
+	struct msm_msi *msi = msi_irq->client->msi;
 	unsigned long flags;
 
-	spin_lock_irqsave(&msi_grp->cfg_lock, flags);
+	spin_lock_irqsave(&msi->cfg_lock, flags);
 	msi_grp->mask |= BIT(msi_irq->grp_index);
-	writel_relaxed(msi_grp->mask, msi_grp->int_mask_reg);
-	spin_unlock_irqrestore(&msi_grp->cfg_lock, flags);
+	spin_unlock_irqrestore(&msi->cfg_lock, flags);
 }
 
 static void msm_msi_qgic_mask_irq(struct irq_data *data)
@@ -176,12 +188,16 @@ static void msm_msi_snps_unmask_irq(struct irq_data *data)
 {
 	struct msm_msi_irq *msi_irq = irq_data_get_irq_chip_data(data);
 	struct msm_msi_grp *msi_grp = msi_irq->grp;
+	struct msm_msi *msi = msi_irq->client->msi;
 	unsigned long flags;
 
-	spin_lock_irqsave(&msi_grp->cfg_lock, flags);
+	spin_lock_irqsave(&msi->cfg_lock, flags);
+
 	msi_grp->mask &= ~BIT(msi_irq->grp_index);
-	writel_relaxed(msi_grp->mask, msi_grp->int_mask_reg);
-	spin_unlock_irqrestore(&msi_grp->cfg_lock, flags);
+	if (msi->cfg_access)
+		writel_relaxed(msi_grp->mask, msi_grp->int_mask_reg);
+
+	spin_unlock_irqrestore(&msi->cfg_lock, flags);
 }
 
 static void msm_msi_qgic_unmask_irq(struct irq_data *data)
@@ -457,6 +473,21 @@ static int msm_msi_alloc_domains(struct msm_msi *msi)
 	return 0;
 }
 
+/* control access to Synopsys PCIe MSI registers */
+void msm_msi_config_access(struct irq_domain *domain, bool allow)
+{
+	struct msm_msi *msi = domain->parent->host_data;
+	unsigned long flags;
+
+	if (msi->type == MSM_MSI_TYPE_QCOM)
+		return;
+
+	spin_lock_irqsave(&msi->cfg_lock, flags);
+	msi->cfg_access = allow;
+	spin_unlock_irqrestore(&msi->cfg_lock, flags);
+}
+EXPORT_SYMBOL(msm_msi_config_access);
+
 /* configure Synopsys PCIe MSI registers */
 void msm_msi_config(struct irq_domain *domain)
 {
@@ -467,13 +498,20 @@ void msm_msi_config(struct irq_domain *domain)
 	if (msi->type == MSM_MSI_TYPE_QCOM)
 		return;
 
+	/* PCIe core driver sets to false during LPM */
+	msm_msi_config_access(domain, true);
+
 	/* program MSI termination address */
 	writel_relaxed(msi->msi_addr, msi->pcie_cfg + PCIE_MSI_CTRL_ADDR_OFFS);
 	writel_relaxed(0, msi->pcie_cfg + PCIE_MSI_CTRL_UPPER_ADDR_OFFS);
 
-	/* enable all interrupts for each group */
-	for (i = 0; i < msi->nr_grps; i++)
-		writel_relaxed(~0, msi->grps[i].int_en_reg);
+	/* restore mask and enable all interrupts for each group */
+	for (i = 0; i < msi->nr_grps; i++) {
+		struct msm_msi_grp *msi_grp = &msi->grps[i];
+
+		writel_relaxed(msi_grp->mask, msi_grp->int_mask_reg);
+		writel_relaxed(~0, msi_grp->int_en_reg);
+	}
 }
 EXPORT_SYMBOL(msm_msi_config);
 
@@ -514,6 +552,7 @@ int msm_msi_init(struct device *dev)
 	msi->dev = dev;
 	msi->of_node = of_node;
 	mutex_init(&msi->mutex);
+	spin_lock_init(&msi->cfg_lock);
 	INIT_LIST_HEAD(&msi->clients);
 
 	prop_val = of_get_address(msi->of_node, 0, NULL, NULL);
@@ -613,7 +652,6 @@ int msm_msi_init(struct device *dev)
 		for (i = 0; i < msi->nr_grps; i++) {
 			msi_grp = &msi->grps[i];
 
-			spin_lock_init(&msi_grp->cfg_lock);
 			msi_grp->int_en_reg = msi->pcie_cfg +
 					PCIE_MSI_CTRL_INT_N_EN_OFFS(i);
 			msi_grp->int_mask_reg = msi->pcie_cfg +

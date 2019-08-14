@@ -62,6 +62,12 @@ SoCs:
 - QCS401
   compatible = "qcom,qcs401"
 
+- QCS404
+  compatible = "qcom,qcs404"
+
+- QCS407
+  compatible = "qcom,qcs407"
+
 - SDXPRAIRIE
   compatible = "qcom,sdxprairie"
 
@@ -195,6 +201,8 @@ compatible = "qcom,qcs405-rumi"
 compatible = "qcom,qcs405-iot"
 compatible = "qcom,qcs403-iot"
 compatible = "qcom,qcs401-iot"
+compatible = "qcom,qcs404-iot"
+compatible = "qcom,qcs407-iot"
 compatible = "qcom,sa8155-adp-star"
 compatible = "qcom,sa8155p-adp-star"
 compatible = "qcom,sa8195p-adp-star"

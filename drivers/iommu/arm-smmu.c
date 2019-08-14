@@ -4997,7 +4997,11 @@ static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(arm_smmu_pm_ops, NULL, arm_smmu_pm_resume);
+static const struct dev_pm_ops arm_smmu_pm_ops = {
+	.resume = arm_smmu_pm_resume,
+	.thaw_early = arm_smmu_pm_resume,
+	.restore_early = arm_smmu_pm_resume,
+};
 
 static struct platform_driver arm_smmu_driver = {
 	.driver	= {

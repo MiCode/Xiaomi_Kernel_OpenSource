@@ -120,6 +120,7 @@ enum gmu_load_mode {
 };
 
 struct kgsl_mailbox {
+	bool enabled;
 	struct mbox_client *client;
 	struct mbox_chan *channel;
 };
