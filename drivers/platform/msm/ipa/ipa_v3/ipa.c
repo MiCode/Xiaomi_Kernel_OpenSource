@@ -3104,6 +3104,9 @@ static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
 	u32 lcl_addr_mem_part;
 	u32 lcl_hdr_sz;
 	struct ipa_mem_buffer mem;
+	struct ipahal_reg_valmask valmask;
+	struct ipahal_imm_cmd_register_write reg_write_coal_close;
+	int i;
 
 	IPADBG("Entry\n");
 
@@ -3121,13 +3124,13 @@ static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
 		return retval;
 	}
 
-	/* Up to filtering pipes we have filtering tables */
-	desc = kcalloc(ipa3_ctx->ep_flt_num, sizeof(struct ipa3_desc),
+	/* Up to filtering pipes we have filtering tables + 1 for coal close */
+	desc = kcalloc(ipa3_ctx->ep_flt_num + 1, sizeof(struct ipa3_desc),
 		GFP_KERNEL);
 	if (!desc)
 		return -ENOMEM;
 
-	cmd_pyld = kcalloc(ipa3_ctx->ep_flt_num,
+	cmd_pyld = kcalloc(ipa3_ctx->ep_flt_num + 1,
 		sizeof(struct ipahal_imm_cmd_pyld *), GFP_KERNEL);
 	if (!cmd_pyld) {
 		retval = -ENOMEM;
@@ -3157,6 +3160,28 @@ static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
 	if (retval) {
 		IPAERR("failed to generate flt single tbl empty img\n");
 		goto free_cmd_pyld;
+	}
+
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1) {
+		i = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+		reg_write_coal_close.skip_pipeline_clear = false;
+		reg_write_coal_close.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+		reg_write_coal_close.offset = ipahal_get_reg_ofst(
+			IPA_AGGR_FORCE_CLOSE);
+		ipahal_get_aggr_force_close_valmask(i, &valmask);
+		reg_write_coal_close.value = valmask.val;
+		reg_write_coal_close.value_mask = valmask.mask;
+		cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_REGISTER_WRITE,
+			&reg_write_coal_close, false);
+		if (!cmd_pyld[num_cmds]) {
+			IPAERR("failed to construct coal close IC\n");
+			retval = -ENOMEM;
+			goto free_empty_img;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmds], cmd_pyld[num_cmds]);
+		++num_cmds;
 	}
 
 	for (pipe_idx = 0; pipe_idx < ipa3_ctx->ipa_num_pipes; pipe_idx++) {
@@ -3224,13 +3249,17 @@ static int ipa3_q6_clean_q6_rt_tbls(enum ipa_ip_type ip,
 {
 	struct ipa3_desc *desc;
 	struct ipahal_imm_cmd_dma_shared_mem cmd = {0};
-	struct ipahal_imm_cmd_pyld *cmd_pyld = NULL;
+	struct ipahal_imm_cmd_pyld **cmd_pyld;
 	int retval = 0;
+	int num_cmds = 0;
 	u32 modem_rt_index_lo;
 	u32 modem_rt_index_hi;
 	u32 lcl_addr_mem_part;
 	u32 lcl_hdr_sz;
 	struct ipa_mem_buffer mem;
+	struct ipahal_reg_valmask valmask;
+	struct ipahal_imm_cmd_register_write reg_write_coal_close;
+	int i;
 
 	IPADBG("Entry\n");
 
@@ -3278,10 +3307,37 @@ static int ipa3_q6_clean_q6_rt_tbls(enum ipa_ip_type ip,
 		return -ENOMEM;
 	}
 
-	desc = kzalloc(sizeof(struct ipa3_desc), GFP_KERNEL);
-	if (!desc) {
-		IPAERR("failed to allocate memory\n");
+	desc = kcalloc(2, sizeof(struct ipa3_desc), GFP_KERNEL);
+	if (!desc)
+		retval = -ENOMEM;
 		goto free_empty_img;
+
+	cmd_pyld = kcalloc(2, sizeof(struct ipahal_imm_cmd_pyld *), GFP_KERNEL);
+	if (!cmd_pyld) {
+		retval = -ENOMEM;
+		goto free_desc;
+	}
+
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1) {
+		i = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+		reg_write_coal_close.skip_pipeline_clear = false;
+		reg_write_coal_close.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+		reg_write_coal_close.offset = ipahal_get_reg_ofst(
+			IPA_AGGR_FORCE_CLOSE);
+		ipahal_get_aggr_force_close_valmask(i, &valmask);
+		reg_write_coal_close.value = valmask.val;
+		reg_write_coal_close.value_mask = valmask.mask;
+		cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_REGISTER_WRITE,
+			&reg_write_coal_close, false);
+		if (!cmd_pyld[num_cmds]) {
+			IPAERR("failed to construct coal close IC\n");
+			retval = -ENOMEM;
+			goto free_cmd_pyld;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmds], cmd_pyld[num_cmds]);
+		++num_cmds;
 	}
 
 	cmd.is_read = false;
@@ -3292,23 +3348,27 @@ static int ipa3_q6_clean_q6_rt_tbls(enum ipa_ip_type ip,
 	cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
 		lcl_addr_mem_part +
 		modem_rt_index_lo * ipahal_get_hw_tbl_hdr_width();
-	cmd_pyld = ipahal_construct_imm_cmd(
+	cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
 			IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
-	if (!cmd_pyld) {
+	if (!cmd_pyld[num_cmds]) {
 		IPAERR("failed to construct dma_shared_mem imm cmd\n");
 		retval = -ENOMEM;
-		goto free_desc;
+		goto free_cmd_pyld;
 	}
-	ipa3_init_imm_cmd_desc(desc, cmd_pyld);
+	ipa3_init_imm_cmd_desc(&desc[num_cmds], cmd_pyld[num_cmds]);
+	++num_cmds;
 
 	IPADBG("Sending 1 descriptor for rt tbl clearing\n");
-	retval = ipa3_send_cmd(1, desc);
+	retval = ipa3_send_cmd(num_cmds, desc);
 	if (retval) {
 		IPAERR("failed to send immediate command (err %d)\n", retval);
 		retval = -EFAULT;
 	}
 
-	ipahal_destroy_imm_cmd(cmd_pyld);
+free_cmd_pyld:
+	for (i = 0; i < num_cmds; i++)
+		ipahal_destroy_imm_cmd(cmd_pyld[i]);
+	kfree(cmd_pyld);
 free_desc:
 	kfree(desc);
 free_empty_img:
@@ -3319,11 +3379,14 @@ free_empty_img:
 static int ipa3_q6_clean_q6_tables(void)
 {
 	struct ipa3_desc *desc;
-	struct ipahal_imm_cmd_pyld *cmd_pyld = NULL;
+	struct ipahal_imm_cmd_pyld **cmd_pyld;
 	struct ipahal_imm_cmd_register_write reg_write_cmd = {0};
 	int retval = 0;
+	int num_cmds = 0;
 	struct ipahal_reg_fltrt_hash_flush flush;
 	struct ipahal_reg_valmask valmask;
+	struct ipahal_imm_cmd_register_write reg_write_coal_close;
+	int i;
 
 	IPADBG("Entry\n");
 
@@ -3369,9 +3432,37 @@ static int ipa3_q6_clean_q6_tables(void)
 	if (ipa3_ctx->ipa_fltrt_not_hashable)
 		return retval;
 	/* Flush rules cache */
-	desc = kzalloc(sizeof(struct ipa3_desc), GFP_KERNEL);
+	desc = kcalloc(2, sizeof(struct ipa3_desc), GFP_KERNEL);
 	if (!desc)
 		return -ENOMEM;
+
+	cmd_pyld = kcalloc(2, sizeof(struct ipahal_imm_cmd_pyld *), GFP_KERNEL);
+	if (!cmd_pyld) {
+		retval = -ENOMEM;
+		goto bail_desc;
+	}
+
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1) {
+		i = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+		reg_write_coal_close.skip_pipeline_clear = false;
+		reg_write_coal_close.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+		reg_write_coal_close.offset = ipahal_get_reg_ofst(
+			IPA_AGGR_FORCE_CLOSE);
+		ipahal_get_aggr_force_close_valmask(i, &valmask);
+		reg_write_coal_close.value = valmask.val;
+		reg_write_coal_close.value_mask = valmask.mask;
+		cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_REGISTER_WRITE,
+			&reg_write_coal_close, false);
+		if (!cmd_pyld[num_cmds]) {
+			IPAERR("failed to construct coal close IC\n");
+			retval = -ENOMEM;
+			goto free_cmd_pyld;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmds], cmd_pyld[num_cmds]);
+		++num_cmds;
+	}
 
 	flush.v4_flt = true;
 	flush.v4_rt = true;
@@ -3383,24 +3474,27 @@ static int ipa3_q6_clean_q6_tables(void)
 	reg_write_cmd.offset = ipahal_get_reg_ofst(IPA_FILT_ROUT_HASH_FLUSH);
 	reg_write_cmd.value = valmask.val;
 	reg_write_cmd.value_mask = valmask.mask;
-	cmd_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
-		&reg_write_cmd, false);
-	if (!cmd_pyld) {
+	cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_REGISTER_WRITE, &reg_write_cmd, false);
+	if (!cmd_pyld[num_cmds]) {
 		IPAERR("fail construct register_write imm cmd\n");
 		retval = -EFAULT;
-		goto bail_desc;
+		goto free_cmd_pyld;
 	}
-	ipa3_init_imm_cmd_desc(desc, cmd_pyld);
+	ipa3_init_imm_cmd_desc(&desc[num_cmds], cmd_pyld[num_cmds]);
+	++num_cmds;
 
 	IPADBG("Sending 1 descriptor for tbls flush\n");
-	retval = ipa3_send_cmd(1, desc);
+	retval = ipa3_send_cmd(num_cmds, desc);
 	if (retval) {
 		IPAERR("failed to send immediate command (err %d)\n", retval);
 		retval = -EFAULT;
 	}
 
-	ipahal_destroy_imm_cmd(cmd_pyld);
-
+free_cmd_pyld:
+	for (i = 0; i < num_cmds; i++)
+		ipahal_destroy_imm_cmd(cmd_pyld[i]);
+	kfree(cmd_pyld);
 bail_desc:
 	kfree(desc);
 	IPADBG("Done - retval = %d\n", retval);
@@ -3417,11 +3511,38 @@ static int ipa3_q6_set_ex_path_to_apps(void)
 	struct ipahal_imm_cmd_register_write reg_write;
 	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	int retval;
+	struct ipahal_reg_valmask valmask;
+	struct ipahal_imm_cmd_register_write reg_write_coal_close;
+	int i;
 
-	desc = kcalloc(ipa3_ctx->ipa_num_pipes, sizeof(struct ipa3_desc),
+	desc = kcalloc(ipa3_ctx->ipa_num_pipes + 1, sizeof(struct ipa3_desc),
 			GFP_KERNEL);
 	if (!desc)
 		return -ENOMEM;
+
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1) {
+		i = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+		reg_write_coal_close.skip_pipeline_clear = false;
+		reg_write_coal_close.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+		reg_write_coal_close.offset = ipahal_get_reg_ofst(
+			IPA_AGGR_FORCE_CLOSE);
+		ipahal_get_aggr_force_close_valmask(i, &valmask);
+		reg_write_coal_close.value = valmask.val;
+		reg_write_coal_close.value_mask = valmask.mask;
+		cmd_pyld = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_REGISTER_WRITE,
+			&reg_write_coal_close, false);
+		if (!cmd_pyld) {
+			IPAERR("failed to construct coal close IC\n");
+			ipa_assert();
+			return -ENOMEM;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_descs], cmd_pyld);
+		desc[num_descs].callback = ipa3_destroy_imm;
+		desc[num_descs].user1 = cmd_pyld;
+		++num_descs;
+	}
 
 	/* Set the exception path to AP */
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
@@ -3750,11 +3871,17 @@ int _ipa_init_sram_v3(void)
  */
 int _ipa_init_hdr_v3_0(void)
 {
-	struct ipa3_desc desc;
+	struct ipa3_desc hdr_init_desc;
+	struct ipa3_desc dma_cmd_desc[2];
 	struct ipa_mem_buffer mem;
 	struct ipahal_imm_cmd_hdr_init_local cmd = {0};
-	struct ipahal_imm_cmd_pyld *cmd_pyld;
+	struct ipahal_imm_cmd_pyld *hdr_init_cmd_payload;
+	struct ipahal_imm_cmd_pyld *cmd_pyld[2];
 	struct ipahal_imm_cmd_dma_shared_mem dma_cmd = { 0 };
+	struct ipahal_reg_valmask valmask;
+	struct ipahal_imm_cmd_register_write reg_write_coal_close;
+	int num_cmds = 0;
+	int i;
 
 	mem.size = IPA_MEM_PART(modem_hdr_size) + IPA_MEM_PART(apps_hdr_size);
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size, &mem.phys_base,
@@ -3768,29 +3895,51 @@ int _ipa_init_hdr_v3_0(void)
 	cmd.size_hdr_table = mem.size;
 	cmd.hdr_addr = ipa3_ctx->smem_restricted_bytes +
 		IPA_MEM_PART(modem_hdr_ofst);
-	cmd_pyld = ipahal_construct_imm_cmd(
+	hdr_init_cmd_payload = ipahal_construct_imm_cmd(
 		IPA_IMM_CMD_HDR_INIT_LOCAL, &cmd, false);
-	if (!cmd_pyld) {
+	if (!hdr_init_cmd_payload) {
 		IPAERR("fail to construct hdr_init_local imm cmd\n");
 		dma_free_coherent(ipa3_ctx->pdev,
 			mem.size, mem.base,
 			mem.phys_base);
 		return -EFAULT;
 	}
-	ipa3_init_imm_cmd_desc(&desc, cmd_pyld);
+	ipa3_init_imm_cmd_desc(&hdr_init_desc, hdr_init_cmd_payload);
 	IPA_DUMP_BUFF(mem.base, mem.phys_base, mem.size);
 
-	if (ipa3_send_cmd(1, &desc)) {
+	if (ipa3_send_cmd(1, &hdr_init_desc)) {
 		IPAERR("fail to send immediate command\n");
-		ipahal_destroy_imm_cmd(cmd_pyld);
+		ipahal_destroy_imm_cmd(hdr_init_cmd_payload);
 		dma_free_coherent(ipa3_ctx->pdev,
 			mem.size, mem.base,
 			mem.phys_base);
 		return -EFAULT;
 	}
 
-	ipahal_destroy_imm_cmd(cmd_pyld);
+	ipahal_destroy_imm_cmd(hdr_init_cmd_payload);
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
+
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1) {
+		i = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+		reg_write_coal_close.skip_pipeline_clear = false;
+		reg_write_coal_close.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+		reg_write_coal_close.offset = ipahal_get_reg_ofst(
+			IPA_AGGR_FORCE_CLOSE);
+		ipahal_get_aggr_force_close_valmask(i, &valmask);
+		reg_write_coal_close.value = valmask.val;
+		reg_write_coal_close.value_mask = valmask.mask;
+		cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_REGISTER_WRITE,
+			&reg_write_coal_close, false);
+		if (!cmd_pyld[num_cmds]) {
+			IPAERR("failed to construct coal close IC\n");
+			return -ENOMEM;
+		}
+		ipa3_init_imm_cmd_desc(&dma_cmd_desc[num_cmds],
+			cmd_pyld[num_cmds]);
+		++num_cmds;
+	}
 
 	mem.size = IPA_MEM_PART(modem_hdr_proc_ctx_size) +
 		IPA_MEM_PART(apps_hdr_proc_ctx_size);
@@ -3808,28 +3957,31 @@ int _ipa_init_hdr_v3_0(void)
 	dma_cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst);
 	dma_cmd.size = mem.size;
-	cmd_pyld = ipahal_construct_imm_cmd(
+	cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
 		IPA_IMM_CMD_DMA_SHARED_MEM, &dma_cmd, false);
-	if (!cmd_pyld) {
+	if (!cmd_pyld[num_cmds]) {
 		IPAERR("fail to construct dma_shared_mem imm\n");
 		dma_free_coherent(ipa3_ctx->pdev,
 			mem.size, mem.base,
 			mem.phys_base);
 		return -ENOMEM;
 	}
-	ipa3_init_imm_cmd_desc(&desc, cmd_pyld);
+	ipa3_init_imm_cmd_desc(&dma_cmd_desc[num_cmds], cmd_pyld[num_cmds]);
+	++num_cmds;
 	IPA_DUMP_BUFF(mem.base, mem.phys_base, mem.size);
 
-	if (ipa3_send_cmd(1, &desc)) {
+	if (ipa3_send_cmd(num_cmds, dma_cmd_desc)) {
 		IPAERR("fail to send immediate command\n");
-		ipahal_destroy_imm_cmd(cmd_pyld);
+		for (i = 0; i < num_cmds; i++)
+			ipahal_destroy_imm_cmd(cmd_pyld[i]);
 		dma_free_coherent(ipa3_ctx->pdev,
 			mem.size,
 			mem.base,
 			mem.phys_base);
 		return -EBUSY;
 	}
-	ipahal_destroy_imm_cmd(cmd_pyld);
+	for (i = 0; i < num_cmds; i++)
+		ipahal_destroy_imm_cmd(cmd_pyld[i]);
 
 	ipahal_write_reg(IPA_LOCAL_PKT_PROC_CNTXT_BASE, dma_cmd.local_addr);
 

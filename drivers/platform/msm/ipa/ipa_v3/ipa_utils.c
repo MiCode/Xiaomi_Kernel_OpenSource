@@ -6627,6 +6627,8 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	struct ipa3_tag_completion *comp;
 	int ep_idx;
 	u32 retry_cnt = 0;
+	struct ipahal_reg_valmask valmask;
+	struct ipahal_imm_cmd_register_write reg_write_coal_close;
 
 	/* Not enough room for the required descriptors for the tag process */
 	if (IPA_TAG_MAX_DESC - descs_num < REQUIRED_TAG_PROCESS_DESCRIPTORS) {
@@ -6655,6 +6657,31 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 		memcpy(&(tag_desc[0]), desc, descs_num *
 			sizeof(tag_desc[0]));
 		desc_idx += descs_num;
+	} else
+		goto fail_free_tag_desc;
+
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1) {
+		ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+		reg_write_coal_close.skip_pipeline_clear = false;
+		reg_write_coal_close.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+		reg_write_coal_close.offset = ipahal_get_reg_ofst(
+			IPA_AGGR_FORCE_CLOSE);
+		ipahal_get_aggr_force_close_valmask(ep_idx, &valmask);
+		reg_write_coal_close.value = valmask.val;
+		reg_write_coal_close.value_mask = valmask.mask;
+		cmd_pyld = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_REGISTER_WRITE,
+			&reg_write_coal_close, false);
+		if (!cmd_pyld) {
+			IPAERR("failed to construct coal close IC\n");
+			res = -ENOMEM;
+			goto fail_free_tag_desc;
+		}
+		ipa3_init_imm_cmd_desc(&tag_desc[desc_idx], cmd_pyld);
+		desc[desc_idx].callback = ipa3_tag_destroy_imm;
+		desc[desc_idx].user1 = cmd_pyld;
+		++desc_idx;
 	}
 
 	/* NO-OP IC for ensuring that IPA pipeline is empty */
@@ -6663,7 +6690,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	if (!cmd_pyld) {
 		IPAERR("failed to construct NOP imm cmd\n");
 		res = -ENOMEM;
-		goto fail_free_tag_desc;
+		goto fail_free_desc;
 	}
 	ipa3_init_imm_cmd_desc(&tag_desc[desc_idx], cmd_pyld);
 	tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
