@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,9 +24,9 @@
 #define PORT_TYPE_SERVER		0
 #define PORT_TYPE_CLIENT		1
 
-#define PEPIPHERAL_AFTER_BOOT		0
-#define PEPIPHERAL_SSR_DOWN		1
-#define PEPIPHERAL_SSR_UP		2
+#define PERIPHERAL_AFTER_BOOT		0
+#define PERIPHERAL_SSR_DOWN		1
+#define PERIPHERAL_SSR_UP		2
 
 #define CNTL_CMD_NEW_SERVER		4
 #define CNTL_CMD_REMOVE_SERVER		5
