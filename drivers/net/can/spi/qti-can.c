@@ -1049,6 +1049,40 @@ static int qti_can_convert_ioctl_cmd_to_spi_cmd(int ioctl_cmd)
 	return -EINVAL;
 }
 
+static int qti_can_end_fwupgrade_ioctl(struct net_device *netdev,
+				       struct ifreq *ifr, int cmd)
+{
+	int spi_cmd, ret;
+
+	struct qti_can *priv_data;
+	struct qti_can_netdev_privdata *netdev_priv_data;
+	struct spi_device *spi;
+	int len = 0;
+	u8 *data = NULL;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->qti_can;
+	spi = priv_data->spidev;
+	spi_cmd = qti_can_convert_ioctl_cmd_to_spi_cmd(cmd);
+	LOGDI("%s spi_cmd %x\n", __func__, spi_cmd);
+	if (spi_cmd < 0) {
+		LOGDE("%s wrong command %d\n", __func__, cmd);
+		return spi_cmd;
+	}
+
+	if (!ifr)
+		return -EINVAL;
+
+	mutex_lock(&priv_data->spi_lock);
+	LOGDI("%s len %d\n", __func__, len);
+
+	ret = qti_can_send_spi_locked(priv_data, spi_cmd, len, data);
+
+	mutex_unlock(&priv_data->spi_lock);
+
+	return ret;
+}
+
 static int qti_can_do_blocking_ioctl(struct net_device *netdev,
 				     struct ifreq *ifr, int cmd)
 {
@@ -1184,10 +1218,12 @@ static int qti_can_netdev_do_ioctl(struct net_device *netdev,
 		qti_can_frame_filter(netdev, ifr, cmd);
 		ret = 0;
 		break;
+	case IOCTL_END_FIRMWARE_UPGRADE:
+		ret = qti_can_end_fwupgrade_ioctl(netdev, ifr, cmd);
+		break;
 	case IOCTL_GET_FW_BR_VERSION:
 	case IOCTL_BEGIN_FIRMWARE_UPGRADE:
 	case IOCTL_FIRMWARE_UPGRADE_DATA:
-	case IOCTL_END_FIRMWARE_UPGRADE:
 	case IOCTL_BEGIN_BOOT_ROM_UPGRADE:
 	case IOCTL_BOOT_ROM_UPGRADE_DATA:
 	case IOCTL_END_BOOT_ROM_UPGRADE:
