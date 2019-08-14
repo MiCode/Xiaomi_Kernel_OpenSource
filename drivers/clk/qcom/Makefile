@@ -54,6 +54,7 @@ obj-$(CONFIG_SDM_GCC_845) += gcc-sdm845.o
 obj-$(CONFIG_SDM_VIDEOCC_845) += videocc-sdm845.o
 obj-$(CONFIG_SM_CAMCC_LITO) += camcc-lito.o
 obj-$(CONFIG_SM_DEBUGCC_LITO) += debugcc-lito.o
+obj-$(CONFIG_SM_DISPCC_BENGAL) += dispcc-bengal.o
 obj-$(CONFIG_SM_DISPCC_LITO) += dispcc-lito.o
 obj-$(CONFIG_SM_GCC_BENGAL) += gcc-bengal.o
 obj-$(CONFIG_SM_GCC_LITO) += gcc-lito.o
