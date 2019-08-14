@@ -1264,6 +1264,7 @@
 				     "mediatek,toprgu";
 			reg = <0 0x10007000 0 0x1000>;
 			interrupts = <GIC_SPI 139 IRQ_TYPE_LEVEL_LOW>;
+			mediatek,rg_dfd_timeout = <0xa0>;
 			reboot-mode {
 				compatible = "toprgu-reboot-mode";
 				regmap = <&toprgu>;
