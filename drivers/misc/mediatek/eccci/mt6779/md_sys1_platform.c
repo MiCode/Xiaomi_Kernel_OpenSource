@@ -351,7 +351,7 @@ void md_cd_lock_modem_clock_src(int locked)
 
 		if (ret > 0)
 			CCCI_NOTICE_LOG(-1, TAG,
-				"error: mt_secure_call() = %u\n", ret);
+				"error: mt_secure_call() = %zu\n", ret);
 	}
 }
 
