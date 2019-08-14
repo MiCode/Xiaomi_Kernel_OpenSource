@@ -69,6 +69,16 @@
 #include "mtk_static_power_mt6779.h"
 #endif /* ifdef MT_GPUFREQ_STATIC_PWR_READY2USE */
 
+#ifdef MT_GPUFREQ_BATT_OC_PROTECT
+#include "mtk_battery_oc_throttling.h"
+#endif
+#ifdef MT_GPUFREQ_LOW_BATT_VOLT_PROTECT
+#include "mtk_low_battery_throttling.h"
+#endif
+#ifdef MT_GPUFREQ_BATT_PERCENT_PROTECT
+#include "mtk_battery_percentage_throttling.h"
+#endif
+
 #include <linux/string.h>
 
 
@@ -931,7 +941,7 @@ int mt_gpufreq_get_cur_ceiling_idx(void)
 /*
  * API : Over Currents(OC) Callback
  */
-void mt_gpufreq_batt_oc_callback(BATTERY_OC_LEVEL battery_oc_level)
+void mt_gpufreq_batt_oc_callback(enum BATTERY_OC_LEVEL_TAG battery_oc_level)
 {
 	if (g_batt_oc_limited_ignore_state) {
 		gpufreq_pr_debug("@%s: ignore Over Currents(OC) protection\n",
@@ -965,7 +975,7 @@ void mt_gpufreq_batt_oc_callback(BATTERY_OC_LEVEL battery_oc_level)
  * API : Battery Percentage Callback
  */
 void
-mt_gpufreq_batt_percent_callback(BATTERY_PERCENT_LEVEL battery_percent_level)
+mt_gpufreq_batt_percent_callback(enum BATTERY_PERCENT_LEVEL_TAG bat_percent_lv)
 {
 	if (g_batt_percent_limited_ignore_state) {
 		gpufreq_pr_debug(
@@ -975,12 +985,12 @@ mt_gpufreq_batt_percent_callback(BATTERY_PERCENT_LEVEL battery_percent_level)
 	}
 
 	gpufreq_pr_debug("@%s: battery_percent_level = %d\n",
-		__func__, battery_percent_level);
+		__func__, bat_percent_lv);
 
-	g_batt_percent_level = battery_percent_level;
+	g_batt_percent_level = bat_percent_lv;
 
 	/* BATTERY_PERCENT_LEVEL_1: <= 15%, BATTERY_PERCENT_LEVEL_0: >15% */
-	if (battery_percent_level == BATTERY_PERCENT_LEVEL_1) {
+	if (bat_percent_lv == BATTERY_PERCENT_LEVEL_1) {
 		if (g_batt_percent_limited_idx !=
 			g_batt_percent_limited_idx_lv_1) {
 			g_batt_percent_limited_idx
@@ -1004,7 +1014,7 @@ mt_gpufreq_batt_percent_callback(BATTERY_PERCENT_LEVEL battery_percent_level)
 /*
  * API : Low Battery Volume Callback
  */
-void mt_gpufreq_low_batt_callback(LOW_BATTERY_LEVEL low_battery_level)
+void mt_gpufreq_low_batt_callback(enum LOW_BATTERY_LEVEL_TAG low_battery_level)
 {
 	if (g_low_batt_limited_ignore_state) {
 		gpufreq_pr_debug(
