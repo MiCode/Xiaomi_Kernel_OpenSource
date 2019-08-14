@@ -447,10 +447,8 @@ static int dvfsrc_set_performance(struct notifier_block *b,
 		highest = max(highest, d->state);
 	}
 
-	if (match == false) {
-		dev_err(dvfsrc->dev, "domain not match\n");
+	if (!match)
 		goto out;
-	}
 
 	if (highest != 0)
 		highest = highest - 1;
