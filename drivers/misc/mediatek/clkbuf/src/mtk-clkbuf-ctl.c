@@ -21,8 +21,6 @@
 
 DEFINE_MUTEX(clk_buf_ctrl_lock);
 
-bool clkbuf_debug;
-
 struct clk_buf {
 	const char		*name;
 	const struct clk_buf_op	*ops;

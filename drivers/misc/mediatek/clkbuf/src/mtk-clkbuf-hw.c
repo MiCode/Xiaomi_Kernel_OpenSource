@@ -36,6 +36,7 @@
 static bool is_clkbuf_bringup;
 static bool is_clkbuf_initiated;
 static bool is_flightmode_on;
+static bool clkbuf_debug;
 static unsigned int xo_mode_init[XO_NUMBER];
 static unsigned int pwrap_dcxo_en_init;
 /* store all register information including offset & bit shift */
@@ -276,15 +277,8 @@ static enum dev_sta _get_nfc_dev_state(void)
 
 static enum dev_sta _get_ufs_dev_state(void)
 {
-#if defined(CONFIG_MTK_UFS_SUPPORT)
-	int boot_type = get_boot_type();
-
-	if (boot_type == BOOTDEV_UFS) {
-		if (ufs_mtk_deepidle_hibern8_check() < 0)
-			return DEV_OFF;
-
-		return DEV_ON;
-	}
+#if defined(CONFIG_SCSI_UFS_MEDIATEK)
+	return DEV_ON;
 #endif
 	return DEV_NOT_SUPPORT;
 }
@@ -297,7 +291,7 @@ static int _clk_buf_set_bblpm_hw_en(bool on)
 	clkbuf_update(BBL_HW_SEL, 0, on);
 	clkbuf_read(BBL_HW_SEL, 0, &val);
 
-	clk_buf_pr_dbg("%s(%u): bblpm_hw=0x%x\n",
+	pr_debug("%s(%u): bblpm_hw=0x%x\n",
 			__func__, (on ? 1 : 0), val);
 
 	return 0;
@@ -535,7 +529,7 @@ static bool _clk_buf_ctrl(enum clk_buf_id id, bool onoff)
 	if (!_clk_buf_get_init_sta())
 		return false;
 
-	clk_buf_pr_dbg("%s: id=%d, onoff=%d\n",
+	pr_debug("%s: id=%d, onoff=%d\n",
 		__func__, id, onoff);
 
 	if (preempt_count() > 0 || irqs_disabled()
@@ -632,7 +626,8 @@ static void _clk_buf_get_xo_en(u32 *stat)
 	int i;
 
 	idx = AUXOUT_XO_EN - AUXOUT_START;
-	clkbuf_update(AUXOUT_SEL, 0, cfg[AUXOUT_SEL].bit[idx]);
+	clkbuf_write(AUXOUT_SEL, 0, cfg[AUXOUT_SEL].bit[idx]);
+
 	for (i = 0 ; i < XO_NUMBER; i++)
 		if (cfg[AUXOUT_XO_EN].ofs[i] != NOT_VALID)
 			clkbuf_read(AUXOUT_XO_EN, i, &stat[i]);
@@ -799,7 +794,7 @@ static ssize_t clk_buf_ctrl_show(struct kobject *kobj,
 	return len;
 }
 
-static int _clk_buf_debug_internal(char *cmd, enum clk_buf_id id, bool onoff)
+static int _clk_buf_debug_internal(char *cmd, enum clk_buf_id id)
 {
 	int ret = 0;
 
@@ -815,8 +810,10 @@ static int _clk_buf_debug_internal(char *cmd, enum clk_buf_id id, bool onoff)
 		ret = _clk_buf_ctrl_internal(id, CLK_BUF_COBUF);
 	else if (!strcmp(cmd, "INIT"))
 		ret = _clk_buf_ctrl_internal(id, CLK_BUF_INIT_SETTING);
-	else if (!strcmp(cmd, "TEST"))
-		ret = _clk_buf_ctrl(id, onoff);
+	else if (!strcmp(cmd, "TEST_ON"))
+		ret = _clk_buf_ctrl(id, true);
+	else if (!strcmp(cmd, "TEST_OFF"))
+		ret = _clk_buf_ctrl(id, false);
 	else
 		ret = -1;
 
@@ -826,28 +823,23 @@ static int _clk_buf_debug_internal(char *cmd, enum clk_buf_id id, bool onoff)
 static ssize_t clk_buf_debug_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	u32 onoff;
 	char cmd[32] =  {'\0'}, xo_user[11] = {'\0'};
 	u32 i;
 
-	if ((sscanf(buf, "%31s %10s %x", cmd, xo_user, &onoff) != 3))
+	if ((sscanf(buf, "%31s %10s", cmd, xo_user) != 2))
 		return -EPERM;
-	if (!strcmp(cmd, "debug")) {
-		if (onoff == 0)
-			clkbuf_debug = false;
-		else if (onoff == 1)
-			clkbuf_debug = true;
-		else
-			goto ERROR_CMD;
-	} else {
-		for (i = 0; i < XO_NUMBER; i++)
-			if (!strcmp(xo_user, XO_NAME[i]))
-				if (_clk_buf_debug_internal(cmd, i, onoff) < 0)
-					goto ERROR_CMD;
 
-		if (strcmp(xo_user, "0"))
-			goto ERROR_CMD;
-	}
+	for (i = 0; i < XO_NUMBER; i++)
+		if (!strcmp(xo_user, XO_NAME[i])) {
+			if (_clk_buf_debug_internal(cmd, i) < 0)
+				goto ERROR_CMD;
+			else if (!strcmp(cmd, "INIT"))
+				clkbuf_debug = false;
+			else
+				clkbuf_debug = true;
+		}
+	if (strcmp(xo_user, "0"))
+		goto ERROR_CMD;
 
 	return count;
 ERROR_CMD:

@@ -33,12 +33,6 @@
 #endif
 #define pr_fmt(fmt) "[Power/clkbuf] " fmt
 
-#define clk_buf_pr_dbg(fmt, args...)			\
-	do {						\
-		if (clkbuf_debug)			\
-			pr_info(fmt, ##args);		\
-	} while (0)
-
 #ifdef CONFIG_PM
 #define DEFINE_ATTR_RO(_name)			\
 static struct kobj_attribute _name##_attr = {	\
@@ -63,7 +57,6 @@ static struct kobj_attribute _name##_attr = {	\
 #endif /* CONFIG_PM */
 
 extern struct mutex clk_buf_ctrl_lock;
-extern bool clkbuf_debug;
 
 #endif
 
