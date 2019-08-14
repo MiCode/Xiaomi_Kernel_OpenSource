@@ -664,12 +664,13 @@ static int scpsys_md_power_off(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto out;
 
+	/* for md subsys, the isolation is prior to RST_B operation */
+	scpsys_extb_iso_up(scpd);
+
 	val &= ~PWR_RST_B_BIT;
 	writel(val, ctl_addr);
 
 	scpsys_clk_disable(scpd->clk, MAX_CLKS);
-
-	scpsys_extb_iso_up(scpd);
 
 	ret = scpsys_regulator_disable(scpd);
 	if (ret < 0)
