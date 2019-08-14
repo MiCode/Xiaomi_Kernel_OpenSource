@@ -915,6 +915,9 @@ int usb_qdss_write(struct usb_qdss_ch *ch, struct qdss_request *d_req)
 	req->buf = d_req->buf;
 	req->length = d_req->length;
 	req->context = d_req;
+	req->sg = d_req->sg;
+	req->num_sgs = d_req->num_sgs;
+	req->num_mapped_sgs = d_req->num_mapped_sgs;
 	if (usb_ep_queue(qdss->port.data, req, GFP_ATOMIC)) {
 		spin_lock_irqsave(&qdss->lock, flags);
 		list_add_tail(&req->list, &qdss->data_write_pool);
