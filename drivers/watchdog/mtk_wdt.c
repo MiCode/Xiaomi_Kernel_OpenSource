@@ -55,6 +55,13 @@
 #define RGU_STAGE_KERNEL	0x3
 #define WDT_BYPASS_PWR_KEY	(1 << 13)
 
+#define WDT_LATCH_CTL2	0x48
+#define WDT_DFD_EN              (1 << 17)
+#define WDT_DFD_THERMAL1_DIS    (1 << 18)
+#define WDT_DFD_THERMAL2_DIS    (1 << 19)
+#define WDT_DFD_TIMEOUT_MASK    0x1FFFF
+#define WDT_LATCH_CTL2_KEY	0x95000000
+
 #define DRV_NAME		"mtk-wdt"
 #define DRV_VERSION		"1.0"
 
@@ -64,6 +71,7 @@ static unsigned int timeout;
 struct mtk_wdt_dev {
 	struct watchdog_device wdt_dev;
 	void __iomem *wdt_base;
+	u32 dfd_timeout;
 };
 
 static void mtk_wdt_mark_stage(struct watchdog_device *wdt_dev)
@@ -76,6 +84,33 @@ static void mtk_wdt_mark_stage(struct watchdog_device *wdt_dev)
 	      (RGU_STAGE_KERNEL << WDT_NONRST2_STAGE_OFS);
 
 	writel(reg, wdt_base + WDT_NONRST2);
+}
+
+static void mtk_wdt_parse_dt(struct device_node *np,
+				struct mtk_wdt_dev *mtk_wdt)
+{
+	int ret;
+	void __iomem *wdt_base = NULL;
+	unsigned int reg = 0, tmp = 0;
+
+	if (!np || !mtk_wdt)
+		return;
+
+	ret = of_property_read_u32(np, "mediatek,rg_dfd_timeout",
+				      &mtk_wdt->dfd_timeout);
+
+	wdt_base = mtk_wdt->wdt_base;
+
+	if (!ret && mtk_wdt->dfd_timeout) {
+		tmp = mtk_wdt->dfd_timeout & WDT_DFD_TIMEOUT_MASK;
+
+		/* enable dfd_en and setup timeout */
+		reg = readl(wdt_base + WDT_LATCH_CTL2);
+		reg &= ~(WDT_DFD_THERMAL2_DIS | WDT_DFD_TIMEOUT_MASK);
+		reg |= (WDT_DFD_EN | WDT_DFD_THERMAL1_DIS |
+			 WDT_LATCH_CTL2_KEY | tmp);
+		writel(reg, wdt_base + WDT_LATCH_CTL2);
+	}
 }
 
 static int mtk_wdt_restart(struct watchdog_device *wdt_dev,
@@ -235,6 +270,8 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 	watchdog_set_drvdata(&mtk_wdt->wdt_dev, mtk_wdt);
 
 	mtk_wdt_mark_stage(&mtk_wdt->wdt_dev);
+
+	mtk_wdt_parse_dt(pdev->dev.of_node, mtk_wdt);
 
 	if (readl(mtk_wdt->wdt_base + WDT_MODE) & WDT_MODE_EN)
 		mtk_wdt_start(&mtk_wdt->wdt_dev);
