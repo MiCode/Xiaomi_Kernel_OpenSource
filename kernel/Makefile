@@ -40,6 +40,9 @@ endif
 # Don't instrument error handlers
 CFLAGS_cfi.o = $(DISABLE_CFI_CLANG)
 
+# Don't instrument error handlers
+CFLAGS_cfi.o = $(DISABLE_CFI_CLANG)
+
 obj-y += sched/
 obj-y += locking/
 obj-y += power/
