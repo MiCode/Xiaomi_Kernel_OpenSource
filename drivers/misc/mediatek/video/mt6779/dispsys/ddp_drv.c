@@ -364,7 +364,7 @@ static int disp_probe_1(void)
 			}
 
 			if (j == DISP_LARB_NUM) {
-				DDP_PR_ERR("Cannot find smi-larb%d node:%s\n",
+				DDP_PR_ERR("Cannot find smi-larb%d\n",
 						larb);
 				continue;
 			}

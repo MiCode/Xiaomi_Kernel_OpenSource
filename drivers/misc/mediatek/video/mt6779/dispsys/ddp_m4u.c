@@ -443,12 +443,13 @@ int disp_aosp_release_reserved_area(phys_addr_t pa_start,
 		     phys_addr_t pa_end)
 {
 	unsigned long pages;
-	size_t size = pa_end - pa_start + 1;
 	void *va_start, *va_end;
 
 	if ((!pa_start) || (!pa_end)) {
-		DISP_PR_ERR("%s:%d cannot support NULL PA(0x%p,0x%p)\n",
-				__func__, __LINE__, pa_start, pa_end);
+		DISP_PR_ERR("%s:%d cannot support NULL PA(0x%lx,0x%lx)\n",
+				__func__, __LINE__,
+				(unsigned long)pa_start,
+				(unsigned long)pa_end);
 		return -1;
 	}
 
@@ -456,7 +457,7 @@ int disp_aosp_release_reserved_area(phys_addr_t pa_start,
 	va_end = __va(pa_end);
 	pages = free_reserved_area(va_start, va_end, 0xFF, "DDP_M4U");
 	if (!pages) {
-		DISP_PR_ERR("%s:%d release fail! va_s:0x%p, va_e:%d\n",
+		DISP_PR_ERR("%s:%d release fail! va_s:0x%p, va_e:%p\n",
 				__func__, __LINE__, va_start, va_end);
 		return -1;
 	}
@@ -479,8 +480,10 @@ int disp_aosp_alloc_iova(struct device *dev, phys_addr_t pa_start,
 		return -1;
 	}
 	if ((!pa_start) || (!pa_end)) {
-		DISP_PR_ERR("%s:%d cannot support NULL PA(0x%p,0x%p)\n",
-				__func__, __LINE__, pa_start, pa_end);
+		DISP_PR_ERR("%s:%d cannot support NULL PA(0x%lx,0x%lx)\n",
+				__func__, __LINE__,
+				(unsigned long)pa_start,
+				(unsigned long)pa_end);
 		return -1;
 	}
 	if (!iova) {
@@ -495,7 +498,7 @@ int disp_aosp_alloc_iova(struct device *dev, phys_addr_t pa_start,
 		DISP_PR_ERR("%s:%d alloc dma_buf fail! ",
 				__func__, __LINE__);
 		DISP_PR_ERR("dev:0x%p, size:%d, iova:0x%p\n",
-				dev, size, iova);
+				dev, (unsigned int)size, iova);
 		return -1;
 	}
 

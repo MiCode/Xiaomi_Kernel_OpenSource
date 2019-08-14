@@ -140,7 +140,7 @@ enum CMDQ_EVENT_ENUM ovl_to_cmdq_event_nonsec_end(enum DISP_MODULE_ENUM module)
 		return CMDQ_SYNC_DISP_2LOVL1_2NONSEC_END;
 	default:
 		DDP_PR_ERR("invalid ovl module=%d, %s fail\n",
-			   __func__, module);
+			   module, __func__);
 		ASSERT(0);
 		return CMDQ_SYNC_TOKEN_INVALID;
 	}

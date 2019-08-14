@@ -45,7 +45,7 @@ unsigned long get_smi_larb_va(unsigned int larb)
 	}
 
 	if (i == DISP_LARB_NUM) {
-		DDP_PR_ERR("Cannot find smi-larb%d node:%s\n",
+		DDP_PR_ERR("Cannot find smi-larb%d\n",
 				larb);
 		return 0;
 	}
