@@ -1,4 +1,5 @@
-/* Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017, 2019, The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -157,7 +158,7 @@
 				<&venus_smmu 0x2d>,
 				<&venus_smmu 0x31>;
 			buffer-types = <0xfff>;
-			virtual-addr-pool = <0x70800000 0x8F800000>;
+			virtual-addr-pool = <0x70800000 0x6f800000>;
 		};
 
 		firmware_cb {
