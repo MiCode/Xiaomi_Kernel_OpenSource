@@ -126,6 +126,13 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 		mtk_smi_larb_bw_set(
 			larb_node->larb_dev,
 			src->id & 0xff, value);
+
+		if ((dst->id & 0xff) == 1) {
+			mtk_smi_larb_bw_set(
+				larb_node->larb_dev, 9, 8);
+			mtk_smi_larb_bw_set(
+				larb_node->larb_dev, 11, 8);
+		}
 		break;
 	default:
 		break;
