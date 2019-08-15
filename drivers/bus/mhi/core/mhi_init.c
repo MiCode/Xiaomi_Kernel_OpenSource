@@ -23,6 +23,14 @@
 #include <linux/mhi.h>
 #include "mhi_internal.h"
 
+const char * const mhi_log_level_str[MHI_MSG_LVL_MAX] = {
+	[MHI_MSG_LVL_VERBOSE] = "Verbose",
+	[MHI_MSG_LVL_INFO] = "Info",
+	[MHI_MSG_LVL_ERROR] = "Error",
+	[MHI_MSG_LVL_CRITICAL] = "Critical",
+	[MHI_MSG_LVL_MASK_ALL] = "Mask all",
+};
+
 const char * const mhi_ee_str[MHI_EE_MAX] = {
 	[MHI_EE_PBL] = "PBL",
 	[MHI_EE_SBL] = "SBL",
@@ -80,6 +88,38 @@ const char *to_mhi_pm_state_str(enum MHI_PM_STATE state)
 
 	return mhi_pm_state_str[index];
 }
+
+static ssize_t log_level_show(struct device *dev,
+			      struct device_attribute *attr,
+			      char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	return snprintf(buf, PAGE_SIZE, "%s\n",
+			TO_MHI_LOG_LEVEL_STR(mhi_cntrl->log_lvl));
+}
+
+static ssize_t log_level_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf,
+			       size_t count)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	enum MHI_DEBUG_LEVEL log_level;
+
+	if (kstrtou32(buf, 0, &log_level) < 0)
+		return -EINVAL;
+
+	mhi_cntrl->log_lvl = log_level;
+
+	MHI_LOG("IPC log level changed to: %s\n",
+		TO_MHI_LOG_LEVEL_STR(log_level));
+
+	return count;
+}
+static DEVICE_ATTR_RW(log_level);
 
 static ssize_t bus_vote_show(struct device *dev,
 			     struct device_attribute *attr,
@@ -139,27 +179,28 @@ static ssize_t device_vote_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(device_vote);
 
-static struct attribute *mhi_vote_attrs[] = {
+static struct attribute *mhi_sysfs_attrs[] = {
+	&dev_attr_log_level.attr,
 	&dev_attr_bus_vote.attr,
 	&dev_attr_device_vote.attr,
 	NULL,
 };
 
-static const struct attribute_group mhi_vote_group = {
-	.attrs = mhi_vote_attrs,
+static const struct attribute_group mhi_sysfs_group = {
+	.attrs = mhi_sysfs_attrs,
 };
 
-int mhi_create_vote_sysfs(struct mhi_controller *mhi_cntrl)
+int mhi_create_sysfs(struct mhi_controller *mhi_cntrl)
 {
 	return sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj,
-				  &mhi_vote_group);
+				  &mhi_sysfs_group);
 }
 
-void mhi_destroy_vote_sysfs(struct mhi_controller *mhi_cntrl)
+void mhi_destroy_sysfs(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_device *mhi_dev = mhi_cntrl->mhi_dev;
 
-	sysfs_remove_group(&mhi_dev->dev.kobj, &mhi_vote_group);
+	sysfs_remove_group(&mhi_dev->dev.kobj, &mhi_sysfs_group);
 
 	/* relinquish any pending votes for device */
 	while (atomic_read(&mhi_dev->dev_vote))
