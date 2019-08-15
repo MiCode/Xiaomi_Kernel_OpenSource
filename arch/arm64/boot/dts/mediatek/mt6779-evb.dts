@@ -572,6 +572,10 @@
 	status = "okay";
 };
 
+&usb_host {
+	status = "okay";
+};
+
 &u3phy {
 	status = "okay";
 };
