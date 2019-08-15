@@ -143,6 +143,9 @@ x509.genkey
 # Kdevelop4
 *.kdev4
 
+# Clang's compilation database file
+/compile_commands.json
+
 # GKI generated defconfigs
 arch/*/configs/vendor/*-gki_defconfig
 arch/*/configs/vendor/*-qgki_defconfig

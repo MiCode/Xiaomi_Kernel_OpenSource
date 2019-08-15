@@ -957,6 +957,30 @@ int dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 }
 EXPORT_SYMBOL_GPL(dma_buf_begin_cpu_access);
 
+int dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
+				     enum dma_data_direction direction,
+				     unsigned int offset, unsigned int len)
+{
+	int ret = 0;
+
+	if (WARN_ON(!dmabuf))
+		return -EINVAL;
+
+	if (dmabuf->ops->begin_cpu_access_partial)
+		ret = dmabuf->ops->begin_cpu_access_partial(dmabuf, direction,
+							    offset, len);
+
+	/* Ensure that all fences are waited upon - but we first allow
+	 * the native handler the chance to do so more efficiently if it
+	 * chooses. A double invocation here will be reasonably cheap no-op.
+	 */
+	if (ret == 0)
+		ret = __dma_buf_begin_cpu_access(dmabuf, direction);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(dma_buf_begin_cpu_access_partial);
+
 /**
  * dma_buf_end_cpu_access - Must be called after accessing a dma_buf from the
  * cpu in the kernel context. Calls end_cpu_access to allow exporter-specific
@@ -982,6 +1006,22 @@ int dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(dma_buf_end_cpu_access);
+
+int dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
+				   enum dma_data_direction direction,
+				   unsigned int offset, unsigned int len)
+{
+	int ret = 0;
+
+	WARN_ON(!dmabuf);
+
+	if (dmabuf->ops->end_cpu_access_partial)
+		ret = dmabuf->ops->end_cpu_access_partial(dmabuf, direction,
+							  offset, len);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(dma_buf_end_cpu_access_partial);
 
 /**
  * dma_buf_kmap - Map a page of the buffer object into kernel address space. The
@@ -1147,6 +1187,20 @@ void dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
 	mutex_unlock(&dmabuf->lock);
 }
 EXPORT_SYMBOL_GPL(dma_buf_vunmap);
+
+int dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags)
+{
+	int ret = 0;
+
+	if (WARN_ON(!dmabuf) || !flags)
+		return -EINVAL;
+
+	if (dmabuf->ops->get_flags)
+		ret = dmabuf->ops->get_flags(dmabuf, flags);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(dma_buf_get_flags);
 
 #ifdef CONFIG_DEBUG_FS
 static int dma_buf_debug_show(struct seq_file *s, void *unused)
