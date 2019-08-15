@@ -88,7 +88,6 @@
 
 /* SMMU global address space */
 #define ARM_SMMU_GR0(smmu)		((smmu)->base)
-#define ARM_SMMU_GR1(smmu)		((smmu)->base + (1 << (smmu)->pgshift))
 
 /*
  * SMMU global address space with conditional offset to access secure
@@ -366,6 +365,29 @@ struct arm_smmu_domain {
 	struct list_head		nonsecure_pool;
 	struct msm_iommu_domain		domain;
 };
+
+static void __iomem *arm_smmu_page(struct arm_smmu_device *smmu, int n)
+{
+	return smmu->base + (n << smmu->pgshift);
+}
+
+static u32 arm_smmu_readl(struct arm_smmu_device *smmu, int page, int offset)
+{
+	return readl_relaxed(arm_smmu_page(smmu, page) + offset);
+}
+
+static void arm_smmu_writel(struct arm_smmu_device *smmu, int page, int offset,
+			    u32 val)
+{
+	writel_relaxed(val, arm_smmu_page(smmu, page) + offset);
+}
+
+#define ARM_SMMU_GR1		1
+
+#define arm_smmu_gr1_read(s, o)		\
+	arm_smmu_readl((s), ARM_SMMU_GR1, (o))
+#define arm_smmu_gr1_write(s, o, v)	\
+	arm_smmu_writel((s), ARM_SMMU_GR1, (o), (v))
 
 struct arm_smmu_option_prop {
 	u32 opt;
@@ -1372,7 +1394,6 @@ static void print_ctx_regs(struct arm_smmu_device *smmu, struct arm_smmu_cfg
 {
 	u32 fsynr0;
 	void __iomem *cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
-	void __iomem *gr1_base = ARM_SMMU_GR1(smmu);
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 
 	fsynr0 = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR0);
@@ -1419,7 +1440,7 @@ static void print_ctx_regs(struct arm_smmu_device *smmu, struct arm_smmu_cfg
 	       readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR),
 	       readl_relaxed(cb_base + ARM_SMMU_CB_ACTLR));
 	dev_err(smmu->dev, "CBAR  = 0x%08x\n",
-	       readl_relaxed(gr1_base + ARM_SMMU_GR1_CBAR(cfg->cbndx)));
+		arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBAR(cfg->cbndx)));
 	dev_err(smmu->dev, "MAIR0   = 0x%08x MAIR1   = 0x%08x\n",
 	       readl_relaxed(cb_base + ARM_SMMU_CB_S1_MAIR0),
 	       readl_relaxed(cb_base + ARM_SMMU_CB_S1_MAIR1));
@@ -1458,7 +1479,6 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	void __iomem *cb_base;
-	void __iomem *gr1_base;
 	bool fatal_asf = smmu->options & ARM_SMMU_OPT_FATAL_ASF;
 	phys_addr_t phys_soft;
 	uint64_t pte;
@@ -1473,7 +1493,6 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	if (ret)
 		return IRQ_NONE;
 
-	gr1_base = ARM_SMMU_GR1(smmu);
 	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
 	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
 
@@ -1502,7 +1521,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 
 	iova = readq_relaxed(cb_base + ARM_SMMU_CB_FAR);
 	phys_soft = arm_smmu_iova_to_phys(domain, iova);
-	frsynra = readl_relaxed(gr1_base + ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
+	frsynra = arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
 	frsynra &= CBFRSYNRA_SID_MASK;
 	tmp = report_iommu_fault(domain, smmu->dev, iova, flags);
 	if (!tmp || (tmp == -EBUSY)) {
@@ -1674,7 +1693,7 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	struct arm_smmu_cb *cb = &smmu->cbs[idx];
 	struct arm_smmu_cfg *cfg = cb->cfg;
 	struct arm_smmu_domain *smmu_domain = NULL;
-	void __iomem *cb_base, *gr1_base;
+	void __iomem *cb_base;
 
 	cb_base = ARM_SMMU_CB(smmu, idx);
 
@@ -1684,7 +1703,6 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 		return;
 	}
 
-	gr1_base = ARM_SMMU_GR1(smmu);
 	stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 
 	/* CBA2R */
@@ -1697,7 +1715,7 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 		if (smmu->features & ARM_SMMU_FEAT_VMID16)
 			reg |= FIELD_PREP(CBA2R_VMID16, cfg->vmid);
 
-		writel_relaxed(reg, gr1_base + ARM_SMMU_GR1_CBA2R(idx));
+		arm_smmu_gr1_write(smmu, ARM_SMMU_GR1_CBA2R(idx), reg);
 	}
 
 	/* CBAR */
@@ -1716,7 +1734,7 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 		/* 8-bit VMIDs live in CBAR */
 		reg |= FIELD_PREP(CBAR_VMID, cfg->vmid);
 	}
-	writel_relaxed(reg, gr1_base + ARM_SMMU_GR1_CBAR(idx));
+	arm_smmu_gr1_write(smmu, ARM_SMMU_GR1_CBAR(idx), reg);
 
 	/*
 	 * TCR
@@ -5466,7 +5484,6 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct iommu_fwspec *fwspec;
-	void __iomem *gr1_base;
 	u32 frsynra;
 	int is_debug_domain;
 
@@ -5484,9 +5501,8 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 		/* If the domain belongs to an actual device, read
 		 * SID from the corresponding frsynra register
 		 */
-		gr1_base = ARM_SMMU_GR1(smmu);
-		frsynra  = readl_relaxed(gr1_base +
-				ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
+		frsynra = arm_smmu_gr1_read(smmu,
+					    ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
 		frsynra &= CBFRSYNRA_SID_MASK;
 		sid      = frsynra;
 	}
