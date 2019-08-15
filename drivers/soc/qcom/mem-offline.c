@@ -152,8 +152,11 @@ static int mem_change_refresh_state(struct memory_notify *mn,
 		return 0;
 	}
 	ret = aop_send_msg(__pfn_to_phys(start), online);
-	if (ret)
+	if (ret) {
+		if (state == MEMORY_ONLINE)
+			BUG_ON(IS_ENABLED(CONFIG_BUG_ON_HW_MEM_ONLINE_FAIL));
 		return -EINVAL;
+	}
 	mem_hw_state[idx] = state;
 
 	return 0;
