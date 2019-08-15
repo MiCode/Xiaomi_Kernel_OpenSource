@@ -614,6 +614,13 @@ static int get_gpu_frame_time(struct FSTB_FRAME_INFO *iter)
 
 }
 
+void (*eara_thrm_frame_start_fp)(int pid,
+	int cpu_time, int vpu_time, int mdla_time,
+	int cpu_cap, int vpu_cap, int mdla_cap,
+	int queuefps, unsigned long long q2q_time,
+	int AI_cross_vpu, int AI_cross_mdla, int AI_bg_vpu,
+	int AI_bg_mdla, ktime_t cur_time);
+
 int fpsgo_fbt2fstb_update_cpu_frame_info(
 		int pid,
 		int tgid,
@@ -769,9 +776,20 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 		fpsgo_systrace_c_fstb(pid, (int)iter->m_m_cap, "avg_mdla_cap");
 	}
 
+	if (eara_thrm_frame_start_fp) {
+		eara_thrm_frame_start_fp(pid, (int)Runnging_time,
+			(int)vpu_time_ns, (int)mdla_time_ns, Curr_cap,
+			vpu_boost, mdla_boost, iter->queue_fps,
+			Q2Q_time, 0, 0,
+			0, 0, cur_time);
+	}
+
 	mutex_unlock(&fstb_lock);
 	return 0;
 }
+
+void (*eara_thrm_enqueue_end_fp)(int pid, int gpu_time, int gpu_freq,
+	unsigned long long enq);
 
 int fpsgo_comp2fstb_enq_end(int pid, unsigned long long enq)
 {
@@ -793,6 +811,10 @@ int fpsgo_comp2fstb_enq_end(int pid, unsigned long long enq)
 		mutex_unlock(&fstb_lock);
 		return 0;
 	}
+
+	if (eara_thrm_enqueue_end_fp)
+		eara_thrm_enqueue_end_fp(pid,
+			iter->gpu_time, iter->gpu_freq, enq);
 
 	mutex_unlock(&fstb_lock);
 	return 0;
@@ -1249,6 +1271,7 @@ static int cal_target_fps(struct FSTB_FRAME_INFO *iter)
 
 }
 
+void (*eara_thrm_gblock_bypass_fp)(int pid, int bypass);
 #define FSTB_SEC_DIVIDER 1000000000
 void fpsgo_fbt2fstb_query_fps(int pid, int *target_fps,
 	int *target_cpu_time, int tgid, unsigned long long mid)
@@ -1292,6 +1315,12 @@ void fpsgo_fbt2fstb_query_fps(int pid, int *target_fps,
 			fpsgo_systrace_c_fstb(pid,
 					iter->gblock_time, "gblock_time");
 			total_time -= iter->gblock_time;
+
+			if (eara_thrm_gblock_bypass_fp)
+				eara_thrm_gblock_bypass_fp(iter->pid, 1);
+		} else {
+			if (eara_thrm_gblock_bypass_fp)
+				eara_thrm_gblock_bypass_fp(iter->pid, 0);
 		}
 
 		iter->gblock_time = 0ULL;
