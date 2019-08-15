@@ -557,8 +557,14 @@ void md1_pmic_setting_on(void)
 	ret = regulator_set_voltage(reg_vmodem, 875000, 875000);
 	if (ret)
 		CCCI_ERROR_LOG(-1, TAG, "pmic_vmodem setting on fail\n");
+	ret = regulator_sync_voltage(reg_vmodem);
+	if (ret)
+		CCCI_ERROR_LOG(-1, TAG, "pmic_vmodem setting on fail\n");
 
 	ret = regulator_set_voltage(reg_vsram, 993750, 993750);
+	if (ret)
+		CCCI_ERROR_LOG(-1, TAG, "pmic_vsram setting on fail\n");
+	ret = regulator_sync_voltage(reg_vsram);
 	if (ret)
 		CCCI_ERROR_LOG(-1, TAG, "pmic_vsram setting on fail\n");
 
