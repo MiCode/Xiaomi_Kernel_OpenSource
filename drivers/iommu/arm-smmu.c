@@ -55,7 +55,7 @@
 #include <linux/fsl/mc.h>
 
 #include <soc/qcom/scm.h>
-#include "arm-smmu-regs.h"
+#include "arm-smmu.h"
 
 #define CREATE_TRACE_POINTS
 #include "arm-smmu-trace.h"
