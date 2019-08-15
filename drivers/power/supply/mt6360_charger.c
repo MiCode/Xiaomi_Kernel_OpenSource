@@ -107,6 +107,13 @@
 #define MT6360_IEOC_MAX		850000
 #define MT6360_IEOC_STEP	50000
 
+/* bc12 icl and ccl setting : uA */
+#define ICL_CHGTYPE_SDP		500000
+#define ICL_CHGTYPE_SDPNSTD	500000
+#define ICL_CHGTYPE_CDP		1500000
+#define ICL_CHGTYPE_DCP		2000000
+#define CCL_CHGTYPE_UNFREEZE	3000000
+
 struct mt6360_chg_platform_data {
 	u32 vinovp;
 };
@@ -684,6 +691,8 @@ static irqreturn_t mt6360_pmu_attach_i_handler(int irq, void *data)
 	int ret, chg_type = EXTCON_NONE;
 	unsigned int usb_status;
 	int last_usb_type;
+	int current_limit = 0;
+	union power_supply_propval val;
 
 	dev_dbg(mci->dev, "%s\n", __func__);
 	mutex_lock(&mci->chgdet_lock);
@@ -705,18 +714,22 @@ static irqreturn_t mt6360_pmu_attach_i_handler(int irq, void *data)
 	case MT6360_CHG_TYPE_SDP:
 		chg_type = EXTCON_CHG_USB_SDP;
 		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
+		current_limit = ICL_CHGTYPE_SDP;
 		break;
 	case MT6360_CHG_TYPE_SDPNSTD:
 		chg_type = EXTCON_CHG_USB_SLOW;
 		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
+		current_limit = ICL_CHGTYPE_SDPNSTD;
 		break;
 	case MT6360_CHG_TYPE_CDP:
 		chg_type = EXTCON_CHG_USB_CDP;
 		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_CDP;
+		current_limit = ICL_CHGTYPE_CDP;
 		break;
 	case MT6360_CHG_TYPE_DCP:
 		chg_type = EXTCON_CHG_USB_DCP;
 		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+		current_limit = ICL_CHGTYPE_DCP;
 		break;
 	default:
 		dev_warn(mci->dev,
@@ -725,6 +738,13 @@ static irqreturn_t mt6360_pmu_attach_i_handler(int irq, void *data)
 	}
 
 	dev_info(mci->dev, "%s: chg_type = %d\n", __func__, chg_type);
+	if (chg_type >= EXTCON_CHG_USB_SDP) {
+		val.intval = current_limit;
+		mt6360_charger_set_aicr(mci, &val);
+		val.intval =  CCL_CHGTYPE_UNFREEZE;
+		mt6360_charger_set_ichg(mci, &val);
+	}
+
 	if (chg_type == EXTCON_CHG_USB_SDP || chg_type == EXTCON_CHG_USB_CDP) {
 		extcon_set_state_sync(mci->edev, EXTCON_USB_HOST, false);
 		extcon_set_state_sync(mci->edev, EXTCON_USB, true);
