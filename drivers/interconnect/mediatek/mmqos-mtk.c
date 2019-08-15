@@ -99,7 +99,7 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 	struct common_node *comm_node;
 	struct mtk_mmqos *mmqos = container_of(dst->provider,
 					struct mtk_mmqos, prov);
-	u32 value;
+	u32 value = 1;
 
 	switch (dst->id >> 16) {
 	case MTK_MMQOS_NODE_COMMON:
@@ -121,9 +121,10 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 	case MTK_MMQOS_NODE_LARB:
 		larb_port_node = (struct larb_port_node *)src->data;
 		larb_node = (struct larb_node *)dst->data;
-		value = SHIFT_ROUND(
-			icc_to_MBps(larb_port_node->base->mix_bw),
-			larb_port_node->bw_ratio);
+		if (larb_port_node->base->mix_bw)
+			value = SHIFT_ROUND(
+				icc_to_MBps(larb_port_node->base->mix_bw),
+				larb_port_node->bw_ratio);
 		if (value > mmqos->max_ratio)
 			value = mmqos->max_ratio;
 		mtk_smi_larb_bw_set(
