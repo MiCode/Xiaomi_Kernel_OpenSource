@@ -215,88 +215,16 @@ struct arm_smmu_domain {
 	struct msm_iommu_domain		domain;
 };
 
-static int arm_smmu_gr0_ns(int offset)
-{
-	switch(offset) {
-	case ARM_SMMU_GR0_sCR0:
-	case ARM_SMMU_GR0_sACR:
-	case ARM_SMMU_GR0_sGFSR:
-	case ARM_SMMU_GR0_sGFSYNR0:
-	case ARM_SMMU_GR0_sGFSYNR1:
-	case ARM_SMMU_GR0_sGFSYNR2:
-		return offset + 0x400;
-	default:
-		return offset;
-	}
-}
+static atomic_t cavium_smmu_context_count = ATOMIC_INIT(0);
 
-static void __iomem *arm_smmu_page(struct arm_smmu_device *smmu, int n)
-{
-	return smmu->base + (n << smmu->pgshift);
-}
-
-static u32 arm_smmu_readl(struct arm_smmu_device *smmu, int page, int offset)
-{
-	if ((smmu->options & ARM_SMMU_OPT_SECURE_CFG_ACCESS) && page == 0)
-		offset = arm_smmu_gr0_ns(offset);
-
-	return readl_relaxed(arm_smmu_page(smmu, page) + offset);
-}
-
-static void arm_smmu_writel(struct arm_smmu_device *smmu, int page, int offset,
-			    u32 val)
-{
-	if ((smmu->options & ARM_SMMU_OPT_SECURE_CFG_ACCESS) && page == 0)
-		offset = arm_smmu_gr0_ns(offset);
-
-	writel_relaxed(val, arm_smmu_page(smmu, page) + offset);
-}
-
-static u64 arm_smmu_readq(struct arm_smmu_device *smmu, int page, int offset)
-{
-	return readq_relaxed(arm_smmu_page(smmu, page) + offset);
-}
-
-static void arm_smmu_writeq(struct arm_smmu_device *smmu, int page, int offset,
-			    u64 val)
-{
-	writeq_relaxed(val, arm_smmu_page(smmu, page) + offset);
-}
-
-#define ARM_SMMU_GR0		0
-#define ARM_SMMU_GR1		1
-#define ARM_SMMU_CB(s, n)	((s)->numpage + (n))
-
-#define arm_smmu_gr0_read(s, o)		\
-	arm_smmu_readl((s), ARM_SMMU_GR0, (o))
-#define arm_smmu_gr0_write(s, o, v)	\
-	arm_smmu_writel((s), ARM_SMMU_GR0, (o), (v))
-
-#define arm_smmu_gr1_read(s, o)		\
-	arm_smmu_readl((s), ARM_SMMU_GR1, (o))
-#define arm_smmu_gr1_write(s, o, v)	\
-	arm_smmu_writel((s), ARM_SMMU_GR1, (o), (v))
-
-#define arm_smmu_cb_read(s, n, o)	\
-	arm_smmu_readl((s), ARM_SMMU_CB((s), (n)), (o))
-#define arm_smmu_cb_write(s, n, o, v)	\
-	arm_smmu_writel((s), ARM_SMMU_CB((s), (n)), (o), (v))
-#define arm_smmu_cb_readq(s, n, o)	\
-	arm_smmu_readq((s), ARM_SMMU_CB((s), (n)), (o))
-#define arm_smmu_cb_writeq(s, n, o, v)	\
-	arm_smmu_writeq((s), ARM_SMMU_CB((s), (n)), (o), (v))
+static bool using_legacy_binding, using_generic_binding;
 
 struct arm_smmu_option_prop {
 	u32 opt;
 	const char *prop;
 };
 
-static atomic_t cavium_smmu_context_count = ATOMIC_INIT(0);
-
-static bool using_legacy_binding, using_generic_binding;
-
 static struct arm_smmu_option_prop arm_smmu_options[] = {
-	{ ARM_SMMU_OPT_SECURE_CFG_ACCESS, "calxeda,smmu-secure-config-access" },
 	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
 	{ ARM_SMMU_OPT_SKIP_INIT, "qcom,skip-init" },
 	{ ARM_SMMU_OPT_3LVL_TABLES, "qcom,use-3-lvl-tables" },
