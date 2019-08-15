@@ -47,6 +47,7 @@ struct mt6360_tcpc_info {
 	struct power_supply *chg_psy;
 	struct regulator *otg_vbus;
 	int irq;
+	struct device_connection dev_conn;
 };
 
 static inline int mt6360_tcpc_read16(
@@ -239,6 +240,7 @@ static int mt6360_tcpc_probe(struct platform_device *pdev)
 {
 	struct mt6360_pmu_info *pmu_info = dev_get_drvdata(pdev->dev.parent);
 	struct mt6360_tcpc_info *mti;
+	const char *dev_conn_end;
 	int ret;
 
 	mti = devm_kzalloc(&pdev->dev, sizeof(*mti), GFP_KERNEL);
@@ -283,6 +285,15 @@ static int mt6360_tcpc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get otg-vbus regulator\n");
 		return PTR_ERR(mti->otg_vbus);
 	}
+	/* get dev-conn-end for usb role switch */
+	ret = of_property_read_string(pdev->dev.of_node, "dev-conn-end",
+					   &dev_conn_end);
+	if (!ret) {
+		mti->dev_conn.endpoint[0] = dev_conn_end;
+		mti->dev_conn.endpoint[1] = dev_name(mti->dev);
+		mti->dev_conn.id = "usb-role-switch";
+		device_connection_add(&mti->dev_conn);
+	}
 	/* register tcpc port */
 	mti->data.init = mt6360_tcpc_init;
 	mti->data.set_vbus = mt6360_tcpc_set_vbus;
@@ -291,7 +302,8 @@ static int mt6360_tcpc_probe(struct platform_device *pdev)
 	mti->tcpci = tcpci_register_port(&pdev->dev, &mti->data);
 	if (IS_ERR_OR_NULL(mti->tcpci)) {
 		dev_err(&pdev->dev, "Failed to register tcpci port\n");
-		return PTR_ERR(mti->tcpci);
+		ret = PTR_ERR(mti->tcpci);
+		goto port_err;
 	}
 	/* after all are registered, reguest irq for alert pin */
 	ret = devm_request_threaded_irq(mti->dev, mti->irq, NULL, mt6360_irq,
@@ -299,12 +311,18 @@ static int mt6360_tcpc_probe(struct platform_device *pdev)
 					dev_name(mti->dev), mti);
 	if (ret < 0) {
 		dev_err(mti->dev, "Failed to request irq\n");
-		tcpci_unregister_port(mti->tcpci);
-		return ret;
+		goto irq_err;
 	}
 	device_init_wakeup(mti->dev, true);
 	dev_info(&pdev->dev, "Successfully probed\n");
 	return 0;
+
+irq_err:
+	tcpci_unregister_port(mti->tcpci);
+port_err:
+	if (mti->dev_conn.id)
+		device_connection_remove(&mti->dev_conn);
+	return ret;
 }
 
 static int mt6360_tcpc_remove(struct platform_device *pdev)
@@ -312,6 +330,8 @@ static int mt6360_tcpc_remove(struct platform_device *pdev)
 	struct mt6360_tcpc_info *mti = platform_get_drvdata(pdev);
 
 	tcpci_unregister_port(mti->tcpci);
+	if (mti->dev_conn.id)
+		device_connection_remove(&mti->dev_conn);
 	return 0;
 }
 
