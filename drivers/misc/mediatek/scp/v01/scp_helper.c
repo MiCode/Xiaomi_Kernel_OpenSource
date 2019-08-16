@@ -1465,6 +1465,14 @@ void print_clk_registers(void)
 		}
 	}
 
+	// Print the first few bytes of the loader binary.
+	if (loader_base) {
+		for (offset = 0; offset < 16; offset += 4) {
+			value = (unsigned int)readl(loader_base + offset);
+			pr_notice("[SCP] loader[%u]: 0x%08x\n", offset, value);
+		}
+	}
+
 	// 0x0000 ~ 0x01CC (inclusive)
 	for (offset = 0x0000; offset <= 0x01CC; offset += 4) {
 		value = (unsigned int)readl(cfg + offset);
