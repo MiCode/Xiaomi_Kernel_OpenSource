@@ -250,16 +250,21 @@ static int get_devinfo(void)
 	int ret = 0, i = 0;
 	int *val;
 	int efuse_val, year, mon, real_year, real_mon;
+	int err;
 	unsigned int safeEfuse = 0;
 	struct rtc_device *rtc_dev;
 	struct rtc_time tm;
 
-	rtc_dev = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
-	if (rtc_dev == NULL)
-		pr_info("[systimer] rtc_class_open rtc_dev fail\n");
-	rtc_read_time(rtc_dev, &tm);
-
 	FUNC_ENTER(FUNC_LV_HELP);
+
+	rtc_dev = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
+	if (rtc_dev) {
+		err = rtc_read_time(rtc_dev, &tm);
+		if (err < 0)
+			pr_info("fail to read time\n");
+	} else
+		pr_info("[systimer] rtc_class_open rtc_dev fail\n");
+
 	val = (int *)&eem_devinfo;
 
 	/* FTPGM */
@@ -3922,10 +3927,12 @@ int mt_eem_status(enum eem_det_id id)
 	struct eem_det *det = id_to_eem_det(id);
 
 	FUNC_ENTER(FUNC_LV_API);
-
-	WARN_ON(!det); /*BUG_ON(!det);*/
-	WARN_ON(!det->ops); /*BUG_ON(!det->ops);*/
-	WARN_ON(!det->ops->get_status); /* BUG_ON(!det->ops->get_status);*/
+	if (det == NULL)
+		return 0;
+	else if (det->ops == NULL)
+		return 0;
+	else if (det->ops->get_status == NULL)
+		return 0;
 
 	FUNC_EXIT(FUNC_LV_API);
 
