@@ -1192,7 +1192,7 @@ static const struct file_operations tipc_fops = {
 };
 
 /* strdup do not free the string memory, pls free it after using */
-static char *strdup(const char *str)
+static char *strdup_s(const char *str)
 {
 	size_t lens = strlen(str);
 	char *tmp = kmalloc(lens + 1, GFP_KERNEL);
@@ -1223,7 +1223,7 @@ static struct tipc_virtio_dev *port_lookup_vds(struct tipc_cdev_node *cdn,
 		vds = vdev_array[default_tee_id]->priv;
 	}
 
-	str = strdup(port);
+	str = strdup_s(port);
 
 	if (IS_ERR(str))
 		goto err_default;
@@ -1765,6 +1765,10 @@ static int _handle_rxbuf(struct tipc_virtio_dev *vds,
 
 drop_it:
 
+	if (!rxbuf) {
+		dev_info(dev, "rxbuf is null. failed\n");
+		return -1;
+	}
 	/* add the buffer back to the virtqueue */
 	sg_init_one(&sg, rxbuf->buf_va, rxbuf->buf_sz);
 	err = virtqueue_add_inbuf(vds->rxvq, &sg, 1, rxbuf, GFP_KERNEL);
