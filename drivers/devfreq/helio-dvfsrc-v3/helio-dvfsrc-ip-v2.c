@@ -48,9 +48,9 @@ static struct regulator *vcore_reg_id;
 #define TIME_STAMP_SIZE 40
 
 static DEFINE_SPINLOCK(force_req_lock);
-static char	timeout_stamp[20];
-static char	force_start_stamp[20];
-static char	force_end_stamp[20];
+static char	timeout_stamp[TIME_STAMP_SIZE];
+static char	force_start_stamp[TIME_STAMP_SIZE];
+static char	force_end_stamp[TIME_STAMP_SIZE];
 static char sys_stamp[TIME_STAMP_SIZE];
 static char opp_forced;
 
