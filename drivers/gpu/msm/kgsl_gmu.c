@@ -383,6 +383,9 @@ static void gmu_memory_close(struct gmu_device *gmu)
 		md = &gmu->kmem_entries[i];
 		ctx = &gmu_ctx[md->ctx_idx];
 
+		if (!ctx->domain)
+			continue;
+
 		if (md->gmuaddr && md->mem_type != GMU_ITCM &&
 				md->mem_type != GMU_DTCM)
 			iommu_unmap(ctx->domain, md->gmuaddr, md->size);
