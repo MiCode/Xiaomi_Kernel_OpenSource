@@ -43,7 +43,7 @@ MODULE_DEVICE_TABLE(of, bq24296_id);
 static struct i2c_client *new_client;
 static const struct i2c_device_id bq24296_i2c_id[] = {{"bq24296", 0}, {} };
 
-kal_bool chargin_hw_init_done = KAL_FALSE;
+enum kal_bool chargin_hw_init_done = KAL_FALSE;
 static int bq24296_driver_probe(struct i2c_client *client,
 				const struct i2c_device_id *id);
 
@@ -150,7 +150,7 @@ unsigned int bq24296_read_interface(unsigned char RegNum, unsigned char *val,
 
 	ret = bq24296_read_byte(RegNum, &bq24296_reg);
 
-	battery_log(BAT_LOG_FULL, "[%s] Reg[%x]=0x%x\n", __func__ RegNum,
+	battery_log(BAT_LOG_FULL, "[%s] Reg[%x]=0x%x\n", __func__, RegNum,
 		    bq24296_reg);
 
 	bq24296_reg &= (MASK << SHIFT);
@@ -178,8 +178,8 @@ unsigned int bq24296_config_interface(unsigned char RegNum, unsigned char val,
 	bq24296_reg |= (val << SHIFT);
 
 	ret = bq24296_write_byte(RegNum, bq24296_reg);
-	battery_log(BAT_LOG_FULL, "[%s] write Reg[%x]=0x%x\n", RegNum, __func__,
-		    bq24296_reg);
+	battery_log(BAT_LOG_FULL, "[%s] write Reg[%x]=0x%x\n", __func__,
+		    RegNum, bq24296_reg);
 
 	return ret;
 }
@@ -576,7 +576,7 @@ static ssize_t store_bq24296_access(struct device *dev,
 	unsigned int reg_value = 0;
 	unsigned int reg_address = 0;
 
-	battery_log(BAT_LOG_FULL, "[%s]\n");
+	battery_log(BAT_LOG_FULL, "[%s]\n", __func__);
 
 	if (buf != NULL && size != 0) {
 		battery_log(BAT_LOG_FULL, "[%s] buf is %s and size is %zu\n",

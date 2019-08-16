@@ -79,6 +79,23 @@ config SWCHR_POWER_PATH
 	  used to representing voltage of system
 	  or battery.
 
+config MTK_BQ24196_SUPPORT
+	bool "MediaTek Battery driver for TI BQ24196 charger IC"
+	help
+	  BQ24196 charger IC support
+	  This is to enable MediaTek supports to BQ24196.
+	  It depends on config MTK_SMART_BATTERY
+	  and config MTK_SWCHR_SUPPORT
+	  Set to Yes if BQ24196 is used.
+
+config MTK_BQ24296_SUPPORT
+	bool "MediaTek Battery driver for TI BQ24296 charger IC"
+	help
+	  This is to enable MediaTek supports to BQ24296 Charger IC.
+	  It depends on config MTK_SMART_BATTERY
+	  and config MTK_SWCHR_SUPPORT
+	  Set to Yes if BQ24296 is used.
+
 config CHARGER_RT9465
 	bool "Charger Driver for Richtek RT9465 Charger IC"
 	default n
