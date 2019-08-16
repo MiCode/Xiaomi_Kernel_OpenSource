@@ -15,8 +15,12 @@
 
 struct MCLK_PINCTRL_NAMES mclk_pinctrl[MCLK_STATE_MAX_NUM] = {
 	{"off"},
-	{"on"},
+	{"2mA"},
+	{"4mA"},
+	{"6mA"},
+	{"8mA"},
 };
+#define MCLK_STATE_ENABLE MCLK_STATE_ENABLE_4MA
 
 static struct mclk mclk_instance;
 
@@ -34,7 +38,7 @@ static enum IMGSENSOR_RETURN mclk_init(
 	pinst->ppinctrl = devm_pinctrl_get(&pcommon->pplatform_device->dev);
 	if (IS_ERR(pinst->ppinctrl)) {
 		PK_PR_ERR("%s : Cannot find camera pinctrl!\n", __func__);
-		ret = IMGSENSOR_RETURN_ERROR;
+		return IMGSENSOR_RETURN_ERROR;
 	}
 
 	for (i = IMGSENSOR_SENSOR_IDX_MIN_NUM;
@@ -64,6 +68,7 @@ static enum IMGSENSOR_RETURN mclk_init(
 				mutex_unlock(pinst->pmclk_mutex);
 			}
 		}
+		pinst->drive_current[i] = MCLK_STATE_ENABLE;
 	}
 
 	return ret;
@@ -81,8 +86,35 @@ static enum IMGSENSOR_RETURN mclk_release(void *pinstance)
 			!IS_ERR(pinst->ppinctrl_state[i][MCLK_STATE_DISABLE]))
 			pinctrl_select_state(pinst->ppinctrl,
 				pinst->ppinctrl_state[i][MCLK_STATE_DISABLE]);
+		pinst->drive_current[i] = MCLK_STATE_ENABLE;
 		mutex_unlock(pinst->pmclk_mutex);
 	}
+	return IMGSENSOR_RETURN_SUCCESS;
+}
+
+#define _TO_MCLK_STATE(x) (x+1)
+static enum IMGSENSOR_RETURN __mclk_set_drive_current(
+	void *pinstance,
+	enum IMGSENSOR_SENSOR_IDX sensor_idx,
+	enum ISP_DRIVING_CURRENT_ENUM target_current)
+{
+	struct mclk *pinst = (struct mclk *)pinstance;
+
+	/*pr_debug("%s : sensor_idx %d, drive_current %d\n",
+	 *	__func__,
+	 *	sensor_idx,
+	 *	target_current);
+	 */
+	if (_TO_MCLK_STATE(target_current) < MCLK_STATE_ENABLE_2MA ||
+		_TO_MCLK_STATE(target_current) > MCLK_STATE_ENABLE_8MA) {
+		pr_debug("%s : sensor_idx %d, drive_current %d, set as 4mA\n",
+			__func__,
+			sensor_idx,
+			_TO_MCLK_STATE(target_current));
+		pinst->drive_current[sensor_idx] = MCLK_STATE_ENABLE_4MA;
+	} else
+		pinst->drive_current[sensor_idx] =
+				_TO_MCLK_STATE(target_current);
 	return IMGSENSOR_RETURN_SUCCESS;
 }
 
@@ -106,7 +138,7 @@ static enum IMGSENSOR_RETURN mclk_set(
 		ret = IMGSENSOR_RETURN_ERROR;
 	} else {
 		state_index = (pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_0) ?
-					MCLK_STATE_ENABLE : MCLK_STATE_DISABLE;
+			pinst->drive_current[sensor_idx] : MCLK_STATE_DISABLE;
 
 		ppinctrl_state = pinst->ppinctrl_state[sensor_idx][state_index];
 
@@ -116,8 +148,9 @@ static enum IMGSENSOR_RETURN mclk_set(
 			pinctrl_select_state(pinst->ppinctrl, ppinctrl_state);
 		else
 			PK_PR_ERR(
-			"%s : sensor_idx %d mclk set pinctrl, PinIdx %d, Val %d\n",
-			__func__, sensor_idx, pin, pin_state);
+			"%s : sensor_idx %d pinctrl, PinIdx %d, Val %d, drive current %d\n",
+			__func__, sensor_idx, pin, pin_state,
+			pinst->drive_current[sensor_idx]);
 
 		mutex_unlock(pinst->pmclk_mutex);
 	}
@@ -136,6 +169,7 @@ enum IMGSENSOR_RETURN imgsensor_hw_mclk_open(
 	struct IMGSENSOR_HW_DEVICE **pdevice)
 {
 	*pdevice = &device;
+	gimgsensor.mclk_set_drive_current = __mclk_set_drive_current;
 	return IMGSENSOR_RETURN_SUCCESS;
 }
 
