@@ -534,7 +534,7 @@ exit:
 int goodix_read_cfg_bin(struct device *dev, struct goodix_cfg_bin *cfg_bin)
 {
 	int r;
-	const struct firmware *firmware;
+	const struct firmware *firmware = NULL;
 	char cfg_bin_name[32] = {0};
 	int i = 0;
 
