@@ -14,7 +14,15 @@
 #ifndef __MTK_SWPM_PLATFORM_H__
 #define __MTK_SWPM_PLATFORM_H__
 
-#define MAX_RECORD_CNT			(64)
+#define MAX_RECORD_CNT                  (64)
+#define MAX_APHY_PWR                    (10)
+#define DEFAULT_LOG_INTERVAL_MS         (1000)
+#define DEFAULT_LOG_MASK                (0x13) /* VPROC2 + VPROC1 + VDRAM */
+
+#define CPU_LKG_NOT_SUPPORT		(1)
+
+#define NR_CPU_OPP                      (16)
+#define NR_CPU_L_CORE                   (4)
 
 
 /* data shared w/ SSPM */
