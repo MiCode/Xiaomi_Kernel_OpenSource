@@ -8646,6 +8646,7 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	enum ufs_dev_pwr_mode req_dev_pwr_mode;
 	enum uic_link_state req_link_state;
 	u32 reg = 0; /* MTK PATCH */
+	int retry;  /* MTK PATCH */
 
 	/* MTK PATCH: Lock deepidle/SODI @enter UFS suspend callback */
 	ufshcd_vops_deepidle_lock(hba, true);
@@ -8724,12 +8725,26 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	 * 3. Manually enter h8.
 	 */
 	ufshcd_vops_auto_hibern8(hba, false);
+	retry = 5; /* 100ms wosrt case */
 	do {
 		ret = ufshcd_dme_get(hba, UIC_ARG_MIB(VENDOR_POWERSTATE), &reg);
 		if (ret != 0)
 			dev_err(hba->dev,
 				"ufshcd_dme_get_ 0x%x fail, ret = %d!\n",
 				VENDOR_POWERSTATE, ret);
+
+		if (reg == VENDOR_POWERSTATE_HIBERNATE) {
+			if (retry) {
+				retry--;
+			} else {
+				dev_err(hba->dev, "exit h8 state fail\n");
+				ufshcd_print_host_regs(hba);
+				ret = -ETIMEDOUT;
+				goto enable_gating;
+			}
+			msleep(20);
+		}
+
 	} while (reg == VENDOR_POWERSTATE_HIBERNATE);
 
 	if ((req_dev_pwr_mode != hba->curr_dev_pwr_mode) &&
