@@ -149,6 +149,11 @@ enum {
 	SINK_TYPE_REQUEST,
 };
 
+void __attribute__((weak)) usb_dpdm_pulldown(bool enable)
+{
+	pr_notice("%s is not defined\n", __func__);
+}
+
 bool mtk_is_pep30_en_unlock(void)
 {
 	return false;
@@ -271,12 +276,16 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		pr_info("%s wd status = %d\n",
 			__func__, noti->wd_status.water_detected);
 
-		if (tcpc_kpoc) {
-			if (noti->wd_status.water_detected) {
+		if (noti->wd_status.water_detected) {
+			usb_dpdm_pulldown(false);
+			if (tcpc_kpoc) {
 				pr_info("Water is detected in KPOC, disable HV charging\n");
 				charger_manager_enable_high_voltage_charging(
 					chg_consumer, false);
-			} else {
+			}
+		} else {
+			usb_dpdm_pulldown(true);
+			if (tcpc_kpoc) {
 				pr_info("Water is removed in KPOC, enable HV charging\n");
 				charger_manager_enable_high_voltage_charging(
 					chg_consumer, true);
