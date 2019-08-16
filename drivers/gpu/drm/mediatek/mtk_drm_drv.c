@@ -288,6 +288,7 @@ static void mtk_drm_kms_deinit(struct drm_device *drm)
 {
 	mtk_fbdev_fini(drm);
 	drm_kms_helper_poll_fini(drm);
+	drm_atomic_helper_shutdown(drm);
 
 	component_unbind_all(drm->dev, drm);
 	drm_mode_config_cleanup(drm);
