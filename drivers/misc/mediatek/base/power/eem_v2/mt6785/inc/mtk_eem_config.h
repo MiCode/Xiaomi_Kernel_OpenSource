@@ -363,20 +363,19 @@ enum mt_cpu_dvfs_id {
 
 /* different for GPU */
 #define VMAX_VAL_GPU                    (0x73) /* eem domain: 1.11875v*/
-#define VMIN_VAL_GPU                    (0x1C) /* eem domain: 0.575v*/
+#define VMIN_VAL_GPU                    (0x22) /* eem domain: 0.6125v*/
 #define VCO_VAL_GPU                     (0x1C) /* eem domain: 0.575v*/
 
 /* different for GPU_L */
 #define VMAX_VAL_GL                     (0x73)
-#define VMIN_VAL_GL                     (0x1C)
-#define VCO_VAL_GL                      (0x20)
-#define DVTFIXED_VAL_GL					(0x02)
-#define DVTFIXED_VAL_GPU				(0x02)
-#define DVTFIXED_VAL_GPU_V2				(0x3)
+#define VMIN_VAL_GL                     (0x22)
+#define VCO_VAL_GL                      (0x1C)
+#define DVTFIXED_VAL_GL					(0x04)
+#define DVTFIXED_VAL_GPU				(0x04)
 
 /* different for GPU_H */
 #define VMAX_VAL_GH                     (0x73) /* volt domain: 1.11875v*/
-#define VMIN_VAL_GH                     (0x1C)
+#define VMIN_VAL_GH                     (0x22)
 #define VCO_VAL_GH                      (0x1C)
 
 /* different for L_L */
@@ -426,7 +425,7 @@ enum mt_cpu_dvfs_id {
 #define LOW_TEMP_OFF_DEFAULT	(0)
 #define EXTRA_TEMP_OFF_L		(8)
 #define EXTRA_TEMP_OFF_B		(8)
-#define EXTRA_TEMP_OFF_GPU		(6)
+#define EXTRA_TEMP_OFF_GPU		(4)
 #define EXTRA_TEMP_OFF_B_LO		(2)
 #define MARGIN_ADD_OFF			(5)
 #define MARGIN_CLAMP_OFF		(8)
