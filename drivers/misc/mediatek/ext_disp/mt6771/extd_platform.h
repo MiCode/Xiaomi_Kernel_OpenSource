@@ -31,11 +31,7 @@
 
 /* #define EXTD_DUAL_PIPE_SWITCH_SUPPORT */
 
-#ifdef EXTD_SMART_OVL_SUPPORT
-#  define EXTD_OVERLAY_CNT  (6+6)
-#else
-#  define EXTD_OVERLAY_CNT  6
-#endif
+#define EXTD_OVERLAY_CNT  2
 
 #define HW_DPI_VSYNC_SUPPORT 1
 
