@@ -64,6 +64,18 @@
 #define SCP_A_TIMER 0
 #define CLK_BANK_LEN		(0x00A8)
 
+
+/******************************************************************************
+ * The symbols REGI and CK_VALUE are named to avoid symbol conflict during
+ * macro expansion in a function.
+ *****************************************************************************/
+#define CHECK_RESET_REG(REGI, CK_VALUE)                                       \
+	do {                                                                  \
+		if (readl(REGI) != CK_VALUE)                                  \
+			pr_err("[SCP] Error: reset_reg != %d!\n", CK_VALUE);  \
+	} while (0)
+
+
 /* scp ready status for notify*/
 unsigned int scp_ready[SCP_CORE_TOTAL];
 
@@ -578,6 +590,7 @@ int reset_scp(int reset)
 				if (readl(SCP_SLEEP_STATUS_REG) &
 					SCP_A_IS_SLEEP) {
 					writel(0, scp_reset_reg);  /* reset */
+					CHECK_RESET_REG(scp_reset_reg, 0);
 					scp_ready[SCP_A_ID] = 0;
 					writel(1, SCP_GPR_CM4_A_REBOOT);
 					/* lock pll for ulposc calibration */
@@ -589,6 +602,7 @@ int reset_scp(int reset)
 #else
 			if (readl(SCP_SLEEP_STATUS_REG) & SCP_A_IS_SLEEP) {
 				writel(0, scp_reset_reg);  /* reset */
+				CHECK_RESET_REG(scp_reset_reg, 0);
 				scp_ready[SCP_A_ID] = 0;
 				dsb(SY);
 				break;
@@ -1561,6 +1575,7 @@ void scp_sys_reset_ws(struct work_struct *ws)
 			pr_notice("[SCP]wdt reset timeout, still reset scp\n");
 
 		writel(0, scp_reset_reg);
+		CHECK_RESET_REG(scp_reset_reg, 0);
 		writel(1, SCP_GPR_CM4_A_REBOOT);
 		dsb(SY);
 	} else if (scp_reset_type == RESET_TYPE_AWAKE) {
@@ -1568,11 +1583,13 @@ void scp_sys_reset_ws(struct work_struct *ws)
 		pr_debug("[SCP] %s(): scp awake fail reset\n", __func__);
 		/* stop scp */
 		writel(0, scp_reset_reg);
+		CHECK_RESET_REG(scp_reset_reg, 0);
 	} else {
 		/* reset type cmd */
 		pr_debug("[SCP] %s(): scp awake fail reset\n", __func__);
 		/* stop scp */
 		writel(0, scp_reset_reg);
+		CHECK_RESET_REG(scp_reset_reg, 0);
 	}
 
 	/* scp reset */
