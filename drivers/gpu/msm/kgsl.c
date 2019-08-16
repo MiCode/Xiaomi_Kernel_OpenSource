@@ -4976,6 +4976,32 @@ int kgsl_request_irq(struct platform_device *pdev, const  char *name,
 	return ret ? ret : num;
 }
 
+int kgsl_of_property_read_ddrtype(struct device_node *node, const char *base,
+		u32 *ptr)
+{
+	char str[32];
+	int ddr = of_fdt_get_ddrtype();
+
+	/* of_fdt_get_ddrtype returns error if the DDR type isn't determined */
+	if (ddr >= 0) {
+		int ret;
+
+		/* Construct expanded string for the DDR type  */
+		ret = snprintf(str, sizeof(str), "%s-ddr%d", base, ddr);
+
+		/* WARN_ON() if the array size was too small for the string */
+		if (WARN_ON(ret > sizeof(str)))
+			return -ENOMEM;
+
+		/* Read the expanded string */
+		if (!of_property_read_u32(node, str, ptr))
+			return 0;
+	}
+
+	/* Read the default string */
+	return of_property_read_u32(node, base, ptr);
+}
+
 int kgsl_device_platform_probe(struct kgsl_device *device)
 {
 	int status = -EINVAL;
