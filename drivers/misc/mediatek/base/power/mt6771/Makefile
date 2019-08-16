@@ -48,5 +48,3 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 obj-$(CONFIG_MACH_MT6771) += mtk_gpu_bw.o
 endif
 endif
-
-ccflags-y += -DMTK_GPU_BRING_UP
