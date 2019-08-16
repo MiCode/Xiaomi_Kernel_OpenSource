@@ -439,11 +439,6 @@ int gz_get_cpuinfo_thread(void *data)
 		  cpus_cluster_freq[1].max_freq, cpus_cluster_freq[1].min_freq);
 #endif
 
-	cpumask_clear(&trusty_all_cmask);
-	cpumask_setall(&trusty_all_cmask);
-	cpumask_clear(&trusty_big_cmask);
-	cpumask_set_cpu(6, &trusty_big_cmask);
-
 #ifdef CONFIG_GZ_VPU_WITH_M4U
 	if (!m4u_gz_client)
 		m4u_gz_client = m4u_create_client();
@@ -1482,6 +1477,45 @@ static long gz_compat_ioctl(struct file *filep, unsigned int cmd,
 }
 #endif
 
+static int find_big_core(int *big_core_first, int *big_core_last)
+{
+	struct device_node *cpus = NULL, *cpu = NULL;
+	struct property *cpu_pp = NULL;
+
+	int cpu_num = 0, big_start_num = 0, big_type = 0, cpu_type = 0;
+	char *compat_val;
+	int compat_len, i;
+
+	cpus = of_find_node_by_path("/cpus");
+	if (cpus == NULL)
+		return -1;
+
+	for_each_child_of_node(cpus, cpu) {
+		if (of_node_cmp(cpu->type, "cpu"))
+			continue;
+
+		cpu_num++;
+
+		for_each_property_of_node(cpu, cpu_pp) {
+			if (strcmp(cpu_pp->name, "compatible") == 0) {
+				compat_val = (char *)cpu_pp->value;
+				compat_len = strlen(compat_val);
+				i = kstrtoint(compat_val + (compat_len - 2), 10,
+					      &cpu_type);
+				if (big_type < cpu_type) {
+					big_type = cpu_type;
+					big_start_num = cpu_num - 1;
+				}
+			}
+		}
+	}
+
+	*big_core_first = big_start_num;
+	*big_core_last = cpu_num - 1;
+
+	return 0;
+}
+
 /************ kernel module init entry ***************/
 static int __init gz_init(void)
 {
@@ -1493,6 +1527,31 @@ static int __init gz_init(void)
 	} else {
 		struct task_struct *gz_get_cpuinfo_task;
 		struct task_struct *ree_dummy_task;
+		int big_core_first = 1;
+		int big_core_last = 1;
+		int ret = 0;
+		struct cpumask ree_dummy_cmask;
+
+		cpumask_clear(&trusty_all_cmask);
+		cpumask_setall(&trusty_all_cmask);
+		cpumask_clear(&trusty_big_cmask);
+		cpumask_clear(&ree_dummy_cmask);
+
+		ret = find_big_core(&big_core_first, &big_core_last);
+		if (ret)
+			KREE_ERR("no any big core\n");
+
+		if (2 == (big_core_last-big_core_first+1)) {
+			cpumask_set_cpu(6, &trusty_big_cmask);
+			cpumask_set_cpu(7, &ree_dummy_cmask);
+		} else if (4 == (big_core_last-big_core_first+1)) {
+			cpumask_set_cpu(4, &ree_dummy_cmask);
+			cpumask_set_cpu(5, &trusty_big_cmask);
+			cpumask_set_cpu(6, &trusty_big_cmask);
+		} else {
+			cpumask_set_cpu(0, &trusty_big_cmask);
+			cpumask_set_cpu(1, &ree_dummy_cmask);
+		}
 
 		gz_get_cpuinfo_task =
 		    kthread_create(gz_get_cpuinfo_thread, NULL,
@@ -1511,10 +1570,6 @@ static int __init gz_init(void)
 				__func__);
 			res = PTR_ERR(ree_dummy_task);
 		} else {
-			struct cpumask ree_dummy_cmask;
-
-			cpumask_clear(&ree_dummy_cmask);
-			cpumask_set_cpu(7, &ree_dummy_cmask);
 			set_cpus_allowed_ptr(ree_dummy_task, &ree_dummy_cmask);
 			set_user_nice(ree_dummy_task, -20);
 			wake_up_process(ree_dummy_task);
