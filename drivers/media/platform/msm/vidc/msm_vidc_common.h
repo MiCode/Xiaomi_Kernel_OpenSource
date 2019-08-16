@@ -249,10 +249,6 @@ void print_v4l2_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
 		struct v4l2_buffer *v4l2);
 void kref_put_mbuf(struct msm_vidc_buffer *mbuf);
 bool kref_get_mbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf);
-void msm_comm_store_filled_length(struct msm_vidc_list *data_list,
-		u32 index, u32 filled_length);
-void msm_comm_fetch_filled_length(struct msm_vidc_list *data_list,
-		u32 index, u32 *filled_length);
 void msm_comm_store_mark_data(struct msm_vidc_list *data_list,
 		u32 index, u32 mark_data, u32 mark_target);
 void msm_comm_fetch_mark_data(struct msm_vidc_list *data_list,
