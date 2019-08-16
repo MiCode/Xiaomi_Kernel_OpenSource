@@ -47,12 +47,12 @@
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #if IS_ENABLED(CONFIG_MACH_MT6885)
-#include <sspm_ipi_table.h>
+#include <sspm_ipi_id.h>
 #else
 #include <v1/sspm_ipi.h>
 #include <sspm_define.h>
-#endif
 #include <sspm_reservedmem_define.h>
+#endif
 #endif
 
 #define DEV_NAME "MTK_SMI"
@@ -295,15 +295,14 @@ smi_bwl_update(const u32 id, const u32 bwl, const bool soft, const char *user)
 
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 	comm = id >> 16;
-	id &= 0xffff;
 #endif
 	val = (soft ? 0x1000 : 0x3000) | SMI_PMQOS_BWL_MASK(bwl);
-	smi_scen_pair[SMI_LARB_NUM + comm][SMI_ESL_INIT][id].val = val;
+	smi_scen_pair[SMI_LARB_NUM + comm][SMI_ESL_INIT][id & 0xffff].val = val;
 
 	if (ATOMR_CLK(SMI_LARB_NUM + comm)) {
 		smi_bus_prepare_enable(SMI_LARB_NUM + comm, user);
-		writel(val, smi_dev[SMI_LARB_NUM + comm]->base +
-		smi_scen_pair[SMI_LARB_NUM + comm][SMI_ESL_INIT][id].off);
+		writel(val, smi_dev[SMI_LARB_NUM + comm]->base + smi_scen_pair[
+			SMI_LARB_NUM + comm][SMI_ESL_INIT][id & 0xffff].off);
 		smi_bus_disable_unprepare(SMI_LARB_NUM + comm, user);
 	}
 }
