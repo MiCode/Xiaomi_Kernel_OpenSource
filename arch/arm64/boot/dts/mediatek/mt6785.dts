@@ -1860,7 +1860,7 @@ page_owner=on loop.max_part=7";
 		#gce-subsys-cells = <2>;
 		clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>,
 			<&infracfg_ao INFRACFG_AO_GCE_26M_CG>;
-		clock-names = "gce", "GCE_TIMER";
+		clock-names = "gce", "gce-timer";
 	};
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
@@ -1873,7 +1873,7 @@ page_owner=on loop.max_part=7";
 		#mbox-cells = <3>;
 		clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>,
 			<&infracfg_ao INFRACFG_AO_GCE_26M_CG>;
-		clock-names = "gce", "GCE_TIMER";
+		clock-names = "gce", "gce-timer";
 	};
 #endif
 
