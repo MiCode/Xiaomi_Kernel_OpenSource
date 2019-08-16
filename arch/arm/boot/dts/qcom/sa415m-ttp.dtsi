@@ -20,6 +20,10 @@
 	status = "okay";
 };
 
+&sdhc_1 {
+	qcom,nonremovable;
+};
+
 &usb {
 	status = "okay";
 	qcom,connector-type-uAB;
