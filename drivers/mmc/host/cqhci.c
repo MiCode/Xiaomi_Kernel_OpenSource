@@ -678,6 +678,7 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		if (cq_host->ops->crypto_cfg) {
 			err = cq_host->ops->crypto_cfg(mmc, mrq, tag, &ice_ctx);
 			if (err) {
+				mmc->err_stats[MMC_ERR_ICE_CFG]++;
 				pr_err("%s: failed to configure crypto: err %d tag %d\n",
 						mmc_hostname(mmc), err, tag);
 				goto out;
@@ -692,7 +693,7 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		if (err) {
 			pr_err("%s: cqhci: failed to setup tx desc: %d\n",
 			       mmc_hostname(mmc), err);
-			return err;
+			goto end_crypto;
 		}
 		/* PM QoS */
 		sdhci_msm_pm_qos_irq_vote(host);
@@ -731,6 +732,20 @@ out_unlock:
 
 	if (err)
 		cqhci_post_req(mmc, mrq);
+
+	goto out;
+
+end_crypto:
+	if (cq_host->ops->crypto_cfg_end && mrq->data) {
+		err = cq_host->ops->crypto_cfg_end(mmc, mrq);
+		if (err)
+			pr_err("%s: failed to end ice config: err %d tag %d\n",
+					mmc_hostname(mmc), err, tag);
+	}
+	if (!(cq_host->caps & CQHCI_CAP_CRYPTO_SUPPORT) &&
+			cq_host->ops->crypto_cfg_reset && mrq->data)
+		cq_host->ops->crypto_cfg_reset(mmc, tag);
+
 out:
 	return err;
 }
