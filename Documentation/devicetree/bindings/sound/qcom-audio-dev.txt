@@ -838,6 +838,36 @@ qcom,msm-dai-mi2s {
 		};
 };
 
+* msm-dai-q6-meta-mi2s
+
+Required properties:
+
+- compatible : "qcom,msm-dai-q6-meta-mi2s"
+- qcom,msm-dai-q6-meta-mi2s-dev-id: This section is used by CPU driver in ASOC
+				to configure META-MI2S interface which provides
+				the capability to group seversl MI2S interfaces
+				into a single device.
+				They are represented with dev-id 4864 and 4866.
+
+- qcom,msm-mi2s-num-members:	Specifies how many MI2S interfaces are grouped.
+
+- qcom,msm-mi2s-member-id:	List dev-id for each member MI2S interface.
+
+- qcom,msm-mi2s-rx-lines:	Specify the number of SD lines for each member
+				MI2S interface.
+				This element indicates which output RX lines
+				are used in the META-MI2S interface.
+
+Example:
+
+qcom,msm-dai-q6-meta-mi2s-prim {
+	compatible = "qcom,msm-dai-q6-meta-mi2s";
+	qcom,msm-dai-q6-mi2s-dev-id = <4864>;
+	qcom,msm-mi2s-num-members = <2>;
+	qcom,msm-mi2s-member-id = <0>, <1>;
+	qcom,msm-mi2s-rx-lines = <0xf>, <0xf>;
+};
+
 * msm-dai-spdif
 
 [First Level Nodes]
