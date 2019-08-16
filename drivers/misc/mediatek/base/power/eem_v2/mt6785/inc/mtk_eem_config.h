@@ -80,6 +80,8 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_IDX_23 73
 #define DEVINFO_IDX_24 74
 
+#define DEVINFO_TIME_IDX 132
+
 
 
 #if EEM_FAKE_EFUSE		/* select secure mode based on efuse config */
