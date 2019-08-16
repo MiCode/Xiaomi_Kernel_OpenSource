@@ -77,14 +77,6 @@ EXPORT_SYMBOL(g_ion_device);
 #define __clean_dcache_user_area(...)
 #endif
 
-#ifndef __clean_dcache_area_poc
-#define __clean_dcache_area_poc(...)
-#endif
-
-#ifndef __flush_dcache_area
-#define __flush_dcache_area(...)
-#endif
-
 #ifndef __flush_dcache_user_area
 #define __flush_dcache_user_area(...)
 #endif
@@ -93,23 +85,22 @@ EXPORT_SYMBOL(g_ion_device);
 #define __inval_dcache_user_area(...)
 #endif
 
-#ifndef __inval_dcache_area
-#define __inval_dcache_area(...)
-#endif
-
 static void __ion_cache_mmp_start(enum ION_CACHE_SYNC_TYPE sync_type,
 				  unsigned int size, unsigned int start)
 {
 	switch (sync_type) {
 	case ION_CACHE_CLEAN_BY_RANGE:
+	case ION_CACHE_CLEAN_BY_RANGE_USE_PA:
 		mmprofile_log_ex(ion_mmp_events[PROFILE_DMA_CLEAN_RANGE],
 				 MMPROFILE_FLAG_START, size, start);
 		break;
 	case ION_CACHE_INVALID_BY_RANGE:
+	case ION_CACHE_INVALID_BY_RANGE_USE_PA:
 		mmprofile_log_ex(ion_mmp_events[PROFILE_DMA_INVALID_RANGE],
 				 MMPROFILE_FLAG_START, size, start);
 		break;
 	case ION_CACHE_FLUSH_BY_RANGE:
+	case ION_CACHE_FLUSH_BY_RANGE_USE_PA:
 		mmprofile_log_ex(ion_mmp_events[PROFILE_DMA_FLUSH_RANGE],
 				 MMPROFILE_FLAG_START, size, start);
 		break;
@@ -135,14 +126,17 @@ static void __ion_cache_mmp_end(enum ION_CACHE_SYNC_TYPE sync_type,
 {
 	switch (sync_type) {
 	case ION_CACHE_CLEAN_BY_RANGE:
+	case ION_CACHE_CLEAN_BY_RANGE_USE_PA:
 		mmprofile_log_ex(ion_mmp_events[PROFILE_DMA_CLEAN_RANGE],
 				 MMPROFILE_FLAG_END, size, 0);
 		break;
 	case ION_CACHE_INVALID_BY_RANGE:
+	case ION_CACHE_INVALID_BY_RANGE_USE_PA:
 		mmprofile_log_ex(ion_mmp_events[PROFILE_DMA_INVALID_RANGE],
 				 MMPROFILE_FLAG_END, size, 0);
 		break;
 	case ION_CACHE_FLUSH_BY_RANGE:
+	case ION_CACHE_FLUSH_BY_RANGE_USE_PA:
 		mmprofile_log_ex(ion_mmp_events[PROFILE_DMA_FLUSH_RANGE],
 				 MMPROFILE_FLAG_END, size, 0);
 		break;
@@ -234,7 +228,7 @@ static int __cache_sync_by_range(struct ion_client *client,
 			 (unsigned int)current->pid,
 			 size, start);
 		IONMSG("%s %s\n", __func__, ion_name);
-		//aee_kernel_warning(ion_name, "[ION]");
+		//aee_kernel_warning(ion_name, "[ION]: Wrong Address Range");
 		return -EFAULT;
 	}
 
@@ -242,18 +236,21 @@ static int __cache_sync_by_range(struct ion_client *client,
 
 	switch (sync_type) {
 	case ION_CACHE_CLEAN_BY_RANGE:
+	case ION_CACHE_CLEAN_BY_RANGE_USE_PA:
 		if (is_user_addr)
 			__clean_dcache_user_area((void *)start, size);
 		else
 			__clean_dcache_area_poc((void *)start, size);
 		break;
 	case ION_CACHE_FLUSH_BY_RANGE:
+	case ION_CACHE_FLUSH_BY_RANGE_USE_PA:
 		if (is_user_addr)
 			__flush_dcache_user_area((void *)start, size);
 		else
 			__flush_dcache_area((void *)start, size);
 		break;
 	case ION_CACHE_INVALID_BY_RANGE:
+	case ION_CACHE_INVALID_BY_RANGE_USE_PA:
 		if (is_user_addr)
 			__inval_dcache_user_area((void *)start, size);
 		else
@@ -301,6 +298,7 @@ static void ion_cache_unmap_page_va(unsigned long va)
 {
 	unmap_kernel_range((unsigned long)cache_map_vm_st->addr, PAGE_SIZE);
 }
+
 /* lock to protect cache_map_vm_st */
 static DEFINE_MUTEX(ion_cache_sync_lock);
 
@@ -451,6 +449,29 @@ static long ion_sys_cache_sync(struct ion_client *client,
 			}
 		}
 			break;
+
+	/* range PA(means mva) mode, need map
+	 * NOTICE: m4u_mva_map_kernel only support m4u0
+	 */
+	case ION_CACHE_CLEAN_BY_RANGE_USE_PA:
+	case ION_CACHE_INVALID_BY_RANGE_USE_PA:
+	case ION_CACHE_FLUSH_BY_RANGE_USE_PA:
+//smart phone m4u/iommu
+#if (defined(CONFIG_MTK_M4U)) || defined(CONFIG_MTK_IOMMU_V2)
+		ret = m4u_mva_map_kernel(
+				(unsigned int)sync_va,
+				sync_size, &kernel_va, &kernel_size);
+		if (ret)
+			goto err;
+		sync_va = kernel_va;
+		break;
+//tablet iommu
+#elif defined(CONFIG_MTK_IOMMU)
+		//this flow not support mva cache sync, put handle and return
+		ret = -EINVAL;
+		goto err;
+#endif
+
 	default:
 		ret = -EINVAL;
 		goto err;
@@ -461,7 +482,23 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	if (ret < 0)
 		goto err;
 
-	if (ion_need_unmap_flag) {
+	/* range operation PA mode, unmap here */
+	if (sync_type == ION_CACHE_CLEAN_BY_RANGE_USE_PA ||
+	    sync_type == ION_CACHE_INVALID_BY_RANGE_USE_PA ||
+	    sync_type == ION_CACHE_FLUSH_BY_RANGE_USE_PA) {
+		//smart phone m4u/iommu
+#if (defined(CONFIG_MTK_M4U)) || defined(CONFIG_MTK_IOMMU_V2)
+		m4u_mva_unmap_kernel((unsigned long)param->va,
+				     (unsigned int)sync_size, sync_va);
+		//tablet iommu
+#elif defined(CONFIG_MTK_IOMMU)
+		//this flow not support mva cache sync, put handle and return
+		IONMSG("%s err\n", __func__);
+		ret = -EINVAL;
+		goto err;
+#endif
+
+	} else if (ion_need_unmap_flag) {
 		ion_unmap_kernel(client, kernel_handle);
 		ion_need_unmap_flag = 0;
 	}
@@ -494,6 +531,7 @@ int ion_sys_copy_client_name(const char *src, char *dst)
 	return 0;
 }
 
+/* only support kernel va */
 static int ion_cache_sync_flush(unsigned long start, size_t size,
 				enum ION_DMA_TYPE dma_type)
 {
@@ -510,6 +548,9 @@ static int ion_cache_sync_flush(unsigned long start, size_t size,
 	return 0;
 }
 
+/* ion_dma_op cache sync
+ * here only support kernel va
+ */
 long ion_dma_op(struct ion_client *client, struct ion_dma_param *param,
 		int from_kernel)
 {
@@ -543,7 +584,8 @@ long ion_dma_op(struct ion_client *client, struct ion_dma_param *param,
 		       __func__, from_kernel, param->handle,
 		       param->kernel_handle, start, size,
 		       (*client->dbg_name) ? client->dbg_name : client->name);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
 	if (sync_type == ION_DMA_MAP_AREA)
@@ -557,6 +599,7 @@ long ion_dma_op(struct ion_client *client, struct ion_dma_param *param,
 	else if (sync_type == ION_DMA_FLUSH_BY_RANGE)
 		ion_cache_sync_flush(start, size, sync_type);
 
+out:
 	ion_drv_put_kernel_handle(kernel_handle);
 
 	return 0;
