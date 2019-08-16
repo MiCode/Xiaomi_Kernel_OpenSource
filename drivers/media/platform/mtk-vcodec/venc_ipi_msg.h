@@ -63,6 +63,7 @@ enum venc_get_param_type {
 	GET_PARAM_CAPABILITY_FRAME_SIZES,
 	GET_PARAM_FREE_BUFFERS,
 	GET_PARAM_ROI_RC_QP,
+	GET_PARAM_RESOLUTION_CHANGE,
 };
 
 /*
@@ -385,6 +386,9 @@ struct venc_vcu_config {
 	__u32 roi_rc_qp;
 	__u32 roion;
 	__u32 heif_grid_size;
+	__u32 resolutionChange;
+	__u32 max_w;
+	__u32 max_h;
 };
 
 /**
