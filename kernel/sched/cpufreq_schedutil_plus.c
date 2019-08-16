@@ -9,7 +9,7 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 				  unsigned long util, unsigned long max)
 {
 	struct cpufreq_policy *policy = sg_policy->policy;
-	int idx, prev_idx = 0;
+	int idx, target_idx = 0;
 	int cap;
 	int cpu = policy->cpu;
 	struct upower_tbl *tbl;
@@ -21,12 +21,16 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	tbl = upower_get_core_tbl(cpu);
 	for (idx = 0; idx < tbl->row_num ; idx++) {
 		cap = tbl->row[idx].cap;
-		if (!cap || cap > util)
+		if (!cap)
 			break;
-		prev_idx = idx;
+
+		target_idx = idx;
+
+		if (cap > util)
+			break;
 	}
 
-	freq = mt_cpufreq_get_cpu_freq(cpu, prev_idx);
+	freq = mt_cpufreq_get_cpu_freq(cpu, target_idx);
 
 	sg_policy->cached_raw_freq = freq;
 	return cpufreq_driver_resolve_freq(policy, freq);
