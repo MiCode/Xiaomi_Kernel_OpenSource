@@ -220,11 +220,49 @@ void cmdq_mbox_pool_clear(struct cmdq_client *cl)
 }
 EXPORT_SYMBOL(cmdq_mbox_pool_clear);
 
+static void *cmdq_mbox_pool_alloc_impl(struct dma_pool *pool,
+	dma_addr_t *pa_out, atomic_t *cnt, u32 limit)
+{
+	void *va;
+	dma_addr_t pa;
+
+	if (atomic_inc_return(cnt) > limit) {
+		/* not use pool, decrease to value before call */
+		atomic_dec(cnt);
+		return NULL;
+	}
+
+	va = dma_pool_alloc(pool, GFP_KERNEL, &pa);
+	if (!va) {
+		atomic_dec(cnt);
+		cmdq_err(
+			"alloc buffer from pool fail va:0x%p pa:%pa pool:0x%p count:%d",
+			va, &pa, pool,
+			(s32)atomic_read(cnt));
+		return NULL;
+	}
+
+	*pa_out = pa;
+
+	return va;
+}
+
+static void cmdq_mbox_pool_free_impl(struct dma_pool *pool, void *va,
+	dma_addr_t pa, atomic_t *cnt)
+{
+	if (unlikely(atomic_read(cnt) <= 0 || !pool)) {
+		cmdq_err("free pool cnt:%d pool:0x%p",
+			(s32)atomic_read(cnt), pool);
+		return;
+	}
+
+	dma_pool_free(pool, va, pa);
+	atomic_dec(cnt);
+}
+
 static void *cmdq_mbox_pool_alloc(struct cmdq_client *cl, dma_addr_t *pa_out)
 {
 	struct client_priv *priv = (struct client_priv *)cl->cl_priv;
-	void *va;
-	dma_addr_t pa;
 
 	if (unlikely(!priv->buf_pool)) {
 		cmdq_mbox_pool_create(cl);
@@ -235,35 +273,15 @@ static void *cmdq_mbox_pool_alloc(struct cmdq_client *cl, dma_addr_t *pa_out)
 		}
 	}
 
-	if (atomic_inc_return(&priv->buf_cnt) > priv->pool_limit) {
-		/* not use pool, decrease to value before call */
-		atomic_dec(&priv->buf_cnt);
-		return NULL;
-	}
-
-	va = dma_pool_alloc(priv->buf_pool, GFP_KERNEL, &pa);
-	if (!va) {
-		atomic_dec(&priv->buf_cnt);
-		cmdq_err(
-			"alloc buffer from pool fail va:0x%p pa:%pa pool:0x%p count:%d",
-			va, &pa, priv->buf_pool,
-			(s32)atomic_read(&priv->buf_cnt));
-		return NULL;
-	}
-
-	*pa_out = pa;
-	return va;
+	return cmdq_mbox_pool_alloc_impl(priv->buf_pool,
+		pa_out, &priv->buf_cnt, priv->pool_limit);
 }
 
 static void cmdq_mbox_pool_free(struct cmdq_client *cl, void *va, dma_addr_t pa)
 {
 	struct client_priv *priv = (struct client_priv *)cl->cl_priv;
 
-	if (unlikely(atomic_read(&priv->buf_cnt) <= 0 || !priv->buf_pool))
-		return;
-
-	dma_pool_free(priv->buf_pool, va, pa);
-	atomic_dec(&priv->buf_cnt);
+	cmdq_mbox_pool_free_impl(priv->buf_pool, va, pa, &priv->buf_cnt);
 }
 
 void *cmdq_mbox_buf_alloc(struct device *dev, dma_addr_t *pa_out)
@@ -335,13 +353,17 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 {
 	struct cmdq_client *cl = (struct cmdq_client *)pkt->priv;
 	struct cmdq_pkt_buffer *buf;
+	struct cmdq_buf_pool *pool = pkt->buf_pool;
 
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
 
 	/* try dma pool if available */
-	if (cl)
+	if (pkt->buf_pool && pool->pool)
+		buf->va_base = cmdq_mbox_pool_alloc_impl(pool->pool,
+			&buf->pa_base, &pool->cnt, pool->limit);
+	else if (cl)
 		buf->va_base = cmdq_mbox_pool_alloc(cl, &buf->pa_base);
 
 	if (buf->va_base)
@@ -366,11 +388,17 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 {
 	struct cmdq_client *cl = (struct cmdq_client *)pkt->priv;
 	struct cmdq_pkt_buffer *buf, *tmp;
+	struct cmdq_buf_pool *pool = pkt->buf_pool;
 
 	list_for_each_entry_safe(buf, tmp, &pkt->buf, list_entry) {
 		list_del(&buf->list_entry);
 		if (buf->use_pool)
-			cmdq_mbox_pool_free(cl, buf->va_base, buf->pa_base);
+			if (pool)
+				cmdq_mbox_pool_free_impl(pool->pool,
+					buf->va_base, buf->pa_base, &pool->cnt);
+			else
+				cmdq_mbox_pool_free(cl, buf->va_base,
+					buf->pa_base);
 		else
 			cmdq_mbox_buf_free(pkt->dev, buf->va_base,
 				buf->pa_base);
