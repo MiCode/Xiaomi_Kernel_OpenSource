@@ -230,8 +230,10 @@ void musb_g_giveback(struct musb_ep *ep,
 
 	if (!dma_mapping_error(musb->controller, request->dma))
 		unmap_dma_buffer(req, musb);
+#if defined(CONFIG_64BIT) && defined(CONFIG_MTK_LM_MODE)
 	else if (req->epnum != 0)
 		DBG(0, "%s dma_mapping_error\n", ep->end_point.name);
+#endif
 
 	if (request->status == 0)
 		DBG(1, "%s done request %p,  %d/%d\n",
