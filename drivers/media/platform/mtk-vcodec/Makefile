@@ -50,3 +50,6 @@ endif
 ifdef CONFIG_VIDEO_MEDIATEK_VPU
 	ccflags-y += -I$(srctree)/drivers/media/platform/mtk-vpu
 endif
+ifdef CONFIG_VB2_MEDIATEK_DMA
+	ccflags-y += -I$(srctree)/drivers/media/platform/mtk-videobuf
+endif

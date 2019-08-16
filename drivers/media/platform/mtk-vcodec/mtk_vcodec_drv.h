@@ -23,6 +23,9 @@
 #include <media/v4l2-ioctl.h>
 #include <media/videobuf2-core.h>
 #include "mtk_vcodec_util.h"
+#ifdef CONFIG_VB2_MEDIATEK_DMA
+#include "mtk-dma-contig.h"
+#endif
 
 #define MTK_VCODEC_DRV_NAME	"mtk_vcodec_drv"
 #define MTK_VCODEC_DEC_NAME	"mtk-vcodec-dec"

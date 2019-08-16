@@ -1547,7 +1547,13 @@ int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->buf_struct_size = sizeof(struct mtk_video_dec_buf);
 	src_vq->allow_zero_bytesused = 1;
 	src_vq->ops		= ctx->dev->vdec_pdata->vdec_vb2_ops;
-	src_vq->mem_ops		= &vb2_dma_contig_memops;
+#ifdef CONFIG_VB2_MEDIATEK_DMA
+	src_vq->mem_ops         = &mtk_dma_contig_memops;
+	mtk_v4l2_debug(4, "src_vq use mtk_dma_contig_memops");
+#else
+	src_vq->mem_ops         = &vb2_dma_contig_memops;
+	mtk_v4l2_debug(4, "src_vq use vb2_dma_contig_memops");
+#endif
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	src_vq->lock		= &ctx->dev->dev_mutex;
 	src_vq->dev             = &ctx->dev->plat_dev->dev;
@@ -1563,7 +1569,13 @@ int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->buf_struct_size = sizeof(struct mtk_video_dec_buf);
 	dst_vq->allow_zero_bytesused = 1;
 	dst_vq->ops		= ctx->dev->vdec_pdata->vdec_vb2_ops;
-	dst_vq->mem_ops		= &vb2_dma_contig_memops;
+#ifdef CONFIG_VB2_MEDIATEK_DMA
+	dst_vq->mem_ops         = &mtk_dma_contig_memops;
+	mtk_v4l2_debug(4, "dst_vq use mtk_dma_contig_memops");
+#else
+	dst_vq->mem_ops         = &vb2_dma_contig_memops;
+	mtk_v4l2_debug(4, "dst_vq use vb2_dma_contig_memops");
+#endif
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	dst_vq->lock		= &ctx->dev->dev_mutex;
 	dst_vq->dev             = &ctx->dev->plat_dev->dev;

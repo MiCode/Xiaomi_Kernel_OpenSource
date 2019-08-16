@@ -435,13 +435,8 @@ static void mtk_vdec_worker(struct work_struct *work)
 	pfb->index = dst_buf->vb2_buf.index;
 	for (i = 0; i < dst_buf->vb2_buf.num_planes; i++) {
 		pfb->fb_base[i].va = vb2_plane_vaddr(&dst_buf->vb2_buf, i);
-#ifdef CONFIG_VB2_MEDIATEK_DMA_SG
-		pfb->fb_base[i].dma_addr =
-			mtk_dma_sg_plane_dma_addr(&dst_buf->vb2_buf, i);
-#else
 		pfb->fb_base[i].dma_addr =
 			vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, i);
-#endif
 		pfb->fb_base[i].size = ctx->picinfo.fb_sz[i];
 		pfb->fb_base[i].length = dst_buf->vb2_buf.planes[i].length;
 		pfb->fb_base[i].dmabuf = dst_buf->vb2_buf.planes[i].dbuf;
