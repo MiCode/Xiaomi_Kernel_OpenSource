@@ -29,6 +29,10 @@
 #include "hdmicec.h"
 #endif
 
+#ifdef CONFIG_CUSTOM_KERNEL_HDMI
+#include "extd_hdmi.h"
+#endif
+
 enum HDMI_TASK_COMMAND_TYPE_T {
 	HDMI_CEC_CMD = 0,
 	HDMI_PLUG_DETECT_CMD,
@@ -211,6 +215,7 @@ enum HDMI_VIDEO_OUTPUT_FORMAT {
 
 /* Must align to MHL Tx chip driver define */
 enum HDMI_AUDIO_FORMAT {
+	TMP_AUDIO,
 	HDMI_AUDIO_32K_2CH		= 0x01,
 	HDMI_AUDIO_44K_2CH		= 0x02,
 	HDMI_AUDIO_48K_2CH		= 0x03,
@@ -509,7 +514,12 @@ struct HDMI_DRIVER {
 	void (*read)(unsigned char u8Reg);
 	void (*write)(unsigned char u8Reg, unsigned char u8Data);
 	void (*log_enable)(bool enable);
+#ifdef CONFIG_CUSTOM_KERNEL_HDMI
+	void (*getedid)(struct _HDMI_EDID_T *pv_get_info);
+#else
 	void (*getedid)(void *pv_get_info);
+#endif
+
 #else
 	void (*read)(unsigned long u2Reg, unsigned int *p4Data);
 	void (*write)(unsigned long u2Reg, unsigned int u4Data);
@@ -545,6 +555,11 @@ struct HDMI_DRIVER {
 };
 /* ------------------------------------------- */
 /* HDMI Driver Functions */
+
+
+int ite66121_pmic_power_on(void);
+int ite66121_pmic_power_off(void);
+
 
 extern unsigned int dst_is_dsi;
 extern struct semaphore hdmi_update_mutex;

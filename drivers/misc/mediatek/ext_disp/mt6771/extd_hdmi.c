@@ -32,7 +32,7 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/list.h>
-#include <linux/switch.h>
+/*#include <linux/switch.h>*/
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/atomic.h>
@@ -64,6 +64,7 @@
 #include "ddp_info.h"
 #include "ddp_irq.h"
 #include "ddp_mmp.h"
+#include <uapi/linux/sched/types.h>
 
 #include "disp_session.h"
 
@@ -105,8 +106,11 @@ static unsigned long hdmi_reschange = HDMI_VIDEO_RESOLUTION_NUM;
 static unsigned long force_reschange = 0xffff;
 int enable_ut;
 unsigned int dst_is_dsi;
-static struct switch_dev hdmi_switch_data;
-static struct switch_dev hdmires_switch_data;
+/*
+ *static struct switch_dev hdmi_notify_data;
+ *static struct switch_dev hdmires_notify_data;
+ */
+
 
 static struct HDMI_DRIVER *hdmi_drv;
 static struct _t_hdmi_context hdmi_context;
@@ -178,6 +182,156 @@ struct task_struct *hdmi_wait_vsync_task;
 /* extern unsigned char kara_1280x720[2764800]; */
 
 /* Information Dump Routines */
+/*~~~~~~~~~~~~~~~~~~kernel-4.9 define switch dev~~~~~~~~~~~~~~~~~~ */
+struct notify_dev {
+	const char	*name;
+	struct device *dev;
+	int index;
+	int state;
+
+	ssize_t (*print_name)(struct notify_dev *sdev, char *buf);
+	ssize_t (*print_state)(struct notify_dev *sdev, char *buf);
+};
+
+
+struct notify_dev hdmi_notify_data;
+struct notify_dev hdmires_notify_data;
+struct class *switch_class;
+static atomic_t device_count;
+
+static ssize_t state_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	int ret;
+	struct notify_dev *sdev = (struct notify_dev *)
+		dev_get_drvdata(dev);
+
+	if (sdev->print_state) {
+		ret = sdev->print_state(sdev, buf);
+		if (ret >= 0)
+			return ret;
+	}
+	return sprintf(buf, "%d\n", sdev->state);
+}
+
+static ssize_t name_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	int ret;
+	struct notify_dev *sdev = (struct notify_dev *)
+		dev_get_drvdata(dev);
+
+	if (sdev->print_name) {
+		ret = sdev->print_name(sdev, buf);
+		if (ret >= 0)
+			return ret;
+	}
+	return sprintf(buf, "%s\n", sdev->name);
+}
+
+static DEVICE_ATTR(state, 0444, state_show, NULL);
+static DEVICE_ATTR(name, 0444, name_show, NULL);
+
+static int create_switch_class(void)
+{
+	if (!switch_class) {
+		switch_class = class_create(THIS_MODULE, "switch");
+		if (IS_ERR(switch_class))
+			return PTR_ERR(switch_class);
+		atomic_set(&device_count, 0);
+	}
+	return 0;
+}
+
+
+int hdmi_uevent_dev_register(struct notify_dev *sdev)
+{
+	int ret;
+
+	if (!switch_class) {
+		ret = create_switch_class();
+		if (ret == 0) {
+			HDMI_LOG("[hdmi]w-y create_switch_class susesess\n");
+		} else {
+			HDMI_LOG("[hdmi]w-y create_switch_class fail\n");
+			return ret;
+		}
+	}
+
+	sdev->index = atomic_inc_return(&device_count);
+	HDMI_LOG("[hdmi]w-y index:0x%x\n", sdev->index);
+
+	sdev->dev = device_create(switch_class, NULL,
+		 MKDEV(0, sdev->index), NULL, sdev->name);
+
+	if (sdev->dev) {
+		HDMI_LOG("[hdmi]w-y device create ok,index:0x%x\n",
+			sdev->index);
+		ret = 0;
+	} else {
+		HDMI_LOG("[hdmi]w-y device create fail,index:0x%x\n",
+			sdev->index);
+		ret = -1;
+	}
+
+	ret = device_create_file(sdev->dev, &dev_attr_state);
+	if (ret < 0) {
+		device_destroy(switch_class, MKDEV(0, sdev->index));
+		HDMI_LOG("switch: Failed to register driver %s\n",
+			sdev->name);
+	}
+	ret = device_create_file(sdev->dev, &dev_attr_name);
+	if (ret < 0) {
+		device_remove_file(sdev->dev, &dev_attr_state);
+		HDMI_LOG("switch: Failed to register driver %s\n",
+			sdev->name);
+	}
+
+	dev_set_drvdata(sdev->dev, sdev);
+	sdev->state = 0;
+
+	return ret;
+
+}
+
+int notify_uevent_user(struct notify_dev *sdev, int state)
+{
+	char *envp[3];
+	char name_buf[120];
+	char state_buf[120];
+
+	if (sdev == NULL)
+		return -1;
+
+	HDMI_LOG("[hdmi]w-y notify state:0x%x\n", state);
+
+	if (sdev->state != state)
+		sdev->state = state;
+
+	snprintf(name_buf, sizeof(name_buf), "SWITCH_NAME=%s", sdev->name);
+	envp[0] = name_buf;
+	snprintf(state_buf, sizeof(state_buf), "SWITCH_STATE=%d", sdev->state);
+	envp[1] = state_buf;
+	envp[2] = NULL;
+	HDMI_LOG("[hdmi]w-y name:%s ,state:%s\n", envp[0], envp[1]);
+	kobject_uevent_env(&sdev->dev->kobj, KOBJ_CHANGE, envp);
+
+	HDMI_LOG("[hdmi]w-y kobj_name:%s\n", sdev->dev->kobj.name);
+	HDMI_LOG("[hdmi]w-y init:0x%x\n", sdev->dev->kobj.state_initialized);
+	HDMI_LOG("[hdmi]w-y sysfs:0x%x\n",
+		sdev->dev->kobj.state_in_sysfs);
+	HDMI_LOG("[hdmi]w-y uevent sent:0x%x\n",
+		sdev->dev->kobj.state_add_uevent_sent);
+	HDMI_LOG("[hdmi]w-y remove sent:0x%x\n",
+		sdev->dev->kobj.state_remove_uevent_sent);
+	HDMI_LOG("[hdmi]w-y uevent suppress:0x%x\n",
+		sdev->dev->kobj.uevent_suppress);
+
+	return 0;
+}
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 
 void hdmi_force_on(int from_uart_drv)
 {
@@ -192,21 +346,23 @@ void hdmi_force_resolution(int params)
 	else
 		hdmi_params->is_3d_support = 0;
 
-	HDMI_LOG("%s params:0x%lx, 3d:%d\n", __func__, force_reschange,
-		 hdmi_params->is_3d_support);
+	/*HDMI_LOG("%s params:0x%lx, 3d:%d\n", __func__, force_reschange,
+	 *	 hdmi_params->is_3d_support);
+	 */
 }
 
-#ifdef MM_MHL_DVFS
-#include "mmdvfs_mgr.h"
-static void hdmi_enable_dvfs(int enable)
-{
-	mmdvfs_mhl_enable(enable);
-}
-#else
-static void hdmi_enable_dvfs(int enable)
-{
-}
-#endif
+/*#ifdef MM_MHL_DVFS
+ *#include "mmdvfs_mgr.h"
+ *static void hdmi_enable_dvfs(int enable)
+ *{
+ *	mmdvfs_mhl_enable(enable);
+ *}
+ *#else
+ *static void hdmi_enable_dvfs(int enable)
+ *{
+ *}
+ *#endif
+ */
 
 /* for debug */
 void hdmi_cable_fake_plug_in(void)
@@ -221,14 +377,19 @@ void hdmi_cable_fake_plug_in(void)
 		return;
 
 #ifdef MHL_DYNAMIC_VSYNC_OFFSET
-	ged_dvfs_vsync_offset_event_switch(GED_DVFS_VSYNC_OFFSET_MHL_EVENT,
-					   true);
+	/*ged_dvfs_vsync_offset_event_switch(GED_DVFS_VSYNC_OFFSET_MHL_EVENT,
+	 *				   true);
+	 */
 #endif
 	hdmi_resume();
-	hdmi_enable_dvfs(true);
+	/*hdmi_enable_dvfs(true);*/
 	/* msleep(1000); */
 	hdmi_reschange = HDMI_VIDEO_RESOLUTION_NUM;
-	switch_set_state(&hdmi_switch_data, HDMI_STATE_ACTIVE);
+	/* notify_uevent_user(&hdmi_notify_data,
+	 *HDMI_STATE_ACTIVE);
+	 */
+	notify_uevent_user(&hdmi_notify_data,
+				HDMI_STATE_ACTIVE);
 }
 
 void hdmi_cable_fake_plug_out(void)
@@ -240,14 +401,19 @@ void hdmi_cable_fake_plug_out(void)
 		if ((hdmi_drv->get_state() != HDMI_STATE_ACTIVE) ||
 		    (enable_ut == 1)) {
 #ifdef MHL_DYNAMIC_VSYNC_OFFSET
-			ged_dvfs_vsync_offset_event_switch(
-				GED_DVFS_VSYNC_OFFSET_MHL_EVENT, false);
+			/*ged_dvfs_vsync_offset_event_switch(
+			 *	GED_DVFS_VSYNC_OFFSET_MHL_EVENT, false);
+			 */
 #endif
 			hdmi_suspend();
-			hdmi_enable_dvfs(false);
-			switch_set_state(&hdmi_switch_data,
-					 HDMI_STATE_NO_DEVICE);
-			switch_set_state(&hdmires_switch_data, 0);
+			/*hdmi_enable_dvfs(false);*/
+				/* notify_uevent_user(&hdmi_notify_data,
+				 *		 HDMI_STATE_NO_DEVICE);
+				 *notify_uevent_user(&hdmires_notify_data, 0);
+				 */
+			notify_uevent_user(&hdmi_notify_data,
+					HDMI_STATE_NO_DEVICE);
+			notify_uevent_user(&hdmires_notify_data, 0);
 		}
 	}
 	force_reschange = 0xffff;
@@ -685,16 +851,17 @@ static void hdmi_state_reset(void)
 
 	if (hdmi_drv->get_state() == HDMI_STATE_ACTIVE) {
 		if (enable_ut != 1)
-			switch_set_state(&hdmi_switch_data, HDMI_STATE_ACTIVE);
-		hdmi_enable_dvfs(true);
+			notify_uevent_user(&hdmi_notify_data,
+					HDMI_STATE_ACTIVE);
+		/*hdmi_enable_dvfs(true);*/
 		hdmi_reschange = HDMI_VIDEO_RESOLUTION_NUM;
 	} else {
 		if (enable_ut != 1) {
-			switch_set_state(&hdmi_switch_data,
+			notify_uevent_user(&hdmi_notify_data,
 					 HDMI_STATE_NO_DEVICE);
-			switch_set_state(&hdmires_switch_data, 0);
+			notify_uevent_user(&hdmires_notify_data, 0);
 		}
-		hdmi_enable_dvfs(false);
+	/*hdmi_enable_dvfs(false);*/
 	}
 }
 
@@ -784,7 +951,8 @@ void hdmi_power_on(void)
 		if (IS_HDMI_FAKE_PLUG_IN()) {
 			hdmi_resume();
 			msleep(1000);
-			switch_set_state(&hdmi_switch_data, HDMI_STATE_ACTIVE);
+			notify_uevent_user(&hdmi_notify_data,
+					HDMI_STATE_ACTIVE);
 			hdmi_reschange = HDMI_VIDEO_RESOLUTION_NUM;
 		} else {
 			/* this is just a ugly workaround for some tv sets.. */
@@ -816,8 +984,8 @@ void hdmi_power_off(void)
 	SET_HDMI_OFF();
 	up(&hdmi_update_mutex);
 
-	switch_set_state(&hdmires_switch_data, 0);
-	hdmi_enable_dvfs(false);
+	notify_uevent_user(&hdmires_notify_data, 0);
+	/*hdmi_enable_dvfs(false);*/
 
 #if defined(CONFIG_MTK_DCS)
 	/* Nortify DCS can switch to 2ch */
@@ -828,7 +996,6 @@ void hdmi_power_off(void)
 static void hdmi_resolution_setting(int arg)
 {
 	HDMI_FUNC();
-
 	extd_dpi_params.dispif_config.dpi.dsc_enable = 0;
 	if (hdmi_drv && hdmi_drv->get_params) {
 		hdmi_params->init_config.vformat = arg;
@@ -836,8 +1003,8 @@ static void hdmi_resolution_setting(int arg)
 
 		if (dst_is_dsi) {
 			memcpy(&extd_dpi_params.dispif_config.dsi,
-			       (void *)(&hdmi_params->dsi_params),
-			       sizeof(struct LCM_DSI_PARAMS));
+			    (void *)(&hdmi_params->dsi_params),
+			      sizeof(struct LCM_DSI_PARAMS));
 
 			p->bg_height =
 			    ((hdmi_params->height * p->scaling_factor) /
@@ -863,9 +1030,10 @@ static void hdmi_resolution_setting(int arg)
 
 				dsi_ctx =
 					&(extd_dpi_params.dispif_config.dsi);
-				dsc_cfg = dsi_ctx->dsc_params;
+				dsc_cfg = &dsi_ctx->dsc_params;
 				memset(dsc_cfg, 0,
 					sizeof(struct LCM_DSC_CONFIG_PARAMS));
+
 				dsi_ctx->dsc_enable = 1;
 				/* width/(slice_mode's slice) */
 				dsc_cfg->slice_width = 1920;
@@ -890,13 +1058,13 @@ static void hdmi_resolution_setting(int arg)
 			}
 		} else {
 			extd_dpi_params.dispif_config.dpi.clk_pol =
-			    hdmi_params->clk_pol;
+			    (enum LCM_POLARITY)hdmi_params->clk_pol;
 			extd_dpi_params.dispif_config.dpi.de_pol =
-			    hdmi_params->de_pol;
+			    (enum LCM_POLARITY)hdmi_params->de_pol;
 			extd_dpi_params.dispif_config.dpi.hsync_pol =
-			    hdmi_params->hsync_pol;
+			    (enum LCM_POLARITY)hdmi_params->hsync_pol;
 			extd_dpi_params.dispif_config.dpi.vsync_pol =
-			    hdmi_params->vsync_pol;
+			    (enum LCM_POLARITY)hdmi_params->vsync_pol;
 
 			extd_dpi_params.dispif_config.dpi.hsync_pulse_width =
 			    hdmi_params->hsync_pulse_width;
@@ -937,9 +1105,10 @@ static void hdmi_resolution_setting(int arg)
 
 				dpi_ctx =
 					&(extd_dpi_params.dispif_config.dpi);
-				dsc_cfg = dpi_ctx->dsc_params;
+				dsc_cfg = &dpi_ctx->dsc_params;
 				memset(dsc_cfg, 0,
 					sizeof(struct LCM_DSC_CONFIG_PARAMS));
+
 				dpi_ctx->dsc_enable = 1;
 				dpi_ctx->width = p->hdmi_width / 3;
 				/* width/(slice_mode's slice) */
@@ -1013,13 +1182,15 @@ void hdmi_state_callback(enum HDMI_STATE state)
 	case HDMI_STATE_NO_DEVICE:
 	{
 #ifdef MHL_DYNAMIC_VSYNC_OFFSET
-		ged_dvfs_vsync_offset_event_switch(
-				GED_DVFS_VSYNC_OFFSET_MHL_EVENT, false);
+		/*ged_dvfs_vsync_offset_event_switch(
+		 *		GED_DVFS_VSYNC_OFFSET_MHL_EVENT, false);
+		 */
 #endif
 		hdmi_suspend();
-		switch_set_state(&hdmi_switch_data, HDMI_STATE_NO_DEVICE);
-		switch_set_state(&hdmires_switch_data, 0);
-		hdmi_enable_dvfs(false);
+		notify_uevent_user(&hdmi_notify_data,
+					HDMI_STATE_NO_DEVICE);
+		notify_uevent_user(&hdmires_notify_data, 0);
+		/*hdmi_enable_dvfs(false);*/
 
 #if defined(CONFIG_MTK_SMARTBOOK_SUPPORT) && defined(CONFIG_HAS_SBSUSPEND)
 		if (hdmi_params->cabletype == MHL_SMB_CABLE)
@@ -1041,16 +1212,18 @@ void hdmi_state_callback(enum HDMI_STATE state)
 
 		if (atomic_read(&p->state) > HDMI_POWER_STATE_OFF) {
 			hdmi_reschange = HDMI_VIDEO_RESOLUTION_NUM;
-			switch_set_state(&hdmi_switch_data, HDMI_STATE_ACTIVE);
-			hdmi_enable_dvfs(true);
+			notify_uevent_user(&hdmi_notify_data,
+					HDMI_STATE_ACTIVE);
+			/*hdmi_enable_dvfs(true);*/
 		}
 #if defined(CONFIG_MTK_SMARTBOOK_SUPPORT) && defined(CONFIG_HAS_SBSUSPEND)
 		if (hdmi_params->cabletype == MHL_SMB_CABLE)
 			sb_plug_in();
 #endif
 #ifdef MHL_DYNAMIC_VSYNC_OFFSET
-		ged_dvfs_vsync_offset_event_switch(
-					GED_DVFS_VSYNC_OFFSET_MHL_EVENT, true);
+		/*ged_dvfs_vsync_offset_event_switch(
+		 *		GED_DVFS_VSYNC_OFFSET_MHL_EVENT, true);
+		 */
 #endif
 		HDMI_LOG("[hdmi]%s, state = %d out!\n", __func__, state);
 		break;
@@ -1096,7 +1269,8 @@ int hdmi_enable(int enable)
 		hdmi_power_off();
 		hdmi_drv_deinit();
 		/* when disable hdmi, HPD is disabled */
-		switch_set_state(&hdmi_switch_data, HDMI_STATE_NO_DEVICE);
+		notify_uevent_user(&hdmi_notify_data,
+					HDMI_STATE_NO_DEVICE);
 
 		p->is_enabled = false;
 
@@ -1123,7 +1297,8 @@ int hdmi_power_enable(int enable)
 		hdmi_power_on();
 	} else {
 		hdmi_power_off();
-		switch_set_state(&hdmi_switch_data, HDMI_STATE_NO_DEVICE);
+		notify_uevent_user(&hdmi_notify_data,
+					HDMI_STATE_NO_DEVICE);
 	}
 
 	return 0;
@@ -1148,9 +1323,9 @@ void hdmi_force_disable(int enable)
 		if (IS_HDMI_FAKE_PLUG_IN() ||
 		    (hdmi_drv->get_state() == HDMI_STATE_ACTIVE)) {
 			hdmi_suspend();
-			switch_set_state(&hdmi_switch_data,
+			notify_uevent_user(&hdmi_notify_data,
 					 HDMI_STATE_NO_DEVICE);
-			switch_set_state(&hdmires_switch_data, 0);
+			notify_uevent_user(&hdmires_notify_data, 0);
 		}
 
 		p->is_force_disable = true;
@@ -1162,7 +1337,8 @@ void hdmi_force_disable(int enable)
 		    (hdmi_drv->get_state() == HDMI_STATE_ACTIVE)) {
 			hdmi_resume();
 			msleep(1000);
-			switch_set_state(&hdmi_switch_data, HDMI_STATE_ACTIVE);
+			notify_uevent_user(&hdmi_notify_data,
+					HDMI_STATE_ACTIVE);
 			hdmi_reschange = HDMI_VIDEO_RESOLUTION_NUM;
 		}
 
@@ -1265,7 +1441,6 @@ int hdmi_set_resolution(int res)
 	if (extd_path_state == EXTD_RESUME) {
 		if (hdmi_drv && hdmi_drv->suspend)
 			hdmi_drv->suspend();
-
 		ext_disp_suspend(MHL_SESSION_ID);
 
 		session_id = ext_disp_get_sess_id();
@@ -1281,7 +1456,8 @@ int hdmi_set_resolution(int res)
 
 	up(&hdmi_update_mutex);
 	if (enable_ut != 1)
-		switch_set_state(&hdmires_switch_data, hdmi_reschange + 1);
+		notify_uevent_user(&hdmires_notify_data,
+					hdmi_reschange + 1);
 	p->is_clock_on = true;
 	mmprofile_log_ex(ddp_mmp_get_events()->Extd_State, MMPROFILE_FLAG_END,
 			 ResChange, hdmi_reschange + 1);
@@ -1534,21 +1710,15 @@ int hdmi_init(void)
 
 	HDMI_LOG("%s start\n", __func__);
 	/* for support hdmi hotplug, inform AP the event */
-	hdmi_switch_data.name = "hdmi";
-	hdmi_switch_data.index = 0;
-	hdmi_switch_data.state = HDMI_STATE_NO_DEVICE;
-	ret = switch_dev_register(&hdmi_switch_data);
-	if (ret)
-		HDMI_ERR("[hdmi][HDMI]switch_dev_register failed, return:%d!\n",
-			 ret);
+	hdmi_notify_data.name = "hdmi";
+	hdmi_notify_data.index = 0;
+	hdmi_notify_data.state = HDMI_STATE_NO_DEVICE;
+	ret = hdmi_uevent_dev_register(&hdmi_notify_data);
 
-	hdmires_switch_data.name = "res_hdmi";
-	hdmires_switch_data.index = 0;
-	hdmires_switch_data.state = 0;
-	ret = switch_dev_register(&hdmires_switch_data);
-	if (ret)
-		HDMI_ERR("[hdmi][HDMI]switch_dev_register failed, return:%d!\n",
-			 ret);
+	hdmires_notify_data.name = "res_hdmi";
+	hdmires_notify_data.index = 0;
+	hdmires_notify_data.state = 0;
+	ret = hdmi_uevent_dev_register(&hdmires_notify_data);
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,extd_dev");
 	if (!node)

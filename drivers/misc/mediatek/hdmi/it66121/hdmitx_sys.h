@@ -45,7 +45,7 @@ void InitHDMITX_Variable(void);
 void HDMITX_SetOutput(void);
 void HDMITX_DevLoopProc(void);
 
-extern struct switch_dev hdmi_switch_data;
+/*extern struct switch_dev hdmi_switch_data;*/
 extern void switch_host_interface_timing(int out);
 extern void init_hdmi_disp_path(int out);
 /* extern int start_output; */
