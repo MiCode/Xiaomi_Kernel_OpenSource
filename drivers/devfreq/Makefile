@@ -26,6 +26,7 @@ ccflags-y += -I$(srctree)/drivers/watchdog/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/submodule/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)\
 
 ifeq ($(CONFIG_MTK_QOS_SUPPORT), y)
