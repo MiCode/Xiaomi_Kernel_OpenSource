@@ -446,7 +446,7 @@ static int vidioc_venc_g_ctrl(struct v4l2_ctrl *ctrl)
 
 	return ret;
 }
-
+#if 0
 static int vidioc_venc_g_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_vcodec_ctx *ctx = ctrl_to_ctx(ctrl);
@@ -468,7 +468,7 @@ static int vidioc_venc_g_ctrl(struct v4l2_ctrl *ctrl)
 
 	return ret;
 }
-
+#endif
 static const struct v4l2_ctrl_ops mtk_vcodec_enc_ctrl_ops = {
 	.s_ctrl = vidioc_venc_s_ctrl,
 	.g_volatile_ctrl = vidioc_venc_g_ctrl,
@@ -602,7 +602,7 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 {
 	struct v4l2_pix_format_mplane *pix_fmt_mp = &f->fmt.pix_mp;
 	int org_w, org_h, i;
-	float bytesPP = 1;  /* bytes per pixel */
+	int bytesPP = 100;  /* bytes per pixel */
 	__u32 bs_fourcc;
 	unsigned int step_width_in_pixel;
 	unsigned int step_height_in_pixel;
@@ -657,7 +657,7 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 				spec_size_info->stepwise.step_width * 4;
 			step_height_in_pixel =
 				spec_size_info->stepwise.step_height;
-			bytesPP = 1.25;
+			bytesPP = 125;
 			saligned = 6;
 		} else if (pix_fmt_mp->pixelformat == V4L2_PIX_FMT_P010M ||
 			pix_fmt_mp->pixelformat == V4L2_PIX_FMT_P010S) {
@@ -665,7 +665,7 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 				spec_size_info->stepwise.step_width / 2;
 			step_height_in_pixel =
 				spec_size_info->stepwise.step_height;
-			bytesPP = 2;
+			bytesPP = 200;
 			saligned = 6;
 		} else if (pix_fmt_mp->pixelformat == V4L2_PIX_FMT_ABGR32 ||
 			pix_fmt_mp->pixelformat == V4L2_PIX_FMT_ARGB32 ||
@@ -673,20 +673,20 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 			pix_fmt_mp->pixelformat == V4L2_PIX_FMT_BGR32) {
 			step_width_in_pixel = 1;
 			step_height_in_pixel = 1;
-			bytesPP = 4;
+			bytesPP = 400;
 			saligned = 4;
 		} else if (pix_fmt_mp->pixelformat == V4L2_PIX_FMT_RGB24 ||
 			pix_fmt_mp->pixelformat == V4L2_PIX_FMT_BGR24) {
 			step_width_in_pixel = 1;
 			step_height_in_pixel = 1;
-			bytesPP = 3;
+			bytesPP = 300;
 			saligned = 4;
 		} else {
 			step_width_in_pixel =
 				spec_size_info->stepwise.step_width;
 			step_height_in_pixel =
 				spec_size_info->stepwise.step_height;
-			bytesPP = 1;
+			bytesPP = 100;
 			saligned = 6;
 		}
 
@@ -770,38 +770,38 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 			pix_fmt_mp->pixelformat == V4L2_PIX_FMT_RGB24 ||
 			pix_fmt_mp->pixelformat == V4L2_PIX_FMT_BGR24) {
 			pix_fmt_mp->plane_fmt[0].sizeimage =
-				imagePixels * bytesPP;
+				imagePixels * bytesPP / 100;
 			pix_fmt_mp->plane_fmt[0].bytesperline =
-			pix_fmt_mp->width * bytesPP;
+				pix_fmt_mp->width * bytesPP / 100;
 			pix_fmt_mp->num_planes = 1U;
 		} else if (pix_fmt_mp->num_planes == 1U) {
 			pix_fmt_mp->plane_fmt[0].sizeimage =
-				(imagePixels * bytesPP) +
-				(imagePixels * bytesPP) / 2;
+				(imagePixels * bytesPP / 100) +
+				(imagePixels * bytesPP / 100) / 2;
 			pix_fmt_mp->plane_fmt[0].bytesperline =
-				pix_fmt_mp->width * bytesPP;
+				pix_fmt_mp->width * bytesPP / 100;
 		} else if (pix_fmt_mp->num_planes == 2U) {
 			pix_fmt_mp->plane_fmt[0].sizeimage =
-				imagePixels * bytesPP;
+				imagePixels * bytesPP / 100;
 			pix_fmt_mp->plane_fmt[0].bytesperline =
-				pix_fmt_mp->width * bytesPP;
+				pix_fmt_mp->width * bytesPP / 100;
 			pix_fmt_mp->plane_fmt[1].sizeimage =
-				(imagePixels * bytesPP) / 2;
+				(imagePixels * bytesPP / 100) / 2;
 			pix_fmt_mp->plane_fmt[1].bytesperline =
-				pix_fmt_mp->width * bytesPP;
+				pix_fmt_mp->width * bytesPP / 100;
 		} else if (pix_fmt_mp->num_planes == 3U) {
 			pix_fmt_mp->plane_fmt[0].sizeimage =
-				imagePixels * bytesPP;
+				imagePixels * bytesPP / 100;
 			pix_fmt_mp->plane_fmt[0].bytesperline =
-				pix_fmt_mp->width * bytesPP;
+				pix_fmt_mp->width * bytesPP / 100;
 			pix_fmt_mp->plane_fmt[1].sizeimage =
-				(imagePixels * bytesPP) / 4;
+				(imagePixels * bytesPP / 100) / 4;
 			pix_fmt_mp->plane_fmt[1].bytesperline =
-				pix_fmt_mp->width * bytesPP / 2;
+				(pix_fmt_mp->width * bytesPP / 100) / 2;
 			pix_fmt_mp->plane_fmt[2].sizeimage =
-				(imagePixels * bytesPP) / 4;
+				(imagePixels * bytesPP / 100) / 4;
 			pix_fmt_mp->plane_fmt[2].bytesperline =
-				pix_fmt_mp->width * bytesPP / 2;
+				(pix_fmt_mp->width * bytesPP / 100) / 2;
 		} else
 			mtk_v4l2_err("Unsupport num planes = %d\n",
 				     pix_fmt_mp->num_planes);

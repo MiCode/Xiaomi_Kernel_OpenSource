@@ -1690,7 +1690,7 @@ static int mtk_vcu_suspend_notifier(struct notifier_block *nb,
 			atomic_read(&vcu_ptr->gce_job_cnt[VCU_VENC][1]) > 0) {
 			wait_cnt++;
 			if (wait_cnt > 5) {
-				pr_info("vcodec_pm_suspend waiting %d %d %d %d\n",
+				pr_info("vcodec_pm_suspend waiting %d %d %d %d %d %d\n",
 				  atomic_read(&vcu_ptr->ipi_done[VCU_VDEC]),
 				  atomic_read(&vcu_ptr->ipi_done[VCU_VENC]),
 				  atomic_read(
