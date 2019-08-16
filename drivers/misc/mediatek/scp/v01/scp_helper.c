@@ -43,7 +43,9 @@
 #include "scp_err_info.h"
 #include "scp_helper.h"
 #include "scp_excep.h"
+#if SCP_DVFS_INIT_ENABLE
 #include "scp_dvfs.h"
+#endif
 #include "mtk_spm_resource_req.h"
 #include "scp_scpctl.h"
 
@@ -1613,16 +1615,16 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	dsb(SY);
 
 	while ((readl(scp_reset_reg) == 0) && (timeout > 0)) {
-		pr_notice("[SCP]reset countdown, %d\n", timeout);
+		pr_notice("[SCP] reset countdown, %d\n", timeout);
 		writel(1, scp_reset_reg);
 		mdelay(20);
 		timeout--;
 	};
 
 	if (readl(scp_reset_reg))
-		pr_notice("[SCP]start scp\n");
+		pr_notice("[SCP] start scp\n");
 	else
-		pr_notice("[SCP]start scp failed\n");
+		pr_notice("[SCP] start scp failed\n");
 
 #if SCP_BOOT_TIME_OUT_MONITOR
 	mod_timer(&scp_ready_timer[SCP_A_ID], jiffies + SCP_READY_TIMEOUT);

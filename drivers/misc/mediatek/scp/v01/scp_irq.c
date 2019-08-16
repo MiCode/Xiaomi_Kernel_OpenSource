@@ -19,7 +19,9 @@
 #include "scp_ipi.h"
 #include "scp_helper.h"
 #include "scp_excep.h"
+#if SCP_DVFS_INIT_ENABLE
 #include "scp_dvfs.h"
+#endif
 
 
 #define SCP_WAIT_LOOP_FOR_WDT		20000
