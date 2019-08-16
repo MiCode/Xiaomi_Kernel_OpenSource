@@ -20,7 +20,7 @@
 #include <linux/refcount.h>
 
 /* inet6_dev.if_flags */
-
+#define IF_RS_VZW_SENT  0x01  /*add for VzW feature*/
 #define IF_RA_OTHERCONF	0x80
 #define IF_RA_MANAGED	0x40
 #define IF_RA_RCVD	0x20

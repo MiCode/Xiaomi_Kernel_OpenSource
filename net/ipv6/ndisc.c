@@ -1229,6 +1229,12 @@ static void ndisc_router_discovery(struct sk_buff *skb)
 		in6_dev->if_flags |= IF_RA_RCVD;
 	}
 
+	if (ip6_operator_isop12()) {
+		/*add for VzW feature : remove IF_RS_VZW_SENT flag*/
+		if (in6_dev->if_flags & IF_RS_VZW_SENT)
+			in6_dev->if_flags &= ~IF_RS_VZW_SENT;
+	}
+
 	/*
 	 * Remember the managed/otherconf flags from most recently
 	 * received RA message (RFC 2462) -- yoshfuji

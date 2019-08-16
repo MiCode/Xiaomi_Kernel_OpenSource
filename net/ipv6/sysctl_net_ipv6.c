@@ -16,6 +16,7 @@
 #include <net/ipv6.h>
 #include <net/addrconf.h>
 #include <net/inet_frag.h>
+#include <net/ip6_route.h>
 #include <net/netevent.h>
 #ifdef CONFIG_NETLABEL
 #include <net/calipso.h>
@@ -197,11 +198,23 @@ static struct ctl_table ipv6_rotable[] = {
 	{ }
 };
 
+static struct ctl_table net_table[] = {
+	{
+		.procname = "optr",
+		.data = &sysctl_optr,
+		.maxlen = sizeof(int),
+		.mode = 0664,
+		.proc_handler = proc_dointvec,
+	},
+	{ }
+};
+
 static int __net_init ipv6_sysctl_net_init(struct net *net)
 {
 	struct ctl_table *ipv6_table;
 	struct ctl_table *ipv6_route_table;
 	struct ctl_table *ipv6_icmp_table;
+	struct ctl_table_header *vzw_hdr;
 	int err;
 
 	err = -ENOMEM;
@@ -237,6 +250,10 @@ static int __net_init ipv6_sysctl_net_init(struct net *net)
 	net->ipv6.sysctl.hdr = register_net_sysctl(net, "net/ipv6", ipv6_table);
 	if (!net->ipv6.sysctl.hdr)
 		goto out_ipv6_icmp_table;
+
+	vzw_hdr = register_net_sysctl(net, "net", net_table);
+	if (!vzw_hdr)
+		pr_info("[mtk_net] register net sysctl optr is fail.\n");
 
 	net->ipv6.sysctl.route_hdr =
 		register_net_sysctl(net, "net/ipv6/route", ipv6_route_table);

@@ -3590,6 +3590,30 @@ struct fib6_info *rt6_get_dflt_router(struct net *net,
 	return rt;
 }
 
+struct fib6_info *rt6_get_dflt_router_expires(struct net_device *dev)
+{
+	struct fib6_info *rt;
+	struct fib6_table *table;
+	#define RTF_ADGE (RTF_ADDRCONF | RTF_DEFAULT \
+		| RTF_GATEWAY | RTF_EXPIRES)
+
+	table = fib6_get_table(dev_net(dev),
+			       addrconf_rt_table(dev, RT6_TABLE_MAIN));
+	if (!table)
+		return NULL;
+
+	rcu_read_lock();
+	for_each_fib6_node_rt_rcu(&table->tb6_root) {
+		if (dev == rt->fib6_nh.nh_dev &&
+		    ((rt->fib6_flags & RTF_ADGE) == RTF_ADGE))
+			break;
+	}
+	if (rt && !fib6_info_hold_safe(rt))
+		rt = NULL;
+	rcu_read_unlock();
+	return rt;
+}
+
 struct fib6_info *rt6_add_dflt_router(struct net *net,
 				     const struct in6_addr *gwaddr,
 				     struct net_device *dev,
