@@ -1331,7 +1331,7 @@ static int tfa98xx_load_firmware(struct snd_kcontrol *kcontrol,
 	if (ucontrol->value.integer.value[0] > 0) {
 		struct tfa98xx *tfa98xx = NULL;
 		struct tfa98xx_baseprofile *bprofile;
-		int prof = 0, id = 0;
+		int id = 0;
 
 		g_tfa98xx_firmware_status =
 			(uint8_t)ucontrol->value.integer.value[0];
@@ -1362,7 +1362,7 @@ static int tfa98xx_load_firmware(struct snd_kcontrol *kcontrol,
 					get_profile_basename(bprofile->basename,
 						tfa_cont_profile_name(
 							tfa98xx,
-							prof));
+							index));
 					bprofile->len =
 						strlen(bprofile->basename);
 					/*
@@ -1379,7 +1379,7 @@ static int tfa98xx_load_firmware(struct snd_kcontrol *kcontrol,
 							bprofile->len) == 0)
 						&& is_calibration_profile(
 							tfa_cont_profile_name(
-								tfa98xx, prof)
+								tfa98xx, index)
 						) == 0) {
 						/* the profile is not present,
 						 * add it to the list
@@ -1400,7 +1400,7 @@ static int tfa98xx_load_firmware(struct snd_kcontrol *kcontrol,
 					 */
 					add_sr_to_profile(tfa98xx,
 						bprofile->basename,
-						bprofile->len, prof);
+						bprofile->len, index);
 				}
 				/* set the number of user
 				 * selectable profiles in the mixer
@@ -2816,11 +2816,11 @@ static int tfa98xx_parse_dt(struct device *dev,
 
 	tfa98xx->reset_gpio = of_get_named_gpio(np, "reset-gpio", 0);
 	if (tfa98xx->reset_gpio < 0)
-		pr_err("[NXP] No reset GPIO provided, will not HW reset device\n");
+		pr_debug("[NXP] No reset GPIO provided, will not HW reset device\n");
 
 	tfa98xx->irq_gpio =  of_get_named_gpio(np, "irq-gpio", 0);
 	if (tfa98xx->irq_gpio < 0)
-		pr_err("[NXP] No IRQ GPIO provided.\n");
+		pr_debug("[NXP] No IRQ GPIO provided.\n");
 
 	return 0;
 }
@@ -3011,19 +3011,23 @@ int tfa98xx_i2c_probe(struct i2c_client *i2c,
 		tfa98xx->irq_gpio = -1;
 	}
 
-	ret = gpio_request(tfa98xx->reset_gpio, "TFA98XX_RST");
-	if (ret) {
-		pr_info("gpio_request  TFA98XX_RST ret=%d\n", ret);
-		return ret;
+	if (gpio_is_valid(tfa98xx->reset_gpio)) {
+		ret = gpio_request(tfa98xx->reset_gpio, "TFA98XX_RST");
+		if (ret) {
+			pr_debug("gpio_request  TFA98XX_RST ret=%d\n", ret);
+			return ret;
+		}
+		pr_debug("gpio_request  TFA98XX_RST succeeded!!\n");
 	}
-	pr_info("gpio_request  TFA98XX_RST succeeded!!\n");
 
-	ret = gpio_request(tfa98xx->irq_gpio, "TFA98XX_INT");
-	if (ret) {
-		pr_info("gpio_request  TFA98XX_INT ret=%d\n", ret);
-		return ret;
+	if (gpio_is_valid(tfa98xx->irq_gpio)) {
+		ret = gpio_request(tfa98xx->irq_gpio, "TFA98XX_INT");
+		if (ret) {
+			pr_debug("gpio_request  TFA98XX_INT ret=%d\n", ret);
+			return ret;
+		}
+		pr_debug("gpio_request  TFA98XX_INT succeeded!!\n");
 	}
-	pr_info("gpio_request  TFA98XX_INT succeeded!!\n");
 	/* Power up! */
 	tfa98xx_ext_reset(tfa98xx);
 
