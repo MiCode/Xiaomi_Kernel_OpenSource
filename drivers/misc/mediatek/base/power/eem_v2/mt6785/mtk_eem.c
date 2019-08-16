@@ -1536,7 +1536,15 @@ static void get_volt_table_in_thread(struct eem_det *det)
 	else if ((det->isTempInv) && (ndet->temp > OVER_INV_TEM_VAL))
 		ndet->isTempInv = 0;
 
-	t_clamp = (ndet->isTempInv) ? EXTRA_TEMP_OFF_GPU : 0;
+	if (ndet->ctrl_id == EEM_CTRL_GPU) {
+		if (ndet->isTempInv) {
+			ndet->low_temp_off =
+			(ndet->temp <= INVERT_LOW_TEMP_VAL) ?
+			EXTRA_LOW_TEMP_OFF_GPU : EXTRA_TEMP_OFF_GPU;
+			t_clamp = ndet->low_temp_off;
+		} else
+			t_clamp = 0;
+	}
 
 	if (ndet->volt_policy) {
 #if 0
