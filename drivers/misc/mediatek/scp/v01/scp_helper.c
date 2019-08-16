@@ -1422,7 +1422,7 @@ void print_clk_registers(void)
 
 	// Print the first few bytes of the loader binary.
 	if (loader_base) {
-		for (offset = 0; offset < 16; offset += 4) {
+		for (offset = 0; offset < 32; offset += 4) {
 			value = (unsigned int)readl(loader_base + offset);
 			pr_notice("[SCP] loader[0x%02x]: 0x%08x\n",
 				offset, value);
@@ -1456,10 +1456,20 @@ void print_clk_registers(void)
 		value = (unsigned int)readl(cfg + offset);
 		pr_notice("[SCP] cfg[0x%04x]: 0x%08x\n", offset, value);
 	}
+	// 0x2000 ~ 0x200C (inclusive)
+	for (offset = 0x2000; offset <= 0x200C; offset += 4) {
+		value = (unsigned int)readl(cfg + offset);
+		pr_notice("[SCP] cfg[0x%04x]: 0x%08x\n", offset, value);
+	}
+	// 0x2080 ~ 0x208C (inclusive)
+	for (offset = 0x2080; offset <= 0x208C; offset += 4) {
+		value = (unsigned int)readl(cfg + offset);
+		pr_notice("[SCP] cfg[0x%04x]: 0x%08x\n", offset, value);
+	}
 	// 0x4000 ~ 0x40A4 (inclusive)
 	for (offset = 0x0000; offset < CLK_BANK_LEN; offset += 4) {
 		value = (unsigned int)readl(clkctrl + offset);
-		pr_notice("[SCP] clk[%p]: 0x%08x\n", clkctrl + offset, value);
+		pr_notice("[SCP] clk[0x%02x]: 0x%08x\n", offset, value);
 	}
 
 	if (cmp_error)
