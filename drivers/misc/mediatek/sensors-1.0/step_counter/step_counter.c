@@ -949,9 +949,10 @@ int step_c_data_report_t(uint32_t new_counter, int status, int64_t time_stamp)
 		event.flush_action = DATA_ACTION;
 		event.handle = ID_STEP_COUNTER;
 		event.word[0] = new_counter;
-		last_step_counter = new_counter;
 		err = sensor_input_event(step_c_context_obj->mdev.minor,
 			&event);
+		if (err >= 0)
+			last_step_counter = new_counter;
 	}
 	return err;
 }
@@ -972,9 +973,10 @@ int floor_c_data_report_t(uint32_t new_counter, int status, int64_t time_stamp)
 		event.flush_action = DATA_ACTION;
 		event.handle = ID_FLOOR_COUNTER;
 		event.word[0] = new_counter;
-		last_floor_counter = new_counter;
 		err = sensor_input_event(step_c_context_obj->mdev.minor,
 			&event);
+		if (err >= 0)
+			last_floor_counter = new_counter;
 	}
 	return err;
 }
