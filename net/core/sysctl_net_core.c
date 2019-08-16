@@ -24,6 +24,7 @@
 
 static int zero = 0;
 static int one = 1;
+static int two __maybe_unused = 2;
 static int min_sndbuf = SOCK_MIN_SNDBUF;
 static int min_rcvbuf = SOCK_MIN_RCVBUF;
 static int max_skb_frags = MAX_SKB_FRAGS;
@@ -292,13 +293,14 @@ static struct ctl_table net_core_table[] = {
 		.data		= &bpf_jit_enable,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-#ifndef CONFIG_BPF_JIT_ALWAYS_ON
-		.proc_handler	= proc_dointvec
-#else
 		.proc_handler	= proc_dointvec_minmax,
+# ifdef CONFIG_BPF_JIT_ALWAYS_ON
 		.extra1		= &one,
 		.extra2		= &one,
-#endif
+# else
+		.extra1		= &zero,
+		.extra2		= &two,
+# endif
 	},
 # ifdef CONFIG_HAVE_EBPF_JIT
 	{
@@ -306,7 +308,9 @@ static struct ctl_table net_core_table[] = {
 		.data		= &bpf_jit_harden,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= proc_dointvec,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &two,
 	},
 # endif
 #endif
