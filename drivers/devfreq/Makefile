@@ -32,7 +32,7 @@ ifeq ($(CONFIG_MTK_QOS_SUPPORT), y)
 obj-$(CONFIG_MACH_MT6771)		+= helio-dvfsrc.o helio-dvfsrc-sysfs.o
 obj-$(CONFIG_MACH_MT6771)		+= helio-dvfsrc-mt6771.o
 endif
-
+obj-$(CONFIG_MACH_MT6765)		+= helio-dvfsrc.o helio-dvfsrc-mt6765.o helio-dvfsrc-opp-mt6765.o
 obj-$(CONFIG_MACH_MT6768)		+= helio-dvfsrc-ipi.o
 obj-$(CONFIG_MACH_MT6768)		+= helio-dvfsrc-v2/helio-dvfsrc.o helio-dvfsrc-v2/helio-dvfsrc-mt6768.o helio-dvfsrc-v2/helio-dvfsrc-opp-mt6768.o helio-dvfsrc-v2/helio-dvfsrc-opp.o helio-dvfsrc-v2/helio-dvfsrc-sysfs.o
 
