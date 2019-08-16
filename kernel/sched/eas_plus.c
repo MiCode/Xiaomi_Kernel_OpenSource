@@ -366,7 +366,7 @@ migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target)
 }
 #endif
 
-inline unsigned long task_uclamped_min_w_ceiling(struct task_struct *p)
+inline unsigned long cluster_max_capacity(void)
 {
 	struct hmp_domain *domain;
 	unsigned int max_capacity = 0;
@@ -382,7 +382,15 @@ inline unsigned long task_uclamped_min_w_ceiling(struct task_struct *p)
 			max_capacity = capacity;
 	}
 
-	return min(uclamp_task_effective_util(p, UCLAMP_MIN), max_capacity);
+	return max_capacity;
+}
+
+inline unsigned long task_uclamped_min_w_ceiling(struct task_struct *p)
+{
+	unsigned long max_capacity = cluster_max_capacity();
+
+	return min_t(unsigned int, uclamp_task_effective_util(p, UCLAMP_MIN),
+			max_capacity);
 }
 
 /* Calculte util with DVFS margin */
