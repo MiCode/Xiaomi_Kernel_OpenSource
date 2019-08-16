@@ -359,10 +359,10 @@ void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 	}
 	spin_unlock_irqrestore(&otg_sx->dr_lock, flags);
 
-	for (i = 0; i < 20; i++) {
+	for (i = 0; i < 50; i++) {
 		if (!otg_sx->dr_workq) {
 			mtu3_printk(K_CRIT, "dr_wq not ready\n");
-			msleep(500);
+			mdelay(200);
 		} else {
 			mtu3_printk(K_CRIT, "dr_wq is ready\n");
 			queue_delayed_work(otg_sx->dr_workq,
