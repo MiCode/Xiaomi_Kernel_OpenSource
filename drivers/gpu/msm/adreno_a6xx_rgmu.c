@@ -371,8 +371,8 @@ static int a6xx_rgmu_fw_start(struct kgsl_device *device,
 		unsigned int boot_state)
 {
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
+	const struct firmware *fw = rgmu->fw_image;
 	unsigned int status;
-	int i;
 
 	switch (boot_state) {
 	case GMU_COLD_BOOT:
@@ -381,9 +381,8 @@ static int a6xx_rgmu_fw_start(struct kgsl_device *device,
 		gmu_core_regwrite(device, A6XX_GMU_GENERAL_7, 1);
 
 		/* Load RGMU FW image via AHB bus */
-		for (i = 0; i < rgmu->fw_size; i++)
-			gmu_core_regwrite(device, A6XX_GMU_CM3_ITCM_START + i,
-					rgmu->fw_hostptr[i]);
+		gmu_core_blkwrite(device, A6XX_GMU_CM3_ITCM_START, fw->data,
+				fw->size);
 		/*
 		 * Enable power counter because it was disabled before
 		 * slumber.
@@ -531,7 +530,7 @@ static int a6xx_rgmu_load_firmware(struct kgsl_device *device)
 	int ret;
 
 	/* RGMU fw already saved and verified so do nothing new */
-	if (rgmu->fw_hostptr)
+	if (rgmu->fw_image)
 		return 0;
 
 	ret = request_firmware(&fw, gpucore->gpmufw_name, device->dev);
@@ -541,14 +540,8 @@ static int a6xx_rgmu_load_firmware(struct kgsl_device *device)
 		return ret;
 	}
 
-	rgmu->fw_hostptr = devm_kmemdup(&rgmu->pdev->dev, fw->data,
-					fw->size, GFP_KERNEL);
-
-	if (rgmu->fw_hostptr)
-		rgmu->fw_size = (fw->size / sizeof(u32));
-
-	release_firmware(fw);
-	return rgmu->fw_hostptr ? 0 : -ENOMEM;
+	rgmu->fw_image = fw;
+	return rgmu->fw_image ? 0 : -ENOMEM;
 }
 
 /* Halt RGMU execution */
