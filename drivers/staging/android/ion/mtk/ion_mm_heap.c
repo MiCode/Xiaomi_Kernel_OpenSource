@@ -36,6 +36,7 @@
 #include "ion_priv.h"
 #include "mtk/ion_drv.h"
 #include "ion_sec_heap.h"
+#include "aee.h"
 
 //tablet
 #ifdef CONFIG_MTK_IOMMU
@@ -701,9 +702,16 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	if ((buffer_info->module_id == -1) &&
 	    (buffer_info->fix_module_id == -1)) {
 		IONMSG("[%s] warning. Buffer not configured.\n", __func__);
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+#if 1 //defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	//(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		ion_buffer_dump(buffer, NULL);
+#ifdef ION_DEBUG_IOMMU_34BIT_BUFFER
+		aee_kernel_warning_api(__FILE__, __LINE__,
+				       DB_OPT_DEFAULT |
+				       DB_OPT_NATIVE_BACKTRACE,
+				       "port name not matched",
+				       "dump user backtrace");
+#endif
 #else
 		//return -EFAULT;	/* Buffer not configured. */
 #endif

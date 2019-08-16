@@ -498,9 +498,10 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 		M4U_MSG("port name(%s) not matched(%s)\n",
 			pM4uPort->name, name);
 		aee_kernel_warning_api(__FILE__, __LINE__,
-				DB_OPT_DEFAULT|DB_OPT_NATIVE_BACKTRACE,
-				"port name not matched",
-				"dump user backtrace");
+				       DB_OPT_DEFAULT |
+				       DB_OPT_NATIVE_BACKTRACE,
+				       "port name not matched",
+				       "dump user backtrace");
 		return -1;
 	}
 
@@ -3059,7 +3060,7 @@ static int pseudo_port_probe(struct platform_device *pdev)
 	LIST_HEAD(list);
 #endif
 
-	M4U_MSG("%s start\n");
+	M4U_MSG("start\n");
 	/* dma will split the iova into max size to 65535 byte by default */
 	/* if we do not set this.*/
 	dma_param = kzalloc(sizeof(*dma_param), GFP_KERNEL);
