@@ -19,10 +19,16 @@
 #define SMI_PMQOS_BWL_MAX	(0xfff)
 #define SMI_PMQOS_BWL_MASK(b)	((b) & (SMI_PMQOS_BWL_MAX))
 
+#if IS_ENABLED(PMQOS_USE_IOMMU_PORT)
+#define SMI_PMQOS_PORT_MASK(p)	MTK_IOMMU_TO_PORT(p)
+#define SMI_PMQOS_LARB_DEC(l)	MTK_IOMMU_TO_LARB(l)
+#define SMI_PMQOS_ENC(l, p)	MTK_M4U_ID(l, p)
+#else
 #define SMI_PMQOS_PORT_MASK(p)	((p) & 0xffff)
 #define SMI_PMQOS_LARB_DEC(l)	((l) >> 16)
 #define SMI_PMQOS_LARB_ENC(l)	((l) << 16)
 #define SMI_PMQOS_ENC(l, p)	(SMI_PMQOS_LARB_ENC(l) | SMI_PMQOS_PORT_MASK(p))
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 void

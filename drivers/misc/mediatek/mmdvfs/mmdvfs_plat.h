@@ -27,7 +27,6 @@ struct mm_larb_request {
 	s32 total_mix_limit;
 	s32 total_occupied;
 	u32 comm_port;
-	u32 channel;
 	bool is_max_ostd;
 };
 
@@ -52,8 +51,10 @@ static inline u32 get_comp_value(u32 bw_value, u32 comp_type, bool is_bw)
 	return bw_value;
 }
 
-u32 mmdvfs_get_ccu_smi_common_port(void);
+u32 mmdvfs_get_ccu_smi_common_port(u32 master_id);
 
 s32 get_ccu_hrt_bw(struct mm_larb_request larb_req[]);
+
+s32 get_md_hrt_bw(void);
 
 #endif /* __MMDVFS_PLAT_H__ */

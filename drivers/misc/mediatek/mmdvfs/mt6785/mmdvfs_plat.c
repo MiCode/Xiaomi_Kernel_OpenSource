@@ -79,7 +79,7 @@ bool mmdvfs_log_larb_mmp(s32 common_port_id, s32 larb_id)
 }
 
 /* Return port number of CCU on SMI common */
-inline u32 mmdvfs_get_ccu_smi_common_port(void)
+inline u32 mmdvfs_get_ccu_smi_common_port(u32 master_id)
 {
 	return 6;
 }
@@ -98,6 +98,11 @@ s32 get_ccu_hrt_bw(struct mm_larb_request larb_req[])
 			bw += enum_req->hrt_value;
 	}
 	return bw;
+}
+
+s32 get_md_hrt_bw(void)
+{
+	return 1600;
 }
 
 

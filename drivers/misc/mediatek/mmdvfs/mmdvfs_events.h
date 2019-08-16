@@ -44,21 +44,24 @@ TRACE_EVENT(mmqos__update_port,
 );
 
 TRACE_EVENT(mmqos__update_larb,
-	TP_PROTO(u32 larb_id, s32 bw, s32 bwl, s32 soft_mode),
-	TP_ARGS(larb_id, bw, bwl, soft_mode),
+	TP_PROTO(u32 comm, u32 larb_id, s32 bw, s32 bwl, s32 soft_mode),
+	TP_ARGS(comm, larb_id, bw, bwl, soft_mode),
 	TP_STRUCT__entry(
+		__field(u32, comm)
 		__field(u32, larb_id)
 		__field(s32, bw)
 		__field(s32, bwl)
 		__field(s32, soft_mode)
 	),
 	TP_fast_assign(
+		__entry->comm = comm;
 		__entry->larb_id = larb_id;
 		__entry->bw = bw;
 		__entry->bwl = bwl;
 		__entry->soft_mode = soft_mode;
 	),
-	TP_printk("bw_larb_%u=%d, bwl_larb_%u=%d, soft=%d",
+	TP_printk("comm=%u bw_larb_%u=%d, bwl_larb_%u=%d, soft=%d",
+		(u32)__entry->comm,
 		(u32)__entry->larb_id,
 		(s32)__entry->bw,
 		(u32)__entry->larb_id,

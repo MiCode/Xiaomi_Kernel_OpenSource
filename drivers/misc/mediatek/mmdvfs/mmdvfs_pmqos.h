@@ -33,7 +33,8 @@ enum {
 enum virtual_source_id {
 	VIRTUAL_DISP = 0,
 	VIRTUAL_MD,
-	VIRTUAL_CCU_COMMON
+	VIRTUAL_CCU_COMMON,
+	VIRTUAL_CCU_COMMON2
 };
 
 struct mm_qos_request {
