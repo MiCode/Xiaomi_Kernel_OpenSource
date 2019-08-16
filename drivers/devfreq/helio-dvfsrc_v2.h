@@ -20,6 +20,8 @@
 
 #if defined(CONFIG_MACH_MT6768)
 #include <helio-dvfsrc-mt6768.h>
+#elif defined(CONFIG_MACH_MT6765)
+#include <helio-dvfsrc-mt6765.h>
 #else
 #include <helio-dvfsrc-mt67xx.h>
 #endif

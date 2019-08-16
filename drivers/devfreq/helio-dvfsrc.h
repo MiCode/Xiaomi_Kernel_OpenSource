@@ -12,7 +12,7 @@
  */
 
 
-#if defined(CONFIG_MACH_MT6768)
+#if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6765)
 #include <helio-dvfsrc_v2.h>
 #elif defined(CONFIG_MACH_MT6785)
 #include <helio-dvfsrc_v3.h>
