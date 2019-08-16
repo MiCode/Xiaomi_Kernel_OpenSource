@@ -48,8 +48,6 @@
 #define trusty_err(fmt...) dev_info(fmt)
 #endif
 
-struct trusty_state;
-
 #ifdef CONFIG_ARM64
 #define SMC_ARG0		"x0"
 #define SMC_ARG1		"x1"
@@ -651,19 +649,13 @@ static int trusty_init_api_version(struct trusty_state *s, struct device *dev)
 	return 0;
 }
 
-static bool dequeue_nop(struct trusty_state *s, u32 *args,
-	enum tee_id_t tee_id)
+static bool dequeue_nop(struct trusty_state *s, u32 *args)
 {
 	unsigned long flags;
 	struct trusty_nop *nop = NULL;
 	struct list_head *nop_queue;
 
-	if (!is_tee_id(tee_id)) {
-		pr_info("Error tee_id %d, can not access nop_queue\n", tee_id);
-		goto err_nop_queue;
-	}
-
-	nop_queue = &s->nop_queue[tee_id];
+	nop_queue = &s->nop_queue;
 
 	spin_lock_irqsave(&s->nop_lock, flags);
 
@@ -682,9 +674,6 @@ static bool dequeue_nop(struct trusty_state *s, u32 *args,
 	spin_unlock_irqrestore(&s->nop_lock, flags);
 
 	return nop;
-
-err_nop_queue:
-	return false;
 }
 
 static void locked_nop_work_func(struct work_struct *work)
@@ -692,33 +681,35 @@ static void locked_nop_work_func(struct work_struct *work)
 	int ret;
 	struct trusty_work *tw = container_of(work, struct trusty_work, work);
 	struct trusty_state *s = tw->ts;
+/* FIXME */
+#if defined(CONFIG_MTK_NEBULA_VM_SUPPORT)
 	u32 smcnr_locked_nop = (is_trusty_tee(s->tee_id)) ?
-	    SMC_SC_LOCKED_NOP : SMC_SC_GZ_NOP_LOCKED;
-
-	trusty_dbg(s->dev, "%s\n", __func__);
+				SMC_SC_GZ_NOP_LOCKED : SMC_SC_VM_NOP_LOCKED;
+#else
+	u32 smcnr_locked_nop = (is_trusty_tee(s->tee_id)) ?
+				SMC_SC_LOCKED_NOP : SMC_SC_VM_NOP_LOCKED;
+#endif
 
 	ret = trusty_std_call32(s->dev, smcnr_locked_nop, 0, 0, 0);
 
 	if (ret != 0)
 		trusty_info(s->dev, "%s: SMC_SC_LOCKED_NOP failed %d\n",
 			    __func__, ret);
-
-	trusty_dbg(s->dev, "%s: done\n", __func__);
 }
 
 static void nop_work_func(struct work_struct *work)
 {
-	int ret;
-	bool next;
-	u32 args[3];
 	struct trusty_work *tw = container_of(work, struct trusty_work, work);
 	struct trusty_state *s = tw->ts;
-	enum tee_id_t tee_id = s->tee_id, vmm_specific = 0;
-	u32 smcnr_nop = (is_trusty_tee(tee_id)) ? SMC_SC_NOP : SMC_SC_GZ_NOP;
+	bool next;
+	enum tee_id_t tee_id = s->tee_id;
+	int ret;
+	u32 args[3];
+	u32 smcnr_nop = (is_trusty_tee(tee_id)) ? SMC_SC_NOP : SMC_SC_VM_NOP;
 
 	trusty_dbg(s->dev, "%s:\n", __func__);
 
-	dequeue_nop(s, args, vmm_specific);
+	dequeue_nop(s, args);
 
 	do {
 		trusty_dbg(s->dev, "%s: %x %x %x\n",
@@ -727,30 +718,23 @@ static void nop_work_func(struct work_struct *work)
 		ret = trusty_std_call32(s->dev, smcnr_nop,
 					args[0], args[1], args[2]);
 
-		if (ret == SM_ERR_GZ_NOP_INTERRUPTED) {
-			vmm_specific = 0;
-			smcnr_nop = SMC_SC_GZ_NOP;
-		} else if (ret == SM_ERR_VM_NOP_INTERRUPTED) {
-			vmm_specific = 1;
+		if (ret == SM_ERR_GZ_NOP_INTERRUPTED)
+			smcnr_nop = SMC_SC_NOP;
+		else if (ret == SM_ERR_VM_NOP_INTERRUPTED)
 			smcnr_nop = SMC_SC_VM_NOP;
-		} else {
-			if (is_nebula_tee(tee_id)) {
-				vmm_specific = 0;
-				smcnr_nop = SMC_SC_GZ_NOP;
-			}
-		}
+		else
+			smcnr_nop = SMC_SC_NOP;
 
-		next = dequeue_nop(s, args, vmm_specific);
 
-		if (ret == SM_ERR_VM_NOP_INTERRUPTED)
-			next = true;
-		else if (ret == SM_ERR_GZ_NOP_INTERRUPTED)
-			next = true;
-		else if (ret == SM_ERR_NOP_INTERRUPTED)
+		next = dequeue_nop(s, args);
+
+		if (ret == SM_ERR_VM_NOP_INTERRUPTED ||
+		    ret == SM_ERR_GZ_NOP_INTERRUPTED ||
+		    ret == SM_ERR_NOP_INTERRUPTED)
 			next = true;
 		else if ((ret != SM_ERR_GZ_NOP_DONE) &&
-				(ret != SM_ERR_VM_NOP_DONE) &&
-				(ret != SM_ERR_NOP_DONE))
+			 (ret != SM_ERR_VM_NOP_DONE) &&
+			 (ret != SM_ERR_NOP_DONE))
 			trusty_info(s->dev, "%s: tee_id %d, smc failed %d\n",
 				    __func__, tee_id, ret);
 	} while (next);
@@ -758,104 +742,26 @@ static void nop_work_func(struct work_struct *work)
 	trusty_dbg(s->dev, "%s: done\n", __func__);
 }
 
-static void vmm_locked_nop_work_func(struct work_struct *work)
-{
-	int ret;
-	struct trusty_work *tw = container_of(work, struct trusty_work,
-					      vmm_work);
-	struct trusty_state *s = tw->ts;
-
-	trusty_dbg(s->dev, "%s\n", __func__);
-
-	ret = trusty_std_call32(s->dev, SMC_SC_VM_NOP_LOCKED, 0, 0, 0);
-	if (ret != 0)
-		trusty_info(s->dev, "%s: SMC_SC_VM_NOP_LOCKED failed %d",
-			    __func__, ret);
-
-	trusty_dbg(s->dev, "%s: done\n", __func__);
-}
-
-static void vmm_nop_work_func(struct work_struct *work)
-{
-	int ret;
-	bool next;
-	u32 args[3];
-	struct trusty_work *tw = container_of(work, struct trusty_work,
-					      vmm_work);
-	struct trusty_state *s = tw->ts;
-	u32 smc_nop_nr = SMC_SC_VM_NOP;
-	int vmm_specific = 1;
-
-	trusty_dbg(s->dev, "%s:\n", __func__);
-
-	dequeue_nop(s, args, vmm_specific);
-	do {
-		trusty_dbg(s->dev, "%s: %x %x %x\n",
-			   __func__, args[0], args[1], args[2]);
-
-		ret = trusty_std_call32(s->dev, smc_nop_nr,
-					args[0], args[1], args[2]);
-
-		if (ret == SM_ERR_VM_NOP_INTERRUPTED) {
-			vmm_specific = 1;
-			smc_nop_nr = SMC_SC_VM_NOP;
-		} else if (ret == SM_ERR_GZ_NOP_INTERRUPTED) {
-			vmm_specific = 0;
-			smc_nop_nr = SMC_SC_GZ_NOP;
-		} else {
-			vmm_specific = 1;
-			smc_nop_nr = SMC_SC_VM_NOP;
-		}
-
-		next = dequeue_nop(s, args, vmm_specific);
-
-		if (ret == SM_ERR_VM_NOP_INTERRUPTED)
-			next = true;
-		else if (ret == SM_ERR_GZ_NOP_INTERRUPTED)
-			next = true;
-		else if ((ret != SM_ERR_GZ_NOP_DONE) &&
-			 (ret != SM_ERR_VM_NOP_DONE))
-			trusty_info(s->dev, "%s: tee_id %d, smc failed %d\n",
-				    __func__, vmm_specific, ret);
-	} while (next);
-
-	trusty_dbg(s->dev, "%s: done\n", __func__);
-}
-
-void trusty_enqueue_nop(struct device *dev, struct trusty_nop *nop,
-			enum tee_id_t tee_id)
+void trusty_enqueue_nop(struct device *dev, struct trusty_nop *nop)
 {
 	unsigned long flags;
 	struct trusty_work *tw;
-	struct work_struct *work;
 	struct trusty_state *s = platform_get_drvdata(to_platform_device(dev));
-	struct list_head *nop_queue;
-
-	if (!is_tee_id(tee_id)) {
-		trusty_info(dev, "Error tee_id %d, can not access nop_queue\n",
-			    tee_id);
-		goto err_nop_queue;
-	}
-
-	nop_queue = &s->nop_queue[tee_id];
 
 	preempt_disable();
 	tw = this_cpu_ptr(s->nop_works);
-	work = (is_nebula_tee(tee_id)) ? &tw->vmm_work : &tw->work;
 
 	if (nop) {
 		WARN_ON(s->api_version < TRUSTY_API_VERSION_SMP_NOP);
 
 		spin_lock_irqsave(&s->nop_lock, flags);
 		if (list_empty(&nop->node))
-			list_add_tail(&nop->node, nop_queue);
+			list_add_tail(&nop->node, &s->nop_queue);
 		spin_unlock_irqrestore(&s->nop_lock, flags);
 	}
-	queue_work(s->nop_wq, work);
-
+	queue_work(s->nop_wq, &tw->work);
 	preempt_enable();
 
-err_nop_queue:
 	return;
 }
 EXPORT_SYMBOL(trusty_enqueue_nop);
@@ -879,13 +785,11 @@ EXPORT_SYMBOL(trusty_dequeue_nop);
 
 static int trusty_probe(struct platform_device *pdev)
 {
-	int ret, i;
+	int ret, tee_id;
 	unsigned int cpu;
 	work_func_t work_func;
-	work_func_t vmm_work_func;
 	struct trusty_state *s;
 	struct device_node *node = pdev->dev.of_node;
-	int tee_id;
 
 	if (!node) {
 		trusty_info(&pdev->dev, "of_node required\n");
@@ -913,9 +817,7 @@ static int trusty_probe(struct platform_device *pdev)
 	s->dev = &pdev->dev;
 	spin_lock_init(&s->nop_lock);
 
-	for (i = 0; i < TEE_NUM; i++)
-		INIT_LIST_HEAD(&s->nop_queue[i]);
-
+	INIT_LIST_HEAD(&s->nop_queue);
 	mutex_init(&s->smc_lock);
 	ATOMIC_INIT_NOTIFIER_HEAD(&s->notifier);
 	init_completion(&s->cpu_idle_completion);
@@ -946,19 +848,11 @@ static int trusty_probe(struct platform_device *pdev)
 	else
 		work_func = nop_work_func;
 
-
-	if (s->api_version < TRUSTY_API_VERSION_SMP)
-		vmm_work_func = vmm_locked_nop_work_func;
-	else
-		vmm_work_func = vmm_nop_work_func;
-
 	for_each_possible_cpu(cpu) {
 		struct trusty_work *tw = per_cpu_ptr(s->nop_works, cpu);
 
 		tw->ts = s;
-
 		INIT_WORK(&tw->work, work_func);
-		INIT_WORK(&tw->vmm_work, vmm_work_func);
 	}
 
 	ret = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
@@ -987,7 +881,6 @@ err_add_children:
 		struct trusty_work *tw = per_cpu_ptr(s->nop_works, cpu);
 
 		flush_work(&tw->work);
-		flush_work(&tw->vmm_work);
 	}
 	free_percpu(s->nop_works);
 err_alloc_works:
@@ -1016,7 +909,6 @@ static int trusty_remove(struct platform_device *pdev)
 		struct trusty_work *tw = per_cpu_ptr(s->nop_works, cpu);
 
 		flush_work(&tw->work);
-		flush_work(&tw->vmm_work);
 	}
 	free_percpu(s->nop_works);
 	destroy_workqueue(s->nop_wq);

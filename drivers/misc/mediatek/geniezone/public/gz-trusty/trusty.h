@@ -87,16 +87,13 @@ static inline void trusty_nop_init(struct trusty_nop *nop,
 }
 
 /* For multiple TEEs */
-#define TEE_NUM 2
-
 enum tee_id_t {
 	TEE_ID_TRUSTY = 0x0,	//MTEE1.x
 	TEE_ID_NEBULA = 0x1,	//MTEE2.x
 	TEE_ID_END
 };
 
-void trusty_enqueue_nop(struct device *dev, struct trusty_nop *nop,
-			enum tee_id_t tee_id);
+void trusty_enqueue_nop(struct device *dev, struct trusty_nop *nop);
 
 void trusty_dequeue_nop(struct device *dev, struct trusty_nop *nop);
 
@@ -118,10 +115,23 @@ void trusty_dequeue_nop(struct device *dev, struct trusty_nop *nop);
  */
 #define VIRTIO_ID_NEBULA_IPC   13	/* virtio trusty ipc */
 
+#define MAX_DEV_NAME_LEN 32
+#define MAX_MINOR_NAME_LEN 16
+
+struct tipc_dev_name {
+	char cdev_name[MAX_MINOR_NAME_LEN];
+	char tee_name[MAX_MINOR_NAME_LEN];
+};
+
+struct tipc_dev_config {
+	u32 msg_buf_max_size;
+	u32 msg_buf_alignment;
+	struct tipc_dev_name dev_name;
+} __packed;
+
 struct trusty_work {
 	struct trusty_state *ts;
 	struct work_struct work;
-	struct work_struct vmm_work;
 };
 
 struct trusty_state {
@@ -133,7 +143,7 @@ struct trusty_state {
 	struct device *dev;
 	struct workqueue_struct *nop_wq;
 	struct trusty_work __percpu *nop_works;
-	struct list_head nop_queue[TEE_NUM];
+	struct list_head nop_queue;
 	spinlock_t nop_lock;	/* protects nop_queue */
 	enum tee_id_t tee_id;
 };
