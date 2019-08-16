@@ -81,12 +81,7 @@
 
 	dai_dp: qcom,msm-dai-q6-dp {
 		compatible = "qcom,msm-dai-q6-hdmi";
-		qcom,msm-dai-q6-dev-id = <0>;
-	};
-
-	dai_dp1: qcom,msm-dai-q6-dp1 {
-		compatible = "qcom,msm-dai-q6-hdmi";
-		qcom,msm-dai-q6-dev-id = <1>;
+		qcom,msm-dai-q6-dev-id = <24608>;
 	};
 
 	loopback: qcom,msm-pcm-loopback {
