@@ -21,6 +21,7 @@
 #include "dvfs_v2.h"
 
 #define DEFAULT_MHZ 99999
+#define MAX_SUBMIT (33*1000)
 /* #define DEBUG_ALGO */
 #ifdef DEBUG_ALGO
 #define AL_INFO pr_info
@@ -286,6 +287,7 @@ int est_next_job(long long now_us, long long *t_us, int *kcy, int *min_mhz,
 {
 	struct codec_history *hist;
 	long long deadline;
+	long long exec_dur;
 	long long new_mhz;
 
 	if (t_us == 0 || kcy == 0 || min_mhz == 0 || job == 0)
@@ -307,10 +309,15 @@ int est_next_job(long long now_us, long long *t_us, int *kcy, int *min_mhz,
 			*t_us = now_us;
 		else {
 			if (deadline > now_us) {
-				new_mhz = div_64((*kcy) * 1000LL,
-						 (deadline - now_us));
+				exec_dur = deadline - now_us;
+				exec_dur = (exec_dur > (MAX_SUBMIT * 2)) ?
+						(MAX_SUBMIT * 2) : exec_dur;
+				new_mhz = div_64((*kcy) * 1000LL, exec_dur);
 				if (new_mhz > *min_mhz)
 					*min_mhz = (int)new_mhz;
+
+				if (*min_mhz == 0)
+					*min_mhz = 1;
 
 				*t_us = now_us + div_64((*kcy) * 1000LL,
 							(*min_mhz));
