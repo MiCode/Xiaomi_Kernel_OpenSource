@@ -172,6 +172,13 @@ enum rtc_reg_set {
 	RTC_SHIFT
 };
 
+enum rtc_irq_sta {
+	RTC_NONE,
+	RTC_ALSTA,
+	RTC_TCSTA,
+	RTC_LPSTA,
+};
+
 struct mt6358_rtc {
 	struct device		*dev;
 	struct rtc_device	*rtc_dev;
@@ -629,7 +636,7 @@ void mtk_rtc_lp_exception(void)
 }
 #endif
 
-static bool mtk_rtc_is_alarm_irq(void)
+static int mtk_rtc_is_alarm_irq(void)
 {
 	u32 irqsta, bbpu;
 	int ret, val;
@@ -641,14 +648,17 @@ static bool mtk_rtc_is_alarm_irq(void)
 		val = rtc_write_trigger();
 		if (val < 0)
 			pr_notice("%s error\n", __func__);
-		return true;
+		return RTC_ALSTA;
 	}
+
 #ifndef USER_BUILD_KERNEL
-	if ((ret == 0) && (irqsta & RTC_IRQ_STA_LP))
+	if ((ret == 0) && (irqsta & RTC_IRQ_STA_LP)) {
 		mtk_rtc_lp_exception();
+		return RTC_LPSTA;
+	}
 #endif
 
-	return false;
+	return RTC_NONE;
 }
 
 static void mtk_rtc_update_pwron_alarm_flag(void)
@@ -695,15 +705,23 @@ static void mtk_rtc_reset_bbpu_alarm_status(void)
 
 static irqreturn_t mtk_rtc_irq_handler(int irq, void *data)
 {
-	bool pwron_alm = false, isAlarmIrq = false, pwron_alarm = false;
+	bool pwron_alm = false, pwron_alarm = false;
 	struct rtc_time nowtm, tm;
+	int status = RTC_NONE;
 	unsigned long flags;
 
-	pr_notice("%s\n", __func__);
-
 	spin_lock_irqsave(&mt_rtc->lock, flags);
-	isAlarmIrq = mtk_rtc_is_alarm_irq();
-	if (!isAlarmIrq) {
+
+	status = mtk_rtc_is_alarm_irq();
+
+	pr_notice("%s:%d\n", __func__, status);
+
+	if (status == RTC_NONE) {
+		spin_unlock_irqrestore(&mt_rtc->lock, flags);
+		return IRQ_NONE;
+	}
+
+	if (status == RTC_LPSTA) {
 		spin_unlock_irqrestore(&mt_rtc->lock, flags);
 		return IRQ_HANDLED;
 	}
@@ -751,7 +769,7 @@ out:
 	if (rtc_show_alarm)
 		pr_notice("%s time is up\n", pwron_alm ? "power-on" : "alarm");
 
-	return IRQ_NONE;
+	return IRQ_HANDLED;
 }
 
 static int rtc_ops_read_time(struct device *dev, struct rtc_time *tm)
