@@ -32,5 +32,5 @@ ccflags-y += -I$(srctree)/drivers/i2c/busses/
 
 
 #obj-$(CONFIG_MTK_VPU) += ccu_hw.o
-obj-y += ccu_hw.o ccu_reg.o ccu_kd_mailbox.o ccu_i2c_hw.o ccu_sw_ver.o ccu_imgsensor.o ccu_mva.o
+obj-y += ccu_hw.o ccu_reg.o ccu_kd_mailbox.o ccu_i2c_hw.o ccu_sw_ver.o ccu_imgsensor.o ccu_mva.o ccu_qos.o
 
