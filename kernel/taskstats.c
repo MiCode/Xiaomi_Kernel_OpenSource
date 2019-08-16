@@ -798,6 +798,10 @@ static int taskstats2_foreach(struct sk_buff *skb, struct netlink_callback *cb)
 	nla = nla_find(nlmsg_attrdata(cb->nlh, GENL_HDRLEN),
 			nlmsg_attrlen(cb->nlh, GENL_HDRLEN),
 			TASKSTATS_TYPE_FOREACH);
+
+	if (!nla)
+		goto out;
+
 	buf  = nla_get_u32(nla);
 	oom_score_min = (short) (buf & 0xFFFF);
 	oom_score_max = (short) ((buf >> 16) & 0xFFFF);
@@ -854,6 +858,7 @@ static int taskstats2_foreach(struct sk_buff *skb, struct netlink_callback *cb)
 	}
 
 	cb->args[0] = iter.tgid;
+out:
 	return skb->len;
 }
 
