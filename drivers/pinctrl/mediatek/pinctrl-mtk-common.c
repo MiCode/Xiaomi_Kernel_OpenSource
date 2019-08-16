@@ -1458,6 +1458,11 @@ static void mtk_eint_ack(struct irq_data *d)
 
 	writel(mask, reg);
 }
+static void mtk_eint_mask_ack(struct irq_data *d)
+{
+	mtk_eint_mask(d);
+	mtk_eint_ack(d);
+}
 
 static struct irq_chip mtk_pinctrl_irq_chip = {
 	.name = "mt-eint",
@@ -1465,6 +1470,7 @@ static struct irq_chip mtk_pinctrl_irq_chip = {
 	.irq_mask = mtk_eint_mask,
 	.irq_unmask = mtk_eint_unmask,
 	.irq_ack = mtk_eint_ack,
+	.irq_mask_ack = mtk_eint_mask_ack,
 	.irq_set_type = mtk_eint_set_type,
 	.irq_set_wake = mtk_eint_irq_set_wake,
 	.irq_request_resources = mtk_pinctrl_irq_request_resources,
