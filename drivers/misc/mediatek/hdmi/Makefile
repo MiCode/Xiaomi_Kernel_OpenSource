@@ -48,6 +48,10 @@ ifeq ($(CONFIG_CUSTOM_KERNEL_HDMI), "ANX7805")
 obj-y	+= ANX7805/
 endif
 
+ifeq ($(CONFIG_CUSTOM_KERNEL_HDMI), "ITE66121")
+obj-y	+= it66121/
+endif
+
 ifeq ($(CONFIG_CUSTOM_KERNEL_HDMI), "ANX7625")
 obj-y	+= ANX7625/
 endif
