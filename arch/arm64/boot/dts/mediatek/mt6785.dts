@@ -3083,6 +3083,7 @@ page_owner=on loop.max_part=7";
 		cam_larb = <6 10>; /* include SMI common CCU */
 		max_ostd_larb = <0 1>;
 		max_ostd = <40>;
+		comm_freq = "disp_freq";
 		mm_step0 = <560 1 0 7>;
 		mm_step1 = <450 1 0 8>;
 		mm_step2 = <315 1 0 11>;
