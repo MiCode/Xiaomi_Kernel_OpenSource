@@ -593,7 +593,8 @@ static void scp_logger_notify_ws(struct work_struct *ws)
 			&magic, sizeof(magic), 0, scp_core_id);
 		if ((retrytimes % 500) == 0)
 			pr_debug("[SCP] %s: ipi ret=%d\n", __func__, ret);
-		if (ret == SCP_IPI_DONE)
+
+		if ((ret == SCP_IPI_DONE) || (ret == SCP_IPI_ERROR))
 			break;
 		retrytimes--;
 		udelay(2000);
