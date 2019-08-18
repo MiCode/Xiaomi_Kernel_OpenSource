@@ -261,6 +261,7 @@
 				"alt_mem_iface_clk", "smmu_vote";
 
 		qcom,retention;
+		qcom,unmap_fast;
 		qcom,hyp_secure_alloc;
 
 		gfx3d_user: gfx3d_user {
