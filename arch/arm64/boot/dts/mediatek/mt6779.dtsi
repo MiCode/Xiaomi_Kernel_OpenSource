@@ -2055,8 +2055,11 @@
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_LOW>;
 			#pwm-cells = <2>;
 			clocks = <&infracfg_ao CLK_INFRA_DISP_PWM>,
-				<&topckgen CLK_TOP_DISP_PWM>;
-			clock-names = "main", "mm";
+				<&topckgen CLK_TOP_DISP_PWM>,
+				<&topckgen CLK_TOP_OSC_D4>;
+			clock-names = "main", "mm", "pwm_src";
+			pwm_src_base = <&scpsys>;
+			pwm_src_addr = <0x440>;
 		};
 
 		pwm_leds {
