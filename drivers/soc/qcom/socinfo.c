@@ -425,6 +425,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* atoll ID */
 	[407] = {MSM_CPU_ATOLL, "ATOLL"},
 
+	/* atollp ID */
+	[424] = {MSM_CPU_ATOLLP, "ATOLLP"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
@@ -1408,6 +1411,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_atoll()) {
 		dummy_socinfo.id = 407;
 		strlcpy(dummy_socinfo.build_id, "atoll - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_atollp()) {
+		dummy_socinfo.id = 424;
+		strlcpy(dummy_socinfo.build_id, "atollp - ",
 		sizeof(dummy_socinfo.build_id));
 	} else
 		strlcat(dummy_socinfo.build_id, "Dummy socinfo",
