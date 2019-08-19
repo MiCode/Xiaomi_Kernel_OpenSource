@@ -238,8 +238,6 @@ const struct msm_cvp_hfi_defs cvp_hfi_defs[] = {
 
 };
 
-static struct cvp_hal_device_data hal_ctxt;
-
 struct cvp_tzbsp_memprot {
 	u32 cp_start;
 	u32 cp_size;
@@ -1382,6 +1380,30 @@ static int iris_hfi_suspend(void *dev)
 	return rc;
 }
 
+static void cvp_dump_csr(struct iris_hfi_device *dev)
+{
+	u32 reg;
+
+	if (!dev)
+		return;
+	reg = __read_register(dev, CVP_WRAPPER_CPU_STATUS);
+	dprintk(CVP_ERR, "CVP_WRAPPER_CPU_STATUS: %x\n", reg);
+	reg = __read_register(dev, CVP_CPU_CS_SCIACMDARG0);
+	dprintk(CVP_ERR, "CVP_CPU_CS_SCIACMDARG0: %x\n", reg);
+	reg = __read_register(dev, CVP_WRAPPER_CPU_CLOCK_CONFIG);
+	dprintk(CVP_ERR, "CVP_WRAPPER_CPU_CLOCK_CONFIG: %x\n", reg);
+	reg = __read_register(dev, CVP_WRAPPER_INTR_STATUS);
+	dprintk(CVP_ERR, "CVP_WRAPPER_INTR_STATUS: %x\n", reg);
+	reg = __read_register(dev, CVP_CPU_CS_H2ASOFTINT);
+	dprintk(CVP_ERR, "CVP_CPU_CS_H2ASOFTINT: %x\n", reg);
+	reg = __read_register(dev, CVP_CPU_CS_A2HSOFTINT);
+	dprintk(CVP_ERR, "CVP_CPU_CS_A2HSOFTINT: %x\n", reg);
+	reg = __read_register(dev, CVP_CC_MVS0C_GDSCR);
+	dprintk(CVP_ERR, "CVP_CC_MVS0C_GDSCR: %x\n", reg);
+	reg = __read_register(dev, CVP_CC_MVS1C_GDSCR);
+	dprintk(CVP_ERR, "CVP_CC_MVS1C_GDSCR: %x\n", reg);
+}
+
 static int iris_hfi_flush_debug_queue(void *dev)
 {
 	int rc = 0;
@@ -1392,6 +1414,7 @@ static int iris_hfi_flush_debug_queue(void *dev)
 		return -EINVAL;
 	}
 
+	cvp_dump_csr(device);
 	mutex_lock(&device->lock);
 
 	if (!device->power_enabled) {
@@ -2653,49 +2676,45 @@ err_send_pkt:
 	return rc;
 }
 
-static int __check_core_registered(struct cvp_hal_device_data core,
+static int __check_core_registered(struct iris_hfi_device *device,
 		phys_addr_t fw_addr, u8 *reg_addr, u32 reg_size,
 		phys_addr_t irq)
 {
-	struct iris_hfi_device *device;
 	struct cvp_hal_data *cvp_hal_data;
-	struct list_head *curr, *next;
 
-	if (!core.dev_count) {
+	if (!device) {
 		dprintk(CVP_INFO, "no device Registered\n");
 		return -EINVAL;
 	}
 
-	list_for_each_safe(curr, next, &core.dev_head) {
-		device = list_entry(curr,
-			struct iris_hfi_device, list);
-		cvp_hal_data = device->cvp_hal_data;
-		if (device && cvp_hal_data->irq == irq &&
-			(CONTAINS(cvp_hal_data->firmware_base,
-					FIRMWARE_SIZE, fw_addr) ||
-			CONTAINS(fw_addr, FIRMWARE_SIZE,
-					cvp_hal_data->firmware_base) ||
-			CONTAINS(cvp_hal_data->register_base,
-					reg_size, reg_addr) ||
-			CONTAINS(reg_addr, reg_size,
-					cvp_hal_data->register_base) ||
-			OVERLAPS(cvp_hal_data->register_base,
-					reg_size, reg_addr, reg_size) ||
-			OVERLAPS(reg_addr, reg_size,
-					cvp_hal_data->register_base,
-					reg_size) ||
-			OVERLAPS(cvp_hal_data->firmware_base,
-					FIRMWARE_SIZE, fw_addr,
-					FIRMWARE_SIZE) ||
-			OVERLAPS(fw_addr, FIRMWARE_SIZE,
-					cvp_hal_data->firmware_base,
-					FIRMWARE_SIZE))) {
-			return 0;
-		}
-
-		dprintk(CVP_INFO, "Device not registered\n");
+	cvp_hal_data = device->cvp_hal_data;
+	if (!cvp_hal_data)
 		return -EINVAL;
+
+	if (cvp_hal_data->irq == irq &&
+		(CONTAINS(cvp_hal_data->firmware_base,
+				FIRMWARE_SIZE, fw_addr) ||
+		CONTAINS(fw_addr, FIRMWARE_SIZE,
+				cvp_hal_data->firmware_base) ||
+		CONTAINS(cvp_hal_data->register_base,
+				reg_size, reg_addr) ||
+		CONTAINS(reg_addr, reg_size,
+				cvp_hal_data->register_base) ||
+		OVERLAPS(cvp_hal_data->register_base,
+				reg_size, reg_addr, reg_size) ||
+		OVERLAPS(reg_addr, reg_size,
+				cvp_hal_data->register_base,
+				reg_size) ||
+		OVERLAPS(cvp_hal_data->firmware_base,
+				FIRMWARE_SIZE, fw_addr,
+				FIRMWARE_SIZE) ||
+		OVERLAPS(fw_addr, FIRMWARE_SIZE,
+				cvp_hal_data->firmware_base,
+				FIRMWARE_SIZE))) {
+		return 0;
 	}
+
+	dprintk(CVP_INFO, "Device not registered\n");
 	return -EINVAL;
 }
 
@@ -2730,8 +2749,14 @@ err_pc_prep:
 static void iris_hfi_pm_handler(struct work_struct *work)
 {
 	int rc = 0;
-	struct iris_hfi_device *device = list_first_entry(
-			&hal_ctxt.dev_head, struct iris_hfi_device, list);
+	struct msm_cvp_core *core;
+	struct iris_hfi_device *device;
+
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	if (core)
+		device = core->device->hfi_device_data;
+	else
+		return;
 
 	if (!device) {
 		dprintk(CVP_ERR, "%s: NULL device\n", __func__);
@@ -2790,7 +2815,7 @@ static int __power_collapse(struct iris_hfi_device *device, bool force)
 	u32 wfi_status = 0, idle_status = 0, pc_ready = 0;
 	u32 flags = 0;
 	int count = 0;
-	const int max_tries = 10;
+	const int max_tries = 150;
 
 	if (!device) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -3234,10 +3259,16 @@ exit:
 
 static void iris_hfi_core_work_handler(struct work_struct *work)
 {
-	struct iris_hfi_device *device = list_first_entry(
-		&hal_ctxt.dev_head, struct iris_hfi_device, list);
+	struct msm_cvp_core *core;
+	struct iris_hfi_device *device;
 	int num_responses = 0, i = 0;
 	u32 intr_status;
+
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	if (core)
+		device = core->device->hfi_device_data;
+	else
+		return;
 
 	mutex_lock(&device->lock);
 
@@ -3315,7 +3346,7 @@ static int __init_regs_and_interrupts(struct iris_hfi_device *device,
 	struct cvp_hal_data *hal = NULL;
 	int rc = 0;
 
-	rc = __check_core_registered(hal_ctxt, res->firmware_base,
+	rc = __check_core_registered(device, res->firmware_base,
 			(u8 *)(uintptr_t)res->register_base,
 			res->register_size, res->irq);
 	if (!rc) {
@@ -4372,7 +4403,7 @@ static void power_off_iris2(struct iris_hfi_device *device)
 				CVP_AON_WRAPPER_MVP_NOC_LPI_STATUS);
 		reg_status = lpi_status & BIT(0);
 		dprintk(CVP_DBG,
-			"Noc: lpi_status %d noc_status %d (count %d)\n",
+			"Noc: lpi_status %x noc_status %x (count %d)\n",
 			lpi_status, reg_status, count);
 
 		/* Wait for noc lpi status to be set */
@@ -4381,7 +4412,8 @@ static void power_off_iris2(struct iris_hfi_device *device)
 	}
 	if (count == max_count) {
 		dprintk(CVP_WARN,
-			"NOC not in qaccept status %d\n", reg_status);
+			"NOC not in qaccept status %x %x\n",
+			reg_status, lpi_status);
 	}
 
 	/* HPG 6.1.2 Step 3, debug bridge to low power */
@@ -4403,7 +4435,7 @@ static void power_off_iris2(struct iris_hfi_device *device)
 	}
 	if (count == max_count) {
 		dprintk(CVP_WARN,
-			"DBLP Set: status %d\n", reg_status);
+			"DBLP Set: status %x %x\n", reg_status, lpi_status);
 	}
 
 	/* HPG 6.1.2 Step 4, debug bridge to lpi release */
@@ -4422,7 +4454,7 @@ static void power_off_iris2(struct iris_hfi_device *device)
 	}
 	if (count == max_count) {
 		dprintk(CVP_WARN,
-			"DBLP Release: lpi_status %d\n", lpi_status);
+			"DBLP Release: lpi_status %x\n", lpi_status);
 	}
 
 	/* HPG 6.1.2 Step 6 */
@@ -4817,14 +4849,8 @@ static struct iris_hfi_device *__add_device(u32 device_id,
 		goto err_cleanup;
 	}
 
-	if (!hal_ctxt.dev_count)
-		INIT_LIST_HEAD(&hal_ctxt.dev_head);
-
 	mutex_init(&hdevice->lock);
-	INIT_LIST_HEAD(&hdevice->list);
 	INIT_LIST_HEAD(&hdevice->sess_head);
-	list_add_tail(&hdevice->list, &hal_ctxt.dev_head);
-	hal_ctxt.dev_count++;
 
 	return hdevice;
 
@@ -4854,30 +4880,29 @@ static struct iris_hfi_device *__get_device(u32 device_id,
 
 void cvp_iris_hfi_delete_device(void *device)
 {
-	struct iris_hfi_device *close, *tmp, *dev;
+	struct msm_cvp_core *core;
+	struct iris_hfi_device *dev = NULL;
 
 	if (!device)
 		return;
 
-	dev = (struct iris_hfi_device *) device;
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	if (core)
+		dev = core->device->hfi_device_data;
 
-	list_for_each_entry_safe(close, tmp, &hal_ctxt.dev_head, list) {
-		if (close->cvp_hal_data->irq == dev->cvp_hal_data->irq) {
-			hal_ctxt.dev_count--;
-			list_del(&close->list);
-			mutex_destroy(&close->lock);
-			destroy_workqueue(close->cvp_workq);
-			destroy_workqueue(close->iris_pm_workq);
-			free_irq(dev->cvp_hal_data->irq, close);
-			iounmap(dev->cvp_hal_data->register_base);
-			iounmap(dev->cvp_hal_data->gcc_reg_base);
-			kfree(close->cvp_hal_data);
-			kfree(close->response_pkt);
-			kfree(close->raw_packet);
-			kfree(close);
-			break;
-		}
-	}
+	if (!dev)
+		return;
+
+	mutex_destroy(&dev->lock);
+	destroy_workqueue(dev->cvp_workq);
+	destroy_workqueue(dev->iris_pm_workq);
+	free_irq(dev->cvp_hal_data->irq, dev);
+	iounmap(dev->cvp_hal_data->register_base);
+	iounmap(dev->cvp_hal_data->gcc_reg_base);
+	kfree(dev->cvp_hal_data);
+	kfree(dev->response_pkt);
+	kfree(dev->raw_packet);
+	kfree(dev);
 }
 
 static int iris_hfi_validate_session(void *sess, const char *func)

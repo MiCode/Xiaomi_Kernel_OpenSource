@@ -394,19 +394,19 @@ int cvp_create_pkt_cmd_session_send(
 	if (!out_pkt || !in_pkt || !session)
 		return -EINVAL;
 
+	if (ptr->size > MAX_HFI_PKT_SIZE * sizeof(unsigned int))
+		goto error_hfi_packet;
+
+	if (ptr->session_id != hash32_ptr(session))
+		goto error_hfi_packet;
+
 	def_idx = get_pkt_index(ptr);
-	if (def_idx < 0 && ptr->size < MAX_HFI_PKT_SIZE * sizeof(u32)) {
+	if (def_idx < 0) {
 		memcpy(out_pkt, in_pkt, ptr->size);
 		return 0;
 	}
 
-	if (ptr->size > MAX_HFI_PKT_SIZE * sizeof(unsigned int))
-		goto error_hfi_packet;
-
 	if (cvp_hfi_defs[def_idx].type != ptr->packet_type)
-		goto error_hfi_packet;
-
-	if (ptr->session_id != hash32_ptr(session))
 		goto error_hfi_packet;
 
 	memcpy(out_pkt, in_pkt, ptr->size);

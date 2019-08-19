@@ -420,20 +420,32 @@ static struct msm_cvp_inst *cvp_get_inst_from_id(struct msm_cvp_core *core,
 {
 	struct msm_cvp_inst *inst = NULL;
 	bool match = false;
+	int count = 0;
 
 	if (!core || !session_id)
 		return NULL;
 
-	mutex_lock(&core->lock);
-	list_for_each_entry(inst, &core->instances, list) {
-		if (hash32_ptr(inst->session) == session_id) {
-			match = true;
-			break;
+retry:
+	if (mutex_trylock(&core->lock)) {
+		list_for_each_entry(inst, &core->instances, list) {
+			if (hash32_ptr(inst->session) == session_id) {
+				match = true;
+				break;
+			}
 		}
-	}
 
-	inst = match ? inst : NULL;
-	mutex_unlock(&core->lock);
+		inst = match ? inst : NULL;
+		mutex_unlock(&core->lock);
+	} else {
+		if (core->state == CVP_CORE_UNINIT)
+			return NULL;
+		usleep_range(100, 200);
+		count++;
+		if (count < 1000)
+			goto retry;
+		else
+			dprintk(CVP_ERR, "timeout locking core mutex\n");
+	}
 
 	return inst;
 
@@ -677,9 +689,9 @@ static int hfi_process_sys_property_info(u32 device_id,
 	if (!pkt) {
 		dprintk(CVP_ERR, "%s: invalid param\n", __func__);
 		return -EINVAL;
-	} else if (pkt->size < sizeof(*pkt)) {
+	} else if (pkt->size > sizeof(*pkt)) {
 		dprintk(CVP_ERR,
-				"%s: bad_pkt_size\n", __func__);
+				"%s: bad_pkt_size %d\n", __func__, pkt->size);
 		return -E2BIG;
 	} else if (!pkt->num_properties) {
 		dprintk(CVP_WARN,

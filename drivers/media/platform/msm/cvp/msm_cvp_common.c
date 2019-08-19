@@ -23,11 +23,12 @@
 
 static void handle_session_error(enum hal_command_response cmd, void *data);
 
-static void dump_hfi_queue_info(struct iris_hfi_device *device)
+static void dump_hfi_queue(struct iris_hfi_device *device)
 {
 	struct cvp_hfi_queue_header *queue;
 	struct cvp_iface_q_info *qinfo;
 	int i;
+	u32 *read_ptr, read_idx;
 
 	dprintk(CVP_ERR, "HFI queues in order of cmd(rd, wr), msg and dbg:\n");
 
@@ -39,8 +40,21 @@ static void dump_hfi_queue_info(struct iris_hfi_device *device)
 	for (i = 0; i <= CVP_IFACEQ_DBGQ_IDX; i++) {
 		qinfo = &device->iface_queues[i];
 		queue = (struct cvp_hfi_queue_header *)qinfo->q_hdr;
+		if (!queue) {
+			dprintk(CVP_ERR, "HFI queue not init, fail to dump\n");
+			return;
+		}
 		dprintk(CVP_ERR, "queue details: %d %d\n",
 				queue->qhdr_read_idx, queue->qhdr_write_idx);
+		if (queue->qhdr_read_idx != queue->qhdr_write_idx) {
+			read_idx = queue->qhdr_read_idx;
+			read_ptr = (u32 *)((qinfo->q_array.align_virtual_addr) +
+				(read_idx << 2));
+			dprintk(CVP_ERR, "queue payload: %x %x %x %x\n",
+				read_ptr[0], read_ptr[1],
+				read_ptr[2], read_ptr[3]);
+		}
+
 	}
 }
 
@@ -383,7 +397,8 @@ int wait_for_sess_signal_receipt(struct msm_cvp_inst *inst,
 	if (!rc) {
 		dprintk(CVP_WARN, "Wait interrupted or timed out: %d\n",
 				SESSION_MSG_INDEX(cmd));
-		msm_cvp_comm_kill_session(inst);
+		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
+		dump_hfi_queue(hdev->hfi_device_data);
 		rc = -EIO;
 	} else {
 		rc = 0;
@@ -590,6 +605,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	struct msm_cvp_inst *inst = NULL;
 	int rc = 0;
 	unsigned long flags = 0;
+	enum cvp_core_state cur_state;
 
 	subsystem_crashed("cvpss");
 	if (!response) {
@@ -615,6 +631,8 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 		return;
 	}
 
+	cur_state = core->state;
+	core->state = CVP_CORE_UNINIT;
 	dprintk(CVP_WARN, "SYS_ERROR received for core %pK\n", core);
 	msm_cvp_noc_error_info(core);
 	call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
@@ -645,10 +663,10 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	rc = call_hfi_op(hdev, core_release, hdev->hfi_device_data);
 	if (rc) {
 		dprintk(CVP_ERR, "core_release failed\n");
+		core->state = cur_state;
 		mutex_unlock(&core->lock);
 		return;
 	}
-	core->state = CVP_CORE_UNINIT;
 	mutex_unlock(&core->lock);
 
 	dprintk(CVP_WARN, "SYS_ERROR handled.\n");
@@ -871,7 +889,7 @@ static int msm_comm_session_abort(struct msm_cvp_inst *inst)
 		dprintk(CVP_ERR, "%s: inst %pK session %x abort timed out\n",
 				__func__, inst, hash32_ptr(inst->session));
 		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
-		dump_hfi_queue_info(hdev->hfi_device_data);
+		dump_hfi_queue(hdev->hfi_device_data);
 		msm_cvp_comm_generate_sys_error(inst);
 		rc = -EBUSY;
 	} else {
@@ -941,6 +959,7 @@ void msm_cvp_comm_handle_thermal_event(void)
 int msm_cvp_comm_check_core_init(struct msm_cvp_core *core)
 {
 	int rc = 0;
+	struct cvp_hfi_device *hdev;
 
 	mutex_lock(&core->lock);
 	if (core->state >= CVP_CORE_INIT_DONE) {
@@ -955,6 +974,9 @@ int msm_cvp_comm_check_core_init(struct msm_cvp_core *core)
 	if (!rc) {
 		dprintk(CVP_ERR, "%s: Wait interrupted or timed out: %d\n",
 				__func__, SYS_MSG_INDEX(HAL_SYS_INIT_DONE));
+		hdev = core->device;
+		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
+		dump_hfi_queue(hdev->hfi_device_data);
 		rc = -EIO;
 		goto exit;
 	} else {
@@ -1225,8 +1247,8 @@ int msm_cvp_comm_try_state(struct msm_cvp_inst *inst, int state)
 	if (inst->state == MSM_CVP_CORE_INVALID) {
 		dprintk(CVP_ERR, "%s: inst %pK is in invalid\n",
 			__func__, inst);
-		rc = -EINVAL;
-		goto exit;
+		mutex_unlock(&inst->sync_lock);
+		return -EINVAL;
 	}
 
 	flipped_state = get_flipped_state(inst->state, state);
@@ -1275,7 +1297,6 @@ int msm_cvp_comm_try_state(struct msm_cvp_inst *inst, int state)
 		break;
 	}
 
-exit:
 	mutex_unlock(&inst->sync_lock);
 
 	if (rc) {
@@ -1354,6 +1375,9 @@ void msm_cvp_ssr_handler(struct work_struct *work)
 			if (!s)
 				return;
 
+			call_hfi_op(hdev, flush_debug_queue,
+				hdev->hfi_device_data);
+			dump_hfi_queue(hdev->hfi_device_data);
 			msm_cvp_comm_kill_session(inst);
 			cvp_put_inst(s);
 		} else {
@@ -1713,6 +1737,12 @@ int cvp_comm_release_persist_buffers(struct msm_cvp_inst *inst)
 			dprintk(CVP_ERR, "%s invalid smem\n", __func__);
 			mutex_unlock(&inst->persistbufs.lock);
 			return -EINVAL;
+		}
+		if (inst->state > MSM_CVP_CLOSE_DONE) {
+			list_del(&buf->list);
+			msm_cvp_smem_free(handle);
+			kfree(buf);
+			continue;
 		}
 		buffer_info.buffer_size = handle->size;
 		buffer_info.buffer_type = buf->buffer_type;
