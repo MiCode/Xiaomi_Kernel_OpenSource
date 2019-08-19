@@ -19,9 +19,9 @@
 		qcom,hpm-min-load = <100000>;
 		status = "disabled";
 
-		regulator-s2 {
+		regulator-s1 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pm660_s2";
+			regulator-name = "pm660_s1";
 			qcom,set = <3>;
 			status = "disabled";
 		};
