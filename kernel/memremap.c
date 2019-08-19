@@ -19,6 +19,7 @@
 #include <linux/memory_hotplug.h>
 #include <linux/swap.h>
 #include <linux/swapops.h>
+#include <linux/kasan.h>
 
 #ifndef ioremap_cache
 /* temporary while we convert existing ioremap_cache users to memremap */
