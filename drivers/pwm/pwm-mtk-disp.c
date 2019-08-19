@@ -22,6 +22,8 @@
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
 #include <linux/slab.h>
+#include <linux/of_address.h>
+#include <linux/delay.h>
 
 #define DISP_PWM_EN		0x00
 
@@ -58,6 +60,8 @@ struct mtk_disp_pwm {
 	struct clk *clk_main;
 	struct clk *clk_mm;
 	void __iomem *base;
+	void __iomem *pmw_src_addr;
+	bool pwm_src_enabled;
 };
 
 static inline struct mtk_disp_pwm *to_mtk_disp_pwm(struct pwm_chip *chip)
@@ -75,6 +79,78 @@ static void mtk_disp_pwm_update_bits(struct mtk_disp_pwm *mdp, u32 offset,
 	value &= ~mask;
 	value |= data;
 	writel(value, address);
+}
+
+static int get_pwm_src_base(struct device *dev, struct mtk_disp_pwm *mdp)
+{
+	int ret = 0;
+	struct device_node *node;
+	void __iomem *pmw_src_base;
+	u32 addr_offset = 0;
+
+	node = of_parse_phandle(dev->of_node, "pwm_src_base", 0);
+	if (!node) {
+		dev_info(dev, "find pwm_src node failed\n");
+		return -1;
+	}
+	pmw_src_base = of_iomap(node, 0);
+	if (!pmw_src_base) {
+		dev_info(dev, "find pwm_src address failed\n");
+		of_node_put(node);
+		return -1;
+	}
+	ret = of_property_read_u32(dev->of_node, "pwm_src_addr", &addr_offset);
+	if (ret >= 0)
+		mdp->pmw_src_addr = pmw_src_base + addr_offset;
+
+	dev_info(dev, "get pwm_src_addr=%x\n", addr_offset);
+	of_node_put(node);
+	return ret;
+}
+
+static int pwm_src_power_on(struct mtk_disp_pwm *mdp)
+{
+	u32 regosc;
+
+	if (!mdp->pmw_src_addr || mdp->pwm_src_enabled)
+		return 0;
+
+	mdp->pwm_src_enabled = true;
+	regosc = readl(mdp->pmw_src_addr);
+
+	regosc = regosc | 0x1;
+	writel(regosc, mdp->pmw_src_addr);
+	udelay(150);
+
+	regosc = readl(mdp->pmw_src_addr);
+	regosc = regosc | 0x4;
+	writel(regosc, mdp->pmw_src_addr);
+	regosc = readl(mdp->pmw_src_addr);
+
+	return 0;
+}
+
+static int pwm_src_power_off(struct mtk_disp_pwm *mdp)
+{
+	u32 regosc;
+
+	if (!mdp->pmw_src_addr || !mdp->pwm_src_enabled)
+		return 0;
+
+	mdp->pwm_src_enabled = false;
+	regosc = readl(mdp->pmw_src_addr);
+
+	regosc = regosc & (~0x4);
+	writel(regosc, mdp->pmw_src_addr);
+
+	udelay(150);
+	regosc = readl(mdp->pmw_src_addr);
+
+	regosc = regosc & (~0x1);
+	writel(regosc, mdp->pmw_src_addr);
+	regosc = readl(mdp->pmw_src_addr);
+
+	return 0;
 }
 
 static int mtk_disp_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
@@ -95,11 +171,13 @@ static int mtk_disp_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	 * period = (PWM_CLK_RATE * period_ns) / (10^9 * (clk_div + 1)) - 1
 	 * high_width = (PWM_CLK_RATE * duty_ns) / (10^9 * (clk_div + 1))
 	 */
+	dev_dbg(mdp->chip.dev, "duty=%d period=%d\n", duty_ns, period_ns);
 	rate = clk_get_rate(mdp->clk_main);
 	clk_div = div_u64(rate * period_ns, NSEC_PER_SEC) >>
 			  PWM_PERIOD_BIT_WIDTH;
 	if (clk_div > PWM_CLKDIV_MAX)
 		return -EINVAL;
+	dev_dbg(mdp->chip.dev, "rate=%lld clk_div=%d\n", rate, clk_div);
 
 	div = NSEC_PER_SEC * (clk_div + 1);
 	period = div64_u64(rate * period_ns, div);
@@ -108,6 +186,10 @@ static int mtk_disp_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	high_width = div64_u64(rate * duty_ns, div);
 	value = period | (high_width << PWM_HIGH_WIDTH_SHIFT);
+	dev_dbg(mdp->chip.dev, "high_width=%d period=%d\n",
+		high_width, period);
+
+	pwm_src_power_on(mdp);
 
 	err = clk_enable(mdp->clk_main);
 	if (err < 0)
@@ -146,6 +228,7 @@ static int mtk_disp_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	struct mtk_disp_pwm *mdp = to_mtk_disp_pwm(chip);
 	int err;
 
+	dev_info(mdp->chip.dev, "%s\n", __func__);
 	err = clk_enable(mdp->clk_main);
 	if (err < 0)
 		return err;
@@ -155,6 +238,8 @@ static int mtk_disp_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 		clk_disable(mdp->clk_main);
 		return err;
 	}
+
+	pwm_src_power_on(mdp);
 
 	mtk_disp_pwm_update_bits(mdp, DISP_PWM_EN, mdp->data->enable_mask,
 				 mdp->data->enable_mask);
@@ -166,11 +251,14 @@ static void mtk_disp_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct mtk_disp_pwm *mdp = to_mtk_disp_pwm(chip);
 
+	dev_dbg(mdp->chip.dev, "%s\n", __func__);
 	mtk_disp_pwm_update_bits(mdp, DISP_PWM_EN, mdp->data->enable_mask,
 				 0x0);
 
 	clk_disable(mdp->clk_mm);
 	clk_disable(mdp->clk_main);
+
+	pwm_src_power_off(mdp);
 }
 
 static const struct pwm_ops mtk_disp_pwm_ops = {
@@ -184,6 +272,7 @@ static int mtk_disp_pwm_probe(struct platform_device *pdev)
 {
 	struct mtk_disp_pwm *mdp;
 	struct resource *r;
+	struct clk *pwm_src;
 	int ret;
 
 	mdp = devm_kzalloc(&pdev->dev, sizeof(*mdp), GFP_KERNEL);
@@ -212,6 +301,14 @@ static int mtk_disp_pwm_probe(struct platform_device *pdev)
 	ret = clk_prepare(mdp->clk_mm);
 	if (ret < 0)
 		goto disable_clk_main;
+
+	pwm_src = devm_clk_get(&pdev->dev, "pwm_src");
+	if (!IS_ERR(pwm_src) && get_pwm_src_base(&pdev->dev, mdp) >= 0) {
+		clk_enable(mdp->clk_mm);
+		clk_set_parent(mdp->clk_mm, pwm_src);
+		clk_disable(mdp->clk_mm);
+		dev_info(&pdev->dev, "select clk_mm with pwm_src\n");
+	}
 
 	mdp->chip.dev = &pdev->dev;
 	mdp->chip.ops = &mtk_disp_pwm_ops;
