@@ -90,9 +90,6 @@
 #define INTF_TEAR_AUTOREFRESH_CONFIG    0x2B4
 #define INTF_TEAR_TEAR_DETECT_CTRL      0x2B8
 
-#define AVR_CONTINUOUS_MODE   1
-#define AVR_ONE_SHOT_MODE     2
-
 static struct sde_intf_cfg *_intf_offset(enum sde_intf intf,
 		struct sde_mdss_cfg *m,
 		void __iomem *addr,
@@ -178,7 +175,8 @@ static void sde_hw_intf_avr_ctrl(struct sde_hw_intf *ctx,
 	c = &ctx->hw;
 	if (avr_params->avr_mode) {
 		avr_ctrl = BIT(0);
-		avr_mode = (avr_params->avr_mode == AVR_ONE_SHOT_MODE) ?
+		avr_mode =
+			(avr_params->avr_mode == SDE_RM_QSYNC_ONE_SHOT_MODE) ?
 			(BIT(0) | BIT(8)) : 0x0;
 	}
 

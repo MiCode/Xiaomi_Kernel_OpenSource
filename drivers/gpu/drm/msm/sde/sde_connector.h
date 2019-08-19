@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -222,9 +222,12 @@ struct sde_connector_ops {
 	/**
 	 * post_kickoff - display to program post kickoff-time features
 	 * @connector: Pointer to drm connector structure
+	 * @params: Parameter bundle of connector-stored information for
+	 *	post kickoff programming into the display
 	 * Returns: Zero on success
 	 */
-	int (*post_kickoff)(struct drm_connector *connector);
+	int (*post_kickoff)(struct drm_connector *connector,
+		struct msm_display_kickoff_params *params);
 
 	/**
 	 * post_open - calls connector to process post open functionalities

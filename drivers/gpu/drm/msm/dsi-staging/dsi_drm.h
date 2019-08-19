@@ -127,9 +127,11 @@ int dsi_conn_pre_kickoff(struct drm_connector *connector,
 /**
  * dsi_display_post_kickoff - program post kickoff-time features
  * @connector: Pointer to drm connector structure
+ * @params: Parameters for post kickoff programming
  * Returns: Zero on success
  */
-int dsi_conn_post_kickoff(struct drm_connector *connector);
+int dsi_conn_post_kickoff(struct drm_connector *connector,
+		struct msm_display_kickoff_params *params);
 
 /**
  * dsi_convert_to_drm_mode - Update drm mode with dsi mode information
