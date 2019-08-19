@@ -564,17 +564,24 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 
 void sde_connector_set_qsync_params(struct drm_connector *connector)
 {
-	struct sde_connector *c_conn = to_sde_connector(connector);
-	u32 qsync_propval;
+	struct sde_connector *c_conn;
+	struct sde_connector_state *c_state;
+	u32 qsync_propval = 0;
+	bool prop_dirty;
 
 	if (!connector)
 		return;
 
+	c_conn = to_sde_connector(connector);
+	c_state = to_sde_connector_state(connector->state);
 	c_conn->qsync_updated = false;
-	qsync_propval = sde_connector_get_property(c_conn->base.state,
-			CONNECTOR_PROP_QSYNC_MODE);
 
-	if (qsync_propval != c_conn->qsync_mode) {
+	prop_dirty = msm_property_is_dirty(&c_conn->property_info,
+					&c_state->property_state,
+					CONNECTOR_PROP_QSYNC_MODE);
+	if (prop_dirty) {
+		qsync_propval = sde_connector_get_property(c_conn->base.state,
+						CONNECTOR_PROP_QSYNC_MODE);
 		SDE_DEBUG("updated qsync mode %d -> %d\n", c_conn->qsync_mode,
 				qsync_propval);
 		c_conn->qsync_updated = true;
@@ -1209,6 +1216,10 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		c_conn->bl_scale_ad = val;
 		c_conn->bl_scale_dirty = true;
 		break;
+	case CONNECTOR_PROP_QSYNC_MODE:
+		msm_property_set_dirty(&c_conn->property_info,
+				&c_state->property_state, idx);
+		break;
 	default:
 		break;
 	}
@@ -1804,13 +1815,34 @@ static int sde_connector_atomic_check(struct drm_connector *connector,
 		struct drm_connector_state *new_conn_state)
 {
 	struct sde_connector *c_conn;
+	struct drm_crtc_state *crtc_state;
+	struct sde_connector_state *c_state;
+	bool qsync_dirty;
 
 	if (!connector) {
 		SDE_ERROR("invalid connector\n");
-		return 0;
+		return -EINVAL;
+	}
+
+	if (!new_conn_state) {
+		SDE_ERROR("invalid connector state\n");
+		return -EINVAL;
 	}
 
 	c_conn = to_sde_connector(connector);
+	c_state = to_sde_connector_state(new_conn_state);
+
+	crtc_state = drm_atomic_get_new_crtc_state(new_conn_state->state,
+						   new_conn_state->crtc);
+
+	qsync_dirty = msm_property_is_dirty(&c_conn->property_info,
+					&c_state->property_state,
+					CONNECTOR_PROP_QSYNC_MODE);
+
+	if (drm_atomic_crtc_needs_modeset(crtc_state) && qsync_dirty) {
+		SDE_ERROR("invalid qsync update during modeset\n");
+		return -EINVAL;
+	}
 
 	if (c_conn->ops.atomic_check)
 		return c_conn->ops.atomic_check(connector,

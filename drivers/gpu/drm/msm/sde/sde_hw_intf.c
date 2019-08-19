@@ -136,7 +136,7 @@ static int sde_hw_intf_avr_setup(struct sde_hw_intf *ctx,
 	u32 min_fps, default_fps, diff_fps;
 	u32 vsync_period_slow;
 	u32 avr_vtotal;
-	u32 add_porches;
+	u32 add_porches = 0;
 
 	if (!ctx || !params || !avr_params) {
 		SDE_ERROR("invalid input parameter(s)\n");
@@ -153,7 +153,10 @@ static int sde_hw_intf_avr_setup(struct sde_hw_intf *ctx,
 	vsync_period = params->vsync_pulse_width +
 			params->v_back_porch + params->height +
 			params->v_front_porch;
-	add_porches = mult_frac(vsync_period, diff_fps, min_fps);
+
+	if (diff_fps)
+		add_porches = mult_frac(vsync_period, diff_fps, min_fps);
+
 	vsync_period_slow = vsync_period + add_porches;
 	avr_vtotal = vsync_period_slow * hsync_period;
 

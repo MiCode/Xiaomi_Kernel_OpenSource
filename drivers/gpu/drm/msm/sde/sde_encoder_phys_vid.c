@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -417,7 +417,7 @@ static void _sde_encoder_phys_vid_setup_avr(
 			return;
 		}
 
-		if (qsync_min_fps >= default_fps) {
+		if (qsync_min_fps > default_fps) {
 			SDE_ERROR_VIDENC(vid_enc,
 				"qsync fps %d must be less than default %d\n",
 				qsync_min_fps, default_fps);
