@@ -861,8 +861,10 @@ static void npu_disable_fw_work(struct work_struct *work)
 	npu_dev = container_of(host_ctx, struct npu_device, host_ctx);
 
 	mutex_lock(&host_ctx->lock);
-	disable_fw_nolock(npu_dev);
-	host_ctx->bridge_mbox_pwr_on = false;
+	if (host_ctx->bridge_mbox_pwr_on) {
+		disable_fw_nolock(npu_dev);
+		host_ctx->bridge_mbox_pwr_on = false;
+	}
 	mutex_unlock(&host_ctx->lock);
 	NPU_DBG("Exit disable fw work\n");
 }
