@@ -12,4 +12,4 @@
 #
 
 
-obj-y += mmdvfs_wrapper.o
+obj-$(CONFIG_MTK_MMDVFS) += mmdvfs_wrapper.o

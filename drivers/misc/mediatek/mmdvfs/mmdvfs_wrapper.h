@@ -17,7 +17,7 @@ enum clk_id {
 	CLK_MAX_NUM,
 };
 
-#ifdef CONFIG_MTK_MMDVFS
+#if IS_ENABLED(CONFIG_MTK_MMDVFS)
 s32 mmdvfs_wrapper_set_freq(u32 clk_id, u32 freq);
 s32 mmdvfs_wrapper_get_freq_steps(u32 clk_id, u64 *freq_steps, u32 *step_size);
 u64 mmdvfs_qos_get_freq(u32 clk_id);
