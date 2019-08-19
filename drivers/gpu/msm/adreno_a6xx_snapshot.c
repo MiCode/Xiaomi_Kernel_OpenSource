@@ -379,6 +379,13 @@ static const unsigned int a6xx_pre_crashdumper_registers[] = {
 	0x825, 0x825,
 };
 
+static const unsigned int a6xx_gmu_wrapper_registers[] = {
+	/* GMU CX */
+	0x1f840, 0x1f840, 0x1f844, 0x1f845, 0x1f887, 0x1f889,
+	/* GMU AO*/
+	0x23b0C, 0x23b0E, 0x23b15, 0x23b15,
+};
+
 enum a6xx_debugbus_id {
 	A6XX_DBGBUS_CP           = 0x1,
 	A6XX_DBGBUS_RBBM         = 0x2,
@@ -1763,6 +1770,10 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		adreno_snapshot_registers(device, snapshot,
 			a6xx_rscc_snapshot_registers,
 			ARRAY_SIZE(a6xx_rscc_snapshot_registers) / 2);
+	} else if (adreno_is_a610(adreno_dev)) {
+		adreno_snapshot_registers(device, snapshot,
+			a6xx_gmu_wrapper_registers,
+			ARRAY_SIZE(a6xx_gmu_wrapper_registers) / 2);
 	}
 
 	sptprac_on = gpudev->sptprac_is_on(adreno_dev);

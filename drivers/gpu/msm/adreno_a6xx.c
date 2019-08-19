@@ -7,6 +7,7 @@
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <soc/qcom/subsystem_restart.h>
+#include <linux/clk/qcom.h>
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
@@ -199,7 +200,7 @@ __get_rbbm_clock_cntl_on(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a630(adreno_dev))
 		return 0x8AA8AA02;
-	else if (adreno_is_a612(adreno_dev))
+	else if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev))
 		return 0xAAA8AA82;
 	else
 		return 0x8AA8AA82;
@@ -278,11 +279,12 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 
 	/*
 	 * Disable SP clock before programming HWCG registers.
-	 * A612 GPU is not having the GX power domain. Hence
-	 * skip GMU_GX registers for A12.
+	 * A612 and A610 GPU is not having the GX power domain.
+	 * Hence skip GMU_GX registers for A12 and A610.
 	 */
 
-	if (gmu_core_isenabled(device) && !adreno_is_a612(adreno_dev))
+	if (gmu_core_isenabled(device) && !adreno_is_a612(adreno_dev) &&
+		!adreno_is_a610(adreno_dev))
 		gmu_core_regrmw(device,
 			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
 
@@ -292,10 +294,11 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 
 	/*
 	 * Enable SP clock after programming HWCG registers.
-	 * A612 GPU is not having the GX power domain. Hence
-	 * skip GMU_GX registers for A612.
+	 * A612 and A610 GPU is not having the GX power domain.
+	 * Hence skip GMU_GX registers for A612.
 	 */
-	if (gmu_core_isenabled(device) && !adreno_is_a612(adreno_dev))
+	if (gmu_core_isenabled(device) && !adreno_is_a612(adreno_dev) &&
+		!adreno_is_a610(adreno_dev))
 		gmu_core_regrmw(device,
 			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
 
@@ -429,7 +432,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	if (ADRENO_GPUREV(adreno_dev) >= ADRENO_REV_A640) {
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x02000140);
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
-	} else if (adreno_is_a612(adreno_dev)) {
+	} else if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x00800060);
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x40201b16);
 	} else {
@@ -437,8 +440,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
 	}
 
-	if (adreno_is_a612(adreno_dev)) {
-		/* For A612 Mem pool size is reduced to 48 */
+	if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev)) {
+		/* For A612 and A610 Mem pool size is reduced to 48 */
 		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 48);
 		kgsl_regwrite(device, A6XX_CP_MEM_POOL_DBG_ADDR, 47);
 	} else {
@@ -853,9 +856,6 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev)
  */
 static int a6xx_sptprac_enable(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a612(adreno_dev))
-		return 0;
-
 	return a6xx_gmu_sptprac_enable(adreno_dev);
 }
 
@@ -865,9 +865,6 @@ static int a6xx_sptprac_enable(struct adreno_device *adreno_dev)
  */
 static void a6xx_sptprac_disable(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a612(adreno_dev))
-		return;
-
 	a6xx_gmu_sptprac_disable(adreno_dev);
 }
 
@@ -2513,6 +2510,29 @@ update:
 	return 0;
 }
 
+static void a6xx_clk_set_options(struct adreno_device *adreno_dev,
+	const char *name, struct clk *clk, bool on)
+{
+	if (!adreno_is_a610(adreno_dev))
+		return;
+
+	/* Handle clock settings for GFX PSCBCs */
+	if (on) {
+		if (!strcmp(name, "mem_iface_clk")) {
+			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		} else if (!strcmp(name, "core_clk")) {
+			clk_set_flags(clk, CLKFLAG_RETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_RETAIN_MEM);
+		}
+	} else {
+		if (!strcmp(name, "core_clk")) {
+			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		}
+	}
+}
+
 struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = &a6xx_reg_offsets,
 	.start = a6xx_start,
@@ -2549,4 +2569,5 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.ccu_invalidate = a6xx_ccu_invalidate,
 	.perfcounter_update = a6xx_perfcounter_update,
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
+	.clk_set_options = a6xx_clk_set_options,
 };
