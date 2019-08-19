@@ -1895,8 +1895,10 @@ unsigned int cpufreq_driver_fast_switch(struct cpufreq_policy *policy,
 	target_freq = clamp_val(target_freq, policy->min, policy->max);
 
         ret = cpufreq_driver->fast_switch(policy, target_freq);
-	if (ret)
+	if (ret) {
 		cpufreq_times_record_transition(policy, ret);
+		cpufreq_stats_record_transition(policy, ret);
+	}
 
 	return ret;
 }
