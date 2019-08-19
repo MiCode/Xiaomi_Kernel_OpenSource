@@ -2971,6 +2971,33 @@
 		qcom,msm-bus,active-only;
 		status = "ok";
 	};
+
+	/delete-node/gpu-bw-tbl;
+	/delete-node/qcom,gpubw;
+
+	gpu_bw_tbl: gpu-bw-tbl {
+		compatible = "operating-points-v2";
+		opp-0    { opp-hz = /bits/ 64 < 0 >;    }; /*  OFF */
+		opp-100  { opp-hz = /bits/ 64 < 381 >;  }; /*  1.DDR:100 MHz */
+		opp-200  { opp-hz = /bits/ 64 < 762 >;  }; /*  2.DDR:200 MHz */
+		opp-300  { opp-hz = /bits/ 64 < 1144 >; }; /*  3.DDR:300 MHz */
+		opp-451  { opp-hz = /bits/ 64 < 1720 >; }; /*  4.DDR:451 MHz */
+		opp-547  { opp-hz = /bits/ 64 < 2086 >; }; /*  5.DDR:547 MHz */
+		opp-681  { opp-hz = /bits/ 64 < 2597 >; }; /*  6.DDR:681 MHz */
+		opp-825  { opp-hz = /bits/ 64 < 3147 >; }; /*  7.DDR:825 MHz */
+		opp-1017 { opp-hz = /bits/ 64 < 3879 >; }; /*  8.DDR:1017 MHz */
+		opp-1353 { opp-hz = /bits/ 64 < 5161 >; }; /*  9.DDR:1353 MHz */
+		opp-1555 { opp-hz = /bits/ 64 < 5931 >; }; /* 10.DDR:1555 MHz */
+		opp-1804 { opp-hz = /bits/ 64 < 6881 >; }; /* 11.DDR:1804 MHz */
+		opp-2133 { opp-hz = /bits/ 64 < 8137 >; }; /* 12.DDR:2133 MHz */
+	};
+
+	gpubw: qcom,gpubw {
+		compatible = "qcom,devbw";
+		governor = "bw_vbif";
+		qcom,src-dst-ports = <26 512>;
+		operating-points-v2 = <&gpu_bw_tbl>;
+	};
 };
 
 #include "atoll-gdsc.dtsi"
