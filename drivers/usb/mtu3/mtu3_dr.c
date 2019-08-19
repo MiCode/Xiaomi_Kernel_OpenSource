@@ -166,11 +166,13 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		switch_port_to_host(ssusb);
 		ssusb_set_vbus(otg_sx, 1);
 		ssusb->is_host = true;
+		otg_sx->sw_state |= MTU3_SW_ID_GROUND;
 		break;
 	case MTU3_ID_FLOAT:
 		ssusb->is_host = false;
 		ssusb_set_vbus(otg_sx, 0);
 		switch_port_to_device(ssusb);
+		otg_sx->sw_state &= ~MTU3_SW_ID_GROUND;
 		break;
 	case MTU3_VBUS_OFF:
 		mtu3_stop(mtu);
@@ -178,6 +180,7 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		ssusb_set_force_vbus(ssusb, false);
 		if (ssusb->clk_mgr)
 			ssusb_clks_disable(ssusb);
+		otg_sx->sw_state &= ~MTU3_SW_VBUS_VALID;
 		break;
 	case MTU3_VBUS_VALID:
 		if (ssusb->clk_mgr)
@@ -186,6 +189,7 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		/* avoid suspend when works as device */
 		pm_stay_awake(ssusb->dev);
 		mtu3_start(mtu);
+		otg_sx->sw_state |= MTU3_SW_VBUS_VALID;
 		break;
 	default:
 		dev_err(ssusb->dev, "invalid state\n");
@@ -329,13 +333,28 @@ void ssusb_set_force_mode(struct ssusb_mtk *ssusb,
 static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 {
 	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
-	bool to_host = false;
+	struct otg_switch_mtk *otg_sx = &ssusb->otg_switch;
+	bool id_event, vbus_event;
 
-	if (role == USB_ROLE_HOST)
-		to_host = true;
+	id_event = (role == USB_ROLE_HOST);
+	vbus_event = (role == USB_ROLE_DEVICE);
 
-	if (to_host ^ ssusb->is_host)
-		ssusb_mode_switch(ssusb, to_host);
+	if (!!(otg_sx->sw_state & MTU3_SW_ID_GROUND) ^ id_event) {
+		if (id_event) {
+			ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_HOST);
+			ssusb_set_mailbox(otg_sx, MTU3_ID_GROUND);
+		} else {
+			ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_DEVICE);
+			ssusb_set_mailbox(otg_sx, MTU3_ID_FLOAT);
+		}
+	}
+
+	if (!!(otg_sx->sw_state & MTU3_SW_VBUS_VALID) ^ vbus_event) {
+		if (vbus_event)
+			ssusb_set_mailbox(otg_sx, MTU3_VBUS_VALID);
+		else
+			ssusb_set_mailbox(otg_sx, MTU3_VBUS_OFF);
+	}
 
 	return 0;
 }
@@ -373,6 +392,10 @@ int ssusb_otg_switch_init(struct ssusb_mtk *ssusb)
 
 	INIT_WORK(&otg_sx->id_work, ssusb_id_work);
 	INIT_WORK(&otg_sx->vbus_work, ssusb_vbus_work);
+
+	/* default as host, update state */
+	otg_sx->sw_state = ssusb->is_host ?
+				MTU3_SW_ID_GROUND : MTU3_SW_VBUS_VALID;
 
 	if (otg_sx->manual_drd_enabled)
 		ssusb_dr_debugfs_init(ssusb);
