@@ -14,8 +14,6 @@
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
 ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public
 ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public/GP
-endif
 
-ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
-obj-y += m4u_secure.o
+obj-$(CONFIG_MTK_IOMMU_MISC_SEC) += m4u_secure.o
 endif

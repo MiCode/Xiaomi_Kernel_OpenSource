@@ -5,6 +5,15 @@ config MTK_IOMMU_MISC
 	  Choose this option to enable mediatek misc iommu driver.
 	  For common kernel, misc iommu includes the secondary feature
 	  about m4u hardware. For example, it can implement m4u secure
-	  driver for SVP or debug feature. Secure m4u driver can map
-	  non-physical continuous secure memory to continuous modified
-	  virtual address.
+	  driver for secure feature or debug feature.
+
+config MTK_IOMMU_MISC_SEC
+	bool "Enable Mediatek secure M4U"
+	depends on MTK_IOMMU_MISC
+	help
+	  Choose this option to enable mediatek secure iommu driver.
+	  For SVP or secure camera feature, user only can access
+	  continuous secure memory, and the number of secure memory's
+	  bit no more than 32. So the secure memory need to map to mva
+	  by m4u. Secure m4u driver can map non-physical continuous
+	  secure memory to continuous modified virtual address.
