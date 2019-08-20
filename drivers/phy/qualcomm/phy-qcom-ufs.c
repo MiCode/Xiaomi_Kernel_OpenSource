@@ -228,6 +228,14 @@ static int ufs_qcom_phy_init_vreg(struct device *dev,
 
 	char prop_name[MAX_PROP_NAME];
 
+	if (dev->of_node) {
+		snprintf(prop_name, MAX_PROP_NAME, "%s-supply", name);
+		if (!of_parse_phandle(dev->of_node, prop_name, 0)) {
+			dev_dbg(dev, "No vreg data found for %s\n", prop_name);
+			return -ENODATA;
+		}
+	}
+
 	vreg->name = name;
 	vreg->reg = devm_regulator_get(dev, name);
 	if (IS_ERR(vreg->reg)) {
