@@ -601,35 +601,6 @@ int ufs_qcom_phy_power_on(struct phy *generic_phy)
 	bool is_rate_B = false;
 	int err;
 
-	err = ufs_qcom_phy_get_reset(phy_common);
-	if (err)
-		return err;
-
-	err = reset_control_assert(phy_common->ufs_reset);
-	if (err)
-		return err;
-
-	if (phy_common->mode == PHY_MODE_UFS_HS_B)
-		is_rate_B = true;
-
-	err = phy_common->phy_spec_ops->calibrate(phy_common, is_rate_B);
-	if (err)
-		return err;
-
-	err = reset_control_deassert(phy_common->ufs_reset);
-	if (err) {
-		dev_err(dev, "Failed to assert UFS PHY reset");
-		return err;
-	}
-
-	err = ufs_qcom_phy_start_serdes(phy_common);
-	if (err)
-		return err;
-
-	err = ufs_qcom_phy_is_pcs_ready(phy_common);
-	if (err)
-		return err;
-
 	err = ufs_qcom_phy_enable_vreg(dev, &phy_common->vdda_phy);
 	if (err) {
 		dev_err(dev, "%s enable vdda_phy failed, err=%d\n",
@@ -671,6 +642,37 @@ int ufs_qcom_phy_power_on(struct phy *generic_phy)
 			goto out_disable_ref_clk;
 		}
 	}
+
+	err = ufs_qcom_phy_get_reset(phy_common);
+	if (err)
+		goto out_disable_ref_clk;
+
+	err = reset_control_assert(phy_common->ufs_reset);
+	if (err) {
+		dev_err(dev, "Failed to assert UFS PHY reset\n");
+		goto out_disable_ref_clk;
+	}
+
+	if (phy_common->mode == PHY_MODE_UFS_HS_B)
+		is_rate_B = true;
+
+	err = phy_common->phy_spec_ops->calibrate(phy_common, is_rate_B);
+	if (err)
+		goto out_disable_ref_clk;
+
+	err = reset_control_deassert(phy_common->ufs_reset);
+	if (err) {
+		dev_err(dev, "Failed to deassert UFS PHY reset\n");
+		goto out_disable_ref_clk;
+	}
+
+	err = ufs_qcom_phy_start_serdes(phy_common);
+	if (err)
+		goto out_disable_ref_clk;
+
+	err = ufs_qcom_phy_is_pcs_ready(phy_common);
+	if (err)
+		goto out_disable_ref_clk;
 
 	goto out;
 
