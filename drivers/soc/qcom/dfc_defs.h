@@ -17,6 +17,9 @@
 #include <linux/soc/qcom/qmi.h>
 #include "qmi_rmnet_i.h"
 
+#define DFC_ACK_TYPE_DISABLE 1
+#define DFC_ACK_TYPE_THRESHOLD 2
+
 #define DFC_MASK_TCP_BIDIR 0x1
 #define DFC_MASK_RAT_SWITCH 0x2
 #define DFC_IS_TCP_BIDIR(r) (bool)((r) & DFC_MASK_TCP_BIDIR)

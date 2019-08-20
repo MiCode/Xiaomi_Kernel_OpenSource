@@ -19,9 +19,6 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/dfc.h>
 
-#define DFC_ACK_TYPE_DISABLE 1
-#define DFC_ACK_TYPE_THRESHOLD 2
-
 struct dfc_qmap_header {
 	u8  pad_len:6;
 	u8  reserved_bit:1;
@@ -886,10 +883,7 @@ dfc_send_ack(struct net_device *dev, u8 bearer_id, u16 seq, u8 mux_id, u8 type)
 		return;
 
 	if (dfc_qmap) {
-		if (type == DFC_ACK_TYPE_DISABLE)
-			dfc_qmap_send_end_marker_cnf(qos, bearer_id, seq);
-		else if (type == DFC_ACK_TYPE_THRESHOLD)
-			dfc_qmap_send_query(mux_id, bearer_id);
+		dfc_qmap_send_ack(qos, bearer_id, seq, type);
 		return;
 	}
 
@@ -1024,8 +1018,8 @@ static int dfc_update_fc_map(struct net_device *dev, struct qos_info *qos,
 
 		/* This is needed by qmap */
 		if (dfc_qmap && itm->ack_req && !ack_req && itm->grant_size)
-			dfc_qmap_send_end_marker_cnf(
-				qos, itm->bearer_id, itm->seq);
+			dfc_qmap_send_ack(qos, itm->bearer_id,
+					  itm->seq, DFC_ACK_TYPE_DISABLE);
 
 		itm->grant_size = fc_info->num_bytes;
 		itm->grant_thresh = qmi_rmnet_grant_per(itm->grant_size);

@@ -18,8 +18,9 @@
 #include <soc/qcom/rmnet_ctl.h>
 #include "dfc_defs.h"
 
-
 #define QMAP_DFC_VER		1
+
+#define QMAP_CMD_DONE		-1
 
 #define QMAP_CMD_REQUEST	0
 #define QMAP_CMD_ACK		1
@@ -29,10 +30,7 @@
 #define QMAP_DFC_CONFIG		10
 #define QMAP_DFC_IND		11
 #define QMAP_DFC_QUERY		12
-#define QMAP_DFC_QUERY_RESP	13
-#define QMAP_DFC_END_MARKER_REQ	14
-#define QMAP_DFC_END_MARKER_CNF	15
-#define QMAP_DFC_POWER_SAVE	16
+#define QMAP_DFC_END_MARKER	13
 
 struct qmap_hdr {
 	u8	cd_pad;
@@ -100,7 +98,8 @@ struct qmap_dfc_query_resp {
 	u8			bearer_id;
 	u8			tcp_bidir:1;
 	u8			reserved:7;
-	u8			reserved2;
+	u8			invalid:1;
+	u8			reserved2:7;
 	__be32			grant;
 	u32			reserved3;
 	u32			reserved4;
@@ -128,23 +127,14 @@ struct qmap_dfc_end_marker_cnf {
 	u32			reserved4;
 } __aligned(1);
 
-struct qmap_dfc_power_save {
-	struct qmap_cmd_hdr	hdr;
-	u8			cmd_ver;
-	u8			reserved;
-	u8			reserved2;
-	u8			mode:1;
-	u8			reserved3:7;
-	__be32			ep_type;
-	__be32			iface_id;
-	u32			reserved4;
-} __aligned(1);
-
 static struct dfc_flow_status_ind_msg_v01 qmap_flow_ind;
 static struct dfc_tx_link_status_ind_msg_v01 qmap_tx_ind;
 static struct dfc_qmi_data __rcu *qmap_dfc_data;
 static atomic_t qmap_txid;
 static void *rmnet_ctl_handle;
+
+static void dfc_qmap_send_end_marker_cnf(struct qos_info *qos,
+					 u8 bearer_id, u16 seq, u32 tx_id);
 
 static void dfc_qmap_send_cmd(struct sk_buff *skb)
 {
@@ -154,6 +144,20 @@ static void dfc_qmap_send_cmd(struct sk_buff *skb)
 		pr_err("Failed to send to rmnet ctl\n");
 		kfree_skb(skb);
 	}
+}
+
+static void dfc_qmap_send_inband_ack(struct dfc_qmi_data *dfc,
+				     struct sk_buff *skb)
+{
+	struct qmap_cmd_hdr *cmd;
+
+	cmd = (struct qmap_cmd_hdr *)skb->data;
+
+	skb->protocol = htons(ETH_P_MAP);
+	skb->dev = rmnet_get_real_dev(dfc->rmnet_port);
+
+	trace_dfc_qmap(skb->data, skb->len, false);
+	dev_queue_xmit(skb);
 }
 
 static int dfc_qmap_handle_ind(struct dfc_qmi_data *dfc,
@@ -208,9 +212,12 @@ static int dfc_qmap_handle_query_resp(struct dfc_qmi_data *dfc,
 	struct qmap_dfc_query_resp *cmd;
 
 	if (skb->len < sizeof(struct qmap_dfc_query_resp))
-		return QMAP_CMD_INVALID;
+		return QMAP_CMD_DONE;
 
 	cmd = (struct qmap_dfc_query_resp *)skb->data;
+
+	if (cmd->invalid)
+		return QMAP_CMD_DONE;
 
 	memset(&qmap_flow_ind, 0, sizeof(qmap_flow_ind));
 	qmap_flow_ind.flow_status_valid = 1;
@@ -231,11 +238,11 @@ static int dfc_qmap_handle_query_resp(struct dfc_qmi_data *dfc,
 
 	dfc_do_burst_flow_control(dfc, &qmap_flow_ind);
 
-	return QMAP_CMD_ACK;
+	return QMAP_CMD_DONE;
 }
 
 static void dfc_qmap_set_end_marker(struct dfc_qmi_data *dfc, u8 mux_id,
-				    u8 bearer_id, u16 seq_num)
+				    u8 bearer_id, u16 seq_num, u32 tx_id)
 {
 	struct net_device *dev;
 	struct qos_info *qos;
@@ -253,10 +260,12 @@ static void dfc_qmap_set_end_marker(struct dfc_qmi_data *dfc, u8 mux_id,
 
 	bearer = qmi_rmnet_get_bearer_map(qos, bearer_id);
 
-	if (bearer && bearer->last_seq == seq_num && bearer->grant_size)
+	if (bearer && bearer->last_seq == seq_num && bearer->grant_size) {
 		bearer->ack_req = 1;
-	else
-		dfc_qmap_send_end_marker_cnf(qos, bearer_id, seq_num);
+		bearer->ack_txid = tx_id;
+	} else {
+		dfc_qmap_send_end_marker_cnf(qos, bearer_id, seq_num, tx_id);
+	}
 
 	spin_unlock_bh(&qos->qos_lock);
 }
@@ -271,17 +280,17 @@ static int dfc_qmap_handle_end_marker_req(struct dfc_qmi_data *dfc,
 
 	cmd = (struct qmap_dfc_end_marker_req *)skb->data;
 
-	dfc_qmap_set_end_marker(dfc, cmd->hdr.mux_id,
-				cmd->bearer_id, ntohs(cmd->seq_num));
+	dfc_qmap_set_end_marker(dfc, cmd->hdr.mux_id, cmd->bearer_id,
+				ntohs(cmd->seq_num), ntohl(cmd->hdr.tx_id));
 
-	return QMAP_CMD_ACK;
+	return QMAP_CMD_DONE;
 }
 
 static void dfc_qmap_cmd_handler(struct sk_buff *skb)
 {
 	struct qmap_cmd_hdr *cmd;
 	struct dfc_qmi_data *dfc;
-	int rc = QMAP_CMD_ACK;
+	int rc = QMAP_CMD_DONE;
 
 	if (!skb)
 		return;
@@ -292,9 +301,15 @@ static void dfc_qmap_cmd_handler(struct sk_buff *skb)
 		goto free_skb;
 
 	cmd = (struct qmap_cmd_hdr *)skb->data;
-	if (!cmd->cd_bit || cmd->cmd_type != QMAP_CMD_REQUEST ||
-	    skb->len != ntohs(cmd->pkt_len) + QMAP_HDR_LEN)
+	if (!cmd->cd_bit || skb->len != ntohs(cmd->pkt_len) + QMAP_HDR_LEN)
 		goto free_skb;
+
+	if (cmd->cmd_name == QMAP_DFC_QUERY) {
+		if (cmd->cmd_type != QMAP_CMD_ACK)
+			goto free_skb;
+	} else if (cmd->cmd_type != QMAP_CMD_REQUEST) {
+		goto free_skb;
+	}
 
 	rcu_read_lock();
 
@@ -310,11 +325,11 @@ static void dfc_qmap_cmd_handler(struct sk_buff *skb)
 		qmi_rmnet_set_dl_msg_active(dfc->rmnet_port);
 		break;
 
-	case QMAP_DFC_QUERY_RESP:
+	case QMAP_DFC_QUERY:
 		rc = dfc_qmap_handle_query_resp(dfc, skb);
 		break;
 
-	case QMAP_DFC_END_MARKER_REQ:
+	case QMAP_DFC_END_MARKER:
 		rc = dfc_qmap_handle_end_marker_req(dfc, skb);
 		break;
 
@@ -322,13 +337,19 @@ static void dfc_qmap_cmd_handler(struct sk_buff *skb)
 		rc = QMAP_CMD_UNSUPPORTED;
 	}
 
-	rcu_read_unlock();
-
 	/* Send ack */
-	cmd->cmd_type = rc;
-	dfc_qmap_send_cmd(skb);
+	if (rc != QMAP_CMD_DONE) {
+		cmd->cmd_type = rc;
+		if (cmd->cmd_name == QMAP_DFC_IND)
+			dfc_qmap_send_inband_ack(dfc, skb);
+		else
+			dfc_qmap_send_cmd(skb);
 
-	return;
+		rcu_read_unlock();
+		return;
+	}
+
+	rcu_read_unlock();
 
 free_skb:
 	kfree_skb(skb);
@@ -364,7 +385,7 @@ static void dfc_qmap_send_config(struct dfc_qmi_data *data)
 	dfc_qmap_send_cmd(skb);
 }
 
-void dfc_qmap_send_query(u8 mux_id, u8 bearer_id)
+static void dfc_qmap_send_query(u8 mux_id, u8 bearer_id)
 {
 	struct sk_buff *skb;
 	struct qmap_dfc_query *dfc_query;
@@ -391,7 +412,8 @@ void dfc_qmap_send_query(u8 mux_id, u8 bearer_id)
 	dfc_qmap_send_cmd(skb);
 }
 
-void dfc_qmap_send_end_marker_cnf(struct qos_info *qos, u8 bearer_id, u16 seq)
+static void dfc_qmap_send_end_marker_cnf(struct qos_info *qos,
+					 u8 bearer_id, u16 seq, u32 tx_id)
 {
 	struct sk_buff *skb;
 	struct qmap_dfc_end_marker_cnf *em_cnf;
@@ -407,9 +429,9 @@ void dfc_qmap_send_end_marker_cnf(struct qos_info *qos, u8 bearer_id, u16 seq)
 	em_cnf->hdr.cd_bit = 1;
 	em_cnf->hdr.mux_id = qos->mux_id;
 	em_cnf->hdr.pkt_len = htons(len - QMAP_HDR_LEN);
-	em_cnf->hdr.cmd_name = QMAP_DFC_END_MARKER_CNF;
-	em_cnf->hdr.cmd_type = QMAP_CMD_REQUEST;
-	em_cnf->hdr.tx_id = htonl(atomic_inc_return(&qmap_txid));
+	em_cnf->hdr.cmd_name = QMAP_DFC_END_MARKER;
+	em_cnf->hdr.cmd_type = QMAP_CMD_ACK;
+	em_cnf->hdr.tx_id = htonl(tx_id);
 
 	em_cnf->cmd_ver = QMAP_DFC_VER;
 	em_cnf->bearer_id = bearer_id;
@@ -421,6 +443,20 @@ void dfc_qmap_send_end_marker_cnf(struct qos_info *qos, u8 bearer_id, u16 seq)
 	/* This cmd needs to be sent in-band */
 	trace_dfc_qmap(skb->data, skb->len, false);
 	rmnet_map_tx_qmap_cmd(skb);
+}
+
+void dfc_qmap_send_ack(struct qos_info *qos, u8 bearer_id, u16 seq, u8 type)
+{
+	struct rmnet_bearer_map *bearer;
+
+	if (type == DFC_ACK_TYPE_DISABLE) {
+		bearer = qmi_rmnet_get_bearer_map(qos, bearer_id);
+		if (bearer)
+			dfc_qmap_send_end_marker_cnf(qos, bearer_id,
+						     seq, bearer->ack_txid);
+	} else if (type == DFC_ACK_TYPE_THRESHOLD) {
+		dfc_qmap_send_query(qos->mux_id, bearer_id);
+	}
 }
 
 static struct rmnet_ctl_client_hooks cb = {
