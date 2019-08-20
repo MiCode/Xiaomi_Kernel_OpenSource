@@ -178,13 +178,9 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		mtu3_stop(mtu);
 		pm_relax(ssusb->dev);
 		ssusb_set_force_vbus(ssusb, false);
-		if (ssusb->clk_mgr)
-			ssusb_clks_disable(ssusb);
 		otg_sx->sw_state &= ~MTU3_SW_VBUS_VALID;
 		break;
 	case MTU3_VBUS_VALID:
-		if (ssusb->clk_mgr)
-			ssusb_clks_enable(ssusb);
 		ssusb_set_force_vbus(ssusb, true);
 		/* avoid suspend when works as device */
 		pm_stay_awake(ssusb->dev);
@@ -341,19 +337,28 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 
 	if (!!(otg_sx->sw_state & MTU3_SW_ID_GROUND) ^ id_event) {
 		if (id_event) {
+			if (ssusb->clk_mgr)
+				ssusb_clks_enable(ssusb);
 			ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_HOST);
 			ssusb_set_mailbox(otg_sx, MTU3_ID_GROUND);
 		} else {
 			ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_DEVICE);
 			ssusb_set_mailbox(otg_sx, MTU3_ID_FLOAT);
+			if (ssusb->clk_mgr)
+				ssusb_clks_disable(ssusb);
 		}
 	}
 
 	if (!!(otg_sx->sw_state & MTU3_SW_VBUS_VALID) ^ vbus_event) {
-		if (vbus_event)
+		if (vbus_event) {
+			if (ssusb->clk_mgr)
+				ssusb_clks_enable(ssusb);
 			ssusb_set_mailbox(otg_sx, MTU3_VBUS_VALID);
-		else
+		} else {
 			ssusb_set_mailbox(otg_sx, MTU3_VBUS_OFF);
+			if (ssusb->clk_mgr)
+				ssusb_clks_disable(ssusb);
+		}
 	}
 
 	return 0;
