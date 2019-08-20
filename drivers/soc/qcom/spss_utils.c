@@ -28,6 +28,7 @@
 #include <linux/bitops.h>   /* BIT(x) */
 #include <linux/platform_device.h> /* platform_driver_register() */
 #include <linux/of.h>       /* of_property_count_strings() */
+#include <linux/of_address.h>   /* of_address_to_resource() */
 #include <linux/io.h>       /* ioremap_nocache() */
 #include <linux/notifier.h>
 #include <linux/sizes.h>    /* SZ_4K */
@@ -513,7 +514,8 @@ static int spss_parse_dt(struct device_node *node)
 	u32 spss_fuse4_bit = 0;
 	u32 spss_fuse4_mask = 0;
 	void __iomem *spss_fuse4_reg = NULL;
-
+	struct device_node *np;
+	struct resource r;
 	u32 val1 = 0;
 	u32 val2 = 0;
 	void __iomem *spss_emul_type_reg = NULL;
@@ -649,14 +651,25 @@ static int spss_parse_dt(struct device_node *node)
 	iounmap(spss_emul_type_reg);
 
 	/* PIL-SPSS area */
-	ret = of_property_read_u32(node, "qcom,pil-addr",
-			     &pil_addr);
-	if (ret < 0) {
-		pr_err("can't get pil_addr\n");
-		return -EFAULT;
+	np = of_parse_phandle(node, "pil-mem", 0);
+	if (!np) {
+		pr_err("no pil-mem entry, check pil-addr\n");
+		ret = of_property_read_u32(node, "qcom,pil-addr",
+			&pil_addr);
+		if (ret < 0) {
+			pr_err("can't get pil_addr\n");
+			return -EFAULT;
+		}
+	} else {
+		ret = of_address_to_resource(np, 0, &r);
+		of_node_put(np);
+		if (ret)
+			return ret;
+		pil_addr = (u32)r.start;
 	}
+
 	ret = of_property_read_u32(node, "qcom,pil-size",
-			     &pil_size);
+		&pil_size);
 	if (ret < 0) {
 		pr_err("can't get pil_size\n");
 		return -EFAULT;
