@@ -339,6 +339,12 @@ Charger specific properties:
   Value type: bool
   Definition: Boolean flag which when present enables ADC based AICL.
 
+- qcom,disable-sw-thermal-regulation
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present disables the software thermal
+		regulation.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================
