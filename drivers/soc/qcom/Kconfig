@@ -411,6 +411,16 @@ config MSM_PIL_SSR_GENERIC
          or a fatal error. Subsystems include LPASS, Venus, VPU, WCNSS and
          BCSS.
 
+config MSM_PIL_MSS_QDSP6V5
+       tristate "MSS QDSP6v5 (Hexagon) Boot Support"
+       depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+       help
+         Support for booting and shutting down QDSP6v5 (Hexagon) processors
+         in modem subsystems. If you would like to make or receive phone
+         calls then say Y here.
+
+         If unsure, say N.
+
 config SETUP_SSR_NOTIF_TIMEOUTS
 	bool "Set timeouts on SSR sysmon notifications and notifier callbacks"
 	help
