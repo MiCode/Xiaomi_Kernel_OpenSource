@@ -762,6 +762,7 @@ void wil_netif_rx(struct sk_buff *skb, struct net_device *ndev, int cid,
 		[GRO_HELD]		= "GRO_HELD",
 		[GRO_NORMAL]		= "GRO_NORMAL",
 		[GRO_DROP]		= "GRO_DROP",
+		[GRO_CONSUMED]		= "GRO_CONSUMED",
 	};
 
 	if (wdev->iftype == NL80211_IFTYPE_STATION) {
