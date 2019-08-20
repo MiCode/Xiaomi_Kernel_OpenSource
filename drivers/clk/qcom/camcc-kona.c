@@ -328,7 +328,6 @@ static const struct alpha_pll_config cam_cc_pll2_config_sm8250_v2 = {
 	.config_ctl_val = 0x08200920,
 	.config_ctl_hi_val = 0x05008011,
 	.config_ctl_hi1_val = 0x00000000,
-	.test_ctl_val = 0x00010000,
 	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000000,
 	.user_ctl_hi1_val = 0x00000000,
