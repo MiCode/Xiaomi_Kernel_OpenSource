@@ -15,6 +15,7 @@
 #include <linux/io-pgtable-fast.h>
 #include <asm/cacheflush.h>
 #include <linux/vmalloc.h>
+#include <linux/dma-mapping.h>
 
 
 #define AV8L_FAST_MAX_ADDR_BITS		48
@@ -145,6 +146,46 @@ struct av8l_fast_io_pgtable {
 
 #define iopte_pmd_offset(pmds, iova) (pmds + (iova >> 12))
 
+static inline dma_addr_t av8l_dma_addr(void *addr)
+{
+	if (is_vmalloc_addr(addr))
+		return page_to_phys(vmalloc_to_page(addr)) +
+			offset_in_page(addr);
+	return virt_to_phys(addr);
+}
+
+static void __av8l_clean_range(struct device *dev, void *start, void *end)
+{
+	size_t size;
+	void *region_end;
+	unsigned long page_end;
+
+	if (is_vmalloc_addr(start)) {
+		while (start < end) {
+			page_end = round_down((unsigned long)start + PAGE_SIZE,
+					      PAGE_SIZE);
+			region_end = min_t(void *, end, page_end);
+			size = region_end - start;
+			dma_sync_single_for_device(dev, av8l_dma_addr(start),
+						   size, DMA_TO_DEVICE);
+			start = region_end;
+		}
+	} else {
+		size = end - start;
+		dma_sync_single_for_device(dev, av8l_dma_addr(start), size,
+					   DMA_TO_DEVICE);
+	}
+}
+
+static void av8l_clean_range(struct io_pgtable_ops *ops,
+			av8l_fast_iopte *start, av8l_fast_iopte *end)
+{
+	struct io_pgtable *iop = iof_pgtable_ops_to_pgtable(ops);
+
+	if (!(iop->cfg.quirks & IO_PGTABLE_QUIRK_NO_DMA))
+		__av8l_clean_range(iop->cfg.iommu_dev, start, end);
+}
+
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST_PROVE_TLB
 
 #include <asm/cacheflush.h>
@@ -182,7 +223,7 @@ void av8l_fast_clear_stale_ptes(struct io_pgtable_ops *ops, bool skip_sync)
 		if (!(*pmdp & AV8L_FAST_PTE_VALID)) {
 			*pmdp = 0;
 			if (!skip_sync)
-				dmac_clean_range(pmdp, pmdp + 1);
+				__av8l_clean_range(pmdp, pmdp + 1);
 		}
 		pmdp++;
 	}
@@ -192,15 +233,6 @@ static void __av8l_check_for_stale_tlb(av8l_fast_iopte *ptep)
 {
 }
 #endif
-
-static void av8l_clean_range(struct io_pgtable_ops *ops,
-			av8l_fast_iopte *start, av8l_fast_iopte *end)
-{
-	struct io_pgtable *iop = iof_pgtable_ops_to_pgtable(ops);
-
-	if (!(iop->cfg.quirks & IO_PGTABLE_QUIRK_NO_DMA))
-		dmac_clean_range(start, end);
-}
 
 static av8l_fast_iopte
 av8l_fast_prot_to_pte(struct av8l_fast_io_pgtable *data, int prot)
@@ -445,7 +477,7 @@ av8l_fast_prepopulate_pgtables(struct av8l_fast_io_pgtable *data,
 		ptep = ((av8l_fast_iopte *)data->pgd) + i;
 		*ptep = pte;
 	}
-	dmac_clean_range(data->pgd, data->pgd + 4);
+	__av8l_clean_range(cfg->iommu_dev, data->pgd, data->pgd + 4);
 
 	/*
 	 * We have 4 puds, each of which can point to 512 pmds, so we'll
@@ -463,13 +495,14 @@ av8l_fast_prepopulate_pgtables(struct av8l_fast_io_pgtable *data,
 			pages[pg++] = page;
 
 			addr = page_address(page);
-			dmac_clean_range(addr, addr + SZ_4K);
+			__av8l_clean_range(cfg->iommu_dev, addr, addr + SZ_4K);
 
 			pte = page_to_phys(page) | AV8L_FAST_PTE_TYPE_TABLE;
 			pudp = data->puds[i] + j;
 			*pudp = pte;
 		}
-		dmac_clean_range(data->puds[i], data->puds[i] + 512);
+		__av8l_clean_range(cfg->iommu_dev, data->puds[i],
+				   data->puds[i] + 512);
 	}
 
 	if (WARN_ON(pg != NUM_PGTBL_PAGES))
