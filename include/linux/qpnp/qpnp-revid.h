@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -200,6 +200,9 @@
 /* PMI632 */
 #define PMI632_SUBTYPE	0x25
 
+/* PM8008 SUBTYPE */
+#define PM8008_SUBTYPE	0x2C
+
 /* PMI8998 REV_ID */
 #define PMI8998_V1P0_REV1	0x00
 #define PMI8998_V1P0_REV2	0x00
@@ -332,6 +335,9 @@
 
 /* PMI8937 */
 #define PMI8937_SUBTYPE		0x37
+
+/* SMB1390 */
+#define SMB1390_SUBTYPE		0x23
 
 /* SMB1381 */
 #define SMB1381_SUBTYPE		0x17
