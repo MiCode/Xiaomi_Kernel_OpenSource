@@ -5,11 +5,11 @@
 #include <linux/cache.h>
 #include <asm/asm-offsets.h>
 
-#define __SYSCALL_I386(nr, sym, compat) extern asmlinkage void sym(void) ;
+#define __SYSCALL_I386(nr, sym, qual) extern asmlinkage void sym(void) ;
 #include <asm/syscalls_32.h>
 #undef __SYSCALL_I386
 
-#define __SYSCALL_I386(nr, sym, compat) [nr] = sym,
+#define __SYSCALL_I386(nr, sym, qual) [nr] = sym,
 
 typedef asmlinkage void (*sys_call_ptr_t)(void);
 

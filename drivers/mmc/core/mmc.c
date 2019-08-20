@@ -410,7 +410,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 {
 	int err = 0, idx;
 	unsigned int part_size;
-
+    int i=0;
 	BUG_ON(!card);
 
 	if (!ext_csd)
@@ -675,6 +675,11 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		pr_info("%s: eMMC FW version: 0x%02x\n",
 			mmc_hostname(card->host),
 			card->ext_csd.fw_version);
+        //read fw version form csd[254:261]
+        for (i=0;i<8;i++)
+        {  
+            card->ext_csd.fw_reg[i] = ext_csd[EXT_CSD_FW_VERSION+i];
+        }
 		if (card->ext_csd.cmdq_support) {
 			/*
 			 * Queue Depth = N + 1,
@@ -807,6 +812,8 @@ MMC_DEV_ATTR(date, "%02d/%04d\n", card->cid.month, card->cid.year);
 MMC_DEV_ATTR(erase_size, "%u\n", card->erase_size << 9);
 MMC_DEV_ATTR(preferred_erase_size, "%u\n", card->pref_erase << 9);
 MMC_DEV_ATTR(fwrev, "0x%x\n", card->cid.fwrev);
+MMC_DEV_ATTR(fw_version, "0x%02x%02x%02x%02x%02x%02x%02x%02x\n", card->ext_csd.fw_reg[7],card->ext_csd.fw_reg[6],card->ext_csd.fw_reg[5],card->ext_csd.fw_reg[4],
+card->ext_csd.fw_reg[3],card->ext_csd.fw_reg[2],card->ext_csd.fw_reg[1],card->ext_csd.fw_reg[0]);
 MMC_DEV_ATTR(hwrev, "0x%x\n", card->cid.hwrev);
 MMC_DEV_ATTR(manfid, "0x%06x\n", card->cid.manfid);
 MMC_DEV_ATTR(name, "%s\n", card->cid.prod_name);
@@ -833,6 +840,7 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_erase_size.attr,
 	&dev_attr_preferred_erase_size.attr,
 	&dev_attr_fwrev.attr,
+    &dev_attr_fw_version.attr,
 	&dev_attr_hwrev.attr,
 	&dev_attr_manfid.attr,
 	&dev_attr_name.attr,

@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -229,6 +230,8 @@ static int is_sensor_port(struct msm_ipc_router_remote_port *rport)
 
 	if (rport && rport->server) {
 		svcid = rport->server->name.service;
+        if (svcid == 277 || svcid == 287)
+            return false;
 		if (svcid == 400 || (svcid >= 256 && svcid <= 320))
 			return true;
 	}

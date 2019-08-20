@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,7 +69,40 @@
 				};
 			};
 		};
-
+		smb_int_pin {
+			//qcom,pins = <&gp 61>;
+			pins = "gpio61";
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "smb_int_gpio";
+			smb_int_default: smb_int_default {
+				drive-strength = <2>;	/*8 MA */
+				bias-pull-up;		/* PULL UP*/
+			};
+		};
+		bq_int_default: bq_int_default {
+			mux {
+				pins = "gpio25";
+				function ="gpio";
+			};
+			config {
+				pins = "gpio25";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				/* PULL UP*/
+				};
+		};
+		tps65132_en_default: tps65132_en_default {
+			mux {
+				pins = "gpio126", "gpio127";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio126", "gpio127";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
 		pmx_ts_reset_suspend {
 			ts_reset_suspend: ts_reset_suspend {
 				mux {
@@ -1168,7 +1202,79 @@
 				};
 			};
 		};
+		spi7 {
+			spi7_default: spi7_default {
+				/* active state */
+				mux {
+					/* MOSI, MISO, CLK */
+					pins = "gpio85", "gpio86", "gpio88";
+					function = "blsp_spi7";
+				};
 
+				config {
+					pins = "gpio85", "gpio86", "gpio88";
+					drive-strength = <12>; /* 12 MA */
+					bias-disable = <0>; /* No PULL */
+				};
+			};
+
+			spi7_sleep: spi7_sleep {
+				/* suspended state */
+				mux {
+					/* MOSI, MISO, CLK */
+					pins = "gpio85", "gpio86", "gpio88";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio85", "gpio86", "gpio88";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-down; /* PULL Down */
+				};
+			};
+
+			spi7_cs0_active: cs0_active {
+				/* CS */
+				mux {
+					pins = "gpio87";
+					function = "blsp_spi7";
+				};
+
+				config {
+					pins = "gpio87";
+					drive-strength = <2>;
+					bias-disable = <0>;
+				};
+			};
+
+			spi7_cs0_sleep: cs0_sleep {
+				/* CS */
+				mux {
+					pins = "gpio87";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio87";
+					drive-strength = <2>;
+					bias-disable = <0>;
+				};
+			};
+		};
+		gpio_led_pins {
+			gpio_led_off: gpio_led_off {
+				mux {
+					pins = "gpio39";
+					function = "gpio";
+			 	};
+				config {
+					pins = "gpio39";
+					drive-strength = <6>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+		};
 		i2c_2 {
 			i2c_2_active: i2c_2_active {
 				/* active state */
@@ -1194,7 +1300,7 @@
 				config {
 					pins = "gpio6", "gpio7";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-down;
 				};
 			};
 		};

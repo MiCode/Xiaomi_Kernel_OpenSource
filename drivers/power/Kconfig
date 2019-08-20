@@ -462,6 +462,40 @@ config SMB358_CHARGER
 	  The driver reports the charger status via the power supply framework.
 	  A charger status change triggers an IRQ via the device STAT pin.
 
+config CHARGER_BQ2560
+	tristate "BQ2560X Battery Charger"
+	depends on I2C
+	help
+	  Say Y to include support for SMB358 Battery Charger.
+	  SMB358 is a single path switching mode charger capable of charging
+	  Say Y to include support for BQ2560X Battery Charger.
+	  BQ2560X is a single path switching mode charger capable of charging
+	  the battery with 2Amps of current.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  A charger status change triggers an IRQ via the device STAT pin.
+
+config GAUGE_BQ27426
+	tristate "BQ27426 Battery Fg"
+	depends on I2C
+	help
+	  Say Y to include support for BQ27426 Battery Charger.
+	  BQ27426 is a single path switching mode charger capable of charging
+	  the battery with 2Amps of current.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  A charger status change triggers an IRQ via the device STAT pin.
+config C3B_BQ2560X
+	bool "to seperate different projects"
+	default n
+	help
+	  Say Y here to enable a function which disabled TEMP protect...
+	  WARNNING:Only SCM could open it.
+config D1_ROSY
+	bool "to seperate different projects"
+	default n
+	help
+	  Say Y here to enable D1_ROSY macro
 config SMB23X_CHARGER
 	tristate "SMB23X Battery Charger"
 	depends on I2C
@@ -635,6 +669,13 @@ config MSM_BCL_PERIPHERAL_CTL
 	  Say Y here to enable this BCL PMIC peripheral driver. This driver
 	  provides routines to configure and monitor the BCL
 	  PMIC peripheral.
+
+config DISABLE_TEMP_PROTECT
+	bool "control of TEMP protect"
+	default n
+	help
+	  Say Y here to enable a function which disabled TEMP protect...
+	  WARNNING:Only SCM could open it.
 
 source "drivers/power/reset/Kconfig"
 

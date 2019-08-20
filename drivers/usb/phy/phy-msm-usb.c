@@ -1,4 +1,5 @@
 /* Copyright (c) 2009-2018, Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,7 +55,7 @@
 
 #define DRIVER_NAME	"msm_otg"
 
-#define CHG_RECHECK_DELAY	(jiffies + msecs_to_jiffies(2000))
+#define CHG_RECHECK_DELAY	(jiffies + msecs_to_jiffies(5000))
 #define ULPI_IO_TIMEOUT_USEC	(10 * 1000)
 #define USB_PHY_3P3_VOL_MIN	3050000 /* uV */
 #define USB_PHY_3P3_VOL_MAX	3300000 /* uV */
@@ -139,6 +140,18 @@ static u32 bus_freqs[USB_NOC_NUM_VOTE][USB_NUM_BUS_CLOCKS]  /*bimc,snoc,pcnoc*/;
 static char bus_clkname[USB_NUM_BUS_CLOCKS][20] = {"bimc_clk", "snoc_clk",
 						"pcnoc_clk"};
 static bool bus_clk_rate_set;
+
+static int oem_is_kpoc;
+static int __init oem_kpoc_setup(char *str)
+{
+             if (!strncmp(str, "charger", 4)) {
+                             oem_is_kpoc = 1;
+                             printk("[oem][kpoc] disable udc @kpoc mode\n");
+             }
+
+             return 1;
+}
+__setup("androidboot.mode=", oem_kpoc_setup);
 
 static void dbg_inc(unsigned *idx)
 {
@@ -2858,6 +2871,16 @@ static void msm_otg_sm_work(struct work_struct *w)
 							IDEV_CHG_MAX);
 					/* fall through */
 				case USB_SDP_CHARGER:
+					if (oem_is_kpoc) {
+						motg->chg_type = USB_DCP_CHARGER;
+						msm_otg_notify_charger(motg, 500);
+						otg->phy->state = OTG_STATE_B_CHARGER;
+						work = 0;
+						pm_runtime_put_noidle(otg->phy->dev);
+						pm_runtime_suspend(otg->phy->dev);
+						break;
+					}
+					msm_otg_notify_charger(motg, IDEV_CHG_MIN);
 					pm_runtime_get_sync(otg->phy->dev);
 					msm_otg_start_peripheral(otg, 1);
 					otg->phy->state =

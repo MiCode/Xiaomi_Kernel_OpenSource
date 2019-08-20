@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +21,7 @@
 
 #include <linux/pmic-voter.h>
 
-#define NUM_MAX_CLIENTS		16
+#define NUM_MAX_CLIENTS	10
 #define DEBUG_FORCE_CLIENT	"DEBUG_FORCE_CLIENT"
 
 static DEFINE_SPINLOCK(votable_list_slock);

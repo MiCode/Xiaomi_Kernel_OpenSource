@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +31,8 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/qpnp/power-on.h>
 
+#include <linux/hardware_info.h>
+#include <asm/bootinfo.h>
 #define CREATE_MASK(NUM_BITS, POS) \
 	((unsigned char) (((1 << (NUM_BITS)) - 1) << (POS)))
 #define PON_MASK(MSB_BIT, LSB_BIT) \
@@ -68,6 +71,7 @@
 	((pon)->base + PON_OFFSET((pon)->subtype, 0xA, 0xC2))
 #define QPNP_POFF_REASON1(pon) \
 	((pon)->base + PON_OFFSET((pon)->subtype, 0xC, 0xC5))
+#define QPNP_POFF_REASON2(pon)                  ((pon)->base + 0xD)
 #define QPNP_PON_WARM_RESET_REASON2(pon)	((pon)->base + 0xB)
 #define QPNP_PON_OFF_REASON(pon)		((pon)->base + 0xC7)
 #define QPNP_FAULT_REASON1(pon)			((pon)->base + 0xC8)
@@ -364,7 +368,7 @@ int qpnp_pon_set_restart_reason(enum pon_restart_reason reason)
 
 	if (!pon->store_hard_reset_reason)
 		return 0;
-
+	pr_err("pon_restart_reason=0x%x\n", reason);
 	rc = qpnp_pon_masked_write(pon, QPNP_PON_SOFT_RB_SPARE(pon),
 					PON_MASK(7, 2), (reason << 2));
 	if (rc)
@@ -489,6 +493,59 @@ static ssize_t qpnp_pon_dbc_store(struct device *dev,
 }
 
 static DEVICE_ATTR(debounce_us, 0664, qpnp_pon_dbc_show, qpnp_pon_dbc_store);
+
+/*+ExtB52900 wuzhenzhen.wt 20181109, add kpdpwr reset node*/
+static ssize_t qpnp_kpdpwr_reset_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct qpnp_pon *pon = dev_get_drvdata(dev);
+	u8 val;
+	int rc;
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+				QPNP_PON_KPDPWR_S2_CNTL2(pon), &val, 1);
+	if (rc) {
+		dev_err(&pon->spmi->dev, "Unable to pon_dbc_ctl rc=%d\n", rc);
+		return rc;
+	}
+
+	val &= QPNP_PON_S2_RESET_ENABLE;
+	val = val >> 7;
+
+	return snprintf(buf, QPNP_PON_BUFFER_SIZE, "%d\n", val);
+}
+
+static ssize_t qpnp_kpdpwr_reset_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct qpnp_pon *pon = dev_get_drvdata(dev);
+	u32 value;
+	int rc;
+
+	if (size > QPNP_PON_BUFFER_SIZE)
+		return -EINVAL;
+
+	rc = kstrtou32(buf, 10, &value);
+	if (rc)
+		return rc;
+
+	value = value << 7;
+
+	printk("qpnp_kpdpwr_reset_store set value: %d\n", value);
+
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_KPDPWR_S2_CNTL2(pon),
+				QPNP_PON_S2_RESET_ENABLE, value);
+	if (rc) {
+		dev_err(&pon->spmi->dev, "Unable to configure kpdpwr reset\n");
+		return rc;
+	}
+
+	return size;
+}
+
+static DEVICE_ATTR(kpdpwr_reset, 0664, qpnp_kpdpwr_reset_show, qpnp_kpdpwr_reset_store);
+/*-ExtB52900 wuzhenzhen.wt 20181109, add kpdpwr reset node*/
 
 static int qpnp_pon_reset_config(struct qpnp_pon *pon,
 		enum pon_power_off_type type)
@@ -629,6 +686,79 @@ int qpnp_pon_is_warm_reset(void)
 		return pon->warm_reset_reason1;
 }
 EXPORT_SYMBOL(qpnp_pon_is_warm_reset);
+
+int qpnp_pon_is_ps_hold_reset(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+	u8 reg = 0;
+
+	if (!pon)
+		return 0;
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+			QPNP_POFF_REASON1(pon), &reg, 1);
+	if (rc) {
+		dev_err(&pon->spmi->dev,
+				"Unable to read addr=%x, rc(%d)\n",
+				QPNP_POFF_REASON1(pon), rc);
+		return 0;
+	}
+
+	/* The bit 1 is 1, means by PS_HOLD/MSM controlled shutdown */
+	if (reg & 0x2)
+		return 1;
+
+	dev_info(&pon->spmi->dev,
+			"hw_reset reason1 is 0x%x\n",
+			reg);
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+			QPNP_POFF_REASON2(pon), &reg, 1);
+
+	dev_info(&pon->spmi->dev,
+			"hw_reset reason2 is 0x%x\n",
+			reg);
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_ps_hold_reset);
+
+int qpnp_pon_is_lpk(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+	u8 reg = 0;
+
+	if (!pon)
+		return 0;
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+			QPNP_POFF_REASON1(pon), &reg, 1);
+	if (rc) {
+		dev_err(&pon->spmi->dev,
+				"Unable to read addr=%x, rc(%d)\n",
+				QPNP_POFF_REASON1(pon), rc);
+		return 0;
+	}
+
+
+	if (reg & 0x80)
+		return 1;
+
+	dev_info(&pon->spmi->dev,
+			"hw_reset reason1 is 0x%x\n",
+			reg);
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+			QPNP_POFF_REASON2(pon), &reg, 1);
+
+	dev_info(&pon->spmi->dev,
+			"hw_reset reason2 is 0x%x\n",
+			reg);
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_lpk);
 
 /**
  * qpnp_pon_wd_config - Disable the wd in a warm reset.
@@ -1984,6 +2114,36 @@ static int read_gen2_pon_off_reason(struct qpnp_pon *pon, u16 *reason,
 	return 0;
 }
 
+extern char board_id[HARDWARE_MAX_ITEM_LONGTH];
+void probe_board_and_set(void)
+{
+	char *boadrid_start, *boardvol_start;
+	char boardid_info[HARDWARE_MAX_ITEM_LONGTH];
+
+	boadrid_start = strstr(saved_command_line, "board_id=");
+	boardvol_start = strstr(saved_command_line, "board_vol=");
+	memset(boardid_info, 0, HARDWARE_MAX_ITEM_LONGTH);
+	if (boadrid_start != NULL)
+	{
+		boardvol_start = strstr(boadrid_start, ":board_vol=");
+		if (boardvol_start != NULL)
+		{
+			strncpy(boardid_info, boadrid_start+sizeof("board_id=")-1, boardvol_start-(boadrid_start+sizeof("board_id=")-1));
+		}
+		else
+		{
+			strncpy(boardid_info, boadrid_start+sizeof("board_id=")-1, 9);
+		}
+	}
+	else
+	{
+		sprintf(boardid_info, "boarid not define!");
+	}
+
+	strcpy(board_id, boardid_info);
+}
+
+
 static int qpnp_pon_probe(struct spmi_device *spmi)
 {
 	struct qpnp_pon *pon;
@@ -2151,6 +2311,7 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 				"PMIC@SID%d: Power-off reason: %s\n",
 				pon->spmi->sid,
 				qpnp_poff_reason[index]);
+		set_poweroff_reason(index);
 	}
 
 	if (pon->pon_trigger_reason == PON_SMPL ||
@@ -2322,6 +2483,14 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
+	/*+ExtB52900 wuzhenzhen.wt 20181109, add kpdpwr reset node*/
+	rc = device_create_file(&spmi->dev, &dev_attr_kpdpwr_reset);
+		if (rc) {
+			dev_err(&spmi->dev, "sys file creation failed rc: %d\n", rc);
+			return rc;
+		}
+	/*-ExtB52900 wuzhenzhen.wt 20181109, add kpdpwr reset node*/
+
 	if (of_property_read_bool(spmi->dev.of_node,
 					"qcom,pon-reset-off")) {
 		rc = qpnp_pon_trigger_config(PON_CBLPWR_N, false);
@@ -2351,6 +2520,10 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 					"qcom,store-hard-reset-reason");
 
 	qpnp_pon_debugfs_init(spmi);
+
+	probe_board_and_set();
+	printk("heming add qpnp_pon_probe end\n");
+
 	return 0;
 }
 

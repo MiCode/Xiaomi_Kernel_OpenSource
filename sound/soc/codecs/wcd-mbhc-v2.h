@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -527,3 +528,4 @@ static inline void wcd_mbhc_deinit(struct wcd_mbhc *mbhc)
 #endif
 
 #endif /* __WCD_MBHC_V2_H__ */
+extern void msm8x16_wcd_codec_set_headset_state(u32 state);

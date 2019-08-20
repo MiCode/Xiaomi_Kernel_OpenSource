@@ -76,9 +76,6 @@ extern void send_sigtrap(struct task_struct *tsk, struct pt_regs *regs,
 			 int error_code, int si_code);
 
 
-extern unsigned long syscall_trace_enter_phase1(struct pt_regs *, u32 arch);
-extern long syscall_trace_enter_phase2(struct pt_regs *, u32 arch,
-				       unsigned long phase1_result);
 
 extern long syscall_trace_enter(struct pt_regs *);
 extern void syscall_trace_leave(struct pt_regs *);

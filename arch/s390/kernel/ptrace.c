@@ -2,6 +2,7 @@
  *  Ptrace user space interface.
  *
  *    Copyright IBM Corp. 1999, 2010
+ *    Copyright (C) 2019 XiaoMi, Inc.
  *    Author(s): Denis Joseph Barrow
  *               Martin Schwidefsky (schwidefsky@de.ibm.com)
  */
@@ -809,7 +810,7 @@ asmlinkage long do_syscall_trace_enter(struct pt_regs *regs)
 	long ret = 0;
 
 	/* Do the secure computing check first. */
-	if (secure_computing()) {
+	if (secure_computing(NULL)) {
 		/* seccomp failures shouldn't expose any additional code. */
 		ret = -1;
 		goto out;

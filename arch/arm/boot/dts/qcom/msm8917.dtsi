@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +42,7 @@
 		smd36 = &smdtty_loopback;
 		spi3 = &spi_3;
 		spi6 = &spi_6;
+        spi7 = &spi_7;
 		i2c2 = &i2c_2;
 		i2c5 = &i2c_5;
 		i2c3 = &i2c_3;
@@ -60,14 +62,14 @@
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
 					fsmgr_flags = "wait";
-					status = "ok";
+					status = "disable";
 				};
 				 system {
 					compatible = "android,system";
 					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/system";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait";
+					fsmgr_flags = "wait,verify";
 					status = "ok";
 				};
 
@@ -845,10 +847,10 @@
 		HSUSB_1p8-supply = <&pm8917_l7>;
 		HSUSB_3p3-supply = <&pm8917_l13>;
 		qcom,vdd-voltage-level = <0 1200000 1200000>;
-		vbus_otg-supply = <&smbcharger_charger_otg>;
+		//vbus_otg-supply = <&smbcharger_charger_otg>;
 
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
-		qcom,hsusb-otg-mode = <3>; /* OTG mode */
+		qcom,hsusb-otg-mode = <1>; /* OTG mode */
 		qcom,hsusb-otg-otg-control = <2>; /* PMIC */
 		qcom,dp-manual-pullup;
 		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
@@ -984,7 +986,7 @@
 		reg = <0xb017000 0x1000>;
 		reg-names = "wdt-base";
 		interrupts = <0 3 0>, <0 4 0>;
-		qcom,bark-time = <11000>;
+		qcom,bark-time = <15000>;
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
@@ -1054,6 +1056,18 @@
 		};
 
 	};
+
+        sn_fuse: snfuse@0xA60A8 {
+                compatible = "qcom,sn-fuse";
+                reg = <0xA60A8 0x4>;
+                reg-names = "sn-base";
+        };
+
+        sec_boot_fuse: secbootfuse@0xA01D0 {
+                compatible = "qcom,sec-boot-fuse";
+                reg = <0xA01D0 0x4>;
+                reg-names = "sec-boot-base";
+        };
 
 	jtag_fuse: jtagfuse@a601c {
 		compatible = "qcom,jtag-fuse-v2";
@@ -1624,6 +1638,32 @@
 		qcom,bam-consumer-pipe-index = <6>;
 		qcom,bam-producer-pipe-index = <7>;
 		qcom,master-id = <84>;
+		status = "disabled";
+	};
+
+    spi_7: spi@7af7000 { /* BLSP1 QUP3 */
+		compatible = "qcom,spi-qup-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0x7af7000 0x600>,
+			<0x7ac4000 0x1f000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 301 0>, <0 239 0>;
+		spi-max-frequency = <50000000>;
+		pinctrl-names = "spi_default", "spi_sleep";
+		pinctrl-0 = <&spi7_default &spi7_cs0_active>;
+		pinctrl-1 = <&spi7_sleep &spi7_cs0_sleep>;
+		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp2_qup3_spi_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+		qcom,use-bam;
+		qcom,use-pinctrl;
+		qcom,ver-reg-exists;
+		qcom,bam-consumer-pipe-index = <8>;
+		qcom,bam-producer-pipe-index = <9>;
+		qcom,master-id = <84>;
+		qcom,rt-priority;
 		status = "disabled";
 	};
 

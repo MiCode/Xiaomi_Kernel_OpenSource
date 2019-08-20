@@ -771,6 +771,13 @@ config HAVE_ARCH_TRANSPARENT_HUGEPAGE
 config ARCH_HAS_CACHE_LINE_SIZE
 	def_bool y
 
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default y
+	help
+		On embedded linux device, we try to collect more information from
+		bootloader to kernel. eg. powerup reason.
+
 source "mm/Kconfig"
 
 config SECCOMP

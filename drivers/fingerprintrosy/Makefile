@@ -1,0 +1,3 @@
+obj-$(CONFIG_FINGERPRINT_FPC1020_ROSY) += fpcrosy/
+obj-$(CONFIG_FINGERPRINT_GOODIX_GF3208_ROSY) += goodixrosy/
+

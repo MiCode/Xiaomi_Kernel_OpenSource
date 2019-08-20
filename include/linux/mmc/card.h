@@ -137,6 +137,7 @@ struct mmc_ext_csd {
 	u8			device_life_time_est_typ_b;	/* 269 */
 
 	u8			fw_version;		/* 254 */
+    u8			fw_reg[8];		/* 254--->261 */
 	unsigned int            feature_support;
 #define MMC_DISCARD_FEATURE	BIT(0)                  /* CMD38 feature */
 };

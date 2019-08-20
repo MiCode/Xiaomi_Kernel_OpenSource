@@ -34,16 +34,22 @@
 #include <linux/slab.h>
 #include <linux/compiler.h>
 #include <linux/pstore_ram.h>
+#include <linux/bootmem.h>
+#include <linux/memblock.h>
 
 #define RAMOOPS_KERNMSG_HDR "===="
 #define MIN_MEM_SIZE 4096UL
+
+#define SZ_2_1M    0x100000
+#define PSTORE_RAM_SIZE_DEFAULT        SZ_2_1M
+#define RAM_MAX_MEM (1 << 31)
 
 static ulong record_size = MIN_MEM_SIZE;
 module_param(record_size, ulong, 0400);
 MODULE_PARM_DESC(record_size,
 		"size of each dump done on oops/panic");
 
-static ulong ramoops_console_size = MIN_MEM_SIZE;
+static ulong ramoops_console_size = 256*1024UL;
 module_param_named(console_size, ramoops_console_size, ulong, 0400);
 MODULE_PARM_DESC(console_size, "size of kernel console log");
 
@@ -630,6 +636,7 @@ static void ramoops_register_dummy(void)
 	dummy_data->console_size = ramoops_console_size;
 	dummy_data->ftrace_size = ramoops_ftrace_size;
 	dummy_data->pmsg_size = ramoops_pmsg_size;
+	dummy_data->pmsg_size = 0x20000;
 	dummy_data->dump_oops = dump_oops;
 	/*
 	 * For backwards compatibility ramoops.ecc=1 means 16 bytes ECC
@@ -643,6 +650,36 @@ static void ramoops_register_dummy(void)
 		pr_info("could not create platform device: %ld\n",
 			PTR_ERR(dummy));
 	}
+}
+
+void __init pstore_ram_reserve_memory(void)
+{
+	phys_addr_t mem;
+	size_t size;
+	int ret;
+
+	size = PSTORE_RAM_SIZE_DEFAULT;
+	size = ALIGN(size, PAGE_SIZE);
+
+	mem = memblock_find_in_range(0, RAM_MAX_MEM, size, PAGE_SIZE);
+	if (!mem) {
+		pr_err("Cannot find memblock range for pstore_ram\n");
+		return;
+	}
+
+	ret = memblock_reserve(mem, size);
+	if (ret) {
+		pr_err("Failed to reserve memory from 0x%llx-0x%llx\n",
+					(unsigned long long)mem,
+					(unsigned long long)(mem + size - 1));
+		return;
+	}
+
+	mem_address = mem;
+	mem_size = size;
+
+	printk("reserved RAM buffer: mem_address:0x%zx mem_size:0x%llx \n",
+				size, (unsigned long long)mem);
 }
 
 static int __init ramoops_init(void)

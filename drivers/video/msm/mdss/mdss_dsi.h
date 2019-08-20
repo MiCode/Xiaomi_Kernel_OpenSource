@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,6 +65,23 @@
 
 #define MDSS_STATUS_TE_WAIT_MAX		3
 #define NONE_PANEL "none"
+
+/*+req_LCD mindan.wt, add, 2016/3/24,add LCD gamma/ce control code  begin */
+enum {
+	WARM = 1,
+	COOL = 3,
+	NATURE = 2,
+	STANDARD = 10,
+	VIVID = 11,
+	BRIGHT = 12,
+};
+/*+req_LCD mindan.wt, add, 2016/3/24,add LCD gamma/ce control code  end */
+
+enum {		/* mipi dsi panel */
+	CABC_ON = 1,
+	CABC_OFF = 0,
+};
+
 
 enum {		/* mipi dsi panel */
 	DSI_VIDEO_MODE,
@@ -473,6 +491,26 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds lp_on_cmds;
 	struct dsi_panel_cmds lp_off_cmds;
 	struct dsi_panel_cmds status_cmds;
+
+/*+req_LCD mindan.wt, add, 2016/3/24,add LCD gamma/ce control code  begin*/
+	struct dsi_panel_cmds warm_cmds;
+	struct dsi_panel_cmds cool_cmds;
+	struct dsi_panel_cmds nature_cmds;
+	struct dsi_panel_cmds vivid_cmds;
+	struct dsi_panel_cmds standard_cmds;
+	struct dsi_panel_cmds bright_cmds;
+	struct dsi_panel_cmds eye_cmds[8];
+	struct dsi_panel_cmds cabc_cmds;
+	struct dsi_panel_cmds cabc_on_cmds;
+	struct dsi_panel_cmds cabc_off_cmds;
+	int eye_cmds_num;
+	bool eyemode;
+	struct dsi_panel_cmds dispparam_cmds;
+	struct dsi_panel_cmds gamma_cmds;
+	struct dsi_panel_cmds ce_cmds;
+	bool init_last;
+/*-req_LCD mindan.wt, add, 2016/3/24,add LCD gamma/ce control code  end*/
+
 	struct dsi_panel_cmds idle_on_cmds; /* for lp mode */
 	struct dsi_panel_cmds idle_off_cmds;
 	u32 *status_valid_params;
@@ -627,6 +665,12 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 			  enum mdss_dsi_clk_type clk_type,
 			  enum mdss_dsi_clk_state new_state);
 int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable);
+/*+req_LCD mindan.wt, add, 2016/3/24,add LCD gamma/ce control code  begin*/
+int mdss_panel_set_ce(struct mdss_panel_data *pdata, int mode);
+int mdss_panel_set_gamma(struct mdss_panel_data *pdata, int mode);
+int mdss_panel_set_dispparam(struct mdss_panel_data *pdata, int mode);
+int mdss_panel_set_cabc(struct mdss_panel_data *pdata, int mode);
+/*+req_LCD mindan.wt, add, 2016/3/24,add LCD gamma/ce control code  end*/
 void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmd_test_pattern(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_video_test_pattern(struct mdss_dsi_ctrl_pdata *ctrl);
