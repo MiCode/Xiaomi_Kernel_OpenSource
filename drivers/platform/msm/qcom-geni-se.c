@@ -3,7 +3,6 @@
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <asm/dma-iommu.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/ipc_logging.h>
@@ -1365,56 +1364,6 @@ EXPORT_SYMBOL(geni_se_qupv3_hw_version);
 
 static int geni_se_iommu_map_and_attach(struct geni_se_device *geni_se_dev)
 {
-	dma_addr_t va_start = GENI_SE_IOMMU_VA_START;
-	size_t va_size = GENI_SE_IOMMU_VA_SIZE;
-	int bypass = 1;
-	struct device *cb_dev = geni_se_dev->cb_dev;
-
-	/*Don't proceed if IOMMU node is disabled*/
-	if (!iommu_present(&platform_bus_type))
-		return 0;
-
-	mutex_lock(&geni_se_dev->iommu_lock);
-	if (likely(geni_se_dev->iommu_map)) {
-		mutex_unlock(&geni_se_dev->iommu_lock);
-		return 0;
-	}
-
-	geni_se_dev->iommu_map =
-		__depr_arm_iommu_create_mapping(&platform_bus_type,
-						va_start, va_size);
-	if (IS_ERR(geni_se_dev->iommu_map)) {
-		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s:%s iommu_create_mapping failure\n",
-			__func__, dev_name(cb_dev));
-		mutex_unlock(&geni_se_dev->iommu_lock);
-		return PTR_ERR(geni_se_dev->iommu_map);
-	}
-
-	if (geni_se_dev->iommu_s1_bypass &&
-		 iommu_domain_set_attr(geni_se_dev->iommu_map->domain,
-				  DOMAIN_ATTR_S1_BYPASS, &bypass)) {
-		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s:%s Couldn't bypass s1 translation\n",
-			__func__, dev_name(cb_dev));
-		__depr_arm_iommu_release_mapping(geni_se_dev->iommu_map);
-		geni_se_dev->iommu_map = NULL;
-		mutex_unlock(&geni_se_dev->iommu_lock);
-		return -EIO;
-	}
-
-	if (__depr_arm_iommu_attach_device(cb_dev, geni_se_dev->iommu_map)) {
-		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s:%s couldn't arm_iommu_attach_device\n",
-			__func__, dev_name(cb_dev));
-		__depr_arm_iommu_release_mapping(geni_se_dev->iommu_map);
-		geni_se_dev->iommu_map = NULL;
-		mutex_unlock(&geni_se_dev->iommu_lock);
-		return -EIO;
-	}
-	mutex_unlock(&geni_se_dev->iommu_lock);
-	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL, "%s:%s successful\n",
-		    __func__, dev_name(cb_dev));
 	return 0;
 }
 
@@ -1856,10 +1805,6 @@ static int geni_se_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct geni_se_device *geni_se_dev = dev_get_drvdata(dev);
 
-	if (likely(!IS_ERR_OR_NULL(geni_se_dev->iommu_map))) {
-		__depr_arm_iommu_detach_device(geni_se_dev->cb_dev);
-		__depr_arm_iommu_release_mapping(geni_se_dev->iommu_map);
-	}
 	ipc_log_context_destroy(geni_se_dev->log_ctx);
 	devm_iounmap(dev, geni_se_dev->base);
 	devm_kfree(dev, geni_se_dev);
