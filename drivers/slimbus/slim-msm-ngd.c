@@ -2036,10 +2036,6 @@ static int ngd_slim_remove(struct platform_device *pdev)
 	struct msm_slim_ctrl *dev = platform_get_drvdata(pdev);
 
 	ngd_slim_enable(dev, false);
-	if (!IS_ERR_OR_NULL(dev->iommu_desc.iommu_map)) {
-		__depr_arm_iommu_detach_device(dev->iommu_desc.cb_dev);
-		__depr_arm_iommu_release_mapping(dev->iommu_desc.iommu_map);
-	}
 	if (dev->sysfs_created)
 		sysfs_remove_file(&dev->dev->kobj,
 				&dev_attr_debug_mask.attr);
