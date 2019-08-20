@@ -415,7 +415,7 @@ static int mt6360_regulator_reg_write(void *context,
 				      unsigned int reg, unsigned int val)
 {
 	struct mt6360_regulator_info *mri = context;
-	u8 chunk[4] = {0};
+	u8 chunk[5] = {0};
 
 	/* chunk 0 ->i2c addr, 1 -> reg_addr, 2 -> reg_val 3-> crc8 */
 	chunk[0] = (mri->i2c->addr & 0x7f) << 1;
