@@ -29,7 +29,6 @@
 #include "ion.h"
 
 static struct ion_device *internal_dev;
-static int heap_id;
 
 /* this function should only be called while dev->lock is held */
 static void ion_buffer_add(struct ion_device *dev,
@@ -680,7 +679,6 @@ void ion_device_add_heap(struct ion_heap *heap)
 	}
 
 	down_write(&dev->lock);
-	heap->id = heap_id++;
 	/*
 	 * use negative heap->id to reverse the priority -- when traversing
 	 * the list later attempt higher id numbers first

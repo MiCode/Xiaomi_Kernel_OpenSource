@@ -798,10 +798,15 @@ static inline int dma_get_cache_alignment(void)
 }
 
 #ifdef CONFIG_DMA_DECLARE_COHERENT
+struct dma_coherent_mem;
 int dma_declare_coherent_memory(struct device *dev, phys_addr_t phys_addr,
 				dma_addr_t device_addr, size_t size);
 void dma_release_declared_memory(struct device *dev);
+dma_addr_t dma_get_device_base(struct device *dev,
+			       struct dma_coherent_mem *mem);
+unsigned long dma_get_size(struct dma_coherent_mem *mem);
 #else
+struct dma_coherent_mem {};
 static inline int
 dma_declare_coherent_memory(struct device *dev, phys_addr_t phys_addr,
 			    dma_addr_t device_addr, size_t size)
@@ -812,6 +817,17 @@ dma_declare_coherent_memory(struct device *dev, phys_addr_t phys_addr,
 static inline void
 dma_release_declared_memory(struct device *dev)
 {
+}
+
+static inline dma_addr_t dma_get_device_base(struct device *dev,
+					     struct dma_coherent_mem *mem)
+{
+	return 0;
+}
+
+static inline unsigned long dma_get_size(struct dma_coherent_mem *mem)
+{
+	return 0;
 }
 #endif /* CONFIG_DMA_DECLARE_COHERENT */
 
