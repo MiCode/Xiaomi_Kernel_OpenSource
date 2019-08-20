@@ -40,6 +40,7 @@
 #include <mach/mt_boot.h>
 #endif
 #include <linux/dma-buf.h>
+#include <linux/pm_runtime.h>
 
 /*
  * @device tree porting note
@@ -1270,6 +1271,7 @@ static int cmdq_probe(struct platform_device *pDevice)
 
 	/* init cmdq context */
 	cmdq_mdp_init();
+	pm_runtime_enable(&pDevice->dev);
 
 	status = alloc_chrdev_region(&gCmdqDevNo, 0, 1,
 		CMDQ_DRIVER_DEVICE_NAME);

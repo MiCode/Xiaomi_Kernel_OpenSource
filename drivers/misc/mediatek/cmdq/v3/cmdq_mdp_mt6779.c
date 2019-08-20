@@ -6,6 +6,7 @@
 #include "cmdq_core.h"
 #include "cmdq_reg.h"
 #include "cmdq_mdp_common.h"
+#include <linux/pm_runtime.h>
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 #include "cmdq_sec_iwc_common.h"
 #endif
@@ -532,9 +533,11 @@ static void cmdq_mdp_enable_clock(bool enable, enum CMDQ_ENG_ENUM engine)
 #ifdef CONFIG_MTK_SMI_EXT
 			smi_bus_prepare_enable(SMI_LARB1, "MDPSRAM");
 #endif
+			pm_runtime_get_sync(cmdq_dev_get());
 			cmdq_mdp_enable_clock_MDP_WROT0(enable);
 		} else {
 			cmdq_mdp_enable_clock_MDP_WROT0(enable);
+			pm_runtime_put_sync(cmdq_dev_get());
 #ifdef CONFIG_MTK_SMI_EXT
 			smi_bus_disable_unprepare(SMI_LARB1, "MDPSRAM");
 #endif
@@ -545,9 +548,11 @@ static void cmdq_mdp_enable_clock(bool enable, enum CMDQ_ENG_ENUM engine)
 #ifdef CONFIG_MTK_SMI_EXT
 			smi_bus_prepare_enable(SMI_LARB1, "MDPSRAM");
 #endif
+			pm_runtime_get_sync(cmdq_dev_get());
 			cmdq_mdp_enable_clock_MDP_WROT1(enable);
 		} else {
 			cmdq_mdp_enable_clock_MDP_WROT1(enable);
+			pm_runtime_put_sync(cmdq_dev_get());
 #ifdef CONFIG_MTK_SMI_EXT
 			smi_bus_disable_unprepare(SMI_LARB1, "MDPSRAM");
 #endif
@@ -1253,6 +1258,11 @@ static void cmdq_mdp_enable_common_clock(bool enable)
 		smi_bus_disable_unprepare(SMI_LARB1, "MDP");
 	}
 #endif
+#else
+	if (enable)
+		pm_runtime_get_sync(cmdq_dev_get());
+	else
+		pm_runtime_put_sync(cmdq_dev_get());
 #endif	/* CMDQ_PWR_AWARE */
 }
 

@@ -8,6 +8,7 @@
 #include "cmdq_device.h"
 #include "cmdq_virtual.h"
 #include <linux/seq_file.h>
+#include <linux/pm_runtime.h>
 #ifdef CMDQ_CG_M4U_LARB0
 #include "m4u.h"
 #endif
@@ -781,6 +782,11 @@ void cmdq_virtual_enable_common_clock_locked(bool enable)
 		smi_bus_disable_unprepare(SMI_LARB0, "CMDQ");
 #endif
 	}
+#else
+	if (enable)
+		pm_runtime_get_sync(cmdq_dev_get());
+	else
+		pm_runtime_put_sync(cmdq_dev_get());
 #endif				/* CMDQ_PWR_AWARE */
 }
 

@@ -36,6 +36,7 @@
 #include <linux/iopoll.h>
 #include <linux/notifier.h>
 #include <linux/sched/clock.h>
+#include <linux/pm_runtime.h>
 
 enum mdp_platforms {
 	MDP_MT6779 = 0,
@@ -1880,6 +1881,11 @@ static void cmdq_mdp_enable_common_clock_virtual(bool enable)
 		smi_bus_disable_unprepare(SMI_LARB0, "CMDQ");
 	}
 #endif
+#else
+	if (enable)
+		pm_runtime_get_sync(cmdq_dev_get());
+	else
+		pm_runtime_put_sync(cmdq_dev_get());
 #endif	/* CMDQ_PWR_AWARE */
 }
 
