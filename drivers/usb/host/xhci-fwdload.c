@@ -83,13 +83,6 @@ static struct dma_iommu_mapping *upd720x_smmu_init(struct device *dev)
 	return mapping;
 }
 
-static void upd720x_smmu_deinit(struct device *dev)
-{
-	arm_iommu_detach_device(dev);
-	arm_iommu_release_mapping(to_dma_iommu_mapping(dev));
-}
-
-
 static int upd720x_download_enable(struct pci_dev *pDev)
 {
 	unsigned int read_data;

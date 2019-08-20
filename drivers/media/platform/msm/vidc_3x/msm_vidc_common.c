@@ -347,7 +347,7 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 	 * ----------------|----------------------|------------------------|
 	 */
 
-	if (is_realtime_session(inst) &&
+	if (!is_realtime_session(inst) &&
 		(quirks & LOAD_CALC_IGNORE_NON_REALTIME_LOAD)) {
 		if (!inst->prop.fps) {
 			dprintk(VIDC_INFO, "instance:%pK fps = 0\n", inst);

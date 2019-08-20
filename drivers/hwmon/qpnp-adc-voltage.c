@@ -107,8 +107,8 @@
 #define QPNP_VADC_CONV_TIMEOUT_ERR				2
 #define QPNP_VADC_CONV_TIME_MIN					1000
 #define QPNP_VADC_CONV_TIME_MAX					1100
-#define QPNP_ADC_COMPLETION_TIMEOUT				HZ
-#define QPNP_VADC_ERR_COUNT					20
+#define QPNP_ADC_COMPLETION_TIMEOUT		msecs_to_jiffies(100)
+#define QPNP_VADC_ERR_COUNT					150
 #define QPNP_OP_MODE_SHIFT					3
 
 #define QPNP_VADC_THR_LSB_MASK(val)				(val & 0xff)
@@ -161,7 +161,8 @@
  */
 #define QPNP_VADC_HC1_CONV_TIME_MIN_US				213
 #define QPNP_VADC_HC1_CONV_TIME_MAX_US				214
-#define QPNP_VADC_HC1_ERR_COUNT					1600
+#define QPNP_VADC_HC1_ERR_COUNT_POLL				705
+#define QPNP_VADC_HC1_ERR_COUNT					235
 
 #define QPNP_VADC_CAL_DELAY_CTL_1					0x3744
 #define QPNP_VADC_CAL_DELAY_MEAS_SLOW					0x73
@@ -363,10 +364,16 @@ static int32_t qpnp_vadc_status_debug(struct qpnp_vadc_chip *vadc)
 	return 0;
 }
 
-static int qpnp_vadc_hc_check_conversion_status(struct qpnp_vadc_chip *vadc)
+static int qpnp_vadc_hc_check_conversion_status(struct qpnp_vadc_chip *vadc,
+		bool poll)
 {
-	int rc = 0, count = 0;
+	int rc = 0, count = 0, retry;
 	u8 status1 = 0;
+
+	if (poll)
+		retry = QPNP_VADC_HC1_ERR_COUNT_POLL;
+	else
+		retry = QPNP_VADC_HC1_ERR_COUNT;
 
 	while (status1 != QPNP_VADC_STATUS1_EOC) {
 		rc = qpnp_vadc_read_reg(vadc, QPNP_VADC_STATUS1, &status1, 1);
@@ -378,7 +385,7 @@ static int qpnp_vadc_hc_check_conversion_status(struct qpnp_vadc_chip *vadc)
 		usleep_range(QPNP_VADC_HC1_CONV_TIME_MIN_US,
 				QPNP_VADC_HC1_CONV_TIME_MAX_US);
 		count++;
-		if (count > QPNP_VADC_HC1_ERR_COUNT) {
+		if (count > retry) {
 			pr_err("retry error exceeded\n");
 			rc = qpnp_vadc_status_debug(vadc);
 			if (rc < 0)
@@ -429,7 +436,7 @@ static int qpnp_vadc_wait_for_eoc(struct qpnp_vadc_chip *vadc)
 	int ret;
 
 	if (vadc->vadc_poll_eoc) {
-		ret = qpnp_vadc_hc_check_conversion_status(vadc);
+		ret = qpnp_vadc_hc_check_conversion_status(vadc, true);
 		if (ret < 0) {
 			pr_err("polling mode conversion failed\n");
 			return ret;
@@ -439,7 +446,7 @@ static int qpnp_vadc_wait_for_eoc(struct qpnp_vadc_chip *vadc)
 			&vadc->adc->adc_rslt_completion,
 			QPNP_ADC_COMPLETION_TIMEOUT);
 		if (!ret) {
-			ret = qpnp_vadc_hc_check_conversion_status(vadc);
+			ret = qpnp_vadc_hc_check_conversion_status(vadc, false);
 			if (ret < 0) {
 				pr_err("interrupt mode conversion failed\n");
 				return ret;

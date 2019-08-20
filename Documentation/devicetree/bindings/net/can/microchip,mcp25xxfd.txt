@@ -1,0 +1,31 @@
+* Microchip MCP2517 stand-alone CAN controller device tree bindings
+
+Required properties:
+ - compatible: Should be one of the following:
+   - "microchip,mcp2517fd" for MCP2517fd.
+ - reg: SPI chip select.
+ - clocks: The clock feeding the CAN controller.
+ - interrupt-parent: The parent interrupt controller.
+ - interrupts: Should contain IRQ line for the CAN controller.
+ - gpio-controller: Marks the device node as a GPIO controller
+
+Optional properties:
+ - vdd-supply: Regulator that powers the CAN controller.
+ - xceiver-supply: Regulator that powers the CAN transceiver.
+ - microchip,clock_out_div = <0|1|2|4|10>: Clock output pin divider
+					   0 = Start of Frame output
+					   default: 10
+ - microchip,clock_div2: bool: divide the internal clock by 2
+ - gpio_opendrain: bool: enable open-drain for all pins (except cantx)
+
+Example:
+	can0: can@1 {
+		compatible = "microchip,mcp2515";
+		reg = <1>;
+		clocks = <&clk24m>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <13 0x8>;
+		vdd-supply = <&reg5v0>;
+		xceiver-supply = <&reg5v0>;
+		gpio-controller;
+	};

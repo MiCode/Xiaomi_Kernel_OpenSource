@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,8 @@ struct pil_priv;
  * @modem_ssr: true if modem is restarting, false if booting for first time.
  * @clear_fw_region: Clear fw region on failure in loading.
  * @subsys_vmid: memprot id for the subsystem.
+ * @sequential_load: Load the firmware blobs sequentially if set. Else, load
+ * them in parallel.
  */
 struct pil_desc {
 	const char *name;
@@ -67,6 +69,7 @@ struct pil_desc {
 	struct md_ss_toc *minidump_ss;
 	struct md_ss_toc *minidump_pdr;
 	int minidump_id;
+	bool sequential_load;
 };
 
 /**

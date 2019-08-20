@@ -14,3 +14,4 @@ header-y += xen/
 header-y += scsi/
 header-y += misc/
 header-y += media/
+header-y += miniISP/

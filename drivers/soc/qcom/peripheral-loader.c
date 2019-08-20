@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/secure_buffer.h>
 #include <soc/qcom/smem.h>
+#include <linux/kthread.h>
 
 #include <linux/uaccess.h>
 #include <asm/setup.h>
@@ -70,6 +71,9 @@ static int proxy_timeout_ms = -1;
 module_param(proxy_timeout_ms, int, 0644);
 
 static bool disable_timeouts;
+
+static struct workqueue_struct *pil_wq;
+
 /**
  * struct pil_mdt - Representation of <name>.mdt file in memory
  * @hdr: ELF32 header
@@ -127,6 +131,7 @@ struct pil_priv {
 	struct wakeup_source ws;
 	char wname[32];
 	struct pil_desc *desc;
+	int num_segs;
 	struct list_head segs;
 	phys_addr_t entry_addr;
 	phys_addr_t base_addr;
@@ -723,6 +728,7 @@ static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt,
 	pil_info(desc, "loading from %pa to %pa\n", &priv->region_start,
 							&priv->region_end);
 
+	priv->num_segs = 0;
 	for (i = 0; i < mdt->hdr.e_phnum; i++) {
 		phdr = &mdt->phdr[i];
 		if (!segment_is_loadable(phdr))
@@ -733,6 +739,7 @@ static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt,
 			return PTR_ERR(seg);
 
 		list_add_tail(&seg->list, &priv->segs);
+		priv->num_segs++;
 	}
 	list_sort(NULL, &priv->segs, pil_cmp_seg);
 
@@ -922,6 +929,9 @@ static int pil_parse_devicetree(struct pil_desc *desc)
 		}
 	}
 	desc->proxy_unvote_irq = clk_ready;
+
+	desc->sequential_load = of_property_read_bool(ofnode,
+						"qcom,sequential-fw-load");
 	return 0;
 }
 
@@ -945,6 +955,89 @@ static int pil_notify_aop(struct pil_desc *desc, char *status)
 /* Synchronize request_firmware() with suspend */
 static DECLARE_RWSEM(pil_pm_rwsem);
 
+struct pil_seg_data {
+	struct pil_desc *desc;
+	struct pil_seg *seg;
+	struct work_struct load_seg_work;
+	int retval;
+};
+
+static void pil_load_seg_work_fn(struct work_struct *work)
+{
+	struct pil_seg_data *pil_seg_data = container_of(work,
+							struct pil_seg_data,
+							load_seg_work);
+	struct pil_desc *desc = pil_seg_data->desc;
+	struct pil_seg *seg = pil_seg_data->seg;
+
+	pil_seg_data->retval = pil_load_seg(desc, seg);
+}
+
+static int pil_load_segs(struct pil_desc *desc)
+{
+	int ret = 0;
+	int seg_id = 0;
+	struct pil_priv *priv = desc->priv;
+	struct pil_seg_data *pil_seg_data;
+	struct pil_seg *seg;
+	unsigned long *err_map;
+
+	err_map = kcalloc(BITS_TO_LONGS(priv->num_segs), sizeof(unsigned long),
+				GFP_KERNEL);
+	if (!err_map)
+		return -ENOMEM;
+
+	pil_seg_data = kcalloc(priv->num_segs, sizeof(*pil_seg_data),
+				GFP_KERNEL);
+	if (!pil_seg_data) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	/* Initialize and spawn a thread for each segment */
+	list_for_each_entry(seg, &desc->priv->segs, list) {
+		pil_seg_data[seg_id].desc = desc;
+		pil_seg_data[seg_id].seg = seg;
+
+		INIT_WORK(&pil_seg_data[seg_id].load_seg_work,
+				pil_load_seg_work_fn);
+		queue_work(pil_wq, &pil_seg_data[seg_id].load_seg_work);
+
+		seg_id++;
+	}
+
+	bitmap_zero(err_map, priv->num_segs);
+
+	/* Wait for the parallel loads to finish */
+	seg_id = 0;
+	list_for_each_entry(seg, &desc->priv->segs, list) {
+		flush_work(&pil_seg_data[seg_id].load_seg_work);
+
+		/*
+		 * Don't exit if one of the thread fails. Wait for others to
+		 * complete. Bitmap the return codes we get from the threads.
+		 */
+		if (pil_seg_data[seg_id].retval) {
+			pil_err(desc,
+				"Failed to load the segment[%d]. ret = %d\n",
+				seg_id, pil_seg_data[seg_id].retval);
+			__set_bit(seg_id, err_map);
+		}
+
+		seg_id++;
+	}
+
+	kfree(pil_seg_data);
+
+	/* Each segment can fail due to different reason. Send a generic err */
+	if (!bitmap_empty(err_map, priv->num_segs))
+		ret = -EFAULT;
+
+out:
+	kfree(err_map);
+	return ret;
+}
+
 /**
  * pil_boot() - Load a peripheral image into memory and boot it
  * @desc: descriptor from pil_desc_init()
@@ -955,9 +1048,9 @@ int pil_boot(struct pil_desc *desc)
 {
 	int ret;
 	char fw_name[30];
+	struct pil_seg *seg;
 	const struct pil_mdt *mdt;
 	const struct elf32_hdr *ehdr;
-	struct pil_seg *seg;
 	const struct firmware *fw;
 	struct pil_priv *priv = desc->priv;
 	bool mem_protect = false;
@@ -1066,8 +1159,15 @@ int pil_boot(struct pil_desc *desc)
 	}
 
 	trace_pil_event("before_load_seg", desc);
-	list_for_each_entry(seg, &desc->priv->segs, list) {
-		ret = pil_load_seg(desc, seg);
+
+	if (desc->sequential_load) {
+		list_for_each_entry(seg, &desc->priv->segs, list) {
+			ret = pil_load_seg(desc, seg);
+			if (ret)
+				goto err_deinit_image;
+		}
+	} else {
+		ret = pil_load_segs(desc);
 		if (ret)
 			goto err_deinit_image;
 	}
@@ -1364,6 +1464,11 @@ static int __init msm_pil_init(void)
 		pr_err("SMEM is not initialized.\n");
 		return -EPROBE_DEFER;
 	}
+
+	pil_wq = alloc_workqueue("pil_workqueue", WQ_HIGHPRI | WQ_UNBOUND, 0);
+	if (!pil_wq)
+		pr_warn("pil: Defaulting to sequential firmware loading.\n");
+
 out:
 	return register_pm_notifier(&pil_pm_notifier);
 }
@@ -1371,6 +1476,8 @@ device_initcall(msm_pil_init);
 
 static void __exit msm_pil_exit(void)
 {
+	if (pil_wq)
+		destroy_workqueue(pil_wq);
 	unregister_pm_notifier(&pil_pm_notifier);
 	if (pil_info_base)
 		iounmap(pil_info_base);

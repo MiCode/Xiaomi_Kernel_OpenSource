@@ -527,6 +527,29 @@
 		ibb-supply = <&ibb_regulator>;
 	};
 
+	ext_dsi_bridge_display: qcom,dsi-display@19 {
+		compatible = "qcom,dsi-display";
+		label = "ext_dsi_bridge_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+		       <&mdss_dsi0_pll PCLK_MUX_0_CLK>;
+		clock-names = "mux_byte_clk", "mux_pixel_clk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				ext_dsi_out: endpoint {
+				};
+			};
+		};
+	};
+
 	sde_wb: qcom,wb-display@0 {
 		compatible = "qcom,wb-display";
 		cell-index = <0>;

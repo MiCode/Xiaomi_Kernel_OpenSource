@@ -893,6 +893,21 @@
 			};
 		};
 
+		ext_bridge_mux {
+			lt9611_pins: lt9611_pins {
+				mux {
+					pins = "gpio84", "gpio128", "gpio89";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio84", "gpio128", "gpio89";
+					bias-disable = <0>; /* no pull */
+					drive-strength = <8>;
+				};
+			};
+		};
+
 		sec_aux_pcm {
 			sec_aux_pcm_sleep: sec_aux_pcm_sleep {
 				mux {

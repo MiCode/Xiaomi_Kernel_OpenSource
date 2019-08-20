@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -754,6 +754,7 @@ struct ipa_rm_perf_profile {
 enum teth_tethering_mode {
 	TETH_TETHERING_MODE_RMNET,
 	TETH_TETHERING_MODE_MBIM,
+	TETH_TETHERING_MODE_RMNET_2,
 	TETH_TETHERING_MODE_MAX,
 };
 

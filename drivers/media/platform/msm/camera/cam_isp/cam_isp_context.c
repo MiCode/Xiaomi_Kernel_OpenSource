@@ -1399,9 +1399,11 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	struct cam_isp_stop_args          stop_isp;
 	struct cam_hw_stop_args           stop_args;
 	struct cam_isp_start_args         start_isp;
+	struct cam_hw_reset_args          reset_args;
 	int rc = 0;
 
-	CAM_DBG(CAM_ISP, "try to flush pending list");
+	CAM_DBG(CAM_ISP, "ctx id:%d try to flush pending list",
+		ctx->ctx_id);
 	spin_lock_bh(&ctx->lock);
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
 	spin_unlock_bh(&ctx->lock);
@@ -1412,7 +1414,9 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 		if ((list_empty(&ctx->wait_req_list)) &&
 			(list_empty(&ctx->active_req_list))) {
 			spin_unlock_bh(&ctx->lock);
-			CAM_DBG(CAM_ISP, "active and wait list are empty");
+			CAM_DBG(CAM_ISP,
+				"ctx id:%d active and wait list are empty",
+				ctx->ctx_id);
 			goto end;
 		}
 		spin_unlock_bh(&ctx->lock);
@@ -1424,12 +1428,21 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 		stop_args.args = (void *)&stop_isp;
 		ctx->hw_mgr_intf->hw_stop(ctx->hw_mgr_intf->hw_mgr_priv,
 				&stop_args);
+		CAM_DBG(CAM_ISP, "try to reset hw");
+		/* Reset hw */
+		reset_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+		rc = ctx->hw_mgr_intf->hw_reset(ctx->hw_mgr_intf->hw_mgr_priv,
+			&reset_args);
+		if (rc)
+			goto end;
 
 		spin_lock_bh(&ctx->lock);
-		CAM_DBG(CAM_ISP, "try to flush wait list");
+		CAM_DBG(CAM_ISP, "ctx id:%d try to flush wait list",
+			ctx->ctx_id);
 		rc = __cam_isp_ctx_flush_req(ctx, &ctx->wait_req_list,
 		flush_req);
-		CAM_DBG(CAM_ISP, "try to flush active list");
+		CAM_DBG(CAM_ISP, "ctx id:%d try to flush active list",
+			ctx->ctx_id);
 		rc = __cam_isp_ctx_flush_req(ctx, &ctx->active_req_list,
 		flush_req);
 		ctx_isp->active_req_cnt = 0;
@@ -1445,8 +1458,9 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	}
 
 end:
-	CAM_DBG(CAM_ISP, "Flush request in top state %d",
-		 ctx->state);
+	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
+	CAM_DBG(CAM_ISP, "ctx id:%d Flush request in top state %d",
+		 ctx->ctx_id, ctx->state);
 	return rc;
 }
 

@@ -353,3 +353,115 @@ rel_cmd_buf:
 
 	return rc;
 }
+
+int32_t cam_packet_validate_plane_size(
+	struct cam_buf_io_cfg *io_cfg,
+	int plane_index,
+	size_t size)
+{
+	int rc = 0;
+	uint32_t kmd_plane_size = 0;
+	uint32_t plane_stride = 0;
+	uint32_t slice_height = 0;
+	uint32_t metadata_size = 0;
+	uint32_t format = io_cfg->format;
+	uint32_t plane_pixel_size = 0;
+
+	if (plane_index < CAM_PACKET_MAX_PLANES) {
+		plane_stride = io_cfg->planes[plane_index].plane_stride;
+		slice_height = io_cfg->planes[plane_index].slice_height;
+	}
+
+	if (!(plane_stride && slice_height)) {
+		CAM_ERR(CAM_ISP,
+			"Invalid values from UMD stride %d, slice height %d",
+			plane_stride,
+			slice_height);
+		return -EINVAL;
+	}
+
+	switch (format) {
+	case CAM_FORMAT_MIPI_RAW_6:
+	case CAM_FORMAT_MIPI_RAW_8:
+		kmd_plane_size = ((plane_stride * slice_height) + 16 - 1)
+			/ 16 * 16;
+		break;
+	case CAM_FORMAT_MIPI_RAW_10:
+		if (plane_stride % 4 == 0)
+			kmd_plane_size = ((plane_stride * slice_height)
+				+ 16 - 1) / 16 * 16;
+		break;
+	case CAM_FORMAT_MIPI_RAW_12:
+		if (plane_stride % 2 == 0)
+			kmd_plane_size = ((plane_stride * slice_height)
+				+ 16 - 1) / 16 * 16;
+		break;
+	case CAM_FORMAT_MIPI_RAW_14:
+		if (plane_stride % 4 == 0)
+			kmd_plane_size = plane_stride * slice_height * 7 / 4;
+		break;
+	case CAM_FORMAT_PLAIN16_8:
+	case CAM_FORMAT_PLAIN16_10:
+	case CAM_FORMAT_PLAIN16_12:
+	case CAM_FORMAT_PLAIN16_14:
+	case CAM_FORMAT_PLAIN16_16:
+	case CAM_FORMAT_PLAIN64:
+			kmd_plane_size = plane_stride * slice_height;
+		break;
+	case CAM_FORMAT_NV21:
+	case CAM_FORMAT_NV12:
+	if (plane_index < CAM_PACKET_MAX_PLANES)
+		kmd_plane_size = plane_stride * slice_height;
+		break;
+	case CAM_FORMAT_PD10:
+	if (plane_index < CAM_PACKET_MAX_PLANES)
+		kmd_plane_size = plane_stride * slice_height;
+	break;
+	case CAM_FORMAT_UBWC_NV12:
+	case CAM_FORMAT_UBWC_NV12_4R:
+	case CAM_FORMAT_UBWC_TP10:
+		metadata_size = io_cfg->planes[plane_index].meta_size;
+		plane_pixel_size = ((plane_stride * slice_height) +
+	       (4096 - 1)) & ~((uint32_t) 4096 - 1);
+		kmd_plane_size = metadata_size + plane_pixel_size;
+		break;
+	case CAM_FORMAT_UBWC_P010:
+	case CAM_FORMAT_PLAIN32_20:
+	case CAM_FORMAT_TP10:
+	case CAM_FORMAT_YUV422:
+	case CAM_FORMAT_PD8:
+	case CAM_FORMAT_PLAIN128:
+	case CAM_FORMAT_ARGB:
+	case CAM_FORMAT_ARGB_10:
+	case CAM_FORMAT_ARGB_12:
+	case CAM_FORMAT_ARGB_14:
+	case CAM_FORMAT_MIPI_RAW_16:
+	case CAM_FORMAT_MIPI_RAW_20:
+	case CAM_FORMAT_QTI_RAW_8:
+	case CAM_FORMAT_QTI_RAW_10:
+	case CAM_FORMAT_QTI_RAW_12:
+	case CAM_FORMAT_QTI_RAW_14:
+	case CAM_FORMAT_PLAIN8:
+	case CAM_FORMAT_PLAIN8_SWAP:
+	case CAM_FORMAT_PLAIN8_10:
+	case CAM_FORMAT_PLAIN8_10_SWAP:
+		kmd_plane_size = plane_stride * slice_height;
+		break;
+	default:
+		kmd_plane_size = plane_stride * slice_height;
+		break;
+	}
+	if (!kmd_plane_size ||
+		kmd_plane_size > (size - io_cfg->offsets[plane_index])) {
+		CAM_ERR(CAM_ISP,
+			"kmd size: %d umd size: %zu width: %d height: %d stride: %d sliceheight: %d ",
+			kmd_plane_size,
+			size,
+			io_cfg->planes[plane_index].width,
+			io_cfg->planes[plane_index].height,
+			plane_stride,
+			slice_height);
+		return -EINVAL;
+	}
+	return rc;
+}

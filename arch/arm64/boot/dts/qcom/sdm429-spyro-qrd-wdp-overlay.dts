@@ -1,0 +1,102 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "sdm429-spyro-qrd-evt.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDM429 QRD Spyro WDP Overlay";
+	compatible = "qcom,sdm429w-qrd", "qcom,sdm429w", "qcom,qrd";
+	qcom,msm-id = <416 0x0>;
+	qcom,board-id = <0x01000b 7>;
+	qcom,pmic-id = <0x0002001b 0x0 0x0 0x0>;
+};
+
+&usb_otg {
+	HSUSB_3p3-supply = <&L16A>;
+};
+
+&msm_dig_codec {
+	cdc-vdd-digital-supply = <&pm660_l11>;
+};
+
+&ext_smart_pa {
+	dvdd-supply = <&pm660_l11>;
+};
+
+&sdhc_2 {
+	cd-gpios = <&tlmm 67 0x1>;
+};
+
+&mdss_dsi {
+	vddio-supply = <&L12A>; /* 1.8v */
+};
+
+&mdss_dsi0_pll {
+	vddio-supply = <&L12A>; /* 1.8V */
+};
+
+&mdss_dsi1_pll {
+	vddio-supply = <&L12A>; /* 1.8V */
+};
+
+&mdss_dsi0 {
+	qcom,platform-enable-gpio = <&pm660_gpios 12 0>;
+	/delete-property/ vdd-supply;
+	qcom,dsi-pref-prim-pan = <&dsi_truly_rm69090_qvga_cmd>;
+};
+&dsi_pm660_panel_pwr_supply {
+	/delete-node/ qcom,panel-supply-entry@0;
+};
+
+&pm660_gpios {
+	gpio@cb00 {
+		status = "ok";
+		qcom,mode = <1>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		qcom,out-strength = <2>;
+	};
+};
+
+&i2c_4 {
+	status = "ok";
+
+	tsc@24 {
+		cy,core {
+			cy,mt {
+				cy,name = "cyttsp5_mt";
+
+				cy,inp_dev_name = "cyttsp5_mt";
+				cy,flags = <0x8>;
+				cy,abs =
+					<0x35 0 368 0 0
+					 0x36 0 448 0 0
+					 0x3a 0 255 0 0
+					 0xffff 0 255 0 0
+					 0x39 0 15 0 0
+					 0x30 0 255 0 0
+					 0x31 0 255 0 0
+					 0x34 0xffffff81 127 0 0
+					 0x37 0 1 0 0
+					 0x3b 0 255 0 0>;
+
+			};
+
+		};
+	};
+
+};

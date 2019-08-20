@@ -1,0 +1,94 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "dsi-panel-edo-rm67162-qvga-cmd.dtsi"
+#include "dsi-panel-truly-rm69090-qvga-cmd.dtsi"
+
+&soc {
+	dsi_pm660_panel_pwr_supply: dsi_pm660_panel_pwr_supply {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <2800000>;
+			qcom,supply-max-voltage = <2800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
+};
+
+&cdc_pdm_lines_act {
+	mux {
+		pins = "gpio68", "gpio73", "gpio74";
+		function = "cdc_pdm0";
+	};
+
+	config {
+		pins = "gpio68", "gpio73", "gpio74";
+		drive-strength = <8>;
+	};
+};
+
+&cdc_pdm_lines_sus {
+	mux {
+		pins = "gpio68", "gpio73", "gpio74";
+		function = "cdc_pdm0";
+	};
+
+	config {
+		pins = "gpio68", "gpio73", "gpio74";
+		drive-strength = <2>;
+		bias-disable;
+	};
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_edo_rm67162_qvga_cmd>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 60 0>;
+	qcom,platform-enable-gpio = <&tlmm 69 0>;
+};
+
+&dsi_edo_rm67162_qvga_cmd {
+	/delete-property/ qcom,mdss-dsi-panel-timings;
+	qcom,mdss-dsi-panel-timings-phy-12nm = [06 05 01 0A 00 03 01 0F];
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,panel-supply-entries = <&dsi_pm660_panel_pwr_supply>;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "te_signal_check";
+	qcom,partial-update-enabled;
+	qcom,panel-roi-alignment = <2 2 4 2 320 2>;
+};
+
+&dsi_truly_rm69090_qvga_cmd {
+	/delete-property/ qcom,mdss-dsi-panel-timings;
+	qcom,mdss-dsi-panel-timings-phy-12nm = [04 04 01 08 00 03 01 0D];
+	qcom,panel-supply-entries = <&dsi_pm660_panel_pwr_supply>;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "te_signal_check";
+};

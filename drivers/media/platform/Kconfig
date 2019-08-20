@@ -379,3 +379,4 @@ source "drivers/media/platform/sti/c8sectpfe/Kconfig"
 endif #DVB_PLATFORM_DRIVERS
 
 source "drivers/media/platform/msm/Kconfig"
+source "drivers/media/platform/altek/Kconfig"

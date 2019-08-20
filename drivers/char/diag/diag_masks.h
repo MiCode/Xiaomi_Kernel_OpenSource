@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,13 @@ struct diag_msg_mask_t {
 	struct mutex lock;
 	uint32_t *ptr;
 };
+
+struct diag_log_config_get_req_t {
+	uint8_t cmd_code;
+	uint8_t padding[3];
+	uint32_t sub_cmd;
+	uint32_t equip_id;
+} __packed;
 
 struct diag_log_config_req_t {
 	uint8_t cmd_code;

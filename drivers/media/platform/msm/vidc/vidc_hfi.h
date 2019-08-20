@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -601,7 +601,7 @@ struct hfi_msg_session_empty_buffer_done_packet {
 	u32 extra_data_buffer;
 	u32 flags;
 	struct hfi_frame_cr_stats_type ubwc_cr_stats;
-	u32 rgData[0];
+	u32 rgData[1];
 };
 
 struct hfi_msg_session_fill_buffer_done_compressed_packet {

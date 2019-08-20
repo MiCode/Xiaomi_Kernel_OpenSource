@@ -29,3 +29,8 @@
 &mss_mem {
 	reg = <0x86400000 0x9300000>;
 };
+
+&ipa_hw {
+	qcom,ipa-config-is-auto;
+};
+

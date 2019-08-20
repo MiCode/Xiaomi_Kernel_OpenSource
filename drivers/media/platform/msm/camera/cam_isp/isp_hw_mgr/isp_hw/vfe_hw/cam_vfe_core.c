@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -696,6 +696,7 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_CMD_CLOCK_UPDATE:
 	case CAM_ISP_HW_CMD_BW_UPDATE:
 	case CAM_ISP_HW_CMD_BW_CONTROL:
+	case CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP:
 		rc = core_info->vfe_top->hw_ops.process_cmd(
 			core_info->vfe_top->top_priv, cmd_type, cmd_args,
 			arg_size);
