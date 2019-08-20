@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016, Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2019, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 
 static
 int ufs_qcom_phy_qrbtc_sdm845_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
-					bool is_rate_B)
+					bool is_rate_B, bool is_g4)
 {
 	int err;
 	int tbl_size_A, tbl_size_B;

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, 2019, Linux Foundation. All rights reserved.
  */
 
 #ifndef UFS_QCOM_PHY_I_H_
@@ -97,6 +97,7 @@ struct ufs_qcom_phy {
 	struct ufs_qcom_phy_specific_ops *phy_spec_ops;
 
 	enum phy_mode mode;
+	int submode;
 	struct reset_control *ufs_reset;
 };
 
@@ -114,7 +115,8 @@ struct ufs_qcom_phy {
  * Rx line config
  */
 struct ufs_qcom_phy_specific_ops {
-	int (*calibrate)(struct ufs_qcom_phy *ufs_qcom_phy, bool is_rate_B);
+	int (*calibrate)(struct ufs_qcom_phy *ufs_qcom_phy, bool is_rate_B,
+			 bool is_g4);
 	void (*start_serdes)(struct ufs_qcom_phy *phy);
 	int (*is_physical_coding_sublayer_ready)(struct ufs_qcom_phy *phy);
 	void (*set_tx_lane_enable)(struct ufs_qcom_phy *phy, u32 val);

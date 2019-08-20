@@ -599,6 +599,7 @@ int ufs_qcom_phy_power_on(struct phy *generic_phy)
 	struct ufs_qcom_phy *phy_common = get_ufs_qcom_phy(generic_phy);
 	struct device *dev = phy_common->dev;
 	bool is_rate_B = false;
+	bool is_gear4 = false;
 	int err;
 
 	err = ufs_qcom_phy_enable_vreg(dev, &phy_common->vdda_phy);
@@ -656,7 +657,10 @@ int ufs_qcom_phy_power_on(struct phy *generic_phy)
 	if (phy_common->mode == PHY_MODE_UFS_HS_B)
 		is_rate_B = true;
 
-	err = phy_common->phy_spec_ops->calibrate(phy_common, is_rate_B);
+	is_gear4 = !!phy_common->submode;
+
+	err = phy_common->phy_spec_ops->calibrate(phy_common, is_rate_B,
+						  is_gear4);
 	if (err)
 		goto out_disable_ref_clk;
 
