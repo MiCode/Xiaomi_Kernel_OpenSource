@@ -71,6 +71,12 @@ static int cpu_to_affin;
 module_param(cpu_to_affin, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(cpu_to_affin, "affin usb irq to this cpu");
 
+/* Interrupt moderation for normal endpoints */
+static unsigned int dwc3_gadget_imod_val;
+module_param(dwc3_gadget_imod_val, int, 0644);
+MODULE_PARM_DESC(dwc3_gadget_imod_val,
+			"Interrupt moderation in usecs for normal EPs");
+
 /* XHCI registers */
 #define USB3_HCSPARAMS1		(0x4)
 #define USB3_HCCPARAMS2		(0x1c)
@@ -119,6 +125,12 @@ MODULE_PARM_DESC(cpu_to_affin, "affin usb irq to this cpu");
 #define GSI_DBL_ADDR_H(n)	((QSCRATCH_REG_OFFSET + 0x120) + (n*4))
 #define GSI_RING_BASE_ADDR_L(n)	((QSCRATCH_REG_OFFSET + 0x130) + (n*4))
 #define GSI_RING_BASE_ADDR_H(n)	((QSCRATCH_REG_OFFSET + 0x144) + (n*4))
+
+#define IMOD(n)			((QSCRATCH_REG_OFFSET + 0x170) + (n*4))
+#define IMOD_EE_EN_MASK		BIT(12)
+#define IMOD_EE_CNT_MASK	0x7FF
+
+#define USEC_CNT	(QSCRATCH_REG_OFFSET + 0x180)
 
 #define	GSI_IF_STS	(QSCRATCH_REG_OFFSET + 0x1A4)
 #define	GSI_WR_CTRL_STATE_MASK	BIT(15)
@@ -4405,9 +4417,22 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		msm_dwc3_perf_vote_update(mdwc, true);
 		schedule_delayed_work(&mdwc->perf_vote_work,
 				msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
+		if (dwc3_gadget_imod_val > 0) {
+			dwc3_msm_write_reg(mdwc->base, USEC_CNT, 0x7D);
+			dwc3_msm_write_reg_field(mdwc->base, IMOD(0),
+						 IMOD_EE_CNT_MASK,
+						 dwc3_gadget_imod_val);
+			dwc3_msm_write_reg_field(mdwc->base, IMOD(0),
+						 IMOD_EE_EN_MASK, 0x1);
+		}
 	} else {
 		dev_dbg(mdwc->dev, "%s: turn off gadget %s\n",
 					__func__, dwc->gadget.name);
+		dwc3_msm_write_reg_field(mdwc->base, IMOD(0),
+					 IMOD_EE_EN_MASK, 0x0);
+		dwc3_msm_write_reg_field(mdwc->base, IMOD(0),
+					 IMOD_EE_CNT_MASK, 0x0);
+		dwc3_msm_write_reg(mdwc->base, USEC_CNT, 0x0);
 		cancel_delayed_work_sync(&mdwc->perf_vote_work);
 		msm_dwc3_perf_vote_update(mdwc, false);
 		pm_qos_remove_request(&mdwc->pm_qos_req_dma);

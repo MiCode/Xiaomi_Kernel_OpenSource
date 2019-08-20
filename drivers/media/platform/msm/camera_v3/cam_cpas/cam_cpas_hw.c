@@ -1234,6 +1234,13 @@ static int cam_cpas_hw_register_client(struct cam_hw_info *cpas_hw,
 	rc = cam_common_util_get_string_index(soc_private->client_name,
 		soc_private->num_clients, client_name, &client_indx);
 
+	if (rc) {
+		CAM_ERR(CAM_CPAS, "No match found for client %s",
+			client_name);
+		mutex_unlock(&cpas_hw->hw_mutex);
+		return rc;
+	}
+
 	mutex_lock(&cpas_core->client_mutex[client_indx]);
 
 	if (rc || !CAM_CPAS_CLIENT_VALID(client_indx) ||
