@@ -638,15 +638,17 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 	list_for_each_entry(inst, &core->instances, list) {
 		dprintk(CVP_WARN,
-			"%s: sys error for inst %#x kref %x, cmd %x\n",
+			"%s: sys error inst %#x kref %x, cmd %x state %x\n",
 				__func__, inst, kref_read(&inst->kref),
-				inst->cur_cmd_type);
-		change_cvp_inst_state(inst, MSM_CVP_CORE_INVALID);
-
-		spin_lock_irqsave(&inst->event_handler.lock, flags);
-		inst->event_handler.event = CVP_SSR_EVENT;
-		spin_unlock_irqrestore(&inst->event_handler.lock, flags);
-		wake_up_all(&inst->event_handler.wq);
+				inst->cur_cmd_type, inst->state);
+		if (inst->state != MSM_CVP_CORE_INVALID) {
+			change_cvp_inst_state(inst, MSM_CVP_CORE_INVALID);
+			spin_lock_irqsave(&inst->event_handler.lock, flags);
+			inst->event_handler.event = CVP_SSR_EVENT;
+			spin_unlock_irqrestore(
+				&inst->event_handler.lock, flags);
+			wake_up_all(&inst->event_handler.wq);
+		}
 
 		if (!core->trigger_ssr)
 			msm_cvp_comm_print_inst_info(inst);
@@ -1477,7 +1479,7 @@ int msm_cvp_comm_kill_session(struct msm_cvp_inst *inst)
 		}
 	}
 
-	if (inst->state == MSM_CVP_CORE_UNINIT) {
+	if (inst->state >= MSM_CVP_CORE_UNINIT) {
 		spin_lock_irqsave(&inst->event_handler.lock, flags);
 		inst->event_handler.event = CVP_SSR_EVENT;
 		spin_unlock_irqrestore(&inst->event_handler.lock, flags);

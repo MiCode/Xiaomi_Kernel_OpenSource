@@ -1387,6 +1387,8 @@ static void cvp_dump_csr(struct iris_hfi_device *dev)
 
 	if (!dev)
 		return;
+	if (!dev->power_enabled)
+		return;
 	reg = __read_register(dev, CVP_WRAPPER_CPU_STATUS);
 	dprintk(CVP_ERR, "CVP_WRAPPER_CPU_STATUS: %x\n", reg);
 	reg = __read_register(dev, CVP_CPU_CS_SCIACMDARG0);
@@ -2060,7 +2062,8 @@ static int __interface_queues_init(struct iris_hfi_device *dev)
 	}
 
 	vsfr = (struct cvp_hfi_sfr_struct *) dev->sfr.align_virtual_addr;
-	vsfr->bufSize = ALIGNED_SFR_SIZE;
+	if (vsfr)
+		vsfr->bufSize = ALIGNED_SFR_SIZE;
 
 	rc = __interface_dsp_queues_init(dev);
 	if (rc) {
@@ -4669,7 +4672,7 @@ static void __unload_fw(struct iris_hfi_device *device)
 	device->resources.fw.cookie = NULL;
 	__deinit_resources(device);
 
-	dprintk(CVP_DBG, "Firmware unloaded successfully\n");
+	dprintk(CVP_WARN, "Firmware unloaded\n");
 }
 
 static int iris_hfi_get_fw_info(void *dev, struct cvp_hal_fw_info *fw_info)
