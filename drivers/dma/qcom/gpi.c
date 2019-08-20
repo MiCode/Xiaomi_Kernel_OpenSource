@@ -3,7 +3,6 @@
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <asm/dma-iommu.h>
 #include <linux/atomic.h>
 #include <linux/completion.h>
 #include <linux/debugfs.h>
@@ -2534,111 +2533,6 @@ static void gpi_setup_debug(struct gpi_dev *gpi_dev)
 	}
 }
 
-static struct dma_iommu_mapping *gpi_create_mapping(struct gpi_dev *gpi_dev)
-{
-	dma_addr_t base;
-	size_t size;
-
-	/*
-	 * If S1_BYPASS enabled then iommu space is not used, however framework
-	 * still require clients to create a mapping space before attaching. So
-	 * set to smallest size required by iommu framework.
-	 */
-	if (gpi_dev->smmu_cfg & GPI_SMMU_S1_BYPASS) {
-		base = 0;
-		size = PAGE_SIZE;
-	} else {
-		base = gpi_dev->iova_base;
-		size = gpi_dev->iova_size;
-	}
-
-	GPI_LOG(gpi_dev, "Creating iommu mapping of base:0x%llx size:%lu\n",
-		base, size);
-
-	return __depr_arm_iommu_create_mapping(&platform_bus_type, base, size);
-}
-
-static int gpi_smmu_init(struct gpi_dev *gpi_dev)
-{
-	struct dma_iommu_mapping *mapping = NULL;
-	int ret;
-
-	if (gpi_dev->smmu_cfg) {
-
-		/* create mapping table */
-		mapping = gpi_create_mapping(gpi_dev);
-		if (IS_ERR(mapping)) {
-			GPI_ERR(gpi_dev,
-				"Failed to create iommu mapping, ret:%ld\n",
-				PTR_ERR(mapping));
-			return PTR_ERR(mapping);
-		}
-
-		if (gpi_dev->smmu_cfg & GPI_SMMU_S1_BYPASS) {
-			int s1_bypass = 1;
-
-			ret = iommu_domain_set_attr(mapping->domain,
-					DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
-			if (ret) {
-				GPI_ERR(gpi_dev,
-					"Failed to set attr S1_BYPASS, ret:%d\n",
-					ret);
-				goto release_mapping;
-			}
-		}
-
-		if (gpi_dev->smmu_cfg & GPI_SMMU_FAST) {
-			int fast = 1;
-
-			ret = iommu_domain_set_attr(mapping->domain,
-						    DOMAIN_ATTR_FAST, &fast);
-			if (ret) {
-				GPI_ERR(gpi_dev,
-					"Failed to set attr FAST, ret:%d\n",
-					ret);
-				goto release_mapping;
-			}
-		}
-
-		if (gpi_dev->smmu_cfg & GPI_SMMU_ATOMIC) {
-			int atomic = 1;
-
-			ret = iommu_domain_set_attr(mapping->domain,
-						DOMAIN_ATTR_ATOMIC, &atomic);
-			if (ret) {
-				GPI_ERR(gpi_dev,
-					"Failed to set attr ATOMIC, ret:%d\n",
-					ret);
-				goto release_mapping;
-			}
-		}
-
-		ret = __depr_arm_iommu_attach_device(gpi_dev->dev, mapping);
-		if (ret) {
-			GPI_ERR(gpi_dev,
-				"Failed with iommu_attach, ret:%d\n", ret);
-			goto release_mapping;
-		}
-	}
-
-	GPI_LOG(gpi_dev, "Setting dma mask to 64\n");
-	ret = dma_set_mask(gpi_dev->dev, DMA_BIT_MASK(64));
-	if (ret) {
-		GPI_ERR(gpi_dev, "Error setting dma_mask to 64, ret:%d\n", ret);
-		goto error_set_mask;
-	}
-
-	return ret;
-
-error_set_mask:
-	if (gpi_dev->smmu_cfg)
-		__depr_arm_iommu_detach_device(gpi_dev->dev);
-release_mapping:
-	if (mapping)
-		__depr_arm_iommu_release_mapping(mapping);
-	return ret;
-}
-
 static int gpi_probe(struct platform_device *pdev)
 {
 	struct gpi_dev *gpi_dev;
@@ -2696,56 +2590,14 @@ static int gpi_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = of_property_read_u32(gpi_dev->dev->of_node, "qcom,smmu-cfg",
-				   &gpi_dev->smmu_cfg);
-	if (ret) {
-		GPI_ERR(gpi_dev, "missing 'qcom,smmu-cfg' DT node\n");
-		return ret;
-	}
-
 	ret = of_property_read_string(gpi_dev->dev->of_node,
 			"qcom,iommu-dma", &mode);
 
-	if ((ret == 0) && (strcmp(mode, "disabled") == 0)) {
-		if (gpi_dev->smmu_cfg &&
-			!(gpi_dev->smmu_cfg & GPI_SMMU_S1_BYPASS)) {
-
-			u64 iova_range[2];
-
-			ret = of_property_count_elems_of_size(
-				gpi_dev->dev->of_node, "qcom,iova-range",
-							sizeof(iova_range));
-			if (ret != 1) {
-				GPI_ERR(gpi_dev,
-					"missing or incorrect 'qcom,iova-range' DT node ret:%d\n",
-					ret);
-			}
-
-			ret = of_property_read_u64_array(gpi_dev->dev->of_node,
-						"qcom,iova-range", iova_range,
-						ARRAY_SIZE(iova_range));
-			if (ret) {
-				GPI_ERR(gpi_dev,
-					"could not read DT prop 'qcom,iova-range\n");
-				return ret;
-			}
-			gpi_dev->iova_base = iova_range[0];
-			gpi_dev->iova_size = iova_range[1];
-		}
-
-		ret = gpi_smmu_init(gpi_dev);
-		if (ret) {
-			GPI_ERR(gpi_dev,
-				"error configuring smmu, ret:%d\n", ret);
-			return ret;
-		}
-	} else {
-		ret = dma_set_mask(gpi_dev->dev, DMA_BIT_MASK(64));
-		if (ret) {
-			GPI_ERR(gpi_dev,
-			"Error setting dma_mask to 64, ret:%d\n", ret);
-			return ret;
-		}
+	ret = dma_set_mask(gpi_dev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		GPI_ERR(gpi_dev,
+		"Error setting dma_mask to 64, ret:%d\n", ret);
+		return ret;
 	}
 
 	gpi_dev->gpiis = devm_kzalloc(gpi_dev->dev,
