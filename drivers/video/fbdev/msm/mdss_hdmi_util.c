@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -790,10 +790,12 @@ static void hdmi_ddc_trigger(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
 	if (mode == TRIGGER_READ && seg) {
 		DSS_REG_W_ND(io, HDMI_DDC_DATA, BIT(31) | (seg_addr << 8));
 		DSS_REG_W_ND(io, HDMI_DDC_DATA, seg_num << 8);
+		DSS_REG_W_ND(io, HDMI_DDC_DATA, (ddc_data->dev_addr << 8));
+	} else {
+		/* handle portion #1 */
+		DSS_REG_W_ND(io, HDMI_DDC_DATA,
+				BIT(31) | (ddc_data->dev_addr << 8));
 	}
-
-	/* handle portion #1 */
-	DSS_REG_W_ND(io, HDMI_DDC_DATA, BIT(31) | (ddc_data->dev_addr << 8));
 
 	/* handle portion #2 */
 	DSS_REG_W_ND(io, HDMI_DDC_DATA, ddc_data->offset << 8);
@@ -957,13 +959,17 @@ error:
 
 void hdmi_ddc_config(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 {
+	u32 ddc_speed;
+
 	if (!ddc_ctrl || !ddc_ctrl->io) {
 		pr_err("invalid input\n");
 		return;
 	}
 
 	/* Configure Pre-Scale multiplier & Threshold */
-	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_SPEED, (10 << 16) | (2 << 0));
+	ddc_speed = DSS_REG_R_ND(ddc_ctrl->io, HDMI_DDC_SPEED);
+	ddc_speed |= (12 << 16) | (2 << 0);
+	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_SPEED, ddc_speed);
 
 	/*
 	 * Setting 31:24 bits : Time units to wait before timeout

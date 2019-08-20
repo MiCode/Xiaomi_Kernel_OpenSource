@@ -727,29 +727,44 @@ int diag_dci_query_event_mask(struct diag_dci_client_tbl *entry,
 	return ((*event_mask_ptr & byte_mask) == byte_mask) ? 1 : 0;
 }
 
-static int diag_dci_filter_commands(struct diag_pkt_header_t *header)
+static int diag_dci_filter_commands(struct diag_pkt_header_t *header,
+	int header_len)
 {
 	if (!header)
 		return -ENOMEM;
 
-	switch (header->cmd_code) {
-	case 0x7d: /* Msg Mask Configuration */
-	case 0x73: /* Log Mask Configuration */
-	case 0x81: /* Event Mask Configuration */
-	case 0x82: /* Event Mask Change */
-	case 0x60: /* Event Mask Toggle */
-		return 1;
+	if (header_len <= 0)
+		return -EIO;
+
+	if (header_len) {
+		switch (header->cmd_code) {
+		case 0x7d: /* Msg Mask Configuration */
+		case 0x73: /* Log Mask Configuration */
+		case 0x81: /* Event Mask Configuration */
+		case 0x82: /* Event Mask Change */
+		case 0x60: /* Event Mask Toggle */
+			DIAG_LOG(DIAG_DEBUG_DCI,
+				"diag: command not supported: %d\n",
+				header->cmd_code);
+			return 1;
+		}
 	}
 
-	if (header->cmd_code == 0x4b && header->subsys_id == 0x12) {
-		switch (header->subsys_cmd_code) {
-		case 0x60: /* Extended Event Mask Config */
-		case 0x61: /* Extended Msg Mask Config */
-		case 0x62: /* Extended Log Mask Config */
-		case 0x20C: /* Set current Preset ID */
-		case 0x20D: /* Get current Preset ID */
-		case 0x218: /* HDLC Disabled Command */
-			return 1;
+	if (header_len >= (3*sizeof(uint8_t))) {
+		if (header->cmd_code == 0x4b && header->subsys_id == 0x12) {
+			switch (header->subsys_cmd_code) {
+			case 0x60: /* Extended Event Mask Config */
+			case 0x61: /* Extended Msg Mask Config */
+			case 0x62: /* Extended Log Mask Config */
+			case 0x20C: /* Set current Preset ID */
+			case 0x20D: /* Get current Preset ID */
+			case 0x218: /* HDLC Disabled Command */
+				DIAG_LOG(DIAG_DEBUG_DCI,
+					"diag: command not supported %d %d %d\n",
+					header->cmd_code, header->subsys_id,
+					header->subsys_cmd_code);
+				return 1;
+			}
 		}
 	}
 
@@ -1796,22 +1811,26 @@ int diag_dci_send_handshake_pkt(int index)
 
 static int diag_dci_process_apps_pkt(struct diag_pkt_header_t *pkt_header,
 				     unsigned char *req_buf, int req_len,
-				     int tag)
+				     int tag, int pkt_header_len)
 {
-	uint8_t cmd_code, subsys_id, i, goto_download = 0;
+	uint8_t cmd_code = 0, subsys_id = 0, i, goto_download = 0;
 	uint8_t header_len = sizeof(struct diag_dci_pkt_header_t);
-	uint16_t ss_cmd_code;
+	uint16_t ss_cmd_code = 0;
 	uint32_t write_len = 0;
 	unsigned char *dest_buf = driver->apps_dci_buf;
 	unsigned char *payload_ptr = driver->apps_dci_buf + header_len;
 	struct diag_dci_pkt_header_t dci_header;
 
-	if (!pkt_header || !req_buf || req_len <= 0 || tag < 0)
+	if (!pkt_header || !req_buf || req_len <= 0 || tag < 0 ||
+		pkt_header_len <= 0)
 		return -EIO;
 
-	cmd_code = pkt_header->cmd_code;
-	subsys_id = pkt_header->subsys_id;
-	ss_cmd_code = pkt_header->subsys_cmd_code;
+	if (pkt_header_len >= (sizeof(uint8_t)))
+		cmd_code = pkt_header->cmd_code;
+	if (pkt_header_len >= (2 * sizeof(uint8_t)))
+		subsys_id = pkt_header->subsys_id;
+	if (pkt_header_len >= (3 * sizeof(uint8_t)))
+		ss_cmd_code = pkt_header->subsys_cmd_code;
 
 	if (cmd_code == DIAG_CMD_DOWNLOAD) {
 		*payload_ptr = DIAG_CMD_DOWNLOAD;
@@ -1931,7 +1950,7 @@ fill_buffer:
 static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 {
 	int ret = DIAG_DCI_TABLE_ERR;
-	int common_cmd = 0;
+	int common_cmd = 0, header_len = 0;
 	struct diag_pkt_header_t *header = NULL;
 	unsigned char *temp = buf;
 	unsigned char *req_buf = NULL;
@@ -1947,8 +1966,7 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	if (!buf)
 		return -EIO;
 
-	if (len < (sizeof(struct dci_pkt_req_t) +
-		sizeof(struct diag_pkt_header_t)) ||
+	if (len < sizeof(struct dci_pkt_req_t) ||
 		len > DCI_REQ_BUF_SIZE) {
 		pr_err("diag: dci: Invalid length %d len in %s", len, __func__);
 		return -EIO;
@@ -1959,13 +1977,6 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	read_len += sizeof(struct dci_pkt_req_t);
 	req_len -= sizeof(struct dci_pkt_req_t);
 	req_buf = temp; /* Start of the Request */
-	header = (struct diag_pkt_header_t *)temp;
-	read_len += sizeof(struct diag_pkt_header_t);
-	if (read_len >= DCI_REQ_BUF_SIZE) {
-		pr_err("diag: dci: In %s, invalid read_len: %d\n", __func__,
-		       read_len);
-		return -EIO;
-	}
 
 	mutex_lock(&driver->dci_mutex);
 	dci_entry = diag_dci_get_client_entry(req_hdr.client_id);
@@ -1976,11 +1987,40 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 		return DIAG_DCI_NO_REG;
 	}
 
+	header = (void *)temp;
+	header_len = len - sizeof(struct dci_pkt_req_t);
+	if (header_len <= 0) {
+		mutex_unlock(&driver->dci_mutex);
+		return -EIO;
+	}
+	if (header_len >= sizeof(uint8_t)) {
+		header->cmd_code = (uint16_t)(*(uint8_t *)temp);
+		read_len += sizeof(uint8_t);
+	}
+	if (header_len >= (2 * sizeof(uint8_t))) {
+		temp += sizeof(uint8_t);
+		header->subsys_id = (uint16_t)(*(uint8_t *)temp);
+		read_len += sizeof(uint8_t);
+	}
+	if (header_len == (3 * sizeof(uint8_t))) {
+		temp += sizeof(uint8_t);
+		header->subsys_cmd_code = (uint16_t)(*(uint8_t *)temp);
+		read_len += sizeof(uint8_t);
+	} else if (header_len >=
+		(2 * sizeof(uint8_t)) + sizeof(uint16_t)) {
+		temp += sizeof(uint8_t);
+		header->subsys_cmd_code = (uint16_t)(*(uint16_t *)temp);
+		read_len += sizeof(uint16_t);
+	}
+	if (read_len > DCI_REQ_BUF_SIZE) {
+		pr_err("diag: dci: In %s, invalid read_len: %d\n", __func__,
+		       read_len);
+		mutex_unlock(&driver->dci_mutex);
+		return -EIO;
+	}
+
 	/* Check if the command is allowed on DCI */
-	if (diag_dci_filter_commands(header)) {
-		pr_debug("diag: command not supported %d %d %d",
-			 header->cmd_code, header->subsys_id,
-			 header->subsys_cmd_code);
+	if (diag_dci_filter_commands(header, header_len)) {
 		mutex_unlock(&driver->dci_mutex);
 		return DIAG_DCI_SEND_DATA_FAIL;
 	}
@@ -2034,14 +2074,18 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 
 	/* Check if it is a dedicated Apps command */
 	ret = diag_dci_process_apps_pkt(header, req_buf, req_len,
-					req_entry->tag);
+					req_entry->tag, header_len);
 	if ((ret == DIAG_DCI_NO_ERROR && !common_cmd) || ret < 0)
 		return ret;
 
-	reg_entry.cmd_code = header->cmd_code;
-	reg_entry.subsys_id = header->subsys_id;
-	reg_entry.cmd_code_hi = header->subsys_cmd_code;
-	reg_entry.cmd_code_lo = header->subsys_cmd_code;
+	if (header_len >= (sizeof(uint8_t)))
+		reg_entry.cmd_code = header->cmd_code;
+	if (header_len >= (2 * sizeof(uint8_t)))
+		reg_entry.subsys_id = header->subsys_id;
+	if (header_len >= (3 * sizeof(uint8_t))) {
+		reg_entry.cmd_code_hi = header->subsys_cmd_code;
+		reg_entry.cmd_code_lo = header->subsys_cmd_code;
+	}
 
 	mutex_lock(&driver->cmd_reg_mutex);
 	temp_entry = diag_cmd_search(&reg_entry, ALL_PROC);

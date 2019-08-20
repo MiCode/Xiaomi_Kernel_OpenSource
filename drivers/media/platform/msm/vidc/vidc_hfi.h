@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016,2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -662,7 +662,7 @@ struct hfi_msg_session_empty_buffer_done_packet {
 	u32 input_tag;
 	u32 packet_buffer;
 	u32 extra_data_buffer;
-	u32 rgData[0];
+	u32 rgData[1];
 };
 
 struct hfi_msg_session_fill_buffer_done_compressed_packet {
