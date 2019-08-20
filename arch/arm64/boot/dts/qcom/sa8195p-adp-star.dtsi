@@ -37,6 +37,10 @@
 	status = "ok";
 };
 
+&qupv3_se13_4uart{
+	status = "ok";
+};
+
 &sdhc_2 {
 	vdd-supply = <&pm8195_1_l10>;
 	qcom,vdd-voltage-level = <2950000 2960000>;
