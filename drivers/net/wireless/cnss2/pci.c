@@ -1864,11 +1864,17 @@ static int cnss_pci_suspend(struct device *dev)
 	if (!cnss_is_device_powered_on(plat_priv))
 		goto out;
 
-	set_bit(CNSS_IN_SUSPEND_RESUME, &plat_priv->driver_state);
-
-	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks))
+	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks)) {
 		pci_priv->drv_connected_last =
 			cnss_pci_get_drv_connected(pci_priv);
+		if (!pci_priv->drv_connected_last) {
+			cnss_pr_dbg("Firmware does not support non-DRV suspend, reject\n");
+			ret = -EAGAIN;
+			goto out;
+		}
+	}
+
+	set_bit(CNSS_IN_SUSPEND_RESUME, &plat_priv->driver_state);
 
 	ret = cnss_pci_suspend_driver(pci_priv);
 	if (ret)
@@ -1988,11 +1994,16 @@ static int cnss_pci_runtime_suspend(struct device *dev)
 		return -EAGAIN;
 	}
 
-	cnss_pr_vdbg("Runtime suspend start\n");
-
-	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks))
+	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks)) {
 		pci_priv->drv_connected_last =
 			cnss_pci_get_drv_connected(pci_priv);
+		if (!pci_priv->drv_connected_last) {
+			cnss_pr_dbg("Firmware does not support non-DRV suspend, reject\n");
+			return -EAGAIN;
+		}
+	}
+
+	cnss_pr_vdbg("Runtime suspend start\n");
 
 	driver_ops = pci_priv->driver_ops;
 	if (driver_ops && driver_ops->runtime_ops &&
