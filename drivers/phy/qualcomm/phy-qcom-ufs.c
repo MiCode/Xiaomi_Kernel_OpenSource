@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, Linux Foundation. All rights reserved.
  */
 
 #include "phy-qcom-ufs-i.h"
@@ -184,16 +184,24 @@ int ufs_qcom_phy_init_clks(struct ufs_qcom_phy *phy_common)
 	if (of_device_is_compatible(phy_common->dev->of_node,
 				"qcom,msm8996-ufs-phy-qmp-14nm"))
 		goto skip_txrx_clk;
-
+	/*
+	 * tx_iface_clk does not exist in newer version of ufs-phy HW,
+	 * so don't return error if it is not found
+	 */
 	err = ufs_qcom_phy_clk_get(phy_common->dev, "tx_iface_clk",
 				   &phy_common->tx_iface_clk);
 	if (err)
-		goto out;
-
+		dev_dbg(phy_common->dev, "%s: failed to get tx_iface_clk\n",
+			__func__);
+	/*
+	 * rx_iface_clk does not exist in newer version of ufs-phy HW,
+	 * so don't return error if it is not found
+	 */
 	err = ufs_qcom_phy_clk_get(phy_common->dev, "rx_iface_clk",
 				   &phy_common->rx_iface_clk);
 	if (err)
-		goto out;
+		dev_dbg(phy_common->dev, "%s: failed to get rx_iface_clk\n",
+			__func__);
 
 skip_txrx_clk:
 	err = ufs_qcom_phy_clk_get(phy_common->dev, "ref_clk_src",
@@ -445,6 +453,9 @@ static int ufs_qcom_phy_enable_iface_clk(struct ufs_qcom_phy *phy)
 	if (phy->is_iface_clk_enabled)
 		goto out;
 
+	if (!phy->tx_iface_clk)
+		goto out;
+
 	ret = clk_prepare_enable(phy->tx_iface_clk);
 	if (ret) {
 		dev_err(phy->dev, "%s: tx_iface_clk enable failed %d\n",
@@ -467,6 +478,9 @@ out:
 /* Turn OFF M-PHY RMMI interface clocks */
 static void ufs_qcom_phy_disable_iface_clk(struct ufs_qcom_phy *phy)
 {
+	if (!phy->tx_iface_clk)
+		return;
+
 	if (phy->is_iface_clk_enabled) {
 		clk_disable_unprepare(phy->tx_iface_clk);
 		clk_disable_unprepare(phy->rx_iface_clk);
