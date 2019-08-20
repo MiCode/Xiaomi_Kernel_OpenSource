@@ -432,6 +432,56 @@ out:
 	return ret;
 }
 
+static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
+				  u32 bdf_type, char *filename,
+				  u32 filename_len)
+{
+	int ret = 0;
+
+	switch (bdf_type) {
+	case CNSS_BDF_ELF:
+		if (plat_priv->board_info.board_id == 0xFF)
+			snprintf(filename, filename_len, ELF_BDF_FILE_NAME);
+		else if (plat_priv->board_info.board_id < 0xFF)
+			snprintf(filename, filename_len,
+				 ELF_BDF_FILE_NAME_PREFIX "%02x",
+				 plat_priv->board_info.board_id);
+		else
+			snprintf(filename, filename_len,
+				 BDF_FILE_NAME_PREFIX "%02x.e%02x",
+				 plat_priv->board_info.board_id >> 8 & 0xFF,
+				 plat_priv->board_info.board_id & 0xFF);
+		break;
+	case CNSS_BDF_BIN:
+		if (plat_priv->board_info.board_id == 0xFF)
+			snprintf(filename, filename_len, BIN_BDF_FILE_NAME);
+		else if (plat_priv->board_info.board_id < 0xFF)
+			snprintf(filename, filename_len,
+				 BIN_BDF_FILE_NAME_PREFIX "%02x",
+				 plat_priv->board_info.board_id);
+		else
+			snprintf(filename, filename_len,
+				 BDF_FILE_NAME_PREFIX "%02x.b%02x",
+				 plat_priv->board_info.board_id >> 8 & 0xFF,
+				 plat_priv->board_info.board_id & 0xFF);
+		break;
+	case CNSS_BDF_REGDB:
+		snprintf(filename, filename_len, REGDB_FILE_NAME);
+		break;
+	case CNSS_BDF_DUMMY:
+		cnss_pr_dbg("CNSS_BDF_DUMMY is set, sending dummy BDF\n");
+		snprintf(filename, filename_len, DUMMY_BDF_FILE_NAME);
+		ret = MAX_BDF_FILE_NAME;
+		break;
+	default:
+		cnss_pr_err("Invalid BDF type: %d\n",
+			    plat_priv->ctrl_params.bdf_type);
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
 int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 				 u32 bdf_type)
 {
@@ -457,46 +507,13 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 		return -ENOMEM;
 	}
 
-	switch (bdf_type) {
-	case CNSS_BDF_ELF:
-		if (plat_priv->board_info.board_id == 0xFF)
-			snprintf(filename, sizeof(filename), ELF_BDF_FILE_NAME);
-		else if (plat_priv->board_info.board_id < 0xFF)
-			snprintf(filename, sizeof(filename),
-				 ELF_BDF_FILE_NAME_PREFIX "%02x",
-				 plat_priv->board_info.board_id);
-		else
-			snprintf(filename, sizeof(filename),
-				 BDF_FILE_NAME_PREFIX "%02x.e%02x",
-				 plat_priv->board_info.board_id >> 8 & 0xFF,
-				 plat_priv->board_info.board_id & 0xFF);
-		break;
-	case CNSS_BDF_BIN:
-		if (plat_priv->board_info.board_id == 0xFF)
-			snprintf(filename, sizeof(filename), BIN_BDF_FILE_NAME);
-		else if (plat_priv->board_info.board_id < 0xFF)
-			snprintf(filename, sizeof(filename),
-				 BIN_BDF_FILE_NAME_PREFIX "%02x",
-				 plat_priv->board_info.board_id);
-		else
-			snprintf(filename, sizeof(filename),
-				 BDF_FILE_NAME_PREFIX "%02x.b%02x",
-				 plat_priv->board_info.board_id >> 8 & 0xFF,
-				 plat_priv->board_info.board_id & 0xFF);
-		break;
-	case CNSS_BDF_REGDB:
-		snprintf(filename, sizeof(filename), REGDB_FILE_NAME);
-		break;
-	case CNSS_BDF_DUMMY:
-		cnss_pr_dbg("CNSS_BDF_DUMMY is set, sending dummy BDF\n");
-		snprintf(filename, sizeof(filename), DUMMY_BDF_FILE_NAME);
+	ret = cnss_get_bdf_file_name(plat_priv, bdf_type,
+				     filename, sizeof(filename));
+	if (ret > 0) {
 		temp = DUMMY_BDF_FILE_NAME;
 		remaining = MAX_BDF_FILE_NAME;
 		goto bypass_bdf;
-	default:
-		cnss_pr_err("Invalid BDF type: %d\n",
-			    plat_priv->ctrl_params.bdf_type);
-		ret = -EINVAL;
+	} else if (ret < 0) {
 		goto err_req_fw;
 	}
 
