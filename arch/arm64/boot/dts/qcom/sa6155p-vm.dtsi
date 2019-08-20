@@ -102,6 +102,24 @@
 			regulator-min-microvolt = <3000000>;
 			regulator-max-microvolt = <3230000>;
 		};
+
+		S6A: pm6155_1_s6: regulator-pm6155-1-s6 {
+			regulator-name = "smpa6";
+			regulator-min-microvolt = <947000>;
+			regulator-max-microvolt = <1404000>;
+		};
+
+		S5A: pm6155_1_s5: regulator-pm6155-1-s5 {
+			regulator-name = "smpa5";
+			regulator-min-microvolt = <1896000>;
+			regulator-max-microvolt = <2040000>;
+		};
+
+		L15A: pm6155_1_l15: regulator-pm6155-1-l15 {
+			regulator-name = "ldoa15";
+			regulator-min-microvolt = <1904000>;
+			regulator-max-microvolt = <1904000>;
+		};
 	};
 
 	apps_smmu: apps-smmu@0x15000000 {
@@ -214,6 +232,24 @@
 				= <RPMH_REGULATOR_LEVEL_MAX>;
 	};
 
+	/* PWR_CTR1_VDD_1P8 supply */
+	vreg_conn_1p8: vreg_conn_1p8 {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_conn_1p8";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pm6155_1_gpios 1 0>;
+	};
+
+	/* PWR_CTR2_VDD_PA supply */
+	vreg_conn_pa: vreg_conn_pa {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_conn_pa";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pm6155_1_gpios 6 0>;
+	};
+
 	vreg_wlan: vreg_wlan {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "vreg_wlan";
@@ -321,6 +357,24 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&bt_en_active>;
 		qca,bt-reset-gpio = <&tlmm 85 0>; /* BT_EN */
+
+		/* PWR_CTR1_VDD_PA */
+		qca,bt-vdd-pa-supply = <&vreg_conn_pa>;
+		/* PWR_CTR2_VDD_1P8 */
+		qca,bt-chip-pwd-supply = <&vreg_conn_1p8>;
+
+		qca,bt-vdd-vm-supply = <&pm6155_1_s6>;
+		qca,bt-vdd-5a-supply = <&pm6155_1_s5>;
+		qca,bt-vdd-vh-supply = <&pm6155_1_l15>;
+
+		qca,bt-vdd-vm-voltage-level = <1370000 1370000>;
+		qca,bt-vdd-5a-voltage-level = <2040000 2040000>;
+		qca,bt-vdd-vh-voltage-level = <1904000 1904000>;
+
+		qca,bt-vdd-vm-current-level = <0>;
+		qca,bt-vdd-5a-current-level = <0>;
+		qca,bt-vdd-vh-current-level = <450000>;
+
 		status = "ok";
 	};
 };
