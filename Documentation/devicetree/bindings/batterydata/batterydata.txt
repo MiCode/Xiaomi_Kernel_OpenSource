@@ -146,6 +146,12 @@ Profile data node optional properties:
 			Element 1 - FV value for soft warm.
 - qcom,batt-age-level:  Battery age level. This is used only when multiple
 			profile loading is supported.
+- qcom,soh-range:	A tuple entry to specify the values of SOH range that
+			the battery profile has to be used for. This needs to
+			be specified along with "qcom,batt-age-level" for the
+			proper functionality.
+			Element 0 - SOH minimum level.
+			Element 1 - SOH maximum level.
 - qcom,taper-fcc: A bool property to enable gradual reduction in FCC in steps
 			of pre-configured value, whenever step charging
 			thresholds are crossed-over.

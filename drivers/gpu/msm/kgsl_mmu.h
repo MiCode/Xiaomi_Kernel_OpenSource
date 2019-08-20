@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -154,6 +154,7 @@ struct kgsl_mmu_pt_ops {
  * @feature: Static list of MMU features
  * @secure_aligned_mask: Mask that secure buffers need to be aligned to
  * @va_padding: Size to pad VA mappings to
+ * @svm_base32: MMU 32bit VA start address
  * @priv: Union of sub-device specific members
  */
 struct kgsl_mmu {
@@ -166,6 +167,7 @@ struct kgsl_mmu {
 	unsigned long features;
 	unsigned int secure_align_mask;
 	uint64_t va_padding;
+	unsigned int svm_base32;
 	union {
 		struct kgsl_iommu iommu;
 	} priv;

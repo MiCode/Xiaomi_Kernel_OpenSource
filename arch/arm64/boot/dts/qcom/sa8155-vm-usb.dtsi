@@ -118,9 +118,9 @@
 		reg-names = "hsusb_phy_base",
 			"phy_rcal_reg";
 
-		vdd-supply = <&pm8150_l5>;
-		vdda18-supply = <&pm8150_l12>;
-		vdda33-supply = <&pm8150_l2>;
+		vdd-supply = <&pm8150_1_l5>;
+		vdda18-supply = <&pm8150_1_l12>;
+		vdda33-supply = <&pm8150_1_l2>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 
 		clocks = <&clock_gcc RPMH_CXO_CLK>;
@@ -140,10 +140,10 @@
 		reg = <0x88e8000 0x3000>;
 		reg-names = "qmp_phy_base";
 
-		vdd-supply = <&pm8150_l5>;
+		vdd-supply = <&pm8150_1_l5>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 		qcom,vdd-max-load-uA = <47000>;
-		core-supply = <&pm8150l_l3>;
+		core-supply = <&pm8150_2_l8>;
 		qcom,vbus-valid-override;
 		qcom,link-training-reset;
 		qcom,qmp-phy-init-seq =
@@ -394,9 +394,9 @@
 		reg-names = "hsusb_phy_base",
 			"phy_rcal_reg";
 
-		vdd-supply = <&pm8150_l5>;
-		vdda18-supply = <&pm8150_l12>;
-		vdda33-supply = <&pm8150_l2>;
+		vdd-supply = <&pm8150_1_l5>;
+		vdda18-supply = <&pm8150_1_l12>;
+		vdda33-supply = <&pm8150_1_l2>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 
 		clocks = <&clock_gcc RPMH_CXO_CLK>;
@@ -417,10 +417,10 @@
 		reg-names = "qmp_phy_base",
 			"pcs_clamp_enable_reg";
 
-		vdd-supply = <&pm8150_l5>;
+		vdd-supply = <&pm8150_1_l5>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 		qcom,vdd-max-load-uA = <47000>;
-		core-supply = <&pm8150l_l3>;
+		core-supply = <&pm8150_2_l8>;
 		qcom,vbus-valid-override;
 		qcom,qmp-phy-init-seq =
 		    /* <reg_offset, value, delay> */

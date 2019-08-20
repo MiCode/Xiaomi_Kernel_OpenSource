@@ -926,8 +926,6 @@ static int ksz9031_suspend(struct phy_device *phydev)
 	int wol_enabled;
 	u32 reg_value;
 
-	mutex_lock(&phydev->lock);
-
 	reg_value = ksz9031_extended_read(
 	   phydev, OP_DATA, 0x2, MII_KSZPHY_OMSO_REG);
 	wol_enabled = reg_value & MII_KSZPHY_OMSO_PME_N2;
@@ -939,7 +937,6 @@ static int ksz9031_suspend(struct phy_device *phydev)
 		value |= BMCR_PDOWN;
 
 	phy_write(phydev, MII_BMCR, value);
-	mutex_unlock(&phydev->lock);
 
 	return 0;
 }
@@ -948,13 +945,9 @@ static int ksz9031_resume(struct phy_device *phydev)
 {
 	int value;
 
-	mutex_lock(&phydev->lock);
-
 	value = phy_read(phydev, MII_BMCR);
 	value &= ~(BMCR_PDOWN | BMCR_ISOLATE);
 	phy_write(phydev, MII_BMCR, value);
-
-	mutex_unlock(&phydev->lock);
 
 	return 0;
 }

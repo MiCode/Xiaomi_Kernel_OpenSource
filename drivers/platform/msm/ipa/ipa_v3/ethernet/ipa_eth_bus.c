@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/pci.h>
+
 #include "ipa_eth_i.h"
 
 static bool ipa_eth_bus_is_ready;

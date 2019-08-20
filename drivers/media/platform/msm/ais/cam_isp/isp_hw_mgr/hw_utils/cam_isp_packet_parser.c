@@ -686,7 +686,52 @@ int cam_isp_add_io_buffers(
 				rc = -ENOMEM;
 				return rc;
 			}
+
 			io_cfg_used_bytes += update_buf.cmd.used_bytes;
+
+			if ((kmd_buf_info->used_bytes + io_cfg_used_bytes) <
+				kmd_buf_info->size) {
+				kmd_buf_remain_size = kmd_buf_info->size -
+					(kmd_buf_info->used_bytes +
+					io_cfg_used_bytes);
+			} else {
+				CAM_ERR(CAM_ISP,
+					"no free kmd memory for base %d",
+					base_idx);
+				rc = -ENOMEM;
+				return rc;
+			}
+
+			update_buf.res = res;
+			update_buf.cmd_type = CAM_ISP_HW_CMD_GET_HFR_UPDATE;
+			update_buf.cmd.cmd_buf_addr = kmd_buf_info->cpu_addr +
+				kmd_buf_info->used_bytes/4 +
+					io_cfg_used_bytes/4;
+
+			update_buf.cmd.size = kmd_buf_remain_size;
+			update_buf.hfr_update->framedrop_pattern =
+			io_cfg[i].framedrop_pattern;
+			update_buf.hfr_update->framedrop_period =
+			io_cfg[i].framedrop_period;
+			update_buf.hfr_update->subsample_pattern =
+			io_cfg[i].subsample_pattern;
+			update_buf.hfr_update->subsample_period =
+			io_cfg[i].subsample_period;
+
+			rc = res->hw_intf->hw_ops.process_cmd(
+				res->hw_intf->hw_priv,
+				CAM_ISP_HW_CMD_GET_HFR_UPDATE, &update_buf,
+				sizeof(struct cam_isp_hw_get_cmd_update));
+
+			if (rc) {
+				CAM_ERR(CAM_ISP, "get buf cmd error:%d",
+					res->res_id);
+				rc = -ENOMEM;
+				return rc;
+			}
+
+			io_cfg_used_bytes += update_buf.cmd.used_bytes;
+
 		}
 		for (j = 0; j < CAM_ISP_HW_SPLIT_MAX &&
 			io_cfg[i].direction == CAM_BUF_INPUT; j++) {

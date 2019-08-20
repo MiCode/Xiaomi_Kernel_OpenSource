@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,7 +62,7 @@ static int sdx50m_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
 	 * Allow PS hold assert to be detected
 	 */
 	if (!atomic)
-		usleep_range(80000,180000);
+		usleep_range(120000, 180000);
 	else
 		/*
 		 * The flow falls through this path as a part of the

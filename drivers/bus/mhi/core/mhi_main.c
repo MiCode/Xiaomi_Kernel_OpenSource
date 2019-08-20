@@ -646,6 +646,22 @@ int mhi_destroy_device(struct device *dev, void *data)
 	return 0;
 }
 
+int mhi_early_notify_device(struct device *dev, void *data)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	/* skip early notification */
+	if (!mhi_dev->early_notif)
+		return 0;
+
+	MHI_LOG("Early notification for dev:%s\n", mhi_dev->chan_name);
+
+	mhi_notify(mhi_dev, MHI_CB_FATAL_ERROR);
+
+	return 0;
+}
+
 void mhi_notify(struct mhi_device *mhi_dev, enum MHI_CB cb_reason)
 {
 	struct mhi_driver *mhi_drv;
@@ -717,7 +733,8 @@ static ssize_t time_us_show(struct device *dev,
 	}
 
 	return scnprintf(buf, PAGE_SIZE, "local: %llu remote: %llu (us)\n",
-			 TIME_TICKS_TO_US(t_host), TIME_TICKS_TO_US(t_device));
+			 LOCAL_TICKS_TO_US(t_host),
+			 REMOTE_TICKS_TO_US(t_device));
 }
 static DEVICE_ATTR_RO(time_us);
 
@@ -855,6 +872,13 @@ void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 		/* add if there is a matching DT node */
 		mhi_assign_of_node(mhi_cntrl, mhi_dev);
 
+		/*
+		 * if set, these device should get a early notification during
+		 * early notification state
+		 */
+		mhi_dev->early_notif =
+			of_property_read_bool(mhi_dev->dev.of_node,
+					      "mhi,early-notify");
 		/* init wake source */
 		if (mhi_dev->dl_chan && mhi_dev->dl_chan->wake_capable)
 			device_init_wakeup(&mhi_dev->dev, true);
@@ -1124,6 +1148,25 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 			local_rp->ptr, local_rp->dword[0], local_rp->dword[1]);
 
 		switch (type) {
+		case MHI_PKT_TYPE_BW_REQ_EVENT:
+		{
+			struct mhi_link_info *link_info;
+
+			link_info = &mhi_cntrl->mhi_link_info;
+			write_lock_irq(&mhi_cntrl->pm_lock);
+			link_info->target_link_speed =
+				MHI_TRE_GET_EV_LINKSPEED(local_rp);
+			link_info->target_link_width =
+				MHI_TRE_GET_EV_LINKWIDTH(local_rp);
+			write_unlock_irq(&mhi_cntrl->pm_lock);
+			MHI_VERB(
+				 "Received BW_REQ with link speed:0x%x width:0x%x\n",
+				 link_info->target_link_speed,
+				 link_info->target_link_width);
+			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+					     MHI_CB_BW_REQ);
+			break;
+		}
 		case MHI_PKT_TYPE_STATE_CHANGE_EVENT:
 		{
 			enum mhi_dev_state new_state;
@@ -1383,8 +1426,16 @@ void mhi_ctrl_ev_task(unsigned long data)
 	 * pm_state can change from reg access valid to no access while this
 	 * therad being executed.
 	 */
-	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
+	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
+		/*
+		 * we may have a pending event but not allowed to
+		 * process it since we probably in a suspended state,
+		 * trigger a resume.
+		 */
+		mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
+		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 		return;
+	}
 
 	/* process ctrl events events */
 	ret = mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
@@ -1439,15 +1490,17 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 	struct mhi_controller *mhi_cntrl = dev;
 	enum mhi_dev_state state = MHI_STATE_MAX;
 	enum MHI_PM_STATE pm_state = 0;
-	enum mhi_ee ee;
+	enum mhi_ee ee = 0;
 
 	MHI_VERB("Enter\n");
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
 		state = mhi_get_mhi_state(mhi_cntrl);
-		ee = mhi_get_exec_env(mhi_cntrl);
-		MHI_LOG("device ee:%s dev_state:%s\n", TO_MHI_EXEC_STR(ee),
+		ee = mhi_cntrl->ee;
+		mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
+		MHI_LOG("device ee:%s dev_state:%s\n",
+			TO_MHI_EXEC_STR(mhi_cntrl->ee),
 			TO_MHI_STATE_STR(state));
 	}
 
@@ -1457,6 +1510,17 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 					       MHI_PM_SYS_ERR_DETECT);
 	}
 	write_unlock_irq(&mhi_cntrl->pm_lock);
+
+	/* if device in rddm don't bother processing sys error */
+	if (mhi_cntrl->ee == MHI_EE_RDDM) {
+		if (mhi_cntrl->ee != ee) {
+			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+					     MHI_CB_EE_RDDM);
+			wake_up_all(&mhi_cntrl->state_event);
+		}
+		goto exit_intvec;
+	}
+
 	if (pm_state == MHI_PM_SYS_ERR_DETECT) {
 		wake_up_all(&mhi_cntrl->state_event);
 
@@ -1468,6 +1532,7 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 			schedule_work(&mhi_cntrl->syserr_worker);
 	}
 
+exit_intvec:
 	MHI_VERB("Exit\n");
 
 	return IRQ_HANDLED;
@@ -1842,12 +1907,12 @@ int mhi_debugfs_mhi_states_show(struct seq_file *m, void *d)
 	struct mhi_controller *mhi_cntrl = m->private;
 
 	seq_printf(m,
-		   "pm_state:%s dev_state:%s EE:%s M0:%u M2:%u M3:%u wake:%d dev_wake:%u alloc_size:%u pending_pkts:%u\n",
+		   "pm_state:%s dev_state:%s EE:%s M0:%u M2:%u M3:%u M3_Fast:%u wake:%d dev_wake:%u alloc_size:%u pending_pkts:%u\n",
 		   to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		   TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		   TO_MHI_EXEC_STR(mhi_cntrl->ee),
 		   mhi_cntrl->M0, mhi_cntrl->M2, mhi_cntrl->M3,
-		   mhi_cntrl->wake_set,
+		   mhi_cntrl->M3_FAST, mhi_cntrl->wake_set,
 		   atomic_read(&mhi_cntrl->dev_wake),
 		   atomic_read(&mhi_cntrl->alloc_size),
 		   atomic_read(&mhi_cntrl->pending_pkts));

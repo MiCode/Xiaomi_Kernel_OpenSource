@@ -122,15 +122,17 @@ struct rmnet_map_dl_csum_trailer {
 struct rmnet_map_ul_csum_header {
 	__be16 csum_start_offset;
 	u16 csum_insert_offset:14;
-	u16 udp_ip4_ind:1;
+	u16 udp_ind:1;
 	u16 csum_enabled:1;
 } __aligned(1);
 
 struct rmnet_map_control_command_header {
-	u8  command_name;
-	u8  cmd_type:2;
-	u8  reserved:6;
-	u16 reserved2;
+	u8 command_name;
+	u8 cmd_type:2;
+	u8 reserved:5;
+	u8 e:1;
+	u16 source_id:15;
+	u16 ext:1;
 	u32 transaction_id;
 }  __aligned(1);
 
@@ -176,8 +178,18 @@ struct rmnet_map_dl_ind_trl {
 
 struct rmnet_map_dl_ind {
 	u8 priority;
-	void (*dl_hdr_handler)(struct rmnet_map_dl_ind_hdr *);
-	void (*dl_trl_handler)(struct rmnet_map_dl_ind_trl *);
+	union {
+		void (*dl_hdr_handler)(struct rmnet_map_dl_ind_hdr *);
+		void (*dl_hdr_handler_v2)(struct rmnet_map_dl_ind_hdr *,
+					  struct
+					  rmnet_map_control_command_header *);
+	} __aligned(1);
+	union {
+		void (*dl_trl_handler)(struct rmnet_map_dl_ind_trl *);
+		void (*dl_trl_handler_v2)(struct rmnet_map_dl_ind_trl *,
+					  struct
+					  rmnet_map_control_command_header *);
+	} __aligned(1);
 	struct list_head list;
 };
 
@@ -248,6 +260,7 @@ int rmnet_map_checksum_downlink_packet(struct sk_buff *skb, u16 len);
 void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
 				      struct net_device *orig_dev,
 				      int csum_type);
+bool rmnet_map_v5_csum_buggy(struct rmnet_map_v5_coal_header *coal_hdr);
 int rmnet_map_process_next_hdr_packet(struct sk_buff *skb,
 				      struct sk_buff_head *list,
 				      u16 len);
@@ -255,6 +268,16 @@ int rmnet_map_tx_agg_skip(struct sk_buff *skb, int offset);
 void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port);
 void rmnet_map_tx_aggregate_init(struct rmnet_port *port);
 void rmnet_map_tx_aggregate_exit(struct rmnet_port *port);
+void rmnet_map_dl_hdr_notify(struct rmnet_port *port,
+			     struct rmnet_map_dl_ind_hdr *dl_hdr);
+void rmnet_map_dl_hdr_notify_v2(struct rmnet_port *port,
+				struct rmnet_map_dl_ind_hdr *dl_hdr,
+				struct rmnet_map_control_command_header *qcmd);
+void rmnet_map_dl_trl_notify(struct rmnet_port *port,
+			     struct rmnet_map_dl_ind_trl *dltrl);
+void rmnet_map_dl_trl_notify_v2(struct rmnet_port *port,
+				struct rmnet_map_dl_ind_trl *dltrl,
+				struct rmnet_map_control_command_header *qcmd);
 int rmnet_map_flow_command(struct sk_buff *skb,
 			   struct rmnet_port *port,
 			   bool rmnet_perf);

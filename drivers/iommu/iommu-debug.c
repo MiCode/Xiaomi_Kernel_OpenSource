@@ -28,6 +28,10 @@
 #include <asm/cacheflush.h>
 #include <asm/dma-iommu.h>
 
+#ifdef CONFIG_ARM64_PTDUMP_CORE
+#include <asm/ptdump.h>
+#endif
+
 #if defined(CONFIG_IOMMU_TESTS)
 
 static const char *iommu_debug_attr_to_string(enum iommu_attr attr)
@@ -173,6 +177,9 @@ struct iommu_debug_device {
 	struct mutex clk_lock;
 	unsigned int clk_count;
 	struct mutex debug_dev_lock;
+#ifdef CONFIG_ARM64_PTDUMP_CORE
+	struct ptdump_info pt_info;
+#endif
 };
 
 static int iommu_debug_build_phoney_sg_table(struct device *dev,
@@ -2271,6 +2278,43 @@ static const struct file_operations iommu_debug_trigger_fault_fops = {
 	.write	= iommu_debug_trigger_fault_write,
 };
 
+#ifdef CONFIG_ARM64_PTDUMP_CORE
+static int ptdump_show(struct seq_file *s, void *v)
+{
+	struct iommu_debug_device *ddev = s->private;
+	struct ptdump_info *info = &(ddev->pt_info);
+	struct mm_struct		mm;
+	phys_addr_t phys;
+
+	info->markers = (struct addr_marker[]){
+		{ 0,		"start" },
+	};
+	info->base_addr	= 0;
+	info->mm = &mm;
+
+	if (ddev->domain) {
+		iommu_domain_get_attr(ddev->domain, DOMAIN_ATTR_PT_BASE_ADDR,
+			  &(phys));
+
+		info->mm->pgd = (pgd_t *)phys_to_virt(phys);
+		ptdump_walk_pgd(s, info);
+	}
+	return 0;
+}
+
+static int ptdump_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ptdump_show, inode->i_private);
+}
+
+static const struct file_operations ptdump_fops = {
+	.open		= ptdump_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+#endif
+
 /*
  * The following will only work for drivers that implement the generic
  * device tree bindings described in
@@ -2444,6 +2488,15 @@ static int snarf_iommu_devices(struct device *dev, void *ignored)
 		       dev_name(dev));
 		goto err_rmdir;
 	}
+
+#ifdef CONFIG_ARM64_PTDUMP_CORE
+	if (!debugfs_create_file("iommu_page_tables", 0200, dir, ddev,
+			   &ptdump_fops)) {
+		pr_err_ratelimited("Couldn't create iommu/devices/%s/trigger-fault debugfs file\n",
+		       dev_name(dev));
+		goto err_rmdir;
+	}
+#endif
 
 	list_add(&ddev->list, &iommu_debug_devices);
 	return 0;

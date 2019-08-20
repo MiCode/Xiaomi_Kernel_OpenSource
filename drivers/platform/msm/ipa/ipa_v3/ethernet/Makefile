@@ -6,6 +6,7 @@ ipa-eth-y := \
 	ipa_eth.o \
 	ipa_eth_ep.o \
 	ipa_eth_gsi.o \
+	ipa_eth_net.o \
 	ipa_eth_offload.o \
 	ipa_eth_pci.o \
 	ipa_eth_pm.o \

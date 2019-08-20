@@ -2247,10 +2247,6 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 
 	/* handle the hw error before core released to get full debug info */
 	msm_vidc_handle_hw_error(core);
-	if (response->status == VIDC_ERR_NOC_ERROR) {
-		dprintk(VIDC_WARN, "Got NOC error");
-		MSM_VIDC_ERROR(true);
-	}
 
 	dprintk(VIDC_DBG, "Calling core_release\n");
 	rc = call_hfi_op(hdev, core_release, hdev->hfi_device_data);
@@ -5460,6 +5456,9 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 		break;
 	case V4L2_MPEG_VIDC_EXTRADATA_ENC_DTS:
 		ret = HAL_EXTRADATA_ENC_DTS_METADATA;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_INPUT_CROP:
+		ret = HAL_EXTRADATA_INPUT_CROP;
 		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata not found: %d\n", index);

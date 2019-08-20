@@ -29,6 +29,20 @@ struct sync_device *sync_dev;
  */
 static bool trigger_cb_without_switch;
 
+void cam_sync_print_fence_table(void)
+{
+	int cnt;
+
+	for (cnt = 0; cnt < CAM_SYNC_MAX_OBJS; cnt++) {
+		CAM_INFO(CAM_SYNC, "%d, %s, %d, %d, %d",
+			sync_dev->sync_table[cnt].sync_id,
+			sync_dev->sync_table[cnt].name,
+			sync_dev->sync_table[cnt].type,
+			sync_dev->sync_table[cnt].state,
+			sync_dev->sync_table[cnt].ref_cnt);
+	}
+}
+
 int cam_sync_create(int32_t *sync_obj, const char *name)
 {
 	int rc;
@@ -37,8 +51,15 @@ int cam_sync_create(int32_t *sync_obj, const char *name)
 
 	do {
 		idx = find_first_zero_bit(sync_dev->bitmap, CAM_SYNC_MAX_OBJS);
-		if (idx >= CAM_SYNC_MAX_OBJS)
+		if (idx >= CAM_SYNC_MAX_OBJS) {
+			CAM_ERR(CAM_SYNC,
+				"Error: Unable to Create Sync Idx = %d Reached Max!!",
+				idx);
+			sync_dev->err_cnt++;
+			if (sync_dev->err_cnt == 1)
+				cam_sync_print_fence_table();
 			return -ENOMEM;
+		}
 		CAM_DBG(CAM_SYNC, "Index location available at idx: %ld", idx);
 		bit = test_and_set_bit(idx, sync_dev->bitmap);
 	} while (bit);
@@ -418,9 +439,10 @@ static int cam_sync_handle_create(struct cam_private_ioctl_arg *k_ioctl)
 		k_ioctl->size))
 		return -EFAULT;
 
+	mutex_lock(&sync_dev->table_lock);
 	result = cam_sync_create(&sync_create.sync_obj,
 		sync_create.name);
-
+	mutex_unlock(&sync_dev->table_lock);
 	if (!result)
 		if (copy_to_user(
 			u64_to_user_ptr(k_ioctl->ioctl_ptr),
@@ -539,6 +561,7 @@ static int cam_sync_handle_wait(struct cam_private_ioctl_arg *k_ioctl)
 static int cam_sync_handle_destroy(struct cam_private_ioctl_arg *k_ioctl)
 {
 	struct cam_sync_info sync_create;
+	int rc;
 
 	if (k_ioctl->size != sizeof(struct cam_sync_info))
 		return -EINVAL;
@@ -551,7 +574,11 @@ static int cam_sync_handle_destroy(struct cam_private_ioctl_arg *k_ioctl)
 		k_ioctl->size))
 		return -EFAULT;
 
-	return cam_sync_destroy(sync_create.sync_obj);
+	mutex_lock(&sync_dev->table_lock);
+	rc = cam_sync_destroy(sync_create.sync_obj);
+	mutex_unlock(&sync_dev->table_lock);
+
+	return rc;
 }
 
 static int cam_sync_handle_register_user_payload(
@@ -765,22 +792,29 @@ static int cam_sync_open(struct file *filep)
 		CAM_ERR(CAM_SYNC, "Sync device NULL");
 		return -ENODEV;
 	}
+	sync_dev->err_cnt = 0;
 
 	mutex_lock(&sync_dev->table_lock);
-	if (sync_dev->open_cnt >= 1) {
-		mutex_unlock(&sync_dev->table_lock);
-		return -EALREADY;
-	}
 
 	rc = v4l2_fh_open(filep);
-	if (!rc) {
-		sync_dev->open_cnt++;
-		spin_lock_bh(&sync_dev->cam_sync_eventq_lock);
-		sync_dev->cam_sync_eventq = filep->private_data;
-		spin_unlock_bh(&sync_dev->cam_sync_eventq_lock);
-	} else {
-		CAM_ERR(CAM_SYNC, "v4l2_fh_open failed : %d", rc);
+	if (rc) {
+		CAM_ERR(CAM_SYNC, "v4l2_fh_open failed: %d", rc);
+		goto end;
 	}
+
+	sync_dev->open_cnt++;
+
+	/* return if already initialized before */
+	if (sync_dev->open_cnt > 1) {
+		CAM_ERR(CAM_SYNC, "Already opened", rc);
+		goto end;
+	}
+
+	spin_lock_bh(&sync_dev->cam_sync_eventq_lock);
+	sync_dev->cam_sync_eventq = filep->private_data;
+	spin_unlock_bh(&sync_dev->cam_sync_eventq_lock);
+
+end:
 	mutex_unlock(&sync_dev->table_lock);
 
 	return rc;
@@ -797,6 +831,7 @@ static int cam_sync_close(struct file *filep)
 		rc = -ENODEV;
 		return rc;
 	}
+	sync_dev->err_cnt = 0;
 	mutex_lock(&sync_dev->table_lock);
 	sync_dev->open_cnt--;
 	if (!sync_dev->open_cnt) {
@@ -841,11 +876,13 @@ static int cam_sync_close(struct file *filep)
 					  i);
 			}
 		}
+
+		spin_lock_bh(&sync_dev->cam_sync_eventq_lock);
+		sync_dev->cam_sync_eventq = NULL;
+		spin_unlock_bh(&sync_dev->cam_sync_eventq_lock);
 	}
 	mutex_unlock(&sync_dev->table_lock);
-	spin_lock_bh(&sync_dev->cam_sync_eventq_lock);
-	sync_dev->cam_sync_eventq = NULL;
-	spin_unlock_bh(&sync_dev->cam_sync_eventq_lock);
+
 	v4l2_fh_release(filep);
 
 	return rc;
@@ -972,6 +1009,7 @@ static int cam_sync_probe(struct platform_device *pdev)
 	if (!sync_dev)
 		return -ENOMEM;
 
+	sync_dev->err_cnt = 0;
 	mutex_init(&sync_dev->table_lock);
 	spin_lock_init(&sync_dev->cam_sync_eventq_lock);
 

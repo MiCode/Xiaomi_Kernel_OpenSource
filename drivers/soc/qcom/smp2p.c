@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2015, Sony Mobile Communications AB.
- * Copyright (c) 2012-2013, 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -558,10 +558,80 @@ static int smp2p_parse_ipc(struct qcom_smp2p *smp2p)
 	return 0;
 }
 
+static int qcom_smp2p_alloc_item(struct platform_device *pdev,
+					struct qcom_smp2p *smp2p)
+{
+	int ret = 0;
+	struct smp2p_entry *entry;
+	struct device_node *node;
+
+	ret = qcom_smp2p_alloc_outbound_item(smp2p);
+	if (ret < 0)
+		return ret;
+
+	for_each_available_child_of_node(pdev->dev.of_node, node) {
+		entry = devm_kzalloc(&pdev->dev, sizeof(*entry), GFP_KERNEL);
+		if (!entry)
+			return -ENOMEM;
+
+		entry->smp2p = smp2p;
+		spin_lock_init(&entry->lock);
+
+		ret = of_property_read_string(node, "qcom,entry-name",
+							&entry->name);
+		if (ret < 0)
+			return ret;
+
+		if (of_property_read_bool(node, "interrupt-controller")) {
+			ret = qcom_smp2p_inbound_entry(smp2p, entry, node);
+			if (ret < 0)
+				return ret;
+
+			list_add(&entry->node, &smp2p->inbound);
+		} else {
+			ret = qcom_smp2p_outbound_entry(smp2p, entry, node);
+			if (ret < 0)
+				return ret;
+
+			list_add(&entry->node, &smp2p->outbound);
+		}
+	}
+	wakeup_source_init(&smp2p->ws, "smp2p");
+
+	/* Kick the outgoing edge after allocating entries */
+	qcom_smp2p_kick(smp2p);
+
+	return ret;
+}
+
+static void qcom_smp2p_release_item(struct device *dev,
+					struct qcom_smp2p *smp2p)
+{
+	struct smp2p_entry *entry;
+	struct smp2p_entry *next_entry;
+
+	/* Walk through the out bound list and release state and entry */
+	list_for_each_entry_safe(entry, next_entry, &smp2p->outbound, node) {
+		qcom_smem_state_unregister(entry->state);
+		list_del(&entry->node);
+		devm_kfree(smp2p->dev, entry);
+	}
+	INIT_LIST_HEAD(&smp2p->outbound);
+
+	/* Walk through the inbound list and release domain and entry */
+	list_for_each_entry_safe(entry, next_entry, &smp2p->inbound, node) {
+		irq_domain_remove(entry->domain);
+		list_del(&entry->node);
+		devm_kfree(smp2p->dev, entry);
+	}
+	INIT_LIST_HEAD(&smp2p->inbound);
+	/* remove wakeup source */
+	wakeup_source_trash(&smp2p->ws);
+}
+
 static int qcom_smp2p_probe(struct platform_device *pdev)
 {
 	struct smp2p_entry *entry;
-	struct device_node *node;
 	struct qcom_smp2p *smp2p;
 	const char *key;
 	int ret;
@@ -619,42 +689,16 @@ static int qcom_smp2p_probe(struct platform_device *pdev)
 			return ret;
 	}
 
-	ret = qcom_smp2p_alloc_outbound_item(smp2p);
-	if (ret < 0)
-		goto release_mbox;
-
-	for_each_available_child_of_node(pdev->dev.of_node, node) {
-		entry = devm_kzalloc(&pdev->dev, sizeof(*entry), GFP_KERNEL);
-		if (!entry) {
-			ret = -ENOMEM;
-			goto unwind_interfaces;
+	ret = qcom_smp2p_alloc_item(pdev, smp2p);
+	if (ret < 0 && ret != -EEXIST) {
+		if (ret != -EPROBE_DEFER) {
+			dev_err(&pdev->dev, "failed to alloc outbound items\n");
+			goto release_mbox;
 		}
-
-		entry->smp2p = smp2p;
-		spin_lock_init(&entry->lock);
-
-		ret = of_property_read_string(node, "qcom,entry-name", &entry->name);
-		if (ret < 0)
-			goto unwind_interfaces;
-
-		if (of_property_read_bool(node, "interrupt-controller")) {
-			ret = qcom_smp2p_inbound_entry(smp2p, entry, node);
-			if (ret < 0)
-				goto unwind_interfaces;
-
-			list_add(&entry->node, &smp2p->inbound);
-		} else  {
-			ret = qcom_smp2p_outbound_entry(smp2p, entry, node);
-			if (ret < 0)
-				goto unwind_interfaces;
-
-			list_add(&entry->node, &smp2p->outbound);
-		}
+	} else if (ret) {
+		dev_err(&pdev->dev, "failed to get smp2p entries\n");
+		goto unwind_interfaces;
 	}
-	wakeup_source_init(&smp2p->ws, "smp2p");
-
-	/* Kick the outgoing edge after allocating entries */
-	qcom_smp2p_kick(smp2p);
 
 	ret = devm_request_threaded_irq(&pdev->dev, smp2p->irq,
 					qcom_smp2p_isr, qcom_smp2p_intr,
@@ -701,6 +745,33 @@ static int qcom_smp2p_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int qcom_smp2p_resume(struct device *dev)
+{
+	int ret = 0;
+	struct qcom_smp2p *smp2p = dev_get_drvdata(dev);
+	struct platform_device *pdev = container_of(dev, struct
+						platform_device, dev);
+
+	ret = qcom_smp2p_alloc_item(pdev, smp2p);
+	if (ret < 0 && ret != -EEXIST)
+		dev_err(dev, "failed to alloc items ret = %d\n", ret);
+
+	return ret;
+}
+
+static int qcom_smp2p_suspend(struct device *dev)
+{
+	struct qcom_smp2p *smp2p = dev_get_drvdata(dev);
+
+	qcom_smp2p_release_item(dev, smp2p);
+	return 0;
+}
+
+static const struct dev_pm_ops qcom_smp2p_pm_ops = {
+	.freeze = qcom_smp2p_suspend,
+	.restore = qcom_smp2p_resume,
+};
+
 static const struct of_device_id qcom_smp2p_of_match[] = {
 	{ .compatible = "qcom,smp2p" },
 	{}
@@ -713,6 +784,7 @@ static struct platform_driver qcom_smp2p_driver = {
 	.driver  = {
 		.name  = "qcom_smp2p",
 		.of_match_table = qcom_smp2p_of_match,
+		.pm = &qcom_smp2p_pm_ops,
 	},
 };
 module_platform_driver(qcom_smp2p_driver);

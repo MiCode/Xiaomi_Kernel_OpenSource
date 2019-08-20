@@ -14,17 +14,86 @@
 
 #include <linux/gfp.h>
 #include <linux/slab.h>
+
+#define IPA_ETH_NET_DRIVER
 #include <linux/ipa_eth.h>
 
 #include "atl_fwd.h"
 #include "atl_qcom_ipa.h"
 
-#define ATL_IPA_DEFAULT_RING_SZ 128
-#define ATL_IPA_DEFAULT_BUFF_SZ 2048
-
 static inline struct atl_fwd_ring *CH_RING(struct ipa_eth_channel *ch)
 {
 	return (struct atl_fwd_ring *)(ch->nd_priv);
+}
+
+static void *atl_ipa_dma_alloc(struct device *dev, size_t size,
+			       dma_addr_t *daddr, gfp_t gfp,
+			       struct ipa_eth_dma_allocator *dma_allocator)
+{
+	struct atl_nic *nic = (struct atl_nic *)dev_get_drvdata(dev);
+	struct ipa_eth_device *eth_dev = nic->fwd.private;
+	struct ipa_eth_resource mem;
+
+	if (dma_allocator->alloc(eth_dev, size, gfp, &mem))
+		return NULL;
+
+	if (daddr)
+		*daddr = mem.daddr;
+
+	return mem.vaddr;
+}
+
+static void atl_ipa_dma_free(void *buf, struct device *dev, size_t size,
+			     dma_addr_t daddr,
+			     struct ipa_eth_dma_allocator *dma_allocator)
+{
+	struct atl_nic *nic = (struct atl_nic *)dev_get_drvdata(dev);
+	struct ipa_eth_device *eth_dev = nic->fwd.private;
+	struct ipa_eth_resource mem = {
+		.size = size,
+		.vaddr = buf,
+		.daddr = daddr,
+	};
+
+	return dma_allocator->free(eth_dev, &mem);
+}
+
+static void *atl_ipa_alloc_descs(struct device *dev, size_t size,
+				 dma_addr_t *daddr, gfp_t gfp,
+				 struct atl_fwd_mem_ops *ops)
+{
+	struct ipa_eth_channel *ch = ops->private;
+
+	return atl_ipa_dma_alloc(dev, size, daddr, gfp,
+			ch->mem_params.desc.allocator);
+}
+
+static void *atl_ipa_alloc_buf(struct device *dev, size_t size,
+			       dma_addr_t *daddr, gfp_t gfp,
+			       struct atl_fwd_mem_ops *ops)
+{
+	struct ipa_eth_channel *ch = ops->private;
+
+	return atl_ipa_dma_alloc(dev, size, daddr, gfp,
+			ch->mem_params.buff.allocator);
+}
+
+static void atl_ipa_free_descs(void *buf, struct device *dev, size_t size,
+			       dma_addr_t daddr, struct atl_fwd_mem_ops *ops)
+{
+	struct ipa_eth_channel *ch = ops->private;
+
+	return atl_ipa_dma_free(buf, dev, size, daddr,
+			ch->mem_params.desc.allocator);
+}
+
+static void atl_ipa_free_buf(void *buf, struct device *dev, size_t size,
+			     dma_addr_t daddr, struct atl_fwd_mem_ops *ops)
+{
+	struct ipa_eth_channel *ch = ops->private;
+
+	return atl_ipa_dma_free(buf, dev, size, daddr,
+			ch->mem_params.desc.allocator);
 }
 
 static int atl_ipa_open_device(struct ipa_eth_device *eth_dev)
@@ -32,9 +101,11 @@ static int atl_ipa_open_device(struct ipa_eth_device *eth_dev)
 	struct atl_nic *nic = (struct atl_nic *)dev_get_drvdata(eth_dev->dev);
 
 	if (!nic || !nic->ndev) {
-		dev_err(eth_dev->dev, "Invalid atl_nic");
+		dev_err(eth_dev->dev, "Invalid atl_nic\n");
 		return -ENODEV;
 	}
+
+	nic->fwd.private = eth_dev;
 
 	/* atl specific init, ref counting go here */
 
@@ -46,17 +117,48 @@ static int atl_ipa_open_device(struct ipa_eth_device *eth_dev)
 
 static void atl_ipa_close_device(struct ipa_eth_device *eth_dev)
 {
+	struct atl_nic *nic = eth_dev->nd_priv;
+
+	nic->fwd.private = NULL;
+
 	eth_dev->nd_priv = NULL;
 	eth_dev->net_dev = NULL;
 }
 
 static struct ipa_eth_channel *atl_ipa_request_channel(
 	struct ipa_eth_device *eth_dev, enum ipa_eth_channel_dir dir,
-	unsigned long features, unsigned long events)
+	unsigned long events, unsigned long features,
+	const struct ipa_eth_channel_mem_params *mem_params)
 {
 	struct atl_fwd_ring *ring = NULL;
 	enum atl_fwd_ring_flags ring_flags = 0;
 	struct ipa_eth_channel *channel = NULL;
+	struct atl_fwd_mem_ops *mem_ops = NULL;
+	struct ipa_eth_channel_mem *desc_mem = NULL;
+	struct ipa_eth_channel_mem *buff_mem = NULL;
+	size_t desc_count;
+	size_t buff_size;
+
+	channel =
+		ipa_eth_net_alloc_channel(eth_dev, dir,
+					  events, features, mem_params);
+	if (!channel) {
+		dev_err(eth_dev->dev, "Failed to alloc ipa eth channel\n");
+		goto err_channel;
+	}
+
+	desc_count = channel->mem_params.desc.count;
+	buff_size = channel->mem_params.buff.size;
+
+	mem_ops = kzalloc(sizeof(*mem_ops), GFP_KERNEL);
+	if (!mem_ops)
+		goto err_mem_ops;
+
+	mem_ops->alloc_descs = atl_ipa_alloc_descs;
+	mem_ops->alloc_buf = atl_ipa_alloc_buf;
+	mem_ops->free_descs = atl_ipa_free_descs;
+	mem_ops->free_buf = atl_ipa_free_buf;
+	mem_ops->private = channel;
 
 	switch (dir) {
 	case IPA_ETH_DIR_RX:
@@ -65,67 +167,92 @@ static struct ipa_eth_channel *atl_ipa_request_channel(
 		ring_flags |= ATL_FWR_TX;
 		break;
 	default:
-		dev_err(eth_dev->dev, "Unsupported direction %d", dir);
-		return NULL;
+		dev_err(eth_dev->dev, "Unsupported direction %d\n", dir);
+		goto err_dir;
 	}
 
 	ring_flags |= ATL_FWR_ALLOC_BUFS;
 	ring_flags |= ATL_FWR_CONTIG_BUFS;
 
 	ring = atl_fwd_request_ring(eth_dev->net_dev, ring_flags,
-				    ATL_IPA_DEFAULT_RING_SZ,
-				    ATL_IPA_DEFAULT_BUFF_SZ, 1, NULL);
+				    desc_count, buff_size, 1, mem_ops);
 	if (IS_ERR_OR_NULL(ring)) {
-		dev_err(eth_dev->dev, "Request ring failed");
-		goto err_exit;
+		dev_err(eth_dev->dev, "Request ring failed\n");
+		goto err_ring;
 	}
 
-	channel = kzalloc(sizeof(*channel), GFP_KERNEL);
-	if (!channel)
-		goto err_exit;
-
-	channel->events = 0;
-	channel->features = 0;
-	channel->direction = dir;
+	channel->nd_priv = ring;
 	channel->queue = ring->idx;
 
-	channel->desc_size = 16;
-	channel->desc_count = ring->hw.size;
-	channel->desc_mem.size = channel->desc_size * channel->desc_count;
+	desc_mem = kzalloc(sizeof(*desc_mem), GFP_KERNEL);
+	if (!desc_mem)
+		goto err_desc_mem;
 
-	channel->desc_mem.vaddr = ring->hw.descs;
-	channel->desc_mem.daddr = ring->hw.daddr;
-	channel->desc_mem.paddr =
-		page_to_phys(vmalloc_to_page(channel->desc_mem.vaddr));
+	channel->mem_params.desc.size = 16;
+	channel->mem_params.desc.count = ring->hw.size;
 
-	channel->buff_size = ATL_IPA_DEFAULT_BUFF_SZ;
-	channel->buff_count = channel->desc_count;
-	channel->buff_mem.size = channel->buff_size * channel->buff_count;
+	desc_mem->mem.size =
+		channel->mem_params.desc.size * channel->mem_params.desc.count;
+	desc_mem->mem.vaddr = ring->hw.descs;
+	desc_mem->mem.daddr = ring->hw.daddr;
+	desc_mem->mem.paddr = channel->mem_params.desc.allocator->paddr(
+				eth_dev, desc_mem->mem.vaddr);
 
-	channel->buff_mem.vaddr = (void *)ring->bufs->vaddr_vec;
-	channel->buff_mem.daddr = ring->bufs->daddr_vec_base;
-	channel->buff_mem.paddr = virt_to_phys((void *)ring->bufs->vaddr_vec);
+	buff_mem = kzalloc(sizeof(*buff_mem), GFP_KERNEL);
+	if (!buff_mem)
+		goto err_buff_mem;
 
-	channel->eth_dev = eth_dev;
-	channel->nd_priv = ring;
+	channel->mem_params.buff.size = buff_size;
+	channel->mem_params.buff.count = channel->mem_params.desc.count;
+
+	buff_mem->mem.size =
+		channel->mem_params.buff.size * channel->mem_params.buff.count;
+	buff_mem->mem.vaddr = (void *)ring->bufs->vaddr_vec;
+	buff_mem->mem.daddr = ring->bufs->daddr_vec_base;
+	buff_mem->mem.paddr = channel->mem_params.buff.allocator->paddr(
+				eth_dev, buff_mem->mem.vaddr);
+
+	list_add(&desc_mem->mem_list_entry, &channel->desc_mem);
+	list_add(&buff_mem->mem_list_entry, &channel->buff_mem);
 
 	return channel;
 
-err_exit:
-	kzfree(channel);
-
-	if (!IS_ERR_OR_NULL(ring)) {
-		atl_fwd_release_ring(ring);
-		ring = NULL;
-	}
-
+err_buff_mem:
+	kzfree(desc_mem);
+err_desc_mem:
+	atl_fwd_release_ring(ring);
+err_ring:
+err_dir:
+	if (mem_ops)
+		kzfree(mem_ops);
+err_mem_ops:
+	ipa_eth_net_free_channel(channel);
+err_channel:
 	return NULL;
 }
 
 static void atl_ipa_release_channel(struct ipa_eth_channel *ch)
 {
-	atl_fwd_release_ring(CH_RING(ch));
-	kzfree(ch);
+	struct ipa_eth_channel_mem *mem, *tmp;
+	struct atl_fwd_ring *ring = CH_RING(ch);
+	struct atl_fwd_mem_ops *mem_ops = ring->mem_ops;
+
+	atl_fwd_release_ring(ring);
+
+	if (mem_ops)
+		kzfree(mem_ops);
+
+	list_for_each_entry_safe(mem, tmp, &ch->desc_mem, mem_list_entry) {
+		list_del(&mem->mem_list_entry);
+		kzfree(mem);
+	}
+
+	list_for_each_entry_safe(mem, tmp, &ch->buff_mem, mem_list_entry) {
+		list_del(&mem->mem_list_entry);
+		kzfree(mem);
+	}
+
+	ipa_eth_net_free_channel(ch);
 }
 
 static int atl_ipa_enable_channel(struct ipa_eth_channel *ch)
@@ -153,7 +280,7 @@ static int atl_ipa_request_event(struct ipa_eth_channel *ch,
 	case IPA_ETH_DEV_EV_RX_INT:
 		if (ch->direction != IPA_ETH_DIR_RX) {
 			dev_err(eth_dev->dev,
-				"Rx interrupt requested on incorrect channel");
+				"Rx interrupt requested on tx channel\n");
 			return -EFAULT;
 		}
 
@@ -166,7 +293,7 @@ static int atl_ipa_request_event(struct ipa_eth_channel *ch,
 	case IPA_ETH_DEV_EV_TX_INT:
 		if (ch->direction != IPA_ETH_DIR_TX) {
 			dev_err(eth_dev->dev,
-				"Tx interrupt requested on incorrect channel");
+				"Tx interrupt requested on rx channel\n");
 			return -EFAULT;
 		}
 
@@ -179,7 +306,7 @@ static int atl_ipa_request_event(struct ipa_eth_channel *ch,
 	case IPA_ETH_DEV_EV_TX_PTR:
 		if (ch->direction != IPA_ETH_DIR_TX) {
 			dev_err(eth_dev->dev,
-				"Tx ptr wrb requested on incorrect channel");
+				"Tx ptr wrb requested on rx channel\n");
 			return -EFAULT;
 		}
 
@@ -190,7 +317,7 @@ static int atl_ipa_request_event(struct ipa_eth_channel *ch,
 		break;
 
 	default:
-		dev_err(eth_dev->dev, "Unsupported event requested");
+		dev_err(eth_dev->dev, "Unsupported event requested\n");
 		return -ENODEV;
 	}
 
@@ -226,7 +353,7 @@ static void atl_ipa_release_event(struct ipa_eth_channel *ch,
 		break;
 
 	default:
-		dev_err(eth_dev->dev, "Unsupported event for release");
+		dev_err(eth_dev->dev, "Unsupported event for release\n");
 		return;
 	}
 

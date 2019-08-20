@@ -293,20 +293,6 @@ int diag_mux_close_peripheral(int proc, uint8_t peripheral)
 	return 0;
 }
 
-int diag_mux_close_device(int proc)
-{
-	struct diag_logger_t *logger = NULL;
-
-	if (!diag_mux)
-		return -EIO;
-
-	logger = diag_mux->logger[proc];
-
-	if (logger && logger->log_ops && logger->log_ops->close_device)
-		logger->log_ops->close_device(proc);
-	return 0;
-}
-
 int diag_mux_switch_logging(int proc, int *req_mode, int *peripheral_mask)
 {
 	unsigned int new_mask = 0;

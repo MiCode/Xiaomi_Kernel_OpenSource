@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -723,33 +723,4 @@
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
 	};
-
-	/* Rome 3.3V supply */
-	vreg_wlan: vreg_wlan {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "vreg_wlan";
-	};
-
-	/* PWR_CTR2_VDD_1P8 supply */
-	vreg_conn_1p8: vreg_conn_1p8 {
-		compatible = "regulator-fixed";
-		regulator-name = "vreg_conn_1p8";
-		pinctrl-names = "default";
-		pinctrl-0 = <&conn_power_1p8_active>;
-		startup-delay-us = <4000>;
-		enable-active-high;
-		gpio = <&tlmm 173 0>;
-	};
-
-	/* PWR_CTR1_VDD_PA supply */
-	vreg_conn_pa: vreg_conn_pa {
-		compatible = "regulator-fixed";
-		regulator-name = "vreg_conn_pa";
-		pinctrl-names = "default";
-		pinctrl-0 = <&conn_power_pa_active>;
-		startup-delay-us = <4000>;
-		enable-active-high;
-		gpio = <&tlmm 174 0>;
-	};
-
 };

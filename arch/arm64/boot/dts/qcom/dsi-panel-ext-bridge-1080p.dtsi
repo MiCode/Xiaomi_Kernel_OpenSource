@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +30,6 @@
 		qcom,mdss-dsi-t-clk-post = <0x03>;
 		qcom,mdss-dsi-t-clk-pre = <0x24>;
 		qcom,mdss-dsi-force-clock-lane-hs;
-		qcom,mdss-dsi-ext-bridge-mode;
 
 		qcom,mdss-dsi-display-timings {
 			timing@0{

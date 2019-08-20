@@ -25,3 +25,7 @@
 &blsp1_uart2b_hs {
 	status = "okay";
 };
+
+&clock_gcc {
+	compatible = "qcom,gcc-sdxprairie-v2", "syscon";
+};

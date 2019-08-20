@@ -54,6 +54,7 @@
 			 0x144 /* GSI_RING_BASE_ADDR_H */
 			 0x1a4>; /* GSI_IF_STS */
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
+		qcom,gsi-disable-io-coherency;
 
 		qcom,msm-bus,name = "usb0";
 		qcom,msm-bus,num-cases = <4>;

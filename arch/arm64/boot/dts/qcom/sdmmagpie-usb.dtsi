@@ -19,6 +19,8 @@
 		reg = <0x0a600000 0x100000>;
 		reg-names = "core_base";
 
+		iommus = <&apps_smmu 0x540 0x0>;
+		qcom,smmu-s1-bypass;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -52,6 +54,7 @@
 			 0x130 /* GSI_RING_BASE_ADDR_L */
 			 0x144 /* GSI_RING_BASE_ADDR_H */
 			 0x1a4>; /* GSI_IF_STS */
+		qcom,gsi-disable-io-coherency;
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 		qcom,pm-qos-latency = <62>;
 

@@ -46,9 +46,9 @@
 			interrupts = <0x4 0x3d 0x0 IRQ_TYPE_NONE>,
 					<0x4 0x3d 0x1 IRQ_TYPE_NONE>,
 					<0x4 0x3d 0x2 IRQ_TYPE_NONE>;
-			interrupt-names = "bcl-vbat-lvl0",
-						"bcl-vbat-lvl1",
-						"bcl-vbat-lvl2";
+			interrupt-names = "bcl-lvl0",
+						"bcl-lvl1",
+						"bcl-lvl2";
 			#thermal-sensor-cells = <1>;
 		};
 
@@ -507,6 +507,54 @@
 			vph_lvl2:vph-lvl2 {
 				temperature = <2500>;
 				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150l-bcl-lvl0 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6150l_bcl 5>;
+		wake-capable-sensor;
+
+		trips {
+			l_bcl_lvl0: l-bcl-lvl0 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150l-bcl-lvl1 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6150l_bcl 6>;
+		wake-capable-sensor;
+
+		trips {
+			l_bcl_lvl1: l-bcl-lvl1 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150l-bcl-lvl2 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6150l_bcl 7>;
+		wake-capable-sensor;
+
+		trips {
+			l_bcl_lvl2: l-bcl-lvl2 {
+				temperature = <1>;
+				hysteresis = <1>;
 				type = "passive";
 			};
 		};

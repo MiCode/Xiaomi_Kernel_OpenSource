@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -627,11 +627,6 @@ void hfi_receiver(unsigned long data)
 	/* Process all asynchronous read (firmware to host) queues */
 	hfi_process_queue((struct gmu_device *) data, HFI_DBG_ID, NULL);
 }
-
-#define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
-#define GMU_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)
-#define GMU_VERSION(major, minor) \
-	((((major) & 0xF) << 28) | (((minor) & 0xFFF) << 16))
 
 static int hfi_verify_fw_version(struct kgsl_device *device,
 		struct gmu_device *gmu)

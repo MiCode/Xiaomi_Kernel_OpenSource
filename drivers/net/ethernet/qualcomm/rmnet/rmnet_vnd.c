@@ -224,6 +224,9 @@ static const char rmnet_gstrings_stats[][ETH_GSTRING_LEN] = {
 };
 
 static const char rmnet_port_gstrings_stats[][ETH_GSTRING_LEN] = {
+	"MAP Cmd last version",
+	"MAP Cmd last ep id",
+	"MAP Cmd last transaction id",
 	"DL header last seen sequence",
 	"DL header last seen bytes",
 	"DL header last seen packets",

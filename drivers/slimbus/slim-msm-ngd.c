@@ -1758,6 +1758,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	bool			rxreg_access = false;
 	bool			slim_mdm = false;
 	const char		*ext_modem_id = NULL;
+	char			ipc_err_log_name[30];
 
 	if (of_device_is_compatible(pdev->dev.of_node,
 				    "qcom,iommu-slim-ctrl-cb"))
@@ -1824,6 +1825,21 @@ static int ngd_slim_probe(struct platform_device *pdev)
 		SLIM_INFO(dev, "start logging for slim dev %s\n",
 				dev_name(dev->dev));
 	}
+
+	/* Create Error IPC log context */
+	memset(ipc_err_log_name, 0, sizeof(ipc_err_log_name));
+	scnprintf(ipc_err_log_name, sizeof(ipc_err_log_name), "%s%s",
+						dev_name(dev->dev), "_err");
+	dev->ipc_slimbus_log_err =
+		ipc_log_context_create(IPC_SLIMBUS_LOG_PAGES,
+						ipc_err_log_name, 0);
+	if (!dev->ipc_slimbus_log_err)
+		dev_err(&pdev->dev,
+			"error creating ipc_error_logging context\n");
+	else
+		SLIM_INFO(dev, "start error logging for slim dev %s\n",
+							ipc_err_log_name);
+
 	ret = sysfs_create_file(&dev->dev->kobj, &dev_attr_debug_mask.attr);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to create dev. attr\n");

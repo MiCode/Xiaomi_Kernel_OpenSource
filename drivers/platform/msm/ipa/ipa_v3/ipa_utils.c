@@ -2825,21 +2825,19 @@ static struct ipa3_mem_partition ipa_4_5_mem_part = {
 	.apps_hdr_size			= 0x200,
 	.apps_hdr_size_ddr		= 0x800,
 	.modem_hdr_proc_ctx_ofst	= 0xad0,
-	.modem_hdr_proc_ctx_size	= 0xac0,
-	.apps_hdr_proc_ctx_ofst		= 0x1590,
+	.modem_hdr_proc_ctx_size	= 0xb20,
+	.apps_hdr_proc_ctx_ofst		= 0x15f0,
 	.apps_hdr_proc_ctx_size		= 0x200,
 	.apps_hdr_proc_ctx_size_ddr	= 0x0,
-	.nat_tbl_ofst			= 0x17a0,
+	.nat_tbl_ofst			= 0x1800,
 	.nat_tbl_size			= 0x800,
-	.nat_index_tbl_ofst		= 0x1fa0,
+	.nat_index_tbl_ofst		= 0x2000,
 	.nat_index_tbl_size		= 0x100,
-	.nat_exp_tbl_ofst		= 0x20a0,
+	.nat_exp_tbl_ofst		= 0x2100,
 	.nat_exp_tbl_size		= 0x400,
-	.pdn_config_ofst		= 0x24a8,
-	.pdn_config_size		= 0x50,
-	.stats_quota_ofst		= 0x2500,
+	.stats_quota_ofst		= 0x2510,
 	.stats_quota_size		= 0x78,
-	.stats_tethering_ofst		= 0x2578,
+	.stats_tethering_ofst		= 0x2588,
 	.stats_tethering_size		= 0x238,
 	.stats_flt_v4_ofst		= 0,
 	.stats_flt_v4_size		= 0,
@@ -2849,13 +2847,13 @@ static struct ipa3_mem_partition ipa_4_5_mem_part = {
 	.stats_rt_v4_size		= 0,
 	.stats_rt_v6_ofst		= 0,
 	.stats_rt_v6_size		= 0,
-	.stats_fnr_ofst			= 0x27b0,
+	.stats_fnr_ofst			= 0x27c0,
 	.stats_fnr_size			= 0x800,
-	.stats_drop_ofst		= 0x2fb0,
+	.stats_drop_ofst		= 0x2fc0,
 	.stats_drop_size		= 0x20,
 	.modem_comp_decomp_ofst		= 0x0,
 	.modem_comp_decomp_size		= 0x0,
-	.modem_ofst			= 0x2fd8,
+	.modem_ofst			= 0x2fe8,
 	.modem_size			= 0x800,
 	.apps_v4_flt_hash_ofst	= 0x2718,
 	.apps_v4_flt_hash_size	= 0x0,
@@ -2875,7 +2873,9 @@ static struct ipa3_mem_partition ipa_4_5_mem_part = {
 	.apps_v6_rt_nhash_size	= 0x0,
 	.uc_descriptor_ram_ofst	= 0x3800,
 	.uc_descriptor_ram_size	= 0x1000,
-	.end_ofst		= 0x4800,
+	.pdn_config_ofst	= 0x4800,
+	.pdn_config_size	= 0x50,
+	.end_ofst		= 0x4850,
 };
 
 
@@ -3528,7 +3528,7 @@ static void ipa_cfg_qtime(void)
 	memset(&gran_cfg, 0, sizeof(gran_cfg));
 	gran_cfg.gran_0 = IPA_TIMERS_TIME_GRAN_100_USEC;
 	gran_cfg.gran_1 = IPA_TIMERS_TIME_GRAN_1_MSEC;
-	gran_cfg.gran_2 = IPA_TIMERS_TIME_GRAN_10_USEC;
+	gran_cfg.gran_2 = IPA_TIMERS_TIME_GRAN_1_MSEC;
 	val = ipahal_read_reg(IPA_TIMERS_PULSE_GRAN_CFG);
 	IPADBG("timer pulse granularity before cfg: 0x%x\n", val);
 	ipahal_write_reg_fields(IPA_TIMERS_PULSE_GRAN_CFG, &gran_cfg);
@@ -4884,6 +4884,11 @@ int ipa3_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ep_holb)
 
 	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n, clnt_hdl,
 		ep_holb);
+
+	/* IPA4.5 issue requires HOLB_EN to be written twice */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n,
+			clnt_hdl, ep_holb);
 
 	/* Configure timer */
 	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_2) {
@@ -7134,6 +7139,8 @@ static int __ipa3_stop_gsi_channel(u32 clnt_hdl)
 	int res = 0;
 	int i;
 	struct ipa3_ep_context *ep;
+	enum ipa_client_type client_type;
+	struct IpaHwOffloadStatsAllocCmdData_t *gsi_info;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -7142,8 +7149,55 @@ static int __ipa3_stop_gsi_channel(u32 clnt_hdl)
 	}
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
+	client_type = ipa3_get_client_mapping(clnt_hdl);
 	memset(&mem, 0, sizeof(mem));
 
+	/* stop uC gsi dbg stats monitor */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 ||
+		(ipa3_ctx->ipa_hw_type == IPA_HW_v4_1 &&
+		ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)) {
+		switch (client_type) {
+		case IPA_CLIENT_MHI_PRIME_TETH_PROD:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_MHIP];
+			gsi_info->ch_id_info[0].ch_id = 0xff;
+			gsi_info->ch_id_info[0].dir = DIR_PRODUCER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_MHI_PRIME_TETH_CONS:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_MHIP];
+			gsi_info->ch_id_info[1].ch_id = 0xff;
+			gsi_info->ch_id_info[1].dir = DIR_CONSUMER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_MHI_PRIME_RMNET_PROD:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_MHIP];
+			gsi_info->ch_id_info[2].ch_id = 0xff;
+			gsi_info->ch_id_info[2].dir = DIR_PRODUCER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_MHI_PRIME_RMNET_CONS:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_MHIP];
+			gsi_info->ch_id_info[3].ch_id = 0xff;
+			gsi_info->ch_id_info[3].dir = DIR_CONSUMER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_USB_PROD:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_USB];
+			gsi_info->ch_id_info[0].ch_id = 0xff;
+			gsi_info->ch_id_info[0].dir = DIR_PRODUCER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_USB_CONS:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_USB];
+			gsi_info->ch_id_info[1].ch_id = 0xff;
+			gsi_info->ch_id_info[1].dir = DIR_CONSUMER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		default:
+			IPADBG("client_type %d not supported\n",
+				client_type);
+		}
+	}
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
 		IPADBG("Calling gsi_stop_channel ch:%lu\n",
 			ep->gsi_chan_hdl);

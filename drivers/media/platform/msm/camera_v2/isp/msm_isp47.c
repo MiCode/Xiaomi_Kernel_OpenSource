@@ -38,7 +38,7 @@
 #define VFE47_STATS_BURST_LEN 3
 #define VFE47_UB_SIZE_VFE0 2048
 #define VFE47_UB_SIZE_VFE1 1536
-#define VFE47_UB_STATS_SIZE 144
+#define VFE47_UB_STATS_SIZE 288
 #define MSM_ISP47_TOTAL_IMAGE_UB_VFE0 (VFE47_UB_SIZE_VFE0 - VFE47_UB_STATS_SIZE)
 #define MSM_ISP47_TOTAL_IMAGE_UB_VFE1 (VFE47_UB_SIZE_VFE1 - VFE47_UB_STATS_SIZE)
 #define VFE47_WM_BASE(idx) (0xA0 + 0x2C * idx)
@@ -1895,30 +1895,37 @@ void msm_vfe47_cfg_axi_ub_equal_default(
 	struct msm_vfe_axi_shared_data *axi_data =
 		&vfe_dev->axi_data;
 	uint32_t total_image_size = 0;
-	uint8_t num_used_wms = 0;
+	uint8_t pix_num_used_wms = 0;
+	uint8_t rdi_num_used_wms = 0;
 	uint32_t prop_size = 0;
 	uint32_t wm_ub_size;
+	uint32_t min_ub;
 	uint64_t delta;
+	uint32_t vfe_ub_size = 0;
 
-	if (frame_src == VFE_PIX_0) {
-		for (i = 0; i < axi_data->hw_info->num_wm; i++) {
-			if (axi_data->free_wm[i] &&
-				SRC_TO_INTF(
-				HANDLE_TO_IDX(axi_data->free_wm[i])) ==
-				VFE_PIX_0) {
-				num_used_wms++;
-				total_image_size +=
-					axi_data->wm_image_size[i];
-			}
+	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
+		if (axi_data->free_wm[i]) {
+		/* separate wm for each interface as min_ub is different for
+		 * both pix and rdi
+		 */
+			if (VFE_PIX_0 == SRC_TO_INTF(
+					HANDLE_TO_IDX(axi_data->free_wm[i])))
+				pix_num_used_wms++;
+			else
+				rdi_num_used_wms++;
+			total_image_size +=
+				axi_data->wm_image_size[i];
 		}
-		ub_offset = (axi_data->hw_info->num_rdi * 2) *
-			axi_data->hw_info->min_wm_ub;
-		prop_size = vfe_dev->hw_info->vfe_ops.axi_ops.get_ub_size(
-					vfe_dev) -
-			axi_data->hw_info->min_wm_ub * (num_used_wms +
-			axi_data->hw_info->num_rdi * 2);
 	}
-
+	/* get ub for each vfe */
+	vfe_ub_size = vfe_dev->hw_info->vfe_ops.axi_ops.get_ub_size(vfe_dev);
+	/* calculate min_ub needed for both pix and rdi wm
+	 * for pix min_ub 96 and rdi 192 as per hw
+	 */
+	min_ub = (axi_data->hw_info->min_wm_ub * pix_num_used_wms) +
+			(axi_data->hw_info->min_wm_ub * 2 * rdi_num_used_wms);
+	/* calculate propotional ub for all wm */
+	prop_size = vfe_ub_size - min_ub;
 	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
 		if (!axi_data->free_wm[i]) {
 			msm_camera_io_w(0,
@@ -1927,57 +1934,27 @@ void msm_vfe47_cfg_axi_ub_equal_default(
 						vfe_dev, i));
 			continue;
 		}
-
-		if (frame_src != SRC_TO_INTF(
+		/* calcualte delta by considering
+		 * wm_image_size + total imagesize
+		 */
+		delta = (uint64_t)axi_data->wm_image_size[i] *
+			(uint64_t)prop_size;
+			do_div(delta, total_image_size);
+		/* to meet hw constraint add min_ub of 192
+		 * for RDI and 96 for pix
+		 */
+		if (VFE_PIX_0 != SRC_TO_INTF(
 			HANDLE_TO_IDX(axi_data->free_wm[i])))
-			continue;
-
-		if (frame_src == VFE_PIX_0) {
-			if (total_image_size) {
-				delta = (uint64_t)axi_data->wm_image_size[i] *
-					(uint64_t)prop_size;
-					do_div(delta, total_image_size);
-				wm_ub_size = axi_data->hw_info->min_wm_ub +
+			wm_ub_size = (axi_data->hw_info->min_wm_ub * 2) +
 					(uint32_t)delta;
-				msm_camera_io_w(ub_offset << 16 |
-					(wm_ub_size - 1),
-					vfe_dev->vfe_base +
-					vfe_dev->hw_info->vfe_ops.axi_ops
-						.ub_reg_offset(vfe_dev, i));
-				ub_offset += wm_ub_size;
-			} else {
-				pr_err("%s: image size is zero\n", __func__);
-			}
-		} else {
-			uint32_t rdi_ub_offset;
-			int plane;
-			int vfe_idx;
-			struct msm_vfe_axi_stream *stream_info;
-
-			stream_info = msm_isp_get_stream_common_data(vfe_dev,
-					HANDLE_TO_IDX(axi_data->free_wm[i]));
-			if (!stream_info) {
-				pr_err("%s: stream_info is NULL!", __func__);
-				return;
-			}
-			vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev,
-							stream_info);
-			for (plane = 0; plane < stream_info->num_planes;
-				plane++)
-				if (stream_info->wm[vfe_idx][plane] ==
-					axi_data->free_wm[i])
-					break;
-
-			rdi_ub_offset = (SRC_TO_INTF(
-					HANDLE_TO_IDX(axi_data->free_wm[i])) -
-					VFE_RAW_0) *
-					axi_data->hw_info->min_wm_ub * 2;
-			wm_ub_size = axi_data->hw_info->min_wm_ub * 2;
-			msm_camera_io_w(rdi_ub_offset << 16 | (wm_ub_size - 1),
-				vfe_dev->vfe_base +
-				vfe_dev->hw_info->vfe_ops.axi_ops.ub_reg_offset(
-							vfe_dev, i));
-		}
+		else
+			wm_ub_size = axi_data->hw_info->min_wm_ub +
+					(uint32_t)delta;
+		msm_camera_io_w(ub_offset << 16 | (wm_ub_size - 1),
+			vfe_dev->vfe_base +
+			vfe_dev->hw_info->vfe_ops.axi_ops.ub_reg_offset(
+				vfe_dev, i));
+		ub_offset += wm_ub_size;
 	}
 }
 

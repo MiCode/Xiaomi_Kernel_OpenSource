@@ -120,14 +120,14 @@ static void coresight_reset_all_sink(void)
 	bus_for_each_dev(&coresight_bustype, NULL, NULL, coresight_reset_sink);
 }
 
-void coresight_enable_reg_clk(struct coresight_device *csdev)
+int coresight_enable_reg_clk(struct coresight_device *csdev)
 {
 	struct coresight_reg_clk *reg_clk = csdev->reg_clk;
 	int ret;
 	int i, j;
 
 	if (IS_ERR_OR_NULL(reg_clk))
-		return;
+		return -EINVAL;
 
 	for (i = 0; i < reg_clk->nr_reg; i++) {
 		ret = regulator_enable(reg_clk->reg[i]);
@@ -141,7 +141,7 @@ void coresight_enable_reg_clk(struct coresight_device *csdev)
 			goto err_clks;
 	}
 
-	return;
+	return 0;
 
 err_clks:
 	for (j--; j >= 0; j--)
@@ -149,6 +149,8 @@ err_clks:
 err_regs:
 	for (i--; i >= 0; i--)
 		regulator_disable(reg_clk->reg[i]);
+
+	return ret;
 }
 EXPORT_SYMBOL(coresight_enable_reg_clk);
 

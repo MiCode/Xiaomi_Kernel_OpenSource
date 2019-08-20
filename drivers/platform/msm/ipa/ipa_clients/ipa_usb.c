@@ -2530,17 +2530,6 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		if (orig_state != IPA_USB_SUSPENDED) {
 			spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock,
 				flags);
-
-			/* Stop UL MHIP channel */
-			if (ipa3_is_mhip_offload_enabled()) {
-				result = ipa_mpm_mhip_ul_start_stop_data(
-						MPM_MHIP_STOP, teth_prot);
-				if (result) {
-					IPA_USB_ERR("fail UL MHIP Data stop\n");
-					goto bad_params;
-				}
-			}
-
 			/* Stop UL channel */
 			result = ipa3_xdci_disconnect(ul_clnt_hdl,
 				true,
@@ -2745,21 +2734,12 @@ static int ipa3_usb_suspend_no_remote_wakeup(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	}
 
 	if (!IPA3_USB_IS_TTYPE_DPL(ttype)) {
-		/* Stop UL MHIP channel - enable HOLB */
-		if (ipa3_is_mhip_offload_enabled()) {
-			result = ipa_mpm_mhip_ul_start_stop_data(MPM_MHIP_STOP,
-								teth_prot);
-			if (result) {
-				IPA_USB_ERR("fail UL MHIP Data stop\n");
-				goto start_dl;
-			}
-		}
 		/* Stop UL channel */
 		result = ipa3_xdci_disconnect(ul_clnt_hdl, true,
 			ipa3_usb_ctx->qmi_req_id);
 		if (result) {
 			IPA_USB_ERR("failed disconnect UL channel\n");
-			goto start_mhip;
+			goto start_dl;
 		}
 		ipa3_usb_ctx->qmi_req_id++;
 	}
@@ -2803,10 +2783,6 @@ enable_mhip:
 start_ul:
 	if (!IPA3_USB_IS_TTYPE_DPL(ttype))
 		(void)ipa3_xdci_connect(ul_clnt_hdl);
-start_mhip:
-	if (ipa3_is_mhip_offload_enabled() && !IPA3_USB_IS_TTYPE_DPL(ttype))
-		(void)ipa_mpm_mhip_ul_start_stop_data(MPM_MHIP_START,
-							teth_prot);
 start_dl:
 	(void)ipa3_xdci_connect(dl_clnt_hdl);
 fail_exit:
@@ -2969,19 +2945,10 @@ static int ipa3_usb_resume_no_remote_wakeup(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 
 	/* Start MHIP channel */
 	if (ipa3_is_mhip_offload_enabled()) {
-		if (!IPA3_USB_IS_TTYPE_DPL(ttype)) {
-			/* Start UL MHIP channel */
-			result = ipa_mpm_mhip_ul_start_stop_data(MPM_MHIP_START,
-								teth_prot);
-			if (result) {
-				IPA_USB_ERR("fail UL MHIP Data Start\n");
-				goto stop_dl;
-			}
-		}
 		result = ipa_mpm_mhip_xdci_pipe_enable(teth_prot);
 		if (result) {
 			IPA_USB_ERR("failed to enable MHIP pipe\n");
-			goto stop_mhip_data;
+			goto stop_dl;
 		}
 	}
 	/* Change state to CONNECTED */
@@ -2995,11 +2962,6 @@ static int ipa3_usb_resume_no_remote_wakeup(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 stop_mhip:
 	if (ipa3_is_mhip_offload_enabled())
 		(void)ipa_mpm_mhip_xdci_pipe_disable(teth_prot);
-stop_mhip_data:
-	/* Stop UL MHIP data */
-	if (ipa3_is_mhip_offload_enabled() && !IPA3_USB_IS_TTYPE_DPL(ttype))
-		(void)ipa_mpm_mhip_ul_start_stop_data(MPM_MHIP_STOP,
-							teth_prot);
 stop_dl:
 	(void)ipa3_xdci_disconnect(dl_clnt_hdl, false, -1);
 stop_ul:
@@ -3212,6 +3174,53 @@ static void ipa3_usb_exit(void)
 	ipa_usb_debugfs_remove();
 	kfree(ipa3_usb_ctx);
 }
+
+/**
+ * ipa3_get_usb_gsi_stats() - Query USB gsi stats from uc
+ * @stats:	[inout] stats blob from client populated by driver
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * @note Cannot be called from atomic context
+ *
+ */
+int ipa3_get_usb_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats)
+{
+	int i;
+
+	if (!ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio) {
+		IPAERR("bad parms NULL usb_gsi_stats_mmio\n");
+		return -EINVAL;
+	}
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	for (i = 0; i < MAX_USB_CHANNELS; i++) {
+		stats->ring[i].ringFull = ioread32(
+			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGFULL_OFF);
+		stats->ring[i].ringEmpty = ioread32(
+			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGEMPTY_OFF);
+		stats->ring[i].ringUsageHigh = ioread32(
+			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUSAGEHIGH_OFF);
+		stats->ring[i].ringUsageLow = ioread32(
+			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUSAGELOW_OFF);
+		stats->ring[i].RingUtilCount = ioread32(
+			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUTILCOUNT_OFF);
+	}
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+
+
+	return 0;
+}
+
 
 arch_initcall(ipa3_usb_init);
 module_exit(ipa3_usb_exit);

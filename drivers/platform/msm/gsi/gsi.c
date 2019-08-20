@@ -2395,7 +2395,8 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
 
 	if (erindex < GSI_EVT_RING_MAX) {
 		ctx->evtr = &gsi_ctx->evtr[erindex];
-		atomic_inc(&ctx->evtr->chan_ref_cnt);
+		if (props->prot != GSI_CHAN_PROT_GCI)
+			atomic_inc(&ctx->evtr->chan_ref_cnt);
 		if (props->prot != GSI_CHAN_PROT_GCI &&
 			ctx->evtr->props.exclusive &&
 			atomic_read(&ctx->evtr->chan_ref_cnt) == 1)
@@ -3109,7 +3110,7 @@ int gsi_dealloc_channel(unsigned long chan_hdl)
 	}
 	devm_kfree(gsi_ctx->dev, ctx->user_data);
 	ctx->allocated = false;
-	if (ctx->evtr)
+	if (ctx->evtr && (ctx->props.prot != GSI_CHAN_PROT_GCI))
 		atomic_dec(&ctx->evtr->chan_ref_cnt);
 	atomic_dec(&gsi_ctx->num_chan);
 
@@ -3338,8 +3339,8 @@ int __gsi_get_gci_cookie(struct gsi_chan_ctx *ctx, uint16_t idx)
 	 * idx is not completed yet and it is getting reused by a new TRE.
 	 */
 	ctx->stats.userdata_in_use++;
+	end = ctx->ring.max_num_elem + 1;
 	for (i = 0; i < GSI_VEID_MAX; i++) {
-		end = ctx->ring.max_num_elem + 1;
 		if (!ctx->user_data[end + i].valid) {
 			ctx->user_data[end + i].valid = true;
 			return end + i;
@@ -3348,7 +3349,7 @@ int __gsi_get_gci_cookie(struct gsi_chan_ctx *ctx, uint16_t idx)
 
 	/* TODO: Increase escape buffer size if we hit this */
 	GSIERR("user_data is full\n");
-	return -EPERM;
+	return 0xFFFF;
 }
 
 int __gsi_populate_gci_tre(struct gsi_chan_ctx *ctx,
@@ -3379,7 +3380,7 @@ int __gsi_populate_gci_tre(struct gsi_chan_ctx *ctx,
 	gci_tre.buf_len = xfer->len;
 	gci_tre.re_type = GSI_RE_COAL;
 	gci_tre.cookie = __gsi_get_gci_cookie(ctx, idx);
-	if (gci_tre.cookie < 0)
+	if (gci_tre.cookie > (ctx->ring.max_num_elem + GSI_VEID_MAX))
 		return -EPERM;
 
 	/* write the TRE to ring */
@@ -3693,6 +3694,8 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 		gsi_writel(1 << ctx->evtr->id, gsi_ctx->base +
 			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(gsi_ctx->per.ee));
 		atomic_set(&ctx->poll_mode, mode);
+		if (ctx->props.prot == GSI_CHAN_PROT_GCI)
+			atomic_set(&ctx->evtr->chan->poll_mode, mode);
 		GSIDBG("set gsi_ctx evtr_id %d to %d mode\n",
 			ctx->evtr->id, mode);
 		ctx->stats.callback_to_poll++;
@@ -3701,6 +3704,8 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 	if (curr == GSI_CHAN_MODE_POLL &&
 			mode == GSI_CHAN_MODE_CALLBACK) {
 		atomic_set(&ctx->poll_mode, mode);
+		if (ctx->props.prot == GSI_CHAN_PROT_GCI)
+			atomic_set(&ctx->evtr->chan->poll_mode, mode);
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, ~0);
 		GSIDBG("set gsi_ctx evtr_id %d to %d mode\n",
 			ctx->evtr->id, mode);

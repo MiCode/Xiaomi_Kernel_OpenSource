@@ -3243,6 +3243,97 @@ static struct clk_branch gcc_usb2_sec_clkref_clk = {
 	},
 };
 
+static struct clk_branch gcc_sdr_core_clk = {
+	.halt_reg = 0x46004,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x46004,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_sdr_core_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_sdr_wr0_mem_clk = {
+	.halt_reg = 0x46008,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x46008,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_sdr_wr0_mem_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_sdr_wr1_mem_clk = {
+	.halt_reg = 0x46010,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x46010,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_sdr_wr1_mem_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_sdr_wr2_mem_clk = {
+	.halt_reg = 0x46018,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x46018,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_sdr_wr2_mem_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_sdr_csr_hclk = {
+	.halt_reg = 0x46020,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x46020,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_sdr_csr_hclk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_sdr_pri_mi2s_clk = {
+	.halt_reg = 0x46024,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x46024,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_sdr_pri_mi2s_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_sdr_sec_mi2s_clk = {
+	.halt_reg = 0x46028,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x46028,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_sdr_sec_mi2s_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 /* Measure-only clock for ddrss_gcc_debug_clk. */
 static struct clk_dummy measure_only_mccc_clk = {
 	.rrate = 1000,
@@ -3465,6 +3556,13 @@ static struct clk_regmap *gcc_sm6150_clocks[] = {
 	[GCC_RX3_USB2_CLKREF_CLK] = &gcc_rx3_usb2_clkref_clk.clkr,
 	[GCC_USB2_PRIM_CLKREF_CLK] = &gcc_usb2_prim_clkref_clk.clkr,
 	[GCC_USB2_SEC_CLKREF_CLK] = &gcc_usb2_sec_clkref_clk.clkr,
+	[GCC_SDR_CORE_CLK] = &gcc_sdr_core_clk.clkr,
+	[GCC_SDR_WR0_MEM_CLK] = &gcc_sdr_wr0_mem_clk.clkr,
+	[GCC_SDR_WR1_MEM_CLK] = &gcc_sdr_wr1_mem_clk.clkr,
+	[GCC_SDR_WR2_MEM_CLK] = &gcc_sdr_wr2_mem_clk.clkr,
+	[GCC_SDR_CSR_HCLK] = &gcc_sdr_csr_hclk.clkr,
+	[GCC_SDR_PRI_MI2S_CLK] = &gcc_sdr_pri_mi2s_clk.clkr,
+	[GCC_SDR_SEC_MI2S_CLK] = &gcc_sdr_sec_mi2s_clk.clkr,
 };
 
 static const struct qcom_reset_map gcc_sm6150_resets[] = {

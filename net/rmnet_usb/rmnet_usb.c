@@ -428,6 +428,14 @@ static const struct usb_device_id rmnet_usb_ids[] = {
 		USB_DEVICE_INTERFACE_NUMBER(RMNET_VENDOR_ID, 0x90F3, 1),
 		.driver_info = (unsigned long)&rmnet_usb_info,
 	},
+	{
+		USB_DEVICE_INTERFACE_NUMBER(RMNET_VENDOR_ID, 0x90FD, 2),
+		.driver_info = (unsigned long)&rmnet_usb_info,
+	},
+	{
+		USB_DEVICE_INTERFACE_NUMBER(RMNET_VENDOR_ID, 0x90FD, 3),
+		.driver_info = (unsigned long)&rmnet_usb_info,
+	},
 	{ } /* Terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, rmnet_usb_ids);
