@@ -285,6 +285,32 @@ static const struct debugfs_reg32 dwc3_regs[] = {
 	dump_register(OSTS),
 };
 
+static int dwc3_regdump_show(struct seq_file *s, void *unused)
+{
+	struct dwc3		*dwc = s->private;
+
+	if (atomic_read(&dwc->in_lpm)) {
+		seq_puts(s, "USB device is powered off\n");
+		return 0;
+	}
+
+	debugfs_print_regs32(s, dwc->regset->regs, dwc->regset->nregs,
+				dwc->regset->base, "");
+	return 0;
+}
+
+static int dwc3_regdump_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, dwc3_regdump_show, inode->i_private);
+}
+
+static const struct file_operations dwc3_regdump_fops = {
+	.open			= dwc3_regdump_open,
+	.read			= seq_read,
+	.llseek			= seq_lseek,
+	.release		= single_release,
+};
+
 static int dwc3_mode_show(struct seq_file *s, void *unused)
 {
 	struct dwc3		*dwc = s->private;
@@ -1018,7 +1044,8 @@ void dwc3_debugfs_init(struct dwc3 *dwc)
 	dwc->regset->nregs = ARRAY_SIZE(dwc3_regs);
 	dwc->regset->base = dwc->regs - DWC3_GLOBALS_REGS_START;
 
-	file = debugfs_create_regset32("regdump", S_IRUGO, root, dwc->regset);
+	file = debugfs_create_file("regdump", 0444, root, dwc,
+			&dwc3_regdump_fops);
 	if (!file)
 		dev_dbg(dwc->dev, "Can't create debugfs regdump\n");
 
