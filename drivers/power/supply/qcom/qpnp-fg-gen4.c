@@ -299,6 +299,7 @@ struct fg_gen4_chip {
 	int			soc_scale_msoc;
 	int			prev_soc_scale_msoc;
 	int			soc_scale_slope;
+	int			msoc_actual;
 	int			vbatt_avg;
 	int			vbatt_now;
 	int			vbatt_res;
@@ -1048,7 +1049,7 @@ static int fg_gen4_get_prop_soc_scale(struct fg_gen4_chip *chip)
 	chip->vbatt_now = DIV_ROUND_CLOSEST(chip->vbatt_now, 1000);
 	chip->vbatt_avg = DIV_ROUND_CLOSEST(chip->vbatt_avg, 1000);
 	chip->vbatt_res = chip->vbatt_avg - chip->dt.cutoff_volt_mv;
-	pr_debug("FVSS: Vbatt now=%d Vbatt avg=%d Vbatt res=%d\n",
+	fg_dbg(fg, FG_FVSS, "Vbatt now=%d Vbatt avg=%d Vbatt res=%d\n",
 		chip->vbatt_now, chip->vbatt_avg, chip->vbatt_res);
 
 	return rc;
@@ -3114,7 +3115,7 @@ static int fg_gen4_enter_soc_scale(struct fg_gen4_chip *chip)
 	}
 
 	chip->soc_scale_mode = true;
-	pr_debug("FVSS: Enter FVSS mode, SOC=%d slope=%d timer=%d\n", soc,
+	fg_dbg(fg, FG_FVSS, "Enter FVSS mode, SOC=%d slope=%d timer=%d\n", soc,
 		chip->soc_scale_slope, chip->scale_timer);
 	alarm_start_relative(&chip->soc_scale_alarm_timer,
 				ms_to_ktime(chip->scale_timer));
@@ -3144,6 +3145,8 @@ static void fg_gen4_write_scale_msoc(struct fg_gen4_chip *chip)
 
 static void fg_gen4_exit_soc_scale(struct fg_gen4_chip *chip)
 {
+	struct fg_dev *fg = &chip->fg;
+
 	if (chip->soc_scale_mode) {
 		alarm_cancel(&chip->soc_scale_alarm_timer);
 		cancel_work(&chip->soc_scale_work);
@@ -3152,13 +3155,13 @@ static void fg_gen4_exit_soc_scale(struct fg_gen4_chip *chip)
 	}
 
 	chip->soc_scale_mode = false;
-	pr_debug("FVSS: Exit FVSS mode\n");
+	fg_dbg(fg, FG_FVSS, "Exit FVSS mode\n");
 }
 
 static int fg_gen4_validate_soc_scale_mode(struct fg_gen4_chip *chip)
 {
 	struct fg_dev *fg = &chip->fg;
-	int rc, msoc_actual;
+	int rc;
 
 	if (!chip->dt.soc_scale_mode)
 		return 0;
@@ -3169,7 +3172,7 @@ static int fg_gen4_validate_soc_scale_mode(struct fg_gen4_chip *chip)
 		goto fail_soc_scale;
 	}
 
-	rc = fg_get_msoc(fg, &msoc_actual);
+	rc = fg_get_msoc(fg, &chip->msoc_actual);
 	if (rc < 0) {
 		pr_err("Failed to get msoc rc=%d\n", rc);
 		goto fail_soc_scale;
@@ -3188,7 +3191,7 @@ static int fg_gen4_validate_soc_scale_mode(struct fg_gen4_chip *chip)
 		 * Stay in SOC scale mode till H/W SOC catch scaled SOC
 		 * while charging.
 		 */
-		if (msoc_actual >= chip->soc_scale_msoc)
+		if (chip->msoc_actual >= chip->soc_scale_msoc)
 			fg_gen4_exit_soc_scale(chip);
 	}
 
@@ -3865,8 +3868,24 @@ static void soc_scale_work(struct work_struct *work)
 	mutex_lock(&chip->soc_scale_lock);
 	soc = DIV_ROUND_CLOSEST(chip->vbatt_res,
 				chip->soc_scale_slope);
-	/* If calculated SOC is higher than current SOC, report current SOC */
-	if (soc > chip->prev_soc_scale_msoc) {
+	chip->soc_scale_msoc = soc;
+	chip->scale_timer = chip->dt.scale_timer_ms;
+
+	fg_dbg(fg, FG_FVSS, "soc: %d last soc: %d msoc_actual: %d\n", soc,
+			chip->prev_soc_scale_msoc, chip->msoc_actual);
+	if ((chip->prev_soc_scale_msoc - chip->msoc_actual) > soc_thr_percent) {
+		/*
+		 * If difference between previous SW calculated SOC and HW SOC
+		 * is higher than SOC threshold, then handle this by
+		 * showing previous SW SOC - SOC threshold.
+		 */
+		chip->soc_scale_msoc = chip->prev_soc_scale_msoc -
+					soc_thr_percent;
+	} else if (soc > chip->prev_soc_scale_msoc) {
+		/*
+		 * If calculated SOC is higher than current SOC, report current
+		 * SOC
+		 */
 		chip->soc_scale_msoc = chip->prev_soc_scale_msoc;
 		chip->scale_timer = chip->dt.scale_timer_ms;
 	} else if ((chip->prev_soc_scale_msoc - soc) > soc_thr_percent) {
@@ -3881,9 +3900,6 @@ static void soc_scale_work(struct work_struct *work)
 					soc_thr_percent;
 		chip->scale_timer = chip->dt.scale_timer_ms /
 				(chip->prev_soc_scale_msoc - soc);
-	} else {
-		chip->soc_scale_msoc = soc;
-		chip->scale_timer = chip->dt.scale_timer_ms;
 	}
 
 	if (chip->soc_scale_msoc < 0)
@@ -3896,7 +3912,7 @@ static void soc_scale_work(struct work_struct *work)
 	}
 
 	chip->prev_soc_scale_msoc = chip->soc_scale_msoc;
-	pr_debug("FVSS: Calculated SOC=%d SOC reported=%d timer resolution=%d\n",
+	fg_dbg(fg, FG_FVSS, "Calculated SOC=%d SOC reported=%d timer resolution=%d\n",
 		soc, chip->soc_scale_msoc, chip->scale_timer);
 	alarm_start_relative(&chip->soc_scale_alarm_timer,
 				ms_to_ktime(chip->scale_timer));
