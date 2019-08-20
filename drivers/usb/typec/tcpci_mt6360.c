@@ -115,8 +115,8 @@ static int mt6360_tcpc_init(struct tcpci *tcpci, struct tcpci_data *data)
 				 MT6360_RPONESHOT_ENABLE);
 	if (ret < 0)
 		return ret;
-	/* Set shipping mode off, AUTOIDLE off */
-	return regmap_write(data->regmap, MT6360_REG_MODECTRL2, 0x72);
+	/* Set shipping mode off, AUTOIDLE on */
+	return regmap_write(data->regmap, MT6360_REG_MODECTRL2, 0x7A);
 }
 
 static int mt6360_tcpc_set_vbus(struct tcpci *tcpci,
