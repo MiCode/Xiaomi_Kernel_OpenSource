@@ -3699,9 +3699,13 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	err = ufshcd_get_read_lock(hba, cmd->device->lun);
 	if (unlikely(err < 0)) {
 		if (err == -EPERM) {
-			set_host_byte(cmd, DID_ERROR);
-			cmd->scsi_done(cmd);
-			return 0;
+			if (!ufshcd_vops_crypto_engine_get_req_status(hba)) {
+				set_host_byte(cmd, DID_ERROR);
+				cmd->scsi_done(cmd);
+				return 0;
+			} else {
+				return SCSI_MLQUEUE_HOST_BUSY;
+			}
 		}
 		if (err == -EAGAIN)
 			return SCSI_MLQUEUE_HOST_BUSY;
