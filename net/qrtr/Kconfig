@@ -60,4 +60,11 @@ config QRTR_MHI_DEV
 	  connections.  This driver enables QRTR to run on the modem device
 	  side.
 
+config QRTR_USB_DEV
+	tristate "USB Device IPC Router channels"
+	depends on USB_CONFIGFS_F_IPC || (COMPILE_TEST && USB_CONFIGFS_F_IPC=n)
+	---help---
+	  Say Y here to support USB device based ipcrouter channels.
+	  This driver enables QRTR to run on the modem device.
+
 endif # QRTR
