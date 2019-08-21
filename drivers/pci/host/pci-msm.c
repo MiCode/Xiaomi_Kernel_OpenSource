@@ -653,6 +653,7 @@ struct msm_pcie_dev_t {
 	unsigned long		    irqsave_flags;
 	struct mutex			enumerate_lock;
 	struct mutex		     setup_lock;
+	struct mutex			clk_lock;
 
 	struct irq_domain		*irq_domain;
 
@@ -816,6 +817,7 @@ static struct msm_pcie_device_info
 /* PCIe driver state */
 static struct pcie_drv_sta {
 	u32 rc_num;
+	u32 rate_change_vote; /* each bit corresponds to RC vote for 100MHz */
 	struct mutex drv_lock;
 } pcie_drv;
 
@@ -3156,6 +3158,12 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 			msm_pcie_config_clock_mem(dev, info);
 
 		if (info->freq) {
+			if (!strcmp(info->name, "pcie_phy_refgen_clk")) {
+				mutex_lock(&dev->clk_lock);
+				pcie_drv.rate_change_vote |= BIT(dev->rc_idx);
+				mutex_unlock(&dev->clk_lock);
+			}
+
 			rc = clk_set_rate(info->hdl, info->freq);
 			if (rc) {
 				PCIE_ERR(dev,
@@ -3243,6 +3251,17 @@ static void msm_pcie_clk_deinit(struct msm_pcie_dev_t *dev)
 	for (i = 0; i < MSM_PCIE_MAX_CLK; i++)
 		if (dev->clk[i].hdl)
 			clk_disable_unprepare(dev->clk[i].hdl);
+
+	if (dev->rate_change_clk) {
+		mutex_lock(&dev->clk_lock);
+
+		pcie_drv.rate_change_vote &= ~BIT(dev->rc_idx);
+		if (!pcie_drv.rate_change_vote)
+			clk_set_rate(dev->rate_change_clk->hdl,
+					RATE_CHANGE_19P2MHZ);
+
+		mutex_unlock(&dev->clk_lock);
+	}
 
 	if (dev->bus_client) {
 		PCIE_DBG(dev, "PCIe: removing bus vote for RC%d\n",
@@ -6127,9 +6146,15 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 						RPMH_REGULATOR_LEVEL_NOM,
 						pcie_dev->cx_vreg->max_v);
 
-		if (pcie_dev->rate_change_clk)
+		if (pcie_dev->rate_change_clk) {
+			mutex_lock(&pcie_dev->clk_lock);
+
+			pcie_drv.rate_change_vote |= BIT(pcie_dev->rc_idx);
 			clk_set_rate(pcie_dev->rate_change_clk->hdl,
 					RATE_CHANGE_100MHZ);
+
+			mutex_unlock(&pcie_dev->clk_lock);
+		}
 	}
 
 	ret = msm_pcie_link_retrain(pcie_dev, root_pci_dev);
@@ -6144,9 +6169,18 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 						RPMH_REGULATOR_LEVEL_LOW_SVS,
 						pcie_dev->cx_vreg->max_v);
 
-		if (pcie_dev->rate_change_clk)
-			clk_set_rate(pcie_dev->rate_change_clk->hdl,
-					RATE_CHANGE_19P2MHZ);
+		if (pcie_dev->rate_change_clk) {
+			mutex_lock(&pcie_dev->clk_lock);
+
+			pcie_drv.rate_change_vote &= ~BIT(pcie_dev->rc_idx);
+
+			/* only switch to 19.2MHz if no one needs 100MHz */
+			if (!pcie_drv.rate_change_vote)
+				clk_set_rate(pcie_dev->rate_change_clk->hdl,
+						RATE_CHANGE_19P2MHZ);
+
+			mutex_unlock(&pcie_dev->clk_lock);
+		}
 	}
 
 	return 0;
@@ -6409,6 +6443,7 @@ static int __init pcie_init(void)
 		msm_pcie_dev[i].cfg_access = true;
 		mutex_init(&msm_pcie_dev[i].enumerate_lock);
 		mutex_init(&msm_pcie_dev[i].setup_lock);
+		mutex_init(&msm_pcie_dev[i].clk_lock);
 		mutex_init(&msm_pcie_dev[i].recovery_lock);
 		spin_lock_init(&msm_pcie_dev[i].wakeup_lock);
 		spin_lock_init(&msm_pcie_dev[i].irq_lock);
