@@ -214,27 +214,24 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 
 	of_for_each_phandle(
 		&it, ret, pdev->dev.of_node, "mediatek,larbs", NULL, 0) {
-		struct of_phandle_args spec;
+		struct device_node *np;
 		struct platform_device *larb_pdev;
 
-		if (of_phandle_iterator_args(&it, spec.args, MAX_PHANDLE_ARGS))
+		np = of_node_get(it.node);
+		if (!of_device_is_available(np))
 			continue;
 
-		spec.np = of_node_get(it.node);
-		if (!of_device_is_available(spec.np))
-			continue;
-
-		larb_pdev = of_find_device_by_node(spec.np);
+		larb_pdev = of_find_device_by_node(np);
 		if (!larb_pdev) {
 			larb_pdev = of_platform_device_create(
-				spec.np, NULL, platform_bus_type.dev_root);
+				np, NULL, platform_bus_type.dev_root);
 			if (!larb_pdev || !larb_pdev->dev.driver) {
-				of_node_put(spec.np);
+				of_node_put(np);
 				return -EPROBE_DEFER;
 			}
 		}
 
-		if (of_property_read_u32(spec.np, "mediatek,larb-id", &id))
+		if (of_property_read_u32(np, "mediatek,larb-id", &id))
 			id = num_larbs;
 		smi_imu.larb_imu[id].dev = &larb_pdev->dev;
 		num_larbs += 1;
@@ -395,6 +392,7 @@ err:
 	icc_provider_del(&mmqos->prov);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(mtk_mmqos_probe);
 
 int mtk_mmqos_remove(struct platform_device *pdev)
 {
@@ -410,3 +408,4 @@ int mtk_mmqos_remove(struct platform_device *pdev)
 	destroy_workqueue(mmqos->wq);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mtk_mmqos_remove);

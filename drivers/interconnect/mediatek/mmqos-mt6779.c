@@ -370,7 +370,7 @@ static const struct of_device_id mtk_mmqos_mt6779_of_ids[] = {
 	},
 	{}
 };
-MODULE_DEVICE_TABLE(of, mtk_mt6779_mmqos_of_ids);
+MODULE_DEVICE_TABLE(of, mtk_mmqos_mt6779_of_ids);
 
 static struct platform_driver mtk_mmqos_mt6779_driver = {
 	.probe = mtk_mmqos_probe,

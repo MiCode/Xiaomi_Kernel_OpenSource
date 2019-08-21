@@ -17,7 +17,7 @@ config INTERCONNECT_MTK_EMI
 	  appropriate DRAM frequency to fulfill this bandwidth request.
 
 config INTERCONNECT_MTK_MMQOS_COMMON
-	bool "Mediatek MMQoS support"
+	tristate "Mediatek MMQoS support"
 	help
 	  Support for multimedia QoS in Mediatek's SoCs.
 	  The Mediatek MMQoS(Multimedia Quality of Service) Interconnect
