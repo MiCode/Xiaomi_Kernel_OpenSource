@@ -1,0 +1,42 @@
+* Qualcomm Technologies, Inc. Application CPU clock driver
+
+clock-a7 is the driver for the Root Clock Generator (rcg) hw which controls
+the cpu rate. RCGs support selecting one of several clock inputs, as well as
+a configurable divider. This hw is different than normal rcgs in that it may
+optionally have a register which encodes the maximum rate supported by hw.
+
+Required properties:
+- compatible: "qcom,clock-a7-mdm9607"
+- reg: pairs of physical address and region size
+- reg-names: "rcg-base" is expected
+- clock-names: list of names of clock inputs
+- qcom,speedX-bin-vZ:
+		A table of CPU frequency (Hz) to regulator voltage (uV) mapping.
+		Format: <freq uV>
+		This represents the max frequency possible for each possible
+		power configuration for a CPU that's binned as speed bin X,
+		speed bin revision Z. Speed bin values can be between [0-7]
+		and the version can be between [0-3].
+
+- cpu-vdd-supply: regulator phandle for cpu power domain.
+
+Optional properties:
+- reg-names: "efuse", "efuse1"
+- qcom,safe-freq: Frequency in HZ
+		When switching rates from A to B, the mux div clock will
+		instead switch from A -> safe_freq -> B.
+- qcom,enable-opp: This will allow to register the cpu clock with OPP
+		framework.
+
+Example:
+	qcom,acpuclk@f9011050 {
+		compatible = "qcom,clock-a7-8226";
+		reg = <0xf9011050 0x8>;
+		reg-names = "rcg_base";
+		cpu-vdd-supply = <&apc_vreg_corner>;
+
+		clock-names = "clk-4", "clk-5";
+		qcom,speed0-bin-v0 =
+			<384000000 1150000>,
+			<600000000 1200000>;
+	};
