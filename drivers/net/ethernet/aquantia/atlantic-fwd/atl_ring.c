@@ -21,6 +21,7 @@
 #include <uapi/linux/udp.h>
 
 #include "atl_trace.h"
+#include "atl_fwdnl.h"
 
 #define atl_update_ring_stat(ring, stat, delta)			\
 do {								\
@@ -112,7 +113,7 @@ static netdev_tx_t atl_map_xmit_skb(struct sk_buff *skb,
 	int idx = ring->tail;
 	struct device *dev = ring->qvec->dev;
 	struct atl_tx_desc *desc = &ring->desc.tx;
-	struct skb_frag_struct *frag;
+	skb_frag_t *frag;
 	/* Header's DMA mapping must be stored in the txbuf that has
 	 * ->skb set, even if it corresponds to the context
 	 * descriptor and not the first data descriptor
@@ -262,6 +263,11 @@ netdev_tx_t atl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 	if (nic->priv_flags & ATL_PF_BIT(LPB_NET_DMA))
 		return NETDEV_TX_BUSY;
+
+#ifdef CONFIG_ATLFWD_FWD_NETLINK
+	if (atlfwd_nl_is_redirected(skb, ndev))
+		return atlfwd_nl_xmit(skb, ndev);
+#endif
 
 	if (tx_full(ring, skb_shinfo(skb)->nr_frags + 4)) {
 		atl_update_ring_stat(ring, tx.tx_busy, 1);

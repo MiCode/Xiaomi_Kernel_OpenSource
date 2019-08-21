@@ -18,73 +18,18 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.0.25"
+#define ATL_VERSION "1.0.26"
 
 struct atl_nic;
 enum atl_fwd_notify;
 
 #include "atl_compat.h"
 #include "atl_hw.h"
+#include "atl_stats.h"
 
 #define ATL_MAX_QUEUES 8
 
 #include "atl_fwd.h"
-
-struct atl_rx_ring_stats {
-	uint64_t packets;
-	uint64_t bytes;
-	uint64_t linear_dropped;
-	uint64_t alloc_skb_failed;
-	uint64_t reused_head_page;
-	uint64_t reused_data_page;
-	uint64_t alloc_head_page;
-	uint64_t alloc_data_page;
-	uint64_t alloc_head_page_failed;
-	uint64_t alloc_data_page_failed;
-	uint64_t non_eop_descs;
-	uint64_t mac_err;
-	uint64_t csum_err;
-	uint64_t multicast;
-};
-
-struct atl_tx_ring_stats {
-	uint64_t packets;
-	uint64_t bytes;
-	uint64_t tx_busy;
-	uint64_t tx_restart;
-	uint64_t dma_map_failed;
-};
-
-struct atl_ring_stats {
-	union {
-		struct atl_rx_ring_stats rx;
-		struct atl_tx_ring_stats tx;
-	};
-};
-
-struct atl_ether_stats {
-	uint64_t rx_pause;
-	uint64_t tx_pause;
-	uint64_t rx_ether_drops;
-	uint64_t rx_ether_octets;
-	uint64_t rx_ether_pkts;
-	uint64_t rx_ether_broacasts;
-	uint64_t rx_ether_multicasts;
-	uint64_t rx_ether_crc_align_errs;
-	uint64_t rx_filter_host;
-	uint64_t rx_filter_lost;
-};
-
-struct atl_global_stats {
-	struct atl_rx_ring_stats rx;
-	struct atl_tx_ring_stats tx;
-
-	/* MSM counters can't be reset without full HW reset, so
-	 * store them in relative form:
-	 * eth[i] == HW_counter - eth_base[i] */
-	struct atl_ether_stats eth;
-	struct atl_ether_stats eth_base;
-};
 
 enum {
 	ATL_RXF_VLAN_BASE = 0,

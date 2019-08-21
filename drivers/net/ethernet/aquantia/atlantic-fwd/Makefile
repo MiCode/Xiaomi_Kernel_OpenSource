@@ -39,6 +39,7 @@ atlantic-fwd-objs := atl_fw.o \
 		     atl_hwmon.o
 
 atlantic-fwd-$(CONFIG_ATLFWD_FWD) += atl_fwd.o
+atlantic-fwd-$(CONFIG_ATLFWD_FWD_NETLINK) += atl_fwdnl.o
 
 atlantic-fwd-$(CONFIG_AQFWD_QCOM) += atl_qcom.o
 atlantic-fwd-$(CONFIG_AQFWD_QCOM_IPA) += atl_qcom_ipa.o

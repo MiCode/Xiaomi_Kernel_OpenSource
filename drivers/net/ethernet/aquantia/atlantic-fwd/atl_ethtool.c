@@ -12,6 +12,7 @@
 
 #include "atl_common.h"
 #include "atl_ring.h"
+#include "atl_fwdnl.h"
 
 static uint32_t atl_ethtool_get_link(struct net_device *ndev)
 {
@@ -639,8 +640,13 @@ static int atl_get_sset_count(struct net_device *ndev, int sset)
 	switch (sset) {
 	case ETH_SS_STATS:
 		return ARRAY_SIZE(tx_stat_descs) * (nic->nvecs + 1) +
-			ARRAY_SIZE(rx_stat_descs) * (nic->nvecs + 1) +
-			ARRAY_SIZE(eth_stat_descs);
+		       ARRAY_SIZE(rx_stat_descs) * (nic->nvecs + 1) +
+		       ARRAY_SIZE(eth_stat_descs)
+#ifdef CONFIG_ATLFWD_FWD_NETLINK
+		       + ARRAY_SIZE(tx_stat_descs) *
+				 hweight_long(nic->fwd.ring_map[ATL_FWDIR_TX])
+#endif
+			;
 
 	case ETH_SS_PRIV_FLAGS:
 		return ARRAY_SIZE(atl_priv_flags);
@@ -689,6 +695,17 @@ static void atl_get_strings(struct net_device *ndev, uint32_t sset,
 			snprintf(prefix, sizeof(prefix), "ring_%d_", i);
 			atl_copy_stats_string_set(&p, prefix);
 		}
+
+#ifdef CONFIG_ATLFWD_FWD_NETLINK
+		for (i = 0; i < ATL_NUM_FWD_RINGS; i++) {
+			if (!atlfwd_nl_is_tx_fwd_ring_created(ndev, i))
+				continue;
+
+			snprintf(prefix, sizeof(prefix), "fwd_ring_%d_", i);
+			atl_copy_stats_strings(&p, prefix, tx_stat_descs,
+					       ARRAY_SIZE(tx_stat_descs));
+		}
+#endif
 		return;
 
 	case ETH_SS_PRIV_FLAGS:
@@ -730,6 +747,18 @@ static void atl_get_ethtool_stats(struct net_device *ndev,
 		atl_get_ring_stats(&qvec->rx, &tmp);
 		atl_write_stats(&tmp.rx, rx_stat_descs, data, uint64_t);
 	}
+
+#ifdef CONFIG_ATLFWD_FWD_NETLINK
+	for (i = 0; i < ATL_NUM_FWD_RINGS; i++) {
+		struct atl_ring_stats tmp;
+
+		if (!atlfwd_nl_is_tx_fwd_ring_created(ndev, i))
+			continue;
+
+		atl_fwd_get_ring_stats(nic->fwd.rings[ATL_FWDIR_TX][i], &tmp);
+		atl_write_stats(&tmp.tx, tx_stat_descs, data, uint64_t);
+	}
+#endif
 }
 
 static int atl_update_eee_pflags(struct atl_nic *nic)
@@ -1748,7 +1777,8 @@ static void atl_refresh_rxf_desc(struct atl_nic *nic,
 	atl_for_each_rxf_idx(desc, idx)
 		desc->update_rxf(nic, idx);
 
-	atl_set_vlan_promisc(&nic->hw, nic->rxf_vlan.promisc_count);
+	atl_set_vlan_promisc(&nic->hw, (nic->ndev->flags & IFF_PROMISC) ||
+				       nic->rxf_vlan.promisc_count);
 }
 
 void atl_refresh_rxfs(struct atl_nic *nic)
@@ -1758,7 +1788,8 @@ void atl_refresh_rxfs(struct atl_nic *nic)
 	atl_for_each_rxf_desc(desc)
 		atl_refresh_rxf_desc(nic, desc);
 
-	atl_set_vlan_promisc(&nic->hw, nic->rxf_vlan.promisc_count);
+	atl_set_vlan_promisc(&nic->hw, (nic->ndev->flags & IFF_PROMISC) ||
+				       nic->rxf_vlan.promisc_count);
 }
 
 static bool atl_vlan_pull_from_promisc(struct atl_nic *nic, uint32_t idx)
@@ -1798,7 +1829,8 @@ static bool atl_vlan_pull_from_promisc(struct atl_nic *nic, uint32_t idx)
 	} while (idx & ATL_VIDX_FREE);
 
 	kfree(map);
-	atl_set_vlan_promisc(&nic->hw, vlan->promisc_count);
+	atl_set_vlan_promisc(&nic->hw, (nic->ndev->flags & IFF_PROMISC) ||
+				       vlan->promisc_count);
 	return true;
 }
 
@@ -1984,7 +2016,8 @@ int atl_vlan_rx_add_vid(struct net_device *ndev, __be16 proto, u16 vid)
 	if (idx == ATL_VIDX_NONE) {
 		/* VID not found and no unused filters */
 		vlan->promisc_count++;
-		atl_set_vlan_promisc(&nic->hw, vlan->promisc_count);
+		atl_set_vlan_promisc(&nic->hw, (ndev->flags & IFF_PROMISC) ||
+					        vlan->promisc_count);
 		return 0;
 	}
 
@@ -2030,7 +2063,8 @@ int atl_vlan_rx_kill_vid(struct net_device *ndev, __be16 proto, u16 vid)
 	if (!(idx & ATL_VIDX_FOUND)) {
 		/* VID not present in filters, decrease promisc count */
 		vlan->promisc_count--;
-		atl_set_vlan_promisc(&nic->hw, vlan->promisc_count);
+		atl_set_vlan_promisc(&nic->hw, (ndev->flags & IFF_PROMISC) ||
+					       vlan->promisc_count);
 		return 0;
 	}
 
