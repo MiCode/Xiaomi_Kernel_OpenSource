@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -379,6 +379,19 @@ static int cam_vfe_top_mux_get_reg_update(
 	return -EINVAL;
 }
 
+static int cam_vfe_get_irq_register_dump(
+	struct cam_vfe_top_ver2_priv *top_priv,
+	void *cmd_args, uint32_t arg_size)
+{
+	struct cam_isp_hw_get_cmd_update  *cmd_update = cmd_args;
+
+	if (cmd_update->res->process_cmd)
+		cmd_update->res->process_cmd(cmd_update->res,
+		CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP, cmd_args, arg_size);
+
+	return 0;
+}
+
 int cam_vfe_top_get_hw_caps(void *device_priv,
 	void *get_hw_cap_args, uint32_t arg_size)
 {
@@ -656,6 +669,10 @@ int cam_vfe_top_process_cmd(void *device_priv, uint32_t cmd_type,
 		break;
 	case CAM_ISP_HW_CMD_BW_CONTROL:
 		rc = cam_vfe_top_bw_control(top_priv, cmd_args, arg_size);
+		break;
+	case CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP:
+		rc = cam_vfe_get_irq_register_dump(top_priv,
+				cmd_args, arg_size);
 		break;
 	default:
 		rc = -EINVAL;

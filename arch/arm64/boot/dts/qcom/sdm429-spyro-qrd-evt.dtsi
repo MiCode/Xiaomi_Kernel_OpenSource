@@ -15,14 +15,46 @@
 #include "sdm429-spyro-qrd-evt-camera.dtsi"
 #include "sdm429-spyro-qrd-evt-audio.dtsi"
 
+&tlmm {
+	sd_eldo_active {
+		sd_eldo_active: sd_eldo_active {
+			mux {
+				pins = "gpio91";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio91";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	sd_eldo_suspend {
+		sd_eldo_suspend: sd_eldo_suspend {
+			mux {
+				pins = "gpio91";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio91";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
+};
+
 &gpio_key_active {
 	mux {
-		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		pins = "gpio127", "gpio128", "gpio35", "gpio126";
 		function = "gpio";
 	};
 
 	config {
-		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		pins = "gpio127", "gpio128", "gpio35", "gpio126";
 		drive-strength = <2>;
 		bias-pull-up;
 	};
@@ -30,18 +62,36 @@
 
 &gpio_key_suspend {
 	mux {
-		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		pins = "gpio127", "gpio128", "gpio35", "gpio126";
 		function = "gpio";
 	};
 
 	config {
-		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		pins = "gpio127", "gpio128", "gpio35", "gpio126";
 		drive-strength = <2>;
 		bias-pull-up;
 	};
 };
 
 &soc {
+	/delete-node/ qcom,spm@b1d2000;
+	qcom,spm@b1d2000 {
+		compatible = "qcom,spm-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0xb1d2000 0x1000>;
+		qcom,name = "system-cci";
+		qcom,saw2-ver-reg = <0xfd0>;
+		qcom,saw2-cfg = <0x14>;
+		qcom,saw2-spm-dly= <0x3C102800>;
+		qcom,saw2-spm-ctl = <0xe>;
+		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,vctl-timeout-us = <500>;
+		qcom,vctl-port = <0x0>;
+		qcom,vctl-port-ub = <0x1>;
+		qcom,pfm-port = <0x2>;
+	};
+
 	gpio_keys: gpio_keys {
 		compatible = "gpio-keys";
 		label = "gpio-keys";
@@ -124,8 +174,10 @@
 	qcom,vdd-io-current-level = <200 22000>;
 
 	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
-	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on
+							&sd_eldo_active>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off
+							&sd_eldo_suspend>;
 
 	cd-gpios = <&tlmm 67 0x0>;
 
@@ -189,11 +241,11 @@
 };
 
 &adsp_fw_mem {
-	reg = <0x0 0x8b800000 0x0 0x1400000>;
+	reg = <0x0 0x8b800000 0x0 0x1500000>;
 };
 
 &wcnss_fw_mem {
-	reg = <0x0 0x8cc00000 0x0 0x700000>;
+	reg = <0x0 0x8cd00000 0x0 0x700000>;
 };
 
 &i2c_4 {
