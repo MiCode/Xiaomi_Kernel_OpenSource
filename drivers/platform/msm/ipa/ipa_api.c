@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -187,7 +187,19 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(RESERVERD_PROD_74),
 	__stringify(IPA_CLIENT_MHI_DPL_CONS),
 	__stringify(RESERVERD_PROD_76),
-	__stringify(IPA_CLIENT_DUMMY_CONS1)
+	__stringify(IPA_CLIENT_DUMMY_CONS1),
+	__stringify(IPA_CLIENT_WIGIG_PROD),
+	__stringify(IPA_CLIENT_WIGIG1_CONS),
+	__stringify(RESERVERD_PROD_80),
+	__stringify(IPA_CLIENT_WIGIG2_CONS),
+	__stringify(RESERVERD_PROD_82),
+	__stringify(IPA_CLIENT_WIGIG3_CONS),
+	__stringify(RESERVERD_PROD_84),
+	__stringify(IPA_CLIENT_WIGIG4_CONS),
+	__stringify(IPA_CLIENT_MHI2_PROD),
+	__stringify(IPA_CLIENT_MHI2_CONS),
+	__stringify(IPA_CLIENT_Q6_CV2X_PROD),
+	__stringify(IPA_CLIENT_Q6_CV2X_CONS)
 };
 
 /**
