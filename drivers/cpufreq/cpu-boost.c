@@ -310,7 +310,8 @@ static void cpuboost_input_event(struct input_handle *handle,
 	if (work_pending(&input_boost_work))
 		return;
 
-	if (type == EV_KEY && code == KEY_POWER) {
+	if ((type == EV_KEY && code == KEY_POWER) ||
+		(type == EV_KEY && code == KEY_WAKEUP)) {
 		queue_work(cpu_boost_wq, &powerkey_input_boost_work);
 	} else {
 		queue_work(cpu_boost_wq, &input_boost_work);
