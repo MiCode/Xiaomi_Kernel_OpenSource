@@ -12,6 +12,7 @@
 #include <sound/soc.h>
 #include <sound/tlv.h>
 #include <sound/pcm_params.h>
+#include <linux/debugfs.h>
 
 #include "mt6660.h"
 
@@ -107,7 +108,22 @@ static int32_t mt6660_i2c_update_bits(struct mt6660_chip *chip,
 	return 0;
 }
 
-static unsigned int mt6660_i2c_read(struct mt6660_chip *chip, unsigned int reg)
+static int mt6660_dbg_io_read(void *drvdata, u16 reg, void *val, u16 size)
+{
+	struct mt6660_chip *chip = (struct mt6660_chip *)drvdata;
+
+	return i2c_smbus_read_i2c_block_data(chip->i2c, reg, size, val);
+}
+
+static int mt6660_dbg_io_write(void *drvdata, u16 reg,
+			       const void *val, u16 size)
+{
+	struct mt6660_chip *chip = (struct mt6660_chip *)drvdata;
+
+	return i2c_smbus_write_i2c_block_data(chip->i2c, reg, size, val);
+}
+
+static int mt6660_i2c_read(struct mt6660_chip *chip, unsigned int reg)
 {
 	int size = mt6660_get_reg_size(reg);
 	int i = 0, ret = 0;
@@ -170,8 +186,8 @@ static const int mt6660_dump_table[] = {
 	MT6660_REG_SIG_GAIN,
 	MT6660_REG_PLL_CFG1,
 	MT6660_REG_DRE_CTRL,
-	MT6660_REG_DRE_CORASE,
 	MT6660_REG_DRE_THDMODE,
+	MT6660_REG_DRE_CORASE,
 	MT6660_REG_PWM_CTRL,
 	MT6660_REG_DC_PROTECT_CTRL,
 	MT6660_REG_ADC_USB_MODE,
@@ -192,95 +208,260 @@ static const int mt6660_dump_table[] = {
 	MT6660_REG_RESV40,
 };
 
-static ssize_t mt6660_dumps_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
+#ifdef CONFIG_DEBUG_FS
+/* reg/size/data/bustype */
+#define PREALLOC_RBUFFER_SIZE	(32)
+#define PREALLOC_WBUFFER_SIZE	(1000)
+
+static int data_debug_show(struct seq_file *s, void *data)
 {
-	struct mt6660_chip *chip = dev_get_drvdata(dev);
-	int i = 0;
-	int max_size = 512;
-	int ret;
+	struct dbg_info *di = s->private;
+	struct dbg_internal *d = &di->internal;
+	void *buffer;
+	u8 *pdata;
+	int i, ret;
+
+	if (d->data_buffer_size < d->size) {
+		buffer = kzalloc(d->size, GFP_KERNEL);
+		if (!buffer)
+			return -ENOMEM;
+		kfree(d->data_buffer);
+		d->data_buffer = buffer;
+		d->data_buffer_size = d->size;
+	}
+	/* read transfer */
+	if (!di->io_read)
+		return -EPERM;
+	ret = di->io_read(di->io_drvdata, d->reg, d->data_buffer, d->size);
+	if (ret < 0)
+		return ret;
+	pdata = d->data_buffer;
+	seq_puts(s, "0x");
+	for (i = 0; i < d->size; i++)
+		seq_printf(s, "%02x,", *(pdata + i));
+	seq_puts(s, "\n");
+	return 0;
+}
+
+static int data_debug_open(struct inode *inode, struct file *file)
+{
+	if (file->f_mode & FMODE_READ)
+		return single_open(file, data_debug_show, inode->i_private);
+	return simple_open(inode, file);
+}
+
+static ssize_t data_debug_write(struct file *file,
+				const char __user *user_buf,
+				size_t cnt, loff_t *loff)
+{
+	struct dbg_info *di = file->private_data;
+	struct dbg_internal *d = &di->internal;
+	void *buffer;
+	u8 *pdata;
+	char buf[PREALLOC_WBUFFER_SIZE + 1], *token, *cur;
+	int val_cnt = 0, ret;
+
+	if (cnt > PREALLOC_WBUFFER_SIZE)
+		return -ENOMEM;
+	if (copy_from_user(buf, user_buf, cnt))
+		return -EFAULT;
+	buf[cnt] = 0;
+	/* buffer size check */
+	if (d->data_buffer_size < d->size) {
+		buffer = kzalloc(d->size, GFP_KERNEL);
+		if (!buffer)
+			return -ENOMEM;
+		kfree(d->data_buffer);
+		d->data_buffer = buffer;
+		d->data_buffer_size = d->size;
+	}
+	/* data parsing */
+	cur = buf;
+	pdata = d->data_buffer;
+	while ((token = strsep(&cur, ",\n")) != NULL) {
+		if (!*token)
+			break;
+		if (val_cnt++ >= d->size)
+			break;
+		if (kstrtou8(token, 16, pdata++))
+			return -EINVAL;
+	}
+	if (val_cnt != d->size)
+		return -EINVAL;
+	/* write transfer */
+	if (!di->io_write)
+		return -EPERM;
+	ret = di->io_write(di->io_drvdata, d->reg, d->data_buffer, d->size);
+	return (ret < 0) ? ret : cnt;
+}
+
+static int data_debug_release(struct inode *inode, struct file *file)
+{
+	if (file->f_mode & FMODE_READ)
+		return single_release(inode, file);
+	return 0;
+}
+
+static const struct file_operations data_debug_fops = {
+	.open = data_debug_open,
+	.read = seq_read,
+	.write = data_debug_write,
+	.llseek = seq_lseek,
+	.release = data_debug_release,
+};
+
+static int type_debug_show(struct seq_file *s, void *data)
+{
+	struct dbg_info *di = s->private;
+
+	seq_printf(s, "%s,%s\n", di->typestr, di->devname);
+	return 0;
+}
+
+static int type_debug_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, type_debug_show, inode->i_private);
+}
+
+static const struct file_operations type_debug_fops = {
+	.open = type_debug_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int dump_debug_show(struct seq_file *s, void *data)
+{
+	struct dbg_info *di = s->private;
+	struct mt6660_chip *chip =
+		container_of(di, struct mt6660_chip, dbg_info);
+	int i = 0, ret = 0;
+
+	if (!chip) {
+		pr_err("%s chip is null\n", __func__);
+		return -ENODEV;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(mt6660_dump_table); i++) {
 		ret = mt6660_i2c_read(chip, mt6660_dump_table[i]);
-		snprintf(buf+strnlen(buf, max_size), max_size,
+		seq_printf(s,
 			"reg 0x%02x : 0x%x\n", mt6660_dump_table[i], ret);
 	}
-	return strnlen(buf, max_size);
+	return 0;
 }
 
-DEVICE_ATTR_RO(mt6660_dumps);
+static int dump_debug_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, dump_debug_show, inode->i_private);
+}
 
-static const struct codec_reg_val e1_reg_inits[] = {
-	{ MT6660_REG_WDT_CTRL, 0x80, 0x00 },
-	{ MT6660_REG_SPS_CTRL, 0x01, 0x00 },
-	{ MT6660_REG_HPF1_COEF, 0xffffffff, 0x7fdb7ffe },
-	{ MT6660_REG_HPF2_COEF, 0xffffffff, 0x7fdb7ffe },
-	{ MT6660_REG_SIG_GAIN, 0xff, 0x7b },
-	{ MT6660_REG_PWM_CTRL, 0x08, 0x00 },
-	{ MT6660_REG_TDM_CFG3, 0x400, 0x400 },
-	{ MT6660_REG_AUDIO_IN2_SEL, 0x1c, 0x04 },
-	{ MT6660_REG_RESV1, 0xc0, 0x00 },
-	{ MT6660_REG_RESV2, 0xe0, 0x20 },
-	{ MT6660_REG_RESV3, 0xc0, 0x80 },
-	{ MT6660_REG_RESV11, 0x0c, 0x00 },
-	{ MT6660_REG_RESV17, 0x7777, 0x7272 },
-	{ MT6660_REG_RESV19, 0x08, 0x08 },
-	{ MT6660_REG_RESV21, 0x8f, 0x0f },
-	{ MT6660_REG_RESV31, 0x03, 0x03 },
-	{ MT6660_REG_RESV40, 0x01, 0x00 },
+static const struct file_operations dump_debug_fops = {
+	.open = dump_debug_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
 };
 
-static const struct codec_reg_val e2_reg_inits[] = {
-	{ MT6660_REG_WDT_CTRL, 0x80, 0x00 },
-	{ MT6660_REG_SPS_CTRL, 0x01, 0x01 },
-	{ MT6660_REG_AUDIO_IN2_SEL, 0x1c, 0x04 },
-	{ MT6660_REG_RESV11, 0x0c, 0x00 },
-	{ MT6660_REG_RESV31, 0x03, 0x03 },
-	{ MT6660_REG_RESV40, 0x01, 0x00 },
-	{ MT6660_REG_RESV0, 0x44, 0x04 },
-	{ MT6660_REG_RESV17, 0x7777, 0x7273 },
-	{ MT6660_REG_RESV16, 0x07, 0x03 },
-	{ MT6660_REG_DRE_CORASE, 0xe0, 0x20 },
-	{ MT6660_REG_ADDA_CLOCK, 0xff, 0x70 },
-	{ MT6660_REG_RESV21, 0xff, 0x20 },
-	{ MT6660_REG_DRE_THDMODE, 0xff, 0xa2 },
-	{ MT6660_REG_RESV23, 0xffff, 0x17f8 },
-	{ MT6660_REG_PWM_CTRL, 0xff, 0x04 },
-	{ MT6660_REG_INTERNAL_CFG, 0xff, 0x42 },
-	{ MT6660_REG_ADC_USB_MODE, 0xff, 0x00 },
-	{ MT6660_REG_PROTECTION_CFG, 0xff, 0x1d },
-	{ MT6660_REG_HPF1_COEF, 0xffffffff, 0x7fdb7ffe },
-	{ MT6660_REG_HPF2_COEF, 0xffffffff, 0x7fdb7ffe },
-	{ MT6660_REG_SIGMAX, 0xffff, 0x7fff },
-	{ MT6660_REG_DA_GAIN, 0xffff, 0x0116 },
-	{ MT6660_REG_SIG_GAIN, 0xff, 0x58 },
-	{ MT6660_REG_RESV6, 0xff, 0xce },
+static ssize_t lock_debug_read(struct file *file,
+			       char __user *user_buf, size_t cnt, loff_t *loff)
+{
+	struct dbg_info *di = file->private_data;
+	struct dbg_internal *d = &di->internal;
+	char buf[10];
+
+	snprintf(buf, sizeof(buf), "%d\n", mutex_is_locked(&d->io_lock));
+	return simple_read_from_buffer(user_buf, cnt, loff, buf, strlen(buf));
+}
+
+static ssize_t lock_debug_write(struct file *file,
+				const char __user *user_buf,
+				size_t cnt, loff_t *loff)
+{
+	struct dbg_info *di = file->private_data;
+	struct dbg_internal *d = &di->internal;
+	u32 lock;
+	int ret;
+
+	ret = kstrtou32_from_user(user_buf, cnt, 0, &lock);
+	if (ret < 0)
+		return ret;
+	lock ? mutex_lock(&d->io_lock) : mutex_unlock(&d->io_lock);
+	return cnt;
+}
+
+static const struct file_operations lock_debug_fops = {
+	.open = simple_open,
+	.read = lock_debug_read,
+	.write = lock_debug_write,
 };
 
-static const struct codec_reg_val e3_reg_inits[] = {
-	{ MT6660_REG_WDT_CTRL, 0x80, 0x00 },
-	{ MT6660_REG_SPS_CTRL, 0x01, 0x01 },
-	{ MT6660_REG_AUDIO_IN2_SEL, 0x1c, 0x04 },
-	{ MT6660_REG_RESV11, 0x0c, 0x00 },
-	{ MT6660_REG_RESV31, 0x03, 0x03 },
-	{ MT6660_REG_RESV40, 0x01, 0x00 },
-	{ MT6660_REG_RESV0, 0x44, 0x04 },
-	{ MT6660_REG_RESV17, 0x7777, 0x7273 },
-	{ MT6660_REG_RESV16, 0x07, 0x03 },
-	{ MT6660_REG_DRE_CORASE, 0xe0, 0x20 },
-	{ MT6660_REG_ADDA_CLOCK, 0xff, 0x70 },
-	{ MT6660_REG_RESV21, 0xff, 0x20 },
-	{ MT6660_REG_DRE_THDMODE, 0xff, 0xa2 },
-	{ MT6660_REG_RESV23, 0xffff, 0x17f8 },
-	{ MT6660_REG_PWM_CTRL, 0xff, 0x04 },
-	{ MT6660_REG_INTERNAL_CFG, 0xff, 0x42 },
-	{ MT6660_REG_ADC_USB_MODE, 0xff, 0x00 },
-	{ MT6660_REG_PROTECTION_CFG, 0xff, 0x1d },
-	{ MT6660_REG_HPF1_COEF, 0xffffffff, 0x7fdb7ffe },
-	{ MT6660_REG_HPF2_COEF, 0xffffffff, 0x7fdb7ffe },
-	{ MT6660_REG_SIG_GAIN, 0xff, 0x58 },
-	{ MT6660_REG_RESV6, 0xff, 0xce },
-};
+static int generic_debugfs_init(struct dbg_info *di)
+{
+	struct dbg_internal *d = &di->internal;
+
+	/* valid check */
+	if (!di->dirname || !di->devname || !di->typestr)
+		return -EINVAL;
+	d->data_buffer_size = PREALLOC_RBUFFER_SIZE;
+	d->data_buffer = kzalloc(PREALLOC_RBUFFER_SIZE, GFP_KERNEL);
+	if (!d->data_buffer)
+		return -ENOMEM;
+	/* create debugfs */
+	d->rt_root = debugfs_lookup("ext_dev_io", NULL);
+	if (!d->rt_root) {
+		d->rt_root = debugfs_create_dir("ext_dev_io", NULL);
+		if (!d->rt_root)
+			return -ENODEV;
+		d->rt_dir_create = true;
+	}
+	d->ic_root = debugfs_create_dir(di->dirname, d->rt_root);
+	if (!d->ic_root)
+		goto err_cleanup_rt;
+	if (!debugfs_create_u16("reg", 0644, d->ic_root, &d->reg))
+		goto err_cleanup_ic;
+	if (!debugfs_create_u16("size", 0644, d->ic_root, &d->size))
+		goto err_cleanup_ic;
+	if (!debugfs_create_file("data", 0644,
+				 d->ic_root, di, &data_debug_fops))
+		goto err_cleanup_ic;
+	if (!debugfs_create_file("type", 0444,
+				 d->ic_root, di, &type_debug_fops))
+		goto err_cleanup_ic;
+	if (!debugfs_create_file("lock", 0644,
+				 d->ic_root, di, &lock_debug_fops))
+		goto err_cleanup_ic;
+	if (!debugfs_create_file("dumps", 0444,
+				d->ic_root, di, &dump_debug_fops))
+		goto err_cleanup_ic;
+	mutex_init(&d->io_lock);
+	return 0;
+err_cleanup_ic:
+	debugfs_remove_recursive(d->ic_root);
+err_cleanup_rt:
+	if (d->rt_dir_create)
+		debugfs_remove_recursive(d->rt_root);
+	kfree(d->data_buffer);
+	return -ENODEV;
+}
+
+static void generic_debugfs_exit(struct dbg_info *di)
+{
+	struct dbg_internal *d = &di->internal;
+
+	mutex_destroy(&d->io_lock);
+	debugfs_remove_recursive(d->ic_root);
+	if (d->rt_dir_create)
+		debugfs_remove_recursive(d->rt_root);
+	kfree(d->data_buffer);
+}
+#else
+static inline int generic_debugfs_init(struct dbg_info *di)
+{
+	return 0;
+}
+
+static inline void generic_debugfs_exit(struct dbg_info *di) {}
+#endif /* CONFIG_DEBUG_FS */
 
 static const struct codec_reg_val e4_reg_inits[] = {
 	{ MT6660_REG_WDT_CTRL, 0x80, 0x00 },
@@ -296,7 +477,7 @@ static const struct codec_reg_val e4_reg_inits[] = {
 	{ MT6660_REG_DRE_CORASE, 0xe0, 0x20 },
 	{ MT6660_REG_ADDA_CLOCK, 0xff, 0x70 },
 	{ MT6660_REG_RESV21, 0xff, 0x20 },
-	{ MT6660_REG_DRE_THDMODE, 0xff, 0xa2 },
+	{ MT6660_REG_DRE_THDMODE, 0xff, 0x40 },
 	{ MT6660_REG_RESV23, 0xffff, 0x17f8 },
 	{ MT6660_REG_PWM_CTRL, 0xff, 0x15 },
 	{ MT6660_REG_ADC_USB_MODE, 0xff, 0x00 },
@@ -305,6 +486,10 @@ static const struct codec_reg_val e4_reg_inits[] = {
 	{ MT6660_REG_HPF2_COEF, 0xffffffff, 0x7fdb7ffe },
 	{ MT6660_REG_SIG_GAIN, 0xff, 0x58 },
 	{ MT6660_REG_RESV6, 0xff, 0xce },
+	{ MT6660_REG_SIGMAX, 0xffff, 0x7fff },
+	{ MT6660_REG_DA_GAIN, 0xffff, 0x0116 },
+	{ MT6660_REG_TDM_CFG3, 0x1800, 0x0800 },
+	{ MT6660_REG_DRE_CTRL, 0x1f, 0x07 },
 };
 
 static int mt6660_i2c_init_setting(struct mt6660_chip *chip)
@@ -312,19 +497,9 @@ static int mt6660_i2c_init_setting(struct mt6660_chip *chip)
 	int i, len, ret;
 	const struct codec_reg_val *init_table;
 
-	if (chip->chip_rev >= 0x01e2) {
-		init_table = e4_reg_inits;
-		len = ARRAY_SIZE(e4_reg_inits);
-	} else if (chip->chip_rev >= 0x00e2) {
-		init_table = e3_reg_inits;
-		len = ARRAY_SIZE(e3_reg_inits);
-	} else if (chip->chip_rev >= 0x00e1) {
-		init_table = e2_reg_inits;
-		len = ARRAY_SIZE(e2_reg_inits);
-	} else {
-		init_table = e1_reg_inits;
-		len = ARRAY_SIZE(e1_reg_inits);
-	}
+	init_table = e4_reg_inits;
+	len = ARRAY_SIZE(e4_reg_inits);
+
 	for (i = 0; i < len; i++) {
 		ret = mt6660_i2c_update_bits(chip, init_table[i].addr,
 				init_table[i].mask, init_table[i].data);
@@ -816,6 +991,23 @@ int mt6660_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	mutex_init(&chip->io_lock);
 	i2c_set_clientdata(client, chip);
 
+	/* debugfs interface */
+	chip->dbg_info.dirname = devm_kasprintf(&client->dev,
+						GFP_KERNEL, "MT6660.%s",
+						dev_name(&client->dev));
+	chip->dbg_info.devname = dev_name(&client->dev);
+	chip->dbg_info.typestr = devm_kasprintf(&client->dev,
+						GFP_KERNEL, "I2C,MT6660");
+	chip->dbg_info.io_drvdata = chip;
+	chip->dbg_info.io_read = mt6660_dbg_io_read;
+	chip->dbg_info.io_write = mt6660_dbg_io_write;
+
+	ret = generic_debugfs_init(&chip->dbg_info);
+	if (ret < 0) {
+		dev_err(&client->dev, "generic dbg init fail\n");
+		return -EINVAL;
+	}
+
 	/* chip power on */
 	ret = _mt6660_chip_power_on(chip, 1);
 	if (ret < 0) {
@@ -844,11 +1036,6 @@ int mt6660_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		dev_err(chip->dev, "chip i2c init setting fail\n");
 		goto probe_fail;
 	}
-	ret = device_create_file(chip->dev, &dev_attr_mt6660_dumps);
-	if (ret < 0) {
-		dev_err(chip->dev, "chip dumps attr create fail\n");
-		goto probe_fail;
-	}
 	ret = _mt6660_chip_power_on(chip, 0);
 	if (ret < 0) {
 		dev_err(chip->dev, "chip power off fail\n");
@@ -867,6 +1054,7 @@ int mt6660_i2c_remove(struct i2c_client *client)
 
 	dev_dbg(chip->dev, "%s++\n", __func__);
 	snd_soc_unregister_component(chip->dev);
+	generic_debugfs_exit(&chip->dbg_info);
 	mutex_destroy(&chip->var_lock);
 	dev_dbg(chip->dev, "%s--\n", __func__);
 	return 0;
@@ -899,4 +1087,4 @@ module_i2c_driver(mt6660_i2c_driver);
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_DESCRIPTION("MT6660 SPKAMP Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("1.0.5_G");
+MODULE_VERSION("1.0.6_G");

@@ -8,6 +8,27 @@
 
 #include <linux/mutex.h>
 
+struct dbg_internal {
+	struct dentry *rt_root;
+	struct dentry *ic_root;
+	bool rt_dir_create;
+	struct mutex io_lock;
+	u16 reg;
+	u16 size;
+	u16 data_buffer_size;
+	void *data_buffer;
+};
+
+struct dbg_info {
+	const char *dirname;
+	const char *devname;
+	const char *typestr;
+	void *io_drvdata;
+	int (*io_read)(void *drvdata, u16 reg, void *val, u16 size);
+	int (*io_write)(void *drvdata, u16 reg, const void *val, u16 size);
+	struct dbg_internal internal;
+};
+
 struct mt6660_chip {
 	struct i2c_client *i2c;
 	struct device *dev;
@@ -15,6 +36,7 @@ struct mt6660_chip {
 	struct platform_device *param_dev;
 	struct mutex var_lock;
 	struct mutex io_lock;
+	struct dbg_info dbg_info;
 	u16 chip_rev;
 	int pwr_cnt;
 };
