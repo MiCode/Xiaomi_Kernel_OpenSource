@@ -4097,8 +4097,12 @@ static void cam_ife_mgr_print_io_bufs(struct cam_packet *packet,
 
 	for (i = 0; i < packet->num_io_configs; i++) {
 		for (j = 0; j < CAM_PACKET_MAX_PLANES; j++) {
-			if (!io_cfg[i].mem_handle[j])
+			if (!io_cfg[i].mem_handle[j]) {
+				CAM_ERR(CAM_ISP,
+					"Mem Handle %d is NULL for %d io config",
+					j, i);
 				break;
+			}
 
 			if (pf_buf_info &&
 				GET_FD_FROM_HANDLE(io_cfg[i].mem_handle[j]) ==
@@ -4261,45 +4265,44 @@ static int cam_ife_mgr_cmd_get_sof_timestamp(
 	struct cam_hw_intf                   *hw_intf;
 	struct cam_csid_get_time_stamp_args   csid_get_time;
 
-	list_for_each_entry(hw_mgr_res, &ife_ctx->res_list_ife_csid, list) {
-		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
-			if (!hw_mgr_res->hw_res[i])
-				continue;
+	hw_mgr_res = list_first_entry(&ife_ctx->res_list_ife_csid,
+		struct cam_ife_hw_mgr_res, list);
+	for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+		if (!hw_mgr_res->hw_res[i])
+			continue;
 
+		/*
+		 * Get the SOF time stamp from left resource only.
+		 * Left resource is master for dual vfe case and
+		 * Rdi only context case left resource only hold
+		 * the RDI resource
+		 */
+
+		hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+		if (hw_intf->hw_ops.process_cmd) {
 			/*
-			 * Get the SOF time stamp from left resource only.
-			 * Left resource is master for dual vfe case and
-			 * Rdi only context case left resource only hold
-			 * the RDI resource
+			 * Single VFE case, Get the time stamp from
+			 * available one csid hw in the context
+			 * Dual VFE case, get the time stamp from
+			 * master(left) would be sufficient
 			 */
 
-			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
-			if (hw_intf->hw_ops.process_cmd) {
-				/*
-				 * Single VFE case, Get the time stamp from
-				 * available one csid hw in the context
-				 * Dual VFE case, get the time stamp from
-				 * master(left) would be sufficient
-				 */
-
-				csid_get_time.node_res =
-					hw_mgr_res->hw_res[i];
-				rc = hw_intf->hw_ops.process_cmd(
-					hw_intf->hw_priv,
-					CAM_IFE_CSID_CMD_GET_TIME_STAMP,
-					&csid_get_time,
-					sizeof(
-					struct cam_csid_get_time_stamp_args));
-				if (!rc && (i == CAM_ISP_HW_SPLIT_LEFT)) {
-					*time_stamp =
-						csid_get_time.time_stamp_val;
-					*boot_time_stamp =
-						csid_get_time.boot_timestamp;
-				}
+			csid_get_time.node_res =
+				hw_mgr_res->hw_res[i];
+			rc = hw_intf->hw_ops.process_cmd(
+				hw_intf->hw_priv,
+				CAM_IFE_CSID_CMD_GET_TIME_STAMP,
+				&csid_get_time,
+				sizeof(
+				struct cam_csid_get_time_stamp_args));
+			if (!rc && (i == CAM_ISP_HW_SPLIT_LEFT)) {
+				*time_stamp =
+					csid_get_time.time_stamp_val;
+				*boot_time_stamp =
+					csid_get_time.boot_timestamp;
 			}
 		}
 	}
-
 	if (rc)
 		CAM_ERR(CAM_ISP, "Getting sof time stamp failed");
 
