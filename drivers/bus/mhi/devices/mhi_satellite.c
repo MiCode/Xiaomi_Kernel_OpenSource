@@ -893,6 +893,8 @@ static int mhi_sat_rpmsg_probe(struct rpmsg_device *rpdev)
 	if (!subsys)
 		return -EINVAL;
 
+	mutex_lock(&subsys->cntrl_mutex);
+
 	MHI_SUBSYS_LOG("Received RPMSG probe\n");
 
 	dev_set_drvdata(&rpdev->dev, subsys);
@@ -904,6 +906,8 @@ static int mhi_sat_rpmsg_probe(struct rpmsg_device *rpdev)
 	list_for_each_entry(sat_cntrl, &subsys->cntrl_list, node)
 		schedule_work(&sat_cntrl->connect_work);
 	spin_unlock_irq(&subsys->cntrl_lock);
+
+	mutex_unlock(&subsys->cntrl_mutex);
 
 	return 0;
 }
@@ -977,6 +981,13 @@ static void mhi_sat_dev_remove(struct mhi_device *mhi_dev)
 		mutex_unlock(&subsys->cntrl_mutex);
 		return;
 	}
+
+	/*
+	 * cancel any pending work as it is possible that work gets queued
+	 * when rpmsg probe comes in before controller is removed
+	 */
+	cancel_work_sync(&sat_cntrl->connect_work);
+	cancel_work_sync(&sat_cntrl->process_work);
 
 	/* remove address mappings */
 	mutex_lock(&sat_cntrl->list_mutex);
