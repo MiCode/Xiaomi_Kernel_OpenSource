@@ -13,6 +13,7 @@
 #include <linux/etherdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/pm_runtime.h>
+#include "atl_fwdnl.h"
 
 #include "atl_qcom.h"
 
@@ -371,10 +372,8 @@ static const struct pci_device_id atl_pci_tbl[] = {
 	{ PCI_VDEVICE(AQUANTIA, 0x80b1), ATL_AQC107},
 	{ PCI_VDEVICE(AQUANTIA, 0x11b1), ATL_AQC108},
 	{ PCI_VDEVICE(AQUANTIA, 0x91b1), ATL_AQC108},
-	{ PCI_VDEVICE(AQUANTIA, 0x51b1), ATL_AQC108},
 	{ PCI_VDEVICE(AQUANTIA, 0x12b1), ATL_AQC109},
 	{ PCI_VDEVICE(AQUANTIA, 0x92b1), ATL_AQC109},
-	{ PCI_VDEVICE(AQUANTIA, 0x52b1), ATL_AQC109},
 	{}
 };
 
@@ -543,6 +542,10 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	atl_intr_enable_non_ring(nic);
 	mod_timer(&nic->work_timer, jiffies + HZ);
 
+#ifdef CONFIG_ATLFWD_FWD_NETLINK
+	atlfwd_nl_on_probe(nic->ndev);
+#endif
+
 	return 0;
 
 err_hwmon_init:
@@ -573,6 +576,10 @@ static void atl_remove(struct pci_dev *pdev)
 
 	if (!nic)
 		return;
+
+#ifdef CONFIG_ATLFWD_FWD_NETLINK
+	atlfwd_nl_on_remove(nic->ndev);
+#endif
 
 	atl_stop(nic, true);
 	disable_needed = test_and_clear_bit(ATL_ST_ENABLED, &nic->hw.state);
@@ -828,8 +835,18 @@ static int __init atl_module_init(void)
 	if (ret)
 		goto err_pci_reg;
 
+#ifdef CONFIG_ATLFWD_FWD_NETLINK
+	ret = atlfwd_nl_init();
+	if (ret)
+		goto err_fwd_netlink;
+#endif
+
 	return 0;
 
+#ifdef CONFIG_ATLFWD_FWD_NETLINK
+err_fwd_netlink:
+#endif
+	pci_unregister_driver(&atl_pci_ops);
 err_pci_reg:
 	atl_qcom_unregister(&atl_pci_ops);
 err_qcom_reg:
@@ -840,6 +857,10 @@ module_init(atl_module_init);
 
 static void __exit atl_module_exit(void)
 {
+#ifdef CONFIG_ATLFWD_FWD_NETLINK
+	atlfwd_nl_exit();
+#endif
+
 	pci_unregister_driver(&atl_pci_ops);
 
 	atl_qcom_unregister(&atl_pci_ops);

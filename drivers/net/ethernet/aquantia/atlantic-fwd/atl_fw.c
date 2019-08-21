@@ -33,7 +33,7 @@ struct atl_link_type atl_link_types[] = {
 	LINK_TYPE("10GBaseT-FD", 10000, ETHTOOL_LINK_MODE_10000baseT_Full_BIT,
 		1, 1 << 11)
 };
-#define ATL_FW2_LINK_MSK (BIT(5) | BIT(8) | BIT(10) | BIT(11))
+#define ATL_FW2_LINK_MSK (BIT(5) | BIT(8) | BIT(9) | BIT(10) | BIT(11))
 
 const int atl_num_rates = ARRAY_SIZE(atl_link_types);
 
