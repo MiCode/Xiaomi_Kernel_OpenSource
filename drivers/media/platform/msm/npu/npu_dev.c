@@ -74,13 +74,9 @@ static int npu_get_info(struct npu_client *client, unsigned long arg);
 static int npu_map_buf(struct npu_client *client, unsigned long arg);
 static int npu_unmap_buf(struct npu_client *client,
 	unsigned long arg);
-static int npu_load_network(struct npu_client *client,
-	unsigned long arg);
 static int npu_load_network_v2(struct npu_client *client,
 	unsigned long arg);
 static int npu_unload_network(struct npu_client *client,
-	unsigned long arg);
-static int npu_exec_network(struct npu_client *client,
 	unsigned long arg);
 static int npu_exec_network_v2(struct npu_client *client,
 	unsigned long arg);
@@ -1095,38 +1091,6 @@ static int npu_unmap_buf(struct npu_client *client, unsigned long arg)
 	return 0;
 }
 
-static int npu_load_network(struct npu_client *client,
-	unsigned long arg)
-{
-	struct msm_npu_load_network_ioctl req;
-	struct msm_npu_unload_network_ioctl unload_req;
-	void __user *argp = (void __user *)arg;
-	int ret = 0;
-
-	ret = copy_from_user(&req, argp, sizeof(req));
-
-	if (ret) {
-		NPU_ERR("fail to copy from user\n");
-		return -EFAULT;
-	}
-
-	NPU_DBG("network load with perf request %d\n", req.perf_mode);
-
-	ret = npu_host_load_network(client, &req);
-	if (ret) {
-		NPU_ERR("npu_host_load_network failed %d\n", ret);
-		return ret;
-	}
-
-	ret = copy_to_user(argp, &req, sizeof(req));
-	if (ret) {
-		NPU_ERR("fail to copy to user\n");
-		ret = -EFAULT;
-		unload_req.network_hdl = req.network_hdl;
-		npu_host_unload_network(client, &unload_req);
-	}
-	return ret;
-}
 
 static int npu_load_network_v2(struct npu_client *client,
 	unsigned long arg)
@@ -1204,44 +1168,6 @@ static int npu_unload_network(struct npu_client *client,
 
 	if (ret) {
 		NPU_ERR("npu_host_unload_network failed %d\n", ret);
-		return ret;
-	}
-
-	ret = copy_to_user(argp, &req, sizeof(req));
-
-	if (ret) {
-		NPU_ERR("fail to copy to user\n");
-		return -EFAULT;
-	}
-	return 0;
-}
-
-static int npu_exec_network(struct npu_client *client,
-	unsigned long arg)
-{
-	struct msm_npu_exec_network_ioctl req;
-	void __user *argp = (void __user *)arg;
-	int ret = 0;
-
-	ret = copy_from_user(&req, argp, sizeof(req));
-
-	if (ret) {
-		NPU_ERR("fail to copy from user\n");
-		return -EFAULT;
-	}
-
-	if ((req.input_layer_num > MSM_NPU_MAX_INPUT_LAYER_NUM) ||
-		(req.output_layer_num > MSM_NPU_MAX_OUTPUT_LAYER_NUM)) {
-		NPU_ERR("Invalid input/out layer num %d[max:%d] %d[max:%d]\n",
-			req.input_layer_num, MSM_NPU_MAX_INPUT_LAYER_NUM,
-			req.output_layer_num, MSM_NPU_MAX_OUTPUT_LAYER_NUM);
-		return -EINVAL;
-	}
-
-	ret = npu_host_exec_network(client, &req);
-
-	if (ret) {
-		NPU_ERR("npu_host_exec_network failed %d\n", ret);
 		return ret;
 	}
 
@@ -1446,7 +1372,8 @@ static long npu_ioctl(struct file *file, unsigned int cmd,
 		ret = npu_unmap_buf(client, arg);
 		break;
 	case MSM_NPU_LOAD_NETWORK:
-		ret = npu_load_network(client, arg);
+		NPU_ERR("npu_load_network_v1 is no longer supported\n");
+		ret = -ENOTTY;
 		break;
 	case MSM_NPU_LOAD_NETWORK_V2:
 		ret = npu_load_network_v2(client, arg);
@@ -1455,7 +1382,8 @@ static long npu_ioctl(struct file *file, unsigned int cmd,
 		ret = npu_unload_network(client, arg);
 		break;
 	case MSM_NPU_EXEC_NETWORK:
-		ret = npu_exec_network(client, arg);
+		NPU_ERR("npu_exec_network_v1 is no longer supported\n");
+		ret = -ENOTTY;
 		break;
 	case MSM_NPU_EXEC_NETWORK_V2:
 		ret = npu_exec_network_v2(client, arg);

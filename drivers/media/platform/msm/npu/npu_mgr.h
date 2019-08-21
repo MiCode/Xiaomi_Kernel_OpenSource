@@ -131,15 +131,11 @@ int32_t npu_host_map_buf(struct npu_client *client,
 	struct msm_npu_map_buf_ioctl *map_ioctl);
 int32_t npu_host_unmap_buf(struct npu_client *client,
 	struct msm_npu_unmap_buf_ioctl *unmap_ioctl);
-int32_t npu_host_load_network(struct npu_client *client,
-	struct msm_npu_load_network_ioctl *load_ioctl);
 int32_t npu_host_load_network_v2(struct npu_client *client,
 	struct msm_npu_load_network_ioctl_v2 *load_ioctl,
 	struct msm_npu_patch_info_v2 *patch_info);
 int32_t npu_host_unload_network(struct npu_client *client,
 	struct msm_npu_unload_network_ioctl *unload);
-int32_t npu_host_exec_network(struct npu_client *client,
-	struct msm_npu_exec_network_ioctl *exec_ioctl);
 int32_t npu_host_exec_network_v2(struct npu_client *client,
 	struct msm_npu_exec_network_ioctl_v2 *exec_ioctl,
 	struct msm_npu_patch_buf_info *patch_buf_info);
