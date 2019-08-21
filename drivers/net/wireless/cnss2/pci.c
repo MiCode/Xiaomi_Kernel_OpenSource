@@ -2898,6 +2898,10 @@ int cnss_smmu_map(struct device *dev,
 	unsigned long iova;
 	size_t len;
 	int ret = 0;
+	int flag = IOMMU_READ | IOMMU_WRITE;
+	struct pci_dev *root_port;
+	struct device_node *root_of_node;
+	bool dma_coherent = false;
 
 	if (!pci_priv)
 		return -ENODEV;
@@ -2920,9 +2924,19 @@ int cnss_smmu_map(struct device *dev,
 		return -ENOMEM;
 	}
 
+	root_port = pci_find_pcie_root_port(pci_priv->pci_dev);
+	root_of_node = root_port->dev.of_node;
+	if (root_of_node->parent) {
+		dma_coherent = of_property_read_bool(root_of_node->parent,
+						     "dma-coherent");
+		cnss_pr_dbg("dma-coherent is %s\n",
+			    dma_coherent ? "enabled" : "disabled");
+		if (dma_coherent)
+			flag |= IOMMU_CACHE;
+	}
+
 	ret = iommu_map(pci_priv->iommu_domain, iova,
-			rounddown(paddr, PAGE_SIZE), len,
-			IOMMU_READ | IOMMU_WRITE);
+			rounddown(paddr, PAGE_SIZE), len, flag);
 	if (ret) {
 		cnss_pr_err("PA to IOVA mapping failed, ret %d\n", ret);
 		return ret;
