@@ -61,6 +61,7 @@ int register_mmdvfs_notifier(struct notifier_block *nb)
 {
 	return blocking_notifier_chain_register(&mmdvfs_notifier_list, nb);
 }
+EXPORT_SYMBOL_GPL(register_mmdvfs_notifier);
 
 /**
  * unregister_mmdvfs_notifier - unregister multimedia clk changing notifier
@@ -72,6 +73,7 @@ int unregister_mmdvfs_notifier(struct notifier_block *nb)
 {
 	return blocking_notifier_chain_unregister(&mmdvfs_notifier_list, nb);
 }
+EXPORT_SYMBOL_GPL(unregister_mmdvfs_notifier);
 
 static void set_all_muxes(struct mmdvfs_drv_data *drv_data, u32 opp_level)
 {
