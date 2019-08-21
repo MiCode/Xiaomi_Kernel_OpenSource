@@ -279,3 +279,10 @@ int connectivity_export_gpio_get_tristate_input(unsigned int pin)
 	return 0;
 }
 EXPORT_SYMBOL(connectivity_export_gpio_get_tristate_input);
+
+struct regmap *connectivity_export_regulator_get_regmap(
+					struct regulator *regulator)
+{
+	return regulator_get_regmap(regulator);
+}
+EXPORT_SYMBOL(connectivity_export_regulator_get_regmap);

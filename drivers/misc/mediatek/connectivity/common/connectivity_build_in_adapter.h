@@ -11,6 +11,8 @@
 #include <linux/mm.h>
 #include <linux/dma-mapping.h>
 #include <linux/sched/clock.h>
+#include <linux/regmap.h>
+#include <linux/regulator/consumer.h>
 
 /*******************************************************************************
  * Clock Buffer Control
@@ -71,6 +73,9 @@ void connectivity_export_clk_buf_ctrl(enum clk_buf_id id, bool onoff);
 	connectivity_export_pmic_get_register_value
 #define KERNEL_upmu_set_reg_value \
 	connectivity_export_upmu_set_reg_value
+#define KERNEL_regulator_get_regmap \
+	connectivity_export_regulator_get_regmap
+
 void connectivity_export_pmic_config_interface(unsigned int RegNum,
 						unsigned int val,
 						unsigned int MASK,
@@ -84,6 +89,9 @@ void connectivity_export_pmic_set_register_value(int flagname,
 unsigned short connectivity_export_pmic_get_register_value(int flagname);
 void connectivity_export_upmu_set_reg_value(unsigned int reg,
 						unsigned int reg_val);
+struct regmap *connectivity_export_regulator_get_regmap(
+						struct regulator *regulator);
+
 /*******************************************************************************
  * MMC
  * Caller please be sure to #include:
