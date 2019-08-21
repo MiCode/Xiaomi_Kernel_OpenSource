@@ -1712,6 +1712,9 @@ static int adreno_init(struct kgsl_device *device)
 	adreno_perfcounter_init(adreno_dev);
 	adreno_fault_detect_init(adreno_dev);
 
+	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
+							ADRENO_COOP_RESET);
+
 	/* Power down the device */
 	if (ADRENO_GPUREV(adreno_dev) < 600)
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);

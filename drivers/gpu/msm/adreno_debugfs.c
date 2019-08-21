@@ -7,6 +7,7 @@
 #include <linux/msm_kgsl.h>
 
 #include "adreno.h"
+extern struct dentry *kgsl_debugfs_dir;
 
 static int _isdb_set(void *data, u64 val)
 {
@@ -109,6 +110,27 @@ static int _active_count_get(void *data, u64 *val)
 }
 
 DEFINE_DEBUGFS_ATTRIBUTE(_active_count_fops, _active_count_get, NULL, "%llu\n");
+
+static int _coop_reset_set(void *data, u64 val)
+{
+	struct kgsl_device *device = data;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_COOP_RESET))
+		adreno_dev->cooperative_reset = val ? true : false;
+	return 0;
+}
+
+static int _coop_reset_get(void *data, u64 *val)
+{
+	struct kgsl_device *device = data;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	*val = (u64) adreno_dev->cooperative_reset;
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(_coop_reset_fops, _coop_reset_get,
+				_coop_reset_set, "%llu\n");
 
 typedef void (*reg_read_init_t)(struct kgsl_device *device);
 typedef void (*reg_read_fill_t)(struct kgsl_device *device, int i,
@@ -362,6 +384,7 @@ adreno_context_debugfs_init(struct adreno_device *adreno_dev,
 void adreno_debugfs_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct dentry *snapshot_dir;
 
 	if (IS_ERR_OR_NULL(device->d_debugfs))
 		return;
@@ -370,6 +393,11 @@ void adreno_debugfs_init(struct adreno_device *adreno_dev)
 			    &_active_count_fops);
 	adreno_dev->ctx_d_debugfs = debugfs_create_dir("ctx",
 							device->d_debugfs);
+	snapshot_dir = debugfs_lookup("snapshot", kgsl_debugfs_dir);
+
+	if (!IS_ERR_OR_NULL(snapshot_dir))
+		debugfs_create_file("coop_reset", 0644, snapshot_dir, device,
+					&_coop_reset_fops);
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM)) {
 		debugfs_create_file("lm_limit", 0644, device->d_debugfs, device,
