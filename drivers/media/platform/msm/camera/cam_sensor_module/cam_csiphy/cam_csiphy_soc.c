@@ -253,7 +253,8 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		csiphy_dev->is_csiphy_3phase_hw = CSI_3PHASE_HW;
 		csiphy_dev->hw_version = CSIPHY_VERSION_V11;
 		csiphy_dev->clk_lane = 0;
-		csiphy_dev->ctrl_reg->data_rates_settings_table = NULL;
+		csiphy_dev->ctrl_reg->data_rates_settings_table =
+			&data_rate_delta_table_1_1;
 	} else if (of_device_is_compatible(soc_info->dev->of_node,
 		"qcom,csiphy-v1.2")) {
 		csiphy_dev->ctrl_reg->csiphy_2ph_reg = csiphy_2ph_v1_2_reg;

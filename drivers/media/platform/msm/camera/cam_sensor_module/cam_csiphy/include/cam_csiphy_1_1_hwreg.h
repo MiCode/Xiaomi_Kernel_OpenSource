@@ -504,4 +504,33 @@ struct csiphy_reg_t
 	},
 };
 
+
+struct data_rate_settings_t data_rate_delta_table_1_1 = {
+	.num_data_rate_settings = 2,
+	.data_rate_settings = {
+		{
+			// data rate <= 2.3 Gsps
+			// max bandwidth = 2.3 * 2.28 * (10**3) Mbps
+			.bandwidth = 5243000000,
+			.data_rate_reg_array_size = 3,
+			.csiphy_data_rate_regs = {
+				{0x09B0, 0x23, 0x00, CSIPHY_DEFAULT_PARAMS},
+				{0x0AB0, 0x23, 0x00, CSIPHY_DEFAULT_PARAMS},
+				{0x0BB0, 0x23, 0x00, CSIPHY_DEFAULT_PARAMS}
+			}
+		},
+		{
+			// 2.3 Gsps <= data rate <= 2.5 Gsps
+			// max bandwidth = 2.5 * 2.28 * (10**3) Mbps
+			.bandwidth = 5700000000,
+			.data_rate_reg_array_size = 3,
+			.csiphy_data_rate_regs = {
+				{0x09B0, 0x22, 0x00, CSIPHY_DEFAULT_PARAMS},
+				{0x0AB0, 0x22, 0x00, CSIPHY_DEFAULT_PARAMS},
+				{0x0BB0, 0x22, 0x00, CSIPHY_DEFAULT_PARAMS}
+			}
+		}
+	}
+};
+
 #endif /* _CAM_CSIPHY_D5_0_HWREG_H_ */
