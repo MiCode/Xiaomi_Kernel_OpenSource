@@ -6,7 +6,6 @@
  */
 
 #include "dm-core.h"
-#include "dm-ioctrl.h"
 
 #include <linux/module.h>
 #include <linux/vmalloc.h>
@@ -2057,37 +2056,3 @@ out:
 
 	return r;
 }
-
-int __init dm_ioctrl(uint cmd, struct dm_ioctl *param)
-{
-	int r = 0;
-	int ioctl_flags;
-	ioctl_fn fn = NULL;
-	size_t input_param_size;
-
-	/*
-	 * Nothing more to do for the version command.
-	 */
-	if (cmd == DM_VERSION_CMD)
-		return 0;
-
-	DMDEBUG("dm_ctl_ioctl: command 0x%x", cmd);
-
-	fn = lookup_ioctl(cmd, &ioctl_flags);
-	if (!fn) {
-		DMWARN("dm_ctl_ioctl: unknown command 0x%x", cmd);
-		return -ENOTTY;
-	}
-
-	input_param_size = param->data_size;
-	param->data_size = sizeof(*param);
-
-	r = fn(NULL, param, input_param_size);
-
-	if (unlikely(param->flags & DM_BUFFER_FULL_FLAG) &&
-		unlikely(ioctl_flags & IOCTL_FLAGS_NO_PARAMS))
-		DMERR("ioctl %d  but has IOCTL_FLAGS_NO_PARAMS set", cmd);
-
-	return r;
-}
-EXPORT_SYMBOL(dm_ioctrl);
