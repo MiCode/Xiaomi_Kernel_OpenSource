@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef _UAPI_ESOC_CTRL_H_
 #define _UAPI_ESOC_CTRL_H_
@@ -57,6 +57,7 @@ enum esoc_evt {
 	ESOC_CMD_ENG_OFF,
 	ESOC_INVALID_STATE,
 	ESOC_RETRY_PON_EVT,
+	ESOC_BOOT_STATE,
 };
 
 enum esoc_cmd {
