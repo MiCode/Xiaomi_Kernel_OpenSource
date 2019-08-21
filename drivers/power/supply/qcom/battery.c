@@ -93,6 +93,8 @@ struct pl_data {
 	int			parallel_step_fcc_count;
 	int			parallel_step_fcc_residual;
 	int			step_fcc;
+	int			override_main_fcc_ua;
+	int			total_fcc_ua;
 	u32			wa_flags;
 	struct class		qcom_batt_class;
 	struct wakeup_source	*pl_ws;
@@ -605,6 +607,28 @@ out:
 static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
 			int parallel_fcc_ua)
 {
+	int main_set_fcc_ua, total_fcc_ua;
+
+	if (is_override_vote_enabled_locked(chip->fcc_main_votable)) {
+		/*
+		 * FCC stepper params need re-calculation in override mode
+		 * only if there is change in Main or total FCC
+		 */
+
+		main_set_fcc_ua = get_effective_result_locked(
+							chip->fcc_main_votable);
+		total_fcc_ua = main_fcc_ua + parallel_fcc_ua;
+
+		if ((main_set_fcc_ua != chip->override_main_fcc_ua)
+				|| (total_fcc_ua != chip->total_fcc_ua)) {
+			chip->override_main_fcc_ua = main_set_fcc_ua;
+			chip->total_fcc_ua = total_fcc_ua;
+			parallel_fcc_ua += (main_fcc_ua
+						- chip->override_main_fcc_ua);
+		} else {
+			goto skip_fcc_step_update;
+		}
+	}
 	/* Read current FCC of main charger */
 	chip->main_fcc_ua = get_effective_result(chip->fcc_main_votable);
 	chip->main_step_fcc_dir = (main_fcc_ua > chip->main_fcc_ua) ?
@@ -621,6 +645,7 @@ static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
 	chip->parallel_step_fcc_residual = abs((parallel_fcc_ua -
 				chip->slave_fcc_ua)) % FCC_STEP_SIZE_UA;
 
+skip_fcc_step_update:
 	if (chip->parallel_step_fcc_count || chip->parallel_step_fcc_residual
 		|| chip->main_step_fcc_count || chip->main_step_fcc_residual)
 		chip->step_fcc = 1;
