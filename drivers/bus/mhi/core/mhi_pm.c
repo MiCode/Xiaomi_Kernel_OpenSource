@@ -1335,6 +1335,7 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 	switch (mhi_cntrl->pm_state) {
 	case MHI_PM_M0:
 		mhi_pm_m0_transition(mhi_cntrl);
+		break;
 	case MHI_PM_M2:
 		read_lock_bh(&mhi_cntrl->pm_lock);
 		mhi_cntrl->wake_get(mhi_cntrl, true);
