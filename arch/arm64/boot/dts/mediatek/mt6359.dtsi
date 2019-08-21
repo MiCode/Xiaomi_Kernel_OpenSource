@@ -322,7 +322,6 @@
 				regulator-min-microvolt = <1500000>;
 				regulator-max-microvolt = <1700000>;
 				regulator-enable-ramp-delay = <480>;
-				regulator-always-on;
 			};
 			mt6359_vbif28_ldo_reg: ldo_vbif28 {
 				compatible = "regulator-fixed";
@@ -405,7 +404,6 @@
 				regulator-min-microvolt = <1100000>;
 				regulator-max-microvolt = <1200000>;
 				regulator-enable-ramp-delay = <240>;
-				regulator-always-on;
 			};
 			mt6359_vsram_proc1_ldo_reg: ldo_vsram_proc1 {
 				regulator-name = "vsram_proc1";
