@@ -1844,6 +1844,8 @@ static int mtkfb_pan_display_proxy(struct fb_var_screeninfo *var,
 	return mtkfb_pan_display_impl(var, info);
 }
 
+static int mtkfb_mmap(struct fb_info *info, struct vm_area_struct *vma);
+
 /*
  * Callback table for the frame buffer framework. Some of these pointers
  * will be changed according to the current setting of fb_info->accel_flags.
@@ -1860,6 +1862,7 @@ static struct fb_ops mtkfb_ops = {
 	.fb_check_var = mtkfb_check_var,
 	.fb_set_par = mtkfb_set_par,
 	.fb_ioctl = mtkfb_ioctl,
+	.fb_mmap = mtkfb_mmap,
 #ifdef CONFIG_COMPAT
 	.fb_compat_ioctl = mtkfb_compat_ioctl,
 #endif
@@ -2656,6 +2659,17 @@ cleanup:
 	mtkfb_free_resources(fbdev, init_state);
 
 	pr_info("disp driver(3) %s end\n", __func__);
+	return ret;
+}
+
+static int mtkfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
+{
+	struct mtkfb_device *fbdev = (struct mtkfb_device *)mtkfb_fbi->par;
+	int ret;
+
+	ret = disp_aosp_mmap(vma, (unsigned long)fbdev->fb_va_base,
+		fb_mva, vramsize);
+
 	return ret;
 }
 

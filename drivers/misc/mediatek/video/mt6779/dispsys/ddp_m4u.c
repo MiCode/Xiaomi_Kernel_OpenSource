@@ -319,6 +319,20 @@ fail_put:
 #endif
 }
 
+int disp_aosp_mmap(struct vm_area_struct *vma, unsigned long va,
+	unsigned long mva, unsigned int size)
+{
+	int ret;
+
+	vma->vm_flags &= ~VM_PFNMAP;
+	vma->vm_pgoff = 0;
+
+	ret = dma_mmap_attrs(ddp_m4u_dev, vma, va, mva,
+		size, DMA_ATTR_WRITE_COMBINE);
+
+	return ret;
+}
+
 struct ion_handle *disp_ion_import_handle(struct ion_client *client, int fd)
 {
 #if defined(MTK_FB_ION_SUPPORT)
