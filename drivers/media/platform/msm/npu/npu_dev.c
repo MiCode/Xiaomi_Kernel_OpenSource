@@ -122,8 +122,6 @@ static const char * const npu_exclude_rate_clocks[] = {
 	"axi_clk",
 	"ahb_clk",
 	"dma_clk",
-	"llm_temp_clk",
-	"llm_curr_clk",
 	"atb_clk",
 	"s2p_clk",
 };
