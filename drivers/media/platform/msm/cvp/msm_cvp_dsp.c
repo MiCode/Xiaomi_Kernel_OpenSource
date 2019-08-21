@@ -78,6 +78,7 @@ static int cvp_dsp_send_cmd(void *msg, uint32_t len)
 	int err = 0;
 
 	if (IS_ERR_OR_NULL(me->chan)) {
+		dprintk(CVP_ERR, "%s: DSP GLink is not ready\n", __func__);
 		err = -EINVAL;
 		goto bail;
 	}
@@ -211,6 +212,8 @@ int cvp_dsp_send_cmd_hfi_queue(phys_addr_t *phys_addr,
 		dprintk(CVP_ERR,
 			"%s: Incorrect DDR type value %d\n",
 			__func__, local_cmd_msg.ddr_type);
+		err = -EINVAL;
+		goto exit;
 	}
 
 	mutex_lock(&me->smd_mutex);
@@ -219,7 +222,7 @@ int cvp_dsp_send_cmd_hfi_queue(phys_addr_t *phys_addr,
 	mutex_unlock(&me->smd_mutex);
 
 	dprintk(CVP_DBG,
-		"%s :: address of buffer, PA=0x%pK  size_buff=%d ddr_type=%d\n",
+		"%s: address of buffer, PA=0x%pK  size_buff=%d ddr_type=%d\n",
 		__func__, phys_addr, size_in_bytes, local_cmd_msg.ddr_type);
 
 	err = hyp_assign_phys((uint64_t)local_cmd_msg.msg_ptr,
@@ -229,33 +232,34 @@ int cvp_dsp_send_cmd_hfi_queue(phys_addr_t *phys_addr,
 		dprintk(CVP_ERR,
 			"%s: Failed in hyp_assign. err=%d\n",
 			__func__, err);
-		return err;
+		goto exit;
 	}
 
 	err = cvp_dsp_send_cmd
 			 (&local_cmd_msg, sizeof(struct cvp_dsp_cmd_msg));
-	if (err != 0)
+	if (err) {
 		dprintk(CVP_ERR,
-			"%s: cvp_dsp_send_cmd failed with err=%d\n",
+			"%s: cvp_dsp_send_cmd faidmesgled with err=%d\n",
 			__func__, err);
-	else {
-		core = list_first_entry(&cvp_driver->cores,
-				struct msm_cvp_core, list);
-		timeout = msecs_to_jiffies(
-				core->resources.msm_cvp_dsp_rsp_timeout);
-		err = wait_for_completion_timeout(
-				&me->cmdqueue_send_work, timeout);
-		if (!err) {
-			dprintk(CVP_ERR, "failed to send cmdqueue\n");
-			return -ETIMEDOUT;
-		}
-
-		mutex_lock(&me->smd_mutex);
-		me->cvp_shutdown = STATUS_OK;
-		me->cdsp_state = STATUS_OK;
-		mutex_unlock(&me->smd_mutex);
+		goto exit;
 	}
 
+	core = list_first_entry(&cvp_driver->cores,
+			struct msm_cvp_core, list);
+	timeout = msecs_to_jiffies(
+			core->resources.msm_cvp_dsp_rsp_timeout);
+	if (!wait_for_completion_timeout(&me->cmdqueue_send_work, timeout)) {
+		dprintk(CVP_ERR, "failed to send cmdqueue\n");
+		err =  -ETIMEDOUT;
+		goto exit;
+	}
+
+	mutex_lock(&me->smd_mutex);
+	me->cvp_shutdown = STATUS_OK;
+	me->cdsp_state = STATUS_OK;
+	mutex_unlock(&me->smd_mutex);
+
+exit:
 	return err;
 }
 
