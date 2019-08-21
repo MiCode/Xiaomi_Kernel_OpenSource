@@ -38,7 +38,7 @@ struct mm_qos_request {
 	struct icc_path *icc_path;
 };
 
-#ifdef CONFIG_INTERCONNECT_MTK_MMQOS_COMMON
+#if IS_ENABLED(CONFIG_INTERCONNECT_MTK_MMQOS_COMMON)
 
 /**
  * mm_qos_add_request - add mm_qos_request into owner_list
@@ -167,6 +167,8 @@ static inline void mm_qos_remove_all_request(struct plist_head *owner_list)
 static inline void mm_qos_update_all_request_zero(
 	struct plist_head *owner_list)
 	{ return; }
+static inline s32 mm_hrt_get_available_hrt_bw(u32 master_id)
+	{ return -1; }
 static inline s32 mm_hrt_add_bw_throttle_notifier(struct notifier_block *nb)
 	{ return 0; }
 static inline s32 mm_hrt_remove_bw_throttle_notifier(struct notifier_block *nb)

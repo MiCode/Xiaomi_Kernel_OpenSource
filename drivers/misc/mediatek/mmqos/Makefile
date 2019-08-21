@@ -11,4 +11,4 @@
 # GNU General Public License for more details.
 #
 
-obj-y += mmqos_wrapper.o
+obj-$(CONFIG_INTERCONNECT_MTK_MMQOS_COMMON) += mmqos_wrapper.o
