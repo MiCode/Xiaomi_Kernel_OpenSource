@@ -46,6 +46,7 @@
 #include <linux/sched/clock.h>
 #include <linux/sched/debug.h>
 #include <linux/sched/task_stack.h>
+#include <linux/proc_fs.h>
 
 #include <linux/uaccess.h>
 #include <asm/sections.h>
@@ -58,6 +59,7 @@
 #include "braille.h"
 #include "internal.h"
 #include "mt-plat/mtk_printk_ctrl.h"
+#include <mt-plat/aee.h>
 
 #ifdef CONFIG_PRINTK_PREFIX_ENHANCE
 static DEFINE_PER_CPU(char, printk_state);
@@ -446,6 +448,18 @@ static char __log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
 static char *log_buf = __log_buf;
 static u32 log_buf_len = __LOG_BUF_LEN;
 
+#ifdef CONFIG_PRINTK_MTK_UART_CONSOLE
+/*
+ * 0: uart printk enable
+ * 1: uart printk disable
+ * 2: uart printk always enable
+ * 2 only set in lk phase by cmline
+ */
+int printk_disable_uart;
+
+module_param_named(disable_uart, printk_disable_uart, int, 0644);
+#endif
+
 
 /* console duration detect */
 #ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
@@ -464,6 +478,64 @@ static struct __conwrite_stat_struct conwrite_stat_struct = {
 };
 unsigned long rem_nsec_con_write_ttyS, rem_nsec_con_write_pstore;
 bool console_status_detected;
+#endif
+
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+int printk_too_much_enable;
+static int detect_count =
+	/*Default max lines per second*/
+	CONFIG_LOG_TOO_MUCH_DETECT_COUNT;
+static bool detect_count_change; /* detect_count change flag*/
+#define DETECT_COUNT_MIN 100
+
+#define DETECT_TIME 1000000000ULL /* 1s = 1000000000ns */
+#define DELAY_TIME	(CONFIG_LOG_TOO_MUCH_DETECT_GAP*DETECT_TIME*60)
+
+static u64 delta_time;
+static u64 delta_count;
+static u64 t_base;
+static bool flag_toomuch;
+
+static char *log_much;
+static int log_count;
+static u32 start_idx;
+static u64 start_seq;
+#define LOG_MUCH_PLUS_LEN	(1 << 17)
+
+static void log_much_do_check_and_delay(struct printk_log *msg);
+
+void set_detect_count(int count)
+{
+	if (count >= detect_count)
+		detect_count = count;
+	else {
+		if (count < DETECT_COUNT_MIN)
+			detect_count = DETECT_COUNT_MIN;
+		else
+			detect_count = count;
+		detect_count_change = true;
+	}
+	pr_info("Printk too much criteria: %d  delay_flag: %d\n",
+		detect_count, detect_count_change);
+}
+
+int get_detect_count(void)
+{
+	return detect_count;
+}
+
+
+void set_logtoomuch_enable(int value)
+{
+	printk_too_much_enable = value;
+}
+
+
+int get_logtoomuch_enable(void)
+{
+	return printk_too_much_enable;
+}
+
 #endif
 
 /* Return log buffer address */
@@ -623,6 +695,11 @@ static int log_store(int facility, int level,
 	unsigned int tlen = 0;
 #endif
 
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+	static u64 start_ts_nsec;
+	static bool initialized;
+#endif
+
 #ifdef CONFIG_PRINTK_PREFIX_ENHANCE
 		if (state == 0) {
 			this_cpu_write(printk_state, ' ');
@@ -697,6 +774,42 @@ static int log_store(int facility, int level,
 	/* insert message */
 	log_next_idx += msg->len;
 	log_next_seq++;
+
+	/* printk too much detect */
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+	if (printk_too_much_enable == 1) {
+		if (detect_count_change) {
+			detect_count_change = false;
+			t_base = msg->ts_nsec + DETECT_TIME*15;
+		}
+		if (flag_toomuch == false && t_base < msg->ts_nsec) {
+			if (!initialized) {
+				start_ts_nsec = msg->ts_nsec;
+				start_idx = log_next_idx - msg->len;
+				start_seq = log_next_seq - 1;
+				initialized = true;
+			}
+			/* old messages were dropped */
+			if (start_seq < log_first_seq) {
+				initialized = false;
+				start_seq = log_first_seq;
+				start_idx = log_first_idx;
+				delta_time = msg->ts_nsec
+					- log_from_idx(start_idx)->ts_nsec;
+				delta_count = log_next_seq - start_seq;
+				log_much_do_check_and_delay(msg);
+			} else {
+				delta_time = msg->ts_nsec - start_ts_nsec;
+				delta_count = log_next_seq - start_seq;
+				/* check every 5 seconds */
+				if (delta_time > DETECT_TIME * 5) {
+					initialized = false;
+					log_much_do_check_and_delay(msg);
+				}
+			}
+		}
+	}
+#endif
 
 	return msg->text_len;
 }
@@ -1831,6 +1944,17 @@ static void call_console_drivers(const char *ext_text, size_t ext_len,
 	}
 }
 
+#ifdef CONFIG_MTK_AEE_FEATURE
+/* if logbuf lock in aee_wdt flow, zap locks uncondationally  */
+void aee_wdt_zap_locks(void)
+{
+	debug_locks_off();
+	/* If a crash is occurring, make sure we can't deadlock */
+	raw_spin_lock_init(&logbuf_lock);
+	/* And make sure that we print immediately */
+	sema_init(&console_sem, 1);
+}
+#endif
 
 int printk_delay_msec __read_mostly;
 
@@ -2010,6 +2134,11 @@ asmlinkage int vprintk_emit(int facility, int level,
 #ifdef CONFIG_PRINTK_PREFIX_ENHANCE
 	if (irqs_disabled())
 		this_cpu_write(printk_state, '-');
+#ifdef CONFIG_PRINTK_MTK_UART_CONSOLE
+		/* if uart printk enabled */
+	else if (mt_get_uartlog_status())
+		this_cpu_write(printk_state, '.');
+#endif
 	else
 		this_cpu_write(printk_state, ' ');
 #endif
@@ -2172,6 +2301,70 @@ asmlinkage __visible void early_printk(const char *fmt, ...)
 
 	early_console->write(early_console, buf, n);
 }
+#endif
+
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+static int parse_log_file(void)
+{
+	char buff[LOG_LINE_MAX + PREFIX_MAX];
+	u32 log_index = start_idx;
+	u64 log_seq = start_seq;
+	size_t count = 0;
+	struct printk_log *msg;
+	enum log_flags prev = 0;
+
+	if (log_much == NULL)
+		return -ENOMEM;
+
+	log_count = 0;
+	while (log_seq < log_next_seq) {
+		msg = log_from_idx(log_index);
+		count = msg_print_text(msg, true, buff, sizeof(buff));
+		prev = msg->flags;
+
+		if (log_count + count > log_buf_len + LOG_MUCH_PLUS_LEN)
+			break;
+		memcpy(log_much + log_count, buff, count);
+		log_count += count;
+
+		log_index = log_next(log_index);
+		log_seq++;
+	}
+	return 0;
+}
+
+static void log_much_do_check_and_delay(struct printk_log *msg)
+{
+	if (delta_count * DETECT_TIME >  detect_count * delta_time) {
+		if (!parse_log_file()) {
+			t_base = msg->ts_nsec + DELAY_TIME;
+			flag_toomuch = true;
+		}
+	}
+}
+
+static int log_much_show(struct seq_file *m, void *v)
+{
+	if (log_much == NULL) {
+		seq_puts(m, "log buff is null.\n");
+		return 0;
+	}
+	seq_write(m, log_much, log_count);
+	return 0;
+}
+
+static int log_much_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, log_much_show, inode->i_private);
+}
+
+static const struct file_operations log_much_ops = {
+	.owner = THIS_MODULE,
+	.open = log_much_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
 #endif
 
 static int __add_preferred_console(char *name, int idx, char *options,
@@ -2430,6 +2623,14 @@ void console_unlock(void)
 	static char text[LOG_LINE_MAX + PREFIX_MAX];
 	unsigned long flags;
 	bool do_cond_resched, retry;
+
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+/* length can not beyond 63 because of aee API args limitation */
+	char aee_str[63];
+	int add_len;
+	u64 period;
+	unsigned long rem_nsec;
+#endif
 #ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
 	bool block_overtime = false;
 	u64 con_dura_time = local_clock();
@@ -2577,7 +2778,27 @@ skip:
 		console_lock_spinning_enable();
 
 		stop_critical_timings();	/* don't trace print latency */
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+		if (flag_toomuch == true) {
+			flag_toomuch = false;
+			add_len = scnprintf(aee_str, 63,
+				"Printk too much: >%d L/s, L: %llu, ",
+				detect_count, delta_count);
+			if (add_len + 12 <= 63) {
+				period = delta_time;
+				rem_nsec = do_div(period, 1000000000);
+				scnprintf(aee_str + add_len, 63 - add_len,
+					"S: %llu.%06lu\n",
+					period, rem_nsec / 1000);
+			}
+			aee_kernel_warning_api(__FILE__, __LINE__,
+				DB_OPT_PRINTK_TOO_MUCH | DB_OPT_DUMMY_DUMP,
+				aee_str, "Need to shrink kernel log");
+		} else
+			call_console_drivers(ext_text, ext_len, text, len);
+#else
 		call_console_drivers(ext_text, ext_len, text, len);
+#endif
 		start_critical_timings();
 
 		if (console_lock_spinning_disable_and_check()) {
@@ -3005,6 +3226,9 @@ void __init console_init(void)
 static int __init printk_late_init(void)
 {
 	struct console *con;
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+	struct proc_dir_entry *entry;
+#endif
 	int ret;
 
 	for_each_console(con) {
@@ -3033,6 +3257,14 @@ static int __init printk_late_init(void)
 	ret = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN, "printk:online",
 					console_cpu_notify, NULL);
 	WARN_ON(ret < 0);
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+	entry = proc_create("log_much", 0444, NULL, &log_much_ops);
+	if (!entry) {
+		pr_notice("printk: failed to create proc log much entry\n");
+		return 1;
+	}
+	log_much = kmalloc(log_buf_len + LOG_MUCH_PLUS_LEN, GFP_KERNEL);
+#endif
 	return 0;
 }
 late_initcall(printk_late_init);

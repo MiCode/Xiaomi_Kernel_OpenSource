@@ -13,6 +13,33 @@ extern const char linux_proc_banner[];
 
 #define PRINTK_MAX_SINGLE_HEADER_LEN 2
 
+#ifdef CONFIG_MTK_AEE_FEATURE
+void aee_wdt_zap_locks(void);
+#endif
+
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+#ifndef KBUILD_MODNAME
+#define KBUILD_MODNAME "unknown module"
+#endif
+#define KLOG_MODNAME		"[name:"KBUILD_MODNAME"&]"
+void set_detect_count(int count);
+int get_detect_count(void);
+void set_logtoomuch_enable(int value);
+int get_logtoomuch_enable(void);
+#endif
+
+#ifdef CONFIG_PRINTK_MTK_UART_CONSOLE
+/*
+ * 0: uart printk enable
+ * 1: uart printk disable
+ * 2: uart printk always enable
+ * 2 only set in lk phase by cmline
+ */
+extern int printk_disable_uart;
+#endif
+
+
+
 static inline int printk_get_level(const char *buffer)
 {
 	if (buffer[0] == KERN_SOH_ASCII && buffer[1]) {
@@ -298,6 +325,34 @@ extern int kptr_restrict;
  * and other debug macros are compiled out unless either DEBUG is defined
  * or CONFIG_DYNAMIC_DEBUG is set.
  */
+/* -------printk too much patch------ */
+#if defined CONFIG_LOG_TOO_MUCH_WARNING \
+	&& defined CONFIG_DYNAMIC_DEBUG
+#define pr_emerg(fmt, ...) \
+	dynamic_pr_emerg(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+
+#define pr_alert(fmt, ...) \
+	dynamic_pr_alert(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+
+#define pr_crit(fmt, ...) \
+	dynamic_pr_crit(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+
+#define pr_err(fmt, ...) \
+	dynamic_pr_err(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+
+#define pr_warning(fmt, ...) \
+	dynamic_pr_warn(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+
+#define pr_warn(fmt, ...) \
+	dynamic_pr_warn(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+
+#define pr_notice(fmt, ...) \
+	dynamic_pr_notice(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+
+#define pr_info(fmt, ...) \
+	dynamic_pr_info(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+
+#else
 #define pr_emerg(fmt, ...) \
 	printk(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__)
 #define pr_alert(fmt, ...) \
@@ -313,6 +368,8 @@ extern int kptr_restrict;
 	printk(KERN_NOTICE pr_fmt(fmt), ##__VA_ARGS__)
 #define pr_info(fmt, ...) \
 	printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__)
+#endif
+
 /*
  * Like KERN_CONT, pr_cont() should only be used when continuing
  * a line with no newline ('\n') enclosed. Otherwise it defaults
