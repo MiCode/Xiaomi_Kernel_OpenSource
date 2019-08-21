@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -450,9 +450,11 @@ void glink_ctrl_disconnect(struct grmnet *gr, u8 client_num)
 	}
 
 	spin_lock_irqsave(&ch_info->port_lock, flags);
-	ch_info->port->send_encap_cmd = 0;
-	ch_info->port->notify_modem = 0;
-	ch_info->port = 0;
+	if (ch_info->port) {
+		ch_info->port->send_encap_cmd = 0;
+		ch_info->port->notify_modem = 0;
+		ch_info->port = 0;
+	}
 
 	glink_purge_tx_q(ch_info);
 	spin_unlock_irqrestore(&ch_info->port_lock, flags);

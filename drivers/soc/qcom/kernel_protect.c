@@ -1,4 +1,4 @@
-/* Copyright (c) 2015,2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015,2016,2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,9 +73,7 @@ static void msm_protect_kernel_test(void)
 
 static int __init msm_protect_kernel(void)
 {
-	int ret;
-	u32 vmid_hlos = VMID_HLOS;
-	int dest_perms = PERM_READ | PERM_EXEC;
+	int ret = 0;
 	/*
 	 * Although the kernel image is mapped with section mappings, the
 	 * start and end of the .text segment are on a PAGE_SIZE
@@ -112,17 +110,7 @@ static int __init msm_protect_kernel(void)
 					&kernel_x_start_rounded,
 					&kernel_x_end);
 		}
-	} else {
-		ret = hyp_assign_phys(kernel_x_start_rounded,
-				kernel_x_end - kernel_x_start_rounded,
-				&vmid_hlos, 1, &vmid_hlos, &dest_perms, 1);
 	}
-	if (ret)
-		/*
-		 * We want to fail relatively silently since not all
-		 * platforms support the hyp_assign_phys call.
-		 */
-		pr_debug("Couldn't protect the kernel region: %d\n", ret);
 
 	msm_protect_kernel_test();
 
