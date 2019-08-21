@@ -506,8 +506,8 @@
 		      <0x17080000 0xE000>;
 		reg-names = "lpa_if", "lpass_tcsr";
 		interrupts = <GIC_SPI 267 0>;
-		bit-clock-hz = <20000000>;
-		interrupt-interval-ms = <10>;
+		number-of-rate-detectors = <2>;
+		rate-detector-interfaces = <0 1>;
 
 		sdr0: qcom,hs0_i2s {
 			compatible = "qcom,hsi2s-interface";
@@ -522,6 +522,11 @@
 			iommus = <&apps_smmu 0x1B5C 0x0>;
 			qcom,smmu-s1-bypass;
 			qcom,iova-mapping = <0x0 0xFFFFFFFF>;
+			bit-clock-hz = <12288000>;
+			data-buffer-ms = <10>;
+			bit-depth = <32>;
+			spkr-channel-count = <2>;
+			mic-channel-count = <2>;
 		};
 
 		sdr1: qcom,hs1_i2s {
@@ -537,6 +542,11 @@
 			iommus = <&apps_smmu 0x1B5D 0x0>;
 			qcom,smmu-s1-bypass;
 			qcom,iova-mapping = <0x0 0xFFFFFFFF>;
+			bit-clock-hz = <12288000>;
+			data-buffer-ms = <10>;
+			bit-depth = <32>;
+			spkr-channel-count = <2>;
+			mic-channel-count = <2>;
 		};
 
 		sdr2: qcom,hs2_i2s {
@@ -552,6 +562,11 @@
 			iommus = <&apps_smmu 0x1B5E 0x0>;
 			qcom,smmu-s1-bypass;
 			qcom,iova-mapping = <0x0 0xFFFFFFFF>;
+			bit-clock-hz = <12288000>;
+			data-buffer-ms = <10>;
+			bit-depth = <32>;
+			spkr-channel-count = <2>;
+			mic-channel-count = <2>;
 		};
 	};
 
