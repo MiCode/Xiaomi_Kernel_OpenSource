@@ -57,11 +57,14 @@ static int update_mm_clk(struct notifier_block *nb,
 
 	list_for_each_entry(comm_port_node, &mmqos->comm_port_list, list) {
 		mutex_lock(&comm_port_node->bw_lock);
-		mmqos_update_comm_bw(comm_port_node->larb_dev,
-			comm_port_node->base->icc_node->id & 0xff,
-			comm_port_node->common->freq,
-			icc_to_MBps(comm_port_node->latest_mix_bw),
-			icc_to_MBps(comm_port_node->latest_peak_bw));
+		if (comm_port_node->latest_mix_bw
+			|| comm_port_node->latest_peak_bw) {
+			mmqos_update_comm_bw(comm_port_node->larb_dev,
+				comm_port_node->base->icc_node->id & 0xff,
+				comm_port_node->common->freq,
+				icc_to_MBps(comm_port_node->latest_mix_bw),
+				icc_to_MBps(comm_port_node->latest_peak_bw));
+		}
 		mutex_unlock(&comm_port_node->bw_lock);
 	}
 
