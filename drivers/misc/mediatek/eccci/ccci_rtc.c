@@ -32,8 +32,8 @@ int mtk_crystal_exist_status(void)
 static int ccci_get_rtc_info(struct platform_device *pdev)
 {
 	struct nvmem_cell *cell = NULL;
-	u32 *buf = NULL;
-	ssize_t len;
+	u8 *buf = NULL;
+	ssize_t len = 0;
 
 	cell = nvmem_cell_get(&pdev->dev, "external-32k");
 	if (IS_ERR(cell)) {
@@ -46,7 +46,7 @@ static int ccci_get_rtc_info(struct platform_device *pdev)
 		goto fail;
 	}
 
-	buf = (u32 *)nvmem_cell_read(cell, &len);
+	buf = (u8 *)nvmem_cell_read(cell, &len);
 	nvmem_cell_put(cell);
 
 	if (IS_ERR(buf)) {
@@ -55,7 +55,7 @@ static int ccci_get_rtc_info(struct platform_device *pdev)
 		goto fail;
 	}
 
-	g_ccci_rtc_val = (int)(*buf);
+	g_ccci_rtc_val = (u8)(*buf);
 
 	kfree(buf);
 
