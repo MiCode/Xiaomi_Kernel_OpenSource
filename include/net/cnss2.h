@@ -190,6 +190,11 @@ extern int cnss_self_recovery(struct device *dev,
 			      enum cnss_recovery_reason reason);
 extern int cnss_force_fw_assert(struct device *dev);
 extern int cnss_force_collect_rddm(struct device *dev);
+extern int cnss_qmi_send_get(struct device *dev);
+extern int cnss_qmi_send_put(struct device *dev);
+extern int cnss_qmi_send(struct device *dev, int type, void *cmd,
+			 int cmd_len, void *cb_ctx,
+			 int (*cb)(void *ctx, void *event, int event_len));
 extern void *cnss_get_virt_ramdump_mem(struct device *dev, unsigned long *size);
 extern int cnss_get_fw_files_for_target(struct device *dev,
 					struct cnss_fw_files *pfw_files,
