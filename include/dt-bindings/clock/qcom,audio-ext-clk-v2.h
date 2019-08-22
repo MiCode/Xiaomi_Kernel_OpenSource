@@ -16,7 +16,7 @@
 /* Audio External Clocks */
 #define AUDIO_PMI_CLK		0
 #define AUDIO_PMIC_LNBB_CLK	1
-#define AUDIO_LPASS_MCLK_1	2
+#define AUDIO_LPASS_MCLK	2
 #define AUDIO_LPASS_MCLK_2	3
 #define AUDIO_LPASS_MCLK_3	4
 #define AUDIO_LPASS_MCLK_4	5
