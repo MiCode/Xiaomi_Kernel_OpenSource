@@ -404,6 +404,20 @@ First Level Node - QGAUGE device
 		    'qcom,qg-fast-chg-config' is enabled. The
 		    default value if not specified is 1.
 
+- qcom,fvss-enable
+	Usage:      optional
+	Value type: bool
+	Definition: Enable Filtered Voltage based SOC scaling.
+		    This logic enables SOC scaling to report
+		    0 at the cutoff voltage.
+
+- qcom,fvss-vbatt-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery voltage threshold at which FVSS is
+		    enabled. Applicable only if 'qcom,fvss-enable'
+		    is set.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================
