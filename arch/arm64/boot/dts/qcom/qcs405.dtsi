@@ -63,19 +63,19 @@
 			reg = <0x0 0x86400000 0x0 0x1000000>;
 		};
 
-		adsp_fw_mem: adsp_fw_mem@87500000 {
+		adsp_fw_mem: adsp_fw_mem@87400000 {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x87400000 0x0 0x1400000>;
 		};
 
-		cdsp_fw_mem: cdsp_fw_mem@88f00000 {
+		cdsp_fw_mem: cdsp_fw_mem@88800000 {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x88800000 0x0 0x600000>;
 		};
 
-		wlan_msa_mem: wlan_msa_region@89500000 {
+		wlan_msa_mem: wlan_msa_region@88E00000 {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x88E00000 0x0 0x100000>;
