@@ -18,9 +18,10 @@
 #include <linux/uaccess.h>
 #include <asm/arch_timer.h>
 
+#include <clocksource/arm_arch_timer.h>
+
 #define MAGIC_KEY1		0xA1157A75
 #define MAX_NUM_MODES		0x14
-#define MSM_ARCH_TIMER_FREQ	19200000
 
 #define GET_PDATA_OF_ATTR(attr) \
 	(container_of(attr, struct ddr_stats_kobj_attr, ka)->pd)
@@ -48,10 +49,9 @@ struct ddr_stats_kobj_attr {
 	struct ddr_stats_platform_data *pd;
 };
 
-static inline u64 get_time_in_msec(u64 counter)
+static u64 get_time_in_msec(u64 counter)
 {
-	do_div(counter, MSM_ARCH_TIMER_FREQ);
-	counter *= MSEC_PER_SEC;
+	do_div(counter, (arch_timer_get_rate()/MSEC_PER_SEC));
 	return counter;
 }
 
