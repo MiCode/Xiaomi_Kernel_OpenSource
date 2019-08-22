@@ -13,14 +13,6 @@
 #include "hab.h"
 #include "hab_qvm.h"
 
-inline void habhyp_notify(void *commdev)
-{
-	struct qvm_channel *dev = (struct qvm_channel *)commdev;
-
-	if (dev && dev->guest_ctrl)
-		dev->guest_ctrl->notify = ~0;
-}
-
 /* this is only used to read payload, never the head! */
 int physical_channel_read(struct physical_channel *pchan,
 		void *payload,

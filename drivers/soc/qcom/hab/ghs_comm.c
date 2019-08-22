@@ -47,6 +47,13 @@ int physical_channel_send(struct physical_channel *pchan,
 
 	hab_spin_lock(&dev->io_lock, irqs_disabled);
 
+	result = hab_gipc_wait_to_send(dev->endpoint);
+	if (result != GIPC_Success) {
+		hab_spin_unlock(&dev->io_lock, irqs_disabled);
+		pr_err("failed to wait to send %d\n", result);
+		return -EBUSY;
+	}
+
 	result = GIPC_PrepareMessage(dev->endpoint, sizebytes+sizeof(*header),
 		(void **)&msg);
 	if (result == GIPC_Full) {
@@ -89,55 +96,36 @@ int physical_channel_send(struct physical_channel *pchan,
 	return 0;
 }
 
-void physical_channel_rx_dispatch(unsigned long physical_channel)
+void physical_channel_rx_dispatch_common(unsigned long physical_channel)
 {
 	struct hab_header header;
 	struct physical_channel *pchan =
 		(struct physical_channel *)physical_channel;
 	struct ghs_vdev *dev = (struct ghs_vdev *)pchan->hyp_data;
 	GIPC_Result result;
-
-	uint32_t events;
-	unsigned long flags;
 	int irqs_disabled = irqs_disabled();
 
-	spin_lock_irqsave(&pchan->rxbuf_lock, flags);
-	events = kgipc_dequeue_events(dev->endpoint);
-	spin_unlock_irqrestore(&pchan->rxbuf_lock, flags);
+	hab_spin_lock(&pchan->rxbuf_lock, irqs_disabled);
+	while (1) {
+		dev->read_size = 0;
+		dev->read_offset = 0;
+		result = GIPC_ReceiveMessage(dev->endpoint,
+				dev->read_data,
+				GIPC_RECV_BUFF_SIZE_BYTES,
+				&dev->read_size,
+				&header.id_type_size);
 
-	if (events & (GIPC_EVENT_RESET))
-		pr_err("hab gipc %s remote vmid %d RESET\n",
-				dev->name, pchan->vmid_remote);
-	if (events & (GIPC_EVENT_RESETINPROGRESS))
-		pr_err("hab gipc %s remote vmid %d RESETINPROGRESS\n",
-				dev->name, pchan->vmid_remote);
-
-	if (events & (GIPC_EVENT_RECEIVEREADY)) {
-		hab_spin_lock(&pchan->rxbuf_lock, irqs_disabled);
-		while (1) {
-			dev->read_size = 0;
-			dev->read_offset = 0;
-			result = GIPC_ReceiveMessage(dev->endpoint,
-					dev->read_data,
-					GIPC_RECV_BUFF_SIZE_BYTES,
-					&dev->read_size,
-					&header.id_type_size);
-
-			if (result == GIPC_Success || dev->read_size > 0) {
-				 /* handle corrupted msg? */
-				hab_msg_recv(pchan, dev->read_data);
-				continue;
-			} else if (result == GIPC_Empty) {
-				/* no more pending msg */
-				break;
-			}
-			pr_err("recv unhandled result %d, size %zd\n",
-				result, dev->read_size);
+		if (result == GIPC_Success || dev->read_size > 0) {
+			 /* handle corrupted msg? */
+			hab_msg_recv(pchan, dev->read_data);
+			continue;
+		} else if (result == GIPC_Empty) {
+			/* no more pending msg */
 			break;
 		}
-		hab_spin_unlock(&pchan->rxbuf_lock, irqs_disabled);
+		pr_err("recv unhandled result %d, size %zd\n",
+			result, dev->read_size);
+		break;
 	}
-
-	if (events & (GIPC_EVENT_SENDREADY))
-		pr_debug("kgipc send ready\n");
+	hab_spin_unlock(&pchan->rxbuf_lock, irqs_disabled);
 }
