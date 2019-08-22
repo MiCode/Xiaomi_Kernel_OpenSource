@@ -24,6 +24,16 @@ config QCOM_MEM_OFFLINE
 	  helps reduce power consumption during idle mode of the system.
 	  If unsure, say N
 
+config BUG_ON_HW_MEM_ONLINE_FAIL
+	bool "Trigger a BUG when HW memory online fails"
+	depends on QCOM_MEM_OFFLINE
+	help
+	  Select this option if kernel should BUG when the hardware
+	  onlining of memory hotplug blocks fails. This helps to catch
+	  online failures much quicker and avoids the later side effects
+	  of such memory online failures.
+	  If unsure, say N
+
 config QCOM_GENI_SE
 	tristate "QCOM GENI Serial Engine Driver"
 	depends on ARCH_QCOM || COMPILE_TEST
