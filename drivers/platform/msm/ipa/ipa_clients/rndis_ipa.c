@@ -940,7 +940,7 @@ static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 	}
 
 	ret = ipa_pm_activate(rndis_ipa_ctx->pm_hdl);
-	if (ret) {
+	if (unlikely(ret)) {
 		RNDIS_IPA_DEBUG("Failed activate PM client\n");
 		netif_stop_queue(net);
 		goto fail_pm_activate;
@@ -959,7 +959,7 @@ static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 	skb = rndis_encapsulate_skb(skb, rndis_ipa_ctx);
 	trace_rndis_tx_dp(skb->protocol);
 	ret = ipa_tx_dp(IPA_TO_USB_CLIENT, skb, NULL);
-	if (ret) {
+	if (unlikely(ret)) {
 		RNDIS_IPA_ERROR("ipa transmit failed (%d)\n", ret);
 		goto fail_tx_packet;
 	}
@@ -1006,7 +1006,7 @@ static void rndis_ipa_tx_complete_notify(
 
 	ret = 0;
 	NULL_CHECK_RETVAL(private);
-	if (ret)
+	if (unlikely(ret))
 		return;
 
 	trace_rndis_status_rcvd(skb->protocol);
@@ -1120,7 +1120,7 @@ static void rndis_ipa_packet_receive_notify(
 		return;
 	}
 
-	if (evt != IPA_RECEIVE)	{
+	if (unlikely(evt != IPA_RECEIVE)) {
 		RNDIS_IPA_ERROR("a none IPA_RECEIVE event in driver RX\n");
 		return;
 	}
@@ -1140,7 +1140,7 @@ static void rndis_ipa_packet_receive_notify(
 
 	trace_rndis_netif_ni(skb->protocol);
 	result = netif_rx_ni(skb);
-	if (result)
+	if (unlikely(result))
 		RNDIS_IPA_ERROR("fail on netif_rx_ni\n");
 	rndis_ipa_ctx->net->stats.rx_packets++;
 	rndis_ipa_ctx->net->stats.rx_bytes += packet_len;
@@ -1817,7 +1817,7 @@ static struct sk_buff *rndis_encapsulate_skb(struct sk_buff *skb,
 	if (unlikely(skb_headroom(skb) < sizeof(rndis_template_hdr))) {
 		struct sk_buff *new_skb = skb_copy_expand(skb,
 			sizeof(rndis_template_hdr), 0, GFP_ATOMIC);
-		if (!new_skb) {
+		if (unlikely(!new_skb)) {
 			RNDIS_IPA_ERROR("no memory for skb expand\n");
 			return skb;
 		}
