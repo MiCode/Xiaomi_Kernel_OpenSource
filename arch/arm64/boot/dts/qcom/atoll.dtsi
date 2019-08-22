@@ -2699,10 +2699,10 @@
 		qca,bt-vdd-pa-supply = <&pm6150l_l10>;  /* CH0 */
 		qca,bt-vdd-xtal-supply = <&pm6150l_l1>;/* X0 */
 
-		qca,bt-vdd-io-voltage-level = <1721000 1829000>;
-		qca,bt-vdd-core-voltage-level = <1200000 1350000>;
-		qca,bt-vdd-pa-voltage-level = <3300000 3400000>;
-		qca,bt-vdd-xtal-voltage-level = <1620000 1980000>;
+		qca,bt-vdd-io-voltage-level = <1700000 1900000>;
+		qca,bt-vdd-core-voltage-level = <1245000 1350000>;
+		qca,bt-vdd-pa-voltage-level = <3200000 3400000>;
+		qca,bt-vdd-xtal-voltage-level = <1700000 1900000>;
 
 		qca,bt-vdd-io-current-level = <1>; /* LPM/PFM */
 		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
