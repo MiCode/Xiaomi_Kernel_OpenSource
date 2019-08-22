@@ -6381,6 +6381,7 @@ int sched_cpu_starting(unsigned int cpu)
 {
 	sched_rq_cpu_starting(cpu);
 	sched_tick_start(cpu);
+	clear_walt_request(cpu);
 	return 0;
 }
 
