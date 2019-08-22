@@ -418,12 +418,12 @@ static bool cmdq_command_is_wfe(u64 cmd)
 static void cmdq_task_remove_wfe(struct cmdq_task *task)
 {
 	struct cmdq_pkt_buffer *buf;
-	u64 *base = task->pkt->va_base;
+	u64 *base;
 	int i;
 	u32 size;
 
 	list_for_each_entry(buf, &task->pkt->buf, list_entry) {
-		base = task->pkt->va_base;
+		base = buf->va_base;
 		if (list_is_last(&buf->list_entry, &task->pkt->buf))
 			size = task->pkt->cmd_buf_size % CMDQ_CMD_BUFFER_SIZE;
 		else
