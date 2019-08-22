@@ -85,9 +85,17 @@ static void _create_boot_marker(const char *name,
 
 static void set_bootloader_stats(void)
 {
-	_create_boot_marker("M - ABL Start - ",
+	_create_boot_marker("M - APPSBL Start - ",
 		readl_relaxed(&boot_stats->bootloader_start));
-	_create_boot_marker("M - ABL End - ",
+	_create_boot_marker("D - APPSBL Kernel Load Start - ",
+		readl_relaxed(&boot_stats->load_kernel_start));
+	_create_boot_marker("D - APPSBL Kernel Load End - ",
+		readl_relaxed(&boot_stats->load_kernel_done));
+	_create_boot_marker("D - APPSBL Kernel Load Time - ",
+		readl_relaxed(&boot_stats->bootloader_load_kernel));
+	_create_boot_marker("D - APPSBL Kernel Auth Time - ",
+		readl_relaxed(&boot_stats->bootloader_chksum_time));
+	_create_boot_marker("M - APPSBL End - ",
 		readl_relaxed(&boot_stats->bootloader_end));
 }
 
