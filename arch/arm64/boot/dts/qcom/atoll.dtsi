@@ -3276,6 +3276,13 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&nvm_therm_default &sdm_skin_therm_default>;
 
+	smb1390_therm {
+		reg = <ADC_AMUX_THM2>;
+		label = "smb1390_therm";
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
 	chg_skin_therm {
 		reg = <ADC_AMUX_THM1_PU2>;
 		label = "chg_skin_therm";
