@@ -462,10 +462,10 @@ static void mhi_sat_process_cmds(struct mhi_sat_cntrl *sat_cntrl,
 			code = MHI_EV_CC_SUCCESS;
 
 iommu_map_cmd_completion:
-			MHI_SAT_LOG("IOMMU MAP 0x%llx CMD processing %s\n",
-				   MHI_TRE_GET_PTR(pkt),
-				   (code == MHI_EV_CC_SUCCESS) ? "successful" :
-				   "failed");
+			MHI_SAT_LOG("IOMMU MAP 0x%llx len:%d CMD %s:%llx\n",
+				    MHI_TRE_GET_PTR(pkt), MHI_TRE_GET_SIZE(pkt),
+				    (code == MHI_EV_CC_SUCCESS) ? "successful" :
+				    "failed", iova);
 
 			pkt->ptr = MHI_TRE_EVT_CMD_COMPLETION_PTR(iova);
 			pkt->dword[0] = MHI_TRE_EVT_CMD_COMPLETION_D0(code);
@@ -503,9 +503,9 @@ iommu_map_cmd_completion:
 			if (!ret)
 				code = MHI_EV_CC_SUCCESS;
 
-			MHI_SAT_LOG("CTXT UPDATE CMD %s:%d processing %s\n",
-				buf.name, id, (code == MHI_EV_CC_SUCCESS) ?
-				"successful" : "failed");
+			MHI_SAT_LOG("CTXT UPDATE CMD %s:%d %s\n", buf.name, id,
+				    (code == MHI_EV_CC_SUCCESS) ? "successful" :
+				    "failed");
 
 			pkt->ptr = MHI_TRE_EVT_CMD_COMPLETION_PTR(0);
 			pkt->dword[0] = MHI_TRE_EVT_CMD_COMPLETION_D0(code);
@@ -532,9 +532,9 @@ iommu_map_cmd_completion:
 				code = MHI_EV_CC_SUCCESS;
 			}
 
-			MHI_SAT_LOG("START CHANNEL %d CMD processing %s\n",
-				id, (code == MHI_EV_CC_SUCCESS) ? "successful" :
-				"failure");
+			MHI_SAT_LOG("START CHANNEL %d CMD %s\n", id,
+				    (code == MHI_EV_CC_SUCCESS) ? "successful" :
+				    "failure");
 
 			pkt->ptr = MHI_TRE_EVT_CMD_COMPLETION_PTR(0);
 			pkt->dword[0] = MHI_TRE_EVT_CMD_COMPLETION_D0(code);
@@ -549,17 +549,15 @@ iommu_map_cmd_completion:
 						   SAT_CTXT_TYPE_CHAN);
 
 			MHI_SAT_ASSERT(!sat_dev,
-				"No device with given channel ID\n");
+					"No device with given channel ID\n");
 
 			MHI_SAT_ASSERT(!sat_dev->chan_started,
-				"Resetting unstarted channel!");
+					"Resetting unstarted channel!");
 
 			mhi_unprepare_from_transfer(sat_dev->mhi_dev);
 			sat_dev->chan_started = false;
 
-			MHI_SAT_LOG(
-				"RESET CHANNEL %d CMD processing successful\n",
-				id);
+			MHI_SAT_LOG("RESET CHANNEL %d CMD successful\n", id);
 
 			pkt->ptr = MHI_TRE_EVT_CMD_COMPLETION_PTR(0);
 			pkt->dword[0] = MHI_TRE_EVT_CMD_COMPLETION_D0(
