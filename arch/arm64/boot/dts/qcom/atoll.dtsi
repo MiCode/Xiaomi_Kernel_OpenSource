@@ -1861,10 +1861,17 @@
 				qcom,glink-channels = "cdsprmglink-apps-dsp";
 				qcom,intents = <0x20 12>;
 
+				qcom,cdsp-cdsp-l3-gov {
+					compatible = "qcom,cdsp-l3";
+					qcom,target-dev = <&cdsp_cdsp_l3_lat>;
+				};
+
 				msm_cdsp_rm: qcom,msm_cdsp_rm {
 					compatible = "qcom,msm-cdsp-rm";
 					qcom,qos-latency-us = <44>;
 					qcom,qos-maxhold-ms = <20>;
+					qcom,compute-cx-limit-en;
+					qcom,compute-priority-mode = <2>;
 					#cooling-cells = <2>;
 				};
 
@@ -2780,6 +2787,13 @@
 			< 1708800 1209600000 >,
 			< 1900800 1401000000 >,
 			< 2400000 1459000000 >;
+	};
+
+	cdsp_cdsp_l3_lat: qcom,cdsp-cdsp-l3-lat {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_cpucc L3_MISC_VOTE_CLK>;
+		governor = "powersave";
 	};
 
 	cpu0_cpu_llcc_lat: qcom,cpu0-cpu-llcc-lat {
