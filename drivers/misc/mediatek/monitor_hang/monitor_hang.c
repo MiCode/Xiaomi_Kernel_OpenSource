@@ -45,8 +45,8 @@
 #ifdef CONFIG_MTK_GPU_SUPPORT
 //#include <mt-plat/mtk_gpu_utility.h>
 #endif
-#ifdef CONFIG_MTK_RAM_CONSOLE
-#include <mt-plat/mtk_ram_console.h>
+#ifdef CONFIG_MTK_AEE_IPANIC
+#include <mt-plat/mboot_params.h>
 #endif
 #include "mrdump/mrdump_private.h"
 #include "mrdump/mrdump_mini.h"
@@ -501,7 +501,7 @@ void trigger_hang_detect_db(void)
 {
 	pr_notice("[Hang_Detect] we  triger DB.\n");
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	aee_rr_rec_hang_detect_timeout_count(hd_timeout);
 	if (watchdog_thread_exist == false && reboot_flag == false)
 		aee_rr_rec_hang_detect_timeout_count(COUNT_ANDROID_REBOOT);
@@ -513,7 +513,7 @@ void trigger_hang_detect_db(void)
 		mrdump_mini_add_hang_raw((unsigned long)Hang_Info,
 			MaxHangInfoSize);
 		mrdump_mini_add_extra_misc();
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 		mrdump_common_die(AEE_FIQ_STEP_HANG_DETECT,
 		AEE_REBOOT_MODE_HANG_DETECT,
 		"Hang Detect", NULL);
