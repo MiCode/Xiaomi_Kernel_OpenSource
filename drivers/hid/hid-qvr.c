@@ -102,8 +102,6 @@ struct qvr_external_sensor {
 	int fd;
 };
 
-const static int msg_size = 368;
-
 static DECLARE_WAIT_QUEUE_HEAD(wq);
 static struct qvr_external_sensor qvr_external_sensor;
 
@@ -248,13 +246,13 @@ static int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid)
 	struct external_imu_format imuData = { 0 };
 	struct qvr_buf_index *index_buf;
 
-	/*
-	 * Actual message size is 369 bytes
-	 * to make it 8 byte aligned we created a structure of size 368 bytes.
-	 * Ignoring the first byte 'report id' (which is always 1)
-	 *
-	 */
-	memcpy((void *)&imuData, (void *)message + 1, msg_size);
+	if (msize != sizeof(struct external_imu_format)) {
+		pr_err("%s: data size mismatch %d\n", __func__, msize);
+		return -EPROTO;
+	}
+
+	memcpy((void *)&imuData, (void *)message,
+		sizeof(struct external_imu_format));
 
 	if (!sensor->ts_base)
 		sensor->ts_base = ktime_to_ns(ktime_get_boottime());
@@ -268,10 +266,10 @@ static int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid)
 	data = (struct qvr_sensor_t *)&(sensor_buf[buf_index]);
 	if (sensor->ts_offset > imuData.gts0)
 		data->ats = sensor->ts_base +
-			((sensor->ts_offset - imuData.gts0) * 100);
+			sensor->ts_offset - imuData.gts0;
 	else
 		data->ats = sensor->ts_base +
-			((imuData.gts0 - sensor->ts_offset) * 100);
+			imuData.gts0 - sensor->ts_offset;
 	if (imuData.mts0 == 0)
 		data->mts = 0;
 	else
@@ -413,7 +411,7 @@ static ssize_t ts_base_store(struct kobject *kobj,
 static ssize_t ts_offset_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
-	return snprintf(buf, 16, "%lld\n", qvr_external_sensor.ts_offset * 100);
+	return snprintf(buf, 16, "%lld\n", qvr_external_sensor.ts_offset);
 }
 
 static ssize_t ts_offset_store(struct kobject *kobj,
