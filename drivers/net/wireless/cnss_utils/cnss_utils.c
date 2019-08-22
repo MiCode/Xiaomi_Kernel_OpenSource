@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, 2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,9 +16,21 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/etherdevice.h>
+#include <linux/bitops.h>
+#include <linux/io.h>
 #include <linux/debugfs.h>
 #include <net/cnss_utils.h>
 
+#ifdef CONFIG_CNSS_TIMESYNC
+#define TCSR_WLAN_TIMESTAMP_SYNC 0x0195600C
+#define LPASS_SENSOR_IRQ_STC_MSB_OFFSET 4
+#define LPASS_SENSOR_IRQ_STC_LSB_OFFSET 8
+#define LPASS_SENSOR_IRQ_STC_MUX 0xC093000
+#define LPASS_PMU_INT_POS_EDGE_EN0 0xC06005C
+#define LPASS_PMU_INT_NEG_EDGE_EN0 0xC060070
+#define LPASS_PMU_INT_EN0 0xC060084
+#define LPASS_PMU_INT_CLR 0xC060034
+#endif
 #define CNSS_MAX_CH_NUM 45
 struct cnss_unsafe_channel_list {
 	u16 unsafe_ch_count;
@@ -320,6 +332,92 @@ enum cnss_utils_cc_src cnss_utils_get_cc_source(struct device *dev)
 	return priv->cc_source;
 }
 EXPORT_SYMBOL(cnss_utils_get_cc_source);
+
+#ifdef CONFIG_CNSS_TIMESYNC
+int cnss_get_audio_wlan_timestamp(struct device *dev,
+				  enum wlan_time_sync_trigger_type type,
+				  u64 *lpass_ts)
+{
+	void __iomem *tcsr_wlan_sync;
+	void  __iomem *lpass_ts_mux;
+	void  __iomem *lpass_pmu_int_edge_en;
+	void  __iomem *lpass_pmu_int_neg_edge_en;
+	void  __iomem *lpass_pmu_int_en;
+	void  __iomem *lpass_pmu_int_clr;
+	unsigned long int value;
+
+	tcsr_wlan_sync = devm_ioremap_nocache(dev, TCSR_WLAN_TIMESTAMP_SYNC, 4);
+	if (IS_ERR(tcsr_wlan_sync)) {
+		pr_err("failed to ioremap tcsr_wlan_sync\n");
+		return -ENOMEM;
+	}
+
+	lpass_ts_mux = devm_ioremap_nocache(dev, LPASS_SENSOR_IRQ_STC_MUX, 12);
+	if (IS_ERR(lpass_ts_mux)) {
+		pr_err("failed to ioremap lpass_ts_mux\n");
+		return -ENOMEM;
+	}
+
+	lpass_pmu_int_edge_en =
+		devm_ioremap_nocache(dev, LPASS_PMU_INT_POS_EDGE_EN0, 4);
+	if (IS_ERR(lpass_pmu_int_edge_en)) {
+		pr_err("failed to ioremap lpass_pmu_int_edge_en\n");
+		return -ENOMEM;
+	}
+
+	lpass_pmu_int_neg_edge_en =
+		devm_ioremap_nocache(dev, LPASS_PMU_INT_NEG_EDGE_EN0, 4);
+	if (IS_ERR(lpass_pmu_int_neg_edge_en)) {
+		pr_err("failed to ioremap lpass_pmu_int_neg_edge_en\n");
+		return -ENOMEM;
+	}
+
+	lpass_pmu_int_en = devm_ioremap_nocache(dev, LPASS_PMU_INT_EN0, 4);
+	if (IS_ERR(lpass_pmu_int_en)) {
+		pr_err("failed to ioremap lpass_pmu_int_en\n");
+		return -ENOMEM;
+	}
+
+	lpass_pmu_int_clr = devm_ioremap_nocache(dev, LPASS_PMU_INT_CLR, 4);
+	if (IS_ERR(lpass_pmu_int_clr)) {
+		pr_err("failed to ioremap lpass_pmu_int_clr\n");
+		return -ENOMEM;
+	}
+
+	/* Enable PMU int for audio strobe, int #23,  is enabled */
+	value = ioread32(lpass_pmu_int_en);
+	iowrite32(value | BIT(23), lpass_pmu_int_en);
+
+	if (type == CNSS_POSITIVE_EDGE_TRIGGER) {
+		/* Enable positive edge */
+		value = ioread32(lpass_pmu_int_edge_en);
+		iowrite32(value | BIT(23), lpass_pmu_int_edge_en);
+	}
+
+	if (type == CNSS_NEGATIVE_EDGE_TRIGGER) {
+		/* Enable neg edge */
+		value = ioread32(lpass_pmu_int_neg_edge_en);
+		iowrite32(value | BIT(23), lpass_pmu_int_neg_edge_en);
+	}
+
+	/* Choose register based trigger */
+	value = ioread32(tcsr_wlan_sync);
+	iowrite32(value | BIT(0), tcsr_wlan_sync);
+
+	value = ioread32(tcsr_wlan_sync);
+	iowrite32(value ^ BIT(1), tcsr_wlan_sync);
+
+	/* read LPASS registers for Qtime */
+	value = ioread32(lpass_ts_mux + LPASS_SENSOR_IRQ_STC_MSB_OFFSET);
+	*lpass_ts = ((uint64_t)value << 32) |
+		ioread32(lpass_ts_mux + LPASS_SENSOR_IRQ_STC_LSB_OFFSET);
+	value = ioread32(lpass_pmu_int_clr);
+	iowrite32(value | BIT(23), lpass_pmu_int_clr);
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_get_audio_wlan_timestamp);
+#endif
 
 static ssize_t cnss_utils_mac_write(struct file *fp,
 				    const char __user *user_buf,
