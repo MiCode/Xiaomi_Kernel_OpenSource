@@ -1243,4 +1243,46 @@
 		clock-rates = <0>;
 		status = "ok";
 	};
+
+	qcom,cam-lrme {
+		compatible = "qcom,cam-lrme";
+		arch-compat = "lrme";
+		status = "ok";
+	};
+
+	cam_lrme: qcom,lrme@ac6b000 {
+		cell-index = <0>;
+		compatible = "qcom,lrme";
+		reg-names = "lrme";
+		reg = <0xac6b000 0x1000>;
+		reg-cam-base = <0x6b000>;
+		interrupt-names = "lrme";
+		interrupts = <0 476 0>;
+		regulator-names = "camss";
+		camss-supply = <&titan_top_gdsc>;
+		clock-names = "camera_ahb",
+			"camera_axi",
+			"soc_ahb_clk",
+			"cpas_ahb_clk",
+			"camnoc_axi_clk",
+			"lrme_clk_src",
+			"lrme_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
+			<&clock_gcc GCC_CAMERA_HF_AXI_CLK>,
+			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
+			<&clock_camcc CAM_CC_LRME_CLK_SRC>,
+			<&clock_camcc CAM_CC_LRME_CLK>;
+		clock-rates = <0 0 0 0 0 200000000 200000000>,
+			<0 0 0 0 0 216000000 216000000>,
+			<0 0 0 0 0 300000000 300000000>,
+			<0 0 0 0 0 404000000 404000000>,
+			<0 0 0 0 0 404000000 404000000>,
+			<0 0 0 0 0 404000000 404000000>;
+		clock-cntl-level = "lowsvs", "svs", "svs_l1", "nominal",
+				"nominal_l1", "turbo";
+		src-clock-name = "lrme_clk_src";
+		status = "ok";
+	};
 };
