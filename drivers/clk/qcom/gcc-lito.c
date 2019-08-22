@@ -26,7 +26,7 @@
 #include "clk-regmap.h"
 #include "common.h"
 #include "reset.h"
-#include "vdd-level.h"
+#include "vdd-level-lito.h"
 
 #define GCC_NPU_MISC				0x4d110
 #define GCC_GPU_MISC				0x71028
