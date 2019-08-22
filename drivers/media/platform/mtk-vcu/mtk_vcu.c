@@ -1142,7 +1142,9 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 #ifdef CONFIG_MTK_CMDQ
 		} else {
 			mem_priv =
-				cmdq_mbox_buf_alloc(dev, &temp_pa);
+				cmdq_mbox_buf_alloc(
+				vcu_dev->clt_vdec->chan->mbox->dev,
+				&temp_pa);
 			mem_buff_data.va = (unsigned long)mem_priv;
 			mem_buff_data.pa = (unsigned long)temp_pa;
 			mem_buff_data.iova = 0;
@@ -1190,7 +1192,8 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			ret = mtk_vcu_free_buffer(vcu_queue, &mem_buff_data);
 #ifdef CONFIG_MTK_CMDQ
 		else
-			cmdq_mbox_buf_free(dev,
+			cmdq_mbox_buf_free(
+				vcu_dev->clt_vdec->chan->mbox->dev,
 				(void *)(unsigned long)mem_buff_data.va,
 				(dma_addr_t)mem_buff_data.pa);
 #endif
