@@ -3726,7 +3726,7 @@
 				regulator-allowed-modes = <0 2>;
 			};
 		};
-		tcpc {
+		mt6360_tcpc: tcpc {
 			compatible = "mediatek,mt6360_tcpc";
 			wakeup-source;
 			interrupt-parent = <&pio>;
