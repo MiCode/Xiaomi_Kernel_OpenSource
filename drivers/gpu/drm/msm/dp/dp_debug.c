@@ -200,8 +200,7 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 		goto bail;
 
 	size = min_t(size_t, count, SZ_2K);
-
-	if (size <= char_to_nib)
+	if (size < 4)
 		goto bail;
 
 	buf = kzalloc(size, GFP_KERNEL);
@@ -231,6 +230,8 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 	}
 
 	size -= 4;
+	if (size == 0)
+		goto bail;
 
 	dpcd_size = size / char_to_nib;
 	data_len = dpcd_size;
@@ -316,6 +317,7 @@ static ssize_t dp_debug_read_dpcd(struct file *file,
 			debug->aux->dpcd_updated(debug->aux);
 	}
 
+	len = min_t(size_t, count, len);
 	if (!copy_to_user(user_buff, buf, len))
 		*ppos += len;
 
@@ -647,6 +649,7 @@ static ssize_t dp_debug_max_pclk_khz_read(struct file *file,
 			debug->dp_debug.max_pclk_khz,
 			debug->parser->max_pclk_khz);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
 		return -EFAULT;
@@ -808,6 +811,7 @@ static ssize_t dp_debug_read_connected(struct file *file,
 
 	len += snprintf(buf, SZ_8, "%d\n", debug->hpd->hpd_high);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len))
 		return -EFAULT;
 
@@ -858,6 +862,7 @@ static ssize_t dp_debug_read_hdcp(struct file *file,
 
 	len = sizeof(debug->dp_debug.hdcp_status);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, debug->dp_debug.hdcp_status, len))
 		return -EFAULT;
 
@@ -921,6 +926,7 @@ static ssize_t dp_debug_read_edid_modes(struct file *file,
 	}
 	mutex_unlock(&connector->dev->mode_config.mutex);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
 		rc = -EFAULT;
@@ -996,6 +1002,7 @@ static ssize_t dp_debug_read_edid_modes_mst(struct file *file,
 	}
 	mutex_unlock(&connector->dev->mode_config.mutex);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
 		rc = -EFAULT;
@@ -1036,6 +1043,7 @@ static ssize_t dp_debug_read_mst_con_id(struct file *file,
 	ret = snprintf(buf, max_size, "%u\n", debug->mst_con_id);
 	len += ret;
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
 		rc = -EFAULT;
@@ -1099,6 +1107,7 @@ static ssize_t dp_debug_read_mst_conn_info(struct file *file,
 	}
 	mutex_unlock(&debug->dp_debug.dp_mst_connector_list.lock);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
 		rc = -EFAULT;
@@ -1188,6 +1197,7 @@ static ssize_t dp_debug_read_info(struct file *file, char __user *user_buff,
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len))
 		goto error;
 
@@ -1220,6 +1230,7 @@ static ssize_t dp_debug_bw_code_read(struct file *file,
 	len += snprintf(buf + len, (SZ_4K - len),
 			"max_bw_code = %d\n", debug->panel->max_bw_code);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
 		return -EFAULT;
@@ -1245,6 +1256,7 @@ static ssize_t dp_debug_tpg_read(struct file *file,
 
 	len += snprintf(buf, SZ_8, "%d\n", debug->dp_debug.tpg_state);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len))
 		return -EFAULT;
 
@@ -1435,6 +1447,7 @@ static ssize_t dp_debug_read_hdr(struct file *file,
 			goto error;
 	}
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
 		rc = -EFAULT;
@@ -1612,6 +1625,7 @@ static ssize_t dp_debug_read_dump(struct file *file,
 	print_hex_dump(KERN_DEBUG, prefix, DUMP_PREFIX_NONE,
 		16, 4, buf, len, false);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len))
 		return -EFAULT;
 
