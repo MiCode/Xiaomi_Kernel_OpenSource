@@ -1725,6 +1725,7 @@ static int mpq_sdmx_alloc_data_buf(struct mpq_feed *mpq_feed, size_t size)
 	}
 	desc->size = size;
 	dvb_ringbuffer_init(&mpq_feed->sdmx_buf, desc->virt_base, size);
+	mpq_feed->sdmx_dma_buff.va = desc->virt_base;
 
 	return 0;
 }
