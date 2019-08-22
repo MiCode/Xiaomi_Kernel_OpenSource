@@ -1559,7 +1559,6 @@ static int adreno_remove(struct platform_device *pdev)
 	if (efuse_base != NULL)
 		iounmap(efuse_base);
 
-	adreno_perfcounter_close(adreno_dev);
 	kgsl_device_platform_remove(device);
 
 	gmu_core_remove(device);
@@ -1934,17 +1933,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (gpudev->enable_64bit &&
 			adreno_support_64bit(adreno_dev))
 		gpudev->enable_64bit(adreno_dev);
-
-	if (adreno_dev->perfctr_pwr_lo == 0) {
-		ret = adreno_perfcounter_get(adreno_dev,
-			KGSL_PERFCOUNTER_GROUP_PWR, 1,
-			&adreno_dev->perfctr_pwr_lo, NULL,
-			PERFCOUNTER_FLAG_KERNEL);
-
-		if (WARN_ONCE(ret, "Unable to get perfcounters for DCVS\n"))
-			adreno_dev->perfctr_pwr_lo = 0;
-	}
-
 
 	if (device->pwrctrl.bus_control) {
 		/* VBIF waiting for RAM */
@@ -3615,33 +3603,29 @@ static void adreno_power_stats(struct kgsl_device *device,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 	int64_t adj = 0;
+	u64 gpu_busy;
 
 	memset(stats, 0, sizeof(*stats));
 
-	/* Get the busy cycles counted since the counter was last reset */
-	if (adreno_dev->perfctr_pwr_lo != 0) {
-		uint64_t gpu_busy;
+	gpu_busy = counter_delta(device, adreno_dev->perfctr_pwr_lo,
+		&busy->gpu_busy);
 
-		gpu_busy = counter_delta(device, adreno_dev->perfctr_pwr_lo,
-			&busy->gpu_busy);
+	if (gpudev->read_throttling_counters) {
+		adj = gpudev->read_throttling_counters(adreno_dev);
+		if (adj < 0 && -adj > gpu_busy)
+			adj = 0;
 
-		if (gpudev->read_throttling_counters) {
-			adj = gpudev->read_throttling_counters(adreno_dev);
-			if (adj < 0 && -adj > gpu_busy)
-				adj = 0;
+		gpu_busy += adj;
+	}
 
-			gpu_busy += adj;
-		}
-
-		if (adreno_is_a6xx(adreno_dev)) {
-			/* clock sourced from XO */
-			stats->busy_time = gpu_busy * 10;
-			do_div(stats->busy_time, 192);
-		} else {
-			/* clock sourced from GFX3D */
-			stats->busy_time = adreno_ticks_to_us(gpu_busy,
-				kgsl_pwrctrl_active_freq(pwr));
-		}
+	if (adreno_is_a6xx(adreno_dev)) {
+		/* clock sourced from XO */
+		stats->busy_time = gpu_busy * 10;
+		do_div(stats->busy_time, 192);
+	} else {
+		/* clock sourced from GFX3D */
+		stats->busy_time = adreno_ticks_to_us(gpu_busy,
+			kgsl_pwrctrl_active_freq(pwr));
 	}
 
 	if (device->pwrctrl.bus_control) {

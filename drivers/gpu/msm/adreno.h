@@ -891,7 +891,6 @@ struct adreno_gpudev {
 	int (*rb_start)(struct adreno_device *adreno_dev);
 	int (*microcode_read)(struct adreno_device *adreno_dev);
 	void (*perfcounter_init)(struct adreno_device *adreno_dev);
-	void (*perfcounter_close)(struct adreno_device *adreno_dev);
 	void (*start)(struct adreno_device *adreno_dev);
 	bool (*is_sptp_idle)(struct adreno_device *adreno_dev);
 	int (*regulator_enable)(struct adreno_device *adreno_dev);
@@ -902,8 +901,6 @@ struct adreno_gpudev {
 	int64_t (*read_throttling_counters)(struct adreno_device *adreno_dev);
 	void (*count_throttles)(struct adreno_device *adreno_dev,
 					uint64_t adj);
-	int (*enable_pwr_counters)(struct adreno_device *adrneo_dev,
-				unsigned int counter);
 	unsigned int (*preemption_pre_ibsubmit)(
 				struct adreno_device *adreno_dev,
 				struct adreno_ringbuffer *rb,

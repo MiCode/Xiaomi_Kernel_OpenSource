@@ -146,6 +146,9 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 	adreno_dev->lm_leakage = A530_DEFAULT_LEAKAGE;
 	adreno_dev->speed_bin = 0;
 
+	/* Set the GPU busy counter to use for frequency scaling */
+	adreno_dev->perfctr_pwr_lo = A5XX_RBBM_PERFCTR_RBBM_0_LO;
+
 	/* Check efuse bits for various capabilties */
 	a5xx_check_features(adreno_dev);
 }
@@ -1255,24 +1258,6 @@ static void a5xx_count_throttles(struct adreno_device *adreno_dev,
 		adreno_dev->lm_threshold_cross = adj;
 }
 
-static int a5xx_enable_pwr_counters(struct adreno_device *adreno_dev,
-		unsigned int counter)
-{
-	/*
-	 * On 5XX we have to emulate the PWR counters which are physically
-	 * missing. Program countable 6 on RBBM_PERFCTR_RBBM_0 as a substitute
-	 * for PWR:1. Don't emulate PWR:0 as nobody uses it and we don't want
-	 * to take away too many of the generic RBBM counters.
-	 */
-
-	if (counter == 0)
-		return -EINVAL;
-
-	kgsl_regwrite(KGSL_DEVICE(adreno_dev), A5XX_RBBM_PERFCTR_RBBM_SEL_0, 6);
-
-	return 0;
-}
-
 /* FW driven idle 10% throttle */
 #define IDLE_10PCT 0
 /* number of cycles when clock is throttled by 50% (CRC) */
@@ -1443,6 +1428,9 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 	/* Make all blocks contribute to the GPU BUSY perf counter */
 	kgsl_regwrite(device, A5XX_RBBM_PERFCTR_GPU_BUSY_MASKED, 0xFFFFFFFF);
+
+	/* Program RBBM counter 0 to report GPU busy for frequency scaling */
+	kgsl_regwrite(device, A5XX_RBBM_PERFCTR_RBBM_SEL_0, 6);
 
 	/*
 	 * Enable the RBBM error reporting bits.  This lets us get
@@ -2093,11 +2081,11 @@ static struct adreno_perfcount_register a5xx_perfcounters_cp[] = {
 		A5XX_RBBM_PERFCTR_CP_7_HI, 7, A5XX_CP_PERFCTR_CP_SEL_7 },
 };
 
-/*
- * Note that PERFCTR_RBBM_0 is missing - it is used to emulate the PWR counters.
- * See below.
- */
 static struct adreno_perfcount_register a5xx_perfcounters_rbbm[] = {
+	/*
+	 * A5XX_RBBM_PERFCTR_RBBM_0 is used for frequency scaling and omitted
+	 * from the poool of available counters
+	 */
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A5XX_RBBM_PERFCTR_RBBM_1_LO,
 		A5XX_RBBM_PERFCTR_RBBM_1_HI, 9, A5XX_RBBM_PERFCTR_RBBM_SEL_1 },
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A5XX_RBBM_PERFCTR_RBBM_2_LO,
@@ -2346,22 +2334,6 @@ static struct adreno_perfcount_register a5xx_perfcounters_alwayson[] = {
 		A5XX_RBBM_ALWAYSON_COUNTER_HI, -1 },
 };
 
-/*
- * 5XX targets don't really have physical PERFCTR_PWR registers - we emulate
- * them using similar performance counters from the RBBM block. The difference
- * between using this group and the RBBM group is that the RBBM counters are
- * reloaded after a power collapse which is not how the PWR counters behaved on
- * legacy hardware. In order to limit the disruption on the rest of the system
- * we go out of our way to ensure backwards compatibility. Since RBBM counters
- * are in short supply, we don't emulate PWR:0 which nobody uses - mark it as
- * broken.
- */
-static struct adreno_perfcount_register a5xx_perfcounters_pwr[] = {
-	{ KGSL_PERFCOUNTER_BROKEN, 0, 0, 0, 0, -1, 0 },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A5XX_RBBM_PERFCTR_RBBM_0_LO,
-		A5XX_RBBM_PERFCTR_RBBM_0_HI, -1, 0},
-};
-
 static struct adreno_perfcount_register a5xx_pwrcounters_sp[] = {
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A5XX_SP_POWER_COUNTER_0_LO,
 		A5XX_SP_POWER_COUNTER_0_HI, -1, A5XX_SP_POWERCTR_SP_SEL_0 },
@@ -2481,8 +2453,6 @@ static struct adreno_perfcount_group a5xx_perfcounter_groups
 	A5XX_PERFCOUNTER_GROUP(SP, sp),
 	A5XX_PERFCOUNTER_GROUP(RB, rb),
 	A5XX_PERFCOUNTER_GROUP(VSC, vsc),
-	A5XX_PERFCOUNTER_GROUP_FLAGS(PWR, pwr,
-		ADRENO_PERFCOUNTER_GROUP_FIXED),
 	A5XX_PERFCOUNTER_GROUP(VBIF, vbif),
 	A5XX_PERFCOUNTER_GROUP_FLAGS(VBIF_PWR, vbif_pwr,
 		ADRENO_PERFCOUNTER_GROUP_FIXED),
@@ -3184,7 +3154,6 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.pwrlevel_change_settings = a5xx_pwrlevel_change_settings,
 	.read_throttling_counters = a5xx_read_throttling_counters,
 	.count_throttles = a5xx_count_throttles,
-	.enable_pwr_counters = a5xx_enable_pwr_counters,
 	.preemption_pre_ibsubmit = a5xx_preemption_pre_ibsubmit,
 	.preemption_yield_enable =
 				a5xx_preemption_yield_enable,
