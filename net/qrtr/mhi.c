@@ -145,6 +145,7 @@ static int qcom_mhi_qrtr_probe(struct mhi_device *mhi_dev,
 {
 	struct qrtr_mhi_dev *qdev;
 	u32 net_id;
+	bool rt;
 	int rc;
 
 	qdev = devm_kzalloc(&mhi_dev->dev, sizeof(*qdev), GFP_KERNEL);
@@ -160,10 +161,12 @@ static int qcom_mhi_qrtr_probe(struct mhi_device *mhi_dev,
 	if (rc < 0)
 		net_id = QRTR_EP_NET_ID_AUTO;
 
+	rt = of_property_read_bool(mhi_dev->dev.of_node, "qcom,low-latency");
+
 	INIT_LIST_HEAD(&qdev->ul_pkts);
 	spin_lock_init(&qdev->ul_lock);
 
-	rc = qrtr_endpoint_register(&qdev->ep, net_id);
+	rc = qrtr_endpoint_register(&qdev->ep, net_id, rt);
 	if (rc)
 		return rc;
 
