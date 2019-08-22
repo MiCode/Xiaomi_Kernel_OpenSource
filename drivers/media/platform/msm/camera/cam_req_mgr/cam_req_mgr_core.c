@@ -48,6 +48,9 @@ void cam_req_mgr_core_link_reset(struct cam_req_mgr_core_link *link)
 	link->last_flush_id = 0;
 	link->initial_sync_req = -1;
 	link->in_msync_mode = false;
+	link->initial_skip = true;
+	link->sof_timestamp = 0;
+	link->prev_sof_timestamp = 0;
 }
 
 void cam_req_mgr_handle_core_shutdown(void)
@@ -610,6 +613,19 @@ static int __cam_req_mgr_check_link_is_ready(struct cam_req_mgr_core_link *link,
 	traverse_data.open_req_cnt = link->open_req_cnt;
 
 	/*
+	 *  Some no-sync mode requests are processed after link config,
+	 *  then process the sync mode requests after no-sync mode requests
+	 *  are handled, the initial_skip should be false when processing
+	 *  the sync mode requests.
+	 */
+	if (link->initial_skip) {
+		CAM_DBG(CAM_CRM,
+			"Set initial_skip to false for link %x",
+			link->link_hdl);
+		link->initial_skip = false;
+	}
+
+	/*
 	 *  Traverse through all pd tables, if result is success,
 	 *  apply the settings
 	 */
@@ -894,9 +910,11 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 	struct cam_req_mgr_slot *slot)
 {
 	struct cam_req_mgr_core_link *sync_link = NULL;
-	int64_t req_id = 0;
+	struct cam_req_mgr_slot *sync_rd_slot = NULL;
+	int64_t req_id = 0, sync_req_id = 0;
 	int sync_slot_idx = 0, sync_rd_idx = 0, rc = 0;
 	int32_t sync_num_slots = 0;
+	uint64_t sync_frame_duration = 0;
 	bool ready = true, sync_ready = true;
 
 	if (!link->sync_link) {
@@ -907,10 +925,64 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 	sync_link = link->sync_link;
 	req_id = slot->req_id;
 	sync_num_slots = sync_link->req.in_q->num_slots;
+	sync_rd_idx = sync_link->req.in_q->rd_idx;
+	sync_rd_slot = &sync_link->req.in_q->slot[sync_rd_idx];
+	sync_req_id = sync_rd_slot->req_id;
 
 	CAM_DBG(CAM_REQ,
 		"link_hdl %x req %lld frame_skip_flag %d ",
 		link->link_hdl, req_id, link->sync_link_sof_skip);
+
+	if (sync_link->initial_skip) {
+		link->initial_skip = false;
+		__cam_req_mgr_inject_delay(link->req.l_tbl, slot->idx);
+		CAM_DBG(CAM_CRM,
+			"sync link %x not streamed on",
+			sync_link->link_hdl);
+		return -EAGAIN;
+	}
+
+	if (sync_link->prev_sof_timestamp)
+		sync_frame_duration = sync_link->sof_timestamp
+			- sync_link->prev_sof_timestamp;
+	else
+		sync_frame_duration = DEFAULT_FRAME_DURATION;
+
+	CAM_DBG(CAM_CRM,
+		"sync link %x last frame duration is %d ns",
+		sync_link->link_hdl, sync_frame_duration);
+
+	if (link->initial_skip) {
+		link->initial_skip = false;
+
+		if (link->sof_timestamp > sync_link->sof_timestamp &&
+			sync_link->sof_timestamp > 0 &&
+			link->sof_timestamp - sync_link->sof_timestamp <
+			sync_frame_duration / 2) {
+			/*
+			 * If this frame sync with the previous frame of sync
+			 * link, then we need to skip this frame, since the
+			 * previous frame of sync link is also skipped.
+			 */
+			__cam_req_mgr_inject_delay(link->req.l_tbl, slot->idx);
+			CAM_DBG(CAM_CRM,
+				"This frame sync with previous sync_link %x frame",
+				sync_link->link_hdl);
+			return -EAGAIN;
+		} else if (link->sof_timestamp <= sync_link->sof_timestamp) {
+			/*
+			 * Sometimes, link receives the SOF event is eariler
+			 * than sync link in IFE CSID side, but link's SOF
+			 * event is processed later than sync link's, then
+			 * we need to skip this SOF event since the sync
+			 * link's SOF event is also skipped.
+			 */
+			__cam_req_mgr_inject_delay(link->req.l_tbl, slot->idx);
+			CAM_DBG(CAM_CRM,
+				"The previous frame of sync link is skipped");
+			return -EAGAIN;
+		}
+	}
 
 	if (sync_link->sync_link_sof_skip) {
 		CAM_DBG(CAM_REQ,
@@ -937,12 +1009,11 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 		sync_ready = false;
 	}
 
-	sync_rd_idx = sync_link->req.in_q->rd_idx;
 	if ((sync_link->req.in_q->slot[sync_slot_idx].status !=
 		CRM_SLOT_STATUS_REQ_APPLIED) &&
 		(((sync_slot_idx - sync_rd_idx + sync_num_slots) %
 		sync_num_slots) >= 1) &&
-		(sync_link->req.in_q->slot[sync_rd_idx].status !=
+		(sync_rd_slot->status !=
 		CRM_SLOT_STATUS_REQ_APPLIED)) {
 		CAM_DBG(CAM_CRM,
 			"Req: %lld [other link] not next req to be applied on link: %x",
@@ -975,13 +1046,76 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 		CAM_DBG(CAM_CRM,
 			"Req: %lld ready %d sync_ready %d, ignore sync link next SOF",
 			req_id, ready, sync_ready);
-		link->sync_link_sof_skip = true;
+
+		/*
+		 * Only skip the frames if current frame sync with
+		 * next frame of sync link.
+		 */
+		if (link->sof_timestamp - sync_link->sof_timestamp >
+			sync_frame_duration / 2)
+			link->sync_link_sof_skip = true;
+
 		return -EINVAL;
 	} else if (ready == false) {
 		CAM_DBG(CAM_CRM,
 			"Req: %lld not ready on link: %x",
 			req_id, link->link_hdl);
 		return -EINVAL;
+	}
+
+	/*
+	 * Do the self-correction when the frames are sync,
+	 * we consider that the frames are synced if the
+	 * difference of two SOF timestamp less than
+	 * (sync_frame_duration / 5).
+	 */
+	if ((link->sof_timestamp > sync_link->sof_timestamp) &&
+		(sync_link->sof_timestamp > 0) &&
+		(link->sof_timestamp - sync_link->sof_timestamp <
+		sync_frame_duration / 5) &&
+		(sync_rd_slot->sync_mode == CAM_REQ_MGR_SYNC_MODE_SYNC)) {
+
+		/*
+		 * This means current frame should sync with next
+		 * frame of sync link, then the request id of in
+		 * rd slot of two links should be same.
+		 */
+		CAM_DBG(CAM_CRM,
+			"link %x req_id %lld, sync_link %x req_id %lld",
+			link->link_hdl, req_id,
+			sync_link->link_hdl, sync_req_id);
+
+		if (req_id > sync_req_id) {
+			CAM_DBG(CAM_CRM,
+				"link %x too quickly, skip this frame",
+				link->link_hdl);
+			return -EAGAIN;
+		} else if (req_id < sync_req_id) {
+			CAM_DBG(CAM_CRM,
+				"sync link %x too quickly, skip next frame of sync link",
+				sync_link->link_hdl);
+			link->sync_link_sof_skip = true;
+		}
+	} else if ((sync_link->sof_timestamp > 0) &&
+		(link->sof_timestamp < sync_link->sof_timestamp) &&
+		(sync_link->sof_timestamp - link->sof_timestamp <
+		sync_frame_duration / 5) &&
+		(sync_rd_slot->sync_mode == CAM_REQ_MGR_SYNC_MODE_SYNC)) {
+
+		/*
+		 * There is a timing issue once enter this condition,
+		 * it means link receives the SOF event earlier than
+		 * sync link in IFE CSID side, but the process in CRM
+		 * is sync_link earlier than link, then previous SOF
+		 * event of sync link is skipped, so we also need to
+		 * skip this SOF event.
+		 */
+		if (req_id >= sync_req_id) {
+			CAM_DBG(CAM_CRM,
+				"Timing issue, the sof event of link %x is delayed",
+				link->link_hdl);
+			return -EAGAIN;
+		}
 	}
 
 	CAM_DBG(CAM_REQ,
@@ -1011,10 +1145,11 @@ static int __cam_req_mgr_check_sync_req_is_ready(
  *
  */
 static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
-	uint32_t trigger)
+	struct cam_req_mgr_trigger_notify *trigger_data)
 {
 	int                                  rc = 0, idx, last_app_idx;
 	int                                  reset_step = 0;
+	uint32_t                             trigger = trigger_data->trigger;
 	struct cam_req_mgr_slot             *slot = NULL;
 	struct cam_req_mgr_req_queue        *in_q;
 	struct cam_req_mgr_core_session     *session;
@@ -1052,6 +1187,13 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 	}
 
 	if (trigger == CAM_TRIGGER_POINT_SOF) {
+		/*
+		 * Update the timestamp in session lock protection
+		 * to avoid timing issue.
+		 */
+		link->prev_sof_timestamp = link->sof_timestamp;
+		link->sof_timestamp = trigger_data->sof_timestamp_val;
+
 		if (link->trigger_mask) {
 			CAM_ERR_RATE_LIMIT(CAM_CRM,
 				"Applying for last EOF fails");
@@ -2141,7 +2283,7 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 		__cam_req_mgr_inc_idx(&in_q->rd_idx, 1, in_q->num_slots);
 	}
 
-	rc = __cam_req_mgr_process_req(link, trigger_data->trigger);
+	rc = __cam_req_mgr_process_req(link, trigger_data);
 
 release_lock:
 	mutex_unlock(&link->req.lock);
@@ -2372,6 +2514,7 @@ static int cam_req_mgr_cb_notify_trigger(
 	notify_trigger->link_hdl = trigger_data->link_hdl;
 	notify_trigger->dev_hdl = trigger_data->dev_hdl;
 	notify_trigger->trigger = trigger_data->trigger;
+	notify_trigger->sof_timestamp_val = trigger_data->sof_timestamp_val;
 	task->process_cb = &cam_req_mgr_process_trigger;
 	rc = cam_req_mgr_workq_enqueue_task(task, link, CRM_TASK_PRIORITY_0);
 
@@ -3125,8 +3268,6 @@ int cam_req_mgr_sync_config(
 
 	link1->is_master = false;
 	link2->is_master = false;
-	link1->initial_skip = false;
-	link2->initial_skip = false;
 
 	link1->in_msync_mode = false;
 	link2->in_msync_mode = false;
@@ -3137,6 +3278,16 @@ int cam_req_mgr_sync_config(
 		link1->sync_link = link2;
 		link2->sync_link = link1;
 		__cam_req_mgr_set_master_link(link1, link2);
+	} else {
+		/*
+		 * Reset below info after the mode is configured
+		 * to NO-SYNC mode since they may be overridden
+		 * if the sync config is invoked after SOF comes.
+		 */
+		link1->initial_skip = true;
+		link2->initial_skip = true;
+		link1->sof_timestamp = 0;
+		link2->sof_timestamp = 0;
 	}
 
 	cam_session->sync_mode = sync_info->sync_mode;

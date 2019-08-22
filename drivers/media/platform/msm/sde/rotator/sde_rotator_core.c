@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3132,7 +3132,9 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 		IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
 			SDE_MDP_HW_REV_410) ||
 		IS_SDE_MAJOR_SAME(mdata->mdss_version,
-			SDE_MDP_HW_REV_500)) {
+			SDE_MDP_HW_REV_500) ||
+		IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+			SDE_MDP_HW_REV_620)) {
 		mgr->ops_hw_init = sde_rotator_r3_init;
 		mgr->min_rot_clk = ROT_MIN_ROT_CLK;
 
@@ -3142,11 +3144,15 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 		 * ensure we do not cross the max allowed clock for rotator
 		 */
 		if (IS_SDE_MAJOR_SAME(mdata->mdss_version,
-			SDE_MDP_HW_REV_500))
+			SDE_MDP_HW_REV_500) ||
+			IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+			SDE_MDP_HW_REV_620))
 			mgr->max_rot_clk = ROT_R3_MAX_ROT_CLK;
 
-		if (!IS_SDE_MAJOR_SAME(mdata->mdss_version,
-					SDE_MDP_HW_REV_500) &&
+		if (!(IS_SDE_MAJOR_SAME(mdata->mdss_version,
+					SDE_MDP_HW_REV_500) ||
+			IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+			SDE_MDP_HW_REV_620)) &&
 				!sde_rotator_get_clk(mgr,
 					SDE_ROTATOR_CLK_MDSS_AXI)) {
 			SDEROT_ERR("unable to get mdss_axi_clk\n");

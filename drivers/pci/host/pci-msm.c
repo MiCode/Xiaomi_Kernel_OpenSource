@@ -4180,6 +4180,9 @@ static void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 		return;
 	}
 
+	/* suspend access to MSI register. resume access in msm_msi_config */
+	msm_msi_config_access(dev_get_msi_domain(&dev->dev->dev), false);
+
 	dev->link_status = MSM_PCIE_LINK_DISABLED;
 	dev->power_on = false;
 	dev->link_turned_off_counter++;

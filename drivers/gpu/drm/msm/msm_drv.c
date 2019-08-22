@@ -2049,6 +2049,8 @@ static int msm_pdev_probe(struct platform_device *pdev)
 	if (!match)
 		return -ENODEV;
 
+	device_enable_async_suspend(&pdev->dev);
+
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 	return component_master_add_with_match(&pdev->dev, &msm_drm_ops, match);
 }

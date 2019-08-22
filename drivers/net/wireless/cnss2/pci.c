@@ -2714,8 +2714,9 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 		mhi_ctrl->iova_stop = pci_priv->smmu_iova_start +
 					pci_priv->smmu_iova_len;
 	} else {
-		mhi_ctrl->iova_start = memblock_start_of_DRAM();
-		mhi_ctrl->iova_stop = memblock_end_of_DRAM();
+		/* assume all addresses are valid */
+		mhi_ctrl->iova_start = 0;
+		mhi_ctrl->iova_stop = (dma_addr_t)U64_MAX;
 	}
 
 	mhi_ctrl->link_status = cnss_mhi_link_status;

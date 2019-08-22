@@ -44,7 +44,7 @@
 	};
 
 	hsi2s: qcom,hsi2s {
-		compatible = "qcom,hsi2s";
+		compatible = "qcom,sa6155-hsi2s", "qcom,hsi2s";
 		number-of-interfaces = <2>;
 		reg = <0x1B40000 0x28000>;
 		reg-names = "lpa_if";
@@ -57,6 +57,8 @@
 		clock-names = "core_clk", "wr0_mem_clk",
 			      "wr1_mem_clk", "wr2_mem_clk",
 			      "csr_hclk";
+		bit-clock-hz = <20000000>;
+		interrupt-interval-ms = <10>;
 
 		sdr0: qcom,hs0_i2s {
 			compatible = "qcom,hsi2s-interface";

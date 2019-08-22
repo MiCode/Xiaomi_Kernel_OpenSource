@@ -54,8 +54,8 @@
 			 0x130 /* GSI_RING_BASE_ADDR_L */
 			 0x144 /* GSI_RING_BASE_ADDR_H */
 			 0x1a4>; /* GSI_IF_STS */
+		qcom,gsi-disable-io-coherency;
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
-		qcom,pm-qos-latency = <62>;
 
 		qcom,msm-bus,name = "usb0";
 		qcom,msm-bus,num-cases = <4>;
@@ -136,7 +136,7 @@
 	qusb_phy0: qusb@88e2000 {
 		compatible = "qcom,qusb2phy-v2";
 		reg = <0x088e2000 0x400>,
-			<0x00780200 0x4>,
+			<0x00780258 0x4>,
 			<0x088e7014 0x4>;
 		reg-names = "qusb_phy_base", "efuse_addr",
 				"refgen_north_bg_reg_addr";
@@ -365,7 +365,7 @@
 
 	usb_audio_qmi_dev {
 		compatible = "qcom,usb-audio-qmi-dev";
-		iommus = <&apps_smmu 0x1b2f 0x0>;
+		iommus = <&apps_smmu 0x100f 0x0>;
 		qcom,usb-audio-stream-id = <0xf>;
 		qcom,usb-audio-intr-num = <2>;
 	};

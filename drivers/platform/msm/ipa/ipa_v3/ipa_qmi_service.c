@@ -1048,7 +1048,7 @@ int ipa3_qmi_rmv_offload_request_send(
 	ipa3_qmi_ctx->num_ipa_offload_connection);
 
 	/*  max as num_ipa_offload_connection */
-	if (req->filter_handle_list_len >=
+	if (req->filter_handle_list_len >
 		ipa3_qmi_ctx->num_ipa_offload_connection) {
 		IPAWANDBG(
 		"cur(%d), req_rmv(%d)\n",
@@ -1087,6 +1087,15 @@ int ipa3_qmi_rmv_offload_request_send(
 		IPA_REMOVE_OFFLOAD_CONNECTION_REQ_MSG_V01_MAX_MSG_LEN;
 	req_desc.msg_id = QMI_IPA_REMOVE_OFFLOAD_CONNECTION_REQ_V01;
 	req_desc.ei_array = ipa_remove_offload_connection_req_msg_v01_ei;
+
+	/* clean the Dl rules  in the cache if flag is set */
+	if (req->clean_all_rules) {
+		for (i = 0; i < QMI_IPA_MAX_FILTERS_V01; i++)
+			if (ipa3_qmi_ctx->ipa_offload_cache[i].valid)
+				ipa3_qmi_ctx->ipa_offload_cache[i].valid =
+				false;
+	}
+
 
 	memset(&resp, 0, sizeof(struct
 		ipa_remove_offload_connection_resp_msg_v01));
@@ -2234,6 +2243,22 @@ int ipa3_qmi_send_mhi_cleanup_request(struct ipa_mhi_cleanup_req_msg_v01 *req)
 	return ipa3_check_qmi_response(rc,
 		QMI_IPA_MHI_CLEANUP_REQ_V01, resp.resp.result,
 		resp.resp.error, "ipa_mhi_cleanup_req_msg");
+}
+
+int ipa3_qmi_send_rsc_pipe_indication(
+	struct ipa_endp_desc_indication_msg_v01 *req)
+{
+	IPAWANDBG("Sending QMI_IPA_ENDP_DESC_INDICATION_V01\n");
+
+	if (unlikely(!ipa3_svc_handle))
+		return -ETIMEDOUT;
+
+	return qmi_send_indication(ipa3_svc_handle,
+		&ipa3_qmi_ctx->client_sq,
+		QMI_IPA_ENDP_DESC_INDICATION_V01,
+		IPA_ENDP_DESC_INDICATION_MSG_V01_MAX_MSG_LEN,
+		ipa_endp_desc_indication_msg_v01_ei,
+		req);
 }
 
 void ipa3_qmi_init(void)

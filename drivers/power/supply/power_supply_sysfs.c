@@ -155,6 +155,9 @@ static ssize_t power_supply_show_property(struct device *dev,
 	else if (off == POWER_SUPPLY_PROP_CONNECTOR_HEALTH)
 		return scnprintf(buf, PAGE_SIZE, "%s\n",
 			       power_supply_health_text[value.intval]);
+	else if (off == POWER_SUPPLY_PROP_SKIN_HEALTH)
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+			       power_supply_health_text[value.intval]);
 	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME)
 		return sprintf(buf, "%s\n", value.strval);
 
@@ -403,6 +406,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(force_main_fcc),
 	POWER_SUPPLY_ATTR(comp_clamp_level),
 	POWER_SUPPLY_ATTR(adapter_cc_mode),
+	POWER_SUPPLY_ATTR(skin_health),
 	/* Charge pump properties */
 	POWER_SUPPLY_ATTR(cp_status1),
 	POWER_SUPPLY_ATTR(cp_status2),

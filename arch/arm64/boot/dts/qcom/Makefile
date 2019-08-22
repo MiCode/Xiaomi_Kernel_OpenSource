@@ -6,27 +6,26 @@ dtb-$(CONFIG_ARCH_QCOM)	+= msm8916-mtp.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8992-bullhead-rev-101.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8994-angler-rev-101.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8996-mtp.dtb
-ifeq ($(CONFIG_ARM64),y)
-dtb-$(CONFIG_ARCH_QCS405) += qcs405-rumi.dtb \
-		qcs405-iot-sku1.dtb \
-		qcs405-iot-sku2.dtb \
-		qcs405-iot-sku3.dtb \
-		qcs405-iot-sku4.dtb \
-		qcs405-iot-sku5.dtb \
-		qcs405-iot-sku6.dtb \
-		qcs405-iot-sku7.dtb \
-		qcs405-iot-sku8.dtb \
-		qcs405-iot-sku9.dtb \
-		qcs405-iot-sku10.dtb \
-		qcs405-iot-sku11.dtb \
-		qcs405-iot-sku12.dtb \
-		qcs401-iot-sku1.dtb
-else
-dtb-$(CONFIG_ARCH_QCS405) += qcs403-iot-sku1.dtb \
-			qcs403-iot-sku2.dtb \
+
+dtb-$(CONFIG_ARCH_QCS403) += qcs403-iot-sku1.dtb \
 			qcs403-iot-sku3.dtb \
-			qcs403-iot-sku4.dtb
-endif
+			qcs403-iot-sku5.dtb \
+			qcs401-iot-sku5.dtb \
+			qcs404-iot-sku3.dtb \
+			qcs404-iot-sku5.dtb \
+			qcs404-iot-sku6.dtb
+
+dtb-$(CONFIG_ARCH_QCS405) += qcs405-iot-sku1.dtb \
+		qcs407-iot-sku1.dtb \
+		qcs405-iot-sku3.dtb \
+		qcs407-iot-sku3.dtb \
+		qcs405-iot-sku4.dtb \
+		qcs407-iot-sku4.dtb \
+		qcs405-iot-sku6.dtb \
+		qcs407-iot-sku6.dtb \
+		qcs407-iot-sku9.dtb \
+		qcs405-iot-sku12.dtb \
+		qcs407-iot-sku12.dtb
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SM8150) += \
@@ -247,15 +246,24 @@ endif
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_ATOLL) += \
 		atoll-idp-overlay.dtbo\
+		atoll-atp-overlay.dtbo\
 		atoll-qrd-overlay.dtbo\
+		atoll-wcd937x-idp-overlay.dtbo\
+		atoll-usbc-idp-overlay.dtbo\
 		atoll-rumi-overlay.dtbo
 
 atoll-idp-overlay.dtbo-base := atoll.dtb
+atoll-atp-overlay.dtbo-base := atoll.dtb
 atoll-qrd-overlay.dtbo-base := atoll.dtb
 atoll-rumi-overlay.dtbo-base := atoll.dtb
+atoll-wcd937x-idp-overlay.dtbo-base := atoll.dtb
+atoll-usbc-idp-overlay.dtbo-base := atoll.dtb
 else
 dtb-$(CONFIG_ARCH_ATOLL)	+= atoll-idp.dtb\
+	atoll-atp.dtb\
 	atoll-qrd.dtb\
+	atoll-wcd937x-idp.dtb\
+	atoll-usbc-idp.dtb\
 	atoll-rumi.dtb
 endif
 

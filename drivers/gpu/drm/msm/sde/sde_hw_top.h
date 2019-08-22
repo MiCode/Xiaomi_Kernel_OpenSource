@@ -43,9 +43,11 @@ struct traffic_shaper_cfg {
  * @intf      : Interface id for main control path
  * @pp_split_slave: Slave interface for ping pong split, INTF_MAX to disable
  * @pp_split_idx:   Ping pong index for ping pong split
+ * @overlap_pixel_width : Number of overlap pixels in the split mode
  * @split_flush_en: Allows both the paths to be flushed when master path is
  *              flushed
  * @split_link_en:  Check if split link is enabled
+ * @pp_slave_intf: Check if this is pp slave interface
  */
 struct split_pipe_cfg {
 	bool en;
@@ -53,8 +55,10 @@ struct split_pipe_cfg {
 	enum sde_intf intf;
 	enum sde_intf pp_split_slave;
 	u32 pp_split_index;
+	u32 overlap_pixel_width;
 	bool split_flush_en;
 	bool split_link_en;
+	bool pp_slave_intf;
 };
 
 /**
@@ -184,6 +188,13 @@ struct sde_hw_mdp_ops {
 	void (*reset_ubwc)(struct sde_hw_mdp *mdp, struct sde_mdss_cfg *m);
 
 	/**
+	 * intf_dp_select - select phy for DP controller
+	 * @mdp: mdp top context driver
+	 * @m: pointer to mdss catalog data
+	 */
+	void (*intf_dp_select)(struct sde_hw_mdp *mdp, struct sde_mdss_cfg *m);
+
+	/**
 	 * intf_audio_select - select the external interface for audio
 	 * @mdp: mdp top context driver
 	 */
@@ -217,6 +228,26 @@ struct sde_hw_mdp {
 	/* ops */
 	struct sde_hw_mdp_ops ops;
 };
+
+struct sde_hw_sid {
+	/* rotator base */
+	struct sde_hw_blk_reg_map hw;
+};
+
+/**
+ * sde_hw_sid_rotator_set - initialize the sid blk reg map
+ * @addr: Mapped register io address
+ * @sid_len: Length of block
+ * @m: Pointer to mdss catalog data
+ */
+struct sde_hw_sid *sde_hw_sid_init(void __iomem *addr,
+		u32 sid_len, const struct sde_mdss_cfg *m);
+
+/**
+ * sde_hw_sid_rotator_set - set sid values for rotator
+ * sid: sde_hw_sid passed from kms
+ */
+void sde_hw_sid_rotator_set(struct sde_hw_sid *sid);
 
 /**
  * to_sde_hw_mdp - convert base object sde_hw_base to container

@@ -436,6 +436,10 @@ struct ipa_eth_channel {
  *                network device (to monitor link state changes)
  * @init: Allowed to initialize offload path for the device
  * @start: Allowed to start offload data path for the device
+ * @start_on_wakeup: Allow start upon wake up by device
+ * @start_on_resume: Allow start upon driver resume
+ * @start_on_timeout: Timeout in milliseconds after which @start is enabled
+ * @start_timer: Timer associated with @start_on_timer
  * @if_state: Interface state - one or more bit numbers IPA_ETH_IF_ST_*
  * @pm_handle: IPA PM client handle for the device
  * @bus_priv: Private field for use by offload subsystem bus layer
@@ -468,6 +472,12 @@ struct ipa_eth_device {
 
 	bool init;
 	bool start;
+
+	bool start_on_wakeup;
+	bool start_on_resume;
+	u32 start_on_timeout;
+	struct timer_list start_timer;
+
 	unsigned long if_state;
 
 	u32 pm_handle;

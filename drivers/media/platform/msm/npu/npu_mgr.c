@@ -580,6 +580,17 @@ static struct npu_network *alloc_network(struct npu_host_ctx *ctx,
 	WARN_ON(!mutex_is_locked(&ctx->lock));
 
 	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
+		if ((network->id != 0) &&
+			(network->client != client)) {
+			pr_err("NPU is used by other client now\n");
+			return NULL;
+		}
+
+		network++;
+	}
+
+	network = ctx->networks;
+	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
 		if (network->id == 0)
 			break;
 

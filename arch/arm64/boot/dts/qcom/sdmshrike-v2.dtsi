@@ -260,3 +260,134 @@
 		iommus = <&apps_smmu 0x1009 0x0460>;
 	};
 };
+
+&soc {
+	/delete-node/ llcc-bw-opp-table;
+	/delete-node/ ddr-bw-opp-table;
+	/delete-node/ suspendable-ddr-bw-opp-table;
+
+	llcc_bw_opp_table: llcc-bw-opp-table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY( 150, 16); /*  2288 MB/s */
+		BW_OPP_ENTRY( 300, 16); /*  4577 MB/s */
+		BW_OPP_ENTRY( 466, 16); /*  7110 MB/s */
+		BW_OPP_ENTRY( 600, 16); /*  9155 MB/s */
+		BW_OPP_ENTRY( 806, 16); /* 12298 MB/s */
+		BW_OPP_ENTRY( 933, 16); /* 14236 MB/s */
+		BW_OPP_ENTRY(1000, 16); /* 15258 MB/s */
+	};
+
+	ddr_bw_opp_table: ddr-bw-opp-table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY( 200, 4); /*  762 MB/s */
+		BW_OPP_ENTRY( 300, 4); /* 1144 MB/s */
+		BW_OPP_ENTRY( 451, 4); /* 1720 MB/s */
+		BW_OPP_ENTRY( 547, 4); /* 2086 MB/s */
+		BW_OPP_ENTRY( 681, 4); /* 2597 MB/s */
+		BW_OPP_ENTRY( 768, 4); /* 2929 MB/s */
+		BW_OPP_ENTRY(1017, 4); /* 3879 MB/s */
+		BW_OPP_ENTRY(1353, 4); /* 5161 MB/s */
+		BW_OPP_ENTRY(1555, 4); /* 5931 MB/s */
+		BW_OPP_ENTRY(1804, 4); /* 6881 MB/s */
+		BW_OPP_ENTRY(2092, 4); /* 7980 MB/s */
+	};
+
+	suspendable_ddr_bw_opp_table: suspendable-ddr-bw-opp-table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY(   0, 4); /*    0 MB/s */
+		BW_OPP_ENTRY( 200, 4); /*  762 MB/s */
+		BW_OPP_ENTRY( 300, 4); /* 1144 MB/s */
+		BW_OPP_ENTRY( 451, 4); /* 1720 MB/s */
+		BW_OPP_ENTRY( 547, 4); /* 2086 MB/s */
+		BW_OPP_ENTRY( 681, 4); /* 2597 MB/s */
+		BW_OPP_ENTRY( 768, 4); /* 2929 MB/s */
+		BW_OPP_ENTRY(1017, 4); /* 3879 MB/s */
+		BW_OPP_ENTRY(1353, 4); /* 5161 MB/s */
+		BW_OPP_ENTRY(1555, 4); /* 5931 MB/s */
+		BW_OPP_ENTRY(1804, 4); /* 6881 MB/s */
+		BW_OPP_ENTRY(2092, 4); /* 7980 MB/s */
+	};
+};
+
+&gpubw {
+	/delete-property/ qcom,bw-tbl;
+	operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
+};
+
+&cpu4_computemon {
+	qcom,core-dev-table =
+		< 1920000 MHZ_TO_MBPS( 200, 4) >,
+		< 2793600 MHZ_TO_MBPS(1017, 4) >,
+		< 3000000 MHZ_TO_MBPS(2092, 4) >;
+};
+
+&cpu0_llcc_ddr_latmon {
+	qcom,core-dev-table =
+		<  300000 MHZ_TO_MBPS( 200, 4) >,
+		<  768000 MHZ_TO_MBPS( 451, 4) >,
+		< 1113600 MHZ_TO_MBPS( 547, 4) >,
+		< 1478400 MHZ_TO_MBPS( 768, 4) >,
+		< 1632000 MHZ_TO_MBPS(1017, 4) >;
+};
+
+&cpu4_llcc_ddr_latmon {
+	qcom,core-dev-table =
+		<  300000 MHZ_TO_MBPS( 200, 4) >,
+		<  710400 MHZ_TO_MBPS( 451, 4) >,
+		<  825600 MHZ_TO_MBPS( 547, 4) >,
+		< 1056000 MHZ_TO_MBPS( 768, 4) >,
+		< 1286400 MHZ_TO_MBPS(1017, 4) >,
+		< 1612800 MHZ_TO_MBPS(1353, 4) >,
+		< 1804800 MHZ_TO_MBPS(1555, 4) >,
+		< 2649600 MHZ_TO_MBPS(1804, 4) >,
+		< 3000000 MHZ_TO_MBPS(2092, 4) >;
+};
+
+&cpu0_cpu_l3_latmon {
+	qcom,core-dev-table =
+		<  300000  300000000 >,
+		<  499200  403200000 >,
+		<  576000  499200000 >,
+		<  672000  614400000 >,
+		<  768000  710400000 >,
+		<  940800  806400000 >,
+		< 1036800  902400000 >,
+		< 1113600  998400000 >,
+		< 1209600 1075280000 >,
+		< 1305600 1171200000 >,
+		< 1382400 1267200000 >,
+		< 1478400 1344000000 >,
+		< 1632000 1536000000 >,
+		< 1785600 1612800000 >;
+};
+
+&cpu4_cpu_l3_latmon {
+	qcom,core-dev-table =
+		<  300000  300000000 >,
+		<  825600  614400000 >,
+		< 1171200  806400000 >,
+		< 1401600  998400000 >,
+		< 1708800 1267200000 >,
+		< 2016000 1344000000 >,
+		< 2419200 1536000000 >,
+		< 2841600 1612800000 >;
+};
+
+&cpu0_cpu_llcc_latmon {
+	qcom,core-dev-table =
+		<  300000 MHZ_TO_MBPS( 150, 16) >,
+		<  768000 MHZ_TO_MBPS( 300, 16) >,
+		< 1478400 MHZ_TO_MBPS( 466, 16) >,
+		< 1632000 MHZ_TO_MBPS( 600, 16) >;
+};
+
+&cpu4_cpu_llcc_latmon {
+	qcom,core-dev-table =
+		<  300000 MHZ_TO_MBPS( 150, 16) >,
+		<  710400 MHZ_TO_MBPS( 300, 16) >,
+		< 1056000 MHZ_TO_MBPS( 466, 16) >,
+		< 1286400 MHZ_TO_MBPS( 600, 16) >,
+		< 1804800 MHZ_TO_MBPS( 806, 16) >,
+		< 2649600 MHZ_TO_MBPS( 933, 16) >,
+		< 3000000 MHZ_TO_MBPS(1000, 16) >;
+};

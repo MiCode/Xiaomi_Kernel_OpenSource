@@ -11,7 +11,7 @@
  */
 
 #include "skeleton64.dtsi"
-#include <dt-bindings/clock/qcom,gcc-sm8150.h>
+#include <dt-bindings/clock/qcom,gcc-sdmshrike.h>
 #include <dt-bindings/clock/qcom,scc-sm8150.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "quin-vm-common.dtsi"
@@ -31,16 +31,19 @@
 };
 
 &soc {
-	clock_virt: qcom,virt-gcc {
-		compatible = "qcom,virt-clk-sm8150-gcc";
+	clock_virt: qcom,virtio-gcc {
+		compatible = "virtio,mmio";
+		reg = <0x1c200000 0x1000>;
+		interrupts = <0 48 0>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
-	clock_virt_scc: qcom,virt-scc {
-		compatible = "qcom,virt-clk-sm8150-scc";
+	clock_virt_scc: qcom,virtio-scc {
+		compatible = "virtio,mmio";
+		reg = <0x1c300000 0x1000>;
+		interrupts = <0 49 0>;
 		#clock-cells = <1>;
-		#reset-cells = <1>;
 	};
 
 	apps_smmu: apps-smmu@0x15000000 {
@@ -136,7 +139,55 @@
 				<GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 408 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 409 IRQ_TYPE_LEVEL_HIGH>;
+				<GIC_SPI 409 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 411 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 412 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 413 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 641 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 642 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 643 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 644 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 707 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 708 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 709 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 710 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 711 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 712 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 713 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 714 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 715 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 716 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 769 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 770 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 771 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 772 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 773 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 774 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 775 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 776 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 777 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 778 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 779 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 780 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 781 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 782 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 783 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 784 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 785 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 786 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 787 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 788 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 789 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 790 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 791 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 792 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 793 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 794 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 795 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 796 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 797 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 798 IRQ_TYPE_LEVEL_HIGH>;
 
 		status = "disabled";
 	};
@@ -147,44 +198,31 @@
 		status = "disabled";
 	};
 
-	pm8150_l2: regulator-pm8150-l2 {
+	pm8195_3_l5: regulator-pm8195-3-l5 {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_l2";
-		regulator-min-microvolt = <3072000>;
-		regulator-max-microvolt = <3072000>;
-		qcom,init-voltage = <3072000>;
-		status = "okay";
+		regulator-name = "pm8195_3_l5";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <920000>;
+		qcom,init-voltage = <800000>;
+		status = "ok";
 	};
 
-	pm8150_l5: regulator-pm8150-l5 {
+	pm8195_1_l12: regulator-pm8195-1-l12 {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_l5";
-		regulator-min-microvolt = <880000>;
-		regulator-max-microvolt = <880000>;
-		qcom,proxy-consumer-enable;
-		qcom,proxy-consumer-current = <23800>;
-		qcom,init-voltage = <880000>;
-		status = "okay";
-	};
-
-	pm8150_l12: regulator-pm8150-l12 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_l12";
+		regulator-name = "pm8195_1_l12";
 		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+		regulator-max-microvolt = <1890000>;
 		qcom,init-voltage = <1800000>;
-		status = "okay";
+		status = "ok";
 	};
 
-	pm8150l_l3: regulator-pm8150l-l3 {
+	pm8195_3_l16: regulator-pm8195-3-l16 {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150l_l3";
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
-		qcom,proxy-consumer-enable;
-		qcom,proxy-consumer-current = <51800>;
-		qcom,init-voltage = <1200000>;
-		status = "okay";
+		regulator-name = "pm8195_3_l16";
+		regulator-min-microvolt = <2921000>;
+		regulator-max-microvolt = <3300000>;
+		qcom,init-voltage = <2921000>;
+		status = "ok";
 	};
 
 	usb30_prim_gdsc: usb30_prim_gdsc {
@@ -203,5 +241,5 @@
 #include "sdmshrike-pinctrl.dtsi"
 #include "sm8150-slpi-pinctrl.dtsi"
 #include "sa8155-vm-qupv3.dtsi"
-#include "sa8155-vm-usb.dtsi"
+#include "sa8195-vm-usb.dtsi"
 #include "sa8155-vm-audio.dtsi"

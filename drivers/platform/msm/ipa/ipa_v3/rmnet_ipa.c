@@ -1321,7 +1321,14 @@ send:
 		spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 		return NETDEV_TX_OK;
 	}
+	/*
+	 * increase the outstanding_pkts count first
+	 * to avoid suspend happens in parallel
+	 * after unlock
+	 */
+	atomic_inc(&wwan_ptr->outstanding_pkts);
 	/* IPA_RM checking end */
+	spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 
 	/*
 	 * both data packets and command will be routed to
@@ -1329,19 +1336,18 @@ send:
 	 */
 	ret = ipa3_tx_dp(IPA_CLIENT_APPS_WAN_PROD, skb, NULL);
 	if (ret) {
+		atomic_dec(&wwan_ptr->outstanding_pkts);
 		if (ret == -EPIPE) {
 			IPAWANERR_RL("[%s] fatal: pipe is not valid\n",
 				dev->name);
 			dev_kfree_skb_any(skb);
 			dev->stats.tx_dropped++;
-			spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 			return NETDEV_TX_OK;
 		}
 		ret = NETDEV_TX_BUSY;
 		goto out;
 	}
 
-	atomic_inc(&wwan_ptr->outstanding_pkts);
 	dev->stats.tx_packets++;
 	dev->stats.tx_bytes += skb->len;
 	ret = NETDEV_TX_OK;
@@ -1355,7 +1361,6 @@ out:
 				IPA_RM_RESOURCE_WWAN_0_PROD);
 		}
 	}
-	spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 	return ret;
 }
 
@@ -1473,6 +1478,26 @@ static void apps_ipa_packet_receive_notify(void *priv,
 	}
 }
 
+/* Send RSC endpoint info to modem using QMI indication message */
+
+static int ipa_send_rsc_pipe_ind_to_modem(void)
+{
+	struct ipa_endp_desc_indication_msg_v01 req;
+	struct ipa_ep_id_type_v01 *ep_info;
+
+	memset(&req, 0, sizeof(struct ipa_endp_desc_indication_msg_v01));
+	req.ep_info_len = 1;
+	req.ep_info_valid = true;
+	req.num_eps_valid = true;
+	req.num_eps = 1;
+	ep_info = &req.ep_info[req.ep_info_len - 1];
+	ep_info->ep_id = rmnet_ipa3_ctx->ipa3_to_apps_hdl;
+	ep_info->ic_type = DATA_IC_TYPE_AP_V01;
+	ep_info->ep_type = DATA_EP_DESC_TYPE_RSC_PROD_V01;
+	ep_info->ep_status = DATA_EP_STATUS_CONNECTED_V01;
+	return ipa3_qmi_send_rsc_pipe_indication(&req);
+}
+
 static int handle3_ingress_format(struct net_device *dev,
 			struct rmnet_ioctl_extended_s *in)
 {
@@ -1574,6 +1599,9 @@ static int handle3_ingress_format(struct net_device *dev,
 	if (ret)
 		ipa3_del_a7_qmap_hdr();
 
+	/* Sending QMI indication message share RSC pipe details*/
+	if (dev->features & NETIF_F_GRO_HW)
+		ipa_send_rsc_pipe_ind_to_modem();
 end:
 	if (ret)
 		IPAWANERR("failed to configure ingress\n");

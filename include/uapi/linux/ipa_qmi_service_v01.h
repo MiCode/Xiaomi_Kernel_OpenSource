@@ -64,6 +64,7 @@
  * Indicates presence of newly added member to support HW stats.
  */
 #define IPA_QMI_SUPPORTS_STATS
+#define IPA_QMI_SUPPORT_MHI_DEFAULT
 
 #define IPA_INT_MAX	((int)(~0U>>1))
 #define IPA_INT_MIN	(-IPA_INT_MAX - 1)
@@ -2606,8 +2607,14 @@ struct ipa_add_offload_connection_req_msg_v01 {
 	/* Must be set to true if embedded_call_mux_id is being passed */
 	uint32_t embedded_call_mux_id;
 	/* Mux ID for the new embedded call */
+	/* Optional */
+	/*  Default MHI path */
+	uint8_t default_mhi_path_valid;
+	/* Must be set to true if default_mhi_path is being passed */
+	uint8_t default_mhi_path;
+	/* Default MHI path */
 }; /* Message */
-#define IPA_ADD_OFFLOAD_CONNECTION_REQ_MSG_V01_MAX_MSG_LEN 11357
+#define IPA_ADD_OFFLOAD_CONNECTION_REQ_MSG_V01_MAX_MSG_LEN 11361
 
 struct ipa_add_offload_connection_resp_msg_v01 {
 	/*  Result Code */
@@ -2630,8 +2637,14 @@ struct ipa_remove_offload_connection_req_msg_v01 {
 	uint32_t filter_handle_list_len;
 	struct ipa_filter_rule_identifier_to_handle_map_v01
 		filter_handle_list[QMI_IPA_MAX_FILTERS_V01];
+	/* Optional */
+	/*  Clean All rules */
+	uint8_t clean_all_rules_valid;
+	/* Must be set to true if clean_all_rules is being passed */
+	uint8_t clean_all_rules;
+	/* Clean All rules */
 }; /* Message */
-#define IPA_REMOVE_OFFLOAD_CONNECTION_REQ_MSG_V01_MAX_MSG_LEN 516
+#define IPA_REMOVE_OFFLOAD_CONNECTION_REQ_MSG_V01_MAX_MSG_LEN 520
 
 struct ipa_remove_offload_connection_resp_msg_v01 {
 	/* optional */
