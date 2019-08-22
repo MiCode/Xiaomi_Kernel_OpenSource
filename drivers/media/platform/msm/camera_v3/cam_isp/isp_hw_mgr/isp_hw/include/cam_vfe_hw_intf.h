@@ -178,6 +178,17 @@ struct cam_vfe_clock_update_args {
 };
 
 /*
+ * struct cam_vfe_fps_config_args:
+ *
+ * @node_res:                Resource to get the fps value
+ * @fps:                     FPS value to configure EPOCH
+ */
+struct cam_vfe_fps_config_args {
+	struct cam_isp_resource_node      *node_res;
+	uint32_t                           fps;
+};
+
+/*
  * struct cam_vfe_bw_update_args:
  *
  * @node_res:             Resource to get the BW
