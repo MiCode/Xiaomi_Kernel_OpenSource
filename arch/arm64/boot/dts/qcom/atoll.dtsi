@@ -73,7 +73,7 @@
 
 			L1_I_0: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x8800>;
+				qcom,dump-size = <0x10800>;
 			};
 
 			L1_D_0: l1-dcache {
@@ -82,7 +82,7 @@
 			};
 
 			L2_TLB_0: l2-tlb {
-				qcom,dump-size = <0x5000>;
+				qcom,dump-size = <0x5a00>;
 			};
 		};
 
@@ -107,7 +107,7 @@
 
 			L1_I_100: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x8800>;
+				qcom,dump-size = <0x10800>;
 			};
 
 			L1_D_100: l1-dcache {
@@ -116,7 +116,7 @@
 			};
 
 			L2_TLB_100: l2-tlb {
-				qcom,dump-size = <0x5000>;
+				qcom,dump-size = <0x5a00>;
 			};
 		};
 
@@ -142,7 +142,7 @@
 
 			L1_I_200: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x8800>;
+				qcom,dump-size = <0x10800>;
 			};
 
 			L1_D_200: l1-dcache {
@@ -151,7 +151,7 @@
 			};
 
 			L2_TLB_200: l2-tlb {
-				qcom,dump-size = <0x5000>;
+				qcom,dump-size = <0x5a00>;
 			};
 		};
 
@@ -176,7 +176,7 @@
 
 			L1_I_300: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x8800>;
+				qcom,dump-size = <0x10800>;
 			};
 
 			L1_D_300: l1-dcache {
@@ -185,7 +185,7 @@
 			};
 
 			L2_TLB_300: l2-tlb {
-				qcom,dump-size = <0x5000>;
+				qcom,dump-size = <0x5a00>;
 			};
 		};
 
@@ -210,7 +210,7 @@
 
 			L1_I_400: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x8800>;
+				qcom,dump-size = <0x10800>;
 			};
 
 			L1_D_400: l1-dcache {
@@ -219,7 +219,7 @@
 			};
 
 			L2_TLB_400: l2-tlb {
-				qcom,dump-size = <0x5000>;
+				qcom,dump-size = <0x5a00>;
 			};
 		};
 
@@ -244,7 +244,7 @@
 
 			L1_I_500: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x8800>;
+				qcom,dump-size = <0x10800>;
 			};
 
 			L1_D_500: l1-dcache {
@@ -253,7 +253,7 @@
 			};
 
 			L2_TLB_500: l2-tlb {
-				qcom,dump-size = <0x5000>;
+				qcom,dump-size = <0x5a00>;
 			};
 		};
 
@@ -279,7 +279,7 @@
 
 			L1_I_600: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x11000>;
+				qcom,dump-size = <0x22000>;
 			};
 
 			L1_D_600: l1-dcache {
@@ -322,7 +322,7 @@
 
 			L1_I_700: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x11000>;
+				qcom,dump-size = <0x22000>;
 			};
 
 			L1_D_700: l1-dcache {
@@ -1376,6 +1376,12 @@
 			cap-based-alloc-and-pwr-collapse;
 		};
 
+		qcom,llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
+			clocks = <&clock_aop QDSS_CLK>;
+			clock-names = "qdss_clk";
+		};
+
 		qcom,llcc-erp {
 			compatible = "qcom,llcc-erp";
 		};
@@ -1540,6 +1546,11 @@
 		qcom,l2_tlb_dump700 {
 			qcom,dump-node = <&L2_TLB_700>;
 			qcom,dump-id = <0x127>;
+		};
+
+		qcom,llcc1_d_cache {
+			qcom,dump-node = <&LLCC_1>;
+			qcom,dump-id = <0x140>;
 		};
 	};
 
