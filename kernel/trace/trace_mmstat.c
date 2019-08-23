@@ -36,22 +36,26 @@ static struct delayed_work mmstat_work;
 static unsigned long timer_intval = HZ;
 
 const char * const meminfo_text[] = {
-	"memfr",
+	"memfr",	/* available memory */
 	"swpfr",
 	"cache",
-	"active",
+	"active",	/* (LRU) user pages */
 	"inactive",
 	"unevictable",
-	"shmem",
+	"shmem",	/* kernel memory */
 	"slab",
 	"kernel_stack",
 	"page_table",
+	"gpu",		/* HW memory */
+	"ion",
+	"zram",		/* misc */
 };
 
 const char * const vmstat_partial_text[] = {
-	"swpin",
+	"swpin",	/* vm events */
 	"swpout",
 	"majflt",
+	"refault",	/* vm stats */
 };
 
 const char * const proc_text[] = {
@@ -76,6 +80,15 @@ static unsigned int proc_switch = SWITCH_ON;
 static int min_adj = OOM_SCORE_ADJ_MIN;
 static int max_adj = OOM_SCORE_ADJ_MAX;
 static int limit_pid = -1;
+
+/* for kallsyms lookup */
+#ifdef CONFIG_SWAP
+static unsigned long (*total_swapcache_pages_addr)(void);
+#else
+#define total_swapcache_pages_addr()	0UL
+#endif
+static struct pglist_data *(*first_online_pgdat_addr)(void);
+static struct zone *(*next_zone_addr)(struct zone *zone);
 
 const char *
 mmstat_trace_print_arrayset_seq(struct trace_seq *p,
@@ -111,6 +124,16 @@ mmstat_trace_print_arrayset_seq(struct trace_seq *p,
 	return ret;
 }
 
+size_t __weak ion_mm_heap_total_memory(void)
+{
+	return 0;
+}
+
+unsigned long __weak zram_memusage(void)
+{
+	return 0;
+}
+
 /*
  * Record basic memory information
  */
@@ -118,12 +141,13 @@ static void mmstat_trace_meminfo(void)
 {
 	unsigned long meminfo[NR_MEMINFO_ITEMS] = {0};
 	size_t num_entries = 0;
+	unsigned int gpuuse = 0;
 
 	/* available memory */
 	meminfo[num_entries++] = P2K(global_zone_page_state(NR_FREE_PAGES));
 	meminfo[num_entries++] = P2K(atomic_long_read(&nr_swap_pages));
 	meminfo[num_entries++] = P2K(global_node_page_state(NR_FILE_PAGES) -
-			total_swapcache_pages());
+			total_swapcache_pages_addr());
 
 	/* user pages */
 	meminfo[num_entries++] = P2K(global_node_page_state(NR_ACTIVE_ANON) +
@@ -140,6 +164,17 @@ static void mmstat_trace_meminfo(void)
 	meminfo[num_entries++] = global_zone_page_state(NR_KERNEL_STACK_KB);
 	meminfo[num_entries++] = P2K(global_zone_page_state(NR_PAGETABLE));
 
+#ifdef CONFIG_MTK_GPU_SUPPORT
+	/* HW memory */
+	if (mtk_get_gpu_memory_usage(&gpuuse))
+		gpuuse = B2K(gpuuse);
+#endif
+	meminfo[num_entries++] = gpuuse;
+	meminfo[num_entries++] = B2K((unsigned long)ion_mm_heap_total_memory());
+
+	/* misc */
+	meminfo[num_entries++] = zram_memusage();
+
 	trace_mmstat_trace_meminfo((unsigned long *)meminfo, num_entries,
 			NR_MEMINFO_ITEMS);
 }
@@ -151,18 +186,23 @@ static void mmstat_trace_vmstat(void)
 {
 	int cpu;
 	unsigned long v[NR_VMSTAT_PARTIAL_ITEMS] = {0};
+	unsigned int nr_vm_events = NR_VMSTAT_PARTIAL_ITEMS - 1;
 	size_t num_entries = 0;
 
 	for_each_online_cpu(cpu) {
 		struct vm_event_state *this = &per_cpu(vm_event_states, cpu);
 
-		v[num_entries++ % NR_VMSTAT_PARTIAL_ITEMS] +=
+		v[num_entries++ % nr_vm_events] +=
 			this->event[PSWPIN];
-		v[num_entries++ % NR_VMSTAT_PARTIAL_ITEMS] +=
+		v[num_entries++ % nr_vm_events] +=
 			this->event[PSWPOUT];
-		v[num_entries++ % NR_VMSTAT_PARTIAL_ITEMS] +=
+		v[num_entries++ % nr_vm_events] +=
 			this->event[PGMAJFAULT];
 	}
+
+	/* workingset_refsult */
+	v[NR_VMSTAT_PARTIAL_ITEMS - 1] =
+		global_node_page_state(WORKINGSET_REFAULT);
 
 	trace_mmstat_trace_vmstat((unsigned long *)v, NR_VMSTAT_PARTIAL_ITEMS,
 			NR_VMSTAT_PARTIAL_ITEMS);
@@ -175,19 +215,24 @@ static void mmstat_trace_buddyinfo(void)
 {
 	struct zone *zone;
 
-	for_each_populated_zone(zone) {
-		unsigned long flags;
-		unsigned int order;
-		unsigned long buddyinfo[MAX_ORDER + 1] = {0};
+	/* imitate for_each_populated_zone */
+	for (zone = (first_online_pgdat_addr())->node_zones;
+	     zone; zone = next_zone_addr(zone)) {
+		if (populated_zone(zone)) {
+			unsigned long flags;
+			unsigned int order;
+			unsigned long buddyinfo[MAX_ORDER + 1] = {0};
 
-		buddyinfo[0] = zone_idx(zone);
-		spin_lock_irqsave(&zone->lock, flags);
-		for (order = 0; order < MAX_ORDER; ++order)
-			buddyinfo[order + 1] = zone->free_area[order].nr_free;
-		spin_unlock_irqrestore(&zone->lock, flags);
+			buddyinfo[0] = zone_idx(zone);
+			spin_lock_irqsave(&zone->lock, flags);
+			for (order = 0; order < MAX_ORDER; ++order)
+				buddyinfo[order + 1] =
+					zone->free_area[order].nr_free;
+			spin_unlock_irqrestore(&zone->lock, flags);
 
-		trace_mmstat_trace_buddyinfo((unsigned long *)buddyinfo,
-				MAX_ORDER + 1, MAX_ORDER + 1);
+			trace_mmstat_trace_buddyinfo((unsigned long *)buddyinfo,
+					MAX_ORDER + 1, MAX_ORDER + 1);
+		}
 	}
 }
 
@@ -345,7 +390,7 @@ module_param_cb(proc_switch, &param_ops_change_switch,
 param_check_ulong(timer_intval, &timer_intval);
 module_param_cb(timer_intval, &param_ops_change_time_intval,
 		&timer_intval, 0644);
-__MODULE_PARM_TYPE(timer_intval, ulong);
+__MODULE_PARM_TYPE(timer_intval, "ulong");
 
 static void mmstat_work_handler(struct work_struct *work)
 {
@@ -380,12 +425,16 @@ int mmstat_print_fmt(struct seq_file *m)
 		struct zone *zone;
 		int order;
 
-		for_each_populated_zone(zone) {
-			seq_puts(m, "mmstat_trace_buddyinfo: ");
-			seq_printf(m, "%s", zone->name);
-			for (order = 0; order < MAX_ORDER; ++order)
-				seq_printf(m, ",%d", order);
-			seq_putc(m, '\n');
+		/* imitate for_each_populated_zone */
+		for (zone = (first_online_pgdat_addr())->node_zones;
+		     zone; zone = next_zone_addr(zone)) {
+			if (populated_zone(zone)) {
+				seq_puts(m, "mmstat_trace_buddyinfo: ");
+				seq_printf(m, "%s", zone->name);
+				for (order = 0; order < MAX_ORDER; ++order)
+					seq_printf(m, ",%d", order);
+				seq_putc(m, '\n');
+			}
 		}
 	}
 
@@ -420,6 +469,19 @@ static const struct file_operations mmstat_fmt_proc_fops = {
 
 static int __init trace_mmstat_init(void)
 {
+#ifdef CONFIG_SWAP
+	if (total_swapcache_pages_addr == 0)
+		total_swapcache_pages_addr =
+			(void *)kallsyms_lookup_name("total_swapcache_pages");
+#endif
+
+	if (first_online_pgdat_addr == 0)
+		first_online_pgdat_addr =
+			(void *)kallsyms_lookup_name("first_online_pgdat");
+
+	if (next_zone_addr == 0)
+		next_zone_addr = (void *)kallsyms_lookup_name("next_zone");
+
 	debugfs_create_file("mmstat_fmt", 0444, NULL, NULL,
 			&mmstat_fmt_proc_fops);
 
@@ -436,3 +498,7 @@ static void __exit trace_mmstat_exit(void)
 
 module_init(trace_mmstat_init);
 module_exit(trace_mmstat_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("MediaTek mmstat tracer");
+MODULE_AUTHOR("MediaTek Inc.");

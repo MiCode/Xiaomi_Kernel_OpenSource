@@ -6,6 +6,10 @@
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM mmstat
 
+#ifdef CONFIG_MTK_GPU_SUPPORT
+extern bool mtk_get_gpu_memory_usage(unsigned int *pMemUsage);
+#endif
+
 #if !defined(__TRACE_MMSTAT_H) || defined(TRACE_HEADER_MULTI_READ)
 #define __TRACE_MMSTAT_H
 
