@@ -184,5 +184,7 @@ void cnss_pci_pm_runtime_mark_last_busy(struct cnss_pci_data *pci_priv);
 int cnss_pci_update_status(struct cnss_pci_data *pci_priv,
 			   enum cnss_driver_status status);
 int cnss_pcie_is_device_down(struct cnss_pci_data *pci_priv);
+int cnss_pci_suspend_bus(struct cnss_pci_data *pci_priv);
+int cnss_pci_resume_bus(struct cnss_pci_data *pci_priv);
 
 #endif /* _CNSS_PCI_H */

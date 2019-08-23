@@ -1768,7 +1768,7 @@ static int cnss_pci_resume_driver(struct cnss_pci_data *pci_priv)
 	return ret;
 }
 
-static int cnss_pci_suspend_bus(struct cnss_pci_data *pci_priv)
+int cnss_pci_suspend_bus(struct cnss_pci_data *pci_priv)
 {
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
 	int ret = 0;
@@ -1813,7 +1813,7 @@ out:
 	return ret;
 }
 
-static int cnss_pci_resume_bus(struct cnss_pci_data *pci_priv)
+int cnss_pci_resume_bus(struct cnss_pci_data *pci_priv)
 {
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
 	int ret = 0;
