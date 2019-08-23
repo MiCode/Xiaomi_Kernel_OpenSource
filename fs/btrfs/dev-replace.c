@@ -511,18 +511,27 @@ static int btrfs_dev_replace_finishing(struct btrfs_fs_info *fs_info,
 	}
 	btrfs_wait_ordered_roots(root->fs_info, -1, 0, (u64)-1);
 
-	trans = btrfs_start_transaction(root, 0);
-	if (IS_ERR(trans)) {
-		mutex_unlock(&dev_replace->lock_finishing_cancel_unmount);
-		return PTR_ERR(trans);
+	while (1) {
+		trans = btrfs_start_transaction(root, 0);
+		if (IS_ERR(trans)) {
+			mutex_unlock(&dev_replace->lock_finishing_cancel_unmount);
+			return PTR_ERR(trans);
+		}
+		ret = btrfs_commit_transaction(trans, root);
+		WARN_ON(ret);
+		mutex_lock(&uuid_mutex);
+		/* keep away write_all_supers() during the finishing procedure */
+		mutex_lock(&root->fs_info->fs_devices->device_list_mutex);
+		mutex_lock(&root->fs_info->chunk_mutex);
+		if (src_device->has_pending_chunks) {
+			mutex_unlock(&root->fs_info->chunk_mutex);
+			mutex_unlock(&root->fs_info->fs_devices->device_list_mutex);
+			mutex_unlock(&uuid_mutex);
+		} else {
+			break;
+		}
 	}
-	ret = btrfs_commit_transaction(trans, root);
-	WARN_ON(ret);
 
-	mutex_lock(&uuid_mutex);
-	/* keep away write_all_supers() during the finishing procedure */
-	mutex_lock(&root->fs_info->fs_devices->device_list_mutex);
-	mutex_lock(&root->fs_info->chunk_mutex);
 	btrfs_dev_replace_lock(dev_replace, 1);
 	dev_replace->replace_state =
 		scrub_ret ? BTRFS_IOCTL_DEV_REPLACE_STATE_CANCELED
