@@ -1546,6 +1546,7 @@
 
 		cmdq-ext@10228000 {
 			compatible = "mediatek,cmdq-ext";
+			power-domains = <&scpsys MT6779_POWER_DOMAIN_MM>;
 			reg = <0 0x10228000 0 0x4000>;
 			interrupts = <GIC_SPI 185 IRQ_TYPE_LEVEL_LOW>,
 				<GIC_SPI 186 IRQ_TYPE_LEVEL_LOW>;
