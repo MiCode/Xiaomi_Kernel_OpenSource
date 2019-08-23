@@ -1048,7 +1048,7 @@ int ipa3_qmi_rmv_offload_request_send(
 	ipa3_qmi_ctx->num_ipa_offload_connection);
 
 	/*  max as num_ipa_offload_connection */
-	if (req->filter_handle_list_len >=
+	if (req->filter_handle_list_len >
 		ipa3_qmi_ctx->num_ipa_offload_connection) {
 		IPAWANDBG(
 		"cur(%d), req_rmv(%d)\n",

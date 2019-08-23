@@ -243,7 +243,8 @@ static void _setup_vbif_ops(const struct sde_mdss_cfg *m,
 		ops->set_qos_remap = sde_hw_set_qos_remap;
 	if (IS_SM8150_TARGET(m->hwversion) || IS_SM6150_TARGET(m->hwversion) ||
 			IS_SDMMAGPIE_TARGET(m->hwversion) ||
-			IS_SDMTRINKET_TARGET(m->hwversion))
+			IS_SDMTRINKET_TARGET(m->hwversion) ||
+			IS_ATOLL_TARGET(m->hwversion))
 		ops->set_mem_type = sde_hw_set_mem_type_v1;
 	else
 		ops->set_mem_type = sde_hw_set_mem_type;

@@ -103,7 +103,6 @@ static int qcom_mhi_qrtr_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 {
 	struct qrtr_mhi_dev *qdev = container_of(ep, struct qrtr_mhi_dev, ep);
 	struct qrtr_mhi_pkt *pkt;
-	unsigned long flags;
 	int rc;
 
 	rc = skb_linearize(skb);
@@ -123,7 +122,7 @@ static int qcom_mhi_qrtr_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 	kref_get(&pkt->refcount);
 	pkt->skb = skb;
 
-	spin_lock_irqsave(&qdev->ul_lock, flags);
+	spin_lock_bh(&qdev->ul_lock);
 	list_add_tail(&pkt->node, &qdev->ul_pkts);
 	rc = mhi_queue_transfer(qdev->mhi_dev, DMA_TO_DEVICE, skb, skb->len,
 				MHI_EOT);
@@ -131,10 +130,10 @@ static int qcom_mhi_qrtr_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 		list_del(&pkt->node);
 		kfree_skb(skb);
 		kfree(pkt);
-		spin_unlock_irqrestore(&qdev->ul_lock, flags);
+		spin_unlock_bh(&qdev->ul_lock);
 		return rc;
 	}
-	spin_unlock_irqrestore(&qdev->ul_lock, flags);
+	spin_unlock_bh(&qdev->ul_lock);
 	if (skb->sk)
 		sock_hold(skb->sk);
 

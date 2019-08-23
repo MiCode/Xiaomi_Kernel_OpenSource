@@ -15,16 +15,13 @@
 #define _DT_BINDINGS_CLK_QCOM_VIDEO_CC_ATOLL_H
 
 /* VIDEO_CC clocks */
-#define VIDEO_PLL0_OUT_MAIN					0
-#define VIDEO_CC_APB_CLK					1
-#define VIDEO_CC_SLEEP_CLK					2
-#define VIDEO_CC_SLEEP_CLK_SRC					3
-#define VIDEO_CC_VCODEC0_AXI_CLK				4
-#define VIDEO_CC_VCODEC0_CORE_CLK				5
-#define VIDEO_CC_VENUS_AHB_CLK					6
-#define VIDEO_CC_VENUS_CLK_SRC					7
-#define VIDEO_CC_VENUS_CTL_AXI_CLK				8
-#define VIDEO_CC_VENUS_CTL_CORE_CLK				9
-#define VIDEO_CC_XO_CLK						10
+#define VIDEO_PLL0						0
+#define VIDEO_CC_VCODEC0_AXI_CLK				1
+#define VIDEO_CC_VCODEC0_CORE_CLK				2
+#define VIDEO_CC_VENUS_AHB_CLK					3
+#define VIDEO_CC_VENUS_CLK_SRC					4
+#define VIDEO_CC_VENUS_CTL_AXI_CLK				5
+#define VIDEO_CC_VENUS_CTL_CORE_CLK				6
+#define VIDEO_CC_XO_CLK						7
 
 #endif

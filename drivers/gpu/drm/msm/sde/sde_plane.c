@@ -68,8 +68,7 @@ enum {
 	R_MAX
 };
 
-#define SDE_QSEED3_DEFAULT_PRELOAD_H 0x4
-#define SDE_QSEED3_DEFAULT_PRELOAD_V 0x3
+#define SDE_QSEED_DEFAULT_DYN_EXP 0x0
 
 #define DEFAULT_REFRESH_RATE	60
 
@@ -713,12 +712,13 @@ static void _sde_plane_set_qos_remap(struct drm_plane *plane)
 	qos_params.clk_ctrl = psde->pipe_hw->cap->clk_ctrl;
 	qos_params.xin_id = psde->pipe_hw->cap->xin_id;
 	qos_params.num = psde->pipe_hw->idx - SSPP_VIG0;
-	qos_params.is_rt = psde->is_rt_pipe;
+	qos_params.client_type = psde->is_rt_pipe ?
+					VBIF_RT_CLIENT : VBIF_NRT_CLIENT;
 
 	SDE_DEBUG("plane%d pipe:%d vbif:%d xin:%d rt:%d, clk_ctrl:%d\n",
 			plane->base.id, qos_params.num,
 			qos_params.vbif_idx,
-			qos_params.xin_id, qos_params.is_rt,
+			qos_params.xin_id, qos_params.client_type,
 			qos_params.clk_ctrl);
 
 	sde_vbif_set_qos_remap(sde_kms, &qos_params);
@@ -871,11 +871,11 @@ static void _sde_plane_inline_rot_set_qos_remap(struct drm_plane *plane,
 	qos_params.xin_id = cfg->xin_id;
 	qos_params.clk_ctrl = cfg->clk_ctrl;
 	qos_params.num = cfg->num;
-	qos_params.is_rt = true;
+	qos_params.client_type = VBIF_RT_CLIENT;
 
 	SDE_DEBUG("vbif:%d xin:%d num:%d rt:%d clk_ctrl:%d\n",
-			qos_params.vbif_idx, qos_params.xin_id,
-			qos_params.num, qos_params.is_rt, qos_params.clk_ctrl);
+		qos_params.vbif_idx, qos_params.xin_id,
+		qos_params.num, qos_params.client_type, qos_params.clk_ctrl);
 
 	sde_vbif_set_qos_remap(sde_kms, &qos_params);
 }
@@ -1169,12 +1169,15 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 			scale_cfg->src_width[i] /= chroma_subsmpl_h;
 			scale_cfg->src_height[i] /= chroma_subsmpl_v;
 		}
-		scale_cfg->preload_x[i] = SDE_QSEED3_DEFAULT_PRELOAD_H;
-		scale_cfg->preload_y[i] = SDE_QSEED3_DEFAULT_PRELOAD_V;
+
+		scale_cfg->preload_x[i] = psde->pipe_sblk->scaler_blk.h_preload;
+		scale_cfg->preload_y[i] = psde->pipe_sblk->scaler_blk.v_preload;
+
 		pstate->pixel_ext.num_ext_pxls_top[i] =
 			scale_cfg->src_height[i];
 		pstate->pixel_ext.num_ext_pxls_left[i] =
 			scale_cfg->src_width[i];
+
 	}
 
 	if ((!(SDE_FORMAT_IS_YUV(fmt)) && (src_h == dst_h)
@@ -1195,6 +1198,7 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 	scale_cfg->lut_flag = 0;
 	scale_cfg->blend_cfg = 1;
 	scale_cfg->enable = 1;
+	scale_cfg->dyn_exp_disabled = SDE_QSEED_DEFAULT_DYN_EXP;
 }
 
 /**
@@ -3899,7 +3903,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	if (psde->revalidate) {
 		SDE_DEBUG("plane:%d - reconfigure all the parameters\n",
 				plane->base.id);
-		pstate->dirty = SDE_PLANE_DIRTY_ALL | SDE_PLANE_DIRTY_CP;
+		pstate->dirty = SDE_PLANE_DIRTY_ALL;
 		psde->revalidate = false;
 	}
 
@@ -4524,6 +4528,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			psde->pipe_sblk->maxvdeciexp);
 	sde_kms_info_add_keyint(info, "max_per_pipe_bw",
 			psde->pipe_sblk->max_per_pipe_bw * 1000LL);
+	sde_kms_info_add_keyint(info, "max_per_pipe_bw_high",
+			psde->pipe_sblk->max_per_pipe_bw_high * 1000LL);
 
 	if ((!master_plane_id &&
 		(psde->features & BIT(SDE_SSPP_INVERSE_PMA))) ||

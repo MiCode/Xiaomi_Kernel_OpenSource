@@ -1871,6 +1871,14 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 		sde_power_client_destroy(&priv->phandle, sde_kms->core_client);
 	sde_kms->core_client = NULL;
 
+	if (sde_kms->sid)
+		msm_iounmap(pdev, sde_kms->sid);
+	sde_kms->sid = NULL;
+
+	if (sde_kms->reg_dma)
+		msm_iounmap(pdev, sde_kms->reg_dma);
+	sde_kms->reg_dma = NULL;
+
 	if (sde_kms->vbif[VBIF_NRT])
 		msm_iounmap(pdev, sde_kms->vbif[VBIF_NRT]);
 	sde_kms->vbif[VBIF_NRT] = NULL;
@@ -2754,7 +2762,8 @@ retry:
 		uint64_t lp;
 
 		if (!conn->state || !conn->state->crtc ||
-				conn->dpms != DRM_MODE_DPMS_ON)
+				conn->dpms != DRM_MODE_DPMS_ON ||
+				sde_encoder_in_clone_mode(conn->encoder))
 			continue;
 
 		lp = sde_connector_get_lp(conn);
@@ -2810,6 +2819,9 @@ retry:
 
 		lp = sde_connector_get_lp(conn);
 		if (lp != SDE_MODE_DPMS_LP2)
+			continue;
+
+		if (sde_encoder_in_clone_mode(conn->encoder))
 			continue;
 
 		ret = sde_encoder_wait_for_event(conn->encoder,
@@ -3046,9 +3058,35 @@ static void sde_kms_init_shared_hw(struct sde_kms *sde_kms)
 	if (!sde_kms || !sde_kms->hw_mdp || !sde_kms->catalog)
 		return;
 
+	if (sde_kms->hw_mdp->ops.intf_dp_select)
+		sde_kms->hw_mdp->ops.intf_dp_select(sde_kms->hw_mdp,
+						sde_kms->catalog);
+
 	if (sde_kms->hw_mdp->ops.reset_ubwc)
 		sde_kms->hw_mdp->ops.reset_ubwc(sde_kms->hw_mdp,
 						sde_kms->catalog);
+
+	if (sde_kms->hw_sid)
+		sde_hw_sid_rotator_set(sde_kms->hw_sid);
+}
+
+static void _sde_kms_set_lutdma_vbif_remap(struct sde_kms *sde_kms)
+{
+	struct sde_vbif_set_qos_params qos_params;
+	struct sde_mdss_cfg *catalog;
+
+	if (!sde_kms->catalog)
+		return;
+
+	catalog = sde_kms->catalog;
+
+	memset(&qos_params, 0, sizeof(qos_params));
+	qos_params.vbif_idx = catalog->dma_cfg.vbif_idx;
+	qos_params.xin_id = catalog->dma_cfg.xin_id;
+	qos_params.clk_ctrl = catalog->dma_cfg.clk_ctrl;
+	qos_params.client_type = VBIF_LUTDMA_CLIENT;
+
+	sde_vbif_set_qos_remap(sde_kms, &qos_params);
 }
 
 static void sde_kms_handle_power_event(u32 event_type, void *usr)
@@ -3067,6 +3105,7 @@ static void sde_kms_handle_power_event(u32 event_type, void *usr)
 		sde_irq_update(msm_kms, true);
 		sde_vbif_init_memtypes(sde_kms);
 		sde_kms_init_shared_hw(sde_kms);
+		_sde_kms_set_lutdma_vbif_remap(sde_kms);
 		sde_kms->first_kickoff = true;
 	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
 		sde_irq_update(msm_kms, false);
@@ -3300,6 +3339,19 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 					rc);
 	}
 
+	sde_kms->sid = msm_ioremap(platformdev, "sid_phys",
+							"sid_phys");
+	if (IS_ERR(sde_kms->sid)) {
+		sde_kms->sid = NULL;
+		SDE_DEBUG("SID_PHYS is not defined\n");
+	} else {
+		sde_kms->sid_len = msm_iomap_size(platformdev, "sid_phys");
+		rc =  sde_dbg_reg_register_base("sid", sde_kms->sid,
+				sde_kms->sid_len);
+		if (rc)
+			SDE_ERROR("dbg base register sid failed: %d\n", rc);
+	}
+
 	sde_kms->core_client = sde_power_client_create(&priv->phandle, "core");
 	if (IS_ERR_OR_NULL(sde_kms->core_client)) {
 		rc = PTR_ERR(sde_kms->core_client);
@@ -3447,6 +3499,14 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 			sde_kms->hw_vbif[vbif_idx] = NULL;
 			goto power_error;
 		}
+	}
+
+	sde_kms->hw_sid = sde_hw_sid_init(sde_kms->sid,
+				sde_kms->sid_len, sde_kms->catalog);
+	if (IS_ERR(sde_kms->hw_sid)) {
+		SDE_ERROR("failed to init sid %d\n", PTR_ERR(sde_kms->hw_sid));
+		sde_kms->hw_sid = NULL;
+		goto power_error;
 	}
 
 	rc = sde_core_perf_init(&sde_kms->perf, dev, sde_kms->catalog,

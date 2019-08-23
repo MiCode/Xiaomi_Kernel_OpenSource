@@ -248,4 +248,26 @@
 		compatible = "qcom,vm-restart";
 		status = "ok";
 	};
+
+	spmi_bus: qcom,spmi {
+		compatible = "qcom,viospmi-pmic-arb";
+		interrupt-names = "periph_irq";
+		interrupts = <GIC_SPI 481 IRQ_TYPE_NONE>;
+		qcom,ee = <0>;
+		qcom,channel = <0>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <4>;
+		cell-index = <0>;
+	};
+
+	viospmi: virtio-spmi@1c800000 {
+		compatible = "virtio,mmio";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x1c800000 0x1100>;
+		interrupts = <GIC_SPI 43 IRQ_TYPE_NONE>;
+		status = "okay";
+	};
 };

@@ -118,6 +118,62 @@
 			};
 		};
 	};
+
+	cpuss-0-step {
+		trips {
+			cpu45-config {
+				temperature = <115000>;
+			};
+		};
+	};
+
+	cpuss-1-step {
+		trips {
+			cpu23-config {
+				temperature = <115000>;
+			};
+		};
+	};
+
+	cpuss-2-step {
+		trips {
+			cpu01-config {
+				temperature = <115000>;
+			};
+		};
+	};
+
+	cpu-1-0-step {
+		trips {
+			cpu6-0-config {
+				temperature = <115000>;
+			};
+		};
+	};
+
+	cpu-1-1-step {
+		trips {
+			cpu6-1-config {
+				temperature = <115000>;
+			};
+		};
+	};
+
+	cpu-1-2-step {
+		trips {
+			cpu7-0-config {
+				temperature = <115000>;
+			};
+		};
+	};
+
+	cpu-1-3-step {
+		trips {
+			cpu7-1-config {
+				temperature = <115000>;
+			};
+		};
+	};
 };
 
 /* GPU power level overrides */

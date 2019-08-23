@@ -2543,7 +2543,8 @@ static int reg_dmav1_setup_scaler3_de(struct sde_reg_dma_setup_ops_cfg *buf,
 
 	de_config[1] = ((de_cfg->limit & 0xF) << 9) |
 		((de_cfg->prec_shift & 0x7) << 13) |
-		((de_cfg->clip & 0x7) << 16);
+		((de_cfg->clip & 0x7) << 16) |
+		((de_cfg->blend & 0xF) << 20);
 
 	de_config[2] = (de_cfg->thr_quiet & 0xFF) |
 		((de_cfg->thr_dieout & 0x3FF) << 16);
@@ -2631,6 +2632,7 @@ void reg_dmav1_setup_vig_qseed3(struct sde_hw_pipe *ctx,
 
 	op_mode |= (scaler3_cfg->blend_cfg & 1) << 31;
 	op_mode |= (scaler3_cfg->dir_en) ? BIT(4) : 0;
+	op_mode |= (scaler3_cfg->dyn_exp_disabled) ? BIT(13) : 0;
 
 	preload =
 		((scaler3_cfg->preload_x[0] & 0x7F) << 0) |

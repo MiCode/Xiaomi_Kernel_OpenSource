@@ -446,6 +446,7 @@ struct msm_display_topology {
  * @mdp_transfer_time_us   Specifies the mdp transfer time for command mode
  *                         panels in microseconds.
  * @vpadding:        panel stacking height
+ * @overlap_pixels:	overlap pixels for certain panels
  */
 struct msm_mode_info {
 	uint32_t frame_rate;
@@ -460,6 +461,7 @@ struct msm_mode_info {
 	bool wide_bus_en;
 	u32 mdp_transfer_time_us;
 	u32 vpadding;
+	u32 overlap_pixels;
 };
 
 /**
@@ -601,6 +603,7 @@ struct msm_drm_private {
 
 	/* crtcs pending async atomic updates: */
 	uint32_t pending_crtcs;
+	uint32_t pending_planes;
 	wait_queue_head_t pending_crtcs_event;
 
 	unsigned int num_planes;

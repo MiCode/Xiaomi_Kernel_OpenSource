@@ -175,7 +175,8 @@ static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 		}
 
 		if (op == GSI_CH_START) {
-			if (curr_state == GSI_CHAN_STATE_STARTED) {
+			if (curr_state == GSI_CHAN_STATE_STARTED ||
+				curr_state == GSI_CHAN_STATE_FLOW_CONTROL) {
 				ctx->state = curr_state;
 				return;
 			}
@@ -2780,7 +2781,8 @@ int gsi_start_channel(unsigned long chan_hdl)
 		ctx,
 		GSI_START_CMD_TIMEOUT_MS, op);
 
-	if (ctx->state != GSI_CHAN_STATE_STARTED) {
+	if (ctx->state != GSI_CHAN_STATE_STARTED &&
+		ctx->state != GSI_CHAN_STATE_FLOW_CONTROL) {
 		/*
 		* Hardware returned unexpected status, unexpected
 		* hardware state.

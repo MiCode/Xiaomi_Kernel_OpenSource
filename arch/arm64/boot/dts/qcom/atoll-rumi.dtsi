@@ -53,8 +53,6 @@
 	};
 };
 
-#include "atoll-stub-regulator.dtsi"
-
 &sdhc_1 {
 	vdd-supply = <&pm6150_l19>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
@@ -136,9 +134,32 @@
 	status = "ok";
 };
 
+&thermal_zones {
+	/delete-node/ aoss-0-lowf;
+};
+
 &usb0 {
 	dwc3@a600000 {
 		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
 	};
+	qcom,usbbam@a704000 {
+		status = "disabled";
+	};
+};
+
+&qusb_phy0 {
+	status = "disabled";
+};
+
+&usb_qmp_dp_phy {
+	status = "disabled";
+};
+
+&pm6150_pdphy {
+	status = "disabled";
+};
+
+&qupv3_se9_i2c {
+	status = "disabled";
 };

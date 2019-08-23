@@ -55,6 +55,7 @@ static const enum dsi_ctrl_version dsi_ctrl_v1_4 = DSI_CTRL_VERSION_1_4;
 static const enum dsi_ctrl_version dsi_ctrl_v2_0 = DSI_CTRL_VERSION_2_0;
 static const enum dsi_ctrl_version dsi_ctrl_v2_2 = DSI_CTRL_VERSION_2_2;
 static const enum dsi_ctrl_version dsi_ctrl_v2_3 = DSI_CTRL_VERSION_2_3;
+static const enum dsi_ctrl_version dsi_ctrl_v2_4 = DSI_CTRL_VERSION_2_4;
 
 static const struct of_device_id msm_dsi_of_match[] = {
 	{
@@ -72,6 +73,10 @@ static const struct of_device_id msm_dsi_of_match[] = {
 	{
 		.compatible = "qcom,dsi-ctrl-hw-v2.3",
 		.data = &dsi_ctrl_v2_3,
+	},
+	{
+		.compatible = "qcom,dsi-ctrl-hw-v2.4",
+		.data = &dsi_ctrl_v2_4,
 	},
 	{}
 };
@@ -475,6 +480,7 @@ static int dsi_ctrl_init_regmap(struct platform_device *pdev,
 		break;
 	case DSI_CTRL_VERSION_2_2:
 	case DSI_CTRL_VERSION_2_3:
+	case DSI_CTRL_VERSION_2_4:
 		ptr = msm_ioremap(pdev, "disp_cc_base", ctrl->name);
 		if (IS_ERR(ptr)) {
 			pr_err("disp_cc base address not found for [%s]\n",
@@ -577,6 +583,7 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 	if (IS_ERR(hs_link->byte_clk)) {
 		rc = PTR_ERR(hs_link->byte_clk);
 		pr_err("failed to get byte_clk, rc=%d\n", rc);
+		hs_link->byte_clk = NULL;
 		goto fail;
 	}
 
@@ -584,6 +591,7 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 	if (IS_ERR(hs_link->pixel_clk)) {
 		rc = PTR_ERR(hs_link->pixel_clk);
 		pr_err("failed to get pixel_clk, rc=%d\n", rc);
+		hs_link->pixel_clk = NULL;
 		goto fail;
 	}
 
@@ -591,6 +599,7 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 	if (IS_ERR(lp_link->esc_clk)) {
 		rc = PTR_ERR(lp_link->esc_clk);
 		pr_err("failed to get esc_clk, rc=%d\n", rc);
+		lp_link->esc_clk = NULL;
 		goto fail;
 	}
 
@@ -604,6 +613,7 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 	if (IS_ERR(rcg->byte_clk)) {
 		rc = PTR_ERR(rcg->byte_clk);
 		pr_err("failed to get byte_clk_rcg, rc=%d\n", rc);
+		rcg->byte_clk = NULL;
 		goto fail;
 	}
 
@@ -611,6 +621,7 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 	if (IS_ERR(rcg->pixel_clk)) {
 		rc = PTR_ERR(rcg->pixel_clk);
 		pr_err("failed to get pixel_clk_rcg, rc=%d\n", rc);
+		rcg->pixel_clk = NULL;
 		goto fail;
 	}
 
@@ -843,6 +854,7 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	if (config->bit_clk_rate_hz_override == 0) {
 		if (config->panel_mode == DSI_OP_CMD_MODE) {
 			h_period = DSI_H_ACTIVE_DSC(timing);
+			h_period += timing->overlap_pixels;
 			v_period = timing->v_active;
 
 			do_div(refresh_rate, timing->mdp_transfer_time_us);
@@ -2929,10 +2941,12 @@ int dsi_ctrl_update_host_config(struct dsi_ctrl *ctrl,
 
 	pr_debug("[DSI_%d]Host config updated\n", ctrl->cell_index);
 	memcpy(&ctrl->host_config, config, sizeof(ctrl->host_config));
-	ctrl->mode_bounds.x = ctrl->host_config.video_timing.h_active *
-			ctrl->horiz_index;
+	ctrl->mode_bounds.x = (ctrl->host_config.video_timing.h_active +
+			ctrl->host_config.video_timing.overlap_pixels) *
+						 ctrl->horiz_index;
 	ctrl->mode_bounds.y = 0;
-	ctrl->mode_bounds.w = ctrl->host_config.video_timing.h_active;
+	ctrl->mode_bounds.w = ctrl->host_config.video_timing.h_active +
+				ctrl->host_config.video_timing.overlap_pixels;
 	ctrl->mode_bounds.h = ctrl->host_config.video_timing.v_active;
 	memcpy(&ctrl->roi, &ctrl->mode_bounds, sizeof(ctrl->mode_bounds));
 	ctrl->modeupdated = true;

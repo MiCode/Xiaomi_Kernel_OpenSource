@@ -239,6 +239,18 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc, bool atomic)
 			fn_id, desc->arginfo, desc->args[0], desc->args[1],
 			desc->args[2], desc->args[3], desc->x5);
 
+	if (!opened) {
+		if (!atomic) {
+			if (scm_qcpe_hab_open()) {
+				pr_err("HAB channel re-open failed\n");
+				return -ENODEV;
+			}
+		} else {
+			pr_err("HAB channel is not opened\n");
+			return -ENODEV;
+		}
+	}
+
 	smc_params.fn_id   = fn_id | scm_version_mask;
 	smc_params.arginfo = desc->arginfo;
 	smc_params.args[0] = desc->args[0];
@@ -324,6 +336,8 @@ bool is_scm_armv8(void)
 {
 	int ret;
 	u64 ret1, x0;
+	bool ret_scm_version;
+	bool save_scm_version;
 
 	struct scm_desc desc = {0};
 
@@ -346,6 +360,7 @@ bool is_scm_armv8(void)
 	desc.args[0] = x0;
 
 	ret = scm_call_qcpe(x0 | SMC64_MASK, &desc, true);
+	save_scm_version = (ret == -ENODEV) ? false : true;
 
 	ret1 = desc.ret[0];
 
@@ -357,6 +372,7 @@ bool is_scm_armv8(void)
 		desc.args[0] = x0;
 
 		ret = scm_call_qcpe(x0, &desc, true);
+		save_scm_version = (ret == -ENODEV) ? false : true;
 
 		if (ret || !ret1)
 			scm_version = SCM_LEGACY;
@@ -368,8 +384,15 @@ bool is_scm_armv8(void)
 	pr_debug("scm_call: scm version is %x, mask is %x\n", scm_version,
 			scm_version_mask);
 
-	return (scm_version == SCM_ARMV8_32) ||
+	ret_scm_version = (scm_version == SCM_ARMV8_32) ||
 			(scm_version == SCM_ARMV8_64);
+
+	/* Don't cache the scm_version in case error is due to hab issues. */
+	/* In this case, allow a later retry. */
+	if (!save_scm_version)
+		scm_version = SCM_UNKNOWN;
+
+	return ret_scm_version;
 }
 
 /*

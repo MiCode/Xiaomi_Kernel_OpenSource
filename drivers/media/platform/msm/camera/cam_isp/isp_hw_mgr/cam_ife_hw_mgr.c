@@ -4097,8 +4097,12 @@ static void cam_ife_mgr_print_io_bufs(struct cam_packet *packet,
 
 	for (i = 0; i < packet->num_io_configs; i++) {
 		for (j = 0; j < CAM_PACKET_MAX_PLANES; j++) {
-			if (!io_cfg[i].mem_handle[j])
+			if (!io_cfg[i].mem_handle[j]) {
+				CAM_ERR(CAM_ISP,
+					"Mem Handle %d is NULL for %d io config",
+					j, i);
 				break;
+			}
 
 			if (pf_buf_info &&
 				GET_FD_FROM_HANDLE(io_cfg[i].mem_handle[j]) ==

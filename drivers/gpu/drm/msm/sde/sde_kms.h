@@ -232,8 +232,8 @@ struct sde_kms {
 	struct dentry *debugfs_vbif;
 
 	/* io/register spaces: */
-	void __iomem *mmio, *vbif[VBIF_MAX], *reg_dma;
-	unsigned long mmio_len, vbif_len[VBIF_MAX], reg_dma_len;
+	void __iomem *mmio, *vbif[VBIF_MAX], *reg_dma, *sid;
+	unsigned long mmio_len, vbif_len[VBIF_MAX], reg_dma_len, sid_len;
 
 	struct regulator *vdd;
 	struct regulator *mmagic;
@@ -257,6 +257,7 @@ struct sde_kms {
 	struct sde_splash_data splash_data;
 	struct sde_hw_vbif *hw_vbif[VBIF_MAX];
 	struct sde_hw_mdp *hw_mdp;
+	struct sde_hw_sid *hw_sid;
 	int dsi_display_count;
 	void **dsi_displays;
 	int wb_display_count;

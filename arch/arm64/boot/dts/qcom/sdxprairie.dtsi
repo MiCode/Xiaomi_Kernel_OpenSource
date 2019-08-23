@@ -691,6 +691,11 @@
 		};
 	};
 
+	qcom,mhi_dev_qrtr {
+		compatible = "qcom,qrtr-mhi-dev";
+		qcom,net-id = <3>;
+	};
+
 	qcom,glinkpkt {
 		compatible = "qcom,glinkpkt";
 
@@ -1353,6 +1358,12 @@
 			interrupt-names = "mhi-device-inta";
 			qcom,mhi-ifc-id = <0x030617cb>;
 			qcom,mhi-interrupt;
+		status = "disabled";
+	};
+
+	mhi_net_device: qcom,mhi_net_dev {
+		compatible = "qcom,msm-mhi-dev-net";
+		qcom,mhi-ethernet-interface;
 		status = "disabled";
 	};
 

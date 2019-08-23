@@ -29,6 +29,53 @@
 };
 
 &soc {
+	hsi2s: qcom,hsi2s {
+		compatible = "qcom,sa8155-hsi2s", "qcom,hsi2s";
+		number-of-interfaces = <3>;
+		reg = <0x172C0000 0x28000>,
+		      <0x17080000 0xE000>;
+		reg-names = "lpa_if", "lpass_tcsr";
+		interrupts = <GIC_SPI 267 0>;
+		bit-clock-hz = <20000000>;
+		interrupt-interval-ms = <10>;
+
+		sdr0: qcom,hs0_i2s {
+			compatible = "qcom,hsi2s-interface";
+			minor-number = <0>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&hs1_i2s_mclk_active &hs1_i2s_sck_active
+				     &hs1_i2s_ws_active &hs1_i2s_data0_active
+				     &hs1_i2s_data1_active>;
+			pinctrl-1 = <&hs1_i2s_mclk_sleep &hs1_i2s_sck_sleep
+				     &hs1_i2s_ws_sleep &hs1_i2s_data0_sleep
+				     &hs1_i2s_data1_sleep>;
+		};
+
+		sdr1: qcom,hs1_i2s {
+			compatible = "qcom,hsi2s-interface";
+			minor-number = <1>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&hs2_i2s_mclk_active &hs2_i2s_sck_active
+				     &hs2_i2s_ws_active &hs2_i2s_data0_active
+				     &hs2_i2s_data1_active>;
+			pinctrl-1 = <&hs2_i2s_mclk_sleep &hs2_i2s_sck_sleep
+				     &hs2_i2s_ws_sleep &hs2_i2s_data0_sleep
+				     &hs2_i2s_data1_sleep>;
+		};
+
+		sdr2: qcom,hs2_i2s {
+			compatible = "qcom,hsi2s-interface";
+			minor-number = <2>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&hs3_i2s_mclk_active &hs3_i2s_sck_active
+				     &hs3_i2s_ws_active &hs3_i2s_data0_active
+				     &hs3_i2s_data1_active>;
+			pinctrl-1 = <&hs3_i2s_mclk_sleep &hs3_i2s_sck_sleep
+				     &hs3_i2s_ws_sleep &hs3_i2s_data0_sleep
+				     &hs3_i2s_data1_sleep>;
+		};
+	};
+
 	clock_virt: qcom,virtio-gcc {
 		compatible = "virtio,mmio";
 		reg = <0x1c200000 0x1000>;
@@ -43,6 +90,96 @@
 		interrupts = <0 49 0>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	regulator_virt: virtio_regulator@1c700000 {
+		compatible = "virtio,mmio";
+		reg = <0x1c700000 0x1000>;
+		interrupts = <0 42 0>;
+
+		usb30_prim_gdsc: usb30_prim_gdsc {
+			regulator-name = "usb30_prim_gdsc";
+		};
+
+		usb30_sec_gdsc: usb30_sec_gdsc {
+			regulator-name = "usb30_sec_gdsc";
+		};
+
+		pcie_0_gdsc: pcie_0_gdsc {
+			regulator-name = "pcie_0_gdsc";
+		};
+
+		pcie_1_gdsc: pcie_1_gdsc {
+			regulator-name = "pcie_1_gdsc";
+		};
+
+		L2A: pm8150_1_l2: regulator-pm8150-1-l2 {
+			regulator-name = "ldoa2";
+			regulator-min-microvolt = <3072000>;
+			regulator-max-microvolt = <3072000>;
+		};
+
+		L5A: pm8150_1_l5: regulator-pm8150-1-l5 {
+			regulator-name = "ldoa5";
+			regulator-min-microvolt = <880000>;
+			regulator-max-microvolt = <880000>;
+		};
+
+		L12A: pm8150_1_l12: regulator-pm8150-1-l12 {
+			regulator-name = "ldoa12";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
+
+		L17A: pm8150_1_l17: regulator-pm8150-1-l17 {
+			regulator-name = "ldoa17";
+			regulator-min-microvolt = <2704000>;
+			regulator-max-microvolt = <2960000>;
+		};
+
+		L8C: pm8150_2_l8: regulator-pm8150-2-l8 {
+			regulator-name = "ldoc8";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			regulator-allow-set-load;
+		};
+
+		L13C: pm8150_2_l13: regulator-pm8150-2-l13 {
+			regulator-name = "ldoc13";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2960000>;
+		};
+
+		L15C: pm8150_2_l15: regulator-pm8150-2-l15 {
+			regulator-name = "ldoc15";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1904000>;
+		};
+
+		L18C: pm8150_2_l18: regulator-pm8150-2-l18 {
+			regulator-name = "ldoc18";
+			regulator-min-microvolt = <880000>;
+			regulator-max-microvolt = <880000>;
+			regulator-allow-set-load;
+		};
+
+		S6A: pm8150_1_s6: regulator-pm8150-1-s6 {
+			regulator-name = "smpa6";
+			regulator-min-microvolt = <600000>;
+			regulator-max-microvolt = <1352000>;
+		};
+
+		S4C: pm8150_2_s4: regulator-pm8150-2-s4 {
+			regulator-name = "smpc4";
+			regulator-min-microvolt = <800000>;
+			regulator-max-microvolt = <1400000>;
+		};
+
+		S5C: pm8150_2_s5: regulator-pm8150-2-s5 {
+			regulator-name = "smpc5";
+			regulator-min-microvolt = <1824000>;
+			regulator-max-microvolt = <2040000>;
+		};
 	};
 
 	apps_smmu: apps-smmu@0x15000000 {
@@ -149,38 +286,6 @@
 		status = "disabled";
 	};
 
-	S6A: pm8150_1_s6: regulator-pm8150-1-s6 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_1_s6";
-		regulator-min-microvolt = <600000>;
-		regulator-max-microvolt = <1352000>;
-		qcom,init-voltage = <600000>;
-	};
-
-	S4C: pm8150_2_s4: regulator-pm8150-2-s4 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_2_s4";
-		regulator-min-microvolt = <800000>;
-		regulator-max-microvolt = <1400000>;
-		qcom,init-voltage = <800000>;
-	};
-
-	S5C: pm8150_2_s5: regulator-pm8150-2-s5 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_2_s5";
-		regulator-min-microvolt = <1824000>;
-		regulator-max-microvolt = <2040000>;
-		qcom,init-voltage = <1824000>;
-	};
-
-	L15C: pm8150_2_l15: regulator-pm8150-2-l15 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_2_l15";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1904000>;
-		qcom,init-voltage = <1800000>;
-	};
-
 	vreg_wlan: vreg_wlan {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "vreg_wlan";
@@ -208,62 +313,6 @@
 		gpio = <&tlmm 174 0>;
 	};
 
-	pm8150_l2: regulator-pm8150-l2 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_l2";
-		regulator-min-microvolt = <3072000>;
-		regulator-max-microvolt = <3072000>;
-		qcom,init-voltage = <3072000>;
-		status = "okay";
-	};
-
-	pm8150_l5: regulator-pm8150-l5 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_l5";
-		regulator-min-microvolt = <880000>;
-		regulator-max-microvolt = <880000>;
-		qcom,proxy-consumer-enable;
-		qcom,proxy-consumer-current = <23800>;
-		qcom,init-voltage = <880000>;
-		status = "okay";
-	};
-
-	pm8150_l12: regulator-pm8150-l12 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_l12";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-		qcom,init-voltage = <1800000>;
-		status = "okay";
-	};
-
-	pm8150l_l3: regulator-pm8150l-l3 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150l_l3";
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
-		qcom,proxy-consumer-enable;
-		qcom,proxy-consumer-current = <51800>;
-		qcom,init-voltage = <1200000>;
-		status = "okay";
-	};
-
-	pm8150_2_l8: regulator-pm8150-2-l8 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_2_l8";
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
-		status = "okay";
-	};
-
-	pm8150_2_l18: regulator-pm8150-2-l18 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8150_2_l18";
-		regulator-min-microvolt = <880000>;
-		regulator-max-microvolt = <880000>;
-		status = "okay";
-	};
-
 	VDD_CX_LEVEL: VDD_MMCX_LEVEL:
 	S9C_LEVEL: pm8150_2_s9_level: regulator-pm8150-2-s9-level {
 		compatible = "qcom,stub-regulator";
@@ -272,24 +321,6 @@
 			= <RPMH_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt
 			= <RPMH_REGULATOR_LEVEL_MAX>;
-	};
-
-	pcie_0_gdsc: pcie_0_gdsc {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pcie_0_gdsc";
-		status = "okay";
-	};
-
-	usb30_prim_gdsc: usb30_prim_gdsc {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "usb30_prim_gdsc";
-		status = "okay";
-	};
-
-	usb30_sec_gdsc: usb30_sec_gdsc {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "usb30_sec_gdsc";
-		status = "okay";
 	};
 
 	qcom_seecom: qseecom@87900000 {
@@ -490,6 +521,7 @@
 #include "sa8155-vm-audio.dtsi"
 #include "sa8155-vm-pcie.dtsi"
 #include "sa8155-vm-mhi.dtsi"
+#include "pm8150-vm.dtsi"
 
 &tlmm {
 	dirconn-list = <37 216 1>;
