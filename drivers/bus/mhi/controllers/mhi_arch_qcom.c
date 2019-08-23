@@ -344,7 +344,7 @@ static  int mhi_arch_pcie_scale_bw(struct mhi_controller *mhi_cntrl,
 				   struct pci_dev *pci_dev,
 				   struct mhi_link_info *link_info)
 {
-	int ret, scale;
+	int ret;
 
 	mhi_cntrl->lpm_disable(mhi_cntrl, mhi_cntrl->priv_data);
 	ret = msm_pcie_set_link_bandwidth(pci_dev, link_info->target_link_speed,
@@ -354,13 +354,11 @@ static  int mhi_arch_pcie_scale_bw(struct mhi_controller *mhi_cntrl,
 	if (ret)
 		return ret;
 
-	/* if we switch to low bw release bus scale voting */
-	scale = !(link_info->target_link_speed == PCI_EXP_LNKSTA_CLS_2_5GB);
-	mhi_arch_set_bus_request(mhi_cntrl, scale);
+	/* do a bus scale vote based on gen speeds */
+	mhi_arch_set_bus_request(mhi_cntrl, link_info->target_link_speed);
 
-	MHI_VERB("bw changed to speed:0x%x width:0x%x bus_scale:%d\n",
-		 link_info->target_link_speed, link_info->target_link_width,
-		 scale);
+	MHI_VERB("bw changed to speed:0x%x width:0x%x\n",
+		 link_info->target_link_speed, link_info->target_link_width);
 
 	return 0;
 }
@@ -416,6 +414,7 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
+	struct mhi_link_info *cur_link_info;
 	char node[32];
 	int ret;
 	u16 linkstat;
@@ -424,7 +423,6 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 		struct msm_pcie_register_event *reg_event;
 		struct pci_dev *root_port;
 		struct device_node *root_ofnode;
-		struct mhi_link_info *cur_link_info;
 
 		arch_info = devm_kzalloc(&mhi_dev->pci_dev->dev,
 					 sizeof(*arch_info), GFP_KERNEL);
@@ -530,23 +528,22 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 
 		mhi_cntrl->bw_scale = mhi_arch_bw_scale;
 
-		/* store the current bw info */
-		ret = pcie_capability_read_word(mhi_dev->pci_dev,
-						PCI_EXP_LNKSTA, &linkstat);
-		if (ret)
-			return ret;
-
-		cur_link_info = &mhi_cntrl->mhi_link_info;
-		cur_link_info->target_link_speed =
-			linkstat & PCI_EXP_LNKSTA_CLS;
-		cur_link_info->target_link_width =
-			(linkstat & PCI_EXP_LNKSTA_NLW) >>
-			PCI_EXP_LNKSTA_NLW_SHIFT;
-
 		mhi_driver_register(&mhi_bl_driver);
 	}
 
-	return mhi_arch_set_bus_request(mhi_cntrl, 1);
+	/* store the current bw info */
+	ret = pcie_capability_read_word(mhi_dev->pci_dev,
+					PCI_EXP_LNKSTA, &linkstat);
+	if (ret)
+		return ret;
+
+	cur_link_info = &mhi_cntrl->mhi_link_info;
+	cur_link_info->target_link_speed = linkstat & PCI_EXP_LNKSTA_CLS;
+	cur_link_info->target_link_width = (linkstat & PCI_EXP_LNKSTA_NLW) >>
+					    PCI_EXP_LNKSTA_NLW_SHIFT;
+
+	return mhi_arch_set_bus_request(mhi_cntrl,
+					cur_link_info->target_link_speed);
 }
 
 void mhi_arch_pcie_deinit(struct mhi_controller *mhi_cntrl)
@@ -649,12 +646,11 @@ static int __mhi_arch_link_resume(struct mhi_controller *mhi_cntrl)
 
 	MHI_LOG("Entered\n");
 
-	/* request bus scale voting if we're on Gen 2 or higher speed */
-	if (cur_info->target_link_speed != PCI_EXP_LNKSTA_CLS_2_5GB) {
-		ret = mhi_arch_set_bus_request(mhi_cntrl, 1);
-		if (ret)
-			MHI_LOG("Could not set bus frequency, ret:%d\n", ret);
-	}
+	/* request bus scale voting based on higher gen speed */
+	ret = mhi_arch_set_bus_request(mhi_cntrl,
+				       cur_info->target_link_speed);
+	if (ret)
+		MHI_LOG("Could not set bus frequency, ret:%d\n", ret);
 
 	ret = msm_pcie_pm_control(MSM_PCIE_RESUME, mhi_cntrl->bus, pci_dev,
 				  NULL, 0);
