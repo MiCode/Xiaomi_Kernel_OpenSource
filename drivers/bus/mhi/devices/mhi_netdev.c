@@ -160,7 +160,7 @@ static struct mhi_netbuf *mhi_netdev_alloc(struct device *dev,
 	struct mhi_buf *mhi_buf;
 	void *vaddr;
 
-	page = __dev_alloc_pages(gfp, order);
+	page = __dev_alloc_pages(gfp | __GFP_NOMEMALLOC, order);
 	if (!page)
 		return NULL;
 
