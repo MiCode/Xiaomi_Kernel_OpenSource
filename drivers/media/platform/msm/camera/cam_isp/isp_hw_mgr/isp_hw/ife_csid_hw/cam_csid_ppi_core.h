@@ -24,7 +24,7 @@
 #define PPI_IRQ_FIFO1_OVERFLOW             BIT(2)
 #define PPI_IRQ_FIFO2_OVERFLOW             BIT(3)
 
-#define PPI_IRQ_CMD_SET                    BIT(0)
+#define PPI_IRQ_CMD_SET                    BIT(1)
 
 #define PPI_IRQ_CMD_CLEAR                  BIT(0)
 
