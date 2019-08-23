@@ -423,6 +423,7 @@
 #define __NR_pkey_mprotect		(__NR_SYSCALL_BASE+394)
 #define __NR_pkey_alloc			(__NR_SYSCALL_BASE+395)
 #define __NR_pkey_free			(__NR_SYSCALL_BASE+396)
+#define __NR_pidfd_open		(__NR_SYSCALL_BASE+434)
 
 /*
  * The following SWIs are ARM private.
