@@ -180,6 +180,7 @@ void qti_client_queue_rx(int id, u8 *buf, unsigned int bytes)
 	if (!data_node) {
 		to_console = 1;
 		qlog(qsbdev[id], "client %d dnode allocation failed\n", id);
+		to_console = 0;
 		return;
 	}
 
@@ -255,6 +256,7 @@ void qti_client_data_avail_cb(struct sdio_al_channel_handle *ch_handle,
 	if (!rx_dma_buf) {
 		to_console = 1;
 		qlog(qsb, "Unable to allocate rx_dma_buf\n");
+		to_console = 0;
 		return;
 	}
 
@@ -276,6 +278,7 @@ void qti_client_data_avail_cb(struct sdio_al_channel_handle *ch_handle,
 			to_console = 1;
 			qlog(qsb, "%s: data queueing failed %d\n", qsb->name,
 									ret);
+			to_console = 0;
 			return;
 		}
 	} else {
@@ -289,6 +292,7 @@ void qti_client_data_avail_cb(struct sdio_al_channel_handle *ch_handle,
 			to_console = 1;
 			qlog(qsb, "%s: data transfer failed %d\n", qsb->name,
 									ret);
+			to_console = 0;
 			return;
 		}
 		qti_client_queue_rx(cl_data->id, rx_dma_buf, bytes);
@@ -348,6 +352,7 @@ static void sdio_dl_meta_data_cb(struct sdio_al_channel_handle *ch_handle,
 	default:
 		to_console = 1;
 		qlog(qsb, "client %s INVALID_DATA\n", qsb->name);
+		to_console = 0;
 	}
 }
 
@@ -371,6 +376,7 @@ int qti_client_open(int id, void *ops)
 	default:
 		to_console = 1;
 		qlog(qsb, "Invalid client\n");
+		to_console = 0;
 		return ret;
 	}
 
@@ -425,6 +431,7 @@ int qti_client_read(int id, char *buf, size_t count)
 	if (id == QCN_SDIO_CLI_ID_DIAG && !qsb->ops) {
 		to_console = 1;
 		qlog(qsb, "%s: no diag operations assigned\n", qsb->name);
+		to_console = 0;
 		ret = -ENODEV;
 		goto out;
 	}
@@ -446,6 +453,7 @@ int qti_client_read(int id, char *buf, size_t count)
 				to_console = 1;
 				qlog(qsb, "%s: failed to copy to user buffer\n",
 								qsb->name);
+				to_console = 0;
 				return -EIO;
 			}
 		} else {
@@ -463,6 +471,7 @@ int qti_client_read(int id, char *buf, size_t count)
 				to_console = 1;
 				qlog(qsb, "%s: failed to copy to user buffer\n",
 						qsb->name);
+				to_console = 0;
 				return -EIO;
 			}
 		} else {
@@ -516,6 +525,7 @@ int qti_client_write(int id, char *buf, size_t count)
 	default:
 		to_console = 1;
 		qlog(qsb, "Invalid client\n");
+		to_console = 0;
 		return ret;
 	}
 
@@ -527,6 +537,7 @@ int qti_client_write(int id, char *buf, size_t count)
 	if (id == QCN_SDIO_CLI_ID_DIAG && !qsb->ops) {
 		to_console = 1;
 		qlog(qsb, "%s: no diag operations assigned\n", qsb->name);
+		to_console = 0;
 		ret = -ENODEV;
 		return ret;
 	}
@@ -573,6 +584,7 @@ int qti_client_write(int id, char *buf, size_t count)
 			to_console = 1;
 			qlog(qsb, "%s: meta data transfer failed %d\n",
 								qsb->name, ret);
+			to_console = 0;
 			return ret;
 		}
 
@@ -594,6 +606,7 @@ int qti_client_write(int id, char *buf, size_t count)
 				to_console = 1;
 				qlog(qsb, "%s: data transfer failed %d\n",
 								qsb->name, ret);
+				to_console = 0;
 				return ret;
 			}
 
@@ -607,6 +620,7 @@ int qti_client_write(int id, char *buf, size_t count)
 				to_console = 1;
 				qlog(qsb, "%s: data transfer failed %d\n",
 								qsb->name, ret);
+				to_console = 0;
 				return ret;
 			}
 		}
@@ -757,6 +771,7 @@ static int qti_client_probe(struct sdio_al_client_handle *client_handle)
 		to_console = 1;
 		qlog(qsb, "client %s failed to allocate channel_data\n",
 								qsb->name);
+		to_console = 0;
 		ret = -ENOMEM;
 		goto err;
 	}
@@ -780,6 +795,7 @@ static int qti_client_probe(struct sdio_al_client_handle *client_handle)
 		qlog(qsb,
 		       "client %s failed to register channel_handle ret = %d\n",
 								qsb->name, ret);
+		to_console = 0;
 		goto channel_data_err;
 	}
 
@@ -789,6 +805,7 @@ static int qti_client_probe(struct sdio_al_client_handle *client_handle)
 	if (!qsb->tx_dma_buf) {
 		to_console = 1;
 		qlog(qsb, "client %s failed to allocate tx_buf\n", qsb->name);
+		to_console = 0;
 		ret = -ENOMEM;
 		goto channel_handle_err;
 	}
@@ -800,6 +817,7 @@ static int qti_client_probe(struct sdio_al_client_handle *client_handle)
 		if (!tty_dev) {
 			to_console = 1;
 			qlog(qsb, "unable to allocate platform device\n");
+			to_console = 0;
 			ret = -ENOMEM;
 			goto tx_err;
 		}
@@ -809,6 +827,7 @@ static int qti_client_probe(struct sdio_al_client_handle *client_handle)
 			to_console = 1;
 			qlog(qsb, "client %s failed to allocate major_no\n",
 								qsb->name);
+			to_console = 0;
 			ret = major_no;
 			goto tx_err;
 		}
@@ -818,6 +837,7 @@ static int qti_client_probe(struct sdio_al_client_handle *client_handle)
 			to_console = 1;
 			qlog(qsb, "client %s failed to create class\n",
 								qsb->name);
+			to_console = 0;
 			ret = PTR_ERR(tty_dev->qsb_class);
 			goto reg_err;
 		}
@@ -828,6 +848,7 @@ static int qti_client_probe(struct sdio_al_client_handle *client_handle)
 			to_console = 1;
 			qlog(qsb, "client %s failed to create device node\n",
 								qsb->name);
+			to_console = 0;
 			ret = PTR_ERR(tty_dev->qsb_device);
 
 			goto dev_err;
@@ -841,6 +862,7 @@ static int qti_client_probe(struct sdio_al_client_handle *client_handle)
 		if (!ipc_pdev) {
 			to_console = 1;
 			qlog(qsb, "unable to allocate platform device\n");
+			to_console = 0;
 			ret = -ENOMEM;
 			goto tx_err;
 		}
@@ -850,6 +872,7 @@ static int qti_client_probe(struct sdio_al_client_handle *client_handle)
 		if (ret) {
 			to_console = 1;
 			qlog(qsb, "failed to add pdata\n");
+			to_console = 0;
 			goto put_pdev;
 		}
 
@@ -857,6 +880,7 @@ static int qti_client_probe(struct sdio_al_client_handle *client_handle)
 		if (ret) {
 			to_console = 1;
 			qlog(qsb, "failed to add ipc_pdev\n");
+			to_console = 0;
 			goto put_pdev;
 		}
 		qsb->priv_dev_info = ipc_pdev;
@@ -869,6 +893,7 @@ static int qti_client_probe(struct sdio_al_client_handle *client_handle)
 			to_console = 1;
 			qlog(qsb, "%s: unable to allocate platform device\n",
 								__func__);
+			to_console = 0;
 			ret = PTR_ERR(diag_pdev);
 			goto put_pdev;
 		}
