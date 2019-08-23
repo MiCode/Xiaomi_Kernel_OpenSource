@@ -943,7 +943,7 @@ static struct clk_rcg2 gcc_usb3_prim_phy_aux_clk_src = {
 
 static struct clk_branch gcc_aggre_ufs_phy_axi_clk = {
 	.halt_reg = 0x82024,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.hwcg_reg = 0x82024,
 	.hwcg_bit = 1,
 	.clkr = {
