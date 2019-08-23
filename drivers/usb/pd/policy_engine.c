@@ -516,6 +516,21 @@ enum plug_orientation usbpd_get_plug_orientation(struct usbpd *pd)
 }
 EXPORT_SYMBOL(usbpd_get_plug_orientation);
 
+static unsigned int get_connector_type(struct usbpd *pd)
+{
+	int ret;
+	union power_supply_propval val;
+
+	ret = power_supply_get_property(pd->usb_psy,
+		POWER_SUPPLY_PROP_CONNECTOR_TYPE, &val);
+	if (ret) {
+		dev_err(&pd->dev, "Unable to read CONNECTOR TYPE: %d\n", ret);
+		return ret;
+	}
+
+	return val.intval;
+}
+
 static inline void stop_usb_host(struct usbpd *pd)
 {
 	extcon_set_state_sync(pd->extcon, EXTCON_USB_HOST, 0);
@@ -4727,10 +4742,17 @@ struct usbpd *usbpd_create(struct device *parent)
 	pd->typec_caps.port_type_set = usbpd_typec_port_type_set;
 	pd->partner_desc.identity = &pd->partner_identity;
 
-	pd->typec_port = typec_register_port(parent, &pd->typec_caps);
-	if (IS_ERR(pd->typec_port)) {
-		usbpd_err(&pd->dev, "could not register typec port\n");
+	ret = get_connector_type(pd);
+	if (ret < 0)
 		goto put_psy;
+
+	/* For non-TypeC connector, it will be handled elsewhere */
+	if (ret != POWER_SUPPLY_CONNECTOR_MICRO_USB) {
+		pd->typec_port = typec_register_port(parent, &pd->typec_caps);
+		if (IS_ERR(pd->typec_port)) {
+			usbpd_err(&pd->dev, "could not register typec port\n");
+			goto put_psy;
+		}
 	}
 
 	pd->current_pr = PR_NONE;
