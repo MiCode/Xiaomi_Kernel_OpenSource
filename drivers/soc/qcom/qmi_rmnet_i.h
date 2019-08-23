@@ -41,6 +41,7 @@ struct rmnet_bearer_map {
 	bool tcp_bidir;
 	bool rat_switch;
 	bool tx_off;
+	u32 ack_txid;
 };
 
 struct rmnet_flow_map {
@@ -137,8 +138,7 @@ int dfc_qmap_client_init(void *port, int index, struct svc_info *psvc,
 
 void dfc_qmap_client_exit(void *dfc_data);
 
-void dfc_qmap_send_query(u8 mux_id, u8 bearer_id);
-void dfc_qmap_send_end_marker_cnf(struct qos_info *qos, u8 bearer_id, u16 seq);
+void dfc_qmap_send_ack(struct qos_info *qos, u8 bearer_id, u16 seq, u8 type);
 #else
 static inline struct rmnet_flow_map *
 qmi_rmnet_get_flow_map(struct qos_info *qos_info,
