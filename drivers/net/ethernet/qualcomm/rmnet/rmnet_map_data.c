@@ -1357,20 +1357,6 @@ static void rmnet_alloc_agg_pages(struct rmnet_port *port)
 						  struct rmnet_agg_page, list);
 }
 
-static u8 rmnet_get_page_order(u16 size)
-{
-	u8 order = 0;
-
-	size = size / PAGE_SIZE;
-
-	while (size >= 2) {
-		size >>= 1;
-		order++;
-	}
-
-	return order;
-}
-
 static struct sk_buff *rmnet_map_build_skb(struct rmnet_port *port)
 {
 	struct sk_buff *skb;
@@ -1490,7 +1476,7 @@ void rmnet_map_update_ul_agg_config(struct rmnet_port *port, u16 size,
 	if (size < PAGE_SIZE)
 		goto done;
 
-	port->agg_size_order = rmnet_get_page_order(size);
+	port->agg_size_order = get_order(size);
 
 	size = PAGE_SIZE << port->agg_size_order;
 	size -= SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
