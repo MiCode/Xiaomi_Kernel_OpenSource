@@ -1978,6 +1978,11 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	if ((ret == DIAG_DCI_NO_ERROR && !common_cmd) || ret < 0)
 		return ret;
 
+	reg_entry.cmd_code = 0;
+	reg_entry.subsys_id = 0;
+	reg_entry.cmd_code_hi = 0;
+	reg_entry.cmd_code_lo = 0;
+
 	if (header_len >= (sizeof(uint8_t)))
 		reg_entry.cmd_code = header->cmd_code;
 	if (header_len >= (2 * sizeof(uint8_t)))
