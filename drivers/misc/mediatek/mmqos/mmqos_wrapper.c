@@ -29,7 +29,7 @@ static struct device *dev;
 
 static BLOCKING_NOTIFIER_HEAD(hrt_bw_throttle_notifier);
 
-s32 mm_qos_add_request(struct plist_head *owner_list,
+s32 mm_qos_add_request(struct list_head *owner_list,
 	struct mm_qos_request *req, u32 smi_master_id)
 {
 	if (!req) {
@@ -45,8 +45,8 @@ s32 mm_qos_add_request(struct plist_head *owner_list,
 	req->master_id = smi_master_id;
 	req->bw_value = 0;
 	req->hrt_value = 0;
-	plist_node_init(&(req->owner_node), smi_master_id);
-	plist_add(&(req->owner_node), owner_list);
+	INIT_LIST_HEAD(&(req->owner_node));
+	list_add_tail(&(req->owner_node), owner_list);
 	req->icc_path = icc_get(dev, smi_master_id, mmqos_wrapper->icc_dst_id);
 	if (IS_ERR_OR_NULL(req->icc_path)) {
 		pr_notice("get icc path fail: src=%#x dst=%#x\n",
@@ -119,18 +119,18 @@ static inline u32 get_comp_value(u32 bw_value, u32 comp_type)
 	return bw_value;
 }
 
-void mm_qos_update_all_request(struct plist_head *owner_list)
+void mm_qos_update_all_request(struct list_head *owner_list)
 {
 	struct mm_qos_request *req = NULL;
 	u64 comp_bw;
 
-	if (!owner_list || plist_head_empty(owner_list)) {
+	if (!owner_list || list_empty(owner_list)) {
 		pr_notice("%s: owner_list is invalid\n", __func__);
 		return;
 	}
 
 	mutex_lock(&bw_mutex);
-	plist_for_each_entry(req, owner_list, owner_node) {
+	list_for_each_entry(req, owner_list, owner_node) {
 		if (!req->updated)
 			continue;
 		comp_bw = get_comp_value(req->bw_value, req->comp_type);
@@ -145,25 +145,25 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 }
 EXPORT_SYMBOL_GPL(mm_qos_update_all_request);
 
-void mm_qos_remove_all_request(struct plist_head *owner_list)
+void mm_qos_remove_all_request(struct list_head *owner_list)
 {
 	struct mm_qos_request *temp, *req = NULL;
 
 	mutex_lock(&bw_mutex);
-	plist_for_each_entry_safe(req, temp, owner_list, owner_node) {
+	list_for_each_entry_safe(req, temp, owner_list, owner_node) {
 		pr_notice("mm_del(0x%08x)\n", req->master_id);
-		plist_del(&(req->owner_node), owner_list);
+		list_del(&(req->owner_node));
 		req->init = false;
 	}
 	mutex_unlock(&bw_mutex);
 }
 EXPORT_SYMBOL_GPL(mm_qos_remove_all_request);
 
-void mm_qos_update_all_request_zero(struct plist_head *owner_list)
+void mm_qos_update_all_request_zero(struct list_head *owner_list)
 {
 	struct mm_qos_request *req = NULL;
 
-	plist_for_each_entry(req, owner_list, owner_node) {
+	list_for_each_entry(req, owner_list, owner_node) {
 		mm_qos_set_request(req, 0, 0, 0);
 	}
 	mm_qos_update_all_request(owner_list);
@@ -264,7 +264,7 @@ module_exit(mtk_mmqos_wrapper_exit);
 
 #define UT_MAX_REQUEST 6
 static s32 qos_ut_case;
-static struct plist_head ut_req_list;
+static struct list_head ut_req_list;
 static bool ut_req_init;
 struct mm_qos_request ut_req[UT_MAX_REQUEST] = {};
 int mmqos_ut_set(const char *val, const struct kernel_param *kp)
@@ -286,7 +286,7 @@ int mmqos_ut_set(const char *val, const struct kernel_param *kp)
 	pr_notice("ut with (case_id,req_id,master,value)=(%d,%u,%u,%d)\n",
 		qos_ut_case, req_id, master, value);
 	if (!ut_req_init) {
-		plist_head_init(&ut_req_list);
+		INIT_LIST_HEAD(&ut_req_list);
 		ut_req_init = true;
 	}
 	switch (qos_ut_case) {

@@ -28,7 +28,7 @@ enum virtual_source_id {
 };
 
 struct mm_qos_request {
-	struct plist_node owner_node;	/* To update all master once */
+	struct list_head owner_node;	/* To update all master once */
 	u32 master_id;	/* larb and port combination */
 	u32 bw_value;	/* Master data BW */
 	u32 hrt_value;	/* Master hrt BW */
@@ -50,7 +50,7 @@ struct mm_qos_request {
  *
  * Returns 0, or -errno
  */
-s32 mm_qos_add_request(struct plist_head *owner_list,
+s32 mm_qos_add_request(struct list_head *owner_list,
 	struct mm_qos_request *req, u32 master_id);
 
 /**
@@ -93,14 +93,14 @@ s32 mm_qos_set_hrt_request(struct mm_qos_request *req, u32 hrt_value);
  * mm_qos_update_all_request - update configured requirement to system setting
  * @owner_list: this list contains all mm_qos_request items from caller
  */
-void mm_qos_update_all_request(struct plist_head *owner_list);
+void mm_qos_update_all_request(struct list_head *owner_list);
 
 /**
  * mm_qos_remove_all_request - remove all mm_qos_request items from owner_list
  *    call this API once when exit driver for efficiency
  * @owner_list: this list contains all mm_qos_request items from caller.
  */
-void mm_qos_remove_all_request(struct plist_head *owner_list);
+void mm_qos_remove_all_request(struct list_head *owner_list);
 
 /**
  * mm_qos_update_all_request_zero - set zero to all mm_qos_request items of
@@ -110,7 +110,7 @@ void mm_qos_remove_all_request(struct plist_head *owner_list);
  * @owner_list: each caller should have its owner list, mmdvfs use this
  *    owner_list to update related setting at once.
  */
-void mm_qos_update_all_request_zero(struct plist_head *owner_list);
+void mm_qos_update_all_request_zero(struct list_head *owner_list);
 
 /**
  * mm_hrt_get_available_hrt_bw - return available HRT BW of the larb with
@@ -148,7 +148,7 @@ void mmdvfs_set_max_camera_hrt_bw(u32 bw);
 
 s32 get_virtual_port(enum virtual_source_id id);
 #else
-static inline s32 mm_qos_add_request(struct plist_head *owner_list,
+static inline s32 mm_qos_add_request(struct list_head *owner_list,
 	struct mm_qos_request *req, u32 master_id)
 	{ return 0; }
 static inline s32 mm_qos_set_request(struct mm_qos_request *req, u32 bw_value,
@@ -160,12 +160,12 @@ static inline s32 mm_qos_set_bw_request(struct mm_qos_request *req,
 static inline s32 mm_qos_set_hrt_request(struct mm_qos_request *req,
 	u32 hrt_value)
 	{ return 0; }
-static inline void mm_qos_update_all_request(struct plist_head *owner_list)
+static inline void mm_qos_update_all_request(struct list_head *owner_list)
 	{ return; }
-static inline void mm_qos_remove_all_request(struct plist_head *owner_list)
+static inline void mm_qos_remove_all_request(struct list_head *owner_list)
 	{ return; }
 static inline void mm_qos_update_all_request_zero(
-	struct plist_head *owner_list)
+	struct list_head *owner_list)
 	{ return; }
 static inline s32 mm_hrt_get_available_hrt_bw(u32 master_id)
 	{ return -1; }
