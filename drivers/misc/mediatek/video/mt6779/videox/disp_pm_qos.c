@@ -26,7 +26,7 @@
 #define OCCUPIED_BW_RATIO 1330
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-static struct plist_head bw_request_list;  /* all module list */
+static struct list_head bw_request_list;  /* all module list */
 static struct mm_qos_request ovl0_request;
 static struct mm_qos_request ovl0_fbdc_request;
 static struct mm_qos_request ovl0_2l_request;
@@ -34,7 +34,7 @@ static struct mm_qos_request ovl0_2l_fbdc_request;
 static struct mm_qos_request rdma0_request;
 static struct mm_qos_request wdma0_request;
 
-static struct plist_head hrt_request_list;
+static struct list_head hrt_request_list;
 static struct mm_qos_request ovl0_hrt_request;
 static struct mm_qos_request ovl0_2l_hrt_request;
 static struct mm_qos_request rdma0_hrt_request;
@@ -81,7 +81,7 @@ void disp_pm_qos_init(void)
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	/* Initialize owner list */
-	plist_head_init(&bw_request_list);
+	INIT_LIST_HEAD(&bw_request_list);
 
 	mm_qos_add_request(&bw_request_list, &ovl0_request,
 			   SMI_PORT_DISP_OVL0);
@@ -96,7 +96,7 @@ void disp_pm_qos_init(void)
 	mm_qos_add_request(&bw_request_list, &wdma0_request,
 			   SMI_PORT_DISP_WDMA0);
 
-	plist_head_init(&hrt_request_list);
+	INIT_LIST_HEAD(&hrt_request_list);
 
 	mm_qos_add_request(&hrt_request_list, &ovl0_hrt_request,
 			   SMI_PORT_DISP_OVL0);

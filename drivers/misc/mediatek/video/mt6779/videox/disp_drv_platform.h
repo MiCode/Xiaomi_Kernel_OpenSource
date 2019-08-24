@@ -29,7 +29,9 @@
 #define MTK_FB_ALIGNMENT	32
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
+#ifndef NOT_USE_MMQOS
 #define MTK_FB_MMDVFS_SUPPORT
+#endif
 /* #define MTK_FB_SPM_SUPPORT */
 #endif
 
