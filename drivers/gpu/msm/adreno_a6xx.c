@@ -543,6 +543,11 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	/* Turn on performance counters */
 	kgsl_regwrite(device, A6XX_RBBM_PERFCTR_CNTL, 0x1);
 
+	/* Turn on the IFPC counter (countable 4 on XOCLK4) */
+	if (gmu_core_isenabled(device))
+		gmu_core_regrmw(device, A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_1,
+			0xff, 0x4);
+
 	/* Turn on GX_MEM retention */
 	if (gmu_core_isenabled(device) && adreno_is_a612(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_RBBM_BLOCK_GX_RETENTION_CNTL, 0x7FB);
@@ -1112,27 +1117,26 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-/* Number of throttling counters for A6xx */
-#define A6XX_GMU_THROTTLE_COUNTERS 3
-
 static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 {
-	int i;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int64_t adj = -1;
-	uint32_t counts[A6XX_GMU_THROTTLE_COUNTERS];
+	u32 a, b, c;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
 		return 0;
 
-	for (i = 0; i < ARRAY_SIZE(counts); i++) {
-		if (!adreno_dev->gpmu_throttle_counters[i])
-			counts[i] = 0;
-		else
-			counts[i] = counter_delta(KGSL_DEVICE(adreno_dev),
-					adreno_dev->gpmu_throttle_counters[i],
-					&busy->throttle_cycles[i]);
-	}
+	/* The counters are selected in a6xx_gmu_enable_lm() */
+	a = counter_delta(device, A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_1_L,
+		&busy->throttle_cycles[0]);
+
+	b = counter_delta(device, A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_2_L,
+		&busy->throttle_cycles[1]);
+
+	c = counter_delta(device, A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_L,
+		&busy->throttle_cycles[2]);
+
 
 	/*
 	 * The adjustment is the number of cycles lost to throttling, which
@@ -1142,10 +1146,10 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	 * to remove them to prevent appearing to be busier than
 	 * we actually are.
 	 */
-	adj *= ((counts[0] * 15) + (counts[1] * 50) + (counts[2] * 90)) / 100;
+	adj *= ((a * 15) + (b * 50) + (c * 90)) / 100;
 
-	trace_kgsl_clock_throttling(0, counts[1], counts[2],
-			counts[0], adj);
+	trace_kgsl_clock_throttling(0, a, b, c, adj);
+
 	return adj;
 }
 
@@ -2224,38 +2228,6 @@ static struct adreno_perfcount_register a6xx_perfcounters_alwayson[] = {
 		A6XX_CP_ALWAYS_ON_COUNTER_HI, -1 },
 };
 
-static struct adreno_perfcount_register a6xx_pwrcounters_gpmu[] = {
-	/*
-	 * A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0 is used for the GPU
-	 * busy count (see the PWR group above). Mark it as broken
-	 * so it's not re-used.
-	 */
-	{ KGSL_PERFCOUNTER_BROKEN, 0, 0,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_H, -1,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_1_L,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_1_H, -1,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_2_L,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_2_H, -1,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_L,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_H, -1,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_H, -1,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_1, },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_5_L,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_5_H, -1,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_1, },
-};
-
 /*
  * ADRENO_PERFCOUNTER_GROUP_RESTORE flag is enabled by default
  * because most of the perfcounter groups need to be restored
@@ -2296,7 +2268,6 @@ static struct adreno_perfcount_group a6xx_perfcounter_groups
 		ADRENO_PERFCOUNTER_GROUP_FIXED),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(ALWAYSON, alwayson,
 		ADRENO_PERFCOUNTER_GROUP_FIXED),
-	A6XX_POWER_COUNTER_GROUP(GPMU, gpmu),
 };
 
 static struct adreno_perfcounters a6xx_perfcounters = {
@@ -2365,6 +2336,11 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 
 	/* Set the GPU busy counter for frequency scaling */
 	adreno_dev->perfctr_pwr_lo = A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L;
+
+	/* Set the counter for IFPC */
+	if (gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
+		adreno_dev->perfctr_ifpc_lo =
+			A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L;
 
 	/* Check efuse bits for various capabilties */
 	a6xx_check_features(adreno_dev);
@@ -2540,18 +2516,6 @@ static const struct adreno_reg_offsets a6xx_reg_offsets = {
 	.offset_0 = ADRENO_REG_REGISTER_MAX,
 };
 
-static void a6xx_perfcounter_init(struct adreno_device *adreno_dev)
-{
-	/*
-	 * A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4/5 is not present on A612.
-	 * Mark them as broken so that they can't be used.
-	 */
-	if (adreno_is_a612(adreno_dev)) {
-		a6xx_pwrcounters_gpmu[4].countable = KGSL_PERFCOUNTER_BROKEN;
-		a6xx_pwrcounters_gpmu[5].countable = KGSL_PERFCOUNTER_BROKEN;
-	}
-}
-
 static int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
 	struct adreno_perfcount_register *reg, bool update_reg)
 {
@@ -2668,7 +2632,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
-	.perfcounter_init = a6xx_perfcounter_init,
 	.perfcounter_update = a6xx_perfcounter_update,
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 };
