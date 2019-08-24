@@ -381,3 +381,5 @@ static struct platform_driver mtk_mmqos_mt6779_driver = {
 	},
 };
 module_platform_driver(mtk_mmqos_mt6779_driver);
+
+MODULE_LICENSE("GPL v2");

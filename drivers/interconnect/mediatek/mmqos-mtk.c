@@ -410,3 +410,5 @@ int mtk_mmqos_remove(struct platform_device *pdev)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_remove);
+
+MODULE_LICENSE("GPL v2");
