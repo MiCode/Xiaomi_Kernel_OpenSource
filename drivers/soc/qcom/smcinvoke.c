@@ -111,6 +111,8 @@
 #define MEM_RGN_SRVR_ID 1
 #define MEM_MAP_SRVR_ID 2
 #define CBOBJ_SERVER_ID_START 0x10
+/* local obj id is represented by 15 bits */
+#define MAX_LOCAL_OBJ_ID ((1<<15) - 1)
 /* CBOBJs will be served by server id 0x10 onwards */
 #define TZHANDLE_GET_SERVER(h) ((uint16_t)((h) & 0xFFFF))
 #define TZHANDLE_GET_OBJID(h) (((h) >> 16) & 0x7FFF)
@@ -301,6 +303,9 @@ static  struct smcinvoke_mem_obj *find_mem_obj_locked(uint16_t mem_obj_id,
 
 static uint32_t next_mem_region_obj_id_locked(void)
 {
+	if (g_last_mem_rgn_id == MAX_LOCAL_OBJ_ID)
+		g_last_mem_rgn_id = 0;
+
 	while (find_mem_obj_locked(++g_last_mem_rgn_id, SMCINVOKE_MEM_RGN_OBJ));
 
 	return g_last_mem_rgn_id;
@@ -308,6 +313,9 @@ static uint32_t next_mem_region_obj_id_locked(void)
 
 static uint32_t next_mem_map_obj_id_locked(void)
 {
+	if (g_last_mem_map_obj_id == MAX_LOCAL_OBJ_ID)
+		g_last_mem_map_obj_id = 0;
+
 	while (find_mem_obj_locked(++g_last_mem_map_obj_id,
 					SMCINVOKE_MEM_MAP_OBJ));
 
@@ -1530,34 +1538,26 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	int32_t tzhandles_to_release[OBJECT_COUNTS_MAX_OO] = {0};
 	bool tz_acked = false;
 
-	if (_IOC_SIZE(cmd) != sizeof(req)) {
-		ret =  -EINVAL;
-		goto out;
-	}
-	if (tzobj->context_type != SMCINVOKE_OBJ_TYPE_TZ_OBJ) {
-		ret = -EPERM;
-		goto out;
-	}
+	if (_IOC_SIZE(cmd) != sizeof(req))
+		return -EINVAL;
+
+	if (tzobj->context_type != SMCINVOKE_OBJ_TYPE_TZ_OBJ)
+		return -EPERM;
+
 	ret = copy_from_user(&req, (void __user *)arg, sizeof(req));
-	if (ret) {
-		ret =  -EFAULT;
-		goto out;
-	}
+	if (ret)
+		return -EFAULT;
+
+	if (req.argsize != sizeof(union smcinvoke_arg))
+		return -EINVAL;
 
 	nr_args = OBJECT_COUNTS_NUM_buffers(req.counts) +
 			OBJECT_COUNTS_NUM_objects(req.counts);
 
-	if (req.argsize != sizeof(union smcinvoke_arg)) {
-		ret = -EINVAL;
-		goto out;
-	}
-
 	if (nr_args) {
 		args_buf = kcalloc(nr_args, req.argsize, GFP_KERNEL);
-		if (!args_buf) {
-			ret = -ENOMEM;
-			goto out;
-		}
+		if (!args_buf)
+			return -ENOMEM;
 
 		ret = copy_from_user(args_buf, u64_to_user_ptr(req.args),
 					nr_args * req.argsize);
