@@ -371,7 +371,6 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	default:
 		mtk_v4l2_err("ctrl-id=%d not support!", ctrl->id);
-		ret = -EINVAL;
 		break;
 	}
 
@@ -463,7 +462,6 @@ static int vidioc_venc_s_parm(struct file *file, void *priv,
 
 	if (a->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		return -EINVAL;
-
 	ctx->enc_params.framerate_num =
 			a->parm.output.timeperframe.denominator;
 	ctx->enc_params.framerate_denom =
@@ -482,7 +480,6 @@ static int vidioc_venc_g_parm(struct file *file, void *priv,
 
 	if (a->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		return -EINVAL;
-
 	a->parm.output.capability = V4L2_CAP_TIMEPERFRAME;
 	a->parm.output.timeperframe.denominator =
 			ctx->enc_params.framerate_num;
@@ -1015,8 +1012,7 @@ static int vidioc_venc_s_selection(struct file *file, void *priv,
 		q_data->visible_height = s->r.height;
 		break;
 	default:
-		mtk_v4l2_err("[%d] q_data iS NULL\n", ctx->id);
-		return -EINVAL;
+		mtk_v4l2_err("[Err] target is %X\n", s->target);
 	}
 	return 0;
 }
@@ -1095,6 +1091,39 @@ static int vidioc_venc_dqbuf(struct file *file, void *priv,
 	return v4l2_m2m_dqbuf(file, ctx->m2m_ctx, buf);
 }
 
+static int vidioc_vdec_subscribe_evt(struct v4l2_fh *fh,
+				     const struct v4l2_event_subscription *sub)
+{
+	switch (sub->type) {
+	case V4L2_EVENT_EOS:
+		return v4l2_event_subscribe(fh, sub, 2, NULL);
+	case V4L2_EVENT_MTK_VENC_ERROR:
+		return v4l2_event_subscribe(fh, sub, 0, NULL);
+	default:
+		return v4l2_ctrl_subscribe_event(fh, sub);
+	}
+
+}
+static void mtk_vdec_queue_stop_enc_event(struct mtk_vcodec_ctx *ctx)
+{
+	static const struct v4l2_event ev_eos = {
+		.type = V4L2_EVENT_EOS,
+	};
+
+	mtk_v4l2_debug(1, "[%d]", ctx->id);
+	v4l2_event_queue_fh(&ctx->fh, &ev_eos);
+}
+
+static void mtk_venc_queue_error_event(struct mtk_vcodec_ctx *ctx)
+{
+	static const struct v4l2_event ev_error = {
+		.type = V4L2_EVENT_MTK_VENC_ERROR,
+	};
+
+	mtk_v4l2_debug(1, "[%d]", ctx->id);
+	v4l2_event_queue_fh(&ctx->fh, &ev_error);
+}
+
 const struct v4l2_ioctl_ops mtk_venc_ioctl_ops = {
 	.vidioc_streamon		= v4l2_m2m_ioctl_streamon,
 	.vidioc_streamoff		= v4l2_m2m_ioctl_streamoff,
@@ -1112,7 +1141,7 @@ const struct v4l2_ioctl_ops mtk_venc_ioctl_ops = {
 	.vidioc_try_fmt_vid_cap_mplane	= vidioc_try_fmt_vid_cap_mplane,
 	.vidioc_try_fmt_vid_out_mplane	= vidioc_try_fmt_vid_out_mplane,
 	.vidioc_expbuf			= v4l2_m2m_ioctl_expbuf,
-	.vidioc_subscribe_event		= v4l2_ctrl_subscribe_event,
+	.vidioc_subscribe_event		= vidioc_vdec_subscribe_evt,
 	.vidioc_unsubscribe_event	= v4l2_event_unsubscribe,
 
 	.vidioc_s_parm			= vidioc_venc_s_parm,
@@ -1417,6 +1446,7 @@ static int mtk_venc_encode_header(void *priv)
 	if (enc_result.bs_va == 0) {
 		dst_buf->vb2_buf.planes[0].bytesused = 0;
 		ctx->state = MTK_STATE_ABORT;
+		mtk_venc_queue_error_event(ctx);
 		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_ERROR);
 		mtk_v4l2_err("failed=%d", ret);
 		return -EINVAL;
@@ -1704,7 +1734,7 @@ static void mtk_venc_worker(struct work_struct *work)
 				return_free_buffers(ctx);
 			}
 		}
-
+		mtk_vdec_queue_stop_enc_event(ctx);
 		if (src_buf->planes[0].bytesused == 0U) {
 			src_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
 			vb2_set_plane_payload(&src_buf_info->vb.vb2_buf, 0, 0);
