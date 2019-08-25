@@ -183,7 +183,7 @@ void mhi_deinit_free_irq(struct mhi_controller *mhi_cntrl)
 	struct mhi_event *mhi_event = mhi_cntrl->mhi_event;
 
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-		if (mhi_event->offload_ev)
+		if (!mhi_event->request_irq)
 			continue;
 
 		free_irq(mhi_cntrl->irq[mhi_event->msi], mhi_event);
@@ -207,7 +207,7 @@ int mhi_init_irq_setup(struct mhi_controller *mhi_cntrl)
 		return ret;
 
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-		if (mhi_event->offload_ev)
+		if (!mhi_event->request_irq)
 			continue;
 
 		ret = request_irq(mhi_cntrl->irq[mhi_event->msi],
@@ -224,7 +224,7 @@ int mhi_init_irq_setup(struct mhi_controller *mhi_cntrl)
 
 error_request:
 	for (--i, --mhi_event; i >= 0; i--, mhi_event--) {
-		if (mhi_event->offload_ev)
+		if (!mhi_event->request_irq)
 			continue;
 
 		free_irq(mhi_cntrl->irq[mhi_event->msi], mhi_event);
@@ -496,15 +496,18 @@ error_alloc_chan_ctxt:
 	return ret;
 }
 
-static int mhi_get_tsync_er_cfg(struct mhi_controller *mhi_cntrl)
+/* to be used only if a single event ring with the type is present */
+static int mhi_get_er_index(struct mhi_controller *mhi_cntrl,
+			    enum mhi_er_data_type type)
 {
 	int i;
 	struct mhi_event *mhi_event = mhi_cntrl->mhi_event;
 
-	/* find event ring with timesync support */
-	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++)
-		if (mhi_event->data_type == MHI_ER_TSYNC_ELEMENT_TYPE)
+	/* find event ring for requested type */
+	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
+		if (mhi_event->data_type == type)
 			return mhi_event->er_index;
+	}
 
 	return -ENOENT;
 }
@@ -581,7 +584,7 @@ int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	/* get time-sync event ring configuration */
-	ret = mhi_get_tsync_er_cfg(mhi_cntrl);
+	ret = mhi_get_er_index(mhi_cntrl, MHI_ER_TSYNC_ELEMENT_TYPE);
 	if (ret < 0) {
 		MHI_LOG("Could not find timesync event ring\n");
 		return ret;
@@ -609,6 +612,36 @@ exit_timesync:
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	return ret;
+}
+
+static int mhi_init_bw_scale(struct mhi_controller *mhi_cntrl)
+{
+	int ret, er_index;
+	u32 bw_cfg_offset;
+
+	/* controller doesn't support dynamic bw switch */
+	if (!mhi_cntrl->bw_scale)
+		return -ENODEV;
+
+	ret = mhi_get_capability_offset(mhi_cntrl, BW_SCALE_CAP_ID,
+					&bw_cfg_offset);
+	if (ret)
+		return ret;
+
+	/* No ER configured to support BW scale */
+	er_index = mhi_get_er_index(mhi_cntrl, MHI_ER_BW_SCALE_ELEMENT_TYPE);
+	if (ret < 0)
+		return er_index;
+
+	bw_cfg_offset += BW_SCALE_CFG_OFFSET;
+
+	MHI_LOG("BW_CFG OFFSET:0x%x\n", bw_cfg_offset);
+
+	/* advertise host support */
+	mhi_write_reg(mhi_cntrl, mhi_cntrl->regs, bw_cfg_offset,
+		      MHI_BW_SCALE_SETUP(er_index));
+
+	return 0;
 }
 
 int mhi_init_mmio(struct mhi_controller *mhi_cntrl)
@@ -707,6 +740,9 @@ int mhi_init_mmio(struct mhi_controller *mhi_cntrl)
 	mhi_write_reg(mhi_cntrl, mhi_cntrl->wake_db, 0, 0);
 	mhi_cntrl->wake_set = false;
 
+	/* setup bw scale db */
+	mhi_cntrl->bw_scale_db = base + val + (8 * MHI_BW_SCALE_CHAN_DB);
+
 	/* setup channel db addresses */
 	mhi_chan = mhi_cntrl->mhi_chan;
 	for (i = 0; i < mhi_cntrl->max_chan; i++, val += 8, mhi_chan++)
@@ -736,6 +772,9 @@ int mhi_init_mmio(struct mhi_controller *mhi_cntrl)
 		mhi_write_reg_field(mhi_cntrl, base, reg_info[i].offset,
 				    reg_info[i].mask, reg_info[i].shift,
 				    reg_info[i].val);
+
+	/* setup bandwidth scaling features */
+	mhi_init_bw_scale(mhi_cntrl);
 
 	return 0;
 }
@@ -887,6 +926,8 @@ static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 	if (!mhi_cntrl->mhi_event)
 		return -ENOMEM;
 
+	INIT_LIST_HEAD(&mhi_cntrl->lp_ev_rings);
+
 	/* populate ev ring */
 	mhi_event = mhi_cntrl->mhi_event;
 	i = 0;
@@ -952,6 +993,9 @@ static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 		case MHI_ER_TSYNC_ELEMENT_TYPE:
 			mhi_event->process_event = mhi_process_tsync_event_ring;
 			break;
+		case MHI_ER_BW_SCALE_ELEMENT_TYPE:
+			mhi_event->process_event = mhi_process_bw_scale_ev_ring;
+			break;
 		}
 
 		mhi_event->hw_ring = of_property_read_bool(child, "mhi,hw-ev");
@@ -963,6 +1007,19 @@ static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 							"mhi,client-manage");
 		mhi_event->offload_ev = of_property_read_bool(child,
 							      "mhi,offload");
+
+		/*
+		 * low priority events are handled in a separate worker thread
+		 * to allow for sleeping functions to be called.
+		 */
+		if (!mhi_event->offload_ev) {
+			if (IS_MHI_ER_PRIORITY_LOW(mhi_event))
+				list_add_tail(&mhi_event->node,
+						&mhi_cntrl->lp_ev_rings);
+			else
+				mhi_event->request_irq = true;
+		}
+
 		mhi_event++;
 	}
 
@@ -1242,6 +1299,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	INIT_WORK(&mhi_cntrl->st_worker, mhi_pm_st_worker);
 	INIT_WORK(&mhi_cntrl->fw_worker, mhi_fw_load_worker);
 	INIT_WORK(&mhi_cntrl->syserr_worker, mhi_pm_sys_err_worker);
+	INIT_WORK(&mhi_cntrl->low_priority_worker, mhi_low_priority_worker);
 	init_waitqueue_head(&mhi_cntrl->state_event);
 
 	mhi_cmd = mhi_cntrl->mhi_cmd;
@@ -1255,6 +1313,10 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 
 		mhi_event->mhi_cntrl = mhi_cntrl;
 		spin_lock_init(&mhi_event->lock);
+
+		if (IS_MHI_ER_PRIORITY_LOW(mhi_event))
+			continue;
+
 		if (mhi_event->data_type == MHI_ER_CTRL_ELEMENT_TYPE)
 			tasklet_init(&mhi_event->task, mhi_ctrl_ev_task,
 				     (ulong)mhi_event);

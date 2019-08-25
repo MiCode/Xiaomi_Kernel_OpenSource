@@ -26,12 +26,18 @@ static struct dentry *cma_debugfs_root;
 static int cma_debugfs_get(void *data, u64 *val)
 {
 	unsigned long *p = data;
+	int ret = -EPERM;
 
-	*val = *p;
+	if (kptr_restrict == 0) {
+		*val = *p;
+		ret = 0;
+	} else {
+		*val = 0;
+	}
 
-	return 0;
+	return ret;
 }
-DEFINE_SIMPLE_ATTRIBUTE(cma_debugfs_fops, cma_debugfs_get, NULL, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(cma_debugfs_fops, cma_debugfs_get, NULL, "0x%lx\n");
 
 static int cma_used_get(void *data, u64 *val)
 {
@@ -70,6 +76,7 @@ static int cma_maxchunk_get(void *data, u64 *val)
 }
 DEFINE_SIMPLE_ATTRIBUTE(cma_maxchunk_fops, cma_maxchunk_get, NULL, "%llu\n");
 
+#ifdef CONFIG_CMA_ALLOW_WRITE_DEBUGFS
 static void cma_add_to_cma_mem_list(struct cma *cma, struct cma_mem *mem)
 {
 	spin_lock(&cma->mem_head_lock);
@@ -128,8 +135,13 @@ static int cma_free_write(void *data, u64 val)
 
 	return cma_free_mem(cma, pages);
 }
+#else
+#define cma_free_write NULL
+#endif
+
 DEFINE_SIMPLE_ATTRIBUTE(cma_free_fops, NULL, cma_free_write, "%llu\n");
 
+#ifdef CONFIG_CMA_ALLOW_WRITE_DEBUGFS
 static int cma_alloc_mem(struct cma *cma, int count)
 {
 	struct cma_mem *mem;
@@ -160,6 +172,10 @@ static int cma_alloc_write(void *data, u64 val)
 
 	return cma_alloc_mem(cma, pages);
 }
+#else
+#define cma_alloc_write NULL
+#endif
+
 DEFINE_SIMPLE_ATTRIBUTE(cma_alloc_fops, NULL, cma_alloc_write, "%llu\n");
 
 static void cma_debugfs_add_one(struct cma *cma, int idx)
@@ -176,9 +192,10 @@ static void cma_debugfs_add_one(struct cma *cma, int idx)
 	debugfs_create_file("free", 0200, tmp, cma, &cma_free_fops);
 	debugfs_create_file("base_pfn", 0444, tmp,
 			    &cma->base_pfn, &cma_debugfs_fops);
-	debugfs_create_file("count", 0444, tmp, &cma->count, &cma_debugfs_fops);
-	debugfs_create_file("order_per_bit", 0444, tmp,
-			    &cma->order_per_bit, &cma_debugfs_fops);
+
+	debugfs_create_ulong("count", 0444, tmp, &cma->count);
+	debugfs_create_u32("order_per_bit", 0444, tmp,
+			     (u32 *)&cma->order_per_bit);
 	debugfs_create_file("used", 0444, tmp, cma, &cma_used_fops);
 	debugfs_create_file("maxchunk", 0444, tmp, cma, &cma_maxchunk_fops);
 

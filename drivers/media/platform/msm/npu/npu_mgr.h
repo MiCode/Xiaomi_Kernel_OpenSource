@@ -78,6 +78,7 @@ struct npu_host_ctx {
 	struct work_struct wdg_err_irq_work;
 	struct work_struct bridge_mbox_work;
 	struct work_struct load_fw_work;
+	struct work_struct update_pwr_work;
 	struct delayed_work disable_fw_work;
 	struct workqueue_struct *wq;
 	struct completion misc_cmd_done;
@@ -130,15 +131,11 @@ int32_t npu_host_map_buf(struct npu_client *client,
 	struct msm_npu_map_buf_ioctl *map_ioctl);
 int32_t npu_host_unmap_buf(struct npu_client *client,
 	struct msm_npu_unmap_buf_ioctl *unmap_ioctl);
-int32_t npu_host_load_network(struct npu_client *client,
-	struct msm_npu_load_network_ioctl *load_ioctl);
 int32_t npu_host_load_network_v2(struct npu_client *client,
 	struct msm_npu_load_network_ioctl_v2 *load_ioctl,
 	struct msm_npu_patch_info_v2 *patch_info);
 int32_t npu_host_unload_network(struct npu_client *client,
 	struct msm_npu_unload_network_ioctl *unload);
-int32_t npu_host_exec_network(struct npu_client *client,
-	struct msm_npu_exec_network_ioctl *exec_ioctl);
 int32_t npu_host_exec_network_v2(struct npu_client *client,
 	struct msm_npu_exec_network_ioctl_v2 *exec_ioctl,
 	struct msm_npu_patch_buf_info *patch_buf_info);
@@ -146,7 +143,9 @@ int32_t npu_host_loopback_test(struct npu_device *npu_dev);
 void npu_host_cleanup_networks(struct npu_client *client);
 int npu_host_notify_fw_pwr_state(struct npu_device *npu_dev,
 	uint32_t pwr_level, bool post);
+int npu_host_update_power(struct npu_device *npu_dev);
 
-void npu_dump_debug_timeout_stats(struct npu_device *npu_dev);
+void npu_dump_debug_info(struct npu_device *npu_dev);
+void npu_dump_ipc_packet(struct npu_device *npu_dev, void *cmd_ptr);
 
 #endif /* _NPU_MGR_H */

@@ -266,6 +266,7 @@ struct iris_hfi_device {
 	unsigned int skip_pc_count;
 	struct msm_cvp_capability *sys_init_capabilities;
 	struct iris_hfi_vpu_ops *vpu_ops;
+	struct delayed_work dsp_init_work;
 };
 
 void cvp_iris_hfi_delete_device(void *device);

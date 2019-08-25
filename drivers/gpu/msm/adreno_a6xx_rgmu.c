@@ -409,6 +409,9 @@ static int a6xx_rgmu_fw_start(struct kgsl_device *device,
 		return -ETIMEDOUT;
 	}
 
+	/* Read the RGMU firmware version from registers */
+	gmu_core_regread(device, A6XX_GMU_GENERAL_0, &rgmu->ver);
+
 	return 0;
 }
 

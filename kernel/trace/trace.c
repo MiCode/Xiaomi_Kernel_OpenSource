@@ -6089,6 +6089,7 @@ tracing_mark_write(struct file *filp, const char __user *ubuf,
 	struct trace_array *tr = filp->private_data;
 	struct ring_buffer_event *event;
 	enum event_trigger_type tt = ETT_NONE;
+	struct trace_entry *trace_entry;
 	struct ring_buffer *buffer;
 	struct print_entry *entry;
 	unsigned long irq_flags;
@@ -6126,7 +6127,8 @@ tracing_mark_write(struct file *filp, const char __user *ubuf,
 		return -EBADF;
 
 	entry = ring_buffer_event_data(event);
-	entry->ip = _THIS_IP_;
+	trace_entry = (struct trace_entry *)entry;
+	entry->ip = trace_entry->pid;
 
 	len = __copy_from_user_inatomic(&entry->buf, ubuf, cnt);
 	if (len) {
@@ -6146,12 +6148,12 @@ tracing_mark_write(struct file *filp, const char __user *ubuf,
 	if (entry->buf[cnt - 1] != '\n') {
 		entry->buf[cnt] = '\n';
 		entry->buf[cnt + 1] = '\0';
-		stm_log(OST_ENTITY_TRACE_MARKER, entry->buf, cnt + 2);
+		stm_log(OST_ENTITY_TRACE_MARKER, entry, sizeof(*entry)+cnt + 2);
 	} else {
 		entry->buf[cnt] = '\0';
-		stm_log(OST_ENTITY_TRACE_MARKER, entry->buf, cnt + 1);
+		stm_log(OST_ENTITY_TRACE_MARKER, entry, sizeof(*entry)+cnt + 1);
 	}
-
+	entry->ip = _THIS_IP_;
 	__buffer_unlock_commit(buffer, event);
 
 	if (tt)
@@ -6477,11 +6479,13 @@ tracing_snapshot_write(struct file *filp, const char __user *ubuf, size_t cnt,
 			break;
 		}
 #endif
-		if (!tr->allocated_snapshot) {
+		if (tr->allocated_snapshot)
+			ret = resize_buffer_duplicate_size(&tr->max_buffer,
+					&tr->trace_buffer, iter->cpu_file);
+		else
 			ret = tracing_alloc_snapshot_instance(tr);
-			if (ret < 0)
-				break;
-		}
+		if (ret < 0)
+			break;
 		local_irq_disable();
 		/* Now, we're going to swap */
 		if (iter->cpu_file == RING_BUFFER_ALL_CPUS)
@@ -8357,12 +8361,8 @@ void ftrace_dump(enum ftrace_dump_mode oops_dump_mode)
 
 		cnt++;
 
-		/* reset all but tr, trace, and overruns */
-		memset(&iter.seq, 0,
-		       sizeof(struct trace_iterator) -
-		       offsetof(struct trace_iterator, seq));
+		trace_iterator_reset(&iter);
 		iter.iter_flags |= TRACE_FILE_LAT_FMT;
-		iter.pos = -1;
 
 		if (trace_find_next_entry_inc(&iter) != NULL) {
 			int ret;

@@ -32,8 +32,4 @@
 #define DISP_CC_XO_CLK						22
 #define DISP_CC_XO_CLK_SRC					23
 
-/* DISP_CC resets */
-#define DISP_CC_MDSS_CORE_BCR					0
-#define DISP_CC_MDSS_RSCC_BCR					1
-
 #endif

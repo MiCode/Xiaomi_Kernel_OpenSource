@@ -55,6 +55,8 @@
 #include "ipa_trace.h"
 #include "ipa_odl.h"
 
+#define IPA_SUSPEND_BUSY_TIMEOUT (msecs_to_jiffies(10))
+
 /*
  * The following for adding code (ie. for EMULATION) not found on x86.
  */
@@ -118,7 +120,7 @@ static void ipa3_load_ipa_fw(struct work_struct *work);
 static DECLARE_WORK(ipa3_fw_loading_work, ipa3_load_ipa_fw);
 
 static void ipa_dec_clients_disable_clks_on_wq(struct work_struct *work);
-static DECLARE_WORK(ipa_dec_clients_disable_clks_on_wq_work,
+static DECLARE_DELAYED_WORK(ipa_dec_clients_disable_clks_on_wq_work,
 	ipa_dec_clients_disable_clks_on_wq);
 
 static int ipa3_ioctl_add_rt_rule_v2(unsigned long arg);
@@ -4811,8 +4813,16 @@ static void __ipa3_dec_client_disable_clks(void)
 	ret = atomic_sub_return(1, &ipa3_ctx->ipa3_active_clients.cnt);
 	if (ret > 0)
 		goto unlock_mutex;
-	ipa3_suspend_apps_pipes(true);
-	ipa3_disable_clks();
+	ret = ipa3_suspend_apps_pipes(true);
+	if (ret) {
+		/* HW is busy, retry after some time */
+		atomic_inc(&ipa3_ctx->ipa3_active_clients.cnt);
+		queue_delayed_work(ipa3_ctx->power_mgmt_wq,
+			&ipa_dec_clients_disable_clks_on_wq_work,
+			IPA_SUSPEND_BUSY_TIMEOUT);
+	} else {
+		ipa3_disable_clks();
+	}
 
 unlock_mutex:
 	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
@@ -4865,8 +4875,8 @@ void ipa3_dec_client_disable_clks_no_block(
 	}
 
 	/* seems like this is the only client holding the clocks */
-	queue_work(ipa3_ctx->power_mgmt_wq,
-		&ipa_dec_clients_disable_clks_on_wq_work);
+	queue_delayed_work(ipa3_ctx->power_mgmt_wq,
+		&ipa_dec_clients_disable_clks_on_wq_work, 0);
 }
 
 /**

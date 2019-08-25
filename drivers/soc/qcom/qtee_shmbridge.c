@@ -62,6 +62,8 @@
 #define VM_PERM_R PERM_READ
 #define VM_PERM_W PERM_WRITE
 
+#define SHMBRIDGE_E_NOT_SUPPORTED 4	/* SHMbridge is not implemented */
+
 /* ns_vmids */
 #define UPDATE_NS_VMIDS(ns_vmids, id)	\
 				(((uint64_t)(ns_vmids) << VM_BITS) \
@@ -123,10 +125,12 @@ static int32_t qtee_shmbridge_enable(bool enable)
 
 	desc.arginfo = TZ_SHM_BRIDGE_ENABLE_PARAM_ID;
 	ret = scm_call2(TZ_SHM_BRIDGE_ENABLE, &desc);
-	if (ret) {
+	if (ret || desc.ret[0]) {
 		pr_err("Failed to enable shmbridge, rsp = %lld, ret = %d\n",
 			desc.ret[0], ret);
-		return ret;
+		if (ret == -EIO || desc.ret[0] == SHMBRIDGE_E_NOT_SUPPORTED)
+			pr_warn("shmbridge is not supported by this target\n");
+		return ret | desc.ret[0];
 	}
 	qtee_shmbridge_enabled = true;
 	pr_warn("shmbridge is enabled\n");
@@ -373,14 +377,11 @@ static int __init qtee_shmbridge_init(void)
 	mutex_init(&bridge_list_head.lock);
 	INIT_LIST_HEAD(&bridge_list_head.head);
 
-	/* do not enable shm bridge mechanism for now*/
-	ret = qtee_shmbridge_enable(false);
+	/* enable shm bridge mechanism */
+	ret = qtee_shmbridge_enable(true);
 	if (ret) {
-		if (ret == -EIO) {
-			/* keep the mem pool even shmbridge isn't supported */
-			pr_warn("shmbridge feature is not supported\n");
-			ret = 0;
-		}
+		/* keep the mem pool and return if failed to enable bridge */
+		ret = 0;
 		goto exit;
 	}
 

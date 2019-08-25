@@ -1106,6 +1106,7 @@ static void smb1390_status_change_work(struct work_struct *work)
 		vote(chip->fcc_votable, CP_VOTER, false, 0);
 		vote(chip->disable_votable, SOC_LEVEL_VOTER, true, 0);
 		vote_override(chip->ilim_votable, CC_MODE_VOTER, false, 0);
+		vote(chip->ilim_votable, WIRELESS_VOTER, false, 0);
 		vote(chip->slave_disable_votable, TAPER_END_VOTER, false, 0);
 		vote(chip->slave_disable_votable, MAIN_DISABLE_VOTER, true, 0);
 		vote_override(chip->usb_icl_votable, TAPER_MAIN_ICL_LIMIT_VOTER,
@@ -1442,7 +1443,7 @@ static int smb1390_parse_dt(struct smb1390 *chip)
 	of_property_read_u32(chip->dev->of_node, "qcom,min-ilim-ua",
 			&chip->min_ilim_ua);
 
-	chip->max_temp_alarm_degc = 110;
+	chip->max_temp_alarm_degc = 105;
 	of_property_read_u32(chip->dev->of_node, "qcom,max-temp-alarm-degc",
 			&chip->max_temp_alarm_degc);
 
@@ -1540,16 +1541,16 @@ static int smb1390_init_hw(struct smb1390 *chip)
 		return rc;
 
 	switch (chip->max_temp_alarm_degc) {
-	case 125:
+	case 115:
 		val = 0x00;
 		break;
-	case 95:
+	case 90:
 		val = 0x02;
 		break;
-	case 85:
+	case 80:
 		val = 0x03;
 		break;
-	case 110:
+	case 105:
 	default:
 		val = 0x01;
 		break;

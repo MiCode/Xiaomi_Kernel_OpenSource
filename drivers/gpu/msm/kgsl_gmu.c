@@ -1402,10 +1402,6 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 				"ACD probe failed: missing or invalid table\n");
 	}
 
-	/* disable LM if the feature is not enabled */
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
-		clear_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
-
 	set_bit(GMU_ENABLED, &device->gmu_core.flags);
 	device->gmu_core.dev_ops = &adreno_a6xx_gmudev;
 

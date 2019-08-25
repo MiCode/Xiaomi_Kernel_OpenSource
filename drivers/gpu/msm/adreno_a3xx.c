@@ -611,6 +611,9 @@ static void a3xx_platform_setup(struct adreno_device *adreno_dev)
 
 	gpudev->vbif_xin_halt_ctrl0_mask = A30X_VBIF_XIN_HALT_CTRL0_MASK;
 
+	/* Set the GPU busy counter for frequency scaling */
+	adreno_dev->perfctr_pwr_lo = A3XX_RBBM_PERFCTR_PWR_1_LO;
+
 	/* Check efuse bits for various capabilties */
 	a3xx_check_features(adreno_dev);
 }
@@ -968,8 +971,10 @@ static struct adreno_perfcount_register a3xx_perfcounters_rb[] = {
 static struct adreno_perfcount_register a3xx_perfcounters_pwr[] = {
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PWR_0_LO,
 		A3XX_RBBM_PERFCTR_PWR_0_HI, -1, 0 },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PWR_1_LO,
-		A3XX_RBBM_PERFCTR_PWR_1_HI, -1, 0 },
+	/*
+	 * A3XX_RBBM_PERFCTR_PWR_1_LO is used for frequency scaling and removed
+	 * from the pool of available counters
+	 */
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_vbif[] = {
@@ -1063,19 +1068,6 @@ static void a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 		counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR].regs =
 			a3xx_perfcounters_vbif2_pwr;
 	}
-
-	/*
-	 * Enable the GPU busy count counter. This is a fixed counter on
-	 * A3XX so we don't need to bother checking the return value
-	 */
-	adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_PWR, 1,
-		NULL, NULL, PERFCOUNTER_FLAG_KERNEL);
-}
-
-static void a3xx_perfcounter_close(struct adreno_device *adreno_dev)
-{
-	adreno_perfcounter_put(adreno_dev, KGSL_PERFCOUNTER_GROUP_PWR, 1,
-		PERFCOUNTER_FLAG_KERNEL);
 }
 
 /**
@@ -1514,7 +1506,6 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.init = a3xx_init,
 	.microcode_read = a3xx_microcode_read,
 	.perfcounter_init = a3xx_perfcounter_init,
-	.perfcounter_close = a3xx_perfcounter_close,
 	.start = a3xx_start,
 	.snapshot = a3xx_snapshot,
 	.coresight = {&a3xx_coresight},

@@ -174,7 +174,7 @@ struct cvp_hfi_msg_sys_property_info_packet {
 	u32 size;
 	u32 packet_type;
 	u32 num_properties;
-	u32 rg_property_data[1];
+	u32 rg_property_data[128];
 };
 
 enum session_flags {
@@ -186,11 +186,6 @@ struct cvp_hal_session {
 	void *session_id;
 	u32 flags;
 	void *device;
-};
-
-struct cvp_hal_device_data {
-	struct list_head dev_head;
-	int dev_count;
 };
 
 struct msm_cvp_fw {

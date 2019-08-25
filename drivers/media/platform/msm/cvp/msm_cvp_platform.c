@@ -142,8 +142,10 @@ void *cvp_get_drv_data(struct device *dev)
 
 	match = of_match_node(msm_cvp_dt_match, dev->of_node);
 
-	if (match)
-		driver_data = (struct msm_cvp_platform_data *)match->data;
+	if (!match)
+		return NULL;
+
+	driver_data = (struct msm_cvp_platform_data *)match->data;
 
 	if (!strcmp(match->compatible, "qcom,kona-cvp")) {
 		ddr_type = of_fdt_get_ddrtype();

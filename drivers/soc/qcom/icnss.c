@@ -260,18 +260,23 @@ static int icnss_vreg_on(struct icnss_priv *priv)
 		if (!vreg_info->reg)
 			continue;
 
-		icnss_pr_vdbg("Regulator %s being enabled\n", vreg_info->name);
-
-		ret = regulator_set_voltage(vreg_info->reg, vreg_info->min_v,
-					    vreg_info->max_v);
-		if (ret) {
-			icnss_pr_err("Regulator %s, can't set voltage: min_v: %u, max_v: %u, ret: %d\n",
-				     vreg_info->name, vreg_info->min_v,
-				     vreg_info->max_v, ret);
-			break;
+		if (vreg_info->min_v || vreg_info->max_v) {
+			icnss_pr_vdbg("Set voltage for regulator %s\n",
+							vreg_info->name);
+			ret = regulator_set_voltage(vreg_info->reg,
+						    vreg_info->min_v,
+						    vreg_info->max_v);
+			if (ret) {
+				icnss_pr_err("Regulator %s, can't set voltage: min_v: %u, max_v: %u, ret: %d\n",
+					     vreg_info->name, vreg_info->min_v,
+					     vreg_info->max_v, ret);
+				break;
+			}
 		}
 
 		if (vreg_info->load_ua) {
+			icnss_pr_vdbg("Set load for regulator %s\n",
+							vreg_info->name);
 			ret = regulator_set_load(vreg_info->reg,
 						 vreg_info->load_ua);
 			if (ret < 0) {
@@ -281,6 +286,8 @@ static int icnss_vreg_on(struct icnss_priv *priv)
 				break;
 			}
 		}
+
+		icnss_pr_vdbg("Regulator %s being enabled\n", vreg_info->name);
 
 		ret = regulator_enable(vreg_info->reg);
 		if (ret) {
@@ -303,8 +310,13 @@ static int icnss_vreg_on(struct icnss_priv *priv)
 			continue;
 
 		regulator_disable(vreg_info->reg);
-		regulator_set_load(vreg_info->reg, 0);
-		regulator_set_voltage(vreg_info->reg, 0, vreg_info->max_v);
+
+		if (vreg_info->load_ua)
+			regulator_set_load(vreg_info->reg, 0);
+
+		if (vreg_info->min_v || vreg_info->max_v)
+			regulator_set_voltage(vreg_info->reg, 0,
+					      vreg_info->max_v);
 	}
 
 	return ret;
@@ -329,16 +341,20 @@ static int icnss_vreg_off(struct icnss_priv *priv)
 			icnss_pr_err("Regulator %s, can't disable: %d\n",
 				     vreg_info->name, ret);
 
-		ret = regulator_set_load(vreg_info->reg, 0);
-		if (ret < 0)
-			icnss_pr_err("Regulator %s, can't set load: %d\n",
-				     vreg_info->name, ret);
+		if (vreg_info->load_ua) {
+			ret = regulator_set_load(vreg_info->reg, 0);
+			if (ret < 0)
+				icnss_pr_err("Regulator %s, can't set load: %d\n",
+					     vreg_info->name, ret);
+		}
 
-		ret = regulator_set_voltage(vreg_info->reg, 0,
-					    vreg_info->max_v);
-		if (ret)
-			icnss_pr_err("Regulator %s, can't set voltage: %d\n",
-				     vreg_info->name, ret);
+		if (vreg_info->min_v || vreg_info->max_v) {
+			ret = regulator_set_voltage(vreg_info->reg, 0,
+						    vreg_info->max_v);
+			if (ret)
+				icnss_pr_err("Regulator %s, can't set voltage: %d\n",
+					     vreg_info->name, ret);
+		}
 	}
 
 	return ret;

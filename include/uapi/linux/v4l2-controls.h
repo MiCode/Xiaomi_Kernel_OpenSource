@@ -988,6 +988,12 @@ enum v4l2_mpeg_vidc_video_hevc_max_hier_coding_layer {
 #define V4L2_CID_MPEG_VIDC_SUPERFRAME \
 	(V4L2_CID_MPEG_MSM_VIDC_BASE + 124)
 
+#define V4L2_CID_MPEG_VIDC_CAPTURE_FRAME_RATE \
+	(V4L2_CID_MPEG_MSM_VIDC_BASE + 125)
+
+#define V4L2_CID_MPEG_VIDC_CVP_FRAME_RATE \
+	(V4L2_CID_MPEG_MSM_VIDC_BASE + 126)
+
 /*  Camera class control IDs */
 
 #define V4L2_CID_CAMERA_CLASS_BASE	(V4L2_CTRL_CLASS_CAMERA | 0x900)

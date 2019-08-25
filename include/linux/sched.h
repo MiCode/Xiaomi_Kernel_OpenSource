@@ -1022,8 +1022,10 @@ struct task_struct {
 	struct sysv_shm			sysvshm;
 #endif
 #ifdef CONFIG_DETECT_HUNG_TASK
+	/* hung task detection */
 	unsigned long			last_switch_count;
 	unsigned long			last_switch_time;
+	bool hang_detection_enabled;
 #endif
 	/* Filesystem information: */
 	struct fs_struct		*fs;
@@ -1199,7 +1201,15 @@ struct task_struct {
 	u64				last_sum_exec_runtime;
 	struct callback_head		numa_work;
 
-	struct numa_group		*numa_group;
+	/*
+	 * This pointer is only modified for current in syscall and
+	 * pagefault context (and for tasks being destroyed), so it can be read
+	 * from any of the following contexts:
+	 *  - RCU read-side critical section
+	 *  - current->numa_group from everywhere
+	 *  - task's runqueue locked, task not running
+	 */
+	struct numa_group __rcu		*numa_group;
 
 	/*
 	 * numa_faults is an array split into four regions:

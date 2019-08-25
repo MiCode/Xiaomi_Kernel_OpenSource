@@ -5399,7 +5399,7 @@ long __sched io_schedule_timeout(long timeout)
 }
 EXPORT_SYMBOL(io_schedule_timeout);
 
-void io_schedule(void)
+void __sched io_schedule(void)
 {
 	int token;
 
@@ -6381,6 +6381,7 @@ int sched_cpu_starting(unsigned int cpu)
 {
 	sched_rq_cpu_starting(cpu);
 	sched_tick_start(cpu);
+	clear_walt_request(cpu);
 	return 0;
 }
 
@@ -6884,7 +6885,7 @@ static void sched_update_updown_migrate_values(unsigned int *data,
 	int i, cpu;
 	static const struct cpumask *cluster_cpus[MAX_CLUSTERS];
 
-	for (i = cpu = 0; (!cluster_cpus[i]) &&
+	for (i = cpu = 0; i < MAX_CLUSTERS &&
 				cpu < num_possible_cpus(); i++) {
 		cluster_cpus[i] = topology_possible_sibling_cpumask(cpu);
 		cpu += cpumask_weight(topology_possible_sibling_cpumask(cpu));

@@ -109,8 +109,6 @@ int adreno_perfcounter_query_group(struct adreno_device *adreno_dev,
 int adreno_perfcounter_read_group(struct adreno_device *adreno_dev,
 	struct kgsl_perfcounter_read_group __user *reads, unsigned int count);
 
-void adreno_perfcounter_close(struct adreno_device *adreno_dev);
-
 void adreno_perfcounter_restore(struct adreno_device *adreno_dev);
 
 void adreno_perfcounter_save(struct adreno_device *adreno_dev);

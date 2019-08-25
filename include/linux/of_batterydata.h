@@ -39,7 +39,7 @@ int of_batterydata_read_data(struct device_node *container_node,
  * from device tree based on the battery id reading.
  */
 struct device_node *of_batterydata_get_best_profile(
-		struct device_node *batterydata_container_node,
+		const struct device_node *batterydata_container_node,
 		int batt_id_kohm, const char *batt_type);
 
 /**
@@ -91,7 +91,7 @@ static inline int of_batterydata_read_data(struct device_node *container_node,
 	return -ENXIO;
 }
 static inline struct device_node *of_batterydata_get_best_profile(
-		struct device_node *batterydata_container_node,
+		const struct device_node *batterydata_container_node,
 		int batt_id_kohm, const char *batt_type)
 {
 	return NULL;

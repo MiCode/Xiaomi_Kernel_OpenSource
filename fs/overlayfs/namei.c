@@ -18,6 +18,7 @@
 #include "overlayfs.h"
 
 struct ovl_lookup_data {
+	struct super_block *sb;
 	struct qstr name;
 	bool is_dir;
 	bool opaque;
@@ -108,10 +109,11 @@ int ovl_check_fh_len(struct ovl_fh *fh, int fh_len)
 
 static struct ovl_fh *ovl_get_fh(struct dentry *dentry, const char *name)
 {
-	int res, err;
+	ssize_t res;
+	int err;
 	struct ovl_fh *fh = NULL;
 
-	res = vfs_getxattr(dentry, name, NULL, 0);
+	res = ovl_vfs_getxattr(dentry, name, NULL, 0);
 	if (res < 0) {
 		if (res == -ENODATA || res == -EOPNOTSUPP)
 			return NULL;
@@ -125,7 +127,7 @@ static struct ovl_fh *ovl_get_fh(struct dentry *dentry, const char *name)
 	if (!fh)
 		return ERR_PTR(-ENOMEM);
 
-	res = vfs_getxattr(dentry, name, fh, res);
+	res = ovl_vfs_getxattr(dentry, name, fh, res);
 	if (res < 0)
 		goto fail;
 
@@ -143,10 +145,11 @@ out:
 	return NULL;
 
 fail:
-	pr_warn_ratelimited("overlayfs: failed to get origin (%i)\n", res);
+	pr_warn_ratelimited("overlayfs: failed to get origin (%zi)\n", res);
 	goto out;
 invalid:
-	pr_warn_ratelimited("overlayfs: invalid origin (%*phN)\n", res, fh);
+	pr_warn_ratelimited("overlayfs: invalid origin (%*phN)\n",
+			    (int)res, fh);
 	goto out;
 }
 
@@ -244,6 +247,12 @@ static int ovl_lookup_single(struct dentry *base, struct ovl_lookup_data *d,
 		if (!d->metacopy || d->last)
 			goto out;
 	} else {
+		if (ovl_lookup_trap_inode(d->sb, this)) {
+			/* Caught in a trap of overlapping layers */
+			err = -ELOOP;
+			goto out_err;
+		}
+
 		if (last_element)
 			d->is_dir = true;
 		if (d->last)
@@ -819,6 +828,7 @@ struct dentry *ovl_lookup(struct inode *dir, struct dentry *dentry,
 	int err;
 	bool metacopy = false;
 	struct ovl_lookup_data d = {
+		.sb = dentry->d_sb,
 		.name = dentry->d_name,
 		.is_dir = false,
 		.opaque = false,

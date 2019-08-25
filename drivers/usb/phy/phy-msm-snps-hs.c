@@ -71,6 +71,7 @@
 struct msm_hsphy {
 	struct usb_phy		phy;
 	void __iomem		*base;
+	void __iomem		*eud_enable_reg;
 
 	struct clk		*ref_clk_src;
 	struct clk		*cfg_ahb_clk;
@@ -319,11 +320,17 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 
 	dev_dbg(uphy->dev, "%s\n", __func__);
 
+	if (phy->eud_enable_reg && readl_relaxed(phy->eud_enable_reg)) {
+		dev_err(phy->phy.dev, "eud is enabled\n");
+		return 0;
+	}
+
 	ret = msm_hsphy_enable_power(phy, true);
 	if (ret)
 		return ret;
 
 	msm_hsphy_enable_clocks(phy, true);
+
 	msm_hsphy_reset(phy);
 
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
@@ -461,6 +468,11 @@ static int msm_hsphy_dpdm_regulator_enable(struct regulator_dev *rdev)
 	dev_dbg(phy->phy.dev, "%s dpdm_enable:%d\n",
 				__func__, phy->dpdm_enable);
 
+	if (phy->eud_enable_reg && readl_relaxed(phy->eud_enable_reg)) {
+		dev_err(phy->phy.dev, "eud is enabled\n");
+		return 0;
+	}
+
 	mutex_lock(&phy->phy_lock);
 	if (!phy->dpdm_enable) {
 		ret = msm_hsphy_enable_power(phy, true);
@@ -470,6 +482,7 @@ static int msm_hsphy_dpdm_regulator_enable(struct regulator_dev *rdev)
 		}
 
 		msm_hsphy_enable_clocks(phy, true);
+
 		msm_hsphy_reset(phy);
 
 		/*
@@ -606,6 +619,16 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		}
 		dev_dbg(dev, "rcal_mask:%08x reg:%pK\n", phy->rcal_mask,
 				phy->phy_rcal_reg);
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			"eud_enable_reg");
+	if (res) {
+		phy->eud_enable_reg = devm_ioremap_resource(dev, res);
+		if (IS_ERR(phy->eud_enable_reg)) {
+			dev_err(dev, "err getting eud_enable_reg address\n");
+			return PTR_ERR(phy->eud_enable_reg);
+		}
 	}
 
 	/* ref_clk_src is needed irrespective of SE_CLK or DIFF_CLK usage */

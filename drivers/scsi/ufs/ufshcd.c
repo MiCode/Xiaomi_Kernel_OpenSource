@@ -1806,7 +1806,7 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 		ret = ufshcd_uic_hibern8_enter(hba);
 		if (ret)
 			/* link will be bad state so no need to scale_up_gear */
-			return ret;
+			goto clk_scaling_unprepare;
 		ufshcd_custom_cmd_log(hba, "Hibern8-entered");
 	}
 
@@ -1819,7 +1819,7 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 		ret = ufshcd_uic_hibern8_exit(hba);
 		if (ret)
 			/* link will be bad state so no need to scale_up_gear */
-			return ret;
+			goto clk_scaling_unprepare;
 		ufshcd_custom_cmd_log(hba, "Hibern8-Exited");
 	}
 
@@ -3072,7 +3072,8 @@ int ufshcd_copy_query_response(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	memcpy(&query_res->upiu_res, &lrbp->ucd_rsp_ptr->qr, QUERY_OSF_SIZE);
 
 	/* Get the descriptor */
-	if (lrbp->ucd_rsp_ptr->qr.opcode == UPIU_QUERY_OPCODE_READ_DESC) {
+	if (hba->dev_cmd.query.descriptor &&
+	    lrbp->ucd_rsp_ptr->qr.opcode == UPIU_QUERY_OPCODE_READ_DESC) {
 		u8 *descp = (u8 *)lrbp->ucd_rsp_ptr +
 				GENERAL_UPIU_REQUEST_SIZE;
 		u16 resp_len;

@@ -197,13 +197,12 @@ int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst,
 	if (!inst || !smem) {
 		dprintk(CVP_ERR, "%s: Invalid params: %pK %pK\n",
 				__func__, inst, smem);
-		rc = -EINVAL;
-		goto exit;
+		return -EINVAL;
 	}
 
 	if (smem->refcount) {
 		smem->refcount++;
-		goto exit;
+		return rc;
 	}
 
 	if (smem->fd > 0) {
@@ -212,7 +211,7 @@ int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst,
 			rc = -EINVAL;
 			dprintk(CVP_ERR, "%s: Invalid fd=%d", __func__,
 				smem->fd);
-			goto exit;
+			return rc;
 		}
 		smem->dma_buf = dbuf;
 	} else {
@@ -232,6 +231,13 @@ int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst,
 		smem->flags |= SMEM_SECURE;
 
 	buffer_size = smem->size;
+	if (smem->offset > dbuf->size - 1 ||
+		smem->offset + buffer_size > dbuf->size) {
+		dprintk(CVP_WARN, "%s: invalid offset %d or size %d\n",
+			__func__, smem->offset, buffer_size);
+		rc = -EINVAL;
+		goto exit;
+	}
 
 	/* Ignore the buffer_type from user space. Only use ion flags */
 	rc = msm_dma_get_device_address(dbuf, align, &iova, &buffer_size,
@@ -249,9 +255,13 @@ int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst,
 	}
 
 	smem->device_addr = (u32)iova;
-
 	smem->refcount++;
+
+	return rc;
 exit:
+	dma_buf_put(dbuf);
+	smem->device_addr = 0x0;
+	smem->dma_buf = NULL;
 	return rc;
 }
 

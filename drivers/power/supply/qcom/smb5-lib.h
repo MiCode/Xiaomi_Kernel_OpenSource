@@ -74,6 +74,8 @@ enum print_reason {
 #define CC_MODE_VOTER			"CC_MODE_VOTER"
 #define MAIN_FCC_VOTER			"MAIN_FCC_VOTER"
 #define DCIN_AICL_VOTER			"DCIN_AICL_VOTER"
+#define WLS_PL_CHARGING_VOTER		"WLS_PL_CHARGING_VOTER"
+#define ICL_CHANGE_VOTER		"ICL_CHANGE_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -420,6 +422,7 @@ struct smb_charger {
 	struct votable		*chg_disable_votable;
 	struct votable		*pl_enable_votable_indirect;
 	struct votable		*cp_disable_votable;
+	struct votable		*cp_ilim_votable;
 	struct votable		*smb_override_votable;
 	struct votable		*icl_irq_disable_votable;
 	struct votable		*limited_irq_disable_votable;

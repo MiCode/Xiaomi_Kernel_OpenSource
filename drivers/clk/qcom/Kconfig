@@ -407,3 +407,12 @@ config SM_DEBUGCC_LITO
 	  Support for the debug clock controller on Qualcomm Technologies, Inc
 	  LITO devices.
 	  Say Y if you want to support the clock measurement functionality.
+
+config SM_GCC_BENGAL
+	tristate "BENGAL Global Clock Controller"
+	select QCOM_GDSC
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Bengal devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  I2C, USB, UFS, SDCC, PCIe, Camera, Video etc.

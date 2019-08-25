@@ -6061,6 +6061,31 @@ irqreturn_t dcin_uv_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static bool is_cp_topo_vbatt(struct smb_charger *chg)
+{
+	int rc;
+	bool is_vbatt;
+	union power_supply_propval pval;
+
+	if (!chg->cp_psy) {
+		chg->cp_psy = power_supply_get_by_name("charge_pump_master");
+
+		if (!chg->cp_psy)
+			return false;
+	}
+
+	rc = power_supply_get_property(chg->cp_psy,
+				POWER_SUPPLY_PROP_PARALLEL_OUTPUT_MODE, &pval);
+	if (rc < 0)
+		return false;
+
+	is_vbatt = (pval.intval == POWER_SUPPLY_PL_OUTPUT_VBAT);
+
+	smblib_dbg(chg, PR_WLS, "%s\n", is_vbatt ? "true" : "false");
+
+	return is_vbatt;
+}
+
 irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
@@ -6085,6 +6110,9 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 	dcin_present = input_present & INPUT_PRESENT_DC;
 	vbus_present = input_present & INPUT_PRESENT_USB;
 
+	if (!chg->cp_ilim_votable)
+		chg->cp_ilim_votable = find_votable("CP_ILIM");
+
 	if (dcin_present && !vbus_present) {
 		cancel_work_sync(&chg->dcin_aicl_work);
 
@@ -6098,7 +6126,22 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 
 		smblib_dbg(chg, (PR_WLS | PR_INTERRUPT), "reset: icl: 100 mA\n");
 
+		/*
+		 * Remove USB's CP ILIM vote - inapplicable for wireless
+		 * parallel charging.
+		 */
+		if (chg->cp_ilim_votable)
+			vote(chg->cp_ilim_votable, ICL_CHANGE_VOTER, false, 0);
+
 		if (chg->sec_cp_present) {
+			/*
+			 * If CP output topology is VBATT, limit main charger's
+			 * FCC share to 1 A and let the CPs handle the rest.
+			 */
+			if (is_cp_topo_vbatt(chg))
+				vote(chg->fcc_main_votable,
+					WLS_PL_CHARGING_VOTER, true, 1000000);
+
 			pval.intval = wireless_vout;
 			rc = smblib_set_prop_voltage_wls_output(chg, &pval);
 			if (rc < 0)
@@ -6137,6 +6180,7 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 		}
 
 		vote(chg->dc_suspend_votable, CHG_TERMINATION_VOTER, false, 0);
+		vote(chg->fcc_main_votable, WLS_PL_CHARGING_VOTER, false, 0);
 
 		chg->last_wls_vout = 0;
 	}

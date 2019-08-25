@@ -1825,9 +1825,9 @@ static int diag_dci_process_apps_pkt(struct diag_pkt_header_t *pkt_header,
 				     unsigned char *req_buf, int req_len,
 				     int tag, int pkt_header_len)
 {
-	uint8_t cmd_code, subsys_id, i, goto_download = 0;
+	uint8_t cmd_code = 0, subsys_id = 0, i, goto_download = 0;
 	uint8_t header_len = sizeof(struct diag_dci_pkt_header_t);
-	uint16_t ss_cmd_code;
+	uint16_t ss_cmd_code = 0;
 	uint32_t write_len = 0;
 	unsigned char *dest_buf = driver->apps_dci_buf;
 	unsigned char *payload_ptr = driver->apps_dci_buf + header_len;
@@ -2090,6 +2090,11 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 					req_entry->tag, header_len);
 	if ((ret == DIAG_DCI_NO_ERROR && !common_cmd) || ret < 0)
 		return ret;
+
+	reg_entry.cmd_code = 0;
+	reg_entry.subsys_id = 0;
+	reg_entry.cmd_code_hi = 0;
+	reg_entry.cmd_code_lo = 0;
 
 	if (header_len >= (sizeof(uint8_t)))
 		reg_entry.cmd_code = header->cmd_code;

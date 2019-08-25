@@ -17,24 +17,24 @@ struct mhi_buf_info;
  * enum MHI_CB - MHI callback
  * @MHI_CB_IDLE: MHI entered idle state
  * @MHI_CB_PENDING_DATA: New data available for client to process
+ * @MHI_CB_DTR_SIGNAL: DTR signaling update
  * @MHI_CB_LPM_ENTER: MHI host entered low power mode
  * @MHI_CB_LPM_EXIT: MHI host about to exit low power mode
  * @MHI_CB_EE_RDDM: MHI device entered RDDM execution enviornment
  * @MHI_CB_EE_MISSION_MODE: MHI device entered Mission Mode ee
  * @MHI_CB_SYS_ERROR: MHI device enter error state (may recover)
  * @MHI_CB_FATAL_ERROR: MHI device entered fatal error
- * @MHI_CB_BW_REQ: Received a bandwidth switch request from device
  */
 enum MHI_CB {
 	MHI_CB_IDLE,
 	MHI_CB_PENDING_DATA,
+	MHI_CB_DTR_SIGNAL,
 	MHI_CB_LPM_ENTER,
 	MHI_CB_LPM_EXIT,
 	MHI_CB_EE_RDDM,
 	MHI_CB_EE_MISSION_MODE,
 	MHI_CB_SYS_ERROR,
 	MHI_CB_FATAL_ERROR,
-	MHI_CB_BW_REQ,
 };
 
 /**
@@ -119,10 +119,12 @@ enum mhi_dev_state {
  * struct mhi_link_info - bw requirement
  * target_link_speed - as defined by TLS bits in LinkControl reg
  * target_link_width - as defined by NLW bits in LinkStatus reg
+ * sequence_num - used by device to track bw requests sent to host
  */
 struct mhi_link_info {
 	unsigned int target_link_speed;
 	unsigned int target_link_width;
+	int sequence_num;
 };
 
 /**
@@ -198,6 +200,7 @@ struct mhi_controller {
 	void __iomem *bhi;
 	void __iomem *bhie;
 	void __iomem *wake_db;
+	void __iomem *bw_scale_db;
 
 	/* device topology */
 	u32 dev_id;
@@ -240,6 +243,7 @@ struct mhi_controller {
 	u32 msi_allocated;
 	int *irq; /* interrupt table */
 	struct mhi_event *mhi_event;
+	struct list_head lp_ev_rings; /* low priority event rings */
 
 	/* cmd rings */
 	struct mhi_cmd *mhi_cmd;
@@ -278,6 +282,7 @@ struct mhi_controller {
 	struct work_struct st_worker;
 	struct work_struct fw_worker;
 	struct work_struct syserr_worker;
+	struct work_struct low_priority_worker;
 	wait_queue_head_t state_event;
 
 	/* shadow functions */
@@ -297,6 +302,8 @@ struct mhi_controller {
 	void (*unmap_single)(struct mhi_controller *mhi_cntrl,
 			     struct mhi_buf_info *buf);
 	void (*tsync_log)(struct mhi_controller *mhi_cntrl, u64 remote_time);
+	int (*bw_scale)(struct mhi_controller *mhi_cntrl,
+			struct mhi_link_info *link_info);
 
 	/* channel to control DTR messaging */
 	struct mhi_device *dtr_dev;
