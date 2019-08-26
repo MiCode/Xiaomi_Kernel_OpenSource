@@ -218,7 +218,6 @@ unsigned int gmu_get_memtype_base(struct gmu_device *gmu,
 		enum gmu_mem_type type);
 
 int gmu_prealloc_req(struct kgsl_device *device, struct gmu_block_header *blk);
-int gmu_memory_probe(struct kgsl_device *device);
 int gmu_cache_finalize(struct kgsl_device *device);
 
 #endif /* __KGSL_GMU_H */

@@ -447,7 +447,7 @@ int gmu_prealloc_req(struct kgsl_device *device, struct gmu_block_header *blk)
  * to share with GMU in kernel mode.
  * @device: Pointer to KGSL device
  */
-int gmu_memory_probe(struct kgsl_device *device)
+static int gmu_memory_probe(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -1562,6 +1562,24 @@ static void gmu_snapshot(struct kgsl_device *device)
 	gmu->fault_count++;
 }
 
+static int gmu_init(struct kgsl_device *device)
+{
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+	int ret;
+
+	ret = ops->load_firmware(device);
+	if (ret)
+		return ret;
+
+	ret = gmu_memory_probe(device);
+	if (ret)
+		return ret;
+
+	hfi_init(gmu);
+
+	return 0;
+}
 /* To be called to power on both GPU and GMU */
 static int gmu_start(struct kgsl_device *device)
 {
@@ -1575,7 +1593,9 @@ static int gmu_start(struct kgsl_device *device)
 	case KGSL_STATE_INIT:
 		gmu_aop_send_acd_state(device, test_bit(ADRENO_ACD_CTRL,
 					&adreno_dev->pwrctrl_flag));
-
+		ret = gmu_init(device);
+		if (ret)
+			return ret;
 	case KGSL_STATE_SUSPEND:
 		WARN_ON(test_bit(GMU_CLK_ON, &device->gmu_core.flags));
 
