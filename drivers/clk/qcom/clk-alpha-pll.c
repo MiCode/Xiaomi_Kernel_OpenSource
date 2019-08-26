@@ -231,10 +231,15 @@ static int wait_for_pll(struct clk_alpha_pll *pll, u32 mask, bool inverse,
 #define wait_for_pll_update(pll) \
 	wait_for_pll(pll, PLL_UPDATE, 1, "pll update")
 
-void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+int clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 			     const struct alpha_pll_config *config)
 {
 	u32 val, mask;
+
+	if (!config) {
+		pr_err("PLL configuration missing.\n");
+		return -EINVAL;
+	}
 
 	regmap_write(regmap, pll->offset + PLL_L_VAL, config->l);
 	regmap_write(regmap, pll->offset + PLL_ALPHA_VAL, config->alpha);
@@ -301,6 +306,8 @@ void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	if (pll->flags & SUPPORTS_FSM_MODE)
 		qcom_pll_set_fsm_mode(regmap, pll->offset + PLL_MODE,
 					6, 0);
+
+	return 0;
 }
 
 static int clk_alpha_pll_hwfsm_enable(struct clk_hw *hw)
@@ -388,7 +395,7 @@ static int clk_alpha_pll_enable(struct clk_hw *hw)
 {
 	int ret;
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
-	u32 val, mask, off;
+	u32 val, mask, off, l_val;
 
 	off = pll->offset;
 
@@ -412,6 +419,25 @@ static int clk_alpha_pll_enable(struct clk_hw *hw)
 	/* Skip if already enabled */
 	if ((val & mask) == mask)
 		return 0;
+
+	ret = regmap_read(pll->clkr.regmap, off + PLL_L_VAL, &l_val);
+	if (ret)
+		return ret;
+
+	/* PLL has lost it's L value, needs reconfiguration */
+	if (!l_val) {
+		if (pll->type == AGERA_PLL)
+			ret = clk_agera_pll_configure(pll, pll->clkr.regmap,
+						pll->config);
+		else
+			ret = clk_alpha_pll_configure(pll, pll->clkr.regmap,
+						pll->config);
+		if (ret) {
+			pr_err("Failed to configure %s\n", clk_hw_get_name(hw));
+			return ret;
+		}
+		pr_warn("PLL configuration lost, reconfiguration of PLL done.\n");
+	}
 
 	ret = regmap_update_bits(pll->clkr.regmap, off + PLL_MODE,
 				 PLL_BYPASSNL, PLL_BYPASSNL);
@@ -2287,10 +2313,15 @@ const struct clk_ops clk_generic_pll_postdiv_ops = {
 };
 EXPORT_SYMBOL(clk_generic_pll_postdiv_ops);
 
-void clk_agera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+int clk_agera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config)
 {
 	u32 val, mask;
+
+	if (!config) {
+		pr_err("PLL configuration missing.\n");
+		return -EINVAL;
+	}
 
 	if (config->l)
 		regmap_write(regmap, pll->offset + PLL_L_VAL,
@@ -2338,6 +2369,8 @@ void clk_agera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	if (config->test_ctl_hi_val)
 		regmap_write(regmap, pll->offset + AGERA_PLL_TEST_CTL_U,
 					config->test_ctl_hi_val);
+
+	return 0;
 }
 
 static unsigned long
