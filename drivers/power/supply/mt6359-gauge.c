@@ -279,7 +279,7 @@ static int reg_to_current(struct mtk_gauge *gauge,
 int get_rtc_spare0_fg_value(struct mtk_gauge *gauge)
 {
 	struct nvmem_cell *cell;
-	u32 *buf;
+	u8 *buf;
 
 	cell = nvmem_cell_get(&gauge->pdev->dev, "initialization");
 	if (IS_ERR(cell)) {
@@ -328,7 +328,7 @@ void set_rtc_spare0_fg_value(struct mtk_gauge *gauge, u8 val)
 int get_rtc_spare_fg_value(struct mtk_gauge *gauge)
 {
 	struct nvmem_cell *cell;
-	u32 *buf;
+	u8 *buf;
 
 	cell = nvmem_cell_get(&gauge->pdev->dev, "state-of-charge");
 	if (IS_ERR(cell)) {
