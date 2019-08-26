@@ -50,7 +50,6 @@ static struct adreno_device device_3d0 = {
 			.irq_name = "kgsl_3d0_irq",
 		},
 		.iomemname = "kgsl_3d0_reg_memory",
-		.shadermemname = "kgsl_3d0_shader_memory",
 		.ftbl = &adreno_functable,
 	},
 	.ft_policy = KGSL_FT_DEFAULT_POLICY,
@@ -3016,55 +3015,10 @@ static int adreno_suspend_context(struct kgsl_device *device)
 	return adreno_idle(device);
 }
 
-/**
- * adreno_read - General read function to read adreno device memory
- * @device - Pointer to the GPU device struct (for adreno device)
- * @base - Base address (kernel virtual) where the device memory is mapped
- * @offsetwords - Offset in words from the base address, of the memory that
- * is to be read
- * @value - Value read from the device memory
- * @mem_len - Length of the device memory mapped to the kernel
- */
-static void adreno_read(struct kgsl_device *device, void __iomem *base,
-		unsigned int offsetwords, unsigned int *value,
-		unsigned int mem_len)
-{
-
-	void __iomem *reg;
-
-	/* Make sure we're not reading from invalid memory */
-	if (WARN(offsetwords * sizeof(uint32_t) >= mem_len,
-		"Out of bounds register read: 0x%x/0x%x\n",
-			offsetwords, mem_len >> 2))
-		return;
-
-	reg = (base + (offsetwords << 2));
-
-	if (!in_interrupt())
-		kgsl_pre_hwaccess(device);
-
-	*value = __raw_readl(reg);
-	/*
-	 * ensure this read finishes before the next one.
-	 * i.e. act like normal readl()
-	 */
-	rmb();
-}
-
 static void adreno_retry_rbbm_read(struct kgsl_device *device,
-		void __iomem *base, unsigned int offsetwords,
-		unsigned int *value, unsigned int mem_len)
+		unsigned int offsetwords, unsigned int *value)
 {
 	int i;
-	void __iomem *reg;
-
-	/* Make sure we're not reading from invalid memory */
-	if (WARN(offsetwords * sizeof(uint32_t) >= mem_len,
-		"Out of bounds register read: 0x%x/0x%x\n",
-		offsetwords, mem_len >> 2))
-		return;
-
-	reg = (base + (offsetwords << 2));
 
 	/*
 	 * If 0xdeafbead was transient, second read is expected to return the
@@ -3072,7 +3026,7 @@ static void adreno_retry_rbbm_read(struct kgsl_device *device,
 	 * 0xdeafbead, read it enough times to guarantee that.
 	 */
 	for (i = 0; i < 16; i++) {
-		*value = readl_relaxed(reg);
+		*value = readl_relaxed(device->reg_virt + (offsetwords << 2));
 		/*
 		 * Read barrier needed so that register is read from hardware
 		 * every iteration
@@ -3089,12 +3043,13 @@ static bool adreno_is_rbbm_batch_reg(struct kgsl_device *device,
 {
 	if (adreno_is_a650(ADRENO_DEVICE(device)) ||
 		adreno_is_a620v1(ADRENO_DEVICE(device))) {
-		if (((offsetwords > 0x0) && (offsetwords < 0x3FF)) ||
-			((offsetwords > 0x4FA) && (offsetwords < 0x53F)) ||
-			((offsetwords > 0x556) && (offsetwords < 0x5FF)) ||
-			((offsetwords > 0xF400) && (offsetwords < 0xFFFF)))
+		if (((offsetwords >= 0x0) && (offsetwords <= 0x3FF)) ||
+		((offsetwords >= 0x4FA) && (offsetwords <= 0x53F)) ||
+		((offsetwords >= 0x556) && (offsetwords <= 0x5FF)) ||
+		((offsetwords >= 0xF400) && (offsetwords <= 0xFFFF)))
 			return  true;
 	}
+
 	return false;
 }
 
@@ -3106,26 +3061,22 @@ static bool adreno_is_rbbm_batch_reg(struct kgsl_device *device,
 static void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 	unsigned int *value)
 {
-	adreno_read(device, device->reg_virt, offsetwords, value,
-						device->reg_len);
+	/* Make sure we're not reading from invalid memory */
+	if (WARN(offsetwords * sizeof(uint32_t) >= device->reg_len,
+		"Out of bounds register read: 0x%x/0x%x\n",
+			offsetwords, device->reg_len >> 2))
+		return;
+
+	if (!in_interrupt())
+		kgsl_pre_hwaccess(device);
+
+	*value = readl_relaxed(device->reg_virt + (offsetwords << 2));
+	/* Order this read with respect to the following memory accesses */
+	rmb();
 
 	if ((*value == 0xdeafbead) &&
 		adreno_is_rbbm_batch_reg(device, offsetwords))
-		adreno_retry_rbbm_read(device, device->reg_virt, offsetwords,
-			value, device->reg_len);
-}
-
-/**
- * adreno_shadermem_regread - Used to read GPU (adreno) shader memory
- * @device - GPU device whose shader memory is to be read
- * @offsetwords - Offset in words, of the shader memory address to be read
- * @value - Pointer to where the read shader mem value is to be stored
- */
-void adreno_shadermem_regread(struct kgsl_device *device,
-	unsigned int offsetwords, unsigned int *value)
-{
-	adreno_read(device, device->shader_mem_virt, offsetwords, value,
-					device->shader_mem_len);
+		adreno_retry_rbbm_read(device, offsetwords, value);
 }
 
 static void adreno_regwrite(struct kgsl_device *device,
