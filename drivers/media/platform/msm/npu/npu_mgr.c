@@ -1702,17 +1702,17 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 
 	mutex_lock(&host_ctx->lock);
 
+	if (network->fw_error) {
+		ret = -EIO;
+		NPU_ERR("fw is in error state during load_v2 network\n");
+		goto error_free_network;
+	}
+
 	if (!ret) {
 		NPU_ERR("npu: NPU_IPC_CMD_LOAD time out\n");
 		npu_dump_debug_info(npu_dev);
 		ret = -ETIMEDOUT;
 		goto error_load_network;
-	}
-
-	if (network->fw_error) {
-		ret = -EIO;
-		NPU_ERR("fw is in error state during load_v2 network\n");
-		goto error_free_network;
 	}
 
 	ret = network->cmd_ret_status;
@@ -1817,6 +1817,12 @@ int32_t npu_host_unload_network(struct npu_client *client,
 
 	mutex_lock(&host_ctx->lock);
 
+	if (network->fw_error) {
+		ret = -EIO;
+		NPU_ERR("fw is in error state during unload network\n");
+		goto free_network;
+	}
+
 	if (!ret) {
 		NPU_ERR("npu: NPU_IPC_CMD_UNLOAD time out\n");
 		npu_dump_debug_info(npu_dev);
@@ -1825,13 +1831,8 @@ int32_t npu_host_unload_network(struct npu_client *client,
 		goto free_network;
 	}
 
-	if (network->fw_error) {
-		ret = -EIO;
-		NPU_ERR("fw is in error state during unload network\n");
-	} else {
-		ret = network->cmd_ret_status;
-		NPU_DBG("unload network status %d\n", ret);
-	}
+	ret = network->cmd_ret_status;
+	NPU_DBG("unload network status %d\n", ret);
 
 free_network:
 	/*
@@ -1952,18 +1953,18 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
 
 	mutex_lock(&host_ctx->lock);
+	if (network->fw_error) {
+		ret = -EIO;
+		NPU_ERR("fw is in error state during execute_v2 network\n");
+		goto free_exec_packet;
+	}
+
 	if (!ret) {
 		NPU_ERR("npu: %x NPU_IPC_CMD_EXECUTE_V2 time out\n",
 			network->id);
 		npu_dump_debug_info(npu_dev);
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
-		goto free_exec_packet;
-	}
-
-	if (network->fw_error) {
-		ret = -EIO;
-		NPU_ERR("fw is in error state during execute_v2 network\n");
 		goto free_exec_packet;
 	}
 
