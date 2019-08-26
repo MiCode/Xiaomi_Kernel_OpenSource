@@ -29,7 +29,7 @@ struct qrtr_usb_dev_ep {
 static struct qrtr_usb_dev_ep *qep;
 
 /* from qrtr to usb */
-static int qcom_usb_dev_qrtr_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
+static int qrtr_usb_dev_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 {
 	struct qrtr_usb_dev_ep *qep =
 		container_of(ep, struct qrtr_usb_dev_ep, ep);
@@ -63,7 +63,7 @@ exit_free_skb:
 }
 
 /* from usb to qrtr */
-static int qcom_usb_dev_qrtr_rx_thread_fn(void *data)
+static int qrtr_usb_dev_rx_thread_fn(void *data)
 {
 	struct qrtr_usb_dev_ep *qep = data;
 	struct ipc_bridge_platform_data *ipc_bridge;
@@ -101,7 +101,7 @@ static int qcom_usb_dev_qrtr_rx_thread_fn(void *data)
 	return rc;
 }
 
-static int qcom_usb_dev_qrtr_probe(struct platform_device *pdev)
+static int qrtr_usb_dev_probe(struct platform_device *pdev)
 {
 	struct ipc_bridge_platform_data *ipc_bridge;
 	int rc;
@@ -129,7 +129,7 @@ static int qcom_usb_dev_qrtr_probe(struct platform_device *pdev)
 	}
 
 	qep->pdev = pdev;
-	qep->ep.xmit = qcom_usb_dev_qrtr_send;
+	qep->ep.xmit = qrtr_usb_dev_send;
 
 	rc = qrtr_endpoint_register(&qep->ep, QRTR_EP_NID_AUTO, false);
 	if (rc) {
@@ -137,7 +137,7 @@ static int qcom_usb_dev_qrtr_probe(struct platform_device *pdev)
 		goto exit_close_bridge;
 	}
 
-	qep->rx_thread = kthread_run(qcom_usb_dev_qrtr_rx_thread_fn, qep,
+	qep->rx_thread = kthread_run(qrtr_usb_dev_rx_thread_fn, qep,
 				     "qrtr-usb-dev-rx");
 	if (IS_ERR(qep->rx_thread)) {
 		dev_err(&qep->pdev->dev, "could not create rx_thread\n");
@@ -157,7 +157,7 @@ exit:
 	return rc;
 }
 
-static int qcom_usb_dev_qrtr_remove(struct platform_device *pdev)
+static int qrtr_usb_dev_remove(struct platform_device *pdev)
 {
 	struct ipc_bridge_platform_data *ipc_bridge;
 
@@ -173,15 +173,15 @@ static int qcom_usb_dev_qrtr_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver qcom_usb_dev_qrtr_driver = {
-	.probe = qcom_usb_dev_qrtr_probe,
-	.remove = qcom_usb_dev_qrtr_remove,
+static struct platform_driver qrtr_usb_dev_driver = {
+	.probe = qrtr_usb_dev_probe,
+	.remove = qrtr_usb_dev_remove,
 	.driver = {
 		.name = IPC_DRIVER_NAME,
 		.owner = THIS_MODULE,
 	 },
 };
-module_platform_driver(qcom_usb_dev_qrtr_driver);
+module_platform_driver(qrtr_usb_dev_driver);
 
 MODULE_DESCRIPTION("QTI IPC-Router USB device interface driver");
 MODULE_LICENSE("GPL v2");
