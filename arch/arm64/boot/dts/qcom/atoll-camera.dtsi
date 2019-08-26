@@ -147,7 +147,7 @@
 	};
 
 	cam_csiphy3: qcom,csiphy@ac68000 {
-		cell-index = <2>;
+		cell-index = <3>;
 		compatible = "qcom,csiphy-v1.2.2", "qcom,csiphy";
 		reg = <0xac68000 0x1000>;
 		reg-names = "csiphy";
@@ -613,16 +613,17 @@
 		client-id-based;
 		client-names =
 			"csiphy0", "csiphy1", "csiphy2", "csiphy3",
-			"csid0", "csid1", "csid2", "cci0",
+			"csid0", "csid1", "csid2", "cci0", "cci1",
 			"ife0", "ife1", "ife2", "ipe0",
 			"ipe1", "cam-cdm-intf0", "cpas-cdm0", "bps0",
 			"icp0", "jpeg-dma0", "jpeg-enc0", "lrmecpas0";
 		client-axi-port-names =
-			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_hf_2",
+			"cam_hf_1", "cam_hf_1", "cam_hf_1", "cam_hf_1",
 			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_sf_1",
-			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_sf_1",
+			"cam_sf_1", "cam_hf_1", "cam_hf_2", "cam_hf_2",
 			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
-			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1";
+			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
+			"cam_sf_1";
 		client-bus-camnoc-based;
 		qcom,axi-port-list {
 			qcom,axi-port1 {
