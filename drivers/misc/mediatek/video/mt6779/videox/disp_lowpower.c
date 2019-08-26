@@ -880,18 +880,17 @@ static void _cmd_mode_enter_idle(void)
 	if (disp_helper_get_option(DISP_OPT_SHARE_SRAM))
 		; /* leave_share_sram(CMDQ_SYNC_RESOURCE_WROT0); */
 
-	/* please keep last */
-	if (disp_helper_get_option(DISP_OPT_IDLEMGR_ENTER_ULPS))
-		_primary_display_disable_mmsys_clk();
-
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	/* update bandwidth */
+	/* update bandwidth first, then disable clk */
 	disp_pm_qos_set_default_bw(&bandwidth);
 	disp_pm_qos_update_bw(bandwidth);
 	prim_disp_request_hrt_bw(HRT_BW_UNREQ,
 			DDP_SCENARIO_PRIMARY_DISP, __func__);
 #endif
 
+	/* please keep last */
+	if (disp_helper_get_option(DISP_OPT_IDLEMGR_ENTER_ULPS))
+		_primary_display_disable_mmsys_clk();
 }
 
 static void _cmd_mode_leave_idle(void)

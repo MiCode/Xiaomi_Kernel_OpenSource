@@ -147,7 +147,9 @@ static int __set_hrt_bw(enum DISP_MODULE_ENUM module,
 		return -1;
 	}
 
-	mm_qos_set_hrt_request(request, MTK_MMQOS_MAX_BW);
+	if (bandwidth)
+		bandwidth = MTK_MMQOS_MAX_BW;
+	mm_qos_set_hrt_request(request, bandwidth);
 #endif
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_hrt_bw,
 			MMPROFILE_FLAG_PULSE,
