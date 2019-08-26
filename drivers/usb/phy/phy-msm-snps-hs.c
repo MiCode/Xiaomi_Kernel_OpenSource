@@ -19,6 +19,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/usb/phy.h>
 #include <linux/reset.h>
+#include <linux/debugfs.h>
 
 #define USB2_PHY_USB_PHY_UTMI_CTRL0		(0x3c)
 #define OPMODE_MASK				(0x3 << 3)
@@ -59,6 +60,15 @@
 #define USB2PHY_USB_PHY_RTUNE_SEL		(0xb4)
 #define RTUNE_SEL				BIT(0)
 
+#define TXPREEMPAMPTUNE0(x)			(x << 6)
+#define TXPREEMPAMPTUNE0_MASK			(BIT(7) | BIT(6))
+#define USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X0	0x6c
+#define USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X1	0x70
+#define USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X2	0x74
+#define USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X3	0x78
+#define TXVREFTUNE0_MASK			0xF
+#define PARAM_OVRD_MASK			0xFF
+
 #define USB_HSPHY_3P3_VOL_MIN			3050000 /* uV */
 #define USB_HSPHY_3P3_VOL_MAX			3300000 /* uV */
 #define USB_HSPHY_3P3_HPM_LOAD			16000	/* uA */
@@ -98,6 +108,15 @@ struct msm_hsphy {
 	struct mutex		phy_lock;
 	struct regulator_desc	dpdm_rdesc;
 	struct regulator_dev	*dpdm_rdev;
+
+	/* debugfs entries */
+	struct dentry		*root;
+	u8			txvref_tune0;
+	u8			pre_emphasis;
+	u8			param_ovrd0;
+	u8			param_ovrd1;
+	u8			param_ovrd2;
+	u8			param_ovrd3;
 };
 
 static void msm_hsphy_enable_clocks(struct msm_hsphy *phy, bool on)
@@ -360,6 +379,53 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 		hsusb_phy_write_seq(phy->base, phy->param_override_seq,
 				phy->param_override_seq_cnt, 0);
 
+	if (phy->pre_emphasis) {
+		u8 val = TXPREEMPAMPTUNE0(phy->pre_emphasis) &
+				TXPREEMPAMPTUNE0_MASK;
+		if (val)
+			msm_usb_write_readback(phy->base,
+				USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X1,
+				TXPREEMPAMPTUNE0_MASK, val);
+	}
+
+	if (phy->txvref_tune0) {
+		u8 val = phy->txvref_tune0 & TXVREFTUNE0_MASK;
+
+		msm_usb_write_readback(phy->base,
+			USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X1,
+			TXVREFTUNE0_MASK, val);
+	}
+
+	if (phy->param_ovrd0) {
+		msm_usb_write_readback(phy->base,
+			USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X0,
+			PARAM_OVRD_MASK, phy->param_ovrd0);
+	}
+
+	if (phy->param_ovrd1) {
+		msm_usb_write_readback(phy->base,
+			USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X1,
+			PARAM_OVRD_MASK, phy->param_ovrd1);
+	}
+
+	if (phy->param_ovrd2) {
+		msm_usb_write_readback(phy->base,
+			USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X2,
+			PARAM_OVRD_MASK, phy->param_ovrd2);
+	}
+
+	if (phy->param_ovrd3) {
+		msm_usb_write_readback(phy->base,
+			USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X3,
+			PARAM_OVRD_MASK, phy->param_ovrd3);
+	}
+
+	dev_dbg(uphy->dev, "x0:%08x x1:%08x x2:%08x x3:%08x\n",
+	readl_relaxed(phy->base + USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X0),
+	readl_relaxed(phy->base + USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X1),
+	readl_relaxed(phy->base + USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X2),
+	readl_relaxed(phy->base + USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X3));
+
 	if (phy->phy_rcal_reg) {
 		rcal_code = readl_relaxed(phy->phy_rcal_reg) & phy->rcal_mask;
 
@@ -574,6 +640,17 @@ static int msm_hsphy_regulator_init(struct msm_hsphy *phy)
 	return 0;
 }
 
+static void msm_hsphy_create_debugfs(struct msm_hsphy *phy)
+{
+	phy->root = debugfs_create_dir(dev_name(phy->phy.dev), NULL);
+	debugfs_create_x8("pre_emphasis", 0644, phy->root, &phy->pre_emphasis);
+	debugfs_create_x8("txvref_tune0", 0644, phy->root, &phy->txvref_tune0);
+	debugfs_create_x8("param_ovrd0", 0644, phy->root, &phy->param_ovrd0);
+	debugfs_create_x8("param_ovrd1", 0644, phy->root, &phy->param_ovrd1);
+	debugfs_create_x8("param_ovrd2", 0644, phy->root, &phy->param_ovrd2);
+	debugfs_create_x8("param_ovrd3", 0644, phy->root, &phy->param_ovrd3);
+}
+
 static int msm_hsphy_probe(struct platform_device *pdev)
 {
 	struct msm_hsphy *phy;
@@ -735,6 +812,8 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	msm_hsphy_create_debugfs(phy);
+
 	return 0;
 
 err_ret:
@@ -747,6 +826,8 @@ static int msm_hsphy_remove(struct platform_device *pdev)
 
 	if (!phy)
 		return 0;
+
+	debugfs_remove_recursive(phy->root);
 
 	usb_remove_phy(&phy->phy);
 	clk_disable_unprepare(phy->ref_clk_src);
