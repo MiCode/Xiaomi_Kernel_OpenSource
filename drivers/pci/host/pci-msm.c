@@ -582,6 +582,12 @@ struct msm_pcie_irq_info_t {
 	uint32_t	    num;
 };
 
+/* bandwidth info structure */
+struct msm_pcie_bw_scale_info_t {
+	u32 cx_vreg_min;
+	u32 rate_change_freq;
+};
+
 /* phy info structure */
 struct msm_pcie_phy_info_t {
 	u32	offset;
@@ -647,6 +653,8 @@ struct msm_pcie_dev_t {
 
 	struct msm_pcie_vreg_info_t *cx_vreg;
 	struct msm_pcie_clk_info_t *rate_change_clk;
+	struct msm_pcie_bw_scale_info_t *bw_scale;
+	u32 bw_gen_max;
 
 	bool				 cfg_access;
 	spinlock_t			 cfg_lock;
@@ -3638,6 +3646,23 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 		ret = 0;
 	}
 
+	of_get_property(pdev->dev.of_node, "qcom,bw-scale", &size);
+	if (size) {
+		dev->bw_scale = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
+		if (!dev->bw_scale) {
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		of_property_read_u32_array(pdev->dev.of_node, "qcom,bw-scale",
+				(u32 *)dev->bw_scale, size / sizeof(u32));
+
+		dev->bw_gen_max = size / sizeof(u32);
+	} else {
+		PCIE_DBG(dev, "RC%d: bandwidth scaling is not supported\n",
+			dev->rc_idx);
+	}
+
 	of_get_property(pdev->dev.of_node, "qcom,phy-sequence", &size);
 	if (size) {
 		dev->phy_sequence = (struct msm_pcie_phy_info_t *)
@@ -3902,6 +3927,50 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 	dev->tcsr = NULL;
 }
 
+static void msm_pcie_scale_link_bandwidth(struct msm_pcie_dev_t *pcie_dev,
+					u16 target_link_speed)
+{
+	struct msm_pcie_bw_scale_info_t *bw_scale;
+	u32 index = target_link_speed - PCI_EXP_LNKCTL2_TLS_2_5GT;
+
+	if (!pcie_dev->bw_scale)
+		return;
+
+	if (index >= pcie_dev->bw_gen_max) {
+		PCIE_ERR(pcie_dev,
+			"PCIe: RC%d: invalid target link speed: %d\n",
+			pcie_dev->rc_idx, target_link_speed);
+		return;
+	}
+
+	bw_scale = &pcie_dev->bw_scale[index];
+
+	if (pcie_dev->cx_vreg)
+		regulator_set_voltage(pcie_dev->cx_vreg->hdl,
+					bw_scale->cx_vreg_min,
+					pcie_dev->cx_vreg->max_v);
+
+	if (pcie_dev->rate_change_clk) {
+		mutex_lock(&pcie_dev->clk_lock);
+
+		/* it is okay to always scale up */
+		clk_set_rate(pcie_dev->rate_change_clk->hdl,
+				RATE_CHANGE_100MHZ);
+
+		if (bw_scale->rate_change_freq == RATE_CHANGE_100MHZ)
+			pcie_drv.rate_change_vote |= BIT(pcie_dev->rc_idx);
+		else
+			pcie_drv.rate_change_vote &= ~BIT(pcie_dev->rc_idx);
+
+		/* scale down to 19.2MHz if no one needs 100MHz */
+		if (!pcie_drv.rate_change_vote)
+			clk_set_rate(pcie_dev->rate_change_clk->hdl,
+					RATE_CHANGE_19P2MHZ);
+
+		mutex_unlock(&pcie_dev->clk_lock);
+	}
+}
+
 static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 {
 	int ret = 0;
@@ -4113,6 +4182,39 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 			dev->rc_idx);
 		ret = -1;
 		goto link_fail;
+	}
+
+	if (dev->bw_scale) {
+		u32 index;
+		u32 current_link_speed;
+		struct msm_pcie_bw_scale_info_t *bw_scale;
+
+		/*
+		 * check if the link up GEN speed is less than the max/default
+		 * supported. If it is, scale down CX corner and rate change
+		 * clock accordingly.
+		 */
+		current_link_speed = readl_relaxed(dev->dm_core +
+						PCIE20_CAP_LINKCTRLSTATUS);
+		current_link_speed = ((current_link_speed >> 16) &
+					PCI_EXP_LNKSTA_CLS);
+
+		index = current_link_speed - PCI_EXP_LNKCTL2_TLS_2_5GT;
+		if (index >= dev->bw_gen_max) {
+			PCIE_ERR(dev,
+				"PCIe: RC%d: unsupported gen speed: %d\n",
+				dev->rc_idx, current_link_speed);
+			return 0;
+		}
+
+		bw_scale = &dev->bw_scale[index];
+
+		if (bw_scale->cx_vreg_min < dev->cx_vreg->min_v) {
+			msm_pcie_write_reg_field(dev->dm_core,
+				PCIE20_CAP + PCI_EXP_LNKCTL2,
+				PCI_EXP_LNKCAP_SLS, current_link_speed);
+			msm_pcie_scale_link_bandwidth(dev, current_link_speed);
+		}
 	}
 
 	dev->link_status = MSM_PCIE_LINK_ENABLED;
@@ -6033,9 +6135,6 @@ static int msm_pcie_link_retrain(struct msm_pcie_dev_t *pcie_dev,
 	u32 cnt_max = 1000; /* 100ms timeout */
 	u32 link_status_lbms_mask = PCI_EXP_LNKSTA_LBMS << PCI_EXP_LNKCTL;
 
-	/* force link to L0 */
-	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_PM_CTRL,  0, BIT(5));
-
 	cnt = 0;
 	/* confirm link is in L0 */
 	while (((readl_relaxed(pcie_dev->parf + PCIE20_PARF_LTSSM) &
@@ -6068,34 +6167,34 @@ static int msm_pcie_link_retrain(struct msm_pcie_dev_t *pcie_dev,
 		usleep_range(100, 105);
 	}
 
-	/* re-enable link LPM */
-	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
-
 	return 0;
 }
 
-static void msm_pcie_set_link_width(struct msm_pcie_dev_t *pcie_dev,
-					u16 *target_link_width)
+static int msm_pcie_set_link_width(struct msm_pcie_dev_t *pcie_dev,
+					u16 target_link_width)
 {
-	switch (*target_link_width) {
+	u16 link_width;
+
+	switch (target_link_width) {
 	case PCI_EXP_LNKSTA_NLW_X1:
-		*target_link_width = LINK_WIDTH_X1;
+		link_width = LINK_WIDTH_X1;
 		break;
 	case PCI_EXP_LNKSTA_NLW_X2:
-		*target_link_width = LINK_WIDTH_X2;
+		link_width = LINK_WIDTH_X2;
 		break;
 	default:
 		PCIE_ERR(pcie_dev,
 			"PCIe: RC%d: unsupported link width request: %d\n",
-			pcie_dev->rc_idx, *target_link_width);
-		*target_link_width = 0;
-		return;
+			pcie_dev->rc_idx, target_link_width);
+		return -EINVAL;
 	}
 
 	msm_pcie_write_reg_field(pcie_dev->dm_core,
 				PCIE20_PORT_LINK_CTRL_REG,
 				LINK_WIDTH_MASK << LINK_WIDTH_SHIFT,
-				*target_link_width);
+				link_width);
+
+	return 0;
 }
 
 int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
@@ -6106,6 +6205,8 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 	u16 link_status;
 	u16 current_link_speed;
 	u16 current_link_width;
+	bool set_link_speed = true;
+	bool set_link_width = true;
 	int ret;
 
 	if (!pci_dev)
@@ -6121,69 +6222,57 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 	target_link_width <<= PCI_EXP_LNKSTA_NLW_SHIFT;
 
 	if (target_link_speed == current_link_speed)
-		target_link_speed = 0;
+		set_link_speed = false;
 
 	if (target_link_width == current_link_width)
-		target_link_width = 0;
+		set_link_width = false;
 
-	if (target_link_width)
-		msm_pcie_set_link_width(pcie_dev, &target_link_width);
-
-	if (!target_link_speed && !target_link_width)
+	if (!set_link_speed && !set_link_width)
 		return 0;
 
-	if (target_link_speed)
+	if (set_link_width) {
+		ret = msm_pcie_set_link_width(pcie_dev, target_link_width);
+		if (ret)
+			return ret;
+	}
+
+	if (set_link_speed)
 		msm_pcie_config_clear_set_dword(root_pci_dev,
 						root_pci_dev->pcie_cap +
 						PCI_EXP_LNKCTL2,
 						PCI_EXP_LNKSTA_CLS,
 						target_link_speed);
 
-	/* increase CX and rate change clk freq if target speed is Gen3 */
-	if (target_link_speed == PCI_EXP_LNKCTL2_TLS_8_0GT) {
-		if (pcie_dev->cx_vreg)
-			regulator_set_voltage(pcie_dev->cx_vreg->hdl,
-						RPMH_REGULATOR_LEVEL_NOM,
-						pcie_dev->cx_vreg->max_v);
+	/* disable link L1. Need to be in L0 for gen switch */
+	msm_pcie_config_l1(pcie_dev, root_pci_dev, false);
+	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_PM_CTRL,  0, BIT(5));
 
-		if (pcie_dev->rate_change_clk) {
-			mutex_lock(&pcie_dev->clk_lock);
-
-			pcie_drv.rate_change_vote |= BIT(pcie_dev->rc_idx);
-			clk_set_rate(pcie_dev->rate_change_clk->hdl,
-					RATE_CHANGE_100MHZ);
-
-			mutex_unlock(&pcie_dev->clk_lock);
-		}
-	}
+	if (target_link_speed > current_link_speed)
+		msm_pcie_scale_link_bandwidth(pcie_dev, target_link_speed);
 
 	ret = msm_pcie_link_retrain(pcie_dev, root_pci_dev);
 	if (ret)
-		return ret;
+		goto out;
 
-	/* decrease CX and rate change clk freq if link is in Gen1 */
 	pcie_capability_read_word(root_pci_dev, PCI_EXP_LNKSTA, &link_status);
-	if ((link_status & PCI_EXP_LNKSTA_CLS) == PCI_EXP_LNKCTL2_TLS_2_5GT) {
-		if (pcie_dev->cx_vreg)
-			regulator_set_voltage(pcie_dev->cx_vreg->hdl,
-						RPMH_REGULATOR_LEVEL_LOW_SVS,
-						pcie_dev->cx_vreg->max_v);
-
-		if (pcie_dev->rate_change_clk) {
-			mutex_lock(&pcie_dev->clk_lock);
-
-			pcie_drv.rate_change_vote &= ~BIT(pcie_dev->rc_idx);
-
-			/* only switch to 19.2MHz if no one needs 100MHz */
-			if (!pcie_drv.rate_change_vote)
-				clk_set_rate(pcie_dev->rate_change_clk->hdl,
-						RATE_CHANGE_19P2MHZ);
-
-			mutex_unlock(&pcie_dev->clk_lock);
-		}
+	if ((link_status & PCI_EXP_LNKSTA_CLS) != target_link_speed ||
+		(link_status & PCI_EXP_LNKSTA_NLW) != target_link_width) {
+		PCIE_ERR(pcie_dev,
+			"PCIe: RC%d: failed to switch bandwidth: target speed: %d width: %d\n",
+			pcie_dev->rc_idx, target_link_speed,
+			target_link_width >> PCI_EXP_LNKSTA_NLW_SHIFT);
+		ret = -EIO;
+		goto out;
 	}
 
-	return 0;
+	if (target_link_speed < current_link_speed)
+		msm_pcie_scale_link_bandwidth(pcie_dev, target_link_speed);
+out:
+	/* re-enable link L1 */
+	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
+	msm_pcie_config_l1(pcie_dev, root_pci_dev, true);
+
+	return ret;
 }
 EXPORT_SYMBOL(msm_pcie_set_link_bandwidth);
 
