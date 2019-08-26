@@ -161,56 +161,6 @@ void msm_slim_free_endpoint(struct msm_slim_endp *ep)
 	ep->sps = NULL;
 }
 
-static int msm_slim_iommu_attach(struct msm_slim_ctrl *ctrl_dev)
-{
-	struct dma_iommu_mapping *iommu_map;
-	dma_addr_t va_start = MSM_SLIM_VA_START;
-	size_t va_size = MSM_SLIM_VA_SIZE;
-	int bypass = 1;
-	struct device *dev;
-
-	if (unlikely(!ctrl_dev))
-		return -EINVAL;
-
-	if (!ctrl_dev->iommu_desc.cb_dev)
-		return 0;
-
-	iommu_map = ctrl_dev->iommu_desc.iommu_map;
-	if (!IS_ERR_OR_NULL(iommu_map)) {
-		__depr_arm_iommu_detach_device(ctrl_dev->iommu_desc.cb_dev);
-		__depr_arm_iommu_release_mapping(iommu_map);
-		ctrl_dev->iommu_desc.iommu_map = NULL;
-		SLIM_INFO(ctrl_dev, "NGD IOMMU Dettach complete\n");
-	}
-
-	dev = ctrl_dev->iommu_desc.cb_dev;
-	iommu_map = __depr_arm_iommu_create_mapping(&platform_bus_type,
-						va_start, va_size);
-	if (IS_ERR(iommu_map)) {
-		dev_err(dev, "%s iommu_create_mapping failure\n", __func__);
-		return PTR_ERR(iommu_map);
-	}
-
-	if (ctrl_dev->iommu_desc.s1_bypass) {
-		if (iommu_domain_set_attr(iommu_map->domain,
-					DOMAIN_ATTR_S1_BYPASS, &bypass)) {
-			dev_err(dev, "%s Can't bypass s1 translation\n",
-				__func__);
-			__depr_arm_iommu_release_mapping(iommu_map);
-			return -EIO;
-		}
-	}
-
-	if (__depr_arm_iommu_attach_device(dev, iommu_map)) {
-		dev_err(dev, "%s can't arm_iommu_attach_device\n", __func__);
-		__depr_arm_iommu_release_mapping(iommu_map);
-		return -EIO;
-	}
-	ctrl_dev->iommu_desc.iommu_map = iommu_map;
-	SLIM_INFO(ctrl_dev, "NGD IOMMU Attach complete\n");
-	return 0;
-}
-
 int msm_slim_sps_mem_alloc(
 		struct msm_slim_ctrl *dev, struct sps_mem_buffer *mem, u32 len)
 {
@@ -435,10 +385,6 @@ int msm_alloc_port(struct slim_controller *ctrl, u8 pn)
 		return -EPROTONOSUPPORT;
 	if (pn >= dev->port_nums)
 		return -ENODEV;
-
-	ret = msm_slim_iommu_attach(dev);
-	if (ret)
-		return ret;
 
 	endpoint = &dev->pipes[pn];
 	ret = msm_slim_init_endpoint(dev, endpoint);
@@ -1188,11 +1134,6 @@ init_pipes:
 	}
 
 init_msgq:
-	ret = msm_slim_iommu_attach(dev);
-	if (ret) {
-		sps_deregister_bam_device(bam_handle);
-		return ret;
-	}
 
 	ret = msm_slim_init_rx_msgq(dev, pipe_reg);
 	if (ret)

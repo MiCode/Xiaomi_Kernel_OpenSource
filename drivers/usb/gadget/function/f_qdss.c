@@ -237,18 +237,6 @@ static void qdss_write_complete(struct usb_ep *ep,
 		state = USB_QDSS_DATA_WRITE_DONE;
 	}
 
-	if (!req->status) {
-		/* send zlp */
-		if ((req->length >= ep->maxpacket) &&
-				((req->length % ep->maxpacket) == 0)) {
-			req->length = 0;
-			d_req->actual = req->actual;
-			d_req->status = req->status;
-			if (!usb_ep_queue(in, req, GFP_ATOMIC))
-				return;
-		}
-	}
-
 	spin_lock_irqsave(&qdss->lock, flags);
 	list_add_tail(&req->list, list_pool);
 	if (req->length != 0) {

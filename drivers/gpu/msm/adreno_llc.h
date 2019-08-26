@@ -73,7 +73,7 @@ static inline bool adreno_llc_supported(void)
 
 static inline void *adreno_llc_getd(u32 uid)
 {
-	return ERR_PTR(-ENODEV);
+	return ERR_PTR(-ENOENT);
 }
 
 static inline void adreno_llc_putd(void *desc)

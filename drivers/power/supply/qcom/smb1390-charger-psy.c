@@ -1443,7 +1443,7 @@ static int smb1390_parse_dt(struct smb1390 *chip)
 	of_property_read_u32(chip->dev->of_node, "qcom,min-ilim-ua",
 			&chip->min_ilim_ua);
 
-	chip->max_temp_alarm_degc = 110;
+	chip->max_temp_alarm_degc = 105;
 	of_property_read_u32(chip->dev->of_node, "qcom,max-temp-alarm-degc",
 			&chip->max_temp_alarm_degc);
 
@@ -1541,16 +1541,16 @@ static int smb1390_init_hw(struct smb1390 *chip)
 		return rc;
 
 	switch (chip->max_temp_alarm_degc) {
-	case 125:
+	case 115:
 		val = 0x00;
 		break;
-	case 95:
+	case 90:
 		val = 0x02;
 		break;
-	case 85:
+	case 80:
 		val = 0x03;
 		break;
-	case 110:
+	case 105:
 	default:
 		val = 0x01;
 		break;

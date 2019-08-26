@@ -20,10 +20,10 @@ void print_internal_buffer(u32 tag, const char *str,
 		return;
 
 	dprintk(tag,
-		"%s: %x : idx %2d fd %d off %d %s size %d flags 0x%x",
+		"%s: %x : idx %2d fd %d off %d %s size %d flags %#x iova %#x",
 		str, hash32_ptr(inst->session), cbuf->buf.index, cbuf->buf.fd,
 		cbuf->buf.offset, cbuf->smem.dma_buf->name, cbuf->buf.size,
-		cbuf->buf.flags);
+		cbuf->buf.flags, cbuf->smem.device_addr);
 }
 
 static enum hal_buffer get_hal_buftype(const char *str, unsigned int type)
@@ -387,10 +387,9 @@ static int msm_cvp_map_buf_cpu(struct msm_cvp_inst *inst,
 	if (in_buf->fd > 0) {
 		dma_buf = msm_cvp_smem_get_dma_buf(in_buf->fd);
 		if (!dma_buf) {
-			rc = -EINVAL;
 			dprintk(CVP_ERR, "%s: Invalid fd=%d", __func__,
 				in_buf->fd);
-			goto exit;
+			return -EINVAL;
 		}
 		in_buf->dbuf = dma_buf;
 		msm_cvp_smem_put_dma_buf(dma_buf);
@@ -414,7 +413,7 @@ static int msm_cvp_map_buf_cpu(struct msm_cvp_inst *inst,
 	cbuf->smem.fd = cbuf->buf.fd;
 	cbuf->smem.size = cbuf->buf.size;
 	cbuf->smem.flags = 0;
-	cbuf->smem.offset = 0;
+	cbuf->smem.offset = in_buf->offset;
 	cbuf->smem.dma_buf = in_buf->dbuf;
 
 	rc = msm_cvp_smem_map_dma_buf(inst, &cbuf->smem);
@@ -585,7 +584,6 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 	if (wait_event_timeout(sq->wq,
 		_cvp_msg_pending(inst, sq, &msg), wait_time) == 0) {
 		dprintk(CVP_WARN, "session queue wait timeout\n");
-		msm_cvp_comm_kill_session(inst);
 		rc = -ETIMEDOUT;
 		goto exit;
 	}
@@ -674,6 +672,21 @@ static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
 
 		if (version >= 1) {
 			new_buf = (struct cvp_buf_type *)buf_ptr;
+
+			/*
+			 * Make sure fd or dma_buf field doesn't have any
+			 * garbage value.
+			 */
+			if (inst->session_type == MSM_CVP_USER) {
+				new_buf->dbuf = 0;
+			} else if (inst->session_type == MSM_CVP_KERNEL) {
+				new_buf->fd = -1;
+			} else if (inst->session_type >= MSM_CVP_UNKNOWN) {
+				dprintk(CVP_ERR,
+					"%s: unknown session type %d\n",
+					__func__, inst->session_type);
+				return -EINVAL;
+			}
 
 			if (new_buf->fd <= 0 && !new_buf->dbuf)
 				continue;
@@ -772,16 +785,6 @@ static int msm_cvp_session_process_hfi(
 		return -ECONNRESET;
 
 	inst->cur_cmd_type = CVP_KMD_SEND_CMD_PKT;
-	sq = &inst->session_queue;
-	spin_lock(&sq->lock);
-	if (sq->state != QUEUE_ACTIVE) {
-		spin_unlock(&sq->lock);
-		dprintk(CVP_ERR, "%s: invalid queue state\n", __func__);
-		rc = -EINVAL;
-		goto exit;
-	}
-	spin_unlock(&sq->lock);
-
 	hdev = inst->core->device;
 
 	pkt_idx = get_pkt_index((struct cvp_hal_session_cmd_pkt *)in_pkt);
@@ -796,6 +799,18 @@ static int msm_cvp_session_process_hfi(
 		offset = cvp_hfi_defs[pkt_idx].buf_offset;
 		buf_num = cvp_hfi_defs[pkt_idx].buf_num;
 		signal = cvp_hfi_defs[pkt_idx].resp;
+	}
+	if (signal == HAL_NO_RESP) {
+		/* Frame packets are not allowed before session starts*/
+		sq = &inst->session_queue;
+		spin_lock(&sq->lock);
+		if (sq->state != QUEUE_ACTIVE) {
+			spin_unlock(&sq->lock);
+			dprintk(CVP_ERR, "%s: invalid queue state\n", __func__);
+			rc = -EINVAL;
+			goto exit;
+		}
+		spin_unlock(&sq->lock);
 	}
 
 	if (in_offset && in_buf_num) {
@@ -1057,6 +1072,88 @@ static int msm_cvp_thread_fence_run(void *data)
 		if (rc) {
 			dprintk(CVP_ERR, "%s: synx_release failed\n", __func__);
 			goto exit;
+		}
+		break;
+	}
+	case HFI_CMD_SESSION_CVP_FD_FRAME:
+	{
+		int in_fence_num = fence[0];
+		int out_fence_num = fence[1];
+		int start_out = in_fence_num + 1;
+
+		for (i = 1; i < in_fence_num + 1; i++) {
+			if (fence[(i<<1)]) {
+				rc = synx_import(fence[(i<<1)],
+					fence[((i<<1)+1)], &synx_obj);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_import %d failed\n",
+						__func__, i<<1);
+					goto exit;
+				}
+				rc = synx_wait(synx_obj, timeout_ms);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_wait %d failed\n",
+						__func__, i<<1);
+					goto exit;
+				}
+				rc = synx_release(synx_obj);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_release %d failed\n",
+						__func__, i<<1);
+					goto exit;
+				}
+			}
+		}
+
+		rc = call_hfi_op(hdev, session_send,
+				(void *)inst->session, in_pkt);
+		if (rc) {
+			dprintk(CVP_ERR,
+				"%s: Failed in call_hfi_op %d, %x\n",
+				__func__, in_pkt->pkt_data[0],
+				in_pkt->pkt_data[1]);
+			synx_state = SYNX_STATE_SIGNALED_ERROR;
+		}
+
+		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
+			rc = wait_for_sess_signal_receipt(inst,
+					HAL_SESSION_FD_FRAME_CMD_DONE);
+			if (rc)	{
+				dprintk(CVP_ERR,
+				"%s: wait for signal failed, rc %d\n",
+				__func__, rc);
+				synx_state = SYNX_STATE_SIGNALED_ERROR;
+			}
+		}
+
+		for (i = start_out; i <  start_out + out_fence_num; i++) {
+			if (fence[(i<<1)]) {
+				rc = synx_import(fence[(i<<1)],
+					fence[((i<<1)+1)], &synx_obj);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_import %d failed\n",
+						__func__, i<<1);
+					goto exit;
+				}
+				rc = synx_signal(synx_obj, synx_state);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_signal %d failed\n",
+						__func__, i<<1);
+					goto exit;
+				}
+				rc = synx_release(synx_obj);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_release %d failed\n",
+						__func__, i<<1);
+					goto exit;
+				}
+			}
 		}
 		break;
 	}
@@ -1540,6 +1637,7 @@ static int msm_cvp_session_start(struct msm_cvp_inst *inst,
 	}
 	sq->state = QUEUE_ACTIVE;
 	spin_unlock(&sq->lock);
+
 	return 0;
 }
 
@@ -1751,6 +1849,7 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 	case CVP_KMD_HFI_DFS_FRAME_CMD:
 	case CVP_KMD_HFI_DME_CONFIG_CMD:
 	case CVP_KMD_HFI_DME_FRAME_CMD:
+	case CVP_KMD_HFI_FD_FRAME_CMD:
 	case CVP_KMD_HFI_PERSIST_CMD:
 	{
 		struct cvp_kmd_hfi_packet *in_pkt =

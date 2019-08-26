@@ -1772,6 +1772,12 @@ void gsi_rndis_flow_ctrl_enable(bool enable, struct rndis_params *param)
 	} else {
 		log_event_dbg("%s: posting HOST_READY\n", __func__);
 		post_event(d_port, EVT_HOST_READY);
+		/*
+		 * If host supports flow control with RNDIS_MSG_INIT then
+		 * mark the flag to true. This flag will be used further to
+		 * enable the flow control on resume path.
+		 */
+		gsi->host_supports_flow_control = true;
 	}
 
 	queue_delayed_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w, 0);
@@ -2410,6 +2416,8 @@ static void gsi_disable(struct usb_function *f)
 
 	gsi->data_interface_up = false;
 
+	gsi->host_supports_flow_control = false;
+
 	log_event_dbg("%s deactivated", gsi->function.name);
 	gsi->d_port.net_ready_trigger = false;
 	post_event(&gsi->d_port, EVT_DISCONNECTED);
@@ -2459,10 +2467,12 @@ static void gsi_resume(struct usb_function *f)
 	/*
 	 * Linux host does not send RNDIS_MSG_INIT or non-zero
 	 * RNDIS_MESSAGE_PACKET_FILTER after performing bus resume.
+	 * Check whether host supports flow_control are not. If yes
 	 * Trigger state machine explicitly on resume.
 	 */
 	if (gsi->prot_id == IPA_USB_RNDIS &&
-			!usb_gsi_remote_wakeup_allowed(f))
+			!usb_gsi_remote_wakeup_allowed(f) &&
+			gsi->host_supports_flow_control)
 		rndis_flow_control(gsi->params, false);
 
 	post_event(&gsi->d_port, EVT_RESUMED);

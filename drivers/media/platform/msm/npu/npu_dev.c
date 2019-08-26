@@ -101,7 +101,6 @@ static int npu_suspend(struct platform_device *dev, pm_message_t state);
 static int npu_resume(struct platform_device *dev);
 static int __init npu_init(void);
 static void __exit npu_exit(void);
-static int npu_set_power_level(struct npu_device *npu_dev, bool notify_cxlimit);
 
 /* -------------------------------------------------------------------------
  * File Scope Variables
@@ -458,7 +457,7 @@ static uint32_t npu_calc_power_level(struct npu_device *npu_dev)
 	return ret_level;
 }
 
-static int npu_set_power_level(struct npu_device *npu_dev, bool notify_cxlimit)
+int npu_set_power_level(struct npu_device *npu_dev, bool notify_cxlimit)
 {
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	struct npu_pwrlevel *pwrlevel;
@@ -764,23 +763,16 @@ static int
 npu_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
 {
 	struct npu_device *npu_dev = cdev->devdata;
-	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	struct npu_thermalctrl *thermal = &npu_dev->thermalctrl;
-	int rc = 0;
 
 	NPU_DBG("request state=%lu\n", state);
 	if (state > thermal->max_state)
 		return -EINVAL;
 
-	mutex_lock(&host_ctx->lock);
 	thermal->current_state = state;
 	thermal->pwr_level =  npu_power_level_from_index(npu_dev,
 		thermal->max_state - state);
-
-	rc = npu_set_power_level(npu_dev, true);
-	mutex_unlock(&host_ctx->lock);
-
-	return rc;
+	return npu_host_update_power(npu_dev);
 }
 
 /* -------------------------------------------------------------------------
@@ -2302,6 +2294,18 @@ static int npu_probe(struct platform_device *pdev)
 		goto error_res_init;
 	}
 
+	rc = npu_debugfs_init(npu_dev);
+	if (rc)
+		goto error_driver_init;
+
+	mutex_init(&npu_dev->dev_lock);
+
+	rc = npu_host_init(npu_dev);
+	if (rc) {
+		NPU_ERR("unable to init host\n");
+		goto error_driver_init;
+	}
+
 	if (IS_ENABLED(CONFIG_THERMAL)) {
 		tcdev = thermal_of_cooling_device_register(pdev->dev.of_node,
 							  "npu", npu_dev,
@@ -2314,18 +2318,6 @@ static int npu_probe(struct platform_device *pdev)
 		}
 		npu_dev->tcdev = tcdev;
 		thermal_cdev_update(tcdev);
-	}
-
-	rc = npu_debugfs_init(npu_dev);
-	if (rc)
-		goto error_driver_init;
-
-	mutex_init(&npu_dev->dev_lock);
-
-	rc = npu_host_init(npu_dev);
-	if (rc) {
-		NPU_ERR("unable to init host\n");
-		goto error_driver_init;
 	}
 
 	g_npu_dev = npu_dev;

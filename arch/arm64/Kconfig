@@ -253,10 +253,8 @@ config GENERIC_CALIBRATE_DELAY
 	def_bool y
 
 config ZONE_DMA32
-	bool "Enable or Disable Zone DMA"
+	bool "Support DMA32 zone" if EXPERT
 	default y
-	help
-	  This option is used to enable or disable the DMA zone.
 
 config HAVE_GENERIC_GUP
 	def_bool y

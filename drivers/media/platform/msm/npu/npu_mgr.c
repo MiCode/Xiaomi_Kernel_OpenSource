@@ -36,6 +36,7 @@ static void npu_ipc_irq_work(struct work_struct *work);
 static void npu_wdg_err_irq_work(struct work_struct *work);
 static void npu_bridge_mbox_work(struct work_struct *work);
 static void npu_disable_fw_work(struct work_struct *work);
+static void npu_update_pwr_work(struct work_struct *work);
 static void turn_off_fw_logging(struct npu_device *npu_dev);
 static int wait_for_status_ready(struct npu_device *npu_dev,
 	uint32_t status_reg, uint32_t status_bits);
@@ -542,6 +543,33 @@ static int npu_notifier_cb(struct notifier_block *this, unsigned long code,
 	return ret;
 }
 
+static void npu_update_pwr_work(struct work_struct *work)
+{
+	int ret;
+	struct npu_host_ctx *host_ctx;
+	struct npu_device *npu_dev;
+
+	host_ctx = container_of(work, struct npu_host_ctx, update_pwr_work);
+	npu_dev = container_of(host_ctx, struct npu_device, host_ctx);
+
+	mutex_lock(&host_ctx->lock);
+	ret = npu_set_power_level(npu_dev, true);
+	mutex_unlock(&host_ctx->lock);
+
+	if (ret)
+		NPU_ERR("Update power level failed %d\n", ret);
+}
+
+int npu_host_update_power(struct npu_device *npu_dev)
+{
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+
+	if (host_ctx->wq)
+		queue_work(host_ctx->wq, &host_ctx->update_pwr_work);
+
+	return 0;
+}
+
 int npu_host_init(struct npu_device *npu_dev)
 {
 	int sts = 0;
@@ -575,6 +603,7 @@ int npu_host_init(struct npu_device *npu_dev)
 		INIT_WORK(&host_ctx->wdg_err_irq_work, npu_wdg_err_irq_work);
 		INIT_WORK(&host_ctx->bridge_mbox_work, npu_bridge_mbox_work);
 		INIT_WORK(&host_ctx->load_fw_work, npu_load_fw_work);
+		INIT_WORK(&host_ctx->update_pwr_work, npu_update_pwr_work);
 		INIT_DELAYED_WORK(&host_ctx->disable_fw_work,
 			npu_disable_fw_work);
 	}
@@ -832,8 +861,10 @@ static void npu_disable_fw_work(struct work_struct *work)
 	npu_dev = container_of(host_ctx, struct npu_device, host_ctx);
 
 	mutex_lock(&host_ctx->lock);
-	disable_fw_nolock(npu_dev);
-	host_ctx->bridge_mbox_pwr_on = false;
+	if (host_ctx->bridge_mbox_pwr_on) {
+		disable_fw_nolock(npu_dev);
+		host_ctx->bridge_mbox_pwr_on = false;
+	}
 	mutex_unlock(&host_ctx->lock);
 	NPU_DBG("Exit disable fw work\n");
 }
@@ -954,10 +985,8 @@ static int npu_notify_aop(struct npu_device *npu_dev, bool on)
 	struct qmp_pkt pkt;
 	int buf_size, rc = 0;
 
-	if (!npu_dev->mbox_aop || !npu_dev->mbox_aop->chan) {
-		NPU_WARN("aop mailbox channel is not available\n");
+	if (!npu_dev->mbox_aop || !npu_dev->mbox_aop->chan)
 		return 0;
-	}
 
 	buf_size = scnprintf(buf, MAX_LEN, "{class: bcm, res: npu_on, val: %d}",
 		on ? 1 : 0);
@@ -1668,6 +1697,7 @@ int32_t npu_host_load_network(struct npu_client *client,
 	mutex_lock(&host_ctx->lock);
 	if (!ret) {
 		NPU_ERR("NPU_IPC_CMD_LOAD time out\n");
+		npu_dump_debug_info(npu_dev);
 		ret = -ETIMEDOUT;
 		goto error_free_network;
 	} else if (ret < 0) {
@@ -1785,7 +1815,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
-	ret = wait_for_completion_interruptible_timeout(
+	ret = wait_for_completion_timeout(
 		&network->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
@@ -1794,11 +1824,9 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 
 	if (!ret) {
 		NPU_ERR("npu: NPU_IPC_CMD_LOAD time out\n");
+		npu_dump_debug_info(npu_dev);
 		ret = -ETIMEDOUT;
 		goto error_load_network;
-	} else if (ret < 0) {
-		NPU_ERR("NPU_IPC_CMD_LOAD_V2 is interrupted by signal\n");
-		goto error_free_network;
 	}
 
 	if (network->fw_error) {
@@ -1902,7 +1930,7 @@ int32_t npu_host_unload_network(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
-	ret = wait_for_completion_interruptible_timeout(
+	ret = wait_for_completion_timeout(
 		&network->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
@@ -1911,12 +1939,9 @@ int32_t npu_host_unload_network(struct npu_client *client,
 
 	if (!ret) {
 		NPU_ERR("npu: NPU_IPC_CMD_UNLOAD time out\n");
+		npu_dump_debug_info(npu_dev);
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
-		goto free_network;
-	} else if (ret < 0) {
-		NPU_ERR("Wait for unload done interrupted by signal\n");
-		network->cmd_pending = false;
 		goto free_network;
 	}
 
@@ -2032,22 +2057,18 @@ int32_t npu_host_exec_network(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
-	ret = wait_for_completion_interruptible_timeout(
+	ret = wait_for_completion_timeout(
 		&network->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
 
 	mutex_lock(&host_ctx->lock);
 	if (!ret) {
-		NPU_ERR("npu: NPU_IPC_CMD_EXECUTE time out\n");
-		/* dump debug stats */
-		npu_dump_debug_timeout_stats(npu_dev);
+		NPU_ERR("npu: %x NPU_IPC_CMD_EXECUTE time out\n",
+			network->id);
+		npu_dump_debug_info(npu_dev);
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
-		goto exec_done;
-	} else if (ret == -ERESTARTSYS) {
-		NPU_ERR("Wait for execution done interrupted by signal\n");
-		network->cmd_pending = false;
 		goto exec_done;
 	}
 
@@ -2170,22 +2191,18 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
-	ret = wait_for_completion_interruptible_timeout(
+	ret = wait_for_completion_timeout(
 		&network->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
 
 	mutex_lock(&host_ctx->lock);
 	if (!ret) {
-		NPU_ERR("npu: NPU_IPC_CMD_EXECUTE_V2 time out\n");
-		/* dump debug stats */
-		npu_dump_debug_timeout_stats(npu_dev);
+		NPU_ERR("npu: %x NPU_IPC_CMD_EXECUTE_V2 time out\n",
+			network->id);
+		npu_dump_debug_info(npu_dev);
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
-		goto free_exec_packet;
-	} else if (ret == -ERESTARTSYS) {
-		NPU_ERR("Wait for execution_v2 done interrupted by signal\n");
-		network->cmd_pending = false;
 		goto free_exec_packet;
 	}
 
@@ -2264,6 +2281,7 @@ int32_t npu_host_loopback_test(struct npu_device *npu_dev)
 
 	if (!ret) {
 		NPU_ERR("npu: NPU_IPC_CMD_LOOPBACK time out\n");
+		npu_dump_debug_info(npu_dev);
 		ret = -ETIMEDOUT;
 	} else if (ret < 0) {
 		NPU_ERR("Wait for loopback done interrupted by signal\n");

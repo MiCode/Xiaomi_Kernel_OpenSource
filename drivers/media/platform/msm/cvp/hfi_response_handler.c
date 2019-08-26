@@ -420,20 +420,32 @@ static struct msm_cvp_inst *cvp_get_inst_from_id(struct msm_cvp_core *core,
 {
 	struct msm_cvp_inst *inst = NULL;
 	bool match = false;
+	int count = 0;
 
 	if (!core || !session_id)
 		return NULL;
 
-	mutex_lock(&core->lock);
-	list_for_each_entry(inst, &core->instances, list) {
-		if (hash32_ptr(inst->session) == session_id) {
-			match = true;
-			break;
+retry:
+	if (mutex_trylock(&core->lock)) {
+		list_for_each_entry(inst, &core->instances, list) {
+			if (hash32_ptr(inst->session) == session_id) {
+				match = true;
+				break;
+			}
 		}
-	}
 
-	inst = match ? inst : NULL;
-	mutex_unlock(&core->lock);
+		inst = match ? inst : NULL;
+		mutex_unlock(&core->lock);
+	} else {
+		if (core->state == CVP_CORE_UNINIT)
+			return NULL;
+		usleep_range(100, 200);
+		count++;
+		if (count < 1000)
+			goto retry;
+		else
+			dprintk(CVP_ERR, "timeout locking core mutex\n");
+	}
 
 	return inst;
 
@@ -467,7 +479,8 @@ static int hfi_process_session_cvp_msg(u32 device_id,
 	if (inst->deprecate_bitmask) {
 		if (pkt->packet_type == HFI_MSG_SESSION_CVP_DFS
 			|| pkt->packet_type == HFI_MSG_SESSION_CVP_DME
-			|| pkt->packet_type == HFI_MSG_SESSION_CVP_ICA)
+			|| pkt->packet_type == HFI_MSG_SESSION_CVP_ICA
+			|| pkt->packet_type == HFI_MSG_SESSION_CVP_FD)
 			return _deprecated_hfi_msg_process(device_id,
 				pkt, info, inst);
 
@@ -565,6 +578,34 @@ static int hfi_process_session_cvp_ica(u32 device_id,
 	return 0;
 }
 
+static int hfi_process_session_cvp_fd(u32 device_id,
+	struct cvp_hfi_msg_session_hdr *pkt,
+	struct msm_cvp_cb_info *info)
+{
+	struct msm_cvp_cb_cmd_done cmd_done = {0};
+
+	if (!pkt) {
+		dprintk(CVP_ERR, "%s: invalid param\n", __func__);
+		return -EINVAL;
+	} else if (pkt->size < get_msg_size()) {
+		dprintk(CVP_ERR, "%s: bad_pkt_size %d\n", __func__, pkt->size);
+		return -E2BIG;
+	}
+
+	cmd_done.device_id = device_id;
+	cmd_done.session_id = (void *)(uintptr_t)get_msg_session_id(pkt);
+	cmd_done.status = hfi_map_err_status(get_msg_errorcode(pkt));
+	cmd_done.size = 0;
+
+	dprintk(CVP_DBG,
+		"%s: device_id=%d cmd_done.status=%d sessionid=%#x\n",
+		__func__, device_id, cmd_done.status, cmd_done.session_id);
+	info->response_type = HAL_SESSION_FD_FRAME_CMD_DONE;
+	info->response.cmd = cmd_done;
+
+	return 0;
+}
+
 static int _deprecated_hfi_msg_process(u32 device_id,
 	struct cvp_hfi_msg_session_hdr *pkt,
 	struct msm_cvp_cb_info *info,
@@ -586,6 +627,12 @@ static int _deprecated_hfi_msg_process(u32 device_id,
 		if (test_and_clear_bit(ICA_BIT_OFFSET,
 				&inst->deprecate_bitmask))
 			return hfi_process_session_cvp_ica(
+				device_id, (void *)pkt, info);
+
+	if (pkt->packet_type == HFI_MSG_SESSION_CVP_FD)
+		if (test_and_clear_bit(FD_BIT_OFFSET,
+				&inst->deprecate_bitmask))
+			return hfi_process_session_cvp_fd(
 				device_id, (void *)pkt, info);
 
 	dprintk(CVP_ERR, "Deprecatd MSG doesn't match bitmask %x %lx\n",
@@ -642,9 +689,9 @@ static int hfi_process_sys_property_info(u32 device_id,
 	if (!pkt) {
 		dprintk(CVP_ERR, "%s: invalid param\n", __func__);
 		return -EINVAL;
-	} else if (pkt->size < sizeof(*pkt)) {
+	} else if (pkt->size > sizeof(*pkt)) {
 		dprintk(CVP_ERR,
-				"%s: bad_pkt_size\n", __func__);
+				"%s: bad_pkt_size %d\n", __func__, pkt->size);
 		return -E2BIG;
 	} else if (!pkt->num_properties) {
 		dprintk(CVP_WARN,
@@ -717,6 +764,7 @@ int cvp_hfi_process_msg_packet(u32 device_id,
 	case HFI_MSG_SESSION_CVP_DS:
 	case HFI_MSG_SESSION_CVP_DFS:
 	case HFI_MSG_SESSION_CVP_DME:
+	case HFI_MSG_SESSION_CVP_FD:
 		pkt_func = (pkt_func_def)hfi_process_session_cvp_msg;
 		break;
 	default:

@@ -390,6 +390,8 @@ static uint32_t diag_translate_kernel_to_user_mask(uint32_t peripheral_mask)
 		ret |= DIAG_CON_UPD_AUDIO;
 	if (peripheral_mask & MD_PERIPHERAL_MASK(UPD_SENSORS))
 		ret |= DIAG_CON_UPD_SENSORS;
+	if (peripheral_mask & MD_PERIPHERAL_MASK(UPD_CHARGER))
+		ret |= DIAG_CON_UPD_CHARGER;
 	return ret;
 }
 
@@ -1715,6 +1717,8 @@ static uint32_t diag_translate_mask(uint32_t peripheral_mask)
 		ret |= (1 << UPD_AUDIO);
 	if (peripheral_mask & DIAG_CON_UPD_SENSORS)
 		ret |= (1 << UPD_SENSORS);
+	if (peripheral_mask & DIAG_CON_UPD_CHARGER)
+		ret |= (1 << UPD_CHARGER);
 	return ret;
 }
 
@@ -2365,6 +2369,8 @@ int diag_query_pd(char *process_name)
 		return UPD_AUDIO;
 	if (diag_query_pd_name(process_name, "sensor_pd"))
 		return UPD_SENSORS;
+	if (diag_query_pd_name(process_name, "charger_pd"))
+		return UPD_CHARGER;
 
 	return -EINVAL;
 }

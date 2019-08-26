@@ -94,6 +94,10 @@ struct spss_utils_device {
 /* Device State */
 static struct spss_utils_device *spss_utils_dev;
 
+/* static functions declaration */
+static int spss_set_fw_cmac(u32 *cmac, size_t cmac_size);
+static int spss_get_pbl_calc_cmac(u32 *cmac, size_t cmac_size);
+
 /*==========================================================================*/
 /*		Device Sysfs */
 /*==========================================================================*/
@@ -390,6 +394,20 @@ static long spss_utils_ioctl(struct file *file,
 		memcpy(cmac_buf, data, sizeof(cmac_buf));
 		pr_info("cmac_buf: 0x%x,0x%x,0x%x,0x%x\n",
 			cmac_buf[0], cmac_buf[1], cmac_buf[2], cmac_buf[3]);
+
+		/*
+		 * SPSS is loaded now by UEFI,
+		 * so IAR callback is not being called on powerup by PIL.
+		 * therefore read the spu pbl fw cmac from ioctl.
+		 * The callback shall be called on spss SSR.
+		 */
+		pr_info("read pbl cmac from shared memory\n");
+		spss_set_fw_cmac(cmac_buf, sizeof(cmac_buf));
+		spss_get_pbl_calc_cmac(pbl_cmac_buf, sizeof(pbl_cmac_buf));
+		if (memcmp(cmac_buf, pbl_cmac_buf, sizeof(cmac_buf)) != 0)
+			is_pbl_ce = true; /* cmacs not the same */
+		else
+			is_pbl_ce = false;
 		break;
 
 	default:
@@ -717,24 +735,8 @@ static int spss_parse_dt(struct device_node *node)
 	return 0;
 }
 
-static int spss_assign_mem_to_spss_and_hlos(phys_addr_t addr, size_t size)
-{
-	int ret;
-	int srcVM[1] = {VMID_HLOS};
-	int destVM[2] = {VMID_HLOS, VMID_CP_SPSS_HLOS_SHARED};
-	int destVMperm[2] = {PERM_READ | PERM_WRITE, PERM_READ | PERM_WRITE};
-
-	ret = hyp_assign_phys(addr, size, srcVM, 1, destVM, destVMperm, 2);
-	if (ret)
-		pr_err("hyp_assign_phys() failed, addr [%pa] size [%zx] ret [%d]\n",
-				&addr, size, ret);
-
-	return ret;
-}
-
 static int spss_set_fw_cmac(u32 *cmac, size_t cmac_size)
 {
-	int ret;
 	u8 __iomem *reg = NULL;
 	int i;
 
@@ -745,10 +747,6 @@ static int spss_set_fw_cmac(u32 *cmac, size_t cmac_size)
 			return -EFAULT;
 		}
 	}
-
-	ret = spss_assign_mem_to_spss_and_hlos(cmac_mem_addr, cmac_mem_size);
-	if (ret)
-		return ret;
 
 	pr_debug("pil_addr [0x%x]\n", pil_addr);
 	pr_debug("pil_size [0x%x]\n", pil_size);
@@ -761,9 +759,6 @@ static int spss_set_fw_cmac(u32 *cmac, size_t cmac_size)
 		pr_debug("cmac[%d] [0x%x]\n", i, cmac[i]);
 	}
 	reg += cmac_size;
-
-	for (i = 0; i < cmac_size/4; i++)
-		writel_relaxed(0, reg + i*sizeof(u32));
 
 	return 0;
 }

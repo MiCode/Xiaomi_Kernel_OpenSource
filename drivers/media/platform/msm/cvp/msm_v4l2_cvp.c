@@ -249,7 +249,7 @@ static ssize_t boot_store(struct device *dev,
 	if (val > 0 && booted == 0) {
 		struct msm_cvp_inst *inst;
 
-		inst = msm_cvp_open(MSM_CORE_CVP, MSM_CVP_KERNEL);
+		inst = msm_cvp_open(MSM_CORE_CVP, MSM_CVP_BOOT);
 		if (!inst) {
 			dprintk(CVP_ERR,
 			"Failed to create cvp instance\n");
