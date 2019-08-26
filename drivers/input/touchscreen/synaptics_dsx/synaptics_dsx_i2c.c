@@ -451,7 +451,7 @@ exit:
 	return retval;
 }
 
-int check_dt(struct device_node *np)
+static int check_dt(struct device_node *np)
 {
 	int i;
 	int count;
@@ -475,6 +475,35 @@ int check_dt(struct device_node *np)
 	return -ENODEV;
 }
 
+static int check_default_tp(struct device_node *dt, const char *prop)
+{
+	const char *active_tp;
+	const char *compatible;
+	char *start;
+	int ret;
+
+	ret = of_property_read_string(dt->parent, prop, &active_tp);
+	if (ret) {
+		pr_err(" %s:fail to read %s %d\n", __func__, prop, ret);
+		return -ENODEV;
+	}
+
+	ret = of_property_read_string(dt, "compatible", &compatible);
+	if (ret < 0) {
+		pr_err(" %s:fail to read %s %d\n", __func__, "compatible", ret);
+		return -ENODEV;
+	}
+
+	start = strnstr(active_tp, compatible, strlen(active_tp));
+	if (start == NULL) {
+		pr_err(" %s:no match compatible, %s, %s\n",
+			__func__, compatible, active_tp);
+		ret = -ENODEV;
+	}
+
+	return ret;
+}
+
 static struct synaptics_dsx_bus_access bus_access = {
 	.type = BUS_I2C,
 	.read = synaptics_rmi4_i2c_read,
@@ -490,9 +519,16 @@ static int synaptics_rmi4_i2c_probe(struct i2c_client *client,
 		const struct i2c_device_id *dev_id)
 {
 	int retval;
+	struct device_node *dp = client->dev.of_node;
 
-	if (check_dt(client->dev.of_node))
-		return -ENODEV;
+	if (check_dt(dp)) {
+		if (!check_default_tp(dp, "qcom,i2c-touch-active"))
+			retval = -EPROBE_DEFER;
+		else
+			retval = -ENODEV;
+
+		return retval;
+	}
 
 	if (!i2c_check_functionality(client->adapter,
 			I2C_FUNC_SMBUS_BYTE_DATA)) {
