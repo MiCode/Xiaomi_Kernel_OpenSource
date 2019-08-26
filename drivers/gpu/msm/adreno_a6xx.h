@@ -42,6 +42,8 @@ struct adreno_a6xx_core {
 	bool veto_fal10;
 	/** @pdc_in_aop: True if PDC programmed in AOP */
 	bool pdc_in_aop;
+	/** @hang_detect_cycles: Hang detect counter timeout value */
+	u32 hang_detect_cycles;
 };
 
 #define CP_CLUSTER_FE		0x0

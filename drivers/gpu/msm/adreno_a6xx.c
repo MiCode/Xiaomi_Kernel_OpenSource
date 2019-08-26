@@ -600,9 +600,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_UCHE_MODE_CNTL, (mal << 23) |
 		(lower_bit << 21));
 
-	/* Set hang detection threshold to 0x3FFFFF * 16 cycles */
 	kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
-					(1 << 30) | 0x3fffff);
+				(1 << 30) | a6xx_core->hang_detect_cycles);
 
 	kgsl_regwrite(device, A6XX_UCHE_CLIENT_PF, 1);
 
