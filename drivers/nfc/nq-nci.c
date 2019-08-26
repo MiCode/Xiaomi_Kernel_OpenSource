@@ -808,7 +808,7 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 	}
 
 	nci_reset_ntf = kzalloc(NCI_RESET_NTF_LEN + 1,  GFP_DMA | GFP_KERNEL);
-	if (!nci_reset_rsp) {
+	if (!nci_reset_ntf) {
 		ret = -ENOMEM;
 		goto done;
 	}
