@@ -18,7 +18,7 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.0.22"
+#define ATL_VERSION "1.0.23"
 
 struct atl_nic;
 

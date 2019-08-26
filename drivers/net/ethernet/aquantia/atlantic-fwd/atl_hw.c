@@ -8,6 +8,7 @@
  */
 
 #include <linux/interrupt.h>
+#include <linux/pm_runtime.h>
 
 #include "atl_common.h"
 #include "atl_hw.h"
@@ -138,11 +139,17 @@ static int atl_hw_reset_nonrbl(struct atl_hw *hw)
 	}
 	atl_dev_dbg("FLB kickstart took %d ms\n", tries);
 
-	atl_write(hw, 0x404, 0x80e0);
+	atl_write(hw, 0x404, 0x40e1);
 	mdelay(50);
 	atl_write(hw, 0x3a0, 1);
 
 	atl_glb_soft_reset_full(hw);
+
+	if (hw->mcp.ops)
+		hw->mcp.ops->restore_cfg(hw);
+
+	/* unstall FW*/
+	atl_write(hw, 0x404, 0x40e0);
 
 	ret = atl_fw_init(hw);
 
@@ -196,6 +203,9 @@ int atl_hw_reset(struct atl_hw *hw)
 	atl_write(hw, ATL_MCP_SCRATCH(RBL_STS), 0xdead);
 
 	atl_glb_soft_reset_full(hw);
+
+	if (hw->mcp.ops)
+		hw->mcp.ops->restore_cfg(hw);
 
 	atl_write(hw, ATL_GLOBAL_CTRL2, 0x40e0);
 
@@ -320,13 +330,17 @@ void atl_refresh_link(struct atl_nic *nic)
 	link = hw->mcp.ops->check_link(hw);
 
 	if (link) {
-		if (link != prev_link)
+		if (link != prev_link) {
 			atl_nic_info("Link up: %s\n", link->name);
-		netif_carrier_on(nic->ndev);
+			netif_carrier_on(nic->ndev);
+			pm_runtime_get_sync(&nic->hw.pdev->dev);
+		}
 	} else {
-		if (link != prev_link)
+		if (link != prev_link) {
 			atl_nic_info("Link down\n");
-		netif_carrier_off(nic->ndev);
+			netif_carrier_off(nic->ndev);
+			pm_runtime_put_sync(&nic->hw.pdev->dev);
+		}
 	}
 	atl_rx_xoff_set(hw, !!(hw->link_state.fc.cur & atl_fc_rx));
 

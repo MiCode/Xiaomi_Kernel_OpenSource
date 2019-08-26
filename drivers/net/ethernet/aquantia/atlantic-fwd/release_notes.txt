@@ -1,3 +1,8 @@
+Version 1.0.23
+==============
+[ATLDRV-983] - runtime D3 support
+[ATLDRV-1023] - AQ056: Wake on link race condition with host power manament
+
 Version 1.0.22
 ==============
 fix build of fwd api
