@@ -360,5 +360,5 @@ int gmu_core_dev_wait_for_active_transition(struct kgsl_device *device)
 	if (ops && ops->wait_for_active_transition)
 		return ops->wait_for_active_transition(device);
 
-	return -ETIMEDOUT;
+	return 0;
 }
