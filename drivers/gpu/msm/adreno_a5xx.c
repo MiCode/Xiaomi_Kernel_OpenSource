@@ -293,57 +293,69 @@ static void a5xx_remove(struct adreno_device *adreno_dev)
 		a5xx_critical_packet_destroy(adreno_dev);
 }
 
-/**
- * a5xx_protect_init() - Initializes register protection on a5xx
- * @device: Pointer to the device structure
- * Performs register writes to enable protected access to sensitive
- * registers
- */
+const static struct {
+	u32 reg;
+	u32 base;
+	u32 count;
+} a5xx_protected_blocks[] = {
+	/* RBBM */
+	{  A5XX_CP_PROTECT_REG_0,     0x004, 2 },
+	{  A5XX_CP_PROTECT_REG_0 + 1, 0x008, 3 },
+	{  A5XX_CP_PROTECT_REG_0 + 2, 0x010, 4 },
+	{  A5XX_CP_PROTECT_REG_0 + 3, 0x020, 5 },
+	{  A5XX_CP_PROTECT_REG_0 + 4, 0x040, 6 },
+	{  A5XX_CP_PROTECT_REG_0 + 5, 0x080, 6 },
+	/* Content protection */
+	{  A5XX_CP_PROTECT_REG_0 + 6, A5XX_RBBM_SECVID_TSB_TRUSTED_BASE_LO, 4 },
+	{  A5XX_CP_PROTECT_REG_0 + 7, A5XX_RBBM_SECVID_TRUST_CNTL, 1 },
+	/* CP */
+	{  A5XX_CP_PROTECT_REG_0 + 8, 0x800, 6 },
+	{  A5XX_CP_PROTECT_REG_0 + 9, 0x840, 3 },
+	{  A5XX_CP_PROTECT_REG_0 + 10, 0x880, 5 },
+	{  A5XX_CP_PROTECT_REG_0 + 11, 0xaa0, 0 },
+	/* RB */
+	{  A5XX_CP_PROTECT_REG_0 + 12, 0xcc0, 0 },
+	{  A5XX_CP_PROTECT_REG_0 + 13, 0xcf0, 1 },
+	/* VPC */
+	{  A5XX_CP_PROTECT_REG_0 + 14, 0xe68, 3 },
+	{  A5XX_CP_PROTECT_REG_0 + 15, 0xe70, 4 },
+	/* UCHE */
+	{  A5XX_CP_PROTECT_REG_0 + 16, 0xe80, 4 },
+	/* A5XX_CP_PROTECT_REG_17 will be used for SMMU */
+	/* A5XX_CP_PROTECT_REG_18 - A5XX_CP_PROTECT_REG_31 are available */
+};
+
+static void _setprotectreg(struct kgsl_device *device, u32 offset,
+		u32 base, u32 count)
+{
+	kgsl_regwrite(device, offset, 0x60000000 | (count << 24) | (base << 2));
+}
+
 static void a5xx_protect_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	int index = 0;
-	struct kgsl_protected_registers *iommu_regs;
+	u32 reg;
+	int i;
 
 	/* enable access protection to privileged registers */
 	kgsl_regwrite(device, A5XX_CP_PROTECT_CNTL, 0x00000007);
 
-	/* RBBM registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0x4, 2);
-	adreno_set_protected_registers(adreno_dev, &index, 0x8, 3);
-	adreno_set_protected_registers(adreno_dev, &index, 0x10, 4);
-	adreno_set_protected_registers(adreno_dev, &index, 0x20, 5);
-	adreno_set_protected_registers(adreno_dev, &index, 0x40, 6);
-	adreno_set_protected_registers(adreno_dev, &index, 0x80, 6);
+	for (i = 0; i < ARRAY_SIZE(a5xx_protected_blocks); i++) {
+		reg = a5xx_protected_blocks[i].reg;
 
-	/* Content protection registers */
-	adreno_set_protected_registers(adreno_dev, &index,
-		   A5XX_RBBM_SECVID_TSB_TRUSTED_BASE_LO, 4);
-	adreno_set_protected_registers(adreno_dev, &index,
-		   A5XX_RBBM_SECVID_TRUST_CNTL, 1);
+		_setprotectreg(device, reg, a5xx_protected_blocks[i].base,
+			a5xx_protected_blocks[i].count);
+	}
 
-	/* CP registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0x800, 6);
-	adreno_set_protected_registers(adreno_dev, &index, 0x840, 3);
-	adreno_set_protected_registers(adreno_dev, &index, 0x880, 5);
-	adreno_set_protected_registers(adreno_dev, &index, 0x0AA0, 0);
-
-	/* RB registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0xCC0, 0);
-	adreno_set_protected_registers(adreno_dev, &index, 0xCF0, 1);
-
-	/* VPC registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0xE68, 3);
-	adreno_set_protected_registers(adreno_dev, &index, 0xE70, 4);
-
-	/* UCHE registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0xE80, ilog2(16));
-
-	/* SMMU registers */
-	iommu_regs = kgsl_mmu_get_prot_regs(&device->mmu);
-	if (iommu_regs)
-		adreno_set_protected_registers(adreno_dev, &index,
-				iommu_regs->base, ilog2(iommu_regs->range));
+	/*
+	 * For a530 and a540 the SMMU region is 0x20000 bytes long and 0x10000
+	 * bytes on all other targets. The base offset for both is 0x40000.
+	 * Write it to the next available slot
+	 */
+	if (adreno_is_a530(adreno_dev) || adreno_is_a540(adreno_dev))
+		_setprotectreg(device, reg + 1, 0x40000, ilog2(0x20000));
+	else
+		_setprotectreg(device, reg + 1, 0x40000, ilog2(0x10000));
 }
 
 /*
