@@ -286,6 +286,7 @@ static int rmnet_stats_reset(struct net_device *dev)
 {
 	struct rmnet_priv *priv = netdev_priv(dev);
 	struct rmnet_port_priv_stats *stp;
+	struct rmnet_priv_stats *st;
 	struct rmnet_port *port;
 
 	port = rmnet_get_port(priv->real_dev);
@@ -295,6 +296,11 @@ static int rmnet_stats_reset(struct net_device *dev)
 	stp = &port->stats;
 
 	memset(stp, 0, sizeof(*stp));
+
+	st = &priv->stats;
+
+	memset(st, 0, sizeof(*st));
+
 	return 0;
 }
 
