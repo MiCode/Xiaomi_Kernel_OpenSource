@@ -131,7 +131,7 @@
 		qcom,sde-mixer-linewidth = <2560>;
 		qcom,sde-sspp-linewidth = <2160>;
 		qcom,sde-vig-sspp-linewidth = <4096>;
-		qcom,sde-wb-linewidth = <1080>;
+		qcom,sde-wb-linewidth = <1920>;
 		qcom,sde-mixer-blendstages = <0x7>;
 		qcom,sde-highest-bank-bit = <0x1>;
 		qcom,sde-ubwc-version = <0x200>;
