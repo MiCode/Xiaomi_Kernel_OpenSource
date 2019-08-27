@@ -57,6 +57,26 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 static IMG_BOOL gbEnableDmaIoRemapping = IMG_FALSE;
 static DMA_ALLOC gsDmaIoRemapArray[DMA_MAX_IOREMAP_ENTRIES] = {{0}};
 
+/*
+ * Runtime evaluation of get_order()
+ */
+static inline __attribute_const__
+int ___get_order(unsigned long size)
+{
+	int order;
+
+	size--;
+	size >>= PAGE_SHIFT;
+#if BITS_PER_LONG == 32
+	order = fls(size);
+#else
+	order = fls64(size);
+#endif
+	return order;
+}
+
+
+
 static void*
 SysDmaAcquireKernelAddress(struct page *psPage, IMG_UINT64 ui64Size, void *pvOSDevice)
 {
@@ -207,7 +227,7 @@ PVRSRV_ERROR SysDmaAllocMem(DMA_ALLOC *psDmaAlloc)
 				psDmaAlloc->sBusAddr.uiAddr,
 				uiSize));
 	}
-	else if ((psPage = alloc_pages(GFP_KERNEL, __get_order(uiSize))))
+	else if ((psPage = alloc_pages(GFP_KERNEL, ___get_order(uiSize))))
 	{
 #if defined(CONFIG_L4)
 		/* L4 is a para-virtualized environment, the PFN space is a virtual space and not physical space */
@@ -219,8 +239,8 @@ PVRSRV_ERROR SysDmaAllocMem(DMA_ALLOC *psDmaAlloc)
 			PVR_DPF((PVR_DBG_ERROR,
 					"dma_map_page() failed, page 0x%p order %d",
 					psPage,
-					__get_order(uiSize)));
-			__free_pages(psPage, __get_order(uiSize));
+					___get_order(uiSize)));
+			__free_pages(psPage, ___get_order(uiSize));
 			goto e0;
 		}
 		psDmaAlloc->psPage = psPage;
@@ -232,11 +252,11 @@ PVRSRV_ERROR SysDmaAllocMem(DMA_ALLOC *psDmaAlloc)
 			PVR_DPF((PVR_DBG_ERROR,
 					"SysDmaAcquireKernelAddress() failed, page 0x%p order %d",
 					psPage,
-					__get_order(uiSize)));
+					___get_order(uiSize)));
 #if !defined(CONFIG_L4)
 			dma_unmap_page(psDev, psDmaAlloc->sBusAddr.uiAddr, uiSize, DMA_BIDIRECTIONAL);
 #endif
-			__free_pages(psPage, __get_order(uiSize));
+			__free_pages(psPage, ___get_order(uiSize));
 			goto e0;
 		}
 
@@ -297,7 +317,7 @@ void SysDmaFreeMem(DMA_ALLOC *psDmaAlloc)
 		dma_unmap_page(psDev, psDmaAlloc->sBusAddr.uiAddr, uiSize, DMA_BIDIRECTIONAL);
 		psPage = psDmaAlloc->psPage;
 #endif
-		__free_pages(psPage, __get_order(uiSize));
+		__free_pages(psPage, ___get_order(uiSize));
 		return;
 	}
 
