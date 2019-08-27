@@ -46,6 +46,12 @@ void arm64_force_sig_info(struct siginfo *info, const char *str,
  */
 void arm64_skip_faulting_instruction(struct pt_regs *regs, unsigned long size);
 
+/*
+ * Move regs->pc to next instruction and do necessary setup before it
+ * is executed.
+ */
+void arm64_skip_faulting_instruction(struct pt_regs *regs, unsigned long size);
+
 static inline int __in_irqentry_text(unsigned long ptr)
 {
 	return ptr >= (unsigned long)&__irqentry_text_start &&
