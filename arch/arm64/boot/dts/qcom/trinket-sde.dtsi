@@ -96,9 +96,6 @@
 		qcom,sde-cdm-off = <0x7a200>;
 		qcom,sde-cdm-size = <0x224>;
 
-
-		qcom,sde-qdss-off = <0x81a00>;
-
 		qcom,sde-dither-off = <0x30e0 0x30e0 0x30e0 0x30e0>;
 		qcom,sde-dither-version = <0x00010000>;
 		qcom,sde-dither-size = <0x20>;
