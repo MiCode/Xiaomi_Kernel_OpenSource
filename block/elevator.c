@@ -833,12 +833,15 @@ static struct kobj_type elv_ktype = {
 	.release	= elevator_release,
 };
 
-int elv_register_queue(struct request_queue *q)
+/*
+ * elv_register_queue is called from either blk_register_queue or
+ * elevator_switch, elevator switch is prevented from being happen
+ * in the two paths, so it is safe to not hold q->sysfs_lock.
+ */
+int elv_register_queue(struct request_queue *q, bool uevent)
 {
 	struct elevator_queue *e = q->elevator;
 	int error;
-
-	lockdep_assert_held(&q->sysfs_lock);
 
 	error = kobject_add(&e->kobj, &q->kobj, "%s", "iosched");
 	if (!error) {
@@ -850,26 +853,36 @@ int elv_register_queue(struct request_queue *q)
 				attr++;
 			}
 		}
-		kobject_uevent(&e->kobj, KOBJ_ADD);
+		if (uevent)
+			kobject_uevent(&e->kobj, KOBJ_ADD);
+
+		mutex_lock(&q->sysfs_lock);
 		e->registered = 1;
 		if (!e->uses_mq && e->type->ops.sq.elevator_registered_fn)
 			e->type->ops.sq.elevator_registered_fn(q);
+		mutex_unlock(&q->sysfs_lock);
 	}
 	return error;
 }
 
+/*
+ * elv_unregister_queue is called from either blk_unregister_queue or
+ * elevator_switch, elevator switch is prevented from being happen
+ * in the two paths, so it is safe to not hold q->sysfs_lock.
+ */
 void elv_unregister_queue(struct request_queue *q)
 {
-	lockdep_assert_held(&q->sysfs_lock);
-
 	if (q) {
 		struct elevator_queue *e = q->elevator;
 
 		kobject_uevent(&e->kobj, KOBJ_REMOVE);
 		kobject_del(&e->kobj);
+
+		mutex_lock(&q->sysfs_lock);
 		e->registered = 0;
 		/* Re-enable throttling in case elevator disabled it */
 		wbt_enable_default(q);
+		mutex_unlock(&q->sysfs_lock);
 	}
 }
 
@@ -940,10 +953,32 @@ int elevator_switch_mq(struct request_queue *q,
 	lockdep_assert_held(&q->sysfs_lock);
 
 	if (q->elevator) {
-		if (q->elevator->registered)
+		if (q->elevator->registered) {
+			mutex_unlock(&q->sysfs_lock);
+
+			/*
+			 * Concurrent elevator switch can't happen becasue
+			 * sysfs write is always exclusively on same file.
+			 *
+			 * Also the elevator queue won't be freed after
+			 * sysfs_lock is released becasue kobject_del() in
+			 * blk_unregister_queue() waits for completion of
+			 * .store & .show on its attributes.
+			 */
 			elv_unregister_queue(q);
+
+			mutex_lock(&q->sysfs_lock);
+		}
 		ioc_clear_queue(q);
 		elevator_exit(q, q->elevator);
+
+		/*
+		 * sysfs_lock may be dropped, so re-check if queue is
+		 * unregistered. If yes, don't switch to new elevator
+		 * any more
+		 */
+		if (!blk_queue_registered(q))
+			return 0;
 	}
 
 	ret = blk_mq_init_sched(q, new_e);
@@ -951,7 +986,11 @@ int elevator_switch_mq(struct request_queue *q,
 		goto out;
 
 	if (new_e) {
-		ret = elv_register_queue(q);
+		mutex_unlock(&q->sysfs_lock);
+
+		ret = elv_register_queue(q, true);
+
+		mutex_lock(&q->sysfs_lock);
 		if (ret) {
 			elevator_exit(q, q->elevator);
 			goto out;
@@ -1047,7 +1086,7 @@ static int elevator_switch(struct request_queue *q, struct elevator_type *new_e)
 	if (err)
 		goto fail_init;
 
-	err = elv_register_queue(q);
+	err = elv_register_queue(q, true);
 	if (err)
 		goto fail_register;
 
@@ -1067,7 +1106,7 @@ fail_init:
 	/* switch failed, restore and re-register old elevator */
 	if (old) {
 		q->elevator = old;
-		elv_register_queue(q);
+		elv_register_queue(q, true);
 		blk_queue_bypass_end(q);
 	}
 
