@@ -975,6 +975,7 @@ static void data_avail_worker(struct kthread_work *work)
 			wake_up(&qsb->wait_q);
 
 		wait_for_completion(&read_complete);
+		kfree(data_node->rx_dma_buf);
 		kfree(data_node);
 		spin_lock(&list_lock);
 	}
