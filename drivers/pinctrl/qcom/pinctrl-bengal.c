@@ -1483,10 +1483,10 @@ static const struct msm_pingroup bengal_groups[] = {
 	[114] = SDC_QDSD_PINGROUP(sdc1_clk, 0x175000, 13, 6),
 	[115] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x175000, 11, 3),
 	[116] = SDC_QDSD_PINGROUP(sdc1_data, 0x175000, 9, 0),
-	[117] = SDC_QDSD_PINGROUP(sdc2_clk, 0x173000, 14, 6),
-	[118] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x173000, 11, 3),
-	[119] = SDC_QDSD_PINGROUP(sdc2_data, 0x173000, 9, 0),
-	[120] = UFS_RESET(ufs_reset, 0x177000),
+	[117] = SDC_QDSD_PINGROUP(sdc2_clk, 0x573000, 14, 6),
+	[118] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x573000, 11, 3),
+	[119] = SDC_QDSD_PINGROUP(sdc2_data, 0x573000, 9, 0),
+	[120] = UFS_RESET(ufs_reset, 0x178000),
 };
 
 static const struct msm_pinctrl_soc_data bengal_pinctrl = {
