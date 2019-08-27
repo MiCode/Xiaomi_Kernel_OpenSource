@@ -1612,6 +1612,8 @@ static void a6xx_gmu_snapshot(struct kgsl_device *device,
 	if (a6xx_gmu_gx_is_on(device)) {
 		/* Set fence to ALLOW mode so registers can be read */
 		kgsl_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
+		/* Make sure the previous write posted before reading */
+		wmb();
 		kgsl_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &val);
 
 		dev_err(device->dev, "set FENCE to ALLOW mode:%x\n", val);
