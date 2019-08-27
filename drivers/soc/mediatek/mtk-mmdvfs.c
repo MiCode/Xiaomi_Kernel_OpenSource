@@ -280,7 +280,6 @@ static int force_clk_set(void *data, u64 val)
 	s32 ret;
 
 	if (val == 0) {
-		set_all_muxes(drv_data, drv_data->request_voltage);
 		ret = devm_regulator_register_notifier(
 				dbg_data->reg, &drv_data->nb);
 		if (ret)
@@ -292,9 +291,9 @@ static int force_clk_set(void *data, u64 val)
 		if (val > drv_data->request_voltage) {
 			regulator_set_voltage(
 				dbg_data->reg, val, dbg_data->max_voltage);
-			set_all_muxes(drv_data, val);
+			set_all_clk(drv_data, val, true);
 		} else {
-			set_all_muxes(drv_data, val);
+			set_all_clk(drv_data, val, false);
 			regulator_set_voltage(
 				dbg_data->reg, val, dbg_data->max_voltage);
 		}
