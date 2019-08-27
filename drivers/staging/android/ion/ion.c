@@ -1185,6 +1185,28 @@ static const struct file_operations ion_fops = {
 #endif
 };
 
+static int ion_debug_heap_show(struct seq_file *s, void *unused)
+{
+	struct ion_heap *heap = s->private;
+
+	if (heap->debug_show)
+		heap->debug_show(heap, s, unused);
+
+	return 0;
+}
+
+static int ion_debug_heap_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ion_debug_heap_show, inode->i_private);
+}
+
+static const struct file_operations debug_heap_fops = {
+	.open = ion_debug_heap_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 static int debug_shrink_set(void *data, u64 val)
 {
 	struct ion_heap *heap = data;
@@ -1222,6 +1244,7 @@ DEFINE_SIMPLE_ATTRIBUTE(debug_shrink_fops, debug_shrink_get,
 
 void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 {
+	char debug_name[64], buf[256];
 	int ret;
 
 	if (!heap->ops->allocate || !heap->ops->free)
@@ -1249,12 +1272,22 @@ void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 	plist_node_init(&heap->node, -heap->id);
 	plist_add(&heap->node, &dev->heaps);
 
-	if (heap->shrinker.count_objects && heap->shrinker.scan_objects) {
-		char debug_name[64];
+	if (heap->debug_show) {
+		snprintf(debug_name, 64, "%s_stats", heap->name);
+		if (!debugfs_create_file(debug_name, 0664, dev->debug_root,
+					 heap, &debug_heap_fops))
+			pr_err("Failed to create heap debugfs at %s/%s\n",
+			       dentry_path(dev->debug_root, buf, 256),
+			       debug_name);
+	}
 
+	if (heap->shrinker.count_objects && heap->shrinker.scan_objects) {
 		snprintf(debug_name, 64, "%s_shrink", heap->name);
-		debugfs_create_file(debug_name, 0644, dev->debug_root,
-				    heap, &debug_shrink_fops);
+		if (!debugfs_create_file(debug_name, 0644, dev->debug_root,
+					 heap, &debug_shrink_fops))
+			pr_err("Failed to create heap debugfs at %s/%s\n",
+			       dentry_path(dev->debug_root, buf, 256),
+			       debug_name);
 	}
 
 	dev->heap_cnt++;
