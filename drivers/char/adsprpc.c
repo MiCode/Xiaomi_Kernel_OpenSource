@@ -38,7 +38,6 @@
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
 #include <soc/qcom/ramdump.h>
-#include <linux/delay.h>
 #include <linux/debugfs.h>
 #include <linux/pm_qos.h>
 #include <linux/stat.h>
@@ -106,25 +105,6 @@
 #define FASTRPC_STATIC_HANDLE_MAX (20)
 #define FASTRPC_LATENCY_CTRL_ENB  (1)
 
-/* timeout in us for busy polling after early response from remote processor */
-#define FASTRPC_EARLY_TIMEOUT (4000)
-
-/* timeout for polling for completion signal after user early completion hint */
-#define FASTRPC_USER_EARLY_HINT_TIMEOUT (500)
-
-/* Early wake up poll completion number received from remote processor */
-#define FASTRPC_EARLY_WAKEUP_POLL (0xabbccdde)
-
-/* latency in us, early wake up signal used below this value */
-#define FASTRPC_EARLY_WAKEUP_LATENCY (200)
-
-/* response version number */
-#define FASTRPC_RSP_VERSION2 (2)
-
-/* CPU feature information to DSP */
-#define FASTRPC_CPUINFO_DEFAULT (0)
-#define FASTRPC_CPUINFO_EARLY_WAKEUP (1)
-
 #define INIT_FILELEN_MAX (2*1024*1024)
 #define INIT_MEMLEN_MAX  (8*1024*1024)
 #define MAX_CACHE_BUF_SIZE (8*1024*1024)
@@ -164,11 +144,6 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *nb,
 					void *data);
 static struct dentry *debugfs_root;
 static struct dentry *debugfs_global_file;
-
-static inline void mem_barrier(void)
-{
-	__asm__ __volatile__("dmb sy":::"memory");
-}
 
 static inline uint64_t buf_page_start(uint64_t buf)
 {
@@ -266,12 +241,6 @@ struct smq_invoke_ctx {
 	uint32_t *crc;
 	unsigned int magic;
 	uint64_t ctxid;
-	/* response flags from remote processor */
-	enum fastrpc_response_flags rspFlags;
-	/* user hint of completion time */
-	uint32_t earlyWakeTime;
-	/* work done status flag */
-	bool isWorkDone;
 };
 
 struct fastrpc_ctx_lst {
@@ -337,9 +306,6 @@ struct fastrpc_channel_ctx {
 	int secure;
 	struct fastrpc_dsp_capabilities dsp_cap_kernel;
 	void *ipc_log_ctx;
-	/* cpu capabilities shared to DSP */
-	uint64_t cpuinfo_todsp;
-	bool cpuinfo_status;
 };
 
 struct fastrpc_apps {
@@ -468,8 +434,6 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 				.cid = ADSP_DOMAIN_ID,
 			}
 		},
-		.cpuinfo_todsp = FASTRPC_CPUINFO_DEFAULT,
-		.cpuinfo_status = false,
 	},
 	{
 		.name = "mdsprpc-smd",
@@ -479,8 +443,6 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 				.cid = MDSP_DOMAIN_ID,
 			}
 		},
-		.cpuinfo_todsp = FASTRPC_CPUINFO_DEFAULT,
-		.cpuinfo_status = false,
 	},
 	{
 		.name = "sdsprpc-smd",
@@ -495,8 +457,6 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 				.cid = SDSP_DOMAIN_ID,
 			}
 		},
-		.cpuinfo_todsp = FASTRPC_CPUINFO_DEFAULT,
-		.cpuinfo_status = false,
 	},
 	{
 		.name = "cdsprpc-smd",
@@ -506,8 +466,6 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 				.cid = CDSP_DOMAIN_ID,
 			}
 		},
-		.cpuinfo_todsp = FASTRPC_CPUINFO_EARLY_WAKEUP,
-		.cpuinfo_status = false,
 	},
 };
 
@@ -564,41 +522,6 @@ bail:
 	return val;
 }
 
-static inline int poll_on_early_response(struct smq_invoke_ctx *ctx)
-{
-	uint32_t ii = 0;
-	uint32_t sc = ctx->sc;
-	struct smq_invoke_buf *list;
-	struct smq_phy_page *pages;
-	uint64_t *fdlist;
-	uint32_t *crclist, *poll;
-	unsigned int inbufs, outbufs, handles;
-
-	/* calculate poll memory location */
-	inbufs = REMOTE_SCALARS_INBUFS(sc);
-	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
-	handles = REMOTE_SCALARS_INHANDLES(sc) + REMOTE_SCALARS_OUTHANDLES(sc);
-	list = smq_invoke_buf_start(ctx->rpra, sc);
-	pages = smq_phy_page_start(sc, list);
-	fdlist = (uint64_t *)(pages + inbufs + outbufs + handles);
-	crclist = (uint32_t *)(fdlist + M_FDLIST);
-	poll = (uint32_t *)(crclist + M_CRCLIST);
-
-	/* poll on memory for actual completion after receiving
-	 * early response from DSP. Return failure on timeout.
-	 **/
-	preempt_disable();
-	for (ii = 0; ii < FASTRPC_EARLY_TIMEOUT; ii++) {
-		mem_barrier();
-		if (*poll == FASTRPC_EARLY_WAKEUP_POLL) {
-			preempt_enable_no_resched();
-			return 0;
-		}
-		udelay(1); // busy wait for 1 us
-	}
-	preempt_enable_no_resched();
-	return -EIO;
-}
 
 static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 {
@@ -1319,8 +1242,6 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	ctx->tgid = fl->tgid;
 	init_completion(&ctx->work);
 	ctx->magic = FASTRPC_CTX_MAGIC;
-	ctx->rspFlags = NORMAL_RESPONSE;
-	ctx->isWorkDone = false;
 
 	spin_lock(&fl->hlock);
 	hlist_add_head(&ctx->hn, &clst->pending);
@@ -1390,34 +1311,12 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	kfree(ctx);
 }
 
-static void context_notify_user(struct smq_invoke_ctx *ctx,
-		int retval, uint32_t rspFlags, uint32_t earlyWakeTime)
+static void context_notify_user(struct smq_invoke_ctx *ctx, int retval)
 {
 	ctx->retval = retval;
-	switch (rspFlags) {
-	case NORMAL_RESPONSE:
-		/* normal response with return value */
-		ctx->retval = retval;
-		ctx->isWorkDone = true;
-		break;
-	case USER_EARLY_SIGNAL:
-		/* user hint of approximate time of completion */
-		ctx->earlyWakeTime = earlyWakeTime;
-		break;
-	case EARLY_RESPONSE:
-		/* rpc framework early response with return value */
-		ctx->retval = retval;
-		break;
-	case COMPLETE_SIGNAL:
-		/* rpc framework signal to clear if pending on ctx */
-		ctx->isWorkDone = true;
-		break;
-	default:
-		break;
-	}
-	ctx->rspFlags = (enum fastrpc_response_flags)rspFlags;
 	complete(&ctx->work);
 }
+
 
 static void fastrpc_notify_users(struct fastrpc_file *me)
 {
@@ -1426,11 +1325,9 @@ static void fastrpc_notify_users(struct fastrpc_file *me)
 
 	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(ictx, n, &me->clst.pending, hn) {
-		ictx->isWorkDone = true;
 		complete(&ictx->work);
 	}
 	hlist_for_each_entry_safe(ictx, n, &me->clst.interrupted, hn) {
-		ictx->isWorkDone = true;
 		complete(&ictx->work);
 	}
 	spin_unlock(&me->hlock);
@@ -1444,16 +1341,12 @@ static void fastrpc_notify_users_staticpd_pdr(struct fastrpc_file *me)
 
 	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(ictx, n, &me->clst.pending, hn) {
-		if (ictx->msg.pid) {
-			ictx->isWorkDone = true;
+		if (ictx->msg.pid)
 			complete(&ictx->work);
-		}
 	}
 	hlist_for_each_entry_safe(ictx, n, &me->clst.interrupted, hn) {
-		if (ictx->msg.pid) {
-			ictx->isWorkDone = true;
+		if (ictx->msg.pid)
 			complete(&ictx->work);
-		}
 	}
 	spin_unlock(&me->hlock);
 }
@@ -2016,107 +1909,6 @@ static void fastrpc_init(struct fastrpc_apps *me)
 
 static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl);
 
-static inline int fastrpc_wait_for_response(struct smq_invoke_ctx *ctx,
-						uint32_t kernel)
-{
-	int interrupted = 0;
-
-	if (kernel)
-		wait_for_completion(&ctx->work);
-	else {
-		interrupted =
-		wait_for_completion_interruptible(&ctx->work);
-	}
-	return interrupted;
-}
-
-static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
-		 int *pInterrupted, uint32_t kernel)
-{
-	int interrupted = 0, err = 0;
-	uint32_t jj;
-	bool wait_resp;
-	uint32_t wTimeout = FASTRPC_USER_EARLY_HINT_TIMEOUT;
-	uint32_t wakeTime = ctx->earlyWakeTime;
-
-	while (ctx && !ctx->isWorkDone) {
-		switch (ctx->rspFlags) {
-		/* try polling on completion with timeout */
-		case USER_EARLY_SIGNAL:
-			/* try wait if completion time is less than timeout */
-			/* disable preempt to avoid context switch latency */
-			preempt_disable();
-			jj = 0;
-			wait_resp = false;
-			for (; wakeTime < wTimeout && jj < wTimeout; jj++) {
-				wait_resp = try_wait_for_completion(&ctx->work);
-				if (wait_resp)
-					break;
-				udelay(1);
-			}
-			preempt_enable_no_resched();
-			if (!wait_resp) {
-				interrupted = fastrpc_wait_for_response(ctx,
-									kernel);
-				*pInterrupted = interrupted;
-				if (interrupted || ctx->isWorkDone)
-					return;
-			}
-			break;
-
-		/* busy poll on memory for actual job done */
-		case EARLY_RESPONSE:
-			err = poll_on_early_response(ctx);
-
-			/* Mark job done if poll on memory successful */
-			/* Wait for completion if poll on memory timoeut */
-			if (!err)
-				ctx->isWorkDone = true;
-			else if (!ctx->isWorkDone) {
-				pr_info("poll timeout ctxid 0x%llx\n",
-					 ctx->ctxid);
-				interrupted = fastrpc_wait_for_response(ctx,
-									kernel);
-				*pInterrupted = interrupted;
-				if (interrupted || ctx->isWorkDone)
-					return;
-			}
-			break;
-
-		case COMPLETE_SIGNAL:
-		case NORMAL_RESPONSE:
-			interrupted = fastrpc_wait_for_response(ctx, kernel);
-			*pInterrupted = interrupted;
-			if (interrupted || ctx->isWorkDone)
-				return;
-			break;
-
-		default:
-			pr_err("adsprpc: unsupported response flags 0x%x\n",
-				 ctx->rspFlags);
-			return;
-		} /* end of switch */
-	} /* end of while loop */
-}
-
-static void fastrpc_update_invoke_count(uint32_t handle, int64_t *perf_counter,
-					struct timespec *invoket)
-{
-	/* update invoke count for dynamic handles */
-	if (handle != FASTRPC_STATIC_HANDLE_LISTENER) {
-		int64_t *count = GET_COUNTER(perf_counter, PERF_INVOKE);
-
-		if (count)
-			*count += getnstimediff(invoket);
-	}
-	if (handle > FASTRPC_STATIC_HANDLE_MAX) {
-		int64_t *count = GET_COUNTER(perf_counter, PERF_COUNT);
-
-		if (count)
-			*count += 1;
-	}
-}
-
 static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 				   uint32_t kernel,
 				   struct fastrpc_ioctl_invoke_crc *inv)
@@ -2127,12 +1919,10 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	int interrupted = 0;
 	int err = 0;
 	struct timespec invoket = {0};
-	int64_t *perf_counter = NULL;
+	int64_t *perf_counter = getperfcounter(fl, PERF_COUNT);
 
-	if (fl->profile) {
-		perf_counter = getperfcounter(fl, PERF_COUNT);
+	if (fl->profile)
 		getnstimeofday(&invoket);
-	}
 
 	if (!kernel) {
 		VERIFY(err, invoke->handle !=
@@ -2194,14 +1984,14 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	if (err)
 		goto bail;
  wait:
-	fastrpc_wait_for_completion(ctx, &interrupted, kernel);
-	VERIFY(err, 0 == (err = interrupted));
-	if (err)
-		goto bail;
-
-	VERIFY(err, ctx->isWorkDone);
-	if (err)
-		goto bail;
+	if (kernel)
+		wait_for_completion(&ctx->work);
+	else {
+		interrupted = wait_for_completion_interruptible(&ctx->work);
+		VERIFY(err, 0 == (err = interrupted));
+		if (err)
+			goto bail;
+	}
 
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
 	inv_args(ctx);
@@ -2224,9 +2014,20 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	if (fl->ssrcount != fl->apps->channel[cid].ssrcount)
 		err = ECONNRESET;
 
-	if (fl->profile && !interrupted)
-		fastrpc_update_invoke_count(invoke->handle, perf_counter,
-						&invoket);
+	if (fl->profile && !interrupted) {
+		if (invoke->handle != FASTRPC_STATIC_HANDLE_LISTENER) {
+			int64_t *count = GET_COUNTER(perf_counter, PERF_INVOKE);
+
+			if (count)
+				*count += getnstimediff(&invoket);
+		}
+		if (invoke->handle > FASTRPC_STATIC_HANDLE_MAX) {
+			int64_t *count = GET_COUNTER(perf_counter, PERF_COUNT);
+
+			if (count)
+				*count = *count+1;
+		}
+	}
 	return err;
 }
 
@@ -2539,40 +2340,6 @@ static int fastrpc_kstat(const char *filename, struct kstat *stat)
 	set_fs(fs_old);
 
 	return result;
-}
-
-static int fastrpc_send_cpuinfo_to_dsp(struct fastrpc_file *fl)
-{
-	int err = 0;
-	uint64_t cpuinfo = 0;
-	struct fastrpc_apps *me = &gfa;
-	struct fastrpc_ioctl_invoke_crc ioctl;
-	remote_arg_t ra[2];
-
-	VERIFY(err, fl && fl->cid >= 0 && fl->cid < NUM_CHANNELS);
-	if (err)
-		goto bail;
-
-	cpuinfo = me->channel[fl->cid].cpuinfo_todsp;
-	/* return success if already updated to remote processor */
-	if (me->channel[fl->cid].cpuinfo_status)
-		return 0;
-
-	ra[0].buf.pv = (void *)&cpuinfo;
-	ra[0].buf.len = sizeof(cpuinfo);
-	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_DSP_UTILITIES;
-	ioctl.inv.sc = REMOTE_SCALARS_MAKE(1, 1, 0);
-	ioctl.inv.pra = ra;
-	ioctl.fds = NULL;
-	ioctl.attrs = NULL;
-	ioctl.crc = NULL;
-	fl->pd = 1;
-
-	err = fastrpc_internal_invoke(fl, FASTRPC_MODE_PARALLEL, 1, &ioctl);
-	if (!err)
-		me->channel[fl->cid].cpuinfo_status = true;
-bail:
-	return err;
 }
 
 static int fastrpc_get_info_from_dsp(struct fastrpc_file *fl,
@@ -3294,9 +3061,8 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	int len, void *priv, u32 addr)
 {
 	struct smq_invoke_rsp *rsp = (struct smq_invoke_rsp *)data;
-	struct smq_invoke_rspv2 *rspv2 = NULL;
 	struct fastrpc_apps *me = &gfa;
-	uint32_t index, flags = 0, earlyWakeTime = 0;
+	uint32_t index;
 	int err = 0;
 
 	VERIFY(err, (rsp && len >= sizeof(*rsp)));
@@ -3314,9 +3080,6 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	}
 #endif
 
-	if (len >= sizeof(struct smq_invoke_rspv2))
-		rspv2 = (struct smq_invoke_rspv2 *)data;
-
 	index = (uint32_t)((rsp->ctx & FASTRPC_CTXID_MASK) >> 4);
 	VERIFY(err, index < FASTRPC_CTX_MAX);
 	if (err)
@@ -3331,15 +3094,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	if (err)
 		goto bail;
 
-	if (rspv2) {
-		VERIFY(err, rspv2->version == FASTRPC_RSP_VERSION2);
-		if (err)
-			goto bail;
-		flags = rspv2->flags;
-		earlyWakeTime = rspv2->earlyWakeTime;
-	}
-	context_notify_user(me->ctxtable[index], rsp->retval,
-				 flags, earlyWakeTime);
+	context_notify_user(me->ctxtable[index], rsp->retval);
 bail:
 	if (err)
 		pr_err("adsprpc: ERROR: %s: invalid response (data %pK, len %d) from remote subsystem (err %d)\n",
@@ -3847,7 +3602,7 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 					struct fastrpc_ioctl_control *cp)
 {
 	int err = 0;
-	unsigned int latency;
+	int latency;
 
 	VERIFY(err, !IS_ERR_OR_NULL(fl) && !IS_ERR_OR_NULL(fl->apps));
 	if (err)
@@ -3869,9 +3624,6 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 			fl->qos_request = 1;
 		} else
 			pm_qos_update_request(&fl->pm_qos_req, latency);
-
-		/* Ensure CPU feature map updated to DSP for early WakeUp */
-		fastrpc_send_cpuinfo_to_dsp(fl);
 		break;
 	case FASTRPC_CONTROL_KALLOC:
 		cp->kalloc.kalloc_support = 1;
