@@ -64,7 +64,7 @@ static int qg_process_fvss_soc(struct qpnp_qg *chip, int sys_soc)
 	int soc_vbat = 0, wt_vbat = 0, wt_sys = 0, soc_fvss = 0;
 
 	if (!chip->dt.fvss_enable)
-		return 0;
+		goto exit_soc_scale;
 
 	if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING)
 		goto exit_soc_scale;
