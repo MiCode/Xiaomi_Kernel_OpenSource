@@ -46,6 +46,7 @@ obj-$(CONFIG_QCOM_RPMPD) += rpmpd.o
 obj-$(CONFIG_QMP_DEBUGFS_CLIENT) += qmp-debugfs-client.o
 obj-$(CONFIG_QCOM_SMP2P_SLEEPSTATE) += smp2p_sleepstate.o
 obj-$(CONFIG_SENSORS_SSC) += sensors_ssc.o
+obj-$(CONFIG_QCOM_GLINK_PKT) += glink_pkt.o
 obj-$(CONFIG_QSEE_IPC_IRQ) += qsee_ipc_irq.o
 obj-$(CONFIG_QCOM_GLINK) += glink_probe.o
 obj-$(CONFIG_MSM_GLINK_SSR) += msm_glink_ssr.o
