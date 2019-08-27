@@ -79,7 +79,7 @@
 		compatible = "qcom,kona-asoc-snd";
 		qcom,mi2s-audio-intf = <1>;
 		qcom,auxpcm-audio-intf = <1>;
-		qcom,wcn-btfm = <0>;
+		qcom,wcn-btfm = <1>;
 		qcom,ext-disp-audio-rx = <0>;
 		qcom,afe-rxtx-lb = <0>;
 
