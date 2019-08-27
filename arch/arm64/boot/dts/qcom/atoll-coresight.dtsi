@@ -308,7 +308,7 @@
 		compatible = "qcom,coresight-remote-etm";
 		coresight-name = "coresight-modem-etm0";
 
-		qcom,inst-id = <11>;
+		qcom,inst-id = <2>;
 
 		port {
 			modem_etm0_out_funnel_dlnt: endpoint {
