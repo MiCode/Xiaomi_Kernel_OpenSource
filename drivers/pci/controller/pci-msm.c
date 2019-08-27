@@ -35,6 +35,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
+#include <soc/qcom/subsystem_notif.h>
 
 #include "../pci.h"
 
@@ -6531,34 +6532,43 @@ static int msm_pcie_drv_rpmsg_probe(struct rpmsg_device *rpdev)
 	return 0;
 }
 
-static void msm_pcie_drv_rpmsg_remove(struct rpmsg_device *rpdev)
+static void msm_pcie_drv_notify_client(struct pcie_drv_sta *pcie_drv,
+					enum msm_pcie_event event)
 {
-	struct pcie_drv_sta *pcie_drv = dev_get_drvdata(&rpdev->dev);
 	struct msm_pcie_dev_t *pcie_dev = pcie_drv->msm_pcie_dev;
 	int i;
-
-	pcie_drv->rpdev = NULL;
-	flush_work(&pcie_drv->drv_connect);
 
 	for (i = 0; i < MAX_RC_NUM; i++, pcie_dev++) {
 		struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
 		struct msm_pcie_register_event *event_reg =
 			pcie_dev->event_reg;
 
+		PCIE_DBG(pcie_dev, "PCIe: RC%d: event %d received\n",
+			pcie_dev->rc_idx, event);
+
 		/* does not support DRV or has not been probed yet */
 		if (!drv_info)
 			continue;
 
-		if (!event_reg ||
-		    !(event_reg->events & MSM_PCIE_EVENT_DRV_DISCONNECT))
+		if (!event_reg || !(event_reg->events & event))
 			continue;
 
 		if (drv_info->ep_connected) {
-			msm_pcie_notify_client(pcie_dev,
-					       MSM_PCIE_EVENT_DRV_DISCONNECT);
-			drv_info->ep_connected = false;
+			msm_pcie_notify_client(pcie_dev, event);
+			if (event & MSM_PCIE_EVENT_DRV_DISCONNECT)
+				drv_info->ep_connected = false;
 		}
 	}
+}
+
+static void msm_pcie_drv_rpmsg_remove(struct rpmsg_device *rpdev)
+{
+	struct pcie_drv_sta *pcie_drv = dev_get_drvdata(&rpdev->dev);
+
+	pcie_drv->rpdev = NULL;
+	flush_work(&pcie_drv->drv_connect);
+
+	msm_pcie_drv_notify_client(pcie_drv, MSM_PCIE_EVENT_DRV_DISCONNECT);
 }
 
 static int msm_pcie_drv_rpmsg_cb(struct rpmsg_device *rpdev, void *data,
@@ -6667,6 +6677,15 @@ static struct rpmsg_driver msm_pcie_drv_rpmsg_driver = {
 	},
 };
 
+static void msm_pcie_early_notifier(void *data)
+{
+	struct pcie_drv_sta *pcie_drv = data;
+
+	pcie_drv->rpdev = NULL;
+
+	msm_pcie_drv_notify_client(pcie_drv, MSM_PCIE_EVENT_WAKEUP);
+};
+
 static void msm_pcie_drv_connect_worker(struct work_struct *work)
 {
 	struct pcie_drv_sta *pcie_drv = container_of(work, struct pcie_drv_sta,
@@ -6699,6 +6718,9 @@ static void msm_pcie_drv_connect_worker(struct work_struct *work)
 				       MSM_PCIE_EVENT_DRV_CONNECT);
 		drv_info->ep_connected = true;
 	}
+
+	subsys_register_early_notifier("adsp", PCIE_DRV_LAYER_NOTIF,
+				msm_pcie_early_notifier, pcie_drv);
 }
 
 static int __init pcie_init(void)
