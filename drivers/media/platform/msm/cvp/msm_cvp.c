@@ -369,6 +369,75 @@ static void __msm_cvp_cache_operations(struct msm_cvp_internal_buffer *cbuf)
 				cbuf->buf.offset, cbuf->buf.size);
 }
 
+static int msm_cvp_map_buf_user_persist(struct msm_cvp_inst *inst,
+					struct cvp_buf_type *in_buf,
+					u32 *iova)
+{
+	int rc = 0;
+	struct cvp_internal_buf *cbuf;
+	struct dma_buf *dma_buf;
+
+	if (!inst || !iova) {
+		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	if (in_buf->fd > 0) {
+		dma_buf = msm_cvp_smem_get_dma_buf(in_buf->fd);
+		if (!dma_buf) {
+			dprintk(CVP_ERR, "%s: Invalid fd=%d", __func__,
+				in_buf->fd);
+			return -EINVAL;
+		}
+		in_buf->dbuf = dma_buf;
+		msm_cvp_smem_put_dma_buf(dma_buf);
+	}
+
+	rc = msm_cvp_session_get_iova_addr(inst, in_buf, iova);
+	if (!rc && *iova != 0)
+		return 0;
+	cbuf = kzalloc(sizeof(*cbuf), GFP_KERNEL);
+	if (!cbuf)
+		return -ENOMEM;
+
+	cbuf->smem.buffer_type = in_buf->flags;
+	cbuf->smem.fd = in_buf->fd;
+	cbuf->smem.size = in_buf->size;
+	cbuf->smem.flags = 0;
+	cbuf->smem.offset = 0;
+	cbuf->smem.dma_buf = in_buf->dbuf;
+	cbuf->buffer_ownership = CLIENT;
+
+	rc = msm_cvp_smem_map_dma_buf(inst, &cbuf->smem);
+	if (rc) {
+		dprintk(CVP_ERR,
+		"%s: %x : fd %d %s size %d",
+		"map persist failed", hash32_ptr(inst->session), cbuf->smem.fd,
+		cbuf->smem.dma_buf->name, cbuf->smem.size);
+		goto exit;
+	}
+
+	/* Assign mapped dma_buf back because it could be zero previously */
+	in_buf->dbuf = cbuf->smem.dma_buf;
+
+	mutex_lock(&inst->persistbufs.lock);
+	list_add_tail(&cbuf->list, &inst->persistbufs.list);
+	mutex_unlock(&inst->persistbufs.lock);
+
+	*iova = cbuf->smem.device_addr;
+
+	dprintk(CVP_DBG,
+	"%s: %x : fd %d %s size %d", "map persist", hash32_ptr(inst->session),
+	cbuf->smem.fd, cbuf->smem.dma_buf->name, cbuf->smem.size);
+	return rc;
+
+exit:
+	kfree(cbuf);
+	cbuf = NULL;
+
+	return rc;
+}
+
 static int msm_cvp_map_buf_cpu(struct msm_cvp_inst *inst,
 				struct cvp_buf_type *in_buf,
 				u32 *iova,
@@ -625,6 +694,56 @@ exit:
 	return rc;
 }
 
+static int msm_cvp_map_user_persist(struct msm_cvp_inst *inst,
+	struct cvp_kmd_hfi_packet *in_pkt,
+	unsigned int offset, unsigned int buf_num)
+{
+	struct cvp_buf_desc *buf_ptr;
+	struct cvp_buf_type *new_buf;
+	int i, rc = 0;
+	unsigned int iova;
+
+	if (!offset || !buf_num)
+		return 0;
+
+	for (i = 0; i < buf_num; i++) {
+		buf_ptr = (struct cvp_buf_desc *)
+				&in_pkt->pkt_data[offset];
+
+		offset += sizeof(*new_buf) >> 2;
+		new_buf = (struct cvp_buf_type *)buf_ptr;
+
+		/*
+		 * Make sure fd or dma_buf field doesn't have any
+		 * garbage value.
+		 */
+		if (inst->session_type == MSM_CVP_USER) {
+			new_buf->dbuf = 0;
+		} else if (inst->session_type == MSM_CVP_KERNEL) {
+			new_buf->fd = -1;
+		} else if (inst->session_type >= MSM_CVP_UNKNOWN) {
+			dprintk(CVP_ERR,
+				"%s: unknown session type %d\n",
+				__func__, inst->session_type);
+			return -EINVAL;
+		}
+
+		if (new_buf->fd <= 0 && !new_buf->dbuf)
+			continue;
+
+		rc = msm_cvp_map_buf_user_persist(inst, new_buf, &iova);
+		if (rc) {
+			dprintk(CVP_ERR,
+				"%s: buf %d register failed.\n",
+				__func__, i);
+
+			return rc;
+		}
+		new_buf->fd = iova;
+	}
+	return rc;
+}
+
 static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
 	struct cvp_kmd_hfi_packet *in_pkt,
 	unsigned int offset, unsigned int buf_num)
@@ -818,7 +937,11 @@ static int msm_cvp_session_process_hfi(
 		buf_num = in_buf_num;
 	}
 
-	rc = msm_cvp_map_buf(inst, in_pkt, offset, buf_num);
+	if (in_pkt->pkt_data[1] == HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS)
+		rc = msm_cvp_map_user_persist(inst, in_pkt, offset, buf_num);
+	else
+		rc = msm_cvp_map_buf(inst, in_pkt, offset, buf_num);
+
 	if (rc)
 		goto exit;
 

@@ -1657,6 +1657,7 @@ static int allocate_and_set_internal_bufs(struct msm_cvp_inst *inst,
 	}
 
 	binfo->buffer_type = HFI_BUFFER_INTERNAL_PERSIST_1;
+	binfo->buffer_ownership = DRIVER;
 
 	rc = set_internal_buf_on_fw(inst, &binfo->smem, false);
 	if (rc)
@@ -1713,6 +1714,7 @@ int cvp_comm_release_persist_buffers(struct msm_cvp_inst *inst)
 	int rc = 0;
 	struct msm_cvp_core *core;
 	struct cvp_hfi_device *hdev;
+	int all_released;
 
 	if (!inst) {
 		dprintk(CVP_ERR, "Invalid instance pointer = %pK\n", inst);
@@ -1731,6 +1733,8 @@ int cvp_comm_release_persist_buffers(struct msm_cvp_inst *inst)
 	}
 
 	dprintk(CVP_DBG, "release persist buffer!\n");
+	all_released = 0;
+
 	mutex_lock(&inst->persistbufs.lock);
 	list_for_each_safe(ptr, next, &inst->persistbufs.list) {
 		buf = list_entry(ptr, struct cvp_internal_buf, list);
@@ -1740,36 +1744,49 @@ int cvp_comm_release_persist_buffers(struct msm_cvp_inst *inst)
 			mutex_unlock(&inst->persistbufs.lock);
 			return -EINVAL;
 		}
-		if (inst->state > MSM_CVP_CLOSE_DONE) {
-			list_del(&buf->list);
-			msm_cvp_smem_free(handle);
-			kfree(buf);
-			continue;
-		}
-		buffer_info.buffer_size = handle->size;
-		buffer_info.buffer_type = buf->buffer_type;
-		buffer_info.num_buffers = 1;
-		buffer_info.align_device_addr = handle->device_addr;
-		buffer_info.response_required = true;
-		rc = call_hfi_op(hdev, session_release_buffers,
-				(void *)inst->session, &buffer_info);
-		if (!rc) {
-			mutex_unlock(&inst->persistbufs.lock);
-			rc = wait_for_sess_signal_receipt(inst,
+
+		/* Workaround for FW: release buffer means release all */
+		if (inst->state <= MSM_CVP_CLOSE_DONE && !all_released) {
+			buffer_info.buffer_size = handle->size;
+			buffer_info.buffer_type = buf->buffer_type;
+			buffer_info.num_buffers = 1;
+			buffer_info.align_device_addr = handle->device_addr;
+			buffer_info.response_required = true;
+			rc = call_hfi_op(hdev, session_release_buffers,
+					(void *)inst->session, &buffer_info);
+			if (!rc) {
+				mutex_unlock(&inst->persistbufs.lock);
+				rc = wait_for_sess_signal_receipt(inst,
 					HAL_SESSION_RELEASE_BUFFER_DONE);
-			if (rc)
-				dprintk(CVP_WARN,
+				if (rc)
+					dprintk(CVP_WARN,
 					"%s: wait for signal failed, rc %d\n",
-						__func__, rc);
-			mutex_lock(&inst->persistbufs.lock);
-		} else {
-			dprintk(CVP_WARN,
-					"Rel prst buf fail:%x, %d\n",
-					buffer_info.align_device_addr,
-					buffer_info.buffer_size);
+					__func__, rc);
+				mutex_lock(&inst->persistbufs.lock);
+			} else {
+				dprintk(CVP_WARN,
+						"Rel prst buf fail:%x, %d\n",
+						buffer_info.align_device_addr,
+						buffer_info.buffer_size);
+			}
+			all_released = 1;
 		}
 		list_del(&buf->list);
-		msm_cvp_smem_free(handle);
+
+		if (buf->buffer_ownership == DRIVER) {
+			dprintk(CVP_DBG,
+			"%s: %x : fd %d %s size %d",
+			"free arp", hash32_ptr(inst->session), buf->smem.fd,
+			buf->smem.dma_buf->name, buf->smem.size);
+			msm_cvp_smem_free(handle);
+		} else if (buf->buffer_ownership == CLIENT) {
+			dprintk(CVP_DBG,
+			"%s: %x : fd %d %s size %d",
+			"unmap persist", hash32_ptr(inst->session),
+			buf->smem.fd, buf->smem.dma_buf->name, buf->smem.size);
+			msm_cvp_smem_unmap_dma_buf(inst, &buf->smem);
+		}
+
 		kfree(buf);
 	}
 	mutex_unlock(&inst->persistbufs.lock);

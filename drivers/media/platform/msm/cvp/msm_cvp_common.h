@@ -45,4 +45,5 @@ int cvp_comm_set_arp_buffers(struct msm_cvp_inst *inst);
 int cvp_comm_release_persist_buffers(struct msm_cvp_inst *inst);
 void print_client_buffer(u32 tag, const char *str,
 		struct msm_cvp_inst *inst, struct cvp_kmd_buffer *cbuf);
+void msm_cvp_unmap_buf_cpu(struct msm_cvp_inst *inst, u64 ktid);
 #endif
