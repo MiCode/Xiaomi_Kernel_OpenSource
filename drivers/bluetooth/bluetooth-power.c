@@ -676,8 +676,8 @@ static int bt_power_probe(struct platform_device *pdev)
 	btpdev = pdev;
 
 	if (of_id) {
-		if ((get_bt_reset_gpio_value() == BT_RESET_GPIO_HIGH_VAL)
-			&& (strcmp(of_id->compatible, "qca,qca6174") == 0)) {
+		if ((strcmp(of_id->compatible, "qca,qca6174") == 0) &&
+			(get_bt_reset_gpio_value() == BT_RESET_GPIO_HIGH_VAL)) {
 			bluetooth_toggle_radio(pdev->dev.platform_data, 0);
 			bluetooth_toggle_radio(pdev->dev.platform_data, 1);
 		}
