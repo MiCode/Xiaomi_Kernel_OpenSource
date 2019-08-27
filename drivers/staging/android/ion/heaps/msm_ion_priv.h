@@ -81,11 +81,15 @@ struct ion_platform_heap {
  * struct msm_ion_heap - defines an ion heap, as well as additional information
  * relevant to the heap.
  * @dev:	the device structure associated with the heap
+ * @debug_show: called when the heap debug file is read to add any heap specific
+ *		debug info to output
  * @ion_heap:	ion heap
  *
  */
 struct msm_ion_heap {
 	struct device *dev;
+	int (*debug_show)(struct ion_heap *heap, struct seq_file *s,
+			  void *unused);
 	struct ion_heap ion_heap;
 };
 
