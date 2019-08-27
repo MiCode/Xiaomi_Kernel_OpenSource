@@ -51,87 +51,84 @@ static struct a6xx_protected_regs {
 };
 
 /* IFPC & Preemption static powerup restore list */
-static struct reg_list_pair {
-	uint32_t offset;
-	uint32_t val;
-} a6xx_pwrup_reglist[] = {
-	{ A6XX_VSC_ADDR_MODE_CNTL, 0x0 },
-	{ A6XX_GRAS_ADDR_MODE_CNTL, 0x0 },
-	{ A6XX_RB_ADDR_MODE_CNTL, 0x0 },
-	{ A6XX_PC_ADDR_MODE_CNTL, 0x0 },
-	{ A6XX_HLSQ_ADDR_MODE_CNTL, 0x0 },
-	{ A6XX_VFD_ADDR_MODE_CNTL, 0x0 },
-	{ A6XX_VPC_ADDR_MODE_CNTL, 0x0 },
-	{ A6XX_UCHE_ADDR_MODE_CNTL, 0x0 },
-	{ A6XX_SP_ADDR_MODE_CNTL, 0x0 },
-	{ A6XX_TPL1_ADDR_MODE_CNTL, 0x0 },
-	{ A6XX_UCHE_WRITE_RANGE_MAX_LO, 0x0 },
-	{ A6XX_UCHE_WRITE_RANGE_MAX_HI, 0x0 },
-	{ A6XX_UCHE_TRAP_BASE_LO, 0x0 },
-	{ A6XX_UCHE_TRAP_BASE_HI, 0x0 },
-	{ A6XX_UCHE_WRITE_THRU_BASE_LO, 0x0 },
-	{ A6XX_UCHE_WRITE_THRU_BASE_HI, 0x0 },
-	{ A6XX_UCHE_GMEM_RANGE_MIN_LO, 0x0 },
-	{ A6XX_UCHE_GMEM_RANGE_MIN_HI, 0x0 },
-	{ A6XX_UCHE_GMEM_RANGE_MAX_LO, 0x0 },
-	{ A6XX_UCHE_GMEM_RANGE_MAX_HI, 0x0 },
-	{ A6XX_UCHE_FILTER_CNTL, 0x0 },
-	{ A6XX_UCHE_CACHE_WAYS, 0x0 },
-	{ A6XX_UCHE_MODE_CNTL, 0x0 },
-	{ A6XX_RB_NC_MODE_CNTL, 0x0 },
-	{ A6XX_TPL1_NC_MODE_CNTL, 0x0 },
-	{ A6XX_SP_NC_MODE_CNTL, 0x0 },
-	{ A6XX_PC_DBG_ECO_CNTL, 0x0 },
-	{ A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE, 0x0 },
+static u32 a6xx_pwrup_reglist[] = {
+	A6XX_VSC_ADDR_MODE_CNTL,
+	A6XX_GRAS_ADDR_MODE_CNTL,
+	A6XX_RB_ADDR_MODE_CNTL,
+	A6XX_PC_ADDR_MODE_CNTL,
+	A6XX_HLSQ_ADDR_MODE_CNTL,
+	A6XX_VFD_ADDR_MODE_CNTL,
+	A6XX_VPC_ADDR_MODE_CNTL,
+	A6XX_UCHE_ADDR_MODE_CNTL,
+	A6XX_SP_ADDR_MODE_CNTL,
+	A6XX_TPL1_ADDR_MODE_CNTL,
+	A6XX_UCHE_WRITE_RANGE_MAX_LO,
+	A6XX_UCHE_WRITE_RANGE_MAX_HI,
+	A6XX_UCHE_TRAP_BASE_LO,
+	A6XX_UCHE_TRAP_BASE_HI,
+	A6XX_UCHE_WRITE_THRU_BASE_LO,
+	A6XX_UCHE_WRITE_THRU_BASE_HI,
+	A6XX_UCHE_GMEM_RANGE_MIN_LO,
+	A6XX_UCHE_GMEM_RANGE_MIN_HI,
+	A6XX_UCHE_GMEM_RANGE_MAX_LO,
+	A6XX_UCHE_GMEM_RANGE_MAX_HI,
+	A6XX_UCHE_FILTER_CNTL,
+	A6XX_UCHE_CACHE_WAYS,
+	A6XX_UCHE_MODE_CNTL,
+	A6XX_RB_NC_MODE_CNTL,
+	A6XX_TPL1_NC_MODE_CNTL,
+	A6XX_SP_NC_MODE_CNTL,
+	A6XX_PC_DBG_ECO_CNTL,
+	A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
 };
 
 /* IFPC only static powerup restore list */
-static struct reg_list_pair a6xx_ifpc_pwrup_reglist[] = {
-	{ A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, 0x0 },
-	{ A6XX_CP_CHICKEN_DBG, 0x0 },
-	{ A6XX_CP_DBG_ECO_CNTL, 0x0 },
-	{ A6XX_CP_PROTECT_CNTL, 0x0 },
-	{ A6XX_CP_PROTECT_REG, 0x0 },
-	{ A6XX_CP_PROTECT_REG+1, 0x0 },
-	{ A6XX_CP_PROTECT_REG+2, 0x0 },
-	{ A6XX_CP_PROTECT_REG+3, 0x0 },
-	{ A6XX_CP_PROTECT_REG+4, 0x0 },
-	{ A6XX_CP_PROTECT_REG+5, 0x0 },
-	{ A6XX_CP_PROTECT_REG+6, 0x0 },
-	{ A6XX_CP_PROTECT_REG+7, 0x0 },
-	{ A6XX_CP_PROTECT_REG+8, 0x0 },
-	{ A6XX_CP_PROTECT_REG+9, 0x0 },
-	{ A6XX_CP_PROTECT_REG+10, 0x0 },
-	{ A6XX_CP_PROTECT_REG+11, 0x0 },
-	{ A6XX_CP_PROTECT_REG+12, 0x0 },
-	{ A6XX_CP_PROTECT_REG+13, 0x0 },
-	{ A6XX_CP_PROTECT_REG+14, 0x0 },
-	{ A6XX_CP_PROTECT_REG+15, 0x0 },
-	{ A6XX_CP_PROTECT_REG+16, 0x0 },
-	{ A6XX_CP_PROTECT_REG+17, 0x0 },
-	{ A6XX_CP_PROTECT_REG+18, 0x0 },
-	{ A6XX_CP_PROTECT_REG+19, 0x0 },
-	{ A6XX_CP_PROTECT_REG+20, 0x0 },
-	{ A6XX_CP_PROTECT_REG+21, 0x0 },
-	{ A6XX_CP_PROTECT_REG+22, 0x0 },
-	{ A6XX_CP_PROTECT_REG+23, 0x0 },
-	{ A6XX_CP_PROTECT_REG+24, 0x0 },
-	{ A6XX_CP_PROTECT_REG+25, 0x0 },
-	{ A6XX_CP_PROTECT_REG+26, 0x0 },
-	{ A6XX_CP_PROTECT_REG+27, 0x0 },
-	{ A6XX_CP_PROTECT_REG+28, 0x0 },
-	{ A6XX_CP_PROTECT_REG+29, 0x0 },
-	{ A6XX_CP_PROTECT_REG+30, 0x0 },
-	{ A6XX_CP_PROTECT_REG+31, 0x0 },
-	{ A6XX_CP_AHB_CNTL, 0x0 },
+static u32 a6xx_ifpc_pwrup_reglist[] = {
+	A6XX_RBBM_VBIF_CLIENT_QOS_CNTL,
+	A6XX_CP_CHICKEN_DBG,
+	A6XX_CP_DBG_ECO_CNTL,
+	A6XX_CP_PROTECT_CNTL,
+	A6XX_CP_PROTECT_REG,
+	A6XX_CP_PROTECT_REG+1,
+	A6XX_CP_PROTECT_REG+2,
+	A6XX_CP_PROTECT_REG+3,
+	A6XX_CP_PROTECT_REG+4,
+	A6XX_CP_PROTECT_REG+5,
+	A6XX_CP_PROTECT_REG+6,
+	A6XX_CP_PROTECT_REG+7,
+	A6XX_CP_PROTECT_REG+8,
+	A6XX_CP_PROTECT_REG+9,
+	A6XX_CP_PROTECT_REG+10,
+	A6XX_CP_PROTECT_REG+11,
+	A6XX_CP_PROTECT_REG+12,
+	A6XX_CP_PROTECT_REG+13,
+	A6XX_CP_PROTECT_REG+14,
+	A6XX_CP_PROTECT_REG+15,
+	A6XX_CP_PROTECT_REG+16,
+	A6XX_CP_PROTECT_REG+17,
+	A6XX_CP_PROTECT_REG+18,
+	A6XX_CP_PROTECT_REG+19,
+	A6XX_CP_PROTECT_REG+20,
+	A6XX_CP_PROTECT_REG+21,
+	A6XX_CP_PROTECT_REG+22,
+	A6XX_CP_PROTECT_REG+23,
+	A6XX_CP_PROTECT_REG+24,
+	A6XX_CP_PROTECT_REG+25,
+	A6XX_CP_PROTECT_REG+26,
+	A6XX_CP_PROTECT_REG+27,
+	A6XX_CP_PROTECT_REG+28,
+	A6XX_CP_PROTECT_REG+29,
+	A6XX_CP_PROTECT_REG+30,
+	A6XX_CP_PROTECT_REG+31,
+	A6XX_CP_AHB_CNTL,
 };
 
-static struct reg_list_pair a615_pwrup_reglist[] = {
-	{ A6XX_UCHE_GBIF_GX_CONFIG, 0x0 },
+static u32 a615_pwrup_reglist[] = {
+	A6XX_UCHE_GBIF_GX_CONFIG,
 };
 
-static struct reg_list_pair a6xx_ifpc_perfctr_reglist[] = {
-	{ A6XX_RBBM_PERFCTR_CNTL, 0x0 },
+static u32 a612_pwrup_reglist[] = {
+	A6XX_RBBM_PERFCTR_CNTL,
 };
 
 static void _update_always_on_regs(struct adreno_device *adreno_dev)
@@ -143,21 +140,6 @@ static void _update_always_on_regs(struct adreno_device *adreno_dev)
 		A6XX_CP_ALWAYS_ON_COUNTER_LO;
 	regs[ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI] =
 		A6XX_CP_ALWAYS_ON_COUNTER_HI;
-}
-
-static void a6xx_pwrup_reglist_init(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	if (kgsl_allocate_global(device, &adreno_dev->pwrup_reglist,
-		PAGE_SIZE, 0, KGSL_MEMDESC_CONTIG | KGSL_MEMDESC_PRIVILEGED,
-		"powerup_register_list")) {
-		adreno_dev->pwrup_reglist.gpuaddr = 0;
-		return;
-	}
-
-	kgsl_sharedmem_set(device, &adreno_dev->pwrup_reglist, 0, 0,
-		PAGE_SIZE);
 }
 
 static void a6xx_init(struct adreno_device *adreno_dev)
@@ -185,10 +167,12 @@ static void a6xx_init(struct adreno_device *adreno_dev)
 	 * If the GMU is not enabled, rewrite the offset for the always on
 	 * counters to point to the CP always on instead of GMU always on
 	 */
-	if (!gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
+	if (!gmu_core_isenabled(device))
 		_update_always_on_regs(adreno_dev);
 
-	a6xx_pwrup_reglist_init(adreno_dev);
+	kgsl_allocate_global(device, &adreno_dev->pwrup_reglist,
+		PAGE_SIZE, 0, KGSL_MEMDESC_CONTIG | KGSL_MEMDESC_PRIVILEGED,
+		"powerup_register_list");
 }
 
 /**
@@ -374,80 +358,61 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 		on ? __get_rbbm_clock_cntl_on(adreno_dev) : 0);
 }
 
+struct a6xx_reglist_list {
+	u32 *regs;
+	u32 count;
+};
+
+#define REGLIST(_a) \
+	 (struct a6xx_reglist_list) { .regs = _a, .count = ARRAY_SIZE(_a), }
+
 static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 {
-	uint32_t i;
-	struct cpu_gpu_lock *lock;
-	struct reg_list_pair *r;
+	struct a6xx_reglist_list reglist[3];
+	void *ptr = adreno_dev->pwrup_reglist.hostptr;
+	struct cpu_gpu_lock *lock = ptr;
+	int items = 0, i, j;
+	u32 *dest = ptr + sizeof(*lock);
 
-	/* Set up the register values */
-	for (i = 0; i < ARRAY_SIZE(a6xx_ifpc_pwrup_reglist); i++) {
-		r = &a6xx_ifpc_pwrup_reglist[i];
-		kgsl_regread(KGSL_DEVICE(adreno_dev), r->offset, &r->val);
+	/* Static IFPC-only registers */
+	reglist[items++] = REGLIST(a6xx_ifpc_pwrup_reglist);
+
+	/* Static IFPC + preemption registers */
+	reglist[items++] = REGLIST(a6xx_pwrup_reglist);
+
+	/* Add target specific registers */
+	if (adreno_is_a612(adreno_dev))
+		reglist[items++] = REGLIST(a612_pwrup_reglist);
+	else if (adreno_is_a615_family(adreno_dev))
+		reglist[items++] = REGLIST(a615_pwrup_reglist);
+
+	/*
+	 * For each entry in each of the lists, write the offset and the current
+	 * register value into the GPU buffer
+	 */
+	for (i = 0; i < items; i++) {
+		u32 *r = reglist[i].regs;
+
+		for (j = 0; j < reglist[i].count; j++) {
+			*dest++ = r[j];
+			kgsl_regread(KGSL_DEVICE(adreno_dev), r[j], dest++);
+		}
+
+		lock->list_length += reglist[i].count * 2;
 	}
-
-	for (i = 0; i < ARRAY_SIZE(a6xx_pwrup_reglist); i++) {
-		r = &a6xx_pwrup_reglist[i];
-		kgsl_regread(KGSL_DEVICE(adreno_dev), r->offset, &r->val);
-	}
-
-	lock = (struct cpu_gpu_lock *) adreno_dev->pwrup_reglist.hostptr;
-	lock->flag_ucode = 0;
-	lock->flag_kmd = 0;
-	lock->turn = 0;
 
 	/*
 	 * The overall register list is composed of
 	 * 1. Static IFPC-only registers
 	 * 2. Static IFPC + preemption registers
-	 * 2. Dynamic IFPC + preemption registers (ex: perfcounter selects)
+	 * 3. Dynamic IFPC + preemption registers (ex: perfcounter selects)
 	 *
 	 * The CP views the second and third entries as one dynamic list
-	 * starting from list_offset. Thus, list_length should be the sum
-	 * of all three lists above (of which the third list will start off
-	 * empty). And list_offset should be specified as the size in dwords
-	 * of the static IFPC-only register list.
+	 * starting from list_offset. list_length should be the total dwords in
+	 * all the lists and list_offset should be specified as the size in
+	 * dwords of the first entry in the list.
 	 */
-	lock->list_length = (sizeof(a6xx_ifpc_pwrup_reglist) +
-			sizeof(a6xx_pwrup_reglist)) >> 2;
-	lock->list_offset = sizeof(a6xx_ifpc_pwrup_reglist) >> 2;
-
-	memcpy(adreno_dev->pwrup_reglist.hostptr + sizeof(*lock),
-		a6xx_ifpc_pwrup_reglist, sizeof(a6xx_ifpc_pwrup_reglist));
-	memcpy(adreno_dev->pwrup_reglist.hostptr + sizeof(*lock)
-		+ sizeof(a6xx_ifpc_pwrup_reglist), a6xx_pwrup_reglist,
-		sizeof(a6xx_pwrup_reglist));
-
-	if (adreno_is_a615_family(adreno_dev)) {
-		for (i = 0; i < ARRAY_SIZE(a615_pwrup_reglist); i++) {
-			r = &a615_pwrup_reglist[i];
-			kgsl_regread(KGSL_DEVICE(adreno_dev),
-				r->offset, &r->val);
-		}
-
-		memcpy(adreno_dev->pwrup_reglist.hostptr + sizeof(*lock)
-			+ sizeof(a6xx_ifpc_pwrup_reglist)
-			+ sizeof(a6xx_pwrup_reglist), a615_pwrup_reglist,
-			sizeof(a615_pwrup_reglist));
-
-		lock->list_length += sizeof(a615_pwrup_reglist) >> 2;
-	}
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_PERFCTRL_RETAIN)) {
-		for (i = 0; i < ARRAY_SIZE(a6xx_ifpc_perfctr_reglist); i++) {
-			r = &a6xx_ifpc_perfctr_reglist[i];
-			kgsl_regread(KGSL_DEVICE(adreno_dev),
-				r->offset, &r->val);
-		}
-
-		memcpy(adreno_dev->pwrup_reglist.hostptr + sizeof(*lock)
-				+ sizeof(a6xx_ifpc_pwrup_reglist)
-				+ sizeof(a6xx_pwrup_reglist),
-				a6xx_ifpc_perfctr_reglist,
-				sizeof(a6xx_ifpc_perfctr_reglist));
-
-		lock->list_length += sizeof(a6xx_ifpc_perfctr_reglist) >> 2;
-	}
+	lock->list_offset = reglist[0].count * 2;
 }
 
 /*
@@ -2504,21 +2469,20 @@ static const struct adreno_reg_offsets a6xx_reg_offsets = {
 	.offset_0 = ADRENO_REG_REGISTER_MAX,
 };
 
-static int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
-	struct adreno_perfcount_register *reg, bool update_reg)
+static int cpu_gpu_lock(struct cpu_gpu_lock *lock)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct cpu_gpu_lock *lock = adreno_dev->pwrup_reglist.hostptr;
-	struct reg_list_pair *reg_pair = (struct reg_list_pair *)(lock + 1);
-	unsigned int i;
 	unsigned long timeout = jiffies + msecs_to_jiffies(1000);
-	int ret = 0;
 
+	/* Indicate that the CPU wants the lock */
 	lock->flag_kmd = 1;
-	/* Write flag_kmd before turn */
+
+	/* post the request */
 	wmb();
+
+	/* Wait for our turn */
 	lock->turn = 0;
-	/* Write these fields before looping */
+
+	/* Finish all memory transactions before moving on */
 	mb();
 
 	/*
@@ -2530,60 +2494,76 @@ static int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
 		cpu_relax();
 		/* Get the latest updates from GPU */
 		rmb();
-		/*
-		 * Make sure we wait at least 1sec for the lock,
-		 * if we did not get it after 1sec return an error.
-		 */
-		if (time_after(jiffies, timeout) &&
-			(lock->flag_ucode == 1 && lock->turn == 0)) {
-			ret = -EBUSY;
-			goto unlock;
-		}
+
+		if (time_after(jiffies, timeout))
+			break;
 	}
 
-	/* Read flag_ucode and turn before list_length */
-	rmb();
+	if (lock->flag_ucode == 1 && lock->turn == 0)
+		return -EBUSY;
+
+	return 0;
+}
+
+static void cpu_gpu_unlock(struct cpu_gpu_lock *lock)
+{
+	/* Make sure all writes are done before releasing the lock */
+	wmb();
+	lock->flag_kmd = 0;
+}
+
+static int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
+	struct adreno_perfcount_register *reg, bool update_reg)
+{
+	void *ptr = adreno_dev->pwrup_reglist.hostptr;
+	struct cpu_gpu_lock *lock = ptr;
+	u32 *data = ptr + sizeof(*lock);
+	int i, offset = 0;
+
+	if (cpu_gpu_lock(lock)) {
+		cpu_gpu_unlock(lock);
+		return -EBUSY;
+	}
+
 	/*
 	 * If the perfcounter select register is already present in reglist
 	 * update it, otherwise append the <select register, value> pair to
 	 * the end of the list.
 	 */
-	for (i = 0; i < lock->list_length >> 1; i++)
-		if (reg_pair[i].offset == reg->select)
-			break;
-	/*
-	 * If the perfcounter selct register is not present overwrite last entry
-	 * with new entry and add RBBM perf counter enable at the end.
-	 */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_PERFCTRL_RETAIN) &&
-			(i == lock->list_length >> 1)) {
-		reg_pair[i-1].offset = reg->select;
-		reg_pair[i-1].val = reg->countable;
+	for (i = 0; i < lock->list_length >> 1; i++) {
+		if (data[offset] == reg->select) {
+			data[offset + 1] = reg->countable;
+			goto update;
+		}
 
-		/* Enable perf counter after performance counter selections */
-		reg_pair[i].offset = A6XX_RBBM_PERFCTR_CNTL;
-		reg_pair[i].val = 1;
-
-	} else {
-		/*
-		 * If perf counter select register is already present in reglist
-		 * just update list without adding the RBBM perfcontrol enable.
-		 */
-		reg_pair[i].offset = reg->select;
-		reg_pair[i].val = reg->countable;
+		offset += 2;
 	}
 
-	if (i == lock->list_length >> 1)
-		lock->list_length += 2;
+	/*
+	 * For a612 targets A6XX_RBBM_PERFCTR_CNTL needs to be the last entry,
+	 * so overwrite the existing A6XX_RBBM_PERFCNTL_CTRL and add it back to
+	 * the end. All other targets just append the new counter to the end.
+	 */
+	if (adreno_is_a612(adreno_dev)) {
+		data[offset - 2] = reg->select;
+		data[offset - 1] = reg->countable;
 
+		data[offset] = A6XX_RBBM_PERFCTR_CNTL,
+		data[offset + 1] = 1;
+	} else {
+		data[offset] = reg->select;
+		data[offset + 1] = reg->countable;
+	}
+
+	lock->list_length += 2;
+
+update:
 	if (update_reg)
-		kgsl_regwrite(device, reg->select, reg->countable);
+		kgsl_regwrite(KGSL_DEVICE(adreno_dev), reg->select,
+			reg->countable);
 
-unlock:
-	/* All writes done before releasing the lock */
-	wmb();
-	lock->flag_kmd = 0;
-	return ret;
+	cpu_gpu_unlock(lock);
+	return 0;
 }
 
 struct adreno_gpudev adreno_a6xx_gpudev = {
