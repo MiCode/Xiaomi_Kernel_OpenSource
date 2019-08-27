@@ -97,7 +97,6 @@ struct msm_hsphy {
 	bool			suspended;
 	bool			cable_connected;
 	bool			dpdm_enable;
-	bool			no_rext_present;
 
 	int			*param_override_seq;
 	int			param_override_seq_cnt;
@@ -433,15 +432,6 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 				phy->rcal_mask, phy->phy_rcal_reg, rcal_code);
 	}
 
-	/*
-	 * Use external resistor value only if:
-	 * a. It is present and
-	 * b. efuse is not programmed.
-	 */
-	if (!phy->no_rext_present && !rcal_code)
-		msm_usb_write_readback(phy->base, USB2PHY_USB_PHY_RTUNE_SEL,
-			RTUNE_SEL, RTUNE_SEL);
-
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL_COMMON2,
 				VREGBYPASS, VREGBYPASS);
 
@@ -731,9 +721,6 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	phy->phy_reset = devm_reset_control_get(dev, "phy_reset");
 	if (IS_ERR(phy->phy_reset))
 		return PTR_ERR(phy->phy_reset);
-
-	phy->no_rext_present = of_property_read_bool(dev->of_node,
-					"qcom,no-rext-present");
 
 	phy->param_override_seq_cnt = of_property_count_elems_of_size(
 					dev->of_node,
