@@ -183,6 +183,8 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 	case MTU3_VBUS_VALID:
 		ssusb_set_force_vbus(ssusb, true);
 		/* avoid suspend when works as device */
+		ssusb_ip_sw_reset(ssusb);
+		switch_port_to_device(ssusb);
 		pm_stay_awake(ssusb->dev);
 		mtu3_start(mtu);
 		otg_sx->sw_state |= MTU3_SW_VBUS_VALID;

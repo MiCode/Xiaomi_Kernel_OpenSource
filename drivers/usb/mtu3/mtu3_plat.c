@@ -224,7 +224,7 @@ static void ssusb_rscs_exit(struct ssusb_mtk *ssusb)
 	ssusb_phy_exit(ssusb);
 }
 
-static void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb)
+void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb)
 {
 	/* reset whole ip (xhci & u3d) */
 	mtu3_setbits(ssusb->ippc_base, U3D_SSUSB_IP_PW_CTRL0, SSUSB_IP_SW_RST);
