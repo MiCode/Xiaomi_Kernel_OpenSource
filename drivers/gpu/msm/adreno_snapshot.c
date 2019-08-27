@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/msm-bus.h>
+
 #include "kgsl.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_snapshot.h"
@@ -864,6 +866,14 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 	snapshot_frozen_objsize = 0;
 
+	/*
+	 * We read lots of registers during GPU snapshot. Keep
+	 * high bus vote to reduce AHB latency.
+	 */
+	if (device->pwrctrl.ahbpath_pcl)
+		msm_bus_scale_client_update_request(device->pwrctrl.ahbpath_pcl,
+			KGSL_AHB_PATH_HIGH);
+
 	/* Add GPU specific sections - registers mainly, but other stuff too */
 	if (gpudev->snapshot)
 		gpudev->snapshot(adreno_dev, snapshot);
@@ -871,7 +881,7 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	/* Dumping these buffers is useless if the GX is not on */
 	if (GMU_DEV_OP_VALID(gmu_dev_ops, gx_is_on) &&
 			!gmu_dev_ops->gx_is_on(adreno_dev))
-		return;
+		goto out;
 
 	setup_fault_process(device, snapshot,
 			context ? context->proc_priv : NULL);
@@ -970,6 +980,10 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 		KGSL_CORE_ERR("GPU snapshot froze %zdKb of GPU buffers\n",
 			snapshot_frozen_objsize / 1024);
 
+out:
+	if (device->pwrctrl.ahbpath_pcl)
+		msm_bus_scale_client_update_request(device->pwrctrl.ahbpath_pcl,
+			KGSL_AHB_PATH_LOW);
 }
 
 /*
