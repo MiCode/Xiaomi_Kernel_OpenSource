@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2013, 2015-2-17 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2015-2017, 2019-2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -69,6 +69,8 @@ do {									\
 #define BLKSIZE_1024		2
 #define BLKSIZE_2048		3
 
+#define FLUSHPERIOD_2048	0x800
+
 struct csr_drvdata {
 	void __iomem		*base;
 	phys_addr_t		pbase;
@@ -76,6 +78,7 @@ struct csr_drvdata {
 	struct coresight_device	*csdev;
 	uint32_t		*msr;
 	uint32_t		blksize;
+	uint32_t		flushperiod;
 	struct coresight_csr		csr;
 	struct clk		*clk;
 	spinlock_t		spin_lock;
@@ -83,6 +86,7 @@ struct csr_drvdata {
 	bool			hwctrl_set_support;
 	bool			set_byte_cntr_support;
 	bool			timestamp_support;
+	bool			enable_flush;
 	bool			msr_support;
 };
 
@@ -93,10 +97,23 @@ static DEFINE_MUTEX(csr_lock);
 
 #define to_csr_drvdata(c) container_of(c, struct csr_drvdata, csr)
 
+static void msm_qdss_csr_config_flush_period(struct csr_drvdata *drvdata)
+{
+	uint32_t usbflshctrl;
+
+	CSR_UNLOCK(drvdata);
+
+	usbflshctrl = csr_readl(drvdata, CSR_USBFLSHCTRL);
+	usbflshctrl = (usbflshctrl & ~0x3FFFC) | (drvdata->flushperiod << 2);
+	csr_writel(drvdata, usbflshctrl, CSR_USBFLSHCTRL);
+
+	CSR_LOCK(drvdata);
+}
+
 void msm_qdss_csr_enable_bam_to_usb(struct coresight_csr *csr)
 {
 	struct csr_drvdata *drvdata;
-	uint32_t usbbamctrl, usbflshctrl;
+	uint32_t usbbamctrl;
 	unsigned long flags;
 
 	if (csr == NULL)
@@ -113,12 +130,6 @@ void msm_qdss_csr_enable_bam_to_usb(struct coresight_csr *csr)
 	usbbamctrl = (usbbamctrl & ~0x3) | drvdata->blksize;
 	csr_writel(drvdata, usbbamctrl, CSR_USBBAMCTRL);
 
-	usbflshctrl = csr_readl(drvdata, CSR_USBFLSHCTRL);
-	usbflshctrl = (usbflshctrl & ~0x3FFFC) | (0xFFFF << 2);
-	csr_writel(drvdata, usbflshctrl, CSR_USBFLSHCTRL);
-	usbflshctrl |= 0x2;
-	csr_writel(drvdata, usbflshctrl, CSR_USBFLSHCTRL);
-
 	usbbamctrl |= 0x4;
 	csr_writel(drvdata, usbbamctrl, CSR_USBBAMCTRL);
 
@@ -126,6 +137,36 @@ void msm_qdss_csr_enable_bam_to_usb(struct coresight_csr *csr)
 	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
 }
 EXPORT_SYMBOL(msm_qdss_csr_enable_bam_to_usb);
+
+void msm_qdss_csr_enable_flush(struct coresight_csr *csr)
+{
+	struct csr_drvdata *drvdata;
+	uint32_t usbflshctrl;
+	unsigned long flags;
+
+	if (csr == NULL)
+		return;
+
+	drvdata = to_csr_drvdata(csr);
+	if (IS_ERR_OR_NULL(drvdata) || !drvdata->usb_bam_support)
+		return;
+
+	spin_lock_irqsave(&drvdata->spin_lock, flags);
+
+	msm_qdss_csr_config_flush_period(drvdata);
+
+	CSR_UNLOCK(drvdata);
+
+	usbflshctrl = csr_readl(drvdata, CSR_USBFLSHCTRL);
+	usbflshctrl |= 0x2;
+	csr_writel(drvdata, usbflshctrl, CSR_USBFLSHCTRL);
+
+	CSR_LOCK(drvdata);
+	drvdata->enable_flush = true;
+	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
+}
+EXPORT_SYMBOL(msm_qdss_csr_enable_flush);
+
 
 void msm_qdss_csr_disable_bam_to_usb(struct coresight_csr *csr)
 {
@@ -173,6 +214,7 @@ void msm_qdss_csr_disable_flush(struct coresight_csr *csr)
 	csr_writel(drvdata, usbflshctrl, CSR_USBFLSHCTRL);
 
 	CSR_LOCK(drvdata);
+	drvdata->enable_flush = false;
 	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
 }
 EXPORT_SYMBOL(msm_qdss_csr_disable_flush);
@@ -405,8 +447,59 @@ static ssize_t msr_reset_store(struct device *dev,
 
 static DEVICE_ATTR_WO(msr_reset);
 
+static ssize_t flushperiod_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct csr_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	if (IS_ERR_OR_NULL(drvdata) || !drvdata->usb_bam_support) {
+		dev_err(dev, "Invalid param\n");
+		return -EINVAL;
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", drvdata->flushperiod);
+}
+
+static ssize_t flushperiod_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf,
+				size_t size)
+{
+	unsigned long flags;
+	unsigned long val;
+	struct csr_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	if (IS_ERR_OR_NULL(drvdata) || !drvdata->usb_bam_support) {
+		dev_err(dev, "Invalid param\n");
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&drvdata->spin_lock, flags);
+
+	if (kstrtoul(buf, 0, &val) || val > 0xffff) {
+		spin_unlock_irqrestore(&drvdata->spin_lock, flags);
+		return -EINVAL;
+	}
+
+	if (drvdata->flushperiod == val)
+		goto out;
+
+	drvdata->flushperiod = val;
+
+	if (drvdata->enable_flush)
+		msm_qdss_csr_config_flush_period(drvdata);
+
+out:
+	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
+	return size;
+}
+
+static DEVICE_ATTR_RW(flushperiod);
+
 static struct attribute *csr_attrs[] = {
 	&dev_attr_timestamp.attr,
+	&dev_attr_flushperiod.attr,
 	&dev_attr_msr.attr,
 	&dev_attr_msr_reset.attr,
 	NULL,
@@ -415,6 +508,7 @@ static struct attribute *csr_attrs[] = {
 static struct attribute_group csr_attr_grp = {
 	.attrs = csr_attrs,
 };
+
 static const struct attribute_group *csr_attr_grps[] = {
 	&csr_attr_grp,
 	NULL,
@@ -489,6 +583,8 @@ static int csr_probe(struct platform_device *pdev)
 	else
 		dev_dbg(dev, "timestamp_support operation supported\n");
 
+	if (drvdata->usb_bam_support)
+		drvdata->flushperiod = FLUSHPERIOD_2048;
 	drvdata->msr_support = of_property_read_bool(pdev->dev.of_node,
 						"qcom,msr-support");
 	if (!drvdata->msr_support) {
