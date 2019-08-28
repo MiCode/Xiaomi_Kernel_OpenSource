@@ -1015,11 +1015,12 @@ static void tmc_etr_sync_sysfs_buf(struct tmc_drvdata *drvdata)
 	tmc_sync_etr_buf(drvdata);
 }
 
-void tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
+void tmc_etr_disable_hw(struct tmc_drvdata *drvdata, bool flush)
 {
 	CS_UNLOCK(drvdata->base);
 
-	tmc_flush_and_stop(drvdata);
+	if (flush)
+		tmc_flush_and_stop(drvdata);
 	/*
 	 * When operating in sysFS mode the content of the buffer needs to be
 	 * read before the TMC is disabled.
@@ -1442,7 +1443,7 @@ static int tmc_enable_etr_sink(struct coresight_device *csdev, u32 mode)
 	return -EINVAL;
 }
 
-static void tmc_disable_etr_sink(struct coresight_device *csdev)
+static void _tmc_disable_etr_sink(struct coresight_device *csdev, bool flush)
 {
 	unsigned long flags;
 	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
@@ -1468,10 +1469,10 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 				goto out;
 			} else {
 				usb_qdss_close(drvdata->usbch);
-				tmc_etr_disable_hw(drvdata);
+				tmc_etr_disable_hw(drvdata, flush);
 			}
 		} else {
-			tmc_etr_disable_hw(drvdata);
+			tmc_etr_disable_hw(drvdata, flush);
 		}
 		drvdata->mode = CS_MODE_DISABLED;
 	}
@@ -1506,6 +1507,11 @@ out:
 	dev_info(drvdata->dev, "TMC-ETR disabled\n");
 }
 
+static void tmc_disable_etr_sink(struct coresight_device *csdev)
+{
+	_tmc_disable_etr_sink(csdev, true);
+}
+
 int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
 {
 	enum tmc_etr_out_mode new_mode, old_mode;
@@ -1525,7 +1531,7 @@ int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
 		return 0;
 	}
 
-	tmc_disable_etr_sink(drvdata->csdev);
+	_tmc_disable_etr_sink(drvdata->csdev, false);
 	old_mode = drvdata->out_mode;
 	drvdata->out_mode = new_mode;
 	if (tmc_enable_etr_sink_sysfs(drvdata->csdev)) {
@@ -1587,7 +1593,7 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 
 	/* Disable the TMC if need be */
 	if (drvdata->mode == CS_MODE_SYSFS)
-		tmc_etr_disable_hw(drvdata);
+		tmc_etr_disable_hw(drvdata, true);
 
 	drvdata->reading = true;
 out:
