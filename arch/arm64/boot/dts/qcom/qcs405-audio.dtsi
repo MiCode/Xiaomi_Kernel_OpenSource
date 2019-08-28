@@ -89,6 +89,7 @@
 				"msm-pcm-dsp-noirq", "msm-transcode-loopback";
 		asoc-cpu = <&dai_dp>, <&dai_mi2s0>, <&dai_mi2s1>,
 			<&dai_mi2s2>, <&dai_mi2s3>, <&dai_mi2s4>, <&dai_mi2s5>,
+			<&dai_meta_mi2s0>, <&dai_meta_mi2s1>,
 			<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
 			<&dai_tert_auxpcm>, <&dai_quat_auxpcm>,
 			<&dai_quin_auxpcm>,
@@ -118,6 +119,8 @@
 			"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 			"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
 			"msm-dai-q6-mi2s.4", "msm-dai-q6-mi2s.5",
+			"msm-dai-q6-meta-mi2s.4864",
+			"msm-dai-q6-meta-mi2s.4866",
 			"msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
 			"msm-dai-q6-auxpcm.3", "msm-dai-q6-auxpcm.4",
 			"msm-dai-q6-auxpcm.5",
