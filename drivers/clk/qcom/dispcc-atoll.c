@@ -146,6 +146,8 @@ static struct pll_vco fabia_vco[] = {
 static const struct alpha_pll_config disp_cc_pll0_config = {
 	.l = 0x47,
 	.frac = 0xE000,
+	.user_ctl_val = 0x00000001,
+	.user_ctl_hi_val = 0x00004805,
 };
 
 static struct clk_alpha_pll disp_cc_pll0 = {
