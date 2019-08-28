@@ -67,6 +67,10 @@
 #define PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER (0x180)
 #define PCIE20_PARF_DEBUG_INT_EN (0x190)
 
+#define PCIE20_PARF_CLKREQ_OVERRIDE (0x2b0)
+#define PCIE20_PARF_CLKREQ_IN_VALUE (BIT(3))
+#define PCIE20_PARF_CLKREQ_IN_ENABLE (BIT(1))
+
 #define PCIE20_ELBI_SYS_CTRL (0x04)
 #define PCIE20_ELBI_SYS_STTS (0x08)
 
@@ -7160,6 +7164,14 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 				pcie_dev->rc_idx);
 		}
 	}
+
+	/* always ungate clkreq */
+	msm_pcie_write_reg_field(pcie_dev->parf,
+				PCIE20_PARF_CLKREQ_OVERRIDE,
+				PCIE20_PARF_CLKREQ_IN_ENABLE, 0);
+	msm_pcie_write_reg_field(pcie_dev->parf,
+				PCIE20_PARF_CLKREQ_OVERRIDE,
+				PCIE20_PARF_CLKREQ_IN_VALUE, 0);
 
 	pcie_dev->user_suspend = false;
 	spin_lock_irq(&pcie_dev->cfg_lock);
