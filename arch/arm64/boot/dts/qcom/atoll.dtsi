@@ -3210,10 +3210,12 @@
 };
 
 &bps_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
 &ipe_0_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
@@ -3248,6 +3250,7 @@
 };
 
 &vcodec0_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
