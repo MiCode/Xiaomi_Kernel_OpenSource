@@ -1122,8 +1122,12 @@ bool out_of_memory(struct oom_control *oc)
 		 * system level, we cannot survive this and will enter
 		 * an endless loop in the allocator. Bail out now.
 		 */
-		if (!is_sysrq_oom(oc) && !is_memcg_oom(oc))
+		if (!is_sysrq_oom(oc) && !is_memcg_oom(oc)) {
+#ifdef CONFIG_PAGE_OWNER
+			print_max_page_owner();
+#endif
 			panic("System is deadlocked on memory\n");
+		}
 	}
 	if (oc->chosen && oc->chosen != (void *)-1UL)
 		oom_kill_process(oc, !is_memcg_oom(oc) ? "Out of memory" :

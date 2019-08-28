@@ -527,4 +527,8 @@ static inline bool is_migrate_highatomic_page(struct page *page)
 
 void setup_zone_pageset(struct zone *zone);
 extern struct page *alloc_new_node_page(struct page *page, unsigned long node);
+#ifdef CONFIG_PAGE_OWNER
+ssize_t print_max_page_owner(void);
+#endif
+
 #endif	/* __MM_INTERNAL_H */
