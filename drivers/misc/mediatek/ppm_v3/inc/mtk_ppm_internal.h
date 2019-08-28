@@ -138,6 +138,16 @@ static const struct file_operations ppm_ ## name ## _proc_fops = {            \
 	do { if ((lv) & ppm_func_lv_mask)	\
 		ppm_info("<< %s():%d\n", __func__, __LINE__); } while (0)
 
+/* cpufreq */
+
+static inline void mtk_cpu_update_policy(void)
+{
+#ifdef CONFIG_CPU_FREQ
+	ppm_info("trigger cpufreq_update_policy(*)\n");
+	cpufreq_update_policy(0); /* little core */
+	cpufreq_update_policy(CORE_NUM_L); /* big core */
+#endif
+}
 
 /*==============================================================*/
 /* Enum                                                         */

@@ -726,6 +726,7 @@ int mt_ppm_main(void)
 					ppm_main_log_print(policy_mask,
 						p->min_power_budget,
 						c_req->root_cluster, buf);
+				mtk_cpu_update_policy();
 				if (!p->client_info[to].limit_cb)
 					goto nofity_end;
 
@@ -743,6 +744,7 @@ int mt_ppm_main(void)
 						ppm_main_info.min_power_budget,
 						c_req->root_cluster, buf);
 				now = ktime_get();
+				mtk_cpu_update_policy();
 
 				if (!p->client_info[to].limit_cb) {
 					/* force update to HPS next time */
@@ -1018,6 +1020,9 @@ static int ppm_notifier_call(struct notifier_block *self,
 
 	max_freq = ppm_main_info.cluster_info[cl].dvfs_tbl[max_idx].frequency;
 	min_freq = ppm_main_info.cluster_info[cl].dvfs_tbl[min_idx].frequency;
+
+	ppm_ver("cpufreq_verify_within_limits: max: %ld min: %ld\n",
+			max_freq, min_freq);
 
 	cpufreq_verify_within_limits(p, min_freq, max_freq);
 
