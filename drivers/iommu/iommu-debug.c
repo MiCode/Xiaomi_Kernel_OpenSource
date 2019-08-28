@@ -1655,6 +1655,8 @@ static ssize_t iommu_debug_atos_write(struct file *file,
 {
 	struct iommu_debug_device *ddev = file->private_data;
 	dma_addr_t iova;
+	phys_addr_t phys;
+	unsigned long pfn;
 
 	if (kstrtox_from_user(ubuf, count, 0, &iova)) {
 		pr_err_ratelimited("Invalid format for iova\n");
@@ -1663,6 +1665,13 @@ static ssize_t iommu_debug_atos_write(struct file *file,
 	}
 
 	ddev->iova = iova;
+	phys = iommu_iova_to_phys(ddev->domain, ddev->iova);
+	pfn = __phys_to_pfn(phys);
+	if (!pfn_valid(pfn)) {
+		dev_err(ddev->dev, "Invalid ATOS operation page %pa\n", &phys);
+		return -EINVAL;
+	}
+
 	pr_err_ratelimited("Saved iova=%pa for future ATOS commands\n", &iova);
 	return count;
 }
