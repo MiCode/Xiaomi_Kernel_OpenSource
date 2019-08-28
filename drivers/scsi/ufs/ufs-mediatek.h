@@ -55,9 +55,22 @@ enum {
 	TX_CLK_GATE_EN          = 3,
 };
 
+/*
+ * Ref-clk control mode
+ */
+enum {
+	REF_CLK_SW_MODE         = 0,
+	REF_CLK_HALF_HW_MODE    = 1,
+	REF_CLK_HW_MODE         = 2
+};
+
+/* HW ref-clk control timeout value */
+#define REF_CLK_CTRL_TOUT_MS    3
+
 struct ufs_mtk_host {
 	struct ufs_hba *hba;
 	struct phy *mphy;
+	u32 refclk_ctrl;
 };
 
 #endif /* !_UFS_MEDIATEK_H */

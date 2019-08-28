@@ -16,6 +16,29 @@
 #include "unipro.h"
 #include "ufs-mediatek.h"
 
+static void ufs_mtk_parse_dt(struct ufs_mtk_host *host)
+{
+	struct ufs_hba *hba = host->hba;
+	struct device *dev = hba->dev;
+	int ret;
+
+	/*
+	 * Parse reference clock control setting
+	 * SW mode:      0 (use external function to control ref-clk)
+	 * Half-HW mode: 1 (use ufshci register to control ref-clk,
+	 *                  but cannot turn off)
+	 * HW mode:      2 (use ufshci register to control ref-clk)
+	 */
+	ret = of_property_read_u32(dev->of_node, "mediatek,refclk_ctrl",
+				   &host->refclk_ctrl);
+	if (ret) {
+		dev_dbg(hba->dev,
+			"%s: failed to read mediatek,refclk_ctrl, ret=%d\n",
+			__func__, ret);
+		host->refclk_ctrl = REF_CLK_SW_MODE;
+	}
+}
+
 void ufs_mtk_cfg_unipro_cg(struct ufs_hba *hba, bool enable)
 {
 	u32 tmp;
@@ -156,6 +179,8 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	 */
 	ufs_mtk_setup_clocks(hba, true, POST_CHANGE);
 
+	ufs_mtk_parse_dt(host);
+
 	goto out;
 
 out_variant_clear:
@@ -268,8 +293,13 @@ static int ufs_mtk_link_startup_notify(struct ufs_hba *hba,
 
 static int ufs_mtk_refclk_ctrl(struct ufs_hba *hba, bool on)
 {
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	unsigned long timeout;
 	u32 value;
-	int retry;
+
+	/* This is HW and Half-HW flow, SW flow should ignore */
+	if (host->refclk_ctrl == REF_CLK_SW_MODE)
+		goto out;
 
 	/*
 	 * REG_UFS_ADDR_XOUFS_ST[0] is xoufs_req_s
@@ -281,28 +311,33 @@ static int ufs_mtk_refclk_ctrl(struct ufs_hba *hba, bool on)
 	 * check xoufs_ack_s clear for clock off.
 	 */
 
-	if (on)
+	if (on) {
 		ufshcd_writel(hba, XOUFS_REQUEST, REG_UFS_ADDR_XOUFS_ST);
-	else
+	} else {
 		ufshcd_writel(hba, XOUFS_RELEASE, REG_UFS_ADDR_XOUFS_ST);
+		/* Half-HW mode no ack after turn off */
+		if (host->refclk_ctrl == REF_CLK_HALF_HW_MODE)
+			goto out;
+	}
 
-	retry = 3; /* 2.4ms wosrt case */
+	/* Wait ack */
+	timeout = jiffies + msecs_to_jiffies(REF_CLK_CTRL_TOUT_MS);
 	do {
 		value = ufshcd_readl(hba, REG_UFS_ADDR_XOUFS_ST);
 
 		/* Bit[1] ack should equal to Bit[0] req */
 		if (((value & XOUFS_ACK) >> 1) == (value & XOUFS_REQUEST))
-			break;
+			goto out;
 
-		mdelay(1);
-		if (retry) {
-			retry--;
-		} else {
-			dev_err(hba->dev, "ref-clk ack failed\n");
-			return -EIO;
-		}
-	} while (1);
+		/* sleep for max. 200us */
+		usleep_range(100, 200);
+	} while (time_before(jiffies, timeout));
 
+	/* Time out happen */
+	dev_err(hba->dev, "ref-clk ack failed, value = 0x%x\n", value);
+	return -EIO;
+
+out:
 	return 0;
 }
 
