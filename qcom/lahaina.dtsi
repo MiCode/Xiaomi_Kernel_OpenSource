@@ -1588,6 +1588,94 @@
 		qcom,firmware-name = "venus";
 		memory-region = <&pil_video_mem>;
 	};
+
+	qcom,msm_gsi {
+		compatible = "qcom,msm_gsi";
+	};
+
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa3";
+		qcom,rmnet-ipa-ssr;
+		qcom,ipa-platform-type-msm;
+		qcom,ipa-advertise-sg-support;
+		qcom,ipa-napi-enable;
+	};
+
+	qcom,ipa_fws {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0xf>;
+		qcom,firmware-name = "ipa_fws";
+		qcom,pil-force-shutdown;
+		memory-region = <&pil_ipa_gsi_mem>;
+	};
+
+	ipa_hw: qcom,ipa@1e00000 {
+		compatible = "qcom,ipa";
+		mboxes = <&qmp_aop 0>;
+		reg =
+			<0x1e00000 0x84000>,
+			<0x1e04000 0x23000>;
+		reg-names = "ipa-base", "gsi-base";
+		interrupts =
+			<0 654 IRQ_TYPE_LEVEL_HIGH>,
+			<0 432 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "ipa-irq", "gsi-irq";
+		qcom,ipa-hw-ver = <19>; /* IPA core version = IPAv4.9 */
+		qcom,ipa-hw-mode = <0>;
+		qcom,platform-type = <1>; /* MSM platform */
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		qcom,mhi-event-ring-id-limits = <9 11>; /* start and end */
+		qcom,modem-cfg-emb-pipe-flt;
+		qcom,ipa-wdi3-over-gsi;
+		qcom,arm-smmu;
+		qcom,smmu-fast-map;
+		qcom,bandwidth-vote-for-ipa;
+		qcom,use-64-bit-dma-mask;
+		qcom,ipa-endp-delay-wa;
+		qcom,bus-vector-names = "MIN", "SVS2", "SVS", "NOMINAL",
+			"TURBO";
+		qcom,throughput-threshold = <600 2500 5000>;
+		qcom,scaling-exceptions = <>;
+
+		qcom,entire-ipa-block-size = <0x100000>;
+		qcom,testbus-collection-on-crash;
+		qcom,non-tn-collection-on-crash;
+		qcom,ram-collection-on-crash;
+		qcom,secure-debug-check-action = <0>;
+
+		ipa_smmu_ap: ipa_smmu_ap {
+			compatible = "qcom,ipa-smmu-ap-cb";
+			iommus = <&apps_smmu 0x5C0 0x0>;
+			qcom,iommu-dma-addr-pool = <0x20000000 0x20000000>;
+			qcom,additional-mapping =
+				/* modem tables in IMEM */
+				<0x146BD000 0x146BD000 0x2000>;
+			dma-coherent;
+			qcom,iommu-dma = "fastmap";
+		};
+
+		ipa_smmu_wlan: ipa_smmu_wlan {
+			compatible = "qcom,ipa-smmu-wlan-cb";
+			iommus = <&apps_smmu 0x5C1 0x0>;
+			qcom,iommu-dma = "fastmap";
+		};
+
+		ipa_smmu_uc: ipa_smmu_uc {
+			compatible = "qcom,ipa-smmu-uc-cb";
+			iommus = <&apps_smmu 0x5C2 0x0>;
+			qcom,iommu-dma-addr-pool = <0x20000000 0x20000000>;
+			qcom,iommu-dma = "fastmap";
+		};
+
+		ipa_smmu_11ad: ipa_smmu_11ad {
+			compatible = "qcom,ipa-smmu-11ad-cb";
+			iommus = <&apps_smmu 0x5C3 0x0>;
+			dma-coherent;
+			qcom,shared-cb;
+			qcom,iommu-group = <>;
+		};
+	};
 };
 
 #include "lahaina-regulators.dtsi"
