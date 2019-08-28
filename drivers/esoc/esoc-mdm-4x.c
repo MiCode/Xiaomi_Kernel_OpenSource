@@ -1081,26 +1081,27 @@ static int sdx55m_setup_hw(struct mdm_ctrl *mdm,
 		dev_err(mdm->dev, "Failed to parse DT gpios\n");
 		goto err_destroy_wrkq;
 	}
+	if (!of_property_read_bool(node, "qcom,esoc-spmi-soft-reset")) {
+		ret = mdm_pon_dt_init(mdm);
+		if (ret) {
+			esoc_mdm_log("Failed to parse PON DT gpios\n");
+			dev_err(mdm->dev, "Failed to parse PON DT gpio\n");
+			goto err_destroy_wrkq;
+		}
 
-	ret = mdm_pon_dt_init(mdm);
-	if (ret) {
-		esoc_mdm_log("Failed to parse PON DT gpios\n");
-		dev_err(mdm->dev, "Failed to parse PON DT gpio\n");
-		goto err_destroy_wrkq;
+		ret = mdm_pon_setup(mdm);
+		if (ret) {
+			esoc_mdm_log("Failed to setup PON\n");
+			dev_err(mdm->dev, "Failed to setup PON\n");
+			goto err_destroy_wrkq;
+		}
 	}
 
 	ret = mdm_pinctrl_init(mdm);
 	if (ret) {
 		esoc_mdm_log("Failed to init pinctrl\n");
 		dev_err(mdm->dev, "Failed to init pinctrl\n");
-		goto err_destroy_wrkq;
-	}
-
-	ret = mdm_pon_setup(mdm);
-	if (ret) {
-		esoc_mdm_log("Failed to setup PON\n");
-		dev_err(mdm->dev, "Failed to setup PON\n");
-		goto err_destroy_wrkq;
+		goto err_release_ipc;
 	}
 
 	ret = mdm_configure_ipc(mdm, pdev);
