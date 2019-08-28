@@ -504,9 +504,10 @@ static void __socket_close_channel(struct diag_socket_info *info)
 		return;
 	}
 
-	memset(&info->remote_addr, 0, sizeof(struct sockaddr_msm_ipc));
-	diagfwd_channel_close(info->fwd_ctxt);
-
+	if (info->type != TYPE_CNTL) {
+		memset(&info->remote_addr, 0, sizeof(struct sockaddr_msm_ipc));
+		diagfwd_channel_close(info->fwd_ctxt);
+	}
 	atomic_set(&info->opened, 0);
 
 	/* Don't close the server. Server should always remain open */
@@ -955,6 +956,7 @@ static int restart_notifier_cb(struct notifier_block *this, unsigned long code,
 	void *_cmd)
 {
 	struct restart_notifier_block *notifier;
+	struct diag_socket_info *info = NULL;
 
 	notifier = container_of(this,
 			struct restart_notifier_block, nb);
@@ -968,6 +970,7 @@ static int restart_notifier_cb(struct notifier_block *this, unsigned long code,
 	"%s: ssr for processor %d ('%s')\n",
 	__func__, notifier->processor, notifier->name);
 
+	info = &socket_cntl[notifier->processor];
 	switch (code) {
 
 	case SUBSYS_BEFORE_SHUTDOWN:
@@ -984,6 +987,10 @@ static int restart_notifier_cb(struct notifier_block *this, unsigned long code,
 	case SUBSYS_AFTER_SHUTDOWN:
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"diag: %s: SUBSYS_AFTER_SHUTDOWN\n", __func__);
+		mutex_lock(&driver->diag_notifier_mutex);
+		memset(&info->remote_addr, 0, sizeof(struct sockaddr_msm_ipc));
+		diagfwd_channel_close(info->fwd_ctxt);
+		mutex_unlock(&driver->diag_notifier_mutex);
 		break;
 
 	case SUBSYS_BEFORE_POWERUP:

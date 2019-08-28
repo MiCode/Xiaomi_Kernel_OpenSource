@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1435,9 +1435,6 @@ int diagfwd_channel_close(struct diagfwd_info *fwd_info)
 
 	if (!fwd_info)
 		return -EIO;
-
-	if (fwd_info->type == TYPE_CNTL)
-		flush_workqueue(driver->cntl_wq);
 
 	mutex_lock(&driver->diagfwd_channel_mutex[fwd_info->peripheral]);
 	fwd_info->ch_open = 0;
