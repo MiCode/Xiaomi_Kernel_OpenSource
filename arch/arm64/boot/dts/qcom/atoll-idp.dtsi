@@ -15,6 +15,7 @@
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/input/input.h>
 #include "atoll-camera-sensor-idp.dtsi"
+#include "atoll-sde-display.dtsi"
 
 &soc {
 	mtp_batterydata: qcom,battery-data {
@@ -284,4 +285,13 @@
 		synaptics,power-delay-ms = <200>;
 		synaptics,ubl-i2c-addr = <0x20>;
 	};
+};
+
+&dsi_rm69299_visionox_amoled_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <255>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 3 0>;
 };

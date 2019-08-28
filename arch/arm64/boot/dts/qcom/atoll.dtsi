@@ -24,6 +24,7 @@
 #include <dt-bindings/clock/qcom,cpucc-sm8150.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
 
 #define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
@@ -3426,6 +3427,8 @@
 #include "atoll-audio.dtsi"
 #include "atoll-thermal.dtsi"
 #include "atoll-camera.dtsi"
+#include "atoll-sde-pll.dtsi"
+#include "atoll-sde.dtsi"
 
 &qupv3_se9_i2c {
 	status = "ok";
