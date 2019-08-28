@@ -383,12 +383,29 @@ static void rmnet_frag_gso_stamp(struct sk_buff *skb,
 				 struct rmnet_frag_descriptor *frag_desc)
 {
 	struct skb_shared_info *shinfo = skb_shinfo(skb);
+
+	if (frag_desc->trans_proto == IPPROTO_TCP)
+		shinfo->gso_type = (frag_desc->ip_proto == 4) ?
+				   SKB_GSO_TCPV4 : SKB_GSO_TCPV6;
+	else
+		shinfo->gso_type = SKB_GSO_UDP_L4;
+
+	shinfo->gso_size = frag_desc->gso_size;
+	shinfo->gso_segs = frag_desc->gso_segs;
+}
+
+/* Set the partial checksum information. Sets the transport checksum tot he
+ * pseudoheader checksum and sets the offload metadata.
+ */
+static void rmnet_frag_partial_csum(struct sk_buff *skb,
+				    struct rmnet_frag_descriptor *frag_desc)
+{
 	struct iphdr *iph = (struct iphdr *)skb->data;
 	__sum16 pseudo;
 	u16 pkt_len = skb->len - frag_desc->ip_len;
-	bool ipv4 = frag_desc->ip_proto == 4;
 
-	if (ipv4) {
+	if (frag_desc->ip_proto == 4) {
+		iph->tot_len = htons(skb->len);
 		iph->check = 0;
 		iph->check = ip_fast_csum(iph, iph->ihl);
 		pseudo = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
@@ -397,6 +414,8 @@ static void rmnet_frag_gso_stamp(struct sk_buff *skb,
 	} else {
 		struct ipv6hdr *ip6h = (struct ipv6hdr *)iph;
 
+		/* Payload length includes any extension headers */
+		ip6h->payload_len = htons(skb->len - sizeof(*ip6h));
 		pseudo = ~csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
 					  pkt_len, frag_desc->trans_proto, 0);
 	}
@@ -406,21 +425,18 @@ static void rmnet_frag_gso_stamp(struct sk_buff *skb,
 				    ((u8 *)iph + frag_desc->ip_len);
 
 		tp->check = pseudo;
-		shinfo->gso_type = (ipv4) ? SKB_GSO_TCPV4 : SKB_GSO_TCPV6;
 		skb->csum_offset = offsetof(struct tcphdr, check);
 	} else {
 		struct udphdr *up = (struct udphdr *)
 				    ((u8 *)iph + frag_desc->ip_len);
 
+		up->len = htons(pkt_len);
 		up->check = pseudo;
-		shinfo->gso_type = SKB_GSO_UDP_L4;
 		skb->csum_offset = offsetof(struct udphdr, check);
 	}
 
 	skb->ip_summed = CHECKSUM_PARTIAL;
 	skb->csum_start = (u8 *)iph + frag_desc->ip_len - skb->head;
-	shinfo->gso_size = frag_desc->gso_size;
-	shinfo->gso_segs = frag_desc->gso_segs;
 }
 
 /* Allocate and populate an skb to contain the packet represented by the
@@ -436,7 +452,6 @@ static struct sk_buff *rmnet_alloc_skb(struct rmnet_frag_descriptor *frag_desc,
 	/* Use the exact sizes if we know them (i.e. RSB/RSC, rmnet_perf) */
 	if (frag_desc->hdrs_valid) {
 		u16 hdr_len = frag_desc->ip_len + frag_desc->trans_len;
-		u16 data_len = frag_desc->gso_size * frag_desc->gso_segs;
 
 		head_skb = alloc_skb(hdr_len + RMNET_MAP_DEAGGR_HEADROOM,
 				     GFP_ATOMIC);
@@ -447,29 +462,8 @@ static struct sk_buff *rmnet_alloc_skb(struct rmnet_frag_descriptor *frag_desc,
 		skb_put_data(head_skb, frag_desc->hdr_ptr, hdr_len);
 		skb_reset_network_header(head_skb);
 
-		/* Update header lengths after RSB/RSC/perf */
-		if (frag_desc->ip_proto == 4) {
-			struct iphdr *iph = ip_hdr(head_skb);
-			__be16 tot_len = htons(hdr_len + data_len);
-
-			csum_replace2(&iph->check, iph->tot_len, tot_len);
-			iph->tot_len = tot_len;
-		} else {
-			struct ipv6hdr *ip6h = ipv6_hdr(head_skb);
-
-			ip6h->payload_len = htons(hdr_len + data_len -
-						  sizeof(*ip6h));
-		}
-
-		if (frag_desc->trans_len) {
+		if (frag_desc->trans_len)
 			skb_set_transport_header(head_skb, frag_desc->ip_len);
-
-			if (frag_desc->trans_proto == IPPROTO_UDP) {
-				struct udphdr *uh = udp_hdr(head_skb);
-
-				uh->len = htons(data_len + sizeof(*uh));
-			}
-		}
 
 		/* Packets that have no data portion don't need any frags */
 		if (hdr_len == skb_frag_size(&frag_desc->frag))
@@ -568,7 +562,8 @@ skip_frags:
 
 	/* Handle csum offloading */
 	if (frag_desc->csum_valid) {
-		head_skb->ip_summed = CHECKSUM_UNNECESSARY;
+		/* Set the partial checksum information */
+		rmnet_frag_partial_csum(head_skb, frag_desc);
 	} else if (frag_desc->hdrs_valid &&
 		   (frag_desc->trans_proto == IPPROTO_TCP ||
 		    frag_desc->trans_proto == IPPROTO_UDP)) {
@@ -582,10 +577,13 @@ skip_frags:
 		unsigned int offset = skb_transport_offset(head_skb);
 		__sum16 pseudo;
 
-		/* Calculate pseudo header */
+		/* Calculate pseudo header and update header fields */
 		if (frag_desc->ip_proto == 4) {
 			struct iphdr *iph = ip_hdr(head_skb);
+			__be16 tot_len = htons(head_skb->len);
 
+			csum_replace2(&iph->check, iph->tot_len, tot_len);
+			iph->tot_len = tot_len;
 			pseudo = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
 						    head_skb->len -
 						    frag_desc->ip_len,
@@ -593,16 +591,21 @@ skip_frags:
 		} else {
 			struct ipv6hdr *ip6h = ipv6_hdr(head_skb);
 
+			ip6h->payload_len = htons(head_skb->len -
+						  sizeof(*ip6h));
 			pseudo = ~csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
 						  head_skb->len -
 						  frag_desc->ip_len,
 						  frag_desc->trans_proto, 0);
 		}
 
-		if (frag_desc->trans_proto == IPPROTO_TCP)
+		if (frag_desc->trans_proto == IPPROTO_TCP) {
 			check = &tcp_hdr(head_skb)->check;
-		else
+		} else {
+			udp_hdr(head_skb)->len = htons(head_skb->len -
+						       frag_desc->ip_len);
 			check = &udp_hdr(head_skb)->check;
+		}
 
 		*check = pseudo;
 		csum = skb_checksum(head_skb, offset, head_skb->len - offset,
