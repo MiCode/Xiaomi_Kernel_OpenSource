@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -179,6 +179,11 @@
 			qcom,msm-dai-cdc-dma-dev-id = <45091>;
 		};
 
+		va_cdc_dma_2_tx: qcom,msm-dai-va-cdc-dma-2-tx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45093>;
+		};
+
 		rx_cdc_dma_0_rx: qcom,msm-dai-rx-cdc-dma-0-rx {
 			compatible = "qcom,msm-dai-cdc-dma-dev";
 			qcom,msm-dai-cdc-dma-dev-id = <45104>;
@@ -331,6 +336,7 @@
 		sb_7_tx: qcom,msm-dai-q6-sb-7-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16399>;
+			qcom,msm-dai-q6-slim-dev-id = <0>;
 		};
 
 		sb_8_rx: qcom,msm-dai-q6-sb-8-rx {
@@ -341,6 +347,7 @@
 		sb_8_tx: qcom,msm-dai-q6-sb-8-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16401>;
+			qcom,msm-dai-q6-slim-dev-id = <0>;
 		};
 
 		sb_9_rx: qcom,msm-dai-q6-sb-9-rx {
@@ -507,6 +514,20 @@
 		qcom,msm-cpudai-auxpcm-data = <0>, <0>;
 		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
 		qcom,msm-auxpcm-interface = "quinary";
+		qcom,msm-cpudai-afe-clk-ver = <2>;
+	};
+
+	dai_sen_auxpcm: qcom,msm-sen-auxpcm {
+		compatible = "qcom,msm-auxpcm-dev";
+		qcom,msm-cpudai-auxpcm-mode = <0>, <0>;
+		qcom,msm-cpudai-auxpcm-sync = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-frame = <5>, <4>;
+		qcom,msm-cpudai-auxpcm-quant = <2>, <2>;
+		qcom,msm-cpudai-auxpcm-num-slots = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-slot-mapping = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-data = <0>, <0>;
+		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
+		qcom,msm-auxpcm-interface = "senary";
 		qcom,msm-cpudai-afe-clk-ver = <2>;
 	};
 
@@ -707,6 +728,44 @@
 		dai_quin_tdm_tx_0: qcom,msm-dai-q6-tdm-quin-tx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36929>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_sen_rx: qcom,msm-dai-tdm-sen-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37200>;
+		qcom,msm-cpudai-tdm-group-num-ports = <1>;
+		qcom,msm-cpudai-tdm-group-port-id = <36944>;
+		qcom,msm-cpudai-tdm-clk-rate = <1536000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <1>;
+		qcom,msm-cpudai-tdm-data-delay = <1>;
+		dai_sen_tdm_rx_0: qcom,msm-dai-q6-tdm-sen-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36944>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_sen_tx: qcom,msm-dai-tdm-sen-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37201>;
+		qcom,msm-cpudai-tdm-group-num-ports = <1>;
+		qcom,msm-cpudai-tdm-group-port-id = <36945>;
+		qcom,msm-cpudai-tdm-clk-rate = <1536000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <1>;
+		qcom,msm-cpudai-tdm-data-delay = <1>;
+		dai_sen_tdm_tx_0: qcom,msm-dai-q6-tdm-sen-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36945>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 	};

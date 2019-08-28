@@ -645,6 +645,25 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 		.matches = has_ssbd_mitigation,
 	},
 #endif
+#ifdef CONFIG_ARM64_ERRATUM_1188873
+	{
+		.desc = "ARM erratum 1188873",
+		.capability = ARM64_WORKAROUND_1188873,
+		/* Cortex-A76 r0p0 to r2p0 */
+		MIDR_RANGE(MIDR_CORTEX_A76,
+			MIDR_CPU_VAR_REV(0, 0),
+			MIDR_CPU_VAR_REV(2, 0)),
+
+	},
+	{
+		.desc = "ARM erratum 1188873",
+		.capability = ARM64_WORKAROUND_1188873,
+		/* Kryo-4G r15p14 */
+		MIDR_RANGE(MIDR_KRYO4G,
+			MIDR_CPU_VAR_REV(15, 14),
+			MIDR_CPU_VAR_REV(15, 15)),
+	},
+#endif
 	{
 	}
 };

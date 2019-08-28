@@ -315,6 +315,14 @@
 
 		status = "disabled";
 	};
+
+	bluetooth_ext: bt_qca6174 {
+		compatible = "qca,qca6174";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_active>;
+		qca,bt-reset-gpio = <&tlmm 85 0>; /* BT_EN */
+		status = "ok";
+	};
 };
 
 #include "sa6155p-vm-pinctrl.dtsi"
