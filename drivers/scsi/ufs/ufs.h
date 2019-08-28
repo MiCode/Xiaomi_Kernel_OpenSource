@@ -591,6 +591,7 @@ struct ufs_vreg {
 	bool unused;
 	int min_uV;
 	int max_uV;
+	int min_uA;
 	int max_uA;
 };
 
