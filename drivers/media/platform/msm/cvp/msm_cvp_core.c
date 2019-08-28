@@ -213,8 +213,9 @@ static bool msm_cvp_check_for_inst_overload(struct msm_cvp_core *core)
 
 	/* Instance count includes current instance as well. */
 
-	if ((instance_count > core->resources.max_inst_count) ||
-		(secure_instance_count > core->resources.max_secure_inst_count))
+	if ((instance_count >= core->resources.max_inst_count) ||
+		(secure_instance_count >=
+			core->resources.max_secure_inst_count))
 		overload = true;
 	return overload;
 }
@@ -273,6 +274,19 @@ void *msm_cvp_open(int core_id, int session_type)
 		goto err_invalid_core;
 	}
 
+	core->resources.max_inst_count = MAX_SUPPORTED_INSTANCES;
+	if (msm_cvp_check_for_inst_overload(core)) {
+		dprintk(CVP_ERR, "Instance num reached Max, rejecting session");
+		mutex_lock(&core->lock);
+		list_for_each_entry(inst, &core->instances, list)
+			dprintk(CVP_ERR, "inst %pK, cmd %d id %d\n",
+				inst, inst->cur_cmd_type,
+				hash32_ptr(inst->session));
+		mutex_unlock(&core->lock);
+
+		return NULL;
+	}
+
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
 	if (!inst) {
 		dprintk(CVP_ERR, "Failed to allocate memory\n");
@@ -328,19 +342,6 @@ void *msm_cvp_open(int core_id, int session_type)
 	if (rc) {
 		dprintk(CVP_ERR,
 			"Failed to move cvp instance to init state\n");
-		goto fail_init;
-	}
-
-	core->resources.max_inst_count = MAX_SUPPORTED_INSTANCES;
-	if (msm_cvp_check_for_inst_overload(core)) {
-		dprintk(CVP_ERR, "Instance num reached Max, rejecting session");
-		mutex_lock(&core->lock);
-		list_for_each_entry(inst, &core->instances, list)
-			dprintk(CVP_ERR, "inst %pK, cmd %d id %d\n",
-				inst, inst->cur_cmd_type,
-				hash32_ptr(inst->session));
-		mutex_unlock(&core->lock);
-
 		goto fail_init;
 	}
 
