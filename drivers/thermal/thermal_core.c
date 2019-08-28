@@ -1332,6 +1332,8 @@ void thermal_zone_device_unregister(struct thermal_zone_device *tz)
 		mutex_unlock(&thermal_list_lock);
 		return;
 	}
+	/* force stop pending/running delayed work */
+	cancel_delayed_work_sync(&(tz->poll_queue));
 	list_del(&tz->node);
 
 	/* Unbind all cdevs associated with 'this' thermal zone */
@@ -1353,8 +1355,6 @@ void thermal_zone_device_unregister(struct thermal_zone_device *tz)
 	}
 
 	mutex_unlock(&thermal_list_lock);
-
-	thermal_zone_device_set_polling(tz, 0);
 
 	thermal_set_governor(tz, NULL);
 
