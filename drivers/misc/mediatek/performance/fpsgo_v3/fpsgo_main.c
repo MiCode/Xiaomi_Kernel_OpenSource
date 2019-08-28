@@ -6,6 +6,7 @@
 #include <linux/unistd.h>
 #include <linux/module.h>
 #include <linux/sched.h>
+#include <linux/cpufreq.h>
 
 #include "mt-plat/fpsgo_common.h"
 #include "fpsgo_base.h"
@@ -627,6 +628,29 @@ int fpsgo_fstb_percentile_frametime(int ratio)
 	return switch_percentile_frametime(ratio);
 }
 
+static int ppm_notifier_call(struct notifier_block *self,
+				unsigned long event, void *data)
+{
+	struct cpufreq_policy *p = data;
+	int cl;
+
+	if (event != CPUFREQ_ADJUST)
+		return 0;
+
+	if (p->cpu == 0)
+		cl = 0;
+	else
+		cl = 1;
+
+	fpsgo_notify_cpufreq(cl, p->cur);
+
+	return 0;
+}
+
+static struct notifier_block ppm_notifier = {
+	.notifier_call = ppm_notifier_call,
+};
+
 static void __exit fpsgo_exit(void)
 {
 	fpsgo_notifier_wq_cb_enable(0);
@@ -654,6 +678,8 @@ static int __init fpsgo_init(void)
 	if (g_psNotifyWorkQueue == NULL)
 		return -EFAULT;
 
+	cpufreq_register_notifier(&ppm_notifier, CPUFREQ_POLICY_NOTIFIER);
+
 	mutex_init(&notify_lock);
 
 	fpsgo_force_onoff = FPSGO_FREE;
@@ -666,11 +692,7 @@ static int __init fpsgo_init(void)
 
 	fpsgo_switch_enable(1);
 
-#ifdef CONFIG_CPU_FREQ_GOV_SCHEDUTIL
-#if API_READY
-	cpufreq_notifier_fp = fpsgo_notify_cpufreq;
-#endif
-#endif
+	//cpufreq_notifier_fp = fpsgo_notify_cpufreq;
 
 	fpsgo_notify_vsync_fp = fpsgo_notify_vsync;
 
