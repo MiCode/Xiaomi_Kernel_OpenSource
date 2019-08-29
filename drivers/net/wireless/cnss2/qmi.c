@@ -1370,7 +1370,7 @@ static void cnss_wlfw_qdss_trace_req_mem_ind_cb(struct qmi_handle *qmi_wlfw,
 
 	plat_priv->qdss_mem_seg_len = ind_msg->mem_seg_len;
 	for (i = 0; i < plat_priv->qdss_mem_seg_len; i++) {
-		cnss_pr_dbg("QDSS requests for memory, size: 0x%zx, type: %u\n",
+		cnss_pr_dbg("QDSS requests for memory, size: 0x%x, type: %u\n",
 			    ind_msg->mem_seg[i].size, ind_msg->mem_seg[i].type);
 		plat_priv->qdss_mem[i].type = ind_msg->mem_seg[i].type;
 		plat_priv->qdss_mem[i].size = ind_msg->mem_seg[i].size;
