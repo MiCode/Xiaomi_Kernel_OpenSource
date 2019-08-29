@@ -450,7 +450,7 @@ struct xhci_op_regs {
  * e.g. not program values > '4' if BLC = '1' and a HIRD device is attached,
  * or not program values < '4' if BLC = '0' and a BESL device is attached.
  */
-#define XHCI_DEFAULT_BESL	4
+#define XHCI_DEFAULT_BESL	0
 
 /*
  * USB3 specification define a 360ms tPollingLFPSTiemout for USB3 ports
