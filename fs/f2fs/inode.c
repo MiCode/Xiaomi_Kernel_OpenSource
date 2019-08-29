@@ -722,7 +722,7 @@ no_delete:
 	if (unlikely(is_inode_flag_set(inode, FI_DIRTY_INODE))) {
 		f2fs_inode_synced(inode);
 		f2fs_msg(sbi->sb, KERN_WARNING,
-			 "inconsistent dirty inode:%u entry found during eviction\n",
+			 "inconsistent dirty inode:%lu entry found during eviction\n",
 			 inode->i_ino);
 		if (!is_set_ckpt_flags(sbi, CP_ERROR_FLAG) &&
 		    !is_sbi_flag_set(sbi, SBI_CP_DISABLED))
