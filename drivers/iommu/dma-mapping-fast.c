@@ -11,6 +11,7 @@
 #include <asm/cacheflush.h>
 #include <asm/dma-iommu.h>
 #include <linux/slab.h>
+#include <linux/genalloc.h>
 #include <linux/vmalloc.h>
 #include <linux/pci.h>
 #include <linux/dma-iommu.h>
@@ -23,6 +24,18 @@
 #define FAST_PAGE_SIZE (1UL << FAST_PAGE_SHIFT)
 #define FAST_PAGE_MASK (~(PAGE_SIZE - 1))
 
+#define DEFAULT_DMA_COHERENT_POOL_SIZE	SZ_256K
+static struct gen_pool *atomic_pool __ro_after_init;
+
+static size_t atomic_pool_size __initdata = DEFAULT_DMA_COHERENT_POOL_SIZE;
+
+static int __init early_coherent_pool(char *p)
+{
+	atomic_pool_size = memparse(p, &p);
+	return 0;
+}
+early_param("coherent_pool", early_coherent_pool);
+
 static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
 				 bool coherent)
 {
@@ -31,6 +44,48 @@ static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
 	else if (!coherent || (attrs & DMA_ATTR_WRITE_COMBINE))
 		return pgprot_writecombine(prot);
 	return prot;
+}
+
+static void *__alloc_from_pool(size_t size, struct page **ret_page, gfp_t flags)
+{
+	unsigned long val;
+	void *ptr = NULL;
+
+	if (!atomic_pool) {
+		WARN(1, "coherent pool not initialised!\n");
+		return NULL;
+	}
+
+	val = gen_pool_alloc(atomic_pool, size);
+	if (val) {
+		phys_addr_t phys = gen_pool_virt_to_phys(atomic_pool, val);
+
+		*ret_page = phys_to_page(phys);
+		ptr = (void *)val;
+		memset(ptr, 0, size);
+	}
+
+	return ptr;
+}
+
+static phys_addr_t __atomic_get_phys(void *addr)
+{
+	return gen_pool_virt_to_phys(atomic_pool, (unsigned long)addr);
+}
+
+static bool __in_atomic_pool(void *start, size_t size)
+{
+	return addr_in_gen_pool(atomic_pool, (unsigned long)start, size);
+}
+
+static int __free_from_pool(void *start, size_t size)
+{
+	if (!__in_atomic_pool(start, size))
+		return 0;
+
+	gen_pool_free(atomic_pool, (unsigned long)start, size);
+
+	return 1;
 }
 
 static bool is_dma_coherent(struct device *dev, unsigned long attrs)
@@ -247,6 +302,69 @@ static bool __bit_is_sooner(unsigned long candidate,
 	WARN(1, "Well, that's awkward. A=%ld, B=%ld, C=%ld\n", A, B, C);
 	return true;
 }
+
+
+static int __init atomic_pool_init(void)
+{
+	pgprot_t prot = __pgprot(PROT_NORMAL_NC);
+	unsigned long nr_pages = atomic_pool_size >> PAGE_SHIFT;
+	struct page *page;
+	void *addr;
+	unsigned int pool_size_order = get_order(atomic_pool_size);
+
+	if (dev_get_cma_area(NULL))
+		page = dma_alloc_from_contiguous(NULL, nr_pages,
+						 pool_size_order, false);
+	else
+		page = alloc_pages(GFP_DMA32, pool_size_order);
+
+	if (page) {
+		int ret;
+		void *page_addr = page_address(page);
+
+		memset(page_addr, 0, atomic_pool_size);
+		__dma_flush_area(page_addr, atomic_pool_size);
+
+		atomic_pool = gen_pool_create(PAGE_SHIFT, -1);
+		if (!atomic_pool)
+			goto free_page;
+
+		addr = dma_common_contiguous_remap(page, atomic_pool_size,
+					VM_USERMAP, prot, atomic_pool_init);
+
+		if (!addr)
+			goto destroy_genpool;
+
+		ret = gen_pool_add_virt(atomic_pool, (unsigned long)addr,
+					page_to_phys(page),
+					atomic_pool_size, -1);
+		if (ret)
+			goto remove_mapping;
+
+		gen_pool_set_algo(atomic_pool,
+				  gen_pool_first_fit_order_align,
+				  NULL);
+
+		pr_info("DMA: preallocated %zu KiB pool for atomic allocations\n",
+			atomic_pool_size / 1024);
+		return 0;
+	}
+	goto out;
+
+remove_mapping:
+	dma_common_free_remap(addr, atomic_pool_size, VM_USERMAP, false);
+destroy_genpool:
+	gen_pool_destroy(atomic_pool);
+	atomic_pool = NULL;
+free_page:
+	if (!dma_release_from_contiguous(NULL, page, nr_pages))
+		__free_pages(page, pool_size_order);
+out:
+	pr_err("DMA: failed to allocate %zu KiB pool for atomic coherent allocation\n",
+		atomic_pool_size / 1024);
+	return -ENOMEM;
+}
+arch_initcall(atomic_pool_init);
 
 static void __fast_smmu_free_iova(struct dma_fast_smmu_mapping *mapping,
 				  dma_addr_t iova, size_t size)
@@ -499,9 +617,55 @@ static void __fast_smmu_free_pages(struct page **pages, int count)
 {
 	int i;
 
+	if (!pages)
+		return;
 	for (i = 0; i < count; i++)
 		__free_page(pages[i]);
 	kvfree(pages);
+}
+
+static void *fast_smmu_alloc_atomic(struct dma_fast_smmu_mapping *mapping,
+				    size_t size, gfp_t gfp, unsigned long attrs,
+				    dma_addr_t *handle, bool coherent)
+{
+	void *addr;
+	unsigned long flags;
+	struct page *page;
+	dma_addr_t dma_addr;
+	int prot = dma_info_to_prot(DMA_BIDIRECTIONAL, coherent, attrs);
+
+	size = ALIGN(size, FAST_PAGE_SIZE);
+	if (coherent) {
+		page = alloc_pages(gfp, get_order(size));
+		addr = page ? page_address(page) : NULL;
+	} else
+		addr = __alloc_from_pool(size, &page, gfp);
+	if (!addr)
+		return NULL;
+
+	spin_lock_irqsave(&mapping->lock, flags);
+	dma_addr = __fast_smmu_alloc_iova(mapping, attrs, size);
+	if (dma_addr == DMA_ERROR_CODE) {
+		dev_err(mapping->dev, "no iova\n");
+		spin_unlock_irqrestore(&mapping->lock, flags);
+		goto out_free_page;
+	}
+	if (unlikely(av8l_fast_map_public(mapping->pgtbl_ops, dma_addr,
+					  page_to_phys(page), size, prot))) {
+		dev_err(mapping->dev, "no map public\n");
+		goto out_free_iova;
+	}
+	spin_unlock_irqrestore(&mapping->lock, flags);
+	*handle = dma_addr;
+	return addr;
+
+out_free_iova:
+	__fast_smmu_free_iova(mapping, dma_addr, size);
+	spin_unlock_irqrestore(&mapping->lock, flags);
+out_free_page:
+	coherent ? __free_pages(page, get_order(size)) :
+		   __free_from_pool(addr, size);
+	return NULL;
 }
 
 static struct page **__fast_smmu_alloc_pages(unsigned int count, gfp_t gfp)
@@ -558,6 +722,11 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 	}
 
 	*handle = DMA_ERROR_CODE;
+
+	if (!gfpflags_allow_blocking(gfp)) {
+		return fast_smmu_alloc_atomic(mapping, size, gfp, attrs, handle,
+					      is_coherent);
+	}
 
 	pages = __fast_smmu_alloc_pages(count, gfp);
 	if (!pages) {
@@ -638,11 +807,14 @@ static void fast_smmu_free(struct device *dev, size_t size,
 {
 	struct dma_fast_smmu_mapping *mapping = dev_get_mapping(dev);
 	struct vm_struct *area;
-	struct page **pages;
+	struct page **pages = NULL;
 	size_t count = ALIGN(size, SZ_4K) >> FAST_PAGE_SHIFT;
 	unsigned long flags;
 
 	size = ALIGN(size, SZ_4K);
+
+	if (__in_atomic_pool(vaddr, size) || !is_vmalloc_addr(vaddr))
+		goto no_remap;
 
 	area = find_vm_area(vaddr);
 	if (WARN_ON_ONCE(!area))
@@ -650,11 +822,40 @@ static void fast_smmu_free(struct device *dev, size_t size,
 
 	pages = area->pages;
 	dma_common_free_remap(vaddr, size, VM_USERMAP, false);
+no_remap:
 	spin_lock_irqsave(&mapping->lock, flags);
 	av8l_fast_unmap_public(mapping->pgtbl_ops, dma_handle, size);
 	__fast_smmu_free_iova(mapping, dma_handle, size);
 	spin_unlock_irqrestore(&mapping->lock, flags);
-	__fast_smmu_free_pages(pages, count);
+	if (__in_atomic_pool(vaddr, size))
+		__free_from_pool(vaddr, size);
+	else if (is_vmalloc_addr(vaddr))
+		__fast_smmu_free_pages(pages, count);
+	else
+		__free_pages(virt_to_page(vaddr), get_order(size));
+}
+
+static int __vma_remap_range(struct vm_area_struct *vma, void *cpu_addr,
+			     size_t size)
+{
+	int ret = -ENXIO;
+	unsigned long nr_vma_pages = vma_pages(vma);
+	unsigned long nr_pages = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	unsigned long off = vma->vm_pgoff;
+	unsigned long pfn;
+
+	if (__in_atomic_pool(cpu_addr, size))
+		pfn = __atomic_get_phys(cpu_addr) >> PAGE_SHIFT;
+	else
+		pfn = page_to_pfn(virt_to_page(cpu_addr));
+
+	if (off < nr_pages && nr_vma_pages <= (nr_pages - off)) {
+		ret = remap_pfn_range(vma, vma->vm_start, pfn + off,
+				      vma->vm_end - vma->vm_start,
+				      vma->vm_page_prot);
+	}
+
+	return ret;
 }
 
 static int fast_smmu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
@@ -669,6 +870,10 @@ static int fast_smmu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 
 	vma->vm_page_prot = __get_dma_pgprot(attrs, vma->vm_page_prot,
 					     coherent);
+
+	if (__in_atomic_pool(cpu_addr, size) || !is_vmalloc_addr(cpu_addr))
+		return __vma_remap_range(vma, cpu_addr, size);
+
 	area = find_vm_area(cpu_addr);
 	if (!area)
 		return -EINVAL;
@@ -691,13 +896,25 @@ static int fast_smmu_get_sgtable(struct device *dev, struct sg_table *sgt,
 {
 	unsigned int n_pages = PAGE_ALIGN(size) >> PAGE_SHIFT;
 	struct vm_struct *area;
+	struct page *page = NULL;
+	int ret = -ENXIO;
 
 	area = find_vm_area(cpu_addr);
-	if (!area || !area->pages)
-		return -EINVAL;
+	if (area && area->pages)
+		return sg_alloc_table_from_pages(sgt, area->pages, n_pages, 0,
+						 size, GFP_KERNEL);
+	else if (!is_vmalloc_addr(cpu_addr))
+		page = virt_to_page(cpu_addr);
+	else if (__in_atomic_pool(cpu_addr, size))
+		page = phys_to_page(__atomic_get_phys(cpu_addr));
 
-	return sg_alloc_table_from_pages(sgt, area->pages, n_pages, 0, size,
-					GFP_KERNEL);
+	if (page) {
+		ret = sg_alloc_table(sgt, 1, GFP_KERNEL);
+		if (!ret)
+			sg_set_page(sgt->sgl, page, PAGE_ALIGN(size), 0);
+	}
+
+	return ret;
 }
 
 static dma_addr_t fast_smmu_dma_map_resource(
