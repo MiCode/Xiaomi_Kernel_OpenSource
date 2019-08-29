@@ -689,7 +689,7 @@ struct dma_async_tx_descriptor *edma_prep_dma_memcpy(struct dma_chan *chan,
 	struct edmav_dev *ev_dev = to_edmav_dev(chan);
 	struct edma_desc *desc;
 
-	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "enter\n", chan);
+	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "enter\n");
 
 	desc = edma_alloc_descriptor(ev_dev);
 	if (!desc)
@@ -700,11 +700,11 @@ struct dma_async_tx_descriptor *edma_prep_dma_memcpy(struct dma_chan *chan,
 	/* insert the descriptor to client descriptor list */
 	list_add_tail(&desc->node, &ev_dev->dl);
 
-	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "exit\n", chan);
+	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "exit\n");
 
 	return &desc->tx;
 err:
-	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "exit with error\n", chan);
+	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "exit with error\n");
 	return NULL;
 }
 
