@@ -354,4 +354,13 @@ config QCOM_SMP2P_SLEEPSTATE
 	  are sent through the smp2p framework. This driver can also receive
 	  notifications from the remote to prevent suspend on the local
 	  processor.
+
+config SENSORS_SSC
+	tristate "Enable Sensors Driver Support for SSC"
+	help
+	  Say y or m here to enable Snapdragon Sensor Core(SSC)
+	  support for Qualcomm Technologies, Inc SoCs. SSC is used for
+	  exercising sensor use-cases. This driver loads firmware files
+	  for SSC and also does time synchronization with DSP clock.
+
 endmenu
