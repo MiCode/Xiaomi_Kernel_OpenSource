@@ -45,6 +45,11 @@ static inline int boot_marker_enabled(void) { return 1; }
 void place_marker(const char *name);
 void destroy_marker(const char *name);
 void measure_wake_up_time(void);
+#ifdef CONFIG_HIBERNATION
+void update_bootloader_stats(void);
+#else
+static inline void update_bootloader_stats(void) { return; }
+#endif /* CONFIG_HIBERNATION */
 #else
 static inline void place_marker(char *name) { };
 static inline void destroy_marker(const char *name) { };

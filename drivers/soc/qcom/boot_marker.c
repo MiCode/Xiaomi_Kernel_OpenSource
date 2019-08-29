@@ -40,6 +40,10 @@ struct boot_marker {
 	spinlock_t slock;
 };
 
+#ifdef CONFIG_HIBERNATION
+static unsigned long long int kernel_start_at;
+#endif /* CONFIG_HIBERNATION */
+
 static struct dentry *dent_bkpi, *dent_bkpi_status, *dent_mpm_timer;
 static struct boot_marker boot_marker_list;
 
@@ -99,8 +103,51 @@ static void set_bootloader_stats(void)
 		readl_relaxed(&boot_stats->bootloader_end));
 }
 
+#ifdef CONFIG_HIBERNATION
+void update_bootloader_stats(void)
+{
+	u32 val = 0;
+	struct boot_marker *marker;
+	static const char * const name[] = {"D - Hiber: Start image loading - ",
+		"D - Hiber: End image loading - ",
+		"M - APPSBL End(Kernel Start) - "};
+
+	spin_lock(&boot_marker_list.slock);
+	list_for_each_entry(marker, &boot_marker_list.list, list) {
+		if (!strcmp("M - APPSBL Start - ", marker->marker_name)) {
+			val = readl_relaxed(&boot_stats->bootloader_start);
+			marker->timer_value = val;
+		}
+		if (!strcmp("D - APPSBL Kernel Load Start - ",
+				marker->marker_name)) {
+			strlcpy(marker->marker_name, name[0],
+				sizeof(marker->marker_name));
+			val = readl_relaxed(&boot_stats->load_kernel_start);
+			marker->timer_value = val;
+		}
+		if (!strcmp("D - APPSBL Kernel Load End - ",
+				marker->marker_name)) {
+			strlcpy(marker->marker_name, name[1],
+				sizeof(marker->marker_name));
+			val = readl_relaxed(&boot_stats->load_kernel_done);
+			marker->timer_value = val;
+		}
+		if (!strcmp("M - APPSBL End - ", marker->marker_name)) {
+			strlcpy(marker->marker_name, name[2],
+				sizeof(marker->marker_name));
+			marker->timer_value = kernel_start_at;
+		}
+	}
+	spin_unlock(&boot_marker_list.slock);
+}
+#endif /* CONFIG_HIBERNATION */
+
 void place_marker(const char *name)
 {
+#ifdef CONFIG_HIBERNATION
+	if (!strcmp(name, "Kernel Start"))
+		kernel_start_at = msm_timer_get_sclk_ticks();
+#endif /* CONFIG_HIBERNATION */
 	_create_boot_marker((char *) name, msm_timer_get_sclk_ticks());
 }
 EXPORT_SYMBOL(place_marker);
