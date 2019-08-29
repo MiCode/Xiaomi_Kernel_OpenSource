@@ -1711,6 +1711,33 @@
 		qcom,bandwidth-vote-for-ipa;
 		qcom,use-64-bit-dma-mask;
 		qcom,ipa-endp-delay-wa;
+		qcom,interconnect,num-cases = <5>;
+		qcom,interconnect,num-paths = <4>;
+		interconnects = <&aggre2_noc MASTER_IPA &gem_noc SLAVE_LLCC>,
+			<&mc_virt MASTER_LLCC &mc_virt SLAVE_EBI1>,
+			<&aggre2_noc MASTER_IPA &config_noc SLAVE_IMEM>,
+			<&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_IPA_CFG>;
+		interconnect-names = "ipa_to_llcc", "llcc_to_ebi1", "ipa_to_imem", "appss_to_ipa";
+		/* No vote */
+		qcom,no-vote =
+		<0 0 0 0 0 0 0 0>;
+
+		/* SVS2 */
+		qcom,svs2 =
+		<150000 600000 150000 1804000 75000 300000 0 76800>;
+
+		/* SVS */
+		qcom,svs =
+		<625000 1200000 625000 3072000 312500 700000 0 150000>;
+
+		/* NOMINAL */
+		qcom,nominal =
+		<1250000 2400000 1250000 6220800 625000 1500000 0 400000>;
+
+		/* TURBO */
+		qcom,turbo =
+		<2000000 3500000 2000000 7219200 1000000 1920000 0 400000>;
+
 		qcom,bus-vector-names = "MIN", "SVS2", "SVS", "NOMINAL",
 			"TURBO";
 		qcom,throughput-threshold = <600 2500 5000>;
