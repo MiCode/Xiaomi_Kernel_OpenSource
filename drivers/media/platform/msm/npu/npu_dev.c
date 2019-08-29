@@ -16,6 +16,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/thermal.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <soc/qcom/devfreq_devbw.h>
 
 #include "npu_common.h"
 #include "npu_hw.h"
@@ -60,6 +61,8 @@ static ssize_t perf_mode_override_store(struct device *dev,
 static ssize_t boot_store(struct device *dev,
 					  struct device_attribute *attr,
 					  const char *buf, size_t count);
+static void npu_suspend_devbw(struct npu_device *npu_dev);
+static void npu_resume_devbw(struct npu_device *npu_dev);
 static bool npu_is_post_clock(const char *clk_name);
 static bool npu_is_exclude_rate_clock(const char *clk_name);
 static int npu_get_max_state(struct thermal_cooling_device *cdev,
@@ -353,6 +356,7 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 			npu_disable_regulators(npu_dev);
 			goto fail;
 		}
+		npu_resume_devbw(npu_dev);
 	}
 	pwr->pwr_vote_num++;
 fail:
@@ -373,6 +377,7 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 
 	pwr->pwr_vote_num--;
 	if (!pwr->pwr_vote_num) {
+		npu_suspend_devbw(npu_dev);
 		npu_disable_core_clocks(npu_dev);
 		npu_set_bw(npu_dev, 0, 0);
 		npu_disable_regulators(npu_dev);
@@ -563,6 +568,44 @@ int npu_set_uc_power_level(struct npu_device *npu_dev,
 
 	pwr->uc_pwrlevel = uc_pwrlevel_to_set;
 	return npu_set_power_level(npu_dev, true);
+}
+
+/* -------------------------------------------------------------------------
+ * Bandwidth Monitor Related
+ * -------------------------------------------------------------------------
+ */
+static void npu_suspend_devbw(struct npu_device *npu_dev)
+{
+	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
+	int ret, i;
+
+	if (pwr->bwmon_enabled && (pwr->devbw_num > 0)) {
+		for (i = 0; i < pwr->devbw_num; i++) {
+			NPU_DBG("Suspend devbw%d\n", i);
+			ret = devfreq_suspend_devbw(pwr->devbw[i]);
+			if (ret)
+				NPU_ERR("devfreq_suspend_devbw failed rc:%d\n",
+					ret);
+		}
+		pwr->bwmon_enabled = 0;
+	}
+}
+
+static void npu_resume_devbw(struct npu_device *npu_dev)
+{
+	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
+	int ret, i;
+
+	if (!pwr->bwmon_enabled && (pwr->devbw_num > 0)) {
+		for (i = 0; i < pwr->devbw_num; i++) {
+			NPU_DBG("Resume devbw%d\n", i);
+			ret = devfreq_resume_devbw(pwr->devbw[i]);
+			if (ret)
+				NPU_ERR("devfreq_resume_devbw failed rc:%d\n",
+					ret);
+		}
+		pwr->bwmon_enabled = 1;
+	}
 }
 
 /* -------------------------------------------------------------------------
@@ -1729,7 +1772,9 @@ static int npu_pwrctrl_init(struct npu_device *npu_dev)
 {
 	struct platform_device *pdev = npu_dev->pdev;
 	struct device_node *node;
-	int ret = 0;
+	int ret = 0, i;
+	struct platform_device *p2dev;
+	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 
 	/* Power levels */
 	node = of_find_node_by_name(pdev->dev.of_node, "qcom,npu-pwrlevels");
@@ -1742,6 +1787,47 @@ static int npu_pwrctrl_init(struct npu_device *npu_dev)
 	ret = npu_of_parse_pwrlevels(npu_dev, node);
 	if (ret)
 		return ret;
+
+	/* Parse Bandwidth Monitor */
+	pwr->devbw_num = of_property_count_strings(pdev->dev.of_node,
+			"qcom,npubw-dev-names");
+	if (pwr->devbw_num <= 0) {
+		NPU_INFO("npubw-dev-names are not defined\n");
+		return 0;
+	} else if (pwr->devbw_num > NPU_MAX_BW_DEVS) {
+		NPU_ERR("number of devbw %d exceeds limit\n", pwr->devbw_num);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < pwr->devbw_num; i++) {
+		node = of_parse_phandle(pdev->dev.of_node,
+				"qcom,npubw-devs", i);
+
+		if (node) {
+			p2dev = of_find_device_by_node(node);
+			of_node_put(node);
+			if (p2dev) {
+				pwr->devbw[i] = &p2dev->dev;
+			} else {
+				NPU_ERR("can't find devbw%d\n", i);
+				ret = -EINVAL;
+				break;
+			}
+		} else {
+			NPU_ERR("can't find devbw node\n");
+			ret = -EINVAL;
+			break;
+		}
+	}
+
+	if (ret) {
+		/* Allow npu work without bwmon */
+		pwr->devbw_num = 0;
+		ret = 0;
+	} else {
+		/* Set to 1 initially - we assume bwmon is on */
+		pwr->bwmon_enabled = 1;
+	}
 
 	return ret;
 }

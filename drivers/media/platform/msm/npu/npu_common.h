@@ -45,6 +45,7 @@
 #define NPU_MAX_DT_NAME_LEN	    21
 #define NPU_MAX_PWRLEVELS		8
 #define NPU_MAX_STATS_BUF_SIZE 16384
+#define NPU_MAX_BW_DEVS			4
 
 enum npu_power_level {
 	NPU_PWRLEVEL_MINSVS = 0,
@@ -174,7 +175,9 @@ struct npu_pwrctrl {
 	uint32_t min_pwrlevel;
 	uint32_t num_pwrlevels;
 
-	struct device *devbw;
+	struct device *devbw[NPU_MAX_BW_DEVS];
+	uint32_t devbw_num;
+	uint32_t bwmon_enabled;
 	uint32_t uc_pwrlevel;
 	uint32_t cdsprm_pwrlevel;
 	uint32_t fmax_pwrlevel;
