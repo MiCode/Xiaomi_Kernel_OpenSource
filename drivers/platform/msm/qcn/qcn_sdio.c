@@ -998,7 +998,7 @@ struct sdio_al_channel_handle *sdio_al_register_channel(
 		return ERR_PTR(-EINVAL);
 	}
 
-	ch_info = kzalloc(sizeof(struct qcn_sdio_client_info), GFP_KERNEL);
+	ch_info = kzalloc(sizeof(struct qcn_sdio_ch_info), GFP_KERNEL);
 	if (!ch_info)
 		return ERR_PTR(-ENOMEM);
 
