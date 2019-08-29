@@ -3792,9 +3792,7 @@ static int wil_nl_60g_handle_cmd(struct wiphy *wiphy, struct wireless_dev *wdev,
 				     "NL_60G_GEN_FW_RESET, resetting...\n");
 
 			mutex_lock(&wil->mutex);
-			down_write(&wil->mem_lock);
 			rc = wil_reset(wil, true);
-			up_write(&wil->mem_lock);
 			mutex_unlock(&wil->mutex);
 
 			break;

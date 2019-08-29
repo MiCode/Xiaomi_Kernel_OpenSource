@@ -1753,6 +1753,8 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	/* Disable device led before reset*/
 	wmi_led_cfg(wil, false);
 
+	down_write(&wil->mem_lock);
+
 	/* prevent NAPI from being scheduled and prevent wmi commands */
 	mutex_lock(&wil->wmi_mutex);
 	if (test_bit(wil_status_suspending, wil->status))
@@ -1808,6 +1810,7 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 
 		if  (wil->secured_boot) {
 			wil_err(wil, "secured boot is not supported\n");
+			up_write(&wil->mem_lock);
 			return -ENOTSUPP;
 		}
 
@@ -1837,6 +1840,8 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	reinit_completion(&wil->halp.comp);
 
 	clear_bit(wil_status_resetting, wil->status);
+
+	up_write(&wil->mem_lock);
 
 	if (load_fw) {
 		wil_unmask_irq(wil);
@@ -1905,6 +1910,7 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	return rc;
 
 out:
+	up_write(&wil->mem_lock);
 	clear_bit(wil_status_resetting, wil->status);
 	return rc;
 }
@@ -1930,9 +1936,7 @@ int __wil_up(struct wil6210_priv *wil)
 
 	WARN_ON(!mutex_is_locked(&wil->mutex));
 
-	down_write(&wil->mem_lock);
 	rc = wil_reset(wil, true);
-	up_write(&wil->mem_lock);
 	if (rc)
 		return rc;
 
@@ -2025,9 +2029,7 @@ int __wil_down(struct wil6210_priv *wil)
 	wil_abort_scan_all_vifs(wil, false);
 	mutex_unlock(&wil->vif_mutex);
 
-	down_write(&wil->mem_lock);
 	rc = wil_reset(wil, false);
-	up_write(&wil->mem_lock);
 
 	return rc;
 }
