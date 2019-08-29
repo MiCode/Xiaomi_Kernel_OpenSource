@@ -628,27 +628,27 @@ int fpsgo_fstb_percentile_frametime(int ratio)
 	return switch_percentile_frametime(ratio);
 }
 
-static int ppm_notifier_call(struct notifier_block *self,
+static int freq_notifier_call(struct notifier_block *self,
 				unsigned long event, void *data)
 {
-	struct cpufreq_policy *p = data;
+	struct cpufreq_freqs *p = data;
 	int cl;
 
-	if (event != CPUFREQ_ADJUST)
+	if (event != CPUFREQ_PRECHANGE)
 		return 0;
 
-	if (p->cpu == 0)
+	if (p->cpu <= 5)
 		cl = 0;
 	else
 		cl = 1;
 
-	fpsgo_notify_cpufreq(cl, p->cur);
+	fpsgo_notify_cpufreq(cl, p->new);
 
 	return 0;
 }
 
-static struct notifier_block ppm_notifier = {
-	.notifier_call = ppm_notifier_call,
+static struct notifier_block freq_notifier = {
+	.notifier_call = freq_notifier_call,
 };
 
 static void __exit fpsgo_exit(void)
@@ -678,7 +678,7 @@ static int __init fpsgo_init(void)
 	if (g_psNotifyWorkQueue == NULL)
 		return -EFAULT;
 
-	cpufreq_register_notifier(&ppm_notifier, CPUFREQ_POLICY_NOTIFIER);
+	cpufreq_register_notifier(&freq_notifier, CPUFREQ_TRANSITION_NOTIFIER);
 
 	mutex_init(&notify_lock);
 
