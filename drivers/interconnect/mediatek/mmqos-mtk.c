@@ -312,6 +312,14 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 			comm_node->icc_path = of_icc_get(&pdev->dev,
 				mmqos_desc->comm_icc_path_names[
 						node->id & 0xff]);
+			if (IS_ERR_OR_NULL(comm_node->icc_path)) {
+				dev_notice(&pdev->dev,
+					"get icc_path fail:%s\n",
+					mmqos_desc->comm_icc_path_names[
+						node->id & 0xff]);
+				ret = -EINVAL;
+				goto err;
+			}
 			comm_node->base = base_node;
 			node->data = (void *)comm_node;
 			break;
