@@ -96,8 +96,6 @@
 #define ADRENO_MIN_VOLT BIT(15)
 /* The core supports IO-coherent memory */
 #define ADRENO_IOCOHERENT BIT(16)
-/* To retain RBBM perfcntl enable setting in IFPC */
-#define ADRENO_PERFCTRL_RETAIN BIT(17)
 /*
  * The GMU supports Adaptive Clock Distribution (ACD)
  * for droop mitigation
@@ -1456,43 +1454,6 @@ static inline void adreno_put_gpu_halt(struct adreno_device *adreno_dev)
  */
 void adreno_reglist_write(struct adreno_device *adreno_dev,
 		const struct adreno_reglist *list, u32 count);
-
-/**
- * adreno_set_protected_registers() - Protect the specified range of registers
- * from being accessed by the GPU
- * @adreno_dev: pointer to the Adreno device
- * @index: Pointer to the index of the protect mode register to write to
- * @reg: Starting dword register to write
- * @mask_len: Size of the mask to protect (# of registers = 2 ** mask_len)
- *
- * Add the range of registers to the list of protected mode registers that will
- * cause an exception if the GPU accesses them.  There are 16 available
- * protected mode registers.  Index is used to specify which register to write
- * to - the intent is to call this function multiple times with the same index
- * pointer for each range and the registers will be magically programmed in
- * incremental fashion
- */
-static inline void adreno_set_protected_registers(
-		struct adreno_device *adreno_dev, unsigned int *index,
-		unsigned int reg, int mask_len)
-{
-	unsigned int val;
-	unsigned int base =
-		adreno_getreg(adreno_dev, ADRENO_REG_CP_PROTECT_REG_0);
-	unsigned int offset = *index;
-	unsigned int max_slots = adreno_dev->gpucore->num_protected_regs ?
-				adreno_dev->gpucore->num_protected_regs : 16;
-
-	/* Do we have a free slot? */
-	if (WARN(*index >= max_slots, "Protected register slots full: %d/%d\n",
-					*index, max_slots))
-		return;
-
-	val = 0x60000000 | ((mask_len & 0x1F) << 24) | ((reg << 2) & 0xFFFFF);
-
-	kgsl_regwrite(KGSL_DEVICE(adreno_dev), base + offset, val);
-	*index = *index + 1;
-}
 
 #ifdef CONFIG_DEBUG_FS
 void adreno_debugfs_init(struct adreno_device *adreno_dev);
