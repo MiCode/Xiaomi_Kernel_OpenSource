@@ -489,7 +489,7 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 	struct wlfw_bdf_download_resp_msg_v01 *resp;
 	struct qmi_txn txn;
 	char filename[MAX_BDF_FILE_NAME];
-	const struct firmware *fw_entry;
+	const struct firmware *fw_entry = NULL;
 	const u8 *temp;
 	unsigned int remaining;
 	int ret = 0;
@@ -539,7 +539,7 @@ bypass_bdf:
 		req->data_valid = 1;
 		req->end_valid = 1;
 		req->bdf_type_valid = 1;
-		req->bdf_type = plat_priv->ctrl_params.bdf_type;
+		req->bdf_type = bdf_type;
 
 		if (remaining > QMI_WLFW_MAX_DATA_SIZE_V01) {
 			req->data_len = QMI_WLFW_MAX_DATA_SIZE_V01;
@@ -594,7 +594,7 @@ bypass_bdf:
 	return 0;
 
 err_send:
-	if (plat_priv->ctrl_params.bdf_type != CNSS_BDF_DUMMY)
+	if (bdf_type != CNSS_BDF_DUMMY)
 		release_firmware(fw_entry);
 err_req_fw:
 	if (bdf_type != CNSS_BDF_REGDB)
