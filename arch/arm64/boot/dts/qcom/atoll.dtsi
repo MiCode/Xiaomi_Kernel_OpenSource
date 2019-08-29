@@ -2569,7 +2569,7 @@
 		qcom,tcs-config = <SLEEP_TCS   1>,
 				  <WAKE_TCS    1>,
 				  <ACTIVE_TCS  0>,
-				  <CONTROL_TCS 0>;
+				  <CONTROL_TCS 1>;
 	};
 
 	system_pm {
