@@ -444,6 +444,8 @@ void cam_isp_hw_get_timestamp(struct cam_isp_timestamp *time_stamp)
 	get_monotonic_boottime(&ts);
 	time_stamp->mono_time.tv_sec    = ts.tv_sec;
 	time_stamp->mono_time.tv_usec   = ts.tv_nsec/1000;
+	time_stamp->time_usecs =  ts.tv_sec * 1000000 +
+				time_stamp->mono_time.tv_usec;
 }
 
 static int cam_vfe_irq_top_half(uint32_t    evt_id,
@@ -761,6 +763,7 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_CMD_BW_UPDATE:
 	case CAM_ISP_HW_CMD_BW_CONTROL:
 	case CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP:
+	case CAM_ISP_HW_CMD_FPS_CONFIG:
 		rc = core_info->vfe_top->hw_ops.process_cmd(
 			core_info->vfe_top->top_priv, cmd_type, cmd_args,
 			arg_size);

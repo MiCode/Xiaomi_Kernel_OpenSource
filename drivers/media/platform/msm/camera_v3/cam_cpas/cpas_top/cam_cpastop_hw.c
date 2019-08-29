@@ -21,6 +21,7 @@
 #include "cam_cpas_soc.h"
 #include "cpastop100.h"
 #include "cpastop_v150_100.h"
+#include "cpastop_v150_110.h"
 #include "cpastop_v170_110.h"
 #include "cpastop_v175_100.h"
 #include "cpastop_v175_101.h"
@@ -117,6 +118,10 @@ static int cam_cpastop_get_hw_info(struct cam_hw_info *cpas_hw,
 			(hw_caps->cpas_version.minor == 0) &&
 			(hw_caps->cpas_version.incr == 0))
 			soc_info->hw_version = CAM_CPAS_TITAN_150_V100;
+		else if ((hw_caps->cpas_version.major == 1) &&
+			(hw_caps->cpas_version.minor == 1) &&
+			(hw_caps->cpas_version.incr == 0))
+			soc_info->hw_version = CAM_CPAS_TITAN_150_V110;
 	}
 
 	CAM_DBG(CAM_CPAS, "CPAS HW VERSION %x", soc_info->hw_version);
@@ -667,6 +672,9 @@ static int cam_cpastop_init_hw_version(struct cam_hw_info *cpas_hw,
 		break;
 	case CAM_CPAS_TITAN_150_V100:
 		camnoc_info = &cam150_cpas100_camnoc_info;
+		break;
+	case CAM_CPAS_TITAN_150_V110:
+		camnoc_info = &cam150_cpas110_camnoc_info;
 		break;
 	default:
 		CAM_ERR(CAM_CPAS, "Camera Version not supported %d.%d.%d",
