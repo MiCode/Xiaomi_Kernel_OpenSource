@@ -1332,6 +1332,10 @@ static void clk_zonda_5lpe_pll_disable(struct clk_hw *hw)
 }
 
 const struct clk_ops clk_alpha_pll_ops = {
+	.prepare = clk_prepare_regmap,
+	.unprepare = clk_unprepare_regmap,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
 	.enable = clk_alpha_pll_enable,
 	.disable = clk_alpha_pll_disable,
 	.is_enabled = clk_alpha_pll_is_enabled,
@@ -1342,6 +1346,10 @@ const struct clk_ops clk_alpha_pll_ops = {
 EXPORT_SYMBOL_GPL(clk_alpha_pll_ops);
 
 const struct clk_ops clk_alpha_pll_huayra_ops = {
+	.prepare = clk_prepare_regmap,
+	.unprepare = clk_unprepare_regmap,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
 	.enable = clk_alpha_pll_enable,
 	.disable = clk_alpha_pll_disable,
 	.is_enabled = clk_alpha_pll_is_enabled,
@@ -1352,6 +1360,10 @@ const struct clk_ops clk_alpha_pll_huayra_ops = {
 EXPORT_SYMBOL_GPL(clk_alpha_pll_huayra_ops);
 
 const struct clk_ops clk_alpha_pll_hwfsm_ops = {
+	.prepare = clk_prepare_regmap,
+	.unprepare = clk_unprepare_regmap,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
 	.enable = clk_alpha_pll_hwfsm_enable,
 	.disable = clk_alpha_pll_hwfsm_disable,
 	.is_enabled = clk_alpha_pll_hwfsm_is_enabled,
@@ -1362,6 +1374,10 @@ const struct clk_ops clk_alpha_pll_hwfsm_ops = {
 EXPORT_SYMBOL_GPL(clk_alpha_pll_hwfsm_ops);
 
 const struct clk_ops clk_trion_fixed_pll_ops = {
+	.prepare = clk_prepare_regmap,
+	.unprepare = clk_unprepare_regmap,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
 	.enable = clk_trion_pll_enable,
 	.disable = clk_trion_pll_disable,
 	.is_enabled = clk_trion_pll_is_enabled,
@@ -1371,6 +1387,10 @@ const struct clk_ops clk_trion_fixed_pll_ops = {
 EXPORT_SYMBOL_GPL(clk_trion_fixed_pll_ops);
 
 const struct clk_ops clk_alpha_pll_zonda_ops = {
+	.prepare = clk_prepare_regmap,
+	.unprepare = clk_unprepare_regmap,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
 	.enable = clk_zonda_pll_enable,
 	.disable = clk_zonda_pll_disable,
 	.is_enabled = clk_zonda_pll_is_enabled,
@@ -1381,6 +1401,10 @@ const struct clk_ops clk_alpha_pll_zonda_ops = {
 EXPORT_SYMBOL(clk_alpha_pll_zonda_ops);
 
 const struct clk_ops clk_alpha_pll_zonda_5lpe_ops = {
+	.prepare = clk_prepare_regmap,
+	.unprepare = clk_unprepare_regmap,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
 	.enable = clk_zonda_5lpe_pll_enable,
 	.disable = clk_zonda_5lpe_pll_disable,
 	.is_enabled = clk_zonda_pll_is_enabled,
@@ -1647,6 +1671,10 @@ static int alpha_pll_fabia_set_rate(struct clk_hw *hw, unsigned long rate,
 }
 
 const struct clk_ops clk_alpha_pll_fabia_ops = {
+	.prepare = clk_prepare_regmap,
+	.unprepare = clk_unprepare_regmap,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
 	.enable = alpha_pll_fabia_enable,
 	.disable = alpha_pll_fabia_disable,
 	.is_enabled = clk_alpha_pll_is_enabled,
@@ -1657,6 +1685,10 @@ const struct clk_ops clk_alpha_pll_fabia_ops = {
 EXPORT_SYMBOL_GPL(clk_alpha_pll_fabia_ops);
 
 const struct clk_ops clk_alpha_pll_fixed_fabia_ops = {
+	.prepare = clk_prepare_regmap,
+	.unprepare = clk_unprepare_regmap,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
 	.enable = alpha_pll_fabia_enable,
 	.disable = alpha_pll_fabia_disable,
 	.is_enabled = clk_alpha_pll_is_enabled,
@@ -2003,6 +2035,10 @@ static int alpha_pll_lucid_prepare(struct clk_hw *hw)
 	unsigned long prate;
 	int ret;
 
+	ret = clk_prepare_regmap(hw);
+	if (ret)
+		return ret;
+
 	/* Return early if calibration is not needed. */
 	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &regval);
 	if (regval & LUCID_PCAL_DONE)
@@ -2291,6 +2327,10 @@ static int alpha_pll_lucid_5lpe_prepare(struct clk_hw *hw)
 	unsigned long prate;
 	int ret;
 
+	ret = clk_prepare_regmap(hw);
+	if (ret)
+		return ret;
+
 	/* Return early if calibration is not needed. */
 	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &regval);
 	if (regval & LUCID_5LPE_PCAL_DONE)
@@ -2427,7 +2467,10 @@ static int alpha_pll_lucid_is_enabled(struct clk_hw *hw)
 
 const struct clk_ops clk_alpha_pll_lucid_ops = {
 	.prepare = alpha_pll_lucid_prepare,
+	.unprepare = clk_unprepare_regmap,
 	.enable = alpha_pll_lucid_enable,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
 	.disable = alpha_pll_lucid_disable,
 	.is_enabled = alpha_pll_lucid_is_enabled,
 	.recalc_rate = alpha_pll_lucid_recalc_rate,
@@ -2438,6 +2481,9 @@ EXPORT_SYMBOL(clk_alpha_pll_lucid_ops);
 
 const struct clk_ops clk_alpha_pll_lucid_5lpe_ops = {
 	.prepare = alpha_pll_lucid_5lpe_prepare,
+	.unprepare = clk_unprepare_regmap,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
 	.enable = alpha_pll_lucid_5lpe_enable,
 	.disable = alpha_pll_lucid_5lpe_disable,
 	.is_enabled = alpha_pll_lucid_is_enabled,
@@ -2448,6 +2494,10 @@ const struct clk_ops clk_alpha_pll_lucid_5lpe_ops = {
 EXPORT_SYMBOL(clk_alpha_pll_lucid_5lpe_ops);
 
 const struct clk_ops clk_alpha_pll_fixed_lucid_ops = {
+	.prepare = clk_prepare_regmap,
+	.unprepare = clk_unprepare_regmap,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
 	.enable = alpha_pll_lucid_enable,
 	.disable = alpha_pll_lucid_disable,
 	.is_enabled = alpha_pll_lucid_is_enabled,
@@ -2464,6 +2514,10 @@ const struct clk_ops clk_alpha_pll_postdiv_lucid_ops = {
 EXPORT_SYMBOL(clk_alpha_pll_postdiv_lucid_ops);
 
 const struct clk_ops clk_alpha_pll_fixed_lucid_5lpe_ops = {
+	.prepare = clk_prepare_regmap,
+	.unprepare = clk_unprepare_regmap,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
 	.enable = alpha_pll_lucid_5lpe_enable,
 	.disable = alpha_pll_lucid_5lpe_disable,
 	.is_enabled = alpha_pll_lucid_is_enabled,
