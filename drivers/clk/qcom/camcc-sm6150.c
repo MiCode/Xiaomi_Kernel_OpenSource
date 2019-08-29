@@ -167,6 +167,7 @@ static const struct alpha_pll_config cam_cc_pll0_config = {
 	.vco_mask = 0x3 << 20,
 	.aux_output_mask = BIT(1),
 	.config_ctl_val = 0x4001055b,
+	.test_ctl_hi_val = 0x1,
 	.test_ctl_hi_mask = 0x1,
 };
 
@@ -199,6 +200,7 @@ static const struct alpha_pll_config cam_cc_pll1_config = {
 	.vco_mask = 0x3 << 20,
 	.aux_output_mask = BIT(1),
 	.config_ctl_val = 0x4001055b,
+	.test_ctl_hi_val = 0x1,
 	.test_ctl_hi_mask = 0x1,
 };
 
@@ -228,7 +230,10 @@ static const struct alpha_pll_config cam_cc_pll2_config = {
 	.vco_mask = 0x3 << 20,
 	.early_output_mask = BIT(3),
 	.aux2_output_mask = BIT(2),
+	.post_div_val = 0x1 << 8,
+	.post_div_mask = 0x3 << 8,
 	.config_ctl_val = 0x04289,
+	.test_ctl_val = 0x08000000,
 	.test_ctl_mask = 0x08000000,
 };
 
@@ -270,6 +275,7 @@ static const struct alpha_pll_config cam_cc_pll3_config = {
 	.vco_mask = 0x3 << 20,
 	.main_output_mask = BIT(0),
 	.config_ctl_val = 0x4001055b,
+	.test_ctl_hi_val = 0x1,
 	.test_ctl_hi_mask = 0x1,
 };
 
