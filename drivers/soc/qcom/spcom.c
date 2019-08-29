@@ -408,7 +408,7 @@ static int spcom_rx(struct spcom_channel *ch,
 			goto exit_err;
 		}
 	} else {
-		pr_debug("pending data size [%zu], requested size [%zu], ch->txn_id %d\n",
+		pr_debug("pending data size [%zu], requested size [%u], ch->txn_id %d\n",
 			 ch->actual_rx_size, size, ch->txn_id);
 	}
 	if (!ch->rpmsg_rx_buf) {
@@ -1377,7 +1377,7 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	ch->is_busy = false;
 	ch->pid = 0;
 	if (ch->rpmsg_rx_buf) {
-		pr_debug("ch [%s] discarting unconsumed rx packet actual_rx_size=%d\n",
+		pr_debug("ch [%s] discarting unconsumed rx packet actual_rx_size=%lu\n",
 		       name, ch->actual_rx_size);
 		kfree(ch->rpmsg_rx_buf);
 		ch->rpmsg_rx_buf = NULL;
