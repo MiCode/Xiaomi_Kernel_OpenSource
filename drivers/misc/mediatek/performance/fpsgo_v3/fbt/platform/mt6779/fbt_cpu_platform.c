@@ -60,13 +60,17 @@ void fbt_boost_dram(int boost)
 void fbt_set_boost_value(unsigned int base_blc)
 {
 	base_blc = clamp(base_blc, 1U, 100U);
+#if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	update_eas_uclamp_min(EAS_UCLAMP_KIR_FPSGO, CGROUP_TA, (int)base_blc);
+#endif
 	fpsgo_systrace_c_fbt_gm(-100, base_blc, "TA_cap");
 }
 
 void fbt_clear_boost_value(void)
 {
+#if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	update_eas_uclamp_min(EAS_UCLAMP_KIR_FPSGO, CGROUP_TA, 0);
+#endif
 	fpsgo_systrace_c_fbt_gm(-100, 0, "TA_cap");
 
 	fbt_notify_CM_limit(0);
