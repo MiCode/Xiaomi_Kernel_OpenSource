@@ -1418,9 +1418,10 @@ free_etr_perf_buffer:
  * tmc_etr_sync_perf_buffer: Copy the actual trace data from the hardware
  * buffer to the perf ring buffer.
  */
-static void tmc_etr_sync_perf_buffer(struct etr_perf_buffer *etr_perf)
+static void tmc_etr_sync_perf_buffer(struct etr_perf_buffer *etr_perf,
+				     unsigned long to_copy)
 {
-	long bytes, to_copy;
+	long bytes;
 	long pg_idx, pg_offset, src_offset;
 	unsigned long head = etr_perf->head;
 	char **dst_pages, *src_buf;
@@ -1430,8 +1431,7 @@ static void tmc_etr_sync_perf_buffer(struct etr_perf_buffer *etr_perf)
 	pg_idx = head >> PAGE_SHIFT;
 	pg_offset = head & (PAGE_SIZE - 1);
 	dst_pages = (char **)etr_perf->pages;
-	src_offset = etr_buf->offset;
-	to_copy = etr_buf->len;
+	src_offset = etr_buf->offset + etr_buf->len - to_copy;
 
 	while (to_copy > 0) {
 		/*
@@ -1442,6 +1442,8 @@ static void tmc_etr_sync_perf_buffer(struct etr_perf_buffer *etr_perf)
 		 *  3) what is available in the destination page.
 		 * in one iteration.
 		 */
+		if (src_offset >= etr_buf->size)
+			src_offset -= etr_buf->size;
 		bytes = tmc_etr_buf_get_data(etr_buf, src_offset, to_copy,
 					     &src_buf);
 		if (WARN_ON_ONCE(bytes <= 0))
@@ -1462,8 +1464,6 @@ static void tmc_etr_sync_perf_buffer(struct etr_perf_buffer *etr_perf)
 
 		/* Move source pointers */
 		src_offset += bytes;
-		if (src_offset >= etr_buf->size)
-			src_offset -= etr_buf->size;
 	}
 }
 
@@ -1509,7 +1509,11 @@ tmc_update_etr_buffer(struct coresight_device *csdev,
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	size = etr_buf->len;
-	tmc_etr_sync_perf_buffer(etr_perf);
+	if (!etr_perf->snapshot && size > handle->size) {
+		size = handle->size;
+		lost = true;
+	}
+	tmc_etr_sync_perf_buffer(etr_perf, size);
 
 	/*
 	 * In snapshot mode we simply increment the head by the number of byte
