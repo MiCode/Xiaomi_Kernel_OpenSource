@@ -348,7 +348,7 @@ void mhi_dev_read_from_host_edma(struct mhi_dev *mhi, struct mhi_addr *transfer)
 	}
 
 	mhi_log(MHI_MSG_VERBOSE,
-		"device 0x%x <<-- host 0x%llx, size %d\n",
+		"device 0x%llx <<-- host 0x%llx, size %d\n",
 		transfer->phy_addr, host_addr_pa,
 		(int) transfer->size);
 
@@ -1187,7 +1187,7 @@ static int mhi_dev_send_cmd_comp_event(struct mhi_dev *mhi,
 	event.evt_cmd_comp.ptr = mhi->cmd_ctx_cache->rbase
 			+ (mhi->ring[MHI_RING_CMD_ID].rd_offset *
 			(sizeof(union mhi_dev_ring_element_type)));
-	mhi_log(MHI_MSG_VERBOSE, "evt cmd comp ptr :%d\n",
+	mhi_log(MHI_MSG_VERBOSE, "evt cmd comp ptr :%lx\n",
 			(size_t) event.evt_cmd_comp.ptr);
 	event.evt_cmd_comp.type = MHI_DEV_RING_EL_CMD_COMPLETION_EVT;
 	event.evt_cmd_comp.code = code;
@@ -1499,7 +1499,7 @@ static void mhi_dev_process_tre_ring(struct mhi_dev *mhi,
 
 	if (ring->id < mhi->ch_ring_start) {
 		mhi_log(MHI_MSG_VERBOSE,
-			"invalid channel ring id (%d), should be < %d\n",
+			"invalid channel ring id (%d), should be < %lu\n",
 			ring->id, mhi->ch_ring_start);
 		return;
 	}
@@ -2411,7 +2411,7 @@ int mhi_dev_read_channel(struct mhi_req *mreq)
 		el = &ring->ring_cache[ring->rd_offset];
 		mhi_log(MHI_MSG_VERBOSE, "evtptr : 0x%llx\n",
 						el->tre.data_buf_ptr);
-		mhi_log(MHI_MSG_VERBOSE, "evntlen : 0x%x, offset:%d\n",
+		mhi_log(MHI_MSG_VERBOSE, "evntlen : 0x%x, offset:%lu\n",
 						el->tre.len, ring->rd_offset);
 
 		if (ch->tre_loc) {
