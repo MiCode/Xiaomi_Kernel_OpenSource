@@ -538,9 +538,10 @@
 				mhi,interface-name = "rmnet_mhi";
 				mhi,mru = <0x8000>;
 				mhi,chan-skb;
+				mhi,rsc-child = <&mhi_netdev_0_rsc>;
 			};
 
-			mhi_rmnet@1 {
+			mhi_netdev_0_rsc: mhi_rmnet@1 {
 				reg = <0x1>;
 				mhi,chan = "IP_HW0_RSC";
 				mhi,mru = <0x8000>;
