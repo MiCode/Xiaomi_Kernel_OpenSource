@@ -1991,9 +1991,9 @@ static bool _gpu_freq_supported(struct kgsl_pwrctrl *pwr, unsigned int freq)
 	return false;
 }
 
-static void kgsl_pwrctrl_disable_unused_opp(struct kgsl_device *device)
+void kgsl_pwrctrl_disable_unused_opp(struct kgsl_device *device,
+		struct device *dev)
 {
-	struct device *dev = &device->pdev->dev;
 	struct dev_pm_opp *opp;
 	unsigned long freq = 0;
 	int ret;
@@ -2083,7 +2083,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 			pwr->pwrlevels[i].gpu_freq = freq;
 	}
 
-	kgsl_pwrctrl_disable_unused_opp(device);
+	kgsl_pwrctrl_disable_unused_opp(device, &pdev->dev);
 
 	kgsl_clk_set_rate(device, pwr->num_pwrlevels - 1);
 
