@@ -232,7 +232,7 @@
 
 &secure_mem {
 	alignment = <0 0x400000>;
-	size = <0 0x400000>;
+	size = <0 0x800000>;
 	status = "okay";
 };
 
