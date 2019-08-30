@@ -570,7 +570,7 @@
 				reg = <0>;
 				qcom,supply-name = "vdda-0p9";
 				qcom,supply-min-voltage = <880000>;
-				qcom,supply-max-voltage = <900000>;
+				qcom,supply-max-voltage = <928000>;
 				qcom,supply-enable-load = <36000>;
 				qcom,supply-disable-load = <0>;
 			};
