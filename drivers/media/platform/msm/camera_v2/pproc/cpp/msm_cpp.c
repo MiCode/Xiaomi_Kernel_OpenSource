@@ -1568,12 +1568,6 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		pr_debug("DEBUG_R1: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x8C));
 
-		/* Update bandwidth usage to enable AXI/ABH clock,
-		 * which will help to reset CPP AXI.Bandwidth will be
-		 * made zero at cpp_release_hardware.
-		 */
-		msm_cpp_update_bandwidth(cpp_dev, 0x1000, 0x1000);
-
 		/* mask IRQ status */
 		msm_camera_io_w(0xB, cpp_dev->cpp_hw_base + 0xC);
 
