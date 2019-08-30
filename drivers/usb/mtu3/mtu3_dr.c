@@ -147,6 +147,20 @@ int ssusb_set_vbus(struct otg_switch_mtk *otg_sx, int is_on)
 	return 0;
 }
 
+static void ssusb_gadget_disconnect(struct mtu3 *mtu)
+{
+	/* notify gadget driver */
+	if (mtu->g.speed == USB_SPEED_UNKNOWN)
+		return;
+
+	if (mtu->gadget_driver && mtu->gadget_driver->disconnect) {
+		mtu->gadget_driver->disconnect(&mtu->g);
+		mtu->g.speed = USB_SPEED_UNKNOWN;
+	}
+
+	usb_gadget_set_state(&mtu->g, USB_STATE_NOTATTACHED);
+}
+
 /*
  * switch to host: -> MTU3_VBUS_OFF --> MTU3_ID_GROUND
  * switch to device: -> MTU3_ID_FLOAT --> MTU3_VBUS_VALID
@@ -178,6 +192,7 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		mtu3_stop(mtu);
 		pm_relax(ssusb->dev);
 		ssusb_set_force_vbus(ssusb, false);
+		ssusb_gadget_disconnect(mtu);
 		otg_sx->sw_state &= ~MTU3_SW_VBUS_VALID;
 		break;
 	case MTU3_VBUS_VALID:
