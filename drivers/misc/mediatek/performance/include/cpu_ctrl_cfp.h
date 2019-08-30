@@ -5,7 +5,7 @@
 #ifndef CPU_CTRL_CFP_H
 #define CPU_CTRL_CFP_H
 
-#include "cpu_ctrl.h"
+#include <mt-plat/cpu_ctrl.h>
 
 extern void cpu_ctrl_cfp(struct ppm_limit_data *desired_freq);
 

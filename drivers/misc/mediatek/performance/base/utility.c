@@ -77,17 +77,13 @@ static inline void __mt_update_tracing_mark_write_addr(void)
 			kallsyms_lookup_name("tracing_mark_write");
 }
 
-#define API_READY 0
-#ifdef CONFIG_MTK_BASE_POWER
 void perfmgr_trace_count(int val, const char *fmt, ...)
 {
 	char log[32];
 	va_list args;
 
-#if API_READY
 	if (powerhal_tid <= 0)
 		return;
-#endif
 
 	memset(log, ' ', sizeof(log));
 	va_start(args, fmt);
@@ -97,17 +93,11 @@ void perfmgr_trace_count(int val, const char *fmt, ...)
 	__mt_update_tracing_mark_write_addr();
 	preempt_disable();
 
-#if API_READY
 	event_trace_printk(tracing_mark_write_addr, "C|%d|%s|%d\n",
 		powerhal_tid, log, val);
-#else
-	event_trace_printk(tracing_mark_write_addr, "C|%d|%s|%d\n",
-		0, log, val);
-#endif
 
 	preempt_enable();
 }
-#endif
 
 void perfmgr_trace_printk(char *module, char *string)
 {
