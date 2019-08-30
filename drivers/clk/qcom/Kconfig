@@ -416,3 +416,11 @@ config SM_GCC_BENGAL
 	  Support for the global clock controller on Bengal devices.
 	  Say Y if you want to use peripheral devices such as UART, SPI,
 	  I2C, USB, UFS, SDCC, PCIe, Camera, Video etc.
+
+config SM_GPUCC_BENGAL
+	tristate "BENGAL Graphics Clock Controller"
+	select SM_GCC_BENGAL
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc
+	  BENGAL devices.
+	  Say Y if you want to support graphics controller devices.
