@@ -275,14 +275,14 @@ static int32_t adc_tm5_thr_update(struct adc_tm_sensor *sensor,
 	struct adc_tm_config tm_config;
 	struct adc_tm_chip *chip;
 
+	chip = sensor->chip;
+
 	ret = adc_tm5_get_btm_idx(chip,
 		sensor->btm_ch, &btm_chan_idx);
 	if (ret < 0) {
 		pr_err("Invalid btm channel idx\n");
 		return ret;
 	}
-
-	chip = sensor->chip;
 
 	tm_config.high_thr_voltage = (int64_t)high_thr;
 	tm_config.low_thr_voltage = (int64_t)low_thr;
