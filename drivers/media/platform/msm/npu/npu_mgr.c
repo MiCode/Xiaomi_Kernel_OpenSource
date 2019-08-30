@@ -590,12 +590,14 @@ int npu_host_init(struct npu_device *npu_dev)
 	if (IS_ERR(host_ctx->notif_hdle)) {
 		NPU_ERR("register event notification failed\n");
 		sts = PTR_ERR(host_ctx->notif_hdle);
-		return sts;
+		host_ctx->notif_hdle = NULL;
+		goto fail;
 	}
 
 	host_ctx->wq = create_workqueue("npu_irq_hdl");
 	if (!host_ctx->wq) {
 		sts = -EPERM;
+		goto fail;
 	} else {
 		INIT_WORK(&host_ctx->ipc_irq_work, npu_ipc_irq_work);
 		INIT_WORK(&host_ctx->wdg_err_irq_work, npu_wdg_err_irq_work);
@@ -606,8 +608,23 @@ int npu_host_init(struct npu_device *npu_dev)
 			npu_disable_fw_work);
 	}
 
+	host_ctx->ipc_msg_buf = kzalloc(NPU_IPC_BUF_LENGTH, GFP_KERNEL);
+	if (!host_ctx->ipc_msg_buf) {
+		NPU_ERR("Failed to allocate ipc buffer\n");
+		sts = -ENOMEM;
+		goto fail;
+	}
+
 	host_ctx->auto_pil_disable = false;
 
+	return sts;
+fail:
+	if (host_ctx->wq)
+		destroy_workqueue(host_ctx->wq);
+	if (host_ctx->notif_hdle)
+		subsys_notif_unregister_notifier(host_ctx->notif_hdle,
+			&host_ctx->nb);
+	mutex_destroy(&host_ctx->lock);
 	return sts;
 }
 
@@ -615,7 +632,9 @@ void npu_host_deinit(struct npu_device *npu_dev)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
+	kfree(host_ctx->ipc_msg_buf);
 	destroy_workqueue(host_ctx->wq);
+	subsys_notif_unregister_notifier(host_ctx->notif_hdle, &host_ctx->nb);
 	mutex_destroy(&host_ctx->lock);
 }
 
