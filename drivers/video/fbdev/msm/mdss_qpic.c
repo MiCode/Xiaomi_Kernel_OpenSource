@@ -84,8 +84,21 @@ static void mdss_qpic_clk_ctrl(bool enable)
 int qpic_on(struct msm_fb_data_type *mfd)
 {
 	int ret;
+	struct fb_info *fbi;
+	u32 data, bpp;
 
 	mdss_qpic_clk_ctrl(true);
+
+	fbi = mfd->fbi;
+	bpp = fbi->var.bits_per_pixel / 8;
+
+	data = QPIC_INP(QPIC_REG_QPIC_LCDC_CFG2);
+	if (bpp != 2) {
+		data &= ~(0xFFF);
+		data |= 0x200; /* XRGB */
+		data |= 0x2C;
+		QPIC_OUTP(QPIC_REG_QPIC_LCDC_CFG2, data);
+	}
 
 	ret = mdss_qpic_panel_on(qpic_res->panel_data, &qpic_res->panel_io);
 	qpic_res->qpic_is_on = true;
@@ -661,11 +674,6 @@ int mdss_qpic_init(void)
 	qpic_interrupt_en(use_irq);
 
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_CFG0, 0x02108501);
-	data = QPIC_INP(QPIC_REG_QPIC_LCDC_CFG2);
-	data &= ~(0xFFF);
-	data |= 0x200; /* XRGB */
-	data |= 0x2C;
-	QPIC_OUTP(QPIC_REG_QPIC_LCDC_CFG2, data);
 
 	if (use_bam) {
 		qpic_init_sps(qpic_res->pdev, &qpic_res->qpic_endpt);
