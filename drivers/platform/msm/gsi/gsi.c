@@ -3452,6 +3452,14 @@ int gsi_queue_xfer(unsigned long chan_hdl, uint16_t num_xfers,
 		return -GSI_STATUS_INVALID_PARAMS;
 	}
 
+	if (unlikely(gsi_ctx->chan[chan_hdl].state
+				 == GSI_CHAN_STATE_NOT_ALLOCATED)) {
+		GSIERR("bad state %d\n",
+			   gsi_ctx->chan[chan_hdl].state);
+		return -GSI_STATUS_UNSUPPORTED_OP;
+	}
+
+
 	ctx = &gsi_ctx->chan[chan_hdl];
 
 	if (ctx->props.prot != GSI_CHAN_PROT_GPI &&
