@@ -30,7 +30,7 @@ config MTK_SCHED_INTEROP
 
 config MTK_SCHED_LB_ENHANCEMENT
 	bool "mtk enhancement for load balance"
-	depends on MTK_SCHED_EXTENSION
+	depends on MTK_SCHED_EXTENSION && ENERGY_MODEL && CPU_FREQ_GOV_SCHEDUTIL
 	help
 	   mtk enhancement for load balance
 	   system overutilization,

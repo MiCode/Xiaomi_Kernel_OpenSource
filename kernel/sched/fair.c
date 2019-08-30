@@ -5240,9 +5240,6 @@ void update_system_overutilized(struct sched_domain *sd, struct cpumask *cpus)
 	if (!sched_feat(SCHED_MTK_EAS))
 		return;
 
-	if (arch_nr_clusters() == 1)
-		return;
-
 	this_cpu = smp_processor_id();
 	rd = cpu_rq(this_cpu)->rd;
 	overutilized = READ_ONCE(rd->overutilized);
@@ -7344,33 +7341,6 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 		if (cpu_isolated(cpu))
 			continue;
 
-		#ifdef CONFIG_MTK_SCHED_LB_ENHANCEMENT
-		if (sched_feat(SCHED_MTK_EAS) &&
-				is_intra_domain(prev_cpu, cpu)) {
-			int best_cpu = cpu;
-
-			if (idle_cpu(prev_cpu) && idle_cpu(cpu)) {
-				struct rq *prev_rq, *target_rq;
-				int prev_idle_idx;
-				int target_idle_idx;
-
-				prev_rq = cpu_rq(prev_cpu);
-				target_rq = cpu_rq(cpu);
-
-				prev_idle_idx = idle_get_state_idx(prev_rq);
-				target_idle_idx = idle_get_state_idx(target_rq);
-
-				/* favoring shallowest idle states */
-				if ((prev_idle_idx <= target_idle_idx) ||
-					target_idle_idx == -1)
-					best_cpu = prev_cpu;
-			}
-
-			best_energy_cpu = best_cpu;
-			continue;
-		}
-#endif
-
 		cur_energy = compute_energy(p, cpu, pd);
 		if (cur_energy < best_energy) {
 			best_energy = cur_energy;
@@ -7387,8 +7357,23 @@ unlock:
 	if (prev_energy == ULONG_MAX)
 		return best_energy_cpu;
 
+#ifdef CONFIG_MTK_SCHED_LB_ENHANCEMENT
+	if (prev_energy > best_energy)
+		return best_energy_cpu;
+
+	/* aovid round off or the task util is too small */
+	if (prev_energy == best_energy) {
+		int best_cpu_cap = capacity_orig_of(best_energy_cpu);
+		int prev_cpu_cap = capacity_orig_of(prev_cpu);
+
+		if (best_cpu_cap < prev_cpu_cap)
+			return best_energy_cpu;
+
+	}
+#else
 	if ((prev_energy - best_energy) > (prev_energy >> 4))
 		return best_energy_cpu;
+#endif
 
 	return prev_cpu;
 

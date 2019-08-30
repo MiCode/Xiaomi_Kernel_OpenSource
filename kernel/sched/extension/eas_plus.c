@@ -8,12 +8,6 @@
 #include "mt-plat/upower_v2/mtk_unified_power.h"
 #endif
 
-bool is_intra_domain(int prev, int target)
-{
-	return arch_cpu_cluster_id(prev) ==
-			arch_cpu_cluster_id(target);
-}
-
 static int idle_pull_cpu_stop(void *data)
 {
 	int ret;
@@ -221,6 +215,20 @@ inline unsigned int cpu_is_slowest(int cpu)
 	return list_is_last(pos, &perf_order_domains);
 }
 EXPORT_SYMBOL(cpu_is_slowest);
+
+bool is_intra_domain(int prev, int target)
+{
+	struct perf_order_domain *perf_domain = NULL;
+
+	if (!pod_is_ready()) {
+		pr_info("Perf order domain is not ready!\n");
+		return 0;
+	}
+
+	perf_domain = per_cpu(perf_order_cpu_domain, prev);
+
+	return cpumask_test_cpu(target, &perf_domain->cpus);
+}
 #endif
 
 #ifdef CONFIG_MTK_SCHED_TURNING_POINT
