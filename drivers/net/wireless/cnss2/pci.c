@@ -1860,8 +1860,15 @@ int cnss_pci_unregister_driver_hdlr(struct cnss_pci_data *pci_priv)
 static bool cnss_pci_is_drv_supported(struct cnss_pci_data *pci_priv)
 {
 	struct pci_dev *root_port = pci_find_pcie_root_port(pci_priv->pci_dev);
-	struct device_node *root_of_node = root_port->dev.of_node;
+	struct device_node *root_of_node;
 	bool drv_supported = false;
+
+	if (!root_port) {
+		cnss_pr_err("PCIe DRV is not supported as root port is null\n");
+		return drv_supported;
+	}
+
+	root_of_node = root_port->dev.of_node;
 
 	if (root_of_node->parent)
 		drv_supported = of_property_read_bool(root_of_node->parent,

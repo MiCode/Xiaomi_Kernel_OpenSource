@@ -775,11 +775,11 @@ int cnss_wlfw_wlan_cfg_send_sync(struct cnss_plat_data *plat_priv,
 	u32 i;
 	int ret = 0;
 
-	cnss_pr_dbg("Sending WLAN config message, state: 0x%lx\n",
-		    plat_priv->driver_state);
-
 	if (!plat_priv)
 		return -ENODEV;
+
+	cnss_pr_dbg("Sending WLAN config message, state: 0x%lx\n",
+		    plat_priv->driver_state);
 
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
 	if (!req)
