@@ -102,7 +102,7 @@ static struct pll_vco gpu_cc_pll_vco[] = {
 };
 
 /* 1020MHz configuration */
-static const struct alpha_pll_config gpu_pll0_config = {
+static struct alpha_pll_config gpu_pll0_config = {
 	.l = 0x35,
 	.config_ctl_val = 0x4001055b,
 	.test_ctl_hi_val = 0x1,
@@ -116,7 +116,7 @@ static const struct alpha_pll_config gpu_pll0_config = {
 };
 
 /* 930MHz configuration */
-static const struct alpha_pll_config gpu_pll1_config = {
+static struct alpha_pll_config gpu_pll1_config = {
 	.l = 0x30,
 	.config_ctl_val = 0x4001055b,
 	.test_ctl_hi_val = 0x1,
@@ -134,6 +134,7 @@ static struct clk_alpha_pll gpu_cc_pll0_out_aux2 = {
 	.vco_table = gpu_cc_pll_vco,
 	.num_vco = ARRAY_SIZE(gpu_cc_pll_vco),
 	.flags = SUPPORTS_DYNAMIC_UPDATE,
+	.config = &gpu_pll0_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 		.name = "gpu_cc_pll0_out_aux2",
@@ -154,6 +155,7 @@ static struct clk_alpha_pll gpu_cc_pll1_out_aux2 = {
 	.vco_table = gpu_cc_pll_vco,
 	.num_vco = ARRAY_SIZE(gpu_cc_pll_vco),
 	.flags = SUPPORTS_DYNAMIC_UPDATE,
+	.config = &gpu_pll1_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 		.name = "gpu_cc_pll1_out_aux2",
@@ -560,9 +562,9 @@ static int gpu_cc_sm6150_probe(struct platform_device *pdev)
 	}
 
 	clk_alpha_pll_configure(&gpu_cc_pll0_out_aux2, regmap,
-					&gpu_pll0_config);
+					gpu_cc_pll0_out_aux2.config);
 	clk_alpha_pll_configure(&gpu_cc_pll1_out_aux2, regmap,
-					&gpu_pll1_config);
+					gpu_cc_pll1_out_aux2.config);
 
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_sm6150_desc, regmap);
 	if (ret) {

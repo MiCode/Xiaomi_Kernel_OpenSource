@@ -129,7 +129,7 @@ static struct pll_vco disp_cc_pll_vco[] = {
 };
 
 /* 576MHz configuration */
-static const struct alpha_pll_config disp_cc_pll0_config = {
+static struct alpha_pll_config disp_cc_pll0_config = {
 	.l = 0x1E,
 	.vco_val = 0x2 << 20,
 	.vco_mask = 0x3 << 20,
@@ -144,6 +144,7 @@ static struct clk_alpha_pll disp_cc_pll0_out_main = {
 	.vco_table = disp_cc_pll_vco,
 	.num_vco = ARRAY_SIZE(disp_cc_pll_vco),
 	.flags = SUPPORTS_DYNAMIC_UPDATE,
+	.config = &disp_cc_pll0_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_pll0_out_main",
@@ -269,6 +270,7 @@ static struct clk_rcg2 disp_cc_mdss_dp_link_clk_src = {
 	.hid_width = 5,
 	.parent_map = disp_cc_parent_map_0,
 	.freq_tbl = ftbl_disp_cc_mdss_dp_link_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "disp_cc_mdss_dp_link_clk_src",
 		.parent_names = disp_cc_parent_names_0,
@@ -850,7 +852,7 @@ static int disp_cc_sm6150_probe(struct platform_device *pdev)
 	}
 
 	clk_alpha_pll_configure(&disp_cc_pll0_out_main, regmap,
-				&disp_cc_pll0_config);
+				disp_cc_pll0_out_main.config);
 
 	ret = qcom_cc_really_probe(pdev, &disp_cc_sm6150_desc, regmap);
 	if (ret) {
