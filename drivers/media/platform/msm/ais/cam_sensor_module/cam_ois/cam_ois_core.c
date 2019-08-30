@@ -681,7 +681,7 @@ pwr_dwn:
 	cam_ois_power_down(o_ctrl);
 rel_pkt:
 	if (cam_mem_put_cpu_buf(dev_config.packet_handle))
-		CAM_WARN(CAM_OIS, "Fail in put buffer: 0x%x",
+		CAM_WARN(CAM_OIS, "Fail in put buffer: 0x%llx",
 			dev_config.packet_handle);
 
 	return rc;
