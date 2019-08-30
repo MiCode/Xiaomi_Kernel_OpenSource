@@ -844,9 +844,6 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 	snapshot_frozen_objsize = 0;
 
-	setup_fault_process(device, snapshot,
-			context ? context->proc_priv : NULL);
-
 	/* Add GPU specific sections - registers mainly, but other stuff too */
 	if (gpudev->snapshot)
 		gpudev->snapshot(adreno_dev, snapshot);
@@ -854,6 +851,9 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	/* Dumping these buffers is useless if the GX is not on */
 	if (!gmu_core_dev_gx_is_on(device))
 		return;
+
+	setup_fault_process(device, snapshot,
+			context ? context->proc_priv : NULL);
 
 	adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
 			ADRENO_REG_CP_IB1_BASE_HI, &snapshot->ib1base);
