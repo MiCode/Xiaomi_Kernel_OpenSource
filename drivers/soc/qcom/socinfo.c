@@ -643,6 +643,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* QM215 ID */
 	[386] = {MSM_CPU_QM215, "QM215"},
 
+	/* QCM2150 ID */
+	[436] = {MSM_CPU_QCM2150, "QCM2150"},
+
 	/* SDM429W IDs*/
 	[416] = {MSM_CPU_SDM429W, "SDM429W"},
 	/* Uninitialized IDs are not known to run Linux.
@@ -1643,6 +1646,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_qm215()) {
 		dummy_socinfo.id = 386;
 		strlcpy(dummy_socinfo.build_id, "qm215 - ",
+				sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_qcm2150()) {
+		dummy_socinfo.id = 436;
+		strlcpy(dummy_socinfo.build_id, "qcm2150 - ",
 				sizeof(dummy_socinfo.build_id));
 	}
 
