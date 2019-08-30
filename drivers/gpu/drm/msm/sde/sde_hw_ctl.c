@@ -1026,12 +1026,8 @@ static int sde_hw_ctl_reset_post_disable(struct sde_hw_ctl *ctx,
 		struct sde_hw_intf_cfg_v1 *cfg, u32 merge_3d_idx)
 {
 	struct sde_hw_blk_reg_map *c;
-	u32 intf_active = 0;
-	u32 intf_flush = 0;
-	u32 merge_3d_active = 0;
-	u32 merge_3d_flush = 0;
-	u32 wb_active = 0;
-	u32 wb_flush = 0;
+	u32 intf_active = 0, wb_active = 0, merge_3d_active = 0;
+	u32 intf_flush = 0, wb_flush = 0;
 	u32 i;
 
 	if (!ctx || !cfg) {
@@ -1056,25 +1052,30 @@ static int sde_hw_ctl_reset_post_disable(struct sde_hw_ctl *ctx,
 
 	if (merge_3d_idx) {
 		/* disable and flush merge3d_blk */
-		merge_3d_flush = BIT(merge_3d_idx - MERGE_3D_0);
+		ctx->flush.pending_merge_3d_flush_mask =
+			BIT(merge_3d_idx - MERGE_3D_0);
 		merge_3d_active &= ~BIT(merge_3d_idx - MERGE_3D_0);
-		ctx->flush.pending_merge_3d_flush_mask = merge_3d_flush;
 		SDE_REG_WRITE(c, CTL_MERGE_3D_ACTIVE, merge_3d_active);
 	}
 	sde_hw_ctl_clear_all_blendstages(ctx);
 
-	ctx->flush.pending_intf_flush_mask = intf_flush;
-	ctx->flush.pending_wb_flush_mask = wb_flush;
+	if (cfg->intf_count) {
+		ctx->flush.pending_intf_flush_mask = intf_flush;
+		UPDATE_MASK(ctx->flush.pending_flush_mask, INTF_IDX, 1);
+		SDE_REG_WRITE(c, CTL_INTF_ACTIVE, intf_active);
+	}
 
-
-	SDE_REG_WRITE(c, CTL_INTF_ACTIVE, intf_active);
-	SDE_REG_WRITE(c, CTL_WB_ACTIVE, wb_active);
+	if (cfg->wb_count) {
+		ctx->flush.pending_wb_flush_mask = wb_flush;
+		UPDATE_MASK(ctx->flush.pending_flush_mask, WB_IDX, 1);
+		SDE_REG_WRITE(c, CTL_WB_ACTIVE, wb_active);
+	}
 
 	return 0;
 }
 
 static int sde_hw_ctl_update_cwb_cfg(struct sde_hw_ctl *ctx,
-		struct sde_hw_intf_cfg_v1 *cfg)
+		struct sde_hw_intf_cfg_v1 *cfg, bool enable)
 {
 	int i;
 	u32 cwb_active = 0;
@@ -1098,10 +1099,16 @@ static int sde_hw_ctl_update_cwb_cfg(struct sde_hw_ctl *ctx,
 			merge_3d_active |= BIT(cfg->merge_3d[i] - MERGE_3D_0);
 	}
 
-	wb_active = BIT(2);
-	SDE_REG_WRITE(c, CTL_WB_ACTIVE, wb_active);
-	SDE_REG_WRITE(c, CTL_MERGE_3D_ACTIVE, merge_3d_active);
-	SDE_REG_WRITE(c, CTL_CWB_ACTIVE, cwb_active);
+	if (enable) {
+		wb_active = BIT(2);
+		SDE_REG_WRITE(c, CTL_WB_ACTIVE, wb_active);
+		SDE_REG_WRITE(c, CTL_MERGE_3D_ACTIVE, merge_3d_active);
+		SDE_REG_WRITE(c, CTL_CWB_ACTIVE, cwb_active);
+	} else {
+		SDE_REG_WRITE(c, CTL_WB_ACTIVE, 0x0);
+		SDE_REG_WRITE(c, CTL_MERGE_3D_ACTIVE, 0x0);
+		SDE_REG_WRITE(c, CTL_CWB_ACTIVE, 0x0);
+	}
 
 	return 0;
 }

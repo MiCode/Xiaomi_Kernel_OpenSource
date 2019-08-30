@@ -508,7 +508,7 @@ static void _sde_encoder_phys_wb_setup_cwb(struct sde_encoder_phys *phys_enc,
 			hw_wb->ops.bind_pingpong_blk(hw_wb, enable, hw_pp->idx);
 
 		if (hw_ctl->ops.update_cwb_cfg) {
-			hw_ctl->ops.update_cwb_cfg(hw_ctl, &intf_cfg);
+			hw_ctl->ops.update_cwb_cfg(hw_ctl, &intf_cfg, enable);
 			SDE_DEBUG("in CWB mode on CTL_%d PP-%d merge3d:%d\n",
 					hw_ctl->idx - CTL_0,
 					hw_pp->idx - PINGPONG_0,
@@ -825,7 +825,7 @@ static int sde_encoder_phys_wb_atomic_check(
 }
 
 static void _sde_encoder_phys_wb_update_cwb_flush(
-		struct sde_encoder_phys *phys_enc)
+		struct sde_encoder_phys *phys_enc, bool enable)
 {
 	struct sde_encoder_phys_wb *wb_enc;
 	struct sde_hw_wb *hw_wb;
@@ -887,7 +887,7 @@ static void _sde_encoder_phys_wb_update_cwb_flush(
 
 			if (hw_wb->ops.program_cwb_ctrl)
 				hw_wb->ops.program_cwb_ctrl(hw_wb, cwb_idx,
-						src_pp_idx, dspp_out);
+						src_pp_idx, dspp_out, enable);
 
 			if (hw_ctl->ops.update_bitmask_cwb)
 				hw_ctl->ops.update_bitmask_cwb(hw_ctl,
@@ -1335,7 +1335,7 @@ static int sde_encoder_phys_wb_prepare_for_kickoff(
 
 	_sde_encoder_phys_wb_update_flush(phys_enc);
 
-	_sde_encoder_phys_wb_update_cwb_flush(phys_enc);
+	_sde_encoder_phys_wb_update_cwb_flush(phys_enc, true);
 
 	/* vote for iommu/clk/bus */
 	wb_enc->start_time = ktime_get();
@@ -1573,6 +1573,7 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 	/* avoid reset frame for CWB */
 	if (phys_enc->in_clone_mode) {
 		_sde_encoder_phys_wb_setup_cwb(phys_enc, false);
+		_sde_encoder_phys_wb_update_cwb_flush(phys_enc, false);
 		phys_enc->in_clone_mode = false;
 		goto exit;
 	}

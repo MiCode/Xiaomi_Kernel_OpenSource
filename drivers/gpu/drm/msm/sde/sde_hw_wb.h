@@ -143,9 +143,10 @@ struct sde_hw_wb_ops {
 	 * @pp_idx: Current CWB block index to poram
 	 * @data_src: Source CWB/PingPong block index
 	 * @dspp_out: Tap dspp output or default LM output
+	 * @enable: enable or disable the CWB path to tap the output
 	 */
 	void (*program_cwb_ctrl)(struct sde_hw_wb *ctx, const enum sde_cwb cwb,
-			const enum sde_cwb data_src, bool dspp_out);
+		const enum sde_cwb data_src, bool dspp_out, bool enable);
 };
 
 /**
