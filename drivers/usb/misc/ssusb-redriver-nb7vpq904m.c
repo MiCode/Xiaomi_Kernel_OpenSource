@@ -445,8 +445,7 @@ static int ssusb_redriver_vbus_notifier(struct notifier_block *nb,
 
 	redriver->vbus_active = event;
 
-	if (redriver->vbus_active)
-		queue_work(redriver->redriver_wq, &redriver->config_work);
+	queue_work(redriver->redriver_wq, &redriver->config_work);
 
 	return NOTIFY_DONE;
 }
@@ -466,8 +465,7 @@ static int ssusb_redriver_id_notifier(struct notifier_block *nb,
 
 	redriver->host_active = host_active;
 
-	if (redriver->host_active)
-		queue_work(redriver->redriver_wq, &redriver->config_work);
+	queue_work(redriver->redriver_wq, &redriver->config_work);
 
 	return NOTIFY_DONE;
 }
