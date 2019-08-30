@@ -1,6 +1,7 @@
 /* delayacct.c - per-task delay accounting
  *
  * Copyright (C) Shailabh Nagar, IBM Corp. 2006
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software;  you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -124,9 +125,12 @@ int __delayacct_add_tsk(struct taskstats *d, struct task_struct *tsk)
 	d->swapin_delay_total = (tmp < d->swapin_delay_total) ? 0 : tmp;
 	tmp = d->freepages_delay_total + tsk->delays->freepages_delay;
 	d->freepages_delay_total = (tmp < d->freepages_delay_total) ? 0 : tmp;
+	tmp = d->thrashing_delay_total + tsk->delays->thrashing_delay;
+	d->thrashing_delay_total = (tmp < d->thrashing_delay_total) ? 0 : tmp;
 	d->blkio_count += tsk->delays->blkio_count;
 	d->swapin_count += tsk->delays->swapin_count;
 	d->freepages_count += tsk->delays->freepages_count;
+	d->thrashing_count += tsk->delays->thrashing_count;
 	spin_unlock_irqrestore(&tsk->delays->lock, flags);
 
 	return 0;
@@ -156,3 +160,15 @@ void __delayacct_freepages_end(void)
 			&current->delays->freepages_count);
 }
 
+void __delayacct_thrashing_start(void)
+{
+	current->delays->thrashing_start = ktime_get_ns();
+}
+
+void __delayacct_thrashing_end(void)
+{
+	delayacct_end(&current->delays->lock,
+		      &current->delays->thrashing_start,
+		      &current->delays->thrashing_delay,
+		      &current->delays->thrashing_count);
+}

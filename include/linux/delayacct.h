@@ -1,6 +1,7 @@
 /* delayacct.h - per-task delay accounting
  *
  * Copyright (C) Shailabh Nagar, IBM Corp. 2006
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software;  you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,6 +42,8 @@ extern int __delayacct_add_tsk(struct taskstats *, struct task_struct *);
 extern __u64 __delayacct_blkio_ticks(struct task_struct *);
 extern void __delayacct_freepages_start(void);
 extern void __delayacct_freepages_end(void);
+extern void __delayacct_thrashing_start(void);
+extern void __delayacct_thrashing_end(void);
 
 static inline int delayacct_is_task_waiting_on_io(struct task_struct *p)
 {
@@ -121,6 +124,18 @@ static inline void delayacct_freepages_end(void)
 		__delayacct_freepages_end();
 }
 
+static inline void delayacct_thrashing_start(void)
+{
+	if (current->delays)
+		__delayacct_thrashing_start();
+}
+
+static inline void delayacct_thrashing_end(void)
+{
+	if (current->delays)
+		__delayacct_thrashing_end();
+}
+
 #else
 static inline void delayacct_set_flag(int flag)
 {}
@@ -146,6 +161,10 @@ static inline int delayacct_is_task_waiting_on_io(struct task_struct *p)
 static inline void delayacct_freepages_start(void)
 {}
 static inline void delayacct_freepages_end(void)
+{}
+static inline void delayacct_thrashing_start(void)
+{}
+static inline void delayacct_thrashing_end(void)
 {}
 
 #endif /* CONFIG_TASK_DELAY_ACCT */

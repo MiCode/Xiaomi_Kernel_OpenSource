@@ -2,6 +2,7 @@
  *  linux/kernel/printk.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2019 XiaoMi, Inc.
  *
  * Modified to make sys_syslog() more flexible: added commands to
  * return the last 4k of kernel messages, regardless of whether
@@ -54,6 +55,7 @@
 
 #include "console_cmdline.h"
 #include "braille.h"
+#include "internal.h"
 
 #ifdef CONFIG_EARLY_PRINTK_DIRECT
 extern void printascii(char *);
@@ -111,17 +113,36 @@ static int nr_ext_console_drivers;
 
 static int __down_trylock_console_sem(unsigned long ip)
 {
-	if (down_trylock(&console_sem))
+	int lock_failed;
+	unsigned long flags;
+
+	/*
+	 * Here and in __up_console_sem() we need to be in safe mode,
+	 * because spindump/WARN/etc from under console ->lock will
+	 * deadlock in printk()->down_trylock_console_sem() otherwise.
+	 */
+	printk_safe_enter_irqsave(flags);
+	lock_failed = down_trylock(&console_sem);
+	printk_safe_exit_irqrestore(flags);
+
+	if (lock_failed)
 		return 1;
 	mutex_acquire(&console_lock_dep_map, 0, 1, ip);
 	return 0;
 }
 #define down_trylock_console_sem() __down_trylock_console_sem(_RET_IP_)
 
-#define up_console_sem() do { \
-	mutex_release(&console_lock_dep_map, 1, _RET_IP_);\
-	up(&console_sem);\
-} while (0)
+static void __up_console_sem(unsigned long ip)
+{
+	unsigned long flags;
+
+	mutex_release(&console_lock_dep_map, 1, ip);
+
+	printk_safe_enter_irqsave(flags);
+	up(&console_sem);
+	printk_safe_exit_irqrestore(flags);
+}
+#define up_console_sem() __up_console_sem(_RET_IP_)
 
 /*
  * This is used for debugging the mess that is the VT code by
@@ -247,7 +268,7 @@ __packed __aligned(4)
  * within the scheduler's rq lock. It must be released before calling
  * console_unlock() or anything else that might wake up a process.
  */
-static DEFINE_RAW_SPINLOCK(logbuf_lock);
+DEFINE_RAW_SPINLOCK(logbuf_lock);
 
 #ifdef CONFIG_PRINTK
 DECLARE_WAIT_QUEUE_HEAD(log_wait);
@@ -1685,7 +1706,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 	printk_delay();
 
 	/* This stops the holder of console_sem just where we want him */
-	local_irq_save(flags);
+	printk_safe_enter_irqsave(flags);
 	this_cpu = smp_processor_id();
 
 	/*
@@ -1701,13 +1722,12 @@ asmlinkage int vprintk_emit(int facility, int level,
 		 */
 		if (!oops_in_progress && !lockdep_recursing(current)) {
 			recursion_bug = 1;
-			local_irq_restore(flags);
+			printk_safe_exit_irqrestore(flags);
 			return 0;
 		}
 		zap_locks();
 	}
 
-	lockdep_off();
 	raw_spin_lock(&logbuf_lock);
 	logbuf_cpu = this_cpu;
 
@@ -1810,12 +1830,10 @@ asmlinkage int vprintk_emit(int facility, int level,
 
 	logbuf_cpu = UINT_MAX;
 	raw_spin_unlock(&logbuf_lock);
-	lockdep_on();
-	local_irq_restore(flags);
+	printk_safe_exit_irqrestore(flags);
 
 	/* If called from the scheduler, we can not call up(). */
 	if (!in_sched) {
-		lockdep_off();
 		/*
 		 * Disable preemption to avoid being preempted while holding
 		 * console_sem which would prevent anyone from printing to
@@ -1831,7 +1849,6 @@ asmlinkage int vprintk_emit(int facility, int level,
 		if (console_trylock_for_printk())
 			console_unlock();
 		preempt_enable();
-		lockdep_on();
 	}
 
 	return printed_len;
@@ -1840,7 +1857,7 @@ EXPORT_SYMBOL(vprintk_emit);
 
 asmlinkage int vprintk(const char *fmt, va_list args)
 {
-	return vprintk_emit(0, LOGLEVEL_DEFAULT, NULL, 0, fmt, args);
+	return vprintk_func(fmt, args);
 }
 EXPORT_SYMBOL(vprintk);
 
@@ -1875,14 +1892,6 @@ int vprintk_default(const char *fmt, va_list args)
 }
 EXPORT_SYMBOL_GPL(vprintk_default);
 
-/*
- * This allows printk to be diverted to another function per cpu.
- * This is useful for calling printk functions from within NMI
- * without worrying about race conditions that can lock up the
- * box.
- */
-DEFINE_PER_CPU(printk_func_t, printk_func) = vprintk_default;
-
 /**
  * printk - print a kernel message
  * @fmt: format string
@@ -1906,21 +1915,11 @@ DEFINE_PER_CPU(printk_func_t, printk_func) = vprintk_default;
  */
 asmlinkage __visible int printk(const char *fmt, ...)
 {
-	printk_func_t vprintk_func;
 	va_list args;
 	int r;
 
 	va_start(args, fmt);
-
-	/*
-	 * If a caller overrides the per_cpu printk_func, then it needs
-	 * to disable preemption when calling printk(). Otherwise
-	 * the printk_func should be set to the default. No need to
-	 * disable preemption here.
-	 */
-	vprintk_func = this_cpu_read(printk_func);
 	r = vprintk_func(fmt, args);
-
 	va_end(args);
 
 	return r;
@@ -1963,9 +1962,6 @@ static void call_console_drivers(int level,
 static size_t msg_print_text(const struct printk_log *msg, enum log_flags prev,
 			     bool syslog, char *buf, size_t size) { return 0; }
 static size_t cont_print_text(char *text, size_t size) { return 0; }
-
-/* Still needs to be defined for users */
-DEFINE_PER_CPU(printk_func_t, printk_func);
 
 #endif /* CONFIG_PRINTK */
 
@@ -2278,7 +2274,8 @@ again:
 		size_t len;
 		int level;
 
-		raw_spin_lock_irqsave(&logbuf_lock, flags);
+		printk_safe_enter_irqsave(flags);
+		raw_spin_lock(&logbuf_lock);
 		if (seen_seq != log_next_seq) {
 			wake_klogd = true;
 			seen_seq = log_next_seq;
@@ -2337,7 +2334,7 @@ skip:
 		stop_critical_timings();	/* don't trace print latency */
 		call_console_drivers(level, ext_text, ext_len, text, len);
 		start_critical_timings();
-		local_irq_restore(flags);
+		printk_safe_exit_irqrestore(flags);
 
 		if (do_cond_resched)
 			cond_resched();
@@ -2360,7 +2357,8 @@ skip:
 	 */
 	raw_spin_lock(&logbuf_lock);
 	retry = console_seq != log_next_seq;
-	raw_spin_unlock_irqrestore(&logbuf_lock, flags);
+	raw_spin_unlock(&logbuf_lock);
+	printk_safe_exit_irqrestore(flags);
 
 	if (retry && console_trylock())
 		goto again;

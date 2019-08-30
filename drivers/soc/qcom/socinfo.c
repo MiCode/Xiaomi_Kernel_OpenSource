@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,6 +67,10 @@ enum {
 	HW_PLATFORM_STP = 23,
 	HW_PLATFORM_SBC = 24,
 	HW_PLATFORM_ADP = 25,
+	HW_PLATFORM_C8 = 30,
+	HW_PLATFORM_E4_636 = 32,
+	HW_PLATFORM_E4_660 = 33,
+	HW_PLATFORM_D2T = 34,
 	HW_PLATFORM_INVALID
 };
 
@@ -87,6 +92,10 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_STP] = "STP",
 	[HW_PLATFORM_SBC] = "SBC",
 	[HW_PLATFORM_ADP] = "ADP",
+	[HW_PLATFORM_C8] = "JASON",
+	[HW_PLATFORM_E4_636] = "NITROGEN",
+	[HW_PLATFORM_E4_660] = "CARBON",
+	[HW_PLATFORM_D2T] = "PLATINA",
 };
 
 enum {
@@ -1577,6 +1586,36 @@ static void socinfo_select_format(void)
 		socinfo_format = socinfo->v0_1.format;
 	}
 }
+
+uint32_t get_hw_version_platform(void)
+{
+	uint32_t hw_type = socinfo_get_platform_type();
+	if (hw_type == HW_PLATFORM_C8)
+		return HARDWARE_PLATFORM_JASON;
+	else if (hw_type == HW_PLATFORM_E4_636)
+		return HARDWARE_PLATFORM_NITROGEN;
+	else if (hw_type == HW_PLATFORM_E4_660)
+		return HARDWARE_PLATFORM_CARBON;
+	else if (hw_type == HW_PLATFORM_D2T)
+		return HARDWARE_PLATFORM_PLATINA;
+	else
+		return HARDWARE_PLATFORM_UNKNOWN;
+}
+EXPORT_SYMBOL(get_hw_version_platform);
+
+uint32_t get_hw_version_major(void)
+{
+	uint32_t version = socinfo_get_platform_version();
+	return (version & HW_MAJOR_VERSION_MASK) >> HW_MAJOR_VERSION_SHIFT;
+}
+EXPORT_SYMBOL(get_hw_version_major);
+
+uint32_t get_hw_version_minor(void)
+{
+	uint32_t version = socinfo_get_platform_version();
+	return (version & HW_MINOR_VERSION_MASK) >> HW_MINOR_VERSION_SHIFT;
+}
+EXPORT_SYMBOL(get_hw_version_minor);
 
 int __init socinfo_init(void)
 {

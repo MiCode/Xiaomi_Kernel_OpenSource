@@ -1,4 +1,5 @@
 /* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2807,7 +2808,8 @@ static void adreno_suspend_device(struct kgsl_device *device,
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int pm_event = pm_state.event;
 
-	adreno_dispatcher_halt(device);
+	if (device->state == KGSL_STATE_SUSPEND)
+		adreno_dispatcher_halt(device);
 
 	if ((pm_event == PM_EVENT_FREEZE) ||
 		(pm_event == PM_EVENT_QUIESCE) ||

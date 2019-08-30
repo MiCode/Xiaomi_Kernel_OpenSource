@@ -30,6 +30,8 @@ static const struct trace_print_flags pageflag_names[] = {
 	{1UL << PG_dirty,		"dirty"		},
 	{1UL << PG_lru,			"lru"		},
 	{1UL << PG_active,		"active"	},
+	{1UL << PG_workingset,		"workingset"	},
+	{1UL << PG_waiters, 	"waiters" },
 	{1UL << PG_slab,		"slab"		},
 	{1UL << PG_owner_priv_1,	"owner_priv_1"	},
 	{1UL << PG_arch_1,		"arch_1"	},
@@ -184,7 +186,7 @@ EXPORT_SYMBOL(dump_vma);
 
 void dump_mm(const struct mm_struct *mm)
 {
-	pr_emerg("mm %p mmap %p seqnum %d task_size %lu\n"
+	pr_emerg("mm %p mmap %p seqnum %llu task_size %lu\n"
 #ifdef CONFIG_MMU
 		"get_unmapped_area %p\n"
 #endif
@@ -214,7 +216,7 @@ void dump_mm(const struct mm_struct *mm)
 #endif
 		"%s",	/* This is here to hold the comma */
 
-		mm, mm->mmap, mm->vmacache_seqnum, mm->task_size,
+		mm, mm->mmap, (long long) mm->vmacache_seqnum, mm->task_size,
 #ifdef CONFIG_MMU
 		mm->get_unmapped_area,
 #endif

@@ -2,6 +2,7 @@
  *  linux/kernel/fork.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2019 XiaoMi, Inc.
  */
 
 /*
@@ -1426,6 +1427,10 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 #endif
 
 	p->default_timer_slack_ns = current->timer_slack_ns;
+
+#ifdef CONFIG_PSI
+	p->psi_flags = 0;
+#endif
 
 	task_io_accounting_init(&p->ioac);
 	acct_clear_integrals(p);

@@ -1,0 +1,82 @@
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,c8_coslight_3500mah {
+	/* #2920063_Xiaomi_C8cos_3500mAh_averaged_MasterSlave_May15th2017*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3500>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "c8_coslight";
+	qcom,checksum = <0x76EC>;
+	qcom,gui-version = "PM660GUI - 0.0.0.42";
+	qcom,fg-profile-data = [
+		 8A 1F 94 05
+		 7E 0A 4A 06
+		 5B 1D 98 E4
+		 70 0B DC 14
+		 26 19 63 22
+		 7B 3C 79 4B
+		 57 00 00 00
+		 16 00 00 00
+		 00 00 15 BD
+		 B9 C5 98 BD
+		 1C 00 08 00
+		 03 DB 73 E4
+		 AB F4 4A EB
+		 DA EA 55 0A
+		 02 F2 4C 32
+		 19 06 09 20
+		 27 00 14 00
+		 C9 1F 8B 05
+		 6F 0A CF FC
+		 66 1D 0F E3
+		 02 0B CB 14
+		 0B 19 0F 23
+		 3D 45 5F 53
+		 52 00 00 00
+		 0D 00 00 00
+		 00 00 39 CD
+		 6F BB 02 B4
+		 18 00 00 00
+		 CE EA 73 E4
+		 D1 F5 B5 E3
+		 8E 00 98 03
+		 1E 0A 59 22
+		 C2 33 CC FF
+		 07 10 00 00
+		 C7 0D 66 46
+		 18 00 40 00
+		 4C 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

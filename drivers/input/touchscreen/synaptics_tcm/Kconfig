@@ -1,0 +1,113 @@
+#
+# Synaptics TCM touchscreen driver configuration
+#
+menuconfig TOUCHSCREEN_SYNAPTICS_TCM
+	bool "Synaptics TCM touchscreen"
+	default y
+	help
+	  Say Y here if you have a Synaptics TCM touchscreen connected
+	  to your system.
+
+	  If unsure, say N.
+
+if TOUCHSCREEN_SYNAPTICS_TCM
+
+choice
+	default TOUCHSCREEN_SYNAPTICS_TCM_I2C
+	prompt "Synaptics TCM bus module"
+config TOUCHSCREEN_SYNAPTICS_TCM_I2C
+	bool "I2C"
+	depends on I2C
+config TOUCHSCREEN_SYNAPTICS_TCM_SPI
+	bool "SPI"
+	depends on SPI_MASTER
+endchoice
+
+config TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	tristate "Synaptics TCM core module"
+	depends on I2C || SPI_MASTER
+	help
+	  Say Y here to enable core functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_tcm_core.
+
+config TOUCHSCREEN_SYNAPTICS_TCM_TOUCH
+	tristate "Synaptics TCM touch module"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	help
+	  Say Y here to enable support for touch reporting.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_tcm_touch.
+
+config TOUCHSCREEN_SYNAPTICS_TCM_DEVICE
+	tristate "Synaptics TCM device module"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	help
+	  Say Y here to enable support for TCM device functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_tcm_device.
+
+config TOUCHSCREEN_SYNAPTICS_TCM_TESTING
+	tristate "Synaptics TCM testing module"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	help
+	  Say Y here to enable support for testing functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_tcm_testing.
+
+config TOUCHSCREEN_SYNAPTICS_TCM_REFLASH
+	tristate "Synaptics TCM reflash module"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	help
+	  Say Y here to enable support for reflash functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_tcm_reflash.
+
+config TOUCHSCREEN_SYNAPTICS_TCM_RECOVERY
+	tristate "Synaptics TCM recovery module"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	help
+	  Say Y here to enable support for recovery functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_tcm_recovery.
+
+config TOUCHSCREEN_SYNAPTICS_TCM_ZEROFLASH
+	tristate "Synaptics TCM zeroflash module"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	help
+	  Say Y here to enable support for ZeroFlash functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_tcm_zeroflash.
+
+config TOUCHSCREEN_SYNAPTICS_TCM_DIAGNOSTICS
+	tristate "Synaptics TCM diagnostics module"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	help
+	  Say Y here to enable support for diagnostics functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_tcm_diagnostics.
+endif

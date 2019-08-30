@@ -3,6 +3,7 @@
  * Collects misc. OS related data (CPU utilization, running processes).
  *
  * Copyright IBM Corp. 2003, 2006
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * Author: Gerald Schaefer <gerald.schaefer@de.ibm.com>
  */
@@ -21,10 +22,6 @@
 #include <asm/smp.h>
 
 #include "appldata.h"
-
-
-#define LOAD_INT(x) ((x) >> FSHIFT)
-#define LOAD_FRAC(x) LOAD_INT(((x) & (FIXED_1-1)) * 100)
 
 /*
  * OS data

@@ -1,6 +1,7 @@
 /* taskstats.h - exporting per-task statistics
  *
  * Copyright (C) Shailabh Nagar, IBM Corp. 2006
+ * Copyright (C) 2019 XiaoMi, Inc.
  *           (C) Balbir Singh,   IBM Corp. 2006
  *           (C) Jay Lan,        SGI, 2006
  *
@@ -33,7 +34,7 @@
  */
 
 
-#define TASKSTATS_VERSION	8
+#define TASKSTATS_VERSION	9
 #define TS_COMM_LEN		32	/* should be >= TASK_COMM_LEN
 					 * in linux/sched.h */
 
@@ -163,6 +164,10 @@ struct taskstats {
 	/* Delay waiting for memory reclaim */
 	__u64	freepages_count;
 	__u64	freepages_delay_total;
+
+	/* Delay waiting for thrashing page */
+	__u64	thrashing_count;
+	__u64	thrashing_delay_total;
 };
 
 

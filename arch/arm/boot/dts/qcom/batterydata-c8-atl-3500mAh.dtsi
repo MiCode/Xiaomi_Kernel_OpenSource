@@ -1,0 +1,82 @@
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,c8_atl_3500mah {
+	/* #2897639_Xiaomi_BM3Ascud_3500mAh_averaged_MasterSlave_Apr19th2017*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3500>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "c8_atl";
+	qcom,checksum = <0xCA2A>;
+	qcom,gui-version = "PM660GUI - 0.0.0.36";
+	qcom,fg-profile-data = [
+		 58 1F DE 05
+		 3E 0A 1D FD
+		 79 1D 61 F5
+		 32 12 40 14
+		 6D 18 60 23
+		 EB 44 D6 53
+		 56 00 00 00
+		 0E 00 00 00
+		 00 00 F7 CD
+		 0F BC 01 00
+		 1F 00 08 00
+		 AC D2 67 E5
+		 67 F5 43 E3
+		 D4 00 18 0A
+		 3D 07 F0 1A
+		 16 06 09 20
+		 27 00 14 00
+		 86 1F DC 05
+		 32 0A A6 06
+		 3E 1D ED 00
+		 10 02 AB 0C
+		 43 19 CD 22
+		 8C 45 E8 52
+		 54 00 00 00
+		 0D 00 00 00
+		 00 00 FB 07
+		 3B C2 D3 C5
+		 1A 00 00 00
+		 45 EA 67 E5
+		 A0 07 AD DA
+		 F4 EA D1 02
+		 02 03 75 1B
+		 B1 33 CC FF
+		 07 10 00 00
+		 B1 0D 66 46
+		 1A 00 40 00
+		 24 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

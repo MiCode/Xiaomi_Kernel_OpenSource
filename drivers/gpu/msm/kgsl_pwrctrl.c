@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2785,7 +2786,7 @@ static int _suspend(struct kgsl_device *device)
 	if ((device->state == KGSL_STATE_NONE) ||
 			(device->state == KGSL_STATE_INIT) ||
 			(device->state == KGSL_STATE_SUSPEND))
-		goto done;
+		return ret;
 
 	/* drain to prevent from more commands being submitted */
 	device->ftbl->drain(device);
@@ -2802,7 +2803,6 @@ static int _suspend(struct kgsl_device *device)
 	if (ret)
 		goto err;
 
-done:
 	kgsl_pwrctrl_set_state(device, KGSL_STATE_SUSPEND);
 	return ret;
 

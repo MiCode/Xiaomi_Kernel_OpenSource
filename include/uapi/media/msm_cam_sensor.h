@@ -33,6 +33,7 @@
 #define MAX_AF_ITERATIONS 3
 #define MAX_NUMBER_OF_STEPS 47
 #define MAX_REGULATOR 5
+#define NAME_SIZE_MAX 64
 
 /*msm_flash_query_data_t query types*/
 #define FLASH_QUERY_CURRENT 1
@@ -582,6 +583,29 @@ struct sensor_init_cfg_data {
 	} cfg;
 };
 
+enum msm_actuator_cfg_download_type_t {
+	CFG_ACTUATOR_DOWNLOAD,
+	CFG_ACTUATOR_DATA_CONFIG,
+};
+
+struct msm_actuator_opcode {
+	uint32_t prog;
+	uint32_t coeff;
+	uint32_t pheripheral;
+	uint32_t memory;
+};
+
+struct msm_actuator_slave_info {
+	char actuator_name[NAME_SIZE_MAX];
+	uint32_t i2c_addr;
+	struct msm_actuator_opcode opcode;
+};
+
+struct msm_actuator_cfg_download_data {
+	int cfgtype;
+	struct msm_actuator_slave_info slave_info;
+};
+
 #define VIDIOC_MSM_SENSOR_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct sensorb_cfg_data)
 
@@ -633,5 +657,7 @@ struct sensor_init_cfg_data {
 #define VIDIOC_MSM_LASER_LED_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 16, struct msm_laser_led_cfg_data_t)
 
+#define VIDIOC_MSM_ACTUATOR_CFG_DOWNLOAD \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 17, struct msm_actuator_cfg_download_data)
 #endif
 

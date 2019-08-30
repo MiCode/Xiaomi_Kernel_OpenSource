@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -378,6 +379,7 @@ enum {
 #define OTG_ENG_OTG_CFG_REG		(OTG_BASE + 0xC0)
 #define ENG_BUCKBOOST_HALT1_8_MODE_BIT	BIT(0)
 
+#define OTG_ENG_HICCUP_MODE		(OTG_BASE + 0xE2)
 /* BATIF Peripheral Registers */
 /* BATIF Interrupt Bits */
 #define BAT_7_RT_STS_BIT			BIT(7)
@@ -587,6 +589,11 @@ enum {
 #define EN_LEGACY_CABLE_DETECTION_BIT		BIT(1)
 #define ALLOW_PD_DRING_UFP_TCCDB_BIT		BIT(0)
 
+#define HVDCP_PULSE_COUNT_MAX_REG		(USBIN_BASE + 0x5B)
+#define PULSE_COUNT_QC2P0_12V			BIT(7)
+#define PULSE_COUNT_QC2P0_9V			BIT(6)
+#define PULSE_COUNT_QC3P0_MASK			GENMASK(5, 0)
+
 #define USBIN_ADAPTER_ALLOW_CFG_REG		(USBIN_BASE + 0x60)
 #define USBIN_ADAPTER_ALLOW_MASK		GENMASK(3, 0)
 enum {
@@ -630,6 +637,7 @@ enum {
 #define USBIN_LOAD_CFG_REG			(USBIN_BASE + 0x65)
 #define USBIN_OV_CH_LOAD_OPTION_BIT		BIT(7)
 #define ICL_OVERRIDE_AFTER_APSD_BIT		BIT(4)
+#define USBIN_COLLAPSE_SEL_MASK                 GENMASK(1, 0)
 
 #define USBIN_ICL_OPTIONS_REG			(USBIN_BASE + 0x66)
 #define CFG_USB3P0_SEL_BIT			BIT(2)

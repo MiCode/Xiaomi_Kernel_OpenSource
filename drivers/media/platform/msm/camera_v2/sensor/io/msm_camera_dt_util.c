@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,6 +145,7 @@ int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 					break;
 				}
 			}
+			break;
 
 		case CAM_V_CUSTOM2:
 			for (j = 0; j < num_vreg; j++) {

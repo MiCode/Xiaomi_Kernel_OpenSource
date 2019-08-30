@@ -2,6 +2,7 @@
  * Memory Migration functionality - linux/mm/migrate.c
  *
  * Copyright (C) 2006 Silicon Graphics, Inc., Christoph Lameter
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * Page migration was first developed in the context of the memory hotplug
  * project. The main authors of the migration code are:
@@ -633,6 +634,8 @@ void migrate_page_copy(struct page *newpage, struct page *page)
 		SetPageActive(newpage);
 	} else if (TestClearPageUnevictable(page))
 		SetPageUnevictable(newpage);
+	if (PageWorkingset(page))
+		SetPageWorkingset(newpage);
 	if (PageChecked(page))
 		SetPageChecked(newpage);
 	if (PageMappedToDisk(page))

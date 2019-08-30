@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -489,8 +490,13 @@ static void lpi_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	unsigned gpio = chip->base;
 	unsigned i;
 
+	struct lpi_gpio_state *state = container_of(chip, struct lpi_gpio_state, chip);
+
+	if (!state || !state->ctrl)
+		return;
+
 	for (i = 0; i < chip->ngpio; i++, gpio++) {
-		lpi_gpio_dbg_show_one(s, NULL, chip, i, gpio);
+		lpi_gpio_dbg_show_one(s, state->ctrl, chip, i, gpio);
 		seq_puts(s, "\n");
 	}
 }

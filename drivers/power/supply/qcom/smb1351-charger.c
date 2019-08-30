@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -173,6 +174,7 @@
 #define AFVC_IRQ_BIT				BIT(7)
 #define CHG_CONFIG_MASK				SMB1351_MASK(6, 4)
 #define LOW_BATT_VOLTAGE_DET_TH_MASK		SMB1351_MASK(3, 0)
+#define CHG_CONFIG				0x0
 
 #define VARIOUS_FUNC_3_REG			0x11
 #define SAFETY_TIMER_EN_MASK			SMB1351_MASK(7, 6)
@@ -1250,13 +1252,12 @@ static int smb1351_set_usb_chg_current(struct smb1351_charger *chip,
 	} else if (current_ma == USB3_MIN_CURRENT_MA) {
 		/* USB 3.0 - 150mA */
 		reg = CMD_USB_3_MODE | CMD_USB_100_MODE;
-	} else if (current_ma == USB2_MAX_CURRENT_MA) {
-		/* USB 2.0 - 500mA */
-		reg = CMD_USB_2_MODE | CMD_USB_500_MODE;
-	} else if (current_ma == USB3_MAX_CURRENT_MA) {
-		/* USB 3.0 - 900mA */
-		reg = CMD_USB_3_MODE | CMD_USB_500_MODE;
-	} else if (current_ma > USB2_MAX_CURRENT_MA) {
+	/*
+	 * As smb1350 is used only for parallel charging for our product,
+	 * sometime, current_ma may be 500mA to 900mA, we should set
+	 * high current mode for them
+	 */
+	} else if (current_ma >= USB2_MAX_CURRENT_MA) {
 		/* HC mode  - if none of the above */
 		reg = CMD_USB_AC_MODE;
 
@@ -1444,7 +1445,14 @@ static int smb1351_parallel_set_chg_suspend(struct smb1351_charger *chip,
 			pr_err("Couldn't configure for volatile rc = %d\n", rc);
 			return rc;
 		}
-
+		/* set chg_config: 5-9 V, as pm660 only support 5-9V */
+		reg = CHG_CONFIG;
+		rc = smb1351_masked_write(chip, FLEXCHARGER_REG,
+					CHG_CONFIG_MASK, reg);
+		if (rc) {
+			pr_err("Couldn't set FLEXCHARGER_REG rc=%d\n",  rc);
+			return rc;
+		}
 		/* set the float voltage */
 		if (chip->vfloat_mv != -EINVAL) {
 			rc = smb1351_float_voltage_set(chip, chip->vfloat_mv);
@@ -1635,7 +1643,7 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		chip->vfloat_mv = val->intval / 1000;
 		if (!chip->parallel_charger_suspended)
-			rc = smb1351_float_voltage_set(chip, chip->vfloat_mv);
+			rc = smb1351_float_voltage_set(chip, val->intval / 1000);
 		break;
 	default:
 		return -EINVAL;
@@ -3211,6 +3219,9 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 	else
 		chip->parallel_mode = POWER_SUPPLY_PL_USBIN_USBIN;
 
+	/* init target_fastchg_current_max_ma as 1A when smb1350 probe */
+	chip->target_fastchg_current_max_ma = SMB1351_CHG_FAST_MIN_MA;
+
 	i2c_set_clientdata(client, chip);
 
 	chip->parallel_psy_d.name = "parallel";
@@ -3351,7 +3362,7 @@ static struct i2c_driver smb1351_charger_driver = {
 	},
 	.probe		= smb1351_charger_probe,
 	.remove		= smb1351_charger_remove,
-	.shutdown	= smb1351_charger_shutdown,
+	.shutdown       = smb1351_charger_shutdown,
 	.id_table	= smb1351_charger_id,
 };
 
