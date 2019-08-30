@@ -1318,7 +1318,7 @@
 		cam_sensor_rear2_suspend: cam_sensor_rear2_suspend {
 			/* RESET */
 			mux {
-				pins = "gpioi25";
+				pins = "gpio25";
 				function = "gpio";
 			};
 
