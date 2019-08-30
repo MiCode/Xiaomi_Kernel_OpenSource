@@ -120,6 +120,8 @@
 #define U3P_U3_PHYA_REG1	0x004
 #define P3A_RG_CLKDRV_AMP		GENMASK(31, 29)
 #define P3A_RG_CLKDRV_AMP_VAL(x)	((0x7 & (x)) << 29)
+#define RG_SSUSB_VUSB10_ON (1<<29)
+#define RG_SSUSB_VUSB10_ON_OFST (29)
 
 #define U3P_U3_PHYA_REG6	0x018
 #define P3A_RG_TX_EIDLE_CM		GENMASK(31, 28)
@@ -400,6 +402,11 @@ static void u3_phy_instance_init(struct mtk_tphy *tphy,
 {
 	struct u3phy_banks *u3_banks = &instance->u3_banks;
 	u32 tmp;
+
+	tmp = readl(u3_banks->phya + U3P_U3_PHYA_REG1);
+	tmp &= ~RG_SSUSB_VUSB10_ON;
+	tmp |= ((1 << RG_SSUSB_VUSB10_ON_OFST) & RG_SSUSB_VUSB10_ON);
+	writel(tmp, u3_banks->phya + U3P_U3_PHYA_REG1);
 
 	/* gating PCIe Analog XTAL clock */
 	tmp = readl(u3_banks->spllc + U3P_SPLLC_XTALCTL3);
