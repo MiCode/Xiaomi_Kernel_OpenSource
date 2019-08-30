@@ -166,9 +166,7 @@ static int npu_host_ipc_send_cmd_hfi(struct npu_device *npu_dev,
 			status = INTERRUPT_RAISE_NPU(npu_dev);
 	}
 
-	if (status == 0)
-		NPU_DBG("Cmd Msg put on Command Queue - SUCCESSS\n");
-	else
+	if (status)
 		NPU_ERR("Cmd Msg put on Command Queue - FAILURE\n");
 
 	return status;
