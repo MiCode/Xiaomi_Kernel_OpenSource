@@ -15,41 +15,6 @@
 #include "adreno_trace.h"
 #include "kgsl_trace.h"
 
-static struct a6xx_protected_regs {
-	unsigned int base;
-	unsigned int count;
-	int read_protect;
-} a6xx_protected_regs_group[] = {
-	{ 0x600, 0x51, 0 },
-	{ 0xAE50, 0x2, 1 },
-	{ 0x9624, 0x13, 1 },
-	{ 0x8630, 0x8, 1 },
-	{ 0x9E70, 0x1, 1 },
-	{ 0x9E78, 0x187, 1 },
-	{ 0xF000, 0x810, 1 },
-	{ 0xFC00, 0x3, 0 },
-	{ 0x50E, 0x0, 1 },
-	{ 0x50F, 0x0, 0 },
-	{ 0x510, 0x0, 1 },
-	{ 0x0, 0x4F9, 0 },
-	{ 0x501, 0xA, 0 },
-	{ 0x511, 0x44, 0 },
-	{ 0xE00, 0x1, 1 },
-	{ 0xE03, 0xB, 1 },
-	{ 0x8E00, 0x0, 1 },
-	{ 0x8E50, 0xF, 1 },
-	{ 0xBE02, 0x0, 1 },
-	{ 0xBE20, 0x11F3, 1 },
-	{ 0x800, 0x82, 1 },
-	{ 0x8A0, 0x8, 1 },
-	{ 0x8AB, 0x19, 1 },
-	{ 0x900, 0x4D, 1 },
-	{ 0x98D, 0x76, 1 },
-	{ 0x8D0, 0x23, 0 },
-	{ 0x980, 0x4, 0 },
-	{ 0xA630, 0x0, 1 },
-};
-
 /* IFPC & Preemption static powerup restore list */
 static u32 a6xx_pwrup_reglist[] = {
 	A6XX_VSC_ADDR_MODE_CNTL,
@@ -123,6 +88,11 @@ static u32 a6xx_ifpc_pwrup_reglist[] = {
 	A6XX_CP_AHB_CNTL,
 };
 
+/* a620 and a650 need to program A6XX_CP_PROTECT_REG_47 for the infinite span */
+static u32 a650_pwrup_reglist[] = {
+	A6XX_CP_PROTECT_REG + 47,
+};
+
 static u32 a615_pwrup_reglist[] = {
 	A6XX_UCHE_GBIF_GX_CONFIG,
 };
@@ -175,58 +145,34 @@ static void a6xx_init(struct adreno_device *adreno_dev)
 		"powerup_register_list");
 }
 
-/**
- * a6xx_protect_init() - Initializes register protection on a6xx
- * @device: Pointer to the device structure
- * Performs register writes to enable protected access to sensitive
- * registers
- */
 static void a6xx_protect_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_protected_registers *mmu_prot =
-		kgsl_mmu_get_prot_regs(&device->mmu);
-	int i, num_sets;
-	int req_sets = ARRAY_SIZE(a6xx_protected_regs_group);
-	int max_sets = adreno_dev->gpucore->num_protected_regs;
-	unsigned int mmu_base = 0, mmu_range = 0, cur_range;
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
+	const struct a6xx_protected_regs *regs = a6xx_core->protected_regs;
+	int i;
 
-	/* enable access protection to privileged registers */
-	kgsl_regwrite(device, A6XX_CP_PROTECT_CNTL, 0x00000003);
+	/*
+	 * Enable access protection to privileged registers, fault on an access
+	 * protect violation and select the last span to protect from the start
+	 * address all the way to the end of the register address space
+	 */
+	kgsl_regwrite(device, A6XX_CP_PROTECT_CNTL,
+		(1 << 0) | (1 << 1) | (1 << 3));
 
-	if (mmu_prot) {
-		mmu_base = mmu_prot->base;
-		mmu_range = mmu_prot->range;
-		req_sets += DIV_ROUND_UP(mmu_range, 0x2000);
-	}
+	/* Program each register defined by the core definition */
+	for (i = 0; regs[i].reg; i++) {
+		u32 count;
 
-	WARN(req_sets > max_sets,
-		"Size exceeds the num of protection regs available\n");
+		/*
+		 * This is the offset of the end register as counted from the
+		 * start, i.e. # of registers in the range - 1
+		 */
+		count = regs[i].end - regs[i].start;
 
-	/* Protect GPU registers */
-	num_sets = min_t(unsigned int,
-		ARRAY_SIZE(a6xx_protected_regs_group), max_sets);
-	for (i = 0; i < num_sets; i++) {
-		struct a6xx_protected_regs *regs =
-					&a6xx_protected_regs_group[i];
-
-		kgsl_regwrite(device, A6XX_CP_PROTECT_REG + i,
-				regs->base | (regs->count << 18) |
-				(regs->read_protect << 31));
-	}
-
-	/* Protect MMU registers */
-	if (mmu_prot) {
-		while ((i < max_sets) && (mmu_range > 0)) {
-			cur_range = min_t(unsigned int, mmu_range,
-						0x2000);
-			kgsl_regwrite(device, A6XX_CP_PROTECT_REG + i,
-				mmu_base | ((cur_range - 1) << 18) | (1 << 31));
-
-			mmu_base += cur_range;
-			mmu_range -= cur_range;
-			i++;
-		}
+		kgsl_regwrite(device, regs[i].reg,
+			regs[i].start | (count << 18) |
+			(regs[i].noaccess << 31));
 	}
 }
 
@@ -385,6 +331,8 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 		reglist[items++] = REGLIST(a612_pwrup_reglist);
 	else if (adreno_is_a615_family(adreno_dev))
 		reglist[items++] = REGLIST(a615_pwrup_reglist);
+	else if (adreno_is_a650(adreno_dev) || adreno_is_a620(adreno_dev))
+		reglist[items++] = REGLIST(a650_pwrup_reglist);
 
 	/*
 	 * For each entry in each of the lists, write the offset and the current
