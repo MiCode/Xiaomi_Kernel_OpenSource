@@ -1,0 +1,31 @@
+Modem chipset attached to Application processor
+
+Modem chipset can be connected to an external apss processor. The control
+channel between the two chipsets consists of gpios that can relay the
+state of one subsytem to another. Modem can indicate different events
+(bootup/crash etc.) to AP and can get the same information from AP.
+
+Required Properties:
+- compatible:	"qcom,sdx-ext-ipc".
+
+Required named gpio properties:
+- qcom,mdm2ap-status-gpio: gpio for modem to indicate the boot status to APQ.
+
+- qcom,ap2mdm-status-gpio: gpio for APQ to indicate the boot status to modem.
+
+
+
+Optional named gpio properties:
+- qcom,mdm2ap-status2-gpio: gpio for modem to indicate to APQ that it is in
+		E911 call or doing firmware upgrade.
+
+- qcom,ap2mdm-status2-gpio: gpio for APQ to indicate graceful shutdown to modem.
+
+Example:
+	sdx_ext_ipc: qcom,sdx_ext_ipc {
+		compatible = "qcom,sdx-ext-ipc";
+		qcom,ap2mdm-status-gpio = <&tlmm 64 0x00>;
+		qcom,ap2mdm-status2-gpio = <&tlmm 65 0x00>;
+		qcom,mdm2ap-status-gpio = <&tlmm 63 0x00>;
+		qcom,mdm2ap-status2-gpio = <&tlmm 66 0x00>;
+	};
