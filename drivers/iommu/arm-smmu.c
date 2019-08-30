@@ -393,6 +393,7 @@ struct arm_smmu_domain {
 	spinlock_t			cb_lock; /* Serialises ATS1* ops */
 	spinlock_t			sync_lock; /* Serialises TLB syncs */
 	struct io_pgtable_cfg		pgtbl_cfg;
+	enum io_pgtable_fmt		pgtbl_fmt;
 	u32 attributes;
 	bool				slave_side_secure;
 	u32				secure_vmid;
@@ -500,6 +501,11 @@ static size_t msm_secure_smmu_map_sg(struct iommu_domain *domain,
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
 	return container_of(dom, struct arm_smmu_domain, domain);
+}
+
+static struct arm_smmu_domain *cb_cfg_to_smmu_domain(struct arm_smmu_cfg *cfg)
+{
+	return container_of(cfg, struct arm_smmu_domain, cfg);
 }
 
 static void parse_driver_options(struct arm_smmu_device *smmu)
@@ -2250,6 +2256,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	}
 	mutex_unlock(&smmu_domain->init_mutex);
 
+	smmu_domain->pgtbl_fmt = fmt;
 	/* Publish page table ops for map/unmap */
 	smmu_domain->pgtbl_ops = pgtbl_ops;
 	if (arm_smmu_is_slave_side_secure(smmu_domain) &&
@@ -5138,22 +5145,77 @@ static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
 	return 0;
 }
 
-#ifdef CONFIG_HIBERNATION
-static int __maybe_unused arm_smmu_pm_restore(struct device *dev)
+static int __maybe_unused arm_smmu_pm_restore_early(struct device *dev)
 {
 	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+	struct arm_smmu_domain *smmu_domain;
+	struct arm_smmu_cb *cb;
+	int idx;
 
+	/* restore the secure pools */
+	for (idx = 0; idx < smmu->num_context_banks; idx++) {
+		cb = &smmu->cbs[idx];
+		if (!cb->cfg)
+			continue;
+
+		smmu_domain = cb_cfg_to_smmu_domain(cb->cfg);
+		if (!arm_smmu_has_secure_vmid(smmu_domain))
+			continue;
+
+		if (!alloc_io_pgtable_ops(smmu_domain->pgtbl_fmt,
+					  &smmu_domain->pgtbl_cfg,
+					  smmu_domain)) {
+			dev_err(smmu->dev, "failed to allocate page tables during pm restore for cxt %d\n",
+				idx, dev_name(dev));
+			return -ENOMEM;
+		}
+		arm_smmu_secure_domain_lock(smmu_domain);
+		arm_smmu_assign_table(smmu_domain);
+		arm_smmu_secure_domain_unlock(smmu_domain);
+	}
+#ifdef CONFIG_HIBERNATION
 	smmu->smmu_restore = true;
-	return  arm_smmu_pm_resume(dev);
-}
 #endif
+	return arm_smmu_pm_resume(dev);
+}
+
+static int __maybe_unused arm_smmu_pm_freeze_late(struct device *dev)
+{
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+	struct arm_smmu_domain *smmu_domain;
+	struct arm_smmu_cb *cb;
+	int idx, ret;
+
+	ret = arm_smmu_power_on(smmu->pwr);
+	if (ret) {
+		dev_err(smmu->dev, "Whoops! Couldn't power on the smmu during pm freeze !!\n");
+		return ret;
+	}
+
+	/* destroy the secure pools */
+	for (idx = 0; idx < smmu->num_context_banks; idx++) {
+		cb = &smmu->cbs[idx];
+		if (cb && cb->cfg) {
+			smmu_domain = cb_cfg_to_smmu_domain(cb->cfg);
+			if (smmu_domain &&
+			    arm_smmu_has_secure_vmid(smmu_domain)) {
+				free_io_pgtable_ops(smmu_domain->pgtbl_ops);
+				arm_smmu_secure_domain_lock(smmu_domain);
+				arm_smmu_secure_pool_destroy(smmu_domain);
+				arm_smmu_unassign_table(smmu_domain);
+				arm_smmu_secure_domain_unlock(smmu_domain);
+			}
+		}
+	}
+	arm_smmu_power_off(smmu->pwr);
+	return 0;
+}
 
 static const struct dev_pm_ops arm_smmu_pm_ops = {
 	.resume = arm_smmu_pm_resume,
 	.thaw_early = arm_smmu_pm_resume,
-#ifdef CONFIG_HIBERNATION
-	.restore_early = arm_smmu_pm_restore,
-#endif
+	.freeze_late = arm_smmu_pm_freeze_late,
+	.restore_early = arm_smmu_pm_restore_early,
 };
 
 static struct platform_driver arm_smmu_driver = {
