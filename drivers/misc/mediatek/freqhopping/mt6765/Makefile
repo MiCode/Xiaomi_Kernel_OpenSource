@@ -17,8 +17,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
-obj-y := mt_freqhopping_sspm.o
+obj-y := mtk_freqhopping_sspm.o
 else
-obj-y := mt_freqhopping.o
+obj-y := mtk_freqhopping.o
 endif
 

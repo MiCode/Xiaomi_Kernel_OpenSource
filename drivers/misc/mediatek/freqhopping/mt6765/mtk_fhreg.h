@@ -246,7 +246,7 @@ do { \
 } while (0)
 
 #define fh_get_field(reg, field, val) \
-	do { \
+do { \
 	unsigned int tv = fh_read32(reg); \
 	val = ((tv & (field)) >> (uffs((unsigned int)field) - 1)); \
 } while (0)
