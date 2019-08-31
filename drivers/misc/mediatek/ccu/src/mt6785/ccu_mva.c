@@ -12,6 +12,7 @@
  */
 
 #include "ccu_cmn.h"
+#include "ccu_platform_def.h"
 #include "ccu_mva.h"
 
 static struct ion_client *_ccu_ion_client;
