@@ -2158,6 +2158,10 @@ static int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 		irqinfo->EventInfo.Status;
 	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[irqinfo->Type]), flags);
 
+	LOG_INF("FLUSH_IRQ: IrqInfo.Status=0x%x",
+		IspInfo.IrqInfo.Status[irqinfo->Type][
+		irqinfo->EventInfo.St_type][
+		irqinfo->EventInfo.UserKey]);
 	/* 2. force to wake up the user that are waiting for that signal */
 	wake_up_interruptible(&IspInfo.WaitQueueHead[irqinfo->Type]);
 
@@ -2394,17 +2398,20 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 			goto NON_CLEAR_WAIT;
 		}
 	}
-#ifdef ENABLE_WAITIRQ_LOG
-	LOG_INF("%s,%s", "before wait: Clear(%d) Type(%d) StType(%d)",
-		" Sts(0x%08X) WaitSts(0x%08X) Timeout(%d) userKey(%d)\n",
-		WaitIrq->EventInfo.Clear,
-		WaitIrq->Type,
-		WaitIrq->EventInfo.St_type,
-		irqStatus,
-		WaitIrq->EventInfo.Status,
-		WaitIrq->EventInfo.Timeout,
-		WaitIrq->EventInfo.UserKey);
-#endif
+//#ifdef ENABLE_WAITIRQ_LOG
+	if (WaitIrq->EventInfo.UserKey == 1) {
+		LOG_INF("Before wait: C:%d T:%d StT:%d Sts:0x%08X\n",
+			WaitIrq->EventInfo.Clear,
+			WaitIrq->Type,
+			WaitIrq->EventInfo.St_type,
+			irqStatus);
+
+		LOG_INF("WSts:0x%08X Timeout:%d key:%d\n",
+			WaitIrq->EventInfo.Status,
+			WaitIrq->EventInfo.Timeout,
+			WaitIrq->EventInfo.UserKey);
+	}
+//#endif
 	/* 2. start to wait signal */
 	if (log_on)
 		LOG_NOTICE("+ start to wait signal\n");
@@ -2468,7 +2475,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 		Ret = -EFAULT;
 		goto EXIT;
 	}
-#ifdef ENABLE_WAITIRQ_LOG
+//#ifdef ENABLE_WAITIRQ_LOG
 	else {
 		/* Store irqinfo status in here to
 		 * redeuce time of spin_lock_irqsave
@@ -2484,17 +2491,19 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 		spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[
 			WaitIrq->Type]), flags);
 
-		LOG_INF(
-		"Done WaitIrq Clear(%d) Type(%d) StType(%d) Status(0x%08X) WaitStatus(0x%08X) Timeout(%d) key(%d)\n",
-		WaitIrq->EventInfo.Clear,
-		WaitIrq->Type,
-		WaitIrq->EventInfo.St_type,
-		irqStatus,
-		WaitIrq->EventInfo.Status,
-		WaitIrq->EventInfo.Timeout,
-		WaitIrq->EventInfo.UserKey);
+		if (WaitIrq->EventInfo.UserKey == 1) {
+			LOG_INF("Done WaitIrq Clear(%d) Type(%d) StType(%d)\n",
+				WaitIrq->EventInfo.Clear,
+				WaitIrq->Type,
+				WaitIrq->EventInfo.St_type);
+			LOG_INF("Sts(0x%08X)WStatus(0x%08X)Time(%d)key(%d)\n",
+				irqStatus,
+				WaitIrq->EventInfo.Status,
+				WaitIrq->EventInfo.Timeout,
+				WaitIrq->EventInfo.UserKey);
+		}
 	}
-#endif
+//#endif
 
 NON_CLEAR_WAIT:
 	/* 3. get interrupt and update time related
@@ -2675,6 +2684,8 @@ EXIT:
 		IspInfo.SpinLockIrq[
 			WaitIrq->Type]), flags);
 
+	if (WaitIrq->EventInfo.UserKey == 1)
+		LOG_INF("ret = 0x%x\n", Ret);
 
 	return Ret;
 }
