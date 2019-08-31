@@ -1073,7 +1073,8 @@ void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 		cmdq_thread_set_end(thread, cmdq_task_get_end_pa(task->pkt));
 	}
 
-	cmdq_thread_resume(thread);
+	cmdq_thread_err_reset(cmdq, thread, cmdq_thread_get_pc(thread),
+		thread->priority);
 
 	spin_unlock_irqrestore(&thread->chan->lock, flags);
 }
