@@ -581,9 +581,10 @@ static int trusty_irq_probe(struct platform_device *pdev)
 	int ret, irq, tee_id = -1;
 	unsigned long irq_flags;
 	struct trusty_irq_state *is;
-	struct device_node *node = pdev->dev.of_node;
+	struct device_node *node = pdev->dev.of_node,
+			   *pnode = pdev->dev.parent->of_node;
 
-	if (!node) {
+	if (!node || !pnode) {
 		dev_info(&pdev->dev, "of_node required\n");
 		return -EINVAL;
 	}
@@ -592,11 +593,13 @@ static int trusty_irq_probe(struct platform_device *pdev)
 	init_irq_node(node);
 #endif
 
-	ret = of_property_read_u32(node, "tee_id", &tee_id);
+	ret = of_property_read_u32(pnode, "tee-id", &tee_id);
 	if (ret != 0 || !is_tee_id(tee_id)) {
 		dev_info(&pdev->dev, "tee_id is not set on device tree\n");
 		return -EINVAL;
 	}
+
+	dev_info(&pdev->dev, "--- init trusty-irq for MTEE %d ---\n", tee_id);
 
 	is = kzalloc(sizeof(struct trusty_irq_state), GFP_KERNEL);
 	if (!is) {
@@ -719,8 +722,6 @@ static int __init trusty_irq_driver_init(void)
 {
 	int ret;
 
-	pr_info("%s multi-tee version\n", __func__);
-
 	/* allocate dynamic cpuhp state slot */
 	ret = cpuhp_setup_state_multi(CPUHP_AP_ONLINE_DYN,
 				      "trusty-irq:cpu:online",
@@ -729,12 +730,10 @@ static int __init trusty_irq_driver_init(void)
 		return ret;
 	trusty_irq_cpuhp_slot = ret;
 
-	pr_info("---------- register the trusty irq driver ----------\n");
 	ret = platform_driver_register(&trusty_irq_driver);
 	if (ret < 0)
 		goto err_trusty_register;
 
-	pr_info("---------- register the nebula irq driver ----------\n");
 	ret = platform_driver_register(&nebula_irq_driver);
 	if (ret < 0)
 		goto err_nebula_register;

@@ -106,7 +106,6 @@ static inline void *mb_get_data(struct tipc_msg_buf *mb, size_t len)
 	return pos;
 }
 
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
 struct tipc_k_handle {
 	struct tipc_dn_chan *dn;
 };
@@ -116,6 +115,5 @@ ssize_t tipc_k_read(struct tipc_k_handle *h, void *buf, size_t buf_len,
 		    unsigned int flags);
 ssize_t tipc_k_write(struct tipc_k_handle *h, void *buf, size_t len,
 		     unsigned int flags);
-#endif				/* CONFIG_MTK_ENABLE_GENIEZONE */
 
 #endif				/* __LINUX_TRUSTY_TRUSTY_IPC_H */

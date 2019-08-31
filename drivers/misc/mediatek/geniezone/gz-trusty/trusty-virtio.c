@@ -16,23 +16,19 @@
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
-
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/notifier.h>
 #include <linux/workqueue.h>
 #include <linux/remoteproc.h>
-
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <gz-trusty/smcall.h>
 #include <gz-trusty/trusty.h>
-
 #include <linux/virtio.h>
 #include <linux/virtio_config.h>
 #include <linux/virtio_ids.h>
 #include <linux/virtio_ring.h>
-
 #include <linux/atomic.h>
 #include <linux/mod_devicetable.h>
 
@@ -51,6 +47,7 @@ struct trusty_ctx {
 	struct mutex mlock;	/* protects vdev_list */
 	struct workqueue_struct *kick_wq;
 	struct workqueue_struct *check_wq;
+	struct workqueue_attrs *attrs;
 	enum tee_id_t tee_id;	/* For multiple TEEs */
 };
 
@@ -358,9 +355,9 @@ static struct virtqueue *_find_vq(struct virtio_device *vdev,
 	 */
 	tvr->vr_descr->pa = (u32) ((u64) pa >> 32);
 
-	dev_info(&vdev->dev, "vr%d: [%s] va(pa)  %p(%llx) qsz %d notifyid %d\n",
-		 id, name, tvr->vaddr, (u64)tvr->paddr, tvr->elem_num,
-		 tvr->notifyid);
+	dev_dbg(&vdev->dev, "vr%d: [%s] va(pa)  %p(%llx) qsz %d notifyid %d\n",
+		id, name, tvr->vaddr, (u64)tvr->paddr, tvr->elem_num,
+		tvr->notifyid);
 
 	/* Linux API vring_new_virtqueue is different in kernel 4.14 and 4.9 */
 	tvr->vq = vring_new_virtqueue(id, tvr->elem_num, tvr->align,
@@ -501,16 +498,23 @@ static int trusty_set_tee_name(struct trusty_ctx *tctx,
 	struct device_node *node = tctx->dev->parent->of_node;
 	char *str;
 
+#ifdef CONFIG_MTK_NEBULA_VM_SUPPORT
+	if (is_trusty_tee(tctx->tee_id)) {
+		strncpy(cfg->dev_name.tee_name, "aosp-trusty",
+			MAX_MINOR_NAME_LEN);
+		pr_info("[%s] set tee_name: %s\n",
+			__func__, cfg->dev_name.tee_name);
+		return 0;
+	}
+#endif
 	if (!node) {
 		dev_info(tctx->dev, "[%s] of_node required\n", __func__);
 		return -EINVAL;
 	}
 
-	of_property_read_string(node, "tee_name", (const char **)&str);
+	of_property_read_string(node, "tee-name", (const char **)&str);
 	strncpy(cfg->dev_name.tee_name, str, MAX_MINOR_NAME_LEN);
-	cfg->dev_name.tee_name[sizeof(str) - 1] = '\0';
-	pr_info("[%s] of read tee_name: %s\n",
-		__func__, cfg->dev_name.tee_name);
+	pr_info("[%s] set tee_name: %s\n", __func__, cfg->dev_name.tee_name);
 
 	return 0;
 }
@@ -704,8 +708,6 @@ err_load_descr:
 	return ret;
 }
 
-static struct workqueue_attrs *attrs[TEE_ID_END];
-
 /* parse dtsi to find big core and set to mask */
 static int bind_big_core(struct cpumask *mask)
 {
@@ -759,24 +761,25 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct trusty_ctx *tctx;
-	struct device_node *node = pdev->dev.of_node;
+	struct device_node *pnode = pdev->dev.parent->of_node;
 	int tee_id = -1;
 
-	dev_info(&pdev->dev, "initializing\n");
-
-	if (!node) {
+	if (!pnode) {
 		dev_info(&pdev->dev, "of_node required\n");
 		return -EINVAL;
 	}
 
 	/* For multiple TEEs */
-	ret = of_property_read_u32(node, "tee_id", &tee_id);
+	ret = of_property_read_u32(pnode, "tee-id", &tee_id);
 	if (ret != 0) {
 		dev_info(&pdev->dev,
 			 "[%s] ERROR: tee_id is not set on device tree\n",
 			 __func__);
 		return -EINVAL;
 	}
+
+	dev_info(&pdev->dev, "--- init trusty-virtio for MTEE %d ---\n",
+		 tee_id);
 
 	tctx = kzalloc(sizeof(*tctx), GFP_KERNEL);
 	if (!tctx)
@@ -808,15 +811,18 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "Failed create trusty-kick-wq\n");
 		goto err_create_kick_wq;
 	}
-	attrs[tctx->tee_id] = alloc_workqueue_attrs(GFP_KERNEL);
-	if (!attrs[tctx->tee_id]) {
+
+	tctx->attrs = alloc_workqueue_attrs(GFP_KERNEL);
+	if (!tctx->attrs) {
 		ret = -ENOMEM;
 		goto err_free_workqueue;
 	}
-	ret = bind_big_core(attrs[tctx->tee_id]->cpumask);
+
+	ret = bind_big_core(tctx->attrs->cpumask);
 	if (ret)
 		dev_info(&pdev->dev, "Failed to bind big cores\n");
-	apply_workqueue_attrs(tctx->kick_wq, attrs[tctx->tee_id]);
+
+	apply_workqueue_attrs(tctx->kick_wq, tctx->attrs);
 
 	ret = trusty_virtio_add_devices(tctx);
 
@@ -831,7 +837,7 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 err_add_devices:
 	destroy_workqueue(tctx->kick_wq);
 err_free_workqueue:
-	free_workqueue_attrs(attrs[tctx->tee_id]);
+	free_workqueue_attrs(tctx->attrs);
 err_create_kick_wq:
 	destroy_workqueue(tctx->check_wq);
 err_create_check_wq:
@@ -865,7 +871,7 @@ static int trusty_virtio_remove(struct platform_device *pdev)
 	free_pages_exact(tctx->shared_va, tctx->shared_sz);
 
 	/* free workqueue attrs */
-	free_workqueue_attrs(attrs[tctx->tee_id]);
+	free_workqueue_attrs(tctx->attrs);
 
 	/* free context */
 	kfree(tctx);
@@ -910,12 +916,10 @@ static int __init trusty_virtio_init(void)
 {
 	int ret = 0;
 
-	pr_info("----------  register the trusty virtio driver ----------\n");
 	ret = platform_driver_register(&trusty_virtio_driver);
 	if (ret)
 		goto err_trusty_virtio_driver;
 
-	pr_info("---------- register the nebula virtio driver -----------\n");
 	ret = platform_driver_register(&nebula_virtio_driver);
 	if (ret)
 		goto err_nebula_virtio_driver;
