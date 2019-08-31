@@ -545,7 +545,7 @@ int ufs_mtk_run_batch_uic_cmd(struct ufs_hba *hba,
 
 int ufs_mtk_cfg_unipro_cg(struct ufs_hba *hba, bool enable)
 {
-	u32 tmp;
+	u32 tmp = 0;
 
 	if (enable) {
 		ufshcd_dme_get(hba, UIC_ARG_MIB(VENDOR_SAVEPOWERCONTROL), &tmp);
