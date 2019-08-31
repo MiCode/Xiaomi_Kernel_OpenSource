@@ -41,6 +41,12 @@ ifeq ($(CONFIG_MACH_MT6779),y)
   ccflags-y += -DPLATFORM_MT6779
 endif
 
+ifeq ($(CONFIG_MACH_MT6785),y)
+  ccflags-y += -DSMI_CG_SUPPORT
+  ccflags-y += -DQOS_MT6785_SUPPORT
+  ccflags-y += -DPLATFORM_MT6785
+endif
+
 ifeq ($(CONFIG_MACH_MT6768),y)
   ccflags-y += -DSMI_CG_SUPPORT
   ccflags-y += -DPLATFORM_MT6767
@@ -69,6 +75,8 @@ ifeq ($(CONFIG_MACH_MT8173),y)
 endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs
 
 #obj-$(CONFIG_MTK_JPEG) += jpeg_driver.o
 obj-y += jpeg_driver.o
