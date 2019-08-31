@@ -815,7 +815,7 @@ static long tz_client_open_session(struct file *filep, unsigned long arg)
 	char uuid[40];
 	long len;
 	TZ_RESULT ret;
-	KREE_SESSION_HANDLE handle;
+	KREE_SESSION_HANDLE handle = 0;
 
 	cret = copy_from_user(&param, (void *)arg, sizeof(param));
 	if (cret)
@@ -1143,7 +1143,7 @@ static long _sc_test_upt_chmdata(struct file *filep, unsigned long arg)
 	int ret;
 	KREE_ION_HANDLE ION_Handle = 0;
 	KREE_SECUREMEM_HANDLE shm_handle;
-	KREE_SESSION_HANDLE echo_session;
+	KREE_SESSION_HANDLE echo_session = 0;
 	union MTEEC_PARAM param[4];
 	uint32_t size;
 
@@ -1260,8 +1260,8 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 	char __user *user_req;
 	struct user_shm_param shm_data;
 	struct kree_user_sc_param cparam;
-	KREE_SHAREDMEM_PARAM shm_param;
-	KREE_SHAREDMEM_HANDLE shm_handle;
+	KREE_SHAREDMEM_PARAM shm_param = {0};
+	KREE_SHAREDMEM_HANDLE shm_handle = 0;
 	struct MTIOMMU_PIN_RANGE_T *pin = NULL;
 	uint64_t *map_p = NULL;
 	int numOfPA = 0;
