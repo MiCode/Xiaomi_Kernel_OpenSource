@@ -67,4 +67,5 @@ else
 obj-y				+= camera_project/$(ARCH_MTK_PROJECT)/
 subdir-ccflags-y		+= -I$(IMGSENSOR_DRIVER_PATH)/$(MTK_PLATFORM)/camera_project/$(ARCH_MTK_PROJECT)/camera_hw
 endif
+subdir-ccflags-y		+= -I$(srctree)/drivers/misc/mediatek/mmdvfs
 

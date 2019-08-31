@@ -14,6 +14,7 @@
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 
 obj-$(CONFIG_MACH_MT6739) += 2.0/
+obj-$(CONFIG_MACH_MT6765) += 2.0/
 obj-$(CONFIG_MACH_MT6771) += 2.4/
 obj-$(CONFIG_MACH_MT6768) += 2.0/
 obj-$(CONFIG_MACH_MT8168) += 2.4/

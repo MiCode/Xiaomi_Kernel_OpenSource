@@ -23,10 +23,6 @@
 
 static short dcm_cpu_cluster_stat;
 
-#ifdef CONFIG_HOTPLUG_CPU
-static struct notifier_block dcm_hotplug_nb;
-#endif
-
 unsigned int all_dcm_type =
 		(ARMCORE_DCM_TYPE | MCUSYS_DCM_TYPE | MCSI_DCM_TYPE
 		| STALL_DCM_TYPE | RGU_DCM_TYPE
@@ -751,93 +747,9 @@ void dcm_dump_regs(void)
 #endif
 }
 
-#ifdef CONFIG_HOTPLUG_CPU
-static int dcm_hotplug_nc(struct notifier_block *self,
-					 unsigned long action, void *hcpu)
-{
-	unsigned int cpu = (long)hcpu;
-	struct cpumask cpuhp_cpumask;
-	struct cpumask cpu_online_cpumask;
-
-	switch (action) {
-	case CPU_ONLINE:
-		arch_get_cluster_cpus(&cpuhp_cpumask, arch_get_cluster_id(cpu));
-		cpumask_and(&cpu_online_cpumask,
-			&cpuhp_cpumask, cpu_online_mask);
-		if (cpumask_weight(&cpu_online_cpumask) == 1) {
-			switch (cpu / 4) {
-			case 0:
-				dcm_pr_dbg(
-				"%s: act=0x%lx, cpu=%u, LL CPU_ONLINE\n",
-				__func__, action, cpu);
-				dcm_cpu_cluster_stat |= DCM_CPU_CLUSTER_LL;
-				break;
-			case 1:
-				dcm_pr_dbg(
-				"%s: act=0x%lx, cpu=%u, L CPU_ONLINE\n",
-				__func__, action, cpu);
-				dcm_cpu_cluster_stat |= DCM_CPU_CLUSTER_L;
-				break;
-			case 2:
-				dcm_pr_dbg(
-				"%s: act=0x%lx, cpu=%u, B CPU_ONLINE\n",
-				__func__, action, cpu);
-				dcm_cpu_cluster_stat |= DCM_CPU_CLUSTER_B;
-				break;
-			default:
-				break;
-			}
-		}
-		break;
-	case CPU_DOWN_PREPARE:
-		arch_get_cluster_cpus(&cpuhp_cpumask, arch_get_cluster_id(cpu));
-		cpumask_and(&cpu_online_cpumask,
-			&cpuhp_cpumask, cpu_online_mask);
-		if (cpumask_weight(&cpu_online_cpumask) == 1) {
-			switch (cpu / 4) {
-			case 0:
-				dcm_pr_dbg(
-				"%s: act=0x%lx, cpu=%u, LL CPU_DOWN_PREPARE\n",
-				__func__, action, cpu);
-				dcm_cpu_cluster_stat &= ~DCM_CPU_CLUSTER_LL;
-				break;
-			case 1:
-				dcm_pr_dbg(
-				"%s: act=0x%lx, cpu=%u, L CPU_DOWN_PREPARE\n",
-				__func__, action, cpu);
-				dcm_cpu_cluster_stat &= ~DCM_CPU_CLUSTER_L;
-				break;
-			case 2:
-				dcm_pr_dbg(
-				"%s: act=0x%lx, cpu=%u, B CPU_DOWN_PREPARE\n",
-				__func__, action, cpu);
-				dcm_cpu_cluster_stat &= ~DCM_CPU_CLUSTER_B;
-				break;
-			default:
-				break;
-			}
-		}
-		break;
-	default:
-		break;
-	}
-
-	return NOTIFY_OK;
-}
-#endif /* #ifdef CONFIG_HOTPLUG_CPU */
-
 void dcm_set_hotplug_nb(void)
 {
-#ifdef CONFIG_HOTPLUG_CPU
-	dcm_hotplug_nb = (struct notifier_block) {
-		.notifier_call	= dcm_hotplug_nc,
-		.priority	= INT_MIN + 2,
-			/* NOTE: make sure this is < CPU DVFS */
-	};
-
-	if (register_cpu_notifier(&dcm_hotplug_nb))
-		dcm_pr_info("[%s]: fail to register_cpu_notifier\n", __func__);
-#endif /* #ifdef CONFIG_HOTPLUG_CPU */
+	return;
 }
 
 #if 0 /* Add API to mtk_secure_api.h if necessary. */

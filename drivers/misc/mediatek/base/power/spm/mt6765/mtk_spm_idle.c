@@ -29,6 +29,7 @@
 #include "mtk_spm_internal.h"
 #include "pwr_ctrl.h"
 
+#include <mtk_idle_module.h>
 
 #define MTK_IDLE_GS_DUMP_READY	(1)
 

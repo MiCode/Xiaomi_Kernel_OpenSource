@@ -15,7 +15,8 @@
 #define _MTK_DCM_H_
 
 #if defined(CONFIG_MACH_MT6739) \
-	|| defined(CONFIG_MACH_MT6768)
+	|| defined(CONFIG_MACH_MT6768) \
+	|| defined(CONFIG_MACH_MT6765)
 
 #include "dcm_v1/mtk_dcm.h"
 

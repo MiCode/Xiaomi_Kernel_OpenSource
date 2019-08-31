@@ -23,6 +23,7 @@
 #include <linux/pm_wakeup.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/sched/clock.h>
 
 #ifdef CONFIG_MTK_AAL_SUPPORT
 #include <ddp_aal.h>
@@ -89,7 +90,7 @@ static int button_flag_isink1;
 
 struct wakeup_source leds_suspend_lock;
 
-char *leds_name[MT65XX_LED_TYPE_TOTAL] = {
+char *leds_name[TYPE_TOTAL] = {
 	"red",
 	"green",
 	"blue",
@@ -205,7 +206,7 @@ struct cust_mt65xx_led *get_cust_led_dtsi(void)
 
 	if (pled_dtsi == NULL) {
 		/* this can allocat an new struct array */
-		pled_dtsi = kmalloc(MT65XX_LED_TYPE_TOTAL *
+		pled_dtsi = kmalloc(TYPE_TOTAL *
 						      sizeof(struct
 							     cust_mt65xx_led),
 						      GFP_KERNEL);
@@ -214,7 +215,7 @@ struct cust_mt65xx_led *get_cust_led_dtsi(void)
 			goto out;
 		}
 
-		for (i = 0; i < MT65XX_LED_TYPE_TOTAL; i++) {
+		for (i = 0; i < TYPE_TOTAL; i++) {
 			char node_name[32] = "mediatek,";
 
 			if (strlen(node_name) + strlen(leds_name[i]) + 1 >

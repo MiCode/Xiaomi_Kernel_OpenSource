@@ -58,7 +58,7 @@
 #include <mt-plat/mtk_chip.h>
 #include "upmu_common.h"
 #ifdef CONFIG_MTK_FREQ_HOPPING
-#include "mt_freqhopping.h"
+#include "mtk_freqhopping.h"
 #endif
 #ifdef CONFIG_THERMAL
 #include "mtk_thermal.h"
