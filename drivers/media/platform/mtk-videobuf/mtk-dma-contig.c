@@ -24,6 +24,12 @@
 
 #include "mtk-dma-contig.h"
 
+// ALWAYS disable IOMMU_V2 before IT done
+#ifdef CONFIG_MTK_IOMMU_V2
+#undef CONFIG_MTK_IOMMU_V2
+#endif
+
+static int mtk_secure_mode;
 static int debug;
 module_param(debug, int, 0644);
 
@@ -59,6 +65,27 @@ struct vb2_dc_buf {
 	struct dma_buf_attachment	*db_attach;
 };
 
+
+/*********************************************/
+/*        scatterlist table functions        */
+/*********************************************/
+
+static unsigned long vb2_dc_get_contiguous_size(struct sg_table *sgt)
+{
+	struct scatterlist *s;
+	dma_addr_t expected = sg_dma_address(sgt->sgl);
+	unsigned int i;
+	unsigned long size = 0;
+
+	for_each_sg(sgt->sgl, s, sgt->nents, i) {
+		if (sg_dma_address(s) != expected)
+			break;
+		expected = sg_dma_address(s) + sg_dma_len(s);
+		size += sg_dma_len(s);
+	}
+	return size;
+}
+
 /*********************************************/
 /*         callbacks for all buffers         */
 /*********************************************/
@@ -74,11 +101,8 @@ static void *vb2_dc_vaddr(void *buf_priv)
 {
 	struct vb2_dc_buf *buf = buf_priv;
 
-	dprintk(INFO, "== %s()+ ==\n", __func__);
-
-	/* bypass for secure buffer */
-
-	dprintk(INFO, "== %s()- ==\n", __func__);
+	if (!buf->vaddr && buf->db_attach)
+		buf->vaddr = dma_buf_vmap(buf->db_attach->dmabuf);
 
 	return buf->vaddr;
 }
@@ -122,8 +146,8 @@ static void vb2_dc_finish(void *buf_priv)
 static int vb2_dc_map_dmabuf(void *mem_priv)
 {
 	struct vb2_dc_buf *buf = mem_priv;
-
-	dprintk(INFO, "== %s()+ ==\n", __func__);
+	struct sg_table *sgt;
+	unsigned long contig_size;
 
 	if (WARN_ON(!buf->db_attach)) {
 		dprintk(CRITICAL, "trying to pin a non attached buffer\n");
@@ -135,13 +159,38 @@ static int vb2_dc_map_dmabuf(void *mem_priv)
 		return 0;
 	}
 
-    /* bypass for secure buffer */
-
+	if (mtk_secure_mode == 1) {
+		dprintk(INFO, "bypass %s for secure buffer\n", __func__);
 	buf->dma_addr = 0;
 	buf->dma_sgt = NULL;
 	buf->vaddr = NULL;
+	} else {
+		/* get the associated scatterlist for this buffer */
+		sgt = dma_buf_map_attachment(buf->db_attach, buf->dma_dir);
+		if (IS_ERR(sgt)) {
+			dprintk(CRITICAL, "Error getting dmabuf scatterlist\n");
+			return -EINVAL;
+		}
 
-	dprintk(INFO, "== %s()- ==\n", __func__);
+		/* checking if dmabuf is big enough to store contiguous chunk */
+		contig_size = vb2_dc_get_contiguous_size(sgt);
+		if (contig_size < buf->size) {
+#ifdef CONFIG_MTK_IOMMU_V2
+			dprintk(CRITICAL,
+				"contiguous chunk is too small %lu/%lu b\n",
+				contig_size, buf->size);
+#endif
+			dma_buf_unmap_attachment(buf->db_attach,
+				sgt, buf->dma_dir);
+#ifdef CONFIG_MTK_IOMMU_V2
+			return -EFAULT;
+#endif
+		}
+
+		buf->dma_addr = sg_dma_address(sgt->sgl);
+		buf->dma_sgt = sgt;
+		buf->vaddr = NULL;
+	}
 
 	return 0;
 }
@@ -149,21 +198,35 @@ static int vb2_dc_map_dmabuf(void *mem_priv)
 static void vb2_dc_unmap_dmabuf(void *mem_priv)
 {
 	struct vb2_dc_buf *buf = mem_priv;
-
-	dprintk(INFO, "== %s()+ ==\n", __func__);
+	struct sg_table *sgt = buf->dma_sgt;
 
 	if (WARN_ON(!buf->db_attach)) {
 		dprintk(CRITICAL, "trying to unpin a not attached buffer\n");
 		return;
 	}
 
-	/* bypass for secure buffer */
+	if (mtk_secure_mode == 1) {
+		dprintk(INFO, "bypass %s for secure buffer\n", __func__);
+		buf->dma_addr = 0;
+		buf->dma_sgt  = NULL;
+		buf->vaddr    = NULL;
+	} else {
+		if (WARN_ON(!sgt)) {
+			dprintk(CRITICAL,
+				"dmabuf buffer is already unpinned\n");
+			return;
+		}
+
+		if (buf->vaddr) {
+			dma_buf_vunmap(buf->db_attach->dmabuf, buf->vaddr);
+			buf->vaddr = NULL;
+		}
+		dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
 
 	buf->dma_addr = 0;
 	buf->dma_sgt = NULL;
-	buf->vaddr = NULL;
+	}
 
-	dprintk(INFO, "== %s()- ==\n", __func__);
 }
 
 static void vb2_dc_detach_dmabuf(void *mem_priv)
@@ -229,7 +292,7 @@ const struct vb2_mem_ops mtk_dma_contig_memops = {
 EXPORT_SYMBOL_GPL(mtk_dma_contig_memops);
 
 /**
- * vb2_dma_contig_set_max_seg_size() - configure DMA max segment size
+ * mtk_dma_contig_set_max_seg_size() - configure DMA max segment size
  * @dev:	device for configuring DMA parameters
  * @size:	size of DMA max segment size to set
  *
@@ -267,7 +330,7 @@ int mtk_dma_contig_set_max_seg_size(struct device *dev, unsigned int size)
 EXPORT_SYMBOL_GPL(mtk_dma_contig_set_max_seg_size);
 
 /*
- * vb2_dma_contig_clear_max_seg_size() - release resources for DMA parameters
+ * mtk_dma_contig_clear_max_seg_size() - release resources for DMA parameters
  * @dev:	device for configuring DMA parameters
  *
  * This function releases resources allocated to configure DMA parameters
@@ -280,6 +343,19 @@ void mtk_dma_contig_clear_max_seg_size(struct device *dev)
 	dev->dma_parms = NULL;
 }
 EXPORT_SYMBOL_GPL(mtk_dma_contig_clear_max_seg_size);
+
+/*
+ * mtk_dma_contig_set_secure_mode() - set secure mode to bypass buffer processes
+ * @dev:	device for configuring DMA parameters
+ *
+ * This function is used for set hint for normal and secure buffer processes.
+ */
+void mtk_dma_contig_set_secure_mode(struct device *dev, int secure_mode)
+{
+	mtk_secure_mode = secure_mode;
+	dprintk(CRITICAL, "Set secure mode : %d\n", secure_mode);
+}
+EXPORT_SYMBOL_GPL(mtk_dma_contig_set_secure_mode);
 
 MODULE_DESCRIPTION("DMA-contig memory handling routines for videobuf2");
 MODULE_LICENSE("GPL");
