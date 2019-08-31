@@ -73,23 +73,6 @@ EXPORT_SYMBOL(g_ion_device);
 #define dmac_flush_range __dma_flush_range
 #endif
 
-//smart phone m4u/iommu
-#if (defined(CONFIG_MTK_M4U)) || defined(CONFIG_MTK_IOMMU_V2)
-
-#ifndef __clean_dcache_user_area
-#define __clean_dcache_user_area(...)
-#endif
-
-#ifndef __flush_dcache_user_area
-#define __flush_dcache_user_area(...)
-#endif
-
-#ifndef __inval_dcache_user_area
-#define __inval_dcache_user_area(...)
-#endif
-
-#endif
-
 static void __ion_cache_mmp_start(enum ION_CACHE_SYNC_TYPE sync_type,
 				  unsigned int size, unsigned int start)
 {
