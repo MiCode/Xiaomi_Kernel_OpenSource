@@ -203,7 +203,7 @@ static int gpu_debug_proc_show(struct seq_file *m, void *v)
 static ssize_t gpu_debug_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *pos)
 {
-	int enable;
+	int enable = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
@@ -234,7 +234,7 @@ static int debug_proc_show(struct seq_file *m, void *v)
 static ssize_t debug_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *pos)
 {
-	int enable;
+	int enable = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
@@ -260,7 +260,7 @@ static ssize_t enable_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *pos)
 {
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-	int type, enable;
+	int type = 0, enable = 0;
 #endif
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
@@ -301,7 +301,7 @@ static ssize_t update_cnt_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *pos)
 {
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-	int type, cnt;
+	int type = 0, cnt = 0;
 #endif
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
@@ -351,7 +351,7 @@ static int profile_proc_show(struct seq_file *m, void *v)
 static ssize_t profile_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *pos)
 {
-	int enable;
+	int enable = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
@@ -381,7 +381,7 @@ static int avg_window_proc_show(struct seq_file *m, void *v)
 static ssize_t avg_window_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	int window;
+	int window = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
@@ -406,7 +406,7 @@ static int log_interval_proc_show(struct seq_file *m, void *v)
 static ssize_t log_interval_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	unsigned int interval;
+	unsigned int interval = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
@@ -431,7 +431,7 @@ static int log_mask_proc_show(struct seq_file *m, void *v)
 static ssize_t log_mask_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	unsigned int mask;
+	unsigned int mask = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
@@ -480,7 +480,7 @@ static int idd_tbl_proc_show(struct seq_file *m, void *v)
 static ssize_t idd_tbl_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	unsigned int type, idd_idx, val;
+	unsigned int type = 0, idd_idx = 0, val = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
