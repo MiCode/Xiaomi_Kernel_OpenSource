@@ -209,7 +209,7 @@ do {                                                                     \
 	if (i == MCDI_STATE_CPU_OFF) {                                   \
 		if (type == CPU_TYPE_L)                              \
 			mtk_cpuidle_driver_set_0.states[i].member = val; \
-		else if (type == CPU_TYPE_B)                        \
+		else if (type == CPU_TYPE_LL)                        \
 			mtk_cpuidle_driver_set_1.states[i].member = val; \
 	}                                                                \
 } while (0)
