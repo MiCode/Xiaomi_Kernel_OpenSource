@@ -2196,7 +2196,7 @@ void sensorHub_power_up_loop(void *data)
 	WRITE_ONCE(obj->SCP_sensorFIFO,
 		(struct sensorFIFO *)
 		(long)scp_get_reserve_mem_virt(SENS_MEM_ID));
-	WARN_ON(obj->SCP_sensorFIFO == NULL);
+	BUG_ON(obj->SCP_sensorFIFO == NULL);
 	WRITE_ONCE(obj->SCP_sensorFIFO->wp, 0);
 	WRITE_ONCE(obj->SCP_sensorFIFO->rp, 0);
 	WRITE_ONCE(obj->SCP_sensorFIFO->FIFOSize,
