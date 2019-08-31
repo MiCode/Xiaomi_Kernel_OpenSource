@@ -316,13 +316,6 @@ alternative_else_nop_endif
 	ldr	x23, [sp, #S_SP]		// load return stack pointer
 	msr	sp_el0, x23
 	tst	x22, #PSR_MODE32_BIT		// native task?
-#ifdef CONFIG_ARM64_SSBD
-alternative_if ARM64_SSBS
-	orr	x0, x22, #PSR_SSBS_BIT
-	orr	x1, x22, #PSR_AA32_SSBS_BIT
-	csel	x22, x0, x1, eq
-alternative_else_nop_endif
-#endif
 	b.eq	3f
 
 #ifdef CONFIG_ARM64_ERRATUM_845719
