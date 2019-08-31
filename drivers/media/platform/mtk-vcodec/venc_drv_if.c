@@ -105,6 +105,9 @@ int venc_if_set_param(struct mtk_vcodec_ctx *ctx,
 {
 	int ret = 0;
 
+	if (ctx->drv_handle == 0)
+		return -EIO;
+
 	ret = ctx->enc_if->set_param(ctx->drv_handle, type, in);
 
 	return ret;
@@ -145,6 +148,9 @@ int venc_if_encode(struct mtk_vcodec_ctx *ctx,
 {
 	int ret = 0;
 
+	if (ctx->drv_handle == 0)
+		return -EIO;
+
 	ret = ctx->enc_if->encode(ctx->drv_handle, opt, frm_buf,
 							  bs_buf, result);
 
@@ -156,7 +162,7 @@ int venc_if_deinit(struct mtk_vcodec_ctx *ctx)
 	int ret = 0;
 
 	if (ctx->drv_handle == 0)
-		return 0;
+		return -EIO;
 
 	ret = ctx->enc_if->deinit(ctx->drv_handle);
 
