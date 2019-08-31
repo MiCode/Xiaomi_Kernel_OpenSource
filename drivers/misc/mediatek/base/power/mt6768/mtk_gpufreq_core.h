@@ -239,7 +239,7 @@
 enum g_segment_id_enum {
 	MT6767_SEGMENT = 1,
 	MT6768_SEGMENT,
-	MT6768_PRO_SEGMENT,
+	MT6769T_SEGMENT,
 };
 enum g_post_divider_power_enum  {
 	POST_DIV2 = 1,
