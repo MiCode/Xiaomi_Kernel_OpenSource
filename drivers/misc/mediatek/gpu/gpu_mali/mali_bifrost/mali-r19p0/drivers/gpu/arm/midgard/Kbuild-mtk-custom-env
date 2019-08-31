@@ -1,4 +1,4 @@
-$(info mali MTK evironment, building r18p0 DDK)
+$(info mali MTK evironment, building r19p0 DDK)
 
 MTK_TOP = $(srctree)/drivers/misc/mediatek/
 
