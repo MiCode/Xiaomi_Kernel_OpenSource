@@ -2225,42 +2225,76 @@ static int ISP_REGISTER_IRQ_USERKEY(char *userName)
 {
 	int key =  -1;
 	int i = 0;
+	int length = 0;
 
-	spin_lock((spinlock_t *)(&SpinLock_UserKey));
-
-	/* 1. check the current users is full or not */
-	if (FirstUnusedIrqUserKey == IRQ_USER_NUM_MAX) {
-		key = -1;
+	if (userName == NULL) {
+		LOG_NOTICE("userName is NULL\n");
 	} else {
-		/* 2. check the user had registered or not */
-		for (i = 1; i < FirstUnusedIrqUserKey; i++) {
-			/* index 0 is for all the users
-			 * that do not register irq first
-			 */
-			if (strcmp(
-				(void *)IrqUserKey_UserInfo[i].userName,
-				userName) == 0) {
-				key = IrqUserKey_UserInfo[i].userKey;
-				break;
+		/* get UserName from user space */
+		length = strnlen(userName, USERKEY_STR_LEN);
+		if (length == 0) {
+			LOG_NOTICE("userName address is not valid\n");
+			return key;
+		}
+
+		/* user key len at most 128 */
+		length = (length > USERKEY_STR_LEN) ? USERKEY_STR_LEN : length;
+
+		spin_lock((spinlock_t *)(&SpinLock_UserKey));
+		/* check String length, add end */
+		if (length == USERKEY_STR_LEN) {
+			/* string length too long */
+			userName[length - 1] = '\0';
+			if (IspInfo.DebugMask & ISP_DBG_INT) {
+				pr_debug(" [regUser] userName(%s) is too long (>%d)\n",
+						userName, USERKEY_STR_LEN);
 			}
 		}
-		/* 3.return new userkey for user
-		 * if the user had not registered before
-		 */
-		if (key < 0) {
-			/* IrqUserKey_UserInfo[i].userName=userName; */
-			memset((void *)IrqUserKey_UserInfo[i].userName, 0,
-				sizeof(IrqUserKey_UserInfo[i].userName));
-			strncpy((void *)IrqUserKey_UserInfo[i].userName,
-				userName, USERKEY_STR_LEN-1);
-			IrqUserKey_UserInfo[i].userKey =
-				FirstUnusedIrqUserKey;
-			key = FirstUnusedIrqUserKey;
-			FirstUnusedIrqUserKey++;
-		}
-	}
 
-	spin_unlock((spinlock_t *)(&SpinLock_UserKey));
+		if (IspInfo.DebugMask & ISP_DBG_INT)
+			pr_info(" [regUser] UserName (%s)\n", userName);
+
+		/* 1. check the current users is full or not */
+		if (FirstUnusedIrqUserKey >= IRQ_USER_NUM_MAX ||
+				FirstUnusedIrqUserKey < 0) {
+			key = -1;
+		} else {
+			/* 2. check the user had registered or not */
+			for (i = 1; i < FirstUnusedIrqUserKey; i++) {
+				/* index 0 is for all the users
+				 * that do not register irq first
+				 */
+				if (strcmp(
+					(void *)IrqUserKey_UserInfo[i].userName,
+					userName) == 0) {
+					key = IrqUserKey_UserInfo[i].userKey;
+					break;
+				}
+			}
+			/* 3.return new userkey for user
+			 * if the user had not registered before
+			 */
+			if (key < 0) {
+				/* IrqUserKey_UserInfo[i].userName=userName; */
+				memset(
+					(void *)IrqUserKey_UserInfo[i].userName,
+					0,
+					sizeof(
+						IrqUserKey_UserInfo[i].userName
+						));
+				strncpy(
+					(void *)IrqUserKey_UserInfo[i].userName,
+					userName,
+					USERKEY_STR_LEN-1);
+				IrqUserKey_UserInfo[i].userKey =
+					FirstUnusedIrqUserKey;
+				key = FirstUnusedIrqUserKey;
+				FirstUnusedIrqUserKey++;
+			}
+		}
+
+		spin_unlock((spinlock_t *)(&SpinLock_UserKey));
+	}
 	LOG_INF("User(%s)key(%d)\n", userName, key);
 	return key;
 }
@@ -3352,6 +3386,8 @@ static long ISP_ioctl(struct file *pFile,
 				(void *)Param,
 				sizeof(struct ISP_REGISTER_USERKEY_STRUCT))
 				== 0) {
+			//to avoid strncpy violation, force end to '\0'
+			RegUserKey.userName[31] = 0;
 			userKey = ISP_REGISTER_IRQ_USERKEY(
 				RegUserKey.userName);
 			RegUserKey.userKey = userKey;
