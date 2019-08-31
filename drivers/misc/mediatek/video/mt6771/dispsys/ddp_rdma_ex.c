@@ -280,7 +280,7 @@ static void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 	unsigned int is_wrot_sram = 0;
 	unsigned int fifo_mode = 1;
 
-	unsigned int ultra_low_us = 4;
+	unsigned int ultra_low_us = 5;
 	unsigned int ultra_high_us = 6;
 	unsigned int preultra_low_us = ultra_high_us;
 	unsigned int preultra_high_us = 7;
@@ -420,7 +420,7 @@ static void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 		issue_req_offset = preultra_low;
 		fifo_valid_size = 128;
 	}
-	issue_req_threshold = min(fifo_valid_size - preultra_high, 255U);
+	issue_req_threshold = min(fifo_valid_size - issue_req_offset, 255U);
 
 	/* output valid should < total rdma data size, or hang will happen */
 	temp = (unsigned long long)gsc->rdma_width * gsc->rdma_height * Bpp;
