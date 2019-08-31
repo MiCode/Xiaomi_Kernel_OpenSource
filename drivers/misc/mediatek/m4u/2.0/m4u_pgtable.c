@@ -13,6 +13,7 @@
 
 #include <asm/cacheflush.h>
 #include <linux/slab.h>
+#include <linux/kmemleak.h>
 #include <linux/dma-mapping.h>
 
 #include "m4u_priv.h"
@@ -102,14 +103,14 @@ static inline unsigned int m4u_get_pt_type_size(int type)
 
 /***********************************************************/
 /** print pte info to log or sequncial file
-*    if data is NULL, info is out put to kernel log by pr log
-*    if pte is valid, we will print like va->pgd->pte->pa
-*    if pte is invalid, we print as many info as we can.
-* @return NULL
-* @remark
-* @see
-* @author K Zhang      @date 2013/11/18
-************************************************************/
+ * if data is NULL, info is out put to kernel log by pr log
+ * if pte is valid, we will print like va->pgd->pte->pa
+ * if pte is invalid, we print as many info as we can.
+ * @return NULL
+ * @remark
+ * @see
+ * @author K Zhang      @date 2013/11/18
+ ************************************************************/
 void *__m4u_print_pte(m4u_pte_info_t *info, void *data)
 {
 	if (info->valid) {
@@ -225,17 +226,17 @@ typedef void *(m4u_pte_fn_t)(m4u_pte_info_t *pte_info, void *data);
 
 /***********************************************************/
 /** interate all pte, and call fn for each pte.
-* @param   domain
-* @param   fn       -- to be called for each pte
-* @param   data     -- private data for fn
-*
-* @return NULL of success, non-NULL if interrupted by fn.
-* @remark
-	1. fn will only be called when pte is valid.
-	2. if fn return non-NULL, the iteration will return imediately.
-* @see
-* @author K Zhang      @date 2013/11/18
-************************************************************/
+ * @param   domain
+ * @param   fn       -- to be called for each pte
+ * @param   data     -- private data for fn
+ *
+ * @return NULL of success, non-NULL if interrupted by fn.
+ * @remark
+ *	1. fn will only be called when pte is valid.
+ *	2. if fn return non-NULL, the iteration will return imediately.
+ * @see
+ * @author K Zhang      @date 2013/11/18
+ ************************************************************/
 void *m4u_for_each_pte(struct m4u_domain *domain, m4u_pte_fn_t *fn, void *data)
 {
 	unsigned int mva = 0;
@@ -269,8 +270,12 @@ void m4u_dump_pte_nolock(struct m4u_domain *domain, unsigned int mva)
 {
 	m4u_pte_info_t pte_info;
 
+	m4u_get_pte_info(domain, mva - 0x1000, &pte_info);
+	__m4u_print_pte(&pte_info, NULL);
 	m4u_get_pte_info(domain, mva, &pte_info);
+	__m4u_print_pte(&pte_info, NULL);
 
+	m4u_get_pte_info(domain, mva + 0x1000, &pte_info);
 	__m4u_print_pte(&pte_info, NULL);
 }
 
@@ -294,12 +299,12 @@ unsigned long m4u_get_pte(struct m4u_domain *domain, unsigned int mva)
 
 /***********************************************************/
 /** dump pagetable to sequncial file or kernel log.
-* @param   domain   -- domain to dump
-* @param   seq      -- seq file. if NULL, we will dump to kernel log
-*
-* @remark  this func will lock pgtable_lock, it may sleep.
-* @author K Zhang      @date 2013/11/18
-************************************************************/
+ * @param   domain   -- domain to dump
+ * @param   seq      -- seq file. if NULL, we will dump to kernel log
+ *
+ * @remark  this func will lock pgtable_lock, it may sleep.
+ * @author K Zhang      @date 2013/11/18
+ ************************************************************/
 void m4u_dump_pgtable(struct m4u_domain *domain, struct seq_file *seq)
 {
 	M4U_PRINT_LOG_OR_SEQ(seq, "m4u dump pgtable start ==============>\n");
@@ -325,13 +330,13 @@ static inline unsigned int m4u_prot_fixup(unsigned int prot)
 
 /***********************************************************/
 /** convert m4u_prot to hardware pgd/pte attribute
-* @param   prot   -- m4u_prot flags
-*
-* @return  pgd or pte attribute
-* @remark
-* @see
-* @author K Zhang      @date 2013/11/18
-************************************************************/
+ * @param   prot   -- m4u_prot flags
+ *
+ * @return  pgd or pte attribute
+ * @remark
+ * @see
+ * @author K Zhang      @date 2013/11/18
+ ************************************************************/
 static inline unsigned int __m4u_get_pgd_attr_16M(unsigned int prot)
 {
 	unsigned int pgprot;
@@ -393,9 +398,9 @@ static inline unsigned int __m4u_get_pte_attr_4K(unsigned int prot)
 
 /***********************************************************/
 /** cache flush for modified pte.
-*   notes: because pte is allocated using slab, cache sync is needed.
-*
-* @author K Zhang      @date 2013/11/18
+ * notes: because pte is allocated using slab, cache sync is needed.
+ *
+ * @author K Zhang      @date 2013/11/18
 ************************************************************/
 int m4u_clean_pte(struct m4u_domain *domain, unsigned int mva,
 		  unsigned int size)
@@ -412,7 +417,7 @@ int m4u_clean_pte(struct m4u_domain *domain, unsigned int mva,
 			unsigned long long next_mva, sync_entry_nr;
 
 			pte = imu_pte_offset_map(pgd, tmp_mva);
-			if (!pte) {
+			if (!imu_pte_val(*pte)) {
 				/* invalid pte: goto next pgd entry */
 				tmp_mva = m4u_calc_next_mva(tmp_mva, end_plus_1,
 							    MMU_SECTION_SIZE);
@@ -470,27 +475,35 @@ int m4u_pte_allocator_init(void)
 
 /***********************************************************/
 /** allocate a new pte
-* @param   domain
-* @param   pgd      -- pgd to allocate for
-* @param   pgprot
-*
-* @return   0 -- pte is allocated
-	    1 -- pte is not allocated, because it's allocated by others
-	    <0 -- error
-* @remark
-* @see
-* @author K Zhang      @date 2013/11/18
-************************************************************/
+ * @param   domain
+ * @param   pgd      -- pgd to allocate for
+ * @param   pgprot
+ *
+ * @return   0 -- pte is allocated
+ *	    1 -- pte is not allocated, because it's allocated by others
+ *	    <0 -- error
+ * @remark
+ * @see
+ * @author K Zhang      @date 2013/11/18
+ ************************************************************/
 int m4u_alloc_pte(struct m4u_domain *domain, struct imu_pgd_t *pgd,
 		  unsigned int pgprot)
 {
 	void *pte_new_va;
 	phys_addr_t pte_new;
+	unsigned int retry_cnt = 0;
 
 	/* pte_new_va = (unsigned int)kzalloc(IMU_BYTES_PER_PTE, GFP_KERNEL); */
 	/* pte_new_va = (unsigned int)get_zeroed_page(GFP_KERNEL); */
 	write_unlock_domain(domain);
-	pte_new_va = kmem_cache_zalloc(gM4u_pte_kmem, GFP_KERNEL | GFP_DMA);
+	for (retry_cnt = 0; retry_cnt < 5; retry_cnt++) {
+		pte_new_va = kmem_cache_zalloc(gM4u_pte_kmem,
+					       GFP_KERNEL | GFP_DMA);
+		if (likely(pte_new_va)) {
+			kmemleak_ignore(pte_new_va); //ignored by kmemleak tool
+			break;
+		}
+	}
 	write_lock_domain(domain);
 	if (unlikely(!pte_new_va)) {
 		m4u_aee_print("%s: fail, nomemory\n", __func__);
@@ -498,16 +511,23 @@ int m4u_alloc_pte(struct m4u_domain *domain, struct imu_pgd_t *pgd,
 	}
 	pte_new = __pa(pte_new_va);
 
-	/* check again in case someone else may have allocated for this pgd
-	 * first
+	if (pte_new > 0xffffffffL) {
+		if (!!(pte_new & 0x100000000LL))
+			(pgprot) = (pgprot) | F_PGD_BIT32_BIT;
+		if (!!(pte_new & 0x200000000LL))
+			(pgprot) = (pgprot) | F_PGD_BIT33_BIT;
+	}
+	/* check again in case someone else may
+	 * have allocated for this pgd first
 	 */
 	if (likely(!imu_pgd_val(*pgd))) {
 		m4u_set_pgd_val(pgd, (unsigned int)(pte_new) | pgprot);
 		M4ULOG_LOW(
 			"%s: pgd: 0x%lx, pte_va:0x%lx, pte_pa: 0x%lx, value: 0x%x\n",
-			__func__, (unsigned long)pgd, (unsigned long)pte_new_va,
-			(unsigned long)pte_new,
-			(unsigned int)(pte_new) | pgprot);
+			   __func__, (unsigned long)pgd,
+			   (unsigned long)pte_new_va,
+			   (unsigned long)pte_new,
+			   (unsigned int)(pte_new) | pgprot);
 
 		return 0;
 
@@ -536,13 +556,13 @@ int m4u_free_pte(struct m4u_domain *domain, struct imu_pgd_t *pgd)
 
 /***********************************************************/
 /** m4u_map_XX functions.
-*    map mva<->pa
-* notes: these function doesn't clean pte and invalid tlb
-*	for performance concern.
-*       callers should clean pte + invalid tlb after mapping.
-*
-* @author K Zhang      @date 2013/11/19
-************************************************************/
+ *    map mva<->pa
+ * notes: these function doesn't clean pte and invalid tlb
+ *	for performance concern.
+ *       callers should clean pte + invalid tlb after mapping.
+ *
+ * @author K Zhang      @date 2013/11/19
+ ************************************************************/
 int m4u_map_16M(struct m4u_domain *m4u_domain, unsigned int mva, phys_addr_t pa,
 		unsigned int prot)
 {
@@ -691,13 +711,16 @@ int m4u_map_64K(struct m4u_domain *m4u_domain, unsigned int mva, phys_addr_t pa,
 		else
 			pte_new = 1;
 	} else {
-		if (unlikely((imu_pgd_val(*pgd) & (~F_PGD_PA_PAGETABLE_MSK)) !=
-			     pgprot)) {
-			write_unlock_domain(m4u_domain);
-			m4u_aee_print("%s: mva=0x%x, pgd=0x%x, pgprot=0x%x\n",
-				      __func__, mva, imu_pgd_val(*pgd), pgprot);
-			return -1;
-		}
+		/*
+		 * if (unlikely((imu_pgd_val(*pgd) &
+		 *		(~F_PGD_PA_PAGETABLE_MSK)) != pgprot)) {
+		 *	write_unlock_domain(m4u_domain);
+		 *	m4u_aee_print("%s: mva=0x%x, pgd=0x%x, pgprot=0x%x\n",
+		 *			__func__, mva,
+		 *			imu_pgd_val(*pgd), pgprot);
+		 *	return -1;
+		 * }
+		 */
 		pte_new = 0;
 	}
 
@@ -776,13 +799,17 @@ int m4u_map_4K(struct m4u_domain *m4u_domain, unsigned int mva, phys_addr_t pa,
 		else
 			pte_new = 1;
 	} else {
-		if (unlikely((imu_pgd_val(*pgd) & (~F_PGD_PA_PAGETABLE_MSK)) !=
-			     pgprot)) {
-			write_unlock_domain(m4u_domain);
-			m4u_aee_print("%s: mva=0x%x, pgd=0x%x, pgprot=0x%x\n",
-				      __func__, mva, imu_pgd_val(*pgd), pgprot);
-			return -1;
-		}
+	/*
+	 *	if (unlikely((imu_pgd_val(*pgd) &
+	 *		(~F_PGD_PA_PAGETABLE_MSK)) != pgprot)) {
+	 *		write_unlock_domain(m4u_domain);
+	 *		m4u_aee_print
+	 *			("%s: mva=0x%x, pgd=0x%x, pgprot=0x%x\n",
+	 *				__func__, mva,
+	 *				imu_pgd_val(*pgd), pgprot);
+	 *		return -1;
+	 *	}
+	 */
 		pte_new = 0;
 	}
 
@@ -844,17 +871,17 @@ static inline int m4u_map_phys_align(struct m4u_domain *m4u_domain,
 
 /***********************************************************/
 /** map a physical continuous memory to iova (mva).
-* @param   m4u_domain   domain
-* @param   iova         -- iova (mva)
-* @param   paddr        -- physical address
-* @param   size         -- size
-* @param   prot         -- m4u_prot
-*
-* @return   0 on success, others on fail
-* @remark
-* @see     refer to kernel/drivers/iommu/iommu.c iommu_map()
-* @author K Zhang      @date 2013/11/19
-************************************************************/
+ * @param   m4u_domain   domain
+ * @param   iova         -- iova (mva)
+ * @param   paddr        -- physical address
+ * @param   size         -- size
+ * @param   prot         -- m4u_prot
+ *
+ * @return   0 on success, others on fail
+ * @remark
+ * @see     refer to kernel/drivers/iommu/iommu.c iommu_map()
+ * @author K Zhang      @date 2013/11/19
+ ************************************************************/
 int m4u_map_phys_range(struct m4u_domain *m4u_domain, unsigned int iova,
 		       phys_addr_t paddr, unsigned int size, unsigned int prot)
 {
@@ -1019,7 +1046,7 @@ int m4u_check_free_pte(struct m4u_domain *domain, struct imu_pgd_t *pgd)
 
 	pte = imu_pte_map(pgd);
 	for (i = 0; i < IMU_PTRS_PER_PTE; i++) {
-		if (imu_pte_val(*pte) != 0)
+		if (imu_pte_val(pte[i]) != 0)
 			break;
 	}
 	if (i == IMU_PTRS_PER_PTE) {

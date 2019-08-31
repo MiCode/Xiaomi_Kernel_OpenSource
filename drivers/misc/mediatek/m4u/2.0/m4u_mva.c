@@ -164,11 +164,36 @@ int mva_foreach_priv(mva_buf_fn_t *fn, void *data)
 				break;
 		}
 	}
-
 	spin_unlock_irqrestore(&gMvaGraph_lock, irq_flags);
+
 	return 0;
 }
 
+int mva_foreach_priv_sync(mva_buf_fn_sync_t *fn, unsigned int type)
+{
+	unsigned short index = 1, nr = 0;
+	unsigned int mva;
+	struct m4u_buf_info *priv;
+	unsigned long irq_flags;
+	int ret;
+
+	spin_lock_irqsave(&gMvaGraph_lock, irq_flags);
+
+	for (index = 1; index < MVA_MAX_BLOCK_NR + 1; index += nr) {
+		mva = index << MVA_BLOCK_SIZE_ORDER;
+		nr = MVA_GET_NR(index);
+		if (MVA_IS_BUSY(index)) {
+			priv = mvaInfoGraph[index];
+			ret = fn(NULL, priv->port, priv->va,
+			  priv->size, priv->mva, type);
+			if (ret)
+				break;
+		}
+	}
+	spin_unlock_irqrestore(&gMvaGraph_lock, irq_flags);
+
+	return 0;
+}
 unsigned int get_first_valid_mva(void)
 {
 	unsigned short index = 1, nr = 0;

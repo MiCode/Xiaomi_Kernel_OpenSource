@@ -137,9 +137,14 @@ static inline struct imu_pte_t *imu_pte_map(struct imu_pgd_t *pgd)
 		else
 			return (struct imu_pte_t *)(__va(pte_pa &
 						  F_PGD_PA_PAGETABLE_MSK));
-	} else
-		return (struct imu_pte_t *)(__va(pte_pa &
-			F_PGD_PA_PAGETABLE_MSK));
+	} else {
+		if (pte_pa & F_PGD_BIT32_BIT)
+			return (struct imu_pte_t *)(
+			__va((pte_pa & F_PGD_PA_PAGETABLE_MSK) + 0x100000000L));
+		if (pte_pa & F_PGD_BIT33_BIT)
+			return (struct imu_pte_t *)(
+			__va((pte_pa & F_PGD_PA_PAGETABLE_MSK) + 0x200000000L));
+	}
 }
 
 static inline int imu_pte_unmap(struct imu_pte_t *pte)
