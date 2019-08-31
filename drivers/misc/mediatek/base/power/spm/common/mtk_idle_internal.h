@@ -16,10 +16,6 @@
 
 #include "mtk_lp_dts_def.h"
 
-/********************************************************************
- * Change idle condition check order (1:SO3,DP,SO, 0:DP,SO3,SO)
- *******************************************************************/
-#define MTK_IDLE_ADJUST_CHECK_ORDER     (1)
 
 
 /********************************************************************
@@ -31,12 +27,16 @@
 /********************************************************************
  * mtk idle related definitions
  *******************************************************************/
+#define MTK_IDLE_OPT_MASK			(0x0FFFFFFF)
 #define MTK_IDLE_OPT_VCORE_LP_MODE  (1 << 0)
 #define MTK_IDLE_OPT_XO_UFS_ON_OFF  (1 << 1)
 #define MTK_IDLE_OPT_CLKBUF_BBLPM   (1 << 2)
 #define MTK_IDLE_OPT_VCORE_ULPOSC_OFF  (1 << 6)
 #define MTK_IDLE_OPT_SLEEP_DPIDLE   (1 << 16)
 
+/* mtk idle opt  flag for platform definition */
+#define MTK_IDLE_OPT_PLAT_BEGIN_BIT	24
+#define MTK_IDLE_OPT_PLAT_MASK		(0xFF000000)
 
 /********************************************************************
  * mtk idle log flag
@@ -74,6 +74,8 @@ enum _MTK_IDLE_PLAT_STATUS_ {
 	MTK_IDLE_PLAT_READY
 };
 
+#define MTK_OF_PROPERTY_STATUS_FOUND	(1<<0U)
+#define MTK_OF_PROPERTY_VALUE_ENABLE	(1<<1U)
 
 /*mtk idle initial data*/
 struct mtk_idle_init_data {
@@ -86,23 +88,6 @@ struct mtk_idle_init_data {
 	({int ret = 0;\
 		ret = (p->dts_value & (1<<_f))?1:0;\
 	ret; })
-
-/*Check the mtk idle node which in dts exist or not*/
-#define IS_MTK_LP_DTS_AVAILABLE_SODI(p)\
-	IS_MTK_LP_DTS_FEATURE_AVAILABLE(p, MTK_LP_FEATURE_DTS_SODI)
-#define IS_MTK_LP_DTS_AVAILABLE_SODI3(p)\
-	IS_MTK_LP_DTS_FEATURE_AVAILABLE(p, MTK_LP_FEATURE_DTS_SODI3)
-#define IS_MTK_LP_DTS_AVAILABLE_DP(p)\
-	IS_MTK_LP_DTS_FEATURE_AVAILABLE(p, MTK_LP_FEATURE_DTS_DP)
-
-/*Get the mtk idle dts node status value*/
-#define GET_MTK_LP_DTS_VALUE_SODI(p)\
-	GET_MTK_LP_DTS_VALUE(p, MTK_LP_FEATURE_DTS_SODI)
-#define GET_MTK_LP_DTS_VALUE_SODI3(p)\
-	GET_MTK_LP_DTS_VALUE(p, MTK_LP_FEATURE_DTS_SODI3)
-#define GET_MTK_LP_DTS_VALUE_DP(p)\
-	GET_MTK_LP_DTS_VALUE(p, MTK_LP_FEATURE_DTS_DP)
-
 /* Check the dts status result and set it to mtk_idle_init_data*/
 #define MTK_IDLE_FEATURE_DTS_STATE_CHECK(_f, _s, _d) {\
 	if (_s & MTK_OF_PROPERTY_STATUS_FOUND) {\
@@ -137,35 +122,19 @@ const char*
 
 #include <linux/debugfs.h>	/* struct dentry */
 
-extern unsigned long dp_cnt[NR_CPUS];
-extern unsigned long so_cnt[NR_CPUS];
-extern unsigned long so3_cnt[NR_CPUS];
 extern bool mtk_idle_screen_off_sodi3;
 
-void mtk_dpidle_init(struct mtk_idle_init_data *pData);
-void mtk_dpidle_disable(void);
-bool mtk_dpidle_enabled(void);
-bool dpidle_can_enter(int reason);
 
-void mtk_sodi3_init(struct mtk_idle_init_data *pData);
-void mtk_sodi3_disable(void);
-bool mtk_sodi3_enabled(void);
-bool sodi3_can_enter(int reason);
-
-void mtk_sodi_init(struct mtk_idle_init_data *pData);
-void mtk_sodi_disable(void);
-bool mtk_sodi_enabled(void);
-bool sodi_can_enter(int reason);
 
 
 /********************************************************************
  * mtk_idle_internal.c
  *******************************************************************/
+
 void ufs_cb_after_idle(void);
 unsigned int ufs_cb_before_idle(void);
-int mtk_idle_enter(
-	int idle_type, int cpu, unsigned int op_cond, unsigned int idle_flag);
-
+const char*
+	mtk_idle_block_reason_name(int reason);
 
 /********************************************************************
  * mtk_spm_resource_req.c
@@ -181,15 +150,13 @@ unsigned int spm_get_resource_usage_by_user(unsigned int user);
 
 /* idle ratio for internal use */
 bool mtk_idle_get_ratio_status(void);
-void mtk_idle_ratio_calc_start(int type, int cpu);
-void mtk_idle_ratio_calc_stop(int type, int cpu);
+#define mtk_idle_ratio_calc_start(a, b)
+#define mtk_idle_ratio_calc_stop(a, b)
 void mtk_idle_disable_ratio_calc(void);
 void mtk_idle_enable_ratio_calc(void);
 void mtk_idle_dump_cnt_in_interval(void);
 
-bool mtk_idle_select_state(int type, int reason);
-void mtk_idle_block_setting(
-	int type, unsigned long *cnt, unsigned long *block_cnt);
+#define mtk_idle_block_setting(a, b, c)
 
 /* Latency profile for idle scenario */
 enum {
@@ -209,14 +176,13 @@ enum {
 
 void mtk_idle_latency_profile_enable(bool enable);
 bool mtk_idle_latency_profile_is_on(void);
-void mtk_idle_latency_profile(unsigned int idle_type, int idx);
-void mtk_idle_latency_profile_result(unsigned int idle_type);
+void mtk_idle_latency_profile(int idx);
 
-#define __profile_idle_start(idle_type, idx) \
-	mtk_idle_latency_profile(idle_type, 2*idx)
+#define __profile_idle_start(idx) \
+	mtk_idle_latency_profile(2*idx)
 
-#define __profile_idle_stop(idle_type, idx) \
-	mtk_idle_latency_profile(idle_type, 2*idx+1)
+#define __profile_idle_stop(idx) \
+	mtk_idle_latency_profile(2*idx+1)
 
 
 /********************************************************************
@@ -245,6 +211,7 @@ extern u32 aee_rr_curr_spm_suspend_val(void);
 extern u32 aee_rr_curr_deepidle_val(void);
 extern u32 aee_rr_curr_sodi3_val(void);
 extern u32 aee_rr_curr_sodi_val(void);
+
 extern void aee_rr_rec_cidle_model_val(u32 val);
 extern u32 aee_rr_curr_cidle_model_val(void);
 extern void aee_rr_rec_cidle_data_val(u32 val);
@@ -263,4 +230,5 @@ extern void dvfsrc_md_scenario_update(bool suspend);
 extern int mtk8250_request_to_sleep(void);
 extern int mtk8250_request_to_wakeup(void);
 
+void mtk_idle_update_time(int IdleModel);
 #endif /* __MTK_IDLE_INTERNAL_H__ */

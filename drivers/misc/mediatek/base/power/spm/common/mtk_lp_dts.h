@@ -41,21 +41,6 @@
 			} of_node_put(state_node);\
 		} while (0); pValue; })
 
-/*Parsing idle-state's status about sodi*/
-#define GET_MTK_OF_PROPERTY_STATUS_SODI(_parentNode)\
-	GET_MTK_IDLE_OF_PROPERTY_STATUS(\
-		_parentNode, MTK_LP_FEATURE_DTS_NAME_SODI)
-
-/*Parsing idle-state's status about sodi3*/
-#define GET_MTK_OF_PROPERTY_STATUS_SODI3(_parentNode)\
-	GET_MTK_IDLE_OF_PROPERTY_STATUS(\
-		_parentNode, MTK_LP_FEATURE_DTS_NAME_SODI3)
-
-/*Parsing idle-state's status about dp*/
-#define GET_MTK_OF_PROPERTY_STATUS_DP(_parentNode)\
-	GET_MTK_IDLE_OF_PROPERTY_STATUS(\
-		_parentNode, MTK_LP_FEATURE_DTS_NAME_DP)
-
 /*Parsing idle-state's status about suspend*/
 #define GET_MTK_OF_PROPERTY_STATUS_SUSPEND(_parentNode)\
 	GET_MTK_IDLE_OF_PROPERTY_STATUS(\

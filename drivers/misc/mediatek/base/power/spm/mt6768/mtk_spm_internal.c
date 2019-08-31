@@ -164,9 +164,10 @@ void __spm_get_wakeup_status(struct wake_status *wakesta)
 unsigned int __spm_output_wake_reason(
 	const struct wake_status *wakesta, bool suspend, const char *scenario)
 {
+	#define LOG_BUF_OUT_SZ	768
 	int i;
 	char buf[LOG_BUF_SIZE] = { 0 };
-	char log_buf[768] = { 0 };
+	char log_buf[LOG_BUF_OUT_SZ] = { 0 };
 	char *local_ptr;
 	int log_size = 0;
 	unsigned int wr = WR_UNKNOWN;
@@ -176,14 +177,21 @@ unsigned int __spm_output_wake_reason(
 		/* add size check for vcoredvfs */
 		aee_sram_printk("PCM ASSERT AT 0x%x (%s), r13 = 0x%x, ",
 			  wakesta->assert_pc, scenario, wakesta->r13);
-		pr_info("[SPM] PCM ASSERT AT 0x%x (%s), r13 = 0x%x, ",
-			  wakesta->assert_pc, scenario, wakesta->r13);
+
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_OUT_SZ - log_size,
+			"[name:spm&][SPM] PCM ASSERT AT 0x%x (%s), r13 = 0x%x, ",
+			wakesta->assert_pc, scenario, wakesta->r13);
 
 		aee_sram_printk(" debug_flag = 0x%x 0x%x\n",
-			  wakesta->debug_flag, wakesta->debug_flag1);
-		pr_info(" debug_flag = 0x%x 0x%x\n",
-			  wakesta->debug_flag, wakesta->debug_flag1);
+			wakesta->debug_flag, wakesta->debug_flag1);
 
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_OUT_SZ - log_size,
+			" debug_flag = 0x%x 0x%x\n",
+			wakesta->debug_flag, wakesta->debug_flag1);
+
+		printk_deferred("[name:spm&]%s", log_buf);
 		return WR_PCM_ASSERT;
 	}
 
@@ -219,17 +227,17 @@ unsigned int __spm_output_wake_reason(
 	}
 	WARN_ON(strlen(buf) >= LOG_BUF_SIZE);
 
-	log_size += sprintf(log_buf,
+	log_size += scnprintf(log_buf + log_size, LOG_BUF_OUT_SZ - log_size,
 		"%s wake up by %s, timer_out = %u, r13 = 0x%x, debug_flag = 0x%x 0x%x, ",
 		scenario, buf, wakesta->timer_out, wakesta->r13,
 		wakesta->debug_flag, wakesta->debug_flag1);
 
-	log_size += sprintf(log_buf + log_size,
+	log_size += scnprintf(log_buf + log_size, LOG_BUF_OUT_SZ - log_size,
 		  "r12 = 0x%x, r12_ext = 0x%x, raw_sta = 0x%x, idle_sta = 0x%x, ",
 		  wakesta->r12, wakesta->r12_ext, wakesta->raw_sta,
 			wakesta->idle_sta);
 
-	log_size += sprintf(log_buf + log_size,
+	log_size += scnprintf(log_buf + log_size, LOG_BUF_OUT_SZ - log_size,
 		  " req_sta =  0x%x, event_reg = 0x%x, isr = 0x%x, ",
 		  wakesta->req_sta, wakesta->event_reg, wakesta->isr);
 
@@ -240,7 +248,8 @@ unsigned int __spm_output_wake_reason(
 						/ wakesta->timer_out;
 		}
 
-		log_size += sprintf(log_buf + log_size,
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_OUT_SZ - log_size,
 			"raw_ext_sta = 0x%x, wake_misc = 0x%x, pcm_flag = 0x%x 0x%x, req = 0x%x, ",
 			wakesta->raw_ext_sta,
 			wakesta->wake_misc,
@@ -248,13 +257,15 @@ unsigned int __spm_output_wake_reason(
 			spm_read(SPM_SW_RSV_2),
 			spm_read(SPM_SRC_REQ));
 
-		log_size += sprintf(log_buf + log_size,
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_OUT_SZ - log_size,
 			"wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x, 26M_off_pct = %d\n",
 			_golden_read_reg(WORLD_CLK_CNTCV_L),
 			_golden_read_reg(WORLD_CLK_CNTCV_H),
 			spm_26M_off_pct);
 	} else
-		log_size += sprintf(log_buf + log_size,
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_OUT_SZ - log_size,
 			"raw_ext_sta = 0x%x, wake_misc = 0x%x, pcm_flag = 0x%x 0x%x, req = 0x%x\n",
 			wakesta->raw_ext_sta,
 			wakesta->wake_misc,
@@ -262,13 +273,13 @@ unsigned int __spm_output_wake_reason(
 			spm_read(SPM_SW_RSV_2),
 			spm_read(SPM_SRC_REQ));
 
-	WARN_ON(log_size >= 768);
+	WARN_ON(log_size >= LOG_BUF_OUT_SZ);
 
 	if (!suspend)
-		pr_info("[SPM] %s", log_buf);
+		printk_deferred("[name:spm&][SPM] %s", log_buf);
 	else {
 		aee_sram_printk("%s", log_buf);
-		pr_info("[SPM] %s", log_buf);
+		printk_deferred("[name:spm&][SPM] %s", log_buf);
 	}
 
 	return wr;
@@ -282,14 +293,10 @@ long int spm_get_current_time_ms(void)
 	return ((t.tv_sec & 0xFFF) * 1000000 + t.tv_usec) / 1000;
 }
 
-void spm_set_dummy_read_addr(int debug)
-{
-	/* FIXME: no implementation in this chip ? */
-}
-
 int __attribute__ ((weak)) get_dynamic_period(
 	int first_use, int first_wakeup_time, int battery_capacity_level)
 {
+	/* printk_deferred("[name:spm&]NO %s !!!\n", __func__); */
 	return 5401;
 }
 
@@ -302,13 +309,13 @@ u32 __spm_get_wake_period(int pwake_time, unsigned int last_wr)
 		period = get_dynamic_period(last_wr != WR_PCM_TIMER
 				? 1 : 0, SPM_WAKE_PERIOD, 1);
 		if (period <= 0) {
-			pr_info("[SPM] CANNOT GET PERIOD FROM FUEL GAUGE\n");
+			printk_deferred("[name:spm&][SPM] CANNOT GET PERIOD FROM FUEL GAUGE\n");
 			period = SPM_WAKE_PERIOD;
 		}
 	} else {
 		period = pwake_time;
 		aee_sram_printk("pwake = %d\n", pwake_time);
-		pr_info("[SPM] pwake = %d\n", pwake_time);
+		printk_deferred("[name:spm&][SPM] pwake = %d\n", pwake_time);
 	}
 
 	if (period > 36 * 3600)	/* max period is 36.4 hours */

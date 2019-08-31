@@ -32,14 +32,8 @@
 #include <mtk_spm_internal.h>
 #include <mtk_sspm.h>
 
-#include <mtk_idle_sysfs.h>
+#include <mtk_idle_fs/mtk_idle_sysfs.h>
 DEFINE_SPINLOCK(__spm_lock);
-
-void __attribute__ ((weak)) mtk_idle_cond_check_init(void)
-{
-	aee_sram_printk("NO %s !!!\n", __func__);
-	pr_info("[SPM] NO %s !!!\n", __func__);
-}
 
 /* Note: implemented in mtk_spm_dram.c */
 int __attribute__ ((weak)) spm_get_spmfw_idx(void)
@@ -215,7 +209,7 @@ static int spm_pm_event(struct notifier_block *notifier, unsigned long pm_event,
 		ret = spm_to_sspm_command(SPM_SUSPEND_PREPARE, &spm_d);
 		spin_unlock_irqrestore(&__spm_lock, flags);
 		if (ret < 0) {
-			pr_err("#@# %s(%d) PM_SUSPEND_PREPARE return %d!!!\n",
+			printk_deferred("[name:spm&]#@# %s(%d) PM_SUSPEND_PREPARE return %d!!!\n",
 				__func__, __LINE__, ret);
 			return NOTIFY_BAD;
 		}
@@ -229,7 +223,7 @@ static int spm_pm_event(struct notifier_block *notifier, unsigned long pm_event,
 		ret = spm_to_sspm_command(SPM_POST_SUSPEND, &spm_d);
 		spin_unlock_irqrestore(&__spm_lock, flags);
 		if (ret < 0) {
-			pr_err("#@# %s(%d) PM_POST_SUSPEND return %d!!!\n",
+			printk_deferred("[name:spm&]#@# %s(%d) PM_POST_SUSPEND return %d!!!\n",
 				__func__, __LINE__, ret);
 			return NOTIFY_BAD;
 		}

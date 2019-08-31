@@ -39,6 +39,7 @@ bool spm_is_enable_sleep(void);
 bool spm_get_is_cpu_pdn(void);
 bool spm_get_is_infra_pdn(void);
 unsigned int spm_go_to_sleep(void);
+unsigned int spm_go_to_sleep_ex(unsigned int ex_flag);
 
 bool spm_is_md_sleep(void);
 bool spm_is_md1_sleep(void);
@@ -62,8 +63,8 @@ void spm_set_sysclk_settle(void);
 void spm_dump_world_clk_cntcv(void);
 
 
-void spm_suspend_pre_process(struct pwr_ctrl *pwrctrl);
-void spm_suspend_post_process(struct pwr_ctrl *pwrctrl);
+void spm_suspend_pre_process(int cmd, struct pwr_ctrl *pwrctrl);
+void spm_suspend_post_process(int cmd, struct pwr_ctrl *pwrctrl);
 
 /**************************************
  * only for internal debug

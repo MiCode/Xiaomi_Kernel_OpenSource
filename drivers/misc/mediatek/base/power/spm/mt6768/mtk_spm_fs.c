@@ -19,7 +19,8 @@
 
 #include <mtk_spm_internal.h>
 #include <mtk_spm_suspend_internal.h>
-#include <mtk_spm_resource_req_internal.h>
+#include <mtk_idle_fs/mtk_idle_sysfs.h>
+#include <mtk_spm_resource_req_console.h>
 
 /**************************************
  * Macro and Inline
@@ -175,375 +176,475 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
  * xxx_ctrl_show Function
  **************************************/
 /* code gen by spm_pwr_ctrl_atf.pl, need struct pwr_ctrl */
-static ssize_t show_pwr_ctrl(int id, const struct pwr_ctrl *pwrctrl, char *buf)
+static ssize_t show_pwr_ctrl(int id, const struct pwr_ctrl *pwrctrl
+		, char *buf, size_t buf_sz)
 {
 	char *p = buf;
+	size_t mSize = 0;
 
-	p += sprintf(p, "pcm_flags = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+				"pcm_flags = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_PCM_FLAGS, 0));
-	p += sprintf(p, "pcm_flags_cust = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+				"pcm_flags_cust = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_PCM_FLAGS_CUST, 0));
-	p += sprintf(p, "pcm_flags_cust_set = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+				"pcm_flags_cust_set = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_PCM_FLAGS_CUST_SET, 0));
-	p += sprintf(p, "pcm_flags_cust_clr = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+				"pcm_flags_cust_clr = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_PCM_FLAGS_CUST_CLR, 0));
-	p += sprintf(p, "pcm_flags1 = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+				"pcm_flags1 = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_PCM_FLAGS1, 0));
-	p += sprintf(p, "pcm_flags1_cust = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+				"pcm_flags1_cust = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_PCM_FLAGS1_CUST, 0));
-	p += sprintf(p, "pcm_flags1_cust_set = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+				"pcm_flags1_cust_set = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_PCM_FLAGS1_CUST_SET, 0));
-	p += sprintf(p, "pcm_flags1_cust_clr = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+				"pcm_flags1_cust_clr = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_PCM_FLAGS1_CUST_CLR, 0));
-	p += sprintf(p, "timer_val = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"timer_val = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_TIMER_VAL, 0));
-	p += sprintf(p, "timer_val_cust = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"timer_val_cust = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_TIMER_VAL_CUST, 0));
-	p += sprintf(p, "timer_val_ramp_en = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"timer_val_ramp_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_TIMER_VAL_RAMP_EN, 0));
-	p += sprintf(p, "timer_val_ramp_en_sec = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"timer_val_ramp_en_sec = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_TIMER_VAL_RAMP_EN_SEC, 0));
-	p += sprintf(p, "wake_src = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"wake_src = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_WAKE_SRC, 0));
-	p += sprintf(p, "wake_src_cust = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"wake_src_cust = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_WAKE_SRC_CUST, 0));
-	p += sprintf(p, "wakelock_timer_val = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"wakelock_timer_val = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_WAKELOCK_TIMER_VAL, 0));
-	p += sprintf(p, "wdt_disable = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"wdt_disable = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_WDT_DISABLE, 0));
 	/* SPM_AP_STANDBY_CON */
-	p += sprintf(p, "wfi_op = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"wfi_op = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_WFI_OP, 0));
-	p += sprintf(p, "wfi_type = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"wfi_type = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_WFI_TYPE, 0));
-	p += sprintf(p, "mp0_cputop_idle_mask = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mp0_cputop_idle_mask = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP0_CPUTOP_IDLE_MASK, 0));
-	p += sprintf(p, "mp1_cputop_idle_mask = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mp1_cputop_idle_mask = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP1_CPUTOP_IDLE_MASK, 0));
-	p += sprintf(p, "mcusys_idle_mask = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mcusys_idle_mask = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MCUSYS_IDLE_MASK, 0));
-	p += sprintf(p, "mm_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mm_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MM_MASK_B, 0));
-	p += sprintf(p, "md_ddr_en_0_dbc_en = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_ddr_en_0_dbc_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_DDR_EN_0_DBC_EN, 0));
-	p += sprintf(p, "md_ddr_en_1_dbc_en = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_ddr_en_1_dbc_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_DDR_EN_1_DBC_EN, 0));
-	p += sprintf(p, "md_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_MASK_B, 0));
-	p += sprintf(p, "sspm_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"sspm_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SSPM_MASK_B, 0));
-	p += sprintf(p, "scp_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"scp_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SCP_MASK_B, 0));
-	p += sprintf(p, "srcclkeni_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"srcclkeni_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SRCCLKENI_MASK_B, 0));
-	p += sprintf(p, "md_apsrc_1_sel = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_apsrc_1_sel = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_APSRC_1_SEL, 0));
-	p += sprintf(p, "md_apsrc_0_sel = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_apsrc_0_sel = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_APSRC_0_SEL, 0));
-	p += sprintf(p, "conn_ddr_en_dbc_en = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"conn_ddr_en_dbc_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CONN_DDR_EN_DBC_EN, 0));
-	p += sprintf(p, "conn_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"conn_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CONN_MASK_B, 0));
-	p += sprintf(p, "conn_apsrc_sel = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"conn_apsrc_sel = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CONN_APSRC_SEL, 0));
-	p += sprintf(p, "conn_srcclkena_sel_mask = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"conn_srcclkena_sel_mask = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CONN_SRCCLKENA_SEL_MASK, 0));
 	/* SPM_SRC_REQ */
-	p += sprintf(p, "spm_apsrc_req = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"spm_apsrc_req = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SPM_APSRC_REQ, 0));
-	p += sprintf(p, "spm_f26m_req = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"spm_f26m_req = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SPM_F26M_REQ, 0));
-	p += sprintf(p, "spm_infra_req = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"spm_infra_req = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SPM_INFRA_REQ, 0));
-	p += sprintf(p, "spm_vrf18_req = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"spm_vrf18_req = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SPM_VRF18_REQ, 0));
-	p += sprintf(p, "spm_ddren_req = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"spm_ddren_req = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SPM_DDREN_REQ, 0));
-	p += sprintf(p, "spm_rsv_src_req= 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"spm_rsv_src_req= 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SPM_RSV_SRC_REQ, 0));
-	p += sprintf(p, "spm_ddren_2_req= 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"spm_ddren_2_req= 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SPM_DDREN_2_REQ, 0));
-	p += sprintf(p, "cpu_md_dvfs_sop_force_on= 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"cpu_md_dvfs_sop_force_on= 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CPU_MD_DVFS_SOP_FORCE_ON, 0));
 	/* SPM_SRC_MASK */
-	p += sprintf(p, "csyspwreq_mask = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"csyspwreq_mask = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CSYSPWREQ_MASK, 0));
-	p += sprintf(p, "ccif0_md_event_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ccif0_md_event_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CCIF0_MD_EVENT_MASK_B, 0));
-	p += sprintf(p, "ccif0_ap_event_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ccif0_ap_event_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CCIF0_AP_EVENT_MASK_B, 0));
-	p += sprintf(p, "ccif1_md_event_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ccif1_md_event_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CCIF1_MD_EVENT_MASK_B, 0));
-	p += sprintf(p, "ccif1_ap_event_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ccif1_ap_event_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CCIF1_AP_EVENT_MASK_B, 0));
-	p += sprintf(p, "ccif2_md_event_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ccif2_md_event_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CCIF2_MD_EVENT_MASK_B, 0));
-	p += sprintf(p, "ccif2_ap_event_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ccif2_ap_event_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CCIF2_AP_EVENT_MASK_B, 0));
-	p += sprintf(p, "ccif3_md_event_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ccif3_md_event_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CCIF3_MD_EVENT_MASK_B, 0));
-	p += sprintf(p, "ccif3_ap_event_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ccif3_ap_event_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CCIF3_AP_EVENT_MASK_B, 0));
-	p += sprintf(p, "md_srcclkena_0_infra_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_srcclkena_0_infra_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_SRCCLKENA_0_INFRA_MASK_B, 0));
-	p += sprintf(p, "md_srcclkena_1_infra_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_srcclkena_1_infra_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_SRCCLKENA_1_INFRA_MASK_B, 0));
-	p += sprintf(p, "conn_srcclkena_infra_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"conn_srcclkena_infra_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CONN_SRCCLKENA_INFRA_MASK_B, 0));
-	p += sprintf(p, "ufs_infra_req_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ufs_infra_req_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_UFS_INFRA_REQ_MASK_B, 0));
-	p += sprintf(p, "srcclkeni_infra_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"srcclkeni_infra_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SRCCLKENI_INFRA_MASK_B, 0));
-	p += sprintf(p, "md_apsrc_req_0_infra_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_apsrc_req_0_infra_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_APSRC_REQ_0_INFRA_MASK_B, 0));
-	p += sprintf(p, "md_apsrc_req_1_infra_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_apsrc_req_1_infra_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_APSRC_REQ_1_INFRA_MASK_B, 0));
-	p += sprintf(p, "conn_apsrcreq_infra_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"conn_apsrcreq_infra_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CONN_APSRCREQ_INFRA_MASK_B, 0));
-	p += sprintf(p, "ufs_srcclkena_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ufs_srcclkena_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_UFS_SRCCLKENA_MASK_B, 0));
-	p += sprintf(p, "md_vrf18_req_0_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_vrf18_req_0_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_VRF18_REQ_0_MASK_B, 0));
-	p += sprintf(p, "md_vrf18_req_1_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_vrf18_req_1_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_VRF18_REQ_1_MASK_B, 0));
-	p += sprintf(p, "ufs_vrf18_req_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ufs_vrf18_req_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_UFS_VRF18_REQ_MASK_B, 0));
-	p += sprintf(p, "gce_vrf18_req_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"gce_vrf18_req_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_GCE_VRF18_REQ_MASK_B, 0));
-	p += sprintf(p, "conn_infra_req_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"conn_infra_req_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CONN_INFRA_REQ_MASK_B, 0));
-	p += sprintf(p, "gce_apsrc_req_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"gce_apsrc_req_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_GCE_APSRC_REQ_MASK_B, 0));
-	p += sprintf(p, "disp0_apsrc_req_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"disp0_apsrc_req_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_DISP0_APSRC_REQ_MASK_B, 0));
-	p += sprintf(p, "disp1_apsrc_req_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"disp1_apsrc_req_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_DISP1_APSRC_REQ_MASK_B, 0));
-	p += sprintf(p, "mfg_req_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mfg_req_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MFG_REQ_MASK_B, 0));
-	p += sprintf(p, "vdec_req_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"vdec_req_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_VDEC_REQ_MASK_B, 0));
-	p += sprintf(p, "mcu_apsrcreq_infra_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mcu_apsrcreq_infra_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MCU_APSRCREQ_INFRA_MASK_B, 0));
 	/* SPM_SRC2_MASK */
-	p += sprintf(p, "md_ddr_en_0_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_ddr_en_0_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_DDR_EN_0_MASK_B, 0));
-	p += sprintf(p, "md_ddr_en_1_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_ddr_en_1_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_DDR_EN_1_MASK_B, 0));
-	p += sprintf(p, "conn_ddr_en_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"conn_ddr_en_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CONN_DDR_EN_MASK_B, 0));
-	p += sprintf(p, "ddren_sspm_apsrc_req_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ddren_sspm_apsrc_req_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_DDREN_SSPM_APSRC_REQ_MASK_B, 0));
-	p += sprintf(p, "ddren_scp_apsrc_req_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ddren_scp_apsrc_req_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_DDREN_SCP_APSRC_REQ_MASK_B, 0));
-	p += sprintf(p, "disp0_ddren_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"disp0_ddren_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_DISP0_DDREN_MASK_B, 0));
-	p += sprintf(p, "disp1_ddren_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"disp1_ddren_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_DISP1_DDREN_MASK_B, 0));
-	p += sprintf(p, "gce_ddren_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"gce_ddren_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_GCE_DDREN_MASK_B, 0));
-	p += sprintf(p, "ddren_emi_self_refresh_ch0_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ddren_emi_self_refresh_ch0_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_DDREN_EMI_SELF_REFRESH_CH0_MASK_B, 0));
-	p += sprintf(p, "ddren_emi_self_refresh_ch1_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ddren_emi_self_refresh_ch1_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_DDREN_EMI_SELF_REFRESH_CH1_MASK_B, 0));
-	p += sprintf(p, "mcu_apsrc_req_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mcu_apsrc_req_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MCU_APSRC_REQ_MASK_B, 0));
-	p += sprintf(p, "mcu_ddren_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mcu_ddren_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MCU_DDREN_MASK_B, 0));
 	/* SPM_WAKEUP_EVENT_MASK */
-	p += sprintf(p, "spm_wakeup_event_mask = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"spm_wakeup_event_mask = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SPM_WAKEUP_EVENT_MASK, 0));
 	/* SPM_WAKEUP_EVENT_EXT_MASK */
-	p += sprintf(p, "spm_wakeup_event_ext_mask = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"spm_wakeup_event_ext_mask = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SPM_WAKEUP_EVENT_EXT_MASK, 0));
 	/* SPM_SRC3_MASK */
-	p += sprintf(p, "md_ddr_en_2_0_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_ddr_en_2_0_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_DDR_EN_2_0_MASK_B, 0));
-	p += sprintf(p, "md_ddr_en_2_1_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"md_ddr_en_2_1_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_DDR_EN_2_1_MASK_B, 0));
-	p += sprintf(p, "conn_ddr_en_2_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"conn_ddr_en_2_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CONN_DDR_EN_2_MASK_B, 0));
-	p += sprintf(p, "ddren2_sspm_apsrc_req_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ddren2_sspm_apsrc_req_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_DDREN2_SSPM_APSRC_REQ_MASK_B, 0));
-	p += sprintf(p, "ddren2_scp_apsrc_req_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ddren2_scp_apsrc_req_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_DDREN2_SCP_APSRC_REQ_MASK_B, 0));
-	p += sprintf(p, "disp0_ddren2_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"disp0_ddren2_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_DISP0_DDREN2_MASK_B, 0));
-	p += sprintf(p, "disp1_ddren2_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"disp1_ddren2_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_DISP1_DDREN2_MASK_B, 0));
-	p += sprintf(p, "gce_ddren2_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"gce_ddren2_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_GCE_DDREN2_MASK_B, 0));
-	p += sprintf(p, "ddren2_emi_self_refresh_ch0_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ddren2_emi_self_refresh_ch0_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_DDREN2_EMI_SELF_REFRESH_CH0_MASK_B, 0));
-	p += sprintf(p, "ddren2_emi_self_refresh_ch1_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"ddren2_emi_self_refresh_ch1_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_DDREN2_EMI_SELF_REFRESH_CH1_MASK_B, 0));
-	p += sprintf(p, "mcu_ddren_2_mask_b = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mcu_ddren_2_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MCU_DDREN_2_MASK_B, 0));
 	/* MP0_CPU0_WFI_EN */
-	p += sprintf(p, "mp0_cpu0_wfi_en = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mp0_cpu0_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP0_CPU1_WFI_EN, 0));
 	/* MP0_CPU1_WFI_EN */
-	p += sprintf(p, "mp0_cpu1_wfi_en = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mp0_cpu1_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP0_CPU1_WFI_EN, 0));
 	/* MP0_CPU2_WFI_EN */
-	p += sprintf(p, "mp0_cpu2_wfi_en = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mp0_cpu2_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP0_CPU2_WFI_EN, 0));
 	/* MP0_CPU3_WFI_EN */
-	p += sprintf(p, "mp0_cpu3_wfi_en = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mp0_cpu3_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP0_CPU3_WFI_EN, 0));
 	/* MP0_CPU4_WFI_EN */
-	p += sprintf(p, "mp0_cpu4_wfi_en = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mp0_cpu4_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP0_CPU4_WFI_EN, 0));
 	/* MP0_CPU5_WFI_EN */
-	p += sprintf(p, "mp0_cpu5_wfi_en = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mp0_cpu5_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP0_CPU5_WFI_EN, 0));
 	/* MP0_CPU6_WFI_EN */
-	p += sprintf(p, "mp0_cpu6_wfi_en = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mp0_cpu6_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP0_CPU6_WFI_EN, 0));
 	/* MP0_CPU7_WFI_EN */
-	p += sprintf(p, "mp0_cpu7_wfi_en = 0x%zx\n",
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"mp0_cpu7_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP0_CPU7_WFI_EN, 0));
 
-	WARN_ON(p - buf >= PAGE_SIZE);
+	WARN_ON(buf_sz - mSize <= 0);
 
-	return p - buf;
+	return mSize;
 }
 
 static ssize_t suspend_ctrl_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
-	return show_pwr_ctrl(SPM_PWR_CTRL_SUSPEND, __spm_suspend.pwrctrl, buf);
+	return show_pwr_ctrl(SPM_PWR_CTRL_SUSPEND, __spm_suspend.pwrctrl
+			, buf, get_mtk_lp_kernfs_bufsz_max());
 }
 
-static ssize_t dpidle_ctrl_show(struct kobject *kobj,
+static ssize_t IdleDram_ctrl_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
-	return show_pwr_ctrl(SPM_PWR_CTRL_DPIDLE, &pwrctrl_dp, buf);
+	return show_pwr_ctrl(SPM_PWR_CTRL_IDLE_DRAM, &pwrctrl_dram
+		, buf, get_mtk_lp_kernfs_bufsz_max());
 }
 
-static ssize_t sodi3_ctrl_show(struct kobject *kobj,
+static ssize_t IdleSyspll_ctrl_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
-	return show_pwr_ctrl(SPM_PWR_CTRL_SODI3, &pwrctrl_so3, buf);
+	return show_pwr_ctrl(SPM_PWR_CTRL_IDLE_SYSPLL, &pwrctrl_syspll
+		, buf, get_mtk_lp_kernfs_bufsz_max());
 }
 
-static ssize_t sodi_ctrl_show(struct kobject *kobj,
+static ssize_t IdleBus26m_ctrl_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
-	return show_pwr_ctrl(SPM_PWR_CTRL_SODI, &pwrctrl_so, buf);
-}
-
-static ssize_t vcore_dvfs_ctrl_show(struct kobject *kobj,
-	struct kobj_attribute *attr, char *buf)
-{
-#if 0 /* FIXME: No need for vcorefs ? */
-	return show_pwr_ctrl(SPM_PWR_CTRL_VCOREFS, __spm_vcorefs.pwrctrl, buf);
-#else
-	return 0;
-#endif
+	return show_pwr_ctrl(SPM_PWR_CTRL_IDLE_BUS26M, &pwrctrl_bus26m
+		, buf, get_mtk_lp_kernfs_bufsz_max());
 }
 
 static ssize_t spmfw_version_show(struct kobject *kobj,
@@ -1148,37 +1249,28 @@ static ssize_t suspend_ctrl_store(struct kobject *kobj,
 		buf, count);
 }
 
-static ssize_t dpidle_ctrl_store(struct kobject *kobj,
-	struct kobj_attribute *attr,
-				 const char *buf, size_t count)
-{
-	return store_pwr_ctrl(SPM_PWR_CTRL_DPIDLE, &pwrctrl_dp, buf, count);
-}
-
-static ssize_t sodi3_ctrl_store(struct kobject *kobj,
+static ssize_t IdleDram_ctrl_store(struct kobject *kobj,
 	struct kobj_attribute *attr,
 				const char *buf, size_t count)
 {
-	return store_pwr_ctrl(SPM_PWR_CTRL_SODI3, &pwrctrl_so3, buf, count);
+	return store_pwr_ctrl(SPM_PWR_CTRL_IDLE_DRAM
+		, &pwrctrl_dram, buf, count);
 }
 
-static ssize_t sodi_ctrl_store(struct kobject *kobj,
+static ssize_t IdleSyspll_ctrl_store(struct kobject *kobj,
 	struct kobj_attribute *attr,
 			       const char *buf, size_t count)
 {
-	return store_pwr_ctrl(SPM_PWR_CTRL_SODI, &pwrctrl_so, buf, count);
+	return store_pwr_ctrl(SPM_PWR_CTRL_IDLE_SYSPLL
+		, &pwrctrl_syspll, buf, count);
 }
 
-static ssize_t vcore_dvfs_ctrl_store(struct kobject *kobj,
+static ssize_t IdleBus26m_ctrl_store(struct kobject *kobj,
 	struct kobj_attribute *attr,
-				     const char *buf, size_t count)
+			       const char *buf, size_t count)
 {
-#if 0 /* FIXME: No need for vcorefs ? */
-	return store_pwr_ctrl(SPM_PWR_CTRL_VCOREFS,
-		__spm_vcorefs.pwrctrl, buf, count);
-#else
-	return 0;
-#endif
+	return store_pwr_ctrl(SPM_PWR_CTRL_IDLE_BUS26M
+		, &pwrctrl_bus26m, buf, count);
 }
 
 static ssize_t spmfw_version_store(struct kobject *kobj,
@@ -1204,20 +1296,18 @@ static ssize_t fm_suspend_show(struct kobject *kobj,
  * Init Function
  **************************************/
 DEFINE_ATTR_RW(suspend_ctrl);
-DEFINE_ATTR_RW(dpidle_ctrl);
-DEFINE_ATTR_RW(sodi3_ctrl);
-DEFINE_ATTR_RW(sodi_ctrl);
-DEFINE_ATTR_RW(vcore_dvfs_ctrl);
+DEFINE_ATTR_RW(IdleDram_ctrl);
+DEFINE_ATTR_RW(IdleSyspll_ctrl);
+DEFINE_ATTR_RW(IdleBus26m_ctrl);
 DEFINE_ATTR_RW(spmfw_version);
 DEFINE_ATTR_RO(fm_suspend);
 
 static struct attribute *spm_attrs[] = {
 	/* for spm_lp_scen.pwrctrl */
 	__ATTR_OF(suspend_ctrl),
-	__ATTR_OF(dpidle_ctrl),
-	__ATTR_OF(sodi3_ctrl),
-	__ATTR_OF(sodi_ctrl),
-	__ATTR_OF(vcore_dvfs_ctrl),
+	__ATTR_OF(IdleDram_ctrl),
+	__ATTR_OF(IdleSyspll_ctrl),
+	__ATTR_OF(IdleBus26m_ctrl),
 	__ATTR_OF(spmfw_version),
 	__ATTR_OF(fm_suspend),
 
@@ -1235,7 +1325,7 @@ int spm_fs_init(void)
 	int r;
 
 	/* create /sys/power/spm/xxx */
-	r = sysfs_create_group(power_kobj, &spm_attr_group);
+	r = mtk_idle_sysfs_power_create_group(&spm_attr_group);
 	if (r)
 		pr_info("[SPM] FAILED TO CREATE /sys/power/spm (%d)\n", r);
 

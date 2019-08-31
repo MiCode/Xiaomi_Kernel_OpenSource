@@ -39,22 +39,17 @@ ifeq ($(CONFIG_THERMAL), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)/inc/mach/
 endif
 
+
+obj-y += mtk_idle_fs/
+
 obj-y += mtk_idle.o
 obj-y += mtk_idle_select.o
 obj-y += mtk_idle_internal.o
 obj-y += mtk_idle_profile.o
 obj-y += mtk_idle_twam.o
-obj-y += mtk_dpidle.o
-obj-y += mtk_sodi.o
 obj-y += mtk_spm_resource_req.o
 obj-y += mtk_sleep.o
 obj-y += mtk_sleep_init.o
 obj-y += mtk_vcore_dvfs.o
-obj-y += mtk_idle_sysfs.o
-obj-y += mtk_idle_sysfs_debugfs.o
-obj-y += mtk_lp_kernfs.o
-obj-y += mtk_lp_sysfs.o
-obj-y += mtk_lp_sysfs_debugfs.o
-
-obj-$(CONFIG_MACH_MT6785) += mtk_idle_module.o
-obj-$(CONFIG_MACH_MT6768) += mtk_idle_module.o
+obj-y += mtk_idle_module.o
+obj-y += mtk_idle_export_legacy.o
