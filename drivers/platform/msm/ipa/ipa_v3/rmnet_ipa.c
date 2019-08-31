@@ -3589,35 +3589,41 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 	data->ipv6_tx_bytes +=
 		con_stats->client[index].num_ipv6_bytes;
 
-	/* query WIGIG UL stats */
-	memset(con_stats, 0, sizeof(struct ipa_quota_stats_all));
-	rc = ipa_query_teth_stats(IPA_CLIENT_WIGIG_PROD, con_stats, reset);
-	if (rc) {
-		IPAERR("IPA_CLIENT_WIGIG_PROD query failed %d\n", rc);
-		kfree(con_stats);
-		return rc;
+	if (ipa3_get_ep_mapping(IPA_CLIENT_WIGIG_PROD) !=
+			IPA_EP_NOT_ALLOCATED) {
+		/* query WIGIG UL stats */
+		memset(con_stats, 0, sizeof(struct ipa_quota_stats_all));
+		rc = ipa_query_teth_stats(IPA_CLIENT_WIGIG_PROD, con_stats,
+									reset);
+		if (rc) {
+			IPAERR("IPA_CLIENT_WIGIG_PROD query failed %d\n", rc);
+			kfree(con_stats);
+			return rc;
+		}
+
+		if (rmnet_ipa3_ctx->ipa_config_is_apq)
+			index = IPA_CLIENT_MHI_PRIME_TETH_CONS;
+		else
+			index = IPA_CLIENT_Q6_WAN_CONS;
+
+		IPAWANDBG("wigig: v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",
+				con_stats->client[index].num_ipv4_pkts,
+				con_stats->client[index].num_ipv4_bytes,
+				con_stats->client[index].num_ipv6_pkts,
+				con_stats->client[index].num_ipv6_bytes);
+
+		/* update the WIGIG UL stats */
+		data->ipv4_tx_packets +=
+			con_stats->client[index].num_ipv4_pkts;
+		data->ipv6_tx_packets +=
+			con_stats->client[index].num_ipv6_pkts;
+		data->ipv4_tx_bytes +=
+			con_stats->client[index].num_ipv4_bytes;
+		data->ipv6_tx_bytes +=
+			con_stats->client[index].num_ipv6_bytes;
+	} else {
+		IPAWANDBG("IPA_CLIENT_WIGIG_PROD client not supported\n");
 	}
-
-	if (rmnet_ipa3_ctx->ipa_config_is_apq)
-		index = IPA_CLIENT_MHI_PRIME_TETH_CONS;
-	else
-		index = IPA_CLIENT_Q6_WAN_CONS;
-
-	IPAWANDBG("wigig: v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",
-		con_stats->client[index].num_ipv4_pkts,
-		con_stats->client[index].num_ipv4_bytes,
-		con_stats->client[index].num_ipv6_pkts,
-		con_stats->client[index].num_ipv6_bytes);
-
-	/* update the WIGIG UL stats */
-	data->ipv4_tx_packets +=
-		con_stats->client[index].num_ipv4_pkts;
-	data->ipv6_tx_packets +=
-		con_stats->client[index].num_ipv6_pkts;
-	data->ipv4_tx_bytes +=
-		con_stats->client[index].num_ipv4_bytes;
-	data->ipv6_tx_bytes +=
-		con_stats->client[index].num_ipv6_bytes;
 
 	IPAWANDBG("v4_tx_p(%lu) v6_tx_p(%lu) v4_tx_b(%lu) v6_tx_b(%lu)\n",
 		(unsigned long) data->ipv4_tx_packets,
