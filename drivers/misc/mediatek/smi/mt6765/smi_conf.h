@@ -200,6 +200,10 @@ u32 smi_scen_pair_num[SMI_LARB_NUM + 1] = {
 	SMI_LARB_NUM,
 };
 
+struct mtk_smi_pair *smi_larb3_scen_pair[SMI_SCEN_NUM] = {
+	smi_larb3_init_pair, smi_larb3_icfp_pair
+};
+
 struct mtk_smi_pair **smi_scen_pair[SMI_LARB_NUM + 1] = {
 	smi_larb0_scen_pair, smi_larb1_scen_pair,
 	smi_larb2_scen_pair, smi_larb3_scen_pair,

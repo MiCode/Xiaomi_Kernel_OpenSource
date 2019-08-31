@@ -14,6 +14,7 @@
 /* #include <../drivers/staging/android/sw_sync.h> */
 #include <linux/slab.h>
 #include <linux/kthread.h>
+#include <uapi/linux/sched/types.h>
 
 #include "disp_drv_platform.h"
 #include "frame_queue.h"

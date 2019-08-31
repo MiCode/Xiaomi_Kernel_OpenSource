@@ -19,6 +19,7 @@
 #include <linux/spinlock.h>
 #include <linux/kthread.h>
 #include <linux/timer.h>
+#include <linux/sched/clock.h>
 
 /* #include <mach/mt_irq.h> */
 #include "disp_drv_platform.h"	/* must be at the top-most */
@@ -32,11 +33,12 @@
 #include "ddp_dsi.h"
 #include "disp_drv_log.h"
 #include "primary_display.h"
-#include "smi_debug.h"
+//#include "smi_debug.h"
 #include "disp_lowpower.h"
 #include "layering_rule.h"
 
 #include <asm/arch_timer.h>
+#include "mt-plat/mtk_smi.h"
 
 /* IRQ log print kthread */
 static struct task_struct *disp_irq_log_task;
