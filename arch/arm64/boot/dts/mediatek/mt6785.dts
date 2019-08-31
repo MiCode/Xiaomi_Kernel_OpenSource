@@ -37,7 +37,6 @@
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
 vmalloc=400M slub_debug=OFZPU swiotlb=noforce \
 cgroup.memory=nosocket,nokmem \
-earlycon=mtk8250,mmio32,0x11002000 \
 initcall_debug=1 \
 firmware_class.path=/vendor/firmware \
 page_owner=on loop.max_part=7";
@@ -2016,7 +2015,7 @@ page_owner=on loop.max_part=7";
 		clocks = <&infracfg_ao INFRACFG_AO_AP_DMA_CG>;
 		clock-names = "apdma";
 		#dma-cells = <1>;
-		dma-33bits = <1>;
+		dma-bits = <34>;
 	};
 
 	apuart0: serial@11002000 {
