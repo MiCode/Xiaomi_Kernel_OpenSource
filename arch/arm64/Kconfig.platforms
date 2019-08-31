@@ -288,7 +288,7 @@ config MACH_MT6768
 	select MTK_TIMER_SYSTIMER
 	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
 	select MTK_SECURITY_SW_SUPPORT
-	select DEVAPC_LEGACY
+	select DEVAPC_MT6768
 	select OVERLAY_FS
 	help
 	  This enables support for MediaTek MT6768
