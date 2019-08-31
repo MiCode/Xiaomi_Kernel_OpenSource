@@ -41,7 +41,7 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 	int i, j;
 	char str_prop_name[LENGTH_FOR_SNPRINTF];
 	struct device_node *of_node
-		= of_find_compatible_node(NULL, NULL, "mediatek,imgsensor");
+		= of_find_compatible_node(NULL, NULL, "mediatek,camera_hw");
 
 	for (i = 0; i < IMGSENSOR_HW_ID_MAX_NUM; i++) {
 		if (hw_open[i] != NULL)
