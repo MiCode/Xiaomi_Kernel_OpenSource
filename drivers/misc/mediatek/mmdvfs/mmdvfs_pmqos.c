@@ -1497,6 +1497,7 @@ static void get_module_clock_by_index(struct device *dev,
 	if (IS_ERR(*clk_module)) {
 		/* error status print */
 		pr_notice("Cannot get module clock: %s\n", clk_name);
+		*clk_module = NULL;
 	} else {
 		/* message print */
 		pr_notice("Get module clock: %s\n", clk_name);
