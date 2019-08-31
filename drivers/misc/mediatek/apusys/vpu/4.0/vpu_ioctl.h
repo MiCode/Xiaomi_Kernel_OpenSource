@@ -385,7 +385,7 @@ struct vpu_lock_power {
 	enum VPU_OPP_PRIORIYY priority;
 };
 
-#ifdef CONFIG_GZ_SUPPORT_SDSP
+#ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
 extern int mtee_sdsp_enable(u32 on);
 #endif
 
