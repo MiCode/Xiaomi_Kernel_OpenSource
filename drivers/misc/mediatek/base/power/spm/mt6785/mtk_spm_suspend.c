@@ -251,10 +251,6 @@ static unsigned int spm_output_wake_reason(unsigned int ex_flag,
 		* 1000));
 
 	log_wakeup_reason(mtk_spm_get_irq_0());
-#if defined(CONFIG_PINCTRL_MTK)
-	if (wakesta->r12 & R12_EINT_EVENT_B)
-		mt_eint_print_status();
-#endif
 
 #ifdef CONFIG_MTK_CCCI_DEVICES
 		exec_ccci_kern_func_by_md_id(0, ID_DUMP_MD_SLEEP_MODE,
