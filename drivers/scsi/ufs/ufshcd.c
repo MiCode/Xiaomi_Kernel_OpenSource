@@ -1888,7 +1888,7 @@ static ssize_t ufshcd_clkgate_delay_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
-	unsigned long flags, value;
+	unsigned long flags, value = 0;
 
 	if (kstrtoul(buf, 0, &value))
 		return -EINVAL;
