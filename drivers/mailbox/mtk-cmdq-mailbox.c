@@ -1229,7 +1229,7 @@ static struct mbox_chan *cmdq_xlate(struct mbox_controller *mbox,
 
 static s32 cmdq_config_prefetch(struct device_node *np, struct cmdq *cmdq)
 {
-	u32 i, prefetch_cnt = 0, prefetchs[4];
+	u32 i, prefetch_cnt = 0, prefetchs[4] = {0};
 	s32 err;
 
 	cmdq->prefetch = 0;

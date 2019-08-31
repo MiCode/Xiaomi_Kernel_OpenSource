@@ -1340,7 +1340,7 @@ s32 cmdq_mdp_wait(struct cmdqRecStruct *handle,
 
 s32 cmdq_mdp_flush(struct cmdqCommandStruct *desc, bool user_space)
 {
-	struct cmdqRecStruct *handle;
+	struct cmdqRecStruct *handle = NULL;
 	s32 status;
 
 	status = cmdq_mdp_flush_async(desc, user_space, &handle);
