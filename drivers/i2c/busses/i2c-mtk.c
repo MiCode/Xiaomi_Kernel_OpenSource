@@ -566,10 +566,10 @@ static int mtk_i2c_calculate_speed(struct mt_i2c *i2c,
 static int i2c_set_speed(struct mt_i2c *i2c, unsigned int clk_src_in_hz)
 {
 	int ret;
-	unsigned int step_cnt;
-	unsigned int sample_cnt;
-	unsigned int l_step_cnt;
-	unsigned int l_sample_cnt;
+	unsigned int step_cnt = 0;
+	unsigned int sample_cnt = 0;
+	unsigned int l_step_cnt = 0;
+	unsigned int l_sample_cnt = 0;
 	unsigned int speed_hz;
 	unsigned int duty = HALF_DUTY_CYCLE;
 
