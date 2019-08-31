@@ -138,12 +138,13 @@ static inline struct imu_pte_t *imu_pte_map(struct imu_pgd_t *pgd)
 			return (struct imu_pte_t *)(__va(pte_pa &
 						  F_PGD_PA_PAGETABLE_MSK));
 	} else {
+		phys_addr_t pte_pa_new = pte_pa & F_PGD_PA_PAGETABLE_MSK;
+
 		if (pte_pa & F_PGD_BIT32_BIT)
-			return (struct imu_pte_t *)(
-			__va((pte_pa & F_PGD_PA_PAGETABLE_MSK) + 0x100000000L));
+			pte_pa_new |= 0x100000000L;
 		if (pte_pa & F_PGD_BIT33_BIT)
-			return (struct imu_pte_t *)(
-			__va((pte_pa & F_PGD_PA_PAGETABLE_MSK) + 0x200000000L));
+			pte_pa_new |= 0x200000000L;
+		return (struct imu_pte_t *)(__va(pte_pa_new));
 	}
 }
 
