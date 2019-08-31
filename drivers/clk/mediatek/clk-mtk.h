@@ -260,6 +260,7 @@ struct mtk_clk_divider {
 	unsigned long flags;
 
 	u32 div_reg;
+	u32 div_reg_fixup;
 	unsigned char div_shift;
 	unsigned char div_width;
 	unsigned char clk_divider_flags;
@@ -276,6 +277,10 @@ struct mtk_clk_divider {
 }
 
 void mtk_clk_register_dividers(const struct mtk_clk_divider *mcds,
+			int num, void __iomem *base, spinlock_t *lock,
+				struct clk_onecell_data *clk_data);
+
+void mtk_clk_register_fixup_dividers(const struct mtk_clk_divider *mcds,
 			int num, void __iomem *base, spinlock_t *lock,
 				struct clk_onecell_data *clk_data);
 
