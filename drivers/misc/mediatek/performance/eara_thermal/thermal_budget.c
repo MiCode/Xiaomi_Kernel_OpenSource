@@ -38,7 +38,6 @@
 
 #ifdef CONFIG_MTK_PERF_OBSERVER
 #include <mt-plat/mtk_perfobserver.h>
-#include "rs_pfm.h"
 #endif
 #include "thermal_budget_platform.h"
 #include "thermal_budget.h"
@@ -421,7 +420,7 @@ static void wq_func(unsigned long data)
 	if (cur_ts < TIME_1S)
 		goto next;
 
-	update_gpu_info(&g_gpu_opp_num, &g_max_gpu_opp_idx,
+	eara_thrm_update_gpu_info(&g_gpu_opp_num, &g_max_gpu_opp_idx,
 			&thr_gpu_tbl, &g_opp_ratio);
 
 	for (n = rb_first(&render_list); n; n = next) {
@@ -773,7 +772,7 @@ static void thrm_pb_turn_record_locked(int input)
 	has_record = input;
 
 	if (input) {
-		update_gpu_info(&g_gpu_opp_num, &g_max_gpu_opp_idx,
+		eara_thrm_update_gpu_info(&g_gpu_opp_num, &g_max_gpu_opp_idx,
 			&thr_gpu_tbl, &g_opp_ratio);
 		if (!is_timer_active)
 			activate_timer_locked();
@@ -853,7 +852,7 @@ static int eara_thrm_xpufreq_notifier_cb(struct notifier_block *nb,
 		{
 			struct pob_xpufreq_info *pxi =
 				(struct pob_xpufreq_info *) data;
-			if (pxi->id >= rs_get_vpu_core_num())
+			if (pxi->id >= eara_thrm_get_vpu_core_num())
 				break;
 			if (g_vpu_opp)
 				g_vpu_opp[pxi->id] = pxi->opp;
@@ -867,7 +866,7 @@ static int eara_thrm_xpufreq_notifier_cb(struct notifier_block *nb,
 		{
 			struct pob_xpufreq_info *pxi =
 				(struct pob_xpufreq_info *) data;
-			if (pxi->id >= rs_get_mdla_core_num())
+			if (pxi->id >= eara_thrm_get_mdla_core_num())
 				break;
 			if (g_mdla_opp)
 				g_mdla_opp[pxi->id] = pxi->opp;
@@ -2344,7 +2343,7 @@ static int eara_thrm_table_show(struct seq_file *m, void *unused)
 	seq_printf(m, "GPU num_opp %d\n", mt_gpufreq_get_dvfs_table_num());
 
 	get_cobra_tbl();
-	update_gpu_info(&g_gpu_opp_num, &g_max_gpu_opp_idx,
+	eara_thrm_update_gpu_info(&g_gpu_opp_num, &g_max_gpu_opp_idx,
 			&thr_gpu_tbl, &g_opp_ratio);
 	if (!thr_cobra_tbl || !thr_gpu_tbl) {
 		mutex_unlock(&thrm_lock);
@@ -2556,7 +2555,7 @@ static ssize_t eara_thrm_test_write(struct file *flip, const char *ubuf,
 	ut_opp[THRM_MDLA] = -1;
 
 	get_cobra_tbl();
-	update_gpu_info(&g_gpu_opp_num, &g_max_gpu_opp_idx,
+	eara_thrm_update_gpu_info(&g_gpu_opp_num, &g_max_gpu_opp_idx,
 			&thr_gpu_tbl, &g_opp_ratio);
 	if (!thr_cobra_tbl || !thr_gpu_tbl)
 		return -EAGAIN;
@@ -2662,7 +2661,7 @@ static void update_vpu_info(void)
 			get_vpu_opp_to_freq(0);
 	}
 #ifdef CONFIG_MTK_PERF_OBSERVER
-	vpu_num = rs_get_vpu_core_num();
+	vpu_num = eara_thrm_get_vpu_core_num();
 #endif
 	if (vpu_num) {
 		g_vpu_opp = kcalloc(vpu_num, sizeof(int), GFP_KERNEL);
@@ -2686,7 +2685,7 @@ static void update_mdla_info(void)
 			get_mdla_opp_to_freq(0);
 	}
 #ifdef CONFIG_MTK_PERF_OBSERVER
-	mdla_num = rs_get_mdla_core_num();
+	mdla_num = eara_thrm_get_mdla_core_num();
 #endif
 	if (mdla_num) {
 		g_mdla_opp = kcalloc(mdla_num, sizeof(int), GFP_KERNEL);
@@ -2700,7 +2699,7 @@ static void update_mdla_info(void)
 static void get_power_tbl(void)
 {
 	update_cpu_info();
-	update_gpu_info(&g_gpu_opp_num, &g_max_gpu_opp_idx,
+	eara_thrm_update_gpu_info(&g_gpu_opp_num, &g_max_gpu_opp_idx,
 			&thr_gpu_tbl, &g_opp_ratio);
 	update_vpu_info();
 	update_mdla_info();

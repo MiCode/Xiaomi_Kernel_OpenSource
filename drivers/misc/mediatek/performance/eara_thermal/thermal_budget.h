@@ -35,8 +35,10 @@ extern void (*eara_thrm_frame_start_fp)(int pid,
 extern void (*eara_thrm_enqueue_end_fp)(int pid, int gpu_time, int gpu_freq,
 	unsigned long long enq);
 
-void update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
+void eara_thrm_update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
 		struct mt_gpufreq_power_table_info **gpu_tbl,
 		struct thrm_pb_ratio **opp_ratio);
+int eara_thrm_get_vpu_core_num(void);
+int eara_thrm_get_mdla_core_num(void);
 
 #endif
