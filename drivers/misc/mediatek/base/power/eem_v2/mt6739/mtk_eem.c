@@ -3751,9 +3751,12 @@ int mt_eem_status(enum eem_det_id id)
 
 	FUNC_ENTER(FUNC_LV_API);
 
-	WARN_ON(!det); /*BUG_ON(!det);*/
-	WARN_ON(!det->ops); /*BUG_ON(!det->ops);*/
-	WARN_ON(!det->ops->get_status); /* BUG_ON(!det->ops->get_status);*/
+	if (det == NULL)
+		return 0;
+	else if (det->ops == NULL)
+		return 0;
+	else if (det->ops->get_status == NULL)
+		return 0;
 
 	FUNC_EXIT(FUNC_LV_API);
 
