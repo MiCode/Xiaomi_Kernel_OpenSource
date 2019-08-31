@@ -1044,16 +1044,22 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		 *       will be enabled inside.
 		 */
 		ret = ufshcd_hba_enable(hba);
-		if (ret)
+		if (ret) {
+			dev_err(hba->dev, "%s: hba_enable failed. ret = %d\n",
+				__func__, ret);
 			return ret;
+		}
 
 		/* Leave vendor-specific power down mode to resume
 		 * UniPro state
 		 */
 		ret = ufshcd_dme_set(hba,
 			UIC_ARG_MIB_SEL(VENDOR_UNIPROPOWERDOWNCONTROL, 0), 0);
-		if (ret)
+		if (ret) {
+			dev_err(hba->dev, "%s: UniProPowerDownControl failed. ret = %d\n",
+				__func__, ret);
 			return ret;
+		}
 
 		/*
 		 * Leave hibern8 state
@@ -1073,8 +1079,11 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 		/* Re-start hba */
 		ret = ufshcd_make_hba_operational(hba);
-		if (ret)
+		if (ret) {
+			dev_err(hba->dev, "%s: make_hba_operational failed. ret = %d\n",
+				__func__, ret);
 			return ret;
+		}
 
 		/* vendor-specific crypto resume */
 		mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 2),
