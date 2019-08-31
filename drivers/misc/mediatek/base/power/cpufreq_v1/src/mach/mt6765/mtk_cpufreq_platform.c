@@ -17,7 +17,7 @@
 
 #include <mt-plat/mtk_devinfo.h>
 #ifdef CONFIG_MTK_FREQ_HOPPING
-#include <mt_freqhopping_drv.h>
+#include <mtk_freqhopping_drv.h>
 #else
 #define FH_PLL0 0 /* LL : ARMPLL */
 #define FH_PLL7 7 /* L : ARMPLL_L */
