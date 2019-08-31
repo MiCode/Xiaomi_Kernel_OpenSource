@@ -35,7 +35,7 @@
 
 #include <audio_ipi_queue.h>
 
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 #include <scp_helper.h>
 #include <scp_ipi.h>
 #include <scp_feature_define.h>
@@ -133,10 +133,31 @@ struct audio_ipi_reg_dma_t {
 	uint32_t magic_footer;
 };
 
+
 struct audio_ipi_reg_feature_t {
 	uint16_t reg_flag;
 	uint16_t feature_id;
 };
+
+
+struct audio_task_info_t {
+	uint32_t dsp_id;            /* dsp_id_t */
+	uint8_t  is_dsp_support;    /* dsp_id supported or not */
+	uint8_t  is_adsp;           /* adsp(HiFi) or not */
+	uint8_t  is_scp;            /* scp(CM4) or not */
+	uint8_t  task_ctrl;         /* task controller scene # */
+};
+
+
+
+/*
+ * =============================================================================
+ *                     global var
+ * =============================================================================
+ */
+
+static struct audio_task_info_t g_audio_task_info[TASK_SCENE_SIZE];
+
 
 
 /*
@@ -258,7 +279,9 @@ static int parsing_ipi_msg_from_user_space(
 		if (hal_wb_buf_size != 0 && hal_wb_buf_addr != NULL) {
 			/* alloc a dma for wb */
 			audio_ipi_dma_alloc(ipi_msg.task_scene,
-				&dram_buf, &dram_buf_virt, hal_wb_buf_size);
+					    &dram_buf,
+					    &dram_buf_virt,
+					    hal_wb_buf_size);
 
 			wb_dram->memory_size = hal_wb_buf_size;
 			wb_dram->data_size = 0;
@@ -340,7 +363,7 @@ parsing_exit:
 			, ipi_msg.task_scene, ipi_msg.msg_id,
 			dram_buf, hal_wb_buf_size);
 		audio_ipi_dma_free(ipi_msg.task_scene,
-			dram_buf, hal_wb_buf_size);
+				   dram_buf, hal_wb_buf_size);
 	}
 	ipi_dbg("task %d msg 0x%x, retval %d",
 		ipi_msg.task_scene, ipi_msg.msg_id, retval);
@@ -359,12 +382,12 @@ static int audio_ctrl_event_receive(
 {
 	struct ipi_queue_handler_t *handler = NULL;
 	uint8_t scene = 0;
+	uint32_t dsp_id = 0;
 
 	switch (event) {
 	case ADSP_EVENT_STOP:
 		for (scene = 0; scene < TASK_SCENE_SIZE; scene++) {
-			if (audio_get_opendsp_id(scene) ==
-			    AUDIO_OPENDSP_USE_HIFI3) {
+			if (is_audio_use_adsp(audio_get_dsp_id(scene))) {
 				handler = get_ipi_queue_handler(scene);
 				if (handler != NULL)
 					flush_ipi_queue_handler(handler);
@@ -372,7 +395,11 @@ static int audio_ctrl_event_receive(
 		}
 		break;
 	case ADSP_EVENT_READY:
-		audio_ipi_dma_init_dsp(TASK_SCENE_AUDIO_CONTROLLER_HIFI3);
+		for (dsp_id = 0; dsp_id < NUM_OPENDSP_TYPE; dsp_id++) {
+			if (is_audio_use_adsp(dsp_id))
+				audio_ipi_dma_init_dsp(dsp_id);
+
+		}
 		break;
 	default:
 		pr_info("event %lu err", event);
@@ -388,18 +415,35 @@ static struct notifier_block audio_ctrl_notifier = {
 #endif /* end of CFG_RECOVERY_SUPPORT */
 
 /* HAL reboot */
-static int audio_ipi_init_dsp_hifi3(void)
+static int audio_ipi_init_dsp_hifi3(const uint32_t dsp_id)
 {
-	static bool init_flag;
+	static bool init_flag[NUM_OPENDSP_TYPE];
+
+	uint8_t task = TASK_SCENE_INVALID;
 
 	struct ipi_msg_t ipi_msg;
 	int ret = 0;
 
+	if (dsp_id >= NUM_OPENDSP_TYPE) {
+		pr_info("dsp_id(%u) invalid!!!", dsp_id);
+		return -ENODEV;
+	}
+	if (!is_audio_use_adsp(dsp_id)) {
+		pr_info("dsp_id(%u) not for adsp!!!", dsp_id);
+		return -ENODEV;
+	}
+
+	task = get_audio_controller_task(dsp_id);
+	if (task == TASK_SCENE_INVALID) {
+		pr_info("task(%d) invalid!!!", task);
+		return -ENODEV;
+	}
+
 	/* check phone boot */
-	if (init_flag == false) {
-		init_flag = true;
+	if (init_flag[dsp_id] == false) {
+		init_flag[dsp_id] = true;
 		pr_info("phone init");
-		audio_ipi_dma_init_dsp(TASK_SCENE_AUDIO_CONTROLLER_HIFI3);
+		audio_ipi_dma_init_dsp(dsp_id);
 		return 0;
 	}
 	/* wake up adsp */
@@ -418,7 +462,7 @@ static int audio_ipi_init_dsp_hifi3(void)
 	/* ADSP process hal reboot here */
 	ret = audio_send_ipi_msg(
 		      &ipi_msg,
-		      TASK_SCENE_AUDIO_CONTROLLER_HIFI3,
+		      task,
 		      AUDIO_IPI_LAYER_TO_DSP,
 		      AUDIO_IPI_MSG_ONLY,
 		      AUDIO_IPI_MSG_NEED_ACK,
@@ -428,7 +472,7 @@ static int audio_ipi_init_dsp_hifi3(void)
 		      NULL);
 
 	/* release DMA */
-	audio_ipi_dma_free_region_all_task(AUDIO_OPENDSP_USE_HIFI3);
+	audio_ipi_dma_free_region_all_task(dsp_id);
 
 
 	/* allow adsp to sleep */
@@ -441,7 +485,7 @@ static int audio_ipi_init_dsp_hifi3(void)
 }
 #endif
 
-#if defined(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
+#if defined(CONFIG_MTK_AUDIO_CM4_SUPPORT)
 /* SCP reboot */
 #if defined(SCP_RECOVERY_SUPPORT)
 static int audio_ctrl_event_receive_scp(
@@ -455,7 +499,7 @@ static int audio_ctrl_event_receive_scp(
 	switch (event) {
 	case SCP_EVENT_STOP:
 		for (scene = 0; scene < TASK_SCENE_SIZE; scene++) {
-			if (audio_get_opendsp_id(scene) ==
+			if (audio_get_dsp_id(scene) ==
 			    AUDIO_OPENDSP_USE_CM4_A) {
 				handler = get_ipi_queue_handler(scene);
 				if (handler != NULL)
@@ -465,7 +509,7 @@ static int audio_ctrl_event_receive_scp(
 		break;
 #if defined(CONFIG_MTK_AUDIO_CM4_DMA_SUPPORT)
 	case SCP_EVENT_READY:
-		audio_ipi_dma_init_dsp(TASK_SCENE_AUDIO_CONTROLLER_CM4);
+		audio_ipi_dma_init_dsp(AUDIO_OPENDSP_USE_CM4_A);
 		break;
 #endif
 	default:
@@ -491,7 +535,7 @@ static int audio_ipi_init_dsp_cm4(void)
 	if (init_flag == false) {
 		init_flag = true;
 		pr_info("phone init");
-		audio_ipi_dma_init_dsp(TASK_SCENE_AUDIO_CONTROLLER_CM4);
+		audio_ipi_dma_init_dsp(AUDIO_OPENDSP_USE_CM4_A);
 		return 0;
 	}
 
@@ -506,15 +550,15 @@ static int audio_ipi_init_dsp_cm4(void)
 
 	/* SCP process hal reboot here */
 	ret = audio_send_ipi_msg(
-		&ipi_msg,
-		TASK_SCENE_AUDIO_CONTROLLER_CM4,
-		AUDIO_IPI_LAYER_TO_DSP,
-		AUDIO_IPI_MSG_ONLY,
-		AUDIO_IPI_MSG_NEED_ACK,
-		AUD_CTL_MSG_A2D_HAL_REBOOT,
-		0, /* 0: audio HAL */
-		0,
-		NULL);
+		      &ipi_msg,
+		      TASK_SCENE_AUDIO_CONTROLLER_CM4,
+		      AUDIO_IPI_LAYER_TO_DSP,
+		      AUDIO_IPI_MSG_ONLY,
+		      AUDIO_IPI_MSG_NEED_ACK,
+		      AUD_CTL_MSG_A2D_HAL_REBOOT,
+		      0, /* 0: audio HAL */
+		      0,
+		      NULL);
 
 	/* release DMA */
 	audio_ipi_dma_free_region_all_task(AUDIO_OPENDSP_USE_CM4_A);
@@ -522,11 +566,13 @@ static int audio_ipi_init_dsp_cm4(void)
 
 	return ret;
 }
-#endif /* end of CONFIG_MTK_TINYSYS_SCP_SUPPORT */
+#endif /* end of CONFIG_MTK_AUDIO_CM4_SUPPORT */
 
 static long audio_ipi_driver_ioctl(
 	struct file *file, unsigned int cmd, unsigned long arg)
 {
+	uint32_t dsp_id = 0;
+
 	struct audio_ipi_reg_dma_t dma_reg;
 	int retval = 0;
 	uint32_t check_sum = 0;
@@ -555,13 +601,29 @@ static long audio_ipi_driver_ioctl(
 		break;
 	}
 	case AUDIO_IPI_IOCTL_INIT_DSP: {
-		pr_debug("AUDIO_IPI_IOCTL_INIT_DSP(%d)", (uint8_t)arg);
+		pr_debug("AUDIO_IPI_IOCTL_INIT_DSP");
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-		audio_ipi_init_dsp_hifi3();
+		for (dsp_id = 0; dsp_id < NUM_OPENDSP_TYPE; dsp_id++) {
+			if (is_audio_use_adsp(dsp_id))
+				audio_ipi_init_dsp_hifi3(dsp_id);
+
+		}
 #endif
-#if defined(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
+#if defined(CONFIG_MTK_AUDIO_CM4_SUPPORT)
 		audio_ipi_init_dsp_cm4();
 #endif
+		/* copy g_audio_task_info to HAL */
+		if (((void __user *)arg) == NULL)
+			retval = -EINVAL;
+		else {
+			retval = copy_to_user((void __user *)arg,
+					      g_audio_task_info,
+					      sizeof(g_audio_task_info));
+		}
+		if (retval) {
+			pr_info("task info copy_to_user err");
+			retval = -EFAULT;
+		}
 		break;
 	}
 	case AUDIO_IPI_IOCTL_REG_DMA: {
@@ -644,34 +706,47 @@ static int __init audio_ipi_driver_init(void)
 {
 	int ret = 0;
 
-	int opendsp_id = 0;
+	uint32_t dsp_id = 0;
 
-	for (opendsp_id = 0; opendsp_id < NUM_OPENDSP_TYPE; opendsp_id++) {
-		if (audio_get_opendsp_support(opendsp_id))
-			scp_ipi_queue_init(opendsp_id);
+	struct audio_task_info_t *task_info = NULL;
+	uint8_t task_id = 0;
+
+	for (dsp_id = 0; dsp_id < NUM_OPENDSP_TYPE; dsp_id++) {
+		if (is_audio_dsp_support(dsp_id))
+			scp_ipi_queue_init(dsp_id);
 	}
 
 	audio_task_manager_init();
 	audio_messenger_ipi_init();
 
-	for (opendsp_id = 0; opendsp_id < NUM_OPENDSP_TYPE; opendsp_id++) {
-		if (audio_get_opendsp_support(opendsp_id))
-			init_audio_ipi_dma(
-				get_audio_controller_task(opendsp_id));
-
+	for (dsp_id = 0; dsp_id < NUM_OPENDSP_TYPE; dsp_id++) {
+		if (is_audio_dsp_support(dsp_id))
+			init_audio_ipi_dma(dsp_id);
 	}
 
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT) && defined(CFG_RECOVERY_SUPPORT)
 	adsp_A_register_notify(&audio_ctrl_notifier);
 #endif
 
-#if defined(CONFIG_MTK_TINYSYS_SCP_SUPPORT) && defined(SCP_RECOVERY_SUPPORT)
+#if defined(CONFIG_MTK_AUDIO_CM4_SUPPORT) && defined(SCP_RECOVERY_SUPPORT)
 	scp_A_register_notify(&audio_ctrl_notifier_scp);
 #endif
 
 #if defined(CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT)
 	audio_ipi_client_phone_call_init();
 #endif
+
+	for (task_id = 0; task_id < TASK_SCENE_SIZE; task_id++) {
+		task_info = &g_audio_task_info[task_id];
+
+		dsp_id = audio_get_dsp_id(task_id);
+
+		task_info->dsp_id = dsp_id;
+		task_info->is_dsp_support = is_audio_dsp_support(dsp_id);
+		task_info->is_adsp = is_audio_use_adsp(dsp_id);
+		task_info->is_scp = is_audio_use_scp(dsp_id);
+		task_info->task_ctrl = get_audio_controller_task(dsp_id);
+	}
 
 	ret = misc_register(&audio_ipi_device);
 	if (unlikely(ret != 0)) {
@@ -685,16 +760,15 @@ static int __init audio_ipi_driver_init(void)
 
 static void __exit audio_ipi_driver_exit(void)
 {
-	int opendsp_id = 0;
+	int dsp_id = 0;
 
 #if defined(CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT)
 	audio_ipi_client_phone_call_deinit();
 #endif
 	audio_task_manager_deinit();
-	for (opendsp_id = 0; opendsp_id < NUM_OPENDSP_TYPE; opendsp_id++) {
-		if (audio_get_opendsp_support(opendsp_id))
-			deinit_audio_ipi_dma(
-				get_audio_controller_task(opendsp_id));
+	for (dsp_id = 0; dsp_id < NUM_OPENDSP_TYPE; dsp_id++) {
+		if (is_audio_dsp_support(dsp_id))
+			deinit_audio_ipi_dma(dsp_id);
 	}
 	misc_deregister(&audio_ipi_device);
 }

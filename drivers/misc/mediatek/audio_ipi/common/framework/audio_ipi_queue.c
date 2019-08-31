@@ -21,7 +21,7 @@
 
 #include <linux/delay.h>
 
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 #include <scp_ipi.h>
 #endif
 
@@ -322,7 +322,7 @@ int send_message(
 	int retval = 0;
 
 	uint32_t try_cnt = 0;
-	const uint32_t k_max_try_cnt = 200; /* retry 2 sec for -ERESTARTSYS */
+	const uint32_t k_max_try_cnt = 100; /* retry 1 sec for -ERESTARTSYS */
 	const uint32_t k_restart_sleep_min_us = 10 * 1000; /* 10 ms */
 	const uint32_t k_restart_sleep_max_us = (k_restart_sleep_min_us + 200);
 
@@ -351,7 +351,7 @@ int send_message(
 		return -1;
 	}
 
-	if (audio_opendsp_ready(p_ipi_msg->task_scene) == false) {
+	if (is_audio_task_dsp_ready(p_ipi_msg->task_scene) == false) {
 		pr_info("dsp not ready!! return");
 		return -1;
 	}
@@ -391,7 +391,7 @@ int send_message(
 				retval = 0;
 				break;
 			}
-			if (!audio_opendsp_ready(p_ipi_msg->task_scene)) {
+			if (!is_audio_task_dsp_ready(p_ipi_msg->task_scene)) {
 				DUMP_IPI_MSG("dsp not ready", p_ipi_msg);
 				return 0;
 			}
@@ -578,7 +578,7 @@ static int process_message_in_queue(
 				retval = 0;
 				break;
 			}
-			if (!audio_opendsp_ready(p_ipi_msg->task_scene)) {
+			if (!is_audio_task_dsp_ready(p_ipi_msg->task_scene)) {
 				DUMP_IPI_MSG("dsp not ready", p_ipi_msg);
 				retval = -ENODEV;
 				break;

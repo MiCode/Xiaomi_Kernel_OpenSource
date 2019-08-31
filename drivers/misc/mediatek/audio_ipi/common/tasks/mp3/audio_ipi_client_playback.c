@@ -330,7 +330,7 @@ static int dump_kthread(void *data)
 void audio_ipi_client_playback_init(void)
 {
 	aud_wake_lock_init(&playback_pcm_dump_wake_lock,
-		"playback_pcm_dump_wake_lock");
+			   "playback_pcm_dump_wake_lock");
 	dump_workqueue[DUMP_DECODE] = create_workqueue("dump_decode_pcm");
 	if (dump_workqueue[DUMP_DECODE] == NULL)
 		pr_notice("dump_workqueue[DUMP_DECODE] = %p\n",

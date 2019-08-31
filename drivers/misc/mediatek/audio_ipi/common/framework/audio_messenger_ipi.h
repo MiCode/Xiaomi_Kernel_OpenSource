@@ -26,7 +26,7 @@
  * =============================================================================
  */
 
-#define MAX_IPI_MSG_BUF_SIZE     (272) /* SHARE_BUF_SIZE - 16 */
+#define MAX_IPI_MSG_BUF_SIZE     (240) /* SHARE_BUF_SIZE - 16 */
 #define IPI_MSG_HEADER_SIZE      (16)
 #define MAX_IPI_MSG_PAYLOAD_SIZE (MAX_IPI_MSG_BUF_SIZE - IPI_MSG_HEADER_SIZE)
 

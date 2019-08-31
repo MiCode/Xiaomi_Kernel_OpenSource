@@ -17,7 +17,7 @@
 #include <linux/spinlock.h>
 #include <linux/errno.h>
 
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 #include <scp_ipi.h>
 #endif
 
@@ -265,7 +265,7 @@ static void audio_ipi_msg_dispatcher(int id, void *data, unsigned int len)
 void audio_messenger_ipi_init(void)
 {
 	int i = 0;
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 	int ret_scp = 0;
 #endif
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
@@ -274,7 +274,7 @@ void audio_messenger_ipi_init(void)
 
 	current_idx = 0;
 
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 	ret_scp = scp_ipi_registration(
 			  IPI_AUDIO,
 			  audio_ipi_msg_dispatcher,
@@ -431,7 +431,7 @@ int send_message_to_scp(const struct ipi_msg_t *p_ipi_msg)
 	int send_status = 0;
 	uint32_t wait_ms = 0;
 
-	uint32_t opendsp_id = 0;
+	uint32_t dsp_id = 0;
 	uint32_t ipi_id = 0;
 
 
@@ -446,11 +446,11 @@ int send_message_to_scp(const struct ipi_msg_t *p_ipi_msg)
 		  ? 0
 		  : ADSP_IPI_QUEUE_DEFAULT_WAIT_MS;
 
-	opendsp_id = audio_get_opendsp_id(p_ipi_msg->task_scene);
+	dsp_id = audio_get_dsp_id(p_ipi_msg->task_scene);
 	ipi_id = audio_get_ipi_id(p_ipi_msg->task_scene);
 
 	send_status = scp_send_msg_to_queue(
-			      opendsp_id,
+			      dsp_id,
 			      ipi_id,
 			      (void *)p_ipi_msg,
 			      get_message_buf_size(p_ipi_msg),
