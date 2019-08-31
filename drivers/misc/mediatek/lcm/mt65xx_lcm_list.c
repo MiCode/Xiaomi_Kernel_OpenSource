@@ -1237,6 +1237,10 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(R63350A_FHD_DSI_VDO_TRULY)
 	&r63350a_fhd_dsi_vdo_truly_lcm_drv,
 #endif
+
+#if defined(TD4320_FHDP_DSI_VDO_AUO_RT5081)
+	&td4320_fhdp_dsi_vdo_auo_rt5081_lcm_drv,
+#endif
 };
 
 unsigned char lcm_name_list[][128] = {
