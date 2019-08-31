@@ -16,6 +16,9 @@
 
 #include <mtk_wcn_cmb_stub.h>
 
+#define KERNEL_mtk_wcn_cmb_sdio_request_eirq \
+		mtk_wcn_cmb_sdio_request_eirq_by_wmt
+void mtk_wcn_cmb_sdio_request_eirq_by_wmt(void);
 
 /*******************************************************************************
  * Bridging from platform -> wmt_drv.ko
