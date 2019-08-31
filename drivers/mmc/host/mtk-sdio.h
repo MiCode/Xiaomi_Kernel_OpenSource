@@ -86,6 +86,19 @@
 #define MSDC_SDC_FIFO_CFG	0x228
 
 #define MAX_REGISTER_ADDR	0x228
+
+/*--------------------------------------------------------------------------*/
+/*Top Register Offset                                                       */
+/*--------------------------------------------------------------------------*/
+#define MSDC_TOP_CONTROL	(0x00)
+#define MSDC_TOP_CMD		(0x04)
+#define MSDC_TOP_PAD_CTRL0	(0x08)
+#define MSDC_TOP_PAD_DS_TUNE	(0x0c)
+#define MSDC_TOP_PAD_DAT0_TUNE	(0x10)
+#define MSDC_TOP_PAD_DAT1_TUNE	(0x14)
+#define MSDC_TOP_PAD_DAT2_TUNE	(0x18)
+#define MSDC_TOP_PAD_DAT3_TUNE	(0x1c)
+
 /*--------------------------------------------------------------------------*/
 /* Register Mask                                                            */
 /*--------------------------------------------------------------------------*/
@@ -341,6 +354,10 @@
 #define MSDC_PATCH_BIT_SPCPUSH    (0x1 << 29)	/* RW */
 #define MSDC_PATCH_BIT_DECRCTMO   (0x1 << 30)	/* RW */
 
+/* MSDC_PATCH_BIT1 mask */
+#define MSDC_PATCH_BIT1_WRDAT_CRCS  (0x7 << 0)
+#define MSDC_PATCH_BIT1_CMD_RSP     (0x7 << 3)
+
 /* MSDC_PAD_TUNE mask */
 #define MSDC_PAD_TUNE_DATWRDLY  (0x1f << 0)	/* RW */
 #define MSDC_PAD_TUNE_DATRRDLY  (0x1f << 8)	/* RW */
@@ -488,6 +505,30 @@
 #define EMMC50_CFG_CRCSTS_EDGE    (0x1 << 3)   /* RW */
 #define EMMC50_CFG_CFCSTS_SEL     (0x1 << 4)   /* RW */
 
+/* EMMC_TOP_CONTROL mask */
+#define PAD_RXDLY_SEL           (0x1 << 0)      /* RW */
+#define PAD_DAT_RD_RXDLY2       (0x1F << 2)     /* RW */
+#define PAD_DAT_RD_RXDLY        (0x1F << 7)     /* RW */
+#define PAD_DAT_RD_RXDLY2_SEL   (0x1 << 12)     /* RW */
+#define PAD_DAT_RD_RXDLY_SEL    (0x1 << 13)     /* RW */
+#define DATA_K_VALUE_SEL        (0x1 << 14)     /* RW */
+
+/* EMMC_TOP_CMD mask */
+#define PAD_CMD_RXDLY2          (0x1F << 0)     /* RW */
+#define PAD_CMD_RXDLY           (0x1F << 5)     /* RW */
+#define PAD_CMD_RD_RXDLY2_SEL   (0x1 << 10)     /* RW */
+#define PAD_CMD_RD_RXDLY_SEL    (0x1 << 11)     /* RW */
+
+/* TOP_EMMC50_PAD_CTL0 mask */
+#define MSDC_PAD_CLK_TXDLY           (0x1F << 10)    /* RW */
+
+/* TOP_EMMC50_PAD_DS_TUNE mask */
+#define PAD_DS_DLY3             (0x1F << 0)     /* RW */
+#define PAD_DS_DLY2             (0x1F << 5)     /* RW */
+#define PAD_DS_DLY1             (0x1F << 10)    /* RW */
+#define PAD_DS_DLY2_SEL         (0x1 << 15)     /* RW */
+#define PAD_DS_DLY_SEL          (0x1 << 16)     /* RW */
+
 #ifdef CONFIG_MMC_MTK_SDIO
 #define SUPPORT_LEGACY_SDIO
 #endif
@@ -522,7 +563,7 @@ extern struct sdio_ops mt_sdio_ops[4];
 #define MSDC_ASYNC_FLAG (0x1 << 1)
 #define MSDC_MMAP_FLAG (0x1 << 2)
 
-#define MTK_MMC_AUTOSUSPEND_DELAY	10
+#define MTK_MMC_AUTOSUSPEND_DELAY	50
 #define CMD_TIMEOUT         (HZ/10 * 5)	/* 100ms x5 */
 #define DAT_TIMEOUT         (HZ    * 5)	/* 1000ms x5 */
 
@@ -581,6 +622,7 @@ struct msdc_save_para {
 	u32 patch_bit2;
 	u32 pad_ds_tune;
 	u32 emmc50_cfg0;
+	u32 msdc_inten;
 };
 
 struct msdc_tune_para {
@@ -593,6 +635,11 @@ struct msdc_delay_phase {
 	u8 maxlen;
 	u8 start;
 	u8 final_phase;
+};
+
+struct mt81xx_sdio_compatible {
+	bool v3_plus;
+	bool top_reg;
 };
 
 struct msdc_host {
@@ -608,6 +655,8 @@ struct msdc_host {
 	int error;
 
 	void __iomem *base;		/* host base address */
+	void __iomem *base_top;		/* host top base address */
+	void __iomem *base_gpio;		/* host top base address */
 	void __iomem *infra_reset;      /* infra reset 0x10001030 */
 
 	struct msdc_dma dma;	/* dma channel */
@@ -659,4 +708,5 @@ struct msdc_host {
 	/* power management callback for external module */
 	void (*register_pm)(pm_callback_t pm_cb, void *data);
 #endif
+	const struct mt81xx_sdio_compatible *dev_comp;
 };
