@@ -2474,7 +2474,7 @@ static int handle_tx_event(struct xhci_hcd *xhci,
 		 * a Ring Overrun Event for IN Isoch endpoint or Ring
 		 * Underrun Event for OUT Isoch endpoint.
 		 */
-		xhci_dbg(xhci, "underrun event on endpoint\n");
+		xhci_warn_ratelimited(xhci, "underrun event on endpoint\n");
 		if (!list_empty(&ep_ring->td_list))
 			xhci_warn_ratelimited(xhci, "Underrun Event for slot %d ep %d "
 					"still with TDs queued?\n",
@@ -2482,7 +2482,7 @@ static int handle_tx_event(struct xhci_hcd *xhci,
 				 ep_index);
 		goto cleanup;
 	case COMP_RING_OVERRUN:
-		xhci_dbg(xhci, "overrun event on endpoint\n");
+		xhci_warn_ratelimited(xhci, "overrun event on endpoint\n");
 		if (!list_empty(&ep_ring->td_list))
 			xhci_warn_ratelimited(xhci, "Overrun Event for slot %d ep %d "
 					"still with TDs queued?\n",
