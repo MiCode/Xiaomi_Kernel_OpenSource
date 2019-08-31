@@ -11,10 +11,9 @@
 # GNU General Public License for more details.
 #
 
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/rtc/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6357
-ccflags-$(CONFIG_MACH_MT6739)+= -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6739/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include
 
 obj-$(CONFIG_MTK_RTC) := mtk_rtc_hal.o
 
