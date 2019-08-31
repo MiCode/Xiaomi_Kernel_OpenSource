@@ -73,6 +73,8 @@ static int peer_mgr_chunk_alloc_locked(
 	if (ret != 0) {
 		pr_err("peer alloc size: 0x%x failed:%d\n", size, ret);
 		MGR_SESSION_UNLOCK();
+		if (ret == -ENOMEM)
+			return ret;
 		return TMEM_MGR_ALLOC_MEM_FAILED;
 	}
 
