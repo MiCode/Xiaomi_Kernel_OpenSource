@@ -169,6 +169,7 @@ static int ion_sec_heap_allocate(struct ion_heap *heap,
 		unsigned long flags)
 {
 	u32 sec_handle = 0;
+	int ret = 0;
 	struct ion_sec_buffer_info *pbufferinfo = NULL;
 	u32 refcount = 0;
 #ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
@@ -197,13 +198,15 @@ static int ion_sec_heap_allocate(struct ion_heap *heap,
 #ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
 	tmem_type = get_trusted_mem_type(heap->id);
 	if (flags & ION_FLAG_MM_HEAP_INIT_ZERO)
-		trusted_mem_api_alloc_zero(tmem_type, align, size, &refcount,
-					   &sec_handle, (uint8_t *)heap->name,
-					   heap->id);
+		ret = trusted_mem_api_alloc_zero(
+				tmem_type, align, size, &refcount,
+				&sec_handle, (uint8_t *)heap->name,
+				heap->id);
 	else
-		trusted_mem_api_alloc(tmem_type, align, size, &refcount,
-				      &sec_handle, (uint8_t *)heap->name,
-				      heap->id);
+		ret = trusted_mem_api_alloc(
+				tmem_type, align, size, &refcount,
+				&sec_handle, (uint8_t *)heap->name,
+				heap->id);
 #elif defined(MTK_IN_HOUSE_SEC_ION_SUPPORT)
 	{
 		int ret = 0;
@@ -231,6 +234,12 @@ static int ion_sec_heap_allocate(struct ion_heap *heap,
 	refcount = 0;
 #endif
 
+	if (ret == -ENOMEM) {
+		IONMSG(
+			"%s security out of memory, heap:%d\n",
+			__func__, heap->id);
+		heap->debug_show(heap, NULL, NULL);
+	}
 	if (sec_handle <= 0) {
 		IONMSG(
 			"%s alloc security memory failed, total size %zu\n",
