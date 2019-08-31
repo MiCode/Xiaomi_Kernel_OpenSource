@@ -779,7 +779,7 @@ static void mrdump_mini_build_elf_misc(void)
 	    (unsigned long)((void *)mrdump_mini_ehdr + MRDUMP_MINI_HEADER_SIZE);
 	unsigned long task_info_pa = 0;
 #if defined(CONFIG_GZ_LOG)
-	unsigned long gz_log_pa;
+	unsigned long gz_log_pa = 0;
 
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
 	get_gz_log_buffer(&misc.vaddr, &gz_log_pa, &misc.size, &misc.start);
