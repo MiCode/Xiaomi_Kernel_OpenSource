@@ -109,7 +109,6 @@ static struct dentry *fbt_debugfs_dir;
 
 static int bhr;
 static int bhr_opp;
-static int vsync_percent;
 static int rescue_opp_f;
 static int rescue_enhance_f;
 static int rescue_opp_c;
@@ -118,13 +117,11 @@ static int min_rescue_percent;
 static int short_rescue_ns;
 static int short_min_rescue_p;
 static int run_time_percent;
-static int vsync_period;
 static int deqtime_bound;
 static int variance;
 static int floor_bound;
 static int kmin;
 static int floor_opp;
-static int loading_policy;
 static int loading_th;
 static int sampling_period_MS;
 static int loading_adj_cnt;
@@ -134,7 +131,6 @@ static int adjust_loading;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
-module_param(vsync_percent, int, 0644);
 module_param(rescue_opp_f, int, 0644);
 module_param(rescue_enhance_f, int, 0644);
 module_param(rescue_opp_c, int, 0644);
@@ -180,6 +176,9 @@ static int fbt_down_throttle_enable;
 static int sync_flag;
 static int fbt_sync_flag_enable;
 static int ultra_rescue;
+static int loading_policy;
+
+static int vsync_period;
 
 static unsigned int cpu_max_freq;
 static struct fbt_cpu_dvfs_info *cpu_dvfs;
@@ -199,9 +198,6 @@ static unsigned long long vsync_time;
 
 static int _gdfrc_fps_limit;
 static int _gdfrc_cpu_target;
-
-static unsigned long long g_rescue_distance;
-static unsigned long long g_vsync_distance;
 
 static int nsec_to_100usec(unsigned long long nsec)
 {
@@ -1911,7 +1907,7 @@ static int fbt_adjust_loading_weight(struct fbt_frame_info *frame_info,
 
 	if (avg_running > target_time)
 		new_weight += 10;
-	else if (avg_running < (target_time+loading_time_diff))
+	else if (avg_running < (target_time-loading_time_diff))
 		new_weight -= 10;
 
 	new_weight = clamp(new_weight, 0, 100);
@@ -2119,11 +2115,8 @@ void fpsgo_comp2fbt_frame_start(struct render_info *thr,
 		return;
 	}
 
-	if (thr->Q2Q_time < thr->running_time) {
-		fpsgo_systrace_c_fbt(thr->pid, thr->running_time,
-						"full running");
+	if (thr->Q2Q_time < thr->running_time)
 		thr->running_time = thr->Q2Q_time;
-	}
 
 	mutex_lock(&fbt_mlock);
 	fbt_set_idleprefer_locked(1);
@@ -2218,16 +2211,6 @@ void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit)
 	mutex_lock(&fbt_mlock);
 	_gdfrc_fps_limit = fps_limit;
 	_gdfrc_cpu_target = FBTCPU_SEC_DIVIDER / fps_limit;
-
-	g_rescue_distance =
-		_gdfrc_cpu_target * (unsigned long long)rescue_percent;
-	g_rescue_distance =
-		div64_u64(g_rescue_distance, 100ULL);
-
-	g_vsync_distance =
-		_gdfrc_cpu_target * (unsigned long long)vsync_percent;
-	g_vsync_distance = div64_u64(g_vsync_distance, 100ULL);
-
 	vsync_period = _gdfrc_cpu_target;
 
 	xgf_trace("_gdfrc_fps_limit %d", _gdfrc_fps_limit);
@@ -2957,7 +2940,6 @@ int __init fbt_cpu_init(void)
 {
 	bhr = 5;
 	bhr_opp = 1;
-	vsync_percent = 50;
 	rescue_opp_c = (NR_FREQ_CPU - 1);
 	rescue_opp_f = 5;
 	rescue_percent = 33;
@@ -2979,14 +2961,6 @@ int __init fbt_cpu_init(void)
 
 	_gdfrc_fps_limit = TARGET_UNLIMITED_FPS;
 	_gdfrc_cpu_target = GED_VSYNC_MISS_QUANTUM_NS;
-	g_rescue_distance =
-		_gdfrc_cpu_target * (unsigned long long)rescue_percent;
-	g_rescue_distance =
-		div64_u64(g_rescue_distance, 100ULL);
-	g_vsync_distance =
-		_gdfrc_cpu_target * (unsigned long long)vsync_percent;
-	g_vsync_distance =
-		div64_u64(g_vsync_distance, 100ULL);
 	vsync_period = GED_VSYNC_MISS_QUANTUM_NS;
 
 	fbt_idleprefer_enable = 1;
