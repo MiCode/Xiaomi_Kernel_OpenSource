@@ -156,7 +156,7 @@ endif
 
 
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6799" "mt6759" "mt6763" "mt6758"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6799" "mt6759" "mt6763" "mt6765" "mt6758"))
 ifeq ($(CONFIG_MTK_THERMAL_PA_VIA_ATCMD),y)
     obj-$(CONFIG_THERMAL) += mtk_cooler_mutt.o
 endif
@@ -181,7 +181,7 @@ obj-$(CONFIG_THERMAL) += mtk_cooler_VR_FPS.o
 endif
 
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739" "mt6771" "mt6775" "mt6768" "mt6785"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739" "mt6771" "mt6775" "mt6765" "mt6768" "mt6785"))
 ifeq ($(CONFIG_MTK_THERMAL_PA_VIA_ATCMD),y)
     obj-$(CONFIG_THERMAL) += mtk_cooler_mutt.o
 endif

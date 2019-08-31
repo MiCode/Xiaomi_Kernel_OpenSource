@@ -17,7 +17,7 @@
  */
 
 #include <linux/pm_qos.h>
-#include <sspm_ipi.h>
+#include <v1/sspm_ipi.h>
 #include <sspm_ipi_pin.h>
 #include <helio-dvfsrc-ipi.h>
 #include "mtk_gpufreq_core.h"

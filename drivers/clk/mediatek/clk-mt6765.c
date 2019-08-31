@@ -603,7 +603,7 @@ static const char * const camtm_parents[] __initconst = {
 #define INVALID_UPDATE_SHIFT -1
 #define INVALID_MUX_GATE -1
 
-static const struct mtk_mux_clr_set_upd top_muxes[] __initconst = {
+static const struct mtk_mux top_muxes[] __initconst = {
 	/* CLK_CFG_0 */
 	MUX_CLR_SET_UPD_FLAGS(CLK_TOP_AXI_SEL, "axi_sel", axi_parents,
 		CLK_CFG_0, CLK_CFG_0_SET, CLK_CFG_0_CLR, 0, 2, 7,
@@ -1438,9 +1438,10 @@ static void __init mtk_topckgen_init(struct device_node *node)
 
 	mtk_clk_register_factors(top_divs,
 		ARRAY_SIZE(top_divs), mt6765_top_clk_data);
-	mtk_clk_register_mux_clr_set_upds(top_muxes,
-		ARRAY_SIZE(top_muxes), base,
-		&mt6765_clk_lock, mt6765_top_clk_data);
+/*	mtk_clk_register_mux_clr_set_upds(top_muxes,
+ *		ARRAY_SIZE(top_muxes), base,
+ *		&mt6765_clk_lock, mt6765_top_clk_data);
+ */
 	mtk_clk_register_gates(node, top_clks,
 		ARRAY_SIZE(top_clks), mt6765_top_clk_data);
 
