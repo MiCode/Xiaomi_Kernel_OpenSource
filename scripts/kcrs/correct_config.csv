@@ -550,7 +550,7 @@ CONFIG_MTK_GPT_SCHEME_SUPPORT,PROJECT,jimin.wang,,,,,,,,,,,,,,
 CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT,PLATFORM,Yu-fu.Kao,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_GPU_SPM_DVFS_SUPPORT,COMMON,yu-fu.kao,new config in this commit 25c58375709ade9927b8c1efdd93b182c51a2d88,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_GPU_SUPPORT,PROJECT,victor.hsu,,,,,,,,,,,,,,
-CONFIG_MTK_GPU_SWPM_SUPPORT,PLATFORM,Bocheng.Chen,,N,N,y,N,N,N,N,y,y,y,y,y,y
+CONFIG_MTK_GPU_SWPM_SUPPORT,PLATFORM,Bocheng.Chen,,N,N,N,N,N,N,N,N,N,N,N,N,N
 CONFIG_MTK_GPU_VERSION,PROJECT,Yu-fu.Kao,type PROJECT should be PLATFORM,,,,,,,,,,,,,
 CONFIG_MTK_GRAVITYHUB,PROJECT,weiqi.fu,new config in this commit 6cf72299191fe832dffff96cd9233bcf981b52a0,,,,,,,,,,,,,
 CONFIG_MTK_GYROHUB,PROJECT,weiqi.fu,new config in this commit ddc5d59450d236e7d3732ebd43a19c5056787cc0,,,,,,,,,,,,,
