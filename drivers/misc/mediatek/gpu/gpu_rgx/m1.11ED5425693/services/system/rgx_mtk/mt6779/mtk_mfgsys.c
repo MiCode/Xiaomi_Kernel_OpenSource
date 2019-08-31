@@ -229,12 +229,6 @@ static void MTKWriteBackFreqToRGX(PVRSRV_DEVICE_NODE *psDevNode,
 #define MTKCLK_set_parent(clkC, clkP)
 #endif
 
-
-void MTKDisablePowerDomain(void)
-{
-}
-
-
 #ifdef MTK_MFGMTCMOS_AO
 static bool isPowerOn;
 #endif

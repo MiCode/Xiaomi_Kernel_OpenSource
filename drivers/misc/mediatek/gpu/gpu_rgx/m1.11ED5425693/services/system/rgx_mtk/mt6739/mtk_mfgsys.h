@@ -29,7 +29,6 @@
 
 PVRSRV_ERROR MTKMFGSystemInit(void);
 void MTKMFGSystemDeInit(void);
-void MTKDisablePowerDomain(void);
 void MTKFWDump(void);
 
 /* below register interface in RGX sysconfig.c */
