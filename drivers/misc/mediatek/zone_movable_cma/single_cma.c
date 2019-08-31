@@ -29,7 +29,13 @@ static struct cma *cma[MAX_CMA_AREAS];
 static phys_addr_t movable_min = ULONG_MAX;
 static phys_addr_t movable_max;
 
+#if defined(CONFIG_MTK_MEMORY_LOWPOWER) || \
+	!defined(CONFIG_ARM64)
 phys_addr_t zmc_max_zone_dma_phys = 0xc0000000ULL;
+#else
+phys_addr_t zmc_max_zone_dma_phys = 0x100000000ULL;
+#endif
+
 bool zmc_reserved_mem_inited;
 
 #define END_OF_REGISTER ((void *)(0x7a6d63))
