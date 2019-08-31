@@ -541,6 +541,12 @@
 };
 /* AUDIODSP end*/
 
+/* CAMERA specify sensor */
+&kd_camera_hw1 {
+	cam2_enable_sensor = "imx350_mipi_raw imx386_mipi_mono";
+};
+/* CAMERA specify sensor end */
+
 /* IRTX GPIO Start */
 &irtx_pwm {
 	pinctrl-names = "irtx_gpio_led_default", "irtx_gpio_led_set";
@@ -571,4 +577,5 @@
 }; /* IRTX GPIO Settings -End */
 
 #include <k85v1_64/cust.dtsi>
+#include "cust_mt6785_camera.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/

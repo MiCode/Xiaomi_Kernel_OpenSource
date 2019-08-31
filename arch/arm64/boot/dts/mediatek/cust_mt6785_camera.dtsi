@@ -316,6 +316,9 @@
 	pinctrl-37 = <&camera2_mclk_4ma>;
 	pinctrl-38 = <&camera2_mclk_6ma>;
 	pinctrl-39 = <&camera2_mclk_8ma>;
+	cam0_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
+	cam1_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
+	cam2_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
 	status = "okay";
 };
 /* CAMERA GPIO end */
