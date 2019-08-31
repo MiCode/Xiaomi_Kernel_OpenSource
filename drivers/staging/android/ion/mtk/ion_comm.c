@@ -34,7 +34,8 @@
 #include "mtk/mtk_ion.h"
 
 struct task_struct *ion_comm_kthread;
-wait_queue_head_t ion_comm_wq;
+//wait_queue_head_t ion_comm_wq;
+DECLARE_WAIT_QUEUE_HEAD(ion_comm_wq);
 atomic_t ion_comm_event = ATOMIC_INIT(0);
 atomic_t ion_comm_cache_event = ATOMIC_INIT(0);
 
@@ -112,7 +113,9 @@ int ion_comm_init(void)
 {
 	struct sched_param param = { .sched_priority = 0 };
 
-	init_waitqueue_head(&ion_comm_wq);
+	//already init done at declear
+	//init_waitqueue_head(&ion_comm_wq);
+
 	ion_comm_kthread = kthread_run(ion_comm_cache_pool, NULL, "%s",
 				       "ion_comm_pool");
 	if (IS_ERR(ion_comm_kthread)) {
