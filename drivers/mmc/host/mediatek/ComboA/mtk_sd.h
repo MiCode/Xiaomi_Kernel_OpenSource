@@ -67,7 +67,7 @@
 
 #ifdef CONFIG_MTK_MMC_DEBUG
 #define MSDC_DMA_ADDR_DEBUG
-#define MTK_MSDC_LOW_IO_DEBUG
+/* #define MTK_MSDC_LOW_IO_DEBUG */
 #ifdef CONFIG_MTK_EMMC_HW_CQ
 #undef MTK_MSDC_LOW_IO_DEBUG
 #endif
@@ -614,6 +614,7 @@ static inline unsigned int uffs(unsigned int x)
 #define is_card_sdio(h)         (((struct msdc_host *)(h))->hw->register_pm)
 
 #define CMD_TIMEOUT             (HZ/10 * 5)     /* 100ms x5 */
+#define CMD_CQ_TIMEOUT          (HZ    * 3)
 #define DAT_TIMEOUT             (HZ    * 5)     /* 1000ms x5 */
 #define POLLING_BUSY            (HZ    * 3)
 #define POLLING_PINS            (HZ*20 / 1000)	/* 20ms */
