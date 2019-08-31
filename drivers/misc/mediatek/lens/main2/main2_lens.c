@@ -332,9 +332,11 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 		break;
 
 	default:
-		if (g_pstAF_CurDrv)
-			i4RetValue = g_pstAF_CurDrv->pAF_Ioctl(
-				a_pstFile, a_u4Command, a_u4Param);
+		if (g_pstAF_CurDrv) {
+			if (g_pstAF_CurDrv->pAF_Ioctl)
+				i4RetValue = g_pstAF_CurDrv->pAF_Ioctl(
+					a_pstFile, a_u4Command, a_u4Param);
+		}
 		break;
 	}
 
