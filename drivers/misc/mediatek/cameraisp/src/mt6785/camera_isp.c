@@ -623,6 +623,28 @@ static unsigned int g_cqBaseAddr[ISP_CAM_C_IDX+1][13] = { { 0 } };
 static unsigned int g_cqDoneStatus[ISP_CAM_C_IDX+1] = {0};
 
 static unsigned int g_DmaErr_CAM[ISP_IRQ_TYPE_AMOUNT][_cam_max_] = {{0} };
+
+enum ISP_WAITQ_HEAD_IRQ_ENUM {
+	ISP_WAITQ_HEAD_IRQ_SOF = 0,
+	ISP_WAITQ_HEAD_IRQ_SW_P1_DONE,
+	ISP_WAITQ_HEAD_IRQ_AAO_DONE,
+	ISP_WAITQ_HEAD_IRQ_FLKO_DONE,
+	ISP_WAITQ_HEAD_IRQ_AFO_DONE,
+	ISP_WAITQ_HEAD_IRQ_PDO_DONE,
+	ISP_WAITQ_HEAD_IRQ_AMOUNT
+};
+
+enum ISP_WAIT_QUEUE_HEAD_IRQ_SV_ENUM {
+	ISP_WAITQ_HEAD_IRQ_SV_SOF = 0,
+	ISP_WAITQ_HEAD_IRQ_SV_SW_P1_DONE,
+	ISP_WAITQ_HEAD_IRQ_SV_AMOUNT
+};
+
+#define CAM_AMOUNT		(ISP_IRQ_TYPE_INT_CAM_C_ST-\
+						ISP_IRQ_TYPE_INT_CAM_A_ST+1)
+#define CAMSV_AMOUNT	(ISP_IRQ_TYPE_INT_CAMSV_5_ST-\
+						ISP_IRQ_TYPE_INT_CAMSV_0_ST+1)
+
 #define SUPPORT_MAX_IRQ 32
 struct ISP_INFO_STRUCT {
 	spinlock_t                SpinLockIspRef;
@@ -632,8 +654,11 @@ struct ISP_INFO_STRUCT {
 	spinlock_t                SpinLockRTBC;
 	spinlock_t                SpinLockClock;
 	wait_queue_head_t         WaitQueueHead[ISP_IRQ_TYPE_AMOUNT];
-	/* wait_queue_head_t*     WaitQHeadList; */
-	wait_queue_head_t         WaitQHeadList[SUPPORT_MAX_IRQ];
+	wait_queue_head_t	WaitQHeadCam
+				[CAM_AMOUNT][ISP_WAITQ_HEAD_IRQ_AMOUNT];
+
+	wait_queue_head_t	WaitQHeadCamsv
+				[CAMSV_AMOUNT][ISP_WAITQ_HEAD_IRQ_SV_AMOUNT];
 	unsigned int              UserCount;
 	unsigned int              DebugMask;
 	int                                  IrqNum;
@@ -1023,6 +1048,129 @@ void CAMSYS_MET_Events_Trace(bool enter,
 /***************************************
  *
  ***************************************/
+static int32_t ISP_CheckUseCamWaitQ(enum ISP_IRQ_TYPE_ENUM type,
+	enum ISP_ST_ENUM st_type, unsigned int status)
+{
+	if (type >= ISP_IRQ_TYPE_INT_CAM_A_ST &&
+		type <= ISP_IRQ_TYPE_INT_CAM_C_ST) {
+		if (st_type == SIGNAL_INT) {
+			if (status == SOF_INT_ST ||
+				status == SW_PASS1_DON_ST) {
+				return 1;
+			}
+		} else if (st_type == DMA_INT) {
+			if (status == AAO_DONE_ST ||
+				status == FLKO_DONE_ST ||
+				status == AFO_DONE_ST ||
+				status == PDO_DONE_ST) {
+				return 1;
+			}
+		}
+	}
+
+	return 0;
+}
+
+/******************************************************************************
+ *
+ *****************************************************************************/
+static int32_t ISP_CheckUseCamsvWaitQ(enum ISP_IRQ_TYPE_ENUM type,
+	enum ISP_ST_ENUM st_type, unsigned int status)
+{
+	if (type >= ISP_IRQ_TYPE_INT_CAMSV_0_ST &&
+		type <= ISP_IRQ_TYPE_INT_CAMSV_5_ST) {
+		if (st_type == SIGNAL_INT) {
+			if (status == SV_SOF_INT_ST ||
+				status == SV_SW_PASS1_DON_ST)
+				return 1;
+		}
+	}
+
+	return 0;
+}
+
+/******************************************************************************
+ *
+ *****************************************************************************/
+static int32_t ISP_GetWaitQCamIndex(enum ISP_IRQ_TYPE_ENUM type)
+{
+	int32_t index = type - ISP_IRQ_TYPE_INT_CAM_A_ST;
+
+	if (index >= CAM_AMOUNT)
+		pr_info("waitq cam index out of range:%d", index);
+
+	return index;
+}
+
+/******************************************************************************
+ *
+ *****************************************************************************/
+static int32_t ISP_GetWaitQCamsvIndex(enum ISP_IRQ_TYPE_ENUM type)
+{
+	int32_t index = type - ISP_IRQ_TYPE_INT_CAMSV_0_ST;
+
+	if (index >= CAMSV_AMOUNT)
+		pr_info("waitq camsv index out of range:%d", index);
+
+	return index;
+}
+
+/******************************************************************************
+ *
+ *****************************************************************************/
+static int32_t ISP_GetWaitQCamIrqIndex(
+	enum ISP_ST_ENUM st_type, unsigned int status)
+{
+	int32_t index = ISP_WAITQ_HEAD_IRQ_AMOUNT;
+
+	if (st_type == SIGNAL_INT) {
+		if (status == SOF_INT_ST)
+			index = ISP_WAITQ_HEAD_IRQ_SOF;
+		else if (status == SW_PASS1_DON_ST)
+			index = ISP_WAITQ_HEAD_IRQ_SW_P1_DONE;
+	} else if (st_type == DMA_INT) {
+		if (status == AAO_DONE_ST)
+			index = ISP_WAITQ_HEAD_IRQ_AAO_DONE;
+		else if (status == FLKO_DONE_ST)
+			index = ISP_WAITQ_HEAD_IRQ_FLKO_DONE;
+		else if (status == AFO_DONE_ST)
+			index = ISP_WAITQ_HEAD_IRQ_AFO_DONE;
+		else if (status == PDO_DONE_ST)
+			index = ISP_WAITQ_HEAD_IRQ_PDO_DONE;
+	}
+
+	if (index == ISP_WAITQ_HEAD_IRQ_AMOUNT)
+		pr_info("waitq cam irq index out of range:%d_%d",
+				st_type, status);
+
+	return index;
+}
+
+/******************************************************************************
+ *
+ *****************************************************************************/
+static int32_t ISP_GetWaitQCamsvIrqIndex(
+	enum ISP_ST_ENUM st_type, unsigned int status)
+{
+	int32_t index = ISP_WAITQ_HEAD_IRQ_SV_AMOUNT;
+
+	if (st_type == SIGNAL_INT) {
+		if (status == SV_SOF_INT_ST)
+			index = ISP_WAITQ_HEAD_IRQ_SV_SOF;
+		else if (status == SV_SW_PASS1_DON_ST)
+			index = ISP_WAITQ_HEAD_IRQ_SV_SW_P1_DONE;
+	}
+
+	if (index == ISP_WAITQ_HEAD_IRQ_SV_AMOUNT)
+		pr_info("waitq camsv irq index out of range:%d_%d",
+				st_type, status);
+
+	return index;
+}
+
+/******************************************************************************
+ *
+ ******************************************************************************/
 static inline unsigned int ISP_MsToJiffies(unsigned int Ms)
 {
 	return ((Ms * HZ + 512) >> 10);
@@ -2163,7 +2311,27 @@ static int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 		irqinfo->EventInfo.St_type][
 		irqinfo->EventInfo.UserKey]);
 	/* 2. force to wake up the user that are waiting for that signal */
-	wake_up_interruptible(&IspInfo.WaitQueueHead[irqinfo->Type]);
+	if (ISP_CheckUseCamWaitQ(irqinfo->Type,
+		irqinfo->EventInfo.St_type,
+		irqinfo->EventInfo.Status)) {
+		wake_up_interruptible(
+			&IspInfo.WaitQHeadCam
+			[ISP_GetWaitQCamIndex(irqinfo->Type)]
+			[ISP_GetWaitQCamIrqIndex(
+			irqinfo->EventInfo.St_type,
+			irqinfo->EventInfo.Status)]);
+	} else if (ISP_CheckUseCamsvWaitQ(irqinfo->Type,
+				irqinfo->EventInfo.St_type,
+				irqinfo->EventInfo.Status)) {
+		wake_up_interruptible(
+			&IspInfo.WaitQHeadCamsv
+			[ISP_GetWaitQCamsvIndex(irqinfo->Type)]
+			[ISP_GetWaitQCamsvIrqIndex(
+			irqinfo->EventInfo.St_type,
+			irqinfo->EventInfo.Status)]);
+	} else {
+		wake_up_interruptible(&IspInfo.WaitQueueHead[irqinfo->Type]);
+	}
 
 	return 0;
 }
@@ -2415,13 +2583,46 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 	/* 2. start to wait signal */
 	if (log_on)
 		LOG_NOTICE("+ start to wait signal\n");
-	Timeout = wait_event_interruptible_timeout(
-		IspInfo.WaitQueueHead[WaitIrq->Type],
-		ISP_GetIRQState(WaitIrq->Type,
+	if (ISP_CheckUseCamWaitQ(WaitIrq->Type,
 		WaitIrq->EventInfo.St_type,
-		WaitIrq->EventInfo.UserKey,
-		WaitIrq->EventInfo.Status),
-		ISP_MsToJiffies(WaitIrq->EventInfo.Timeout));
+		WaitIrq->EventInfo.Status)) {
+		Timeout = wait_event_interruptible_timeout(
+				  IspInfo.WaitQHeadCam
+				  [ISP_GetWaitQCamIndex(WaitIrq->Type)]
+				  [ISP_GetWaitQCamIrqIndex(
+				  WaitIrq->EventInfo.St_type,
+				  WaitIrq->EventInfo.Status)],
+				  ISP_GetIRQState(WaitIrq->Type,
+				  WaitIrq->EventInfo.St_type,
+				  WaitIrq->EventInfo.UserKey,
+				  WaitIrq->EventInfo.Status),
+				  ISP_MsToJiffies(
+				  WaitIrq->EventInfo.Timeout));
+	} else if (ISP_CheckUseCamsvWaitQ(WaitIrq->Type,
+				WaitIrq->EventInfo.St_type,
+				WaitIrq->EventInfo.Status)) {
+		Timeout = wait_event_interruptible_timeout(
+				  IspInfo.WaitQHeadCamsv
+				  [ISP_GetWaitQCamsvIndex(WaitIrq->Type)]
+				  [ISP_GetWaitQCamsvIrqIndex(
+				  WaitIrq->EventInfo.St_type,
+				  WaitIrq->EventInfo.Status)],
+				  ISP_GetIRQState(WaitIrq->Type,
+				  WaitIrq->EventInfo.St_type,
+				  WaitIrq->EventInfo.UserKey,
+				  WaitIrq->EventInfo.Status),
+				  ISP_MsToJiffies(
+				  WaitIrq->EventInfo.Timeout));
+	} else {
+		Timeout = wait_event_interruptible_timeout(
+				  IspInfo.WaitQueueHead[WaitIrq->Type],
+				  ISP_GetIRQState(WaitIrq->Type,
+				  WaitIrq->EventInfo.St_type,
+				  WaitIrq->EventInfo.UserKey,
+				  WaitIrq->EventInfo.Status),
+				  ISP_MsToJiffies(
+				  WaitIrq->EventInfo.Timeout));
+	}
 	if (log_on)
 		LOG_NOTICE("- start to wait signal\n");
 	/* check if user is interrupted by system signal */
@@ -5458,6 +5659,16 @@ static int ISP_probe(struct platform_device *pDev)
 		/*  */
 		for (i = 0 ; i < ISP_IRQ_TYPE_AMOUNT; i++)
 			init_waitqueue_head(&IspInfo.WaitQueueHead[i]);
+		for (i = 0 ; i < CAM_AMOUNT ; i++) {
+			for (j = 0 ; j < ISP_WAITQ_HEAD_IRQ_AMOUNT ; j++)
+				init_waitqueue_head(
+					&IspInfo.WaitQHeadCam[i][j]);
+			}
+		for (i = 0 ; i < CAMSV_AMOUNT ; i++) {
+			for (j = 0 ; j < ISP_WAITQ_HEAD_IRQ_SV_AMOUNT ; j++)
+				init_waitqueue_head(
+					&IspInfo.WaitQHeadCamsv[i][j]);
+			}
 
 #ifdef CONFIG_PM_WAKELOCKS
 		wakeup_source_init(&isp_wake_lock, "isp_lock_wakelock");
@@ -8005,6 +8216,18 @@ irqreturn_t ISP_Irq_CAMSV(enum ISP_IRQ_TYPE_ENUM irq_module,
 	}
 	spin_unlock(&(IspInfo.SpinLockIrq[module]));
 	/*  */
+	if (IrqStatus & SV_SOF_INT_ST) {
+		wake_up_interruptible(
+			&IspInfo.WaitQHeadCamsv
+			[ISP_GetWaitQCamsvIndex(module)]
+			[ISP_WAITQ_HEAD_IRQ_SV_SOF]);
+	}
+	if (IrqStatus & SV_SW_PASS1_DON_ST) {
+		wake_up_interruptible(
+			&IspInfo.WaitQHeadCamsv
+			[ISP_GetWaitQCamsvIndex(module)]
+			[ISP_WAITQ_HEAD_IRQ_SV_SW_P1_DONE]);
+	}
 	wake_up_interruptible(&IspInfo.WaitQueueHead[module]);
 
 	/* dump log, use tasklet */
@@ -9278,6 +9501,44 @@ LB_CAM_SOF_IGNORE:
 	}
 	spin_unlock(&(IspInfo.SpinLockIrq[module]));
 	/*  */
+	if (IrqStatus & SOF_INT_ST) {
+		wake_up_interruptible(&IspInfo.WaitQHeadCam
+			[ISP_GetWaitQCamIndex(module)]
+			[ISP_WAITQ_HEAD_IRQ_SOF]);
+	}
+	if (IrqStatus & SW_PASS1_DON_ST) {
+		wake_up_interruptible(&IspInfo.WaitQHeadCam
+			[ISP_GetWaitQCamIndex(module)]
+			[ISP_WAITQ_HEAD_IRQ_SW_P1_DONE]);
+	}
+	if (DmaStatus & AAO_DONE_ST) {
+		IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
+			"CAM_%c AAO_DONE_%d_%d(aao_ctrl_1:0x%x,aao_ctrl_2:0x%x)\n",
+			'A'+cardinalNum, sof_count[module],
+			ISP_RD32_TG_CAM_FRM_CNT(module, reg_module),
+			(unsigned int)(ISP_RD32(
+			CAM_REG_FBC_AAO_CTL1(reg_module))),
+			(unsigned int)(ISP_RD32(
+			CAM_REG_FBC_AAO_CTL2(reg_module))));
+		wake_up_interruptible(&IspInfo.WaitQHeadCam
+			[ISP_GetWaitQCamIndex(module)]
+			[ISP_WAITQ_HEAD_IRQ_AAO_DONE]);
+	}
+	if (DmaStatus & FLKO_DONE_ST) {
+		wake_up_interruptible(&IspInfo.WaitQHeadCam
+			[ISP_GetWaitQCamIndex(module)]
+			[ISP_WAITQ_HEAD_IRQ_FLKO_DONE]);
+	}
+	if (DmaStatus & AFO_DONE_ST) {
+		wake_up_interruptible(&IspInfo.WaitQHeadCam
+			[ISP_GetWaitQCamIndex(module)]
+			[ISP_WAITQ_HEAD_IRQ_AFO_DONE]);
+	}
+	if (DmaStatus & PDO_DONE_ST) {
+		wake_up_interruptible(&IspInfo.WaitQHeadCam
+			[ISP_GetWaitQCamIndex(module)]
+			[ISP_WAITQ_HEAD_IRQ_PDO_DONE]);
+	}
 	wake_up_interruptible(&IspInfo.WaitQueueHead[module]);
 
 	/* dump log, use tasklet */
