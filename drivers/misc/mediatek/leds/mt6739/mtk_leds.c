@@ -32,12 +32,13 @@
 #include <mt-plat/mtk_pwm.h>
 #include <mt-plat/upmu_common.h>
 
+#include "../mtk_leds_drv.h"
 #include "mtk_leds_sw.h"
 #include "mtk_leds_hal.h"
 #include "ddp_pwm.h"
 #include "mtkfb.h"
 
-/*#define MET_USER_EVENT_SUPPORT*/
+#define MET_USER_EVENT_SUPPORT
 #ifdef MET_USER_EVENT_SUPPORT
 #include <mt-plat/met_drv.h>
 #endif
