@@ -335,6 +335,7 @@ static void shd_display_disable_base(struct drm_device *dev,
 
 	base->enabled = false;
 	base->connector->state->crtc = NULL;
+	base->connector->state->best_encoder = NULL;
 	drm_connector_put(base->connector);
 }
 
