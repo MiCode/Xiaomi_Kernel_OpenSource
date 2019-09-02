@@ -27,6 +27,7 @@
 
 #define MIGR_IDLE_BALANCE      1
 #define MIGR_IDLE_RUNNING      2
+DECLARE_PER_CPU(struct task_struct*, migrate_task);
 
 struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
 				struct task_struct *p, int dest_cpu);

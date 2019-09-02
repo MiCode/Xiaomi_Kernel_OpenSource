@@ -8,11 +8,14 @@
 #include "mt-plat/upower_v2/mtk_unified_power.h"
 #endif
 
+DEFINE_PER_CPU(struct task_struct*, migrate_task);
 static int idle_pull_cpu_stop(void *data)
 {
 	int ret;
-	struct task_struct *p = ((struct rq *)data)->migrate_task;
+	int src_cpu = cpu_of((struct rq *)data);
+	struct task_struct *p;
 
+	p = per_cpu(migrate_task, src_cpu);
 	ret = active_load_balance_cpu_stop(data);
 	put_task_struct(p);
 	return ret;
@@ -23,6 +26,7 @@ migrate_running_task(int dst_cpu, struct task_struct *p, struct rq *src_rq)
 {
 	unsigned long flags;
 	unsigned int force = 0;
+	int src_cpu = cpu_of(src_rq);
 
 	/* now we have a candidate */
 	raw_spin_lock_irqsave(&src_rq->lock, flags);
@@ -30,7 +34,7 @@ migrate_running_task(int dst_cpu, struct task_struct *p, struct rq *src_rq)
 			(task_rq(p) == src_rq) && p->state != TASK_DEAD) {
 		get_task_struct(p);
 		src_rq->push_cpu = dst_cpu;
-		src_rq->migrate_task = p;
+		per_cpu(migrate_task, src_cpu) = p;
 		trace_sched_migrate(p, cpu_of(src_rq), src_rq->push_cpu,
 				MIGR_IDLE_RUNNING);
 		src_rq->active_balance = MIGR_IDLE_RUNNING; /* idle pull */
@@ -44,7 +48,7 @@ migrate_running_task(int dst_cpu, struct task_struct *p, struct rq *src_rq)
 			put_task_struct(p); /* out of rq->lock */
 			raw_spin_lock_irqsave(&src_rq->lock, flags);
 			src_rq->active_balance = 0;
-			src_rq->migrate_task = NULL;
+			per_cpu(migrate_task, src_cpu) = NULL;
 			force = 0;
 			raw_spin_unlock_irqrestore(&src_rq->lock, flags);
 		}

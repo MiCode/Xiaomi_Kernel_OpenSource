@@ -1025,9 +1025,6 @@ struct rq {
 	int			idle_state_idx;
 #endif
 
-#ifdef CONFIG_MTK_SCHED_EXTENSION
-	struct task_struct *migrate_task;
-#endif
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED

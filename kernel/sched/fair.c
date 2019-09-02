@@ -8301,14 +8301,15 @@ static struct task_struct *detach_one_task(struct lb_env *env)
 	list_for_each_entry_reverse(p,
 			&env->src_rq->cfs_tasks, se.group_node) {
 #ifdef CONFIG_MTK_SCHED_EXTENSION
-		if (env->src_rq->migrate_task) {
-			struct task_struct *pm;
+		int src_cpu = cpu_of(env->src_rq);
+		struct task_struct *pm;
 
-			pm = env->src_rq->migrate_task;
+		pm = per_cpu(migrate_task, src_cpu);
+		if (pm) {
 			if (p != pm)
 				continue;
 
-			env->src_rq->migrate_task = NULL;
+			per_cpu(migrate_task, src_cpu) = NULL;
 
 			if (!cpumask_test_cpu(env->dst_cpu, &p->cpus_allowed))
 				return NULL;
