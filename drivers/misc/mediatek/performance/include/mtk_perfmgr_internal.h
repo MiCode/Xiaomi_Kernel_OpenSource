@@ -64,4 +64,6 @@ extern void perfmgr_trace_begin(char *name, int id, int a, int b);
 extern void perfmgr_trace_printk(char *module, char *string);
 extern void perfmgr_trace_log(char *module, const char *fmt, ...);
 
+extern unsigned int perfmgr_cpufreq_get_freq_by_idx(int cluster, int opp);
+
 #endif /* _MTK_PERFMGR_INTERNAL_H */

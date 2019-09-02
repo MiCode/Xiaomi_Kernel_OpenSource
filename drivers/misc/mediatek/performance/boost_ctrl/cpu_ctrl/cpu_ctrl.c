@@ -38,117 +38,6 @@ static int cfp_init_ret;
 int powerhal_tid;
 
 /*******************************************/
-static unsigned int cpufreq_get_freq_by_idx_internal(
-		int cluster, int opp)
-{
-	unsigned int freq = 0;
-
-	if (cluster == 0) {
-		switch (opp) {
-		case 0:
-			freq = 2000000;
-			break;
-		case 1:
-			freq = 1933000;
-			break;
-		case 2:
-			freq = 1866000;
-			break;
-		case 3:
-			freq = 1800000;
-			break;
-		case 4:
-			freq = 1733000;
-			break;
-		case 5:
-			freq = 1666000;
-			break;
-		case 6:
-			freq = 1548000;
-			break;
-		case 7:
-			freq = 1475000;
-			break;
-		case 8:
-			freq = 1375000;
-			break;
-		case 9:
-			freq = 1275000;
-			break;
-		case 10:
-			freq = 1175000;
-			break;
-		case 11:
-			freq = 1075000;
-			break;
-		case 12:
-			freq = 999000;
-			break;
-		case 13:
-			freq = 925000;
-			break;
-		case 14:
-			freq = 850000;
-			break;
-		case 15:
-			freq = 774000;
-			break;
-		}
-	} else if (cluster == 1) {
-		switch (opp) {
-		case 0:
-			freq = 2200000;
-			break;
-		case 1:
-			freq = 2133000;
-			break;
-		case 2:
-			freq = 2066000;
-			break;
-		case 3:
-			freq = 2000000;
-			break;
-		case 4:
-			freq = 1933000;
-			break;
-		case 5:
-			freq = 1866000;
-			break;
-		case 6:
-			freq = 1800000;
-			break;
-		case 7:
-			freq = 1651000;
-			break;
-		case 8:
-			freq = 1503000;
-			break;
-		case 9:
-			freq = 1414000;
-			break;
-		case 10:
-			freq = 1295000;
-			break;
-		case 11:
-			freq = 1176000;
-			break;
-		case 12:
-			freq = 1087000;
-			break;
-		case 13:
-			freq = 998000;
-			break;
-		case 14:
-			freq = 909000;
-			break;
-		case 15:
-			freq = 850000;
-			break;
-		}
-	}
-	return freq;
-}
-
 int update_userlimit_cpu_freq(int kicker, int num_cluster
 		, struct cpu_ctrl_data *freq_limit)
 {
@@ -381,12 +270,12 @@ static ssize_t perfmgr_boot_freq_proc_write(struct file *filp,
 				freq_limit[i/2].max =
 				(data < 0 || data > MAX_NR_FREQ - 1)
 				? -1 :
-				cpufreq_get_freq_by_idx_internal(i / 2, data);
+				perfmgr_cpufreq_get_freq_by_idx(i / 2, data);
 			else /* min */
 				freq_limit[i/2].min =
 				(data < 0 || data > MAX_NR_FREQ - 1)
 				? -1 :
-				cpufreq_get_freq_by_idx_internal(i / 2, data);
+				perfmgr_cpufreq_get_freq_by_idx(i / 2, data);
 			i++;
 		}
 	}
