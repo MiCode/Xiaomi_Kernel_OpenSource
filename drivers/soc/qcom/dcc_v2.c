@@ -25,9 +25,9 @@
 #define BVAL(val, n)		((val & BIT(n)) >> n)
 
 #define dcc_writel(drvdata, val, off)					\
-	__raw_writel((val), drvdata->base + off)
+	__raw_writel((val), drvdata->base + dcc_offset_conv(drvdata, off))
 #define dcc_readl(drvdata, off)						\
-	__raw_readl(drvdata->base + off)
+	__raw_readl(drvdata->base + dcc_offset_conv(drvdata, off))
 
 #define dcc_sram_readl(drvdata, off)					\
 	__raw_readl(drvdata->ram_base + off)
@@ -37,23 +37,35 @@
 /* DCC registers */
 #define DCC_HW_VERSION			(0x00)
 #define DCC_HW_INFO			(0x04)
-#define DCC_EXEC_CTRL			(0x08)
-#define DCC_STATUS			(0x0C)
-#define DCC_CFG				(0x10)
-#define DCC_FDA_CURR			(0x14)
-#define DCC_LLA_CURR			(0x18)
-#define DCC_LL_LOCK(m)			(0x1C + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_CFG(m)			(0x20 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_BASE(m)			(0x24 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_FD_BASE(m)			(0x28 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_TIMEOUT(m)		(0x2c + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_INT_ENABLE(m)		(0x30 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_INT_STATUS(m)		(0x34 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_FDA_CAPTURED(m)		(0x38 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LLA_CAPTURED(m)		(0x3C + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_CRC_CAPTURED(m)		(0x40 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_SW_TRIGGER(m)		(0x44 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_BUS_ACCESS_STATUS(m)	(0x48 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_SRAM_SIZE_INFO		(0x08)
+#define DCC_APU_INFO			(0x0C)
+#define DCC_LL_NUM_INFO			(0x10)
+#define DCC_TIMEOUT_SIGNATURE		(0x14)
+#define DCC_EXEC_CTRL			(0x18)
+#define DCC_STATUS			(0x1C)
+#define DCC_CFG				(0x20)
+#define DCC_FDA_CURR			(0x24)
+#define DCC_LLA_CURR			(0x28)
+#define DCC_LL_LOCK(m)			(0x2C + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_CFG(m)			(0x30 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_BASE(m)			(0x34 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_FD_BASE(m)			(0x38 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_TIMEOUT(m)		(0x3c + 0x80 * (m + HLOS_LIST_START))
+#define DCC_TRANS_TIMEOUT(m)		(0x40 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_INT_ENABLE(m)		(0x44 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_INT_STATUS(m)		(0x48 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_FDA_CAPTURED(m)		(0x4C + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LLA_CAPTURED(m)		(0x50 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_CRC_CAPTURED(m)		(0x54 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_SW_TRIGGER(m)		(0x58 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_BUS_ACCESS_STATUS(m)	(0x5C + 0x80 * (m + HLOS_LIST_START))
+
+#define DCC_MAP2_LEVEL1			(0x18)
+#define DCC_MAP2_OFFSET1		(0x10)
+#define DCC_MAP2_LEVEL2			(0x44)
+#define DCC_MAP2_OFFSET2		(0x14)
+
+#define DCC_FIX_LOOP_OFFSET		(16)
 
 #define DCC_REG_DUMP_MAGIC_V2		(0x42445953)
 #define DCC_REG_DUMP_VER		(1)
@@ -129,22 +141,35 @@ struct dcc_drvdata {
 	void __iomem		*ram_base;
 	uint32_t		ram_size;
 	uint32_t		ram_offset;
-	enum dcc_data_sink	data_sink[DCC_MAX_LINK_LIST];
-	enum dcc_func_type	func_type[DCC_MAX_LINK_LIST];
+	enum dcc_data_sink	*data_sink;
+	enum dcc_func_type	*func_type;
 	uint32_t		ram_cfg;
 	uint32_t		ram_start;
-	bool			enable[DCC_MAX_LINK_LIST];
-	bool			configured[DCC_MAX_LINK_LIST];
+	bool			*enable;
+	bool			*configured;
 	bool			interrupt_disable;
+	bool			memory_map2;
 	char			*sram_node;
 	struct cdev		sram_dev;
 	struct class		*sram_class;
-	struct list_head	cfg_head[DCC_MAX_LINK_LIST];
-	uint32_t		nr_config[DCC_MAX_LINK_LIST];
+	struct list_head	*cfg_head;
+	uint32_t		*nr_config;
+	uint32_t		nr_link_list;
 	uint8_t			curr_list;
 	uint8_t			cti_trig;
 	uint8_t			loopoff;
 };
+
+static uint32_t dcc_offset_conv(struct dcc_drvdata *drvdata, uint32_t off)
+{
+	if (!drvdata->memory_map2) {
+		if ((off & 0x7F) > DCC_MAP2_LEVEL2)
+			return (off - DCC_MAP2_OFFSET2);
+		else if ((off & 0x7F) > DCC_MAP2_LEVEL1)
+			return (off - DCC_MAP2_OFFSET1);
+	}
+	return (off);
+}
 
 static int dcc_sram_writel(struct dcc_drvdata *drvdata,
 					uint32_t val, uint32_t off)
@@ -217,7 +242,7 @@ static int dcc_read_status(struct dcc_drvdata *drvdata)
 	uint32_t ll_cfg = 0;
 	uint32_t tmp_ll_cfg = 0;
 
-	for (curr_list = 0; curr_list < DCC_MAX_LINK_LIST; curr_list++) {
+	for (curr_list = 0; curr_list < drvdata->nr_link_list; curr_list++) {
 		if (!drvdata->enable[curr_list])
 			continue;
 
@@ -252,7 +277,7 @@ static int dcc_sw_trigger(struct dcc_drvdata *drvdata)
 
 	mutex_lock(&drvdata->mutex);
 
-	for (curr_list = 0; curr_list < DCC_MAX_LINK_LIST; curr_list++) {
+	for (curr_list = 0; curr_list < drvdata->nr_link_list; curr_list++) {
 		if (!drvdata->enable[curr_list])
 			continue;
 		ll_cfg = dcc_readl(drvdata, DCC_LL_CFG(curr_list));
@@ -641,7 +666,7 @@ static void __dcc_config_reset(struct dcc_drvdata *drvdata)
 	struct dcc_config_entry *entry, *temp;
 	int curr_list;
 
-	for (curr_list = 0; curr_list < DCC_MAX_LINK_LIST; curr_list++) {
+	for (curr_list = 0; curr_list < drvdata->nr_link_list; curr_list++) {
 
 		list_for_each_entry_safe(entry, temp,
 					 &drvdata->cfg_head[curr_list], list) {
@@ -660,6 +685,7 @@ static void dcc_config_reset(struct dcc_drvdata *drvdata)
 	__dcc_config_reset(drvdata);
 	mutex_unlock(&drvdata->mutex);
 }
+
 static void __dcc_disable(struct dcc_drvdata *drvdata)
 {
 	int curr_list;
@@ -667,7 +693,7 @@ static void __dcc_disable(struct dcc_drvdata *drvdata)
 	if (!dcc_ready(drvdata))
 		dev_err(drvdata->dev, "DCC is not ready Disabling DCC...\n");
 
-	for (curr_list = 0; curr_list < DCC_MAX_LINK_LIST; curr_list++) {
+	for (curr_list = 0; curr_list < drvdata->nr_link_list; curr_list++) {
 		if (!drvdata->enable[curr_list])
 			continue;
 		dcc_writel(drvdata, 0, DCC_LL_CFG(curr_list));
@@ -701,7 +727,7 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 			drvdata->ram_size);
 	}
 
-	for (list = 0; list < DCC_MAX_LINK_LIST; list++) {
+	for (list = 0; list < drvdata->nr_link_list; list++) {
 
 		if (dcc_valid_list(drvdata, list))
 			continue;
@@ -790,7 +816,7 @@ static ssize_t curr_list_store(struct device *dev,
 	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
-	if (val >= DCC_MAX_LINK_LIST)
+	if (val >= drvdata->nr_link_list)
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -822,7 +848,7 @@ static ssize_t func_type_show(struct device *dev,
 	ssize_t len = 0;
 	unsigned int i;
 
-	for (i = 0; i < DCC_MAX_LINK_LIST; i++)
+	for (i = 0; i < drvdata->nr_link_list; i++)
 		len += scnprintf(buf + len, PAGE_SIZE - len, "%u :%s\n",
 				 i, str_dcc_func_type[drvdata->func_type[i]]);
 
@@ -843,7 +869,7 @@ static ssize_t func_type_store(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
-	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
 		dev_err(dev,
 			"Select link list to program using curr_list\n");
 		ret = -EINVAL;
@@ -880,7 +906,7 @@ static ssize_t data_sink_show(struct device *dev,
 	ssize_t len = 0;
 	unsigned int i;
 
-	for (i = 0; i < DCC_MAX_LINK_LIST; i++)
+	for (i = 0; i < drvdata->nr_link_list; i++)
 		len += scnprintf(buf + len, PAGE_SIZE - len, "%u :%s\n",
 				 i, str_dcc_data_sink[drvdata->data_sink[i]]);
 
@@ -901,7 +927,7 @@ static ssize_t data_sink_store(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
-	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
 		dev_err(dev,
 			"Select link list to program using curr_list\n");
 		ret = -EINVAL;
@@ -958,7 +984,7 @@ static ssize_t enable_show(struct device *dev,
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
 	mutex_lock(&drvdata->mutex);
-	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
 		dev_err(dev, "Select link list to program using curr_list\n");
 		ret = -EINVAL;
 		goto err;
@@ -1008,7 +1034,7 @@ static ssize_t config_show(struct device *dev,
 	buf[0] = '\0';
 
 	mutex_lock(&drvdata->mutex);
-	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
 		dev_err(dev, "Select link list to program using curr_list\n");
 		count = -EINVAL;
 		goto err;
@@ -1064,7 +1090,7 @@ static int dcc_config_add(struct dcc_drvdata *drvdata, unsigned int addr,
 
 	mutex_lock(&drvdata->mutex);
 
-	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
 		dev_err(drvdata->dev, "Select link list to program using curr_list\n");
 		ret = -EINVAL;
 		goto err;
@@ -1206,7 +1232,7 @@ static ssize_t crc_error_show(struct device *dev,
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
 	mutex_lock(&drvdata->mutex);
-	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
 		dev_err(dev, "Select link list to program using curr_list\n");
 		ret = -EINVAL;
 		goto err;
@@ -1234,7 +1260,7 @@ static ssize_t ready_show(struct device *dev,
 
 	mutex_lock(&drvdata->mutex);
 
-	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
 		dev_err(dev, "Select link list to program using curr_list\n");
 		ret = -EINVAL;
 		goto err;
@@ -1312,7 +1338,7 @@ static ssize_t loop_store(struct device *dev,
 		goto err;
 	}
 
-	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
 		dev_err(dev, "Select link list to program using curr_list\n");
 		ret = -EINVAL;
 		goto err;
@@ -1338,7 +1364,7 @@ static int dcc_rd_mod_wr_add(struct dcc_drvdata *drvdata, unsigned int mask,
 
 	mutex_lock(&drvdata->mutex);
 
-	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
 		dev_err(drvdata->dev, "Select link list to program using curr_list\n");
 		ret = -EINVAL;
 		goto err;
@@ -1431,7 +1457,7 @@ static ssize_t config_write_store(struct device *dev,
 		goto err;
 	}
 
-	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
 		dev_err(dev, "Select link list to program using curr_list\n");
 		ret = -EINVAL;
 		goto err;
@@ -1473,7 +1499,7 @@ static ssize_t cti_trig_store(struct device *dev,
 
 	mutex_lock(&drvdata->mutex);
 
-	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
 		dev_err(dev, "Select link list to program using curr_list\n");
 		ret = -EINVAL;
 		goto out;
@@ -1675,7 +1701,7 @@ static int dcc_dt_parse(struct dcc_drvdata *drvdata, struct device_node *np)
 	if (ret)
 		return ret;
 
-	if (curr_link_list >= DCC_MAX_LINK_LIST) {
+	if (curr_link_list >= drvdata->nr_link_list) {
 		dev_err(drvdata->dev, "List configuration failed.\n");
 		return ret;
 	}
@@ -1798,11 +1824,48 @@ static int dcc_probe(struct platform_device *pdev)
 	if (ret)
 		return -EINVAL;
 
-	drvdata->loopoff = get_bitmask_order((drvdata->ram_size +
+	if ((dcc_readl(drvdata, DCC_HW_INFO) & 0x3F) == 0x3F) {
+		drvdata->memory_map2 = true;
+		drvdata->nr_link_list = dcc_readl(drvdata, DCC_LL_NUM_INFO);
+		if (drvdata->nr_link_list == 0)
+			return  -EINVAL;
+	} else {
+		drvdata->memory_map2 = false;
+		drvdata->nr_link_list = DCC_MAX_LINK_LIST;
+	}
+
+	if ((dcc_readl(drvdata, DCC_HW_INFO) & BIT(6)) == BIT(6))
+		drvdata->loopoff = DCC_FIX_LOOP_OFFSET;
+	else
+		drvdata->loopoff = get_bitmask_order((drvdata->ram_size +
 				drvdata->ram_offset) / 4 - 1);
 	mutex_init(&drvdata->mutex);
+	drvdata->data_sink = devm_kzalloc(dev, drvdata->nr_link_list *
+			sizeof(enum dcc_data_sink), GFP_KERNEL);
+	if (!drvdata->data_sink)
+		return -ENOMEM;
+	drvdata->func_type = devm_kzalloc(dev, drvdata->nr_link_list *
+			sizeof(enum dcc_func_type), GFP_KERNEL);
+	if (!drvdata->func_type)
+		return -ENOMEM;
+	drvdata->enable = devm_kzalloc(dev, drvdata->nr_link_list *
+			sizeof(bool), GFP_KERNEL);
+	if (!drvdata->enable)
+		return -ENOMEM;
+	drvdata->configured = devm_kzalloc(dev, drvdata->nr_link_list *
+			sizeof(bool), GFP_KERNEL);
+	if (!drvdata->configured)
+		return -ENOMEM;
+	drvdata->nr_config = devm_kzalloc(dev, drvdata->nr_link_list *
+			sizeof(uint32_t), GFP_KERNEL);
+	if (!drvdata->nr_config)
+		return -ENOMEM;
+	drvdata->cfg_head = devm_kzalloc(dev, drvdata->nr_link_list *
+			sizeof(struct list_head), GFP_KERNEL);
+	if (!drvdata->cfg_head)
+		return -ENOMEM;
 
-	for (i = 0; i < DCC_MAX_LINK_LIST; i++) {
+	for (i = 0; i < drvdata->nr_link_list; i++) {
 		INIT_LIST_HEAD(&drvdata->cfg_head[i]);
 		drvdata->nr_config[i] = 0;
 	}
