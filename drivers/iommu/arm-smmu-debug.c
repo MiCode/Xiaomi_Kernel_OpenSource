@@ -231,3 +231,60 @@ void arm_smmu_debug_dump_tcu_testbus(struct device *dev, void __iomem *base,
 		arm_smmu_debug_tcu_testbus_select(base, tcu_base,
 						CLK_TESTBUS, READ, 0));
 }
+
+void arm_smmu_debug_set_tnx_tcr_cntl(void __iomem *tbu_base, u64 val)
+{
+	writel_relaxed(val, tbu_base + ARM_SMMU_TNX_TCR_CNTL);
+}
+
+unsigned long arm_smmu_debug_get_tnx_tcr_cntl(void __iomem *tbu_base)
+{
+	return readl_relaxed(tbu_base + ARM_SMMU_TNX_TCR_CNTL);
+}
+
+void arm_smmu_debug_set_mask_and_match(void __iomem *tbu_base, u64 sel,
+					u64 mask, u64 match)
+{
+	writeq_relaxed(mask, tbu_base + ARM_SMMU_CAPTURE1_MASK(sel));
+	writeq_relaxed(match, tbu_base + ARM_SMMU_CAPTURE1_MATCH(sel));
+}
+
+void arm_smmu_debug_get_mask_and_match(void __iomem *tbu_base, u64 *mask,
+					u64 *match)
+{
+	int i;
+
+	for (i = 0; i < NO_OF_MASK_AND_MATCH; ++i) {
+		mask[i] = readq_relaxed(tbu_base +
+				ARM_SMMU_CAPTURE1_MASK(i+1));
+		match[i] = readq_relaxed(tbu_base +
+				ARM_SMMU_CAPTURE1_MATCH(i+1));
+	}
+}
+
+void arm_smmu_debug_get_capture_snapshot(void __iomem *tbu_base,
+		u64 snapshot[NO_OF_CAPTURE_POINTS][REGS_PER_CAPTURE_POINT])
+{
+	int valid, i, j;
+
+	valid = readl_relaxed(tbu_base + APPS_SMMU_TNX_TCR_CNTL_2);
+
+	for (i = 0; i < NO_OF_CAPTURE_POINTS ; ++i) {
+		if (valid & (1 << i))
+			for (j = 0; j < REGS_PER_CAPTURE_POINT; ++j)
+				snapshot[i][j] = readq_relaxed(tbu_base +
+					ARM_SMMU_CAPTURE_SNAPSHOT(i, j));
+		else
+			for (j = 0; j < REGS_PER_CAPTURE_POINT; ++j)
+				snapshot[i][j] = 0xdededede;
+	}
+}
+
+void arm_smmu_debug_clear_intr_and_validbits(void __iomem *tbu_base)
+{
+	int val = 0;
+
+	val |= INTR_CLR;
+	val |= RESET_VALID;
+	writel_relaxed(val, tbu_base + ARM_SMMU_TNX_TCR_CNTL);
+}

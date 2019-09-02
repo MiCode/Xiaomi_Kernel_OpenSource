@@ -74,6 +74,10 @@ Optional Properties:
     is changed from L0s to L0.
   - qcom,phy-power-down-offset: Offset from PCIe PHY base to control the power state
     of the PHY.
+  - qcom,core-preset: Value for PCIe core preset. Determines how aggressive the
+    PCIe PHY equalization is. The following are recommended settings:
+	short channels: 0x55555555 (default)
+	long channels: 0x77777777
   - qcom,pcie-phy-ver: version of PCIe PHY.
   - qcom,phy-sequence: The initialization sequence to bring up the PCIe PHY.
     Should be specified in groups (offset, value, delay).
@@ -288,6 +292,7 @@ Example:
 		qcom,phy-status-offset = <0x800>;
 		qcom,phy-status-status = <6>;
 		qcom,phy-power-down-offset = <0x840>;
+		qcom,core-preset = <0x55555555>; /* short channels */
 		qcom,cpl-timeout = <0x2>;
 
 		iommus = <&anoc0_smmu>;
