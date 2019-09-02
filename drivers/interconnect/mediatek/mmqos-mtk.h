@@ -7,10 +7,18 @@
 #define MMQOS_MTK_H
 
 #include <linux/interconnect-provider.h>
+#include <linux/notifier.h>
+#include <linux/platform_device.h>
 #include <linux/workqueue.h>
+#include <soc/mediatek/mmqos.h>
 
 #define MMQOS_NO_LINK	(0xffffffff)
 #define MMQOS_MAX_COMM_PORT_NUM	(15)
+
+struct mmqos_hrt {
+	u32 hrt_bw[HRT_TYPE_NUM];
+	u32 hrt_total_bw;
+};
 
 struct mmqos_base_node {
 	struct icc_node *icc_node;
@@ -71,6 +79,7 @@ struct mtk_mmqos_desc {
 	const char * const *comm_muxes;
 	const char * const *comm_icc_path_names;
 	const u32 max_ratio;
+	const struct mmqos_hrt hrt;
 };
 
 #define DEFINE_MNODE(_name, _id, _bw_ratio, _link) {	\
@@ -82,5 +91,6 @@ struct mtk_mmqos_desc {
 
 int mtk_mmqos_probe(struct platform_device *pdev);
 int mtk_mmqos_remove(struct platform_device *pdev);
+void set_mmqos_hrt(struct mmqos_hrt *hrt);
 
 #endif /* MMQOS_MTK_H */

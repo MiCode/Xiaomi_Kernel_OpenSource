@@ -360,6 +360,10 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6779 = {
 	.comm_muxes = comm_muxes_mt6779,
 	.comm_icc_path_names = comm_icc_path_names_mt6779,
 	.max_ratio = 40,
+	.hrt = {
+		.hrt_bw = {1600, 0, 0},
+		.hrt_total_bw = 7466, /* Todo: Use DRAMC API */
+	}
 };
 
 

@@ -207,6 +207,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	const struct mtk_mmqos_desc *mmqos_desc;
 	const struct mtk_node_desc *node_desc;
 	struct device *larb_dev;
+	struct mmqos_hrt *hrt;
 
 	mmqos = devm_kzalloc(&pdev->dev, sizeof(*mmqos), GFP_KERNEL);
 	if (!mmqos)
@@ -257,6 +258,12 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 		of_device_get_match_data(&pdev->dev);
 	if (!mmqos_desc)
 		return -EINVAL;
+
+	hrt = devm_kzalloc(&pdev->dev, sizeof(*hrt), GFP_KERNEL);
+	if (!hrt)
+		return -ENOMEM;
+	memcpy(hrt, &mmqos_desc->hrt, sizeof(mmqos_desc->hrt));
+	set_mmqos_hrt(hrt);
 
 	data = devm_kzalloc(&pdev->dev,
 		sizeof(*data) + mmqos_desc->num_nodes * sizeof(node),
