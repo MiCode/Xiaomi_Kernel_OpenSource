@@ -3386,6 +3386,12 @@
 		interrupts = <GIC_SPI 334 IRQ_TYPE_EDGE_RISING>;
 	};
 
+	mrdump_ext_rst: mrdump_ext_rst {
+		compatible = "mediatek, mrdump_ext_rst-eint";
+		mode = "IRQ";
+		status = "okay";
+	};
+
 	mddriver:mddriver {
 		compatible = "mediatek,mddriver";
 		mediatek,mdhif_type = <6>; /* bit0~3: CLDMA|CCIF|DPMAIF */

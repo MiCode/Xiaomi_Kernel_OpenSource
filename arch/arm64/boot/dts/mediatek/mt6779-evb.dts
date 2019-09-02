@@ -29,6 +29,13 @@
 	};
 };
 
+&mrdump_ext_rst {
+	interrupt-parent = <&pio>;
+	interrupts = <0 IRQ_TYPE_LEVEL_LOW 0 0>;
+	deb-gpios = <&pio 0 0>;
+	debounce = <512000>;
+};
+
 &i2c0 {
 	/* gt1151 add to i2c node */
 	clock-frequency = <400000>;
