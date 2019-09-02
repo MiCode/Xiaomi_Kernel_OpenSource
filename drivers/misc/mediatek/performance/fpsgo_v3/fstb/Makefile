@@ -16,7 +16,7 @@ obj-y += fstb.o
 MTK_TOP = $(srctree)/drivers/misc/mediatek/
 
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/video/include
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include
+ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/ged/include
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/dfrc/
 ccflags-y  += -I$(srctree)/kernel/trace/
 ccflags-y  += -I$(MTK_TOP)/base/power/include/
