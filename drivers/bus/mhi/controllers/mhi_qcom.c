@@ -594,10 +594,6 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 		pm_runtime_mark_last_busy(dev);
 		pm_request_autosuspend(dev);
 		break;
-	case MHI_CB_BW_REQ:
-		if (mhi_dev->bw_scale)
-			mhi_dev->bw_scale(mhi_cntrl, mhi_dev);
-		break;
 	case MHI_CB_EE_MISSION_MODE:
 		/*
 		 * we need to force a suspend so device can switch to
