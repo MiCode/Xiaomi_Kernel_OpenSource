@@ -3197,6 +3197,13 @@
 		hyplog-size-offset = <0x414>;    /* 0x066BFB34 */
 	};
 
+	qcom,msm-audio-apr {
+		compatible = "qcom,msm-audio-apr";
+		msm_audio_apr_dummy {
+			compatible = "qcom,msm-audio-apr-dummy";
+		};
+	};
+
 	sound-9335 {
 		compatible = "qcom,msm8996-asoc-snd-tasha";
 		qcom,model = "msm8996-tasha-snd-card";

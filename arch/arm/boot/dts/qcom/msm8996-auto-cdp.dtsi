@@ -568,6 +568,13 @@
 };
 
 &soc {
+	qcom,msm-audio-apr {
+		compatible = "qcom,msm-audio-apr";
+		msm_audio_apr_dummy {
+			compatible = "qcom,msm-audio-apr-dummy";
+		};
+	};
+
 	qcom,early-cam {
 		cell-index = <0>;
 		compatible = "qcom,early-cam";

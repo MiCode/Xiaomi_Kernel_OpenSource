@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,6 +11,13 @@
  */
 
 &soc {
+	qcom,msm-audio-apr {
+		compatible = "qcom,msm-audio-apr";
+		msm_audio_apr_dummy {
+			compatible = "qcom,msm-audio-apr-dummy";
+		};
+	};
+
 	sound-adp-agave {
 		compatible = "qcom,apq8096-asoc-snd-adp-agave";
 		qcom,model = "apq8096-adp-agave-snd-card";

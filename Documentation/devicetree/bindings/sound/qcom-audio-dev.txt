@@ -312,6 +312,20 @@ Required properties:
 
  - compatible : "qcom,msm-pcm-hostless"
 
+* msm-audio-apr
+
+Required properties:
+
+ - compatible : "qcom,msm-audio-apr"
+		This device is added to represent APR module.
+
+Optional properties:
+
+ - compatible : "qcom,msm-audio-apr-dummy"
+		Add this compatible as child device to msm-audio-apr device.
+		This child device is added after lpass is up to invoke
+		deferred probe devices.
+
 * msm-ocmem-audio
 
 Required properties:
