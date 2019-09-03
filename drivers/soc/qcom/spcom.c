@@ -934,7 +934,7 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 		if (ch->dmabuf_handle_table[i] == NULL) {
 			ch->dmabuf_handle_table[i] = dma_buf;
 			ch->dmabuf_fd_table[i] = fd;
-			pr_debug("ch [%s] locked ion buf #%d fd [%d] dma_buf=0x%x\n",
+			pr_debug("ch [%s] locked ion buf #%d fd [%d] dma_buf=%pK\n",
 				ch->name, i,
 				ch->dmabuf_fd_table[i],
 				ch->dmabuf_handle_table[i]);
@@ -1008,7 +1008,7 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
 			if (!ch->dmabuf_handle_table[i])
 				continue;
 			if (ch->dmabuf_handle_table[i] == dma_buf) {
-				pr_debug("ch [%s] unlocked ion buf #%d fd [%d] dma_buf=0x%x\n",
+				pr_debug("ch [%s] unlocked ion buf #%d fd [%d] dma_buf=%pK\n",
 					ch->name, i,
 					ch->dmabuf_fd_table[i],
 					ch->dmabuf_handle_table[i]);
