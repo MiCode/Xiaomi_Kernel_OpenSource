@@ -6425,7 +6425,7 @@ static int msm_pci_iommu_init(struct msm_root_dev_t *root_dev)
 	ret = arm_iommu_attach_device(&pci_dev->dev, mapping);
 	if (ret) {
 		PCIE_ERR(pcie_dev,
-			"failed to iommu attach device (%d)\n",
+			"PCIe: RC%d: failed to iommu attach device (%d)\n",
 			pcie_dev->rc_idx, ret);
 		goto release_mapping;
 	}
