@@ -4575,7 +4575,8 @@ static int msm_anlg_cdc_probe(struct platform_device *pdev)
 	int adsp_state;
 
 	adsp_state = apr_get_subsys_state();
-	if (adsp_state != APR_SUBSYS_LOADED) {
+	if (adsp_state != APR_SUBSYS_LOADED ||
+		!q6core_is_adsp_ready()) {
 		dev_err(&pdev->dev, "Adsp is not loaded yet %d\n",
 			adsp_state);
 		return -EPROBE_DEFER;
