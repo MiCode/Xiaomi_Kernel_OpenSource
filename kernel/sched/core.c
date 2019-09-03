@@ -1090,14 +1090,16 @@ static inline void uclamp_cpu_put_id(struct task_struct *p, struct rq *rq,
 		     cpu_of(rq), clamp_id, group_id);
 	}
 #endif
+
+	rq->uclamp.group[clamp_id][group_id].value =
+		uclamp_maps[clamp_id][group_id].value;
+
 	if (clamp_value >= rq->uclamp.value[clamp_id]) {
 		/*
 		 * Each CPU's clamp group value is reset to its nominal group
 		 * value whenever there are anymore RUNNABLE tasks refcounting
 		 * that clamp group.
 		 */
-		rq->uclamp.group[clamp_id][group_id].value =
-			uclamp_maps[clamp_id][group_id].value;
 		uclamp_cpu_update(rq, clamp_id, clamp_value);
 	}
 }
