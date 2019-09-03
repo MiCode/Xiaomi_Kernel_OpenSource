@@ -40,6 +40,7 @@ static void npu_update_pwr_work(struct work_struct *work);
 static void turn_off_fw_logging(struct npu_device *npu_dev);
 static int wait_for_status_ready(struct npu_device *npu_dev,
 	uint32_t status_reg, uint32_t status_bits);
+static int wait_npu_cpc_power_off(struct npu_device *npu_dev);
 static struct npu_network *alloc_network(struct npu_host_ctx *ctx,
 	struct npu_client *client);
 static struct npu_network *get_network_by_hdl(struct npu_host_ctx *ctx,
@@ -70,6 +71,28 @@ static void disable_fw_nolock(struct npu_device *npu_dev);
  * Function Definitions - Init / Deinit
  * -------------------------------------------------------------------------
  */
+
+static int wait_npu_cpc_power_off(struct npu_device *npu_dev)
+{
+	uint32_t reg_val = NPU_CPC_PWR_ON;
+	uint32_t wait_cnt = 0, max_wait_ms;
+
+	max_wait_ms = NPU_FW_TIMEOUT_MS;
+
+	while (reg_val & NPU_CPC_PWR_ON) {
+		wait_cnt += NPU_FW_TIMEOUT_POLL_INTERVAL_MS;
+		if (wait_cnt >= max_wait_ms) {
+			NPU_ERR("timeout wait for cpc power off\n");
+			return -EPERM;
+		}
+		msleep(NPU_FW_TIMEOUT_POLL_INTERVAL_MS);
+		reg_val = npu_tcsr_reg_read(npu_dev, TCSR_NPU_CPC_PWR_ON);
+	};
+
+	NPU_DBG("npu cpc powers off\n");
+	return 0;
+}
+
 static int load_fw_nolock(struct npu_device *npu_dev, bool enable)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
@@ -138,7 +161,7 @@ static int load_fw_nolock(struct npu_device *npu_dev, bool enable)
 		NPU_ERR("Wait for fw shutdown timedout\n");
 		ret = -ETIMEDOUT;
 	} else {
-		ret = 0;
+		ret = wait_npu_cpc_power_off(npu_dev);
 	}
 
 load_fw_fail:
@@ -333,6 +356,7 @@ int enable_fw(struct npu_device *npu_dev)
 static void disable_fw_nolock(struct npu_device *npu_dev)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	int ret = 0;
 
 	if (!host_ctx->fw_ref_cnt) {
 		NPU_WARN("fw_ref_cnt is 0\n");
@@ -358,10 +382,14 @@ static void disable_fw_nolock(struct npu_device *npu_dev)
 		msleep(500);
 	}
 
-	if (!host_ctx->auto_pil_disable
-		&& !wait_for_completion_interruptible_timeout(
-		&host_ctx->fw_shutdown_done, NW_CMD_TIMEOUT))
-		NPU_ERR("Wait for fw shutdown timedout\n");
+	if (!host_ctx->auto_pil_disable) {
+		ret = wait_for_completion_interruptible_timeout(
+			&host_ctx->fw_shutdown_done, NW_CMD_TIMEOUT);
+		if (!ret)
+			NPU_ERR("Wait for fw shutdown timedout\n");
+		else
+			ret = wait_npu_cpc_power_off(npu_dev);
+	}
 
 	npu_disable_irq(npu_dev);
 	npu_disable_sys_cache(npu_dev);
