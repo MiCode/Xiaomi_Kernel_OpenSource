@@ -422,11 +422,35 @@ static unsigned int ksb_fs_poll(struct file *file, poll_table *wait)
 static int ksb_fs_release(struct inode *ip, struct file *fp)
 {
 	struct ks_bridge	*ksb = fp->private_data;
+	struct data_pkt *pkt;
+	unsigned long flags;
 
 	if (test_bit(USB_DEV_CONNECTED, &ksb->flags))
 		dev_dbg(ksb->device, ":%s", ksb->id_info.name);
 	dbg_log_event(ksb, "FS-RELEASE", 0, 0);
 
+	usb_kill_anchored_urbs(&ksb->submitted);
+
+	wait_event_interruptible_timeout(
+					ksb->pending_urb_wait,
+					!atomic_read(&ksb->tx_pending_cnt) &&
+					!atomic_read(&ksb->rx_pending_cnt),
+					msecs_to_jiffies(PENDING_URB_TIMEOUT));
+
+	spin_lock_irqsave(&ksb->lock, flags);
+	while (!list_empty(&ksb->to_ks_list)) {
+		pkt = list_first_entry(&ksb->to_ks_list,
+				struct data_pkt, list);
+		list_del_init(&pkt->list);
+		ksb_free_data_pkt(pkt);
+	}
+	while (!list_empty(&ksb->to_mdm_list)) {
+		pkt = list_first_entry(&ksb->to_mdm_list,
+				struct data_pkt, list);
+		list_del_init(&pkt->list);
+		ksb_free_data_pkt(pkt);
+	}
+	spin_unlock_irqrestore(&ksb->lock, flags);
 	clear_bit(FILE_OPENED, &ksb->flags);
 	fp->private_data = NULL;
 
