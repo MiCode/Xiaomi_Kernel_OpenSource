@@ -22,6 +22,7 @@
 #include <linux/mmc/sd.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/kthread.h>
 #include "qcn_sdio.h"
 
 static bool tx_dump;
@@ -32,6 +33,19 @@ module_param(rx_dump, bool, S_IRUGO | S_IWUSR | S_IWGRP);
 
 static int dump_len = 32;
 module_param(dump_len, int, S_IRUGO | S_IWUSR | S_IWGRP);
+
+static bool retune;
+module_param(retune, bool, S_IRUGO | S_IWUSR | S_IWGRP);
+
+/* driver_state :
+ *	QCN_SDIO_SW_RESET = 0,
+ *	QCN_SDIO_SW_PBL,
+ *	QCN_SDIO_SW_SBL,
+ *	QCN_SDIO_SW_RDDM,
+ *	QCN_SDIO_SW_MROM,
+*/
+static int driver_state;
+module_param(driver_state, int, S_IRUGO | S_IRUSR | S_IRGRP);
 
 static struct mmc_host *current_host;
 
@@ -65,7 +79,9 @@ struct completion client_probe_complete;
 static struct mutex lock;
 static struct list_head cinfo_head;
 static atomic_t status;
+static atomic_t xport_status;
 static spinlock_t async_lock;
+static struct task_struct *reset_task;
 
 static int qcn_create_sysfs(struct device *dev);
 
@@ -131,6 +147,18 @@ static void qcn_sdio_free_rw_req(struct qcn_sdio_rw_info *rw_req)
 	list_add_tail(&rw_req->list, &sdio_ctxt->rw_free_q);
 	atomic_inc(&sdio_ctxt->free_list_count);
 	spin_unlock(&sdio_ctxt->lock_free_q);
+}
+
+static void qcn_sdio_purge_rw_buff(void)
+{
+	struct qcn_sdio_rw_info *rw_req = NULL;
+
+	while (!list_empty(&sdio_ctxt->rw_wait_q)) {
+		rw_req = list_first_entry(&sdio_ctxt->rw_wait_q,
+						struct qcn_sdio_rw_info, list);
+		list_del(&rw_req->list);
+		qcn_sdio_free_rw_req(rw_req);
+	}
 }
 
 void qcn_sdio_client_probe_complete(int id)
@@ -441,6 +469,7 @@ int qcn_sw_mode_change(enum qcn_sdio_sw_mode mode)
 		pr_err("Invalid mode\n");
 	}
 
+	driver_state = mode;
 	sdio_ctxt->curr_sw_mode = mode;
 	return 0;
 }
@@ -513,13 +542,35 @@ static int qcn_read_meta_info(void)
 	return ret;
 }
 
+static int reset_thread(void *data)
+{
+	qcn_sdio_purge_rw_buff();
+	qcn_sdio_card_state(false);
+	qcn_sdio_card_state(true);
+	kthread_stop(reset_task);
+	reset_task = NULL;
+
+	return 0;
+}
+
 static void qcn_sdio_irq_handler(struct sdio_func *func)
 {
 	u8 data = 0;
-
+	int ret = 0;
 
 	sdio_claim_host(sdio_ctxt->func);
-	data = sdio_readb(sdio_ctxt->func, SDIO_QCN_IRQ_STATUS, NULL);
+	data = sdio_readb(sdio_ctxt->func, SDIO_QCN_IRQ_STATUS, &ret);
+	if (ret) {
+		sdio_release_host(sdio_ctxt->func);
+
+		pr_err("%s: IRQ status read error ret = %d\n", __func__, ret);
+
+		reset_task = kthread_run(reset_thread, NULL, "qcn_reset");
+		if (IS_ERR(reset_task))
+			pr_err("Failed to run qcn_reset thread\n");
+
+		return;
+	}
 	sdio_release_host(sdio_ctxt->func);
 
 	if (data & SDIO_QCN_IRQ_CRQ_READY_MASK) {
@@ -589,18 +640,6 @@ static int qcn_sdio_recv_buff(u32 cid, void *buff, size_t len)
 	sdio_release_host(sdio_ctxt->func);
 
 	return ret;
-}
-
-static void qcn_sdio_purge_rw_buff(void)
-{
-	struct qcn_sdio_rw_info *rw_req = NULL;
-
-	while (!list_empty(&sdio_ctxt->rw_wait_q)) {
-		rw_req = list_first_entry(&sdio_ctxt->rw_wait_q,
-						struct qcn_sdio_rw_info, list);
-		list_del(&rw_req->list);
-		qcn_sdio_free_rw_req(rw_req);
-	}
 }
 
 static void qcn_sdio_rw_work(struct work_struct *work)
@@ -709,6 +748,13 @@ int qcn_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
 
 	current_host = func->card->host;
 
+	if (!retune) {
+		pr_debug("%s Probing driver with retune disabled\n", __func__);
+		mmc_retune_disable(current_host);
+	}
+
+	atomic_set(&xport_status, 1);
+
 	return 0;
 err:
 	kfree(sdio_ctxt);
@@ -721,6 +767,7 @@ static void qcn_sdio_remove(struct sdio_func *func)
 	struct qcn_sdio_client_info *cinfo = NULL;
 	struct qcn_sdio_ch_info *ch_info = NULL;
 
+	atomic_set(&xport_status, 0);
 	sdio_claim_host(sdio_ctxt->func);
 	qcn_enable_async_irq(false);
 	sdio_release_host(sdio_ctxt->func);
@@ -750,6 +797,7 @@ static void qcn_sdio_remove(struct sdio_func *func)
 
 	kfree(sdio_ctxt);
 	sdio_ctxt = NULL;
+	mmc_retune_enable(current_host);
 }
 
 static const struct sdio_device_id qcn_sdio_devices[] = {
@@ -1027,6 +1075,9 @@ int sdio_al_queue_transfer_async(struct sdio_al_channel_handle *handle,
 	struct qcn_sdio_rw_info *rw_req = NULL;
 	u32 cid = QCN_SDIO_CH_MAX;
 
+	if (!atomic_read(&xport_status))
+		return -ENODEV;
+
 	if (!handle) {
 		pr_err("%s: Error: Invalid Param\n", __func__);
 		return -EINVAL;
@@ -1070,6 +1121,9 @@ int sdio_al_queue_transfer(struct sdio_al_channel_handle *ch_handle,
 {
 	int ret = 0;
 	u32 cid = QCN_SDIO_CH_MAX;
+
+	if (!atomic_read(&xport_status))
+		return -ENODEV;
 
 	if (!ch_handle) {
 		pr_err("%s: SDIO: Invalid Param\n", __func__);
@@ -1117,6 +1171,9 @@ int sdio_al_meta_transfer(struct sdio_al_channel_handle *handle,
 {
 	u32 cid = QCN_SDIO_CH_MAX;
 	u8 event = 0;
+
+	if (!atomic_read(&xport_status))
+		return -ENODEV;
 
 	if (!handle)
 		return -EINVAL;
