@@ -244,6 +244,9 @@ unsigned long schedutil_freq_util(int cpu, unsigned long util,
 						rt_rq_is_runnable(&rq->rt))
 		return max;
 
+	if (type == FREQUENCY_UTIL && idle_cpu(cpu))
+		return 0;
+
 	/*
 	 * Early check to see if IRQ/steal time saturates the CPU, can be
 	 * because of inaccuracies in how we track these -- see
