@@ -116,7 +116,9 @@ struct mmprofile_meta_datablock_t {
 static int bmmprofile_init_buffer;
 static DEFINE_MUTEX(mmprofile_buffer_init_mutex);
 static DEFINE_MUTEX(mmprofile_regtable_mutex);
+#ifdef CONFIG_MTK_ENG_BUILD
 static DEFINE_MUTEX(mmprofile_meta_buffer_mutex);
+#endif
 static struct mmprofile_event_t *p_mmprofile_ring_buffer;
 #ifdef CONFIG_MTK_ENG_BUILD
 static unsigned char *p_mmprofile_meta_buffer;
