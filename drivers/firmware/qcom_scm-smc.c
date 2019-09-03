@@ -651,6 +651,20 @@ void __qcom_scm_cpu_power_down(struct device *dev, u32 flags)
 	qcom_scm_call_atomic(dev, &desc);
 }
 
+int __qcom_scm_sec_wdog_deactivate(struct device *dev)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_BOOT,
+		.cmd = QCOM_SCM_BOOT_SEC_WDOG_DIS,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = 1;
+	desc.arginfo = QCOM_SCM_ARGS(1);
+
+	return qcom_scm_call(dev, &desc);
+}
+
 int __qcom_scm_set_remote_state(struct device *dev, u32 state, u32 id)
 {
 	struct qcom_scm_desc desc = {

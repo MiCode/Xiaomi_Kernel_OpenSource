@@ -128,6 +128,15 @@ void qcom_scm_cpu_power_down(u32 flags)
 }
 EXPORT_SYMBOL(qcom_scm_cpu_power_down);
 
+/**
+ * qcm_scm_sec_wdog_deactivate() - Deactivate secure watchdog
+ */
+int qcom_scm_sec_wdog_deactivate(void)
+{
+	return __qcom_scm_sec_wdog_deactivate(__scm->dev);
+}
+EXPORT_SYMBOL(qcom_scm_sec_wdog_deactivate);
+
 int qcom_scm_set_remote_state(u32 state, u32 id)
 {
 	return __qcom_scm_set_remote_state(__scm->dev, state, id);
