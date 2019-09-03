@@ -33,6 +33,8 @@ module_param(rx_dump, bool, S_IRUGO | S_IWUSR | S_IWGRP);
 static int dump_len = 32;
 module_param(dump_len, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
+static struct mmc_host *current_host;
+
 #define HEX_DUMP(mode, buf, len)				\
 	print_hex_dump(KERN_ERR, mode, 2, 32, 4, buf,		\
 			dump_len > len ? len : dump_len, 0)
@@ -64,6 +66,8 @@ static struct mutex lock;
 static struct list_head cinfo_head;
 static atomic_t status;
 static spinlock_t async_lock;
+
+static int qcn_create_sysfs(struct device *dev);
 
 #if (QCN_SDIO_META_VER_0)
 #define	META_INFO(event, data)						  \
@@ -587,6 +591,18 @@ static int qcn_sdio_recv_buff(u32 cid, void *buff, size_t len)
 	return ret;
 }
 
+static void qcn_sdio_purge_rw_buff(void)
+{
+	struct qcn_sdio_rw_info *rw_req = NULL;
+
+	while (!list_empty(&sdio_ctxt->rw_wait_q)) {
+		rw_req = list_first_entry(&sdio_ctxt->rw_wait_q,
+						struct qcn_sdio_rw_info, list);
+		list_del(&rw_req->list);
+		qcn_sdio_free_rw_req(rw_req);
+	}
+}
+
 static void qcn_sdio_rw_work(struct work_struct *work)
 {
 	int ret = 0;
@@ -685,10 +701,13 @@ int qcn_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
 
 	qcn_enable_async_irq(true);
 	sdio_release_host(sdio_ctxt->func);
+
 	if (qcn_read_meta_info()) {
 		pr_err("%s: Error: SDIO Config\n", __func__);
 		qcn_send_meta_info((u8)QCN_SDIO_SW_MODE_HEVENT, (u32)0);
 	}
+
+	current_host = func->card->host;
 
 	return 0;
 err:
@@ -702,7 +721,13 @@ static void qcn_sdio_remove(struct sdio_func *func)
 	struct qcn_sdio_client_info *cinfo = NULL;
 	struct qcn_sdio_ch_info *ch_info = NULL;
 
+	sdio_claim_host(sdio_ctxt->func);
 	qcn_enable_async_irq(false);
+	sdio_release_host(sdio_ctxt->func);
+
+	qcn_sdio_purge_rw_buff();
+
+	destroy_workqueue(sdio_ctxt->qcn_sdio_wq);
 	mutex_lock(&lock);
 	list_for_each_entry(cinfo, &cinfo_head, cli_list) {
 		while (!list_empty(&cinfo->ch_head)) {
@@ -711,11 +736,18 @@ static void qcn_sdio_remove(struct sdio_func *func)
 			sdio_al_deregister_channel(&ch_info->ch_handle);
 		}
 		mutex_unlock(&lock);
-		cinfo->cli_data.remove(&cinfo->cli_handle);
+		if (cinfo->is_probed) {
+			cinfo->cli_data.remove(&cinfo->cli_handle);
+			cinfo->is_probed = 0;
+		}
 		mutex_lock(&lock);
 	}
 	mutex_unlock(&lock);
-	destroy_workqueue(sdio_ctxt->qcn_sdio_wq);
+
+	sdio_claim_host(sdio_ctxt->func);
+	sdio_release_irq(sdio_ctxt->func);
+	sdio_release_host(sdio_ctxt->func);
+
 	kfree(sdio_ctxt);
 	sdio_ctxt = NULL;
 }
@@ -751,6 +783,8 @@ static int qcn_sdio_plat_probe(struct platform_device *pdev)
 	}
 
 	init_completion(&client_probe_complete);
+
+	qcn_create_sysfs(&pdev->dev);
 
 	return ret;
 }
@@ -1120,3 +1154,55 @@ int sdio_al_meta_transfer(struct sdio_al_channel_handle *handle,
 	return qcn_send_meta_info(event, data);
 }
 EXPORT_SYMBOL(sdio_al_meta_transfer);
+
+int qcn_sdio_card_state(bool enable)
+{
+	int ret = 0;
+
+	if (!current_host)
+		return -ENODEV;
+
+	mmc_try_claim_host(current_host, 2000);
+	if (enable) {
+		ret = mmc_add_host(current_host);
+		if (ret)
+			pr_err("%s ret = %d\n", __func__, ret);
+	} else {
+		mmc_remove_host(current_host);
+	}
+	mmc_release_host(current_host);
+
+	return ret;
+}
+EXPORT_SYMBOL(qcn_sdio_card_state);
+
+static ssize_t qcn_card_state(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf,
+			      size_t count)
+{
+	int state = 0;
+
+	if (sscanf(buf, "%du", &state) != 1)
+		return -EINVAL;
+
+	qcn_sdio_card_state(state);
+
+	return count;
+}
+static DEVICE_ATTR(card_state, 0220, NULL, qcn_card_state);
+
+static int qcn_create_sysfs(struct device *dev)
+{
+	int ret = 0;
+
+	ret = device_create_file(dev, &dev_attr_card_state);
+	if (ret) {
+		pr_err("Failed to create device file, err = %d\n", ret);
+		goto out;
+	}
+
+	return 0;
+out:
+	return ret;
+}

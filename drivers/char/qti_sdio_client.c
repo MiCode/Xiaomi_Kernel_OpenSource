@@ -80,7 +80,7 @@
 static bool to_console;
 module_param(to_console, bool, S_IRUGO | S_IWUSR | S_IWGRP);
 
-static bool ipc_log = 1;
+static bool ipc_log;
 module_param(ipc_log, bool, S_IRUGO | S_IWUSR | S_IWGRP);
 
 
@@ -143,7 +143,7 @@ struct qti_sdio_bridge {
 	unsigned int mdata_count;
 	unsigned int tx_ready_count;
 	unsigned int data_avail_count;
-
+	atomic_t is_client_closing;
 };
 
 struct data_avail_node {
@@ -282,7 +282,7 @@ void qti_client_data_avail_cb(struct sdio_al_channel_handle *ch_handle,
 		ret = sdio_al_queue_transfer(qsb->channel_handle,
 				SDIO_AL_RX, rx_dma_buf, padded_len, 0);
 		if (ret == 1) {
-			pr_err("TRACK: operating in async mode now\n");
+			pr_debug("operating in async mode now\n");
 			goto out;
 		}
 		if (ret) {
@@ -413,9 +413,10 @@ int qti_client_read(int id, char *buf, size_t count)
 	int bytes = 0;
 	struct qti_sdio_bridge *qsb = NULL;
 
-	if ((id < QCN_SDIO_CLI_ID_TTY) || (id > QCN_SDIO_CLI_ID_DIAG)) {
+	if ((id < QCN_SDIO_CLI_ID_TTY) || (id > QCN_SDIO_CLI_ID_DIAG) ||
+				atomic_read(&qsbdev[id]->is_client_closing)) {
 		pr_err("%s invalid client ID %d\n", __func__, id);
-		return ret;
+		return -ENODEV;
 	}
 
 	qsb = qsbdev[id];
@@ -428,7 +429,10 @@ int qti_client_read(int id, char *buf, size_t count)
 		goto out;
 	}
 
-	wait_event(qsb->wait_q, qsb->data_avail);
+	wait_event(qsb->wait_q, qsb->data_avail ||
+					atomic_read(&qsb->is_client_closing));
+	if (atomic_read(&qsb->is_client_closing))
+		return count;
 
 	bytes = qsb->data_avail;
 
@@ -495,6 +499,9 @@ int qti_client_write(int id, char *buf, size_t count)
 	unsigned int event = 0;
 	struct qti_sdio_bridge *qsb = NULL;
 	DECLARE_COMPLETION_ONSTACK(tx_complete);
+
+	if (atomic_read(&qsbdev[id]->is_client_closing))
+		return -ENODEV;
 
 	switch (id) {
 	case QCN_SDIO_CLI_ID_TTY:
@@ -572,7 +579,10 @@ int qti_client_write(int id, char *buf, size_t count)
 		qlog(qsb, "MDATA: %x\n", mdata);
 		qsb->mdata_count++;
 
-		wait_event(qsb->wait_q, qsb->tx_ready);
+		wait_event(qsb->wait_q, qsb->tx_ready ||
+					atomic_read(&qsb->is_client_closing));
+		if (atomic_read(&qsb->is_client_closing))
+			return count;
 
 		if (qsb->mode) {
 			reinit_completion(&tx_complete);
@@ -865,6 +875,7 @@ static int qti_client_probe(struct sdio_al_client_handle *client_handle)
 		qsb->priv_dev_info = diag_pdev;
 	}
 
+	atomic_set(&qsb->is_client_closing, 0);
 	qlog(qsb, "probed client %s\n", qsb->name);
 	return 0;
 
@@ -905,8 +916,12 @@ static int qti_client_remove(struct sdio_al_client_handle *client_handle)
 	}
 
 	qsb = qsbdev[client_handle->id];
+
+	atomic_set(&qsb->is_client_closing, 1);
+	wake_up(&qsb->wait_q);
+
 	tty_dev = (struct tty_device *)qsb->priv_dev_info;
-	if (tty_dev->qsb_device && client_handle->id == QCN_SDIO_CLI_ID_TTY) {
+	if (client_handle->id == QCN_SDIO_CLI_ID_TTY && tty_dev->qsb_device) {
 		minor_no = MINOR(tty_dev->qsb_device->devt);
 		major_no = MAJOR(tty_dev->qsb_device->devt);
 		device_destroy(tty_dev->qsb_class, MKDEV(major_no, minor_no));
