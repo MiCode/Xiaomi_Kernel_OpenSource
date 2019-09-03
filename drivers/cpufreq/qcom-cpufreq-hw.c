@@ -73,6 +73,9 @@ struct qcom_cpufreq_data {
 	struct delayed_work throttle_work;
 	struct cpufreq_policy *policy;
 	unsigned long last_non_boost_freq;
+
+	unsigned long dcvsh_freq_limit;
+	struct device_attribute freq_limit_attr;
 };
 
 static unsigned long cpu_hw_rate, xo_rate;
@@ -341,6 +344,14 @@ static void qcom_get_related_cpus(int index, struct cpumask *m)
 	}
 }
 
+static ssize_t dcvsh_freq_limit_show(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	struct qcom_cpufreq_data *c = container_of(attr, struct qcom_cpufreq_data,
+						   freq_limit_attr);
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", c->dcvsh_freq_limit);
+}
+
 static unsigned long qcom_lmh_get_throttle_freq(struct qcom_cpufreq_data *data)
 {
 	unsigned int lval;
@@ -356,7 +367,7 @@ static unsigned long qcom_lmh_get_throttle_freq(struct qcom_cpufreq_data *data)
 static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 {
 	const struct qcom_cpufreq_soc_data *soc_data = data->soc_data;
-	unsigned long max_capacity, capacity, freq_hz, throttled_freq;
+	unsigned long max_capacity, capacity, freq_hz, throttled_freq, freq_limit;
 	struct cpufreq_policy *policy = data->policy;
 	int cpu = cpumask_first(policy->related_cpus);
 	struct device *dev = get_cpu_device(cpu);
@@ -392,6 +403,7 @@ static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 
 	max_capacity = arch_scale_cpu_capacity(cpu);
 	capacity = max_capacity;
+	freq_limit = policy->cpuinfo.max_freq;
 
 	/*
 	 * If h/w throttled frequency is higher than what cpufreq has requested
@@ -416,6 +428,8 @@ static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 			/* Don't pass boost capacity to scheduler */
 			if (capacity > max_capacity)
 				capacity = max_capacity;
+
+			freq_limit = throttled_freq;
 		}
 
 		mod_delayed_work(system_highpri_wq, &data->throttle_work,
@@ -423,6 +437,7 @@ static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 	}
 
 	arch_set_thermal_pressure(policy->related_cpus, max_capacity - capacity);
+	data->dcvsh_freq_limit = freq_limit;
 
 out:
 	mutex_unlock(&data->throttle_lock);
@@ -490,7 +505,8 @@ static const struct of_device_id qcom_cpufreq_hw_match[] = {
 };
 MODULE_DEVICE_TABLE(of, qcom_cpufreq_hw_match);
 
-static int qcom_cpufreq_hw_lmh_init(struct cpufreq_policy *policy, int index)
+static int qcom_cpufreq_hw_lmh_init(struct cpufreq_policy *policy, int index,
+				    struct device *cpu_dev)
 {
 	struct qcom_cpufreq_data *data = policy->driver_data;
 	struct platform_device *pdev = cpufreq_get_driver_data();
@@ -517,6 +533,13 @@ static int qcom_cpufreq_hw_lmh_init(struct cpufreq_policy *policy, int index)
 		dev_err(&pdev->dev, "Error registering %s: %d\n", data->irq_name, ret);
 		return 0;
 	}
+
+	sysfs_attr_init(&data->freq_limit_attr.attr);
+	data->freq_limit_attr.attr.name = "dcvsh_freq_limit";
+	data->freq_limit_attr.show = dcvsh_freq_limit_show;
+	data->freq_limit_attr.attr.mode = 0444;
+	data->dcvsh_freq_limit = U32_MAX;
+	device_create_file(cpu_dev, &data->freq_limit_attr);
 
 	return 0;
 }
@@ -638,7 +661,7 @@ static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 			dev_warn(cpu_dev, "failed to enable boost: %d\n", ret);
 	}
 
-	ret = qcom_cpufreq_hw_lmh_init(policy, index);
+	ret = qcom_cpufreq_hw_lmh_init(policy, index, cpu_dev);
 	if (ret)
 		goto error;
 
