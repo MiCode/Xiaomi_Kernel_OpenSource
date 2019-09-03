@@ -3514,8 +3514,8 @@ static void ipa_cfg_qtime(void)
 
 	/* Configure timestamp resolution */
 	memset(&ts_cfg, 0, sizeof(ts_cfg));
-	ts_cfg.dpl_timestamp_lsb = 0;
-	ts_cfg.dpl_timestamp_sel = false; /* DPL: use legacy 1ms resolution */
+	ts_cfg.dpl_timestamp_lsb = IPA_TAG_TIMER_TIMESTAMP_SHFT;
+	ts_cfg.dpl_timestamp_sel = true;
 	ts_cfg.tag_timestamp_lsb = IPA_TAG_TIMER_TIMESTAMP_SHFT;
 	ts_cfg.nat_timestamp_lsb = IPA_NAT_TIMER_TIMESTAMP_SHFT;
 	val = ipahal_read_reg(IPA_QTIME_TIMESTAMP_CFG);
