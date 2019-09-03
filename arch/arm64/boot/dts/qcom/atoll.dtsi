@@ -2911,7 +2911,8 @@
 			< 1113600 MHZ_TO_MBPS( 547, 4) >,
 			< 1267200 MHZ_TO_MBPS(1017, 4) >,
 			< 1708800 MHZ_TO_MBPS(1555, 4) >,
-			< 2400000 MHZ_TO_MBPS(1804, 4) >;
+			< 2208000 MHZ_TO_MBPS(1804, 4) >,
+			< 2400000 MHZ_TO_MBPS(2133, 4) >;
 	};
 
 	cpu0_cpu_ddr_latfloor: qcom,cpu0-cpu-ddr-latfloor {
