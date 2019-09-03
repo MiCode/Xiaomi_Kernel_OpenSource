@@ -55,8 +55,10 @@ struct cpufreq_qcom {
 	unsigned int max_cores;
 	unsigned long xo_rate;
 	unsigned long cpu_hw_rate;
+	unsigned long dcvsh_freq_limit;
 	struct delayed_work freq_poll_work;
 	struct mutex dcvsh_lock;
+	struct device_attribute freq_limit_attr;
 	int dcvsh_irq;
 	char dcvsh_irq_name[MAX_FN_SIZE];
 	bool is_irq_enabled;
@@ -91,6 +93,14 @@ static const u16 cpufreq_qcom_epss_std_offsets[REG_ARRAY_SIZE] = {
 static struct cpufreq_counter qcom_cpufreq_counter[NR_CPUS];
 static struct cpufreq_qcom *qcom_freq_domain_map[NR_CPUS];
 
+static ssize_t dcvsh_freq_limit_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct cpufreq_qcom *c = container_of(attr, struct cpufreq_qcom,
+						freq_limit_attr);
+	return snprintf(buf, PAGE_SIZE, "%lu\n", c->dcvsh_freq_limit);
+}
+
 static unsigned long limits_mitigation_notify(struct cpufreq_qcom *c)
 {
 	int i;
@@ -107,6 +117,7 @@ static unsigned long limits_mitigation_notify(struct cpufreq_qcom *c)
 					c->table[i].frequency);
 			trace_dcvsh_freq(cpumask_first(&c->related_cpus),
 						c->table[i].frequency);
+			c->dcvsh_freq_limit = c->table[i].frequency;
 			return c->table[i].frequency;
 		}
 	}
@@ -296,6 +307,11 @@ static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 
 		c->is_irq_enabled = true;
 		writel_relaxed(LT_IRQ_STATUS, c->reg_bases[REG_INTR_EN]);
+		c->freq_limit_attr.attr.name = "dcvsh_freq_limit";
+		c->freq_limit_attr.show = dcvsh_freq_limit_show;
+		c->freq_limit_attr.attr.mode = 0444;
+		c->dcvsh_freq_limit = U32_MAX;
+		device_create_file(cpu_dev, &c->freq_limit_attr);
 	}
 
 	return 0;
