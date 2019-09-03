@@ -29,7 +29,16 @@
 #include "thermal_budget_platform.h"
 #include "thermal_budget.h"
 
-#ifdef CONFIG_MTK_PERF_OBSERVER
+#ifdef MAX
+#undef MAX
+#endif
+
+#ifdef MIN
+#undef MIN
+#endif
+
+#include <tscpu_settings.h>
+
 #if defined(CONFIG_MTK_VPU_SUPPORT) && defined(THERMAL_VPU_SUPPORT)
 #define EARA_THERMAL_VPU_SUPPORT
 #endif
@@ -49,7 +58,6 @@
 
 #ifdef EARA_THERMAL_MDLA_SUPPORT
 #include "mdla_dvfs.h"
-#endif
 #endif
 
 #define INIT_UNSET -1
