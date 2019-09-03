@@ -97,7 +97,7 @@ struct elevator_type
 	struct module *elevator_owner;
 
 	/* managed by elevator core */
-	char icq_cache_name[ELV_NAME_MAX + 5];	/* elvname + "_io_cq" */
+	char icq_cache_name[ELV_NAME_MAX + 6];	/* elvname + "_io_cq" */
 	struct list_head list;
 };
 
