@@ -1623,6 +1623,18 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	int status;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
 
+	/* Set the following registers only when the MMU type is QSMMU */
+	if (mmu->subtype != KGSL_IOMMU_SMMU_V500) {
+		/* Enable hazard check from GPU_SMMU_HUM_CFG */
+		writel_relaxed(0x02, iommu->regbase + 0x6800);
+
+		/* Write to GPU_SMMU_DORA_ORDERING to disable reordering */
+		writel_relaxed(0x01, iommu->regbase + 0x64a0);
+
+		/* make sure register write committed */
+		wmb();
+	}
+
 	status = _setup_user_context(mmu);
 	if (status)
 		return status;
