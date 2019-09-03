@@ -671,8 +671,6 @@
 		read-only;
 		ranges;
 	};
-
-	/include/ "dm-verity-boot.dtsi"
 };
 
 &ipa_hw {
