@@ -10,24 +10,12 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-#include "sdxprairie.dtsi"
-#include "sdxprairie-cdp.dtsi"
-#include "sdxprairie-display.dtsi"
-#include "qpic-panel-ili-hvga.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. SDXPRAIRIE CDP";
-	compatible = "qcom,sdxprairie-cdp",
-		"qcom,sdxprairie", "qcom,cdp";
-	qcom,board-id = <0x4010001 0x0>;
-};
-
-&qnand_1 {
-	status = "ok";
-};
-
-&blsp1_uart2b_hs {
-	status = "okay";
+&soc {
+	qcom,mdss_lcdc_ili_hvga {
+		compatible = "qcom,mdss-qpic-panel";
+		label = "ili9488 hvga lcdc panel";
+		qcom,mdss-pan-res = <320 480>;
+		qcom,mdss-pan-bpp = <18>;
+		qcom,refresh_rate = <60>;
+	};
 };
