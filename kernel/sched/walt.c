@@ -476,6 +476,7 @@ static u32  top_task_load(struct rq *rq)
 }
 
 unsigned int sysctl_sched_user_hint;
+static unsigned long sched_user_hint_reset_time;
 static bool is_cluster_hosting_top_app(struct sched_cluster *cluster);
 
 static inline bool should_apply_suh_freq_boost(struct sched_cluster *cluster)
@@ -3264,6 +3265,10 @@ void walt_irq_work(struct irq_work *irq_work)
 		rtgb_active = false;
 	}
 
+	if (!is_migration && sysctl_sched_user_hint && time_after(jiffies,
+					sched_user_hint_reset_time))
+		sysctl_sched_user_hint = 0;
+
 	for_each_sched_cluster(cluster) {
 		cpumask_t cluster_online_cpus;
 		unsigned int num_cpus, i = 1;
@@ -3487,6 +3492,7 @@ int walt_proc_user_hint_handler(struct ctl_table *table,
 
 	mutex_lock(&mutex);
 
+	sched_user_hint_reset_time = jiffies + HZ;
 	old_value = sysctl_sched_user_hint;
 	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 	if (ret || !write || (old_value == sysctl_sched_user_hint))
