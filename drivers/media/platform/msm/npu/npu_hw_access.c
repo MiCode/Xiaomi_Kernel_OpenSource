@@ -34,18 +34,12 @@ void npu_core_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val)
 	__iowmb();
 }
 
-uint32_t npu_qdsp_reg_read(struct npu_device *npu_dev, uint32_t off)
+uint32_t npu_tcsr_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
 	uint32_t ret = 0;
 
-	ret = readl(npu_dev->qdsp_io.base + off);
+	ret = readl_relaxed(npu_dev->tcsr_io.base + off);
 	return ret;
-}
-
-void npu_qdsp_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val)
-{
-	writel_relaxed(val, npu_dev->qdsp_io.base + off);
-	__iowmb();
 }
 
 uint32_t npu_apss_shared_reg_read(struct npu_device *npu_dev, uint32_t off)
