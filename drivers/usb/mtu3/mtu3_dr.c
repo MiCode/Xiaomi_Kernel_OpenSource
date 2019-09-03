@@ -8,6 +8,7 @@
  */
 
 #include <linux/usb/role.h>
+#include <linux/of_platform.h>
 
 #include "mtu3.h"
 #include "mtu3_dr.h"
@@ -198,8 +199,6 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 	case MTU3_VBUS_VALID:
 		ssusb_set_force_vbus(ssusb, true);
 		/* avoid suspend when works as device */
-		ssusb_ip_sw_reset(ssusb);
-		switch_port_to_device(ssusb);
 		pm_stay_awake(ssusb->dev);
 		mtu3_start(mtu);
 		otg_sx->sw_state |= MTU3_SW_VBUS_VALID;
@@ -354,8 +353,14 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 
 	if (!!(otg_sx->sw_state & MTU3_SW_ID_GROUND) ^ id_event) {
 		if (id_event) {
-			if (ssusb->clk_mgr)
+			if (ssusb->clk_mgr) {
 				ssusb_clks_enable(ssusb);
+				ssusb_ip_sw_reset(ssusb);
+				ssusb_host_enable(ssusb);
+				/* register host driver */
+				of_platform_populate(dev->of_node,
+						NULL, NULL, dev);
+			}
 			ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_HOST);
 			ssusb_set_mailbox(otg_sx, MTU3_ID_GROUND);
 		} else {
@@ -363,15 +368,21 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 			mdelay(200);
 			ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_DEVICE);
 			ssusb_set_mailbox(otg_sx, MTU3_ID_FLOAT);
-			if (ssusb->clk_mgr)
+			if (ssusb->clk_mgr) {
+				/* unregister host driver */
+				of_platform_depopulate(dev);
 				ssusb_clks_disable(ssusb);
+			}
 		}
 	}
 
 	if (!!(otg_sx->sw_state & MTU3_SW_VBUS_VALID) ^ vbus_event) {
 		if (vbus_event) {
-			if (ssusb->clk_mgr)
+			if (ssusb->clk_mgr) {
 				ssusb_clks_enable(ssusb);
+				ssusb_ip_sw_reset(ssusb);
+				switch_port_to_device(ssusb);
+			}
 			ssusb_set_mailbox(otg_sx, MTU3_VBUS_VALID);
 		} else {
 			ssusb_set_mailbox(otg_sx, MTU3_VBUS_OFF);
