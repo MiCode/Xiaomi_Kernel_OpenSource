@@ -3163,7 +3163,7 @@
 		qcom,gpu-pwrlevel@6 {
 			reg = <6>;
 			qcom,gpu-freq = <267000000>;
-			qcom,bus-freq = <6>;
+			qcom,bus-freq = <5>;
 			qcom,bus-min = <4>;
 			qcom,bus-max = <7>;
 		};
