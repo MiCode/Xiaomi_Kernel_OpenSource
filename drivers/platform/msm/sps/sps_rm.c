@@ -176,8 +176,8 @@ static int sps_rm_assign(struct sps_pipe *pipe,
 			 struct sps_connection *map)
 {
 	struct sps_connect *cfg = &pipe->connect;
-	unsigned long desc_iova;
-	unsigned long data_iova;
+	unsigned long desc_iova = 0;
+	unsigned long data_iova = 0;
 
 	/* Check ownership and BAM */
 	if ((cfg->mode == SPS_MODE_SRC && map->client_src != NULL) ||
