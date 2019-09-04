@@ -1221,11 +1221,14 @@ int qcn_sdio_card_state(bool enable)
 
 	mmc_try_claim_host(current_host, 2000);
 	if (enable) {
-		ret = mmc_add_host(current_host);
-		if (ret)
-			pr_err("%s ret = %d\n", __func__, ret);
+		if (!atomic_read(&xport_status)) {
+			ret = mmc_add_host(current_host);
+			if (ret)
+				pr_err("%s ret = %d\n", __func__, ret);
+		}
 	} else {
-		mmc_remove_host(current_host);
+		if (atomic_read(&xport_status))
+			mmc_remove_host(current_host);
 	}
 	mmc_release_host(current_host);
 
