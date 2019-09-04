@@ -161,6 +161,8 @@ EXPORT_SYMBOL_GPL(clk_alpha_pll_regs);
 
 /* ZONDA PLL specific offsets */
 #define ZONDA_PLL_OUT_MASK	0xF
+#define ZONDA_STAY_IN_CFA	BIT(16)
+#define ZONDA_PLL_FREQ_LOCK_DET	BIT(29)
 
 #define pll_alpha_width(p)					\
 		((PLL_ALPHA_VAL_U(p) - PLL_ALPHA_VAL(p) == 4) ?	\
@@ -207,6 +209,9 @@ static int wait_for_pll(struct clk_alpha_pll *pll, u32 mask, bool inverse,
 
 #define wait_for_pll_enable_lock(pll) \
 	wait_for_pll(pll, PLL_LOCK_DET, 0, "enable")
+
+#define wait_for_zonda_pll_freq_lock(pll) \
+	wait_for_pll(pll, ZONDA_PLL_FREQ_LOCK_DET, 0, "freq enable")
 
 #define wait_for_pll_disable(pll) \
 	wait_for_pll(pll, PLL_ACTIVE_FLAG, 1, "disable")
@@ -835,8 +840,7 @@ void clk_zonda_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				config->test_ctl_hi1_val);
 
 	regmap_update_bits(regmap, PLL_MODE(pll),
-			 PLL_UPDATE_BYPASS,
-			 PLL_UPDATE_BYPASS);
+			 PLL_BYPASSNL, 0);
 
 	/* Disable PLL output */
 	regmap_update_bits(regmap, PLL_MODE(pll),
@@ -856,7 +860,7 @@ void clk_zonda_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 static int clk_zonda_pll_enable(struct clk_hw *hw)
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
-	u32 val;
+	u32 val, test_ctl_val;
 	int ret;
 
 	ret = regmap_read(pll->clkr.regmap, PLL_MODE(pll), &val);
@@ -893,7 +897,15 @@ static int clk_zonda_pll_enable(struct clk_hw *hw)
 	regmap_write(pll->clkr.regmap, PLL_OPMODE(pll),
 						PLL_OPMODE_RUN);
 
-	ret = wait_for_pll_enable_lock(pll);
+	ret = regmap_read(pll->clkr.regmap, PLL_TEST_CTL(pll), &test_ctl_val);
+	if (ret)
+		return ret;
+
+	/* If cfa mode then poll for freq lock */
+	if (test_ctl_val & ZONDA_STAY_IN_CFA)
+		ret = wait_for_zonda_pll_freq_lock(pll);
+	else
+		ret = wait_for_pll_enable_lock(pll);
 	if (ret)
 		return ret;
 
@@ -957,6 +969,7 @@ static int clk_zonda_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
 	unsigned long rrate;
+	u32 test_ctl_val;
 	u32 l;
 	u64 a;
 	int ret;
@@ -978,7 +991,16 @@ static int clk_zonda_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	/* Wait before polling for the frequency latch */
 	udelay(5);
 
-	ret = wait_for_pll_enable_lock(pll);
+	/* Read stay in cfa mode */
+	ret = regmap_read(pll->clkr.regmap, PLL_TEST_CTL(pll), &test_ctl_val);
+	if (ret)
+		return ret;
+
+	/* If cfa mode then poll for freq lock */
+	if (test_ctl_val & ZONDA_STAY_IN_CFA)
+		ret = wait_for_zonda_pll_freq_lock(pll);
+	else
+		ret = wait_for_pll_enable_lock(pll);
 	if (ret)
 		return ret;
 
@@ -1428,6 +1450,9 @@ static void clk_alpha_pll_custom_configure(struct clk_alpha_pll *pll,
 void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config)
 {
+	if (lucid_pll_is_enabled(pll, regmap))
+		return;
+
 	if (config->l)
 		regmap_write(regmap, PLL_L_VAL(pll), config->l);
 
