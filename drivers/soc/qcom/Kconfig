@@ -378,4 +378,12 @@ config SENSORS_SSC
 	  exercising sensor use-cases. This driver loads firmware files
 	  for SSC and also does time synchronization with DSP clock.
 
+config MSM_CDSP_LOADER
+	tristate "CDSP loader support"
+	help
+	  This enables the CDSP loader driver that loads the CDSP
+	  firmware images and brings the compute DSP out of reset
+	  for platforms that have one.
+	  Say M if you want to enable this module.
+
 endmenu
