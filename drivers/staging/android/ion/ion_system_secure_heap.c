@@ -66,6 +66,7 @@ static void ion_system_secure_heap_free(struct ion_buffer *buffer)
 	struct ion_system_secure_heap *secure_heap =
 		to_system_secure_heap(heap);
 
+	buffer->heap = secure_heap->sys_heap;
 	secure_heap->sys_heap->ops->free(buffer);
 }
 
