@@ -276,7 +276,7 @@ static struct cam_camnoc_specific
 			.mask = 0x70,
 			/* SPECIFIC_IFE02_URGENCY_LOW_WRITE_SHIFT */
 			.shift = 0x4,
-			.value = 0x30,
+			.value = 0x3,
 		},
 		.danger_lut = {
 			.enable = true,
@@ -320,7 +320,7 @@ static struct cam_camnoc_specific
 			.mask = 0x70,
 			/* SPECIFIC_IFE13_URGENCY_LOW_WRITE_SHIFT */
 			.shift = 0x4,
-			.value = 0x30,
+			.value = 0x3,
 		},
 		.danger_lut = {
 			.enable = true,
@@ -414,7 +414,7 @@ static struct cam_camnoc_specific
 			.mask = 0x70,
 			/* SPECIFIC_IBL_WR_URGENCY_LOW_WRITE_SHIFT */
 			.shift = 0x4,
-			.value = 0x30,
+			.value = 0x3,
 		},
 		.danger_lut = {
 			.enable = false,
