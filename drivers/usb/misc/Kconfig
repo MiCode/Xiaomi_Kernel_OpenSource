@@ -309,3 +309,13 @@ config USB_QCOM_MDM_DATA_BRIDGE
 	  data packets between the modem and peripheral usb gadget driver.
 	  To compile this driver as a module, choose M here: the module
 	  will be called mdm_data_bridge. If unsure, choose N.
+
+config USB_QCOM_KS_BRIDGE
+	tristate "USB QTI kick start bridge driver"
+	depends on USB
+	help
+	  Say Y here if you have a QTI modem device connected via USB that
+	  will be bridged in kernel space. This driver works as a bridge to pass
+	  boot images, ram-dumps etc.
+	  To compile this driver as a module, choose M here: the module will be
+	  called ks_bridge. If unsure, choose N.
