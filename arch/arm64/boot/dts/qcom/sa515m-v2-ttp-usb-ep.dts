@@ -20,3 +20,7 @@
 		"qcom,sdxprairie","qcom,ttp";
 	qcom,board-id = <30 2> , <30 0x102>;
 };
+
+&ipa_hw {
+	qcom,ipa-config-is-auto;
+};
