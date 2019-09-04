@@ -146,6 +146,13 @@ conditions.
 		  we can choose to have a single ASID associated with all domains
 		  for a context bank.
 
+- qcom,testbus-version:
+		  Testbus implementation is different in some hardware for eg some doesn't
+		  have a separate register for programming tbu testbuses so, they share the
+		  same register to program both tcu and tbu testbuses. on such hardware this
+		  option can be used to specify the testbus version to support testbus interface.
+		  Type is <u32>.
+
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for information about the format. For each clock specified

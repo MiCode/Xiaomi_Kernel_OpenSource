@@ -1,0 +1,14 @@
+#
+# Drm MSM lease configuration
+#
+# This driver provides support for the User Space DRM Masters
+#
+config DRM_MSM_LEASE
+	tristate "MSM DRM LEASE"
+	depends on DRM_MSM
+	help
+	  DRM/KMS driver for MSM/snapdragon in lease mode. This driver
+	  registers with DRM framework and creates virtual DRI cards at
+	  /dev/dri/card<n>, n=1,2,..., from DRM object names listed in
+	  devicetree. When virtual card is opened, an internal DRM
+	  object leasing will take place and return with the lessee FD.

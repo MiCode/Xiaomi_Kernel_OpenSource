@@ -440,6 +440,7 @@ struct ipa_eth_channel {
  * @start_on_resume: Allow start upon driver resume
  * @start_on_timeout: Timeout in milliseconds after which @start is enabled
  * @start_timer: Timer associated with @start_on_timer
+ * @state: Device state
  * @if_state: Interface state - one or more bit numbers IPA_ETH_IF_ST_*
  * @pm_handle: IPA PM client handle for the device
  * @bus_priv: Private field for use by offload subsystem bus layer
@@ -478,6 +479,7 @@ struct ipa_eth_device {
 	u32 start_on_timeout;
 	struct timer_list start_timer;
 
+	unsigned long state;
 	unsigned long if_state;
 
 	u32 pm_handle;

@@ -246,15 +246,24 @@ endif
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_ATOLL) += \
 		atoll-idp-overlay.dtbo\
+		atoll-atp-overlay.dtbo\
 		atoll-qrd-overlay.dtbo\
+		atoll-wcd937x-idp-overlay.dtbo\
+		atoll-usbc-idp-overlay.dtbo\
 		atoll-rumi-overlay.dtbo
 
 atoll-idp-overlay.dtbo-base := atoll.dtb
+atoll-atp-overlay.dtbo-base := atoll.dtb
 atoll-qrd-overlay.dtbo-base := atoll.dtb
 atoll-rumi-overlay.dtbo-base := atoll.dtb
+atoll-wcd937x-idp-overlay.dtbo-base := atoll.dtb
+atoll-usbc-idp-overlay.dtbo-base := atoll.dtb
 else
 dtb-$(CONFIG_ARCH_ATOLL)	+= atoll-idp.dtb\
+	atoll-atp.dtb\
 	atoll-qrd.dtb\
+	atoll-wcd937x-idp.dtb\
+	atoll-usbc-idp.dtb\
 	atoll-rumi.dtb
 endif
 

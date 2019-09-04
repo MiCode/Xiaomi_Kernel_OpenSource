@@ -1,0 +1,153 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "dsi-panel-rm69299-visionox-amoled-fhd-plus-video.dtsi"
+#include <dt-bindings/clock/mdss-10nm-pll-clk.h>
+
+&soc {
+	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1904000>;
+			qcom,supply-enable-load = <32000>;
+			qcom,supply-disable-load = <80>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "lab";
+			qcom,supply-min-voltage = <4600000>;
+			qcom,supply-max-voltage = <6000000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@2 {
+			reg = <2>;
+			qcom,supply-name = "ibb";
+			qcom,supply-min-voltage = <4600000>;
+			qcom,supply-max-voltage = <6000000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-post-on-sleep = <20>;
+		};
+	};
+
+	dsi_panel_pwr_supply_no_labibb: dsi_panel_pwr_supply_no_labibb {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1904000>;
+			qcom,supply-enable-load = <32000>;
+			qcom,supply-disable-load = <80>;
+		};
+	};
+
+	dsi_panel_pwr_supply_labibb_amoled: dsi_panel_pwr_supply_labibb_amoled {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1904000>;
+			qcom,supply-enable-load = <32000>;
+			qcom,supply-disable-load = <80>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vdda-3p3";
+			qcom,supply-min-voltage = <3000000>;
+			qcom,supply-max-voltage = <3000000>;
+			qcom,supply-enable-load = <13200>;
+			qcom,supply-disable-load = <80>;
+		};
+	};
+
+	dsi_rm69299_visionox_amoled_vid_display: qcom,dsi-display@0 {
+		label = "dsi_rm69299_visionox_amoled_vid_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_rm69299_visionox_amoled_video>;
+	};
+
+	sde_dsi: qcom,dsi-display {
+		compatible = "qcom,dsi-display";
+
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
+
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			 <&mdss_dsi0_pll PCLK_MUX_0_CLK>,
+			 <&mdss_dsi0_pll BYTECLK_SRC_0_CLK>,
+			 <&mdss_dsi0_pll PCLK_SRC_0_CLK>,
+			 <&mdss_dsi0_pll SHADOW_BYTECLK_SRC_0_CLK>,
+			 <&mdss_dsi0_pll SHADOW_PCLK_SRC_0_CLK>;
+		clock-names = "mux_byte_clk0", "mux_pixel_clk0",
+				"src_byte_clk0", "src_pixel_clk0",
+				"shadow_byte_clk0", "shadow_pixel_clk0";
+
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_te_active &disp_pins_default>;
+		pinctrl-1 = <&sde_te_suspend>;
+
+		qcom,platform-te-gpio = <&tlmm 10 0>;
+		qcom,platform-reset-gpio = <&pm6150l_gpios 3 0>;
+		qcom,panel-te-source = <0>;
+
+		vddio-supply = <&L13A>;
+		vdda-3p3-supply = <&L18A>;
+		lab-supply = <&lcdb_ldo_vreg>;
+		ibb-supply = <&lcdb_ncp_vreg>;
+
+		qcom,dsi-display-list =
+			<&dsi_rm69299_visionox_amoled_vid_display>;
+	};
+
+	sde_wb: qcom,wb-display@0 {
+		compatible = "qcom,wb-display";
+		cell-index = <0>;
+		label = "wb_display";
+	};
+};
+
+&mdss_mdp {
+	connectors = <&sde_wb &sde_dsi>;
+};
+
+&dsi_rm69299_visionox_amoled_video {
+	qcom,mdss-dsi-t-clk-post = <0x0E>;
+	qcom,mdss-dsi-t-clk-pre = <0x31>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 20 08 08 24 23 08
+				08 05 02 04 00];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};

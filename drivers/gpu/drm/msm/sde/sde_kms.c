@@ -3058,6 +3058,10 @@ static void sde_kms_init_shared_hw(struct sde_kms *sde_kms)
 	if (!sde_kms || !sde_kms->hw_mdp || !sde_kms->catalog)
 		return;
 
+	if (sde_kms->hw_mdp->ops.intf_dp_select)
+		sde_kms->hw_mdp->ops.intf_dp_select(sde_kms->hw_mdp,
+						sde_kms->catalog);
+
 	if (sde_kms->hw_mdp->ops.reset_ubwc)
 		sde_kms->hw_mdp->ops.reset_ubwc(sde_kms->hw_mdp,
 						sde_kms->catalog);

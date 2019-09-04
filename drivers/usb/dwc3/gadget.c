@@ -1139,6 +1139,12 @@ static void __dwc3_prepare_one_trb(struct dwc3_ep *dep, struct dwc3_trb *trb,
 	if (usb_endpoint_xfer_bulk(dep->endpoint.desc) && dep->stream_capable)
 		trb->ctrl |= DWC3_TRB_CTRL_SID_SOFN(stream_id);
 
+	/*
+	 * Ensure that updates of buffer address and size happens
+	 * before we set the DWC3_TRB_CTRL_HWO so that core
+	 * does not process any stale TRB.
+	 */
+	mb();
 	trb->ctrl |= DWC3_TRB_CTRL_HWO;
 
 	dwc3_ep_inc_enq(dep);

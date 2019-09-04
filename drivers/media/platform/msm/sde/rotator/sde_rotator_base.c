@@ -265,12 +265,10 @@ u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 
 		break;
 	default:
-		if (is_yuv) {
-			if (res <= (RES_1080p * 30))
-				ot_lim = 2;
-			else if (res <= (RES_1080p * 60))
-				ot_lim = 4;
-		}
+		if (res <= (RES_1080p * 30))
+			ot_lim = 2;
+		else if (res <= (RES_1080p * 60))
+			ot_lim = 4;
 		break;
 	}
 

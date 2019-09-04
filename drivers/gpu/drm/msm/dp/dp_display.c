@@ -974,13 +974,16 @@ static void dp_display_clean(struct dp_display_private *dp)
 
 		dp_panel = dp->active_panels[idx];
 
+		if (dp_panel->audio_supported)
+			dp_panel->audio->off(dp_panel->audio);
+
 		dp_display_stream_pre_disable(dp, dp_panel);
 		dp_display_stream_disable(dp, dp_panel);
 		dp_panel->deinit(dp_panel, 0);
 	}
 
 	dp->power_on = false;
-
+	dp->is_connected = false;
 	dp->ctrl->off(dp->ctrl);
 }
 

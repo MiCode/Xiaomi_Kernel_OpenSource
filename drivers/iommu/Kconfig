@@ -381,6 +381,16 @@ config IOMMU_TLBSYNC_DEBUG
 
 	  If unsure, say N here.
 
+config ARM_SMMU_TESTBUS_DUMP
+	bool "ARM SMMU testbus dump"
+	depends on ARM_SMMU
+	help
+	  Enables testbus dump collection on arm smmu right after TLB
+	  sync timeout failure.
+	  Note to use this only on debug builds.
+
+	  If unsure, say N here.
+
 config QCOM_LAZY_MAPPING
 	bool "Reference counted iommu-mapping support"
 	depends on ION
