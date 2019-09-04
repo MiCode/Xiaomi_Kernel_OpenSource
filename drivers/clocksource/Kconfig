@@ -334,7 +334,7 @@ config ARM_ARCH_TIMER_VCT_ACCESS
 config MSM_TIMER_LEAP
 	bool "ARCH TIMER counter rollover"
 	default n
-	depends on ARM_ARCH_TIMER && ARM64
+	depends on ARM_ARCH_TIMER
 	help
 	  This option enables a check for least significant 32 bits of
 	  counter rollover. On every counter read if least significant

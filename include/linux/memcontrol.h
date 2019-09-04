@@ -494,17 +494,6 @@ struct mem_cgroup *lock_page_memcg(struct page *page);
 void __unlock_page_memcg(struct mem_cgroup *memcg);
 void unlock_page_memcg(struct page *page);
 
-static inline void __mem_cgroup_update_page_stat(struct page *page,
-						 struct mem_cgroup *memcg,
-						 enum mem_cgroup_stat_index idx,
-						 int val)
-{
-	VM_BUG_ON(!(rcu_read_lock_held() || PageLocked(page)));
-
-	if (memcg && memcg->stat)
-		this_cpu_add(memcg->stat->count[idx], val);
-}
-
 /**
  * mem_cgroup_update_page_stat - update page state statistics
  * @page: the page
@@ -520,12 +509,13 @@ static inline void __mem_cgroup_update_page_stat(struct page *page,
  *     mem_cgroup_update_page_stat(page, state, -1);
  *   unlock_page(page) or unlock_page_memcg(page)
  */
-
 static inline void mem_cgroup_update_page_stat(struct page *page,
 				 enum mem_cgroup_stat_index idx, int val)
 {
+	VM_BUG_ON(!(rcu_read_lock_held() || PageLocked(page)));
 
-	__mem_cgroup_update_page_stat(page, page->mem_cgroup, idx, val);
+	if (page->mem_cgroup)
+		this_cpu_add(page->mem_cgroup->stat->count[idx], val);
 }
 
 static inline void mem_cgroup_inc_page_stat(struct page *page,
@@ -538,6 +528,27 @@ static inline void mem_cgroup_dec_page_stat(struct page *page,
 					    enum mem_cgroup_stat_index idx)
 {
 	mem_cgroup_update_page_stat(page, idx, -1);
+}
+
+static inline void mem_cgroup_update_stat(struct mem_cgroup *memcg,
+				 enum mem_cgroup_stat_index idx, int val)
+{
+	VM_BUG_ON(!(rcu_read_lock_held()));
+
+	if (memcg)
+		this_cpu_add(memcg->stat->count[idx], val);
+}
+
+static inline void mem_cgroup_inc_stat(struct mem_cgroup *memcg,
+					    enum mem_cgroup_stat_index idx)
+{
+	mem_cgroup_update_stat(memcg, idx, 1);
+}
+
+static inline void mem_cgroup_dec_stat(struct mem_cgroup *memcg,
+					    enum mem_cgroup_stat_index idx)
+{
+	mem_cgroup_update_stat(memcg, idx, -1);
 }
 
 unsigned long mem_cgroup_soft_limit_reclaim(pg_data_t *pgdat, int order,
@@ -761,13 +772,6 @@ static inline void mem_cgroup_update_page_stat(struct page *page,
 {
 }
 
-static inline void __mem_cgroup_update_page_stat(struct page *page,
-						 struct mem_cgroup *memcg,
-						 enum mem_cgroup_stat_index idx,
-						 int nr)
-{
-}
-
 static inline void mem_cgroup_inc_page_stat(struct page *page,
 					    enum mem_cgroup_stat_index idx)
 {
@@ -792,6 +796,11 @@ static inline void mem_cgroup_split_huge_fixup(struct page *head)
 
 static inline
 void mem_cgroup_count_vm_event(struct mm_struct *mm, enum vm_event_item idx)
+{
+}
+
+static inline void mem_cgroup_dec_stat(struct mem_cgroup *memcg,
+					    enum mem_cgroup_stat_index idx)
 {
 }
 #endif /* CONFIG_MEMCG */

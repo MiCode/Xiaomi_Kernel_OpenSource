@@ -1593,12 +1593,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
 			QMB_MASTER_SELECT_DDR,
 			{ 5, 7, 20, 24, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
-	[IPA_4_0_AUTO][IPA_CLIENT_ODU_PROD]            = {
-			false, IPA_v4_0_GROUP_UL_DL,
+	[IPA_4_0_AUTO][IPA_CLIENT_Q6_CV2X_PROD]            = {
+			true, IPA_v4_0_GROUP_CV2X,
 			true,
 			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
 			QMB_MASTER_SELECT_DDR,
-			{ 1, 0, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+			{ 1, 2, 8, 16, IPA_EE_Q6, GSI_ESCAPE_BUF_ONLY } },
 	[IPA_4_0_AUTO][IPA_CLIENT_ETHERNET_PROD]	  = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
@@ -1606,13 +1606,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			QMB_MASTER_SELECT_DDR,
 			{ 9, 0, 8, 16, IPA_EE_UC, GSI_USE_PREFETCH_BUFS } },
 	[IPA_4_0_AUTO][IPA_CLIENT_Q6_WAN_PROD]         = {
-			false, IPA_v4_0_GROUP_UL_DL,
+			true, IPA_v4_0_GROUP_UL_DL,
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
 			{ 3, 0, 16, 32, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
 	[IPA_4_0_AUTO][IPA_CLIENT_Q6_CMD_PROD]	  = {
-			false, IPA_v4_0_GROUP_UL_DL,
+			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
@@ -1711,23 +1711,23 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			QMB_MASTER_SELECT_DDR,
 			{ 22, 1, 9, 9, IPA_EE_UC, GSI_USE_PREFETCH_BUFS } },
 	[IPA_4_0_AUTO][IPA_CLIENT_Q6_LAN_CONS]         = {
-			false, IPA_v4_0_GROUP_UL_DL,
+			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 14, 4, 9, 9, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
 	[IPA_4_0_AUTO][IPA_CLIENT_Q6_WAN_CONS]         = {
-			false, IPA_v4_0_GROUP_UL_DL,
+			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 13, 3, 9, 9, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
-	[IPA_4_0_AUTO][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS] = {
-			false, IPA_v4_0_GROUP_UL_DL,
+	[IPA_4_0_AUTO][IPA_CLIENT_Q6_CV2X_CONS] = {
+			true, IPA_v4_0_GROUP_CV2X,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 16, 5, 9, 9, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
+			{ 16, 5, 9, 9, IPA_EE_Q6, GSI_ESCAPE_BUF_ONLY } },
 	/* Only for test purpose */
 	/* MBIM aggregation test pipes should have the same QMB as USB_CONS */
 	[IPA_4_0_AUTO][IPA_CLIENT_TEST_CONS]           = {
@@ -1799,14 +1799,20 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
 			QMB_MASTER_SELECT_DDR,
 			{ 9, 0, 8, 16, IPA_EE_UC, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_Q6_CV2X_PROD]            = {
+			true, IPA_v4_0_GROUP_CV2X,
+			true,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			QMB_MASTER_SELECT_DDR,
+			{ 1, 2, 8, 16, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
 	[IPA_4_0_AUTO_MHI][IPA_CLIENT_Q6_WAN_PROD]         = {
-			false, IPA_v4_0_GROUP_UL_DL,
+			true, IPA_v4_0_GROUP_UL_DL,
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
 			{ 3, 0, 16, 32, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
 	[IPA_4_0_AUTO_MHI][IPA_CLIENT_Q6_CMD_PROD]	  = {
-			false, IPA_v4_0_MHI_GROUP_PCIE,
+			true, IPA_v4_0_MHI_GROUP_PCIE,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
@@ -1887,17 +1893,23 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			QMB_MASTER_SELECT_DDR,
 			{ 22, 1, 9, 9, IPA_EE_UC, GSI_USE_PREFETCH_BUFS } },
 	[IPA_4_0_AUTO_MHI][IPA_CLIENT_Q6_LAN_CONS]         = {
-			false, IPA_v4_0_MHI_GROUP_DDR,
+			true, IPA_v4_0_MHI_GROUP_DDR,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 14, 4, 9, 9, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
 	[IPA_4_0_AUTO_MHI][IPA_CLIENT_Q6_WAN_CONS]         = {
-			false, IPA_v4_0_MHI_GROUP_DDR,
+			true, IPA_v4_0_MHI_GROUP_DDR,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 13, 3, 9, 9, IPA_EE_Q6, GSI_USE_PREFETCH_BUFS } },
+	[IPA_4_0_AUTO_MHI][IPA_CLIENT_Q6_CV2X_CONS] = {
+			true, IPA_v4_0_GROUP_CV2X,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 16, 5, 9, 9, IPA_EE_Q6, GSI_ESCAPE_BUF_ONLY } },
 	[IPA_4_0_AUTO_MHI][IPA_CLIENT_MEMCPY_DMA_SYNC_CONS] = {
 			true, IPA_v4_0_MHI_GROUP_DMA,
 			false,
@@ -5414,8 +5426,8 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 	case IPA_4_0_AUTO_MHI:
 		src_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_SRC_MAX;
 		dst_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_DST_MAX;
-		src_grp_idx_max = IPA_v4_0_GROUP_CV2X;
-		dst_grp_idx_max = IPA_v4_0_GROUP_CV2X;
+		src_grp_idx_max = IPA_v4_0_SRC_GROUP_MAX;
+		dst_grp_idx_max = IPA_v4_0_DST_GROUP_MAX;
 		break;
 	default:
 		IPAERR("invalid hw type index\n");
