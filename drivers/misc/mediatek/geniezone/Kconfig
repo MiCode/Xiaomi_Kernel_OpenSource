@@ -1,0 +1,37 @@
+menu "GZ Kree"
+
+config MTK_GZ_KREE
+	bool "MediaTek GenieZone support"
+	depends on MTK_ENABLE_GENIEZONE
+	default y
+	help
+	  Mediatek GenieZone kernel driver
+	  with APIs based on MTEE framework
+	  Note that user-space API requires
+	  This module to be enabled.
+
+config GZ_VPU_WITH_M4U
+	bool "GenieZone support VPU with M4U"
+	depends on MTK_GZ_KREE
+	default n
+	help
+	  GZ control VPU at M4U map.
+	  Because VPU is 32 bits, only see 4G
+	  dram, need use M4U to enlarge dram
+	  access over 4G.
+
+config GZ_SUPPORT_SDSP
+	bool "GenieZone support SDSP"
+	depends on MTK_GZ_KREE
+	default n
+	help
+	  GZ smcall into mtee for sdsp on and off.
+	  When switch normal/secure vpu, need add
+	  smc call into mtee for setup security
+	  realted register.
+
+source "drivers/misc/mediatek/geniezone/gz-trusty/Kconfig"
+
+endmenu
+
+# GZ Kree

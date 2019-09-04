@@ -1,0 +1,4 @@
+
+config SND_SOC_TFA9874
+       tristate
+       default y

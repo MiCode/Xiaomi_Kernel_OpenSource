@@ -1,0 +1,25 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+/* radio modem configure start */
+&radio_md_cfg {
+	radio_md_g_en = <1>;
+	radio_md_t_en = <0>;
+	radio_md_c_en = <0>;
+	radio_md_w_en = <1>;
+	radio_md_lf_en = <1>;
+	radio_md_lt_en = <1>;
+	radio_md_nr_en = <0>;
+	radio_md_c2k_lte_mode = <0>;
+};
+/* radio modem configure end */
+

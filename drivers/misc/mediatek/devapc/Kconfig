@@ -1,0 +1,37 @@
+config MTK_DEVAPC
+	bool "Mediatek Device APC Support"
+	help
+	  Device APC is a kernel driver controlling internal device security.
+	  If someone tries to access a device, which is not allowed by the
+	  device, it cannot access the device and will get a violation
+	  interrupt. Device APC prevents malicious access to internal devices.
+
+config DEVAPC_MT6779
+	bool "Mediatek MT6779 Device APC driver"
+	depends on MACH_MT6779 || COMPILE_TEST
+	select MTK_DEVAPC
+	help
+	  Say yes here to enable support Mediatek MT6779
+	  Device APC driver.
+	  This driver is combined with MTK_DEVAPC for common
+	  handle flow.
+
+config DEVAPC_MT6768
+	bool "Mediatek MT6768 Device APC driver"
+	depends on MACH_MT6768 || COMPILE_TEST
+	select MTK_DEVAPC
+	help
+	  Say yes here to enable support Mediatek MT6768
+	  Device APC driver.
+	  This driver is combined with MTK_DEVAPC for common
+	  handle flow.
+
+config DEVAPC_MT6785
+	bool "Mediatek MT6785 Device APC driver"
+	depends on MACH_MT6785 || COMPILE_TEST
+	select MTK_DEVAPC
+	help
+	  Say yes here to enable support Mediatek MT6785
+	  Device APC driver.
+	  This driver is combined with MTK_DEVAPC for common
+	  handle flow.

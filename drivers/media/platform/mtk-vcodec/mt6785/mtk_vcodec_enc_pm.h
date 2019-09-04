@@ -1,0 +1,38 @@
+/*
+ * Copyright (c) 2016 MediaTek Inc.
+ * Author: Tiffany Lin <tiffany.lin@mediatek.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#ifndef _MTK_VCODEC_ENC_PM_H_
+#define _MTK_VCODEC_ENC_PM_H_
+
+#include "mtk_vcodec_drv.h"
+
+#define ENC_DVFS	1
+#define ENC_EMI_BW	1
+
+int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *dev);
+void mtk_vcodec_release_enc_pm(struct mtk_vcodec_dev *dev);
+
+void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm);
+void mtk_vcodec_enc_clock_off(struct mtk_vcodec_pm *pm);
+
+void mtk_prepare_venc_dvfs(void);
+void mtk_unprepare_venc_dvfs(void);
+void mtk_prepare_venc_emi_bw(void);
+void mtk_unprepare_venc_emi_bw(void);
+void mtk_release_pmqos(struct mtk_vcodec_ctx *ctx);
+
+void mtk_venc_pmqos_prelock(struct mtk_vcodec_ctx *ctx);
+void mtk_venc_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx);
+void mtk_venc_pmqos_end_frame(struct mtk_vcodec_ctx *ctx);
+#endif /* _MTK_VCODEC_ENC_PM_H_ */

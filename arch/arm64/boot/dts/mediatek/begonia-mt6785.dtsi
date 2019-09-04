@@ -1,0 +1,206 @@
+/*
+this file is only for attribution of begonia
+*/
+#include "xiaomi-mt6785-common.dtsi"
+#include "novatek-nt36xxx-spi.dtsi"
+#include "cust_mt6785_camera.dtsi"
+/******GOODIX, FPC FINGERPRINT start ******/
+&spi0 {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        fingerprint@0 {
+                compatible = "goodix,goodix-fp";
+                reg = <0>;
+                spi-max-frequency = <8000000>;
+                netlink-event = <30>;
+                status = "okay";
+        };
+};
+
+&goodix_fp {
+        pinctrl-names = "default", "reset_high", "reset_low";
+        pinctrl-0 = <&fingerprint_default>;
+        pinctrl-1 = <&fingerprint_reset_high>;
+        pinctrl-2 = <&fingerprint_reset_low>;
+
+        fpc,gpio_irq = <&pio 4 0>;
+        interrupt-parent = <&pio>;
+	interrupts = <4 IRQ_TYPE_EDGE_RISING 4 0>;
+	debounce = <4 0>;
+        status = "okay";
+};
+
+&spi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	p61@31 {
+		compatible = "nxp,p61";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		status = "okay";
+	};
+};
+
+&pio {
+        fingerprint_default: state_default {
+                pins_cmd_dat {
+                        pinmux = <PINMUX_GPIO4__FUNC_GPIO4>;
+                        slew-rate = <0>;
+                        bias-disable;
+                };
+        };
+        fingerprint_reset_high: state_reset_high {
+                pins_cmd_dat {
+                        pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+                        slew-rate = <1>;
+                        output-high;
+                };
+        };
+        fingerprint_reset_low: state_reset_low {
+                pins_cmd_dat {
+                        pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+                        slew-rate = <1>;
+                        output-low;
+                };
+        };
+};
+/****** GOODIX, FPC FINGERPRINT end *******/
+
+&odm {
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio =	<&pio 140 0>,
+				<&pio 141 1>;
+	};
+};
+
+/****** SPI FOR TP start *******/
+&spi5 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	touch_spi@0 {
+		compatible = "xiaomi,spi-for-tp";
+		reg = <0>;
+		status = "ok";
+		spi-max-frequency = <10000000>;  //10M
+	};
+};
+
+&ts_focal {
+	compatible = "focaltech,fts";
+	status = "ok";
+	spi-max-frequency = <4500000>; //4.5M
+	focaltech,reset-gpio = <&pio 2 0x00>;
+	focaltech,irq-gpio = <&pio 1 0x2002>;	//ONESHOT|FALLING
+	focaltech,max-touch-number = <10>;
+	focaltech,display-coords =  <0 0 1080 2340>;
+};
+/****** SPI FOR TP end *********/
+
+&xiaomi_touch {
+	compatible = "xiaomi-touch";
+	status = "ok";
+	touch,name = "xiaomi-touch";
+};
+
+&i2c8 {
+	smb1351-charger@1d {
+		compatible = "qcom,smb1351-charger";
+		reg = <0x1d>;
+		interrupt-parent = <&pio>;
+		interrupts = <12 IRQ_TYPE_EDGE_FALLING 12 0>;
+		qcom,recharge-disabled;
+		qcom,bc12_supported;
+		qcom,smb1351_susp = <&pio 21 0x0>;
+		mi,connect_therm = <&pio 127 0x0>;
+
+		charger_name = "secondary_chg";
+		ichg = <1800000>; /* uA */
+		mivr = <4500000>; /* uV */
+		cv = <4396000>; /* uV */
+		ieoc = <200000>; /* uA */
+		safety_timer = <12>; /* hour */
+		en_st; /* safety timer */
+		/* en_te; */
+		en_wdt;
+	};
+
+};
+&lk_charger  {
+	/* charging current */
+	ac_charger_current = <1000000>;
+	non_std_ac_charger_current = <1000000>;
+
+	/* battery temperature protection */
+	temp_t4_threshold = <60>;
+	temp_t3_threshold = <45>;
+	temp_t1_threshold = <0>;
+};
+
+&charger {
+	algorithm_name = "DualSwitchCharging";
+
+	set_cap_delay = <10>;
+	enable_sw_jeita;
+	ac_charger_input_current = <2000000>;
+	chg1_ta_ac_charger_input_current = <1300000>;
+	chg2_ta_ac_charger_input_current = <1400000>;
+	chg1_ta_ac_charger_current = <1700000>;
+	chg2_ta_ac_charger_current = <1800000>;
+	parallel_vbus;
+	pd_vbus_upper_bound = <9000000>;
+	non_std_ac_charger_current = <1000000>;
+	pe40_dual_charger_chg1_current = <1700000>;
+	pe40_dual_charger_chg2_current = <1800000>;
+	/* sw jeita */
+	jeita_temp_above_t4_cv = <4090000>;
+	jeita_temp_t3_to_t4_cv = <4090000>;
+	jeita_temp_t2_to_t3_cv = <4390000>;
+	jeita_temp_t1_to_t2_cv = <4390000>;
+	jeita_temp_t0_to_t1_cv = <4390000>;
+	jeita_temp_below_t0_cv = <4390000>;
+	temp_t4_thres = <60>;
+	temp_t4_thres_minus_x_degree = <58>;
+	temp_t3_thres = <45>;
+	temp_t3_thres_minus_x_degree = <43>;
+	temp_t2_thres = <15>;
+	temp_t2_thres_plus_x_degree = <13>;
+	temp_t1_thres = <5>;
+	temp_t1_thres_plus_x_degree = <2>;
+	temp_t0_thres = <0>;
+	temp_t0_thres_plus_x_degree = <0>;
+	temp_neg_10_thres = <0>;
+
+	/* battery temperature protection */
+	enable_min_charge_temp;
+	min_charge_temp = <0>;
+	min_charge_temp_plus_x_degree = <2>;
+	max_charge_temp = <60>;
+	max_charge_temp_minus_x_degree = <58>;
+
+	qcom,thermal-mitigation-dcp
+		= <1800000 1800000 1800000 1800000 1800000 1800000 1800000
+		1800000 1800000 1800000 1800000 1800000 1600000 1400000
+		1200000 1000000>;
+	qcom,thermal-mitigation-qc3
+		= <2700000 2570000 2400000 2270000 2120000 1965000 1820000
+		1650000 1500000 1375000 1225000 1100000 975000 825000
+		675000 475000>;
+	qcom,thermal-mitigation-qc2
+		= <1625000 1625000 1625000 1625000 1625000 1525000 1425000
+		1325000 1225000 1125000 1025500 925000 825000 725000
+		625000 525000>;
+	qcom,thermal-mitigation-pd-base
+		= <3000000 2800000 2600000 2400000 2200000 2000000 1800000
+		1600000 1600000 1400000 1200000 1100000 1000000 900000
+		752500 525000>;
+};
+
+&usb0phy {
+	usb_phy_tuning {
+		compatible = "mediatek,phy_tuning";
+		u2_vrt_ref  = <4>;
+		u2_term_ref = <4>;
+		u2_enhance  = <1>;
+	};
+};

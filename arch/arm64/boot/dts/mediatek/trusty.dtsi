@@ -1,0 +1,72 @@
+/*
+ * Copyright (c) 2017 MediaTek Inc.
+ * Author: Keene Tsai <keene.tsai@mediatek.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	trusty {
+		compatible = "android,trusty-smc-v1";
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		tee_id = <0>;
+
+		mtee {
+			compatible = "mediatek,trusty-mtee-v1";
+		};
+
+		gz_main {
+			compatible = "mediatek,trusty-gz";
+		};
+
+#ifndef CONFIG_MTK_NEBULA_VM_SUPPORT
+		irq {
+			compatible = "android,trusty-irq-v1";
+			ppi-interrupt-parent = <&gic>;
+		};
+
+		trusty-virtio {
+			compatible = "android,trusty-virtio-v1";
+			tee_id = <0>;
+		};
+
+		trusty-gz-log {
+			compatible = "android,trusty-gz-log-v1";
+			tee_id = <0>;
+		};
+#endif
+	};
+
+#ifdef CONFIG_MTK_NEBULA_VM_SUPPORT
+	nebula {
+		compatible = "android,nebula-smc-v1";
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		tee_id = <1>;
+
+		irq {
+			compatible = "android,trusty-irq-v1";
+			ppi-interrupt-parent = <&gic>;
+		};
+
+		nebula-virtio {
+			compatible = "android,nebula-virtio-v1";
+			tee_id = <1>;
+		};
+
+		nebula-gz-log {
+			compatible = "android,trusty-gz-log-v1";
+			tee_id = <1>;
+		};
+	};
+#endif
+};

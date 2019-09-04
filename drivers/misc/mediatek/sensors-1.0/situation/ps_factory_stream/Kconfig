@@ -1,0 +1,3 @@
+config PS_FACTORY_STRM
+	bool "ps getting raw data to report"
+	default n

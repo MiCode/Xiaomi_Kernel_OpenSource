@@ -1,0 +1,9 @@
+config MTK_DEVMPU
+	bool "Enable MTK Device MPU driver"
+	depends on (MTK_EMI)
+	default n
+	help
+	  Device MPU is a kernel driver providing
+	  non-continuous memory protection in the
+	  2MB granularity. Note that the protection
+	  is conducted in parallel with EMI MPU.
