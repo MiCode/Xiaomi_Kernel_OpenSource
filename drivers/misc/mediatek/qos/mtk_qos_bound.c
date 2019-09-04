@@ -36,6 +36,7 @@ void qos_bound_enable(int enable)
 	qos_ipi_d.u.qos_bound_enable.enable = enable;
 	bound = (struct qos_bound *)
 		sspm_sbuf_get(qos_ipi_to_sspm_command(&qos_ipi_d, 2));
+	smp_mb(); /* init bound before flag enabled */
 #endif
 	qos_bound_enabled = enable;
 }
@@ -128,6 +129,12 @@ int qos_notifier_call_chain(unsigned long val, void *v)
 
 	if (!is_qos_bound_enabled())
 		return ret;
+
+	if (v == NULL) {
+		pr_info("detect bound null ptr(%d)\n",
+			is_qos_bound_enabled());
+		return ret;
+	}
 
 	bound = (struct qos_bound *) v;
 	state = bound->state;
