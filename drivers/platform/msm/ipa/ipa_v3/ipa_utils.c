@@ -7954,12 +7954,12 @@ do_prod:
 
 	return 0;
 undo_prod:
-	for (client--; client < IPA_CLIENT_MAX && client >= 0; client--)
+	for (client; client <= IPA_CLIENT_MAX && client >= 0; client--)
 		if (IPA_CLIENT_IS_APPS_PROD(client))
 			_ipa_suspend_resume_pipe(client, !suspend);
 	client = IPA_CLIENT_MAX;
 undo_cons:
-	for (client--; client < IPA_CLIENT_MAX && client >= 0; client--)
+	for (client; client <= IPA_CLIENT_MAX && client >= 0; client--)
 		if (IPA_CLIENT_IS_APPS_CONS(client))
 			_ipa_suspend_resume_pipe(client, !suspend);
 	return res;
