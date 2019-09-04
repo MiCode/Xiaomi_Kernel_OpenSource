@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +28,6 @@
 #include <linux/uaccess.h>
 #include <linux/bootmem.h>
 #include <linux/dma-mapping.h>
-#include <linux/clk/msm-clk.h>
 
 #include <linux/msm-sps.h>
 #include <linux/msm-bus.h>
@@ -305,7 +304,7 @@ int qpic_init_sps(struct platform_device *pdev,
 	sps_config->source = SPS_DEV_HANDLE_MEM;
 	sps_config->destination = bam_handle;
 	sps_config->mode = SPS_MODE_DEST;
-	sps_config->dest_pipe_index = 6;
+	sps_config->dest_pipe_index = 8;
 
 	sps_config->options = SPS_O_AUTO_ENABLE | SPS_O_EOT;
 	sps_config->lock_group = 0;
