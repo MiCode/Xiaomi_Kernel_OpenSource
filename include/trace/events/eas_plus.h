@@ -39,7 +39,7 @@ TRACE_EVENT(sched_select_task_rq,
 		__entry->task_mask	= tsk->cpus_allowed.bits[0];
 		__entry->prefer		= prefer;
 #ifdef CONFIG_MTK_SCHED_CPU_PREFER
-		__entry->cpu_prefer = tsk->cpu_prefer;
+		__entry->cpu_prefer = cpu_prefer(tsk);
 #endif
 		__entry->wake_flags	= wake_flags;
 		),
