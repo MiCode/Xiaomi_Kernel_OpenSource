@@ -108,8 +108,6 @@ static int msm_ext_disp_add_intf_data(struct msm_ext_disp *ext_disp,
 	list_for_each(pos, &ext_disp->display_list)
 		count++;
 
-	data->codec.stream_id = count;
-
 	list_add(&node->list, &ext_disp->display_list);
 
 
