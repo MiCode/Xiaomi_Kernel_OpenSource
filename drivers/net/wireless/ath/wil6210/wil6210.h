@@ -604,6 +604,7 @@ struct wil_net_stats {
 	unsigned long	rx_amsdu_error; /* eDMA specific */
 	unsigned long	rx_csum_err;
 	u16 last_mcs_rx;
+	u8 last_cb_mode_rx;
 	u64 rx_per_mcs[WIL_MCS_MAX + 1];
 	u32 ft_roams; /* relevant in STA mode */
 };
@@ -866,6 +867,7 @@ struct wil6210_vif {
 	DECLARE_BITMAP(status, wil_vif_status_last);
 	u32 privacy; /* secure connection? */
 	u16 channel; /* relevant in AP mode */
+	u8 wmi_edmg_channel; /* relevant in AP mode */
 	u8 hidden_ssid; /* relevant in AP mode */
 	u32 ap_isolate; /* no intra-BSS communication */
 	bool pbss;
@@ -1396,7 +1398,7 @@ void wil_p2p_wdev_free(struct wil6210_priv *wil);
 
 int wmi_set_mac_address(struct wil6210_priv *wil, void *addr);
 int wmi_pcp_start(struct wil6210_vif *vif, int bi, u8 wmi_nettype, u8 chan,
-		  u8 hidden_ssid, u8 is_go);
+		  u8 edmg_chan, u8 hidden_ssid, u8 is_go);
 int wmi_pcp_stop(struct wil6210_vif *vif);
 int wmi_led_cfg(struct wil6210_priv *wil, bool enable);
 int wmi_abort_scan(struct wil6210_vif *vif);
@@ -1506,6 +1508,7 @@ int wmi_rbufcap_cfg(struct wil6210_priv *wil, bool enable, u16 threshold);
 
 int wil_wmi2spec_ch(u8 wmi_ch, u8 *spec_ch);
 int wil_spec2wmi_ch(u8 spec_ch, u8 *wmi_ch);
+void wil_update_supported_bands(struct wil6210_priv *wil);
 
 int reverse_memcmp(const void *cs, const void *ct, size_t count);
 
