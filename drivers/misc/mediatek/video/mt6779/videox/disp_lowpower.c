@@ -907,15 +907,16 @@ static void _cmd_mode_leave_idle(void)
 	    DDP_SCENARIO_PRIMARY_DISP;
 	int overlap_num = (primary_display_is_decouple_mode()) ? 2 :
 	    primary_display_get_dvfs_last_req();
-
-	prim_disp_request_hrt_bw(overlap_num, scen, __func__);
-
 #endif
 
 	DISPDBG("[LP]%s\n", __func__);
 
 	if (disp_helper_get_option(DISP_OPT_IDLEMGR_ENTER_ULPS))
 		_primary_display_enable_mmsys_clk();
+
+#ifdef MTK_FB_MMDVFS_SUPPORT
+	prim_disp_request_hrt_bw(overlap_num, scen, __func__);
+#endif
 
 	if (disp_helper_get_option(DISP_OPT_SHARE_SRAM))
 		; /* enter_share_sram(CMDQ_SYNC_RESOURCE_WROT0); */
