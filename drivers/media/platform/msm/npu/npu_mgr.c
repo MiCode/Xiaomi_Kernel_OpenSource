@@ -590,12 +590,14 @@ int npu_host_init(struct npu_device *npu_dev)
 	if (IS_ERR(host_ctx->notif_hdle)) {
 		NPU_ERR("register event notification failed\n");
 		sts = PTR_ERR(host_ctx->notif_hdle);
-		return sts;
+		host_ctx->notif_hdle = NULL;
+		goto fail;
 	}
 
 	host_ctx->wq = create_workqueue("npu_irq_hdl");
 	if (!host_ctx->wq) {
 		sts = -EPERM;
+		goto fail;
 	} else {
 		INIT_WORK(&host_ctx->ipc_irq_work, npu_ipc_irq_work);
 		INIT_WORK(&host_ctx->wdg_err_irq_work, npu_wdg_err_irq_work);
@@ -606,8 +608,23 @@ int npu_host_init(struct npu_device *npu_dev)
 			npu_disable_fw_work);
 	}
 
+	host_ctx->ipc_msg_buf = kzalloc(NPU_IPC_BUF_LENGTH, GFP_KERNEL);
+	if (!host_ctx->ipc_msg_buf) {
+		NPU_ERR("Failed to allocate ipc buffer\n");
+		sts = -ENOMEM;
+		goto fail;
+	}
+
 	host_ctx->auto_pil_disable = false;
 
+	return sts;
+fail:
+	if (host_ctx->wq)
+		destroy_workqueue(host_ctx->wq);
+	if (host_ctx->notif_hdle)
+		subsys_notif_unregister_notifier(host_ctx->notif_hdle,
+			&host_ctx->nb);
+	mutex_destroy(&host_ctx->lock);
 	return sts;
 }
 
@@ -615,7 +632,9 @@ void npu_host_deinit(struct npu_device *npu_dev)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
+	kfree(host_ctx->ipc_msg_buf);
 	destroy_workqueue(host_ctx->wq);
+	subsys_notif_unregister_notifier(host_ctx->notif_hdle, &host_ctx->nb);
 	mutex_destroy(&host_ctx->lock);
 }
 
@@ -1496,6 +1515,7 @@ static int npu_send_network_cmd(struct npu_device *npu_dev,
 		network->cmd_ret_status = 0;
 		network->cmd_pending = true;
 		network->trans_id = atomic_read(&host_ctx->ipc_trans_id);
+		reinit_completion(&network->cmd_done);
 		NPU_DBG("Send cmd %d network id %llx trans id %d\n",
 			((struct ipc_cmd_header_pkt *)cmd_ptr)->cmd_type,
 			network->id, network->trans_id);
@@ -1666,8 +1686,6 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	load_packet->buf_pkt.num_layers = network->num_layers;
 	load_packet->num_patch_params = num_patch_params;
 
-	/* NPU_IPC_CMD_LOAD_V2 will go onto IPC_QUEUE_APPS_EXEC */
-	reinit_completion(&network->cmd_done);
 	ret = npu_send_network_cmd(npu_dev, network, load_packet, false, false);
 	if (ret) {
 		NPU_ERR("NPU_IPC_CMD_LOAD_V2 sent failed: %d\n", ret);
@@ -1770,8 +1788,6 @@ int32_t npu_host_unload_network(struct npu_client *client,
 	unload_packet.header.flags = 0;
 	unload_packet.network_hdl = (uint32_t)network->network_hdl;
 
-	/* NPU_IPC_CMD_UNLOAD will go onto IPC_QUEUE_APPS_EXEC */
-	reinit_completion(&network->cmd_done);
 	ret = npu_send_network_cmd(npu_dev, network, &unload_packet, false,
 		false);
 
@@ -1913,8 +1929,6 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 	NPU_DBG("Execute_v2 flags %x stats_buf_size %d\n",
 		exec_packet->header.flags, exec_ioctl->stats_buf_size);
 
-	/* Send it on the high priority queue */
-	reinit_completion(&network->cmd_done);
 	ret = npu_send_network_cmd(npu_dev, network, exec_packet, async_ioctl,
 		false);
 
