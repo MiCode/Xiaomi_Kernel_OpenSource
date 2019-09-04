@@ -383,6 +383,28 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 		tty_termios_encode_baud_rate(termios, baud, baud);
 }
 
+static int mtk8250_handle_irq(struct uart_port *port)
+{
+	struct uart_8250_port *up = up_to_u8250p(port);
+	unsigned int iir;
+	int ret;
+
+	serial8250_rpm_get(up);
+
+#ifndef CONFIG_FIQ_DEBUGGER
+#ifdef CONFIG_PRINTK_MTK_UART_CONSOLE
+	if (uart_console(port) && (serial_port_in(port, UART_LSR) & 0x01))
+		printk_disable_uart = 0;
+#endif
+#endif
+
+	iir = serial_port_in(port, UART_IIR);
+	ret = serial8250_handle_irq(port, iir);
+
+	serial8250_rpm_put(up);
+	return ret;
+}
+
 static int __maybe_unused mtk8250_runtime_suspend(struct device *dev)
 {
 	struct mtk8250_data *data = dev_get_drvdata(dev);
@@ -516,6 +538,7 @@ static int mtk8250_probe(struct platform_device *pdev)
 	uart.port.shutdown = mtk8250_shutdown;
 	uart.port.startup = mtk8250_startup;
 	uart.port.set_termios = mtk8250_set_termios;
+	uart.port.handle_irq = mtk8250_handle_irq;
 	uart.port.uartclk = clk_get_rate(data->uart_clk);
 #ifdef CONFIG_SERIAL_8250_DMA
 	if (data->dma)
