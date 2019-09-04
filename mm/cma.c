@@ -18,6 +18,11 @@
 
 #define pr_fmt(fmt) "cma: " fmt
 
+#ifdef CONFIG_CMA_DEBUG
+#ifndef DEBUG
+#  define DEBUG
+#endif
+#endif
 #define CREATE_TRACE_POINTS
 
 #include <linux/memblock.h>
