@@ -14,18 +14,8 @@
 
 #include <linux/fscrypt.h>
 #include <crypto/hash.h>
-#include <linux/pfk.h>
 
 /* Encryption parameters */
-
-#define FS_AES_128_ECB_KEY_SIZE		16
-#define FS_AES_128_CBC_KEY_SIZE		16
-#define FS_AES_128_CTS_KEY_SIZE		16
-#define FS_AES_256_GCM_KEY_SIZE		32
-#define FS_AES_256_CBC_KEY_SIZE		32
-#define FS_AES_256_CTS_KEY_SIZE		32
-#define FS_AES_256_XTS_KEY_SIZE		64
-
 #define FS_KEY_DERIVATION_NONCE_SIZE	16
 
 /**
@@ -91,13 +81,11 @@ struct fscrypt_info {
 	struct fscrypt_master_key *ci_master_key;
 
 	/* fields from the fscrypt_context */
-
 	u8 ci_data_mode;
 	u8 ci_filename_mode;
 	u8 ci_flags;
 	u8 ci_master_key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
 	u8 ci_nonce[FS_KEY_DERIVATION_NONCE_SIZE];
-	u8 ci_raw_key[FS_MAX_KEY_SIZE];
 };
 
 typedef enum {
@@ -120,10 +108,6 @@ static inline bool fscrypt_valid_enc_modes(u32 contents_mode,
 
 	if (contents_mode == FS_ENCRYPTION_MODE_ADIANTUM &&
 	    filenames_mode == FS_ENCRYPTION_MODE_ADIANTUM)
-		return true;
-
-	if (contents_mode == FS_ENCRYPTION_MODE_PRIVATE &&
-	    filenames_mode == FS_ENCRYPTION_MODE_AES_256_CTS)
 		return true;
 
 	return false;
@@ -180,7 +164,6 @@ struct fscrypt_mode {
 	int ivsize;
 	bool logged_impl_name;
 	bool needs_essiv;
-	bool inline_encryption;
 };
 
 extern void __exit fscrypt_essiv_cleanup(void);

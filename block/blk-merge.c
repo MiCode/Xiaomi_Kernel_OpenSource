@@ -9,7 +9,7 @@
 #include <linux/scatterlist.h>
 
 #include <trace/events/block.h>
-#include <linux/pfk.h>
+
 #include "blk.h"
 
 static struct bio *blk_bio_discard_split(struct request_queue *q,
@@ -515,8 +515,6 @@ int ll_back_merge_fn(struct request_queue *q, struct request *req,
 	if (blk_integrity_rq(req) &&
 	    integrity_req_gap_back_merge(req, bio))
 		return 0;
-	if (blk_try_merge(req, bio) != ELEVATOR_BACK_MERGE)
-		return 0;
 	if (blk_rq_sectors(req) + bio_sectors(bio) >
 	    blk_rq_get_max_sectors(req, blk_rq_pos(req))) {
 		req_set_nomerge(q, req);
@@ -538,8 +536,6 @@ int ll_front_merge_fn(struct request_queue *q, struct request *req,
 		return 0;
 	if (blk_integrity_rq(req) &&
 	    integrity_req_gap_front_merge(req, bio))
-		return 0;
-	if (blk_try_merge(req, bio) != ELEVATOR_FRONT_MERGE)
 		return 0;
 	if (blk_rq_sectors(req) + bio_sectors(bio) >
 	    blk_rq_get_max_sectors(req, bio->bi_iter.bi_sector)) {
@@ -674,11 +670,6 @@ static void blk_account_io_merge(struct request *req)
 	}
 }
 
-static bool crypto_not_mergeable(const struct bio *bio, const struct bio *nxt)
-{
-	return (!pfk_allow_merge_bio(bio, nxt));
-}
-
 /*
  * For non-mq, this has to be called with the request spinlock acquired.
  * For mq with scheduling, the appropriate queue wide lock should be held.
@@ -716,9 +707,6 @@ static struct request *attempt_merge(struct request_queue *q,
 	 */
 	if (req->write_hint != next->write_hint)
 		return NULL;
-
-	if (crypto_not_mergeable(req->bio, next->bio))
-		return 0;
 
 	/*
 	 * If we are allowed to merge, then append bio list
@@ -859,15 +847,9 @@ enum elv_merge blk_try_merge(struct request *rq, struct bio *bio)
 	    queue_max_discard_segments(rq->q) > 1)
 		return ELEVATOR_DISCARD_MERGE;
 	else if (blk_rq_pos(rq) + blk_rq_sectors(rq) ==
-						bio->bi_iter.bi_sector) {
-		if (crypto_not_mergeable(rq->bio, bio))
-			return ELEVATOR_NO_MERGE;
+						bio->bi_iter.bi_sector)
 		return ELEVATOR_BACK_MERGE;
-	} else if (blk_rq_pos(rq) - bio_sectors(bio) ==
-						bio->bi_iter.bi_sector) {
-		if (crypto_not_mergeable(bio, rq->bio))
-			return ELEVATOR_NO_MERGE;
+	else if (blk_rq_pos(rq) - bio_sectors(bio) == bio->bi_iter.bi_sector)
 		return ELEVATOR_FRONT_MERGE;
-	}
 	return ELEVATOR_NO_MERGE;
 }

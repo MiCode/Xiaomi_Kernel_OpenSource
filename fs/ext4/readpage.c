@@ -397,7 +397,6 @@ int ext4_mpage_readpages(struct address_space *mapping,
 		}
 		if (bio == NULL) {
 			struct bio_post_read_ctx *ctx;
-			unsigned int flags = 0;
 
 			bio = bio_alloc(GFP_KERNEL,
 				min_t(int, nr_pages, BIO_MAX_PAGES));
@@ -413,10 +412,8 @@ int ext4_mpage_readpages(struct address_space *mapping,
 			bio->bi_iter.bi_sector = blocks[0] << (blkbits - 9);
 			bio->bi_end_io = mpage_end_io;
 			bio->bi_private = ctx;
-			if (is_readahead)
-				flags = flags | REQ_RAHEAD;
-			flags = flags | (ctx ? REQ_NOENCRYPT : 0);
-			bio_set_op_attrs(bio, REQ_OP_READ, flags);
+			bio_set_op_attrs(bio, REQ_OP_READ,
+						is_readahead ? REQ_RAHEAD : 0);
 		}
 
 		length = first_hole << blkbits;

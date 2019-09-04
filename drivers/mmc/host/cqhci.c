@@ -17,6 +17,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 
+#include "../core/queue.h"
 #include "cqhci.h"
 #include "sdhci-msm.h"
 
@@ -257,7 +258,6 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 {
 	struct mmc_host *mmc = cq_host->mmc;
 	u32 cqcfg;
-	u32 cqcap = 0;
 
 	cqcfg = cqhci_readl(cq_host, CQHCI_CFG);
 
@@ -274,22 +274,6 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 
 	if (cq_host->caps & CQHCI_TASK_DESC_SZ_128)
 		cqcfg |= CQHCI_TASK_DESC_SZ;
-
-	cqcap = cqhci_readl(cq_host, CQHCI_CAP);
-	if (cqcap & CQHCI_CAP_CS) {
-		/*
-		 * In case host controller supports cryptographic operations
-		 * then, enable crypro support.
-		 */
-		cq_host->caps |= CQHCI_CAP_CRYPTO_SUPPORT;
-		cqcfg |= CQHCI_ICE_ENABLE;
-		/*
-		 * For SDHC v5.0 onwards, ICE 3.0 specific registers are added
-		 * in CQ register space, due to which few CQ registers are
-		 * shifted. Set offset_changed boolean to use updated address.
-		 */
-		 cq_host->offset_changed = true;
-	}
 
 	cqhci_writel(cq_host, cqcfg, CQHCI_CFG);
 
@@ -584,16 +568,23 @@ static void cqhci_pm_qos_vote(struct sdhci_host *host, struct mmc_request *mrq)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct mmc_queue_req *mqrq = container_of(mrq, struct mmc_queue_req,
+						  brq.mrq);
+	struct request *req = mmc_queue_req_to_req(mqrq);
 
 	sdhci_msm_pm_qos_cpu_vote(host,
-		msm_host->pdata->pm_qos_data.cmdq_latency, mrq->req->cpu);
+		msm_host->pdata->pm_qos_data.cmdq_latency, req->cpu);
 }
 
 static void cqhci_pm_qos_unvote(struct sdhci_host *host,
 						struct mmc_request *mrq)
 {
+	struct mmc_queue_req *mqrq = container_of(mrq, struct mmc_queue_req,
+						  brq.mrq);
+	struct request *req = mmc_queue_req_to_req(mqrq);
+
 	/* use async as we're inside an atomic context (soft-irq) */
-	sdhci_msm_pm_qos_cpu_unvote(host, mrq->req->cpu, true);
+	sdhci_msm_pm_qos_cpu_unvote(host, req->cpu, true);
 }
 
 static void cqhci_post_req(struct mmc_host *host, struct mmc_request *mrq)
@@ -617,30 +608,6 @@ static inline int cqhci_tag(struct mmc_request *mrq)
 	return mrq->cmd ? DCMD_SLOT : mrq->tag;
 }
 
-static inline
-void cqe_prep_crypto_desc(struct cqhci_host *cq_host, u64 *task_desc,
-			u64 ice_ctx)
-{
-	u64 *ice_desc = NULL;
-
-	if (cq_host->caps & CQHCI_CAP_CRYPTO_SUPPORT) {
-		/*
-		 * Get the address of ice context for the given task descriptor.
-		 * ice context is present in the upper 64bits of task descriptor
-		 * ice_conext_base_address = task_desc + 8-bytes
-		 */
-		ice_desc = (__le64 __force *)((u8 *)task_desc +
-					CQHCI_TASK_DESC_TASK_PARAMS_SIZE);
-		memset(ice_desc, 0, CQHCI_TASK_DESC_ICE_PARAMS_SIZE);
-
-		/*
-		 *  Assign upper 64bits data of task descritor with ice context
-		 */
-		if (ice_ctx)
-			*ice_desc = cpu_to_le64(ice_ctx);
-	}
-}
-
 static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	int err = 0;
@@ -650,7 +617,6 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	struct cqhci_host *cq_host = mmc->cqe_private;
 	unsigned long flags;
 	struct sdhci_host *host = mmc_priv(mmc);
-	u64 ice_ctx = 0;
 
 	if (!cq_host->enabled) {
 		pr_err("%s: cqhci: not enabled\n", mmc_hostname(mmc));
@@ -675,25 +641,15 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	}
 
 	if (mrq->data) {
-		if (cq_host->ops->crypto_cfg) {
-			err = cq_host->ops->crypto_cfg(mmc, mrq, tag, &ice_ctx);
-			if (err) {
-				mmc->err_stats[MMC_ERR_ICE_CFG]++;
-				pr_err("%s: failed to configure crypto: err %d tag %d\n",
-						mmc_hostname(mmc), err, tag);
-				goto out;
-			}
-		}
 		task_desc = (__le64 __force *)get_desc(cq_host, tag);
 		cqhci_prep_task_desc(mrq, &data, 1);
 		*task_desc = cpu_to_le64(data);
-		cqe_prep_crypto_desc(cq_host, task_desc, ice_ctx);
 
 		err = cqhci_prep_tran_desc(mrq, cq_host, tag);
 		if (err) {
 			pr_err("%s: cqhci: failed to setup tx desc: %d\n",
 			       mmc_hostname(mmc), err);
-			goto end_crypto;
+			goto out;
 		}
 		/* PM QoS */
 		sdhci_msm_pm_qos_irq_vote(host);
@@ -734,20 +690,6 @@ out_unlock:
 
 	if (err)
 		cqhci_post_req(mmc, mrq);
-
-	goto out;
-
-end_crypto:
-	if (cq_host->ops->crypto_cfg_end && mrq->data) {
-		err = cq_host->ops->crypto_cfg_end(mmc, mrq);
-		if (err)
-			pr_err("%s: failed to end ice config: err %d tag %d\n",
-					mmc_hostname(mmc), err, tag);
-	}
-	if (!(cq_host->caps & CQHCI_CAP_CRYPTO_SUPPORT) &&
-			cq_host->ops->crypto_cfg_reset && mrq->data)
-		cq_host->ops->crypto_cfg_reset(mmc, tag);
-
 out:
 	return err;
 }
@@ -851,7 +793,7 @@ static void cqhci_finish_mrq(struct mmc_host *mmc, unsigned int tag)
 	struct cqhci_slot *slot = &cq_host->slot[tag];
 	struct mmc_request *mrq = slot->mrq;
 	struct mmc_data *data;
-	int err = 0, offset = 0;
+	int offset = 0;
 
 	if (cq_host->offset_changed)
 		offset = CQE_V5_VENDOR_CFG;
@@ -873,13 +815,6 @@ static void cqhci_finish_mrq(struct mmc_host *mmc, unsigned int tag)
 
 	data = mrq->data;
 	if (data) {
-		if (cq_host->ops->crypto_cfg_end) {
-			err = cq_host->ops->crypto_cfg_end(mmc, mrq);
-			if (err) {
-				pr_err("%s: failed to end ice config: err %d tag %d\n",
-						mmc_hostname(mmc), err, tag);
-			}
-		}
 		if (data->error)
 			data->bytes_xfered = 0;
 		else
@@ -891,9 +826,6 @@ static void cqhci_finish_mrq(struct mmc_host *mmc, unsigned int tag)
 				CQHCI_VENDOR_CFG + offset);
 	}
 
-	if (!(cq_host->caps & CQHCI_CAP_CRYPTO_SUPPORT) &&
-			cq_host->ops->crypto_cfg_reset)
-		cq_host->ops->crypto_cfg_reset(mmc, tag);
 	mmc_cqe_request_done(mmc, mrq);
 }
 
@@ -1287,14 +1219,6 @@ int cqhci_init(struct cqhci_host *cq_host, struct mmc_host *mmc,
 		mmc->cqe_qdepth -= 1;
 
 	cqcap = cqhci_readl(cq_host, CQHCI_CAP);
-	if (cqcap & CQHCI_CAP_CS) {
-		/*
-		 * In case host controller supports cryptographic operations
-		 * then, it uses 128bit task descriptor. Upper 64 bits of task
-		 * descriptor would be used to pass crypto specific informaton.
-		 */
-		cq_host->caps |= CQHCI_TASK_DESC_SZ_128;
-	}
 
 	cq_host->slot = devm_kcalloc(mmc_dev(mmc), cq_host->num_slots,
 				     sizeof(*cq_host->slot), GFP_KERNEL);
