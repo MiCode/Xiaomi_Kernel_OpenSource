@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, 2018-2019, The Linux Foundation.
+ * All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -1414,6 +1415,16 @@ static int lucid_pll_is_enabled(struct clk_alpha_pll *pll,
 		(mode_regval & PLL_OUTCTRL));
 }
 
+static void clk_alpha_pll_custom_configure(struct clk_alpha_pll *pll,
+		struct regmap *regmap, const struct alpha_pll_config *config)
+{
+	int i;
+
+	for (i = 0; i < config->num_custom_reg; i++)
+		regmap_write(regmap, pll->offset + config->custom_reg_offset[i],
+				config->custom_reg_val[i]);
+}
+
 void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config)
 {
@@ -1462,6 +1473,8 @@ void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	if (config->test_ctl_hi1_val)
 		regmap_write(regmap, PLL_TEST_CTL_U1(pll),
 				config->test_ctl_hi1_val);
+
+	clk_alpha_pll_custom_configure(pll, regmap, config);
 
 	regmap_update_bits(regmap, PLL_MODE(pll),
 				 PLL_UPDATE_BYPASS,
@@ -1579,6 +1592,20 @@ static int alpha_pll_lucid_prepare(struct clk_hw *hw)
 	regmap_read(pll->clkr.regmap, PLL_STATUS(pll), &regval);
 	if (regval & LUCID_PCAL_DONE)
 		return 0;
+
+	if (pll->config) {
+		/*
+		 * Reconfigure the PLL if CAL_L_VAL is 0 (which implies that all
+		 * clock controller registers have been reset).
+		 */
+		regmap_read(pll->clkr.regmap, PLL_CAL_L_VAL(pll), &regval);
+		if (!regval) {
+			pr_debug("reconfiguring %s after it was reset\n",
+				clk_hw_get_name(hw));
+			clk_lucid_pll_configure(pll, pll->clkr.regmap,
+						pll->config);
+		}
+	}
 
 	p = clk_hw_get_parent(hw);
 	if (!p)
