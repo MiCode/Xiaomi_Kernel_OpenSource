@@ -974,6 +974,16 @@ static int stmmac_init_phy(struct net_device *dev)
 	if (phydev->is_pseudo_fixed_link)
 		phydev->irq = PHY_POLL;
 
+	if (phy_intr_en) {
+		phydev->irq = PHY_IGNORE_INTERRUPT;
+		phydev->interrupts =  PHY_INTERRUPT_ENABLED;
+
+		if (phydev->drv->config_intr &&
+		    !phydev->drv->config_intr(phydev)) {
+			pr_debug(" qcom-ethqos: %s config_phy_intr successful\n",
+				 __func__);
+		}
+	}
 	phy_attached_info(phydev);
 	return 0;
 }
