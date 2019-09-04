@@ -31,7 +31,6 @@
 #define VFF_EN_B		BIT(0)
 #define VFF_STOP_B		BIT(0)
 #define VFF_FLUSH_B		BIT(0)
-#define VFF_4G_EN_B		BIT(0)
 /* rx valid size >=  vff thre */
 #define VFF_RX_INT_EN_B		(BIT(0) | BIT(1))
 /* tx left size >= vff thre */
@@ -43,7 +42,7 @@
 #define VFF_EN_CLR_B		0
 #define VFF_INT_EN_CLR_B	0
 #define VFF_4G_SUPPORT_CLR_B	0
-
+#define VFF_ORI_ADDR_BITS_NUM    32
 /*
  * interrupt trigger level for tx
  * if threshold is n, no polling is required to start tx.
@@ -78,7 +77,7 @@
 struct mtk_uart_apdmadev {
 	struct dma_device ddev;
 	struct clk *clk;
-	bool support_33bits;
+	unsigned int support_bits;
 	unsigned int dma_requests;
 };
 
@@ -152,8 +151,9 @@ static void mtk_uart_apdma_start_tx(struct mtk_chan *c)
 		mtk_uart_apdma_write(c, VFF_WPT, 0);
 		mtk_uart_apdma_write(c, VFF_INT_FLAG, VFF_TX_INT_CLR_B);
 
-		if (mtkd->support_33bits)
-			mtk_uart_apdma_write(c, VFF_4G_SUPPORT, VFF_4G_EN_B);
+		if (mtkd->support_bits > VFF_ORI_ADDR_BITS_NUM)
+			mtk_uart_apdma_write(c, VFF_4G_SUPPORT,
+					upper_32_bits(d->addr));
 	}
 
 	mtk_uart_apdma_write(c, VFF_EN, VFF_EN_B);
@@ -195,8 +195,9 @@ static void mtk_uart_apdma_start_rx(struct mtk_chan *c)
 		mtk_uart_apdma_write(c, VFF_RPT, 0);
 		mtk_uart_apdma_write(c, VFF_INT_FLAG, VFF_RX_INT_CLR_B);
 
-		if (mtkd->support_33bits)
-			mtk_uart_apdma_write(c, VFF_4G_SUPPORT, VFF_4G_EN_B);
+		if (mtkd->support_bits > VFF_ORI_ADDR_BITS_NUM)
+			mtk_uart_apdma_write(c, VFF_4G_SUPPORT,
+					upper_32_bits(d->addr));
 	}
 
 	mtk_uart_apdma_write(c, VFF_INT_EN, VFF_RX_INT_EN_B);
@@ -296,7 +297,7 @@ static int mtk_uart_apdma_alloc_chan_resources(struct dma_chan *chan)
 		return -EINVAL;
 	}
 
-	if (mtkd->support_33bits)
+	if (mtkd->support_bits > VFF_ORI_ADDR_BITS_NUM)
 		mtk_uart_apdma_write(c, VFF_4G_SUPPORT, VFF_4G_SUPPORT_CLR_B);
 
 	return ret;
@@ -474,10 +475,11 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	struct mtk_uart_apdmadev *mtkd;
-	int bit_mask = 32, rc;
+	int rc;
 	struct resource *res;
 	struct mtk_chan *c;
 	unsigned int i;
+	unsigned int addr_bits = VFF_ORI_ADDR_BITS_NUM;
 
 	mtkd = devm_kzalloc(&pdev->dev, sizeof(*mtkd), GFP_KERNEL);
 	if (!mtkd)
@@ -490,13 +492,14 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	if (of_property_read_bool(np, "mediatek,dma-33bits"))
-		mtkd->support_33bits = true;
+	if (of_property_read_u32(pdev->dev.of_node, "dma-bits", &addr_bits))
+		addr_bits = VFF_ORI_ADDR_BITS_NUM;
 
-	if (mtkd->support_33bits)
-		bit_mask = 33;
+	dev_info(&pdev->dev,
+			"DMA address bits: %d\n", addr_bits);
+	mtkd->support_bits = addr_bits;
 
-	rc = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(bit_mask));
+	rc = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(addr_bits));
 	if (rc)
 		return rc;
 
