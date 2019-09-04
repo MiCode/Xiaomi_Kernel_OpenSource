@@ -2152,14 +2152,6 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 	return 0;
 }
 
-static struct kgsl_protected_registers *
-kgsl_iommu_get_prot_regs(struct kgsl_mmu *mmu)
-{
-	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-
-	return &iommu->protect;
-}
-
 static struct kgsl_iommu_addr_entry *_find_gpuaddr(
 		struct kgsl_pagetable *pagetable, uint64_t gpuaddr)
 {
@@ -2611,15 +2603,6 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 	iommu->regstart = reg_val[0];
 	iommu->regsize = reg_val[1];
 
-	/* Protecting the SMMU registers is mandatory */
-	if (of_property_read_u32_array(node, "qcom,protect", reg_val, 2)) {
-		dev_err(device->dev,
-			"dt: no iommu protection range specified\n");
-		return -EINVAL;
-	}
-	iommu->protect.base = reg_val[0] / sizeof(u32);
-	iommu->protect.range = reg_val[1] / sizeof(u32);
-
 	of_property_for_each_string(node, "clock-names", prop, cname) {
 		struct clk *c = devm_clk_get(&pdev->dev, cname);
 
@@ -2707,7 +2690,6 @@ struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_pt_equal = kgsl_iommu_pt_equal,
 	.mmu_set_pf_policy = kgsl_iommu_set_pf_policy,
 	.mmu_pagefault_resume = kgsl_iommu_pagefault_resume,
-	.mmu_get_prot_regs = kgsl_iommu_get_prot_regs,
 	.mmu_init_pt = kgsl_iommu_init_pt,
 	.mmu_add_global = kgsl_iommu_add_global,
 	.mmu_remove_global = kgsl_iommu_remove_global,

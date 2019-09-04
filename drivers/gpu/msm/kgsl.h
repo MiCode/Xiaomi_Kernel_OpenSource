@@ -333,16 +333,6 @@ struct kgsl_event_group {
 };
 
 /**
- * struct kgsl_protected_registers - Protected register range
- * @base: Offset of the range to be protected
- * @range: Range (# of registers = 2 ** range)
- */
-struct kgsl_protected_registers {
-	unsigned int base;
-	int range;
-};
-
-/**
  * struct sparse_bind_object - Bind metadata
  * @node: Node for the rb tree
  * @p_memdesc: Physical memdesc bound to
