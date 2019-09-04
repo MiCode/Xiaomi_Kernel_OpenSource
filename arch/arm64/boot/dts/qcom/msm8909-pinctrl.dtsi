@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -289,7 +289,7 @@
 			};
 		};
 
-		pmx_mdss {
+		pmx_mdss: pmx_mdss {
 			mdss_dsi_active: mdss_dsi_active {
 				mux {
 					pins = "gpio25", "gpio37";
@@ -340,6 +340,20 @@
 					drive-strength = <2>; /* 2 mA */
 					bias-pull-down; /* pull down */
 				};
+			};
+		};
+
+		mdss_dsi_select_gpio: mdss_dsi_select_gpio {
+			mux {
+				pins = "gpio70";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio70";
+				drive-strength = <8>;
+				bias-pull-down;
+				output-low;
 			};
 		};
 
