@@ -2113,6 +2113,7 @@ static int npu_probe(struct platform_device *pdev)
 		return -EFAULT;
 
 	npu_dev->pdev = pdev;
+	mutex_init(&npu_dev->dev_lock);
 
 	platform_set_drvdata(pdev, npu_dev);
 	res = platform_get_resource_byname(pdev,
@@ -2301,8 +2302,6 @@ static int npu_probe(struct platform_device *pdev)
 	rc = npu_debugfs_init(npu_dev);
 	if (rc)
 		goto error_driver_init;
-
-	mutex_init(&npu_dev->dev_lock);
 
 	rc = npu_host_init(npu_dev);
 	if (rc) {
