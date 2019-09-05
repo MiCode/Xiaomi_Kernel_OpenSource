@@ -66,6 +66,8 @@ struct adreno_a6xx_core {
 	u32 hang_detect_cycles;
 	/** @protected_regs: Array of protected registers for the target */
 	const struct a6xx_protected_regs *protected_regs;
+	/** @disable_tseskip: True if TSESkip logic is disabled */
+	bool disable_tseskip;
 };
 
 #define CP_CLUSTER_FE		0x0

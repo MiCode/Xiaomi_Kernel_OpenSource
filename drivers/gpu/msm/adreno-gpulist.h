@@ -1047,6 +1047,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a620 = {
 	.veto_fal10 = true,
 	.hang_detect_cycles = 0x3ffff,
 	.protected_regs = a620_protected_regs,
+	.disable_tseskip = true,
 };
 
 static const struct adreno_reglist a640_hwcg_regs[] = {
@@ -1135,6 +1136,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a640 = {
 	.vbif_count = ARRAY_SIZE(a640_vbif_regs),
 	.hang_detect_cycles = 0x3fffff,
 	.protected_regs = a630_protected_regs,
+	.disable_tseskip = true,
 };
 
 static const struct adreno_reglist a650_hwcg_regs[] = {
@@ -1214,6 +1216,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a650 = {
 	.pdc_in_aop = true,
 	.hang_detect_cycles = 0x3fffff,
 	.protected_regs = a620_protected_regs,
+	.disable_tseskip = true,
 };
 
 static const struct adreno_a6xx_core adreno_gpu_core_a650v2 = {
@@ -1241,6 +1244,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a650v2 = {
 	.pdc_in_aop = true,
 	.hang_detect_cycles = 0x3ffff,
 	.protected_regs = a620_protected_regs,
+	.disable_tseskip = true,
 };
 
 static const struct adreno_a6xx_core adreno_gpu_core_a680 = {
@@ -1266,6 +1270,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a680 = {
 	.vbif_count = ARRAY_SIZE(a640_vbif_regs),
 	.hang_detect_cycles = 0x3fffff,
 	.protected_regs = a630_protected_regs,
+	.disable_tseskip = true,
 };
 
 static const struct adreno_reglist a612_hwcg_regs[] = {
