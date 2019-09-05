@@ -17,7 +17,7 @@
 		.ngroups = ARRAY_SIZE(fname##_groups),	\
 	}
 
-#define REG_BASE 0x1000
+#define REG_BASE 0x100000
 #define REG_SIZE 0x1000
 #define PINGROUP(id, f1, f2, f3, f4, f5, f6, f7, f8, f9)	\
 	{					        \
