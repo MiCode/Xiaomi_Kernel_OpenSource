@@ -112,6 +112,9 @@ static int mtk_cpufreq_set_target(struct cpufreq_policy *policy,
 
 	writel_relaxed(index, info->csram_base + (OFFS_WFI_S + (cluster_id * 4))
 		       );
+	arch_set_freq_scale(policy->related_cpus,
+			    policy->freq_table[index].frequency,
+			    policy->cpuinfo.max_freq);
 
 	return 0;
 }
