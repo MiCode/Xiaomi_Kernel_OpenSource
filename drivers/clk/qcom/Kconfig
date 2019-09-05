@@ -323,4 +323,14 @@ config KRAITCC
 	  Support for the Krait CPU clocks on Qualcomm devices.
 	  Say Y if you want to support CPU frequency scaling.
 
+config MSM_CLK_AOP_QMP
+	tristate "AOP QMP Clock Driver"
+	depends on COMMON_CLK_QCOM && MSM_QMP
+	help
+	  The Always On Processor (AOP) manages a few of the shared clocks on
+	  some Qualcomm Technologies, Inc. SoCs. It accepts requests from other
+	  hardware subsystems via QMP mailboxes.
+	  Say Y to support the clocks managed by AOP on platforms such as
+	  sdm845.
+
 endif
