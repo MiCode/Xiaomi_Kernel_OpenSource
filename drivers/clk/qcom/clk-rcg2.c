@@ -440,7 +440,8 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate,
 	}
 
 	if (rcg->flags & FORCE_ENABLE_RCG) {
-		rcg->current_freq = clk_get_rate(hw->clk);
+		rcg->current_freq = DIV_ROUND_CLOSEST_ULL(
+					clk_get_rate(hw->clk), 1000) * 1000;
 		if (rcg->current_freq == cxo_f.freq)
 			curr_src_index = 0;
 		else {
@@ -692,6 +693,8 @@ static int clk_edp_pixel_determine_rate(struct clk_hw *hw,
 
 	/* Force the correct parent */
 	req->best_parent_hw = clk_hw_get_parent_by_index(hw, index);
+	if (!req->best_parent_hw)
+		return -EINVAL;
 	req->best_parent_rate = clk_hw_get_rate(req->best_parent_hw);
 
 	if (req->best_parent_rate == 810000000)
@@ -746,6 +749,8 @@ static int clk_byte_determine_rate(struct clk_hw *hw,
 		return -EINVAL;
 
 	req->best_parent_hw = p = clk_hw_get_parent_by_index(hw, index);
+	if (!p)
+		return -EINVAL;
 	req->best_parent_rate = parent_rate = clk_hw_round_rate(p, req->rate);
 
 	div = DIV_ROUND_UP((2 * parent_rate), req->rate) - 1;
@@ -1041,6 +1046,8 @@ static int clk_gfx3d_determine_rate(struct clk_hw *hw,
 	int ret;
 
 	xo = clk_hw_get_parent_by_index(hw, 0);
+	if (!xo)
+		return -EINVAL;
 	if (req->rate == clk_hw_get_rate(xo)) {
 		req->best_parent_hw = xo;
 		return 0;
@@ -1049,6 +1056,8 @@ static int clk_gfx3d_determine_rate(struct clk_hw *hw,
 	p9 = clk_hw_get_parent_by_index(hw, 2);
 	p2 = clk_hw_get_parent_by_index(hw, 3);
 	p8 = clk_hw_get_parent_by_index(hw, 4);
+	if (!p9 || !p2 || !p8)
+		return -EINVAL;
 
 	/* PLL9 is a fixed rate PLL */
 	p9_rate = clk_hw_get_rate(p9);
@@ -1444,6 +1453,9 @@ static int clk_rcg2_dependent_set_parent(struct clk_hw *hw, u8 index)
 		return ret;
 
 	p_hw = clk_hw_get_parent_by_index(rcg->clkr.dependent_hw, index);
+	if (!p_hw)
+		return -EINVAL;
+
 	return clk_set_parent(rcg->clkr.dependent_hw->clk, p_hw->clk);
 }
 
