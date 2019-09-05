@@ -532,16 +532,22 @@
 			reg = <0 0x80b00000 0 0x3900000>;
 		};
 
+		pil_modem_mem: modem_region@86000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x86000000 0 0x8400000>;
+		};
+
 		pil_camera_mem: camera_region@8e000000 {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0 0x8e400000 0 0x500000>;
 		};
 
-		pil_modem_mem: modem_region@86000000 {
+		pil_npu_mem: pil_npu_region@8e500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x86000000 0 0x8400000>;
+			reg = <0 0x8e900000 0 0x500000>;
 		};
 
 		pil_video_mem: pil_video_region@8ea00000 {
@@ -566,12 +572,6 @@
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0 0x93900000 0 0x200000>;
-		};
-
-		npu_mem: npu_region@8e500000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x8e900000 0 0x500000>;
 		};
 
 		pil_ipa_fw_mem: ipa_fw_region@93700000 {
@@ -1180,6 +1180,19 @@
 
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "mss-pil";
+	};
+
+	qcom,npu@9800000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x9800000 0x800000>;
+
+		qcom,pas-id = <23>;
+		qcom,firmware-name = "npu";
+		memory-region = <&pil_npu_mem>;
+
+		/* Outputs to npu */
+		qcom,smem-states = <&npu_smp2p_out 0>;
+		qcom,smem-states-names = "qcom,force-stop";
 	};
 
 	qcom,turing@8300000 {
@@ -3279,6 +3292,7 @@
 #include "atoll-regulator.dtsi"
 #include "atoll-usb.dtsi"
 #include "atoll-vidc.dtsi"
+#include "atoll-npu.dtsi"
 
 &pm6150_vadc {
 	pinctrl-names = "default";
