@@ -15,6 +15,9 @@
 	limit-tx-hs-gear = <1>;
 	limit-rx-hs-gear = <1>;
 
+	vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+
 	vcc-supply = <&pm8350_l7>;
 	vcc-max-microamp = <800000>;
 
@@ -79,4 +82,8 @@
 		maximum-speed = "high-speed";
 		dr_mode = "peripheral";
 	};
+};
+
+&gpu_cc_cx_gdsc {
+	qcom,gds-timeout = <5000>;
 };

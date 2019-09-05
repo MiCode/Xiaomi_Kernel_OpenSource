@@ -372,7 +372,7 @@
 		pm8350c_s8_level-parent-supply = <&VDD_MXA_LEVEL>;
 		pm8350c_s8_level_ao-parent-supply = <&VDD_MXA_LEVEL_AO>;
 
-		VDD_MMCX_LEVEL: S8C_LEVEL:
+		VDD_MMCX_LEVEL: S8C_LEVEL: VDD_MM_LEVEL:
 		pm8350c_s8_level: regulator-pm8350c-s8-level {
 			regulator-name = "pm8350c_s8_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -386,7 +386,7 @@
 			regulator-always-on;
 		};
 
-		VDD_MMCX_LEVEL_AO: S8C_LEVEL_AO:
+		VDD_MMCX_LEVEL_AO: S8C_LEVEL_AO: VDD_MM_LEVEL_AO:
 		pm8350c_s8_level_ao: regulator-pm8350c-s8-level-ao {
 			regulator-name = "pm8350c_s8_level_ao";
 			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
