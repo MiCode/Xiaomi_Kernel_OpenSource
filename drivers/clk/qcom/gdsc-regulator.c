@@ -500,17 +500,11 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		/*
 		 * There may be a race with internal HW trigger signal,
 		 * that will result in GDSC going through a power down and
-		 * up cycle.  If we poll too early, status bit will
-		 * indicate 'on' before the GDSC can finish the power cycle.
-		 * Account for this case by waiting 1us before polling.
+		 * up cycle. Account for this case by waiting 1us before
+		 * proceeding.
 		 */
 		gdsc_mb(sc);
 		udelay(1);
-
-		ret = poll_gdsc_status(sc, ENABLED);
-		if (ret)
-			dev_err(&rdev->dev, "%s set_mode timed out: 0x%x\n",
-				sc->rdesc.name, regval);
 		break;
 	default:
 		ret = -EINVAL;
@@ -542,129 +536,144 @@ static const struct regmap_config gdsc_regmap_config = {
 	.fast_io    = true,
 };
 
-static int gdsc_probe(struct platform_device *pdev)
+static int gdsc_parse_dt_data(struct gdsc *sc, struct device *dev,
+				struct regulator_init_data **init_data)
 {
-	static atomic_t gdsc_count = ATOMIC_INIT(-1);
-	struct regulator_config reg_config = {};
-	struct regulator_init_data *init_data;
-	struct resource *res;
-	struct gdsc *sc;
-	uint32_t regval, clk_dis_wait_val = 0;
-	bool support_hw_trigger;
-	int i, ret;
-	u32 timeout;
+	int ret;
 
-	sc = devm_kzalloc(&pdev->dev, sizeof(struct gdsc), GFP_KERNEL);
-	if (sc == NULL)
+	*init_data = of_get_regulator_init_data(dev, dev->of_node, &sc->rdesc);
+	if (*init_data == NULL)
 		return -ENOMEM;
 
-	init_data = of_get_regulator_init_data(&pdev->dev, pdev->dev.of_node,
-								&sc->rdesc);
-	if (init_data == NULL)
-		return -ENOMEM;
+	if (of_get_property(dev->of_node, "parent-supply", NULL))
+		(*init_data)->supply_regulator = "parent";
 
-	if (of_get_property(pdev->dev.of_node, "parent-supply", NULL))
-		init_data->supply_regulator = "parent";
-
-	ret = of_property_read_string(pdev->dev.of_node, "regulator-name",
-							&sc->rdesc.name);
+	ret = of_property_read_string(dev->of_node, "regulator-name",
+					&sc->rdesc.name);
 	if (ret)
 		return ret;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (res == NULL) {
-		dev_err(&pdev->dev, "Failed to get resources\n");
-		return -EINVAL;
-	}
-
-	sc->gdscr = devm_ioremap(&pdev->dev, res->start, resource_size(res));
-	if (sc->gdscr == NULL)
-		return -ENOMEM;
-
-	sc->regmap = devm_regmap_init_mmio(&pdev->dev, sc->gdscr,
-							&gdsc_regmap_config);
-	if (!sc->regmap) {
-		dev_err(&pdev->dev, "Couldn't get regmap\n");
-		return -EINVAL;
-	}
-
-	if (of_find_property(pdev->dev.of_node, "domain-addr", NULL)) {
-		sc->domain_addr = syscon_regmap_lookup_by_phandle
-					(pdev->dev.of_node, "domain-addr");
+	if (of_find_property(dev->of_node, "domain-addr", NULL)) {
+		sc->domain_addr = syscon_regmap_lookup_by_phandle(dev->of_node,
+								"domain-addr");
 		if (IS_ERR(sc->domain_addr))
-			return -ENODEV;
+			return PTR_ERR(sc->domain_addr);
 	}
 
-	if (of_find_property(pdev->dev.of_node, "sw-reset", NULL)) {
-		sc->sw_reset = syscon_regmap_lookup_by_phandle
-						(pdev->dev.of_node, "sw-reset");
+	if (of_find_property(dev->of_node, "sw-reset", NULL)) {
+		sc->sw_reset = syscon_regmap_lookup_by_phandle(dev->of_node,
+								"sw-reset");
 		if (IS_ERR(sc->sw_reset))
-			return -ENODEV;
+			return PTR_ERR(sc->sw_reset);
 	}
 
-	if (of_find_property(pdev->dev.of_node, "hw-ctrl-addr", NULL)) {
-		sc->hw_ctrl = syscon_regmap_lookup_by_phandle(
-					pdev->dev.of_node, "hw-ctrl-addr");
+	if (of_find_property(dev->of_node, "hw-ctrl-addr", NULL)) {
+		sc->hw_ctrl = syscon_regmap_lookup_by_phandle(dev->of_node,
+								"hw-ctrl-addr");
 		if (IS_ERR(sc->hw_ctrl))
-			return -ENODEV;
+			return PTR_ERR(sc->hw_ctrl);
 	}
 
 	sc->gds_timeout = TIMEOUT_US;
+	of_property_read_u32(dev->of_node, "qcom,gds-timeout",
+				&sc->gds_timeout);
 
-	ret = of_property_read_u32(pdev->dev.of_node, "qcom,gds-timeout",
-							&timeout);
-	if (!ret)
-		sc->gds_timeout = timeout;
-
-	sc->clock_count = of_property_count_strings(pdev->dev.of_node,
-					    "clock-names");
+	sc->clock_count = of_property_count_strings(dev->of_node,
+							"clock-names");
 	if (sc->clock_count == -EINVAL) {
 		sc->clock_count = 0;
 	} else if (sc->clock_count < 0) {
-		dev_err(&pdev->dev, "Failed to get clock names\n");
+		dev_err(dev, "Failed to get clock names, ret=%d\n",
+			sc->clock_count);
+		return sc->clock_count;
+	}
+
+	sc->root_en = of_property_read_bool(dev->of_node,
+						"qcom,enable-root-clk");
+	sc->force_root_en = of_property_read_bool(dev->of_node,
+						"qcom,force-enable-root-clk");
+	sc->reset_aon = of_property_read_bool(dev->of_node,
+						"qcom,reset-aon-logic");
+	sc->no_status_check_on_disable = of_property_read_bool(dev->of_node,
+					"qcom,no-status-check-on-disable");
+	sc->retain_ff_enable = of_property_read_bool(dev->of_node,
+						"qcom,retain-regs");
+
+	sc->toggle_logic = !of_property_read_bool(dev->of_node,
+						"qcom,skip-logic-collapse");
+	if (!sc->toggle_logic) {
+		sc->reset_count = of_property_count_strings(dev->of_node,
+							    "reset-names");
+		if (sc->reset_count == -EINVAL) {
+			sc->reset_count = 0;
+		} else if (sc->reset_count < 0) {
+			dev_err(dev, "Failed to get reset clock names\n");
+			return sc->reset_count;
+		}
+	}
+
+	if (of_find_property(dev->of_node, "qcom,support-hw-trigger", NULL)) {
+		(*init_data)->constraints.valid_ops_mask |=
+				REGULATOR_CHANGE_MODE;
+		(*init_data)->constraints.valid_modes_mask |=
+				REGULATOR_MODE_NORMAL | REGULATOR_MODE_FAST;
+	}
+
+	return 0;
+}
+
+static int gdsc_get_resources(struct gdsc *sc, struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct resource *res;
+	int ret, i;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res == NULL) {
+		dev_err(dev, "Failed to get address resource\n");
 		return -EINVAL;
 	}
 
-	sc->clocks = devm_kzalloc(&pdev->dev,
-			sizeof(struct clk *) * sc->clock_count, GFP_KERNEL);
-	if (!sc->clocks)
+	sc->gdscr = devm_ioremap(dev, res->start, resource_size(res));
+	if (sc->gdscr == NULL)
 		return -ENOMEM;
 
-	sc->root_clk_idx = -1;
+	sc->regmap = devm_regmap_init_mmio(dev, sc->gdscr, &gdsc_regmap_config);
+	if (!sc->regmap) {
+		dev_err(dev, "Couldn't get regmap\n");
+		return -EINVAL;
+	}
 
-	sc->root_en = of_property_read_bool(pdev->dev.of_node,
-						"qcom,enable-root-clk");
-
-	sc->force_root_en = of_property_read_bool(pdev->dev.of_node,
-						"qcom,force-enable-root-clk");
-
-	if (of_find_property(pdev->dev.of_node, "vdd_parent-supply", NULL)) {
-		sc->parent_regulator = devm_regulator_get(&pdev->dev,
-							"vdd_parent");
+	if (of_find_property(dev->of_node, "vdd_parent-supply", NULL)) {
+		sc->parent_regulator = devm_regulator_get(dev, "vdd_parent");
 		if (IS_ERR(sc->parent_regulator)) {
 			ret = PTR_ERR(sc->parent_regulator);
 			if (ret != -EPROBE_DEFER)
-				dev_err(&pdev->dev,
-				"Unable to get vdd_parent regulator, err: %d\n",
+				dev_err(dev, "Unable to get vdd_parent regulator, ret=%d\n",
 					ret);
 			return ret;
 		}
 	}
 
+	sc->clocks = devm_kcalloc(dev, sc->clock_count, sizeof(*sc->clocks),
+				  GFP_KERNEL);
+	if (sc->clock_count && !sc->clocks)
+		return -ENOMEM;
+
+	sc->root_clk_idx = -1;
 	for (i = 0; i < sc->clock_count; i++) {
 		const char *clock_name;
 
-		of_property_read_string_index(pdev->dev.of_node, "clock-names",
-				i, &clock_name);
+		of_property_read_string_index(dev->of_node, "clock-names", i,
+					      &clock_name);
 
-		sc->clocks[i] = devm_clk_get(&pdev->dev, clock_name);
+		sc->clocks[i] = devm_clk_get(dev, clock_name);
 		if (IS_ERR(sc->clocks[i])) {
-			int rc = PTR_ERR(sc->clocks[i]);
-
-			if (rc != -EPROBE_DEFER)
-				dev_err(&pdev->dev, "Failed to get %s\n",
-					clock_name);
-			return rc;
+			ret = PTR_ERR(sc->clocks[i]);
+			if (ret != -EPROBE_DEFER)
+				dev_err(dev, "Failed to get %s, ret=%d\n",
+					clock_name, ret);
+			return ret;
 		}
 
 		if (!strcmp(clock_name, "core_root_clk"))
@@ -672,18 +681,57 @@ static int gdsc_probe(struct platform_device *pdev)
 	}
 
 	if ((sc->root_en || sc->force_root_en) && (sc->root_clk_idx == -1)) {
-		dev_err(&pdev->dev, "Failed to get root clock name\n");
+		dev_err(dev, "Failed to get root clock name\n");
 		return -EINVAL;
 	}
 
-	sc->reset_aon = of_property_read_bool(pdev->dev.of_node,
-							"qcom,reset-aon-logic");
+	if (!sc->toggle_logic) {
+		sc->reset_clocks = devm_kcalloc(&pdev->dev, sc->reset_count,
+						sizeof(*sc->reset_clocks),
+						GFP_KERNEL);
+		if (sc->reset_count && !sc->reset_clocks)
+			return -ENOMEM;
 
-	sc->rdesc.id = atomic_inc_return(&gdsc_count);
-	sc->rdesc.ops = &gdsc_ops;
-	sc->rdesc.type = REGULATOR_VOLTAGE;
-	sc->rdesc.owner = THIS_MODULE;
-	platform_set_drvdata(pdev, sc);
+		for (i = 0; i < sc->reset_count; i++) {
+			const char *reset_name;
+
+			of_property_read_string_index(pdev->dev.of_node,
+						"reset-names", i, &reset_name);
+			sc->reset_clocks[i] = devm_reset_control_get(&pdev->dev,
+								reset_name);
+			if (IS_ERR(sc->reset_clocks[i])) {
+				ret = PTR_ERR(sc->reset_clocks[i]);
+				if (ret != -EPROBE_DEFER)
+					dev_err(&pdev->dev, "Failed to get %s, ret=%d\n",
+						reset_name, ret);
+				return ret;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int gdsc_probe(struct platform_device *pdev)
+{
+	static atomic_t gdsc_count = ATOMIC_INIT(-1);
+	struct regulator_config reg_config = {};
+	struct regulator_init_data *init_data = NULL;
+	struct gdsc *sc;
+	uint32_t regval, clk_dis_wait_val = 0;
+	int ret;
+
+	sc = devm_kzalloc(&pdev->dev, sizeof(*sc), GFP_KERNEL);
+	if (sc == NULL)
+		return -ENOMEM;
+
+	ret = gdsc_parse_dt_data(sc, &pdev->dev, &init_data);
+	if (ret)
+		return ret;
+
+	ret = gdsc_get_resources(sc, pdev);
+	if (ret)
+		return ret;
 
 	/*
 	 * Disable HW trigger: collapse/restore occur based on registers writes.
@@ -703,54 +751,7 @@ static int gdsc_probe(struct platform_device *pdev)
 
 	regmap_write(sc->regmap, REG_OFFSET, regval);
 
-	sc->no_status_check_on_disable =
-			of_property_read_bool(pdev->dev.of_node,
-					"qcom,no-status-check-on-disable");
-	sc->retain_ff_enable = of_property_read_bool(pdev->dev.of_node,
-						"qcom,retain-regs");
-	sc->toggle_logic = !of_property_read_bool(pdev->dev.of_node,
-						"qcom,skip-logic-collapse");
-	support_hw_trigger = of_property_read_bool(pdev->dev.of_node,
-						    "qcom,support-hw-trigger");
-	if (support_hw_trigger) {
-		init_data->constraints.valid_ops_mask |= REGULATOR_CHANGE_MODE;
-		init_data->constraints.valid_modes_mask |=
-				REGULATOR_MODE_NORMAL | REGULATOR_MODE_FAST;
-	}
-
 	if (!sc->toggle_logic) {
-		sc->reset_count = of_property_count_strings(pdev->dev.of_node,
-					    "reset-names");
-		if (sc->reset_count == -EINVAL) {
-			sc->reset_count = 0;
-		} else if (sc->reset_count < 0) {
-			dev_err(&pdev->dev, "Failed to get reset clock names\n");
-			return -EINVAL;
-		}
-
-		sc->reset_clocks = devm_kzalloc(&pdev->dev,
-			sizeof(struct reset_control *) * sc->reset_count,
-							GFP_KERNEL);
-		if (!sc->reset_clocks)
-			return -ENOMEM;
-
-		for (i = 0; i < sc->reset_count; i++) {
-			const char *reset_name;
-
-			of_property_read_string_index(pdev->dev.of_node,
-					"reset-names", i, &reset_name);
-			sc->reset_clocks[i] = devm_reset_control_get(&pdev->dev,
-								reset_name);
-			if (IS_ERR(sc->reset_clocks[i])) {
-				int rc = PTR_ERR(sc->reset_clocks[i]);
-
-				if (rc != -EPROBE_DEFER)
-					dev_err(&pdev->dev, "Failed to get %s\n",
-							reset_name);
-				return rc;
-			}
-		}
-
 		regval &= ~SW_COLLAPSE_MASK;
 		regmap_write(sc->regmap, REG_OFFSET, regval);
 
@@ -762,27 +763,26 @@ static int gdsc_probe(struct platform_device *pdev)
 		}
 	}
 
+	sc->rdesc.id = atomic_inc_return(&gdsc_count);
+	sc->rdesc.ops = &gdsc_ops;
+	sc->rdesc.type = REGULATOR_VOLTAGE;
+	sc->rdesc.owner = THIS_MODULE;
+
 	reg_config.dev = &pdev->dev;
 	reg_config.init_data = init_data;
 	reg_config.driver_data = sc;
 	reg_config.of_node = pdev->dev.of_node;
 	reg_config.regmap = sc->regmap;
 
-	sc->rdev = regulator_register(&sc->rdesc, &reg_config);
+	sc->rdev = devm_regulator_register(&pdev->dev, &sc->rdesc, &reg_config);
 	if (IS_ERR(sc->rdev)) {
-		dev_err(&pdev->dev, "regulator_register(\"%s\") failed.\n",
-			sc->rdesc.name);
-		return PTR_ERR(sc->rdev);
+		ret = PTR_ERR(sc->rdev);
+		dev_err(&pdev->dev, "regulator_register(\"%s\") failed, ret=%d\n",
+			sc->rdesc.name, ret);
+		return ret;
 	}
 
-	return 0;
-}
-
-static int gdsc_remove(struct platform_device *pdev)
-{
-	struct gdsc *sc = platform_get_drvdata(pdev);
-
-	regulator_unregister(sc->rdev);
+	platform_set_drvdata(pdev, sc);
 
 	return 0;
 }
@@ -794,7 +794,6 @@ static const struct of_device_id gdsc_match_table[] = {
 
 static struct platform_driver gdsc_driver = {
 	.probe  = gdsc_probe,
-	.remove = gdsc_remove,
 	.driver = {
 		.name = "gdsc",
 		.of_match_table = gdsc_match_table,
