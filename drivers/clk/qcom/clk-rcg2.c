@@ -954,15 +954,14 @@ static int clk_dp_set_rate(struct clk_hw *hw, unsigned long rate,
 			unsigned long parent_rate)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	struct clk_hw *parent = clk_hw_get_parent(hw);
 	struct freq_tbl f = { 0 };
 	unsigned long src_rate;
 	unsigned long num, den;
 	u32 mask = BIT(rcg->hid_width) - 1;
 	u32 hid_div, cfg;
 	int i, num_parents = clk_hw_get_num_parents(hw);
-	struct clk_hw *parent;
 
-	parent = clk_hw_get_parent(hw);
 	if (!parent)
 		return -EINVAL;
 
@@ -1412,3 +1411,102 @@ int qcom_cc_register_rcg_dfs(struct regmap *regmap,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(qcom_cc_register_rcg_dfs);
+
+static int clk_rcg2_dependent_enable(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	int ret;
+
+	ret = clk_rcg2_enable(hw);
+	if (ret < 0)
+		return ret;
+
+	return clk_enable(rcg->clkr.dependent_hw->clk);
+}
+
+static void clk_rcg2_dependent_disable(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+
+	clk_rcg2_disable(hw);
+	clk_disable(rcg->clkr.dependent_hw->clk);
+}
+
+static int clk_rcg2_dependent_set_parent(struct clk_hw *hw, u8 index)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	struct clk_hw *p_hw;
+	int ret;
+
+	ret = clk_rcg2_set_parent(hw, index);
+	if (ret < 0)
+		return ret;
+
+	p_hw = clk_hw_get_parent_by_index(rcg->clkr.dependent_hw, index);
+	return clk_set_parent(rcg->clkr.dependent_hw->clk, p_hw->clk);
+}
+
+static int clk_rcg2_dependent_determine_rate(struct clk_hw *hw,
+						 struct clk_rate_request *req)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+
+	__clk_determine_rate(rcg->clkr.dependent_hw, req);
+
+	return clk_rcg2_determine_rate(hw, req);
+}
+
+static int clk_rcg2_dependent_set_rate(struct clk_hw *hw,
+				unsigned long rate, unsigned long parent_rate)
+{
+	int ret;
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+
+	ret = clk_rcg2_set_rate(hw, rate, parent_rate);
+	if (ret < 0)
+		return ret;
+
+	return clk_set_rate(rcg->clkr.dependent_hw->clk, rate);
+}
+
+static int clk_rcg2_dependent_set_rate_and_parent(struct clk_hw *hw,
+		unsigned long rate, unsigned long parent_rate, u8 index)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	int ret;
+
+	ret = clk_rcg2_set_rate_and_parent(hw, rate, parent_rate, index);
+	if (ret < 0)
+		return ret;
+
+	return clk_set_rate(rcg->clkr.dependent_hw->clk, rate);
+}
+
+static int clk_rcg2_dependent_prepare(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+
+	return clk_prepare(rcg->clkr.dependent_hw->clk);
+}
+
+static void clk_rcg2_dependent_unprepare(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+
+	clk_unprepare(rcg->clkr.dependent_hw->clk);
+}
+
+const struct clk_ops clk_rcg2_dependent_ops = {
+	.is_enabled = clk_rcg2_is_enabled,
+	.prepare = clk_rcg2_dependent_prepare,
+	.unprepare = clk_rcg2_dependent_unprepare,
+	.enable = clk_rcg2_dependent_enable,
+	.disable = clk_rcg2_dependent_disable,
+	.get_parent = clk_rcg2_get_parent,
+	.set_parent = clk_rcg2_dependent_set_parent,
+	.recalc_rate = clk_rcg2_recalc_rate,
+	.determine_rate = clk_rcg2_dependent_determine_rate,
+	.set_rate = clk_rcg2_dependent_set_rate,
+	.set_rate_and_parent = clk_rcg2_dependent_set_rate_and_parent,
+};
+EXPORT_SYMBOL(clk_rcg2_dependent_ops);
