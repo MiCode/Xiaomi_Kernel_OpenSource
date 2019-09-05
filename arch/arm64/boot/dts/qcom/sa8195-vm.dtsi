@@ -47,6 +47,86 @@
 		#clock-cells = <1>;
 	};
 
+	regulator_virt: virtio_regulator@1c700000 {
+		compatible = "virtio,mmio";
+		reg = <0x1c700000 0x1000>;
+		interrupts = <0 42 0>;
+
+		usb30_prim_gdsc: usb30_prim_gdsc {
+			regulator-name = "usb30_prim_gdsc";
+		};
+
+		usb30_sec_gdsc: usb30_sec_gdsc {
+			regulator-name = "usb30_sec_gdsc";
+		};
+
+		pcie_0_gdsc: pcie_0_gdsc {
+			regulator-name = "pcie_0_gdsc";
+		};
+
+		L2A: pm8195_1_l2: regulator-pm8195-1-l2 {
+			regulator-name = "ldoa2";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <3300000>;
+		};
+
+		L9A: pm8195_1_l9: regulator-pm8195-1-l9 {
+			regulator-name = "ldoa9";
+			regulator-min-microvolt = <1150000>;
+			regulator-max-microvolt = <1250000>;
+			regulator-allow-set-load;
+		};
+
+		L10A: pm8195_1_l10: regulator-pm8195-1-l10 {
+			regulator-name = "ldoa10";
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <3544000>;
+		};
+
+		L12A: pm8195_1_l12: regulator-pm8195-1-l12 {
+			regulator-name = "ldoa12";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1890000>;
+		};
+
+		L7C: pm8195_2_l7: regulator-pm8195-2-l7 {
+			regulator-name = "ldoc7";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2040000>;
+		};
+
+		L5E: pm8195_3_l5: regulator-pm8195-3-l5 {
+			regulator-name = "ldoe5";
+			regulator-min-microvolt = <800000>;
+			regulator-max-microvolt = <920000>;
+			regulator-allow-set-load;
+		};
+
+		L16E: pm8195_3_l16: regulator-pm8195-3-l16 {
+			regulator-name = "ldoe16";
+			regulator-min-microvolt = <2921000>;
+			regulator-max-microvolt = <3300000>;
+		};
+
+		S2A: pm8195_1_s2: regulator-pm8195-1-s2 {
+			regulator-name = "smpa2";
+			regulator-min-microvolt = <1179000>;
+			regulator-max-microvolt = <1379000>;
+		};
+
+		S5A: pm8195_1_s5: regulator-pm8195-1-s5 {
+			regulator-name = "smpa5";
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <1000000>;
+		};
+
+		S5C: pm8195_2_s5: regulator-pm8195-2-s5 {
+			regulator-name = "smpc5";
+			regulator-min-microvolt = <1713000>;
+			regulator-max-microvolt = <2040000>;
+		};
+	};
+
 	apps_smmu: apps-smmu@0x15000000 {
 		compatible = "qcom,qsmmu-v500";
 		reg = <0x15000000 0x100000>,
@@ -199,73 +279,12 @@
 		status = "disabled";
 	};
 
-	pm8195_3_l5: regulator-pm8195-3-l5 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8195_3_l5";
-		regulator-min-microvolt = <800000>;
-		regulator-max-microvolt = <920000>;
-		qcom,init-voltage = <800000>;
-		status = "ok";
-	};
-
-	pm8195_1_l12: regulator-pm8195-1-l12 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8195_1_l12";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1890000>;
-		qcom,init-voltage = <1800000>;
-		status = "ok";
-	};
-
-	pm8195_3_l16: regulator-pm8195-3-l16 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8195_3_l16";
-		regulator-min-microvolt = <2921000>;
-		regulator-max-microvolt = <3300000>;
-		qcom,init-voltage = <2921000>;
-		status = "ok";
-	};
-
-	pm8195_1_l9: regulator-pm8195-1-l9 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8195_1_l9";
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
-		status = "okay";
-	};
-
-	pm8195_3_l5: regulator-pm8195-3-l5 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8195_3_l5";
-		regulator-min-microvolt = <880000>;
-		regulator-max-microvolt = <880000>;
-		status = "okay";
-	};
-
 	VDD_CX_LEVEL:
 	S3E_LEVEL: pm8195_3_s3_level: regulator-pm8195-3-s3-level {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm8195_3_s3_level";
 		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
-	};
-
-	usb30_prim_gdsc: usb30_prim_gdsc {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "usb30_prim_gdsc";
-		status = "okay";
-	};
-
-	usb30_sec_gdsc: usb30_sec_gdsc {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "usb30_sec_gdsc";
-		status = "okay";
-	};
-
-	pcie_0_gdsc: pcie_0_gdsc {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pcie_0_gdsc";
-		status = "okay";
 	};
 };
 
