@@ -19,11 +19,19 @@ void print_internal_buffer(u32 tag, const char *str,
 	if (!(tag & msm_cvp_debug) || !inst || !cbuf)
 		return;
 
-	dprintk(tag,
+	if (cbuf->smem.dma_buf) {
+		dprintk(tag,
 		"%s: %x : idx %2d fd %d off %d %s size %d flags %#x iova %#x",
 		str, hash32_ptr(inst->session), cbuf->buf.index, cbuf->buf.fd,
 		cbuf->buf.offset, cbuf->smem.dma_buf->name, cbuf->buf.size,
 		cbuf->buf.flags, cbuf->smem.device_addr);
+	} else {
+		dprintk(tag,
+		"%s: %x : idx %2d fd %d off %d size %d flags %#x iova %#x",
+		str, hash32_ptr(inst->session), cbuf->buf.index, cbuf->buf.fd,
+		cbuf->buf.offset, cbuf->buf.size, cbuf->buf.flags,
+		cbuf->smem.device_addr);
+	}
 }
 
 static enum hal_buffer get_hal_buftype(const char *str, unsigned int type)
@@ -720,7 +728,7 @@ static int msm_cvp_map_user_persist(struct msm_cvp_inst *inst,
 		if (inst->session_type == MSM_CVP_USER) {
 			new_buf->dbuf = 0;
 		} else if (inst->session_type == MSM_CVP_KERNEL) {
-			new_buf->fd = -1;
+			new_buf->fd = 0;
 		} else if (inst->session_type >= MSM_CVP_UNKNOWN) {
 			dprintk(CVP_ERR,
 				"%s: unknown session type %d\n",
@@ -799,7 +807,7 @@ static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
 			if (inst->session_type == MSM_CVP_USER) {
 				new_buf->dbuf = 0;
 			} else if (inst->session_type == MSM_CVP_KERNEL) {
-				new_buf->fd = -1;
+				new_buf->fd = 0;
 			} else if (inst->session_type >= MSM_CVP_UNKNOWN) {
 				dprintk(CVP_ERR,
 					"%s: unknown session type %d\n",
