@@ -149,6 +149,9 @@ static void mini_top_stats(struct work_struct *work)
 
 	fpsgo_sched_nominate(tasks, utils);
 
+	kfree(tasks);
+	kfree(utils);
+
 	cur_ts = fpsgo_get_time();
 
 	mutex_lock(&minitop_qlock);
