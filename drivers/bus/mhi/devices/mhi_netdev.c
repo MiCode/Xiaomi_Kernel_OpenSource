@@ -866,7 +866,7 @@ static const struct file_operations debugfs_stats = {
 	.read = seq_read,
 };
 
-int mhi_netdev_debugfs_chain(void *data, u64 val)
+static int mhi_netdev_debugfs_chain(void *data, u64 val)
 {
 	struct mhi_netdev *mhi_netdev = data;
 	struct mhi_netdev *rsc_dev = mhi_netdev->rsc_dev;
