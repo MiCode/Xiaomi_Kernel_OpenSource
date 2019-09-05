@@ -129,6 +129,12 @@ static int clk_aop_qmp_prepare(struct clk_hw *hw)
 	struct clk_aop_qmp *clk = to_aop_qmp_clk(hw);
 
 	mutex_lock(&clk_aop_lock);
+	/*
+	 * Return early if the clock has been enabled already. This
+	 * is to avoid issues with sending duplicate enable requests.
+	 */
+	if (clk->enabled)
+		goto err;
 
 	if (clk->level)
 		rate = clk->level;
@@ -166,6 +172,9 @@ static void clk_aop_qmp_unprepare(struct clk_hw *hw)
 	struct clk_aop_qmp *clk = to_aop_qmp_clk(hw);
 
 	mutex_lock(&clk_aop_lock);
+
+	if (!clk->enabled)
+		goto err;
 
 	rate = clk->disable_state;
 
@@ -216,6 +225,7 @@ static int qmp_update_client(struct clk_hw *hw, struct device *dev,
 		struct mbox_chan *mbox)
 {
 	struct clk_aop_qmp *clk_aop = to_aop_qmp_clk(hw);
+	int ret;
 
 	/* Use mailbox client with blocking mode */
 	clk_aop->cl.dev = dev;
@@ -230,10 +240,12 @@ static int qmp_update_client(struct clk_hw *hw, struct device *dev,
 
 	/* Allocate mailbox channel */
 	mbox = clk_aop->mbox = mbox_request_channel(&clk_aop->cl, 0);
-	if (IS_ERR(clk_aop->mbox) && PTR_ERR(clk_aop->mbox) != -EPROBE_DEFER) {
-		dev_err(dev, "Failed to get mailbox channel %pK %ld\n",
-						mbox, PTR_ERR(mbox));
-		return PTR_ERR(clk_aop->mbox);
+	if (IS_ERR(clk_aop->mbox)) {
+		ret = PTR_ERR(clk_aop->mbox);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get mailbox channel, ret %d\n",
+				ret);
+		return ret;
 	}
 
 	return 0;
