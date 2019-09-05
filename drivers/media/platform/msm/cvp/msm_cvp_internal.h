@@ -259,6 +259,20 @@ struct cvp_session_prop {
 	u32 priority;
 	u32 is_secure;
 	u32 dsp_mask;
+	u32 fdu_cycles;
+	u32 od_cycles;
+	u32 mpu_cycles;
+	u32 ica_cycles;
+	u32 fw_cycles;
+	u32 fdu_op_cycles;
+	u32 od_op_cycles;
+	u32 mpu_op_cycles;
+	u32 ica_op_cycles;
+	u32 fw_op_cycles;
+	u32 ddr_bw;
+	u32 ddr_op_bw;
+	u32 ddr_cache;
+	u32 ddr_op_cache;
 };
 
 enum cvp_event_t {
