@@ -293,6 +293,10 @@
 	status = "disabled";
 };
 
+&bcl_sensor {
+	status = "disabled";
+};
+
 &smb1355_charger_0 {
 	status = "ok";
 	qcom,disable-ctm;

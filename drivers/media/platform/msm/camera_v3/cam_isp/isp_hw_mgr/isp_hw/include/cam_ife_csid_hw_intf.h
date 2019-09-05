@@ -158,6 +158,7 @@ enum cam_ife_csid_cmd_type {
 	CAM_IFE_CSID_SET_CSID_DEBUG,
 	CAM_IFE_CSID_SOF_IRQ_DEBUG,
 	CAM_IFE_CSID_SET_INIT_FRAME_DROP,
+	CAM_IFE_CSID_SET_SENSOR_DIMENSION_CFG,
 	CAM_IFE_CSID_CMD_MAX,
 };
 
@@ -181,5 +182,17 @@ struct cam_ife_csid_clock_update_args {
 	uint64_t                           clk_rate;
 };
 
+/*
+ * struct cam_ife_sensor_dim_update_args:
+ *
+ * @ppp_path:             expected ppp path configuration
+ * @ipp_path:             expected ipp path configuration
+ * @rdi_path:             expected rdi path configuration
+ */
+struct cam_ife_sensor_dimension_update_args {
+	struct cam_isp_sensor_dimension  ppp_path;
+	struct cam_isp_sensor_dimension  ipp_path;
+	struct cam_isp_sensor_dimension  rdi_path[4];
+};
 
 #endif /* _CAM_CSID_HW_INTF_H_ */

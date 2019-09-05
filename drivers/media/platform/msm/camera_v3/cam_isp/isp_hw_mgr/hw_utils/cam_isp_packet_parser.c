@@ -491,7 +491,7 @@ int cam_isp_add_io_buffers(
 		CAM_DBG(CAM_ISP, "======= io config idx %d ============", i);
 		CAM_DBG(CAM_REQ,
 			"i %d req_id %llu resource_type:%d fence:%d direction %d",
-			i, prepare->packet->header.request_id,
+			i, req_id,
 			io_cfg[i].resource_type, io_cfg[i].fence,
 			io_cfg[i].direction);
 		CAM_DBG(CAM_ISP, "format: %d", io_cfg[i].format);
@@ -618,8 +618,16 @@ int cam_isp_add_io_buffers(
 					mmu_hdl, &io_addr[plane_id], &size);
 				if (rc) {
 					CAM_ERR(CAM_ISP,
-						"no io addr for plane%d",
-						plane_id);
+						"no io addr for plane%d Bufhdl:%d, Size =%d",
+						plane_id,
+						io_cfg[i].mem_handle[plane_id],
+						(int)size);
+					CAM_ERR(CAM_ISP,
+						"Port i %d Reqid %llu res_type:%d fence:%d dir %d",
+						i, req_id,
+						io_cfg[i].resource_type,
+						io_cfg[i].fence,
+						io_cfg[i].direction);
 					rc = -ENOMEM;
 					return rc;
 				}
