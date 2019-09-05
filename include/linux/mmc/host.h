@@ -30,6 +30,7 @@ struct mmc_ios {
 	unsigned int	old_rate;       /* saved clock rate */
 	unsigned long	clk_ts;         /* time stamp of last updated clock */
 	unsigned short	vdd;
+	unsigned int    power_delay_ms;         /* waiting for stable power */
 
 /* vdd stores the bit number of the selected voltage range from below. */
 
