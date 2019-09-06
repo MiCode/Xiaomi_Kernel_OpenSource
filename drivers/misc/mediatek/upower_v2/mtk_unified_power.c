@@ -888,8 +888,7 @@ static int __init upower_init(void)
 	turn = upower_cal_turn_point();
 	upower_register_perf_domain();
 	/* need eas enable */
-	/* charles add */
-	//set_sched_turn_point_cap();
+	set_sched_turn_point_cap();
 
 	upower_debug("@@~turn point is %d\n", turn);
 #ifdef UPOWER_L_PLUS
