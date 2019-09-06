@@ -1,0 +1,15 @@
+* Qualcomm Technologies, Inc. GSI driver module
+
+GSI is a HW accelerator that supports Generic SW Interfaces (GSI) which are
+peripheral specific (IPA in this case).
+GSI translates SW transfer elements (TRE) into TLV transactions which are
+then processed by the peripheral.
+This Driver configures and communicates with GSI HW.
+
+Required properties:
+- compatible:		Must be "qcom,msm_gsi"
+
+Example:
+	qcom,msm-gsi {
+		compatible = "qcom,msm_gsi";
+	}
