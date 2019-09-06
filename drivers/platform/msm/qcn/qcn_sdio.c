@@ -560,7 +560,8 @@ static void qcn_sdio_irq_handler(struct sdio_func *func)
 
 	sdio_claim_host(sdio_ctxt->func);
 	data = sdio_readb(sdio_ctxt->func, SDIO_QCN_IRQ_STATUS, &ret);
-	if (ret) {
+	if (ret == -ETIMEDOUT) {
+		sdio_release_irq(sdio_ctxt->func);
 		sdio_release_host(sdio_ctxt->func);
 
 		pr_err("%s: IRQ status read error ret = %d\n", __func__, ret);
@@ -770,6 +771,7 @@ static void qcn_sdio_remove(struct sdio_func *func)
 	atomic_set(&xport_status, 0);
 	sdio_claim_host(sdio_ctxt->func);
 	qcn_enable_async_irq(false);
+	sdio_release_irq(sdio_ctxt->func);
 	sdio_release_host(sdio_ctxt->func);
 
 	qcn_sdio_purge_rw_buff();
@@ -790,10 +792,6 @@ static void qcn_sdio_remove(struct sdio_func *func)
 		mutex_lock(&lock);
 	}
 	mutex_unlock(&lock);
-
-	sdio_claim_host(sdio_ctxt->func);
-	sdio_release_irq(sdio_ctxt->func);
-	sdio_release_host(sdio_ctxt->func);
 
 	kfree(sdio_ctxt);
 	sdio_ctxt = NULL;
