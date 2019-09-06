@@ -486,7 +486,7 @@ int mmc_recovery_fallback_lower_speed(struct mmc_host *host)
 		mmc_host_clear_sdr104(host);
 		err = mmc_hw_reset(host);
 		host->card->sdr104_blocked = true;
-	} else {
+	} else if (mmc_card_sd(host->card)) {
 		/* If sdr104_wa is not present, just return status */
 		err = host->bus_ops->alive(host);
 	}
