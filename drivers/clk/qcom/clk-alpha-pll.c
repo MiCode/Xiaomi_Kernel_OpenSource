@@ -703,9 +703,7 @@ static long clk_alpha_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 		return pll->min_supported_freq;
 
 	rate = alpha_pll_round_rate(pll, rate, *prate, &l, &a);
-	if ((pll->type == ALPHA_PLL && alpha_pll_find_vco(pll, rate)) ||
-		(pll->type == FABIA_PLL || alpha_pll_find_vco(pll, rate))
-		|| pll->type == AGERA_PLL)
+	if (!pll->vco_table || alpha_pll_find_vco(pll, rate))
 		return rate;
 
 	min_freq = pll->vco_table[0].min_freq;
