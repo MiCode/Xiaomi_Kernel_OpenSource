@@ -111,6 +111,7 @@
 #define MEM_RGN_SRVR_ID 1
 #define MEM_MAP_SRVR_ID 2
 #define CBOBJ_SERVER_ID_START 0x10
+#define CBOBJ_SERVER_ID_END ((1<<16) - 1)
 /* local obj id is represented by 15 bits */
 #define MAX_LOCAL_OBJ_ID ((1<<15) - 1)
 /* CBOBJs will be served by server id 0x10 onwards */
@@ -266,6 +267,9 @@ static struct smcinvoke_server_info *find_cb_server_locked(uint16_t server_id)
 
 static uint16_t next_cb_server_id_locked(void)
 {
+	if (g_last_cb_server_id == CBOBJ_SERVER_ID_END)
+		g_last_cb_server_id = CBOBJ_SERVER_ID_START;
+
 	while (find_cb_server_locked(++g_last_cb_server_id));
 
 	return g_last_cb_server_id;
