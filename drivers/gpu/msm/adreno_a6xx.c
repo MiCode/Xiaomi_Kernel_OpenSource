@@ -1255,47 +1255,66 @@ static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev)
 			A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_0, 0x3);
 }
 
-static const char *fault_block[8] = {
-	[0] = "CP",
-	[1] = "UCHE",
-	[2] = "VFD",
-	[3] = "UCHE",
-	[4] = "CCU",
-	[5] = "unknown",
-	[6] = "CDP Prefetch",
-	[7] = "GPMU",
+static const char *uche_client[7][3] = {
+	{"SP | VSC | VPC | HLSQ | PC | LRZ", "TP", "VFD"},
+	{"VSC | VPC | HLSQ | PC | LRZ", "TP | VFD", "SP"},
+	{"SP | VPC | HLSQ | PC | LRZ", "TP | VFD", "VSC"},
+	{"SP | VSC | HLSQ | PC | LRZ", "TP | VFD", "VPC"},
+	{"SP | VSC | VPC | PC | LRZ", "TP | VFD", "HLSQ"},
+	{"SP | VSC | VPC | HLSQ | LRZ", "TP | VFD", "PC"},
+	{"SP | VSC | VPC | HLSQ | PC", "TP | VFD", "LRZ"},
 };
 
-static const char *uche_client[8] = {
-	[0] = "VFD",
-	[1] = "SP",
-	[2] = "VSC",
-	[3] = "VPC",
-	[4] = "HLSQ",
-	[5] = "PC",
-	[6] = "LRZ",
-	[7] = "unknown",
-};
+#define SCOOBYDOO 0x5c00bd00
 
-static const char *a6xx_iommu_fault_block(struct adreno_device *adreno_dev,
-						unsigned int fsynr1)
+static const char *a6xx_fault_block_uche(struct kgsl_device *device,
+		unsigned int mid)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	unsigned int client_id;
-	unsigned int uche_client_id;
-
-	client_id = fsynr1 & 0xff;
-
-	if (client_id >= ARRAY_SIZE(fault_block))
-		return "unknown";
-	else if (client_id != 3)
-		return fault_block[client_id];
+	unsigned int uche_client_id = 0;
+	static char str[40];
 
 	mutex_lock(&device->mutex);
+
+	if (!kgsl_state_is_awake(device)) {
+		mutex_unlock(&device->mutex);
+		return "UCHE: unknown";
+	}
+
 	kgsl_regread(device, A6XX_UCHE_CLIENT_PF, &uche_client_id);
 	mutex_unlock(&device->mutex);
 
-	return uche_client[uche_client_id & A6XX_UCHE_CLIENT_PF_CLIENT_ID_MASK];
+	/* Ignore the value if the gpu is in IFPC */
+	if (uche_client_id == SCOOBYDOO)
+		return "UCHE: unknown";
+
+	uche_client_id &= A6XX_UCHE_CLIENT_PF_CLIENT_ID_MASK;
+	snprintf(str, sizeof(str), "UCHE: %s",
+			uche_client[uche_client_id][mid - 1]);
+
+	return str;
+}
+
+static const char *a6xx_iommu_fault_block(struct kgsl_device *device,
+		unsigned int fsynr1)
+{
+	unsigned int mid = fsynr1 & 0xff;
+
+	switch (mid) {
+	case 0:
+		return "CP";
+	case 1:
+	case 2:
+	case 3:
+		return a6xx_fault_block_uche(device, mid);
+	case 4:
+		return "CCU";
+	case 6:
+		return "CDP Prefetch";
+	case 7:
+		return "GPMU";
+	}
+
+	return "Unknown";
 }
 
 static void a6xx_cp_callback(struct adreno_device *adreno_dev, int bit)

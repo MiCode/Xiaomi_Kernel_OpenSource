@@ -924,7 +924,7 @@ struct adreno_gpudev {
 	void (*gpu_keepalive)(struct adreno_device *adreno_dev,
 			bool state);
 	bool (*hw_isidle)(struct adreno_device *adreno_dev);
-	const char *(*iommu_fault_block)(struct adreno_device *adreno_dev,
+	const char *(*iommu_fault_block)(struct kgsl_device *device,
 				unsigned int fsynr1);
 	int (*reset)(struct kgsl_device *device, int fault);
 	int (*soft_reset)(struct adreno_device *adreno_dev);
