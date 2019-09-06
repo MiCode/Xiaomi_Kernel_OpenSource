@@ -126,6 +126,7 @@
 	dpdm-supply = <&qusb_phy0>;
 	qcom,charger-temp-max = <800>;
 	qcom,smb-temp-max = <800>;
+	qcom,disable-sw-thermal-regulation;
 };
 
 &usb0 {

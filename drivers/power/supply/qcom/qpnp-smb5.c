@@ -334,6 +334,10 @@ static int smb5_chg_config_init(struct smb5 *chip)
 	chg->chg_freq.freq_below_otg_threshold	= 800;
 	chg->chg_freq.freq_above_otg_threshold	= 800;
 
+	if (of_property_read_bool(chip->chg.dev->of_node,
+				      "qcom,disable-sw-thermal-regulation"))
+		chg->wa_flags &= ~SW_THERM_REGULATION_WA;
+
 out:
 	of_node_put(revid_dev_node);
 	return rc;
