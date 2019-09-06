@@ -7800,7 +7800,7 @@ const u32 sched_prio_to_wmult[40] = {
  */
 int set_task_boost(int boost, u64 period)
 {
-	if (boost < 0 || boost > 2)
+	if (boost < TASK_BOOST_NONE || boost >= TASK_BOOST_END)
 		return -EINVAL;
 	if (boost) {
 		current->boost = boost;
