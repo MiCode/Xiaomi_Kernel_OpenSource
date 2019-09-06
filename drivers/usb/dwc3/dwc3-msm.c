@@ -2917,12 +2917,6 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 		irq_clear |= PWR_EVNT_POWERDOWN_IN_P3_MASK;
 	}
 
-	/* Clear L2 exit */
-	if (irq_stat & PWR_EVNT_LPM_OUT_L2_MASK) {
-		irq_stat &= ~PWR_EVNT_LPM_OUT_L2_MASK;
-		irq_stat |= PWR_EVNT_LPM_OUT_L2_MASK;
-	}
-
 	/* Handle exit from L1 events */
 	if (irq_stat & PWR_EVNT_LPM_OUT_L1_MASK) {
 		dev_dbg(mdwc->dev, "%s: handling PWR_EVNT_LPM_OUT_L1_MASK\n",
