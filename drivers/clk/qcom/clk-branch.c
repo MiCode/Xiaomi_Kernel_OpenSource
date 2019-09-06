@@ -13,6 +13,7 @@
 #include <linux/regmap.h>
 
 #include "clk-branch.h"
+#include "clk-debug.h"
 
 static bool clk_branch_in_hwcg_mode(const struct clk_branch *br)
 {
@@ -144,6 +145,7 @@ const struct clk_ops clk_branch2_ops = {
 	.enable = clk_branch2_enable,
 	.disable = clk_branch2_disable,
 	.is_enabled = clk_is_enabled_regmap,
+	.debug_init = clk_debug_measure_add,
 };
 EXPORT_SYMBOL_GPL(clk_branch2_ops);
 
