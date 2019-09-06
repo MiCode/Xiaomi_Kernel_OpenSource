@@ -7931,6 +7931,7 @@ int ipa3_suspend_apps_pipes(bool suspend)
 		if (tx.coal_slave_open_frame != 0) {
 			IPADBG("COAL frame is open 0x%x\n",
 				tx.coal_slave_open_frame);
+			res = -EAGAIN;
 			goto undo_cons;
 		}
 
