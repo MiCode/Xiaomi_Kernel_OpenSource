@@ -139,7 +139,9 @@ enum arm_smmu_cbar_type {
 #define CBAR_VMID			GENMASK(7, 0)
 
 #define ARM_SMMU_GR1_CBFRSYNRA(n)	(0x400 + ((n) << 2))
-#define CBFRSYNRA_SID_MASK		(0xffff)
+#define CBFRSYNRA_SID			GENMASK(15, 0)
+#define CBFRSYNRA_SSD			GENMASK(31, 16)
+
 
 #define ARM_SMMU_GR1_CBA2R(n)		(0x800 + ((n) << 2))
 #define CBA2R_VMID16			GENMASK(31, 16)
