@@ -98,7 +98,7 @@
 #define RH_CID ADSP_DOMAIN_ID
 
 #define PERF_KEYS \
-	"count:flush:map:copy:rpmsg:getargs:putargs:invalidate:invoke:tid:ptr"
+	"count:flush:map:copy:rpmsg:getargs:putargs:invalidate:invoke"
 #define FASTRPC_STATIC_HANDLE_PROCESS_GROUP (1)
 #define FASTRPC_STATIC_HANDLE_DSP_UTILITIES (2)
 #define FASTRPC_STATIC_HANDLE_LISTENER (3)
@@ -3688,7 +3688,7 @@ static int fastrpc_getperf(struct fastrpc_ioctl_perf *ioctl_perf,
 				param, sizeof(*ioctl_perf));
 	if (err)
 		goto bail;
-	ioctl_perf->numkeys = sizeof(struct fastrpc_perf)/sizeof(int64_t);
+	ioctl_perf->numkeys = PERF_KEY_MAX;
 	if (ioctl_perf->keys) {
 		char *keys = PERF_KEYS;
 
