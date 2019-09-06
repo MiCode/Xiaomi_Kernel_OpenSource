@@ -401,11 +401,14 @@ struct cam_mem_cache_ops_cmd {
  * @CAM_REQ_MGR_ERROR_TYPE_REQUEST: Error on a single request, not fatal
  * @CAM_REQ_MGR_ERROR_TYPE_BUFFER: Buffer was not filled, not fatal
  * @CAM_REQ_MGR_ERROR_TYPE_RECOVERY: Fatal error, can be recovered
+ * @CAM_REQ_MGR_ERROR_TYPE_FULL_RECOVERY: Fatal error, need to recover
+ * the whole system
  */
 #define CAM_REQ_MGR_ERROR_TYPE_DEVICE           0
 #define CAM_REQ_MGR_ERROR_TYPE_REQUEST          1
 #define CAM_REQ_MGR_ERROR_TYPE_BUFFER           2
 #define CAM_REQ_MGR_ERROR_TYPE_RECOVERY         3
+#define CAM_REQ_MGR_ERROR_TYPE_FULL_RECOVERY    4
 
 /**
  * struct cam_req_mgr_error_msg
