@@ -980,7 +980,7 @@ static void __init mrdump_mini_elf_header_init(void)
 	fill_elf_header(&mrdump_mini_ehdr->ehdr, MRDUMP_MINI_NR_SECTION);
 }
 
-int mrdump_mini_init(void)
+int __init mrdump_mini_init(void)
 {
 	int i;
 	unsigned long size, offset;
