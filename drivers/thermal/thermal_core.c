@@ -475,6 +475,8 @@ void thermal_zone_device_update(struct thermal_zone_device *tz,
 {
 	int count;
 
+	pr_notice("%s: tz = %s\n", __func__, tz->type);
+
 	if (atomic_read(&in_suspend))
 		return;
 
@@ -1509,6 +1511,7 @@ static int thermal_pm_notify(struct notifier_block *nb,
 	case PM_POST_HIBERNATION:
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
+		pr_notice("%s: PM_POST_SUSPEND\n", __func__);
 		atomic_set(&in_suspend, 0);
 		list_for_each_entry(tz, &thermal_tz_list, node) {
 			thermal_zone_device_init(tz);
