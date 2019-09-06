@@ -25,6 +25,7 @@
  */
 static int npu_debug_open(struct inode *inode, struct file *file);
 static int npu_debug_release(struct inode *inode, struct file *file);
+static int npu_debug_reg_release(struct inode *inode, struct file *file);
 static ssize_t npu_debug_reg_write(struct file *file,
 		const char __user *user_buf, size_t count, loff_t *ppos);
 static ssize_t npu_debug_reg_read(struct file *file,
@@ -46,7 +47,7 @@ struct npu_device *g_npu_dev;
 
 static const struct file_operations npu_reg_fops = {
 	.open = npu_debug_open,
-	.release = npu_debug_release,
+	.release = npu_debug_reg_release,
 	.read = npu_debug_reg_read,
 	.write = npu_debug_reg_write,
 };
@@ -85,6 +86,11 @@ static int npu_debug_open(struct inode *inode, struct file *file)
 }
 
 static int npu_debug_release(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static int npu_debug_reg_release(struct inode *inode, struct file *file)
 {
 	struct npu_device *npu_dev = file->private_data;
 	struct npu_debugfs_ctx *debugfs;
