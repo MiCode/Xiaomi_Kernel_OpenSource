@@ -725,6 +725,20 @@ int ipa3_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(ipa_ep_idx_tx));
 
+	/* start uC event ring */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		if (ipa3_ctx->uc_ctx.uc_loaded &&
+			!ipa3_ctx->uc_ctx.uc_event_ring_valid) {
+			if (ipa3_uc_setup_event_ring())	{
+				IPAERR("failed to set uc_event ring\n");
+				return -EFAULT;
+			}
+		} else
+			IPAERR("uc-loaded %d, ring-valid %d",
+			ipa3_ctx->uc_ctx.uc_loaded,
+			ipa3_ctx->uc_ctx.uc_event_ring_valid);
+	}
+
 	/* enable data path */
 	result = ipa3_enable_data_path(ipa_ep_idx_rx);
 	if (result) {

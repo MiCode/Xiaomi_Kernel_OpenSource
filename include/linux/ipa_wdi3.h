@@ -347,6 +347,29 @@ int ipa_wdi_release_smmu_mapping(u32 num_buffers,
  */
 int ipa_wdi_get_stats(struct IpaHwStatsWDIInfoData_t *stats);
 
+
+/**
+ * ipa_wdi_bw_monitor() - set wdi BW monitoring
+ * @info:	[inout] info blob from client populated by driver
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * @note Cannot be called from atomic context
+ *
+ */
+int ipa_wdi_bw_monitor(struct ipa_wdi_bw_info *info);
+
+/**
+ * ipa_wdi_sw_stats() - set wdi BW monitoring
+ * @info:	[inout] info blob from client populated by driver
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * @note Cannot be called from atomic context
+ *
+ */
+int ipa_wdi_sw_stats(struct ipa_wdi_tx_info *info);
+
 #else /* (CONFIG_IPA || CONFIG_IPA3) */
 
 static inline int ipa_wdi_init(struct ipa_wdi_init_in_params *in,
@@ -411,6 +434,16 @@ static inline int ipa_wdi_release_smmu_mapping(u32 num_buffers,
 }
 
 static inline int ipa_wdi_get_stats(struct IpaHwStatsWDIInfoData_t *stats)
+{
+	return -EPERM;
+}
+
+static inline int ipa_wdi_bw_monitor(struct ipa_wdi_bw_info *info)
+{
+	return -EPERM;
+}
+
+static inline int ipa_wdi_sw_stats(struct ipa_wdi_tx_info *info)
 {
 	return -EPERM;
 }
