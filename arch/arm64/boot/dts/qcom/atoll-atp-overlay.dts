@@ -24,3 +24,7 @@
 	qcom,msm-id = <407 0x0>;
 	qcom,board-id = <33 0>;
 };
+
+&dsi_rm69299_visionox_amoled_vid_display {
+	qcom,dsi-display-active;
+};
