@@ -1167,37 +1167,7 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 	return gmu_cache_finalize(device);
 }
 
-#define A6XX_STATE_OF_CHILD             (BIT(4) | BIT(5))
-#define A6XX_IDLE_FULL_LLM              BIT(0)
-#define A6XX_WAKEUP_ACK                 BIT(1)
-#define A6XX_IDLE_FULL_ACK              BIT(0)
 #define A6XX_VBIF_XIN_HALT_CTRL1_ACKS   (BIT(0) | BIT(1) | BIT(2) | BIT(3))
-
-static int a6xx_llm_glm_handshake(struct kgsl_device *device)
-{
-	unsigned int val;
-	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
-			!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
-		return 0;
-
-	gmu_core_regread(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, &val);
-	if (!(val & A6XX_STATE_OF_CHILD)) {
-		gmu_core_regrmw(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, 0, BIT(4));
-		gmu_core_regrmw(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, 0,
-				A6XX_IDLE_FULL_LLM);
-		if (timed_poll_check(device, A6XX_GMU_LLM_GLM_SLEEP_STATUS,
-				A6XX_IDLE_FULL_ACK, GPU_RESET_TIMEOUT,
-				A6XX_IDLE_FULL_ACK)) {
-			dev_err(&gmu->pdev->dev, "LLM-GLM handshake failed\n");
-			return -EINVAL;
-		}
-	}
-
-	return 0;
-}
 
 static void a6xx_isense_disable(struct kgsl_device *device)
 {
@@ -1223,9 +1193,6 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 	/* do it only if LM feature is enabled */
 	/* Disable ISENSE if it's on */
 	a6xx_isense_disable(device);
-
-	/* LLM-GLM handshake sequence */
-	a6xx_llm_glm_handshake(device);
 
 	/* If SPTP_RAC is on, turn off SPTP_RAC HS */
 	a6xx_gmu_sptprac_disable(ADRENO_DEVICE(device));
@@ -1650,6 +1617,8 @@ static void a6xx_gmu_snapshot(struct kgsl_device *device,
 	if (a6xx_gmu_gx_is_on(device)) {
 		/* Set fence to ALLOW mode so registers can be read */
 		kgsl_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
+		/* Make sure the previous write posted before reading */
+		wmb();
 		kgsl_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &val);
 
 		dev_err(device->dev, "set FENCE to ALLOW mode:%x\n", val);
