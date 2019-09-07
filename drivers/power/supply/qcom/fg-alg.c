@@ -486,6 +486,11 @@ static int cap_learning_begin(struct cap_learning *cl, u32 batt_soc_cp)
 	int rc, cc_soc_sw, batt_soc_pct;
 	u32 batt_soc_prime;
 
+	if (cl->ok_to_begin && !cl->ok_to_begin(cl->data)) {
+		pr_debug("Not OK to begin\n");
+		return -EINVAL;
+	}
+
 	batt_soc_pct = DIV_ROUND_CLOSEST(batt_soc_cp, 100);
 
 	if ((cl->dt.max_start_soc != -EINVAL &&
