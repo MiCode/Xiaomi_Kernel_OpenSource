@@ -255,7 +255,7 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 
 rel_pkt_buf:
 	if (cam_mem_put_cpu_buf((int32_t) cfg_dev->packet_handle))
-		CAM_WARN(CAM_CSIPHY, "Failed to put packet Mem address: 0x%x",
+		CAM_WARN(CAM_CSIPHY, "Failed to put packet Mem address: 0x%llx",
 			 cfg_dev->packet_handle);
 
 	return rc;
