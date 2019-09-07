@@ -1588,7 +1588,7 @@ static int fg_gen4_set_ki_coeff_dischg(struct fg_dev *fg, int ki_coeff_low,
 	return 0;
 }
 
-#define KI_COEFF_LOW_DISCHG_DEFAULT	122
+#define KI_COEFF_LOW_DISCHG_DEFAULT	367
 #define KI_COEFF_MED_DISCHG_DEFAULT	62
 #define KI_COEFF_HI_DISCHG_DEFAULT	0
 static int fg_gen4_adjust_ki_coeff_dischg(struct fg_dev *fg)
@@ -5451,7 +5451,7 @@ static int fg_parse_ki_coefficients(struct fg_dev *fg)
 		}
 	}
 
-	chip->dt.ki_coeff_low_chg = 183;
+	chip->dt.ki_coeff_low_chg = 184;
 	of_property_read_u32(node, "qcom,ki-coeff-low-chg",
 		&chip->dt.ki_coeff_low_chg);
 
@@ -5463,11 +5463,11 @@ static int fg_parse_ki_coefficients(struct fg_dev *fg)
 	of_property_read_u32(node, "qcom,ki-coeff-hi-chg",
 		&chip->dt.ki_coeff_hi_chg);
 
-	chip->dt.ki_coeff_lo_med_chg_thr_ma = 1000;
+	chip->dt.ki_coeff_lo_med_chg_thr_ma = 500;
 	of_property_read_u32(node, "qcom,ki-coeff-chg-low-med-thresh-ma",
 		&chip->dt.ki_coeff_lo_med_chg_thr_ma);
 
-	chip->dt.ki_coeff_med_hi_chg_thr_ma = 1500;
+	chip->dt.ki_coeff_med_hi_chg_thr_ma = 1000;
 	of_property_read_u32(node, "qcom,ki-coeff-chg-med-hi-thresh-ma",
 		&chip->dt.ki_coeff_med_hi_chg_thr_ma);
 
