@@ -14,6 +14,9 @@
 &pcie_rc0 {
 	reg = <0 0 0 0 0>;
 
+	#address-cells = <3>;
+	#size-cells = <2>;
+
 	mhi_1: qcom,mhi@0 {
 		reg = <0 0 0 0 0 >;
 
