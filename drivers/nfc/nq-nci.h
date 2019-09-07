@@ -24,11 +24,64 @@
 #define SET_EMULATOR_TEST_POINT		_IOW(0xE9, 0x05, unsigned int)
 #define NFCC_INITIAL_CORE_RESET_NTF	_IOW(0xE9, 0x10, unsigned int)
 
+#define DEV_COUNT			1
+#define DEVICE_NAME			"nq-nci"
+#define CLASS_NAME			"nqx"
+#define MAX_BUFFER_SIZE			(320)
+#define WAKEUP_SRC_TIMEOUT		(2000)
+#define NCI_HEADER_LEN			3
+#define NCI_PAYLOAD_IDX			3
+#define MAX_RETRY_COUNT			3
+#define NCI_RESET_CMD_LEN		4
+#define NCI_RESET_RSP_LEN		4
+#define NCI_RESET_NTF_LEN		13
+#define NCI_GET_VERSION_CMD_LEN		8
+#define NCI_GET_VERSION_RSP_LEN		12
+#define MAX_IRQ_WAIT_TIME		(90)	//in ms
+#define COLD_RESET_CMD_LEN		3
+#define COLD_RESET_RSP_LEN		4
+#define COLD_RESET_CMD_GID		0x2F
+#define COLD_RESET_CMD_PAYLOAD_LEN	0x00
+#define COLD_RESET_RSP_GID		0x4F
+#define COLD_RESET_OID			0x1E
+
 #define NFC_RX_BUFFER_CNT_START		(0x0)
 #define PAYLOAD_HEADER_LENGTH		(0x3)
 #define PAYLOAD_LENGTH_MAX		(256)
 #define BYTE				(0x8)
 #define NCI_IDENTIFIER			(0x10)
+
+enum ese_ioctl_request {
+	/* eSE POWER ON */
+	ESE_POWER_ON = 0,
+	/* eSE POWER OFF */
+	ESE_POWER_OFF,
+	/* eSE COLD RESET */
+	ESE_COLD_RESET,
+	/* eSE POWER STATE */
+	ESE_POWER_STATE
+};
+
+enum nfcc_ioctl_request {
+	/* NFC disable request with VEN LOW */
+	NFC_POWER_OFF = 0,
+	/* NFC enable request with VEN Toggle */
+	NFC_POWER_ON,
+	/* firmware download request with VEN Toggle */
+	NFC_FW_DWL_VEN_TOGGLE,
+	/* ISO reset request */
+	NFC_ISO_RESET,
+	/* request for firmware download gpio HIGH */
+	NFC_FW_DWL_HIGH,
+	/* hard reset request */
+	NFC_HARD_RESET,
+	/* request for firmware download gpio LOW */
+	NFC_FW_DWL_LOW,
+	/* NFC enable without VEN gpio modification */
+	NFC_ENABLE,
+	/* NFC disable without VEN gpio modification */
+	NFC_DISABLE
+};
 
 enum nfcc_initial_core_reset_ntf {
 	TIMEDOUT_INITIAL_CORE_RESET_NTF = 0, /* 0*/
