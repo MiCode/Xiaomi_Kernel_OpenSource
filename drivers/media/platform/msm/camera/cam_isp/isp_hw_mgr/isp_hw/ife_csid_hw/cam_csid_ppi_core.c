@@ -193,7 +193,7 @@ static int cam_csid_ppi_init_hw(void *hw_priv, void *init_args,
 		ppi_cfg.lane_cfg, num_lanes, cphy);
 
 	for (i = 0; i < num_lanes; i++) {
-		lanes[i] = ppi_cfg.lane_cfg & (0x3 << (4 * i));
+		lanes[i] = (ppi_cfg.lane_cfg & (0x3 << (4 * i))) >> (4*i);
 		(lanes[i] < 2) ? (dl0 = true) : (dl1 = true);
 		CAM_DBG(CAM_ISP, "lanes[%d] %d", i, lanes[i]);
 	}
