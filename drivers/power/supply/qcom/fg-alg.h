@@ -60,6 +60,7 @@ struct cap_learning {
 	bool			active;
 	struct mutex		lock;
 	struct cl_params	dt;
+	bool (*ok_to_begin)(void *data);
 	int (*get_learned_capacity)(void *data, int64_t *learned_cap_uah);
 	int (*store_learned_capacity)(void *data, int64_t learned_cap_uah);
 	int (*get_cc_soc)(void *data, int *cc_soc_sw);
