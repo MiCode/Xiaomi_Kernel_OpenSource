@@ -1632,6 +1632,8 @@ static inline void _dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf,
 	ktime_t pre_time;
 	u8 timestamp[TIMESTAMP_LEN];
 
+	pre_time = ktime_set(0, 0);
+
 	if (dvb_demux_performancecheck)
 		pre_time = ktime_get();
 
