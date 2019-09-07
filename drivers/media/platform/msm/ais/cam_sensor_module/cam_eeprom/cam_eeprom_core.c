@@ -915,7 +915,7 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 	}
 
 	if (cam_mem_put_cpu_buf(dev_config.packet_handle))
-		CAM_WARN(CAM_EEPROM, "Put cpu buffer failed : 0x%x",
+		CAM_WARN(CAM_EEPROM, "Put cpu buffer failed : 0x%llx",
 			dev_config.packet_handle);
 
 	return rc;
@@ -935,7 +935,7 @@ error:
 	e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
 release_buf:
 	if (cam_mem_put_cpu_buf(dev_config.packet_handle))
-		CAM_WARN(CAM_EEPROM, "Put cpu buffer failed : 0x%x",
+		CAM_WARN(CAM_EEPROM, "Put cpu buffer failed : 0x%llx",
 			dev_config.packet_handle);
 
 	return rc;
