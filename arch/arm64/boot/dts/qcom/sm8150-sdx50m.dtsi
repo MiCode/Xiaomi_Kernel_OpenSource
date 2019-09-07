@@ -72,6 +72,14 @@
 		mhi_chan@108 {
 			status = "disabled";
 		};
+
+		mhi_chan@109 {
+			status = "disabled";
+		};
+
+		mhi_chan@110 {
+			status = "disabled";
+		};
 	};
 
 	mhi_events {
@@ -120,6 +128,14 @@
 		};
 
 		mhi_events@12 {
+			status = "disabled";
+		};
+
+		mhi_events@13 {
+			status = "disabled";
+		};
+
+		mhi_events@14 {
 			status = "disabled";
 		};
 	};
@@ -162,6 +178,14 @@
 		mhi_chan@108 {
 			status = "disabled";
 		};
+
+		mhi_chan@109 {
+			status = "disabled";
+		};
+
+		mhi_chan@110 {
+			status = "disabled";
+		};
 	};
 
 	mhi_events {
@@ -210,6 +234,14 @@
 		};
 
 		mhi_events@12 {
+			status = "disabled";
+		};
+
+		mhi_events@13 {
+			status = "disabled";
+		};
+
+		mhi_events@14 {
 			status = "disabled";
 		};
 	};

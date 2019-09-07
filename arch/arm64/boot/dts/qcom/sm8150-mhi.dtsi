@@ -25,7 +25,7 @@
 		qcom,smmu-cfg = <0x3>;
 
 		/* mhi bus specific settings */
-		mhi,max-channels = <110>;
+		mhi,max-channels = <111>;
 		mhi,timeout = <2000>;
 
 		mhi_channels {
@@ -397,6 +397,28 @@
 				mhi,ee = <0x4>;
 				mhi,offload-chan;
 				mhi,lpm-notify;
+			};
+
+			mhi_chan@109 {
+				reg = <109>;
+				label = "RMNET_CTL";
+				mhi,num-elements = <128>;
+				mhi,event-ring = <12>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <1>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <0x4>;
+			};
+
+			mhi_chan@110 {
+				reg = <110>;
+				label = "RMNET_CTL";
+				mhi,num-elements = <128>;
+				mhi,event-ring = <13>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <0x4>;
 			};
 		};
 
@@ -536,6 +558,26 @@
 				mhi,client-manage;
 				mhi,offload;
 			};
+
+			mhi_event@13 {
+				mhi,num-elements = <1024>;
+				mhi,intmod = <1>;
+				mhi,msi = <13>;
+				mhi,chan = <109>;
+				mhi,priority = <0>;
+				mhi,brstmode = <2>;
+				mhi,hw-ev;
+			};
+
+			mhi_event@14 {
+				mhi,num-elements = <1024>;
+				mhi,intmod = <0>;
+				mhi,msi = <14>;
+				mhi,chan = <110>;
+				mhi,priority = <0>;
+				mhi,brstmode = <2>;
+				mhi,hw-ev;
+			};
 		};
 
 		mhi_devices {
@@ -584,7 +626,7 @@
 			<45 512 1200000000 650000000>;
 
 		/* mhi bus specific settings */
-		mhi,max-channels = <110>;
+		mhi,max-channels = <111>;
 		mhi,timeout = <2000>;
 
 		mhi_channels {
@@ -958,6 +1000,28 @@
 				mhi,offload-chan;
 				mhi,lpm-notify;
 			};
+
+			mhi_chan@109 {
+				reg = <109>;
+				label = "RMNET_CTL";
+				mhi,num-elements = <128>;
+				mhi,event-ring = <12>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <1>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <0x4>;
+			};
+
+			mhi_chan@110 {
+				reg = <110>;
+				label = "RMNET_CTL";
+				mhi,num-elements = <128>;
+				mhi,event-ring = <13>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <0x4>;
+			};
 		};
 
 		mhi_events {
@@ -1095,6 +1159,26 @@
 				mhi,hw-ev;
 				mhi,client-manage;
 				mhi,offload;
+			};
+
+			mhi_event@13 {
+				mhi,num-elements = <1024>;
+				mhi,intmod = <1>;
+				mhi,msi = <13>;
+				mhi,chan = <109>;
+				mhi,priority = <0>;
+				mhi,brstmode = <2>;
+				mhi,hw-ev;
+			};
+
+			mhi_event@14 {
+				mhi,num-elements = <1024>;
+				mhi,intmod = <0>;
+				mhi,msi = <14>;
+				mhi,chan = <110>;
+				mhi,priority = <0>;
+				mhi,brstmode = <2>;
+				mhi,hw-ev;
 			};
 		};
 
