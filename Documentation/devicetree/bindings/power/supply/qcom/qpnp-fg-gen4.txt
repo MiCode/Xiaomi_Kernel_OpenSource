@@ -343,7 +343,7 @@ First Level Node - FG Gen4 device
 		    property should be specified if qcom,ki-coeff-soc-dischg
 		    is specified to make it fully functional. Value has no
 		    unit. Allowed range is 0 to 15564 in micro units. If this
-		    is not specified, the default value used will be 122.
+		    is not specified, the default value used will be 367.
 
 - qcom,ki-coeff-med-dischg
 	Usage:      optional
@@ -394,7 +394,7 @@ First Level Node - FG Gen4 device
 	Definition: ki coefficient value for low charge current during
 		    charging. Value has no unit. Allowed range is 0 to 15564
 		    in micro units. If this is not specified, the default value
-		    used will be 183.
+		    used will be 184.
 
 - qcom,ki-coeff-med-chg
 	Usage:      optional
@@ -419,8 +419,8 @@ First Level Node - FG Gen4 device
 		    coefficient will be applied: qcom,ki-coeff-low-chg if the
 		    threshold is not breached, and qcom,ki-coeff-med-chg
 		    otherwise. Allowed range is 0 to 3984 milliamperes. If this
-		    is not specified, the default value used will be 1000
-		    (1000 mA).
+		    is not specified, the default value used will be 500
+		    (500 mA).
 
 - qcom,ki-coeff-chg-med-hi-thresh-ma
 	Usage:      optional
@@ -429,8 +429,8 @@ First Level Node - FG Gen4 device
 		    coefficient will be applied: qcom,ki-coeff-med-chg if the
 		    threshold is not breached, and qcom,ki-coeff-hi-chg
 		    otherwise. Allowed range is 0 to 3984 milliamperes. If this
-		    is not specified, the default value used will be 1500
-		    (1500 mA).
+		    is not specified, the default value used will be 1000
+		    (1000 mA).
 
 - qcom,ki-coeff-cutoff
 	Usage:      optional
