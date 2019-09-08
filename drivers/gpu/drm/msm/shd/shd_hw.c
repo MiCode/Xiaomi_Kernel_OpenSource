@@ -103,7 +103,6 @@ static void _sde_shd_hw_ctl_clear_blendstages_in_range(
 	u32 mixermask[4] = {0, 0, 0, 0};
 	u32 start = hw_ctl->range.start + SDE_STAGE_0;
 	u32 end = start + hw_ctl->range.size;
-	int pipes_per_stage;
 	int i, j;
 	u32 value, mask;
 	const struct ctl_sspp_stage_reg_map *sspp_cfg;
@@ -117,14 +116,8 @@ static void _sde_shd_hw_ctl_clear_blendstages_in_range(
 		mixercfg[1] | mixercfg[2] | mixercfg[3]))
 		goto end;
 
-	if (test_bit(SDE_MIXER_SOURCESPLIT,
-		&ctx->mixer_hw_caps->features))
-		pipes_per_stage = PIPES_PER_STAGE;
-	else
-		pipes_per_stage = 1;
-
 	for (i = 1; i < SSPP_MAX; i++) {
-		for (j = 0 ; j < pipes_per_stage; j++) {
+		for (j = 0 ; j < CTL_SSPP_MAX_RECTS; j++) {
 			sspp_cfg = &sspp_reg_cfg_tbl[i][j];
 			if (!sspp_cfg->bits)
 				continue;
