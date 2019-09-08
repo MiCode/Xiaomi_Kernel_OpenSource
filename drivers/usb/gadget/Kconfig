@@ -250,6 +250,9 @@ config USB_F_QDSS
 config USB_F_IPC
 	tristate
 
+config USB_F_MDM_DATA
+	tristate
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 config USB_CONFIGFS
@@ -617,6 +620,13 @@ config USB_CONFIGFS_F_IPC
 	  IPC function driver enables support for IPC messages port over USB.
 	  This driver provides USB gadget access to the QRTR USB device mode
 	  transport.
+
+config USB_CONFIGFS_F_MDM_DATA
+	bool "USB QTI Modem Data function"
+	select USB_F_MDM_DATA
+	depends on USB_CONFIGFS && USB_QCOM_MDM_DATA_BRIDGE
+	help
+	  USB QTI modem data function driver.
 
 choice
 	tristate "USB Gadget precomposed configurations"
