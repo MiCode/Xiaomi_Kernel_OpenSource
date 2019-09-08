@@ -566,6 +566,14 @@ long hab_vchan_send(struct uhab_context *ctx,
 				sizeof(struct habmm_xing_vm_stat));
 			return -EINVAL;
 		}
+	} else if (flags & HABMM_SOCKET_XVM_SCHE_TEST) {
+		HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_SCHE_MSG);
+	} else if (flags & HABMM_SOCKET_XVM_SCHE_TEST_ACK) {
+		HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_SCHE_MSG_ACK);
+	} else if (flags & HABMM_SOCKET_XVM_SCHE_RESULT_REQ) {
+		HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_SCHE_RESULT_REQ);
+	} else if (flags & HABMM_SOCKET_XVM_SCHE_RESULT_RSP) {
+		HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_SCHE_RESULT_RSP);
 	} else {
 		HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_MSG);
 	}
