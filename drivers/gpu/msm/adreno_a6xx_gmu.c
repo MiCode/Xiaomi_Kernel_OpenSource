@@ -1156,13 +1156,48 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 
 #define A6XX_VBIF_XIN_HALT_CTRL1_ACKS   (BIT(0) | BIT(1) | BIT(2) | BIT(3))
 
+static void do_gbif_halt(struct kgsl_device *device, u32 reg, u32 ack_reg,
+	u32 mask, const char *client)
+{
+	u32 ack;
+	unsigned long t;
+
+	kgsl_regwrite(device, reg, mask);
+
+	t = jiffies + msecs_to_jiffies(100);
+	do {
+		kgsl_regread(device, ack_reg, &ack);
+		if ((ack & mask) == mask)
+			return;
+
+		/*
+		 * If we are attempting recovery in case of stall-on-fault
+		 * then the halt sequence will not complete as long as SMMU
+		 * is stalled.
+		 */
+		kgsl_mmu_pagefault_resume(&device->mmu);
+
+		usleep_range(10, 100);
+	} while (!time_after(jiffies, t));
+
+	/* Check one last time */
+	kgsl_mmu_pagefault_resume(&device->mmu);
+
+	kgsl_regread(device, ack_reg, &ack);
+	if ((ack & mask) == mask)
+		return;
+
+	dev_err(device->dev, "%s GBIF halt timed out\n", client);
+}
+
 static int a6xx_gmu_suspend(struct kgsl_device *device)
 {
 	int ret = 0;
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	/* If SPTP_RAC is on, turn off SPTP_RAC HS */
-	a6xx_gmu_sptprac_disable(ADRENO_DEVICE(device));
+	a6xx_gmu_sptprac_disable(adreno_dev);
 
 	/* Disconnect GPU from BUS is not needed if CX GDSC goes off later */
 
@@ -1175,6 +1210,26 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 
 	/* Make sure above writes are committed before we proceed to recovery */
 	wmb();
+
+	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
+
+	if (adreno_has_gbif(adreno_dev)) {
+		struct adreno_gpudev *gpudev =
+			ADRENO_GPU_DEVICE(adreno_dev);
+
+		/* Halt GX traffic */
+		do_gbif_halt(device, A6XX_RBBM_GBIF_HALT,
+			A6XX_RBBM_GBIF_HALT_ACK, gpudev->gbif_gx_halt_mask,
+			"GX");
+		/* Halt CX traffic */
+		do_gbif_halt(device, A6XX_GBIF_HALT, A6XX_GBIF_HALT_ACK,
+			gpudev->gbif_arb_halt_mask, "CX");
+	}
+
+	kgsl_regwrite(device, A6XX_RBBM_SW_RESET_CMD, 0x1);
+
+	/* Allow the software reset to complete */
+	udelay(100);
 
 	/*
 	 * This is based on the assumption that GMU is the only one controlling
