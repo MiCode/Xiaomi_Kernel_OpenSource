@@ -150,6 +150,15 @@ static irqreturn_t nqx_dev_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static int is_data_available_for_read(struct nqx_dev *nqx_dev)
+{
+	int ret;
+
+	nqx_enable_irq(nqx_dev);
+	ret = wait_event_interruptible(nqx_dev->read_wq, !nqx_dev->irq_enabled);
+	return ret;
+}
+
 static ssize_t nfc_read(struct file *filp, char __user *buf,
 					size_t count, loff_t *offset)
 {
@@ -679,7 +688,6 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 {
 	int ret = 0;
 
-	int gpio_retry_count = 0;
 	unsigned char raw_nci_reset_cmd[] =  {0x20, 0x00, 0x01, 0x00};
 	unsigned char raw_nci_init_cmd[] =   {0x20, 0x01, 0x00};
 	unsigned char nci_get_version_cmd[] = {0x00, 0x04, 0xF1,
@@ -690,7 +698,6 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 	unsigned char init_rsp_len = 0;
 	unsigned int enable_gpio = nqx_dev->en_gpio;
 
-reset_enable_gpio:
 	/* making sure that the NFCC starts in a clean state. */
 	gpio_set_value(enable_gpio, 0);/* ULPM: Disable */
 	/* hardware dependent delay */
@@ -746,8 +753,11 @@ reset_enable_gpio:
 		}
 		goto err_nfcc_reset_failed;
 	}
-	/* hardware dependent delay */
-	msleep(30);
+	ret = is_data_available_for_read(nqx_dev);
+	if (ret < 0) {
+		nqx_disable_irq(nqx_dev);
+		goto err_nfcc_hw_check;
+	}
 
 	/* Read Response of RESET command */
 	ret = i2c_master_recv(client, nci_reset_rsp,
@@ -755,11 +765,10 @@ reset_enable_gpio:
 	if (ret < 0) {
 		dev_err(&client->dev,
 		"%s: - i2c_master_recv Error\n", __func__);
-		gpio_retry_count = gpio_retry_count + 1;
-		if (gpio_retry_count < MAX_RETRY_COUNT)
-			goto reset_enable_gpio;
 		goto err_nfcc_hw_check;
 	}
+
+	/* send NCI CORE INIT CMD */
 	ret = nqx_standby_write(nqx_dev, raw_nci_init_cmd,
 				sizeof(raw_nci_init_cmd));
 	if (ret < 0) {
@@ -767,8 +776,12 @@ reset_enable_gpio:
 		"%s: - i2c_master_send failed for Core INIT\n", __func__);
 		goto err_nfcc_core_init_fail;
 	}
-	/* hardware dependent delay */
-	msleep(30);
+	ret = is_data_available_for_read(nqx_dev);
+	if (ret < 0) {
+		nqx_disable_irq(nqx_dev);
+		goto err_nfcc_hw_check;
+	}
+
 	/* Read Response of INIT command */
 	ret = i2c_master_recv(client, nci_init_rsp,
 		sizeof(nci_init_rsp));
@@ -821,6 +834,11 @@ err_nfcc_reset_failed:
 	case NFCC_PN66T:
 		dev_dbg(&client->dev,
 		"%s: ## NFCC == PN66T ##\n", __func__);
+		break;
+	case NFCC_SN100_A:
+	case NFCC_SN100_B:
+		dev_dbg(&client->dev,
+		"%s: ## NFCC == SN100x ##\n", __func__);
 		break;
 	default:
 		dev_err(&client->dev,
