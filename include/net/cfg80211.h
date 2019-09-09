@@ -54,6 +54,8 @@
 
 /* Indicate support for including KEK length in rekey data */
 #define CFG80211_REKEY_DATA_KEK_LEN 1
+/* Indicate backport support for 6GHz band */
+#define CFG80211_6GHZ_BAND_SUPPORTED 1
 
 /**
  * DOC: Introduction
