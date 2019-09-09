@@ -1726,6 +1726,26 @@ config CPU_SW_DOMAIN_PAN
 	  Their lower 1MB needs to remain accessible for the vectors, but
 	  the remainder of userspace will become appropriately inaccessible.
 
+config MODULES_USE_LONG_CALLS
+	bool
+	help
+	  Use long calls for calling exported symbols.
+
+config MODULES_USE_VMALLOC
+	bool "Put modules into vmalloc area"
+	select MODULES_USE_LONG_CALLS
+	depends on MMU && MODULES
+	depends on !XIP_KERNEL
+	depends on !FUNCTION_TRACER
+	help
+	  Usually modules are loaded into small area prior to the kernel text
+	  because they are linked with the kernel using short calls.
+
+	  This option enables long calls and moves modules into vmalloc area.
+	  This allows to load more modules but adds some perfromance penalty.
+
+	  If unsure, say n.
+
 config HW_PERF_EVENTS
 	def_bool y
 	depends on ARM_PMU

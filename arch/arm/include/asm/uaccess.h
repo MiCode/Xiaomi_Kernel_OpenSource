@@ -145,21 +145,21 @@ extern int __get_user_64t_1(void *);
 extern int __get_user_64t_2(void *);
 extern int __get_user_64t_4(void *);
 
-#define __GUP_CLOBBER_1	"lr", "cc"
+#define __GUP_CLOBBER_1	"lr", "cc" __asmbl_clobber("ip")
 #ifdef CONFIG_CPU_USE_DOMAINS
 #define __GUP_CLOBBER_2	"ip", "lr", "cc"
 #else
-#define __GUP_CLOBBER_2 "lr", "cc"
+#define __GUP_CLOBBER_2 "lr", "cc" __asmbl_clobber("ip")
 #endif
-#define __GUP_CLOBBER_4	"lr", "cc"
-#define __GUP_CLOBBER_32t_8 "lr", "cc"
-#define __GUP_CLOBBER_8	"lr", "cc"
+#define __GUP_CLOBBER_4	"lr", "cc" __asmbl_clobber("ip")
+#define __GUP_CLOBBER_32t_8 "lr", "cc" __asmbl_clobber("ip")
+#define __GUP_CLOBBER_8	"lr", "cc" __asmbl_clobber("ip")
 
 #define __get_user_x(__r2, __p, __e, __l, __s)				\
 	   __asm__ __volatile__ (					\
 		__asmeq("%0", "r0") __asmeq("%1", "r2")			\
 		__asmeq("%3", "r1")					\
-		"bl	__get_user_" #__s				\
+		__asmbl("", "ip", "__get_user_" #__s)			\
 		: "=&r" (__e), "=r" (__r2)				\
 		: "0" (__p), "r" (__l)					\
 		: __GUP_CLOBBER_##__s)
@@ -181,7 +181,7 @@ extern int __get_user_64t_4(void *);
 	   __asm__ __volatile__ (					\
 		__asmeq("%0", "r0") __asmeq("%1", "r2")			\
 		__asmeq("%3", "r1")					\
-		"bl	__get_user_64t_" #__s				\
+		__asmbl("", "ip", "__get_user_64t_" #__s)		\
 		: "=&r" (__e), "=r" (__r2)				\
 		: "0" (__p), "r" (__l)					\
 		: __GUP_CLOBBER_##__s)
@@ -251,7 +251,7 @@ extern int __put_user_8(void *, unsigned long long);
 		__asm__ __volatile__ (					\
 			__asmeq("%0", "r0") __asmeq("%2", "r2")		\
 			__asmeq("%3", "r1")				\
-			"bl	__put_user_" #__s			\
+			__asmbl("", "ip", "__put_user_" #__s)		\
 			: "=&r" (__e)					\
 			: "0" (__p), "r" (__r2), "r" (__l)		\
 			: "ip", "lr", "cc");				\
