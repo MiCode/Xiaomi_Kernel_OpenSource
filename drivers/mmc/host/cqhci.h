@@ -121,6 +121,7 @@
  * Add new macro for updated CQ vendor specific
  * register address for SDHC v5.0 onwards.
  */
+#define CQE_V5_VENDOR_CFG	0x900
 #define CQHCI_VENDOR_CFG   0x100
 #define CMDQ_SEND_STATUS_TRIGGER (1 << 31)
 
@@ -191,6 +192,7 @@ struct cqhci_host {
 	bool activated;
 	bool waiting_for_idle;
 	bool recovery_halt;
+	bool offset_changed;
 
 	size_t desc_size;
 	size_t data_size;
