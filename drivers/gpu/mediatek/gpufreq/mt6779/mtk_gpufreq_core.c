@@ -842,11 +842,11 @@ unsigned int mt_gpufreq_get_leakage_mw(void)
 	int leak_power;
 #endif /* ifdef MT_GPUFREQ_STATIC_PWR_READY2USE */
 
-#ifdef CONFIG_THERMAL
+#ifdef CONFIG_MTK_LEGACY_THERMAL
 	temp = get_immediate_gpu_wrap() / 1000;
 #else
 	temp = 40;
-#endif /* ifdef CONFIG_THERMAL */
+#endif /* ifdef CONFIG_MTK_LEGACY_THERMAL */
 
 #ifdef MT_GPUFREQ_STATIC_PWR_READY2USE
 	leak_power = mt_spower_get_leakage(MTK_SPOWER_GPU, cur_vcore, temp);
@@ -2224,11 +2224,11 @@ static void __mt_update_gpufreqs_power_table(void)
 	unsigned int freq = 0;
 	unsigned int volt = 0;
 
-#ifdef CONFIG_THERMAL
+#ifdef CONFIG_MTK_LEGACY_THERMAL
 	temp = get_immediate_gpu_wrap() / 1000;
 #else
 	temp = 40;
-#endif /* ifdef CONFIG_THERMAL */
+#endif /* ifdef CONFIG_MTK_LEGACY_THERMAL */
 
 	gpufreq_pr_debug("@%s: temp = %d\n", __func__, temp);
 
@@ -2452,11 +2452,11 @@ static void __mt_gpufreq_setup_opp_power_table(int num)
 	if (g_power_table == NULL)
 		return;
 
-#ifdef CONFIG_THERMAL
+#ifdef CONFIG_MTK_LEGACY_THERMAL
 	temp = get_immediate_gpu_wrap() / 1000;
 #else
 	temp = 40;
-#endif /* ifdef CONFIG_THERMAL */
+#endif /* ifdef CONFIG_MTK_LEGACY_THERMAL */
 
 	gpufreq_pr_debug("@%s: temp = %d\n", __func__, temp);
 
@@ -2478,9 +2478,9 @@ static void __mt_gpufreq_setup_opp_power_table(int num)
 				g_power_table[i].gpufreq_power);
 	}
 
-#ifdef CONFIG_THERMAL
+#ifdef CONFIG_MTK_LEGACY_THERMAL
 	mtk_gpufreq_register(g_power_table, num);
-#endif /* ifdef CONFIG_THERMAL */
+#endif /* ifdef CONFIG_MTK_LEGACY_THERMAL */
 }
 
 /*
