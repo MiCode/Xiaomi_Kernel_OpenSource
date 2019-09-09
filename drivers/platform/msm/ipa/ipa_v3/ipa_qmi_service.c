@@ -1480,6 +1480,41 @@ static void ipa3_q6_clnt_install_firewall_rules_ind_cb(
 	}
 }
 
+static void ipa3_q6_clnt_bw_vhang_ind_cb(struct qmi_handle *handle,
+	struct sockaddr_qrtr *sq,
+	struct qmi_txn *txn,
+	const void *data)
+{
+	struct ipa_bw_change_ind_msg_v01 *qmi_ind;
+	uint32_t bw_mbps = 0;
+
+	if (handle != ipa_q6_clnt) {
+		IPAWANERR("Wrong client\n");
+		return;
+	}
+
+	qmi_ind = (struct ipa_bw_change_ind_msg_v01 *) data;
+
+	IPAWANDBG("Q6 BW change UL valid(%d):(%d)Kbps\n",
+		qmi_ind->peak_bw_ul_valid,
+		qmi_ind->peak_bw_ul);
+
+	IPAWANDBG("Q6 BW change DL valid(%d):(%d)Kbps\n",
+		qmi_ind->peak_bw_dl_valid,
+		qmi_ind->peak_bw_dl);
+
+	if (qmi_ind->peak_bw_ul_valid)
+		bw_mbps += qmi_ind->peak_bw_ul/1000;
+
+	if (qmi_ind->peak_bw_dl_valid)
+		bw_mbps += qmi_ind->peak_bw_dl/1000;
+
+	IPAWANDBG("vote modem BW (%u)\n", bw_mbps);
+	if (ipa3_vote_for_bus_bw(&bw_mbps)) {
+		IPAWANERR("Failed to vote BW (%u)\n", bw_mbps);
+	}
+}
+
 static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 {
 	int rc;
@@ -1715,6 +1750,14 @@ static struct qmi_msg_handler client_handlers[] = {
 		.decoded_size =
 			QMI_IPA_INSTALL_UL_FIREWALL_RULES_IND_MAX_MSG_LEN_V01,
 		.fn = ipa3_q6_clnt_install_firewall_rules_ind_cb,
+	},
+	{
+		.type = QMI_INDICATION,
+		.msg_id = QMI_IPA_BW_CHANGE_INDICATION_V01,
+		.ei = ipa_bw_change_ind_msg_v01_ei,
+		.decoded_size =
+			IPA_BW_CHANGE_IND_MSG_V01_MAX_MSG_LEN,
+		.fn = ipa3_q6_clnt_bw_vhang_ind_cb,
 	},
 };
 
@@ -2080,6 +2123,51 @@ int ipa3_qmi_set_aggr_info(enum ipa_aggr_enum_type_v01 aggr_enum_type)
 	return ipa3_check_qmi_response(rc,
 		QMI_IPA_SET_DATA_USAGE_QUOTA_REQ_V01, resp.resp.result,
 		resp.resp.error, "ipa_mhi_prime_aggr_info_req_msg_v01");
+}
+
+int ipa3_qmi_req_ind(void)
+{
+	struct ipa_indication_reg_req_msg_v01 req;
+	struct ipa_indication_reg_resp_msg_v01 resp;
+	struct ipa_msg_desc req_desc, resp_desc;
+	int rc;
+
+	memset(&req, 0, sizeof(struct ipa_indication_reg_req_msg_v01));
+	memset(&resp, 0, sizeof(struct ipa_indication_reg_resp_msg_v01));
+
+	req.bw_change_ind_valid = true;
+	req.bw_change_ind = true;
+
+	req_desc.max_msg_len =
+		QMI_IPA_INDICATION_REGISTER_REQ_MAX_MSG_LEN_V01;
+	req_desc.msg_id = QMI_IPA_INDICATION_REGISTER_REQ_V01;
+	req_desc.ei_array = ipa3_indication_reg_req_msg_data_v01_ei;
+
+	resp_desc.max_msg_len =
+		QMI_IPA_INDICATION_REGISTER_RESP_MAX_MSG_LEN_V01;
+	resp_desc.msg_id = QMI_IPA_INDICATION_REGISTER_RESP_V01;
+	resp_desc.ei_array = ipa3_indication_reg_resp_msg_data_v01_ei;
+
+	IPAWANDBG_LOW("Sending QMI_IPA_INDICATION_REGISTER_REQ_V01\n");
+	if (unlikely(!ipa_q6_clnt))
+		return -ETIMEDOUT;
+	rc = ipa3_qmi_send_req_wait(ipa_q6_clnt,
+		&req_desc, &req,
+		&resp_desc, &resp,
+		QMI_SEND_STATS_REQ_TIMEOUT_MS);
+
+	if (rc < 0) {
+		IPAWANERR("QMI send Req %d failed, rc= %d\n",
+			QMI_IPA_INDICATION_REGISTER_REQ_V01,
+			rc);
+		return rc;
+	}
+
+	IPAWANDBG_LOW("QMI_IPA_INDICATION_REGISTER_RESP_V01 received\n");
+
+	return ipa3_check_qmi_response(rc,
+		QMI_IPA_INDICATION_REGISTER_REQ_V01, resp.resp.result,
+		resp.resp.error, "ipa_indication_reg_req_msg_v01");
 }
 
 int ipa3_qmi_stop_data_qouta(void)
