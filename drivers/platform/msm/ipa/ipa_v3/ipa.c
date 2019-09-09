@@ -2668,10 +2668,22 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case IPA_IOC_FNR_COUNTER_ALLOC:
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+			IPAERR("FNR stats not supported on IPA ver %d",
+				ipa3_ctx->ipa_hw_type);
+			retval = -EFAULT;
+			break;
+		}
 		retval = ipa3_ioctl_fnr_counter_alloc(arg);
 		break;
 
 	case IPA_IOC_FNR_COUNTER_DEALLOC:
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+			IPAERR("FNR stats not supported on IPA ver %d",
+				 ipa3_ctx->ipa_hw_type);
+			retval = -EFAULT;
+			break;
+		}
 		hdl = (int)arg;
 		if (hdl < 0) {
 			IPAERR("IPA_FNR_COUNTER_DEALLOC failed: hdl %d\n",
@@ -2683,10 +2695,22 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case IPA_IOC_FNR_COUNTER_QUERY:
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+			IPAERR("FNR stats not supported on IPA ver %d",
+				ipa3_ctx->ipa_hw_type);
+			retval = -EFAULT;
+			break;
+		}
 		retval = ipa3_ioctl_fnr_counter_query(arg);
 		break;
 
 	case IPA_IOC_SET_FNR_COUNTER_INFO:
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+			IPAERR("FNR stats not supported on IPA ver %d",
+				ipa3_ctx->ipa_hw_type);
+			retval = -EFAULT;
+			break;
+		}
 		retval = ipa3_ioctl_fnr_counter_set(arg);
 		break;
 
