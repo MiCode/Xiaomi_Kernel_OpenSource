@@ -225,6 +225,7 @@ struct sdhci_msm_host {
 	atomic_t clks_on; /* Set if clocks are enabled */
 	struct sdhci_msm_pltfm_data *pdata;
 	struct mmc_host  *mmc;
+	struct cqhci_host *cq_host;
 	struct sdhci_msm_debug_data cached_data;
 	struct sdhci_pltfm_data sdhci_msm_pdata;
 	u32 curr_pwr_state;

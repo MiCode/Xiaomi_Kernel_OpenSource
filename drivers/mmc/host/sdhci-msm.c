@@ -2400,6 +2400,7 @@ static int sdhci_msm_cqe_add_host(struct sdhci_host *host,
 
 	msm_host->mmc->caps2 |= MMC_CAP2_CQE;
 	cq_host->ops = &sdhci_msm_cqhci_ops;
+	msm_host->cq_host = cq_host;
 
 	dma64 = host->flags & SDHCI_USE_64_BIT_DMA;
 	if (dma64)
@@ -3950,6 +3951,46 @@ static void sdhci_msm_cache_debug_data(struct sdhci_host *host)
 		sizeof(struct sdhci_host));
 }
 
+#define MAX_TEST_BUS 60
+#define DRV_NAME "cqhci-host"
+static void sdhci_msm_cqe_dump_debug_ram(struct sdhci_host *host)
+{
+	int i = 0;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	const struct sdhci_msm_offset *msm_host_offset =
+					msm_host->offset;
+	struct cqhci_host *cq_host;
+	u32 version;
+	u16 minor;
+	int offset;
+
+	if (msm_host->cq_host)
+		cq_host = msm_host->cq_host;
+	else
+		return;
+
+	version = sdhci_msm_readl_relaxed(host,
+		msm_host_offset->CORE_MCI_VERSION);
+	minor = version & CORE_VERSION_TARGET_MASK;
+	/* registers offset changed starting from 4.2.0 */
+	offset = minor >= SDHCI_MSM_VER_420 ? 0 : 0x48;
+
+	if (cq_host->offset_changed)
+		offset += CQE_V5_VENDOR_CFG;
+	pr_err("---- Debug RAM dump ----\n");
+	pr_err(DRV_NAME ": Debug RAM wrap-around: 0x%08x | Debug RAM overlap: 0x%08x\n",
+	       cqhci_readl(cq_host, CQ_CMD_DBG_RAM_WA + offset),
+	       cqhci_readl(cq_host, CQ_CMD_DBG_RAM_OL + offset));
+
+	while (i < 16) {
+		pr_err(DRV_NAME ": Debug RAM dump [%d]: 0x%08x\n", i,
+		       cqhci_readl(cq_host, CQ_CMD_DBG_RAM + offset + (4 * i)));
+		i++;
+	}
+	pr_err("-------------------------\n");
+}
+
 void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -3964,6 +4005,8 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 
 	sdhci_msm_cache_debug_data(host);
 	pr_info("----------- VENDOR REGISTER DUMP -----------\n");
+	if (msm_host->cq_host)
+		sdhci_msm_cqe_dump_debug_ram(host);
 
 	mmc_log_string(host->mmc, "Data cnt: 0x%08x | Fifo cnt: 0x%08x\n",
 		sdhci_msm_readl_relaxed(host,
