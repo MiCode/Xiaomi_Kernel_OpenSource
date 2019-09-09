@@ -121,6 +121,18 @@ struct adreno_ringbuffer {
 	int preempted_midway;
 	spinlock_t preempt_lock;
 	bool skip_inline_wptr;
+	/**
+	 * @profile_desc: global memory to construct IB1s to do user side
+	 * profiling
+	 */
+	struct kgsl_memdesc profile_desc;
+	/**
+	 * @profile_index: Pointer to the next "slot" in profile_desc for a user
+	 * profiling IB1.  This allows for PAGE_SIZE / 16 = 256 simultaneous
+	 * commands per ringbuffer with user profiling enabled
+	 * enough.
+	 */
+	u32 profile_index;
 };
 
 /* Returns the current ringbuffer */
