@@ -2902,6 +2902,7 @@ int cnss_smmu_map(struct device *dev,
 		  phys_addr_t paddr, uint32_t *iova_addr, size_t size)
 {
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(to_pci_dev(dev));
+	struct cnss_plat_data *plat_priv;
 	unsigned long iova;
 	size_t len;
 	int ret = 0;
@@ -2919,6 +2920,8 @@ int cnss_smmu_map(struct device *dev,
 		return -EINVAL;
 	}
 
+	plat_priv = pci_priv->plat_priv;
+
 	len = roundup(size + paddr - rounddown(paddr, PAGE_SIZE), PAGE_SIZE);
 	iova = roundup(pci_priv->smmu_iova_ipa_start, PAGE_SIZE);
 
@@ -2931,15 +2934,19 @@ int cnss_smmu_map(struct device *dev,
 		return -ENOMEM;
 	}
 
-	root_port = pci_find_pcie_root_port(pci_priv->pci_dev);
-	root_of_node = root_port->dev.of_node;
-	if (root_of_node->parent) {
-		dma_coherent = of_property_read_bool(root_of_node->parent,
-						     "dma-coherent");
-		cnss_pr_dbg("dma-coherent is %s\n",
-			    dma_coherent ? "enabled" : "disabled");
-		if (dma_coherent)
-			flag |= IOMMU_CACHE;
+	if (!test_bit(DISABLE_IO_COHERENCY,
+		      &plat_priv->ctrl_params.quirks)) {
+		root_port = pci_find_pcie_root_port(pci_priv->pci_dev);
+		root_of_node = root_port->dev.of_node;
+		if (root_of_node->parent) {
+			dma_coherent =
+				of_property_read_bool(root_of_node->parent,
+						      "dma-coherent");
+			cnss_pr_dbg("dma-coherent is %s\n",
+				    dma_coherent ? "enabled" : "disabled");
+			if (dma_coherent)
+				flag |= IOMMU_CACHE;
+		}
 	}
 
 	ret = iommu_map(pci_priv->iommu_domain, iova,
