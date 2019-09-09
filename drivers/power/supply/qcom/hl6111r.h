@@ -19,6 +19,8 @@
 
 #define VOUT_TARGET_REG		0x0E
 
+#define ID_REG			0xA
+
 #define IOUT_LIM_SEL_REG	0x28
 #define IOUT_LIM_SEL_MASK	GENMASK(7, 3)
 #define IOUT_LIM_SHIFT		3
