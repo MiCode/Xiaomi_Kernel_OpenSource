@@ -3392,6 +3392,10 @@
 		qcom,src-dst-ports = <26 512>;
 		operating-points-v2 = <&gpu_bw_tbl>;
 	};
+
+	qcom,demux {
+		compatible = "qcom,demux";
+	};
 };
 
 #include "atoll-gdsc.dtsi"
