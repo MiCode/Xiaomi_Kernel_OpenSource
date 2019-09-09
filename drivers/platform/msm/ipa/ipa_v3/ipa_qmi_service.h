@@ -220,6 +220,7 @@ extern struct qmi_elem_info ipa_add_offload_connection_req_msg_v01_ei[];
 extern struct qmi_elem_info ipa_add_offload_connection_resp_msg_v01_ei[];
 extern struct qmi_elem_info ipa_remove_offload_connection_req_msg_v01_ei[];
 extern struct qmi_elem_info ipa_remove_offload_connection_resp_msg_v01_ei[];
+extern struct qmi_elem_info ipa_bw_change_ind_msg_v01_ei[];
 
 /**
  * struct ipa3_rmnet_context - IPA rmnet context
@@ -327,6 +328,8 @@ int ipa3_qmi_set_data_quota(struct ipa_set_data_usage_quota_req_msg_v01 *req);
 
 int ipa3_qmi_set_aggr_info(
 	enum ipa_aggr_enum_type_v01 aggr_enum_type);
+
+int ipa3_qmi_req_ind(void);
 
 int ipa3_qmi_stop_data_qouta(void);
 
