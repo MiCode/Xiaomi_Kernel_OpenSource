@@ -21,6 +21,28 @@ extern bool single_task_running(void);
 extern unsigned long nr_iowait(void);
 extern unsigned long nr_iowait_cpu(int cpu);
 
+#ifdef CONFIG_SCHED_WALT
+extern void __weak sched_update_nr_prod(int cpu, long delta, bool inc);
+extern unsigned int __weak sched_get_cpu_util(int cpu);
+extern void __weak sched_update_hyst_times(void);
+extern u64 __weak sched_lpm_disallowed_time(int cpu);
+#else
+static inline void sched_update_nr_prod(int cpu, long delta, bool inc) {}
+static inline unsigned int sched_get_cpu_util(int cpu)
+{
+	return 0;
+}
+static inline u64 sched_get_cpu_last_busy_time(int cpu)
+{
+	return 0;
+}
+static inline void sched_update_hyst_times(void) {}
+static inline u64 sched_lpm_disallowed_time(int cpu)
+{
+	return 0;
+}
+#endif
+
 static inline int sched_info_on(void)
 {
 #ifdef CONFIG_SCHEDSTATS

@@ -6,6 +6,7 @@
 #include "sched.h"
 
 #include "pelt.h"
+#include "walt.h"
 
 int sched_rr_timeslice = RR_TIMESLICE;
 int sysctl_sched_rr_timeslice = (MSEC_PER_SEC / HZ) * RR_TIMESLICE;
@@ -2387,6 +2388,10 @@ const struct sched_class rt_sched_class = {
 
 #ifdef CONFIG_UCLAMP_TASK
 	.uclamp_enabled		= 1,
+#endif
+
+#ifdef CONFIG_SCHED_WALT
+	.fixup_walt_sched_stats	= fixup_walt_sched_stats_common,
 #endif
 };
 
