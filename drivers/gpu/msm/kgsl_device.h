@@ -69,6 +69,7 @@ enum kgsl_event_results {
 };
 
 #define KGSL_FLAG_WAKE_ON_TOUCH BIT(0)
+#define KGSL_FLAG_SPARSE        BIT(1)
 
 /*
  * "list" of event types for ftrace symbolic magic
