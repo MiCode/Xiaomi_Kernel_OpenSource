@@ -3475,12 +3475,12 @@ static int sdhci_msm_enable_controller_clock(struct sdhci_host *host)
 	sdhci_msm_registers_restore(host);
 	goto out;
 
-disable_bus_aggr_clk:
-	if (!IS_ERR(msm_host->bus_aggr_clk))
-		clk_disable_unprepare(msm_host->bus_aggr_clk);
 disable_host_clk:
 	if (!IS_ERR(msm_host->clk))
 		clk_disable_unprepare(msm_host->clk);
+disable_bus_aggr_clk:
+	if (!IS_ERR(msm_host->bus_aggr_clk))
+		clk_disable_unprepare(msm_host->bus_aggr_clk);
 disable_pclk:
 	if (!IS_ERR(msm_host->pclk))
 		clk_disable_unprepare(msm_host->pclk);
@@ -3504,6 +3504,8 @@ static void sdhci_msm_disable_controller_clock(struct sdhci_host *host)
 			clk_disable_unprepare(msm_host->bus_aggr_clk);
 		if (!IS_ERR(msm_host->pclk))
 			clk_disable_unprepare(msm_host->pclk);
+		if (!IS_ERR(msm_host->ice_clk))
+			clk_disable_unprepare(msm_host->ice_clk);
 		sdhci_msm_bus_voting(host, 0);
 		atomic_set(&msm_host->controller_clock, 0);
 		pr_debug("%s: %s: disabled controller clock\n",
@@ -3590,8 +3592,6 @@ static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 			clk_disable_unprepare(msm_host->sleep_clk);
 		if (!IS_ERR_OR_NULL(msm_host->ff_clk))
 			clk_disable_unprepare(msm_host->ff_clk);
-		if (!IS_ERR(msm_host->ice_clk))
-			clk_disable_unprepare(msm_host->ice_clk);
 		if (!IS_ERR_OR_NULL(msm_host->bus_clk))
 			clk_disable_unprepare(msm_host->bus_clk);
 		sdhci_msm_disable_controller_clock(host);
@@ -5659,6 +5659,7 @@ defer_disable_host_irq:
 			pr_err("%s: failed to suspend crypto engine %d\n",
 					mmc_hostname(host->mmc), ret);
 	}
+	sdhci_msm_disable_controller_clock(host);
 	trace_sdhci_msm_runtime_suspend(mmc_hostname(host->mmc), 0,
 			ktime_to_us(ktime_sub(ktime_get(), start)));
 	return 0;
@@ -5672,13 +5673,13 @@ static int sdhci_msm_runtime_resume(struct device *dev)
 	int ret;
 	ktime_t start = ktime_get();
 
+	ret = sdhci_msm_enable_controller_clock(host);
+	if (ret) {
+		pr_err("%s: Failed to enable reqd clocks\n",
+				mmc_hostname(host->mmc));
+		goto skip_ice_resume;
+	}
 	if (host->is_crypto_en) {
-		ret = sdhci_msm_enable_controller_clock(host);
-		if (ret) {
-			pr_err("%s: Failed to enable reqd clocks\n",
-					mmc_hostname(host->mmc));
-			goto skip_ice_resume;
-		}
 		ret = sdhci_msm_ice_resume(host);
 		if (ret)
 			pr_err("%s: failed to resume crypto engine %d\n",
@@ -5719,7 +5720,6 @@ static int sdhci_msm_suspend(struct device *dev)
 	}
 	ret = sdhci_msm_runtime_suspend(dev);
 out:
-	sdhci_msm_disable_controller_clock(host);
 	if (host->mmc->card && mmc_card_sdio(host->mmc->card)) {
 		sdio_cfg = sdhci_msm_cfg_sdio_wakeup(host, true);
 		if (sdio_cfg)
