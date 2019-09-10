@@ -230,6 +230,14 @@ config MSM_SERVICE_NOTIFIER
 	  like audio, the identifier for which is provided by the service
 	  locator.
 
+config MSM_BOOT_STATS
+	tristate "Use MSM boot stats reporting"
+	help
+	  Use this to report msm boot stats such as bootloader throughput,
+	  display init, total boot time.
+	  This figures are reported in mpm sleep clock cycles and have a
+	  resolution of 31 bits as 1 bit is used as an overflow check.
+
 config QCOM_QMI_HELPERS
 	tristate
 	depends on ARCH_QCOM || COMPILE_TEST
