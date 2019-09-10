@@ -13,6 +13,7 @@
 #define QMI_WLFW_BDF_DOWNLOAD_REQ_V01 0x0025
 #define QMI_WLFW_FW_MEM_READY_IND_V01 0x0037
 #define QMI_WLFW_QDSS_TRACE_CONFIG_DOWNLOAD_REQ_V01 0x0044
+#define QMI_WLFW_GET_INFO_REQ_V01 0x004A
 #define QMI_WLFW_INITIATE_CAL_UPDATE_IND_V01 0x002A
 #define QMI_WLFW_CAL_DONE_IND_V01 0x003E
 #define QMI_WLFW_WFC_CALL_STATUS_RESP_V01 0x0049
@@ -23,6 +24,7 @@
 #define QMI_WLFW_FW_INIT_DONE_IND_V01 0x0038
 #define QMI_WLFW_ANTENNA_GRANT_RESP_V01 0x0048
 #define QMI_WLFW_CAL_REPORT_REQ_V01 0x0026
+#define QMI_WLFW_RESPOND_GET_INFO_IND_V01 0x004B
 #define QMI_WLFW_M3_INFO_RESP_V01 0x003C
 #define QMI_WLFW_CAL_UPDATE_RESP_V01 0x0029
 #define QMI_WLFW_CAL_DOWNLOAD_RESP_V01 0x0027
@@ -49,6 +51,7 @@
 #define QMI_WLFW_ATHDIAG_WRITE_REQ_V01 0x0031
 #define QMI_WLFW_WLAN_MODE_RESP_V01 0x0022
 #define QMI_WLFW_RESPOND_MEM_REQ_V01 0x0036
+#define QMI_WLFW_GET_INFO_RESP_V01 0x004A
 #define QMI_WLFW_QDSS_TRACE_MODE_RESP_V01 0x0045
 #define QMI_WLFW_PIN_CONNECT_RESULT_IND_V01 0x002C
 #define QMI_WLFW_FW_READY_IND_V01 0x0021
@@ -272,9 +275,11 @@ struct wlfw_ind_register_req_msg_v01 {
 	u8 qdss_trace_save_enable;
 	u8 qdss_trace_free_enable_valid;
 	u8 qdss_trace_free_enable;
+	u8 respond_get_info_enable_valid;
+	u8 respond_get_info_enable;
 };
 
-#define WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 66
+#define WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 70
 extern struct qmi_elem_info wlfw_ind_register_req_msg_v01_ei[];
 
 struct wlfw_ind_register_resp_msg_v01 {
@@ -948,5 +953,35 @@ struct wlfw_wfc_call_status_resp_msg_v01 {
 
 #define WLFW_WFC_CALL_STATUS_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_wfc_call_status_resp_msg_v01_ei[];
+
+struct wlfw_get_info_req_msg_v01 {
+	u8 type;
+	u32 data_len;
+	u8 data[QMI_WLFW_MAX_DATA_SIZE_V01];
+};
+
+#define WLFW_GET_INFO_REQ_MSG_V01_MAX_MSG_LEN 6153
+extern struct qmi_elem_info wlfw_get_info_req_msg_v01_ei[];
+
+struct wlfw_get_info_resp_msg_v01 {
+	struct qmi_response_type_v01 resp;
+};
+
+#define WLFW_GET_INFO_RESP_MSG_V01_MAX_MSG_LEN 7
+extern struct qmi_elem_info wlfw_get_info_resp_msg_v01_ei[];
+
+struct wlfw_respond_get_info_ind_msg_v01 {
+	u32 data_len;
+	u8 data[QMI_WLFW_MAX_DATA_SIZE_V01];
+	u8 type_valid;
+	u8 type;
+	u8 is_last_valid;
+	u8 is_last;
+	u8 seq_no_valid;
+	u32 seq_no;
+};
+
+#define WLFW_RESPOND_GET_INFO_IND_MSG_V01_MAX_MSG_LEN 6164
+extern struct qmi_elem_info wlfw_respond_get_info_ind_msg_v01_ei[];
 
 #endif
