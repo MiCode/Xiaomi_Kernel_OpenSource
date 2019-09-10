@@ -2723,9 +2723,11 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 	trace_sched_set_preferred_cluster(grp, combined_demand);
 out:
 	if (grp->id == DEFAULT_CGROUP_COLOC_ID
-	    && grp->skip_min != prev_skip_min)
+	    && grp->skip_min != prev_skip_min) {
+		if (grp->skip_min)
+			grp->start_ts = sched_clock();
 		sched_update_hyst_times();
-
+	}
 }
 
 void set_preferred_cluster(struct related_thread_group *grp)
@@ -3202,6 +3204,19 @@ bool is_rtgb_active(void)
 
 	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);
 	return grp && grp->skip_min;
+}
+
+u64 get_rtgb_active_time(void)
+{
+	struct related_thread_group *grp;
+	u64 now = sched_clock();
+
+	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);
+
+	if (grp && grp->skip_min && grp->start_ts)
+		return now - grp->start_ts;
+
+	return 0;
 }
 
 /*

@@ -145,6 +145,7 @@ static int two_hundred_fifty_five = 255;
 #ifdef CONFIG_SCHED_WALT
 const int sched_user_hint_max = 1000;
 static unsigned int ns_per_sec = NSEC_PER_SEC;
+static unsigned int one_hundred_thousand = 100000;
 #endif
 /* this is needed for the proc_doulongvec_minmax of vm_dirty_bytes */
 static unsigned long dirty_bytes_min = 2 * PAGE_SIZE;
@@ -482,6 +483,15 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= proc_douintvec_minmax_schedhyst,
 		.extra1		= &zero,
 		.extra2		= &ns_per_sec,
+	},
+	{
+		.procname	= "sched_coloc_busy_hyst_max_ms",
+		.data		= &sysctl_sched_coloc_busy_hyst_max_ms,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_douintvec_minmax_schedhyst,
+		.extra1		= &zero,
+		.extra2		= &one_hundred_thousand,
 	},
 #endif
 #ifdef CONFIG_SMP

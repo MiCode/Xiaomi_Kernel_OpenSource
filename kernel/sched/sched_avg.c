@@ -30,11 +30,13 @@ unsigned int sysctl_sched_busy_hyst_enable_cpus;
 unsigned int sysctl_sched_busy_hyst;
 unsigned int sysctl_sched_coloc_busy_hyst_enable_cpus = 112;
 unsigned int sysctl_sched_coloc_busy_hyst = 39000000;
+unsigned int sysctl_sched_coloc_busy_hyst_max_ms = 5000;
 static DEFINE_PER_CPU(atomic64_t, busy_hyst_end_time) = ATOMIC64_INIT(0);
-static DEFINE_PER_CPU(u64, hyst_time);
 #endif
+static DEFINE_PER_CPU(u64, hyst_time);
 
 #define NR_THRESHOLD_PCT		15
+#define MAX_RTGB_TIME (sysctl_sched_coloc_busy_hyst_max_ms * NSEC_PER_MSEC)
 
 /**
  * sched_get_nr_running_avg
@@ -51,6 +53,7 @@ void sched_get_nr_running_avg(struct sched_avg_stats *stats)
 	u64 curr_time = sched_clock();
 	u64 period = curr_time - last_get_time;
 	u64 tmp_nr, tmp_misfit;
+	bool any_hyst_time = false;
 
 	if (!period)
 		return;
@@ -97,6 +100,15 @@ void sched_get_nr_running_avg(struct sched_avg_stats *stats)
 		spin_unlock_irqrestore(&per_cpu(nr_lock, cpu), flags);
 	}
 
+	for_each_possible_cpu(cpu) {
+		if (per_cpu(hyst_time, cpu)) {
+			any_hyst_time = true;
+			break;
+		}
+	}
+	if (any_hyst_time && get_rtgb_active_time() >= MAX_RTGB_TIME)
+		sched_update_hyst_times();
+
 	last_get_time = curr_time;
 
 }
@@ -109,7 +121,8 @@ void sched_update_hyst_times(void)
 	bool rtgb_active;
 	int cpu;
 
-	rtgb_active = is_rtgb_active() && sched_boost() != CONSERVATIVE_BOOST;
+	rtgb_active = is_rtgb_active() && (sched_boost() != CONSERVATIVE_BOOST)
+			&& (get_rtgb_active_time() < MAX_RTGB_TIME);
 
 	for_each_possible_cpu(cpu) {
 		std_time = (BIT(cpu)

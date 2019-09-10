@@ -50,6 +50,7 @@ extern unsigned int sysctl_sched_busy_hyst_enable_cpus;
 extern unsigned int sysctl_sched_busy_hyst;
 extern unsigned int sysctl_sched_coloc_busy_hyst_enable_cpus;
 extern unsigned int sysctl_sched_coloc_busy_hyst;
+extern unsigned int sysctl_sched_coloc_busy_hyst_max_ms;
 
 extern int
 walt_proc_group_thresholds_handler(struct ctl_table *table, int write,
