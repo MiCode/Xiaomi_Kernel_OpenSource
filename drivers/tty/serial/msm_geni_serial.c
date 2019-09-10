@@ -172,6 +172,7 @@ struct msm_geni_serial_port {
 	void *ipc_log_rx;
 	void *ipc_log_pwr;
 	void *ipc_log_misc;
+	void *console_log;
 	unsigned int cur_baud;
 	int ioctl_count;
 	int edge_count;
@@ -1545,8 +1546,11 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 	bool drop_rx = false;
 
 	spin_lock_irqsave(&uport->lock, flags);
-	if (uart_console(uport) && uport->suspended)
+	if (uart_console(uport) && uport->suspended) {
+		IPC_LOG_MSG(msm_port->console_log,
+			"%s. Console in suspend state\n", __func__);
 		goto exit_geni_serial_isr;
+	}
 	if (!uart_console(uport) && pm_runtime_status_suspended(uport->dev)) {
 		dev_err(uport->dev, "%s.Device is suspended.\n", __func__);
 		IPC_LOG_MSG(msm_port->ipc_log_misc,
@@ -1557,6 +1561,10 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 						SE_GENI_M_IRQ_STATUS);
 	s_irq_status = geni_read_reg_nolog(uport->membase,
 						SE_GENI_S_IRQ_STATUS);
+	if (uart_console(uport))
+		IPC_LOG_MSG(msm_port->console_log,
+			"%s. sirq 0x%x mirq:0x%x\n", __func__, s_irq_status,
+								m_irq_status);
 	m_irq_en = geni_read_reg_nolog(uport->membase, SE_GENI_M_IRQ_EN);
 	dma = geni_read_reg_nolog(uport->membase, SE_GENI_DMA_MODE_EN);
 	dma_tx_status = geni_read_reg_nolog(uport->membase, SE_DMA_TX_IRQ_STAT);
@@ -2408,14 +2416,13 @@ static void console_unregister(struct uart_driver *drv)
 static void msm_geni_serial_debug_init(struct uart_port *uport, bool console)
 {
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+	char name[30];
 
 	msm_port->dbg = debugfs_create_dir(dev_name(uport->dev), NULL);
 	if (IS_ERR_OR_NULL(msm_port->dbg))
 		dev_err(uport->dev, "Failed to create dbg dir\n");
 
 	if (!console) {
-		char name[30];
-
 		memset(name, 0, sizeof(name));
 		if (!msm_port->ipc_log_rx) {
 			scnprintf(name, sizeof(name), "%s%s",
@@ -2450,6 +2457,16 @@ static void msm_geni_serial_debug_init(struct uart_port *uport, bool console)
 			msm_port->ipc_log_misc = ipc_log_context_create(
 					IPC_LOG_MISC_PAGES, name, 0);
 			if (!msm_port->ipc_log_misc)
+				dev_info(uport->dev, "Err in Misc IPC Log\n");
+		}
+	} else {
+		memset(name, 0, sizeof(name));
+		if (!msm_port->console_log) {
+			scnprintf(name, sizeof(name), "%s%s",
+					dev_name(uport->dev), "_console");
+			msm_port->console_log = ipc_log_context_create(
+					IPC_LOG_MISC_PAGES, name, 0);
+			if (!msm_port->console_log)
 				dev_info(uport->dev, "Err in Misc IPC Log\n");
 		}
 	}
