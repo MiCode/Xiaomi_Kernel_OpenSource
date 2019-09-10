@@ -1540,8 +1540,6 @@ static int qg_get_learned_capacity(void *data, int64_t *learned_cap_uah)
 	}
 	*learned_cap_uah = cc_mah * 1000;
 
-	qg_dbg(chip, QG_DEBUG_ALG_CL, "Retrieved learned capacity %llduah\n",
-					*learned_cap_uah);
 	return 0;
 }
 
@@ -1576,6 +1574,11 @@ static int qg_get_cc_soc(void *data, int *cc_soc)
 
 	if (!chip)
 		return -ENODEV;
+
+	if (is_debug_batt_id(chip) || chip->battery_missing) {
+		*cc_soc = -EINVAL;
+		return 0;
+	}
 
 	if (chip->cc_soc == INT_MIN)
 		return -EINVAL;
@@ -1704,6 +1707,11 @@ static int qg_get_charge_counter(struct qpnp_qg *chip, int *charge_counter)
 {
 	int rc, cc_soc = 0;
 	int64_t temp = 0;
+
+	if (is_debug_batt_id(chip) || chip->battery_missing) {
+		*charge_counter = -EINVAL;
+		return 0;
+	}
 
 	rc = qg_get_learned_capacity(chip, &temp);
 	if (rc < 0 || !temp)
