@@ -2300,6 +2300,9 @@ static void ipa3_replenish_rx_cache_recycle(struct ipa3_sys_context *sys)
 	}
 	goto done;
 fail_dma_mapping:
+	/* Recycle skb  before adding to recycle list if dma mapping failed */
+	rx_pkt->data.dma_addr = 0;
+	ipa3_skb_recycle(rx_pkt->data.skb);
 	spin_lock_bh(&sys->spinlock);
 	list_add_tail(&rx_pkt->link, &sys->rcycl_list);
 	INIT_LIST_HEAD(&rx_pkt->link);
