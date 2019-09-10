@@ -29,14 +29,15 @@ endif
 DTB_OBJS := $(shell find $(obj)/dts/ -name \*.dtb)
 
 # Add RTIC DTB to the DTB list if RTIC MPGen is enabled
+# Note, we keep this for compatibility with
+# BUILD_ARM64_APPENDED_DTB_IMAGE targets.
+# The rtic_mp.dts would be generated with the vmlinux if
+# MPGen enabled (RTIC_MPGEN defined).
 ifdef RTIC_MPGEN
 DTB_OBJS += rtic_mp.dtb
 endif
 
 rtic_mp.dtb: vmlinux FORCE
-	$(RTIC_MPGEN) --objcopy="${OBJCOPY}" --objdump="${OBJDUMP}" \
-	--binpath="" --vmlinux="vmlinux" --config=${KCONFIG_CONFIG} \
-	--cc="${CC} ${KBUILD_AFLAGS}" --dts=rtic_mp.dts && \
 	$(DTC) -O dtb -o rtic_mp.dtb -b 0 $(DTC_FLAGS) rtic_mp.dts
 
 $(obj)/Image: vmlinux FORCE
