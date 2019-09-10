@@ -3248,14 +3248,20 @@ static struct syscore_ops dpmaif_sysops = {
 static u64 dpmaif_dmamask = DMA_BIT_MASK(36);
 int ccci_dpmaif_hif_init(struct device *dev)
 {
-	struct device_node *node = dev->of_node;
-	struct hif_dpmaif_ctrl *hif_ctrl;
+	struct device_node *node = NULL;
+	struct hif_dpmaif_ctrl *hif_ctrl = NULL;
 	int ret = 0;
 	unsigned char md_id = 0;
 
 	CCCI_HISTORY_TAG_LOG(-1, TAG,
 			"%s: probe initl\n", __func__);
 	/* get Hif hw information: register etc. */
+	if (!dev) {
+		CCCI_ERROR_LOG(-1, TAG, "No dpmaif driver in dtsi\n");
+		ret = -3;
+		goto DPMAIF_INIT_FAIL;
+	}
+	node = dev->of_node;
 	if (!node) {
 		CCCI_ERROR_LOG(-1, TAG, "No dpmaif driver in dtsi\n");
 		ret = -2;
