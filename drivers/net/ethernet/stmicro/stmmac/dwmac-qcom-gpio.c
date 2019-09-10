@@ -24,6 +24,8 @@
 #define EMAC_VREG_RGMII_NAME "vreg_rgmii"
 #define EMAC_VREG_EMAC_PHY_NAME "vreg_emac_phy"
 #define EMAC_VREG_RGMII_IO_PADS_NAME "vreg_rgmii_io_pads"
+#define EMAC_PIN_PPS0 "dev-emac_pin_pps_0"
+
 
 static int setup_gpio_input_common
 	(struct device *dev, const char *name, int *gpio)
@@ -190,6 +192,7 @@ void ethqos_free_gpios(struct qcom_ethqos *ethqos)
 int ethqos_init_gpio(struct qcom_ethqos *ethqos)
 {
 	struct pinctrl *pinctrl;
+	struct pinctrl_state *emac_pps_0;
 
 	ethqos->gpio_phy_intr_redirect = -1;
 	int ret = 0;
@@ -211,6 +214,20 @@ int ethqos_init_gpio(struct qcom_ethqos *ethqos)
 			  "qcom,phy-intr-redirect");
 		goto gpio_error;
 	}
+
+	emac_pps_0 = pinctrl_lookup_state(pinctrl, EMAC_PIN_PPS0);
+	if (IS_ERR_OR_NULL(emac_pps_0)) {
+		ret = PTR_ERR(emac_pps_0);
+		ETHQOSERR("Failed to get emac_pps_0, err = %d\n", ret);
+		return ret;
+	}
+	ETHQOSDBG("Get emac_pps_0 succeed\n");
+	ret = pinctrl_select_state(pinctrl, emac_pps_0);
+	if (ret)
+		ETHQOSERR("Unable to set emac_pps_0 state, err = %d\n",
+			  ret);
+	else
+		ETHQOSDBG("Set emac_pps_0 succeed\n");
 
 	return ret;
 

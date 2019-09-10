@@ -149,6 +149,8 @@ struct stmmac_priv {
 #endif
 };
 
+int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+
 extern bool phy_intr_en;
 int stmmac_mdio_unregister(struct net_device *ndev);
 int stmmac_mdio_register(struct net_device *ndev);
