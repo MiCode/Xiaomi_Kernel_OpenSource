@@ -101,7 +101,7 @@ $(grep $conf $kernel_dir/scripts/bvt/config_list )
 fi
 
 opt=""
-if [[ "$defconfig" == mediatek_debug* ]]
+if [[ "$defconfig" == mediatek_config_on* ]]
 then
 	opt="-e"
 fi
