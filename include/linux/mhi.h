@@ -253,6 +253,7 @@ struct mhi_controller {
 	struct mhi_ctxt *mhi_ctxt;
 
 	u32 timeout_ms;
+	u32 m2_timeout_ms; /* wait time for host to continue suspend after m2 */
 
 	/* caller should grab pm_mutex for suspend/resume operations */
 	struct mutex pm_mutex;
