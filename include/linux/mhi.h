@@ -248,6 +248,7 @@ struct mhi_controller {
 	u32 msi_allocated;
 	int *irq; /* interrupt table */
 	struct mhi_event *mhi_event;
+	struct list_head lp_ev_rings; /* low priority event rings */
 
 	/* cmd rings */
 	struct mhi_cmd *mhi_cmd;
@@ -286,6 +287,7 @@ struct mhi_controller {
 	struct work_struct st_worker;
 	struct work_struct fw_worker;
 	struct work_struct syserr_worker;
+	struct work_struct low_priority_worker;
 	wait_queue_head_t state_event;
 
 	/* shadow functions */
