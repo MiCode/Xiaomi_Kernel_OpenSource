@@ -5605,8 +5605,10 @@ static void typec_src_insertion(struct smb_charger *chg)
 	int rc = 0;
 	u8 stat;
 
-	if (chg->pr_swap_in_progress)
+	if (chg->pr_swap_in_progress) {
+		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, false, 0);
 		return;
+	}
 
 	rc = smblib_read(chg, LEGACY_CABLE_STATUS_REG, &stat);
 	if (rc < 0) {
