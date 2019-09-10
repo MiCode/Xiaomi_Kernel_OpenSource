@@ -185,6 +185,25 @@ static void dcc_sram_memset(const struct device *dev, void __iomem *dst,
 	}
 }
 
+static int dcc_sram_memcpy(void *to, const void __iomem *from,
+							size_t count)
+{
+	if (!count || (!IS_ALIGNED((unsigned long)from, 4) ||
+			!IS_ALIGNED((unsigned long)to, 4) ||
+			!IS_ALIGNED((unsigned long)count, 4))) {
+		return -EINVAL;
+	}
+
+	while (count >= 4) {
+		*(unsigned int *)to = __raw_readl_no_log(from);
+		to += 4;
+		from += 4;
+		count -= 4;
+	}
+
+	return 0;
+}
+
 static bool dcc_ready(struct dcc_drvdata *drvdata)
 {
 	uint32_t val;
@@ -1523,6 +1542,7 @@ static ssize_t dcc_sram_read(struct file *file, char __user *data,
 {
 	unsigned char *buf;
 	struct dcc_drvdata *drvdata = file->private_data;
+	int ret;
 
 	/* EOF check */
 	if (drvdata->ram_size <= *ppos)
@@ -1535,7 +1555,13 @@ static ssize_t dcc_sram_read(struct file *file, char __user *data,
 	if (!buf)
 		return -ENOMEM;
 
-	memcpy_fromio(buf, (drvdata->ram_base + *ppos), len);
+	ret = dcc_sram_memcpy(buf, (drvdata->ram_base + *ppos), len);
+	if (ret) {
+		dev_err(drvdata->dev,
+			"Target address or size not aligned with 4 bytes");
+		kfree(buf);
+		return ret;
+	}
 
 	if (copy_to_user(data, buf, len)) {
 		dev_err(drvdata->dev,
