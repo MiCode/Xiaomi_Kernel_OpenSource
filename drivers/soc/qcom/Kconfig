@@ -386,4 +386,13 @@ config MSM_CDSP_LOADER
 	  for platforms that have one.
 	  Say M if you want to enable this module.
 
+config QGKI
+	bool "Enable for QGKI or debug variant"
+	help
+	  When this flag is enabled, it is safe to assume that the build
+	  is a Non GKI build. It can be either QGKI build or a debug
+	  build. This does not differentiate a QGKI and a debug build.
+	  This flag is absent if the build is a GKI build. If this flag is
+	  enabled, all the ABI compatibilities are not applicable.
+
 endmenu
