@@ -1,0 +1,9 @@
+QTI Diag Forward SDIO Driver
+
+Required properties:
+-compatible : should be "qcom,diagfwd-sdio".
+
+Example:
+	qcom,diag {
+		compatible = "qcom,diagfwd-sdio";
+	};

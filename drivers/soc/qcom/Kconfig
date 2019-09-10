@@ -326,6 +326,16 @@ config MSM_IPC_ROUTER_GLINK_XPRT
 	  this layer registers a transport with IPC Router and enable
 	  message exchange.
 
+config MSM_IPC_ROUTER_SDIO_XPRT
+	depends on QCOM_SDIO_CLIENT
+	depends on IPC_ROUTER
+	bool "MSM SDIO XPRT Layer"
+	help
+	  SDIO Transport Layer that enables off-chip communication of
+	  IPC Router. When the SDIO endpoint becomes available, this layer
+	  registers the transport with IPC Router and enable message
+	  exchange.
+
 config MSM_SYSTEM_HEALTH_MONITOR
 	bool "System Health Monitor"
 	depends on MSM_QMI_INTERFACE && MSM_SUBSYSTEM_RESTART

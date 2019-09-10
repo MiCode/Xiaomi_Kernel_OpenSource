@@ -214,4 +214,7 @@ config MSM_EXT_DISPLAY
 	  Enabling this option adds MSM External Display Driver.
 	  External Display driver was added to support the communication
 	  between external display driver and its couterparts.
+
+source "drivers/platform/msm/qcn/Kconfig"
+
 endmenu

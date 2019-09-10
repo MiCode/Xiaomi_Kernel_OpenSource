@@ -604,6 +604,13 @@
 };
 
 &soc {
+	qcom,msm-audio-apr {
+		compatible = "qcom,msm-audio-apr";
+		msm_audio_apr_dummy {
+			compatible = "qcom,msm-audio-apr-dummy";
+		};
+	};
+
 	qcom,ntn_avb {
 		compatible = "qcom,ntn_avb";
 

@@ -1,4 +1,5 @@
-/* Copyright (c) 2012-2014, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2018-2019, The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,7 +52,7 @@ struct diagfwd_bridge_info {
 };
 
 extern struct diagfwd_bridge_info bridge_info[NUM_REMOTE_DEV];
-int diagfwd_bridge_init(bool use_mhi);
+int diagfwd_bridge_init(int xprt);
 void diagfwd_bridge_exit(void);
 int diagfwd_bridge_close(int id);
 int diagfwd_bridge_write(int id, unsigned char *buf, int len);
