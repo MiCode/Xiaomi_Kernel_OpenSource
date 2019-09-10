@@ -146,6 +146,9 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 	adreno_dev->lm_leakage = A530_DEFAULT_LEAKAGE;
 	adreno_dev->speed_bin = 0;
 
+	/* Set the GPU busy counter to use for frequency scaling */
+	adreno_dev->perfctr_pwr_lo = A5XX_RBBM_PERFCTR_RBBM_0_LO;
+
 	/* Check efuse bits for various capabilties */
 	a5xx_check_features(adreno_dev);
 }
@@ -290,57 +293,69 @@ static void a5xx_remove(struct adreno_device *adreno_dev)
 		a5xx_critical_packet_destroy(adreno_dev);
 }
 
-/**
- * a5xx_protect_init() - Initializes register protection on a5xx
- * @device: Pointer to the device structure
- * Performs register writes to enable protected access to sensitive
- * registers
- */
+const static struct {
+	u32 reg;
+	u32 base;
+	u32 count;
+} a5xx_protected_blocks[] = {
+	/* RBBM */
+	{  A5XX_CP_PROTECT_REG_0,     0x004, 2 },
+	{  A5XX_CP_PROTECT_REG_0 + 1, 0x008, 3 },
+	{  A5XX_CP_PROTECT_REG_0 + 2, 0x010, 4 },
+	{  A5XX_CP_PROTECT_REG_0 + 3, 0x020, 5 },
+	{  A5XX_CP_PROTECT_REG_0 + 4, 0x040, 6 },
+	{  A5XX_CP_PROTECT_REG_0 + 5, 0x080, 6 },
+	/* Content protection */
+	{  A5XX_CP_PROTECT_REG_0 + 6, A5XX_RBBM_SECVID_TSB_TRUSTED_BASE_LO, 4 },
+	{  A5XX_CP_PROTECT_REG_0 + 7, A5XX_RBBM_SECVID_TRUST_CNTL, 1 },
+	/* CP */
+	{  A5XX_CP_PROTECT_REG_0 + 8, 0x800, 6 },
+	{  A5XX_CP_PROTECT_REG_0 + 9, 0x840, 3 },
+	{  A5XX_CP_PROTECT_REG_0 + 10, 0x880, 5 },
+	{  A5XX_CP_PROTECT_REG_0 + 11, 0xaa0, 0 },
+	/* RB */
+	{  A5XX_CP_PROTECT_REG_0 + 12, 0xcc0, 0 },
+	{  A5XX_CP_PROTECT_REG_0 + 13, 0xcf0, 1 },
+	/* VPC */
+	{  A5XX_CP_PROTECT_REG_0 + 14, 0xe68, 3 },
+	{  A5XX_CP_PROTECT_REG_0 + 15, 0xe70, 4 },
+	/* UCHE */
+	{  A5XX_CP_PROTECT_REG_0 + 16, 0xe80, 4 },
+	/* A5XX_CP_PROTECT_REG_17 will be used for SMMU */
+	/* A5XX_CP_PROTECT_REG_18 - A5XX_CP_PROTECT_REG_31 are available */
+};
+
+static void _setprotectreg(struct kgsl_device *device, u32 offset,
+		u32 base, u32 count)
+{
+	kgsl_regwrite(device, offset, 0x60000000 | (count << 24) | (base << 2));
+}
+
 static void a5xx_protect_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	int index = 0;
-	struct kgsl_protected_registers *iommu_regs;
+	u32 reg;
+	int i;
 
 	/* enable access protection to privileged registers */
 	kgsl_regwrite(device, A5XX_CP_PROTECT_CNTL, 0x00000007);
 
-	/* RBBM registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0x4, 2);
-	adreno_set_protected_registers(adreno_dev, &index, 0x8, 3);
-	adreno_set_protected_registers(adreno_dev, &index, 0x10, 4);
-	adreno_set_protected_registers(adreno_dev, &index, 0x20, 5);
-	adreno_set_protected_registers(adreno_dev, &index, 0x40, 6);
-	adreno_set_protected_registers(adreno_dev, &index, 0x80, 6);
+	for (i = 0; i < ARRAY_SIZE(a5xx_protected_blocks); i++) {
+		reg = a5xx_protected_blocks[i].reg;
 
-	/* Content protection registers */
-	adreno_set_protected_registers(adreno_dev, &index,
-		   A5XX_RBBM_SECVID_TSB_TRUSTED_BASE_LO, 4);
-	adreno_set_protected_registers(adreno_dev, &index,
-		   A5XX_RBBM_SECVID_TRUST_CNTL, 1);
+		_setprotectreg(device, reg, a5xx_protected_blocks[i].base,
+			a5xx_protected_blocks[i].count);
+	}
 
-	/* CP registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0x800, 6);
-	adreno_set_protected_registers(adreno_dev, &index, 0x840, 3);
-	adreno_set_protected_registers(adreno_dev, &index, 0x880, 5);
-	adreno_set_protected_registers(adreno_dev, &index, 0x0AA0, 0);
-
-	/* RB registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0xCC0, 0);
-	adreno_set_protected_registers(adreno_dev, &index, 0xCF0, 1);
-
-	/* VPC registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0xE68, 3);
-	adreno_set_protected_registers(adreno_dev, &index, 0xE70, 4);
-
-	/* UCHE registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0xE80, ilog2(16));
-
-	/* SMMU registers */
-	iommu_regs = kgsl_mmu_get_prot_regs(&device->mmu);
-	if (iommu_regs)
-		adreno_set_protected_registers(adreno_dev, &index,
-				iommu_regs->base, ilog2(iommu_regs->range));
+	/*
+	 * For a530 and a540 the SMMU region is 0x20000 bytes long and 0x10000
+	 * bytes on all other targets. The base offset for both is 0x40000.
+	 * Write it to the next available slot
+	 */
+	if (adreno_is_a530(adreno_dev) || adreno_is_a540(adreno_dev))
+		_setprotectreg(device, reg + 1, 0x40000, ilog2(0x20000));
+	else
+		_setprotectreg(device, reg + 1, 0x40000, ilog2(0x10000));
 }
 
 /*
@@ -1255,24 +1270,6 @@ static void a5xx_count_throttles(struct adreno_device *adreno_dev,
 		adreno_dev->lm_threshold_cross = adj;
 }
 
-static int a5xx_enable_pwr_counters(struct adreno_device *adreno_dev,
-		unsigned int counter)
-{
-	/*
-	 * On 5XX we have to emulate the PWR counters which are physically
-	 * missing. Program countable 6 on RBBM_PERFCTR_RBBM_0 as a substitute
-	 * for PWR:1. Don't emulate PWR:0 as nobody uses it and we don't want
-	 * to take away too many of the generic RBBM counters.
-	 */
-
-	if (counter == 0)
-		return -EINVAL;
-
-	kgsl_regwrite(KGSL_DEVICE(adreno_dev), A5XX_RBBM_PERFCTR_RBBM_SEL_0, 6);
-
-	return 0;
-}
-
 /* FW driven idle 10% throttle */
 #define IDLE_10PCT 0
 /* number of cycles when clock is throttled by 50% (CRC) */
@@ -1443,6 +1440,9 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 	/* Make all blocks contribute to the GPU BUSY perf counter */
 	kgsl_regwrite(device, A5XX_RBBM_PERFCTR_GPU_BUSY_MASKED, 0xFFFFFFFF);
+
+	/* Program RBBM counter 0 to report GPU busy for frequency scaling */
+	kgsl_regwrite(device, A5XX_RBBM_PERFCTR_RBBM_SEL_0, 6);
 
 	/*
 	 * Enable the RBBM error reporting bits.  This lets us get
@@ -2093,11 +2093,11 @@ static struct adreno_perfcount_register a5xx_perfcounters_cp[] = {
 		A5XX_RBBM_PERFCTR_CP_7_HI, 7, A5XX_CP_PERFCTR_CP_SEL_7 },
 };
 
-/*
- * Note that PERFCTR_RBBM_0 is missing - it is used to emulate the PWR counters.
- * See below.
- */
 static struct adreno_perfcount_register a5xx_perfcounters_rbbm[] = {
+	/*
+	 * A5XX_RBBM_PERFCTR_RBBM_0 is used for frequency scaling and omitted
+	 * from the poool of available counters
+	 */
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A5XX_RBBM_PERFCTR_RBBM_1_LO,
 		A5XX_RBBM_PERFCTR_RBBM_1_HI, 9, A5XX_RBBM_PERFCTR_RBBM_SEL_1 },
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A5XX_RBBM_PERFCTR_RBBM_2_LO,
@@ -2346,22 +2346,6 @@ static struct adreno_perfcount_register a5xx_perfcounters_alwayson[] = {
 		A5XX_RBBM_ALWAYSON_COUNTER_HI, -1 },
 };
 
-/*
- * 5XX targets don't really have physical PERFCTR_PWR registers - we emulate
- * them using similar performance counters from the RBBM block. The difference
- * between using this group and the RBBM group is that the RBBM counters are
- * reloaded after a power collapse which is not how the PWR counters behaved on
- * legacy hardware. In order to limit the disruption on the rest of the system
- * we go out of our way to ensure backwards compatibility. Since RBBM counters
- * are in short supply, we don't emulate PWR:0 which nobody uses - mark it as
- * broken.
- */
-static struct adreno_perfcount_register a5xx_perfcounters_pwr[] = {
-	{ KGSL_PERFCOUNTER_BROKEN, 0, 0, 0, 0, -1, 0 },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A5XX_RBBM_PERFCTR_RBBM_0_LO,
-		A5XX_RBBM_PERFCTR_RBBM_0_HI, -1, 0},
-};
-
 static struct adreno_perfcount_register a5xx_pwrcounters_sp[] = {
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A5XX_SP_POWER_COUNTER_0_LO,
 		A5XX_SP_POWER_COUNTER_0_HI, -1, A5XX_SP_POWERCTR_SP_SEL_0 },
@@ -2481,8 +2465,6 @@ static struct adreno_perfcount_group a5xx_perfcounter_groups
 	A5XX_PERFCOUNTER_GROUP(SP, sp),
 	A5XX_PERFCOUNTER_GROUP(RB, rb),
 	A5XX_PERFCOUNTER_GROUP(VSC, vsc),
-	A5XX_PERFCOUNTER_GROUP_FLAGS(PWR, pwr,
-		ADRENO_PERFCOUNTER_GROUP_FIXED),
 	A5XX_PERFCOUNTER_GROUP(VBIF, vbif),
 	A5XX_PERFCOUNTER_GROUP_FLAGS(VBIF_PWR, vbif_pwr,
 		ADRENO_PERFCOUNTER_GROUP_FIXED),
@@ -3184,7 +3166,6 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.pwrlevel_change_settings = a5xx_pwrlevel_change_settings,
 	.read_throttling_counters = a5xx_read_throttling_counters,
 	.count_throttles = a5xx_count_throttles,
-	.enable_pwr_counters = a5xx_enable_pwr_counters,
 	.preemption_pre_ibsubmit = a5xx_preemption_pre_ibsubmit,
 	.preemption_yield_enable =
 				a5xx_preemption_yield_enable,

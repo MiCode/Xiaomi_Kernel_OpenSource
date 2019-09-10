@@ -17,6 +17,7 @@
 #include <linux/msm_ion.h>
 #include <soc/qcom/secure_buffer.h>
 #include <linux/rpmsg.h>
+#include <linux/ipc_logging.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/service-notifier.h>
@@ -97,7 +98,7 @@
 #define RH_CID ADSP_DOMAIN_ID
 
 #define PERF_KEYS \
-	"count:flush:map:copy:rpmsg:getargs:putargs:invalidate:invoke:tid:ptr"
+	"count:flush:map:copy:rpmsg:getargs:putargs:invalidate:invoke"
 #define FASTRPC_STATIC_HANDLE_PROCESS_GROUP (1)
 #define FASTRPC_STATIC_HANDLE_DSP_UTILITIES (2)
 #define FASTRPC_STATIC_HANDLE_LISTENER (3)
@@ -128,6 +129,15 @@
 		(((offset >= 0) && (offset < PERF_KEY_MAX)) ?\
 			(int64_t *)(perf_ptr + offset)\
 				: (int64_t *)NULL) : (int64_t *)NULL)
+
+#define FASTRPC_GLINK_LOG_PAGES 8
+#define LOG_FASTRPC_GLINK_MSG(ctx, x, ...)	\
+	do {				\
+		if (ctx)		\
+			ipc_log_string(ctx, "%s (%d, %d): "x,	\
+				current->comm, current->tgid, current->pid, \
+				##__VA_ARGS__); \
+	} while (0)
 
 static int fastrpc_pdr_notifier_cb(struct notifier_block *nb,
 					unsigned long code,
@@ -295,6 +305,7 @@ struct fastrpc_channel_ctx {
 	/* Indicates, if channel is restricted to secure node only */
 	int secure;
 	struct fastrpc_dsp_capabilities dsp_cap_kernel;
+	void *ipc_log_ctx;
 };
 
 struct fastrpc_apps {
@@ -796,13 +807,18 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	struct fastrpc_session_ctx *sess;
 	struct fastrpc_apps *apps = fl->apps;
 	int cid = fl->cid;
-	struct fastrpc_channel_ctx *chan = &apps->channel[cid];
+	struct fastrpc_channel_ctx *chan = NULL;
 	struct fastrpc_mmap *map = NULL;
 	dma_addr_t region_phys = 0;
 	void *region_vaddr = NULL;
 	unsigned long flags;
 	int err = 0, vmid, sgl_index = 0;
 	struct scatterlist *sgl = NULL;
+
+	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	if (err)
+		goto bail;
+	chan = &apps->channel[cid];
 
 	if (!fastrpc_mmap_find(fl, fd, va, len, mflags, 1, ppmap))
 		return 0;
@@ -1423,7 +1439,7 @@ static void fastrpc_file_list_dtor(struct fastrpc_apps *me)
 
 static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 {
-	remote_arg64_t *rpra, *lrpra;
+	remote_arg64_t *rpra;
 	remote_arg_t *lpra = ctx->lpra;
 	struct smq_invoke_buf *list;
 	struct smq_phy_page *pages, *ipage;
@@ -1438,7 +1454,11 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	int mflags = 0;
 	uint64_t *fdlist;
 	uint32_t *crclist;
-	int64_t *perf_counter = getperfcounter(ctx->fl, PERF_COUNT);
+	uint32_t earlyHint;
+	int64_t *perf_counter = NULL;
+
+	if (ctx->fl->profile)
+		perf_counter = getperfcounter(ctx->fl, PERF_COUNT);
 
 	/* calculate size of the metadata */
 	rpra = NULL;
@@ -1477,8 +1497,10 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		ipage += 1;
 	}
 	mutex_unlock(&ctx->fl->map_mutex);
+
+	/* metalen includes meta data, fds, crc and early wakeup hint */
 	metalen = copylen = (size_t)&ipage[0] + (sizeof(uint64_t) * M_FDLIST) +
-				 (sizeof(uint32_t) * M_CRCLIST);
+			(sizeof(uint32_t) * M_CRCLIST) + sizeof(earlyHint);
 
 	/* allocate new local rpra buffer */
 	lrpralen = (size_t)&list[0];
@@ -1487,11 +1509,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (err)
 			goto bail;
 	}
-	if (ctx->lbuf->virt)
-		memset(ctx->lbuf->virt, 0, lrpralen);
-
-	lrpra = ctx->lbuf->virt;
-	ctx->lrpra = lrpra;
+	ctx->lrpra = ctx->lbuf->virt;
 
 	/* calculate len required for copying */
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
@@ -1541,13 +1559,13 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 
 	/* map ion buffers */
 	PERF(ctx->fl->profile, GET_COUNTER(perf_counter, PERF_MAP),
-	for (i = 0; rpra && lrpra && i < inbufs + outbufs; ++i) {
+	for (i = 0; rpra && i < inbufs + outbufs; ++i) {
 		struct fastrpc_mmap *map = ctx->maps[i];
 		uint64_t buf = ptr_to_uint64(lpra[i].buf.pv);
 		size_t len = lpra[i].buf.len;
 
-		rpra[i].buf.pv = lrpra[i].buf.pv = 0;
-		rpra[i].buf.len = lrpra[i].buf.len = len;
+		rpra[i].buf.pv = 0;
+		rpra[i].buf.len = len;
 		if (!len)
 			continue;
 		if (map) {
@@ -1575,7 +1593,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			pages[idx].addr = map->phys + offset;
 			pages[idx].size = num << PAGE_SHIFT;
 		}
-		rpra[i].buf.pv = lrpra[i].buf.pv = buf;
+		rpra[i].buf.pv = buf;
 	}
 	PERF_END);
 	for (i = bufs; i < bufs + handles; ++i) {
@@ -1585,15 +1603,16 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		pages[i].size = map->size;
 	}
 	fdlist = (uint64_t *)&pages[bufs + handles];
-	for (i = 0; i < M_FDLIST; i++)
-		fdlist[i] = 0;
 	crclist = (uint32_t *)&fdlist[M_FDLIST];
-	memset(crclist, 0, sizeof(uint32_t)*M_CRCLIST);
+	/* reset fds, crc and early wakeup hint memory */
+	/* remote process updates these values before responding */
+	memset(fdlist, 0, sizeof(uint64_t)*M_FDLIST +
+			sizeof(uint32_t)*M_CRCLIST + sizeof(earlyHint));
 
 	/* copy non ion buffers */
 	PERF(ctx->fl->profile, GET_COUNTER(perf_counter, PERF_COPY),
 	rlen = copylen - metalen;
-	for (oix = 0; rpra && lrpra && oix < inbufs + outbufs; ++oix) {
+	for (oix = 0; rpra && oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
 		struct fastrpc_mmap *map = ctx->maps[i];
 		size_t mlen;
@@ -1612,7 +1631,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		VERIFY(err, rlen >= mlen);
 		if (err)
 			goto bail;
-		rpra[i].buf.pv = lrpra[i].buf.pv =
+		rpra[i].buf.pv =
 			 (args - ctx->overps[oix]->offset);
 		pages[list[i].pgidx].addr = ctx->buf->phys -
 					    ctx->overps[oix]->offset +
@@ -1645,7 +1664,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
 			continue;
 
-		if (rpra && lrpra && rpra[i].buf.len &&
+		if (rpra && rpra[i].buf.len &&
 			ctx->overps[oix]->mstart) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
@@ -1659,13 +1678,15 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		}
 	}
 	PERF_END);
-	for (i = bufs; rpra && lrpra && i < bufs + handles; i++) {
-		rpra[i].dma.fd = lrpra[i].dma.fd = ctx->fds[i];
-		rpra[i].dma.len = lrpra[i].dma.len = (uint32_t)lpra[i].buf.len;
-		rpra[i].dma.offset = lrpra[i].dma.offset =
-			 (uint32_t)(uintptr_t)lpra[i].buf.pv;
+	for (i = bufs; rpra && i < bufs + handles; i++) {
+		rpra[i].dma.fd = ctx->fds[i];
+		rpra[i].dma.len = (uint32_t)lpra[i].buf.len;
+		rpra[i].dma.offset = (uint32_t)(uintptr_t)lpra[i].buf.pv;
 	}
 
+	/* Copy rpra to local buffer */
+	if (ctx->lrpra && rpra && lrpralen > 0)
+		memcpy(ctx->lrpra, rpra, lrpralen);
  bail:
 	return err;
 }
@@ -1755,13 +1776,14 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 				uint64_to_ptr(rpra[i].buf.pv))) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
-					DMA_TO_DEVICE);
+					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
-					DMA_TO_DEVICE);
-			} else
+					DMA_BIDIRECTIONAL);
+			} else {
 				dmac_flush_range(
 					uint64_to_ptr(rpra[i].buf.pv), (char *)
 					uint64_to_ptr(rpra[i].buf.pv + 1));
+			}
 		}
 
 		end = (uintptr_t)uint64_to_ptr(rpra[i].buf.pv +
@@ -1769,12 +1791,13 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 		if (!IS_CACHE_ALIGNED(end)) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
-					DMA_TO_DEVICE);
+					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
-					DMA_TO_DEVICE);
-			} else
+					DMA_BIDIRECTIONAL);
+			} else {
 				dmac_flush_range((char *)end,
 					(char *)end + 1);
+			}
 		}
 	}
 }
@@ -1853,6 +1876,10 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 		goto bail;
 	}
 	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)msg, sizeof(*msg));
+	LOG_FASTRPC_GLINK_MSG(channel_ctx->ipc_log_ctx,
+		"sent pkt %pK (sz %d): ctx 0x%llx, handle 0x%x, sc 0x%x (rpmsg err %d)",
+		(void *)msg, sizeof(*msg),
+		msg->invoke.header.ctx, handle, ctx->sc, err);
 	mutex_unlock(&channel_ctx->rpmsg_mutex);
  bail:
 	return err;
@@ -1942,11 +1969,13 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 			goto bail;
 	}
 
-	if (!fl->sctx->smmu.coherent) {
-		PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
-		inv_args_pre(ctx);
-		PERF_END);
-	}
+	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
+	inv_args_pre(ctx);
+	PERF_END);
+
+	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
+	inv_args(ctx);
+	PERF_END);
 
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_LINK),
 	VERIFY(err, 0 == fastrpc_invoke_send(ctx, kernel, invoke->handle));
@@ -1965,8 +1994,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	}
 
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
-	if (!fl->sctx->smmu.coherent)
-		inv_args(ctx);
+	inv_args(ctx);
 	PERF_END);
 
 	VERIFY(err, 0 == (err = ctx->retval));
@@ -2945,10 +2973,9 @@ static int fastrpc_session_alloc_locked(struct fastrpc_channel_ctx *chan,
 	return err;
 }
 
-static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
+static inline int get_cid_from_rpdev(struct rpmsg_device *rpdev)
 {
-	int err = 0;
-	int cid = -1;
+	int err = 0, cid = -1;
 
 	VERIFY(err, !IS_ERR_OR_NULL(rpdev));
 	if (err)
@@ -2963,6 +2990,19 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
 	else if (!strcmp(rpdev->dev.parent->of_node->name, "mdsp"))
 		cid = MDSP_DOMAIN_ID;
 
+	return cid;
+}
+
+static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
+{
+	int err = 0;
+	int cid = -1;
+
+	VERIFY(err, !IS_ERR_OR_NULL(rpdev));
+	if (err)
+		return -EINVAL;
+
+	cid = get_cid_from_rpdev(rpdev);
 	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
@@ -2971,6 +3011,19 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
 	mutex_unlock(&gcinfo[cid].rpmsg_mutex);
 	pr_info("adsprpc: %s: opened rpmsg channel for %s\n",
 		__func__, gcinfo[cid].subsys);
+
+#if IS_ENABLED(CONFIG_ADSPRPC_DEBUG)
+	if (!gcinfo[cid].ipc_log_ctx)
+		gcinfo[cid].ipc_log_ctx =
+			ipc_log_context_create(FASTRPC_GLINK_LOG_PAGES,
+				gcinfo[cid].name, 0);
+	if (!gcinfo[cid].ipc_log_ctx)
+		pr_warn("adsprpc: %s: failed to create IPC log context for %s\n",
+			__func__, gcinfo[cid].subsys);
+	else
+		pr_info("adsprpc: %s: enabled IPC logging for %s\n",
+			__func__, gcinfo[cid].subsys);
+#endif
 bail:
 	if (err)
 		pr_err("adsprpc: rpmsg probe of %s cid %d failed\n",
@@ -2988,15 +3041,7 @@ static void fastrpc_rpmsg_remove(struct rpmsg_device *rpdev)
 	if (err)
 		return;
 
-	if (!strcmp(rpdev->dev.parent->of_node->name, "cdsp"))
-		cid = CDSP_DOMAIN_ID;
-	else if (!strcmp(rpdev->dev.parent->of_node->name, "adsp"))
-		cid = ADSP_DOMAIN_ID;
-	else if (!strcmp(rpdev->dev.parent->of_node->name, "dsps"))
-		cid = SDSP_DOMAIN_ID;
-	else if (!strcmp(rpdev->dev.parent->of_node->name, "mdsp"))
-		cid = MDSP_DOMAIN_ID;
-
+	cid = get_cid_from_rpdev(rpdev);
 	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
@@ -3024,6 +3069,17 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	if (err)
 		goto bail;
 
+#if IS_ENABLED(CONFIG_ADSPRPC_DEBUG)
+	int cid = -1;
+
+	cid = get_cid_from_rpdev(rpdev);
+	if (cid >= 0 && cid < NUM_CHANNELS) {
+		LOG_FASTRPC_GLINK_MSG(gcinfo[cid].ipc_log_ctx,
+			"recvd pkt %pK (sz %d): ctx 0x%llx, retVal %d",
+			data, len, rsp->ctx, rsp->retval);
+	}
+#endif
+
 	index = (uint32_t)((rsp->ctx & FASTRPC_CTXID_MASK) >> 4);
 	VERIFY(err, index < FASTRPC_CTX_MAX);
 	if (err)
@@ -3041,7 +3097,8 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	context_notify_user(me->ctxtable[index], rsp->retval);
 bail:
 	if (err)
-		pr_err("adsprpc: invalid response or context (err %d)\n", err);
+		pr_err("adsprpc: ERROR: %s: invalid response (data %pK, len %d) from remote subsystem (err %d)\n",
+				__func__, data, len, err);
 	return err;
 }
 
@@ -3631,7 +3688,7 @@ static int fastrpc_getperf(struct fastrpc_ioctl_perf *ioctl_perf,
 				param, sizeof(*ioctl_perf));
 	if (err)
 		goto bail;
-	ioctl_perf->numkeys = sizeof(struct fastrpc_perf)/sizeof(int64_t);
+	ioctl_perf->numkeys = PERF_KEY_MAX;
 	if (ioctl_perf->keys) {
 		char *keys = PERF_KEYS;
 
@@ -4500,6 +4557,8 @@ static void __exit fastrpc_device_exit(void)
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		if (!gcinfo[i].name)
 			continue;
+		if (me->channel[i].ipc_log_ctx)
+			ipc_log_context_destroy(me->channel[i].ipc_log_ctx);
 		subsys_notif_unregister_notifier(me->channel[i].handle,
 						&me->channel[i].nb);
 	}

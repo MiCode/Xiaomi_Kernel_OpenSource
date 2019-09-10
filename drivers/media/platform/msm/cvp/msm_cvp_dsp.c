@@ -63,6 +63,8 @@ struct cvp_dsp_apps {
 	struct completion dereg_buffer_work;
 	struct completion shutdown_work;
 	struct completion cmdqueue_send_work;
+	struct work_struct ssr_work;
+	struct iris_hfi_device *device;
 };
 
 
@@ -78,6 +80,7 @@ static int cvp_dsp_send_cmd(void *msg, uint32_t len)
 	int err = 0;
 
 	if (IS_ERR_OR_NULL(me->chan)) {
+		dprintk(CVP_ERR, "%s: DSP GLink is not ready\n", __func__);
 		err = -EINVAL;
 		goto bail;
 	}
@@ -85,6 +88,40 @@ static int cvp_dsp_send_cmd(void *msg, uint32_t len)
 
 bail:
 	return err;
+}
+
+void msm_cvp_cdsp_ssr_handler(struct work_struct *work)
+{
+	struct cvp_dsp_apps *me;
+	uint64_t msg_ptr;
+	uint32_t msg_ptr_len;
+	int err;
+
+	me = container_of(work, struct cvp_dsp_apps, ssr_work);
+	if (!me) {
+		dprintk(CVP_ERR, "%s: Invalid params\n", __func__);
+		return;
+	}
+
+	msg_ptr = cmd_msg.msg_ptr;
+	msg_ptr_len =  cmd_msg.msg_ptr_len;
+
+	err = cvp_dsp_send_cmd_hfi_queue((phys_addr_t *)msg_ptr,
+					msg_ptr_len,
+					(void *)NULL);
+	if (err) {
+		dprintk(CVP_ERR,
+			"%s: Failed to send HFI Queue address. err=%d\n",
+			__func__, err);
+		return;
+	}
+
+	if (me->device) {
+		mutex_lock(&me->device->lock);
+		me->device->dsp_flags |= DSP_INIT;
+		mutex_unlock(&me->device->lock);
+	}
+	dprintk(CVP_DBG, "%s: dsp recover from SSR successfully\n", __func__);
 }
 
 static int cvp_dsp_rpmsg_probe(struct rpmsg_device *rpdev)
@@ -123,14 +160,7 @@ static int cvp_dsp_rpmsg_probe(struct rpmsg_device *rpdev)
 				__func__, err);
 			return err;
 		}
-		err = cvp_dsp_send_cmd_hfi_queue(
-			(phys_addr_t *)msg_ptr, msg_ptr_len);
-		if (err) {
-			dprintk(CVP_ERR,
-				"%s: Failed to send HFI Queue address. err=%d\n",
-				__func__, err);
-			goto bail;
-		}
+		schedule_work(&me->ssr_work);
 		mutex_lock(&me->smd_mutex);
 		cdsp_state = me->cdsp_state;
 		mutex_unlock(&me->smd_mutex);
@@ -147,9 +177,15 @@ static void cvp_dsp_rpmsg_remove(struct rpmsg_device *rpdev)
 {
 	struct cvp_dsp_apps *me = &gfa_cv;
 
+	cancel_work_sync(&me->ssr_work);
 	mutex_lock(&me->smd_mutex);
 	me->chan = NULL;
 	me->cdsp_state = STATUS_SSR;
+	if (me->device) {
+		mutex_lock(&me->device->lock);
+		me->device->dsp_flags &= ~DSP_INIT;
+		mutex_unlock(&me->device->lock);
+	}
 	mutex_unlock(&me->smd_mutex);
 	dprintk(CVP_INFO,
 		"%s: CDSP SSR triggered\n", __func__);
@@ -192,7 +228,8 @@ static int cvp_dsp_rpmsg_callback(struct rpmsg_device *rpdev,
 }
 
 int cvp_dsp_send_cmd_hfi_queue(phys_addr_t *phys_addr,
-	uint32_t size_in_bytes)
+				uint32_t size_in_bytes,
+				struct iris_hfi_device *device)
 {
 	int err, timeout;
 	struct msm_cvp_core *core;
@@ -211,15 +248,18 @@ int cvp_dsp_send_cmd_hfi_queue(phys_addr_t *phys_addr,
 		dprintk(CVP_ERR,
 			"%s: Incorrect DDR type value %d\n",
 			__func__, local_cmd_msg.ddr_type);
+		err = -EINVAL;
+		goto exit;
 	}
 
 	mutex_lock(&me->smd_mutex);
 	cmd_msg.msg_ptr = (uint64_t)phys_addr;
 	cmd_msg.msg_ptr_len = (size_in_bytes);
+	me->device = device;
 	mutex_unlock(&me->smd_mutex);
 
 	dprintk(CVP_DBG,
-		"%s :: address of buffer, PA=0x%pK  size_buff=%d ddr_type=%d\n",
+		"%s: address of buffer, PA=0x%pK  size_buff=%d ddr_type=%d\n",
 		__func__, phys_addr, size_in_bytes, local_cmd_msg.ddr_type);
 
 	err = hyp_assign_phys((uint64_t)local_cmd_msg.msg_ptr,
@@ -229,33 +269,34 @@ int cvp_dsp_send_cmd_hfi_queue(phys_addr_t *phys_addr,
 		dprintk(CVP_ERR,
 			"%s: Failed in hyp_assign. err=%d\n",
 			__func__, err);
-		return err;
+		goto exit;
 	}
 
 	err = cvp_dsp_send_cmd
 			 (&local_cmd_msg, sizeof(struct cvp_dsp_cmd_msg));
-	if (err != 0)
+	if (err) {
 		dprintk(CVP_ERR,
-			"%s: cvp_dsp_send_cmd failed with err=%d\n",
+			"%s: cvp_dsp_send_cmd faidmesgled with err=%d\n",
 			__func__, err);
-	else {
-		core = list_first_entry(&cvp_driver->cores,
-				struct msm_cvp_core, list);
-		timeout = msecs_to_jiffies(
-				core->resources.msm_cvp_dsp_rsp_timeout);
-		err = wait_for_completion_timeout(
-				&me->cmdqueue_send_work, timeout);
-		if (!err) {
-			dprintk(CVP_ERR, "failed to send cmdqueue\n");
-			return -ETIMEDOUT;
-		}
-
-		mutex_lock(&me->smd_mutex);
-		me->cvp_shutdown = STATUS_OK;
-		me->cdsp_state = STATUS_OK;
-		mutex_unlock(&me->smd_mutex);
+		goto exit;
 	}
 
+	core = list_first_entry(&cvp_driver->cores,
+			struct msm_cvp_core, list);
+	timeout = msecs_to_jiffies(
+			core->resources.msm_cvp_dsp_rsp_timeout);
+	if (!wait_for_completion_timeout(&me->cmdqueue_send_work, timeout)) {
+		dprintk(CVP_ERR, "failed to send cmdqueue\n");
+		err =  -ETIMEDOUT;
+		goto exit;
+	}
+
+	mutex_lock(&me->smd_mutex);
+	me->cvp_shutdown = STATUS_OK;
+	me->cdsp_state = STATUS_OK;
+	mutex_unlock(&me->smd_mutex);
+
+exit:
 	return err;
 }
 
@@ -485,6 +526,7 @@ static int __init cvp_dsp_device_init(void)
 	init_completion(&me->cmdqueue_send_work);
 	me->cvp_shutdown = STATUS_INIT;
 	me->cdsp_state = STATUS_INIT;
+	INIT_WORK(&me->ssr_work, msm_cvp_cdsp_ssr_handler);
 	err = register_rpmsg_driver(&cvp_dsp_rpmsg_client);
 	if (err) {
 		dprintk(CVP_ERR,

@@ -26,7 +26,7 @@
 #define NPU_MBOX_IDLE_TIMEOUT msecs_to_jiffies(NPU_MBOX_IDLE_TIMEOUT_MS)
 #define FIRMWARE_VERSION 0x00001000
 #define MAX_LOADED_NETWORK 32
-#define NPU_IPC_BUF_LENGTH 512
+#define NPU_IPC_BUF_LENGTH 4096
 
 #define FW_DBG_MODE_PAUSE        (1 << 0)
 #define FW_DBG_MODE_INC_TIMEOUT  (1 << 1)
@@ -105,6 +105,7 @@ struct npu_host_ctx {
 	void *notif_hdle;
 	spinlock_t bridge_mbox_lock;
 	bool bridge_mbox_pwr_on;
+	void *ipc_msg_buf;
 };
 
 struct npu_device;
@@ -131,15 +132,11 @@ int32_t npu_host_map_buf(struct npu_client *client,
 	struct msm_npu_map_buf_ioctl *map_ioctl);
 int32_t npu_host_unmap_buf(struct npu_client *client,
 	struct msm_npu_unmap_buf_ioctl *unmap_ioctl);
-int32_t npu_host_load_network(struct npu_client *client,
-	struct msm_npu_load_network_ioctl *load_ioctl);
 int32_t npu_host_load_network_v2(struct npu_client *client,
 	struct msm_npu_load_network_ioctl_v2 *load_ioctl,
 	struct msm_npu_patch_info_v2 *patch_info);
 int32_t npu_host_unload_network(struct npu_client *client,
 	struct msm_npu_unload_network_ioctl *unload);
-int32_t npu_host_exec_network(struct npu_client *client,
-	struct msm_npu_exec_network_ioctl *exec_ioctl);
 int32_t npu_host_exec_network_v2(struct npu_client *client,
 	struct msm_npu_exec_network_ioctl_v2 *exec_ioctl,
 	struct msm_npu_patch_buf_info *patch_buf_info);

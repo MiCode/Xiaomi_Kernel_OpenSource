@@ -79,6 +79,7 @@
 #define UFS_PHY_RX_HSGEAR_CAPABILITY		PHY_OFF(0xB4)
 #define UFS_PHY_RX_MIN_HIBERN8_TIME		PHY_OFF(0x150)
 #define UFS_PHY_BIST_FIXED_PAT_CTRL		PHY_OFF(0x60)
+#define UFS_PHY_RX_SIGDET_CTRL1			PHY_OFF(0x154)
 
 /* UFS PHY TX registers */
 #define QSERDES_TX0_PWM_GEAR_1_DIVIDER_BAND0_1	TX_OFF(0, 0x168)
@@ -270,6 +271,7 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_no_g4[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_TX_HS_GEAR_BAND, 0x06),
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_TX_HSGEAR_CAPABILITY, 0x03),
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_HSGEAR_CAPABILITY, 0x03),
+	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_SIGDET_CTRL1, 0x0E),
 };
 
 static struct ufs_qcom_phy_calibration phy_cal_table_2nd_lane_no_g4[] = {

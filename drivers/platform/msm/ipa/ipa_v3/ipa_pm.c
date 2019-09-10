@@ -971,12 +971,13 @@ static int ipa_pm_activate_helper(struct ipa_pm_client *client, bool sync)
  */
 int ipa_pm_activate(u32 hdl)
 {
-	if (ipa_pm_ctx == NULL) {
+	if (unlikely(ipa_pm_ctx == NULL)) {
 		IPA_PM_ERR("PM_ctx is null\n");
 		return -EINVAL;
 	}
 
-	if (hdl >= IPA_PM_MAX_CLIENTS || ipa_pm_ctx->clients[hdl] == NULL) {
+	if (unlikely(hdl >= IPA_PM_MAX_CLIENTS ||
+		ipa_pm_ctx->clients[hdl] == NULL)) {
 		IPA_PM_ERR("Invalid Param\n");
 		return -EINVAL;
 	}
@@ -993,12 +994,13 @@ int ipa_pm_activate(u32 hdl)
  */
 int ipa_pm_activate_sync(u32 hdl)
 {
-	if (ipa_pm_ctx == NULL) {
+	if (unlikely(ipa_pm_ctx == NULL)) {
 		IPA_PM_ERR("PM_ctx is null\n");
 		return -EINVAL;
 	}
 
-	if (hdl >= IPA_PM_MAX_CLIENTS || ipa_pm_ctx->clients[hdl] == NULL) {
+	if (unlikely(hdl >= IPA_PM_MAX_CLIENTS ||
+		ipa_pm_ctx->clients[hdl] == NULL)) {
 		IPA_PM_ERR("Invalid Param\n");
 		return -EINVAL;
 	}

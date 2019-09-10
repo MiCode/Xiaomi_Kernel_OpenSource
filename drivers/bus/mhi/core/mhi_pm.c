@@ -34,9 +34,11 @@
  *     M0 -> FW_DL_ERR
  *     M0 -> M3_ENTER -> M3 -> M3_EXIT --> M0
  * L1: SYS_ERR_DETECT -> SYS_ERR_PROCESS --> POR
- * L2: SHUTDOWN_PROCESS -> DISABLE
+ * L2: SHUTDOWN_PROCESS -> LD_ERR_FATAL_DETECT
+ *     SHUTDOWN_PROCESS -> DISABLE
  * L3: LD_ERR_FATAL_DETECT <--> LD_ERR_FATAL_DETECT
- *     LD_ERR_FATAL_DETECT -> SHUTDOWN_PROCESS
+ *     LD_ERR_FATAL_DETECT -> SHUTDOWN_NO_ACCESS
+ *     SHUTDOWN_NO_ACCESS -> DISABLE
  */
 static struct mhi_pm_transitions const mhi_state_transitions[] = {
 	/* L0 States */
@@ -48,49 +50,52 @@ static struct mhi_pm_transitions const mhi_state_transitions[] = {
 		MHI_PM_POR,
 		MHI_PM_POR | MHI_PM_DISABLE | MHI_PM_M0 |
 		MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_FW_DL_ERR
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_FW_DL_ERR |
+		MHI_PM_SHUTDOWN_NO_ACCESS
 	},
 	{
 		MHI_PM_M0,
 		MHI_PM_M0 | MHI_PM_M2 | MHI_PM_M3_ENTER |
 		MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_FW_DL_ERR
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_FW_DL_ERR |
+		MHI_PM_SHUTDOWN_NO_ACCESS
 	},
 	{
 		MHI_PM_M2,
 		MHI_PM_M0 | MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
 	},
 	{
 		MHI_PM_M3_ENTER,
 		MHI_PM_M3 | MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
 	},
 	{
 		MHI_PM_M3,
 		MHI_PM_M3_EXIT | MHI_PM_SYS_ERR_DETECT |
-		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
 	},
 	{
 		MHI_PM_M3_EXIT,
 		MHI_PM_M0 | MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
 	},
 	{
 		MHI_PM_FW_DL_ERR,
 		MHI_PM_FW_DL_ERR | MHI_PM_SYS_ERR_DETECT |
-		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT
+		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT |
+		MHI_PM_SHUTDOWN_NO_ACCESS
 	},
 	/* L1 States */
 	{
 		MHI_PM_SYS_ERR_DETECT,
 		MHI_PM_SYS_ERR_PROCESS | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
 	},
 	{
 		MHI_PM_SYS_ERR_PROCESS,
 		MHI_PM_POR | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
 	},
 	/* L2 States */
 	{
@@ -100,7 +105,11 @@ static struct mhi_pm_transitions const mhi_state_transitions[] = {
 	/* L3 States */
 	{
 		MHI_PM_LD_ERR_FATAL_DETECT,
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_PROCESS
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
+	},
+	{
+		MHI_PM_SHUTDOWN_NO_ACCESS,
+		MHI_PM_DISABLE
 	},
 };
 
@@ -492,7 +501,7 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 	mhi_create_devices(mhi_cntrl);
 
 	/* setup sysfs nodes for userspace votes */
-	mhi_create_vote_sysfs(mhi_cntrl);
+	mhi_create_sysfs(mhi_cntrl);
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
 
@@ -589,7 +598,7 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 	MHI_LOG("Waiting for all pending event ring processing to complete\n");
 	mhi_event = mhi_cntrl->mhi_event;
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-		if (mhi_event->offload_ev)
+		if (!mhi_event->request_irq)
 			continue;
 		tasklet_kill(&mhi_event->task);
 	}
@@ -602,12 +611,13 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 	MHI_LOG("Finish resetting channels\n");
 
 	/* remove support for userspace votes */
-	mhi_destroy_vote_sysfs(mhi_cntrl);
+	mhi_destroy_sysfs(mhi_cntrl);
 
 	MHI_LOG("Waiting for all pending threads to complete\n");
 	wake_up_all(&mhi_cntrl->state_event);
 	flush_work(&mhi_cntrl->st_worker);
 	flush_work(&mhi_cntrl->fw_worker);
+	flush_work(&mhi_cntrl->low_priority_worker);
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 
@@ -718,6 +728,44 @@ int mhi_queue_state_transition(struct mhi_controller *mhi_cntrl,
 	schedule_work(&mhi_cntrl->st_worker);
 
 	return 0;
+}
+
+static void mhi_low_priority_events_pending(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_event *mhi_event;
+
+	list_for_each_entry(mhi_event, &mhi_cntrl->lp_ev_rings, node) {
+		struct mhi_event_ctxt *er_ctxt =
+			&mhi_cntrl->mhi_ctxt->er_ctxt[mhi_event->er_index];
+		struct mhi_ring *ev_ring = &mhi_event->ring;
+
+		spin_lock_bh(&mhi_event->lock);
+		if (ev_ring->rp != mhi_to_virtual(ev_ring, er_ctxt->rp)) {
+			schedule_work(&mhi_cntrl->low_priority_worker);
+			spin_unlock_bh(&mhi_event->lock);
+			break;
+		}
+		spin_unlock_bh(&mhi_event->lock);
+	}
+}
+
+void mhi_low_priority_worker(struct work_struct *work)
+{
+	struct mhi_controller *mhi_cntrl = container_of(work,
+							struct mhi_controller,
+							low_priority_worker);
+	struct mhi_event *mhi_event;
+
+	MHI_VERB("Enter with pm_state:%s MHI_STATE:%s ee:%s\n",
+		 to_mhi_pm_state_str(mhi_cntrl->pm_state),
+		 TO_MHI_STATE_STR(mhi_cntrl->dev_state),
+		 TO_MHI_EXEC_STR(mhi_cntrl->ee));
+
+	/* check low priority event rings and process events */
+	list_for_each_entry(mhi_event, &mhi_cntrl->lp_ev_rings, node) {
+		if (MHI_IN_MISSION_MODE(mhi_cntrl->ee))
+			mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
+	}
 }
 
 void mhi_pm_sys_err_worker(struct work_struct *work)
@@ -920,6 +968,7 @@ EXPORT_SYMBOL(mhi_control_error);
 void mhi_power_down(struct mhi_controller *mhi_cntrl, bool graceful)
 {
 	enum MHI_PM_STATE cur_state;
+	enum MHI_PM_STATE transition_state = MHI_PM_SHUTDOWN_PROCESS;
 
 	/* if it's not graceful shutdown, force MHI to a linkdown state */
 	if (!graceful) {
@@ -933,8 +982,10 @@ void mhi_power_down(struct mhi_controller *mhi_cntrl, bool graceful)
 			MHI_ERR("Failed to move to state:%s from:%s\n",
 				to_mhi_pm_state_str(MHI_PM_LD_ERR_FATAL_DETECT),
 				to_mhi_pm_state_str(mhi_cntrl->pm_state));
+
+		transition_state = MHI_PM_SHUTDOWN_NO_ACCESS;
 	}
-	mhi_pm_disable_transition(mhi_cntrl, MHI_PM_SHUTDOWN_PROCESS);
+	mhi_pm_disable_transition(mhi_cntrl, transition_state);
 
 	mhi_deinit_debugfs(mhi_cntrl);
 
@@ -1056,10 +1107,8 @@ int mhi_pm_suspend(struct mhi_controller *mhi_cntrl)
 
 	/* notify any clients we enter lpm */
 	list_for_each_entry_safe(itr, tmp, &mhi_cntrl->lpm_chans, node) {
-		mutex_lock(&itr->mutex);
 		if (itr->mhi_dev)
 			mhi_notify(itr->mhi_dev, MHI_CB_LPM_ENTER);
-		mutex_unlock(&itr->mutex);
 	}
 
 	return 0;
@@ -1162,10 +1211,8 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_client)
 
 	/* notify any clients we enter lpm */
 	list_for_each_entry_safe(itr, tmp, &mhi_cntrl->lpm_chans, node) {
-		mutex_lock(&itr->mutex);
 		if (itr->mhi_dev)
 			mhi_notify(itr->mhi_dev, MHI_CB_LPM_ENTER);
-		mutex_unlock(&itr->mutex);
 	}
 
 	return 0;
@@ -1201,10 +1248,8 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 
 	/* notify any clients we enter lpm */
 	list_for_each_entry_safe(itr, tmp, &mhi_cntrl->lpm_chans, node) {
-		mutex_lock(&itr->mutex);
 		if (itr->mhi_dev)
 			mhi_notify(itr->mhi_dev, MHI_CB_LPM_EXIT);
-		mutex_unlock(&itr->mutex);
 	}
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
@@ -1244,6 +1289,14 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 		return -EIO;
 	}
 
+	/*
+	 * If MHI on host is in suspending/suspended state, we do not process
+	 * any low priority requests, for example, bandwidth scaling events
+	 * from the device. Check for low priority event rings and handle the
+	 * pending events upon resume.
+	 */
+	mhi_low_priority_events_pending(mhi_cntrl);
+
 	return 0;
 }
 
@@ -1269,10 +1322,8 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 	if (notify_client) {
 		list_for_each_entry_safe(itr, tmp, &mhi_cntrl->lpm_chans,
 					 node) {
-			mutex_lock(&itr->mutex);
 			if (itr->mhi_dev)
 				mhi_notify(itr->mhi_dev, MHI_CB_LPM_EXIT);
-			mutex_unlock(&itr->mutex);
 		}
 	}
 
@@ -1288,6 +1339,7 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 	switch (mhi_cntrl->pm_state) {
 	case MHI_PM_M0:
 		mhi_pm_m0_transition(mhi_cntrl);
+		break;
 	case MHI_PM_M2:
 		read_lock_bh(&mhi_cntrl->pm_lock);
 		mhi_cntrl->wake_get(mhi_cntrl, true);
@@ -1306,11 +1358,14 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 	 */
 	mhi_event = mhi_cntrl->mhi_event;
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-		if (mhi_event->offload_ev)
+		if (!mhi_event->request_irq)
 			continue;
 
 		mhi_msi_handlr(0, mhi_event);
 	}
+
+	/* schedules worker if any low priority events need to be handled */
+	mhi_low_priority_events_pending(mhi_cntrl);
 
 	MHI_LOG("Exit with pm_state:%s dev_state:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),

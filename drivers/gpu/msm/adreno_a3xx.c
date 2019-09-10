@@ -611,6 +611,9 @@ static void a3xx_platform_setup(struct adreno_device *adreno_dev)
 
 	gpudev->vbif_xin_halt_ctrl0_mask = A30X_VBIF_XIN_HALT_CTRL0_MASK;
 
+	/* Set the GPU busy counter for frequency scaling */
+	adreno_dev->perfctr_pwr_lo = A3XX_RBBM_PERFCTR_PWR_1_LO;
+
 	/* Check efuse bits for various capabilties */
 	a3xx_check_features(adreno_dev);
 }
@@ -968,8 +971,10 @@ static struct adreno_perfcount_register a3xx_perfcounters_rb[] = {
 static struct adreno_perfcount_register a3xx_perfcounters_pwr[] = {
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PWR_0_LO,
 		A3XX_RBBM_PERFCTR_PWR_0_HI, -1, 0 },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PWR_1_LO,
-		A3XX_RBBM_PERFCTR_PWR_1_HI, -1, 0 },
+	/*
+	 * A3XX_RBBM_PERFCTR_PWR_1_LO is used for frequency scaling and removed
+	 * from the pool of available counters
+	 */
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_vbif[] = {
@@ -1063,64 +1068,50 @@ static void a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 		counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR].regs =
 			a3xx_perfcounters_vbif2_pwr;
 	}
-
-	/*
-	 * Enable the GPU busy count counter. This is a fixed counter on
-	 * A3XX so we don't need to bother checking the return value
-	 */
-	adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_PWR, 1,
-		NULL, NULL, PERFCOUNTER_FLAG_KERNEL);
 }
 
-static void a3xx_perfcounter_close(struct adreno_device *adreno_dev)
-{
-	adreno_perfcounter_put(adreno_dev, KGSL_PERFCOUNTER_GROUP_PWR, 1,
-		PERFCOUNTER_FLAG_KERNEL);
-}
+struct {
+	u32 reg;
+	u32 base;
+	u32 count;
+} a3xx_protected_blocks[] = {
+	/* RBBM */
+	{ A3XX_CP_PROTECT_REG_0,      0x0018, 0 },
+	{ A3XX_CP_PROTECT_REG_0 + 1,  0x0020, 2 },
+	{ A3XX_CP_PROTECT_REG_0 + 2,  0x0033, 0 },
+	{ A3XX_CP_PROTECT_REG_0 + 3,  0x0042, 0 },
+	{ A3XX_CP_PROTECT_REG_0 + 4,  0x0050, 4 },
+	{ A3XX_CP_PROTECT_REG_0 + 5,  0x0063, 0 },
+	{ A3XX_CP_PROTECT_REG_0 + 6,  0x0100, 4 },
+	/* CP */
+	{ A3XX_CP_PROTECT_REG_0 + 7,  0x01c0, 5 },
+	{ A3XX_CP_PROTECT_REG_0 + 8,  0x01ec, 1 },
+	{ A3XX_CP_PROTECT_REG_0 + 9,  0x01f6, 1 },
+	{ A3XX_CP_PROTECT_REG_0 + 10, 0x01f8, 2 },
+	{ A3XX_CP_PROTECT_REG_0 + 11, 0x045e, 2 },
+	{ A3XX_CP_PROTECT_REG_0 + 12, 0x0460, 4 },
+	/* RB */
+	{ A3XX_CP_PROTECT_REG_0 + 13, 0x0cc0, 0 },
+	/* VBIF */
+	{ A3XX_CP_PROTECT_REG_0 + 14, 0x3000, 6 },
+	/* SMMU */
+	{ A3XX_CP_PROTECT_REG_0 + 15, 0xa000, 12 },
+	/* There are no remaining protected mode registers for a3xx */
+};
 
-/**
- * a3xx_protect_init() - Initializes register protection on a3xx
- * @adreno_dev: Pointer to the device structure
- * Performs register writes to enable protected access to sensitive
- * registers
- */
-static void a3xx_protect_init(struct adreno_device *adreno_dev)
+static void a3xx_protect_init(struct kgsl_device *device)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	int index = 0;
-	struct kgsl_protected_registers *iommu_regs;
+	int i;
 
-	/* enable access protection to privileged registers */
 	kgsl_regwrite(device, A3XX_CP_PROTECT_CTRL, 0x00000007);
 
-	/* RBBM registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0x18, 0);
-	adreno_set_protected_registers(adreno_dev, &index, 0x20, 2);
-	adreno_set_protected_registers(adreno_dev, &index, 0x33, 0);
-	adreno_set_protected_registers(adreno_dev, &index, 0x42, 0);
-	adreno_set_protected_registers(adreno_dev, &index, 0x50, 4);
-	adreno_set_protected_registers(adreno_dev, &index, 0x63, 0);
-	adreno_set_protected_registers(adreno_dev, &index, 0x100, 4);
+	for (i = 0; i < ARRAY_SIZE(a3xx_protected_blocks); i++) {
+		u32 val = 0x60000000 |
+			(a3xx_protected_blocks[i].count << 24) |
+			(a3xx_protected_blocks[i].base << 2);
 
-	/* CP registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0x1C0, 5);
-	adreno_set_protected_registers(adreno_dev, &index, 0x1EC, 1);
-	adreno_set_protected_registers(adreno_dev, &index, 0x1F6, 1);
-	adreno_set_protected_registers(adreno_dev, &index, 0x1F8, 2);
-	adreno_set_protected_registers(adreno_dev, &index, 0x45E, 2);
-	adreno_set_protected_registers(adreno_dev, &index, 0x460, 4);
-
-	/* RB registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0xCC0, 0);
-
-	/* VBIF registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0x3000, 6);
-
-	/* SMMU registers */
-	iommu_regs = kgsl_mmu_get_prot_regs(&device->mmu);
-	if (iommu_regs)
-		adreno_set_protected_registers(adreno_dev, &index,
-				iommu_regs->base, ilog2(iommu_regs->range));
+		kgsl_regwrite(device, a3xx_protected_blocks[i].reg, val);
+	}
 }
 
 static void a3xx_start(struct adreno_device *adreno_dev)
@@ -1169,7 +1160,7 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A3XX_RBBM_CLOCK_CTL, A3XX_RBBM_CLOCK_CTL_DEFAULT);
 
 	/* Turn on protection */
-	a3xx_protect_init(adreno_dev);
+	a3xx_protect_init(device);
 
 	/* Turn on performance counters */
 	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_CTL, 0x01);
@@ -1514,7 +1505,6 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.init = a3xx_init,
 	.microcode_read = a3xx_microcode_read,
 	.perfcounter_init = a3xx_perfcounter_init,
-	.perfcounter_close = a3xx_perfcounter_close,
 	.start = a3xx_start,
 	.snapshot = a3xx_snapshot,
 	.coresight = {&a3xx_coresight},

@@ -7,11 +7,14 @@
 #include <linux/slab.h>
 
 #include "a3xx_reg.h"
+#include "a5xx_reg.h"
+#include "a6xx_reg.h"
 #include "adreno.h"
 #include "adreno_pm4types.h"
 #include "adreno_ringbuffer.h"
 #include "adreno_trace.h"
 #include "kgsl_trace.h"
+
 
 #define RB_HOSTPTR(_rb, _pos) \
 	((unsigned int *) ((_rb)->buffer_desc.hostptr + \
@@ -791,18 +794,21 @@ static inline int _get_alwayson_counter(struct adreno_device *adreno_dev,
 	*p++ = cp_mem_packet(adreno_dev, CP_REG_TO_MEM, 2, 1);
 
 	/*
-	 * For a4x and some a5x the alwayson_hi read through CPU
+	 * For some a5x the alwayson_hi read through CPU
 	 * will be masked. Only do 32 bit CP reads for keeping the
 	 * numbers consistent
 	 */
-	if (ADRENO_GPUREV(adreno_dev) >= 400 &&
-		ADRENO_GPUREV(adreno_dev) <= ADRENO_REV_A530)
-		*p++ = adreno_getreg(adreno_dev,
-			ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO);
-	else
-		*p++ = adreno_getreg(adreno_dev,
-			ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO) |
+	if (adreno_is_a5xx(adreno_dev)) {
+		if (ADRENO_GPUREV(adreno_dev) <= ADRENO_REV_A530)
+			*p++ = A5XX_RBBM_ALWAYSON_COUNTER_LO;
+		else
+			*p++ = A5XX_RBBM_ALWAYSON_COUNTER_LO |
+				(1 << 30) | (2 << 18);
+	} else if (adreno_is_a6xx(adreno_dev)) {
+		*p++ = A6XX_CP_ALWAYS_ON_COUNTER_LO |
 			(1 << 30) | (2 << 18);
+	}
+
 	p += cp_gpuaddr(adreno_dev, p, gpuaddr);
 
 	return (unsigned int)(p - cmds);

@@ -262,7 +262,7 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		esoc_mdm_log(
 		"ESOC_FORCE_PWR_OFF: Queueing request: ESOC_REQ_SHUTDOWN\n");
 		esoc_clink_queue_request(ESOC_REQ_SHUTDOWN, esoc);
-		mdm_toggle_soft_reset(mdm, false);
+		mdm_power_down(mdm);
 		mdm_update_gpio_configs(mdm, GPIO_UPDATE_BOOTING_CONFIG);
 		break;
 	case ESOC_RESET:
@@ -484,7 +484,7 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 		mdm->ready = false;
 		esoc_mdm_log(
 		"ESOC_PRIMARY_REBOOT: Powering down the modem\n");
-		mdm_toggle_soft_reset(mdm, false);
+		mdm_power_down(mdm);
 		break;
 	};
 }
@@ -556,6 +556,7 @@ static irqreturn_t mdm_status_change(int irq, void *dev_id)
 		cancel_delayed_work(&mdm->mdm2ap_status_check_work);
 		dev_dbg(dev, "status = 1: mdm is now ready\n");
 		mdm->ready = true;
+		esoc_clink_evt_notify(ESOC_BOOT_STATE, esoc);
 		mdm_trigger_dbg(mdm);
 		queue_work(mdm->mdm_queue, &mdm->mdm_status_work);
 		if (mdm->get_restart_reason)
@@ -1080,26 +1081,27 @@ static int sdx55m_setup_hw(struct mdm_ctrl *mdm,
 		dev_err(mdm->dev, "Failed to parse DT gpios\n");
 		goto err_destroy_wrkq;
 	}
+	if (!of_property_read_bool(node, "qcom,esoc-spmi-soft-reset")) {
+		ret = mdm_pon_dt_init(mdm);
+		if (ret) {
+			esoc_mdm_log("Failed to parse PON DT gpios\n");
+			dev_err(mdm->dev, "Failed to parse PON DT gpio\n");
+			goto err_destroy_wrkq;
+		}
 
-	ret = mdm_pon_dt_init(mdm);
-	if (ret) {
-		esoc_mdm_log("Failed to parse PON DT gpios\n");
-		dev_err(mdm->dev, "Failed to parse PON DT gpio\n");
-		goto err_destroy_wrkq;
+		ret = mdm_pon_setup(mdm);
+		if (ret) {
+			esoc_mdm_log("Failed to setup PON\n");
+			dev_err(mdm->dev, "Failed to setup PON\n");
+			goto err_destroy_wrkq;
+		}
 	}
 
 	ret = mdm_pinctrl_init(mdm);
 	if (ret) {
 		esoc_mdm_log("Failed to init pinctrl\n");
 		dev_err(mdm->dev, "Failed to init pinctrl\n");
-		goto err_destroy_wrkq;
-	}
-
-	ret = mdm_pon_setup(mdm);
-	if (ret) {
-		esoc_mdm_log("Failed to setup PON\n");
-		dev_err(mdm->dev, "Failed to setup PON\n");
-		goto err_destroy_wrkq;
+		goto err_release_ipc;
 	}
 
 	ret = mdm_configure_ipc(mdm, pdev);

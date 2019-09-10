@@ -8,6 +8,7 @@
 
 #include <linux/types.h>
 #include "msm_cvp_debug.h"
+#include "cvp_core_hfi.h"
 
 #define CVP_APPS_DSP_GLINK_GUID "cvp-glink-apps-dsp"
 #define CVP_APPS_DSP_SMD_GUID "cvp-smd-apps-dsp"
@@ -23,7 +24,7 @@
  * Size in bytes of command message queue
  */
 int cvp_dsp_send_cmd_hfi_queue(phys_addr_t *phys_addr,
-	uint32_t size_in_bytes);
+	uint32_t size_in_bytes, struct iris_hfi_device *device);
 
 /*
  * API for CVP driver to suspend CVP session during

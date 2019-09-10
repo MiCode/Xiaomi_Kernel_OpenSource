@@ -166,9 +166,7 @@ static int npu_host_ipc_send_cmd_hfi(struct npu_device *npu_dev,
 			status = INTERRUPT_RAISE_NPU(npu_dev);
 	}
 
-	if (status == 0)
-		NPU_DBG("Cmd Msg put on Command Queue - SUCCESSS\n");
-	else
+	if (status)
 		NPU_ERR("Cmd Msg put on Command Queue - FAILURE\n");
 
 	return status;
@@ -238,6 +236,13 @@ static int ipc_queue_read(struct npu_device *npu_dev,
 		status = -EPERM;
 		goto exit;
 	}
+
+	if (packet_size > NPU_IPC_BUF_LENGTH) {
+		NPU_ERR("Invalid packet size %d\n", packet_size);
+		status = -EINVAL;
+		goto exit;
+	}
+
 	new_read_idx = queue.qhdr_read_idx + packet_size;
 
 	if (new_read_idx < (queue.qhdr_q_size)) {

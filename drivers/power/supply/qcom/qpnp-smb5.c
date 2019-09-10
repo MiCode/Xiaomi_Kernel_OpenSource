@@ -2115,6 +2115,10 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 		}
 	}
 
+	/* Enable HVDCP detection and authentication */
+	if (!chg->hvdcp_disable)
+		smblib_hvdcp_detect_enable(chg, true);
+
 	return rc;
 }
 

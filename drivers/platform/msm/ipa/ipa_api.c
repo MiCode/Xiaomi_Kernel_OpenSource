@@ -1997,6 +1997,43 @@ int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 EXPORT_SYMBOL(ipa_get_wdi_stats);
 
 /**
+ * ipa_uc_bw_monitor() - start uc bw monitoring
+ * @info:	[inout] set info populated by driver
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * @note Cannot be called from atomic context
+ *
+ */
+int ipa_uc_bw_monitor(struct ipa_wdi_bw_info *info)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_bw_monitor, info);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_uc_bw_monitor);
+
+/**
+ * ipa_set_wlan_tx_info() -set WDI statistics from uc
+ * @info:	[inout] set info populated by driver
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * @note Cannot be called from atomic context
+ *
+ */
+int ipa_set_wlan_tx_info(struct ipa_wdi_tx_info *info)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_set_wlan_tx_info, info);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_set_wlan_tx_info);
+/**
  * ipa_get_smem_restr_bytes()- Return IPA smem restricted bytes
  *
  * Return value: u16 - number of IPA smem restricted bytes

@@ -975,6 +975,7 @@ struct ipa3_repl_ctx {
 struct ipa3_sys_context {
 	u32 len;
 	atomic_t curr_polling_state;
+	atomic_t workqueue_flushed;
 	struct delayed_work switch_to_intr_work;
 	enum ipa3_sys_pipe_policy policy;
 	bool use_comm_evt_ring;
@@ -1411,6 +1412,12 @@ struct ipa3_uc_ctx {
 	u32 rdy_comp_ring_size;
 	u32 *rdy_ring_rp_va;
 	u32 *rdy_comp_ring_wp_va;
+	bool uc_event_ring_valid;
+	struct ipa_mem_buffer event_ring;
+	u32 ering_wp_local;
+	u32 ering_rp_local;
+	u32 ering_wp;
+	u32 ering_rp;
 };
 
 /**
@@ -1498,6 +1505,17 @@ struct ipa3_transport_pm {
 struct ipa3cm_client_info {
 	enum ipacm_client_enum client_enum;
 	bool uplink;
+};
+
+/**
+ * struct ipacm_fnr_info - the fnr-info indicated from IPACM
+ * @ipacm_client_enum: the enum to indicate tether-client
+ * @ipacm_client_uplink: the bool to indicate pipe for uplink
+ */
+struct ipacm_fnr_info {
+	bool valid;
+	uint8_t hw_counter_offset;
+	uint8_t sw_counter_offset;
 };
 
 struct ipa3_smp2p_info {
@@ -1892,6 +1910,7 @@ struct ipa3_context {
 	struct IpaHwOffloadStatsAllocCmdData_t
 		gsi_info[IPA_HW_PROTOCOL_MAX];
 	bool ipa_wan_skb_page;
+	struct ipacm_fnr_info fnr_info;
 };
 
 struct ipa3_plat_drv_res {
@@ -2571,6 +2590,9 @@ bool ipa3_get_client_uplink(int pipe_idx);
 int ipa3_get_wlan_stats(struct ipa_get_wdi_sap_stats *wdi_sap_stats);
 
 int ipa3_set_wlan_quota(struct ipa_set_wifi_quota *wdi_quota);
+
+int ipa3_inform_wlan_bw(struct ipa_inform_wlan_bw *wdi_bw);
+
 /*
  * IPADMA
  */
@@ -2838,6 +2860,10 @@ int ipa3_uc_send_remote_ipa_info(u32 remote_addr, uint32_t mbox_n);
 int ipa3_uc_debug_stats_alloc(
 	struct IpaHwOffloadStatsAllocCmdData_t cmdinfo);
 int ipa3_uc_debug_stats_dealloc(uint32_t protocol);
+int ipa3_uc_quota_monitor(uint64_t quota);
+int ipa3_uc_bw_monitor(struct ipa_wdi_bw_info *info);
+int ipa3_uc_setup_event_ring(void);
+int ipa3_set_wlan_tx_info(struct ipa_wdi_tx_info *info);
 void ipa3_tag_destroy_imm(void *user1, int user2);
 const struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info
 	(enum ipa_client_type client);
@@ -2896,6 +2922,8 @@ int ipa_get_flt_rt_stats(struct ipa_ioc_flt_rt_query *query);
 
 int ipa_set_flt_rt_stats(int index, struct ipa_flt_rt_stats stats);
 
+bool ipa_get_fnr_info(struct ipacm_fnr_info *fnr_info);
+
 u32 ipa3_get_num_pipes(void);
 struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(enum ipa_smmu_cb_type);
 struct iommu_domain *ipa3_get_smmu_domain(void);
@@ -2914,7 +2942,7 @@ int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipahal_reg_hash_tuple *tuple);
 int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipahal_reg_hash_tuple *tuple);
 void ipa3_set_resorce_groups_min_max_limits(void);
-void ipa3_suspend_apps_pipes(bool suspend);
+int ipa3_suspend_apps_pipes(bool suspend);
 int ipa3_flt_read_tbl_from_hw(u32 pipe_idx,
 	enum ipa_ip_type ip_type,
 	bool hashable,

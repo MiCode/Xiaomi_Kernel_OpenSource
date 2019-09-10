@@ -228,7 +228,7 @@ static int a6xx_load_pdc_ucode(struct kgsl_device *device)
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
 
-	if (adreno_is_a618(adreno_dev) || adreno_is_a650(adreno_dev))
+	if (adreno_is_a618(adreno_dev) || adreno_is_a650_family(adreno_dev))
 		_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x2);
 	else
 		_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
@@ -1167,37 +1167,7 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 	return gmu_cache_finalize(device);
 }
 
-#define A6XX_STATE_OF_CHILD             (BIT(4) | BIT(5))
-#define A6XX_IDLE_FULL_LLM              BIT(0)
-#define A6XX_WAKEUP_ACK                 BIT(1)
-#define A6XX_IDLE_FULL_ACK              BIT(0)
 #define A6XX_VBIF_XIN_HALT_CTRL1_ACKS   (BIT(0) | BIT(1) | BIT(2) | BIT(3))
-
-static int a6xx_llm_glm_handshake(struct kgsl_device *device)
-{
-	unsigned int val;
-	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
-			!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
-		return 0;
-
-	gmu_core_regread(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, &val);
-	if (!(val & A6XX_STATE_OF_CHILD)) {
-		gmu_core_regrmw(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, 0, BIT(4));
-		gmu_core_regrmw(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, 0,
-				A6XX_IDLE_FULL_LLM);
-		if (timed_poll_check(device, A6XX_GMU_LLM_GLM_SLEEP_STATUS,
-				A6XX_IDLE_FULL_ACK, GPU_RESET_TIMEOUT,
-				A6XX_IDLE_FULL_ACK)) {
-			dev_err(&gmu->pdev->dev, "LLM-GLM handshake failed\n");
-			return -EINVAL;
-		}
-	}
-
-	return 0;
-}
 
 static void a6xx_isense_disable(struct kgsl_device *device)
 {
@@ -1223,9 +1193,6 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 	/* do it only if LM feature is enabled */
 	/* Disable ISENSE if it's on */
 	a6xx_isense_disable(device);
-
-	/* LLM-GLM handshake sequence */
-	a6xx_llm_glm_handshake(device);
 
 	/* If SPTP_RAC is on, turn off SPTP_RAC HS */
 	a6xx_gmu_sptprac_disable(ADRENO_DEVICE(device));
@@ -1370,40 +1337,10 @@ static int a6xx_gmu_rpmh_gpu_pwrctrl(struct kgsl_device *device,
 	return ret;
 }
 
-static int _setup_throttling_counter(struct adreno_device *adreno_dev,
-						int countable, u32 *offset)
-{
-	if (*offset)
-		return 0;
-
-	return adreno_perfcounter_get(adreno_dev,
-			KGSL_PERFCOUNTER_GROUP_GPMU_PWR,
-			countable, offset, NULL,
-			PERFCOUNTER_FLAG_KERNEL);
-}
-
-static void _setup_throttling_counters(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	int ret;
-
-	ret = _setup_throttling_counter(adreno_dev, 0x10,
-				&adreno_dev->gpmu_throttle_counters[0]);
-	ret |= _setup_throttling_counter(adreno_dev, 0x15,
-				&adreno_dev->gpmu_throttle_counters[1]);
-	ret |= _setup_throttling_counter(adreno_dev, 0x19,
-				&adreno_dev->gpmu_throttle_counters[2]);
-
-	if (ret)
-		dev_err_once(&gmu->pdev->dev,
-			"Could not get all the throttling counters for LM\n");
-
-}
-
 void a6xx_gmu_enable_lm(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	u32 val;
 
 	memset(adreno_dev->busy_data.throttle_cycles, 0,
 		sizeof(adreno_dev->busy_data.throttle_cycles));
@@ -1412,7 +1349,25 @@ void a6xx_gmu_enable_lm(struct kgsl_device *device)
 			!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		return;
 
-	_setup_throttling_counters(adreno_dev);
+	/*
+	 * For throttling, use the following counters for throttled cycles:
+	 * XOCLK1: countable: 0x10
+	 * XOCLK2: countable: 0x16 for newer hardware / 0x15 for others
+	 * XOCLK3: countable: 0xf for newer hardware / 0x19 for others
+	 *
+	 * POWER_CONTROL_SELECT_0 controls counters 0 - 3, each selector
+	 * is 8 bits wide.
+	 */
+
+	if (adreno_is_a620(adreno_dev) || adreno_is_a650(adreno_dev))
+		val = (0x10 << 8) | (0x16 << 16) | (0x0f << 24);
+	else
+		val = (0x10 << 8) | (0x15 << 16) | (0x19 << 24);
+
+
+	/* Make sure not to write over XOCLK0 */
+	gmu_core_regrmw(device, A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
+		0xffffff00, val);
 
 	gmu_core_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
 }
@@ -1662,6 +1617,8 @@ static void a6xx_gmu_snapshot(struct kgsl_device *device,
 	if (a6xx_gmu_gx_is_on(device)) {
 		/* Set fence to ALLOW mode so registers can be read */
 		kgsl_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
+		/* Make sure the previous write posted before reading */
+		wmb();
 		kgsl_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &val);
 
 		dev_err(device->dev, "set FENCE to ALLOW mode:%x\n", val);

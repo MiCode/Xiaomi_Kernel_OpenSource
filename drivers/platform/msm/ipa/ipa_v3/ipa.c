@@ -55,6 +55,8 @@
 #include "ipa_trace.h"
 #include "ipa_odl.h"
 
+#define IPA_SUSPEND_BUSY_TIMEOUT (msecs_to_jiffies(10))
+
 /*
  * The following for adding code (ie. for EMULATION) not found on x86.
  */
@@ -118,7 +120,7 @@ static void ipa3_load_ipa_fw(struct work_struct *work);
 static DECLARE_WORK(ipa3_fw_loading_work, ipa3_load_ipa_fw);
 
 static void ipa_dec_clients_disable_clks_on_wq(struct work_struct *work);
-static DECLARE_WORK(ipa_dec_clients_disable_clks_on_wq_work,
+static DECLARE_DELAYED_WORK(ipa_dec_clients_disable_clks_on_wq_work,
 	ipa_dec_clients_disable_clks_on_wq);
 
 static int ipa3_ioctl_add_rt_rule_v2(unsigned long arg);
@@ -130,6 +132,7 @@ static int ipa3_ioctl_add_flt_rule_after_v2(unsigned long arg);
 static int ipa3_ioctl_mdfy_flt_rule_v2(unsigned long arg);
 static int ipa3_ioctl_fnr_counter_alloc(unsigned long arg);
 static int ipa3_ioctl_fnr_counter_query(unsigned long arg);
+static int ipa3_ioctl_fnr_counter_set(unsigned long arg);
 
 static struct ipa3_plat_drv_res ipa3_res = {0, };
 
@@ -1478,6 +1481,43 @@ free_param_kptr:
 	return retval;
 }
 
+static int ipa3_ioctl_fnr_counter_set(unsigned long arg)
+{
+	u8 header[128] = { 0 };
+	uint8_t value;
+
+	if (copy_from_user(header, (const void __user *)arg,
+		sizeof(struct ipa_ioc_fnr_index_info))) {
+		IPAERR_RL("copy_from_user fails\n");
+		return -EFAULT;
+	}
+
+	value = ((struct ipa_ioc_fnr_index_info *)
+		header)->hw_counter_offset;
+	if (value <= 0 || value > IPA_MAX_FLT_RT_CNT_INDEX) {
+		IPAERR("hw_counter_offset failed: num %d\n",
+			value);
+		return -EPERM;
+	}
+
+	ipa3_ctx->fnr_info.hw_counter_offset = value;
+
+	value = ((struct ipa_ioc_fnr_index_info *)
+		header)->sw_counter_offset;
+	if (value <= 0 || value > IPA_MAX_FLT_RT_CNT_INDEX) {
+		IPAERR("sw_counter_offset failed: num %d\n",
+			value);
+		return -EPERM;
+	}
+	ipa3_ctx->fnr_info.sw_counter_offset = value;
+	/* reset when ipacm-cleanup */
+	ipa3_ctx->fnr_info.valid = true;
+	IPADBG("fnr_info hw=%d, hw=%d\n",
+		ipa3_ctx->fnr_info.hw_counter_offset,
+		ipa3_ctx->fnr_info.sw_counter_offset);
+	return 0;
+}
+
 static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int retval = 0;
@@ -2644,6 +2684,10 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case IPA_IOC_FNR_COUNTER_QUERY:
 		retval = ipa3_ioctl_fnr_counter_query(arg);
+		break;
+
+	case IPA_IOC_SET_FNR_COUNTER_INFO:
+		retval = ipa3_ioctl_fnr_counter_set(arg);
 		break;
 
 	case IPA_IOC_WIGIG_FST_SWITCH:
@@ -4811,8 +4855,16 @@ static void __ipa3_dec_client_disable_clks(void)
 	ret = atomic_sub_return(1, &ipa3_ctx->ipa3_active_clients.cnt);
 	if (ret > 0)
 		goto unlock_mutex;
-	ipa3_suspend_apps_pipes(true);
-	ipa3_disable_clks();
+	ret = ipa3_suspend_apps_pipes(true);
+	if (ret) {
+		/* HW is busy, retry after some time */
+		atomic_inc(&ipa3_ctx->ipa3_active_clients.cnt);
+		queue_delayed_work(ipa3_ctx->power_mgmt_wq,
+			&ipa_dec_clients_disable_clks_on_wq_work,
+			IPA_SUSPEND_BUSY_TIMEOUT);
+	} else {
+		ipa3_disable_clks();
+	}
 
 unlock_mutex:
 	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
@@ -4865,8 +4917,8 @@ void ipa3_dec_client_disable_clks_no_block(
 	}
 
 	/* seems like this is the only client holding the clocks */
-	queue_work(ipa3_ctx->power_mgmt_wq,
-		&ipa_dec_clients_disable_clks_on_wq_work);
+	queue_delayed_work(ipa3_ctx->power_mgmt_wq,
+		&ipa_dec_clients_disable_clks_on_wq_work, 0);
 }
 
 /**

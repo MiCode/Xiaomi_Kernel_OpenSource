@@ -475,6 +475,19 @@ static u32  top_task_load(struct rq *rq)
 	}
 }
 
+unsigned int sysctl_sched_user_hint;
+static unsigned long sched_user_hint_reset_time;
+static bool is_cluster_hosting_top_app(struct sched_cluster *cluster);
+
+static inline bool should_apply_suh_freq_boost(struct sched_cluster *cluster)
+{
+	if (sched_freq_aggr_en || !sysctl_sched_user_hint ||
+				  !cluster->aggr_grp_load)
+		return false;
+
+	return is_cluster_hosting_top_app(cluster);
+}
+
 static inline u64 freq_policy_load(struct rq *rq)
 {
 	unsigned int reporting_policy = sysctl_sched_freq_reporting_policy;
@@ -510,9 +523,18 @@ static inline u64 freq_policy_load(struct rq *rq)
 		break;
 	}
 
+	if (should_apply_suh_freq_boost(cluster)) {
+		if (is_suh_max())
+			load = sched_ravg_window;
+		else
+			load = div64_u64(load * sysctl_sched_user_hint,
+					 (u64)100);
+	}
+
 done:
 	trace_sched_load_to_gov(rq, aggr_grp_load, tt_load, sched_freq_aggr_en,
-				load, reporting_policy, walt_rotation_enabled);
+				load, reporting_policy, walt_rotation_enabled,
+				sysctl_sched_user_hint);
 	return load;
 }
 
@@ -2607,6 +2629,9 @@ void update_best_cluster(struct related_thread_group *grp,
 		return;
 	}
 
+	if (is_suh_max())
+		demand = sched_group_upmigrate;
+
 	if (!grp->skip_min) {
 		if (demand >= sched_group_upmigrate) {
 			grp->skip_min = true;
@@ -2703,12 +2728,15 @@ void set_preferred_cluster(struct related_thread_group *grp)
 }
 
 int update_preferred_cluster(struct related_thread_group *grp,
-		struct task_struct *p, u32 old_load)
+		struct task_struct *p, u32 old_load, bool from_tick)
 {
 	u32 new_load = task_load(p);
 
 	if (!grp)
 		return 0;
+
+	if (unlikely(from_tick && is_suh_max()))
+		return 1;
 
 	/*
 	 * Update if task's load has changed significantly or a complete window
@@ -2723,8 +2751,6 @@ int update_preferred_cluster(struct related_thread_group *grp,
 
 #define ADD_TASK	0
 #define REM_TASK	1
-
-#define DEFAULT_CGROUP_COLOC_ID 1
 
 static inline struct related_thread_group*
 lookup_related_thread_group(unsigned int group_id)
@@ -2962,6 +2988,22 @@ int sync_cgroup_colocation(struct task_struct *p, bool insert)
 	return __sched_set_group_id(p, grp_id);
 }
 #endif
+
+static bool is_cluster_hosting_top_app(struct sched_cluster *cluster)
+{
+	struct related_thread_group *grp;
+	bool grp_on_min;
+
+	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);
+
+	if (!grp)
+		return false;
+
+	grp_on_min = !grp->skip_min &&
+		     (sched_boost_policy() != SCHED_BOOST_ON_BIG);
+
+	return (is_min_capacity_cluster(cluster) == grp_on_min);
+}
 
 static unsigned long max_cap[NR_CPUS];
 static unsigned long thermal_cap_cpu[NR_CPUS];
@@ -3223,6 +3265,10 @@ void walt_irq_work(struct irq_work *irq_work)
 		rtgb_active = false;
 	}
 
+	if (!is_migration && sysctl_sched_user_hint && time_after(jiffies,
+					sched_user_hint_reset_time))
+		sysctl_sched_user_hint = 0;
+
 	for_each_sched_cluster(cluster) {
 		cpumask_t cluster_online_cpus;
 		unsigned int num_cpus, i = 1;
@@ -3434,4 +3480,27 @@ void walt_sched_init_rq(struct rq *rq)
 	}
 	rq->cum_window_demand_scaled = 0;
 	rq->notif_pending = false;
+}
+
+int walt_proc_user_hint_handler(struct ctl_table *table,
+				int write, void __user *buffer, size_t *lenp,
+				loff_t *ppos)
+{
+	int ret;
+	unsigned int old_value;
+	static DEFINE_MUTEX(mutex);
+
+	mutex_lock(&mutex);
+
+	sched_user_hint_reset_time = jiffies + HZ;
+	old_value = sysctl_sched_user_hint;
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+	if (ret || !write || (old_value == sysctl_sched_user_hint))
+		goto unlock;
+
+	irq_work_queue(&walt_migration_irq_work);
+
+unlock:
+	mutex_unlock(&mutex);
+	return ret;
 }

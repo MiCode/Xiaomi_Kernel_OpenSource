@@ -584,7 +584,7 @@ static netdev_tx_t ecm_ipa_start_xmit
 	}
 
 	ret = ipa_pm_activate(ecm_ipa_ctx->pm_hdl);
-	if (ret) {
+	if (unlikely(ret)) {
 		ECM_IPA_DEBUG("Failed to activate PM client\n");
 		netif_stop_queue(net);
 		goto fail_pm_activate;
@@ -607,7 +607,7 @@ static netdev_tx_t ecm_ipa_start_xmit
 				, skb->protocol);
 
 	ret = ipa_tx_dp(ecm_ipa_ctx->ipa_to_usb_client, skb, NULL);
-	if (ret) {
+	if (unlikely(ret)) {
 		ECM_IPA_ERROR("ipa transmit failed (%d)\n", ret);
 		goto fail_tx_packet;
 	}
@@ -642,7 +642,7 @@ static void ecm_ipa_packet_receive_notify
 	int result;
 	unsigned int packet_len;
 
-	if (!skb) {
+	if (unlikely(!skb)) {
 		ECM_IPA_ERROR("Bad SKB received from IPA driver\n");
 		return;
 	}
@@ -655,7 +655,7 @@ static void ecm_ipa_packet_receive_notify
 		return;
 	}
 
-	if (evt != IPA_RECEIVE)	{
+	if (unlikely(evt != IPA_RECEIVE))	{
 		ECM_IPA_ERROR("A none IPA_RECEIVE event in ecm_ipa_receive\n");
 		return;
 	}
@@ -664,7 +664,7 @@ static void ecm_ipa_packet_receive_notify
 	skb->protocol = eth_type_trans(skb, ecm_ipa_ctx->net);
 
 	result = netif_rx(skb);
-	if (result)
+	if (unlikely(result))
 		ECM_IPA_ERROR("fail on netif_rx\n");
 	ecm_ipa_ctx->net->stats.rx_packets++;
 	ecm_ipa_ctx->net->stats.rx_bytes += packet_len;
@@ -1129,12 +1129,12 @@ static void ecm_ipa_tx_complete_notify
 	struct sk_buff *skb = (struct sk_buff *)data;
 	struct ecm_ipa_dev *ecm_ipa_ctx = priv;
 
-	if (!skb) {
+	if (unlikely(!skb)) {
 		ECM_IPA_ERROR("Bad SKB received from IPA driver\n");
 		return;
 	}
 
-	if (!ecm_ipa_ctx) {
+	if (unlikely(!ecm_ipa_ctx)) {
 		ECM_IPA_ERROR("ecm_ipa_ctx is NULL pointer\n");
 		return;
 	}
@@ -1144,7 +1144,7 @@ static void ecm_ipa_tx_complete_notify
 		skb->len, skb->protocol,
 		atomic_read(&ecm_ipa_ctx->outstanding_pkts));
 
-	if (evt != IPA_WRITE_DONE) {
+	if (unlikely(evt != IPA_WRITE_DONE)) {
 		ECM_IPA_ERROR("unsupported event on Tx callback\n");
 		return;
 	}

@@ -28,6 +28,7 @@
 #include <linux/bitops.h>   /* BIT(x) */
 #include <linux/platform_device.h> /* platform_driver_register() */
 #include <linux/of.h>       /* of_property_count_strings() */
+#include <linux/of_address.h>   /* of_address_to_resource() */
 #include <linux/io.h>       /* ioremap_nocache() */
 #include <linux/notifier.h>
 #include <linux/sizes.h>    /* SZ_4K */
@@ -199,7 +200,7 @@ static ssize_t cmac_buf_show(struct device *dev,
 		return -EINVAL;
 	}
 
-	ret = snprintf(buf, PAGE_SIZE, "0x%x,0x%x,0x%x,0x%x\n",
+	ret = snprintf(buf, PAGE_SIZE, "0x%08x,0x%08x,0x%08x,0x%08x\n",
 		cmac_buf[0], cmac_buf[1], cmac_buf[2], cmac_buf[3]);
 
 	return ret;
@@ -273,7 +274,7 @@ static ssize_t pbl_cmac_show(struct device *dev,
 		return -EINVAL;
 	}
 
-	ret = snprintf(buf, PAGE_SIZE, "0x%x,0x%x,0x%x,0x%x\n",
+	ret = snprintf(buf, PAGE_SIZE, "0x%08x,0x%08x,0x%08x,0x%08x\n",
 	    pbl_cmac_buf[0], pbl_cmac_buf[1], pbl_cmac_buf[2], pbl_cmac_buf[3]);
 
 	return ret;
@@ -392,7 +393,7 @@ static long spss_utils_ioctl(struct file *file,
 		}
 
 		memcpy(cmac_buf, data, sizeof(cmac_buf));
-		pr_info("cmac_buf: 0x%x,0x%x,0x%x,0x%x\n",
+		pr_info("saved fw cmac: 0x%08x,0x%08x,0x%08x,0x%08x\n",
 			cmac_buf[0], cmac_buf[1], cmac_buf[2], cmac_buf[3]);
 
 		/*
@@ -401,13 +402,17 @@ static long spss_utils_ioctl(struct file *file,
 		 * therefore read the spu pbl fw cmac from ioctl.
 		 * The callback shall be called on spss SSR.
 		 */
-		pr_info("read pbl cmac from shared memory\n");
+		pr_debug("read pbl cmac from shared memory\n");
 		spss_set_fw_cmac(cmac_buf, sizeof(cmac_buf));
 		spss_get_pbl_calc_cmac(pbl_cmac_buf, sizeof(pbl_cmac_buf));
 		if (memcmp(cmac_buf, pbl_cmac_buf, sizeof(cmac_buf)) != 0)
 			is_pbl_ce = true; /* cmacs not the same */
 		else
 			is_pbl_ce = false;
+
+		pr_info("calc fw cmac: 0x%08x,0x%08x,0x%08x,0x%08x\n",
+			pbl_cmac_buf[0], pbl_cmac_buf[1],
+			pbl_cmac_buf[2], pbl_cmac_buf[3]);
 		break;
 
 	default:
@@ -513,7 +518,8 @@ static int spss_parse_dt(struct device_node *node)
 	u32 spss_fuse4_bit = 0;
 	u32 spss_fuse4_mask = 0;
 	void __iomem *spss_fuse4_reg = NULL;
-
+	struct device_node *np;
+	struct resource r;
 	u32 val1 = 0;
 	u32 val2 = 0;
 	void __iomem *spss_emul_type_reg = NULL;
@@ -649,24 +655,36 @@ static int spss_parse_dt(struct device_node *node)
 	iounmap(spss_emul_type_reg);
 
 	/* PIL-SPSS area */
-	ret = of_property_read_u32(node, "qcom,pil-addr",
-			     &pil_addr);
-	if (ret < 0) {
-		pr_err("can't get pil_addr\n");
-		return -EFAULT;
+	np = of_parse_phandle(node, "pil-mem", 0);
+	if (!np) {
+		pr_err("no pil-mem entry, check pil-addr\n");
+		ret = of_property_read_u32(node, "qcom,pil-addr",
+			&pil_addr);
+		if (ret < 0) {
+			pr_err("can't get pil_addr\n");
+			return -EFAULT;
+		}
+	} else {
+		ret = of_address_to_resource(np, 0, &r);
+		of_node_put(np);
+		if (ret)
+			return ret;
+		pil_addr = (u32)r.start;
 	}
+
 	ret = of_property_read_u32(node, "qcom,pil-size",
-			     &pil_size);
+		&pil_size);
 	if (ret < 0) {
 		pr_err("can't get pil_size\n");
 		return -EFAULT;
 	}
 
-	pr_info("pil_addr [0x%x].\n", pil_addr);
-	pr_info("pil_size [0x%x].\n", pil_size);
+	pr_debug("pil_addr [0x%08x].\n", pil_addr);
+	pr_debug("pil_size [0x%08x].\n", pil_size);
 
 	/* cmac buffer after spss firmware end */
 	cmac_mem_addr = pil_addr + pil_size;
+	pr_info("iar_buf_addr [0x%08x].\n", cmac_mem_addr);
 
 	ret = of_property_read_u32(node, "qcom,spss-fuse3-addr",
 		&spss_fuse3_addr);
@@ -692,7 +710,7 @@ static int spss_parse_dt(struct device_node *node)
 	/* read IAR_FEATURE_ENABLED from soc fuse */
 	val1 = readl_relaxed(spss_fuse3_reg);
 	spss_fuse3_mask = (1<<spss_fuse3_bit);
-	pr_info("iar_enabled fuse, addr [0x%x] val [0x%x] mask [0x%x].\n",
+	pr_debug("iar_enabled fuse, addr [0x%x] val [0x%x] mask [0x%x].\n",
 		spss_fuse3_addr, val1, spss_fuse3_mask);
 	if (val1 & spss_fuse3_mask)
 		is_iar_enabled = true;
@@ -724,7 +742,7 @@ static int spss_parse_dt(struct device_node *node)
 
 	val1 = readl_relaxed(spss_fuse4_reg);
 	spss_fuse4_mask = (0x07 << spss_fuse4_bit); /* 3 bits */
-	pr_info("IAR_STATE fuse, addr [0x%x] val [0x%x] mask [0x%x].\n",
+	pr_debug("IAR_STATE fuse, addr [0x%x] val [0x%x] mask [0x%x].\n",
 	spss_fuse4_addr, val1, spss_fuse4_mask);
 	val1 = ((val1 & spss_fuse4_mask) >> spss_fuse4_bit) & 0x07;
 

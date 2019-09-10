@@ -564,18 +564,35 @@ static int dcc_valid_list(struct dcc_drvdata *drvdata, int curr_list)
 		return -EINVAL;
 
 	if (drvdata->enable[curr_list]) {
-		dev_err(drvdata->dev, "DCC is already enabled\n");
+		dev_err(drvdata->dev, "List %d is already enabled\n",
+				curr_list);
 		return -EINVAL;
 	}
 
 	lock_reg = dcc_readl(drvdata, DCC_LL_LOCK(curr_list));
 	if (lock_reg & 0x1) {
-		dev_err(drvdata->dev, "DCC is already enabled\n");
+		dev_err(drvdata->dev, "List %d is already locked\n",
+				curr_list);
 		return -EINVAL;
 	}
 
 	dev_err(drvdata->dev, "DCC list passed %d\n", curr_list);
 	return 0;
+}
+
+static bool is_dcc_enabled(struct dcc_drvdata *drvdata)
+{
+	bool dcc_enable = false;
+	int list;
+
+	for (list = 0; list < DCC_MAX_LINK_LIST; list++) {
+		if (drvdata->enable[list]) {
+			dcc_enable = true;
+			break;
+		}
+	}
+
+	return dcc_enable;
 }
 
 static int dcc_enable(struct dcc_drvdata *drvdata)
@@ -586,7 +603,9 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 
 	mutex_lock(&drvdata->mutex);
 
-	memset_io(drvdata->ram_base, 0xDE, drvdata->ram_size);
+	if (!is_dcc_enabled(drvdata)) {
+		memset_io(drvdata->ram_base, 0xDE, drvdata->ram_size);
+	}
 
 	for (list = 0; list < DCC_MAX_LINK_LIST; list++) {
 
@@ -665,21 +684,6 @@ static void dcc_disable(struct dcc_drvdata *drvdata)
 	drvdata->ram_cfg = 0;
 	drvdata->ram_start = 0;
 	mutex_unlock(&drvdata->mutex);
-}
-
-static bool is_dcc_enabled(struct dcc_drvdata *drvdata)
-{
-	bool dcc_enable = false;
-	int list;
-
-	for (list = 0; list < DCC_MAX_LINK_LIST; list++) {
-		if (drvdata->enable[list]) {
-			dcc_enable = true;
-			break;
-		}
-	}
-
-	return dcc_enable;
 }
 
 static ssize_t curr_list_show(struct device *dev,

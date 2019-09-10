@@ -206,6 +206,12 @@ static int sdx50m_power_down(struct mdm_ctrl *mdm)
 	return 0;
 }
 
+static int sdx55m_power_down(struct mdm_ctrl *mdm)
+{
+	esoc_mdm_log("Performing warm reset as cold reset is not supported\n");
+	return sdx55m_toggle_soft_reset(mdm, false);
+}
+
 static void mdm9x55_cold_reset(struct mdm_ctrl *mdm)
 {
 	dev_dbg(mdm->dev, "Triggering mdm cold reset");
@@ -318,6 +324,7 @@ struct mdm_pon_ops sdx50m_pon_ops = {
 struct mdm_pon_ops sdx55m_pon_ops = {
 	.pon = mdm4x_do_first_power_on,
 	.soft_reset = sdx55m_toggle_soft_reset,
+	.poff_force = sdx55m_power_down,
 	.dt_init = mdm4x_pon_dt_init,
 	.setup = mdm4x_pon_setup,
 };
