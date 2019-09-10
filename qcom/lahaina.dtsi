@@ -568,51 +568,61 @@
 	aggre1_noc: interconnect@16e0000 {
 		compatible = "qcom,lahaina-aggre1_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	aggre2_noc: interconnect@1700000 {
 		compatible = "qcom,lahaina-aggre2_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	config_noc: interconnect@1500000 {
 		compatible = "qcom,lahaina-config_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	dc_noc: interconnect@14e0000 {
 		compatible = "qcom,lahaina-dc_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	gem_noc: interconnect@1380000 {
 		compatible = "qcom,lahaina-gem_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	lpass_ag_noc: interconnect@1480000 {
 		compatible = "qcom,lahaina-lpass_ag_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	mc_virt: interconnect@1580000 {
 		compatible = "qcom,lahaina-mc_virt";
 		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	mmss_noc: interconnect@1740000 {
 		compatible = "qcom,lahaina-mmss_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	nsp_noc: interconnect@1750000 {
 		compatible = "qcom,lahaina-nsp_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	system_noc: interconnect@1620000 {
 		compatible = "qcom,lahaina-system_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	pil_scm_pas {
@@ -767,6 +777,10 @@
 				  <SLEEP_TCS   3>,
 				  <WAKE_TCS    3>,
 				  <CONTROL_TCS 1>;
+
+		apps_bcm_voter: bcm_voter {
+			compatible = "qcom,bcm-voter";
+		};
 	};
 
 	disp_rsc: rsc@af20000 {
