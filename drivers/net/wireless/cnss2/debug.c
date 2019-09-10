@@ -615,6 +615,9 @@ static int cnss_show_quirks_state(struct seq_file *s,
 		case DISABLE_DRV:
 			seq_puts(s, "DISABLE_DRV");
 			continue;
+		case DISABLE_IO_COHERENCY:
+			seq_puts(s, "DISABLE_IO_COHERENCY");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

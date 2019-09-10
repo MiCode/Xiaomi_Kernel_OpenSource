@@ -239,6 +239,7 @@ enum cnss_debug_quirks {
 	FBC_BYPASS,
 	ENABLE_DAEMON_SUPPORT,
 	DISABLE_DRV,
+	DISABLE_IO_COHERENCY,
 };
 
 enum cnss_bdf_type {
