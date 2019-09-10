@@ -199,6 +199,11 @@ struct gsi_generic_ee_cmd_debug_stats {
 	unsigned long halt_channel;
 };
 
+struct gsi_coal_chan_info {
+	uint8_t ch_id;
+	uint8_t evchid;
+};
+
 struct gsi_ctx {
 	void __iomem *base;
 	struct device *dev;
@@ -222,6 +227,7 @@ struct gsi_ctx {
 	struct completion gen_ee_cmd_compl;
 	void *ipc_logbuf;
 	void *ipc_logbuf_low;
+	struct gsi_coal_chan_info coal_info;
 	/*
 	 * The following used only on emulation systems.
 	 */
