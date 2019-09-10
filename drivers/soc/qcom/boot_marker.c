@@ -30,7 +30,7 @@
 #include <soc/qcom/boot_stats.h>
 
 #define MAX_STRING_LEN 256
-#define BOOT_MARKER_MAX_LEN 40
+#define BOOT_MARKER_MAX_LEN 50
 #define MSM_ARCH_TIMER_FREQ     19200000
 
 struct boot_marker {
@@ -39,10 +39,6 @@ struct boot_marker {
 	struct list_head list;
 	spinlock_t slock;
 };
-
-#ifdef CONFIG_HIBERNATION
-static unsigned long long int kernel_start_at;
-#endif /* CONFIG_HIBERNATION */
 
 static struct dentry *dent_bkpi, *dent_bkpi_status, *dent_mpm_timer;
 static struct boot_marker boot_marker_list;
@@ -87,6 +83,39 @@ static void _create_boot_marker(const char *name,
 	spin_unlock(&boot_marker_list.slock);
 }
 
+static void _update_boot_marker(const char *name, const char *new_name,
+				unsigned long long int timer_value)
+{
+	struct boot_marker *marker;
+	struct boot_marker *temp_addr;
+
+	spin_lock(&boot_marker_list.slock);
+	list_for_each_entry_safe(marker, temp_addr, &boot_marker_list.list,
+			list) {
+		if (strnstr(marker->marker_name, name,
+			strlen(marker->marker_name))) {
+			if (new_name)
+				strlcpy(marker->marker_name, new_name,
+					sizeof(marker->marker_name));
+			marker->timer_value = timer_value;
+			spin_unlock(&boot_marker_list.slock);
+			return;
+		}
+
+		if (!new_name)
+			continue;
+
+		if (strnstr(marker->marker_name, new_name,
+			strlen(marker->marker_name))) {
+			marker->timer_value = timer_value;
+			spin_unlock(&boot_marker_list.slock);
+			return;
+		}
+	}
+	spin_unlock(&boot_marker_list.slock);
+	_create_boot_marker(name, timer_value);
+}
+
 static void set_bootloader_stats(void)
 {
 	_create_boot_marker("M - APPSBL Start - ",
@@ -104,51 +133,28 @@ static void set_bootloader_stats(void)
 }
 
 #ifdef CONFIG_HIBERNATION
-void update_bootloader_stats(void)
+static void update_bootloader_stats(void)
 {
-	u32 val = 0;
-	struct boot_marker *marker;
-	static const char * const name[] = {"D - Hiber: Start image loading - ",
-		"D - Hiber: End image loading - ",
-		"M - APPSBL End(Kernel Start) - "};
-
-	spin_lock(&boot_marker_list.slock);
-	list_for_each_entry(marker, &boot_marker_list.list, list) {
-		if (!strcmp("M - APPSBL Start - ", marker->marker_name)) {
-			val = readl_relaxed(&boot_stats->bootloader_start);
-			marker->timer_value = val;
-		}
-		if (!strcmp("D - APPSBL Kernel Load Start - ",
-				marker->marker_name)) {
-			strlcpy(marker->marker_name, name[0],
-				sizeof(marker->marker_name));
-			val = readl_relaxed(&boot_stats->load_kernel_start);
-			marker->timer_value = val;
-		}
-		if (!strcmp("D - APPSBL Kernel Load End - ",
-				marker->marker_name)) {
-			strlcpy(marker->marker_name, name[1],
-				sizeof(marker->marker_name));
-			val = readl_relaxed(&boot_stats->load_kernel_done);
-			marker->timer_value = val;
-		}
-		if (!strcmp("M - APPSBL End - ", marker->marker_name)) {
-			strlcpy(marker->marker_name, name[2],
-				sizeof(marker->marker_name));
-			marker->timer_value = kernel_start_at;
-		}
-	}
-	spin_unlock(&boot_marker_list.slock);
+	_update_boot_marker("M - APPSBL Start - ", NULL,
+			readl_relaxed(&boot_stats->bootloader_start));
+	_update_boot_marker("D - APPSBL Kernel Load Start - ",
+		"D - APPSBL Hibernation Image Load Start - ",
+		readl_relaxed(&boot_stats->load_kernel_start));
+	_update_boot_marker("D - APPSBL Kernel Load End - ",
+		"D - APPSBL Hibernation Image Load End - ",
+		readl_relaxed(&boot_stats->load_kernel_done));
+	_update_boot_marker("M - APPSBL End - ", NULL,
+		readl_relaxed(&boot_stats->bootloader_end));
 }
 #endif /* CONFIG_HIBERNATION */
 
 void place_marker(const char *name)
 {
 #ifdef CONFIG_HIBERNATION
-	if (!strcmp(name, "Kernel Start"))
-		kernel_start_at = msm_timer_get_sclk_ticks();
+	if (!strcmp(name, "M - Image Kernel Start"))
+		update_bootloader_stats();
 #endif /* CONFIG_HIBERNATION */
-	_create_boot_marker((char *) name, msm_timer_get_sclk_ticks());
+	_update_boot_marker((char *)name, NULL, msm_timer_get_sclk_ticks());
 }
 EXPORT_SYMBOL(place_marker);
 
