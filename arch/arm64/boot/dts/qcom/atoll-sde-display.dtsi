@@ -206,7 +206,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_wb &sde_dsi &sde_dp>;
+	connectors = <&sde_wb &sde_dsi &sde_dp &sde_rscc>;
 };
 
 &dsi_rm69299_visionox_amoled_video {
