@@ -63,15 +63,21 @@ static u32 spss_emul_type_reg_addr; /* TCSR_SOC_EMULATION_TYPE */
 static void *iar_notif_handle;
 static struct notifier_block *iar_nb;
 
-#define CMAC_SIZE_IN_BYTES (128/8) /* 128 bit */
+#define CMAC_SIZE_IN_BYTES (128/8) /* 128 bit = 16 bytes */
+#define CMAC_SIZE_IN_DWORDS (CMAC_SIZE_IN_BYTES/sizeof(u32)) /* 4 dwords */
+
+/* Asym , Crypt , Keym */
+#define NUM_UEFI_APPS 3
 
 static u32 pil_addr;
 static u32 pil_size;
-static u32 cmac_buf[CMAC_SIZE_IN_BYTES/sizeof(u32)]; /* saved cmac */
-static u32 pbl_cmac_buf[CMAC_SIZE_IN_BYTES/sizeof(u32)]; /* pbl cmac */
+static u32 cmac_buf[CMAC_SIZE_IN_DWORDS]; /* saved cmac */
+static u32 pbl_cmac_buf[CMAC_SIZE_IN_DWORDS]; /* pbl cmac */
+
+static u32 apps_cmac_buf[NUM_UEFI_APPS][CMAC_SIZE_IN_DWORDS];
+
 static u32 iar_state;
 static bool is_iar_enabled;
-static bool is_pbl_ce; /* Did SPU PBL performed Cryptographic Erase (CE) */
 
 static void __iomem *cmac_mem;
 static size_t cmac_mem_size = SZ_4K; /* XPU align to 4KB */
@@ -97,7 +103,7 @@ static struct spss_utils_device *spss_utils_dev;
 
 /* static functions declaration */
 static int spss_set_fw_cmac(u32 *cmac, size_t cmac_size);
-static int spss_get_pbl_calc_cmac(u32 *cmac, size_t cmac_size);
+static int spss_get_pbl_and_apps_calc_cmac(void);
 
 /*==========================================================================*/
 /*		Device Sysfs */
@@ -245,24 +251,6 @@ static ssize_t iar_enabled_show(struct device *dev,
 
 static DEVICE_ATTR_RO(iar_enabled);
 
-static ssize_t pbl_ce_show(struct device *dev,
-		struct device_attribute *attr,
-		char *buf)
-{
-	int ret = 0;
-
-	if (!dev || !attr || !buf) {
-		pr_err("invalid param.\n");
-		return -EINVAL;
-	}
-
-	ret = snprintf(buf, PAGE_SIZE, "0x%x\n", is_pbl_ce);
-
-	return ret;
-}
-
-static DEVICE_ATTR_RO(pbl_ce);
-
 static ssize_t pbl_cmac_show(struct device *dev,
 		struct device_attribute *attr,
 		char *buf)
@@ -281,6 +269,21 @@ static ssize_t pbl_cmac_show(struct device *dev,
 }
 
 static DEVICE_ATTR_RO(pbl_cmac);
+
+static ssize_t apps_cmac_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	if (!dev || !attr || !buf) {
+		pr_err("invalid param.\n");
+		return -EINVAL;
+	}
+
+	memcpy(buf, apps_cmac_buf, sizeof(apps_cmac_buf));
+
+	return sizeof(apps_cmac_buf);
+}
+
+static DEVICE_ATTR_RO(apps_cmac);
 
 /*--------------------------------------------------------------------------*/
 static int spss_create_sysfs(struct device *dev)
@@ -323,22 +326,23 @@ static int spss_create_sysfs(struct device *dev)
 		goto remove_iar_state;
 	}
 
-	ret = device_create_file(dev, &dev_attr_pbl_ce);
-	if (ret < 0) {
-		pr_err("failed to create sysfs file for pbl_ce.\n");
-		goto remove_iar_enabled;
-	}
-
 	ret = device_create_file(dev, &dev_attr_pbl_cmac);
 	if (ret < 0) {
 		pr_err("failed to create sysfs file for pbl_cmac.\n");
-		goto remove_pbl_ce;
+		goto remove_iar_enabled;
 	}
+
+	ret = device_create_file(dev, &dev_attr_apps_cmac);
+	if (ret < 0) {
+		pr_err("failed to create sysfs file for apps_cmac.\n");
+		goto remove_pbl_cmac;
+	}
+
 
 	return 0;
 
-remove_pbl_ce:
-		device_remove_file(dev, &dev_attr_pbl_ce);
+remove_pbl_cmac:
+		device_remove_file(dev, &dev_attr_pbl_cmac);
 remove_iar_enabled:
 		device_remove_file(dev, &dev_attr_iar_enabled);
 remove_iar_state:
@@ -399,20 +403,12 @@ static long spss_utils_ioctl(struct file *file,
 		/*
 		 * SPSS is loaded now by UEFI,
 		 * so IAR callback is not being called on powerup by PIL.
-		 * therefore read the spu pbl fw cmac from ioctl.
+		 * therefore read the spu pbl fw cmac and apps cmac from ioctl.
 		 * The callback shall be called on spss SSR.
 		 */
 		pr_debug("read pbl cmac from shared memory\n");
 		spss_set_fw_cmac(cmac_buf, sizeof(cmac_buf));
-		spss_get_pbl_calc_cmac(pbl_cmac_buf, sizeof(pbl_cmac_buf));
-		if (memcmp(cmac_buf, pbl_cmac_buf, sizeof(cmac_buf)) != 0)
-			is_pbl_ce = true; /* cmacs not the same */
-		else
-			is_pbl_ce = false;
-
-		pr_info("calc fw cmac: 0x%08x,0x%08x,0x%08x,0x%08x\n",
-			pbl_cmac_buf[0], pbl_cmac_buf[1],
-			pbl_cmac_buf[2], pbl_cmac_buf[3]);
+		spss_get_pbl_and_apps_calc_cmac();
 		break;
 
 	default:
@@ -781,23 +777,43 @@ static int spss_set_fw_cmac(u32 *cmac, size_t cmac_size)
 	return 0;
 }
 
-static int spss_get_pbl_calc_cmac(u32 *cmac, size_t cmac_size)
+static int spss_get_pbl_and_apps_calc_cmac(void)
 {
 	u8 __iomem *reg = NULL;
-	int i;
+	int i, j;
 	u32 val;
 
 	if (cmac_mem == NULL)
 		return -EFAULT;
 
-	/* PBL calculated cmac after HLOS expected cmac */
-	reg = cmac_mem + cmac_size;
+	reg = cmac_mem; /* IAR buffer base */
+	reg += CMAC_SIZE_IN_BYTES; /* skip the saved cmac */
 	pr_debug("reg [%pK]\n", reg);
 
-	for (i = 0; i < cmac_size/4; i++) {
-		val = readl_relaxed(reg + i*sizeof(u32));
-		cmac[i] = val;
-		pr_debug("cmac[%d] [0x%x]\n", (int) i, (int) val);
+	/* get pbl fw cmac from ddr */
+	for (i = 0; i < CMAC_SIZE_IN_DWORDS; i++) {
+		val = readl_relaxed(reg);
+		pbl_cmac_buf[i] = val;
+		reg += sizeof(u32);
+	}
+	reg += CMAC_SIZE_IN_BYTES; /* skip the saved cmac */
+
+	pr_info("pbl_cmac_buf : 0x%08x,0x%08x,0x%08x,0x%08x\n",
+	    pbl_cmac_buf[0], pbl_cmac_buf[1],
+	    pbl_cmac_buf[2], pbl_cmac_buf[3]);
+
+	/* get apps cmac from ddr */
+	for (j = 0; j < NUM_UEFI_APPS; j++) {
+		for (i = 0; i < CMAC_SIZE_IN_DWORDS; i++) {
+			val = readl_relaxed(reg);
+			apps_cmac_buf[j][i] = val;
+			reg += sizeof(u32);
+		}
+		reg += CMAC_SIZE_IN_BYTES; /* skip the saved cmac */
+
+		pr_info("app [%d] cmac : 0x%08x,0x%08x,0x%08x,0x%08x\n", j,
+			apps_cmac_buf[j][0], apps_cmac_buf[j][1],
+			apps_cmac_buf[j][2], apps_cmac_buf[j][3]);
 	}
 
 	return 0;
@@ -820,11 +836,7 @@ static int spss_utils_iar_callback(struct notifier_block *nb,
 		break;
 	case SUBSYS_AFTER_POWERUP:
 		pr_debug("[SUBSYS_AFTER_POWERUP] event.\n");
-		spss_get_pbl_calc_cmac(pbl_cmac_buf, sizeof(pbl_cmac_buf));
-		if (memcmp(cmac_buf, pbl_cmac_buf, sizeof(cmac_buf)) != 0)
-			is_pbl_ce = true; /* cmacs not the same */
-		else
-			is_pbl_ce = false;
+		spss_get_pbl_and_apps_calc_cmac();
 		break;
 	case SUBSYS_BEFORE_AUTH_AND_RESET:
 		pr_debug("[SUBSYS_BEFORE_AUTH_AND_RESET] event.\n");
