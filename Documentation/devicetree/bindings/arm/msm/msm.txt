@@ -152,6 +152,9 @@ SoCs:
 - QM215
   compatible = "qcom, qm215"
 
+- QCM2150
+  compatible = "qcom, qcm2150"
+
 - MDM9640
   compatible = "qcom,mdm9640"
 
@@ -378,6 +381,7 @@ compatible = "qcom,sdm439-qrd"
 compatible = "qcom,sda439-cdp"
 compatible = "qcom,sda439-mtp"
 compatible = "qcom,qm215-qrd"
+compatible = "qcom,qcm2150-qrd"
 compatible = "qcom,msm8953-rumi"
 compatible = "qcom,msm8953-sim"
 compatible = "qcom,msm8953-cdp"

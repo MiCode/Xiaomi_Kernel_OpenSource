@@ -240,6 +240,8 @@ struct smq_invoke_ctx {
 	unsigned int *attrs;
 	uint32_t *crc;
 	uint64_t ctxid;
+	void *handle;
+	const void *ptr;
 };
 
 struct fastrpc_ctx_lst {
@@ -742,15 +744,14 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 	}
 	if (map->flags == ADSP_MMAP_HEAP_ADDR ||
 				map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
-		unsigned long dma_attrs = 0;
 
 		if (me->dev == NULL) {
 			pr_err("failed to free remote heap allocation\n");
 			return;
 		}
 		if (map->phys) {
-			dma_attrs |=
-			DMA_ATTR_SKIP_ZEROING | DMA_ATTR_NO_KERNEL_MAPPING;
+			unsigned long dma_attrs = DMA_ATTR_SKIP_ZEROING |
+						DMA_ATTR_NO_KERNEL_MAPPING;
 			dma_free_attrs(me->dev, map->size, (void *)map->va,
 					(dma_addr_t)map->phys, dma_attrs);
 		}
@@ -2044,7 +2045,8 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		if (err)
 			goto bail;
 	}
-
+	if (ctx->handle)
+		glink_rx_done(ctx->handle, ctx->ptr, true);
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
 	if (!fl->sctx->smmu.coherent)
 		inv_args(ctx);
@@ -2448,29 +2450,34 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl, uint64_t phys,
 {
 	int err = 0;
 	struct fastrpc_apps *me = &gfa;
+	int tgid = 0;
 	int destVM[1] = {VMID_HLOS};
 	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
 	if (flags == ADSP_MMAP_HEAP_ADDR) {
 		struct fastrpc_ioctl_invoke_crc ioctl;
 		struct scm_desc desc = {0};
-		remote_arg_t ra[1];
-		int err = 0;
+		remote_arg_t ra[2];
+
 		struct {
 			uint8_t skey;
 		} routargs;
 
-		ra[0].buf.pv = (void *)&routargs;
-		ra[0].buf.len = sizeof(routargs);
+		if (fl == NULL)
+			goto bail;
+		tgid = fl->tgid;
+		ra[0].buf.pv = (void *)&tgid;
+		ra[0].buf.len = sizeof(tgid);
+		ra[1].buf.pv = (void *)&routargs;
+		ra[1].buf.len = sizeof(routargs);
 
 		ioctl.inv.handle = FASTRPC_STATIC_HANDLE_KERNEL;
-		ioctl.inv.sc = REMOTE_SCALARS_MAKE(7, 0, 1);
+		ioctl.inv.sc = REMOTE_SCALARS_MAKE(9, 1, 1);
 		ioctl.inv.pra = ra;
 		ioctl.fds = NULL;
 		ioctl.attrs = NULL;
 		ioctl.crc = NULL;
-		if (fl == NULL)
-			goto bail;
+
 
 		VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 				FASTRPC_MODE_PARALLEL, 1, &ioctl)));
@@ -2883,11 +2890,13 @@ static void fastrpc_glink_notify_rx(void *handle, const void *priv,
 	if (err)
 		goto bail;
 
+	me->ctxtable[index]->handle = handle;
+	me->ctxtable[index]->ptr = ptr;
+
 	context_notify_user(me->ctxtable[index], rsp->retval);
 bail:
 	if (err)
 		pr_err("adsprpc: invalid response or context\n");
-	glink_rx_done(handle, ptr, true);
 }
 
 static void fastrpc_glink_notify_state(void *handle, const void *priv,

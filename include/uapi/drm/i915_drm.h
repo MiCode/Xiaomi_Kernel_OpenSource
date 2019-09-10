@@ -756,7 +756,7 @@ struct drm_i915_gem_execbuffer2 {
 	__u32 num_cliprects;
 	/** This is a struct drm_clip_rect *cliprects */
 	__u64 cliprects_ptr;
-#define I915_EXEC_RING_MASK              (7<<0)
+#define I915_EXEC_RING_MASK              (0x3f)
 #define I915_EXEC_DEFAULT                (0<<0)
 #define I915_EXEC_RENDER                 (1<<0)
 #define I915_EXEC_BSD                    (2<<0)

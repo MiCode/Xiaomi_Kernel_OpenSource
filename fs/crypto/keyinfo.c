@@ -606,8 +606,6 @@ int fscrypt_get_encryption_info(struct inode *inode)
 	if (res)
 		goto out;
 
-	memzero_explicit(crypt_info->ci_raw_key,
-		sizeof(crypt_info->ci_raw_key));
 do_ice:
 	if (cmpxchg(&inode->i_crypt_info, NULL, crypt_info) == NULL)
 		crypt_info = NULL;
@@ -615,6 +613,7 @@ out:
 	if (res == -ENOKEY)
 		res = 0;
 	put_crypt_info(crypt_info);
+	kzfree(raw_key);
 	return res;
 }
 EXPORT_SYMBOL(fscrypt_get_encryption_info);

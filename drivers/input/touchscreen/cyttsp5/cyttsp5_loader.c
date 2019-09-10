@@ -751,7 +751,7 @@ static int upgrade_firmware_from_class(struct device *dev)
 	parade_debug(dev, DEBUG_LEVEL_2,
 		"%s: Enabling firmware class loader\n", __func__);
 
-	retval = request_firmware_nowait(THIS_MODULE, FW_ACTION_NOHOTPLUG,
+	retval = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG,
 			CY_FW_MANUAL_UPGRADE_FILE_NAME, dev, GFP_KERNEL, dev,
 			_cyttsp5_firmware_cont);
 	if (retval < 0) {

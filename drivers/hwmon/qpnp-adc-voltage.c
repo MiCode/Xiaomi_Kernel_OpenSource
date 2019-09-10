@@ -749,7 +749,7 @@ int32_t qpnp_vadc_hc_read(struct qpnp_vadc_chip *vadc,
 				QPNP_VADC_CAL_DELAY_CTL_1, &val, 1);
 		if (rc < 0) {
 			pr_err("qpnp adc write cal_delay failed with %d\n", rc);
-			return rc;
+			goto fail_unlock;
 		}
 	}
 

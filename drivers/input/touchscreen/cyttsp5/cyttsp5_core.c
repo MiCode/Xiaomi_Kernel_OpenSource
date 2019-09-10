@@ -3765,6 +3765,7 @@ static int cyttsp5_core_sleep_(struct cyttsp5_core_data *cd)
 	/* Ensure watchdog and startup works stopped */
 	cyttsp5_stop_wd_timer(cd);
 	cancel_work_sync(&cd->startup_work);
+	cancel_work_sync(&cd->resume_work);
 	cyttsp5_stop_wd_timer(cd);
 
 	if (cd->cpdata->flags & CY_CORE_FLAG_POWEROFF_ON_SLEEP)
@@ -5965,6 +5966,19 @@ void *cyttsp5_get_module_data(struct device *dev, struct cyttsp5_module *module)
 }
 EXPORT_SYMBOL(cyttsp5_get_module_data);
 
+static void cyttsp5_resume_work(struct work_struct *work)
+{
+	struct cyttsp5_core_data *cd =  container_of(work,
+		struct cyttsp5_core_data, resume_work);
+
+	#ifdef USE_FB_SUSPEND_RESUME
+	cyttsp5_core_resume(cd->dev);
+	cd->wake_initiated_by_device = 0;
+	#endif
+	call_atten_cb(cd, CY_ATTEN_RESUME, 0);
+	cd->fb_state = FB_ON;
+}
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void cyttsp5_early_suspend(struct early_suspend *h)
 {
@@ -6008,12 +6022,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 	case FB_BLANK_UNBLANK:
 		dev_dbg(cd->dev, "%s: UNBLANK!\n", __func__);
 		if (cd->fb_state != FB_ON) {
-			#ifdef USE_FB_SUSPEND_RESUME
-			cyttsp5_core_resume(cd->dev);
-			cd->wake_initiated_by_device = 0;
-			#endif
-			call_atten_cb(cd, CY_ATTEN_RESUME, 0);
-			cd->fb_state = FB_ON;
+			schedule_work(&cd->resume_work);
 		}
 		break;
 
@@ -6305,6 +6314,7 @@ int cyttsp5_probe(const struct cyttsp5_bus_ops *ops, struct device *dev,
 
 	/* Initialize works */
 	INIT_WORK(&cd->startup_work, cyttsp5_startup_work_function);
+	INIT_WORK(&cd->resume_work, cyttsp5_resume_work);
 	INIT_WORK(&cd->watchdog_work, cyttsp5_watchdog_work);
 
 	/* Initialize HID specific data */
@@ -6448,6 +6458,7 @@ error_startup:
 	pm_runtime_disable(dev);
 	device_init_wakeup(dev, 0);
 	cancel_work_sync(&cd->startup_work);
+	cancel_work_sync(&cd->resume_work);
 	cyttsp5_stop_wd_timer(cd);
 	remove_sysfs_interfaces(dev);
 error_attr_create:
@@ -6498,6 +6509,7 @@ int cyttsp5_release(struct cyttsp5_core_data *cd)
 	pm_runtime_disable(dev);
 
 	cancel_work_sync(&cd->startup_work);
+	cancel_work_sync(&cd->resume_work);
 
 	cyttsp5_stop_wd_timer(cd);
 

@@ -98,10 +98,8 @@
 };
 
 &pcie0 {
-	pinctrl-names = "default", "slot_power_on";
-	pinctrl-1 = <&pcie0_3v3_on &pcie0_1v5_on>;
-	3v3_gpio = <&tlmm 90 0>;
-	1v5_gpio = <&tlmm 90 0>;
+	vreg-pcie-supply = <&pcie_vcc_eldo>;
+	qcom,vreg-pcie-voltage-level = <3300000 3300000 24000>;
 	status = "ok";
 };
 
@@ -250,6 +248,16 @@
 		gpio = <&tlmm 89 0>;
 		enable-active-high;
 	};
+
+	pcie_vcc_eldo: pcie-gpio-regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "pcie_vcc_eldo";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&tlmm 90 0>;
+		enable-active-high;
+	};
+
 };
 
 &qupv3_se10_i2c {

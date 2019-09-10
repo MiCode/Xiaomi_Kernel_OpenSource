@@ -893,7 +893,7 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 	if (!same_freq_domain(new_cpu, task_cpu(p))) {
 		src_rq->notif_pending = true;
 		dest_rq->notif_pending = true;
-		irq_work_queue(&walt_migration_irq_work);
+		sched_irq_work_queue(&walt_migration_irq_work);
 	}
 
 	if (p == src_rq->ed_task) {
@@ -1956,7 +1956,7 @@ static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
 	result = atomic64_cmpxchg(&walt_irq_work_lastq_ws, old_window_start,
 				   rq->window_start);
 	if (result == old_window_start)
-		irq_work_queue(&walt_cpufreq_irq_work);
+		sched_irq_work_queue(&walt_cpufreq_irq_work);
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */

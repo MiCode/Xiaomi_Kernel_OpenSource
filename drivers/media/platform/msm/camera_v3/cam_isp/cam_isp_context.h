@@ -35,6 +35,11 @@
 #define CAM_ISP_CTX_CFG_MAX                     22
 
 /*
+ * Defalut fps value set to 30
+ */
+#define CAM_ISP_CTX_DEFAULT_FPS                 30
+
+/*
  * Maximum entries in state monitoring array for error logging
  */
 #define CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES   20
@@ -165,7 +170,9 @@ struct cam_isp_context_req_id_info {
  * @req_isp:                   ISP private request object storage
  * @hw_ctx:                    HW object returned by the acquire device command
  * @sof_timestamp_val:         Captured time stamp value at sof hw event
+ * @prev_sof_timestamp_val     Holds last notified sof time stamp
  * @boot_timestamp:            Boot time stamp for a given req_id
+ * @prev_boot_timestamp        Holds last notified boot time stamp
  * @active_req_cnt:            Counter for the active request
  * @subscribe_event:           The irq event mask that CRM subscribes to, IFE
  *                             will invoke CRM cb at those event.
@@ -178,6 +185,9 @@ struct cam_isp_context_req_id_info {
  * @hw_acquired:               Indicate whether HW resources are acquired
  * @init_received:             Indicate whether init config packet is received
  * @split_acquire:             Indicate whether a separate acquire is expected
+ * @irq_delay_detect:          Indicate whether a irq delay has detected or not
+ * @irq_timestamps:            Timestamp from last handled IRQ
+ * @fps:                       Current FPS for the activated state.
  *
  */
 struct cam_isp_context {
@@ -194,7 +204,9 @@ struct cam_isp_context {
 
 	void                            *hw_ctx;
 	uint64_t                         sof_timestamp_val;
+	uint64_t                         prev_sof_timestamp_val;
 	uint64_t                         boot_timestamp;
+	uint64_t                         prev_boot_timestamp;
 	int32_t                          active_req_cnt;
 	uint32_t                         subscribe_event;
 	atomic64_t                       state_monitor_head;
@@ -205,6 +217,9 @@ struct cam_isp_context {
 	bool                             hw_acquired;
 	bool                             init_received;
 	bool                             split_acquire;
+	bool                             irq_delay_detect;
+	uint64_t                         irq_timestamps;
+	uint32_t                         fps;
 };
 
 /**

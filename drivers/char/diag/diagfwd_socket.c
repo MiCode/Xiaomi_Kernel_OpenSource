@@ -496,7 +496,7 @@ static void __socket_close_channel(struct diag_socket_info *info)
 	if (!atomic_read(&info->opened))
 		return;
 
-	if ((bootup_req[info->peripheral] == PEPIPHERAL_SSR_UP) &&
+	if ((bootup_req[info->peripheral] == PERIPHERAL_SSR_UP) &&
 		(info->port_type == PORT_TYPE_SERVER)) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"diag: %s is up, stopping cleanup: bootup_req = %d\n",
@@ -504,9 +504,10 @@ static void __socket_close_channel(struct diag_socket_info *info)
 		return;
 	}
 
-	memset(&info->remote_addr, 0, sizeof(struct sockaddr_msm_ipc));
-	diagfwd_channel_close(info->fwd_ctxt);
-
+	if (info->type != TYPE_CNTL) {
+		memset(&info->remote_addr, 0, sizeof(struct sockaddr_msm_ipc));
+		diagfwd_channel_close(info->fwd_ctxt);
+	}
 	atomic_set(&info->opened, 0);
 
 	/* Don't close the server. Server should always remain open */
@@ -955,6 +956,7 @@ static int restart_notifier_cb(struct notifier_block *this, unsigned long code,
 	void *_cmd)
 {
 	struct restart_notifier_block *notifier;
+	struct diag_socket_info *info = NULL;
 
 	notifier = container_of(this,
 			struct restart_notifier_block, nb);
@@ -964,22 +966,31 @@ static int restart_notifier_cb(struct notifier_block *this, unsigned long code,
 		return NOTIFY_DONE;
 	}
 
-	mutex_lock(&driver->diag_notifier_mutex);
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 	"%s: ssr for processor %d ('%s')\n",
 	__func__, notifier->processor, notifier->name);
 
+	info = &socket_cntl[notifier->processor];
 	switch (code) {
 
 	case SUBSYS_BEFORE_SHUTDOWN:
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"diag: %s: SUBSYS_BEFORE_SHUTDOWN\n", __func__);
-		bootup_req[notifier->processor] = PEPIPHERAL_SSR_DOWN;
+		mutex_lock(&driver->diag_notifier_mutex);
+		bootup_req[notifier->processor] = PERIPHERAL_SSR_DOWN;
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"diag: bootup_req[%s] = %d\n",
+		notifier->name, (int)bootup_req[notifier->processor]);
+		mutex_unlock(&driver->diag_notifier_mutex);
 		break;
 
 	case SUBSYS_AFTER_SHUTDOWN:
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"diag: %s: SUBSYS_AFTER_SHUTDOWN\n", __func__);
+		mutex_lock(&driver->diag_notifier_mutex);
+		memset(&info->remote_addr, 0, sizeof(struct sockaddr_msm_ipc));
+		diagfwd_channel_close(info->fwd_ctxt);
+		mutex_unlock(&driver->diag_notifier_mutex);
 		break;
 
 	case SUBSYS_BEFORE_POWERUP:
@@ -990,11 +1001,20 @@ static int restart_notifier_cb(struct notifier_block *this, unsigned long code,
 	case SUBSYS_AFTER_POWERUP:
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"diag: %s: SUBSYS_AFTER_POWERUP\n", __func__);
+		mutex_lock(&driver->diag_notifier_mutex);
 		if (!bootup_req[notifier->processor]) {
-			bootup_req[notifier->processor] = PEPIPHERAL_SSR_DOWN;
+			bootup_req[notifier->processor] = PERIPHERAL_SSR_DOWN;
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"diag: bootup_req[%s] = %d\n",
+			notifier->name, (int)bootup_req[notifier->processor]);
+			mutex_unlock(&driver->diag_notifier_mutex);
 			break;
 		}
-		bootup_req[notifier->processor] = PEPIPHERAL_SSR_UP;
+		bootup_req[notifier->processor] = PERIPHERAL_SSR_UP;
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"diag: bootup_req[%s] = %d\n",
+		notifier->name, (int)bootup_req[notifier->processor]);
+		mutex_unlock(&driver->diag_notifier_mutex);
 		break;
 
 	default:
@@ -1002,10 +1022,6 @@ static int restart_notifier_cb(struct notifier_block *this, unsigned long code,
 		"diag: code: %lu\n", code);
 		break;
 	}
-	mutex_unlock(&driver->diag_notifier_mutex);
-	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
-	"diag: bootup_req[%s] = %d\n",
-	notifier->name, (int)bootup_req[notifier->processor]);
 
 	return NOTIFY_DONE;
 }
@@ -1165,8 +1181,12 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len,
 		if (read_len <= 0)
 			goto fail;
 
-		if (!atomic_read(&info->opened) &&
-		    info->port_type == PORT_TYPE_SERVER) {
+		if (info->type == TYPE_CNTL) {
+			memcpy(&info->remote_addr, &src_addr, sizeof(src_addr));
+			if (!atomic_read(&info->opened))
+				__socket_open_channel(info);
+		} else if (!atomic_read(&info->opened) &&
+			info->port_type == PORT_TYPE_SERVER) {
 			/*
 			 * This is the first packet from the client. Copy its
 			 * address to the connection object. Consider this
