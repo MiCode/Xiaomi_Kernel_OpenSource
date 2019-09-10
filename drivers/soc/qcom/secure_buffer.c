@@ -16,21 +16,12 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 
+#define CREATE_TRACE_POINTS
+#include "trace_secure_buffer.h"
+
 #define MEM_PROT_ASSIGN_ID		0x16
 #define BATCH_MAX_SIZE SZ_2M
 #define BATCH_MAX_SECTIONS 32
-
-struct dest_vm_and_perm_info {
-	u32 vm;
-	u32 perm;
-	u64 ctx;
-	u32 ctx_size;
-};
-
-struct mem_prot_info {
-	phys_addr_t addr;
-	u64 size;
-};
 
 static struct device *qcom_secure_buffer_dev;
 
@@ -89,9 +80,13 @@ static int batched_hyp_assign(struct sg_table *table, struct scm_desc *desc)
 	unsigned int entries_size;
 	unsigned int batch_start = 0;
 	unsigned int batches_processed;
+	unsigned int i = 0;
+	u64 total_delta;
 	struct scatterlist *curr_sgl = table->sgl;
 	struct scatterlist *next_sgl;
 	int ret = 0;
+	ktime_t batch_assign_start_ts;
+	ktime_t first_assign_ts;
 	struct mem_prot_info *sg_table_copy = kcalloc(BATCH_MAX_SECTIONS,
 						      sizeof(*sg_table_copy),
 						      GFP_KERNEL);
@@ -100,6 +95,7 @@ static int batched_hyp_assign(struct sg_table *table, struct scm_desc *desc)
 	if (!sg_table_copy)
 		return -ENOMEM;
 
+	first_assign_ts = ktime_get();
 	while (batch_start < table->nents) {
 		batches_processed = get_batches_from_sgl(sg_table_copy,
 							 curr_sgl, &next_sgl);
@@ -116,10 +112,15 @@ static int batched_hyp_assign(struct sg_table *table, struct scm_desc *desc)
 		desc->args[0] = entries_dma_addr;
 		desc->args[1] = entries_size;
 
+		trace_hyp_assign_batch_start(sg_table_copy, batches_processed);
+		batch_assign_start_ts = ktime_get();
 		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
 				MEM_PROT_ASSIGN_ID), desc);
-		dma_unmap_single(qcom_secure_buffer_dev, entries_dma_addr,
-				 entries_size, DMA_TO_DEVICE);
+
+		trace_hyp_assign_batch_end(ret, ktime_us_delta(ktime_get(),
+					   batch_assign_start_ts));
+		i++;
+
 		if (ret) {
 			pr_info("%s: Failed to assign memory protection, ret = %d\n",
 				__func__, ret);
@@ -133,7 +134,8 @@ static int batched_hyp_assign(struct sg_table *table, struct scm_desc *desc)
 
 		batch_start += batches_processed;
 	}
-
+	total_delta = ktime_us_delta(ktime_get(), first_assign_ts);
+	trace_hyp_assign_end(total_delta, total_delta / i);
 	kfree(sg_table_copy);
 	return ret;
 }
@@ -159,7 +161,7 @@ int hyp_assign_table(struct sg_table *table,
 		return -EPROBE_DEFER;
 
 	if (!table || !table->sgl || !source_vm_list || !source_nelems ||
-	    !dest_vmids || !dest_perms || !dest_nelems)
+	    !dest_vmids || !dest_perms || !dest_nelems || !table->nents)
 		return -EINVAL;
 
 	/*
@@ -202,6 +204,9 @@ int hyp_assign_table(struct sg_table *table,
 
 	desc.arginfo = SCM_ARGS(7, SCM_RO, SCM_VAL, SCM_RO, SCM_VAL, SCM_RO,
 				SCM_VAL, SCM_VAL);
+
+	trace_hyp_assign_info(source_vm_list, source_nelems, dest_vmids,
+			      dest_perms, dest_nelems);
 
 	ret = batched_hyp_assign(table, &desc);
 
