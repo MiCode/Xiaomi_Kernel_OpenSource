@@ -36,6 +36,7 @@ struct dp_debug_private {
 	u32 dpcd_size;
 
 	u32 mst_con_id;
+	bool hotplug;
 
 	char exe_mode[SZ_32];
 	char reg_dump[SZ_32];
@@ -351,8 +352,16 @@ static ssize_t dp_debug_write_hpd(struct file *file,
 		goto end;
 
 	hpd &= hpd_data_mask;
+	debug->hotplug = !!(hpd & BIT(0));
 
 	debug->dp_debug.psm_enabled = !!(hpd & BIT(1));
+
+	/*
+	 * print hotplug value as this code is executed
+	 * only while running in debug mode which is manually
+	 * triggered by a tester or a script.
+	 */
+	pr_info("%s\n", debug->hotplug ? "[CONNECT]" : "[DISCONNECT]");
 
 	debug->hpd->simulate_connect(debug->hpd, !!(hpd & BIT(0)));
 end:
@@ -1479,6 +1488,13 @@ static void dp_debug_set_sim_mode(struct dp_debug_private *debug, bool sim)
 		debug->aux->set_sim_mode(debug->aux, true,
 			debug->edid, debug->dpcd);
 	} else {
+
+		if (debug->hotplug) {
+			pr_warn("sim mode off before hotplug disconnect\n");
+			debug->hpd->simulate_connect(debug->hpd, false);
+			debug->hotplug = false;
+		}
+
 		debug->aux->abort(debug->aux, false);
 		debug->ctrl->abort(debug->ctrl, false);
 
