@@ -18,6 +18,14 @@
 struct mmqos_hrt {
 	u32 hrt_bw[HRT_TYPE_NUM];
 	u32 hrt_total_bw;
+	u32 cam_max_bw;
+	u32 cam_occu_bw;
+	bool blocking;
+	struct delayed_work work;
+	struct blocking_notifier_head hrt_bw_throttle_notifier;
+	atomic_t lock_count;
+	wait_queue_head_t hrt_wait;
+	struct mutex blocking_lock;
 };
 
 struct mmqos_base_node {
@@ -92,6 +100,9 @@ struct mtk_mmqos_desc {
 
 int mtk_mmqos_probe(struct platform_device *pdev);
 int mtk_mmqos_remove(struct platform_device *pdev);
-void set_mmqos_hrt(struct mmqos_hrt *hrt);
 
+/* For HRT */
+void mtk_mmqos_init_hrt(struct mmqos_hrt *hrt);
+int mtk_mmqos_register_hrt_sysfs(struct device *dev);
+void mtk_mmqos_unregister_hrt_sysfs(struct device *dev);
 #endif /* MMQOS_MTK_H */

@@ -265,7 +265,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	if (!hrt)
 		return -ENOMEM;
 	memcpy(hrt, &mmqos_desc->hrt, sizeof(mmqos_desc->hrt));
-	set_mmqos_hrt(hrt);
+	mtk_mmqos_init_hrt(hrt);
 
 	data = devm_kzalloc(&pdev->dev,
 		sizeof(*data) + mmqos_desc->num_nodes * sizeof(node),
@@ -398,6 +398,10 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	mmqos->nb.notifier_call = update_mm_clk;
 	register_mmdvfs_notifier(&mmqos->nb);
 
+	ret = mtk_mmqos_register_hrt_sysfs(&pdev->dev);
+	if (ret)
+		dev_notice(&pdev->dev, "sysfs create fail\n");
+
 	platform_set_drvdata(pdev, mmqos);
 
 	return 0;
@@ -424,6 +428,7 @@ int mtk_mmqos_remove(struct platform_device *pdev)
 	icc_provider_del(&mmqos->prov);
 	unregister_mmdvfs_notifier(&mmqos->nb);
 	destroy_workqueue(mmqos->wq);
+	mtk_mmqos_unregister_hrt_sysfs(&pdev->dev);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_remove);
