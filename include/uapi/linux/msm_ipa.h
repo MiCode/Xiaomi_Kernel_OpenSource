@@ -126,6 +126,7 @@
 #define IPA_IOCTL_FNR_COUNTER_ALLOC             74
 #define IPA_IOCTL_FNR_COUNTER_DEALLOC           75
 #define IPA_IOCTL_FNR_COUNTER_QUERY             76
+#define IPA_IOCTL_SET_FNR_COUNTER_INFO          77
 
 /**
  * max size of the header to be inserted
@@ -2523,6 +2524,24 @@ struct ipa_odl_modem_config {
 	__u8 config_status;
 };
 
+struct ipa_ioc_fnr_index_info {
+	uint8_t hw_counter_offset;
+	uint8_t sw_counter_offset;
+};
+
+enum ipacm_hw_index_counter_type {
+	UL_HW = 0,
+	DL_HW,
+	DL_ALL,
+	UL_ALL,
+};
+
+enum ipacm_hw_index_counter_virtual_type {
+	UL_HW_CACHE = 0,
+	DL_HW_CACHE,
+	UL_WLAN_TX,
+	DL_WLAN_TX
+};
 
 /**
  *   actual IOCTLs supported by IPA driver
@@ -2772,6 +2791,10 @@ struct ipa_odl_modem_config {
 #define IPA_IOC_FNR_COUNTER_QUERY _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_FNR_COUNTER_QUERY, \
 				struct ipa_ioc_flt_rt_query)
+
+#define IPA_IOC_SET_FNR_COUNTER_INFO _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_SET_FNR_COUNTER_INFO, \
+				struct ipa_ioc_fnr_index_info)
 
 /*
  * unique magic number of the Tethering bridge ioctls

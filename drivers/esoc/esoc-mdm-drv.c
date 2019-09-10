@@ -183,6 +183,8 @@ static void mdm_handle_clink_evt(enum esoc_evt evt,
 			"Modem in crash state or not booted. Ignoring.\n");
 			return;
 		}
+		esoc_mdm_log("Setting crash flag\n");
+		mdm_drv->mode = CRASH;
 		queue_work(mdm_drv->mdm_queue, &mdm_drv->ssr_work);
 		break;
 	case ESOC_REQ_ENG_ON:
@@ -209,8 +211,7 @@ static void mdm_ssr_fn(struct work_struct *work)
 
 	esoc_client_link_mdm_crash(mdm_drv->esoc_clink);
 	mdm_wait_for_status_low(mdm, false);
-	esoc_mdm_log("Starting SSR work and setting crash state\n");
-	mdm_drv->mode = CRASH;
+	esoc_mdm_log("Starting SSR work\n");
 
 	/*
 	 * If restarting esoc fails, the SSR framework triggers a kernel panic
@@ -293,12 +294,14 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 	 container_of(crashed_subsys, struct esoc_clink, subsys);
 	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
 	const struct esoc_clink_ops * const clink_ops = esoc_clink->clink_ops;
+	struct mdm_ctrl *mdm = get_esoc_clink_data(mdm_drv->esoc_clink);
 
 	esoc_mdm_log("Shutdown request from SSR\n");
 
 	mutex_lock(&mdm_drv->poff_lock);
 	if (mdm_drv->mode == CRASH || mdm_drv->mode == PEER_CRASH) {
 		esoc_mdm_log("Shutdown in crash mode\n");
+		mdm_wait_for_status_low(mdm, false);
 		if (mdm_dbg_stall_cmd(ESOC_PREPARE_DEBUG)) {
 			/* We want to mask debug command.
 			 * In this case return success

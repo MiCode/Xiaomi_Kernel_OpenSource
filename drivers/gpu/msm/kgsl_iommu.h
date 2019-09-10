@@ -112,7 +112,6 @@ struct kgsl_iommu_context {
  * @clk_enable_count: The ref count of clock enable calls
  * @clks: Array of pointers to IOMMU clocks
  * @smmu_info: smmu info used in a5xx preemption
- * @protect: register protection settings for the iommu.
  */
 struct kgsl_iommu {
 	struct kgsl_iommu_context ctx[KGSL_IOMMU_CONTEXT_MAX];
@@ -123,7 +122,6 @@ struct kgsl_iommu {
 	atomic_t clk_enable_count;
 	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
 	struct kgsl_memdesc smmu_info;
-	struct kgsl_protected_registers protect;
 };
 
 /*

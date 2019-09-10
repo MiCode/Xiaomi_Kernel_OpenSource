@@ -480,10 +480,18 @@ static int hfi_process_session_cvp_msg(u32 device_id,
 		if (pkt->packet_type == HFI_MSG_SESSION_CVP_DFS
 			|| pkt->packet_type == HFI_MSG_SESSION_CVP_DME
 			|| pkt->packet_type == HFI_MSG_SESSION_CVP_ICA
-			|| pkt->packet_type == HFI_MSG_SESSION_CVP_FD)
+			|| pkt->packet_type == HFI_MSG_SESSION_CVP_FD) {
+			u64 ktid;
+			u32 kdata1, kdata2;
+
+			kdata1 = pkt->client_data.kdata1;
+			kdata2 = pkt->client_data.kdata2;
+			ktid = ((u64)kdata2 << 32) | kdata1;
+			msm_cvp_unmap_buf_cpu(inst, ktid);
+
 			return _deprecated_hfi_msg_process(device_id,
 				pkt, info, inst);
-
+		}
 		dprintk(CVP_ERR, "Invalid deprecate_bitmask %#x\n",
 					inst->deprecate_bitmask);
 	}

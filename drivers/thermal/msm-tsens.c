@@ -25,6 +25,13 @@ static int tsens_get_temp(void *data, int *temp)
 	return tmdev->ops->get_temp(s, temp);
 }
 
+static int tsens_get_min_temp(void *data, int *temp)
+{
+	struct tsens_sensor *s = data;
+
+	return tsens_2xxx_get_min_temp(s, temp);
+}
+
 static int tsens_set_trip_temp(void *data, int low_temp, int high_temp)
 {
 	struct tsens_sensor *s = data;
@@ -82,6 +89,9 @@ static const struct of_device_id tsens_table[] = {
 	{	.compatible = "qcom,tsens24xx",
 		.data = &data_tsens24xx,
 	},
+	{	.compatible = "qcom,tsens26xx",
+		.data = &data_tsens26xx,
+	},
 	{	.compatible = "qcom,msm8937-tsens",
 		.data = &data_tsens14xx,
 	},
@@ -97,6 +107,10 @@ static struct thermal_zone_of_device_ops tsens_tm_thermal_zone_ops = {
 	.set_trips = tsens_set_trip_temp,
 };
 
+static struct thermal_zone_of_device_ops tsens_tm_min_thermal_zone_ops = {
+	.get_temp = tsens_get_min_temp,
+};
+
 static int get_device_tree_data(struct platform_device *pdev,
 				struct tsens_device *tmdev)
 {
@@ -105,6 +119,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 	const struct tsens_data *data;
 	int rc = 0;
 	struct resource *res_tsens_mem;
+	u32 min_temp_id;
 
 	if (!of_match_node(tsens_table, of_node)) {
 		pr_err("Need to read SoC specific fuse map\n");
@@ -179,6 +194,11 @@ static int get_device_tree_data(struct platform_device *pdev,
 		}
 	}
 
+	if (!of_property_read_u32(of_node, "0C-sensor-num", &min_temp_id))
+		tmdev->min_temp_sensor_id = (int)min_temp_id;
+	else
+		tmdev->min_temp_sensor_id = MIN_TEMP_DEF_OFFSET;
+
 	return rc;
 }
 
@@ -207,6 +227,17 @@ static int tsens_thermal_zone_register(struct tsens_device *tmdev)
 	if (sensor_missing == TSENS_MAX_SENSORS) {
 		pr_err("No TSENS sensors to register?\n");
 		return -ENODEV;
+	}
+
+	if (tmdev->min_temp_sensor_id != MIN_TEMP_DEF_OFFSET) {
+		tmdev->min_temp.tmdev = tmdev;
+		tmdev->min_temp.hw_id = tmdev->min_temp_sensor_id;
+		tmdev->min_temp.tzd =
+			devm_thermal_zone_of_sensor_register(
+			&tmdev->pdev->dev, tmdev->min_temp_sensor_id,
+			&tmdev->min_temp, &tsens_tm_min_thermal_zone_ops);
+		if (IS_ERR(tmdev->min_temp.tzd))
+			pr_err("Error registering min temp sensor\n");
 	}
 
 	/* Register virtual thermal sensors. */

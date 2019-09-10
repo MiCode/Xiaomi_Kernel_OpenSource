@@ -11,6 +11,26 @@
 #include "a6xx_reg.h"
 
 /**
+ * struct a6xx_protected_regs - container for a protect register span
+ */
+struct a6xx_protected_regs {
+	/** @reg: Physical protected mode register to write to */
+	u32 reg;
+	/** @start: Dword offset of the starting register in the range */
+	u32 start;
+	/**
+	 * @end: Dword offset of the ending register in the range
+	 * (inclusive)
+	 */
+	u32 end;
+	/**
+	 * @noaccess: 1 if the register should not be accessible from
+	 * userspace, 0 if it can be read (but not written)
+	 */
+	u32 noaccess;
+};
+
+/**
  * struct adreno_a6xx_core - a6xx specific GPU core definitions
  */
 struct adreno_a6xx_core {
@@ -42,6 +62,12 @@ struct adreno_a6xx_core {
 	bool veto_fal10;
 	/** @pdc_in_aop: True if PDC programmed in AOP */
 	bool pdc_in_aop;
+	/** @hang_detect_cycles: Hang detect counter timeout value */
+	u32 hang_detect_cycles;
+	/** @protected_regs: Array of protected registers for the target */
+	const struct a6xx_protected_regs *protected_regs;
+	/** @disable_tseskip: True if TSESkip logic is disabled */
+	bool disable_tseskip;
 };
 
 #define CP_CLUSTER_FE		0x0

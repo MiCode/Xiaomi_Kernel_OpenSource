@@ -104,12 +104,8 @@ static size_t a3xx_snapshot_shader_memory(struct kgsl_device *device,
 	u8 *buf, size_t remain, void *priv)
 {
 	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
-	unsigned int i;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	void *data = buf + sizeof(*header);
 	unsigned int shader_read_len = SHADER_MEMORY_SIZE;
-
-	if (shader_read_len > (device->shader_mem_len >> 2))
-		shader_read_len = (device->shader_mem_len >> 2);
 
 	if (remain < DEBUG_SECTION_SZ(shader_read_len)) {
 		SNAPSHOT_ERR_NOMEM(device, "SHADER MEMORY");
@@ -120,21 +116,23 @@ static size_t a3xx_snapshot_shader_memory(struct kgsl_device *device,
 	header->size = shader_read_len;
 
 	/* Map shader memory to kernel, for dumping */
-	if (device->shader_mem_virt == NULL)
-		device->shader_mem_virt = devm_ioremap(device->dev,
-					device->shader_mem_phys,
-					device->shader_mem_len);
+	if (IS_ERR_OR_NULL(device->shader_mem_virt)) {
+		struct resource *res;
 
-	if (device->shader_mem_virt == NULL) {
-		dev_err(device->dev,
-			     "Unable to map shader memory region\n");
+		res = platform_get_resource_byname(device->pdev,
+			IORESOURCE_MEM, "kgsl_3d0_shader_memory");
+
+		if (res)
+			device->shader_mem_virt =
+				devm_ioremap_resource(&device->pdev->dev, res);
+	}
+
+	if (IS_ERR_OR_NULL(device->shader_mem_virt)) {
+		dev_err(device->dev, "Unable to map the shader memory\n");
 		return 0;
 	}
 
-	/* Now, dump shader memory to snapshot */
-	for (i = 0; i < shader_read_len; i++)
-		adreno_shadermem_regread(device, i, &data[i]);
-
+	memcpy_fromio(data, device->shader_mem_virt, shader_read_len << 2);
 
 	return DEBUG_SECTION_SZ(shader_read_len);
 }

@@ -3386,8 +3386,18 @@ int __gsi_get_gci_cookie(struct gsi_chan_ctx *ctx, uint16_t idx)
 		}
 	}
 
-	/* TODO: Increase escape buffer size if we hit this */
-	GSIERR("user_data is full\n");
+	/* Go over original userdata when escape buffer is full (costly) */
+	GSIDBG("escape buffer is full\n");
+	for (i = 0; i < end; i++) {
+		if (!ctx->user_data[i].valid) {
+			ctx->user_data[i].valid = true;
+			return i;
+		}
+	}
+
+	/* Everything is full (possibly a stall) */
+	GSIERR("both userdata array and escape buffer is full\n");
+	BUG();
 	return 0xFFFF;
 }
 
@@ -3424,7 +3434,7 @@ int __gsi_populate_gci_tre(struct gsi_chan_ctx *ctx,
 
 	/* write the TRE to ring */
 	*tre_gci_ptr = gci_tre;
-	ctx->user_data[idx].p = xfer->xfer_user_data;
+	ctx->user_data[gci_tre.cookie].p = xfer->xfer_user_data;
 
 	return 0;
 }
@@ -3730,7 +3740,7 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 		curr = GSI_CHAN_MODE_CALLBACK;
 
 	if (unlikely(mode == curr)) {
-		GSIERR("already in requested mode %u chan_hdl=%lu\n",
+		GSIDBG("already in requested mode %u chan_hdl=%lu\n",
 				curr, chan_hdl);
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}
@@ -3741,7 +3751,7 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 		gsi_writel(1 << ctx->evtr->id, gsi_ctx->base +
 			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(gsi_ctx->per.ee));
 		atomic_set(&ctx->poll_mode, mode);
-		if (ctx->props.prot == GSI_CHAN_PROT_GCI)
+		if ((ctx->props.prot == GSI_CHAN_PROT_GCI) && ctx->evtr->chan)
 			atomic_set(&ctx->evtr->chan->poll_mode, mode);
 		GSIDBG("set gsi_ctx evtr_id %d to %d mode\n",
 			ctx->evtr->id, mode);
@@ -3751,7 +3761,7 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 	if (curr == GSI_CHAN_MODE_POLL &&
 			mode == GSI_CHAN_MODE_CALLBACK) {
 		atomic_set(&ctx->poll_mode, mode);
-		if (ctx->props.prot == GSI_CHAN_PROT_GCI)
+		if ((ctx->props.prot == GSI_CHAN_PROT_GCI) && ctx->evtr->chan)
 			atomic_set(&ctx->evtr->chan->poll_mode, mode);
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, ~0);
 		GSIDBG("set gsi_ctx evtr_id %d to %d mode\n",

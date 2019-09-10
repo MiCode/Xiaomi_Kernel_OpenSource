@@ -38,7 +38,7 @@ enum MHI_CB {
 };
 
 /**
- * enum MHI_DEBUG_LEVL - various debugging level
+ * enum MHI_DEBUG_LEVEL - various debugging level
  */
 enum MHI_DEBUG_LEVEL {
 	MHI_MSG_LVL_VERBOSE,
@@ -46,6 +46,7 @@ enum MHI_DEBUG_LEVEL {
 	MHI_MSG_LVL_ERROR,
 	MHI_MSG_LVL_CRITICAL,
 	MHI_MSG_LVL_MASK_ALL,
+	MHI_MSG_LVL_MAX,
 };
 
 /**

@@ -141,6 +141,9 @@ static int six_hundred_forty_kb = 640 * 1024;
 #endif
 static int two_hundred_fifty_five = 255;
 
+#ifdef CONFIG_SCHED_WALT
+const int sched_user_hint_max = 1000;
+#endif
 /* this is needed for the proc_doulongvec_minmax of vm_dirty_bytes */
 static unsigned long dirty_bytes_min = 2 * PAGE_SIZE;
 
@@ -344,6 +347,15 @@ static struct ctl_table kern_table[] = {
 	},
 #endif
 #ifdef CONFIG_SCHED_WALT
+	{
+		.procname	= "sched_user_hint",
+		.data           = &sysctl_sched_user_hint,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= walt_proc_user_hint_handler,
+		.extra1		= &zero,
+		.extra2		= (void *)&sched_user_hint_max,
+	},
 	{
 		.procname       = "sched_cpu_high_irqload",
 		.data           = &sysctl_sched_cpu_high_irqload,

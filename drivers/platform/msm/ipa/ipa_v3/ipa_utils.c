@@ -3898,8 +3898,8 @@ static void ipa_cfg_qtime(void)
 
 	/* Configure timestamp resolution */
 	memset(&ts_cfg, 0, sizeof(ts_cfg));
-	ts_cfg.dpl_timestamp_lsb = 0;
-	ts_cfg.dpl_timestamp_sel = false; /* DPL: use legacy 1ms resolution */
+	ts_cfg.dpl_timestamp_lsb = IPA_TAG_TIMER_TIMESTAMP_SHFT;
+	ts_cfg.dpl_timestamp_sel = true;
 	ts_cfg.tag_timestamp_lsb = IPA_TAG_TIMER_TIMESTAMP_SHFT;
 	ts_cfg.nat_timestamp_lsb = IPA_NAT_TIMER_TIMESTAMP_SHFT;
 	val = ipahal_read_reg(IPA_QTIME_TIMESTAMP_CFG);
@@ -4115,7 +4115,8 @@ u8 ipa3_get_qmb_master_sel(enum ipa_client_type client)
 		[client].qmb_master_sel;
 }
 
-/* ipa3_set_client() - provide client mapping
+/**
+ * ipa3_set_client() - provide client mapping
  * @client: client type
  *
  * Return value: none
@@ -4132,8 +4133,8 @@ void ipa3_set_client(int index, enum ipacm_client_enum client, bool uplink)
 		ipa3_ctx->ipacm_client[index].uplink = uplink;
 	}
 }
-
-/* ipa3_get_wlan_stats() - get ipa wifi stats
+/**
+ * ipa3_get_wlan_stats() - get ipa wifi stats
  *
  * Return value: success or failure
  */
@@ -4149,11 +4150,34 @@ int ipa3_get_wlan_stats(struct ipa_get_wdi_sap_stats *wdi_sap_stats)
 	return 0;
 }
 
+/**
+ * ipa3_set_wlan_quota() - set ipa wifi quota
+ * @wdi_quota: quota requirement
+ *
+ * Return value: success or failure
+ */
 int ipa3_set_wlan_quota(struct ipa_set_wifi_quota *wdi_quota)
 {
 	if (ipa3_ctx->uc_wdi_ctx.stats_notify) {
 		ipa3_ctx->uc_wdi_ctx.stats_notify(IPA_SET_WIFI_QUOTA,
 			wdi_quota);
+	} else {
+		IPAERR("uc_wdi_ctx.stats_notify NULL\n");
+		return -EFAULT;
+	}
+	return 0;
+}
+
+/**
+ * ipa3_inform_wlan_bw() - inform wlan bw-index
+ *
+ * Return value: success or failure
+ */
+int ipa3_inform_wlan_bw(struct ipa_inform_wlan_bw *wdi_bw)
+{
+	if (ipa3_ctx->uc_wdi_ctx.stats_notify) {
+		ipa3_ctx->uc_wdi_ctx.stats_notify(IPA_INFORM_WLAN_BW,
+			wdi_bw);
 	} else {
 		IPAERR("uc_wdi_ctx.stats_notify NULL\n");
 		return -EFAULT;
@@ -6878,6 +6902,8 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_resume_wdi_pipe = ipa3_resume_wdi_pipe;
 	api_ctrl->ipa_suspend_wdi_pipe = ipa3_suspend_wdi_pipe;
 	api_ctrl->ipa_get_wdi_stats = ipa3_get_wdi_stats;
+	api_ctrl->ipa_uc_bw_monitor = ipa3_uc_bw_monitor;
+	api_ctrl->ipa_set_wlan_tx_info = ipa3_set_wlan_tx_info;
 	api_ctrl->ipa_get_smem_restr_bytes = ipa3_get_smem_restr_bytes;
 	api_ctrl->ipa_broadcast_wdi_quota_reach_ind =
 			ipa3_broadcast_wdi_quota_reach_ind;
@@ -7624,7 +7650,7 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 	return res;
 }
 
-static int _ipa_suspend_pipe(enum ipa_client_type client, bool suspend)
+static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 {
 	int ipa_ep_idx;
 	struct ipa3_ep_context *ep;
@@ -7651,7 +7677,8 @@ static int _ipa_suspend_pipe(enum ipa_client_type client, bool suspend)
 	 * This needs to happen before starting the channel to make
 	 * sure we don't loose any interrupt
 	 */
-	if (!suspend && !atomic_read(&ep->sys->curr_polling_state))
+	if (!suspend && !atomic_read(&ep->sys->curr_polling_state) &&
+		!IPA_CLIENT_IS_APPS_PROD(client))
 		gsi_config_channel_mode(ep->gsi_chan_hdl,
 					GSI_CHAN_MODE_CALLBACK);
 
@@ -7669,6 +7696,10 @@ static int _ipa_suspend_pipe(enum ipa_client_type client, bool suspend)
 		}
 	}
 
+	/* Apps prod pipes use common event ring so cannot configure mode*/
+	if (IPA_CLIENT_IS_APPS_PROD(client))
+		return 0;
+
 	if (suspend) {
 		IPADBG("switch ch %ld to poll\n", ep->gsi_chan_hdl);
 		gsi_config_channel_mode(ep->gsi_chan_hdl, GSI_CHAN_MODE_POLL);
@@ -7683,19 +7714,104 @@ static int _ipa_suspend_pipe(enum ipa_client_type client, bool suspend)
 	return 0;
 }
 
+void ipa3_force_close_coal(void)
+{
+	struct ipahal_imm_cmd_pyld *cmd_pyld = NULL;
+	struct ipahal_imm_cmd_register_write reg_write_cmd = { 0 };
+	struct ipahal_reg_valmask valmask;
+	struct ipa3_desc desc;
+	int ep_idx;
+
+	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+	if (ep_idx == IPA_EP_NOT_ALLOCATED || (!ipa3_ctx->ep[ep_idx].valid))
+		return;
+
+	reg_write_cmd.skip_pipeline_clear = false;
+	reg_write_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+	reg_write_cmd.offset = ipahal_get_reg_ofst(IPA_AGGR_FORCE_CLOSE);
+	ipahal_get_aggr_force_close_valmask(ep_idx, &valmask);
+	reg_write_cmd.value = valmask.val;
+	reg_write_cmd.value_mask = valmask.mask;
+	cmd_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
+		&reg_write_cmd, false);
+	if (!cmd_pyld) {
+		IPAERR("fail construct register_write imm cmd\n");
+		ipa_assert();
+		return;
+	}
+	ipa3_init_imm_cmd_desc(&desc, cmd_pyld);
+
+	IPADBG("Sending 1 descriptor for coal force close\n");
+	if (ipa3_send_cmd_timeout(1, &desc,
+		IPA_DMA_TASK_FOR_GSI_TIMEOUT_MSEC)) {
+		IPAERR("ipa3_send_cmd failed\n");
+		ipa_assert();
+	}
+	ipahal_destroy_imm_cmd(cmd_pyld);
+}
+
 int ipa3_suspend_apps_pipes(bool suspend)
 {
 	int res;
+	enum ipa_client_type client;
 
-	res = _ipa_suspend_pipe(IPA_CLIENT_APPS_LAN_CONS, suspend);
-	if (res)
-		return res;
+	if (suspend)
+		ipa3_force_close_coal();
 
-	res = _ipa_suspend_pipe(IPA_CLIENT_APPS_WAN_CONS, suspend);
-	if (res)
-		return res;
+	for (client = 0; client < IPA_CLIENT_MAX; client++) {
+		if (IPA_CLIENT_IS_APPS_CONS(client)) {
+			res = _ipa_suspend_resume_pipe(client, suspend);
+			if (res)
+				goto undo_cons;
+		}
+	}
+
+	if (suspend) {
+		struct ipahal_reg_tx_wrapper tx;
+		int ep_idx;
+
+		ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+		if (ep_idx == IPA_EP_NOT_ALLOCATED ||
+				(!ipa3_ctx->ep[ep_idx].valid))
+			goto do_prod;
+
+		ipahal_read_reg_fields(IPA_STATE_TX_WRAPPER, &tx);
+		if (tx.coal_slave_open_frame != 0) {
+			IPADBG("COAL frame is open 0x%x\n",
+				tx.coal_slave_open_frame);
+			res = -EAGAIN;
+			goto undo_cons;
+		}
+
+		usleep_range(IPA_TAG_SLEEP_MIN_USEC, IPA_TAG_SLEEP_MAX_USEC);
+
+		res = ipahal_read_reg_n(IPA_SUSPEND_IRQ_INFO_EE_n,
+			ipa3_ctx->ee);
+		if (res) {
+			IPADBG("suspend irq is pending 0x%x\n", res);
+			goto undo_cons;
+		}
+	}
+do_prod:
+	for (client = 0; client < IPA_CLIENT_MAX; client++) {
+		if (IPA_CLIENT_IS_APPS_PROD(client)) {
+			res = _ipa_suspend_resume_pipe(client, suspend);
+			if (res)
+				goto undo_prod;
+		}
+	}
 
 	return 0;
+undo_prod:
+	for (client; client <= IPA_CLIENT_MAX && client >= 0; client--)
+		if (IPA_CLIENT_IS_APPS_PROD(client))
+			_ipa_suspend_resume_pipe(client, !suspend);
+	client = IPA_CLIENT_MAX;
+undo_cons:
+	for (client; client <= IPA_CLIENT_MAX && client >= 0; client--)
+		if (IPA_CLIENT_IS_APPS_CONS(client))
+			_ipa_suspend_resume_pipe(client, !suspend);
+	return res;
 }
 
 int ipa3_allocate_dma_task_for_gsi(void)
@@ -8279,6 +8395,30 @@ bool ipa3_is_apq(void)
 		return true;
 	else
 		return false;
+}
+
+/**
+ * ipa_get_fnr_info() - get fnr_info
+ *
+ * Return value: true if set, false if not set
+ *
+ */
+bool ipa_get_fnr_info(struct ipacm_fnr_info *fnr_info)
+{
+	bool res = false;
+
+	if (ipa3_ctx->fnr_info.valid) {
+		fnr_info->valid = ipa3_ctx->fnr_info.valid;
+		fnr_info->hw_counter_offset =
+			ipa3_ctx->fnr_info.hw_counter_offset;
+		fnr_info->sw_counter_offset =
+			ipa3_ctx->fnr_info.sw_counter_offset;
+		res = true;
+	} else {
+		IPAERR("fnr_info not valid!\n");
+		res = false;
+	}
+	return res;
 }
 
 /**

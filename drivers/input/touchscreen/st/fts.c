@@ -4537,7 +4537,36 @@ static int check_dt(struct device_node *np)
 	return -ENODEV;
 }
 
-static int fts_probe(struct i2c_client *client,
+static int check_default_tp(struct device_node *dt, const char *prop)
+{
+	const char *active_tp;
+	const char *compatible;
+	char *start;
+	int ret;
+
+	ret = of_property_read_string(dt->parent, prop, &active_tp);
+	if (ret) {
+		pr_err(" %s:fail to read %s %d\n", __func__, prop, ret);
+		return -ENODEV;
+	}
+
+	ret = of_property_read_string(dt, "compatible", &compatible);
+	if (ret < 0) {
+		pr_err(" %s:fail to read %s %d\n", __func__, "compatible", ret);
+		return -ENODEV;
+	}
+
+	start = strnstr(active_tp, compatible, strlen(active_tp));
+	if (start == NULL) {
+		pr_err(" %s:no match compatible, %s, %s\n",
+			__func__, compatible, active_tp);
+		ret = -ENODEV;
+	}
+
+	return ret;
+}
+
+static int fts_probe_internal(struct i2c_client *client,
 		const struct i2c_device_id *idp)
 {
 	struct fts_ts_info *info = NULL;
@@ -4548,10 +4577,7 @@ static int fts_probe(struct i2c_client *client,
 
 	logError(0, "%s %s: driver probe begin!\n", tag, __func__);
 
-	error = check_dt(dp);
-
-	if (error != OK ||
-		!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		logError(1, "%s Unsupported I2C functionality\n", tag);
 		error = -EIO;
 		goto ProbeErrorExit_0;
@@ -4926,6 +4952,23 @@ ProbeErrorExit_0:
 	logError(1, "%s Probe Failed!\n", tag);
 
 	return error;
+}
+
+static int fts_probe(struct i2c_client *client, const struct i2c_device_id *idp)
+{
+	int error = 0;
+	struct device_node *dp = client->dev.of_node;
+
+	if (check_dt(dp)) {
+		if (!check_default_tp(dp, "qcom,i2c-touch-active"))
+			error = -EPROBE_DEFER;
+		else
+			error = -ENODEV;
+
+		return error;
+	}
+
+	return fts_probe_internal(client, idp);
 }
 
 static int fts_remove(struct i2c_client *client)

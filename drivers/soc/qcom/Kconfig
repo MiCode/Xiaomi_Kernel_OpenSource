@@ -207,6 +207,8 @@ config QCOM_QMI_DFC
 	  status indication and disables flows while grant size is reached.
 	  If unsure or not use burst mode flow control, say 'N'.
 
+source "drivers/soc/qcom/rmnet_ctl/Kconfig"
+
 config QCOM_QMI_POWER_COLLAPSE
 	bool "Enable power save features"
 	depends on QCOM_QMI_RMNET

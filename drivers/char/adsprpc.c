@@ -98,7 +98,7 @@
 #define RH_CID ADSP_DOMAIN_ID
 
 #define PERF_KEYS \
-	"count:flush:map:copy:rpmsg:getargs:putargs:invalidate:invoke:tid:ptr"
+	"count:flush:map:copy:rpmsg:getargs:putargs:invalidate:invoke"
 #define FASTRPC_STATIC_HANDLE_PROCESS_GROUP (1)
 #define FASTRPC_STATIC_HANDLE_DSP_UTILITIES (2)
 #define FASTRPC_STATIC_HANDLE_LISTENER (3)
@@ -1439,7 +1439,7 @@ static void fastrpc_file_list_dtor(struct fastrpc_apps *me)
 
 static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 {
-	remote_arg64_t *rpra, *lrpra;
+	remote_arg64_t *rpra;
 	remote_arg_t *lpra = ctx->lpra;
 	struct smq_invoke_buf *list;
 	struct smq_phy_page *pages, *ipage;
@@ -1454,7 +1454,11 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	int mflags = 0;
 	uint64_t *fdlist;
 	uint32_t *crclist;
-	int64_t *perf_counter = getperfcounter(ctx->fl, PERF_COUNT);
+	uint32_t earlyHint;
+	int64_t *perf_counter = NULL;
+
+	if (ctx->fl->profile)
+		perf_counter = getperfcounter(ctx->fl, PERF_COUNT);
 
 	/* calculate size of the metadata */
 	rpra = NULL;
@@ -1493,8 +1497,10 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		ipage += 1;
 	}
 	mutex_unlock(&ctx->fl->map_mutex);
+
+	/* metalen includes meta data, fds, crc and early wakeup hint */
 	metalen = copylen = (size_t)&ipage[0] + (sizeof(uint64_t) * M_FDLIST) +
-				 (sizeof(uint32_t) * M_CRCLIST);
+			(sizeof(uint32_t) * M_CRCLIST) + sizeof(earlyHint);
 
 	/* allocate new local rpra buffer */
 	lrpralen = (size_t)&list[0];
@@ -1503,11 +1509,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (err)
 			goto bail;
 	}
-	if (ctx->lbuf->virt)
-		memset(ctx->lbuf->virt, 0, lrpralen);
-
-	lrpra = ctx->lbuf->virt;
-	ctx->lrpra = lrpra;
+	ctx->lrpra = ctx->lbuf->virt;
 
 	/* calculate len required for copying */
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
@@ -1557,13 +1559,13 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 
 	/* map ion buffers */
 	PERF(ctx->fl->profile, GET_COUNTER(perf_counter, PERF_MAP),
-	for (i = 0; rpra && lrpra && i < inbufs + outbufs; ++i) {
+	for (i = 0; rpra && i < inbufs + outbufs; ++i) {
 		struct fastrpc_mmap *map = ctx->maps[i];
 		uint64_t buf = ptr_to_uint64(lpra[i].buf.pv);
 		size_t len = lpra[i].buf.len;
 
-		rpra[i].buf.pv = lrpra[i].buf.pv = 0;
-		rpra[i].buf.len = lrpra[i].buf.len = len;
+		rpra[i].buf.pv = 0;
+		rpra[i].buf.len = len;
 		if (!len)
 			continue;
 		if (map) {
@@ -1591,7 +1593,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			pages[idx].addr = map->phys + offset;
 			pages[idx].size = num << PAGE_SHIFT;
 		}
-		rpra[i].buf.pv = lrpra[i].buf.pv = buf;
+		rpra[i].buf.pv = buf;
 	}
 	PERF_END);
 	for (i = bufs; i < bufs + handles; ++i) {
@@ -1601,15 +1603,16 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		pages[i].size = map->size;
 	}
 	fdlist = (uint64_t *)&pages[bufs + handles];
-	for (i = 0; i < M_FDLIST; i++)
-		fdlist[i] = 0;
 	crclist = (uint32_t *)&fdlist[M_FDLIST];
-	memset(crclist, 0, sizeof(uint32_t)*M_CRCLIST);
+	/* reset fds, crc and early wakeup hint memory */
+	/* remote process updates these values before responding */
+	memset(fdlist, 0, sizeof(uint64_t)*M_FDLIST +
+			sizeof(uint32_t)*M_CRCLIST + sizeof(earlyHint));
 
 	/* copy non ion buffers */
 	PERF(ctx->fl->profile, GET_COUNTER(perf_counter, PERF_COPY),
 	rlen = copylen - metalen;
-	for (oix = 0; rpra && lrpra && oix < inbufs + outbufs; ++oix) {
+	for (oix = 0; rpra && oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
 		struct fastrpc_mmap *map = ctx->maps[i];
 		size_t mlen;
@@ -1628,7 +1631,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		VERIFY(err, rlen >= mlen);
 		if (err)
 			goto bail;
-		rpra[i].buf.pv = lrpra[i].buf.pv =
+		rpra[i].buf.pv =
 			 (args - ctx->overps[oix]->offset);
 		pages[list[i].pgidx].addr = ctx->buf->phys -
 					    ctx->overps[oix]->offset +
@@ -1661,7 +1664,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
 			continue;
 
-		if (rpra && lrpra && rpra[i].buf.len &&
+		if (rpra && rpra[i].buf.len &&
 			ctx->overps[oix]->mstart) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
@@ -1675,13 +1678,15 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		}
 	}
 	PERF_END);
-	for (i = bufs; rpra && lrpra && i < bufs + handles; i++) {
-		rpra[i].dma.fd = lrpra[i].dma.fd = ctx->fds[i];
-		rpra[i].dma.len = lrpra[i].dma.len = (uint32_t)lpra[i].buf.len;
-		rpra[i].dma.offset = lrpra[i].dma.offset =
-			 (uint32_t)(uintptr_t)lpra[i].buf.pv;
+	for (i = bufs; rpra && i < bufs + handles; i++) {
+		rpra[i].dma.fd = ctx->fds[i];
+		rpra[i].dma.len = (uint32_t)lpra[i].buf.len;
+		rpra[i].dma.offset = (uint32_t)(uintptr_t)lpra[i].buf.pv;
 	}
 
+	/* Copy rpra to local buffer */
+	if (ctx->lrpra && rpra && lrpralen > 0)
+		memcpy(ctx->lrpra, rpra, lrpralen);
  bail:
 	return err;
 }
@@ -1771,13 +1776,14 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 				uint64_to_ptr(rpra[i].buf.pv))) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
-					DMA_TO_DEVICE);
+					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
-					DMA_TO_DEVICE);
-			} else
+					DMA_BIDIRECTIONAL);
+			} else {
 				dmac_flush_range(
 					uint64_to_ptr(rpra[i].buf.pv), (char *)
 					uint64_to_ptr(rpra[i].buf.pv + 1));
+			}
 		}
 
 		end = (uintptr_t)uint64_to_ptr(rpra[i].buf.pv +
@@ -1785,12 +1791,13 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 		if (!IS_CACHE_ALIGNED(end)) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
-					DMA_TO_DEVICE);
+					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
-					DMA_TO_DEVICE);
-			} else
+					DMA_BIDIRECTIONAL);
+			} else {
 				dmac_flush_range((char *)end,
 					(char *)end + 1);
+			}
 		}
 	}
 }
@@ -1962,11 +1969,13 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 			goto bail;
 	}
 
-	if (!fl->sctx->smmu.coherent) {
-		PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
-		inv_args_pre(ctx);
-		PERF_END);
-	}
+	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
+	inv_args_pre(ctx);
+	PERF_END);
+
+	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
+	inv_args(ctx);
+	PERF_END);
 
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_LINK),
 	VERIFY(err, 0 == fastrpc_invoke_send(ctx, kernel, invoke->handle));
@@ -1985,8 +1994,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	}
 
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
-	if (!fl->sctx->smmu.coherent)
-		inv_args(ctx);
+	inv_args(ctx);
 	PERF_END);
 
 	VERIFY(err, 0 == (err = ctx->retval));
@@ -3680,7 +3688,7 @@ static int fastrpc_getperf(struct fastrpc_ioctl_perf *ioctl_perf,
 				param, sizeof(*ioctl_perf));
 	if (err)
 		goto bail;
-	ioctl_perf->numkeys = sizeof(struct fastrpc_perf)/sizeof(int64_t);
+	ioctl_perf->numkeys = PERF_KEY_MAX;
 	if (ioctl_perf->keys) {
 		char *keys = PERF_KEYS;
 

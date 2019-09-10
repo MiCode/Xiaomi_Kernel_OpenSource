@@ -17,18 +17,6 @@
  * Function Definitions - Debug
  * -------------------------------------------------------------------------
  */
-static void npu_dump_debug_timeout_stats(struct npu_device *npu_dev)
-{
-	uint32_t reg_val;
-
-	reg_val = REGR(npu_dev, REG_FW_JOB_CNT_START);
-	NPU_INFO("fw jobs execute started count = %d\n", reg_val);
-	reg_val = REGR(npu_dev, REG_FW_JOB_CNT_END);
-	NPU_INFO("fw jobs execute finished count = %d\n", reg_val);
-	reg_val = REGR(npu_dev, REG_NPU_FW_DEBUG_DATA);
-	NPU_INFO("fw jobs aco parser debug = %d\n", reg_val);
-}
-
 void npu_dump_ipc_packet(struct npu_device *npu_dev, void *cmd_ptr)
 {
 	int32_t *ptr = (int32_t *)cmd_ptr;
@@ -50,7 +38,7 @@ static void npu_dump_ipc_queue(struct npu_device *npu_dev, uint32_t target_que)
 		target_que * sizeof(struct hfi_queue_header);
 	int32_t *ptr = (int32_t *)&queue;
 	size_t content_off;
-	uint32_t *content;
+	uint32_t *content, content_size;
 	int i;
 
 	MEMR(npu_dev, (void *)((size_t)offset), (uint8_t *)&queue,
@@ -58,21 +46,42 @@ static void npu_dump_ipc_queue(struct npu_device *npu_dev, uint32_t target_que)
 
 	NPU_ERR("DUMP IPC queue %d:\n", target_que);
 	NPU_ERR("Header size %d:\n", HFI_QUEUE_HEADER_SIZE);
-	NPU_ERR("Content size %d:\n", queue.qhdr_q_size);
 	NPU_ERR("============QUEUE HEADER=============\n");
 	for (i = 0; i < HFI_QUEUE_HEADER_SIZE/4; i++)
 		NPU_ERR("%x\n", ptr[i]);
 
-	content_off = (size_t)IPC_ADDR + queue.qhdr_start_offset;
-	content = kzalloc(queue.qhdr_q_size, GFP_KERNEL);
+	content_off = (size_t)(IPC_ADDR + queue.qhdr_start_offset +
+		queue.qhdr_read_idx);
+	if (queue.qhdr_write_idx >= queue.qhdr_read_idx)
+		content_size = queue.qhdr_write_idx - queue.qhdr_read_idx;
+	else
+		content_size = queue.qhdr_q_size - queue.qhdr_read_idx +
+			queue.qhdr_write_idx;
+
+	NPU_ERR("Content size %d:\n", content_size);
+	if (content_size == 0)
+		return;
+
+	content = kzalloc(content_size, GFP_KERNEL);
 	if (!content) {
 		NPU_ERR("failed to allocate IPC queue content buffer\n");
 		return;
 	}
 
-	MEMR(npu_dev, (void *)content_off, content, queue.qhdr_q_size);
+	if (queue.qhdr_write_idx >= queue.qhdr_read_idx) {
+		MEMR(npu_dev, (void *)content_off, content, content_size);
+	} else {
+		MEMR(npu_dev, (void *)content_off, content,
+			queue.qhdr_q_size - queue.qhdr_read_idx);
+
+		MEMR(npu_dev, (void *)((size_t)IPC_ADDR +
+			queue.qhdr_start_offset),
+			(void *)((size_t)content + queue.qhdr_q_size -
+			queue.qhdr_read_idx), queue.qhdr_write_idx);
+	}
+
 	NPU_ERR("============QUEUE CONTENT=============\n");
-	for (i = 0; i < queue.qhdr_q_size/4; i++)
+	for (i = 0; i < content_size/4; i++)
 		NPU_ERR("%x\n", content[i]);
 
 	NPU_ERR("DUMP IPC queue %d END\n", target_que);
@@ -110,7 +119,6 @@ void npu_dump_debug_info(struct npu_device *npu_dev)
 		return;
 	}
 
-	npu_dump_debug_timeout_stats(npu_dev);
 	npu_dump_dbg_registers(npu_dev);
 	npu_dump_all_ipc_queue(npu_dev);
 }

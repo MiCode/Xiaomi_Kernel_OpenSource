@@ -505,7 +505,7 @@ static int __dsp_send_hfi_queue(struct iris_hfi_device *device)
 		device->dsp_iface_q_table.mem_data.size);
 	rc = cvp_dsp_send_cmd_hfi_queue(
 		(phys_addr_t *)device->dsp_iface_q_table.mem_data.dma_handle,
-		device->dsp_iface_q_table.mem_data.size);
+		device->dsp_iface_q_table.mem_data.size, device);
 	if (rc) {
 		dprintk(CVP_ERR, "%s: dsp hfi queue init failed\n", __func__);
 		return rc;

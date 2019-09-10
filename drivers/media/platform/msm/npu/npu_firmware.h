@@ -29,11 +29,6 @@
 /* Data value for debug */
 #define REG_NPU_FW_DEBUG_DATA       NPU_GPR13
 
-/* Started job count */
-#define REG_FW_JOB_CNT_START        NPU_GPR14
-/* Finished job count */
-#define REG_FW_JOB_CNT_END          NPU_GPR15
-
 /* NPU FW Control/Status Register */
 /* bit fields definitions in CTRL STATUS REG */
 #define FW_CTRL_STATUS_IPC_READY_BIT            0

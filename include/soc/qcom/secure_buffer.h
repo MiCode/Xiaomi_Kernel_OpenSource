@@ -41,6 +41,18 @@ enum vmid {
 #define PERM_WRITE                      0x2
 #define PERM_EXEC			0x1
 
+struct dest_vm_and_perm_info {
+	u32 vm;
+	u32 perm;
+	u64 ctx;
+	u32 ctx_size;
+};
+
+struct mem_prot_info {
+	phys_addr_t addr;
+	u64 size;
+};
+
 #ifdef CONFIG_QCOM_SECURE_BUFFER
 int msm_secure_table(struct sg_table *table);
 int msm_unsecure_table(struct sg_table *table);

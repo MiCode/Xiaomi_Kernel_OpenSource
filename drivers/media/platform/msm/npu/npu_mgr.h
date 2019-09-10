@@ -26,7 +26,7 @@
 #define NPU_MBOX_IDLE_TIMEOUT msecs_to_jiffies(NPU_MBOX_IDLE_TIMEOUT_MS)
 #define FIRMWARE_VERSION 0x00001000
 #define MAX_LOADED_NETWORK 32
-#define NPU_IPC_BUF_LENGTH 512
+#define NPU_IPC_BUF_LENGTH 4096
 
 #define FW_DBG_MODE_PAUSE        (1 << 0)
 #define FW_DBG_MODE_INC_TIMEOUT  (1 << 1)
@@ -105,6 +105,7 @@ struct npu_host_ctx {
 	void *notif_hdle;
 	spinlock_t bridge_mbox_lock;
 	bool bridge_mbox_pwr_on;
+	void *ipc_msg_buf;
 };
 
 struct npu_device;

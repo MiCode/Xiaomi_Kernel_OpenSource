@@ -1439,6 +1439,7 @@ static int spcom_device_open(struct inode *inode, struct file *filp)
 	 */
 	if (ch->pid == pid) {
 		pr_err("client is already registered with channel[%s]\n", name);
+		mutex_unlock(&ch->lock);
 		return -EINVAL;
 	}
 

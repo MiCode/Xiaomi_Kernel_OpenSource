@@ -921,7 +921,7 @@ struct kgsl_process_private *kgsl_process_private_find(pid_t pid)
 {
 	struct kgsl_process_private *p, *private = NULL;
 
-	mutex_lock(&kgsl_driver.process_mutex);
+	spin_lock(&kgsl_driver.proclist_lock);
 	list_for_each_entry(p, &kgsl_driver.process_list, list) {
 		if (p->pid == pid) {
 			if (kgsl_process_private_get(p))
@@ -929,7 +929,8 @@ struct kgsl_process_private *kgsl_process_private_find(pid_t pid)
 			break;
 		}
 	}
-	mutex_unlock(&kgsl_driver.process_mutex);
+	spin_unlock(&kgsl_driver.proclist_lock);
+
 	return private;
 }
 
@@ -1035,7 +1036,9 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 		kgsl_mmu_detach_pagetable(private->pagetable);
 
 	/* Remove the process struct from the master list */
+	spin_lock(&kgsl_driver.proclist_lock);
 	list_del(&private->list);
+	spin_unlock(&kgsl_driver.proclist_lock);
 
 	/*
 	 * Unlock the mutex before releasing the memory and the debugfs
@@ -1071,7 +1074,9 @@ static struct kgsl_process_private *kgsl_process_private_open(
 		kgsl_process_init_sysfs(device, private);
 		kgsl_process_init_debugfs(private);
 
+		spin_lock(&kgsl_driver.proclist_lock);
 		list_add(&private->list, &kgsl_driver.process_list);
+		spin_unlock(&kgsl_driver.proclist_lock);
 	}
 
 done:
@@ -4870,6 +4875,7 @@ static const struct file_operations kgsl_fops = {
 
 struct kgsl_driver kgsl_driver  = {
 	.process_mutex = __MUTEX_INITIALIZER(kgsl_driver.process_mutex),
+	.proclist_lock = __SPIN_LOCK_UNLOCKED(kgsl_driver.proclist_lock),
 	.ptlock = __SPIN_LOCK_UNLOCKED(kgsl_driver.ptlock),
 	.devlock = __MUTEX_INITIALIZER(kgsl_driver.devlock),
 	/*
@@ -4973,7 +4979,6 @@ int kgsl_request_irq(struct platform_device *pdev, const  char *name,
 int kgsl_device_platform_probe(struct kgsl_device *device)
 {
 	int status = -EINVAL;
-	struct resource *res;
 	int cpu;
 
 	status = _register_device(device);
@@ -4985,34 +4990,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	status = kgsl_pwrctrl_init(device);
 	if (status)
 		goto error;
-
-	/*
-	 * Check if a shadermemname is defined, and then get shader memory
-	 * details including shader memory starting physical address
-	 * and shader memory length
-	 */
-	if (device->shadermemname != NULL) {
-		res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
-						device->shadermemname);
-
-		if (res == NULL) {
-			dev_warn(device->dev,
-				      "Shader memory: platform_get_resource_byname failed\n");
-		}
-
-		else {
-			device->shader_mem_phys = res->start;
-			device->shader_mem_len = resource_size(res);
-		}
-
-		if (!devm_request_mem_region(device->dev,
-					device->shader_mem_phys,
-					device->shader_mem_len,
-						device->name)) {
-			dev_warn(device->dev,
-				      "request_mem_region_failed\n");
-		}
-	}
 
 	if (!devm_request_mem_region(device->dev, device->reg_phys,
 				device->reg_len, device->name)) {
