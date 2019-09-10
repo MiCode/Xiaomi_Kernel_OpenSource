@@ -557,6 +557,8 @@ static ssize_t cnss_control_params_debug_write(struct file *fp,
 		plat_priv->ctrl_params.quirks = val;
 	else if (strcmp(cmd, "mhi_timeout") == 0)
 		plat_priv->ctrl_params.mhi_timeout = val;
+	else if (strcmp(cmd, "mhi_m2_timeout") == 0)
+		plat_priv->ctrl_params.mhi_m2_timeout = val;
 	else if (strcmp(cmd, "qmi_timeout") == 0)
 		plat_priv->ctrl_params.qmi_timeout = val;
 	else if (strcmp(cmd, "bdf_type") == 0)
@@ -638,6 +640,8 @@ static int cnss_control_params_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "\nCurrent value:\n");
 	cnss_show_quirks_state(s, cnss_priv);
 	seq_printf(s, "mhi_timeout: %u\n", cnss_priv->ctrl_params.mhi_timeout);
+	seq_printf(s, "mhi_m2_timeout: %u\n",
+		   cnss_priv->ctrl_params.mhi_m2_timeout);
 	seq_printf(s, "qmi_timeout: %u\n", cnss_priv->ctrl_params.qmi_timeout);
 	seq_printf(s, "bdf_type: %u\n", cnss_priv->ctrl_params.bdf_type);
 	seq_printf(s, "time_sync_period: %u\n",

@@ -57,6 +57,7 @@ static DEFINE_SPINLOCK(pci_link_down_lock);
 static DEFINE_SPINLOCK(pci_reg_window_lock);
 
 #define MHI_TIMEOUT_OVERWRITE_MS	(plat_priv->ctrl_params.mhi_timeout)
+#define MHI_M2_TIMEOUT_MS		(plat_priv->ctrl_params.mhi_m2_timeout)
 
 #define FORCE_WAKE_DELAY_MIN_US			4000
 #define FORCE_WAKE_DELAY_MAX_US			6000
@@ -937,6 +938,7 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 
 	if (MHI_TIMEOUT_OVERWRITE_MS)
 		pci_priv->mhi_ctrl->timeout_ms = MHI_TIMEOUT_OVERWRITE_MS;
+	pci_priv->mhi_ctrl->m2_timeout_ms = MHI_M2_TIMEOUT_MS;
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_INIT);
 	if (ret)
