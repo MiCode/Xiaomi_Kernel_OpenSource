@@ -411,7 +411,7 @@ struct ion_heap *get_ion_heap(int heap_id)
 
 	for (i = 0; i < num_heaps; i++) {
 		heap = heaps[i];
-		if (heap->id == heap_id)
+		if (heap && heap->id == heap_id)
 			return heap;
 	}
 
