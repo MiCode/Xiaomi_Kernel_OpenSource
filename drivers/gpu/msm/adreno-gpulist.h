@@ -1023,7 +1023,7 @@ static const struct a6xx_protected_regs a620_protected_regs[] = {
 
 static const struct adreno_a6xx_core adreno_gpu_core_a620 = {
 	.base = {
-		DEFINE_ADRENO_REV(ADRENO_REV_A620, 6, 2, 0, 0),
+		DEFINE_ADRENO_REV(ADRENO_REV_A620, 6, 2, 0, ANY_ID),
 		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_GPMU |
 			ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
 			ADRENO_IFPC,
