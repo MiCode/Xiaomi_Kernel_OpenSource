@@ -25,7 +25,7 @@
 			regulator-name = "pmxpoorwills_s1_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt =
-						<RPMH_REGULATOR_LEVEL_MIN_SVS>;
+					<RPMH_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
 		};
 	};
