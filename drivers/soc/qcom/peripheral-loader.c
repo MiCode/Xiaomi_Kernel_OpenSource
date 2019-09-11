@@ -284,7 +284,7 @@ static unsigned int prepare_minidump_segments(struct ramdump_segment *rd_segs,
 			rd_segs++;
 			val_segs++;
 		} else {
-			*ss_valid_seg_cnt--;
+			*ss_valid_seg_cnt = *ss_valid_seg_cnt - 1;
 		}
 
 		region_info++;
