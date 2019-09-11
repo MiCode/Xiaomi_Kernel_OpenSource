@@ -95,7 +95,7 @@ static int ssusb_phy_exit(struct ssusb_mtk *ssusb)
 	return 0;
 }
 
-static int ssusb_phy_power_on(struct ssusb_mtk *ssusb)
+int ssusb_phy_power_on(struct ssusb_mtk *ssusb)
 {
 	int i;
 	int ret;
@@ -114,7 +114,7 @@ power_off_phy:
 	return ret;
 }
 
-static void ssusb_phy_power_off(struct ssusb_mtk *ssusb)
+void ssusb_phy_power_off(struct ssusb_mtk *ssusb)
 {
 	unsigned int i;
 
