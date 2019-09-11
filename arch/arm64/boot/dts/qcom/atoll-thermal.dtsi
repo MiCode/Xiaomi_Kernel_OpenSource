@@ -84,6 +84,16 @@
 				qcom,qmi-dev-name = "cpuv_restriction_cold";
 				#cooling-cells = <2>;
 			};
+
+			cdsp_sw: cdsp {
+				qcom,qmi-dev-name = "cdsp_sw";
+				#cooling-cells = <2>;
+			};
+
+			cdsp_hw: hvx {
+				qcom,qmi-dev-name = "cdsp_hw";
+				#cooling-cells = <2>;
+			};
 		};
 	};
 };
@@ -1021,6 +1031,63 @@
 			cdsp_vdd_cdev {
 				trip = <&aoss0_trip>;
 				cooling-device = <&cdsp_vdd 0 0>;
+			};
+		};
+	};
+
+	q6-hvx-step {
+		polling-delay-passive = <10>;
+		polling-delay = <0>;
+		thermal-sensors = <&tsens1 4>;
+		thermal-governor = "step_wise";
+		wake-capable-sensor;
+		trips {
+			q6_hvx_trip0: q6-hvx-trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			q6_hvx_trip1: q6-hvx-trip1 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			cdsp-cdev0 {
+				trip = <&q6_hvx_trip0>;
+				cooling-device = <&cdsp_sw THERMAL_NO_LIMIT
+							THERMAL_NO_LIMIT>;
+			};
+
+			cdsp-cdev1 {
+				trip = <&q6_hvx_trip1>;
+				cooling-device = <&cdsp_sw THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	npu-step {
+		polling-delay-passive = <10>;
+		polling-delay = <0>;
+		thermal-sensors = <&tsens1 8>;
+		thermal-governor = "step_wise";
+		wake-capable-sensor;
+		trips {
+			npu_trip0: npu-trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			npu_cdev {
+				trip = <&npu_trip0>;
+				cooling-device =
+					<&msm_npu THERMAL_NO_LIMIT
+						THERMAL_NO_LIMIT>;
 			};
 		};
 	};
