@@ -2452,13 +2452,15 @@ static void free_rx_page(void *chan_user_data, void *xfer_user_data)
 	for (i = 0; i < sys->repl->capacity; i++)
 		if (sys->repl->cache[i] == rx_pkt)
 			break;
+	if (i < sys->repl->capacity) {
+		page_ref_dec(rx_pkt->page_data.page);
+		sys->repl->cache[i] = NULL;
+	}
 	dma_unmap_page(ipa3_ctx->pdev, rx_pkt->page_data.dma_addr,
 		rx_pkt->len, DMA_FROM_DEVICE);
 	__free_pages(rx_pkt->page_data.page,
 		IPA_WAN_PAGE_ORDER);
 	kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
-	if (i < sys->repl->capacity)
-		sys->repl->cache[i] = NULL;
 }
 
 /**
