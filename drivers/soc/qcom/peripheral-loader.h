@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __MSM_PERIPHERAL_LOADER_H
 #define __MSM_PERIPHERAL_LOADER_H
@@ -91,6 +91,7 @@ struct pil_desc {
 	bool shutdown_fail;
 	bool modem_ssr;
 	bool clear_fw_region;
+	bool sequential_loading;
 	u32 subsys_vmid;
 	bool signal_aop;
 	struct mbox_client cl;
