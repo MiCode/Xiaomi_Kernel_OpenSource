@@ -21,17 +21,20 @@
 #include "atl_fwd.h"
 #include "atl_qcom_ipa.h"
 
+struct atl_ipa_device {
+	struct atl_nic *atl_nic;
+	struct ipa_eth_device *eth_dev;
+};
+
 static inline struct atl_fwd_ring *CH_RING(struct ipa_eth_channel *ch)
 {
 	return (struct atl_fwd_ring *)(ch->nd_priv);
 }
 
-static void *atl_ipa_dma_alloc(struct device *dev, size_t size,
-			       dma_addr_t *daddr, gfp_t gfp,
+static void *atl_ipa_dma_alloc(struct ipa_eth_device *eth_dev,
+			       size_t size, dma_addr_t *daddr, gfp_t gfp,
 			       struct ipa_eth_dma_allocator *dma_allocator)
 {
-	struct atl_nic *nic = (struct atl_nic *)dev_get_drvdata(dev);
-	struct ipa_eth_device *eth_dev = nic->fwd.private;
 	struct ipa_eth_resource mem;
 
 	if (dma_allocator->alloc(eth_dev, size, gfp, &mem))
@@ -43,12 +46,10 @@ static void *atl_ipa_dma_alloc(struct device *dev, size_t size,
 	return mem.vaddr;
 }
 
-static void atl_ipa_dma_free(void *buf, struct device *dev, size_t size,
-			     dma_addr_t daddr,
+static void atl_ipa_dma_free(void *buf, struct ipa_eth_device *eth_dev,
+			     size_t size, dma_addr_t daddr,
 			     struct ipa_eth_dma_allocator *dma_allocator)
 {
-	struct atl_nic *nic = (struct atl_nic *)dev_get_drvdata(dev);
-	struct ipa_eth_device *eth_dev = nic->fwd.private;
 	struct ipa_eth_resource mem = {
 		.size = size,
 		.vaddr = buf,
@@ -64,7 +65,7 @@ static void *atl_ipa_alloc_descs(struct device *dev, size_t size,
 {
 	struct ipa_eth_channel *ch = ops->private;
 
-	return atl_ipa_dma_alloc(dev, size, daddr, gfp,
+	return atl_ipa_dma_alloc(ch->eth_dev, size, daddr, gfp,
 			ch->mem_params.desc.allocator);
 }
 
@@ -74,7 +75,7 @@ static void *atl_ipa_alloc_buf(struct device *dev, size_t size,
 {
 	struct ipa_eth_channel *ch = ops->private;
 
-	return atl_ipa_dma_alloc(dev, size, daddr, gfp,
+	return atl_ipa_dma_alloc(ch->eth_dev, size, daddr, gfp,
 			ch->mem_params.buff.allocator);
 }
 
@@ -83,7 +84,7 @@ static void atl_ipa_free_descs(void *buf, struct device *dev, size_t size,
 {
 	struct ipa_eth_channel *ch = ops->private;
 
-	return atl_ipa_dma_free(buf, dev, size, daddr,
+	return atl_ipa_dma_free(buf, ch->eth_dev, size, daddr,
 			ch->mem_params.desc.allocator);
 }
 
@@ -92,12 +93,13 @@ static void atl_ipa_free_buf(void *buf, struct device *dev, size_t size,
 {
 	struct ipa_eth_channel *ch = ops->private;
 
-	return atl_ipa_dma_free(buf, dev, size, daddr,
+	return atl_ipa_dma_free(buf, ch->eth_dev, size, daddr,
 			ch->mem_params.desc.allocator);
 }
 
 static int atl_ipa_open_device(struct ipa_eth_device *eth_dev)
 {
+	struct atl_ipa_device *ai_dev;
 	struct atl_nic *nic = (struct atl_nic *)dev_get_drvdata(eth_dev->dev);
 
 	if (!nic || !nic->ndev) {
@@ -105,11 +107,16 @@ static int atl_ipa_open_device(struct ipa_eth_device *eth_dev)
 		return -ENODEV;
 	}
 
-	nic->fwd.private = eth_dev;
+	ai_dev = kzalloc(sizeof(*ai_dev), GFP_KERNEL);
+	if (!ai_dev)
+		return -ENOMEM;
 
 	/* atl specific init, ref counting go here */
 
-	eth_dev->nd_priv = nic;
+	ai_dev->atl_nic = nic;
+	ai_dev->eth_dev = eth_dev;
+
+	eth_dev->nd_priv = ai_dev;
 	eth_dev->net_dev = nic->ndev;
 
 	return 0;
@@ -117,12 +124,13 @@ static int atl_ipa_open_device(struct ipa_eth_device *eth_dev)
 
 static void atl_ipa_close_device(struct ipa_eth_device *eth_dev)
 {
-	struct atl_nic *nic = eth_dev->nd_priv;
-
-	nic->fwd.private = NULL;
+	struct atl_ipa_device *ai_dev = eth_dev->nd_priv;
 
 	eth_dev->nd_priv = NULL;
 	eth_dev->net_dev = NULL;
+
+	memset(ai_dev, 0, sizeof(ai_dev));
+	kfree(ai_dev);
 }
 
 static struct ipa_eth_channel *atl_ipa_request_channel(
