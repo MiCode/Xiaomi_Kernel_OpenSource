@@ -338,13 +338,13 @@ EXPORT_SYMBOL(qcom_scm_tz_blsp_modify_owner);
 
 int qcom_scm_io_readl(phys_addr_t addr, unsigned int *val)
 {
-	return __qcom_scm_io_readl(__scm->dev, addr, val);
+	return __qcom_scm_io_readl(__scm ? __scm->dev : NULL, addr, val);
 }
 EXPORT_SYMBOL(qcom_scm_io_readl);
 
 int qcom_scm_io_writel(phys_addr_t addr, unsigned int val)
 {
-	return __qcom_scm_io_writel(__scm->dev, addr, val);
+	return __qcom_scm_io_writel(__scm ? __scm->dev : NULL, addr, val);
 }
 EXPORT_SYMBOL(qcom_scm_io_writel);
 
