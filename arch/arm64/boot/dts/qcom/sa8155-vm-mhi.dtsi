@@ -535,6 +535,8 @@
 		};
 
 		mhi_devices {
+			#address-cells = <1>;
+			#size-cells = <0>;
 			mhi_netdev_2: mhi_rmnet@0 {
 				reg = <0x0>;
 				mhi,chan = "IP_HW0";
