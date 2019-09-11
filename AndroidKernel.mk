@@ -101,6 +101,17 @@ else
     KERNEL_OUT := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ
 endif
 
+# Add RTIC DTB to dtb.img if RTIC MPGen is enabled.
+# Note: unfortunately we can't define RTIC DTS + DTB rule here as the
+# following variable/ tools (needed for DTS generation)
+# are missing - DTB_OBJS, OBJDUMP, KCONFIG_CONFIG, CC, DTC_FLAGS (the only available is DTC).
+# The existing RTIC kernel integration in scripts/link-vmlinux.sh generates RTIC MP DTS
+# that will be compiled with optional rule below.
+# To be safe, we check for MPGen enable.
+ifdef RTIC_MPGEN
+RTIC_DTB := $(KERNEL_SYMLINK)/rtic_mp.dtb
+endif
+
 KERNEL_CONFIG := $(KERNEL_OUT)/.config
 
 ifeq ($(KERNEL_DEFCONFIG)$(wildcard $(KERNEL_CONFIG)),)
@@ -209,12 +220,19 @@ $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT)
 			echo $(KERNEL_CONFIG_OVERRIDE) >> $(KERNEL_OUT)/.config; \
 			$(MAKE) -C $(TARGET_KERNEL_SOURCE) O=$(BUILD_ROOT_LOC)$(KERNEL_OUT) $(KERNEL_MAKE_ENV) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) $(real_cc) oldconfig; fi
 
+# RTIC DTS to DTB (if MPGen enabled;
+# and make sure we don't break the build if rtic_mp.dts missing)
+$(RTIC_DTB): $(INSTALLED_KERNEL_TARGET)
+	stat $(KERNEL_SYMLINK)/rtic_mp.dts 2>/dev/null >&2 && \
+	$(DTC) -O dtb -o $(RTIC_DTB) -b 1 $(DTC_FLAGS) $(KERNEL_SYMLINK)/rtic_mp.dts || \
+	touch $(RTIC_DTB)
+
 # Creating a dtb.img once the kernel is compiled if TARGET_KERNEL_APPEND_DTB is set to be false
-$(INSTALLED_DTBIMAGE_TARGET): $(TARGET_PREBUILT_INT_KERNEL)
+$(INSTALLED_DTBIMAGE_TARGET): $(TARGET_PREBUILT_INT_KERNEL) $(INSTALLED_KERNEL_TARGET) $(RTIC_DTB)
 	$(hide) if [ -d "$(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts/vendor/" ]; then \
-			cat $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts/vendor/qcom/*.dtb > $@; \
+			cat $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts/vendor/qcom/*.dtb $(RTIC_DTB) > $@; \
 		else \
-			cat $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts/qcom/*.dtb > $@; \
+			cat $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts/qcom/*.dtb $(RTIC_DTB) > $@; \
 		fi
 
 .PHONY: kerneltags
