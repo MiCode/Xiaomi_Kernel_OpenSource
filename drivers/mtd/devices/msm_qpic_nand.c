@@ -3776,14 +3776,28 @@ static int msm_nand_probe(struct platform_device *pdev)
 	}
 	info->nand_chip.qpic_version = qpic_version.qpic_major;
 	if (info->nand_chip.qpic_version >= 2) {
+		info->nand_chip.caps = MSM_NAND_CAP_PAGE_SCOPE_READ;
+		mutex_lock(&info->lock);
+		err = msm_nand_get_device(info->nand_chip.dev);
+		if (err) {
+			pr_err("Failed to get the device err=%d\n", err);
+			mutex_unlock(&info->lock);
+			goto free_bam;
+		}
 		err = msm_nand_init_endpoint(info,
 			&info->sps.data_prod_stat,
 			SPS_DATA_PROD_STAT_PIPE_INDEX);
 		if (err) {
 			pr_err("Failed to configure read status pipe err=%d\n",
 				err);
+			msm_nand_put_device(info->nand_chip.dev);
+			mutex_unlock(&info->lock);
 			goto free_bam;
 		}
+		err = msm_nand_put_device(info->nand_chip.dev);
+		mutex_unlock(&info->lock);
+		if (err)
+			goto free_bam;
 	}
 	err = msm_nand_parse_smem_ptable(&nr_parts);
 	if (err < 0) {
