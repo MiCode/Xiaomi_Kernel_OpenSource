@@ -1329,9 +1329,7 @@ static int msm_geni_serial_handle_tx(struct uart_port *uport, bool done,
 		avail_fifo_bytes = 0;
 
 	temp_tail = xmit->tail;
-	xmit_size = min3((unsigned int)pending,
-		(unsigned int)(UART_XMIT_SIZE - temp_tail),
-		(unsigned int)avail_fifo_bytes);
+	xmit_size = min_t(unsigned int, avail_fifo_bytes, pending);
 	if (!xmit_size)
 		goto exit_handle_tx;
 
@@ -1350,20 +1348,21 @@ static int msm_geni_serial_handle_tx(struct uart_port *uport, bool done,
 		tx_bytes = ((bytes_remaining < fifo_width_bytes) ?
 					bytes_remaining : fifo_width_bytes);
 
-		for (c = 0; c < tx_bytes ; c++)
-			buf |= (xmit->buf[temp_tail + c] << (c * 8));
+		for (c = 0; c < tx_bytes ; c++) {
+			buf |= (xmit->buf[temp_tail++] << (c * 8));
+			temp_tail &= UART_XMIT_SIZE - 1;
+		}
 
 		geni_write_reg_nolog(buf, uport->membase, SE_GENI_TX_FIFOn);
 
 		i += tx_bytes;
 		bytes_remaining -= tx_bytes;
 		uport->icount.tx += tx_bytes;
-		temp_tail += tx_bytes;
 		msm_port->cur_tx_remaining -= tx_bytes;
 		/* Ensure FIFO write goes through */
 		wmb();
 	}
-	xmit->tail = temp_tail & (UART_XMIT_SIZE - 1);
+	xmit->tail = temp_tail;
 exit_handle_tx:
 	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
 		uart_write_wakeup(uport);
