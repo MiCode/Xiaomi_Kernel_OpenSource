@@ -45,7 +45,7 @@
 #include "hid-qvr.h"
 #include "hid-trace.h"
 
-#define WAIT_EVENT_INT_TOUT 1000
+#define WAIT_EVENT_INT_TOUT 20
 
 #define QVR_START_IMU		_IO('q', 1)
 #define QVR_STOP_IMU		_IO('q', 2)
