@@ -322,6 +322,8 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 
 	q6_desc->ops = &pil_msa_mss_ops;
 
+	q6_desc->sequential_loading = of_property_read_bool(pdev->dev.of_node,
+						"qcom,sequential-fw-load");
 	q6->reset_clk = of_property_read_bool(pdev->dev.of_node,
 							"qcom,reset-clk");
 	q6->self_auth = of_property_read_bool(pdev->dev.of_node,
