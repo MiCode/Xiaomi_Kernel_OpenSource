@@ -15,6 +15,7 @@
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/input/input.h>
 #include "sdmmagpie-thermal-overlay.dtsi"
+#include "atoll-sde-display.dtsi"
 
 &soc {
 	mtp_batterydata: qcom,battery-data {
@@ -228,4 +229,68 @@
 		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
 				&nfc_clk_req_suspend>;
 	};
+};
+
+&qupv3_se7_i2c {
+	status = "ok";
+
+	synaptics_tcm@20 {
+		compatible = "synaptics,tcm-i2c";
+		reg = <0x20>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <9 0x2008>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+			"pmx_ts_release";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		vdd-supply = <&pm6150_l10>;
+		avdd-supply = <&pm6150l_l7>;
+		synaptics,pwr-reg-name = "avdd";
+		synaptics,bus-reg-name = "vdd";
+		synaptics,irq-gpio = <&tlmm 9 0x2008>;
+		synaptics,irq-on-state = <0>;
+		synaptics,reset-gpio = <&tlmm 8 0x00>;
+		synaptics,reset-on-state = <0>;
+		synaptics,reset-active-ms = <20>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,ubl-i2c-addr = <0x20>;
+	};
+};
+
+&dsi_rm69299_visionox_amoled_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <255>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 3 0>;
+};
+
+&dsi_rm69299_visionox_amoled_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <255>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 3 0>;
+};
+
+&dsi_sim_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&pm6150l_gpios 3 0>;
+};
+
+&dsi_sim_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&pm6150l_gpios 3 0>;
+};
+
+&dsi_sim_dsc_375_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&pm6150l_gpios 3 0>;
 };
