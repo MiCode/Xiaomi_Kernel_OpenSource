@@ -8,6 +8,7 @@
  */
 
 #include <linux/ethtool.h>
+#include <linux/pm_runtime.h>
 
 #include "atl_common.h"
 #include "atl_ring.h"
@@ -2066,6 +2067,8 @@ static int atl_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
 	ret = device_set_wakeup_enable(&nic->hw.pdev->dev,
 		!!(nic->flags & ATL_FL_WOL));
 
+	if (ret == -EEXIST)
+		ret = 0;
 	if (ret) {
 		atl_nic_err("device_set_wakeup_enable failed: %d\n", -ret);
 		nic->flags &= ~ATL_FL_WOL;
@@ -2073,6 +2076,19 @@ static int atl_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
 	}
 
 	return ret;
+}
+
+static int atl_ethtool_begin(struct net_device *ndev)
+{
+	struct atl_nic *nic = netdev_priv(ndev);
+	pm_runtime_get_sync(&nic->hw.pdev->dev);
+	return 0;
+}
+
+static void atl_ethtool_complete(struct net_device *ndev)
+{
+	struct atl_nic *nic = netdev_priv(ndev);
+	pm_runtime_put(&nic->hw.pdev->dev);
 }
 
 const struct ethtool_ops atl_ethtool_ops = {
@@ -2110,4 +2126,6 @@ const struct ethtool_ops atl_ethtool_ops = {
 	.set_coalesce = atl_set_coalesce,
 	.get_wol = atl_get_wol,
 	.set_wol = atl_set_wol,
+	.begin = atl_ethtool_begin,
+	.complete = atl_ethtool_complete,
 };

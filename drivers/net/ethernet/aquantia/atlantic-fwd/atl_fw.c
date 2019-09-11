@@ -33,6 +33,7 @@ struct atl_link_type atl_link_types[] = {
 	LINK_TYPE("10GBaseT-FD", 10000, ETHTOOL_LINK_MODE_10000baseT_Full_BIT,
 		1, 1 << 11)
 };
+#define ATL_FW2_LINK_MSK (BIT(5) | BIT(8) | BIT(10) | BIT(11))
 
 const int atl_num_rates = ARRAY_SIZE(atl_link_types);
 
@@ -188,7 +189,8 @@ static int __atl_fw2_get_link_caps(struct atl_hw *hw)
 	uint32_t fw_stat_addr = mcp->fw_stat_addr;
 	struct atl_link_type *rate;
 	unsigned int supported = 0;
-	uint32_t caps[2], mask = atl_fw2_pause_mask | atl_fw2_link_drop;
+	uint32_t caps[2], caps_ex;
+	uint32_t mask = atl_fw2_pause_mask | atl_fw2_link_drop;
 	int i, ret;
 
 	atl_dev_dbg("Host data struct addr: %#x\n", fw_stat_addr);
@@ -196,10 +198,14 @@ static int __atl_fw2_get_link_caps(struct atl_hw *hw)
 		caps, 8);
 	if (ret)
 		return ret;
+	ret = atl_read_fwstat_word(hw, atl_fw2_stat_caps_ex, &caps_ex);
+	if (ret)
+		return ret;
 
 	mcp->caps_low = caps[0];
 	mcp->caps_high = caps[1];
-	atl_dev_dbg("Got link caps: %#x %#x\n", caps[0], caps[1]);
+	mcp->caps_ex = caps_ex;
+	atl_dev_dbg("Got link caps: %#x %#x %#x\n", caps[0], caps[1], caps_ex);
 
 	atl_for_each_rate(i, rate) {
 		uint32_t bit = rate->fw_bits[1];
@@ -223,9 +229,6 @@ static int __atl_fw2_get_link_caps(struct atl_hw *hw)
 static inline unsigned int atl_link_adv(struct atl_link_state *lstate)
 {
 	struct atl_hw *hw = container_of(lstate, struct atl_hw, link_state);
-
-	if (lstate->force_off)
-		return 0;
 
 	if (lstate->thermal_throttled
 		&& hw->thermal.flags & atl_thermal_throttle)
@@ -319,16 +322,14 @@ static void __atl_fw2_set_link(struct atl_hw *hw)
 		hi_bits ^= atl_fw2_asym_pause;
 
 	bits = atl_set_fw_bits(hw, 1);
+	hi_bits |= bits >> 32;
 
-	/* If no modes are advertized, put PHY into low-power */
-	if (!bits)
+	if (lstate->force_off)
 		hi_bits |= atl_fw2_link_drop;
-	else
-		hi_bits |= bits >> 32;
-
 
 	hw->mcp.req_high = hi_bits;
-	atl_write(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_LOW), bits);
+	atl_write_mask_bits(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_LOW),
+			    ATL_FW2_LINK_MSK, bits);
 	atl_write(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_HIGH), hi_bits);
 }
 
@@ -374,25 +375,47 @@ static void atl_fw2_set_default_link(struct atl_hw *hw)
 	lstate->eee_enabled = 1;
 }
 
-static int atl_fw2_enable_wol(struct atl_hw *hw)
+static int atl_fw1_enable_wol(struct atl_hw *hw, unsigned int wol_mode)
 {
-	int ret;
+	return -EOPNOTSUPP;
+}
+static int atl_fw2_enable_wol(struct atl_hw *hw, unsigned int wol_mode)
+{
+	int ret = 0;
 	struct offloadInfo *info;
 	struct drvIface *msg = NULL;
-	uint32_t val, wol_bits = 0;
+	uint32_t val, wol_bits = 0, req_high = hw->mcp.req_high;
+	uint32_t low_req;
 
 	atl_lock_fw(hw);
 
-	if (hw->wol_mode & WAKE_PHY)
-		wol_bits |= atl_fw2_wake_on_link;
+	if (hw->mcp.caps_ex & atl_fw2_ex_caps_wol_ex) {
+		ret = atl_write_fwsettings_word(hw, atl_fw2_setings_wol_ex, 
+			atl_fw2_wol_ex_wake_on_link_keep_rate | 
+			atl_fw2_wol_ex_wake_on_magic_keep_rate);
+		if (ret)
+			return ret;
+	}
 
-	if (hw->wol_mode & WAKE_MAGIC) {
+	low_req = atl_read(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_LOW));
+
+	if (wol_mode & atl_fw_wake_on_link) {
+		wol_bits |= atl_fw2_wake_on_link;
+		low_req &= ~atl_fw2_wake_on_link_force;
+	}
+
+	if (wol_mode & atl_fw_wake_on_link_rtpm) {
+		wol_bits |= atl_fw2_wake_on_link;
+		low_req |= atl_fw2_wake_on_link_force;
+	}
+
+	if (wol_mode & atl_fw_wake_on_magic) {
 		wol_bits |= atl_fw2_nic_proxy | atl_fw2_wol;
 
 		ret = -ENOMEM;
 		msg = kzalloc(sizeof(*msg), GFP_KERNEL);
 		if (!msg)
-			goto unlock_free;
+			goto unlock;
 
 		info = &msg->fw2xOffloads;
 		info->version = 0;
@@ -408,8 +431,10 @@ static int atl_fw2_enable_wol(struct atl_hw *hw)
 		}
 	}
 
-	atl_write(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_LOW), 0);
-	atl_write(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_HIGH), wol_bits);
+	req_high |= wol_bits;
+	req_high &= ~atl_fw2_link_drop;
+	atl_write(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_LOW), low_req);
+	atl_write(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_HIGH), req_high);
 	busy_wait(100, mdelay(1), val,
 		atl_read(hw, ATL_MCP_SCRATCH(FW2_LINK_RES_HIGH)),
 		(val & wol_bits) != wol_bits);
@@ -419,8 +444,9 @@ static int atl_fw2_enable_wol(struct atl_hw *hw)
 		atl_dev_err("Timeout waiting for WoL enable\n");
 
 unlock_free:
-	atl_unlock_fw(hw);
 	kfree(msg);
+unlock:
+	atl_unlock_fw(hw);
 	return ret;
 }
 
@@ -537,6 +563,24 @@ relink:
 	}
 }
 
+static int atl_fw2_dump_cfg(struct atl_hw *hw)
+{
+	/* save link configuration */
+	hw->fw_cfg_dump[0] = atl_read(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_LOW));
+	hw->fw_cfg_dump[1] = atl_read(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_HIGH)) & 0xF18;
+
+	return 0;
+}
+
+static int atl_fw2_restore_cfg(struct atl_hw *hw)
+{
+	/* restore link configuration */
+	atl_write(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_LOW), hw->fw_cfg_dump[0]);
+	atl_write(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_HIGH), hw->fw_cfg_dump[1]);
+
+	return 0;
+}
+
 static struct atl_fw_ops atl_fw_ops[2] = {
 	[0] = {
 		.__wait_fw_init = __atl_fw1_wait_fw_init,
@@ -545,8 +589,10 @@ static struct atl_fw_ops atl_fw_ops[2] = {
 		.__get_link_caps = __atl_fw1_get_link_caps,
 		.restart_aneg = atl_fw1_unsupported,
 		.set_default_link = atl_fw1_set_default_link,
-		.enable_wol = atl_fw1_unsupported,
+		.enable_wol = atl_fw1_enable_wol,
 		.get_phy_temperature = (void *)atl_fw1_unsupported,
+		.dump_cfg = atl_fw1_unsupported,
+		.restore_cfg = atl_fw1_unsupported,
 		.efuse_shadow_addr_reg = ATL_MCP_SCRATCH(FW1_EFUSE_SHADOW),
 	},
 	[1] = {
@@ -558,6 +604,8 @@ static struct atl_fw_ops atl_fw_ops[2] = {
 		.set_default_link = atl_fw2_set_default_link,
 		.enable_wol = atl_fw2_enable_wol,
 		.get_phy_temperature = atl_fw2_get_phy_temperature,
+		.dump_cfg = atl_fw2_dump_cfg,
+		.restore_cfg = atl_fw2_restore_cfg,
 		.efuse_shadow_addr_reg = ATL_MCP_SCRATCH(FW2_EFUSE_SHADOW),
 	},
 };
@@ -811,7 +859,8 @@ int atl_fw_init(struct atl_hw *hw)
 	mcp->next_wdog = jiffies + 2 * HZ;
 
 	if (major > 1) {
-		mcp->req_high = 0;
+		mcp->req_high = atl_read(hw,
+					 ATL_MCP_SCRATCH(FW2_LINK_REQ_HIGH));
 
 		ret = atl_read_fwstat_word(hw, atl_fw2_stat_settings_addr,
 			&mcp->fw_settings_addr);
