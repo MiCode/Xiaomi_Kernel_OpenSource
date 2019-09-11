@@ -51,6 +51,13 @@
 
 #define RW_Kernel_ENG
 
+#define DEBUG
+#undef FMDBG
+#define FMDBG(fmt, args...) pr_debug("rtc6226: " fmt, ##args)
+
+#undef FMDERR
+#define FMDERR(fmt, args...) pr_err("rtc6226: " fmt, ##args)
+
 /* driver definitions */
 #define DRIVER_KERNEL_VERSION KERNEL_VERSION(1, 0, 1)
 #define DRIVER_CARD "Richwave rtc6226 FM Tuner"
@@ -182,7 +189,7 @@
 
 #define WRAP_ENABLE      1
 #define WRAP_DISABLE     0
-
+#define DEFAULT_RSSI_TH  8
 /* Standard buffer size */
 #define STD_BUF_SIZE     256
 
@@ -191,6 +198,8 @@
 #define TUNE_PENDING 1
 #define SEEK_PENDING 2
 #define SCAN_PENDING 3
+#define START_SCAN 1
+#define WAIT_TIMEOUT_MSEC 7000
 
 #define RTC6226_MIN_SRCH_MODE 0x00
 #define RTC6226_MAX_SRCH_MODE 0x02
@@ -302,6 +311,8 @@
 #define GET_AF_LIST_LEN(x) (x*4)
 #define MIN_AF_FREQ_CODE 1
 #define MAX_AF_FREQ_CODE 204
+#define MIN_RSSI 0
+#define MAX_RSSI 15
 
 /* 25 AFs supported for a freq. 224 means 1 AF. 225 means 2 AFs and so on */
 #define NO_AF_CNT_CODE 224
@@ -314,6 +325,8 @@
 #define CH_SPACING_200 200
 #define CH_SPACING_100 100
 #define CH_SPACING_50 50
+#define TURNING_ON 1
+#define TURNING_OFF 0
 
 #define RW_PRIBASE	(V4L2_CID_USER_BASE | 0xf000)
 
@@ -349,12 +362,11 @@
 #define V4L2_CID_PRIVATE_RDS_SYNC	    (RW_PRIBASE + (CHIPID<<4) + 5)
 #define V4L2_CID_PRIVATE_SI	            (RW_PRIBASE + (CHIPID<<4) + 6)
 
-#define WAIT_OVER			0
-#define SEEK_WAITING		1
 #define NO_WAIT				2
-#define TUNE_WAITING		4
 #define RDS_WAITING			5
 #define SEEK_CANCEL			6
+#define TUNE_PARAM 16
+
 /**************************************************************************
  * General Driver Definitions
  **************************************************************************/
@@ -438,6 +450,18 @@ struct rtc6226_af_info {
 	u32 af_list[MAX_NO_OF_AF];
 };
 
+struct fm_power_vreg_data {
+	/* voltage regulator handle */
+	struct regulator *reg;
+	/* regulator name */
+	const char *name;
+	/* voltage levels to be set */
+	unsigned int low_vol_level;
+	unsigned int high_vol_level;
+	/* is this regulator enabled? */
+	bool is_enabled;
+};
+
 /*
  * rtc6226_device - private data
  */
@@ -453,9 +477,11 @@ struct rtc6226_device {
 	struct pinctrl_state *gpio_state_active;
 	struct pinctrl_state *gpio_state_suspend;
 	struct v4l2_ctrl_handler ctrl_handler;
+	struct fm_power_vreg_data *vddreg;
+	struct fm_power_vreg_data *vioreg;
 	int band;
 	int space;
-	unsigned int users;
+	atomic_t users;
 	unsigned int mode;
 	u8 seek_tune_status;
 	u8 rssi_th;
@@ -666,3 +692,5 @@ void rtc6226_scan(struct work_struct *work);
 void rtc6226_search(struct rtc6226_device *radio, bool on);
 int rtc6226_cancel_seek(struct rtc6226_device *radio);
 void rtc6226_rds_handler(struct work_struct *worker);
+void rtc6226_q_event(struct rtc6226_device *radio, enum rtc6226_evt_t event);
+int rtc6226_reset_rds_data(struct rtc6226_device *radio);
