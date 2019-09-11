@@ -2460,7 +2460,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				((struct ipa_ioc_mdfy_flt_rule_v2 *)
 				header)->rule_mdfy_size);
 		/* modify the rule pointer to the kernel pointer */
-		((struct ipa_ioc_add_flt_rule_after_v2 *)header)->rules =
+		((struct ipa_ioc_mdfy_flt_rule_v2 *)header)->rules =
 			(uintptr_t)kptr;
 		if (ipa3_mdfy_flt_rule_v2
 			((struct ipa_ioc_mdfy_flt_rule_v2 *)header)) {
