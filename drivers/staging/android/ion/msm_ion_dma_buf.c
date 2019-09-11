@@ -325,7 +325,6 @@ static void ion_dma_buf_release(struct dma_buf *dmabuf)
 	struct ion_buffer *buffer = dmabuf->priv;
 
 	_ion_buffer_destroy(buffer);
-	kfree(dmabuf->exp_name);
 }
 
 static void *ion_dma_buf_vmap(struct dma_buf *dmabuf)
