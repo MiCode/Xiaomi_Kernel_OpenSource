@@ -386,6 +386,15 @@ config SENSORS_SSC
 	  exercising sensor use-cases. This driver loads firmware files
 	  for SSC and also does time synchronization with DSP clock.
 
+config QSEE_IPC_IRQ
+	tristate "QSEE interrupt manager"
+	help
+	  The QSEE IPC IRQ controller manages the interrupts from the QTI
+	  secure execution environment. This interrupt controller will use
+	  the registers in the spcs region to mask and clear interrupts.
+	  Clients can use this driver to avoid adding common interrupt handling
+	  code.
+
 config MSM_CDSP_LOADER
 	tristate "CDSP loader support"
 	help
