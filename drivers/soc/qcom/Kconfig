@@ -395,6 +395,25 @@ config QSEE_IPC_IRQ
 	  Clients can use this driver to avoid adding common interrupt handling
 	  code.
 
+config QCOM_GLINK
+	tristate "GLINK Probe Helper"
+	depends on RPMSG_QCOM_GLINK_SMEM
+	help
+	  This enables the GLINK Probe module. This is designed to set up
+	  other edges in the system. It will initialize all the transports for
+	  all the edges present in the device.
+	  Say M if you want to enable this module.
+
+config MSM_GLINK_SSR
+	tristate "MSM GLINK SSR"
+	depends on RPMSG
+	help
+	  The GLINK RPMSG Plugin is currently designed to plugin with the
+	  remote proc framework as a subdev. This module is responsible
+	  for creating the glink transports when remote proc is disabled. This
+	  will be used for drivers on MSMs.
+	  Say M if you want to enable this
+
 config MSM_CDSP_LOADER
 	tristate "CDSP loader support"
 	help
