@@ -21,9 +21,14 @@
 #include "atl_fwd.h"
 #include "atl_qcom_ipa.h"
 
+#if ATL_FWD_API_VERSION >= 2 && IPA_ETH_API_VER >= 4
+#define ATL_IPA_SUPPORT_NOTIFY
+#endif
+
 struct atl_ipa_device {
 	struct atl_nic *atl_nic;
 	struct ipa_eth_device *eth_dev;
+	struct notifier_block fwd_notify_nb;
 };
 
 static inline struct atl_fwd_ring *CH_RING(struct ipa_eth_channel *ch)
@@ -97,6 +102,31 @@ static void atl_ipa_free_buf(void *buf, struct device *dev, size_t size,
 			ch->mem_params.desc.allocator);
 }
 
+#ifdef ATL_IPA_SUPPORT_NOTIFY
+static int atl_ipa_fwd_notification(struct notifier_block *nb,
+				    unsigned long action, void *data)
+{
+	enum atl_fwd_notify notif = action;
+	struct atl_ipa_device *ai_dev = container_of(
+		nb, struct atl_ipa_device, fwd_notify_nb);
+
+	switch (notif) {
+	case ATL_FWD_NOTIFY_RESET_PREPARE:
+		ipa_eth_device_notify(ai_dev->eth_dev,
+				      IPA_ETH_DEV_RESET_PREPARE, NULL);
+		break;
+	case ATL_FWD_NOTIFY_RESET_COMPLETE:
+		ipa_eth_device_notify(ai_dev->eth_dev,
+				      IPA_ETH_DEV_RESET_COMPLETE, NULL);
+		break;
+	default:
+		return NOTIFY_DONE;
+	}
+
+	return NOTIFY_OK;
+}
+#endif
+
 static int atl_ipa_open_device(struct ipa_eth_device *eth_dev)
 {
 	struct atl_ipa_device *ai_dev;
@@ -119,12 +149,31 @@ static int atl_ipa_open_device(struct ipa_eth_device *eth_dev)
 	eth_dev->nd_priv = ai_dev;
 	eth_dev->net_dev = nic->ndev;
 
+#ifdef ATL_IPA_SUPPORT_NOTIFY
+	ai_dev->fwd_notify_nb.notifier_call = atl_ipa_fwd_notification;
+
+	if (atl_fwd_register_notifier(nic->ndev, &ai_dev->fwd_notify_nb)) {
+		dev_err(eth_dev->dev, "Failed to register notifier\n");
+
+		eth_dev->nd_priv = NULL;
+		eth_dev->net_dev = NULL;
+		kfree(ai_dev);
+
+		return -EFAULT;
+	}
+#endif
+
 	return 0;
 }
 
 static void atl_ipa_close_device(struct ipa_eth_device *eth_dev)
 {
 	struct atl_ipa_device *ai_dev = eth_dev->nd_priv;
+
+#ifdef ATL_IPA_SUPPORT_NOTIFY
+	atl_fwd_unregister_notifier(ai_dev->atl_nic->ndev,
+				    &ai_dev->fwd_notify_nb);
+#endif
 
 	eth_dev->nd_priv = NULL;
 	eth_dev->net_dev = NULL;
