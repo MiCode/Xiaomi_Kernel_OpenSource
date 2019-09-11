@@ -26,6 +26,7 @@ config CORESIGHT_LINKS_AND_SINKS
 config CORESIGHT_LINK_AND_SINK_TMC
 	bool "Coresight generic TMC driver"
 	depends on CORESIGHT_LINKS_AND_SINKS
+	select CORESIGHT_CSR
 	help
 	  This enables support for the Trace Memory Controller driver.
 	  Depending on its configuration the device can act as a link (embedded
@@ -135,4 +136,24 @@ config CORESIGHT_TPDM_DEFAULT_ENABLE
 
 	  If unsure, say 'N' here to avoid potential power and performance
 	  penalty.
+
+config CORESIGHT_CSR
+	bool "CoreSight Slave Register driver"
+	help
+	  This driver provides support for CoreSight Slave Register block
+	  that hosts miscellaneous configuration registers.
+	  Those configuration registers can be used to control, various
+	  coresight configurations.
+
+config CORESIGHT_TGU
+	bool "CoreSight Trigger Generation Unit driver"
+	help
+	  This driver provides support for Trigger Generation Unit that is
+	  used to detect patterns or sequences on a given set of signals.
+	  TGU is used to monitor a particular bus within a given region to
+	  detect illegal transaction sequences or slave responses. It is also
+	  used to monitor a data stream to detect protocol violations and to
+	  provide a trigger point for centering data around a specific event
+	  within the trace data buffer.
+
 endif
