@@ -25,6 +25,8 @@
 #include <linux/trace_events.h>
 #endif
 
+#include <linux/io.h>
+
 static struct mutex boost_freq;
 static struct ppm_limit_data *current_freq;
 static struct ppm_limit_data *freq_set[CPU_MAX_KIR];
@@ -340,11 +342,41 @@ static int perfmgr_perfmgr_log_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+#define DBG_REPO_S      0x0011bc00
+#define REPO_I_REPO_E	(0x1400 / sizeof(u32)-1)
+
+static ssize_t perfmgr_cci_perf_mode_proc_write(struct file *filp,
+	const char __user *ubuf, size_t cnt, loff_t *pos)
+{
+	int data = 0;
+	int rv = check_proc_write(&data, ubuf, cnt);
+	void __iomem *recordRef;
+
+	if (rv != 0)
+		return rv;
+	recordRef = ioremap_nocache(DBG_REPO_S, REPO_I_REPO_E);
+	writel_relaxed(data > 0 ? 1 : 0, recordRef + 0x0F9C);
+
+	return cnt;
+}
+
+static int perfmgr_cci_perf_mode_proc_show(struct seq_file *m, void *v)
+{
+	void __iomem *recordRef;
+
+	if (m) {
+		recordRef = ioremap_nocache(DBG_REPO_S, REPO_I_REPO_E);
+		seq_printf(m, "%d\n", readl_relaxed(recordRef + 0x0F9C));
+	}
+
+	return 0;
+}
 
 PROC_FOPS_RW(perfserv_freq);
 PROC_FOPS_RW(boot_freq);
 PROC_FOPS_RO(current_freq);
 PROC_FOPS_RW(perfmgr_log);
+PROC_FOPS_RW(cci_perf_mode);
 
 /************************************************/
 int cpu_ctrl_init(struct proc_dir_entry *parent)
@@ -362,6 +394,7 @@ int cpu_ctrl_init(struct proc_dir_entry *parent)
 		PROC_ENTRY(boot_freq),
 		PROC_ENTRY(current_freq),
 		PROC_ENTRY(perfmgr_log),
+		PROC_ENTRY(cci_perf_mode),
 	};
 	mutex_init(&boost_freq);
 
