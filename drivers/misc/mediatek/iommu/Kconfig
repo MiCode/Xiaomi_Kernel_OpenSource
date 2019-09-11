@@ -10,6 +10,7 @@ config MTK_IOMMU_MISC
 config MTK_IOMMU_MISC_SEC
 	bool "Enable Mediatek secure M4U"
 	depends on MTK_IOMMU_MISC
+	depends on TRUSTONIC_TEE_SUPPORT || MICROTRUST_TEE_SUPPORT
 	help
 	  Choose this option to enable mediatek secure iommu driver.
 	  For SVP or secure camera feature, user only can access
