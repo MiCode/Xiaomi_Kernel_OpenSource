@@ -580,6 +580,7 @@ static void qvr_external_sensor_device_remove(struct hid_device *hdev)
 static struct hid_device_id qvr_external_sensor_table[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_QVR5, USB_DEVICE_ID_QVR5) },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_QVR32A, USB_DEVICE_ID_QVR32A) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_NREAL, USB_DEVICE_ID_NREAL) },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, qvr_external_sensor_table);
