@@ -42,8 +42,9 @@ rmnet_get_frag_descriptor(struct rmnet_port *port)
 {
 	struct rmnet_frag_descriptor_pool *pool = port->frag_desc_pool;
 	struct rmnet_frag_descriptor *frag_desc;
+	unsigned long flags;
 
-	spin_lock(&port->desc_pool_lock);
+	spin_lock_irqsave(&port->desc_pool_lock, flags);
 	if (!list_empty(&pool->free_list)) {
 		frag_desc = list_first_entry(&pool->free_list,
 					     struct rmnet_frag_descriptor,
@@ -60,7 +61,7 @@ rmnet_get_frag_descriptor(struct rmnet_port *port)
 	}
 
 out:
-	spin_unlock(&port->desc_pool_lock);
+	spin_unlock_irqrestore(&port->desc_pool_lock, flags);
 	return frag_desc;
 }
 EXPORT_SYMBOL(rmnet_get_frag_descriptor);
@@ -70,6 +71,7 @@ void rmnet_recycle_frag_descriptor(struct rmnet_frag_descriptor *frag_desc,
 {
 	struct rmnet_frag_descriptor_pool *pool = port->frag_desc_pool;
 	struct page *page = skb_frag_page(&frag_desc->frag);
+	unsigned long flags;
 
 	list_del(&frag_desc->list);
 	if (page)
@@ -78,9 +80,9 @@ void rmnet_recycle_frag_descriptor(struct rmnet_frag_descriptor *frag_desc,
 	memset(frag_desc, 0, sizeof(*frag_desc));
 	INIT_LIST_HEAD(&frag_desc->list);
 	INIT_LIST_HEAD(&frag_desc->sub_frags);
-	spin_lock(&port->desc_pool_lock);
+	spin_lock_irqsave(&port->desc_pool_lock, flags);
 	list_add_tail(&frag_desc->list, &pool->free_list);
-	spin_unlock(&port->desc_pool_lock);
+	spin_unlock_irqrestore(&port->desc_pool_lock, flags);
 }
 EXPORT_SYMBOL(rmnet_recycle_frag_descriptor);
 
