@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include "sdxprairie.dtsi"
 #include "sdxprairie-mtp.dtsi"
 
 &soc {

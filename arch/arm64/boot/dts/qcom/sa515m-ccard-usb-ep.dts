@@ -12,6 +12,7 @@
 
 /dts-v1/;
 
+#include "sdxprairie.dtsi"
 #include "sa515m-ccard.dtsi"
 
 / {
