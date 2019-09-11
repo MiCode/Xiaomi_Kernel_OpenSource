@@ -301,6 +301,12 @@ static int ufs_mtk_refclk_ctrl(struct ufs_hba *hba, bool on)
 	if (host->refclk_ctrl == REF_CLK_SW_MODE)
 		goto out;
 
+	/* Half-HW mode cannot turn off ref-clk, release xoufs spm req only */
+	if (host->refclk_ctrl == REF_CLK_HALF_HW_MODE) {
+		ufshcd_writel(hba, XOUFS_RELEASE, REG_UFS_ADDR_XOUFS_ST);
+		goto out;
+	}
+
 	/*
 	 * REG_UFS_ADDR_XOUFS_ST[0] is xoufs_req_s
 	 * REG_UFS_ADDR_XOUFS_ST[1] is xoufs_ack_s
@@ -310,15 +316,10 @@ static int ufs_mtk_refclk_ctrl(struct ufs_hba *hba, bool on)
 	 * SW clears xoufs_ack_s to trigger Clock Release for XOUFS, and
 	 * check xoufs_ack_s clear for clock off.
 	 */
-
-	if (on) {
+	if (on)
 		ufshcd_writel(hba, XOUFS_REQUEST, REG_UFS_ADDR_XOUFS_ST);
-	} else {
+	else
 		ufshcd_writel(hba, XOUFS_RELEASE, REG_UFS_ADDR_XOUFS_ST);
-		/* Half-HW mode no ack after turn off */
-		if (host->refclk_ctrl == REF_CLK_HALF_HW_MODE)
-			goto out;
-	}
 
 	/* Wait ack */
 	timeout = jiffies + msecs_to_jiffies(REF_CLK_CTRL_TOUT_MS);
