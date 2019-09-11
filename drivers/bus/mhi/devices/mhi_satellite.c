@@ -235,14 +235,15 @@ enum mhi_sat_state {
 	SAT_DISCONNECTED, /* rpmsg link is down */
 	SAT_FATAL_DETECT, /* device is down as fatal error was detected early */
 	SAT_ERROR, /* device is down after error or graceful shutdown */
-	SAT_DISABLED, /* set if rpmsg link goes down after device is down */
+	SAT_DISABLED, /* no further processing: wait for device removal */
 };
 
 #define MHI_SAT_ACTIVE(cntrl) (cntrl->state == SAT_RUNNING)
-#define MHI_SAT_FATAL_DETECT(cntrl) (cntrl->state == SAT_FATAL_DETECT)
+#define MHI_SAT_IN_ERROR_STATE(cntrl) (cntrl->state >= SAT_FATAL_DETECT)
 #define MHI_SAT_ALLOW_CONNECTION(cntrl) (cntrl->state == SAT_READY || \
 					 cntrl->state == SAT_DISCONNECTED)
-#define MHI_SAT_IN_ERROR_STATE(cntrl) (cntrl->state >= SAT_FATAL_DETECT)
+#define MHI_SAT_ALLOW_SYS_ERR(cntrl) (cntrl->state == SAT_RUNNING || \
+					cntrl->state == SAT_FATAL_DETECT)
 
 struct mhi_sat_cntrl {
 	struct list_head node;
@@ -940,10 +941,15 @@ static void mhi_sat_dev_status_cb(struct mhi_device *mhi_dev,
 
 	MHI_SAT_LOG("Device fatal error detected\n");
 	spin_lock_irqsave(&sat_cntrl->state_lock, flags);
-	if (MHI_SAT_ACTIVE(sat_cntrl))
+	if (MHI_SAT_ACTIVE(sat_cntrl)) {
 		sat_cntrl->error_cookie = async_schedule(mhi_sat_error_worker,
 							 sat_cntrl);
-	sat_cntrl->state = SAT_FATAL_DETECT;
+		sat_cntrl->state = SAT_FATAL_DETECT;
+	} else {
+		/* rpmsg link down or HELLO not sent or an error occurred */
+		sat_cntrl->state = SAT_DISABLED;
+	}
+
 	spin_unlock_irqrestore(&sat_cntrl->state_lock, flags);
 }
 
@@ -968,7 +974,7 @@ static void mhi_sat_dev_remove(struct mhi_device *mhi_dev)
 
 	/* send sys_err if first device is removed */
 	spin_lock_irq(&sat_cntrl->state_lock);
-	if (MHI_SAT_ACTIVE(sat_cntrl) || MHI_SAT_FATAL_DETECT(sat_cntrl))
+	if (MHI_SAT_ALLOW_SYS_ERR(sat_cntrl))
 		send_sys_err = true;
 	sat_cntrl->state = SAT_ERROR;
 	spin_unlock_irq(&sat_cntrl->state_lock);
