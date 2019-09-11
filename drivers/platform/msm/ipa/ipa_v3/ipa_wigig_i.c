@@ -836,7 +836,7 @@ int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
 		if (
 		IPA_WIGIG_MSB(input->dbuff.data_buffer_base_pa) & 0xFFFFFF00) {
 			IPAERR(
-				"data_buffers_base_address_msb is over the 8 bit limit (0xpa)\n"
+				"data_buffers_base_address_msb is over the 8 bit limit (0x%pa)\n"
 				, &input->dbuff.data_buffer_base_pa);
 			IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 			return -EFAULT;
