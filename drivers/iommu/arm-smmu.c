@@ -4143,10 +4143,28 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	void __iomem *gr0_base = ARM_SMMU_GR0(smmu);
 	int i;
 	u32 reg;
+	void __iomem *cb_base;
+	u32 fsr;
 
 	/* clear global FSR */
 	reg = readl_relaxed(ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sGFSR);
 	writel_relaxed(reg, ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sGFSR);
+
+	for (i = 0; i < smmu->num_context_banks; ++i) {
+		cb_base = ARM_SMMU_CB(smmu, i);
+
+		fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+		if (fsr & FSR_FAULT) {
+			writel_relaxed(fsr & FSR_FAULT, cb_base +
+				       ARM_SMMU_CB_FSR);
+			pr_err("CB %d, FSR 0x%x reset\n", i, fsr);
+		}
+	}
+
+	/*
+	 * Barrier required to ensure fault registers are cleared.
+	 */
+	wmb();
 
 	/*
 	 * Reset stream mapping groups: Initial values mark all SMRn as
