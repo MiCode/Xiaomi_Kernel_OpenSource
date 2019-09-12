@@ -354,6 +354,7 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 	if (!!(otg_sx->sw_state & MTU3_SW_ID_GROUND) ^ id_event) {
 		if (id_event) {
 			if (ssusb->clk_mgr) {
+				pm_stay_awake(ssusb->dev);
 				ssusb_clks_enable(ssusb);
 				ssusb_ip_sw_reset(ssusb);
 				ssusb_host_enable(ssusb);
@@ -372,6 +373,7 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 				/* unregister host driver */
 				of_platform_depopulate(dev);
 				ssusb_clks_disable(ssusb);
+				pm_relax(ssusb->dev);
 			}
 		}
 	}
