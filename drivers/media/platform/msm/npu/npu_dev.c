@@ -2174,23 +2174,23 @@ static int npu_probe(struct platform_device *pdev)
 		res->start, npu_dev->cc_io.base);
 
 	res = platform_get_resource_byname(pdev,
-		IORESOURCE_MEM, "qdsp");
+		IORESOURCE_MEM, "tcsr");
 	if (!res) {
-		NPU_ERR("unable to get qdsp resource\n");
+		NPU_ERR("unable to get tcsr_mutex resource\n");
 		rc = -ENODEV;
 		goto error_get_dev_num;
 	}
-	npu_dev->qdsp_io.size = resource_size(res);
-	npu_dev->qdsp_io.phy_addr = res->start;
-	npu_dev->qdsp_io.base = devm_ioremap(&pdev->dev, res->start,
-					npu_dev->qdsp_io.size);
-	if (unlikely(!npu_dev->qdsp_io.base)) {
-		NPU_ERR("unable to map qdsp\n");
+	npu_dev->tcsr_io.size = resource_size(res);
+	npu_dev->tcsr_io.phy_addr = res->start;
+	npu_dev->tcsr_io.base = devm_ioremap(&pdev->dev, res->start,
+					npu_dev->tcsr_io.size);
+	if (unlikely(!npu_dev->tcsr_io.base)) {
+		NPU_ERR("unable to map tcsr\n");
 		rc = -ENOMEM;
 		goto error_get_dev_num;
 	}
-	NPU_DBG("qdsp phy address=0x%llx virt=%pK\n",
-		res->start, npu_dev->qdsp_io.base);
+	NPU_DBG("tcsr phy address=0x%llx virt=%pK\n",
+		res->start, npu_dev->tcsr_io.base);
 
 	res = platform_get_resource_byname(pdev,
 		IORESOURCE_MEM, "apss_shared");

@@ -245,7 +245,7 @@ struct npu_device {
 	struct npu_io_data core_io;
 	struct npu_io_data tcm_io;
 	struct npu_io_data cc_io;
-	struct npu_io_data qdsp_io;
+	struct npu_io_data tcsr_io;
 	struct npu_io_data apss_shared_io;
 	struct npu_io_data qfprom_io;
 
