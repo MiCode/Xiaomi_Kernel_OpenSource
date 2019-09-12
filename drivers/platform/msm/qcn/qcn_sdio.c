@@ -561,7 +561,6 @@ static void qcn_sdio_irq_handler(struct sdio_func *func)
 	sdio_claim_host(sdio_ctxt->func);
 	data = sdio_readb(sdio_ctxt->func, SDIO_QCN_IRQ_STATUS, &ret);
 	if (ret == -ETIMEDOUT) {
-		sdio_release_irq(sdio_ctxt->func);
 		sdio_release_host(sdio_ctxt->func);
 
 		pr_err("%s: IRQ status read error ret = %d\n", __func__, ret);
