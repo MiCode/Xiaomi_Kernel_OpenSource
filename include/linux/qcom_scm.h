@@ -53,6 +53,11 @@ extern void qcom_scm_mmu_sync(bool sync);
 extern int qcom_scm_restore_sec_cfg(u32 device_id, u32 spare);
 extern int qcom_scm_iommu_secure_ptbl_size(u32 spare, size_t *size);
 extern int qcom_scm_iommu_secure_ptbl_init(u64 addr, u32 size, u32 spare);
+extern int qcom_scm_iommu_secure_map(phys_addr_t sg_list_addr, size_t num_sg,
+				size_t sg_block_size, u64 sec_id, int cbndx,
+				unsigned long iova, size_t total_len);
+extern int qcom_scm_iommu_secure_unmap(u64 sec_id, int cbndx,
+				unsigned long iova, size_t total_len);
 extern int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 			       unsigned int *src,
 			       const struct qcom_scm_vmperm *newvm,
@@ -95,6 +100,11 @@ static inline int qcom_scm_iommu_secure_ptbl_size(u32 spare, size_t *size)
 		{ return -ENODEV; }
 static inline int qcom_scm_iommu_secure_ptbl_init(u64 addr, u32 size, u32 spare)
 		{ return -ENODEV; }
+static inline int qcom_scm_iommu_secure_map(phys_addr_t sg_list_addr,
+		size_t num_sg, size_t sg_block_size, u64 sec_id, int cbndx,
+		unsigned long iova, size_t total_len) { return -ENODEV; }
+static inline int qcom_scm_iommu_secure_unmap(u64 sec_id, int cbndx,
+		unsigned long iova, size_t total_len) { return -ENODEV; }
 static inline int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 				      unsigned int *src,
 				      const struct qcom_scm_vmperm *newvm,

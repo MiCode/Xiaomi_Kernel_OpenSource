@@ -358,6 +358,23 @@ int qcom_scm_iommu_secure_ptbl_init(u64 addr, u32 size, u32 spare)
 }
 EXPORT_SYMBOL(qcom_scm_iommu_secure_ptbl_init);
 
+int qcom_scm_iommu_secure_map(phys_addr_t sg_list_addr, size_t num_sg,
+				size_t sg_block_size, u64 sec_id, int cbndx,
+				unsigned long iova, size_t total_len)
+{
+	return __qcom_scm_iommu_secure_map(__scm->dev, sg_list_addr, num_sg,
+				sg_block_size, sec_id, cbndx, iova, total_len);
+}
+EXPORT_SYMBOL(qcom_scm_iommu_secure_map);
+
+int qcom_scm_iommu_secure_unmap(u64 sec_id, int cbndx, unsigned long iova,
+				size_t total_len)
+{
+	return __qcom_scm_iommu_secure_unmap(__scm->dev, sec_id, cbndx, iova,
+						total_len);
+}
+EXPORT_SYMBOL(qcom_scm_iommu_secure_unmap);
+
 /**
  * qcom_scm_assign_mem() - Make a secure call to reassign memory ownership
  * @mem_addr: mem region whose ownership need to be reassigned

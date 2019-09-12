@@ -49,7 +49,7 @@
 #include <linux/amba/bus.h>
 #include <linux/fsl/mc.h>
 
-#include <soc/qcom/scm.h>
+#include <linux/qcom_scm.h>
 #include "arm-smmu.h"
 
 #define CREATE_TRACE_POINTS
@@ -868,7 +868,7 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu, int page,
 				int sync, int status)
 {
 	unsigned int spin_cnt, delay;
-	u32 sync_inv_ack, tbu_pwr_status, sync_inv_progress;
+	u32 sync_inv_ack, tbu_pwr_status = -EINVAL, sync_inv_progress = -EINVAL;
 	u32 reg;
 
 	arm_smmu_writel(smmu, page, sync, QCOM_DUMMY_VAL);
@@ -885,10 +885,11 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu, int page,
 	sync_inv_ack = arm_smmu_readl(smmu,
 				      ARM_SMMU_IMPL_DEF0,
 				      ARM_SMMU_STATS_SYNC_INV_TBU_ACK);
-	tbu_pwr_status = scm_io_read((unsigned long)(smmu->phys_addr +
-				     ARM_SMMU_TBU_PWR_STATUS));
-	sync_inv_progress = scm_io_read((unsigned long)(smmu->phys_addr +
-					ARM_SMMU_MMU2QSS_AND_SAFE_WAIT_CNTR));
+	qcom_scm_io_readl((unsigned long)(smmu->phys_addr +
+			ARM_SMMU_TBU_PWR_STATUS), &tbu_pwr_status);
+	qcom_scm_io_readl((unsigned long)(smmu->phys_addr +
+			      ARM_SMMU_MMU2QSS_AND_SAFE_WAIT_CNTR),
+			      &sync_inv_progress);
 	trace_tlbsync_timeout(smmu->dev, 0);
 	dev_err_ratelimited(smmu->dev,
 			    "TLB sync timed out -- SMMU may be deadlocked ack 0x%x pwr 0x%x sync and invalidation progress 0x%x\n",

@@ -952,6 +952,58 @@ int __qcom_scm_iommu_secure_ptbl_init(struct device *dev, u64 addr, u32 size,
 	return ret;
 }
 
+int __qcom_scm_iommu_secure_map(struct device *dev, phys_addr_t sg_list_addr,
+			size_t num_sg, size_t sg_block_size, u64 sec_id,
+			int cbndx, unsigned long iova, size_t total_len)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MP_IOMMU_SECURE_MAP2_FLAT,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = sg_list_addr;
+	desc.args[1] = num_sg;
+	desc.args[2] = sg_block_size;
+	desc.args[3] = sec_id;
+	desc.args[4] = cbndx;
+	desc.args[5] = iova;
+	desc.args[6] = total_len;
+	desc.args[7] = 0;
+
+
+	desc.arginfo = QCOM_SCM_ARGS(8, QCOM_SCM_RW, QCOM_SCM_VAL, QCOM_SCM_VAL,
+			QCOM_SCM_VAL, QCOM_SCM_VAL, QCOM_SCM_VAL, QCOM_SCM_VAL,
+			QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret ? : desc.res[0];
+}
+
+int __qcom_scm_iommu_secure_unmap(struct device *dev, u64 sec_id, int cbndx,
+			unsigned long iova, size_t total_len)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MP_IOMMU_SECURE_UNMAP2_FLAT,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = sec_id;
+	desc.args[1] = cbndx;
+	desc.args[2] = iova;
+	desc.args[3] = total_len;
+	desc.args[4] = QCOM_SCM_IOMMU_TLBINVAL_FLAG;
+	desc.arginfo = QCOM_SCM_ARGS(5);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret ? : desc.res[0];
+}
+
 int __qcom_scm_assign_mem(struct device *dev, phys_addr_t mem_region,
 			  size_t mem_sz, phys_addr_t src, size_t src_sz,
 			  phys_addr_t dest, size_t dest_sz)
