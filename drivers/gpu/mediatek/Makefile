@@ -17,7 +17,7 @@ ifeq ($(CONFIG_MTK_GPU_SUPPORT),y)
 	obj-y += ged/
 	obj-y += hal/
 	obj-y += gpufreq/
-#obj-y += gpu_bm/
+	obj-y += gpu_bm/
 # GPU R5P0
 ifeq ($(CONFIG_MTK_GPU_R5P0),y)
     obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
