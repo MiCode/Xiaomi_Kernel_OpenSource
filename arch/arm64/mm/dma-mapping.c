@@ -11,24 +11,10 @@
 
 #include <asm/cacheflush.h>
 
-static bool is_dma_coherent(struct device *dev, unsigned long attrs)
-{
-	if (attrs & DMA_ATTR_FORCE_COHERENT)
-		return true;
-	else if (attrs & DMA_ATTR_FORCE_NON_COHERENT)
-		return false;
-	else if (dev_is_dma_coherent(dev))
-		return true;
-	else
-		return false;
-}
-
 pgprot_t arch_dma_mmap_pgprot(struct device *dev, pgprot_t prot,
 		unsigned long attrs)
 {
-	if (!is_dma_coherent(dev, attrs) || (attrs & DMA_ATTR_WRITE_COMBINE))
-		return pgprot_writecombine(prot);
-	return prot;
+	return pgprot_writecombine(prot);
 }
 
 void arch_sync_dma_for_device(struct device *dev, phys_addr_t paddr,

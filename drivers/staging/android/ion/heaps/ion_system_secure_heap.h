@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
-#include "ion.h"
+#include "msm_ion_priv.h"
 #include "ion_system_heap.h"
 
 #ifndef _ION_SYSTEM_SECURE_HEAP_H

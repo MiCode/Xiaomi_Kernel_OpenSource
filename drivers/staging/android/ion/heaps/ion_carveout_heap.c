@@ -16,7 +16,6 @@
 #include <soc/qcom/secure_buffer.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include "ion.h"
 #include "msm_ion_priv.h"
 #include "ion_secure_util.h"
 
@@ -104,7 +103,7 @@ static void ion_carveout_heap_free(struct ion_buffer *buffer)
 	phys_addr_t paddr = page_to_phys(page);
 	struct device *dev = carveout_heap->heap.dev;
 
-	ion_heap_buffer_zero(buffer);
+	ion_buffer_zero(buffer);
 
 	if (ion_buffer_cached(buffer))
 		ion_pages_sync_for_device(dev, page, buffer->size,
@@ -123,6 +122,51 @@ static struct ion_heap_ops carveout_heap_ops = {
 	.unmap_kernel = ion_heap_unmap_kernel,
 };
 
+static int ion_heap_clear_pages(struct page **pages, int num, pgprot_t pgprot)
+{
+	void *addr = vm_map_ram(pages, num, -1, pgprot);
+
+	if (!addr)
+		return -ENOMEM;
+	memset(addr, 0, PAGE_SIZE * num);
+	vm_unmap_ram(addr, num);
+
+	return 0;
+}
+
+static int ion_heap_sglist_zero(struct scatterlist *sgl, unsigned int nents,
+				pgprot_t pgprot)
+{
+	int p = 0;
+	int ret = 0;
+	struct sg_page_iter piter;
+	struct page *pages[32];
+
+	for_each_sg_page(sgl, &piter, nents, 0) {
+		pages[p++] = sg_page_iter_page(&piter);
+		if (p == ARRAY_SIZE(pages)) {
+			ret = ion_heap_clear_pages(pages, p, pgprot);
+			if (ret)
+				return ret;
+			p = 0;
+		}
+	}
+	if (p)
+		ret = ion_heap_clear_pages(pages, p, pgprot);
+
+	return ret;
+}
+
+static int ion_carveout_pages_zero(struct page *page, size_t size,
+				      pgprot_t pgprot)
+{
+	struct scatterlist sg;
+
+	sg_init_table(&sg, 1);
+	sg_set_page(&sg, page, size, 0);
+	return ion_heap_sglist_zero(&sg, 1, pgprot);
+}
+
 static struct ion_heap *
 __ion_carveout_heap_create(struct ion_platform_heap *heap_data,
 			   bool sync)
@@ -140,7 +184,8 @@ __ion_carveout_heap_create(struct ion_platform_heap *heap_data,
 	if (sync)
 		ion_pages_sync_for_device(dev, page, size, DMA_BIDIRECTIONAL);
 
-	ret = ion_heap_pages_zero(page, size, pgprot_writecombine(PAGE_KERNEL));
+	ret = ion_carveout_pages_zero(page, size,
+				      pgprot_writecombine(PAGE_KERNEL));
 	if (ret)
 		return ERR_PTR(ret);
 

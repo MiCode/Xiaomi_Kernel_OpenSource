@@ -9,6 +9,7 @@
  */
 
 #include <linux/device.h>
+#include <linux/ion.h>
 #include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/err.h>
@@ -16,8 +17,6 @@
 #include <linux/scatterlist.h>
 #include <soc/qcom/secure_buffer.h>
 #include <linux/highmem.h>
-
-#include "ion.h"
 #include "msm_ion_priv.h"
 #include "ion_secure_util.h"
 

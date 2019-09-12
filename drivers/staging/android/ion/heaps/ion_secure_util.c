@@ -6,7 +6,6 @@
 #include <linux/slab.h>
 #include <soc/qcom/secure_buffer.h>
 #include "ion_secure_util.h"
-#include "ion.h"
 #include "msm_ion_priv.h"
 
 bool is_secure_vmid_valid(int vmid)

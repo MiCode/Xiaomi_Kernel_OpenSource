@@ -3,7 +3,6 @@
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 #include <soc/qcom/secure_buffer.h>
-#include "ion.h"
 #include "msm_ion_priv.h"
 
 #ifndef _ION_SYSTEM_HEAP_H

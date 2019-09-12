@@ -21,8 +21,9 @@
 #include <linux/miscdevice.h>
 #include <linux/bitops.h>
 #include <linux/vmstat.h>
-#include "../uapi/ion.h"
-#include "../uapi/msm_ion.h"
+#include <uapi/linux/ion.h>
+#include "../ion_private.h"
+#include "../../uapi/msm_ion.h"
 
 #define ION_ADSP_HEAP_NAME	"adsp"
 #define ION_SYSTEM_HEAP_NAME	"system"

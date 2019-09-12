@@ -3,7 +3,7 @@
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
-#include "ion.h"
+#include "msm_ion_priv.h"
 
 #ifndef _ION_SECURE_UTIL_H
 #define _ION_SECURE_UTIL_H

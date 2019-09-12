@@ -19,28 +19,10 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/ion.h>
 
-#include "ion.h"
 #include "msm_ion_priv.h"
 #include "ion_secure_util.h"
 
-static void _ion_buffer_destroy(struct ion_buffer *buffer)
-{
-	struct ion_heap *heap = buffer->heap;
-	struct ion_device *dev = buffer->dev;
-
-	msm_dma_buf_freed(buffer);
-
-	mutex_lock(&dev->buffer_lock);
-	rb_erase(&buffer->node, &dev->buffers);
-	mutex_unlock(&dev->buffer_lock);
-
-	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
-		ion_heap_freelist_add(heap, buffer);
-	else
-		ion_buffer_destroy(buffer);
-}
-
-static void *ion_buffer_kmap_get(struct ion_buffer *buffer)
+static void *msm_ion_buffer_kmap_get(struct ion_buffer *buffer)
 {
 	void *vaddr;
 
@@ -59,7 +41,7 @@ static void *ion_buffer_kmap_get(struct ion_buffer *buffer)
 	return vaddr;
 }
 
-static void ion_buffer_kmap_put(struct ion_buffer *buffer)
+static void msm_ion_buffer_kmap_put(struct ion_buffer *buffer)
 {
 	if (buffer->kmap_cnt == 0) {
 		pr_warn_ratelimited("ION client likely missing a call to dma_buf_kmap or dma_buf_vmap, pid:%d\n",
@@ -114,7 +96,7 @@ struct ion_dma_buf_attachment {
 	bool dma_mapped;
 };
 
-static int ion_dma_buf_attach(struct dma_buf *dmabuf,
+static int msm_ion_dma_buf_attach(struct dma_buf *dmabuf,
 			      struct dma_buf_attachment *attachment)
 {
 	struct ion_dma_buf_attachment *a;
@@ -145,7 +127,7 @@ static int ion_dma_buf_attach(struct dma_buf *dmabuf,
 	return 0;
 }
 
-static void ion_dma_buf_detatch(struct dma_buf *dmabuf,
+static void msm_ion_dma_buf_detatch(struct dma_buf *dmabuf,
 				struct dma_buf_attachment *attachment)
 {
 	struct ion_dma_buf_attachment *a = attachment->priv;
@@ -164,8 +146,9 @@ bool ion_buffer_cached(struct ion_buffer *buffer)
 	return !!(buffer->flags & ION_FLAG_CACHED);
 }
 
-static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
-					enum dma_data_direction direction)
+static struct sg_table
+*msm_ion_map_dma_buf(struct dma_buf_attachment *attachment,
+		     enum dma_data_direction direction)
 {
 	struct ion_dma_buf_attachment *a = attachment->priv;
 	struct sg_table *table;
@@ -236,7 +219,7 @@ void ion_prepare_sgl_for_force_dma_sync(struct sg_table *table)
 	}
 }
 
-static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
+static void msm_ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 			      struct sg_table *table,
 			      enum dma_data_direction direction)
 {
@@ -294,7 +277,7 @@ void ion_pages_sync_for_device(struct device *dev, struct page *page,
 	dma_sync_sg_for_device(dev, &sg, 1, dir);
 }
 
-static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
+static int msm_ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 	int ret = 0;
@@ -320,21 +303,22 @@ static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	return ret;
 }
 
-static void ion_dma_buf_release(struct dma_buf *dmabuf)
+static void msm_ion_dma_buf_release(struct dma_buf *dmabuf)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 
-	_ion_buffer_destroy(buffer);
+	msm_dma_buf_freed(buffer);
+	ion_free(buffer);
 }
 
-static void *ion_dma_buf_vmap(struct dma_buf *dmabuf)
+static void *msm_ion_dma_buf_vmap(struct dma_buf *dmabuf)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 	void *vaddr = ERR_PTR(-EINVAL);
 
 	if (buffer->heap->ops->map_kernel) {
 		mutex_lock(&buffer->lock);
-		vaddr = ion_buffer_kmap_get(buffer);
+		vaddr = msm_ion_buffer_kmap_get(buffer);
 		mutex_unlock(&buffer->lock);
 	} else {
 		pr_warn_ratelimited("heap %s doesn't support map_kernel\n",
@@ -344,24 +328,24 @@ static void *ion_dma_buf_vmap(struct dma_buf *dmabuf)
 	return vaddr;
 }
 
-static void ion_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
+static void msm_ion_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 
 	if (buffer->heap->ops->map_kernel) {
 		mutex_lock(&buffer->lock);
-		ion_buffer_kmap_put(buffer);
+		msm_ion_buffer_kmap_put(buffer);
 		mutex_unlock(&buffer->lock);
 	}
 }
 
-static void *ion_dma_buf_kmap(struct dma_buf *dmabuf, unsigned long offset)
+static void *msm_ion_dma_buf_kmap(struct dma_buf *dmabuf, unsigned long offset)
 {
 	/*
 	 * TODO: Once clients remove their hacks where they assume kmap(ed)
 	 * addresses are virtually contiguous implement this properly
 	 */
-	void *vaddr = ion_dma_buf_vmap(dmabuf);
+	void *vaddr = msm_ion_dma_buf_vmap(dmabuf);
 
 	if (IS_ERR(vaddr))
 		return vaddr;
@@ -369,14 +353,14 @@ static void *ion_dma_buf_kmap(struct dma_buf *dmabuf, unsigned long offset)
 	return vaddr + offset * PAGE_SIZE;
 }
 
-static void ion_dma_buf_kunmap(struct dma_buf *dmabuf, unsigned long offset,
+static void msm_ion_dma_buf_kunmap(struct dma_buf *dmabuf, unsigned long offset,
 			       void *ptr)
 {
 	/*
 	 * TODO: Once clients remove their hacks where they assume kmap(ed)
 	 * addresses are virtually contiguous implement this properly
 	 */
-	ion_dma_buf_vunmap(dmabuf, ptr);
+	msm_ion_dma_buf_vunmap(dmabuf, ptr);
 }
 
 static int ion_sgl_sync_range(struct device *dev, struct scatterlist *sgl,
@@ -435,8 +419,8 @@ static int ion_sgl_sync_range(struct device *dev, struct scatterlist *sgl,
 	return 0;
 }
 
-static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
-					enum dma_data_direction direction)
+static int msm_ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
+					    enum dma_data_direction direction)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 	struct ion_dma_buf_attachment *a;
@@ -492,8 +476,8 @@ out:
 	return ret;
 }
 
-static int ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
-				      enum dma_data_direction direction)
+static int msm_ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
+					  enum dma_data_direction direction)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 	struct ion_dma_buf_attachment *a;
@@ -549,7 +533,7 @@ out:
 	return ret;
 }
 
-static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
+static int msm_ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 						enum dma_data_direction dir,
 						unsigned int offset,
 						unsigned int len)
@@ -620,7 +604,7 @@ out:
 	return ret;
 }
 
-static int ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
+static int msm_ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 					      enum dma_data_direction direction,
 					      unsigned int offset,
 					      unsigned int len)
@@ -697,7 +681,7 @@ out:
 	return ret;
 }
 
-static int ion_dma_buf_get_flags(struct dma_buf *dmabuf,
+static int msm_ion_dma_buf_get_flags(struct dma_buf *dmabuf,
 				 unsigned long *flags)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
@@ -707,19 +691,19 @@ static int ion_dma_buf_get_flags(struct dma_buf *dmabuf,
 }
 
 const struct dma_buf_ops msm_ion_dma_buf_ops = {
-	.map_dma_buf = ion_map_dma_buf,
-	.unmap_dma_buf = ion_unmap_dma_buf,
-	.mmap = ion_mmap,
-	.release = ion_dma_buf_release,
-	.attach = ion_dma_buf_attach,
-	.detach = ion_dma_buf_detatch,
-	.begin_cpu_access = ion_dma_buf_begin_cpu_access,
-	.end_cpu_access = ion_dma_buf_end_cpu_access,
-	.begin_cpu_access_partial = ion_dma_buf_begin_cpu_access_partial,
-	.end_cpu_access_partial = ion_dma_buf_end_cpu_access_partial,
-	.map = ion_dma_buf_kmap,
-	.unmap = ion_dma_buf_kunmap,
-	.vmap = ion_dma_buf_vmap,
-	.vunmap = ion_dma_buf_vunmap,
-	.get_flags = ion_dma_buf_get_flags,
+	.map_dma_buf = msm_ion_map_dma_buf,
+	.unmap_dma_buf = msm_ion_unmap_dma_buf,
+	.mmap = msm_ion_mmap,
+	.release = msm_ion_dma_buf_release,
+	.attach = msm_ion_dma_buf_attach,
+	.detach = msm_ion_dma_buf_detatch,
+	.begin_cpu_access = msm_ion_dma_buf_begin_cpu_access,
+	.end_cpu_access = msm_ion_dma_buf_end_cpu_access,
+	.begin_cpu_access_partial = msm_ion_dma_buf_begin_cpu_access_partial,
+	.end_cpu_access_partial = msm_ion_dma_buf_end_cpu_access_partial,
+	.map = msm_ion_dma_buf_kmap,
+	.unmap = msm_ion_dma_buf_kunmap,
+	.vmap = msm_ion_dma_buf_vmap,
+	.vunmap = msm_ion_dma_buf_vunmap,
+	.get_flags = msm_ion_dma_buf_get_flags,
 };

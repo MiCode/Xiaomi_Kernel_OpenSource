@@ -15,7 +15,6 @@
 #include <linux/dma-contiguous.h>
 #include <linux/cma.h>
 #include <linux/msm_ion_of.h>
-#include "ion.h"
 #include "msm_ion_priv.h"
 
 #define ION_COMPAT_STR	"qcom,msm-ion"

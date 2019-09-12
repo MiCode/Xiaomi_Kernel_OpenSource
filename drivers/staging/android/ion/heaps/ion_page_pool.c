@@ -10,7 +10,6 @@
 #include <linux/swap.h>
 #include <linux/sched/signal.h>
 
-#include "ion.h"
 #include "msm_ion_priv.h"
 #include "ion_page_pool.h"
 

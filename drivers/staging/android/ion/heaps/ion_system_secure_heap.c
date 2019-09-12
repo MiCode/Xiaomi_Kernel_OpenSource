@@ -11,7 +11,6 @@
 
 #include "ion_system_secure_heap.h"
 #include "ion_system_heap.h"
-#include "ion.h"
 #include "ion_page_pool.h"
 #include "msm_ion_priv.h"
 #include "ion_secure_util.h"
