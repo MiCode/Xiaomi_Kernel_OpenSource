@@ -1004,9 +1004,13 @@ static void smb1390_status_change_work(struct work_struct *work)
 	if (!is_psy_voter_available(chip))
 		goto out;
 
-	if (!smb1390_is_adapter_cc_mode(chip))
-		vote(chip->disable_votable, SOC_LEVEL_VOTER,
-		     smb1390_is_batt_soc_valid(chip) ? false : true, 0);
+	/*
+	 * If batt soc is not valid upon bootup, but becomes
+	 * valid due to the battery discharging later, remove
+	 * vote from SOC_LEVEL_VOTER.
+	 */
+	if (smb1390_is_batt_soc_valid(chip))
+		vote(chip->disable_votable, SOC_LEVEL_VOTER, false, 0);
 
 	rc = power_supply_get_property(chip->usb_psy,
 			POWER_SUPPLY_PROP_SMB_EN_MODE, &pval);
