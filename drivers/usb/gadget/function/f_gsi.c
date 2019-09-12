@@ -855,6 +855,11 @@ static void ipa_work_handler(struct work_struct *w)
 		break;
 	case STATE_INITIALIZED:
 		if (event == EVT_SET_ALT) {
+			if (!atomic_read(&gsi->connected)) {
+				log_event_err("USB cable not connected\n");
+				break;
+			}
+
 			usb_gadget_autopm_get(d_port->gadget);
 			log_event_dbg("%s: get = %d", __func__,
 				atomic_read(&gad_dev->power.usage_count));
