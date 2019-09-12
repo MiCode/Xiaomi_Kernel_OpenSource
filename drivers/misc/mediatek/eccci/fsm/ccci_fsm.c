@@ -16,6 +16,21 @@ static void fsm_finish_command(struct ccci_fsm_ctl *ctl,
 static void fsm_finish_event(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_event *event);
 
+static int needforcestop;
+
+
+int force_md_stop(struct ccci_fsm_monitor *monitor_ctl)
+{
+	int ret = -1;
+	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(monitor_ctl->md_id);
+
+	needforcestop = 1;
+	ret = fsm_append_command(ctl, CCCI_COMMAND_STOP, 0);
+	CCCI_NORMAL_LOG(monitor_ctl->md_id, FSM,
+			"force md stop\n");
+	return ret;
+}
+
 unsigned long __weak BAT_Get_Battery_Voltage(int polling_mode)
 {
 	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
@@ -236,7 +251,7 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	ctl->curr_state = CCCI_FSM_STARTING;
 	__pm_stay_awake(&ctl->wakelock);
 	/* 2. poll for critical users exit */
-	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL) {
+	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL && !needforcestop) {
 		if (ccci_port_check_critical_user(ctl->md_id) == 0) {
 			user_exit = 1;
 			break;
