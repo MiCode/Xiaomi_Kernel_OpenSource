@@ -71,6 +71,7 @@ enum atl_fw2_opts {
 
 enum atl_fw2_ex_caps {
 	atl_define_bit(atl_fw2_ex_caps_wol_ex, 23)
+	atl_define_bit(atl_fw2_ex_caps_mac_heartbeat, 25)
 };
 
 enum atl_fw2_wol_ex {
@@ -156,6 +157,7 @@ struct atl_fw_ops {
 	int (*get_phy_temperature)(struct atl_hw *hw, int *temp);
 	int (*dump_cfg)(struct atl_hw *hw);
 	int (*restore_cfg)(struct atl_hw *hw);
+	int (*set_phy_loopback)(struct atl_nic *nic, u32 mode);
 	unsigned efuse_shadow_addr_reg;
 };
 

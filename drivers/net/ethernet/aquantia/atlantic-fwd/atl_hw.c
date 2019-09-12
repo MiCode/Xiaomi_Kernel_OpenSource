@@ -101,6 +101,16 @@ static inline void atl_glb_soft_reset_full(struct atl_hw *hw)
 	atl_glb_soft_reset(hw);
 }
 
+static inline void atl_enable_dma_net_lpb_mode(struct atl_nic *nic)
+{
+	struct atl_hw *hw = &nic->hw;
+
+	atl_set_vlan_promisc(hw, 1);
+	atl_write_bit(hw, ATL_RX_FLT_CTRL1, 3, 1);
+	atl_write_bit(hw, ATL_TX_PBUF_CTRL1, 4, 0);
+	atl_write_bit(hw, ATL_TX_CTRL1, 4, 1);
+	atl_write_bit(hw, ATL_RX_CTRL1, 4, 1);
+}
 /* entered with fw lock held */
 static int atl_hw_reset_nonrbl(struct atl_hw *hw)
 {
@@ -213,21 +223,8 @@ int atl_hw_reset(struct atl_hw *hw)
 		tries++;
 		reg = atl_read(hw, ATL_MCP_SCRATCH(RBL_STS)) & 0xffff;
 
-		if (!reg || reg == 0xdead)
-			continue;
-
-		/* if (reg != 0xf1a7) */
+		if (reg && reg != 0xdead)
 			break;
-
-		/* if (host_load_done) */
-		/* 	continue; */
-
-		/* ret = atl_load_mac_fw(hw); */
-		/* if (ret) { */
-		/* 	atl_dev_err("MAC FW host load failed\n"); */
-		/* 	return ret; */
-		/* } */
-		/* host_load_done = true; */
 	}
 
 	if (reg == 0xf1a7) {
@@ -503,6 +500,9 @@ void atl_start_hw_global(struct atl_nic *nic)
 	if (!test_and_clear_bit(ATL_ST_GLOBAL_CONF_NEEDED, &hw->state))
 		return;
 
+	if (nic->priv_flags & ATL_PF_BIT(LPB_NET_DMA))
+		atl_enable_dma_net_lpb_mode(nic);
+
 	/* Enable TPO2 */
 	atl_write(hw, 0x7040, 0x10000);
 	/* Enable RPF2, filter logic 3 */
@@ -709,10 +709,17 @@ void atl_set_loopback(struct atl_nic *nic, int idx, bool on)
 		atl_write_bit(hw, ATL_TX_CTRL1, 7, on);
 		atl_write_bit(hw, ATL_RX_CTRL1, 8, on);
 		break;
-	/* case ATL_PF_LPB_NET_DMA: */
-	/* 	atl_write_bit(hw, ATL_TX_CTRL1, 4, on); */
-	/* 	atl_write_bit(hw, ATL_RX_CTRL1, 4, on); */
-	/* 	break; */
+	case ATL_PF_LPB_INT_PHY:
+	case ATL_PF_LPB_EXT_PHY:
+		hw->mcp.ops->set_phy_loopback(nic, idx);
+		break;
+	case ATL_PF_LPB_NET_DMA:
+		/* To switch DMANetworkLoopback mode
+		 * you need a reset datapath
+		 */
+		set_bit(ATL_ST_GLOBAL_CONF_NEEDED, &hw->state);
+		atl_reconfigure(nic);
+		break;
 	}
 }
 
