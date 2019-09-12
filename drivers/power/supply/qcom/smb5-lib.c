@@ -832,10 +832,10 @@ static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
 	if (vbus_allowance != CONTINUOUS)
 		return 0;
 
+	aicl_threshold = min_allowed_uv / 1000 - CONT_AICL_HEADROOM_MV;
 	if (chg->adapter_cc_mode)
-		aicl_threshold = AICL_THRESHOLD_MV_IN_CC;
-	else
-		aicl_threshold = min_allowed_uv / 1000 - CONT_AICL_HEADROOM_MV;
+		aicl_threshold = min(aicl_threshold, AICL_THRESHOLD_MV_IN_CC);
+
 	rc = smblib_set_charge_param(chg, &chg->param.aicl_cont_threshold,
 							aicl_threshold);
 	if (rc < 0) {
