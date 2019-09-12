@@ -248,6 +248,21 @@ struct coresight_csr *coresight_csr_get(const char *name)
 }
 EXPORT_SYMBOL(coresight_csr_get);
 
+int of_get_coresight_csr_name(struct device_node *node, const char **csr_name)
+{
+	int ret;
+	struct device_node *csr_node;
+
+	csr_node = of_parse_phandle(node, "coresight-csr", 0);
+	if (!csr_node)
+		return -EINVAL;
+
+	ret = of_property_read_string(csr_node, "coresight-name", csr_name);
+	of_node_put(csr_node);
+	return ret;
+}
+EXPORT_SYMBOL(of_get_coresight_csr_name);
+
 static ssize_t timestamp_show(struct device *dev,
 				struct device_attribute *attr,
 				char *buf)
