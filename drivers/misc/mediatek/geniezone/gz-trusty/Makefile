@@ -4,24 +4,21 @@
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 
-
-obj-$(CONFIG_MTK_ENABLE_GENIEZONE)	+= trusty.o
-obj-$(CONFIG_MTK_ENABLE_GENIEZONE)	+= trusty-irq.o
-obj-$(CONFIG_TRUSTY_FIQ)		+= trusty-fiq.o
-obj-$(CONFIG_TRUSTY_FIQ_ARM)		+= trusty-fiq-arm.o
-obj-$(CONFIG_TRUSTY_FIQ_ARM64)		+= trusty-fiq-arm64.o trusty-fiq-arm64-glue.o
-ifeq ($(CONFIG_MTK_ENABLE_GENIEZONE),y)
-obj-$(CONFIG_TRUSTY_LOG)		+= gz-log.o
-obj-$(CONFIG_MTK_ENABLE_GENIEZONE)	+= trusty-nebula.o
+obj-$(CONFIG_MTK_ENABLE_GENIEZONE) += gz_trusty_mod.o
+gz_trusty_mod-objs += trusty.o
 ifeq ($(CONFIG_MTK_NEBULA_VM_SUPPORT),y)
-obj-$(CONFIG_TRUSTY_LOG)		+= trusty-log.o
-obj-$(CONFIG_MTK_ENABLE_GENIEZONE)	+= trusty-nebula.o
+	gz_trusty_mod-objs += trusty-nebula.o
 endif
-else
-obj-$(CONFIG_TRUSTY_LOG)		+= trusty-log.o
-endif
-obj-$(CONFIG_MTK_ENABLE_GENIEZONE)	+= trusty-mem.o
-obj-$(CONFIG_TRUSTY_VIRTIO)		+= trusty-virtio.o
-obj-$(CONFIG_TRUSTY_VIRTIO_IPC)	+= trusty-ipc.o
 
+obj-$(CONFIG_MTK_GZ_IRQ) += gz_irq_mod.o
+gz_irq_mod-objs += trusty-irq.o
+
+obj-$(CONFIG_TRUSTY_VIRTIO) += gz_virtio_mod.o
+gz_virtio_mod-objs += trusty-virtio.o trusty-mem.o
+
+obj-$(CONFIG_TRUSTY_VIRTIO_IPC) += gz_ipc_mod.o
+gz_ipc_mod-objs += trusty-ipc.o
+
+obj-$(CONFIG_TRUSTY_LOG) += gz_log_mod.o
+gz_log_mod-objs += gz-log.o
 

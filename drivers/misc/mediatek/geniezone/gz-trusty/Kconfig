@@ -39,7 +39,7 @@ config TRUSTY_INTERRUPT_MAP
 
 config TRUSTY_INTERRUPT_FIQ_ONLY
 	tristate "GZ Trusty interrupt fiq support"
-	depends on MTK_ENABLE_GENIEZONE && MTK_GIC_V3_EXT
+	depends on MTK_ENABLE_GENIEZONE
 	help
 	  This is used for Trusty to support handling new flow in GICv3
 	  If this is selected, NWd will not route IRQ to Secure OS
@@ -56,16 +56,14 @@ config MTK_NEBULA_VM_SUPPORT
 	  Say Y if you would like to enable this feature.
 	  If unsure, say N.
 
-config TRUSTY_WDT_FIQ_ARMV7_SUPPORT
-	tristate "Trusty WDT FIQ for arm"
-	depends on MTK_ENABLE_GENIEZONE && MTK_NO_ATF && \
-		   !MTK_KERNEL_IN_SECURE_MODE
+config MTK_GZ_IRQ
+	tristate "enable GZ Trusty IRQ"
+	depends on MTK_ENABLE_GENIEZONE
 	help
-	  This module adds support for WDT FIQ function on ARMV7.
-	  But it works only when MTK GENIEZONE is enabled, no ATF exists,
-	  and kernel is not in secure mode which are controlled by
-	  other configs, i.e., MTK_ENABLE_GENIEZONE, MTK_NO_ATF, and
-	  MTK_KERNEL_IN_SECURE_MODE.
+	  This is used for enabling Geniezone IRQ.
+	  Provide some irq services and handlers.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
 
 endmenu
 

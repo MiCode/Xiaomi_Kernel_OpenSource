@@ -274,18 +274,11 @@ static int gz_log_proc_init(void)
 	return 0;
 }
 
-/* get_gz_log_buffer was called in arch_initcall */
-void get_gz_log_buffer(unsigned long *addr, unsigned long *size,
-		       unsigned long *start)
-{
-	*addr = (unsigned long)page_address(trusty_log_pages);
-	pr_info("trusty_log_pages virtual address:%lx\n", (unsigned long)*addr);
-	*start = 0;
-	*size = TRUSTY_LOG_SIZE;
-}
-
 int gz_log_page_init(void)
 {
+	if (trusty_log_pages)
+		return 0;
+
 	trusty_log_pages = alloc_pages(GFP_KERNEL | __GFP_ZERO | GFP_DMA,
 				       get_order(TRUSTY_LOG_SIZE));
 	if (!trusty_log_pages) {
@@ -295,7 +288,18 @@ int gz_log_page_init(void)
 
 	return 0;
 }
-arch_initcall(gz_log_page_init);
+
+/* get_gz_log_buffer was called in arch_initcall */
+void get_gz_log_buffer(unsigned long *addr, unsigned long *size,
+		       unsigned long *start)
+{
+	gz_log_page_init();
+
+	*addr = (unsigned long)page_address(trusty_log_pages);
+	pr_info("trusty_log_pages virtual address:%lx\n", (unsigned long)*addr);
+	*start = 0;
+	*size = TRUSTY_LOG_SIZE;
+}
 
 static int trusty_gz_log_probe(struct platform_device *pdev)
 {
@@ -306,6 +310,7 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 	if (!trusty_supports_logging(pdev->dev.parent))
 		return -ENXIO;
 
+	gz_log_page_init();
 	tls = kzalloc(sizeof(*tls), GFP_KERNEL);
 	if (!tls) {
 		result = -ENOMEM;
@@ -410,3 +415,6 @@ static struct platform_driver trusty_gz_log_driver = {
 };
 
 module_platform_driver(trusty_gz_log_driver);
+MODULE_LICENSE("GPL");
+
+

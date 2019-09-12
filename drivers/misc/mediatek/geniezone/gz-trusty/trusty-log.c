@@ -23,6 +23,7 @@
 #include <linux/platform_device.h>
 #include <gz-trusty/smcall.h>
 #include <gz-trusty/trusty.h>
+#include <linux/of.h>
 #include <linux/notifier.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
@@ -281,3 +282,5 @@ static struct platform_driver trusty_log_driver = {
 };
 
 module_platform_driver(trusty_log_driver);
+MODULE_LICENSE("GPL");
+
