@@ -98,6 +98,7 @@ void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
 
 	writel(val, common->base + SMI_L1ARB(port));
 }
+EXPORT_SYMBOL_GPL(mtk_smi_common_bw_set);
 
 void mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val)
 {
@@ -105,6 +106,7 @@ void mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val)
 
 	writel(val, larb->base + SMI_LARB_OSTDL_PORTx(port));
 }
+EXPORT_SYMBOL_GPL(mtk_smi_larb_bw_set);
 
 static int mtk_smi_clk_enable(const struct mtk_smi *smi)
 {
