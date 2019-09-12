@@ -1278,6 +1278,7 @@ static void rmnet_free_agg_pages(struct rmnet_port *port)
 	struct rmnet_agg_page *agg_page, *idx;
 
 	list_for_each_entry_safe(agg_page, idx, &port->agg_list, list) {
+		list_del(&agg_page->list);
 		put_page(agg_page->page);
 		kfree(agg_page);
 	}
@@ -1337,6 +1338,7 @@ static struct rmnet_agg_page *__rmnet_alloc_agg_pages(struct rmnet_port *port)
 	}
 
 	agg_page->page = page;
+	INIT_LIST_HEAD(&agg_page->list);
 
 	return agg_page;
 }
