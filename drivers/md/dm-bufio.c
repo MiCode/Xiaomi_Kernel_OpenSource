@@ -465,8 +465,6 @@ static struct dm_buffer *alloc_buffer(struct dm_bufio_client *c, gfp_t gfp_mask)
 		return NULL;
 	}
 
-	adjust_total_allocated(b->data_mode, (long)c->block_size);
-
 #ifdef CONFIG_DM_DEBUG_BLOCK_STACK_TRACING
 	memset(&b->stack_trace, 0, sizeof(b->stack_trace));
 #endif
@@ -479,8 +477,6 @@ static struct dm_buffer *alloc_buffer(struct dm_bufio_client *c, gfp_t gfp_mask)
 static void free_buffer(struct dm_buffer *b)
 {
 	struct dm_bufio_client *c = b->c;
-
-	adjust_total_allocated(b->data_mode, -(long)c->block_size);
 
 	free_buffer_data(c, b->data, b->data_mode);
 	kfree(b);
@@ -499,6 +495,8 @@ static void __link_buffer(struct dm_buffer *b, sector_t block, int dirty)
 	list_add(&b->lru_list, &c->lru[dirty]);
 	__insert(b->c, b);
 	b->last_accessed = jiffies;
+
+	adjust_total_allocated(b->data_mode, (long)c->block_size);
 }
 
 /*
@@ -513,6 +511,8 @@ static void __unlink_buffer(struct dm_buffer *b)
 	c->n_buffers[b->list_mode]--;
 	__remove(b->c, b);
 	list_del(&b->lru_list);
+
+	adjust_total_allocated(b->data_mode, -(long)c->block_size);
 }
 
 /*
