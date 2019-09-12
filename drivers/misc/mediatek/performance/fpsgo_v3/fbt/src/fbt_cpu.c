@@ -1487,8 +1487,10 @@ static unsigned int fbt_get_max_userlimit_freq(void)
 	if (!clus_max_idx)
 		return 100U;
 
+#ifdef CONFIG_MTK_PPM
 	for (i = 0; i < cluster_num; i++)
 		clus_max_idx[i] = mt_ppm_userlimit_freq_limit_by_others(i);
+#endif
 
 	mutex_lock(&fbt_mlock);
 	for (i = 0; i < cluster_num; i++) {

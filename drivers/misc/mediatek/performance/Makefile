@@ -31,9 +31,7 @@ obj-y += perf_ioctl/
 obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3/
 
 ifneq (,$(filter $(CONFIG_MTK_LEGACY_THERMAL_PLATFORM), "mt6779"))
-	ifeq ($(CONFIG_THERMAL),y)
 		obj-$(CONFIG_MTK_EARA_THERMAL) += eara_thermal/
-	endif
 endif
 
 

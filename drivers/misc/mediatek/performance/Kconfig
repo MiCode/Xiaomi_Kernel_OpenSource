@@ -53,7 +53,7 @@ config MTK_FPSGO_V3
 
 config MTK_EARA_THERMAL
 	bool "MTK eara_thermal support"
-	depends on MTK_FPSGO_V3
+	depends on MTK_FPSGO_V3 && MTK_PPM && THERMAL
 	help
 	  MTK_EARA_THERMAL is the kernel config of EARA_THERMAL mechanism.
 	  EARA_THERMAL persuades FPS performance when thermal throttling.

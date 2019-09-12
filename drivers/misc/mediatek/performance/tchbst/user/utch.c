@@ -105,8 +105,10 @@ static int notify_touch(int action)
 		/* boost */
 		update_eas_uclamp_min(EAS_KIR_TOUCH,
 				CGROUP_TA, touch_boost_value);
+#ifdef CONFIG_MTK_PPM
 		update_userlimit_cpu_freq(CPU_KIR_TOUCH,
 				perfmgr_clusters, target_freq);
+#endif
 		if (usrtch_debug)
 			pr_debug("touch down\n");
 		fpsgo_systrace_c_fbt(prev_boost_pid, 1, "touch");
@@ -126,7 +128,9 @@ static void notify_touch_up_timeout(void)
 	mutex_lock(&notify_lock);
 
 	update_eas_uclamp_min(EAS_KIR_TOUCH, CGROUP_TA, 0);
+#ifdef CONFIG_MTK_PPM
 	update_userlimit_cpu_freq(CPU_KIR_TOUCH, perfmgr_clusters, reset_freq);
+#endif
 	fpsgo_systrace_c_fbt(prev_boost_pid, 0, "touch");
 	touch_event = 2;
 	if (usrtch_debug)
