@@ -74,7 +74,8 @@ static u32 pil_size;
 static u32 cmac_buf[CMAC_SIZE_IN_DWORDS]; /* saved cmac */
 static u32 pbl_cmac_buf[CMAC_SIZE_IN_DWORDS]; /* pbl cmac */
 
-static u32 apps_cmac_buf[NUM_UEFI_APPS][CMAC_SIZE_IN_DWORDS];
+static u32 calc_apps_cmac[NUM_UEFI_APPS][CMAC_SIZE_IN_DWORDS];
+static u32 saved_apps_cmac[NUM_UEFI_APPS][CMAC_SIZE_IN_DWORDS];
 
 static u32 iar_state;
 static bool is_iar_enabled;
@@ -104,6 +105,9 @@ static struct spss_utils_device *spss_utils_dev;
 /* static functions declaration */
 static int spss_set_fw_cmac(u32 *cmac, size_t cmac_size);
 static int spss_get_pbl_and_apps_calc_cmac(void);
+
+static int spss_get_saved_uefi_apps_cmac(void);
+static int spss_set_saved_uefi_apps_cmac(void);
 
 /*==========================================================================*/
 /*		Device Sysfs */
@@ -278,9 +282,9 @@ static ssize_t apps_cmac_show(struct device *dev,
 		return -EINVAL;
 	}
 
-	memcpy(buf, apps_cmac_buf, sizeof(apps_cmac_buf));
+	memcpy(buf, calc_apps_cmac, sizeof(calc_apps_cmac));
 
-	return sizeof(apps_cmac_buf);
+	return sizeof(calc_apps_cmac);
 }
 
 static DEVICE_ATTR_RO(apps_cmac);
@@ -397,7 +401,7 @@ static long spss_utils_ioctl(struct file *file,
 		}
 
 		memcpy(cmac_buf, data, sizeof(cmac_buf));
-		pr_info("saved fw cmac: 0x%08x,0x%08x,0x%08x,0x%08x\n",
+		pr_debug("saved fw cmac: 0x%08x,0x%08x,0x%08x,0x%08x\n",
 			cmac_buf[0], cmac_buf[1], cmac_buf[2], cmac_buf[3]);
 
 		/*
@@ -409,6 +413,7 @@ static long spss_utils_ioctl(struct file *file,
 		pr_debug("read pbl cmac from shared memory\n");
 		spss_set_fw_cmac(cmac_buf, sizeof(cmac_buf));
 		spss_get_pbl_and_apps_calc_cmac();
+		spss_get_saved_uefi_apps_cmac();
 		break;
 
 	default:
@@ -798,7 +803,7 @@ static int spss_get_pbl_and_apps_calc_cmac(void)
 	}
 	reg += CMAC_SIZE_IN_BYTES; /* skip the saved cmac */
 
-	pr_info("pbl_cmac_buf : 0x%08x,0x%08x,0x%08x,0x%08x\n",
+	pr_debug("pbl_cmac_buf : 0x%08x,0x%08x,0x%08x,0x%08x\n",
 	    pbl_cmac_buf[0], pbl_cmac_buf[1],
 	    pbl_cmac_buf[2], pbl_cmac_buf[3]);
 
@@ -806,14 +811,76 @@ static int spss_get_pbl_and_apps_calc_cmac(void)
 	for (j = 0; j < NUM_UEFI_APPS; j++) {
 		for (i = 0; i < CMAC_SIZE_IN_DWORDS; i++) {
 			val = readl_relaxed(reg);
-			apps_cmac_buf[j][i] = val;
+			calc_apps_cmac[j][i] = val;
 			reg += sizeof(u32);
 		}
 		reg += CMAC_SIZE_IN_BYTES; /* skip the saved cmac */
 
-		pr_info("app [%d] cmac : 0x%08x,0x%08x,0x%08x,0x%08x\n", j,
-			apps_cmac_buf[j][0], apps_cmac_buf[j][1],
-			apps_cmac_buf[j][2], apps_cmac_buf[j][3]);
+		pr_debug("app [%d] cmac : 0x%08x,0x%08x,0x%08x,0x%08x\n", j,
+			calc_apps_cmac[j][0], calc_apps_cmac[j][1],
+			calc_apps_cmac[j][2], calc_apps_cmac[j][3]);
+	}
+
+	return 0;
+}
+
+static int spss_get_saved_uefi_apps_cmac(void)
+{
+	u8 __iomem *reg = NULL;
+	int i, j;
+	u32 val;
+
+	if (cmac_mem == NULL)
+		return -EFAULT;
+
+	reg = cmac_mem; /* IAR buffer base */
+	reg += (2*CMAC_SIZE_IN_BYTES); /* skip the saved and calc fw cmac */
+	pr_debug("reg [%pK]\n", reg);
+
+	/* get saved apps cmac from ddr - were written by UEFI spss driver */
+	for (j = 0; j < NUM_UEFI_APPS; j++) {
+		for (i = 0; i < CMAC_SIZE_IN_DWORDS; i++) {
+			val = readl_relaxed(reg);
+			saved_apps_cmac[j][i] = val;
+			reg += sizeof(u32);
+		}
+		reg += CMAC_SIZE_IN_BYTES; /* skip the calc cmac */
+
+		pr_debug("app[%d] saved cmac: 0x%08x,0x%08x,0x%08x,0x%08x\n",
+			j,
+			saved_apps_cmac[j][0], saved_apps_cmac[j][1],
+			saved_apps_cmac[j][2], saved_apps_cmac[j][3]);
+	}
+
+	return 0;
+}
+
+static int spss_set_saved_uefi_apps_cmac(void)
+{
+	u8 __iomem *reg = NULL;
+	int i, j;
+	u32 val;
+
+	if (cmac_mem == NULL)
+		return -EFAULT;
+
+	reg = cmac_mem; /* IAR buffer base */
+	reg += (2*CMAC_SIZE_IN_BYTES); /* skip the saved and calc fw cmac */
+	pr_debug("reg [%pK]\n", reg);
+
+	/* get saved apps cmac from ddr - were written by UEFI spss driver */
+	for (j = 0; j < NUM_UEFI_APPS; j++) {
+		for (i = 0; i < CMAC_SIZE_IN_DWORDS; i++) {
+			val = saved_apps_cmac[j][i];
+			writel_relaxed(val, reg);
+			reg += sizeof(u32);
+		}
+		reg += CMAC_SIZE_IN_BYTES; /* skip the calc app cmac */
+
+		pr_debug("app[%d] saved cmac: 0x%08x,0x%08x,0x%08x,0x%08x\n",
+			j,
+			saved_apps_cmac[j][0], saved_apps_cmac[j][1],
+			saved_apps_cmac[j][2], saved_apps_cmac[j][3]);
 	}
 
 	return 0;
@@ -840,7 +907,9 @@ static int spss_utils_iar_callback(struct notifier_block *nb,
 		break;
 	case SUBSYS_BEFORE_AUTH_AND_RESET:
 		pr_debug("[SUBSYS_BEFORE_AUTH_AND_RESET] event.\n");
+		/* Called on SSR as spss firmware is loaded by UEFI */
 		spss_set_fw_cmac(cmac_buf, sizeof(cmac_buf));
+		spss_set_saved_uefi_apps_cmac();
 		break;
 	default:
 		pr_err("unknown code [0x%x] .\n", (int) code);
