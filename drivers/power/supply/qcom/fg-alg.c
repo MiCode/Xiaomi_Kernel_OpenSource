@@ -488,13 +488,13 @@ static int cap_learning_begin(struct cap_learning *cl, u32 batt_soc_cp)
 
 	batt_soc_pct = DIV_ROUND_CLOSEST(batt_soc_cp, 100);
 
-	if (!cl->dt.cl_wt_enable) {
-		if (batt_soc_pct > cl->dt.max_start_soc ||
-				batt_soc_pct < cl->dt.min_start_soc) {
-			pr_debug("Battery SOC %d is high/low, not starting\n",
+	if ((cl->dt.max_start_soc != -EINVAL &&
+			batt_soc_pct > cl->dt.max_start_soc) ||
+			(cl->dt.min_start_soc != -EINVAL &&
+			batt_soc_pct < cl->dt.min_start_soc)) {
+		pr_debug("Battery SOC %d is high/low, not starting\n",
 					batt_soc_pct);
-			return -EINVAL;
-		}
+		return -EINVAL;
 	}
 
 	cl->init_cap_uah = div64_s64(cl->learned_cap_uah * batt_soc_cp,

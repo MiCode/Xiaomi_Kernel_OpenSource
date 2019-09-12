@@ -3761,6 +3761,7 @@ static int qg_alg_init(struct qpnp_qg *chip)
 #define DEFAULT_CL_MIN_LIM_DECIPERC	500
 #define DEFAULT_CL_MAX_LIM_DECIPERC	100
 #define DEFAULT_CL_DELTA_BATT_SOC	10
+#define DEFAULT_CL_WT_START_SOC		15
 #define DEFAULT_SHUTDOWN_TEMP_DIFF	60	/* 6 degC */
 #define DEFAULT_ESR_QUAL_CURRENT_UA	130000
 #define DEFAULT_ESR_QUAL_VBAT_UV	7000
@@ -4139,8 +4140,11 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 		of_property_read_u32(node, "qcom,cl-min-delta-batt-soc",
 					&chip->cl->dt.min_delta_batt_soc);
 
-		chip->cl->dt.cl_wt_enable = of_property_read_bool(node,
-							"qcom,cl-wt-enable");
+		if (of_property_read_bool(node, "qcom,cl-wt-enable")) {
+			chip->cl->dt.cl_wt_enable = true;
+			chip->cl->dt.min_start_soc = DEFAULT_CL_WT_START_SOC;
+			chip->cl->dt.max_start_soc = -EINVAL;
+		}
 
 		qg_dbg(chip, QG_DEBUG_PON, "DT: cl_min_start_soc=%d cl_max_start_soc=%d cl_min_temp=%d cl_max_temp=%d\n",
 			chip->cl->dt.min_start_soc, chip->cl->dt.max_start_soc,
