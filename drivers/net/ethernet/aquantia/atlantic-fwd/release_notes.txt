@@ -1,3 +1,13 @@
+Version 1.0.24
+==============
+[ATLDRV-1112] - descriptor corruption after suspend/resume
+[ATLDRV-1097] - EEE must be disabled by-default
+[ATLDRV-1099] - Strange EEE configuration behavior
+[ATLDRV-1107] - Strange message in dmesg
+[ATLDRV-1108] - FW not loaded after FWD driver unloaded on B0
+[ATLDRV-899] - Fwd driver: add more loopbacks to ethtool private flags
+[ATLDRV-1057] - Support for network loopback
+
 Version 1.0.23
 ==============
 [ATLDRV-983] - runtime D3 support
