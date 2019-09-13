@@ -45,6 +45,7 @@
 #define NPU_MAX_DT_NAME_LEN	    21
 #define NPU_MAX_PWRLEVELS		8
 #define NPU_MAX_STATS_BUF_SIZE 16384
+#define NPU_MAX_PATCH_NUM		160
 #define NPU_MAX_BW_DEVS			4
 
 enum npu_power_level {
