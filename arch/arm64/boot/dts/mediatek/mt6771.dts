@@ -339,6 +339,7 @@ firmware_class.path=/vendor/firmware";
 			alignment = <0 0x1000000>;
 #else
 			size = <0 0x200000>;
+			alignment = <0 0x200000>;
 #endif
 			alloc-ranges = <0 0x40000000 0 0x50000000>;
 		};
