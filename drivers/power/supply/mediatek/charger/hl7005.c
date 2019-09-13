@@ -85,7 +85,6 @@ const unsigned int BOOST_CURRENT_LIMIT[] = {
 
 struct hl7005_info {
 	struct charger_device *chg_dev;
-	struct power_supply *psy;
 	struct charger_properties chg_props;
 	struct device *dev;
 	struct gtimer otg_kthread_gtimer;
@@ -868,14 +867,6 @@ static int hl7005_driver_probe(struct i2c_client *client,
 	if (ret != 2) {
 		pr_err("%s: get vendor id failed\n", __func__);
 		return -ENODEV;
-	}
-
-	/* hl7005_hw_init(); //move to charging_hw_xxx.c */
-	info->psy = power_supply_get_by_name("charger");
-
-	if (!info->psy) {
-		pr_err("%s: get power supply failed\n", __func__);
-		return -EINVAL;
 	}
 
 #if defined(HIGH_BATTERY_VOLTAGE_SUPPORT)
