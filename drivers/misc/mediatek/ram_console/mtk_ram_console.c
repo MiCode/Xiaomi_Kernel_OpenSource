@@ -798,6 +798,7 @@ static int __init ram_console_early_init(void)
 			pr_err("ram_console: unknown def type:%d\n",
 					sram.def_type);
 			ram_console_fatal("unknown def type");
+			return -ENODEV;
 		}
 		/* unsigned long conversion:
 		 * make size equals to pointer size
@@ -834,7 +835,7 @@ static int __init ram_console_early_init(void)
 	if (bufp)
 		return ram_console_init(bufp, buffer_size);
 	else
-		return 0;
+		return -ENODEV;
 }
 
 static int ram_console_show(struct seq_file *m, void *v)
