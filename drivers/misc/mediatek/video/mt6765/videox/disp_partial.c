@@ -27,6 +27,7 @@
 static void _convert_picture_to_ovl_dirty(struct disp_input_config *src,
 		struct disp_rect *in, struct disp_rect *out)
 {
+	int ret = 0;
 	struct disp_rect layer_roi = {0, 0, 0, 0};
 	struct disp_rect pic_roi = {0, 0, 0, 0};
 	struct disp_rect result = {0, 0, 0, 0};
@@ -41,7 +42,9 @@ static void _convert_picture_to_ovl_dirty(struct disp_input_config *src,
 	pic_roi.width = in->width;
 	pic_roi.height = in->height;
 
-	rect_intersect(&layer_roi, &pic_roi, &result);
+	ret = rect_intersect(&layer_roi, &pic_roi, &result);
+	if (!ret)
+		DISPDBG("x,y,width and height in result are zero\n");
 
 	out->x = result.x - layer_roi.x + src->tgt_offset_x;
 	out->y = result.y - layer_roi.y + src->tgt_offset_y;

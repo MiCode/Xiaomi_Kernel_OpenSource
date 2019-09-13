@@ -108,13 +108,14 @@ int ddp_clk_check(void)
 		if (ddp_clks[i].refcnt != 0)
 			ret++;
 
-		DDPDBG("ddp_clk_check %s is %s refcnt=%d\n",
+		DDPDBG("%s: %s is %s refcnt=%d\n",
+			__func__,
 			ddp_clks[i].clk_name,
 			ddp_clks[i].refcnt == 0 ? "off" : "on",
 			ddp_clks[i].refcnt);
 	}
 
-	DDPDBG("ddp_clk_check mipitx pll clk is %s refcnt=%d\n",
+	DDPDBG("%s: mipitx pll clk is %s refcnt=%d\n", __func__,
 		apmixed_refcnt == 0 ? "off" : "on", apmixed_refcnt);
 	return ret;
 }
@@ -123,7 +124,7 @@ int ddp_clk_prepare_enable(enum DDP_CLK_ID id)
 {
 	int ret = 0;
 
-	DDPDBG("ddp_clk_prepare_enable, clkid = %d\n", id);
+	DDPDBG("%s: clkid = %d\n", __func__, id);
 
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
 		return ret;
@@ -141,6 +142,9 @@ int ddp_clk_prepare_enable(enum DDP_CLK_ID id)
 
 	ret = clk_prepare_enable(ddp_clks[id].pclk);
 	ddp_clks[id].refcnt++;
+	if (id == 0)
+		pr_info("disp %s mtcmos refcnt 0x%x\n",
+			__func__, ddp_clks[id].refcnt);
 	if (ret)
 		DDPERR("DISPSYS CLK prepare failed: errno %d\n",
 			ret);
@@ -152,7 +156,7 @@ int ddp_clk_disable_unprepare(enum DDP_CLK_ID id)
 {
 	int ret = 0;
 
-	DDPDBG("ddp_clk_disable_unprepare, clkid = %d\n",
+	DDPDBG("%s, clkid = %d\n", __func__,
 		id);
 
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
@@ -170,6 +174,9 @@ int ddp_clk_disable_unprepare(enum DDP_CLK_ID id)
 	}
 	clk_disable_unprepare(ddp_clks[id].pclk);
 	ddp_clks[id].refcnt--;
+	if (id == 0)
+		pr_info("disp %s mtcmos refcnt 0x%x\n",
+		__func__, ddp_clks[id].refcnt);
 
 	return ret;
 }

@@ -57,7 +57,7 @@ struct ion_client *disp_ion_create(const char *name);
 struct ion_handle *disp_ion_alloc(struct ion_client *client,
 	unsigned int heap_id_mask, size_t align, unsigned int size);
 int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
-	unsigned long *mva, int port);
+	unsigned long *mva, unsigned long fixed_mva, int port);
 struct ion_handle *disp_ion_import_handle(struct ion_client *client, int fd);
 void disp_ion_free_handle(struct ion_client *client,
 	struct ion_handle *handle);

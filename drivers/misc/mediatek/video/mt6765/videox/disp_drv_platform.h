@@ -44,8 +44,8 @@
 
 #define SUPPORT_MMPROFILE
 #define MTK_FB_ION_SUPPORT
-/* #define FPGA_DEBUG_PAN */
-/* #define DISP_SYNC_ENABLE */
+//#define FPGA_DEBUG_PAN
+//#define DISP_SYNC_ENABLE
 #define VIDEO_LAYER_COUNT            (3)
 /* #define HW_OVERLAY_COUNT                  (4) */
 
