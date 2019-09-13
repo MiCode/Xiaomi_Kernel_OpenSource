@@ -3620,11 +3620,14 @@ static long adc_cali_ioctl(
 	int isdisNAFG = 0;
 
 	bm_notice("%s enter\n", __func__);
-
-	if (sizeof(arg) != sizeof(adc_out_data))
-		return -EFAULT;
-
 	mutex_lock(&gm.fg_mutex);
+	user_data_addr = (int *)arg;
+	ret = copy_from_user(adc_in_data, user_data_addr, sizeof(adc_in_data));
+	if (adc_in_data[1] < 0) {
+		bm_err("%s unknown data: %d\n", __func__, adc_in_data[1]);
+		mutex_unlock(&gm.fg_mutex);
+		return -EFAULT;
+	}
 
 	switch (cmd) {
 	case TEST_ADC_CALI_PRINT:
@@ -3674,10 +3677,6 @@ static long adc_cali_ioctl(
 
 	case ADC_CHANNEL_READ:
 		/* g_ADC_Cali = KAL_FALSE; *//* 20100508 Infinity */
-		user_data_addr = (int *)arg;
-		ret = copy_from_user(
-				adc_in_data, user_data_addr, 8);
-
 		if (adc_in_data[0] == 0) {
 			/* I_SENSE */
 			adc_out_data[0] =
@@ -3776,8 +3775,6 @@ static long adc_cali_ioctl(
 #endif
 		/* add for meta tool------------------------------- */
 	case Get_META_BAT_VOL:
-		user_data_addr = (int *)arg;
-		ret = copy_from_user(adc_in_data, user_data_addr, 8);
 		adc_out_data[0] = battery_get_bat_voltage();
 		if (copy_to_user(user_data_addr, adc_out_data,
 			sizeof(adc_out_data))) {
@@ -3788,8 +3785,6 @@ static long adc_cali_ioctl(
 		bm_notice("**** unlocked_ioctl :Get_META_BAT_VOL Done!\n");
 		break;
 	case Get_META_BAT_SOC:
-		user_data_addr = (int *)arg;
-		ret = copy_from_user(adc_in_data, user_data_addr, 8);
 		adc_out_data[0] = battery_get_uisoc();
 
 		if (copy_to_user(user_data_addr, adc_out_data,
@@ -3802,8 +3797,6 @@ static long adc_cali_ioctl(
 		break;
 
 	case Get_META_BAT_CAR_TUNE_VALUE:
-		user_data_addr = (int *)arg;
-		ret = copy_from_user(adc_in_data, user_data_addr, 8);
 		adc_out_data[0] = fg_cust_data.car_tune_value;
 		bm_err("Get_BAT_CAR_TUNE_VALUE, res=%d\n", adc_out_data[0]);
 
@@ -3818,9 +3811,6 @@ static long adc_cali_ioctl(
 
 	case Set_META_BAT_CAR_TUNE_VALUE:
 		/* meta tool input: adc_in_data[1] (mA)*/
-		user_data_addr = (int *)arg;
-		ret = copy_from_user(adc_in_data, user_data_addr, 8);
-
 		/* Send cali_current to hal to calculate car_tune_value*/
 		temp_car_tune =
 			battery_meter_meta_tool_cali_car_tune(adc_in_data[1]);
@@ -3847,8 +3837,6 @@ static long adc_cali_ioctl(
 		break;
 
 	case Set_BAT_DISABLE_NAFG:
-		user_data_addr = (int *)arg;
-		ret = copy_from_user(adc_in_data, user_data_addr, 8);
 		isdisNAFG = adc_in_data[1];
 
 		if (isdisNAFG == 1) {
@@ -3868,8 +3856,6 @@ static long adc_cali_ioctl(
 
 		/* add bing meta tool------------------------------- */
 	case Set_CARTUNE_TO_KERNEL:
-		user_data_addr = (int *)arg;
-		ret = copy_from_user(adc_in_data, user_data_addr, 8);
 		temp_car_tune = adc_in_data[1];
 		if (temp_car_tune > 500 && temp_car_tune < 1500)
 			fg_cust_data.car_tune_value = temp_car_tune;
