@@ -10,8 +10,6 @@
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
 
-#include "lahaina-regulators.dtsi"
-
 / {
 	model = "Qualcomm Technologies, Inc. Lahaina";
 	compatible = "qcom,lahaina";
@@ -964,6 +962,7 @@
 
 };
 
+#include "lahaina-regulators.dtsi"
 #include "lahaina-pinctrl.dtsi"
 #include "lahaina-smp2p.dtsi"
 #include "lahaina-ion.dtsi"
