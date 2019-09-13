@@ -2872,6 +2872,9 @@ static int m4u_suspend(struct platform_device *pdev, pm_message_t mesg)
 
 static int m4u_resume(struct platform_device *pdev)
 {
+#ifdef M4U_TEE_SERVICE_ENABLE
+	m4u_late_resume();
+#endif
 	m4u_reg_restore();
 	M4UINFO("M4U restore in resume\n");
 	return 0;
