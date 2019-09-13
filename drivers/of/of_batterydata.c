@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/batterydata-lib.h>
+#include <linux/of_batterydata.h>
 #include <linux/power_supply.h>
 
 static int of_batterydata_read_lut(const struct device_node *np,
