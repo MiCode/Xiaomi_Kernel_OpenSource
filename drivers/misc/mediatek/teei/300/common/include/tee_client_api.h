@@ -3,7 +3,7 @@
  * All rights reserved.
  * Copyright (c) 2015, Linaro Limited
  * All rights reserved.
- * Copyright (c) 2017-2018, MICROTRUST
+ * Copyright (c) 2015-2019, MICROTRUST Incorporated
  * All rights reserved.
  * Copyright (c) 2017-2018, GNU General Public License
  * All rights reserved.

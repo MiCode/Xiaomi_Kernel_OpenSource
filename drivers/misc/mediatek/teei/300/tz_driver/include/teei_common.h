@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017 MICROTRUST Incorporated
+ * Copyright (c) 2015-2019, MICROTRUST Incorporated
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -179,10 +179,10 @@ static inline void katrace_end(const char *name)
 }
 #else
 #define KATRACE_BEGIN(name)	\
-	do {							\
+	do {			\
 	} while (0)
-#define KATRACE_END(name)		\
-	do {							\
+#define KATRACE_END(name)	\
+	do {			\
 	} while (0)
 #endif
 

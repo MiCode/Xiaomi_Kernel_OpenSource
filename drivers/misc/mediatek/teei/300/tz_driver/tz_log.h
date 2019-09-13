@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Microtrust, Inc.
+ * Copyright (c) 2015-2019, MICROTRUST Incorporated
  * Copyright (C) 2015 Google, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
