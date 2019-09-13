@@ -5220,7 +5220,7 @@ int autok_offline_tuning_device_RX(struct msdc_host *host, u8 *res)
 	unsigned char tune_pass_cnt[32];
 	unsigned char tune_tmo_cnt[32];
 	char tune_result[33];
-	unsigned int cmd_tx;
+	unsigned int cmd_tx = 0;
 	unsigned int dat_tx[4] = {0};
 	unsigned int cmd_init_tx;
 	unsigned int dat_init_tx[4] = {0};
