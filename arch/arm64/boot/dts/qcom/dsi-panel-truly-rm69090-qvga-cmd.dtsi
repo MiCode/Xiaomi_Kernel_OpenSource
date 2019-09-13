@@ -59,6 +59,8 @@
 			05 01 00 00 00 00 01 39   /* Idle-Mode On */
 			];
 		qcom,mdss-dsi-idle-off-command = [
+			15 01 00 00 00 00 02 FE 00
+			15 01 00 00 00 00 02 53 20
 			05 01 00 00 00 00 01 38   /* Idle-Mode Off */
 			];
 		qcom,mdss-dsi-idle-on-command-state = "dsi_hs_mode";
