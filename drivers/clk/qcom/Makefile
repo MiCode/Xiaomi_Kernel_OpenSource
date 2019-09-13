@@ -37,6 +37,7 @@ obj-$(CONFIG_MSM_CAMCC_SDMMAGPIE) += camcc-sdmmagpie.o
 obj-$(CONFIG_MSM_CAMCC_SDMSHRIKE) += camcc-sdmshrike.o
 obj-$(CONFIG_MSM_CLK_AOP_QMP) += clk-aop-qmp.o
 obj-$(CONFIG_MSM_CLK_RPMH) += clk-rpmh.o
+obj-$(CONFIG_MSM_DEBUGCC_SDMSHRIKE) += debugcc-sdmshrike.o
 obj-$(CONFIG_MSM_DEBUGCC_SM6150) += debugcc-sm6150.o
 obj-$(CONFIG_MSM_DEBUGCC_SM8150) += debugcc-sm8150.o
 obj-$(CONFIG_MSM_DISPCC_SM6150) += dispcc-sm6150.o
