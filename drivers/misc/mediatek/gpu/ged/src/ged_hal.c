@@ -348,6 +348,9 @@ static ssize_t ged_vsync_offset_enable_write_entry(const char __user *pszBuffer,
 	if (ged_copy_from_user(acBuffer, pszBuffer, uiCount))
 		goto normal_exit;
 
+	for (i = 0; i < NUM_TOKEN; ++i)
+		aint32Indx[i] = 0;
+
 	acBuffer[uiCount] = '\0';
 	i = tokenizer(acBuffer, uiCount, aint32Indx, NUM_TOKEN);
 	if (i != NUM_TOKEN)
@@ -480,6 +483,9 @@ static ssize_t ged_vsync_offset_level_write_entry(
 
 	if (ged_copy_from_user(acBuffer, pszBuffer, uiCount))
 		return 0;
+
+	for (i = 0; i < NUM_TOKEN; ++i)
+		aint32Indx[i] = 0;
 
 	acBuffer[uiCount] = '\n';
 	acBuffer[uiCount+1] = 0;
