@@ -384,6 +384,9 @@ the fps window.
 					--> Sleep value (in ms)
 - qcom,partial-update-enabled:		Boolean used to enable partial
 					panel update for command mode panels.
+- qcom,partial-update-addr-offset:	An array of two values indicate the panel
+					column, row address offset value.
+					Two default values are 0.
 - qcom,mdss-dsi-horizontal-line-idle:	List of width ranges (EC - SC) in pixels indicating
 					additional idle time in dsi clock cycles that is needed
 					to compensate for smaller line width.
