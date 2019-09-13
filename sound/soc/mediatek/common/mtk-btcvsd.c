@@ -497,7 +497,7 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 		dev_info(bt->dev, "%s()\n", __func__);
 
 	if (bt->bypass_bt_access)
-		return IRQ_HANDLED;
+		goto irq_handler_exit;
 
 	if (bt->rx->state != BT_SCO_STATE_RUNNING &&
 	    bt->rx->state != BT_SCO_STATE_ENDING &&
