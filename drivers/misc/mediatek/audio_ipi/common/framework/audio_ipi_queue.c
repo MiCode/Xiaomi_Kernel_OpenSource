@@ -338,6 +338,11 @@ int send_message(
 		return -1;
 	}
 
+	if (is_audio_task_dsp_ready(p_ipi_msg->task_scene) == false) {
+		pr_info("dsp not ready!! return");
+		return -1;
+	}
+
 	/* send to scp directly (bypass audio queue, but still in IPC queue) */
 	if (p_ipi_msg->ack_type == AUDIO_IPI_MSG_DIRECT_SEND)
 		return send_message_to_scp(p_ipi_msg);
@@ -348,11 +353,6 @@ int send_message(
 
 	if (msg_queue->enable == false) {
 		pr_info("queue disabled!! return");
-		return -1;
-	}
-
-	if (is_audio_task_dsp_ready(p_ipi_msg->task_scene) == false) {
-		pr_info("dsp not ready!! return");
 		return -1;
 	}
 
