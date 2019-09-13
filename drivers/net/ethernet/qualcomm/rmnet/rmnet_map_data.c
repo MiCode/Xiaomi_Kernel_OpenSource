@@ -664,12 +664,28 @@ static void rmnet_map_gso_stamp(struct sk_buff *skb,
 				struct rmnet_map_coal_metadata *coal_meta)
 {
 	struct skb_shared_info *shinfo = skb_shinfo(skb);
+
+	if (coal_meta->trans_proto == IPPROTO_TCP)
+		shinfo->gso_type = (coal_meta->ip_proto == 4) ?
+				   SKB_GSO_TCPV4 : SKB_GSO_TCPV6;
+	else
+		shinfo->gso_type = SKB_GSO_UDP_L4;
+
+	shinfo->gso_size = coal_meta->data_len;
+	shinfo->gso_segs = coal_meta->pkt_count;
+}
+
+/* Handles setting up the partial checksum in the skb. Sets the transport
+ * checksum to the pseudoheader checksum and sets the csum offload metadata
+ */
+static void rmnet_map_partial_csum(struct sk_buff *skb,
+				   struct rmnet_map_coal_metadata *coal_meta)
+{
 	unsigned char *data = skb->data;
 	__sum16 pseudo;
 	u16 pkt_len = skb->len - coal_meta->ip_len;
-	bool ipv4 = coal_meta->ip_proto == 4;
 
-	if (ipv4) {
+	if (coal_meta->ip_proto == 4) {
 		struct iphdr *iph = (struct iphdr *)data;
 
 		pseudo = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
@@ -686,20 +702,16 @@ static void rmnet_map_gso_stamp(struct sk_buff *skb,
 		struct tcphdr *tp = (struct tcphdr *)(data + coal_meta->ip_len);
 
 		tp->check = pseudo;
-		shinfo->gso_type = (ipv4) ? SKB_GSO_TCPV4 : SKB_GSO_TCPV6;
 		skb->csum_offset = offsetof(struct tcphdr, check);
 	} else {
 		struct udphdr *up = (struct udphdr *)(data + coal_meta->ip_len);
 
 		up->check = pseudo;
-		shinfo->gso_type = SKB_GSO_UDP_L4;
 		skb->csum_offset = offsetof(struct udphdr, check);
 	}
 
 	skb->ip_summed = CHECKSUM_PARTIAL;
 	skb->csum_start = skb->data + coal_meta->ip_len - skb->head;
-	shinfo->gso_size = coal_meta->data_len;
-	shinfo->gso_segs = coal_meta->pkt_count;
 }
 
 static void
@@ -720,7 +732,7 @@ __rmnet_map_segment_coal_skb(struct sk_buff *coal_skb,
 		alloc_len = coal_meta->ip_len + coal_meta->trans_len;
 	else
 		alloc_len = coal_meta->ip_len + coal_meta->trans_len +
-			    coal_meta->data_len;
+			    (coal_meta->data_len * coal_meta->pkt_count);
 
 	skbn = alloc_skb(alloc_len, GFP_ATOMIC);
 	if (!skbn)
@@ -764,7 +776,8 @@ __rmnet_map_segment_coal_skb(struct sk_buff *coal_skb,
 
 	/* Handle checksum status */
 	if (likely(csum_valid)) {
-		skbn->ip_summed = CHECKSUM_UNNECESSARY;
+		/* Set the partial checksum information */
+		rmnet_map_partial_csum(skbn, coal_meta);
 	} else if (check) {
 		/* Unfortunately, we have to fake a bad checksum here, since
 		 * the original bad value is lost by the hardware. The only
@@ -946,8 +959,10 @@ static void rmnet_map_segment_coal_skb(struct sk_buff *coal_skb,
 		coal_meta.data_len = ntohs(coal_hdr->nl_pairs[0].pkt_len);
 		coal_meta.data_len -= coal_meta.ip_len + coal_meta.trans_len;
 		coal_meta.pkt_count = coal_hdr->nl_pairs[0].num_packets;
-		if (coal_meta.pkt_count > 1)
+		if (coal_meta.pkt_count > 1) {
+			rmnet_map_partial_csum(coal_skb, &coal_meta);
 			rmnet_map_gso_stamp(coal_skb, &coal_meta);
+		}
 
 		__skb_queue_tail(list, coal_skb);
 		return;
@@ -1258,6 +1273,113 @@ static void rmnet_map_linearize_copy(struct sk_buff *dst, struct sk_buff *src)
 	}
 }
 
+static void rmnet_free_agg_pages(struct rmnet_port *port)
+{
+	struct rmnet_agg_page *agg_page, *idx;
+
+	list_for_each_entry_safe(agg_page, idx, &port->agg_list, list) {
+		put_page(agg_page->page);
+		kfree(agg_page);
+	}
+
+	port->agg_head = NULL;
+}
+
+static struct page *rmnet_get_agg_pages(struct rmnet_port *port)
+{
+	struct rmnet_agg_page *agg_page;
+	struct page *page = NULL;
+	int i = 0;
+
+	if (!(port->egress_agg_params.agg_features & RMNET_PAGE_RECYCLE))
+		goto alloc;
+
+	do {
+		agg_page = port->agg_head;
+		if (unlikely(!agg_page))
+			break;
+
+		if (page_ref_count(agg_page->page) == 1) {
+			page = agg_page->page;
+			page_ref_inc(agg_page->page);
+
+			port->stats.agg.ul_agg_reuse++;
+			port->agg_head = list_next_entry(agg_page, list);
+			break;
+		}
+
+		port->agg_head = list_next_entry(agg_page, list);
+		i++;
+	} while (i <= 5);
+
+alloc:
+	if (!page) {
+		page =  __dev_alloc_pages(GFP_ATOMIC, port->agg_size_order);
+		port->stats.agg.ul_agg_alloc++;
+	}
+
+	return page;
+}
+
+static struct rmnet_agg_page *__rmnet_alloc_agg_pages(struct rmnet_port *port)
+{
+	struct rmnet_agg_page *agg_page;
+	struct page *page;
+
+	agg_page = kzalloc(sizeof(*agg_page), GFP_ATOMIC);
+	if (!agg_page)
+		return NULL;
+
+	page = __dev_alloc_pages(GFP_ATOMIC, port->agg_size_order);
+	if (!page) {
+		kfree(agg_page);
+		return NULL;
+	}
+
+	agg_page->page = page;
+
+	return agg_page;
+}
+
+static void rmnet_alloc_agg_pages(struct rmnet_port *port)
+{
+	struct rmnet_agg_page *agg_page = NULL;
+	int i = 0;
+
+	for (i = 0; i < 512; i++) {
+		agg_page = __rmnet_alloc_agg_pages(port);
+
+		if (agg_page)
+			list_add_tail(&agg_page->list, &port->agg_list);
+	}
+
+	port->agg_head = list_first_entry_or_null(&port->agg_list,
+						  struct rmnet_agg_page, list);
+}
+
+static struct sk_buff *rmnet_map_build_skb(struct rmnet_port *port)
+{
+	struct sk_buff *skb;
+	unsigned int size;
+	struct page *page;
+	void *vaddr;
+
+	page = rmnet_get_agg_pages(port);
+	if (!page)
+		return NULL;
+
+	vaddr = page_address(page);
+	size = PAGE_SIZE << port->agg_size_order;
+
+	skb = build_skb(vaddr, size);
+	if (!skb) {
+		put_page(page);
+		return NULL;
+	}
+
+	return skb;
+}
+
 void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port)
 {
 	struct timespec diff, last;
@@ -1285,8 +1407,7 @@ new_packet:
 			return;
 		}
 
-		port->agg_skb = alloc_skb(port->egress_agg_params.agg_size,
-					  GFP_ATOMIC);
+		port->agg_skb = rmnet_map_build_skb(port);
 		if (!port->agg_skb) {
 			port->agg_skb = 0;
 			port->agg_count = 0;
@@ -1336,14 +1457,51 @@ schedule:
 	spin_unlock_irqrestore(&port->agg_lock, flags);
 }
 
+void rmnet_map_update_ul_agg_config(struct rmnet_port *port, u16 size,
+				    u8 count, u8 features, u32 time)
+{
+	unsigned long irq_flags;
+
+	spin_lock_irqsave(&port->agg_lock, irq_flags);
+	port->egress_agg_params.agg_count = count;
+	port->egress_agg_params.agg_time = time;
+	port->egress_agg_params.agg_size = size;
+	port->egress_agg_params.agg_features = features;
+
+	rmnet_free_agg_pages(port);
+
+	/* This effectively disables recycling in case the UL aggregation
+	 * size is lesser than PAGE_SIZE.
+	 */
+	if (size < PAGE_SIZE)
+		goto done;
+
+	port->agg_size_order = get_order(size);
+
+	size = PAGE_SIZE << port->agg_size_order;
+	size -= SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+	port->egress_agg_params.agg_size = size;
+
+	if (port->egress_agg_params.agg_features == RMNET_PAGE_RECYCLE)
+		rmnet_alloc_agg_pages(port);
+
+done:
+	spin_unlock_irqrestore(&port->agg_lock, irq_flags);
+}
+
 void rmnet_map_tx_aggregate_init(struct rmnet_port *port)
 {
 	hrtimer_init(&port->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	port->hrtimer.function = rmnet_map_flush_tx_packet_queue;
-	port->egress_agg_params.agg_size = 8192;
-	port->egress_agg_params.agg_count = 20;
-	port->egress_agg_params.agg_time = 3000000;
 	spin_lock_init(&port->agg_lock);
+	INIT_LIST_HEAD(&port->agg_list);
+
+	/* Since PAGE_SIZE - 1 is specified here, no pages are pre-allocated.
+	 * This is done to reduce memory usage in cases where
+	 * UL aggregation is disabled.
+	 * Additionally, the features flag is also set to 0.
+	 */
+	rmnet_map_update_ul_agg_config(port, PAGE_SIZE - 1, 20, 0, 3000000);
 
 	INIT_WORK(&port->agg_wq, rmnet_map_flush_tx_packet_work);
 }
@@ -1367,6 +1525,7 @@ void rmnet_map_tx_aggregate_exit(struct rmnet_port *port)
 		port->agg_state = 0;
 	}
 
+	rmnet_free_agg_pages(port);
 	spin_unlock_irqrestore(&port->agg_lock, flags);
 }
 

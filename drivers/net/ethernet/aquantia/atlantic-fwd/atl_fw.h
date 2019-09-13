@@ -77,6 +77,7 @@ enum atl_fw2_stat_offt {
 
 enum atl_fw2_settings_offt {
 	atl_fw2_setings_msm_opts = 0x90,
+	atl_fw2_setings_media_detect = 0x98,
 };
 
 enum atl_fw2_msm_opts {

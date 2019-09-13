@@ -31,11 +31,15 @@
 
 #define FLAG_DFC_MASK 0x000F
 #define FLAG_POWERSAVE_MASK 0x0010
+#define FLAG_QMAP_MASK 0x0020
+
 #define FLAG_TO_MODE(f) ((f) & FLAG_DFC_MASK)
 #define DFC_SUPPORTED_MODE(m) \
 	((m) == DFC_MODE_FLOW_ID || (m) == DFC_MODE_MQ_NUM)
+#define FLAG_TO_QMAP(f) ((f) & FLAG_QMAP_MASK)
 
 int dfc_mode;
+int dfc_qmap;
 #define IS_ANCILLARY(type) ((type) != AF_INET && (type) != AF_INET6)
 
 unsigned int rmnet_wq_frequency __read_mostly = 1000;
@@ -92,7 +96,7 @@ void *qmi_rmnet_has_dfc_client(struct qmi_info *qmi)
 {
 	int i;
 
-	if (!qmi || !DFC_SUPPORTED_MODE(FLAG_TO_MODE(qmi->flag)))
+	if (!qmi)
 		return NULL;
 
 	for (i = 0; i < MAX_CLIENT_NUM; i++) {
@@ -389,7 +393,7 @@ static void qmi_rmnet_query_flows(struct qmi_info *qmi)
 	int i;
 
 	for (i = 0; i < MAX_CLIENT_NUM; i++) {
-		if (qmi->dfc_clients[i])
+		if (qmi->dfc_clients[i] && !dfc_qmap)
 			dfc_qmi_query_flow(qmi->dfc_clients[i]);
 	}
 }
@@ -415,12 +419,6 @@ static const struct kernel_param_ops qmi_rmnet_scale_ops = {
 module_param_cb(qmi_rmnet_scale_factor, &qmi_rmnet_scale_ops,
 		&qmi_rmnet_scale_factor, 0664);
 #else
-static inline void
-qmi_rmnet_update_flow_link(struct qmi_info *qmi, struct net_device *dev,
-			   struct rmnet_flow_map *itm, int add_flow)
-{
-}
-
 static inline void qmi_rmnet_clean_flow_list(struct qos_info *qos)
 {
 }
@@ -453,7 +451,7 @@ static inline void qmi_rmnet_query_flows(struct qmi_info *qmi)
 static int
 qmi_rmnet_setup_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 {
-	int idx, rc, err = 0;
+	int idx, err = 0;
 	struct svc_info svc;
 
 	ASSERT_RTNL();
@@ -477,18 +475,17 @@ qmi_rmnet_setup_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 	svc.ep_type = tcm->tcm_info;
 	svc.iface_id = tcm->tcm_parent;
 
-	if (DFC_SUPPORTED_MODE(FLAG_TO_MODE(tcm->tcm_ifindex)) &&
+	if (DFC_SUPPORTED_MODE(dfc_mode) &&
 	    !qmi->dfc_clients[idx] && !qmi->dfc_pending[idx]) {
-		rc = dfc_qmi_client_init(port, idx, &svc, qmi);
-		if (rc < 0)
-			err = rc;
+		if (dfc_qmap)
+			err = dfc_qmap_client_init(port, idx, &svc, qmi);
+		else
+			err = dfc_qmi_client_init(port, idx, &svc, qmi);
 	}
 
 	if ((tcm->tcm_ifindex & FLAG_POWERSAVE_MASK) &&
 	    (idx == 0) && !qmi->wda_client && !qmi->wda_pending) {
-		rc = wda_qmi_client_init(port, &svc, qmi);
-		if (rc < 0)
-			err = rc;
+		err = wda_qmi_client_init(port, &svc, qmi);
 	}
 
 	return err;
@@ -507,7 +504,10 @@ __qmi_rmnet_delete_client(void *port, struct qmi_info *qmi, int idx)
 		data = qmi->dfc_pending[idx];
 
 	if (data) {
-		dfc_qmi_client_exit(data);
+		if (dfc_qmap)
+			dfc_qmap_client_exit(data);
+		else
+			dfc_qmi_client_exit(data);
 		qmi->dfc_clients[idx] = NULL;
 		qmi->dfc_pending[idx] = NULL;
 	}
@@ -554,20 +554,22 @@ void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt)
 
 	switch (tcm->tcm_family) {
 	case NLMSG_FLOW_ACTIVATE:
-		if (!qmi || !DFC_SUPPORTED_MODE(FLAG_TO_MODE(qmi->flag)) ||
+		if (!qmi || !DFC_SUPPORTED_MODE(dfc_mode) ||
 		    !qmi_rmnet_has_dfc_client(qmi))
 			return;
 
 		qmi_rmnet_add_flow(dev, tcm, qmi);
 		break;
 	case NLMSG_FLOW_DEACTIVATE:
-		if (!qmi || !DFC_SUPPORTED_MODE(FLAG_TO_MODE(qmi->flag)))
+		if (!qmi || !DFC_SUPPORTED_MODE(dfc_mode))
 			return;
 
 		qmi_rmnet_del_flow(dev, tcm, qmi);
 		break;
 	case NLMSG_CLIENT_SETUP:
 		dfc_mode = FLAG_TO_MODE(tcm->tcm_ifindex);
+		dfc_qmap = FLAG_TO_QMAP(tcm->tcm_ifindex);
+
 		if (!DFC_SUPPORTED_MODE(dfc_mode) &&
 		    !(tcm->tcm_ifindex & FLAG_POWERSAVE_MASK))
 			return;
@@ -650,7 +652,7 @@ void qmi_rmnet_enable_all_flows(struct net_device *dev)
 			continue;
 		do_wake = !bearer->grant_size;
 		bearer->grant_size = DEFAULT_GRANT;
-		bearer->grant_thresh = DEFAULT_GRANT;
+		bearer->grant_thresh = qmi_rmnet_grant_per(DEFAULT_GRANT);
 		bearer->seq = 0;
 		bearer->ack_req = 0;
 		bearer->tcp_bidir = false;
@@ -817,7 +819,7 @@ void qmi_rmnet_ps_on_notify(void *port)
 {
 	struct qmi_rmnet_ps_ind *tmp;
 
-	list_for_each_entry(tmp, &ps_list, list)
+	list_for_each_entry_rcu(tmp, &ps_list, list)
 		tmp->ps_on_handler(port);
 }
 EXPORT_SYMBOL(qmi_rmnet_ps_on_notify);
@@ -826,8 +828,9 @@ void qmi_rmnet_ps_off_notify(void *port)
 {
 	struct qmi_rmnet_ps_ind *tmp;
 
-	list_for_each_entry(tmp, &ps_list, list)
+	list_for_each_entry_rcu(tmp, &ps_list, list)
 		tmp->ps_off_handler(port);
+
 }
 EXPORT_SYMBOL(qmi_rmnet_ps_off_notify);
 
@@ -853,13 +856,12 @@ int qmi_rmnet_ps_ind_deregister(void *port,
 	if (!port || !ps_ind)
 		return -EINVAL;
 
-	list_for_each_entry(tmp, &ps_list, list) {
+	list_for_each_entry_rcu(tmp, &ps_list, list) {
 		if (tmp == ps_ind) {
 			list_del_rcu(&ps_ind->list);
 			goto done;
 		}
 	}
-
 done:
 	return 0;
 }

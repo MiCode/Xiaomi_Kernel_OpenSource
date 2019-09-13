@@ -9,20 +9,26 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-dm_verity {
-	dmname="disabled";
-	version="1";
-	data_device="/dev/sda6";
-	hash_device="/dev/sda6";
-	data_block_size="4096";
-	hash_block_size="4096";
-	number_of_data_blocks="262144";
-	hash_start_block="262145";
-	algorithm="sha256";
-	// root hash: 64 bytes long
-	digest=
-	"b0fe12d7da6e23a1e19b5a69252c7aaf7b249191eb13bba3f566d630b3f2828a";
-	salt="a2df040e00f02c3b2a19e90e5aa76fe1a303f4e08584aaf40e87f088a32b7709";
-	// restart_on_corruption ignore_corruption ignore_zero_blocks
-	opt="restart_on_corruption";
+
+#ifndef _RMNET_CTL_CLIENT_H_
+#define _RMNET_CTL_CLIENT_H_
+
+#include <linux/skbuff.h>
+
+struct rmnet_ctl_stats {
+	u64 rx_pkts;
+	u64 rx_err;
+	u64 tx_pkts;
+	u64 tx_err;
+	u64 tx_complete;
 };
+
+struct rmnet_ctl_dev {
+	int (*xmit)(struct rmnet_ctl_dev *dev, struct sk_buff *skb);
+	struct rmnet_ctl_stats stats;
+};
+
+void rmnet_ctl_endpoint_post(const void *data, size_t len);
+void rmnet_ctl_endpoint_setdev(const struct rmnet_ctl_dev *dev);
+
+#endif /* _RMNET_CTL_CLIENT_H_ */

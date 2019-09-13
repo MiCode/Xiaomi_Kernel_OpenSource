@@ -308,7 +308,7 @@
 		compatible = "qcom,coresight-remote-etm";
 		coresight-name = "coresight-modem-etm0";
 
-		qcom,inst-id = <11>;
+		qcom,inst-id = <2>;
 
 		port {
 			modem_etm0_out_funnel_dlnt: endpoint {
@@ -2975,5 +2975,21 @@
 				<&replicator_swao_out_eud>;
 			};
 		};
+	};
+
+	ipcb_tgu: tgu@6b0b000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b999>;
+		reg = <0x06b0b000 0x1000>;
+		reg-names = "tgu-base";
+		tgu-steps = <3>;
+		tgu-conditions = <4>;
+		tgu-regs = <4>;
+		tgu-timer-counters = <8>;
+
+		coresight-name = "coresight-tgu-ipcb";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
 	};
 };

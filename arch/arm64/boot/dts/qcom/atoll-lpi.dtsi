@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-&soc {
+&q6core {
 	lpi_tlmm: lpi_pinctrl@627C0000 {
 		compatible = "qcom,lpi-pinctrl";
 		reg = <0x627C0000 0x0>;
@@ -223,8 +223,9 @@
 
 			config {
 				pins = "gpio0";
-				drive-strength = <8>;
-				bias-bus-hold;
+				drive-strength = <2>;
+				slew-rate = <1>;
+				bias-disable;
 			};
 		};
 
@@ -249,7 +250,8 @@
 
 			config {
 				pins = "gpio1";
-				drive-strength = <8>;
+				drive-strength = <2>;
+				slew-rate = <1>;
 				bias-bus-hold;
 			};
 		};
@@ -257,7 +259,7 @@
 		wsa_swr_clk_sleep: wsa_swr_clk_sleep {
 			mux {
 				pins = "gpio10";
-				function = "func1";
+				function = "func2";
 			};
 
 			config {
@@ -270,12 +272,13 @@
 		wsa_swr_clk_active: wsa_swr_clk_active {
 			mux {
 				pins = "gpio10";
-				function = "func1";
+				function = "func2";
 			};
 
 			config {
 				pins = "gpio10";
-				drive-strength = <8>;
+				drive-strength = <2>;
+				slew-rate = <1>;
 				bias-bus-hold;
 			};
 		};
@@ -283,7 +286,7 @@
 		wsa_swr_data_sleep: wsa_swr_data_sleep {
 			mux {
 				pins = "gpio11";
-				function = "func1";
+				function = "func2";
 			};
 
 			config {
@@ -296,12 +299,12 @@
 		wsa_swr_data_active: wsa_swr_data_active {
 			mux {
 				pins = "gpio11";
-				function = "func1";
+				function = "func2";
 			};
 
 			config {
 				pins = "gpio11";
-				drive-strength = <8>;
+				drive-strength = <2>;
 				bias-bus-hold;
 			};
 		};
@@ -327,7 +330,8 @@
 
 			config {
 				pins = "gpio2";
-				drive-strength = <8>;
+				drive-strength = <2>;
+				slew-rate = <1>;
 				bias-bus-hold;
 			};
 		};
@@ -353,7 +357,8 @@
 
 			config {
 				pins = "gpio14";
-				drive-strength = <8>;
+				drive-strength = <2>;
+				slew-rate = <1>;
 				bias-bus-hold;
 			};
 		};
@@ -379,8 +384,9 @@
 
 			config {
 				pins = "gpio3";
-				drive-strength = <8>;
-				bias-bus-hold;
+				drive-strength = <2>;
+				slew-rate = <1>;
+				bias-disable;
 			};
 		};
 
@@ -405,7 +411,8 @@
 
 			config {
 				pins = "gpio4", "gpio5";
-				drive-strength = <8>;
+				drive-strength = <2>;
+				slew-rate = <1>;
 				bias-bus-hold;
 			};
 		};

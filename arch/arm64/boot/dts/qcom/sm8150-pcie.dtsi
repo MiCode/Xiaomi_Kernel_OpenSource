@@ -163,6 +163,9 @@
 		qcom,vreg-0.9-voltage-level = <880000 880000 24000>;
 		qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
 						RPMH_REGULATOR_LEVEL_NOM 0>;
+		qcom,bw-scale = <RPMH_REGULATOR_LEVEL_LOW_SVS 19200000
+				RPMH_REGULATOR_LEVEL_LOW_SVS 19200000
+				RPMH_REGULATOR_LEVEL_NOM 100000000>;
 
 		msi-parent = <&pcie0_msi>;
 
@@ -483,6 +486,9 @@
 		qcom,vreg-0.9-voltage-level = <880000 880000 24000>;
 		qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
 						RPMH_REGULATOR_LEVEL_NOM 0>;
+		qcom,bw-scale = <RPMH_REGULATOR_LEVEL_LOW_SVS 19200000
+				RPMH_REGULATOR_LEVEL_LOW_SVS 19200000
+				RPMH_REGULATOR_LEVEL_NOM 100000000>;
 
 		msi-parent = <&pcie1_msi>;
 

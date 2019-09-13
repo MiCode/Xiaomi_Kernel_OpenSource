@@ -1097,7 +1097,9 @@ int sde_rsc_client_trigger_vote(struct sde_rsc_client *caller_client,
 		rpmh_flush(rsc->disp_rsc);
 	}
 
-	if (rsc->hw_ops.bwi_status && rsc->current_state == SDE_RSC_CMD_STATE)
+	if (rsc->hw_ops.bwi_status &&
+		(rsc->current_state == SDE_RSC_CMD_STATE ||
+		rsc->current_state == SDE_RSC_VID_STATE))
 		rsc->hw_ops.bwi_status(rsc, bw_increase);
 	else if (rsc->hw_ops.tcs_use_ok)
 		rsc->hw_ops.tcs_use_ok(rsc);
@@ -1218,6 +1220,7 @@ end:
 	if (blen <= 0)
 		return 0;
 
+	blen = min_t(size_t, MAX_BUFFER_SIZE, count);
 	if (copy_to_user(buf, buffer, blen))
 		return -EFAULT;
 
@@ -1311,6 +1314,7 @@ end:
 	if (blen <= 0)
 		return 0;
 
+	blen = min_t(size_t, MAX_BUFFER_SIZE, count);
 	if (copy_to_user(buf, buffer, blen))
 		return -EFAULT;
 

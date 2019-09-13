@@ -67,8 +67,6 @@ static int atl_start(struct atl_nic *nic)
 	/* ret = atl_fwd_resume_rings(nic); */
 
 /* out: */
-	if (ret)
-		set_bit(ATL_ST_START_NEEDED, &nic->hw.state);
 	return ret;
 }
 
@@ -233,41 +231,28 @@ void atl_schedule_work(struct atl_nic *nic)
 		queue_work(atl_wq, &nic->work);
 }
 
-static int atl_do_reset(struct atl_nic *nic)
+int atl_do_reset(struct atl_nic *nic)
 {
+	bool was_up = netif_running(nic->ndev);
 	struct atl_hw *hw = &nic->hw;
 	int ret;
-	bool reset, start;
 
-	if (!test_bit(ATL_ST_ENABLED, &hw->state))
-		/* We're suspending, postpone resets till resume */
-		return 0;
+	set_bit(ATL_ST_RESETTING, &hw->state);
 
-	reset = test_and_clear_bit(ATL_ST_RESET_NEEDED, &hw->state);
-	start = test_and_clear_bit(ATL_ST_START_NEEDED, &hw->state);
-
-	if (!reset && !start)
-		return 0;
-
-	if (reset)
-		set_bit(ATL_ST_RESETTING, &hw->state);
 	rtnl_lock();
 
-	if (reset) {
-		atl_stop(nic, true);
+	atl_stop(nic, true);
 
-		ret = atl_hw_reset(hw);
-		if (ret) {
-			atl_nic_err("HW reset failed, re-trying\n");
-			if (!test_and_set_bit(ATL_ST_DETACHED, &hw->state))
-				netif_device_detach(nic->ndev);
-			goto out;
-		}
-		start = true;
-		clear_bit(ATL_ST_RESETTING, &hw->state);
+	ret = atl_hw_reset(hw);
+	if (ret) {
+		atl_nic_err("HW reset failed, re-trying\n");
+		if (!test_and_set_bit(ATL_ST_DETACHED, &hw->state))
+			netif_device_detach(nic->ndev);
+		goto out;
 	}
+	clear_bit(ATL_ST_RESETTING, &hw->state);
 
-	if (start) {
+	if (was_up) {
 		ret = atl_start(nic);
 		if (ret)
 			goto out;
@@ -281,6 +266,23 @@ out:
 	return ret;
 }
 
+static int atl_check_reset(struct atl_nic *nic)
+{
+	struct atl_hw *hw = &nic->hw;
+	bool reset;
+
+	if (!test_bit(ATL_ST_ENABLED, &hw->state))
+		/* We're suspending, postpone resets till resume */
+		return 0;
+
+	reset = test_and_clear_bit(ATL_ST_RESET_NEEDED, &hw->state);
+
+	if (!reset)
+		return 0;
+
+	return atl_do_reset(nic);
+}
+
 static void atl_work(struct work_struct *work)
 {
 	struct atl_nic *nic = container_of(work, struct atl_nic, work);
@@ -290,7 +292,7 @@ static void atl_work(struct work_struct *work)
 	clear_bit(ATL_ST_WORK_SCHED, &hw->state);
 
 	atl_fw_watchdog(hw);
-	ret = atl_do_reset(nic);
+	ret = atl_check_reset(nic);
 	if (ret)
 		goto out;
 	atl_refresh_link(nic);
@@ -550,6 +552,7 @@ static int atl_suspend_common(struct device *dev, bool deep)
 	atl_stop(nic, true);
 
 	atl_clear_rdm_cache(nic);
+	atl_clear_tdm_cache(nic);
 
 	if (deep && nic->flags & ATL_FL_WOL) {
 		ret = hw->mcp.ops->enable_wol(hw);

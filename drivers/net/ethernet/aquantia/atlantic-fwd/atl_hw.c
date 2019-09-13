@@ -979,6 +979,10 @@ int atl_update_eth_stats(struct atl_nic *nic)
 	uint32_t reg = 0, reg2 = 0;
 	int ret;
 
+	if (!test_bit(ATL_ST_ENABLED, &nic->hw.state) ||
+	    test_bit(ATL_ST_RESETTING, &nic->hw.state))
+		return 0;
+
 	atl_lock_fw(hw);
 
 	ret = atl_hwsem_get(hw, ATL_MCP_SEM_MSM);
@@ -1054,13 +1058,13 @@ int atl_get_lpi_timer(struct atl_nic *nic, uint32_t *lpi_delay)
 	return ret;
 }
 
-static uint32_t atl_mcp_mbox_wait(struct atl_hw *hw, int loops)
+static uint32_t atl_mcp_mbox_wait(struct atl_hw *hw, enum mcp_area area, int loops)
 {
 	uint32_t stat;
 
 	busy_wait(loops, cpu_relax(), stat,
-		(atl_read(hw, ATL_MCP_SCRATCH(FW2_MBOX_CMD)) >> 28) & 0xf,
-		stat == 8);
+		(atl_read(hw, ATL_MCP_SCRATCH(FW2_MBOX_CMD)) & (0xf << 28)),
+		stat == area);
 
 	return stat;
 }
@@ -1079,21 +1083,21 @@ int atl_write_mcp_mem(struct atl_hw *hw, uint32_t offt, void *host_addr,
 		atl_write(hw, ATL_MCP_SCRATCH(FW2_MBOX_DATA), *addr++);
 		atl_write(hw, ATL_MCP_SCRATCH(FW2_MBOX_CMD), area | offt);
 		ndelay(750);
-		stat = atl_mcp_mbox_wait(hw, 5);
+		stat = atl_mcp_mbox_wait(hw, area, 5);
 
-		if (stat == 8) {
+		if (stat == area) {
 			/* Send MCP mbox interrupt */
 			atl_set_bits(hw, ATL_GLOBAL_CTRL2, BIT(1));
 			ndelay(1200);
-			stat = atl_mcp_mbox_wait(hw, 10000);
+			stat = atl_mcp_mbox_wait(hw, area, 10000);
 		}
 
-		if (stat == 8) {
+		if (stat == area) {
 			atl_dev_err("FW mbox timeout offt %x, remaining %zx\n",
 				offt, size);
 			return -ETIME;
-		} else if (stat != 4) {
-			atl_dev_err("FW mbox error status %x, offt %x, remaining %zx\n",
+		} else if (stat != BIT(0x1E)) {
+			atl_dev_err("FW mbox error status 0x%x, offt 0x%x, remaining %zx\n",
 				stat, offt, size);
 			return -EIO;
 		}

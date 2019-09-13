@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,11 +10,12 @@
  * GNU General Public License for more details.
  */
 
-#ifndef DM_IOCTRL_INTERNAL_H
-#define DM_IOCTRL_INTERNAL_H
-
-#include <linux/dm-ioctl.h>
-
-int dm_ioctrl(uint cmd, struct dm_ioctl *param);
-
-#endif
+&soc {
+	qcom,mdss_lcdc_ili_hvga {
+		compatible = "qcom,mdss-qpic-panel";
+		label = "ili9488 hvga lcdc panel";
+		qcom,mdss-pan-res = <320 480>;
+		qcom,mdss-pan-bpp = <18>;
+		qcom,refresh_rate = <60>;
+	};
+};

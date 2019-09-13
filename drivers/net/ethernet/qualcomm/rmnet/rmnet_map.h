@@ -268,6 +268,8 @@ int rmnet_map_tx_agg_skip(struct sk_buff *skb, int offset);
 void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port);
 void rmnet_map_tx_aggregate_init(struct rmnet_port *port);
 void rmnet_map_tx_aggregate_exit(struct rmnet_port *port);
+void rmnet_map_update_ul_agg_config(struct rmnet_port *port, u16 size,
+				    u8 count, u8 features, u32 time);
 void rmnet_map_dl_hdr_notify(struct rmnet_port *port,
 			     struct rmnet_map_dl_ind_hdr *dl_hdr);
 void rmnet_map_dl_hdr_notify_v2(struct rmnet_port *port,

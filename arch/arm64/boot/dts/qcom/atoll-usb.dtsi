@@ -146,7 +146,7 @@
 		vdd-supply = <&pm6150_l4>;
 		vdda18-supply = <&pm6150_l11>;
 		vdda33-supply = <&pm6150_l17>;
-		qcom,vdd-voltage-level = <0 880000 880000>;
+		qcom,vdd-voltage-level = <0 880000 900000>;
 		qcom,qusb-phy-reg-offset =
 			<0x240 /* QUSB2PHY_PORT_TUNE1 */
 			 0x1a0 /* QUSB2PHY_PLL_COMMON_STATUS_ONE */
@@ -216,7 +216,7 @@
 		reg = <0x88e8000 0x3000>;
 		reg-names = "qmp_phy_base";
 		vdd-supply = <&pm6150_l4>;
-		qcom,vdd-voltage-level = <0 880000 880000>;
+		qcom,vdd-voltage-level = <0 880000 900000>;
 		core-supply = <&pm6150l_l3>;
 		qcom,vbus-valid-override;
 		qcom,qmp-phy-init-seq =

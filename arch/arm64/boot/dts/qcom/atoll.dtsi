@@ -41,6 +41,9 @@
 		sdhc1 = &sdhc_1; /* eMMC */
 		sdhc2 = &sdhc_2; /* SD Card */
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
+		swr0 = &swr0;
+		swr1 = &swr1;
+		swr2 = &swr2;
 	};
 
 	cpus {
@@ -529,16 +532,22 @@
 			reg = <0 0x80b00000 0 0x3900000>;
 		};
 
+		pil_modem_mem: modem_region@86000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x86000000 0 0x8400000>;
+		};
+
 		pil_camera_mem: camera_region@8e000000 {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0 0x8e400000 0 0x500000>;
 		};
 
-		pil_modem_mem: modem_region@86000000 {
+		pil_npu_mem: pil_npu_region@8e500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x86000000 0 0x8400000>;
+			reg = <0 0x8e900000 0 0x500000>;
 		};
 
 		pil_video_mem: pil_video_region@8ea00000 {
@@ -563,12 +572,6 @@
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0 0x93900000 0 0x200000>;
-		};
-
-		npu_mem: npu_region@8e500000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x8e900000 0 0x500000>;
 		};
 
 		pil_ipa_fw_mem: ipa_fw_region@93700000 {
@@ -615,6 +618,11 @@
 			reusable;
 			alignment = <0 0x400000>;
 			size = <0 0x8c00000>;
+		};
+
+		cont_splash_memory: cont_splash_region@9bc00000 {
+			reg = <0x0 0x9bc00000 0x0 0x02400000>;
+			label = "cont_splash_region";
 		};
 
 		adsp_mem: adsp_region {
@@ -955,6 +963,10 @@
 		clock-names = "iface_clk";
 	};
 
+	qcom_msmhdcp: qcom,msm_hdcp {
+		compatible = "qcom,msm-hdcp";
+	};
+
 	qcom_crypto: qcrypto@1de0000 {
 		compatible = "qcom,qcrypto";
 		reg = <0x1de0000 0x20000>,
@@ -1150,6 +1162,7 @@
 		qcom,smem-id = <421>;
 		qcom,signal-aop;
 		qcom,minidump-id = <3>;
+		qcom,aux-minidump-ids = <4>;
 		qcom,complete-ramdump;
 
 		/* Inputs from mss */
@@ -1172,6 +1185,19 @@
 
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "mss-pil";
+	};
+
+	qcom,npu@9800000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x9800000 0x800000>;
+
+		qcom,pas-id = <23>;
+		qcom,firmware-name = "npu";
+		memory-region = <&pil_npu_mem>;
+
+		/* Outputs to npu */
+		qcom,smem-states = <&npu_smp2p_out 0>;
+		qcom,smem-states-names = "qcom,force-stop";
 	};
 
 	qcom,turing@8300000 {
@@ -1709,8 +1735,8 @@
 			<0x18325800 0x1400>;
 		reg-names = "osm_l3_base", "osm_pwrcl_base",
 			"osm_perfcl_base";
+		l3-devs = <&cpu0_cpu_l3_lat &cpu6_cpu_l3_lat>;
 		#clock-cells = <1>;
-		status = "disabled";
 	};
 
 	cpucc_debug: syscon@182a0018 {
@@ -2699,10 +2725,10 @@
 		qca,bt-vdd-pa-supply = <&pm6150l_l10>;  /* CH0 */
 		qca,bt-vdd-xtal-supply = <&pm6150l_l1>;/* X0 */
 
-		qca,bt-vdd-io-voltage-level = <1721000 1829000>;
-		qca,bt-vdd-core-voltage-level = <1200000 1350000>;
-		qca,bt-vdd-pa-voltage-level = <3300000 3400000>;
-		qca,bt-vdd-xtal-voltage-level = <1620000 1980000>;
+		qca,bt-vdd-io-voltage-level = <1700000 1900000>;
+		qca,bt-vdd-core-voltage-level = <1245000 1350000>;
+		qca,bt-vdd-pa-voltage-level = <3200000 3400000>;
+		qca,bt-vdd-xtal-voltage-level = <1700000 1900000>;
 
 		qca,bt-vdd-io-current-level = <1>; /* LPM/PFM */
 		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
@@ -2923,7 +2949,8 @@
 			< 1113600 MHZ_TO_MBPS( 547, 4) >,
 			< 1267200 MHZ_TO_MBPS(1017, 4) >,
 			< 1708800 MHZ_TO_MBPS(1555, 4) >,
-			< 2400000 MHZ_TO_MBPS(1804, 4) >;
+			< 2208000 MHZ_TO_MBPS(1804, 4) >,
+			< 2400000 MHZ_TO_MBPS(2133, 4) >;
 	};
 
 	cpu0_cpu_ddr_latfloor: qcom,cpu0-cpu-ddr-latfloor {
@@ -3202,10 +3229,12 @@
 };
 
 &bps_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
 &ipe_0_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
@@ -3226,14 +3255,21 @@
 };
 
 &gpu_cx_gdsc {
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &gpu_gx_gdsc {
+	clock-names = "core_root_clk";
+	clocks = <&clock_gpucc GPU_CC_GX_GFX3D_CLK_SRC>;
+	qcom,force-enable-root-clk;
+	parent-supply = <&VDD_GFX_LEVEL>;
+	qcom,reset-aon-logic;
 	status = "ok";
 };
 
 &vcodec0_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
@@ -3261,10 +3297,18 @@
 #include "atoll-regulator.dtsi"
 #include "atoll-usb.dtsi"
 #include "atoll-vidc.dtsi"
+#include "atoll-npu.dtsi"
 
 &pm6150_vadc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&nvm_therm_default &sdm_skin_therm_default>;
+
+	smb1390_therm {
+		reg = <ADC_AMUX_THM2>;
+		label = "smb1390_therm";
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
 
 	chg_skin_therm {
 		reg = <ADC_AMUX_THM1_PU2>;

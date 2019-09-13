@@ -17,11 +17,74 @@
 #include "atoll-audio-overlay.dtsi"
 
 #include "atoll-camera-sensor-qrd.dtsi"
+#include "atoll-sde-display.dtsi"
+#include "sdmmagpie-thermal-overlay.dtsi"
+
+&tlmm {
+	fpc_reset_int: fpc_reset_int {
+		fpc_reset_low: reset_low {
+			mux {
+				pins = "gpio91";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio91";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		fpc_reset_high: reset_high {
+			mux {
+				pins = "gpio91";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio91";
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+		};
+
+		fpc_int_low: int_low {
+			mux {
+				pins = "gpio90";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio90";
+				drive-strength = <2>;
+				bias-pull-down;
+				input-enable;
+			};
+		};
+	};
+};
 
 &soc {
 	qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "qg-batterydata-atl466271_3300mAh.dtsi"
+	};
+
+	fingerprint: fpc1020 {
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <90 0>;
+		fpc,gpio_rst = <&tlmm 91 0>;
+		fpc,gpio_irq = <&tlmm 90 0>;
+		vcc_spi-supply = <&pm6150_l10>;
+		vdd_io-supply  = <&pm6150_l10>;
+		vdd_ana-supply = <&pm6150_l10>;
+		fpc,enable-on-boot;
+		pinctrl-names = "fpc1020_reset_reset",
+				"fpc1020_reset_active",
+				"fpc1020_irq_active";
+		pinctrl-0 = <&fpc_reset_low>;
+		pinctrl-1 = <&fpc_reset_high>;
+		pinctrl-2 = <&fpc_int_low>;
 	};
 };
 
@@ -64,6 +127,15 @@
 	dpdm-supply = <&qusb_phy0>;
 	qcom,charger-temp-max = <800>;
 	qcom,smb-temp-max = <800>;
+	qcom,disable-sw-thermal-regulation;
+};
+
+&usb0 {
+	extcon = <&pm6150_pdphy>, <&pm6150_charger>, <&eud>;
+};
+
+&usb_qmp_dp_phy {
+	extcon = <&pm6150_pdphy>;
 };
 
 &pm6150l_gpios {
@@ -297,4 +369,17 @@
 		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
 				&nfc_clk_req_suspend>;
 	};
+};
+
+&dsi_rm69299_visionox_amoled_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <255>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 3 0>;
+};
+
+&dsi_rm69299_visionox_amoled_vid_display {
+	qcom,dsi-display-active;
 };

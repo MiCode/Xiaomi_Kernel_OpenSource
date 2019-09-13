@@ -218,6 +218,33 @@
 			};
 		};
 
+		sde_dp_usbplug_cc_suspend: sde_dp_cc_suspend {
+			mux {
+				pins = "gpio104";
+				function = "gpio";
+
+			};
+
+			config {
+				pins = "gpio104";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
+		sde_dp_usbplug_cc_active: sde_dp_usbplug_cc_active {
+			mux {
+				pins = "gpio104";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio104";
+				bias-disable;
+				drive-strength = <16>;
+			};
+		};
+
 		qupv3_se0_spi_pins: qupv3_se0_spi_pins {
 			qupv3_se0_spi_active: qupv3_se0_spi_active {
 				mux {

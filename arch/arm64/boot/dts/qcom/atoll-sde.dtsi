@@ -131,7 +131,7 @@
 		qcom,sde-mixer-linewidth = <2560>;
 		qcom,sde-sspp-linewidth = <2160>;
 		qcom,sde-vig-sspp-linewidth = <4096>;
-		qcom,sde-wb-linewidth = <1080>;
+		qcom,sde-wb-linewidth = <1920>;
 		qcom,sde-mixer-blendstages = <0x7>;
 		qcom,sde-highest-bank-bit = <0x1>;
 		qcom,sde-ubwc-version = <0x200>;
@@ -489,24 +489,26 @@
 	};
 
 	sde_dp: qcom,dp_display@ae90000 {
-		status = "disabled";
+		status = "ok";
 		cell-index = <0>;
 		compatible = "qcom,dp-display";
 
-		vdda-lp2-supply = <&L9A>;
-		reg =	<0xae90000 0x0dc>,
-			<0xae90200 0x0c0>,
-			<0xae90400 0x508>,
-			<0xae91000 0x094>,
-			<0x88eaa00 0x198>,
-			<0x88ea200 0x150>,
-			<0x88ea600 0x150>,
-			<0xaf02000 0x2c4>,
+		vdda-1p2-supply = <&L3C>;
+		vdda-0p9-supply = <&L4A>;
+
+		reg =	<0xae90000 0x200>,
+			<0xae90200 0x200>,
+			<0xae90400 0xc00>,
+			<0xae91000 0x400>,
+			<0x88eaa00 0x200>,
+			<0x88ea200 0x200>,
+			<0x88ea600 0x200>,
+			<0xaf02000 0x2d0>,
 			<0x780000 0x6228>,
-			<0x88ea040 0x10>,
+			<0x88ea030 0x10>,
 			<0x88e8000 0x20>,
 			<0x0aee1000 0x2a>,
-			<0xae91400 0x095>;
+			<0xae91400 0x400>;
 		reg-names =	"dp_ahb", "dp_aux", "dp_link",
 				"dp_p0", "dp_phy", "dp_ln_tx0", "dp_ln_tx1",
 				"dp_mmss_cc", "qfprom_physical", "dp_pll",
@@ -515,19 +517,36 @@
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <12 0>;
 
-		qcom,phy-version = <0x420>;
 		qcom,aux-cfg0-settings = [20 00];
-		qcom,aux-cfg1-settings = [24 13];
-		qcom,aux-cfg2-settings = [28 A4];
+		qcom,aux-cfg1-settings = [24 13 23 1d];
+		qcom,aux-cfg2-settings = [28 24];
 		qcom,aux-cfg3-settings = [2c 00];
 		qcom,aux-cfg4-settings = [30 0a];
 		qcom,aux-cfg5-settings = [34 26];
 		qcom,aux-cfg6-settings = [38 0a];
 		qcom,aux-cfg7-settings = [3c 03];
-		qcom,aux-cfg8-settings = [40 b7];
+		qcom,aux-cfg8-settings = [40 bb];
 		qcom,aux-cfg9-settings = [44 03];
 
 		qcom,max-pclk-frequency-khz = <675000>;
+
+	clocks =	<&clock_dispcc DISP_CC_MDSS_DP_AUX_CLK>,
+			<&clock_gcc GCC_USB3_PRIM_PHY_PIPE_CLK>,
+			<&clock_rpmh RPMH_CXO_CLK>,
+			<&clock_gcc GCC_USB3_PRIM_CLKREF_CLK>,
+			<&clock_gcc GCC_USB3_PRIM_PHY_PIPE_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_DP_LINK_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_DP_LINK_INTF_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK_SRC>,
+			<&mdss_dp_pll DP_VCO_DIVIDED_CLK_SRC_MUX>,
+			<&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK>;
+
+	clock-names =   "core_aux_clk", "core_usb_pipe_clk",
+			"core_usb_ref_clk_src",
+			"core_usb_ref_clk", "core_usb_pipe_clk",
+			"link_clk", "link_iface_clk",
+			"pixel_clk_rcg", "pixel_parent",
+			"strm0_pixel_clk";
 
 		qcom,ctrl-supply-entries {
 			#address-cells = <1>;
@@ -551,7 +570,7 @@
 				reg = <0>;
 				qcom,supply-name = "vdda-0p9";
 				qcom,supply-min-voltage = <880000>;
-				qcom,supply-max-voltage = <880000>;
+				qcom,supply-max-voltage = <928000>;
 				qcom,supply-enable-load = <36000>;
 				qcom,supply-disable-load = <0>;
 			};

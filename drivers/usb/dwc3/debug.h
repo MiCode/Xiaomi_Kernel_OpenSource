@@ -44,6 +44,18 @@
 #define dbg_setup(ep_num, req) \
 	dwc3_dbg_setup(dwc, ep_num, req)
 
+#define dbg_ep_queue(ep_num, req) \
+	dwc3_dbg_dma_queue(dwc, ep_num, req)
+
+#define dbg_ep_dequeue(ep_num, req) \
+	dwc3_dbg_dma_dequeue(dwc, ep_num, req)
+
+#define dbg_ep_unmap(ep_num, req) \
+	dwc3_dbg_dma_unmap(dwc, ep_num, req)
+
+#define dbg_ep_map(ep_num, req) \
+	dwc3_dbg_dma_map(dwc, ep_num, req)
+
 #define dbg_log_string(fmt, ...) \
 	ipc_log_string(dwc->dwc_ipc_log_ctxt,\
 			"%s: " fmt, __func__, ##__VA_ARGS__)
@@ -643,6 +655,14 @@ void dwc3_dbg_setup(struct dwc3 *dwc, u8 ep_num,
 		const struct usb_ctrlrequest *req);
 void dwc3_dbg_print_reg(struct dwc3 *dwc,
 		const char *name, int reg);
+void dwc3_dbg_dma_queue(struct dwc3 *dwc, u8 ep_num,
+			struct dwc3_request *req);
+void dwc3_dbg_dma_dequeue(struct dwc3 *dwc, u8 ep_num,
+			struct dwc3_request *req);
+void dwc3_dbg_dma_map(struct dwc3 *dwc, u8 ep_num,
+			struct dwc3_request *req);
+void dwc3_dbg_dma_unmap(struct dwc3 *dwc, u8 ep_num,
+			struct dwc3_request *req);
 
 #ifdef CONFIG_DEBUG_FS
 extern void dwc3_debugfs_init(struct dwc3 *);
