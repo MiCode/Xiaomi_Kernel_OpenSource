@@ -161,7 +161,7 @@ static int ppm_lcmoff_min_freq_proc_show(struct seq_file *m, void *v)
 static ssize_t ppm_lcmoff_min_freq_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *pos)
 {
-	unsigned int freq;
+	unsigned int freq = 0;
 
 	char *buf = ppm_copy_from_user_for_proc(buffer, count);
 

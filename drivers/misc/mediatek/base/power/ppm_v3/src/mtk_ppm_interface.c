@@ -61,7 +61,7 @@ static int ppm_func_debug_proc_show(struct seq_file *m, void *v)
 static ssize_t ppm_func_debug_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	unsigned int func_dbg_lv;
+	unsigned int func_dbg_lv = 0;
 
 	char *buf = ppm_copy_from_user_for_proc(buffer, count);
 
@@ -87,7 +87,7 @@ static int ppm_debug_proc_show(struct seq_file *m, void *v)
 static ssize_t ppm_debug_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	unsigned int dbg_lv;
+	unsigned int dbg_lv = 0;
 
 	char *buf = ppm_copy_from_user_for_proc(buffer, count);
 
@@ -116,7 +116,7 @@ static int ppm_enabled_proc_show(struct seq_file *m, void *v)
 static ssize_t ppm_enabled_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	unsigned int enabled;
+	unsigned int enabled = 0;
 
 	char *buf = ppm_copy_from_user_for_proc(buffer, count);
 
@@ -172,7 +172,7 @@ static int ppm_exclusive_core_proc_show(struct seq_file *m, void *v)
 static ssize_t ppm_exclusive_core_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	unsigned int mask;
+	unsigned int mask = 0;
 	int cpu;
 
 	char *buf = ppm_copy_from_user_for_proc(buffer, count);
