@@ -2133,6 +2133,9 @@ int msm_cvp_session_init(struct msm_cvp_inst *inst)
 	inst->clk_data.sys_cache_bw = 1000;
 
 	inst->prop.type = HFI_SESSION_CV;
+	if (inst->session_type == MSM_CVP_KERNEL)
+		inst->prop.type = HFI_SESSION_DME;
+
 	inst->prop.kernel_mask = 0xFFFFFFFF;
 	inst->prop.priority = 0;
 	inst->prop.is_secure = 0;
