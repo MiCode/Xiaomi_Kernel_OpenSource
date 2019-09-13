@@ -145,6 +145,7 @@ struct mt6360_chg_platform_data {
 
 /* MT6360_PMU_TYPEC_OTP_CTRL: 0x51 */
 #define MT6360_MASK_TYPEC_OTP_SWEN	BIT(2)
+#define MT6360_MASK_TYPEC_OTP_EN	BIT(0)
 
 /* MT6360_PMU_ADC_CONFIG : 0x56 */
 #define MT6360_MASK_ZCV_EN	BIT(6)
