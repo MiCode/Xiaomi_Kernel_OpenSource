@@ -159,6 +159,20 @@ struct upower_tbl_info
 				upower_tbl_cci_PRO_v7),
 	},
 
+	/* MT6768_G75 */
+	[6] = {
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
+				upower_tbl_l_G75),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
+				upower_tbl_b_G75),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
+				upower_tbl_cluster_l_G75),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
+				upower_tbl_cluster_b_G75),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
+				upower_tbl_cci_G75),
+	},
+
 
 };
 /* Upower will know how to apply voltage that comes from EEM */
@@ -259,6 +273,9 @@ void get_original_table(void)
 	int i, j;
 
 	idx = mt_cpufreq_get_cpu_level();
+
+	if (idx >= NR_UPOWER_TBL_LIST)
+		idx = 0;
 
 	/* get location of reference table */
 	upower_tbl_infos = &upower_tbl_infos_list[idx][0];
