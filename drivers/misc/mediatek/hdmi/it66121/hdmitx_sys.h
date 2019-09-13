@@ -294,8 +294,6 @@ void HDMITX_ChangeAudioOption(unsigned char Option, unsigned char channelNum,
 			      unsigned char AudioFs);
 void HDMITX_SetAudioOutput(void);
 void HDMITX_ChangeColorDepth(unsigned char colorDepth);
-void HDMITX_ChangeDisplayOption(HDMI_Video_Type VideoMode,
-				HDMI_OutputColorMode OutputColorMode);
 
 enum _HDMI_PLUG_STATE { HDMI_PLUG_NO_DEVICE, HDMI_PLUG_ACTIVE };
 #define HDMI_PLUG_STATE enum _HDMI_PLUG_STATE
