@@ -149,8 +149,8 @@ static int _ccu_ion_get_mva(struct ion_client *client,
 	mm_data.config_buffer_param.module_id   = port;
 	mm_data.config_buffer_param.security    = 0;
 	mm_data.config_buffer_param.coherent    = 1;
-	mm_data.config_buffer_param.reserve_iova_start  = 0x10000000;
-	mm_data.config_buffer_param.reserve_iova_end    = 0x7FFFFFFF;
+	mm_data.config_buffer_param.reserve_iova_start  = 0x40000000;
+	mm_data.config_buffer_param.reserve_iova_end    = 0x47FFFFFF;
 
 	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
 		(unsigned long)&mm_data) < 0) {
