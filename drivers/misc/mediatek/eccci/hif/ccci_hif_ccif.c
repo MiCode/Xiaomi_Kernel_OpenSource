@@ -878,16 +878,12 @@ void md_ccif_reset_queue(unsigned char hif_id, unsigned char for_start)
 	struct md_ccif_ctrl *md_ctrl =
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 	unsigned long flags;
-	int ccif_id = md_ctrl->md_id ==
-		MD_SYS1 ? AP_MD1_CCIF : AP_MD3_CCIF;
 
 	if (for_start) {
 		mod_timer(&md_ctrl->traffic_monitor,
 			jiffies + CCIF_TRAFFIC_MONITOR_INTERVAL * HZ);
 	} else {
 		del_timer(&md_ctrl->traffic_monitor);
-		ccci_reset_ccif_hw(md_ctrl->md_id,
-			ccif_id, md_ctrl->ccif_ap_base, md_ctrl->ccif_md_base);
 	}
 
 	CCCI_NORMAL_LOG(md_ctrl->md_id, TAG, "%s\n", __func__);
