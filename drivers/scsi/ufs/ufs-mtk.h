@@ -68,7 +68,8 @@ enum ufs_trace_event {
 	UFS_TRACE_REG_TOGGLE,
 	UFS_TRACE_ABORTING,
 	UFS_TRACE_DI_FAIL,
-	UFS_TRACE_DEVICE_RESET
+	UFS_TRACE_DEVICE_RESET,
+	UFS_TRACE_PERF_MODE,
 };
 
 enum {
@@ -172,6 +173,18 @@ struct ufs_crypt_info {
 	struct scsi_cmnd *cmd;
 };
 
+struct ufs_mtk_host {
+	struct ufs_hba *hba;
+
+	/* performance mode */
+	bool perf_mode;
+	int crypto_vcore_opp;
+	struct clk *crypto_clk_mux;
+	struct clk *crypto_parent_clk_normal;
+	struct clk *crypto_parent_clk_perf;
+	struct pm_qos_request *req_vcore;
+};
+
 extern bool ufs_mtk_auto_hibern8_enabled;
 extern enum ufs_dbg_lvl_t ufs_mtk_dbg_lvl;
 extern struct ufs_hba *ufs_mtk_hba;
@@ -193,6 +206,8 @@ void ufs_mtk_hwfde_cfg_cmd(struct ufs_hba *hba,
 int ufs_mtk_linkup_fail_handler(struct ufs_hba *hba, int left_retry);
 void ufs_mtk_parse_auto_hibern8_timer(struct ufs_hba *hba);
 void ufs_mtk_parse_pm_levels(struct ufs_hba *hba);
+bool ufs_mtk_perf_is_supported(struct ufs_mtk_host *host);
+int ufs_mtk_perf_setup_crypto_clk(struct ufs_mtk_host *host, bool perf);
 int ufs_mtk_ioctl_ffu(struct scsi_device *dev, void __user *buf_user);
 int ufs_mtk_ioctl_get_fw_ver(struct scsi_device *dev, void __user *buf_user);
 int ufs_mtk_ioctl_query(struct ufs_hba *hba, u8 lun, void __user *buf_user);

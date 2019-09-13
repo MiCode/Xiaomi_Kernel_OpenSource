@@ -1221,6 +1221,8 @@ static inline void ufshcd_vops_dbg_register_dump(struct ufs_hba *hba)
  *
  * API prototypes for MTK vendor-specific usage.
  */
+int ufshcd_clock_scaling_prepare(struct ufs_hba *hba);
+void ufshcd_clock_scaling_unprepare(struct ufs_hba *hba);
 void ufshcd_enable_intr(struct ufs_hba *hba, u32 intrs);
 void ufshcd_disable_intr(struct ufs_hba *hba, u32 intrs);
 int ufshcd_hba_enable(struct ufs_hba *hba);
