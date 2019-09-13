@@ -982,7 +982,7 @@ static inline int FDVT_switchPortToNonSecure(void)
 	struct cmdqRecStruct *handle;
 	uint64_t engineFlag = (uint64_t)(1LL << CMDQ_ENG_FDVT);
 
-	cmdq_task_create(CMDQ_SCENARIO_ISP_FDVT, &handle);
+	cmdq_task_create(CMDQ_SCENARIO_ISP_FDVT_OFF, &handle);
 	cmdq_task_set_secure(handle, true);
 	cmdqRecSetEngine(handle, engineFlag);
 	//cmdq_task_secure_enable_dapc(handle, engineFlag);
