@@ -445,7 +445,7 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 
 	mhi_tre->ptr = MHI_TRE_DATA_PTR(buf_info->p_addr);
 	mhi_tre->dword[0] = MHI_TRE_DATA_DWORD0(buf_info->len);
-	mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(1, 1, 0, 0);
+	mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(mhi_chan->bei, 1, 0, 0);
 
 	MHI_VERB("chan:%d WP:0x%llx TRE:0x%llx 0x%08x 0x%08x\n", mhi_chan->chan,
 		 (u64)mhi_to_physical(tre_ring, mhi_tre), mhi_tre->ptr,
@@ -542,7 +542,7 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 	} else {
 		mhi_tre->ptr = MHI_TRE_DATA_PTR(buf_info->p_addr);
 		mhi_tre->dword[0] = MHI_TRE_DATA_DWORD0(buf_info->len);
-		mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(1, 1, 0, 0);
+		mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(mhi_chan->bei, 1, 0, 0);
 	}
 
 	MHI_VERB("chan:%d WP:0x%llx TRE:0x%llx 0x%08x 0x%08x\n", mhi_chan->chan,
@@ -577,7 +577,7 @@ int mhi_gen_tre(struct mhi_controller *mhi_cntrl,
 	struct mhi_ring *buf_ring, *tre_ring;
 	struct mhi_tre *mhi_tre;
 	struct mhi_buf_info *buf_info;
-	int eot, eob, chain, bei;
+	int eot, eob, chain;
 	int ret;
 
 	buf_ring = &mhi_chan->buf_ring;
@@ -597,12 +597,11 @@ int mhi_gen_tre(struct mhi_controller *mhi_cntrl,
 	eob = !!(flags & MHI_EOB);
 	eot = !!(flags & MHI_EOT);
 	chain = !!(flags & MHI_CHAIN);
-	bei = !!(mhi_chan->intmod);
 
 	mhi_tre = tre_ring->wp;
 	mhi_tre->ptr = MHI_TRE_DATA_PTR(buf_info->p_addr);
 	mhi_tre->dword[0] = MHI_TRE_DATA_DWORD0(buf_len);
-	mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(bei, eot, eob, chain);
+	mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(mhi_chan->bei, eot, eob, chain);
 
 	MHI_VERB("chan:%d WP:0x%llx TRE:0x%llx 0x%08x 0x%08x\n", mhi_chan->chan,
 		 (u64)mhi_to_physical(tre_ring, mhi_tre), mhi_tre->ptr,
