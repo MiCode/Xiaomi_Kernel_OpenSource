@@ -93,10 +93,13 @@ static unsigned long __mtk_pll_recalc_rate(struct mtk_clk_pll *pll, u32 fin,
 static void mtk_pll_set_rate_regs(struct mtk_clk_pll *pll, u32 pcw,
 		int postdiv)
 {
-	u32 val;
+	u32 con1, val;
+	int pll_en;
 	u32 tuner_en = 0;
 	u32 tuner_en_mask;
 	void __iomem *tuner_en_addr = NULL;
+
+	pll_en = readl(pll->base_addr + REG_CON0) & CON0_BASE_EN;
 
 	/* disable tuner */
 	if (pll->tuner_en_addr) {
@@ -132,15 +135,19 @@ static void mtk_pll_set_rate_regs(struct mtk_clk_pll *pll, u32 pcw,
 	val &= ~GENMASK(pll->data->pcw_shift + pll->data->pcwbits - 1,
 			pll->data->pcw_shift);
 	val |= pcw << pll->data->pcw_shift;
-	val &= ~CON1_PCW_CHG;
 	writel(val, pll->pcw_addr);
 
-	if (pll->tuner_addr)
+	con1 = readl(pll->base_addr + REG_CON1);
+
+	if (pll_en)
+		con1 |= CON1_PCW_CHG;
+
+	writel(con1, pll->base_addr + REG_CON1);
+
+	if (pll->tuner_addr) {
+		val = readl(pll->pcw_addr);
 		writel(val + 1, pll->tuner_addr);
-
-	val |= CON1_PCW_CHG;
-
-	writel(val, pll->pcw_addr);
+	}
 
 	/* restore tuner_en */
 	if (tuner_en_addr && tuner_en) {
@@ -149,7 +156,8 @@ static void mtk_pll_set_rate_regs(struct mtk_clk_pll *pll, u32 pcw,
 		writel(val, tuner_en_addr);
 	}
 
-	udelay(20);
+	if (pll_en)
+		udelay(20);
 }
 
 /*
@@ -305,25 +313,12 @@ static void mtk_pll_unprepare(struct clk_hw *hw)
 	writel(r, pll->pwr_addr);
 }
 
-
-static int mtk_pll_is_prepared_dummy(struct clk_hw *hw)
-{
-	return 1;
-}
-static int mtk_pll_prepare_dummy(struct clk_hw *hw)
-{
-	return 0;
-}
-static void mtk_pll_unprepare_dummy(struct clk_hw *hw)
-{
-}
-static int mtk_pll_set_rate_dummy(struct clk_hw *hw, unsigned long rate,
-		unsigned long parent_rate)
-{
-	return 0;
-}
-
-#if (defined(CONFIG_MACH_MT6771)) | (defined(CONFIG_MACH_MT6768))
+#if (defined(CONFIG_MACH_MT6765) \
+	|| defined(CONFIG_MACH_MT6739) \
+	|| defined(CONFIG_MACH_MT6761) \
+	|| defined(CONFIG_MACH_MT6768) \
+	|| defined(CONFIG_MACH_MT6771) \
+	|| defined(CONFIG_MACH_MT6785))
 static const struct clk_ops mtk_pll_ops = {
 	.is_enabled	= mtk_pll_is_prepared,
 	.enable		= mtk_pll_prepare,
@@ -332,15 +327,6 @@ static const struct clk_ops mtk_pll_ops = {
 	.round_rate	= mtk_pll_round_rate,
 	.set_rate	= mtk_pll_set_rate,
 };
-static const struct clk_ops mtk_pll_ops_dummy = {
-	.is_enabled	= mtk_pll_is_prepared_dummy,
-	.enable		= mtk_pll_prepare_dummy,
-	.disable	= mtk_pll_unprepare_dummy,
-	.recalc_rate	= mtk_pll_recalc_rate,
-	.round_rate	= mtk_pll_round_rate,
-	.set_rate	= mtk_pll_set_rate_dummy,
-};
-
 #else
 static const struct clk_ops mtk_pll_ops = {
 	.is_prepared	= mtk_pll_is_prepared,
@@ -377,16 +363,7 @@ static struct clk *mtk_clk_register_pll(const struct mtk_pll_data *data,
 
 	init.name = data->name;
 	init.flags = (data->flags & PLL_AO) ? CLK_IS_CRITICAL : 0;
-
-#if defined(CONFIG_MACH_MT6768)
-	if (mtk_is_pll_enable())
-		init.ops = &mtk_pll_ops;
-	else
-		init.ops = &mtk_pll_ops_dummy;
-#else
 	init.ops = &mtk_pll_ops;
-#endif
-
 	if (data->parent_name)
 		init.parent_names = &data->parent_name;
 	else

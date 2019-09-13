@@ -1438,10 +1438,11 @@ static void __init mtk_topckgen_init(struct device_node *node)
 
 	mtk_clk_register_factors(top_divs,
 		ARRAY_SIZE(top_divs), mt6765_top_clk_data);
-/*	mtk_clk_register_mux_clr_set_upds(top_muxes,
- *		ARRAY_SIZE(top_muxes), base,
- *		&mt6765_clk_lock, mt6765_top_clk_data);
- */
+
+	mtk_clk_register_muxes(top_muxes,
+		ARRAY_SIZE(top_muxes), node,
+		&mt6765_clk_lock, mt6765_top_clk_data);
+
 	mtk_clk_register_gates(node, top_clks,
 		ARRAY_SIZE(top_clks), mt6765_top_clk_data);
 
