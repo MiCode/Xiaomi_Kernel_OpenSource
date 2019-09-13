@@ -38,6 +38,9 @@ int rdma_counter_set_auto_mode(struct ib_device *dev, u8 port,
 	int ret;
 
 	port_counter = &dev->port_data[port].port_counter;
+	if (!port_counter->hstats)
+		return -EOPNOTSUPP;
+
 	mutex_lock(&port_counter->lock);
 	if (on) {
 		ret = __counter_set_mode(&port_counter->mode,
@@ -146,13 +149,11 @@ static bool auto_mode_match(struct ib_qp *qp, struct rdma_counter *counter,
 	struct auto_mode_param *param = &counter->mode.param;
 	bool match = true;
 
-	if (rdma_is_kernel_res(&counter->res) != rdma_is_kernel_res(&qp->res))
+	if (!rdma_is_visible_in_pid_ns(&qp->res))
 		return false;
 
-	/* Ensure that counter belong to right PID */
-	if (!rdma_is_kernel_res(&counter->res) &&
-	    !rdma_is_kernel_res(&qp->res) &&
-	    (task_pid_vnr(counter->res.task) != current->pid))
+	/* Ensure that counter belongs to the right PID */
+	if (task_pid_nr(counter->res.task) != task_pid_nr(qp->res.task))
 		return false;
 
 	if (auto_mask & RDMA_COUNTER_MASK_QP_TYPE)
@@ -421,7 +422,7 @@ static struct ib_qp *rdma_counter_get_qp(struct ib_device *dev, u32 qp_num)
 	return qp;
 
 err:
-	rdma_restrack_put(&qp->res);
+	rdma_restrack_put(res);
 	return NULL;
 }
 
@@ -508,6 +509,9 @@ int rdma_counter_bind_qpn_alloc(struct ib_device *dev, u8 port,
 
 	if (!rdma_is_port_valid(dev, port))
 		return -EINVAL;
+
+	if (!dev->port_data[port].port_counter.hstats)
+		return -EOPNOTSUPP;
 
 	qp = rdma_counter_get_qp(dev, qp_num);
 	if (!qp)
