@@ -17,10 +17,11 @@
 #include <linux/types.h>
 #include <linux/ioctl.h>
 #include "ccu_mailbox_extif.h"
+#include <linux/fs.h>
 
 #ifdef CONFIG_COMPAT
 /*64 bit*/
-#include <linux/fs.h>
+
 #include <linux/compat.h>
 #endif
 
