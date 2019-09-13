@@ -93,8 +93,15 @@ int get_immediate_cpuL_wrap(void)
 {
 	int curr_temp;
 
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+	curr_temp = MAX(MAX(tscpu_ts_temp[TS_LVTS2_0],
+		tscpu_ts_temp[TS_LVTS2_1]), tscpu_ts_temp[TS_LVTS2_2]);
+#endif
+#else
 	curr_temp = MAX(MAX(tscpu_ts_temp[TS_MCU5], tscpu_ts_temp[TS_MCU6]),
 		tscpu_ts_temp[TS_MCU7]);
+#endif
 
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
@@ -105,7 +112,13 @@ int get_immediate_cpuB_wrap(void)
 {
 	int curr_temp;
 
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+	curr_temp = MAX(tscpu_ts_temp[TS_LVTS1_0], tscpu_ts_temp[TS_LVTS1_1]);
+#endif
+#else
 	curr_temp = MAX(tscpu_ts_temp[TS_MCU8], tscpu_ts_temp[TS_MCU9]);
+#endif
 
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
@@ -116,8 +129,15 @@ int get_immediate_mcucci_wrap(void)
 {
 	int curr_temp;
 
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+	curr_temp = MAX(MAX(tscpu_ts_temp[TS_LVTS2_0],
+		tscpu_ts_temp[TS_LVTS2_1]), tscpu_ts_temp[TS_LVTS2_2]);
+#endif
+#else
 	curr_temp = MAX(MAX(tscpu_ts_temp[TS_MCU5], tscpu_ts_temp[TS_MCU6]),
 		tscpu_ts_temp[TS_MCU7]);
+#endif
 
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
@@ -128,7 +148,13 @@ int get_immediate_gpu_wrap(void)
 {
 	int curr_temp;
 
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+	curr_temp = MAX(tscpu_ts_temp[TS_LVTS3_1], tscpu_ts_temp[TS_LVTS3_0]);
+#endif
+#else
 	curr_temp = MAX(tscpu_ts_temp[TS_MCU1], tscpu_ts_temp[TS_MCU2]);
+#endif
 
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
@@ -139,7 +165,13 @@ int get_immediate_vpu_wrap(void)
 {
 	int curr_temp;
 
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+	curr_temp = tscpu_ts_temp[TS_LVTS4_0];
+#endif
+#else
 	curr_temp = tscpu_ts_temp[TS_MCU4];
+#endif
 
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
@@ -150,8 +182,15 @@ int get_immediate_top_wrap(void)
 {
 	int curr_temp;
 
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+	curr_temp = MAX(MAX(tscpu_ts_temp[TS_LVTS3_1],
+		tscpu_ts_temp[TS_LVTS3_0]), tscpu_ts_temp[TS_LVTS4_0]);
+#endif
+#else
 	curr_temp = MAX(MAX(tscpu_ts_temp[TS_MCU1], tscpu_ts_temp[TS_MCU2]),
 		tscpu_ts_temp[TS_MCU4]);
+#endif
 
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
@@ -193,7 +232,13 @@ int get_immediate_ts1_wrap(void)
 {
 	int curr_temp;
 
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+	curr_temp = tscpu_ts_temp[TS_LVTS3_1];
+#endif
+#else
 	curr_temp = tscpu_ts_temp[TS_MCU1];
+#endif
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
 	return curr_temp;
@@ -203,7 +248,13 @@ int get_immediate_ts2_wrap(void)
 {
 	int curr_temp;
 
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+	curr_temp = tscpu_ts_temp[TS_LVTS3_0];
+#endif
+#else
 	curr_temp = tscpu_ts_temp[TS_MCU2];
+#endif
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
 	return curr_temp;
@@ -219,7 +270,13 @@ int get_immediate_ts4_wrap(void)
 {
 	int curr_temp;
 
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+	curr_temp = tscpu_ts_temp[TS_LVTS4_0];
+#endif
+#else
 	curr_temp = tscpu_ts_temp[TS_MCU4];
+#endif
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
 	return curr_temp;
@@ -229,7 +286,13 @@ int get_immediate_ts5_wrap(void)
 {
 	int curr_temp;
 
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+	curr_temp = tscpu_ts_temp[TS_LVTS2_0];
+#endif
+#else
 	curr_temp = tscpu_ts_temp[TS_MCU5];
+#endif
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
 	return curr_temp;
@@ -239,7 +302,13 @@ int get_immediate_ts6_wrap(void)
 {
 	int curr_temp;
 
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+	curr_temp = tscpu_ts_temp[TS_LVTS2_1];
+#endif
+#else
 	curr_temp = tscpu_ts_temp[TS_MCU6];
+#endif
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
 	return curr_temp;
@@ -249,7 +318,13 @@ int get_immediate_ts7_wrap(void)
 {
 	int curr_temp;
 
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+	curr_temp = tscpu_ts_temp[TS_LVTS2_2];
+#endif
+#else
 	curr_temp = tscpu_ts_temp[TS_MCU7];
+#endif
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
 	return curr_temp;
@@ -259,7 +334,13 @@ int get_immediate_ts8_wrap(void)
 {
 	int curr_temp;
 
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+	curr_temp = tscpu_ts_temp[TS_LVTS1_0];
+#endif
+#else
 	curr_temp = tscpu_ts_temp[TS_MCU8];
+#endif
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
 	return curr_temp;
@@ -269,7 +350,13 @@ int get_immediate_ts9_wrap(void)
 {
 	int curr_temp;
 
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+	curr_temp = tscpu_ts_temp[TS_LVTS1_1];
+#endif
+#else
 	curr_temp = tscpu_ts_temp[TS_MCU9];
+#endif
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
 	return curr_temp;
@@ -990,6 +1077,19 @@ int tscpu_thermal_clock_off(void)
 
 #if defined(THERMAL_AEE_SELECTED_TS)
 int (*get_aee_selected_tsX[THERMAL_AEE_MAX_SELECTED_TS])(void) = {
+#if CFG_LVTS_DOMINATOR
+	get_immediate_ts0_wrap,
+#if CFG_THERM_LVTS
+	get_immediate_tslvts3_1_wrap,
+	get_immediate_tslvts3_0_wrap,
+	get_immediate_tslvts4_0_wrap,
+	get_immediate_tslvts2_0_wrap,
+	get_immediate_tslvts2_1_wrap,
+	get_immediate_tslvts2_2_wrap,
+	get_immediate_tslvts1_0_wrap,
+	get_immediate_tslvts1_1_wrap,
+#endif
+#else
 	get_immediate_ts0_wrap,
 	get_immediate_ts1_wrap,
 	get_immediate_ts2_wrap,
@@ -999,5 +1099,6 @@ int (*get_aee_selected_tsX[THERMAL_AEE_MAX_SELECTED_TS])(void) = {
 	get_immediate_ts7_wrap,
 	get_immediate_ts8_wrap,
 	get_immediate_ts9_wrap,
+#endif
 };
 #endif
