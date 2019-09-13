@@ -992,6 +992,8 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_MPEG_MTK_FIX_BUFFERS:	return "Video fix buffers";
 	case V4L2_CID_MPEG_MTK_FIX_BUFFERS_SVP:
 		return "Video fix buffers for svp";
+	case V4L2_CID_MPEG_MTK_QUEUED_FRAMEBUF_COUNT:
+		return "Video queued frame buf count";
 	default:
 		return NULL;
 	}
@@ -1020,6 +1022,7 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
 	case V4L2_CID_MPEG_MTK_OPERATING_RATE:
 	case V4L2_CID_MPEG_MTK_SEC_DECODE:
 	case V4L2_CID_MPEG_MTK_SEC_ENCODE:
+	case V4L2_CID_MPEG_MTK_QUEUED_FRAMEBUF_COUNT:
 		*type = V4L2_CTRL_TYPE_INTEGER;
 		*flags |= V4L2_CTRL_FLAG_WRITE_ONLY;
 		break;
