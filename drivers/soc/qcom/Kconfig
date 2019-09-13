@@ -327,7 +327,7 @@ config MSM_IPC_ROUTER_GLINK_XPRT
 	  message exchange.
 
 config MSM_IPC_ROUTER_SDIO_XPRT
-	depends on QCOM_SDIO_CLIENT
+	depends on QTI_SDIO_CLIENT
 	depends on IPC_ROUTER
 	bool "MSM SDIO XPRT Layer"
 	help

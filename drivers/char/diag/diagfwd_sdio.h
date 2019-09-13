@@ -13,7 +13,7 @@
 #ifndef DIAGFWD_SDIO_H
 #define DIAGFWD_SDIO_H
 
-#ifdef CONFIG_QCOM_SDIO_CLIENT
+#ifdef CONFIG_QTI_SDIO_CLIENT
 
 #ifdef CONFIG_DIAG_OVER_USB
 #include <linux/usb/usbdiag.h>
@@ -52,4 +52,4 @@ int diag_sdio_init(void);
 void diag_sdio_exit(void);
 
 #endif
-#endif /*CONFIG_QCOM_SDIO_CLIENT*/
+#endif /*CONFIG_QTI_SDIO_CLIENT*/

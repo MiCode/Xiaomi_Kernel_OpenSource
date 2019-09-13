@@ -43,7 +43,7 @@ static int diag_mhi_init(void)
 }
 #endif
 
-#ifndef CONFIG_QCOM_SDIO_CLIENT
+#ifndef CONFIG_QTI_SDIO_CLIENT
 static int diag_sdio_init(void)
 {
 	return -EINVAL;
