@@ -14,7 +14,7 @@
 /* format: X_CON_SCE(name, ARBA~ARBH, CONM, MDCT) */
 
 /* SW_PDE */
-X_CON_SCE(CON_SCE_SW_PDE, 0xffff7045, 0x9f6f505c, 0xffff7041, 0x20207056,
+X_CON_SCE(CON_SCE_SW_PDE, 0x4f00724a, 0x6030505c, 0xffff7041, 0x40207056,
 0x80806047, 0xffff7041, 0x0, 0x0, 0x008806b0, 0x11118c37)
 
 /* UI: UI with N layer */
