@@ -47,7 +47,7 @@
 		qca,bt-vdd-5a-supply = <&pm6155_1_s5>;
 		qca,bt-vdd-vh-supply = <&pm6155_1_l15>;
 
-		qca,bt-vdd-vm-voltage-level = <1370000 1370000>;
+		qca,bt-vdd-vm-voltage-level = <1350000 1350000>;
 		qca,bt-vdd-5a-voltage-level = <2040000 2040000>;
 		qca,bt-vdd-vh-voltage-level = <1904000 1904000>;
 
