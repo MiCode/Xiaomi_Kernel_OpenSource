@@ -67,6 +67,9 @@ static void copy_remaining_nodes(struct list_head *edge_list, struct list_head
 		return;
 
 	search_node = kzalloc(sizeof(struct bus_search_type), GFP_KERNEL);
+	if (!search_node)
+		return;
+
 	INIT_LIST_HEAD(&search_node->node_list);
 	list_splice_init(edge_list, traverse_list);
 	list_splice_init(traverse_list, &search_node->node_list);
@@ -463,6 +466,9 @@ static int getpath(struct device *src_dev, int dest, const char *cl_name)
 		/* Keep tabs of the previous search list */
 		search_node = kzalloc(sizeof(struct bus_search_type),
 				 GFP_KERNEL);
+		if (!search_node)
+			goto exit_getpath;
+
 		INIT_LIST_HEAD(&search_node->node_list);
 		list_splice_init(&traverse_list,
 				 &search_node->node_list);
