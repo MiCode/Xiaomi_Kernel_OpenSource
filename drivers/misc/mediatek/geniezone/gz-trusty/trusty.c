@@ -114,13 +114,14 @@ s64 trusty_fast_call64(struct device *dev, u64 smcnr, u64 a0, u64 a1, u64 a2)
 static inline bool is_busy(int ret)
 {
 	return (ret == SM_ERR_BUSY || ret == SM_ERR_GZ_BUSY
-		|| ret == SM_ERR_VM_BUSY);
+		|| ret == SM_ERR_NBL_BUSY);
 }
 
 static inline bool is_nop_call(u32 smc_nr)
 {
-	return (smc_nr == SMC_SC_NOP || smc_nr == SMC_SC_GZ_NOP
-		|| smc_nr == SMC_SC_VM_NOP);
+	return (smc_nr == SMC_SC_GZ_NOP ||
+		smc_nr == MTEE_SMCNR_TID(SMCF_SC_NOP, 0) ||
+		smc_nr == MTEE_SMCNR_TID(SMCF_SC_NOP, 1));
 }
 
 static ulong trusty_std_call_inner(struct device *dev, ulong smcnr,
@@ -129,31 +130,34 @@ static ulong trusty_std_call_inner(struct device *dev, ulong smcnr,
 	ulong ret;
 	int retry = 5;
 	struct trusty_state *s = platform_get_drvdata(to_platform_device(dev));
+	uint32_t smcnr_tru_relast = MTEE_SMCNR_TID(SMCF_SC_RESTART_LAST, 0);
+	uint32_t smcnr_nbl_relast = MTEE_SMCNR_TID(SMCF_SC_RESTART_LAST, 1);
 
-	trusty_dbg(dev, "[%s/%s](0x%lx %ld %ld %ld)\n",
+	trusty_dbg(dev, "[%s/%s](0x%lx %lx %lx %lx)\n",
 		   __func__, get_tee_name(s->tee_id), smcnr, a0, a1, a2);
 
 	while (true) {
 		ret = smc_asm(smcnr, a0, a1, a2);
 
 		while ((s32) ret == SM_ERR_FIQ_INTERRUPTED)
-			ret = smc_asm(SMC_SC_RESTART_FIQ, 0, 0, 0);
+			ret = smc_asm(MTEE_SMCNR(SMCF_SC_RESTART_FIQ, dev),
+				      0, 0, 0);
 
 		if (!is_busy(ret) || !retry)
 			break;
 
 		trusty_dbg(dev,
-			   "[%s/%s](0x%lx %ld %ld %ld) ret %ld busy, retry\n",
+			   "[%s/%s](0x%lx %lx %lx %lx) ret %ld busy, retry\n",
 			   __func__, get_tee_name(s->tee_id), smcnr, a0, a1, a2,
 			   ret);
 		retry--;
 		if (is_nebula_tee(s->tee_id)) {
-			if ((s32) ret == SM_ERR_VM_BUSY &&
-			    smcnr == SMC_SC_GZ_RESTART_LAST)
-				smcnr = SMC_SC_VM_RESTART_LAST;
+			if ((s32) ret == SM_ERR_NBL_BUSY &&
+			     smcnr == smcnr_tru_relast)
+				smcnr = smcnr_nbl_relast;
 			else if ((s32) ret == SM_ERR_GZ_BUSY &&
-				 smcnr == SMC_SC_VM_RESTART_LAST)
-				smcnr = SMC_SC_GZ_RESTART_LAST;
+				 smcnr == smcnr_nbl_relast)
+				smcnr = smcnr_tru_relast;
 		}
 	}
 
@@ -178,7 +182,8 @@ static ulong trusty_std_call_helper(struct device *dev, ulong smcnr,
 			 * a1 = cpu core (get after local IRQ is disabled)
 			 */
 			if (smcnr == SMC_SC_GZ_RESTART_LAST ||
-			    smcnr == SMC_SC_VM_RESTART_LAST)
+			    smcnr == MTEE_SMCNR_TID(SMCF_SC_RESTART_LAST, 0) ||
+			    smcnr == MTEE_SMCNR_TID(SMCF_SC_RESTART_LAST, 1))
 				a1 = smp_processor_id();
 		}
 		ret = trusty_std_call_inner(dev, smcnr, a0, a1, a2);
@@ -238,7 +243,8 @@ static int trusty_interrupted_loop(struct trusty_state *s, u32 smcnr, int ret)
 			trusty_std_call_cpu_idle(s);
 
 		ret = trusty_std_call_helper(s->dev,
-					     SMC_SC_RESTART_LAST, 0, 0, 0);
+					MTEE_SMCNR_TID(SMCF_SC_RESTART_LAST, 0),
+					0, 0, 0);
 	}
 
 	return ret;
@@ -247,27 +253,35 @@ static int trusty_interrupted_loop(struct trusty_state *s, u32 smcnr, int ret)
 static int nebula_interrupted_loop(struct trusty_state *s, u32 smcnr, int ret)
 {
 	while (ret == SM_ERR_GZ_INTERRUPTED || ret == SM_ERR_GZ_CPU_IDLE ||
-	       ret == SM_ERR_VM_INTERRUPTED || ret == SM_ERR_VM_CPU_IDLE) {
+	       ret == SM_ERR_NBL_INTERRUPTED || ret == SM_ERR_NBL_CPU_IDLE ||
+	       ret == SM_ERR_INTERRUPTED || ret == SM_ERR_CPU_IDLE) {
 
 		trusty_dbg(s->dev, "[%s/%s] smc:0x%x ret:%d interrupted\n",
 			   __func__, get_tee_name(s->tee_id), smcnr, ret);
 
-		if (ret == SM_ERR_GZ_CPU_IDLE || ret == SM_ERR_VM_CPU_IDLE)
+		if (ret == SM_ERR_GZ_CPU_IDLE || ret == SM_ERR_NBL_CPU_IDLE ||
+		    ret == SM_ERR_CPU_IDLE)
 			trusty_std_call_cpu_idle(s);
 
-		if (ret == SM_ERR_VM_INTERRUPTED || ret == SM_ERR_VM_CPU_IDLE)
+		if (ret == SM_ERR_NBL_INTERRUPTED || ret == SM_ERR_NBL_CPU_IDLE)
 			ret = trusty_std_call_helper(s->dev,
-						     SMC_SC_VM_RESTART_LAST,
-						     !is_nop_call(smcnr), 0, 0);
+					MTEE_SMCNR_TID(SMCF_SC_RESTART_LAST, 1),
+					!is_nop_call(smcnr), 0, 0);
+		else if (ret == SM_ERR_GZ_INTERRUPTED ||
+			 ret == SM_ERR_GZ_CPU_IDLE)
+			ret = trusty_std_call_helper(s->dev,
+					SMC_SC_GZ_RESTART_LAST,
+					!is_nop_call(smcnr), 0, 0);
 		else
 			ret = trusty_std_call_helper(s->dev,
-						     SMC_SC_GZ_RESTART_LAST,
-						     !is_nop_call(smcnr), 0, 0);
+					MTEE_SMCNR_TID(SMCF_SC_RESTART_LAST, 0),
+					!is_nop_call(smcnr), 0, 0);
 	}
 
 	return ret;
 }
 
+static DEFINE_MUTEX(multi_lock);
 
 s32 trusty_std_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2)
 {
@@ -277,13 +291,14 @@ s32 trusty_std_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2)
 	WARN_ON(SMC_IS_FASTCALL(smcnr));
 	WARN_ON(SMC_IS_SMC64(smcnr));
 
-	if (smcnr != SMC_SC_GZ_NOP && smcnr != SMC_SC_VM_NOP &&
-	    smcnr != SMC_SC_NOP) {
+	if (smcnr != SMC_SC_GZ_NOP && smcnr != MTEE_SMCNR_TID(SMCF_SC_NOP, 0) &&
+	    smcnr != MTEE_SMCNR_TID(SMCF_SC_NOP, 1)) {
+		mutex_lock(&multi_lock);
 		mutex_lock(&s->smc_lock);
 		reinit_completion(&s->cpu_idle_completion);
 	}
 
-	trusty_dbg(dev, "[%s/%s](0x%x %d %d %d) started\n",
+	trusty_dbg(dev, "[%s/%s](0x%x %x %x %x) started\n",
 		   __func__, get_tee_name(s->tee_id), smcnr, a0, a1, a2);
 
 	ret = trusty_std_call_helper(dev, smcnr, a0, a1, a2);
@@ -293,16 +308,18 @@ s32 trusty_std_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2)
 	else if (is_nebula_tee(s->tee_id))	/* For Nebula */
 		ret = nebula_interrupted_loop(s, smcnr, ret);
 
-	trusty_dbg(dev, "[%s/%s](0x%x %d %d %d) returned %d\n",
+	trusty_dbg(dev, "[%s/%s](0x%x %x %x %x) returned %d\n",
 		   __func__, get_tee_name(s->tee_id), smcnr, a0, a1, a2, ret);
 
 	WARN_ONCE(ret == SM_ERR_PANIC, "trusty crashed");
 
-	if (smcnr == SMC_SC_GZ_NOP || smcnr == SMC_SC_VM_NOP ||
-	    smcnr == SMC_SC_NOP)
+	if (smcnr == SMC_SC_GZ_NOP || smcnr == MTEE_SMCNR_TID(SMCF_SC_NOP, 0) ||
+	    smcnr == MTEE_SMCNR_TID(SMCF_SC_NOP, 1))
 		complete(&s->cpu_idle_completion);
-	else
+	else {
 		mutex_unlock(&s->smc_lock);
+		mutex_unlock(&multi_lock);
+	}
 
 	return ret;
 }
@@ -386,7 +403,8 @@ ssize_t trusty_add_show(struct device *dev,
 	a &= 0xFF;
 	get_random_bytes(&b, sizeof(s32));
 	b &= 0xFF;
-	ret = trusty_std_call32(dev, MT_SMC_SC_ADD, a, b, 0);
+	ret = trusty_std_call32(dev, MTEE_SMCNR(MT_SMCF_SC_ADD, dev),
+				a, b, 0);
 	return scnprintf(buf, PAGE_SIZE, "%d + %d = %d, %s\n", a, b, ret,
 			 (a + b) == ret ? "PASS" : "FAIL");
 }
@@ -404,9 +422,9 @@ ssize_t trusty_threads_show(struct device *dev,
 		       struct device_attribute *attr, char *buf)
 {
 	/* Dump Trusty threads info to memlog */
-	trusty_fast_call32(dev, MT_SMC_FC_THREADS, 0, 0, 0);
+	trusty_fast_call32(dev, MTEE_SMCNR(MT_SMCF_FC_THREADS, dev), 0, 0, 0);
 	/* Dump threads info from memlog to kmsg */
-	trusty_std_call32(dev, SMC_SC_NOP, 0, 0, 0);
+	trusty_std_call32(dev, MTEE_SMCNR(SMCF_SC_NOP, dev), 0, 0, 0);
 	return 0;
 }
 static ssize_t trusty_threads_store(struct device *dev,
@@ -423,9 +441,10 @@ ssize_t trusty_threadstats_show(struct device *dev,
 			   struct device_attribute *attr, char *buf)
 {
 	/* Dump Trusty threads info to memlog */
-	trusty_fast_call32(dev, MT_SMC_FC_THREADSTATS, 0, 0, 0);
+	trusty_fast_call32(dev, MTEE_SMCNR(MT_SMCF_FC_THREADSTATS, dev),
+			   0, 0, 0);
 	/* Dump threads info from memlog to kmsg */
-	trusty_std_call32(dev, SMC_SC_NOP, 0, 0, 0);
+	trusty_std_call32(dev, MTEE_SMCNR(SMCF_SC_NOP, dev), 0, 0, 0);
 	return 0;
 }
 static ssize_t trusty_threadstats_store(struct device *dev,
@@ -442,9 +461,10 @@ ssize_t trusty_threadload_show(struct device *dev,
 			  struct device_attribute *attr, char *buf)
 {
 	/* Dump Trusty threads info to memlog */
-	trusty_fast_call32(dev, MT_SMC_FC_THREADLOAD, 0, 0, 0);
+	trusty_fast_call32(dev, MTEE_SMCNR(MT_SMCF_FC_THREADLOAD, dev),
+			   0, 0, 0);
 	/* Dump threads info from memlog to kmsg */
-	trusty_std_call32(dev, SMC_SC_NOP, 0, 0, 0);
+	trusty_std_call32(dev, MTEE_SMCNR(SMCF_SC_NOP, dev), 0, 0, 0);
 	return 0;
 }
 static ssize_t trusty_threadload_store(struct device *dev,
@@ -461,9 +481,9 @@ ssize_t trusty_heap_dump_show(struct device *dev,
 			 struct device_attribute *attr, char *buf)
 {
 	/* Dump Trusty threads info to memlog */
-	trusty_fast_call32(dev, MT_SMC_FC_HEAP_DUMP, 0, 0, 0);
+	trusty_fast_call32(dev, MTEE_SMCNR(MT_SMCF_FC_HEAP_DUMP, dev), 0, 0, 0);
 	/* Dump threads info from memlog to kmsg */
-	trusty_std_call32(dev, SMC_SC_NOP, 0, 0, 0);
+	trusty_std_call32(dev, MTEE_SMCNR(SMCF_SC_NOP, dev), 0, 0, 0);
 	return 0;
 }
 static ssize_t trusty_heap_dump_store(struct device *dev,
@@ -480,9 +500,9 @@ ssize_t trusty_apps_show(struct device *dev,
 		    struct device_attribute *attr, char *buf)
 {
 	/* Dump Trusty threads info to memlog */
-	trusty_fast_call32(dev, MT_SMC_FC_APPS, 0, 0, 0);
+	trusty_fast_call32(dev, MTEE_SMCNR(MT_SMCF_FC_APPS, dev), 0, 0, 0);
 	/* Dump threads info from memlog to kmsg */
-	trusty_std_call32(dev, SMC_SC_NOP, 0, 0, 0);
+	trusty_std_call32(dev, MTEE_SMCNR(SMCF_SC_NOP, dev), 0, 0, 0);
 	return 0;
 }
 static ssize_t trusty_apps_store(struct device *dev,
@@ -498,7 +518,7 @@ DEVICE_ATTR_RW(trusty_apps);
 ssize_t trusty_vdev_reset_show(struct device *dev,
 			  struct device_attribute *attr, char *buf)
 {
-	trusty_std_call32(dev, SMC_SC_VDEV_RESET, 0, 0, 0);
+	trusty_std_call32(dev, MTEE_SMCNR(SMCF_SC_VDEV_RESET, dev), 0, 0, 0);
 	return 0;
 }
 static ssize_t trusty_vdev_reset_store(struct device *dev,
@@ -580,7 +600,7 @@ static void trusty_init_version(struct trusty_state *s, struct device *dev)
 	int ret;
 	int i;
 	int version_str_len;
-	u32 smcnr_version = SMC_FC_GET_VERSION_STR;
+	u32 smcnr_version = MTEE_SMCNR(SMCF_FC_GET_VERSION_STR, dev);
 
 	ret = trusty_fast_call32(dev, smcnr_version, -1, 0, 0);
 	if (ret <= 0)
@@ -629,9 +649,9 @@ EXPORT_SYMBOL(trusty_get_api_version);
 static int trusty_init_api_version(struct trusty_state *s, struct device *dev)
 {
 	u32 api_version;
-	u32 smcnr_api_version = SMC_FC_API_VERSION;
+	uint32_t smcnr_api = MTEE_SMCNR(SMCF_FC_API_VERSION, dev);
 
-	api_version = trusty_fast_call32(dev, smcnr_api_version,
+	api_version = trusty_fast_call32(dev, smcnr_api,
 					 TRUSTY_API_VERSION_CURRENT,
 					 s->tee_id, 0);
 	if (api_version == SM_ERR_UNDEFINED_SMC)
@@ -644,7 +664,7 @@ static int trusty_init_api_version(struct trusty_state *s, struct device *dev)
 	}
 
 	trusty_info(dev, "selected api version: %u (requested %u)\n",
-		 api_version, TRUSTY_API_VERSION_CURRENT);
+		    api_version, TRUSTY_API_VERSION_CURRENT);
 	s->api_version = api_version;
 
 	return 0;
@@ -682,14 +702,7 @@ static void locked_nop_work_func(struct work_struct *work)
 	int ret;
 	struct trusty_work *tw = container_of(work, struct trusty_work, work);
 	struct trusty_state *s = tw->ts;
-/* FIXME */
-#if defined(CONFIG_MTK_NEBULA_VM_SUPPORT)
-	u32 smcnr_locked_nop = (is_trusty_tee(s->tee_id)) ?
-				SMC_SC_GZ_NOP_LOCKED : SMC_SC_VM_NOP_LOCKED;
-#else
-	u32 smcnr_locked_nop = (is_trusty_tee(s->tee_id)) ?
-				SMC_SC_LOCKED_NOP : SMC_SC_VM_NOP_LOCKED;
-#endif
+	u32 smcnr_locked_nop = MTEE_SMCNR_TID(SMCF_SC_LOCKED_NOP, s->tee_id);
 
 	ret = trusty_std_call32(s->dev, smcnr_locked_nop, 0, 0, 0);
 
@@ -706,7 +719,7 @@ static void nop_work_func(struct work_struct *work)
 	enum tee_id_t tee_id = s->tee_id;
 	int ret;
 	u32 args[3];
-	u32 smcnr_nop = (is_trusty_tee(tee_id)) ? SMC_SC_NOP : SMC_SC_VM_NOP;
+	u32 smcnr_nop = MTEE_SMCNR_TID(SMCF_SC_NOP, tee_id);
 
 	trusty_dbg(s->dev, "%s:\n", __func__);
 
@@ -719,22 +732,22 @@ static void nop_work_func(struct work_struct *work)
 		ret = trusty_std_call32(s->dev, smcnr_nop,
 					args[0], args[1], args[2]);
 
-		if (ret == SM_ERR_GZ_NOP_INTERRUPTED)
-			smcnr_nop = SMC_SC_NOP;
-		else if (ret == SM_ERR_VM_NOP_INTERRUPTED)
-			smcnr_nop = SMC_SC_VM_NOP;
+		if (ret == SM_ERR_NOP_INTERRUPTED)
+			smcnr_nop = MTEE_SMCNR_TID(SMCF_SC_NOP, 0);
+		else if (ret == SM_ERR_NBL_NOP_INTERRUPTED)
+			smcnr_nop = MTEE_SMCNR_TID(SMCF_SC_NOP, 1);
 		else
-			smcnr_nop = SMC_SC_NOP;
+			smcnr_nop = MTEE_SMCNR_TID(SMCF_SC_NOP, 0);
 
 
 		next = dequeue_nop(s, args);
 
-		if (ret == SM_ERR_VM_NOP_INTERRUPTED ||
+		if (ret == SM_ERR_NBL_NOP_INTERRUPTED ||
 		    ret == SM_ERR_GZ_NOP_INTERRUPTED ||
 		    ret == SM_ERR_NOP_INTERRUPTED)
 			next = true;
 		else if ((ret != SM_ERR_GZ_NOP_DONE) &&
-			 (ret != SM_ERR_VM_NOP_DONE) &&
+			 (ret != SM_ERR_NBL_NOP_DONE) &&
 			 (ret != SM_ERR_NOP_DONE))
 			trusty_info(s->dev, "%s: tee_id %d, smc failed %d\n",
 				    __func__, tee_id, ret);
@@ -814,6 +827,7 @@ static int trusty_probe(struct platform_device *pdev)
 		goto err_allocate_state;
 	}
 
+	/* set tee_id as early as possible */
 	pdev->id = tee_id;
 	s->tee_id = tee_id;
 
@@ -825,6 +839,13 @@ static int trusty_probe(struct platform_device *pdev)
 	ATOMIC_INIT_NOTIFIER_HEAD(&s->notifier);
 	init_completion(&s->cpu_idle_completion);
 	platform_set_drvdata(pdev, s);
+
+	/* init SMC number table before any SMC call. */
+	ret = init_smcnr_table(&pdev->dev, s->tee_id);
+	if (ret < 0) {
+		trusty_info(&pdev->dev, "Failed to init smc number table\n");
+		goto err_smcall_table;
+	}
 
 	trusty_init_version(s, &pdev->dev);
 
@@ -889,6 +910,7 @@ err_add_children:
 err_alloc_works:
 	destroy_workqueue(s->nop_wq);
 err_create_nop_wq:
+err_smcall_table:
 err_api_version:
 	if (s->version_str) {
 		device_remove_file(&pdev->dev, &dev_attr_trusty_version);

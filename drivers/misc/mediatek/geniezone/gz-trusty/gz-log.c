@@ -185,8 +185,9 @@ static bool trusty_supports_logging(struct device *device)
 {
 	int ret;
 
-	ret = trusty_std_call32(device, SMC_SC_GZ_SHARED_LOG_VERSION,
-				   TRUSTY_LOG_API_VERSION, 0, 0);
+	ret = trusty_std_call32(device,
+				MTEE_SMCNR(SMCF_SC_SHARED_LOG_VERSION, device),
+				TRUSTY_LOG_API_VERSION, 0, 0);
 	if (ret == SM_ERR_UNDEFINED_SMC) {
 		pr_info("trusty-log not supported on secure side.\n");
 		return false;
@@ -385,9 +386,8 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 		 * start behind booting log
 		 */
 		ret = trusty_std_call32(gls->trusty_dev,
-				SMC_SC_GZ_SHARED_LOG_RM,
-				(u32)glctx.paddr,
-				(u32)((u64)glctx.paddr >> 32), 0);
+			MTEE_SMCNR(SMCF_SC_SHARED_LOG_RM, gls->trusty_dev),
+			(u32)glctx.paddr, (u32)((u64)glctx.paddr >> 32), 0);
 
 		if (glctx.size < (BOOTING_LOG_SIZE * 2)) {
 			offset = round_down(glctx.size / 2, PAGE_SIZE);
@@ -416,10 +416,9 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 	glctx.gls = gls;
 
 	ret = trusty_std_call32(gls->trusty_dev,
-				SMC_SC_GZ_SHARED_LOG_ADD,
-				(u32)(glctx.paddr),
-				(u32)((u64)glctx.paddr >> 32),
-				glctx.size);
+			MTEE_SMCNR(SMCF_SC_SHARED_LOG_ADD, gls->trusty_dev),
+			(u32)(glctx.paddr), (u32)((u64)glctx.paddr >> 32),
+			glctx.size);
 	if (ret < 0) {
 		dev_info(&pdev->dev,
 			 "std call(GZ_SHARED_LOG_ADD) failed: %d %pa\n",
@@ -461,7 +460,8 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 error_panic_notifier:
 	trusty_call_notifier_unregister(gls->trusty_dev, &gls->call_notifier);
 error_call_notifier:
-	trusty_std_call32(gls->trusty_dev, SMC_SC_GZ_SHARED_LOG_RM,
+	trusty_std_call32(gls->trusty_dev,
+			  MTEE_SMCNR(SMCF_SC_SHARED_LOG_RM, gls->trusty_dev),
 			  (u32)glctx.paddr, (u32)((u64)glctx.paddr >> 32), 0);
 error_std_call:
 	if (glctx.flag == STATIC)
@@ -488,9 +488,8 @@ static int trusty_gz_log_remove(struct platform_device *pdev)
 	trusty_call_notifier_unregister(gls->trusty_dev, &gls->call_notifier);
 
 	ret = trusty_std_call32(gls->trusty_dev,
-				SMC_SC_GZ_SHARED_LOG_RM,
-				(u32)glctx.paddr,
-				(u32)((u64)glctx.paddr >> 32), 0);
+			MTEE_SMCNR(SMCF_SC_SHARED_LOG_RM, gls->trusty_dev),
+			(u32)glctx.paddr, (u32)((u64)glctx.paddr >> 32), 0);
 	if (ret)
 		pr_info("std call(GZ_SHARED_LOG_RM) failed: %d\n", ret);
 

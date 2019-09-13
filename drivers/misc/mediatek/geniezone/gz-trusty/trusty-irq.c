@@ -488,16 +488,9 @@ err_request_percpu_irq:
 static int trusty_smc_get_next_irq(struct trusty_irq_state *is,
 				   unsigned long min_irq, bool per_cpu)
 {
-/* FIXME */
-#if defined(CONFIG_MTK_NEBULA_VM_SUPPORT)
 	return trusty_fast_call32(is->trusty_dev,
-				  SMC_FC_PLAT_GET_NEXT_IRQ,
-				  min_irq, per_cpu, is->tee_id);
-#else
-	return trusty_fast_call32(is->trusty_dev,
-				  SMC_FC_GET_NEXT_IRQ,
-				  min_irq, per_cpu, is->tee_id);
-#endif
+			MTEE_SMCNR(SMCF_FC_GET_NEXT_IRQ, is->trusty_dev),
+			min_irq, per_cpu, is->tee_id);
 }
 
 static int trusty_irq_init_one(struct trusty_irq_state *is,
