@@ -1621,7 +1621,7 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	/* if device in rddm don't bother processing sys error */
-	if (mhi_cntrl->ee == MHI_EE_RDDM) {
+	if (mhi_cntrl->ee == MHI_EE_RDDM && ee != MHI_EE_DISABLE_TRANSITION) {
 		if (mhi_cntrl->ee != ee) {
 			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 					     MHI_CB_EE_RDDM);
