@@ -1192,7 +1192,7 @@ static int goodix_close_hidi2c_mode(struct goodix_ts_device *ts_dev)
 	int try_times;
 	int j;
 	unsigned char buffer[1];
-	unsigned char reg_sta;
+	unsigned char reg_sta = 0;
 	struct goodix_ts_cmd ts_cmd;
 
 	for (try_times = 0; try_times < 10; try_times++) {
