@@ -44,11 +44,3 @@
 &pcie0 {
 	status = "ok";
 };
-
-&spmi_bus {
-	status = "disabled";
-};
-
-&viospmi {
-	status = "disabled";
-};
