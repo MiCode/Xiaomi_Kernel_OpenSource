@@ -1126,7 +1126,7 @@
 				config {
 					pins = "gpio44", "gpio45";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-down;
 				};
 			};
 		};
