@@ -960,8 +960,8 @@ static int bmp_check_calib_param(struct bmp_i2c_data *obj)
 static int bmp_check_pt(struct bmp_i2c_data *obj)
 {
 	int err = 0;
-	int temperature;
-	int pressure;
+	int temperature = -5000;
+	int pressure = -1;
 	char t[BMP_BUFSIZE] = "", p[BMP_BUFSIZE] = "";
 
 	err = bmp_set_powermode(obj->client, BMP_NORMAL_MODE);
