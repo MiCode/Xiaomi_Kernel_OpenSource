@@ -910,12 +910,12 @@ static int _mt_cpufreq_sync_opp_tbl_idx(struct mt_cpu_dvfs *p)
 
 	FUNC_ENTER(FUNC_LV_LOCAL);
 
-	if (cpu_dvfs_is_available(p))
+	if (cpu_dvfs_is_available(p)) {
 		ret = _sync_opp_tbl_idx(p);
 
-	cpufreq_ver("%s freq = %d\n",
-		cpu_dvfs_get_name(p), cpu_dvfs_get_cur_freq(p));
-
+		cpufreq_ver("%s freq = %d\n",
+			cpu_dvfs_get_name(p), cpu_dvfs_get_cur_freq(p));
+	}
 	FUNC_EXIT(FUNC_LV_LOCAL);
 
 	return ret;
