@@ -99,7 +99,11 @@ static struct file *file_bargein_echo_ref;
 static struct file *file_bargein_delay_info;
 static uint32_t bargein_dump_data_routine_cnt_pass;
 static bool bargein_dump_info_flag;
+static bool file_bargein_pcm_input_open;
+static bool file_bargein_echo_ref_open;
+static bool file_bargein_delay_info_open;
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+static bool file_recog_data_open;
 
 /*****************************************************************************
  * Function  Declaration
@@ -1379,44 +1383,62 @@ static void vow_service_OpenDumpFile_internal(void)
 		DUMP_PCM_DATA_PATH, string_time, string_recog);
 	VOWDRV_DEBUG("[Recog] %s path_recog= %s\n", __func__,
 		     path_recog);
+
+	file_recog_data = NULL;
+	file_recog_data_open = false;
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+	file_bargein_pcm_input = NULL;
+	file_bargein_pcm_input_open = false;
+	file_bargein_echo_ref = NULL;
+	file_bargein_echo_ref_open = false;
+	file_bargein_delay_info = NULL;
+	file_bargein_delay_info_open = false;
+
 	file_bargein_pcm_input = filp_open(path_input_pcm,
 					   O_CREAT | O_WRONLY | O_LARGEFILE,
 					   0);
 	if (IS_ERR(file_bargein_pcm_input)) {
-		VOWDRV_DEBUG("[BargeIn] pcm_input < 0,path_input_pcm=%s\n",
+		VOWDRV_DEBUG("[BargeIn] pcm_input:%d, path_input_pcm=%s\n",
+			     (int)PTR_ERR(file_bargein_pcm_input),
 			     path_input_pcm);
 		return;
 	}
+	file_bargein_pcm_input_open = true;
 
 	file_bargein_echo_ref = filp_open(path_echo_ref,
 					  O_CREAT | O_WRONLY | O_LARGEFILE,
 					  0);
 	if (IS_ERR(file_bargein_echo_ref)) {
-		VOWDRV_DEBUG("[BargeIn] echo_ref < 0,path_echo_ref=%s\n",
+		VOWDRV_DEBUG("[BargeIn] echo_ref:%d, path_echo_ref=%s\n",
+			     (int)PTR_ERR(file_bargein_echo_ref),
 			     path_echo_ref);
 		return;
 	}
+	file_bargein_echo_ref_open = true;
 
 	file_bargein_delay_info = filp_open(path_delay_info,
 					    O_CREAT | O_WRONLY | O_LARGEFILE,
 					    0);
 	if (IS_ERR(file_bargein_delay_info)) {
 		VOWDRV_DEBUG(
-		"[BargeIn] file_bargein_delay_info < 0,path_delay_info = %s\n",
+		"[BargeIn] file_bargein_delay_info:%d, path_delay_info = %s\n",
+		(int)PTR_ERR(file_bargein_delay_info),
 		path_delay_info);
 		return;
 	}
+	file_bargein_delay_info_open = true;
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 	file_recog_data = filp_open(path_recog,
 				    O_CREAT | O_WRONLY | O_LARGEFILE,
 				    0);
 	if (IS_ERR(file_recog_data)) {
 		VOWDRV_DEBUG(
-		"[BargeIn] file_recog_data < 0,path_recog = %s\n",
+		"[BargeIn] file_recog_data:%d, path_recog = %s\n",
+		(int)PTR_ERR(file_recog_data),
 		path_recog);
 		return;
 	}
+	file_recog_data_open = true;
 	VOWDRV_DEBUG("-%s()\n", __func__);
 }
 
@@ -1424,22 +1446,34 @@ static void vow_service_CloseDumpFile_internal(void)
 {
 	VOWDRV_DEBUG("+%s()\n", __func__);
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
-	if (!IS_ERR(file_bargein_pcm_input)) {
-		filp_close(file_bargein_pcm_input, NULL);
-		file_bargein_pcm_input = NULL;
+	if (file_bargein_pcm_input_open) {
+		file_bargein_pcm_input_open = false;
+		if (!IS_ERR(file_bargein_pcm_input)) {
+			filp_close(file_bargein_pcm_input, NULL);
+			file_bargein_pcm_input = NULL;
+		}
 	}
-	if (!IS_ERR(file_bargein_echo_ref)) {
-		filp_close(file_bargein_echo_ref, NULL);
-		file_bargein_echo_ref = NULL;
+	if (file_bargein_echo_ref_open) {
+		file_bargein_echo_ref_open = false;
+		if (!IS_ERR(file_bargein_echo_ref)) {
+			filp_close(file_bargein_echo_ref, NULL);
+			file_bargein_echo_ref = NULL;
+		}
 	}
-	if (!IS_ERR(file_bargein_delay_info)) {
-		filp_close(file_bargein_delay_info, NULL);
-		file_bargein_delay_info = NULL;
+	if (file_bargein_delay_info_open) {
+		file_bargein_delay_info_open = false;
+		if (!IS_ERR(file_bargein_delay_info)) {
+			filp_close(file_bargein_delay_info, NULL);
+			file_bargein_delay_info = NULL;
+		}
 	}
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
-	if (!IS_ERR(file_recog_data)) {
-		filp_close(file_recog_data, NULL);
-		file_recog_data = NULL;
+	if (file_recog_data_open) {
+		file_recog_data_open = false;
+		if (!IS_ERR(file_recog_data)) {
+			filp_close(file_recog_data, NULL);
+			file_recog_data = NULL;
+		}
 	}
 	VOWDRV_DEBUG("-%s()\n", __func__);
 }
@@ -1511,7 +1545,8 @@ static int vow_pcm_dump_kthread(void *data)
 
 			out_buf = vowserv.interleave_pcmdata_ptr;
 			while (size > 0) {
-				if (!IS_ERR(file_bargein_pcm_input)) {
+				if (file_bargein_pcm_input_open &&
+				    !IS_ERR(file_bargein_pcm_input)) {
 					old_fs = get_fs();
 					set_fs(KERNEL_DS);
 					ret = vfs_write(file_bargein_pcm_input,
@@ -1536,7 +1571,8 @@ static int vow_pcm_dump_kthread(void *data)
 				   (bargein_resv_dram.vir_addr
 				   + dump_package->mic_offset);
 			while (size > 0) {
-				if (!IS_ERR(file_bargein_pcm_input)) {
+				if (file_bargein_pcm_input_open &&
+				    !IS_ERR(file_bargein_pcm_input)) {
 					old_fs = get_fs();
 					set_fs(KERNEL_DS);
 					ret = vfs_write(file_bargein_pcm_input,
@@ -1561,7 +1597,8 @@ static int vow_pcm_dump_kthread(void *data)
 				   + dump_package->echo_offset);
 			vowserv.bargein_dump_cnt2++;
 			while (size > 0) {
-				if (!IS_ERR(file_bargein_echo_ref)) {
+				if (file_bargein_echo_ref_open &&
+				    !IS_ERR(file_bargein_echo_ref)) {
 					old_fs = get_fs();
 					set_fs(KERNEL_DS);
 					ret = vfs_write(file_bargein_echo_ref,
@@ -1579,26 +1616,29 @@ static int vow_pcm_dump_kthread(void *data)
 			}
 		}
 		if (bargein_dump_info_flag) {
-			uint32_t *ptr32;
-			old_fs = get_fs();
-			set_fs(KERNEL_DS);
-			ptr32 = &vowserv.dump_frm_cnt;
-			/* VOWDRV_DEBUG("[BargeIn] dump frm %d\n", *ptr32); */
-			ret = vfs_write(file_bargein_delay_info,
-					(char __user *)ptr32, sizeof(uint32_t),
-					&file_bargein_delay_info->f_pos);
-			if (!ret)
-				VOWDRV_DEBUG("vfs write failed\n");
-			ptr32 = &vowserv.voice_sample_delay;
-			ret = vfs_write(file_bargein_delay_info,
-					(char __user *)ptr32,
-					sizeof(uint32_t),
-					&file_bargein_delay_info->f_pos);
-			if (!ret)
-				VOWDRV_DEBUG("vfs write failed\n");
-			set_fs(old_fs);
+			if (file_bargein_delay_info_open &&
+			    !IS_ERR(file_bargein_delay_info)) {
+				uint32_t *ptr32;
 
-			bargein_dump_info_flag = false;
+				old_fs = get_fs();
+				set_fs(KERNEL_DS);
+				ptr32 = &vowserv.dump_frm_cnt;
+				ret = vfs_write(file_bargein_delay_info,
+					    (char __user *)ptr32,
+					    sizeof(uint32_t),
+					    &file_bargein_delay_info->f_pos);
+				if (!ret)
+					VOWDRV_DEBUG("vfs write failed\n");
+				ptr32 = &vowserv.voice_sample_delay;
+				ret = vfs_write(file_bargein_delay_info,
+					    (char __user *)ptr32,
+					    sizeof(uint32_t),
+					    &file_bargein_delay_info->f_pos);
+				if (!ret)
+					VOWDRV_DEBUG("vfs write failed\n");
+				set_fs(old_fs);
+				bargein_dump_info_flag = false;
+			}
 		}
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 			break;
@@ -1619,7 +1659,8 @@ static int vow_pcm_dump_kthread(void *data)
 
 			out_buf = vowserv.interleave_pcmdata_ptr;
 			while (size > 0) {
-				if (!IS_ERR(file_recog_data)) {
+				if (file_recog_data_open &&
+				    !IS_ERR(file_recog_data)) {
 					old_fs = get_fs();
 					set_fs(KERNEL_DS);
 					ret = vfs_write(file_recog_data,
@@ -1643,7 +1684,8 @@ static int vow_pcm_dump_kthread(void *data)
 				   (recog_resv_dram.vir_addr
 				   + dump_package->recog_data_offset);
 			while (size > 0) {
-				if (!IS_ERR(file_recog_data)) {
+				if (file_recog_data_open &&
+				    !IS_ERR(file_recog_data)) {
 					old_fs = get_fs();
 					set_fs(KERNEL_DS);
 					ret = vfs_write(file_recog_data,
