@@ -870,6 +870,20 @@ out:
  */
 static int ufs_mtk_init(struct ufs_hba *hba)
 {
+	struct ufs_mtk_host *host;
+	int err = 0;
+
+	host = devm_kzalloc(hba->dev, sizeof(*host), GFP_KERNEL);
+	if (!host) {
+		err = -ENOMEM;
+		dev_info(hba->dev,
+			 "%s: no memory for mtk ufs host\n", __func__);
+		goto out;
+	}
+
+	host->hba = hba;
+	ufshcd_set_variant(hba, host);
+
 	/* initialize globals */
 	ufs_mtk_rpm_autosuspend_delay = -1;
 	ufs_mtk_rpm_enabled = false;
@@ -927,8 +941,8 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	ufs_mtk_parse_auto_hibern8_timer(hba);
 
 	ufs_mtk_perf_init_crypto(hba);
-
-	return 0;
+out:
+	return err;
 }
 
 static int ufs_mtk_pre_pwr_change(struct ufs_hba *hba,
