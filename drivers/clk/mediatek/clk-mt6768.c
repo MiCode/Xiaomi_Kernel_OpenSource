@@ -16,10 +16,12 @@
 #include <linux/of_address.h>
 #include <linux/slab.h>
 #include <linux/mfd/syscon.h>
+#include <linux/clk.h>
 
 #include "clk-mtk.h"
 #include "clk-gate.h"
 #include "clk-mux.h"
+#include "clk-mt6768-pg.h"
 
 #include <dt-bindings/clock/mt6768-clk.h>
 
@@ -34,6 +36,7 @@
 #define MT_MTCMOS_ENABLE	1
 #endif
 
+#define CHECK_VCORE_FREQ	1
 #define LOW_POWER_CLK_PDN	0
 /*fmeter div select 4*/
 #define _DIV4_ 1
@@ -466,6 +469,53 @@ enum {
 	CLK_ARMPLL	= 5,
 	CLK_NR_PLL_CON0
 };
+
+#if CHECK_VCORE_FREQ
+/*
+ * Opp 0 : 0.8v
+ * Opp 1 : 0.7v
+ * Opp 2 : 0.7~0.65v
+ * Opp 3 : 0.65v
+ */
+static int vf_table[20][4] = {
+	/* opp0    opp1   opp2    opp3 */
+	{457000, 320000, 230000, 230000},//mm_sel
+	{416000, 364000, 273000, 273000},//scp_sel
+	{26000, 26000, 26000, 26000},//camtg_sel
+	{26000, 26000, 26000, 26000},//camtg1_sel
+	{26000, 26000, 26000, 26000},//camtg2_sel
+	{26000, 26000, 26000, 26000},//camtg3_sel
+	{109200, 109200, 109200, 109200},//spi_sel
+	{54600, 54600, 54600, 54600},//audio_sel
+	{136500, 136500, 136500, 136500},//aud_intbus_sel
+	{196608, 196608, 196608, 196608},//aud_1_sel
+	{26000, 26000, 26000, 26000},//aud_engen1_sel
+	{125000, 125000, 125000, 125000},//disp_pwm_sel
+	{62400, 62400, 62400, 62400},//usb_top_sel
+	{208000, 208000, 208000, 208000},//camtm_sel
+	{457000, 416000, 312000, 312000},//venc_sel
+	{546000, 320000, 230000, 230000},//cam_sel
+};
+
+static const char * const mux_names[] = {
+	"mm_sel",
+	"scp_sel",
+	"camtg_sel",
+	"camtg1_sel",
+	"camtg2_sel",
+	"camtg3_sel",
+	"spi_sel",
+	"audio_sel",
+	"aud_intbus_sel",
+	"aud_1_sel",
+	"aud_engen1_sel",
+	"disp_pwm_sel",
+	"usb_top_sel",
+	"camtm_sel",
+	"venc_sel",
+	"cam_sel",
+};
+#endif
 
 #define ARMPLL_HW_CTRL		((0x1 << CLK_ARMPLL)	\
 			| (0x1 << (CLK_ARMPLL + (CLK_NR_PLL_CON0)))	\
@@ -1038,6 +1088,10 @@ static const struct mtk_mux top_muxes[] __initconst = {
 #endif
 };
 
+int __attribute__((weak)) get_sw_req_vcore_opp(void)
+{
+	return -1;
+}
 
 /* for debug dummy functions. */
 static int mtk_cg_bit_is_cleared(struct clk_hw *hw)
@@ -2233,6 +2287,68 @@ static void mtk_clk_enable_critical(void)
 }
 #endif
 
+#if CHECK_VCORE_FREQ
+void warn_vcore(int opp, const char *clk_name, int rate, int id)
+{
+	if ((opp >= 0) && (id >= 0) && ((rate/1000) > (vf_table[id][opp]))) {
+		pr_notice("%s Choose %d FAIL!!!![MAX(%d/%d): %d]\r\n",
+			clk_name, rate/1000, id, opp, vf_table[id][opp]);
+			BUG_ON(1);
+	}
+}
+static int mtk_mux2id(const char **mux_name)
+{
+	int i = 0;
+
+	for (i = 0; i < ARRAY_SIZE(mux_names); i++) {
+		if (strcmp(*mux_name, mux_names[i]) == 0)
+			return i;
+	}
+	return -2;
+}
+
+/* The clocks have a mechanism for synchronizing rate changes. */
+static int mtk_clk_rate_change(struct notifier_block *nb,
+					  unsigned long flags, void *data)
+{
+	struct clk_notifier_data *ndata = data;
+	struct clk_hw *hw = __clk_get_hw(ndata->clk);
+	const char *clk_name = __clk_get_name(hw->clk);
+
+	int vcore_opp = get_sw_req_vcore_opp();
+
+	if (flags == PRE_RATE_CHANGE) {
+		warn_vcore(vcore_opp, clk_name,
+					ndata->new_rate, mtk_mux2id(&clk_name));
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block mtk_clk_notifier = {
+	.notifier_call = mtk_clk_rate_change,
+};
+
+int mtk_clk_check_muxes(const struct mtk_mux *muxes,
+		int num,
+		struct clk_onecell_data *clk_data)
+{
+	struct clk *clk;
+	int i;
+
+	if (!clk_data)
+		return -ENOMEM;
+
+	for (i = 0; i < num; i++) {
+		const struct mtk_mux *mux = &muxes[i];
+
+		clk = __clk_lookup(mux->name);
+		clk_notifier_register(clk, &mtk_clk_notifier);
+	}
+
+	return 0;
+}
+#endif
+
 static void __init mtk_topckgen_init(struct device_node *node)
 {
 	void __iomem *base;
@@ -2260,6 +2376,10 @@ static void __init mtk_topckgen_init(struct device_node *node)
 	mtk_clk_register_muxes(top_muxes, ARRAY_SIZE(top_muxes), node,
 		&mt6768_clk_lock, mt6768_top_clk_data);
 
+#if CHECK_VCORE_FREQ
+	mtk_clk_check_muxes(top_muxes, ARRAY_SIZE(top_muxes),
+		mt6768_top_clk_data);
+#endif
 	mtk_clk_register_gates(node, top_clks,
 		ARRAY_SIZE(top_clks), mt6768_top_clk_data);
 
