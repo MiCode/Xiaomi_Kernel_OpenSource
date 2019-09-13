@@ -6020,24 +6020,25 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 int ddp_dsi_read_lcm_cmdq(enum DISP_MODULE_ENUM module,
 	cmdqBackupSlotHandle *read_Slot,
 	struct cmdqRecStruct *cmdq_trigger_handle,
-	struct ddp_lcm_read_cmd_table *read_table)
+	struct dsi_cmd_desc *cmd_tab, unsigned int count)
 {
 	int ret = 0;
 	int i = 0;
 	int dsi_i = 0;
 
-	struct DSI_T0_INS t0;
+	struct DSI_T0_INS t0, t1;
 
 	dsi_i = DSI_MODULE_to_ID(module);
 
 	if (dsi_i != 0)
 		DISPERR("[DSI]should use dsi0\n");
 
-	if (*read_Slot == 0) {
+	if (!read_Slot[0] || !read_Slot[1] || !read_Slot[2] || !read_Slot[3]) {
 		ret = -1;
 		DISPERR("[DSI]alloc cmdq slot fail\n");
 		return ret;
 	}
+
 	/* enable dsi interrupt: RD_RDY/CMD_DONE (need do this here?) */
 	DSI_OUTREGBIT(cmdq_trigger_handle,
 		struct DSI_INT_ENABLE_REG, DSI_REG[dsi_i]->DSI_INTEN,
@@ -6046,12 +6047,14 @@ int ddp_dsi_read_lcm_cmdq(enum DISP_MODULE_ENUM module,
 		struct DSI_INT_ENABLE_REG, DSI_REG[dsi_i]->DSI_INTEN,
 			CMD_DONE, 1);
 
-	for (i = 0; i < 3; i++) {
-		if (read_table->cmd[i] == 0)
-			break;
+	for (i = 0; i < count; i++) {
+		DISPMSG("%s,cmd_tab[%d].dtype=0x%x\n",
+			__func__, i, cmd_tab[i].dtype);
+		if (cmd_tab[i].dtype == 0)
+			continue;
 		/* 0. send read lcm command(short packet) */
 		t0.CONFG = 0x04;	/* /BTA */
-		t0.Data0 = read_table->cmd[i];
+		t0.Data0 = cmd_tab[i].dtype;
 		/* / 0xB0 is used to distinguish DCS cmd */
 		/* or Gerneric cmd, is that Right??? */
 		t0.Data_ID =
@@ -6060,10 +6063,16 @@ int ddp_dsi_read_lcm_cmdq(enum DISP_MODULE_ENUM module,
 			DSI_GERNERIC_READ_LONG_PACKET_ID;
 		t0.Data1 = 0;
 
-			/* write DSI CMDQ */
-		DSI_OUTREG32(cmdq_trigger_handle, &DSI_CMDQ_REG[dsi_i]->data[0],
-				    0x00013700);
-		DSI_OUTREG32(cmdq_trigger_handle, &DSI_CMDQ_REG[dsi_i]->data[1],
+		t1.CONFG = 0x00;
+		t1.Data_ID = 0x37;
+		t1.Data0 = RT_MAX_NUM;
+		t1.Data1 = 0;
+
+		/* write DSI CMDQ */
+		DSI_OUTREG32(cmdq_trigger_handle,
+			&DSI_CMDQ_REG[dsi_i]->data[0], AS_UINT32(&t1));
+		DSI_OUTREG32(cmdq_trigger_handle,
+			&DSI_CMDQ_REG[dsi_i]->data[1],
 				     AS_UINT32(&t0));
 		DSI_OUTREG32(cmdq_trigger_handle,
 			&DSI_REG[dsi_i]->DSI_CMDQ_SIZE, 2);
@@ -6085,10 +6094,20 @@ int ddp_dsi_read_lcm_cmdq(enum DISP_MODULE_ENUM module,
 				RD_RDY, 0x00000000);
 		}
 		/* 2. save RX data */
-		if (*read_Slot && dsi_i == 0) {
+		if (read_Slot[0] && read_Slot[1] &&
+			read_Slot[2] && read_Slot[3] && dsi_i == 0) {
 			DSI_BACKUPREG32(cmdq_trigger_handle,
-				*read_Slot, i,
-				&DSI_REG[dsi_i]->DSI_RX_DATA0);
+					read_Slot[0], i,
+					&DSI_REG[0]->DSI_RX_DATA0);
+			DSI_BACKUPREG32(cmdq_trigger_handle,
+					read_Slot[1], i,
+					&DSI_REG[0]->DSI_RX_DATA1);
+			DSI_BACKUPREG32(cmdq_trigger_handle,
+					read_Slot[2], i,
+					&DSI_REG[0]->DSI_RX_DATA2);
+			DSI_BACKUPREG32(cmdq_trigger_handle,
+					read_Slot[3], i,
+					&DSI_REG[0]->DSI_RX_DATA3);
 		}
 
 		/* 3. write RX_RACK */
@@ -6107,6 +6126,100 @@ int ddp_dsi_read_lcm_cmdq(enum DISP_MODULE_ENUM module,
 	return ret;
 }
 
+int ddp_dsi_read_lcm_cmdq_v1(enum DISP_MODULE_ENUM module,
+	cmdqBackupSlotHandle *read_Slot,
+	struct cmdqRecStruct *cmdq_trigger_handle,
+	struct dsi_cmd_desc *cmd_tab)
+{
+	int ret = 0;
+	int dsi_i = 0;
+
+	struct DSI_T0_INS t0, t1;
+
+	dsi_i = DSI_MODULE_to_ID(module);
+
+	if (dsi_i != 0)
+		DISPERR("[DSI]should use dsi0\n");
+
+	/* enable dsi interrupt: RD_RDY/CMD_DONE (need do this here?) */
+	DSI_OUTREGBIT(cmdq_trigger_handle,
+		struct DSI_INT_ENABLE_REG, DSI_REG[dsi_i]->DSI_INTEN,
+			RD_RDY, 1);
+	DSI_OUTREGBIT(cmdq_trigger_handle,
+		struct DSI_INT_ENABLE_REG, DSI_REG[dsi_i]->DSI_INTEN,
+			CMD_DONE, 1);
+
+	DISPMSG("ddp_dsi_read_lcm_cmdq,cmd_tab->dtype=0x%x\n",
+			cmd_tab->dtype);
+
+	/* 0. send read lcm command(short packet) */
+	t0.CONFG = 0x04;	/* /BTA */
+	t0.Data0 = cmd_tab->dtype;
+	/* / 0xB0 is used to distinguish DCS cmd */
+	/* or Gerneric cmd, is that Right??? */
+	t0.Data_ID = cmd_tab->cmd;
+	t0.Data1 = 0;
+
+	t1.CONFG = 0x00;
+	t1.Data_ID = 0x37;
+	t1.Data0 = cmd_tab->dlen;
+	t1.Data1 = 0;
+
+	/* write DSI CMDQ */
+	DSI_OUTREG32(cmdq_trigger_handle,
+		&DSI_CMDQ_REG[dsi_i]->data[0], AS_UINT32(&t1));
+	DSI_OUTREG32(cmdq_trigger_handle,
+		&DSI_CMDQ_REG[dsi_i]->data[1], AS_UINT32(&t0));
+	DSI_OUTREG32(cmdq_trigger_handle,
+			&DSI_REG[dsi_i]->DSI_CMDQ_SIZE, 2);
+
+	/* start DSI */
+	DSI_OUTREG32(cmdq_trigger_handle,
+			&DSI_REG[dsi_i]->DSI_START, 0);
+	DSI_OUTREG32(cmdq_trigger_handle,
+			&DSI_REG[dsi_i]->DSI_START, 1);
+
+	/* 1. wait DSI RD_RDY(must clear,*/
+	/* in case of cpu RD_RDY interrupt handler) */
+	if (dsi_i == 0) {
+		DSI_POLLREG32(cmdq_trigger_handle,
+			&DSI_REG[dsi_i]->DSI_INTSTA, 0x00000001, 0x1);
+		DSI_OUTREGBIT(cmdq_trigger_handle,
+				struct DSI_INT_STATUS_REG,
+				DSI_REG[dsi_i]->DSI_INTSTA,
+				RD_RDY, 0x00000000);
+	}
+		/* 2. save RX data */
+	if (read_Slot[0] && read_Slot[1] &&
+		read_Slot[2] && read_Slot[3] && dsi_i == 0) {
+		DSI_BACKUPREG32(cmdq_trigger_handle,
+					read_Slot[0], 0,
+					&DSI_REG[0]->DSI_RX_DATA0);
+		DSI_BACKUPREG32(cmdq_trigger_handle,
+					read_Slot[1], 0,
+					&DSI_REG[0]->DSI_RX_DATA1);
+		DSI_BACKUPREG32(cmdq_trigger_handle,
+					read_Slot[2], 0,
+					&DSI_REG[0]->DSI_RX_DATA2);
+		DSI_BACKUPREG32(cmdq_trigger_handle,
+					read_Slot[3], 0,
+					&DSI_REG[0]->DSI_RX_DATA3);
+	}
+
+	/* 3. write RX_RACK */
+	DSI_OUTREGBIT(cmdq_trigger_handle,
+		struct DSI_RACK_REG, DSI_REG[dsi_i]->DSI_RACK,
+		DSI_RACK, 1);
+
+	/* 4. polling not busy(no need clear) */
+	if (dsi_i == 0) {
+		DSI_POLLREG32(cmdq_trigger_handle,
+			&DSI_REG[dsi_i]->DSI_INTSTA,
+			0x80000000, 0);
+	}
+
+	return ret;
+}
 
 int ddp_dsi_write_lcm_cmdq(enum DISP_MODULE_ENUM module,
 	struct cmdqRecStruct *cmdq, unsigned  char cmd_char,
