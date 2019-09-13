@@ -562,7 +562,7 @@ static int it66121_video_config(enum HDMI_VIDEO_RESOLUTION vformat,
 
 	HDMITX_ChangeDisplayOption(it66121_video_type, HDMI_RGB444);
 	/*mutex_lock(&mt66121_mutex_lock);*/
-	/*HDMITX_SetOutput();*/
+	HDMITX_SetOutput();
 	/*mutex_unlock(&mt66121_mutex_lock);*/
 
 	IT66121_LOG("<<< %s,\n", __func__);
