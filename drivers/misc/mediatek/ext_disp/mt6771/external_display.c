@@ -1123,15 +1123,6 @@ int ext_fence_release_callback(unsigned long userdata)
 		}
 	}
 #endif
-#if defined(CONFIG_MTK_HDMI_SUPPORT)
-		if (pgc->state == EXTD_RESUME)
-			/* hdmi video config with layer_type */
-			external_display_util.hdmi_video_format_config(
-				input_config_info & 0xff);
-		else
-			EXTDMSG
-				("%s ext display is not resume\n", __func__);
-#endif
 
 	atomic_set(&g_extd_release_ticket, userdata);
 
