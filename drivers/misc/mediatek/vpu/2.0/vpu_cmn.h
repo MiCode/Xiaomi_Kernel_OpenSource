@@ -38,6 +38,7 @@ struct vpu_device {
 	unsigned int bin_size;
 	unsigned int irq_num[MTK_VPU_CORE];
 	unsigned int irq_trig_level;
+	struct mutex sdsp_control_mutex[MTK_VPU_CORE];
 	struct mutex user_mutex;
 	/* list of vlist_type(struct vpu_user) */
 	struct list_head user_list;
@@ -206,7 +207,7 @@ int vpu_uninit_hw(void);
  * vpu_boot_up - boot up the vpu power and framework
  * @core: index of device
  */
-int vpu_boot_up(int core);
+int vpu_boot_up(int core, bool secure);
 
 /**
  * vpu_shut_down - shutdown the vpu framework and power
@@ -377,6 +378,20 @@ int vpu_create_user(struct vpu_user **ruser);
 int vpu_set_power(struct vpu_user *user, struct vpu_power *power);
 
 /**
+ * vpu_sdsp_get_power - get the power by sdsp
+ * @user:       the pointer to user.
+ * @power:      the user's power mode.
+ */
+int vpu_sdsp_get_power(struct vpu_user *user);
+
+/**
+ * vpu_sdsp_put_power - get the power by sdsp
+ * @user:       the pointer to user.
+ * @power:      the user's power mode.
+ */
+int vpu_sdsp_put_power(struct vpu_user *user);
+
+/**
  * vpu_delete_user - delete vpu user, and remove it from user list
  * @user:       the pointer to user.
  */
@@ -498,6 +513,11 @@ void vpu_met_packet(long long wclk, char action, int core, int pid,
 	int sessid, char *str_desc, int val);
 void vpu_met_event_dvfs(int vcore_opp,
 	int dsp_freq, int ipu_if_freq, int dsp1_freq, int dsp2_freq);
+
+/**
+ * vpu_is_idle - check per vpu core is idle and can be used by user immediately.
+ */
+bool vpu_is_idle(int core);
 
 /* LOG & AEE */
 #define VPU_TAG "[vpu]"

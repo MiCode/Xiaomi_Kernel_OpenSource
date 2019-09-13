@@ -57,6 +57,8 @@ static struct vpu_device *vpu_device;
 static struct wakeup_source vpu_wake_lock;
 static struct list_head device_debug_list;
 static struct mutex debug_list_mutex;
+static bool sdsp_locked;
+
 struct ion_client *my_ion_client;
 unsigned int efuse_data;
 
@@ -580,6 +582,43 @@ int vpu_get_core_status(struct vpu_status *status)
 			status->pool_list_size);
 
 	return 0;
+}
+
+bool vpu_is_available(void)
+{
+	int i = 0;
+	int pool_wait_size = 0;
+
+	mutex_lock(&vpu_device->commonpool_mutex);
+	pool_wait_size = vpu_device->commonpool_list_size;
+	mutex_unlock(&vpu_device->commonpool_mutex);
+
+
+	if (pool_wait_size != 0) {
+		LOG_INF("common pool size = %d, no empty vpu \r\n",
+			pool_wait_size);
+
+		return false;
+	}
+
+	for (i = 0; i < MTK_VPU_CORE; i++) {
+		mutex_lock(&vpu_device->servicepool_mutex[i]);
+
+		if (vpu_device->service_core_available[i])
+			pool_wait_size = vpu_device->servicepool_list_size[i];
+
+		mutex_unlock(&vpu_device->servicepool_mutex[i]);
+
+		LOG_INF("vpu_%d, pool size = %d\r\n", i, pool_wait_size);
+		if ((pool_wait_size == 0) && vpu_is_idle(i)) {
+			LOG_INF("vpu_%d, is available !!\r\n", i);
+			return true;
+		}
+	}
+	LOG_INF("GG, no vpu available !!\r\n");
+
+	return false;
+
 }
 
 int vpu_delete_user(struct vpu_user *user)
@@ -1167,6 +1206,76 @@ static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 
 		break;
 	}
+#ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
+
+	case VPU_IOCTL_SDSP_SEC_LOCK:
+	{
+		LOG_WRN("SDSP_SEC_LOCK mutex in\n");
+
+		if (sdsp_locked == false) {
+			LOG_WRN("SDSP_SEC_LOCK mutex in\n");
+			for (i = 0 ; i < MTK_VPU_CORE ; i++)
+				mutex_lock(&vpu_device->sdsp_control_mutex[i]);
+
+			sdsp_locked = true;
+
+			LOG_WRN("SDSP_SEC_LOCK mutex-m lock\n");
+			ret = vpu_sdsp_get_power(user);
+			LOG_WRN("SDSP_POWER_ON %s\n", ret == 0?"done":"fail");
+
+			/* Disable IRQ */
+			for (i = 0 ; i < MTK_VPU_CORE ; i++)
+				disable_irq(vpu_device->irq_num[i]);
+
+			if (false == vpu_is_available()) {
+				LOG_WRN("vpu_queue is not empty!!\n");
+				if (ret == 0)
+					ret = 1;
+			}
+
+			if (ret >= 0) {
+				int sdsp_state;
+
+				sdsp_state = mtee_sdsp_enable(1);
+				if (sdsp_state != 0) {
+					LOG_ERR("mtee sdsp enable fail(%d)\n",
+						sdsp_state);
+					ret = -1;
+				}
+			}
+		} else
+			LOG_WRN("SDSP_SEC_LOCK fail, duel lock!!\n");
+
+		break;
+	}
+	case VPU_IOCTL_SDSP_SEC_UNLOCK:
+	{
+		if (sdsp_locked == true) {
+			ret = mtee_sdsp_enable(0);
+			if (ret != 0) {
+				LOG_ERR("mtee_sdsp_enable(0) fail(%d)\n", ret);
+				break;
+			}
+
+			ret = vpu_sdsp_put_power(user);
+			LOG_WRN("DSP_SEC_UNLOCK %s\n", ret == 0?"done":"fail");
+
+			/* Enable IRQ */
+			for (i = 0 ; i < MTK_VPU_CORE ; i++) {
+				enable_irq(vpu_device->irq_num[i]);
+				mutex_unlock(
+					&vpu_device->sdsp_control_mutex[i]);
+			}
+
+			sdsp_locked = false;
+			LOG_WRN("DSP_SEC_UNLOCK mutex-m unlock\n");
+		} else
+			LOG_WRN("DSP_SEC_UNLOCK fail!!\n");
+
+		break;
+	}
+#endif
+
 	default:
 		LOG_WRN("ioctl: no such command!\n");
 		ret = -EINVAL;
@@ -1524,9 +1633,13 @@ static int __init VPU_INIT(void)
 	int ret = 0, i = 0;
 
 	vpu_device = kzalloc(sizeof(struct vpu_device), GFP_KERNEL);
+	sdsp_locked = false;
 
 	INIT_LIST_HEAD(&vpu_device->user_list);
 	mutex_init(&vpu_device->user_mutex);
+	/*Add for mutex check mechanism issue*/
+	mutex_init(&vpu_device->sdsp_control_mutex[0]);
+	mutex_init(&vpu_device->sdsp_control_mutex[1]);
 	/*  */
 	for (i = 0 ; i < MTK_VPU_CORE ; i++) {
 		INIT_LIST_HEAD(&vpu_device->pool_list[i]);
