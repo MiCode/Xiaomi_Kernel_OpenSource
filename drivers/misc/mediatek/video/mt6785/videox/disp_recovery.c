@@ -311,7 +311,7 @@ int do_esd_check_read(void)
 	int ret = 0;
 	struct cmdqRecStruct *qhandle = NULL;
 	disp_path_handle phandle = primary_get_dpmgr_handle();
-	mmp_event mmp_te = ddp_mmp_get_events()->esd_extte;
+	mmp_event mmp_te = ddp_mmp_get_events()->esd_rdlcm;
 
 	DISPCHECK("[ESD]ESD check read\n");
 	mmprofile_log_ex(mmp_te, MMPROFILE_FLAG_PULSE,

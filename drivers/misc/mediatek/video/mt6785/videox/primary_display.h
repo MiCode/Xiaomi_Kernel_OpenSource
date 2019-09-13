@@ -267,7 +267,7 @@ struct display_primary_path_context {
 	cmdqBackupSlotHandle subtractor_when_free;
 	cmdqBackupSlotHandle rdma_buff_info;
 	cmdqBackupSlotHandle ovl_status_info;
-	cmdqBackupSlotHandle ovl_dummy_info;
+	cmdqBackupSlotHandle ovl_sbch_info;
 	cmdqBackupSlotHandle ovl_config_time;
 	cmdqBackupSlotHandle dither_status_info;
 	cmdqBackupSlotHandle dsi_vfp_line;
@@ -520,6 +520,8 @@ void primary_display_update_vfp_line_slot(
 unsigned int primary_display_current_fps(enum arr_fps_type fps_type,
 		int need_lock);
 bool disp_idle_check_rsz(void);
+int primary_display_is_directlink_mode(void);
+bool disp_input_has_yuv(void);
 
 
 /**************function for ARR end************************/
