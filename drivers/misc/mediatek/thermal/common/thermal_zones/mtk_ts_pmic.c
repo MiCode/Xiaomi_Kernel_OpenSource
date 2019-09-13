@@ -697,6 +697,9 @@ static int __init mtktspmic_init(void)
 	 */
 	mtktspmic_cali_prepare();
 	mtktspmic_cali_prepare2();
+#if defined(THERMAL_USE_IIO_CHANNEL)
+	mtktspmic_get_from_dts();
+#endif
 
 	err = mtktspmic_register_cooler();
 	if (err)
