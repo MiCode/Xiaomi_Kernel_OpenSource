@@ -514,6 +514,7 @@
 		qcom,max-pclk-frequency-khz = <675000>;
 		qcom,max-hdisplay = <2560>;
 		qcom,max-vdisplay = <1440>;
+		qcom,no-mst-encoder;
 
 	clocks =	<&clock_dispcc DISP_CC_MDSS_DP_AUX_CLK>,
 			<&clock_gcc GCC_USB3_PRIM_PHY_PIPE_CLK>,
