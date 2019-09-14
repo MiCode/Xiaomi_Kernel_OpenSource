@@ -1828,10 +1828,12 @@ static int qg_get_ttf_param(void *data, enum ttf_param param, int *val)
 	if (!chip)
 		return -ENODEV;
 
-	if (chip->battery_missing || !chip->profile_loaded)
-		return -ENODEV;
-
 	switch (param) {
+	case TTF_TTE_VALID:
+		*val = 1;
+		if (chip->battery_missing || is_debug_batt_id(chip))
+			*val = 0;
+		break;
 	case TTF_MSOC:
 		rc = qg_get_battery_capacity(chip, val);
 		break;
