@@ -1623,6 +1623,8 @@ static int icnss_get_service_location_notify(struct notifier_block *nb,
 	int curr_state;
 	int ret;
 	int i;
+	int j;
+	bool duplicate;
 	struct service_notifier_context *notifier;
 
 	icnss_pr_dbg("Get service notify opcode: %lu, state: 0x%lx\n", opcode,
@@ -1648,6 +1650,16 @@ static int icnss_get_service_location_notify(struct notifier_block *nb,
 	priv->service_notifier_nb.notifier_call = icnss_service_notifier_notify;
 
 	for (i = 0; i < pd->total_domains; i++) {
+		duplicate = false;
+		for (j = i + 1; j < pd->total_domains; j++) {
+			if (!strcmp(pd->domain_list[i].name,
+			    pd->domain_list[j].name))
+				duplicate = true;
+		}
+
+		if (duplicate)
+			continue;
+
 		icnss_pr_dbg("%d: domain_name: %s, instance_id: %d\n", i,
 			     pd->domain_list[i].name,
 			     pd->domain_list[i].instance_id);
