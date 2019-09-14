@@ -123,7 +123,8 @@
 } while (0)
 
 #define DMA_RX_BUF_SIZE		(2048)
-#define UART_CONSOLE_RX_WM	(2)
+#define UART_CONSOLE_RX_WM	(0)
+/* Not using stale interrupt, hence change watermark level */
 
 struct msm_geni_serial_ver_info {
 	int hw_major_ver;
@@ -1070,7 +1071,8 @@ static void start_rx_sequencer(struct uart_port *uport)
 		geni_m_irq_en = geni_read_reg_nolog(uport->membase,
 							SE_GENI_M_IRQ_EN);
 
-		geni_s_irq_en |= S_RX_FIFO_WATERMARK_EN | S_RX_FIFO_LAST_EN;
+		/* Not using stale Interrupt */
+		geni_s_irq_en |= S_RX_FIFO_WATERMARK_EN | (~S_RX_FIFO_LAST_EN);
 		geni_m_irq_en |= M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN;
 
 		geni_write_reg_nolog(geni_s_irq_en, uport->membase,
@@ -1259,9 +1261,9 @@ static int msm_geni_serial_handle_rx(struct uart_port *uport, bool drop_rx)
 	rx_fifo_status = geni_read_reg_nolog(uport->membase,
 				SE_GENI_RX_FIFO_STATUS);
 	rx_fifo_wc = rx_fifo_status & RX_FIFO_WC_MSK;
-	rx_last_byte_valid = ((rx_fifo_status & RX_LAST_BYTE_VALID_MSK) >>
-						RX_LAST_BYTE_VALID_SHFT);
-	rx_last = rx_fifo_status & RX_LAST;
+	/* Not using the stale interrupt, make stale event always true */
+	rx_last_byte_valid = 1;
+	rx_last = 1;
 	if (rx_fifo_wc)
 		ret = port->handle_rx(uport, rx_fifo_wc, rx_last_byte_valid,
 							rx_last, drop_rx);
@@ -1479,8 +1481,7 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 				__func__, s_irq_status, uport->icount.brk);
 		}
 
-		if ((s_irq_status & S_RX_FIFO_WATERMARK_EN) ||
-			(s_irq_status & S_RX_FIFO_LAST_EN))
+		if ((s_irq_status & S_RX_FIFO_WATERMARK_EN))
 			msm_geni_serial_handle_rx(uport, drop_rx);
 	} else {
 		if (dma_tx_status) {
@@ -1690,7 +1691,7 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 						SE_GENI_TX_PACKING_CFG0);
 		geni_write_reg_nolog(cfg1, uport->membase,
 						SE_GENI_TX_PACKING_CFG1);
-		se_get_packing_config(8, 4, false, &cfg0, &cfg1);
+		se_get_packing_config(8, 1, false, &cfg0, &cfg1);
 		geni_write_reg_nolog(cfg0, uport->membase,
 						SE_GENI_RX_PACKING_CFG0);
 		geni_write_reg_nolog(cfg1, uport->membase,
