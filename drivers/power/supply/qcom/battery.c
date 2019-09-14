@@ -131,6 +131,11 @@ enum {
 	RESTRICT_CHG_CURRENT,
 	FCC_STEPPING_IN_PROGRESS,
 };
+
+enum {
+	PARALLEL_INPUT_MODE,
+	PARALLEL_OUTPUT_MODE,
+};
 /*********
  * HELPER*
  *********/
@@ -143,23 +148,61 @@ static bool is_cp_available(struct pl_data *chip)
 	return !!chip->cp_master_psy;
 }
 
-static bool cp_ilim_boost_enabled(struct pl_data *chip)
+static int cp_get_parallel_mode(struct pl_data *chip, int mode)
 {
-	union power_supply_propval pval = {-1, };
+	union power_supply_propval pval = {-EINVAL, };
+	int rc = -EINVAL;
 
-	if (is_cp_available(chip))
-		power_supply_get_property(chip->cp_master_psy,
+	if (!is_cp_available(chip))
+		return -EINVAL;
+
+	switch (mode) {
+	case PARALLEL_INPUT_MODE:
+		rc = power_supply_get_property(chip->cp_master_psy,
+				POWER_SUPPLY_PROP_PARALLEL_MODE, &pval);
+		break;
+	case PARALLEL_OUTPUT_MODE:
+		rc = power_supply_get_property(chip->cp_master_psy,
 				POWER_SUPPLY_PROP_PARALLEL_OUTPUT_MODE, &pval);
+		break;
+	default:
+		pr_err("Invalid mode request %d\n", mode);
+		break;
+	}
 
-	return pval.intval == POWER_SUPPLY_PL_OUTPUT_VPH;
+	if (rc < 0)
+		pr_err("Failed to read CP topology for mode=%d rc=%d\n",
+				mode, rc);
+
+	return pval.intval;
 }
 
+/*
+ * Adapter CC Mode: ILIM over-ridden explicitly, below takes no effect.
+ *
+ * Adapter CV mode: Configuration of ILIM for different topology is as below:
+ * MID-VPH:
+ *	SMB1390 ILIM: independent of FCC and based on the AICL result or
+ *			PD advertised current,  handled directly in SMB1390
+ *			driver.
+ * MID-VBAT:
+ *	 SMB1390 ILIM: based on minimum of FCC portion of SMB1390 or ICL.
+ * USBIN-VBAT:
+ *	SMB1390 ILIM: based on FCC portion of SMB1390 and independent of ICL.
+ */
 static void cp_configure_ilim(struct pl_data *chip, const char *voter, int ilim)
 {
+	if (!is_cp_available(chip))
+		return;
+
+	if (cp_get_parallel_mode(chip, PARALLEL_OUTPUT_MODE)
+					== POWER_SUPPLY_PL_OUTPUT_VPH)
+		return;
+
 	if (!chip->cp_ilim_votable)
 		chip->cp_ilim_votable = find_votable("CP_ILIM");
 
-	if (!cp_ilim_boost_enabled(chip) && chip->cp_ilim_votable)
+	if (chip->cp_ilim_votable)
 		vote(chip->cp_ilim_votable, voter, true, ilim);
 }
 
@@ -726,12 +769,13 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 		chip->cp_disable_votable = find_votable("CP_DISABLE");
 
 	if (chip->cp_disable_votable) {
-		if (cp_ilim_boost_enabled(chip)) {
+		if (cp_get_parallel_mode(chip, PARALLEL_OUTPUT_MODE)
+					== POWER_SUPPLY_PL_OUTPUT_VPH) {
 			power_supply_get_property(chip->cp_master_psy,
 					POWER_SUPPLY_PROP_MIN_ICL, &pval);
 			/*
-			 * With ILIM boost feature ILIM configuration is
-			 * independent of battery FCC, disable CP if FCC/2
+			 * With VPH output configuration ILIM is configured
+			 * independent of battery FCC, disable CP here if FCC/2
 			 * falls below MIN_ICL supported by CP.
 			 */
 			if ((total_fcc_ua / 2) < pval.intval)
@@ -926,8 +970,7 @@ static void fcc_stepper_work(struct work_struct *work)
 stepper_exit:
 	chip->main_fcc_ua = main_fcc;
 	chip->slave_fcc_ua = parallel_fcc;
-
-	cp_configure_ilim(chip, FCC_VOTER, chip->main_fcc_ua / 2);
+	cp_configure_ilim(chip, FCC_VOTER, chip->slave_fcc_ua / 2);
 
 	if (reschedule_ms) {
 		schedule_delayed_work(&chip->fcc_stepper_work,
@@ -1044,7 +1087,10 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 
 	vote(chip->pl_disable_votable, ICL_CHANGE_VOTER, false, 0);
 
-	cp_configure_ilim(chip, ICL_CHANGE_VOTER, icl_ua);
+	/* Configure ILIM based on AICL result only if input mode is USBMID */
+	if (cp_get_parallel_mode(chip, PARALLEL_INPUT_MODE)
+					== POWER_SUPPLY_PL_USBMID_USBMID)
+		cp_configure_ilim(chip, ICL_CHANGE_VOTER, icl_ua);
 
 	return 0;
 }
@@ -1087,7 +1133,7 @@ static int pl_disable_vote_callback(struct votable *votable,
 	struct pl_data *chip = data;
 	union power_supply_propval pval = {0, };
 	int master_fcc_ua = 0, total_fcc_ua = 0, slave_fcc_ua = 0;
-	int rc = 0;
+	int rc = 0, cp_ilim;
 	bool disable = false;
 
 	if (!is_main_available(chip))
@@ -1271,7 +1317,10 @@ static int pl_disable_vote_callback(struct votable *votable,
 			/* main psy gets all share */
 			vote(chip->fcc_main_votable, MAIN_FCC_VOTER, true,
 								total_fcc_ua);
-			cp_configure_ilim(chip, FCC_VOTER, total_fcc_ua / 2);
+			cp_ilim = total_fcc_ua - get_effective_result_locked(
+							chip->fcc_main_votable);
+			if (cp_ilim > 0)
+				cp_configure_ilim(chip, FCC_VOTER, cp_ilim / 2);
 
 			/* reset parallel FCC */
 			chip->slave_fcc_ua = 0;
