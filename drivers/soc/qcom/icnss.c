@@ -997,7 +997,6 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 	icnss_call_driver_shutdown(priv);
 
 	clear_bit(ICNSS_PDR, &priv->state);
-	clear_bit(ICNSS_MODEM_CRASHED, &priv->state);
 	clear_bit(ICNSS_REJUVENATE, &priv->state);
 	clear_bit(ICNSS_PD_RESTART, &priv->state);
 	priv->early_crash_ind = false;
@@ -1261,9 +1260,8 @@ static int icnss_driver_event_idle_shutdown(void *data)
 	if (!penv->ops || !penv->ops->idle_shutdown)
 		return 0;
 
-	if (test_bit(ICNSS_MODEM_CRASHED, &penv->state) ||
-			test_bit(ICNSS_PDR, &penv->state) ||
-			test_bit(ICNSS_REJUVENATE, &penv->state)) {
+	if (penv->is_ssr || test_bit(ICNSS_PDR, &penv->state) ||
+	    test_bit(ICNSS_REJUVENATE, &penv->state)) {
 		icnss_pr_err("SSR/PDR is already in-progress during idle shutdown callback\n");
 		ret = -EBUSY;
 	} else {
@@ -1284,9 +1282,8 @@ static int icnss_driver_event_idle_restart(void *data)
 	if (!penv->ops || !penv->ops->idle_restart)
 		return 0;
 
-	if (test_bit(ICNSS_MODEM_CRASHED, &penv->state) ||
-			test_bit(ICNSS_PDR, &penv->state) ||
-			test_bit(ICNSS_REJUVENATE, &penv->state)) {
+	if (penv->is_ssr || test_bit(ICNSS_PDR, &penv->state) ||
+	    test_bit(ICNSS_REJUVENATE, &penv->state)) {
 		icnss_pr_err("SSR/PDR is already in-progress during idle restart callback\n");
 		ret = -EBUSY;
 	} else {
@@ -1415,9 +1412,6 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 		return NOTIFY_OK;
 
 	priv->is_ssr = true;
-
-	if (notif->crashed)
-		set_bit(ICNSS_MODEM_CRASHED, &priv->state);
 
 	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed &&
 	    atomic_read(&priv->is_shutdown)) {
@@ -2276,9 +2270,8 @@ int icnss_idle_shutdown(struct device *dev)
 		return -EINVAL;
 	}
 
-	if (test_bit(ICNSS_MODEM_CRASHED, &priv->state) ||
-			test_bit(ICNSS_PDR, &priv->state) ||
-			test_bit(ICNSS_REJUVENATE, &penv->state)) {
+	if (priv->is_ssr || test_bit(ICNSS_PDR, &priv->state) ||
+	    test_bit(ICNSS_REJUVENATE, &penv->state)) {
 		icnss_pr_err("SSR/PDR is already in-progress during idle shutdown\n");
 		return -EBUSY;
 	}
@@ -2297,9 +2290,8 @@ int icnss_idle_restart(struct device *dev)
 		return -EINVAL;
 	}
 
-	if (test_bit(ICNSS_MODEM_CRASHED, &priv->state) ||
-			test_bit(ICNSS_PDR, &priv->state) ||
-			test_bit(ICNSS_REJUVENATE, &penv->state)) {
+	if (priv->is_ssr || test_bit(ICNSS_PDR, &priv->state) ||
+	    test_bit(ICNSS_REJUVENATE, &penv->state)) {
 		icnss_pr_err("SSR/PDR is already in-progress during idle restart\n");
 		return -EBUSY;
 	}
@@ -2723,9 +2715,6 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_PDR:
 			seq_puts(s, "PDR TRIGGERED");
-			continue;
-		case ICNSS_MODEM_CRASHED:
-			seq_puts(s, "MODEM CRASHED");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
