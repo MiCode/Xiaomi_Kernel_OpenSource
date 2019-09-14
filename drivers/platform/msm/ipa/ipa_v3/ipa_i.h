@@ -444,6 +444,31 @@ enum ipa_flag {
 	IPA_FLTRT_NOT_HASHABLE_EN,
 };
 
+enum ipa_icc_level {
+	IPA_ICC_NONE,
+	IPA_ICC_SVS2,
+	IPA_ICC_SVS,
+	IPA_ICC_NOMINAL,
+	IPA_ICC_TURBO,
+	IPA_ICC_LVL_MAX,
+};
+
+enum ipa_icc_path {
+	IPA_ICC_IPA_TO_LLCC,
+	IPA_ICC_LLCC_TO_EBIL,
+	IPA_ICC_IPA_TO_IMEM,
+	IPA_ICC_APSS_TO_IPA,
+	IPA_ICC_PATH_MAX,
+};
+
+enum ipa_icc_type {
+	IPA_ICC_AB,
+	IPA_ICC_IB,
+	IPA_ICC_TYPE_MAX,
+};
+
+#define IPA_ICC_MAX (IPA_ICC_PATH_MAX*IPA_ICC_TYPE_MAX)
+
 struct ipa3_active_client_htable_entry {
 	struct hlist_node list;
 	char id_string[IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN];
@@ -1769,6 +1794,10 @@ struct ipa3_pc_mbox_data {
  * @lan_rx_napi_enable: flag if NAPI is enabled on the LAN dp
  * @lan_ndev: dummy netdev for LAN rx NAPI
  * @napi_lan_rx: NAPI object for LAN rx
+ * @ipa_wan_skb_page - page recycling enabled on wwan data path
+ * @icc_num_cases - number of icc scaling level supported
+ * @icc_num_paths - number of paths icc would vote for bw
+ * @icc_clk - table for icc bw clock value
  */
 struct ipa3_context {
 	struct ipa3_char_device_context cdev;
@@ -1942,6 +1971,9 @@ struct ipa3_context {
 	bool lan_rx_napi_enable;
 	struct net_device lan_ndev;
 	struct napi_struct napi_lan_rx;
+	u32 icc_num_cases;
+	u32 icc_num_paths;
+	u32 icc_clk[IPA_ICC_LVL_MAX][IPA_ICC_PATH_MAX][IPA_ICC_TYPE_MAX];
 };
 
 struct ipa3_plat_drv_res {
@@ -1990,6 +2022,10 @@ struct ipa3_plat_drv_res {
 	bool ipa_endp_delay_wa;
 	bool skip_ieob_mask_wa;
 	bool ipa_wan_skb_page;
+	u32 icc_num_cases;
+	u32 icc_num_paths;
+	const char *icc_path_name[IPA_ICC_PATH_MAX];
+	u32 icc_clk_val[IPA_ICC_LVL_MAX][IPA_ICC_MAX];
 };
 
 /**
@@ -2236,7 +2272,7 @@ struct ipa3_controller {
 	int (*ipa3_commit_hdr)(void);
 	void (*ipa3_enable_clks)(void);
 	void (*ipa3_disable_clks)(void);
-	struct icc_path *pcie_path;
+	struct icc_path *icc_path[IPA_ICC_PATH_MAX];
 };
 
 extern struct ipa3_context *ipa3_ctx;

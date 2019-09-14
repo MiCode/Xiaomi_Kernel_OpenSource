@@ -4749,6 +4749,7 @@ static unsigned int ipa3_get_bus_vote(void)
 void ipa3_enable_clks(void)
 {
 	int idx;
+	int i;
 
 	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL) {
 		IPAERR("not supported in this mode\n");
@@ -4757,12 +4758,16 @@ void ipa3_enable_clks(void)
 
 	IPADBG("enabling IPA clocks and bus voting\n");
 
-	/* TODO: ICC migration change pending */
 	idx = ipa3_get_bus_vote();
-	if (icc_set_bw(
-		ipa3_ctx->ctrl->pcie_path,
-		0, 0))
-		WARN(1, "bus scaling failed");
+
+	for (i = 0; i < ipa3_ctx->icc_num_paths; i++) {
+		if (ipa3_ctx->ctrl->icc_path[i] &&
+			icc_set_bw(
+			ipa3_ctx->ctrl->icc_path[i],
+			ipa3_ctx->icc_clk[idx][i][IPA_ICC_AB],
+			ipa3_ctx->icc_clk[idx][i][IPA_ICC_IB]))
+			WARN(1, "path %d bus scaling failed", i);
+	}
 	ipa3_ctx->ctrl->ipa3_enable_clks();
 	atomic_set(&ipa3_ctx->ipa_clk_vote, 1);
 }
@@ -4788,6 +4793,8 @@ void _ipa_disable_clks_v3_0(void)
  */
 void ipa3_disable_clks(void)
 {
+	int i;
+
 	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL) {
 		IPAERR("not supported in this mode\n");
 		return;
@@ -4799,8 +4806,14 @@ void ipa3_disable_clks(void)
 
 	ipa_pm_set_clock_index(0);
 
-	if (icc_set_bw(ipa3_ctx->ctrl->pcie_path, 0, 0))
-		WARN(1, "bus scaling failed");
+	for (i = 0; i < ipa3_ctx->icc_num_paths; i++) {
+		if (ipa3_ctx->ctrl->icc_path[i] &&
+			icc_set_bw(
+			ipa3_ctx->ctrl->icc_path[i],
+			ipa3_ctx->icc_clk[IPA_ICC_NONE][i][IPA_ICC_AB],
+			ipa3_ctx->icc_clk[IPA_ICC_NONE][i][IPA_ICC_IB]))
+			WARN(1, "path %d bus off failed", i);
+	}
 	atomic_set(&ipa3_ctx->ipa_clk_vote, 0);
 }
 
@@ -5148,6 +5161,7 @@ void ipa3_dec_release_wakelock(void)
 int ipa3_set_clock_plan_from_pm(int idx)
 {
 	u32 clk_rate;
+	int i;
 
 	IPADBG_LOW("idx = %d\n", idx);
 
@@ -5192,10 +5206,17 @@ int ipa3_set_clock_plan_from_pm(int idx)
 	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt) > 0) {
 		if (ipa3_clk)
 			clk_set_rate(ipa3_clk, ipa3_ctx->curr_ipa_clk_rate);
-		/* TODO: ICC migration change pending */
-		if (icc_set_bw(ipa3_ctx->ctrl->pcie_path,
-				0, 0))
-			WARN_ON(1);
+		idx = ipa3_get_bus_vote();
+		for (i = 0; i < ipa3_ctx->icc_num_paths; i++) {
+			if (ipa3_ctx->ctrl->icc_path[i] &&
+			    icc_set_bw(
+			    ipa3_ctx->ctrl->icc_path[i],
+			    ipa3_ctx->icc_clk[idx][i][IPA_ICC_AB],
+			    ipa3_ctx->icc_clk[idx][i][IPA_ICC_IB])) {
+				WARN(1, "path %d bus scaling failed",
+					i);
+			}
+		}
 	} else {
 		IPADBG_LOW("clocks are gated, not setting rate\n");
 	}
@@ -5210,6 +5231,8 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 {
 	enum ipa_voltage_level needed_voltage;
 	u32 clk_rate;
+	int i;
+	int idx;
 
 	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL) {
 		IPAERR("not supported in this mode\n");
@@ -5275,10 +5298,15 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt) > 0) {
 		if (ipa3_clk)
 			clk_set_rate(ipa3_clk, ipa3_ctx->curr_ipa_clk_rate);
-		/* TODO: ICC migration change pending */
-		if (icc_set_bw(ipa3_ctx->ctrl->pcie_path,
-				0, 0))
-			WARN_ON(1);
+		idx = ipa3_get_bus_vote();
+		for (i = 0; i < ipa3_ctx->icc_num_paths; i++) {
+			if (ipa3_ctx->ctrl->icc_path[i] &&
+				icc_set_bw(
+				ipa3_ctx->ctrl->icc_path[i],
+				ipa3_ctx->icc_clk[idx][i][IPA_ICC_AB],
+				ipa3_ctx->icc_clk[idx][i][IPA_ICC_IB]))
+				WARN(1, "path %d bus scaling failed", i);
+		}
 	} else {
 		IPADBG_LOW("clocks are gated, not setting rate\n");
 	}
@@ -6539,6 +6567,18 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->aggregation_byte_limit = 1;
 	ipa3_ctx->aggregation_time_limit = 0;
 
+	/* configure interconnect parameters */
+	ipa3_ctx->icc_num_cases = resource_p->icc_num_cases;
+	ipa3_ctx->icc_num_paths = resource_p->icc_num_paths;
+	for (i = 0; i < ipa3_ctx->icc_num_cases; i++) {
+		for (j = 0; j < ipa3_ctx->icc_num_paths; j++) {
+			ipa3_ctx->icc_clk[i][j][IPA_ICC_AB] =
+			    resource_p->icc_clk_val[i][j*IPA_ICC_TYPE_MAX];
+			ipa3_ctx->icc_clk[i][j][IPA_ICC_IB] =
+			    resource_p->icc_clk_val[i][j*IPA_ICC_TYPE_MAX+1];
+		}
+	}
+
 	ipa3_ctx->ctrl = kzalloc(sizeof(*ipa3_ctx->ctrl), GFP_KERNEL);
 	if (!ipa3_ctx->ctrl) {
 		result = -ENOMEM;
@@ -6562,15 +6602,19 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL &&
 	    ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION) {
 		/* get BUS handle */
-		ipa3_ctx->ctrl->pcie_path = of_icc_get(
-			&ipa3_ctx->master_pdev->dev, NULL);
-		if (IS_ERR(ipa3_ctx->ctrl->pcie_path)) {
-			IPAERR("fail to register with bus mgr!\n");
-			result = PTR_ERR(ipa3_ctx->ctrl->pcie_path);
-			if (result != -EPROBE_DEFER)
-				IPAERR("PCIe: Failed to failed path %s\n",
-					ipa3_ctx->master_pdev->name);
-			goto fail_bus_reg;
+		for (i = 0; i < ipa3_ctx->icc_num_paths; i++) {
+			ipa3_ctx->ctrl->icc_path[i] = of_icc_get(
+				&ipa3_ctx->master_pdev->dev,
+				resource_p->icc_path_name[i]);
+			if (IS_ERR(ipa3_ctx->ctrl->icc_path[i])) {
+				IPAERR("fail to register with bus mgr!\n");
+				result = PTR_ERR(ipa3_ctx->ctrl->icc_path[i]);
+				if (result != -EPROBE_DEFER) {
+					IPAERR("Failed to get path %s\n",
+						ipa3_ctx->master_pdev->name);
+				}
+				goto fail_bus_reg;
+			}
 		}
 	}
 
@@ -6944,8 +6988,11 @@ fail_init_active_client:
 		clk_put(ipa3_clk);
 	ipa3_clk = NULL;
 fail_bus_reg:
-	if (ipa3_ctx->ctrl->pcie_path)
-		icc_put(ipa3_ctx->ctrl->pcie_path);
+	for (i = 0; i < ipa3_ctx->icc_num_paths; i++)
+		if (ipa3_ctx->ctrl->icc_path[i]) {
+			icc_put(ipa3_ctx->ctrl->icc_path[i]);
+			ipa3_ctx->ctrl->icc_path[i] = NULL;
+		}
 fail_init_mem_partition:
 fail_bind:
 	kfree(ipa3_ctx->ctrl);
@@ -6966,15 +7013,98 @@ static int get_ipa_dts_pm_info(struct platform_device *pdev,
 	int result;
 	int i, j;
 
+	/* this interconnects entry must be presented */
+	if (!of_find_property(pdev->dev.of_node,
+			"interconnects", NULL)) {
+		IPAERR("No interconnect info\n");
+		return -EFAULT;
+	}
+
 	result = of_property_read_u32(pdev->dev.of_node,
-		"qcom,msm-bus,num-cases",
-		&ipa_drv_res->pm_init.threshold_size);
+		"qcom,interconnect,num-cases",
+		&ipa_drv_res->icc_num_cases);
 	/* No vote is ignored */
-	ipa_drv_res->pm_init.threshold_size -= 2;
+	ipa_drv_res->pm_init.threshold_size =
+		ipa_drv_res->icc_num_cases - 2;
 	if (result || ipa_drv_res->pm_init.threshold_size >
 		IPA_PM_THRESHOLD_MAX) {
-		IPAERR("invalid property qcom,msm-bus,num-cases %d\n",
+		IPAERR("invalid qcom,interconnect,num-cases %d\n",
 			ipa_drv_res->pm_init.threshold_size);
+		return -EFAULT;
+	}
+
+	result = of_property_read_u32(pdev->dev.of_node,
+		"qcom,interconnect,num-paths",
+		&ipa_drv_res->icc_num_paths);
+	if (result || ipa_drv_res->icc_num_paths >
+		IPA_ICC_PATH_MAX) {
+		IPAERR("invalid qcom,interconnect,num-paths %d\n",
+			ipa_drv_res->icc_num_paths);
+		return -EFAULT;
+	}
+
+	for (i = 0; i < ipa_drv_res->icc_num_paths; i++) {
+		result = of_property_read_string_index(pdev->dev.of_node,
+			"interconnect-names",
+			i,
+			&ipa_drv_res->icc_path_name[i]);
+		if (result) {
+			IPAERR("invalid interconnect-names %d\n", i);
+			return -EFAULT;
+		}
+	}
+	/* read no-vote AB IB value */
+	result = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,no-vote",
+			ipa_drv_res->icc_clk_val[IPA_ICC_NONE],
+			ipa_drv_res->icc_num_paths *
+			IPA_ICC_TYPE_MAX);
+	if (result) {
+		IPAERR("invalid property qcom,no-vote\n");
+		return -EFAULT;
+	}
+
+	/* read svs2 AB IB value */
+	result = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,svs2",
+			ipa_drv_res->icc_clk_val[IPA_ICC_SVS2],
+			ipa_drv_res->icc_num_paths *
+			IPA_ICC_TYPE_MAX);
+	if (result) {
+		IPAERR("invalid property qcom,svs2\n");
+		return -EFAULT;
+	}
+
+	/* read svs AB IB value */
+	result = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,svs",
+			ipa_drv_res->icc_clk_val[IPA_ICC_SVS],
+			ipa_drv_res->icc_num_paths *
+			IPA_ICC_TYPE_MAX);
+	if (result) {
+		IPAERR("invalid property qcom,svs\n");
+		return -EFAULT;
+	}
+
+	/* read nominal AB IB value */
+	result = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,nominal",
+			ipa_drv_res->icc_clk_val[IPA_ICC_NOMINAL],
+			ipa_drv_res->icc_num_paths *
+			IPA_ICC_TYPE_MAX);
+	if (result) {
+		IPAERR("invalid property qcom,nominal\n");
+		return -EFAULT;
+	}
+
+	/* read turbo AB IB value */
+	result = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,turbo",
+			ipa_drv_res->icc_clk_val[IPA_ICC_TURBO],
+			ipa_drv_res->icc_num_paths *
+			IPA_ICC_TYPE_MAX);
+	if (result) {
+		IPAERR("invalid property qcom,turbo\n");
 		return -EFAULT;
 	}
 
