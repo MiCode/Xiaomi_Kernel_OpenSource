@@ -261,6 +261,7 @@ struct cnss_cal_info {
 struct cnss_control_params {
 	unsigned long quirks;
 	unsigned int mhi_timeout;
+	unsigned int mhi_m2_timeout;
 	unsigned int qmi_timeout;
 	unsigned int bdf_type;
 	unsigned int time_sync_period;
