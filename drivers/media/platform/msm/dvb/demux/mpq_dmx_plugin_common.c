@@ -3612,7 +3612,7 @@ static int mpq_sdmx_init_data_buffer(struct mpq_demux *mpq_demux,
 			*buf_mode = SDMX_LINEAR_GROUP_BUF;
 		*num_buffers = feed_data->buffer_desc.decoder_buffers_num;
 
-		MPQ_DVB_ERR_PRINT("%s: video feed case no of buffers=%zu\n",
+		MPQ_DVB_ERR_PRINT("%s: video feed case no of buffers=%u\n",
 				  __func__, *num_buffers);
 
 		for (i = 0; i < *num_buffers; i++) {
