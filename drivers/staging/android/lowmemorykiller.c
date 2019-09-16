@@ -126,19 +126,6 @@ void handle_lmk_event(struct task_struct *selected, int selected_tasksize,
 	int tail;
 	struct lmk_event *events;
 	struct lmk_event *event;
-	int res;
-	char taskname[MAX_TASKNAME];
-
-	res = get_cmdline(selected, taskname, MAX_TASKNAME - 1);
-
-	/* No valid process name means this is definitely not associated with a
-	 * userspace activity.
-	 */
-
-	if (res <= 0 || res >= MAX_TASKNAME)
-		return;
-
-	taskname[res] = '\0';
 
 	spin_lock(&lmk_event_lock);
 
@@ -154,7 +141,7 @@ void handle_lmk_event(struct task_struct *selected, int selected_tasksize,
 	events = (struct lmk_event *) event_buffer.buf;
 	event = &events[head];
 
-	memcpy(event->taskname, taskname, res + 1);
+	strncpy(event->taskname, selected->comm, MAX_TASKNAME);
 
 	event->pid = selected->pid;
 	event->uid = from_kuid_munged(current_user_ns(), task_uid(selected));
