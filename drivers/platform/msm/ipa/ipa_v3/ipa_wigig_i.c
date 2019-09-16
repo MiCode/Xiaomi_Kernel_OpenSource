@@ -978,7 +978,7 @@ int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
 			!= IPA_WIGIG_8_MSB(
 				input_smmu->pipe_smmu.status_ring_HWTAIL_pa)) {
 			IPAERR(
-				"status ring HWHEAD and HWTAIL differ in 8 MSbs head 0x%X tail 0x%X\n"
+				"status ring HWHEAD and HWTAIL differ in 8 MSbs head 0x%llX tail 0x%llX\n"
 			, input_smmu->pipe_smmu.status_ring_HWHEAD_pa,
 			input_smmu->pipe_smmu.status_ring_HWTAIL_pa);
 			return -EFAULT;
@@ -1017,7 +1017,7 @@ int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
 			!= IPA_WIGIG_8_MSB(
 				input->pipe.status_ring_HWTAIL_pa)) {
 			IPAERR(
-				"status ring HWHEAD and HWTAIL differ in 8 MSbs head 0x%X tail 0x%X\n"
+				"status ring HWHEAD and HWTAIL differ in 8 MSbs head 0x%llX tail 0x%llX\n"
 				, input->pipe.status_ring_HWHEAD_pa,
 				input->pipe.status_ring_HWTAIL_pa);
 			return -EFAULT;
@@ -1479,7 +1479,7 @@ int ipa3_enable_wigig_pipe_i(enum ipa_client_type client)
 			ep->gsi_mem_info.chan_ring_len -
 			IPA_WIGIG_DESC_RING_EL_SIZE;
 
-		IPADBG("ring ch doorbell (0x%llX) TX %d\n", val,
+		IPADBG("ring ch doorbell (0x%llX) TX %ld\n", val,
 			ep->gsi_chan_hdl);
 		res = gsi_ring_ch_ring_db(ep->gsi_chan_hdl, val);
 		if (res) {
