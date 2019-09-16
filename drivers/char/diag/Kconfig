@@ -27,7 +27,7 @@ config DIAG_OVER_USB
 config DIAGFWD_BRIDGE_CODE
 	bool "Enable remote DIAG traffic over MHI/HSIC"
 	depends on DIAG_CHAR
-	depends on USB_QCOM_DIAG_BRIDGE || MHI_BUS
+	depends on USB_QTI_DIAG_BRIDGE || MHI_BUS
 	default y
 	help
 	  MHI/HSIC Transport Layer for DIAG Router. When the MHI/HSIC endpoints

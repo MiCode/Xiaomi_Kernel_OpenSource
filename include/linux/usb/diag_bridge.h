@@ -23,7 +23,7 @@ struct diag_bridge_ops {
 	void (*resume)(void *ctxt);
 };
 
-#if IS_ENABLED(CONFIG_USB_QCOM_DIAG_BRIDGE)
+#if IS_ENABLED(CONFIG_USB_QTI_DIAG_BRIDGE)
 
 extern int diag_bridge_read(int id, char *data, int size);
 extern int diag_bridge_write(int id, char *data, int size);
