@@ -17,6 +17,18 @@
 
 #define QVR_EXTERNAL_SENSOR_REPORT_ID 0x1
 
+//CMD IDs
+#define QVR_CMD_ID_CALIBRATION_DATA_SIZE      20
+#define QVR_CMD_ID_CALIBRATION_BLOCK_DATA     21
+#define QVR_CMD_ID_START_CALIBRATION_UPDATE   22
+#define QVR_CMD_ID_UPDATE_CALIBRATION_BLOCK   23
+#define QVR_CMD_ID_FINISH_CALIBRATION_UPDATE  24
+#define QVR_CMD_ID_IMU_CONTROL                25
+#define QVR_CMD_ID_IMU_CONTROL_FALLBACK       7
+
+#define QVR_HID_REPORT_ID_CAL                 2
+#define QVR_HID_REQUEST_REPORT_SIZE           64
+
 struct external_imu_format {
 	s16 temp0;
 	s16 temp1;
