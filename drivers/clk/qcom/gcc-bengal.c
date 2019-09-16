@@ -445,7 +445,9 @@ static const struct alpha_pll_config gpll10_config = {
 	.vco_val = 0x1 << 20,
 	.vco_mask = GENMASK(21, 20),
 	.main_output_mask = BIT(0),
-	.config_ctl_val = 0x40008529,
+	.config_ctl_val = 0x4001055b,
+	.test_ctl_hi1_val = 0x1,
+	.test_ctl_hi_mask = 0x1,
 };
 
 static struct clk_alpha_pll gpll10 = {
@@ -499,7 +501,9 @@ static const struct alpha_pll_config gpll11_config = {
 	.alpha_en_mask = BIT(24),
 	.vco_val = 0x2 << 20,
 	.vco_mask = GENMASK(21, 20),
-	.config_ctl_val = 0x40008529,
+	.config_ctl_val = 0x4001055b,
+	.test_ctl_hi1_val = 0x1,
+	.test_ctl_hi_mask = 0x1,
 };
 
 static struct clk_alpha_pll gpll11 = {
@@ -697,7 +701,7 @@ static struct clk_alpha_pll_postdiv gpll7_out_main = {
 /* 800MHz configuration */
 static const struct alpha_pll_config gpll8_config = {
 	.l = 0x29,
-	.alpha = 0xAA000000,
+	.alpha = 0xAAAAAAAA,
 	.alpha_hi = 0xAA,
 	.alpha_en_mask = BIT(24),
 	.vco_val = 0x2 << 20,
@@ -706,7 +710,9 @@ static const struct alpha_pll_config gpll8_config = {
 	.early_output_mask = BIT(3),
 	.post_div_val = 0x1 << 8,
 	.post_div_mask = GENMASK(11, 8),
-	.config_ctl_val = 0x40008529,
+	.config_ctl_val = 0x4001055b,
+	.test_ctl_hi1_val = 0x1,
+	.test_ctl_hi_mask = 0x1,
 };
 
 static struct clk_alpha_pll gpll8 = {
@@ -760,7 +766,9 @@ static const struct alpha_pll_config gpll9_config = {
 	.post_div_val = 0x1 << 8,
 	.post_div_mask = GENMASK(9, 8),
 	.main_output_mask = BIT(0),
-	.config_ctl_val = 0x000040C9,
+	.config_ctl_val = 0x00004289,
+	.test_ctl_mask = GENMASK(31, 0),
+	.test_ctl_val = 0x08000000,
 };
 
 static struct clk_alpha_pll gpll9 = {
@@ -1102,7 +1110,19 @@ static struct clk_rcg2 gcc_camss_ope_clk_src = {
 
 static const struct freq_tbl ftbl_gcc_camss_tfe_0_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(128000000, P_GPLL10_OUT_MAIN, 9, 0, 0),
+	F(135529412, P_GPLL10_OUT_MAIN, 8.5, 0, 0),
+	F(144000000, P_GPLL10_OUT_MAIN, 8, 0, 0),
+	F(153600000, P_GPLL10_OUT_MAIN, 7.5, 0, 0),
+	F(164571429, P_GPLL10_OUT_MAIN, 7, 0, 0),
+	F(177230769, P_GPLL10_OUT_MAIN, 6.5, 0, 0),
+	F(192000000, P_GPLL10_OUT_MAIN, 6, 0, 0),
+	F(209454545, P_GPLL10_OUT_MAIN, 5.5, 0, 0),
+	F(230400000, P_GPLL10_OUT_MAIN, 5, 0, 0),
 	F(256000000, P_GPLL10_OUT_MAIN, 4.5, 0, 0),
+	F(288000000, P_GPLL10_OUT_MAIN, 4, 0, 0),
+	F(329142857, P_GPLL10_OUT_MAIN, 3.5, 0, 0),
+	F(384000000, P_GPLL10_OUT_MAIN, 3, 0, 0),
 	F(460800000, P_GPLL10_OUT_MAIN, 2.5, 0, 0),
 	F(576000000, P_GPLL10_OUT_MAIN, 2, 0, 0),
 	{ }
@@ -1133,6 +1153,8 @@ static struct clk_rcg2 gcc_camss_tfe_0_clk_src = {
 
 static const struct freq_tbl ftbl_gcc_camss_tfe_0_csid_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(120000000, P_GPLL0_OUT_EARLY, 5, 0, 0),
+	F(192000000, P_GPLL6_OUT_MAIN, 2, 0, 0),
 	F(240000000, P_GPLL0_OUT_EARLY, 2.5, 0, 0),
 	F(384000000, P_GPLL6_OUT_MAIN, 1, 0, 0),
 	F(426400000, P_GPLL3_OUT_EARLY, 2.5, 0, 0),
