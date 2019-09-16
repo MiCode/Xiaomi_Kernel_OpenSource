@@ -2126,7 +2126,9 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		cnt++;
 	}
 
-	sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
+	if (cnt > 0)
+		sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
+
 	_sde_crtc_set_src_split_order(crtc, pstates, cnt);
 
 	if (lm && lm->ops.setup_dim_layer) {
@@ -3139,7 +3141,7 @@ static void _sde_crtc_set_dim_layer_v1(struct sde_crtc_state *cstate,
 		user_cfg = &dim_layer_v1.layer_cfg[i];
 
 		dim_layer[i].flags = user_cfg->flags;
-		dim_layer[i].stage = user_cfg->stage + SDE_STAGE_0;
+		dim_layer[i].stage = user_cfg->stage;
 
 		dim_layer[i].rect.x = user_cfg->rect.x1;
 		dim_layer[i].rect.y = user_cfg->rect.y1;
@@ -5021,7 +5023,7 @@ static void sde_crtc_enable(struct drm_crtc *crtc,
 
 /* no input validation - caller API has all the checks */
 static int _sde_crtc_excl_dim_layer_check(struct drm_crtc_state *state,
-		struct plane_state pstates[], int cnt)
+		struct plane_state pstates[], int cnt, bool base_layer_staged)
 {
 	struct sde_crtc_state *cstate = to_sde_crtc_state(state);
 	struct drm_display_mode *mode = &state->adjusted_mode;
@@ -5048,6 +5050,8 @@ static int _sde_crtc_excl_dim_layer_check(struct drm_crtc_state *state,
 					mode->vdisplay);
 			rc = -E2BIG;
 			goto end;
+		} else if (!base_layer_staged) {
+			cstate->dim_layer[i].stage += SDE_STAGE_0;
 		}
 	}
 
@@ -5168,9 +5172,12 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 			int sec_stage = cnt ? pstates[0].sde_pstate->stage :
 						cstate->dim_layer[0].stage;
 
+			if (!sde_kms->catalog->has_base_layer)
+				sec_stage -= SDE_STAGE_0;
+
 			if ((!cnt && !cstate->num_dim_layers) ||
 				(sde_kms->catalog->sui_supported_blendstage
-						!= (sec_stage - SDE_STAGE_0))) {
+						!= sec_stage)) {
 				SDE_ERROR(
 				  "crtc%d: empty cnt%d/dim%d or bad stage%d\n",
 					DRMID(crtc), cnt,
@@ -5244,6 +5251,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct plane_state *pstates = NULL;
 	struct sde_crtc_state *cstate;
+	struct sde_kms *kms;
 
 	const struct drm_plane_state *pstate;
 	struct drm_plane *plane;
@@ -5268,6 +5276,12 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(state);
+	kms = _sde_crtc_get_kms(crtc);
+
+	if (!kms || !kms->catalog) {
+		SDE_ERROR("Invalid kms\n");
+		return -EINVAL;
+	}
 
 	if (!state->enable || !state->active) {
 		SDE_DEBUG("crtc%d -> enable %d, active %d, skip atomic_check\n",
@@ -5317,23 +5331,6 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	mixer_width = sde_crtc_get_mixer_width(sde_crtc, cstate, mode);
 	mixer_height = sde_crtc_get_mixer_height(sde_crtc, cstate, mode);
 
-	if (cstate->num_ds_enabled) {
-		if (!state->state)
-			goto end;
-
-		drm_atomic_crtc_state_for_each_plane_state(plane,
-							pstate, state) {
-			if ((pstate->crtc_h > mixer_height) ||
-					(pstate->crtc_w > mixer_width)) {
-				SDE_ERROR("plane w/h:%x*%x > mixer w/h:%x*%x\n",
-					pstate->crtc_w, pstate->crtc_h,
-					mixer_width, mixer_height);
-				return -E2BIG;
-				goto end;
-			}
-		}
-	}
-
 	_sde_crtc_setup_is_ppsplit(state);
 	_sde_crtc_setup_lm_bounds(crtc, state);
 
@@ -5374,7 +5371,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		/* check dim layer stage with every plane */
 		for (i = 0; i < cstate->num_dim_layers; i++) {
 			if (cstate->dim_layer[i].stage
-					== (pstates[cnt].stage + SDE_STAGE_0)) {
+					== (pstates[cnt].stage)) {
 				SDE_ERROR(
 					"plane:%d/dim_layer:%i-same stage:%d\n",
 					plane->base.id, i,
@@ -5408,6 +5405,17 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			rc = -E2BIG;
 			goto end;
 		}
+
+		if (cstate->num_ds_enabled &&
+			((pstate->crtc_h > mixer_height) ||
+			(pstate->crtc_w >
+			 (mixer_width * cstate->num_ds_enabled)))) {
+			SDE_ERROR("plane w/h:%x*%x > mixer w/h:%x*%x\n",
+				pstate->crtc_w, pstate->crtc_h,
+				mixer_width, mixer_height);
+			return -E2BIG;
+			goto end;
+		}
 	}
 
 	for (i = 1; i < SSPP_MAX; i++) {
@@ -5424,9 +5432,11 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	}
 
 	/* assign mixer stages based on sorted zpos property */
-	sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
+	if (cnt > 0)
+		sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
 
-	rc = _sde_crtc_excl_dim_layer_check(state, pstates, cnt);
+	rc = _sde_crtc_excl_dim_layer_check(state, pstates, cnt,
+				kms->catalog->has_base_layer);
 	if (rc)
 		goto end;
 
@@ -5476,7 +5486,10 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			right_zpos_cnt++;
 		}
 
-		pstates[i].sde_pstate->stage = z_pos + SDE_STAGE_0;
+		if (!kms->catalog->has_base_layer)
+			pstates[i].sde_pstate->stage = z_pos + SDE_STAGE_0;
+		else
+			pstates[i].sde_pstate->stage = z_pos;
 		SDE_DEBUG("%s: zpos %d", sde_crtc->name, z_pos);
 	}
 
@@ -5810,6 +5823,9 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	if (catalog->ubwc_bw_calc_version)
 		sde_kms_info_add_keyint(info, "ubwc_bw_calc_ver",
 				catalog->ubwc_bw_calc_version);
+
+	sde_kms_info_add_keyint(info, "use_baselayer_for_stage",
+				catalog->has_base_layer);
 
 	msm_property_set_blob(&sde_crtc->property_info, &sde_crtc->blob_info,
 			info->data, SDE_KMS_INFO_DATALEN(info), CRTC_PROP_INFO);
