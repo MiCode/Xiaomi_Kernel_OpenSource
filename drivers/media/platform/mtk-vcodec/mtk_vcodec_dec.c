@@ -190,10 +190,6 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 			mtk_v4l2_debug(1, "Output stream is off. No need to flush.");
 			return 0;
 		}
-		if (!vb2_is_streaming(dst_vq)) {
-			mtk_v4l2_debug(1, "Capture stream is off. No need to flush.");
-			return 0;
-		}
 		if (!dec_pdata->uses_stateless_api) {
 			ctx->empty_flush_buf->lastframe = true;
 			if (cmd->flags & V4L2_BUF_FLAG_EARLY_EOS)
