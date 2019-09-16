@@ -2200,12 +2200,6 @@
 					qcom,qos-maxhold-ms = <20>;
 					qcom,compute-cx-limit-en;
 					qcom,compute-priority-mode = <2>;
-					#cooling-cells = <2>;
-				};
-
-				msm_hvx_rm: qcom,msm_hvx_rm {
-					compatible = "qcom,msm-hvx-rm";
-					#cooling-cells = <2>;
 				};
 			};
 
