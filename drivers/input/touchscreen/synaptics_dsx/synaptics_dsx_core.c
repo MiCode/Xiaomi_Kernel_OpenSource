@@ -1289,7 +1289,7 @@ static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 	unsigned char num_of_finger_status_regs;
 	unsigned char finger_shift;
 	unsigned char finger_status;
-	unsigned char finger_status_reg[3];
+	unsigned char *finger_status_reg = NULL;
 	unsigned char detected_gestures;
 	unsigned short data_addr;
 	unsigned short data_offset;
@@ -1298,7 +1298,7 @@ static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 	int wx;
 	int wy;
 	int temp;
-	struct synaptics_rmi4_f11_data_1_5 data;
+	struct synaptics_rmi4_f11_data_1_5 *data = NULL;
 	struct synaptics_rmi4_f11_extra_data *extra_data;
 
 	/*
@@ -1331,13 +1331,24 @@ static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 /*		synaptics_rmi4_wakeup_gesture(rmi4_data, false); */
 		return 0;
 	}
+	finger_status_reg = kcalloc(3, sizeof(char), GFP_KERNEL);
+	if (!finger_status_reg) {
+		retval = -ENOMEM;
+		goto exit;
+	}
+
+	data = kzalloc(sizeof(*data), GFP_KERNEL);
+	if (!data) {
+		retval = -ENOMEM;
+		goto exit;
+	}
 
 	retval = synaptics_rmi4_reg_read(rmi4_data,
 			data_addr,
 			finger_status_reg,
 			num_of_finger_status_regs);
 	if (retval < 0)
-		return 0;
+		goto exit;
 
 	mutex_lock(&(rmi4_data->rmi4_report_mutex));
 
@@ -1363,20 +1374,20 @@ static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 		if (finger_status) {
 			data_offset = data_addr +
 					num_of_finger_status_regs +
-					(finger * sizeof(data.data));
+					(finger * sizeof(data->data));
 			retval = synaptics_rmi4_reg_read(rmi4_data,
 					data_offset,
-					data.data,
-					sizeof(data.data));
+					data->data,
+					sizeof(data->data));
 			if (retval < 0) {
 				touch_count = 0;
 				goto exit;
 			}
 
-			x = (data.x_position_11_4 << 4) | data.x_position_3_0;
-			y = (data.y_position_11_4 << 4) | data.y_position_3_0;
-			wx = data.wx;
-			wy = data.wy;
+			x = (data->x_position_11_4 << 4) | data->x_position_3_0;
+			y = (data->y_position_11_4 << 4) | data->y_position_3_0;
+			wx = data->wx;
+			wy = data->wy;
 
 			if (rmi4_data->hw_if->board_data->swap_axes) {
 				temp = x;
@@ -1433,6 +1444,8 @@ static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 	input_sync(rmi4_data->input_dev);
 
 exit:
+	kfree(finger_status_reg);
+	kfree(data);
 	mutex_unlock(&(rmi4_data->rmi4_report_mutex));
 
 	return touch_count;
@@ -2184,12 +2197,12 @@ static int synaptics_rmi4_f11_init(struct synaptics_rmi4_data *rmi4_data,
 	unsigned char offset;
 	unsigned char fingers_supported;
 	struct synaptics_rmi4_f11_extra_data *extra_data;
-	struct synaptics_rmi4_f11_query_0_5 query_0_5;
+	struct synaptics_rmi4_f11_query_0_5 *query_0_5 = NULL;
 	struct synaptics_rmi4_f11_query_7_8 query_7_8;
 	struct synaptics_rmi4_f11_query_9 query_9;
-	struct synaptics_rmi4_f11_query_12 query_12;
-	struct synaptics_rmi4_f11_query_27 query_27;
-	struct synaptics_rmi4_f11_ctrl_6_9 control_6_9;
+	struct synaptics_rmi4_f11_query_12 *query_12 = NULL;
+	struct synaptics_rmi4_f11_query_27 *query_27 = NULL;
+	struct synaptics_rmi4_f11_ctrl_6_9 *control_6_9 = NULL;
 	const struct synaptics_dsx_board_data *bdata =
 				rmi4_data->hw_if->board_data;
 
@@ -2204,33 +2217,57 @@ static int synaptics_rmi4_f11_init(struct synaptics_rmi4_data *rmi4_data,
 	}
 	extra_data = (struct synaptics_rmi4_f11_extra_data *)fhandler->extra;
 
+	query_0_5 = kzalloc(sizeof(*query_0_5), GFP_KERNEL);
+	if (!query_0_5) {
+		retval = -ENOMEM;
+		goto exit;
+	}
+
+	control_6_9 = kzalloc(sizeof(*control_6_9), GFP_KERNEL);
+	if (!control_6_9) {
+		retval = -ENOMEM;
+		goto exit;
+	}
+
+	query_12 = kzalloc(sizeof(*query_12), GFP_KERNEL);
+	if (!query_12) {
+		retval = -ENOMEM;
+		goto exit;
+	}
+
+	query_27 = kzalloc(sizeof(*query_27), GFP_KERNEL);
+	if (!query_27) {
+		retval = -ENOMEM;
+		goto exit;
+	}
+
 	retval = synaptics_rmi4_reg_read(rmi4_data,
 			fhandler->full_addr.query_base,
-			query_0_5.data,
-			sizeof(query_0_5.data));
+			query_0_5->data,
+			sizeof(query_0_5->data));
 	if (retval < 0)
-		return retval;
+		goto exit;
 
 	/* Maximum number of fingers supported */
-	if (query_0_5.num_of_fingers <= 4)
-		fhandler->num_of_data_points = query_0_5.num_of_fingers + 1;
-	else if (query_0_5.num_of_fingers == 5)
+	if (query_0_5->num_of_fingers <= 4)
+		fhandler->num_of_data_points = query_0_5->num_of_fingers + 1;
+	else if (query_0_5->num_of_fingers == 5)
 		fhandler->num_of_data_points = 10;
 
 	rmi4_data->num_of_fingers = fhandler->num_of_data_points;
 
 	retval = synaptics_rmi4_reg_read(rmi4_data,
 			fhandler->full_addr.ctrl_base + 6,
-			control_6_9.data,
-			sizeof(control_6_9.data));
+			control_6_9->data,
+			sizeof(control_6_9->data));
 	if (retval < 0)
-		return retval;
+		goto exit;
 
 	/* Maximum x and y */
-	rmi4_data->sensor_max_x = control_6_9.sensor_max_x_pos_7_0 |
-			(control_6_9.sensor_max_x_pos_11_8 << 8);
-	rmi4_data->sensor_max_y = control_6_9.sensor_max_y_pos_7_0 |
-			(control_6_9.sensor_max_y_pos_11_8 << 8);
+	rmi4_data->sensor_max_x = control_6_9->sensor_max_x_pos_7_0 |
+			(control_6_9->sensor_max_x_pos_11_8 << 8);
+	rmi4_data->sensor_max_y = control_6_9->sensor_max_y_pos_7_0 |
+			(control_6_9->sensor_max_y_pos_11_8 << 8);
 	dev_dbg(rmi4_data->pdev->dev.parent,
 			"%s: Function %02x max x = %d max y = %d\n",
 			__func__, fhandler->fn_number,
@@ -2249,82 +2286,82 @@ static int synaptics_rmi4_f11_init(struct synaptics_rmi4_data *rmi4_data,
 
 	fhandler->data = NULL;
 
-	offset = sizeof(query_0_5.data);
+	offset = sizeof(query_0_5->data);
 
 	/* query 6 */
-	if (query_0_5.has_rel)
+	if (query_0_5->has_rel)
 		offset += 1;
 
 	/* queries 7 8 */
-	if (query_0_5.has_gestures) {
+	if (query_0_5->has_gestures) {
 		retval = synaptics_rmi4_reg_read(rmi4_data,
 				fhandler->full_addr.query_base + offset,
 				query_7_8.data,
 				sizeof(query_7_8.data));
 		if (retval < 0)
-			return retval;
+			goto exit;
 
 		offset += sizeof(query_7_8.data);
 	}
 
 	/* query 9 */
-	if (query_0_5.has_query_9) {
+	if (query_0_5->has_query_9) {
 		retval = synaptics_rmi4_reg_read(rmi4_data,
 				fhandler->full_addr.query_base + offset,
 				query_9.data,
 				sizeof(query_9.data));
 		if (retval < 0)
-			return retval;
+			goto exit;
 
 		offset += sizeof(query_9.data);
 	}
 
 	/* query 10 */
-	if (query_0_5.has_gestures && query_7_8.has_touch_shapes)
+	if (query_0_5->has_gestures && query_7_8.has_touch_shapes)
 		offset += 1;
 
 	/* query 11 */
-	if (query_0_5.has_query_11)
+	if (query_0_5->has_query_11)
 		offset += 1;
 
 	/* query 12 */
-	if (query_0_5.has_query_12) {
+	if (query_0_5->has_query_12) {
 		retval = synaptics_rmi4_reg_read(rmi4_data,
 				fhandler->full_addr.query_base + offset,
-				query_12.data,
-				sizeof(query_12.data));
+				query_12->data,
+				sizeof(query_12->data));
 		if (retval < 0)
-			return retval;
+			goto exit;
 
-		offset += sizeof(query_12.data);
+		offset += sizeof(query_12->data);
 	}
 
 	/* query 13 */
-	if (query_0_5.has_jitter_filter)
+	if (query_0_5->has_jitter_filter)
 		offset += 1;
 
 	/* query 14 */
-	if (query_0_5.has_query_12 && query_12.has_general_information_2)
+	if (query_0_5->has_query_12 && query_12->has_general_information_2)
 		offset += 1;
 
 	/* queries 15 16 17 18 19 20 21 22 23 24 25 26*/
-	if (query_0_5.has_query_12 && query_12.has_physical_properties)
+	if (query_0_5->has_query_12 && query_12->has_physical_properties)
 		offset += 12;
 
 	/* query 27 */
-	if (query_0_5.has_query_27) {
+	if (query_0_5->has_query_27) {
 		retval = synaptics_rmi4_reg_read(rmi4_data,
 				fhandler->full_addr.query_base + offset,
-				query_27.data,
-				sizeof(query_27.data));
+				query_27->data,
+				sizeof(query_27->data));
 		if (retval < 0)
-			return retval;
+			goto exit;
 
-		rmi4_data->f11_wakeup_gesture = query_27.has_wakeup_gesture;
+		rmi4_data->f11_wakeup_gesture = query_27->has_wakeup_gesture;
 	}
 
 	if (!rmi4_data->f11_wakeup_gesture)
-		return retval;
+		goto exit;
 
 	/* data 0 */
 	fingers_supported = fhandler->num_of_data_points;
@@ -2334,82 +2371,87 @@ static int synaptics_rmi4_f11_init(struct synaptics_rmi4_data *rmi4_data,
 	offset += 5 * fingers_supported;
 
 	/* data 6 7 */
-	if (query_0_5.has_rel)
+	if (query_0_5->has_rel)
 		offset += 2 * fingers_supported;
 
 	/* data 8 */
-	if (query_0_5.has_gestures && query_7_8.data[0])
+	if (query_0_5->has_gestures && query_7_8.data[0])
 		offset += 1;
 
 	/* data 9 */
-	if (query_0_5.has_gestures && (query_7_8.data[0] || query_7_8.data[1]))
+	if (query_0_5->has_gestures && (query_7_8.data[0] || query_7_8.data[1]))
 		offset += 1;
 
 	/* data 10 */
-	if (query_0_5.has_gestures &&
+	if (query_0_5->has_gestures &&
 			(query_7_8.has_pinch || query_7_8.has_flick))
 		offset += 1;
 
 	/* data 11 12 */
-	if (query_0_5.has_gestures &&
+	if (query_0_5->has_gestures &&
 			(query_7_8.has_flick || query_7_8.has_rotate))
 		offset += 2;
 
 	/* data 13 */
-	if (query_0_5.has_gestures && query_7_8.has_touch_shapes)
+	if (query_0_5->has_gestures && query_7_8.has_touch_shapes)
 		offset += (fingers_supported + 3) / 4;
 
 	/* data 14 15 */
-	if (query_0_5.has_gestures &&
+	if (query_0_5->has_gestures &&
 			(query_7_8.has_scroll_zones ||
 			query_7_8.has_multi_finger_scroll ||
 			query_7_8.has_chiral_scroll))
 		offset += 2;
 
 	/* data 16 17 */
-	if (query_0_5.has_gestures &&
+	if (query_0_5->has_gestures &&
 			(query_7_8.has_scroll_zones &&
 			query_7_8.individual_scroll_zones))
 		offset += 2;
 
 	/* data 18 19 20 21 22 23 24 25 26 27 */
-	if (query_0_5.has_query_9 && query_9.has_contact_geometry)
+	if (query_0_5->has_query_9 && query_9.has_contact_geometry)
 		offset += 10 * fingers_supported;
 
 	/* data 28 */
-	if (query_0_5.has_bending_correction ||
-			query_0_5.has_large_object_suppression)
+	if (query_0_5->has_bending_correction ||
+			query_0_5->has_large_object_suppression)
 		offset += 1;
 
 	/* data 29 30 31 */
-	if (query_0_5.has_query_9 && query_9.has_pen_hover_discrimination)
+	if (query_0_5->has_query_9 && query_9.has_pen_hover_discrimination)
 		offset += 3;
 
 	/* data 32 */
-	if (query_0_5.has_query_12 &&
-			query_12.has_small_object_detection_tuning)
+	if (query_0_5->has_query_12 &&
+			query_12->has_small_object_detection_tuning)
 		offset += 1;
 
 	/* data 33 34 */
-	if (query_0_5.has_query_27 && query_27.f11_query27_b0)
+	if (query_0_5->has_query_27 && query_27->f11_query27_b0)
 		offset += 2;
 
 	/* data 35 */
-	if (query_0_5.has_query_12 && query_12.has_8bit_w)
+	if (query_0_5->has_query_12 && query_12->has_8bit_w)
 		offset += fingers_supported;
 
 	/* data 36 */
-	if (query_0_5.has_bending_correction)
+	if (query_0_5->has_bending_correction)
 		offset += 1;
 
 	/* data 37 */
-	if (query_0_5.has_query_27 && query_27.has_data_37)
+	if (query_0_5->has_query_27 && query_27->has_data_37)
 		offset += 1;
 
 	/* data 38 */
-	if (query_0_5.has_query_27 && query_27.has_wakeup_gesture)
+	if (query_0_5->has_query_27 && query_27->has_wakeup_gesture)
 		extra_data->data38_offset = offset;
 
+exit:
+	kfree(query_0_5);
+	kfree(query_12);
+	kfree(query_27);
+	kfree(control_6_9);
 	return retval;
 }
 
