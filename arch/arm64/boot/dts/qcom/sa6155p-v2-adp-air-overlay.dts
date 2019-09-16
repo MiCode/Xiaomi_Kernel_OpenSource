@@ -24,3 +24,9 @@
 	qcom,msm-id = <377 0x0>, <380 0>;
 	qcom,board-id = <0x03020019 0>;
 };
+
+/* For Voice Call Use-Case*/
+&dai_pri_auxpcm {
+	qcom,msm-cpudai-auxpcm-sync = <0>, <0>;
+	qcom,msm-cpudai-auxpcm-pcm-clk-rate = <0>, <0>;
+};
