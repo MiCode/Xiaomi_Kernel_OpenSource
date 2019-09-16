@@ -624,7 +624,7 @@ config USB_CONFIGFS_F_IPC
 config USB_CONFIGFS_F_MDM_DATA
 	bool "USB QTI Modem Data function"
 	select USB_F_MDM_DATA
-	depends on USB_CONFIGFS && USB_QCOM_MDM_DATA_BRIDGE
+	depends on USB_CONFIGFS && USB_QTI_MDM_DATA_BRIDGE
 	help
 	  USB QTI modem data function driver.
 

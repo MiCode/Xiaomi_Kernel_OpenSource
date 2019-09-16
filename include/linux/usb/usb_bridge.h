@@ -85,8 +85,8 @@ struct timestamp_buf {
 	rwlock_t	lck;   /* lock */
 };
 
-#if defined(CONFIG_USB_QCOM_MDM_BRIDGE) ||	\
-	defined(CONFIG_USB_QCOM_MDM_BRIDGE_MODULE)
+#if defined(CONFIG_USB_QTI_MDM_DATA_BRIDGE) ||	\
+	defined(CONFIG_USB_QTI_MDM_DATA_BRIDGE_MODULE)
 
 /* Bridge APIs called by gadget driver */
 int data_bridge_open(struct bridge *brdg);
