@@ -696,9 +696,9 @@
 		pm6150l_l6: regulator-pm6150l-l6 {
 			regulator-name = "pm6150l_l6";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <2696000>;
+			regulator-min-microvolt = <1648000>;
 			regulator-max-microvolt = <3304000>;
-			qcom,init-voltage = <2696000>;
+			qcom,init-voltage = <1648000>;
 			qcom,init-mode =
 				<RPMH_REGULATOR_MODE_LPM>;
 		};
@@ -815,9 +815,10 @@
 		qcom,resource-name = "bobc1";
 		qcom,regulator-type = "pmic5-bob";
 		qcom,supported-modes =
-			<RPMH_REGULATOR_MODE_LPM
+			<RPMH_REGULATOR_MODE_PASS
+			RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
-		qcom,mode-threshold-currents = <0 1>;
+		qcom,mode-threshold-currents = <0 1000000 2000000>;
 		qcom,send-defaults;
 		BOB:
 		pm6150l_bob: regulator-pm6150l-bob {

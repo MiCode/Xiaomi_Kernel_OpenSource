@@ -1293,6 +1293,9 @@ static int gmu_aop_mailbox_init(struct kgsl_device *device,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_mailbox *mailbox = &gmu->mailbox;
 
+	if (adreno_is_a640v2(adreno_dev) && (!adreno_dev->speed_bin))
+		return 0;
+
 	mailbox->client = kzalloc(sizeof(*mailbox->client), GFP_KERNEL);
 	if (!mailbox->client)
 		return -ENOMEM;
@@ -1309,8 +1312,8 @@ static int gmu_aop_mailbox_init(struct kgsl_device *device,
 		return PTR_ERR(mailbox->channel);
 	}
 
-	if (adreno_dev->speed_bin)
-		set_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+	set_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+
 	return 0;
 }
 

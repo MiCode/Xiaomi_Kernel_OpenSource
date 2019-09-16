@@ -124,6 +124,7 @@ static const struct alpha_pll_config npu_cc_pll0_config = {
 	.config_ctl_hi_val = 0x00002067,
 	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00004805,
+	.test_ctl_hi_val = 0x40000000,
 };
 
 static struct clk_alpha_pll npu_cc_pll0 = {
@@ -175,6 +176,7 @@ static const struct alpha_pll_config npu_cc_pll1_config = {
 	.config_ctl_hi_val = 0x00002067,
 	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00004805,
+	.test_ctl_hi_val = 0x40000000,
 };
 
 static struct clk_alpha_pll npu_cc_pll1 = {
@@ -226,6 +228,7 @@ static const struct alpha_pll_config npu_q6ss_pll_config = {
 	.config_ctl_hi_val = 0x00002067,
 	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00004805,
+	.test_ctl_hi_val = 0x40000000,
 };
 
 static struct clk_alpha_pll npu_q6ss_pll = {

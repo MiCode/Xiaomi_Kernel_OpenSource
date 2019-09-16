@@ -207,6 +207,8 @@ int ipa_eth_offload_register_driver(struct ipa_eth_offload_driver *od)
 
 void ipa_eth_offload_unregister_driver(struct ipa_eth_offload_driver *od)
 {
+	debugfs_remove_recursive(od->debugfs);
+
 	mutex_lock(&ipa_eth_offload_drivers_lock);
 	list_del(&od->driver_list);
 	mutex_unlock(&ipa_eth_offload_drivers_lock);

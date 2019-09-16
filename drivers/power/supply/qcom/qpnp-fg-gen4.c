@@ -2334,8 +2334,8 @@ done:
 out:
 	if (!chip->esr_fast_calib || is_debug_batt_id(fg)) {
 		/* If it is debug battery, then disable ESR fast calibration */
-		chip->esr_fast_calib = false;
 		fg_gen4_esr_fast_calib_config(chip, false);
+		chip->esr_fast_calib = false;
 	}
 
 	if (chip->dt.multi_profile_load && rc < 0)

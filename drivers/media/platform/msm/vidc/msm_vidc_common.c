@@ -2684,8 +2684,8 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 			fill_buf_done->mark_data, fill_buf_done->mark_target);
 	}
 	if (inst->session_type == MSM_VIDC_ENCODER) {
-		msm_comm_store_filled_length(&inst->fbd_data, vb->index,
-			fill_buf_done->filled_len1);
+		if (inst->max_filled_length < fill_buf_done->filled_len1)
+			inst->max_filled_length = fill_buf_done->filled_len1;
 	}
 
 	tag_data.index = vb->index;
@@ -6449,14 +6449,11 @@ int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
 			} else if (vb->type ==
 					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 				if (!i) { /* bitstream */
-					u32 size_u32;
 					skip = false;
 					offset = 0;
-					size_u32 = vb->planes[i].length;
-					msm_comm_fetch_filled_length(
-						&inst->fbd_data, vb->index,
-						&size_u32);
-					size = size_u32;
+					size = vb->planes[i].length;
+					if (inst->max_filled_length)
+						size = inst->max_filled_length;
 					cache_op = SMEM_CACHE_INVALIDATE;
 				}
 			}
@@ -6996,63 +6993,6 @@ void msm_comm_fetch_tags(struct msm_vidc_inst *inst,
 		}
 	}
 	mutex_unlock(&inst->buffer_tags.lock);
-}
-
-void msm_comm_store_filled_length(struct msm_vidc_list *data_list,
-		u32 index, u32 filled_length)
-{
-	struct msm_vidc_buf_data *pdata = NULL;
-	bool found = false;
-
-	if (!data_list) {
-		dprintk(VIDC_ERR, "%s: invalid params %pK\n",
-			__func__, data_list);
-		return;
-	}
-
-	mutex_lock(&data_list->lock);
-	list_for_each_entry(pdata, &data_list->list, list) {
-		if (pdata->index == index) {
-			pdata->filled_length = filled_length;
-			found = true;
-			break;
-		}
-	}
-
-	if (!found) {
-		pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
-		if (!pdata)  {
-			dprintk(VIDC_WARN, "%s: malloc failure.\n", __func__);
-			goto exit;
-		}
-		pdata->index = index;
-		pdata->filled_length = filled_length;
-		list_add_tail(&pdata->list, &data_list->list);
-	}
-
-exit:
-	mutex_unlock(&data_list->lock);
-}
-
-void msm_comm_fetch_filled_length(struct msm_vidc_list *data_list,
-		u32 index, u32 *filled_length)
-{
-	struct msm_vidc_buf_data *pdata = NULL;
-
-	if (!data_list || !filled_length) {
-		dprintk(VIDC_ERR, "%s: invalid params %pK %pK\n",
-			__func__, data_list, filled_length);
-		return;
-	}
-
-	mutex_lock(&data_list->lock);
-	list_for_each_entry(pdata, &data_list->list, list) {
-		if (pdata->index == index) {
-			*filled_length = pdata->filled_length;
-			break;
-		}
-	}
-	mutex_unlock(&data_list->lock);
 }
 
 void msm_comm_store_mark_data(struct msm_vidc_list *data_list,

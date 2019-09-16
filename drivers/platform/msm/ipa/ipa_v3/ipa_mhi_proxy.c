@@ -625,7 +625,7 @@ struct ipa_mhi_clk_vote_resp_msg_v01
 	if (!vote && imp_ctx->state == IMP_INVALID) {
 		IMP_DBG("Unvote in Invalid state, no op for clock unvote\n");
 		mutex_unlock(&imp_ctx->mutex);
-		return 0;
+		return resp;
 	}
 
 	if (imp_ctx->state != IMP_STARTED) {

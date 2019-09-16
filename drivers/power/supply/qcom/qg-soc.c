@@ -24,6 +24,7 @@
 #include "qg-reg.h"
 #include "qg-util.h"
 #include "qg-defs.h"
+#include "qg-profile-lib.h"
 #include "qg-soc.h"
 
 #define DEFAULT_UPDATE_TIME_MS			64000
@@ -36,6 +37,11 @@ module_param_named(
 	soc_interval_ms, qg_delta_soc_interval_ms, int, 0600
 );
 
+static int qg_fvss_delta_soc_interval_ms = 10000;
+module_param_named(
+	fvss_soc_interval_ms, qg_fvss_delta_soc_interval_ms, int, 0600
+);
+
 static int qg_delta_soc_cold_interval_ms = 4000;
 module_param_named(
 	soc_cold_interval_ms, qg_delta_soc_cold_interval_ms, int, 0600
@@ -45,6 +51,84 @@ static int qg_maint_soc_update_ms = 120000;
 module_param_named(
 	maint_soc_update_ms, qg_maint_soc_update_ms, int, 0600
 );
+
+/* FVSS scaling only based on VBAT */
+static int qg_fvss_vbat_scaling = 1;
+module_param_named(
+	fvss_vbat_scaling, qg_fvss_vbat_scaling, int, 0600
+);
+
+static int qg_process_fvss_soc(struct qpnp_qg *chip, int sys_soc)
+{
+	int rc, vbat_uv = 0, vbat_cutoff_uv = chip->dt.vbatt_cutoff_mv * 1000;
+	int soc_vbat = 0, wt_vbat = 0, wt_sys = 0, soc_fvss = 0;
+
+	if (!chip->dt.fvss_enable)
+		goto exit_soc_scale;
+
+	if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING)
+		goto exit_soc_scale;
+
+	rc = qg_get_battery_voltage(chip, &vbat_uv);
+	if (rc < 0)
+		goto exit_soc_scale;
+
+	if (!chip->last_fifo_v_uv)
+		chip->last_fifo_v_uv = vbat_uv;
+
+	if (chip->last_fifo_v_uv > (chip->dt.fvss_vbat_mv * 1000)) {
+		qg_dbg(chip, QG_DEBUG_SOC, "FVSS: last_fifo_v=%d fvss_entry_uv=%d - exit\n",
+			chip->last_fifo_v_uv, chip->dt.fvss_vbat_mv * 1000);
+		goto exit_soc_scale;
+	}
+
+	/* Enter FVSS */
+	if (!chip->fvss_active) {
+		chip->vbat_fvss_entry = CAP(vbat_cutoff_uv,
+					chip->dt.fvss_vbat_mv * 1000,
+					chip->last_fifo_v_uv);
+		chip->soc_fvss_entry = sys_soc;
+		chip->fvss_active = true;
+	} else if (chip->last_fifo_v_uv > chip->vbat_fvss_entry) {
+		/* VBAT has gone beyond the entry voltage */
+		chip->vbat_fvss_entry = chip->last_fifo_v_uv;
+		chip->soc_fvss_entry = sys_soc;
+	}
+
+	soc_vbat = qg_linear_interpolate(chip->soc_fvss_entry,
+					chip->vbat_fvss_entry,
+					0,
+					vbat_cutoff_uv,
+					chip->last_fifo_v_uv);
+	soc_vbat = CAP(0, 100, soc_vbat);
+
+	if (qg_fvss_vbat_scaling) {
+		wt_vbat = 100;
+		wt_sys = 0;
+	} else {
+		wt_sys = qg_linear_interpolate(100,
+					chip->soc_fvss_entry,
+					0,
+					0,
+					sys_soc);
+		wt_sys = CAP(0, 100, wt_sys);
+		wt_vbat = 100 - wt_sys;
+	}
+
+	soc_fvss = ((soc_vbat * wt_vbat) + (sys_soc * wt_sys)) / 100;
+	soc_fvss = CAP(0, 100, soc_fvss);
+
+	qg_dbg(chip, QG_DEBUG_SOC, "FVSS: vbat_fvss_entry=%d soc_fvss_entry=%d cutoff_uv=%d vbat_uv=%d fifo_avg_v=%d soc_vbat=%d sys_soc=%d wt_vbat=%d wt_sys=%d soc_fvss=%d\n",
+			chip->vbat_fvss_entry, chip->soc_fvss_entry,
+			vbat_cutoff_uv, vbat_uv, chip->last_fifo_v_uv,
+			soc_vbat, sys_soc, wt_vbat, wt_sys, soc_fvss);
+
+	return soc_fvss;
+
+exit_soc_scale:
+	chip->fvss_active = false;
+	return sys_soc;
+}
 
 int qg_adjust_sys_soc(struct qpnp_qg *chip)
 {
@@ -72,8 +156,11 @@ int qg_adjust_sys_soc(struct qpnp_qg *chip)
 		soc = DIV_ROUND_CLOSEST(chip->sys_soc, 100);
 	}
 
-	qg_dbg(chip, QG_DEBUG_SOC, "last_adj_sys_soc=%d  adj_sys_soc=%d\n",
-					chip->last_adj_ssoc, soc);
+	qg_dbg(chip, QG_DEBUG_SOC, "sys_soc=%d adjusted sys_soc=%d\n",
+					chip->sys_soc, soc);
+
+	soc = qg_process_fvss_soc(chip, soc);
+
 	chip->last_adj_ssoc = soc;
 
 	return soc;
@@ -103,6 +190,8 @@ static void get_next_update_time(struct qpnp_qg *chip)
 	else if (chip->maint_soc > 0 && chip->maint_soc >= chip->recharge_soc)
 		/* if in maintenance mode scale slower */
 		min_delta_soc_interval_ms = qg_maint_soc_update_ms;
+	else if (chip->fvss_active)
+		min_delta_soc_interval_ms = qg_fvss_delta_soc_interval_ms;
 
 	if (!min_delta_soc_interval_ms)
 		min_delta_soc_interval_ms = 1000;	/* 1 second */

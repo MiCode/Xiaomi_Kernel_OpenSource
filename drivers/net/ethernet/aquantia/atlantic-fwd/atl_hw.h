@@ -42,27 +42,45 @@ enum atl_board {
 	ATL_AQC100,
 };
 
+struct atl_thermal {
+	unsigned flags;
+	uint8_t crit;
+	uint8_t high;
+	uint8_t low;
+};
+
+extern struct atl_thermal atl_def_thermal;
+
+enum atl_nic_state {
+	ATL_ST_ENABLED,
+	ATL_ST_CONFIGURED,
+	ATL_ST_RINGS_RUNNING,
+	/* ATL_ST_FWD_RINGS_RUNNING, */
+	ATL_ST_UP,
+	ATL_ST_WORK_SCHED,
+	ATL_ST_UPDATE_LINK,
+	ATL_ST_RESETTING,
+	ATL_ST_RESET_NEEDED,
+	ATL_ST_GLOBAL_CONF_NEEDED,
+	ATL_ST_START_NEEDED,
+	ATL_ST_DETACHED,
+};
+
 #define ATL_WAKE_SUPPORTED (WAKE_MAGIC | WAKE_PHY)
 struct atl_hw {
 	uint8_t __iomem *regs;
 	struct pci_dev *pdev;
+	unsigned long state;
 	struct atl_link_state link_state;
 	unsigned wol_mode;
-	struct {
-		uint32_t fw_rev;
-		bool poll_link;
-		struct atl_fw_ops *ops;
-		uint32_t fw_stat_addr;
-		uint32_t fw_settings_addr;
-		uint32_t fw_settings_len;
-		struct mutex lock;
-	} mcp;
-	uint32_t intr_mask;
+	struct atl_mcp mcp;
+	uint32_t non_ring_intr_mask;
 	uint8_t mac_addr[ETH_ALEN];
 #define ATL_RSS_KEY_SIZE 40
 	uint8_t rss_key[ATL_RSS_KEY_SIZE];
 #define ATL_RSS_TBL_SIZE (1 << 6)
 	uint8_t rss_tbl[ATL_RSS_TBL_SIZE];
+	struct atl_thermal thermal;
 };
 
 union atl_desc;
@@ -178,7 +196,7 @@ static inline void atl_set_vlan_promisc(struct atl_hw *hw, int promisc)
 
 int atl_read_mcp_mem(struct atl_hw *hw, uint32_t mcp_addr, void *host_addr,
 	unsigned size);
-int atl_hwinit(struct atl_nic *nic, enum atl_board brd_id);
+int atl_hwinit(struct atl_hw *hw, enum atl_board brd_id);
 void atl_refresh_link(struct atl_nic *nic);
 void atl_set_rss_key(struct atl_hw *hw);
 void atl_set_rss_tbl(struct atl_hw *hw);
@@ -218,5 +236,17 @@ static inline int atl_read_fwsettings_word(struct atl_hw *hw, uint32_t offt,
 
 	return atl_read_mcp_word(hw, offt + hw->mcp.fw_settings_addr, val);
 }
+
+static inline void atl_lock_fw(struct atl_hw *hw)
+{
+	mutex_lock(&hw->mcp.lock);
+}
+
+static inline void atl_unlock_fw(struct atl_hw *hw)
+{
+	mutex_unlock(&hw->mcp.lock);
+}
+
+void atl_fw_watchdog(struct atl_hw *hw);
 
 #endif

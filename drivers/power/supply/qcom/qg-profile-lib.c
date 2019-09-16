@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,7 @@
 #include "qg-profile-lib.h"
 #include "qg-defs.h"
 
-static int linear_interpolate(int y0, int x0, int y1, int x1, int x)
+int qg_linear_interpolate(int y0, int x0, int y1, int x1, int x)
 {
 	if (y0 == y1 || x == x0)
 		return y0;
@@ -26,7 +26,7 @@ static int linear_interpolate(int y0, int x0, int y1, int x1, int x)
 	return y0 + ((y1 - y0) * (x - x0) / (x1 - x0));
 }
 
-int interpolate_single_row_lut(struct profile_table_data *lut,
+int qg_interpolate_single_row_lut(struct profile_table_data *lut,
 						int x, int scale)
 {
 	int i, result;
@@ -52,7 +52,7 @@ int interpolate_single_row_lut(struct profile_table_data *lut,
 	if (x == lut->col_entries[i] * scale) {
 		result = lut->data[0][i];
 	} else {
-		result = linear_interpolate(
+		result = qg_linear_interpolate(
 			lut->data[0][i-1],
 			lut->col_entries[i-1] * scale,
 			lut->data[0][i],
@@ -63,7 +63,7 @@ int interpolate_single_row_lut(struct profile_table_data *lut,
 	return result;
 }
 
-int interpolate_soc(struct profile_table_data *lut,
+int qg_interpolate_soc(struct profile_table_data *lut,
 				int batt_temp, int ocv)
 {
 	int i, j, soc_high, soc_low, soc;
@@ -94,7 +94,7 @@ int interpolate_soc(struct profile_table_data *lut,
 			if (ocv >= lut->data[i][j]) {
 				if (ocv == lut->data[i][j])
 					return lut->row_entries[i];
-				soc = linear_interpolate(
+				soc = qg_linear_interpolate(
 					lut->row_entries[i],
 					lut->data[i][j],
 					lut->row_entries[i - 1],
@@ -115,7 +115,7 @@ int interpolate_soc(struct profile_table_data *lut,
 	for (i = 0; i < rows-1; i++) {
 		if (soc_high == 0 && is_between(lut->data[i][j],
 				lut->data[i+1][j], ocv)) {
-			soc_high = linear_interpolate(
+			soc_high = qg_linear_interpolate(
 				lut->row_entries[i],
 				lut->data[i][j],
 				lut->row_entries[i + 1],
@@ -125,7 +125,7 @@ int interpolate_soc(struct profile_table_data *lut,
 
 		if (soc_low == 0 && is_between(lut->data[i][j-1],
 				lut->data[i+1][j-1], ocv)) {
-			soc_low = linear_interpolate(
+			soc_low = qg_linear_interpolate(
 				lut->row_entries[i],
 				lut->data[i][j-1],
 				lut->row_entries[i + 1],
@@ -134,7 +134,7 @@ int interpolate_soc(struct profile_table_data *lut,
 		}
 
 		if (soc_high && soc_low) {
-			soc = linear_interpolate(
+			soc = qg_linear_interpolate(
 				soc_low,
 				lut->col_entries[j-1] * DEGC_SCALE,
 				soc_high,
@@ -155,7 +155,7 @@ int interpolate_soc(struct profile_table_data *lut,
 	return 10000;
 }
 
-int interpolate_var(struct profile_table_data *lut,
+int qg_interpolate_var(struct profile_table_data *lut,
 				int batt_temp, int soc)
 {
 	int i, var1, var2, var, rows, cols;
@@ -199,7 +199,7 @@ int interpolate_var(struct profile_table_data *lut,
 			break;
 
 	if (batt_temp == lut->col_entries[i] * DEGC_SCALE) {
-		var = linear_interpolate(
+		var = qg_linear_interpolate(
 				lut->data[row1][i],
 				lut->row_entries[row1],
 				lut->data[row2][i],
@@ -208,21 +208,21 @@ int interpolate_var(struct profile_table_data *lut,
 		return var;
 	}
 
-	var1 = linear_interpolate(
+	var1 = qg_linear_interpolate(
 				lut->data[row1][i - 1],
 				lut->col_entries[i - 1] * DEGC_SCALE,
 				lut->data[row1][i],
 				lut->col_entries[i] * DEGC_SCALE,
 				batt_temp);
 
-	var2 = linear_interpolate(
+	var2 = qg_linear_interpolate(
 				lut->data[row2][i - 1],
 				lut->col_entries[i - 1] * DEGC_SCALE,
 				lut->data[row2][i],
 				lut->col_entries[i] * DEGC_SCALE,
 				batt_temp);
 
-	var = linear_interpolate(
+	var = qg_linear_interpolate(
 				var1,
 				lut->row_entries[row1],
 				var2,
@@ -232,7 +232,7 @@ int interpolate_var(struct profile_table_data *lut,
 	return var;
 }
 
-int interpolate_slope(struct profile_table_data *lut,
+int qg_interpolate_slope(struct profile_table_data *lut,
 					int batt_temp, int soc)
 {
 	int i, ocvrow1, ocvrow2, rows, cols;
@@ -284,14 +284,14 @@ int interpolate_slope(struct profile_table_data *lut,
 			lut->row_entries[row2]);
 		return slope;
 	}
-	ocvrow1 = linear_interpolate(
+	ocvrow1 = qg_linear_interpolate(
 			lut->data[row1][i - 1],
 			lut->col_entries[i - 1] * DEGC_SCALE,
 			lut->data[row1][i],
 			lut->col_entries[i] * DEGC_SCALE,
 			batt_temp);
 
-	ocvrow2 = linear_interpolate(
+	ocvrow2 = qg_linear_interpolate(
 			lut->data[row2][i - 1],
 			lut->col_entries[i - 1] * DEGC_SCALE,
 			lut->data[row2][i],

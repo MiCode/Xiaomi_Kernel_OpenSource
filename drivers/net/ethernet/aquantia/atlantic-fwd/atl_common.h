@@ -18,7 +18,7 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.0.19"
+#define ATL_VERSION "1.0.22"
 
 struct atl_nic;
 
@@ -220,9 +220,8 @@ struct atl_nic {
 	int nvecs;
 	struct atl_hw hw;
 	unsigned flags;
-	unsigned long state;
 	uint32_t priv_flags;
-	struct timer_list link_timer;
+	struct timer_list work_timer;
 	int max_mtu;
 	int requested_nvecs;
 	int requested_rx_size;
@@ -249,13 +248,6 @@ enum atl_nic_flags {
 	ATL_FL_WOL = BIT(1),
 };
 
-enum atl_nic_state {
-	ATL_ST_UP,
-	ATL_ST_CONFIGURED,
-	ATL_ST_ENABLED,
-	ATL_ST_WORK_SCHED,
-};
-
 #define ATL_PF(_name) ATL_PF_ ## _name
 #define ATL_PF_BIT(_name) ATL_PF_ ## _name ## _BIT
 #define ATL_DEF_PF_BIT(_name) ATL_PF_BIT(_name) = BIT(ATL_PF(_name))
@@ -270,6 +262,7 @@ enum atl_priv_flags {
 	ATL_PF_LPI_TX_PHY,
 	ATL_PF_STATS_RESET,
 	ATL_PF_STRIP_PAD,
+	ATL_PF_MEDIA_DETECT,
 };
 
 enum atl_priv_flag_bits {
@@ -290,9 +283,10 @@ enum atl_priv_flag_bits {
 	ATL_DEF_PF_BIT(STATS_RESET),
 
 	ATL_DEF_PF_BIT(STRIP_PAD),
+	ATL_DEF_PF_BIT(MEDIA_DETECT),
 
 	ATL_PF_RW_MASK = ATL_PF_LPB_MASK | ATL_PF_BIT(STATS_RESET) |
-		ATL_PF_BIT(STRIP_PAD),
+		ATL_PF_BIT(STRIP_PAD) | ATL_PF_BIT(MEDIA_DETECT),
 	ATL_PF_RO_MASK = ATL_PF_LPI_MASK,
 };
 
@@ -335,18 +329,37 @@ extern int atl_enable_msi;
 #define atl_nic_err(fmt, args...)		\
 	dev_err(&nic->hw.pdev->dev, fmt, ## args)
 
+#define atl_dev_init_warn(fmt, args...)					\
+do {									\
+	if (hw)								\
+		atl_dev_warn(fmt, ## args);				\
+	else								\
+		printk(KERN_WARNING "%s: " fmt, atl_driver_name, ##args); \
+} while(0)
+
+#define atl_dev_init_err(fmt, args...)					\
+do {									\
+	if (hw)								\
+		atl_dev_warn(fmt, ## args);				\
+	else								\
+		printk(KERN_ERR "%s: " fmt, atl_driver_name, ##args);	\
+} while(0)
+
 #define atl_module_param(_name, _type, _mode)			\
 	module_param_named(_name, atl_ ## _name, _type, _mode)
 
 static inline void atl_intr_enable_non_ring(struct atl_nic *nic)
 {
 	struct atl_hw *hw = &nic->hw;
-	uint32_t mask = hw->intr_mask;
 
-#ifdef CONFIG_ATLFWD_FWD
-	mask |= (uint32_t)(nic->fwd.msi_map);
-#endif
-	atl_intr_enable(hw, mask);
+	atl_intr_enable(hw, hw->non_ring_intr_mask);
+}
+
+static inline void atl_intr_disable_non_ring(struct atl_nic *nic)
+{
+	struct atl_hw *hw = &nic->hw;
+
+	atl_intr_disable(hw, hw->non_ring_intr_mask);
 }
 
 netdev_tx_t atl_start_xmit(struct sk_buff *skb, struct net_device *ndev);
@@ -360,6 +373,8 @@ int atl_setup_datapath(struct atl_nic *nic);
 void atl_clear_datapath(struct atl_nic *nic);
 int atl_start_rings(struct atl_nic *nic);
 void atl_stop_rings(struct atl_nic *nic);
+void atl_clear_rdm_cache(struct atl_nic *nic);
+void atl_clear_tdm_cache(struct atl_nic *nic);
 int atl_alloc_rings(struct atl_nic *nic);
 void atl_free_rings(struct atl_nic *nic);
 irqreturn_t atl_ring_irq(int irq, void *priv);
@@ -403,5 +418,9 @@ int atl_mdio_write(struct atl_hw *hw, uint8_t prtad, uint8_t mmd,
 void atl_refresh_rxfs(struct atl_nic *nic);
 void atl_schedule_work(struct atl_nic *nic);
 int atl_hwmon_init(struct atl_nic *nic);
+int atl_update_thermal(struct atl_hw *hw);
+int atl_update_thermal_flag(struct atl_hw *hw, int bit, bool val);
+int atl_verify_thermal_limits(struct atl_hw *hw, struct atl_thermal *thermal);
+int atl_do_reset(struct atl_nic *nic);
 
 #endif

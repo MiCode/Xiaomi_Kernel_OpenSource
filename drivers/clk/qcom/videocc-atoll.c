@@ -121,6 +121,7 @@ static const struct freq_tbl ftbl_video_cc_venus_clk_src[] = {
 	F(150000000, P_VIDEO_PLL0_OUT_MAIN, 4, 0, 0),
 	F(270000000, P_VIDEO_PLL0_OUT_MAIN, 2.5, 0, 0),
 	F(340000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+	F(380000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 	F(434000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 	F(500000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 	{ }

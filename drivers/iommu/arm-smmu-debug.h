@@ -55,6 +55,18 @@ enum testbus_ops {
 	TESTBUS_OUTPUT,
 };
 
+#define ARM_SMMU_TNX_TCR_CNTL		0x130
+#define ARM_SMMU_CAPTURE1_MASK(i)	(0x100 + (0x8)*(i-1))
+#define ARM_SMMU_CAPTURE1_MATCH(i)	(0x118 + (0x8)*(i-1))
+#define ARM_SMMU_CAPTURE_SNAPSHOT(i, j)	((0x138 + (0x10)*i) + j*0x8)
+#define APPS_SMMU_TNX_TCR_CNTL_2	0x178
+
+#define NO_OF_MASK_AND_MATCH		0x3
+#define NO_OF_CAPTURE_POINTS		0x4
+#define REGS_PER_CAPTURE_POINT		0x2
+#define INTR_CLR			(1 << 0)
+#define RESET_VALID			(1 << 7)
+
 #ifdef CONFIG_ARM_SMMU
 
 u32 arm_smmu_debug_tbu_testbus_select(void __iomem *tbu_base,
@@ -71,7 +83,16 @@ void arm_smmu_debug_dump_tbu_testbus(struct device *dev, void __iomem *tbu_base,
 		u32 testbus_version);
 void arm_smmu_debug_dump_tcu_testbus(struct device *dev, void __iomem *base,
 			void __iomem *tcu_base, int tcu_testbus_sel);
-
+void arm_smmu_debug_set_tnx_tcr_cntl(void __iomem *tbu_base, u64 val);
+unsigned long arm_smmu_debug_get_tnx_tcr_cntl(void __iomem *tbu_base);
+unsigned long arm_smmu_debug_get_tnx_tcr_cntl_2(void __iomem *tbu_base);
+void arm_smmu_debug_set_mask_and_match(void __iomem *tbu_base, u64 sel,
+					u64 mask, u64 match);
+void arm_smmu_debug_get_mask_and_match(void __iomem *tbu_base,
+					u64 *mask, u64 *match);
+void arm_smmu_debug_get_capture_snapshot(void __iomem *tbu_base,
+		u64 snapshot[NO_OF_CAPTURE_POINTS][REGS_PER_CAPTURE_POINT]);
+void arm_smmu_debug_clear_intr_and_validbits(void __iomem *tbu_base);
 #else
 static inline u32 arm_smmu_debug_tbu_testbus_select(void __iomem *tbu_base,
 		void __iomem *tcu_base,	u32 testbus_version, bool write,
@@ -98,6 +119,30 @@ static inline void arm_smmu_debug_dump_tbu_testbus(struct device *dev,
 static inline void arm_smmu_debug_dump_tcu_testbus(struct device *dev,
 			void __iomem *base, void __iomem *tcu_base,
 			int tcu_testbus_sel)
+{
+}
+void arm_smmu_debug_set_tnx_tcr_cntl(void __iomem *tbu_base, u64 val)
+{
+}
+unsigned long arm_smmu_debug_get_tnx_tcr_cntl(void __iomem *tbu_base)
+{
+}
+unsigned long arm_smmu_debug_get_tnx_tcr_cntl_2(void __iomem *tbu_base)
+{
+}
+void arm_smmu_debug_set_mask_and_match(void __iomem *tbu_base, u64 sel,
+					u64 mask, u64 match)
+{
+}
+void arm_smmu_debug_get_mask_and_match(void __iomem *tbu_base,
+					u64 *mask, u64 *match)
+{
+}
+void arm_smmu_debug_get_capture_snapshot(void __iomem *tbu_base,
+		u64 snapshot[NO_OF_CAPTURE_POINTS][REGS_PER_CAPTURE_POINT])
+{
+}
+void arm_smmu_debug_clear_intr_and_validbits(void __iomem *tbu_base)
 {
 }
 #endif

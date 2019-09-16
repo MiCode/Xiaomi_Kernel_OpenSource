@@ -598,7 +598,7 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 	MHI_LOG("Waiting for all pending event ring processing to complete\n");
 	mhi_event = mhi_cntrl->mhi_event;
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-		if (mhi_event->offload_ev)
+		if (!mhi_event->request_irq)
 			continue;
 		tasklet_kill(&mhi_event->task);
 	}
@@ -617,6 +617,7 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 	wake_up_all(&mhi_cntrl->state_event);
 	flush_work(&mhi_cntrl->st_worker);
 	flush_work(&mhi_cntrl->fw_worker);
+	flush_work(&mhi_cntrl->low_priority_worker);
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 
@@ -727,6 +728,44 @@ int mhi_queue_state_transition(struct mhi_controller *mhi_cntrl,
 	schedule_work(&mhi_cntrl->st_worker);
 
 	return 0;
+}
+
+static void mhi_low_priority_events_pending(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_event *mhi_event;
+
+	list_for_each_entry(mhi_event, &mhi_cntrl->lp_ev_rings, node) {
+		struct mhi_event_ctxt *er_ctxt =
+			&mhi_cntrl->mhi_ctxt->er_ctxt[mhi_event->er_index];
+		struct mhi_ring *ev_ring = &mhi_event->ring;
+
+		spin_lock_bh(&mhi_event->lock);
+		if (ev_ring->rp != mhi_to_virtual(ev_ring, er_ctxt->rp)) {
+			schedule_work(&mhi_cntrl->low_priority_worker);
+			spin_unlock_bh(&mhi_event->lock);
+			break;
+		}
+		spin_unlock_bh(&mhi_event->lock);
+	}
+}
+
+void mhi_low_priority_worker(struct work_struct *work)
+{
+	struct mhi_controller *mhi_cntrl = container_of(work,
+							struct mhi_controller,
+							low_priority_worker);
+	struct mhi_event *mhi_event;
+
+	MHI_VERB("Enter with pm_state:%s MHI_STATE:%s ee:%s\n",
+		 to_mhi_pm_state_str(mhi_cntrl->pm_state),
+		 TO_MHI_STATE_STR(mhi_cntrl->dev_state),
+		 TO_MHI_EXEC_STR(mhi_cntrl->ee));
+
+	/* check low priority event rings and process events */
+	list_for_each_entry(mhi_event, &mhi_cntrl->lp_ev_rings, node) {
+		if (MHI_IN_MISSION_MODE(mhi_cntrl->ee))
+			mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
+	}
 }
 
 void mhi_pm_sys_err_worker(struct work_struct *work)
@@ -1253,6 +1292,14 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 		return -EIO;
 	}
 
+	/*
+	 * If MHI on host is in suspending/suspended state, we do not process
+	 * any low priority requests, for example, bandwidth scaling events
+	 * from the device. Check for low priority event rings and handle the
+	 * pending events upon resume.
+	 */
+	mhi_low_priority_events_pending(mhi_cntrl);
+
 	return 0;
 }
 
@@ -1317,11 +1364,14 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 	 */
 	mhi_event = mhi_cntrl->mhi_event;
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-		if (mhi_event->offload_ev)
+		if (!mhi_event->request_irq)
 			continue;
 
 		mhi_msi_handlr(0, mhi_event);
 	}
+
+	/* schedules worker if any low priority events need to be handled */
+	mhi_low_priority_events_pending(mhi_cntrl);
 
 	MHI_LOG("Exit with pm_state:%s dev_state:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),

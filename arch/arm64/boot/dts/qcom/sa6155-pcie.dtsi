@@ -151,6 +151,7 @@
 		qcom,phy-status-offset = <0x974>;
 		qcom,phy-status-bit = <6>;
 		qcom,phy-power-down-offset = <0x804>;
+		qcom,core-preset = <0x77777777>;
 
 		qcom,boot-option = <0x1>;
 

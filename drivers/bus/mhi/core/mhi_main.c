@@ -264,7 +264,7 @@ static int get_nr_avail_ring_elements(struct mhi_controller *mhi_cntrl,
 	return nr_el;
 }
 
-static void *mhi_to_virtual(struct mhi_ring *ring, dma_addr_t addr)
+void *mhi_to_virtual(struct mhi_ring *ring, dma_addr_t addr)
 {
 	return (addr - ring->iommu_base) + ring->base;
 }
@@ -1478,7 +1478,13 @@ irqreturn_t mhi_msi_handlr(int irq_number, void *dev)
 
 		if (mhi_dev)
 			mhi_dev->status_cb(mhi_dev, MHI_CB_PENDING_DATA);
-	} else
+
+		return IRQ_HANDLED;
+	}
+
+	if (IS_MHI_ER_PRIORITY_HIGH(mhi_event))
+		tasklet_hi_schedule(&mhi_event->task);
+	else
 		tasklet_schedule(&mhi_event->task);
 
 	return IRQ_HANDLED;
@@ -1547,6 +1553,8 @@ irqreturn_t mhi_intvec_handlr(int irq_number, void *dev)
 	MHI_VERB("Enter\n");
 	wake_up_all(&mhi_cntrl->state_event);
 	MHI_VERB("Exit\n");
+
+	schedule_work(&mhi_cntrl->low_priority_worker);
 
 	return IRQ_WAKE_THREAD;
 }

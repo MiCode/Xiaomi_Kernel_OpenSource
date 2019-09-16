@@ -16,10 +16,15 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "atoll-idp.dtsi"
+#include "atoll-usbc-idp.dtsi"
 
 / {
 	model = "USBC Audio IDP";
 	compatible = "qcom,atoll-idp", "qcom,atoll", "qcom,idp";
 	qcom,msm-id = <407 0x0>;
 	qcom,board-id = <34 2>;
+};
+
+&dsi_rm69299_visionox_amoled_vid_display {
+	qcom,dsi-display-active;
 };

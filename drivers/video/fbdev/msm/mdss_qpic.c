@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +28,6 @@
 #include <linux/uaccess.h>
 #include <linux/bootmem.h>
 #include <linux/dma-mapping.h>
-#include <linux/clk/msm-clk.h>
 
 #include <linux/msm-sps.h>
 #include <linux/msm-bus.h>
@@ -85,8 +84,21 @@ static void mdss_qpic_clk_ctrl(bool enable)
 int qpic_on(struct msm_fb_data_type *mfd)
 {
 	int ret;
+	struct fb_info *fbi;
+	u32 data, bpp;
 
 	mdss_qpic_clk_ctrl(true);
+
+	fbi = mfd->fbi;
+	bpp = fbi->var.bits_per_pixel / 8;
+
+	data = QPIC_INP(QPIC_REG_QPIC_LCDC_CFG2);
+	if (bpp != 2) {
+		data &= ~(0xFFF);
+		data |= 0x200; /* XRGB */
+		data |= 0x2C;
+		QPIC_OUTP(QPIC_REG_QPIC_LCDC_CFG2, data);
+	}
 
 	ret = mdss_qpic_panel_on(qpic_res->panel_data, &qpic_res->panel_io);
 	qpic_res->qpic_is_on = true;
@@ -305,7 +317,7 @@ int qpic_init_sps(struct platform_device *pdev,
 	sps_config->source = SPS_DEV_HANDLE_MEM;
 	sps_config->destination = bam_handle;
 	sps_config->mode = SPS_MODE_DEST;
-	sps_config->dest_pipe_index = 6;
+	sps_config->dest_pipe_index = 8;
 
 	sps_config->options = SPS_O_AUTO_ENABLE | SPS_O_EOT;
 	sps_config->lock_group = 0;
@@ -662,11 +674,6 @@ int mdss_qpic_init(void)
 	qpic_interrupt_en(use_irq);
 
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_CFG0, 0x02108501);
-	data = QPIC_INP(QPIC_REG_QPIC_LCDC_CFG2);
-	data &= ~(0xFFF);
-	data |= 0x200; /* XRGB */
-	data |= 0x2C;
-	QPIC_OUTP(QPIC_REG_QPIC_LCDC_CFG2, data);
 
 	if (use_bam) {
 		qpic_init_sps(qpic_res->pdev, &qpic_res->qpic_endpt);

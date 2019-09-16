@@ -246,6 +246,29 @@ TRACE_EVENT(dfc_tx_link_status_ind,
 		__entry->mid, __entry->bid)
 );
 
+TRACE_EVENT(dfc_qmap,
+
+	TP_PROTO(const void *data, size_t len, bool in),
+
+	TP_ARGS(data, len, in),
+
+	TP_STRUCT__entry(
+		__field(bool, in)
+		__field(size_t, len)
+		__dynamic_array(u8, data, len)
+	),
+
+	TP_fast_assign(
+		__entry->in = in;
+		__entry->len = len;
+		memcpy(__get_dynamic_array(data), data, len);
+	),
+
+	TP_printk("%s [%s]",
+		__entry->in ? "<--" : "-->",
+		__print_hex(__get_dynamic_array(data), __entry->len))
+);
+
 #endif /* _TRACE_DFC_H */
 
 /* This part must be outside protection */

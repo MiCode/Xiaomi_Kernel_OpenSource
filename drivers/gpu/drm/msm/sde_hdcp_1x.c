@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -214,6 +214,7 @@ struct sde_hdcp_1x {
 	bool sink_r0_ready;
 	bool reauth;
 	bool ksv_ready;
+	bool force_encryption;
 	enum sde_hdcp_state hdcp_state;
 	struct HDCP_V2V1_MSG_TOPOLOGY current_tp;
 	struct delayed_work hdcp_auth_work;
@@ -1078,10 +1079,13 @@ static void sde_hdcp_1x_auth_work(struct work_struct *work)
 	}
 
 	/*
-	 * program hw to enable encryption as soon as
-	 * authentication is successful.
+	 * Program h/w to enable encryption as soon as authentication is
+	 * successful. This is applicable for HDMI sinks and HDCP 1.x compliance
+	 * test cases.
 	 */
-	hdcp1_set_enc(hdcp->hdcp1_handle, true);
+	if (hdcp->init_data.client_id == HDCP_CLIENT_HDMI ||
+			hdcp->force_encryption)
+		hdcp1_set_enc(hdcp->hdcp1_handle, true);
 
 	rc = sde_hdcp_1x_authentication_part1(hdcp);
 	if (rc)
@@ -1238,7 +1242,9 @@ static void sde_hdcp_1x_off(void *input)
 		pr_debug("%s: Deleted hdcp auth work\n",
 			SDE_HDCP_STATE_NAME);
 
-	hdcp1_set_enc(hdcp->hdcp1_handle, false);
+	if (hdcp->init_data.client_id == HDCP_CLIENT_HDMI ||
+			hdcp->force_encryption)
+		hdcp1_set_enc(hdcp->hdcp1_handle, false);
 
 	reg = DSS_REG_R(io, reg_set->reset);
 	DSS_REG_W(io, reg_set->reset, reg | reg_set->reset_bit);
@@ -1367,6 +1373,18 @@ static bool sde_hdcp_1x_feature_supported(void *input)
 	return feature_supported;
 }
 
+static void sde_hdcp_1x_force_encryption(void *input, bool enable)
+{
+	struct sde_hdcp_1x *hdcp = (struct sde_hdcp_1x *)input;
+
+	if (!hdcp) {
+		pr_err("invalid input\n");
+		return;
+	}
+	hdcp->force_encryption = enable;
+	pr_info("force_encryption=%d\n", hdcp->force_encryption);
+}
+
 static bool sde_hdcp_1x_sink_support(void *input)
 {
 	return true;
@@ -1490,6 +1508,7 @@ void *sde_hdcp_1x_init(struct sde_hdcp_init_data *init_data)
 		.reauthenticate = sde_hdcp_1x_reauthenticate,
 		.authenticate = sde_hdcp_1x_authenticate,
 		.feature_supported = sde_hdcp_1x_feature_supported,
+		.force_encryption = sde_hdcp_1x_force_encryption,
 		.sink_support = sde_hdcp_1x_sink_support,
 		.off = sde_hdcp_1x_off
 	};
@@ -1534,6 +1553,7 @@ void *sde_hdcp_1x_init(struct sde_hdcp_init_data *init_data)
 	hdcp->hdcp_state = HDCP_STATE_INACTIVE;
 	init_completion(&hdcp->r0_checked);
 	init_completion(&hdcp->sink_r0_available);
+	hdcp->force_encryption = false;
 
 	pr_debug("HDCP module initialized. HDCP_STATE=%s\n",
 		SDE_HDCP_STATE_NAME);

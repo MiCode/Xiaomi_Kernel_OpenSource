@@ -19,7 +19,6 @@ mounts-$(CONFIG_BLK_DEV_RAM)	+= do_mounts_rd.o
 mounts-$(CONFIG_BLK_DEV_INITRD)	+= do_mounts_initrd.o
 mounts-$(CONFIG_BLK_DEV_MD)	+= do_mounts_md.o
 mounts-$(CONFIG_BLK_DEV_DM)	+= do_mounts_dm.o
-mounts-$(CONFIG_BLK_DEV_DM)	+= do_mounts_verity.o
 
 # dependencies on generated files need to be listed explicitly
 $(obj)/version.o: include/generated/compile.h

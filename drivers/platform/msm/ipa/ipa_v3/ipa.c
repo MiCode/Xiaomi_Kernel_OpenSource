@@ -2630,6 +2630,10 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
+
+		/* null terminate the string */
+		fst_switch.netdev_name[IPA_RESOURCE_NAME_MAX - 1] = '\0';
+
 		retval = ipa_wigig_send_msg(WIGIG_FST_SWITCH,
 			fst_switch.netdev_name,
 			fst_switch.client_mac_addr,
@@ -6215,6 +6219,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->use_64_bit_dma_mask = resource_p->use_64_bit_dma_mask;
 	ipa3_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
 	ipa3_ctx->lan_rx_ring_size = resource_p->lan_rx_ring_size;
+	ipa3_ctx->ipa_wan_skb_page = resource_p->ipa_wan_skb_page;
 	ipa3_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
 	ipa3_ctx->tethered_flow_control = resource_p->tethered_flow_control;
 	ipa3_ctx->ee = resource_p->ee;
@@ -6879,6 +6884,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->platform_type = 0;
 	ipa_drv_res->modem_cfg_emb_pipe_flt = false;
 	ipa_drv_res->ipa_wdi2 = false;
+	ipa_drv_res->ipa_wan_skb_page = false;
 	ipa_drv_res->ipa_wdi2_over_gsi = false;
 	ipa_drv_res->ipa_wdi3_over_gsi = false;
 	ipa_drv_res->ipa_mhi_dynamic_config = false;
@@ -6998,6 +7004,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			"qcom,ipa-wdi2");
 	IPADBG(": WDI-2.0 = %s\n",
 			ipa_drv_res->ipa_wdi2
+			? "True" : "False");
+
+	ipa_drv_res->ipa_wan_skb_page =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,wan-use-skb-page");
+	IPADBG(": Use skb page = %s\n",
+			ipa_drv_res->ipa_wan_skb_page
 			? "True" : "False");
 
 	ipa_drv_res->ipa_fltrt_not_hashable =

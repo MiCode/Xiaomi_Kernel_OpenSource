@@ -79,8 +79,8 @@
 		compatible = "qcom,kona-asoc-snd";
 		qcom,mi2s-audio-intf = <1>;
 		qcom,auxpcm-audio-intf = <1>;
-		qcom,wcn-btfm = <0>;
-		qcom,ext-disp-audio-rx = <0>;
+		qcom,wcn-btfm = <1>;
+		qcom,ext-disp-audio-rx = <1>;
 		qcom,afe-rxtx-lb = <0>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
@@ -170,6 +170,16 @@
 				"msm-dai-cdc-dma-dev.45116",
 				"msm-dai-cdc-dma-dev.45118",
 				"msm-dai-q6-dev.24577";
+		fsa4480-i2c-handle = <&fsa4480>;
 	};
 };
 
+&qupv3_se9_i2c {
+	status = "ok";
+	fsa4480: fsa4480@42 {
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x42>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&fsa_usbc_ana_en>;
+	};
+};

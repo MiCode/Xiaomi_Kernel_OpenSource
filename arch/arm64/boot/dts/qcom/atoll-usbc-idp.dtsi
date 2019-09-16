@@ -10,11 +10,10 @@
  * GNU General Public License for more details.
  */
 
-#ifndef DM_IOCTRL_INTERNAL_H
-#define DM_IOCTRL_INTERNAL_H
+#include "atoll-audio-overlay.dtsi"
 
-#include <linux/dm-ioctl.h>
-
-int dm_ioctrl(uint cmd, struct dm_ioctl *param);
-
-#endif
+&atoll_snd {
+	qcom,msm-mbhc-usbc-audio-supported = <1>;
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
+};

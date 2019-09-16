@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,6 +216,11 @@ static int mdss_qpic_pinctrl_set_state(struct qpic_panel_io_desc *qpic_panel_io,
 
 	if (IS_ERR_OR_NULL(qpic_panel_io->pin_res.pinctrl))
 		return PTR_ERR(qpic_panel_io->pin_res.pinctrl);
+
+	if (active)
+		gpio_direction_output(qpic_panel_io->bl_gpio, 1);
+	else
+		gpio_direction_output(qpic_panel_io->bl_gpio, 0);
 
 	pin_state = active ? qpic_panel_io->pin_res.gpio_state_active
 		: qpic_panel_io->pin_res.gpio_state_suspend;

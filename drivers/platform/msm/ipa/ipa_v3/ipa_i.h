@@ -992,6 +992,7 @@ struct ipa3_repl_ctx {
 struct ipa3_sys_context {
 	u32 len;
 	atomic_t curr_polling_state;
+	atomic_t workqueue_flushed;
 	struct delayed_work switch_to_intr_work;
 	enum ipa3_sys_pipe_policy policy;
 	bool use_comm_evt_ring;
@@ -1139,7 +1140,10 @@ struct ipa3_desc {
  */
 struct ipa3_rx_pkt_wrapper {
 	struct list_head link;
-	struct ipa_rx_data data;
+	union {
+		struct ipa_rx_data data;
+		struct ipa_rx_page_data page_data;
+	};
 	u32 len;
 	struct work_struct work;
 	struct ipa3_sys_context *sys;
@@ -1905,6 +1909,7 @@ struct ipa3_context {
 	struct IpaHwOffloadStatsAllocCmdData_t
 		gsi_info[IPA_HW_PROTOCOL_MAX];
 	bool ipa_mhi_proxy;
+	bool ipa_wan_skb_page;
 };
 
 struct ipa3_plat_drv_res {
@@ -1951,6 +1956,7 @@ struct ipa3_plat_drv_res {
 	bool ipa_endp_delay_wa;
 	u32 secure_debug_check_action;
 	bool ipa_mhi_proxy;
+	bool ipa_wan_skb_page;
 };
 
 /**
@@ -3008,6 +3014,7 @@ int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
 	enum ipa_client_type dst_pipe);
 int ipa_mpm_panic_handler(char *buf, int size);
 int ipa3_get_mhip_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats);
+int ipa3_mpm_enable_adpl_over_odl(bool enable);
 #else
 static inline int ipa_mpm_mhip_xdci_pipe_enable(
 	enum ipa_usb_teth_prot prot)
@@ -3043,6 +3050,11 @@ static inline int ipa3_get_mhip_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats)
 	return 0;
 }
 
+static inline int ipa3_mpm_enable_adpl_over_odl(bool enable)
+{
+	return 0;
+}
+
 static inline void *alloc_and_init(u32 size, u32 init_val)
 {
 	return 0;
@@ -3052,4 +3064,6 @@ static inline void *alloc_and_init(u32 size, u32 init_val)
 
 /* query ipa APQ mode*/
 bool ipa3_is_apq(void);
+/* check if odl is connected */
+bool ipa3_is_odl_connected(void);
 #endif /* _IPA3_I_H_ */

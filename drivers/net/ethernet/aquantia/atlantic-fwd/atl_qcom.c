@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,11 +10,17 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/of.h>
+
 #include <linux/iommu.h>
 #include <asm/dma-iommu.h>
 #include <linux/platform_device.h>
 
+#include "atl_qcom_ipa.h"
 #include "atl_qcom.h"
+
+static int (*atl_probe_real)(struct pci_dev *, const struct pci_device_id *);
+static void (*atl_remove_real)(struct pci_dev *);
 
 static int atl_qcom_parse_smmu_attr(struct device *dev,
 				    struct iommu_domain *domain,
@@ -60,7 +66,7 @@ static int atl_qcom_parse_smmu_attrs(struct device *dev,
 	return rc;
 }
 
-static int atl_qcom_parse_smmu(struct device *dev)
+static int __atl_qcom_attach_smmu(struct device *dev)
 {
 	int rc;
 	const char *key;
@@ -117,14 +123,110 @@ err_release_mapping:
 	return rc;
 }
 
-int atl_qcom_parse_dt(struct device *dev)
+static int atl_qcom_attach_smmu(struct device *dev)
 {
 	int rc = 0;
 
+	if (!dev->of_node) {
+		dev_dbg(dev, "device tree node is not present\n");
+		return 0;
+	}
+
 	if (of_find_property(dev->of_node, "qcom,smmu", NULL))
-		rc = atl_qcom_parse_smmu(dev);
+		rc = __atl_qcom_attach_smmu(dev);
 	else
 		dev_dbg(dev, "SMMU config not present in DT\n");
 
 	return 0;
+}
+
+static void atl_qcom_detach_smmu(struct device *dev)
+{
+	struct dma_iommu_mapping *mapping;
+
+	if (!dev->of_node || !of_find_property(dev->of_node, "qcom,smmu", NULL))
+		return;
+
+	mapping = to_dma_iommu_mapping(dev);
+	if (!mapping)
+		return;
+
+	arm_iommu_detach_device(dev);
+	arm_iommu_release_mapping(mapping);
+}
+
+static int atl_qcom_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+{
+	int rc;
+
+	rc = atl_qcom_attach_smmu(&pdev->dev);
+	if (rc)
+		return rc;
+
+	rc = atl_probe_real(pdev, id);
+	if (rc) {
+		atl_qcom_detach_smmu(&pdev->dev);
+		return rc;
+	}
+
+	return 0;
+}
+
+static void atl_qcom_remove(struct pci_dev *pdev)
+{
+	atl_remove_real(pdev);
+	atl_qcom_detach_smmu(&pdev->dev);
+}
+
+static int __atl_qcom_register(struct pci_driver *pdrv)
+{
+	if (atl_probe_real || atl_remove_real) {
+		pr_err("%s: Driver already registered\n", __func__);
+		return -EEXIST;
+	}
+
+	atl_probe_real = pdrv->probe;
+	pdrv->probe = atl_qcom_probe;
+
+	atl_remove_real = pdrv->remove;
+	pdrv->remove = atl_qcom_remove;
+
+	return 0;
+}
+
+static void __atl_qcom_unregister(struct pci_driver *pdrv)
+{
+	if (atl_probe_real) {
+		pdrv->probe = atl_probe_real;
+		atl_probe_real = NULL;
+	}
+
+	if (atl_remove_real) {
+		pdrv->remove = atl_remove_real;
+		atl_remove_real = NULL;
+	}
+}
+
+int atl_qcom_register(struct pci_driver *pdrv)
+{
+	int rc;
+
+	rc = __atl_qcom_register(pdrv);
+	if (rc)
+		return rc;
+
+	rc = atl_qcom_ipa_register(pdrv);
+	if (rc) {
+		pr_err("%s: Failed to register driver with IPA\n", __func__);
+		__atl_qcom_unregister(pdrv);
+		return rc;
+	}
+
+	return 0;
+}
+
+void atl_qcom_unregister(struct pci_driver *pdrv)
+{
+	atl_qcom_ipa_unregister(pdrv);
+	__atl_qcom_unregister(pdrv);
 }

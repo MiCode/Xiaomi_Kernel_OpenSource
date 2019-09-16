@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -385,9 +385,9 @@
 		L11A: pm6150_l11: regulator-pm6150-l11 {
 			regulator-name = "pm6150_l11";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <1616000>;
+			regulator-min-microvolt = <1696000>;
 			regulator-max-microvolt = <1984000>;
-			qcom,init-voltage = <1616000>;
+			qcom,init-voltage = <1696000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
 	};
