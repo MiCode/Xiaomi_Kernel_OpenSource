@@ -515,6 +515,39 @@ static const struct of_device_id gpu_cc_sm6150_match_table[] = {
 };
 MODULE_DEVICE_TABLE(of, gpu_cc_sm6150_match_table);
 
+static void gpu_cc_sm6150_configure(struct regmap *regmap)
+{
+	unsigned int value, mask;
+
+	/* Recommended WAKEUP/SLEEP settings for the gpu_cc_cx_gmu_clk */
+	mask = CX_GMU_CBCR_WAKE_MASK << CX_GMU_CBCR_WAKE_SHIFT;
+	mask |= CX_GMU_CBCR_SLEEP_MASK << CX_GMU_CBCR_SLEEP_SHIFT;
+	value = 0xf << CX_GMU_CBCR_WAKE_SHIFT | 0xf << CX_GMU_CBCR_SLEEP_SHIFT;
+	regmap_update_bits(regmap, gpu_cc_cx_gmu_clk.clkr.enable_reg,
+							mask, value);
+
+	/* After POR, Clock Ramp Controller(CRC) will be in bypass mode.
+	 * Software needs to do the following operation to enable the CRC
+	 * for GFX3D clock and divide the input clock by div by 2.
+	 */
+	regmap_update_bits(regmap, GFX3D_CRC_MND_CFG, 0x00015011, 0x00015011);
+	regmap_update_bits(regmap,
+			GFX3D_CRC_SID_FSM_CTRL, 0x00800000, 0x00800000);
+}
+
+static int gpu_cc_sm6150_resume(struct device *dev)
+{
+	struct regmap *regmap = dev_get_drvdata(dev);
+
+	gpu_cc_sm6150_configure(regmap);
+
+	return 0;
+}
+
+static const struct dev_pm_ops gpu_cc_sm6150_pm_ops = {
+	.restore_early = gpu_cc_sm6150_resume,
+};
+
 static void gpucc_sm6150_fixup_sa6155(struct platform_device *pdev)
 {
 	vdd_cx.num_levels = VDD_NUM_SA6155;
@@ -523,13 +556,14 @@ static void gpucc_sm6150_fixup_sa6155(struct platform_device *pdev)
 	vdd_mx.cur_level = VDD_MX_NUM_SA6155;
 	gpu_cc_gx_gfx3d_clk_src.clkr.hw.init->rate_max[VDD_HIGH_L1] = 0;
 	gpu_cc_gx_gfx3d_clk_src.freq_tbl = ftbl_gpu_cc_gx_gfx3d_clk_src_sa6155;
+
+	pdev->dev.driver->pm =  &gpu_cc_sm6150_pm_ops;
 }
 
 static int gpu_cc_sm6150_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
 	int ret;
-	unsigned int value, mask;
 	int is_sa6155;
 
 	/* Get CX voltage regulator for CX and GMU clocks. */
@@ -572,20 +606,10 @@ static int gpu_cc_sm6150_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	/* Recommended WAKEUP/SLEEP settings for the gpu_cc_cx_gmu_clk */
-	mask = CX_GMU_CBCR_WAKE_MASK << CX_GMU_CBCR_WAKE_SHIFT;
-	mask |= CX_GMU_CBCR_SLEEP_MASK << CX_GMU_CBCR_SLEEP_SHIFT;
-	value = 0xf << CX_GMU_CBCR_WAKE_SHIFT | 0xf << CX_GMU_CBCR_SLEEP_SHIFT;
-	regmap_update_bits(regmap, gpu_cc_cx_gmu_clk.clkr.enable_reg,
-							mask, value);
+	gpu_cc_sm6150_configure(regmap);
 
-	/* After POR, Clock Ramp Controller(CRC) will be in bypass mode.
-	 * Software needs to do the following operation to enable the CRC
-	 * for GFX3D clock and divide the input clock by div by 2.
-	 */
-	regmap_update_bits(regmap, GFX3D_CRC_MND_CFG, 0x00015011, 0x00015011);
-	regmap_update_bits(regmap,
-			GFX3D_CRC_SID_FSM_CTRL, 0x00800000, 0x00800000);
+	if (is_sa6155)
+		dev_set_drvdata(&pdev->dev, regmap);
 
 	dev_info(&pdev->dev, "Registered GPU CC clocks\n");
 
