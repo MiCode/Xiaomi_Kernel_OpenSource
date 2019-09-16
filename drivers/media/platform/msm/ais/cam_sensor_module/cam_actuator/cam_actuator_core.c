@@ -682,7 +682,7 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 	}
 
 	if (cam_mem_put_cpu_buf(config.packet_handle))
-		CAM_WARN(CAM_ACTUATOR, "Fail to put cmd buffer: 0x%x",
+		CAM_WARN(CAM_ACTUATOR, "Fail to put cmd buffer: 0x%llx",
 			config.packet_handle);
 
 	return rc;
@@ -693,7 +693,7 @@ rel_cmd_buf:
 			cmd_desc[i].mem_handle);
 rel_pkt_buf:
 	if (cam_mem_put_cpu_buf(config.packet_handle))
-		CAM_WARN(CAM_ACTUATOR, "Fail to put cmd buffer: 0x%x",
+		CAM_WARN(CAM_ACTUATOR, "Fail to put cmd buffer: 0x%llx",
 			config.packet_handle);
 
 	return rc;
