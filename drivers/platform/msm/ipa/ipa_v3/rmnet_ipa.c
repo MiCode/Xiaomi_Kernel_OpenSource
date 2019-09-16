@@ -4842,7 +4842,7 @@ int rmnet_ipa3_query_per_client_stats_v2(
 				lan_client[i].mac,
 				IPA_MAC_ADDR_SIZE);
 
-		IPAWANDBG("Client ipv4_tx_bytes = %lu, ipv4_rx_bytes = %lu\n",
+		IPAWANDBG("Client ipv4_tx_bytes = %llu, ipv4_rx_bytes = %llu\n",
 				data->client_info[i].ipv4_tx_bytes,
 				data->client_info[i].ipv4_rx_bytes);
 
