@@ -55,6 +55,7 @@
 
 static DEFINE_SPINLOCK(pci_link_down_lock);
 static DEFINE_SPINLOCK(pci_reg_window_lock);
+static DEFINE_SPINLOCK(time_sync_lock);
 
 #define MHI_TIMEOUT_OVERWRITE_MS	(plat_priv->ctrl_params.mhi_timeout)
 #define MHI_M2_TIMEOUT_MS		(plat_priv->ctrl_params.mhi_m2_timeout)
@@ -1009,6 +1010,7 @@ static int cnss_pci_get_device_timestamp(struct cnss_pci_data *pci_priv,
 static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	unsigned long flags = 0;
 	u64 host_time_us, device_time_us, offset;
 	u32 low, high;
 	int ret;
@@ -1021,8 +1023,10 @@ static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 	if (ret)
 		return ret;
 
+	spin_lock_irqsave(&time_sync_lock, flags);
 	host_time_us = cnss_get_host_timestamp(plat_priv);
 	ret = cnss_pci_get_device_timestamp(pci_priv, &device_time_us);
+	spin_unlock_irqrestore(&time_sync_lock, flags);
 	if (ret)
 		goto force_wake_put;
 
