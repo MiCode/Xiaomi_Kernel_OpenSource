@@ -609,11 +609,18 @@ static void qrtr_node_assign(struct qrtr_node *node, unsigned int nid)
 	if (tnode)
 		return;
 
+	/* If the node is not in qrtr_all_epts, it is being released and should
+	 * not be inserted into the lookup table.
+	 */
 	down_write(&qrtr_node_lock);
-	radix_tree_insert(&qrtr_nodes, nid, node);
-
-	if (node->nid == QRTR_EP_NID_AUTO)
-		node->nid = nid;
+	list_for_each_entry(tnode, &qrtr_all_epts, item) {
+		if (tnode == node) {
+			radix_tree_insert(&qrtr_nodes, nid, node);
+			if (node->nid == QRTR_EP_NID_AUTO)
+				node->nid = nid;
+			break;
+		}
+	}
 	up_write(&qrtr_node_lock);
 
 	snprintf(name, sizeof(name), "qrtr_%d", nid);
