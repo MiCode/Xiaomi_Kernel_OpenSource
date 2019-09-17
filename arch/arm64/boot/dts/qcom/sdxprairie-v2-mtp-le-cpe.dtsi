@@ -28,6 +28,7 @@
 
 &usb {
 	extcon = <&vbus_detect>;
+	qcom,smmu-s1-bypass;
 };
 
 &spmi_bus {
