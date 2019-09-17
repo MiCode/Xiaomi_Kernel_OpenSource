@@ -75,7 +75,7 @@ struct ks_bridge {
 	unsigned long		flags;
 };
 
-struct ks_bridge *__ksb[NO_BRIDGE_INSTANCES];
+static struct ks_bridge *__ksb[NO_BRIDGE_INSTANCES];
 
 #define DBG_MSG_LEN   40
 #define DBG_MAX_MSG   500
@@ -667,6 +667,11 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	}
 
 	ksb = __ksb[devid];
+	if (ksb->ifc) {
+		dev_err(&ifc->dev, "%s: Port already in use\n", __func__);
+		return -ENODEV;
+	}
+
 	ksb->udev = usb_get_dev(udev);
 	ksb->ifc = usb_get_intf(ifc);
 	ksb->in_pipe = usb_rcvbulkpipe(ksb->udev,
@@ -808,8 +813,8 @@ static void ksb_usb_disconnect(struct usb_interface *ifc)
 					msecs_to_jiffies(PENDING_URB_TIMEOUT));
 	wake_up(&ksb->ks_wait_q);
 	usb_set_intfdata(ifc, NULL);
+	usb_put_intf(ifc);
 	usb_put_dev(ksb->udev);
-	ksb->ifc = NULL;
 }
 
 static int ksb_usb_suspend(struct usb_interface *ifc, pm_message_t message)
