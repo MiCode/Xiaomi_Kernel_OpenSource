@@ -30,9 +30,9 @@ static void *msm_ion_buffer_kmap_get(struct ion_buffer *buffer)
 		buffer->kmap_cnt++;
 		return buffer->vaddr;
 	}
-	vaddr = buffer->heap->ops->map_kernel(buffer->heap, buffer);
+	vaddr = ion_heap_map_kernel(buffer->heap, buffer);
 	if (WARN_ONCE(!vaddr,
-		      "heap->ops->map_kernel should return ERR_PTR on error"))
+		      "ion_heap_map_kernel should return ERR_PTR on error"))
 		return ERR_PTR(-EINVAL);
 	if (IS_ERR(vaddr))
 		return vaddr;
@@ -51,7 +51,7 @@ static void msm_ion_buffer_kmap_put(struct ion_buffer *buffer)
 
 	buffer->kmap_cnt--;
 	if (!buffer->kmap_cnt) {
-		buffer->heap->ops->unmap_kernel(buffer->heap, buffer);
+		ion_heap_unmap_kernel(buffer->heap, buffer);
 		buffer->vaddr = NULL;
 	}
 }
@@ -282,8 +282,8 @@ static int msm_ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	struct ion_buffer *buffer = dmabuf->priv;
 	int ret = 0;
 
-	if (!buffer->heap->ops->map_user) {
-		pr_err("%s: this heap does not define a method for mapping to userspace\n",
+	if (!hlos_accessible_buffer(buffer)) {
+		pr_err("%s: this buffer cannot be mapped to userspace\n",
 		       __func__);
 		return -EINVAL;
 	}
@@ -293,7 +293,7 @@ static int msm_ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 
 	mutex_lock(&buffer->lock);
 	/* now map it to userspace */
-	ret = buffer->heap->ops->map_user(buffer->heap, buffer, vma);
+	ret = ion_heap_map_user(buffer->heap, buffer, vma);
 	mutex_unlock(&buffer->lock);
 
 	if (ret)
@@ -316,7 +316,7 @@ static void *msm_ion_dma_buf_vmap(struct dma_buf *dmabuf)
 	struct ion_buffer *buffer = dmabuf->priv;
 	void *vaddr = ERR_PTR(-EINVAL);
 
-	if (buffer->heap->ops->map_kernel) {
+	if (hlos_accessible_buffer(buffer)) {
 		mutex_lock(&buffer->lock);
 		vaddr = msm_ion_buffer_kmap_get(buffer);
 		mutex_unlock(&buffer->lock);
@@ -332,7 +332,7 @@ static void msm_ion_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 
-	if (buffer->heap->ops->map_kernel) {
+	if (hlos_accessible_buffer(buffer)) {
 		mutex_lock(&buffer->lock);
 		msm_ion_buffer_kmap_put(buffer);
 		mutex_unlock(&buffer->lock);

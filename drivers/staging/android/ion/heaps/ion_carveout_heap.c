@@ -117,9 +117,6 @@ static void ion_carveout_heap_free(struct ion_buffer *buffer)
 static struct ion_heap_ops carveout_heap_ops = {
 	.allocate = ion_carveout_heap_allocate,
 	.free = ion_carveout_heap_free,
-	.map_user = ion_heap_map_user,
-	.map_kernel = ion_heap_map_kernel,
-	.unmap_kernel = ion_heap_unmap_kernel,
 };
 
 static int ion_heap_clear_pages(struct page **pages, int num, pgprot_t pgprot)

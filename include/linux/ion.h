@@ -18,7 +18,7 @@
 #include <linux/sched.h>
 #include <linux/shrinker.h>
 #include <linux/types.h>
-#include <uapi/ion.h>
+#include <uapi/linux/ion.h>
 
 /**
  * struct ion_buffer - metadata for a particular buffer
@@ -57,11 +57,8 @@ struct ion_buffer {
  * struct ion_heap_ops - ops to operate on a given heap
  * @allocate:		allocate memory
  * @free:		free memory
- * @map_kernel		map memory to the kernel
- * @unmap_kernel	unmap memory to the kernel
- * @map_user		map memory to userspace
  *
- * allocate, phys, and map_user return 0 on success, -errno on error.
+ * allocate returns 0 on success, -errno on error.
  * map_dma and map_kernel return pointer on success, ERR_PTR on
  * error. @free will be called with ION_PRIV_FLAG_SHRINKER_FREE set in
  * the buffer's private_flags when called from a shrinker. In that
@@ -73,10 +70,6 @@ struct ion_heap_ops {
 			struct ion_buffer *buffer, unsigned long len,
 			unsigned long flags);
 	void (*free)(struct ion_buffer *buffer);
-	void * (*map_kernel)(struct ion_heap *heap, struct ion_buffer *buffer);
-	void (*unmap_kernel)(struct ion_heap *heap, struct ion_buffer *buffer);
-	int (*map_user)(struct ion_heap *mapper, struct ion_buffer *buffer,
-			struct vm_area_struct *vma);
 	int (*shrink)(struct ion_heap *heap, gfp_t gfp_mask, int nr_to_scan);
 };
 
@@ -101,6 +94,7 @@ struct ion_heap_ops {
  * @node:		rb node to put the heap on the device's tree of heaps
  * @type:		type of heap
  * @ops:		ops struct as above
+ * @buf_ops:		dma_buf ops specific to the heap implementation.
  * @flags:		flags
  * @id:			id of heap, also indicates priority of this heap when
  *			allocating.  These are specified by platform data and
@@ -126,6 +120,7 @@ struct ion_heap {
 	struct plist_node node;
 	enum ion_heap_type type;
 	struct ion_heap_ops *ops;
+	struct dma_buf_ops buf_ops;
 	unsigned long flags;
 	unsigned int id;
 	const char *name;
@@ -298,6 +293,13 @@ int ion_buffer_zero(struct ion_buffer *buffer);
 struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
 			  unsigned int flags);
 
+/**
+ * ion_free - Releases the ion buffer.
+ *
+ * @buffer:             ion buffer to be released
+ */
+int ion_free(struct ion_buffer *buffer);
+
 #else
 
 static inline int __ion_device_add_heap(struct ion_heap *heap,
@@ -360,6 +362,11 @@ static inline struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
 					unsigned int flags)
 {
 	return ERR_PTR(-ENOMEM);
+}
+
+static inline int ion_free(struct ion_buffer *buffer)
+{
+	return 0;
 }
 
 #endif /* CONFIG_ION */

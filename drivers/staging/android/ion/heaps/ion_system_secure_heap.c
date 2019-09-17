@@ -304,28 +304,6 @@ int ion_system_secure_heap_drain(struct ion_heap *heap, void *ptr)
 	return __ion_system_secure_heap_resize(heap, ptr, true);
 }
 
-static void *ion_system_secure_heap_map_kernel(struct ion_heap *heap,
-					       struct ion_buffer *buffer)
-{
-	pr_info("%s: Kernel mapping from secure heap %s disallowed\n",
-		__func__, heap->name);
-	return ERR_PTR(-EINVAL);
-}
-
-static void ion_system_secure_heap_unmap_kernel(struct ion_heap *heap,
-						struct ion_buffer *buffer)
-{
-}
-
-static int ion_system_secure_heap_map_user(struct ion_heap *mapper,
-					   struct ion_buffer *buffer,
-					   struct vm_area_struct *vma)
-{
-	pr_info("%s: Mapping from secure heap %s disallowed\n",
-		__func__, mapper->name);
-	return -EINVAL;
-}
-
 static int ion_system_secure_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
 					 int nr_to_scan)
 {
@@ -339,9 +317,6 @@ static int ion_system_secure_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
 static struct ion_heap_ops system_secure_heap_ops = {
 	.allocate = ion_system_secure_heap_allocate,
 	.free = ion_system_secure_heap_free,
-	.map_kernel = ion_system_secure_heap_map_kernel,
-	.unmap_kernel = ion_system_secure_heap_unmap_kernel,
-	.map_user = ion_system_secure_heap_map_user,
 	.shrink = ion_system_secure_heap_shrink,
 };
 
