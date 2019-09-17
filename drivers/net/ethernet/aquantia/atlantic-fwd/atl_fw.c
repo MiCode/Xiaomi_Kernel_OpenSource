@@ -205,6 +205,7 @@ static int __atl_fw2_get_link_caps(struct atl_hw *hw)
 	mcp->caps_low = caps[0];
 	mcp->caps_high = caps[1];
 	mcp->caps_ex = caps_ex;
+	mcp->wdog_disabled = !(mcp->caps_ex & atl_fw2_ex_caps_mac_heartbeat);
 	atl_dev_dbg("Got link caps: %#x %#x %#x\n", caps[0], caps[1], caps_ex);
 
 	atl_for_each_rate(i, rate) {
@@ -372,7 +373,8 @@ static void atl_fw2_set_default_link(struct atl_hw *hw)
 
 	atl_fw1_set_default_link(hw);
 	lstate->fc.req = atl_fc_full;
-	lstate->eee_enabled = 1;
+	lstate->eee_enabled = 0;
+	lstate->advertized &= ~ATL_EEE_MASK;
 }
 
 static int atl_fw1_enable_wol(struct atl_hw *hw, unsigned int wol_mode)
@@ -385,22 +387,15 @@ static int atl_fw2_enable_wol(struct atl_hw *hw, unsigned int wol_mode)
 	struct offloadInfo *info;
 	struct drvIface *msg = NULL;
 	uint32_t val, wol_bits = 0, req_high = hw->mcp.req_high;
-	uint32_t low_req;
+	uint32_t low_req, wol_ex_flags = 0;
 
 	atl_lock_fw(hw);
-
-	if (hw->mcp.caps_ex & atl_fw2_ex_caps_wol_ex) {
-		ret = atl_write_fwsettings_word(hw, atl_fw2_setings_wol_ex, 
-			atl_fw2_wol_ex_wake_on_link_keep_rate | 
-			atl_fw2_wol_ex_wake_on_magic_keep_rate);
-		if (ret)
-			return ret;
-	}
 
 	low_req = atl_read(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_LOW));
 
 	if (wol_mode & atl_fw_wake_on_link) {
 		wol_bits |= atl_fw2_wake_on_link;
+		wol_ex_flags |= atl_fw2_wol_ex_wake_on_link_keep_rate;
 		low_req &= ~atl_fw2_wake_on_link_force;
 	}
 
@@ -411,6 +406,7 @@ static int atl_fw2_enable_wol(struct atl_hw *hw, unsigned int wol_mode)
 
 	if (wol_mode & atl_fw_wake_on_magic) {
 		wol_bits |= atl_fw2_nic_proxy | atl_fw2_wol;
+		wol_ex_flags |= atl_fw2_wol_ex_wake_on_magic_keep_rate;
 
 		ret = -ENOMEM;
 		msg = kzalloc(sizeof(*msg), GFP_KERNEL);
@@ -429,6 +425,13 @@ static int atl_fw2_enable_wol(struct atl_hw *hw, unsigned int wol_mode)
 			atl_dev_err("Failed to upload sleep proxy info to FW\n");
 			goto unlock_free;
 		}
+	}
+
+	if (hw->mcp.caps_ex & atl_fw2_ex_caps_wol_ex) {
+		ret = atl_write_fwsettings_word(hw, atl_fw2_setings_wol_ex, 
+						wol_ex_flags);
+		if (ret)
+			goto unlock_free;
 	}
 
 	req_high |= wol_bits;
@@ -581,6 +584,27 @@ static int atl_fw2_restore_cfg(struct atl_hw *hw)
 	return 0;
 }
 
+static int atl_fw2_set_phy_loopback(struct atl_nic *nic, u32 mode)
+{
+	bool on = !!(nic->priv_flags & BIT(mode));
+	struct atl_hw *hw = &nic->hw;
+
+	atl_lock_fw(hw);
+
+	switch (mode) {
+	case ATL_PF_LPB_INT_PHY:
+		atl_write_bit(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_HIGH), 27, on);
+		break;
+	case ATL_PF_LPB_EXT_PHY:
+		atl_write_bit(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_HIGH), 26, on);
+		break;
+	}
+
+	atl_unlock_fw(hw);
+
+	return 0;
+}
+
 static struct atl_fw_ops atl_fw_ops[2] = {
 	[0] = {
 		.__wait_fw_init = __atl_fw1_wait_fw_init,
@@ -593,6 +617,7 @@ static struct atl_fw_ops atl_fw_ops[2] = {
 		.get_phy_temperature = (void *)atl_fw1_unsupported,
 		.dump_cfg = atl_fw1_unsupported,
 		.restore_cfg = atl_fw1_unsupported,
+		.set_phy_loopback = (void *)atl_fw1_unsupported,
 		.efuse_shadow_addr_reg = ATL_MCP_SCRATCH(FW1_EFUSE_SHADOW),
 	},
 	[1] = {
@@ -606,6 +631,7 @@ static struct atl_fw_ops atl_fw_ops[2] = {
 		.get_phy_temperature = atl_fw2_get_phy_temperature,
 		.dump_cfg = atl_fw2_dump_cfg,
 		.restore_cfg = atl_fw2_restore_cfg,
+		.set_phy_loopback = atl_fw2_set_phy_loopback,
 		.efuse_shadow_addr_reg = ATL_MCP_SCRATCH(FW2_EFUSE_SHADOW),
 	},
 };
@@ -909,12 +935,6 @@ void atl_fw_watchdog(struct atl_hw *hw)
 	if (ret) {
 		atl_dev_err("FW watchdog: failure reading PHY heartbeat: %d\n",
 			-ret);
-		goto out;
-	}
-
-	if (hbeat == 0 && mcp->phy_hbeat == 0) {
-		atl_dev_warn("FW heartbeat stuck at 0, probably not provisioned. Disabling watchdog.\n");
-		mcp->wdog_disabled = true;
 		goto out;
 	}
 
