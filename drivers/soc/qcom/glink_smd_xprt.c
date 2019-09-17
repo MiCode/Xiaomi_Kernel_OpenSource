@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016,2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -812,15 +812,16 @@ static void process_data_event(unsigned long param)
 							&einfo->xprt_if,
 							ch->rcid,
 							liid);
-		if (!intent->data && einfo->intentless) {
+		if (!intent)
+			continue;
+		if (!intent->data && einfo->intentless)
 			intent->data = kmalloc(pkt_remaining, GFP_ATOMIC);
-			if (!intent->data) {
-				SMDXPRT_DBG(einfo,
-					"%s kmalloc failed '%s' %u:%u\n",
-					__func__, ch->name,
-					ch->lcid, ch->rcid);
-				continue;
-			}
+		if (!intent->data) {
+			SMDXPRT_DBG(einfo,
+				"%s kmalloc failed '%s' %u:%u\n",
+				__func__, ch->name,
+				ch->lcid, ch->rcid);
+			continue;
 		}
 		smd_read(ch->smd_ch, intent->data + intent->write_offset,
 								read_avail);

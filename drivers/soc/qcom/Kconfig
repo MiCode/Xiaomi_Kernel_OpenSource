@@ -788,15 +788,6 @@ config MSM_SECURE_BUFFER
 	 use this memory and no unauthorized access is made to the
 	 buffer
 
-config ICNSS
-	tristate "Platform driver for Q6 integrated connectivity"
-	select CNSS_UTILS
-	---help---
-	  This module adds support for Q6 integrated WLAN connectivity
-	  subsystem. This module is responsible for communicating WLAN on/off
-	  control messages to FW over QMI channel. It is also responsible for
-	  handling WLAN PD restart notifications.
-
 config MSM_BAM_DMUX
 	bool "BAM Data Mux Driver"
 	depends on SPS

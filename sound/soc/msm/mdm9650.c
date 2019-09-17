@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -453,7 +453,7 @@ static int mdm_mi2s_startup(struct snd_pcm_substream *substream)
 								 CLOCK_ON);
 			if (ret < 0) {
 				ret = -EINVAL;
-				goto done;
+				goto err;
 			}
 			iowrite32(I2S_SEL << I2S_PCM_SEL_OFFSET,
 					pdata->lpaif_pri_muxsel_virt_addr);
