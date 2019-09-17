@@ -919,6 +919,22 @@ void kgsl_snapshot_add_section(struct kgsl_device *device, u16 id,
 	void *priv);
 
 /**
+ * kgsl_of_property_read_ddrtype - Get property from devicetree based on
+ * the type of DDR.
+ * @node: Devicetree node
+ * @base: prefix string of the property
+ * @ptr:  Pointer to store the value of the property
+ *
+ * First look up the devicetree property based on the prefix string and DDR
+ * type. If property is not specified per DDR type, then look for the property
+ * based on prefix string only.
+ *
+ * Return: 0 on success or error code on failure.
+ */
+int kgsl_of_property_read_ddrtype(struct device_node *node, const char *base,
+		u32 *ptr);
+
+/**
  * kgsl_query_property_list - Get a list of valid properties
  * @device: A KGSL device handle
  * @list: Pointer to a list of u32s
