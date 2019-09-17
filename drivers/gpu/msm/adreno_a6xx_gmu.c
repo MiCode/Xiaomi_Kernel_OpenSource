@@ -346,7 +346,7 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 	u32 mask = 0x000001FF;
 
 	/* Check for 0xBABEFACE on legacy targets */
-	if (!ADRENO_FEATURE(ADRENO_DEVICE(device), ADRENO_COOP_RESET)) {
+	if (gmu->ver.core <= 0x20010003) {
 		val = 0xBABEFACE;
 		mask = 0xFFFFFFFF;
 	}
@@ -962,6 +962,23 @@ static int a6xx_gmu_wait_for_idle(struct kgsl_device *device)
 /* A6xx GMU FENCE RANGE MASK */
 #define GMU_FENCE_RANGE_MASK	((0x1 << 31) | ((0xA << 2) << 18) | (0x8A0))
 
+static void load_gmu_version_info(struct kgsl_device *device)
+{
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+
+	/* GMU version info is at a fixed offset in the DTCM */
+	gmu_core_regread(device, A6XX_GMU_CM3_DTCM_START + 0xFF8,
+				&gmu->ver.core);
+	gmu_core_regread(device, A6XX_GMU_CM3_DTCM_START + 0xFF9,
+				&gmu->ver.core_dev);
+	gmu_core_regread(device, A6XX_GMU_CM3_DTCM_START + 0xFFA,
+				&gmu->ver.pwr);
+	gmu_core_regread(device, A6XX_GMU_CM3_DTCM_START + 0xFFB,
+				&gmu->ver.pwr_dev);
+	gmu_core_regread(device, A6XX_GMU_CM3_DTCM_START + 0xFFC,
+				&gmu->ver.hfi);
+}
+
 /*
  * a6xx_gmu_fw_start() - set up GMU and start FW
  * @device: Pointer to KGSL device
@@ -1048,6 +1065,10 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 
 	/* Configure power control and bring the GMU out of reset */
 	a6xx_gmu_power_config(device);
+
+	/* Populate the GMU version info before GMU boots */
+	load_gmu_version_info(device);
+
 	ret = a6xx_gmu_start(device);
 	if (ret)
 		return ret;
@@ -1065,10 +1086,6 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 		if (ret)
 			return ret;
 	}
-
-	/* Read the HFI and Power version from registers */
-	gmu_core_regread(device, A6XX_GMU_HFI_VERSION_INFO, &gmu->ver.hfi);
-	gmu_core_regread(device, A6XX_GMU_GENERAL_0, &gmu->ver.pwr);
 
 	ret = a6xx_gmu_hfi_start(device);
 	if (ret)
@@ -1125,42 +1142,12 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 
 		offset += sizeof(*blk);
 
-		switch (blk->type) {
-		case GMU_BLK_TYPE_CORE_VER:
-			gmu->ver.core = blk->value;
-			dev_dbg(&gmu->pdev->dev,
-					"CORE VER: 0x%8.8x\n", blk->value);
-			break;
-		case GMU_BLK_TYPE_CORE_DEV_VER:
-			gmu->ver.core_dev = blk->value;
-			dev_dbg(&gmu->pdev->dev,
-					"CORE DEV VER: 0x%8.8x\n", blk->value);
-			break;
-		case GMU_BLK_TYPE_PWR_VER:
-			gmu->ver.pwr = blk->value;
-			dev_dbg(&gmu->pdev->dev,
-					"PWR VER: 0x%8.8x\n", blk->value);
-			break;
-		case GMU_BLK_TYPE_PWR_DEV_VER:
-			gmu->ver.pwr_dev = blk->value;
-			dev_dbg(&gmu->pdev->dev,
-					"PWR DEV VER: 0x%8.8x\n", blk->value);
-			break;
-		case GMU_BLK_TYPE_HFI_VER:
-			gmu->ver.hfi = blk->value;
-			dev_dbg(&gmu->pdev->dev,
-					"HFI VER: 0x%8.8x\n", blk->value);
-			break;
-		case GMU_BLK_TYPE_PREALLOC_REQ:
-		case GMU_BLK_TYPE_PREALLOC_PERSIST_REQ:
+		if (blk->type == GMU_BLK_TYPE_PREALLOC_REQ ||
+				blk->type == GMU_BLK_TYPE_PREALLOC_PERSIST_REQ)
 			ret = gmu_prealloc_req(device, blk);
-			if (ret)
-				return ret;
-			break;
 
-		default:
-			break;
-		}
+		if (ret)
+			return ret;
 	}
 
 	 /* Request any other cache ranges that might be required */
