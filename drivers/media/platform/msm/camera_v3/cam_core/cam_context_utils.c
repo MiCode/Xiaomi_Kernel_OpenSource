@@ -1039,3 +1039,43 @@ int32_t cam_context_dump_pf_info_to_hw(struct cam_context *ctx,
 end:
 	return rc;
 }
+
+int32_t cam_context_dump_dev_to_hw(struct cam_context *ctx,
+	struct cam_dump_req_cmd *cmd)
+{
+	int rc = 0;
+	struct cam_hw_dump_args dump_args;
+
+	if (!ctx || !cmd) {
+		CAM_ERR(CAM_CTXT, "Invalid input params %pK %pK", ctx, cmd);
+		return -EINVAL;
+	}
+	if (!ctx->hw_mgr_intf) {
+		CAM_ERR(CAM_CTXT, "[%s][%d] HW interface is not ready",
+			ctx->dev_name, ctx->ctx_id);
+		return -EFAULT;
+	}
+	memset(&dump_args, 0, sizeof(dump_args));
+	if (ctx->hw_mgr_intf->hw_dump) {
+		dump_args.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+		dump_args.buf_handle = cmd->buf_handle;
+		dump_args.offset = cmd->offset;
+		dump_args.request_id = cmd->issue_req_id;
+		rc  = ctx->hw_mgr_intf->hw_dump(
+			ctx->hw_mgr_intf->hw_mgr_priv,
+			&dump_args);
+		if (rc) {
+			CAM_ERR(CAM_CTXT, "[%s][%d] handle[%u] failed",
+			    ctx->dev_name, ctx->ctx_id, dump_args.buf_handle);
+			return rc;
+		}
+		CAM_INFO(CAM_CTXT, "[%s] ctx: %d Filled Length %d",
+		    ctx->dev_name, ctx->ctx_id,
+		    dump_args.offset - cmd->offset);
+		/* Drivers update offest upto which the buffer is written*/
+		cmd->offset  = dump_args.offset;
+	} else {
+		CAM_INFO(CAM_CTXT, "%s hw dump not registered", ctx->dev_name);
+	}
+	return rc;
+}
