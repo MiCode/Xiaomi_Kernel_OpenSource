@@ -53,3 +53,7 @@
 &mhi_dev_qrtr {
 	status = "okay";
 };
+
+&usb {
+	qcom,smmu-s1-bypass;
+};
