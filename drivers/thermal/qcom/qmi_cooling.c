@@ -62,6 +62,10 @@ static struct qmi_dev_info device_clients[] = {
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{
+		.dev_name = "pa_1",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
 		.dev_name = "cx_vdd_limit",
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
