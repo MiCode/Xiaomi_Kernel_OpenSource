@@ -3,18 +3,14 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#ifndef __MMDVFS_PMQOS_H__
-#define __MMDVFS_PMQOS_H__
+#ifndef __MMQOS_WRAPPER_H__
+#define __MMQOS_WRAPPER_H__
 
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <linux/interconnect.h>
+#include <soc/mediatek/mmqos.h>
 #include "smi_master_port.h"
 
-enum {
-	BW_THROTTLE_START = 1,
-	BW_THROTTLE_START_RECOVER,
-	BW_THROTTLE_END
-};
 
 enum {
 	BW_COMP_NONE = 0,
@@ -139,12 +135,6 @@ s32 mm_hrt_add_bw_throttle_notifier(struct notifier_block *nb);
  */
 s32 mm_hrt_remove_bw_throttle_notifier(struct notifier_block *nb);
 
-/**
- * mmdvfs_set_max_camera_hrt_bw - set maximum camera hrt bw
- * @bw: bandwidth size in MB/s
- */
-void mmdvfs_set_max_camera_hrt_bw(u32 bw);
-
 
 s32 get_virtual_port(enum virtual_source_id id);
 #else
@@ -173,9 +163,7 @@ static inline s32 mm_hrt_add_bw_throttle_notifier(struct notifier_block *nb)
 	{ return 0; }
 static inline s32 mm_hrt_remove_bw_throttle_notifier(struct notifier_block *nb)
 	{ return 0; }
-static inline void mmdvfs_set_max_camera_hrt_bw(u32 bw)
-	{ return; }
 static inline s32 get_virtual_port(enum virtual_source_id id)
 	{ return 0; }
 #endif
-#endif /* __MMDVFS_PMQOS_H__ */
+#endif /* __MMQOS_WRAPPER_H__ */

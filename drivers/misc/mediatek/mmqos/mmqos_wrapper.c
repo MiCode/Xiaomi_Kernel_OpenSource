@@ -172,30 +172,22 @@ EXPORT_SYMBOL_GPL(mm_qos_update_all_request_zero);
 
 s32 mm_hrt_get_available_hrt_bw(u32 master_id)
 {
-	/* Todo: call mmqos API */
-	return 3360; /* 2160 x 1080 x 60 x 4 x 6 */
+	/* Todo: Check master_id to define HRT type */
+	return mtk_mmqos_get_avail_hrt_bw(HRT_DISP);
 }
 EXPORT_SYMBOL_GPL(mm_hrt_get_available_hrt_bw);
 
 s32 mm_hrt_add_bw_throttle_notifier(struct notifier_block *nb)
 {
-	/* Todo: Call mmqos API */
-	return 0;
+	return mtk_mmqos_register_bw_throttle_notifier(nb);
 }
 EXPORT_SYMBOL_GPL(mm_hrt_add_bw_throttle_notifier);
 
 s32 mm_hrt_remove_bw_throttle_notifier(struct notifier_block *nb)
 {
-	/* Todo: Call mmqos API */
-	return 0;
+	return mtk_mmqos_unregister_bw_throttle_notifier(nb);
 }
 EXPORT_SYMBOL_GPL(mm_hrt_remove_bw_throttle_notifier);
-
-void mmdvfs_set_max_camera_hrt_bw(u32 bw)
-{
-	/* Todo: Call mmqos API */
-}
-EXPORT_SYMBOL_GPL(mmdvfs_set_max_camera_hrt_bw);
 
 s32 get_virtual_port(enum virtual_source_id id)
 {
