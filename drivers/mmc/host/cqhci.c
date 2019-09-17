@@ -375,8 +375,11 @@ static void cqhci_off(struct mmc_host *mmc)
 	bool timed_out;
 	u32 reg;
 
-	if (!cq_host->enabled || !mmc->cqe_on || cq_host->recovery_halt)
+	if (!cq_host->enabled || !mmc->cqe_on || cq_host->recovery_halt) {
+		pr_debug("%s: %s: CQE is already %s\n", mmc_hostname(mmc),
+				__func__, mmc->cqe_on ? "off" : "on");
 		return;
+	}
 
 	if (cq_host->ops->disable)
 		cq_host->ops->disable(mmc, false);
@@ -391,7 +394,7 @@ static void cqhci_off(struct mmc_host *mmc)
 			break;
 	}
 
-	if (timed_out)
+	if (timed_out && !(reg & CQHCI_HALT))
 		pr_err("%s: cqhci: CQE stuck on\n", mmc_hostname(mmc));
 	else
 		pr_debug("%s: cqhci: CQE off\n", mmc_hostname(mmc));
@@ -536,7 +539,7 @@ static void cqhci_prep_dcmd_desc(struct mmc_host *mmc,
 		resp_type = 0x0;
 		timing = 0x1;
 	} else {
-		if (mrq->cmd->flags & MMC_RSP_R1B) {
+		if (mrq->cmd->flags & MMC_RSP_BUSY) {
 			resp_type = 0x3;
 			timing = 0x0;
 		} else {
@@ -990,8 +993,10 @@ static bool cqhci_halt(struct mmc_host *mmc, unsigned int timeout)
 	bool ret;
 	u32 ctl;
 
-	if (cqhci_halted(cq_host))
+	if (cqhci_halted(cq_host)) {
+		pr_debug("%s: CQE is already halted.\n", mmc_hostname(mmc));
 		return true;
+	}
 
 	cqhci_set_irqs(cq_host, CQHCI_IS_HAC);
 
@@ -1007,7 +1012,7 @@ static bool cqhci_halt(struct mmc_host *mmc, unsigned int timeout)
 	ret = cqhci_halted(cq_host);
 
 	if (!ret)
-		pr_debug("%s: cqhci: Failed to halt\n", mmc_hostname(mmc));
+		pr_err("%s: cqhci: Failed to halt\n", mmc_hostname(mmc));
 
 	mmc_log_string(mmc, "halt done with ret %d\n", ret);
 	return ret;

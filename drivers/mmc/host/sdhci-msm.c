@@ -2278,6 +2278,8 @@ void sdhci_msm_cqe_enable(struct mmc_host *mmc)
 		host->desc_sz = 12;
 
 	sdhci_cqe_enable(mmc);
+	/* Set maximum timeout as per qcom spec */
+	sdhci_writeb(host, 0xF, SDHCI_TIMEOUT_CONTROL);
 }
 
 void sdhci_msm_cqe_disable(struct mmc_host *mmc, bool recovery)
