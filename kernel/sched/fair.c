@@ -3848,7 +3848,7 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 {
 	unsigned long capacity = capacity_orig_of(cpu);
 	unsigned long max_capacity = cpu_rq(cpu)->rd->max_cpu_capacity.val;
-	unsigned long task_boost = 0;
+	unsigned long task_boost = per_task_boost(p);
 
 	if (capacity == max_capacity)
 		return true;
@@ -3858,7 +3858,7 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 				task_boost > 0)
 			return false;
 	} else { /* mid cap cpu */
-		if (task_boost > 1)
+		if (task_boost > TASK_BOOST_ON_MID)
 			return false;
 	}
 
@@ -3883,6 +3883,7 @@ struct find_best_target_env {
 	bool boosted;
 	int fastpath;
 	int start_cpu;
+	bool strict_max;
 };
 
 static inline void adjust_cpus_for_packing(struct task_struct *p,
@@ -6341,8 +6342,9 @@ static int get_start_cpu(struct task_struct *p)
 #ifdef CONFIG_SCHED_WALT
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	int start_cpu = rd->min_cap_orig_cpu;
-	int task_boost = 0;
-	bool boosted = task_boost_policy(p) == SCHED_BOOST_ON_BIG;
+	int task_boost = per_task_boost(p);
+	bool boosted = task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
+			task_boost == TASK_BOOST_ON_MID;
 	bool task_skip_min = task_skip_min_cpu(p);
 
 	/*
@@ -6350,12 +6352,12 @@ static int get_start_cpu(struct task_struct *p)
 	 * or just mid will be -1, there never be any other combinations of -1s
 	 * beyond these
 	 */
-	if (task_skip_min || boosted || task_boost == 1) {
+	if (task_skip_min || boosted) {
 		start_cpu = rd->mid_cap_orig_cpu == -1 ?
 				rd->max_cap_orig_cpu : rd->mid_cap_orig_cpu;
 	}
 
-	if (task_boost == 2) {
+	if (task_boost > TASK_BOOST_ON_MID) {
 		start_cpu = rd->max_cap_orig_cpu;
 		return start_cpu;
 	}
@@ -6420,6 +6422,9 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	if (boosted)
 		target_capacity = 0;
 
+	if (fbt_env->strict_max)
+		most_spare_wake_cap = LONG_MIN;
+
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
 	/* Find SD for the start CPU */
@@ -6482,6 +6487,9 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 				most_spare_cap_cpu = i;
 			}
 
+			if (per_task_boost(cpu_rq(i)->curr) ==
+					TASK_BOOST_STRICT_MAX)
+				continue;
 			/*
 			 * Cumulative demand may already be accounting for the
 			 * task. If so, add just the boost-utilization to
@@ -6627,7 +6635,8 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 		 * unless the task can't be accommodated in the higher
 		 * capacity CPUs.
 		 */
-		if (boosted && (best_idle_cpu != -1 || target_cpu != -1)) {
+		if (boosted && (best_idle_cpu != -1 || target_cpu != -1 ||
+		    (fbt_env->strict_max && most_spare_cap_cpu != -1))) {
 			if (boosted) {
 				if (!next_group_higher_cap)
 			                break;
@@ -6949,7 +6958,8 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sync)
 	int placement_boost = task_boost_policy(p);
 	u64 start_t = 0;
 	int delta = 0;
-	bool boosted = uclamp_boosted(p);
+	int task_boost = per_task_boost(p);
+	bool boosted = uclamp_boosted(p) || (task_boost > 0);
 	int start_cpu = get_start_cpu(p);
 
 	if (start_cpu < 0)
@@ -7000,6 +7010,8 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sync)
 		fbt_env.need_idle = need_idle;
 		fbt_env.start_cpu = start_cpu;
 		fbt_env.boosted = boosted;
+		fbt_env.strict_max = is_rtg &&
+			(task_boost == TASK_BOOST_STRICT_MAX);
 
 		find_best_target(NULL, candidates, p, &fbt_env);
 
@@ -7962,6 +7974,16 @@ static inline int migrate_degrades_locality(struct task_struct *p,
 }
 #endif
 
+static inline bool can_migrate_boosted_task(struct task_struct *p,
+			int src_cpu, int dst_cpu)
+{
+	if (per_task_boost(p) == TASK_BOOST_STRICT_MAX &&
+		task_in_related_thread_group(p) &&
+		(capacity_orig_of(dst_cpu) < capacity_orig_of(src_cpu)))
+		return false;
+	return true;
+}
+
 /*
  * can_migrate_task - may task p from runqueue rq be migrated to this_cpu?
  */
@@ -7980,6 +8002,12 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	 * 4) are cache-hot on their current CPU.
 	 */
 	if (throttled_lb_pair(task_group(p), env->src_cpu, env->dst_cpu))
+		return 0;
+
+	/*
+	 * don't allow pull boost task to smaller cores.
+	 */
+	if (!can_migrate_boosted_task(p, env->src_cpu, env->dst_cpu))
 		return 0;
 
 	if (!cpumask_test_cpu(env->dst_cpu, p->cpus_ptr)) {
@@ -10041,7 +10069,10 @@ no_move:
 			 * if the curr task on busiest CPU can't be
 			 * moved to this_cpu:
 			 */
-			if (!cpumask_test_cpu(this_cpu, busiest->curr->cpus_ptr)) {
+			if (!cpumask_test_cpu(this_cpu,
+						busiest->curr->cpus_ptr) ||
+				!can_migrate_boosted_task(busiest->curr,
+						cpu_of(busiest), this_cpu)) {
 				raw_spin_unlock_irqrestore(&busiest->lock,
 							    flags);
 				env.flags |= LBF_ALL_PINNED;
