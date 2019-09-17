@@ -641,11 +641,11 @@
 		};
 
 		cont_splash_memory: cont_splash_region@9c000000 {
-			reg = <0x0 0x9c000000 0x0 0x01000000>;
+			reg = <0x0 0x9c000000 0x0 0x0f00000>;
 			label = "cont_splash_region";
 		};
 
-		dfps_data_memory: dfps_data_region@9e300000 {
+		dfps_data_memory: dfps_data_region@9cf00000 {
 			reg = <0x0 0x9cf00000 0x0 0x0100000>;
 			label = "dfps_data_region";
 		};
