@@ -129,7 +129,7 @@ config MSM_PIL
 
 config MSM_SUBSYSTEM_RESTART
 	tristate "MSM Subsystem Restart"
-	depends on MSM_PIL
+	select MSM_PIL
 	select QCOM_QMI_HELPERS
 	help
 	  This option enables the MSM subsystem restart framework.
@@ -183,7 +183,7 @@ config PANIC_ON_SSR_NOTIF_TIMEOUT
 
 config MSM_PIL_SSR_GENERIC
 	tristate "MSM Subsystem Boot Support"
-	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+	depends on MSM_SUBSYSTEM_RESTART
 	help
 	  Support for booting and shutting down MSM Subsystem processors.
 	  This driver also monitors the SMSM status bits and the watchdog
