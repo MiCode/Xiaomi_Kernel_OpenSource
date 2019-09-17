@@ -163,6 +163,10 @@ extern atomic_long_t calc_load_tasks;
 extern void calc_global_load_tick(struct rq *this_rq);
 extern long calc_load_fold_active(struct rq *this_rq, long adjust);
 
+#ifdef CONFIG_SMP
+extern void init_sched_groups_capacity(int cpu, struct sched_domain *sd);
+#endif
+
 /*
  * Helpers for converting nanosecond timing to jiffy resolution
  */
@@ -3307,7 +3311,8 @@ extern int active_load_balance_cpu_stop(void *data);
 #ifdef CONFIG_HOTPLUG_CPU
 extern void set_rq_online(struct rq *rq);
 extern void set_rq_offline(struct rq *rq);
-extern void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf);
+extern void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf,
+					bool migrate_pinned_tasks);
 extern void calc_load_migrate(struct rq *rq);
 #ifdef CONFIG_SCHED_WALT
 extern void __weak

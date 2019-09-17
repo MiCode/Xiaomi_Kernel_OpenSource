@@ -239,6 +239,27 @@ enum migrate_types {
 	RQ_TO_GROUP,
 };
 
+#ifdef CONFIG_HOTPLUG_CPU
+extern int __weak sched_isolate_cpu(int cpu);
+extern int __weak sched_unisolate_cpu(int cpu);
+extern int __weak sched_unisolate_cpu_unlocked(int cpu);
+#else
+static inline int sched_isolate_cpu(int cpu)
+{
+	return 0;
+}
+
+static inline int sched_unisolate_cpu(int cpu)
+{
+	return 0;
+}
+
+static inline int sched_unisolate_cpu_unlocked(int cpu)
+{
+	return 0;
+}
+#endif
+
 extern void scheduler_tick(void);
 
 #define	MAX_SCHEDULE_TIMEOUT		LONG_MAX
