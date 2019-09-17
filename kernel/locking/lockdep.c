@@ -2430,7 +2430,7 @@ static int validate_chain(struct task_struct *curr, struct lockdep_map *lock,
 		int ret = check_deadlock(curr, hlock, lock, hlock->read);
 
 		if (!ret)
-			return 0;
+			return 1;
 		/*
 		 * Mark recursive read, as we jump over it when
 		 * building dependencies (just like we jump over
@@ -2444,7 +2444,7 @@ static int validate_chain(struct task_struct *curr, struct lockdep_map *lock,
 		 */
 		if (!chain_head && ret != 2) {
 			if (!check_prevs_add(curr, hlock))
-				return 0;
+				return 1;
 		}
 
 		graph_unlock();
@@ -3023,40 +3023,41 @@ static int mark_irqflags(struct task_struct *curr, struct held_lock *hlock)
 			if (curr->hardirq_context)
 				if (!mark_lock(curr, hlock,
 						LOCK_USED_IN_HARDIRQ_READ))
-					return 0;
+					goto out;
 			if (curr->softirq_context)
 				if (!mark_lock(curr, hlock,
 						LOCK_USED_IN_SOFTIRQ_READ))
-					return 0;
+					goto out;
 		} else {
 			if (curr->hardirq_context)
 				if (!mark_lock(curr, hlock, LOCK_USED_IN_HARDIRQ))
-					return 0;
+					goto out;
 			if (curr->softirq_context)
 				if (!mark_lock(curr, hlock, LOCK_USED_IN_SOFTIRQ))
-					return 0;
+					goto out;
 		}
 	}
 	if (!hlock->hardirqs_off) {
 		if (hlock->read) {
 			if (!mark_lock(curr, hlock,
 					LOCK_ENABLED_HARDIRQ_READ))
-				return 0;
+				goto out;
 			if (curr->softirqs_enabled)
 				if (!mark_lock(curr, hlock,
 						LOCK_ENABLED_SOFTIRQ_READ))
-					return 0;
+					goto out;
 		} else {
 			if (!mark_lock(curr, hlock,
 					LOCK_ENABLED_HARDIRQ))
-				return 0;
+				goto out;
 			if (curr->softirqs_enabled)
 				if (!mark_lock(curr, hlock,
 						LOCK_ENABLED_SOFTIRQ))
-					return 0;
+					goto out;
 		}
 	}
 
+out:
 	return 1;
 }
 
@@ -3435,8 +3436,7 @@ static int __lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 		return 0;
 
 	/* mark it as used: */
-	if (!mark_lock(curr, hlock, LOCK_USED))
-		return 0;
+	mark_lock(curr, hlock, LOCK_USED);
 
 	/*
 	 * Calculate the chain hash: it's the combined hash of all the
