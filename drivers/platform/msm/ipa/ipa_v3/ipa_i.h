@@ -1418,6 +1418,8 @@ struct ipa3_uc_ctx {
 	u32 ering_rp_local;
 	u32 ering_wp;
 	u32 ering_rp;
+	struct ipa_wdi_bw_info info;
+	uint64_t bw_info_max;
 };
 
 /**
