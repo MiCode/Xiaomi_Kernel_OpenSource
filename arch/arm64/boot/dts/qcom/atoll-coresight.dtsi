@@ -492,7 +492,7 @@
 		};
 	};
 
-	etm0: tpdm@7040000 {
+	etm0: etm@7040000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb95d>;
 		reg = <0x7040000 0x1000>;
@@ -511,7 +511,7 @@
 		};
 	};
 
-	etm1: tpdm@7140000 {
+	etm1: etm@7140000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb95d>;
 		reg = <0x7140000 0x1000>;
@@ -530,7 +530,7 @@
 		};
 	};
 
-	etm2: tpdm@7240000 {
+	etm2: etm@7240000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb95d>;
 		reg = <0x7240000 0x1000>;
@@ -549,7 +549,7 @@
 		};
 	};
 
-	etm3: tpdm@7340000 {
+	etm3: etm@7340000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb95d>;
 		reg = <0x7340000 0x1000>;
@@ -568,7 +568,7 @@
 		};
 	};
 
-	etm4: tpdm@7440000 {
+	etm4: etm@7440000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb95d>;
 		reg = <0x7440000 0x1000>;
@@ -587,7 +587,7 @@
 		};
 	};
 
-	etm5: tpdm@7540000 {
+	etm5: etm@7540000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb95d>;
 		reg = <0x7540000 0x1000>;
@@ -606,7 +606,7 @@
 		};
 	};
 
-	etm6: tpdm@7640000 {
+	etm6: etm@7640000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb95d>;
 		reg = <0x7640000 0x1000>;
@@ -625,7 +625,7 @@
 		};
 	};
 
-	etm7: tpdm@7740000 {
+	etm7: etm@7740000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb95d>;
 		reg = <0x7740000 0x1000>;
