@@ -239,6 +239,24 @@
 		pcie0_rp: pcie0_rp {
 			reg = <0 0 0 0 0>;
 			pci-ids = "17cb:010c";
+
+			/* BDF 1.0.0 */
+			pcie0_bus1_dev0_fn0: pcie0_bus1_dev0_fn0 {
+				reg = <0 0 0 0 0>;
+				pci-ids = "12d8:b304";
+
+				/* BDF 2.1.0 */
+				pcie0_bus2_dev1_fn0: pcie0_bus2_dev1_fn0 {
+					reg = <0x800 0 0 0 0>;
+					pci-ids = "12d8:b304";
+				};
+
+				/* BDF 2.2.0 */
+				pcie0_bus2_dev2_fn0: pcie0_bus2_dev2_fn0 {
+					reg = <0x1000 0 0 0 0>;
+					pci-ids = "12d8:b304";
+				};
+			};
 		};
 	};
 
