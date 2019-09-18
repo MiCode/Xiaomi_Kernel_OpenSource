@@ -185,6 +185,12 @@ struct spcom_channel {
 	size_t actual_rx_size;	/* actual data size received */
 	void *rpmsg_rx_buf;
 
+	/**
+	 * to track if rx_buf is read in the same session
+	 * in which it is updated
+	 */
+	uint32_t rx_buf_txn_id;
+
 	/* shared buffer lock/unlock support */
 	int dmabuf_fd_table[SPCOM_MAX_ION_BUF_PER_CH];
 	struct dma_buf *dmabuf_handle_table[SPCOM_MAX_ION_BUF_PER_CH];
@@ -341,6 +347,7 @@ static int spcom_init_channel(struct spcom_channel *ch,
 	ch->actual_rx_size = 0;
 	ch->is_busy = false;
 	ch->txn_id = INITIAL_TXN_ID; /* use non-zero nonce for debug */
+	ch->rx_buf_txn_id = ch->txn_id;
 	memset(ch->pid, 0, sizeof(ch->pid));
 	ch->rpmsg_abort = false;
 	ch->rpmsg_rx_buf = NULL;
@@ -393,6 +400,16 @@ static int spcom_rx(struct spcom_channel *ch,
 	int ret = 0;
 
 	mutex_lock(&ch->lock);
+
+	if (ch->rx_buf_txn_id != ch->txn_id) {
+		pr_debug("rpmsg_rx_buf is updated in a different session\n");
+		if (ch->rpmsg_rx_buf) {
+			memset(ch->rpmsg_rx_buf, 0, ch->actual_rx_size);
+			kfree((void *)ch->rpmsg_rx_buf);
+			ch->rpmsg_rx_buf = NULL;
+			ch->actual_rx_size = 0;
+		}
+	}
 
 	/* check for already pending data */
 	if (!ch->actual_rx_size) {
@@ -2161,6 +2178,7 @@ static void spcom_signal_rx_done(struct work_struct *ignored)
 		}
 		ch->rpmsg_rx_buf = rx_item->rpmsg_rx_buf;
 		ch->actual_rx_size = rx_item->rx_buf_size;
+		ch->rx_buf_txn_id = ch->txn_id;
 		complete_all(&ch->rx_done);
 		mutex_unlock(&ch->lock);
 
