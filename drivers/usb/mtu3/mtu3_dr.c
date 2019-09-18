@@ -367,6 +367,25 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 	id_event = (role == USB_ROLE_HOST);
 	vbus_event = (role == USB_ROLE_DEVICE);
 
+	if (!!(otg_sx->sw_state & MTU3_SW_VBUS_VALID) ^ vbus_event) {
+		if (vbus_event) {
+			if (ssusb->clk_mgr) {
+				ssusb_clks_enable(ssusb);
+				ssusb_phy_power_on(ssusb);
+				ssusb_ip_sw_reset(ssusb);
+				switch_port_to_device(ssusb);
+			}
+			ssusb_set_mailbox(otg_sx, MTU3_VBUS_VALID);
+		} else {
+			ssusb_set_mailbox(otg_sx, MTU3_VBUS_OFF);
+			if (ssusb->clk_mgr) {
+				ssusb_ip_sleep(ssusb);
+				ssusb_phy_power_off(ssusb);
+				ssusb_clks_disable(ssusb);
+			}
+		}
+	}
+
 	if (!!(otg_sx->sw_state & MTU3_SW_ID_GROUND) ^ id_event) {
 		if (id_event) {
 			if (ssusb->clk_mgr) {
@@ -392,25 +411,6 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 				ssusb_phy_power_off(ssusb);
 				ssusb_clks_disable(ssusb);
 				pm_relax(ssusb->dev);
-			}
-		}
-	}
-
-	if (!!(otg_sx->sw_state & MTU3_SW_VBUS_VALID) ^ vbus_event) {
-		if (vbus_event) {
-			if (ssusb->clk_mgr) {
-				ssusb_clks_enable(ssusb);
-				ssusb_phy_power_on(ssusb);
-				ssusb_ip_sw_reset(ssusb);
-				switch_port_to_device(ssusb);
-			}
-			ssusb_set_mailbox(otg_sx, MTU3_VBUS_VALID);
-		} else {
-			ssusb_set_mailbox(otg_sx, MTU3_VBUS_OFF);
-			if (ssusb->clk_mgr) {
-				ssusb_ip_sleep(ssusb);
-				ssusb_phy_power_off(ssusb);
-				ssusb_clks_disable(ssusb);
 			}
 		}
 	}
