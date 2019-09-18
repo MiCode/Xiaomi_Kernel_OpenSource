@@ -75,6 +75,8 @@ static phys_addr_t __atomic_get_phys(void *addr)
 
 static bool __in_atomic_pool(void *start, size_t size)
 {
+	if (!atomic_pool)
+		return false;
 	return addr_in_gen_pool(atomic_pool, (unsigned long)start, size);
 }
 
@@ -301,7 +303,7 @@ static bool __bit_is_sooner(unsigned long candidate,
 	return true;
 }
 
-
+#ifdef CONFIG_ARM64
 static int __init atomic_pool_init(void)
 {
 	pgprot_t prot = __pgprot(PROT_NORMAL_NC);
@@ -363,6 +365,7 @@ out:
 	return -ENOMEM;
 }
 arch_initcall(atomic_pool_init);
+#endif
 
 static void __fast_smmu_free_iova(struct dma_fast_smmu_mapping *mapping,
 				  dma_addr_t iova, size_t size)
@@ -769,7 +772,7 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 	*handle = DMA_ERROR_CODE;
 	size = ALIGN(size, SZ_4K);
 
-	if (!gfpflags_allow_blocking(gfp))
+	if (atomic_pool && !gfpflags_allow_blocking(gfp))
 		return fast_smmu_alloc_atomic(mapping, size, gfp, attrs, handle,
 					      is_coherent);
 	else if (attrs & DMA_ATTR_FORCE_CONTIGUOUS)
