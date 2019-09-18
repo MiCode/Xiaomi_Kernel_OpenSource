@@ -2042,7 +2042,7 @@ err_exit:
 	return rc;
 }
 
-static inline bool is_special_packet(const struct sk_buff *skb)
+bool wil_is_special_packet(const struct sk_buff *skb)
 {
 	if (skb->protocol == cpu_to_be16(ETH_P_ARP) ||
 	    skb->protocol == cpu_to_be16(ETH_P_RARP) ||
@@ -2073,7 +2073,7 @@ static int __wil_tx_ring(struct wil6210_priv *wil, struct wil6210_vif *vif,
 	bool mcast = (ring_index == vif->bcast_ring);
 	uint len = skb_headlen(skb);
 	bool special_packet = (wil->tx_reserved_entries != 0 &&
-			       is_special_packet(skb));
+			       wil_is_special_packet(skb));
 	int avail = wil_ring_avail_tx(ring) -
 		(special_packet ? 0 : txdata->tx_reserved_count);
 	u8 ctx_flags = special_packet ? WIL_CTX_FLAG_RESERVED_USED : 0;
