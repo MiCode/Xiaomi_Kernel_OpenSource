@@ -1116,8 +1116,8 @@ static const struct mtk_gate_regs infra3_cg_regs = {
 	GATE_INFRA0_FLAGS(_id, _name, _parent, _shift,	0)
 
 #define GATE_INFRA1_FLAGS(_id, _name, _parent, _shift, _flags)	\
-	GATE_MTK(_id, _name, _parent, &infra1_cg_regs, _shift,	\
-		&mtk_clk_gate_ops_setclr)
+	GATE_MTK_FLAGS(_id, _name, _parent, &infra1_cg_regs, _shift,	\
+		&mtk_clk_gate_ops_setclr, _flags)
 
 #define GATE_INFRA1(_id, _name, _parent, _shift)	\
 	GATE_INFRA1_FLAGS(_id, _name, _parent, _shift,	0)
@@ -1211,8 +1211,8 @@ static const struct mtk_gate infra_clks[] = {
 		"axi_sel", 5),
 	GATE_INFRA1(CLK_INFRA_MSDC0_SCK, "infra_msdc0_sck",
 		"msdc50_0_sel", 6),
-	GATE_INFRA1(CLK_INFRA_DVFSRC, "infra_dvfsrc",
-		"f_f26m_ck", 7),
+	GATE_INFRA1_FLAGS(CLK_INFRA_DVFSRC, "infra_dvfsrc",
+		"f_f26m_ck", 7, CLK_IS_CRITICAL),
 	GATE_INFRA1(CLK_INFRA_GCPU, "infra_gcpu",
 		"axi_sel", 8),
 	GATE_INFRA1(CLK_INFRA_TRNG, "infra_trng",
