@@ -1044,6 +1044,7 @@ static void diag_init_apps_feature(void)
 
 	SET_APPS_FEATURE(driver, F_DIAG_EVENT_REPORT);
 	SET_APPS_FEATURE(driver, F_DIAG_HW_ACCELERATION);
+	SET_APPS_FEATURE(driver, F_DIAG_MULTI_SIM_MASK);
 }
 
 void diag_send_error_rsp(unsigned char *buf, int len,
