@@ -1223,6 +1223,9 @@ int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv)
 		}
 	}
 
+	plat_priv->get_info_cb_ctx = NULL;
+	plat_priv->get_info_cb = NULL;
+
 	return 0;
 }
 
@@ -2486,11 +2489,16 @@ int cnss_auto_suspend(struct device *dev)
 	if (!plat_priv)
 		return -ENODEV;
 
+	mutex_lock(&pci_priv->bus_lock);
 	ret = cnss_pci_suspend_bus(pci_priv);
-	if (ret)
+	if (ret) {
+		mutex_unlock(&pci_priv->bus_lock);
 		return ret;
+	}
 
 	cnss_pci_set_auto_suspended(pci_priv, 1);
+	mutex_unlock(&pci_priv->bus_lock);
+
 	cnss_pci_set_monitor_wake_intr(pci_priv, true);
 
 	bus_bw_info = &plat_priv->bus_bw_info;
@@ -2516,11 +2524,15 @@ int cnss_auto_resume(struct device *dev)
 	if (!plat_priv)
 		return -ENODEV;
 
+	mutex_lock(&pci_priv->bus_lock);
 	ret = cnss_pci_resume_bus(pci_priv);
-	if (ret)
+	if (ret) {
+		mutex_unlock(&pci_priv->bus_lock);
 		return ret;
+	}
 
 	cnss_pci_set_auto_suspended(pci_priv, 0);
+	mutex_unlock(&pci_priv->bus_lock);
 
 	bus_bw_info = &plat_priv->bus_bw_info;
 	msm_bus_scale_client_update_request(bus_bw_info->bus_client,
@@ -2612,6 +2624,46 @@ int cnss_pci_force_wake_release(struct device *dev)
 	return 0;
 }
 EXPORT_SYMBOL(cnss_pci_force_wake_release);
+
+int cnss_pci_qmi_send_get(struct cnss_pci_data *pci_priv)
+{
+	int ret = 0;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	mutex_lock(&pci_priv->bus_lock);
+	if (!cnss_pci_get_auto_suspended(pci_priv))
+		goto out;
+
+	cnss_pr_vdbg("Starting to handle get info prepare\n");
+
+	ret = cnss_pci_resume_bus(pci_priv);
+
+out:
+	mutex_unlock(&pci_priv->bus_lock);
+	return ret;
+}
+
+int cnss_pci_qmi_send_put(struct cnss_pci_data *pci_priv)
+{
+	int ret = 0;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	mutex_lock(&pci_priv->bus_lock);
+	if (!cnss_pci_get_auto_suspended(pci_priv))
+		goto out;
+
+	cnss_pr_vdbg("Starting to handle get info done\n");
+
+	ret = cnss_pci_suspend_bus(pci_priv);
+
+out:
+	mutex_unlock(&pci_priv->bus_lock);
+	return ret;
+}
 
 int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv)
 {
@@ -3716,6 +3768,7 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	plat_priv->bus_priv = pci_priv;
 	snprintf(plat_priv->firmware_name, sizeof(plat_priv->firmware_name),
 		 DEFAULT_FW_FILE_NAME);
+	mutex_init(&pci_priv->bus_lock);
 
 	ret = cnss_register_subsys(plat_priv);
 	if (ret)

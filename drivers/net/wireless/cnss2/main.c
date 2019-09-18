@@ -1210,13 +1210,23 @@ EXPORT_SYMBOL(cnss_force_collect_rddm);
 
 int cnss_qmi_send_get(struct device *dev)
 {
-	return 0;
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+
+	if (!test_bit(CNSS_QMI_WLFW_CONNECTED, &plat_priv->driver_state))
+		return 0;
+
+	return cnss_bus_qmi_send_get(plat_priv);
 }
 EXPORT_SYMBOL(cnss_qmi_send_get);
 
 int cnss_qmi_send_put(struct device *dev)
 {
-	return 0;
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+
+	if (!test_bit(CNSS_QMI_WLFW_CONNECTED, &plat_priv->driver_state))
+		return 0;
+
+	return cnss_bus_qmi_send_put(plat_priv);
 }
 EXPORT_SYMBOL(cnss_qmi_send_put);
 
@@ -1224,7 +1234,25 @@ int cnss_qmi_send(struct device *dev, int type, void *cmd,
 		  int cmd_len, void *cb_ctx,
 		  int (*cb)(void *ctx, void *event, int event_len))
 {
-	return -EINVAL;
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	int ret;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	if (!test_bit(CNSS_QMI_WLFW_CONNECTED, &plat_priv->driver_state))
+		return -EINVAL;
+
+	plat_priv->get_info_cb = cb;
+	plat_priv->get_info_cb_ctx = cb_ctx;
+
+	ret = cnss_wlfw_get_info_send_sync(plat_priv, type, cmd, cmd_len);
+	if (ret) {
+		plat_priv->get_info_cb = NULL;
+		plat_priv->get_info_cb_ctx = NULL;
+	}
+
+	return ret;
 }
 EXPORT_SYMBOL(cnss_qmi_send);
 

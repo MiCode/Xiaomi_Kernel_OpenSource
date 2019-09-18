@@ -92,6 +92,8 @@ static int cnss_wlfw_ind_register_send_sync(struct cnss_plat_data *plat_priv)
 	req->qdss_trace_save_enable = 1;
 	req->qdss_trace_free_enable_valid = 1;
 	req->qdss_trace_free_enable = 1;
+	req->respond_get_info_enable_valid = 1;
+	req->respond_get_info_enable = 1;
 
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
 			   wlfw_ind_register_resp_msg_v01_ei, resp);
@@ -1458,6 +1460,77 @@ out:
 	return ret;
 }
 
+int cnss_wlfw_get_info_send_sync(struct cnss_plat_data *plat_priv, int type,
+				 void *cmd, int cmd_len)
+{
+	struct wlfw_get_info_req_msg_v01 *req;
+	struct wlfw_get_info_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+	int ret = 0;
+
+	cnss_pr_vdbg("Sending get info message, type: %d, cmd length: %d, state: 0x%lx\n",
+		     type, cmd_len, plat_priv->driver_state);
+
+	if (cmd_len > QMI_WLFW_MAX_DATA_SIZE_V01)
+		return -EINVAL;
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	req->type = type;
+	req->data_len = cmd_len;
+	memcpy(req->data, cmd, req->data_len);
+
+	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
+			   wlfw_get_info_resp_msg_v01_ei, resp);
+	if (ret < 0) {
+		cnss_pr_err("Failed to initialize txn for get info request, err: %d\n",
+			    ret);
+		goto out;
+	}
+
+	ret = qmi_send_request(&plat_priv->qmi_wlfw, NULL, &txn,
+			       QMI_WLFW_GET_INFO_REQ_V01,
+			       WLFW_GET_INFO_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_get_info_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		cnss_pr_err("Failed to send get info request, err: %d\n",
+			    ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, QMI_WLFW_TIMEOUT_JF);
+	if (ret < 0) {
+		cnss_pr_err("Failed to wait for response of get info request, err: %d\n",
+			    ret);
+		goto out;
+	}
+
+	if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		cnss_pr_err("Get info request failed, result: %d, err: %d\n",
+			    resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
+
+	kfree(req);
+	kfree(resp);
+	return 0;
+
+out:
+	kfree(req);
+	kfree(resp);
+	return ret;
+}
+
 unsigned int cnss_get_qmi_timeout(struct cnss_plat_data *plat_priv)
 {
 	cnss_pr_dbg("QMI timeout is %u ms\n", QMI_WLFW_TIMEOUT_MS);
@@ -1717,6 +1790,31 @@ static void cnss_wlfw_qdss_trace_free_ind_cb(struct qmi_handle *qmi_wlfw,
 			       0, NULL);
 }
 
+static void cnss_wlfw_respond_get_info_ind_cb(struct qmi_handle *qmi_wlfw,
+					      struct sockaddr_qrtr *sq,
+					      struct qmi_txn *txn,
+					      const void *data)
+{
+	struct cnss_plat_data *plat_priv =
+		container_of(qmi_wlfw, struct cnss_plat_data, qmi_wlfw);
+	const struct wlfw_respond_get_info_ind_msg_v01 *ind_msg = data;
+
+	cnss_pr_vdbg("Received QMI WLFW respond get info indication\n");
+
+	if (!txn) {
+		cnss_pr_err("Spurious indication\n");
+		return;
+	}
+
+	cnss_pr_vdbg("Extract message with event length: %d, type: %d, is last: %d, seq no: %d\n",
+		     ind_msg->data_len, ind_msg->type,
+		     ind_msg->is_last, ind_msg->seq_no);
+
+	if (plat_priv->get_info_cb_ctx && plat_priv->get_info_cb)
+		plat_priv->get_info_cb(plat_priv->get_info_cb_ctx,
+				       (void *)ind_msg->data,
+				       ind_msg->data_len);
+}
 static struct qmi_msg_handler qmi_wlfw_msg_handlers[] = {
 	{
 		.type = QMI_INDICATION,
@@ -1784,6 +1882,14 @@ static struct qmi_msg_handler qmi_wlfw_msg_handlers[] = {
 		.decoded_size =
 		sizeof(struct wlfw_qdss_trace_free_ind_msg_v01),
 		.fn = cnss_wlfw_qdss_trace_free_ind_cb
+	},
+	{
+		.type = QMI_INDICATION,
+		.msg_id = QMI_WLFW_RESPOND_GET_INFO_IND_V01,
+		.ei = wlfw_respond_get_info_ind_msg_v01_ei,
+		.decoded_size =
+		sizeof(struct wlfw_respond_get_info_ind_msg_v01),
+		.fn = cnss_wlfw_respond_get_info_ind_cb
 	},
 	{}
 };

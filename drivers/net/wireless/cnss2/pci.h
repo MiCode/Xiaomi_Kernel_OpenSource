@@ -92,6 +92,7 @@ struct cnss_pci_data {
 	struct timer_list dev_rddm_timer;
 	struct delayed_work time_sync_work;
 	u8 disable_pc;
+	struct mutex bus_lock; /* mutex for suspend and resume bus */
 	struct cnss_pci_debug_reg *debug_reg;
 	struct cnss_misc_reg *wcss_reg;
 	u32 wcss_reg_size;
@@ -173,6 +174,8 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic);
 void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv);
 u32 cnss_pci_get_wake_msi(struct cnss_pci_data *pci_priv);
 int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv);
+int cnss_pci_qmi_send_get(struct cnss_pci_data *pci_priv);
+int cnss_pci_qmi_send_put(struct cnss_pci_data *pci_priv);
 void cnss_pci_fw_boot_timeout_hdlr(struct cnss_pci_data *pci_priv);
 int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv);
 int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv);
