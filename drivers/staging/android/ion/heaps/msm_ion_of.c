@@ -276,6 +276,7 @@ static void release_reserved_memory_regions(struct ion_platform_heap *heaps,
 
 		if (mem_node)
 			release_reserved_memory(dev, mem_node);
+		of_node_put(mem_node);
 	}
 }
 
@@ -317,12 +318,12 @@ static int msm_ion_get_heap_dt_data(struct device_node *node,
 			heap->base = base;
 			heap->size = size;
 		}
-		of_node_put(pnode);
 	} else {
 		ret = 0;
 	}
 
 out:
+	of_node_put(pnode);
 	WARN(ret, "Failed to parse DT node for heap %s\n", heap->name);
 	return ret;
 }
