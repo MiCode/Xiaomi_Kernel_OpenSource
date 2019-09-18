@@ -283,8 +283,8 @@ static int msm_ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	int ret = 0;
 
 	if (!hlos_accessible_buffer(buffer)) {
-		pr_err("%s: this buffer cannot be mapped to userspace\n",
-		       __func__);
+		pr_err_ratelimited("%s: this buffer cannot be mapped to userspace\n",
+				   __func__);
 		return -EINVAL;
 	}
 
