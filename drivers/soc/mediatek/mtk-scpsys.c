@@ -203,11 +203,13 @@ int register_scpsys_notifier(struct notifier_block *nb)
 {
 	return blocking_notifier_chain_register(&scpsys_notifier_list, nb);
 }
+EXPORT_SYMBOL_GPL(register_scpsys_notifier);
 
 int unregister_scpsys_notifier(struct notifier_block *nb)
 {
 	return blocking_notifier_chain_unregister(&scpsys_notifier_list, nb);
 }
+EXPORT_SYMBOL_GPL(unregister_scpsys_notifier);
 
 static int scpsys_domain_is_on(struct scp_domain *scpd)
 {
