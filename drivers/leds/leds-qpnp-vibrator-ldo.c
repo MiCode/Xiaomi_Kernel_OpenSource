@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -297,7 +298,7 @@ static ssize_t qpnp_vib_store_duration(struct device *dev,
 		return count;
 
 	if (val < QPNP_VIB_MIN_PLAY_MS)
-		val = QPNP_VIB_MIN_PLAY_MS;
+		val = QPNP_VIB_MIN_PLAY_MS * 2;
 
 	if (val > QPNP_VIB_MAX_PLAY_MS)
 		val = QPNP_VIB_MAX_PLAY_MS;

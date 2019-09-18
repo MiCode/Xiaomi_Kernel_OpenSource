@@ -1,0 +1,56 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+#ifndef __WCD9360_IRQ_H_
+#define __WCD9360_IRQ_H_
+
+enum {
+	/* INTR_REG 0 */
+	WCD9360_IRQ_MISC = 1,
+	WCD9360_IRQ_RESERVED_0,
+	WCD9360_IRQ_LDO_RXTX_SCD,
+	WCD9360_IRQ_EAR_PA_SCD,
+	WCD9360_IRQ_AUX_PA_SCD,
+	WCD9360_IRQ_AUX_PA_CNP_COMPLETE,
+	WCD9360_IRQ_EAR_PA_CNP_COMPLETE,
+	/* INTR_REG 1 */
+	WCD9360_IRQ_RESERVED_1,
+	WCD9360_IRQ_RESERVED_2,
+	WCD9360_IRQ_RESERVED_3,
+	WCD9360_IRQ_RESERVED_4,
+	WCD9360_IRQ_RESERVED_5,
+	WCD9360_IRQ_RESERVED_6,
+	WCD9360_IRQ_RESERVED_7,
+	WCD9360_IRQ_RESERVED_8,
+	/* INTR_REG 2 */
+	WCD9360_IRQ_RESERVED_9,
+	WCD9360_IRQ_RESERVED_10,
+	WCD9360_IRQ_RESERVED_11,
+	WCD9360_IRQ_RESERVED_12,
+	WCD9360_IRQ_SOUNDWIRE,
+	WCD9360_IRQ_RESERVED_13,
+	WCD9360_IRQ_RCO_ERROR,
+	WCD9360_IRQ_CPE_ERROR,
+	/* INTR_REG 3 */
+	WCD9360_IRQ_MAD_AUDIO,
+	WCD9360_IRQ_MAD_BEACON,
+	WCD9360_IRQ_MAD_ULTRASOUND,
+	WCD9360_IRQ_RESERVED_14,
+	WCD9360_IRQ_RESERVED_15,
+	WCD9360_IRQ_CPE1_INTR,
+	WCD9360_IRQ_CPE2_INTR,
+	WCD9360_IRQ_CPE_LPASS_ACK,
+	WCD9360_NUM_IRQS,
+};
+
+#endif

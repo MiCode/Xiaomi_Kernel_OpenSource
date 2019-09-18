@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -335,11 +336,20 @@ enum {
  *  TYPEC Peripheral Registers  *
  ********************************/
 #define TYPE_C_SNK_STATUS_REG			(TYPEC_BASE + 0x06)
-#define DETECTED_SRC_TYPE_MASK			GENMASK(3, 0)
+#define DETECTED_SRC_TYPE_MASK			GENMASK(6, 0)
+#define SNK_RP_STD_DAM_BIT 		BIT(6)
+#define SNK_RP_1P5_DAM_BIT 		BIT(5)
+#define SNK_RP_3P0_DAM_BIT 		BIT(4)
+#define SCHG_USB_TYPE_C_CFG		(USBIN_BASE + 0x58)
+#define BC1P2_START_ON_CC			BIT(7)
+
 #define SNK_RP_STD_BIT				BIT(3)
 #define SNK_RP_1P5_BIT				BIT(2)
 #define SNK_RP_3P0_BIT				BIT(1)
 #define SNK_RP_SHORT_BIT			BIT(0)
+#define TYPE_C_SNK_DEBUG_ACC_STATUS_REG		(TYPEC_BASE + 0x07)
+#define SNK_DEBUG_ACC_RPSTD_PRSTD_BIT		BIT(0)
+
 
 #define TYPE_C_SRC_STATUS_REG			(TYPEC_BASE + 0x08)
 #define DETECTED_SNK_TYPE_MASK			GENMASK(4, 0)
@@ -391,6 +401,12 @@ enum {
 #define TYPEC_CCOUT_BUFFER_EN_BIT		BIT(2)
 #define TYPEC_CCOUT_VALUE_BIT			BIT(1)
 #define TYPEC_CCOUT_SRC_BIT			BIT(0)
+
+#define TYPE_C_DEBUG_ACC_SNK_CFG		(TYPEC_BASE + 0x4A)
+#define TYPEC_DEBUG_ENABLE_ACC_SNK              BIT(0)
+#define TYPEC_DEBUG_ENABLE_CHG_ON_SNK           BIT(1)
+#define TYPEC_DEBUG_ACC_SNK_SEL_ICL		BIT(2)
+#define TYPEC_DEBUG_ACC_SNK_DIS_AICL		BIT(3)
 
 #define DEBUG_ACCESS_SRC_CFG_REG		(TYPEC_BASE + 0x4C)
 #define EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT	BIT(0)

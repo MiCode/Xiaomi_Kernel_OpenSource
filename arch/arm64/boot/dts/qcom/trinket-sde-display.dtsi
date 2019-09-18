@@ -1,4 +1,5 @@
 /* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +13,9 @@
 
 #include "dsi-panel-td4330-truly-singlemipi-fhd-cmd.dtsi"
 #include "dsi-panel-td4330-truly-singlemipi-fhd-video.dtsi"
+#include "dsi-panel-nt36672a-tianma-fhd-video.dtsi"
+#include "dsi-panel-nt36672a-shenchao-fhd-video.dtsi"
+#include "dsi-panel-ft8719-huaxing-fhd-video.dtsi"
 #include "dsi-panel-sim-video.dtsi"
 #include "dsi-panel-hx83112a-truly-singlemipi-fhd-video.dtsi"
 #include "dsi-panel-nt36672-truly-fhd-video.dtsi"
@@ -30,6 +34,7 @@
 			qcom,supply-enable-load = <62000>;
 			qcom,supply-disable-load = <80>;
 			qcom,supply-post-on-sleep = <20>;
+			qcom,supply-pre-off-sleep = <20>;
 		};
 
 		qcom,panel-supply-entry@1 {
@@ -39,6 +44,7 @@
 			qcom,supply-max-voltage = <6000000>;
 			qcom,supply-enable-load = <100000>;
 			qcom,supply-disable-load = <100>;
+			qcom,supply-pre-off-sleep = <10>;
 		};
 
 		qcom,panel-supply-entry@2 {
@@ -89,6 +95,45 @@
 			qcom,supply-enable-load = <13200>;
 			qcom,supply-disable-load = <80>;
 		};
+	};
+
+	dsi_nt36672a_shenchao_vid_display: qcom,dsi-display@7 {
+		label = "dsi_nt36672a_shenchao_vid_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0",
+			"src_byte_clk0", "src_pixel_clk0",
+			"shadow_byte_clk0", "shadow_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_nt36672a_shenchao_video>;
+	};
+
+	dsi_ft8719_huaxing_vid_display: qcom,dsi-display@6 {
+		label = "dsi_ft8719_huaxing_vid_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0",
+			"src_byte_clk0", "src_pixel_clk0",
+			"shadow_byte_clk0", "shadow_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_ft8719_huaxing_video>;
+	};
+
+	dsi_nt36672a_tianma_vid_display: qcom,dsi-display@5 {
+		label = "dsi_nt36672a_tianma_vid_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0",
+			"src_byte_clk0", "src_pixel_clk0",
+			"shadow_byte_clk0", "shadow_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_nt36672a_tianma_video>;
 	};
 
 	dsi_td4330_truly_vid_display: qcom,dsi-display@0 {
@@ -174,11 +219,9 @@
 		ibb-supply = <&lcdb_ncp_vreg>;
 
 		qcom,dsi-display-list =
-			<&dsi_td4330_truly_vid_display
-			&dsi_td4330_truly_cmd_display
-			&dsi_sim_vid_display
-			&dsi_hx83112a_truly_vid_display
-			&dsi_nt36672_truly_vid_display>;
+			<&dsi_nt36672a_tianma_vid_display
+			 &dsi_ft8719_huaxing_vid_display
+			 &dsi_nt36672a_shenchao_vid_display>;
 	};
 
 	sde_wb: qcom,wb-display@0 {
@@ -220,6 +263,60 @@
 			qcom,default-topology-index = <0>;
 			qcom,partial-update-enabled = "single_roi";
 			qcom,panel-roi-alignment = <40 40 40 40 40 40>;
+		};
+	};
+};
+
+&dsi_nt36672a_shenchao_video {
+	qcom,mdss-dsi-t-clk-post = <0x0f>;
+	qcom,mdss-dsi-t-clk-pre = <0x37>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings =
+				[26 21 09 0b 06 02 04 a0
+				26 21 09 0b 06 02 04 a0
+				26 21 09 0b 06 02 04 a0
+				26 21 09 0b 06 02 04 a0
+				26 20 0a 0b 06 02 04 a0];
+
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_ft8719_huaxing_video {
+	qcom,mdss-dsi-t-clk-post = <0x0e>;
+	qcom,mdss-dsi-t-clk-pre = <0x34>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings =
+			   [26 21 09 0B 06 03 04 a0
+				26 21 09 0B 06 03 04 a0
+				26 21 09 0B 06 03 04 a0
+				26 21 09 0B 06 03 04 a0
+				26 20 0A 0B 06 03 04 a0];
+
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_nt36672a_tianma_video {
+	qcom,mdss-dsi-t-clk-post = <0x0f>;
+	qcom,mdss-dsi-t-clk-pre = <0x37>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings =
+				[26 21 09 0b 06 02 04 a0
+				26 21 09 0b 06 02 04 a0
+				26 21 09 0b 06 02 04 a0
+				26 21 09 0b 06 02 04 a0
+				26 20 0a 0b 06 02 04 a0];
+
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
 		};
 	};
 };

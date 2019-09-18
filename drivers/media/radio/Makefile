@@ -34,6 +34,7 @@ obj-$(CONFIG_RADIO_WL1273) += radio-wl1273.o
 obj-$(CONFIG_RADIO_WL128X) += wl128x/
 obj-$(CONFIG_RADIO_TEA575X) += tea575x.o
 obj-$(CONFIG_USB_RAREMONO) += radio-raremono.o
+obj-$(CONFIG_FM_INSIDE_LAN) += fm_inside_lan.o
 
 shark2-objs := radio-shark2.o radio-tea5777.o
 

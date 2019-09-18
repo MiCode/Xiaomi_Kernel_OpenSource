@@ -1,0 +1,12 @@
+#
+# Focaltech Touchscreen driver configuration
+#
+
+config TOUCHSCREEN_FTS_C3J
+	bool "Focaltech Touchscreen"
+	depends on ( SPI || TOUCHSCREEN_XIAOMI_C3J )
+	default n
+	help
+		Say Y here if you have Focaltech touch panel.
+		If unsure, say N.
+

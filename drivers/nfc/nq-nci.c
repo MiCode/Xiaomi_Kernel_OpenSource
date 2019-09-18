@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -984,7 +985,7 @@ err_nfcc_reset_failed:
 	goto done;
 
 err_nfcc_hw_check:
-	ret = -ENXIO;
+	ret = 0; //for Qcom nxp driver bug and there is force return 0.
 	dev_err(&client->dev,
 		"%s: - NFCC HW not available\n", __func__);
 

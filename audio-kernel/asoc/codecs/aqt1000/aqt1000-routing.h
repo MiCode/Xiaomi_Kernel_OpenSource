@@ -1,0 +1,174 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#ifndef AQT1000_ROUTING_H
+#define AQT1000_ROUTING_H
+
+#include <sound/soc-dapm.h>
+
+const struct snd_soc_dapm_route aqt_audio_map[] = {
+
+	/* CDC Tx interface */
+
+	{"AQT AIF1 CAP", NULL, "AQT AIF1 CAP Mixer"},
+	{"AQT AIF1 CAP Mixer", "TX0", "AQT TX0_MUX"},
+	{"AQT AIF1 CAP Mixer", "TX1", "AQT TX1_MUX"},
+
+	{"AQT TX0_MUX", "DEC_L", "AQT ADC0 MUX"},
+	{"AQT TX0_MUX", "DEC_R", "AQT ADC1 MUX"},
+	{"AQT TX0_MUX", "DEC_V", "AQT ADC2 MUX"},
+
+	{"AQT TX1_MUX", "DEC_L", "AQT ADC0 MUX"},
+	{"AQT TX1_MUX", "DEC_R", "AQT ADC1 MUX"},
+	{"AQT TX1_MUX", "DEC_V", "AQT ADC2 MUX"},
+
+	{"AQT ADC0 MUX", "AMIC", "AQT AMIC0_MUX"},
+	{"AQT ADC0 MUX", "ANC_FB0", "AQT ANC_FB_TUNE0"},
+	{"AQT ADC0 MUX", "ANC_FB1", "AQT ANC_FB_TUNE1"},
+
+	{"AQT ADC1 MUX", "AMIC", "AQT AMIC1_MUX"},
+	{"AQT ADC1 MUX", "ANC_FB0", "AQT ANC_FB_TUNE0"},
+	{"AQT ADC1 MUX", "ANC_FB1", "AQT ANC_FB_TUNE1"},
+
+	{"AQT ADC2 MUX", "AMIC", "AQT AMIC2_MUX"},
+	{"AQT ADC2 MUX", "ANC_FB0", "AQT ANC_FB_TUNE0"},
+	{"AQT ADC2 MUX", "ANC_FB1", "AQT ANC_FB_TUNE1"},
+
+	{"AQT AMIC0_MUX", "ADC_L", "AQT ADC_L"},
+	{"AQT AMIC0_MUX", "ADC_R", "AQT ADC_R"},
+	{"AQT AMIC0_MUX", "ADC_V", "AQT ADC_V"},
+
+	{"AQT AMIC1_MUX", "ADC_L", "AQT ADC_L"},
+	{"AQT AMIC1_MUX", "ADC_R", "AQT ADC_R"},
+	{"AQT AMIC1_MUX", "ADC_V", "AQT ADC_V"},
+
+	{"AQT AMIC2_MUX", "ADC_L", "AQT ADC_L"},
+	{"AQT AMIC2_MUX", "ADC_R", "AQT ADC_R"},
+	{"AQT AMIC2_MUX", "ADC_V", "AQT ADC_V"},
+
+	{"AQT ADC_L", NULL, "AQT AMIC1"},
+	{"AQT ADC_R", NULL, "AQT AMIC2"},
+	{"AQT ADC_V", NULL, "AQT AMIC3"},
+
+	{"AQT AMIC10_MUX", "ADC_L", "AQT ADC_L"},
+	{"AQT AMIC10_MUX", "ADC_R", "AQT ADC_R"},
+	{"AQT AMIC10_MUX", "ADC_V", "AQT ADC_V"},
+
+	{"AQT AMIC11_MUX", "ADC_L", "AQT ADC_L"},
+	{"AQT AMIC11_MUX", "ADC_R", "AQT ADC_R"},
+	{"AQT AMIC11_MUX", "ADC_V", "AQT ADC_V"},
+
+	{"AQT AMIC12_MUX", "ADC_L", "AQT ADC_L"},
+	{"AQT AMIC12_MUX", "ADC_R", "AQT ADC_R"},
+	{"AQT AMIC12_MUX", "ADC_V", "AQT ADC_V"},
+
+	{"AQT AMIC13_MUX", "ADC_L", "AQT ADC_L"},
+	{"AQT AMIC13_MUX", "ADC_R", "AQT ADC_R"},
+	{"AQT AMIC13_MUX", "ADC_V", "AQT ADC_V"},
+
+	{"AQT ANC OUT HPHL Enable", "Switch", "AQT AMIC10_MUX"},
+	{"AQT ANC OUT HPHL Enable", "Switch", "AQT AMIC11_MUX"},
+	{"AQT ANC OUT HPHR Enable", "Switch", "AQT AMIC12_MUX"},
+	{"AQT ANC OUT HPHR Enable", "Switch", "AQT AMIC13_MUX"},
+
+	{"AQT RX INT1 MIX2", NULL, "AQT ANC OUT HPHL Enable"},
+	{"AQT RX INT2 MIX2", NULL, "AQT ANC OUT HPHR Enable"},
+
+	{"AQT ANC0 FB MUX", "ANC_IN_HPHL", "AQT RX INT1 MIX2"},
+	{"AQT ANC1 FB MUX", "ANC_IN_HPHR", "AQT RX INT2 MIX2"},
+
+	{"AQT I2S_L RX", NULL, "AQT AIF1 PB"},
+	{"AQT I2S_R RX", NULL, "AQT AIF1 PB"},
+
+	{"AQT RX INT1_1 MUX", "I2S0_L", "AQT I2S_L RX"},
+	{"AQT RX INT1_1 MUX", "I2S0_R", "AQT I2S_R RX"},
+	{"AQT RX INT1_1 MUX", "DEC_L", "AQT ADC0 MUX"},
+	{"AQT RX INT1_1 MUX", "DEC_R", "AQT ADC1 MUX"},
+	{"AQT RX INT1_1 MUX", "DEC_V", "AQT ADC2 MUX"},
+
+	{"AQT RX INT2_1 MUX", "I2S0_L", "AQT I2S_L RX"},
+	{"AQT RX INT2_1 MUX", "I2S0_R", "AQT I2S_R RX"},
+	{"AQT RX INT2_1 MUX", "DEC_L", "AQT ADC0 MUX"},
+	{"AQT RX INT2_1 MUX", "DEC_R", "AQT ADC1 MUX"},
+	{"AQT RX INT2_1 MUX", "DEC_V", "AQT ADC2 MUX"},
+
+	{"AQT RX INT1_2 MUX", "I2S0_L", "AQT I2S_L RX"},
+	{"AQT RX INT1_2 MUX", "I2S0_R", "AQT I2S_R RX"},
+	{"AQT RX INT1_2 MUX", "DEC_L", "AQT ADC0 MUX"},
+	{"AQT RX INT1_2 MUX", "DEC_R", "AQT ADC1 MUX"},
+	{"AQT RX INT1_2 MUX", "DEC_V", "AQT ADC2 MUX"},
+	{"AQT RX INT1_2 MUX", "IIR0", "AQT IIR0"},
+
+	{"AQT RX INT2_2 MUX", "I2S0_L", "AQT I2S_L RX"},
+	{"AQT RX INT2_2 MUX", "I2S0_R", "AQT I2S_R RX"},
+	{"AQT RX INT2_2 MUX", "DEC_L", "AQT ADC0 MUX"},
+	{"AQT RX INT2_2 MUX", "DEC_R", "AQT ADC1 MUX"},
+	{"AQT RX INT2_2 MUX", "DEC_V", "AQT ADC2 MUX"},
+	{"AQT RX INT2_2 MUX", "IIR0", "AQT IIR0"},
+
+	{"AQT RX INT1_1 INTERP", NULL, "AQT RX INT1_1 MUX"},
+	{"AQT RX INT1 MIX1", NULL, "AQT RX INT1_1 INTERP"},
+	{"AQT RX INT1 MIX2", NULL, "AQT RX INT1 MIX1"},
+
+	{"AQT RX INT1_2 INTERP", NULL, "AQT RX INT1_2 MUX"},
+	{"AQT RX INT1 MIX1", NULL, "AQT RX INT1_2 INTERP"},
+
+	{"AQT ASRC0 MUX", "ASRC_IN_HPHL", "AQT RX INT1_2 INTERP"},
+	{"AQT RX INT1 MIX1", "HPHL Switch", "AQT ASRC0 MUX"},
+
+	{"AQT RX INT2_1 INTERP", NULL, "AQT RX INT2_1 MUX"},
+	{"AQT RX INT2 MIX1", NULL, "AQT RX INT2_1 INTERP"},
+	{"AQT RX INT2 MIX2", NULL, "AQT RX INT2 MIX1"},
+
+	{"AQT RX INT2_2 INTERP", NULL, "AQT RX INT2_2 MUX"},
+	{"AQT RX INT2 MIX1", NULL, "AQT RX INT2_2 INTERP"},
+
+	{"AQT ASRC1 MUX", "ASRC_IN_HPHR", "AQT RX INT2_2 INTERP"},
+	{"AQT RX INT2 MIX1", "HPHR Switch", "AQT ASRC1 MUX"},
+
+	{"AQT RX INT1 DEM MUX", "CLSH_DSM_OUT", "AQT RX INT1 MIX2"},
+	{"AQT RX INT1 DAC", NULL, "AQT RX INT1 DEM MUX"},
+	{"AQT RX INT1 DAC", NULL, "AQT RX_BIAS"},
+	{"AQT RX_BIAS", NULL, "AQT MCLK"},
+	{"AQT MIC BIAS1", NULL, "AQT MCLK"},
+	{"AQT HPHL PA", NULL, "AQT RX INT1 DAC"},
+	{"AQT HPHL", NULL, "AQT HPHL PA"},
+
+	{"AQT RX INT2 DEM MUX", "CLSH_DSM_OUT", "AQT RX INT2 MIX2"},
+	{"AQT RX INT2 DAC", NULL, "AQT RX INT2 DEM MUX"},
+	{"AQT RX INT2 DAC", NULL, "AQT RX_BIAS"},
+	{"AQT HPHR PA", NULL, "AQT RX INT2 DAC"},
+	{"AQT HPHR", NULL, "AQT HPHR PA"},
+
+	{"AQT ANC HPHL PA", NULL, "AQT RX INT1 DAC"},
+	{"AQT ANC HPHL", NULL, "AQT ANC HPHL PA"},
+
+	{"AQT ANC HPHR PA", NULL, "AQT RX INT2 DAC"},
+	{"AQT ANC HPHR", NULL, "AQT ANC HPHR PA"},
+
+	{"AQT IIR0", NULL, "AQT ADC2 MUX"},
+	{"AQT SRC0", NULL, "AQT IIR0"},
+	{"AQT RX ST MUX", "SRC0", "AQT SRC0"},
+
+	{"AQT RX INT1 MIX2", NULL, "AQT RX ST MUX"},
+	{"AQT RX INT2 MIX2", NULL, "AQT RX ST MUX"},
+
+	/* Native clk main path routing */
+	{"AQT RX INT1_1 NATIVE MUX", "ON", "AQT RX INT1_1 MUX"},
+	{"AQT RX INT1_1 INTERP", NULL, "AQT RX INT1_1 NATIVE MUX"},
+	{"AQT RX INT1_1 NATIVE MUX", NULL, "AQT RX INT1 NATIVE SUPPLY"},
+
+	{"AQT RX INT2_1 NATIVE MUX", "ON", "AQT RX INT2_1 MUX"},
+	{"AQT RX INT2_1 INTERP", NULL, "AQT RX INT2_1 NATIVE MUX"},
+	{"AQT RX INT2_1 NATIVE MUX", NULL, "AQT RX INT2 NATIVE SUPPLY"},
+};
+
+#endif

@@ -41,6 +41,8 @@
 #include "pinctrl-msm.h"
 #include "../pinctrl-utils.h"
 
+#include <linux/wakeup_reason.h> /*Add-HMI_M516_A01-51*/
+
 #define MAX_NR_GPIO 300
 #define PS_HOLD_OFFSET 0x820
 
@@ -600,8 +602,19 @@ static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	unsigned i;
 
 	for (i = 0; i < chip->ngpio; i++, gpio++) {
+/*Add-begin-HMI_M516_A01-51
+**Author:lijiang@longcheer.com
+**Date:2019-4-22
+**Comment:remove tz gpio
+*/
+		if ( i!=30 && i!=31 && i!=32 && i!=33 && i!=0 && i!=1 && i!=2 && i!=3 ) {
+			msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
+			seq_puts(s, "\n");
+		}
+/*
 		msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
 		seq_puts(s, "\n");
+*/
 	}
 }
 
@@ -1804,6 +1817,9 @@ static void msm_pinctrl_resume(void)
 				name = desc->action->name;
 
 			pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+
+			log_wakeup_reason(irq); /*Add-HMI_M516_A01-51*/
+
 		}
 	}
 	raw_spin_unlock_irqrestore(&pctrl->lock, flags);

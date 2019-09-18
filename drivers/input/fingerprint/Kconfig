@@ -1,0 +1,9 @@
+ menu "Fingerprint Drivers"
+
+config FINGERPRINT_FPC1020
+	tristate "fpc fpc1020 fingerprint drvier support"
+	help
+	  say y here to enable fpc fingerprint driver support!  
+
+
+endmenu
