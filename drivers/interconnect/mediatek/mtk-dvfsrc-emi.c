@@ -236,7 +236,7 @@ static int emi_icc_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id emi_icc_of_match[] = {
-	{ .compatible = "mediatek,mt6779-emi", .data = &mt6779_icc },
+	{ .compatible = "mediatek,dvfsrc-mt6779-emi", .data = &mt6779_icc },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, emi_icc_of_match);
@@ -245,7 +245,7 @@ static struct platform_driver emi_icc_driver = {
 	.probe = emi_icc_probe,
 	.remove = emi_icc_remove,
 	.driver = {
-		.name = "mediatek-emi-icc",
+		.name = "mediatek-dvfsrc-emi",
 		.of_match_table = emi_icc_of_match,
 	},
 };
