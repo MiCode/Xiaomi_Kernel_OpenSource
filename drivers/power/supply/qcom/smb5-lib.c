@@ -6809,12 +6809,7 @@ static int smblib_role_switch_failure(struct smb_charger *chg, int mode)
 	if (pval.intval) {
 		if (mode == DUAL_ROLE_PROP_MODE_DFP)
 			smblib_notify_device_mode(chg, true);
-	} else {
-		if (mode == DUAL_ROLE_PROP_MODE_UFP)
-			smblib_notify_usb_host(chg, true);
 	}
-	smblib_dbg(chg, PR_MISC, "Role reversal is failed for %s, notify usb",
-						mode ? "DFP" : "UFP");
 
 	return rc;
 }
@@ -6837,10 +6832,6 @@ static void smblib_dual_role_check_work(struct work_struct *work)
 			if (rc < 0)
 				pr_err("Failed to set DRP mode, rc=%d\n", rc);
 
-			rc = smblib_role_switch_failure(chg,
-						DUAL_ROLE_PROP_MODE_UFP);
-			if (rc < 0)
-				pr_err("Failed to role switch rc=%d\n", rc);
 		}
 		chg->pr_swap_in_progress = false;
 		break;
