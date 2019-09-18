@@ -19,6 +19,7 @@
 | davinci-p-oss | Redmi K20 | Android P | LA.UM.7.9.r1-03300-sm6150.0 | [davinci-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/davinci-p-oss) |
 | ferrari-l-oss | Mi 4i | Android L | LA.BR.1.1.2-01120-8x16.0 | [ferrari-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ferrari-l-oss) |
 | gemini-m-oss | Mi 5 | Android M | LA.HB.1.1.1.c2_rb1035 | [gemini-m-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gemini-m-oss) |
+| ginkgo-p-oss | Redmi Note 8 | Android P | LA.UM.7.11.r1-02700-NICOBAR.0 | [ginkgo-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ginkgo-p-oss) |
 | grus-p-oss | Mi 8SE, Mi 9SE | Android P | LA.UM.7.8.r1-04400-SDM710.0 | [grus-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/commits/grus-p-oss) |
 | gucci-kk-oss | Redmi Note Dual SIM | Android KK | LNX.LA.3.7.2.1.c6-01400-8x16.0 | [gucci-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gucci-kk-oss) |
 | hennessy-l-oss | Redmi Note3,Redmi Note2,Redmi Note2 Pro | Android L | MTK | [hennessy-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/hennessy-l-oss) |
