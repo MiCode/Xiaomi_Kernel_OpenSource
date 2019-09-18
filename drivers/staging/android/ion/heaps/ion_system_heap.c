@@ -720,6 +720,7 @@ struct ion_heap *ion_system_heap_create(struct ion_platform_heap *data)
 		return ERR_PTR(-ENOMEM);
 	heap->heap.dev = data->priv;
 	heap->heap.ion_heap.ops = &system_heap_ops;
+	heap->heap.ion_heap.buf_ops = msm_ion_dma_buf_ops;
 	heap->heap.ion_heap.type = ION_HEAP_TYPE_SYSTEM;
 	heap->heap.ion_heap.flags = ION_HEAP_FLAG_DEFER_FREE;
 

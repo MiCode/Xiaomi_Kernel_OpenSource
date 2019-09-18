@@ -127,6 +127,7 @@ struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data)
 		return ERR_PTR(-ENOMEM);
 
 	cma_heap->heap.ion_heap.ops = &ion_cma_ops;
+	cma_heap->heap.ion_heap.buf_ops = msm_ion_dma_buf_ops;
 	/*
 	 * get device from private heaps data, later it will be
 	 * used to make the link with reserved CMA memory
@@ -199,6 +200,7 @@ struct ion_heap *ion_cma_secure_heap_create(struct ion_platform_heap *data)
 		return ERR_PTR(-ENOMEM);
 
 	cma_heap->heap.ion_heap.ops = &ion_secure_cma_ops;
+	cma_heap->heap.ion_heap.buf_ops = msm_ion_dma_buf_ops;
 	/*
 	 * get device from private heaps data, later it will be
 	 * used to make the link with reserved CMA memory
