@@ -1554,9 +1554,9 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 		if (ch->active_pid == current_pid()) {
 			pr_debug("active_pid [%x] is releasing ch [%s] sync lock\n",
 				 ch->active_pid, name);
-			mutex_unlock(&ch->shared_sync_lock);
 			/* No longer the current active user of the channel */
 			ch->active_pid = 0;
+			mutex_unlock(&ch->shared_sync_lock);
 		}
 		ch->num_clients--;
 		ch->is_busy = false;
@@ -1657,8 +1657,8 @@ static ssize_t spcom_device_write(struct file *filp,
 		pr_err("handle command error [%d]\n", ret);
 		kfree(buf);
 		if (ch && ch->active_pid == current_pid()) {
-			mutex_unlock(&ch->shared_sync_lock);
 			ch->active_pid = 0;
+			mutex_unlock(&ch->shared_sync_lock);
 		}
 		return ret;
 	}
@@ -1743,16 +1743,16 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 	pr_debug("ch [%s] ret [%d]\n", name, (int) actual_size);
 
 	if (ch->active_pid == cur_pid) {
-		mutex_unlock(&ch->shared_sync_lock);
 		ch->active_pid = 0;
+		mutex_unlock(&ch->shared_sync_lock);
 	}
 	return actual_size;
 
 exit_err:
 	kfree(buf);
 	if (ch->active_pid == cur_pid) {
-		mutex_unlock(&ch->shared_sync_lock);
 		ch->active_pid = 0;
+		mutex_unlock(&ch->shared_sync_lock);
 	}
 	return ret;
 }
