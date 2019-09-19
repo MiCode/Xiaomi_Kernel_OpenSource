@@ -568,12 +568,13 @@ static void __dma_remap(struct page *page, size_t size, pgprot_t prot,
 	flush_tlb_kernel_range(start, end);
 }
 
+#define NO_KERNEL_MAPPING_DUMMY		0x2222
 static void *__alloc_remap_buffer(struct device *dev, size_t size, gfp_t gfp,
 				 pgprot_t prot, struct page **ret_page,
 				 const void *caller, bool want_vaddr)
 {
 	struct page *page;
-	void *ptr = NULL;
+	void *ptr = (void *)NO_KERNEL_MAPPING_DUMMY;
 	/*
 	 * __alloc_remap_buffer is only called when the device is
 	 * non-coherent
@@ -648,10 +649,20 @@ static void *__alloc_from_contiguous(struct device *dev, size_t size,
 	__dma_clear_buffer(page, size, coherent_flag);
 
 	if (PageHighMem(page)) {
-		ptr = __dma_alloc_remap(page, size, GFP_KERNEL, prot, caller);
-		if (!ptr) {
-			dma_release_from_contiguous(dev, page, count);
-			return NULL;
+		if (!want_vaddr) {
+			/*
+			 * Something non-NULL needs to be returned here. Give
+			 * back a dummy address that is unmapped to catch
+			 * clients trying to use the address incorrectly
+			 */
+			ptr = (void *)NO_KERNEL_MAPPING_DUMMY;
+		} else {
+			ptr = __dma_alloc_remap(page, size, GFP_KERNEL,
+					prot, caller);
+			if (!ptr) {
+				dma_release_from_contiguous(dev, page, count);
+				return NULL;
+			}
 		}
 	} else {
 		__dma_remap(page, size, prot, want_vaddr);
@@ -849,7 +860,7 @@ static void *__dma_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 		kfree(buf);
 	}
 
-	return args.want_vaddr ? addr : page;
+	return addr;
 }
 
 /*
