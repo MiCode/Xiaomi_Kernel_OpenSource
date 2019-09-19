@@ -535,6 +535,7 @@ struct ufs_vreg {
 	int max_uV;
 	bool low_voltage_sup;
 	bool low_voltage_active;
+	bool sys_suspend_pwr_off;
 	int min_uA;
 	int max_uA;
 };
