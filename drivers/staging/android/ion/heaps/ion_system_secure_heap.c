@@ -323,6 +323,12 @@ static struct ion_heap_ops system_secure_heap_ops = {
 struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)
 {
 	struct ion_system_secure_heap *heap;
+	struct ion_heap *sys_heap = get_ion_heap(ION_SYSTEM_HEAP_ID);
+
+	if (!sys_heap) {
+		pr_err("Sys heap missing; ensure it's specified in the DT, before the sys secure heap\n");
+		return ERR_PTR(-EINVAL);
+	}
 
 	heap = kzalloc(sizeof(*heap), GFP_KERNEL);
 	if (!heap)
@@ -330,7 +336,7 @@ struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)
 	heap->heap.ion_heap.ops = &system_secure_heap_ops;
 	heap->heap.ion_heap.type =
 		(enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE;
-	heap->sys_heap = get_ion_heap(ION_SYSTEM_HEAP_ID);
+	heap->sys_heap = sys_heap;
 
 	heap->destroy_heap = false;
 	heap->work_lock = __SPIN_LOCK_UNLOCKED(heap->work_lock);
