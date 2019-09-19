@@ -191,7 +191,9 @@ int connectivity_export_mmc_io_rw_direct(struct mmc_card *card,
 				int write, unsigned int fn,
 				unsigned int addr, u8 in, u8 *out)
 {
-	return mmc_io_rw_direct(card, write, fn, addr, in, out);
+	/* TODO: porting this function if sdio is used */
+	/* return mmc_io_rw_direct(card, write, fn, addr, in, out); */
+	return 0;
 }
 EXPORT_SYMBOL(connectivity_export_mmc_io_rw_direct);
 
