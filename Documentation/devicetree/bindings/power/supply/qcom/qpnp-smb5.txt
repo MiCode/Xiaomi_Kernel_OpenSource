@@ -345,6 +345,11 @@ Charger specific properties:
   Definition: Boolean flag which when present disables the software thermal
 		regulation.
 
+- qcom,disable-fcc-restriction
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present disables FCC restriction.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================
