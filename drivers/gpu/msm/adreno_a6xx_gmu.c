@@ -346,7 +346,7 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 	u32 mask = 0x000001FF;
 
 	/* Check for 0xBABEFACE on legacy targets */
-	if (gmu->ver.core <= 0x20010003) {
+	if (gmu->ver.core <= 0x20010004) {
 		val = 0xBABEFACE;
 		mask = 0xFFFFFFFF;
 	}
