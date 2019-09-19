@@ -2393,6 +2393,7 @@ static bool arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
 static void arm_teardown_iommu_dma_ops(struct device *dev)
 {
 	struct dma_iommu_mapping *mapping;
+	int s1_bypass = 0;
 
 	mapping = to_dma_iommu_mapping(dev);
 	if (!mapping)
@@ -2400,6 +2401,13 @@ static void arm_teardown_iommu_dma_ops(struct device *dev)
 
 	kref_put(&mapping->kref, arm_iommu_dma_release_mapping);
 	to_dma_iommu_mapping(dev) = NULL;
+
+	/* Let arch_setup_dma_ops() start again from scratch upon re-probe */
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
+			&s1_bypass);
+	if (!s1_bypass)
+		set_dma_ops(dev, NULL);
+
 }
 #else
 
@@ -2419,6 +2427,8 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 			const struct iommu_ops *iommu, bool coherent)
 {
 	const struct dma_map_ops *dma_ops;
+	struct dma_iommu_mapping *mapping;
+	int s1_bypass = 0;
 
 	dev->archdata.dma_coherent = coherent;
 #ifdef CONFIG_SWIOTLB
@@ -2433,9 +2443,16 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 	if (dev->dma_ops)
 		return;
 
-	if (arm_setup_iommu_dma_ops(dev, dma_base, size, iommu))
-		dma_ops = arm_get_iommu_dma_map_ops(coherent);
-	else
+	if (arm_setup_iommu_dma_ops(dev, dma_base, size, iommu)) {
+		mapping = to_dma_iommu_mapping(dev);
+		if (mapping)
+			iommu_domain_get_attr(mapping->domain,
+				DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
+		if (s1_bypass)
+			dma_ops = arm_get_dma_map_ops(coherent);
+		else
+			dma_ops = arm_get_iommu_dma_map_ops(coherent);
+	} else
 		dma_ops = arm_get_dma_map_ops(coherent);
 
 	set_dma_ops(dev, dma_ops);
@@ -2454,8 +2471,6 @@ void arch_teardown_dma_ops(struct device *dev)
 		return;
 
 	arm_teardown_iommu_dma_ops(dev);
-	/* Let arch_setup_dma_ops() start again from scratch upon re-probe */
-	set_dma_ops(dev, NULL);
 }
 
 #ifdef CONFIG_SWIOTLB
