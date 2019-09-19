@@ -265,7 +265,7 @@
 		quat_tdm_sclk_sleep: quat_tdm_sclk_sleep {
 			mux {
 				pins = "gpio23";
-				function = "func3";
+				function = "gpio";
 			};
 
 			config {
@@ -291,7 +291,7 @@
 		quat_tdm_ws_sleep: quat_tdm_ws_sleep {
 			mux {
 				pins = "gpio24";
-				function = "func1";
+				function = "gpio";
 			};
 
 			config {
@@ -317,7 +317,7 @@
 		quat_tdm_data1_sleep: quat_tdm_data1_sleep {
 			mux {
 				pins = "gpio26";
-				function = "func2";
+				function = "gpio";
 			};
 
 			config {
@@ -343,7 +343,7 @@
 		quat_tdm_data0_sleep: quat_tdm_data0_sleep {
 			mux {
 				pins = "gpio25";
-				function = "func1";
+				function = "gpio";
 			};
 
 			config {
@@ -369,7 +369,7 @@
 		quin_tdm_sclk_sleep: quin_tdm_sclk_sleep {
 			mux {
 				pins = "gpio18";
-				function = "func3";
+				function = "gpio";
 			};
 
 			config {
@@ -395,7 +395,7 @@
 		quin_tdm_data0_sleep: quin_tdm_data0_sleep {
 			mux {
 				pins = "gpio20";
-				function = "func3";
+				function = "gpio";
 			};
 
 			config {
@@ -421,7 +421,7 @@
 		quin_tdm_ws_sleep: quin_tdm_ws_sleep {
 			mux {
 				pins = "gpio21";
-				function = "func3";
+				function = "gpio";
 			};
 
 			config {
@@ -447,7 +447,7 @@
 		quin_tdm_data1_sleep: quin_tdm_data1_sleep {
 			mux {
 				pins = "gpio22";
-				function = "func3";
+				function = "gpio";
 			};
 
 			config {
