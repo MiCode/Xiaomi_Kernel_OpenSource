@@ -1693,12 +1693,14 @@
 		qcom,pas-id = <1>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <423>;
+		qcom,minidump-id = <5>;
 		qcom,sysmon-id = <1>;
 		qcom,ssctl-instance-id = <0x14>;
 		qcom,firmware-name = "adsp";
 		memory-region = <&pil_adsp_mem>;
 		qcom,signal-aop;
 		qcom,complete-ramdump;
+		qcom,minidump-as-elf32;
 
 		/* Inputs from lpass */
 		interrupts-extended = <&pdc GIC_SPI 162 IRQ_TYPE_EDGE_RISING>,
