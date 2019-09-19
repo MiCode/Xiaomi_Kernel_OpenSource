@@ -382,7 +382,8 @@ static void ufs_qcom_force_mem_config(struct ufs_hba *hba)
 	 * non-ICE RAMs of host controller.
 	 */
 	list_for_each_entry(clki, &hba->clk_list_head, list) {
-		if (!strcmp(clki->name, "core_clk_ice"))
+		if (!strcmp(clki->name, "core_clk_ice") ||
+			!strcmp(clki->name, "core_clk_ice_hw_ctl"))
 			clk_set_flags(clki->clk, CLKFLAG_RETAIN_MEM);
 		else
 			clk_set_flags(clki->clk, CLKFLAG_NORETAIN_MEM);
@@ -1616,6 +1617,8 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int err = 0;
+	struct list_head *head = &hba->clk_list_head;
+	struct ufs_clk_info *clki;
 
 	/*
 	 * In case ufs_qcom_init() is not yet done, simply ignore.
@@ -1655,6 +1658,31 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			if (host->is_phy_pwr_on) {
 				phy_power_off(host->generic_phy);
 				host->is_phy_pwr_on = false;
+			}
+		}
+
+		if (list_empty(head))
+			goto out;
+		/*
+		 * As per the latest hardware programming guide,
+		 * during Hibern8 enter with power collapse :
+		 * SW should disable HW clock control for UFS ICE
+		 * clock (GCC_UFS_ICE_CORE_CBCR.HW_CTL=0)
+		 * before ufs_ice_core_clk is turned off.
+		 * In device tree, we need to add UFS ICE clocks
+		 * in below fixed order:
+		 * clock-names =
+		 * "core_clk_ice";
+		 * "core_clk_ice_hw_ctl";
+		 * This way no extra check is required in UFS
+		 * clock enable path as clk enable order will be
+		 * already taken care in ufshcd_setup_clocks().
+		 */
+		list_for_each_entry(clki, head, list) {
+			if (!IS_ERR_OR_NULL(clki->clk) &&
+				!strcmp(clki->name, "core_clk_ice_hw_ctl")) {
+				clk_disable_unprepare(clki->clk);
+				clki->enabled = on;
 			}
 		}
 	}
