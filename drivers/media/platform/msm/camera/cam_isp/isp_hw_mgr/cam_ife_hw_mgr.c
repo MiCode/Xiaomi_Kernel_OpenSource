@@ -4576,6 +4576,114 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 	return rc;
 }
 
+static int cam_ife_mgr_dump(void *hw_mgr_priv, void *args)
+{
+	struct cam_isp_hw_dump_args isp_hw_dump_args;
+	struct cam_hw_dump_args *dump_args = (struct cam_hw_dump_args *)args;
+	struct cam_ife_hw_mgr_res            *hw_mgr_res;
+	struct cam_hw_intf                   *hw_intf;
+	struct cam_ife_hw_mgr_ctx *ife_ctx = (struct cam_ife_hw_mgr_ctx *)
+						dump_args->ctxt_to_hw_map;
+	int i;
+	int rc = 0;
+
+	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
+		&isp_hw_dump_args.cpu_addr,
+		&isp_hw_dump_args.buf_len);
+	if (!isp_hw_dump_args.cpu_addr ||
+		!isp_hw_dump_args.buf_len || rc) {
+		CAM_ERR(CAM_ISP,
+		    "lnvalid addr %u len %zu rc %d",
+		    dump_args->buf_handle,
+		    isp_hw_dump_args.buf_len,
+		    rc);
+		return rc;
+	}
+	isp_hw_dump_args.offset = dump_args->offset;
+	isp_hw_dump_args.req_id = dump_args->request_id;
+
+	list_for_each_entry(hw_mgr_res, &ife_ctx->res_list_ife_csid, list) {
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+			if (!hw_mgr_res->hw_res[i])
+				continue;
+			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+			switch (hw_mgr_res->hw_res[i]->res_id) {
+			case CAM_IFE_PIX_PATH_RES_RDI_0:
+			case CAM_IFE_PIX_PATH_RES_RDI_1:
+			case CAM_IFE_PIX_PATH_RES_RDI_2:
+			case CAM_IFE_PIX_PATH_RES_RDI_3:
+				if (ife_ctx->is_rdi_only_context &&
+					hw_intf->hw_ops.process_cmd) {
+					rc = hw_intf->hw_ops.process_cmd(
+						hw_intf->hw_priv,
+						CAM_ISP_HW_CMD_DUMP_HW,
+						&isp_hw_dump_args,
+						sizeof(struct
+						    cam_isp_hw_dump_args));
+				}
+				break;
+			case CAM_IFE_PIX_PATH_RES_IPP:
+				if (hw_intf->hw_ops.process_cmd) {
+					rc = hw_intf->hw_ops.process_cmd(
+						hw_intf->hw_priv,
+						CAM_ISP_HW_CMD_DUMP_HW,
+						&isp_hw_dump_args,
+						sizeof(struct
+						    cam_isp_hw_dump_args));
+				}
+				break;
+			default:
+				CAM_DBG(CAM_ISP, "not a valid res %d",
+				hw_mgr_res->res_id);
+				break;
+			}
+		}
+	}
+	list_for_each_entry(hw_mgr_res, &ife_ctx->res_list_ife_src, list) {
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+			if (!hw_mgr_res->hw_res[i])
+				continue;
+			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+			switch (hw_mgr_res->res_id) {
+			case CAM_ISP_HW_VFE_IN_RDI0:
+			case CAM_ISP_HW_VFE_IN_RDI1:
+			case CAM_ISP_HW_VFE_IN_RDI2:
+			case CAM_ISP_HW_VFE_IN_RDI3:
+				if (ife_ctx->is_rdi_only_context &&
+					hw_intf->hw_ops.process_cmd) {
+					rc = hw_intf->hw_ops.process_cmd(
+						hw_intf->hw_priv,
+						CAM_ISP_HW_CMD_DUMP_HW,
+						&isp_hw_dump_args,
+						sizeof(struct
+						    cam_isp_hw_dump_args));
+				}
+				break;
+			case CAM_ISP_HW_VFE_IN_CAMIF:
+				if (hw_intf->hw_ops.process_cmd) {
+					rc = hw_intf->hw_ops.process_cmd(
+						hw_intf->hw_priv,
+						CAM_ISP_HW_CMD_DUMP_HW,
+						&isp_hw_dump_args,
+						sizeof(struct
+						    cam_isp_hw_dump_args));
+				}
+				break;
+			default:
+				CAM_DBG(CAM_ISP, "not a valid res %d",
+					hw_mgr_res->res_id);
+				break;
+			}
+		}
+	}
+	dump_args->offset = isp_hw_dump_args.offset;
+	rc  = cam_mem_put_cpu_buf(dump_args->buf_handle);
+	if (rc)
+		CAM_ERR(CAM_FD, "Cpu put failed handle %u",
+			dump_args->buf_handle);
+	return rc;
+}
+
 static int cam_ife_mgr_cmd_get_sof_timestamp(
 	struct cam_ife_hw_mgr_ctx      *ife_ctx,
 	uint64_t                       *time_stamp,
@@ -6190,6 +6298,7 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 	hw_mgr_intf->hw_config = cam_ife_mgr_config_hw;
 	hw_mgr_intf->hw_cmd = cam_ife_mgr_cmd;
 	hw_mgr_intf->hw_reset = cam_ife_mgr_reset;
+	hw_mgr_intf->hw_dump = cam_ife_mgr_dump;
 
 	if (iommu_hdl)
 		*iommu_hdl = g_ife_hw_mgr.mgr_common.img_iommu_hdl;
