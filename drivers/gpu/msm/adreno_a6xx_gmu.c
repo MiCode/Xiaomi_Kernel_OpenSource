@@ -1156,30 +1156,10 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 
 #define A6XX_VBIF_XIN_HALT_CTRL1_ACKS   (BIT(0) | BIT(1) | BIT(2) | BIT(3))
 
-static void a6xx_isense_disable(struct kgsl_device *device)
-{
-	unsigned int val;
-	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
-		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
-		return;
-
-	gmu_core_regread(device, A6XX_GPU_CS_ENABLE_REG, &val);
-	if (val) {
-		gmu_core_regwrite(device, A6XX_GPU_CS_ENABLE_REG, 0);
-		gmu_core_regwrite(device, A6XX_GMU_ISENSE_CTRL, 0);
-	}
-}
-
 static int a6xx_gmu_suspend(struct kgsl_device *device)
 {
 	int ret = 0;
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-
-	/* do it only if LM feature is enabled */
-	/* Disable ISENSE if it's on */
-	a6xx_isense_disable(device);
 
 	/* If SPTP_RAC is on, turn off SPTP_RAC HS */
 	a6xx_gmu_sptprac_disable(ADRENO_DEVICE(device));
