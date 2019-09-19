@@ -721,6 +721,50 @@ static void clk_rcg2_disable(struct clk_hw *hw)
 	clk_rcg2_clear_force_enable(hw);
 }
 
+static int clk_rcg2_set_duty_cycle(struct clk_hw *hw, struct clk_duty *duty)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	int ret;
+	u32 notn_m_val, n_val, m_val, d_val, not2d_val, old_cfg;
+	u32 duty_per = (duty->num * 100) / duty->den;
+
+	if (!rcg->mnd_width)
+		return 0;
+
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + rcg->cfg_off +
+				N_REG, &notn_m_val);
+
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + rcg->cfg_off +
+				M_REG, &m_val);
+
+	n_val = (~(notn_m_val) + m_val) & GENMASK((rcg->mnd_width - 1), 0);
+
+	/* Calculate 2d value */
+	d_val = DIV_ROUND_CLOSEST((25 + n_val * duty_per), 100);
+
+	 /* Check BIT WIDTHS OF 2d. If D is too big reduce Duty cycle. */
+	if ((d_val * 2) > (BIT(rcg->mnd_width) - 1))
+		d_val = (BIT(rcg->mnd_width) - 1) / 2;
+
+	if (d_val > (n_val - m_val))
+		d_val = n_val - m_val;
+	else if (d_val < (m_val / 2))
+		d_val = m_val / 2;
+
+	not2d_val = ~(2 * d_val) & (GENMASK((rcg->mnd_width - 1), 0));
+
+	ret = regmap_update_bits(rcg->clkr.regmap,
+			rcg->cmd_rcgr + rcg->cfg_off + D_REG,
+			GENMASK((rcg->mnd_width - 1), 0), not2d_val);
+	if (ret)
+		return ret;
+
+	/* Read back the old configuration */
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + rcg->cfg_off + CFG_REG,
+							&old_cfg);
+	return update_config(rcg, old_cfg);
+}
+
 const struct clk_ops clk_rcg2_ops = {
 	.is_enabled = clk_rcg2_is_enabled,
 	.prepare = clk_rcg2_prepare,
@@ -735,6 +779,7 @@ const struct clk_ops clk_rcg2_ops = {
 	.list_rate = clk_rcg2_list_rate,
 	.list_registers = clk_rcg2_list_registers,
 	.bus_vote = clk_debug_bus_vote,
+	.set_duty_cycle = clk_rcg2_set_duty_cycle,
 };
 EXPORT_SYMBOL_GPL(clk_rcg2_ops);
 
