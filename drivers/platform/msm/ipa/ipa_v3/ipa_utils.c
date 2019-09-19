@@ -6272,6 +6272,22 @@ void ipa3_enable_dcd(void)
 			&idle_indication_cfg);
 }
 
+bool ipa3_check_idr_if_freed(void *ptr)
+{
+	int id;
+	void *iter_ptr;
+
+	spin_lock(&ipa3_ctx->idr_lock);
+	idr_for_each_entry(&ipa3_ctx->ipa_idr, iter_ptr, id) {
+		if ((uintptr_t)ptr == (uintptr_t)iter_ptr) {
+			spin_unlock(&ipa3_ctx->idr_lock);
+			return false;
+		}
+	}
+	spin_unlock(&ipa3_ctx->idr_lock);
+	return true;
+}
+
 void ipa3_init_imm_cmd_desc(struct ipa3_desc *desc,
 	struct ipahal_imm_cmd_pyld *cmd_pyld)
 {

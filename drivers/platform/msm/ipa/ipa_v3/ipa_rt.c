@@ -97,6 +97,7 @@ static int ipa_generate_rt_hw_rule(enum ipa_ip_type ip,
 
 		proc_ctx = (entry->proc_ctx) ? : entry->hdr->proc_ctx;
 		if ((proc_ctx == NULL) ||
+			ipa3_check_idr_if_freed(proc_ctx) ||
 			(proc_ctx->cookie != IPA_PROC_HDR_COOKIE)) {
 			gen_params.hdr_type = IPAHAL_RT_RULE_HDR_NONE;
 			gen_params.hdr_ofst = 0;
@@ -730,7 +731,8 @@ struct ipa3_rt_tbl *__ipa3_find_rt_tbl(enum ipa_ip_type ip, const char *name)
 
 	set = &ipa3_ctx->rt_tbl_set[ip];
 	list_for_each_entry(entry, &set->head_rt_tbl_list, link) {
-		if (!strcmp(name, entry->name))
+		if (!ipa3_check_idr_if_freed(entry) &&
+			!strcmp(name, entry->name))
 			return entry;
 	}
 
@@ -1367,7 +1369,8 @@ int __ipa3_del_rt_rule(u32 rule_hdl)
 
 	if (entry->hdr)
 		__ipa3_release_hdr(entry->hdr->id);
-	else if (entry->proc_ctx)
+	else if (entry->proc_ctx &&
+		(!ipa3_check_idr_if_freed(entry->proc_ctx)))
 		__ipa3_release_hdr_proc_ctx(entry->proc_ctx->id);
 	list_del(&entry->link);
 	entry->tbl->rule_cnt--;
@@ -1568,7 +1571,9 @@ int ipa3_reset_rt(enum ipa_ip_type ip, bool user_only)
 				tbl->rule_cnt--;
 				if (rule->hdr)
 					__ipa3_release_hdr(rule->hdr->id);
-				else if (rule->proc_ctx)
+				else if (rule->proc_ctx &&
+					(!ipa3_check_idr_if_freed(
+						rule->proc_ctx)))
 					__ipa3_release_hdr_proc_ctx(
 						rule->proc_ctx->id);
 				rule->cookie = 0;
