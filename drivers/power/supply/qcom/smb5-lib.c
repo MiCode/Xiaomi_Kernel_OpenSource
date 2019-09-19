@@ -6265,7 +6265,8 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 		chg->last_wls_vout = 0;
 	}
 
-	power_supply_changed(chg->dc_psy);
+	if (chg->dc_psy)
+		power_supply_changed(chg->dc_psy);
 
 	smblib_dbg(chg, (PR_WLS | PR_INTERRUPT), "dcin_present= %d, usbin_present= %d, cp_reason = %d\n",
 			dcin_present, vbus_present, chg->cp_reason);
