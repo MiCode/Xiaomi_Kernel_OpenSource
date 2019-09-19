@@ -184,7 +184,7 @@ static int msm_cvp_map_buf_dsp(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
-	cbuf = kmem_cache_zalloc(inst->internal_buf_cache, GFP_KERNEL);
+	cbuf = kmem_cache_zalloc(cvp_driver->internal_buf_cache, GFP_KERNEL);
 	if (!cbuf) {
 		return -ENOMEM;
 	}
@@ -228,7 +228,7 @@ static int msm_cvp_map_buf_dsp(struct msm_cvp_inst *inst,
 exit:
 	if (cbuf->smem.device_addr)
 		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
-	kmem_cache_free(inst->internal_buf_cache, cbuf);
+	kmem_cache_free(cvp_driver->internal_buf_cache, cbuf);
 	cbuf = NULL;
 
 	return rc;
@@ -286,7 +286,7 @@ static int msm_cvp_unmap_buf_dsp(struct msm_cvp_inst *inst,
 	list_del(&cbuf->list);
 	mutex_unlock(&inst->cvpdspbufs.lock);
 
-	kmem_cache_free(inst->internal_buf_cache, cbuf);
+	kmem_cache_free(cvp_driver->internal_buf_cache, cbuf);
 	return rc;
 }
 
@@ -318,7 +318,7 @@ static int msm_cvp_map_buf_cpu_d(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
-	cbuf = kmem_cache_zalloc(inst->internal_buf_cache, GFP_KERNEL);
+	cbuf = kmem_cache_zalloc(cvp_driver->internal_buf_cache, GFP_KERNEL);
 	if (!cbuf)
 		return -ENOMEM;
 
@@ -348,7 +348,7 @@ static int msm_cvp_map_buf_cpu_d(struct msm_cvp_inst *inst,
 exit:
 	if (cbuf->smem.device_addr)
 		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
-	kmem_cache_free(inst->internal_buf_cache, cbuf);
+	kmem_cache_free(cvp_driver->internal_buf_cache, cbuf);
 	cbuf = NULL;
 
 	return rc;
@@ -477,7 +477,7 @@ static int msm_cvp_map_buf_cpu(struct msm_cvp_inst *inst,
 	if (!rc && *iova != 0)
 		return 0;
 
-	cbuf = kmem_cache_zalloc(inst->internal_buf_cache, GFP_KERNEL);
+	cbuf = kmem_cache_zalloc(cvp_driver->internal_buf_cache, GFP_KERNEL);
 	if (!cbuf)
 		return -ENOMEM;
 
@@ -511,7 +511,7 @@ static int msm_cvp_map_buf_cpu(struct msm_cvp_inst *inst,
 
 	*iova = cbuf->smem.device_addr + cbuf->buf.offset;
 
-	frame_buf = kmem_cache_zalloc(inst->frame_buf_cache, GFP_KERNEL);
+	frame_buf = kmem_cache_zalloc(cvp_driver->frame_buf_cache, GFP_KERNEL);
 	if (!frame_buf) {
 		rc = -ENOMEM;
 		goto exit2;
@@ -533,7 +533,7 @@ exit2:
 	list_del(&cbuf->list);
 	mutex_unlock(&inst->cvpcpubufs.lock);
 exit:
-	kmem_cache_free(inst->internal_buf_cache, cbuf);
+	kmem_cache_free(cvp_driver->internal_buf_cache, cbuf);
 	cbuf = NULL;
 
 	return rc;
@@ -559,7 +559,7 @@ static void __unmap_buf(struct msm_cvp_inst *inst,
 			list_del(&cbuf->list);
 			print_internal_buffer(CVP_DBG, "unmap", inst, cbuf);
 			msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
-			kmem_cache_free(inst->internal_buf_cache, cbuf);
+			kmem_cache_free(cvp_driver->internal_buf_cache, cbuf);
 			break;
 		}
 	}
@@ -589,12 +589,12 @@ void msm_cvp_unmap_buf_cpu(struct msm_cvp_inst *inst, u64 ktid)
 						&frame->bufs.list, list) {
 				list_del(&frame_buf->list);
 				__unmap_buf(inst, frame_buf);
-				kmem_cache_free(inst->frame_buf_cache,
+				kmem_cache_free(cvp_driver->frame_buf_cache,
 						frame_buf);
 			}
 			mutex_unlock(&frame->bufs.lock);
 			DEINIT_MSM_CVP_LIST(&frame->bufs);
-			kmem_cache_free(inst->frame_cache, frame);
+			kmem_cache_free(cvp_driver->frame_cache, frame);
 			break;
 		}
 	}
@@ -695,7 +695,7 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 
 		memcpy(out_pkt, &msg->pkt,
 			sizeof(struct cvp_hfi_msg_session_hdr));
-		kmem_cache_free(inst->session_queue.msg_cache, msg);
+		kmem_cache_free(cvp_driver->msg_cache, msg);
 	}
 
 exit:
@@ -778,7 +778,7 @@ static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
 		cmd_hdr->client_data.kdata1 = (u32)ktid;
 		cmd_hdr->client_data.kdata2 = (u32)(ktid >> 32);
 
-		frame = kmem_cache_zalloc(inst->frame_cache, GFP_KERNEL);
+		frame = kmem_cache_zalloc(cvp_driver->frame_cache, GFP_KERNEL);
 		if (!frame)
 			return -ENOMEM;
 
@@ -833,11 +833,11 @@ static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
 					list_del(&frame_buf->list);
 					__unmap_buf(inst, frame_buf);
 					kmem_cache_free(
-					inst->frame_buf_cache,
+					cvp_driver->frame_buf_cache,
 					frame_buf);
 				}
 				DEINIT_MSM_CVP_LIST(&frame->bufs);
-				kmem_cache_free(inst->frame_cache,
+				kmem_cache_free(cvp_driver->frame_cache,
 						frame);
 				return rc;
 			}
@@ -1323,7 +1323,7 @@ static int msm_cvp_thread_fence_run(void *data)
 	}
 
 exit:
-	kmem_cache_free(inst->fence_data_cache, fence_thread_data);
+	kmem_cache_free(cvp_driver->fence_data_cache, fence_thread_data);
 	inst->cur_cmd_type = 0;
 	cvp_put_inst(inst);
 	do_exit(rc);
@@ -1355,7 +1355,7 @@ static int msm_cvp_session_process_hfi_fence(
 		return -ECONNRESET;
 
 	inst->cur_cmd_type = CVP_KMD_SEND_FENCE_CMD_PKT;
-	fence_thread_data = kmem_cache_alloc(inst->fence_data_cache,
+	fence_thread_data = kmem_cache_alloc(cvp_driver->fence_data_cache,
 			GFP_KERNEL);
 	if (!fence_thread_data) {
 		dprintk(CVP_ERR, "%s: fence_thread_data alloc failed\n",
@@ -1388,7 +1388,7 @@ static int msm_cvp_session_process_hfi_fence(
 
 	rc = msm_cvp_map_buf(inst, in_pkt, offset, buf_num);
 	if (rc)
-		goto exit;
+		goto free_and_exit;
 
 	thread_num = thread_num + 1;
 	fence_thread_data->inst = inst;
@@ -1401,14 +1401,15 @@ static int msm_cvp_session_process_hfi_fence(
 	thread = kthread_run(msm_cvp_thread_fence_run,
 			fence_thread_data, thread_fence_name);
 	if (!thread) {
-		kmem_cache_free(inst->fence_data_cache, fence_thread_data);
 		dprintk(CVP_ERR, "%s fail to create kthread\n", __func__);
 		rc = -ECHILD;
-		goto exit;
+		goto free_and_exit;
 	}
 
 	return 0;
 
+free_and_exit:
+	kmem_cache_free(cvp_driver->fence_data_cache, fence_thread_data);
 exit:
 	inst->cur_cmd_type = 0;
 	cvp_put_inst(s);
@@ -2275,7 +2276,7 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 									cbuf);
 		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
 		list_del(&cbuf->list);
-		kmem_cache_free(inst->internal_buf_cache, cbuf);
+		kmem_cache_free(cvp_driver->internal_buf_cache, cbuf);
 	}
 	mutex_unlock(&inst->cvpcpubufs.lock);
 
@@ -2295,7 +2296,7 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 
 		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
 		list_del(&cbuf->list);
-		kmem_cache_free(inst->internal_buf_cache, cbuf);
+		kmem_cache_free(cvp_driver->internal_buf_cache, cbuf);
 	}
 	mutex_unlock(&inst->cvpdspbufs.lock);
 
@@ -2315,11 +2316,12 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 				buf->dbuf->name);
 
 			list_del(&frame_buf->list);
-			kmem_cache_free(inst->frame_buf_cache, frame_buf);
+			kmem_cache_free(cvp_driver->frame_buf_cache,
+					frame_buf);
 		}
 		mutex_unlock(&frame->bufs.lock);
 		DEINIT_MSM_CVP_LIST(&frame->bufs);
-		kmem_cache_free(inst->frame_cache, frame);
+		kmem_cache_free(cvp_driver->frame_cache, frame);
 	}
 	mutex_unlock(&inst->frames.lock);
 

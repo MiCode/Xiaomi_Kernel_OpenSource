@@ -570,13 +570,27 @@ static int __init msm_cvp_init(void)
 		debugfs_remove_recursive(cvp_driver->debugfs_root);
 		kfree(cvp_driver);
 		cvp_driver = NULL;
+		return rc;
 	}
+
+	cvp_driver->msg_cache = KMEM_CACHE(cvp_session_msg, 0);
+	cvp_driver->fence_data_cache = KMEM_CACHE(msm_cvp_fence_thread_data, 0);
+	cvp_driver->frame_cache = KMEM_CACHE(msm_cvp_frame, 0);
+	cvp_driver->frame_buf_cache = KMEM_CACHE(msm_cvp_frame_buf, 0);
+	cvp_driver->internal_buf_cache = KMEM_CACHE(msm_cvp_internal_buffer, 0);
 
 	return rc;
 }
 
 static void __exit msm_cvp_exit(void)
 {
+
+	kmem_cache_destroy(cvp_driver->msg_cache);
+	kmem_cache_destroy(cvp_driver->fence_data_cache);
+	kmem_cache_destroy(cvp_driver->frame_cache);
+	kmem_cache_destroy(cvp_driver->frame_buf_cache);
+	kmem_cache_destroy(cvp_driver->internal_buf_cache);
+
 	platform_driver_unregister(&msm_cvp_driver);
 	debugfs_remove_recursive(cvp_driver->debugfs_root);
 	mutex_destroy(&cvp_driver->lock);
