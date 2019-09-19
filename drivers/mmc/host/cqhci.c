@@ -102,6 +102,10 @@ static void cqhci_set_irqs(struct cqhci_host *cq_host, u32 set)
 static void cqhci_dumpregs(struct cqhci_host *cq_host)
 {
 	struct mmc_host *mmc = cq_host->mmc;
+	int offset = 0;
+
+	if (cq_host->offset_changed)
+		offset = CQE_V5_VENDOR_CFG;
 
 	mmc_log_string(mmc,
 	"CQHCI_CTL=0x%08x CQHCI_IS=0x%08x CQHCI_ISTE=0x%08x CQHCI_ISGE=0x%08x CQHCI_TDBR=0x%08x CQHCI_TCN=0x%08x CQHCI_DQS=0x%08x CQHCI_DPT=0x%08x CQHCI_TERRI=0x%08x CQHCI_CRI=0x%08x CQHCI_CRA=0x%08x CQHCI_CRDCT=0x%08x\n",
@@ -147,6 +151,8 @@ static void cqhci_dumpregs(struct cqhci_host *cq_host)
 	CQHCI_DUMP("Resp idx:  0x%08x | Resp arg: 0x%08x\n",
 		   cqhci_readl(cq_host, CQHCI_CRI),
 		   cqhci_readl(cq_host, CQHCI_CRA));
+	CQHCI_DUMP("Vendor cfg 0x%08x\n",
+		   cqhci_readl(cq_host, CQHCI_VENDOR_CFG + offset));
 
 	if (cq_host->ops->dumpregs)
 		cq_host->ops->dumpregs(mmc);
@@ -279,6 +285,12 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 		cq_host->caps |= CQHCI_CAP_CRYPTO_SUPPORT |
 				CQHCI_TASK_DESC_SZ_128;
 		cqcfg |= CQHCI_ICE_ENABLE;
+		/*
+		 * For SDHC v5.0 onwards, ICE 3.0 specific registers are added
+		 * in CQ register space, due to which few CQ registers are
+		 * shifted. Set offset_changed boolean to use updated address.
+		 */
+		 cq_host->offset_changed = true;
 	}
 
 	cqhci_writel(cq_host, cqcfg, CQHCI_CFG);
@@ -809,8 +821,10 @@ static void cqhci_finish_mrq(struct mmc_host *mmc, unsigned int tag)
 	struct cqhci_slot *slot = &cq_host->slot[tag];
 	struct mmc_request *mrq = slot->mrq;
 	struct mmc_data *data;
-	int err = 0;
+	int err = 0, offset = 0;
 
+	if (cq_host->offset_changed)
+		offset = CQE_V5_VENDOR_CFG;
 	if (!mrq) {
 		WARN_ONCE(1, "%s: cqhci: spurious TCN for tag %d\n",
 			  mmc_hostname(mmc), tag);
@@ -840,6 +854,11 @@ static void cqhci_finish_mrq(struct mmc_host *mmc, unsigned int tag)
 			data->bytes_xfered = 0;
 		else
 			data->bytes_xfered = data->blksz * data->blocks;
+	} else {
+		cqhci_writel(cq_host, cqhci_readl(cq_host,
+				CQHCI_VENDOR_CFG + offset) |
+				CMDQ_SEND_STATUS_TRIGGER,
+				CQHCI_VENDOR_CFG + offset);
 	}
 
 	if (!(cq_host->caps & CQHCI_CAP_CRYPTO_SUPPORT) &&
