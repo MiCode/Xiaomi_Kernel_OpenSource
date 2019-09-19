@@ -185,8 +185,7 @@
 	/delete-property/ qcom,nonhotplug;
 
 	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on
-			&sdc2_cd_on>;
+			&sdc2_wlan_on>;
 	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
-			&sdc2_cd_off>;
-	cd-gpios = <&tlmm 21 GPIO_ACTIVE_LOW>;
+			&sdc2_wlan_off>;
 };

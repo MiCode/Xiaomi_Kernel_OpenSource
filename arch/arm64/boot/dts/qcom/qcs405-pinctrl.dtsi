@@ -1468,6 +1468,34 @@
 			};
 		};
 
+		sdc2_wlan_on: sdc2_wlan_on {
+			mux {
+				pins = "gpio116";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio116";
+				drive-strength = <10>;
+				bias-pull-up;
+				output-high;
+			};
+		};
+
+		sdc2_wlan_off: sdc2_wlan_off {
+			mux {
+				pins = "gpio116";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio116";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+
 		/* SMB CONFIGURATION */
 		smb_stat: smb_stat {
 			mux {
