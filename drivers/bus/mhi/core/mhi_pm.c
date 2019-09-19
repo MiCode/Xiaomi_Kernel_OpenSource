@@ -1186,11 +1186,17 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_client)
 	enum MHI_PM_STATE new_state;
 	struct mhi_chan *itr, *tmp;
 
-	if (mhi_cntrl->pm_state == MHI_PM_DISABLE)
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	if (mhi_cntrl->pm_state == MHI_PM_DISABLE) {
+		read_unlock_bh(&mhi_cntrl->pm_lock);
 		return -EINVAL;
+	}
 
-	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))
+	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
+		read_unlock_bh(&mhi_cntrl->pm_lock);
 		return -EIO;
+	}
+	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	/* do a quick check to see if any pending votes to keep us busy */
 	if (atomic_read(&mhi_cntrl->pending_pkts)) {
@@ -1215,6 +1221,12 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_client)
 	if (atomic_read(&mhi_cntrl->pending_pkts)) {
 		MHI_VERB("Busy, aborting M3\n");
 		ret = -EBUSY;
+		goto error_suspend;
+	}
+
+	/* check pm state before saving it */
+	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
+		ret = -EIO;
 		goto error_suspend;
 	}
 
@@ -1365,17 +1377,23 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 	struct mhi_event *mhi_event;
 	int i;
 
+	read_lock_bh(&mhi_cntrl->pm_lock);
 	MHI_LOG("Entered with pm_state:%s dev_state:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
 
-	if (mhi_cntrl->pm_state == MHI_PM_DISABLE)
+	if (mhi_cntrl->pm_state == MHI_PM_DISABLE) {
+		read_unlock_bh(&mhi_cntrl->pm_lock);
 		return 0;
+	}
 
-	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))
+	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
+		read_unlock_bh(&mhi_cntrl->pm_lock);
 		return -EIO;
+	}
 
 	MHI_ASSERT(mhi_cntrl->pm_state != MHI_PM_M3, "mhi_pm_state != M3");
+	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	/* notify any clients we're about to exit lpm */
 	if (notify_client) {
@@ -1389,10 +1407,19 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 	/* do not process control events */
 	tasklet_disable(&mhi_cntrl->mhi_event->task);
 
+	/* check if we entered error state again before doing the restore */
 	write_lock_irq(&mhi_cntrl->pm_lock);
+
+	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
+		write_unlock_irq(&mhi_cntrl->pm_lock);
+		tasklet_enable(&mhi_cntrl->mhi_event->task);
+		return -EIO;
+	}
+
 	/* restore the states */
 	mhi_cntrl->pm_state = mhi_cntrl->saved_pm_state;
 	mhi_cntrl->dev_state = mhi_cntrl->saved_dev_state;
+
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	switch (mhi_cntrl->pm_state) {
@@ -1404,6 +1431,12 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 		mhi_cntrl->wake_get(mhi_cntrl, true);
 		mhi_cntrl->wake_put(mhi_cntrl, true);
 		read_unlock_bh(&mhi_cntrl->pm_lock);
+		break;
+	default:
+		MHI_ERR("Unexpected PM state:%s after restore\n",
+			to_mhi_pm_state_str(mhi_cntrl->pm_state));
+		tasklet_enable(&mhi_cntrl->mhi_event->task);
+		return -EIO;
 	}
 
 	/* now it's safe to process ctrl events */
