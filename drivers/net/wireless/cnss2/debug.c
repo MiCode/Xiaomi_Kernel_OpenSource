@@ -477,6 +477,10 @@ static ssize_t cnss_runtime_pm_debug_write(struct file *fp,
 		cnss_pci_pm_runtime_put_noidle(pci_priv);
 	} else if (sysfs_streq(cmd, "mark_last_busy")) {
 		cnss_pci_pm_runtime_mark_last_busy(pci_priv);
+	} else if (sysfs_streq(cmd, "resume_bus")) {
+		cnss_pci_resume_bus(pci_priv);
+	} else if (sysfs_streq(cmd, "suspend_bus")) {
+		cnss_pci_suspend_bus(pci_priv);
 	} else {
 		cnss_pr_err("Runtime PM debugfs command is invalid\n");
 		ret = -EINVAL;
@@ -500,6 +504,8 @@ static int cnss_runtime_pm_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "put_noidle: do runtime PM put noidle\n");
 	seq_puts(s, "put_autosuspend: do runtime PM put autosuspend\n");
 	seq_puts(s, "mark_last_busy: do runtime PM mark last busy\n");
+	seq_puts(s, "resume_bus: do bus resume only\n");
+	seq_puts(s, "suspend_bus: do bus suspend only\n");
 
 	return 0;
 }
