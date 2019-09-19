@@ -2768,6 +2768,12 @@
 		status = "ok";
 	};
 
+	llcc_pmu: llcc-pmu@90cc000 {
+		compatible = "qcom,qcom-llcc-pmu";
+		reg = <0x090cc000 0x300>;
+		reg-names = "lagg-base";
+	};
+
 	llcc_bw_opp_table: llcc-bw-opp-table {
 		compatible = "operating-points-v2";
 		BW_OPP_ENTRY( 150, 16); /*  2288 MB/s */
