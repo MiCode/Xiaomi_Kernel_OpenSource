@@ -18,7 +18,7 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.0.26"
+#define ATL_VERSION "1.0.27"
 
 struct atl_nic;
 enum atl_fwd_notify;
@@ -159,6 +159,37 @@ struct atl_fwd {
 	struct blocking_notifier_head nh_clients;
 };
 
+#ifdef CONFIG_ATLFWD_FWD_NETLINK
+/* FWD ring descriptor
+ * Similar to atl_desc_ring, but has less fields.
+ *
+ * Note: it's not a part of atl_fwd_ring on purpose.
+ */
+struct atl_fwd_ring_desc {
+	struct atl_hw_ring hw;
+	uint32_t head;
+	uint32_t tail;
+	union {
+		struct atl_txbuf *txbufs;
+	};
+	struct u64_stats_sync syncp;
+	struct atl_ring_stats stats;
+	u32 tx_hw_head;
+	struct atl_fwd_event tx_evt;
+	struct atl_fwd_event rx_evt;
+};
+
+struct atl_fwdnl {
+	struct atl_fwd_ring_desc ring_desc[ATL_NUM_FWD_RINGS * 2];
+	/* State of forced redirections */
+	int force_icmp_via;
+	int force_tx_via;
+	/* Deferred TX head cleanup */
+	struct delayed_work *tx_cleanup_wq;
+	u32 tx_bunch;
+};
+#endif /* CONFIG_ATLFWD_FWD_NETLINK */
+
 struct atl_nic {
 	struct net_device *ndev;
 
@@ -169,7 +200,7 @@ struct atl_nic {
 	uint32_t priv_flags;
 	struct timer_list work_timer;
 	int max_mtu;
-	int requested_nvecs;
+	unsigned int requested_nvecs;
 	int requested_rx_size;
 	int requested_tx_size;
 	int rx_intr_delay;
@@ -180,6 +211,9 @@ struct atl_nic {
 
 #ifdef CONFIG_ATLFWD_FWD
 	struct atl_fwd fwd;
+#endif
+#ifdef CONFIG_ATLFWD_FWD_NETLINK
+	struct atl_fwdnl fwdnl;
 #endif
 
 	struct atl_rxf_ntuple rxf_ntuple;
@@ -250,10 +284,13 @@ extern const char atl_driver_name[];
 
 extern const struct ethtool_ops atl_ethtool_ops;
 
-extern int atl_max_queues;
+extern unsigned int atl_max_queues;
 extern unsigned atl_rx_linear;
 extern unsigned atl_min_intr_delay;
 extern int atl_enable_msi;
+extern unsigned int atl_tx_clean_budget;
+extern unsigned int atl_tx_free_low;
+extern unsigned int atl_tx_free_high;
 
 /* Logging conviniency macros.
  *
@@ -375,5 +412,6 @@ int atl_update_thermal(struct atl_hw *hw);
 int atl_update_thermal_flag(struct atl_hw *hw, int bit, bool val);
 int atl_verify_thermal_limits(struct atl_hw *hw, struct atl_thermal *thermal);
 int atl_do_reset(struct atl_nic *nic);
+int atl_set_media_detect(struct atl_nic *nic, bool on);
 
 #endif

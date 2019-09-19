@@ -96,16 +96,11 @@ static inline struct netdev_queue *atl_txq(struct atl_desc_ring *ring)
 		ring->qvec->idx);
 }
 
-static unsigned int atl_tx_free_low = MAX_SKB_FRAGS + 4;
+unsigned int atl_tx_free_low = MAX_SKB_FRAGS + 4;
 module_param_named(tx_free_low, atl_tx_free_low, uint, 0644);
 
-static unsigned int atl_tx_free_high = MAX_SKB_FRAGS * 3;
+unsigned int atl_tx_free_high = MAX_SKB_FRAGS * 3;
 module_param_named(tx_free_high, atl_tx_free_high, uint, 0644);
-
-static inline int skb_xmit_more(struct sk_buff *skb)
-{
-	return skb->xmit_more;
-}
 
 static netdev_tx_t atl_map_xmit_skb(struct sk_buff *skb,
 	struct atl_desc_ring *ring, struct atl_txbuf *first_buf)
@@ -265,7 +260,10 @@ netdev_tx_t atl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		return NETDEV_TX_BUSY;
 
 #ifdef CONFIG_ATLFWD_FWD_NETLINK
-	if (atlfwd_nl_is_redirected(skb, ndev))
+	/* atl_max_queues is the number of standard queues.
+	 * Extra queue is allocated for FWD processing.
+	 */
+	if (unlikely(skb->queue_mapping >= nic->nvecs))
 		return atlfwd_nl_xmit(skb, ndev);
 #endif
 
@@ -317,7 +315,7 @@ netdev_tx_t atl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	return atl_map_xmit_skb(skb, ring, txbuf);
 }
 
-static unsigned int atl_tx_clean_budget = 256;
+unsigned int atl_tx_clean_budget = 256;
 module_param_named(tx_clean_budget, atl_tx_clean_budget, uint, 0644);
 
 // Returns true if all work done
@@ -1158,7 +1156,8 @@ static int atl_config_interrupts(struct atl_nic *nic)
 	if (atl_enable_msi) {
 		int nvecs;
 
-		nvecs = min_t(int, nic->requested_nvecs, num_present_cpus());
+		nvecs = min_t(unsigned int, nic->requested_nvecs,
+			      num_present_cpus());
 		flags = PCI_IRQ_MSIX | PCI_IRQ_MSI;
 		ret = pci_alloc_irq_vectors(hw->pdev,
 			ATL_NUM_NON_RING_IRQS + 1,

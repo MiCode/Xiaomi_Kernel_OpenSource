@@ -19,7 +19,7 @@
 
 const char atl_driver_name[] = "atlantic-fwd";
 
-int atl_max_queues = ATL_MAX_QUEUES;
+unsigned int atl_max_queues = ATL_MAX_QUEUES;
 module_param_named(max_queues, atl_max_queues, uint, 0444);
 
 static unsigned int atl_rx_mod = 15, atl_tx_mod = 15;
@@ -35,6 +35,8 @@ module_param_named(sleep_delay, atl_sleep_delay, uint, 0644);
 static void atl_start_link(struct atl_nic *nic)
 {
 	struct atl_hw *hw = &nic->hw;
+
+	atl_set_media_detect(nic, !!(nic->priv_flags & ATL_PF_BIT(MEDIA_DETECT)));
 
 	hw->link_state.force_off = 0;
 	hw->mcp.ops->set_link(hw, true);
@@ -123,6 +125,10 @@ static int atl_open(struct net_device *ndev)
 
 	pm_runtime_put_sync(&nic->hw.pdev->dev);
 
+#ifdef CONFIG_ATLFWD_FWD_NETLINK
+	atlfwd_nl_on_open(nic->ndev);
+#endif
+
 	return 0;
 
 free_rings:
@@ -194,6 +200,9 @@ static const struct net_device_ops atl_ndev_ops = {
 	.ndo_open = atl_open,
 	.ndo_stop = atl_ndo_close,
 	.ndo_start_xmit = atl_start_xmit,
+#ifdef CONFIG_ATLFWD_FWD_NETLINK
+	.ndo_select_queue = atlfwd_nl_select_queue,
+#endif
 	.ndo_vlan_rx_add_vid = atl_vlan_rx_add_vid,
 	.ndo_vlan_rx_kill_vid = atl_vlan_rx_kill_vid,
 	.ndo_set_rx_mode = atl_set_rx_mode,
@@ -396,6 +405,15 @@ static void atl_setup_rss(struct atl_nic *nic)
 
 static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
+	/* Number of queues:
+	 * Extra TX queue is used for redirection to FWD ring.
+	 */
+#ifdef CONFIG_ATLFWD_FWD_NETLINK
+	const unsigned int txqs = atl_max_queues + 1;
+#else
+	const unsigned int txqs = atl_max_queues;
+#endif
+	const unsigned int rxqs = atl_max_queues;
 	int ret, pci_64 = 0;
 	struct net_device *ndev;
 	struct atl_nic *nic = NULL;
@@ -425,7 +443,7 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto err_pci_reg;
 	}
 
-	ndev = alloc_etherdev_mq(sizeof(struct atl_nic), atl_max_queues);
+	ndev = alloc_etherdev_mqs(sizeof(struct atl_nic), txqs, rxqs);
 	if (!ndev) {
 		ret = -ENOMEM;
 		goto err_alloc_ndev;

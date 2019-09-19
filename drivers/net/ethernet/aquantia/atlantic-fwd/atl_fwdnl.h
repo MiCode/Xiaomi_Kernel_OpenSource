@@ -82,20 +82,24 @@ enum atlfwd_nl_ring_status {
 
 #ifdef __KERNEL__
 #include <linux/netdevice.h>
+#include <linux/version.h>
 struct atl_fwd_ring;
 
 int atlfwd_nl_init(void);
 void atlfwd_nl_on_probe(struct net_device *ndev);
 void atlfwd_nl_on_remove(struct net_device *ndev);
+int atlfwd_nl_on_open(struct net_device *ndev);
 void atlfwd_nl_exit(void);
 
-bool atlfwd_nl_is_redirected(const struct sk_buff *skb,
-			     struct net_device *ndev);
 netdev_tx_t atlfwd_nl_xmit(struct sk_buff *skb, struct net_device *ndev);
+u16 atlfwd_nl_select_queue_fallback(struct net_device *dev, struct sk_buff *skb,
+				    struct net_device *arg3,
+				    select_queue_fallback_t fallback);
 
 bool atlfwd_nl_is_tx_fwd_ring_created(struct net_device *ndev,
 				      const int fwd_ring_index);
-void atl_fwd_dump_ring(struct atl_fwd_ring *ring);
+
+bool is_atlfwd_device(const struct net_device *dev);
 #endif
 
 #endif

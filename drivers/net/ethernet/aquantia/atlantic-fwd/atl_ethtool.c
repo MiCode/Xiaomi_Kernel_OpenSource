@@ -864,21 +864,16 @@ static int atl_set_pad_stripping(struct atl_nic *nic, bool on)
 	return 0;
 }
 
-static int atl_set_media_detect(struct atl_nic *nic, bool on)
+int atl_set_media_detect(struct atl_nic *nic, bool on)
 {
 	struct atl_hw *hw = &nic->hw;
 	int ret;
 
-	if (hw->mcp.fw_rev < 0x0301005a)
-		return -EOPNOTSUPP;
+	atl_lock_fw(&nic->hw);
+	ret = hw->mcp.ops->set_mediadetect(hw, on);
+	atl_unlock_fw(&nic->hw);
 
-	ret = atl_write_fwsettings_word(hw, atl_fw2_setings_media_detect, on);
-	if (ret)
-		return ret;
-
-	/* Restart aneg to make FW apply the new settings */
-	hw->mcp.ops->restart_aneg(hw);
-	return 0;
+	return ret;
 }
 
 static uint32_t atl_get_priv_flags(struct net_device *ndev)
