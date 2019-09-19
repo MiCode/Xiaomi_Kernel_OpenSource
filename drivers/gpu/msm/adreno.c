@@ -3019,11 +3019,12 @@ static void adreno_retry_rbbm_read(struct kgsl_device *device,
 	}
 }
 
-static bool adreno_is_rbbm_batch_reg(struct kgsl_device *device,
+static bool adreno_is_rbbm_batch_reg(struct adreno_device *adreno_dev,
 	unsigned int offsetwords)
 {
-	if (adreno_is_a650(ADRENO_DEVICE(device)) ||
-		adreno_is_a620v1(ADRENO_DEVICE(device))) {
+	if ((adreno_is_a650(adreno_dev) &&
+		ADRENO_CHIPID_PATCH(adreno_dev->chipid) < 2) ||
+		adreno_is_a620v1(adreno_dev)) {
 		if (((offsetwords >= 0x0) && (offsetwords <= 0x3FF)) ||
 		((offsetwords >= 0x4FA) && (offsetwords <= 0x53F)) ||
 		((offsetwords >= 0x556) && (offsetwords <= 0x5FF)) ||
@@ -3056,7 +3057,7 @@ static void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 	rmb();
 
 	if ((*value == 0xdeafbead) &&
-		adreno_is_rbbm_batch_reg(device, offsetwords))
+		adreno_is_rbbm_batch_reg(ADRENO_DEVICE(device), offsetwords))
 		adreno_retry_rbbm_read(device, offsetwords, value);
 }
 
