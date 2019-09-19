@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/atomic.h>
@@ -558,6 +558,10 @@ int rpmh_flush(const struct device *dev)
 		pr_debug("Skipping flush, TCS has latest data.\n");
 		return 0;
 	}
+
+	do {
+		ret = rpmh_rsc_invalidate(ctrlr_to_drv(ctrlr));
+	} while (ret == -EAGAIN);
 
 	/* First flush the cached batch requests */
 	ret = flush_batch(ctrlr);
