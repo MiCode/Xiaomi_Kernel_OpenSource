@@ -2527,7 +2527,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 16, 10, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
-	[IPA_4_5][IPA_CLIENT_USB_DPL_CONS]        = {
+	[IPA_4_5_MHI][IPA_CLIENT_USB_DPL_CONS]        = {
 			true, IPA_v4_5_MHI_GROUP_DDR,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
