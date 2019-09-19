@@ -408,6 +408,8 @@ struct ion_heap *get_ion_heap(int heap_id)
 	int i;
 	struct ion_heap *heap;
 
+	heap_id = __ffs(heap_id);
+
 	for (i = 0; i < num_heaps; i++) {
 		heap = heaps[i];
 		if (heap && heap->id == heap_id)

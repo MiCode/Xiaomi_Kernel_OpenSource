@@ -8,8 +8,6 @@
 #include <linux/types.h>
 #include <linux/msm_ion_ids.h>
 
-#define ION_BIT(nr) (1U << (nr))
-
 /**
  * TARGET_ION_ABI_VERSION can be used by user space clients to ensure that at
  * compile time only their code which uses the appropriate ION APIs for
@@ -18,7 +16,7 @@
 #define TARGET_ION_ABI_VERSION 2
 
 enum msm_ion_heap_types {
-	ION_HEAP_TYPE_MSM_START = 6,
+	ION_HEAP_TYPE_MSM_START = 16,
 	ION_HEAP_TYPE_SECURE_DMA = ION_HEAP_TYPE_MSM_START,
 	ION_HEAP_TYPE_SYSTEM_SECURE,
 	ION_HEAP_TYPE_HYP_CMA,
@@ -56,7 +54,7 @@ enum msm_ion_heap_types {
  * Flag to use when allocating to indicate that a heap is secure.
  * Do NOT use BIT macro since it is defined in #ifdef __KERNEL__
  */
-#define ION_FLAG_SECURE			ION_BIT(ION_HEAP_ID_RESERVED)
+#define ION_FLAG_SECURE			ION_BIT(31)
 
 /*
  * Used in conjunction with heap which pool memory to force an allocation
@@ -67,7 +65,7 @@ enum msm_ion_heap_types {
 /**
  * Macro should be used with ion_heap_ids defined above.
  */
-#define ION_HEAP(bit)			ION_BIT(bit)
+#define ION_HEAP(bit)			bit
 
 #define ION_IOC_MSM_MAGIC 'M'
 
