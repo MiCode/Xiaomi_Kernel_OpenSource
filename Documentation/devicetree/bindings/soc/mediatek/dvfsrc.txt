@@ -1,0 +1,34 @@
+MediaTek DVFSRC
+
+The Dynamic Voltage and Frequency Scaling Resource Collector (DVFSRC) is a
+HW module which is used to collect all the requests from both software and
+hardware and turn into the decision of minimum operating voltage and minimum
+DRAM frequency to fulfill those requests.
+
+Required Properties:
+- compatible: Should be one of the following
+	- "mediatek,mt8183-dvfsrc": For MT8183 SoC
+	- "mediatek,mt6779-dvfsrc": For MT6779 SoC
+- reg: Address range of the DVFSRC unit
+- clock-names: Must include the following entries:
+	"dvfsrc": DVFSRC module clock
+- clocks: Must contain an entry for each entry in clock-names.
+- #interconnect-cells : should contain 1
+- interconnect : interconnect providers support dram bandwidth requirements.
+	The provider is able to communicate with the DVFSRC and send the dram
+	bandwidth to it. shall contain only one of the following:
+	"mediatek,dvfsrc-mt8183-emi"
+	"mediatek,dvfsrc-mt6779-emi"
+
+Example:
+
+	dvfsrc@10012000 {
+		compatible = "mediatek,mt8183-dvfsrc";
+		reg = <0 0x10012000 0 0x1000>;
+		clocks = <&infracfg CLK_INFRA_DVFSRC>;
+		clock-names = "dvfsrc";
+		ddr_emi: interconnect {
+			compatible = "mediatek,mt8183-emi";
+			#interconnect-cells = <1>;
+		};
+	};
