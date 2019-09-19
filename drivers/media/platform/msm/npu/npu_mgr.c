@@ -436,7 +436,8 @@ static void npu_destroy_wq(struct npu_host_ctx *host_ctx)
 static struct workqueue_struct *npu_create_wq(struct npu_host_ctx *host_ctx,
 	const char *name)
 {
-	struct workqueue_struct *wq = create_workqueue(name);
+	struct workqueue_struct *wq =
+		alloc_workqueue(name, WQ_HIGHPRI | WQ_UNBOUND, 0);
 
 	INIT_WORK(&host_ctx->irq_work, host_irq_wq);
 	INIT_DELAYED_WORK(&host_ctx->fw_deinit_work, fw_deinit_wq);
