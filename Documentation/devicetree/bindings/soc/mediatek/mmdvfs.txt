@@ -1,0 +1,149 @@
+Mediatek MMDVFS driver binding
+=========================================
+
+The Mediatek MMDVFS(Multimedia Dynamic Voltage and Frequency Scaling) driver
+is used to set clk for Mediatek multimedia hardwares, such as display, camera,
+mdp and video codec. MMDVFS driver reads which clock muxes and clock sources
+are used on this platform from DTS, and set current clock according to current
+voltage changed by dvfsrc_vcore.
+
+
+Required properties:
+- compatible : shall contain "mediatek,mmdvfs".
+- operating-points-v2: contains any one of opp tables for multimedia modules.
+                       MMDVFS uses it to get voltage setting on this platform.
+- mediatek,support_mux: contains a list of clock mux names defined
+                        in clock-names.
+- mediatek,mux_*: a series of properties with mediatek,mux_ prefix.
+		  Each property represents one clock mux, and its value is a
+		  list of all the clock sources for it. The postfix * and every
+		  item in the property must be from the clock-names.
+- clock, clock-names: list all clock muxes and clock sources for multimedia
+		      hardwares.
+
+Optional properties:
+If the platform needs frequency hopping for some clock sources, these following
+properties should be set.
+
+- mediatek,support_hopping: a list of clock names supporting frequency hopping.
+- mediatek,hopping_*: a cell with the same size as opp numbers of an opp table
+		      for any MM module and each entry represents the clock
+		      rate for each opp. For example, the first entry is the
+		      clock rate set in opp-0, and the second entry is the
+		      clock rate set in opp-1.
+- mediatek,action: a cell with one entry.
+		   It represents the action taken when setting clocks.
+		   0 or this property is not set:
+		   	Do not set frequency hopping and just set clock mux.
+		   1:
+		   	If the voltage is increasing, set frequency hopping
+		   	first. If the voltage is decreasing, set clock mux
+		   	first.
+
+Example:
+	opp_table_mm: opp-table-mm {
+		compatible = "operating-points-v2";
+
+		opp-0 {
+			opp-hz = /bits/ 64 <315000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <450000000>;
+			opp-microvolt = <725000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <606000000>;
+			opp-microvolt = <825000>;
+		};
+	};
+
+	opp_table_cam: opp-table-cam {
+		compatible = "operating-points-v2";
+
+		opp-0 {
+			opp-hz = /bits/ 64 <315000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <416000000>;
+			opp-microvolt = <725000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <560000000>;
+			opp-microvolt = <825000>;
+		};
+	};
+	.... /* Other opp tables for multimedia modules */
+
+	mmdvfs {
+		compatible = "mediatek,mmdvfs";
+
+		operating-points-v2 = <&opp_table_mm>;
+
+		mediatek,support_mux = "mm", "cam", "img", "ipe",
+			"venc", "vdec", "dpe", "ccu";
+
+		mediatek,mux_mm = "clk_mmpll_d5_d2",
+			"clk_mmpll_d7", "clk_tvdpll_mainpll_d2_ck";
+		mediatek,mux_cam = "clk_mmpll_d5_d2",
+			"clk_univpll_d3", "clk_adsppll_d5";
+		mediatek,mux_img = "clk_mmpll_d5_d2",
+			"clk_univpll_d3", "clk_tvdpll_mainpll_d2_ck";
+		mediatek,mux_ipe = "clk_mmpll_d5_d2",
+			"clk_univpll_d3", "clk_mainpll_d2";
+		mediatek,mux_venc = "clk_mainpll_d3",
+			"clk_mmpll_d7", "clk_mmpll_d5";
+		mediatek,mux_vdec = "clk_univpll_d2_d2",
+			"clk_univpll_d3", "clk_univpll_d2";
+		mediatek,mux_dpe = "clk_mainpll_d3",
+			"clk_mmpll_d7", "clk_mainpll_d2";
+		mediatek,mux_ccu = "clk_mmpll_d5_d2",
+			"clk_univpll_d3", "clk_adsppll_d5";
+
+		mediatek,support_hopping = "clk_mmpll_ck";
+		mediatek,hopping_clk_mmpll_ck = <630000000 630000000 650000000>;
+		mediatek,action = <1>;
+
+
+		clocks = <&topckgen CLK_TOP_MM>,
+			<&topckgen CLK_TOP_CAM>,
+			<&topckgen CLK_TOP_IMG>,
+			<&topckgen CLK_TOP_IPE>,
+			<&topckgen CLK_TOP_VENC>,
+			<&topckgen CLK_TOP_VDEC>,
+			<&topckgen CLK_TOP_DPE>,
+			<&topckgen CLK_TOP_CCU>,
+			<&topckgen CLK_TOP_MMPLL_D5>,
+			<&topckgen CLK_TOP_UNIVPLL_D2>,
+			<&topckgen CLK_TOP_TVDPLL_MAINPLL_D2_CK>,
+			<&topckgen CLK_TOP_ADSPPLL_D5>,
+			<&topckgen CLK_TOP_MAINPLL_D2>,
+			<&topckgen CLK_TOP_MMPLL_D6>,
+			<&topckgen CLK_TOP_MMPLL_D7>,
+			<&topckgen CLK_TOP_UNIVPLL_D3>,
+			<&topckgen CLK_TOP_MAINPLL_D3>,
+			<&topckgen CLK_TOP_MMPLL_D5_D2>,
+			<&topckgen CLK_TOP_UNIVPLL_D2_D2>,
+			<&topckgen CLK_TOP_MMPLL_CK>;
+		clock-names = "mm",
+			"cam",
+			"img",
+			"ipe",
+			"venc",
+			"vdec",
+			"dpe",
+			"ccu",
+			"clk_mmpll_d5",
+			"clk_univpll_d2",
+			"clk_tvdpll_mainpll_d2_ck",
+			"clk_adsppll_d5",
+			"clk_mainpll_d2",
+			"clk_mmpll_d6",
+			"clk_mmpll_d7",
+			"clk_univpll_d3",
+			"clk_mainpll_d3",
+			"clk_mmpll_d5_d2",
+			"clk_univpll_d2_d2",
+			"clk_mmpll_ck";
+	};
