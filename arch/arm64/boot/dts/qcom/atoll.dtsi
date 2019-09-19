@@ -1227,12 +1227,14 @@
 		qcom,pas-id = <18>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <601>;
+		qcom,minidump-id = <7>;
 		qcom,sysmon-id = <7>;
 		qcom,ssctl-instance-id = <0x17>;
 		qcom,firmware-name = "cdsp";
 		memory-region = <&pil_cdsp_mem>;
 		qcom,signal-aop;
 		qcom,complete-ramdump;
+		qcom,minidump-as-elf32;
 
 		/* Inputs from turing */
 		interrupts-extended = <&pdc GIC_SPI 578 IRQ_TYPE_EDGE_RISING>,
