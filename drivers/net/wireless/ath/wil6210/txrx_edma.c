@@ -750,7 +750,7 @@ static int wil_ring_init_tx_edma(struct wil6210_vif *vif, int ring_id,
 		     "init TX ring: ring_id=%u, cid=%u, tid=%u, sring_id=%u\n",
 		     ring_id, cid, tid, wil->tx_sring_idx);
 
-	wil_tx_data_init(txdata);
+	wil_tx_data_init(wil, txdata);
 	ring->size = size;
 	rc = wil_ring_alloc_desc_ring(wil, ring, true);
 	if (rc)
@@ -1294,6 +1294,9 @@ int wil_tx_sring_handler(struct wil6210_priv *wil,
 					  (const void *)&msg, sizeof(msg),
 					  false);
 
+			if (ctx->flags & WIL_CTX_FLAG_RESERVED_USED)
+				txdata->tx_reserved_count++;
+
 			wil_tx_desc_unmap_edma(dev,
 					       (union wil_tx_desc *)d,
 					       ctx);
@@ -1460,7 +1463,7 @@ static int __wil_tx_ring_tso_edma(struct wil6210_priv *wil,
 	struct wil_ring_tx_data *txdata = &wil->ring_tx_data[ring_index];
 	int nr_frags = skb_shinfo(skb)->nr_frags;
 	int min_desc_required = nr_frags + 2; /* Headers, Head, Fragments */
-	int used, avail = wil_ring_avail_tx(ring);
+	int used, avail = wil_ring_avail_tx(ring) - txdata->tx_reserved_count;
 	int f, hdrlen, headlen;
 	int gso_type;
 	bool is_ipv4;
@@ -1622,7 +1625,7 @@ static int wil_ring_init_bcast_edma(struct wil6210_vif *vif, int ring_id,
 		wil_ipa_set_bcast_sring_id(wil, sring_id);
 	}
 
-	wil_tx_data_init(txdata);
+	wil_tx_data_init(wil, txdata);
 	ring->size = size;
 	ring->is_rx = false;
 	rc = wil_ring_alloc_desc_ring(wil, ring, true);

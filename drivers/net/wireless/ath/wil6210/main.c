@@ -1896,6 +1896,10 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 						 ftm->rx_offset);
 		}
 
+		wil->tx_reserved_entries = ((drop_if_ring_full || ac_queues) ?
+					    WIL_DEFAULT_TX_RESERVED_ENTRIES :
+					    0);
+
 		if (wil->platform_ops.notify) {
 			rc = wil->platform_ops.notify(wil->platform_handle,
 						      WIL_PLATFORM_EVT_FW_RDY);
