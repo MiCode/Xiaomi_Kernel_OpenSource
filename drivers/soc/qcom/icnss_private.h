@@ -352,6 +352,12 @@ struct icnss_priv {
 
 };
 
+struct icnss_reg_info {
+	uint32_t mem_type;
+	uint32_t reg_offset;
+	uint32_t data_len;
+};
+
 int icnss_call_driver_uevent(struct icnss_priv *priv,
 				    enum icnss_uevent uevent, void *data);
 int icnss_driver_event_post(enum icnss_driver_event_type type,
