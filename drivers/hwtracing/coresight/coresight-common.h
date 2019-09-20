@@ -23,6 +23,14 @@ extern int coresight_csr_hwctrl_set(struct coresight_csr *csr, uint64_t addr,
 extern void coresight_csr_set_byte_cntr(struct coresight_csr *csr,
 				 uint32_t count);
 extern struct coresight_csr *coresight_csr_get(const char *name);
+#if IS_ENABLED(CONFIG_OF)
+extern int of_get_coresight_csr_name(struct device_node *node,
+				const char **csr_name);
+#else
+static inline int of_get_coresight_csr_name(struct device_node *node,
+		const char **csr_name){ return -EINVAL; }
+#endif
+
 #else
 static inline void msm_qdss_csr_enable_bam_to_usb(struct coresight_csr *csr) {}
 static inline void msm_qdss_csr_disable_bam_to_usb(struct coresight_csr *csr) {}
@@ -33,6 +41,8 @@ static inline void coresight_csr_set_byte_cntr(struct coresight_csr *csr,
 					   uint32_t count) {}
 static inline struct coresight_csr *coresight_csr_get(const char *name)
 					{ return NULL; }
+static inline int of_get_coresight_csr_name(struct device_node *node,
+		const char **csr_name){ return -EINVAL; }
 #endif
 
 #endif
