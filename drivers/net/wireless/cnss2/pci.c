@@ -475,6 +475,68 @@ static int cnss_pci_force_wake_put(struct cnss_pci_data *pci_priv)
 	return ret;
 }
 
+int cnss_pci_debug_reg_read(struct cnss_pci_data *pci_priv, u32 offset,
+			    u32 *val)
+{
+	int ret = 0;
+
+	ret = cnss_pci_is_device_down(&pci_priv->pci_dev->dev);
+	if (ret)
+		goto out;
+
+	ret = cnss_pci_pm_runtime_get_sync(pci_priv);
+	if (ret < 0)
+		goto runtime_pm_put;
+
+	cnss_pci_force_wake_get(pci_priv);
+
+	ret = cnss_pci_reg_read(pci_priv, offset, val);
+	if (ret) {
+		cnss_pr_err("Failed to read register offset 0x%x, err = %d\n",
+			    offset, ret);
+		goto force_wake_put;
+	}
+
+force_wake_put:
+	cnss_pci_force_wake_put(pci_priv);
+runtime_pm_put:
+	cnss_pci_pm_runtime_mark_last_busy(pci_priv);
+	cnss_pci_pm_runtime_put_autosuspend(pci_priv);
+out:
+	return ret;
+}
+
+int cnss_pci_debug_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
+			     u32 val)
+{
+	int ret = 0;
+
+	ret = cnss_pci_is_device_down(&pci_priv->pci_dev->dev);
+	if (ret)
+		goto out;
+
+	ret = cnss_pci_pm_runtime_get_sync(pci_priv);
+	if (ret < 0)
+		goto runtime_pm_put;
+
+	cnss_pci_force_wake_get(pci_priv);
+
+	ret = cnss_pci_reg_write(pci_priv, offset, val);
+	if (ret) {
+		cnss_pr_err("Failed to write 0x%x to register offset 0x%x, err = %d\n",
+			    val, offset, ret);
+		goto force_wake_put;
+	}
+
+force_wake_put:
+	cnss_pci_force_wake_put(pci_priv);
+runtime_pm_put:
+	cnss_pci_pm_runtime_mark_last_busy(pci_priv);
+	cnss_pci_pm_runtime_put_autosuspend(pci_priv);
+out:
+	return ret;
+}
+
 static int cnss_set_pci_config_space(struct cnss_pci_data *pci_priv, bool save)
 {
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
