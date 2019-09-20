@@ -395,11 +395,25 @@ int wait_for_sess_signal_receipt(struct msm_cvp_inst *inst,
 		msecs_to_jiffies(
 			inst->core->resources.msm_cvp_hw_rsp_timeout));
 	if (!rc) {
+		enum cvp_event_t event;
+		unsigned long flags = 0;
+
 		dprintk(CVP_WARN, "Wait interrupted or timed out: %d\n",
 				SESSION_MSG_INDEX(cmd));
 		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 		dump_hfi_queue(hdev->hfi_device_data);
 		rc = -EIO;
+
+		spin_lock_irqsave(&inst->event_handler.lock, flags);
+		event = inst->event_handler.event;
+		spin_unlock_irqrestore(
+			&inst->event_handler.lock, flags);
+		if (event == CVP_SSR_EVENT) {
+			dprintk(CVP_WARN, "%s: SSR triggered\n",
+				__func__);
+			rc = -ECONNRESET;
+		}
+
 	} else {
 		rc = 0;
 	}

@@ -1072,6 +1072,10 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
+
+			if (rc == -ECONNRESET)
+				goto exit;
+
 			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 
@@ -1082,6 +1086,10 @@ static int msm_cvp_thread_fence_run(void *data)
 				dprintk(CVP_ERR,
 				"%s: wait for signal failed, rc %d\n",
 				__func__, rc);
+
+				if (rc == -ECONNRESET)
+					goto exit;
+
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
@@ -1177,16 +1185,24 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
+
+			if (rc == -ECONNRESET)
+				goto exit;
+
 			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 
 		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
 			rc = wait_for_sess_signal_receipt(inst,
 					HAL_SESSION_ICA_FRAME_CMD_DONE);
-			if (rc)	{
+			if (rc) {
 				dprintk(CVP_ERR,
 				"%s: wait for signal failed, rc %d\n",
 				__func__, rc);
+
+				if (rc == -ECONNRESET)
+					goto exit;
+
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
@@ -1248,16 +1264,24 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
+
+			if (rc == -ECONNRESET)
+				goto exit;
+
 			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 
 		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
 			rc = wait_for_sess_signal_receipt(inst,
 					HAL_SESSION_FD_FRAME_CMD_DONE);
-			if (rc)	{
+			if (rc) {
 				dprintk(CVP_ERR,
 				"%s: wait for signal failed, rc %d\n",
 				__func__, rc);
+
+				if (rc == -ECONNRESET)
+					goto exit;
+
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
