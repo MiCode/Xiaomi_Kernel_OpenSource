@@ -2790,6 +2790,7 @@ int ipa3_alloc_counter_id(struct ipa_ioc_flt_rt_counter_alloc *counter);
 void ipa3_counter_remove_hdl(int hdl);
 void ipa3_counter_id_remove_all(void);
 int ipa3_id_alloc(void *ptr);
+bool ipa3_check_idr_if_freed(void *ptr);
 void *ipa3_id_find(u32 id);
 void ipa3_id_remove(u32 id);
 int ipa3_enable_force_clear(u32 request_id, bool throttle_source,
