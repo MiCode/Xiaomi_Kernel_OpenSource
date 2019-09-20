@@ -285,14 +285,22 @@ static int selftest;
 module_param_named(selftest, selftest, int, 0644);
 static int irq_count;
 
+struct arm_smmu_cf_selftest_data {
+	struct arm_smmu_device *smmu;
+	int cbndx;
+};
+
 static DECLARE_WAIT_QUEUE_HEAD(wait_int);
-static irqreturn_t arm_smmu_cf_selftest(int irq, void *cb_base)
+static irqreturn_t arm_smmu_cf_selftest(int irq, void *data)
 {
 	u32 fsr;
 	struct irq_data *irq_data = irq_get_irq_data(irq);
+	struct arm_smmu_cf_selftest_data *cb_data = data;
+	struct arm_smmu_device *smmu = cb_data->smmu;
+	int idx = cb_data->cbndx;
 	unsigned long hwirq = ULONG_MAX;
 
-	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
 
 	irq_count++;
 	if (irq_data)
@@ -300,7 +308,7 @@ static irqreturn_t arm_smmu_cf_selftest(int irq, void *cb_base)
 	pr_info("Interrupt (irq:%d hwirq:%ld) received, fsr:0x%x\n",
 				irq, hwirq, fsr);
 
-	writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
 
 	wake_up(&wait_int);
 	return IRQ_HANDLED;
@@ -310,6 +318,7 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 {
 	int cb;
 	int cb_count = 0;
+	struct arm_smmu_cf_selftest_data *cb_data;
 
 	if (!selftest)
 		return;
@@ -319,22 +328,26 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 	if (smmu->version < ARM_SMMU_V2)
 		return;
 
+	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+	if (!cb_data)
+		return;
+	cb_data->smmu = smmu;
+
 	for_each_clear_bit_from(cb, smmu->context_map,
 				smmu->num_context_banks) {
 		int irq;
 		int ret;
-		void *cb_base;
 		u32 reg;
 		u32 reg_orig;
 		int irq_cnt;
 
 		irq = smmu->irqs[smmu->num_global_irqs + cb];
-		cb_base = ARM_SMMU_CB(smmu, cb);
+		cb_data->cbndx = cb;
 
 		ret = devm_request_threaded_irq(smmu->dev, irq, NULL,
 				arm_smmu_cf_selftest,
 				IRQF_ONESHOT | IRQF_SHARED,
-				"arm-smmu-context-fault", cb_base);
+				"arm-smmu-context-fault", cb_data);
 		if (ret < 0) {
 			dev_err(smmu->dev,
 				"Failed to request cntx IRQ %d (%u)\n",
@@ -345,25 +358,26 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 		cb_count++;
 		irq_cnt = irq_count;
 
-		reg_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+		reg_orig = arm_smmu_cb_read(smmu, cb, ARM_SMMU_CB_SCTLR);
 		reg = reg_orig | SCTLR_CFIE | SCTLR_CFRE;
 
-		writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
+		arm_smmu_cb_write(smmu, cb, ARM_SMMU_CB_SCTLR, reg);
 		dev_info(smmu->dev, "Testing cntx %d irq %d\n", cb, irq);
 
 		/* Make sure ARM_SMMU_CB_SCTLR is configured */
 		wmb();
-		writel_relaxed(FSR_TF, cb_base + ARM_SMMU_CB_FSRRESTORE);
+		arm_smmu_cb_write(smmu, cb, ARM_SMMU_CB_FSRRESTORE, FSR_TF);
 
 		wait_event_timeout(wait_int, (irq_count > irq_cnt),
 			msecs_to_jiffies(1000));
 
 		/* Make sure ARM_SMMU_CB_FSRRESTORE is written to */
 		wmb();
-		writel_relaxed(reg_orig, cb_base + ARM_SMMU_CB_SCTLR);
-		devm_free_irq(smmu->dev, irq, cb_base);
+		arm_smmu_cb_write(smmu, cb, ARM_SMMU_CB_SCTLR, reg_orig);
+		devm_free_irq(smmu->dev, irq, cb_data);
 	}
 
+	kfree(cb_data);
 	dev_info(smmu->dev,
 			"Interrupt selftest completed...\n");
 	dev_info(smmu->dev,
