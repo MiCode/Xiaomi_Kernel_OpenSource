@@ -144,6 +144,9 @@ static int sdhci_at91_probe(struct platform_device *pdev)
 
 	sdhci_get_of_property(pdev);
 
+	/* HS200 is broken at this moment */
+	host->quirks2 = SDHCI_QUIRK2_BROKEN_HS200;
+
 	ret = sdhci_add_host(host);
 	if (ret)
 		goto clocks_disable_unprepare;

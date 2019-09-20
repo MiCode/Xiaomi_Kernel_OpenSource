@@ -735,8 +735,8 @@ static inline int mmc_boot_partition_access(struct mmc_host *host)
 
 static inline bool mmc_card_and_host_support_async_int(struct mmc_host *host)
 {
-	return ((host->caps2 & MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE) &&
-			(host->card->cccr.async_intr_sup));
+	return (host->card && (host->caps2 & MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE)
+			&& (host->card->cccr.async_intr_sup));
 }
 
 static inline int mmc_host_uhs(struct mmc_host *host)

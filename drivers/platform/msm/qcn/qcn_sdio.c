@@ -188,10 +188,10 @@ static struct qcn_sdio_rw_info *qcn_sdio_alloc_rw_req(void)
 
 static void qcn_sdio_add_rw_req(struct qcn_sdio_rw_info *rw_req)
 {
-	spin_lock(&sdio_ctxt->lock_wait_q);
+	spin_lock_bh(&sdio_ctxt->lock_wait_q);
 	list_add_tail(&rw_req->list, &sdio_ctxt->rw_wait_q);
 	atomic_inc(&sdio_ctxt->wait_list_count);
-	spin_unlock(&sdio_ctxt->lock_wait_q);
+	spin_unlock_bh(&sdio_ctxt->lock_wait_q);
 }
 
 static int qcn_enable_async_irq(bool enable)
@@ -561,7 +561,6 @@ static void qcn_sdio_irq_handler(struct sdio_func *func)
 	sdio_claim_host(sdio_ctxt->func);
 	data = sdio_readb(sdio_ctxt->func, SDIO_QCN_IRQ_STATUS, &ret);
 	if (ret == -ETIMEDOUT) {
-		sdio_release_irq(sdio_ctxt->func);
 		sdio_release_host(sdio_ctxt->func);
 
 		pr_err("%s: IRQ status read error ret = %d\n", __func__, ret);
@@ -651,15 +650,15 @@ static void qcn_sdio_rw_work(struct work_struct *work)
 	struct sdio_al_channel_handle *ch_handle = NULL;
 
 	while (1) {
-		spin_lock(&sdio_ctxt->lock_wait_q);
+		spin_lock_bh(&sdio_ctxt->lock_wait_q);
 		if (list_empty(&sdio_ctxt->rw_wait_q)) {
-			spin_unlock(&sdio_ctxt->lock_wait_q);
+			spin_unlock_bh(&sdio_ctxt->lock_wait_q);
 			break;
 		}
 		rw_req = list_first_entry(&sdio_ctxt->rw_wait_q,
 						struct qcn_sdio_rw_info, list);
 		list_del(&rw_req->list);
-		spin_unlock(&sdio_ctxt->lock_wait_q);
+		spin_unlock_bh(&sdio_ctxt->lock_wait_q);
 
 		if (rw_req->dir) {
 			ret = qcn_sdio_recv_buff(rw_req->cid, rw_req->buf,

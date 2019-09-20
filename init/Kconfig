@@ -1159,6 +1159,7 @@ config FAIR_GROUP_SCHED
 config CFS_BANDWIDTH
 	bool "CPU bandwidth provisioning for FAIR_GROUP_SCHED"
 	depends on FAIR_GROUP_SCHED
+	depends on !SCHED_WALT
 	default n
 	help
 	  This option allows users to define CPU bandwidth rates (limits) for

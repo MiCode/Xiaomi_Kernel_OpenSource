@@ -6422,9 +6422,11 @@ static int __qseecom_update_qteec_req_buf(struct qseecom_qteec_modfd_req *req,
 				pr_err("Ion client can't retrieve the handle\n");
 				return -ENOMEM;
 			}
-			if ((req->req_len < sizeof(uint32_t)) ||
+			if ((req->req_len <
+				sizeof(struct qseecom_param_memref)) ||
 				(req->ifd_data[i].cmd_buf_offset >
-				req->req_len - sizeof(uint32_t))) {
+				req->req_len -
+				sizeof(struct qseecom_param_memref))) {
 				pr_err("Invalid offset/req len 0x%x/0x%x\n",
 					req->req_len,
 					req->ifd_data[i].cmd_buf_offset);
