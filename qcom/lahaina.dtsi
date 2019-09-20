@@ -626,7 +626,7 @@
 	};
 
 	ufsphy_mem: ufsphy_mem@1d87000 {
-		reg = <0x1d8700 0xe10>;
+		reg = <0x1d87000 0xe10>;
 		reg-names = "phy_mem";
 		#phy-cells = <0>;
 
