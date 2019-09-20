@@ -1987,7 +1987,9 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		wait_for_completion(&ctx->work);
 	else
 		interrupted = wait_for_completion_interruptible(&ctx->work);
-	fastrpc_pm_awake(fl->wake_enable, &wake_enable);
+
+	if (interrupted != -ERESTARTSYS)
+		fastrpc_pm_awake(fl->wake_enable, &wake_enable);
 	VERIFY(err, 0 == (err = interrupted));
 	if (err)
 		goto bail;
