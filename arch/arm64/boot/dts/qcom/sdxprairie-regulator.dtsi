@@ -517,4 +517,13 @@
 		enable-active-high;
 		gpio = <&pmxprairie_gpios 2 GPIO_ACTIVE_HIGH>;
 	};
+
+	/* PWR_CTR2_VDD_1P8 supply */
+	vreg_conn_1p8: vreg_conn_1p8 {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_conn_1p8";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pmxprairie_gpios 1 GPIO_ACTIVE_HIGH>;
+	};
 };
