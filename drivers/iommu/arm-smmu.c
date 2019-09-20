@@ -4834,30 +4834,28 @@ module_exit(arm_smmu_exit);
 #define TCU_HW_VERSION_HLOS1		(0x18)
 
 #define DEBUG_SID_HALT_REG		0x0
-#define DEBUG_SID_HALT_VAL		(0x1 << 16)
-#define DEBUG_SID_HALT_SID_MASK		0x3ff
+#define DEBUG_SID_HALT_REQ		BIT(16)
+#define DEBUG_SID_HALT_SID		GENMASK(9, 0)
 
 #define DEBUG_VA_ADDR_REG		0x8
 
 #define DEBUG_TXN_TRIGG_REG		0x18
-#define DEBUG_TXN_AXPROT_SHIFT		6
-#define DEBUG_TXN_AXCACHE_SHIFT		2
+#define DEBUG_TXN_AXPROT		GENMASK(8, 6)
+#define DEBUG_TXN_AXCACHE		GENMASK(5, 2)
 #define DEBUG_TRX_WRITE			(0x1 << 1)
 #define DEBUG_TXN_READ			(0x0 << 1)
-#define DEBUG_TXN_TRIGGER		0x1
+#define DEBUG_TXN_TRIGGER		BIT(0)
 
 #define DEBUG_SR_HALT_ACK_REG		0x20
 #define DEBUG_SR_HALT_ACK_VAL		(0x1 << 1)
 #define DEBUG_SR_ECATS_RUNNING_VAL	(0x1 << 0)
 
 #define DEBUG_PAR_REG			0x28
-#define DEBUG_PAR_PA_MASK		((0x1ULL << 36) - 1)
-#define DEBUG_PAR_PA_SHIFT		12
-#define DEBUG_PAR_FAULT_VAL		0x1
+#define DEBUG_PAR_PA			GENMASK_ULL(47, 12)
+#define DEBUG_PAR_FAULT_VAL		BIT(0)
 
 #define DEBUG_AXUSER_REG		0x30
-#define DEBUG_AXUSER_CDMID_MASK         0xff
-#define DEBUG_AXUSER_CDMID_SHIFT        36
+#define DEBUG_AXUSER_CDMID		GENMASK_ULL(43, 36)
 #define DEBUG_AXUSER_CDMID_VAL          255
 
 #define TBU_DBG_TIMEOUT_US		100
@@ -4943,7 +4941,7 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 
 	base = tbu->base;
 	halt = readl_relaxed(base + DEBUG_SID_HALT_REG);
-	halt |= DEBUG_SID_HALT_VAL;
+	halt |= DEBUG_SID_HALT_REQ;
 	writel_relaxed(halt, base + DEBUG_SID_HALT_REG);
 
 	if (!readl_poll_timeout_atomic(base + DEBUG_SR_HALT_ACK_REG, status,
@@ -5007,7 +5005,7 @@ static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
 
 	base = tbu->base;
 	val = readl_relaxed(base + DEBUG_SID_HALT_REG);
-	val &= ~DEBUG_SID_HALT_VAL;
+	val &= ~DEBUG_SID_HALT_REQ;
 	writel_relaxed(val, base + DEBUG_SID_HALT_REG);
 
 	tbu->halt_count = 0;
@@ -5119,12 +5117,11 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 redo:
 	/* Set address and stream-id */
 	val = readq_relaxed(tbu->base + DEBUG_SID_HALT_REG);
-	val &= ~DEBUG_SID_HALT_SID_MASK;
-	val |= sid & DEBUG_SID_HALT_SID_MASK;
+	val &= ~DEBUG_SID_HALT_SID;
+	val |= FIELD_PREP(DEBUG_SID_HALT_SID, sid);
 	writeq_relaxed(val, tbu->base + DEBUG_SID_HALT_REG);
 	writeq_relaxed(iova, tbu->base + DEBUG_VA_ADDR_REG);
-	val = (u64)(DEBUG_AXUSER_CDMID_VAL & DEBUG_AXUSER_CDMID_MASK) <<
-		DEBUG_AXUSER_CDMID_SHIFT;
+	val = FIELD_PREP(DEBUG_AXUSER_CDMID, DEBUG_AXUSER_CDMID_VAL);
 	writeq_relaxed(val, tbu->base + DEBUG_AXUSER_REG);
 
 	/*
@@ -5132,9 +5129,9 @@ redo:
 	 * Priviledged, nonsecure, data transaction
 	 * Read operation.
 	 */
-	val = 0xF << DEBUG_TXN_AXCACHE_SHIFT;
-	val |= 0x3 << DEBUG_TXN_AXPROT_SHIFT;
-	val |= DEBUG_TXN_TRIGGER;
+	val = FIELD_PREP(DEBUG_TXN_AXCACHE, 0xF) |
+	      FIELD_PREP(DEBUG_TXN_AXPROT, 0x3) |
+	      DEBUG_TXN_TRIGGER;
 	writeq_relaxed(val, tbu->base + DEBUG_TXN_TRIGG_REG);
 
 	ret = 0;
@@ -5176,7 +5173,7 @@ redo:
 		ret = -EINVAL;
 	}
 
-	phys = (val >> DEBUG_PAR_PA_SHIFT) & DEBUG_PAR_PA_MASK;
+	phys = FIELD_GET(DEBUG_PAR_PA, val);
 	if (ret < 0)
 		phys = 0;
 
@@ -5184,7 +5181,7 @@ redo:
 	writeq_relaxed(0, tbu->base + DEBUG_TXN_TRIGG_REG);
 	writeq_relaxed(0, tbu->base + DEBUG_VA_ADDR_REG);
 	val = readl_relaxed(tbu->base + DEBUG_SID_HALT_REG);
-	val &= ~DEBUG_SID_HALT_SID_MASK;
+	val &= ~DEBUG_SID_HALT_SID;
 	writel_relaxed(val, tbu->base + DEBUG_SID_HALT_REG);
 
 	/*
