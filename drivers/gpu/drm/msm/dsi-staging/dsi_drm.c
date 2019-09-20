@@ -881,6 +881,17 @@ int dsi_conn_pre_kickoff(struct drm_connector *connector,
 	return dsi_display_pre_kickoff(connector, display, params);
 }
 
+int dsi_conn_prepare_commit(void *display,
+		struct msm_display_conn_params *params)
+{
+	if (!display || !params) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	return dsi_display_pre_commit(display, params);
+}
+
 void dsi_conn_enable_event(struct drm_connector *connector,
 		uint32_t event_idx, bool enable, void *display)
 {
@@ -896,7 +907,7 @@ void dsi_conn_enable_event(struct drm_connector *connector,
 }
 
 int dsi_conn_post_kickoff(struct drm_connector *connector,
-	struct msm_display_kickoff_params *params)
+	struct msm_display_conn_params *params)
 {
 	struct drm_encoder *encoder;
 	struct dsi_bridge *c_bridge;

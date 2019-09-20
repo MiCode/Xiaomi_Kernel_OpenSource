@@ -1117,7 +1117,7 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	struct drm_crtc_state *old_crtc_state;
 	struct drm_connector *connector;
 	struct drm_connector_state *old_conn_state;
-	struct msm_display_kickoff_params params;
+	struct msm_display_conn_params params;
 
 	int i, rc = 0;
 
@@ -1151,9 +1151,7 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 		if (!c_conn->ops.post_kickoff)
 			continue;
 
-		params.rois = NULL;
-		params.hdr_meta = NULL;
-		params.qsync_update = false;
+		memset(&params, 0, sizeof(params));
 
 		if (c_conn->qsync_updated &&
 			(c_conn->qsync_mode == SDE_RM_QSYNC_ONE_SHOT_MODE)) {
@@ -1396,6 +1394,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.cmd_transfer = dsi_display_cmd_transfer,
 		.cont_splash_config = dsi_display_cont_splash_config,
 		.get_panel_vfp = dsi_display_get_panel_vfp,
+		.prepare_commit = dsi_conn_prepare_commit,
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
