@@ -32,26 +32,6 @@ module_param(debug, int, 0644);
 			pr_info("mtk-dma-contig: " fmt, ##args);	\
 	} while (0)
 
-struct vb2_dc_buf {
-	struct device			*dev;
-	void				*vaddr;
-	unsigned long			size;
-	void				*cookie;
-	dma_addr_t			dma_addr;
-	unsigned long			attrs;
-	enum dma_data_direction		dma_dir;
-	struct sg_table			*dma_sgt;
-	struct frame_vector		*vec;
-
-	/* MMAP related */
-	struct vb2_vmarea_handler	handler;
-	atomic_t			refcount;
-	struct sg_table			*sgt_base;
-
-	/* DMABUF related */
-	struct dma_buf_attachment	*db_attach;
-};
-
 
 /*********************************************/
 /*        scatterlist table functions        */

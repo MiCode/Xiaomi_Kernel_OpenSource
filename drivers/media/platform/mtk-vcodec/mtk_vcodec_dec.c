@@ -1148,8 +1148,6 @@ int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 	int i;
 	struct mtk_video_dec_buf *mtkbuf;
 	struct vb2_v4l2_buffer *vb2_v4l2;
-	struct dma_buf_attachment *buf_att;
-	struct sg_table *sgt;
 	unsigned int plane = 0;
 
 	mtk_v4l2_debug(3, "[%d] (%d) id=%d",
@@ -1175,18 +1173,13 @@ int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 		struct vdec_fb fb_param;
 
 		for (plane = 0; plane < vb->num_planes; plane++) {
+			struct vb2_dc_buf *dc_buf = vb->planes[plane].mem_priv;
+
 			mtk_v4l2_debug(4, "[%d] Cache sync+", ctx->id);
-			buf_att = dma_buf_attach(vb->planes[plane].dbuf,
-				&ctx->dev->plat_dev->dev);
-			sgt = dma_buf_map_attachment(buf_att,
-				DMA_TO_DEVICE);
 			dma_sync_sg_for_device(&ctx->dev->plat_dev->dev,
-				sgt->sgl,
-				sgt->orig_nents,
+				dc_buf->dma_sgt->sgl,
+				dc_buf->dma_sgt->orig_nents,
 				DMA_TO_DEVICE);
-			dma_buf_unmap_attachment(buf_att,
-				sgt, DMA_TO_DEVICE);
-			dma_buf_detach(vb->planes[plane].dbuf, buf_att);
 			fb_param.fb_base[plane].dma_addr =
 				vb2_dma_contig_plane_dma_addr(vb,
 				plane);
@@ -1248,22 +1241,16 @@ void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 		(vb->vb2_queue->memory == VB2_MEMORY_DMABUF)) {
 		for (plane = 0; plane < buf->frame_buffer.num_planes; plane++) {
 			struct vdec_fb dst_mem;
-			struct dma_buf_attachment *buf_att;
-			struct sg_table *sgt;
+			struct vb2_dc_buf *dc_buf = vb->planes[plane].mem_priv;
 
 			mtk_v4l2_debug(4, "[%d] Cache sync+", ctx->id);
-
-			buf_att = dma_buf_attach(vb->planes[plane].dbuf,
-				&ctx->dev->plat_dev->dev);
-			sgt = dma_buf_map_attachment(buf_att, DMA_FROM_DEVICE);
-			dma_sync_sg_for_cpu(&ctx->dev->plat_dev->dev, sgt->sgl,
-				sgt->orig_nents, DMA_FROM_DEVICE);
-			dma_buf_unmap_attachment(buf_att, sgt, DMA_FROM_DEVICE);
+			dma_sync_sg_for_cpu(&ctx->dev->plat_dev->dev,
+				dc_buf->dma_sgt->sgl,
+				dc_buf->dma_sgt->orig_nents, DMA_FROM_DEVICE);
 
 			dst_mem.fb_base[plane].dma_addr =
 				vb2_dma_contig_plane_dma_addr(vb, plane);
 			dst_mem.fb_base[plane].size = ctx->picinfo.fb_sz[plane];
-			dma_buf_detach(vb->planes[plane].dbuf, buf_att);
 
 			mtk_v4l2_debug(4,
 				"[%d] Cache sync- FD for %p sz=%d dev %p pfb %p",
