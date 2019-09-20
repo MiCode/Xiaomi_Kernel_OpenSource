@@ -364,6 +364,15 @@ static struct ctl_table kern_table[] = {
 		.extra2		= (void *)&sched_user_hint_max,
 	},
 	{
+		.procname	= "sched_window_stats_policy",
+		.data		= &sysctl_sched_window_stats_policy,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler   = proc_dointvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &four,
+	},
+	{
 		.procname       = "sched_cpu_high_irqload",
 		.data           = &sysctl_sched_cpu_high_irqload,
 		.maxlen         = sizeof(unsigned int),

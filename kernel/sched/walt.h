@@ -40,7 +40,6 @@ extern struct mutex cluster_lock;
 extern rwlock_t related_thread_group_lock;
 extern __read_mostly unsigned int sched_ravg_hist_size;
 extern __read_mostly unsigned int sched_freq_aggregate;
-extern __read_mostly unsigned int sched_window_stats_policy;
 extern __read_mostly unsigned int sched_group_upmigrate;
 extern __read_mostly unsigned int sched_group_downmigrate;
 
