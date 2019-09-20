@@ -31,8 +31,7 @@
 static void __iomem *mem_base[CAM_VFE_HW_NUM_MAX];
 static struct kfifo *g_addr_fifo[CAM_VFE_HW_NUM_MAX];
 static struct kfifo *g_buffer_fifo[CAM_VFE_HW_NUM_MAX];
-static spinlock_t g_addr_lock;
-static spinlock_t g_buffer_lock;
+static spinlock_t *g_lock[CAM_VFE_HW_NUM_MAX];
 
 static const char drv_name[] = "vfe_bus";
 
@@ -219,6 +218,7 @@ struct cam_vfe_bus_ver2_priv {
 	struct cam_isp_resource_node  vfe_out[CAM_VFE_BUS_VER2_VFE_OUT_MAX];
 	struct kfifo addr_fifo[CAM_VFE_BUS_VER2_MAX_CLIENTS];
 	struct kfifo buffer_fifo[CAM_VFE_BUS_VER2_MAX_CLIENTS];
+	spinlock_t fifo_lock[CAM_VFE_BUS_VER2_MAX_CLIENTS];
 
 	struct list_head                    free_comp_grp;
 	struct list_head                    free_dual_comp_grp;
@@ -1340,9 +1340,7 @@ static int cam_vfe_bus_handle_wm_done_bottom_half(void *wm_node,
 	uint32_t  *cam_ife_irq_regs;
 	uint32_t   status_reg;
 	uint32_t device_addr;
-	uint32_t img_addr;
 	struct kfifo *address_fifo;
-	struct kfifo *buffer_fifo;
 
 	if (!evt_payload || !rsrc_data)
 		return rc;
@@ -1362,33 +1360,19 @@ static int cam_vfe_bus_handle_wm_done_bottom_half(void *wm_node,
 		cam_vfe_bus_put_evt_payload(rsrc_data->common_data,
 			&evt_payload);
 
+	spin_lock_bh(
+		&g_lock[rsrc_data->common_data->core_index][rsrc_data->index]);
+
 	address_fifo =
 		&g_addr_fifo
 		[rsrc_data->common_data->core_index][rsrc_data->index];
 
-	buffer_fifo =
-		&g_buffer_fifo
-		[rsrc_data->common_data->core_index][rsrc_data->index];
-
 	if (!kfifo_is_empty(address_fifo))
-		kfifo_out_spinlocked(address_fifo,
-		&device_addr, sizeof(uint32_t), &g_addr_lock);
+		kfifo_out(address_fifo,
+		&device_addr, sizeof(uint32_t));
 
-	if (!kfifo_is_empty(buffer_fifo)) {
-		kfifo_out_spinlocked(
-		buffer_fifo,
-		&img_addr,
-		sizeof(uint32_t), &g_buffer_lock);
-
-		cam_io_w_mb(img_addr,
-		rsrc_data->common_data->mem_base +
-		rsrc_data->hw_regs->image_addr);
-
-		kfifo_in_spinlocked(
-		address_fifo,
-		&img_addr,
-		sizeof(uint32_t), &g_addr_lock);
-		}
+	spin_unlock_bh(
+		&g_lock[rsrc_data->common_data->core_index][rsrc_data->index]);
 
 	return rc;
 }
@@ -3003,17 +2987,21 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 					io_cfg->planes[i].meta_size +
 					k * frame_inc);
 			else {
+
+				spin_lock_bh(
+					&bus_priv->fifo_lock[wm_data->index]);
+
 				image_buf =
 					update_buf->wm_update->image_buf[i] +
 					wm_data->offset + k * frame_inc;
 
+
 				if (!kfifo_is_full(
 					&bus_priv->buffer_fifo
 					[wm_data->index])) {
-					kfifo_in_spinlocked(
+					kfifo_in(
 					&bus_priv->buffer_fifo[wm_data->index],
-					&image_buf, sizeof(uint32_t),
-					&g_buffer_lock);
+					&image_buf, sizeof(uint32_t));
 				} else
 					CAM_ERR(CAM_ISP, "buffer_fifo full!");
 
@@ -3022,20 +3010,22 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 					&& (!kfifo_is_empty
 					(&bus_priv->buffer_fifo
 					[wm_data->index]))) {
-					kfifo_out_spinlocked(
+					kfifo_out(
 					&bus_priv->buffer_fifo[wm_data->index],
 					&output_image_buf,
-					sizeof(uint32_t), &g_buffer_lock);
+					sizeof(uint32_t));
 
 					cam_io_w_mb(output_image_buf,
 					bus_priv->common_data.mem_base +
 					wm_data->hw_regs->image_addr);
 
-					kfifo_in_spinlocked(
+					kfifo_in(
 					&bus_priv->addr_fifo[wm_data->index],
 					&output_image_buf,
-					sizeof(uint32_t), &g_addr_lock);
+					sizeof(uint32_t));
 				}
+				spin_unlock_bh(
+					&bus_priv->fifo_lock[wm_data->index]);
 			}
 
 
@@ -3523,9 +3513,9 @@ int cam_vfe_bus_ver2_init(
 		&bus_priv->addr_fifo[0];
 	g_buffer_fifo[bus_priv->common_data.hw_intf->hw_idx] =
 		&bus_priv->buffer_fifo[0];
+	g_lock[bus_priv->common_data.hw_intf->hw_idx] =
+		&bus_priv->fifo_lock[0];
 
-	spin_lock_init(&g_addr_lock);
-	spin_lock_init(&g_buffer_lock);
 
 	mutex_init(&bus_priv->common_data.bus_mutex);
 
@@ -3564,6 +3554,7 @@ int cam_vfe_bus_ver2_init(
 			rc);
 			goto deinit_wm;
 		}
+		spin_lock_init(&bus_priv->fifo_lock[i]);
 	}
 
 	for (i = 0; i < CAM_VFE_BUS_VER2_COMP_GRP_MAX; i++) {
