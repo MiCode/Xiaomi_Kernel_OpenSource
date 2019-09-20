@@ -173,7 +173,8 @@ void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *mtkdev)
 
 	reg = devm_regulator_get(&pdev->dev, "dvfsrc-vcore");
 	if (!IS_ERR(reg)) {
-		mtk_v4l2_err("devm_regulator_get success, regualtor:%p\n", reg);
+		mtk_v4l2_debug(1,
+			"devm_regulator_get success, regualtor:%p\n", reg);
 	} else {
 		mtk_v4l2_err("devm_regulator_get fail!!\n");
 		return;
@@ -183,7 +184,7 @@ void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *mtkdev)
 		vdec_freq_step_size, sizeof(unsigned long), GFP_KERNEL);
 	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(&pdev->dev, &freq))) {
 		vdec_freq_steps[i] = freq;
-		mtk_v4l2_err("i:%d, freq:%lld\n", i, freq);
+		mtk_v4l2_debug(3, "i:%d, freq:%lu\n", i, freq);
 		freq++;
 		i++;
 		dev_pm_opp_put(opp);
