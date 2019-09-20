@@ -77,7 +77,7 @@ unsigned int is_sspm_ready(void)
 }
 EXPORT_SYMBOL_GPL(is_sspm_ready);
 
-static int mt6779_sspm_module_init(void)
+static int __init mt6779_sspm_module_init(void)
 {
 	if (atomic_inc_return(&sspm_inited) != 1)
 		return 0;
@@ -140,7 +140,7 @@ error:
 	return -1;
 }
 
-static int mt6779_sspm_probe(struct platform_device *pdev)
+static int __init mt6779_sspm_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct device *dev = &pdev->dev;
@@ -239,12 +239,12 @@ static const struct platform_device_id mt6779_sspm_id_table[] = {
 	{ },
 };
 
-static struct platform_driver mtk_mt6779_sspm_driver = {
+static struct platform_driver mtk_mt6779_sspm_driver __refdata = {
+	.probe  = mt6779_sspm_probe,
 	.remove = NULL,
 	.shutdown = NULL,
 	.suspend = NULL,
 	.resume = NULL,
-	.probe = mt6779_sspm_probe,
 	.driver = {
 		.name = "mt6779-sspm",
 		.owner = THIS_MODULE,
