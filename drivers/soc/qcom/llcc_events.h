@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,7 @@ enum event_port_select {
 	EVENT_PORT_TRP,
 	EVENT_PORT_DRP,
 	EVENT_PORT_PMGR,
+	EVENT_PORT_BEAC1,
 	EVENT_PORT_TENURE,
 	EVENT_PORT_TLAT,
 };
