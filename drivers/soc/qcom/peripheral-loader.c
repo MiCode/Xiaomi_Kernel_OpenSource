@@ -779,6 +779,7 @@ static int pil_alloc_region(struct pil_priv *priv, phys_addr_t min_addr,
 	}
 
 	ret = of_address_to_resource(mem_node, 0, &res);
+	of_node_put(mem_node);
 	if (ret < 0) {
 		pil_err(priv->desc, "Failed to get the resource\n");
 		goto err;
