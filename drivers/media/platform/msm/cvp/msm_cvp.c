@@ -2261,10 +2261,8 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 		inst, hash32_ptr(inst->session));
 
 	session = (struct cvp_hal_session *)inst->session;
-	if (!session) {
-		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
-		return -EINVAL;
-	}
+	if (!session)
+		return rc;
 
 	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CLOSE_DONE);
 	if (rc)
