@@ -754,7 +754,7 @@ show_attr(decay_rate);
 store_attr(decay_rate, 0U, 100U);
 static DEVICE_ATTR_RW(decay_rate);
 show_attr(io_percent);
-store_attr(io_percent, 1U, 100U);
+store_attr(io_percent, 1U, 400U);
 static DEVICE_ATTR_RW(io_percent);
 show_attr(bw_step);
 store_attr(bw_step, 50U, 1000U);
