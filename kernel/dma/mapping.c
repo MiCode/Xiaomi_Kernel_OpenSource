@@ -12,6 +12,7 @@
 #include <linux/export.h>
 #include <linux/gfp.h>
 #include <linux/of_device.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 
@@ -283,6 +284,8 @@ void *dma_alloc_attrs(struct device *dev, size_t size, dma_addr_t *dma_handle,
 	void *cpu_addr;
 
 	WARN_ON_ONCE(!dev->coherent_dma_mask);
+
+	WARN_ON(!of_reserved_mem_device_is_init(dev));
 
 	if (dma_alloc_from_dev_coherent(dev, size, dma_handle, &cpu_addr))
 		return cpu_addr;

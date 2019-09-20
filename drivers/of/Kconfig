@@ -86,6 +86,16 @@ config OF_RESERVED_MEM
 	depends on OF_EARLY_FLATTREE
 	default y if DMA_DECLARE_COHERENT || DMA_CMA
 
+config OF_RESERVED_MEM_CHECK
+	bool "Reserved memory registration check"
+	depends on OF_RESERVED_MEM
+	help
+	  If a device has a reserved memory region and allocates memory
+	  through the DMA API, check to see if the device and region have been
+	  associated through a call to of_reserved_mem_device_init_by_idx()
+	  before performing an allocation. If the association hasn't occurred,
+	  WARN_ON.
+
 config OF_RESOLVE
 	bool
 
