@@ -1108,6 +1108,8 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 static const struct mhi_device_id mhi_netdev_match_table[] = {
 	{ .chan = "IP_HW0" },
 	{ .chan = "IP_HW0_RSC" },
+	{ .chan = "IP_SW0" },
+	{ .chan = "IP_HW1" },
 	{},
 };
 
