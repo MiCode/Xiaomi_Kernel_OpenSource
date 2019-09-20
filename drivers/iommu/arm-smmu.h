@@ -22,10 +22,9 @@
 
 /* Configuration registers */
 #define ARM_SMMU_GR0_sCR0		0x0
-#define sCR0_SHCFG_SHIFT		22
-#define sCR0_SHCFG_MASK			0x3
-#define sCR0_SHCFG_NSH			3
 #define sCR0_VMID16EN			BIT(31)
+#define sCR0_SHCFG			GENMASK(23, 22)
+#define sCR0_SHCFG_NSH			0x3
 #define sCR0_BSU			GENMASK(15, 14)
 #define sCR0_FB				BIT(13)
 #define sCR0_PTM			BIT(12)
@@ -96,15 +95,14 @@
 
 /* Stream mapping registers */
 #define ARM_SMMU_GR0_SMR(n)		(0x800 + ((n) << 2))
-#define SMR_MASK_MASK			0x7FFF
-#define SID_MASK			0x7FFF
+#define SMR_MASK_MASK			GENMASK(14, 0)
+#define SID_MASK			GENMASK(14, 0)
 #define SMR_VALID			BIT(31)
 #define SMR_MASK			GENMASK(31, 16)
 #define SMR_ID				GENMASK(15, 0)
 
 #define ARM_SMMU_GR0_S2CR(n)		(0xc00 + ((n) << 2))
-#define S2CR_SHCFG_SHIFT		8
-#define S2CR_SHCFG_MASK			0x3
+#define S2CR_SHCFG			GENMASK(9, 8)
 #define S2CR_SHCFG_NSH			0x3
 
 #define S2CR_PRIVCFG			GENMASK(25, 24)
@@ -147,7 +145,17 @@ enum arm_smmu_cbar_type {
 #define CBA2R_VA64			BIT(0)
 
 #define ARM_SMMU_CB_SCTLR		0x0
+#define SCTLR_WACFG			GENMASK(27, 26)
+#define SCTLR_WACFG_WA			0x2
+#define SCTLR_RACFG			GENMASK(25, 24)
+#define SCTLR_RACFG_RA			0x2
+#define SCTLR_SHCFG			GENMASK(23, 22)
+#define SCTLR_SHCFG_NSH			0x3
+#define SCTLR_MTCFG			BIT(20)
+#define SCTLR_MEM_ATTR			GENMASK(19, 16)
+#define SCTLR_MEM_ATTR_OISH_WB_CACHE	0xf
 #define SCTLR_S1_ASIDPNE		BIT(12)
+#define SCTLR_HUPCF			BIT(8)
 #define SCTLR_CFCFG			BIT(7)
 #define SCTLR_CFIE			BIT(6)
 #define SCTLR_CFRE			BIT(5)
@@ -210,23 +218,11 @@ enum arm_smmu_cbar_type {
 #define ARM_SMMU_CB_S2_TLBIIPAS2L	0x638
 #define ARM_SMMU_CB_TLBSYNC		0x7f0
 #define ARM_SMMU_CB_TLBSTATUS		0x7f4
-#define TLBSTATUS_SACTIVE		(1 << 0)
+#define TLBSTATUS_SACTIVE		BIT(0)
 #define ARM_SMMU_CB_ATS1PR		0x800
 #define ARM_SMMU_STATS_SYNC_INV_TBU_ACK 0x25dc
 #define ARM_SMMU_TBU_PWR_STATUS         0x2204
 #define ARM_SMMU_MMU2QSS_AND_SAFE_WAIT_CNTR 0x2670
-
-#define SCTLR_MEM_ATTR_SHIFT		16
-#define SCTLR_SHCFG_SHIFT		22
-#define SCTLR_RACFG_SHIFT		24
-#define SCTLR_WACFG_SHIFT		26
-#define SCTLR_SHCFG_MASK		0x3
-#define SCTLR_SHCFG_NSH			0x3
-#define SCTLR_RACFG_RA			0x2
-#define SCTLR_WACFG_WA			0x2
-#define SCTLR_MEM_ATTR_OISH_WB_CACHE	0xf
-#define SCTLR_MTCFG			(1 << 20)
-#define SCTLR_HUPCF			(1 << 8)
 
 #define ARM_SMMU_CB_ATSR		0x8f0
 #define ATSR_ACTIVE			BIT(0)

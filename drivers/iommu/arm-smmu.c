@@ -1550,12 +1550,12 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	 */
 	if (of_dma_is_coherent(smmu_domain->dev->of_node)) {
 
-		reg |= SCTLR_RACFG_RA << SCTLR_RACFG_SHIFT;
-		reg |= SCTLR_WACFG_WA << SCTLR_WACFG_SHIFT;
-		reg |= SCTLR_MTCFG;
-		reg |= SCTLR_MEM_ATTR_OISH_WB_CACHE << SCTLR_MEM_ATTR_SHIFT;
+		reg |= FIELD_PREP(SCTLR_WACFG, SCTLR_WACFG_WA) |
+		       FIELD_PREP(SCTLR_RACFG, SCTLR_RACFG_RA) |
+		       SCTLR_MTCFG |
+		       FIELD_PREP(SCTLR_MEM_ATTR, SCTLR_MEM_ATTR_OISH_WB_CACHE);
 	} else
-		reg |= SCTLR_SHCFG_NSH << SCTLR_SHCFG_SHIFT;
+		reg |= FIELD_PREP(SCTLR_SHCFG, SCTLR_SHCFG_NSH);
 
 	if (attributes & (1ULL << DOMAIN_ATTR_CB_STALL_DISABLE)) {
 		reg &= ~SCTLR_CFCFG;
@@ -2108,7 +2108,7 @@ static void arm_smmu_write_s2cr(struct arm_smmu_device *smmu, int idx)
 	u32 reg = FIELD_PREP(S2CR_TYPE, s2cr->type) |
 		  FIELD_PREP(S2CR_CBNDX, s2cr->cbndx) |
 		  FIELD_PREP(S2CR_PRIVCFG, s2cr->privcfg) |
-		  S2CR_SHCFG_NSH << S2CR_SHCFG_SHIFT;
+		  FIELD_PREP(S2CR_SHCFG, S2CR_SHCFG_NSH);
 
 	if (smmu->features & ARM_SMMU_FEAT_EXIDS && smmu->smrs &&
 	    smmu->smrs[idx].valid)
@@ -3875,8 +3875,8 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 		reg |= sCR0_EXIDENABLE;
 
 	/* Force bypass transaction to be Non-Shareable & not io-coherent */
-	reg &= ~(sCR0_SHCFG_MASK << sCR0_SHCFG_SHIFT);
-	reg |= sCR0_SHCFG_NSH << sCR0_SHCFG_SHIFT;
+	reg &= ~sCR0_SHCFG;
+	reg |= FIELD_PREP(sCR0_SHCFG, sCR0_SHCFG_NSH);
 
 	if (smmu->impl && smmu->impl->reset)
 		smmu->impl->reset(smmu);
