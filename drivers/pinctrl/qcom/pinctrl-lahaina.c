@@ -1836,6 +1836,10 @@ static const struct msm_pingroup lahaina_groups[] = {
 	[206] = UFS_RESET(ufs_reset, 0x1d8000),
 };
 
+static const int lahaina_reserved_gpios[] = {
+	52, 53, 54, 55, 56, 57, 58, 59, -1
+};
+
 static const struct msm_pinctrl_soc_data lahaina_pinctrl = {
 	.pins = lahaina_pins,
 	.npins = ARRAY_SIZE(lahaina_pins),
@@ -1843,6 +1847,7 @@ static const struct msm_pinctrl_soc_data lahaina_pinctrl = {
 	.nfunctions = ARRAY_SIZE(lahaina_functions),
 	.groups = lahaina_groups,
 	.ngroups = ARRAY_SIZE(lahaina_groups),
+	.reserved_gpios = lahaina_reserved_gpios,
 	.ngpios = 203,
 };
 
