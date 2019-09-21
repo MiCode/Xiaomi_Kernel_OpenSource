@@ -1391,7 +1391,7 @@ static struct clk_branch gcc_gpu_snoc_dvm_gfx_clk = {
 
 static struct clk_branch gcc_npu_axi_clk = {
 	.halt_reg = 0x4d008,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_VOTED,
 	.clkr = {
 		.enable_reg = 0x4d008,
 		.enable_mask = BIT(0),
