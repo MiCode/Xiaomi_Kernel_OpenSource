@@ -109,33 +109,3 @@ int ipa_eth_uc_send_cmd(enum ipa_eth_uc_op op, u32 protocol,
 	return rc;
 }
 EXPORT_SYMBOL(ipa_eth_uc_send_cmd);
-
-static int ipa_eth_uc_iommu_map(dma_addr_t daddr, void *addr, bool is_va,
-	size_t size, int prot, bool split)
-{
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
-
-	if (!cb->valid) {
-		ipa_eth_err("SMMU CB not valid for uC");
-		return -EFAULT;
-	}
-
-	return ipa_eth_iommu_map(cb->mapping->domain, daddr, addr, is_va,
-				 size, prot, split);
-}
-
-int ipa_eth_uc_iommu_pamap(dma_addr_t daddr, phys_addr_t paddr,
-	size_t size, int prot, bool split)
-{
-	return ipa_eth_uc_iommu_map(daddr, (void *)paddr, false, size,
-				    prot, split);
-}
-EXPORT_SYMBOL(ipa_eth_uc_iommu_pamap);
-
-int ipa_eth_uc_iommu_vamap(dma_addr_t daddr, void *vaddr,
-	size_t size, int prot, bool split)
-{
-	return ipa_eth_uc_iommu_map(daddr, vaddr, true, size,
-				    prot, split);
-}
-EXPORT_SYMBOL(ipa_eth_uc_iommu_vamap);
