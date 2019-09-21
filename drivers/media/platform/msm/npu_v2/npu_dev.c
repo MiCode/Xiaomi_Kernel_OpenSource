@@ -335,27 +335,30 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	int ret = 0;
 
+	mutex_lock(&npu_dev->dev_lock);
+	NPU_DBG("Enable core power %d\n", pwr->pwr_vote_num);
 	if (!pwr->pwr_vote_num) {
 		ret = npu_enable_regulators(npu_dev);
 		if (ret)
-			return ret;
+			goto fail;
 
 		ret = npu_set_bw(npu_dev, 100, 100);
 		if (ret) {
 			npu_disable_regulators(npu_dev);
-			return ret;
+			goto fail;
 		}
 
 		ret = npu_enable_core_clocks(npu_dev);
 		if (ret) {
 			npu_set_bw(npu_dev, 0, 0);
 			npu_disable_regulators(npu_dev);
-			pwr->pwr_vote_num = 0;
-			return ret;
+			goto fail;
 		}
 		npu_resume_devbw(npu_dev);
 	}
 	pwr->pwr_vote_num++;
+fail:
+	mutex_unlock(&npu_dev->dev_lock);
 
 	return ret;
 }
@@ -364,8 +367,13 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 {
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 
-	if (!pwr->pwr_vote_num)
+	mutex_lock(&npu_dev->dev_lock);
+	NPU_DBG("Disable core power %d\n", pwr->pwr_vote_num);
+	if (!pwr->pwr_vote_num) {
+		mutex_unlock(&npu_dev->dev_lock);
 		return;
+	}
+
 	pwr->pwr_vote_num--;
 	if (!pwr->pwr_vote_num) {
 		npu_suspend_devbw(npu_dev);
@@ -378,6 +386,7 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 		NPU_DBG("setting back to power level=%d\n",
 			pwr->active_pwrlevel);
 	}
+	mutex_unlock(&npu_dev->dev_lock);
 }
 
 static int npu_enable_core_clocks(struct npu_device *npu_dev)
@@ -570,7 +579,6 @@ static void npu_suspend_devbw(struct npu_device *npu_dev)
 
 	if (pwr->bwmon_enabled && (pwr->devbw_num > 0)) {
 		for (i = 0; i < pwr->devbw_num; i++) {
-			NPU_DBG("Suspend devbw%d\n", i);
 			ret = devfreq_suspend_devbw(pwr->devbw[i]);
 			if (ret)
 				NPU_ERR("devfreq_suspend_devbw failed rc:%d\n",
@@ -587,7 +595,6 @@ static void npu_resume_devbw(struct npu_device *npu_dev)
 
 	if (!pwr->bwmon_enabled && (pwr->devbw_num > 0)) {
 		for (i = 0; i < pwr->devbw_num; i++) {
-			NPU_DBG("Resume devbw%d\n", i);
 			ret = devfreq_resume_devbw(pwr->devbw[i]);
 			if (ret)
 				NPU_ERR("devfreq_resume_devbw failed rc:%d\n",
@@ -663,10 +670,7 @@ static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil)
 				continue;
 		}
 
-		NPU_DBG("enabling clock %s\n", core_clks[i].clk_name);
-
 		if (core_clks[i].reset) {
-			NPU_DBG("Deassert %s\n", core_clks[i].clk_name);
 			rc = reset_control_deassert(core_clks[i].reset);
 			if (rc)
 				NPU_WARN("deassert %s reset failed\n",
@@ -682,9 +686,6 @@ static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil)
 
 		if (npu_is_exclude_rate_clock(core_clks[i].clk_name))
 			continue;
-
-		NPU_DBG("setting rate of clock %s to %ld\n",
-			core_clks[i].clk_name, pwrlevel->clk_freq[i]);
 
 		rc = clk_set_rate(core_clks[i].clk,
 			pwrlevel->clk_freq[i]);
@@ -706,11 +707,9 @@ static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil)
 				if (npu_is_post_clock(core_clks[i].clk_name))
 					continue;
 			}
-			NPU_DBG("disabling clock %s\n", core_clks[i].clk_name);
 			clk_disable_unprepare(core_clks[i].clk);
 
 			if (core_clks[i].reset) {
-				NPU_DBG("Assert %s\n", core_clks[i].clk_name);
 				rc = reset_control_assert(core_clks[i].reset);
 				if (rc)
 					NPU_WARN("assert %s reset failed\n",
@@ -738,9 +737,6 @@ static void npu_disable_clocks(struct npu_device *npu_dev, bool post_pil)
 
 		/* set clock rate to 0 before disabling it */
 		if (!npu_is_exclude_rate_clock(core_clks[i].clk_name)) {
-			NPU_DBG("setting rate of clock %s to 0\n",
-				core_clks[i].clk_name);
-
 			rc = clk_set_rate(core_clks[i].clk, 0);
 			if (rc) {
 				NPU_ERR("clk_set_rate %s to 0 failed\n",
@@ -748,11 +744,9 @@ static void npu_disable_clocks(struct npu_device *npu_dev, bool post_pil)
 			}
 		}
 
-		NPU_DBG("disabling clock %s\n", core_clks[i].clk_name);
 		clk_disable_unprepare(core_clks[i].clk);
 
 		if (core_clks[i].reset) {
-			NPU_DBG("Assert %s\n", core_clks[i].clk_name);
 			rc = reset_control_assert(core_clks[i].reset);
 			if (rc)
 				NPU_WARN("assert %s reset failed\n",
@@ -824,11 +818,15 @@ static int npu_enable_regulators(struct npu_device *npu_dev)
 					regulators[i].regulator_name);
 				break;
 			}
-			NPU_DBG("regulator %s enabled\n",
-				regulators[i].regulator_name);
 		}
 	}
-	host_ctx->power_vote_num++;
+
+	if (rc) {
+		for (i--; i >= 0; i--)
+			regulator_disable(regulators[i].regulator);
+	} else {
+		host_ctx->power_vote_num++;
+	}
 	return rc;
 }
 
@@ -839,11 +837,8 @@ static void npu_disable_regulators(struct npu_device *npu_dev)
 	struct npu_regulator *regulators = npu_dev->regulators;
 
 	if (host_ctx->power_vote_num > 0) {
-		for (i = 0; i < npu_dev->regulator_num; i++) {
+		for (i = 0; i < npu_dev->regulator_num; i++)
 			regulator_disable(regulators[i].regulator);
-			NPU_DBG("regulator %s disabled\n",
-				regulators[i].regulator_name);
-		}
 		host_ctx->power_vote_num--;
 	}
 }
@@ -874,13 +869,12 @@ int npu_enable_irq(struct npu_device *npu_dev)
 	reg_val |= RSC_SHUTDOWN_REQ_IRQ_ENABLE | RSC_BRINGUP_REQ_IRQ_ENABLE;
 	npu_cc_reg_write(npu_dev, NPU_CC_NPU_MASTERn_GENERAL_IRQ_ENABLE(0),
 		reg_val);
-	for (i = 0; i < NPU_MAX_IRQ; i++) {
-		if (npu_dev->irq[i].irq != 0) {
+	for (i = 0; i < NPU_MAX_IRQ; i++)
+		if (npu_dev->irq[i].irq != 0)
 			enable_irq(npu_dev->irq[i].irq);
-			NPU_DBG("enable irq %d\n", npu_dev->irq[i].irq);
-		}
-	}
+
 	npu_dev->irq_enabled = true;
+	NPU_DBG("irq enabled\n");
 
 	return 0;
 }
@@ -895,12 +889,9 @@ void npu_disable_irq(struct npu_device *npu_dev)
 		return;
 	}
 
-	for (i = 0; i < NPU_MAX_IRQ; i++) {
-		if (npu_dev->irq[i].irq != 0) {
+	for (i = 0; i < NPU_MAX_IRQ; i++)
+		if (npu_dev->irq[i].irq != 0)
 			disable_irq(npu_dev->irq[i].irq);
-			NPU_DBG("disable irq %d\n", npu_dev->irq[i].irq);
-		}
-	}
 
 	reg_val = npu_cc_reg_read(npu_dev,
 		NPU_CC_NPU_MASTERn_GENERAL_IRQ_OWNER(0));
@@ -915,6 +906,7 @@ void npu_disable_irq(struct npu_device *npu_dev)
 	npu_cc_reg_write(npu_dev, NPU_CC_NPU_MASTERn_GENERAL_IRQ_CLEAR(0),
 		RSC_SHUTDOWN_REQ_IRQ_ENABLE | RSC_BRINGUP_REQ_IRQ_ENABLE);
 	npu_dev->irq_enabled = false;
+	NPU_DBG("irq disabled\n");
 }
 
 /*
@@ -959,12 +951,13 @@ int npu_enable_sys_cache(struct npu_device *npu_dev)
 		REGW(npu_dev, NPU_CACHEMAP1_ATTR_METADATA_IDn(3), reg_val);
 		REGW(npu_dev, NPU_CACHEMAP1_ATTR_METADATA_IDn(4), reg_val);
 
-		NPU_DBG("prior to activate sys cache\n");
 		rc = llcc_slice_activate(npu_dev->sys_cache);
-		if (rc)
+		if (rc) {
 			NPU_ERR("failed to activate sys cache\n");
-		else
-			NPU_DBG("sys cache activated\n");
+			llcc_slice_putd(npu_dev->sys_cache);
+			npu_dev->sys_cache = NULL;
+			rc = 0;
+		}
 	}
 
 	return rc;
@@ -1614,8 +1607,6 @@ int npu_set_bw(struct npu_device *npu_dev, int new_ib, int new_ab)
 	bwctrl->bw_levels[i].vectors[0].ab = new_ab / bwctrl->num_paths * MBYTE;
 	bwctrl->bw_levels[i].vectors[1].ib = new_ib * MBYTE;
 	bwctrl->bw_levels[i].vectors[1].ab = new_ab / bwctrl->num_paths * MBYTE;
-
-	NPU_INFO("BW MBps: AB: %d IB: %d\n", new_ab, new_ib);
 
 	ret = msm_bus_scale_client_update_request(bwctrl->bus_client, i);
 	if (ret) {
