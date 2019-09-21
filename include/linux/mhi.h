@@ -312,6 +312,8 @@ struct mhi_controller {
 	void (*tsync_log)(struct mhi_controller *mhi_cntrl, u64 remote_time);
 	int (*bw_scale)(struct mhi_controller *mhi_cntrl,
 			struct mhi_link_info *link_info);
+	void (*write_reg)(struct mhi_controller *mhi_cntrl, void __iomem *base,
+			u32 offset, u32 val);
 
 	/* channel to control DTR messaging */
 	struct mhi_device *dtr_dev;
