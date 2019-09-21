@@ -14,6 +14,7 @@
 #include <linux/uaccess.h>
 #include <linux/module.h>
 #include <linux/ftrace.h>
+#include <linux/sched.h>
 #include <linux/sched/clock.h>
 #include <linux/sched/sysctl.h>
 
@@ -636,7 +637,8 @@ void tracer_hardirqs_on(unsigned long a0, unsigned long a1)
 	is = &per_cpu(the_irqsoff, raw_smp_processor_id());
 	delta = sched_clock() - is->ts;
 
-	if (delta > sysctl_irqsoff_tracing_threshold_ns)
+	if (!is_idle_task(current) &&
+			delta > sysctl_irqsoff_tracing_threshold_ns)
 		trace_irqs_disable(delta, is->caddr[0], is->caddr[1],
 						is->caddr[2], is->caddr[3]);
 	lockdep_on();
