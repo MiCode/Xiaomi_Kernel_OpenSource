@@ -3595,12 +3595,14 @@ static irqreturn_t fg_delta_bsoc_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#define CENTI_FULL_SOC		10000
 static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 {
 	struct fg_dev *fg = data;
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, batt_soc, batt_temp, msoc_raw;
 	bool input_present = is_input_present(fg);
+	u32 batt_soc_cp;
 
 	rc = fg_get_msoc_raw(fg, &msoc_raw);
 	if (!rc)
@@ -3620,10 +3622,14 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 	if (rc < 0) {
 		pr_err("Failed to read battery temp rc: %d\n", rc);
 	} else {
-		if (chip->cl->active)
-			cap_learning_update(chip->cl, batt_temp, batt_soc,
+		if (chip->cl->active) {
+			batt_soc_cp = div64_u64(
+					(u64)(u32)batt_soc * CENTI_FULL_SOC,
+					BATT_SOC_32BIT);
+			cap_learning_update(chip->cl, batt_temp, batt_soc_cp,
 				fg->charge_status, fg->charge_done,
 				input_present, is_qnovo_en(fg));
+		}
 
 		rc = fg_gen4_slope_limit_config(chip, batt_temp);
 		if (rc < 0)
@@ -4059,6 +4065,7 @@ static void status_change_work(struct work_struct *work)
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, batt_soc, batt_temp;
 	bool input_present, qnovo_en;
+	u32 batt_soc_cp;
 
 	if (fg->battery_missing) {
 		pm_relax(fg->dev);
@@ -4103,10 +4110,13 @@ static void status_change_work(struct work_struct *work)
 	cycle_count_update(chip->counter, (u32)batt_soc >> 24,
 		fg->charge_status, fg->charge_done, input_present);
 
-	if (fg->charge_status != fg->prev_charge_status)
-		cap_learning_update(chip->cl, batt_temp, batt_soc,
+	if (fg->charge_status != fg->prev_charge_status) {
+		batt_soc_cp = div64_u64((u64)(u32)batt_soc * CENTI_FULL_SOC,
+					BATT_SOC_32BIT);
+		cap_learning_update(chip->cl, batt_temp, batt_soc_cp,
 			fg->charge_status, fg->charge_done, input_present,
 			qnovo_en);
+	}
 
 	rc = fg_gen4_charge_full_update(fg);
 	if (rc < 0)

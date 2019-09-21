@@ -2553,7 +2553,7 @@ static void qg_status_change_work(struct work_struct *work)
 	struct qpnp_qg *chip = container_of(work,
 			struct qpnp_qg, qg_status_change_work);
 	union power_supply_propval prop = {0, };
-	int rc = 0, batt_temp = 0, batt_soc_32b = 0;
+	int rc = 0, batt_temp = 0;
 	bool input_present = false;
 
 	if (!is_batt_available(chip)) {
@@ -2609,11 +2609,8 @@ static void qg_status_change_work(struct work_struct *work)
 		rc = qg_get_battery_temp(chip, &batt_temp);
 		if (rc < 0) {
 			pr_err("Failed to read BATT_TEMP at PON rc=%d\n", rc);
-		} else {
-			batt_soc_32b = div64_u64(
-					chip->batt_soc * BATT_SOC_32BIT,
-					QG_SOC_FULL);
-			cap_learning_update(chip->cl, batt_temp, batt_soc_32b,
+		} else if (chip->batt_soc >= 0) {
+			cap_learning_update(chip->cl, batt_temp, chip->batt_soc,
 				chip->charge_status, chip->charge_done,
 				input_present, false);
 		}
