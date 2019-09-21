@@ -6385,6 +6385,28 @@ int ipa3_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count)
 	return res;
 }
 
+/**
+ * ipa3_check_idr_if_freed()-
+ * To iterate through the list and check if ptr exists
+ *
+ * Return value: true/false depending upon found/not
+ */
+bool ipa3_check_idr_if_freed(void *ptr)
+{
+	int id;
+	void *iter_ptr;
+
+	spin_lock(&ipa3_ctx->idr_lock);
+	idr_for_each_entry(&ipa3_ctx->ipa_idr, iter_ptr, id) {
+		if ((uintptr_t)ptr == (uintptr_t)iter_ptr) {
+			spin_unlock(&ipa3_ctx->idr_lock);
+			return false;
+		}
+	}
+	spin_unlock(&ipa3_ctx->idr_lock);
+	return true;
+}
+
 static void *ipa3_get_ipc_logbuf(void)
 {
 	if (ipa3_ctx)

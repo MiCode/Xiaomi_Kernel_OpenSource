@@ -2858,6 +2858,8 @@ void ipa3_tag_destroy_imm(void *user1, int user2);
 const struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info
 	(enum ipa_client_type client);
 
+bool ipa3_check_idr_if_freed(void *ptr);
+
 int ipa3_wigig_init_i(void);
 int ipa3_wigig_uc_init(
 	struct ipa_wdi_uc_ready_params *inout,
