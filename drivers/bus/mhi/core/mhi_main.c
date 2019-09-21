@@ -700,6 +700,8 @@ int mhi_early_notify_device(struct device *dev, void *data)
 {
 	struct mhi_device *mhi_dev;
 	struct mhi_controller *mhi_cntrl;
+	struct mhi_chan *mhi_chan;
+	int dir;
 
 	if (dev->bus != &mhi_bus_type)
 		return 0;
@@ -714,6 +716,20 @@ int mhi_early_notify_device(struct device *dev, void *data)
 	MHI_LOG("Early notification for dev:%s\n", mhi_dev->chan_name);
 
 	mhi_notify(mhi_dev, MHI_CB_FATAL_ERROR);
+
+	/* send completions to any critical channels waiting on them */
+	for (dir = 0; dir < 2; dir++) {
+		mhi_chan = dir ? mhi_dev->ul_chan : mhi_dev->dl_chan;
+
+		if (!mhi_chan)
+			continue;
+
+		/* wake all threads waiting for completion */
+		write_lock_irq(&mhi_chan->lock);
+		mhi_chan->ccs = MHI_EV_CC_INVALID;
+		complete_all(&mhi_chan->completion);
+		write_unlock_irq(&mhi_chan->lock);
+	}
 
 	return 0;
 }
