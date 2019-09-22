@@ -84,7 +84,7 @@
 
 	compress: qcom,msm-compress-dsp {
 		compatible = "qcom,msm-compress-dsp";
-		qcom,adsp-version = "MDSP 1.2";
+		qcom,adsp-version = "MDSP 2.8";
 	};
 
 	qcom,msm-dai-stub {

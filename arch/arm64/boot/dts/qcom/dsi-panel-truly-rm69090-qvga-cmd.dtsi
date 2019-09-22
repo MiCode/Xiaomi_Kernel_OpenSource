@@ -40,8 +40,11 @@
 		qcom,mdss-dsi-pixel-packing = "tight";
 		qcom,mdss-dsi-pixel-alignment = <0>;
 		qcom,mdss-dsi-on-command = [
+			15 01 00 00 00 00 02 FE 01
+			15 01 00 00 00 00 02 6A 03
 			15 01 00 00 00 00 02 FE 00
 			15 01 00 00 00 00 02 35 00
+			15 01 00 00 00 00 02 53 20
 			15 01 00 00 00 00 02 51 80
 			39 01 00 00 00 00 05 2A 00 10 01 7F
 			39 01 00 00 00 00 05 2B 00 00 01 BF
@@ -59,6 +62,8 @@
 			05 01 00 00 00 00 01 39   /* Idle-Mode On */
 			];
 		qcom,mdss-dsi-idle-off-command = [
+			15 01 00 00 00 00 02 FE 00
+			15 01 00 00 00 00 02 53 20
 			05 01 00 00 00 00 01 38   /* Idle-Mode Off */
 			];
 		qcom,mdss-dsi-idle-on-command-state = "dsi_hs_mode";

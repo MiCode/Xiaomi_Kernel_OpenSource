@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2018, Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2019, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -879,6 +879,8 @@ static void msm_usb_phy_reset(struct msm_otg *motg)
 	mb();
 }
 
+static void msm_chg_block_on(struct msm_otg *);
+
 static int msm_otg_reset(struct usb_phy *phy)
 {
 	struct msm_otg *motg = container_of(phy, struct msm_otg, phy);
@@ -976,6 +978,9 @@ static int msm_otg_reset(struct usb_phy *phy)
 	 * Disable USB BAM as block reset resets USB BAM registers.
 	 */
 	msm_usb_bam_enable(CI_CTRL, false);
+
+	if (phy->otg->state == OTG_STATE_UNDEFINED && motg->rm_pulldown)
+		msm_chg_block_on(motg);
 
 	return 0;
 }
@@ -2458,6 +2463,7 @@ static void msm_chg_block_on(struct msm_otg *motg)
 	u32 func_ctrl;
 
 	/* put the controller in non-driving mode */
+	msm_otg_dbg_log_event(&motg->phy, "PHY NON DRIVE", 0, 0);
 	func_ctrl = ulpi_read(phy, ULPI_FUNC_CTRL);
 	func_ctrl &= ~ULPI_FUNC_CTRL_OPMODE_MASK;
 	func_ctrl |= ULPI_FUNC_CTRL_OPMODE_NONDRIVING;
@@ -2487,10 +2493,34 @@ static void msm_chg_block_off(struct msm_otg *motg)
 	ulpi_write(phy, 0x6, 0xB);
 
 	/* put the controller in normal mode */
+	msm_otg_dbg_log_event(&motg->phy, "PHY MODE NORMAL", 0, 0);
 	func_ctrl = ulpi_read(phy, ULPI_FUNC_CTRL);
 	func_ctrl &= ~ULPI_FUNC_CTRL_OPMODE_MASK;
 	func_ctrl |= ULPI_FUNC_CTRL_OPMODE_NORMAL;
 	ulpi_write(phy, func_ctrl, ULPI_FUNC_CTRL);
+}
+
+static void msm_otg_set_mode_nondriving(struct msm_otg *motg,
+					bool mode_nondriving)
+{
+	clk_prepare_enable(motg->xo_clk);
+	clk_prepare_enable(motg->phy_csr_clk);
+	clk_prepare_enable(motg->core_clk);
+	clk_prepare_enable(motg->pclk);
+
+	msm_otg_exit_phy_retention(motg);
+
+	if (mode_nondriving)
+		msm_chg_block_on(motg);
+	else
+		msm_chg_block_off(motg);
+
+	msm_otg_enter_phy_retention(motg);
+
+	clk_disable_unprepare(motg->pclk);
+	clk_disable_unprepare(motg->core_clk);
+	clk_disable_unprepare(motg->phy_csr_clk);
+	clk_disable_unprepare(motg->xo_clk);
 }
 
 #define MSM_CHG_DCD_TIMEOUT		(750 * HZ/1000) /* 750 msec */
@@ -3320,6 +3350,8 @@ static int msm_otg_dpdm_regulator_enable(struct regulator_dev *rdev)
 		}
 	}
 
+	msm_otg_set_mode_nondriving(motg, true);
+
 	return ret;
 }
 
@@ -3327,6 +3359,8 @@ static int msm_otg_dpdm_regulator_disable(struct regulator_dev *rdev)
 {
 	int ret = 0;
 	struct msm_otg *motg = rdev_get_drvdata(rdev);
+
+	msm_otg_set_mode_nondriving(motg, false);
 
 	if (motg->rm_pulldown) {
 		ret = msm_hsusb_ldo_enable(motg, USB_PHY_REG_3P3_OFF);

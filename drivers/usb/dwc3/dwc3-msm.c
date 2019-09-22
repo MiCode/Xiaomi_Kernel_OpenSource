@@ -324,7 +324,7 @@ struct dwc3_msm {
 
 	u64			dummy_gsi_db;
 	dma_addr_t		dummy_gsi_db_dma;
-	u64			dummy_gevntcnt;
+	u64			*dummy_gevntcnt;
 	dma_addr_t		dummy_gevntcnt_dma;
 };
 
@@ -931,7 +931,7 @@ static void gsi_get_channel_info(struct usb_ep *ep,
 		ch_info->gevntcount_hi_addr =
 				(u32)((u64)mdwc->dummy_gevntcnt_dma >> 32);
 		dev_dbg(dwc->dev, "Dummy GEVNTCNT Addr %pK: %llx %x (LSB)\n",
-			&mdwc->dummy_gevntcnt,
+			mdwc->dummy_gevntcnt,
 			(unsigned long long)mdwc->dummy_gevntcnt_dma,
 			(u32)mdwc->dummy_gevntcnt_dma);
 	}
@@ -2159,14 +2159,14 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 		 * Set-up dummy GEVNTCOUNT address to be passed on to GSI for
 		 * normal (non HW-accelerated) EPs.
 		 */
-		mdwc->dummy_gevntcnt_dma = dma_map_single(dwc->sysdev,
-						&mdwc->dummy_gevntcnt,
-						sizeof(mdwc->dummy_gevntcnt),
-						DMA_FROM_DEVICE);
-		if (dma_mapping_error(dwc->sysdev, mdwc->dummy_gevntcnt_dma)) {
-			dev_err(dwc->dev, "failed to map dummy geventcount\n");
+		mdwc->dummy_gevntcnt =
+			kzalloc(sizeof(*mdwc->dummy_gevntcnt), GFP_KERNEL);
+		if (!mdwc->dummy_gevntcnt) {
 			mdwc->dummy_gevntcnt_dma = (dma_addr_t)NULL;
+			break;
 		}
+
+		mdwc->dummy_gevntcnt_dma = virt_to_phys(mdwc->dummy_gevntcnt);
 		break;
 	case DWC3_GSI_EVT_BUF_SETUP:
 		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_SETUP\n");
@@ -2241,10 +2241,8 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 							evt->buf, evt->dma);
 		}
 		if (mdwc->dummy_gevntcnt_dma) {
-			dma_unmap_single(dwc->sysdev, mdwc->dummy_gevntcnt_dma,
-					 sizeof(mdwc->dummy_gevntcnt),
-					 DMA_FROM_DEVICE);
 			mdwc->dummy_gevntcnt_dma = (dma_addr_t)NULL;
+			kfree(mdwc->dummy_gevntcnt);
 		}
 		if (mdwc->dummy_gsi_db_dma) {
 			dma_unmap_single(dwc->sysdev, mdwc->dummy_gsi_db_dma,
