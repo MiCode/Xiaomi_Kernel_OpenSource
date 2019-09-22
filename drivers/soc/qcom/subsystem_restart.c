@@ -1304,14 +1304,24 @@ EXPORT_SYMBOL(subsystem_crashed);
 void subsys_set_crash_status(struct subsys_device *dev,
 				enum crash_status crashed)
 {
+	if (!dev) {
+		pr_err("subsys_set_crash_status() dev is NULL\n");
+		return;
+	}
 	dev->crashed = crashed;
 }
 EXPORT_SYMBOL(subsys_set_crash_status);
 
 enum crash_status subsys_get_crash_status(struct subsys_device *dev)
 {
+	if (!dev) {
+		pr_err("subsys_get_crash_status() dev is NULL\n");
+		return CRASH_STATUS_WDOG_BITE;
+	}
+
 	return dev->crashed;
 }
+EXPORT_SYMBOL(subsys_get_crash_status);
 
 static struct subsys_device *desc_to_subsys(struct device *d)
 {
