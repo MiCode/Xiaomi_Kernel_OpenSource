@@ -37,6 +37,7 @@ extern bool drop_if_ring_full;
 extern int n_msi;
 extern uint max_assoc_sta;
 extern bool drop_if_ring_full;
+extern bool ac_queues;
 extern uint rx_ring_order;
 extern uint tx_ring_order;
 extern uint bcast_ring_order;
