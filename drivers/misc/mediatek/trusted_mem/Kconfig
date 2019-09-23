@@ -121,15 +121,26 @@ config MTK_MTEE_MULTI_CHUNK_SUPPORT
 	  Say Y if you would like to enable this feature.
 	  If unsure, say N.
 
-config MTK_TRUSTED_MEMORY_SUBSYSTEM
-	bool "MTK Trusted Memory Subsystem Support"
+config HAVE_MTK_TRUSTED_MEMORY_SUBSYSTEM
+	bool "HAVE MTK Trusted Memory Subsystem Support"
 	depends on MTK_PROT_MEM_SUPPORT || MTK_SECURE_MEM_SUPPORT || \
 		   MTK_MTEE_MULTI_CHUNK_SUPPORT
 	select CMA
 	help
 	  Enable the support of MediaTek trusted memory subsystem driver.
+	  This option is been used to be auto selected by other option.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+config MTK_TRUSTED_MEMORY_SUBSYSTEM
+	tristate "MTK Trusted Memory Subsystem Support"
+	default y
+	depends on HAVE_MTK_TRUSTED_MEMORY_SUBSYSTEM
+	help
+	  Enable the support of MediaTek trusted memory subsystem driver.
 	  This driver provide a general subsystem layer for trusted peer memory
 	  manager such as EL2 hypervisor or TEE. New type of trusted memory can
 	  be registered to this subsystem easily.
-	  Say Y if you would like to enable this feature.
+	  Say Y if you would like to build it in kernel image.
+	  Say M if you would like to build it as a kernel module.
 	  If unsure, say N.

@@ -44,4 +44,22 @@ void trusted_mem_core_profile_dump(struct trusted_mem_device *mem_device);
 void spm_enable_sodi(bool en);
 #endif
 
+int memory_ssmr_debug_init(void);
+int trusted_mem_subsys_init(void);
+void trusted_mem_subsys_exit(void);
+#ifdef TCORE_UT_TESTS_SUPPORT
+int tmem_ut_server_init(void);
+void tmem_ut_server_exit(void);
+int tmem_ut_cases_init(void);
+void tmem_ut_cases_exit(void);
+#endif
+#ifdef MTEE_DEVICES_SUPPORT
+int mtee_mchunks_init(void);
+void mtee_mchunks_exit(void);
+#endif
+#ifdef TEE_DEVICES_SUPPORT
+int tee_smem_devs_init(void);
+void tee_smem_devs_exit(void);
+#endif
+
 #endif /* end of TMEM_PRIV_H */

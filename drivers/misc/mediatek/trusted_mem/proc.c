@@ -363,6 +363,22 @@ static int __init trusted_mem_init(void)
 {
 	pr_info("%s:%d\n", __func__, __LINE__);
 
+	memory_ssmr_debug_init();
+	trusted_mem_subsys_init();
+
+#ifdef TCORE_UT_TESTS_SUPPORT
+	tmem_ut_server_init();
+	tmem_ut_cases_init();
+#endif
+
+#ifdef TEE_DEVICES_SUPPORT
+	tee_smem_devs_init();
+#endif
+
+#ifdef MTEE_DEVICES_SUPPORT
+	mtee_mchunks_init();
+#endif
+
 	trusted_mem_create_proc_entry();
 
 	pr_info("%s:%d (end)\n", __func__, __LINE__);
@@ -371,6 +387,20 @@ static int __init trusted_mem_init(void)
 
 static void __exit trusted_mem_exit(void)
 {
+#ifdef MTEE_DEVICES_SUPPORT
+	mtee_mchunks_exit();
+#endif
+
+#ifdef TEE_DEVICES_SUPPORT
+	tee_smem_devs_exit();
+#endif
+
+#ifdef TCORE_UT_TESTS_SUPPORT
+	tmem_ut_cases_exit();
+	tmem_ut_server_exit();
+#endif
+
+	trusted_mem_subsys_exit();
 }
 
 late_initcall(trusted_mem_init);

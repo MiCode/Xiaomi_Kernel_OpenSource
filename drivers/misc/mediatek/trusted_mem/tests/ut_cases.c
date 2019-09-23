@@ -948,7 +948,7 @@ static struct test_case test_cases[] = {
 
 #define TEST_CASE_COUNT ARRAY_SIZE(test_cases)
 
-static int __init tmem_ut_cases_init(void)
+int tmem_ut_cases_init(void)
 {
 	int idx;
 
@@ -965,13 +965,6 @@ static int __init tmem_ut_cases_init(void)
 	return TMEM_OK;
 }
 
-static void __exit tmem_ut_cases_exit(void)
+void tmem_ut_cases_exit(void)
 {
 }
-
-module_init(tmem_ut_cases_init);
-module_exit(tmem_ut_cases_exit);
-
-MODULE_AUTHOR("MediaTek Inc.");
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek Trusted Memory Test Cases");

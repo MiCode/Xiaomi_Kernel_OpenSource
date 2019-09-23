@@ -1420,7 +1420,7 @@ region_init_done:
 	return 0;
 }
 
-static int __init memory_ssmr_debug_init(void)
+int memory_ssmr_debug_init(void)
 {
 	struct dentry *dentry;
 	int i = 0;
@@ -1455,4 +1455,3 @@ static int __init memory_ssmr_debug_init(void)
 
 	return 0;
 }
-late_initcall(memory_ssmr_debug_init);

@@ -159,7 +159,7 @@ create_mtee_mchunk_device(enum TRUSTED_MEM_TYPE mem_type,
 	return t_device;
 }
 
-static int __init mtee_mchunks_init(void)
+int mtee_mchunks_init(void)
 {
 	struct trusted_mem_device *t_device;
 	int idx;
@@ -185,13 +185,6 @@ static int __init mtee_mchunks_init(void)
 	return TMEM_OK;
 }
 
-static void __exit mtee_mchunks_exit(void)
+void mtee_mchunks_exit(void)
 {
 }
-
-module_init(mtee_mchunks_init);
-module_exit(mtee_mchunks_exit);
-
-MODULE_AUTHOR("MediaTek Inc.");
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek MTEE Multiple Chunks Memory Driver");

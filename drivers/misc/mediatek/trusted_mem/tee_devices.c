@@ -173,7 +173,7 @@ create_tee_smem_device(enum TRUSTED_MEM_TYPE mem_type,
 	return t_device;
 }
 
-static int __init tee_smem_devs_init(void)
+int tee_smem_devs_init(void)
 {
 	struct trusted_mem_device *t_device;
 	int idx = 0;
@@ -199,13 +199,6 @@ static int __init tee_smem_devs_init(void)
 	return TMEM_OK;
 }
 
-static void __exit tee_smem_devs_exit(void)
+void tee_smem_devs_exit(void)
 {
 }
-
-module_init(tee_smem_devs_init);
-module_exit(tee_smem_devs_exit);
-
-MODULE_AUTHOR("MediaTek Inc.");
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek TEE Secure Memory Device Driver");

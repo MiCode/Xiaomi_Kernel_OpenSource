@@ -233,7 +233,7 @@ int register_trusted_mem_device(enum TRUSTED_MEM_TYPE register_type,
 	return TMEM_OK;
 }
 
-static int __init trusted_mem_subsys_init(void)
+int trusted_mem_subsys_init(void)
 {
 	int idx;
 
@@ -252,7 +252,7 @@ static int __init trusted_mem_subsys_init(void)
 	return TMEM_OK;
 }
 
-static void __exit trusted_mem_subsys_exit(void)
+void trusted_mem_subsys_exit(void)
 {
 	int idx;
 
@@ -267,10 +267,3 @@ static void __exit trusted_mem_subsys_exit(void)
 		}
 	}
 }
-
-subsys_initcall(trusted_mem_subsys_init);
-module_exit(trusted_mem_subsys_exit);
-
-MODULE_AUTHOR("MediaTek Inc.");
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek Trusted Memory Subsystem Driver");

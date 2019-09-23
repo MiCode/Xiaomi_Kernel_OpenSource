@@ -50,13 +50,13 @@ endif # !TCORE_UT_TESTS_SUPPORT
 ifneq ($(filter y,$(CONFIG_MTK_SECURE_MEM_SUPPORT) \
 		  $(CONFIG_MTK_WFD_SMEM_SUPPORT) \
 		  $(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE)),)
-obj-y += tee_devices.o
-obj-y += tee_impl.o
-tee_impl-y += tee_impl/tee_invoke.o
+trusted_mem-y += tee_devices.o
+ccflags-y += -DTEE_DEVICES_SUPPORT
+trusted_mem-y += tee_impl/tee_invoke.o
 
 ifneq ($(filter y,$(CONFIG_MICROTRUST_TEE_SUPPORT) \
 		  $(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
-tee_impl-y += tee_impl/tee_ops.o
+trusted_mem-y += tee_impl/tee_ops.o
 endif
 endif
 
@@ -65,12 +65,11 @@ endif
 #==========================================================================
 ifneq ($(filter y,$(CONFIG_MTK_PROT_MEM_SUPPORT) \
 		  $(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)),)
-obj-y += mtee_devices.o
+ccflags-y += -DMTEE_DEVICES_SUPPORT
 endif
 ifeq ($(CONFIG_MTK_GZ_KREE),y)
-obj-y += mtee_impl.o
-mtee_impl-y += mtee_impl/mtee_ops.o
-mtee_impl-y += mtee_impl/mtee_invoke.o
+trusted_mem-y += mtee_impl/mtee_ops.o
+trusted_mem-y += mtee_impl/mtee_invoke.o
 endif
 
 #==========================================================================
