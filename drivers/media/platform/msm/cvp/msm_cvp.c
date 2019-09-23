@@ -1624,7 +1624,7 @@ static int adjust_bw_freqs(void)
 	struct clock_info *cl;
 	struct allowed_clock_rates_table *tbl = NULL;
 	unsigned int tbl_size;
-	unsigned int cvp_min_rate, cvp_max_rate, max_bw;
+	unsigned int cvp_min_rate, cvp_max_rate, max_bw, min_bw;
 	struct cvp_power_level rt_pwr = {0}, nrt_pwr = {0};
 	unsigned long tmp, core_sum, op_core_sum, bw_sum;
 	int i, rc = 0;
@@ -1640,6 +1640,7 @@ static int adjust_bw_freqs(void)
 	cvp_max_rate = tbl[tbl_size - 1].clock_rate;
 	bus = &core->resources.bus_set.bus_tbl[1];
 	max_bw = bus->range[1];
+	min_bw = max_bw/10;
 
 	aggregate_power_request(core, &nrt_pwr, &rt_pwr, cvp_max_rate);
 	dprintk(CVP_DBG, "PwrReq nrt %u %u rt %u %u\n",
@@ -1675,10 +1676,10 @@ static int adjust_bw_freqs(void)
 	}
 
 	bw_sum = rt_pwr.bw_sum + nrt_pwr.bw_sum;
-	if (bw_sum > max_bw)
-		bw_sum = max_bw;
+	bw_sum = (bw_sum > max_bw) ? max_bw : bw_sum;
+	bw_sum = (bw_sum < min_bw) ? min_bw : bw_sum;
 
-	dprintk(CVP_DBG, "%s %lld %lld\n", __func__,
+	dprintk(CVP_PROF, "%s %lld %lld\n", __func__,
 		core_sum, bw_sum);
 	if (!cl->has_scaling) {
 		dprintk(CVP_ERR, "Cannot scale CVP clock\n");
