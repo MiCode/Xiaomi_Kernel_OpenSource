@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,6 +124,9 @@ do {\
 	} \
 } while (0)
 #endif
+
+/* Fall back to older APIS in case API is not supported */
+#define AEE_EUNSUPPORTED    20
 
 #define remote_arg64_t    union remote_arg64
 
