@@ -1376,7 +1376,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			ranges;
 
 			ddr_emi: interconnect {
-				compatible = "mediatek,mt6779-emi";
+				compatible = "mediatek,dvfsrc-mt6779-emi";
 				#interconnect-cells = <1>;
 			};
 
