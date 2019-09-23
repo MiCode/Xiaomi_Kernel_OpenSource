@@ -2481,8 +2481,20 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl, uint64_t phys,
 
 		VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 				FASTRPC_MODE_PARALLEL, 1, &ioctl)));
+		if (err == AEE_EUNSUPPORTED) {
+			remote_arg_t ra[1];
+
+			pr_warn("ADSPRPC:Failed to get security key with updated remote call, falling back to older method");
+			ra[0].buf.pv = (void *)&routargs;
+			ra[0].buf.len = sizeof(routargs);
+			ioctl.inv.sc = REMOTE_SCALARS_MAKE(7, 0, 1);
+			ioctl.inv.pra = ra;
+			VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
+				FASTRPC_MODE_PARALLEL, 1, &ioctl)));
+		}
 		if (err)
 			goto bail;
+
 		desc.args[0] = TZ_PIL_AUTH_QDSP6_PROC;
 		desc.args[1] = phys;
 		desc.args[2] = size;
