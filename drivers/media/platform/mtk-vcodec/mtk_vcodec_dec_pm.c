@@ -214,17 +214,41 @@ void mtk_prepare_vdec_emi_bw(struct mtk_vcodec_dev *mtkdev)
 
 	pdev = mtkdev->plat_dev;
 	vdec_mc = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_MC");
+	if (IS_ERR_OR_NULL(vdec_mc))
+		mtk_v4l2_err("of_icc_get vdec_mc fail!!\n");
 	vdec_ufo = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_UFO");
+	if (IS_ERR_OR_NULL(vdec_ufo))
+		mtk_v4l2_err("of_icc_get vdec_ufo fail!!\n");
 	vdec_pp = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_PP");
+	if (IS_ERR_OR_NULL(vdec_pp))
+		mtk_v4l2_err("of_icc_get vdec_pp fail!!\n");
 	vdec_pred_rd = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_PRED_RD");
+	if (IS_ERR_OR_NULL(vdec_pred_rd))
+		mtk_v4l2_err("of_icc_get vdec_pred_rd fail!!\n");
 	vdec_pred_wr = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_PRED_WR");
+	if (IS_ERR_OR_NULL(vdec_pred_wr))
+		mtk_v4l2_err("of_icc_get vdec_pred_wr fail!!\n");
 	vdec_ppwrap = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_PPWRAP");
+	if (IS_ERR_OR_NULL(vdec_ppwrap))
+		mtk_v4l2_err("of_icc_get vdec_ppwrap fail!!\n");
 	vdec_tile = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_TILE");
+	if (IS_ERR_OR_NULL(vdec_tile))
+		mtk_v4l2_err("of_icc_get vdec_tile fail!!\n");
 	vdec_vld = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_VLD");
+	if (IS_ERR_OR_NULL(vdec_vld))
+		mtk_v4l2_err("of_icc_get vdec_vld fail!!\n");
 	vdec_vld2 = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_VLD2");
+	if (IS_ERR_OR_NULL(vdec_vld2))
+		mtk_v4l2_err("of_icc_get vdec_vld2 fail!!\n");
 	vdec_avc_mv = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_AVC_MV");
+	if (IS_ERR_OR_NULL(vdec_avc_mv))
+		mtk_v4l2_err("of_icc_get vdec_avc_mv fail!!\n");
 	vdec_ufo_enc = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_UFO_ENC");
+	if (IS_ERR_OR_NULL(vdec_ufo_enc))
+		mtk_v4l2_err("of_icc_get vdec_ufo_enc fail!!\n");
 	vdec_rg_ctrl_dma = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_RG_CTRL_DMA");
+	if (IS_ERR_OR_NULL(vdec_rg_ctrl_dma))
+		mtk_v4l2_err("of_icc_get vdec_rg_ctrl_dma fail!!\n");
 #endif
 }
 
