@@ -1490,6 +1490,24 @@ static void aggregate_power_update(struct msm_cvp_core *core,
 		} else {
 			i = 1;
 		}
+		dprintk(CVP_PROF, "pwrUpdate %pK fdu %u od %u mpu %u ica %u\n",
+			inst->prop.fdu_cycles,
+			inst->prop.od_cycles,
+			inst->prop.mpu_cycles,
+			inst->prop.ica_cycles);
+
+		dprintk(CVP_PROF, "pwrUpdate fw %u fdu_o %u od_o %u mpu_o %u\n",
+			inst->prop.fw_cycles,
+			inst->prop.fdu_op_cycles,
+			inst->prop.od_op_cycles,
+			inst->prop.mpu_op_cycles);
+
+		dprintk(CVP_PROF, "pwrUpdate ica_o %u fw_o %u bw %u bw_o %u\n",
+			inst->prop.ica_op_cycles,
+			inst->prop.fw_op_cycles,
+			inst->prop.ddr_bw,
+			inst->prop.ddr_op_bw);
+
 		fdu_sum[i] += inst->prop.fdu_cycles;
 		od_sum[i] += inst->prop.od_cycles;
 		mpu_sum[i] += inst->prop.mpu_cycles;
@@ -1564,6 +1582,15 @@ static void aggregate_power_request(struct msm_cvp_core *core,
 		} else {
 			i = 1;
 		}
+		dprintk(CVP_PROF, "pwrReq sess %pK core %u ctl %u fw %u\n",
+			inst, inst->power.clock_cycles_a,
+			inst->power.clock_cycles_b,
+			inst->power.reserved[0]);
+		dprintk(CVP_PROF, "pwrReq op_core %u op_ctl %u op_fw %u\n",
+			inst->power.reserved[1],
+			inst->power.reserved[2],
+			inst->power.reserved[3]);
+
 		core_sum[i] += inst->power.clock_cycles_a;
 		ctlr_sum[i] += inst->power.clock_cycles_b;
 		fw_sum[i] += inst->power.reserved[0];
