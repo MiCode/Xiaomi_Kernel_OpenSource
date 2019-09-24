@@ -67,7 +67,7 @@ static int cam_ife_notify_safe_lut_scm(bool safe_trigger)
 		case CAM_CPAS_TITAN_170_V100:
 		case CAM_CPAS_TITAN_170_V110:
 		case CAM_CPAS_TITAN_175_V100:
-
+		case CAM_CPAS_TITAN_150_V110:
 			desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_VAL);
 			desc.args[0] = SMMU_SE_IFE;
 			desc.args[1] = safe_trigger;
