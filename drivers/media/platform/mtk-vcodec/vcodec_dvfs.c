@@ -642,7 +642,7 @@ unsigned long match_freq(int target_mhz, unsigned long *freq_list, u32 freq_cnt)
 	unsigned long res_mhz = DEFAULT_MHZ;
 	int i;
 
-	if (freq_list == 0)
+	if (freq_cnt == 0)
 		return 0;
 
 	for (i = 0; i < freq_cnt ; i++) {
@@ -652,7 +652,7 @@ unsigned long match_freq(int target_mhz, unsigned long *freq_list, u32 freq_cnt)
 
 	/* target_mhz is higher than all available frequency, choose max freq */
 	if (res_mhz == DEFAULT_MHZ)
-		res_mhz = freq_list[0];
+		res_mhz = freq_list[freq_cnt - 1];
 
 #if SHOW_ALGO_INFO
 	pr_info("%s %d -> %llu\n", __func__, target_mhz, res_mhz);
