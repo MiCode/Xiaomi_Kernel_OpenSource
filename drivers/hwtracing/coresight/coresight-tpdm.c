@@ -14,7 +14,7 @@
 #include <linux/of.h>
 #include <linux/coresight.h>
 #include <linux/regulator/consumer.h>
-#include <soc/qcom/scm.h>
+#include <linux/qcom_scm.h>
 
 #include "coresight-priv.h"
 
@@ -4103,8 +4103,7 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 	struct coresight_desc desc = { 0 };
 	static int traceid = TPDM_TRACE_ID_START;
 	uint32_t version;
-	struct scm_desc des = {0};
-	u32 scm_ret = 0;
+	u32 dump_state = 0;
 
 	desc.name = coresight_alloc_device_name(&tpdm_devs, dev);
 	if (!desc.name)
@@ -4115,10 +4114,8 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 	adev->dev.platform_data = pdata;
 
 	if (of_property_read_bool(adev->dev.of_node, "qcom,hw-enable-check")) {
-		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_UTIL,
-				HW_ENABLE_CHECK_VALUE), &des);
-		scm_ret = des.ret[0];
-		if (scm_ret == 0)
+		ret = qcom_scm_get_sec_dump_state(&dump_state);
+		if (ret || !dump_state)
 			return -ENXIO;
 	}
 
