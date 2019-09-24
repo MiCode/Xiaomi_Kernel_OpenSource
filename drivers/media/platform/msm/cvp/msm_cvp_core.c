@@ -226,11 +226,6 @@ static int _init_session_queue(struct msm_cvp_inst *inst)
 	INIT_LIST_HEAD(&inst->session_queue.msgs);
 	inst->session_queue.msg_count = 0;
 	init_waitqueue_head(&inst->session_queue.wq);
-	inst->session_queue.msg_cache = KMEM_CACHE(cvp_session_msg, 0);
-	if (!inst->session_queue.msg_cache) {
-		dprintk(CVP_ERR, "Failed to allocate msg quque\n");
-		return -ENOMEM;
-	}
 	inst->session_queue.state = QUEUE_ACTIVE;
 	return 0;
 }
@@ -243,15 +238,13 @@ static void _deinit_session_queue(struct msm_cvp_inst *inst)
 	spin_lock(&inst->session_queue.lock);
 	list_for_each_entry_safe(msg, tmpmsg, &inst->session_queue.msgs, node) {
 		list_del_init(&msg->node);
-		kmem_cache_free(inst->session_queue.msg_cache, msg);
+		kmem_cache_free(cvp_driver->msg_cache, msg);
 	}
 	inst->session_queue.msg_count = 0;
 	inst->session_queue.state = QUEUE_STOP;
 	spin_unlock(&inst->session_queue.lock);
 
 	wake_up_all(&inst->session_queue.wq);
-
-	kmem_cache_destroy(inst->session_queue.msg_cache);
 }
 
 void *msm_cvp_open(int core_id, int session_type)
@@ -318,10 +311,6 @@ void *msm_cvp_open(int core_id, int session_type)
 	inst->clk_data.bitrate = 0;
 	inst->clk_data.core_id = 0;
 	inst->deprecate_bitmask = 0;
-	inst->fence_data_cache = KMEM_CACHE(msm_cvp_fence_thread_data, 0);
-	inst->frame_cache = KMEM_CACHE(msm_cvp_frame, 0);
-	inst->frame_buf_cache = KMEM_CACHE(msm_cvp_frame_buf, 0);
-	inst->internal_buf_cache = KMEM_CACHE(msm_cvp_internal_buffer, 0);
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
@@ -362,11 +351,6 @@ fail_init:
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->frames);
 
-	kmem_cache_destroy(inst->fence_data_cache);
-	kmem_cache_destroy(inst->frame_cache);
-	kmem_cache_destroy(inst->frame_buf_cache);
-	kmem_cache_destroy(inst->internal_buf_cache);
-
 	kfree(inst);
 	inst = NULL;
 err_invalid_core:
@@ -406,11 +390,6 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->frames);
-
-	kmem_cache_destroy(inst->fence_data_cache);
-	kmem_cache_destroy(inst->frame_cache);
-	kmem_cache_destroy(inst->frame_buf_cache);
-	kmem_cache_destroy(inst->internal_buf_cache);
 
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->lock);

@@ -496,7 +496,7 @@ static int hfi_process_session_cvp_msg(u32 device_id,
 					inst->deprecate_bitmask);
 	}
 
-	sess_msg = kmem_cache_alloc(inst->session_queue.msg_cache, GFP_KERNEL);
+	sess_msg = kmem_cache_alloc(cvp_driver->msg_cache, GFP_KERNEL);
 	if (sess_msg == NULL) {
 		dprintk(CVP_ERR, "%s runs out msg cache memory\n", __func__);
 		return -ENOMEM;
@@ -526,7 +526,7 @@ static int hfi_process_session_cvp_msg(u32 device_id,
 
 error_handle_msg:
 	spin_unlock(&inst->session_queue.lock);
-	kmem_cache_free(inst->session_queue.msg_cache, sess_msg);
+	kmem_cache_free(cvp_driver->msg_cache, sess_msg);
 	return -ENOMEM;
 }
 

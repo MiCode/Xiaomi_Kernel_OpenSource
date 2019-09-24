@@ -161,6 +161,11 @@ struct msm_cvp_drv {
 	struct dentry *debugfs_root;
 	int thermal_level;
 	u32 sku_version;
+	struct kmem_cache *msg_cache;
+	struct kmem_cache *fence_data_cache;
+	struct kmem_cache *frame_cache;
+	struct kmem_cache *frame_buf_cache;
+	struct kmem_cache *internal_buf_cache;
 };
 
 enum profiling_points {
@@ -250,7 +255,6 @@ struct cvp_session_queue {
 	unsigned int msg_count;
 	struct list_head msgs;
 	wait_queue_head_t wq;
-	struct kmem_cache *msg_cache;
 };
 
 struct cvp_session_prop {
@@ -343,11 +347,7 @@ struct msm_cvp_inst {
 	unsigned long deprecate_bitmask;
 	struct cvp_kmd_request_power power;
 	struct cvp_session_prop prop;
-	struct kmem_cache *fence_data_cache;
 	u32 cur_cmd_type;
-	struct kmem_cache *frame_cache;
-	struct kmem_cache *frame_buf_cache;
-	struct kmem_cache *internal_buf_cache;
 };
 
 struct msm_cvp_fence_thread_data {
