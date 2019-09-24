@@ -2553,7 +2553,7 @@ static void qg_status_change_work(struct work_struct *work)
 	struct qpnp_qg *chip = container_of(work,
 			struct qpnp_qg, qg_status_change_work);
 	union power_supply_propval prop = {0, };
-	int rc = 0, batt_temp = 0, batt_soc_32b = 0;
+	int rc = 0, batt_temp = 0;
 	bool input_present = false;
 
 	if (!is_batt_available(chip)) {
@@ -2609,11 +2609,8 @@ static void qg_status_change_work(struct work_struct *work)
 		rc = qg_get_battery_temp(chip, &batt_temp);
 		if (rc < 0) {
 			pr_err("Failed to read BATT_TEMP at PON rc=%d\n", rc);
-		} else {
-			batt_soc_32b = div64_u64(
-					chip->batt_soc * BATT_SOC_32BIT,
-					QG_SOC_FULL);
-			cap_learning_update(chip->cl, batt_temp, batt_soc_32b,
+		} else if (chip->batt_soc >= 0) {
+			cap_learning_update(chip->cl, batt_temp, chip->batt_soc,
 				chip->charge_status, chip->charge_done,
 				input_present, false);
 		}
@@ -3895,6 +3892,7 @@ static int qg_parse_s2_dt(struct qpnp_qg *chip)
 #define DEFAULT_CL_MIN_LIM_DECIPERC	500
 #define DEFAULT_CL_MAX_LIM_DECIPERC	100
 #define DEFAULT_CL_DELTA_BATT_SOC	10
+#define DEFAULT_CL_WT_START_SOC		15
 static int qg_parse_cl_dt(struct qpnp_qg *chip)
 {
 	int rc;
@@ -3962,8 +3960,11 @@ static int qg_parse_cl_dt(struct qpnp_qg *chip)
 	of_property_read_u32(node, "qcom,cl-min-delta-batt-soc",
 				&chip->cl->dt.min_delta_batt_soc);
 
-	chip->cl->dt.cl_wt_enable = of_property_read_bool(node,
-						"qcom,cl-wt-enable");
+	if (of_property_read_bool(node, "qcom,cl-wt-enable")) {
+		chip->cl->dt.cl_wt_enable = true;
+		chip->cl->dt.min_start_soc = DEFAULT_CL_WT_START_SOC;
+		chip->cl->dt.max_start_soc = -EINVAL;
+	}
 
 	qg_dbg(chip, QG_DEBUG_PON, "DT: cl_min_start_soc=%d cl_max_start_soc=%d cl_min_temp=%d cl_max_temp=%d chip->cl->dt.cl_wt_enable=%d\n",
 		chip->cl->dt.min_start_soc, chip->cl->dt.max_start_soc,
