@@ -253,7 +253,7 @@ endmenu # TinySys
 menu "Debug, log, trace"
 
 config MTK_ATF_LOGGER
-	bool "atf logger kernel driver"
+	tristate "atf logger kernel driver"
 	depends on HAVE_ARM_SMCCC && ARCH_MEDIATEK && OF
 	default n
 	help

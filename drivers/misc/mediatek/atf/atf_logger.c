@@ -74,10 +74,26 @@ static unsigned char *atf_log_vir_addr;
 static unsigned int atf_log_len;
 static unsigned int atf_reader_alive;
 
-#ifdef CONFIG_OF_RESERVED_MEM
 
-int atf_log_reserved_mem_of_init(struct reserved_mem *rmem)
+#if defined(CONFIG_OF)
+static int dt_parse_atf_logger_buf(void)
 {
+	struct device_node *atf_logger_rmem_np;
+	struct reserved_mem *rmem;
+
+	atf_logger_rmem_np = of_find_compatible_node(NULL, NULL,
+			ATF_LOG_RESERVED_MEMORY_KEY);
+
+	if (!atf_logger_rmem_np) {
+		pr_info("No atf_logger reserved memory\n");
+		return -EINVAL;
+	}
+	rmem = of_reserved_mem_lookup(atf_logger_rmem_np);
+	if (!rmem) {
+		pr_info("No rmem\n");
+		return -EINVAL;
+	}
+
 	atf_buf_phy_ctrl = (phys_addr_t) rmem->base;
 	atf_buf_len = (phys_addr_t) rmem->size;
 
@@ -88,10 +104,6 @@ int atf_log_reserved_mem_of_init(struct reserved_mem *rmem)
 #endif
 	return 0;
 }
-
-RESERVEDMEM_OF_DECLARE(atf_log_reserved_init,
-		ATF_LOG_RESERVED_MEMORY_KEY,
-		atf_log_reserved_mem_of_init);
 #endif
 
 static ssize_t atf_log_write(struct file *file,
@@ -388,7 +400,9 @@ static int __init atf_logger_probe(struct platform_device *pdev)
 		pr_info("atf_log: failed to register device");
 		return -1;
 	}
-	if (atf_buf_len == 0) {
+
+	err = dt_parse_atf_logger_buf();
+	if (unlikely(err)) {
 		pr_info("No atf_log_buffer\n");
 		return -1;
 	}
@@ -473,4 +487,5 @@ module_exit(atf_log_exit);
 
 MODULE_DESCRIPTION("MEDIATEK Module ATF Logging Driver");
 MODULE_AUTHOR("Chun Fan<chun.fan@mediatek.com>");
+MODULE_LICENSE("GPL");
 

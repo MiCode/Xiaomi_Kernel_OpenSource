@@ -3,5 +3,4 @@
 #
 # Copyright (c) 2019 MediaTek Inc.
 #
-
-obj-y := atf_logger.o
+obj-$(CONFIG_MTK_ATF_LOGGER) := atf_logger.o
