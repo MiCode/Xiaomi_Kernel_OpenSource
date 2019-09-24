@@ -345,9 +345,9 @@ static int parse_cluster_params(struct device_node *dn, struct lpm_cluster *c)
 {
 	int ret;
 
-	ret = of_property_read_string(dn, "label", &c->cluster_name);
+	ret = of_property_read_string(dn, "idle-state-name", &c->cluster_name);
 	if (ret) {
-		pr_err("Failed to read label ret: %d\n", ret);
+		pr_err("Failed to read name ret: %d\n", ret);
 		return ret;
 	}
 
@@ -384,17 +384,17 @@ static int parse_power_params(struct device_node *dn, struct power_params *pwr)
 {
 	int ret;
 
-	ret  = lpm_of_read_u32(dn, "qcom,entry-latency-us",
+	ret  = lpm_of_read_u32(dn, "entry-latency-us",
 			       &pwr->entry_latency, true);
 	if (ret)
 		return ret;
 
-	ret  = lpm_of_read_u32(dn, "qcom,exit-latency-us",
+	ret  = lpm_of_read_u32(dn, "exit-latency-us",
 			       &pwr->exit_latency, true);
 	if (ret)
 		return ret;
 
-	ret = lpm_of_read_u32(dn, "qcom,min-residency-us",
+	ret = lpm_of_read_u32(dn, "min-residency-us",
 			      &pwr->min_residency, true);
 
 	return ret;
@@ -406,9 +406,10 @@ static int parse_cluster_level(struct device_node *dn,
 	struct lpm_cluster_level *level = &cluster->levels[cluster->nlevels];
 	int ret = -ENOMEM;
 
-	ret = of_property_read_string(dn, "label", &level->level_name);
+	ret = of_property_read_string(dn, "idle-state-name",
+				      &level->level_name);
 	if (ret) {
-		pr_err("Failed to read label ret: %d\n", ret);
+		pr_err("Failed to read name ret: %d\n", ret);
 		return ret;
 	}
 
@@ -443,11 +444,17 @@ static int parse_cluster_level(struct device_node *dn,
 
 static int parse_cpu_mode(struct device_node *n, struct lpm_cpu_level *l)
 {
-	int ret;
+	int ret, p;
 
-	ret = of_property_read_string(n, "label", &l->name);
+	if (!of_device_is_compatible(n, "arm,idle-state") ||
+	    lpm_of_read_u32(n, "arm,psci-suspend-param", &p, true)) {
+		pr_err("Failed to comply with arm,idle-state bindings.\n");
+		return -EINVAL;
+	}
+
+	ret = of_property_read_string(n, "idle-state-name", &l->name);
 	if (ret) {
-		pr_err("Failed to read label level: %s\n", l->name);
+		pr_err("Failed to read level name: ret: %d\n", ret);
 		return ret;
 	}
 
