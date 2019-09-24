@@ -1389,6 +1389,7 @@
 			"eth_rgmii_clk", "eth_slave_ahb_clk";
 		qcom,phy-intr-redirect = <&tlmm 84 GPIO_ACTIVE_LOW>;
 		qcom,phy-reset = <&tlmm 85 GPIO_ACTIVE_LOW>;
+		qcom,phy-reset-delay-msecs = <10>;
 		vreg_rgmii-supply = <&vreg_rgmii>;
 		vreg_emac_phy-supply =  <&vreg_emac_phy>;
 		vreg_rgmii_io_pads-supply = <&vreg_rgmii_io_pads>;
