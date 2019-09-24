@@ -19,7 +19,7 @@
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
 #include <linux/soc/qcom/llcc-qcom.h>
-#include <soc/qcom/scm.h>
+#include <linux/qcom_scm.h>
 #include <linux/soc/qcom/smem.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <linux/dma-mapping.h>
@@ -1184,28 +1184,20 @@ err_create_pkt:
 
 static int __tzbsp_set_cvp_state(enum tzbsp_subsys_state state)
 {
-	int tzbsp_rsp = 0;
 	int rc = 0;
-	struct scm_desc desc = {0};
 
-	desc.args[0] = state;
-	desc.args[1] = TZBSP_CVP_PAS_ID;
-	desc.arginfo = SCM_ARGS(2);
+	rc = qcom_scm_set_remote_state(state, TZBSP_CVP_PAS_ID);
 
-	rc = scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT,
-			TZBSP_PIL_SET_STATE), &desc);
-	tzbsp_rsp = desc.ret[0];
-
-	if (rc) {
-		dprintk(CVP_ERR, "Failed scm_call %d\n", rc);
+	if (rc < 0) {
+		dprintk(CVP_ERR, "Failed qcom_scm_set_remote_state %d\n", rc);
 		return rc;
 	}
 
-	dprintk(CVP_DBG, "Set state %d, resp %d\n", state, tzbsp_rsp);
-	if (tzbsp_rsp) {
+	dprintk(CVP_DBG, "Set state %d, resp %d\n", state, rc);
+	if (rc) {
 		dprintk(CVP_ERR,
 			"Failed to set cvp core state to suspend: %d\n",
-			tzbsp_rsp);
+			rc);
 		return -EINVAL;
 	}
 
@@ -3744,50 +3736,7 @@ static void __deinit_resources(struct iris_hfi_device *device)
 
 static int __protect_cp_mem(struct iris_hfi_device *device)
 {
-	struct cvp_tzbsp_memprot memprot;
-	unsigned int resp = 0;
-	int rc = 0;
-	struct context_bank_info *cb;
-	struct scm_desc desc = {0};
-
-	if (!device)
-		return -EINVAL;
-
-	memprot.cp_start = 0x0;
-	memprot.cp_size = 0x0;
-	memprot.cp_nonpixel_start = 0x0;
-	memprot.cp_nonpixel_size = 0x0;
-
-	list_for_each_entry(cb, &device->res->context_banks, list) {
-		if (!strcmp(cb->name, "cvp_hlos")) {
-			desc.args[1] = memprot.cp_size =
-				cb->addr_range.start;
-			dprintk(CVP_DBG, "%s memprot.cp_size: %#x\n",
-				__func__, memprot.cp_size);
-		}
-
-		if (!strcmp(cb->name, "cvp_sec_nonpixel")) {
-			desc.args[2] = memprot.cp_nonpixel_start =
-				cb->addr_range.start;
-			desc.args[3] = memprot.cp_nonpixel_size =
-				cb->addr_range.size;
-			dprintk(CVP_DBG,
-				"%s memprot.cp_nonpixel_start: %#x size: %#x\n",
-				__func__, memprot.cp_nonpixel_start,
-				memprot.cp_nonpixel_size);
-		}
-	}
-
-	desc.arginfo = SCM_ARGS(4);
-	rc = 0;
-	resp = desc.ret[0];
-
-	if (rc) {
-		dprintk(CVP_ERR, "Failed to protect memory(%d) response: %d\n",
-				rc, resp);
-	}
-
-	return rc;
+	return device ? 0 : -EINVAL;
 }
 
 static int __disable_regulator(struct regulator_info *rinfo,
