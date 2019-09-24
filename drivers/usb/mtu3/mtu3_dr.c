@@ -342,22 +342,6 @@ void ssusb_set_force_mode(struct ssusb_mtk *ssusb,
 	mtu3_writel(ssusb->ippc_base, SSUSB_U2_CTRL(0), value);
 }
 
-static void ssusb_ip_sleep(struct ssusb_mtk *ssusb)
-{
-	void __iomem *ibase = ssusb->ippc_base;
-
-	/* Set below sequence to avoid power leakage */
-	mtu3_setbits(ibase, SSUSB_U3_CTRL(0),
-		(SSUSB_U3_PORT_DIS | SSUSB_U3_PORT_PDN));
-	mtu3_setbits(ibase, SSUSB_U2_CTRL(0),
-		SSUSB_U2_PORT_DIS | SSUSB_U2_PORT_PDN);
-	mtu3_clrbits(ibase, SSUSB_U2_CTRL(0), SSUSB_U2_PORT_OTG_SEL);
-	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL1, SSUSB_IP_HOST_PDN);
-	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
-	udelay(50);
-	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL0, SSUSB_IP_SW_RST);
-}
-
 static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 {
 	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
@@ -379,7 +363,6 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 		} else {
 			ssusb_set_mailbox(otg_sx, MTU3_VBUS_OFF);
 			if (ssusb->clk_mgr) {
-				ssusb_ip_sleep(ssusb);
 				ssusb_phy_power_off(ssusb);
 				ssusb_clks_disable(ssusb);
 			}
