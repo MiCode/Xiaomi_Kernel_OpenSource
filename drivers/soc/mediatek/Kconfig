@@ -25,7 +25,7 @@ config MTK_INFRACFG
 	  directly associated to any device.
 
 config MTK_DVFSRC
-	bool "MediaTek DVFSRC Support"
+	tristate "MediaTek DVFSRC Support"
 	depends on ARCH_MEDIATEK
 	default ARCH_MEDIATEK
 	help

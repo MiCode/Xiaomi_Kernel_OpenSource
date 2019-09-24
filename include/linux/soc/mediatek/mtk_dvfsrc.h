@@ -21,8 +21,6 @@
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data);
 int mtk_dvfsrc_query_info(const struct device *dev, u32 cmd, int *data);
-int dvfsrc_get_required_opp_performance_state(struct device_node *np,
-	int index);
 #else
 static inline void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd,
 						u64 data)
@@ -30,13 +28,36 @@ static inline void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd,
 static inline int mtk_dvfsrc_query_info(const struct device *dev, u32 cmd,
 						int *data)
 { return -EINVAL; }
+#endif
 
-static inline int
-dvfsrc_get_required_opp_performance_state(struct device_node *np, int index)
+static inline struct device_node *dvfsrc_parse_required_opp(
+	struct device_node *np, int index)
 {
-	return -ENOTSUPP;
+	struct device_node *required_np;
+
+	required_np = of_parse_phandle(np, "required-opps", index);
+	if (unlikely(!required_np)) {
+		pr_notice("%s: Unable to parse required-opps: %pOF, index: %d\n",
+		       __func__, np, index);
+	}
+
+	return required_np;
 }
 
-#endif /* CONFIG_MTK_DVFSRC */
+static inline int dvfsrc_get_required_opp_performance_state(
+	struct device_node *np, int index)
+{
+	struct device_node *required_np;
+	int pstate = -EINVAL;
 
-#endif
+	required_np = dvfsrc_parse_required_opp(np, index);
+	if (!required_np)
+		return -EINVAL;
+
+	of_property_read_u32(required_np, "opp-level", &pstate);
+	of_node_put(required_np);
+
+	return pstate;
+}
+#endif/* CONFIG_MTK_DVFSRC */
+
