@@ -60,6 +60,7 @@
 	aliases {
 		serial0 = &qupv3_se12_2uart;
 		hsuart0 = &qupv3_se13_4uart;
+		hsuart1 = &qupv3_se4_2uart;
 		spi0 = &qupv3_se3_spi;
 		i2c0 = &qupv3_se4_i2c;
 	};

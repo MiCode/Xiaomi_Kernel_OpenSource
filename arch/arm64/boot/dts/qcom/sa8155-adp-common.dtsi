@@ -51,6 +51,10 @@
 	status = "ok";
 };
 
+&qupv3_se4_2uart {
+	status = "ok";
+};
+
 &qupv3_se10_i2c {
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -98,6 +102,13 @@
 		modem {
 			status = "disabled";
 		};
+	};
+
+	ss5_pwr_ctrl0 {
+		compatible = "gnss_sirf";
+		pinctrl-0 = <&ss5_pwr_ctrl_rst_on>;
+		ssVreset-gpio = <&tlmm 11 1>;
+		ssVonoff-gpio = <&tlmm 39 1>;
 	};
 
 	qcom,turing@8300000 {
