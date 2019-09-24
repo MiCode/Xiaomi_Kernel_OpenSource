@@ -8,6 +8,7 @@
 #define MAX_URBS	12
 #define SYNC_URBS	4	/* always four urbs for sync */
 #define MAX_QUEUE	18	/* try not to exceed this queue length, in ms */
+#define US_PER_FRAME	125	/* high speed has 125 us per (micro) frame */
 
 struct audioformat {
 	struct list_head list;
@@ -160,6 +161,7 @@ struct snd_usb_substream {
 	} dsd_dop;
 
 	bool trigger_tstamp_pending_update; /* trigger timestamp being updated from initial estimate */
+	struct pm_qos_request pm_qos; /* for qos requests */
 };
 
 struct snd_usb_stream {
