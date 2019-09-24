@@ -1257,12 +1257,12 @@ static void cmdq_mdp_enable_common_clock(bool enable)
 		/* disable, reverse the sequence */
 		smi_bus_disable_unprepare(SMI_LARB1, "MDP");
 	}
-#endif
 #else
 	if (enable)
 		pm_runtime_get_sync(cmdq_dev_get());
 	else
 		pm_runtime_put_sync(cmdq_dev_get());
+#endif /* CONFIG_MTK_SMI_EXT */
 #endif	/* CMDQ_PWR_AWARE */
 }
 

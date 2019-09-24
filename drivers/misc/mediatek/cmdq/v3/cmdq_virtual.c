@@ -774,19 +774,18 @@ void cmdq_virtual_enable_common_clock_locked(bool enable)
 		/* Use SMI clock API */
 #ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_prepare_enable(SMI_LARB0, "CMDQ");
-#endif
+#else
+		pm_runtime_get_sync(cmdq_dev_get());
+#endif /* CONFIG_MTK_SMI_EXT */
 	} else {
 		CMDQ_VERBOSE("[CLOCK] Disable SMI & LARB0 Clock\n");
 		/* disable, reverse the sequence */
 #ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_disable_unprepare(SMI_LARB0, "CMDQ");
-#endif
-	}
 #else
-	if (enable)
-		pm_runtime_get_sync(cmdq_dev_get());
-	else
 		pm_runtime_put_sync(cmdq_dev_get());
+#endif /* CONFIG_MTK_SMI_EXT */
+	}
 #endif				/* CMDQ_PWR_AWARE */
 }
 
