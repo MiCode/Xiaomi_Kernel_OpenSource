@@ -35,6 +35,8 @@
 #include <linux/wait.h>
 
 #include <linux/iio/sysfs.h>
+#include <linux/iio/buffer.h>
+#include <linux/iio/buffer_impl.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/kfifo_buf.h>
 

@@ -16,6 +16,7 @@
 #include <linux/iio/buffer.h>
 #include <asm/unaligned.h>
 #include <linux/of.h>
+#include <asm/arch_timer.h>
 
 #include "st_asm330lhh.h"
 
