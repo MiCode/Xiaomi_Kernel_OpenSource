@@ -320,9 +320,7 @@ struct arm_smmu_device {
 
 	struct arm_smmu_arch_ops	*arch_ops;
 	void				*archdata;
-#ifdef CONFIG_HIBERNATION
 	bool				smmu_restore;
-#endif
 	enum tz_smmu_device_id		sec_id;
 };
 
@@ -1854,9 +1852,7 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	struct arm_smmu_cb *cb = &smmu->cbs[idx];
 	struct arm_smmu_cfg *cfg = cb->cfg;
 	void __iomem *cb_base, *gr1_base;
-#ifdef CONFIG_HIBERNATION
 	struct arm_smmu_domain *smmu_domain;
-#endif
 
 	cb_base = ARM_SMMU_CB(smmu, idx);
 
@@ -1934,12 +1930,10 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 
 	/* Ensure bypass transactions are Non-shareable */
 	reg |= SCTLR_SHCFG_NSH << SCTLR_SHCFG_SHIFT;
-#ifdef CONFIG_HIBERNATION
 	if (smmu->smmu_restore) {
 		smmu_domain = container_of(cfg, struct arm_smmu_domain, cfg);
 		attributes = smmu_domain->attributes;
 	}
-#endif
 	if (attributes & (1 << DOMAIN_ATTR_CB_STALL_DISABLE)) {
 		reg &= ~SCTLR_CFCFG;
 		reg |= SCTLR_HUPCF;
@@ -5144,11 +5138,6 @@ static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
 
 	arm_smmu_device_reset(smmu);
 	arm_smmu_power_off(smmu->pwr);
-
-#ifdef CONFIG_HIBERNATION
-	smmu->smmu_restore = false;
-#endif
-
 	return 0;
 }
 
@@ -5157,7 +5146,7 @@ static int __maybe_unused arm_smmu_pm_restore_early(struct device *dev)
 	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
 	struct arm_smmu_domain *smmu_domain;
 	struct arm_smmu_cb *cb;
-	int idx;
+	int idx, ret;
 
 	/* restore the secure pools */
 	for (idx = 0; idx < smmu->num_context_banks; idx++) {
@@ -5180,10 +5169,10 @@ static int __maybe_unused arm_smmu_pm_restore_early(struct device *dev)
 		arm_smmu_assign_table(smmu_domain);
 		arm_smmu_secure_domain_unlock(smmu_domain);
 	}
-#ifdef CONFIG_HIBERNATION
 	smmu->smmu_restore = true;
-#endif
-	return arm_smmu_pm_resume(dev);
+	ret = arm_smmu_pm_resume(dev);
+	smmu->smmu_restore = false;
+	return ret;
 }
 
 static int __maybe_unused arm_smmu_pm_freeze_late(struct device *dev)
@@ -5220,7 +5209,7 @@ static int __maybe_unused arm_smmu_pm_freeze_late(struct device *dev)
 
 static const struct dev_pm_ops arm_smmu_pm_ops = {
 	.resume = arm_smmu_pm_resume,
-	.thaw_early = arm_smmu_pm_resume,
+	.thaw_early = arm_smmu_pm_restore_early,
 	.freeze_late = arm_smmu_pm_freeze_late,
 	.restore_early = arm_smmu_pm_restore_early,
 };
