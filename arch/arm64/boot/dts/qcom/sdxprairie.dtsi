@@ -1052,6 +1052,8 @@
 		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
 		pinctrl-0 = <&cnss_wlan_en_active>;
 		pinctrl-1 = <&cnss_wlan_en_sleep>;
+		vdd-wlan-aon-supply = <&pmxprairie_s3>;
+		qcom,vdd-wlan-aon-info = <800000 800000 0 0>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x400000>;
 		qcom,smmu-s1-enable;
