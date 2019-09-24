@@ -2,7 +2,11 @@ Qualcomm Video Clock & Reset Controller Binding
 -----------------------------------------------
 
 Required properties :
-- compatible : shall contain "qcom,sdm845-videocc"
+- compatible : shall contain only one of the following:
+
+			"qcom,sdm845-videocc"
+			"qcom,lahaina-videocc"
+
 - reg : shall contain base register location and length
 - #clock-cells : from common clock binding, shall contain 1.
 - #power-domain-cells : from generic power domain binding, shall contain 1.
