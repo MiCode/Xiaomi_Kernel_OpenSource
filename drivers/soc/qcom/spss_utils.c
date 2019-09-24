@@ -77,6 +77,9 @@ static u32 pbl_cmac_buf[CMAC_SIZE_IN_DWORDS]; /* pbl cmac */
 static u32 calc_apps_cmac[NUM_UEFI_APPS][CMAC_SIZE_IN_DWORDS];
 static u32 saved_apps_cmac[NUM_UEFI_APPS][CMAC_SIZE_IN_DWORDS];
 
+#define FW_AND_APPS_CMAC_SIZE \
+	(CMAC_SIZE_IN_DWORDS + NUM_UEFI_APPS*CMAC_SIZE_IN_DWORDS)
+
 static u32 iar_state;
 static bool is_iar_enabled;
 
@@ -372,6 +375,9 @@ static long spss_utils_ioctl(struct file *file,
 	void *buf = (void *) arg;
 	unsigned char data[64] = {0};
 	size_t size = 0;
+	u32 i = 0;
+	/* Saved cmacs of spu firmware and UEFI loaded spu apps */
+	u32 fw_and_apps_cmacs[FW_AND_APPS_CMAC_SIZE];
 
 	if (buf == NULL) {
 		pr_err("invalid ioctl arg\n");
@@ -395,14 +401,21 @@ static long spss_utils_ioctl(struct file *file,
 
 	switch (cmd) {
 	case SPSS_IOC_SET_FW_CMAC:
-		if (size != sizeof(cmac_buf)) {
+		if (size != sizeof(fw_and_apps_cmacs)) {
 			pr_err("cmd [0x%x] invalid size [0x%x]\n", cmd, size);
 			return -EINVAL;
 		}
 
-		memcpy(cmac_buf, data, sizeof(cmac_buf));
-		pr_debug("saved fw cmac: 0x%08x,0x%08x,0x%08x,0x%08x\n",
-			cmac_buf[0], cmac_buf[1], cmac_buf[2], cmac_buf[3]);
+		memcpy(fw_and_apps_cmacs, data, sizeof(fw_and_apps_cmacs));
+		memcpy(cmac_buf, fw_and_apps_cmacs, sizeof(cmac_buf));
+
+		for (i = 0; i < NUM_UEFI_APPS; ++i) {
+			int x = (i+1)*CMAC_SIZE_IN_DWORDS;
+
+			memcpy(saved_apps_cmac[i],
+				fw_and_apps_cmacs + x,
+				CMAC_SIZE_IN_BYTES);
+		}
 
 		/*
 		 * SPSS is loaded now by UEFI,
@@ -412,6 +425,7 @@ static long spss_utils_ioctl(struct file *file,
 		 */
 		pr_debug("read pbl cmac from shared memory\n");
 		spss_set_fw_cmac(cmac_buf, sizeof(cmac_buf));
+		spss_set_saved_uefi_apps_cmac();
 		spss_get_pbl_and_apps_calc_cmac();
 		spss_get_saved_uefi_apps_cmac();
 		break;
