@@ -47,6 +47,10 @@ extern int __qcom_scm_io_writel(struct device *dev, phys_addr_t addr, unsigned i
 extern int __qcom_scm_is_call_available(struct device *dev, u32 svc_id,
 		u32 cmd_id);
 
+#define QCOM_SCM_SVC_PWR			0x09
+#define QCOM_SCM_PWR_MMU_SYNC			0x08
+extern void __qcom_scm_mmu_sync(struct device *dev, bool sync);
+
 #define QCOM_SCM_SVC_MP				0x0c
 #define QCOM_SCM_MP_RESTORE_SEC_CFG		0x02
 #define QCOM_SCM_MP_IOMMU_SECURE_PTBL_SIZE	0x03

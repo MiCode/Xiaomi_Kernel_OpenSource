@@ -870,6 +870,24 @@ int __qcom_scm_is_call_available(struct device *dev, u32 svc_id, u32 cmd_id)
 	return ret ? : desc.res[0];
 }
 
+void __qcom_scm_mmu_sync(struct device *dev, bool sync)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_PWR,
+		.cmd = QCOM_SCM_PWR_MMU_SYNC,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = sync;
+	desc.arginfo = QCOM_SCM_ARGS(1);
+
+	ret = qcom_scm_call_atomic(dev, &desc);
+
+	if (ret)
+		pr_err("MMU sync with Hypervisor off %x\n", ret);
+}
+
 int __qcom_scm_restore_sec_cfg(struct device *dev, u32 device_id, u32 spare)
 {
 	struct qcom_scm_desc desc = {

@@ -334,6 +334,12 @@ int qcom_scm_io_writel(phys_addr_t addr, unsigned int val)
 }
 EXPORT_SYMBOL(qcom_scm_io_writel);
 
+void qcom_scm_mmu_sync(bool sync)
+{
+	__qcom_scm_mmu_sync(__scm ? __scm->dev : NULL, sync);
+}
+EXPORT_SYMBOL(qcom_scm_mmu_sync);
+
 int qcom_scm_restore_sec_cfg(u32 device_id, u32 spare)
 {
 	return __qcom_scm_restore_sec_cfg(__scm->dev, device_id, spare);
