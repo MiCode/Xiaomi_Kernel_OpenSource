@@ -1006,6 +1006,9 @@ static enum vidc_status hfi_parse_init_done_properties(
 			}
 			while (prof_count) {
 				prof_level = (struct hfi_profile_level *)ptr;
+				VALIDATE_PROPERTY_STRUCTURE_SIZE(rem_bytes -
+					next_offset,
+					sizeof(*prof_level));
 				capability.
 				profile_level.profile_level[count].profile
 					= prof_level->profile;
