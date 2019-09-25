@@ -1523,9 +1523,20 @@ static void ipa_mpm_vote_unvote_ipa_clk(enum ipa_mpm_clk_vote_type vote,
 	}
 }
 
+/**
+ * @ipa_mpm_start_stop_remote_mhip_chan - Start/Stop Remote device side MHIP
+ *                                        channels.
+ * @ipa_mpm_clk_vote_type - Vote or Unvote for PCIe Clock
+ * @probe_id - MHI probe_id per client.
+ * @ipa_mpm_start_stop_type - Start/Stop remote channels.
+ * @is_force - Forcebly casts remote channels to be started/stopped.
+ *             should be true only in probe.
+ * Return value: 0 if success or error value.
+ */
 static int ipa_mpm_start_stop_remote_mhip_chan(
 	int probe_id,
-	enum ipa_mpm_start_stop_type start_stop)
+	enum ipa_mpm_start_stop_type start_stop,
+	bool is_force)
 {
 	int ret = 0;
 	struct mhi_device *mhi_dev = ipa_mpm_ctx->md[probe_id].mhi_dev;
@@ -1535,7 +1546,7 @@ static int ipa_mpm_start_stop_remote_mhip_chan(
 	 * the remote channels so no need to start it from here.
 	 */
 	mutex_lock(&ipa_mpm_ctx->md[probe_id].mhi_mutex);
-	if (!ipa_mpm_ctx->md[probe_id].init_complete) {
+	if (!ipa_mpm_ctx->md[probe_id].init_complete && !is_force) {
 		IPA_MPM_ERR("MHI not initialized yet, probe in progress\n");
 		mutex_unlock(&ipa_mpm_ctx->md[probe_id].mhi_mutex);
 		return ret;
@@ -1792,7 +1803,8 @@ int ipa_mpm_notify_wan_state(struct wan_ioctl_notify_wan_state *state)
 		 * Host IPA gets voted.
 		 */
 		ret = ipa_mpm_start_stop_remote_mhip_chan(probe_id,
-							MPM_MHIP_START);
+							MPM_MHIP_START,
+							false);
 		if (ret) {
 			/*
 			 * This can fail only when modem is in SSR state.
@@ -1901,7 +1913,8 @@ int ipa_mpm_notify_wan_state(struct wan_ioctl_notify_wan_state *state)
 		 * Host IPA gets devoted.
 		 */
 		ret = ipa_mpm_start_stop_remote_mhip_chan(probe_id,
-						MPM_MHIP_STOP);
+						MPM_MHIP_STOP,
+						false);
 		if (ret) {
 			/*
 			 * This can fail only when modem is in SSR state.
@@ -2381,7 +2394,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		 * Host IPA gets unvoted.
 		 */
 		ret = ipa_mpm_start_stop_remote_mhip_chan(probe_id,
-						MPM_MHIP_STOP);
+						MPM_MHIP_STOP, true);
 		if (ret) {
 			/*
 			 * This can fail only when modem is in SSR.
@@ -2706,7 +2719,7 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 	 * Host IPA gets voted.
 	 */
 	ret = ipa_mpm_start_stop_remote_mhip_chan(probe_id,
-						MPM_MHIP_START);
+						MPM_MHIP_START, false);
 	if (ret) {
 		/*
 		 * This can fail only when modem is in SSR state.
@@ -2828,7 +2841,7 @@ int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 	 * Host IPA gets unvoted.
 	 */
 	ret = ipa_mpm_start_stop_remote_mhip_chan(probe_id,
-						MPM_MHIP_STOP);
+						MPM_MHIP_STOP, false);
 	if (ret) {
 		/*
 		 * This can fail only when modem is in SSR state.
