@@ -3290,12 +3290,12 @@
 		governor = "performance";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
 		operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
-		status = "disabled";
+		status = "ok";
 	};
 
-	npu_npu_ddr_bwmon: qcom,npu-npu-ddr-bwmon@00060300 {
+	npu_npu_ddr_bwmon: qcom,npu-npu-ddr-bwmon@00060400 {
 		compatible = "qcom,bimc-bwmon4";
-		reg = <0x00060300 0x300>, <0x00060200 0x200>;
+		reg = <0x00060400 0x300>, <0x00060300 0x200>;
 		reg-names = "base", "global_base";
 		clocks = <&clock_gcc GCC_NPU_BWMON_DMA_CFG_AHB_CLK>,
 				<&clock_gcc GCC_NPU_BWMON_AXI_CLK>;
@@ -3303,12 +3303,12 @@
 					"gcc_npu_bwmon_axi_clk";
 		qcom,bwmon_clks = "gcc_npu_bwmon_dma_cfg_ahb_clk",
 					"gcc_npu_bwmon_axi_clk";
-		interrupts = <GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,mport = <0>;
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&npu_npu_ddr_bw>;
 		qcom,count-unit = <0x10000>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	npudsp_npu_ddr_bw: qcom,npudsp-npu-ddr-bw {
@@ -3316,12 +3316,12 @@
 		governor = "performance";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
 		operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
-		status = "disabled";
+		status = "ok";
 	};
 
-	npudsp_npu_ddr_bwmon: qcom,npudsp-npu-ddr-bwmon@70200 {
+	npudsp_npu_ddr_bwmon: qcom,npudsp-npu-ddr-bwmon@70300 {
 		compatible = "qcom,bimc-bwmon4";
-		reg = <0x00070200 0x300>, <0x00070000 0x200>;
+		reg = <0x00070300 0x300>, <0x00070200 0x200>;
 		reg-names = "base", "global_base";
 		clocks = <&clock_gcc GCC_NPU_BWMON_DSP_CFG_AHB_CLK>,
 				<&clock_gcc GCC_NPU_BWMON_AXI_CLK>;
@@ -3329,12 +3329,12 @@
 					"gcc_npu_bwmon_axi_clk";
 		qcom,bwmon_clks = "gcc_npu_bwmon_dsp_cfg_ahb_clk",
 					"gcc_npu_bwmon_axi_clk";
-		interrupts = <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,mport = <0>;
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&npudsp_npu_ddr_bw>;
 		qcom,count-unit = <0x10000>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	keepalive_opp_table: keepalive-opp-table {
