@@ -7,6 +7,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/pm_wakeup.h>
+#include <linux/reboot.h>
 #include <linux/rwsem.h>
 #include <linux/suspend.h>
 #include <linux/timer.h>
@@ -1049,6 +1050,12 @@ static int cnss_driver_recovery_hdlr(struct cnss_plat_data *plat_priv,
 		goto out;
 	}
 
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+		cnss_pr_err("Reboot is in progress, ignore recovery\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
 		cnss_pr_err("Recovery is already in progress\n");
 		ret = -EINVAL;
@@ -1922,6 +1929,19 @@ static void cnss_event_work_deinit(struct cnss_plat_data *plat_priv)
 	destroy_workqueue(plat_priv->event_wq);
 }
 
+static int cnss_reboot_notifier(struct notifier_block *nb,
+				unsigned long action,
+				void *data)
+{
+	struct cnss_plat_data *plat_priv =
+		container_of(nb, struct cnss_plat_data, reboot_nb);
+
+	set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
+	cnss_pr_dbg("Reboot is in progress with action %d\n", action);
+
+	return NOTIFY_DONE;
+}
+
 static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 {
 	int ret;
@@ -1929,7 +1949,15 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 	timer_setup(&plat_priv->fw_boot_timer,
 		    cnss_bus_fw_boot_timeout_hdlr, 0);
 
-	register_pm_notifier(&cnss_pm_notifier);
+	ret = register_pm_notifier(&cnss_pm_notifier);
+	if (ret)
+		cnss_pr_err("Failed to register PM notifier, err = %d\n", ret);
+
+	plat_priv->reboot_nb.notifier_call = cnss_reboot_notifier;
+	ret = register_reboot_notifier(&plat_priv->reboot_nb);
+	if (ret)
+		cnss_pr_err("Failed to register reboot notifier, err = %d\n",
+			    ret);
 
 	ret = device_init_wakeup(&plat_priv->plat_dev->dev, true);
 	if (ret)
@@ -1952,6 +1980,7 @@ static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
 	complete_all(&plat_priv->cal_complete);
 	complete_all(&plat_priv->power_up_complete);
 	device_init_wakeup(&plat_priv->plat_dev->dev, false);
+	unregister_reboot_notifier(&plat_priv->reboot_nb);
 	unregister_pm_notifier(&cnss_pm_notifier);
 	del_timer(&plat_priv->fw_boot_timer);
 }
