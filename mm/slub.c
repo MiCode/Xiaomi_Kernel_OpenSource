@@ -2007,8 +2007,13 @@ static void init_kmem_cache_cpus(struct kmem_cache *s)
 {
 	int cpu;
 
-	for_each_possible_cpu(cpu)
+	for_each_possible_cpu(cpu) {
+#ifdef CONFIG_MTK_MM_DEBUG
+		pr_info("s=%s, pcpuptr=%p\n", s->name,
+				per_cpu_ptr(s->cpu_slab, cpu));
+#endif
 		per_cpu_ptr(s->cpu_slab, cpu)->tid = init_tid(cpu);
+	}
 }
 
 /*
@@ -3312,6 +3317,11 @@ init_kmem_cache_node(struct kmem_cache_node *n)
 #endif
 }
 
+#ifdef CONFIG_MTK_MM_DEBUG
+struct kmem_cache debug_kmem_cache = {
+		.name = "debug_kmem_cache",
+	};
+#endif
 static inline int alloc_kmem_cache_cpus(struct kmem_cache *s)
 {
 	BUILD_BUG_ON(PERCPU_DYNAMIC_EARLY_SIZE <
@@ -3321,6 +3331,14 @@ static inline int alloc_kmem_cache_cpus(struct kmem_cache *s)
 	 * Must align to double word boundary for the double cmpxchg
 	 * instructions to work; see __pcpu_double_call_return_bool().
 	 */
+#ifdef CONFIG_MTK_MM_DEBUG
+	if (!strcmp(s->name, "kmalloc-256")) {
+		debug_kmem_cache.cpu_slab = __alloc_percpu(
+				sizeof(struct kmem_cache_cpu),
+				2 * sizeof(void *));
+		init_kmem_cache_cpus(&debug_kmem_cache);
+	}
+#endif
 	s->cpu_slab = __alloc_percpu(sizeof(struct kmem_cache_cpu),
 				     2 * sizeof(void *));
 
