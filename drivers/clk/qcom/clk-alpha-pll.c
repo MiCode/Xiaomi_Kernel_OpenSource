@@ -14,23 +14,23 @@
 #include "common.h"
 
 #define PLL_MODE(p)		((p)->offset + 0x0)
-# define PLL_OUTCTRL		BIT(0)
-# define PLL_BYPASSNL		BIT(1)
-# define PLL_RESET_N		BIT(2)
-# define PLL_OFFLINE_REQ	BIT(7)
-# define PLL_LOCK_COUNT_SHIFT	8
-# define PLL_LOCK_COUNT_MASK	0x3f
-# define PLL_BIAS_COUNT_SHIFT	14
-# define PLL_BIAS_COUNT_MASK	0x3f
-# define PLL_VOTE_FSM_ENA	BIT(20)
-# define PLL_FSM_ENA		BIT(20)
-# define PLL_VOTE_FSM_RESET	BIT(21)
-# define PLL_UPDATE		BIT(22)
-# define PLL_UPDATE_BYPASS	BIT(23)
-# define PLL_OFFLINE_ACK	BIT(28)
-# define ALPHA_PLL_ACK_LATCH	BIT(29)
-# define PLL_ACTIVE_FLAG	BIT(30)
-# define PLL_LOCK_DET		BIT(31)
+#define PLL_OUTCTRL		BIT(0)
+#define PLL_BYPASSNL		BIT(1)
+#define PLL_RESET_N		BIT(2)
+#define PLL_OFFLINE_REQ	BIT(7)
+#define PLL_LOCK_COUNT_SHIFT	8
+#define PLL_LOCK_COUNT_MASK	0x3f
+#define PLL_BIAS_COUNT_SHIFT	14
+#define PLL_BIAS_COUNT_MASK	0x3f
+#define PLL_VOTE_FSM_ENA	BIT(20)
+#define PLL_FSM_ENA		BIT(20)
+#define PLL_VOTE_FSM_RESET	BIT(21)
+#define PLL_UPDATE		BIT(22)
+#define PLL_UPDATE_BYPASS	BIT(23)
+#define PLL_OFFLINE_ACK	BIT(28)
+#define ALPHA_PLL_ACK_LATCH	BIT(29)
+#define PLL_ACTIVE_FLAG	BIT(30)
+#define PLL_LOCK_DET		BIT(31)
 
 #define PLL_L_VAL(p)		((p)->offset + (p)->regs[PLL_OFF_L_VAL])
 #define PLL_CAL_L_VAL(p)	((p)->offset + (p)->regs[PLL_OFF_CAL_L_VAL])
@@ -38,12 +38,12 @@
 #define PLL_ALPHA_VAL_U(p)	((p)->offset + (p)->regs[PLL_OFF_ALPHA_VAL_U])
 
 #define PLL_USER_CTL(p)		((p)->offset + (p)->regs[PLL_OFF_USER_CTL])
-# define PLL_POST_DIV_SHIFT	8
-# define PLL_POST_DIV_MASK(p)	GENMASK((p)->width, 0)
-# define PLL_ALPHA_EN		BIT(24)
-# define PLL_ALPHA_MODE		BIT(25)
-# define PLL_VCO_SHIFT		20
-# define PLL_VCO_MASK		0x3
+#define PLL_POST_DIV_SHIFT	8
+#define PLL_POST_DIV_MASK(p)	GENMASK((p)->width, 0)
+#define PLL_ALPHA_EN		BIT(24)
+#define PLL_ALPHA_MODE		BIT(25)
+#define PLL_VCO_SHIFT		20
+#define PLL_VCO_MASK		0x3
 
 #define PLL_USER_CTL_U(p)	((p)->offset + (p)->regs[PLL_OFF_USER_CTL_U])
 #define PLL_USER_CTL_U1(p)	((p)->offset + (p)->regs[PLL_OFF_USER_CTL_U1])
@@ -130,7 +130,22 @@ const u8 clk_alpha_pll_regs[][PLL_OFF_MAX_REGS] = {
 		[PLL_OFF_OPMODE] = 0x28,
 		[PLL_OFF_STATUS] = 0x38,
 	},
-
+	[CLK_ALPHA_PLL_TYPE_LUCID_5LPE] = {
+		[PLL_OFF_L_VAL] = 0x04,
+		[PLL_OFF_CAL_L_VAL] = 0x08,
+		[PLL_OFF_USER_CTL] = 0x0c,
+		[PLL_OFF_USER_CTL_U] = 0x10,
+		[PLL_OFF_USER_CTL_U1] = 0x14,
+		[PLL_OFF_CONFIG_CTL] = 0x18,
+		[PLL_OFF_CONFIG_CTL_U] = 0x1c,
+		[PLL_OFF_CONFIG_CTL_U1] = 0x20,
+		[PLL_OFF_TEST_CTL] = 0x24,
+		[PLL_OFF_TEST_CTL_U] = 0x28,
+		[PLL_OFF_TEST_CTL_U1] = 0x2c,
+		[PLL_OFF_STATUS] = 0x30,
+		[PLL_OFF_OPMODE] = 0x38,
+		[PLL_OFF_ALPHA_VAL] = 0x40,
+	},
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_regs);
 
@@ -156,12 +171,16 @@ EXPORT_SYMBOL_GPL(clk_alpha_pll_regs);
 #define PLL_OUT_RATE_MARGIN	500
 
 /* LUCID PLL specific settings and offsets */
-#define LUCID_PLL_CAL_VAL	0x44
+#define LUCID_PLL_CAL_VAL		0x44
 #define LUCID_PCAL_DONE		BIT(27)
+#define LUCID_5LPE_PCAL_DONE		BIT(11)
+#define LUCID_5LPE_ENABLE_VOTE_RUN	BIT(21)
+#define LUCID_5LPE_PLL_LATCH_INPUT	BIT(14)
+#define LUCID_5LPE_ALPHA_PLL_ACK_LATCH	BIT(13)
 
 /* ZONDA PLL specific offsets */
-#define ZONDA_PLL_OUT_MASK	0xF
-#define ZONDA_STAY_IN_CFA	BIT(16)
+#define ZONDA_PLL_OUT_MASK		0xF
+#define ZONDA_STAY_IN_CFA		BIT(16)
 #define ZONDA_PLL_FREQ_LOCK_DET	BIT(29)
 
 #define pll_alpha_width(p)					\
@@ -1436,8 +1455,10 @@ static int lucid_pll_is_enabled(struct clk_alpha_pll *pll,
 
 	ret = regmap_read(regmap, PLL_MODE(pll), &mode_regval);
 	ret |= regmap_read(regmap, PLL_OPMODE(pll), &opmode_regval);
-	if (ret)
-		return 0;
+	if (ret) {
+		pr_err("lucid pll is enabled reg read failed\n");
+		return ret;
+	}
 
 	return ((opmode_regval & PLL_OPMODE_RUN) &&
 		(mode_regval & PLL_OUTCTRL));
@@ -1456,8 +1477,16 @@ static void clk_alpha_pll_custom_configure(struct clk_alpha_pll *pll,
 void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config)
 {
-	if (lucid_pll_is_enabled(pll, regmap))
+	int ret;
+
+	ret = lucid_pll_is_enabled(pll, regmap);
+	if (ret < 0)
 		return;
+	else if (ret) {
+		pr_warn("%s PLL is already enabled\n",
+			clk_hw_get_name(&pll->clkr.hw));
+		return;
+	}
 
 	if (config->l)
 		regmap_write(regmap, PLL_L_VAL(pll), config->l);
@@ -1721,6 +1750,318 @@ static int alpha_pll_lucid_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
+int clk_lucid_5lpe_pll_configure(struct clk_alpha_pll *pll,
+		struct regmap *regmap,	const struct alpha_pll_config *config)
+{
+	int ret;
+
+	ret = lucid_pll_is_enabled(pll, regmap);
+	if (ret < 0)
+		return ret;
+	else if (ret) {
+		pr_warn("%s PLL is already enabled\n",
+				clk_hw_get_name(&pll->clkr.hw));
+		return 0;
+	}
+
+	if (config->l)
+		ret |= regmap_write(regmap, PLL_L_VAL(pll), config->l);
+
+	if (config->cal_l)
+		ret |= regmap_write(regmap, PLL_CAL_L_VAL(pll), config->cal_l);
+	else
+		ret |= regmap_write(regmap, PLL_CAL_L_VAL(pll),
+			LUCID_PLL_CAL_VAL);
+
+	if (config->alpha)
+		ret |= regmap_write(regmap, PLL_ALPHA_VAL(pll), config->alpha);
+
+	if (config->config_ctl_val)
+		ret |= regmap_write(regmap, PLL_CONFIG_CTL(pll),
+				config->config_ctl_val);
+
+	if (config->config_ctl_hi_val)
+		ret |= regmap_write(regmap, PLL_CONFIG_CTL_U(pll),
+				config->config_ctl_hi_val);
+
+	if (config->config_ctl_hi1_val)
+		ret |= regmap_write(regmap, PLL_CONFIG_CTL_U1(pll),
+				config->config_ctl_hi1_val);
+
+	if (config->user_ctl_val)
+		ret |= regmap_write(regmap, PLL_USER_CTL(pll),
+				config->user_ctl_val);
+
+	if (config->user_ctl_hi_val)
+		ret |= regmap_write(regmap, PLL_USER_CTL_U(pll),
+				config->user_ctl_hi_val);
+
+	if (config->user_ctl_hi1_val)
+		ret |= regmap_write(regmap, PLL_USER_CTL_U1(pll),
+				config->user_ctl_hi1_val);
+
+	if (config->test_ctl_val)
+		ret |= regmap_write(regmap, PLL_TEST_CTL(pll),
+				config->test_ctl_val);
+
+	if (config->test_ctl_hi_val)
+		ret |= regmap_write(regmap, PLL_TEST_CTL_U(pll),
+				config->test_ctl_hi_val);
+
+	if (config->test_ctl_hi1_val)
+		ret |= regmap_write(regmap, PLL_TEST_CTL_U1(pll),
+				config->test_ctl_hi1_val);
+
+	/* Disable PLL output */
+	ret |= regmap_update_bits(regmap, PLL_MODE(pll),
+					PLL_OUTCTRL, 0);
+
+	/* Set operation mode to STANDBY */
+	ret |= regmap_write(regmap, PLL_OPMODE(pll), PLL_OPMODE_STANDBY);
+
+	/* PLL should be in OFF mode before continuing */
+	wmb();
+
+	/* Place the PLL in STANDBY mode */
+	ret |= regmap_update_bits(regmap, PLL_MODE(pll),
+				 PLL_RESET_N, PLL_RESET_N);
+
+	return ret ? -EIO : 0;
+}
+
+static int alpha_pll_lucid_5lpe_enable(struct clk_hw *hw)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	u32 val;
+	int ret;
+
+	ret = regmap_read(pll->clkr.regmap, PLL_USER_CTL(pll), &val);
+	if (ret)
+		return ret;
+
+	/* If in FSM mode, just vote for it */
+	if (val & LUCID_5LPE_ENABLE_VOTE_RUN) {
+		ret = clk_enable_regmap(hw);
+		if (ret)
+			return ret;
+		return wait_for_pll_enable_lock(pll);
+	}
+
+	/* Check if PLL is already enabled */
+	ret = lucid_pll_is_enabled(pll, pll->clkr.regmap);
+	if (ret < 0)
+		return ret;
+	else if (ret) {
+		pr_warn("%s PLL is already enabled\n",
+				clk_hw_get_name(&pll->clkr.hw));
+		return 0;
+	}
+
+	ret = regmap_update_bits(pll->clkr.regmap, PLL_MODE(pll),
+						 PLL_RESET_N, PLL_RESET_N);
+	if (ret)
+		return ret;
+
+	/* Set operation mode to RUN */
+	regmap_write(pll->clkr.regmap, PLL_OPMODE(pll), PLL_OPMODE_RUN);
+
+	ret = wait_for_pll_enable_lock(pll);
+	if (ret)
+		return ret;
+
+	/* Enable the PLL outputs */
+	ret = regmap_update_bits(pll->clkr.regmap, PLL_USER_CTL(pll),
+				 PLL_OUT_MASK, PLL_OUT_MASK);
+	if (ret)
+		return ret;
+
+	/* Enable the global PLL outputs */
+	ret = regmap_update_bits(pll->clkr.regmap, PLL_MODE(pll),
+				 PLL_OUTCTRL, PLL_OUTCTRL);
+	if (ret)
+		return ret;
+
+	/* Ensure that the write above goes through before returning. */
+	mb();
+	return ret;
+}
+
+static void alpha_pll_lucid_5lpe_disable(struct clk_hw *hw)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	u32 val;
+	int ret;
+
+	ret = regmap_read(pll->clkr.regmap, PLL_USER_CTL(pll), &val);
+	if (ret)
+		return;
+
+	/* If in FSM mode, just unvote it */
+	if (val & LUCID_5LPE_ENABLE_VOTE_RUN) {
+		clk_disable_regmap(hw);
+		return;
+	}
+
+	/* Disable the global PLL output */
+	ret = regmap_update_bits(pll->clkr.regmap, PLL_MODE(pll),
+							PLL_OUTCTRL, 0);
+	if (ret)
+		return;
+
+	/* Disable the PLL outputs */
+	ret = regmap_update_bits(pll->clkr.regmap, PLL_USER_CTL(pll),
+			PLL_OUT_MASK, 0);
+	if (ret)
+		return;
+
+	/* Place the PLL mode in STANDBY */
+	regmap_write(pll->clkr.regmap, PLL_OPMODE(pll),
+			PLL_OPMODE_STANDBY);
+}
+
+/*
+ * The Lucid PLL requires a power-on self-calibration which happens when the
+ * PLL comes out of reset. The calibration is performed at an output frequency
+ * of ~1300 MHz which means that SW will have to vote on a voltage that's
+ * equal to or greater than SVS_L1 on the corresponding rail. Since this is not
+ * feasable to do in the atomic enable path, temporarily bring up the PLL here,
+ * let it calibrate, and place it in standby before returning.
+ */
+static int alpha_pll_lucid_5lpe_prepare(struct clk_hw *hw)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	struct clk_hw *p;
+	u32 regval;
+	unsigned long prate;
+	int ret;
+
+	/* Return early if calibration is not needed. */
+	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &regval);
+	if (regval & LUCID_5LPE_PCAL_DONE)
+		return 0;
+
+	if (pll->config) {
+		/*
+		 * Reconfigure the PLL if CAL_L_VAL is 0 (which implies that all
+		 * clock controller registers have been reset).
+		 */
+		regmap_read(pll->clkr.regmap, PLL_CAL_L_VAL(pll), &regval);
+		if (!regval) {
+			pr_debug("reconfiguring %s after it was reset\n",
+				clk_hw_get_name(hw));
+			ret = clk_lucid_5lpe_pll_configure(pll,
+				pll->clkr.regmap, pll->config);
+			if (ret) {
+				pr_err("pll configuration failed: %u\n", ret);
+				return ret;
+			}
+		}
+	}
+
+	p = clk_hw_get_parent(hw);
+	if (!p)
+		return -EINVAL;
+
+	prate = clk_hw_get_rate(p);
+	if (!prate)
+		return -EINVAL;
+
+	ret = alpha_pll_lucid_5lpe_enable(hw);
+	if (ret)
+		return ret;
+
+	alpha_pll_lucid_5lpe_disable(hw);
+
+	return 0;
+}
+
+static int alpha_pll_lucid_5lpe_set_rate(struct clk_hw *hw, unsigned long rate,
+					unsigned long prate)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	unsigned long rrate;
+	u32 regval, l;
+	u64 a;
+	int ret;
+
+	rrate = alpha_pll_round_rate(rate, prate, &l, &a,
+					ALPHA_REG_16BIT_WIDTH);
+	/*
+	 * Due to a limited number of bits for fractional rate programming, the
+	 * rounded up rate could be marginally higher than the requested rate.
+	 */
+	if (rrate > (rate + PLL_OUT_RATE_MARGIN) || rrate < rate) {
+		pr_err("Call set rate on the PLL with rounded rates!\n");
+		return -EINVAL;
+	}
+
+	regmap_write(pll->clkr.regmap, PLL_L_VAL(pll), l);
+	regmap_write(pll->clkr.regmap, PLL_ALPHA_VAL(pll), a);
+
+	/* Latch the PLL input */
+	ret = regmap_update_bits(pll->clkr.regmap, PLL_MODE(pll),
+			LUCID_5LPE_PLL_LATCH_INPUT, LUCID_5LPE_PLL_LATCH_INPUT);
+	if (ret)
+		return ret;
+
+	/* Wait for 2 reference cycles before checking the ACK bit. */
+	udelay(1);
+	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &regval);
+	if (!(regval & LUCID_5LPE_ALPHA_PLL_ACK_LATCH)) {
+		WARN(1, "PLL latch failed. Output may be unstable!\n");
+		return -EINVAL;
+	}
+
+	/* Return the latch input to 0 */
+	ret = regmap_update_bits(pll->clkr.regmap, PLL_MODE(pll),
+			LUCID_5LPE_PLL_LATCH_INPUT, 0);
+	if (ret)
+		return ret;
+
+	if (clk_hw_is_enabled(hw)) {
+		ret = wait_for_pll_enable_lock(pll);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int clk_lucid_5lpe_pll_postdiv_set_rate(struct clk_hw *hw,
+				unsigned long rate, unsigned long parent_rate)
+{
+	struct clk_alpha_pll_postdiv *pll = to_clk_alpha_pll_postdiv(hw);
+	int i, val = 0, div, ret;
+
+	/*
+	 * If the PLL is in FSM mode, then treat set_rate callback as a
+	 * no-operation.
+	 */
+	ret = regmap_read(pll->clkr.regmap, PLL_USER_CTL(pll), &val);
+	if (ret)
+		return ret;
+
+	if (val & LUCID_5LPE_ENABLE_VOTE_RUN)
+		return 0;
+
+	if (!pll->post_div_table) {
+		pr_err("Missing the post_div_table for the PLL\n");
+		return -EINVAL;
+	}
+
+	div = DIV_ROUND_UP_ULL((u64)parent_rate, rate);
+	for (i = 0; i < pll->num_post_div; i++) {
+		if (pll->post_div_table[i].div == div) {
+			val = pll->post_div_table[i].val;
+			break;
+		}
+	}
+
+	return regmap_update_bits(pll->clkr.regmap, PLL_USER_CTL(pll),
+				(BIT(pll->width) - 1) << pll->post_div_shift,
+				val << pll->post_div_shift);
+}
+
 static int alpha_pll_lucid_is_enabled(struct clk_hw *hw)
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
@@ -1739,6 +2080,17 @@ const struct clk_ops clk_alpha_pll_lucid_ops = {
 };
 EXPORT_SYMBOL(clk_alpha_pll_lucid_ops);
 
+const struct clk_ops clk_alpha_pll_lucid_5lpe_ops = {
+	.prepare = alpha_pll_lucid_5lpe_prepare,
+	.enable = alpha_pll_lucid_5lpe_enable,
+	.disable = alpha_pll_lucid_5lpe_disable,
+	.is_enabled = alpha_pll_lucid_is_enabled,
+	.recalc_rate = alpha_pll_lucid_recalc_rate,
+	.round_rate = clk_alpha_pll_round_rate,
+	.set_rate = alpha_pll_lucid_5lpe_set_rate,
+};
+EXPORT_SYMBOL(clk_alpha_pll_lucid_5lpe_ops);
+
 const struct clk_ops clk_alpha_pll_fixed_lucid_ops = {
 	.enable = alpha_pll_lucid_enable,
 	.disable = alpha_pll_lucid_disable,
@@ -1754,3 +2106,19 @@ const struct clk_ops clk_alpha_pll_postdiv_lucid_ops = {
 	.set_rate = clk_alpha_pll_postdiv_fabia_set_rate,
 };
 EXPORT_SYMBOL(clk_alpha_pll_postdiv_lucid_ops);
+
+const struct clk_ops clk_alpha_pll_fixed_lucid_5lpe_ops = {
+	.enable = alpha_pll_lucid_5lpe_enable,
+	.disable = alpha_pll_lucid_5lpe_disable,
+	.is_enabled = alpha_pll_lucid_is_enabled,
+	.recalc_rate = alpha_pll_lucid_recalc_rate,
+	.round_rate = clk_alpha_pll_round_rate,
+};
+EXPORT_SYMBOL(clk_alpha_pll_fixed_lucid_5lpe_ops);
+
+const struct clk_ops clk_alpha_pll_postdiv_lucid_5lpe_ops = {
+	.recalc_rate = clk_alpha_pll_postdiv_fabia_recalc_rate,
+	.round_rate = clk_alpha_pll_postdiv_fabia_round_rate,
+	.set_rate = clk_lucid_5lpe_pll_postdiv_set_rate,
+};
+EXPORT_SYMBOL(clk_alpha_pll_postdiv_lucid_5lpe_ops);
