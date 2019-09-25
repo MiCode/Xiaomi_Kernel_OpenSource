@@ -200,7 +200,7 @@ int vcu_buffer_cache_sync(struct device *dev, struct mtk_vcu_queue *vcu_queue,
 			}
 		}
 		if (buffer == num_buffers) {
-			pr_info("Cache %s buffer fail, iova = %p, size = %d\n, Not VCU allocated",
+			pr_debug("Cache %s buffer fail, iova = %p, size = %d, Not VCU allocated\n",
 				(op == DMA_TO_DEVICE) ? "flush" : "invalidate",
 				(void *)dma_addr, (unsigned int)size);
 		}
