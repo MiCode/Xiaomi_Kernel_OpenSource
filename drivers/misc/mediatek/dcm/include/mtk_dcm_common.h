@@ -173,6 +173,7 @@ struct DCM_OPS {
 	DCM_FUNC_VOID_UINTR_INTR get_default;
 	DCM_FUNC_VOID_UINTR get_init_type;
 	DCM_FUNC_VOID_UINTR get_all_type;
+	DCM_FUNC_VOID_UINTR get_init_by_k_type;
 };
 
 struct DCM_BASE {

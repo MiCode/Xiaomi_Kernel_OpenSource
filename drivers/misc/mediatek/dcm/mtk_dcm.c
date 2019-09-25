@@ -21,6 +21,7 @@ struct DCM *common_dcm_array;
 struct DCM_OPS *common_dcm_ops;
 unsigned int common_init_dcm_type;
 unsigned int common_all_dcm_type;
+unsigned int common_init_dcm_type_by_k;
 
 
 unsigned int __attribute__((weak)) dcm_get_chip_sw_ver(void)
@@ -46,13 +47,9 @@ void dcm_set_default(unsigned int type)
 	int i;
 	struct DCM *dcm;
 
-#ifndef ENABLE_DCM_IN_LK
-	dcm_pr_info("[%s]type:0x%08x, init_dcm_type=0x%x\n",
-					__func__, type, common_init_dcm_type);
-#else
 	dcm_pr_info("[%s]type:0x%08x, init_dcm_type=0x%x, INIT_DCM_TYPE_BY_K=0x%x\n",
-		 __func__, type, common_init_dcm_type, INIT_DCM_TYPE_BY_K);
-#endif
+		 __func__, type, common_init_dcm_type,
+		 common_init_dcm_type_by_k);
 
 	mutex_lock(&dcm_lock);
 
@@ -61,15 +58,11 @@ void dcm_set_default(unsigned int type)
 			dcm->saved_state = dcm->default_state;
 			dcm->current_state = dcm->default_state;
 			dcm->disable_refcnt = 0;
-#ifdef ENABLE_DCM_IN_LK
-			if (INIT_DCM_TYPE_BY_K & dcm->typeid) {
-#endif
+			if (common_init_dcm_type_by_k & dcm->typeid) {
 				if (dcm->preset_func)
 					dcm->preset_func();
 				dcm->func(dcm->current_state);
-#ifdef ENABLE_DCM_IN_LK
 			}
-#endif
 
 			dcm_pr_info("[%16s 0x%08x] current state:%d (%d)\n",
 				 dcm->name, dcm->typeid, dcm->current_state,
@@ -345,6 +338,7 @@ int mt_dcm_common_init(void)
 	common_dcm_ops->get_default(&default_type, &default_state);
 	common_dcm_ops->get_init_type(&common_init_dcm_type);
 	common_dcm_ops->get_all_type(&common_all_dcm_type);
+	common_dcm_ops->get_init_by_k_type(&common_init_dcm_type_by_k);
 
 	if (default_state == DCM_DEFAULT)
 		dcm_set_default(default_type);

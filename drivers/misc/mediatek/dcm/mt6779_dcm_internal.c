@@ -166,7 +166,7 @@ int dcm_stall(int on)
 {
 	dcm_mp_cpusys_top_core_stall_dcm(on);
 	dcm_mp_cpusys_top_fcm_stall_dcm(on);
-	dcm_cpccfg_reg_mp_stall_dcm(on);
+	/*dcm_cpccfg_reg_mp_stall_dcm(on);*/
 
 	return 0;
 }
@@ -305,12 +305,21 @@ void get_all_type(unsigned int *type)
 {
 	*type = all_dcm_type;
 }
+void get_init_by_k_type(unsigned int *type)
+{
+#ifdef ENABLE_DCM_IN_LK
+	*type = INIT_DCM_TYPE_BY_K;
+#else
+	*type = init_dcm_type;
+#endif
+}
 
 struct DCM_OPS dcm_ops = {
 	.dump_regs = (DCM_FUNC_VOID_VOID) dcm_dump_regs,
 	.get_default = (DCM_FUNC_VOID_UINTR_INTR) get_default,
 	.get_init_type = (DCM_FUNC_VOID_UINTR) get_init_type,
 	.get_all_type = (DCM_FUNC_VOID_UINTR) get_all_type,
+	.get_init_by_k_type = (DCM_FUNC_VOID_UINTR) get_init_by_k_type,
 };
 
 struct DCM_BASE dcm_base_array[] = {
