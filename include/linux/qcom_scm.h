@@ -50,6 +50,7 @@ extern int qcom_scm_pas_shutdown(u32 peripheral);
 extern int qcom_scm_get_sec_dump_state(u32 *dump_state);
 extern int qcom_scm_io_readl(phys_addr_t addr, unsigned int *val);
 extern int qcom_scm_io_writel(phys_addr_t addr, unsigned int val);
+extern int qcom_scm_io_reset(void);
 extern int qcom_scm_get_jtag_etm_feat_id(u64 *version);
 extern void qcom_scm_mmu_sync(bool sync);
 extern int qcom_scm_restore_sec_cfg(u32 device_id, u32 spare);
@@ -72,6 +73,15 @@ extern bool qcom_scm_kgsl_set_smmu_aperture_available(void);
 extern int qcom_scm_kgsl_set_smmu_aperture(
 				unsigned int num_context_bank);
 extern int qcom_scm_smmu_prepare_atos_id(u64 dev_id, int cb_num, int operation);
+extern bool qcom_scm_dcvs_core_available(void);
+extern bool qcom_scm_dcvs_ca_available(void);
+extern int qcom_scm_dcvs_reset(void);
+extern int qcom_scm_dcvs_init_v2(phys_addr_t addr, size_t size, int *version);
+extern int qcom_scm_dcvs_init_ca_v2(phys_addr_t addr, size_t size);
+extern int qcom_scm_dcvs_update(int level, s64 total_time, s64 busy_time);
+extern int qcom_scm_dcvs_update_v2(int level, s64 total_time, s64 busy_time);
+extern int qcom_scm_dcvs_update_ca_v2(int level, s64 total_time, s64 busy_time,
+				      int context_count);
 extern bool qcom_scm_hdcp_available(void);
 extern int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 			     u32 *resp);
@@ -112,6 +122,8 @@ static inline int qcom_scm_io_readl(phys_addr_t addr, unsigned int *val)
 		{ return -ENODEV; }
 static inline int qcom_scm_io_writel(phys_addr_t addr, unsigned int val)
 		{ return -ENODEV; }
+static inline int qcom_scm_io_reset(void)
+		{ return -ENODEV; }
 static inline int qcom_scm_get_jtag_etm_feat_id(u64 *version)
 		{ return -ENODEV; }
 static inline void qcom_scm_mmu_sync(bool sync) {}
@@ -141,6 +153,18 @@ static inline int qcom_scm_kgsl_set_smmu_aperture(
 		unsigned int num_context_bank) { return -ENODEV; }
 static inline int qcom_scm_smmu_prepare_atos_id(u64 dev_id, int cb_num,
 		int operation) { return -ENODEV; }
+static inline bool qcom_scm_dcvs_core_available(void) { return false; }
+static inline bool qcom_scm_dcvs_ca_available(void) { return false; }
+static inline int qcom_scm_dcvs_init_v2(phys_addr_t addr, size_t size,
+		int *version) { return -ENODEV; }
+static inline int qcom_scm_dcvs_init_ca_v2(phys_addr_t addr, size_t size)
+		{ return -ENODEV; }
+static inline int qcom_scm_dcvs_update(int level, s64 total_time, s64 busy_time)
+		{ return -ENODEV; }
+static inline int qcom_scm_dcvs_update_v2(int level, s64 total_time,
+		s64 busy_time) { return -ENODEV; }
+static inline int qcom_scm_dcvs_update_ca_v2(int level, s64 total_time,
+		s64 busy_time, int context_count) { return -ENODEV; }
 static inline bool qcom_scm_hdcp_available(void) { return false; }
 static inline int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 				    u32 *resp) { return -ENODEV; }

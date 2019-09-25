@@ -858,6 +858,19 @@ int __qcom_scm_io_writel(struct device *dev, phys_addr_t addr, unsigned int val)
 	return qcom_scm_call_atomic(dev, &desc);
 }
 
+int __qcom_scm_io_reset(struct device *dev)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_IO,
+		.cmd = QCOM_SCM_IO_RESET,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.arginfo = QCOM_SCM_ARGS(2);
+
+	return qcom_scm_call_atomic(dev, &desc);
+}
+
 int __qcom_scm_is_call_available(struct device *dev, u32 svc_id, u32 cmd_id)
 {
 	int ret;
@@ -1220,6 +1233,131 @@ int __qcom_scm_smmu_prepare_atos_id(struct device *dev, u64 dev_id, int cb_num,
 	ret = qcom_scm_call(dev, &desc);
 
 	return ret;
+}
+
+bool __qcom_scm_dcvs_core_available(struct device *dev)
+{
+	return __qcom_scm_is_call_available(dev, QCOM_SCM_SVC_DCVS,
+					    QCOM_SCM_DCVS_INIT) &&
+	       __qcom_scm_is_call_available(dev, QCOM_SCM_SVC_DCVS,
+					    QCOM_SCM_DCVS_UPDATE) &&
+	       __qcom_scm_is_call_available(dev, QCOM_SCM_SVC_DCVS,
+					    QCOM_SCM_DCVS_RESET);
+}
+
+bool __qcom_scm_dcvs_ca_available(struct device *dev)
+{
+	return __qcom_scm_is_call_available(dev, QCOM_SCM_SVC_DCVS,
+					    QCOM_SCM_DCVS_INIT_CA_V2) &&
+	       __qcom_scm_is_call_available(dev, QCOM_SCM_SVC_DCVS,
+					    QCOM_SCM_DCVS_UPDATE_CA_V2);
+}
+
+int __qcom_scm_dcvs_reset(struct device *dev)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_DCVS,
+		.cmd = QCOM_SCM_DCVS_RESET,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	return qcom_scm_call(dev, &desc);
+}
+
+int __qcom_scm_dcvs_init_v2(struct device *dev, phys_addr_t addr, size_t size,
+			    int *version)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_DCVS,
+		.cmd = QCOM_SCM_DCVS_INIT_V2,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = addr;
+	desc.args[1] = size;
+	desc.arginfo = QCOM_SCM_ARGS(2, QCOM_SCM_RW, QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	if (ret >= 0)
+		*version = desc.res[0];
+	return ret;
+}
+
+int __qcom_scm_dcvs_init_ca_v2(struct device *dev, phys_addr_t addr,
+			       size_t size)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_DCVS,
+		.cmd = QCOM_SCM_DCVS_INIT_CA_V2,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = addr;
+	desc.args[1] = size;
+	desc.arginfo = QCOM_SCM_ARGS(2, QCOM_SCM_RW, QCOM_SCM_VAL);
+
+	return qcom_scm_call(dev, &desc);
+}
+
+int __qcom_scm_dcvs_update(struct device *dev, int level, s64 total_time,
+			   s64 busy_time)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_DCVS,
+		.cmd = QCOM_SCM_DCVS_UPDATE,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = level;
+	desc.args[1] = total_time;
+	desc.args[2] = busy_time;
+	desc.arginfo = QCOM_SCM_ARGS(3);
+
+	ret = qcom_scm_call_atomic(dev, &desc);
+
+	return ret ? : desc.res[0];
+}
+
+int __qcom_scm_dcvs_update_v2(struct device *dev, int level, s64 total_time,
+			     s64 busy_time)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_DCVS,
+		.cmd = QCOM_SCM_DCVS_UPDATE_V2,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = level;
+	desc.args[1] = total_time;
+	desc.args[2] = busy_time;
+	desc.arginfo = QCOM_SCM_ARGS(3);
+
+	ret = qcom_scm_call(dev, &desc);
+	return ret ? : desc.res[0];
+}
+
+int __qcom_scm_dcvs_update_ca_v2(struct device *dev, int level, s64 total_time,
+				 s64 busy_time, int context_count)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_DCVS,
+		.cmd = QCOM_SCM_DCVS_UPDATE_CA_V2,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = level;
+	desc.args[1] = total_time;
+	desc.args[2] = busy_time;
+	desc.args[3] = context_count;
+	desc.arginfo = QCOM_SCM_ARGS(4);
+
+	ret = qcom_scm_call(dev, &desc);
+	return ret ? : desc.res[0];
 }
 
 int __qcom_scm_hdcp_req(struct device *dev, struct qcom_scm_hdcp_req *req,

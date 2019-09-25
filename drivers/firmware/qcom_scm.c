@@ -341,6 +341,15 @@ int qcom_scm_io_writel(phys_addr_t addr, unsigned int val)
 }
 EXPORT_SYMBOL(qcom_scm_io_writel);
 
+/**
+ * qcom_scm_io_reset()
+ */
+int qcom_scm_io_reset(void)
+{
+	return __qcom_scm_io_reset(__scm ? __scm->dev : NULL);
+}
+EXPORT_SYMBOL(qcom_scm_io_reset);
+
 int qcom_scm_get_jtag_etm_feat_id(u64 *version)
 {
 	return __qcom_scm_get_feat_version(__scm ? __scm->dev : NULL,
@@ -532,6 +541,67 @@ int qcom_scm_smmu_prepare_atos_id(u64 dev_id, int cb_num, int operation)
 						operation);
 }
 EXPORT_SYMBOL(qcom_scm_smmu_prepare_atos_id);
+
+/**
+ * qcom_scm_dcvs_core_available() - check if core DCVS operations are available
+ */
+bool qcom_scm_dcvs_core_available(void)
+{
+	return __qcom_scm_dcvs_core_available(__scm ? __scm->dev : NULL);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_core_available);
+
+/**
+ * qcom_scm_dcvs_ca_available() - check if context aware DCVS operations are
+ * available
+ */
+bool qcom_scm_dcvs_ca_available(void)
+{
+	return __qcom_scm_dcvs_ca_available(__scm ? __scm->dev : NULL);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_ca_available);
+
+/**
+ * qcom_scm_dcvs_reset()
+ */
+int qcom_scm_dcvs_reset(void)
+{
+	return __qcom_scm_dcvs_reset(__scm ? __scm->dev : NULL);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_reset);
+
+int qcom_scm_dcvs_init_v2(phys_addr_t addr, size_t size, int *version)
+{
+	return __qcom_scm_dcvs_init_v2(__scm->dev, addr, size, version);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_init_v2);
+
+int qcom_scm_dcvs_init_ca_v2(phys_addr_t addr, size_t size)
+{
+	return __qcom_scm_dcvs_init_ca_v2(__scm->dev, addr, size);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_init_ca_v2);
+
+int qcom_scm_dcvs_update(int level, s64 total_time, s64 busy_time)
+{
+	return __qcom_scm_dcvs_update(__scm->dev, level, total_time, busy_time);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_update);
+
+int qcom_scm_dcvs_update_v2(int level, s64 total_time, s64 busy_time)
+{
+	return __qcom_scm_dcvs_update_v2(__scm->dev, level, total_time,
+					 busy_time);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_update_v2);
+
+int qcom_scm_dcvs_update_ca_v2(int level, s64 total_time, s64 busy_time,
+			       int context_count)
+{
+	return __qcom_scm_dcvs_update_ca_v2(__scm->dev, level, total_time,
+					    busy_time, context_count);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_update_ca_v2);
 
 /**
  * qcom_scm_hdcp_available() - Check if secure environment supports HDCP.
