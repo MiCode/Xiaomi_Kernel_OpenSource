@@ -429,6 +429,21 @@ enum {
 
 #define MBOX_TOUT_MS 100
 
+/* miscellaneous for rmnet_ipa and qmi_service */
+enum ipa_type_mode {
+	IPA_HW_TYPE,
+	PLATFORM_TYPE,
+	IPA3_HW_MODE,
+};
+
+enum ipa_flag {
+	IPA_PM_EN,
+	IPA_ENDP_DELAY_WA_EN,
+	IPA_HW_STATS_EN,
+	IPA_MHI_EN,
+	IPA_FLTRT_NOT_HASHABLE_EN,
+};
+
 struct ipa3_active_client_htable_entry {
 	struct hlist_node list;
 	char id_string[IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN];
@@ -2638,6 +2653,10 @@ int ipa3_remove_interrupt_handler(enum ipa_irq_type interrupt);
 int ipa3_get_ep_mapping(enum ipa_client_type client);
 
 bool ipa3_is_ready(void);
+
+int ipa3_ctx_get_type(enum ipa_type_mode type);
+bool ipa3_ctx_get_flag(enum ipa_flag flag);
+u32 ipa3_ctx_get_num_pipes(void);
 
 void ipa3_proxy_clk_vote(void);
 void ipa3_proxy_clk_unvote(void);

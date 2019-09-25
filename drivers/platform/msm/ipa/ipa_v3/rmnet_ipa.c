@@ -192,7 +192,7 @@ static int ipa3_setup_a7_qmap_hdr(void)
 
 	strlcpy(hdr_entry->name, IPA_A7_QMAP_HDR_NAME,
 				IPA_RESOURCE_NAME_MAX);
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
+	if (ipa3_ctx_get_type(IPA_HW_TYPE) >= IPA_HW_v4_5 &&
 		rmnet_ipa3_ctx->dl_csum_offload_enabled) {
 		hdr_entry->hdr_len = IPA_DL_CHECKSUM_LENGTH; /* 8 bytes */
 		/* new DL QMAP header format */
@@ -331,7 +331,7 @@ static int ipa3_add_qmap_hdr(uint32_t mux_id, uint32_t *hdr_hdl)
 
 	if (rmnet_ipa3_ctx->dl_csum_offload_enabled) {
 		if (rmnet_ipa3_ctx->ipa_config_is_apq ||
-			ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+			ipa3_ctx_get_type(IPA_HW_TYPE) >= IPA_HW_v4_5) {
 			hdr_entry->hdr_len =
 				IPA_DL_CHECKSUM_LENGTH; /* 8 bytes */
 			/* new DL QMAP header format */
@@ -1491,7 +1491,7 @@ static int handle3_ingress_format(struct net_device *dev,
 
 	ipa_wan_ep_cfg = &rmnet_ipa3_ctx->ipa_to_apps_ep_cfg;
 	if ((in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM) {
-		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+		if (ipa3_ctx_get_type(IPA_HW_TYPE) >= IPA_HW_v4_5)
 			ipa_wan_ep_cfg->ipa_ep_cfg.cfg.cs_offload_en =
 				IPA_ENABLE_CS_DL_QMAP;
 		else
@@ -1517,7 +1517,7 @@ static int handle3_ingress_format(struct net_device *dev,
 		}
 	}
 
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
+	if (ipa3_ctx_get_type(IPA_HW_TYPE) >= IPA_HW_v4_5 &&
 		(in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM) {
 		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 8;
 		rmnet_ipa3_ctx->dl_csum_offload_enabled = true;
@@ -2443,11 +2443,11 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 				sizeof(struct ipa3_rmnet_mux_val));
 
 	/* start A7 QMI service/client */
-	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_MSM ||
-		ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
+	if (ipa3_ctx_get_type(PLATFORM_TYPE) == IPA_PLAT_TYPE_MSM ||
+		ipa3_ctx_get_type(PLATFORM_TYPE) == IPA_PLAT_TYPE_APQ)
 		/* Android platform loads uC */
 		ipa3_qmi_service_init(QMI_IPA_PLATFORM_TYPE_MSM_ANDROID_V01);
-	else if (ipa3_ctx->ipa_config_is_mhi)
+	else if (ipa3_ctx_get_flag(IPA_MHI_EN))
 		/* LE MHI platform */
 		ipa3_qmi_service_init(QMI_IPA_PLATFORM_TYPE_LE_MHI_V01);
 	else
@@ -2522,7 +2522,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 	}
 
 	/* for > IPA 4.5, we set the colaescing feature flag on */
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+	if (ipa3_ctx_get_type(IPA_HW_TYPE) >= IPA_HW_v4_5)
 		dev->hw_features |= NETIF_F_GRO_HW | NETIF_F_RXCSUM;
 
 	/*
@@ -2530,7 +2530,8 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 	 * power collapse until IPA uC is loaded.
 	 */
 	atomic_set(&rmnet_ipa3_ctx->is_initialized, 1);
-	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr) && ipa3_ctx->ipa_hw_type !=
+	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr) &&
+		ipa3_ctx_get_type(IPA_HW_TYPE) !=
 		IPA_HW_v4_0) {
 		/* offline charging mode */
 		ipa3_proxy_clk_unvote();
@@ -2781,7 +2782,7 @@ static int ipa3_lcl_mdm_ssr_notifier_cb(struct notifier_block *this,
 			platform_driver_unregister(&rmnet_ipa_driver);
 		imp_handle_modem_shutdown();
 		if (atomic_read(&rmnet_ipa3_ctx->is_ssr) &&
-			ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+			ipa3_ctx_get_type(IPA_HW_TYPE) >= IPA_HW_v4_0)
 			ipa3_q6_post_shutdown_cleanup();
 		ipa3_odl_pipe_cleanup(true);
 		IPAWANINFO("IPA BEFORE_SHUTDOWN handling is complete\n");
@@ -2789,10 +2790,10 @@ static int ipa3_lcl_mdm_ssr_notifier_cb(struct notifier_block *this,
 	case SUBSYS_AFTER_SHUTDOWN:
 		IPAWANINFO("IPA Received MPSS AFTER_SHUTDOWN\n");
 		if (atomic_read(&rmnet_ipa3_ctx->is_ssr) &&
-			ipa3_ctx->ipa_hw_type < IPA_HW_v4_0)
+			ipa3_ctx_get_type(IPA_HW_TYPE) < IPA_HW_v4_0)
 			ipa3_q6_post_shutdown_cleanup();
 
-		if (ipa3_ctx->ipa_endp_delay_wa)
+		if (ipa3_ctx_get_flag(IPA_ENDP_DELAY_WA_EN))
 			ipa3_client_prod_post_shutdown_cleanup();
 
 		IPAWANINFO("IPA AFTER_SHUTDOWN handling is complete\n");
@@ -2838,7 +2839,7 @@ static int ipa3_rmt_mdm_ssr_notifier_cb(struct notifier_block *this,
 
 	if (!rmnet_ipa3_ctx->ipa_config_is_apq) {
 		IPAWANERR("Remote mdm SSR event=%lu on non-APQ platform=%d\n",
-			code, ipa3_ctx->platform_type);
+			code, ipa3_ctx_get_type(PLATFORM_TYPE));
 		return NOTIFY_DONE;
 	}
 
@@ -3446,7 +3447,7 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 		}
 	}
 
-	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+	if (ipa3_ctx_get_type(IPA_HW_TYPE) == IPA_HW_v4_5)
 		wlan_client = IPA_CLIENT_WLAN2_CONS;
 	else
 		wlan_client = IPA_CLIENT_WLAN1_CONS;
@@ -3549,7 +3550,7 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 	/* query WLAN UL stats */
 	memset(con_stats, 0, sizeof(struct ipa_quota_stats_all));
 
-	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+	if (ipa3_ctx_get_type(IPA_HW_TYPE) == IPA_HW_v4_5)
 		rc = ipa_query_teth_stats(IPA_CLIENT_WLAN2_PROD,
 			con_stats, reset);
 	else
@@ -3699,11 +3700,11 @@ int rmnet_ipa3_query_tethering_stats_all(
 	} else {
 		IPAWANDBG_LOW(" query modem-backhaul stats\n");
 		tether_stats.ipa_client = data->ipa_client;
-		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0 ||
-			!ipa3_ctx->hw_stats.enabled) {
+		if (ipa3_ctx_get_type(IPA_HW_TYPE) < IPA_HW_v4_0 ||
+			!ipa3_ctx_get_flag(IPA_HW_STATS_EN)) {
 			IPAWANDBG("hw version %d,hw_stats.enabled %d\n",
-				ipa3_ctx->ipa_hw_type,
-				ipa3_ctx->hw_stats.enabled);
+				ipa3_ctx_get_type(IPA_HW_TYPE),
+				ipa3_ctx_get_flag(IPA_HW_STATS_EN));
 			/* get modem stats from QMI */
 			rc = rmnet_ipa3_query_tethering_stats_modem(
 				&tether_stats, data->reset_stats);
@@ -4531,7 +4532,7 @@ static int __init ipa3_wwan_init(void)
 	return 0;
 
 fail_unreg_rmt_mdm_ssr:
-	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
+	if (ipa3_ctx_get_type(PLATFORM_TYPE) == IPA_PLAT_TYPE_APQ) {
 		subsys_notif_unregister_notifier(
 			rmnet_ipa3_ctx->rmt_mdm_subsys_notify_handle,
 			&ipa3_rmt_mdm_ssr_notifier);
