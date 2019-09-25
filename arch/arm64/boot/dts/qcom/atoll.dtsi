@@ -3760,6 +3760,7 @@
 #include "atoll-camera.dtsi"
 #include "atoll-sde-pll.dtsi"
 #include "atoll-sde.dtsi"
+#include "msm-rdbg.dtsi"
 
 &qupv3_se9_i2c {
 	status = "ok";
