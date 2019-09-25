@@ -436,7 +436,8 @@ static void npu_destroy_wq(struct npu_host_ctx *host_ctx)
 static struct workqueue_struct *npu_create_wq(struct npu_host_ctx *host_ctx,
 	const char *name)
 {
-	struct workqueue_struct *wq = create_workqueue(name);
+	struct workqueue_struct *wq =
+		alloc_workqueue(name, WQ_HIGHPRI | WQ_UNBOUND, 0);
 
 	INIT_WORK(&host_ctx->irq_work, host_irq_wq);
 	INIT_DELAYED_WORK(&host_ctx->fw_deinit_work, fw_deinit_wq);
@@ -579,17 +580,6 @@ static struct npu_network *alloc_network(struct npu_host_ctx *ctx,
 
 	WARN_ON(!mutex_is_locked(&ctx->lock));
 
-	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
-		if ((network->id != 0) &&
-			(network->client != client)) {
-			pr_err("NPU is used by other client now\n");
-			return NULL;
-		}
-
-		network++;
-	}
-
-	network = ctx->networks;
 	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
 		if (network->id == 0)
 			break;
