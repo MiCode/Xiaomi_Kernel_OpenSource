@@ -39,7 +39,7 @@ static void mmqos_update_comm_bw(struct device *dev,
 
 	mtk_smi_common_bw_set(dev, comm_port, value);
 
-	dev_info(dev, "comm_port=%d comm_bw=%d freq=%d value=%#x\n",
+	dev_dbg(dev, "comm_port=%d comm_bw=%d freq=%d value=%#x\n",
 		comm_port, comm_bw, freq, value);
 }
 
