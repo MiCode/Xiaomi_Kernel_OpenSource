@@ -307,6 +307,8 @@ source "drivers/misc/mediatek/debug_latch/Kconfig"
 source "drivers/misc/mediatek/cache/Kconfig"
 source "drivers/misc/mediatek/mtprintk/Kconfig"
 source "drivers/misc/mediatek/subpmic/Kconfig"
+source "drivers/misc/mediatek/cameraisp/Kconfig"
+
 endmenu # Debug
 
 menu "Misc"
