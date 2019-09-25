@@ -534,6 +534,7 @@ static const struct midr_range arm64_bp_harden_smccc_cpus[] = {
 	MIDR_ALL_VERSIONS(MIDR_QCOM_FALKOR_V1),
 	MIDR_ALL_VERSIONS(MIDR_QCOM_FALKOR),
 	MIDR_ALL_VERSIONS(MIDR_NVIDIA_DENVER),
+	MIDR_ALL_VERSIONS(MIDR_KRYO2XX_GOLD),
 	{},
 };
 
@@ -549,6 +550,18 @@ static const struct midr_range arm64_harden_el2_vectors[] = {
 
 #endif
 
+#ifdef CONFIG_ARM64_ERRATUM_858921
+
+static const struct midr_range arm64_workaround_858921_cpus[] = {
+	/* Cortex-A73 all versions */
+	MIDR_ALL_VERSIONS(MIDR_CORTEX_A73),
+	/* KRYO2XX Gold all versions */
+	MIDR_ALL_VERSIONS(MIDR_KRYO2XX_GOLD),
+	{},
+};
+
+#endif
+
 #ifdef CONFIG_ARM64_ERRATUM_1188873
 
 static const struct midr_range arm64_workaround_1188873_cpus[] = {
@@ -556,6 +569,18 @@ static const struct midr_range arm64_workaround_1188873_cpus[] = {
 	MIDR_RANGE(MIDR_CORTEX_A76, 0, 0, 2, 0),
 	/* Kryo-4G r15p14 */
 	MIDR_RANGE(MIDR_KRYO4G, 15, 14, 15, 14),
+	{},
+};
+
+#endif
+
+#ifdef CONFIG_ARM64_ERRATUM_845719
+
+static const struct midr_range arm64_workaround_845719_cpus[] = {
+	/* Cortex-A53 r0p[01234] */
+	MIDR_RANGE(MIDR_CORTEX_A53, 0, 0, 0, 4),
+	/* Kryo2xx Silver rAp4 */
+	MIDR_RANGE(MIDR_KRYO2XX_SILVER, 0xA, 0x4, 0xA, 0x4),
 	{},
 };
 
@@ -613,10 +638,9 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 #endif
 #ifdef CONFIG_ARM64_ERRATUM_845719
 	{
-	/* Cortex-A53 r0p[01234] */
 		.desc = "ARM erratum 845719",
 		.capability = ARM64_WORKAROUND_845719,
-		ERRATA_MIDR_REV_RANGE(MIDR_CORTEX_A53, 0, 0, 4),
+		ERRATA_MIDR_RANGE_LIST(arm64_workaround_845719_cpus),
 	},
 #endif
 #ifdef CONFIG_CAVIUM_ERRATUM_23154
@@ -702,10 +726,9 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 #endif
 #ifdef CONFIG_ARM64_ERRATUM_858921
 	{
-	/* Cortex-A73 all versions */
 		.desc = "ARM erratum 858921",
 		.capability = ARM64_WORKAROUND_858921,
-		ERRATA_MIDR_ALL_VERSIONS(MIDR_CORTEX_A73),
+		ERRATA_MIDR_RANGE_LIST(arm64_workaround_858921_cpus),
 	},
 #endif
 #ifdef CONFIG_HARDEN_BRANCH_PREDICTOR

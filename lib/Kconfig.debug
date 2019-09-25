@@ -155,6 +155,18 @@ config DEBUG_CONSOLE_UNHASHED_POINTERS
 	  actual pointer values, ignoring the kptr_restrict setting.
 	  Not to be enabled on production builds.
 
+config DEBUG_MODULE_LOAD_INFO
+        bool "Use prints for module info under a debug flag"
+	help
+	  If you say Y here the resulting kernel image will include
+	  debug prints which was kept under DEBUG_MODULE_LOAD_INFO.
+	  This will be used by developer to debug loadable modules in
+	  the kernel.
+	  Say Y here only if you plan to debug the kernel.
+	  Not to be enabled on production builds.
+
+	  If unsure, say N.
+
 endmenu # "printk and dmesg options"
 
 menu "Compile-time checks and compiler options"

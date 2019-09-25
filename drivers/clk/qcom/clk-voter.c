@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, 2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -125,6 +125,16 @@ static unsigned long voter_clk_recalc_rate(struct clk_hw *hw,
 
 	return v->rate;
 }
+
+int voter_clk_handoff(struct clk_hw *hw)
+{
+	struct clk_voter *v = to_clk_voter(hw);
+
+	v->enabled = true;
+
+	return 0;
+}
+EXPORT_SYMBOL(voter_clk_handoff);
 
 const struct clk_ops clk_ops_voter = {
 	.prepare = voter_clk_prepare,

@@ -122,7 +122,7 @@ struct compat_fastrpc_ioctl_perf {	/* kernel performance data */
 #define FASTRPC_CONTROL_LATENCY		(1)
 struct compat_fastrpc_ctrl_latency {
 	compat_uint_t enable;	/* latency control enable */
-	compat_uint_t level;	/* level of control */
+	compat_uint_t latency;	/* target latency in us */
 };
 
 #define FASTRPC_CONTROL_KALLOC		(3)
@@ -334,8 +334,8 @@ static int compat_get_fastrpc_ioctl_control(
 	if (p == FASTRPC_CONTROL_LATENCY) {
 		err |= get_user(p, &ctrl32->lp.enable);
 		err |= put_user(p, &ctrl->lp.enable);
-		err |= get_user(p, &ctrl32->lp.level);
-		err |= put_user(p, &ctrl->lp.level);
+		err |= get_user(p, &ctrl32->lp.latency);
+		err |= put_user(p, &ctrl->lp.latency);
 	}
 
 	return err;

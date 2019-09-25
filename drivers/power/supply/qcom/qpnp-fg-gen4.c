@@ -1197,10 +1197,13 @@ static int fg_gen4_get_ttf_param(void *data, enum ttf_param param, int *val)
 		return -ENODEV;
 
 	fg = &chip->fg;
-	if (fg->battery_missing)
-		return -EPERM;
 
 	switch (param) {
+	case TTF_TTE_VALID:
+		*val = 1;
+		if (fg->battery_missing || is_debug_batt_id(fg))
+			*val = 0;
+		break;
 	case TTF_MSOC:
 		rc = fg_gen4_get_prop_capacity(fg, val);
 		break;

@@ -100,10 +100,11 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 
 	/*
 	 * If there's a new high watermark, update the cutoffs and send the
-	 * FAST hint.  Otherwise check the current value against the current
+	 * FAST hint, provided that we are using a floating watermark.
+	 * Otherwise check the current value against the current
 	 * cutoffs.
 	 */
-	if (norm_max_cycles > priv->bus.max) {
+	if (norm_max_cycles > priv->bus.max && priv->bus.floating) {
 		_update_cutoff(priv, norm_max_cycles);
 		bus_profile->flag = DEVFREQ_FLAG_FAST_HINT;
 	} else {
@@ -224,10 +225,11 @@ static int devfreq_gpubw_event_handler(struct devfreq *devfreq,
 	case DEVFREQ_GOV_SUSPEND:
 		{
 			struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
-
-			priv->bus.total_time = 0;
-			priv->bus.gpu_time = 0;
-			priv->bus.ram_time = 0;
+			if (priv) {
+				priv->bus.total_time = 0;
+				priv->bus.gpu_time = 0;
+				priv->bus.ram_time = 0;
+			}
 		}
 		break;
 	default:

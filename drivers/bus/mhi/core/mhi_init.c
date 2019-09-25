@@ -1613,7 +1613,6 @@ static int mhi_driver_probe(struct device *dev)
 	struct mhi_event *mhi_event;
 	struct mhi_chan *ul_chan = mhi_dev->ul_chan;
 	struct mhi_chan *dl_chan = mhi_dev->dl_chan;
-	bool auto_start = false;
 	int ret;
 
 	/* bring device out of lpm */
@@ -1632,7 +1631,11 @@ static int mhi_driver_probe(struct device *dev)
 
 		ul_chan->xfer_cb = mhi_drv->ul_xfer_cb;
 		mhi_dev->status_cb = mhi_drv->status_cb;
-		auto_start = ul_chan->auto_start;
+		if (ul_chan->auto_start) {
+			ret = mhi_prepare_channel(mhi_cntrl, ul_chan);
+			if (ret)
+				goto exit_probe;
+		}
 	}
 
 	if (dl_chan) {
@@ -1656,15 +1659,22 @@ static int mhi_driver_probe(struct device *dev)
 
 		/* ul & dl uses same status cb */
 		mhi_dev->status_cb = mhi_drv->status_cb;
-		auto_start = (auto_start || dl_chan->auto_start);
 	}
 
 	ret = mhi_drv->probe(mhi_dev, mhi_dev->id);
+	if (ret)
+		goto exit_probe;
 
-	if (!ret && auto_start)
-		mhi_prepare_for_transfer(mhi_dev);
+	if (dl_chan && dl_chan->auto_start)
+		mhi_prepare_channel(mhi_cntrl, dl_chan);
+
+	mhi_device_put(mhi_dev, MHI_VOTE_DEVICE);
+
+	return ret;
 
 exit_probe:
+	mhi_unprepare_from_transfer(mhi_dev);
+
 	mhi_device_put(mhi_dev, MHI_VOTE_DEVICE);
 
 	return ret;

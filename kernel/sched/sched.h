@@ -2659,6 +2659,7 @@ struct related_thread_group {
 	struct rcu_head rcu;
 	u64 last_update;
 	u64 downmigrate_ts;
+	u64 start_ts;
 };
 
 extern struct sched_cluster *sched_cluster[NR_CPUS];

@@ -239,6 +239,7 @@ enum cnss_debug_quirks {
 	FBC_BYPASS,
 	ENABLE_DAEMON_SUPPORT,
 	DISABLE_DRV,
+	DISABLE_IO_COHERENCY,
 };
 
 enum cnss_bdf_type {
@@ -260,6 +261,7 @@ struct cnss_cal_info {
 struct cnss_control_params {
 	unsigned long quirks;
 	unsigned int mhi_timeout;
+	unsigned int mhi_m2_timeout;
 	unsigned int qmi_timeout;
 	unsigned int bdf_type;
 	unsigned int time_sync_period;
@@ -351,6 +353,8 @@ struct cnss_plat_data {
 	struct qmi_handle ims_qmi;
 	struct qmi_txn txn;
 	u64 dynamic_feature;
+	void *get_info_cb_ctx;
+	int (*get_info_cb)(void *ctx, void *event, int event_len);
 };
 
 #ifdef CONFIG_ARCH_QCOM

@@ -297,6 +297,20 @@ static int hl6111r_get_vout_target(struct hl6111r *chip, int *val)
 	return rc;
 }
 
+static int hl6111r_get_chip_version(struct hl6111r *chip, int *val)
+{
+	int rc;
+	u8 id;
+
+	rc = hl6111r_read(chip, ID_REG, &id);
+	if (rc < 0)
+		return rc;
+
+	*val = id;
+
+	return 0;
+}
+
 /* Callbacks for settable properties */
 
 #define HL6111R_MIN_VOLTAGE_UV	4940000
@@ -382,6 +396,7 @@ static enum power_supply_property hl6111r_psy_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
+	POWER_SUPPLY_PROP_CHIP_VERSION,
 };
 
 static int hl6111r_get_prop(struct power_supply *psy,
@@ -426,6 +441,9 @@ static int hl6111r_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
 		rc = hl6111r_get_vout_target(chip, val);
+		break;
+	case POWER_SUPPLY_PROP_CHIP_VERSION:
+		rc = hl6111r_get_chip_version(chip, val);
 		break;
 	default:
 		rc = -EINVAL;

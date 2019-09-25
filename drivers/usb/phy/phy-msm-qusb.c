@@ -99,6 +99,7 @@ struct qusb_phy {
 	void __iomem		*ref_clk_base;
 	void __iomem		*tcsr_clamp_dig_n;
 	void __iomem		*tcsr_conn_box_spare;
+	void __iomem		*eud_enable_reg;
 
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
@@ -403,6 +404,11 @@ static int qusb_phy_init(struct usb_phy *phy)
 	bool pll_lock_fail = false;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
+
+	if (qphy->eud_enable_reg && readl_relaxed(qphy->eud_enable_reg)) {
+		dev_err(qphy->phy.dev, "eud is enabled\n");
+		return 0;
+	}
 
 	/*
 	 * ref clock is enabled by default after power on reset. Linux clock
@@ -717,6 +723,11 @@ static int qusb_phy_dpdm_regulator_enable(struct regulator_dev *rdev)
 	dev_dbg(qphy->phy.dev, "%s dpdm_enable:%d\n",
 				__func__, qphy->dpdm_enable);
 
+	if (qphy->eud_enable_reg && readl_relaxed(qphy->eud_enable_reg)) {
+		dev_err(qphy->phy.dev, "eud is enabled\n");
+		return 0;
+	}
+
 	mutex_lock(&qphy->phy_lock);
 	if (!qphy->dpdm_enable) {
 		ret = qusb_phy_enable_power(qphy, true);
@@ -900,6 +911,16 @@ static int qusb_phy_probe(struct platform_device *pdev)
 				dev_err(dev, "DT Value for tune2 efuse is invalid.\n");
 				return -EINVAL;
 			}
+		}
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"eud_enable_reg");
+	if (res) {
+		qphy->eud_enable_reg = devm_ioremap_resource(dev, res);
+		if (IS_ERR(qphy->eud_enable_reg)) {
+			dev_err(dev, "err getting eud_enable_reg address\n");
+			return PTR_ERR(qphy->eud_enable_reg);
 		}
 	}
 

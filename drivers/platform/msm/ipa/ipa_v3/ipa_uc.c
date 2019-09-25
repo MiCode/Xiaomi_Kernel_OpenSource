@@ -362,16 +362,21 @@ static void ipa3_event_ring_hdlr(void)
 			e_b->Protocol,
 			e_b->Value.bw_param.ThresholdIndex,
 			e_b->Value.bw_param.throughput);
-
-			memset(&bw_info, 0, sizeof(struct ipa_inform_wlan_bw));
-			bw_info.index =
-				e_b->Value.bw_param.ThresholdIndex;
-			mul = 1000 / IPA_UC_MON_INTERVAL;
-			bw_info.throughput =
-				e_b->Value.bw_param.throughput*mul;
-			if (ipa3_inform_wlan_bw(&bw_info))
-				IPAERR_RL("failed on index %d to wlan\n",
-				bw_info.index);
+			/* check values */
+			mul = 1000 * IPA_UC_MON_INTERVAL;
+			if (e_b->Value.bw_param.throughput <
+				ipa3_ctx->uc_ctx.bw_info_max*mul) {
+				memset(&bw_info, 0,
+					sizeof(struct ipa_inform_wlan_bw));
+				bw_info.index =
+					e_b->Value.bw_param.ThresholdIndex;
+				mul = 1000 / IPA_UC_MON_INTERVAL;
+				bw_info.throughput =
+					e_b->Value.bw_param.throughput*mul;
+				if (ipa3_inform_wlan_bw(&bw_info))
+					IPAERR_RL("failed index %d to wlan\n",
+					bw_info.index);
+			}
 		} else if (((struct eventElement_t *) rp_va)->Opcode
 			== QUOTA_NOTIFY) {
 			e_q = ((struct eventElement_t *) rp_va);
@@ -1254,6 +1259,13 @@ int ipa3_uc_quota_monitor(uint64_t quota)
 	struct ipa_mem_buffer cmd;
 	struct IpaQuotaMonitoring_t *quota_info;
 
+	/* check uc-event-ring setup */
+	if (!ipa3_ctx->uc_ctx.uc_event_ring_valid) {
+		IPAERR("uc_event_ring_valid %d\n",
+		ipa3_ctx->uc_ctx.uc_event_ring_valid);
+		return -EINVAL;
+	}
+
 	cmd.size = sizeof(*quota_info);
 	cmd.base = dma_alloc_coherent(ipa3_ctx->uc_pdev, cmd.size,
 		&cmd.phys_base, GFP_KERNEL);
@@ -1320,6 +1332,13 @@ int ipa3_uc_bw_monitor(struct ipa_wdi_bw_info *info)
 	if (!info)
 		return -EINVAL;
 
+	/* check uc-event-ring setup */
+	if (!ipa3_ctx->uc_ctx.uc_event_ring_valid) {
+		IPAERR("uc_event_ring_valid %d\n",
+		ipa3_ctx->uc_ctx.uc_event_ring_valid);
+		return -EINVAL;
+	}
+
 	/* check max entry */
 	if (info->num > BW_MONITORING_MAX_THRESHOLD) {
 		IPAERR("%d, support max %d bw monitor\n", info->num,
@@ -1339,10 +1358,21 @@ int ipa3_uc_bw_monitor(struct ipa_wdi_bw_info *info)
 	bw_info->params.WdiBw.Stop = info->stop;
 	IPADBG("stop bw-monitor? %d\n", bw_info->params.WdiBw.Stop);
 
+	/* cache the bw info */
+	ipa3_ctx->uc_ctx.info.num = info->num;
+	ipa3_ctx->uc_ctx.info.stop = info->stop;
+	ipa3_ctx->uc_ctx.bw_info_max = 0;
+
 	for (i = 0; i < info->num; i++) {
 		bw_info->params.WdiBw.BwThreshold[i] = info->threshold[i];
 		IPADBG("%d-st, %lu\n", i, bw_info->params.WdiBw.BwThreshold[i]);
+		ipa3_ctx->uc_ctx.info.threshold[i] = info->threshold[i];
+		if (info->threshold[i] > ipa3_ctx->uc_ctx.bw_info_max)
+			ipa3_ctx->uc_ctx.bw_info_max = info->threshold[i];
 	}
+	/* set max to both UL+DL */
+	ipa3_ctx->uc_ctx.bw_info_max *= 2;
+	IPADBG("bw-monitor max %lu\n", ipa3_ctx->uc_ctx.bw_info_max);
 
 	bw_info->params.WdiBw.info.Num = 8;
 	ind = ipa3_ctx->fnr_info.hw_counter_offset +

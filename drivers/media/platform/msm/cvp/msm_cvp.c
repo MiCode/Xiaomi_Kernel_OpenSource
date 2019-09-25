@@ -10,6 +10,7 @@
 
 struct cvp_power_level {
 	unsigned long core_sum;
+	unsigned long op_core_sum;
 	unsigned long bw_sum;
 };
 
@@ -19,11 +20,19 @@ void print_internal_buffer(u32 tag, const char *str,
 	if (!(tag & msm_cvp_debug) || !inst || !cbuf)
 		return;
 
-	dprintk(tag,
+	if (cbuf->smem.dma_buf) {
+		dprintk(tag,
 		"%s: %x : idx %2d fd %d off %d %s size %d flags %#x iova %#x",
 		str, hash32_ptr(inst->session), cbuf->buf.index, cbuf->buf.fd,
 		cbuf->buf.offset, cbuf->smem.dma_buf->name, cbuf->buf.size,
 		cbuf->buf.flags, cbuf->smem.device_addr);
+	} else {
+		dprintk(tag,
+		"%s: %x : idx %2d fd %d off %d size %d flags %#x iova %#x",
+		str, hash32_ptr(inst->session), cbuf->buf.index, cbuf->buf.fd,
+		cbuf->buf.offset, cbuf->buf.size, cbuf->buf.flags,
+		cbuf->smem.device_addr);
+	}
 }
 
 static enum hal_buffer get_hal_buftype(const char *str, unsigned int type)
@@ -666,7 +675,8 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 			__func__, inst->session_queue.state,
 			inst->session_queue.msg_count);
 
-		if (inst->state >= MSM_CVP_CLOSE_DONE) {
+		if (inst->state >= MSM_CVP_CLOSE_DONE ||
+				sq->state != QUEUE_ACTIVE) {
 			rc = -ECONNRESET;
 			goto exit;
 		}
@@ -720,7 +730,7 @@ static int msm_cvp_map_user_persist(struct msm_cvp_inst *inst,
 		if (inst->session_type == MSM_CVP_USER) {
 			new_buf->dbuf = 0;
 		} else if (inst->session_type == MSM_CVP_KERNEL) {
-			new_buf->fd = -1;
+			new_buf->fd = 0;
 		} else if (inst->session_type >= MSM_CVP_UNKNOWN) {
 			dprintk(CVP_ERR,
 				"%s: unknown session type %d\n",
@@ -799,7 +809,7 @@ static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
 			if (inst->session_type == MSM_CVP_USER) {
 				new_buf->dbuf = 0;
 			} else if (inst->session_type == MSM_CVP_KERNEL) {
-				new_buf->fd = -1;
+				new_buf->fd = 0;
 			} else if (inst->session_type >= MSM_CVP_UNKNOWN) {
 				dprintk(CVP_ERR,
 					"%s: unknown session type %d\n",
@@ -1062,6 +1072,10 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
+
+			if (rc == -ECONNRESET)
+				goto exit;
+
 			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 
@@ -1072,6 +1086,10 @@ static int msm_cvp_thread_fence_run(void *data)
 				dprintk(CVP_ERR,
 				"%s: wait for signal failed, rc %d\n",
 				__func__, rc);
+
+				if (rc == -ECONNRESET)
+					goto exit;
+
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
@@ -1167,16 +1185,24 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
+
+			if (rc == -ECONNRESET)
+				goto exit;
+
 			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 
 		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
 			rc = wait_for_sess_signal_receipt(inst,
 					HAL_SESSION_ICA_FRAME_CMD_DONE);
-			if (rc)	{
+			if (rc) {
 				dprintk(CVP_ERR,
 				"%s: wait for signal failed, rc %d\n",
 				__func__, rc);
+
+				if (rc == -ECONNRESET)
+					goto exit;
+
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
@@ -1238,16 +1264,24 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
+
+			if (rc == -ECONNRESET)
+				goto exit;
+
 			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 
 		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
 			rc = wait_for_sess_signal_receipt(inst,
 					HAL_SESSION_FD_FRAME_CMD_DONE);
-			if (rc)	{
+			if (rc) {
 				dprintk(CVP_ERR,
 				"%s: wait for signal failed, rc %d\n",
 				__func__, rc);
+
+				if (rc == -ECONNRESET)
+					goto exit;
+
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
@@ -1425,6 +1459,89 @@ static inline int max_3(unsigned int a, unsigned int b, unsigned int c)
 	return (a >= b) ? ((a >= c) ? a : c) : ((b >= c) ? b : c);
 }
 
+static bool is_subblock_profile_existed(struct msm_cvp_inst *inst)
+{
+	return (inst->prop.od_cycles ||
+			inst->prop.mpu_cycles ||
+			inst->prop.fdu_cycles);
+}
+
+static void aggregate_power_update(struct msm_cvp_core *core,
+	struct cvp_power_level *nrt_pwr,
+	struct cvp_power_level *rt_pwr,
+	unsigned int max_clk_rate)
+{
+	struct msm_cvp_inst *inst;
+	int i;
+	unsigned long fdu_sum[2] = {0}, od_sum[2] = {0}, mpu_sum[2] = {0};
+	unsigned long ica_sum[2] = {0}, fw_sum[2] = {0};
+	unsigned long op_fdu_max[2] = {0}, op_od_max[2] = {0};
+	unsigned long op_mpu_max[2] = {0}, op_ica_max[2] = {0};
+	unsigned long op_fw_max[2] = {0}, bw_sum[2] = {0}, op_bw_max[2] = {0};
+
+	list_for_each_entry(inst, &core->instances, list) {
+		if (inst->state == MSM_CVP_CORE_INVALID ||
+			inst->state == MSM_CVP_CORE_UNINIT ||
+			!is_subblock_profile_existed(inst))
+			continue;
+		if (inst->prop.priority <= CVP_RT_PRIO_THRESHOLD) {
+			/* Non-realtime session use index 0 */
+			i = 0;
+		} else {
+			i = 1;
+		}
+		fdu_sum[i] += inst->prop.fdu_cycles;
+		od_sum[i] += inst->prop.od_cycles;
+		mpu_sum[i] += inst->prop.mpu_cycles;
+		ica_sum[i] += inst->prop.ica_cycles;
+		fw_sum[i] += inst->prop.fw_cycles;
+		op_fdu_max[i] =
+			(op_fdu_max[i] >= inst->prop.fdu_op_cycles) ?
+			op_fdu_max[i] : inst->prop.fdu_op_cycles;
+		op_od_max[i] =
+			(op_od_max[i] >= inst->prop.od_op_cycles) ?
+			op_od_max[i] : inst->prop.od_op_cycles;
+		op_mpu_max[i] =
+			(op_mpu_max[i] >= inst->prop.mpu_op_cycles) ?
+			op_mpu_max[i] : inst->prop.mpu_op_cycles;
+		op_ica_max[i] =
+			(op_ica_max[i] >= inst->prop.ica_op_cycles) ?
+			op_ica_max[i] : inst->prop.ica_op_cycles;
+		op_fw_max[i] =
+			(op_fw_max[i] >= inst->prop.fw_op_cycles) ?
+			op_fw_max[i] : inst->prop.fw_op_cycles;
+		bw_sum[i] += inst->prop.ddr_bw;
+		op_bw_max[i] =
+			(op_bw_max[i] >= inst->prop.ddr_op_bw) ?
+			op_bw_max[i] : inst->prop.ddr_op_bw;
+	}
+
+	for (i = 0; i < 2; i++) {
+		fdu_sum[i] = max_3(fdu_sum[i], od_sum[i], mpu_sum[i]);
+		fdu_sum[i] = max_3(fdu_sum[i], ica_sum[i], fw_sum[i]);
+
+		op_fdu_max[i] = max_3(op_fdu_max[i], op_od_max[i],
+			op_mpu_max[i]);
+		op_fdu_max[i] = max_3(op_fdu_max[i],
+			op_ica_max[i], op_fw_max[i]);
+		op_fdu_max[i] =
+			(op_fdu_max[i] > max_clk_rate) ?
+			max_clk_rate : op_fdu_max[i];
+		bw_sum[i] = (bw_sum[i] >= op_bw_max[i]) ?
+			bw_sum[i] : op_bw_max[i];
+	}
+
+	nrt_pwr->core_sum += fdu_sum[0];
+	nrt_pwr->op_core_sum = (nrt_pwr->op_core_sum >= op_fdu_max[0]) ?
+			nrt_pwr->op_core_sum : op_fdu_max[0];
+	nrt_pwr->bw_sum += bw_sum[0];
+	rt_pwr->core_sum += fdu_sum[1];
+	rt_pwr->op_core_sum = (rt_pwr->op_core_sum >= op_fdu_max[1]) ?
+			rt_pwr->op_core_sum : op_fdu_max[1];
+	rt_pwr->bw_sum += bw_sum[1];
+}
+
+
 static void aggregate_power_request(struct msm_cvp_core *core,
 	struct cvp_power_level *nrt_pwr,
 	struct cvp_power_level *rt_pwr,
@@ -1438,7 +1555,8 @@ static void aggregate_power_request(struct msm_cvp_core *core,
 
 	list_for_each_entry(inst, &core->instances, list) {
 		if (inst->state == MSM_CVP_CORE_INVALID ||
-			inst->state == MSM_CVP_CORE_UNINIT)
+			inst->state == MSM_CVP_CORE_UNINIT ||
+			is_subblock_profile_existed(inst))
 			continue;
 		if (inst->prop.priority <= CVP_RT_PRIO_THRESHOLD) {
 			/* Non-realtime session use index 0 */
@@ -1471,17 +1589,18 @@ static void aggregate_power_request(struct msm_cvp_core *core,
 		op_core_max[i] =
 			(op_core_max[i] > max_clk_rate) ?
 			max_clk_rate : op_core_max[i];
-		core_sum[i] =
-			(core_sum[i] >= op_core_max[i]) ?
-			core_sum[i] : op_core_max[i];
 		bw_sum[i] = (bw_sum[i] >= op_bw_max[i]) ?
 			bw_sum[i] : op_bw_max[i];
 	}
 
-	nrt_pwr->core_sum = core_sum[0];
-	nrt_pwr->bw_sum = bw_sum[0];
-	rt_pwr->core_sum = core_sum[1];
-	rt_pwr->bw_sum = bw_sum[1];
+	nrt_pwr->core_sum += core_sum[0];
+	nrt_pwr->op_core_sum = (nrt_pwr->op_core_sum >= op_core_max[0]) ?
+			nrt_pwr->op_core_sum : op_core_max[0];
+	nrt_pwr->bw_sum += bw_sum[0];
+	rt_pwr->core_sum += core_sum[1];
+	rt_pwr->op_core_sum = (rt_pwr->op_core_sum >= op_core_max[1]) ?
+			rt_pwr->op_core_sum : op_core_max[1];
+	rt_pwr->bw_sum += bw_sum[1];
 }
 
 /**
@@ -1505,8 +1624,8 @@ static int adjust_bw_freqs(void)
 	struct allowed_clock_rates_table *tbl = NULL;
 	unsigned int tbl_size;
 	unsigned int cvp_min_rate, cvp_max_rate, max_bw;
-	struct cvp_power_level rt_pwr, nrt_pwr;
-	unsigned long tmp, core_sum, bw_sum;
+	struct cvp_power_level rt_pwr = {0}, nrt_pwr = {0};
+	unsigned long tmp, core_sum, op_core_sum, bw_sum;
 	int i, rc = 0;
 
 	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
@@ -1522,6 +1641,13 @@ static int adjust_bw_freqs(void)
 	max_bw = bus->range[1];
 
 	aggregate_power_request(core, &nrt_pwr, &rt_pwr, cvp_max_rate);
+	dprintk(CVP_DBG, "PwrReq nrt %u %u rt %u %u\n",
+		nrt_pwr.core_sum, nrt_pwr.op_core_sum,
+		rt_pwr.core_sum, rt_pwr.op_core_sum);
+	aggregate_power_update(core, &nrt_pwr, &rt_pwr, cvp_max_rate);
+	dprintk(CVP_DBG, "PwrUpdate nrt %u %u rt %u %u\n",
+		nrt_pwr.core_sum, nrt_pwr.op_core_sum,
+		rt_pwr.core_sum, rt_pwr.op_core_sum);
 
 	if (rt_pwr.core_sum > cvp_max_rate) {
 		dprintk(CVP_WARN, "%s clk vote out of range %lld\n",
@@ -1530,6 +1656,11 @@ static int adjust_bw_freqs(void)
 	}
 
 	core_sum = rt_pwr.core_sum + nrt_pwr.core_sum;
+	op_core_sum = (rt_pwr.op_core_sum >= nrt_pwr.op_core_sum) ?
+		rt_pwr.op_core_sum : nrt_pwr.op_core_sum;
+
+	core_sum = (core_sum >= op_core_sum) ?
+		core_sum : op_core_sum;
 
 	if (core_sum > cvp_max_rate) {
 		core_sum = cvp_max_rate;
@@ -1614,7 +1745,6 @@ static int msm_cvp_request_power(struct msm_cvp_inst *inst,
 	inst->power.reserved[0] = div_by_1dot5(inst->power.reserved[0]);
 	inst->power.reserved[2] = div_by_1dot5(inst->power.reserved[2]);
 	inst->power.reserved[3] = div_by_1dot5(inst->power.reserved[3]);
-	inst->power.reserved[4] = div_by_1dot5(inst->power.reserved[4]);
 
 	/* Convert bps to KBps */
 	inst->power.ddr_bw = inst->power.ddr_bw >> 10;
@@ -1625,6 +1755,33 @@ static int msm_cvp_request_power(struct msm_cvp_inst *inst,
 		dprintk(CVP_ERR, "Instance %pK power request out of range\n");
 	}
 
+	mutex_unlock(&core->lock);
+	inst->cur_cmd_type = 0;
+	cvp_put_inst(s);
+
+	return rc;
+}
+
+static int msm_cvp_update_power(struct msm_cvp_inst *inst)
+
+{	int rc = 0;
+	struct msm_cvp_core *core;
+	struct msm_cvp_inst *s;
+
+	if (!inst) {
+		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	s = cvp_get_inst_validate(inst->core, inst);
+	if (!s)
+		return -ECONNRESET;
+
+	inst->cur_cmd_type = CVP_KMD_UPDATE_POWER;
+	core = inst->core;
+
+	mutex_lock(&core->lock);
+	rc = adjust_bw_freqs();
 	mutex_unlock(&core->lock);
 	inst->cur_cmd_type = 0;
 	cvp_put_inst(s);
@@ -1866,6 +2023,12 @@ static int msm_cvp_set_sysprop(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
+	if (props->prop_num >= MAX_KMD_PROP_NUM) {
+		dprintk(CVP_ERR, "Too many properties %d to set\n",
+			props->prop_num);
+		return -E2BIG;
+	}
+
 	prop_array = &arg->data.sys_properties.prop_data;
 	session_prop = &inst->prop;
 
@@ -1885,6 +2048,52 @@ static int msm_cvp_set_sysprop(struct msm_cvp_inst *inst,
 			break;
 		case CVP_KMD_PROP_SESSION_DSPMASK:
 			session_prop->dsp_mask = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_PWR_FDU:
+			session_prop->fdu_cycles = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_PWR_ICA:
+			session_prop->ica_cycles =
+				div_by_1dot5(prop_array[i].data);
+			break;
+		case CVP_KMD_PROP_PWR_OD:
+			session_prop->od_cycles = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_PWR_MPU:
+			session_prop->mpu_cycles = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_PWR_FW:
+			session_prop->fw_cycles =
+				div_by_1dot5(prop_array[i].data);
+			break;
+		case CVP_KMD_PROP_PWR_DDR:
+			session_prop->ddr_bw = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_PWR_SYSCACHE:
+			session_prop->ddr_cache = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_PWR_FDU_OP:
+			session_prop->fdu_op_cycles = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_PWR_ICA_OP:
+			session_prop->ica_op_cycles =
+				div_by_1dot5(prop_array[i].data);
+			break;
+		case CVP_KMD_PROP_PWR_OD_OP:
+			session_prop->od_op_cycles = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_PWR_MPU_OP:
+			session_prop->mpu_op_cycles = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_PWR_FW_OP:
+			session_prop->fw_op_cycles =
+				div_by_1dot5(prop_array[i].data);
+			break;
+		case CVP_KMD_PROP_PWR_DDR_OP:
+			session_prop->ddr_op_bw = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_PWR_SYSCACHE_OP:
+			session_prop->ddr_op_cache = prop_array[i].data;
 			break;
 		default:
 			dprintk(CVP_ERR,
@@ -1934,6 +2143,11 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 			(struct cvp_kmd_request_power *)&arg->data.req_power;
 
 		rc = msm_cvp_request_power(inst, power);
+		break;
+	}
+	case CVP_KMD_UPDATE_POWER:
+	{
+		rc = msm_cvp_update_power(inst);
 		break;
 	}
 	case CVP_KMD_REGISTER_BUFFER:
@@ -2047,10 +2261,8 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 		inst, hash32_ptr(inst->session));
 
 	session = (struct cvp_hal_session *)inst->session;
-	if (!session) {
-		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
-		return -EINVAL;
-	}
+	if (!session)
+		return rc;
 
 	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CLOSE_DONE);
 	if (rc)
@@ -2133,6 +2345,9 @@ int msm_cvp_session_init(struct msm_cvp_inst *inst)
 	inst->clk_data.sys_cache_bw = 1000;
 
 	inst->prop.type = HFI_SESSION_CV;
+	if (inst->session_type == MSM_CVP_KERNEL)
+		inst->prop.type = HFI_SESSION_DME;
+
 	inst->prop.kernel_mask = 0xFFFFFFFF;
 	inst->prop.priority = 0;
 	inst->prop.is_secure = 0;
