@@ -418,7 +418,7 @@ void mhi_fw_load_worker(struct work_struct *work)
 	int ret;
 	struct mhi_controller *mhi_cntrl;
 	const char *fw_name;
-	const struct firmware *firmware;
+	const struct firmware *firmware = NULL;
 	struct image_info *image_info;
 	void *buf;
 	dma_addr_t dma_addr;
