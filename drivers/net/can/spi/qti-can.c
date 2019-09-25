@@ -398,7 +398,7 @@ static int qti_can_process_response(struct qti_can *priv_data,
 		if ((resp->len - (frame->dlc + sizeof(frame->dlc))) <
 			(sizeof(*frame) - (sizeof(frame->dlc)
 			+ sizeof(frame->data)))) {
-			LOGDE("len:%d, size:%d\n", resp->len, sizeof(*frame));
+			LOGDE("len:%d, size:%zu\n", resp->len, sizeof(*frame));
 			LOGDE("Check the f/w version & upgrade to latest!!\n");
 			ret = -EUPGRADE;
 			goto exit;
