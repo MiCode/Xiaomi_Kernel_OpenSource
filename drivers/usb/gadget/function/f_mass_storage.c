@@ -2423,6 +2423,10 @@ static void handle_exception(struct fsg_common *common)
 
 	case FSG_STATE_CONFIG_CHANGE:
 		do_set_interface(common, new_fsg);
+		/*
+		 * Wait for composite_setup to complete
+		 */
+		mdelay(100);
 		if (new_fsg)
 			usb_composite_setup_continue(common->cdev);
 		break;
