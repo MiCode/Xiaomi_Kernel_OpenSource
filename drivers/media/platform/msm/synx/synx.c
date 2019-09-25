@@ -890,7 +890,8 @@ static int synx_handle_wait(struct synx_private_ioctl_arg *k_ioctl)
 }
 
 static int synx_handle_register_user_payload(
-	struct synx_private_ioctl_arg *k_ioctl)
+	struct synx_private_ioctl_arg *k_ioctl,
+	struct synx_client *client)
 {
 	s32 synx_obj;
 	u32 state = SYNX_STATE_INVALID;
@@ -898,7 +899,6 @@ static int synx_handle_register_user_payload(
 	struct synx_cb_data *user_payload_kernel;
 	struct synx_cb_data *user_payload_iter, *temp;
 	struct synx_table_row *row = NULL;
-	struct synx_client *client = NULL;
 
 	pr_debug("Enter %s\n", __func__);
 
@@ -917,12 +917,8 @@ static int synx_handle_register_user_payload(
 		return -EINVAL;
 	}
 
-	mutex_lock(&synx_dev->table_lock);
-	client = get_current_client();
-	mutex_unlock(&synx_dev->table_lock);
-
 	if (!client) {
-		pr_err("couldn't find client for process %d\n", current->tgid);
+		pr_err("invalid client for process %d\n", current->pid);
 		return -EINVAL;
 	}
 
@@ -972,11 +968,11 @@ static int synx_handle_register_user_payload(
 }
 
 static int synx_handle_deregister_user_payload(
-	struct synx_private_ioctl_arg *k_ioctl)
+	struct synx_private_ioctl_arg *k_ioctl,
+	struct synx_client *client)
 {
 	s32 synx_obj;
 	u32 state = SYNX_STATE_INVALID;
-	struct synx_client *client = NULL;
 	struct synx_userpayload_info userpayload_info;
 	struct synx_cb_data *user_payload_kernel, *temp;
 	struct synx_table_row *row = NULL;
@@ -999,12 +995,8 @@ static int synx_handle_deregister_user_payload(
 		return -EINVAL;
 	}
 
-	mutex_lock(&synx_dev->table_lock);
-	client = get_current_client();
-	mutex_unlock(&synx_dev->table_lock);
-
 	if (!client) {
-		pr_err("couldn't find client for process %d\n", current->tgid);
+		pr_err("invalid client for process %d\n", current->pid);
 		return -EINVAL;
 	}
 
@@ -1124,11 +1116,13 @@ static long synx_ioctl(struct file *filep,
 {
 	s32 rc = 0;
 	struct synx_device *synx_dev = NULL;
+	struct synx_client *client;
 	struct synx_private_ioctl_arg k_ioctl;
 
 	pr_debug("Enter %s\n", __func__);
 
 	synx_dev = get_synx_device(filep);
+	client = filep->private_data;
 
 	if (cmd != SYNX_PRIVATE_IOCTL_CMD) {
 		pr_err("invalid ioctl cmd\n");
@@ -1154,11 +1148,11 @@ static long synx_ioctl(struct file *filep,
 		break;
 	case SYNX_REGISTER_PAYLOAD:
 		rc = synx_handle_register_user_payload(
-			&k_ioctl);
+			&k_ioctl, client);
 		break;
 	case SYNX_DEREGISTER_PAYLOAD:
 		rc = synx_handle_deregister_user_payload(
-			&k_ioctl);
+			&k_ioctl, client);
 		break;
 	case SYNX_SIGNAL:
 		rc = synx_handle_signal(&k_ioctl);
@@ -1266,7 +1260,7 @@ static int synx_open(struct inode *inode, struct file *filep)
 	struct synx_device *synx_dev = NULL;
 	struct synx_client *client = NULL;
 
-	pr_debug("Enter %s from pid: %d\n", __func__, current->tgid);
+	pr_debug("Enter %s from pid: %d\n", __func__, current->pid);
 
 	synx_dev = container_of(inode->i_cdev, struct synx_device, cdev);
 
@@ -1275,7 +1269,6 @@ static int synx_open(struct inode *inode, struct file *filep)
 		return -ENOMEM;
 
 	client->device = synx_dev;
-	client->pid = current->tgid;
 	init_waitqueue_head(&client->wq);
 	INIT_LIST_HEAD(&client->eventq);
 	spin_lock_init(&client->eventq_lock);
@@ -1297,12 +1290,13 @@ static int synx_close(struct inode *inode, struct file *filep)
 	int rc = 0;
 	int i;
 	struct synx_device *synx_dev = NULL;
-	struct synx_client *client, *tmp_client;
+	struct synx_client *client;
 	struct synx_import_data *data, *tmp_data;
 
-	pr_debug("Enter %s\n", __func__);
+	pr_debug("Enter %s from pid: %d\n", __func__, current->pid);
 
 	synx_dev = get_synx_device(filep);
+	client = filep->private_data;
 
 	mutex_lock(&synx_dev->table_lock);
 
@@ -1377,17 +1371,8 @@ static int synx_close(struct inode *inode, struct file *filep)
 		}
 	}
 
-	list_for_each_entry_safe(client, tmp_client,
-		&synx_dev->client_list, list) {
-		if (current->tgid == client->pid) {
-			pr_debug("deleting client for process %d\n",
-				client->pid);
-			list_del_init(&client->list);
-			kfree(client);
-			break;
-		}
-	}
-
+	list_del_init(&client->list);
+	kfree(client);
 	mutex_unlock(&synx_dev->table_lock);
 
 	pr_debug("Exit %s\n", __func__);

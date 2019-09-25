@@ -231,7 +231,6 @@ struct synx_device {
  * specific details
  *
  * @device      : Pointer to synx device structure
- * @pid         : Process id
  * @eventq_lock : Spinlock for the event queue
  * @wq          : Queue for the polling process
  * @eventq      : All the user callback payloads
@@ -239,7 +238,6 @@ struct synx_device {
  */
 struct synx_client {
 	struct synx_device *device;
-	int pid;
 	spinlock_t eventq_lock;
 	wait_queue_head_t wq;
 	struct list_head eventq;
