@@ -252,6 +252,13 @@ int synx_signal_core(struct synx_table_row *row, u32 status)
 
 	spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
 
+	if (!row->index) {
+		spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
+		pr_err("object already cleaned up at %d\n",
+			row->index);
+		return -EINVAL;
+	}
+
 	if (synx_status_locked(row) != SYNX_STATE_ACTIVE) {
 		spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
 		pr_err("object already signaled synx at %d\n",
@@ -444,8 +451,13 @@ static int synx_release_core(struct synx_table_row *row)
 	 * be carefull while accessing the metadata
 	 */
 	fence = row->fence;
+	spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
 	idx = row->index;
-	spin_lock_bh(&synx_dev->row_spinlocks[idx]);
+	if (!idx) {
+		spin_unlock_bh(&synx_dev->row_spinlocks[idx]);
+		pr_err("object already cleaned up at %d\n", idx);
+		return -EINVAL;
+	}
 	/*
 	 * we need to clear the metadata for merged synx obj upon synx_release
 	 * itself as it does not invoke the synx_fence_release function.
@@ -489,6 +501,15 @@ int synx_wait(s32 synx_obj, u64 timeout_ms)
 		pr_err("invalid synx: 0x%x\n", synx_obj);
 		return -EINVAL;
 	}
+
+	spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
+	if (!row->index) {
+		spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
+		pr_err("object already cleaned up at %d\n",
+			row->index);
+		return -EINVAL;
+	}
+	spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
 
 	timeleft = dma_fence_wait_timeout(row->fence, (bool) 0,
 					msecs_to_jiffies(timeout_ms));
@@ -669,6 +690,13 @@ int synx_import(s32 synx_obj, u32 import_key, s32 *new_synx_obj)
 	}
 
 	spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
+	if (!row->index) {
+		spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
+		pr_err("object already cleaned up at %d\n",
+			row->index);
+		kfree(obj_node);
+		return -EINVAL;
+	}
 	obj_node->synx_obj = id;
 	list_add(&obj_node->list, &row->synx_obj_list);
 	spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
