@@ -34,6 +34,7 @@
 #include <asm/cacheflush.h>
 #include <linux/soc/qcom/smem_state.h>
 #include <linux/of_irq.h>
+#include <linux/ctype.h>
 
 #ifdef CONFIG_ARM64
 
@@ -1309,7 +1310,7 @@ static int ipa3_ioctl_mdfy_flt_rule_v2(unsigned long arg)
 			((struct ipa_ioc_mdfy_flt_rule_v2 *)
 			header)->rule_mdfy_size);
 	/* modify the rule pointer to the kernel pointer */
-	((struct ipa_ioc_add_flt_rule_after_v2 *)header)->rules =
+	((struct ipa_ioc_mdfy_flt_rule_v2 *)header)->rules =
 		(u64)kptr;
 	if (ipa3_mdfy_flt_rule_v2
 		((struct ipa_ioc_mdfy_flt_rule_v2 *)header)) {
@@ -2668,10 +2669,22 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case IPA_IOC_FNR_COUNTER_ALLOC:
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+			IPAERR("FNR stats not supported on IPA ver %d",
+				ipa3_ctx->ipa_hw_type);
+			retval = -EFAULT;
+			break;
+		}
 		retval = ipa3_ioctl_fnr_counter_alloc(arg);
 		break;
 
 	case IPA_IOC_FNR_COUNTER_DEALLOC:
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+			IPAERR("FNR stats not supported on IPA ver %d",
+				 ipa3_ctx->ipa_hw_type);
+			retval = -EFAULT;
+			break;
+		}
 		hdl = (int)arg;
 		if (hdl < 0) {
 			IPAERR("IPA_FNR_COUNTER_DEALLOC failed: hdl %d\n",
@@ -2683,10 +2696,22 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case IPA_IOC_FNR_COUNTER_QUERY:
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+			IPAERR("FNR stats not supported on IPA ver %d",
+				ipa3_ctx->ipa_hw_type);
+			retval = -EFAULT;
+			break;
+		}
 		retval = ipa3_ioctl_fnr_counter_query(arg);
 		break;
 
 	case IPA_IOC_SET_FNR_COUNTER_INFO:
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+			IPAERR("FNR stats not supported on IPA ver %d",
+				ipa3_ctx->ipa_hw_type);
+			retval = -EFAULT;
+			break;
+		}
 		retval = ipa3_ioctl_fnr_counter_set(arg);
 		break;
 
@@ -5944,6 +5969,7 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	unsigned long missing;
 
 	char dbg_buff[32] = { 0 };
+	int i = 0;
 
 	if (count >= sizeof(dbg_buff))
 		return -EFAULT;
@@ -5963,6 +5989,17 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	/* Prevent consequent calls from trying to load the FW again. */
 	if (ipa3_is_ready())
 		return count;
+
+	/*Ignore empty ipa_config file*/
+	for (i = 0 ; i < count ; ++i) {
+		if (!isspace(dbg_buff[i]))
+			break;
+	}
+
+	if (i == count) {
+		IPADBG("Empty ipa_config file\n");
+		return count;
+	}
 
 	/* Check MHI configuration on MDM devices */
 	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_MDM) {

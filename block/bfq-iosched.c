@@ -3946,7 +3946,6 @@ exit:
 #if defined(CONFIG_BFQ_GROUP_IOSCHED) && defined(CONFIG_DEBUG_BLK_CGROUP)
 static void bfq_update_dispatch_stats(struct request_queue *q,
 				      struct request *rq,
-				      struct bfq_queue *in_serv_queue,
 				      bool idle_timer_disabled)
 {
 	struct bfq_queue *bfqq = rq ? RQ_BFQQ(rq) : NULL;
@@ -3968,17 +3967,15 @@ static void bfq_update_dispatch_stats(struct request_queue *q,
 	 * bfqq_group(bfqq) exists as well.
 	 */
 	spin_lock_irq(q->queue_lock);
-	if (idle_timer_disabled)
+	if (bfqq && idle_timer_disabled)
 		/*
-		 * Since the idle timer has been disabled,
-		 * in_serv_queue contained some request when
-		 * __bfq_dispatch_request was invoked above, which
-		 * implies that rq was picked exactly from
-		 * in_serv_queue. Thus in_serv_queue == bfqq, and is
-		 * therefore guaranteed to exist because of the above
-		 * arguments.
+		 * It could be possible that current active
+		 * queue and group might got updated along with
+		 * request via. __bfq_dispatch_request.
+		 * So, always use current active request to
+		 * derive its associated bfq queue and group.
 		 */
-		bfqg_stats_update_idle_time(bfqq_group(in_serv_queue));
+		bfqg_stats_update_idle_time(bfqq_group(bfqq));
 	if (bfqq) {
 		struct bfq_group *bfqg = bfqq_group(bfqq);
 
@@ -3991,7 +3988,6 @@ static void bfq_update_dispatch_stats(struct request_queue *q,
 #else
 static inline void bfq_update_dispatch_stats(struct request_queue *q,
 					     struct request *rq,
-					     struct bfq_queue *in_serv_queue,
 					     bool idle_timer_disabled) {}
 #endif
 
@@ -4014,7 +4010,7 @@ static struct request *bfq_dispatch_request(struct blk_mq_hw_ctx *hctx)
 
 	spin_unlock_irq(&bfqd->lock);
 
-	bfq_update_dispatch_stats(hctx->queue, rq, in_serv_queue,
+	bfq_update_dispatch_stats(hctx->queue, rq,
 				  idle_timer_disabled);
 
 	return rq;

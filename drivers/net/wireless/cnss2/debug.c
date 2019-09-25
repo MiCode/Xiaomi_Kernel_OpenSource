@@ -477,6 +477,10 @@ static ssize_t cnss_runtime_pm_debug_write(struct file *fp,
 		cnss_pci_pm_runtime_put_noidle(pci_priv);
 	} else if (sysfs_streq(cmd, "mark_last_busy")) {
 		cnss_pci_pm_runtime_mark_last_busy(pci_priv);
+	} else if (sysfs_streq(cmd, "resume_bus")) {
+		cnss_pci_resume_bus(pci_priv);
+	} else if (sysfs_streq(cmd, "suspend_bus")) {
+		cnss_pci_suspend_bus(pci_priv);
 	} else {
 		cnss_pr_err("Runtime PM debugfs command is invalid\n");
 		ret = -EINVAL;
@@ -500,6 +504,8 @@ static int cnss_runtime_pm_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "put_noidle: do runtime PM put noidle\n");
 	seq_puts(s, "put_autosuspend: do runtime PM put autosuspend\n");
 	seq_puts(s, "mark_last_busy: do runtime PM mark last busy\n");
+	seq_puts(s, "resume_bus: do bus resume only\n");
+	seq_puts(s, "suspend_bus: do bus suspend only\n");
 
 	return 0;
 }
@@ -557,6 +563,8 @@ static ssize_t cnss_control_params_debug_write(struct file *fp,
 		plat_priv->ctrl_params.quirks = val;
 	else if (strcmp(cmd, "mhi_timeout") == 0)
 		plat_priv->ctrl_params.mhi_timeout = val;
+	else if (strcmp(cmd, "mhi_m2_timeout") == 0)
+		plat_priv->ctrl_params.mhi_m2_timeout = val;
 	else if (strcmp(cmd, "qmi_timeout") == 0)
 		plat_priv->ctrl_params.qmi_timeout = val;
 	else if (strcmp(cmd, "bdf_type") == 0)
@@ -615,6 +623,9 @@ static int cnss_show_quirks_state(struct seq_file *s,
 		case DISABLE_DRV:
 			seq_puts(s, "DISABLE_DRV");
 			continue;
+		case DISABLE_IO_COHERENCY:
+			seq_puts(s, "DISABLE_IO_COHERENCY");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
@@ -638,6 +649,8 @@ static int cnss_control_params_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "\nCurrent value:\n");
 	cnss_show_quirks_state(s, cnss_priv);
 	seq_printf(s, "mhi_timeout: %u\n", cnss_priv->ctrl_params.mhi_timeout);
+	seq_printf(s, "mhi_m2_timeout: %u\n",
+		   cnss_priv->ctrl_params.mhi_m2_timeout);
 	seq_printf(s, "qmi_timeout: %u\n", cnss_priv->ctrl_params.qmi_timeout);
 	seq_printf(s, "bdf_type: %u\n", cnss_priv->ctrl_params.bdf_type);
 	seq_printf(s, "time_sync_period: %u\n",

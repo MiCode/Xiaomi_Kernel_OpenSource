@@ -1947,8 +1947,13 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 		reg |= DWC3_GCTL_CORESOFTRESET;
 		dwc3_msm_write_reg(mdwc->base, DWC3_GCTL, reg);
 
-		/* restart USB which performs full reset and reconnect */
-		schedule_work(&mdwc->restart_usb_work);
+		/*
+		 * If core could not recover after MAX_ERROR_RECOVERY_TRIES
+		 * skip the restart USB work and keep the core in softreset
+		 * state
+		 */
+		if (dwc->retries_on_error < MAX_ERROR_RECOVERY_TRIES)
+			schedule_work(&mdwc->restart_usb_work);
 		break;
 	case DWC3_CONTROLLER_POST_RESET_EVENT:
 		dev_dbg(mdwc->dev,
@@ -2915,12 +2920,6 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 		atomic_set(&mdwc->in_p3, 1);
 		irq_stat &= ~PWR_EVNT_POWERDOWN_IN_P3_MASK;
 		irq_clear |= PWR_EVNT_POWERDOWN_IN_P3_MASK;
-	}
-
-	/* Clear L2 exit */
-	if (irq_stat & PWR_EVNT_LPM_OUT_L2_MASK) {
-		irq_stat &= ~PWR_EVNT_LPM_OUT_L2_MASK;
-		irq_stat |= PWR_EVNT_LPM_OUT_L2_MASK;
 	}
 
 	/* Handle exit from L1 events */

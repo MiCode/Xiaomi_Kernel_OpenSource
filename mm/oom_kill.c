@@ -1256,12 +1256,10 @@ void add_to_oom_reaper(struct task_struct *p)
 
 	task_unlock(p);
 
-	if (strcmp(current->comm, ULMK_MAGIC) && __ratelimit(&reaper_rs)
+	if (!strcmp(current->comm, ULMK_MAGIC) && __ratelimit(&reaper_rs)
 			&& p->signal->oom_score_adj == 0) {
 		show_mem(SHOW_MEM_FILTER_NODES, NULL);
 		show_mem_call_notifiers();
-		if (sysctl_oom_dump_tasks)
-			dump_tasks(NULL, NULL);
 	}
 
 	put_task_struct(p);

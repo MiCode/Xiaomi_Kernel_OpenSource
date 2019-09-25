@@ -310,6 +310,7 @@ struct qseecom_control {
 	bool smcinvoke_support;
 	uint64_t qseecom_bridge_handle;
 	uint64_t ta_bridge_handle;
+	uint64_t user_contig_bridge_handle;
 
 	struct list_head  unregister_lsnr_pending_list_head;
 	wait_queue_head_t register_lsnr_pending_wq;
@@ -9247,14 +9248,13 @@ static int qseecom_register_heap_shmbridge(uint32_t heapid, uint64_t *handle)
 	struct device_node *ion_node, *node;
 	struct platform_device *ion_pdev = NULL;
 	struct cma *cma = NULL;
-	int ret = -1;
 	uint32_t ns_vmids[] = {VMID_HLOS};
 	uint32_t ns_vm_perms[] = {PERM_READ | PERM_WRITE};
 
 	ion_node = of_find_compatible_node(NULL, NULL, "qcom,msm-ion");
 	if (!ion_node) {
 		pr_err("Failed to get qcom,msm-ion node\n");
-		return ret;
+		return -ENODEV;
 	}
 
 	for_each_available_child_of_node(ion_node, node) {
@@ -9263,23 +9263,22 @@ static int qseecom_register_heap_shmbridge(uint32_t heapid, uint64_t *handle)
 		ion_pdev = of_find_device_by_node(node);
 		if (!ion_pdev) {
 			pr_err("Failed to find node for heap %d\n", heapid);
-			break;
+			return -ENODEV;
 		}
 		cma = dev_get_cma_area(&ion_pdev->dev);
-		if (cma) {
-			heap_pa = cma_get_base(cma);
-			heap_size = (size_t)cma_get_size(cma);
-		} else {
+		if (!cma) {
 			pr_err("Failed to get Heap %d info\n", heapid);
+			return -ENODEV;
 		}
-		break;
-	}
-
-	if (heap_pa)
-		ret = qtee_shmbridge_register(heap_pa,
+		heap_pa = cma_get_base(cma);
+		heap_size = (size_t)cma_get_size(cma);
+		return qtee_shmbridge_register(heap_pa,
 				heap_size, ns_vmids, ns_vm_perms, 1,
 				PERM_READ | PERM_WRITE, handle);
-	return ret;
+	}
+
+	pr_warn("Could not get heap %d info: No shmbridge created\n", heapid);
+	return 0;
 }
 
 static int qseecom_register_shmbridge(void)
@@ -9287,22 +9286,31 @@ static int qseecom_register_shmbridge(void)
 	if (qseecom_register_heap_shmbridge(ION_QSECOM_TA_HEAP_ID,
 					&qseecom.ta_bridge_handle)) {
 		pr_err("Failed to register shmbridge for ta heap\n");
-		return -ENOMEM;
+		return -EINVAL;
 	}
 
 	if (qseecom_register_heap_shmbridge(ION_QSECOM_HEAP_ID,
 					&qseecom.qseecom_bridge_handle)) {
 		pr_err("Failed to register shmbridge for qseecom heap\n");
 		qtee_shmbridge_deregister(qseecom.ta_bridge_handle);
-		return -ENOMEM;
+		return -EINVAL;
+	}
+
+	if (qseecom_register_heap_shmbridge(ION_USER_CONTIG_HEAP_ID,
+					&qseecom.user_contig_bridge_handle)) {
+		pr_err("Failed to register shmbridge for user contig heap\n");
+		qtee_shmbridge_deregister(qseecom.qseecom_bridge_handle);
+		qtee_shmbridge_deregister(qseecom.ta_bridge_handle);
+		return -EINVAL;
 	}
 	return 0;
 }
 
 static void qseecom_deregister_shmbridge(void)
 {
-	qtee_shmbridge_deregister(qseecom.ta_bridge_handle);
+	qtee_shmbridge_deregister(qseecom.user_contig_bridge_handle);
 	qtee_shmbridge_deregister(qseecom.qseecom_bridge_handle);
+	qtee_shmbridge_deregister(qseecom.ta_bridge_handle);
 }
 
 static int qseecom_probe(struct platform_device *pdev)

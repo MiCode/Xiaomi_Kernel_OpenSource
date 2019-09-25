@@ -1569,7 +1569,8 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 		state = mhi_get_mhi_state(mhi_cntrl);
 		ee = mhi_cntrl->ee;
 		mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
-		MHI_LOG("device ee:%s dev_state:%s\n",
+		MHI_LOG("local ee: %s device ee:%s dev_state:%s\n",
+			TO_MHI_EXEC_STR(ee),
 			TO_MHI_EXEC_STR(mhi_cntrl->ee),
 			TO_MHI_STATE_STR(state));
 	}
@@ -1582,7 +1583,7 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	/* if device in rddm don't bother processing sys error */
-	if (mhi_cntrl->ee == MHI_EE_RDDM) {
+	if (mhi_cntrl->ee == MHI_EE_RDDM && ee != MHI_EE_DISABLE_TRANSITION) {
 		if (mhi_cntrl->ee != ee) {
 			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 					     MHI_CB_EE_RDDM);
@@ -1688,8 +1689,8 @@ int mhi_send_cmd(struct mhi_controller *mhi_cntrl,
 	return 0;
 }
 
-static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
-				 struct mhi_chan *mhi_chan)
+int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
+			struct mhi_chan *mhi_chan)
 {
 	int ret = 0;
 
@@ -2076,7 +2077,7 @@ int mhi_prepare_for_transfer(struct mhi_device *mhi_dev)
 		if (!mhi_chan)
 			continue;
 
-		ret = __mhi_prepare_channel(mhi_cntrl, mhi_chan);
+		ret = mhi_prepare_channel(mhi_cntrl, mhi_chan);
 		if (ret) {
 			MHI_ERR("Error moving chan %s,%d to START state\n",
 				mhi_chan->name, mhi_chan->chan);

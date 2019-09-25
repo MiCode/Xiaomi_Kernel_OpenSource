@@ -15,7 +15,6 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/mutex.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
@@ -74,7 +73,6 @@ struct ab_regulator {
 	/* DT params */
 	bool			swire_control;
 	bool			pd_control;
-	u32			aod_entry_poll_time_ms;
 };
 
 struct ibb_regulator {
@@ -91,9 +89,6 @@ struct qpnp_amoled {
 	struct oledb_regulator	oledb;
 	struct ab_regulator	ab;
 	struct ibb_regulator	ibb;
-	struct mutex		reg_lock;
-	struct work_struct	aod_work;
-	struct workqueue_struct *wq;
 
 	/* DT params */
 	u32			oledb_base;
@@ -226,102 +221,6 @@ static int qpnp_ab_pd_control(struct qpnp_amoled *chip, bool en)
 	return qpnp_amoled_write(chip, AB_LDO_PD_CTL(chip), &val, 1);
 }
 
-#define AB_VREG_OK_POLL_TIME_US		2000
-#define AB_VREG_OK_POLL_HIGH_TRIES	8
-#define AB_VREG_OK_POLL_HIGH_TIME_US	10000
-#define AB_VREG_OK_POLL_AGAIN_TRIES	10
-
-static int qpnp_ab_poll_vreg_ok(struct qpnp_amoled *chip, bool status,
-				u32 poll_time_us)
-{
-	u32 i, poll_us = AB_VREG_OK_POLL_TIME_US, wait_time_us = 0;
-	bool swire_high = false, poll_again = false, monitor = false;
-	int rc;
-	u8 val;
-
-	if (poll_time_us < AB_VREG_OK_POLL_TIME_US)
-		return -EINVAL;
-
-	i = poll_time_us / AB_VREG_OK_POLL_TIME_US;
-loop:
-	while (i--) {
-		/* Write a dummy value before reading AB_STATUS1 */
-		rc = qpnp_amoled_write(chip, AB_STATUS1(chip), &val, 1);
-		if (rc < 0)
-			return rc;
-
-		rc = qpnp_amoled_read(chip, AB_STATUS1(chip), &val, 1);
-		if (rc < 0)
-			return rc;
-
-		wait_time_us += poll_us;
-		if (((val & VREG_OK_BIT) >> VREG_OK_SHIFT) == status) {
-			pr_debug("Waited for %d us\n", wait_time_us);
-
-			/*
-			 * Return if we're polling for VREG_OK low. Else, poll
-			 * for VREG_OK high for at least 80 ms. IF VREG_OK stays
-			 * high, then consider it as a valid SWIRE pulse.
-			 */
-
-			if (status) {
-				swire_high = true;
-				if (!poll_again && !monitor) {
-					pr_debug("SWIRE is high, start monitoring\n");
-					i = AB_VREG_OK_POLL_HIGH_TRIES;
-					poll_us = AB_VREG_OK_POLL_HIGH_TIME_US;
-					wait_time_us = 0;
-					monitor = true;
-				}
-
-				if (poll_again)
-					poll_again = false;
-			} else {
-				return 0;
-			}
-		} else {
-			/*
-			 * If we're here when polling for VREG_OK high, then it
-			 * is possibly because of an intermittent SWIRE pulse.
-			 * Ignore it and poll for valid SWIRE pulse again.
-			 */
-			if (status && swire_high && monitor) {
-				pr_debug("SWIRE is low\n");
-				poll_again = true;
-				swire_high = false;
-				break;
-			}
-
-			if (poll_again)
-				poll_again = false;
-		}
-
-		usleep_range(poll_us, poll_us + 1);
-	}
-
-	/*
-	 * If poll_again is set, then VREG_OK should be polled for another
-	 * 100 ms for valid SWIRE signal.
-	 */
-
-	if (poll_again) {
-		pr_debug("polling again for SWIRE\n");
-		i = AB_VREG_OK_POLL_AGAIN_TRIES;
-		poll_us = AB_VREG_OK_POLL_HIGH_TIME_US;
-		wait_time_us = 0;
-		goto loop;
-	}
-
-	/* If swire_high is set, then it's a valid SWIRE signal, return 0. */
-	if (swire_high) {
-		pr_debug("SWIRE is high\n");
-		return 0;
-	}
-
-	pr_err("AB_STATUS1: %x poll for VREG_OK %d timed out\n", val, status);
-	return -ETIMEDOUT;
-}
-
 static int qpnp_ibb_pd_control(struct qpnp_amoled *chip, bool en)
 {
 	u8 val = en ? ENABLE_PD_BIT : 0;
@@ -330,70 +229,24 @@ static int qpnp_ibb_pd_control(struct qpnp_amoled *chip, bool en)
 					val);
 }
 
-static int qpnp_ibb_aod_config(struct qpnp_amoled *chip, bool aod)
+static int qpnp_ab_ibb_regulator_set_mode(struct regulator_dev *rdev,
+						unsigned int mode)
 {
+	struct qpnp_amoled *chip  = rdev_get_drvdata(rdev);
 	int rc;
-	u8 ps_ctl, smart_ps_ctl, nlimit_dac;
 
-	pr_debug("aod: %d\n", aod);
-	if (aod) {
-		ps_ctl = 0x82;
-		smart_ps_ctl = 0;
-		nlimit_dac = 0;
-	} else {
-		ps_ctl = 0x02;
-		smart_ps_ctl = 0x80;
-		nlimit_dac = 0x3;
+	if (mode != REGULATOR_MODE_NORMAL && mode != REGULATOR_MODE_STANDBY &&
+		mode != REGULATOR_MODE_IDLE) {
+		pr_err("Unsupported mode %u\n", mode);
+		return -EINVAL;
 	}
 
-	rc = qpnp_amoled_write(chip, IBB_SMART_PS_CTL(chip), &smart_ps_ctl, 1);
-	if (rc < 0)
-		return rc;
-
-	rc = qpnp_amoled_write(chip, IBB_NLIMIT_DAC(chip), &nlimit_dac, 1);
-	if (rc < 0)
-		return rc;
-
-	rc = qpnp_amoled_write(chip, IBB_PS_CTL(chip), &ps_ctl, 1);
-	return rc;
-}
-
-static void qpnp_amoled_aod_work(struct work_struct *work)
-{
-	struct qpnp_amoled *chip = container_of(work, struct qpnp_amoled,
-					aod_work);
-	u8 val = 0;
-	unsigned int mode;
-	u32 poll_time_us = 100000;
-	int rc;
-
-	mutex_lock(&chip->reg_lock);
-	mode = chip->ab.vreg.mode;
-	mutex_unlock(&chip->reg_lock);
+	if (mode == chip->ab.vreg.mode || mode == chip->ibb.vreg.mode)
+		return 0;
 
 	pr_debug("mode: %d\n", mode);
-	if (mode == REGULATOR_MODE_NORMAL) {
-		rc = qpnp_ibb_aod_config(chip, true);
-		if (rc < 0)
-			goto error;
 
-		/* poll for VREG_OK high */
-		rc = qpnp_ab_poll_vreg_ok(chip, true, poll_time_us);
-		if (rc < 0)
-			goto error;
-
-		/*
-		 * As per the hardware recommendation, Wait for ~10 ms after
-		 * polling for VREG_OK before changing the configuration when
-		 * exiting from AOD mode.
-		 */
-
-		usleep_range(10000, 10001);
-
-		rc = qpnp_ibb_aod_config(chip, false);
-		if (rc < 0)
-			goto error;
-
+	if (mode == REGULATOR_MODE_NORMAL || mode == REGULATOR_MODE_STANDBY) {
 		if (chip->ibb.pd_control) {
 			rc = qpnp_ibb_pd_control(chip, true);
 			if (rc < 0)
@@ -406,14 +259,6 @@ static void qpnp_amoled_aod_work(struct work_struct *work)
 				goto error;
 		}
 	} else if (mode == REGULATOR_MODE_IDLE) {
-		if (chip->ab.aod_entry_poll_time_ms > 0)
-			poll_time_us = chip->ab.aod_entry_poll_time_ms * 1000;
-
-		/* poll for VREG_OK low */
-		rc = qpnp_ab_poll_vreg_ok(chip, false, poll_time_us);
-		if (rc < 0)
-			goto error;
-
 		if (chip->ibb.pd_control) {
 			rc = qpnp_ibb_pd_control(chip, false);
 			if (rc < 0)
@@ -425,53 +270,12 @@ static void qpnp_amoled_aod_work(struct work_struct *work)
 			if (rc < 0)
 				goto error;
 		}
-
-		val = 0xF1;
-	} else if (mode == REGULATOR_MODE_STANDBY) {
-		/* Restore the normal configuration without any delay */
-		rc = qpnp_ibb_aod_config(chip, false);
-		if (rc < 0)
-			goto error;
-
-		if (chip->ibb.pd_control) {
-			rc = qpnp_ibb_pd_control(chip, true);
-			if (rc < 0)
-				goto error;
-		}
-
-		if (chip->ab.pd_control) {
-			rc = qpnp_ab_pd_control(chip, true);
-			if (rc < 0)
-				goto error;
-		}
 	}
 
-	rc = qpnp_amoled_write(chip, AB_LDO_SW_DBG_CTL(chip), &val, 1);
+	chip->ab.vreg.mode = chip->ibb.vreg.mode = mode;
 error:
 	if (rc < 0)
 		pr_err("Failed to configure for mode %d\n", mode);
-}
-
-static int qpnp_ab_ibb_regulator_set_mode(struct regulator_dev *rdev,
-						unsigned int mode)
-{
-	struct qpnp_amoled *chip  = rdev_get_drvdata(rdev);
-
-	if (mode != REGULATOR_MODE_NORMAL && mode != REGULATOR_MODE_STANDBY &&
-		mode != REGULATOR_MODE_IDLE) {
-		pr_err("Unsupported mode %u\n", mode);
-		return -EINVAL;
-	}
-
-	pr_debug("mode: %d\n", mode);
-	if (mode == chip->ab.vreg.mode || mode == chip->ibb.vreg.mode)
-		return 0;
-
-	mutex_lock(&chip->reg_lock);
-	chip->ab.vreg.mode = chip->ibb.vreg.mode = mode;
-	mutex_unlock(&chip->reg_lock);
-
-	queue_work(chip->wq, &chip->aod_work);
 	return 0;
 }
 
@@ -720,9 +524,6 @@ static int qpnp_amoled_parse_dt(struct qpnp_amoled *chip)
 							"qcom,swire-control");
 			chip->ab.pd_control = of_property_read_bool(temp,
 							"qcom,aod-pd-control");
-			of_property_read_u32(temp,
-				"qcom,aod-entry-poll-time-ms",
-				&chip->ab.aod_entry_poll_time_ms);
 			break;
 		case IBB_PERIPH_TYPE:
 			chip->ibb_base = base;
@@ -758,19 +559,6 @@ static int qpnp_amoled_regulator_probe(struct platform_device *pdev)
 	if (!chip)
 		return -ENOMEM;
 
-	/*
-	 * We need this workqueue to order the mode transitions that require
-	 * timing considerations. This way, we can ensure whenever the mode
-	 * transition is requested, it can be queued with high priority.
-	 */
-	chip->wq = alloc_ordered_workqueue("qpnp_amoled_wq", WQ_HIGHPRI);
-	if (!chip->wq) {
-		dev_err(chip->dev, "Unable to alloc workqueue\n");
-		return -ENOMEM;
-	}
-
-	mutex_init(&chip->reg_lock);
-	INIT_WORK(&chip->aod_work, qpnp_amoled_aod_work);
 	chip->dev = &pdev->dev;
 
 	chip->regmap = dev_get_regmap(pdev->dev.parent, NULL);
@@ -789,23 +577,15 @@ static int qpnp_amoled_regulator_probe(struct platform_device *pdev)
 	}
 
 	rc = qpnp_amoled_hw_init(chip);
-	if (rc < 0) {
+	if (rc < 0)
 		dev_err(chip->dev, "Failed to initialize HW rc=%d\n", rc);
-		goto error;
-	}
 
-	return 0;
 error:
-	destroy_workqueue(chip->wq);
 	return rc;
 }
 
 static int qpnp_amoled_regulator_remove(struct platform_device *pdev)
 {
-	struct qpnp_amoled *chip = dev_get_drvdata(&pdev->dev);
-
-	cancel_work_sync(&chip->aod_work);
-	destroy_workqueue(chip->wq);
 	return 0;
 }
 

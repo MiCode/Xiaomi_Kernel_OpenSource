@@ -385,6 +385,9 @@ static void ipa3_handle_mhi_vote_req(struct qmi_handle *qmi_handle,
 					IPA_QMI_ERR_NOT_SUPPORTED_V01;
 			}
 			resp = &resp2;
+		} else {
+			IPAWANERR("clk_rate_valid is false\n");
+			return;
 		}
 	} else {
 		resp = imp_handle_vote_req(vote_req->mhi_vote);
@@ -1037,7 +1040,7 @@ int ipa3_qmi_rmv_offload_request_send(
 	ipa3_qmi_ctx->num_ipa_offload_connection);
 
 	/*  max as num_ipa_offload_connection */
-	if (req->filter_handle_list_len >=
+	if (req->filter_handle_list_len >
 		ipa3_qmi_ctx->num_ipa_offload_connection) {
 		IPAWANDBG(
 		"cur(%d), req_rmv(%d)\n",

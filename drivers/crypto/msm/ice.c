@@ -57,6 +57,7 @@
 
 #define ICE_CRYPTO_CXT_FDE 1
 #define ICE_CRYPTO_CXT_FBE 2
+#define ICE_INSTANCE_TYPE_LENGTH 12
 
 static int ice_fde_flag;
 
@@ -654,37 +655,33 @@ static int register_ice_device(struct ice_device *ice_dev)
 	unsigned int baseminor = 0;
 	unsigned int count = 1;
 	struct device *class_dev;
-	int is_sdcc_ice = !strcmp(ice_dev->ice_instance_type, "sdcc");
-	int is_ufscard_ice = !strcmp(ice_dev->ice_instance_type, "ufscard");
+	char ice_type[ICE_INSTANCE_TYPE_LENGTH];
+
+	if (!strcmp(ice_dev->ice_instance_type, "sdcc"))
+		strlcpy(ice_type, QCOM_SDCC_ICE_DEV, sizeof(ice_type));
+	else if (!strcmp(ice_dev->ice_instance_type, "ufscard"))
+		strlcpy(ice_type, QCOM_UFS_CARD_ICE_DEV, sizeof(ice_type));
+	else
+		strlcpy(ice_type, QCOM_UFS_ICE_DEV, sizeof(ice_type));
 
 	rc = alloc_chrdev_region(&ice_dev->device_no, baseminor, count,
-			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : is_ufscard_ice ?
-				QCOM_UFS_CARD_ICE_DEV : QCOM_UFS_ICE_DEV);
+			ice_type);
 	if (rc < 0) {
 		pr_err("alloc_chrdev_region failed %d for %s\n", rc,
-			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : is_ufscard_ice ?
-				QCOM_UFS_CARD_ICE_DEV : QCOM_UFS_ICE_DEV);
+			ice_type);
 		return rc;
 	}
-	ice_dev->driver_class = class_create(THIS_MODULE,
-			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : is_ufscard_ice ?
-				QCOM_UFS_CARD_ICE_DEV : QCOM_UFS_ICE_DEV);
+	ice_dev->driver_class = class_create(THIS_MODULE, ice_type);
 	if (IS_ERR(ice_dev->driver_class)) {
 		rc = -ENOMEM;
-		pr_err("class_create failed %d for %s\n", rc,
-			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : is_ufscard_ice ?
-				QCOM_UFS_CARD_ICE_DEV : QCOM_UFS_ICE_DEV);
+		pr_err("class_create failed %d for %s\n", rc, ice_type);
 		goto exit_unreg_chrdev_region;
 	}
 	class_dev = device_create(ice_dev->driver_class, NULL,
-					ice_dev->device_no, NULL,
-			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : is_ufscard_ice ?
-				QCOM_UFS_CARD_ICE_DEV : QCOM_UFS_ICE_DEV);
+					ice_dev->device_no, NULL, ice_type);
 
 	if (!class_dev) {
-		pr_err("class_device_create failed %d for %s\n", rc,
-			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : is_ufscard_ice ?
-				QCOM_UFS_CARD_ICE_DEV : QCOM_UFS_ICE_DEV);
+		pr_err("class_device_create failed %d for %s\n", rc, ice_type);
 		rc = -ENOMEM;
 		goto exit_destroy_class;
 	}
@@ -694,9 +691,7 @@ static int register_ice_device(struct ice_device *ice_dev)
 
 	rc = cdev_add(&ice_dev->cdev, MKDEV(MAJOR(ice_dev->device_no), 0), 1);
 	if (rc < 0) {
-		pr_err("cdev_add failed %d for %s\n", rc,
-			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : is_ufscard_ice ?
-				QCOM_UFS_CARD_ICE_DEV : QCOM_UFS_ICE_DEV);
+		pr_err("cdev_add failed %d for %s\n", rc, ice_type);
 		goto exit_destroy_device;
 	}
 	return  0;

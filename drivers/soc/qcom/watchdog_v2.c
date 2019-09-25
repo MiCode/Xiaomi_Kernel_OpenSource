@@ -92,7 +92,6 @@ struct msm_watchdog_data {
 	unsigned long long thread_start;
 	unsigned long long ping_start[NR_CPUS];
 	unsigned long long ping_end[NR_CPUS];
-	unsigned int cpu_scandump_sizes[NR_CPUS];
 };
 
 /*
@@ -550,95 +549,6 @@ static irqreturn_t wdog_ppi_bark(int irq, void *dev_id)
 	return wdog_bark_handler(irq, wdog_dd);
 }
 
-static void configure_bark_dump(struct msm_watchdog_data *wdog_dd)
-{
-	int ret;
-	struct msm_dump_entry dump_entry;
-	struct msm_dump_data *cpu_data;
-	int cpu;
-	void *cpu_buf;
-
-	cpu_data = kcalloc(num_present_cpus(), sizeof(struct msm_dump_data),
-								GFP_KERNEL);
-	if (!cpu_data)
-		goto out0;
-
-	cpu_buf = kcalloc(num_present_cpus(), MAX_CPU_CTX_SIZE, GFP_KERNEL);
-	if (!cpu_buf)
-		goto out1;
-
-	for_each_cpu(cpu, cpu_present_mask) {
-		cpu_data[cpu].addr = virt_to_phys(cpu_buf +
-						cpu * MAX_CPU_CTX_SIZE);
-		cpu_data[cpu].len = MAX_CPU_CTX_SIZE;
-		snprintf(cpu_data[cpu].name, sizeof(cpu_data[cpu].name),
-			"KCPU_CTX%d", cpu);
-		dump_entry.id = MSM_DUMP_DATA_CPU_CTX + cpu;
-		dump_entry.addr = virt_to_phys(&cpu_data[cpu]);
-		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
-					     &dump_entry);
-		/*
-		 * Don't free the buffers in case of error since
-		 * registration may have succeeded for some cpus.
-		 */
-		if (ret)
-			pr_err("cpu %d reg dump setup failed\n", cpu);
-	}
-
-	return;
-out1:
-	kfree(cpu_data);
-out0:
-	return;
-}
-
-static void configure_scandump(struct msm_watchdog_data *wdog_dd)
-{
-	int ret;
-	struct msm_dump_entry dump_entry;
-	struct msm_dump_data *cpu_data;
-	int cpu;
-	static dma_addr_t dump_addr;
-	static void *dump_vaddr;
-	unsigned int scandump_size;
-
-	for_each_cpu(cpu, cpu_present_mask) {
-		scandump_size = wdog_dd->cpu_scandump_sizes[cpu];
-		cpu_data = devm_kzalloc(wdog_dd->dev,
-					sizeof(struct msm_dump_data),
-					GFP_KERNEL);
-		if (!cpu_data)
-			continue;
-
-		dump_vaddr = (void *) dma_alloc_coherent(wdog_dd->dev,
-							 scandump_size,
-							 &dump_addr,
-							 GFP_KERNEL);
-		if (!dump_vaddr) {
-			dev_err(wdog_dd->dev, "Couldn't get memory for dump\n");
-			continue;
-		}
-		memset(dump_vaddr, 0x0, scandump_size);
-
-		cpu_data->addr = dump_addr;
-		cpu_data->len = scandump_size;
-		snprintf(cpu_data->name, sizeof(cpu_data->name),
-			"KSCANDUMP%d", cpu);
-		dump_entry.id = MSM_DUMP_DATA_SCANDUMP_PER_CPU + cpu;
-		dump_entry.addr = virt_to_phys(cpu_data);
-		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
-					     &dump_entry);
-		if (ret) {
-			dev_err(wdog_dd->dev, "Dump setup failed, id = %d\n",
-				MSM_DUMP_DATA_SCANDUMP_PER_CPU + cpu);
-			dma_free_coherent(wdog_dd->dev, scandump_size,
-					  dump_vaddr,
-					  dump_addr);
-			devm_kfree(wdog_dd->dev, cpu_data);
-		}
-	}
-}
-
 static int init_watchdog_sysfs(struct msm_watchdog_data *wdog_dd)
 {
 	int error = 0;
@@ -699,8 +609,6 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	delay_time = msecs_to_jiffies(wdog_dd->pet_time);
 	wdog_dd->min_slack_ticks = UINT_MAX;
 	wdog_dd->min_slack_ns = ULLONG_MAX;
-	configure_scandump(wdog_dd);
-	configure_bark_dump(wdog_dd);
 	timeout = (wdog_dd->bark_time * WDT_HZ)/1000;
 	__raw_writel(timeout, wdog_dd->base + WDT0_BARK_TIME);
 	__raw_writel(timeout + 3*WDT_HZ, wdog_dd->base + WDT0_BITE_TIME);
@@ -754,7 +662,7 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 {
 	struct device_node *node = pdev->dev.of_node;
 	struct resource *res;
-	int ret, cpu, num_scandump_sizes;
+	int ret;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "wdt-base");
 	if (!res)
@@ -815,18 +723,6 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 	}
 	pdata->wakeup_irq_enable = of_property_read_bool(node,
 							 "qcom,wakeup-enable");
-
-	num_scandump_sizes = of_property_count_elems_of_size(node,
-							"qcom,scandump-sizes",
-							sizeof(u32));
-	if (num_scandump_sizes < 0 || num_scandump_sizes != num_possible_cpus())
-		dev_info(&pdev->dev, "%s scandump sizes property not correct\n",
-			__func__);
-	else
-		for_each_cpu(cpu, cpu_present_mask)
-			of_property_read_u32_index(node, "qcom,scandump-sizes",
-						   cpu,
-					&pdata->cpu_scandump_sizes[cpu]);
 	pdata->irq_ppi = irq_is_percpu(pdata->bark_irq);
 	dump_pdata(pdata);
 	return 0;

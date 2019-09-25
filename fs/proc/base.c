@@ -3070,7 +3070,7 @@ static ssize_t proc_sched_task_boost_write(struct file *file,
 	err = kstrtoint(strstrip(buffer), 0, &sched_boost);
 	if (err)
 		goto out;
-	if (sched_boost < 0 || sched_boost > 2) {
+	if (sched_boost < TASK_BOOST_NONE || sched_boost >= TASK_BOOST_END) {
 		err = -EINVAL;
 		goto out;
 	}

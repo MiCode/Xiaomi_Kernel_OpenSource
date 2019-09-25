@@ -120,3 +120,12 @@ config QTI_LMH_CPU_VDD_COOLING_DEVICE
 	   These cooling devices will be used by QTI chipset to place a
 	   request to limits hardware for a minimum CPU railway voltage
 	   corner at cold temperature condition.
+
+config QTI_LIMITS_ISENSE_CDSP
+        tristate "QTI Limits Isense Driver"
+        depends on QCOM_SMEM
+        help
+          This enables driver to read cdsp isense calibration data from
+          shared memory and enable sysfs file support to access this data. This
+          driver is required for the chipsets where isense hardware is present
+          as part of cdsp subsystem.

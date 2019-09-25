@@ -423,6 +423,8 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 		}
 		break;
 	}
+	case CVP_KMD_UPDATE_POWER:
+		break;
 	default:
 		dprintk(CVP_ERR, "%s: unknown cmd type 0x%x\n",
 			__func__, kp->type);
@@ -593,6 +595,8 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 		break;
 	}
 	case CVP_KMD_SET_SYS_PROPERTY:
+		break;
+	case CVP_KMD_UPDATE_POWER:
 		break;
 	default:
 		dprintk(CVP_ERR, "%s: unknown cmd type 0x%x\n",

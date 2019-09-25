@@ -891,8 +891,9 @@ static void send_nmi_to_gmu(struct adreno_device *adreno_dev)
 
 	/* Make sure the interrupt is masked before causing it */
 	wmb();
-	adreno_write_gmureg(adreno_dev,
-		ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
+		adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
 	adreno_write_gmureg(adreno_dev,
 		ADRENO_REG_GMU_CM3_CFG,
 		(1 << GMU_CM3_CFG_NONMASKINTR_SHIFT));

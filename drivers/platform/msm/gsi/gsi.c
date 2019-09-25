@@ -168,7 +168,8 @@ static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 		}
 
 		if (op == GSI_CH_START) {
-			if (curr_state == GSI_CHAN_STATE_STARTED) {
+			if (curr_state == GSI_CHAN_STATE_STARTED ||
+				curr_state == GSI_CHAN_STATE_FLOW_CONTROL) {
 				ctx->state = curr_state;
 				return;
 			}
@@ -2422,6 +2423,11 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
 	ctx->stats.dp.last_timestamp = jiffies_to_msecs(jiffies);
 	atomic_inc(&gsi_ctx->num_chan);
 
+	if (props->prot == GSI_CHAN_PROT_GCI) {
+		gsi_ctx->coal_info.ch_id = props->ch_id;
+		gsi_ctx->coal_info.evchid = props->evt_ring_hdl;
+	}
+
 	return GSI_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(gsi_alloc_channel);
@@ -2819,7 +2825,8 @@ int gsi_start_channel(unsigned long chan_hdl)
 		ctx,
 		GSI_START_CMD_TIMEOUT_MS, op);
 
-	if (ctx->state != GSI_CHAN_STATE_STARTED) {
+	if (ctx->state != GSI_CHAN_STATE_STARTED &&
+		ctx->state != GSI_CHAN_STATE_FLOW_CONTROL) {
 		/*
 		 * Hardware returned unexpected status, unexpected
 		 * hardware state.
@@ -3153,6 +3160,10 @@ int gsi_dealloc_channel(unsigned long chan_hdl)
 		atomic_dec(&ctx->evtr->chan_ref_cnt);
 	atomic_dec(&gsi_ctx->num_chan);
 
+	if (ctx->props.prot == GSI_CHAN_PROT_GCI) {
+		gsi_ctx->coal_info.ch_id = GSI_CHAN_MAX;
+		gsi_ctx->coal_info.evchid = GSI_EVT_RING_MAX;
+	}
 	return GSI_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(gsi_dealloc_channel);
@@ -3705,7 +3716,7 @@ EXPORT_SYMBOL(gsi_poll_n_channel);
 
 int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 {
-	struct gsi_chan_ctx *ctx;
+	struct gsi_chan_ctx *ctx, *coal_ctx;
 	enum gsi_chan_mode curr;
 	unsigned long flags;
 	enum gsi_chan_mode chan_mode;
@@ -3751,8 +3762,14 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 		gsi_writel(1 << ctx->evtr->id, gsi_ctx->base +
 			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(gsi_ctx->per.ee));
 		atomic_set(&ctx->poll_mode, mode);
-		if ((ctx->props.prot == GSI_CHAN_PROT_GCI) && ctx->evtr->chan)
+		if ((ctx->props.prot == GSI_CHAN_PROT_GCI) && ctx->evtr->chan) {
 			atomic_set(&ctx->evtr->chan->poll_mode, mode);
+		} else if (gsi_ctx->coal_info.evchid == ctx->evtr->id) {
+			coal_ctx = &gsi_ctx->chan[gsi_ctx->coal_info.ch_id];
+			if (coal_ctx != NULL)
+				atomic_set(&coal_ctx->poll_mode, mode);
+		}
+
 		GSIDBG("set gsi_ctx evtr_id %d to %d mode\n",
 			ctx->evtr->id, mode);
 		ctx->stats.callback_to_poll++;
@@ -3761,8 +3778,13 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 	if (curr == GSI_CHAN_MODE_POLL &&
 			mode == GSI_CHAN_MODE_CALLBACK) {
 		atomic_set(&ctx->poll_mode, mode);
-		if ((ctx->props.prot == GSI_CHAN_PROT_GCI) && ctx->evtr->chan)
+		if ((ctx->props.prot == GSI_CHAN_PROT_GCI) && ctx->evtr->chan) {
 			atomic_set(&ctx->evtr->chan->poll_mode, mode);
+		} else if (gsi_ctx->coal_info.evchid == ctx->evtr->id) {
+			coal_ctx = &gsi_ctx->chan[gsi_ctx->coal_info.ch_id];
+			if (coal_ctx != NULL)
+				atomic_set(&coal_ctx->poll_mode, mode);
+		}
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, ~0);
 		GSIDBG("set gsi_ctx evtr_id %d to %d mode\n",
 			ctx->evtr->id, mode);

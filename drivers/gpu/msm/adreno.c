@@ -34,6 +34,7 @@ static unsigned int counter_delta(struct kgsl_device *device,
 static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
 	.bus = {
 		.max = 350,
+		.floating = true,
 	},
 	.device_id = KGSL_DEVICE_3D0,
 };
@@ -877,32 +878,6 @@ static void adreno_of_get_ca_aware_properties(struct adreno_device *adreno_dev,
 	}
 }
 
-static int _of_property_read_ddrtype(struct device_node *node, const char *base,
-		u32 *ptr)
-{
-	char str[32];
-	int ddr = of_fdt_get_ddrtype();
-
-	/* of_fdt_get_ddrtype returns error if the DDR type isn't determined */
-	if (ddr >= 0) {
-		int ret;
-
-		/* Construct expanded string for the DDR type  */
-		ret = snprintf(str, sizeof(str), "%s-ddr%d", base, ddr);
-
-		/* WARN_ON() if the array size was too small for the string */
-		if (WARN_ON(ret > sizeof(str)))
-			return -ENOMEM;
-
-		/* Read the expanded string */
-		if (!of_property_read_u32(node, str, ptr))
-			return 0;
-	}
-
-	/* Read the default string */
-	return of_property_read_u32(node, base, ptr);
-}
-
 static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 		struct device_node *node)
 {
@@ -950,7 +925,7 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 		of_property_read_u32(child, "qcom,acd-level",
 			&level->acd_level);
 
-		ret = _of_property_read_ddrtype(child,
+		ret = kgsl_of_property_read_ddrtype(child,
 			"qcom,bus-freq", &level->bus_freq);
 		if (ret) {
 			dev_err(device->dev,
@@ -960,11 +935,11 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 		}
 
 		level->bus_min = level->bus_freq;
-		_of_property_read_ddrtype(child,
+		kgsl_of_property_read_ddrtype(child,
 			"qcom,bus-min", &level->bus_min);
 
 		level->bus_max = level->bus_freq;
-		_of_property_read_ddrtype(child,
+		kgsl_of_property_read_ddrtype(child,
 			"qcom,bus-max", &level->bus_max);
 	}
 

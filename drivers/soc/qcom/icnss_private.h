@@ -157,7 +157,6 @@ enum icnss_driver_state {
 	ICNSS_MODE_ON,
 	ICNSS_BLOCK_SHUTDOWN,
 	ICNSS_PDR,
-	ICNSS_MODEM_CRASHED,
 };
 
 struct ce_irq_list {
@@ -351,6 +350,12 @@ struct icnss_priv {
 	struct kobject *icnss_kobject;
 	atomic_t is_shutdown;
 
+};
+
+struct icnss_reg_info {
+	uint32_t mem_type;
+	uint32_t reg_offset;
+	uint32_t data_len;
 };
 
 int icnss_call_driver_uevent(struct icnss_priv *priv,

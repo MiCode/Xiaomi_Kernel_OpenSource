@@ -26,7 +26,7 @@
 #include "clk-regmap.h"
 #include "common.h"
 #include "reset.h"
-#include "vdd-level.h"
+#include "vdd-level-lito.h"
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);

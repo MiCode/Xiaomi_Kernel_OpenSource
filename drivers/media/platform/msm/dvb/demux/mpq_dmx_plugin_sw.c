@@ -77,7 +77,7 @@ static int mpq_sw_dmx_write_to_decoder(struct dvb_demux_feed *feed,
 }
 
 static int mpq_sw_dmx_set_source(struct dmx_demux *demux,
-		const dmx_source_t *src)
+		const enum dmx_source_t *src)
 {
 	int ret = -EINVAL;
 

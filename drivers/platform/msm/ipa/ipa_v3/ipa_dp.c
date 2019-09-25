@@ -91,6 +91,7 @@ static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys);
 static void ipa3_replenish_rx_work_func(struct work_struct *work);
 static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys);
 static void ipa3_replenish_rx_page_cache(struct ipa3_sys_context *sys);
+static void ipa3_wq_page_repl(struct work_struct *work);
 static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys);
 static struct ipa3_rx_pkt_wrapper *ipa3_alloc_rx_pkt_page(gfp_t flag,
 	bool is_tmp_alloc);
@@ -1108,21 +1109,40 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	}
 
 	if (ep->sys->repl_hdlr == ipa3_replenish_rx_page_recycle) {
-		ep->sys->repl = kzalloc(sizeof(*ep->sys->repl), GFP_KERNEL);
-		if (!ep->sys->repl) {
+		ep->sys->page_recycle_repl = kzalloc(
+			sizeof(*ep->sys->page_recycle_repl), GFP_KERNEL);
+		if (!ep->sys->page_recycle_repl) {
 			IPAERR("failed to alloc repl for client %d\n",
 					sys_in->client);
 			result = -ENOMEM;
 			goto fail_gen2;
 		}
-		atomic_set(&ep->sys->repl->pending, 0);
-		ep->sys->repl->capacity = (ep->sys->rx_pool_sz + 1) * 2;
+		atomic_set(&ep->sys->page_recycle_repl->pending, 0);
+		ep->sys->page_recycle_repl->capacity =
+				(ep->sys->rx_pool_sz + 1) * 2;
 
+		ep->sys->page_recycle_repl->cache =
+				kcalloc(ep->sys->page_recycle_repl->capacity,
+				sizeof(void *), GFP_KERNEL);
+		atomic_set(&ep->sys->page_recycle_repl->head_idx, 0);
+		atomic_set(&ep->sys->page_recycle_repl->tail_idx, 0);
+		ep->sys->repl = kzalloc(sizeof(*ep->sys->repl), GFP_KERNEL);
+		if (!ep->sys->repl) {
+			IPAERR("failed to alloc repl for client %d\n",
+				   sys_in->client);
+			result = -ENOMEM;
+			goto fail_page_recycle_repl;
+		}
+		ep->sys->repl->capacity = (ep->sys->rx_pool_sz + 1);
+
+		atomic_set(&ep->sys->repl->pending, 0);
 		ep->sys->repl->cache = kcalloc(ep->sys->repl->capacity,
 				sizeof(void *), GFP_KERNEL);
 		atomic_set(&ep->sys->repl->head_idx, 0);
 		atomic_set(&ep->sys->repl->tail_idx, 0);
+
 		ipa3_replenish_rx_page_cache(ep->sys);
+		ipa3_wq_page_repl(&ep->sys->repl_work);
 	}
 
 	if (IPA_CLIENT_IS_CONS(sys_in->client)) {
@@ -1195,6 +1215,11 @@ fail_repl:
 	ep->sys->repl_hdlr = ipa3_replenish_rx_cache;
 	ep->sys->repl->capacity = 0;
 	kfree(ep->sys->repl);
+fail_page_recycle_repl:
+	if (ep->sys->page_recycle_repl) {
+		ep->sys->page_recycle_repl->capacity = 0;
+		kfree(ep->sys->page_recycle_repl);
+	}
 fail_gen2:
 	ipa_pm_deregister(ep->sys->pm_hdl);
 fail_pm:
@@ -1801,13 +1826,12 @@ static struct ipa3_rx_pkt_wrapper *ipa3_alloc_rx_pkt_page(
 	flag |= __GFP_NOMEMALLOC;
 	rx_pkt = kmem_cache_zalloc(ipa3_ctx->rx_pkt_wrapper_cache,
 		flag);
-	if (!rx_pkt)
+	if (unlikely(!rx_pkt))
 		return NULL;
 	rx_pkt->len = PAGE_SIZE << IPA_WAN_PAGE_ORDER;
 	rx_pkt->page_data.page = __dev_alloc_pages(flag,
 		IPA_WAN_PAGE_ORDER);
-
-	if (!rx_pkt->page_data.page)
+	if (unlikely(!rx_pkt->page_data.page))
 		goto fail_page_alloc;
 
 	rx_pkt->page_data.dma_addr = dma_map_page(ipa3_ctx->pdev,
@@ -1838,7 +1862,7 @@ static void ipa3_replenish_rx_page_cache(struct ipa3_sys_context *sys)
 	struct ipa3_rx_pkt_wrapper *rx_pkt;
 	u32 curr;
 
-	for (curr = 0; curr < sys->repl->capacity; curr++) {
+	for (curr = 0; curr < sys->page_recycle_repl->capacity; curr++) {
 		rx_pkt = ipa3_alloc_rx_pkt_page(GFP_KERNEL, false);
 		if (unlikely(!rx_pkt)) {
 			IPAERR("ipa3_alloc_rx_pkt_page fails\n");
@@ -1846,12 +1870,74 @@ static void ipa3_replenish_rx_page_cache(struct ipa3_sys_context *sys)
 			break;
 		}
 		rx_pkt->sys = sys;
-		sys->repl->cache[curr] = rx_pkt;
+		sys->page_recycle_repl->cache[curr] = rx_pkt;
 	}
 
 	return;
 
 }
+
+static void ipa3_wq_page_repl(struct work_struct *work)
+{
+	struct ipa3_sys_context *sys;
+	struct ipa3_rx_pkt_wrapper *rx_pkt;
+	u32 next;
+	u32 curr;
+
+	sys = container_of(work, struct ipa3_sys_context, repl_work);
+	atomic_set(&sys->repl->pending, 0);
+	curr = atomic_read(&sys->repl->tail_idx);
+
+begin:
+	while (1) {
+		next = (curr + 1) % sys->repl->capacity;
+		if (unlikely(next == atomic_read(&sys->repl->head_idx)))
+			goto fail_kmem_cache_alloc;
+		rx_pkt = ipa3_alloc_rx_pkt_page(GFP_KERNEL, true);
+		if (unlikely(!rx_pkt)) {
+			IPAERR("ipa3_alloc_rx_pkt_page fails\n");
+			break;
+		}
+		rx_pkt->sys = sys;
+		sys->repl->cache[curr] = rx_pkt;
+		curr = next;
+		/* ensure write is done before setting tail index */
+		mb();
+		atomic_set(&sys->repl->tail_idx, next);
+	}
+
+	return;
+
+fail_kmem_cache_alloc:
+	if (atomic_read(&sys->repl->tail_idx) ==
+			atomic_read(&sys->repl->head_idx)) {
+		if (sys->ep->client == IPA_CLIENT_APPS_WAN_CONS ||
+			sys->ep->client == IPA_CLIENT_APPS_WAN_COAL_CONS)
+			IPA_STATS_INC_CNT(ipa3_ctx->stats.wan_repl_rx_empty);
+		pr_err_ratelimited("%s sys=%pK wq_repl ring empty\n",
+				__func__, sys);
+		goto begin;
+	}
+
+}
+
+static inline void __trigger_repl_work(struct ipa3_sys_context *sys)
+{
+	int tail, head, avail;
+
+	if (atomic_read(&sys->repl->pending))
+		return;
+
+	tail = atomic_read(&sys->repl->tail_idx);
+	head = atomic_read(&sys->repl->head_idx);
+	avail = (tail - head) % sys->repl->capacity;
+
+	if (avail < sys->repl->capacity / 4) {
+		atomic_set(&sys->repl->pending, 1);
+		queue_work(sys->repl_wq, &sys->repl_work);
+	}
+}
+
 
 static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 {
@@ -1860,37 +1946,38 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 	int rx_len_cached = 0;
 	struct gsi_xfer_elem gsi_xfer_elem_array[IPA_REPL_XFER_MAX];
 	u32 curr;
+	u32 curr_wq;
 	int idx = 0;
 	struct page *cur_page;
-	gfp_t flag;
 
 	/* start replenish only when buffers go lower than the threshold */
 	if (sys->rx_pool_sz - sys->len < IPA_REPL_XFER_THRESH)
 		return;
 
-	flag = gfp_any();
 	spin_lock_bh(&sys->spinlock);
 	rx_len_cached = sys->len;
-	curr = atomic_read(&sys->repl->head_idx);
+	curr = atomic_read(&sys->page_recycle_repl->head_idx);
+	curr_wq = atomic_read(&sys->repl->head_idx);
 
 	while (rx_len_cached < sys->rx_pool_sz) {
-		cur_page = sys->repl->cache[curr]->page_data.page;
+		cur_page = sys->page_recycle_repl->cache[curr]->page_data.page;
 		/* Found an idle page that can be used */
 		if (page_ref_count(cur_page) == 1) {
 			page_ref_inc(cur_page);
-			rx_pkt = sys->repl->cache[curr];
-			curr = (++curr == sys->repl->capacity) ? 0 : curr;
+			rx_pkt = sys->page_recycle_repl->cache[curr];
+			curr = (++curr == sys->page_recycle_repl->capacity) ?
+								0 : curr;
 		} else {
 			/*
 			 * Could not find idle page at curr index.
 			 * Allocate a new one.
 			 */
-			rx_pkt = ipa3_alloc_rx_pkt_page(flag, true);
-			if (!rx_pkt && flag == GFP_ATOMIC)
+			if (curr_wq == atomic_read(&sys->repl->tail_idx))
 				break;
-			else if (unlikely(!rx_pkt))
-				goto fail_kmem_cache_alloc;
-			rx_pkt->sys = sys;
+			rx_pkt = sys->repl->cache[curr_wq];
+			curr_wq = (++curr_wq == sys->repl->capacity) ?
+								 0 : curr_wq;
+			atomic_set(&sys->repl->head_idx, curr_wq);
 		}
 
 		dma_sync_single_for_device(ipa3_ctx->pdev,
@@ -1927,7 +2014,7 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 	if (likely(ret == GSI_STATUS_SUCCESS)) {
 		/* ensure write is done before setting head index */
 		mb();
-		atomic_set(&sys->repl->head_idx, curr);
+		atomic_set(&sys->page_recycle_repl->head_idx, curr);
 		sys->len = rx_len_cached;
 	} else {
 		/* we don't expect this will happen */
@@ -1935,15 +2022,21 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 		ipa_assert();
 	}
 	spin_unlock_bh(&sys->spinlock);
+	__trigger_repl_work(sys);
 
-	if (rx_len_cached < sys->rx_pool_sz) {
+	if (rx_len_cached <= IPA_DEFAULT_SYS_YELLOW_WM) {
+		if (sys->ep->client == IPA_CLIENT_APPS_WAN_CONS ||
+			sys->ep->client == IPA_CLIENT_APPS_WAN_COAL_CONS)
+			IPA_STATS_INC_CNT(ipa3_ctx->stats.wan_rx_empty);
+		else if (sys->ep->client == IPA_CLIENT_APPS_LAN_CONS)
+			IPA_STATS_INC_CNT(ipa3_ctx->stats.lan_rx_empty);
+		else
+			WARN_ON(1);
 		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
-			msecs_to_jiffies(1));
+				msecs_to_jiffies(1));
 	}
+
 	return;
-fail_kmem_cache_alloc:
-	ipa_assert();
-	spin_unlock_bh(&sys->spinlock);
 }
 
 static void ipa3_replenish_wlan_rx_cache(struct ipa3_sys_context *sys)
@@ -2307,23 +2400,6 @@ done:
 	}
 }
 
-static inline void __trigger_repl_work(struct ipa3_sys_context *sys)
-{
-	int tail, head, avail;
-
-	if (atomic_read(&sys->repl->pending))
-		return;
-
-	tail = atomic_read(&sys->repl->tail_idx);
-	head = atomic_read(&sys->repl->head_idx);
-	avail = (tail - head) % sys->repl->capacity;
-
-	if (avail < sys->repl->capacity / 4) {
-		atomic_set(&sys->repl->pending, 1);
-		queue_work(sys->repl_wq, &sys->repl_work);
-	}
-}
-
 static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 {
 	struct ipa3_rx_pkt_wrapper *rx_pkt;
@@ -2449,12 +2525,12 @@ static void free_rx_page(void *chan_user_data, void *xfer_user_data)
 	struct ipa3_sys_context *sys = rx_pkt->sys;
 	int i;
 
-	for (i = 0; i < sys->repl->capacity; i++)
-		if (sys->repl->cache[i] == rx_pkt)
+	for (i = 0; i < sys->page_recycle_repl->capacity; i++)
+		if (sys->page_recycle_repl->cache[i] == rx_pkt)
 			break;
-	if (i < sys->repl->capacity) {
+	if (i < sys->page_recycle_repl->capacity) {
 		page_ref_dec(rx_pkt->page_data.page);
-		sys->repl->cache[i] = NULL;
+		sys->page_recycle_repl->cache[i] = NULL;
 	}
 	dma_unmap_page(ipa3_ctx->pdev, rx_pkt->page_data.dma_addr,
 		rx_pkt->len, DMA_FROM_DEVICE);
@@ -2492,38 +2568,49 @@ static void ipa3_cleanup_rx(struct ipa3_sys_context *sys)
 	spin_unlock_bh(&sys->spinlock);
 
 	if (sys->repl) {
-		if (!ipa3_ctx->ipa_wan_skb_page) {
-			head = atomic_read(&sys->repl->head_idx);
-			tail = atomic_read(&sys->repl->tail_idx);
-			while (head != tail) {
-				rx_pkt = sys->repl->cache[head];
+		head = atomic_read(&sys->repl->head_idx);
+		tail = atomic_read(&sys->repl->tail_idx);
+		while (head != tail) {
+			rx_pkt = sys->repl->cache[head];
+			if (!ipa3_ctx->ipa_wan_skb_page) {
 				dma_unmap_single(ipa3_ctx->pdev,
 					rx_pkt->data.dma_addr,
 					sys->rx_buff_sz,
 					DMA_FROM_DEVICE);
 				sys->free_skb(rx_pkt->data.skb);
-				kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache,
-					rx_pkt);
-				head = (head + 1) % sys->repl->capacity;
+			} else {
+				dma_unmap_page(ipa3_ctx->pdev,
+					rx_pkt->page_data.dma_addr,
+					rx_pkt->len,
+					DMA_FROM_DEVICE);
+				__free_pages(rx_pkt->page_data.page,
+					IPA_WAN_PAGE_ORDER);
 			}
-		} else {
-			for (i = 0; i < sys->repl->capacity; i++) {
-				rx_pkt = sys->repl->cache[i];
-				if (rx_pkt) {
-					dma_unmap_page(ipa3_ctx->pdev,
-						rx_pkt->page_data.dma_addr,
-						rx_pkt->len,
-						DMA_FROM_DEVICE);
-					__free_pages(rx_pkt->page_data.page,
-						IPA_WAN_PAGE_ORDER);
-					kmem_cache_free(
-						ipa3_ctx->rx_pkt_wrapper_cache,
-						rx_pkt);
-				}
-			}
+			kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache,
+				rx_pkt);
+			head = (head + 1) % sys->repl->capacity;
 		}
+
 		kfree(sys->repl->cache);
 		kfree(sys->repl);
+	}
+	if (sys->page_recycle_repl) {
+		for (i = 0; i < sys->page_recycle_repl->capacity; i++) {
+			rx_pkt = sys->page_recycle_repl->cache[i];
+			if (rx_pkt) {
+				dma_unmap_page(ipa3_ctx->pdev,
+					rx_pkt->page_data.dma_addr,
+					rx_pkt->len,
+					DMA_FROM_DEVICE);
+				__free_pages(rx_pkt->page_data.page,
+					IPA_WAN_PAGE_ORDER);
+				kmem_cache_free(
+					ipa3_ctx->rx_pkt_wrapper_cache,
+					rx_pkt);
+			}
+		}
+		kfree(sys->page_recycle_repl->cache);
+		kfree(sys->page_recycle_repl);
 	}
 }
 
@@ -3570,7 +3657,6 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 				ipa3_switch_to_intr_rx_work_func);
 			INIT_DELAYED_WORK(&sys->replenish_rx_work,
 					ipa3_replenish_rx_work_func);
-			INIT_WORK(&sys->repl_work, ipa3_wq_repl_rx);
 			atomic_set(&sys->curr_polling_state, 0);
 			sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ(
 				IPA_GENERIC_RX_BUFF_BASE_SZ);
@@ -3584,6 +3670,7 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 			in->ipa_ep_cfg.aggr.aggr_time_limit =
 				IPA_GENERIC_AGGR_TIME_LIMIT;
 			if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
+				INIT_WORK(&sys->repl_work, ipa3_wq_repl_rx);
 				sys->pyld_hdlr = ipa3_lan_rx_pyld_hdlr;
 				sys->repl_hdlr =
 					ipa3_replenish_rx_cache_recycle;
@@ -3599,6 +3686,8 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 				in->client == IPA_CLIENT_APPS_WAN_COAL_CONS) {
 				if (ipa3_ctx->ipa_wan_skb_page
 					&& in->napi_obj) {
+					INIT_WORK(&sys->repl_work,
+							ipa3_wq_page_repl);
 					sys->pyld_hdlr = ipa3_wan_rx_pyld_hdlr;
 					sys->free_rx_wrapper =
 						ipa3_recycle_rx_page_wrapper;
@@ -3607,6 +3696,8 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 					sys->rx_pool_sz =
 						ipa3_ctx->wan_rx_ring_size;
 				} else {
+					INIT_WORK(&sys->repl_work,
+						ipa3_wq_repl_rx);
 					sys->pyld_hdlr = ipa3_wan_rx_pyld_hdlr;
 					sys->free_rx_wrapper =
 						ipa3_free_rx_wrapper;

@@ -2187,6 +2187,10 @@ static void free_module(struct module *mod)
 
 	/* Finally, free the core (containing the module structure) */
 	disable_ro_nx(&mod->core_layout);
+#ifdef CONFIG_DEBUG_MODULE_LOAD_INFO
+	pr_info("Unloaded %s: module core layout, start: 0x%pK size: 0x%x\n",
+		mod->name, mod->core_layout.base, mod->core_layout.size);
+#endif
 	module_memfree(mod->core_layout.base);
 }
 

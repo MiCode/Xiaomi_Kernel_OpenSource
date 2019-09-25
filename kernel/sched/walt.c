@@ -118,7 +118,7 @@ __read_mostly unsigned int sched_ravg_hist_size = 5;
 
 static __read_mostly unsigned int sched_io_is_busy = 1;
 
-__read_mostly unsigned int sched_window_stats_policy =
+__read_mostly unsigned int sysctl_sched_window_stats_policy =
 	WINDOW_STATS_MAX_RECENT_AVG;
 
 /* Window size (in ns) */
@@ -565,7 +565,6 @@ __cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 		rq->old_estimated_time = pl;
 
 		nl = div64_u64(nl * (100 + boost), walt_cpu_util_freq_divisor);
-		pl = div64_u64(pl * (100 + boost), 100);
 
 		walt_load->prev_window_util = util;
 		walt_load->nl = nl;
@@ -988,6 +987,8 @@ void set_window_start(struct rq *rq)
 
 unsigned int max_possible_efficiency = 1;
 unsigned int min_possible_efficiency = UINT_MAX;
+
+unsigned int sysctl_sched_conservative_pl;
 
 #define INC_STEP 8
 #define DEC_STEP 2
@@ -1789,13 +1790,13 @@ static void update_history(struct rq *rq, struct task_struct *p,
 
 	p->ravg.sum = 0;
 
-	if (sched_window_stats_policy == WINDOW_STATS_RECENT) {
+	if (sysctl_sched_window_stats_policy == WINDOW_STATS_RECENT) {
 		demand = runtime;
-	} else if (sched_window_stats_policy == WINDOW_STATS_MAX) {
+	} else if (sysctl_sched_window_stats_policy == WINDOW_STATS_MAX) {
 		demand = max;
 	} else {
 		avg = div64_u64(sum, sched_ravg_hist_size);
-		if (sched_window_stats_policy == WINDOW_STATS_AVG)
+		if (sysctl_sched_window_stats_policy == WINDOW_STATS_AVG)
 			demand = avg;
 		else
 			demand = max(avg, runtime);
@@ -2678,13 +2679,16 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 	u64 combined_demand = 0;
 	bool group_boost = false;
 	u64 wallclock;
+	bool prev_skip_min = grp->skip_min;
 
-	if (list_empty(&grp->tasks))
-		return;
+	if (list_empty(&grp->tasks)) {
+		grp->skip_min = false;
+		goto out;
+	}
 
 	if (!hmp_capable()) {
 		grp->skip_min = false;
-		return;
+		goto out;
 	}
 
 	wallclock = sched_ktime_clock();
@@ -2718,6 +2722,13 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 	grp->last_update = wallclock;
 	update_best_cluster(grp, combined_demand, group_boost);
 	trace_sched_set_preferred_cluster(grp, combined_demand);
+out:
+	if (grp->id == DEFAULT_CGROUP_COLOC_ID
+	    && grp->skip_min != prev_skip_min) {
+		if (grp->skip_min)
+			grp->start_ts = sched_clock();
+		sched_update_hyst_times();
+	}
 }
 
 void set_preferred_cluster(struct related_thread_group *grp)
@@ -3188,12 +3199,25 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	BUG_ON((s64)*src_nt_prev_runnable_sum < 0);
 }
 
-static bool is_rtgb_active(void)
+bool is_rtgb_active(void)
 {
 	struct related_thread_group *grp;
 
 	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);
 	return grp && grp->skip_min;
+}
+
+u64 get_rtgb_active_time(void)
+{
+	struct related_thread_group *grp;
+	u64 now = sched_clock();
+
+	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);
+
+	if (grp && grp->skip_min && grp->start_ts)
+		return now - grp->start_ts;
+
+	return 0;
 }
 
 /*

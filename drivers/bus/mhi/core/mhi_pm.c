@@ -1145,6 +1145,11 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_client)
 		return -EBUSY;
 	}
 
+	/* wait here if controller wants device to be in M2 before proceeding */
+	wait_event_timeout(mhi_cntrl->state_event,
+			   mhi_cntrl->dev_state == MHI_STATE_M2,
+			   msecs_to_jiffies(mhi_cntrl->m2_timeout_ms));
+
 	/* disable ctrl event processing */
 	tasklet_disable(&mhi_cntrl->mhi_event->task);
 

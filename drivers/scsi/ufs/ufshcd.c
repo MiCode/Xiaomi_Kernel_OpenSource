@@ -3160,6 +3160,8 @@ ufshcd_dispatch_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 	/* Write UIC Cmd */
 	ufshcd_writel(hba, uic_cmd->command & COMMAND_OPCODE_MASK,
 		      REG_UIC_COMMAND);
+	/* Make sure that UIC command is committed immediately */
+	wmb();
 }
 
 /**
@@ -5118,6 +5120,7 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 	u8 status;
 	int ret;
 	bool reenable_intr = false;
+	int wait_retries = 6; /* Allows 3secs max wait time */
 
 	mutex_lock(&hba->uic_cmd_mutex);
 	init_completion(&uic_async_done);
@@ -5144,11 +5147,42 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 		goto out;
 	}
 
+more_wait:
 	if (!wait_for_completion_timeout(hba->uic_async_done,
 					 msecs_to_jiffies(UIC_CMD_TIMEOUT))) {
+		u32 intr_status = 0;
+		s64 ts_since_last_intr;
+
 		dev_err(hba->dev,
 			"pwr ctrl cmd 0x%x with mode 0x%x completion timeout\n",
 			cmd->command, cmd->argument3);
+		/*
+		 * The controller must have triggered interrupt but ISR couldn't
+		 * run due to interrupt starvation.
+		 * Or ISR must have executed just after the timeout
+		 * (which clears IS registers)
+		 * If either of these two cases is true, then
+		 * wait for little more time for completion.
+		 */
+		intr_status = ufshcd_readl(hba, REG_INTERRUPT_STATUS);
+		ts_since_last_intr = ktime_ms_delta(ktime_get(),
+						hba->ufs_stats.last_intr_ts);
+
+		if ((intr_status & UFSHCD_UIC_PWR_MASK) ||
+		    ((hba->ufs_stats.last_intr_status & UFSHCD_UIC_PWR_MASK) &&
+		     (ts_since_last_intr < (s64)UIC_CMD_TIMEOUT))) {
+			if (wait_retries--)
+				goto more_wait;
+
+			dev_info(hba->dev, "IS:0x%08x last_intr_sts:0x%08x last_intr_ts:%lld, retry-cnt:%d\n",
+				intr_status, hba->ufs_stats.last_intr_status,
+				hba->ufs_stats.last_intr_ts, wait_retries);
+			/*
+			 * If same state continues event after more wait time,
+			 * something must be hogging CPU.
+			 */
+			BUG_ON(hba->crash_on_err);
+		}
 		ret = -ETIMEDOUT;
 		goto out;
 	}
@@ -8830,6 +8864,22 @@ reinit:
 			goto out;
 	}
 
+	/**
+	 * UFS3.0 and newer devices use Vcc and Vccq(1.2V)
+	 * while UFS2.1 devices use Vcc and Vccq2(1.8V) power
+	 * supplies. If the system allows turning off the regulators
+	 * during power collapse event, turn off the regulators
+	 * during system suspend events. This will cause the UFS
+	 * device to re-initialize upon system resume events.
+	 */
+	if ((hba->dev_info.w_spec_version >= 0x300 &&
+		hba->vreg_info.vccq->sys_suspend_pwr_off) ||
+		(hba->dev_info.w_spec_version < 0x300 &&
+		hba->vreg_info.vccq2->sys_suspend_pwr_off))
+		hba->spm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
+				UFS_POWERDOWN_PWR_MODE,
+				UIC_LINK_OFF_STATE);
+
 	/* UFS device is also active now */
 	ufshcd_set_ufs_dev_active(hba);
 	ufshcd_force_reset_auto_bkops(hba);
@@ -10075,7 +10125,20 @@ static void ufshcd_vreg_set_lpm(struct ufs_hba *hba)
 	 */
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba) &&
 	    !hba->dev_info.is_lu_power_on_wp) {
-		ufshcd_setup_vreg(hba, false);
+		ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
+		if (hba->dev_info.w_spec_version >= 0x300 &&
+			hba->vreg_info.vccq->sys_suspend_pwr_off)
+			ufshcd_toggle_vreg(hba->dev,
+				hba->vreg_info.vccq, false);
+		else
+			ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq);
+
+		if (hba->dev_info.w_spec_version < 0x300 &&
+			hba->vreg_info.vccq2->sys_suspend_pwr_off)
+			ufshcd_toggle_vreg(hba->dev,
+				hba->vreg_info.vccq2, false);
+		else
+			ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq2);
 	} else if (!ufshcd_is_ufs_dev_active(hba)) {
 		ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
 		if (!ufshcd_is_link_active(hba)) {
@@ -10090,23 +10153,40 @@ static int ufshcd_vreg_set_hpm(struct ufs_hba *hba)
 	int ret = 0;
 
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba) &&
-	    !hba->dev_info.is_lu_power_on_wp) {
-		ret = ufshcd_setup_vreg(hba, true);
-	} else if (!ufshcd_is_ufs_dev_active(hba)) {
-		if (!ret && !ufshcd_is_link_active(hba)) {
+		!hba->dev_info.is_lu_power_on_wp) {
+		if (hba->dev_info.w_spec_version < 0x300 &&
+			hba->vreg_info.vccq2->sys_suspend_pwr_off)
+			ret = ufshcd_toggle_vreg(hba->dev,
+				hba->vreg_info.vccq2, true);
+		else
+			ret = ufshcd_config_vreg_hpm(hba, hba->vreg_info.vccq2);
+		if (ret)
+			goto vcc_disable;
+
+		if (hba->dev_info.w_spec_version >= 0x300 &&
+			hba->vreg_info.vccq->sys_suspend_pwr_off)
+			ret = ufshcd_toggle_vreg(hba->dev,
+				hba->vreg_info.vccq, true);
+		else
 			ret = ufshcd_config_vreg_hpm(hba, hba->vreg_info.vccq);
-			if (ret)
-				goto vcc_disable;
+		if (ret)
+			goto vccq2_lpm;
+		ret = ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, true);
+	} else if (!ufshcd_is_ufs_dev_active(hba)) {
+		if (!ufshcd_is_link_active(hba)) {
 			ret = ufshcd_config_vreg_hpm(hba, hba->vreg_info.vccq2);
 			if (ret)
-				goto vccq_lpm;
+				goto vcc_disable;
+			ret = ufshcd_config_vreg_hpm(hba, hba->vreg_info.vccq);
+			if (ret)
+				goto vccq2_lpm;
 		}
 		ret = ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, true);
 	}
 	goto out;
 
-vccq_lpm:
-	ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq);
+vccq2_lpm:
+	ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq2);
 vcc_disable:
 	ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
 out:

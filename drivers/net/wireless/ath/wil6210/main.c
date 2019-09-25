@@ -1719,6 +1719,9 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 		wil_dbg_misc(wil, "notify FW to enable SPI for sensing\n");
 		wil_s(wil, RGF_USER_USAGE_6, BIT_SPI_SENSING_SUPPORT);
 		wmi_reset_spi_slave(wil);
+	} else {
+		wil_dbg_misc(wil, "notify FW to disable SPI for sensing\n");
+		wil_c(wil, RGF_USER_USAGE_6, BIT_SPI_SENSING_SUPPORT);
 	}
 
 	if (wil->platform_ops.notify) {
