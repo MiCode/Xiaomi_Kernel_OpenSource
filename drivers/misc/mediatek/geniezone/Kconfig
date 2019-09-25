@@ -2,6 +2,7 @@ menu "GZ Kree"
 
 config MTK_ENABLE_GENIEZONE
 	tristate "MTK GenieZone enable"
+	depends on HAVE_MTK_ENABLE_GENIEZONE
 	help
 	  This is used for Trusty to support MTK Geniezone
 	  Irq will be masked in trusty irq handler
@@ -10,6 +11,40 @@ config MTK_ENABLE_GENIEZONE
 	  We move the GZ TIPC driver from drivers/trusty to
 	  drivers/misc/mediatek/geniezone/gz-trusty. Use
 	  MTK_ENABLE_GENIEZONE instead of TRUSTY to enable it.
+
+config MTK_GZ_LOG
+	tristate "MTK GZ_LOG enable"
+	depends on HAVE_MTK_GZ_LOG
+	help
+	  This is used for enabling trusty log.
+	  Add gz-log.o by this config.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+config MTK_GZ_VIRTIO
+	tristate "MTK GZ_VIRTIO enable"
+	help
+	  This is used for enabling Geniezone Trusty VIRTIO.
+	  Add trusty-virtio.o and trusty-mem.o by this config.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+config MTK_GZ_VIRTIO_IPC
+	tristate "MTK GZ_VIRTIO_IPC enable"
+	help
+	  This is used for enabling Geniezone TRUSTY VIRTIO IPC.
+	  Add trusty-ipc by this config.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+config MTK_GZ_IRQ
+	tristate "MTK GZ_IRQ enable"
+	help
+	  This is used for enabling Geniezone IRQ.
+	  Add trusty-irq by this config.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
 
 source "drivers/misc/mediatek/geniezone/gz-trusty/Kconfig"
 

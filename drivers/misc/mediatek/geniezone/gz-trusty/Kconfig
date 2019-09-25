@@ -1,45 +1,34 @@
 menu "GZ Trusty"
 
-config TRUSTY_LOG
-	tristate "GZ gz_log & trusty_log support"
-	depends on MTK_ENABLE_GENIEZONE
+config HAVE_MTK_ENABLE_GENIEZONE
+	bool "HAVE_MTK_ENABLE_GENIEZONE"
+	select TRUSTY_INTERRUPT_FIQ_ONLY
+	select TRUSTY_INTERRUPT_MAP
 	help
-	 This symbol is used to build gz_log and trusty_log into kernel.
+	  This is used to support MTK Geniezone.
+	  It is used to control MTK_ENABLE_GENIEZONE
+	  and it is used in the program for ifdef operations.
+	  Use MTK_ENABLE_GENIEZONE instead of TRUSTY to
+	  enable it.
+
+config HAVE_MTK_GZ_LOG
+	bool "GZ gz_log & trusty_log support"
+	help
+	 This symbol is used to build gz_log into kernel.
 	 The gz_log driver will create a proc node which can only printthe gz
 	 message.
 	 It will be select if MTK_ENABLE_GENIEZONE is on.
 	 If the gz_log driver failed or this symbol is false, the mtk logger
 	 can not read the gz message correctly.
 
-config TRUSTY_VIRTIO
-	tristate "GZ Trusty virtio support"
-	depends on MTK_ENABLE_GENIEZONE
-	select VIRTIO
-	help
-	  This module adds support for virtio that work on communications
-	  with GZ Trusty Services. VirtoIO is a usual technology used in
-	  hypervisor environment. It is workable decided by another config,
-	  MTK_ENABLE_GENIEZONE. It will be selected if VIRTIO is on. Another
-	  config TRUSTY_VIRTIO_IPC will depend on this config.
-
-config TRUSTY_VIRTIO_IPC
-	tristate "GZ Trusty Virtio IPC driver"
-	depends on TRUSTY_VIRTIO
-	help
-	  This module adds support for communications with GZ Trusty Services.
-	  If you choose to build a module, it'll be called trusty-ipc.
-	  Say N if unsure.
-
 config MT_TRUSTY_DEBUGFS
 	tristate "Trusty debugfs for Mediatek platforms"
 
 config TRUSTY_INTERRUPT_MAP
-	tristate "GZ Trusty interrupt map"
-	depends on MTK_ENABLE_GENIEZONE
+	bool "GZ Trusty interrupt map"
 
 config TRUSTY_INTERRUPT_FIQ_ONLY
-	tristate "GZ Trusty interrupt fiq support"
-	depends on MTK_ENABLE_GENIEZONE
+	bool "GZ Trusty interrupt fiq support"
 	help
 	  This is used for Trusty to support handling new flow in GICv3
 	  If this is selected, NWd will not route IRQ to Secure OS
@@ -53,15 +42,6 @@ config MTK_NEBULA_VM_SUPPORT
 	help
 	  This is used for MTK Geniezone to Support Nebula VM OS.
 	  Nebula's IRQ will be routed by Linux to Geniezone.
-	  Say Y if you would like to enable this feature.
-	  If unsure, say N.
-
-config MTK_GZ_IRQ
-	tristate "enable GZ Trusty IRQ"
-	depends on MTK_ENABLE_GENIEZONE
-	help
-	  This is used for enabling Geniezone IRQ.
-	  Provide some irq services and handlers.
 	  Say Y if you would like to enable this feature.
 	  If unsure, say N.
 

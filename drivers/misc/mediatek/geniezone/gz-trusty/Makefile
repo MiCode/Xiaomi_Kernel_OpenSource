@@ -13,12 +13,12 @@ endif
 obj-$(CONFIG_MTK_GZ_IRQ) += gz_irq_mod.o
 gz_irq_mod-objs += trusty-irq.o
 
-obj-$(CONFIG_TRUSTY_VIRTIO) += gz_virtio_mod.o
+obj-$(CONFIG_MTK_GZ_VIRTIO) += gz_virtio_mod.o
 gz_virtio_mod-objs += trusty-virtio.o trusty-mem.o
 
-obj-$(CONFIG_TRUSTY_VIRTIO_IPC) += gz_ipc_mod.o
+obj-$(CONFIG_MTK_GZ_VIRTIO_IPC) += gz_ipc_mod.o
 gz_ipc_mod-objs += trusty-ipc.o
 
-obj-$(CONFIG_TRUSTY_LOG) += gz_log_mod.o
+obj-$(CONFIG_MTK_GZ_LOG) += gz_log_mod.o
 gz_log_mod-objs += gz-log.o
 

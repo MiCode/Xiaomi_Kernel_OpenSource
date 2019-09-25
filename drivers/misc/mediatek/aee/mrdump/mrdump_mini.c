@@ -42,7 +42,7 @@ static char modules_info_buf[MODULES_INFO_BUF_SIZE];
 
 static bool dump_all_cpus;
 
-#if defined(CONFIG_TRUSTY_LOG)
+#if defined(CONFIG_HAVE_MTK_GZ_LOG)
 __weak void get_gz_log_buffer(unsigned long *addr, unsigned long *size,
 		unsigned long *start)
 {
@@ -816,7 +816,7 @@ static void mrdump_mini_build_elf_misc(void)
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
 	aee_rr_get_desc_info(&misc.vaddr, &misc.size, &misc.start);
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_RR_DESC_");
-#if defined(CONFIG_TRUSTY_LOG)
+#if defined(CONFIG_HAVE_MTK_GZ_LOG)
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
 	get_gz_log_buffer(&misc.vaddr, &misc.size, &misc.start);
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_GZ_LOG_");
