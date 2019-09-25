@@ -98,6 +98,44 @@ int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl,
 	return -ENXIO;
 }
 
+void mhi_force_reg_write(struct mhi_controller *mhi_cntrl)
+{
+	if (mhi_cntrl->offload_wq)
+		flush_work(&mhi_cntrl->reg_write_work);
+}
+
+void mhi_reset_reg_write_q(struct mhi_controller *mhi_cntrl)
+{
+	cancel_work_sync(&mhi_cntrl->reg_write_work);
+	memset(mhi_cntrl->reg_write_q, 0,
+	       sizeof(struct reg_write_info) * REG_WRITE_QUEUE_LEN);
+	mhi_cntrl->read_idx = 0;
+	atomic_set(&mhi_cntrl->write_idx, -1);
+}
+
+static void mhi_reg_write_enqueue(struct mhi_controller *mhi_cntrl,
+	void __iomem *reg_addr, u32 val)
+{
+	u32 q_index = atomic_inc_return(&mhi_cntrl->write_idx);
+
+	q_index = q_index & (REG_WRITE_QUEUE_LEN - 1);
+
+	MHI_ASSERT(mhi_cntrl->reg_write_q[q_index].valid, "queue full idx %d");
+
+	mhi_cntrl->reg_write_q[q_index].reg_addr =  reg_addr;
+	mhi_cntrl->reg_write_q[q_index].val = val;
+	mhi_cntrl->reg_write_q[q_index].valid = true;
+}
+
+void mhi_write_reg_offload(struct mhi_controller *mhi_cntrl,
+		   void __iomem *base,
+		   u32 offset,
+		   u32 val)
+{
+	mhi_reg_write_enqueue(mhi_cntrl, base + offset, val);
+	queue_work(mhi_cntrl->offload_wq, &mhi_cntrl->reg_write_work);
+}
+
 void mhi_write_reg(struct mhi_controller *mhi_cntrl,
 		   void __iomem *base,
 		   u32 offset,

@@ -21,6 +21,8 @@ struct bhi_vec_entry;
 struct mhi_timesync;
 struct mhi_buf_info;
 
+#define REG_WRITE_QUEUE_LEN 1024
+
 /**
  * enum MHI_CB - MHI callback
  * @MHI_CB_IDLE: MHI entered idle state
@@ -145,6 +147,19 @@ struct image_info {
 	struct mhi_buf *mhi_buf;
 	struct bhi_vec_entry *bhi_vec;
 	u32 entries;
+};
+
+/**
+ * struct reg_write_info - offload reg write info
+ * @reg_addr - register address
+ * @val - value to be written to register
+ * @chan - channel number
+ * @valid - entry is valid or not
+ */
+struct reg_write_info {
+	void __iomem *reg_addr;
+	u32 val;
+	bool valid;
 };
 
 /**
@@ -339,6 +354,13 @@ struct mhi_controller {
 	void *log_buf;
 	struct dentry *dentry;
 	struct dentry *parent;
+
+	/* for reg write offload */
+	struct workqueue_struct *offload_wq;
+	struct work_struct reg_write_work;
+	struct reg_write_info *reg_write_q;
+	atomic_t write_idx;
+	u32 read_idx;
 };
 
 /**
