@@ -813,7 +813,7 @@ int devfreq_resume_device(struct devfreq *devfreq)
 		return -EINVAL;
 
 	mutex_lock(&devfreq->event_lock);
-	if (!devfreq->governor) {
+	if (!devfreq->governor || !devfreq->dev_suspended) {
 		mutex_unlock(&devfreq->event_lock);
 		return 0;
 	}
