@@ -64,6 +64,7 @@ struct mtk_mmqos {
 	struct list_head comm_port_list;
 	struct workqueue_struct *wq;
 	u32 max_ratio;
+	bool qos_bound; /* Todo: Set qos_bound to true if necessary */
 };
 
 struct mtk_node_desc {

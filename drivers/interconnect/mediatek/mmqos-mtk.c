@@ -20,7 +20,7 @@
 #define icc_to_MBps(x)	((x) / 1000)
 
 static void mmqos_update_comm_bw(struct device *dev,
-	u32 comm_port, u32 freq, u64 mix_bw, u64 bw_peak)
+	u32 comm_port, u32 freq, u64 mix_bw, u64 bw_peak, bool qos_bound)
 {
 	u32 comm_bw = 0;
 	u32 value;
@@ -33,14 +33,14 @@ static void mmqos_update_comm_bw(struct device *dev,
 
 	if (comm_bw)
 		value = ((comm_bw > 0xfff) ? 0xfff : comm_bw) |
-				((bw_peak > 0) ? 0x1000 : 0x3000);
+			((bw_peak > 0 || !qos_bound) ? 0x1000 : 0x3000);
 	else
 		value = 0x1200;
 
 	mtk_smi_common_bw_set(dev, comm_port, value);
 
-	dev_dbg(dev, "comm_port=%d comm_bw=%d freq=%d value=%#x\n",
-		comm_port, comm_bw, freq, value);
+	dev_dbg(dev, "comm port=%d bw=%d freq=%d qos_bound=%d value=%#x\n",
+		comm_port, comm_bw, freq, qos_bound, value);
 }
 
 static int update_mm_clk(struct notifier_block *nb,
@@ -63,7 +63,8 @@ static int update_mm_clk(struct notifier_block *nb,
 				comm_port_node->base->icc_node->id & 0xff,
 				comm_port_node->common->freq,
 				icc_to_MBps(comm_port_node->latest_mix_bw),
-				icc_to_MBps(comm_port_node->latest_peak_bw));
+				icc_to_MBps(comm_port_node->latest_peak_bw),
+				mmqos->qos_bound);
 		}
 		mutex_unlock(&comm_port_node->bw_lock);
 	}
@@ -115,7 +116,8 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 		mmqos_update_comm_bw(comm_port_node->larb_dev,
 			dst->id & 0xff, comm_port_node->common->freq,
 			icc_to_MBps(comm_port_node->latest_mix_bw),
-			icc_to_MBps(comm_port_node->latest_peak_bw));
+			icc_to_MBps(comm_port_node->latest_peak_bw),
+			mmqos->qos_bound);
 		mutex_unlock(&comm_port_node->bw_lock);
 		break;
 	case MTK_MMQOS_NODE_LARB:
