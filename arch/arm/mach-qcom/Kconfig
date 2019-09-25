@@ -142,7 +142,7 @@ config ARCH_MDM9607
 	select PINCTRL
 	select USE_PINCTRL_IRQ
 	select MSM_IRQ
-	select MSM_PM if PM
+	select MSM_PM_LEGACY if PM
 	select PM_DEVFREQ
 	select MSM_DEVFREQ_DEVBW
 	select MSM_BIMC_BWMON
