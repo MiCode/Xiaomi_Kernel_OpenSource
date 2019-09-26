@@ -1072,24 +1072,16 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
-
-			if (rc == -ECONNRESET)
-				goto exit;
-
 			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 
 		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
-			rc = wait_for_sess_signal_receipt(inst,
+			rc = wait_for_sess_signal_receipt_fence(inst,
 					HAL_SESSION_DME_FRAME_CMD_DONE);
 			if (rc) {
 				dprintk(CVP_ERR,
 				"%s: wait for signal failed, rc %d\n",
 				__func__, rc);
-
-				if (rc == -ECONNRESET)
-					goto exit;
-
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
@@ -1107,13 +1099,7 @@ static int msm_cvp_thread_fence_run(void *data)
 					__func__);
 				goto exit;
 			}
-			if (synx_get_status(synx_obj) !=
-				SYNX_STATE_SIGNALED_SUCCESS) {
-				dprintk(CVP_ERR,
-					"%s: synx_get_status failed\n",
-					__func__);
-				goto exit;
-			}
+
 			rc = synx_release(synx_obj);
 			if (rc) {
 				dprintk(CVP_ERR, "%s: synx_release failed\n",
@@ -1185,24 +1171,16 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
-
-			if (rc == -ECONNRESET)
-				goto exit;
-
 			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 
 		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
-			rc = wait_for_sess_signal_receipt(inst,
+			rc = wait_for_sess_signal_receipt_fence(inst,
 					HAL_SESSION_ICA_FRAME_CMD_DONE);
 			if (rc) {
 				dprintk(CVP_ERR,
 				"%s: wait for signal failed, rc %d\n",
 				__func__, rc);
-
-				if (rc == -ECONNRESET)
-					goto exit;
-
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
@@ -1264,24 +1242,16 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
-
-			if (rc == -ECONNRESET)
-				goto exit;
-
 			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 
 		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
-			rc = wait_for_sess_signal_receipt(inst,
+			rc = wait_for_sess_signal_receipt_fence(inst,
 					HAL_SESSION_FD_FRAME_CMD_DONE);
 			if (rc) {
 				dprintk(CVP_ERR,
 				"%s: wait for signal failed, rc %d\n",
 				__func__, rc);
-
-				if (rc == -ECONNRESET)
-					goto exit;
-
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
