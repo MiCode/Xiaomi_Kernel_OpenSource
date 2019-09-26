@@ -231,6 +231,9 @@ config USB_F_QDSS
 config USB_F_CCID
 	tristate
 
+config USB_F_CDEV
+	tristate
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 config USB_CONFIGFS
@@ -554,6 +557,18 @@ config USB_CONFIGFS_F_CCID
 	  endpoint. This driver provides a character device interface
 	  allowing a userspace component to be able to provide the
 	  implementation necessary to interface with the smartcard.
+
+config USB_CONFIGFS_F_CDEV
+	tristate "USB Serial Character function"
+	select USB_F_CDEV
+	depends on USB_CONFIGFS
+	help
+	  The serial character function is a generic function driver that
+	  exposes a pair of bulk IN and OUT endpoints which are backed by
+	  a character device and mapped to its read/write routines. The
+	  function also supports a single interrupt IN endpoint for
+	  asynchronous notification to the host. This driver is typically
+	  used to support DUN/NMEA functions.
 
 choice
 	tristate "USB Gadget precomposed configurations"
