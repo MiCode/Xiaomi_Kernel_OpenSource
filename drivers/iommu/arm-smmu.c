@@ -928,10 +928,10 @@ static int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr)
 }
 
 /* Clocks should be unprepared after this (arm_smmu_unprepare_clocks) */
-static void arm_smmu_power_off_atomic(struct arm_smmu_power_resources *pwr)
+static void arm_smmu_power_off_atomic(struct arm_smmu_device *smmu,
+				      struct arm_smmu_power_resources *pwr)
 {
 	unsigned long flags;
-	struct arm_smmu_device *smmu = pwr->dev->driver_data;
 
 	arm_smmu_arch_write_sync(smmu);
 
@@ -1029,9 +1029,10 @@ out_disable:
 	return ret;
 }
 
-static void arm_smmu_power_off(struct arm_smmu_power_resources *pwr)
+static void arm_smmu_power_off(struct arm_smmu_device *smmu,
+			       struct arm_smmu_power_resources *pwr)
 {
-	arm_smmu_power_off_atomic(pwr);
+	arm_smmu_power_off_atomic(smmu, pwr);
 	arm_smmu_power_off_slow(pwr);
 }
 
@@ -1064,11 +1065,11 @@ static void arm_smmu_domain_power_off(struct iommu_domain *domain,
 		(1ULL << DOMAIN_ATTR_ATOMIC);
 
 	if (atomic_domain) {
-		arm_smmu_power_off_atomic(smmu->pwr);
+		arm_smmu_power_off_atomic(smmu, smmu->pwr);
 		return;
 	}
 
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 }
 
 /* Wait for any pending TLB invalidations to complete */
@@ -1578,7 +1579,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	}
 
 out_power_off:
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 
 	return ret;
 }
@@ -1598,7 +1599,7 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 	gfsynr2 = readl_relaxed(gr0_base + ARM_SMMU_GR0_sGFSYNR2);
 
 	if (!gfsr) {
-		arm_smmu_power_off(smmu->pwr);
+		arm_smmu_power_off(smmu, smmu->pwr);
 		return IRQ_NONE;
 	}
 
@@ -1609,7 +1610,7 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 		gfsr, gfsynr0, gfsynr1, gfsynr2);
 
 	writel(gfsr, gr0_base + ARM_SMMU_GR0_sGFSR);
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 	return IRQ_HANDLED;
 }
 
@@ -2216,7 +2217,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	if (dynamic) {
 		arm_smmu_free_asid(domain);
 		free_io_pgtable_ops(smmu_domain->pgtbl_ops);
-		arm_smmu_power_off(smmu->pwr);
+		arm_smmu_power_off(smmu, smmu->pwr);
 		arm_smmu_rpm_put(smmu);
 		arm_smmu_secure_domain_lock(smmu_domain);
 		arm_smmu_secure_pool_destroy(smmu_domain);
@@ -2246,7 +2247,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	arm_smmu_secure_domain_unlock(smmu_domain);
 	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
 
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 	arm_smmu_rpm_put(smmu);
 	arm_smmu_domain_reinit(smmu_domain);
 }
@@ -2593,7 +2594,7 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 		arm_smmu_power_on(smmu->pwr);
 
 	arm_smmu_domain_remove_master(smmu_domain, fwspec);
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 }
 
 static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
@@ -2953,10 +2954,10 @@ out_power_off:
 	 */
 	if (!ret && atomic_domain) {
 		WARN_ON(arm_smmu_power_on(smmu->pwr));
-		arm_smmu_power_off_atomic(smmu->pwr);
+		arm_smmu_power_off_atomic(smmu, smmu->pwr);
 	}
 
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 	arm_smmu_rpm_put(smmu);
 
 	return ret;
@@ -3262,7 +3263,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 
 out:
-	arm_smmu_power_off(smmu_domain->smmu->pwr);
+	arm_smmu_power_off(smmu, smmu_domain->smmu->pwr);
 
 	return ret;
 }
@@ -3367,7 +3368,7 @@ static int arm_smmu_add_device(struct device *dev)
 	ret = arm_smmu_master_alloc_smes(dev);
 	if (ret)
 		goto out_dev_link_free;
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 	return 0;
 
 out_dev_link_free:
@@ -3375,7 +3376,7 @@ out_dev_link_free:
 out_cfg_free:
 	kfree(cfg);
 out_pwr_off:
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 out_free:
 	iommu_fwspec_free(dev);
 	return ret;
@@ -3413,7 +3414,7 @@ static void arm_smmu_remove_device(struct device *dev)
 	iommu_group_remove_device(dev);
 	kfree(fwspec->iommu_priv);
 	iommu_fwspec_free(dev);
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 	arm_smmu_rpm_put(smmu);
 }
 
@@ -3917,7 +3918,7 @@ static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain)
 	reg |= SCTLR_M;
 
 	writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 	return ret;
 }
 
@@ -3963,7 +3964,7 @@ static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 	/* give the interrupt time to fire... */
 	msleep(1000);
 
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 }
 
 static void arm_smmu_tlbi_domain(struct iommu_domain *domain)
@@ -3982,7 +3983,7 @@ static void arm_smmu_disable_config_clocks(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
-	arm_smmu_power_off(smmu_domain->smmu->pwr);
+	arm_smmu_power_off(smmu_domain->smmu, smmu_domain->smmu->pwr);
 }
 
 static struct msm_iommu_ops arm_smmu_ops = {
@@ -4914,7 +4915,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	arm_smmu_device_reset(smmu);
 	arm_smmu_test_smr_masks(smmu);
 	arm_smmu_interrupt_selftest(smmu);
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 
 	/*
 	 * We want to avoid touching dev->power.lock in fastpaths unless
@@ -4938,7 +4939,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	return 0;
 
 out_power_off:
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 
 out_exit_power_resources:
 	arm_smmu_exit_power_resources(smmu->pwr);
@@ -4978,7 +4979,7 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	/* Turn the thing off */
 	writel_relaxed(sCR0_CLIENTPD,
 			ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sCR0);
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 
 	arm_smmu_exit_power_resources(smmu->pwr);
 
@@ -4999,7 +5000,7 @@ static int __maybe_unused arm_smmu_runtime_resume(struct device *dev)
 		return ret;
 
 	arm_smmu_device_reset(smmu);
-	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_power_off(smmu, smmu->pwr);
 
 	return 0;
 }
@@ -5451,7 +5452,7 @@ out_power_off:
 	/* Wait for read to complete before off */
 	rmb();
 
-	arm_smmu_power_off(tbu->pwr);
+	arm_smmu_power_off(tbu->smmu, tbu->pwr);
 
 	return phys;
 }
