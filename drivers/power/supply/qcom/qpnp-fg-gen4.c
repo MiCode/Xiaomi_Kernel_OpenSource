@@ -5704,9 +5704,6 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	of_property_read_u32(node, "qcom,cl-min-delta-batt-soc",
 					&chip->cl->dt.min_delta_batt_soc);
 
-	chip->cl->dt.cl_wt_enable = of_property_read_bool(node,
-						"qcom,cl-wt-enable");
-
 	rc = of_property_read_u32(node, "qcom,cl-min-temp", &temp);
 	if (rc < 0)
 		chip->cl->dt.min_temp = DEFAULT_CL_MIN_TEMP_DECIDEGC;
@@ -5744,6 +5741,12 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 		chip->cl->dt.max_cap_limit = temp;
 
 	of_property_read_u32(node, "qcom,cl-skew", &chip->cl->dt.skew_decipct);
+
+	if (of_property_read_bool(node, "qcom,cl-wt-enable")) {
+		chip->cl->dt.cl_wt_enable = true;
+		chip->cl->dt.max_start_soc = -EINVAL;
+		chip->cl->dt.min_start_soc = -EINVAL;
+	}
 
 	rc = of_property_read_u32(node, "qcom,fg-batt-temp-hot", &temp);
 	if (rc < 0)

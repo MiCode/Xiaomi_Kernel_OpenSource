@@ -2244,6 +2244,17 @@ static const struct power_supply_desc qg_psy_desc = {
 	.property_is_writeable = qg_property_is_writeable,
 };
 
+#define DEFAULT_CL_BEGIN_IBAT_UA	(-100000)
+static bool qg_cl_ok_to_begin(void *data)
+{
+	struct qpnp_qg *chip = data;
+
+	if (chip->last_fifo_i_ua < DEFAULT_CL_BEGIN_IBAT_UA)
+		return true;
+
+	return false;
+}
+
 #define DEFAULT_RECHARGE_SOC 95
 static int qg_charge_full_update(struct qpnp_qg *chip)
 {
@@ -3718,6 +3729,7 @@ static int qg_alg_init(struct qpnp_qg *chip)
 	cl->get_cc_soc = qg_get_cc_soc;
 	cl->get_learned_capacity = qg_get_learned_capacity;
 	cl->store_learned_capacity = qg_store_learned_capacity;
+	cl->ok_to_begin = qg_cl_ok_to_begin;
 	cl->data = chip;
 
 	rc = cap_learning_init(cl);
@@ -3761,6 +3773,7 @@ static int qg_alg_init(struct qpnp_qg *chip)
 #define DEFAULT_CL_MIN_LIM_DECIPERC	500
 #define DEFAULT_CL_MAX_LIM_DECIPERC	100
 #define DEFAULT_CL_DELTA_BATT_SOC	10
+#define DEFAULT_CL_WT_START_SOC		15
 #define DEFAULT_SHUTDOWN_TEMP_DIFF	60	/* 6 degC */
 #define DEFAULT_ESR_QUAL_CURRENT_UA	130000
 #define DEFAULT_ESR_QUAL_VBAT_UV	7000
@@ -4139,8 +4152,11 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 		of_property_read_u32(node, "qcom,cl-min-delta-batt-soc",
 					&chip->cl->dt.min_delta_batt_soc);
 
-		chip->cl->dt.cl_wt_enable = of_property_read_bool(node,
-							"qcom,cl-wt-enable");
+		if (of_property_read_bool(node, "qcom,cl-wt-enable")) {
+			chip->cl->dt.cl_wt_enable = true;
+			chip->cl->dt.min_start_soc = DEFAULT_CL_WT_START_SOC;
+			chip->cl->dt.max_start_soc = -EINVAL;
+		}
 
 		qg_dbg(chip, QG_DEBUG_PON, "DT: cl_min_start_soc=%d cl_max_start_soc=%d cl_min_temp=%d cl_max_temp=%d\n",
 			chip->cl->dt.min_start_soc, chip->cl->dt.max_start_soc,
