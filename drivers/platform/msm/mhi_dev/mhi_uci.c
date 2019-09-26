@@ -1238,7 +1238,7 @@ static ssize_t mhi_uci_client_write(struct file *file,
 
 	if (count > TRB_MAX_DATA_SIZE) {
 		uci_log(UCI_DBG_ERROR,
-			"Too big write size: %d, max supported size is %d\n",
+			"Too big write size: %lu, max supported size is %d\n",
 			count, TRB_MAX_DATA_SIZE);
 		return -EFBIG;
 	}
