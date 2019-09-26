@@ -6,6 +6,7 @@
 #define _UAPI_LINUX_MSM_ION_H
 
 #include <linux/types.h>
+#include <linux/msm_ion_ids.h>
 
 #define ION_BIT(nr) (1U << (nr))
 
@@ -24,36 +25,6 @@ enum msm_ion_heap_types {
 	ION_HEAP_TYPE_SECURE_CARVEOUT,
 };
 
-/**
- * These are the only ids that should be used for Ion heap ids.
- * The ids listed are the order in which allocation will be attempted
- * if specified. Don't swap the order of heap ids unless you know what
- * you are doing!
- * Id's are spaced by purpose to allow new Id's to be inserted in-between (for
- * possible fallbacks)
- */
-
-enum ion_heap_ids {
-	INVALID_HEAP_ID = -1,
-	ION_CP_MM_HEAP_ID = 8,
-	ION_SECURE_HEAP_ID = 9,
-	ION_SECURE_DISPLAY_HEAP_ID = 10,
-	ION_SPSS_HEAP_ID = 13, /* Secure Processor ION heap */
-	ION_ADSP_HEAP_ID = 22,
-	ION_SYSTEM_HEAP_ID = 25,
-	ION_QSECOM_HEAP_ID = 27,
-	ION_HEAP_ID_RESERVED = 31 /** Bit reserved for ION_FLAG_SECURE flag */
-};
-
-/**
- * Newly added heap ids have to be #define(d) since all API changes must
- * include a new #define.
- */
-#define ION_SECURE_CARVEOUT_HEAP_ID	14
-#define ION_QSECOM_TA_HEAP_ID		19
-#define ION_AUDIO_HEAP_ID		28
-#define ION_CAMERA_HEAP_ID		20
-#define ION_USER_CONTIG_HEAP_ID		26
 /**
  * Flags to be used when allocating from the secure heap for
  * content protection
