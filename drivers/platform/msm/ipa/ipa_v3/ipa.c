@@ -29,7 +29,7 @@
 #include <linux/pci.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <linux/soc/qcom/smem.h>
-#include <soc/qcom/scm.h>
+#include <linux/qcom_scm.h>
 #include <asm/cacheflush.h>
 #include <linux/soc/qcom/smem_state.h>
 #include <linux/of_irq.h>
@@ -91,7 +91,6 @@ struct ipa_ioc_nat_ipv6ct_table_alloc32 {
 #endif /* #ifdef CONFIG_COMPAT */
 
 #define IPA_TZ_UNLOCK_ATTRIBUTE 0x0C0311
-#define TZ_MEM_PROTECT_REGION_ID 0x10
 
 struct tz_smmu_ipa_protect_region_iovec_s {
 	u64 input_addr;
@@ -6241,10 +6240,10 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
  */
 int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
 {
-	int i, size, ret;
+	int i, ret;
+	compat_size_t size;
 	struct tz_smmu_ipa_protect_region_iovec_s *ipa_tz_unlock_vec;
 	struct tz_smmu_ipa_protect_region_s cmd_buf;
-	struct scm_desc desc = {0};
 
 	if (reg_info ==  NULL || num_regs == 0) {
 		IPAERR("Bad parameters\n");
@@ -6269,17 +6268,15 @@ int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
 	cmd_buf.iovec_buf = virt_to_phys((void *)ipa_tz_unlock_vec);
 	cmd_buf.size_bytes = size;
 
-		desc.args[0] = virt_to_phys((void *)ipa_tz_unlock_vec);
-		desc.args[1] = size;
-		desc.arginfo = SCM_ARGS(2);
-		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
-				TZ_MEM_PROTECT_REGION_ID), &desc);
+	ret = qcom_scm_mem_protect_region_id(
+			virt_to_phys((void *)ipa_tz_unlock_vec),
+			size);
 
-		if (ret) {
-			IPAERR("scm call SCM_SVC_MP failed: %d\n", ret);
-			kfree(ipa_tz_unlock_vec);
-			return -EFAULT;
-		}
+	if (ret) {
+		IPAERR("scm call SCM_SVC_MP failed: %d\n", ret);
+		kfree(ipa_tz_unlock_vec);
+		return -EFAULT;
+	}
 	kfree(ipa_tz_unlock_vec);
 	return 0;
 }
@@ -6337,24 +6334,19 @@ static int ipa3_alloc_pkt_init(void)
  * Returns true in secure dump allowed.
  * Return false when secure dump not allowed.
  */
-#define TZ_UTIL_GET_SEC_DUMP_STATE  0x10
 static bool ipa_is_mem_dump_allowed(void)
 {
-	struct scm_desc desc = {0};
-	int ret = 0;
+	int ret;
+	u32 dump_state;
 
-	desc.args[0] = 0;
-	desc.arginfo = 0;
+	ret = qcom_scm_get_sec_dump_state(&dump_state);
 
-	ret = scm_call2(
-		SCM_SIP_FNID(SCM_SVC_UTIL, TZ_UTIL_GET_SEC_DUMP_STATE),
-		&desc);
 	if (ret) {
 		IPAERR("SCM DUMP_STATE call failed\n");
 		return false;
 	}
 
-	return (desc.ret[0] == 1);
+	return (dump_state == 1);
 }
 
 static int ipa3_lan_poll(struct napi_struct *napi, int budget)

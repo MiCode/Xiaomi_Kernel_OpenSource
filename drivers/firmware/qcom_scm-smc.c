@@ -806,6 +806,23 @@ int __qcom_scm_pas_mss_reset(struct device *dev, bool reset)
 	return ret ? : desc.res[0];
 }
 
+int __qcom_scm_get_sec_dump_state(struct device *dev, u32 *dump_state)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_UTIL,
+		.cmd = QCOM_SCM_UTIL_GET_SEC_DUMP_STATE,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	ret = qcom_scm_call(dev, &desc);
+
+	if (dump_state)
+		*dump_state = desc.res[0];
+
+	return ret;
+}
+
 int __qcom_scm_io_readl(struct device *dev, phys_addr_t addr,
 			unsigned int *val)
 {
@@ -968,6 +985,25 @@ int __qcom_scm_iommu_secure_ptbl_init(struct device *dev, u64 addr, u32 size,
 	/* the pg table has been initialized already, ignore the error */
 	if (ret == -EPERM)
 		ret = 0;
+
+	return ret;
+}
+
+int __qcom_scm_mem_protect_region_id(struct device *dev, phys_addr_t paddr,
+					size_t size)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MP_MEM_PROTECT_REGION_ID,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = paddr;
+	desc.args[1] = size;
+	desc.arginfo = QCOM_SCM_ARGS(2);
+
+	ret = qcom_scm_call(dev, &desc);
 
 	return ret;
 }
