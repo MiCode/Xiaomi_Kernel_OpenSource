@@ -12,7 +12,6 @@
 #include <linux/vmalloc.h>
 
 #include "ion_private.h"
-#include "heaps/msm_ion_priv.h"
 
 static struct sg_table *dup_sg_table(struct sg_table *table)
 {
@@ -348,11 +347,7 @@ struct dma_buf *ion_dmabuf_alloc(struct ion_device *dev, size_t len,
 	if (IS_ERR(buffer))
 		return ERR_CAST(buffer);
 
-#if IS_ENABLED(CONFIG_ION_MSM_HEAPS)
-	exp_info.ops = &msm_ion_dma_buf_ops;
-#else
 	exp_info.ops = &dma_buf_ops;
-#endif
 	exp_info.size = buffer->size;
 	exp_info.flags = O_RDWR;
 	exp_info.priv = buffer;

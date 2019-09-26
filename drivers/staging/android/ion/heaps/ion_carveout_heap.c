@@ -200,6 +200,7 @@ __ion_carveout_heap_create(struct ion_platform_heap *heap_data,
 	gen_pool_add(carveout_heap->pool, carveout_heap->base, heap_data->size,
 		     -1);
 	carveout_heap->heap.ion_heap.ops = &carveout_heap_ops;
+	carveout_heap->heap.ion_heap.buf_ops = msm_ion_dma_buf_ops;
 	carveout_heap->heap.ion_heap.type = ION_HEAP_TYPE_CARVEOUT;
 	carveout_heap->heap.ion_heap.flags = ION_HEAP_FLAG_DEFER_FREE;
 
@@ -395,6 +396,7 @@ ion_secure_carveout_heap_create(struct ion_platform_heap *heap_data)
 	}
 
 	manager->heap.ion_heap.ops = &ion_sc_heap_ops;
+	manager->heap.ion_heap.buf_ops = msm_ion_dma_buf_ops;
 	manager->heap.ion_heap.type =
 		(enum ion_heap_type)ION_HEAP_TYPE_SECURE_CARVEOUT;
 	return &manager->heap.ion_heap;
