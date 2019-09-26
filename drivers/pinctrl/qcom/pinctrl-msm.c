@@ -100,6 +100,7 @@ struct msm_pinctrl {
 #ifdef CONFIG_HIBERNATION
 	struct msm_gpio_regs *gpio_regs;
 	struct msm_tile *msm_tile_regs;
+	unsigned int *spi_cfg_regs_val;
 #endif
 };
 
@@ -1815,6 +1816,7 @@ static int pinctrl_hibernation_notifier(struct notifier_block *nb,
 {
 	struct msm_pinctrl *pctrl = msm_pinctrl_data;
 	const struct msm_pinctrl_soc_data *soc = pctrl->soc;
+	u32 spi_cfg_regs_count;
 
 	if (event == PM_HIBERNATION_PREPARE) {
 		pctrl->gpio_regs = kcalloc(soc->ngroups,
@@ -1830,12 +1832,25 @@ static int pinctrl_hibernation_notifier(struct notifier_block *nb,
 				return -ENOMEM;
 			}
 		}
+		if (pctrl->spi_cfg_regs) {
+			spi_cfg_regs_count = (pctrl->spi_cfg_end -
+					pctrl->spi_cfg_regs) / 4 + 2;
+			pctrl->spi_cfg_regs_val = kcalloc(spi_cfg_regs_count,
+				sizeof(unsigned int), GFP_KERNEL);
+			if (pctrl->spi_cfg_regs_val == NULL) {
+				kfree(pctrl->gpio_regs);
+				kfree(pctrl->msm_tile_regs);
+				return -ENOMEM;
+			}
+		}
 		hibernation = true;
 	} else if (event == PM_POST_HIBERNATION) {
 		kfree(pctrl->gpio_regs);
 		kfree(pctrl->msm_tile_regs);
+		kfree(pctrl->spi_cfg_regs_val);
 		pctrl->gpio_regs = NULL;
 		pctrl->msm_tile_regs = NULL;
+		pctrl->spi_cfg_regs_val = NULL;
 		hibernation = false;
 	}
 	return NOTIFY_OK;
@@ -1852,7 +1867,8 @@ static int msm_pinctrl_hibernation_suspend(void)
 	const struct msm_pinctrl_soc_data *soc = pctrl->soc;
 	void __iomem *base = NULL;
 	void __iomem *tile_addr = NULL;
-	u32 i, j;
+	u32 i, j, spi_cfg_regs_count;
+	phys_addr_t spi_cfg_reg;
 
 	/* Save direction conn registers for hmss */
 	for (i = 0; i < soc->tile_count; i++) {
@@ -1863,6 +1879,15 @@ static int msm_pinctrl_hibernation_suspend(void)
 						readl_relaxed(tile_addr + j*4);
 	}
 
+	/* Save spi_cfg_regs */
+	if (pctrl->spi_cfg_regs && pctrl->spi_cfg_regs_val) {
+		spi_cfg_regs_count = (pctrl->spi_cfg_end -
+				pctrl->spi_cfg_regs) / 4 + 2;
+		spi_cfg_reg = pctrl->spi_cfg_regs;
+		for (j = 0; j < spi_cfg_regs_count; j++)
+			pctrl->spi_cfg_regs_val[j] =
+				scm_io_read(spi_cfg_reg + j * 4);
+	}
 	/* All normal gpios will have common registers, first save them */
 	for (i = 0; i < soc->ngpios; i++) {
 		pgroup = &soc->groups[i];
@@ -1899,6 +1924,8 @@ static void msm_pinctrl_hibernation_resume(void)
 	const struct msm_pinctrl_soc_data *soc = pctrl->soc;
 	void __iomem *base = NULL;
 	void __iomem *tile_addr = NULL;
+	u32 spi_cfg_regs_count;
+	phys_addr_t spi_cfg_reg;
 
 	if (!pctrl->gpio_regs || !pctrl->msm_tile_regs)
 		return;
@@ -1909,6 +1936,15 @@ static void msm_pinctrl_hibernation_resume(void)
 		for (j = 0; j < 8; j++)
 			writel_relaxed(pctrl->msm_tile_regs[i].dir_con_regs[j],
 							tile_addr + j*4);
+	}
+	/* Restore spi_cfg_regs */
+	if (pctrl->spi_cfg_regs && pctrl->spi_cfg_regs_val) {
+		spi_cfg_regs_count = (pctrl->spi_cfg_end -
+				pctrl->spi_cfg_regs) / 4 + 2;
+		spi_cfg_reg = pctrl->spi_cfg_regs;
+		for (j = 0; j < spi_cfg_regs_count; j++)
+			WARN_ON(scm_io_write(spi_cfg_reg + j * 4,
+				pctrl->spi_cfg_regs_val[j]));
 	}
 
 	/* Restore normal gpios */
