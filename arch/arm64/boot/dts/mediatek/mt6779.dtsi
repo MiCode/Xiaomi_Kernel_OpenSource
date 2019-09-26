@@ -3184,6 +3184,19 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			#clock-cells = <1>;
 		};
 
+		ipesyscq@1b000000 {
+			compatible = "mediatek,ipesyscq";
+			reg = <0 0x1b000000 0 0x1000>;
+		};
+
+		rsc@1b003000 {
+			compatible = "mediatek,rsc";
+			reg = <0 0x1b003000 0 0x1000>;
+			interrupts = <GIC_SPI 300 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&ipesys CLK_IPE_RSC>;
+			clock-names = "RSC_CLK_IPE_RSC";
+		};
+
 		larb8: larb@1b00f000 {
 			compatible = "mediatek,mt6779-smi-larb";
 			reg = <0 0x1b00f000 0 0x1000>;
