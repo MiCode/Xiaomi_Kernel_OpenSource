@@ -334,6 +334,13 @@ int qcom_scm_io_writel(phys_addr_t addr, unsigned int val)
 }
 EXPORT_SYMBOL(qcom_scm_io_writel);
 
+int qcom_scm_get_jtag_etm_feat_id(u64 *version)
+{
+	return __qcom_scm_get_feat_version(__scm ? __scm->dev : NULL,
+					QCOM_SCM_TZ_DBG_ETM_FEAT_ID, version);
+}
+EXPORT_SYMBOL(qcom_scm_get_jtag_etm_feat_id);
+
 void qcom_scm_mmu_sync(bool sync)
 {
 	__qcom_scm_mmu_sync(__scm ? __scm->dev : NULL, sync);

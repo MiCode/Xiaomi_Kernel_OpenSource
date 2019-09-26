@@ -45,8 +45,12 @@ extern int __qcom_scm_io_writel(struct device *dev, phys_addr_t addr, unsigned i
 
 #define QCOM_SCM_SVC_INFO			0x06
 #define QCOM_SCM_INFO_IS_CALL_AVAIL		0x01
+#define QCOM_SCM_INFO_GET_FEAT_VERSION_CMD	0x03
 extern int __qcom_scm_is_call_available(struct device *dev, u32 svc_id,
 		u32 cmd_id);
+extern int __qcom_scm_get_feat_version(struct device *dev, u64 feat_id,
+					u64 *version);
+#define QCOM_SCM_TZ_DBG_ETM_FEAT_ID		0x08
 
 #define QCOM_SCM_SVC_PWR			0x09
 #define QCOM_SCM_PWR_MMU_SYNC			0x08

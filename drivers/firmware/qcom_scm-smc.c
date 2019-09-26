@@ -870,6 +870,26 @@ int __qcom_scm_is_call_available(struct device *dev, u32 svc_id, u32 cmd_id)
 	return ret ? : desc.res[0];
 }
 
+int __qcom_scm_get_feat_version(struct device *dev, u64 feat_id, u64 *version)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_INFO,
+		.cmd = QCOM_SCM_INFO_GET_FEAT_VERSION_CMD,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = feat_id;
+	desc.arginfo = QCOM_SCM_ARGS(1);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	if (version)
+		*version = desc.res[0];
+
+	return ret;
+}
+
 void __qcom_scm_mmu_sync(struct device *dev, bool sync)
 {
 	int ret;

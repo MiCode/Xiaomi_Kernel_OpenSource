@@ -49,6 +49,7 @@ extern int qcom_scm_pas_auth_and_reset(u32 peripheral);
 extern int qcom_scm_pas_shutdown(u32 peripheral);
 extern int qcom_scm_io_readl(phys_addr_t addr, unsigned int *val);
 extern int qcom_scm_io_writel(phys_addr_t addr, unsigned int val);
+extern int qcom_scm_get_jtag_etm_feat_id(u64 *version);
 extern void qcom_scm_mmu_sync(bool sync);
 extern int qcom_scm_restore_sec_cfg(u32 device_id, u32 spare);
 extern int qcom_scm_iommu_secure_ptbl_size(u32 spare, size_t *size);
@@ -93,6 +94,8 @@ static inline int qcom_scm_pas_shutdown(u32 peripheral) { return -ENODEV; }
 static inline int qcom_scm_io_readl(phys_addr_t addr, unsigned int *val)
 		{ return -ENODEV; }
 static inline int qcom_scm_io_writel(phys_addr_t addr, unsigned int val)
+		{ return -ENODEV; }
+static inline int qcom_scm_get_jtag_etm_feat_id(u64 *version)
 		{ return -ENODEV; }
 static inline void qcom_scm_mmu_sync(bool sync) {}
 static inline int qcom_scm_restore_sec_cfg(u32 device_id, u32 spare)
