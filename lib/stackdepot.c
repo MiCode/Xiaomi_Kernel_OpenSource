@@ -219,7 +219,8 @@ void depot_fetch_stack(depot_stack_handle_t handle, struct stack_trace *trace)
 EXPORT_SYMBOL_GPL(depot_fetch_stack);
 
 #ifdef CONFIG_PAGE_OWNER
-void depot_hit_stack(depot_stack_handle_t handle, struct stack_trace *trace)
+void depot_hit_stack(depot_stack_handle_t handle, struct stack_trace *trace,
+		int cnt)
 {
 	union handle_parts parts = { .handle = handle };
 	void *slab = stack_slabs[parts.slabindex];
@@ -227,7 +228,7 @@ void depot_hit_stack(depot_stack_handle_t handle, struct stack_trace *trace)
 	struct stack_record *stack = slab + offset;
 	unsigned long flags;
 
-	stack->hit++;
+	stack->hit += cnt;
 	spin_lock_irqsave(&max_found_lock, flags);
 	if ((!max_found) || (stack->hit > max_found->hit))
 		max_found = stack;
