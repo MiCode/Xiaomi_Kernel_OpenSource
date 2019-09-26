@@ -3194,14 +3194,6 @@ static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 	return ret;
 }
 
-static void arm_smmu_iotlb_sync(struct iommu_domain *domain)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-
-	if (smmu_domain->tlb_ops)
-		smmu_domain->tlb_ops->tlb_sync(smmu_domain);
-}
-
 /*
  * This function can sleep, and cannot be called from atomic context. Will
  * power on register block if required. This restriction does not apply to the
@@ -3968,8 +3960,6 @@ static struct iommu_ops arm_smmu_ops = {
 	.map			= arm_smmu_map,
 	.unmap			= arm_smmu_unmap,
 	.map_sg			= arm_smmu_map_sg,
-	.flush_iotlb_all	= arm_smmu_iotlb_sync,
-	.iotlb_sync		= arm_smmu_iotlb_sync,
 	.iova_to_phys		= arm_smmu_iova_to_phys,
 	.iova_to_phys_hard	= arm_smmu_iova_to_phys_hard,
 	.add_device		= arm_smmu_add_device,
