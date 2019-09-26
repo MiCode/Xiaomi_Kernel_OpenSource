@@ -327,12 +327,13 @@ static int ion_sc_add_child(struct ion_sc_heap *manager,
 
 	basep = of_get_address(phandle,  0, &size, NULL);
 	if (!basep)
-		goto out_free;
+		goto out_put_phandle;
 
 	base = of_translate_address(phandle, basep);
 	if (base == OF_BAD_ADDR)
-		goto out_free;
+		goto out_put_phandle;
 
+	of_node_put(phandle);
 	heap_data.priv = dev;
 	heap_data.base = base;
 	heap_data.size = size;
@@ -343,16 +344,18 @@ static int ion_sc_add_child(struct ion_sc_heap *manager,
 		goto out_free;
 
 	ret = ion_sc_get_dt_token(entry, np, base, size);
-	if (ret)
-		goto out_free_carveout;
+	if (ret) {
+		ion_carveout_heap_destroy(entry->heap);
+		goto out_free;
+	}
 
 	list_add(&entry->list, &manager->children);
 	dev_info(dev, "ion_secure_carveout: creating heap@0x%llx, size 0x%llx\n",
 		 base, size);
 	return 0;
 
-out_free_carveout:
-	ion_carveout_heap_destroy(entry->heap);
+out_put_phandle:
+	of_node_put(phandle);
 out_free:
 	kfree(entry);
 	return -EINVAL;
