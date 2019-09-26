@@ -207,49 +207,87 @@ void mtk_unprepare_vdec_dvfs(void)
 	kfree(vdec_freq_steps);
 #endif
 }
-void mtk_prepare_vdec_emi_bw(struct mtk_vcodec_dev *mtkdev)
+int mtk_prepare_vdec_emi_bw(struct mtk_vcodec_dev *mtkdev)
 {
+	int ret = 0;
 #ifdef CONFIG_MEDIATEK_EMI_BW
 	struct platform_device *pdev;
 
 	pdev = mtkdev->plat_dev;
 	vdec_mc = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_MC");
-	if (IS_ERR_OR_NULL(vdec_mc))
-		mtk_v4l2_err("of_icc_get vdec_mc fail!!\n");
+	if (IS_ERR_OR_NULL(vdec_mc)) {
+		mtk_v4l2_err("of_icc_get vdec_mc fail:%d!!\n",
+			PTR_ERR_OR_ZERO(vdec_mc));
+		return PTR_ERR_OR_ZERO(vdec_mc);
+	}
 	vdec_ufo = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_UFO");
-	if (IS_ERR_OR_NULL(vdec_ufo))
-		mtk_v4l2_err("of_icc_get vdec_ufo fail!!\n");
+	if (IS_ERR_OR_NULL(vdec_ufo)) {
+		mtk_v4l2_err("of_icc_get vdec_ufo fail:%d!!\n",
+			PTR_ERR_OR_ZERO(vdec_ufo));
+		return PTR_ERR_OR_ZERO(vdec_ufo);
+	}
 	vdec_pp = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_PP");
-	if (IS_ERR_OR_NULL(vdec_pp))
-		mtk_v4l2_err("of_icc_get vdec_pp fail!!\n");
+	if (IS_ERR_OR_NULL(vdec_pp)) {
+		mtk_v4l2_err("of_icc_get vdec_pp fail:%d!!\n",
+			PTR_ERR_OR_ZERO(vdec_pp));
+		return PTR_ERR_OR_ZERO(vdec_pp);
+	}
 	vdec_pred_rd = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_PRED_RD");
-	if (IS_ERR_OR_NULL(vdec_pred_rd))
-		mtk_v4l2_err("of_icc_get vdec_pred_rd fail!!\n");
+	if (IS_ERR_OR_NULL(vdec_pred_rd)) {
+		mtk_v4l2_err("of_icc_get vdec_pred_rd fail:%d!!\n",
+			PTR_ERR_OR_ZERO(vdec_pred_rd));
+		return PTR_ERR_OR_ZERO(vdec_pred_rd);
+	}
 	vdec_pred_wr = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_PRED_WR");
-	if (IS_ERR_OR_NULL(vdec_pred_wr))
-		mtk_v4l2_err("of_icc_get vdec_pred_wr fail!!\n");
+	if (IS_ERR_OR_NULL(vdec_pred_wr)) {
+		mtk_v4l2_err("of_icc_get vdec_pred_wr fail:%d!!\n",
+			PTR_ERR_OR_ZERO(vdec_pred_wr));
+		return PTR_ERR_OR_ZERO(vdec_pred_wr);
+	}
 	vdec_ppwrap = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_PPWRAP");
-	if (IS_ERR_OR_NULL(vdec_ppwrap))
-		mtk_v4l2_err("of_icc_get vdec_ppwrap fail!!\n");
+	if (IS_ERR_OR_NULL(vdec_ppwrap)) {
+		mtk_v4l2_err("of_icc_get vdec_ppwrap fail:%d!!\n",
+			PTR_ERR_OR_ZERO(vdec_ppwrap));
+		return PTR_ERR_OR_ZERO(vdec_ppwrap);
+	}
 	vdec_tile = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_TILE");
-	if (IS_ERR_OR_NULL(vdec_tile))
-		mtk_v4l2_err("of_icc_get vdec_tile fail!!\n");
+	if (IS_ERR_OR_NULL(vdec_tile)) {
+		mtk_v4l2_err("of_icc_get vdec_tile fail:%d!!\n",
+			PTR_ERR_OR_ZERO(vdec_tile));
+		return PTR_ERR_OR_ZERO(vdec_tile);
+	}
 	vdec_vld = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_VLD");
-	if (IS_ERR_OR_NULL(vdec_vld))
-		mtk_v4l2_err("of_icc_get vdec_vld fail!!\n");
+	if (IS_ERR_OR_NULL(vdec_vld)) {
+		mtk_v4l2_err("of_icc_get vdec_vld fail:%d!!\n",
+			PTR_ERR_OR_ZERO(vdec_vld));
+		return PTR_ERR_OR_ZERO(vdec_vld);
+	}
 	vdec_vld2 = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_VLD2");
-	if (IS_ERR_OR_NULL(vdec_vld2))
-		mtk_v4l2_err("of_icc_get vdec_vld2 fail!!\n");
+	if (IS_ERR_OR_NULL(vdec_vld2)) {
+		mtk_v4l2_err("of_icc_get vdec_vld2 fail:%d!!\n",
+			PTR_ERR_OR_ZERO(vdec_vld2));
+		return PTR_ERR_OR_ZERO(vdec_vld2);
+	}
 	vdec_avc_mv = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_AVC_MV");
-	if (IS_ERR_OR_NULL(vdec_avc_mv))
-		mtk_v4l2_err("of_icc_get vdec_avc_mv fail!!\n");
+	if (IS_ERR_OR_NULL(vdec_avc_mv)) {
+		mtk_v4l2_err("of_icc_get vdec_avc_mv fail:%d!!\n",
+			PTR_ERR_OR_ZERO(vdec_avc_mv));
+		return PTR_ERR_OR_ZERO(vdec_avc_mv);
+	}
 	vdec_ufo_enc = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_UFO_ENC");
-	if (IS_ERR_OR_NULL(vdec_ufo_enc))
-		mtk_v4l2_err("of_icc_get vdec_ufo_enc fail!!\n");
+	if (IS_ERR_OR_NULL(vdec_ufo_enc)) {
+		mtk_v4l2_err("of_icc_get vdec_ufo_enc fail:%d!!\n",
+			PTR_ERR_OR_ZERO(vdec_ufo_enc));
+		return PTR_ERR_OR_ZERO(vdec_ufo_enc);
+	}
 	vdec_rg_ctrl_dma = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_RG_CTRL_DMA");
-	if (IS_ERR_OR_NULL(vdec_rg_ctrl_dma))
-		mtk_v4l2_err("of_icc_get vdec_rg_ctrl_dma fail!!\n");
+	if (IS_ERR_OR_NULL(vdec_rg_ctrl_dma)) {
+		mtk_v4l2_err("of_icc_get vdec_rg_ctrl_dma fail:%d!!\n",
+			PTR_ERR_OR_ZERO(vdec_rg_ctrl_dma));
+		return PTR_ERR_OR_ZERO(vdec_rg_ctrl_dma);
+	}
 #endif
+	return ret;
 }
 
 void mtk_unprepare_vdec_emi_bw(void)
