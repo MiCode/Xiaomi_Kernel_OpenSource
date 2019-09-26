@@ -6107,7 +6107,7 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
 
-	missing = copy_from_user(dbg_buff, buf, count);
+	missing = copy_from_user(dbg_buff, buf, min(sizeof(dbg_buff), count));
 
 	if (missing) {
 		IPAERR("Unable to copy data from user\n");
