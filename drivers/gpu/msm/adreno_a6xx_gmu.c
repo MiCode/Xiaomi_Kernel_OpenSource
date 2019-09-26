@@ -1650,6 +1650,38 @@ static void a6xx_gmu_snapshot(struct kgsl_device *device,
 	}
 }
 
+static void a6xx_gmu_cooperative_reset(struct kgsl_device *device)
+{
+
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	unsigned int result;
+
+	gmu_core_regwrite(device, A6XX_GMU_CX_GMU_WDOG_CTRL, 0);
+	gmu_core_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, BIT(17));
+
+	/*
+	 * After triggering graceful death wait for snapshot ready
+	 * indication from GMU.
+	 */
+	if (!timed_poll_check(device, A6XX_GMU_CM3_FW_INIT_RESULT,
+				0x800, 2, 0x800))
+		return;
+
+	gmu_core_regread(device, A6XX_GMU_CM3_FW_INIT_RESULT, &result);
+	dev_err(&gmu->pdev->dev,
+		"GMU cooperative reset timed out 0x%x\n", result);
+	/*
+	 * If we dont get a snapshot ready from GMU, trigger NMI
+	 * and if we still timeout then we just continue with reset.
+	 */
+	adreno_gmu_send_nmi(ADRENO_DEVICE(device));
+	udelay(200);
+	gmu_core_regread(device, A6XX_GMU_CM3_FW_INIT_RESULT, &result);
+	if ((result & 0x800) != 0x800)
+		dev_err(&gmu->pdev->dev,
+			"GMU cooperative reset NMI timed out 0x%x\n", result);
+}
+
 static int a6xx_gmu_wait_for_active_transition(
 	struct kgsl_device *device)
 {
@@ -1692,6 +1724,7 @@ struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.ifpc_store = a6xx_gmu_ifpc_store,
 	.ifpc_show = a6xx_gmu_ifpc_show,
 	.snapshot = a6xx_gmu_snapshot,
+	.cooperative_reset = a6xx_gmu_cooperative_reset,
 	.wait_for_active_transition = a6xx_gmu_wait_for_active_transition,
 	.gmu2host_intr_mask = HFI_IRQ_MASK,
 	.gmu_ao_intr_mask = GMU_AO_INT_MASK,

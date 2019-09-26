@@ -7,6 +7,7 @@
 
 #include "adreno.h"
 #include "adreno_trace.h"
+#include "kgsl_gmu_core.h"
 
 #define DRAWQUEUE_NEXT(_i, _s) (((_i) + 1) % (_s))
 
@@ -2176,6 +2177,10 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	if (gx_on)
 		adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
 			ADRENO_REG_CP_IB1_BASE_HI, &base);
+
+	if (!test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
+		&adreno_dev->ft_pf_policy) && adreno_dev->cooperative_reset)
+		gmu_core_dev_cooperative_reset(device);
 
 	do_header_and_snapshot(device, fault, hung_rb, cmdobj);
 

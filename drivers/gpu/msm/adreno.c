@@ -333,6 +333,28 @@ void adreno_fault_detect_stop(struct adreno_device *adreno_dev)
 	adreno_dev->fast_hang_detect = 0;
 }
 
+#define GMU_CM3_CFG_NONMASKINTR_SHIFT	9
+
+/* Send an NMI to the GMU */
+void adreno_gmu_send_nmi(struct adreno_device *adreno_dev)
+{
+	/* Mask so there's no interrupt caused by NMI */
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
+
+	/* Make sure the interrupt is masked before causing it */
+	wmb();
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
+		adreno_write_gmureg(adreno_dev,
+				ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_CM3_CFG,
+			(1 << GMU_CM3_CFG_NONMASKINTR_SHIFT));
+
+	/* Make sure the NMI is invoked before we proceed*/
+	wmb();
+}
+
 /*
  * A workqueue callback responsible for actually turning on the GPU after a
  * touch event. kgsl_pwrctrl_change_state(ACTIVE) is used without any
@@ -1689,6 +1711,9 @@ static int adreno_init(struct kgsl_device *device)
 
 	adreno_perfcounter_init(adreno_dev);
 	adreno_fault_detect_init(adreno_dev);
+
+	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
+							ADRENO_COOP_RESET);
 
 	/* Power down the device */
 	if (ADRENO_GPUREV(adreno_dev) < 600)
