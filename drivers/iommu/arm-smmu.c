@@ -5146,6 +5146,7 @@ static int __maybe_unused arm_smmu_pm_restore_early(struct device *dev)
 {
 	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
 	struct arm_smmu_domain *smmu_domain;
+	struct io_pgtable_ops *pgtbl_ops;
 	struct arm_smmu_cb *cb;
 	int idx, ret;
 
@@ -5159,13 +5160,15 @@ static int __maybe_unused arm_smmu_pm_restore_early(struct device *dev)
 		if (!arm_smmu_has_secure_vmid(smmu_domain))
 			continue;
 
-		if (!alloc_io_pgtable_ops(smmu_domain->pgtbl_fmt,
+		pgtbl_ops = alloc_io_pgtable_ops(smmu_domain->pgtbl_fmt,
 					  &smmu_domain->pgtbl_cfg,
-					  smmu_domain)) {
+					  smmu_domain);
+		if (!pgtbl_ops) {
 			dev_err(smmu->dev, "failed to allocate page tables during pm restore for cxt %d\n",
 				idx, dev_name(dev));
 			return -ENOMEM;
 		}
+		smmu_domain->pgtbl_ops = pgtbl_ops;
 		arm_smmu_secure_domain_lock(smmu_domain);
 		arm_smmu_assign_table(smmu_domain);
 		arm_smmu_secure_domain_unlock(smmu_domain);
