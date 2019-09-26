@@ -1638,6 +1638,11 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 
 		break;
 	case MSM_PCIE_DUMP_PCIE_REGISTER_SPACE:
+		if (!base_sel) {
+			PCIE_DBG_FS(dev, "Invalid base_sel: 0x%x\n", base_sel);
+			break;
+		}
+
 		if (((base_sel - 1) >= MSM_PCIE_MAX_RES) ||
 					(!dev->res[base_sel - 1].resource)) {
 			PCIE_DBG_FS(dev, "PCIe: RC%d Resource does not exist\n",
@@ -1645,10 +1650,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			break;
 		}
 
-		if (!base_sel) {
-			PCIE_DBG_FS(dev, "Invalid base_sel: 0x%x\n", base_sel);
-			break;
-		} else if (base_sel - 1 == MSM_PCIE_RES_PARF) {
+		if (base_sel - 1 == MSM_PCIE_RES_PARF) {
 			pcie_parf_dump(dev);
 			break;
 		} else if (base_sel - 1 == MSM_PCIE_RES_PHY) {
