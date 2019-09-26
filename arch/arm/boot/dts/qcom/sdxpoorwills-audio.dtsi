@@ -39,7 +39,7 @@
 				<&incall_record_tx>, <&incall_music_rx>,
 				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
 				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
-				<&dai_sec_auxpcm>;
+				<&dai_sec_auxpcm>, <&incall_music_dl_rx>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1",
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-stub-dev.4", "msm-dai-stub-dev.5",
@@ -50,6 +50,6 @@
 				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
 				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
 				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
-				"msm-dai-q6-auxpcm.2";
+				"msm-dai-q6-auxpcm.2", "msm-dai-q6-dev.32774";
 	};
 };

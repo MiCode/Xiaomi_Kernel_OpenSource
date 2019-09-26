@@ -151,6 +151,11 @@
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <32773>;
 		};
+
+		incall_music_dl_rx: qcom,msm-dai-q6-incall-music-dl-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <32774>;
+		};
 	};
 
 	pcm_dtmf: qcom,msm-pcm-dtmf {
