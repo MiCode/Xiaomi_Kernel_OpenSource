@@ -1,3 +1,5 @@
+#include <dt-bindings/arm/msm/msm_ion_ids.h>
+
 &soc {
 	qcom,ion {
 		compatible = "qcom,msm-ion";
@@ -5,24 +7,24 @@
 		#size-cells = <0>;
 
 		system_heap: qcom,ion-heap@25 {
-			reg = <25>;
+			reg = <ION_SYSTEM_HEAP_ID>;
 			qcom,ion-heap-type = "SYSTEM";
 		};
 
 		adsp_heap: qcom,ion-heap@22 {
-			reg = <22>;
+			reg = <ION_ADSP_HEAP_ID>;
 			memory-region = <&sdsp_mem>;
 			qcom,ion-heap-type = "DMA";
 		};
 
 		system_secure_heap: qcom,ion-heap@9 {
-			reg = <9>;
+			reg = <ION_SECURE_HEAP_ID>;
 			qcom,ion-heap-type = "SYSTEM_SECURE";
 		};
 
 		qcom,ion-heap@14 { /* SECURE CARVEOUT HEAP */
 			status = "disabled";
-			reg = <14>;
+			reg = <ION_SECURE_CARVEOUT_HEAP_ID>;
 			qcom,ion-heap-type = "SECURE_CARVEOUT";
 			cdsp {
 				memory-region = <&cdsp_secure_heap>;
