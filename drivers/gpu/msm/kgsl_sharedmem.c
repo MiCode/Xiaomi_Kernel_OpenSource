@@ -634,7 +634,7 @@ static void kgsl_cma_coherent_free(struct kgsl_memdesc *memdesc)
 				&kgsl_driver.stats.secure);
 
 			kgsl_cma_unlock_secure(memdesc);
-			attrs = (unsigned long)&memdesc->attrs;
+			attrs = memdesc->attrs;
 		} else
 			atomic_long_sub(memdesc->size,
 				&kgsl_driver.stats.coherent);
