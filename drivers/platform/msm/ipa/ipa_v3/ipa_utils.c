@@ -7667,12 +7667,10 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 	IPADBG("EXIT\n");
 }
 
-static void ipa3_gsi_poll_after_suspend(struct ipa3_ep_context *ep)
+static bool ipa3_gsi_channel_is_quite(struct ipa3_ep_context *ep)
 {
 	bool empty;
 
-	IPADBG("switch ch %ld to poll\n", ep->gsi_chan_hdl);
-	gsi_config_channel_mode(ep->gsi_chan_hdl, GSI_CHAN_MODE_POLL);
 	gsi_is_channel_empty(ep->gsi_chan_hdl, &empty);
 	if (!empty) {
 		IPADBG("ch %ld not empty\n", ep->gsi_chan_hdl);
@@ -7681,6 +7679,7 @@ static void ipa3_gsi_poll_after_suspend(struct ipa3_ep_context *ep)
 		if (!atomic_read(&ep->sys->curr_polling_state))
 			__ipa_gsi_irq_rx_scedule_poll(ep->sys);
 	}
+	return empty;
 }
 
 static int __ipa3_stop_gsi_channel(u32 clnt_hdl)
@@ -7803,141 +7802,78 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 	return res;
 }
 
-void ipa3_suspend_apps_pipes(bool suspend)
+static int _ipa_suspend_pipe(enum ipa_client_type client, bool suspend)
 {
-	struct ipa_ep_cfg_ctrl cfg;
 	int ipa_ep_idx;
 	struct ipa3_ep_context *ep;
 	int res;
 
-	memset(&cfg, 0, sizeof(cfg));
-	cfg.ipa_ep_suspend = suspend;
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+		IPAERR("not supported\n");
+		return -EPERM;
+	}
 
-	ipa_ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
+	ipa_ep_idx = ipa3_get_ep_mapping(client);
 	if (ipa_ep_idx < 0) {
-		IPAERR("IPA client mapping failed\n");
-		ipa_assert();
-		return;
+		IPADBG("client %d not configued\n", client);
+		return 0;
 	}
-	ep = &ipa3_ctx->ep[ipa_ep_idx];
-	if (ep->valid) {
-		IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend",
-			ipa_ep_idx);
-		/*
-		 * move the channel to callback mode.
-		 * This needs to happen before starting the channel to make
-		 * sure we don't loose any interrupt
-		 */
-		if (!suspend && !atomic_read(&ep->sys->curr_polling_state))
-			gsi_config_channel_mode(ep->gsi_chan_hdl,
-				GSI_CHAN_MODE_CALLBACK);
 
-		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
-			if (suspend) {
-				res = __ipa3_stop_gsi_channel(ipa_ep_idx);
-				if (res) {
-					IPAERR("failed to stop LAN channel\n");
-					ipa_assert();
-				}
-			} else {
-				res = gsi_start_channel(ep->gsi_chan_hdl);
-				if (res) {
-					IPAERR("failed to start LAN channel\n");
-					ipa_assert();
-				}
-			}
-		} else {
-			ipa3_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+	ep = &ipa3_ctx->ep[ipa_ep_idx];
+	if (!ep->valid)
+		return 0;
+
+	IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend", ipa_ep_idx);
+	/*
+	 * move the channel to callback mode.
+	 * This needs to happen before starting the channel to make
+	 * sure we don't loose any interrupt
+	 */
+	if (!suspend && !atomic_read(&ep->sys->curr_polling_state))
+		gsi_config_channel_mode(ep->gsi_chan_hdl,
+					GSI_CHAN_MODE_CALLBACK);
+
+	if (suspend) {
+		res = __ipa3_stop_gsi_channel(ipa_ep_idx);
+		if (res) {
+			IPAERR("failed to stop LAN channel\n");
+			ipa_assert();
 		}
-		if (suspend)
-			ipa3_gsi_poll_after_suspend(ep);
-	}
-
-	ipa_ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
-	/* Considering the case for SSR. */
-	if (ipa_ep_idx == -1) {
-		IPADBG("Invalid mapping for IPA_CLIENT_APPS_WAN_CONS\n");
-		return;
-	}
-	ep = &ipa3_ctx->ep[ipa_ep_idx];
-	if (ep->valid) {
-		IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend",
-			ipa_ep_idx);
-		/*
-		 * move the channel to callback mode.
-		 * This needs to happen before starting the channel to make
-		 * sure we don't loose any interrupt
-		 */
-		if (!suspend && !atomic_read(&ep->sys->curr_polling_state))
-			gsi_config_channel_mode(ep->gsi_chan_hdl,
-				GSI_CHAN_MODE_CALLBACK);
-		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
-			if (suspend) {
-				res = __ipa3_stop_gsi_channel(ipa_ep_idx);
-				if (res) {
-					IPAERR("failed to stop WAN channel\n");
-					ipa_assert();
-				}
-			} else if (!atomic_read(&ipa3_ctx->is_ssr)) {
-				/* If SSR was alreday started not required to
-				 * start WAN channel,Because in SSR will stop
-				 * channel and reset the channel.
-				 */
-				res = gsi_start_channel(ep->gsi_chan_hdl);
-				if (res) {
-					IPAERR("failed to start WAN channel\n");
-					ipa_assert();
-				}
-			}
-		} else {
-			ipa3_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+	} else {
+		res = gsi_start_channel(ep->gsi_chan_hdl);
+		if (res) {
+			IPAERR("failed to start LAN channel\n");
+			ipa_assert();
 		}
-		if (suspend)
-			ipa3_gsi_poll_after_suspend(ep);
 	}
 
-	ipa_ep_idx = ipa_get_ep_mapping(IPA_CLIENT_ODL_DPL_CONS);
-	/* Considering the case for SSR. */
-	if (ipa_ep_idx == -1) {
-		IPADBG("Invalid mapping for IPA_CLIENT_ODL_DPL_CONS\n");
-		return;
-	}
-	ep = &ipa3_ctx->ep[ipa_ep_idx];
-	if (ep->valid) {
-		IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend",
-			ipa_ep_idx);
-		/*
-		 * move the channel to callback mode.
-		 * This needs to happen before starting the channel to make
-		 * sure we don't loose any interrupt
-		 */
-		if (!suspend && !atomic_read(&ep->sys->curr_polling_state))
-			gsi_config_channel_mode(ep->gsi_chan_hdl,
+	if (suspend) {
+		IPADBG("switch ch %ld to poll\n", ep->gsi_chan_hdl);
+		gsi_config_channel_mode(ep->gsi_chan_hdl, GSI_CHAN_MODE_POLL);
+		if (!ipa3_gsi_channel_is_quite(ep))
+			return -EAGAIN;
+	} else if (!atomic_read(&ep->sys->curr_polling_state)) {
+		IPADBG("switch ch %ld to callback\n", ep->gsi_chan_hdl);
+		gsi_config_channel_mode(ep->gsi_chan_hdl,
 			GSI_CHAN_MODE_CALLBACK);
-		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
-			if (suspend) {
-				res = __ipa3_stop_gsi_channel(ipa_ep_idx);
-				if (res) {
-					IPAERR("failed to stop ODL channel\n");
-					ipa_assert();
-				}
-			} else if (!atomic_read(&ipa3_ctx->is_ssr)) {
-				/* If SSR was alreday started not required to
-				 * start WAN channel,Because in SSR will stop
-				 * channel and reset the channel.
-				 */
-				res = gsi_start_channel(ep->gsi_chan_hdl);
-				if (res) {
-					IPAERR("failed to start ODL channel\n");
-					ipa_assert();
-				}
-			}
-		} else {
-			ipa3_cfg_ep_ctrl(ipa_ep_idx, &cfg);
-		}
-		if (suspend)
-			ipa3_gsi_poll_after_suspend(ep);
 	}
+
+	return 0;
+}
+
+int ipa3_suspend_apps_pipes(bool suspend)
+{
+	int res;
+
+	res = _ipa_suspend_pipe(IPA_CLIENT_APPS_LAN_CONS, suspend);
+	if (res)
+		return res;
+
+	res = _ipa_suspend_pipe(IPA_CLIENT_APPS_WAN_CONS, suspend);
+	if (res)
+		return res;
+
+	return 0;
 }
 
 int ipa3_allocate_dma_task_for_gsi(void)
