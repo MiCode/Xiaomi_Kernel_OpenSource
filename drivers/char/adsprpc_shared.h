@@ -125,9 +125,6 @@ do {\
 } while (0)
 #endif
 
-/* Fall back to older APIS in case API is not supported */
-#define AEE_EUNSUPPORTED    20
-
 #define remote_arg64_t    union remote_arg64
 
 struct remote_buf64 {
