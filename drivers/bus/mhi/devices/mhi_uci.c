@@ -167,10 +167,14 @@ static long mhi_uci_ioctl(struct file *file,
 	if (cmd == TIOCMGET) {
 		spin_lock_bh(&uci_chan->lock);
 		ret = uci_dev->tiocm;
-		uci_dev->tiocm = 0;
 		spin_unlock_bh(&uci_chan->lock);
 	} else if (uci_dev->enabled) {
 		ret = mhi_ioctl(mhi_dev, cmd, arg);
+		if (!ret) {
+			spin_lock_bh(&uci_chan->lock);
+			uci_dev->tiocm = mhi_dev->tiocm;
+			spin_unlock_bh(&uci_chan->lock);
+		}
 	}
 
 	mutex_unlock(&uci_dev->mutex);
