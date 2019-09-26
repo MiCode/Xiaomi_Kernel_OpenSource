@@ -2634,7 +2634,7 @@ static int gsi_get_status(struct usb_function *f)
 	struct f_gsi *gsi = func_to_gsi(f);
 
 	/* Disable function remote wake-up for DPL interface */
-	if (gsi->prot_id == IPA_USB_DIAG)
+	if (gsi->prot_id == USB_PROT_DIAG_IPA)
 		return 0;
 
 	return (remote_wakeup_en_status << FUNC_WAKEUP_ENABLE_SHIFT) |
