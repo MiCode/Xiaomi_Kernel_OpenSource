@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1282,12 +1282,17 @@ int scm_enable_mem_protection(void)
 	struct scm_desc desc = {0};
 	int ret = 0, resp;
 
-	desc.args[0] = 0;
-	desc.arginfo = 0;
-	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_RTIC,
+	if (!is_scm_armv8()) {
+		ret = scm_call(SCM_SVC_RTIC, TZ_RTIC_ENABLE_MEM_PROTECTION,
+				NULL, 0, &resp, sizeof(resp));
+	} else {
+		desc.args[0] = 0;
+		desc.arginfo = 0;
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_RTIC,
 			TZ_RTIC_ENABLE_MEM_PROTECTION),
 			&desc);
-	resp = desc.ret[0];
+		resp = desc.ret[0];
+	}
 
 	if (ret == -1) {
 		pr_err("%s: SCM call not supported\n", __func__);
