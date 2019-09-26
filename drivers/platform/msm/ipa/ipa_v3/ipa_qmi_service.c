@@ -566,7 +566,7 @@ static int ipa3_qmi_init_modem_send_sync_msg(void)
 	/* if hashing not supported, Modem filter/routing hash
 	 * tables should not fill with valid data.
 	 */
-	if (!ipa3_ctx->ipa_fltrt_not_hashable) {
+	if (!ipa3_ctx_get_flag(IPA_FLTRT_NOT_HASHABLE_EN)) {
 		req.v4_hash_route_tbl_info_valid = true;
 		req.v4_hash_route_tbl_info.route_tbl_start_addr =
 			IPA_MEM_PART(v4_rt_hash_ofst) + smem_restr_bytes;
@@ -709,7 +709,7 @@ int ipa3_qmi_filter_request_send(struct ipa_install_fltr_rule_req_msg_v01 *req)
 		"IPACM passes source_pipe_index_valid not zero 0 != %d\n",
 			req->source_pipe_index_valid);
 		return -EINVAL;
-	} else if (req->source_pipe_index >= ipa3_ctx->ipa_num_pipes) {
+	} else if (req->source_pipe_index >= ipa3_ctx_get_num_pipes()) {
 		IPAWANDBG(
 		"IPACM passes source pipe index not valid ID = %d\n",
 		req->source_pipe_index);
@@ -1214,8 +1214,8 @@ int ipa3_qmi_enable_force_clear_datapath_send(
 		return -EINVAL;
 	}
 
-	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL ||
-		ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
+	if (ipa3_ctx_get_type(IPA3_HW_MODE) == IPA_HW_MODE_VIRTUAL ||
+		ipa3_ctx_get_type(IPA3_HW_MODE) == IPA_HW_MODE_EMULATION) {
 		IPAWANDBG("Simulating success on emu/virt mode\n");
 		return 0;
 	}
@@ -1272,8 +1272,8 @@ int ipa3_qmi_disable_force_clear_datapath_send(
 		return -EINVAL;
 	}
 
-	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL ||
-		ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
+	if (ipa3_ctx_get_type(IPA3_HW_MODE) == IPA_HW_MODE_VIRTUAL ||
+		ipa3_ctx_get_type(IPA3_HW_MODE) == IPA_HW_MODE_EMULATION) {
 		IPAWANDBG("Simulating success on emu/virt mode\n");
 		return 0;
 	}
@@ -1355,7 +1355,7 @@ int ipa3_qmi_filter_notify_send(
 			req->source_pipe_index, req->rule_id_valid,
 			req->rule_id_ex_valid);
 		return -EINVAL;
-	} else if (req->source_pipe_index >= ipa3_ctx->ipa_num_pipes) {
+	} else if (req->source_pipe_index >= ipa3_ctx_get_num_pipes()) {
 		IPAWANDBG(
 		"IPACM passes source pipe index not valid ID = %d\n",
 		req->source_pipe_index);
@@ -1367,7 +1367,7 @@ int ipa3_qmi_filter_notify_send(
 		IPAWANERR(
 			"IPACM passes embedded pipe and mux valid not valid\n");
 		return -EINVAL;
-	} else if (req->embedded_pipe_index >= ipa3_ctx->ipa_num_pipes) {
+	} else if (req->embedded_pipe_index >= ipa3_ctx_get_num_pipes()) {
 		IPAWANERR("IPACM passes source pipe index not valid ID = %d\n",
 		req->source_pipe_index);
 		return -EINVAL;

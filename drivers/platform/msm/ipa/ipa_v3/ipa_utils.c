@@ -8468,3 +8468,61 @@ u32 ipa3_get_r_rev_version(void)
 
 	return r_rev;
 }
+
+/**
+ * ipa3_ctx_get_type() - to get platform type, hw type
+ * and hw mode
+ *
+ * Return value: enumerated types of platform and ipa hw
+ *
+ */
+int ipa3_ctx_get_type(enum ipa_type_mode type)
+{
+	switch (type) {
+	case IPA_HW_TYPE:
+		return ipa3_ctx->ipa_hw_type;
+	case PLATFORM_TYPE:
+		return ipa3_ctx->platform_type;
+	case IPA3_HW_MODE:
+		return ipa3_ctx->ipa3_hw_mode;
+	default:
+		IPAERR("cannot read ipa3_ctx types\n");
+		return 0;
+	}
+}
+
+/**
+ * ipa3_ctx_get_flag() - to read some ipa3_ctx_flags
+ *
+ * Return value: true/false based on read value
+ *
+ */
+bool ipa3_ctx_get_flag(enum ipa_flag flag)
+{
+	switch (flag) {
+	case IPA_PM_EN:
+		return ipa3_ctx->use_ipa_pm;
+	case IPA_ENDP_DELAY_WA_EN:
+		return ipa3_ctx->ipa_endp_delay_wa;
+	case IPA_HW_STATS_EN:
+		return ipa3_ctx->hw_stats.enabled;
+	case IPA_MHI_EN:
+		return ipa3_ctx->ipa_config_is_mhi;
+	case IPA_FLTRT_NOT_HASHABLE_EN:
+		return ipa3_ctx->ipa_fltrt_not_hashable;
+	default:
+		IPAERR("cannot read ipa3_ctx flags\n");
+		return false;
+	}
+}
+
+/**
+ * ipa3_ctx_get_num_pipes() - to read pipe number from ipa3_ctx
+ *
+ * Return value: unsigned number
+ *
+ */
+u32 ipa3_ctx_get_num_pipes(void)
+{
+	return ipa3_ctx->ipa_num_pipes;
+}
