@@ -1949,10 +1949,12 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 	u32 curr_wq;
 	int idx = 0;
 	struct page *cur_page;
+	u32 stats_i = 0;
 
 	/* start replenish only when buffers go lower than the threshold */
 	if (sys->rx_pool_sz - sys->len < IPA_REPL_XFER_THRESH)
 		return;
+	stats_i = (sys->ep->client == IPA_CLIENT_APPS_WAN_COAL_CONS) ? 0 : 1;
 
 	spin_lock_bh(&sys->spinlock);
 	rx_len_cached = sys->len;
@@ -1972,6 +1974,7 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 			 * Could not find idle page at curr index.
 			 * Allocate a new one.
 			 */
+			ipa3_ctx->stats.page_recycle_stats[stats_i].tmp_alloc++;
 			if (curr_wq == atomic_read(&sys->repl->tail_idx))
 				break;
 			rx_pkt = sys->repl->cache[curr_wq];
@@ -1992,6 +1995,7 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 		gsi_xfer_elem_array[idx].xfer_user_data = rx_pkt;
 		rx_len_cached++;
 		idx++;
+		ipa3_ctx->stats.page_recycle_stats[stats_i].total_replenished++;
 		/*
 		 * gsi_xfer_elem_buffer has a size of IPA_REPL_XFER_THRESH.
 		 * If this size is reached we need to queue the xfers.
