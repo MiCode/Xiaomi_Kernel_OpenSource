@@ -1596,9 +1596,8 @@ void battery_dump_nag(void)
 	vbat_val = nag_vbat_reg & 0x7fff;
 	nag_vbat_mv = REG_to_MV_value(vbat_val);
 
-	bm_err("[read_nafg_vbat] i:%d nag_vbat_reg 0x%x nag_vbat_mv %d:%d %d\n",
-		i, nag_vbat_reg, nag_vbat_mv, vbat_val,
-		pmic_get_battery_voltage()
+	bm_err("[read_nafg_vbat] i:%d nag_vbat_reg 0x%x nag_vbat_mv %d:%d\n",
+		i, nag_vbat_reg, nag_vbat_mv, vbat_val
 		);
 
 	bm_err("[read_nafg_vbat1] %d %d %d %d %d %d %d %d %d\n",
