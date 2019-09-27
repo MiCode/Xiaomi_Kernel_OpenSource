@@ -91,6 +91,10 @@
 	};
 };
 
+&smb138x {
+	status = "disabled";
+};
+
 &i2c_4 {
 	status = "okay";
 
