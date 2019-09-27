@@ -1753,6 +1753,24 @@ static struct mtk_pin_desc mtk_pins_mt6765[] = {
 		DRV_GRP4,
 		MTK_FUNCTION(0, NULL)
 	),
+	MTK_PIN(
+		180, "GPIO180",
+		MTK_EINT_FUNCTION(0, 144),
+		DRV_GRP4,
+		MTK_FUNCTION(0, NULL)
+	),
+	MTK_PIN(
+		181, "GPIO181",
+		MTK_EINT_FUNCTION(0, 145),
+		DRV_GRP4,
+		MTK_FUNCTION(0, NULL)
+	),
+	MTK_PIN(
+		182, "GPIO182",
+		MTK_EINT_FUNCTION(0, 147),
+		DRV_GRP4,
+		MTK_FUNCTION(0, NULL)
+	),
 };
 
 #endif/* __PINCTRL_MTK_MT6765_H */
