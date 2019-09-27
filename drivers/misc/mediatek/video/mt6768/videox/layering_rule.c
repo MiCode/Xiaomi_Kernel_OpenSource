@@ -261,14 +261,17 @@ static bool is_RPO(struct disp_layer_info *disp_info, int disp_idx,
 		//if greater than one layer need check ratio is same
 		if ((i == 0 && !*has_dim_layer) || (i == 1 && *has_dim_layer))
 			basic_layer = c;
-		else if (!same_ratio(basic_layer, c))
+		else if (!(same_ratio(basic_layer, c) &&
+						same_ratio(c, basic_layer)))
 			break;
 		else if (same_ratio_limitation(c, RATIO_LIMIT))
 			break;
 
 		rect_make(&src_layer_roi,
-			(c->dst_offset_x * c->src_width) / c->dst_width,
-			(c->dst_offset_y * c->src_height) / c->dst_height,
+			((c->dst_offset_x * c->src_width * 10) /
+						c->dst_width + 5) / 10,
+			((c->dst_offset_y * c->src_height * 10) /
+						c->dst_height + 5) / 10,
 			c->src_width, c->src_height);
 		rect_join(&src_layer_roi, &src_total_roi, &src_total_roi);
 
