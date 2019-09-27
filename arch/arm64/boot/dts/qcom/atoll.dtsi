@@ -1708,9 +1708,9 @@
 		reg = <0x62400000 0x00100>;
 
 		vdd_lpi_cx-supply = <&L8A_LEVEL>;
-		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
+		qcom,vdd_lpi_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
 		vdd_lpi_mx-supply = <&L7A_LEVEL>;
-		qcom,vdd_mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
+		qcom,vdd_lpi_mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
 		qcom,proxy-reg-names = "vdd_lpi_cx", "vdd_lpi_mx";
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
