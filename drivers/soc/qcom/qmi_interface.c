@@ -448,15 +448,11 @@ static void qmi_handle_net_reset(struct qmi_handle *qmi)
 	struct sockaddr_qrtr sq;
 	struct qmi_service *svc;
 	struct socket *sock;
+	long timeo = qmi->sock->sk->sk_sndtimeo;
 
 	sock = qmi_sock_create(qmi, &sq);
 	if (IS_ERR(sock))
 		return;
-
-	mutex_lock(&qmi->sock_lock);
-	sock_release(qmi->sock);
-	qmi->sock = NULL;
-	mutex_unlock(&qmi->sock_lock);
 
 	qmi_recv_del_server(qmi, -1, -1);
 
@@ -464,8 +460,15 @@ static void qmi_handle_net_reset(struct qmi_handle *qmi)
 		qmi->ops.net_reset(qmi);
 
 	mutex_lock(&qmi->sock_lock);
+	/* Already qmi_handle_release() started */
+	if (!qmi->sock) {
+		sock_release(sock);
+		return;
+	}
+	sock_release(qmi->sock);
 	qmi->sock = sock;
 	qmi->sq = sq;
+	qmi->sock->sk->sk_sndtimeo = timeo;
 	mutex_unlock(&qmi->sock_lock);
 
 	list_for_each_entry(svc, &qmi->lookups, list_node)
@@ -620,6 +623,21 @@ static struct socket *qmi_sock_create(struct qmi_handle *qmi,
 }
 
 /**
+ * qmi_set_sndtimeo() - set the sk_sndtimeo of the qmi handle
+ * @qmi:	QMI client handle
+ * @timeo:	timeout in jiffies.
+ *
+ * This sets the timeout for the blocking socket send in qmi send.
+ */
+void qmi_set_sndtimeo(struct qmi_handle *qmi, long timeo)
+{
+	mutex_lock(&qmi->sock_lock);
+	qmi->sock->sk->sk_sndtimeo = timeo;
+	mutex_unlock(&qmi->sock_lock);
+}
+EXPORT_SYMBOL(qmi_set_sndtimeo);
+
+/**
  * qmi_handle_init() - initialize a QMI client handle
  * @qmi:	QMI handle to initialize
  * @recv_buf_size: maximum size of incoming message
@@ -695,22 +713,23 @@ EXPORT_SYMBOL(qmi_handle_init);
  */
 void qmi_handle_release(struct qmi_handle *qmi)
 {
-	struct socket *sock = qmi->sock;
+	struct socket *sock;
 	struct qmi_service *svc, *tmp;
 	struct qmi_txn *txn;
 	int txn_id;
 
+	mutex_lock(&qmi->sock_lock);
+	sock = qmi->sock;
 	write_lock_bh(&sock->sk->sk_callback_lock);
 	sock->sk->sk_user_data = NULL;
 	write_unlock_bh(&sock->sk->sk_callback_lock);
-	cancel_work_sync(&qmi->work);
-
-	qmi_recv_del_server(qmi, -1, -1);
-
-	mutex_lock(&qmi->sock_lock);
 	sock_release(sock);
 	qmi->sock = NULL;
 	mutex_unlock(&qmi->sock_lock);
+
+	cancel_work_sync(&qmi->work);
+
+	qmi_recv_del_server(qmi, -1, -1);
 
 	destroy_workqueue(qmi->wq);
 
