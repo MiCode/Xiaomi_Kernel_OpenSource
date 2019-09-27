@@ -169,7 +169,9 @@ int msm_dump_data_register_nominidump(enum msm_dump_table_ids id,
 }
 EXPORT_SYMBOL(msm_dump_data_register_nominidump);
 
-static int init_memory_dump(void *dump_vaddr, phys_addr_t phys_addr)
+#define MSM_DUMP_TOTAL_SIZE_OFFSET	0x724
+static int init_memory_dump(void *dump_vaddr, phys_addr_t phys_addr,
+					size_t size)
 {
 	struct msm_dump_table *table;
 	struct msm_dump_entry entry;
@@ -195,6 +197,9 @@ static int init_memory_dump(void *dump_vaddr, phys_addr_t phys_addr)
 	memdump.table_phys = phys_addr;
 	memcpy_toio(imem_base, &memdump.table_phys,
 			sizeof(memdump.table_phys));
+	memcpy_toio(imem_base + MSM_DUMP_TOTAL_SIZE_OFFSET,
+			&size, sizeof(size_t));
+
 	/* Ensure write to imem_base is complete before unmapping */
 	mb();
 	pr_info("MSM Memory Dump base table set up\n");
@@ -300,7 +305,7 @@ static int mem_dump_alloc(struct platform_device *pdev)
 
 	memset(dump_vaddr, 0x0, total_size);
 
-	ret = init_memory_dump(dump_vaddr, phys_addr);
+	ret = init_memory_dump(dump_vaddr, phys_addr, total_size);
 	if (ret) {
 		dev_err(&pdev->dev, "Memory Dump table set up is failed\n");
 		qtee_shmbridge_deregister(shm_bridge_handle);
