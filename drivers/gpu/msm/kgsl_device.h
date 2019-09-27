@@ -292,6 +292,7 @@ struct kgsl_device {
 
 	u32 snapshot_faultcount;	/* Total number of faults since boot */
 	bool force_panic;		/* Force panic after snapshot dump */
+	bool skip_ib_capture;		/* Skip IB capture after snapshot */
 	bool prioritize_unrecoverable;	/* Overwrite with new GMU snapshots */
 	bool set_isdb_breakpoint;	/* Set isdb registers before snapshot */
 
