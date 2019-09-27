@@ -1305,7 +1305,9 @@ int usbpd_register_svid(struct usbpd *pd, struct usbpd_svid_handler *hdlr)
 
 		for (i = 0; i < pd->num_svids; i++) {
 			if (pd->discovered_svids[i] == hdlr->svid) {
-				hdlr->connect(hdlr);
+				usbpd_dbg(&pd->dev, "Notify SVID: 0x%04x disconnect\n",
+						hdlr->svid);
+				hdlr->connect(hdlr, pd->peer_usb_comm);
 				hdlr->discovered = true;
 				break;
 			}
@@ -1501,7 +1503,10 @@ static void handle_vdm_resp_ack(struct usbpd *pd, u32 *vdos, u8 num_vdos,
 			if (svid) {
 				handler = find_svid_handler(pd, svid);
 				if (handler) {
-					handler->connect(handler);
+					usbpd_dbg(&pd->dev, "Notify SVID: 0x%04x disconnect\n",
+							handler->svid);
+					handler->connect(handler,
+							pd->peer_usb_comm);
 					handler->discovered = true;
 				}
 			}
@@ -1709,6 +1714,8 @@ static void reset_vdm_state(struct usbpd *pd)
 	mutex_lock(&pd->svid_handler_lock);
 	list_for_each_entry(handler, &pd->svid_handlers, entry) {
 		if (handler->discovered) {
+			usbpd_dbg(&pd->dev, "Notify SVID: 0x%04x disconnect\n",
+					handler->svid);
 			handler->disconnect(handler);
 			handler->discovered = false;
 		}
