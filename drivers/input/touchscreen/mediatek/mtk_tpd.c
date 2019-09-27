@@ -58,7 +58,7 @@ const struct of_device_id touch_of_match[] = {
 void tpd_get_dts_info(void)
 {
 	struct device_node *node1 = NULL;
-	int key_dim_local[16], i;
+	int key_dim_local[16] = {0}, i = 0;
 
 	node1 = of_find_matching_node(node1, touch_of_match);
 	if (node1) {
