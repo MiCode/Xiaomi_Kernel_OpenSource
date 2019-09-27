@@ -1766,7 +1766,7 @@ int m4u_sec_init(void)
 	enum mc_result mcRet;
 #endif
 
-	M4UINFO("%s: secure init start\n");
+	M4UINFO("%s: secure init start\n", __func__);
 
 	if (m4u_tee_en) {
 		M4UMSG("warning: re-initiation, %d\n", m4u_tee_en);
