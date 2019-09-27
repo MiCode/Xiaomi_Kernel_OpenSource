@@ -418,6 +418,27 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 				.formats = SND_SOC_ADV_MT_FMTS,
 			},
 	},
+	{
+		.name = MT_SOC_CODEC_BTCVSD_DAI_NAME,
+		.playback = {
+
+				.stream_name =
+					MT_SOC_BTCVSD_PLAYBACK_STREAM_NAME,
+				.channels_min = 1,
+				.channels_max = 2,
+				.rates = SOC_HIGH_USE_RATE,
+				.formats = SND_SOC_ADV_MT_FMTS,
+			},
+		.capture = {
+
+				.stream_name =
+					MT_SOC_BTCVSD_CAPTURE_STREAM_NAME,
+				.channels_min = 1,
+				.channels_max = 2,
+				.rates = SOC_HIGH_USE_RATE,
+				.formats = SND_SOC_ADV_MT_FMTS,
+			},
+	},
 #ifdef _NON_COMMON_FEATURE_READY
 	{
 		.name = MT_SOC_CODEC_MOD_DAI_NAME,

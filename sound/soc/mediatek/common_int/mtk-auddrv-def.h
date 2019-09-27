@@ -129,6 +129,7 @@
 #define MT_SOC_FM_I2S_CAPTURE_NAME "mt-soc-fmi2Scapturedai-driver"
 #define MT_SOC_BTCVSD_RX_DAI_NAME "mt-soc-btcvsd-rx-dai-driver"
 #define MT_SOC_BTCVSD_TX_DAI_NAME "mt-soc-btcvsd-tx-dai-driver"
+#define MT_SOC_BTCVSD_DAI_NAME "mt-soc-btcvsd-dai-driver"
 #define MT_SOC_MOD_DAI_NAME "mt-soc-moddai-driver"
 #define MT_SOC_ANC_NAME "mt-soc-anc-driver"
 #define MT_SOC_ANC_RECORD_DAI_NAME "mt-soc-anc-record-dai-driver"
@@ -221,6 +222,7 @@
 #define MT_SOC_CODEC_FM_I2S_DAI_NAME "mt-soc-fm-i2s-dai-codec"
 #define MT_SOC_CODEC_BTCVSD_RX_DAI_NAME "mt-soc-codec-btcvsd-rx-dai"
 #define MT_SOC_CODEC_BTCVSD_TX_DAI_NAME "mt-soc-codec-btcvsd-tx-dai"
+#define MT_SOC_CODEC_BTCVSD_DAI_NAME "mt-soc-codec-btcvsd-dai"
 #define MT_SOC_CODEC_MOD_DAI_NAME "mt-soc-mod-dai-codec"
 
 /* stream name */

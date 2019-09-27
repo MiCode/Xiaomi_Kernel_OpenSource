@@ -629,9 +629,9 @@ static struct snd_soc_dai_link mt_soc_btcvsd_dai[] = {
 	{
 		.name = "BTCVSD",
 		.stream_name = "BTCVSD",
-		.cpu_dai_name   = "snd-soc-dummy-dai",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
+		.cpu_dai_name   = MT_SOC_BTCVSD_DAI_NAME,
+		.codec_dai_name = MT_SOC_CODEC_BTCVSD_DAI_NAME,
+		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
 	},
 };
 #endif
