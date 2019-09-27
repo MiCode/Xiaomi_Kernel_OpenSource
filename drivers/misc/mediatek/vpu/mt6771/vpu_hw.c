@@ -1806,9 +1806,10 @@ list_rescan:
 		vpu_trace_end();
 }
 
+#define VPU_MOVE_WAKE_TO_BACK
 static int isr_common_handler(int core)
 {
-	int req_cmd = 0;
+	int req_cmd = 0, normal_check_done = 0;
 	int req_dump = 0;
 	unsigned int apmcu_log_buf_ofst;
 	unsigned int log_buf_addr = 0x0;
@@ -1836,10 +1837,13 @@ static int isr_common_handler(int core)
 				"VPU%d VPU_REQ_DO_CHECK_STATE BUSY", core);
 		} else {
 			/* other normal cases for cmd state control flow */
+			normal_check_done = 1;
+#ifndef VPU_MOVE_WAKE_TO_BACK
 			vpu_service_cores[core].is_cmd_done = true;
 			wake_up_interruptible(&cmd_wait);
 			vpu_trace_dump(
 				"VPU%d VPU_REQ_DO_CHECK_STATE OK", core);
+#endif
 		}
 		break;
 	}
@@ -1951,6 +1955,16 @@ static int isr_common_handler(int core)
 info18_out:
 	/* clear int */
 	vpu_write_field(core, FLD_APMCU_INT, 1);
+
+#ifdef VPU_MOVE_WAKE_TO_BACK
+	if (normal_check_done == 1) {
+		vpu_trace_dump("VPU%d VPU_REQ_DO_CHECK_STATE OK", core);
+		LOG_INF("normal_check_done UNLOCK\n");
+		vpu_service_cores[core].is_cmd_done = true;
+		wake_up_interruptible(&cmd_wait);
+	}
+#endif
+
 	return IRQ_HANDLED;
 }
 
@@ -3445,7 +3459,9 @@ int vpu_hw_boot_sequence(int core)
 out:
 	unlock_command(core);
 	vpu_trace_end();
-	LOG_INF("[vpu_%d] hw_boot_sequence -\n", core);
+	/* TODO */
+	vpu_write_field(core, FLD_APMCU_INT, 1);
+	LOG_INF("[vpu_%d] hw_boot_sequence with clr INT-\n", core);
 	return ret;
 }
 
@@ -4280,7 +4296,7 @@ int vpu_hw_processing_request(int core, struct vpu_request *request)
 	if (g_vpu_log_level > VpuLogThre_DUMP_BUF_MVA)
 		vpu_dump_buffer_mva(request);
 	LOG_INF(
-	    "[vpu_%d] start d2d, id/frm (%d/%d), bw(%d), algo(%d/%d, %d), bf(%d)\n",
+	    "[vpu_%d] start d2d, id/frm (%d/%d), bw(%d), algo(%d/%d, %d), bf(%d) WAKETOBACK in\n",
 	    core,
 	    request->algo_id[core],
 	    request->frame_magic,
