@@ -305,7 +305,7 @@ unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
 
 	/* read total leakage */
 	if (cluster >= TOTAL_CLUSTER_LKG) {
-		struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS];
+		struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS] = { {0} };
 		int i;
 
 		ppm_get_cluster_status(cl_status);
