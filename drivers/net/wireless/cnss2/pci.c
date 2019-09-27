@@ -3032,15 +3032,19 @@ int cnss_smmu_map(struct device *dev,
 	if (!test_bit(DISABLE_IO_COHERENCY,
 		      &plat_priv->ctrl_params.quirks)) {
 		root_port = pci_find_pcie_root_port(pci_priv->pci_dev);
-		root_of_node = root_port->dev.of_node;
-		if (root_of_node->parent) {
-			dma_coherent =
-				of_property_read_bool(root_of_node->parent,
-						      "dma-coherent");
+		if (!root_port) {
+			cnss_pr_err("Root port is null, so dma_coherent is disabled\n");
+		} else {
+			root_of_node = root_port->dev.of_node;
+			if (root_of_node && root_of_node->parent) {
+				dma_coherent =
+				    of_property_read_bool(root_of_node->parent,
+							  "dma-coherent");
 			cnss_pr_dbg("dma-coherent is %s\n",
-				    dma_coherent ? "enabled" : "disabled");
+					dma_coherent ? "enabled" : "disabled");
 			if (dma_coherent)
 				flag |= IOMMU_CACHE;
+			}
 		}
 	}
 
