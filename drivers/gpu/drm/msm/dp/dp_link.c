@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1132,7 +1132,7 @@ static int dp_link_process_link_status_update(struct dp_link_private *link)
 		return -EINVAL;
 
 	pr_debug("channel_eq_done = %d, clock_recovery_done = %d\n",
-			drm_dp_clock_recovery_ok(link->link_status,
+			drm_dp_channel_eq_ok(link->link_status,
 			link->dp_link.link_params.lane_count),
 			drm_dp_clock_recovery_ok(link->link_status,
 			link->dp_link.link_params.lane_count));
