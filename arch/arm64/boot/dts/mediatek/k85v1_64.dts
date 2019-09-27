@@ -66,8 +66,8 @@
 		goodix,power-on-delay-us = <10000>; /*10ms*/
 		goodix,power-off-delay-us = <5000>;
 		/*goodix,swap-axis;*/
-		goodix,firmware-version = "6785a4";
-		goodix,config-version = "6785v96";
+		goodix,firmware-version = "6785ae";
+		goodix,config-version = "6785v99";
 		goodix,x2x;
 		goodix,y2y;
 		goodix,pen-enable;
