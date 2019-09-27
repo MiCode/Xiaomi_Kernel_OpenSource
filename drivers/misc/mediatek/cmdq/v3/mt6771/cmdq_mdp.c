@@ -28,6 +28,8 @@
 #include "smi_public.h"
 #endif
 #include "cmdq_device.h"
+#include "cmdq_sec_iwc_common.h"
+
 struct CmdqMdpModuleBaseVA {
 	long MDP_RDMA0;
 	long MDP_RSZ0;
@@ -1318,6 +1320,31 @@ static void cmdq_mdp_check_hw_status(struct cmdqRecStruct *handle)
 #endif
 }
 
+#define CMDQ_ENGINE_TRANS(eng_flags, eng_flags_sec, ENGINE) \
+	do {	\
+		if ((1LL << CMDQ_ENG_##ENGINE) & (eng_flags)) \
+			(eng_flags_sec) |= (1LL << CMDQ_SEC_##ENGINE); \
+	} while (0)
+
+u64 cmdq_mdp_get_secure_engine(u64 engine_flags)
+{
+	u64 sec_eng_flag = 0;
+
+	/* ISP */
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMGI);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_VIPI);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_LCEI);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMG2O);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMG3O);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_SMXIO);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DPE);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, OWE);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEI);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEO);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEI2);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEO2);
+	return sec_eng_flag;
+}
 
 void cmdq_mdp_platform_function_setting(void)
 {
@@ -1350,4 +1377,5 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->testcaseClkmgrMdp = testcase_clkmgr_mdp;
 	pFunc->mdpEnableCommonClock = cmdq_mdp_enable_common_clock;
 	pFunc->CheckHwStatus = cmdq_mdp_check_hw_status;
+	pFunc->mdpGetSecEngine = cmdq_mdp_get_secure_engine;
 }
