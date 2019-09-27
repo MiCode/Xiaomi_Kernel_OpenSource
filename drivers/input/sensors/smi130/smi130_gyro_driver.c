@@ -151,7 +151,7 @@
 #define SENSOR_NAME "smi130_gyro"
 #define SMI130_GYRO_ENABLE_INT1 1
 #define SENSOR_CHIP_ID_SMI_GYRO (0x0f)
-#define CHECK_CHIP_ID_TIME_MAX   5
+#define CHECK_CHIP_ID_TIME_MAX   1
 #define DRIVER_VERSION "0.0.53.0"
 #define SMI_GYRO_USE_FIFO          1
 #define SMI_GYRO_USE_BASIC_I2C_FUNC     1
@@ -163,7 +163,7 @@
 #define SMI_GYRO_I2C_WRITE_DELAY_TIME 1
 
 /* generic */
-#define SMI_GYRO_MAX_RETRY_I2C_XFER (100)
+#define SMI_GYRO_MAX_RETRY_I2C_XFER (2)
 #define SMI_GYRO_MAX_RETRY_WAKEUP (5)
 #define SMI_GYRO_MAX_RETRY_WAIT_DRDY (100)
 
@@ -249,6 +249,16 @@ struct bosch_sensor_data {
 	};
 };
 
+#ifdef CONFIG_ENABLE_SMI_ACC_GYRO_BUFFERING
+#define SMI_GYRO_MAXSAMPLE       4000
+#define G_MAX                    23920640
+struct smi_gyro_sample {
+	int xyz[3];
+	unsigned int tsec;
+	unsigned long long tnsec;
+};
+#endif
+
 struct smi_gyro_client_data {
 	struct smi130_gyro_t device;
 	struct i2c_client *client;
@@ -281,6 +291,17 @@ struct smi_gyro_client_data {
 	uint8_t gpio_pin;
 	int16_t IRQ;
 	struct work_struct irq_work;
+#ifdef CONFIG_ENABLE_SMI_ACC_GYRO_BUFFERING
+	bool read_gyro_boot_sample;
+	int gyro_bufsample_cnt;
+	bool gyro_buffer_smi130_samples;
+	bool gyro_enable;
+	struct kmem_cache *smi_gyro_cachepool;
+	struct smi_gyro_sample *smi130_gyro_samplist[SMI_GYRO_MAXSAMPLE];
+	int max_buffer_time;
+	struct input_dev *gyrobuf_dev;
+	int report_evt_cnt;
+#endif
 };
 
 static struct i2c_client *smi_gyro_client;
@@ -293,10 +314,9 @@ static int smi_gyro_i2c_write(struct i2c_client *client, u8 reg_addr,
 static void smi_gyro_dump_reg(struct i2c_client *client);
 static int smi_gyro_check_chip_id(struct i2c_client *client);
 
-static int smi_gyro_pre_suspend(struct i2c_client *client);
-static int smi_gyro_post_resume(struct i2c_client *client);
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
+static int smi_gyro_post_resume(struct i2c_client *client);
+static int smi_gyro_pre_suspend(struct i2c_client *client);
 static void smi_gyro_early_suspend(struct early_suspend *handler);
 static void smi_gyro_late_resume(struct early_suspend *handler);
 #endif
@@ -832,6 +852,35 @@ static ssize_t smi_gyro_show_chip_id(struct device *dev,
 	return snprintf(buf, 16, "%d\n", SENSOR_CHIP_ID_SMI_GYRO);
 }
 
+#ifdef CONFIG_ENABLE_SMI_ACC_GYRO_BUFFERING
+static inline int smi130_check_gyro_early_buff_enable_flag(
+		struct smi_gyro_client_data *client_data)
+{
+	if (client_data->gyro_buffer_smi130_samples == true)
+		return 1;
+	else
+		return 0;
+}
+static void smi130_check_gyro_enable_flag(
+		struct smi_gyro_client_data *client_data, unsigned long data)
+{
+	if (data == SMI130_GYRO_MODE_NORMAL)
+		client_data->gyro_enable = true;
+	else
+		client_data->gyro_enable = false;
+}
+#else
+static inline int smi130_check_gyro_early_buff_enable_flag(
+		struct smi_gyro_client_data *client_data)
+{
+	return 0;
+}
+static void smi130_check_gyro_enable_flag(
+		struct smi_gyro_client_data *client_data, unsigned long data)
+{
+}
+#endif
+
 static ssize_t smi_gyro_show_op_mode(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -859,9 +908,17 @@ static ssize_t smi_gyro_store_op_mode(struct device *dev,
 
 	long op_mode;
 
+
 	err = kstrtoul(buf, 10, &op_mode);
 	if (err)
 		return err;
+
+	smi130_check_gyro_enable_flag(client_data, op_mode);
+
+	err = smi130_check_gyro_early_buff_enable_flag(client_data);
+	if (err)
+		return count;
+
 	mutex_lock(&client_data->mutex_op_mode);
 
 	err = SMI_GYRO_CALL_API(set_mode)(op_mode);
@@ -912,6 +969,13 @@ static ssize_t smi_gyro_store_range(struct device *dev,
 {
 	int err;
 	unsigned long range;
+	struct input_dev *input = to_input_dev(dev);
+	struct smi_gyro_client_data *client_data = input_get_drvdata(input);
+
+	err = smi130_check_gyro_early_buff_enable_flag(client_data);
+	if (err)
+		return count;
+
 	err = kstrtoul(buf, 10, &range);
 	if (err)
 		return err;
@@ -953,6 +1017,11 @@ static ssize_t smi_gyro_store_bandwidth(struct device *dev,
 	struct smi_gyro_client_data *client_data = input_get_drvdata(input);
 	unsigned long bandwidth;
 	u8 op_mode = 0xff;
+
+	err = smi130_check_gyro_early_buff_enable_flag(client_data);
+	if (err)
+		return count;
+
 	err = kstrtoul(buf, 10, &bandwidth);
 	if (err)
 		return err;
@@ -1446,8 +1515,96 @@ static ssize_t smi130_gyro_driver_version_show(struct device *dev
 			DRIVER_VERSION);
 	return ret;
 }
+
+#ifdef CONFIG_ENABLE_SMI_ACC_GYRO_BUFFERING
+static int smi_gyro_read_bootsampl(struct smi_gyro_client_data *client_data,
+		unsigned long enable_read)
+{
+	int i = 0;
+
+	if (enable_read) {
+		client_data->gyro_buffer_smi130_samples = false;
+		for (i = 0; i < client_data->gyro_bufsample_cnt; i++) {
+			if (client_data->debug_level & 0x08)
+				PINFO("gyro=%d,x=%d,y=%d,z=%d,sec=%d,ns=%lld\n",
+				i, client_data->smi130_gyro_samplist[i]->xyz[0],
+				client_data->smi130_gyro_samplist[i]->xyz[1],
+				client_data->smi130_gyro_samplist[i]->xyz[2],
+				client_data->smi130_gyro_samplist[i]->tsec,
+				client_data->smi130_gyro_samplist[i]->tnsec);
+			input_report_abs(client_data->gyrobuf_dev, ABS_X,
+				client_data->smi130_gyro_samplist[i]->xyz[0]);
+			input_report_abs(client_data->gyrobuf_dev, ABS_Y,
+				client_data->smi130_gyro_samplist[i]->xyz[1]);
+			input_report_abs(client_data->gyrobuf_dev, ABS_Z,
+				client_data->smi130_gyro_samplist[i]->xyz[2]);
+			input_report_abs(client_data->gyrobuf_dev, ABS_RX,
+				client_data->smi130_gyro_samplist[i]->tsec);
+			input_report_abs(client_data->gyrobuf_dev, ABS_RY,
+				client_data->smi130_gyro_samplist[i]->tnsec);
+			input_sync(client_data->gyrobuf_dev);
+		}
+	} else {
+		/* clean up */
+		if (client_data->gyro_bufsample_cnt != 0) {
+			for (i = 0; i < SMI_GYRO_MAXSAMPLE; i++)
+				kmem_cache_free(client_data->smi_gyro_cachepool,
+					client_data->smi130_gyro_samplist[i]);
+			kmem_cache_destroy(client_data->smi_gyro_cachepool);
+			client_data->gyro_bufsample_cnt = 0;
+		}
+
+	}
+	/*SYN_CONFIG indicates end of data*/
+	input_event(client_data->gyrobuf_dev, EV_SYN, SYN_CONFIG, 0xFFFFFFFF);
+	input_sync(client_data->gyrobuf_dev);
+	if (client_data->debug_level & 0x08)
+		PINFO("End of gyro samples bufsample_cnt=%d\n",
+				client_data->gyro_bufsample_cnt);
+	return 0;
+}
+static ssize_t read_gyro_boot_sample_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	struct input_dev *input = to_input_dev(dev);
+	struct smi_gyro_client_data *client_data = input_get_drvdata(input);
+
+	return snprintf(buf, 16, "%u\n",
+			client_data->read_gyro_boot_sample);
+}
+static ssize_t read_gyro_boot_sample_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int err;
+	struct input_dev *input = to_input_dev(dev);
+	struct smi_gyro_client_data *client_data = input_get_drvdata(input);
+	unsigned long enable = 0;
+
+	err = kstrtoul(buf, 10, &enable);
+	if (err)
+		return err;
+	if (enable > 1) {
+		PERR("Invalid value of input, input=%ld\n", enable);
+		return -EINVAL;
+	}
+	err = smi_gyro_read_bootsampl(client_data, enable);
+	if (err)
+		return err;
+	client_data->read_gyro_boot_sample = enable;
+
+	return count;
+}
+#endif
+
+
 static DEVICE_ATTR(chip_id, S_IRUSR,
 		smi_gyro_show_chip_id, NULL);
+#ifdef CONFIG_ENABLE_SMI_ACC_GYRO_BUFFERING
+static DEVICE_ATTR(read_gyro_boot_sample, 0644,
+		read_gyro_boot_sample_show, read_gyro_boot_sample_store);
+#endif
 static DEVICE_ATTR(op_mode, S_IRUGO | S_IWUSR,
 		smi_gyro_show_op_mode, smi_gyro_store_op_mode);
 static DEVICE_ATTR(value, S_IRUSR,
@@ -1501,6 +1658,9 @@ static DEVICE_ATTR(fifo_tag, S_IRUGO | S_IWUSR,
 
 static struct attribute *smi_gyro_attributes[] = {
 	&dev_attr_chip_id.attr,
+#ifdef CONFIG_ENABLE_SMI_ACC_GYRO_BUFFERING
+	&dev_attr_read_gyro_boot_sample.attr,
+#endif
 	&dev_attr_op_mode.attr,
 	&dev_attr_value.attr,
 	&dev_attr_range.attr,
@@ -1575,6 +1735,164 @@ static void smi_gyro_input_destroy(struct smi_gyro_client_data *client_data)
 	input_unregister_device(dev);
 	input_free_device(dev);
 }
+#ifdef CONFIG_ENABLE_SMI_ACC_GYRO_BUFFERING
+static void store_gyro_boot_sample(struct smi_gyro_client_data *client_data,
+			int x, int y, int z, struct timespec ts)
+{
+	if (false == client_data->gyro_buffer_smi130_samples)
+		return;
+	if (ts.tv_sec <  client_data->max_buffer_time) {
+		if (client_data->gyro_bufsample_cnt < SMI_GYRO_MAXSAMPLE) {
+			client_data->smi130_gyro_samplist[client_data
+				->gyro_bufsample_cnt]->xyz[0] = x;
+			client_data->smi130_gyro_samplist[client_data
+				->gyro_bufsample_cnt]->xyz[1] = y;
+			client_data->smi130_gyro_samplist[client_data
+				->gyro_bufsample_cnt]->xyz[2] = z;
+			client_data->smi130_gyro_samplist[client_data
+				->gyro_bufsample_cnt]->tsec = ts.tv_sec;
+			client_data->smi130_gyro_samplist[client_data
+				->gyro_bufsample_cnt]->tnsec = ts.tv_nsec;
+			client_data->gyro_bufsample_cnt++;
+		}
+	} else {
+		PINFO("End of GYRO buffering %d",
+				client_data->gyro_bufsample_cnt);
+		client_data->gyro_buffer_smi130_samples = false;
+		if (client_data->gyro_enable == false) {
+			smi130_gyro_set_mode(SMI130_GYRO_MODE_SUSPEND);
+			smi130_gyro_delay(5);
+		}
+	}
+}
+#else
+static void store_gyro_boot_sample(struct smi_gyro_client_data *client_data,
+		int x, int y, int z, struct timespec ts)
+{
+}
+#endif
+
+
+#ifdef CONFIG_ENABLE_SMI_ACC_GYRO_BUFFERING
+static int smi130_gyro_early_buff_init(struct smi_gyro_client_data *client_data)
+{
+	int i = 0, err = 0;
+
+	client_data->gyro_bufsample_cnt = 0;
+	client_data->report_evt_cnt = 5;
+	client_data->max_buffer_time = 40;
+
+	client_data->smi_gyro_cachepool = kmem_cache_create("gyro_sensor_sample"
+			, sizeof(struct smi_gyro_sample), 0,
+			SLAB_HWCACHE_ALIGN, NULL);
+	if (!client_data->smi_gyro_cachepool) {
+		PERR("smi_gyro_cachepool cache create failed\n");
+		err = -ENOMEM;
+		goto clean_exit1;
+	}
+
+	for (i = 0; i < SMI_GYRO_MAXSAMPLE; i++) {
+		client_data->smi130_gyro_samplist[i] =
+			kmem_cache_alloc(client_data->smi_gyro_cachepool,
+					GFP_KERNEL);
+		if (!client_data->smi130_gyro_samplist[i]) {
+			err = -ENOMEM;
+			goto clean_exit2;
+		}
+	}
+
+
+	client_data->gyrobuf_dev = input_allocate_device();
+	if (!client_data->gyrobuf_dev) {
+		err = -ENOMEM;
+		PERR("input device allocation failed\n");
+		goto clean_exit3;
+	}
+	client_data->gyrobuf_dev->name = "smi130_gyrobuf";
+	client_data->gyrobuf_dev->id.bustype = BUS_I2C;
+	input_set_events_per_packet(client_data->gyrobuf_dev,
+			client_data->report_evt_cnt * SMI_GYRO_MAXSAMPLE);
+	set_bit(EV_ABS, client_data->gyrobuf_dev->evbit);
+	input_set_abs_params(client_data->gyrobuf_dev, ABS_X,
+			-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(client_data->gyrobuf_dev, ABS_Y,
+			-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(client_data->gyrobuf_dev, ABS_Z,
+			-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(client_data->gyrobuf_dev, ABS_RX,
+			-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(client_data->gyrobuf_dev, ABS_RY,
+			-G_MAX, G_MAX, 0, 0);
+	err = input_register_device(client_data->gyrobuf_dev);
+	if (err) {
+		PERR("unable to register input device %s\n",
+				client_data->gyrobuf_dev->name);
+		goto clean_exit3;
+	}
+
+	client_data->gyro_buffer_smi130_samples = true;
+	client_data->gyro_enable = false;
+
+	smi130_gyro_set_mode(SMI130_GYRO_MODE_NORMAL);
+	smi130_gyro_delay(5);
+
+	smi130_gyro_set_bw(5);
+	smi130_gyro_delay(5);
+
+	smi130_gyro_set_range_reg(4);
+	smi130_gyro_delay(5);
+
+	smi130_gyro_set_mode(SMI130_GYRO_MODE_NORMAL);
+	smi130_gyro_delay(5);
+
+	smi130_gyro_set_range_reg(4);
+	smi130_gyro_delay(5);
+
+	smi130_gyro_set_data_en(SMI130_GYRO_ENABLE);
+
+	return 1;
+
+clean_exit3:
+	input_free_device(client_data->gyrobuf_dev);
+clean_exit2:
+	for (i = 0; i < SMI_GYRO_MAXSAMPLE; i++)
+		kmem_cache_free(client_data->smi_gyro_cachepool,
+				client_data->smi130_gyro_samplist[i]);
+clean_exit1:
+	kmem_cache_destroy(client_data->smi_gyro_cachepool);
+	return 0;
+}
+
+static void smi130_gyro_input_cleanup(struct smi_gyro_client_data *client_data)
+{
+	int i = 0;
+
+	input_unregister_device(client_data->gyrobuf_dev);
+	input_free_device(client_data->gyrobuf_dev);
+	for (i = 0; i < SMI_GYRO_MAXSAMPLE; i++)
+		kmem_cache_free(client_data->smi_gyro_cachepool,
+				client_data->smi130_gyro_samplist[i]);
+	kmem_cache_destroy(client_data->smi_gyro_cachepool);
+}
+
+static int smi130_enable_int1(void)
+{
+	return smi130_gyro_set_data_en(SMI130_GYRO_DISABLE);
+}
+#else
+static int smi130_gyro_early_buff_init(struct smi_gyro_client_data *client_data)
+{
+	return 1;
+}
+static void smi130_gyro_input_cleanup(struct smi_gyro_client_data *client_data)
+{
+}
+static int smi130_enable_int1(void)
+{
+	return smi130_gyro_set_data_en(SMI130_GYRO_ENABLE);
+}
+#endif
+
 
 #if defined(SMI130_GYRO_ENABLE_INT1) || defined(SMI130_GYRO_ENABLE_INT2)
 static void smi130_gyro_irq_work_func(struct work_struct *work)
@@ -1599,7 +1917,8 @@ static void smi130_gyro_irq_work_func(struct work_struct *work)
 	input_event(client_data->input, EV_MSC,
 		MSC_SCAN, gyro_data.dataz);
 	input_sync(client_data->input);
-
+	store_gyro_boot_sample(client_data, gyro_data.datax,
+			gyro_data.datay, gyro_data.dataz, ts);
 }
 
 static irqreturn_t smi_gyro_irq_handler(int irq, void *handle)
@@ -1728,7 +2047,7 @@ static int smi_gyro_probe(struct i2c_client *client, const struct i2c_device_id 
 	smi130_gyro_delay(5);
 	err += smi130_gyro_set_int_data(SMI130_GYRO_INT1_DATA, SMI130_GYRO_ENABLE);
 	smi130_gyro_delay(5);
-	err += smi130_gyro_set_data_en(SMI130_GYRO_ENABLE);
+	err += smi130_enable_int1();
 	smi130_gyro_delay(5);
 	/*default odr is 100HZ*/
 	err += SMI_GYRO_CALL_API(set_bw)(7);
@@ -1787,6 +2106,11 @@ static int smi_gyro_probe(struct i2c_client *client, const struct i2c_device_id 
 	}
 	INIT_WORK(&client_data->irq_work, smi130_gyro_irq_work_func);
 #endif
+
+	err = smi130_gyro_early_buff_init(client_data);
+	if (!err)
+		return err;
+
 	PINFO("sensor %s probed successfully", SENSOR_NAME);
 
 	dev_dbg(&client->dev,
@@ -1812,6 +2136,7 @@ exit_err_clean:
 	return err;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static int smi_gyro_pre_suspend(struct i2c_client *client)
 {
 	int err = 0;
@@ -1861,7 +2186,6 @@ static int smi_gyro_post_resume(struct i2c_client *client)
 	return err;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void smi_gyro_early_suspend(struct early_suspend *handler)
 {
 	int err = 0;
@@ -1902,45 +2226,6 @@ static void smi_gyro_late_resume(struct early_suspend *handler)
 
 	mutex_unlock(&client_data->mutex_op_mode);
 }
-#else
-static int smi_gyro_suspend(struct i2c_client *client, pm_message_t mesg)
-{
-	int err = 0;
-	struct smi_gyro_client_data *client_data =
-		(struct smi_gyro_client_data *)i2c_get_clientdata(client);
-
-	PINFO("function entrance");
-
-	mutex_lock(&client_data->mutex_op_mode);
-	if (client_data->enable) {
-		err = smi_gyro_pre_suspend(client);
-		err = SMI_GYRO_CALL_API(set_mode)(
-				SMI_GYRO_VAL_NAME(MODE_SUSPEND));
-	}
-	mutex_unlock(&client_data->mutex_op_mode);
-	return err;
-}
-
-static int smi_gyro_resume(struct i2c_client *client)
-{
-
-	int err = 0;
-	struct smi_gyro_client_data *client_data =
-		(struct smi_gyro_client_data *)i2c_get_clientdata(client);
-
-	PINFO("function entrance");
-
-	mutex_lock(&client_data->mutex_op_mode);
-
-	if (client_data->enable)
-		err = SMI_GYRO_CALL_API(set_mode)(SMI_GYRO_VAL_NAME(MODE_NORMAL));
-
-	/* post resume operation */
-	smi_gyro_post_resume(client);
-
-	mutex_unlock(&client_data->mutex_op_mode);
-	return err;
-}
 #endif
 
 void smi_gyro_shutdown(struct i2c_client *client)
@@ -1966,6 +2251,7 @@ static int smi_gyro_remove(struct i2c_client *client)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 		unregister_early_suspend(&client_data->early_suspend_handler);
 #endif
+		smi130_gyro_input_cleanup(client_data);
 		mutex_lock(&client_data->mutex_op_mode);
 		SMI_GYRO_CALL_API(get_mode)(&op_mode);
 		if (SMI_GYRO_VAL_NAME(MODE_NORMAL) == op_mode) {
@@ -1982,7 +2268,6 @@ static int smi_gyro_remove(struct i2c_client *client)
 				&smi_gyro_attribute_group);
 		smi_gyro_input_destroy(client_data);
 		kfree(client_data);
-
 		smi_gyro_client = NULL;
 	}
 
@@ -2012,10 +2297,6 @@ static struct i2c_driver smi_gyro_driver = {
 	.probe = smi_gyro_probe,
 	.remove = smi_gyro_remove,
 	.shutdown = smi_gyro_shutdown,
-#ifndef CONFIG_HAS_EARLYSUSPEND
-	//.suspend = smi_gyro_suspend,
-	//.resume = smi_gyro_resume,
-#endif
 };
 
 static int __init SMI_GYRO_init(void)
