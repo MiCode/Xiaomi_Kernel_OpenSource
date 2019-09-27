@@ -32,6 +32,7 @@
 #ifdef POWER_READY
 #include "include/pmic_regulator.h"
 #endif
+#include <mt-plat/mtk_boot.h>
 
 struct msdc_host *mtk_msdc_host[HOST_MAX_NUM];
 EXPORT_SYMBOL(mtk_msdc_host);
@@ -1160,6 +1161,7 @@ int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 	int ret = 0;
 	int len = 0;
 	u8 hw_dvfs_support, id;
+	int boot_type;
 
 	np = mmc->parent->of_node; /* mmcx node in project dts */
 
@@ -1168,6 +1170,12 @@ int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 			pdev->dev.of_node->name);
 		return -1;
 	}
+
+	/* Add get_boot_type check and return ENODEV if not eMMC boot */
+	boot_type = get_boot_type();
+	if ((boot_type != BOOTDEV_SDMMC) && (id == 0))
+		return -ENODEV;
+
 	host->id = id;
 	pdev->id = id;
 
