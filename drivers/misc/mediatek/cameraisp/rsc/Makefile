@@ -21,4 +21,4 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 obj-y += camera_rsc_dummy.c
 obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += camera_rsc.o
 camera_rsc-objs += engine_request.o
-camera_rsc-objs += isp40/camera_rsc.o
+camera_rsc-objs += isp50/camera_rsc.o

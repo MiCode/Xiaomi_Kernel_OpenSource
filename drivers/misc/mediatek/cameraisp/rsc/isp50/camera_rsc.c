@@ -1727,6 +1727,8 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	int enqueNum;
 	int dequeNum;
 	unsigned long flags;
+	unsigned int currentPPB = m_CurrentPPB;
+
 	/* old: unsigned int flags;*//* FIX to avoid build warning */
 
 
@@ -1743,339 +1745,319 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	/*  */
 	switch (Cmd) {
 	case RSC_RESET:
-		{
-			spin_lock(&(RSCInfo.SpinLockRSC));
-			RSC_Reset();
-			spin_unlock(&(RSCInfo.SpinLockRSC));
-			break;
+		spin_lock(&(RSCInfo.SpinLockRSC));
+		RSC_Reset();
+		spin_unlock(&(RSCInfo.SpinLockRSC));
+		break;
+		/*  */
+	case RSC_DUMP_REG:
+		Ret = RSC_DumpReg();
+		break;
+	case RSC_DUMP_ISR_LOG:
+		spin_lock_irqsave(
+			&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
+								flags);
+		m_CurrentPPB = (m_CurrentPPB + 1) % LOG_PPNUM;
+		spin_unlock_irqrestore(
+			&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
+								flags);
+
+		IRQ_LOG_PRINTER(RSC_IRQ_TYPE_INT_RSC_ST, currentPPB,
+							_LOG_INF);
+		IRQ_LOG_PRINTER(RSC_IRQ_TYPE_INT_RSC_ST, currentPPB,
+							_LOG_ERR);
+		break;
+	case RSC_READ_REGISTER:
+		if (copy_from_user(&RegIo, (void *)Param,
+			sizeof(struct RSC_REG_IO_STRUCT))) {
+			LOG_ERR(
+			"RSC_READ_REGISTER copy_from_user failed");
+			Ret = -EFAULT;
+			goto EXIT;
+		}
+
+		Ret = RSC_ReadReg(&RegIo);
+
+		break;
+	case RSC_WRITE_REGISTER:
+		if (copy_from_user(&RegIo, (void *)Param,
+			sizeof(struct RSC_REG_IO_STRUCT))) {
+			LOG_ERR(
+			"RSC_WRITE_REGISTER copy_from_user failed");
+			Ret = -EFAULT;
+			goto EXIT;
+		}
+		Ret = RSC_WriteReg(&RegIo);
+
+		break;
+	case RSC_WAIT_IRQ:
+		if (copy_from_user(&IrqInfo, (void *)Param,
+			sizeof(struct RSC_WAIT_IRQ_STRUCT))) {
+			LOG_ERR("RSC_WAIT_IRQ copy_from_user failed");
+			Ret = -EFAULT;
+			goto EXIT;
+		}
+		/*  */
+		if ((IrqInfo.Type >= RSC_IRQ_TYPE_AMOUNT) ||
+					(IrqInfo.Type < 0)) {
+			Ret = -EFAULT;
+			LOG_ERR("invalid type(%d)",
+						IrqInfo.Type);
+			goto EXIT;
+		}
+
+		if ((IrqInfo.UserKey >= IRQ_USER_NUM_MAX) ||
+					(IrqInfo.UserKey < 0)) {
+			LOG_ERR(
+			"invalid userKey(%d), max(%d), force userkey = 0\n",
+				IrqInfo.UserKey,
+				IRQ_USER_NUM_MAX);
+				IrqInfo.UserKey = 0;
+		}
+
+		LOG_INF(
+		"IRQ clear(%d), type(%d), userKey(%d), timeout(%d), status(%d)\n",
+			IrqInfo.Clear, IrqInfo.Type,
+			IrqInfo.UserKey, IrqInfo.Timeout,
+			IrqInfo.Status);
+		IrqInfo.ProcessID = pUserInfo->Pid;
+		Ret = RSC_WaitIrq(&IrqInfo);
+
+		if (copy_to_user((void *)Param, &IrqInfo,
+		sizeof(struct RSC_WAIT_IRQ_STRUCT)) != 0) {
+			LOG_ERR("copy_to_user failed\n");
+			Ret = -EFAULT;
+		}
+
+		break;
+	case RSC_CLEAR_IRQ:
+		if (copy_from_user(&ClearIrq, (void *)Param,
+			sizeof(struct RSC_CLEAR_IRQ_STRUCT))) {
+			LOG_ERR(
+			"RSC_CLEAR_IRQ copy_from_user failed\n");
+			Ret = -EFAULT;
+			goto EXIT;
+		}
+		LOG_DBG("RSC_CLEAR_IRQ Type(%d)",
+						ClearIrq.Type);
+
+		if ((ClearIrq.Type >= RSC_IRQ_TYPE_AMOUNT) ||
+					(ClearIrq.Type < 0)) {
+			Ret = -EFAULT;
+			LOG_ERR("invalid type(%d)",
+						ClearIrq.Type);
+			goto EXIT;
 		}
 
 		/*  */
-	case RSC_DUMP_REG:
-		{
-			Ret = RSC_DumpReg();
-			break;
+		if ((ClearIrq.UserKey >= IRQ_USER_NUM_MAX)
+		    || (ClearIrq.UserKey < 0)) {
+			LOG_ERR("errUserEnum(%d)",
+					ClearIrq.UserKey);
+			Ret = -EFAULT;
+			goto EXIT;
 		}
-	case RSC_DUMP_ISR_LOG:
-		{
-			unsigned int currentPPB = m_CurrentPPB;
 
-			spin_lock_irqsave(
-				&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
-									flags);
-			m_CurrentPPB = (m_CurrentPPB + 1) % LOG_PPNUM;
-			spin_unlock_irqrestore(
-				&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
-									flags);
+		LOG_DBG(
+		"RSC_CLEAR_IRQ:Type(%d),Status(0x%08X),IrqStatus(0x%08X)\n",
+			ClearIrq.Type, ClearIrq.Status,
+			RSCInfo.IrqInfo.Status[ClearIrq.Type]);
+		spin_lock_irqsave(
+		&(RSCInfo.SpinLockIrq[ClearIrq.Type]), flags);
+		RSCInfo.IrqInfo.Status[ClearIrq.Type] &=
+					(~ClearIrq.Status);
+		spin_unlock_irqrestore(
+		&(RSCInfo.SpinLockIrq[ClearIrq.Type]), flags);
 
-			IRQ_LOG_PRINTER(RSC_IRQ_TYPE_INT_RSC_ST, currentPPB,
-								_LOG_INF);
-			IRQ_LOG_PRINTER(RSC_IRQ_TYPE_INT_RSC_ST, currentPPB,
-								_LOG_ERR);
-			break;
-		}
-	case RSC_READ_REGISTER:
-		{
-			if (copy_from_user(&RegIo, (void *)Param,
-				sizeof(struct RSC_REG_IO_STRUCT)) == 0) {
-				Ret = RSC_ReadReg(&RegIo);
-			} else {
-				LOG_ERR(
-				"RSC_READ_REGISTER copy_from_user failed");
-				Ret = -EFAULT;
-			}
-			break;
-		}
-	case RSC_WRITE_REGISTER:
-		{
-			if (copy_from_user(&RegIo, (void *)Param,
-				sizeof(struct RSC_REG_IO_STRUCT)) == 0) {
-				Ret = RSC_WriteReg(&RegIo);
-			} else {
-				LOG_ERR(
-				"RSC_WRITE_REGISTER copy_from_user failed");
-				Ret = -EFAULT;
-			}
-			break;
-		}
-	case RSC_WAIT_IRQ:
-		{
-			if (copy_from_user(&IrqInfo, (void *)Param,
-				sizeof(struct RSC_WAIT_IRQ_STRUCT)) == 0) {
-				/*  */
-				if ((IrqInfo.Type >= RSC_IRQ_TYPE_AMOUNT) ||
-							(IrqInfo.Type < 0)) {
-					Ret = -EFAULT;
-					LOG_ERR("invalid type(%d)",
-								IrqInfo.Type);
-					goto EXIT;
-				}
-
-				if ((IrqInfo.UserKey >= IRQ_USER_NUM_MAX) ||
-							(IrqInfo.UserKey < 0)) {
-					LOG_ERR(
-					"invalid userKey(%d), max(%d), force userkey = 0\n",
-						IrqInfo.UserKey,
-						IRQ_USER_NUM_MAX);
-						IrqInfo.UserKey = 0;
-				}
-
-				LOG_INF(
-				"IRQ clear(%d), type(%d), userKey(%d), timeout(%d), status(%d)\n",
-					IrqInfo.Clear, IrqInfo.Type,
-					IrqInfo.UserKey, IrqInfo.Timeout,
-					IrqInfo.Status);
-				IrqInfo.ProcessID = pUserInfo->Pid;
-				Ret = RSC_WaitIrq(&IrqInfo);
-
-				if (copy_to_user((void *)Param, &IrqInfo,
-				sizeof(struct RSC_WAIT_IRQ_STRUCT)) != 0) {
-					LOG_ERR("copy_to_user failed\n");
-					Ret = -EFAULT;
-				}
-			} else {
-				LOG_ERR("RSC_WAIT_IRQ copy_from_user failed");
-				Ret = -EFAULT;
-			}
-			break;
-		}
-	case RSC_CLEAR_IRQ:
-		{
-			if (copy_from_user(&ClearIrq, (void *)Param,
-				sizeof(struct RSC_CLEAR_IRQ_STRUCT)) == 0) {
-				LOG_DBG("RSC_CLEAR_IRQ Type(%d)",
-								ClearIrq.Type);
-
-				if ((ClearIrq.Type >= RSC_IRQ_TYPE_AMOUNT) ||
-							(ClearIrq.Type < 0)) {
-					Ret = -EFAULT;
-					LOG_ERR("invalid type(%d)",
-								ClearIrq.Type);
-					goto EXIT;
-				}
-
-				/*  */
-				if ((ClearIrq.UserKey >= IRQ_USER_NUM_MAX)
-				    || (ClearIrq.UserKey < 0)) {
-					LOG_ERR("errUserEnum(%d)",
-							ClearIrq.UserKey);
-					Ret = -EFAULT;
-					goto EXIT;
-				}
-
-				LOG_DBG(
-				"RSC_CLEAR_IRQ:Type(%d),Status(0x%08X),IrqStatus(0x%08X)\n",
-					ClearIrq.Type, ClearIrq.Status,
-					RSCInfo.IrqInfo.Status[ClearIrq.Type]);
-				spin_lock_irqsave(
-				&(RSCInfo.SpinLockIrq[ClearIrq.Type]), flags);
-				RSCInfo.IrqInfo.Status[ClearIrq.Type] &=
-							(~ClearIrq.Status);
-				spin_unlock_irqrestore(
-				&(RSCInfo.SpinLockIrq[ClearIrq.Type]), flags);
-			} else {
-				LOG_ERR(
-				"RSC_CLEAR_IRQ copy_from_user failed\n");
-				Ret = -EFAULT;
-			}
-			break;
-		}
+		break;
 	case RSC_ENQNUE_NUM:
-		{
-			/* enqueNum */
-			if (copy_from_user(&enqueNum, (void *)Param,
-							sizeof(int)) == 0) {
-				if (RSC_REQUEST_STATE_EMPTY ==
-				    g_RSC_ReqRing.RSCReq_Struct[
-							g_RSC_ReqRing.WriteIdx].
-				    State) {
-					spin_lock_irqsave(
-					&(RSCInfo.SpinLockIrq[
-						RSC_IRQ_TYPE_INT_RSC_ST]),
-									flags);
-					g_RSC_ReqRing.RSCReq_Struct[
-						g_RSC_ReqRing.WriteIdx].
-							processID =
-								pUserInfo->Pid;
-					g_RSC_ReqRing.RSCReq_Struct[
-						g_RSC_ReqRing.WriteIdx].
-							enqueReqNum = enqueNum;
-					spin_unlock_irqrestore(
-					&(RSCInfo.SpinLockIrq[
-					RSC_IRQ_TYPE_INT_RSC_ST]), flags);
-					if (enqueNum >
-					_SUPPORT_MAX_RSC_FRAME_REQUEST_) {
-						LOG_ERR(
-						"RSC Enque Num is bigger than enqueNum:%d\n",
-						     enqueNum);
-					}
-					LOG_DBG(
-					"RSC_ENQNUE_NUM:%d\n", enqueNum);
-				} else {
-					LOG_ERR(
-					"WFME Enque request state is not empty:%d, writeIdx:%d, readIdx:%d\n",
-					     g_RSC_ReqRing.RSCReq_Struct[
-						g_RSC_ReqRing.WriteIdx].State,
-						g_RSC_ReqRing.WriteIdx,
-						g_RSC_ReqRing.ReadIdx);
-				}
-			} else {
-				LOG_ERR(
-				"RSC_EQNUE_NUM copy_from_user failed\n");
-				Ret = -EFAULT;
-			}
-
-			break;
+		/* enqueNum */
+		if (copy_from_user(&enqueNum, (void *)Param,
+						sizeof(int))) {
+			LOG_ERR(
+			"RSC_EQNUE_NUM copy_from_user failed\n");
+			Ret = -EFAULT;
+			goto EXIT;
 		}
+		if (RSC_REQUEST_STATE_EMPTY ==
+		    g_RSC_ReqRing.RSCReq_Struct[
+					g_RSC_ReqRing.WriteIdx].
+		    State) {
+			spin_lock_irqsave(
+			&(RSCInfo.SpinLockIrq[
+				RSC_IRQ_TYPE_INT_RSC_ST]),
+							flags);
+			g_RSC_ReqRing.RSCReq_Struct[
+				g_RSC_ReqRing.WriteIdx].
+					processID =
+						pUserInfo->Pid;
+			g_RSC_ReqRing.RSCReq_Struct[
+				g_RSC_ReqRing.WriteIdx].
+					enqueReqNum = enqueNum;
+			spin_unlock_irqrestore(
+			&(RSCInfo.SpinLockIrq[
+			RSC_IRQ_TYPE_INT_RSC_ST]), flags);
+			if (enqueNum >
+			_SUPPORT_MAX_RSC_FRAME_REQUEST_) {
+				LOG_ERR(
+				"RSC Enque Num is bigger than enqueNum:%d\n",
+				     enqueNum);
+			}
+			LOG_DBG(
+			"RSC_ENQNUE_NUM:%d\n", enqueNum);
+		} else {
+			LOG_ERR(
+			"WFME Enque request state is not empty:%d, writeIdx:%d, readIdx:%d\n",
+			     g_RSC_ReqRing.RSCReq_Struct[
+				g_RSC_ReqRing.WriteIdx].State,
+				g_RSC_ReqRing.WriteIdx,
+				g_RSC_ReqRing.ReadIdx);
+		}
+
+		break;
 		/* struct RSC_Config */
 	case RSC_ENQUE_REQ:
-		{
-			if (copy_from_user(&rsc_RscReq, (void *)Param,
-					sizeof(struct RSC_Request)) == 0) {
-				LOG_DBG("RSC_ENQNUE_NUM:%d, pid:%d\n",
-					rsc_RscReq.m_ReqNum, pUserInfo->Pid);
-				if (rsc_RscReq.m_ReqNum >
-					_SUPPORT_MAX_RSC_FRAME_REQUEST_) {
-					LOG_ERR(
-					"RSC Enque Num is bigger than enqueNum:%d\n",
-						rsc_RscReq.m_ReqNum);
-					Ret = -EFAULT;
-					goto EXIT;
-				}
-				if (copy_from_user
-				    (g_RscEnqueReq_Struct.RscFrameConfig,
-				     (void *)rsc_RscReq.m_pRscConfig,
-				     rsc_RscReq.m_ReqNum *
-					sizeof(struct RSC_Config)) != 0) {
-					LOG_ERR(
-					"copy RSCConfig from request fail!!\n");
-					Ret = -EFAULT;
-					goto EXIT;
-				}
-
-				mutex_lock(&gRscMutex);
-
-				spin_lock_irqsave(
-				&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
-						  flags);
-				kRscReq.m_ReqNum = rsc_RscReq.m_ReqNum;
-				kRscReq.m_pRscConfig =
-					g_RscEnqueReq_Struct.RscFrameConfig;
-				enqnum = enque_request(&rsc_reqs,
-				kRscReq.m_ReqNum, &kRscReq, pUserInfo->Pid);
-
-				spin_unlock_irqrestore(
-				&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
-						       flags);
-				LOG_DBG("Config RSC Request!!\n");
-
-				/* Use a workqueue to set CMDQ to prevent
-				 * HW CMDQ request consuming speed from being
-				 * faster than SW frame-queue update speed.
-				 */
-				if (!request_running(&rsc_reqs)) {
-					LOG_DBG("direct request_handler\n");
-					request_handler(&rsc_reqs,
-					&(RSCInfo.SpinLockIrq[
-						RSC_IRQ_TYPE_INT_RSC_ST]));
-				}
-				mutex_unlock(&gRscMutex);
-			} else {
-				LOG_ERR(
-				"RSC_ENQUE_REQ copy_from_user failed\n");
-				Ret = -EFAULT;
-			}
-
-			break;
+		if (copy_from_user(&rsc_RscReq, (void *)Param,
+				sizeof(struct RSC_Request))) {
+			LOG_ERR(
+			"RSC_ENQUE_REQ copy_from_user failed\n");
+			Ret = -EFAULT;
+			goto EXIT;
 		}
+
+		LOG_DBG("RSC_ENQNUE_NUM:%d, pid:%d\n",
+			rsc_RscReq.m_ReqNum, pUserInfo->Pid);
+
+		if (rsc_RscReq.m_ReqNum >
+			_SUPPORT_MAX_RSC_FRAME_REQUEST_) {
+			LOG_ERR(
+			"RSC Enque Num is bigger than enqueNum:%d\n",
+				rsc_RscReq.m_ReqNum);
+			Ret = -EFAULT;
+			goto EXIT;
+		}
+		if (copy_from_user
+		    (g_RscEnqueReq_Struct.RscFrameConfig,
+		     (void *)rsc_RscReq.m_pRscConfig,
+		     rsc_RscReq.m_ReqNum *
+			sizeof(struct RSC_Config)) != 0) {
+			LOG_ERR(
+			"copy RSCConfig from request fail!!\n");
+			Ret = -EFAULT;
+			goto EXIT;
+		}
+
+		mutex_lock(&gRscMutex);
+
+		spin_lock_irqsave(
+		&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
+				  flags);
+		kRscReq.m_ReqNum = rsc_RscReq.m_ReqNum;
+		kRscReq.m_pRscConfig =
+			g_RscEnqueReq_Struct.RscFrameConfig;
+		enqnum = enque_request(&rsc_reqs,
+		kRscReq.m_ReqNum, &kRscReq, pUserInfo->Pid);
+
+		spin_unlock_irqrestore(
+		&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
+				       flags);
+		LOG_DBG("Config RSC Request!!\n");
+
+		/* Use a workqueue to set CMDQ to prevent
+		 * HW CMDQ request consuming speed from being
+		 * faster than SW frame-queue update speed.
+		 */
+		if (!request_running(&rsc_reqs)) {
+			LOG_DBG("direct request_handler\n");
+			request_handler(&rsc_reqs,
+			&(RSCInfo.SpinLockIrq[
+				RSC_IRQ_TYPE_INT_RSC_ST]));
+		}
+		mutex_unlock(&gRscMutex);
+
+		break;
 	case RSC_DEQUE_NUM:
-		{
-			if (RSC_REQUEST_STATE_FINISHED ==
+		if (RSC_REQUEST_STATE_FINISHED ==
+		    g_RSC_ReqRing.RSCReq_Struct[
+			g_RSC_ReqRing.ReadIdx].State) {
+			dequeNum =
 			    g_RSC_ReqRing.RSCReq_Struct[
-				g_RSC_ReqRing.ReadIdx].State) {
-				dequeNum =
-				    g_RSC_ReqRing.RSCReq_Struct[
-					g_RSC_ReqRing.ReadIdx].enqueReqNum;
-				LOG_DBG("RSC_DEQUE_NUM(%d)\n", dequeNum);
-			} else {
-				dequeNum = 0;
-				LOG_ERR(
-				"DEQUE_NUM:No Buffer: ReadIdx(%d) State(%d) RrameRDIdx(%d) enqueReqNum(%d)\n",
-				     g_RSC_ReqRing.ReadIdx,
-				     g_RSC_ReqRing.RSCReq_Struct[
-					g_RSC_ReqRing.ReadIdx].State,
-				     g_RSC_ReqRing.RSCReq_Struct[
-					g_RSC_ReqRing.ReadIdx].RrameRDIdx,
-				     g_RSC_ReqRing.RSCReq_Struct[
-					g_RSC_ReqRing.ReadIdx].enqueReqNum);
-			}
-			if (copy_to_user((void *)Param, &dequeNum,
-						sizeof(unsigned int)) != 0) {
-				LOG_ERR("RSC_DEQUE_NUM copy_to_user failed\n");
-				Ret = -EFAULT;
-			}
-
-			break;
+				g_RSC_ReqRing.ReadIdx].enqueReqNum;
+			LOG_DBG("RSC_DEQUE_NUM(%d)\n", dequeNum);
+		} else {
+			dequeNum = 0;
+			LOG_ERR(
+			"DEQUE_NUM:No Buffer: ReadIdx(%d) State(%d) RrameRDIdx(%d) enqueReqNum(%d)\n",
+			     g_RSC_ReqRing.ReadIdx,
+			     g_RSC_ReqRing.RSCReq_Struct[
+				g_RSC_ReqRing.ReadIdx].State,
+			     g_RSC_ReqRing.RSCReq_Struct[
+				g_RSC_ReqRing.ReadIdx].RrameRDIdx,
+			     g_RSC_ReqRing.RSCReq_Struct[
+				g_RSC_ReqRing.ReadIdx].enqueReqNum);
 		}
+		if (copy_to_user((void *)Param, &dequeNum,
+					sizeof(unsigned int)) != 0) {
+			LOG_ERR("RSC_DEQUE_NUM copy_to_user failed\n");
+			Ret = -EFAULT;
+		}
+
+		break;
 	case RSC_DEQUE_REQ:
-		{
-			if (copy_from_user(&rsc_RscReq, (void *)Param,
-					sizeof(struct RSC_Request)) == 0) {
-				mutex_lock(&gRscDequeMutex);
-
-				spin_lock_irqsave(
-				&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
-						  flags);
-				kRscReq.m_pRscConfig =
-					g_RscDequeReq_Struct.RscFrameConfig;
-				deque_request(&rsc_reqs, &kRscReq.m_ReqNum,
-								&kRscReq);
-				dequeNum = kRscReq.m_ReqNum;
-				rsc_RscReq.m_ReqNum = dequeNum;
-
-				spin_unlock_irqrestore(
-				&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
-						       flags);
-
-				mutex_unlock(&gRscDequeMutex);
-				if (rsc_RscReq.m_pRscConfig == NULL) {
-					LOG_ERR("NULL ptr:RscReq.m_pRscConfig");
-					Ret = -EFAULT;
-					goto EXIT;
-				}
-				if (copy_to_user
-				    ((void *)rsc_RscReq.m_pRscConfig,
-				     &g_RscDequeReq_Struct.RscFrameConfig[0],
-				     dequeNum *
-					sizeof(struct RSC_Config)) != 0) {
-					LOG_ERR(
-					"RSC_DEQUE_REQ frmcfg failed\n");
-					Ret = -EFAULT;
-				}
-				if (copy_to_user
-				    ((void *)Param, &rsc_RscReq,
-					sizeof(struct RSC_Request)) != 0) {
-					LOG_ERR("RSC_DEQUE_REQ RscReq fail\n");
-					Ret = -EFAULT;
-				}
-			} else {
-				LOG_ERR("RSC_CMD_RSC_DEQUE_REQ failed\n");
-				Ret = -EFAULT;
-			}
-
-			break;
+		if (copy_from_user(&rsc_RscReq, (void *)Param,
+				sizeof(struct RSC_Request))) {
+			LOG_ERR("RSC_CMD_RSC_DEQUE_REQ failed\n");
+			Ret = -EFAULT;
+			goto EXIT;
 		}
+		mutex_lock(&gRscDequeMutex);
+
+		spin_lock_irqsave(
+		&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
+				  flags);
+		kRscReq.m_pRscConfig =
+			g_RscDequeReq_Struct.RscFrameConfig;
+		deque_request(&rsc_reqs, &kRscReq.m_ReqNum,
+						&kRscReq);
+		dequeNum = kRscReq.m_ReqNum;
+		rsc_RscReq.m_ReqNum = dequeNum;
+
+		spin_unlock_irqrestore(
+		&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
+				       flags);
+
+		mutex_unlock(&gRscDequeMutex);
+		if (rsc_RscReq.m_pRscConfig == NULL) {
+			LOG_ERR("NULL ptr:RscReq.m_pRscConfig");
+			Ret = -EFAULT;
+			goto EXIT;
+		}
+		if (copy_to_user
+		    ((void *)rsc_RscReq.m_pRscConfig,
+		     &g_RscDequeReq_Struct.RscFrameConfig[0],
+		     dequeNum *
+			sizeof(struct RSC_Config)) != 0) {
+			LOG_ERR(
+			"RSC_DEQUE_REQ frmcfg failed\n");
+			Ret = -EFAULT;
+		}
+		if (copy_to_user
+		    ((void *)Param, &rsc_RscReq,
+			sizeof(struct RSC_Request)) != 0) {
+			LOG_ERR("RSC_DEQUE_REQ RscReq fail\n");
+			Ret = -EFAULT;
+		}
+
+		break;
 	case RSC_ENQUE:
 	case RSC_DEQUE:
 	default:
-		{
-			LOG_ERR("Unknown Cmd(%d)", Cmd);
-			LOG_ERR("Cmd(%d),Dir(%d),Typ(%d),Nr(%d),Size(%d)\n",
-				Cmd, _IOC_DIR(Cmd),
-				_IOC_TYPE(Cmd), _IOC_NR(Cmd), _IOC_SIZE(Cmd));
-			Ret = -EPERM;
-			break;
-		}
+		LOG_ERR("Unknown Cmd(%d)", Cmd);
+		LOG_ERR("Cmd(%d),Dir(%d),Typ(%d),Nr(%d),Size(%d)\n",
+			Cmd, _IOC_DIR(Cmd),
+			_IOC_TYPE(Cmd), _IOC_NR(Cmd), _IOC_SIZE(Cmd));
+		Ret = -EPERM;
+		break;
 	}
 	/*  */
 EXIT:
