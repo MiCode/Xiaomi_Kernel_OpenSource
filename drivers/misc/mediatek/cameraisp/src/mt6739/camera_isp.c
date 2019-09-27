@@ -4166,8 +4166,11 @@ static signed int ISP_EnableHoldReg(bool En)
 										     SpinLockHold))),
 							   ISP_MsToJiffies(500));
 		/*      */
-		if (IspInfo.DebugMask & ISP_DBG_TASKLET)
+		if (IspInfo.DebugMask & ISP_DBG_TASKLET) {
+			if (Timeout == 0)
+				LOG_DBG("[%s] wait timeout 500", __func__);
 			LOG_DBG("End wait ");
+		}
 
 		/*      */
 		if (IsLock == 0) {
