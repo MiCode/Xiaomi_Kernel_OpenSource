@@ -1694,13 +1694,12 @@ size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	min_pagesz = 1 << __ffs(domain->pgsize_bitmap);
 
 	for_each_sg(sg, s, nents, i) {
+
+#if defined(CONFIG_MTK_PSEUDO_M4U) && defined(CONFIG_MTK_IOMMU_V2)
 		/*
 		 * FIXME: Mediatek workaround for the buffer that don't has
 		 * "struct page"
 		 */
-#ifndef CONFIG_MTK_PSEUDO_M4U
-		phys_addr_t phys = page_to_phys(sg_page(s)) + s->offset;
-#else
 		phys_addr_t phys;
 		if (!IS_ERR(sg_page(s))) {
 			phys = page_to_phys(sg_page(s)) + s->offset;
@@ -1725,8 +1724,9 @@ size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 			pr_notice("%s, %d, invalid\n", __func__, __LINE__);
 			return 0;
 		}
+#else
+		phys_addr_t phys = page_to_phys(sg_page(s)) + s->offset;
 #endif
-
 		/*
 		 * We are mapping on IOMMU page boundaries, so offset within
 		 * the page must be 0. However, the IOMMU may support pages
