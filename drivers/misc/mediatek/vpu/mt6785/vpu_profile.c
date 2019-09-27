@@ -72,9 +72,7 @@ void katrace_begin_body(const char *name)
 #define KATRACE_END() katrace_end()
 inline void katrace_end(void)
 {
-	char c = 'E';
-
-	tracing_mark_write(&c);
+	tracing_mark_write("E");
 }
 
 
