@@ -58,6 +58,7 @@
 #define LM3644_REG_FLASH_LEVEL_LED1 (0x03)
 #define LM3644_REG_TORCH_LEVEL_LED2 (0x06)
 #define LM3644_REG_FLASH_LEVEL_LED2 (0x04)
+#define LM3644_DEVICE_ID (0x0C)
 
 #define LM3644_REG_TIMING_CONF (0x08)
 #define LM3644_TORCH_RAMP_TIME (0x00)
@@ -106,6 +107,8 @@ struct lm3644_platform_data {
 	struct flashlight_device_id *dev_id;
 };
 
+static struct lm3644_platform_data *lm3644_pdata;
+
 /* lm3644 chip data */
 struct lm3644_chip_data {
 	struct i2c_client *client;
@@ -126,6 +129,7 @@ static int lm3644_pinctrl_init(struct platform_device *pdev)
 	if (IS_ERR(lm3644_pinctrl)) {
 		pr_err("Failed to get flashlight pinctrl.\n");
 		ret = PTR_ERR(lm3644_pinctrl);
+		return ret;
 	}
 
 	/* Flashlight HWEN pin initialization */
@@ -734,12 +738,11 @@ err_node_put:
 static int lm3644_i2c_probe(
 		struct i2c_client *client, const struct i2c_device_id *id)
 {
-	struct lm3644_platform_data *pdata = dev_get_platdata(&client->dev);
 	struct lm3644_chip_data *chip;
 	int err;
 	int i;
 
-	pr_debug("Probe start.\n");
+	pr_debug("i2c probe start.\n");
 
 	/* check i2c */
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
@@ -756,63 +759,34 @@ static int lm3644_i2c_probe(
 	}
 	chip->client = client;
 
-	/* init platform data */
-	if (!pdata) {
-		pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
-		if (!pdata) {
-			err = -ENOMEM;
-			goto err_free;
-		}
-		client->dev.platform_data = pdata;
-		err = lm3644_parse_dt(&client->dev, pdata);
-		if (err)
-			goto err_free;
-	}
-	chip->pdata = pdata;
 	i2c_set_clientdata(client, chip);
 	lm3644_i2c_client = client;
 
 	/* init mutex and spinlock */
 	mutex_init(&chip->lock);
 
-	/* init work queue */
-	INIT_WORK(&lm3644_work_ch1, lm3644_work_disable_ch1);
-	INIT_WORK(&lm3644_work_ch2, lm3644_work_disable_ch2);
-
-	/* init timer */
-	hrtimer_init(&lm3644_timer_ch1, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	lm3644_timer_ch1.function = lm3644_timer_func_ch1;
-	hrtimer_init(&lm3644_timer_ch2, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	lm3644_timer_ch2.function = lm3644_timer_func_ch2;
-	lm3644_timeout_ms[LM3644_CHANNEL_CH1] = 100;
-	lm3644_timeout_ms[LM3644_CHANNEL_CH2] = 100;
-
 	/* init chip hw */
 	lm3644_chip_init(chip);
 
-	/* clear usage count */
-	use_count = 0;
-
-	/* register flashlight device */
-	if (pdata->channel_num) {
-		for (i = 0; i < pdata->channel_num; i++)
-			if (flashlight_dev_register_by_device_id(
-						&pdata->dev_id[i],
-						&lm3644_ops)) {
-				err = -EFAULT;
-				goto err_free;
-			}
-	} else {
-		if (flashlight_dev_register(LM3644_NAME, &lm3644_ops)) {
-			err = -EFAULT;
-			goto err_free;
+	/* check flashlight device */
+	pr_info("lm3644 LM3644_DEVICE_ID = %d\n",
+		lm3644_read_reg(lm3644_i2c_client, LM3644_DEVICE_ID));
+	if (lm3644_read_reg(lm3644_i2c_client, LM3644_DEVICE_ID) != 0x02) {
+		pr_info("lm3644 in not available\n");
+		if (lm3644_pdata->channel_num) {
+			for (i = 0; i < lm3644_pdata->channel_num; i++)
+				flashlight_dev_unregister_by_device_id(
+					&lm3644_pdata->dev_id[i]);
 		}
+		if (lm3644_pinctrl)
+			devm_pinctrl_put(lm3644_pinctrl);
+		err = -EFAULT;
+		goto err_free;
 	}
 
-	pr_debug("Probe done.\n");
+	pr_debug("i2c probe done.\n");
 
 	return 0;
-
 err_free:
 	i2c_set_clientdata(client, NULL);
 	kfree(chip);
@@ -822,25 +796,11 @@ err_out:
 
 static int lm3644_i2c_remove(struct i2c_client *client)
 {
-	struct lm3644_platform_data *pdata = dev_get_platdata(&client->dev);
 	struct lm3644_chip_data *chip = i2c_get_clientdata(client);
-	int i;
 
 	pr_debug("Remove start.\n");
 
 	client->dev.platform_data = NULL;
-
-	/* unregister flashlight device */
-	if (pdata && pdata->channel_num)
-		for (i = 0; i < pdata->channel_num; i++)
-			flashlight_dev_unregister_by_device_id(
-					&pdata->dev_id[i]);
-	else
-		flashlight_dev_unregister(LM3644_NAME);
-
-	/* flush work queue */
-	flush_work(&lm3644_work_ch1);
-	flush_work(&lm3644_work_ch2);
 
 	/* free resource */
 	kfree(chip);
@@ -878,12 +838,16 @@ static struct i2c_driver lm3644_i2c_driver = {
 /******************************************************************************
  * Platform device and driver
  *****************************************************************************/
-static int lm3644_probe(struct platform_device *dev)
+static int lm3644_probe(struct platform_device *pdev)
 {
+	struct lm3644_platform_data *pdata = dev_get_platdata(&pdev->dev);
+	int err;
+	int i;
+
 	pr_debug("Probe start.\n");
 
 	/* init pinctrl */
-	if (lm3644_pinctrl_init(dev)) {
+	if (lm3644_pinctrl_init(pdev)) {
 		pr_debug("Failed to init pinctrl.\n");
 		return -1;
 	}
@@ -893,16 +857,79 @@ static int lm3644_probe(struct platform_device *dev)
 		return -1;
 	}
 
+	/* init platform data */
+	if (!pdata) {
+		pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata) {
+			err = -ENOMEM;
+			goto err_free;
+		}
+		pdev->dev.platform_data = pdata;
+		err = lm3644_parse_dt(&pdev->dev, pdata);
+		if (err)
+			goto err_free;
+	}
+	lm3644_pdata = pdata;
+
+	/* init work queue */
+	INIT_WORK(&lm3644_work_ch1, lm3644_work_disable_ch1);
+	INIT_WORK(&lm3644_work_ch2, lm3644_work_disable_ch2);
+
+	/* init timer */
+	hrtimer_init(&lm3644_timer_ch1, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	lm3644_timer_ch1.function = lm3644_timer_func_ch1;
+	hrtimer_init(&lm3644_timer_ch2, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	lm3644_timer_ch2.function = lm3644_timer_func_ch2;
+	lm3644_timeout_ms[LM3644_CHANNEL_CH1] = 100;
+	lm3644_timeout_ms[LM3644_CHANNEL_CH2] = 100;
+
+	/* clear usage count */
+	use_count = 0;
+
+	/* register flashlight device */
+	if (pdata->channel_num) {
+		for (i = 0; i < pdata->channel_num; i++)
+			if (flashlight_dev_register_by_device_id(
+						&pdata->dev_id[i],
+						&lm3644_ops)) {
+				err = -EFAULT;
+				goto err_free;
+			}
+	} else {
+		if (flashlight_dev_register(LM3644_NAME, &lm3644_ops)) {
+			err = -EFAULT;
+			goto err_free;
+		}
+	}
+
 	pr_debug("Probe done.\n");
 
 	return 0;
+err_free:
+	return err;
 }
 
-static int lm3644_remove(struct platform_device *dev)
+static int lm3644_remove(struct platform_device *pdev)
 {
+	struct lm3644_platform_data *pdata = dev_get_platdata(&pdev->dev);
+	int i;
 	pr_debug("Remove start.\n");
 
 	i2c_del_driver(&lm3644_i2c_driver);
+
+	pdev->dev.platform_data = NULL;
+
+	/* unregister flashlight device */
+	if (pdata && pdata->channel_num)
+		for (i = 0; i < pdata->channel_num; i++)
+			flashlight_dev_unregister_by_device_id(
+					&pdata->dev_id[i]);
+	else
+		flashlight_dev_unregister(LM3644_NAME);
+
+	/* flush work queue */
+	flush_work(&lm3644_work_ch1);
+	flush_work(&lm3644_work_ch2);
 
 	pr_debug("Remove done.\n");
 
