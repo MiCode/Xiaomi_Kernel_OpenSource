@@ -37,9 +37,9 @@
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
-#define CRC_SID_FSM_CTRL		0x100c
+#define CRC_SID_FSM_CTRL		0x11a0
 #define CRC_SID_FSM_CTRL_SETTING	0x800000
-#define CRC_MND_CFG			0x1010
+#define CRC_MND_CFG			0x11a4
 #define CRC_MND_CFG_SETTING		0x15011
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
