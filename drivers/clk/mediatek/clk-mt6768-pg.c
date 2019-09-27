@@ -3583,9 +3583,11 @@ static void __init mt_scpsys_init(struct device_node *node)
 	init_clk_scpsys(clk_data);
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-	if (r)
-		pr_notice("[CCF] %s:could not register clock provide\n",
-			__func__);
+	if (r) {
+		pr_notice("%s(): could not register clock provider: %d\n",
+			__func__, r);
+		kfree(clk_data);
+	}
 
 	if (mtk_is_mtcmos_enable()) {
 		/* subsys init: per modem owner request,
