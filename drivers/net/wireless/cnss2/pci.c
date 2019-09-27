@@ -811,6 +811,8 @@ static char *cnss_mhi_state_to_str(enum cnss_mhi_state mhi_state)
 		return "DEINIT";
 	case CNSS_MHI_POWER_ON:
 		return "POWER_ON";
+	case CNSS_MHI_POWERING_OFF:
+		return "POWERING_OFF";
 	case CNSS_MHI_POWER_OFF:
 		return "POWER_OFF";
 	case CNSS_MHI_FORCE_POWER_OFF:
@@ -888,9 +890,13 @@ static void cnss_pci_set_mhi_state_bit(struct cnss_pci_data *pci_priv,
 	case CNSS_MHI_POWER_ON:
 		set_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state);
 		break;
+	case CNSS_MHI_POWERING_OFF:
+		set_bit(CNSS_MHI_POWERING_OFF, &pci_priv->mhi_state);
+		break;
 	case CNSS_MHI_POWER_OFF:
 	case CNSS_MHI_FORCE_POWER_OFF:
 		clear_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state);
+		clear_bit(CNSS_MHI_POWERING_OFF, &pci_priv->mhi_state);
 		clear_bit(CNSS_MHI_TRIGGER_RDDM, &pci_priv->mhi_state);
 		clear_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state);
 		break;
@@ -1025,6 +1031,7 @@ static void cnss_pci_power_off_mhi(struct cnss_pci_data *pci_priv)
 		return;
 
 	cnss_pci_set_mhi_state_bit(pci_priv, CNSS_MHI_RESUME);
+	cnss_pci_set_mhi_state_bit(pci_priv, CNSS_MHI_POWERING_OFF);
 
 	if (!pci_priv->pci_link_down_ind)
 		cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_POWER_OFF);
@@ -3417,6 +3424,10 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 	if (!plat_priv)
 		return -ENODEV;
 
+	if (!test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state) ||
+	    test_bit(CNSS_MHI_POWERING_OFF, &pci_priv->mhi_state))
+		return -EINVAL;
+
 	cnss_auto_resume(&pci_priv->pci_dev->dev);
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_shadow_reg(pci_priv);
@@ -3424,9 +3435,7 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_TRIGGER_RDDM);
 	if (ret) {
 		if (!test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state) ||
-		    test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state) ||
-		    test_bit(CNSS_DRIVER_IDLE_SHUTDOWN,
-			     &plat_priv->driver_state)) {
+		    test_bit(CNSS_MHI_POWERING_OFF, &pci_priv->mhi_state)) {
 			cnss_pr_dbg("MHI is not powered on, ignore RDDM failure\n");
 			return 0;
 		}
