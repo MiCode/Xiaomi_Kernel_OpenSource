@@ -270,4 +270,10 @@
 		interrupts = <GIC_SPI 43 IRQ_TYPE_NONE>;
 		status = "okay";
 	};
+
+	qcom,mpm2-sleep-counter@0xc221000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0xc221000 0x1000>;
+		clock-frequency = <32768>;
+	};
 };
