@@ -14,14 +14,168 @@
 
 #define ipa_eth_nd_op(eth_dev, op, args...) (eth_dev->nd->ops->op(args))
 
+static LIST_HEAD(ipa_eth_net_drivers);
+static DEFINE_MUTEX(ipa_eth_net_drivers_mutex);
+
+static bool ipa_eth_net_check_ops(struct ipa_eth_net_ops *ops)
+{
+	/* Following call backs are optional:
+	 *  - save_regs()
+	 */
+	return
+		ops &&
+		ops->open_device &&
+		ops->close_device &&
+		ops->request_channel &&
+		ops->release_channel &&
+		ops->enable_channel &&
+		ops->disable_channel &&
+		ops->request_event &&
+		ops->release_event &&
+		ops->enable_event &&
+		ops->disable_event &&
+		ops->moderate_event &&
+		ops->receive_skb &&
+		ops->transmit_skb;
+}
+
+static bool ipa_eth_net_check_driver(struct ipa_eth_net_driver *nd)
+{
+	return
+		nd &&
+		nd->bus &&
+		nd->name &&
+		nd->driver &&
+		ipa_eth_net_check_ops(nd->ops);
+}
+
+static int __ipa_eth_net_register_driver(struct ipa_eth_net_driver *nd)
+{
+	int rc;
+
+	rc = ipa_eth_bus_register_driver(nd);
+	if (rc) {
+		ipa_eth_err("Failed to register network driver %s", nd->name);
+		return rc;
+	}
+
+	mutex_lock(&ipa_eth_net_drivers_mutex);
+	list_add(&nd->driver_list, &ipa_eth_net_drivers);
+	mutex_unlock(&ipa_eth_net_drivers_mutex);
+
+	ipa_eth_log("Registered network driver %s", nd->name);
+
+	return 0;
+}
+
+int ipa_eth_net_register_driver(struct ipa_eth_net_driver *nd)
+{
+	if (!ipa_eth_net_check_driver(nd)) {
+		ipa_eth_err("Net driver validation failed");
+		return -EINVAL;
+	}
+
+	return __ipa_eth_net_register_driver(nd);
+}
+
+void ipa_eth_net_unregister_driver(struct ipa_eth_net_driver *nd)
+{
+	mutex_lock(&ipa_eth_net_drivers_mutex);
+	list_del(&nd->driver_list);
+	mutex_unlock(&ipa_eth_net_drivers_mutex);
+
+	ipa_eth_bus_unregister_driver(nd);
+}
+
+static int ipa_eth_net_process_event(
+	struct ipa_eth_device *eth_dev,
+	unsigned long event, void *ptr)
+{
+	bool link_changed = false;
+	bool iface_changed = false;
+
+	link_changed =
+		netif_carrier_ok(eth_dev->net_dev) ?
+		!test_and_set_bit(IPA_ETH_IF_ST_LOWER_UP, &eth_dev->if_state) :
+		test_and_clear_bit(IPA_ETH_IF_ST_LOWER_UP, &eth_dev->if_state);
+
+	switch (event) {
+	case NETDEV_UP:
+		iface_changed = !test_and_set_bit(
+					IPA_ETH_IF_ST_UP, &eth_dev->if_state);
+		break;
+	case NETDEV_DOWN:
+		iface_changed = test_and_clear_bit(
+					IPA_ETH_IF_ST_UP, &eth_dev->if_state);
+		break;
+	default:
+		break;
+	}
+
+	/* We can not wait for refresh to complete because we are holding
+	 * the rtnl mutex.
+	 */
+	if (link_changed || iface_changed)
+		ipa_eth_device_refresh_sched(eth_dev);
+
+	return NOTIFY_DONE;
+}
+
+static int ipa_eth_net_device_event(struct notifier_block *nb,
+	unsigned long event, void *ptr)
+{
+	struct net_device *net_dev = netdev_notifier_info_to_dev(ptr);
+	struct ipa_eth_device *eth_dev = container_of(nb,
+				struct ipa_eth_device, netdevice_nb);
+
+	if (net_dev != eth_dev->net_dev)
+		return NOTIFY_DONE;
+
+	ipa_eth_dev_log(eth_dev, "Received netdev event 0x%04lx", event);
+
+	return ipa_eth_net_process_event(eth_dev, event, ptr);
+}
+
 int ipa_eth_net_open_device(struct ipa_eth_device *eth_dev)
 {
-	return ipa_eth_nd_op(eth_dev, open_device, eth_dev);
+	int rc;
+
+	rc = ipa_eth_nd_op(eth_dev, open_device, eth_dev);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev, "Failed to open net device");
+		goto err_open;
+	}
+
+	if (!eth_dev->net_dev) {
+		rc = -EFAULT;
+		ipa_eth_dev_err(eth_dev,
+			"Network driver failed to fill net_dev");
+		goto err_net_dev;
+	}
+
+	eth_dev->netdevice_nb.notifier_call = ipa_eth_net_device_event;
+	rc = register_netdevice_notifier(&eth_dev->netdevice_nb);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev, "Failed to register netdev notifier");
+		goto err_register;
+	}
+
+	return 0;
+
+err_register:
+	eth_dev->netdevice_nb.notifier_call = NULL;
+err_net_dev:
+	ipa_eth_nd_op(eth_dev, close_device, eth_dev);
+err_open:
+	return rc;
 }
 
 void ipa_eth_net_close_device(struct ipa_eth_device *eth_dev)
 {
-	return ipa_eth_nd_op(eth_dev, close_device, eth_dev);
+	unregister_netdevice_notifier(&eth_dev->netdevice_nb);
+	eth_dev->netdevice_nb.notifier_call = NULL;
+
+	ipa_eth_nd_op(eth_dev, close_device, eth_dev);
 }
 
 static phys_addr_t ipa_eth_dma_pgaddr(struct ipa_eth_device *eth_dev,

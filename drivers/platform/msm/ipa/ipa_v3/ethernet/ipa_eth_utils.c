@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/module.h>
+
 #include "ipa_eth_i.h"
 
 static const char * const ipa_eth_device_events[IPA_ETH_DEV_EVENT_COUNT] = {
@@ -25,4 +27,45 @@ const char *ipa_eth_device_event_name(enum ipa_eth_device_event event)
 		name = ipa_eth_device_events[event];
 
 	return name;
+}
+
+/* IPC Logging */
+
+bool ipa_eth_ipc_logdbg = IPA_ETH_IPC_LOGDBG_DEFAULT;
+module_param(ipa_eth_ipc_logdbg, bool, 0444);
+MODULE_PARM_DESC(ipa_eth_ipc_logdbg, "Log debug IPC messages");
+
+static void *ipa_eth_ipc_logbuf;
+
+void *ipa_eth_get_ipc_logbuf(void)
+{
+	return ipa_eth_ipc_logbuf;
+}
+EXPORT_SYMBOL(ipa_eth_get_ipc_logbuf);
+
+void *ipa_eth_get_ipc_logbuf_dbg(void)
+{
+	return ipa_eth_ipc_logdbg ? ipa_eth_ipc_logbuf : NULL;
+}
+EXPORT_SYMBOL(ipa_eth_get_ipc_logbuf_dbg);
+
+#define IPA_ETH_IPC_LOG_PAGES 128
+
+int ipa_eth_ipc_log_init(void)
+{
+	if (ipa_eth_ipc_logbuf)
+		return 0;
+
+	ipa_eth_ipc_logbuf = ipc_log_context_create(
+				IPA_ETH_IPC_LOG_PAGES, IPA_ETH_SUBSYS, 0);
+
+	return ipa_eth_ipc_logbuf ? 0 : -EFAULT;
+}
+
+void ipa_eth_ipc_log_cleanup(void)
+{
+	if (ipa_eth_ipc_logbuf) {
+		ipc_log_context_destroy(ipa_eth_ipc_logbuf);
+		ipa_eth_ipc_logbuf = NULL;
+	}
 }
