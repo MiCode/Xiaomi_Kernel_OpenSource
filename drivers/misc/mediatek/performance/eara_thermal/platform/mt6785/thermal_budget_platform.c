@@ -86,7 +86,7 @@ int eara_thrm_get_vpu_core_num(void)
 int eara_thrm_get_mdla_core_num(void)
 {
 #ifdef CONFIG_MTK_MDLA_SUPPORT
-	return 1;
+	return 0;
 #else
 	return 0;
 #endif
