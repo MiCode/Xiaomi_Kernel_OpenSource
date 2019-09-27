@@ -37,7 +37,7 @@
 				"utmi_clk", "xo", "noc_aggr_clk";
 
 		qcom,core-clk-rate = <200000000>;
-		qcom,core-clk-rate-hs = <10000000>;
+		qcom,core-clk-rate-hs = <100000000>;
 
 		qcom,pm-qos-latency = <181>;
 		qcom,msm-bus,name = "usb3";
