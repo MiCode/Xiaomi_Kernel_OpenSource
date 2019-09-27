@@ -295,8 +295,8 @@ static ssize_t inv_gyro_power_state_store(struct device *dev,
 					  struct device_attribute *attr,
 					  const char *buf, size_t count)
 {
-	unsigned int result;
-	unsigned long data;
+	unsigned int result = 0;
+	unsigned long data = 0;
 
 	result = kstrtoul(buf, 10, &data);
 	if (result)
