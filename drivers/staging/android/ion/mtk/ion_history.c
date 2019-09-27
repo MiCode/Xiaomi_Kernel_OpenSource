@@ -597,6 +597,7 @@ static int ion_history_record(void *data)
 	size_t old_total_size = 0;
 	size_t total_size = 0;
 	int heap_id = 0;
+	int ret;
 
 	while (1) {
 		if (kthread_should_stop()) {
@@ -604,8 +605,13 @@ static int ion_history_record(void *data)
 			break;
 		}
 
-		wait_event_interruptible(ion_history_wq,
-					 atomic_read(&ion_history_event));
+		ret = wait_event_interruptible(ion_history_wq,
+					       atomic_read(&ion_history_event));
+		if (ret < 0) {
+			IONMSG("%s is waked up error", __func__);
+			continue;
+		}
+
 		msleep(500);
 		atomic_set(&ion_history_event, 0);
 
