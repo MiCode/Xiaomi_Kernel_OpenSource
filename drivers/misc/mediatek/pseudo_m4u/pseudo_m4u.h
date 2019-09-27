@@ -283,7 +283,7 @@ int pseudo_config_port_tee(int kernelport);
 
 int m4u_mva_map_kernel(unsigned int mva,
 	unsigned long size, unsigned long *map_va,
-	unsigned long *map_size);
+	unsigned int *map_size);
 
 int m4u_mva_unmap_kernel(unsigned int mva,
 		unsigned long size, unsigned long map_va);
