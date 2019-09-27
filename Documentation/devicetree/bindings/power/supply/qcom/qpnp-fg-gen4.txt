@@ -311,6 +311,13 @@ First Level Node - FG Gen4 device
 	Definition: Skew in decipercentage which when specified will be applied
 		    to the final learned capacity.
 
+- qcom,cl-ibat-flt-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Filtered battery current to qualify the capacity learning
+		    algorithm to begin. If this is not specified, then the
+		    default value is 100 mA.
+
 - qcom,hold-soc-while-full
 	Usage:      optional
 	Value type: <empty>

@@ -284,6 +284,7 @@ struct fg_gen4_chip {
 	struct work_struct	pl_current_en_work;
 	struct completion	mem_attn;
 	struct mutex		soc_scale_lock;
+	struct mutex		esr_calib_lock;
 	ktime_t			last_restart_time;
 	char			batt_profile[PROFILE_LEN];
 	enum slope_limit_status	slope_limit_sts;
@@ -2259,7 +2260,31 @@ static void fg_gen4_post_profile_load(struct fg_gen4_chip *chip)
 {
 	struct fg_dev *fg = &chip->fg;
 	int rc, act_cap_mah;
-	u8 buf[16];
+	u8 buf[16] = {0};
+
+	if (chip->dt.multi_profile_load &&
+		chip->batt_age_level != chip->last_batt_age_level) {
+
+		/* Keep ESR fast calib config disabled */
+		fg_gen4_esr_fast_calib_config(chip, false);
+		chip->esr_fast_calib = false;
+
+		mutex_lock(&chip->esr_calib_lock);
+
+		rc = fg_sram_write(fg, ESR_DELTA_DISCHG_WORD,
+				ESR_DELTA_DISCHG_OFFSET, buf, 2,
+				FG_IMA_DEFAULT);
+		if (rc < 0)
+			pr_err("Error in writing ESR_DELTA_DISCHG, rc=%d\n",
+				rc);
+
+		rc = fg_sram_write(fg, ESR_DELTA_CHG_WORD, ESR_DELTA_CHG_OFFSET,
+				buf, 2, FG_IMA_DEFAULT);
+		if (rc < 0)
+			pr_err("Error in writing ESR_DELTA_CHG, rc=%d\n", rc);
+
+		mutex_unlock(&chip->esr_calib_lock);
+	}
 
 	/* If SDAM cookie is not set, read back from SRAM and load it in SDAM */
 	if (chip->fg_nvmem && !is_sdam_cookie_set(chip)) {
@@ -2305,7 +2330,7 @@ static void profile_load_work(struct work_struct *work)
 				profile_load_work.work);
 	struct fg_gen4_chip *chip = container_of(fg,
 				struct fg_gen4_chip, fg);
-	int64_t nom_cap_uah;
+	int64_t nom_cap_uah, learned_cap_uah = 0;
 	u8 val, buf[2];
 	int rc;
 
@@ -2339,6 +2364,16 @@ static void profile_load_work(struct work_struct *work)
 
 	fg_dbg(fg, FG_STATUS, "profile loading started\n");
 
+	if (chip->dt.multi_profile_load &&
+		chip->batt_age_level != chip->last_batt_age_level) {
+		rc = fg_gen4_get_learned_capacity(chip, &learned_cap_uah);
+		if (rc < 0)
+			pr_err("Error in getting learned capacity rc=%d\n", rc);
+		else
+			fg_dbg(fg, FG_STATUS, "learned capacity: %lld uAh\n",
+				learned_cap_uah);
+	}
+
 	rc = qpnp_fg_gen4_load_profile(chip);
 	if (rc < 0)
 		goto out;
@@ -2349,21 +2384,26 @@ static void profile_load_work(struct work_struct *work)
 	if (fg->wa_flags & PM8150B_V1_DMA_WA)
 		msleep(1000);
 
-	/*
-	 * Whenever battery profile is loaded, read nominal capacity and write
-	 * it to actual (or aged) capacity as it is outside the profile region
-	 * and might contain OTP values.
-	 */
-	rc = fg_sram_read(fg, NOM_CAP_WORD, NOM_CAP_OFFSET, buf, 2,
-			FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in reading %04x[%d] rc=%d\n", NOM_CAP_WORD,
-			NOM_CAP_OFFSET, rc);
-	} else {
-		nom_cap_uah = (buf[0] | buf[1] << 8) * 1000;
-		rc = fg_gen4_store_learned_capacity(chip, nom_cap_uah);
-		if (rc < 0)
-			pr_err("Error in writing to ACT_BATT_CAP rc=%d\n", rc);
+	if (learned_cap_uah == 0) {
+		/*
+		 * Whenever battery profile is loaded, read nominal capacity and
+		 * write it to actual (or aged) capacity as it is outside the
+		 * profile region and might contain OTP values. learned_cap_uah
+		 * would have non-zero value if multiple profile loading is
+		 * enabled and a profile got loaded already.
+		 */
+		rc = fg_sram_read(fg, NOM_CAP_WORD, NOM_CAP_OFFSET, buf, 2,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in reading %04x[%d] rc=%d\n",
+				NOM_CAP_WORD, NOM_CAP_OFFSET, rc);
+		} else {
+			nom_cap_uah = (buf[0] | buf[1] << 8) * 1000;
+			rc = fg_gen4_store_learned_capacity(chip, nom_cap_uah);
+			if (rc < 0)
+				pr_err("Error in writing to ACT_BATT_CAP rc=%d\n",
+					rc);
+		}
 	}
 done:
 	rc = fg_sram_read(fg, PROFILE_INTEGRITY_WORD,
@@ -3742,6 +3782,8 @@ static void esr_calib_work(struct work_struct *work)
 	s16 esr_raw, esr_char_raw, esr_delta, esr_meas_diff, esr_filtered;
 	u8 buf[2];
 
+	mutex_lock(&chip->esr_calib_lock);
+
 	if (chip->delta_esr_count > chip->dt.delta_esr_disable_count ||
 		chip->esr_fast_calib_done) {
 		fg_dbg(fg, FG_STATUS, "delta_esr_count: %d esr_fast_calib_done:%d\n",
@@ -3838,6 +3880,7 @@ static void esr_calib_work(struct work_struct *work)
 	chip->delta_esr_count++;
 	fg_dbg(fg, FG_STATUS, "Wrote ESR delta [0x%x 0x%x]\n", buf[0], buf[1]);
 out:
+	mutex_unlock(&chip->esr_calib_lock);
 	vote(fg->awake_votable, ESR_CALIB, false, 0);
 }
 
@@ -5908,6 +5951,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	mutex_init(&fg->sram_rw_lock);
 	mutex_init(&fg->charge_full_lock);
 	mutex_init(&chip->soc_scale_lock);
+	mutex_init(&chip->esr_calib_lock);
 	init_completion(&fg->soc_update);
 	init_completion(&fg->soc_ready);
 	init_completion(&chip->mem_attn);
