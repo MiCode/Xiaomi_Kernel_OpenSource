@@ -22,6 +22,7 @@
 #include <linux/kobject.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/bootmem.h>
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/qmp.h>
 #include <soc/qcom/rpm-smd.h>
@@ -455,6 +456,8 @@ static int mem_online_remaining_blocks(void)
 			fail = 1;
 		}
 	}
+
+	max_pfn = PFN_DOWN(memblock_end_of_DRAM());
 	return fail;
 }
 
