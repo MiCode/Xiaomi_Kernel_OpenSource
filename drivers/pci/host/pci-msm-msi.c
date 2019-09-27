@@ -395,7 +395,7 @@ static int msm_msi_irq_domain_alloc(struct irq_domain *domain,
 	}
 
 	pos = bitmap_find_next_zero_area(msi->bitmap, msi->nr_virqs, 0,
-					nr_irqs, 0);
+					nr_irqs, nr_irqs - 1);
 	if (pos < msi->nr_virqs) {
 		bitmap_set(msi->bitmap, pos, nr_irqs);
 	} else {
