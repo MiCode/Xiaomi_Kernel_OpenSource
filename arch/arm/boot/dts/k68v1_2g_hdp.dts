@@ -179,12 +179,6 @@
 	headset-three-key-threshold-CDD = <0 121 192 600>;
 	/*0--MD_MAX--VOICE_MAX--UP_MAX--DW_MAX*/
 	headset-four-key-threshold = <0 58 121 192 400>;
-	/*moisture external resister ohm*/
-	moisture-external-r = <2000000>;
-	/*moisture internal resister ohm*/
-	moisture-internal-r = <47000>;
-	/*moisture of water resister ohm*/
-	moisture-water-r = <10000>;
 	status = "okay";
 };
 /* accdet end */
