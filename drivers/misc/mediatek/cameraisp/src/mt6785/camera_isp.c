@@ -1738,12 +1738,33 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 	/*  */
 	struct ISP_REG_STRUCT reg;
 	struct ISP_REG_STRUCT *pData = (struct ISP_REG_STRUCT *)pRegIo->pData;
+	struct ISP_REG_STRUCT *pTmpData = NULL;
 
 	if ((pRegIo->pData == NULL) ||
 		(pRegIo->Count == 0) ||
 		(pRegIo->Count > ISP_REG_RANGE)) {
 		LOG_NOTICE("pRegIo->pData is NULL, Count:%d!!\n",
 			pRegIo->Count);
+		Ret = -EFAULT;
+		goto EXIT;
+	}
+
+	pTmpData = kmalloc((pRegIo->Count) *
+		sizeof(struct ISP_REG_STRUCT), GFP_ATOMIC);
+
+	if (pTmpData == NULL) {
+		LOG_DBG(
+		"ERROR: kmalloc failed,(process, pid, tgid)=(%s, %d, %d)\n",
+		current->comm,
+		current->pid,
+		current->tgid);
+		Ret = -ENOMEM;
+		goto EXIT;
+	}
+
+	if (copy_from_user(&pTmpData, (void __user *)pData,
+		sizeof(struct ISP_REG_IO_STRUCT) * pRegIo->Count) != 0) {
+		LOG_NOTICE("copy_from_user failed\n");
 		Ret = -EFAULT;
 		goto EXIT;
 	}
@@ -1818,6 +1839,10 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 	}
 	/*  */
 EXIT:
+	if (pTmpData != NULL) {
+		kfree(pTmpData);
+		pTmpData = NULL;
+	}
 	return Ret;
 }
 
