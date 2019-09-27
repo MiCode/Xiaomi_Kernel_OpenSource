@@ -500,6 +500,7 @@ static int power_misc_routine_thread(void *arg)
 			bm_err("%s battery overheat~ power off\n",
 				__func__);
 			kernel_power_off();
+			return 1;
 		}
 	}
 
