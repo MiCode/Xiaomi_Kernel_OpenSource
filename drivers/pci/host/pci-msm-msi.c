@@ -658,6 +658,8 @@ int msm_msi_init(struct device *dev)
 
 	if (msi->type == MSM_MSI_TYPE_SNPS) {
 		struct msm_msi_grp *msi_grp;
+		/* all SNPS VIRQs are mapped to one PCIe MSI HWIRQ */
+		u32 snps_hwirq = msi->grps[0].irqs[0].hwirq;
 
 		for (i = 0; i < msi->nr_grps; i++) {
 			msi_grp = &msi->grps[i];
@@ -681,7 +683,7 @@ int msm_msi_init(struct device *dev)
 			msi_irq->grp = msi_grp;
 			msi_irq->grp_index = index;
 			msi_irq->pos = i;
-			msi_irq->hwirq = msi_grp->irqs[0].hwirq;
+			msi_irq->hwirq = snps_hwirq;
 		}
 	}
 
