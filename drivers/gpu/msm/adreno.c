@@ -1427,6 +1427,12 @@ static int adreno_probe(struct platform_device *pdev)
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_IOCOHERENT))
 		device->mmu.features |= KGSL_MMU_IO_COHERENT;
 
+	/* Allocate the memstore for storing timestamps and other useful info */
+	status = kgsl_allocate_global(device, &device->memstore,
+		KGSL_MEMSTORE_SIZE, 0, KGSL_MEMDESC_CONTIG, "memstore");
+	if (status)
+		goto out;
+
 	status = adreno_ringbuffer_probe(adreno_dev);
 	if (status)
 		goto out;
@@ -1478,6 +1484,7 @@ static int adreno_probe(struct platform_device *pdev)
 out:
 	if (status) {
 		adreno_ringbuffer_close(adreno_dev);
+		kgsl_free_global(device, &device->memstore);
 		kgsl_device_platform_remove(device);
 		device->pdev = NULL;
 	}
@@ -1557,6 +1564,8 @@ static int adreno_remove(struct platform_device *pdev)
 
 	if (efuse_base != NULL)
 		iounmap(efuse_base);
+
+	kgsl_free_global(device, &device->memstore);
 
 	kgsl_device_platform_remove(device);
 
