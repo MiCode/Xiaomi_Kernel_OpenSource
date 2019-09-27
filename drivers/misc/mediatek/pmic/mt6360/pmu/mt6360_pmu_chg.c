@@ -750,7 +750,7 @@ static int mt6360_enable(struct charger_device *chg_dev, bool en)
 
 	/* Workaround for vsys overshoot */
 	mutex_lock(&mpci->ichg_lock);
-	if (mpci->ichg < 500) {
+	if (mpci->ichg < 500000) {
 		dev_info(mpci->dev,
 			 "%s: ichg < 500mA, bypass vsys wkard\n", __func__);
 		goto out;
