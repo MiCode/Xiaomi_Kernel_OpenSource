@@ -1577,6 +1577,25 @@ static const struct file_operations partial_fops = {
 	.read = partial_read,
 };
 
+static int idletime_set(void *data, u64 val)
+{
+	if (val < 33)
+		val = 33;
+	if (val > 1000000)
+		val = 1000000;
+
+	idle_check_interval = val;
+	return 0;
+}
+
+static int idletime_get(void *data, u64 *val)
+{
+	*val = idle_check_interval;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(idletime_fops, idletime_get, idletime_set, "%llu\n");
+
 void DBG_Init(void)
 {
 	struct dentry *d_folder;
@@ -1591,6 +1610,8 @@ void DBG_Init(void)
 					     d_folder, NULL, &kickidle_fops);
 		d_file = debugfs_create_file("partial", S_IFREG | 0444,
 					     d_folder, NULL, &partial_fops);
+		d_file = debugfs_create_file("idletime",
+			S_IFREG | 0666, d_folder, NULL, &idletime_fops);
 	}
 }
 
