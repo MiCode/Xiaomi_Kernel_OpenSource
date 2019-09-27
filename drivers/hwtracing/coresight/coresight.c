@@ -268,7 +268,10 @@ static int coresight_enable_sink(struct coresight_device *csdev, u32 mode)
 
 	if (!csdev->enable) {
 		if (sink_ops(csdev)->enable) {
-			coresight_enable_reg_clk(csdev);
+			ret = coresight_enable_reg_clk(csdev);
+			if (ret)
+				return ret;
+
 			ret = sink_ops(csdev)->enable(csdev, mode);
 			if (ret) {
 				coresight_disable_reg_clk(csdev);
@@ -325,7 +328,10 @@ static int coresight_enable_link(struct coresight_device *csdev,
 
 	if (atomic_inc_return(&csdev->refcnt[refport]) == 1) {
 		if (link_ops(csdev)->enable) {
-			coresight_enable_reg_clk(csdev);
+			ret = coresight_enable_reg_clk(csdev);
+			if (ret)
+				return ret;
+
 			ret = link_ops(csdev)->enable(csdev, inport, outport);
 			if (ret) {
 				coresight_disable_reg_clk(csdev);
@@ -395,7 +401,10 @@ static int coresight_enable_source(struct coresight_device *csdev, u32 mode)
 
 	if (!csdev->enable) {
 		if (source_ops(csdev)->enable) {
-			coresight_enable_reg_clk(csdev);
+			ret = coresight_enable_reg_clk(csdev);
+			if (ret)
+				return ret;
+
 			ret = source_ops(csdev)->enable(csdev, NULL, mode);
 			if (ret) {
 				coresight_disable_reg_clk(csdev);
