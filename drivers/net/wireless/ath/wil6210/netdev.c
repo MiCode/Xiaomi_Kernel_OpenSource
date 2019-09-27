@@ -123,7 +123,7 @@ static u16 wil_select_queue(struct net_device *ndev,
 
 	/* determine the priority */
 	if (wil_is_special_packet(skb))
-		return 7;
+		skb->priority = 7;
 	else if (skb->priority == 0 || skb->priority > 7)
 		skb->priority = cfg80211_classify8021d(skb, NULL);
 
