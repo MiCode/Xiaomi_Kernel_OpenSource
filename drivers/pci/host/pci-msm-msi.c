@@ -34,7 +34,7 @@
 #define PCIE_MSI_CTRL_INT_N_MASK_OFFS(n) (PCIE_MSI_CTRL_BASE + 0xc + 0xc * n)
 #define PCIE_MSI_CTRL_INT_N_STATUS_OFFS(n) (PCIE_MSI_CTRL_BASE + 0x10 + 0xc * n)
 
-#define MSI_IRQ_NR_GRP (1)
+#define MSI_IRQ_NR_GRP (2)
 #define MSI_IRQ_PER_GRP (32)
 
 enum msi_type {
