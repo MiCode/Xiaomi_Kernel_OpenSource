@@ -568,6 +568,7 @@ static s32 smi_bwc_conf(const struct MTK_SMI_BWC_CONF *conf)
 	for (i = SMI_BWC_SCEN_CNT - 1; i >= 0; i--)
 		if (smi_drv.table[i])
 			break;
+	i = (i < 0 ? 0 : i);
 	if (smi_scen_map[i] == smi_scen_map[smi_drv.scen])
 		same += 1;
 	smi_drv.scen = (i > 0 ? i : 0);
