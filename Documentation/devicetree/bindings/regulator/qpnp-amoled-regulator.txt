@@ -67,15 +67,6 @@ Subnode common properties for OLEDB and AB/IBB regulator devices.
 	Definition: A boolean property to specify that the pull down control
 		    for AB/IBB needs to be configured during AOD mode.
 
-Subnode properties for AB regulator device.
-
-- qcom,aod-entry-poll-time-ms:
-	Usage:      optional
-	Value type: <u32>
-	Definition: Poll timeout (in ms) for AB VREG_OK to go low during AOD
-		    entry. If this is not specified, a default value of 100 ms
-		    is used.
-
 Example:
 
 pm8150a_amoled: oledb@e000 {

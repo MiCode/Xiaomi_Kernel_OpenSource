@@ -72,10 +72,18 @@
 		mhi_chan@108 {
 			status = "disabled";
 		};
+
+		mhi_chan@109 {
+			status = "disabled";
+		};
+
+		mhi_chan@110 {
+			status = "disabled";
+		};
 	};
 
 	mhi_events {
-		mhi_event@4 {
+		mhi_event@5 {
 			mhi,num-elements = <0>;
 			mhi,intmod = <0>;
 			mhi,msi = <5>;
@@ -87,7 +95,7 @@
 			mhi,offload;
 		};
 
-		mhi_event@5 {
+		mhi_event@6 {
 			mhi,num-elements = <0>;
 			mhi,intmod = <0>;
 			mhi,msi = <6>;
@@ -97,10 +105,6 @@
 			mhi,hw-ev;
 			mhi,client-manage;
 			mhi,offload;
-		};
-
-		mhi_events@6 {
-			status = "disabled";
 		};
 
 		mhi_events@7 {
@@ -120,6 +124,18 @@
 		};
 
 		mhi_events@11 {
+			status = "disabled";
+		};
+
+		mhi_events@12 {
+			status = "disabled";
+		};
+
+		mhi_events@13 {
+			status = "disabled";
+		};
+
+		mhi_events@14 {
 			status = "disabled";
 		};
 	};
@@ -162,10 +178,18 @@
 		mhi_chan@108 {
 			status = "disabled";
 		};
+
+		mhi_chan@109 {
+			status = "disabled";
+		};
+
+		mhi_chan@110 {
+			status = "disabled";
+		};
 	};
 
 	mhi_events {
-		mhi_event@4 {
+		mhi_event@5 {
 			mhi,num-elements = <0>;
 			mhi,intmod = <0>;
 			mhi,msi = <5>;
@@ -177,7 +201,7 @@
 			mhi,offload;
 		};
 
-		mhi_event@5 {
+		mhi_event@6 {
 			mhi,num-elements = <0>;
 			mhi,intmod = <0>;
 			mhi,msi = <6>;
@@ -187,10 +211,6 @@
 			mhi,hw-ev;
 			mhi,client-manage;
 			mhi,offload;
-		};
-
-		mhi_events@6 {
-			status = "disabled";
 		};
 
 		mhi_events@7 {
@@ -210,6 +230,18 @@
 		};
 
 		mhi_events@11 {
+			status = "disabled";
+		};
+
+		mhi_events@12 {
+			status = "disabled";
+		};
+
+		mhi_events@13 {
+			status = "disabled";
+		};
+
+		mhi_events@14 {
 			status = "disabled";
 		};
 	};

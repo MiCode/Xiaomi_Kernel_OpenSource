@@ -211,6 +211,7 @@ struct smb1390 {
 	u32			max_temp_alarm_degc;
 	u32			max_cutoff_soc;
 	u32			pl_output_mode;
+	u32			pl_input_mode;
 	u32			cp_role;
 	enum isns_mode		current_capability;
 	bool			batt_soc_validated;
@@ -1001,6 +1002,36 @@ static int smb1390_notifier_cb(struct notifier_block *nb,
 #define ILIM_NR			10
 #define ILIM_DR			8
 #define ILIM_FACTOR(ilim)	((ilim * ILIM_NR) / ILIM_DR)
+
+static void smb1390_configure_ilim(struct smb1390 *chip, int mode)
+{
+	int rc;
+	union power_supply_propval pval = {0, };
+
+	/* PPS adapter reply on the current advertised by the adapter */
+	if ((chip->pl_output_mode == POWER_SUPPLY_PL_OUTPUT_VPH)
+			&& (mode == POWER_SUPPLY_CP_PPS)) {
+		rc = power_supply_get_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_PD_CURRENT_MAX, &pval);
+		if (rc < 0)
+			pr_err("Couldn't get PD CURRENT MAX rc=%d\n", rc);
+		else
+			vote(chip->ilim_votable, ICL_VOTER,
+					true, ILIM_FACTOR(pval.intval));
+	}
+
+	/* QC3.0/Wireless adapter rely on the settled AICL for USBMID_USBMID */
+	if ((chip->pl_input_mode == POWER_SUPPLY_PL_USBMID_USBMID)
+			&& (mode == POWER_SUPPLY_CP_HVDCP3)) {
+		rc = power_supply_get_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED, &pval);
+		if (rc < 0)
+			pr_err("Couldn't get usb aicl rc=%d\n", rc);
+		else
+			vote(chip->ilim_votable, ICL_VOTER, true, pval.intval);
+	}
+}
+
 static void smb1390_status_change_work(struct work_struct *work)
 {
 	struct smb1390 *chip = container_of(work, struct smb1390,
@@ -1050,28 +1081,7 @@ static void smb1390_status_change_work(struct work_struct *work)
 						pval.intval);
 		} else {
 			vote(chip->ilim_votable, WIRELESS_VOTER, false, 0);
-			if ((chip->pl_output_mode == POWER_SUPPLY_PL_OUTPUT_VPH)
-				&& (pval.intval == POWER_SUPPLY_CP_PPS)) {
-				rc = power_supply_get_property(chip->usb_psy,
-					POWER_SUPPLY_PROP_PD_CURRENT_MAX,
-					&pval);
-				if (rc < 0)
-					pr_err("Couldn't get PD CURRENT MAX rc=%d\n",
-							rc);
-				else
-					vote(chip->ilim_votable, ICL_VOTER,
-						true, ILIM_FACTOR(pval.intval));
-			} else {
-				rc = power_supply_get_property(chip->usb_psy,
-					POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
-					&pval);
-				if (rc < 0)
-					pr_err("Couldn't get usb aicl rc=%d\n",
-							rc);
-				else
-					vote(chip->ilim_votable, ICL_VOTER,
-							true, pval.intval);
-			}
+			smb1390_configure_ilim(chip, pval.intval);
 		}
 
 		/*
@@ -1237,6 +1247,7 @@ static enum power_supply_property smb1390_charge_pump_props[] = {
 	POWER_SUPPLY_PROP_PARALLEL_OUTPUT_MODE,
 	POWER_SUPPLY_PROP_MIN_ICL,
 	POWER_SUPPLY_PROP_MODEL_NAME,
+	POWER_SUPPLY_PROP_PARALLEL_MODE,
 };
 
 static int smb1390_get_prop(struct power_supply *psy,
@@ -1335,6 +1346,9 @@ static int smb1390_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_MODEL_NAME:
 		val->strval = (chip->pmic_rev_id->rev4 > 2) ? "SMB1390_V3" :
 								"SMB1390_V2";
+		break;
+	case POWER_SUPPLY_PROP_PARALLEL_MODE:
+		val->intval = chip->pl_input_mode;
 		break;
 	default:
 		smb1390_dbg(chip, PR_MISC, "charge pump power supply get prop %d not supported\n",
@@ -1461,6 +1475,11 @@ static int smb1390_parse_dt(struct smb1390 *chip)
 	chip->pl_output_mode = POWER_SUPPLY_PL_OUTPUT_VPH;
 	of_property_read_u32(chip->dev->of_node, "qcom,parallel-output-mode",
 			&chip->pl_output_mode);
+
+	/* Default parallel input configuration is USBMID connection */
+	chip->pl_input_mode = POWER_SUPPLY_PL_USBMID_USBMID;
+	of_property_read_u32(chip->dev->of_node, "qcom,parallel-input-mode",
+			&chip->pl_input_mode);
 
 	chip->cp_slave_thr_taper_ua = chip->min_ilim_ua * 3;
 	of_property_read_u32(chip->dev->of_node, "qcom,cp-slave-thr-taper-ua",

@@ -260,11 +260,8 @@ static int ipa_eth_stop_device(struct ipa_eth_device *eth_dev)
 	return 0;
 }
 
-static void __ipa_eth_refresh_device(struct work_struct *work)
+static void __ipa_eth_refresh(struct ipa_eth_device *eth_dev)
 {
-	struct ipa_eth_device *eth_dev = container_of(work,
-				struct ipa_eth_device, refresh);
-
 	ipa_eth_dev_log(eth_dev, "Refreshing offload state for device");
 
 	if (!ipa_eth_offload_device_paired(eth_dev)) {
@@ -335,6 +332,16 @@ static void __ipa_eth_refresh_device(struct work_struct *work)
 	}
 }
 
+static void __ipa_eth_refresh_device(struct work_struct *work)
+{
+	struct ipa_eth_device *eth_dev = container_of(work,
+				struct ipa_eth_device, refresh);
+
+	mutex_lock(&eth_dev->refresh_mutex);
+	__ipa_eth_refresh(eth_dev);
+	mutex_unlock(&eth_dev->refresh_mutex);
+}
+
 static void ipa_eth_refresh_device(struct ipa_eth_device *eth_dev)
 {
 	if (ipa_eth_ready())
@@ -364,6 +371,50 @@ static void ipa_eth_refresh_devices(void)
 {
 	queue_work(ipa_eth_wq, &global_refresh);
 }
+
+/**
+ * ipa_eth_device_notify() - Notifies a device event to the offload sub-system
+ * @eth_dev: Device for which the event is generated
+ * @event: Device event
+ * @data: Event specific data, if required
+ *
+ * Return: 0 on success, non-zero otherwise
+ */
+int ipa_eth_device_notify(struct ipa_eth_device *eth_dev,
+	enum ipa_eth_device_event event, void *data)
+{
+	int rc = -EINVAL;
+
+	ipa_eth_dev_log(eth_dev,
+		"Received notificaiton %s", ipa_eth_device_event_name(event));
+
+	mutex_lock(&eth_dev->refresh_mutex);
+
+	switch (event) {
+	case IPA_ETH_DEV_RESET_PREPARE:
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+		rc = ipa_eth_offload_prepare_reset(eth_dev, data);
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+		break;
+	case IPA_ETH_DEV_RESET_COMPLETE:
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+		rc = ipa_eth_offload_complete_reset(eth_dev, data);
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+		break;
+	default:
+		break;
+	}
+
+	if (rc) {
+		ipa_eth_dev_err(eth_dev, "Failed to handle notification");
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
+	}
+
+	mutex_unlock(&eth_dev->refresh_mutex);
+
+	return rc;
+}
+EXPORT_SYMBOL(ipa_eth_device_notify);
 
 static void ipa_eth_dev_start_timer_cb(unsigned long data)
 {
@@ -701,6 +752,7 @@ int ipa_eth_register_device(struct ipa_eth_device *eth_dev)
 	eth_dev->of_state = IPA_ETH_OF_ST_DEINITED;
 	eth_dev->pm_handle = IPA_PM_MAX_CLIENTS;
 	INIT_WORK(&eth_dev->refresh, __ipa_eth_refresh_device);
+	mutex_init(&eth_dev->refresh_mutex);
 
 	INIT_LIST_HEAD(&eth_dev->rx_channels);
 	INIT_LIST_HEAD(&eth_dev->tx_channels);

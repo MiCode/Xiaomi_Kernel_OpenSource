@@ -115,12 +115,6 @@
 			size = <0x400000>;
 		};
 
-		cnss_wlan_mem: cnss_wlan_region@0 {
-			compatible = "shared-dma-pool";
-			reusable;
-			size = <0x1400000>;
-		};
-
 		dump_mem: mem_dump_region {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -1494,15 +1488,6 @@
 
 &gdsc_pcie {
 	status = "ok";
-};
-
-&pcie0_rp {
-	cnss: qcom,qca6390@0 {
-		reg = <0 0 0 0 0>;
-		pci-ids = "17cb:1101";
-
-		memory-region = <&cnss_wlan_mem>;
-	};
 };
 
 &soc {

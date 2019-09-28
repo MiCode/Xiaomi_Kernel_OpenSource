@@ -2063,6 +2063,8 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 
 	del_timer(&inst->batch_timer);
 
+	cancel_work_sync(&inst->batch_work);
+
 	msm_comm_free_freq_table(inst);
 
 	msm_comm_free_input_cr_table(inst);

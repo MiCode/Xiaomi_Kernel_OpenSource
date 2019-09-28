@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,7 +23,6 @@ struct sde_hw_wb;
 struct sde_hw_wb_cfg {
 	struct sde_hw_fmt_layout dest;
 	enum sde_intf_mode intf_mode;
-	struct traffic_shaper_cfg ts_cfg;
 	struct sde_rect roi;
 	bool is_secure;
 };
@@ -144,9 +143,10 @@ struct sde_hw_wb_ops {
 	 * @pp_idx: Current CWB block index to poram
 	 * @data_src: Source CWB/PingPong block index
 	 * @dspp_out: Tap dspp output or default LM output
+	 * @enable: enable or disable the CWB path to tap the output
 	 */
 	void (*program_cwb_ctrl)(struct sde_hw_wb *ctx, const enum sde_cwb cwb,
-			const enum sde_cwb data_src, bool dspp_out);
+		const enum sde_cwb data_src, bool dspp_out, bool enable);
 };
 
 /**

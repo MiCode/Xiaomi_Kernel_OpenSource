@@ -50,7 +50,9 @@ Subsystem properties:
 			"modem_skin1" -> Modem skin mitigation device1,
 			"modem_skin2" -> Modem skin mitigation device2,
 			"modem_skin3" -> Modem skin mitigation device3,
-			"cpr_cold" -> for cpr restriction.
+			"cpr_cold" -> for cpr restriction,
+			"cdsp_sw" -> for CDSP DCVS mitigation device,
+			"cdsp_hw" -> for CDSP hardware mitigation device.
 
 	-#cooling-cells:
 		Usage: required
@@ -107,6 +109,16 @@ Example:
 
 			cdsp_vdd: cdsp_vdd {
 				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+
+			cdsp_sw: cdsp {
+				qcom,qmi-dev-name = "cdsp_sw";
+				#cooling-cells = <2>;
+			};
+
+			cdsp_hw: hvx {
+				qcom,qmi-dev-name = "cdsp_hw";
 				#cooling-cells = <2>;
 			};
 		};

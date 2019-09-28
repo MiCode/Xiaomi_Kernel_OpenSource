@@ -53,6 +53,12 @@ struct mtd_part {
 
 /*
  * Given a pointer to the MTD object in the mtd_part structure, we can retrieve
+ * the pointer to that structure with this macro.
+ */
+#define PART(x)  ((struct mtd_part *)(x))
+
+/*
+ * Given a pointer to the MTD object in the mtd_part structure, we can retrieve
  * the pointer to that structure.
  */
 static inline struct mtd_part *mtd_to_part(const struct mtd_info *mtd)
@@ -369,6 +375,29 @@ static inline void free_partition(struct mtd_part *p)
 	kfree(p);
 }
 
+void part_fill_badblockstats(struct mtd_info *mtd)
+{
+	uint64_t offs = 0;
+	struct mtd_info *parent;
+	struct mtd_part *part;
+
+	part = PART(mtd);
+	parent = part->parent;
+
+	if (parent->_block_isbad) {
+		mtd->ecc_stats.badblocks = 0;
+		mtd->ecc_stats.bbtblocks = 0;
+
+		while (offs < mtd->size) {
+			if (mtd_block_isreserved(parent, offs + part->offset))
+				mtd->ecc_stats.bbtblocks++;
+			else if (mtd_block_isbad(parent, offs + part->offset))
+				mtd->ecc_stats.badblocks++;
+			offs += mtd->erasesize;
+		}
+	}
+}
+
 /**
  * mtd_parse_part - parse MTD partition looking for subpartitions
  *
@@ -613,17 +642,9 @@ static struct mtd_part *allocate_partition(struct mtd_info *parent,
 	slave->mtd.ecc_strength = parent->ecc_strength;
 	slave->mtd.bitflip_threshold = parent->bitflip_threshold;
 
-	if (parent->_block_isbad) {
-		uint64_t offs = 0;
-
-		while (offs < slave->mtd.size) {
-			if (mtd_block_isreserved(parent, offs + slave->offset))
-				slave->mtd.ecc_stats.bbtblocks++;
-			else if (mtd_block_isbad(parent, offs + slave->offset))
-				slave->mtd.ecc_stats.badblocks++;
-			offs += slave->mtd.erasesize;
-		}
-	}
+#ifndef CONFIG_MTD_LAZYECCSTATS
+	part_fill_badblockstats(&(slave->mtd));
+#endif
 
 out_register:
 	return slave;

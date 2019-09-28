@@ -1,3 +1,23 @@
+Version 1.0.25
+==============
+[ATLDRV-1118] - Page fault in atl_fwd_init_ring() upon ring creation (ATL_FWR_ALLOC_BUFS is not set)
+[ATLDRV-1119] - AQ058: again Bug CR 2491137 - Crash caused due to 32 Tx descs are zero'ed
+
+Version 1.0.24
+==============
+[ATLDRV-1112] - descriptor corruption after suspend/resume
+[ATLDRV-1097] - EEE must be disabled by-default
+[ATLDRV-1099] - Strange EEE configuration behavior
+[ATLDRV-1107] - Strange message in dmesg
+[ATLDRV-1108] - FW not loaded after FWD driver unloaded on B0
+[ATLDRV-899] - Fwd driver: add more loopbacks to ethtool private flags
+[ATLDRV-1057] - Support for network loopback
+
+Version 1.0.23
+==============
+[ATLDRV-983] - runtime D3 support
+[ATLDRV-1023] - AQ056: Wake on link race condition with host power manament
+
 Version 1.0.22
 ==============
 fix build of fwd api

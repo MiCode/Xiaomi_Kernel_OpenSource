@@ -410,10 +410,10 @@ static ssize_t ipa_ut_dbgfs_meta_test_read(struct file *file,
 	meta_type = (long)(file->private_data);
 	IPA_UT_DBG("Meta test type %ld\n", meta_type);
 
-	buf = kmalloc(IPA_UT_DEBUG_READ_BUF_SIZE, GFP_KERNEL);
+	buf = kmalloc(IPA_UT_DEBUG_READ_BUF_SIZE + 1, GFP_KERNEL);
 	if (!buf) {
 		IPA_UT_ERR("failed to allocate %d bytes\n",
-			IPA_UT_DEBUG_READ_BUF_SIZE);
+			IPA_UT_DEBUG_READ_BUF_SIZE + 1);
 		cnt = 0;
 		goto unlock_mutex;
 	}

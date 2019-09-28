@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/batterydata-lib.h>
+#include <linux/of_batterydata.h>
 #include <linux/power_supply.h>
 
 static int of_batterydata_read_lut(const struct device_node *np,
@@ -473,6 +474,136 @@ struct device_node *of_batterydata_get_best_aged_profile(
 			*avail_age_level);
 
 	return best_node;
+}
+
+int of_batterydata_get_aged_profile_count(
+		const struct device_node *batterydata_node,
+		int batt_id_kohm, int *count)
+{
+	struct device_node *node;
+	int id_range_pct, i = 0, rc = 0, limit = 0, delta = 0;
+	bool in_range = false;
+	u32 batt_id;
+
+	/* read battery id range percentage for best profile */
+	rc = of_property_read_u32(batterydata_node,
+			"qcom,batt-id-range-pct", &id_range_pct);
+	if (rc) {
+		if (rc == -EINVAL) {
+			id_range_pct = 0;
+		} else {
+			pr_err("failed to read battery id range\n");
+			return -ENXIO;
+		}
+	}
+
+	for_each_available_child_of_node(batterydata_node, node) {
+		if (!of_find_property(node, "qcom,batt-age-level", NULL))
+			continue;
+
+		if (!of_find_property(node, "qcom,soh-range", NULL))
+			continue;
+
+		rc = of_property_read_u32(node, "qcom,batt-id-kohm", &batt_id);
+		if (rc)
+			continue;
+
+		delta = abs(batt_id_kohm - batt_id);
+		limit = (batt_id_kohm * id_range_pct) / 100;
+		in_range = (delta <= limit);
+
+		if (!in_range) {
+			pr_debug("not in range batt_id: %d\n", batt_id);
+			continue;
+		}
+
+		i++;
+	}
+
+	if (i <= 1) {
+		pr_err("Less number of profiles to support SOH\n");
+		return -EINVAL;
+	}
+
+	*count = i;
+	return 0;
+}
+
+int of_batterydata_read_soh_aged_profiles(
+		const struct device_node *batterydata_node,
+		int batt_id_kohm, struct soh_range *soh_data)
+{
+	struct device_node *node;
+	u32 val, temp[2], i = 0;
+	int rc, batt_id, id_range_pct, limit = 0, delta = 0;
+	bool in_range = false;
+
+	if (!batterydata_node || !soh_data)
+		return -ENODEV;
+
+	/* read battery id range percentage for best profile */
+	rc = of_property_read_u32(batterydata_node,
+			"qcom,batt-id-range-pct", &id_range_pct);
+	if (rc) {
+		if (rc == -EINVAL) {
+			id_range_pct = 0;
+		} else {
+			pr_err("failed to read battery id range\n");
+			return -ENXIO;
+		}
+	}
+
+	for_each_available_child_of_node(batterydata_node, node) {
+		rc = of_property_read_u32(node, "qcom,batt-age-level", &val);
+		if (rc)
+			continue;
+
+		rc = of_property_read_u32(node, "qcom,batt-id-kohm", &batt_id);
+		if (rc)
+			continue;
+
+		delta = abs(batt_id_kohm - batt_id);
+		limit = (batt_id_kohm * id_range_pct) / 100;
+		in_range = (delta <= limit);
+
+		if (!in_range) {
+			pr_debug("not in range batt_id: %d\n", batt_id);
+			continue;
+		}
+
+		if (!of_find_property(node, "qcom,soh-range", NULL))
+			continue;
+
+		rc = of_property_count_elems_of_size(node, "qcom,soh-range",
+						sizeof(u32));
+		if (rc != 2) {
+			pr_err("Incorrect element size for qcom,soh-range, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		rc = of_property_read_u32_array(node, "qcom,soh-range", temp,
+						2);
+		if (rc < 0) {
+			pr_err("Error in reading qcom,soh-range, rc=%d\n", rc);
+			return rc;
+		}
+
+		if (temp[0] > 100 || temp[1] > 100 || (temp[0] > temp[1])) {
+			pr_err("Incorrect SOH range [%d %d]\n", temp[0],
+				temp[1]);
+			return -ERANGE;
+		}
+
+		pr_debug("batt_age_level: %d soh: [%d %d]\n", val, temp[0],
+			temp[1]);
+		soh_data[i].batt_age_level = val;
+		soh_data[i].soh_min = temp[0];
+		soh_data[i].soh_max = temp[1];
+		i++;
+	}
+
+	return 0;
 }
 
 int of_batterydata_read_data(struct device_node *batterydata_container_node,

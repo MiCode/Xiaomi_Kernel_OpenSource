@@ -1,0 +1,10 @@
+config MSM_NPU_V2
+
+	tristate "QTI MSM Neural Processing Unit support V2"
+	depends on ARCH_QCOM && MSM_NPU=n
+	help
+	  Enable support for Neural Processing Unit V2.0
+	  for specific QTI chipsets.
+	  This module serves as the common driver
+	  for npu which provides acceleration for neural
+	  network processing.

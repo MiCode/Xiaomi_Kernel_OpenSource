@@ -88,6 +88,11 @@ static struct qg_sdam_info sdam_info[] = {
 		.offset = QG_SDAM_ESR_DISCHARGE_SF_OFFSET,
 		.length = 2,
 	},
+	[SDAM_BATT_AGE_LEVEL] = {
+		.name   = "SDAM_BATT_AGE_LEVEL_OFFSET",
+		.offset = QG_SDAM_BATT_AGE_LEVEL_OFFSET,
+		.length = 1,
+	},
 	[SDAM_MAGIC] = {
 		.name	= "SDAM_MAGIC_OFFSET",
 		.offset = QG_SDAM_MAGIC_OFFSET,

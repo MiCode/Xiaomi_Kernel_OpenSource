@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <linux/etherdevice.h>
 #include <linux/rtnetlink.h>
+#include <linux/pm_runtime.h>
 
 #include "atl_qcom.h"
 
@@ -27,6 +28,9 @@ module_param_named(tx_mod, atl_tx_mod, uint, 0444);
 static unsigned int atl_keep_link = 0;
 module_param_named(keep_link, atl_keep_link, uint, 0644);
 
+static unsigned int atl_sleep_delay = 10000;
+module_param_named(sleep_delay, atl_sleep_delay, uint, 0644);
+
 static void atl_start_link(struct atl_nic *nic)
 {
 	struct atl_hw *hw = &nic->hw;
@@ -40,11 +44,14 @@ static void atl_start_link(struct atl_nic *nic)
 static void atl_stop_link(struct atl_nic *nic)
 {
 	struct atl_hw *hw = &nic->hw;
+	bool was_up = netif_carrier_ok(nic->ndev);
 
 	hw->link_state.force_off = 1;
 	hw->mcp.ops->set_link(hw, true);
 	hw->link_state.link = 0;
 	netif_carrier_off(nic->ndev);
+	if (was_up)
+		pm_runtime_put(&nic->hw.pdev->dev);
 }
 
 static int atl_start(struct atl_nic *nic)
@@ -70,15 +77,15 @@ static int atl_start(struct atl_nic *nic)
 	return ret;
 }
 
-static void atl_stop(struct atl_nic *nic, bool full)
+static void atl_stop(struct atl_nic *nic, bool drop_link)
 {
 	atl_stop_rings(nic);
 
-	/* if (full) { */
+	/* if (drop_link) { */
 	/*	atl_stop_fwd_rings(nic); */
 	/* } */
 
-	if (!atl_keep_link || full)
+	if (drop_link)
 		atl_stop_link(nic);
 }
 
@@ -87,16 +94,18 @@ static int atl_open(struct net_device *ndev)
 	struct atl_nic *nic = netdev_priv(ndev);
 	int ret;
 
+	pm_runtime_get_sync(&nic->hw.pdev->dev);
+
 	if (!test_bit(ATL_ST_CONFIGURED, &nic->hw.state)) {
 		/* A previous atl_reconfigure() had failed. Try once more. */
 		ret = atl_setup_datapath(nic);
 		if (ret)
-			return ret;
+			goto out;
 	}
 
 	ret = atl_alloc_rings(nic);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = netif_set_real_num_tx_queues(ndev, nic->nvecs);
 	if (ret)
@@ -110,27 +119,41 @@ static int atl_open(struct net_device *ndev)
 		goto free_rings;
 
 	set_bit(ATL_ST_UP, &nic->hw.state);
+
+	pm_runtime_put_sync(&nic->hw.pdev->dev);
+
 	return 0;
 
 free_rings:
 	atl_free_rings(nic);
+out:
+	pm_runtime_put_noidle(&nic->hw.pdev->dev);
 	return ret;
 }
 
-static int atl_close(struct net_device *ndev)
+static int atl_close(struct atl_nic *nic, bool drop_link)
 {
-	struct atl_nic *nic = netdev_priv(ndev);
-
 	/* atl_close() can be called a second time if
 	 * atl_reconfigure() fails. Just return
 	 */
 	if (!test_and_clear_bit(ATL_ST_UP, &nic->hw.state))
 		return 0;
 
-	atl_stop(nic, false);
+	pm_runtime_get_sync(&nic->hw.pdev->dev);
+
+	atl_stop(nic, drop_link);
 	atl_free_rings(nic);
 
+	pm_runtime_put_sync(&nic->hw.pdev->dev);
+
 	return 0;
+}
+
+static int atl_ndo_close(struct net_device *ndev)
+{
+	struct atl_nic *nic = netdev_priv(ndev);
+
+	return atl_close(nic, !atl_keep_link);
 }
 
 #ifndef ATL_HAVE_MINMAX_MTU
@@ -168,7 +191,7 @@ static int atl_set_mac_address(struct net_device *ndev, void *priv)
 
 static const struct net_device_ops atl_ndev_ops = {
 	.ndo_open = atl_open,
-	.ndo_stop = atl_close,
+	.ndo_stop = atl_ndo_close,
 	.ndo_start_xmit = atl_start_xmit,
 	.ndo_vlan_rx_add_vid = atl_vlan_rx_add_vid,
 	.ndo_vlan_rx_kill_vid = atl_vlan_rx_kill_vid,
@@ -192,10 +215,20 @@ int atl_reconfigure(struct atl_nic *nic)
 	int was_up = netif_running(ndev);
 	int ret = 0;
 
+	nic->hw.mcp.ops->dump_cfg(&nic->hw);
+
 	if (was_up)
-		atl_close(ndev);
+		atl_close(nic, false);
 
 	atl_clear_datapath(nic);
+
+	atl_fwd_suspend_rings(nic);
+
+	ret = atl_hw_reset(&nic->hw);
+	if (ret) {
+		atl_nic_err("HW reset failed, re-trying\n");
+		goto err;
+	}
 
 	ret = atl_setup_datapath(nic);
 	if (ret)
@@ -214,6 +247,10 @@ int atl_reconfigure(struct atl_nic *nic)
 		if (ret)
 			goto err;
 	}
+
+	ret = atl_fwd_resume_rings(nic);
+	if (ret)
+		goto err;
 
 	return 0;
 
@@ -241,7 +278,11 @@ int atl_do_reset(struct atl_nic *nic)
 
 	rtnl_lock();
 
+	hw->mcp.ops->dump_cfg(hw);
+
 	atl_stop(nic, true);
+
+	atl_fwd_suspend_rings(nic);
 
 	ret = atl_hw_reset(hw);
 	if (ret) {
@@ -257,6 +298,10 @@ int atl_do_reset(struct atl_nic *nic)
 		if (ret)
 			goto out;
 	}
+
+	ret = atl_fwd_resume_rings(nic);
+	if (ret)
+		goto out;
 
 	if (test_and_clear_bit(ATL_ST_DETACHED, &hw->state))
 		netif_device_attach(nic->ndev);
@@ -358,6 +403,9 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	struct atl_hw *hw;
 	int disable_needed;
 
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_forbid(&pdev->dev);
+
 	ret = pci_enable_device_mem(pdev);
 	if (ret)
 		return ret;
@@ -391,6 +439,10 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	spin_lock_init(&nic->stats_lock);
 	INIT_WORK(&nic->work, atl_work);
 	mutex_init(&nic->hw.mcp.lock);
+
+#ifdef CONFIG_ATLFWD_FWD
+	BLOCKING_INIT_NOTIFIER_HEAD(&nic->fwd.nh_clients);
+#endif
 
 	hw = &nic->hw;
 	__set_bit(ATL_ST_ENABLED, &hw->state);
@@ -484,6 +536,10 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		goto err_hwmon_init;
 
+	if (hw->mcp.caps_low & atl_fw2_wake_on_link_force)
+		pm_runtime_put_noidle(&pdev->dev);
+
+
 	atl_intr_enable_non_ring(nic);
 	mod_timer(&nic->work_timer, jiffies + HZ);
 
@@ -504,6 +560,7 @@ err_alloc_ndev:
 	pci_release_regions(pdev);
 err_pci_reg:
 err_dma:
+
 	if (!nic || disable_needed)
 		pci_disable_device(pdev);
 	return ret;
@@ -517,7 +574,6 @@ static void atl_remove(struct pci_dev *pdev)
 	if (!nic)
 		return;
 
-	netif_carrier_off(nic->ndev);
 	atl_stop(nic, true);
 	disable_needed = test_and_clear_bit(ATL_ST_ENABLED, &nic->hw.state);
 	del_timer_sync(&nic->work_timer);
@@ -533,62 +589,82 @@ static void atl_remove(struct pci_dev *pdev)
 	iounmap(nic->hw.regs);
 	free_netdev(nic->ndev);
 	pci_release_regions(pdev);
+
+	if (nic->hw.mcp.caps_low & atl_fw2_wake_on_link_force)
+		pm_runtime_get_sync(&pdev->dev);
+
 	if (disable_needed)
 		pci_disable_device(pdev);
 }
 
-static int atl_suspend_common(struct device *dev, bool deep)
+static int atl_suspend_common(struct device *dev, unsigned int wol_mode)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct atl_nic *nic = pci_get_drvdata(pdev);
 	struct atl_hw *hw = &nic->hw;
+	bool rtnlocked;
 	int ret;
 
-	rtnl_lock();
-
-	if (!test_and_set_bit(ATL_ST_DETACHED, &hw->state))
-		netif_device_detach(nic->ndev);
+	rtnlocked = rtnl_trylock();
+	hw->mcp.ops->dump_cfg(hw);
 
 	atl_stop(nic, true);
 
 	atl_clear_rdm_cache(nic);
 	atl_clear_tdm_cache(nic);
 
-	if (deep && nic->flags & ATL_FL_WOL) {
-		ret = hw->mcp.ops->enable_wol(hw);
+	if (wol_mode) {
+		ret = hw->mcp.ops->enable_wol(hw, wol_mode);
 		if (ret)
 			atl_dev_err("Enable WoL failed: %d\n", -ret);
 	}
 
 	clear_bit(ATL_ST_ENABLED, &hw->state);
 	cancel_work_sync(&nic->work);
+	clear_bit(ATL_ST_WORK_SCHED, &hw->state);
 
 	pci_disable_device(pdev);
 	pci_save_state(pdev);
 	pci_prepare_to_sleep(pdev);
 
-	rtnl_unlock();
+	if (rtnlocked)
+		rtnl_unlock();
 
 	return 0;
 }
 
 static int atl_suspend_poweroff(struct device *dev)
 {
-	return atl_suspend_common(dev, true);
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct atl_nic *nic = pci_get_drvdata(pdev);
+	struct atl_hw *hw = &nic->hw;
+
+	if (!test_and_set_bit(ATL_ST_DETACHED, &hw->state))
+		netif_device_detach(nic->ndev);
+
+	return atl_suspend_common(dev, hw->wol_mode);
 }
 
 static int atl_freeze(struct device *dev)
 {
-	return atl_suspend_common(dev, false);
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct atl_nic *nic = pci_get_drvdata(pdev);
+	struct atl_hw *hw = &nic->hw;
+
+	if (!test_and_set_bit(ATL_ST_DETACHED, &hw->state))
+		netif_device_detach(nic->ndev);
+
+	return atl_suspend_common(dev, 0);
 }
 
 static int atl_resume_common(struct device *dev, bool deep)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct atl_nic *nic = pci_get_drvdata(pdev);
+	bool rtnlocked;
 	int ret;
 
-	rtnl_lock();
+	rtnlocked = rtnl_trylock();
 
 	pci_set_power_state(pdev, PCI_D0);
 	pci_restore_state(pdev);
@@ -597,45 +673,83 @@ static int atl_resume_common(struct device *dev, bool deep)
 	if (ret)
 		goto exit;
 
-	set_bit(ATL_ST_ENABLED, &nic->hw.state);
-	pci_set_master(pdev);
-
 	if (deep) {
+		atl_fwd_suspend_rings(nic);
 		ret = atl_hw_reset(&nic->hw);
 		if (ret)
 			goto exit;
 	}
 
-	ret = atl_start(nic);
-	if (ret)
-		goto exit;
+	set_bit(ATL_ST_ENABLED, &nic->hw.state);
+	pci_set_master(pdev);
 
-	ret = atl_fwd_resume_rings(nic);
-	if (ret)
-		goto exit;
+	if (test_bit(ATL_ST_UP, &nic->hw.state)) {
+		ret = atl_start(nic);
+		if (ret)
+			goto exit;
+	}
 
-	if (test_and_clear_bit(ATL_ST_DETACHED, &nic->hw.state))
-		netif_device_attach(nic->ndev);
+	if (deep) {
+		ret = atl_fwd_resume_rings(nic);
+		if (ret)
+			goto exit;
+	}
 
 exit:
-	rtnl_unlock();
+	if (rtnlocked)
+		rtnl_unlock();
 
 	return ret;
 }
 
 static int atl_resume_restore(struct device *dev)
 {
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct atl_nic *nic = pci_get_drvdata(pdev);
+
+	if (test_and_clear_bit(ATL_ST_DETACHED, &nic->hw.state))
+		netif_device_attach(nic->ndev);
+
 	return atl_resume_common(dev, true);
 }
 
 static int atl_thaw(struct device *dev)
 {
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct atl_nic *nic = pci_get_drvdata(pdev);
+
+	if (test_and_clear_bit(ATL_ST_DETACHED, &nic->hw.state))
+		netif_device_attach(nic->ndev);
+
 	return atl_resume_common(dev, false);
 }
 
 static void atl_shutdown(struct pci_dev *pdev)
 {
-	atl_suspend_common(&pdev->dev, true);
+	struct atl_nic *nic = pci_get_drvdata(pdev);
+	atl_suspend_common(&pdev->dev, nic->hw.wol_mode);
+}
+
+static int atl_pm_runtime_resume(struct device *dev)
+{
+	return atl_resume_common(dev, true);
+}
+
+static int atl_pm_runtime_suspend(struct device *dev)
+{
+	return atl_suspend_common(dev, atl_fw_wake_on_link_rtpm);
+}
+
+static int atl_pm_runtime_idle(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct atl_nic *nic = pci_get_drvdata(pdev);
+
+	if (!netif_carrier_ok(nic->ndev)) {
+		pm_schedule_suspend(&nic->hw.pdev->dev, atl_sleep_delay);
+	}
+
+	return -EBUSY;
 }
 
 const struct dev_pm_ops atl_pm_ops = {
@@ -645,6 +759,8 @@ const struct dev_pm_ops atl_pm_ops = {
 	.resume = atl_resume_restore,
 	.restore = atl_resume_restore,
 	.thaw = atl_thaw,
+	SET_RUNTIME_PM_OPS(atl_pm_runtime_suspend, atl_pm_runtime_resume,
+			   atl_pm_runtime_idle)
 };
 
 static struct pci_driver atl_pci_ops = {
@@ -705,18 +821,20 @@ static int __init atl_module_init(void)
 	if (ret) {
 		pr_err("%s: Failed to register driver with platform\n",
 		       atl_driver_name);
-		destroy_workqueue(atl_wq);
-		return ret;
+		goto err_qcom_reg;
 	}
 
 	ret = pci_register_driver(&atl_pci_ops);
-	if (ret) {
-		atl_qcom_unregister(&atl_pci_ops);
-		destroy_workqueue(atl_wq);
-		return ret;
-	}
+	if (ret)
+		goto err_pci_reg;
 
 	return 0;
+
+err_pci_reg:
+	atl_qcom_unregister(&atl_pci_ops);
+err_qcom_reg:
+	destroy_workqueue(atl_wq);
+	return ret;
 }
 module_init(atl_module_init);
 

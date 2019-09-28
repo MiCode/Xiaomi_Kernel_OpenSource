@@ -299,6 +299,7 @@ static int gmu_iommu_cb_probe(struct gmu_device *gmu,
 		dev_err(&gmu->pdev->dev, "gmu iommu fail to attach %s device\n",
 			ctx->name);
 		iommu_domain_free(ctx->domain);
+		ctx->domain = NULL;
 	}
 
 	return ret;
@@ -375,6 +376,9 @@ static void gmu_kmem_close(struct gmu_device *gmu)
 	gmu->dump_mem = NULL;
 	gmu->gmu_log = NULL;
 
+	if (!ctx->domain)
+		return;
+
 	/* Unmap and free all memories in GMU kernel memory pool */
 	for (i = 0; i < GMU_KERNEL_ENTRIES; i++) {
 		if (!test_bit(i, &gmu_kmem_bitmap))
@@ -396,14 +400,23 @@ static void gmu_kmem_close(struct gmu_device *gmu)
 
 	/* free kernel mem context */
 	iommu_domain_free(ctx->domain);
+	ctx->domain = NULL;
 }
 
 static void gmu_memory_close(struct gmu_device *gmu)
 {
-	gmu_kmem_close(gmu);
-	/* Free user memory context */
-	iommu_domain_free(gmu_ctx[GMU_CONTEXT_USER].domain);
+	struct gmu_iommu_context *ctx = &gmu_ctx[GMU_CONTEXT_USER];
 
+	gmu_kmem_close(gmu);
+
+	if (ctx->domain) {
+		/* Detach the device from SMMU context bank */
+		iommu_detach_device(ctx->domain, ctx->dev);
+
+		/* Free user memory context */
+		iommu_domain_free(ctx->domain);
+		ctx->domain = NULL;
+	}
 }
 
 /*

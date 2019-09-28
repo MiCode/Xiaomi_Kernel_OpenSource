@@ -122,6 +122,14 @@ config WCNSS_MEM_PRE_ALLOC
 	 for it's internal usage and release it to back to pre allocated pool.
 	 This memory is allocated at the cold boot time.
 
+config CNSS_CRYPTO
+	tristate "Enable CNSS crypto support"
+	---help---
+	  Add crypto support for the WLAN  driver module.
+	  This feature enable wlan driver to use the crypto APIs exported
+	  from cnss platform driver. This crypto APIs used to generate cipher
+	  key and add support for the WLAN driver module security protocol.
+
 config CLD_LL_CORE
 	tristate "QTI core WLAN driver for QCA6174 chipset"
 	select NL80211_TESTMODE

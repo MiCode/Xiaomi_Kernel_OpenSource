@@ -92,7 +92,7 @@ struct chan_attr {
 
 };
 
-static void mhi_uci_adb_client_cb(struct mhi_dev_client_cb_data *cb_data);
+static void mhi_uci_generic_client_cb(struct mhi_dev_client_cb_data *cb_data);
 static void mhi_uci_at_ctrl_client_cb(struct mhi_dev_client_cb_data *cb_data);
 static void mhi_uci_at_ctrl_tre_cb(struct mhi_dev_client_cb_reason *reason);
 
@@ -103,7 +103,7 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
-		NULL,
+		mhi_uci_generic_client_cb,
 		NULL
 	},
 	{
@@ -111,7 +111,7 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
-		NULL,
+		mhi_uci_generic_client_cb,
 		NULL
 	},
 	{
@@ -151,7 +151,7 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
-		NULL,
+		mhi_uci_generic_client_cb,
 		NULL,
 		NULL,
 		false,
@@ -162,7 +162,7 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
-		NULL,
+		mhi_uci_generic_client_cb,
 		NULL
 	},
 	{
@@ -224,15 +224,18 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
+		mhi_uci_generic_client_cb,
 		NULL,
-		NULL
+		NULL,
+		false,
+		true
 	},
 	{
 		MHI_CLIENT_DUN_IN,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
-		NULL,
+		mhi_uci_generic_client_cb,
 		NULL,
 		NULL,
 		false,
@@ -244,15 +247,19 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
-		mhi_uci_adb_client_cb,
-		NULL
+		mhi_uci_generic_client_cb,
+		NULL,
+		NULL,
+		NULL,
+		false,
+		true
 	},
 	{
 		MHI_CLIENT_ADB_IN,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
-		mhi_uci_adb_client_cb,
+		mhi_uci_generic_client_cb,
 		"android_adb"
 	},
 };
@@ -765,6 +772,31 @@ static int mhi_uci_read_sync(struct uci_client *uci_handle,
 static int open_client_mhi_channels(struct uci_client *uci_client)
 {
 	int rc = 0;
+	uint32_t info_ch_in, info_ch_out;
+
+	rc = mhi_ctrl_state_info(uci_client->in_chan, &info_ch_in);
+	if (rc) {
+		uci_log(UCI_DBG_DBG,
+			"Channels %d is not connected with %d\n",
+			uci_client->out_chan, rc);
+		return -EINVAL;
+	}
+
+	rc = mhi_ctrl_state_info(uci_client->out_chan, &info_ch_out);
+	if (rc) {
+		uci_log(UCI_DBG_DBG,
+			"Channels %d is not connected with %d\n",
+			uci_client->out_chan, rc);
+		return -EINVAL;
+	}
+
+	if ((info_ch_in != MHI_STATE_CONNECTED) ||
+		(info_ch_out != MHI_STATE_CONNECTED)) {
+		uci_log(UCI_DBG_DBG,
+			"Channels %d or %d are not connected\n",
+			uci_client->in_chan, uci_client->out_chan);
+		return -EINVAL;
+	}
 
 	uci_log(UCI_DBG_DBG,
 			"Starting channels %d %d.\n",
@@ -789,10 +821,12 @@ static int open_client_mhi_channels(struct uci_client *uci_client)
 			"Initializing inbound chan %d.\n",
 			uci_client->in_chan);
 	rc = mhi_init_read_chan(uci_client, uci_client->in_chan);
-	if (rc < 0)
+	if (rc < 0) {
 		uci_log(UCI_DBG_ERROR,
 			"Failed to init inbound 0x%x, ret 0x%x\n",
 			uci_client->in_chan, rc);
+		goto handle_not_rdy_err;
+	}
 
 	rc = mhi_dev_open_channel(uci_client->out_chan,
 			&uci_client->out_handle,
@@ -1715,11 +1749,11 @@ static void mhi_uci_at_ctrl_client_cb(struct mhi_dev_client_cb_data *cb_data)
 	}
 }
 
-static void mhi_uci_adb_client_cb(struct mhi_dev_client_cb_data *cb_data)
+static void mhi_uci_generic_client_cb(struct mhi_dev_client_cb_data *cb_data)
 {
 	struct uci_client *client = cb_data->user_data;
 
-	uci_log(UCI_DBG_VERBOSE, " Rcvd MHI cb for channel %d, state %d\n",
+	uci_log(UCI_DBG_DBG, "Rcvd MHI cb for channel %d, state %d\n",
 		cb_data->channel, cb_data->ctrl_info);
 
 	if (cb_data->ctrl_info == MHI_STATE_CONNECTED)
