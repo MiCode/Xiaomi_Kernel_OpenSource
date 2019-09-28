@@ -62,6 +62,7 @@ static u32 spss_debug_reg_addr; /* SP_SCSR_MBn_SP2CL_GPm(n,m) */
 static u32 spss_emul_type_reg_addr; /* TCSR_SOC_EMULATION_TYPE */
 static void *iar_notif_handle;
 static struct notifier_block *iar_nb;
+static bool is_iar_active;
 
 #define CMAC_SIZE_IN_BYTES (128/8) /* 128 bit = 16 bytes */
 #define CMAC_SIZE_IN_DWORDS (CMAC_SIZE_IN_BYTES/sizeof(u32)) /* 4 dwords */
@@ -405,6 +406,9 @@ static long spss_utils_ioctl(struct file *file,
 			pr_err("cmd [0x%x] invalid size [0x%x]\n", cmd, size);
 			return -EINVAL;
 		}
+
+		/* spdaemon uses this ioctl only when IAR is active */
+		is_iar_active = true;
 
 		memcpy(fw_and_apps_cmacs, data, sizeof(fw_and_apps_cmacs));
 		memcpy(cmac_buf, fw_and_apps_cmacs, sizeof(cmac_buf));
@@ -904,6 +908,9 @@ static int spss_utils_iar_callback(struct notifier_block *nb,
 				  unsigned long code,
 				  void *data)
 {
+	/* do nothing if IAR is not active */
+	if (!is_iar_active)
+		return NOTIFY_OK;
 
 	switch (code) {
 	case SUBSYS_BEFORE_SHUTDOWN:
