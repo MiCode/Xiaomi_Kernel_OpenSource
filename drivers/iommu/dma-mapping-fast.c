@@ -634,7 +634,6 @@ static void *fast_smmu_alloc_atomic(struct dma_fast_smmu_mapping *mapping,
 	dma_addr_t dma_addr;
 	int prot = dma_info_to_prot(DMA_BIDIRECTIONAL, coherent, attrs);
 
-	size = ALIGN(size, FAST_PAGE_SIZE);
 	if (coherent) {
 		page = alloc_pages(gfp, get_order(size));
 		addr = page ? page_address(page) : NULL;
@@ -695,6 +694,54 @@ static struct page **__fast_smmu_alloc_pages(unsigned int count, gfp_t gfp)
 	return pages;
 }
 
+static void *__fast_smmu_alloc_contiguous(struct device *dev, size_t size,
+			dma_addr_t *handle, gfp_t gfp, unsigned long attrs)
+{
+	struct dma_fast_smmu_mapping *mapping = dev_get_mapping(dev);
+	bool is_coherent = is_dma_coherent(dev, attrs);
+	int prot = dma_info_to_prot(DMA_BIDIRECTIONAL, is_coherent, attrs);
+	pgprot_t remap_prot = __get_dma_pgprot(attrs, PAGE_KERNEL, is_coherent);
+	struct page *page;
+	dma_addr_t iova;
+	unsigned long flags;
+	void *coherent_addr;
+
+	page = dma_alloc_from_contiguous(dev, size >> PAGE_SHIFT,
+					get_order(size), gfp & __GFP_NOWARN);
+	if (!page)
+		return NULL;
+
+
+	spin_lock_irqsave(&mapping->lock, flags);
+	iova = __fast_smmu_alloc_iova(mapping, attrs, size);
+	spin_unlock_irqrestore(&mapping->lock, flags);
+	if (iova == DMA_ERROR_CODE)
+		goto release_page;
+
+	if (av8l_fast_map_public(mapping->pgtbl_ops, iova, page_to_phys(page),
+				 size, prot))
+		goto release_iova;
+
+	coherent_addr = dma_common_contiguous_remap(page, size, VM_USERMAP,
+				remap_prot, __fast_smmu_alloc_contiguous);
+	if (!coherent_addr)
+		goto release_mapping;
+
+	if (!is_coherent)
+		__dma_flush_area(page_to_virt(page), size);
+
+	*handle = iova;
+	return coherent_addr;
+
+release_mapping:
+	av8l_fast_unmap_public(mapping->pgtbl_ops, iova, size);
+release_iova:
+	__fast_smmu_free_iova(mapping, iova, size);
+release_page:
+	dma_release_from_contiguous(dev, page, size >> PAGE_SHIFT);
+	return NULL;
+}
+
 static void *fast_smmu_alloc(struct device *dev, size_t size,
 			     dma_addr_t *handle, gfp_t gfp,
 			     unsigned long attrs)
@@ -722,11 +769,14 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 	}
 
 	*handle = DMA_ERROR_CODE;
+	size = ALIGN(size, SZ_4K);
 
-	if (!gfpflags_allow_blocking(gfp)) {
+	if (!gfpflags_allow_blocking(gfp))
 		return fast_smmu_alloc_atomic(mapping, size, gfp, attrs, handle,
 					      is_coherent);
-	}
+	else if (attrs & DMA_ATTR_FORCE_CONTIGUOUS)
+		return __fast_smmu_alloc_contiguous(dev, size, handle, gfp,
+						    attrs);
 
 	pages = __fast_smmu_alloc_pages(count, gfp);
 	if (!pages) {
@@ -734,7 +784,6 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 		return NULL;
 	}
 
-	size = ALIGN(size, SZ_4K);
 	if (sg_alloc_table_from_pages(&sgt, pages, count, 0, size, gfp)) {
 		dev_err(dev, "no sg tablen\n");
 		goto out_free_pages;
@@ -822,6 +871,11 @@ static void fast_smmu_free(struct device *dev, size_t size,
 
 		dma_common_free_remap(cpu_addr, size, VM_USERMAP, false);
 		__fast_smmu_free_pages(pages, size >> FAST_PAGE_SHIFT);
+	} else if (attrs & DMA_ATTR_FORCE_CONTIGUOUS) {
+		struct page *page = vmalloc_to_page(cpu_addr);
+
+		dma_common_free_remap(cpu_addr, size, VM_USERMAP, false);
+		dma_release_from_contiguous(dev, page, size >> PAGE_SHIFT);
 	} else if (!is_vmalloc_addr(cpu_addr)) {
 		__free_pages(virt_to_page(cpu_addr), get_order(size));
 	} else if (__in_atomic_pool(cpu_addr, size)) {
@@ -861,6 +915,8 @@ static int fast_smmu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 	area = find_vm_area(cpu_addr);
 	if (area && area->pages)
 		return iommu_dma_mmap(area->pages, size, vma);
+	else if (attrs & DMA_ATTR_FORCE_CONTIGUOUS)
+		pfn = vmalloc_to_pfn(cpu_addr);
 	else if (!is_vmalloc_addr(cpu_addr))
 		pfn = page_to_pfn(virt_to_page(cpu_addr));
 	else if (__in_atomic_pool(cpu_addr, size))
@@ -886,6 +942,8 @@ static int fast_smmu_get_sgtable(struct device *dev, struct sg_table *sgt,
 	if (area && area->pages)
 		return sg_alloc_table_from_pages(sgt, area->pages, n_pages, 0,
 						 size, GFP_KERNEL);
+	else if (attrs & DMA_ATTR_FORCE_CONTIGUOUS)
+		page = vmalloc_to_page(cpu_addr);
 	else if (!is_vmalloc_addr(cpu_addr))
 		page = virt_to_page(cpu_addr);
 	else if (__in_atomic_pool(cpu_addr, size))
