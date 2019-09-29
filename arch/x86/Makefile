@@ -249,7 +249,7 @@ ifdef CONFIG_RETPOLINE
   # retpoline builds, however, gcc does not for x86. This has
   # only been fixed starting from gcc stable version 8.4.0 and
   # onwards, but not for older ones. See gcc bug #86952.
-  ifndef CONFIG_CC_IS_CLANG
+  ifneq ($(cc-name), clang)
     KBUILD_CFLAGS += $(call cc-option,-fno-jump-tables)
   endif
 endif
