@@ -70,6 +70,7 @@ extern void __qcom_scm_mmu_sync(struct device *dev, bool sync);
 #define QCOM_SCM_MP_IOMMU_SECURE_UNMAP2_FLAT	0x13
 #define QCOM_SCM_MP_ASSIGN			0x16
 #define QCOM_SCM_MP_CP_SMMU_APERTURE_ID		0x1b
+#define QCOM_SCM_MP_SMMU_PREPARE_ATOS_ID	0x21
 extern int __qcom_scm_restore_sec_cfg(struct device *dev, u32 device_id,
 				      u32 spare);
 extern int __qcom_scm_iommu_secure_ptbl_size(struct device *dev, u32 spare,
@@ -95,6 +96,8 @@ extern int  __qcom_scm_assign_mem(struct device *dev,
 				  phys_addr_t dest, size_t dest_sz);
 extern int __qcom_scm_kgsl_set_smmu_aperture(struct device *dev,
 						unsigned int num_context_bank);
+extern int __qcom_scm_smmu_prepare_atos_id(struct device *dev, u64 dev_id,
+						int cb_num, int operation);
 #define QCOM_SCM_IOMMU_TLBINVAL_FLAG    0x00000001
 #define QCOM_SCM_CP_APERTURE_REG	0x0
 
@@ -104,7 +107,10 @@ extern int __qcom_scm_hdcp_req(struct device *dev,
 		struct qcom_scm_hdcp_req *req, u32 req_cnt, u32 *resp);
 
 #define QCOM_SCM_SVC_SMMU_PROGRAM		0x15
+#define QCOM_SCM_SMMU_CHANGE_PGTBL_FORMAT	0x01
 #define QCOM_SCM_SMMU_CONFIG_ERRATA1		0x3
+extern int __qcom_scm_smmu_change_pgtbl_format(struct device *dev, u64 dev_id,
+						int cbndx);
 extern int __qcom_scm_qsmmu500_wait_safe_toggle(struct device *dev,
 						bool enable);
 #define QCOM_SCM_SMMU_CONFIG_ERRATA1_CLIENT_ALL	0x2

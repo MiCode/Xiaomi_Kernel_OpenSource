@@ -71,9 +71,11 @@ extern int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 extern bool qcom_scm_kgsl_set_smmu_aperture_available(void);
 extern int qcom_scm_kgsl_set_smmu_aperture(
 				unsigned int num_context_bank);
+extern int qcom_scm_smmu_prepare_atos_id(u64 dev_id, int cb_num, int operation);
 extern bool qcom_scm_hdcp_available(void);
 extern int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 			     u32 *resp);
+extern int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx);
 extern int qcom_scm_qsmmu500_wait_safe_toggle(bool en);
 extern int qcom_scm_ice_restore_cfg(void);
 extern bool qcom_scm_is_available(void);
@@ -132,9 +134,13 @@ static inline bool qcom_scm_kgsl_set_smmu_aperture_available(void)
 		{ return false; }
 static inline int qcom_scm_kgsl_set_smmu_aperture(
 		unsigned int num_context_bank) { return -ENODEV; }
+static inline int qcom_scm_smmu_prepare_atos_id(u64 dev_id, int cb_num,
+		int operation) { return -ENODEV; }
 static inline bool qcom_scm_hdcp_available(void) { return false; }
 static inline int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 				    u32 *resp) { return -ENODEV; }
+static inline  int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx)
+		{ return -ENODEV; }
 static inline int qcom_scm_qsmmu500_wait_safe_toggle(bool en)
 		{ return -ENODEV; }
 static inline int qcom_scm_ice_restore_cfg(void) { return -ENODEV; }

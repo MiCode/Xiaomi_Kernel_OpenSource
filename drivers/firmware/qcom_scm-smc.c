@@ -1137,6 +1137,28 @@ int __qcom_scm_kgsl_set_smmu_aperture(struct device *dev,
 	return ret;
 }
 
+int __qcom_scm_smmu_prepare_atos_id(struct device *dev, u64 dev_id, int cb_num,
+					int operation)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MP_SMMU_PREPARE_ATOS_ID,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = dev_id;
+	desc.args[1] = cb_num;
+	desc.args[2] = operation;
+
+	desc.arginfo = QCOM_SCM_ARGS(3, QCOM_SCM_VAL, QCOM_SCM_VAL,
+					QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret;
+}
+
 int __qcom_scm_hdcp_req(struct device *dev, struct qcom_scm_hdcp_req *req,
 			u32 req_cnt, u32 *resp)
 {
@@ -1164,6 +1186,28 @@ int __qcom_scm_hdcp_req(struct device *dev, struct qcom_scm_hdcp_req *req,
 
 	ret = qcom_scm_call(dev, &desc);
 	*resp = desc.res[0];
+
+	return ret;
+}
+
+int __qcom_scm_smmu_change_pgtbl_format(struct device *dev, u64 dev_id,
+					int cbndx)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_SMMU_PROGRAM,
+		.cmd = QCOM_SCM_SMMU_CHANGE_PGTBL_FORMAT,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = dev_id;
+	desc.args[1] = cbndx;
+	desc.args[2] = 1;	/* Enable */
+
+	desc.arginfo = QCOM_SCM_ARGS(3, QCOM_SCM_VAL, QCOM_SCM_VAL,
+					QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
 
 	return ret;
 }

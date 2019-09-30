@@ -504,6 +504,13 @@ int qcom_scm_kgsl_set_smmu_aperture(unsigned int num_context_bank)
 }
 EXPORT_SYMBOL(qcom_scm_kgsl_set_smmu_aperture);
 
+int qcom_scm_smmu_prepare_atos_id(u64 dev_id, int cb_num, int operation)
+{
+	return __qcom_scm_smmu_prepare_atos_id(__scm->dev, dev_id, cb_num,
+						operation);
+}
+EXPORT_SYMBOL(qcom_scm_smmu_prepare_atos_id);
+
 /**
  * qcom_scm_hdcp_available() - Check if secure environment supports HDCP.
  *
@@ -545,6 +552,12 @@ int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt, u32 *resp)
 	return ret;
 }
 EXPORT_SYMBOL(qcom_scm_hdcp_req);
+
+int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx)
+{
+	return __qcom_scm_smmu_change_pgtbl_format(__scm->dev, dev_id, cbndx);
+}
+EXPORT_SYMBOL(qcom_scm_smmu_change_pgtbl_format);
 
 int qcom_scm_qsmmu500_wait_safe_toggle(bool en)
 {
