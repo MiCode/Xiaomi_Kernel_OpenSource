@@ -62,6 +62,7 @@ static const char * const mhi_pm_state_str[] = {
 	[MHI_PM_BIT_M3] = "M3",
 	[MHI_PM_BIT_M3_EXIT] = "M3->M0",
 	[MHI_PM_BIT_FW_DL_ERR] = "FW DL Error",
+	[MHI_PM_BIT_DEVICE_ERR_DETECT] = "Device Error Detect",
 	[MHI_PM_BIT_SYS_ERR_DETECT] = "SYS_ERR Detect",
 	[MHI_PM_BIT_SYS_ERR_PROCESS] = "SYS_ERR Process",
 	[MHI_PM_BIT_SHUTDOWN_PROCESS] = "SHUTDOWN Process",
