@@ -2566,8 +2566,15 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 		}
 	}
 
-	if (probe_id == IPA_MPM_MHIP_CH_ID_MAX) {
+	if ((probe_id < IPA_MPM_MHIP_CH_ID_0) ||
+		(probe_id >= IPA_MPM_MHIP_CH_ID_MAX)) {
 		IPA_MPM_ERR("Unknown probe_id\n");
+		return 0;
+	}
+
+	if (probe_id == IPA_MPM_MHIP_CH_ID_0) {
+		/* For rndis, the MPM processing happens in WAN State IOCTL */
+		IPA_MPM_DBG("MPM Xdci connect for rndis, no -op\n");
 		return 0;
 	}
 
@@ -2615,7 +2622,7 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 		atomic_set(&ipa_mpm_ctx->adpl_over_usb_available, 1);
 		return 0;
 	default:
-		IPA_MPM_DBG("mhip_client = %d not processed\n", mhip_client);
+		IPA_MPM_ERR("mhip_client = %d not processed\n", mhip_client);
 		if (is_acted) {
 			ret = ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id,
 				false, &is_acted);
@@ -2625,7 +2632,8 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 				return ret;
 			}
 		}
-		return 0;
+		ipa_assert();
+		return -EINVAL;
 	}
 
 	if (mhip_client != IPA_MPM_MHIP_USB_DPL)
@@ -2698,12 +2706,19 @@ int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 		}
 	}
 
-	if (probe_id == IPA_MPM_MHIP_CH_ID_MAX) {
-		IPA_MPM_ERR("Invalid probe_id\n");
+	if ((probe_id < IPA_MPM_MHIP_CH_ID_0) ||
+		(probe_id >= IPA_MPM_MHIP_CH_ID_MAX)) {
+		IPA_MPM_ERR("Unknown probe_id\n");
 		return 0;
 	}
 
-	IPA_MPM_ERR("xdci disconnect prot %d mhip_client = %d probe_id = %d\n",
+	if (probe_id == IPA_MPM_MHIP_CH_ID_0) {
+		/* For rndis, the MPM processing happens in WAN State IOCTL */
+		IPA_MPM_DBG("MPM Xdci disconnect for rndis, no -op\n");
+		return 0;
+	}
+
+	IPA_MPM_DBG("xdci disconnect prot %d mhip_client = %d probe_id = %d\n",
 			xdci_teth_prot, mhip_client, probe_id);
 	/*
 	 * Make sure to stop Device side channels before
