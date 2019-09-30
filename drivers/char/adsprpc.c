@@ -311,7 +311,6 @@ struct fastrpc_apps {
 	struct smq_invoke_ctx *ctxtable[FASTRPC_CTX_MAX];
 	bool legacy_remote_heap;
 	struct wakeup_source *wake_source;
-	unsigned int wake_count;
 };
 
 struct fastrpc_mmap {
@@ -1888,14 +1887,9 @@ static inline void fastrpc_pm_awake(int fl_wake_enable, bool *pm_awake_voted)
 {
 	struct fastrpc_apps *me = &gfa;
 
-	if (!fl_wake_enable)
+	if (!fl_wake_enable || *pm_awake_voted)
 		return;
-
-	spin_lock(&me->hlock);
-	if (!me->wake_count)
-		__pm_stay_awake(me->wake_source);
-	me->wake_count++;
-	spin_unlock(&me->hlock);
+	__pm_stay_awake(me->wake_source);
 	*pm_awake_voted = true;
 }
 
@@ -1905,13 +1899,7 @@ static inline void fastrpc_pm_relax(bool *pm_awake_voted)
 
 	if (!(*pm_awake_voted))
 		return;
-
-	spin_lock(&me->hlock);
-	if (me->wake_count)
-		me->wake_count--;
-	if (!me->wake_count)
-		__pm_relax(me->wake_source);
-	spin_unlock(&me->hlock);
+	__pm_relax(me->wake_source);
 	*pm_awake_voted = false;
 }
 
