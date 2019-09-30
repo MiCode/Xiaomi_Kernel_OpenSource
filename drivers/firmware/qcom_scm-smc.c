@@ -1137,6 +1137,69 @@ int __qcom_scm_kgsl_set_smmu_aperture(struct device *dev,
 	return ret;
 }
 
+/**
+ * The following shmbridge functions should be called before the SCM driver
+ * has been initialized. If not, there could be errors that might cause the
+ * system to crash.
+ */
+int __qcom_scm_enable_shm_bridge(struct device *dev)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MEMP_SHM_BRIDGE_ENABLE,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret ? : desc.res[0];
+}
+
+int __qcom_scm_delete_shm_bridge(struct device *dev, u64 handle)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MEMP_SHM_BRIDGE_DELETE,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = handle;
+	desc.arginfo = QCOM_SCM_ARGS(1, QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret;
+}
+
+int __qcom_scm_create_shm_bridge(struct device *dev, u64 pfn_and_ns_perm_flags,
+			u64 ipfn_and_s_perm_flags, u64 size_and_flags,
+			u64 ns_vmids, u64 *handle)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MEMP_SHM_BRDIGE_CREATE,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = pfn_and_ns_perm_flags;
+	desc.args[1] = ipfn_and_s_perm_flags;
+	desc.args[2] = size_and_flags;
+	desc.args[3] = ns_vmids;
+
+	desc.arginfo = QCOM_SCM_ARGS(4, QCOM_SCM_VAL, QCOM_SCM_VAL,
+					QCOM_SCM_VAL, QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	if (handle)
+		*handle = desc.res[1];
+
+	return ret ? : desc.res[0];
+}
+
 int __qcom_scm_smmu_prepare_atos_id(struct device *dev, u64 dev_id, int cb_num,
 					int operation)
 {

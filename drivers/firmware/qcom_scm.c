@@ -504,6 +504,28 @@ int qcom_scm_kgsl_set_smmu_aperture(unsigned int num_context_bank)
 }
 EXPORT_SYMBOL(qcom_scm_kgsl_set_smmu_aperture);
 
+int qcom_scm_enable_shm_bridge(void)
+{
+	return __qcom_scm_enable_shm_bridge(__scm ? __scm->dev : NULL);
+}
+EXPORT_SYMBOL(qcom_scm_enable_shm_bridge);
+
+int qcom_scm_delete_shm_bridge(u64 handle)
+{
+	return __qcom_scm_delete_shm_bridge(__scm ? __scm->dev : NULL, handle);
+}
+EXPORT_SYMBOL(qcom_scm_delete_shm_bridge);
+
+int qcom_scm_create_shm_bridge(u64 pfn_and_ns_perm_flags,
+	u64 ipfn_and_s_perm_flags, u64 size_and_flags, u64 ns_vmids,
+	u64 *handle)
+{
+	return __qcom_scm_create_shm_bridge(__scm ? __scm->dev : NULL,
+				pfn_and_ns_perm_flags, ipfn_and_s_perm_flags,
+				size_and_flags, ns_vmids, handle);
+}
+EXPORT_SYMBOL(qcom_scm_create_shm_bridge);
+
 int qcom_scm_smmu_prepare_atos_id(u64 dev_id, int cb_num, int operation)
 {
 	return __qcom_scm_smmu_prepare_atos_id(__scm->dev, dev_id, cb_num,

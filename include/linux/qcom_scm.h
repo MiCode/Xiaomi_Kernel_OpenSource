@@ -75,6 +75,11 @@ extern int qcom_scm_smmu_prepare_atos_id(u64 dev_id, int cb_num, int operation);
 extern bool qcom_scm_hdcp_available(void);
 extern int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 			     u32 *resp);
+extern int qcom_scm_enable_shm_bridge(void);
+extern int qcom_scm_delete_shm_bridge(u64 handle);
+extern int qcom_scm_create_shm_bridge(u64 pfn_and_ns_perm_flags,
+			u64 ipfn_and_s_perm_flags, u64 size_and_flags,
+			u64 ns_vmids, u64 *handle);
 extern int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx);
 extern int qcom_scm_qsmmu500_wait_safe_toggle(bool en);
 extern int qcom_scm_ice_restore_cfg(void);
@@ -139,6 +144,11 @@ static inline int qcom_scm_smmu_prepare_atos_id(u64 dev_id, int cb_num,
 static inline bool qcom_scm_hdcp_available(void) { return false; }
 static inline int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 				    u32 *resp) { return -ENODEV; }
+static inline int qcom_scm_enable_shm_bridge(void) { return -ENODEV; }
+static inline int qcom_scm_delete_shm_bridge(u64 handle) { return -ENODEV; }
+static inline int qcom_scm_create_shm_bridge(u64 pfn_and_ns_perm_flags,
+			u64 ipfn_and_s_perm_flags, u64 size_and_flags,
+			u64 ns_vmids, u64 *handle) { return -ENODEV; }
 static inline  int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx)
 		{ return -ENODEV; }
 static inline int qcom_scm_qsmmu500_wait_safe_toggle(bool en)

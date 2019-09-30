@@ -11,48 +11,13 @@
 #include <linux/genalloc.h>
 #include <linux/platform_device.h>
 #include <linux/mod_devicetable.h>
-#include <soc/qcom/scm.h>
+#include <linux/qcom_scm.h>
 #include <soc/qcom/qseecomi.h>
 #include <linux/qtee_shmbridge.h>
 
 #include "qtee_shmbridge_internal.h"
 
 #define DEFAULT_BRIDGE_SIZE	SZ_4M	/*4M*/
-/*
- * tz_enable_shm_bridge
- * smc_id: 0x02000C1C
- */
-#define TZ_SVC_MEMORY_PROTECTION  12
-
-#define TZ_SHM_BRIDGE_ENABLE                   \
-	TZ_SYSCALL_CREATE_SMC_ID(TZ_OWNER_SIP, TZ_SVC_MEMORY_PROTECTION, 0x1C)
-
-#define TZ_SHM_BRIDGE_ENABLE_PARAM_ID          \
-		TZ_SYSCALL_CREATE_PARAM_ID_0
-
-/*
- * tz_create_shm_bridge
- * smc_id: 0x02000C1E
- */
-
-#define TZ_SHM_BRIDGE_CREATE                   \
-	TZ_SYSCALL_CREATE_SMC_ID(TZ_OWNER_SIP, TZ_SVC_MEMORY_PROTECTION, 0x1E)
-
-#define TZ_SHM_BRIDGE_CREATE_PARAM_ID          \
-	TZ_SYSCALL_CREATE_PARAM_ID_4( \
-	TZ_SYSCALL_PARAM_TYPE_VAL, TZ_SYSCALL_PARAM_TYPE_VAL, \
-	TZ_SYSCALL_PARAM_TYPE_VAL, TZ_SYSCALL_PARAM_TYPE_VAL)
-
-/**
- * tz_delete_shm_bridge
- * smc_id: 0x02000C1D
- */
-#define TZ_SHM_BRIDGE_DELETE                   \
-	TZ_SYSCALL_CREATE_SMC_ID(TZ_OWNER_SIP, TZ_SVC_MEMORY_PROTECTION, 0x1D)
-
-#define TZ_SHM_BRIDGE_DELETE_PARAM_ID          \
-	TZ_SYSCALL_CREATE_PARAM_ID_1( \
-	TZ_SYSCALL_PARAM_TYPE_VAL)
 
 #define MAXSHMVMS 4
 #define PERM_BITS 3
@@ -118,7 +83,6 @@ static bool qtee_shmbridge_enabled;
 static int32_t qtee_shmbridge_enable(bool enable)
 {
 	int32_t ret = 0;
-	struct scm_desc desc = {0};
 
 	qtee_shmbridge_enabled = false;
 	if (!enable) {
@@ -126,14 +90,14 @@ static int32_t qtee_shmbridge_enable(bool enable)
 		return ret;
 	}
 
-	desc.arginfo = TZ_SHM_BRIDGE_ENABLE_PARAM_ID;
-	ret = scm_call2(TZ_SHM_BRIDGE_ENABLE, &desc);
-	if (ret || desc.ret[0]) {
-		pr_err("Failed to enable shmbridge, rsp = %lld, ret = %d\n",
-			desc.ret[0], ret);
-		if (ret == -EIO || desc.ret[0] == SHMBRIDGE_E_NOT_SUPPORTED)
+	ret = qcom_scm_enable_shm_bridge();
+
+	if (ret) {
+		pr_err("Failed to enable shmbridge, ret = %d\n", ret);
+
+		if (ret == -EIO || ret == SHMBRIDGE_E_NOT_SUPPORTED)
 			pr_warn("shmbridge is not supported by this target\n");
-		return ret | desc.ret[0];
+		return ret;
 	}
 	qtee_shmbridge_enabled = true;
 	pr_warn("shmbridge is enabled\n");
@@ -210,9 +174,11 @@ int32_t qtee_shmbridge_register(
 
 {
 	int32_t ret = 0;
+	uint64_t pfn_and_ns_perm_flags = 0;
+	uint64_t ipfn_and_s_perm_flags = 0;
+	uint64_t size_and_flags = 0;
 	uint64_t ns_perms = 0;
 	uint64_t ns_vmids = 0;
-	struct scm_desc desc = {0};
 	int i = 0;
 
 	if (!qtee_shmbridge_enabled)
@@ -234,23 +200,23 @@ int32_t qtee_shmbridge_register(
 		ns_vmids = UPDATE_NS_VMIDS(ns_vmids, ns_vmid_list[i]);
 	}
 
-	desc.arginfo = TZ_SHM_BRIDGE_CREATE_PARAM_ID;
-	desc.args[0] = UPDATE_PFN_AND_NS_PERM_FLAGS(paddr, ns_perms);
-	desc.args[1] = UPDATE_IPFN_AND_S_PERM_FLAGS(paddr, tz_perm);
-	desc.args[2] = UPDATE_SIZE_AND_FLAGS(size, ns_vmid_num);
-	desc.args[3] = ns_vmids;
+	pfn_and_ns_perm_flags = UPDATE_PFN_AND_NS_PERM_FLAGS(paddr, ns_perms);
+	ipfn_and_s_perm_flags = UPDATE_IPFN_AND_S_PERM_FLAGS(paddr, tz_perm);
+	size_and_flags = UPDATE_SIZE_AND_FLAGS(size, ns_vmid_num);
 
-	pr_debug("%s: arginfo %x, desc.args[0] %llx, args[1] %llx, args[2] %llx, args[3] %llx\n",
-			__func__, desc.arginfo, desc.args[0],
-			desc.args[1], desc.args[2], desc.args[3]);
-	ret = scm_call2(TZ_SHM_BRIDGE_CREATE, &desc);
-	if (ret || desc.ret[0]) {
-		pr_err("create shmbridge failed, ret = %d, status = %llx\n",
-				ret, desc.ret[0]);
+	pr_debug("%s: desc.args[0] %llx, args[1] %llx, args[2] %llx, args[3] %llx\n",
+		__func__, pfn_and_ns_perm_flags, ipfn_and_s_perm_flags,
+		size_and_flags, ns_vmids);
+
+	ret = qcom_scm_create_shm_bridge(pfn_and_ns_perm_flags,
+			ipfn_and_s_perm_flags, size_and_flags, ns_vmids,
+			handle);
+
+	if (ret) {
+		pr_err("create shmbridge failed, ret = %d\n", ret);
 		ret = -EINVAL;
 		goto exit;
 	}
-	*handle = desc.ret[1];
 
 	ret = qtee_shmbridge_list_add_nolock(paddr, *handle);
 exit:
@@ -263,15 +229,14 @@ EXPORT_SYMBOL(qtee_shmbridge_register);
 int32_t qtee_shmbridge_deregister(uint64_t handle)
 {
 	int32_t ret = 0;
-	struct scm_desc desc = {0};
 
 	if (!qtee_shmbridge_enabled)
 		return 0;
 
 	mutex_lock(&bridge_list_head.lock);
-	desc.arginfo = TZ_SHM_BRIDGE_DELETE_PARAM_ID;
-	desc.args[0] = handle;
-	ret = scm_call2(TZ_SHM_BRIDGE_DELETE, &desc);
+
+	ret = qcom_scm_delete_shm_bridge(handle);
+
 	if (ret) {
 		pr_err("Failed to del bridge %lld, ret = %d\n", handle, ret);
 		goto exit;

@@ -70,6 +70,9 @@ extern void __qcom_scm_mmu_sync(struct device *dev, bool sync);
 #define QCOM_SCM_MP_IOMMU_SECURE_UNMAP2_FLAT	0x13
 #define QCOM_SCM_MP_ASSIGN			0x16
 #define QCOM_SCM_MP_CP_SMMU_APERTURE_ID		0x1b
+#define QCOM_SCM_MEMP_SHM_BRIDGE_ENABLE		0x1c
+#define QCOM_SCM_MEMP_SHM_BRIDGE_DELETE		0x1d
+#define QCOM_SCM_MEMP_SHM_BRDIGE_CREATE		0x1e
 #define QCOM_SCM_MP_SMMU_PREPARE_ATOS_ID	0x21
 extern int __qcom_scm_restore_sec_cfg(struct device *dev, u32 device_id,
 				      u32 spare);
@@ -96,6 +99,11 @@ extern int  __qcom_scm_assign_mem(struct device *dev,
 				  phys_addr_t dest, size_t dest_sz);
 extern int __qcom_scm_kgsl_set_smmu_aperture(struct device *dev,
 						unsigned int num_context_bank);
+extern int __qcom_scm_enable_shm_bridge(struct device *dev);
+extern int __qcom_scm_delete_shm_bridge(struct device *dev, u64 handle);
+extern int __qcom_scm_create_shm_bridge(struct device *dev,
+			u64 pfn_and_ns_perm_flags, u64 ipfn_and_s_perm_flags,
+			u64 size_and_flags, u64 ns_vmids, u64 *handle);
 extern int __qcom_scm_smmu_prepare_atos_id(struct device *dev, u64 dev_id,
 						int cb_num, int operation);
 #define QCOM_SCM_IOMMU_TLBINVAL_FLAG    0x00000001
