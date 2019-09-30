@@ -784,6 +784,8 @@ static struct msm_vidc_platform_data atoll_data = {
 	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
 	.efuse_data = NULL,
 	.efuse_data_length = 0,
+	.heic_image_capability = &default_heic_image_capability,
+	.hevc_image_capability = &default_hevc_image_capability,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_4,
 };
