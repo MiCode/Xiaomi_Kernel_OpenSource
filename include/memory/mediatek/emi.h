@@ -31,7 +31,7 @@
 #define MTK_EMIMPU_READ_APC		2
 
 #define MTK_EMI_MAX_TOKEN		4
-#define MTK_EMI_MAX_CMD_LEN		128
+#define MTK_EMI_MAX_CMD_LEN		256
 
 struct reg_info_t {
 	unsigned int offset;
