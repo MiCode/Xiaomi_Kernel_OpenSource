@@ -436,7 +436,8 @@ static int clk_alpha_pll_enable(struct clk_hw *hw)
 			pr_err("Failed to configure %s\n", clk_hw_get_name(hw));
 			return ret;
 		}
-		pr_warn("PLL configuration lost, reconfiguration of PLL done.\n");
+		pr_warn("%s: PLL configuration lost, reconfiguration of PLL done.\n",
+				clk_hw_get_name(hw));
 	}
 
 	ret = regmap_update_bits(pll->clkr.regmap, off + PLL_MODE,
@@ -651,7 +652,8 @@ static int clk_alpha_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	const struct pll_vco *vco;
 	const struct pll_vco_data *data;
 	bool is_enabled;
-	u32 l, off = pll->offset;
+	u32 l, l_val, off = pll->offset;
+	int ret;
 	u64 a;
 	unsigned long rrate;
 
@@ -677,6 +679,27 @@ static int clk_alpha_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	 */
 	if (is_enabled && !(pll->flags & SUPPORTS_DYNAMIC_UPDATE))
 		hw->init->ops->disable(hw);
+
+	ret = regmap_read(pll->clkr.regmap, off + PLL_L_VAL, &l_val);
+	if (ret)
+		return ret;
+
+	/* PLL has lost it's L value, needs reconfiguration */
+	if (!l_val) {
+		if (pll->type == AGERA_PLL)
+			ret = clk_agera_pll_configure(pll, pll->clkr.regmap,
+						pll->config);
+		else
+			ret = clk_alpha_pll_configure(pll, pll->clkr.regmap,
+						pll->config);
+
+		if (ret) {
+			pr_err("Failed to configure %s\n", clk_hw_get_name(hw));
+			return ret;
+		}
+		pr_warn("%s: PLL configuration lost, reconfiguration of PLL done.\n",
+				clk_hw_get_name(hw));
+	}
 
 	regmap_write(pll->clkr.regmap, off + PLL_L_VAL, l);
 
