@@ -593,8 +593,7 @@ static irqreturn_t fw_crash_indication_handler(int irq, void *ctx)
 		set_bit(ICNSS_FW_DOWN, &priv->state);
 		icnss_ignore_fw_timeout(true);
 
-		if (test_bit(ICNSS_FW_READY, &priv->state) &&
-		    !test_bit(ICNSS_DRIVER_UNLOADING, &priv->state)) {
+		if (test_bit(ICNSS_FW_READY, &priv->state)) {
 			fw_down_data.crashed = true;
 			icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN,
 						 &fw_down_data);
@@ -1448,8 +1447,7 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 		icnss_ignore_fw_timeout(true);
 
 		fw_down_data.crashed = !!notif->crashed;
-		if (test_bit(ICNSS_FW_READY, &priv->state) &&
-		    !test_bit(ICNSS_DRIVER_UNLOADING, &priv->state))
+		if (test_bit(ICNSS_FW_READY, &priv->state))
 			icnss_call_driver_uevent(priv,
 						 ICNSS_UEVENT_FW_DOWN,
 						 &fw_down_data);
@@ -1476,8 +1474,7 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	event_data->crashed = notif->crashed;
 
 	fw_down_data.crashed = !!notif->crashed;
-	if (test_bit(ICNSS_FW_READY, &priv->state) &&
-	    !test_bit(ICNSS_DRIVER_UNLOADING, &priv->state))
+	if (test_bit(ICNSS_FW_READY, &priv->state))
 		icnss_call_driver_uevent(priv,
 					 ICNSS_UEVENT_FW_DOWN,
 					 &fw_down_data);
@@ -1599,8 +1596,7 @@ event_post:
 		icnss_ignore_fw_timeout(true);
 
 		fw_down_data.crashed = event_data->crashed;
-		if (test_bit(ICNSS_FW_READY, &priv->state) &&
-		    !test_bit(ICNSS_DRIVER_UNLOADING, &priv->state))
+		if (test_bit(ICNSS_FW_READY, &priv->state))
 			icnss_call_driver_uevent(priv,
 						 ICNSS_UEVENT_FW_DOWN,
 						 &fw_down_data);
