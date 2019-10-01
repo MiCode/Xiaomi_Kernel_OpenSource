@@ -441,3 +441,13 @@ config SM_DEBUGCC_BENGAL
 	  Support for the debug clock controller on Qualcomm Technologies, Inc
 	  BENGAL devices.
 	  Say Y if you want to support the clock measurement functionality.
+
+config SDM_GCC_LAGOON
+	tristate "LAGOON Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	select QCOM_GDSC
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  LAGOON devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, etc.
