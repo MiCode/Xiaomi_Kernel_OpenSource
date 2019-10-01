@@ -1,3 +1,14 @@
+Version 1.0.28
+==============
+[ATLDRV-1128] - Traffic ingress on FWD ring
+[ATLDRV-1157] - Apply upstream patch for macsec offload to 4.14
+[ATLDRV-1158] - Implement Macsec EGRESS offload
+[ATLDRV-1159] - Implement Macsec INGRESS offload
+[ATLDRV-1160] - Provide macsec statistics to ethtool -s
+[ATLDRV-1161] - Add get_tx_queue_index command to atlfwdtool
+[ATLDRV-1153] - traffic dropped when lro enabled
+[ATLDRV-777] - FWD: BCM: Better support for systems with legacy interrupts
+
 Version 1.0.27
 ==============
 [ATLDRV-1132] - Media detect is disabled after sleep

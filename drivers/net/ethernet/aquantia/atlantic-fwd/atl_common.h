@@ -18,13 +18,14 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.0.27"
+#define ATL_VERSION "1.0.28"
 
 struct atl_nic;
 enum atl_fwd_notify;
 
 #include "atl_compat.h"
 #include "atl_hw.h"
+#include "atl_ring_desc.h"
 #include "atl_stats.h"
 
 #define ATL_MAX_QUEUES 8
@@ -160,27 +161,8 @@ struct atl_fwd {
 };
 
 #ifdef CONFIG_ATLFWD_FWD_NETLINK
-/* FWD ring descriptor
- * Similar to atl_desc_ring, but has less fields.
- *
- * Note: it's not a part of atl_fwd_ring on purpose.
- */
-struct atl_fwd_ring_desc {
-	struct atl_hw_ring hw;
-	uint32_t head;
-	uint32_t tail;
-	union {
-		struct atl_txbuf *txbufs;
-	};
-	struct u64_stats_sync syncp;
-	struct atl_ring_stats stats;
-	u32 tx_hw_head;
-	struct atl_fwd_event tx_evt;
-	struct atl_fwd_event rx_evt;
-};
-
 struct atl_fwdnl {
-	struct atl_fwd_ring_desc ring_desc[ATL_NUM_FWD_RINGS * 2];
+	struct atl_desc_ring ring_desc[ATL_NUM_FWD_RINGS * 2];
 	/* State of forced redirections */
 	int force_icmp_via;
 	int force_tx_via;
@@ -283,11 +265,16 @@ enum atl_priv_flag_bits {
 extern const char atl_driver_name[];
 
 extern const struct ethtool_ops atl_ethtool_ops;
+#ifdef NETIF_F_HW_MACSEC
+extern const struct macsec_ops atl_macsec_ops;
+#endif
 
 extern unsigned int atl_max_queues;
+extern unsigned int atl_max_queues_non_msi;
 extern unsigned atl_rx_linear;
 extern unsigned atl_min_intr_delay;
-extern int atl_enable_msi;
+extern bool atl_enable_msi;
+extern bool atl_wq_non_msi;
 extern unsigned int atl_tx_clean_budget;
 extern unsigned int atl_tx_free_low;
 extern unsigned int atl_tx_free_high;
@@ -366,6 +353,7 @@ void atl_clear_tdm_cache(struct atl_nic *nic);
 int atl_alloc_rings(struct atl_nic *nic);
 void atl_free_rings(struct atl_nic *nic);
 irqreturn_t atl_ring_irq(int irq, void *priv);
+void atl_ring_work(struct work_struct *work);
 void atl_start_hw_global(struct atl_nic *nic);
 int atl_intr_init(struct atl_nic *nic);
 void atl_intr_release(struct atl_nic *nic);
@@ -413,5 +401,10 @@ int atl_update_thermal_flag(struct atl_hw *hw, int bit, bool val);
 int atl_verify_thermal_limits(struct atl_hw *hw, struct atl_thermal *thermal);
 int atl_do_reset(struct atl_nic *nic);
 int atl_set_media_detect(struct atl_nic *nic, bool on);
+int atl_init_macsec(struct atl_hw *hw);
+void atl_macsec_work(struct atl_nic *nic);
+int atl_macsec_rx_sa_cnt(struct atl_hw *hw);
+int atl_macsec_tx_sa_cnt(struct atl_hw *hw);
+int atl_macsec_update_stats(struct atl_hw *hw);
 
 #endif

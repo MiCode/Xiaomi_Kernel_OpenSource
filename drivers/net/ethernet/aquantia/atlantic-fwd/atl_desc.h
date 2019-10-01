@@ -10,6 +10,8 @@
 #ifndef _ATL_DESC_H_
 #define _ATL_DESC_H_
 
+#include <linux/kernel.h>
+
 #if defined(__LITTLE_ENDIAN_BITFIELD)
 struct atl_tx_ctx {
 	unsigned long long :40; //0

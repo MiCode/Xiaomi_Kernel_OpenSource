@@ -38,6 +38,8 @@ static void print_usage(const char *binname)
 	fprintf(stderr, "\t%s\n", "release_event <ring_index>");
 	fprintf(stderr, "\t%s\n", "enable_event <ring_index>");
 	fprintf(stderr, "\t%s\n", "disable_event <ring_index>");
+	fprintf(stderr, "\t%s\n", "get_rx_queue_index <ring_index>");
+	fprintf(stderr, "\t%s\n", "get_tx_queue_index <ring_index>");
 	fprintf(stderr, "%s\n", "");
 	fprintf(stderr, "\t%s\n", "force_icmp_tx_via <ring_index>");
 	fprintf(stderr, "\t%s\n", "force_tx_via <ring_index>");
@@ -46,6 +48,8 @@ static void print_usage(const char *binname)
 	fprintf(stderr, "\t%s\n", "ring_status [<ring_index>]");
 	fprintf(stderr, "\t%s\n", "set_tx_bunch <bunch_size>");
 }
+
+#define STR_EQUAL(s1, s2) (strncmp((s1), (s2), MNL_ARRAY_SIZE((s2))) == 0)
 
 static enum atlfwd_nl_command get_command(const char *str)
 {
@@ -58,56 +62,60 @@ static enum atlfwd_nl_command get_command(const char *str)
 	static const char cmd_enable_event[] = "enable_event";
 	static const char cmd_disable_event[] = "disable_event";
 	static const char cmd_dump_ring[] = "dump_ring";
+	static const char cmd_get_rx_queue[] = "get_rx_queue_index";
+	static const char cmd_get_tx_queue[] = "get_tx_queue_index";
 	static const char cmd_disable_redirections[] = "disable_redirections";
 	static const char cmd_force_icmp_tx_via[] = "force_icmp_tx_via";
 	static const char cmd_force_tx_via[] = "force_tx_via";
 	static const char cmd_ring_status[] = "ring_status";
 	static const char cmd_set_tx_bunch[] = "set_tx_bunch";
 
-	if (strncmp(str, cmd_req_ring, MNL_ARRAY_SIZE(cmd_req_ring)) == 0)
+	if (STR_EQUAL(str, cmd_req_ring))
 		return ATL_FWD_CMD_REQUEST_RING;
 
-	if (strncmp(str, cmd_rel_ring, MNL_ARRAY_SIZE(cmd_rel_ring)) == 0)
+	if (STR_EQUAL(str, cmd_rel_ring))
 		return ATL_FWD_CMD_RELEASE_RING;
 
-	if (strncmp(str, cmd_enable_ring, MNL_ARRAY_SIZE(cmd_enable_ring)) == 0)
+	if (STR_EQUAL(str, cmd_enable_ring))
 		return ATL_FWD_CMD_ENABLE_RING;
 
-	if (strncmp(str, cmd_disable_ring, MNL_ARRAY_SIZE(cmd_disable_ring)) ==
-	    0)
+	if (STR_EQUAL(str, cmd_disable_ring))
 		return ATL_FWD_CMD_DISABLE_RING;
 
-	if (strncmp(str, cmd_dump_ring, MNL_ARRAY_SIZE(cmd_dump_ring)) == 0)
+	if (STR_EQUAL(str, cmd_dump_ring))
 		return ATL_FWD_CMD_DUMP_RING;
 
-	if (strncmp(str, cmd_req_event, MNL_ARRAY_SIZE(cmd_req_event)) == 0)
+	if (STR_EQUAL(str, cmd_get_rx_queue))
+		return ATL_FWD_CMD_GET_RX_QUEUE;
+
+	if (STR_EQUAL(str, cmd_get_tx_queue))
+		return ATL_FWD_CMD_GET_TX_QUEUE;
+
+	if (STR_EQUAL(str, cmd_req_event))
 		return ATL_FWD_CMD_REQUEST_EVENT;
 
-	if (strncmp(str, cmd_rel_event, MNL_ARRAY_SIZE(cmd_rel_event)) == 0)
+	if (STR_EQUAL(str, cmd_rel_event))
 		return ATL_FWD_CMD_RELEASE_EVENT;
 
-	if (strncmp(str, cmd_enable_event, MNL_ARRAY_SIZE(cmd_enable_event)) == 0)
+	if (STR_EQUAL(str, cmd_enable_event))
 		return ATL_FWD_CMD_ENABLE_EVENT;
 
-	if (strncmp(str, cmd_disable_event, MNL_ARRAY_SIZE(cmd_disable_event)) == 0)
+	if (STR_EQUAL(str, cmd_disable_event))
 		return ATL_FWD_CMD_DISABLE_EVENT;
 
-	if (strncmp(str, cmd_disable_redirections,
-		    MNL_ARRAY_SIZE(cmd_disable_redirections)) == 0)
+	if (STR_EQUAL(str, cmd_disable_redirections))
 		return ATL_FWD_CMD_DISABLE_REDIRECTIONS;
 
-	if (strncmp(str, cmd_force_icmp_tx_via,
-		    MNL_ARRAY_SIZE(cmd_force_icmp_tx_via)) == 0)
+	if (STR_EQUAL(str, cmd_force_icmp_tx_via))
 		return ATL_FWD_CMD_FORCE_ICMP_TX_VIA;
 
-	if (strncmp(str, cmd_force_tx_via, MNL_ARRAY_SIZE(cmd_force_tx_via)) ==
-	    0)
+	if (STR_EQUAL(str, cmd_force_tx_via))
 		return ATL_FWD_CMD_FORCE_TX_VIA;
 
-	if (strncmp(str, cmd_ring_status, MNL_ARRAY_SIZE(cmd_ring_status)) == 0)
+	if (STR_EQUAL(str, cmd_ring_status))
 		return ATL_FWD_CMD_RING_STATUS;
 
-	if (strncmp(str, cmd_set_tx_bunch, MNL_ARRAY_SIZE(cmd_set_tx_bunch)) == 0)
+	if (STR_EQUAL(str, cmd_set_tx_bunch))
 		return ATL_FWD_CMD_SET_TX_BUNCH;
 
 	return ATL_FWD_CMD_UNSPEC;
@@ -188,6 +196,10 @@ struct atlfwd_args *parse_args(const int argc, char **argv)
 		/* fall through */
 	case ATL_FWD_CMD_DISABLE_EVENT:
 		/* fall through */
+	case ATL_FWD_CMD_GET_RX_QUEUE:
+		/* fall through */
+	case ATL_FWD_CMD_GET_TX_QUEUE:
+		/* fall through */
 	case ATL_FWD_CMD_FORCE_ICMP_TX_VIA:
 		/* fall through */
 	case ATL_FWD_CMD_FORCE_TX_VIA:
@@ -195,8 +207,7 @@ struct atlfwd_args *parse_args(const int argc, char **argv)
 			(int32_t)atoi(get_last_arg(argc, argv));
 		break;
 	case ATL_FWD_CMD_SET_TX_BUNCH:
-		parsed_args.tx_bunch =
-			(uint32_t)atoi(get_last_arg(argc, argv));
+		parsed_args.tx_bunch = (uint32_t)atoi(get_last_arg(argc, argv));
 		break;
 	case ATL_FWD_CMD_DISABLE_REDIRECTIONS:
 		break;
