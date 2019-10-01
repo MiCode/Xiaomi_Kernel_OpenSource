@@ -2873,10 +2873,8 @@ static int qseecom_prepare_unload_app(struct qseecom_dev_handle *data)
 	if (!entry)
 		return -ENOMEM;
 	entry->data = data;
-	mutex_lock(&unload_app_pending_list_lock);
 	list_add_tail(&entry->list,
 		&qseecom.unload_app_pending_list_head);
-	mutex_unlock(&unload_app_pending_list_lock);
 	data->client.unload_pending = true;
 	pr_debug("unload ta %d pending\n", data->client.app_id);
 	return 0;
@@ -8042,13 +8040,34 @@ static int qseecom_open(struct inode *inode, struct file *file)
 	return ret;
 }
 
+static void __qseecom_release_disable_clk(struct qseecom_dev_handle *data)
+{
+	if (qseecom.no_clock_support)
+		return;
+	if (qseecom.support_bus_scaling) {
+		mutex_lock(&qsee_bw_mutex);
+		if (data->mode != INACTIVE) {
+			qseecom_unregister_bus_bandwidth_needs(data);
+			if (qseecom.cumulative_mode == INACTIVE)
+				__qseecom_set_msm_bus_request(INACTIVE);
+		}
+		mutex_unlock(&qsee_bw_mutex);
+	} else {
+		if (data->fast_load_enabled)
+			qsee_disable_clock_vote(data, CLK_SFPB);
+		if (data->perf_enabled)
+			qsee_disable_clock_vote(data, CLK_DFAB);
+	}
+}
+
 static int qseecom_release(struct inode *inode, struct file *file)
 {
 	struct qseecom_dev_handle *data = file->private_data;
 	int ret = 0;
 	bool free_private_data = true;
 
-	if (data->released == false) {
+	__qseecom_release_disable_clk(data);
+	if (!data->released) {
 		pr_debug("data: released=false, type=%d, mode=%d, data=0x%pK\n",
 			data->type, data->mode, data);
 		switch (data->type) {
@@ -8059,13 +8078,17 @@ static int qseecom_release(struct inode *inode, struct file *file)
 			ret = qseecom_unregister_listener(data);
 			data->listener.release_called = true;
 			mutex_unlock(&listener_access_lock);
+			__wakeup_unregister_listener_kthread();
 			break;
 		case QSEECOM_CLIENT_APP:
 			pr_debug("release app %d (%s)\n",
 				data->client.app_id, data->client.app_name);
 			if (data->client.app_id) {
 				free_private_data = false;
+				mutex_lock(&unload_app_pending_list_lock);
 				ret = qseecom_prepare_unload_app(data);
+				mutex_unlock(&unload_app_pending_list_lock);
+				__wakeup_unload_app_kthread();
 			}
 			break;
 		case QSEECOM_SECURE_SERVICE:
@@ -8081,24 +8104,6 @@ static int qseecom_release(struct inode *inode, struct file *file)
 				data->type);
 			break;
 		}
-	}
-
-	if (qseecom.support_bus_scaling) {
-		mutex_lock(&qsee_bw_mutex);
-		if (data->mode != INACTIVE) {
-			qseecom_unregister_bus_bandwidth_needs(data);
-			if (qseecom.cumulative_mode == INACTIVE) {
-				ret = __qseecom_set_msm_bus_request(INACTIVE);
-				if (ret)
-					pr_err("Fail to scale down bus\n");
-			}
-		}
-		mutex_unlock(&qsee_bw_mutex);
-	} else {
-		if (data->fast_load_enabled == true)
-			qsee_disable_clock_vote(data, CLK_SFPB);
-		if (data->perf_enabled == true)
-			qsee_disable_clock_vote(data, CLK_DFAB);
 	}
 
 	if (free_private_data)
