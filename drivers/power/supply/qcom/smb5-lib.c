@@ -4126,7 +4126,8 @@ int smblib_set_prop_typec_power_role(struct smb_charger *chg,
 
 	smblib_dbg(chg, PR_MISC, "snk_attached = %d, src_attached = %d, is_pr_lock = %d\n",
 			snk_attached, src_attached, is_pr_lock);
-	cancel_delayed_work_sync(&chg->pr_lock_clear_work);
+	cancel_delayed_work(&chg->pr_lock_clear_work);
+	spin_lock(&chg->typec_pr_lock);
 	if (!chg->pr_lock_in_progress && is_pr_lock) {
 		smblib_dbg(chg, PR_MISC, "disable type-c interrupts for power role locking\n");
 		smblib_typec_irq_config(chg, false);
@@ -4138,6 +4139,7 @@ int smblib_set_prop_typec_power_role(struct smb_charger *chg,
 	}
 
 	chg->pr_lock_in_progress = is_pr_lock;
+	spin_unlock(&chg->typec_pr_lock);
 
 	switch (val->intval) {
 	case POWER_SUPPLY_TYPEC_PR_NONE:
@@ -6240,11 +6242,13 @@ static void smblib_pr_lock_clear_work(struct work_struct *work)
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						pr_lock_clear_work.work);
 
+	spin_lock(&chg->typec_pr_lock);
 	if (chg->pr_lock_in_progress) {
 		smblib_dbg(chg, PR_MISC, "restore type-c interrupts\n");
 		smblib_typec_irq_config(chg, true);
 		chg->pr_lock_in_progress = false;
 	}
+	spin_unlock(&chg->typec_pr_lock);
 }
 
 static void smblib_pr_swap_detach_work(struct work_struct *work)
@@ -7124,6 +7128,7 @@ int smblib_init(struct smb_charger *chg)
 
 	mutex_init(&chg->smb_lock);
 	mutex_init(&chg->irq_status_lock);
+	spin_lock_init(&chg->typec_pr_lock);
 	INIT_WORK(&chg->bms_update_work, bms_update_work);
 	INIT_WORK(&chg->pl_update_work, pl_update_work);
 	INIT_WORK(&chg->jeita_update_work, jeita_update_work);

@@ -390,6 +390,7 @@ struct smb_charger {
 	struct mutex		ps_change_lock;
 	struct mutex		dr_lock;
 	struct mutex		irq_status_lock;
+	spinlock_t		typec_pr_lock;
 
 	/* power supplies */
 	struct power_supply		*batt_psy;
