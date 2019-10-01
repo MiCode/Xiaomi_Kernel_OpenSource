@@ -766,7 +766,7 @@ static const struct a6xx_protected_regs a630_protected_regs[] = {
 	{ A6XX_CP_PROTECT_REG + 28, 0x0be20, 0x0d5ff, 1 },
 	{ A6XX_CP_PROTECT_REG + 29, 0x0f000, 0x0fbff, 1 },
 	{ A6XX_CP_PROTECT_REG + 30, 0x0fc00, 0x11bff, 0 },
-	{ A6XX_CP_PROTECT_REG + 31, 0x11c00, 0x00000, 1 },
+	{ A6XX_CP_PROTECT_REG + 31, 0x11c00, 0x11c00, 1 },
 	{ 0 },
 };
 
@@ -1019,7 +1019,7 @@ static const struct a6xx_protected_regs a620_protected_regs[] = {
 	{ A6XX_CP_PROTECT_REG + 30, 0x0be20, 0x0d5ff, 1 },
 	{ A6XX_CP_PROTECT_REG + 31, 0x0f000, 0x0fbff, 1 },
 	{ A6XX_CP_PROTECT_REG + 32, 0x0fc00, 0x11bff, 0 },
-	{ A6XX_CP_PROTECT_REG + 47, 0x11c00, 0x00000, 1 },
+	{ A6XX_CP_PROTECT_REG + 47, 0x11c00, 0x11c00, 1 },
 	{ 0 },
 };
 

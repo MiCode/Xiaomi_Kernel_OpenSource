@@ -172,7 +172,7 @@ static void a6xx_protect_init(struct adreno_device *adreno_dev)
 		count = regs[i].end - regs[i].start;
 
 		kgsl_regwrite(device, regs[i].reg,
-			regs[i].start | (count << 18) |
+			(regs[i].start & 0x3ffff) | ((count & 0x1fff) << 18) |
 			(regs[i].noaccess << 31));
 	}
 }
