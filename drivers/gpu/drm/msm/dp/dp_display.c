@@ -1297,6 +1297,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	}
 
 	g_dp_display->is_mst_supported = dp->parser->has_mst;
+	g_dp_display->no_mst_encoder = dp->parser->no_mst_encoder;
 
 	dp->catalog = dp_catalog_get(dev, dp->parser);
 	if (IS_ERR(dp->catalog)) {
@@ -2700,6 +2701,9 @@ int dp_display_get_num_of_displays(void)
 
 int dp_display_get_num_of_streams(void)
 {
+	if (g_dp_display->no_mst_encoder)
+		return 0;
+
 	return DP_STREAM_MAX;
 }
 
