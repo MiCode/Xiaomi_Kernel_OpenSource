@@ -451,3 +451,12 @@ config SDM_GCC_LAGOON
 	  LAGOON devices.
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, UFS, SD/eMMC, etc.
+
+config SDM_VIDEOCC_LAGOON
+	tristate "LAGOON Video Clock Controller"
+	select SDM_GCC_LAGOON
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  LAGOON devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
