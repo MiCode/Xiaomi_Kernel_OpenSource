@@ -226,6 +226,7 @@ static void diag_send_log_mask_update(uint8_t peripheral,
 			pr_debug("diag: In %s, invalid log_mask status\n",
 				__func__);
 			mutex_unlock(&mask->lock);
+			mutex_unlock(&mask_info->lock);
 			return;
 		}
 		if (sub_index >= 0 && preset_id > 0)
