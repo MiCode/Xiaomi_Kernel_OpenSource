@@ -19,6 +19,41 @@
 #include "atlfwd_msg.h"
 #include "atlfwd_reply.h"
 
+#define ATL_FWD_CMD_STR(cmd)\
+[cmd] = #cmd
+static const char *cmd_str[NUM_ATL_FWD_CMD] = {
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_REQUEST_RING),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_RELEASE_RING),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_ENABLE_RING),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_DISABLE_RING),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_DISABLE_REDIRECTIONS),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_FORCE_ICMP_TX_VIA),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_FORCE_TX_VIA),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_RING_STATUS),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_DUMP_RING),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_SET_TX_BUNCH),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_REQUEST_EVENT),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_RELEASE_EVENT),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_ENABLE_EVENT),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_DISABLE_EVENT),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_GET_RX_QUEUE),
+	ATL_FWD_CMD_STR(ATL_FWD_CMD_GET_TX_QUEUE),
+};
+#define ATL_FWD_ATTR_STR(attr)\
+[attr] = #attr
+static const char *attr_str[NUM_ATL_FWD_ATTR] = {
+	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_FLAGS),
+	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_RING_SIZE),
+	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_BUF_SIZE),
+	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_PAGE_ORDER),
+	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_RING_INDEX),
+	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_RING_STATUS),
+	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_RING_IS_TX),
+	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_RING_FLAGS),
+	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_TX_BUNCH_SIZE),
+	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_QUEUE_INDEX),
+};
+
 /* get atl_fwd family id */
 static int atlnl_family_cb(const struct nlmsghdr *nlhdr, void *data)
 {
@@ -51,7 +86,9 @@ static int atlnl_get_family_id(struct nl_context *ctx)
 	if (mnl_socket_sendto(ctx->sock, ctx->nlhdr, ctx->nlhdr->nlmsg_len) < 0)
 		goto err_msgfree;
 
-	atlnl_process_reply(ctx, atlnl_family_cb);
+	ret = atlnl_process_reply(ctx, atlnl_family_cb);
+	if (ret < 0)
+		goto err_msgfree;
 
 	ret = ctx->family_id ? 0 : -EADDRNOTAVAIL;
 
@@ -77,12 +114,35 @@ static int atlnl_reqring_cb(const struct nlmsghdr *nlhdr, void *data)
 	}
 
 	if (ring_index == -1) {
-		fprintf(stderr, "Error: %s\n",
-			"RING_INDEX attribute is missing in reply");
+		fprintf(stderr, "Error: %s attribute is missing in reply\n",
+			attr_str[ATL_FWD_ATTR_RING_INDEX]);
 		return MNL_CB_ERROR;
 	}
 
 	printf("Ring index: %d\n", ring_index);
+	return MNL_CB_OK;
+}
+
+static int atlnl_getqueue_cb(const struct nlmsghdr *nlhdr, void *data)
+{
+	const struct nlattr *attr;
+	int queue = -1;
+
+	mnl_attr_for_each(attr, nlhdr, GENL_HDRLEN)
+	{
+		if (mnl_attr_get_type(attr) == ATL_FWD_ATTR_QUEUE_INDEX) {
+			queue = (int)mnl_attr_get_u32(attr);
+			break;
+		}
+	}
+
+	if (queue == -1) {
+		fprintf(stderr, "Error: %s attribute is missing in reply\n",
+			attr_str[ATL_FWD_ATTR_QUEUE_INDEX]);
+		return MNL_CB_ERROR;
+	}
+
+	printf("%d\n", queue);
 	return MNL_CB_OK;
 }
 
@@ -187,35 +247,6 @@ static int atlnl_ringstatus_cb(const struct nlmsghdr *nlhdr, void *data)
 	return MNL_CB_OK;
 }
 
-#define ATL_FWD_CMD_STR(cmd)\
-[cmd] = #cmd
-static const char *cmd_str[NUM_ATL_FWD_CMD] = {
-	ATL_FWD_CMD_STR(ATL_FWD_CMD_REQUEST_RING),
-	ATL_FWD_CMD_STR(ATL_FWD_CMD_RELEASE_RING),
-	ATL_FWD_CMD_STR(ATL_FWD_CMD_ENABLE_RING),
-	ATL_FWD_CMD_STR(ATL_FWD_CMD_DISABLE_RING),
-	ATL_FWD_CMD_STR(ATL_FWD_CMD_DUMP_RING),
-	ATL_FWD_CMD_STR(ATL_FWD_CMD_REQUEST_EVENT),
-	ATL_FWD_CMD_STR(ATL_FWD_CMD_RELEASE_EVENT),
-	ATL_FWD_CMD_STR(ATL_FWD_CMD_ENABLE_EVENT),
-	ATL_FWD_CMD_STR(ATL_FWD_CMD_DISABLE_EVENT),
-	ATL_FWD_CMD_STR(ATL_FWD_CMD_DISABLE_REDIRECTIONS),
-	ATL_FWD_CMD_STR(ATL_FWD_CMD_FORCE_ICMP_TX_VIA),
-	ATL_FWD_CMD_STR(ATL_FWD_CMD_FORCE_TX_VIA),
-	ATL_FWD_CMD_STR(ATL_FWD_CMD_RING_STATUS),
-	ATL_FWD_CMD_STR(ATL_FWD_CMD_SET_TX_BUNCH),
-};
-#define ATL_FWD_ATTR_STR(attr)\
-[attr] = #attr
-static const char *attr_str[NUM_ATL_FWD_ATTR] = {
-	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_FLAGS),
-	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_RING_SIZE),
-	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_BUF_SIZE),
-	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_PAGE_ORDER),
-	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_RING_INDEX),
-	ATL_FWD_ATTR_STR(ATL_FWD_ATTR_TX_BUNCH_SIZE),
-};
-
 static int atlnl_cmd_generic_u32_args(struct nl_context *ctx,
 				      const enum atlfwd_nl_command cmd,
 				      mnl_cb_t reply_cb, const int attr_count,
@@ -257,7 +288,7 @@ static int atlnl_cmd_generic_u32_args(struct nl_context *ctx,
 	if (mnl_socket_sendto(ctx->sock, ctx->nlhdr, ctx->nlhdr->nlmsg_len) < 0)
 		goto err_msgfree;
 
-	atlnl_process_reply(ctx, reply_cb);
+	ret = atlnl_process_reply(ctx, reply_cb);
 
 err_msgfree:
 	atlnl_msg_free(ctx);
@@ -335,6 +366,14 @@ int main(int argc, char **argv)
 		/* fall through */
 	case ATL_FWD_CMD_FORCE_TX_VIA:
 		ret = atlnl_cmd_generic_u32_args(&nlctx, args->cmd, NULL, 1,
+						 ATL_FWD_ATTR_RING_INDEX,
+						 (uint32_t)args->ring_index);
+		break;
+	case ATL_FWD_CMD_GET_RX_QUEUE:
+		/* fall through */
+	case ATL_FWD_CMD_GET_TX_QUEUE:
+		ret = atlnl_cmd_generic_u32_args(&nlctx, args->cmd,
+						 atlnl_getqueue_cb, 1,
 						 ATL_FWD_ATTR_RING_INDEX,
 						 (uint32_t)args->ring_index);
 		break;
