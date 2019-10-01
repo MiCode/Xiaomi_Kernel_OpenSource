@@ -11,55 +11,7 @@
  */
 
 #include <dt-bindings/thermal/thermal.h>
-
-&soc {
-	qmi-tmd-devices {
-		compatible = "qcom,qmi-cooling-devices";
-
-		modem {
-			qcom,instance-id = <0x0>;
-
-			modem_pa: modem_pa {
-				qcom,qmi-dev-name = "pa";
-				#cooling-cells = <2>;
-			};
-
-			modem_proc: modem_proc {
-				qcom,qmi-dev-name = "modem";
-				#cooling-cells = <2>;
-			};
-
-			modem_current: modem_current {
-				qcom,qmi-dev-name = "modem_current";
-				#cooling-cells = <2>;
-			};
-
-			modem_skin: modem_skin {
-				qcom,qmi-dev-name = "modem_skin";
-				#cooling-cells = <2>;
-			};
-
-			modem_vdd: modem_vdd {
-				qcom,qmi-dev-name = "cpuv_restriction_cold";
-				#cooling-cells = <2>;
-			};
-		};
-
-	};
-
-	qmi_sensor: qmi-ts-sensors {
-		compatible = "qcom,qmi-sensors";
-		#thermal-sensor-cells = <1>;
-
-		modem {
-			qcom,instance-id = <0x0>;
-			qcom,qmi-sensor-names = "pa",
-						"pa_1",
-						"qfe_pa0",
-						"qfe_wtr0";
-		};
-	};
-};
+#include "sdxprairie-thermal-common.dtsi"
 
 &thermal_zones {
 	aoss0-usr {
