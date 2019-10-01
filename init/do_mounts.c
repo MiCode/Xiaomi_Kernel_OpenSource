@@ -42,7 +42,13 @@ int root_mountflags = MS_RDONLY | MS_SILENT;
 static char * __initdata root_device_name;
 static char __initdata saved_root_name[64];
 static int root_wait;
-
+#ifdef CONFIG_EARLY_SERVICES
+static char saved_modem_name[64] __initdata;
+static char saved_early_userspace[64] __initdata;
+static char init_prog[128] = "/early_services/init_early";
+static char *init_prog_argv[2] = { init_prog, NULL };
+#define EARLY_SERVICES_MOUNT_POINT "/early_services"
+#endif
 dev_t ROOT_DEV;
 
 static int __init load_ramdisk(char *str)
@@ -299,6 +305,22 @@ static int __init root_dev_setup(char *line)
 
 __setup("root=", root_dev_setup);
 
+#ifdef CONFIG_EARLY_SERVICES
+static int __init modem_dev_setup(char *line)
+{
+	strlcpy(saved_modem_name, line, sizeof(saved_modem_name));
+	return 1;
+}
+
+__setup("modem=", modem_dev_setup);
+static int __init early_userspace_setup(char *line)
+{
+	strlcpy(saved_early_userspace, line, sizeof(saved_early_userspace));
+	return 1;
+}
+
+__setup("early_userspace=", early_userspace_setup);
+#endif
 static int __init rootwait_setup(char *str)
 {
 	if (*str)
@@ -387,7 +409,22 @@ static int __init do_mount_root(char *name, char *fs, int flags, void *data)
 
 	return 0;
 }
+#ifdef CONFIG_EARLY_SERVICES
+static int __init do_mount_part(char *name, char *fs, int flags,
+				void *data, char *mnt_point)
+{
+	int err;
 
+	err = sys_mount((char __user *)name, (char __user *)mnt_point,
+			(char __user *)fs, (unsigned long)flags,
+						(void __user *)data);
+	if (err) {
+		pr_err("Mount Partition [%s] failed[%d]\n", name, err);
+		return err;
+	}
+	return 0;
+}
+#endif
 void __init mount_block_root(char *name, int flags)
 {
 	struct page *page = alloc_page(GFP_KERNEL);
@@ -552,6 +589,47 @@ void __init mount_root(void)
 #endif
 }
 
+#ifdef CONFIG_EARLY_SERVICES
+static int __init mount_partition(char *part_name, char *mnt_point)
+{
+	struct page *page = alloc_page(GFP_KERNEL);
+	char *fs_names = page_address(page);
+	char *p;
+	int err = -EPERM;
+
+	get_fs_names(fs_names);
+	for (p = fs_names; *p; p += strlen(p)+1) {
+		err = do_mount_part(part_name, p, root_mountflags,
+					NULL, mnt_point);
+		switch (err) {
+		case 0:
+			return err;
+		case -EACCES:
+		case -EINVAL:
+			continue;
+		}
+		printk_all_partitions();
+		return err;
+	}
+	return err;
+}
+void __init launch_early_services(void)
+{
+	int rc = 0;
+
+	rc = mount_partition(saved_early_userspace, EARLY_SERVICES_MOUNT_POINT);
+	place_marker("Early Services Partition ready");
+	if (!rc) {
+		rc = call_usermodehelper(init_prog, init_prog_argv, NULL, 0);
+		if (!rc)
+			pr_info("early_init launched\n");
+		else
+			pr_err("early_init failed\n");
+	}
+}
+#else
+void __init launch_early_services(void) { }
+#endif
 /*
  * Prepare the namespace - decide what/where to mount, load ramdisks, etc.
  */
