@@ -60,8 +60,8 @@
 		qcom,proxy-reg-names ="vdd", "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		#cooling-cells = <2>;
-		qcom,npubw-devs = <&npu_npu_ddr_bw>, <&npudsp_npu_ddr_bw>;
-		qcom,npubw-dev-names = "ddr_bw", "dsp_ddr_bw";
+		qcom,npubw-devs = <&npu_npu_ddr_bw>;
+		qcom,npubw-dev-names = "ddr_bw";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,npu-pwrlevels {
 			#address-cells = <1>;
