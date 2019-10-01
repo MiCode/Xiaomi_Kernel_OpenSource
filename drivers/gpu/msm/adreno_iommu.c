@@ -152,6 +152,10 @@ static unsigned int adreno_iommu_set_apriv(struct adreno_device *adreno_dev,
 	if (adreno_is_a3xx(adreno_dev))
 		return 0;
 
+	/* Targets with apriv control do not need to explicitly set the bit */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+		return 0;
+
 	cmds += cp_wait_for_idle(adreno_dev, cmds);
 	cmds += cp_wait_for_me(adreno_dev, cmds);
 	*cmds++ = cp_register(adreno_dev, adreno_getreg(adreno_dev,

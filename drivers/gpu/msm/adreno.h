@@ -107,6 +107,8 @@
 #define ADRENO_COOP_RESET BIT(19)
 /* Indicates that the specific target is no longer supported */
 #define ADRENO_DEPRECATED BIT(20)
+/* The target supports ringbuffer level APRIV */
+#define ADRENO_APRIV BIT(21)
 /*
  * Adreno GPU quirks - control bits for various workarounds
  */

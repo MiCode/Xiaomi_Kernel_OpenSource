@@ -1028,7 +1028,8 @@ static const struct adreno_a6xx_core adreno_gpu_core_a620 = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A620, 6, 2, 0, ANY_ID),
 		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_GPMU |
 			ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
-			ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_ACD,
+			ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_ACD |
+			ADRENO_APRIV,
 		.gpudev = &adreno_a6xx_gpudev,
 		.gmem_base = 0,
 		.gmem_size = SZ_512K,
@@ -1198,7 +1199,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a650 = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A650, 6, 5, 0, 0),
 		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_GPMU |
 			ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
-			ADRENO_IFPC,
+			ADRENO_IFPC | ADRENO_APRIV,
 		.gpudev = &adreno_a6xx_gpudev,
 		.gmem_base = 0,
 		.gmem_size = SZ_1M + SZ_128K, /* verified 1152kB */
@@ -1227,7 +1228,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a650v2 = {
 		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_GPMU |
 			ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
 			ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_ACD |
-			ADRENO_LM,
+			ADRENO_LM | ADRENO_APRIV,
 		.gpudev = &adreno_a6xx_gpudev,
 		.gmem_base = 0,
 		.gmem_size = SZ_1M + SZ_128K, /* verified 1152kB */
