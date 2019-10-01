@@ -1263,6 +1263,9 @@ gsi_ctrl_dev_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 	unsigned long flags;
 	int ret = 0;
 
+	if (prot_id == IPA_USB_DIAG)
+		return -EINVAL;
+
 	pr_debug("%s: Enter %zu", __func__, count);
 
 	mutex_lock(&inst_cur->gsi_lock);
@@ -1348,6 +1351,9 @@ static ssize_t gsi_ctrl_dev_write(struct file *fp, const char __user *buf,
 		*(enum ipa_usb_teth_prot *)(fp->private_data);
 	struct gsi_inst_status *inst_cur = &inst_status[prot_id];
 	struct f_gsi *gsi;
+
+	if (prot_id == IPA_USB_DIAG)
+		return -EINVAL;
 
 	pr_debug("Enter %zu", count);
 
