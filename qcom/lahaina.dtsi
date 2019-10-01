@@ -34,6 +34,8 @@
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
 		serial0 = &qupv3_se3_2uart;
+		pci-domain0 = &pcie0; /* PCIe0 domain */
+		pci-domain1 = &pcie1; /* PCIe1 domain */
 	};
 
 	cpus {
@@ -2210,3 +2212,4 @@
 #include "lahaina-qupv3.dtsi"
 #include "lahaina-vidc.dtsi"
 #include "lahaina-cvp.dtsi"
+#include "lahaina-pcie.dtsi"
