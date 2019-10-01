@@ -454,7 +454,6 @@ static int qvr_external_sensor_probe(struct hid_device *hdev,
 	struct qvr_external_sensor *sensor = &qvr_external_sensor;
 	int ret;
 	char *node_name = "qcom,smp2p-interrupt-qvrexternal-5-out";
-	__u8 *hid_buf;
 	sensor->hdev = hdev;
 
 	ret = register_smp2p(&hdev->dev, node_name, &sensor->gpio_info_out);
@@ -472,17 +471,6 @@ static int qvr_external_sensor_probe(struct hid_device *hdev,
 		pr_err("%s: hid_hw_start failed\n", __func__);
 		goto err_free;
 	}
-	hid_buf = kzalloc(255, GFP_ATOMIC);
-	if (hid_buf == NULL)
-		return -ENOMEM;
-	hid_buf[0] = hid_request_report_id;
-	hid_buf[1] = 7;
-	ret = hid_hw_raw_request(hdev, hid_buf[0], hid_buf,
-		hid_request_report_size,
-		HID_FEATURE_REPORT,
-		HID_REQ_SET_REPORT);
-	kfree(hid_buf);
-
 	sensor->device = &hdev->dev;
 
 	return 0;
