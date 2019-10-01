@@ -3322,6 +3322,7 @@ struct preempt_store {
 	u64 ts;
 	unsigned long caddr[4];
 	bool irqs_disabled;
+	bool is_idle_task;
 };
 
 DEFINE_PER_CPU(struct preempt_store, the_ps);
@@ -3331,7 +3332,9 @@ DEFINE_PER_CPU(struct preempt_store, the_ps);
  */
 static inline void preempt_latency_start(int val)
 {
-	struct preempt_store *ps = &per_cpu(the_ps, raw_smp_processor_id());
+	int cpu = raw_smp_processor_id();
+	struct rq *rq = cpu_rq(cpu);
+	struct preempt_store *ps = &per_cpu(the_ps, cpu);
 
 	if (preempt_count() == val) {
 		unsigned long ip = get_lock_parent_ip();
@@ -3344,6 +3347,7 @@ static inline void preempt_latency_start(int val)
 		ps->caddr[2] = CALLER_ADDR2;
 		ps->caddr[3] = CALLER_ADDR3;
 		ps->irqs_disabled = irqs_disabled();
+		ps->is_idle_task = (rq->curr == rq->idle);
 
 		trace_preempt_off(CALLER_ADDR0, ip);
 	}
@@ -3386,7 +3390,8 @@ static inline void preempt_latency_stop(int val)
 		 * Trace preempt disable stack if preemption
 		 * is disabled for more than the threshold.
 		 */
-		if (delta > sysctl_preemptoff_tracing_threshold_ns)
+		if (!ps->is_idle_task &&
+				delta > sysctl_preemptoff_tracing_threshold_ns)
 			trace_sched_preempt_disable(delta, ps->irqs_disabled,
 						ps->caddr[0], ps->caddr[1],
 						ps->caddr[2], ps->caddr[3]);
