@@ -100,17 +100,6 @@
 		((smmu->options & ARM_SMMU_OPT_SECURE_CFG_ACCESS)	\
 			? 0x400 : 0))
 
-/*
- * Some 64-bit registers only make sense to write atomically, but in such
- * cases all the data relevant to AArch32 formats lies within the lower word,
- * therefore this actually makes more sense than it might first appear.
- */
-#ifdef CONFIG_64BIT
-#define smmu_write_atomic_lq		writeq_relaxed
-#else
-#define smmu_write_atomic_lq		writel_relaxed
-#endif
-
 /* Translation context bank */
 #define ARM_SMMU_CB(smmu, n)	((smmu)->base + (((smmu)->numpage + (n)) << (smmu)->pgshift))
 
@@ -1170,20 +1159,19 @@ static void arm_smmu_tlb_inv_context_s2(void *cookie)
 	arm_smmu_tlb_sync_global(smmu);
 }
 
-static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
-					  size_t granule, bool leaf, void *cookie)
+static void arm_smmu_tlb_inv_range_s1(unsigned long iova, size_t size,
+				      size_t granule, bool leaf, void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
-	void __iomem *reg = ARM_SMMU_CB(smmu_domain->smmu, cfg->cbndx);
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	void __iomem *reg = ARM_SMMU_CB(smmu, cfg->cbndx);
 	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
 
-	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
+	if (smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
 		wmb();
 
-	if (stage1 && !use_tlbiall) {
+	if (!use_tlbiall) {
 		reg += leaf ? ARM_SMMU_CB_S1_TLBIVAL : ARM_SMMU_CB_S1_TLBIVA;
 
 		if (cfg->fmt != ARM_SMMU_CTX_FMT_AARCH64) {
@@ -1201,18 +1189,31 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 				iova += granule >> 12;
 			} while (size -= granule);
 		}
-	} else if (stage1 && use_tlbiall) {
+	} else {
 		reg += ARM_SMMU_CB_S1_TLBIALL;
 		writel_relaxed(0, reg);
-	} else {
-		reg += leaf ? ARM_SMMU_CB_S2_TLBIIPAS2L :
-			      ARM_SMMU_CB_S2_TLBIIPAS2;
-		iova >>= 12;
-		do {
-			smmu_write_atomic_lq(iova, reg);
-			iova += granule >> 12;
-		} while (size -= granule);
 	}
+}
+
+static void arm_smmu_tlb_inv_range_s2(unsigned long iova, size_t size,
+				      size_t granule, bool leaf, void *cookie)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	void __iomem *reg = ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
+
+	if (smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
+		wmb();
+
+	reg += leaf ? ARM_SMMU_CB_S2_TLBIIPAS2L : ARM_SMMU_CB_S2_TLBIIPAS2;
+	iova >>= 12;
+	do {
+		if (smmu_domain->cfg.fmt == ARM_SMMU_CTX_FMT_AARCH64)
+			writeq_relaxed(iova, reg);
+		else
+			writel_relaxed(iova, reg);
+		iova += granule >> 12;
+	} while (size -= granule);
 }
 
 /*
@@ -1341,7 +1342,7 @@ static const struct msm_iommu_gather_ops arm_smmu_s1_tlb_ops = {
 	.free_pages_exact = arm_smmu_free_pages_exact,
 	.tlb_ops = {
 		.tlb_flush_all	= arm_smmu_tlb_inv_context_s1,
-		.tlb_add_flush	= arm_smmu_tlb_inv_range_nosync,
+		.tlb_add_flush	= arm_smmu_tlb_inv_range_s1,
 		.tlb_sync	= arm_smmu_tlb_sync_context,
 	}
 };
@@ -1351,7 +1352,7 @@ static const struct msm_iommu_gather_ops arm_smmu_s2_tlb_ops_v2 = {
 	.free_pages_exact = arm_smmu_free_pages_exact,
 	.tlb_ops = {
 		.tlb_flush_all	= arm_smmu_tlb_inv_context_s2,
-		.tlb_add_flush	= arm_smmu_tlb_inv_range_nosync,
+		.tlb_add_flush	= arm_smmu_tlb_inv_range_s2,
 		.tlb_sync	= arm_smmu_tlb_sync_context,
 	}
 };
@@ -3179,11 +3180,10 @@ static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 
 	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
 
-	/* ATS1 registers can only be written atomically */
 	va = iova & ~0xfffUL;
-	if (smmu->version == ARM_SMMU_V2)
-		smmu_write_atomic_lq(va, cb_base + ARM_SMMU_CB_ATS1PR);
-	else /* Register is only 32-bit in v1 */
+	if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH64)
+		writeq_relaxed(va, cb_base + ARM_SMMU_CB_ATS1PR);
+	else
 		writel_relaxed(va, cb_base + ARM_SMMU_CB_ATS1PR);
 
 	if (readl_poll_timeout_atomic(cb_base + ARM_SMMU_CB_ATSR, tmp,
