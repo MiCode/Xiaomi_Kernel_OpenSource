@@ -767,6 +767,7 @@ fail_chrdev_region:
 clean_dev:
 	usb_set_intfdata(ifc, NULL);
 	usb_put_intf(ifc);
+	ksb->ifc = NULL;
 	usb_put_dev(ksb->udev);
 
 	return ret;
@@ -814,6 +815,7 @@ static void ksb_usb_disconnect(struct usb_interface *ifc)
 	wake_up(&ksb->ks_wait_q);
 	usb_set_intfdata(ifc, NULL);
 	usb_put_intf(ifc);
+	ksb->ifc = NULL;
 	usb_put_dev(ksb->udev);
 }
 
