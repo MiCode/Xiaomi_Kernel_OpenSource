@@ -453,7 +453,7 @@ static void do_epoch_check(struct subsys_device *dev)
 		if ((curr_time->tv_sec - r_log->time.tv_sec) >
 				max_history_time_check) {
 
-			pr_debug("Deleted node with restart_time = %ld\n",
+			pr_debug("Deleted node with restart_time = %lld\n",
 					r_log->time.tv_sec);
 			list_del(&r_log->list);
 			kfree(r_log);
@@ -461,10 +461,10 @@ static void do_epoch_check(struct subsys_device *dev)
 		}
 		if (!n) {
 			time_first = &r_log->time;
-			pr_debug("Time_first: %ld\n", time_first->tv_sec);
+			pr_debug("Time_first: %lld\n", time_first->tv_sec);
 		}
 		n++;
-		pr_debug("Restart_time: %ld\n", r_log->time.tv_sec);
+		pr_debug("Restart_time: %lld\n", r_log->time.tv_sec);
 	}
 
 	if (time_first && n >= max_restarts_check) {
