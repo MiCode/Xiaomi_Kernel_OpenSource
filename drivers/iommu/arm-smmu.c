@@ -112,7 +112,7 @@
 #endif
 
 /* Translation context bank */
-#define ARM_SMMU_CB(smmu, n)	((smmu)->cb_base + ((n) << (smmu)->pgshift))
+#define ARM_SMMU_CB(smmu, n)	((smmu)->base + (((smmu)->numpage + (n)) << (smmu)->pgshift))
 
 #define MSI_IOVA_BASE			0x8000000
 #define MSI_IOVA_LENGTH			0x100000
@@ -233,10 +233,9 @@ struct arm_smmu_device {
 	struct device			*dev;
 
 	void __iomem			*base;
-	void __iomem			*cb_base;
-	unsigned long			size;
 	phys_addr_t			phys_addr;
-	unsigned long			pgshift;
+	unsigned int			numpage;
+	unsigned int			pgshift;
 
 #define ARM_SMMU_FEAT_COHERENT_WALK	(1 << 0)
 #define ARM_SMMU_FEAT_STREAM_MATCH	(1 << 1)
@@ -1624,16 +1623,16 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 
 	cb->cfg = cfg;
 
-	/* TTBCR */
+	/* TCR */
 	if (stage1) {
 		if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH32_S) {
 			cb->tcr[0] = pgtbl_cfg->arm_v7s_cfg.tcr;
 		} else {
 			cb->tcr[0] = pgtbl_cfg->arm_lpae_s1_cfg.tcr;
 			cb->tcr[1] = pgtbl_cfg->arm_lpae_s1_cfg.tcr >> 32;
-			cb->tcr[1] |= TTBCR2_SEP_UPSTREAM;
+			cb->tcr[1] |= FIELD_PREP(TCR2_SEP, TCR2_SEP_UPSTREAM);
 			if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH64)
-				cb->tcr[1] |= TTBCR2_AS;
+				cb->tcr[1] |= TCR2_AS;
 		}
 	} else {
 		cb->tcr[0] = pgtbl_cfg->arm_lpae_s2_cfg.vtcr;
@@ -1646,9 +1645,9 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 			cb->ttbr[1] = pgtbl_cfg->arm_v7s_cfg.ttbr[1];
 		} else {
 			cb->ttbr[0] = pgtbl_cfg->arm_lpae_s1_cfg.ttbr[0];
-			cb->ttbr[0] |= (u64)cfg->asid << TTBRn_ASID_SHIFT;
+			cb->ttbr[0] |= FIELD_PREP(TTBRn_ASID, cfg->asid);
 			cb->ttbr[1] = pgtbl_cfg->arm_lpae_s1_cfg.ttbr[1];
-			cb->ttbr[1] |= (u64)cfg->asid << TTBRn_ASID_SHIFT;
+			cb->ttbr[1] |= FIELD_PREP(TTBRn_ASID, cfg->asid);
 		}
 	} else {
 		cb->ttbr[0] = pgtbl_cfg->arm_lpae_s2_cfg.vttbr;
@@ -1719,13 +1718,13 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	writel_relaxed(reg, gr1_base + ARM_SMMU_GR1_CBAR(idx));
 
 	/*
-	 * TTBCR
+	 * TCR
 	 * We must write this before the TTBRs, since it determines the
 	 * access behaviour of some fields (in particular, ASID[15:8]).
 	 */
 	if (stage1 && smmu->version > ARM_SMMU_V1)
-		writel_relaxed(cb->tcr[1], cb_base + ARM_SMMU_CB_TTBCR2);
-	writel_relaxed(cb->tcr[0], cb_base + ARM_SMMU_CB_TTBCR);
+		writel_relaxed(cb->tcr[1], cb_base + ARM_SMMU_CB_TCR2);
+	writel_relaxed(cb->tcr[0], cb_base + ARM_SMMU_CB_TCR);
 
 	/* TTBRs */
 	if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH32_S) {
@@ -3502,8 +3501,8 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		}
 		val = pgtbl_cfg->arm_lpae_s1_cfg.ttbr[0];
 		if (smmu_domain->cfg.cbar != CBAR_TYPE_S2_TRANS)
-			val |= (u64)ARM_SMMU_CB_ASID(smmu, &smmu_domain->cfg)
-					<< (TTBRn_ASID_SHIFT);
+			val |= FIELD_PREP(TTBRn_ASID, ARM_SMMU_CB_ASID(smmu,
+							&smmu_domain->cfg));
 		*((u64 *)data) = val;
 		ret = 0;
 		break;
@@ -4432,7 +4431,7 @@ static void arm_smmu_exit_power_resources(struct arm_smmu_power_resources *pwr)
 
 static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 {
-	unsigned long size;
+	unsigned int size;
 	void __iomem *gr0_base = ARM_SMMU_GR0(smmu);
 	u32 id;
 	bool cttw_reg, cttw_fw = smmu->features & ARM_SMMU_FEAT_COHERENT_WALK;
@@ -4516,7 +4515,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 			return -ENOMEM;
 
 		dev_notice(smmu->dev,
-			   "\tstream matching with %lu register groups", size);
+			   "\tstream matching with %u register groups", size);
 	}
 	/* s2cr->type == 0 means translation, so initialise explicitly */
 	smmu->s2crs = devm_kmalloc_array(smmu->dev, size, sizeof(*smmu->s2crs),
@@ -4543,11 +4542,12 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 
 	/* Check for size mismatch of SMMU address space from mapped region */
 	size = 1 << (FIELD_GET(ID1_NUMPAGENDXB, id) + 1);
-	size <<= smmu->pgshift;
-	if (smmu->cb_base != gr0_base + size)
+	if (smmu->numpage != 2 * size << smmu->pgshift)
 		dev_warn(smmu->dev,
-			"SMMU address space size (0x%lx) differs from mapped region size (0x%tx)!\n",
-			size * 2, (smmu->cb_base - gr0_base) * 2);
+			"SMMU address space size (0x%x) differs from mapped region size (0x%x)!\n",
+			2 * size << smmu->pgshift, smmu->numpage);
+	/* Now properly encode NUMPAGE to subsequently derive SMMU_CB_BASE */
+	smmu->numpage = size;
 
 	smmu->num_s2_context_banks = FIELD_GET(ID1_NUMS2CB, id);
 	smmu->num_context_banks = FIELD_GET(ID1_NUMCB, id);
@@ -4813,8 +4813,11 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	smmu->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(smmu->base))
 		return PTR_ERR(smmu->base);
-	smmu->cb_base = smmu->base + resource_size(res) / 2;
-	smmu->size = resource_size(res);
+	/*
+	 * The resource size should effectively match the value of SMMU_TOP;
+	 * stash that temporarily until we know PAGESIZE to validate it with.
+	 */
+	smmu->numpage = resource_size(res);
 
 	if (of_property_read_u32(dev->of_node, "#global-interrupts",
 				 &smmu->num_global_irqs)) {
