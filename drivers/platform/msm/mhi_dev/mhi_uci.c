@@ -163,7 +163,10 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
 		mhi_uci_generic_client_cb,
-		NULL
+		NULL,
+		NULL,
+		false,
+		true
 	},
 	{
 		MHI_CLIENT_QMI_OUT,
@@ -182,7 +185,10 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
 		NULL,
-		NULL
+		NULL,
+		NULL,
+		false,
+		true
 	},
 	{
 		MHI_CLIENT_IP_CTRL_0_OUT,
@@ -239,7 +245,7 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		NULL,
 		NULL,
 		false,
-		false,
+		true,
 		50
 	},
 	{
@@ -260,7 +266,11 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
 		mhi_uci_generic_client_cb,
-		"android_adb"
+		"android_adb",
+		NULL,
+		NULL,
+		false,
+		true
 	},
 };
 
@@ -980,8 +990,9 @@ static void  mhi_parse_state(char *buf, int *nbytes, uint32_t info)
 static int mhi_state_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
 	int rc, nbytes = 0;
-	uint32_t info = 0;
+	uint32_t info = 0, i;
 	char buf[MHI_CTRL_STATE];
+	const struct chan_attr *chan_attrib;
 
 	rc = mhi_ctrl_state_info(MHI_DEV_UEVENT_CTRL, &info);
 	if (rc) {
@@ -992,23 +1003,23 @@ static int mhi_state_uevent(struct device *dev, struct kobj_uevent_env *env)
 	mhi_parse_state(buf, &nbytes, info);
 	add_uevent_var(env, "MHI_STATE=%s", buf);
 
-	rc = mhi_ctrl_state_info(MHI_CLIENT_QMI_OUT, &info);
-	if (rc) {
-		pr_err("Failed to obtain channel 14 state\n");
-		return -EINVAL;
+	for (i = 0; i < ARRAY_SIZE(uci_chan_attr_table); i++) {
+		chan_attrib = &uci_chan_attr_table[i];
+		if (chan_attrib->state_bcast) {
+			uci_log(UCI_DBG_ERROR, "Calling notify for ch %d\n",
+					chan_attrib->chan_id);
+			rc = mhi_ctrl_state_info(chan_attrib->chan_id, &info);
+			if (rc) {
+				pr_err("Failed to obtain channel %d state\n",
+						chan_attrib->chan_id);
+				return -EINVAL;
+			}
+			nbytes = 0;
+			mhi_parse_state(buf, &nbytes, info);
+			add_uevent_var(env, "MHI_CHANNEL_STATE_%d=%s",
+					chan_attrib->chan_id, buf);
+		}
 	}
-	nbytes = 0;
-	mhi_parse_state(buf, &nbytes, info);
-	add_uevent_var(env, "MHI_CHANNEL_STATE_14=%s", buf);
-
-	rc = mhi_ctrl_state_info(MHI_CLIENT_MBIM_OUT, &info);
-	if (rc) {
-		pr_err("Failed to obtain channel 12 state\n");
-		return -EINVAL;
-	}
-	nbytes = 0;
-	mhi_parse_state(buf, &nbytes, info);
-	add_uevent_var(env, "MHI_CHANNEL_STATE_12=%s", buf);
 
 	return 0;
 }
