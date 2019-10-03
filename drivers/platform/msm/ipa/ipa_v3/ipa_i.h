@@ -1306,15 +1306,6 @@ struct ipa3_stats {
 #define IPA3_UC_DEBUG_STATS_OFF (20)
 
 /**
- * struct ipa3_uc_dbg_gsi_stats - uC dbg stats info for each
- * offloading protocol
- * @ring: ring stats for each channel
- */
-struct ipa3_uc_dbg_ring_stats {
-	struct IpaHwRingStats_t ring[MAX_CH_STATS_SUPPORTED];
-};
-
-/**
  * struct ipa3_uc_dbg_stats - uC dbg stats for offloading
  * protocols
  * @uc_dbg_stats_ofst: offset to SRAM base
@@ -1497,6 +1488,14 @@ struct ipa3_usb_ctx {
 struct ipa3_mhip_ctx {
 	struct ipa3_uc_dbg_stats dbg_stats;
 };
+
+/**
+ * struct ipa3_aqc_ctx - IPA aqc context
+ */
+struct ipa3_aqc_ctx {
+	struct ipa3_uc_dbg_stats dbg_stats;
+};
+
 
 /**
  * struct ipa3_transport_pm - transport power management related members
@@ -1898,6 +1897,7 @@ struct ipa3_context {
 	struct ipa3_wdi3_ctx wdi3_ctx;
 	struct ipa3_usb_ctx usb_ctx;
 	struct ipa3_mhip_ctx mhip_ctx;
+	struct ipa3_aqc_ctx aqc_ctx;
 	atomic_t ipa_clk_vote;
 	int gsi_chk_intset_value;
 	int uc_mailbox17_chk;
@@ -2493,10 +2493,14 @@ int ipa3_disconnect_gsi_wdi_pipe(u32 clnt_hdl);
 int ipa3_resume_wdi_pipe(u32 clnt_hdl);
 int ipa3_resume_gsi_wdi_pipe(u32 clnt_hdl);
 int ipa3_suspend_wdi_pipe(u32 clnt_hdl);
-int ipa3_get_wdi_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats);
-int ipa3_get_wdi3_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats);
-int ipa3_get_usb_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats);
+void ipa3_get_gsi_stats(int prot_id,
+	struct ipa_uc_dbg_ring_stats *stats);
+int ipa3_get_wdi_gsi_stats(struct ipa_uc_dbg_ring_stats *stats);
+int ipa3_get_wdi3_gsi_stats(struct ipa_uc_dbg_ring_stats *stats);
+int ipa3_get_usb_gsi_stats(struct ipa_uc_dbg_ring_stats *stats);
+int ipa3_get_aqc_gsi_stats(struct ipa_uc_dbg_ring_stats *stats);
 int ipa3_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats);
+int ipa3_get_prot_id(enum ipa_client_type client);
 u16 ipa3_get_smem_restr_bytes(void);
 int ipa3_broadcast_wdi_quota_reach_ind(uint32_t fid, uint64_t num_bytes);
 int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
@@ -2853,7 +2857,7 @@ int ipa3_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
 int ipa3_uc_send_remote_ipa_info(u32 remote_addr, uint32_t mbox_n);
 int ipa3_uc_debug_stats_alloc(
 	struct IpaHwOffloadStatsAllocCmdData_t cmdinfo);
-int ipa3_uc_debug_stats_dealloc(uint32_t protocol);
+int ipa3_uc_debug_stats_dealloc(uint32_t prot_id);
 void ipa3_tag_destroy_imm(void *user1, int user2);
 const struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info
 	(enum ipa_client_type client);
@@ -3015,8 +3019,8 @@ int ipa3_is_mhip_offload_enabled(void);
 int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
 	enum ipa_client_type dst_pipe);
 int ipa_mpm_panic_handler(char *buf, int size);
-int ipa3_get_mhip_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats);
 int ipa3_mpm_enable_adpl_over_odl(bool enable);
+int ipa3_get_mhip_gsi_stats(struct ipa_uc_dbg_ring_stats *stats);
 #else
 static inline int ipa_mpm_mhip_xdci_pipe_enable(
 	enum ipa_usb_teth_prot prot)
@@ -3047,7 +3051,7 @@ static inline int ipa_mpm_panic_handler(char *buf, int size)
 	return 0;
 }
 
-static inline int ipa3_get_mhip_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats)
+static inline int ipa3_get_mhip_gsi_stats(struct ipa_uc_dbg_ring_stats *stats)
 {
 	return 0;
 }
