@@ -595,7 +595,6 @@ static void msm_geni_ir_normal_mode(struct msm_geni_ir *ir)
 
 	/* configure serial clock */
 	clk_cfg = RX_CLK_DIV_VALUE(RX_CLK_DIV) | RX_SER_CLK_EN;
-	clk_cfg |= (TX_CLK_DIV_VALUE(TX_CLK_DIV) | TX_SER_CLK_EN);
 	writel_relaxed(clk_cfg, ir->base + IR_GENI_SER_CLK_CFG);
 
 	/* set rx polarization to active low */
