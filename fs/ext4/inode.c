@@ -4594,7 +4594,7 @@ void ext4_set_inode_flags(struct inode *inode)
 		new_fl |= S_DIRSYNC;
 	if (test_opt(inode->i_sb, DAX) && S_ISREG(inode->i_mode) &&
 	    !ext4_should_journal_data(inode) && !ext4_has_inline_data(inode) &&
-	    !(flags & EXT4_ENCRYPT_FL))
+	    !(flags & EXT4_ENCRYPT_FL) && !(flags & EXT4_VERITY_FL))
 		new_fl |= S_DAX;
 	if (flags & EXT4_ENCRYPT_FL)
 		new_fl |= S_ENCRYPTED;
