@@ -1343,6 +1343,7 @@ static int adreno_probe(struct platform_device *pdev)
 	struct adreno_device *adreno_dev;
 	struct kgsl_device *device;
 	int status;
+	unsigned int priv;
 
 	of_id = of_match_device(adreno_match_table, &pdev->dev);
 	if (!of_id)
@@ -1428,8 +1429,14 @@ static int adreno_probe(struct platform_device *pdev)
 		device->mmu.features |= KGSL_MMU_IO_COHERENT;
 
 	/* Allocate the memstore for storing timestamps and other useful info */
+	priv = KGSL_MEMDESC_CONTIG;
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+		priv |= KGSL_MEMDESC_PRIVILEGED;
+
 	status = kgsl_allocate_global(device, &device->memstore,
-		KGSL_MEMSTORE_SIZE, 0, KGSL_MEMDESC_CONTIG, "memstore");
+		KGSL_MEMSTORE_SIZE, 0, priv, "memstore");
+
 	if (status)
 		goto out;
 
@@ -1739,9 +1746,15 @@ static int adreno_init(struct kgsl_device *device)
 	 */
 
 	if (!adreno_is_a3xx(adreno_dev)) {
-		int r = kgsl_allocate_global(device,
+		unsigned int priv = 0;
+		int r;
+
+		if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+			priv |= KGSL_MEMDESC_PRIVILEGED;
+
+		r = kgsl_allocate_global(device,
 			&adreno_dev->profile_buffer, PAGE_SIZE,
-			0, 0, "alwayson");
+			0, priv, "alwayson");
 
 		adreno_dev->profile_index = 0;
 

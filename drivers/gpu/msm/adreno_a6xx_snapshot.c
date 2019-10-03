@@ -1606,8 +1606,9 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 	if (val & BIT(24))
 		return;
 
-	/* Turn on APRIV so we can access the buffers */
-	kgsl_regwrite(device, A6XX_CP_MISC_CNTL, 1);
+	/* Turn on APRIV for legacy targets so we can access the buffers */
+	if (!ADRENO_FEATURE(ADRENO_DEVICE(device), ADRENO_APRIV))
+		kgsl_regwrite(device, A6XX_CP_MISC_CNTL, 1);
 
 	kgsl_regwrite(device, A6XX_CP_CRASH_SCRIPT_BASE_LO,
 			lower_32_bits(a6xx_capturescript.gpuaddr));
@@ -1623,7 +1624,8 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 		cpu_relax();
 	}
 
-	kgsl_regwrite(device, A6XX_CP_MISC_CNTL, 0);
+	if (!ADRENO_FEATURE(ADRENO_DEVICE(device), ADRENO_APRIV))
+		kgsl_regwrite(device, A6XX_CP_MISC_CNTL, 0);
 
 	if (!(reg & 0x2)) {
 		dev_err(device->dev, "Crash dump timed out: 0x%X\n", reg);
