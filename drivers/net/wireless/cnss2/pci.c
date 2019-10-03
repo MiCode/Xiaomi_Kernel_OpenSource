@@ -3994,9 +3994,14 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	cnss_pci_disable_bus(pci_priv);
 	cnss_dereg_pci_event(pci_priv);
 	cnss_pci_deinit_smmu(pci_priv);
-	cnss_unregister_ramdump(plat_priv);
-	cnss_unregister_subsys(plat_priv);
-	plat_priv->bus_priv = NULL;
+	if (plat_priv) {
+		cnss_unregister_ramdump(plat_priv);
+		cnss_unregister_subsys(plat_priv);
+		plat_priv->bus_priv = NULL;
+	} else {
+		cnss_pr_err("Plat_priv is null, Unable to unregister ramdump,subsys\n");
+	}
+
 }
 
 static const struct pci_device_id cnss_pci_id_table[] = {
