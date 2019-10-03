@@ -88,7 +88,6 @@
 
 /* SMMU global address space */
 #define ARM_SMMU_GR0(smmu)		((smmu)->base)
-#define ARM_SMMU_GR1(smmu)		((smmu)->base + (1 << (smmu)->pgshift))
 
 /*
  * SMMU global address space with conditional offset to access secure
@@ -99,9 +98,6 @@
 	((smmu)->base +							\
 		((smmu->options & ARM_SMMU_OPT_SECURE_CFG_ACCESS)	\
 			? 0x400 : 0))
-
-/* Translation context bank */
-#define ARM_SMMU_CB(smmu, n)	((smmu)->base + (((smmu)->numpage + (n)) << (smmu)->pgshift))
 
 #define MSI_IOVA_BASE			0x8000000
 #define MSI_IOVA_LENGTH			0x100000
@@ -366,6 +362,50 @@ struct arm_smmu_domain {
 	struct list_head		nonsecure_pool;
 	struct msm_iommu_domain		domain;
 };
+
+static void __iomem *arm_smmu_page(struct arm_smmu_device *smmu, int n)
+{
+	return smmu->base + (n << smmu->pgshift);
+}
+
+static u32 arm_smmu_readl(struct arm_smmu_device *smmu, int page, int offset)
+{
+	return readl_relaxed(arm_smmu_page(smmu, page) + offset);
+}
+
+static void arm_smmu_writel(struct arm_smmu_device *smmu, int page, int offset,
+			    u32 val)
+{
+	writel_relaxed(val, arm_smmu_page(smmu, page) + offset);
+}
+
+static u64 arm_smmu_readq(struct arm_smmu_device *smmu, int page, int offset)
+{
+	return readq_relaxed(arm_smmu_page(smmu, page) + offset);
+}
+
+static void arm_smmu_writeq(struct arm_smmu_device *smmu, int page, int offset,
+			    u64 val)
+{
+	writeq_relaxed(val, arm_smmu_page(smmu, page) + offset);
+}
+
+#define ARM_SMMU_GR1		1
+#define ARM_SMMU_CB(s, n)	((s)->numpage + (n))
+
+#define arm_smmu_gr1_read(s, o)		\
+	arm_smmu_readl((s), ARM_SMMU_GR1, (o))
+#define arm_smmu_gr1_write(s, o, v)	\
+	arm_smmu_writel((s), ARM_SMMU_GR1, (o), (v))
+
+#define arm_smmu_cb_read(s, n, o)	\
+	arm_smmu_readl((s), ARM_SMMU_CB((s), (n)), (o))
+#define arm_smmu_cb_write(s, n, o, v)	\
+	arm_smmu_writel((s), ARM_SMMU_CB((s), (n)), (o), (v))
+#define arm_smmu_cb_readq(s, n, o)	\
+	arm_smmu_readq((s), ARM_SMMU_CB((s), (n)), (o))
+#define arm_smmu_cb_writeq(s, n, o, v)	\
+	arm_smmu_writeq((s), ARM_SMMU_CB((s), (n)), (o), (v))
 
 struct arm_smmu_option_prop {
 	u32 opt;
@@ -1062,16 +1102,18 @@ static void arm_smmu_domain_power_off(struct iommu_domain *domain,
 }
 
 /* Wait for any pending TLB invalidations to complete */
-static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
-				void __iomem *sync, void __iomem *status)
+static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu, int page,
+				int sync, int status)
 {
 	unsigned int spin_cnt, delay;
 	u32 sync_inv_ack, tbu_pwr_status, sync_inv_progress;
+	u32 reg;
 
-	writel_relaxed(QCOM_DUMMY_VAL, sync);
+	arm_smmu_writel(smmu, page, sync, QCOM_DUMMY_VAL);
 	for (delay = 1; delay < TLB_LOOP_TIMEOUT; delay *= 2) {
 		for (spin_cnt = TLB_SPIN_COUNT; spin_cnt > 0; spin_cnt--) {
-			if (!(readl_relaxed(status) & sTLBGSTATUS_GSACTIVE))
+			reg = arm_smmu_readl(smmu, page, status);
+			if (!(reg & sTLBGSTATUS_GSACTIVE))
 				return 0;
 			cpu_relax();
 		}
@@ -1093,12 +1135,11 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 
 static void arm_smmu_tlb_sync_global(struct arm_smmu_device *smmu)
 {
-	void __iomem *base = ARM_SMMU_GR0(smmu);
 	unsigned long flags;
 
 	spin_lock_irqsave(&smmu->global_sync_lock, flags);
-	if (__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_GR0_sTLBGSYNC,
-					base + ARM_SMMU_GR0_sTLBGSTATUS))
+	if (__arm_smmu_tlb_sync(smmu, 0, ARM_SMMU_GR0_sTLBGSYNC,
+				ARM_SMMU_GR0_sTLBGSTATUS))
 		dev_err_ratelimited(smmu->dev,
 				    "TLB global sync failed!\n");
 	spin_unlock_irqrestore(&smmu->global_sync_lock, flags);
@@ -1108,12 +1149,12 @@ static void arm_smmu_tlb_sync_context(void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	void __iomem *base = ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
+	int idx = smmu_domain->cfg.cbndx;
 	unsigned long flags;
 
 	spin_lock_irqsave(&smmu_domain->sync_lock, flags);
-	if (__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_CB_TLBSYNC,
-					base + ARM_SMMU_CB_TLBSTATUS))
+	if (__arm_smmu_tlb_sync(smmu, ARM_SMMU_CB(smmu, idx),
+				ARM_SMMU_CB_TLBSYNC, ARM_SMMU_CB_TLBSTATUS))
 		dev_err_ratelimited(smmu->dev,
 				"TLB sync on cb%d failed for device %s\n",
 				smmu_domain->cfg.cbndx,
@@ -1134,16 +1175,20 @@ static void arm_smmu_tlb_inv_context_s1(void *cookie)
 	struct device *dev = smmu_domain->dev;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	void __iomem *base = ARM_SMMU_CB(smmu_domain->smmu, cfg->cbndx);
+	int idx = smmu_domain->cfg.cbndx;
 	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
 	ktime_t cur = ktime_get();
 
 	trace_tlbi_start(dev, 0);
 
-	if (!use_tlbiall)
-		writel(cfg->asid, base + ARM_SMMU_CB_S1_TLBIASID);
-	else
-		writel(QCOM_DUMMY_VAL, base + ARM_SMMU_CB_S1_TLBIALL);
+	if (!use_tlbiall) {
+		wmb();
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_S1_TLBIASID,
+				  cfg->asid);
+	} else {
+		wmb();
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_S1_TLBIALL, 0);
+	}
 
 	arm_smmu_tlb_sync_context(cookie);
 	trace_tlbi_end(dev, ktime_us_delta(ktime_get(), cur));
@@ -1165,33 +1210,32 @@ static void arm_smmu_tlb_inv_range_s1(unsigned long iova, size_t size,
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	void __iomem *reg = ARM_SMMU_CB(smmu, cfg->cbndx);
+	int reg, idx = cfg->cbndx;
 	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
 
 	if (smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
 		wmb();
 
 	if (!use_tlbiall) {
-		reg += leaf ? ARM_SMMU_CB_S1_TLBIVAL : ARM_SMMU_CB_S1_TLBIVA;
+		reg = leaf ? ARM_SMMU_CB_S1_TLBIVAL : ARM_SMMU_CB_S1_TLBIVA;
 
 		if (cfg->fmt != ARM_SMMU_CTX_FMT_AARCH64) {
 			iova = (iova >> 12) << 12;
 			iova |= cfg->asid;
 			do {
-				writel_relaxed(iova, reg);
+				arm_smmu_cb_write(smmu, idx, reg, iova);
 				iova += granule;
 			} while (size -= granule);
 		} else {
 			iova >>= 12;
 			iova |= (u64)cfg->asid << 48;
 			do {
-				writeq_relaxed(iova, reg);
+				arm_smmu_cb_writeq(smmu, idx, reg, iova);
 				iova += granule >> 12;
 			} while (size -= granule);
 		}
 	} else {
-		reg += ARM_SMMU_CB_S1_TLBIALL;
-		writel_relaxed(0, reg);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_S1_TLBIALL, 0);
 	}
 }
 
@@ -1200,18 +1244,18 @@ static void arm_smmu_tlb_inv_range_s2(unsigned long iova, size_t size,
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	void __iomem *reg = ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
+	int reg, idx = smmu_domain->cfg.cbndx;
 
 	if (smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
 		wmb();
 
-	reg += leaf ? ARM_SMMU_CB_S2_TLBIIPAS2L : ARM_SMMU_CB_S2_TLBIIPAS2;
+	reg = leaf ? ARM_SMMU_CB_S2_TLBIIPAS2L : ARM_SMMU_CB_S2_TLBIIPAS2;
 	iova >>= 12;
 	do {
 		if (smmu_domain->cfg.fmt == ARM_SMMU_CTX_FMT_AARCH64)
-			writeq_relaxed(iova, reg);
+			arm_smmu_cb_writeq(smmu, idx, reg, iova);
 		else
-			writel_relaxed(iova, reg);
+			arm_smmu_cb_write(smmu, idx, reg, iova);
 		iova += granule >> 12;
 	} while (size -= granule);
 }
@@ -1371,16 +1415,15 @@ static void print_ctx_regs(struct arm_smmu_device *smmu, struct arm_smmu_cfg
 			   *cfg, unsigned int fsr)
 {
 	u32 fsynr0;
-	void __iomem *cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
-	void __iomem *gr1_base = ARM_SMMU_GR1(smmu);
+	int idx = cfg->cbndx;
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 
-	fsynr0 = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR0);
+	fsynr0 = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR0);
 
 	dev_err(smmu->dev, "FAR    = 0x%016llx\n",
-		readq_relaxed(cb_base + ARM_SMMU_CB_FAR));
+		arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR));
 	dev_err(smmu->dev, "PAR    = 0x%pK\n",
-		(void *) readq_relaxed(cb_base + ARM_SMMU_CB_PAR));
+		(void *) arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_PAR));
 
 	dev_err(smmu->dev,
 		"FSR    = 0x%08x [%s%s%s%s%s%s%s%s%s%s]\n",
@@ -1401,28 +1444,29 @@ static void print_ctx_regs(struct arm_smmu_device *smmu, struct arm_smmu_cfg
 	if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH32_S) {
 		dev_err(smmu->dev, "TTBR0  = 0x%pK\n",
 			(void *) (unsigned long)
-			readl_relaxed(cb_base + ARM_SMMU_CB_TTBR0));
+			arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_TTBR0));
 		dev_err(smmu->dev, "TTBR1  = 0x%pK\n",
 			(void *) (unsigned long)
-			readl_relaxed(cb_base + ARM_SMMU_CB_TTBR1));
+			arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_TTBR1));
 	} else {
 		dev_err(smmu->dev, "TTBR0  = 0x%pK\n",
-			(void *) readq_relaxed(cb_base + ARM_SMMU_CB_TTBR0));
+			(void *) arm_smmu_cb_readq(smmu, idx,
+						   ARM_SMMU_CB_TTBR0));
 		if (stage1)
 			dev_err(smmu->dev, "TTBR1  = 0x%pK\n",
-				(void *) readq_relaxed(cb_base +
-					ARM_SMMU_CB_TTBR1));
+				(void *) arm_smmu_cb_readq(smmu, idx,
+							   ARM_SMMU_CB_TTBR1));
 	}
 
 
 	dev_err(smmu->dev, "SCTLR  = 0x%08x ACTLR  = 0x%08x\n",
-	       readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR),
-	       readl_relaxed(cb_base + ARM_SMMU_CB_ACTLR));
+	       arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_SCTLR),
+	       arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_ACTLR));
 	dev_err(smmu->dev, "CBAR  = 0x%08x\n",
-	       readl_relaxed(gr1_base + ARM_SMMU_GR1_CBAR(cfg->cbndx)));
+		arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBAR(cfg->cbndx)));
 	dev_err(smmu->dev, "MAIR0   = 0x%08x MAIR1   = 0x%08x\n",
-	       readl_relaxed(cb_base + ARM_SMMU_CB_S1_MAIR0),
-	       readl_relaxed(cb_base + ARM_SMMU_CB_S1_MAIR1));
+	       arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_S1_MAIR0),
+	       arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_S1_MAIR1));
 
 }
 
@@ -1455,10 +1499,8 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	unsigned long iova;
 	struct iommu_domain *domain = dev;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	void __iomem *cb_base;
-	void __iomem *gr1_base;
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	bool fatal_asf = smmu->options & ARM_SMMU_OPT_FATAL_ASF;
 	phys_addr_t phys_soft;
 	uint64_t pte;
@@ -1468,14 +1510,13 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	static DEFINE_RATELIMIT_STATE(_rs,
 				      DEFAULT_RATELIMIT_INTERVAL,
 				      DEFAULT_RATELIMIT_BURST);
+	int idx = smmu_domain->cfg.cbndx;
 
 	ret = arm_smmu_power_on(smmu->pwr);
 	if (ret)
 		return IRQ_NONE;
 
-	gr1_base = ARM_SMMU_GR1(smmu);
-	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
-	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
 
 	if (!(fsr & FSR_FAULT)) {
 		ret = IRQ_NONE;
@@ -1488,8 +1529,8 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		BUG();
 	}
 
-	fsynr0 = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR0);
-	fsynr1 = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR1);
+	fsynr0 = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR0);
+	fsynr1 = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR1);
 	flags = fsynr0 & FSYNR0_WNR ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ;
 	if (fsr & FSR_TF)
 		flags |= IOMMU_FAULT_TRANSLATION;
@@ -1500,9 +1541,9 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	if (fsr & FSR_SS)
 		flags |= IOMMU_FAULT_TRANSACTION_STALLED;
 
-	iova = readq_relaxed(cb_base + ARM_SMMU_CB_FAR);
+	iova = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR);
 	phys_soft = arm_smmu_iova_to_phys(domain, iova);
-	frsynra = readl_relaxed(gr1_base + ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
+	frsynra = arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
 	frsynra &= CBFRSYNRA_SID_MASK;
 	tmp = report_iommu_fault(domain, smmu->dev, iova, flags);
 	if (!tmp || (tmp == -EBUSY)) {
@@ -1566,7 +1607,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	 */
 	if (tmp != -EBUSY) {
 		/* Clear the faulting FSR */
-		writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
 
 		/*
 		 * Barrier required to ensure that the FSR is cleared
@@ -1576,7 +1617,8 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 
 		/* Retry or terminate any stalled transactions */
 		if (fsr & FSR_SS)
-			writel_relaxed(resume, cb_base + ARM_SMMU_CB_RESUME);
+			arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
+					  resume);
 	}
 
 out_power_off:
@@ -1674,17 +1716,13 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	struct arm_smmu_cb *cb = &smmu->cbs[idx];
 	struct arm_smmu_cfg *cfg = cb->cfg;
 	struct arm_smmu_domain *smmu_domain = NULL;
-	void __iomem *cb_base, *gr1_base;
-
-	cb_base = ARM_SMMU_CB(smmu, idx);
 
 	/* Unassigned context banks only need disabling */
 	if (!cfg) {
-		writel_relaxed(0, cb_base + ARM_SMMU_CB_SCTLR);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, 0);
 		return;
 	}
 
-	gr1_base = ARM_SMMU_GR1(smmu);
 	stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 
 	/* CBA2R */
@@ -1697,7 +1735,7 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 		if (smmu->features & ARM_SMMU_FEAT_VMID16)
 			reg |= FIELD_PREP(CBA2R_VMID16, cfg->vmid);
 
-		writel_relaxed(reg, gr1_base + ARM_SMMU_GR1_CBA2R(idx));
+		arm_smmu_gr1_write(smmu, ARM_SMMU_GR1_CBA2R(idx), reg);
 	}
 
 	/* CBAR */
@@ -1716,7 +1754,7 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 		/* 8-bit VMIDs live in CBAR */
 		reg |= FIELD_PREP(CBAR_VMID, cfg->vmid);
 	}
-	writel_relaxed(reg, gr1_base + ARM_SMMU_GR1_CBAR(idx));
+	arm_smmu_gr1_write(smmu, ARM_SMMU_GR1_CBAR(idx), reg);
 
 	/*
 	 * TCR
@@ -1724,24 +1762,25 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	 * access behaviour of some fields (in particular, ASID[15:8]).
 	 */
 	if (stage1 && smmu->version > ARM_SMMU_V1)
-		writel_relaxed(cb->tcr[1], cb_base + ARM_SMMU_CB_TCR2);
-	writel_relaxed(cb->tcr[0], cb_base + ARM_SMMU_CB_TCR);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_TCR2, cb->tcr[1]);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_TCR, cb->tcr[0]);
 
 	/* TTBRs */
 	if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH32_S) {
-		writel_relaxed(cfg->asid, cb_base + ARM_SMMU_CB_CONTEXTIDR);
-		writel_relaxed(cb->ttbr[0], cb_base + ARM_SMMU_CB_TTBR0);
-		writel_relaxed(cb->ttbr[1], cb_base + ARM_SMMU_CB_TTBR1);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_CONTEXTIDR, cfg->asid);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_TTBR0, cb->ttbr[0]);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_TTBR1, cb->ttbr[1]);
 	} else {
-		writeq_relaxed(cb->ttbr[0], cb_base + ARM_SMMU_CB_TTBR0);
+		arm_smmu_cb_writeq(smmu, idx, ARM_SMMU_CB_TTBR0, cb->ttbr[0]);
 		if (stage1)
-			writeq_relaxed(cb->ttbr[1], cb_base + ARM_SMMU_CB_TTBR1);
+			arm_smmu_cb_writeq(smmu, idx, ARM_SMMU_CB_TTBR1,
+					   cb->ttbr[1]);
 	}
 
 	/* MAIRs (stage-1 only) */
 	if (stage1) {
-		writel_relaxed(cb->mair[0], cb_base + ARM_SMMU_CB_S1_MAIR0);
-		writel_relaxed(cb->mair[1], cb_base + ARM_SMMU_CB_S1_MAIR1);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_S1_MAIR0, cb->mair[0]);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_S1_MAIR1, cb->mair[1]);
 	}
 
 	/* SCTLR */
@@ -1782,7 +1821,7 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN))
 		reg |= SCTLR_E;
 
-	writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, reg);
 }
 
 static int arm_smmu_init_asid(struct iommu_domain *domain,
@@ -2194,7 +2233,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	void __iomem *cb_base;
+	int idx = cfg->cbndx;
 	int irq;
 	bool dynamic;
 	int ret;
@@ -2233,8 +2272,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	 * it.
 	 */
 	smmu->cbs[cfg->cbndx].cfg = NULL;
-	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
-	writel_relaxed(0, cb_base + ARM_SMMU_CB_SCTLR);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, 0);
 
 	if (cfg->irptndx != INVALID_IRPTNDX) {
 		irq = smmu->irqs[smmu->num_global_irqs + cfg->irptndx];
@@ -3173,21 +3211,20 @@ static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
 	struct device *dev = smmu->dev;
-	void __iomem *cb_base;
+	void __iomem *reg;
 	u32 tmp;
 	u64 phys;
 	unsigned long va;
-
-	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
+	int idx = cfg->cbndx;
 
 	va = iova & ~0xfffUL;
 	if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH64)
-		writeq_relaxed(va, cb_base + ARM_SMMU_CB_ATS1PR);
+		arm_smmu_cb_writeq(smmu, idx, ARM_SMMU_CB_ATS1PR, va);
 	else
-		writel_relaxed(va, cb_base + ARM_SMMU_CB_ATS1PR);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_ATS1PR, va);
 
-	if (readl_poll_timeout_atomic(cb_base + ARM_SMMU_CB_ATSR, tmp,
-				      !(tmp & ATSR_ACTIVE), 5, 50)) {
+	reg = arm_smmu_page(smmu, ARM_SMMU_CB(smmu, idx)) + ARM_SMMU_CB_ATSR;
+	if (readl_poll_timeout_atomic(reg, tmp, !(tmp & ATSR_ACTIVE), 5, 50)) {
 		phys = ops->iova_to_phys(ops, iova);
 		dev_err(dev,
 			"iova to phys timed out on %pad. software table walk result=%pa.\n",
@@ -3196,7 +3233,7 @@ static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		return phys;
 	}
 
-	phys = readq_relaxed(cb_base + ARM_SMMU_CB_PAR);
+	phys = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_PAR);
 	if (phys & CB_PAR_F) {
 		dev_err(dev, "translation fault!\n");
 		dev_err(dev, "PAR = 0x%llx\n", phys);
@@ -3905,19 +3942,18 @@ static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain)
 {
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	void __iomem *cb_base;
+	int idx = cfg->cbndx;
 	u32 reg;
 	int ret;
 
-	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
 	ret = arm_smmu_power_on(smmu->pwr);
 	if (ret)
 		return ret;
 
-	reg = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	reg = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_SCTLR);
 	reg |= SCTLR_M;
 
-	writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, reg);
 	arm_smmu_power_off(smmu, smmu->pwr);
 	return ret;
 }
@@ -3946,7 +3982,7 @@ static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu;
-	void __iomem *cb_base;
+	int idx = cfg->cbndx;
 
 	if (!smmu_domain->smmu) {
 		pr_err("Can't trigger faults on non-attached domains\n");
@@ -3957,10 +3993,9 @@ static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 	if (arm_smmu_power_on(smmu->pwr))
 		return;
 
-	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
 	dev_err(smmu->dev, "Writing 0x%lx to FSRRESTORE on cb %d\n",
 		flags, cfg->cbndx);
-	writel_relaxed(flags, cb_base + ARM_SMMU_CB_FSRRESTORE);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSRRESTORE, flags);
 	/* give the interrupt time to fire... */
 	msleep(1000);
 
@@ -4025,7 +4060,6 @@ static void arm_smmu_context_bank_reset(struct arm_smmu_device *smmu)
 	int i;
 	u32 reg, major;
 	void __iomem *gr0_base = ARM_SMMU_GR0(smmu);
-	void __iomem *cb_base;
 
 	if (smmu->model == ARM_MMU500) {
 		/*
@@ -4048,18 +4082,16 @@ static void arm_smmu_context_bank_reset(struct arm_smmu_device *smmu)
 
 	/* Make sure all context banks are disabled and clear CB_FSR  */
 	for (i = 0; i < smmu->num_context_banks; ++i) {
-		cb_base = ARM_SMMU_CB(smmu, i);
-
 		arm_smmu_write_context_bank(smmu, i, 0);
-		writel_relaxed(FSR_FAULT, cb_base + ARM_SMMU_CB_FSR);
+		arm_smmu_cb_write(smmu, i, ARM_SMMU_CB_FSR, FSR_FAULT);
 		/*
 		 * Disable MMU-500's not-particularly-beneficial next-page
 		 * prefetcher for the sake of errata #841119 and #826419.
 		 */
 		if (smmu->model == ARM_MMU500) {
-			reg = readl_relaxed(cb_base + ARM_SMMU_CB_ACTLR);
+			reg = arm_smmu_cb_read(smmu, i, ARM_SMMU_CB_ACTLR);
 			reg &= ~ARM_MMU500_ACTLR_CPRE;
-			writel_relaxed(reg, cb_base + ARM_SMMU_CB_ACTLR);
+			arm_smmu_cb_write(smmu, i, ARM_SMMU_CB_ACTLR, reg);
 		}
 	}
 }
@@ -5171,7 +5203,9 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 {
 	unsigned long flags;
 	u32 halt, fsr, sctlr_orig, sctlr, status;
-	void __iomem *base, *cb_base;
+	void __iomem *base;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	int idx = smmu_domain->cfg.cbndx;
 
 	if (of_property_read_bool(tbu->dev->of_node,
 						"qcom,opt-out-tbu-halting")) {
@@ -5186,7 +5220,6 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 		return 0;
 	}
 
-	cb_base = ARM_SMMU_CB(smmu_domain->smmu, smmu_domain->cfg.cbndx);
 	base = tbu->base;
 	halt = readl_relaxed(base + DEBUG_SID_HALT_REG);
 	halt |= DEBUG_SID_HALT_VAL;
@@ -5197,7 +5230,7 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 					0, TBU_DBG_TIMEOUT_US))
 		goto out;
 
-	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
 	if (!(fsr & FSR_FAULT)) {
 		dev_err(tbu->dev, "Couldn't halt TBU!\n");
 		spin_unlock_irqrestore(&tbu->halt_lock, flags);
@@ -5210,23 +5243,23 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 	 * completed. Disable iommu faults and terminate any existing
 	 * transactions.
 	 */
-	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	sctlr_orig = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_SCTLR);
 	sctlr = sctlr_orig & ~(SCTLR_CFCFG | SCTLR_CFIE);
-	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr);
 
-	writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
-	writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME, RESUME_TERMINATE);
 
 	if (readl_poll_timeout_atomic(base + DEBUG_SR_HALT_ACK_REG, status,
 					(status & DEBUG_SR_HALT_ACK_VAL),
 					0, TBU_DBG_TIMEOUT_US)) {
 		dev_err(tbu->dev, "Couldn't halt TBU from fault context!\n");
-		writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
 		spin_unlock_irqrestore(&tbu->halt_lock, flags);
 		return -ETIMEDOUT;
 	}
 
-	writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
 out:
 	tbu->halt_count = 1;
 	spin_unlock_irqrestore(&tbu->halt_lock, flags);
@@ -5325,7 +5358,7 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	phys_addr_t phys = 0;
 	u64 val, fsr;
 	unsigned long flags;
-	void __iomem *cb_base;
+	int idx = cfg->cbndx;
 	u32 sctlr_orig, sctlr;
 	int needs_redo = 0;
 	ktime_t timeout;
@@ -5337,7 +5370,6 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 		return 0;
 	}
 
-	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
 	tbu = qsmmuv500_find_tbu(smmu, sid);
 	if (!tbu)
 		return 0;
@@ -5354,9 +5386,9 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	 * ECATS can trigger the fault interrupt, so disable it temporarily
 	 * and check for an interrupt manually.
 	 */
-	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	sctlr_orig = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_SCTLR);
 	sctlr = sctlr_orig & ~(SCTLR_CFCFG | SCTLR_CFIE);
-	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr);
 
 	/* Only one concurrent atos operation */
 	ret = qsmmuv500_ecats_lock(smmu_domain, tbu, &flags);
@@ -5390,7 +5422,7 @@ redo:
 		val = readl_relaxed(tbu->base + DEBUG_SR_HALT_ACK_REG);
 		if (!(val & DEBUG_SR_ECATS_RUNNING_VAL))
 			break;
-		val = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+		val = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
 		if (val & FSR_FAULT)
 			break;
 		if (ktime_compare(ktime_get(), timeout) > 0) {
@@ -5401,19 +5433,20 @@ redo:
 	}
 
 	val = readq_relaxed(tbu->base + DEBUG_PAR_REG);
-	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
 	if (fsr & FSR_FAULT) {
 		dev_err(tbu->dev, "ECATS generated a fault interrupt! FSR = %llx, SID=0x%x\n",
 				fsr, sid);
 
 		/* Clear pending interrupts */
-		writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
 		/*
 		 * Barrier required to ensure that the FSR is cleared
 		 * before resuming SMMU operation.
 		 */
 		wmb();
-		writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
+				  RESUME_TERMINATE);
 
 		/* Check if ECATS translation failed */
 		if (val & DEBUG_PAR_FAULT_VAL)
@@ -5440,7 +5473,7 @@ redo:
 	if (!phys && needs_redo++ < 2)
 		goto redo;
 
-	writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
 	qsmmuv500_ecats_unlock(smmu_domain, tbu, &flags);
 
 out_resume:
@@ -5466,7 +5499,6 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct iommu_fwspec *fwspec;
-	void __iomem *gr1_base;
 	u32 frsynra;
 	int is_debug_domain;
 
@@ -5484,9 +5516,8 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 		/* If the domain belongs to an actual device, read
 		 * SID from the corresponding frsynra register
 		 */
-		gr1_base = ARM_SMMU_GR1(smmu);
-		frsynra  = readl_relaxed(gr1_base +
-				ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
+		frsynra = arm_smmu_gr1_read(smmu,
+					    ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
 		frsynra &= CBFRSYNRA_SID_MASK;
 		sid      = frsynra;
 	}
@@ -5543,16 +5574,15 @@ static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct qsmmuv500_group_iommudata *iommudata =
 		to_qsmmuv500_group_iommudata(dev->iommu_group);
-	void __iomem *cb_base;
+	int idx = smmu_domain->cfg.cbndx;
 	const struct iommu_gather_ops *tlb;
 
 	if (!iommudata->has_actlr)
 		return;
 
 	tlb = smmu_domain->pgtbl_info.pgtbl_cfg.tlb;
-	cb_base = ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
 
-	writel_relaxed(iommudata->actlr, cb_base + ARM_SMMU_CB_ACTLR);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_ACTLR, iommudata->actlr);
 
 	/*
 	 * Flush the context bank after modifying ACTLR to ensure there
