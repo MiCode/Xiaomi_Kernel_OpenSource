@@ -793,7 +793,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a630v2 = {
 	.hwcg_count = ARRAY_SIZE(a630_hwcg_regs),
 	.vbif = a630_vbif_regs,
 	.vbif_count = ARRAY_SIZE(a630_vbif_regs),
-	.hang_detect_cycles = 0x3fffff,
+	.hang_detect_cycles = 0xcfffff,
 	.protected_regs = a630_protected_regs,
 };
 
@@ -892,7 +892,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a615 = {
 	.hwcg_count = ARRAY_SIZE(a615_hwcg_regs),
 	.vbif = a615_gbif_regs,
 	.vbif_count = ARRAY_SIZE(a615_gbif_regs),
-	.hang_detect_cycles = 0x3fffff,
+	.hang_detect_cycles = 0xcfffff,
 	.protected_regs = a630_protected_regs,
 };
 
@@ -1137,7 +1137,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a640 = {
 	.hwcg_count = ARRAY_SIZE(a640_hwcg_regs),
 	.vbif = a640_vbif_regs,
 	.vbif_count = ARRAY_SIZE(a640_vbif_regs),
-	.hang_detect_cycles = 0x3fffff,
+	.hang_detect_cycles = 0xcfffff,
 	.protected_regs = a630_protected_regs,
 	.disable_tseskip = true,
 };
@@ -1217,7 +1217,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a650 = {
 	.vbif_count = ARRAY_SIZE(a650_gbif_regs),
 	.veto_fal10 = true,
 	.pdc_in_aop = true,
-	.hang_detect_cycles = 0x3fffff,
+	.hang_detect_cycles = 0xcfffff,
 	.protected_regs = a620_protected_regs,
 	.disable_tseskip = true,
 };
@@ -1272,7 +1272,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a680 = {
 	.hwcg_count = ARRAY_SIZE(a640_hwcg_regs),
 	.vbif = a640_vbif_regs,
 	.vbif_count = ARRAY_SIZE(a640_vbif_regs),
-	.hang_detect_cycles = 0x3fffff,
+	.hang_detect_cycles = 0xcfffff,
 	.protected_regs = a630_protected_regs,
 	.disable_tseskip = true,
 };
@@ -1374,7 +1374,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a616 = {
 	.hwcg_count = ARRAY_SIZE(a615_hwcg_regs),
 	.vbif = a615_gbif_regs,
 	.vbif_count = ARRAY_SIZE(a615_gbif_regs),
-	.hang_detect_cycles = 0x3fffff,
+	.hang_detect_cycles = 0xcfffff,
 	.protected_regs = a630_protected_regs,
 };
 
