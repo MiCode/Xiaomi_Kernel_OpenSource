@@ -3,8 +3,8 @@
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
  */
 
-#ifndef _MSM_ION_OF_H
-#define _MSM_ION_OF_H
+#ifndef _MSM_ION_H
+#define _MSM_ION_H
 
 #include <linux/device.h>
 #include <uapi/linux/msm_ion.h>
@@ -21,4 +21,4 @@ static inline struct device *msm_ion_heap_device_by_id(int heap_id)
 }
 
 #endif /* CONFIG_ION_MSM_HEAPS */
-#endif /* _MSM_ION_OF_H */
+#endif /* _MSM_ION_H */
