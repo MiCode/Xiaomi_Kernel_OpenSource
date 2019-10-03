@@ -3019,7 +3019,6 @@ int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
 	 * to supply more current, so allow it to do so.
 	 */
 	if ((val->intval > 0) && (val->intval < chg->last_wls_vout)) {
-		/* Rerun AICL once after 10 s */
 		alarm_start_relative(&chg->dcin_aicl_alarm,
 				ms_to_ktime(DCIN_AICL_RERUN_DELAY_MS));
 	}
@@ -6046,6 +6045,7 @@ static void dcin_aicl(struct smb_charger *chg)
 {
 	int rc, icl, icl_save;
 	int input_present;
+	bool aicl_done = true;
 
 	/*
 	 * Hold awake votable to prevent pm_relax being called prior to
@@ -6058,11 +6058,16 @@ increment:
 
 	rc = smblib_get_charge_param(chg, &chg->param.dc_icl, &icl);
 	if (rc < 0)
-		goto unlock;
+		goto err;
 
 	if (icl == chg->wls_icl_ua) {
 		/* Upper limit reached; do nothing */
 		smblib_dbg(chg, PR_WLS, "hit max ICL: stop\n");
+
+		rc = smblib_is_input_present(chg, &input_present);
+		if (rc < 0 || !(input_present & INPUT_PRESENT_DC))
+			aicl_done = false;
+
 		goto unlock;
 	}
 
@@ -6071,7 +6076,7 @@ increment:
 
 	rc = smblib_set_charge_param(chg, &chg->param.dc_icl, icl);
 	if (rc < 0)
-		goto unlock;
+		goto err;
 
 	mutex_unlock(&chg->dcin_aicl_lock);
 
@@ -6079,8 +6084,10 @@ increment:
 
 	/* Check to see if DC is still present before and after sleep */
 	rc = smblib_is_input_present(chg, &input_present);
-	if (!(input_present & INPUT_PRESENT_DC) || rc < 0)
+	if (rc < 0 || !(input_present & INPUT_PRESENT_DC)) {
+		aicl_done = false;
 		goto unvote;
+	}
 
 	/*
 	 * Wait awhile to check for any DCIN_UVs (the UV handler reduces the
@@ -6090,14 +6097,16 @@ increment:
 	msleep(500);
 
 	rc = smblib_is_input_present(chg, &input_present);
-	if (!(input_present & INPUT_PRESENT_DC) || rc < 0)
+	if (rc < 0 || !(input_present & INPUT_PRESENT_DC)) {
+		aicl_done = false;
 		goto unvote;
+	}
 
 	mutex_lock(&chg->dcin_aicl_lock);
 
 	rc = smblib_get_charge_param(chg, &chg->param.dc_icl, &icl);
 	if (rc < 0)
-		goto unlock;
+		goto err;
 
 	if (icl < icl_save) {
 		smblib_dbg(chg, PR_WLS, "done: icl: %d mA\n", (icl / 1000));
@@ -6107,10 +6116,14 @@ increment:
 	mutex_unlock(&chg->dcin_aicl_lock);
 
 	goto increment;
+
+err:
+	aicl_done = false;
 unlock:
 	mutex_unlock(&chg->dcin_aicl_lock);
 unvote:
 	vote(chg->awake_votable, DCIN_AICL_VOTER, false, 0);
+	chg->dcin_aicl_done = aicl_done;
 }
 
 static void dcin_aicl_work(struct work_struct *work)
@@ -6154,7 +6167,7 @@ static void dcin_icl_decrement(struct smb_charger *chg)
 	/* Reduce ICL by 100 mA if 3 UVs happen in a row */
 	if (ktime_us_delta(now, chg->dcin_uv_last_time) > (200 * 1000)) {
 		chg->dcin_uv_count = 0;
-	} else if (chg->dcin_uv_count == 3) {
+	} else if (chg->dcin_uv_count >= 3) {
 		icl -= DCIN_ICL_STEP_UA;
 
 		smblib_dbg(chg, PR_WLS, "icl: %d mA\n", (icl / 1000));
@@ -6314,6 +6327,7 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 			vote(chg->fcc_votable, FCC_STEPPER_VOTER,
 							true, 1500000);
 		chg->last_wls_vout = 0;
+		chg->dcin_aicl_done = false;
 	}
 
 	if (chg->dc_psy)
