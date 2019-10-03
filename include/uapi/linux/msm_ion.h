@@ -13,7 +13,7 @@
  * compile time only their code which uses the appropriate ION APIs for
  * this kernel is included.
  */
-#define TARGET_ION_ABI_VERSION 2
+#define TARGET_ION_ABI_VERSION 3
 
 enum msm_ion_heap_types {
 	ION_HEAP_TYPE_MSM_START = 16,
