@@ -52,7 +52,7 @@ int cam_req_mgr_util_init(void)
 	hdl_tbl = hdl_tbl_local;
 	spin_unlock_bh(&hdl_tbl_lock);
 
-	bitmap_size = BITS_TO_LONGS(CAM_REQ_MGR_MAX_HANDLES) * sizeof(long);
+	bitmap_size = BITS_TO_LONGS(CAM_REQ_MGR_MAX_HANDLES_V2) * sizeof(long);
 	hdl_tbl->bitmap = kzalloc(bitmap_size, GFP_KERNEL);
 	if (!hdl_tbl->bitmap) {
 		rc = -ENOMEM;
@@ -99,7 +99,7 @@ int cam_req_mgr_util_free_hdls(void)
 		return -EINVAL;
 	}
 
-	for (i = 0; i < CAM_REQ_MGR_MAX_HANDLES; i++) {
+	for (i = 0; i < CAM_REQ_MGR_MAX_HANDLES_V2; i++) {
 		if (hdl_tbl->hdl[i].state == HDL_ACTIVE) {
 			CAM_ERR(CAM_CRM, "Dev handle = %x session_handle = %x",
 				hdl_tbl->hdl[i].hdl_value,
@@ -108,7 +108,7 @@ int cam_req_mgr_util_free_hdls(void)
 			clear_bit(i, hdl_tbl->bitmap);
 		}
 	}
-	bitmap_zero(hdl_tbl->bitmap, CAM_REQ_MGR_MAX_HANDLES);
+	bitmap_zero(hdl_tbl->bitmap, CAM_REQ_MGR_MAX_HANDLES_V2);
 	spin_unlock_bh(&hdl_tbl_lock);
 
 	return 0;
@@ -120,7 +120,7 @@ static int32_t cam_get_free_handle_index(void)
 
 	idx = find_first_zero_bit(hdl_tbl->bitmap, hdl_tbl->bits);
 
-	if (idx >= CAM_REQ_MGR_MAX_HANDLES || idx < 0)
+	if (idx >= CAM_REQ_MGR_MAX_HANDLES_V2 || idx < 0)
 		return -ENOSR;
 
 	set_bit(idx, hdl_tbl->bitmap);
@@ -132,7 +132,7 @@ void cam_dump_tbl_info(void)
 {
 	int i;
 
-	for (i = 0; i < CAM_REQ_MGR_MAX_HANDLES; i++)
+	for (i = 0; i < CAM_REQ_MGR_MAX_HANDLES_V2; i++)
 		CAM_INFO(CAM_CRM, "session_hdl=%x hdl_value=%x\n"
 			"type=%d state=%d dev_id=%lld",
 			hdl_tbl->hdl[i].session_hdl,
@@ -226,7 +226,7 @@ void *cam_get_device_priv(int32_t dev_hdl)
 	}
 
 	idx = CAM_REQ_MGR_GET_HDL_IDX(dev_hdl);
-	if (idx >= CAM_REQ_MGR_MAX_HANDLES) {
+	if (idx >= CAM_REQ_MGR_MAX_HANDLES_V2) {
 		CAM_ERR_RATE_LIMIT(CAM_CRM, "Invalid idx");
 		goto device_priv_fail;
 	}
@@ -270,7 +270,7 @@ void *cam_get_device_ops(int32_t dev_hdl)
 	}
 
 	idx = CAM_REQ_MGR_GET_HDL_IDX(dev_hdl);
-	if (idx >= CAM_REQ_MGR_MAX_HANDLES) {
+	if (idx >= CAM_REQ_MGR_MAX_HANDLES_V2) {
 		CAM_ERR(CAM_CRM, "Invalid idx");
 		goto device_ops_fail;
 	}
@@ -313,7 +313,7 @@ static int cam_destroy_hdl(int32_t dev_hdl, int dev_hdl_type)
 	}
 
 	idx = CAM_REQ_MGR_GET_HDL_IDX(dev_hdl);
-	if (idx >= CAM_REQ_MGR_MAX_HANDLES) {
+	if (idx >= CAM_REQ_MGR_MAX_HANDLES_V2) {
 		CAM_ERR(CAM_CRM, "Invalid idx %d", idx);
 		goto destroy_hdl_fail;
 	}
