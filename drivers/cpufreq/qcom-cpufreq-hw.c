@@ -66,6 +66,7 @@ struct cpufreq_qcom {
 	int dcvsh_irq;
 	char dcvsh_irq_name[MAX_FN_SIZE];
 	bool is_irq_enabled;
+	bool is_irq_requested;
 };
 
 struct cpufreq_counter {
@@ -295,7 +296,7 @@ static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 
 	dev_pm_opp_of_register_em(policy->cpus);
 
-	if (c->dcvsh_irq > 0) {
+	if (c->dcvsh_irq > 0 && !c->is_irq_requested) {
 		snprintf(c->dcvsh_irq_name, sizeof(c->dcvsh_irq_name),
 					"dcvsh-irq-%d", policy->cpu);
 		ret = devm_request_threaded_irq(cpu_dev, c->dcvsh_irq, NULL,
@@ -306,6 +307,7 @@ static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 			return ret;
 		}
 
+		c->is_irq_requested = true;
 		c->is_irq_enabled = true;
 		writel_relaxed(LT_IRQ_STATUS, c->base + offsets[REG_INTR_EN]);
 		c->freq_limit_attr.attr.name = "dcvsh_freq_limit";
