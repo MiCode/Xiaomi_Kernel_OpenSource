@@ -21,6 +21,7 @@ dtb-$(CONFIG_ARCH_SDXPOORWILLS) += sdxpoorwills-rumi.dtb \
 	sa415m-ccard.dtb \
 	sa415m-ccard-pcie-ep.dtb \
 	sa415m-ccard-usb-ep.dtb \
+	sa415m-ttp-pcie-ep.dtb \
 	sa415m-ttp-usb-ep.dtb \
 	sa415m-mtp-256.dtb \
 	sa415m-cdp.dtb \
