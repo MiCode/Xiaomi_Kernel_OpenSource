@@ -10,7 +10,14 @@
 #ifndef _ARM_SMMU_REGS_H
 #define _ARM_SMMU_REGS_H
 
+#include <linux/atomic.h>
 #include <linux/bits.h>
+#include <linux/clk.h>
+#include <linux/device.h>
+#include <linux/iommu.h>
+#include <linux/mutex.h>
+#include <linux/spinlock.h>
+#include <linux/types.h>
 
 /* Configuration registers */
 #define ARM_SMMU_GR0_sCR0		0x0
@@ -222,5 +229,212 @@ enum arm_smmu_cbar_type {
 
 #define ARM_SMMU_CB_ATSR		0x8f0
 #define ATSR_ACTIVE			BIT(0)
+
+
+/* Maximum number of context banks per SMMU */
+#define ARM_SMMU_MAX_CBS		128
+
+
+/* Shared driver definitions */
+enum arm_smmu_arch_version {
+	ARM_SMMU_V1,
+	ARM_SMMU_V1_64K,
+	ARM_SMMU_V2,
+};
+
+enum arm_smmu_implementation {
+	GENERIC_SMMU,
+	ARM_MMU500,
+	CAVIUM_SMMUV2,
+	QCOM_SMMUV2,
+	QCOM_SMMUV500,
+};
+
+struct arm_smmu_impl_def_reg {
+	u32 offset;
+	u32 value;
+};
+
+/*
+ * Describes resources required for on/off power operation.
+ * Separate reference count is provided for atomic/nonatomic
+ * operations.
+ */
+struct arm_smmu_power_resources {
+	struct platform_device		*pdev;
+	struct device			*dev;
+
+	struct clk			**clocks;
+	int				num_clocks;
+
+	struct regulator_bulk_data	*gdscs;
+	int				num_gdscs;
+
+	struct icc_path			*icc_path;
+
+	/* Protects power_count */
+	struct mutex			power_lock;
+	int				power_count;
+
+	/* Protects clock_refs_count */
+	spinlock_t			clock_refs_lock;
+	int				clock_refs_count;
+	int				regulator_defer;
+};
+
+struct arm_smmu_device {
+	struct device			*dev;
+
+	void __iomem			*base;
+	phys_addr_t			phys_addr;
+	unsigned int			numpage;
+	unsigned int			pgshift;
+
+#define ARM_SMMU_FEAT_COHERENT_WALK	(1 << 0)
+#define ARM_SMMU_FEAT_STREAM_MATCH	(1 << 1)
+#define ARM_SMMU_FEAT_TRANS_S1		(1 << 2)
+#define ARM_SMMU_FEAT_TRANS_S2		(1 << 3)
+#define ARM_SMMU_FEAT_TRANS_NESTED	(1 << 4)
+#define ARM_SMMU_FEAT_TRANS_OPS		(1 << 5)
+#define ARM_SMMU_FEAT_VMID16		(1 << 6)
+#define ARM_SMMU_FEAT_FMT_AARCH64_4K	(1 << 7)
+#define ARM_SMMU_FEAT_FMT_AARCH64_16K	(1 << 8)
+#define ARM_SMMU_FEAT_FMT_AARCH64_64K	(1 << 9)
+#define ARM_SMMU_FEAT_FMT_AARCH32_L	(1 << 10)
+#define ARM_SMMU_FEAT_FMT_AARCH32_S	(1 << 11)
+#define ARM_SMMU_FEAT_EXIDS		(1 << 12)
+	u32				features;
+
+#define ARM_SMMU_OPT_FATAL_ASF		(1 << 0)
+#define ARM_SMMU_OPT_SKIP_INIT		(1 << 1)
+#define ARM_SMMU_OPT_3LVL_TABLES	(1 << 2)
+#define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 3)
+#define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 4)
+	u32				options;
+	enum arm_smmu_arch_version	version;
+	enum arm_smmu_implementation	model;
+	const struct arm_smmu_impl	*impl;
+
+	u32				num_context_banks;
+	u32				num_s2_context_banks;
+	DECLARE_BITMAP(context_map, ARM_SMMU_MAX_CBS);
+	struct arm_smmu_cb		*cbs;
+	atomic_t			irptndx;
+
+	u32				num_mapping_groups;
+	u16				streamid_mask;
+	u16				smr_mask_mask;
+	struct arm_smmu_smr		*smrs;
+	struct arm_smmu_s2cr		*s2crs;
+	struct mutex			stream_map_mutex;
+	struct mutex			iommu_group_mutex;
+	unsigned long			va_size;
+	unsigned long			ipa_size;
+	unsigned long			pa_size;
+	unsigned long			pgsize_bitmap;
+
+	u32				num_global_irqs;
+	u32				num_context_irqs;
+	unsigned int			*irqs;
+	struct clk_bulk_data		*clks;
+	int				num_clks;
+
+	struct list_head		list;
+
+	u32				cavium_id_base; /* Specific to Cavium */
+
+	spinlock_t			global_sync_lock;
+
+	/* IOMMU core code handle */
+	struct iommu_device		iommu;
+
+	/* Specific to QCOM */
+	struct arm_smmu_impl_def_reg	*impl_def_attach_registers;
+	unsigned int			num_impl_def_attach_registers;
+
+	struct arm_smmu_power_resources *pwr;
+
+	spinlock_t			atos_lock;
+
+	/* protects idr */
+	struct mutex			idr_mutex;
+	struct idr			asid_idr;
+
+	struct arm_smmu_arch_ops	*arch_ops;
+	void				*archdata;
+};
+
+
+/* Implementation details, yay! */
+struct arm_smmu_impl {
+	u32 (*read_reg)(struct arm_smmu_device *smmu, int page, int offset);
+	void (*write_reg)(struct arm_smmu_device *smmu, int page, int offset,
+			  u32 val);
+	u64 (*read_reg64)(struct arm_smmu_device *smmu, int page, int offset);
+	void (*write_reg64)(struct arm_smmu_device *smmu, int page, int offset,
+			    u64 val);
+};
+
+static inline void __iomem *arm_smmu_page(struct arm_smmu_device *smmu, int n)
+{
+	return smmu->base + (n << smmu->pgshift);
+}
+
+static inline u32 arm_smmu_readl(struct arm_smmu_device *smmu, int page, int offset)
+{
+	if (smmu->impl && unlikely(smmu->impl->read_reg))
+		return smmu->impl->read_reg(smmu, page, offset);
+	return readl_relaxed(arm_smmu_page(smmu, page) + offset);
+}
+
+static inline void arm_smmu_writel(struct arm_smmu_device *smmu, int page,
+				   int offset, u32 val)
+{
+	if (smmu->impl && unlikely(smmu->impl->write_reg))
+		smmu->impl->write_reg(smmu, page, offset, val);
+	else
+		writel_relaxed(val, arm_smmu_page(smmu, page) + offset);
+}
+
+static inline u64 arm_smmu_readq(struct arm_smmu_device *smmu, int page, int offset)
+{
+	if (smmu->impl && unlikely(smmu->impl->read_reg64))
+		return smmu->impl->read_reg64(smmu, page, offset);
+	return readq_relaxed(arm_smmu_page(smmu, page) + offset);
+}
+
+static inline void arm_smmu_writeq(struct arm_smmu_device *smmu, int page,
+				   int offset, u64 val)
+{
+	if (smmu->impl && unlikely(smmu->impl->write_reg64))
+		smmu->impl->write_reg64(smmu, page, offset, val);
+	else
+		writeq_relaxed(val, arm_smmu_page(smmu, page) + offset);
+}
+
+#define ARM_SMMU_GR0		0
+#define ARM_SMMU_GR1		1
+#define ARM_SMMU_CB(s, n)	((s)->numpage + (n))
+
+#define arm_smmu_gr0_read(s, o)		\
+	arm_smmu_readl((s), ARM_SMMU_GR0, (o))
+#define arm_smmu_gr0_write(s, o, v)	\
+	arm_smmu_writel((s), ARM_SMMU_GR0, (o), (v))
+
+#define arm_smmu_gr1_read(s, o)		\
+	arm_smmu_readl((s), ARM_SMMU_GR1, (o))
+#define arm_smmu_gr1_write(s, o, v)	\
+	arm_smmu_writel((s), ARM_SMMU_GR1, (o), (v))
+
+#define arm_smmu_cb_read(s, n, o)	\
+	arm_smmu_readl((s), ARM_SMMU_CB((s), (n)), (o))
+#define arm_smmu_cb_write(s, n, o, v)	\
+	arm_smmu_writel((s), ARM_SMMU_CB((s), (n)), (o), (v))
+#define arm_smmu_cb_readq(s, n, o)	\
+	arm_smmu_readq((s), ARM_SMMU_CB((s), (n)), (o))
+#define arm_smmu_cb_writeq(s, n, o, v)	\
+	arm_smmu_writeq((s), ARM_SMMU_CB((s), (n)), (o), (v))
+
+struct arm_smmu_device *arm_smmu_impl_init(struct arm_smmu_device *smmu);
 
 #endif /* _ARM_SMMU_REGS_H */

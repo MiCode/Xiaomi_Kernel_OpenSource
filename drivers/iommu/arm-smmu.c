@@ -19,7 +19,6 @@
 
 #include <linux/acpi.h>
 #include <linux/acpi_iort.h>
-#include <linux/atomic.h>
 #include <linux/bitfield.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -32,7 +31,6 @@
 #include <linux/io.h>
 #include <linux/io-64-nonatomic-hi-lo.h>
 #include <linux/io-pgtable.h>
-#include <linux/iommu.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/interconnect.h>
@@ -45,7 +43,6 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
-#include <linux/spinlock.h>
 #include <soc/qcom/secure_buffer.h>
 #include <linux/of_platform.h>
 #include <linux/irq.h>
@@ -83,9 +80,6 @@
 #define ARM_SMMU_IMPL_DEF1(smmu) \
 	((smmu)->base + (6 * (1 << (smmu)->pgshift)))
 
-/* Maximum number of context banks per SMMU */
-#define ARM_SMMU_MAX_CBS		128
-
 #define MSI_IOVA_BASE			0x8000000
 #define MSI_IOVA_LENGTH			0x100000
 
@@ -106,25 +100,6 @@ static bool disable_bypass =
 module_param(disable_bypass, bool, S_IRUGO);
 MODULE_PARM_DESC(disable_bypass,
 	"Disable bypass streams such that incoming transactions from devices that are not attached to an iommu domain will report an abort back to the device and will not be allowed to pass through the SMMU.");
-
-enum arm_smmu_arch_version {
-	ARM_SMMU_V1,
-	ARM_SMMU_V1_64K,
-	ARM_SMMU_V2,
-};
-
-enum arm_smmu_implementation {
-	GENERIC_SMMU,
-	ARM_MMU500,
-	CAVIUM_SMMUV2,
-	QCOM_SMMUV2,
-	QCOM_SMMUV500,
-};
-
-struct arm_smmu_impl_def_reg {
-	u32 offset;
-	u32 value;
-};
 
 /*
  * attach_count
@@ -172,116 +147,6 @@ struct arm_smmu_master_cfg {
 	(i >= fw->num_ids ? INVALID_SMENDX : __fwspec_cfg(fw)->smendx[i])
 #define for_each_cfg_sme(fw, i, idx) \
 	for (i = 0; idx = fwspec_smendx(fw, i), i < fw->num_ids; ++i)
-
-/*
- * Describes resources required for on/off power operation.
- * Separate reference count is provided for atomic/nonatomic
- * operations.
- */
-struct arm_smmu_power_resources {
-	struct platform_device		*pdev;
-	struct device			*dev;
-
-	struct clk			**clocks;
-	int				num_clocks;
-
-	struct regulator_bulk_data	*gdscs;
-	int				num_gdscs;
-
-	struct icc_path			*icc_path;
-
-	/* Protects power_count */
-	struct mutex			power_lock;
-	int				power_count;
-
-	/* Protects clock_refs_count */
-	spinlock_t			clock_refs_lock;
-	int				clock_refs_count;
-	int				regulator_defer;
-};
-
-struct arm_smmu_arch_ops;
-struct arm_smmu_device {
-	struct device			*dev;
-
-	void __iomem			*base;
-	phys_addr_t			phys_addr;
-	unsigned int			numpage;
-	unsigned int			pgshift;
-
-#define ARM_SMMU_FEAT_COHERENT_WALK	(1 << 0)
-#define ARM_SMMU_FEAT_STREAM_MATCH	(1 << 1)
-#define ARM_SMMU_FEAT_TRANS_S1		(1 << 2)
-#define ARM_SMMU_FEAT_TRANS_S2		(1 << 3)
-#define ARM_SMMU_FEAT_TRANS_NESTED	(1 << 4)
-#define ARM_SMMU_FEAT_TRANS_OPS		(1 << 5)
-#define ARM_SMMU_FEAT_VMID16		(1 << 6)
-#define ARM_SMMU_FEAT_FMT_AARCH64_4K	(1 << 7)
-#define ARM_SMMU_FEAT_FMT_AARCH64_16K	(1 << 8)
-#define ARM_SMMU_FEAT_FMT_AARCH64_64K	(1 << 9)
-#define ARM_SMMU_FEAT_FMT_AARCH32_L	(1 << 10)
-#define ARM_SMMU_FEAT_FMT_AARCH32_S	(1 << 11)
-#define ARM_SMMU_FEAT_EXIDS		(1 << 12)
-	u32				features;
-
-#define ARM_SMMU_OPT_SECURE_CFG_ACCESS (1 << 0)
-#define ARM_SMMU_OPT_FATAL_ASF		(1 << 1)
-#define ARM_SMMU_OPT_SKIP_INIT		(1 << 2)
-#define ARM_SMMU_OPT_3LVL_TABLES	(1 << 4)
-#define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 5)
-#define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 6)
-	u32				options;
-	enum arm_smmu_arch_version	version;
-	enum arm_smmu_implementation	model;
-
-	u32				num_context_banks;
-	u32				num_s2_context_banks;
-	DECLARE_BITMAP(context_map, ARM_SMMU_MAX_CBS);
-	struct arm_smmu_cb		*cbs;
-	atomic_t			irptndx;
-
-	u32				num_mapping_groups;
-	u16				streamid_mask;
-	u16				smr_mask_mask;
-	struct arm_smmu_smr		*smrs;
-	struct arm_smmu_s2cr		*s2crs;
-	struct mutex			stream_map_mutex;
-	struct mutex			iommu_group_mutex;
-	unsigned long			va_size;
-	unsigned long			ipa_size;
-	unsigned long			pa_size;
-	unsigned long			pgsize_bitmap;
-
-	u32				num_global_irqs;
-	u32				num_context_irqs;
-	unsigned int			*irqs;
-	struct clk_bulk_data		*clks;
-	int				num_clks;
-
-	struct list_head		list;
-
-	u32				cavium_id_base; /* Specific to Cavium */
-
-	spinlock_t			global_sync_lock;
-
-	/* IOMMU core code handle */
-	struct iommu_device		iommu;
-
-	/* Specific to QCOM */
-	struct arm_smmu_impl_def_reg	*impl_def_attach_registers;
-	unsigned int			num_impl_def_attach_registers;
-
-	struct arm_smmu_power_resources *pwr;
-
-	spinlock_t			atos_lock;
-
-	/* protects idr */
-	struct mutex			idr_mutex;
-	struct idr			asid_idr;
-
-	struct arm_smmu_arch_ops	*arch_ops;
-	void				*archdata;
-};
 
 enum arm_smmu_context_fmt {
 	ARM_SMMU_CTX_FMT_NONE,
@@ -350,88 +215,16 @@ struct arm_smmu_domain {
 	struct msm_iommu_domain		domain;
 };
 
-static int arm_smmu_gr0_ns(int offset)
-{
-	switch(offset) {
-	case ARM_SMMU_GR0_sCR0:
-	case ARM_SMMU_GR0_sACR:
-	case ARM_SMMU_GR0_sGFSR:
-	case ARM_SMMU_GR0_sGFSYNR0:
-	case ARM_SMMU_GR0_sGFSYNR1:
-	case ARM_SMMU_GR0_sGFSYNR2:
-		return offset + 0x400;
-	default:
-		return offset;
-	}
-}
+static atomic_t cavium_smmu_context_count = ATOMIC_INIT(0);
 
-static void __iomem *arm_smmu_page(struct arm_smmu_device *smmu, int n)
-{
-	return smmu->base + (n << smmu->pgshift);
-}
-
-static u32 arm_smmu_readl(struct arm_smmu_device *smmu, int page, int offset)
-{
-	if ((smmu->options & ARM_SMMU_OPT_SECURE_CFG_ACCESS) && page == 0)
-		offset = arm_smmu_gr0_ns(offset);
-
-	return readl_relaxed(arm_smmu_page(smmu, page) + offset);
-}
-
-static void arm_smmu_writel(struct arm_smmu_device *smmu, int page, int offset,
-			    u32 val)
-{
-	if ((smmu->options & ARM_SMMU_OPT_SECURE_CFG_ACCESS) && page == 0)
-		offset = arm_smmu_gr0_ns(offset);
-
-	writel_relaxed(val, arm_smmu_page(smmu, page) + offset);
-}
-
-static u64 arm_smmu_readq(struct arm_smmu_device *smmu, int page, int offset)
-{
-	return readq_relaxed(arm_smmu_page(smmu, page) + offset);
-}
-
-static void arm_smmu_writeq(struct arm_smmu_device *smmu, int page, int offset,
-			    u64 val)
-{
-	writeq_relaxed(val, arm_smmu_page(smmu, page) + offset);
-}
-
-#define ARM_SMMU_GR0		0
-#define ARM_SMMU_GR1		1
-#define ARM_SMMU_CB(s, n)	((s)->numpage + (n))
-
-#define arm_smmu_gr0_read(s, o)		\
-	arm_smmu_readl((s), ARM_SMMU_GR0, (o))
-#define arm_smmu_gr0_write(s, o, v)	\
-	arm_smmu_writel((s), ARM_SMMU_GR0, (o), (v))
-
-#define arm_smmu_gr1_read(s, o)		\
-	arm_smmu_readl((s), ARM_SMMU_GR1, (o))
-#define arm_smmu_gr1_write(s, o, v)	\
-	arm_smmu_writel((s), ARM_SMMU_GR1, (o), (v))
-
-#define arm_smmu_cb_read(s, n, o)	\
-	arm_smmu_readl((s), ARM_SMMU_CB((s), (n)), (o))
-#define arm_smmu_cb_write(s, n, o, v)	\
-	arm_smmu_writel((s), ARM_SMMU_CB((s), (n)), (o), (v))
-#define arm_smmu_cb_readq(s, n, o)	\
-	arm_smmu_readq((s), ARM_SMMU_CB((s), (n)), (o))
-#define arm_smmu_cb_writeq(s, n, o, v)	\
-	arm_smmu_writeq((s), ARM_SMMU_CB((s), (n)), (o), (v))
+static bool using_legacy_binding, using_generic_binding;
 
 struct arm_smmu_option_prop {
 	u32 opt;
 	const char *prop;
 };
 
-static atomic_t cavium_smmu_context_count = ATOMIC_INIT(0);
-
-static bool using_legacy_binding, using_generic_binding;
-
 static struct arm_smmu_option_prop arm_smmu_options[] = {
-	{ ARM_SMMU_OPT_SECURE_CFG_ACCESS, "calxeda,smmu-secure-config-access" },
 	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
 	{ ARM_SMMU_OPT_SKIP_INIT, "qcom,skip-init" },
 	{ ARM_SMMU_OPT_3LVL_TABLES, "qcom,use-3-lvl-tables" },
@@ -4844,6 +4637,10 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 
 	if (of_dma_is_coherent(dev->of_node))
 		smmu->features |= ARM_SMMU_FEAT_COHERENT_WALK;
+
+	smmu = arm_smmu_impl_init(smmu);
+	if (IS_ERR(smmu))
+		return PTR_ERR(smmu);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
