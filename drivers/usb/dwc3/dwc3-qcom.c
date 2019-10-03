@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Inspired by dwc3-of-simple.c
  */
@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/phy/phy.h>
 #include <linux/usb/of.h>
+#include <linux/regulator/consumer.h>
 #include <linux/reset.h>
 #include <linux/iopoll.h>
 
@@ -60,6 +61,7 @@ struct dwc3_qcom {
 	struct clk		**clks;
 	int			num_clocks;
 	struct reset_control	*resets;
+	struct regulator	*gdsc;
 
 	int			hs_phy_irq;
 	int			dp_hs_phy_irq;
@@ -404,7 +406,7 @@ static int dwc3_qcom_clk_init(struct dwc3_qcom *qcom, int count)
 {
 	struct device		*dev = qcom->dev;
 	struct device_node	*np = dev->of_node;
-	int			i;
+	int			i, ret;
 
 	if (!np || !count)
 		return 0;
@@ -419,9 +421,23 @@ static int dwc3_qcom_clk_init(struct dwc3_qcom *qcom, int count)
 	if (!qcom->clks)
 		return -ENOMEM;
 
+	qcom->gdsc = devm_regulator_get(qcom->dev, "USB3_GDSC");
+	if (IS_ERR(qcom->gdsc)) {
+		if (PTR_ERR(qcom->gdsc) == -EPROBE_DEFER)
+			return PTR_ERR(qcom->gdsc);
+		qcom->gdsc = NULL;
+	}
+
+	if (qcom->gdsc) {
+		ret = regulator_enable(qcom->gdsc);
+		if (ret) {
+			dev_err(qcom->dev, "unable to enable usb3 gdsc\n");
+			return ret;
+		}
+	}
+
 	for (i = 0; i < qcom->num_clocks; i++) {
 		struct clk	*clk;
-		int		ret;
 
 		clk = of_clk_get(np, i);
 		if (IS_ERR(clk)) {
@@ -437,6 +453,14 @@ static int dwc3_qcom_clk_init(struct dwc3_qcom *qcom, int count)
 				clk_put(qcom->clks[i]);
 			}
 			clk_put(clk);
+
+			if (qcom->gdsc) {
+				ret = regulator_disable(qcom->gdsc);
+				if (ret) {
+					dev_err(qcom->dev, "unable to disable usb3 gdsc\n");
+					return ret;
+				}
+			}
 
 			return ret;
 		}
@@ -679,6 +703,9 @@ clk_disable:
 		clk_disable_unprepare(qcom->clks[i]);
 		clk_put(qcom->clks[i]);
 	}
+	if (qcom->gdsc)
+		if (regulator_disable(qcom->gdsc))
+			dev_err(qcom->dev, "unable to disable usb3 gdsc\n");
 reset_assert:
 	reset_control_assert(qcom->resets);
 
