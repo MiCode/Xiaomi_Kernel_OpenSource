@@ -2914,7 +2914,7 @@ static int cnss_pci_smmu_fault_handler(struct iommu_domain *domain,
 {
 	struct cnss_pci_data *pci_priv = handler_token;
 
-	cnss_pr_err("SMMU fault happened with IOVA 0x%lx\n", iova);
+	cnss_fatal_err("SMMU fault happened with IOVA 0x%lx\n", iova);
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL\n");
