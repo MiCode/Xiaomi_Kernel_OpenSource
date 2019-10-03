@@ -305,15 +305,16 @@ EXPORT_SYMBOL(msm_secure_get_vmid_perms);
 
 static int qcom_secure_buffer_probe(struct platform_device *pdev)
 {
-	int ret = 0;
-
-	qcom_secure_buffer_dev = &pdev->dev;
+	int ret;
 
 #ifdef CONFIG_ARM64
-	ret = dma_set_mask(qcom_secure_buffer_dev, DMA_BIT_MASK(64));
+	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
 #else
-	ret = dma_set_mask(qcom_secure_buffer_dev, DMA_BIT_MASK(32));
+	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
 #endif
+	if (!ret)
+		qcom_secure_buffer_dev = &pdev->dev;
+
 	return ret;
 }
 
