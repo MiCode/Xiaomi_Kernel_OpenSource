@@ -30,7 +30,6 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/io-64-nonatomic-hi-lo.h>
-#include <linux/io-pgtable.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/interconnect.h>
@@ -144,25 +143,6 @@ struct arm_smmu_master_cfg {
 #define for_each_cfg_sme(fw, i, idx) \
 	for (i = 0; idx = fwspec_smendx(fw, i), i < fw->num_ids; ++i)
 
-enum arm_smmu_context_fmt {
-	ARM_SMMU_CTX_FMT_NONE,
-	ARM_SMMU_CTX_FMT_AARCH64,
-	ARM_SMMU_CTX_FMT_AARCH32_L,
-	ARM_SMMU_CTX_FMT_AARCH32_S,
-};
-
-struct arm_smmu_cfg {
-	u8				cbndx;
-	u8				irptndx;
-	union {
-		u16			asid;
-		u16			vmid;
-	};
-	u32				procid;
-	enum arm_smmu_cbar_type		cbar;
-	enum arm_smmu_context_fmt	fmt;
-};
-#define INVALID_IRPTNDX			0xff
 #define INVALID_CBNDX			0xff
 #define INVALID_ASID			0xffff
 /*
@@ -175,40 +155,10 @@ struct arm_smmu_cfg {
 #define ARM_SMMU_CB_VMID(smmu, cfg) ((u16)(smmu)->cavium_id_base + \
 							(cfg)->cbndx + 1)
 
-enum arm_smmu_domain_stage {
-	ARM_SMMU_DOMAIN_S1 = 0,
-	ARM_SMMU_DOMAIN_S2,
-	ARM_SMMU_DOMAIN_NESTED,
-	ARM_SMMU_DOMAIN_BYPASS,
-};
-
 struct arm_smmu_pte_info {
 	void *virt_addr;
 	size_t size;
 	struct list_head entry;
-};
-
-struct arm_smmu_domain {
-	struct arm_smmu_device		*smmu;
-	struct device			*dev;
-	struct io_pgtable_ops		*pgtbl_ops;
-	const struct iommu_gather_ops	*tlb_ops;
-	struct arm_smmu_cfg		cfg;
-	enum arm_smmu_domain_stage	stage;
-	bool				non_strict;
-	struct mutex			init_mutex; /* Protects smmu pointer */
-	spinlock_t			cb_lock; /* Serialises ATS1* ops */
-	spinlock_t			sync_lock; /* Serialises TLB syncs */
-	struct msm_io_pgtable_info	pgtbl_info;
-	u64 attributes;
-	u32				secure_vmid;
-	struct list_head		pte_info_list;
-	struct list_head		unassign_list;
-	struct mutex			assign_lock;
-	struct list_head		secure_pool_list;
-	/* nonsecure pool protected by pgtbl_lock */
-	struct list_head		nonsecure_pool;
-	struct msm_iommu_domain		domain;
 };
 
 static bool using_legacy_binding, using_generic_binding;
@@ -1600,12 +1550,12 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	 */
 	if (of_dma_is_coherent(smmu_domain->dev->of_node)) {
 
-		reg |= SCTLR_RACFG_RA << SCTLR_RACFG_SHIFT;
-		reg |= SCTLR_WACFG_WA << SCTLR_WACFG_SHIFT;
-		reg |= SCTLR_MTCFG;
-		reg |= SCTLR_MEM_ATTR_OISH_WB_CACHE << SCTLR_MEM_ATTR_SHIFT;
+		reg |= FIELD_PREP(SCTLR_WACFG, SCTLR_WACFG_WA) |
+		       FIELD_PREP(SCTLR_RACFG, SCTLR_RACFG_RA) |
+		       SCTLR_MTCFG |
+		       FIELD_PREP(SCTLR_MEM_ATTR, SCTLR_MEM_ATTR_OISH_WB_CACHE);
 	} else
-		reg |= SCTLR_SHCFG_NSH << SCTLR_SHCFG_SHIFT;
+		reg |= FIELD_PREP(SCTLR_SHCFG, SCTLR_SHCFG_NSH);
 
 	if (attributes & (1ULL << DOMAIN_ATTR_CB_STALL_DISABLE)) {
 		reg &= ~SCTLR_CFCFG;
@@ -1958,6 +1908,13 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	cfg->cbndx = ret;
 
+	smmu_domain->smmu = smmu;
+	if (smmu->impl && smmu->impl->init_context) {
+		ret = smmu->impl->init_context(smmu_domain);
+		if (ret)
+			goto out_clear_smmu;
+	}
+
 	pgtbl_info->pgtbl_cfg = (struct io_pgtable_cfg) {
 		.quirks		= quirks,
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
@@ -1968,7 +1925,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		.iommu_dev	= smmu->dev,
 	};
 
-	smmu_domain->smmu = smmu;
 	smmu_domain->dev = dev;
 	smmu_domain->pgtbl_ops = alloc_io_pgtable_ops(fmt,
 						      &pgtbl_info->pgtbl_cfg,
@@ -2152,7 +2108,7 @@ static void arm_smmu_write_s2cr(struct arm_smmu_device *smmu, int idx)
 	u32 reg = FIELD_PREP(S2CR_TYPE, s2cr->type) |
 		  FIELD_PREP(S2CR_CBNDX, s2cr->cbndx) |
 		  FIELD_PREP(S2CR_PRIVCFG, s2cr->privcfg) |
-		  S2CR_SHCFG_NSH << S2CR_SHCFG_SHIFT;
+		  FIELD_PREP(S2CR_SHCFG, S2CR_SHCFG_NSH);
 
 	if (smmu->features & ARM_SMMU_FEAT_EXIDS && smmu->smrs &&
 	    smmu->smrs[idx].valid)
@@ -3919,8 +3875,8 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 		reg |= sCR0_EXIDENABLE;
 
 	/* Force bypass transaction to be Non-Shareable & not io-coherent */
-	reg &= ~(sCR0_SHCFG_MASK << sCR0_SHCFG_SHIFT);
-	reg |= sCR0_SHCFG_NSH << sCR0_SHCFG_SHIFT;
+	reg &= ~sCR0_SHCFG;
+	reg |= FIELD_PREP(sCR0_SHCFG, sCR0_SHCFG_NSH);
 
 	if (smmu->impl && smmu->impl->reset)
 		smmu->impl->reset(smmu);

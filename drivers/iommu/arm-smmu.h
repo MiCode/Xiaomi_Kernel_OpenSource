@@ -15,16 +15,16 @@
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/iommu.h>
+#include <linux/io-pgtable.h>
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
 
 /* Configuration registers */
 #define ARM_SMMU_GR0_sCR0		0x0
-#define sCR0_SHCFG_SHIFT		22
-#define sCR0_SHCFG_MASK			0x3
-#define sCR0_SHCFG_NSH			3
 #define sCR0_VMID16EN			BIT(31)
+#define sCR0_SHCFG			GENMASK(23, 22)
+#define sCR0_SHCFG_NSH			0x3
 #define sCR0_BSU			GENMASK(15, 14)
 #define sCR0_FB				BIT(13)
 #define sCR0_PTM			BIT(12)
@@ -95,15 +95,14 @@
 
 /* Stream mapping registers */
 #define ARM_SMMU_GR0_SMR(n)		(0x800 + ((n) << 2))
-#define SMR_MASK_MASK			0x7FFF
-#define SID_MASK			0x7FFF
+#define SMR_MASK_MASK			GENMASK(14, 0)
+#define SID_MASK			GENMASK(14, 0)
 #define SMR_VALID			BIT(31)
 #define SMR_MASK			GENMASK(31, 16)
 #define SMR_ID				GENMASK(15, 0)
 
 #define ARM_SMMU_GR0_S2CR(n)		(0xc00 + ((n) << 2))
-#define S2CR_SHCFG_SHIFT		8
-#define S2CR_SHCFG_MASK			0x3
+#define S2CR_SHCFG			GENMASK(9, 8)
 #define S2CR_SHCFG_NSH			0x3
 
 #define S2CR_PRIVCFG			GENMASK(25, 24)
@@ -146,7 +145,17 @@ enum arm_smmu_cbar_type {
 #define CBA2R_VA64			BIT(0)
 
 #define ARM_SMMU_CB_SCTLR		0x0
+#define SCTLR_WACFG			GENMASK(27, 26)
+#define SCTLR_WACFG_WA			0x2
+#define SCTLR_RACFG			GENMASK(25, 24)
+#define SCTLR_RACFG_RA			0x2
+#define SCTLR_SHCFG			GENMASK(23, 22)
+#define SCTLR_SHCFG_NSH			0x3
+#define SCTLR_MTCFG			BIT(20)
+#define SCTLR_MEM_ATTR			GENMASK(19, 16)
+#define SCTLR_MEM_ATTR_OISH_WB_CACHE	0xf
 #define SCTLR_S1_ASIDPNE		BIT(12)
+#define SCTLR_HUPCF			BIT(8)
 #define SCTLR_CFCFG			BIT(7)
 #define SCTLR_CFIE			BIT(6)
 #define SCTLR_CFRE			BIT(5)
@@ -209,23 +218,11 @@ enum arm_smmu_cbar_type {
 #define ARM_SMMU_CB_S2_TLBIIPAS2L	0x638
 #define ARM_SMMU_CB_TLBSYNC		0x7f0
 #define ARM_SMMU_CB_TLBSTATUS		0x7f4
-#define TLBSTATUS_SACTIVE		(1 << 0)
+#define TLBSTATUS_SACTIVE		BIT(0)
 #define ARM_SMMU_CB_ATS1PR		0x800
 #define ARM_SMMU_STATS_SYNC_INV_TBU_ACK 0x25dc
 #define ARM_SMMU_TBU_PWR_STATUS         0x2204
 #define ARM_SMMU_MMU2QSS_AND_SAFE_WAIT_CNTR 0x2670
-
-#define SCTLR_MEM_ATTR_SHIFT		16
-#define SCTLR_SHCFG_SHIFT		22
-#define SCTLR_RACFG_SHIFT		24
-#define SCTLR_WACFG_SHIFT		26
-#define SCTLR_SHCFG_MASK		0x3
-#define SCTLR_SHCFG_NSH			0x3
-#define SCTLR_RACFG_RA			0x2
-#define SCTLR_WACFG_WA			0x2
-#define SCTLR_MEM_ATTR_OISH_WB_CACHE	0xf
-#define SCTLR_MTCFG			(1 << 20)
-#define SCTLR_HUPCF			(1 << 8)
 
 #define ARM_SMMU_CB_ATSR		0x8f0
 #define ATSR_ACTIVE			BIT(0)
@@ -341,8 +338,6 @@ struct arm_smmu_device {
 
 	struct list_head		list;
 
-	u32				cavium_id_base; /* Specific to Cavium */
-
 	spinlock_t			global_sync_lock;
 
 	/* IOMMU core code handle */
@@ -364,6 +359,56 @@ struct arm_smmu_device {
 	void				*archdata;
 };
 
+enum arm_smmu_context_fmt {
+	ARM_SMMU_CTX_FMT_NONE,
+	ARM_SMMU_CTX_FMT_AARCH64,
+	ARM_SMMU_CTX_FMT_AARCH32_L,
+	ARM_SMMU_CTX_FMT_AARCH32_S,
+};
+
+struct arm_smmu_cfg {
+	u8				cbndx;
+	u8				irptndx;
+	union {
+		u16			asid;
+		u16			vmid;
+	};
+	u32				procid;
+	enum arm_smmu_cbar_type		cbar;
+	enum arm_smmu_context_fmt	fmt;
+};
+#define INVALID_IRPTNDX			0xff
+
+enum arm_smmu_domain_stage {
+	ARM_SMMU_DOMAIN_S1 = 0,
+	ARM_SMMU_DOMAIN_S2,
+	ARM_SMMU_DOMAIN_NESTED,
+	ARM_SMMU_DOMAIN_BYPASS,
+};
+
+struct arm_smmu_domain {
+	struct arm_smmu_device		*smmu;
+	struct device			*dev;
+	struct io_pgtable_ops		*pgtbl_ops;
+	const struct iommu_gather_ops	*tlb_ops;
+	struct arm_smmu_cfg		cfg;
+	enum arm_smmu_domain_stage	stage;
+	bool				non_strict;
+	struct mutex			init_mutex; /* Protects smmu pointer */
+	spinlock_t			cb_lock; /* Serialises ATS1* ops */
+	spinlock_t			sync_lock; /* Serialises TLB syncs */
+	struct msm_io_pgtable_info	pgtbl_info;
+	u64 attributes;
+	u32				secure_vmid;
+	struct list_head		pte_info_list;
+	struct list_head		unassign_list;
+	struct mutex			assign_lock;
+	struct list_head		secure_pool_list;
+	/* nonsecure pool protected by pgtbl_lock */
+	struct list_head		nonsecure_pool;
+	struct msm_iommu_domain		domain;
+};
+
 
 /* Implementation details, yay! */
 struct arm_smmu_impl {
@@ -375,6 +420,7 @@ struct arm_smmu_impl {
 			    u64 val);
 	int (*cfg_probe)(struct arm_smmu_device *smmu);
 	int (*reset)(struct arm_smmu_device *smmu);
+	int (*init_context)(struct arm_smmu_domain *smmu_domain);
 };
 
 static inline void __iomem *arm_smmu_page(struct arm_smmu_device *smmu, int n)
