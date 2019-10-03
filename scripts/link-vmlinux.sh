@@ -463,7 +463,11 @@ fi
 if [ ! -z ${RTIC_MPGEN+x} ]; then
 	${RTIC_MPGEN} --objcopy="${OBJCOPY}" --objdump="${OBJDUMP}" \
 		--binpath="" --vmlinux="vmlinux" --config=${KCONFIG_CONFIG} \
-		--cc="${CC} ${KBUILD_AFLAGS}" --dts=rtic_mp.dts
+		--cc="${CC} ${KBUILD_AFLAGS}" --dts=rtic_mp.dts \
+		|| echo “RTIC MP DTS generation has failed”
+	# Echo statement above prints the error message in case above
+	# RTIC MP DTS generation command fails and it ensures rtic mp
+	# failure does not cause kernel compilation to fail.
 fi
 
 # We made a new kernel - delete old version file
