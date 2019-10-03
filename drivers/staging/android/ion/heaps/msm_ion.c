@@ -330,13 +330,13 @@ out:
 
 static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
 {
-	struct ion_platform_data *pdata = 0;
+	struct ion_platform_data *pdata = NULL;
 	struct ion_platform_heap *heaps = NULL;
 	struct device_node *node;
 	struct platform_device *new_dev = NULL;
 	const struct device_node *dt_node = pdev->dev.of_node;
 	const __be32 *val;
-	int ret = -EINVAL;
+	int ret;
 	u32 num_heaps = 0;
 	int idx = 0;
 
@@ -364,6 +364,7 @@ static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
 		new_dev = of_platform_device_create(node, NULL, &pdev->dev);
 		if (!new_dev) {
 			pr_err("Failed to create device %s\n", node->name);
+			ret = -EINVAL;
 			goto free_heaps;
 		}
 		of_dma_configure(&new_dev->dev, node, true);
@@ -372,6 +373,7 @@ static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
 		val = of_get_address(node, 0, NULL, NULL);
 		if (!val) {
 			pr_err("%s: Unable to find reg key\n", __func__);
+			ret = -EINVAL;
 			goto free_heaps;
 		}
 		pdata->heaps[idx].id = (u32)of_read_number(val, 1);
