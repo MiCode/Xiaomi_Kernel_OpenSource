@@ -3928,7 +3928,7 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	 * Drive a pulse on DP to ensure proper CDP detection
 	 * and only when the vbus connect event is a valid one.
 	 */
-	if (get_chg_type(mdwc) == POWER_SUPPLY_TYPE_USB_CDP &&
+	if (get_chg_type(mdwc) == POWER_SUPPLY_USB_TYPE_CDP &&
 			mdwc->vbus_active && !mdwc->check_eud_state) {
 		dev_dbg(mdwc->dev, "Connected to CDP, pull DP up\n");
 		mdwc->hs_phy->charger_detect(mdwc->hs_phy);
