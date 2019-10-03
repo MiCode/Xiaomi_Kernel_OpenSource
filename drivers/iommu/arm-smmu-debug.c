@@ -19,21 +19,37 @@
 #include "arm-smmu-debug.h"
 
 u32 arm_smmu_debug_tbu_testbus_select(void __iomem *tbu_base,
-				bool write, u32 val)
+		void __iomem *tcu_base, u32 testbus_version,
+		bool write, u32 val)
 {
+	void __iomem *base;
+	int offset;
+
+	if (testbus_version == 1) {
+		base = tcu_base;
+		offset = ARM_SMMU_TESTBUS_SEL_HLOS1_NS;
+	} else {
+		base = tbu_base;
+		offset = DEBUG_TESTBUS_SEL_TBU;
+	}
+
 	if (write) {
-		writel_relaxed(val, tbu_base + DEBUG_TESTBUS_SEL_TBU);
+		writel_relaxed(val, base + offset);
 		/* Make sure tbu select register is written to */
 		wmb();
 	} else {
-		return readl_relaxed(tbu_base + DEBUG_TESTBUS_SEL_TBU);
+		return readl_relaxed(base + offset);
 	}
 	return 0;
 }
 
-u32 arm_smmu_debug_tbu_testbus_output(void __iomem *tbu_base)
+u32 arm_smmu_debug_tbu_testbus_output(void __iomem *tbu_base,
+			u32 testbus_version)
 {
-	return readl_relaxed(tbu_base + DEBUG_TESTBUS_TBU);
+	int offset = (testbus_version == 1) ?
+			CLIENT_DEBUG_SR_HALT_ACK : DEBUG_TESTBUS_TBU;
+
+	return readl_relaxed(tbu_base + offset);
 }
 
 u32 arm_smmu_debug_tcu_testbus_select(void __iomem *base,
@@ -66,67 +82,86 @@ u32 arm_smmu_debug_tcu_testbus_output(void __iomem *base)
 }
 
 static void arm_smmu_debug_dump_tbu_qns4_testbus(struct device *dev,
-					void __iomem *tbu_base)
+			void __iomem *tbu_base, void __iomem *tcu_base,
+			u32  testbus_version)
 {
 	int i;
 	u32 reg;
 
 	for (i = 0 ; i < TBU_QNS4_BRIDGE_SIZE; ++i) {
-		reg = arm_smmu_debug_tbu_testbus_select(tbu_base, READ, 0);
+		reg = arm_smmu_debug_tbu_testbus_select(tbu_base, tcu_base,
+				testbus_version, READ, 0);
 		reg = (reg & ~GENMASK(4, 0)) | i << 0;
-		arm_smmu_debug_tbu_testbus_select(tbu_base, WRITE, reg);
+		arm_smmu_debug_tbu_testbus_select(tbu_base, tcu_base,
+				testbus_version, WRITE, reg);
 		dev_info(dev, "testbus_sel: 0x%lx Index: %d val: 0x%llx\n",
-			arm_smmu_debug_tbu_testbus_select(tbu_base,
-						READ, 0), i,
-			arm_smmu_debug_tbu_testbus_output(tbu_base));
+			arm_smmu_debug_tbu_testbus_select(tbu_base, tcu_base,
+				testbus_version, READ, 0), i,
+			arm_smmu_debug_tbu_testbus_output(tbu_base,
+							testbus_version));
 	}
 }
 
 static void arm_smmu_debug_program_tbu_testbus(void __iomem *tbu_base,
-					int tbu_testbus)
+				void __iomem *tcu_base, u32 testbus_version,
+				int tbu_testbus)
 {
 	u32 reg;
 
-	reg = arm_smmu_debug_tbu_testbus_select(tbu_base, READ, 0);
-	reg = (reg & ~GENMASK(7, 0)) | tbu_testbus;
-	arm_smmu_debug_tbu_testbus_select(tbu_base, WRITE, reg);
+	reg = arm_smmu_debug_tbu_testbus_select(tbu_base, tcu_base,
+						testbus_version, READ, 0);
+	if (testbus_version == 1)
+		reg = (reg & ~GENMASK(9, 0));
+	else
+		reg = (reg & ~GENMASK(7, 0));
+
+	reg |= tbu_testbus;
+	arm_smmu_debug_tbu_testbus_select(tbu_base, tcu_base,
+						testbus_version, WRITE, reg);
 }
 
 void arm_smmu_debug_dump_tbu_testbus(struct device *dev, void __iomem *tbu_base,
-			int tbu_testbus_sel)
+		void __iomem *tcu_base, int tbu_testbus_sel,
+		u32 testbus_version)
 {
 	if (tbu_testbus_sel & TBU_CLK_GATE_CONTROLLER_TESTBUS_SEL) {
 		dev_info(dev, "Dumping TBU clk gate controller:\n");
-		arm_smmu_debug_program_tbu_testbus(tbu_base,
+		arm_smmu_debug_program_tbu_testbus(tbu_base, tcu_base,
+				testbus_version,
 				TBU_CLK_GATE_CONTROLLER_TESTBUS);
 		dev_info(dev, "testbus_sel: 0x%lx val: 0x%llx\n",
-			arm_smmu_debug_tbu_testbus_select(tbu_base,
-						READ, 0),
-			arm_smmu_debug_tbu_testbus_output(tbu_base));
+			arm_smmu_debug_tbu_testbus_select(tbu_base, tcu_base,
+						testbus_version, READ, 0),
+			arm_smmu_debug_tbu_testbus_output(tbu_base,
+							testbus_version));
 	}
 
 	if (tbu_testbus_sel & TBU_QNS4_A2Q_TESTBUS_SEL) {
 		dev_info(dev, "Dumping TBU qns4 a2q test bus:\n");
-		arm_smmu_debug_program_tbu_testbus(tbu_base,
-				TBU_QNS4_A2Q_TESTBUS);
-		arm_smmu_debug_dump_tbu_qns4_testbus(dev, tbu_base);
+		arm_smmu_debug_program_tbu_testbus(tbu_base, tcu_base,
+				testbus_version, TBU_QNS4_A2Q_TESTBUS);
+		arm_smmu_debug_dump_tbu_qns4_testbus(dev, tbu_base,
+				tcu_base, testbus_version);
 	}
 
 	if (tbu_testbus_sel & TBU_QNS4_Q2A_TESTBUS_SEL) {
 		dev_info(dev, "Dumping qns4 q2a test bus:\n");
-		arm_smmu_debug_program_tbu_testbus(tbu_base,
-				TBU_QNS4_Q2A_TESTBUS);
-		arm_smmu_debug_dump_tbu_qns4_testbus(dev, tbu_base);
+		arm_smmu_debug_program_tbu_testbus(tbu_base, tcu_base,
+				testbus_version, TBU_QNS4_Q2A_TESTBUS);
+		arm_smmu_debug_dump_tbu_qns4_testbus(dev, tbu_base,
+				tcu_base, testbus_version);
 	}
 
 	if (tbu_testbus_sel & TBU_MULTIMASTER_QCHANNEL_TESTBUS_SEL) {
 		dev_info(dev, "Dumping multi master qchannel:\n");
-		arm_smmu_debug_program_tbu_testbus(tbu_base,
+		arm_smmu_debug_program_tbu_testbus(tbu_base, tcu_base,
+				testbus_version,
 				TBU_MULTIMASTER_QCHANNEL_TESTBUS);
 		dev_info(dev, "testbus_sel: 0x%lx val: 0x%llx\n",
 			arm_smmu_debug_tbu_testbus_select(tbu_base,
-						READ, 0),
-			arm_smmu_debug_tbu_testbus_output(tbu_base));
+				tcu_base, testbus_version, READ, 0),
+			arm_smmu_debug_tbu_testbus_output(tbu_base,
+							testbus_version));
 	}
 }
 
