@@ -66,11 +66,7 @@
  */
 #define QCOM_DUMMY_VAL -1
 
-#define ARM_MMU500_ACTLR_CPRE		(1 << 1)
-
 #define ARM_MMU500_ACR_CACHE_LOCK	(1 << 26)
-#define ARM_MMU500_ACR_S2CRB_TLBEN	(1 << 10)
-#define ARM_MMU500_ACR_SMTNMB_TLBEN	(1 << 8)
 
 #define TLB_LOOP_TIMEOUT		500000	/* 500ms */
 #define TLB_SPIN_COUNT			10
@@ -214,8 +210,6 @@ struct arm_smmu_domain {
 	struct list_head		nonsecure_pool;
 	struct msm_iommu_domain		domain;
 };
-
-static atomic_t cavium_smmu_context_count = ATOMIC_INIT(0);
 
 static bool using_legacy_binding, using_generic_binding;
 
@@ -3865,40 +3859,11 @@ static struct msm_iommu_ops arm_smmu_ops = {
 static void arm_smmu_context_bank_reset(struct arm_smmu_device *smmu)
 {
 	int i;
-	u32 reg, major;
-
-	if (smmu->model == ARM_MMU500) {
-		/*
-		 * Before clearing ARM_MMU500_ACTLR_CPRE, need to
-		 * clear CACHE_LOCK bit of ACR first. And, CACHE_LOCK
-		 * bit is only present in MMU-500r2 onwards.
-		 */
-		reg = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_ID7);
-		major = FIELD_GET(ID7_MAJOR, reg);
-		reg = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_sACR);
-		if (major >= 2)
-			reg &= ~ARM_MMU500_ACR_CACHE_LOCK;
-		/*
-		 * Allow unmatched Stream IDs to allocate bypass
-		 * TLB entries for reduced latency.
-		 */
-		reg |= ARM_MMU500_ACR_SMTNMB_TLBEN;
-		arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_sACR, reg);
-	}
 
 	/* Make sure all context banks are disabled and clear CB_FSR  */
 	for (i = 0; i < smmu->num_context_banks; ++i) {
 		arm_smmu_write_context_bank(smmu, i, 0);
 		arm_smmu_cb_write(smmu, i, ARM_SMMU_CB_FSR, FSR_FAULT);
-		/*
-		 * Disable MMU-500's not-particularly-beneficial next-page
-		 * prefetcher for the sake of errata #841119 and #826419.
-		 */
-		if (smmu->model == ARM_MMU500) {
-			reg = arm_smmu_cb_read(smmu, i, ARM_SMMU_CB_ACTLR);
-			reg &= ~ARM_MMU500_ACTLR_CPRE;
-			arm_smmu_cb_write(smmu, i, ARM_SMMU_CB_ACTLR, reg);
-		}
 	}
 }
 
@@ -3956,6 +3921,9 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	/* Force bypass transaction to be Non-Shareable & not io-coherent */
 	reg &= ~(sCR0_SHCFG_MASK << sCR0_SHCFG_SHIFT);
 	reg |= sCR0_SHCFG_NSH << sCR0_SHCFG_SHIFT;
+
+	if (smmu->impl && smmu->impl->reset)
+		smmu->impl->reset(smmu);
 
 	/* Push the button */
 	arm_smmu_tlb_sync_global(smmu);
@@ -4392,18 +4360,6 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	}
 	dev_dbg(smmu->dev, "\t%u context banks (%u stage-2 only)\n",
 		   smmu->num_context_banks, smmu->num_s2_context_banks);
-	/*
-	 * Cavium CN88xx erratum #27704.
-	 * Ensure ASID and VMID allocation is unique across all SMMUs in
-	 * the system.
-	 */
-	if (smmu->model == CAVIUM_SMMUV2) {
-		smmu->cavium_id_base =
-			atomic_add_return(smmu->num_context_banks,
-					  &cavium_smmu_context_count);
-		smmu->cavium_id_base -= smmu->num_context_banks;
-		dev_notice(smmu->dev, "\tenabling workaround for Cavium erratum 27704\n");
-	}
 	smmu->cbs = devm_kcalloc(smmu->dev, smmu->num_context_banks,
 				 sizeof(*smmu->cbs), GFP_KERNEL);
 	if (!smmu->cbs)
@@ -4471,6 +4427,9 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	if (smmu->features & ARM_SMMU_FEAT_TRANS_S2)
 		dev_dbg(smmu->dev, "\tStage-2: %lu-bit IPA -> %lu-bit PA\n",
 			smmu->ipa_size, smmu->pa_size);
+
+	if (smmu->impl && smmu->impl->cfg_probe)
+		return smmu->impl->cfg_probe(smmu);
 
 	return 0;
 }
