@@ -13,7 +13,6 @@
 #include <linux/cpuidle.h>
 #include <asm/smp_plat.h>
 #include <asm/barrier.h>
-#include <dt-bindings/msm/pm.h>
 
 #if !defined(CONFIG_SMP)
 #define msm_secondary_startup NULL
@@ -22,6 +21,15 @@
 #else
 #define msm_secondary_startup secondary_holding_pen
 #endif
+
+#define LPM_RESET_LVL_NONE	0
+#define LPM_RESET_LVL_RET	1
+#define LPM_RESET_LVL_GDHS	2
+#define LPM_RESET_LVL_PC	3
+
+#define LPM_AFF_LVL_CPU		0
+#define LPM_AFF_LVL_L2		1
+#define LPM_AFF_LVL_CCI		2
 
 enum msm_pm_sleep_mode {
 	MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT,
