@@ -69,6 +69,8 @@ struct se_geni_rsc {
 	int	clk_freq_out;
 };
 
+/* Offset of QUPV3 Hardware Version Register */
+#define QUPV3_HW_VER (0x4)
 #define PINCTRL_DEFAULT	"default"
 #define PINCTRL_SLEEP	"sleep"
 
