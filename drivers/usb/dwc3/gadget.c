@@ -230,8 +230,8 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep)
 			|| usb_endpoint_xfer_isoc(dep->endpoint.desc))
 		mult = 3;
 
-	if ((dep->endpoint.maxburst > 2) &&
-			dep->endpoint.ep_type == EP_TYPE_GSI
+	if ((dep->endpoint.maxburst > 6) &&
+			usb_endpoint_xfer_bulk(dep->endpoint.desc)
 			&& dwc3_is_usb31(dwc))
 		mult = 6;
 
