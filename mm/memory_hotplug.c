@@ -709,6 +709,7 @@ static void  __free_pages_memory(unsigned long start,
 			> bootloader_memory_limit)
 			order--;
 
+		kernel_map_pages(page, 1 << order, 1);
 		__free_pages_hotplug(page, order);
 		onlined_pages += (1UL << order);
 	}
