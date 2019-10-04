@@ -121,7 +121,7 @@
 	qcom,sw-jeita-enable;
 	qcom,fcc-stepping-enable;
 	qcom,suspend-input-on-debug-batt;
-	qcom,sec-charger-config = <3>;
+	qcom,sec-charger-config = <1>;
 	qcom,thermal-mitigation = <4200000 3500000 3000000
 			2500000 2000000 1500000 1000000 500000>;
 	dpdm-supply = <&qusb_phy0>;
@@ -137,6 +137,49 @@
 
 &usb_qmp_dp_phy {
 	extcon = <&pm6150_pdphy>;
+};
+
+&pm6150_gpios {
+	smb_stat {
+	smb_stat_default: smb_stat_default {
+			pins = "gpio3";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			qcom,pull-up-strength = <PMIC_GPIO_PULL_UP_30>;
+			power-source = <0>;
+		};
+	};
+};
+
+&qupv3_se9_i2c {
+	status = "ok";
+	#include "smb1390.dtsi"
+};
+
+&smb1390 {
+	/delete-property/ interrupts;
+	interrupts = <0x0 0xc2 0x0 IRQ_TYPE_LEVEL_LOW>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&smb_stat_default>;
+	status = "ok";
+};
+
+&smb1390_charger {
+	compatible = "qcom,smb1390-charger-psy";
+	io-channels = <&pm6150_vadc ADC_AMUX_THM2>;
+	io-channel-names = "cp_die_temp";
+	qcom,parallel-input-mode = <1>; /* USBIN */
+	qcom,parallel-output-mode = <2>; /* VBAT */
+	status = "ok";
+};
+
+&smb1390_slave {
+	status = "ok";
+};
+
+&smb1390_slave_charger {
+	status = "ok";
 };
 
 &pm6150l_gpios {
