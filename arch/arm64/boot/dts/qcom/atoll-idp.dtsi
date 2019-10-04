@@ -134,6 +134,10 @@
 			};
 		};
 	};
+
+	quiet-therm-step {
+		status = "disabled";
+	};
 };
 
 &pm6150a_amoled {
