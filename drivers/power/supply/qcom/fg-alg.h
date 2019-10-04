@@ -50,6 +50,7 @@ struct cl_params {
 	int	min_cap_limit;
 	int	skew_decipct;
 	int	min_delta_batt_soc;
+	int	ibat_flt_thr_ma;
 	bool	cl_wt_enable;
 };
 
