@@ -236,7 +236,7 @@ exit_runtime_suspend:
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 	MHI_LOG("Exited with ret:%d\n", ret);
 
-	return ret;
+	return (ret < 0) ? -EBUSY : 0;
 }
 
 static int mhi_runtime_idle(struct device *dev)
@@ -294,7 +294,7 @@ rpm_resume_exit:
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 	MHI_LOG("Exited with :%d\n", ret);
 
-	return ret;
+	return (ret < 0) ? -EBUSY : 0;
 }
 
 static int mhi_system_resume(struct device *dev)
