@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include "apq8009-audio-external_codec.dtsi"
 #include "msm8909-pm8916-camera.dtsi"
 #include "msm8909-pm8916-camera-sensor-robot-som.dtsi"
+#include "dsi-panel-osd-disp-fwvga-video.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8009 Robot SOM refboard";
@@ -190,10 +191,6 @@
 		regulator-name = "vbus_otg_vreg";
 		gpio = <&msm_gpio 74 0>;
 		vin-supply = <&otg_vreg_5p0>;
-	};
-
-	mdss_mdp: qcom,mdss_mdp@1a00000 {
-		status = "disabled";
 	};
 
 	bluetooth: bt_qca9379 {
@@ -371,4 +368,71 @@
 
 &ext_codec {
 	status = "okay";
+};
+
+&rpm_bus {
+	rpm-regulator-ldoa4 {
+		status = "okay";
+		pm8916_l4: regulator-l4 {
+			regulator-min-microvolt = <2050000>;
+			regulator-max-microvolt = <2050000>;
+			qcom,init-voltage = <2050000>;
+			regulator-always-on;
+			status = "okay";
+		};
+	};
+};
+
+&mdss_dsi0_pll {
+	status = "okay";
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+	status = "okay";
+};
+
+&dsi_osd_disp_fwvga_video {
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+};
+
+&pmx_mdss {
+	mdss_dsi_active: mdss_dsi_active {
+		mux {
+			pins = "gpio28", "gpio37";
+		};
+	};
+
+	mdss_dsi_suspend: mdss_dsi_suspend {
+		mux {
+			pins = "gpio28", "gpio37";
+		};
+	};
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_osd_disp_fwvga_video>;
+
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_dsi_select_gpio>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_dsi_select_gpio>;
+
+	qcom,platform-reset-gpio = <&msm_gpio 28 0>;
+	qcom,platform-bklight-en-gpio = <&msm_gpio 37 0>;
+
+	vdd-supply = <&pm8916_l17>;
+	vddio-supply = <&pm8916_l6>;
+	status = "okay";
+};
+
+&pm8916_mpps {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ext_fep_wled_pwr_en_default>;
+	ext_fep_wled_pwr_en_default: ext_fep_wled_pwr_en_default {
+		pins = "mpp4";			/* MPP_4 */
+		function = "digital";		/* Digital */
+		output-high;			/* Output */
+		power-source = <1>;
+		status = "okay";
+	};
 };

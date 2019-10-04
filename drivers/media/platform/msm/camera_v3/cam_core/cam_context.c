@@ -233,6 +233,28 @@ int cam_context_handle_crm_process_evt(struct cam_context *ctx,
 	return rc;
 }
 
+int cam_context_handle_crm_dump_req(struct cam_context *ctx,
+	struct cam_req_mgr_dump_info *dump)
+{
+	int rc = 0;
+
+	if (!ctx->state_machine) {
+		CAM_ERR(CAM_CORE, "Context is not ready");
+		return -EINVAL;
+	}
+	mutex_lock(&ctx->ctx_mutex);
+	if (ctx->state_machine[ctx->state].crm_ops.dump_req) {
+		rc = ctx->state_machine[ctx->state].crm_ops.dump_req(ctx,
+			dump);
+	} else {
+		CAM_ERR(CAM_CORE, "No crm dump req in dev %d, state %d",
+			ctx->dev_hdl, ctx->state);
+	}
+	mutex_unlock(&ctx->ctx_mutex);
+
+	return rc;
+}
+
 int cam_context_dump_pf_info(struct cam_context *ctx, unsigned long iova,
 	uint32_t buf_info)
 {
@@ -496,6 +518,33 @@ int cam_context_handle_stop_dev(struct cam_context *ctx,
 			ctx->dev_hdl, ctx->dev_name, ctx->state);
 
 	ctx->last_flush_req = 0;
+	mutex_unlock(&ctx->ctx_mutex);
+
+	return rc;
+}
+
+int cam_context_handle_dump_dev(struct cam_context *ctx,
+	struct cam_dump_req_cmd *cmd)
+{
+	int rc = 0;
+
+	if (!ctx || !ctx->state_machine) {
+		CAM_ERR(CAM_CORE, "Context is not ready");
+		return -EINVAL;
+	}
+
+	if (!cmd) {
+		CAM_ERR(CAM_CORE, "Invalid stop device command payload");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ctx->ctx_mutex);
+	if (ctx->state_machine[ctx->state].ioctl_ops.dump_dev)
+		rc = ctx->state_machine[ctx->state].ioctl_ops.dump_dev(
+			ctx, cmd);
+	else
+		CAM_WARN(CAM_CORE, "No dump device in dev %d, name %s state %d",
+			ctx->dev_hdl, ctx->dev_name, ctx->state);
 	mutex_unlock(&ctx->ctx_mutex);
 
 	return rc;

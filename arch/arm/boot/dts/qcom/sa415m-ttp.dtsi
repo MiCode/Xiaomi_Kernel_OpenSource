@@ -53,8 +53,8 @@
 	};
 	cnss_pcie: qcom,cnss {
 		compatible = "qcom,cnss";
-		reg = <0x10000000 0x10000000>,
-		      <0x20000000 0x10000>;
+		reg = <0xa0000000 0x10000000>,
+		      <0xb0000000 0x10000>;
 		reg-names = "smmu_iova_base", "smmu_iova_ipa";
 
 		wlan-en-gpio = <&tlmm 52 0>;
@@ -89,6 +89,10 @@
 		reg = <0x52>;
 		pagesize = <32>;
 	};
+};
+
+&smb138x {
+	status = "disabled";
 };
 
 &i2c_4 {

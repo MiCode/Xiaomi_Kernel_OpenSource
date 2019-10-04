@@ -56,6 +56,7 @@ enum crm_workq_task_type {
 	CRM_WORKQ_TASK_NOTIFY_FREEZE,
 	CRM_WORKQ_TASK_SCHED_REQ,
 	CRM_WORKQ_TASK_FLUSH_REQ,
+	CRM_WORKQ_TASK_DUMP_REQ,
 	CRM_WORKQ_TASK_INVALID,
 };
 
@@ -484,5 +485,12 @@ void cam_req_mgr_handle_core_shutdown(void);
  * @control: Link control command
  */
 int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control);
+
+/**
+ * cam_req_mgr_dump_request()
+ * @brief:   Dumps the request information
+ * @dump_req: Dump request
+ */
+int cam_req_mgr_dump_request(struct cam_dump_req_cmd *dump_req);
 
 #endif
