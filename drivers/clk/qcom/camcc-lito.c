@@ -2363,8 +2363,12 @@ static int cam_cc_lito_probe(struct platform_device *pdev)
 	clk_lucid_pll_configure(&cam_cc_pll0, regmap, &cam_cc_pll0_config);
 	clk_lucid_pll_configure(&cam_cc_pll1, regmap, &cam_cc_pll1_config);
 
-	if (of_device_is_compatible(pdev->dev.of_node, "qcom,lito-camcc-v2"))
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,lito-camcc-v2")) {
+		cam_cc_pll2_config.config_ctl_val = 0x38200920;
+		cam_cc_pll2_config.config_ctl_hi_val = 0x15002001;
+		cam_cc_pll2_config.config_ctl_hi1_val = 0x80000000;
 		cam_cc_pll2_config.test_ctl_val = 0x00000000;
+	}
 
 	clk_zonda_pll_configure(&cam_cc_pll2, regmap, &cam_cc_pll2_config);
 	clk_lucid_pll_configure(&cam_cc_pll3, regmap, &cam_cc_pll3_config);
