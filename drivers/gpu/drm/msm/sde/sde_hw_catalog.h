@@ -83,6 +83,7 @@
 
 #define MAX_XIN_COUNT 16
 #define SSPP_SUBBLK_COUNT_MAX 2
+#define LIMIT_SUBBLK_COUNT_MAX 10
 
 #define SDE_CTL_CFG_VERSION_1_0_0       0x100
 #define MAX_INTF_PER_CTL_V1                 2
@@ -1089,6 +1090,42 @@ struct sde_perf_cfg {
 };
 
 /**
+ * struct limit_vector_cfg - information on the usecase for each limit
+ * @usecase: usecase for each limit
+ * @value: id corresponding to each usecase
+ */
+struct limit_vector_cfg {
+	const char *usecase;
+	u32 value;
+};
+
+/**
+ * struct limit_value_cfg - information on the value of usecase
+ * @use_concur: usecase for each limit
+ * @value: value corresponding to usecase for each limit
+ */
+struct limit_value_cfg {
+	u32 use_concur;
+	u32 value;
+};
+
+/**
+ * struct sde_limit_cfg - information om different mdp limits
+ * @name: name of the limit property
+ * @lmt_vec_cnt: number of vector values for each limit
+ * @lmt_case_cnt: number of usecases for each limit
+ * @vector_cfg: pointer to the vector entries containing info on usecase
+ * @value_cfg: pointer to the value of each vector entry
+ */
+struct sde_limit_cfg {
+	const char *name;
+	u32 lmt_vec_cnt;
+	u32 lmt_case_cnt;
+	struct limit_vector_cfg *vector_cfg;
+	struct limit_value_cfg *value_cfg;
+};
+
+/**
  * struct sde_mdss_cfg - information of MDSS HW
  * This is the main catalog data structure representing
  * this HW version. Contains number of instances,
@@ -1253,6 +1290,8 @@ struct sde_mdss_cfg {
 	u32 qdss_count;
 	struct sde_qdss_cfg qdss[MAX_BLOCKS];
 
+	u32 limit_count;
+	struct sde_limit_cfg limit_cfg[LIMIT_SUBBLK_COUNT_MAX];
 	/* Add additional block data structures here */
 
 	struct sde_perf_cfg perf;

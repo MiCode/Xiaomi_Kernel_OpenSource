@@ -5589,6 +5589,8 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	struct drm_device *dev;
 	struct sde_kms_info *info;
 	struct sde_kms *sde_kms;
+	int i, j;
+
 	static const struct drm_prop_enum_list e_secure_level[] = {
 		{SDE_DRM_SEC_NON_SEC, "sec_and_non_sec"},
 		{SDE_DRM_SEC_ONLY, "sec_only"},
@@ -5800,6 +5802,37 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	if (sde_kms->perf.max_core_clk_rate)
 		sde_kms_info_add_keyint(info, "max_mdp_clk",
 				sde_kms->perf.max_core_clk_rate);
+
+	for (i = 0; i < catalog->limit_count; i++) {
+		sde_kms_info_add_keyint(info,
+			catalog->limit_cfg[i].name,
+			catalog->limit_cfg[i].lmt_case_cnt);
+
+		for (j = 0; j < catalog->limit_cfg[i].lmt_case_cnt; j++) {
+			sde_kms_info_add_keyint(info,
+				catalog->limit_cfg[i].vector_cfg[j].usecase,
+				catalog->limit_cfg[i].vector_cfg[j].value);
+		}
+
+		if (!strcmp(catalog->limit_cfg[i].name,
+			"sspp_linewidth_usecases"))
+			sde_kms_info_add_keyint(info,
+				"sspp_linewidth_values",
+				catalog->limit_cfg[i].lmt_vec_cnt);
+		else if (!strcmp(catalog->limit_cfg[i].name,
+				"sde_bwlimit_usecases"))
+			sde_kms_info_add_keyint(info,
+				"sde_bwlimit_values",
+				catalog->limit_cfg[i].lmt_vec_cnt);
+
+		for (j = 0; j < catalog->limit_cfg[i].lmt_vec_cnt; j++) {
+			sde_kms_info_add_keyint(info, "limit_usecase",
+				catalog->limit_cfg[i].value_cfg[j].use_concur);
+			sde_kms_info_add_keyint(info, "limit_value",
+				catalog->limit_cfg[i].value_cfg[j].value);
+		}
+	}
+
 	sde_kms_info_add_keystr(info, "core_ib_ff",
 			catalog->perf.core_ib_ff);
 	sde_kms_info_add_keystr(info, "core_clk_ff",

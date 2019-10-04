@@ -173,6 +173,7 @@ enum sde_prop {
 	SEC_SID_MASK,
 	LINE_INSERTION,
 	BASE_LAYER,
+	SDE_LIMITS,
 	SDE_PROP_MAX,
 };
 
@@ -265,6 +266,14 @@ enum {
 	INTF_PREFETCH,
 	INTF_TYPE,
 	INTF_PROP_MAX,
+};
+
+enum {
+	LIMIT_NAME,
+	LIMIT_USECASE,
+	LIMIT_ID,
+	LIMIT_VALUE,
+	LIMIT_PROP_MAX,
 };
 
 enum {
@@ -463,6 +472,7 @@ static struct sde_prop_type sde_prop[] = {
 	{SEC_SID_MASK, "qcom,sde-secure-sid-mask", false, PROP_TYPE_U32_ARRAY},
 	{LINE_INSERTION, "qcom,sde-has-line-insertion", false, PROP_TYPE_BOOL},
 	{BASE_LAYER, "qcom,sde-mixer-stage-base-layer", false, PROP_TYPE_BOOL},
+	{SDE_LIMITS, "qcom,sde-limits", false, PROP_TYPE_NODE},
 };
 
 static struct sde_prop_type sde_perf_prop[] = {
@@ -743,6 +753,14 @@ static struct sde_prop_type inline_rot_prop[INLINE_ROT_PROP_MAX] = {
 							PROP_TYPE_STRING_ARRAY},
 	{INLINE_ROT_CLK_CTRL, "qcom,sde-inline-rot-clk-ctrl", false,
 						PROP_TYPE_BIT_OFFSET_ARRAY},
+};
+
+static struct sde_prop_type limit_usecase_prop[] = {
+	{LIMIT_NAME, "qcom,sde-limit-name", false, PROP_TYPE_STRING},
+	{LIMIT_USECASE, "qcom,sde-limit-cases", false, PROP_TYPE_STRING_ARRAY},
+	{LIMIT_ID, "qcom,sde-limit-ids", false, PROP_TYPE_U32_ARRAY},
+	{LIMIT_VALUE, "qcom,sde-limit-values", false,
+				PROP_TYPE_BIT_OFFSET_ARRAY},
 };
 
 /*************************************************************
@@ -2935,6 +2953,148 @@ end:
 	return rc;
 }
 
+static int sde_read_limit_node(struct device_node *snp,
+	struct sde_prop_value *lmt_val, struct sde_mdss_cfg *cfg)
+{
+	int j, i = 0, rc = 0;
+	const char *type = NULL;
+	struct device_node *node = NULL;
+
+	for_each_child_of_node(snp, node) {
+		cfg->limit_cfg[i].vector_cfg =
+			kcalloc(cfg->limit_cfg[i].lmt_case_cnt,
+				sizeof(struct limit_vector_cfg), GFP_KERNEL);
+		if (!cfg->limit_cfg[i].vector_cfg) {
+			rc = -ENOMEM;
+			goto error;
+		}
+
+		for (j = 0; j < cfg->limit_cfg[i].lmt_case_cnt; j++) {
+			of_property_read_string_index(node,
+				limit_usecase_prop[LIMIT_USECASE].prop_name,
+				j, &type);
+			cfg->limit_cfg[i].vector_cfg[j].usecase = type;
+			cfg->limit_cfg[i].vector_cfg[j].value =
+				PROP_VALUE_ACCESS(&lmt_val[i * LIMIT_PROP_MAX],
+				LIMIT_ID, j);
+		}
+
+		cfg->limit_cfg[i].value_cfg =
+				kcalloc(cfg->limit_cfg[i].lmt_vec_cnt,
+				sizeof(struct limit_value_cfg), GFP_KERNEL);
+
+		if (!cfg->limit_cfg[i].value_cfg) {
+			rc = -ENOMEM;
+			goto error;
+		}
+
+		for (j = 0; j < cfg->limit_cfg[i].lmt_vec_cnt; j++) {
+			cfg->limit_cfg[i].value_cfg[j].use_concur =
+				PROP_BITVALUE_ACCESS(
+					&lmt_val[i * LIMIT_PROP_MAX],
+					LIMIT_VALUE, j, 0);
+			cfg->limit_cfg[i].value_cfg[j].value =
+				PROP_BITVALUE_ACCESS(
+					&lmt_val[i * LIMIT_PROP_MAX],
+					LIMIT_VALUE, j, 1);
+		}
+		i++;
+	}
+
+	return 0;
+error:
+	for (j = 0; j < cfg->limit_count; j++) {
+		kfree(cfg->limit_cfg[j].vector_cfg);
+		kfree(cfg->limit_cfg[j].value_cfg);
+	}
+
+	cfg->limit_count = 0;
+	return rc;
+}
+
+static int sde_validate_limit_node(struct device_node *snp,
+	struct sde_prop_value *sde_limit_value, struct sde_mdss_cfg *cfg)
+{
+	int i = 0, rc = 0;
+	struct device_node *node = NULL;
+	int limit_value_count[LIMIT_PROP_MAX];
+	bool limit_value_exists[LIMIT_SUBBLK_COUNT_MAX][LIMIT_PROP_MAX];
+	const char *type = NULL;
+
+	for_each_child_of_node(snp, node) {
+		rc = _validate_dt_entry(node, limit_usecase_prop,
+			ARRAY_SIZE(limit_usecase_prop),
+			limit_value_count, NULL);
+		if (rc)
+			goto end;
+
+		rc = _read_dt_entry(node, limit_usecase_prop,
+			ARRAY_SIZE(limit_usecase_prop), limit_value_count,
+			&limit_value_exists[i][0],
+			&sde_limit_value[i * LIMIT_PROP_MAX]);
+		if (rc)
+			goto end;
+
+		cfg->limit_cfg[i].lmt_case_cnt =
+				limit_value_count[LIMIT_ID];
+
+		cfg->limit_cfg[i].lmt_vec_cnt =
+				limit_value_count[LIMIT_VALUE];
+		of_property_read_string(node,
+			limit_usecase_prop[LIMIT_NAME].prop_name, &type);
+		cfg->limit_cfg[i].name = type;
+
+		if (!limit_value_count[LIMIT_ID] ||
+				!limit_value_count[LIMIT_VALUE]) {
+			rc = -EINVAL;
+			goto end;
+		}
+		i++;
+	}
+	return 0;
+end:
+	cfg->limit_count = 0;
+	return rc;
+}
+
+static int sde_limit_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
+{
+	struct device_node *snp = NULL;
+	struct sde_prop_value  *sde_limit_value = NULL;
+	int rc = 0;
+
+	snp = of_get_child_by_name(np, sde_prop[SDE_LIMITS].prop_name);
+	if (!snp)
+		goto end;
+
+	cfg->limit_count = of_get_child_count(snp);
+	if (cfg->limit_count < 0) {
+		rc = -EINVAL;
+		goto end;
+	}
+
+	sde_limit_value = kzalloc(cfg->limit_count * LIMIT_PROP_MAX *
+			sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!sde_limit_value) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	rc = sde_validate_limit_node(snp, sde_limit_value, cfg);
+	if (rc) {
+		SDE_ERROR("validating limit node failed\n");
+		goto end;
+	}
+
+	rc = sde_read_limit_node(snp, sde_limit_value, cfg);
+	if (rc)
+		SDE_ERROR("reading limit node failed\n");
+
+end:
+	kfree(sde_limit_value);
+	return rc;
+}
+
 static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 {
 	int rc, i, dma_rc, len, prop_count[SDE_PROP_MAX];
@@ -3103,6 +3263,10 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	cfg->has_line_insertion = PROP_VALUE_ACCESS(prop_value,
 		LINE_INSERTION, 0);
 	cfg->has_base_layer = PROP_VALUE_ACCESS(prop_value, BASE_LAYER, 0);
+
+	rc = sde_limit_parse_dt(np, cfg);
+	if (rc)
+		SDE_DEBUG("parsing of sde limit failed\n");
 end:
 	kfree(prop_value);
 	return rc;
@@ -3917,6 +4081,11 @@ void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 
 		for (j = VBIF_RT_CLIENT; j < VBIF_MAX_CLIENT; j++)
 			kfree(sde_cfg->vbif[i].qos_tbl[j].priority_lvl);
+	}
+
+	for (i = 0; i < sde_cfg->limit_count; i++) {
+		kfree(sde_cfg->limit_cfg[i].vector_cfg);
+		kfree(sde_cfg->limit_cfg[i].value_cfg);
 	}
 
 	for (i = 0; i < SDE_QOS_LUT_USAGE_MAX; i++) {
