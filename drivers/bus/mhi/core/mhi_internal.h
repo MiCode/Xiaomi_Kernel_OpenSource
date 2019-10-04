@@ -847,6 +847,30 @@ static inline void mhi_free_coherent(struct mhi_controller *mhi_cntrl,
 	atomic_sub(size, &mhi_cntrl->alloc_size);
 	dma_free_coherent(mhi_cntrl->dev, size, vaddr, dma_handle);
 }
+
+static inline void *mhi_alloc_contig_coherent(
+					struct mhi_controller *mhi_cntrl,
+					size_t size, dma_addr_t *dma_handle,
+					gfp_t gfp)
+{
+	void *buf = dma_alloc_attrs(mhi_cntrl->dev, size, dma_handle, gfp,
+					DMA_ATTR_FORCE_CONTIGUOUS);
+
+	if (buf)
+		atomic_add(size, &mhi_cntrl->alloc_size);
+
+	return buf;
+}
+static inline void mhi_free_contig_coherent(
+					struct mhi_controller *mhi_cntrl,
+					size_t size, void *vaddr,
+					dma_addr_t dma_handle)
+{
+	atomic_sub(size, &mhi_cntrl->alloc_size);
+	dma_free_attrs(mhi_cntrl->dev, size, vaddr, dma_handle,
+					DMA_ATTR_FORCE_CONTIGUOUS);
+}
+
 struct mhi_device *mhi_alloc_device(struct mhi_controller *mhi_cntrl);
 static inline void mhi_dealloc_device(struct mhi_controller *mhi_cntrl,
 				      struct mhi_device *mhi_dev)
