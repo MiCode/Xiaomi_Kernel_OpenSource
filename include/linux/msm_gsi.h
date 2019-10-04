@@ -418,6 +418,7 @@ struct gsi_chan_props {
 	uint16_t ring_len;
 	uint16_t max_re_expected;
 	uint64_t ring_base_addr;
+	uint8_t db_in_bytes;
 	void *ring_base_vaddr;
 	enum gsi_chan_use_db_eng use_db_eng;
 	enum gsi_max_prefetch max_prefetch;

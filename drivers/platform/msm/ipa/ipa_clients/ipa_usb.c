@@ -1192,6 +1192,7 @@ static int ipa3_usb_request_xdci_channel(
 		chan_params.chan_params.use_db_eng = GSI_CHAN_DIRECT_MODE;
 	else
 		chan_params.chan_params.use_db_eng = GSI_CHAN_DB_MODE;
+	chan_params.chan_params.db_in_bytes = 1;
 	chan_params.chan_params.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	if (params->dir == GSI_CHAN_DIR_FROM_GSI)
 		chan_params.chan_params.low_weight =
