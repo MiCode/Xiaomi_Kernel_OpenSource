@@ -9,7 +9,8 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/genalloc.h>
-
+#include <linux/platform_device.h>
+#include <linux/mod_devicetable.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/qseecomi.h>
 #include <soc/qcom/qtee_shmbridge.h>
@@ -337,7 +338,7 @@ EXPORT_SYMBOL(qtee_shmbridge_free_shm);
  * shared memory bridge initialization
  *
  */
-static int __init qtee_shmbridge_init(void)
+static int qtee_shmbridge_init(void)
 {
 	int ret = 0;
 	uint32_t ns_vm_ids[] = {VMID_HLOS};
@@ -378,8 +379,8 @@ static int __init qtee_shmbridge_init(void)
 	mutex_init(&bridge_list_head.lock);
 	INIT_LIST_HEAD(&bridge_list_head.head);
 
-	/* enable shm bridge mechanism */
-	ret = qtee_shmbridge_enable(true);
+	/* temporarily disable shm bridge mechanism */
+	ret = qtee_shmbridge_enable(false);
 	if (ret) {
 		/* keep the mem pool and return if failed to enable bridge */
 		ret = 0;
@@ -410,4 +411,25 @@ exit:
 	return ret;
 }
 
-early_initcall(qtee_shmbridge_init);
+static int qtee_shmbridge_probe(struct platform_device *pdev)
+{
+	return qtee_shmbridge_init();
+}
+
+static const struct of_device_id qtee_shmbridge_of_match[] = {
+	{ .compatible = "qcom,tee-shared-memory-bridge"},
+	{}
+};
+MODULE_DEVICE_TABLE(of, qtee_shmbridge_of_match);
+
+static struct platform_driver qtee_shmbridge_driver = {
+	.probe = qtee_shmbridge_probe,
+	.driver = {
+		.name = "shared_memory_bridge",
+		.of_match_table = qtee_shmbridge_of_match,
+	},
+};
+
+module_platform_driver(qtee_shmbridge_driver);
+
+MODULE_LICENSE("GPL v2");
