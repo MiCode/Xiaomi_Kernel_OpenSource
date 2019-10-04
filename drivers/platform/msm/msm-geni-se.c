@@ -55,8 +55,6 @@ struct bus_vectors {
 			paths present, then this is client handle for core 2x.
  * @bus_bw_noc:		Client handle to the QUP DDR path bus bandwidth
 			request.
- * @bus_mas_id:		Master Endpoint ID for bus BW request.
- * @bus_slv_id:		Slave Endpoint ID for bus BW request.
  * @geni_dev_lock:		Lock to protect the bus ab & ib values, list.
  * @ab_list_head:	Sorted resource list based on average bus BW.
  * @ib_list_head:	Sorted resource list based on instantaneous bus BW.
@@ -77,7 +75,6 @@ struct bus_vectors {
  * @vectors:		Structure to store Master End and Slave End IDs for
 			QUPv3 clock and DDR path bus BW request.
  * @num_paths:		Two paths. QUPv3 clock and DDR paths.
- * @update:		Usecase index for icb voting.
  * @vote_for_bw:	To check if we have to vote for BW or BCM threashold
 			in ab/ib ICB voting.
  */
@@ -90,8 +87,6 @@ struct geni_se_device {
 	void __iomem *base;
 	struct icc_path *bus_bw;
 	struct icc_path *bus_bw_noc;
-	u32 bus_mas_id;
-	u32 bus_slv_id;
 	struct mutex geni_dev_lock;
 	struct list_head ab_list_head;
 	struct list_head ib_list_head;
@@ -112,7 +107,6 @@ struct geni_se_device {
 	void *log_ctx;
 	struct bus_vectors *vectors;
 	int num_paths;
-	int update;
 	bool vote_for_bw;
 };
 
@@ -1040,22 +1034,27 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 	if (unlikely(!geni_se_dev))
 		return -EPROBE_DEFER;
 
-	if (geni_se_dev->num_paths == 2) {
-		if (unlikely(!(geni_se_dev->bus_bw))) {
-			geni_se_dev->bus_bw = icc_get(geni_se_dev->dev,
-						geni_se_dev->vectors[0].src,
-						geni_se_dev->vectors[0].dst);
-			if (!(geni_se_dev->bus_bw)) {
-				GENI_SE_ERR(geni_se_dev->log_ctx,
-					false, NULL,
-				"%s: Error creating bus client (Core2x)\n",
+	if (IS_ERR_OR_NULL(geni_se_dev->bus_bw)) {
+		geni_se_dev->bus_bw = icc_get(geni_se_dev->dev,
+					geni_se_dev->vectors[0].src,
+					geni_se_dev->vectors[0].dst);
+		if (IS_ERR_OR_NULL(geni_se_dev->bus_bw)) {
+			GENI_SE_ERR(geni_se_dev->log_ctx,
+				false, NULL,
+			"%s: Error creating bus client (Core2x)\n",
 								 __func__);
-				return -EFAULT;
-			}
+			return -EFAULT;
+		}
+	}
+	rsc->ab = ab;
+	rsc->ib = ib;
+
+	if (geni_se_dev->num_paths == 2) {
+		if (IS_ERR_OR_NULL(geni_se_dev->bus_bw_noc)) {
 			geni_se_dev->bus_bw_noc = icc_get(geni_se_dev->dev,
 						geni_se_dev->vectors[1].src,
 						geni_se_dev->vectors[1].dst);
-			if (!(geni_se_dev->bus_bw_noc)) {
+			if (IS_ERR_OR_NULL(geni_se_dev->bus_bw_noc)) {
 				GENI_SE_ERR(geni_se_dev->log_ctx,
 					false, NULL,
 				"%s: Error creating bus client (DDR)\n",
@@ -1072,20 +1071,6 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 		rsc->ib_noc = ib;
 		INIT_LIST_HEAD(&rsc->ab_list_noc);
 		INIT_LIST_HEAD(&rsc->ib_list_noc);
-	} else {
-		if (unlikely(IS_ERR_OR_NULL(geni_se_dev->bus_bw))) {
-			geni_se_dev->bus_bw = icc_get(geni_se_dev->dev,
-						geni_se_dev->bus_mas_id,
-						geni_se_dev->bus_slv_id);
-			if (IS_ERR_OR_NULL(geni_se_dev->bus_bw)) {
-				GENI_SE_ERR(geni_se_dev->log_ctx,
-					false, NULL,
-				"%s: Error creating bus client\n", __func__);
-				return (int)PTR_ERR(geni_se_dev->bus_bw);
-			}
-		}
-		rsc->ab = ab;
-		rsc->ib = ib;
 	}
 
 	INIT_LIST_HEAD(&rsc->ab_list);
@@ -1672,28 +1657,11 @@ static int geni_se_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(dev->of_node, "qcom,msm-bus,num-paths",
 					&geni_se_dev->num_paths);
 	if (!ret) {
-		geni_se_dev->update = 0;
 		geni_se_dev->vectors = get_icc_paths(pdev, geni_se_dev);
 		if (geni_se_dev->vectors == NULL) {
 			dev_err(dev,
 			"%s: Error missing bus master and slave id\n",
 								__func__);
-			return -EINVAL;
-		}
-	} else {
-		geni_se_dev->num_paths = 1;
-		ret = of_property_read_u32(dev->of_node, "qcom,bus-mas-id",
-				   &geni_se_dev->bus_mas_id);
-		if (ret) {
-			dev_err(dev, "%s: Error missing bus master id\n",
-								__func__);
-			return -EINVAL;
-		}
-		ret = of_property_read_u32(dev->of_node, "qcom,bus-slv-id",
-				   &geni_se_dev->bus_slv_id);
-		if (ret) {
-			dev_err(dev, "%s: Error missing bus slave id\n",
-								 __func__);
 			return -EINVAL;
 		}
 	}
