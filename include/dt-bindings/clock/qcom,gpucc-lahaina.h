@@ -30,8 +30,9 @@
 #define GPU_CC_HUB_CX_INT_DIV_CLK_SRC				20
 #define GPU_CC_MND1X_0_GFX3D_CLK				21
 #define GPU_CC_MND1X_1_GFX3D_CLK				22
-#define GPU_CC_PLL1						23
-#define GPU_CC_SLEEP_CLK					24
+#define GPU_CC_PLL0						23
+#define GPU_CC_PLL1						24
+#define GPU_CC_SLEEP_CLK					25
 
 /* GPU_CC resets */
 #define GPUCC_GPU_CC_ACD_BCR					0
