@@ -1054,7 +1054,7 @@ static void sde_kms_commit(struct msm_kms *kms,
 	SDE_ATRACE_END("sde_kms_commit");
 }
 
-static void _sde_kms_release_splash_resource(struct sde_kms *sde_kms,
+void sde_kms_release_splash_resource(struct sde_kms *sde_kms,
 		struct drm_crtc *crtc)
 {
 	struct msm_drm_private *priv;
@@ -1158,7 +1158,7 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
-		_sde_kms_release_splash_resource(sde_kms, crtc);
+		sde_kms_release_splash_resource(sde_kms, crtc);
 
 	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
 	SDE_ATRACE_END("sde_kms_complete_commit");
