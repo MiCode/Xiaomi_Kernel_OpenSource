@@ -1117,6 +1117,8 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	struct drm_crtc_state *old_crtc_state;
 	struct drm_connector *connector;
 	struct drm_connector_state *old_conn_state;
+	struct msm_display_conn_params params;
+
 	int i, rc = 0;
 
 	if (!kms || !old_state)
@@ -1148,7 +1150,18 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 		c_conn = to_sde_connector(connector);
 		if (!c_conn->ops.post_kickoff)
 			continue;
-		rc = c_conn->ops.post_kickoff(connector);
+
+		memset(&params, 0, sizeof(params));
+
+		if (c_conn->qsync_updated &&
+			(c_conn->qsync_mode == SDE_RM_QSYNC_ONE_SHOT_MODE)) {
+			/* Reset qsync states if mode is one shot */
+			params.qsync_mode = c_conn->qsync_mode = 0;
+			params.qsync_update = true;
+			SDE_EVT32(connector->base.id, c_conn->qsync_mode);
+		}
+
+		rc = c_conn->ops.post_kickoff(connector, &params);
 		if (rc) {
 			pr_err("Connector Post kickoff failed rc=%d\n",
 					 rc);
@@ -1381,6 +1394,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.cmd_transfer = dsi_display_cmd_transfer,
 		.cont_splash_config = dsi_display_cont_splash_config,
 		.get_panel_vfp = dsi_display_get_panel_vfp,
+		.prepare_commit = dsi_conn_prepare_commit,
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,

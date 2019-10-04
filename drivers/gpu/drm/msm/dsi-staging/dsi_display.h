@@ -670,6 +670,15 @@ int dsi_display_set_power(struct drm_connector *connector,
 int dsi_display_pre_kickoff(struct drm_connector *connector,
 		struct dsi_display *display,
 		struct msm_display_kickoff_params *params);
+/*
+ * dsi_display_pre_commit - program pre commit features
+ * @display: Pointer to private display structure
+ * @params: Parameters for pre commit time programming
+ * Returns: Zero on success
+ */
+int dsi_display_pre_commit(void *display,
+		struct msm_display_conn_params *params);
+
 /**
  * dsi_display_get_dst_format() - get dst_format from DSI display
  * @connector:        Pointer to drm connector structure
