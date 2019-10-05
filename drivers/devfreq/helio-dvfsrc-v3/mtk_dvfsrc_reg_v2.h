@@ -158,6 +158,7 @@
 #define DVFSRC_DEBUG_STA_2               (0x708)
 #define DVFSRC_DEBUG_STA_3               (0x70C)
 #define DVFSRC_DEBUG_STA_4               (0x710)
+#define DVFSRC_DEBUG_STA_5               (0x714)
 #define DVFSRC_EMI_REQUEST7              (0x800)
 #define DVFSRC_EMI_HRT_1                 (0x804)
 #define DVFSRC_EMI_HRT2_1                (0x808)

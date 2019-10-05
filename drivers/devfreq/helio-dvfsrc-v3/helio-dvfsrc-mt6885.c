@@ -22,13 +22,15 @@
 #include <mt-plat/upmu_common.h>
 #include "helio-dvfsrc-ip-v2.h"
 #include <helio-dvfsrc-opp.h>
-#include <helio-dvfsrc-mt6785.h>
+#include <helio-dvfsrc-mt6885.h>
 #include <mt-plat/mtk_devinfo.h>
 #include <linux/regulator/consumer.h>
 #include "mmdvfs_pmqos.h"
 #include <linux/sysfs.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/sched/clock.h>
+
 
 #define DVFSRC_1600_FLOOR
 #define AUTOK_ENABLE

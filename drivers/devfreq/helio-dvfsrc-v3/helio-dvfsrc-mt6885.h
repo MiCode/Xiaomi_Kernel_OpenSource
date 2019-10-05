@@ -11,8 +11,8 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#ifndef __HELIO_DVFSRC_MT6785_H
-#define __HELIO_DVFSRC_MT6785_H
+#ifndef __HELIO_DVFSRC_MT6885_H
+#define __HELIO_DVFSRC_MT6885_H
 
 #include <mach/upmu_hw.h>
 
@@ -74,5 +74,5 @@ enum met_src_index {
 	SRC_MD_EMI_LATENCY_IDX,
 	SRC_MAX
 };
-#endif /* __HELIO_DVFSRC_MT6785_H */
+#endif /* __HELIO_DVFSRC_MT6885_H */
 
