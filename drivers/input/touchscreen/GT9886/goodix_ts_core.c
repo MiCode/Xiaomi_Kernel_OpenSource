@@ -627,7 +627,7 @@ static ssize_t goodix_ts_send_cfg_store(struct device *dev,
 				dev_get_drvdata(dev);
 	struct goodix_ts_device *ts_dev = core_data->ts_dev;
 	int en, r;
-	const struct firmware *cfg_img;
+	const struct firmware *cfg_img = NULL;
 	struct goodix_ts_config *config = NULL;
 
 	ts_info("******IN");
