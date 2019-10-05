@@ -9,22 +9,22 @@
 #include "adsp_reg.h"
 #include "adsp_reserved_mem.h"
 #include "adsp_semaphore.h"
+#include "adsp_platform_driver.h"
 
 #ifdef ADSP_BASE
 #undef ADSP_BASE
 #endif
+#ifdef ADSP_SECURE_BASE
+#undef ADSP_SECURE_BASE
+#endif
 #define ADSP_BASE                  mt_base
+#define ADSP_SECURE_BASE           mt_secure
 
 #define SET_BITS(addr, mask) writel(readl(addr) | (mask), addr)
 #define CLR_BITS(addr, mask) writel(readl(addr) & ~(mask), addr)
 
 static void __iomem *mt_base;
-
-void adsp_mt_set_base(void *base)
-{
-	if (base)
-		mt_base = base;
-}
+static void __iomem *mt_secure;
 
 void adsp_mt_sw_reset(int cid)
 {
@@ -147,11 +147,25 @@ u32 switch_adsp_uart_ctrl_cg(bool en, int mask)
 	return retval;
 }
 
-void adsp_platform_init(void *base)
+void adsp_mt_clr_sw_reset(void)
 {
-	adsp_mt_set_base(base);
-	adsp_init_reserve_memory();
+	CLR_BITS(ADSP_CFGREG_SW_RSTN, ADSP_A_SW_RSTN | ADSP_B_SW_RSTN);
+}
 
+void set_adsp_dram_remapping(u32 addr, u32 size)
+{
+	writel(0xF, R_SYS_REMAP_ENABLE);
+	writel(((ADSP_SYSRAM_DSP_VIEW + size) & 0xFFFF0000)
+		| (ADSP_SYSRAM_DSP_VIEW >> 16), R_SYS_REMAP0);
+	writel(addr >> 16, R_SYS_REMAP0_ADDR);
+}
+
+void adsp_platform_init(void)
+{
+	mt_base = adsp_cores[0]->cfg;
+	mt_secure = adsp_cores[0]->secure;
+
+	adsp_init_reserve_memory();
 	adsp_sem_init(SEMA_WAY_BITS, SEMA_CTRL_BIT,
 		SEMA_TIMEOUT, ADSP_SEMAPHORE);
 }

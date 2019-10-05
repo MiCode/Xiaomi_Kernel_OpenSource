@@ -21,6 +21,7 @@
 #include "adsp_core.h"
 
 struct workqueue_struct *adsp_wq;
+void __iomem *adsp_secure_base;
 struct adsp_priv *adsp_cores[ADSP_CORE_TOTAL];
 
 static int adsp_core0_init(struct adsp_priv *pdata);
@@ -75,7 +76,6 @@ static const struct adsp_description adsp_c1_desc = {
 
 /*------------------------------------------------------------*/
 /* adsp operation */
-
 void adsp_update_c2c_memory_info(struct adsp_priv *pdata)
 {
 	struct adsp_c2c_share_dram_info_t c2c_info;
@@ -122,6 +122,11 @@ int adsp_core0_init(struct adsp_priv *pdata)
 	mutex_init(&pdata->send_mbox->mutex_send);
 	pdata->recv_mbox->pin_buf = vmalloc(SHARE_BUF_SIZE);
 	pdata->recv_mbox->prdata = &pdata->id;
+
+	/* dram_remap */
+	set_adsp_dram_remapping(pdata->sysram_phys,
+				pdata->sysram_size +
+				adsp_cores[ADSP_B_ID]->sysram_size);
 	return ret;
 }
 
@@ -171,7 +176,6 @@ static bool is_adsp_core_suspend(struct adsp_priv *pdata)
 
 	if (pdata->id == ADSP_A_ID) {
 		return check_hifi_status(ADSP_A_IS_WFI) &&
-		       check_hifi_status(ADSP_B_IS_WFI) &&
 		       check_hifi_status(ADSP_AXI_BUS_IS_IDLE) &&
 		       (status == ADSP_SUSPEND) &&
 		       (get_adsp_state(adsp_cores[ADSP_B_ID]) == ADSP_SUSPEND);
@@ -224,6 +228,10 @@ int adsp_core0_resume(void)
 	if (get_adsp_state(pdata) == ADSP_SUSPEND) {
 		switch_adsp_power(true);
 		adsp_mt_sw_reset(pdata->id);
+
+		set_adsp_dram_remapping(pdata->sysram_phys,
+					pdata->sysram_size +
+					adsp_cores[ADSP_B_ID]->sysram_size);
 		timesync_to_adsp(pdata, APTIME_UNFREEZE);
 
 		reinit_completion(&pdata->done);
@@ -376,6 +384,12 @@ static struct miscdevice adsp_common_device = {
 static int adsp_common_drv_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	struct resource *res;
+	struct device *dev = &pdev->dev;
+
+	/* get resource from platform_device */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	adsp_secure_base = devm_ioremap_resource(dev, res);
 
 	ret = adsp_clk_device_probe(pdev);
 	if (ret) {
@@ -416,7 +430,7 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 	const struct adsp_description *desc;
 	const struct of_device_id *match;
 	struct of_phandle_args spec;
-	u32 temp[2];
+	u32 temp;
 
 	/* create private data */
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
@@ -454,10 +468,13 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 	pdata->irq[ADSP_IRQ_WDT_ID] = platform_get_irq(pdev, 1);
 	pdata->irq[ADSP_IRQ_AUDIO_ID] = platform_get_irq(pdev, 2);
 
-	of_property_read_u32(dev->of_node, "sysram", &temp[0]);
-	of_property_read_u32(dev->of_node, "sysram_size", &temp[1]);
-	pdata->sysram = ioremap_wc(temp[0], temp[1]);
-	pdata->sysram_size = temp[1];
+	of_property_read_u32(dev->of_node, "sysram", &temp);
+	pdata->sysram_phys = temp;
+	of_property_read_u32(dev->of_node, "sysram_size", &temp);
+	pdata->sysram_size = temp;
+	pdata->sysram = ioremap_wc(pdata->sysram_phys, pdata->sysram_size);
+
+	pdata->secure = adsp_secure_base;
 
 	of_property_read_u32(dev->of_node, "feature_control_bits",
 			     &pdata->feature_set);

@@ -297,7 +297,7 @@ static int __init adsp_init(void)
 
 	rwlock_init(&access_rwlock);
 
-	adsp_platform_init(adsp_cores[0]->cfg);
+	adsp_platform_init();
 
 	//register_syscore_ops(&adsp_syscore_ops);
 	adsp_ipi_registration(ADSP_IPI_ADSP_A_READY,
@@ -349,7 +349,7 @@ static int __init adsp_module_init(void)
 		}
 	}
 
-	//adsp_deregister_feature(SYSTEM_FEATURE_ID); /* temp adsp always on */
+	adsp_deregister_feature(SYSTEM_FEATURE_ID);
 	pr_info("[ADSP] module_init_done\n");
 ERROR:
 	return ret;

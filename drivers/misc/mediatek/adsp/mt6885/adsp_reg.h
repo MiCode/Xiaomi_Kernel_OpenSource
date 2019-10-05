@@ -119,6 +119,12 @@
 #define ADSP_B_IS_WFI               (1 << 1)
 #define ADSP_AXI_BUS_IS_IDLE        (1 << 2)
 
+/* adsp secure */
+#define ADSP_SYSRAM_DSP_VIEW        0x56000000 //align adsp lsp: in adsp view
+#define R_SYS_REMAP_ENABLE          (ADSP_SECURE_BASE + 0x0020)
+#define R_SYS_REMAP0                (ADSP_SECURE_BASE + 0x0024)
+#define R_SYS_REMAP0_ADDR           (ADSP_SECURE_BASE + 0x0028)
+
 /* clk reg */
 #define ADSP_CLK_CTRL_BASE          (ADSP_BASE + 0x1000)
 #define ADSP_CLK_UART_EN            (1 << 5)

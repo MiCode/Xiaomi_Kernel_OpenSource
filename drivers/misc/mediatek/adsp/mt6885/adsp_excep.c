@@ -310,6 +310,7 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 
 	memset(buf, 0, len);
 	adsp_enable_clock();
+	adsp_mt_clr_sw_reset();
 	//mutex_lock(&adsp_sw_reset_mutex);
 
 	clk_cfg = switch_adsp_clk_ctrl_cg(true, clk_mask);

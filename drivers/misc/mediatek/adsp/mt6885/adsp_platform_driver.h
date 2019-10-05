@@ -39,10 +39,12 @@ struct adsp_priv {
 	void __iomem *itcm;
 	void __iomem *dtcm;
 	void __iomem *sysram;
+	void __iomem *secure;
 	size_t cfg_size;
 	size_t itcm_size;
 	size_t dtcm_size;
 	size_t sysram_size;
+	phys_addr_t sysram_phys;
 
 	const struct sharedmem_info *mapping_table;
 
