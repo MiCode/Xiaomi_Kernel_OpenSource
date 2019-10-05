@@ -36,7 +36,7 @@ obj-y:= apusys_power_driver.o apusys_power_ctl.o apusys_power_debug.o \
 		$(PDIR)/apu_power_table.o $(PDIR)/apu_platform_resource.o
 
 # AGING load
-ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885v1_64_aging")
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885tv1_64_aging")
 subdir-ccflags-y += -DAGING_MARGIN
 endif
 
