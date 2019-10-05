@@ -280,7 +280,6 @@ ENTRY(dis_D_inner_flush_all)
 	__inner_dcache_all #DCCISW
 ENDPROC(dis_D_inner_flush_all)
 
-
 /*
  *	__xxxx_dcache_user_range(start,size)
  *
@@ -327,4 +326,3 @@ ENTRY(__inval_dcache_user_area)
 	uaccess_ttbr0_disable x1, x2
 	ret
 ENDPROC(__inval_dcache_user_area)
-
