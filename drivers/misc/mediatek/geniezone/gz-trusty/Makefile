@@ -13,11 +13,8 @@ ifeq ($(CONFIG_MTK_ENABLE_GENIEZONE),y)
 obj-$(CONFIG_TRUSTY_LOG)		+= gz-log.o
 obj-$(CONFIG_MTK_ENABLE_GENIEZONE)	+= trusty-nebula.o
 ifeq ($(CONFIG_MTK_NEBULA_VM_SUPPORT),y)
-obj-$(CONFIG_TRUSTY_LOG)		+= trusty-log.o
 obj-$(CONFIG_MTK_ENABLE_GENIEZONE)	+= trusty-nebula.o
 endif
-else
-obj-$(CONFIG_TRUSTY_LOG)		+= trusty-log.o
 endif
 obj-$(CONFIG_MTK_ENABLE_GENIEZONE)	+= trusty-mem.o
 obj-$(CONFIG_TRUSTY_VIRTIO)		+= trusty-virtio.o
