@@ -1014,7 +1014,7 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 	if (bug_info) {
 		for (i = 0; i < DOMAIN_NUM; i++) {
 			if (bug_info->MVA[i] ||
-			    bug_info->FIXED_MVA[i])
+			    bug_info->FIXED_MVA[i]) {
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 				port[i] = bug_info->port[i];
@@ -1023,6 +1023,7 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 				mva_fix[i] =  bug_info->FIXED_MVA[i];
 				block_nr[i] = (buffer->size +
 					MVA_ALIGN_MASK) >> MVA_SIZE_ORDER;
+			}
 		}
 	}
 	if (!buffer->handle_count) {

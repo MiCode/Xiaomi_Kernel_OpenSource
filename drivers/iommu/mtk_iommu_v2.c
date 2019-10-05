@@ -1027,10 +1027,10 @@ static inline void mtk_iommu_intr_modify_all(unsigned long enable)
 	struct mtk_iommu_data *data, *temp;
 	unsigned int i = 0;
 
-	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
-		return;
-	}
 	list_for_each_entry_safe(data, temp, &m4ulist, list) {
+		if (data->m4uid >= IOMMU_REMOVE_POWER_ID) // fix me, @cui zhang
+			continue;
+
 		if (!data->base  || IS_ERR(data->base)) {
 			pr_notice("%s, %d, invalid base addr\n",
 				  __func__, __LINE__);
