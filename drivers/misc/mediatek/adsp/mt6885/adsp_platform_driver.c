@@ -61,8 +61,8 @@ static const struct adsp_description adsp_c1_desc = {
 	.sharedmems = {
 		[ADSP_SHAREDMEM_BOOTUP_MARK] = {0x0004, 0x0004},
 		[ADSP_SHAREDMEM_SYS_STATUS] = {0x0008, 0x0004},
-		[ADSP_SHAREDMEM_MPUINFO] = {0x0020, 0x0010},
-		[ADSP_SHAREDMEM_WAKELOCK] = {0x0024, 0x0004},
+		[ADSP_SHAREDMEM_MPUINFO] = {0x0018, 0x0010},
+		[ADSP_SHAREDMEM_WAKELOCK] = {0x001C, 0x0004},
 		[ADSP_SHAREDMEM_IPCBUF] = {0x0300, 0x0200},
 		[ADSP_SHAREDMEM_C2C_1_BUF] = {0x2508, 0x2208}, //common begin
 	},
@@ -339,9 +339,8 @@ static const struct of_device_id adsp_common_of_ids[] = {
 static int adsp_common_drv_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	struct device *dev = &pdev->dev;
 
-	ret = adsp_clk_device_probe(dev);
+	ret = adsp_clk_device_probe(pdev);
 	if (ret) {
 		pr_warn("%s(), clk probe fail, %d\n", __func__, ret);
 		goto ERROR;

@@ -230,6 +230,7 @@ static int __init adsp_module_init(void)
 		}
 
 		adsp_mt_sw_reset(cid);
+//		pr_info("[ADSP]%s dtcm=0x%x\n", __func__, readl(pdata->dtcm));
 
 		ret = pdata->ops->initialize(pdata);
 		if (unlikely(ret)) {
