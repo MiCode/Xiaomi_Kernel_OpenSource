@@ -134,6 +134,7 @@ struct cmdq {
 	atomic_t		usage;
 	struct workqueue_struct *timeout_wq;
 	struct wakeup_source	wake_lock;
+	spinlock_t		lock;
 };
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
@@ -149,6 +150,15 @@ struct cmdq_mmp_event {
 
 struct cmdq_mmp_event	cmdq_mmp;
 #endif
+
+static void cmdq_init(struct cmdq *cmdq)
+{
+	int i;
+
+	writel(CMDQ_THR_ACTIVE_SLOT_CYCLES, cmdq->base + CMDQ_THR_SLOT_CYCLES);
+	for (i = 0; i <= CMDQ_EVENT_MAX; i++)
+		writel(i, cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+}
 
 static inline void cmdq_mmp_init(void)
 {
@@ -202,6 +212,7 @@ static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
 static s32 cmdq_clk_enable(struct cmdq *cmdq)
 {
 	s32 usage, err, err_timer;
+	unsigned long flags;
 
 	usage = atomic_inc_return(&cmdq->usage);
 
@@ -216,6 +227,11 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 		/* make sure pm not suspend */
 		cmdq_lock_wake_lock(cmdq, true);
 	}
+
+	spin_lock_irqsave(&cmdq->lock, flags);
+	if (usage == 1)
+		cmdq_init(cmdq);
+	spin_unlock_irqrestore(&cmdq->lock, flags);
 
 	err_timer = clk_enable(cmdq->clock_timer);
 	if (err_timer < 0)
@@ -1424,6 +1440,11 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	wakeup_source_init(&cmdq->wake_lock, "cmdq_wakelock");
 
+	spin_lock_init(&cmdq->lock);
+	clk_enable(cmdq->clock);
+	cmdq_init(cmdq);
+	clk_disable(cmdq->clock);
+
 	cmdq_mmp_init();
 	return 0;
 }
@@ -1448,7 +1469,7 @@ static struct platform_driver cmdq_drv = {
 	}
 };
 
-static __init int cmdq_init(void)
+static __init int cmdq_drv_init(void)
 {
 	u32 err = 0;
 
@@ -1461,6 +1482,22 @@ static __init int cmdq_init(void)
 	}
 
 	return 0;
+}
+
+void cmdq_mbox_enable(void *chan)
+{
+	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
+		typeof(*cmdq), mbox);
+
+	cmdq_clk_enable(cmdq);
+}
+
+void cmdq_mbox_disable(void *chan)
+{
+	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
+		typeof(*cmdq), mbox);
+
+	cmdq_clk_disable(cmdq);
 }
 
 void *cmdq_mbox_get_base(void *chan)
@@ -1764,4 +1801,4 @@ void cmdq_event_verify(void *chan, u16 event_id)
 }
 EXPORT_SYMBOL(cmdq_event_verify);
 
-arch_initcall(cmdq_init);
+arch_initcall(cmdq_drv_init);

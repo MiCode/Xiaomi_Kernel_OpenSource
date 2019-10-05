@@ -41,6 +41,7 @@
 #define CMDQ_BUF_ALLOC_SIZE		(PAGE_SIZE)
 #define CMDQ_NUM_CMD(cmd_size)		((cmd_size) / CMDQ_INST_SIZE)
 
+#define CMDQ_EVENT_MAX			0x3FF
 #define CMDQ_WFE_UPDATE			BIT(31)
 #define CMDQ_WFE_UPDATE_VALUE		BIT(16)
 #define CMDQ_WFE_WAIT			BIT(15)
@@ -190,6 +191,8 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	u64 **inst_out, dma_addr_t *pc_out);
 void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 	struct cmdq_pkt *pkt);
+void cmdq_mbox_enable(void *chan);
+void cmdq_mbox_disable(void *chan);
 void *cmdq_mbox_get_base(void *chan);
 phys_addr_t cmdq_mbox_get_base_pa(void *chan);
 s32 cmdq_mbox_thread_reset(void *chan);

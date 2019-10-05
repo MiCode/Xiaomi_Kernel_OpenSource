@@ -27,7 +27,6 @@
 #define CMDQ_TPR_ID			(56)
 #define CMDQ_GPR_CNT_ID			(32)
 #define CMDQ_CPR_STRAT_ID		(0x8000)
-#define CMDQ_EVENT_MAX			0x3FF
 #define SUBSYS_NO_SUPPORT		99
 
 /* GCE provide 26M timer, thus each tick 1/26M second,
