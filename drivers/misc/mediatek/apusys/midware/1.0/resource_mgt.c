@@ -772,12 +772,11 @@ void resource_mgt_dump(void *s_file)
 					tab->dev_num,
 					"device ptr",
 					info->dev);
-
-				LOG_CON(s, "| %9s(%4d) | %-17s= %-21llx|\n",
+				LOG_CON(s, "| %9s(%4d) | %-17s= %-21d|\n",
 					"available",
 					tab->available_num,
-					"cmd id",
-					info->cmd_id);
+					"device idx",
+					info->dev->idx);
 			} else {
 				LOG_CON(s, "|%-17s| %-8s#%-4d>%-26s|\n",
 					"",
@@ -788,12 +787,15 @@ void resource_mgt_dump(void *s_file)
 					"",
 					"device ptr",
 					info->dev);
-
-				LOG_CON(s, "|%-17s| %-17s= %-21llx|\n",
+				LOG_CON(s, "|%-17s| %-17s= %-21d|\n",
 					"",
-					"cmd id",
-					info->cmd_id);
+					"device idx",
+					info->dev->idx);
 			}
+			LOG_CON(s, "|%-17s| %-17s= 0x%-19llx|\n",
+				"",
+				"cmd id",
+				info->cmd_id);
 			LOG_CON(s, "|%-17s| %-17s= 0x%-19d|\n",
 				"",
 				"subcmd idx",
@@ -881,6 +883,14 @@ int apusys_register_device(struct apusys_device *dev)
 
 			if (i >= tab->dev_num)
 				tab->dev_num++;
+
+			/* rewrite device's idx */
+			if (dev->idx != i) {
+				LOG_WARN("over write dev idx(%d/%d)",
+					dev->idx,
+					i);
+				dev->idx = i;
+			}
 
 			tab->dev_list[i].cur_owner = APUSYS_DEV_OWNER_NONE;
 			LOG_DEBUG("register dev(%p) success (%d/%d)\n",
