@@ -84,6 +84,7 @@ bool is_clk_buf_under_flightmode(void)
 	return g_is_flightmode_on;
 }
 
+/* TODO: doesn't use bblpm. check again */
 /* for ccci driver to notify this */
 void clk_buf_set_by_flightmode(bool is_flightmode_on)
 {
