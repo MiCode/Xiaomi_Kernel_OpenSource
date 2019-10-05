@@ -20,10 +20,10 @@
 #else
 #define FH_PLL0 0 /* LL : ARMPLL */
 #define FH_PLL1 1 /* L : ARMPLL_L */
-#define FH_PLL1 2 /* L : ARMPLL_L */
-#define FH_PLL1 3 /* L : ARMPLL_L */
-#define FH_PLL1 4 /* L : ARMPLL_L */
-#define FH_PLL3 5 /* CCI : CCIPLL */
+#define FH_PLL2 2 /* L : ARMPLL_L */
+#define FH_PLL3 3 /* L : ARMPLL_L */
+#define FH_PLL4 4 /* L : ARMPLL_L */
+#define FH_PLL5 5 /* CCI : CCIPLL */
 #endif
 
 #include "mtk_cpufreq_platform.h"

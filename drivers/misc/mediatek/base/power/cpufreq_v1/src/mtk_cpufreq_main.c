@@ -1821,7 +1821,7 @@ static int __init _mt_cpufreq_pdrv_init(void)
 #endif
 
 #ifdef CPU_DVFS_NOT_READY
-	dvfs_disable_flag = 1
+	dvfs_disable_flag = 1;
 	return 0;
 #endif
 
