@@ -97,7 +97,7 @@ int reviser_mem_alloc(struct reviser_mem *mem)
 
 	buffer = ion_map_kernel(ion_client, handle);
 	if (buffer == NULL) {
-		LOG_ERR("map kernel va fail(%d/%p)\n", ion_client, handle);
+		LOG_ERR("map kernel va fail(%p/%p)\n", ion_client, handle);
 		goto free_alloc;
 	}
 
@@ -126,8 +126,10 @@ int reviser_mem_alloc(struct reviser_mem *mem)
 		LOG_ERR("Get MVA failed\n");
 		goto free_map;
 	}
-	LOG_DEBUG("iova: %08x pa_size = %u\n", pa, pa_size);
-	LOG_DEBUG("handle: %08x kva: %08x\n", handle, buffer);
+	LOG_DEBUG("iova: %08lx pa_size = %lu\n", pa, pa_size);
+	LOG_DEBUG("handle: %lx kva: %08lx\n",
+			(unsigned long)handle,
+			(unsigned long)buffer);
 	LOG_DEBUG("Done\n");
 
 	mem->kva = (uint64_t)buffer;

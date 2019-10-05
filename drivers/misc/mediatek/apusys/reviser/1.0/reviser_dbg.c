@@ -221,7 +221,7 @@ static ssize_t reviser_dbg_read_mem_tcm(struct file *filp, char *buffer,
 		LOG_ERR("allocate fail 0x%x\n", VLM_BANK_SIZE);
 		return res;
 	}
-	LOG_DEBUG("copy buffer size 0x%lx ...\n", VLM_BANK_SIZE);
+	LOG_DEBUG("copy buffer size 0x%x ...\n", VLM_BANK_SIZE);
 
 	memcpy_fromio(vbuffer,
 			reviser_device->tcm_base +
@@ -267,7 +267,7 @@ static ssize_t reviser_dbg_read_mem_dram(struct file *filp, char *buffer,
 	dram_offset = g_reviser_mem_dram_ctxid * VLM_CTXT_DRAM_OFFSET +
 			g_reviser_mem_dram_bank * VLM_BANK_SIZE;
 	if (dram_offset >= REMAP_DRAM_SIZE) {
-		LOG_ERR("copy dram out of range. 0x%x\n", dram_offset);
+		LOG_ERR("copy dram out of range. 0x%llx\n", dram_offset);
 		return res;
 	}
 
@@ -308,7 +308,7 @@ static ssize_t reviser_dbg_read_mem_swap(struct file *filp, char *buffer,
 	}
 	dram_offset = g_reviser_mem_dram_bank * VLM_BANK_SIZE;
 	if (dram_offset >= REMAP_DRAM_SIZE) {
-		LOG_ERR("copy dram out of range. 0x%x\n",
+		LOG_ERR("copy dram out of range. 0x%llx\n",
 				dram_offset);
 		return res;
 	}
@@ -316,7 +316,7 @@ static ssize_t reviser_dbg_read_mem_swap(struct file *filp, char *buffer,
 	mutex_lock(&reviser_device->mutex_vlm_pgtable);
 	addr = reviser_device->pvlm[g_reviser_mem_dram_ctxid].swap_addr;
 	if (addr == 0) {
-		LOG_ERR("copy dram no swap_addr 0x%x\n", addr);
+		LOG_ERR("copy dram no swap_addr 0x%llx\n", addr);
 		return res;
 	}
 

@@ -176,8 +176,8 @@ static int reviser_probe(struct platform_device *pdev)
 	}
 
 
-	LOG_DEBUG("apusys_reviser_ctl->start = %p\n",
-			apusys_reviser_ctl->start);
+	LOG_DEBUG("apusys_reviser_ctl->start = %pa\n",
+			&apusys_reviser_ctl->start);
 	reviser_device->pctrl_top = ioremap_nocache(apusys_reviser_ctl->start,
 		apusys_reviser_ctl->end - apusys_reviser_ctl->start + 1);
 	if (!reviser_device->pctrl_top) {
@@ -186,8 +186,8 @@ static int reviser_probe(struct platform_device *pdev)
 		goto free_device;
 	}
 
-	LOG_DEBUG("apusys_reviser_vlm->start = %p\n",
-			apusys_reviser_vlm->start);
+	LOG_DEBUG("apusys_reviser_vlm->start = %pa\n",
+			&apusys_reviser_vlm->start);
 	reviser_device->vlm_base =
 		ioremap_nocache(apusys_reviser_vlm->start,
 		apusys_reviser_vlm->end - apusys_reviser_vlm->start + 1);
@@ -196,8 +196,8 @@ static int reviser_probe(struct platform_device *pdev)
 		ret = -EIO;
 		goto free_device;
 	}
-	LOG_DEBUG("apusys_reviser_tcm->start = %p\n",
-			apusys_reviser_tcm->start);
+	LOG_DEBUG("apusys_reviser_tcm->start = %pa\n",
+			&apusys_reviser_tcm->start);
 	reviser_device->tcm_base =
 		ioremap_nocache(apusys_reviser_tcm->start,
 		apusys_reviser_tcm->end - apusys_reviser_tcm->start + 1);
@@ -454,11 +454,11 @@ static long reviser_ioctl(struct file *filp, unsigned int cmd,
 		memset(&pg_table, 0, sizeof(struct table_tcm));
 
 		tcm_page_num = DIV_ROUND_UP(info.page.tcm_size, VLM_BANK_SIZE);
-		LOG_DEBUG("tcm_size: %lx tcm_page_num %d\n",
+		LOG_DEBUG("tcm_size: %x tcm_page_num %d\n",
 				info.page.tcm_size, tcm_page_num);
 		if (!reviser_table_get_tcm_sync(reviser_device,
 				tcm_page_num, &pg_table)) {
-			LOG_DEBUG("page_num: %lu\n", pg_table.page_num);
+			LOG_DEBUG("page_num: %u\n", pg_table.page_num);
 			LOG_DEBUG("table_tcm: %lx\n", pg_table.table_tcm[0]);
 
 			info.page.tcm_num = pg_table.page_num;
@@ -496,7 +496,7 @@ static long reviser_ioctl(struct file *filp, unsigned int cmd,
 		if (info.page.tcm_num !=
 				bitmap_weight(info.page.table_tcm,
 						VLM_TCM_BANK_MAX)) {
-			LOG_ERR("tcm_num %d is unequal to table tcm %x\n",
+			LOG_ERR("tcm_num %d is unequal to table tcm %lx\n",
 					info.page.tcm_num,
 					info.page.table_tcm[0]);
 			ret = -EINVAL;
@@ -508,7 +508,7 @@ static long reviser_ioctl(struct file *filp, unsigned int cmd,
 		LOG_DEBUG("info.page.table_tcm: %lx\n", info.page.table_tcm[0]);
 		memcpy(pg_table.table_tcm, info.page.table_tcm,
 				sizeof(unsigned long) * BITS_TO_LONGS(4));
-		LOG_DEBUG("page_num: %lu\n", pg_table.page_num);
+		LOG_DEBUG("page_num: %u\n", pg_table.page_num);
 		LOG_DEBUG("table_tcm: %lx\n", pg_table.table_tcm[0]);
 		if (reviser_table_free_tcm(reviser_device, &pg_table)) {
 			LOG_DEBUG("Free TCM Fail\n");
@@ -534,7 +534,7 @@ static long reviser_ioctl(struct file *filp, unsigned int cmd,
 		if (!reviser_table_get_vlm(reviser_device,
 				info.page.tcm_size, info.page.force,
 				&ctxID, &tcm_size)) {
-			LOG_DEBUG("GET VLM : tcm_size: %lx\n", tcm_size);
+			LOG_DEBUG("GET VLM : tcm_size: %x\n", tcm_size);
 			LOG_DEBUG("GET VLM : ctxID: %lu\n", ctxID);
 			info.page.tcm_size = tcm_size;
 			info.page.ID = ctxID;

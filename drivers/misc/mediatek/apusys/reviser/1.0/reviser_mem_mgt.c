@@ -250,7 +250,7 @@ int reviser_table_get_tcm_sync(void *drvinfo,
 			break;
 		}
 	}
-	LOG_DEBUG("Sync Get page_num %lu\n", pg_table->page_num);
+	LOG_DEBUG("Sync Get page_num %u\n", pg_table->page_num);
 	//LOG_DEBUG("Sync Get table_tcm %lx\n", pg_table->table_tcm[0]);
 	return 0;
 }
@@ -275,13 +275,13 @@ int reviser_table_get_tcm(void *drvinfo,
 
 	mutex_lock(&reviser_device->mutex_tcm);
 
-	LOG_DEBUG("page_num %lu tcm_pgtable %lx\n",
+	LOG_DEBUG("page_num %u tcm_pgtable %lx\n",
 			page_num, tcm_pgtable->table_tcm[0]);
 
 	setbits = bitmap_weight(table_tcm, TABLE_TCM_MAX);
 	//LOG_DEBUG("setbits %lu\n", setbits);
 	if (TABLE_TCM_MAX - setbits < page_num) {
-		LOG_ERR("No free page (%lu/%lu)\n",
+		LOG_ERR("No free page (%u/%lu)\n",
 				page_num, TABLE_TCM_MAX - setbits);
 		tcm_pgtable->page_num = 0;
 		goto free_mutex;
@@ -366,11 +366,11 @@ int reviser_table_free_tcm(void *drvinfo, struct table_tcm *pg_table)
 		//		table_tcm[0], g_tcm_free);
 		wake_up_interruptible(&reviser_device->wait_tcm);
 	} else {
-		LOG_ERR("Out of range %lu\n", pg_table->page_num);
+		LOG_ERR("Out of range %u\n", pg_table->page_num);
 		goto free_mutex;
 	}
 
-	LOG_DEBUG("Free Done page_num %lu\n", pg_table->page_num);
+	LOG_DEBUG("Free Done page_num %u\n", pg_table->page_num);
 	mutex_unlock(&reviser_device->mutex_tcm);
 
 
@@ -531,16 +531,16 @@ int reviser_table_get_vlm(void *drvinfo,
 	//struct table_tcm tcm_pgtable;
 	struct table_vlm vlm_pgtable;
 
-	LOG_DEBUG("requset_size: %lx\n force: %lu\n", requset_size, force);
+	LOG_DEBUG("requset_size: %x\n force: %d\n", requset_size, force);
 
 	if (requset_size > VLM_SIZE) {
-		LOG_ERR("requset_size %lx is too larger\n", requset_size);
+		LOG_ERR("requset_size %x is too larger\n", requset_size);
 		goto fail;
 	}
 
 	memset(&vlm_pgtable, 0, sizeof(struct table_vlm));
 	vlm_pgtable.page_num = DIV_ROUND_UP(requset_size, VLM_BANK_SIZE);
-	LOG_DEBUG("page_num: %lu\n", vlm_pgtable.page_num);
+	LOG_DEBUG("page_num: %u\n", vlm_pgtable.page_num);
 
 	if (reviser_table_get_ctxID_sync(drvinfo, &ctxid)) {
 		LOG_ERR("Get CTX ID Fail\n");
@@ -555,7 +555,7 @@ int reviser_table_get_vlm(void *drvinfo,
 			LOG_ERR("Force Get TCM Fail\n");
 			goto free_ctxid;
 		}
-		LOG_DEBUG("Get TCM Success page_num %lu table %lx ctxid %lu\n",
+		LOG_DEBUG("Get TCM Success page_num %u table %lx ctxid %lu\n",
 				vlm_pgtable.tcm_pgtable.page_num,
 				vlm_pgtable.tcm_pgtable.table_tcm[0], ctxid);
 
@@ -568,7 +568,7 @@ int reviser_table_get_vlm(void *drvinfo,
 			LOG_DEBUG("Use Dram ctxid %lu\n", ctxid);
 
 		} else {
-			LOG_DEBUG("Get TCM page_num %lu table %lx ctxid %lu\n",
+			LOG_DEBUG("Get TCM page_num %u table %lx ctxid %lu\n",
 					vlm_pgtable.tcm_pgtable.page_num,
 					vlm_pgtable.tcm_pgtable.table_tcm[0],
 					ctxid);
@@ -589,7 +589,7 @@ int reviser_table_get_vlm(void *drvinfo,
 	*tcm_size = vlm_pgtable.tcm_pgtable.page_num * VLM_BANK_SIZE;
 	*id = ctxid;
 
-	LOG_DEBUG("==CtxID %d Get TCM page_num %lu\n",
+	LOG_DEBUG("==CtxID %lu Get TCM page_num %u\n",
 			ctxid,
 			vlm_pgtable.tcm_pgtable.page_num);
 	return 0;
@@ -617,7 +617,7 @@ int reviser_table_free_vlm(void *drvinfo, uint32_t ctxid)
 {
 	struct table_tcm tcm_pgtable;
 
-	LOG_DEBUG("free ctxid: %lu\n", ctxid);
+	LOG_DEBUG("free ctxid: %u\n", ctxid);
 	if (ctxid >= VLM_CTXT_CTX_ID_MAX) {
 		LOG_ERR("invalid argument\n");
 		return -1;
@@ -647,7 +647,7 @@ int reviser_table_free_vlm(void *drvinfo, uint32_t ctxid)
 		LOG_ERR("Free ctxID Fail\n");
 		return -1;
 	}
-	LOG_DEBUG("==Free Done ctxid: %lu TCM page_num %lu\n",
+	LOG_DEBUG("==Free Done ctxid: %u TCM page_num %u\n",
 			ctxid, tcm_pgtable.page_num);
 
 	return 0;
@@ -693,7 +693,7 @@ int reviser_table_set_remap(void *drvinfo, unsigned long ctxid)
 
 	if (VLM_REMAP_TABLE_MAX - setbits < g_vlm_pgtable[ctxid].sys_page_num) {
 
-		LOG_ERR("Remap Zero bits (%d) > vlm[%d] page[%d]\n",
+		LOG_ERR("Remap Zero bits (%d) > vlm[%lu] page[%d]\n",
 				VLM_REMAP_TABLE_MAX - setbits,
 				ctxid, g_vlm_pgtable[ctxid].sys_page_num);
 		goto free_mutex;
@@ -864,7 +864,7 @@ int reviser_table_swapout_vlm(void *drvinfo, unsigned long ctxid)
 		size = VLM_BANK_SIZE * g_vlm_pgtable[ctxid].tcm.page_num;
 		buffer = (void *) __get_free_pages(GFP_KERNEL, get_order(size));
 		if (buffer == NULL) {
-			LOG_ERR("failed to allocate 0x%x buffer.\n", size);
+			LOG_ERR("failed to allocate 0x%lx buffer.\n", size);
 			goto free_mutex;
 		}
 
@@ -872,7 +872,7 @@ int reviser_table_swapout_vlm(void *drvinfo, unsigned long ctxid)
 		g_vlm_pgtable[ctxid].swap_addr = (uint64_t) buffer;
 
 		LOG_DEBUG("Copy to kva %p\n", buffer);
-		LOG_DEBUG("Copy to g_vlm_pgtable[%d].swap_addr %x\n",
+		LOG_DEBUG("Copy to g_vlm_pgtable[%lu].swap_addr %llx\n",
 				ctxid, g_vlm_pgtable[ctxid].swap_addr);
 	} else {
 		LOG_DEBUG("No TCM!\n");
@@ -918,7 +918,7 @@ int reviser_table_swapin_vlm(void *drvinfo, unsigned long ctxid)
 		g_vlm_pgtable[ctxid].swap_addr = 0;
 		free_pages((unsigned long)buffer, get_order(size));
 
-		LOG_DEBUG("Restore kva %p to context %d\n2", buffer, ctxid);
+		LOG_DEBUG("Restore kva %p to context %lu\n2", buffer, ctxid);
 	} else {
 		LOG_DEBUG("No TCM!\n");
 	}

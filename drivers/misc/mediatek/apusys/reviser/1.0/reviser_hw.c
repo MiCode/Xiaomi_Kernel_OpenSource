@@ -775,7 +775,7 @@ int reviser_alloc_tcm(void *drvinfo, void *usr)
 	mem->kva = (uint64_t) info->tcm_base;
 	mem->iova = TCM_BASE;
 
-	LOG_DEBUG("kva:%p, mva:%x,size:%x\n", mem->kva, mem->iova,
+	LOG_DEBUG("kva:%llx, mva:%x,size:%x\n", mem->kva, mem->iova,
 			mem->size);
 
 	return 0;
@@ -791,7 +791,7 @@ int reviser_free_tcm(void *drvinfo, void *usr)
 	mem->kva = 0;
 	mem->iova = 0;
 
-	LOG_DEBUG("kva:%p, mva:%x,size:%x\n", mem->kva, mem->iova,
+	LOG_DEBUG("kva:%llx, mva:%x,size:%x\n", mem->kva, mem->iova,
 			mem->size);
 
 	return 0;
