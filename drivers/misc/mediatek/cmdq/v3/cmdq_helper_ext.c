@@ -3685,7 +3685,7 @@ static void cmdq_core_clk_enable(struct cmdqRecStruct *handle,
 		clock_count, handle->scenario);
 
 	if (clock_count == 1) {
-		cmdq_mbox_enable(cl);
+		cmdq_mbox_enable(cl->chan);
 		cmdq_core_reset_gce();
 	}
 
