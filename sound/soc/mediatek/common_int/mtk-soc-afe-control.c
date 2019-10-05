@@ -1326,29 +1326,31 @@ bool SetI2SDacOut(unsigned int SampleRate, bool lowjitter, bool I2SWLen)
 	return true;
 }
 
-bool SetHwDigitalGainMode(unsigned int GainType, unsigned int SampleRate,
+bool SetHwDigitalGainMode(enum soc_aud_digital_block AudBlock,
+			  unsigned int SampleRate,
 			  unsigned int SamplePerStep)
 {
-	/*
-	 * printk("SetHwDigitalGainMode GainType = %d, SampleRate = %d,
-	 * SamplePerStep= %d\n", GainType, SampleRate, SamplePerStep);
-	 */
-	return set_chip_hw_digital_gain_mode(GainType, SampleRate,
+	pr_debug("+%s(), AudBlock = %d, SampleRate = %d, SamplePerStep= %d\n",
+		 __func__, AudBlock, SampleRate, SamplePerStep);
+
+	return set_chip_hw_digital_gain_mode(AudBlock, SampleRate,
 					     SamplePerStep);
 }
 
-bool SetHwDigitalGainEnable(int GainType, bool Enable)
+bool SetHwDigitalGainEnable(enum soc_aud_digital_block AudBlock, bool Enable)
 {
-	pr_debug("+%s(), GainType = %d, Enable = %d\n", __func__, GainType,
-		 Enable);
-	return set_chip_hw_digital_gain_enable(GainType, Enable);
+	pr_debug("+%s(), AudBlock = %d, Enable = %d\n",
+		 __func__, AudBlock, Enable);
+
+	return set_chip_hw_digital_gain_enable(AudBlock, Enable);
 }
 
-bool SetHwDigitalGain(unsigned int Gain, int GainType)
+bool SetHwDigitalGain(enum soc_aud_digital_block AudBlock, unsigned int Gain)
 {
-	pr_debug("+%s(), Gain = 0x%x, gain type = %d\n", __func__, Gain,
-		 GainType);
-	return set_chip_hw_digital_gain(Gain, GainType);
+	pr_debug("+%s(), AudBlock = %d, Gain = 0x%x\n",
+		 __func__, AudBlock, Gain);
+
+	return set_chip_hw_digital_gain(AudBlock, Gain);
 }
 
 bool SetModemPcmConfig(int modem_index,
