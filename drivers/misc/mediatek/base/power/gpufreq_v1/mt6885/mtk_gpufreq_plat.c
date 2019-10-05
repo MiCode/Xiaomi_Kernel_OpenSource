@@ -44,6 +44,7 @@
 #ifdef CONFIG_THERMAL
 #include "mtk_thermal.h"
 #endif
+#undef CONFIG_MTK_FREQ_HOPPING
 #ifdef CONFIG_MTK_FREQ_HOPPING
 #include "mtk_freqhopping_drv.h"
 #endif
@@ -263,10 +264,11 @@ static unsigned int mt_gpufreq_return_by_condition(
 	if (!mt_gpufreq_get_dvfs_en())
 		ret |= (1 << 0);
 
-	/* out of segment lower bound */
-	if (limit_idx > g_segment_min_opp_idx) {
+	/* out of segment lower/uppor bound */
+	if (limit_idx > g_segment_min_opp_idx ||
+			limit_idx < g_segment_max_opp_idx) {
 		ret |= (1 << 1);
-		gpufreq_pr_info("out of segment lower bound, %d (%d)\n",
+		gpufreq_pr_info("out of segment lower/uppor bound, %d (%d)\n",
 			limit_idx, g_segment_min_opp_idx);
 	}
 
@@ -303,36 +305,32 @@ static unsigned int mt_gpufreq_limit_idx_by_condition(unsigned int t_idx)
 	t_freq = g_opp_table[t_idx].gpufreq_khz;
 	t_vgpu = g_opp_table[t_idx].gpufreq_volt;
 
-	/* generate random segment/real OPP index for stress test */
+	/* generate random segment OPP index for stress test */
 	if (g_opp_stress_test_state == 1) {
 		ret |= (1 << 0);
 		get_random_bytes(&t_idx, sizeof(t_idx));
 		index = t_idx %
 			(g_segment_min_opp_idx - g_segment_max_opp_idx + 1) +
 			g_segment_max_opp_idx;
-	} else if (g_opp_stress_test_state == 2) {
-		ret |= (1 << 1);
-		get_random_bytes(&t_idx, sizeof(t_idx));
-		index = t_idx % g_max_opp_idx_num;
 	}
 
 	/* OPP freq is limited by Thermal/Power/PBM */
 	if (g_max_limited_idx != g_segment_max_opp_idx) {
 		if (t_freq > g_opp_table[g_max_limited_idx].gpufreq_khz) {
-			ret |= (1 << 2);
+			ret |= (1 << 1);
 			index = g_max_limited_idx;
 		}
 	}
 
 	/* If /proc/gpufreq/gpufreq_opp_freq fix OPP freq */
 	if (g_keep_opp_freq_state) {
-		ret |= (1 << 3);
+		ret |= (1 << 2);
 		index = g_keep_opp_freq_idx;
 	}
 
 	/* ptpod no need to update index */
 	if (g_DVFS_is_paused_by_ptpod) {
-		ret |= (1 << 4);
+		ret |= (1 << 3);
 		index = t_idx;
 	}
 
@@ -801,6 +799,18 @@ unsigned int mt_gpufreq_bringup(void)
 unsigned int mt_gpufreq_get_dvfs_en(void)
 {
 	return MT_GPUFREQ_DVFS_ENABLE;
+}
+
+unsigned int mt_gpufreq_not_ready(void)
+{
+	if (IS_ERR(g_pmic->reg_vgpu) || IS_ERR(g_pmic->reg_vsram_gpu)) {
+		gpufreq_pr_info("VGPU: %d, VSRAM_GPU: %d not initialized\n",
+			PTR_ERR(g_pmic->reg_vgpu),
+			PTR_ERR(g_pmic->reg_vsram_gpu));
+		return true;
+	} else {
+		return false;
+	}
 }
 
 unsigned int mt_gpufreq_power_ctl_en(void)
@@ -2824,22 +2834,24 @@ static void __mt_gpufreq_init_volt_by_freq(void)
 
 static int __mt_gpufreq_init_pmic(struct platform_device *pdev)
 {
-	g_pmic = kzalloc(sizeof(struct g_pmic_info), GFP_KERNEL);
-
+	if (g_pmic == NULL)
+		g_pmic = kzalloc(sizeof(struct g_pmic_info), GFP_KERNEL);
 	if (g_pmic == NULL)
 		return -ENOMEM;
 
-	/* VGPU is MT6359's VGPU11 buck */
-	g_pmic->reg_vgpu = regulator_get(&pdev->dev, "vgpu");
+	g_pmic->reg_vgpu =
+			regulator_get_optional(&pdev->dev, "_vgpu");
 	if (IS_ERR(g_pmic->reg_vgpu)) {
-		gpufreq_pr_info("@%s: cannot get VGPU\n", __func__);
+		gpufreq_pr_info("@%s: cannot get VGPU, %d\n",
+			__func__, PTR_ERR(g_pmic->reg_vgpu));
 		return PTR_ERR(g_pmic->reg_vgpu);
 	}
 
-	/* VSRAM_GPU is MT6359's VPU buck */
-	g_pmic->reg_vsram_gpu = regulator_get(&pdev->dev, "vsram_gpu");
+	g_pmic->reg_vsram_gpu =
+			regulator_get_optional(&pdev->dev, "_vsram_gpu");
 	if (IS_ERR(g_pmic->reg_vsram_gpu)) {
-		gpufreq_pr_info("@%s: cannot get VSRAM_GPU\n", __func__);
+		gpufreq_pr_info("@%s: cannot get VSRAM_GPU, %d\n",
+			__func__, PTR_ERR(g_pmic->reg_vsram_gpu));
 		return PTR_ERR(g_pmic->reg_vsram_gpu);
 	}
 
@@ -2878,7 +2890,8 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	g_clk = kzalloc(sizeof(struct g_clk_info), GFP_KERNEL);
+	if (g_clk == NULL)
+		g_clk = kzalloc(sizeof(struct g_clk_info), GFP_KERNEL);
 	if (g_clk == NULL)
 		return -ENOMEM;
 
@@ -3022,6 +3035,8 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 {
 	struct device_node *node;
 	int ret;
+
+	gpufreq_pr_info("@%s start\n", __func__);
 
 	g_opp_stress_test_state = 0;
 	g_keep_opp_freq_state = false;

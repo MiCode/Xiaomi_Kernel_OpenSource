@@ -17,7 +17,7 @@
 #include <linux/module.h>
 #include <linux/clk.h>
 
-#define MT_GPUFREQ_BRINGUP                      1
+#define MT_GPUFREQ_BRINGUP                      0
 #define MT_GPUFREQ_KICKER_PBM_READY             0
 #define MT_GPUFREQ_STATIC_PWR_READY2USE         0
 #define MT_GPUFREQ_LOW_BATT_VOLT_PROTECT        0
@@ -112,6 +112,7 @@ enum mt_buck_state {
  * MTK GPUFREQ API
  */
 extern unsigned int mt_gpufreq_bringup(void);
+extern unsigned int mt_gpufreq_not_ready(void);
 extern unsigned int mt_gpufreq_get_dvfs_en(void);
 extern unsigned int mt_gpufreq_power_ctl_en(void);
 extern unsigned int mt_gpufreq_get_cust_init_en(void);

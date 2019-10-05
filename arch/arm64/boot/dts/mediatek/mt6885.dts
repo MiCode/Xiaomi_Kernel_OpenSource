@@ -2570,6 +2570,8 @@ page_owner=on";
 			"mtcmos_mfg_core3_4",
 			"mtcmos_mfg_core5_6",
 			"mtcmos_mfg_core7_8";
+			_vgpu-supply = <&mt6315_7_vbuck1>;
+			_vsram_gpu-supply = <&mt_pmic_vsram_others_ldo_reg>;
 	};
 
 	dfd@13e00000 {
