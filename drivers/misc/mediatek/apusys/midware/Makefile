@@ -35,7 +35,6 @@ apusys-objs += $(APUSYS_VERSION)/resource_mgt.o
 apusys-objs += $(APUSYS_VERSION)/scheduler.o
 apusys-objs += $(APUSYS_VERSION)/apusys_dbg.o
 apusys-objs += $(APUSYS_VERSION)/memory_mgt.o
-apusys-objs += $(APUSYS_VERSION)/midware_trace.o
 apusys-objs += $(APUSYS_VERSION)/thread_pool.o
 apusys-objs += $(APUSYS_VERSION)/memory_ion.o
 apusys-objs += $(APUSYS_VERSION)/memory_dma.o

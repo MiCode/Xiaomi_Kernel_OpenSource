@@ -13,12 +13,37 @@
 
 #include <linux/string.h>
 #include <linux/kernel.h>
-#include "cmd_parser.h"
 #include "apusys_trace.h"
 
-extern void trace_tag_begin(const char *format, ...);
-extern void trace_tag_end(void);
+#ifdef CONFIG_FTRACE
 extern u8 cfg_apusys_trace;
-
-void midware_trace_begin(int sub_cmd_id);
-void midware_trace_end(int status);
+#ifdef midware_trace_begin
+#undef midware_trace_begin
+#endif
+#define midware_trace_begin(format, args...) \
+	{ \
+		char buf[256]; \
+		int len; \
+		if (cfg_apusys_trace) { \
+			len = snprintf(buf, sizeof(buf), \
+				       format, args); \
+			trace_async_tag(1, buf); \
+		} \
+	}
+#ifdef midware_trace_end
+#undef midware_trace_end
+#endif
+#define midware_trace_end(format, args...) \
+	{ \
+		char buf[256]; \
+		int len; \
+		if (cfg_apusys_trace) { \
+			len = snprintf(buf, sizeof(buf), \
+				       format, args); \
+			trace_async_tag(0, buf); \
+		} \
+	}
+#else
+#define midware_trace_begin(...)
+#define midware_trace_end(...)
+#endif /* CONFIG_FTRACE */
