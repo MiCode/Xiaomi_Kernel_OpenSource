@@ -603,6 +603,31 @@ static long smi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			ret = smi_bwc_conf(&conf);
 		break;
 	}
+#if IS_ENABLED(CONFIG_MTK_MMDVFS)
+	case MTK_IOC_MMDVFS_QOS_CMD:
+	{
+		struct MTK_MMDVFS_QOS_CMD config;
+
+		ret = copy_from_user(&config, (void *)arg,
+			sizeof(struct MTK_MMDVFS_QOS_CMD));
+		if (ret) {
+			SMIWRN(0, "cmd %u copy_from_user fail: %d\n",
+				cmd, ret);
+		} else {
+			switch (config.type) {
+			case MTK_MMDVFS_QOS_CMD_TYPE_SET:
+				mmdvfs_set_max_camera_hrt_bw(
+						config.max_cam_bw);
+				config.ret = 0;
+				break;
+			default:
+				SMIWRN(0, "invalid mmdvfs QOS cmd\n");
+				return -EINVAL;
+			}
+		}
+		break;
+	}
+#endif
 #ifdef MMDVFS_HOOK
 	case MTK_IOC_SMI_BWC_INFO_SET:
 	{
