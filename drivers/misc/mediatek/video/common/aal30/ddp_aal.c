@@ -1088,6 +1088,7 @@ static void disp_aal_multiple_pipe_hist_update(enum DISP_MODULE_ENUM module)
 #endif
 	bool read_success = false;
 	unsigned int temp_max_hist, temp_color_hist;
+	int getlock;
 
 	do {
 		intsta = 0;
@@ -1112,6 +1113,10 @@ static void disp_aal_multiple_pipe_hist_update(enum DISP_MODULE_ENUM module)
 
 		/* Allow to disable interrupt */
 		atomic_set(&g_aal_dirty_frame_retrieved[index], 1);
+
+		aal_index_hist_spin_trylock(index, flags, getlock);
+		if (getlock <= 0)
+			break;
 
 		g_aal_module_hist_count[index] =
 			(g_aal_module_hist_count[index] + 1) &
