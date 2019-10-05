@@ -17,6 +17,10 @@
 #include <mtk_gauge_class.h>
 #include <mtk_battery_internal.h>
 
+int __attribute__((weak)) charger_get_vbus(void)
+{
+	return 4500;
+}
 
 #if (CONFIG_MTK_GAUGE_VERSION != 30)
 signed int battery_get_bat_voltage(void)
