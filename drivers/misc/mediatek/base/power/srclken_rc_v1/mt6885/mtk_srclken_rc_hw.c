@@ -67,7 +67,7 @@ static void __iomem *gpio_base;
 #endif	/* CONFIG_OF */
 
 /* TODO: marked this after driver is ready */
-#define SRCLKEN_RC_BRINGUP			1
+#define SRCLKEN_RC_BRINGUP			0
 /* Pwrap Register */
 #define SRCLKEN_RCINF_STA_0			(0x1C4)
 #define SRCLKEN_RCINF_STA_1			(0x1C8)
@@ -211,9 +211,13 @@ static ssize_t __subsys_ctl_show(char *buf, enum sys_id id)
 	u32 sys_sta;
 	u32 filter;
 	u32 cmd_ok;
-	int len = 0;
+	int len = 0, shift = 0;
 
-	sys_sta = srclken_read(RC_M00_REQ_STA_0 + (id * 4));
+	/* fix reg shift */
+	if (id > 0)
+		shift = 1;
+
+	sys_sta = srclken_read(RC_M00_REQ_STA_0 + ((id + shift) * 4));
 	filter = (sys_sta >> REQ_FILT_SHFT) & REQ_FILT_MSK;
 	cmd_ok = (sys_sta >> CMD_OK_SHFT) & CMD_OK_MSK;
 
@@ -275,17 +279,21 @@ static u32 __srclken_dump_sta(char *buf, u8 id)
 		len += __subsys_ctl_show(buf + len, SYS_BT);
 		len += __subsys_ctl_show(buf + len, SYS_WIFI);
 		len += __subsys_ctl_show(buf + len, SYS_MCU);
-		len += __subsys_ctl_show(buf + len, SYS_COANT);
+		len += __subsys_ctl_show(buf + len, SYS_RF);
 		break;
 	case XO_NFC:
 		len = __subsys_ctl_show(buf, SYS_NFC);
 		break;
 	case XO_CEL:
 		len = __subsys_ctl_show(buf, SYS_RF);
-		len += __subsys_ctl_show(buf + len, SYS_MD);
+		len += __subsys_ctl_show(buf + len, SYS_GPS);
 		break;
 	case XO_EXT:
-		len = __subsys_ctl_show(buf, SYS_UFS);
+		len = __subsys_ctl_show(buf, SYS_GPS);
+		len += __subsys_ctl_show(buf + len, SYS_BT);
+		len += __subsys_ctl_show(buf + len, SYS_WIFI);
+		len += __subsys_ctl_show(buf + len, SYS_MCU);
+		len += __subsys_ctl_show(buf + len, SYS_RF);
 		break;
 	default:
 		pr_notice("Not valid xo_buf id\n");
@@ -407,7 +415,7 @@ static ssize_t trace_ctl_show(struct kobject *kobj,
 {
 	int len = 0;
 	u8 i;
-
+	/* Todo: show all dump */
 	for (i = 0; i < TRACE_NUM; i++)
 		len = __srclken_dump_last_sta(buf, i);
 
@@ -1008,9 +1016,10 @@ void srclken_stage_init(void)
 	pr_info("%s: skipped for bring up\n", __func__);
 	return;
 #else
+#if 0
 	u32 cfg;
 	int i;
-
+#endif
 	if (rc_stage_init_done)
 		return;
 
@@ -1025,6 +1034,7 @@ void srclken_stage_init(void)
 		goto RC_STAGE_DONE;
 	}
 
+#if 0
 	for (i = 0; i < MAX_SYS_NUM; i++) {
 		cfg = srclken_read(RC_M00_SRCLKEN_CFG + i * 4);
 
@@ -1089,13 +1099,17 @@ void srclken_stage_init(void)
 			goto RC_STAGE_DONE;
 		}
 	}
+#endif
+
+RC_STAGE_DONE:
+	rc_stage_init_done = true;
+	rc_stage = SRCLKEN_FULL_SET;
+	return;
 
 RC_STAGE_ERR:
 	pr_notice("%s: rc went wrong, need to check\n", __func__);
 	rc_stage = SRCLKEN_ERR;
 
-RC_STAGE_DONE:
-	rc_stage_init_done = true;
 #endif
 }
 

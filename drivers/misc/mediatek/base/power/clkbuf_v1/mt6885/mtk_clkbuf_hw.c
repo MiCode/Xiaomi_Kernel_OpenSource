@@ -22,7 +22,9 @@
 #include <mtk_clkbuf_common.h>
 /* TODO: UFS no use clockbuff*/
 #if defined(CONFIG_MTK_UFS_SUPPORT)
+#if 0
 #include "ufs-mtk.h"
+#endif
 #endif
 #include <mt-plat/mtk_boot.h>
 #include <linux/string.h>
@@ -100,7 +102,7 @@ static void __iomem *pmif_spmi_base;
 #define XO_BUF7_BBLPM_EN_MASK	(0x1 << 7)
 
 /* TODO: marked this after driver is ready */
-#define CLKBUF_BRINGUP
+/* #define CLKBUF_BRINGUP */
 /* #define CLKBUF_CONN_SUPPORT_CTRL_FROM_I1 */
 
 #define BUF_MAN_M				0
@@ -308,7 +310,9 @@ u32 clk_buf_bblpm_enter_cond(void)
 {
 	u32 bblpm_cond = 0;
 #if defined(CONFIG_MTK_UFS_SUPPORT) && defined(CLKBUF_USE_BBLPM)
+#if 0
 	int boot_type;
+#endif
 #endif
 
 #ifdef CLKBUF_USE_BBLPM
@@ -332,11 +336,13 @@ u32 clk_buf_bblpm_enter_cond(void)
 			bblpm_cond |= BBLPM_COND_NFC;
 
 #if defined(CONFIG_MTK_UFS_SUPPORT)
+#if 0
 		boot_type = get_boot_type();
 		if (boot_type == BOOTDEV_UFS) {
 			if (ufs_mtk_deepidle_hibern8_check() < 0)
 				bblpm_cond |= BBLPM_COND_EXT;
 		}
+#endif
 #endif
 	}
 #else /* !CLKBUF_USE_BBLPM */
@@ -1521,7 +1527,7 @@ void pwrap_clk_buf_inf(void)
 	rc_inf = pwrap_rc_spi_en_init & SRCLKEN_RC_SPI_ENABLE;
 	if (dcxo_inf && rc_inf)
 		pwrap_inf = INF_ERROR;
-	else if (dcxo_inf)
+	else if (rc_inf)
 		pwrap_inf = INF_RC;
 	else if (dcxo_inf)
 		pwrap_inf = INF_DCXO;
@@ -1535,6 +1541,7 @@ void pwrap_clk_buf_inf(void)
 void clk_buf_post_init(void)
 {
 #if defined(CONFIG_MTK_UFS_SUPPORT)
+#if 0
 	int boot_type;
 
 	boot_type = get_boot_type();
@@ -1543,6 +1550,7 @@ void clk_buf_post_init(void)
 		clk_buf_ctrl_internal(CLK_BUF_UFS, CLK_BUF_FORCE_OFF);
 		CLK_BUF7_STATUS = CLOCK_BUFFER_DISABLE;
 	}
+#endif
 #else
 	clk_buf_ctrl_internal(CLK_BUF_UFS, CLK_BUF_FORCE_OFF);
 	CLK_BUF7_STATUS = CLOCK_BUFFER_DISABLE;
