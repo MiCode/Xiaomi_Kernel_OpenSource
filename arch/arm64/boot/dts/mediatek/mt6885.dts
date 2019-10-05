@@ -563,7 +563,7 @@ page_owner=on";
 			     <GIC_SPI 194 IRQ_TYPE_LEVEL_LOW>, /*CCIF0 194/226*/
 			     <GIC_SPI 195 IRQ_TYPE_LEVEL_LOW>; /*CCIF0 195/227*/
 		clocks = <&scpsys SCP_SYS_MD1>,
-			<&infracfg_ao INFRACFG_AO_CLDMA_BCLK_CK>,
+			<&infracfg_ao INFRACFG_AO_DPMAIF_MAIN_CG>,
 			<&infracfg_ao INFRACFG_AO_CCIF_AP_CG>,
 			<&infracfg_ao INFRACFG_AO_CCIF_MD_CG>,
 			<&infracfg_ao INFRACFG_AO_CCIF1_AP_CG>,
@@ -590,6 +590,10 @@ page_owner=on";
 		compatible = "mediatek,md_auxadc";
 		io-channels = <&auxadc 2>;
 		io-channel-names = "md-channel";
+	};
+
+	gpio_usage_mapping: gpio_usage_mapping {
+		compatible = "mediatek,gpio_usage_mapping";
 	};
 
 	apcldmaout_ao@10014400 {
