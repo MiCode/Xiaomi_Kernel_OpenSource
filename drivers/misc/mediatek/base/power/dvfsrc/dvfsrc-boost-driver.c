@@ -45,7 +45,7 @@ static struct attribute *dvfsrc_boost_attributes[] = {
 };
 
 static struct attribute_group dvfsrc_boost_attr_group = {
-	.name = "dramboost"
+	.name = "dramboost",
 	.attrs = dvfsrc_boost_attributes,
 };
 
