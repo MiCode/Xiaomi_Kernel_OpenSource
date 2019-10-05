@@ -3967,6 +3967,8 @@ page_owner=on";
 			<0 0x18002000 0 0x1000>,
 			/* IOCFG_RT */
 			<0 0x11ea0000 0 0x1000>;
+		clocks = <&scpsys SCP_SYS_CONN>;
+		clock-names = "conn";
 	};
 
 	wifi@18000000{

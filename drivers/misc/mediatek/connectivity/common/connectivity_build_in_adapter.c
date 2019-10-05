@@ -50,6 +50,9 @@
 #if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
 #include <mtk_pmic_api_buck.h>
 #endif
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
+#include <pmic_api_buck.h>
+#endif
 #include <upmu_common.h>
 
 /* MMC */
@@ -271,7 +274,8 @@ void connectivity_export_upmu_set_reg_value(unsigned int reg,
 }
 EXPORT_SYMBOL(connectivity_export_upmu_set_reg_value);
 
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359) || \
+	defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
 int connectivity_export_pmic_ldo_vcn13_lp(int user,
 		int op_mode, unsigned char op_en, unsigned char op_cfg)
 {

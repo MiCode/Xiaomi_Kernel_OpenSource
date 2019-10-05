@@ -59,6 +59,7 @@
 	defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT6785) || \
 	defined(CONFIG_MACH_KIBOPLUS) || \
+	defined(CONFIG_MACH_MT6885) || \
 	defined(CONFIG_MACH_ELBRUS)
 #define CONNADP_HAS_CLOCK_BUF_CTRL
 #define KERNEL_clk_buf_ctrl connectivity_export_clk_buf_ctrl
@@ -85,7 +86,8 @@ void connectivity_export_clk_buf_show_status_info(void);
 	connectivity_export_pmic_get_register_value
 #define KERNEL_upmu_set_reg_value \
 	connectivity_export_upmu_set_reg_value
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359) || \
+	defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
 #define KERNEL_pmic_ldo_vcn13_lp \
 	connectivity_export_pmic_ldo_vcn13_lp
 #define KERNEL_pmic_ldo_vcn18_lp \
@@ -108,7 +110,8 @@ void connectivity_export_pmic_set_register_value(int flagname,
 unsigned short connectivity_export_pmic_get_register_value(int flagname);
 void connectivity_export_upmu_set_reg_value(unsigned int reg,
 						unsigned int reg_val);
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359) || \
+	defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
 int connectivity_export_pmic_ldo_vcn13_lp(int user,
 		int op_mode, unsigned char op_en, unsigned char op_cfg);
 int connectivity_export_pmic_ldo_vcn18_lp(int user,
