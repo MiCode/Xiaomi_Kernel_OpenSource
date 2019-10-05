@@ -60,3 +60,12 @@ config MTK_MBOX
 	  MTK MBOX is a physical H/W which consists of configurable 128
 	  or 256 bytes SRAM and 32 bit irq. The driver does read/write
 	  SRAM and IRQ handling.
+
+config MTK_LPM
+	bool "MediaTek Low Power Manager"
+	help
+	  Say yes here to add support for the MediaTek Low Power Manager
+	  driver. The mtk-lpm will handle the mtk low power module then
+	  platform could enter deeper sleep mode when cpu preparing to
+	  power down if it have sufficient time between warmboot.
+
