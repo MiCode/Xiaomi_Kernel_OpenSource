@@ -44,8 +44,8 @@ static void scp_legacy_handler(int id, void *prdata, void *data,
 		handler = mpool[pkt.id - IPI_MPOOL - 1].handler;
 	else
 		handler = prdata;
-
-	handler(pkt.id, pkt.data, pkt.len);
+	if (handler)
+		handler(pkt.id, pkt.data, pkt.len);
 }
 
 /*
