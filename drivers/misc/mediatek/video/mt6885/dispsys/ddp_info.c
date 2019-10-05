@@ -322,7 +322,12 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 "mipi0",
 	 0,
 	 NULL,
-	 {reg_magic,}
+	 {"mediatek,mipi_tx_config0",
+	  0x11e50000,
+	  0,
+	  0,
+	  0,
+	  0}
 	 },
 
 	{DISP_MODULE_MIPI1,
