@@ -700,6 +700,16 @@ page_owner=on";
 		mediatek,pwrap-regmap = <&pwrap>;
 	};
 
+	pwmleds {
+		compatible = "pwm-leds";
+		backlight {
+			label = "lcd-backlight";
+			pwms = <&disp_pwm 0 39385>;
+			max-brightness = <255>;
+			pwm-names = "lcd-backlight";
+		};
+	};
+
 	pwrap_mpu@10026000 {
 		compatible = "mediatek,pwrap_mpu";
 		reg = <0 0x10026000 0 0x1000>;
