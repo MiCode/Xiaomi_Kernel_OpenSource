@@ -124,13 +124,12 @@ int adsp_enable_clock(void)
 	/* ToDo: power on protect disable,
 	 * use counter inside to ensure only do it once
 	 */
-	//adsp_way_en_ctrl(1);
-//	ret = clk_prepare_enable(adsp_clks[CLK_SCP_SYS_ADSP].clock);
-//	if (IS_ERR(&ret)) {
-//		pr_info("%s(), clk_prepare_enable %s fail, ret %d\n",
-//			__func__, adsp_clks[CLK_SCP_SYS_ADSP].name, ret);
-//		return -EINVAL;
-//	}
+	ret = clk_prepare_enable(adsp_clks[CLK_SCP_SYS_ADSP].clock);
+	if (IS_ERR(&ret)) {
+		pr_info("%s(), clk_prepare_enable %s fail, ret %d\n",
+			__func__, adsp_clks[CLK_SCP_SYS_ADSP].name, ret);
+		return -EINVAL;
+	}
 
 	ret = clk_prepare_enable(adsp_clks[CLK_ADSP_INFRA].clock);
 	if (IS_ERR(&ret)) {
@@ -154,8 +153,8 @@ void adsp_disable_clock(void)
 #ifdef BRINGUP_WR
 	switch_adsp_clk_cg(1);
 #endif
-	clk_disable(adsp_clks[CLK_ADSP_INFRA].clock);
-//	clk_disable_unprepare(adsp_clks[CLK_SCP_SYS_ADSP].clock);
+	clk_disable_unprepare(adsp_clks[CLK_ADSP_INFRA].clock);
+	clk_disable_unprepare(adsp_clks[CLK_SCP_SYS_ADSP].clock);
 
 	/* ToDo: power on protect disable,
 	 * use counter inside to ensure only do it once
