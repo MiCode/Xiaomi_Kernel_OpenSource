@@ -235,9 +235,8 @@ static int do_gz_log_read(struct gz_log_state *gls,
 			  char __user *buf, size_t size)
 {
 	struct log_rb *log = gls->log;
-	uint32_t get, put, alloc;
-	int read_chars = 0, copy_chars = 0, tbuf_size, outbuf_size;
-	char *psrc = NULL;
+	uint32_t get, put, alloc, read_chars = 0, copy_chars = 0;
+	int ret = 0;
 
 	WARN_ON(!is_power_of_2(log->sz));
 
@@ -265,34 +264,23 @@ static int do_gz_log_read(struct gz_log_state *gls,
 	if (is_buf_empty(gls))
 		return 0;
 
-	outbuf_size = min((int)(put - get), (int)size);
-
-	tbuf_size = (outbuf_size / TRUSTY_LINE_BUFFER_SIZE + 1)
-		      * TRUSTY_LINE_BUFFER_SIZE;
-
-	/* tbuf_size >= outbuf_size >= size */
-	psrc = kzalloc(tbuf_size, GFP_KERNEL);
-
-	if (!psrc)
-		return -ENOMEM;
-
 	while (get != put) {
 		read_chars = log_read_line(gls, put, get);
 		/* Force the loads from log_read_line to complete. */
 		rmb();
-		if (copy_chars + read_chars > outbuf_size)
+		if (copy_chars + read_chars > (uint32_t)size)
 			break;
-		memcpy(psrc + copy_chars, gls->line_buffer, read_chars);
+
+		ret = copy_to_user(buf + copy_chars, gls->line_buffer,
+				   read_chars);
+		if (ret) {
+			pr_notice("[%s] copy_to_user failed ret %d\n",
+				  __func__, ret);
+			break;
+		}
 		get += read_chars;
 		copy_chars += read_chars;
 	}
-
-	if (copy_to_user(buf, psrc, copy_chars)) {
-		kfree(psrc);
-		return -EFAULT;
-	}
-	kfree(psrc);
-
 	gls->get = get;
 
 	return copy_chars;
@@ -363,7 +351,7 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	int tee_id = 0;
 
-	dev_info(&pdev->dev, "%s refine version\n", __func__);
+	dev_info(&pdev->dev, "%s refine version @mp9.722\n", __func__);
 
 	if (!trusty_supports_logging(pdev->dev.parent))
 		return -ENXIO;
