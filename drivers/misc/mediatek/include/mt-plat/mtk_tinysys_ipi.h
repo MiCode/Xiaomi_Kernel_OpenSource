@@ -53,7 +53,7 @@ struct ipimon_s {
  * @rpchan: info used to create the endpoint
  * @pin_send: the mbox send pin table address of this channel
  * @pin_recv: the mbox receive pin table address of this channel
- *
+ * @holder: keep 1 if there are ipi waiters (to wait the reply)
  * @ipi_stage: transmission stage for t0~t5 (default is 0xF)
  * @ipi_seqno: sequence count of the IPI pin processed
  * @ipi_record: timestamp of each ipi transmission stage
@@ -65,6 +65,7 @@ struct mtk_ipi_chan_table {
 	struct mtk_rpmsg_channel_info *rpchan;
 	struct mtk_mbox_pin_send *pin_send;
 	struct mtk_mbox_pin_recv *pin_recv;
+	atomic_t holder;
 	unsigned int ipi_stage: 4,
 		 ipi_seqno : 28;
 	struct ipimon_s ipi_record[3];
@@ -121,9 +122,12 @@ struct mtk_ipi_device  {
 int mtk_ipi_device_register(struct mtk_ipi_device *ipidev,
 		struct platform_device *pdev, struct mtk_mbox_device *mbox,
 		unsigned int ipi_chan_count);
-int mtk_ipi_unregister(struct mtk_ipi_device *ipidev, int ipi_id);
+int mtk_ipi_device_reset(struct mtk_ipi_device *ipidev);
+
 int mtk_ipi_register(struct mtk_ipi_device *ipidev, int ipi_id,
 		mbox_pin_cb_t cb, void *prdata, void *msg);
+int mtk_ipi_unregister(struct mtk_ipi_device *ipidev, int ipi_id);
+
 int mtk_ipi_send(struct mtk_ipi_device *ipidev, int ipi_id,
 		int opt, void *data, int len, int retry_timeout);
 int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
