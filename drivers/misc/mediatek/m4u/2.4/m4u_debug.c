@@ -845,7 +845,7 @@ static int m4u_debug_set(void *data, u64 val)
 #ifdef M4U_TEE_SERVICE_ENABLE
 	case 50:
 	{
-#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) &&
+#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) &&	\
 		defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		u32 sec_handle = 0;
 		u32 refcount;
