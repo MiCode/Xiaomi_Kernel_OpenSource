@@ -12,11 +12,13 @@
  */
 
 
+#ifndef BUILD_POLICY_TEST
 #include <linux/types.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#endif
 
 #include "apusys_power_ctl.h"
 #include "apusys_power_cust.h"
