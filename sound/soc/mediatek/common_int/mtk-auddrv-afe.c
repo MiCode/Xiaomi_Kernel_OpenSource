@@ -223,7 +223,7 @@ unsigned int clksys_get_reg(unsigned int offset)
 	value = (unsigned int *)(address);
 #if defined(AUD_DEBUG_LOG)
 	pr_debug("%s(), offset = %x, address = %lx, value = 0x%x\n", __func__,
-	       offset, address, *value);
+		 offset, address, *value);
 #endif
 	return *value;
 #else
@@ -245,7 +245,7 @@ void clksys_set_reg(unsigned int offset, unsigned int value, unsigned int mask)
 	}
 #if defined(AUD_DEBUG_LOG)
 	pr_debug("%s(), offset = %x, value = %x, mask = %x\n", __func__, offset,
-	       value, mask);
+		 value, mask);
 #endif
 	spin_lock_irqsave(&clksys_set_reg_lock, flags);
 	val_tmp = clksys_get_reg(offset);
@@ -260,6 +260,18 @@ void clksys_set_reg(unsigned int offset, unsigned int value, unsigned int mask)
 #endif
 }
 
+void Afe_Set_Reg_Val(unsigned int offset, unsigned int value)
+{
+	int ret = 0;
+
+	ret = regmap_write(pregmap, offset, value);
+	if (ret) {
+		pr_debug("%s(), ret = %d, offset = 0x%x, value = 0x%x\n",
+			 __func__, ret, offset, value);
+	}
+}
+EXPORT_SYMBOL(Afe_Set_Reg_Val);
+
 void Afe_Set_Reg(unsigned int offset, unsigned int value, unsigned int mask)
 {
 	int ret = 0;
@@ -267,7 +279,7 @@ void Afe_Set_Reg(unsigned int offset, unsigned int value, unsigned int mask)
 	ret = regmap_update_bits(pregmap, offset, mask, value);
 	if (ret) {
 		pr_warn("%s ret = %d offset = 0x%x value = 0x%x mask = 0x%x\n",
-		       __func__, ret, offset, value, mask);
+			__func__, ret, offset, value, mask);
 	}
 }
 EXPORT_SYMBOL(Afe_Set_Reg);
@@ -280,7 +292,7 @@ unsigned int Afe_Get_Reg(unsigned int offset)
 	ret = regmap_read(pregmap, offset, &value);
 	if (ret)
 		pr_warn("%s ret = %d value = 0x%x mask = 0x%x\n", __func__, ret,
-		       offset, value);
+			offset, value);
 	return value;
 }
 EXPORT_SYMBOL(Afe_Get_Reg);
