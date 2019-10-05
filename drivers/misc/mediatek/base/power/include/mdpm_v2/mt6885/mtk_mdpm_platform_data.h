@@ -35,6 +35,8 @@ static struct scenario_power_type_t md_scen_power[SCENARIO_NUM] = {
 	[S_4G_4CC]		= {  190,  190},
 	[S_4G_5CC]		= {  251,  251},
 	[S_5G_1CC_2CC]		= {  550,  550},
+	[S_5G_1CC_2CC_4G_4CC]	= {  550,  550},
+	[S_5G_1CC_2CC_4G_1CC]	= {  550,  550},
 	[S_4G_POS_URGENT]	= {  556,  556}
 };
 

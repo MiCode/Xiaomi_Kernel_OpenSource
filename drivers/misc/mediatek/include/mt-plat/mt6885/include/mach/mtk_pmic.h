@@ -18,7 +18,7 @@
 
 #define LOW_POWER_LIMIT_LEVEL_1 15
 
-#define PT_DLPT_BRINGUP 1
+#define PT_DLPT_BRINGUP 0
 
 #if defined(CONFIG_FPGA_EARLY_PORTING) || PT_DLPT_BRINGUP
 /* Define for disable low battery protect feature,
@@ -43,8 +43,8 @@
 #define POWER_INT1_VOLT 3250
 #define POWER_INT2_VOLT 3100
 
-#define POWER_BAT_OC_CURRENT_H    5800
-#define POWER_BAT_OC_CURRENT_L    6300
+#define POWER_BAT_OC_CURRENT_H    6800
+#define POWER_BAT_OC_CURRENT_L    8000
 
 #define DLPT_POWER_OFF_EN
 #define POWEROFF_BAT_CURRENT 3000

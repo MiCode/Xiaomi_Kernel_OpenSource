@@ -589,9 +589,9 @@ int dlpt_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 			wake_up_interruptible(&bat_percent_notify_waiter);
 			PMICLOG("bat_percent_notify called, l=%d s=%d soc=%d\n",
 				g_battery_percent_level, bat_status, uisoc);
-		} else if ((bat_status != -1) &&
-			(g_battery_percent_level == BATTERY_PERCENT_LEVEL_1) &&
-			   (uisoc > BAT_PERCENT_LINIT)) {
+		} else if (((bat_status == POWER_SUPPLY_STATUS_CHARGING) ||
+			(uisoc > BAT_PERCENT_LINIT)) &&
+			(g_battery_percent_level == BATTERY_PERCENT_LEVEL_1)) {
 			g_battery_percent_level = BATTERY_PERCENT_LEVEL_0;
 			bat_percent_notify_flag = true;
 			wake_up_interruptible(&bat_percent_notify_waiter);

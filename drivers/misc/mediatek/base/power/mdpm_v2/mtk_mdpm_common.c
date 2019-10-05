@@ -62,9 +62,6 @@ void init_md_section_level(enum pbm_kicker kicker)
 		pr_info_ratelimited("can't get dbm share memory\n");
 		return;
 	}
-#else
-	return;
-#endif
 
 	if (kicker == KR_MD1) {
 		init_md1_section_level(share_mem);
@@ -72,6 +69,9 @@ void init_md_section_level(enum pbm_kicker kicker)
 		md1_ccci_ready = 1;
 	} else
 		mdpl_warn("unknown MD kicker: %d\n", kicker);
+#else
+	return;
+#endif
 }
 
 int get_md1_power(enum mdpm_power_type power_type, bool need_update)
@@ -83,10 +83,7 @@ int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 	enum md_scenario scenario;
 	int scenario_power, tx_power;
 
-#if !defined(CONFIG_MTK_ECCCI_DRIVER)
-	return 0;
-#endif
-
+#if defined(CONFIG_MTK_ECCCI_DRIVER)
 	if (power_type >= POWER_TYPE_NUM ||
 		power_type < 0) {
 		pr_notice("[md1_power] invalid power_type=%d\n",
@@ -131,6 +128,9 @@ int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 			scenario_power, tx_power, scenario_power + tx_power);
 
 	return scenario_power + tx_power;
+#else
+	return 0;
+#endif /* CONFIG_MTK_ECCCI_DRIVER */
 }
 
 static int mt_mdpm_debug_proc_show(struct seq_file *m, void *v)
