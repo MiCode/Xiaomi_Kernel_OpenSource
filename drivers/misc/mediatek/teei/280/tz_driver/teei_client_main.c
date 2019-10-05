@@ -12,6 +12,9 @@
  * GNU General Public License for more details.
  */
 
+//#define TEEI_SWITCH_BIG_CORE
+#define TZ_PREFER_BIND_CORE (4)
+
 #define IMSG_TAG "[tz_driver]"
 #include <imsg_log.h>
 
@@ -433,7 +436,6 @@ static void boot_stage1(unsigned long vfs_addr, unsigned long tlog_addr)
 	rmb();
 }
 
-#define TZ_PREFER_BIND_CORE (4)
 static bool is_prefer_core(int cpu)
 {
 	/* bind to a specific core */
@@ -555,6 +557,28 @@ int tz_move_core(uint32_t cpu_id)
 	ut_pm_mutex_unlock(&pm_mutex);
 
 	return 0;
+}
+
+static int nq_cpu_up_prep(unsigned int cpu)
+{
+#ifdef TEEI_SWITCH_BIG_CORE
+	int retVal = 0;
+	unsigned int sched_cpu = get_current_cpuid();
+
+	IMSG_DEBUG("current_cpu_id = %d power on %d\n",
+						sched_cpu, cpu);
+
+	if (cpu == TZ_PREFER_BIND_CORE) {
+		IMSG_DEBUG("cpu up: prepare for changing %d to %d\n",
+				sched_cpu, cpu);
+
+		retVal = add_work_entry(SWITCH_CORE,
+				(unsigned long)(unsigned long)sched_cpu);
+	}
+	return retVal;
+#else
+	return 0;
+#endif
 }
 
 static int nq_cpu_down_prep(unsigned int cpu)
@@ -977,6 +1001,14 @@ static long teei_config_ioctl(struct file *file,
 		if (teei_flags != 1) {
 			long res;
 			int i;
+
+#ifdef TEEI_SWITCH_BIG_CORE
+			unsigned int sched_cpu = get_current_cpuid();
+
+			IMSG_DEBUG("cpu prefer %d\n", TZ_PREFER_BIND_CORE);
+			retVal = add_work_entry(SWITCH_CORE,
+				(unsigned long)(unsigned long)sched_cpu);
+#endif
 
 			res = copy_from_user(&param, (void *)arg,
 					sizeof(struct init_param));
@@ -2173,7 +2205,7 @@ static int teei_client_init(void)
 #else
 	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
 					"tee/teei:online",
-					NULL, nq_cpu_down_prep);
+					nq_cpu_up_prep, nq_cpu_down_prep);
 	IMSG_DEBUG("after  register cpu notify\n");
 #endif
 
