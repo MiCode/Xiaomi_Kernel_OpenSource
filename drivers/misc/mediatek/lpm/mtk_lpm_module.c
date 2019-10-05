@@ -360,6 +360,7 @@ static int __init mtk_lpm_init(void)
 	mtk_lpm_system.suspend.flag = MTK_LP_REQ_NOSUSPEND;
 
 	mtk_lpm = of_find_compatible_node(NULL, NULL, MTK_LPM_DTS_COMPATIBLE);
+	mtk_lpm_drv_cpuidle_ops_set(&mtk_lpm_cpu_pm_op);
 
 	spin_lock_irqsave(&mtk_lp_mod_locker, flags);
 

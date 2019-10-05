@@ -93,7 +93,7 @@ enum MT_CPU_PM_SMC_UID {
 				MT_LPM_SMC_USER_CPU_PM(_lp_id),\
 				_act, _val1, _val2); })
 
-/* spm debug smc definition */
+/* pm debug smc definition */
 
 enum MT_SPM_DBG_SMC_UID {
 	/* spm dbg function ID*/
