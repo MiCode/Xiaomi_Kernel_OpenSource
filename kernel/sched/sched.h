@@ -829,7 +829,6 @@ struct rq {
 
 	unsigned long cpu_capacity;
 	unsigned long cpu_capacity_orig;
-	unsigned long cpu_capacity_hw;
 
 	struct callback_head *balance_callback;
 
