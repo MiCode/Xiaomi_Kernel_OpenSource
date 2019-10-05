@@ -1778,7 +1778,15 @@ page_owner=on";
 		mmsys_config = <&mdpsys_config>;
 		thread_count = <24>;
 		mediatek,mailbox-gce = <&gce_mbox_m>;
-		mboxes = <&gce_mbox_m 19 0 CMDQ_THR_PRIO_1>,
+		mboxes = <&gce_mbox 0 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox 1 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox 2 0 CMDQ_THR_PRIO_5>,
+			<&gce_mbox 3 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox 4 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox 5 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox 6 0 CMDQ_THR_PRIO_3>,
+			<&gce_mbox 7 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
+			<&gce_mbox_m 19 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox_m 20 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox_m 21 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox_m 22 0 CMDQ_THR_PRIO_1>,
