@@ -66,7 +66,7 @@ void sched_mon_test_RCU_SOFTIRQ(void)
 		return;
 	sched_mon_rcu->val = 100;
 
-	rcu_assign_pointer(sched_mon_rcu_g, sched_mon_rcu);
+	RCU_INIT_POINTER(sched_mon_rcu_g, sched_mon_rcu);
 	call_rcu(&sched_mon_rcu_head, delayed_rcu_callback);
 }
 
