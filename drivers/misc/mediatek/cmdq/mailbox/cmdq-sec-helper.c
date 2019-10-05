@@ -5,6 +5,7 @@
 
 #include <linux/soc/mediatek/mtk-cmdq.h>
 
+#include "cmdq-util.h"
 #include "cmdq-sec.h"
 #include "cmdq-sec-iwc-common.h"
 
@@ -129,3 +130,33 @@ s32 cmdq_sec_pkt_write_reg(struct cmdq_pkt *pkt, u32 addr, u64 base,
 	return cmdq_sec_append_metadata(pkt, type, base, offset, size, port);
 }
 EXPORT_SYMBOL(cmdq_sec_pkt_write_reg);
+
+void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt)
+{
+	struct cmdqSecDataStruct *data;
+	struct cmdqSecAddrMetadataStruct *meta;
+	s32 i;
+
+	if (!pkt || !pkt->sec_data) {
+		cmdq_msg("pkt without sec_data");
+		return;
+	}
+
+	data = (struct cmdqSecDataStruct *)pkt->sec_data;
+	cmdq_util_msg(
+		"meta cnt:%u addr:%#llx max:%u scen:%d dapc:%#llx port:%#llx wait:%d reset:%d",
+		data->addrMetadataCount, data->addrMetadatas,
+		data->addrMetadataMaxCount, data->scenario,
+		data->enginesNeedDAPC, data->enginesNeedPortSecurity,
+		data->waitCookie, data->resetExecCnt);
+
+	meta = (struct cmdqSecAddrMetadataStruct *)(unsigned long)
+		data->addrMetadatas;
+	for (i = 0; i < data->addrMetadataCount; i++)
+		cmdq_util_msg(
+			"meta:%d instr:%u type:%u base:%#llx block:%u ofst:%u size:%u port:%u",
+			i, meta[i].instrIndex, meta[i].type,
+			meta[i].baseHandle, meta[i].blockOffset, meta[i].offset,
+			meta[i].size, meta[i].port);
+}
+EXPORT_SYMBOL(cmdq_sec_dump_secure_data);
