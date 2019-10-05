@@ -72,7 +72,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.checksum_value = 0xf66a3c92,
 
 .pre = { /* reg_B 4000x3000 @60fps*/
-		.pclk = 1449600000,
+		.pclk = 724800000,
 		.linelength = 7872,
 		.framelength = 3068,
 		.startx = 0,
@@ -80,9 +80,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_width = 4000,
 		.grabwindow_height = 3000,
 		.mipi_data_lp2hs_settle_dc = 85,
-		/* following for GetDefaultFramerateByScenario() */
-		.mipi_pixel_rate = 973710000,
-		.max_framerate = 600, /* 30fps */
+		.mipi_pixel_rate = 478630000,
+		.max_framerate = 300,
 	},
 
 	.cap = { /*reg_A 12M@30fps*/
@@ -1112,6 +1111,7 @@ static kal_uint16 imx586_capture_setting[] = {
 	0x4435, 0xF0,
 };
 
+#if 0
 static kal_uint16 imx586_preview_setting[] = {
 	/*MIPI output setting*/
 	0x0112, 0x0A,
@@ -1218,6 +1218,7 @@ static kal_uint16 imx586_preview_setting[] = {
 	0x4434, 0x01,
 	0x4435, 0xF0,
 };
+#endif
 
 static kal_uint16 imx586_normal_video_setting_4K60FPS[] = {
 	/*MIPI output setting*/
@@ -2084,8 +2085,8 @@ static void preview_setting(void)
 	pr_debug("%s +\n", __func__);
 
 	#if USE_BURST_MODE
-	imx586_table_write_cmos_sensor(imx586_preview_setting,
-		sizeof(imx586_preview_setting)/sizeof(kal_uint16));
+	imx586_table_write_cmos_sensor(imx586_capture_setting,
+		sizeof(imx586_capture_setting)/sizeof(kal_uint16));
 	#else
 	/*MIPI output setting*/
 	write_cmos_sensor_8(0x0112, 0x0A);
