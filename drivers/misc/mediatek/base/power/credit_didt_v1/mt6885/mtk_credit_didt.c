@@ -55,6 +55,7 @@
 	/* #include <mt-plat/mtk_gpio.h> */
 	#include "mtk_credit_didt.h"
 	#include <mt-plat/mtk_devinfo.h>
+	#include "mtk_devinfo.h"
 #endif
 
 #ifdef CONFIG_OF
@@ -67,12 +68,16 @@
 	#include <mt-plat/aee.h>
 #endif
 
+#ifdef CONFIG_OF_RESERVED_MEM
+	#include <of_reserved_mem.h>
+#endif
+
 /************************************************
  * Debug print
  ************************************************/
 
-// #define CREDIT_DIDT_DEBUG
-#define CREDIT_DIDT_TAG	 "[CREDIT_DIDT][Kernel]"
+#define CREDIT_DIDT_DEBUG
+#define CREDIT_DIDT_TAG	 "[CREDIT_DIDT]"
 
 #ifdef CREDIT_DIDT_DEBUG
 #define credit_didt_debug(fmt, args...)	\
@@ -80,6 +85,13 @@
 #else
 #define credit_didt_debug(fmt, args...)
 #endif
+
+/************************************************
+ * Marco definition
+ ************************************************/
+
+/* efuse: PTPOD index */
+#define DEVINFO_IDX_0 50
 
 /************************************************
  * static Variable
@@ -121,8 +133,119 @@ static unsigned int credit_didt4_doe_vx_low_freq_enable;
 static unsigned int credit_didt5_doe_vx_low_freq_enable;
 static unsigned int credit_didt6_doe_vx_low_freq_enable;
 static unsigned int credit_didt7_doe_vx_low_freq_enable;
-#endif
-#endif
+
+#endif /* CONFIG_OF */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
+
+/************************************************
+ * log dump into reserved memory for AEE
+ ************************************************/
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+
+/* GAT log use */
+phys_addr_t credit_didt_mem_base_phys;
+phys_addr_t credit_didt_mem_size;
+phys_addr_t credit_didt_mem_base_virt;
+
+static int credit_didt_reserve_memory_dump(char *buf)
+{
+	int str_len = 0;
+	int cpu, ls_vx, cfg, param, cpu_tmp;
+	unsigned char credit_didt_info[NR_CREDIT_DIDT_CPU]
+		[NR_CREDIT_DIDT_CHANNEL][NR_CREDIT_DIDT_CFG];
+	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
+
+	if (!aee_log_buf) {
+		credit_didt_debug("unable to get free page!\n");
+		return -1;
+	}
+
+	for (cpu = CREDIT_DIDT_CPU_START_ID;
+		cpu <= CREDIT_DIDT_CPU_END_ID; cpu++) {
+		for (ls_vx = 0; ls_vx < NR_CREDIT_DIDT_CHANNEL; ls_vx++) {
+			for (cfg = 0; cfg < NR_CREDIT_DIDT_CFG; cfg++) {
+				param = ls_vx * NR_CREDIT_DIDT_CFG + cfg;
+
+				cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
+				credit_didt_info[cpu_tmp][ls_vx][cfg] =
+				mt_secure_call_credit_didt(
+					MTK_SIP_KERNEL_CREDIT_DIDT_CONTROL,
+					CREDIT_DIDT_RW_READ,
+					cpu,
+					param,
+					0);
+			}
+
+			cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
+
+			str_len +=
+				snprintf(aee_log_buf + str_len,
+				(unsigned long long)credit_didt_mem_size
+				- str_len,
+				"cpu%d %s period=%d credit=%d low_period=%d low_freq_en=%d enable=%d\n",
+				cpu, (ls_vx == 0 ? "LS" : "VX"),
+				credit_didt_info[cpu_tmp][ls_vx]
+					[CREDIT_DIDT_CFG_PERIOD],
+				credit_didt_info[cpu_tmp][ls_vx]
+					[CREDIT_DIDT_CFG_CREDIT],
+				credit_didt_info[cpu_tmp][ls_vx]
+					[CREDIT_DIDT_CFG_LOW_PWR_PERIOD],
+				credit_didt_info[cpu_tmp][ls_vx]
+					[CREDIT_DIDT_CFG_LOW_PWR_ENABLE],
+				credit_didt_info[cpu_tmp][ls_vx]
+					[CREDIT_DIDT_CFG_ENABLE]);
+
+		}
+	}
+
+	if (str_len > 0)
+		memcpy(buf, aee_log_buf, str_len+1);
+
+	credit_didt_debug("\n%s", aee_log_buf);
+	credit_didt_debug("\n%s", buf);
+
+	free_page((unsigned long)aee_log_buf);
+
+	return 0;
+}
+
+static void credit_didt_reserve_memory_init(void)
+{
+	char *buf;
+
+	credit_didt_mem_base_virt =
+		(phys_addr_t)(uintptr_t)ioremap_wc(
+		credit_didt_mem_base_phys + credit_didt_mem_size,
+		credit_didt_mem_size);
+
+	credit_didt_debug("[Reserved Memory] phys:0x%llx, size:0x%llx, virt:0x%llx\n",
+		(unsigned long long)credit_didt_mem_base_phys,
+		(unsigned long long)credit_didt_mem_size,
+		(unsigned long long)credit_didt_mem_base_virt);
+
+	buf = (char *)(uintptr_t)credit_didt_mem_base_virt;
+
+	if (buf != NULL) {
+		/* dump credit_didt register status into reserved memory */
+		credit_didt_reserve_memory_dump(buf);
+	} else
+		credit_didt_debug("credit_didt_mem_base_virt is null !\n");
+
+}
+
+static int __init credit_didt_reserve_mem_of_init(struct reserved_mem *rmem)
+{
+	credit_didt_mem_base_phys = (phys_addr_t) rmem->base;
+	credit_didt_mem_size = (phys_addr_t) rmem->size;
+
+	return 0;
+}
+RESERVEDMEM_OF_DECLARE(credit_didt_reservedmem,
+	"mediatek,PICACHU", credit_didt_reserve_mem_of_init);
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
+
 
 /************************************************
  * update CREDIT_DIDT status with ATF
@@ -131,6 +254,19 @@ static void mtk_credit_didt(unsigned int cpu,
 		unsigned int ls_vx, unsigned int cfg, unsigned int value)
 {
 	unsigned int param = ls_vx * NR_CREDIT_DIDT_CFG + cfg;
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
+	unsigned int ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xf;
+
+	if (cfg == CREDIT_DIDT_CFG_ENABLE) {
+		if (ptp_ftpgm <= 1) {
+			/* for PTPv0 and PTPv1, disable BCDE */
+			value = 0;
+			credit_didt_debug("PTPv%u, force credit_didt disable.\n",
+				ptp_ftpgm);
+		}
+	}
+#endif
 
 	if ((cpu >= CREDIT_DIDT_CPU_START_ID)
 		&& (cpu <= CREDIT_DIDT_CPU_END_ID)) {
@@ -167,18 +303,16 @@ static int credit_didt_proc_show(struct seq_file *m, void *v)
 
 				credit_didt_debug("Get cpu=%d ls_vx=%d cfg=%d value=%d\n",
 					cpu, ls_vx, cfg,
-					credit_didt_info[cpu][ls_vx][cfg]);
+					credit_didt_info[cpu_tmp][ls_vx][cfg]);
 			}
 		}
 	}
 
 	for (cpu = CREDIT_DIDT_CPU_START_ID;
 		cpu <= CREDIT_DIDT_CPU_END_ID; cpu++) {
-		for (ls_vx = 0;
-			ls_vx < NR_CREDIT_DIDT_CHANNEL; ls_vx++) {
+		for (ls_vx = 0; ls_vx < NR_CREDIT_DIDT_CHANNEL; ls_vx++) {
 
 			cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
-
 			seq_printf(m,
 			"cpu%d %s period=%d credit=%d low_period=%d low_freq_en=%d enable=%d\n",
 			cpu, (ls_vx == 0 ? "LS" : "VX"),
@@ -325,7 +459,7 @@ static ssize_t credit_didt_en_proc_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (kstrtou32(buf, 0, &value) != 1) {
+	if (kstrtou32(buf, 0, &value)) {
 		credit_didt_debug("bad argument!! Should input 1 arguments.\n");
 		goto out;
 	}
@@ -953,6 +1087,13 @@ static int __init __credit_didt_init(void)
 		credit_didt_debug("CREDIT_DIDT driver callback register failed..\n");
 		return err;
 	}
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	credit_didt_reserve_memory_init();
+#endif
+#endif
+
 	return 0;
 }
 

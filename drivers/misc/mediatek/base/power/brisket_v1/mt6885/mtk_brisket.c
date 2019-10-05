@@ -55,6 +55,7 @@
 	/* #include <mt-plat/mtk_gpio.h> */
 	#include "mtk_brisket.h"
 	#include <mt-plat/mtk_devinfo.h>
+	#include "mtk_devinfo.h"
 #endif
 
 #ifdef CONFIG_OF
@@ -67,11 +68,15 @@
 	#include <mt-plat/aee.h>
 #endif
 
+#ifdef CONFIG_OF_RESERVED_MEM
+	#include <of_reserved_mem.h>
+#endif
+
 /************************************************
  * Debug print
  ************************************************/
 
-//#define BRISKET_DEBUG
+#define BRISKET_DEBUG
 #define BRISKET_TAG	 "[BRISKET]"
 
 #ifdef BRISKET_DEBUG
@@ -85,38 +90,21 @@
 /************************************************
  * Marco definition
  ************************************************/
-#ifdef TIME_LOG
-/* Get time stmp to known the time period */
-static unsigned long long brisket_pTime_us, brisket_cTime_us, brisket_diff_us;
-#ifdef __KERNEL__
-#define TIME_TH_US 3000
-#define BRISKET_IS_TOO_LONG()	\
-	do {	\
-		brisket_diff_us = brisket_cTime_us - brisket_pTime_us;	\
-		if (brisket_diff_us > TIME_TH_US) {	\
-			pr_debug(BRISKET_TAG \
-			"caller_addr %p: %llu us\n",	\
-			__builtin_return_address(0), brisket_diff_us);	\
-		} else if (brisket_diff_us < 0) {	\
-			pr_debug(BRISKET_TAG \
-			"E: misuse caller_addr %p\n",	\
-			__builtin_return_address(0));	\
-		}	\
-	} while (0)
-#endif
-#endif
+
+/* efuse: PTPOD index */
+#define DEVINFO_IDX_0 50
+
 
 /************************************************
  * static Variable
  ************************************************/
-#if 0
-static DEFINE_SPINLOCK(brisket_spinlock);
-#endif
-
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF
+
+/* B-DOE use */
 static unsigned int brisket_doe_pllclken;
 static unsigned int brisket_doe_bren;
+
 #endif
 #endif
 
@@ -124,39 +112,102 @@ static unsigned int brisket_doe_bren;
  * static function
  ************************************************/
 
+/************************************************
+ * log dump into reserved memory for AEE
+ ************************************************/
 
-#ifdef TIME_LOG
-static long long brisket_get_current_time_us(void)
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+
+/* GAT log use */
+phys_addr_t brisket_mem_base_phys;
+phys_addr_t brisket_mem_size;
+phys_addr_t brisket_mem_base_virt;
+
+static int brisket_reserve_memory_dump(char *buf)
 {
-	struct timeval t;
+	int str_len = 0;
+	int cpu, brisket_group, reg_value;
+	const unsigned int bits = 31;
+	const unsigned int shift = 0;
+	unsigned int brisket_group_bits_shift;
+	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
 
-	do_gettimeofday(&t);
-	return((t.tv_sec & 0xFFF) * 1000000 + t.tv_usec);
+	if (!aee_log_buf) {
+		brisket_debug("unable to get free page!\n");
+		return -1;
+	}
+
+	for (cpu = BRISKET_CPU_START_ID; cpu <= BRISKET_CPU_END_ID; cpu++) {
+		for (brisket_group = BRISKET_GROUP_CONTROL;
+			brisket_group < NR_BRISKET_GROUP; brisket_group++) {
+
+			brisket_group_bits_shift =
+				(brisket_group << 16) | (bits << 8) | shift;
+
+			reg_value =
+				mt_secure_call_brisket(
+				MTK_SIP_KERNEL_BRISKET_CONTROL,
+				BRISKET_RW_READ,
+				cpu,
+				brisket_group_bits_shift,
+				0);
+
+			str_len +=
+				snprintf(aee_log_buf + str_len,
+				(unsigned long long)brisket_mem_size - str_len,
+				"CPU%d: BRISKET0%d = 0x%08x\n",
+				cpu, brisket_group, reg_value);
+		}
+	}
+
+	if (str_len > 0)
+		memcpy(buf, aee_log_buf, str_len+1);
+
+	brisket_debug("\n%s", aee_log_buf);
+	brisket_debug("\n%s", buf);
+
+	free_page((unsigned long)aee_log_buf);
+
+	return 0;
 }
-#endif
 
-#if 0
-static void mtk_brisket_lock(unsigned long *flags)
+static void brisket_reserve_memory_init(void)
 {
-#ifdef __KERNEL__
-	spin_lock_irqsave(&brisket_spinlock, *flags);
-	#ifdef TIME_LOG
-	brisket_pTime_us = brisket_get_current_time_us();
-	#endif
-#endif
+	char *buf;
+
+	brisket_mem_base_virt =
+		(phys_addr_t)(uintptr_t)ioremap_wc(
+		brisket_mem_base_phys,
+		brisket_mem_size);
+
+	brisket_debug("[PICACHU] phys:0x%llx, size:0x%llx, virt:0x%llx\n",
+		(unsigned long long)brisket_mem_base_phys,
+		(unsigned long long)brisket_mem_size,
+		(unsigned long long)brisket_mem_base_virt);
+
+	buf = (char *)(uintptr_t)brisket_mem_base_virt;
+
+	if (buf != NULL) {
+		/* dump brisket register status into reserved memory */
+		brisket_reserve_memory_dump(buf);
+	} else
+		brisket_debug("brisket_mem_base_virt is null !\n");
+
 }
 
-static void mtk_brisket_unlock(unsigned long *flags)
+static int __init brisket_reserve_mem_of_init(struct reserved_mem *rmem)
 {
-#ifdef __KERNEL__
-	#ifdef TIME_LOG
-	brisket_cTime_us = brisket_get_current_time_us();
-	BRISKET_IS_TOO_LONG();
-	#endif
-	spin_unlock_irqrestore(&brisket_spinlock, *flags);
-#endif
+	brisket_mem_base_phys = (phys_addr_t) rmem->base;
+	brisket_mem_size = (phys_addr_t) rmem->size;
+
+	return 0;
 }
+RESERVEDMEM_OF_DECLARE(brisket_reservedmem,
+	"mediatek,PICACHU", brisket_reserve_mem_of_init);
 #endif
+#endif
+
 
 void mtk_brisket_pllclken(unsigned int brisket_pllclken)
 {
@@ -167,6 +218,16 @@ void mtk_brisket_pllclken(unsigned int brisket_pllclken)
 	unsigned int brisket_group_bits_shift =
 		(brisket_group << 16) | (bits << 8) | shift;
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
+	unsigned int ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xf;
+
+	if (ptp_ftpgm <= 1) {
+		/* for PTPv0 and PTPv1, disable BCDE */
+		brisket_pllclken = 0;
+		brisket_debug("PTPv%u, force brisket disable.\n", ptp_ftpgm);
+	}
+#endif
+
 	for (cpu = BRISKET_CPU_START_ID; cpu <= BRISKET_CPU_END_ID; cpu++) {
 		mt_secure_call_brisket(MTK_SIP_KERNEL_BRISKET_CONTROL,
 			BRISKET_RW_WRITE,
@@ -174,6 +235,7 @@ void mtk_brisket_pllclken(unsigned int brisket_pllclken)
 			brisket_group_bits_shift,
 			(brisket_pllclken >> cpu) & 1);
 	}
+
 }
 
 void mtk_brisket_bren(unsigned int brisket_bren)
@@ -184,6 +246,16 @@ void mtk_brisket_bren(unsigned int brisket_bren)
 	const unsigned int shift = 20;
 	unsigned int brisket_group_bits_shift =
 		(brisket_group << 16) | (bits << 8) | shift;
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
+	unsigned int ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xf;
+
+	if (ptp_ftpgm <= 1) {
+		/* for PTPv0 and PTPv1, disable BCDE */
+		brisket_bren = 0;
+		brisket_debug("PTPv%u, force brisket disable.\n", ptp_ftpgm);
+	}
+#endif
 
 	for (cpu = BRISKET_CPU_START_ID; cpu <= BRISKET_CPU_END_ID; cpu++) {
 		mt_secure_call_brisket(MTK_SIP_KERNEL_BRISKET_CONTROL,
@@ -231,7 +303,7 @@ static ssize_t brisket_pllclken_proc_write(struct file *file,
 	buf[count] = '\0';
 
 	/* parameter check */
-	if (kstrtou32(buf, 0, &brisket_pllclken) != 1) {
+	if (kstrtou32(buf, 0, &brisket_pllclken)) {
 		brisket_debug("bad argument!! Should input 1 arguments.\n");
 		goto out;
 	}
@@ -298,7 +370,7 @@ static ssize_t brisket_bren_proc_write(struct file *file,
 	buf[count] = '\0';
 
 	/* parameter check */
-	if (kstrtou32(buf, 0, &brisket_bren) != 1) {
+	if (kstrtou32(buf, 0, &brisket_bren)) {
 		brisket_debug("bad argument!! Should input 1 arguments.\n");
 		goto out;
 	}
@@ -406,10 +478,16 @@ static int brisket_reg_proc_show(struct seq_file *m, void *v)
 				brisket_group_bits_shift,
 				0);
 
-			seq_printf(m, "CPU%d: BRISKET0%d = 0x%08x\n",
-				cpu,
-				brisket_group,
-				reg_value);
+			if (brisket_group == BRISKET_GROUP_CONTROL) {
+				seq_printf(m, "CPU%d: BRISKET_CONTROL = 0x%08x\n",
+					cpu,
+					reg_value);
+			} else {
+				seq_printf(m, "CPU%d: BRISKET0%d = 0x%08x\n",
+					cpu,
+					brisket_group,
+					reg_value);
+			}
 		}
 	}
 	return 0;
@@ -572,6 +650,13 @@ static int __init __brisket_init(void)
 		brisket_debug("BRISKET driver callback register failed..\n");
 		return err;
 	}
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	brisket_reserve_memory_init();
+#endif
+#endif
+
 	return 0;
 }
 
