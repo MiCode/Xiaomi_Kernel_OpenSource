@@ -147,7 +147,7 @@ static struct sg_table *dma_buf_te_map(struct dma_buf_attachment *attachment, en
 	if (alloc->contiguous) {
 		sg_dma_len(sg->sgl) = alloc->nr_pages * PAGE_SIZE;
 		sg_set_page(sg->sgl, pfn_to_page(PFN_DOWN(alloc->contig_dma_addr)), alloc->nr_pages * PAGE_SIZE, 0);
-		sg_dma_address(sg->sgl) = alloc->contig_dma_addr;
+		sg_phys(sg->sgl) = alloc->contig_dma_addr;
 	} else {
 		for_each_sg(sg->sgl, iter, alloc->nr_pages, i)
 			sg_set_page(iter, alloc->pages[i], PAGE_SIZE, 0);
