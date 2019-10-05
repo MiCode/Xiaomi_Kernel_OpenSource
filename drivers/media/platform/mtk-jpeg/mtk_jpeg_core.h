@@ -109,11 +109,11 @@ struct mtk_jpeg_dev {
 	void			*alloc_ctx;
 	struct video_device	*vfd_jpeg;
 	void __iomem		*reg_base[MTK_JPEG_MAX_NCORE];
-	struct clk		*clk_jpeg;
+	struct clk		*clk_jpeg[MTK_JPEG_MAX_NCORE];
 	struct clk		*clk_jpeg_smi;
-	struct device		*larb;
+	struct device		*larb[MTK_JPEG_MAX_NCORE];
 	enum mtk_jpeg_mode  mode;
-	u32			larb_id;
+	u32			larb_id[MTK_JPEG_MAX_NCORE];
 	u32			ncore;
 	u32         isused[MTK_JPEG_MAX_NCORE];
 };

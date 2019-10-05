@@ -4455,11 +4455,16 @@ page_owner=on";
 
 	jpgenc@17030000 {
 		compatible = "mediatek,jpgenc";
-		reg = <0 0x17030000 0 0x10000>;
-		mediatek,larb = <&smi_larb7>;
-		interrupts = <GIC_SPI 309 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&venc_gcon VENC_GCON_SET2_JPGENC>;
-		clock-names = "jpgenc";
+		reg = <0 0x17030000 0 0x10000>,
+			<0 0x17830000 0 0x10000>;
+		mediatek,larb = <&smi_larb7>,
+				<&smi_larb8>;
+		interrupts = <GIC_SPI 309 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 314 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&venc_gcon VENC_GCON_SET2_JPGENC>,
+			<&venc_c1_gcon VENC_GCON_SET2_JPGENC>;
+		clock-names = "jpgenc",
+				"jpgenc_c1";
 	};
 
 	jpgdec@17040000 {
