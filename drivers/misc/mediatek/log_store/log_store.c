@@ -25,7 +25,6 @@
 #include <linux/io.h>
 #include <linux/uaccess.h>
 #include <asm/memory.h>
-#include <mt-plat/mtk_memcfg.h>
 
 #include "log_store_kernel.h"
 
