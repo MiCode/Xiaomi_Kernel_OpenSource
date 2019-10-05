@@ -338,7 +338,7 @@ void cmdq_mbox_buf_free(struct device *dev, void *va, dma_addr_t pa)
 s32 cmdq_dev_get_event(struct device *dev, const char *name)
 {
 	s32 index = 0;
-	struct of_phandle_args spec;
+	struct of_phandle_args spec = {0};
 	s32 result;
 
 	if (!dev) {
@@ -1052,7 +1052,7 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	cmdq_pkt_assign_command(pkt, reg_val, value);
 
 	/* init loop counter as 0 */
-	if (count != ~0)
+	if (count != U16_MAX)
 		cmdq_pkt_assign_command(pkt, reg_counter, 0);
 
 	/* mark begin offset of this operation */
@@ -1091,7 +1091,7 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	cmdq_pkt_cond_jump_abs(pkt, reg_tmp, &lop, &rop, CMDQ_EQUAL);
 
 	/* check if timeup and inc counter */
-	if (count != ~0) {
+	if (count != U16_MAX) {
 		lop.reg = true;
 		lop.idx = reg_counter;
 		rop.reg = false;
