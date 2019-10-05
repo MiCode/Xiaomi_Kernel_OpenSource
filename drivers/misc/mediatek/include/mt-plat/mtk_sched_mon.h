@@ -158,16 +158,16 @@ void show_irq_count_info(int output);
 #endif
 
 #ifdef CONFIG_MTK_IRQ_OFF_TRACER
-inline void trace_hardirqs_off_time(void);
-inline void trace_hardirqs_on_time(void);
+void trace_hardirqs_off_time(void);
+void trace_hardirqs_on_time(void);
 #else
 #define trace_hardirqs_off_time() do {} while (0)
 #define trace_hardirqs_on_time() do {} while (0)
 #endif
 
 #ifdef CONFIG_MTK_PREEMPT_TRACER
-inline void trace_preempt_off_time(void);
-inline void trace_preempt_on_time(void);
+void trace_preempt_off_time(void);
+void trace_preempt_on_time(void);
 #else
 #define trace_preempt_off_time() do {} while (0)
 #define trace_preempt_on_time() do {} while (0)
