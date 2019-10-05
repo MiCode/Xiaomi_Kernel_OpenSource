@@ -1026,8 +1026,14 @@ static int autok_check_scan_res64_new(u64 rawdat,
 				scan_res->fail_info[j].bd_e =
 					scan_res->fail_info[j + 1].bd_e;
 			}
-			scan_res->fail_info[scan_res->fail_cnt - 1].bd_s = 0;
-			scan_res->fail_info[scan_res->fail_cnt - 1].bd_e = 0;
+			/* add check to prevent coverity scan fail */
+			if (scan_res->fail_cnt >= 1) {
+				scan_res->fail_info[
+					scan_res->fail_cnt - 1].bd_s = 0;
+				scan_res->fail_info[
+					scan_res->fail_cnt - 1].bd_e = 0;
+			} else
+				WARN_ON(1);
 			scan_res->fail_cnt--;
 		}
 	}

@@ -525,7 +525,7 @@ static ssize_t ufs_perf_proc_write(struct file *file, const char *ubuf,
 				   size_t count, loff_t *data)
 {
 	struct ufs_mtk_host *host = PDE_DATA(file->f_mapping->host);
-	unsigned long op;
+	unsigned long op = UFS_CMD_UNKNOWN;
 	char cmd[16] = {0};
 	loff_t buff_pos = 0;
 	int ret;
