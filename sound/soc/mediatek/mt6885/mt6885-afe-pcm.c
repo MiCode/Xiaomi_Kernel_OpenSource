@@ -1425,7 +1425,7 @@ static int mt6885_dl_mmap_fd_get(struct snd_kcontrol *kcontrol,
 
 	ucontrol->value.integer.value[0] = (memif->use_mmap_share_mem == 1) ?
 					    mtk_get_mmap_dl_fd() : 0;
-	dev_info(afe->dev, "%s, fd %d\n", __func__,
+	dev_info(afe->dev, "%s, fd %ld\n", __func__,
 		 ucontrol->value.integer.value[0]);
 	return 0;
 }
@@ -1446,7 +1446,7 @@ static int mt6885_ul_mmap_fd_get(struct snd_kcontrol *kcontrol,
 
 	ucontrol->value.integer.value[0] = (memif->use_mmap_share_mem == 2) ?
 					    mtk_get_mmap_ul_fd() : 0;
-	dev_info(afe->dev, "%s, fd %d\n", __func__,
+	dev_info(afe->dev, "%s, fd %ld\n", __func__,
 		 ucontrol->value.integer.value[0]);
 	return 0;
 }
@@ -1772,6 +1772,27 @@ static const struct snd_kcontrol_new mtk_dsp_dl_playback_mix[] = {
 };
 
 /* TINYCONN CH1 MUX */
+enum {
+	TINYCONN_CH1_MUX_NONE = 0x1f,
+	TINYCONN_CH1_MUX_I2S0 = 20,
+	TINYCONN_CH1_MUX_I2S6 = 26,
+	TINYCONN_CH1_MUX_I2S8 = 28,
+};
+
+static const char * const tinyconn_ch1_mux_map[] = {
+	"NONE",
+	"I2S0_CH1",
+	"I2S6_CH1",
+	"I2S8_CH1",
+};
+
+static int tinyconn_ch1_mux_map_value[] = {
+	TINYCONN_CH1_MUX_NONE,
+	TINYCONN_CH1_MUX_I2S0,
+	TINYCONN_CH1_MUX_I2S6,
+	TINYCONN_CH1_MUX_I2S8,
+};
+
 static SOC_VALUE_ENUM_SINGLE_DECL(ul4_tinyconn_ch1_mux_map_enum,
 				  AFE_TINY_CONN0,
 				  O_2_CFG_SFT,
@@ -1780,6 +1801,27 @@ static SOC_VALUE_ENUM_SINGLE_DECL(ul4_tinyconn_ch1_mux_map_enum,
 				  tinyconn_ch1_mux_map_value);
 
 /* TINYCONN CH2 MUX */
+enum {
+	TINYCONN_CH2_MUX_NONE = 0x1f,
+	TINYCONN_CH2_MUX_I2S0 = 21,
+	TINYCONN_CH2_MUX_I2S6 = 27,
+	TINYCONN_CH2_MUX_I2S8 = 29,
+};
+
+static const char * const tinyconn_ch2_mux_map[] = {
+	"NONE",
+	"I2S0_CH2",
+	"I2S6_CH2",
+	"I2S8_CH2",
+};
+
+static int tinyconn_ch2_mux_map_value[] = {
+	TINYCONN_CH2_MUX_NONE,
+	TINYCONN_CH2_MUX_I2S0,
+	TINYCONN_CH2_MUX_I2S6,
+	TINYCONN_CH2_MUX_I2S8,
+};
+
 static SOC_VALUE_ENUM_SINGLE_DECL(ul4_tinyconn_ch2_mux_map_enum,
 				  AFE_TINY_CONN0,
 				  O_3_CFG_SFT,
