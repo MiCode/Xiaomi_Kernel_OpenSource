@@ -497,10 +497,12 @@ static int mt65xx_leds_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONTROL_BL_TEMPERATURE
+	mutex_lock(&bl_level_limit_mutex);
 	last_level = 0;
 	limit = g_leds_data[TYPE_LCD]->cdev.max_brightness;
 	limit_flag = 0;
 	current_level = 0;
+	mutex_unlock(&bl_level_limit_mutex);
 	LEDS_DRV_DEBUG
 	    ("last_level= %d, limit= %d, limit_flag= %d, current_level= %d\n",
 	     last_level, limit, limit_flag, current_level);
