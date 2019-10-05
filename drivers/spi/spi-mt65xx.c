@@ -173,6 +173,10 @@ static const struct mtk_chip_config mtk_default_chip_info = {
 	.tx_mlsb = 1,
 	.cs_pol = 0,
 	.sample_sel = 0,
+
+	.cs_setuptime = 0,
+	.cs_holdtime = 0,
+	.cs_idletime = 0,
 	.deassert_mode = 0,
 };
 
