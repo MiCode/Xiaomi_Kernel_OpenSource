@@ -432,19 +432,19 @@ struct opp_tbl_m_info opp_tbls_m[NR_MT_CPU_DVFS][NUM_CPU_LEVEL] = {
 	/* LL */
 	{
 		[CPU_LEVEL_0] = { opp_tbl_method_LL_FY },
-		[CPU_LEVEL_1] = { opp_tbl_method_LL_FY },
+		[CPU_LEVEL_1] = { opp_tbl_method_LL_TB },
 
 	},
 	/* L */
 	{
 		[CPU_LEVEL_0] = { opp_tbl_method_L_FY },
-		[CPU_LEVEL_1] = { opp_tbl_method_L_FY },
+		[CPU_LEVEL_1] = { opp_tbl_method_L_TB },
 
 	},
 	/* CCI */
 	{
 		[CPU_LEVEL_0] = { opp_tbl_method_CCI_FY },
-		[CPU_LEVEL_1] = { opp_tbl_method_CCI_FY },
+		[CPU_LEVEL_1] = { opp_tbl_method_CCI_TB },
 
 	},
 };
