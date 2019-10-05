@@ -24,7 +24,7 @@ struct lbat_user {
 	struct lbat_thd_t *hv_thd;
 	struct lbat_thd_t *lv1_thd;
 	struct lbat_thd_t *lv2_thd;
-	void (*callback)(unsigned int);
+	void (*callback)(unsigned int thd_volt);
 	unsigned int deb_cnt;
 	struct lbat_thd_t *deb_thd_ptr;
 	unsigned int hv_deb_prd;
