@@ -2005,6 +2005,7 @@ static void __iomem *mtk_gate_common_init(struct device_node *node,
 	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 						name, r);
+		kfree(clk_data);
 		return NULL;
 	}
 
