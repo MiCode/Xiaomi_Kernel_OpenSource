@@ -27,6 +27,10 @@
 #define IPI_POLLING_INTERVAL_US    10
 #define MS_TO_US(x) ((x)*1000)
 
+#define ipi_echo(en, fmt, args...) \
+	({ if (en) pr_info(fmt, ##args); })
+
+
 static void ipi_isr_cb(struct mtk_mbox_pin_recv *pin, void *priv);
 
 
@@ -47,9 +51,9 @@ static void ipi_monitor(struct mtk_ipi_device *ipidev, int id, int stage)
 		chan->ipi_record[1].ts = 0;
 		chan->ipi_record[2].idx = 5;
 		chan->ipi_record[2].ts = 0;
-		if (ipidev->mbdev->log_enable)
-			pr_info("%s: IPI_%d send msg(#%d)\n",
-				ipidev->name, id, chan->ipi_seqno);
+		ipi_echo(ipidev->mbdev->log_enable,
+			"%s: IPI_%d send msg (#%d)\n",
+			ipidev->name, id, chan->ipi_seqno);
 		break;
 	case ISR_RECV_MSGV:
 		chan->ipi_seqno++;
@@ -59,17 +63,27 @@ static void ipi_monitor(struct mtk_ipi_device *ipidev, int id, int stage)
 		chan->ipi_record[1].ts = 0;
 		chan->ipi_record[2].idx = 3;
 		chan->ipi_record[2].ts = 0;
-		if (ipidev->mbdev->log_enable)
-			pr_info("%s: IPI_%d recv msg(#%d)\n",
-				ipidev->name, id, chan->ipi_seqno);
 		break;
 	case RECV_MSG:
+		chan->ipi_record[1].ts = cpu_clock(0);
+		ipi_echo(ipidev->mbdev->log_enable,
+			"%s: IPI_%d recv msg (#%d)\n",
+			ipidev->name, id, chan->ipi_seqno);
+		break;
+	case RECV_ACK:
+		chan->ipi_record[2].ts = cpu_clock(0);
+		ipi_echo(ipidev->mbdev->log_enable,
+			"%s: IPI_%d recv reply (#%d)\n",
+			ipidev->name, id, chan->ipi_seqno);
+		break;
 	case ISR_RECV_ACK:
 		chan->ipi_record[1].ts = cpu_clock(0);
 		break;
 	case SEND_ACK:
-	case RECV_ACK:
 		chan->ipi_record[2].ts = cpu_clock(0);
+		ipi_echo(ipidev->mbdev->log_enable,
+			"%s: IPI_%d send reply (#%d)\n",
+			ipidev->name, id, chan->ipi_seqno);
 		break;
 	default:
 		break;
@@ -539,10 +553,10 @@ int mtk_ipi_recv_reply(struct mtk_ipi_device *ipidev, int ipi_id,
 }
 EXPORT_SYMBOL(mtk_ipi_recv_reply);
 
-void mtk_ipi_echo(struct mtk_ipi_device *ipidev, bool en)
+void mtk_ipi_tracking(struct mtk_ipi_device *ipidev, bool en)
 {
 	ipidev->mbdev->log_enable = en;
-	pr_info("%s IPI echo %s\n", ipidev->name, en ? "on" : "off");
+	pr_info("%s IPI tracking %s\n", ipidev->name, en ? "on" : "off");
 }
 
 static void ipi_isr_cb(struct mtk_mbox_pin_recv *pin, void *priv)
@@ -555,9 +569,6 @@ static void ipi_isr_cb(struct mtk_mbox_pin_recv *pin, void *priv)
 		complete(&pin->notify);
 		ipi_monitor(ipidev, ipi_id, ISR_RECV_MSGV);
 	} else if (atomic_read(&holder)) {
-		if (ipidev->mbdev->log_enable)
-			pr_info("%s: IPI_%d recv the reply\n",
-				ipidev->name, ipi_id);
 		complete(&pin->notify);
 		ipi_monitor(ipidev, ipi_id, ISR_RECV_ACK);
 	}
