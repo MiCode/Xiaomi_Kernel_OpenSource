@@ -198,6 +198,8 @@ static char g_bind9[20] = "";
 #endif
 
 struct mt_gpufreq_power_table_info *mtk_gpu_power;
+/* max GPU opp idx from GPU DVFS driver, default is 0 */
+int gpu_max_opp;
 #if 0
 int Num_of_GPU_OPP = 1;		/* Set this value =1 for non-DVS GPU */
 #else				/* DVFS GPU */
@@ -322,6 +324,20 @@ mt_gpufreq_get_cur_freq(void)
 
 	unsigned int __attribute__ ((weak))
 mt_ppm_thermal_get_max_power(void)
+{
+	pr_notice("E_WF: %s doesn't exist\n", __func__);
+	return 0;
+}
+
+	unsigned int  __attribute__((weak))
+mt_gpufreq_get_seg_max_opp_index(void)
+{
+	pr_notice("E_WF: %s doesn't exist\n", __func__);
+	return 0;
+}
+
+	unsigned int  __attribute__((weak))
+mt_gpufreq_get_dvfs_table_num(void)
 {
 	pr_notice("E_WF: %s doesn't exist\n", __func__);
 	return 0;
@@ -468,7 +484,14 @@ int mtk_gpufreq_register(struct mt_gpufreq_power_table_info *freqs, int num)
 				freqs[i].gpufreq_khz, freqs[i].gpufreq_power);
 	}
 
-	Num_of_GPU_OPP = num;	/* GPU OPP count */
+	gpu_max_opp = mt_gpufreq_get_seg_max_opp_index();
+	Num_of_GPU_OPP = gpu_max_opp + mt_gpufreq_get_dvfs_table_num();
+	/* error check */
+	if (gpu_max_opp >= num || Num_of_GPU_OPP > num || !Num_of_GPU_OPP) {
+		gpu_max_opp = 0;
+		Num_of_GPU_OPP = num;
+	}
+
 	return 0;
 }
 EXPORT_SYMBOL(mtk_gpufreq_register);
@@ -1136,7 +1159,7 @@ static int tscpu_read(struct seq_file *m, void *v)
 			trip_temp[8], g_THERMAL_TRIP[8], g_bind8,
 			trip_temp[9], g_THERMAL_TRIP[9], g_bind9, interval);
 
-	for (i = 0; i < Num_of_GPU_OPP; i++)
+	for (i = gpu_max_opp; i < Num_of_GPU_OPP; i++)
 		seq_printf(m, "g %d %d %d\n", i, mtk_gpu_power[i].gpufreq_khz,
 				mtk_gpu_power[i].gpufreq_power);
 
