@@ -313,8 +313,11 @@ static struct IspWorkqueTable isp_workque[ISP_IRQ_TYPE_AMOUNT] = {
 
 #include <linux/clk.h>
 struct ISP_CLK_STRUCT {
-	struct clk *ISP_SCP_SYS_DIS;
+	struct clk *ISP_SCP_SYS_MDP;
 	struct clk *ISP_SCP_SYS_CAM;
+	struct clk *ISP_SCP_SYS_RAWA;
+	struct clk *ISP_SCP_SYS_RAWB;
+	struct clk *ISP_SCP_SYS_RAWC;
 	struct clk *ISP_CAM_CAMSYS;
 	struct clk *ISP_CAM_CAMTG;
 	struct clk *ISP_CAM_CAMSV0;
@@ -1669,13 +1672,25 @@ static inline void Prepare_Enable_ccf_clock(void)
 	/* enable through smi API */
 	smi_control_clock_mtcmos(CAMERA_SMI_ENABLE);
 
-	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_DIS);
+	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_MDP);
 	if (ret)
-		LOG_NOTICE("cannot pre-en ISP_SCP_SYS_DIS clock\n");
+		LOG_NOTICE("cannot pre-en ISP_SCP_SYS_MDP clock\n");
 
 	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_CAM);
 	if (ret)
 		LOG_NOTICE("cannot pre-en ISP_SCP_SYS_CAM clock\n");
+
+	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_RAWA);
+	if (ret)
+		LOG_NOTICE("cannot pre-en ISP_SCP_SYS_RAWA clock\n");
+
+	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_RAWB);
+	if (ret)
+		LOG_NOTICE("cannot pre-en ISP_SCP_SYS_RAWB clock\n");
+
+	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_RAWC);
+	if (ret)
+		LOG_NOTICE("cannot pre-en ISP_SCP_SYS_RAWC clock\n");
 
 	ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSYS);
 	if (ret)
@@ -1714,9 +1729,11 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV3);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMTG);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSYS);
+	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_RAWC);
+	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_RAWB);
+	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_RAWA);
 	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_CAM);
-	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_DIS);
-
+	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_MDP);
 	/* disable through smi API */
 	smi_control_clock_mtcmos(CAMERA_SMI_DISABLE);
 }
@@ -5916,11 +5933,20 @@ static int ISP_probe(struct platform_device *pDev)
 #endif
 
 #ifndef EP_NO_CLKMGR /* CCF */
-		isp_clk.ISP_SCP_SYS_DIS =
-			devm_clk_get(&pDev->dev, "ISP_SCP_SYS_DIS");
+		isp_clk.ISP_SCP_SYS_MDP =
+			devm_clk_get(&pDev->dev, "ISP_SCP_SYS_MDP");
 
 		isp_clk.ISP_SCP_SYS_CAM =
 			devm_clk_get(&pDev->dev, "ISP_SCP_SYS_CAM");
+
+		isp_clk.ISP_SCP_SYS_RAWA =
+			devm_clk_get(&pDev->dev, "ISP_SCP_SYS_RAWA");
+
+		isp_clk.ISP_SCP_SYS_RAWB =
+			devm_clk_get(&pDev->dev, "ISP_SCP_SYS_RAWB");
+
+		isp_clk.ISP_SCP_SYS_RAWC =
+			devm_clk_get(&pDev->dev, "ISP_SCP_SYS_RAWC");
 
 		isp_clk.ISP_CAM_CAMSYS =
 			devm_clk_get(&pDev->dev, "CAMSYS_CAM_CGPDN");
@@ -5940,13 +5966,25 @@ static int ISP_probe(struct platform_device *pDev)
 		isp_clk.ISP_CAM_CAMSV3 =
 			devm_clk_get(&pDev->dev, "CAMSYS_CAMSV3_CGPDN");
 
-		if (IS_ERR(isp_clk.ISP_SCP_SYS_DIS)) {
-			LOG_NOTICE("cannot get ISP_SCP_SYS_DIS clock\n");
-			return PTR_ERR(isp_clk.ISP_SCP_SYS_DIS);
+		if (IS_ERR(isp_clk.ISP_SCP_SYS_MDP)) {
+			LOG_NOTICE("cannot get ISP_SCP_SYS_MDP clock\n");
+			return PTR_ERR(isp_clk.ISP_SCP_SYS_MDP);
 		}
 		if (IS_ERR(isp_clk.ISP_SCP_SYS_CAM)) {
 			LOG_NOTICE("cannot get ISP_SCP_SYS_CAM clock\n");
 			return PTR_ERR(isp_clk.ISP_SCP_SYS_CAM);
+		}
+		if (IS_ERR(isp_clk.ISP_SCP_SYS_RAWA)) {
+			LOG_NOTICE("cannot get ISP_SCP_SYS_RAWA clock\n");
+			return PTR_ERR(isp_clk.ISP_SCP_SYS_RAWA);
+		}
+		if (IS_ERR(isp_clk.ISP_SCP_SYS_RAWB)) {
+			LOG_NOTICE("cannot get ISP_SCP_SYS_RAWB clock\n");
+			return PTR_ERR(isp_clk.ISP_SCP_SYS_RAWB);
+		}
+		if (IS_ERR(isp_clk.ISP_SCP_SYS_RAWC)) {
+			LOG_NOTICE("cannot get ISP_SCP_SYS_RAWC clock\n");
+			return PTR_ERR(isp_clk.ISP_SCP_SYS_RAWC);
 		}
 		if (IS_ERR(isp_clk.ISP_CAM_CAMSYS)) {
 			LOG_NOTICE("cannot get ISP_CAM_CAMSYS clock\n");
