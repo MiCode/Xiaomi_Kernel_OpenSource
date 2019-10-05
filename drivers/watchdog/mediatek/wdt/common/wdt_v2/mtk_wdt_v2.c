@@ -100,6 +100,12 @@ static struct wdt_kick_info_t wdt_kick_info[MTK_WDT_KEEP_LAST_INFO];
 static unsigned int timeout;
 #endif
 
+static void mtk_wdt_clear_all(void)
+{
+	mt_reg_sync_writel(MTK_WDT_IRQ_CLR_MASK | MTK_WDT_IRQ_CLR_KEY,
+			     MTK_WDT_IRQ_CLR);
+}
+
 static enum wdt_rst_modes mtk_wdt_get_rst_mode(struct device_node *node)
 {
 	u32 rst_mode = 0;
@@ -215,6 +221,7 @@ void mtk_wdt_mode_config(bool dual_mode_en,
 {
 	#ifndef CONFIG_KICK_SPM_WDT
 	unsigned int tmp;
+	unsigned int non_rst2 = __raw_readl(MTK_WDT_NONRST_REG2);
 	#endif
 	spin_lock(&rgu_reg_operation_spinlock);
 	#ifdef CONFIG_KICK_SPM_WDT
@@ -226,8 +233,10 @@ void mtk_wdt_mode_config(bool dual_mode_en,
 		spm_wdt_disable_timer();
 	}
 	#else
+	mtk_wdt_clear_all();
 	tmp = __raw_readl(MTK_WDT_MODE);
-	tmp |= MTK_WDT_MODE_KEY;
+	tmp |= MTK_WDT_MODE_KEY | MTK_WDT_MODE_IRQ_LEVEL_EN |
+		MTK_WDT_MODE_EXTRA_CNT;
 
 	/* Bit 0 : Whether enable watchdog or not */
 	if (wdt_en == TRUE)
@@ -259,11 +268,13 @@ void mtk_wdt_mode_config(bool dual_mode_en,
 	else
 		tmp &= ~MTK_WDT_MODE_DUAL_MODE;
 
-	/* Bit 4: WDT_Auto_restart, this is a reserved bit,
-	 *we use it as bypass powerkey flag.
+	/*
+	 * MTK_WDT_MODE_AUTO_RESTART is replaced by
+	 * MTK_WDT_NONRST2_BYPASS_PWR_KEY of NONRST_REG2
+	 * for common kernel projects and two stage timeout design
 	 */
-	/* Because HW reboot always need reboot to kernel, we set it always. */
-	tmp |= MTK_WDT_MODE_AUTO_RESTART;
+	mt_reg_sync_writel(non_rst2 | MTK_WDT_NONRST2_BYPASS_PWR_KEY,
+			   MTK_WDT_NONRST_REG2);
 
 	mt_reg_sync_writel(tmp, MTK_WDT_MODE);
 	/* dual_mode(1); //always dual mode */
@@ -306,7 +317,7 @@ int mtk_wdt_enable(enum wk_wdt_en en)
 		wdt_enable = 0;
 	}
 	#else
-
+	mtk_wdt_clear_all();
 	tmp = __raw_readl(MTK_WDT_MODE);
 
 	tmp |= MTK_WDT_MODE_KEY;
@@ -382,9 +393,13 @@ void mtk_wd_suspend(void)
 	/* mtk_wdt_ModeSelection(KAL_FALSE, KAL_FALSE, KAL_FALSE); */
 	/* en debug, dis irq, dis ext, low pol, dis wdt */
 	if (!(wdt_sta_val & (MTK_WDT_STATUS_SYSRST_RST |
-			MTK_WDT_STATUS_EINT_RST)))
+			MTK_WDT_STATUS_EINT_RST))) {
 		mtk_wdt_mode_config(TRUE, TRUE, TRUE, FALSE, FALSE);
-	else
+
+		wdt_sta_val = __raw_readl(MTK_WDT_NONRST_REG2);
+		wdt_sta_val |= MTK_WDT_NONRST2_SUSPEND_DIS;
+		mt_reg_sync_writel(wdt_sta_val, MTK_WDT_NONRST_REG2);
+	} else
 		pr_info("%s without change mode %x",
 			 __func__, wdt_sta_val);
 
@@ -403,9 +418,13 @@ void mtk_wd_resume(void)
 		mtk_wdt_set_time_out_value(wdt_last_timeout_val);
 		wdt_sta_val = __raw_readl(MTK_WDT_STATUS);
 		if (!(wdt_sta_val & (MTK_WDT_STATUS_SYSRST_RST |
-			MTK_WDT_STATUS_EINT_RST)))
+			MTK_WDT_STATUS_EINT_RST))) {
 			mtk_wdt_mode_config(TRUE, TRUE, TRUE, FALSE, TRUE);
-		else
+
+			wdt_sta_val = __raw_readl(MTK_WDT_NONRST_REG2);
+			wdt_sta_val &= ~MTK_WDT_NONRST2_SUSPEND_DIS;
+			mt_reg_sync_writel(wdt_sta_val, MTK_WDT_NONRST_REG2);
+		} else
 			pr_info("%s without change mode setting %x",
 				 __func__, wdt_sta_val);
 
@@ -474,6 +493,7 @@ void wdt_arch_reset(char mode)
 	unsigned int wdt_mode_val;
 	struct device_node *np_rgu;
 	enum wdt_rst_modes rst_mode = WDT_RST_MODE_DEFAULT;
+	unsigned int non_rst2 = 0;
 
 	pr_debug("%s: mode=0x%x\n", __func__, mode);
 
@@ -514,31 +534,31 @@ void wdt_arch_reset(char mode)
 	pmic_pre_wdt_reset();
 #endif
 #endif
-
+	mtk_wdt_clear_all();
+	non_rst2 = __raw_readl(MTK_WDT_NONRST_REG2);
 	wdt_mode_val = __raw_readl(MTK_WDT_MODE);
 
 	pr_debug("%s: wdt_mode=0x%x\n", __func__, wdt_mode_val);
 
-	/* clear autorestart bit: autoretart: 1, bypass power key,
-	 * 0: not bypass power key
-	 */
-	wdt_mode_val &= (~MTK_WDT_MODE_AUTO_RESTART);
+	non_rst2 &= ~MTK_WDT_NONRST2_BYPASS_PWR_KEY;
 
 	/* make sure WDT mode is hw reboot mode, can not config isr mode */
-	wdt_mode_val &= (~(MTK_WDT_MODE_IRQ | MTK_WDT_MODE_IRQ_LEVEL_EN |
-			MTK_WDT_MODE_DUAL_MODE));
+	wdt_mode_val &= (~(MTK_WDT_MODE_IRQ | MTK_WDT_MODE_DUAL_MODE));
 
 	if (mode & WD_SW_RESET_BYPASS_PWR_KEY) {
-		/* Bypass power key reboot, We using auto_restart bit
-		 * as by pass power key flag
+		/*
+		 * MTK_WDT_MODE_AUTO_RESTART is replaced by
+		 * MTK_WDT_NONRST2_BYPASS_PWR_KEY of NONRST_REG2
+		 * for common kernel projects and two stage timeout design
 		 */
 		wdt_mode_val = wdt_mode_val | (MTK_WDT_MODE_KEY |
-			MTK_WDT_MODE_EXTEN |
-			MTK_WDT_MODE_AUTO_RESTART);
+			MTK_WDT_MODE_EXTEN);
+		non_rst2 |= MTK_WDT_NONRST2_BYPASS_PWR_KEY;
 	} else
 		wdt_mode_val = wdt_mode_val |
 			(MTK_WDT_MODE_KEY | MTK_WDT_MODE_EXTEN);
 
+	mt_reg_sync_writel(non_rst2, MTK_WDT_NONRST_REG2);
 	/*set latch register to 0 for SW reset*/
 	/* mt_reg_sync_writel((MTK_WDT_LENGTH_CTL_KEY | 0x0),
 	 *	MTK_WDT_LATCH_CTL);
@@ -600,6 +620,7 @@ int mtk_rgu_dram_reserved(int enable)
 {
 	unsigned int tmp;
 
+	mtk_wdt_clear_all();
 	if (enable == 1) {
 		/* enable ddr reserved mode */
 		tmp = __raw_readl(MTK_WDT_MODE);
