@@ -483,7 +483,11 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, int type)
 				wait_event_interruptible(
 					ctx->fm_wq,
 					v4l2_m2m_num_dst_bufs_ready(
-						ctx->m2m_ctx));
+					ctx->m2m_ctx) > 0 ||
+					ctx->state == MTK_STATE_FLUSH);
+
+			if (ctx->state == MTK_STATE_FLUSH)
+				return 0;
 
 			/* update dst buf status */
 			dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);

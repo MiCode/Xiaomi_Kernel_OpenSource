@@ -442,6 +442,9 @@ int mtk_vdec_ion_config_buff(struct dma_buf *dmabuf)
 		return -1;
 	}
 
+	/* dma hold ref, ion directly free */
+	ion_free(ion_vdec_client, handle);
+
 	return 0;
 }
 
