@@ -195,6 +195,19 @@ struct scsi_device {
 	unsigned lun_in_cdb:1;		/* Store LUN bits in CDB[1] */
 	unsigned unmap_limit_for_ws:1;	/* Use the UNMAP limit for WRITE SAME */
 
+	/* MTK PATCH */
+	unsigned use_rpm_auto:1; /* Enable runtime PM auto suspend */
+
+	/*
+	 * MTK PATCH:
+	 * Add "autosuspend_delay" for runtime PM.
+	 *
+	 * Default value: -1 (disabled).
+	 * It can be configured by LLD driver, such as ->slave_configure().
+	 */
+#define SCSI_DEFAULT_AUTOSUSPEND_DELAY  -1
+	int autosuspend_delay;
+
 	atomic_t disk_events_disable_depth; /* disable depth for disk events */
 
 	DECLARE_BITMAP(supported_events, SDEV_EVT_MAXBITS); /* supported events */
