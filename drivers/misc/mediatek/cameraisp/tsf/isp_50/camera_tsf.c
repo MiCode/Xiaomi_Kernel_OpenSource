@@ -774,7 +774,7 @@ static inline void TSF_Prepare_Enable_ccf_clock(void)
 	/* must keep this clk open order:
 	 * CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON -> CG_SCP_SYS_ISP -> TSF clk
 	 */
-	smi_bus_enable(SMI_LARB_CAMSYS1, TSF_DEV_NAME);
+	smi_bus_prepare_enable(SMI_LARB5, TSF_DEV_NAME);
 	ret = clk_prepare_enable(TSF_clk.CG_IMGSYS_TSF);
 	if (ret)
 		LOG_INF("cannot prepare and enable CG_IMGSYS_TSF clock\n");
@@ -787,7 +787,7 @@ static inline void TSF_Disable_Unprepare_ccf_clock(void)
 	 * TSF clk -> CG_SCP_SYS_ISP -> CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS
 	 */
 	clk_disable_unprepare(TSF_clk.CG_IMGSYS_TSF);
-	smi_bus_disable(SMI_LARB_CAMSYS1, TSF_DEV_NAME);
+	smi_bus_disable_unprepare(SMI_LARB5, TSF_DEV_NAME);
 }
 #endif
 
