@@ -53,6 +53,7 @@ long _map_user_pages(struct MTIOMMU_PIN_RANGE_T *pinRange, unsigned long uaddr,
 	}
 	if (!(vma->vm_flags & (VM_IO | VM_PFNMAP))) {
 		pinRange->isPage = 1;
+		/*diff with kernel-4.9(Linux modified)*/
 		res = get_user_pages_remote(current, current->mm, uaddr,
 					    nr_pages, write ? FOLL_WRITE : 0,
 					    pages, NULL, NULL);

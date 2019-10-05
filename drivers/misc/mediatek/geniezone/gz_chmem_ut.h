@@ -14,9 +14,6 @@
 #ifndef __GZ_CHMEM_UT_H__
 #define __GZ_CHMEM_UT_H__
 
-int chunk_memory_test(void *args);
-int chunk_memory_test_ION_Multiple(void *args);
-int chunk_memory_test_ION_simple(void *args);
-int chunk_memory_test_by_MTEE_TA(void *args);
+int chunk_memory_ut(void *args);
 
 #endif

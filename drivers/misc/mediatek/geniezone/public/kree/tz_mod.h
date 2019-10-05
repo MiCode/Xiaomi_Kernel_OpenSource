@@ -40,19 +40,13 @@
 	_IOWR(MTEE_IOC_MAGIC, 6, struct kree_user_sc_param)
 #define MTEE_CMD_SC_TEST_UPT_CHMDATA                                           \
 	_IOWR(MTEE_IOC_MAGIC, 7, struct kree_user_sc_param)
-#define MTEE_CMD_APPEND_CHMEM                                                  \
-	_IOWR(MTEE_IOC_MAGIC, 8, struct kree_user_sc_param)
-#define MTEE_CMD_RELEASE_CHMEM                                                 \
-	_IOWR(MTEE_IOC_MAGIC, 9, struct kree_user_sc_param)
-#define MTEE_CMD_ALLOC_CHMEM                                                   \
-	_IOWR(MTEE_IOC_MAGIC, 10, struct kree_user_sc_param)
-#define MTEE_CMD_ZALLOC_CHMEM                                                  \
-	_IOWR(MTEE_IOC_MAGIC, 11, struct kree_user_sc_param)
-#define MTEE_CMD_REF_CHMEM _IOWR(MTEE_IOC_MAGIC, 12, struct kree_user_sc_param)
-#define MTEE_CMD_UNREF_CHMEM                                                   \
-	_IOWR(MTEE_IOC_MAGIC, 13, struct kree_user_sc_param)
 #define MTEE_CMD_SC_CHMEM_HANDLE                                               \
 	_IOWR(MTEE_IOC_MAGIC, 14, struct kree_user_sc_param)
+#define MTEE_CMD_FOD_TEE_SHM_ON                                                \
+	_IO(MTEE_IOC_MAGIC, 16)
+#define MTEE_CMD_FOD_TEE_SHM_OFF                                               \
+	_IO(MTEE_IOC_MAGIC, 17)
+
 
 #define DEV_IOC_MAXNR (10)
 

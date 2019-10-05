@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/trusty/trusty_ipc.h>
+#include <gz-trusty/trusty_ipc.h>
 #include "gz_sec_storage_ut.h"
 
 int test_SecureStorageBasic(void *args)
