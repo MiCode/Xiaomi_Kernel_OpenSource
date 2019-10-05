@@ -136,7 +136,7 @@ struct ipi_action cpufreq_act;
 uint32_t cpufreq_buf[4];
 int Ripi_cpu_dvfs_thread(void *data)
 {
-	int i, ret;
+	int i, ret = 0;
 	struct mt_cpu_dvfs *p;
 	unsigned long flags;
 	uint32_t pwdata[4];
@@ -330,7 +330,7 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 /* just for sspm v1
 	unsigned int len = DVFS_D_LEN;
 */
-	int ack_data;
+	int ack_data = 0;
 	unsigned int ret = 0;
 
 	/* cpufreq_ver("#@# %s(%d) cmd %x\n", __func__, __LINE__, cmd); */
