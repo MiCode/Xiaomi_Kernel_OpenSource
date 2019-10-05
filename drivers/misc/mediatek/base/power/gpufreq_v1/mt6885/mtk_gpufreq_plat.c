@@ -2353,15 +2353,15 @@ static unsigned int __calculate_vsram_settletime(bool mode, int deltaV)
 {
 	unsigned int settleTime;
 	/* [MT6359][VSRAM_GPU]
-	 * DVFS Rising : delta(V) / 10mV + 3us + 5us
+	 * DVFS Rising : delta(V) / 12.5mV + 3us + 5us
 	 * DVFS Falling: delta(V) / 5mV + 3us + 5us
 	 */
 
 	if (mode) {
-		/* rising */
-		settleTime = deltaV / (10 * 100) + 8;
+		/* rising 12.5mv/us*/
+		settleTime = deltaV / (125 * 10) + 8;
 	} else {
-		/* falling */
+		/* falling 5mv/us*/
 		settleTime = deltaV / (5 * 100) + 8;
 	}
 	return settleTime;
