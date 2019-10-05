@@ -38,6 +38,7 @@
 #include <linux/mm.h>
 #include <linux/seq_file.h>
 #include "smi_public.h"
+#include <linux/dma-mapping.h>
 /*#include <linux/xlog.h>		 For xlog_printk(). */
 /*  */
 /*#include <mach/hardware.h>*/
@@ -56,9 +57,12 @@
 
 #ifdef CONFIG_MTK_IOMMU_V2
 #include <mach/mt_iommu.h>
+#include "mach/pseudo_m4u.h"
 #else /* CONFIG_MTK_IOMMU_V2 */
+#ifdef CONFIG_MTK_M4U
 #include <m4u.h>
 #endif /* CONFIG_MTK_IOMMU_V2 */
+#endif
 
 //#include <cmdq_core.h>
 //#include <cmdq_record.h>
@@ -73,7 +77,7 @@
 #include <mmdvfs_pmqos.h>
 #endif
 
-#define __MFB_EP_NO_CLKMGR__
+//#define __MFB_EP_NO_CLKMGR__
 /* #define BYPASS_REG */
 /* Measure the kernel performance */
 /* #define __MFB_KERNEL_PERFORMANCE_MEASURE__ */
@@ -105,7 +109,9 @@
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 #include <linux/clk.h>
 struct MFB_CLK_STRUCT {
-	struct clk *CG_IMGSYS_MFB;
+	struct clk *CG_IMG1_LARB9;
+	struct clk *CG_IMG1_MSS;
+	struct clk *CG_IMG1_MFB;
 };
 struct MFB_CLK_STRUCT mfb_clk;
 #endif	/* !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK)  */
@@ -256,7 +262,7 @@ static int nr_MFB_devs;
 
 static struct device *MFB_cmdq_dev;/*YWtodo*/
 static struct cmdq_client *mss_clt, *msf_clt;/*YWtodo*/
-static s32 mss_done_event_id, msf_done_event_id;/*YWtodo*/
+static u16 mss_done_event_id, msf_done_event_id;/*YWtodo*/
 
 
 /* Get HW modules' base address from device nodes */
@@ -311,6 +317,10 @@ static struct MFB_MSSRequest kMssReq;
 static struct engine_requests msf_reqs;
 static struct engine_requests vmsf_reqs;
 static struct MFB_MSFRequest kMsfReq;
+
+#ifdef CONFIG_MTK_IOMMU_V2
+static int MFB_MEM_USE_VIRTUL = 1;
+#endif
 
 /******************************************************************************
  *
@@ -1435,10 +1445,18 @@ static inline void MFB_Prepare_Enable_ccf_clock(void)
 	/* must keep this clk open order:
 	 * CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON -> CG_SCP_SYS_ISP -> MFB clk
 	 */
-	smi_bus_prepare_enable(SMI_LARB5, MFB_DEV_NAME);
-	ret = clk_prepare_enable(mfb_clk.CG_IMGSYS_MFB);
+	smi_bus_prepare_enable(SMI_LARB9, MFB_DEV_NAME);
+	ret = clk_prepare_enable(mfb_clk.CG_IMG1_LARB9);
 	if (ret)
-		LOG_ERR("cannot prepare and enable CG_IMGSYS_MFB clock\n");
+		LOG_ERR("cannot prepare and enable CG_IMG1_LARB9 clock\n");
+
+	ret = clk_prepare_enable(mfb_clk.CG_IMG1_MSS);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG1_MSS clock\n");
+
+	ret = clk_prepare_enable(mfb_clk.CG_IMG1_MFB);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG1_MFB clock\n");
 
 }
 
@@ -1448,16 +1466,55 @@ static inline void MFB_Disable_Unprepare_ccf_clock(void)
 	 * MFB clk -> CG_SCP_SYS_ISP -> CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS
 	 */
 
-	clk_disable_unprepare(mfb_clk.CG_IMGSYS_MFB);
-	smi_bus_disable_unprepare(SMI_LARB5, MFB_DEV_NAME);
+	clk_disable_unprepare(mfb_clk.CG_IMG1_MFB);
+	clk_disable_unprepare(mfb_clk.CG_IMG1_MSS);
+	clk_disable_unprepare(mfb_clk.CG_IMG1_LARB9);
+	smi_bus_disable_unprepare(SMI_LARB9, MFB_DEV_NAME);
 }
 #endif
 #endif
+
+/******************************************************************************
+ *
+ ******************************************************************************/
+#ifdef CONFIG_MTK_IOMMU_V2
+static inline int m4u_control_iommu_port(void)
+{
+	struct M4U_PORT_STRUCT sPort;
+	int ret = 0;
+
+	/* LARB9 */
+	sPort.ePortID = M4U_PORT_L9_IMG_MFB_RDMA0_MDP;
+	sPort.Virtuality = MFB_MEM_USE_VIRTUL;
+
+#if defined(CONFIG_MTK_M4U)
+	ret = m4u_config_port(&sPort);
+#endif
+
+	if (ret == 0) {
+		LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L9_IMG_MFB_RDMA0_MDP),
+			MFB_MEM_USE_VIRTUL ? "virtual" : "physical");
+	} else {
+		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L9_IMG_MFB_RDMA0_MDP),
+			MFB_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
+		ret = -1;
+	}
+
+	return ret;
+}
+#endif
+
 /******************************************************************************
  *
  ******************************************************************************/
 static void MFB_EnableClock(bool En)
 {
+#ifdef CONFIG_MTK_IOMMU_V2
+	int ret = 0;
+#endif
+
 	if (En) {/* Enable clock. */
 		/* LOG_DBG("Mfb clock enbled. g_u4EnableClockCount: %d.", */
 		/* g_u4EnableClockCount); */
@@ -1487,6 +1544,15 @@ static void MFB_EnableClock(bool En)
 		spin_lock(&(MFBInfo.SpinLockMFB));
 		g_u4EnableClockCount++;
 		spin_unlock(&(MFBInfo.SpinLockMFB));
+
+#ifdef CONFIG_MTK_IOMMU_V2
+		if (g_u4EnableClockCount == 1) {
+			ret = m4u_control_iommu_port();
+			if (ret)
+				LOG_ERR("cannot config M4U IOMMU PORTS\n");
+		}
+#endif
+
 	} else {		/* Disable clock. */
 
 		/* LOG_DBG("Mfb clock disabled. g_u4EnableClockCount: %d.", */
@@ -3655,7 +3721,7 @@ static signed int MFB_probe(struct platform_device *pDev)
 	struct MFB_device *MFB_dev;
 #endif
 
-	LOG_INF("- E. MFB driver probe.");
+	LOG_INF("- E. MFB driver probe. nr_MFB_devs : %d.", nr_MFB_devs);
 
 	/* Check platform_device parameters */
 #ifdef CONFIG_OF
@@ -3687,6 +3753,14 @@ static signed int MFB_probe(struct platform_device *pDev)
 			nr_MFB_devs, pDev->dev.of_node->name);
 		return -ENOMEM;
 	}
+
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+		(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+			*(MFB_dev->dev->dma_mask) =
+				(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
+			MFB_dev->dev->coherent_dma_mask =
+				(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
+#endif
 
 	LOG_INF("nr_MFB_devs=%d, devnode(%s), map_addr=0x%lx\n", nr_MFB_devs,
 		pDev->dev.of_node->name, (unsigned long)MFB_dev->regs);
@@ -3750,14 +3824,15 @@ static signed int MFB_probe(struct platform_device *pDev)
 	if (nr_MFB_devs == 1) {
 		mss_clt = cmdq_mbox_create(MFB_cmdq_dev, 0);
 		LOG_INF("mss_clt: 0x%x\n", mss_clt);
-		mss_done_event_id =
-			cmdq_dev_get_event(MFB_cmdq_dev, "MSS_FRAME_DONE_23");
+		of_property_read_u16(MFB_cmdq_dev->of_node,
+				"mss_frame_done", &mss_done_event_id);
+
 	}
 	if (nr_MFB_devs == 2) {
 		msf_clt = cmdq_mbox_create(MFB_cmdq_dev, 0);
 		LOG_INF("msf_clt: 0x%x\n", msf_clt);
-		msf_done_event_id =
-			cmdq_dev_get_event(MFB_cmdq_dev, "MSF_FRAME_DONE_21");
+		of_property_read_u16(MFB_cmdq_dev->of_node,
+				"msf_frame_done", &msf_done_event_id);
 	}
 
 #endif
@@ -3774,13 +3849,25 @@ static signed int MFB_probe(struct platform_device *pDev)
 #ifndef __MFB_EP_NO_CLKMGR__
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 		    /*CCF: Grab clock pointer (struct clk*) */
-		mfb_clk.CG_IMGSYS_MFB = devm_clk_get(&pDev->dev,
-				"MFB_CLK_IMG_MFB");
-		if (IS_ERR(mfb_clk.CG_IMGSYS_MFB)) {
-			LOG_ERR("cannot get CG_IMGSYS_MFB clock\n");
-			return PTR_ERR(mfb_clk.CG_IMGSYS_MFB);
-		}
+		mfb_clk.CG_IMG1_LARB9 = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG1_LARB9");
+		mfb_clk.CG_IMG1_MSS = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG1_MSS");
+		mfb_clk.CG_IMG1_MFB = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG1_MFB");
 
+		if (IS_ERR(mfb_clk.CG_IMG1_LARB9)) {
+			LOG_ERR("cannot get CG_IMG1_LARB9 clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG1_LARB9);
+		}
+		if (IS_ERR(mfb_clk.CG_IMG1_MSS)) {
+			LOG_ERR("cannot get CG_IMG1_MSS clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG1_MSS);
+		}
+		if (IS_ERR(mfb_clk.CG_IMG1_MFB)) {
+			LOG_ERR("cannot get CG_IMG1_MFB clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG1_MFB);
+		}
 #endif	/* !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK)  */
 #endif
 
