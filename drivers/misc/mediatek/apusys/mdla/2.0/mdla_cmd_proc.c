@@ -259,11 +259,9 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 
 	if (!cd || !mdla_info || (mdla_info->mdlaid >= mdla_max_num_core))
 		return -EINVAL;
-
+	memset(&ce, 0, sizeof(ce));
 	core_id = mdla_info->mdlaid;
 	ce.queue_t = sched_clock();
-
-	memset(&ce, 0, sizeof(ce));
 
 	/* The critical region of command enqueue */
 	mutex_lock(&mdla_info->cmd_lock);
