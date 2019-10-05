@@ -596,6 +596,10 @@ static void ufshcd_print_host_regs(struct ufs_hba *hba)
 
 	/* MTK PATCH */
 	dev_err(hba->dev, "host regs (+0x%x, proprietary)\n",
+		REG_UFS_ADDR_XOUFS_ST);
+	ufshcd_hex_dump("host regs: ",
+		hba->mmio_base + REG_UFS_ADDR_XOUFS_ST, 0x4);
+	dev_err(hba->dev, "host regs (+0x%x, proprietary)\n",
 		REG_UFS_MTK_START);
 	ufshcd_hex_dump("host regs: ",
 		hba->mmio_base + REG_UFS_MTK_START, REG_UFS_MTK_SIZE);
@@ -726,6 +730,33 @@ void ufshcd_print_host_state(struct ufs_hba *hba,
 	}
 
 	if (mphy_info) {
+		err = ufshcd_dme_get(hba, UIC_ARG_MIB_SEL(VS_DME_PWRMODIND, 0),
+			&val);
+		if (err)
+			SPREAD_DEV_PRINTF(buff, size, m,
+				hba->dev, "get VS_DME_PWRMODIND fail\n");
+		else
+			SPREAD_DEV_PRINTF(buff, size,
+				m, hba->dev, "VS_DME_PWRMODIND: 0x%x\n", val);
+
+		err = ufshcd_dme_get(hba, UIC_ARG_MIB_SEL(VS_DEBUGPWRCHG, 0),
+			&val);
+		if (err)
+			SPREAD_DEV_PRINTF(buff, size, m,
+				hba->dev, "get VS_DEBUGPWRCHG fail\n");
+		else
+			SPREAD_DEV_PRINTF(buff, size,
+				m, hba->dev, "VS_DEBUGPWRCHG: 0x%x\n", val);
+
+		err = ufshcd_dme_get(hba, UIC_ARG_MIB_SEL(VS_DEBUGSTATES, 0),
+			&val);
+		if (err)
+			SPREAD_DEV_PRINTF(buff, size, m,
+				hba->dev, "get VS_DEBUGSTATES fail\n");
+		else
+			SPREAD_DEV_PRINTF(buff, size,
+				m, hba->dev, "VS_DEBUGSTATES: 0x%x\n", val);
+
 		err = ufshcd_dme_get(hba, UIC_ARG_MIB_SEL(TX_FSM_STATE, 0),
 			&val);
 		if (err)
@@ -4048,8 +4079,10 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 		wmb();
 		reenable_intr = true;
 	}
+
 	ret = __ufshcd_send_uic_cmd(hba, cmd, false);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
 	if (ret) {
 		dev_err(hba->dev,
 			"pwr ctrl cmd 0x%x with mode 0x%x uic error %d\n",
@@ -4078,7 +4111,7 @@ out:
 	ufshcd_dme_cmd_log(hba, cmd, UFS_TRACE_UIC_CMPL_PWR_CTRL);
 
 	if (ret) {
-		ufshcd_print_host_state(hba, 0, NULL, NULL, NULL);
+		ufs_mtk_dbg_proc_dump(NULL);
 		ufshcd_print_pwr_info(hba);
 		ufshcd_print_host_regs(hba);
 	}
@@ -4090,6 +4123,13 @@ out:
 		ufshcd_enable_intr(hba, UIC_COMMAND_COMPL);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	mutex_unlock(&hba->uic_cmd_mutex);
+
+	/*
+	 * send uic command needs uic_cmd_mutex lock
+	 * so move here to prevent deadlock
+	 */
+	if (ret)
+		ufshcd_print_host_state(hba, 1, NULL, NULL, NULL);
 
 	return ret;
 }
@@ -4369,6 +4409,9 @@ static int ufshcd_change_power_mode(struct ufs_hba *hba,
 			     struct ufs_pa_layer_attr *pwr_mode)
 {
 	int ret;
+	u32 act_txlanes = 0, act_rxlanes = 0;
+	u32 ava_txlanes = 0, ava_rxlanes = 0;
+	u32 cnt_txlanes = 0, cnt_rxlanes = 0;
 
 	/* if already configured to the requested pwr_mode */
 	if (!hba->restore_needed &&
@@ -4382,6 +4425,20 @@ static int ufshcd_change_power_mode(struct ufs_hba *hba,
 		dev_dbg(hba->dev, "%s: power already configured\n", __func__);
 		return 0;
 	}
+
+	/* MTK PATCH */
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_ACTIVETXDATALANES), &act_txlanes);
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_ACTIVERXDATALANES), &act_rxlanes);
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_AVAILTXDATALANES), &ava_txlanes);
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_AVAILRXDATALANES), &ava_rxlanes);
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_CONNECTEDTXDATALANES), &cnt_txlanes);
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_CONNECTEDRXDATALANES), &cnt_rxlanes);
+	dev_info(hba->dev, "%s: data lanes: active tx(%d),rx(%d)\n",
+		__func__, act_txlanes, act_rxlanes);
+	dev_info(hba->dev, "%s: data lanes: available tx(%d),rx(%d)\n",
+		__func__, ava_txlanes, ava_rxlanes);
+	dev_info(hba->dev, "%s: data lanes: connected tx(%d),rx(%d)\n",
+		__func__, cnt_txlanes, cnt_rxlanes);
 
 	/*
 	 * Configure attributes for power mode change with below.
@@ -7645,7 +7702,7 @@ static void ufshcd_def_desc_sizes(struct ufs_hba *hba)
 static int ufshcd_probe_hba(struct ufs_hba *hba)
 {
 	struct ufs_dev_desc *card = NULL; /* MTK PATCH */
-	int ret;
+	int ret, retry;
 	ktime_t start = ktime_get();
 
 	ret = ufshcd_link_startup(hba);
@@ -7719,6 +7776,8 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	ufshcd_force_reset_auto_bkops(hba);
 	hba->wlun_dev_clr_ua = true;
 
+	retry = 3;
+_pwr_mode_retry:
 	if (ufshcd_get_max_pwr_mode(hba)) {
 		dev_err(hba->dev,
 			"%s: Failed getting max supported power mode\n",
@@ -7726,8 +7785,12 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	} else {
 		ret = ufshcd_config_pwr_mode(hba, &hba->max_pwr_info.info);
 		if (ret) {
-			dev_err(hba->dev, "%s: Failed setting power mode, err = %d\n",
-					__func__, ret);
+			dev_err(hba->dev, "%s: Failed setting power mode, err = %d, retry (%d)\n",
+					__func__, ret, retry);
+			if (ret && retry > 0) {
+				retry--;
+				goto _pwr_mode_retry;
+			}
 			goto out;
 		}
 	}
@@ -9030,6 +9093,7 @@ out:
 
 	if (ret)
 		ufshcd_update_reg_hist(&hba->ufs_stats.resume_err, (u32)ret);
+
 	return ret;
 }
 
@@ -9351,8 +9415,9 @@ int ufshcd_shutdown(struct ufs_hba *hba)
 {
 	int ret = 0;
 
+	/* For checking UFS init fail issue */
 	if (!hba->is_powered)
-		goto out;
+		BUG_ON(1);
 
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba))
 		goto out;
