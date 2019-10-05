@@ -1444,6 +1444,7 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 			det->VMAX		= VMAX_VAL_GL;
 			det->max_freq_khz = GPU_M_FREQ_BASE;
 			det->loo_role = LOW_BANK;
+			det->DVTFIXED = DVTFIXED_VAL_GL;
 		} else {
 #endif
 			det->MDES	= devinfo->GPU_MDES;

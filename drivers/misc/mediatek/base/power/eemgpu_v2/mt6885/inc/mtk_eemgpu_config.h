@@ -353,7 +353,7 @@ enum mt_cpu_dvfs_id {
 #define DETMAX_VAL		(0xffff)
 #define AGECONFIG_VAL	(0x555555)
 #define AGEM_VAL		(0x0)
-#define DCCONFIG_VAL	(0x555555)
+#define DCCONFIG_VAL	(0x1)
 
 /* different for CCI */
 #define VMAX_VAL_CCI		(0x60) /* volt domain: 1v*/
@@ -371,7 +371,7 @@ enum mt_cpu_dvfs_id {
 #define VMAX_VAL_GL                     (0x60)
 #define VMIN_VAL_GL                     (0x18)
 #define VCO_VAL_GL                      (0x18)
-#define DVTFIXED_VAL_GL					(0x06)
+#define DVTFIXED_VAL_GL					(0x01)
 #define DVTFIXED_VAL_GPU				(0x06)
 
 /* different for GPU_H */

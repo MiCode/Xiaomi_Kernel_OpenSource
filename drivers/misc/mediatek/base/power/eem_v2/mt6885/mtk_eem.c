@@ -213,46 +213,62 @@ static struct eem_det *id_to_eem_det(enum eem_det_id id)
 }
 
 #if SUPPORT_PICACHU
-static void get_picachu_efuse(int *val)
+static void get_picachu_efuse(void)
 {
+	int *val;
 	phys_addr_t picachu_mem_base_phys;
 	phys_addr_t picachu_mem_size;
 	phys_addr_t picachu_mem_base_virt;
-	void __iomem *virt_addr;
 	unsigned int i, cnt, sig;
 	void __iomem *addr_ptr;
 
-	virt_addr = ioremap((phys_addr_t)EEM_TEMPSPARE0, 0);
-	picachu_mem_base_phys = eem_read(virt_addr);
+	val = (int *)&eem_devinfo;
+
+	picachu_mem_base_phys = eem_read(EEM_TEMPSPARE0);
 	picachu_mem_size = 0x80000;
 	picachu_mem_base_virt =
 		(phys_addr_t)(uintptr_t)ioremap_wc(
 		picachu_mem_base_phys,
 		picachu_mem_size);
 
+#if 0
 	eem_error("phys:0x%llx, size:0x%llx, virt:0x%llx\n",
 		(unsigned long long)picachu_mem_base_phys,
 		(unsigned long long)picachu_mem_size,
 		(unsigned long long)picachu_mem_base_virt);
+#endif
+	if ((void __iomem *)(picachu_mem_base_virt) != NULL) {
+		/* 0x60000 was reserved for eem efuse using */
+		addr_ptr = (void __iomem *)(picachu_mem_base_virt
+			+ 0x60000);
 
-	/* 0x60000 was reserved for eem efuse using */
-	addr_ptr = (void __iomem *)(picachu_mem_base_virt + 0x60000);
-
-	if (addr_ptr != NULL) {
 		/* check signature */
 		sig = (eem_read(addr_ptr) >>
 			PICACHU_SIGNATURE_SHIFT_BIT) & 0xff;
+
 		if (sig == PICACHU_SIG) {
 			cnt = eem_read(addr_ptr) & 0xff;
-			/* eem_error("efuse cnt 0x%X\n", cnt); */
 			if (cnt > NR_HW_RES_FOR_BANK)
 				cnt = NR_HW_RES_FOR_BANK;
-			addr_ptr += 8;
-			for (i = 1; i < cnt; i++, addr_ptr += 4)
-				val[i] = eem_read(addr_ptr);
+			addr_ptr += 4;
+
+			/* check efuse data */
+			for (i = 1; i < cnt; i++) {
+				if ((i == 5) || (i == 6) ||
+					(i == 11) || (i == 12) || (i == 15))
+					continue;
+				else if (eem_read(addr_ptr + i * 4) == 0) {
+					eem_error("Wrong PI-OD%d: 0x%x\n",
+						i, eem_read(addr_ptr + i * 4));
+					return;
+				}
+			}
+
+			for (i = 1; i < cnt; i++)
+				val[i] = eem_read(addr_ptr + i * 4);
+
 		}
 	}
-
 }
 #endif
 
@@ -338,10 +354,6 @@ static int get_devinfo(void)
 	val[15] = DEVINFO_15;
 	val[16] = DEVINFO_16;
 	val[17] = DEVINFO_17;
-#endif
-
-#if SUPPORT_PICACHU
-	get_picachu_efuse(val);
 #endif
 
 	for (i = 0; i < NR_HW_RES_FOR_BANK; i++)
@@ -3611,6 +3623,10 @@ static int eem_probe(struct platform_device *pdev)
 		WARN_ON(1);
 	}
 	eem_debug("Set EEM IRQ OK.\n");
+
+#if SUPPORT_PICACHU
+	get_picachu_efuse();
+#endif
 
 #ifdef CONFIG_EEM_AEE_RR_REC
 		_mt_eem_aee_init();

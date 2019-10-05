@@ -32,7 +32,7 @@
 #define ENABLE_CPU			(1)
 #define ENABLE_GPU			(0)
 #define EN_EEM_THERM_CLK	(0)
-#define SUPPORT_PICACHU		(0)
+#define SUPPORT_PICACHU		(1)
 
 
 #ifdef CORN_LOAD
@@ -368,7 +368,7 @@ enum mt_cpu_dvfs_id {
 #define DETMAX_VAL		(0xffff)
 #define AGECONFIG_VAL	(0x555555)
 #define AGEM_VAL		(0x0)
-#define DCCONFIG_VAL	(0x555555)
+#define DCCONFIG_VAL	(0x1)
 
 /* different for CCI */
 #define VMAX_VAL_CCI		(0x60) /* volt domain: 1v*/
