@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _VPU_POWER_CLOCK_H_
-#define _VPU_POWER_CLOCK_H_
+#ifndef _POWER_CLOCK_API_H_
+#define _POWER_CLOCK_API_H_
 
 #include <linux/clk.h>
 #include <mt-plat/mtk_secure_api.h>
@@ -101,4 +101,4 @@ extern void check_vpu_clk_sts(void);
 		} \
 	}
 
-#endif // _VPU_POWER_CLOCK_H_
+#endif // _POWER_CLOCK_API_H_
