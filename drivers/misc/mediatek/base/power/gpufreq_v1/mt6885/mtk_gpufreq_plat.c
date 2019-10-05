@@ -2018,27 +2018,15 @@ static void __mt_gpufreq_switch_to_clksrc(enum g_clock_source_enum clksrc)
 
 static enum g_posdiv_power_enum __mt_gpufreq_get_posdiv_power(unsigned int freq)
 {
-	/*
-	 * MFGPLL VCO range: 1.5GHz - 3.8GHz by divider 1/2/4/8/16,
-	 * MFGPLL range: 125MHz - 3.8GHz,
-	 * | VCO MAX | VCO MIN | POSDIV | PLL OUT MAX | PLL OUT MIN |
-	 * |  3800   |  1500   |    1   |   3800MHz   |   1500MHz   | (X)
-	 * |  3800   |  1500   |    2   |   1900MHz   |   750MHz    | (X)
-	 * |  3800   |  1500   |    4   |   950MHz    |   375MHz    | (O)
-	 * |  3800   |  1500   |    8   |   475MHz    |   187.5MHz  | (O)
-	 * |  3800   |  2000   |   16   |   237.5MHz  |   125MHz    | (X)
-	 *
-	 * only use posdiv 4 or 8
-	 * sub-clksrc is UNIVPLL_D3, please make sure don't overclock
-	 */
-	enum g_posdiv_power_enum posdiv_power;
+	int i;
 
-	if (freq < UNIVPLL_D3_DEFAULT_FREQ)
-		posdiv_power = POSDIV_POWER_8;
-	else
-		posdiv_power = POSDIV_POWER_4;
+	for (i = 0; i < NUM_OF_OPP_IDX; i++) {
+		if (g_opp_table_segment[i].gpufreq_khz <= freq)
+			return g_opp_table_segment[i].gpufreq_post_divider;
+	}
 
-	return posdiv_power;
+	gpufreq_pr_info("freq %d find no post divider\n", freq);
+	return POSDIV_POWER_4;
 }
 
 static enum g_posdiv_power_enum __mt_gpufreq_get_curr_posdiv_power(void)
@@ -2350,6 +2338,7 @@ static unsigned int __calculate_vsram_settletime(bool mode, int deltaV)
 
 /*
  * get current frequency (KHZ)
+ * Freq = ((PLL_CON1[21:0] * 26M) / 2^14) / 2^PLL_CON1[26:24]
  */
 static unsigned int __mt_gpufreq_get_cur_freq(void)
 {
@@ -2638,6 +2627,7 @@ static void __mt_gpufreq_init_table(void)
 	unsigned int i = 0;
 
 	/* determine max_opp/num/segment_table... by segment  */
+	/* we have no segment now
 	if (segment_id == MT6785T_SEGMENT)
 		g_segment_max_opp_idx = 3;
 	else if (segment_id == MT6785_SEGMENT)
@@ -2646,6 +2636,8 @@ static void __mt_gpufreq_init_table(void)
 		g_segment_max_opp_idx = 19;
 	else
 		g_segment_max_opp_idx = 3;
+	*/
+	g_segment_max_opp_idx = 0;
 
 	g_opp_table = kzalloc((num) * sizeof(*opp_table), GFP_KERNEL);
 
