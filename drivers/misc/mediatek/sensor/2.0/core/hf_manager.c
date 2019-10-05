@@ -420,15 +420,17 @@ static void hf_manager_update_client_param(
 
 	/* only enable disable update action delay and latency */
 	if (cmd->action == HF_MANAGER_SENSOR_ENABLE) {
+		if (!request->enable)
+			atomic64_set(&request->start_time,
+				ktime_get_boot_ns());
 		request->enable = true;
 		request->delay = cmd->delay;
 		request->latency = cmd->latency;
-		atomic64_set(&request->start_time, ktime_get_boot_ns());
 	} else if (cmd->action == HF_MANAGER_SENSOR_DISABLE) {
+		atomic64_set(&request->start_time, S64_MAX);
 		request->enable = false;
 		request->delay = S64_MAX;
 		request->latency = S64_MAX;
-		atomic64_set(&request->start_time, S64_MAX);
 	}
 }
 
@@ -500,6 +502,39 @@ static bool device_redisable(uint8_t sensor_type, bool best_enable,
 	return false;
 }
 
+static int64_t device_poll_min_interval(struct hf_device *device)
+{
+	int i = 0, j = 0;
+	int64_t interval = S64_MAX;
+
+	for (i = 0; i < device->support_size; ++i) {
+		j = device->support_list[i];
+		if (prev_request[j].enable) {
+			if (prev_request[j].delay < interval)
+				interval = prev_request[j].delay;
+		}
+	}
+	return interval;
+}
+
+static void device_poll_trigger(struct hf_device *device, bool enable)
+{
+	int64_t min_interval = S64_MAX;
+	struct hf_manager *manager = device->manager;
+
+	BUG_ON(enable && !atomic_read(&manager->io_enabled));
+	min_interval = device_poll_min_interval(device);
+	BUG_ON(atomic_read(&manager->io_enabled) && min_interval == S64_MAX);
+	if (atomic64_read(&manager->io_poll_interval) == min_interval)
+		return;
+	atomic64_set(&manager->io_poll_interval, min_interval);
+	if (atomic_read(&manager->io_enabled))
+		hrtimer_start(&manager->io_poll_timer,
+			ns_to_ktime(min_interval), HRTIMER_MODE_REL);
+	else
+		hrtimer_cancel(&manager->io_poll_timer);
+}
+
 static int hf_manager_device_enable(struct hf_device *device,
 				uint8_t sensor_type)
 {
@@ -519,28 +554,24 @@ static int hf_manager_device_enable(struct hf_device *device,
 		if (device_rebatch(sensor_type, best_delay, best_latency))
 			err = device->batch(device, sensor_type,
 				best_delay, best_latency);
-		if (device_reenable(sensor_type, best_enable))
+		if (device_reenable(sensor_type, best_enable)) {
 			err = device->enable(device, sensor_type, best_enable);
-		/* must update io_enabled before hrtimer_start */
-		atomic_inc(&manager->io_enabled);
-		if (device->device_poll == HF_DEVICE_IO_POLLING &&
-				atomic64_read(&manager->io_poll_interval)
-					!= best_delay) {
-			atomic64_set(&manager->io_poll_interval, best_delay);
-			hrtimer_start(&manager->io_poll_timer,
-				ns_to_ktime(best_delay), HRTIMER_MODE_REL);
+			/* must update io_enabled before hrtimer_start */
+			atomic_inc(&manager->io_enabled);
 		}
+		if (device->device_poll == HF_DEVICE_IO_POLLING)
+			device_poll_trigger(device, best_enable);
 	} else {
 		if (device_redisable(sensor_type, best_enable,
-				best_delay, best_latency))
+				best_delay, best_latency)) {
 			err = device->enable(device, sensor_type, best_enable);
-		atomic_dec_if_positive(&manager->io_enabled);
-		if (device->device_poll == HF_DEVICE_IO_POLLING) {
-			atomic64_set(&manager->io_poll_interval, best_delay);
-			hrtimer_cancel(&manager->io_poll_timer);
-			if (device->device_bus == HF_DEVICE_IO_ASYNC)
-				tasklet_kill(&manager->io_work_tasklet);
+			atomic_dec_if_positive(&manager->io_enabled);
 		}
+		if (device->device_poll == HF_DEVICE_IO_POLLING)
+			device_poll_trigger(device, best_enable);
+		if (device->device_bus == HF_DEVICE_IO_ASYNC &&
+				!atomic_read(&manager->io_enabled))
+			tasklet_kill(&manager->io_work_tasklet);
 	}
 	return err;
 }
