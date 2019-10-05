@@ -263,7 +263,7 @@ static int adsp_user_event_listen(void)
 	int ret = 0;
 
 	reinit_completion(&uevent_comp);
-	ret = wait_for_completion_killable(&uevent_comp);
+	ret = wait_for_completion_interruptible(&uevent_comp);
 	return ret ? -EINTR : adsp_uevent;
 }
 
