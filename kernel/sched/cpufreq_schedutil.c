@@ -245,6 +245,9 @@ static void sugov_get_util(unsigned long *util, unsigned long *max, int cpu)
 	max_cap = arch_scale_cpu_capacity(NULL, cpu);
 
 	*util = boosted_cpu_util(cpu);
+	if (idle_cpu(cpu))
+		*util = 0;
+
 	*util = min(*util, max_cap);
 	*max = max_cap;
 }
