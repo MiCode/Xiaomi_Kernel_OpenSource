@@ -368,7 +368,7 @@ static inline struct mtk_disp_ovl *comp_to_ovl(struct mtk_ddp_comp *comp)
 	return container_of(comp, struct mtk_disp_ovl, ddp_comp);
 }
 
-unsigned long mtk_ovl_layer_num(struct mtk_ddp_comp *comp)
+int mtk_ovl_layer_num(struct mtk_ddp_comp *comp)
 {
 	switch (comp->id) {
 	case DDP_COMPONENT_OVL0:
@@ -706,8 +706,10 @@ static enum mtk_ovl_colorspace mtk_ovl_map_cs(enum mtk_drm_dataspace ds)
 		break;
 	case MTK_DRM_DATASPACE_STANDARD_ADOBE_RGB:
 		DDPPR_ERR("%s: ovl get cs ADOBE_RGB\n", __func__);
+		break;
 	case MTK_DRM_DATASPACE_STANDARD_BT2020:
 		DDPPR_ERR("%s: ovl does not support BT2020\n", __func__);
+		break;
 	default:
 		cs = OVL_SRGB;
 		break;
@@ -727,9 +729,11 @@ static enum mtk_ovl_transfer mtk_ovl_map_transfer(enum mtk_drm_dataspace ds)
 	case MTK_DRM_DATASPACE_TRANSFER_GAMMA2_6:
 	case MTK_DRM_DATASPACE_TRANSFER_GAMMA2_8:
 		DDPPR_ERR("%s: ovl does not support gamma 2.6/2.8\n", __func__);
+		break;
 	case MTK_DRM_DATASPACE_TRANSFER_ST2084:
 	case MTK_DRM_DATASPACE_TRANSFER_HLG:
 		DDPPR_ERR("%s: HDR transfer\n", __func__);
+		break;
 	default:
 		xfr = OVL_GAMMA2_2;
 		break;
@@ -815,9 +819,13 @@ static int mtk_ovl_do_csc(unsigned int idx, enum mtk_drm_dataspace plane_ds,
 
 	if (!en)
 		return 0;
+	if (!csc) {
+		DDPPR_ERR("%s+ invalid csc\n", __func__);
+		return 0;
+	}
 
 	*csc = mtk_get_ovl_csc(in, out);
-	if (!csc) {
+	if (!(*csc)) {
 		DDPPR_ERR("%s+ idx:%d no ovl csc %s to %s, disable csc\n",
 			  __func__, idx, mtk_ovl_get_colorspace_str(in),
 			  mtk_ovl_get_colorspace_str(out));
@@ -2380,11 +2388,16 @@ int mtk_ovl_analysis(struct mtk_ddp_comp *comp)
 static void mtk_ovl_prepare(struct mtk_ddp_comp *comp)
 {
 	struct mtk_disp_ovl *priv = dev_get_drvdata(comp->dev);
+	int ret;
 
 	mtk_ddp_comp_clk_prepare(comp);
 
-	if (priv->fbdc_clk != NULL)
-		clk_prepare_enable(priv->fbdc_clk);
+	if (priv->fbdc_clk != NULL) {
+		ret = clk_prepare_enable(priv->fbdc_clk);
+		if (ret)
+			DDPPR_ERR("clk prepare enable failed:%s\n",
+				mtk_dump_comp_str(comp));
+	}
 }
 
 static void mtk_ovl_unprepare(struct mtk_ddp_comp *comp)

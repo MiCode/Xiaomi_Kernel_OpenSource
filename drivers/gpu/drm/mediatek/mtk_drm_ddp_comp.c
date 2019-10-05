@@ -385,7 +385,7 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 				"mediatek,smi-id", &larb_id);
 	if (ret) {
 		dev_err(comp->larb_dev,
-			"LARB%u read failed:%d\n", larb_id, ret);
+			"read smi-id failed:%d\n", ret);
 		return;
 	}
 	comp->larb_id = larb_id;
@@ -513,6 +513,8 @@ void mtk_ddp_comp_unregister(struct drm_device *drm, struct mtk_ddp_comp *comp)
 
 void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)
 {
+	int ret;
+
 	if (comp == NULL)
 		return;
 
@@ -521,8 +523,12 @@ void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)
 		smi_bus_prepare_enable(comp->larb_id, MTK_DDP_COMP_USER);
 #endif
 
-	if (comp->clk)
-		clk_prepare_enable(comp->clk);
+	if (comp->clk) {
+		ret = clk_prepare_enable(comp->clk);
+		if (ret)
+			DDPPR_ERR("clk prepare enable failed:%s\n",
+				mtk_dump_comp_str(comp));
+	}
 }
 
 void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)

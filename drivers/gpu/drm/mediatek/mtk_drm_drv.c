@@ -1147,6 +1147,7 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 	struct mtk_drm_private *priv = drm->dev_private;
 	int i, cnt;
 	bool en = 1;
+	int ret;
 
 	if (priv->top_clk_num <= 0)
 		return;
@@ -1165,7 +1166,9 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 			DDPPR_ERR("%s invalid %d clk\n", __func__, i);
 			return;
 		}
-		clk_prepare_enable(priv->top_clk[i]);
+		ret = clk_prepare_enable(priv->top_clk[i]);
+		if (ret)
+			DDPPR_ERR("top clk prepare enable failed:%d\n", i);
 	}
 
 	if (priv->data->sodi_config)

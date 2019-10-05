@@ -1515,7 +1515,7 @@ int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, uintptr_t slot)
 
 int mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp, void *handle, void *slot)
 {
-	int i, ret;
+	int i, ret = 0;
 	u32 tmp0, tmp1, chk_val;
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	struct esd_check_item *lcm_esd_tb;
@@ -1596,7 +1596,6 @@ static const char *mtk_dsi_cmd_mode_parse_state(unsigned int state)
 	default:
 		return "unknown";
 	}
-	return "unknown";
 }
 
 static const char *mtk_dsi_vdo_mode_parse_state(unsigned int state)
@@ -1627,8 +1626,6 @@ static const char *mtk_dsi_vdo_mode_parse_state(unsigned int state)
 	default:
 		return "unknown";
 	}
-
-	return "unknown";
 }
 
 int mtk_dsi_dump(struct mtk_ddp_comp *comp)
@@ -2396,6 +2393,11 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	}
 	of_id = of_match_device(mtk_dsi_of_match, &pdev->dev);
+	if (!of_id) {
+		dev_err(dev, "DSI device match failed\n");
+		return -EPROBE_DEFER;
+	}
+
 	dsi->driver_data = (struct mtk_dsi_driver_data *)of_id->data;
 
 	endpoint = of_graph_get_next_endpoint(dev->of_node, NULL);

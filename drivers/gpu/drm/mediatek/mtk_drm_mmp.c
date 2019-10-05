@@ -58,7 +58,7 @@ void init_drm_mmp_event(void)
 	g_DRM_MMP_Events.ddp =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "MUTEX");
 	for (i = 0; i < DISP_MUTEX_DDP_COUNT; i++) {
-		char name[7];
+		char name[32];
 
 		snprintf(name, sizeof(name), "MUTEX%d", i);
 		g_DRM_MMP_Events.mutex[i] =
@@ -79,7 +79,7 @@ void init_crtc_mmp_event(void)
 	int i = 0;
 
 	for (i = 0; i < MMP_CRTC_NUM; i++) {
-		char name[6];
+		char name[32];
 		mmp_event crtc_mmp_root;
 
 		/* create i th root of CRTC mmp events */

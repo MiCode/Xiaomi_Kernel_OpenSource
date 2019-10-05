@@ -279,7 +279,7 @@ static inline void mtk_ddp_comp_config(struct mtk_ddp_comp *comp,
 				       struct mtk_ddp_config *cfg,
 				       struct cmdq_pkt *handle)
 {
-	if (comp->funcs && comp->funcs->config)
+	if (comp && comp->funcs && comp->funcs->config)
 		comp->funcs->config(comp, cfg, handle);
 }
 
@@ -298,14 +298,14 @@ static inline void mtk_ddp_comp_unprepare(struct mtk_ddp_comp *comp)
 static inline void mtk_ddp_comp_start(struct mtk_ddp_comp *comp,
 				      struct cmdq_pkt *handle)
 {
-	if (comp->funcs && comp->funcs->start)
+	if (comp && comp->funcs && comp->funcs->start)
 		comp->funcs->start(comp, handle);
 }
 
 static inline void mtk_ddp_comp_stop(struct mtk_ddp_comp *comp,
 				     struct cmdq_pkt *handle)
 {
-	if (comp->funcs && comp->funcs->stop)
+	if (comp && comp->funcs && comp->funcs->stop)
 		comp->funcs->stop(comp, handle);
 }
 
@@ -313,14 +313,14 @@ static inline void mtk_ddp_comp_enable_vblank(struct mtk_ddp_comp *comp,
 					      struct drm_crtc *crtc,
 					      struct cmdq_pkt *handle)
 {
-	if (comp->funcs && comp->funcs->enable_vblank)
+	if (comp && comp->funcs && comp->funcs->enable_vblank)
 		comp->funcs->enable_vblank(comp, crtc, handle);
 }
 
 static inline void mtk_ddp_comp_disable_vblank(struct mtk_ddp_comp *comp,
 					       struct cmdq_pkt *handle)
 {
-	if (comp->funcs && comp->funcs->disable_vblank)
+	if (comp && comp->funcs && comp->funcs->disable_vblank)
 		comp->funcs->disable_vblank(comp, handle);
 }
 
@@ -328,7 +328,7 @@ static inline void mtk_ddp_comp_layer_on(struct mtk_ddp_comp *comp,
 					 unsigned int idx, unsigned int ext_idx,
 					 struct cmdq_pkt *handle)
 {
-	if (comp->funcs && comp->funcs->layer_on)
+	if (comp && comp->funcs && comp->funcs->layer_on)
 		comp->funcs->layer_on(comp, idx, ext_idx, handle);
 }
 
@@ -337,7 +337,7 @@ static inline void mtk_ddp_comp_layer_off(struct mtk_ddp_comp *comp,
 					  unsigned int ext_idx,
 					  struct cmdq_pkt *handle)
 {
-	if (comp->funcs && comp->funcs->layer_off)
+	if (comp && comp->funcs && comp->funcs->layer_off)
 		comp->funcs->layer_off(comp, idx, ext_idx, handle);
 }
 
@@ -346,26 +346,28 @@ static inline void mtk_ddp_comp_layer_config(struct mtk_ddp_comp *comp,
 					     struct mtk_plane_state *state,
 					     struct cmdq_pkt *handle)
 {
-	DDPINFO("[DRM]func:%s, line:%d ==>\n",
-		__func__, __LINE__);
-	DDPINFO("comp_funcs:0x%p, layer_config:0x%p\n",
-		comp->funcs, comp->funcs->layer_config);
-	if (comp->funcs && comp->funcs->layer_config)
+	if (comp && comp->funcs && comp->funcs->layer_config) {
+		DDPINFO("[DRM]func:%s, line:%d ==>\n",
+			__func__, __LINE__);
+		DDPINFO("comp_funcs:0x%p, layer_config:0x%p\n",
+			comp->funcs, comp->funcs->layer_config);
+
 		comp->funcs->layer_config(comp, idx, state, handle);
+	}
 }
 
 static inline void mtk_ddp_gamma_set(struct mtk_ddp_comp *comp,
 				     struct drm_crtc_state *state,
 				     struct cmdq_pkt *handle)
 {
-	if (comp->funcs && comp->funcs->gamma_set)
+	if (comp && comp->funcs && comp->funcs->gamma_set)
 		comp->funcs->gamma_set(comp, state, handle);
 }
 
 static inline void mtk_ddp_comp_bypass(struct mtk_ddp_comp *comp,
 				       struct cmdq_pkt *handle)
 {
-	if (comp->funcs && comp->funcs->bypass)
+	if (comp && comp->funcs && comp->funcs->bypass)
 		comp->funcs->bypass(comp, handle);
 }
 
@@ -373,7 +375,7 @@ static inline void
 mtk_ddp_comp_config_trigger(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			    enum mtk_ddp_comp_trigger_flag flag)
 {
-	if (comp->funcs && comp->funcs->config_trigger)
+	if (comp && comp->funcs && comp->funcs->config_trigger)
 		comp->funcs->config_trigger(comp, handle, flag);
 }
 
@@ -383,7 +385,7 @@ mtk_ddp_comp_addon_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 			  union mtk_addon_config *addon_config,
 			  struct cmdq_pkt *handle)
 {
-	if (comp->funcs && comp->funcs->addon_config)
+	if (comp && comp->funcs && comp->funcs->addon_config)
 		comp->funcs->addon_config(comp, prev, next, addon_config,
 					  handle);
 }
@@ -394,7 +396,7 @@ static inline int mtk_ddp_comp_io_cmd(struct mtk_ddp_comp *comp,
 {
 	int ret = -EINVAL;
 
-	if (comp->funcs && comp->funcs->io_cmd)
+	if (comp && comp->funcs && comp->funcs->io_cmd)
 		ret = comp->funcs->io_cmd(comp, handle, io_cmd, params);
 
 	return ret;
@@ -425,7 +427,7 @@ int mtk_ddp_comp_get_type(enum mtk_ddp_comp_id comp_id);
 bool mtk_dsi_is_cmd_mode(struct mtk_ddp_comp *comp);
 bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp);
 void mtk_ddp_comp_get_name(struct mtk_ddp_comp *comp, char *buf, int buf_len);
-unsigned long mtk_ovl_layer_num(struct mtk_ddp_comp *comp);
+int mtk_ovl_layer_num(struct mtk_ddp_comp *comp);
 void mtk_ddp_write(struct mtk_ddp_comp *comp, unsigned int value,
 		   unsigned int offset, void *handle);
 void mtk_ddp_write_relaxed(struct mtk_ddp_comp *comp, unsigned int value,

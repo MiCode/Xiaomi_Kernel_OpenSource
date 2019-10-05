@@ -2384,10 +2384,17 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 				       struct cmdq_pkt *handle,
 				       unsigned int mutex_id)
 {
-	struct mtk_disp_mutex *mutex = mtk_crtc->mutex[mutex_id];
-	struct mtk_ddp *ddp =
-		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
+	struct mtk_disp_mutex *mutex;
+	struct mtk_ddp *ddp;
 	unsigned int reg;
+
+	if (mutex_id >= DDP_PATH_NR) {
+		DDPPR_ERR("mutex id is out of bound:%d\n", mutex_id);
+		return;
+	}
+
+	mutex = mtk_crtc->mutex[mutex_id];
+	ddp = container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 
 	WARN_ON(&ddp->mutex[mutex->id] != mutex);
 
@@ -2488,9 +2495,16 @@ void mtk_disp_mutex_remove_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 					  struct cmdq_pkt *handle,
 					  unsigned int mutex_id)
 {
-	struct mtk_disp_mutex *mutex = mtk_crtc->mutex[mutex_id];
-	struct mtk_ddp *ddp =
-		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
+	struct mtk_disp_mutex *mutex;
+	struct mtk_ddp *ddp;
+
+	if (mutex_id >= DDP_PATH_NR) {
+		DDPPR_ERR("mutex id is out of bound:%d\n", mutex_id);
+		return;
+	}
+
+	mutex = mtk_crtc->mutex[mutex_id];
+	ddp = container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 
 	WARN_ON(&ddp->mutex[mutex->id] != mutex);
 

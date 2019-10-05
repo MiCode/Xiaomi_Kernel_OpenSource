@@ -78,6 +78,11 @@ static void mtk_gem_vmap_pa(phys_addr_t pa, uint size, int cached,
 	va_align = vmap(pages, npages, VM_MAP, pgprot);
 
 	sgt = kzalloc(sizeof(*sgt), GFP_KERNEL);
+	if (!sgt) {
+		DDPPR_ERR("sgt creation failed\n");
+		return;
+	}
+
 	sg_alloc_table_from_pages(sgt, pages, npages, 0, size, GFP_KERNEL);
 	attrs = DMA_ATTR_SKIP_CPU_SYNC;
 	dma_map_sg_attrs(dev, sgt->sgl, sgt->nents, 0, attrs);
@@ -232,7 +237,7 @@ int mtk_drm_gem_dumb_create(struct drm_file *file_priv, struct drm_device *dev,
 	int ret;
 
 	args->pitch = DIV_ROUND_UP(args->width * args->bpp, 8);
-	args->size = args->pitch * args->height;
+	args->size = (__u64)args->pitch * (__u64)args->height;
 
 	mtk_gem = mtk_drm_gem_create(dev, args->size, false);
 	if (IS_ERR(mtk_gem))
@@ -525,7 +530,7 @@ int mtk_gem_submit_ioctl(struct drm_device *dev, void *data,
 {
 	int ret = 0;
 	struct drm_mtk_gem_submit *args = data;
-	struct mtk_fence_buf_info *buf, *buf2;
+	struct mtk_fence_buf_info *buf, *buf2 = NULL;
 
 	if (args->type == MTK_SUBMIT_OUT_FENCE)
 		args->layer_id = mtk_fence_get_output_timeline_id();

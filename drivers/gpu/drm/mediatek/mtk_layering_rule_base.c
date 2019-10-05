@@ -72,6 +72,11 @@ void mtk_set_layering_opt(enum LYE_HELPER_OPT opt, int value)
 		DDPMSG("%s invalid layering opt:%d\n", __func__, opt);
 		return;
 	}
+	if (value < 0) {
+		DDPPR_ERR("%s invalid opt value:%d\n", __func__, value);
+		return;
+	}
+
 
 	help_info[opt].val = !!value;
 }

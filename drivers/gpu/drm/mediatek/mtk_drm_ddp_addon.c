@@ -129,6 +129,11 @@ mtk_addon_path_connect_and_add_mutex(struct drm_crtc *crtc,
 	const struct mtk_addon_path_data *path_data =
 		mtk_addon_module_get_path(module->module);
 
+	if (mutex_id < 0) {
+		DDPPR_ERR("invalid mutex id:%d\n", mutex_id);
+		return;
+	}
+
 	for (i = 0; i < path_data->path_len - 1; i++) {
 		mtk_ddp_add_comp_to_path_with_cmdq(mtk_crtc, path_data->path[i],
 						   path_data->path[i + 1],
@@ -155,6 +160,11 @@ static void mtk_addon_path_disconnect_and_remove_mutex(
 		mtk_crtc_get_mutex_id(crtc, ddp_mode, module->attach_comp);
 	const struct mtk_addon_path_data *path_data =
 		mtk_addon_module_get_path(module->module);
+
+	if (mutex_id < 0) {
+		DDPPR_ERR("invalid mutex id:%d\n", mutex_id);
+		return;
+	}
 
 	for (i = 0; i < path_data->path_len - 1; i++) {
 		mtk_ddp_remove_comp_from_path_with_cmdq(

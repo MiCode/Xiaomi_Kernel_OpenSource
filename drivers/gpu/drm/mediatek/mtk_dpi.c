@@ -442,7 +442,7 @@ static int mtk_dpi_set_display_mode(struct mtk_dpi *dpi,
 	unsigned int factor;
 
 	if (!dpi) {
-		dev_err(dpi->dev, "invalid argument\n");
+		DRM_ERROR("invalid argument\n");
 		return -EINVAL;
 	}
 

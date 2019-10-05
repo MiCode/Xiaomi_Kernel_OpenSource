@@ -383,7 +383,8 @@ static ssize_t debug_read(struct file *file, char __user *ubuf, size_t count,
 				break;
 			}
 		}
-		p = strcat(read_buf, read_buf2);
+		p = strncat(read_buf, read_buf2,
+				(sizeof(read_buf) - strlen(read_buf) - 1));
 		if (p == NULL)
 			DRM_INFO("autoregr strcat fail\n");
 		return simple_read_from_buffer(ubuf, count, ppos, read_buf,

@@ -157,6 +157,11 @@ void mtk_drm_helper_init(struct device *dev, struct mtk_drm_helper **helper_opt)
 	struct mtk_drm_helper *tmp_opt;
 
 	tmp_opt = kmalloc(sizeof(help_info), GFP_KERNEL);
+	if (!tmp_opt) {
+		DDPPR_ERR("helper info creation failed\n");
+		return;
+	}
+
 	memcpy(tmp_opt, help_info, sizeof(help_info));
 	for (i = 0; i < MTK_DRM_OPT_NUM; i++) {
 		index = of_property_match_string(dev->of_node, "helper-name",

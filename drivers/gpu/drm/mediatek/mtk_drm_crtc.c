@@ -246,6 +246,10 @@ mtk_drm_crtc_duplicate_state(struct drm_crtc *crtc)
 	state = kzalloc(sizeof(*state), GFP_KERNEL);
 	if (!state)
 		return NULL;
+	if (!crtc) {
+		DDPPR_ERR("NULL crtc\n");
+		return NULL;
+	}
 
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &state->base);
 
@@ -425,6 +429,14 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
+	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+	if (!cb_data) {
+		mutex_unlock(&mtk_crtc->lock);
+
+		DDPPR_ERR("cb data creation failed\n");
+		return 0;
+	}
+
 	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
 	cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
@@ -452,7 +464,6 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 	}
 
-	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
 	cb_data->cmdq_handle = cmdq_handle;
 
 	cmdq_pkt_flush_threaded(cmdq_handle, bl_cmdq_cb, cb_data);
@@ -975,6 +986,14 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 		return;
 	}
 
+	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+	if (!cb_data) {
+		mutex_unlock(&mtk_crtc->lock);
+
+		DDPPR_ERR("cb data creation failed\n");
+		return;
+	}
+
 	mtk_crtc_pkt_create(&cmdq_handle, crtc,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	cmdq_pkt_wait_no_clear(cmdq_handle,
@@ -992,7 +1011,9 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 	plane_state.pending.pitch = fb->pitches[0];
 	plane_state.pending.format = fb->format->format;
 	plane_state.pending.addr =
-		mtk_fb_get_dma(fb) + mtk_crtc_get_dc_fb_size(crtc) * fb_idx;
+		mtk_fb_get_dma(fb) +
+		(dma_addr_t)mtk_crtc_get_dc_fb_size(crtc) *
+		(dma_addr_t)fb_idx;
 	plane_state.pending.src_x = 0;
 	plane_state.pending.src_y = 0;
 	plane_state.pending.dst_x = 0;
@@ -1006,7 +1027,6 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 		cmdq_pkt_set_event(cmdq_handle,
 				   mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 
-	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
 	cb_data->crtc = crtc;
 	cb_data->cmdq_handle = cmdq_handle;
 	cmdq_pkt_flush_threaded(cmdq_handle, sub_cmdq_cb, cb_data);
@@ -2055,8 +2075,8 @@ void mtk_crtc_enable_iommu(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_ddp_fb_info fb_info;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	struct mtk_drm_gem_obj *mtk_gem = to_mtk_gem_obj(priv->fbdev_bo);
-	unsigned int vramsize, fps;
-	phys_addr_t fb_base;
+	unsigned int vramsize = 0, fps;
+	phys_addr_t fb_base = 0;
 
 	_parse_tag_videolfb(&vramsize, &fb_base, &fps);
 
@@ -2300,9 +2320,6 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 
 	/* reset BW */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
-		if (!comp)
-			continue;
-
 		comp->qos_bw = 0;
 		comp->fbdc_bw = 0;
 		comp->hrt_bw = 0;
@@ -2476,18 +2493,10 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	}
 
 #ifdef MTK_DRM_CMDQ_ASYNC
-	if (mtk_crtc_is_dc_mode(crtc))
-		cmdq_pkt_flush_threaded(cmdq_handle,
-			gce_cb, cb_data);
-	else
-		cmdq_pkt_flush_threaded(cmdq_handle,
-			gce_cb, cb_data);
+	cmdq_pkt_flush_threaded(cmdq_handle,
+		gce_cb, cb_data);
 #else
-	if (mtk_crtc_is_dc_mode(crtc))
-		cmdq_pkt_flush(cmdq_handle);
-	else {
-		cmdq_pkt_flush(cmdq_handle);
-	}
+	cmdq_pkt_flush(cmdq_handle);
 #endif
 }
 
@@ -2537,6 +2546,10 @@ static void mtk_drm_crtc_enable_fake_layer(struct drm_crtc *crtc,
 
 		layer_num = mtk_ovl_layer_num(
 				priv->ddp_comp[DDP_COMPONENT_OVL0_2L]);
+		if (layer_num < 0) {
+			DDPPR_ERR("invalid layer num:%d\n", layer_num);
+			continue;
+		}
 		if (i < layer_num) {
 			comp = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
 			idx = i;
@@ -2603,6 +2616,10 @@ static void mtk_drm_crtc_disable_fake_layer(struct drm_crtc *crtc,
 
 		layer_num = mtk_ovl_layer_num(
 				priv->ddp_comp[DDP_COMPONENT_OVL0_2L]);
+		if (layer_num < 0) {
+			DDPPR_ERR("invalid layer num:%d\n", layer_num);
+			continue;
+		}
 		if (i < layer_num) {
 			comp = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
 			idx = i;
@@ -2637,6 +2654,12 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 			(unsigned long)old_crtc_state);
 	if (mtk_crtc->ddp_mode == DDP_NO_USE) {
 		CRTC_MMP_EVENT_END(index, atomic_flush, 0, 0);
+		return;
+	}
+
+	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+	if (!cb_data) {
+		DDPPR_ERR("cb data creation failed\n");
 		return;
 	}
 
@@ -2678,7 +2701,6 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 
 	atomic_set(&mtk_crtc->delayed_trig, 1);
-	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
 	cb_data->state = old_crtc_state;
 	cb_data->cmdq_handle = cmdq_handle;
 
@@ -2982,8 +3004,10 @@ void mtk_drm_fake_vsync_init(struct drm_crtc *crtc)
 	char name[len];
 
 	if (drm_crtc_index(crtc) != 0 || mtk_drm_lcm_is_connect() ||
-		!mtk_crtc_is_frame_trigger_mode(crtc))
+		!mtk_crtc_is_frame_trigger_mode(crtc)) {
+		kfree(fake_vsync);
 		return;
+	}
 
 	snprintf(name, len, "mtk_drm_fake_vsync:%d", drm_crtc_index(crtc));
 	fake_vsync->fvsync_task = kthread_create(mtk_drm_fake_vsync_kthread,
@@ -3934,6 +3958,11 @@ void mtk_crtc_disconnect_path_between_component(struct drm_crtc *crtc,
 	struct mtk_crtc_ddp_ctx *ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
 	int find_idx = -1;
 
+	if (mutex_id < 0) {
+		DDPPR_ERR("invalid mutex id:%d\n", mutex_id);
+		return;
+	}
+
 	for_each_comp_in_target_ddp_mode(comp, mtk_crtc, i, j, ddp_mode) {
 		if (comp->id == prev)
 			find_idx = j;
@@ -3966,6 +3995,11 @@ void mtk_crtc_connect_path_between_component(struct drm_crtc *crtc,
 	int mutex_id = mtk_crtc_get_mutex_id(crtc, ddp_mode, prev);
 	struct mtk_crtc_ddp_ctx *ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
 	int find_idx = -1;
+
+	if (mutex_id < 0) {
+		DDPPR_ERR("invalid mutex id:%d\n", mutex_id);
+		return;
+	}
 
 	for_each_comp_in_target_ddp_mode(comp, mtk_crtc, i, j, ddp_mode) {
 		if (comp->id == prev)

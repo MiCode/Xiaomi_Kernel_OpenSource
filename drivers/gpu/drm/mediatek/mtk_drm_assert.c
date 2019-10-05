@@ -159,7 +159,7 @@ EXPORT_SYMBOL(DAL_SetColor);
 static struct mtk_ddp_comp *_handle_phy_top_plane(struct mtk_drm_crtc *mtk_crtc)
 {
 	int i, j, type;
-	u32 lay_num;
+	int lay_num;
 	struct drm_plane *plane;
 	struct mtk_plane_state *plane_state;
 	struct mtk_plane_comp_state comp_state;
@@ -181,6 +181,10 @@ static struct mtk_ddp_comp *_handle_phy_top_plane(struct mtk_drm_crtc *mtk_crtc)
 	}
 
 	lay_num = mtk_ovl_layer_num(ovl_comp);
+	if (lay_num < 0) {
+		DDPPR_ERR("invalid layer number:%d\n", lay_num);
+		return NULL;
+	}
 
 	for (i = 0 ; i < mtk_crtc->layer_nr; ++i) {
 		plane = &mtk_crtc->planes[i].base;
@@ -214,10 +218,14 @@ static struct mtk_plane_state *drm_set_dal_plane_state(struct drm_crtc *crtc,
 	struct mtk_plane_pending_state *pending;
 	struct mtk_ddp_comp *ovl_comp = _handle_phy_top_plane(mtk_crtc);
 	struct MFC_CONTEXT *ctxt = (struct MFC_CONTEXT *)mfc_handle;
-	u32 layer_id = mtk_ovl_layer_num(ovl_comp) - 1;
+	int layer_id = mtk_ovl_layer_num(ovl_comp) - 1;
 
 	if (!ctxt) {
 		DDPPR_ERR("%s MFC_CONTEXT is NULL\n", __func__);
+		return NULL;
+	}
+	if (layer_id < 0) {
+		DDPPR_ERR("%s invalid layer id:%d\n", __func__, layer_id);
 		return NULL;
 	}
 
@@ -254,13 +262,17 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 	struct mtk_plane_state *plane_state;
 	struct mtk_ddp_comp *ovl_comp = _handle_phy_top_plane(mtk_crtc);
 	struct cmdq_pkt *cmdq_handle;
-	u32 layer_id;
+	int layer_id;
 
 	if (ovl_comp == NULL) {
 		DDPPR_ERR("%s: can't find ovl comp\n", __func__);
 		return 0;
 	}
 	layer_id = mtk_ovl_layer_num(ovl_comp) - 1;
+	if (layer_id < 0) {
+		DDPPR_ERR("%s invalid layer id:%d\n", __func__, layer_id);
+		return 0;
+	}
 
 	mutex_lock(&mtk_crtc->lock);
 	if (!mtk_crtc->enabled) {
@@ -292,13 +304,17 @@ void drm_set_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_plane_state *plane_state;
 	struct mtk_ddp_comp *ovl_comp = _handle_phy_top_plane(mtk_crtc);
-	u32 layer_id;
+	int layer_id;
 
 	if (ovl_comp == NULL) {
 		DDPPR_ERR("%s: can't find ovl comp\n", __func__);
 		return;
 	}
 	layer_id = mtk_ovl_layer_num(ovl_comp) - 1;
+	if (layer_id < 0) {
+		DDPPR_ERR("%s invalid layer id:%d\n", __func__, layer_id);
+		return;
+	}
 
 	plane_state = drm_set_dal_plane_state(crtc, true);
 	if (!plane_state) {
@@ -311,7 +327,6 @@ void drm_set_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 
 int DAL_Clean(void)
 {
-	int ret;
 	struct MFC_CONTEXT *ctxt = (struct MFC_CONTEXT *)mfc_handle;
 
 	if (!mfc_handle)
@@ -332,7 +347,7 @@ int DAL_Clean(void)
 end:
 	DAL_UNLOCK();
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(DAL_Clean);
 
