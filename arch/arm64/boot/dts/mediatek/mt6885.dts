@@ -237,6 +237,31 @@
 			<0 0x10007000 0 0x1000>;
 	};
 
+	scp_dvfs {
+		compatible = "mediatek,scp_dvfs";
+		clocks =
+			<&topckgen TOP_MUX_SCP>,
+			<&clk26m>,
+			<&topckgen TOP_UNIVPLL_D5>,
+			<&topckgen TOP_MAINPLL_D6_D2>,
+			<&topckgen TOP_MAINPLL_D6>,
+			<&topckgen TOP_UNIVPLL_D6>,
+			<&topckgen TOP_MAINPLL_D4_D2>,
+			<&topckgen TOP_MAINPLL_D5_D2>,
+			<&topckgen TOP_UNIVPLL_D4_D2>;
+
+		clock-names =
+			"clk_mux",
+			"clk_pll_0",
+			"clk_pll_1",
+			"clk_pll_2",
+			"clk_pll_3",
+			"clk_pll_4",
+			"clk_pll_5",
+			"clk_pll_6",
+			"clk_pll_7";
+	};
+
 	infracfg_ao_mem@10002000 {
 		compatible = "mediatek,infracfg_ao_mem";
 		reg = <0 0x10002000 0 0x1000>;
@@ -1834,6 +1859,7 @@
 		core_0 = "enable";
 		scp_sramSize = <0x00100000>;
 	};
+
 	dramc_ch1_rsv@10900000 {
 		compatible = "mediatek,dramc_ch1_rsv";
 		reg = <0 0x10900000 0 0x40000>;

@@ -58,38 +58,12 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 		.enable      = 0,
 		.sub_feature = 0,
 	},
-#if SCP_VCORE_TEST_ENABLE
 	{
 		.feature     = VCORE_TEST_FEATURE_ID,
-		.freq        = 50,
+		.freq        = 0,
 		.enable      = 0,
 		.sub_feature = 0,
 	},
-	{
-		.feature     = VCORE_TEST2_FEATURE_ID,
-		.freq        = 150,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-	{
-		.feature     = VCORE_TEST3_FEATURE_ID,
-		.freq        = 250,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-	{
-		.feature     = VCORE_TEST4_FEATURE_ID,
-		.freq        = 300,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-	{
-		.feature     = VCORE_TEST5_FEATURE_ID,
-		.freq        = 400,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-#endif
 };
 
 
