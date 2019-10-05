@@ -249,7 +249,35 @@ static void __iomem *g_mfg_base;
 
 u64 mt_gpufreq_get_shader_present(void)
 {
-	return MT_GPU_SHADER_PRESENT_9;
+	static u64 shader_present;
+	u32 segment_code = 0;
+
+	if (shader_present)
+		return shader_present;
+
+	segment_code = get_devinfo_with_index(30);
+
+	switch (segment_code) {
+	case 0x1:
+		shader_present = MT_GPU_SHADER_PRESENT_5;
+		break;
+
+	case 0x4:
+		shader_present = MT_GPU_SHADER_PRESENT_7;
+		break;
+
+	case 0x10:
+		shader_present = MT_GPU_SHADER_PRESENT_9;
+		break;
+
+	default:
+		shader_present = MT_GPU_SHADER_PRESENT_9;
+
+		gpufreq_pr_info("invalid segment: 0x%x, shader: 0x%llx\n",
+			segment_code, shader_present);
+	}
+
+	return shader_present;
 }
 
 static unsigned int mt_gpufreq_return_by_condition(
