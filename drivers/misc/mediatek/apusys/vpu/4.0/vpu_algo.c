@@ -288,7 +288,8 @@ int vpu_alg_add(struct vpu_device *vd, struct apusys_firmware_hnd *fw)
 	strncpy(alg->a.name, fw->name,
 		min(sizeof(alg->a.name), sizeof(fw->name)) - 1);
 	vpu_alg_debug("%s: name %s, len %d, mva 0x%lx\n",
-		      __func__, alg->a.name, alg->a.len, alg->a.mva);
+		      __func__, alg->a.name, alg->a.len,
+		      (unsigned long)alg->a.mva);
 
 	/* Add from tail, so that existing algorithm can be
 	 * overidden by dynamic loaded ones.
