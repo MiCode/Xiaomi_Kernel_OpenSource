@@ -55,4 +55,14 @@
 #define SIZE_512M     0x20000000    /* 512M  */
 /* clang-format on */
 
+#define GET_TIME_DIFF_SEC_P(start, end)                                        \
+	(int)((end->tv_usec > start->tv_usec)                                  \
+		      ? (end->tv_sec - start->tv_sec)                          \
+		      : (end->tv_sec - start->tv_sec - 1))
+
+#define GET_TIME_DIFF_USEC_P(start, end)                                       \
+	(int)((end->tv_usec > start->tv_usec)                                  \
+		      ? (end->tv_usec - start->tv_usec)                        \
+		      : (1000000 + end->tv_usec - start->tv_usec))
+
 #endif /* end of TMEM_UTILS_H */

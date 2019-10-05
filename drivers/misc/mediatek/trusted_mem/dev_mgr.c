@@ -40,9 +40,8 @@
 #include "private/tmem_priv.h"
 #include "private/tmem_utils.h"
 
-#ifdef TCORE_UT_FWK_SUPPORT
-#include "private/ut_tests.h"
-DEFINE_UT_SERVER(trusted_mem_subsys);
+#ifdef TCORE_UT_TESTS_SUPPORT
+#include "tests/ut_api.h"
 #endif
 
 struct trusted_mem_device_table {
@@ -59,10 +58,10 @@ static inline void run_ut_with_memory_leak_check(u64 cmd, u64 param1,
 	size_t start_size = mld_stamp();
 #endif
 
-#ifdef TCORE_UT_FWK_SUPPORT
-	invoke_ut_test_suite(cmd, param1, param2, param3);
+#ifdef TCORE_UT_TESTS_SUPPORT
+	invoke_ut_cases(cmd, param1, param2, param3);
 #else
-	pr_err("TCORE_UT_FWK_SUPPORT option is not enabled\n");
+	pr_err("TCORE_UT_TESTS_SUPPORT option is not enabled\n");
 #endif
 
 #ifdef TCORE_MEMORY_LEAK_DETECTION_SUPPORT
