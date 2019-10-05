@@ -39,6 +39,7 @@
 vmalloc=400M slub_debug=OFZPU swiotlb=noforce \
 firmware_class.path=/vendor/firmware \
 page_owner=on";
+		kaslr-seed = <0 0>;
 	};
 
 	aliases {
