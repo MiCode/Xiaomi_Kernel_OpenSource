@@ -4264,7 +4264,7 @@ page_owner=on";
 			 <0 0x16025000 0 0x1000>,		/* VDEC_MISC */
 			 <0 0x16010000 0 0x1000>, /* VDEC_LAT_MISC */
 			 <0 0x16004000 0 0x1000>; /* VDEC_RACING_CTRL */
-		mediatek,larb = <&smi_larb1>;
+		mediatek,larb = <&smi_larb4>;
 		interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>,
 		<GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>;
 		mediatek,vcu = <&vcu>;
