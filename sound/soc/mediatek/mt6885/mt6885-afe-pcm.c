@@ -13,6 +13,8 @@
 #include <linux/of_address.h>
 #include <linux/pm_runtime.h>
 #include <sound/soc.h>
+#include <linux/arm-smccc.h> /* for Kernel Native SMC API */
+#include <mt-plat/mtk_secure_api.h> /* for SMC ID table */
 
 #ifdef CONFIG_MTK_ACAO_SUPPORT
 #include "mtk_mcdi_governor_hint.h"
@@ -6088,6 +6090,7 @@ static int mt6885_afe_pcm_dev_probe(struct platform_device *pdev)
 	struct mt6885_afe_private *afe_priv;
 	struct resource *res;
 	struct device *dev;
+	struct arm_smccc_res smccc_res;
 
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
 	if (ret)
@@ -6198,6 +6201,10 @@ static int mt6885_afe_pcm_dev_probe(struct platform_device *pdev)
 	}
 #endif
 
+	/* init arm_smccc_smc call */
+	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_INIT,
+		      0, 0, 0, 0, 0, 0, &smccc_res);
+
 	/* init sub_dais */
 	INIT_LIST_HEAD(&afe->sub_dais);
 
@@ -6292,31 +6299,7 @@ static const struct of_device_id mt6885_afe_pcm_dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, mt6885_afe_pcm_dt_match);
 
-static int mt6885_afe_suspend(struct device *dev)
-{
-	struct mtk_base_afe *afe = dev_get_drvdata(dev);
-
-	dev_info(afe->dev, "%s()\n", __func__);
-
-	mt6885_afe_suspend_clock(afe);
-
-	return 0;
-}
-
-static int mt6885_afe_resume(struct device *dev)
-{
-	struct mtk_base_afe *afe = dev_get_drvdata(dev);
-
-	dev_info(afe->dev, "%s()\n", __func__);
-
-	mt6885_afe_resume_clock(afe);
-
-	return 0;
-}
-
 static const struct dev_pm_ops mt6885_afe_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(mt6885_afe_suspend,
-				mt6885_afe_resume)
 	SET_RUNTIME_PM_OPS(mt6885_afe_runtime_suspend,
 			   mt6885_afe_runtime_resume, NULL)
 };

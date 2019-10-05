@@ -156,6 +156,18 @@ enum {
 	MT6885_MCK_NUM,
 };
 
+/* SMC CALL Operations */
+enum mtk_audio_smc_call_op {
+	MTK_AUDIO_SMC_OP_INIT = 0,
+	MTK_AUDIO_SMC_OP_DRAM_REQUEST,
+	MTK_AUDIO_SMC_OP_DRAM_RELEASE,
+	MTK_AUDIO_SMC_OP_FM_REQUEST,
+	MTK_AUDIO_SMC_OP_FM_RELEASE,
+	MTK_AUDIO_SMC_OP_ADSP_REQUEST,
+	MTK_AUDIO_SMC_OP_ADSP_RELEASE,
+	MTK_AUDIO_SMC_OP_NUM
+};
+
 struct snd_pcm_substream;
 struct mtk_base_irq_data;
 struct clk;
