@@ -1245,6 +1245,10 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(K6885V1_64_ALPHA_01)
 	&ams641rw01_lcm_drv,
 #endif
+
+#if defined(R66451_FHDP_DSI_CMD_TIANMA)
+	&r66451_fhdp_dsi_cmd_tianma_lcm_drv,
+#endif
 };
 
 unsigned char lcm_name_list[][128] = {
