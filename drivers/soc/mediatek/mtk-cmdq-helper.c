@@ -1543,6 +1543,9 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 	pkt->rec_wait = sched_clock();
 	cmdq_trace_begin("%s", __func__);
 
+	/* make sure gce won't turn off during dump */
+	cmdq_mbox_enable(client->chan);
+
 	do {
 		ret = wait_for_completion_timeout(&item->cmplt,
 			msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
@@ -1563,6 +1566,7 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 			cmdq_util_msg("curr inst: Not Available");
 	} while (1);
 
+	cmdq_mbox_disable(client->chan);
 	cmdq_trace_end();
 	cmdq_util_track(pkt);
 
