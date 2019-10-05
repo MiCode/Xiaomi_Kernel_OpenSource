@@ -386,7 +386,7 @@ int pmu_cmd_handle(struct mdla_dev *mdla_info)
 	return 0;
 
 }
-
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 int pmu_command_prepare(struct mdla_dev *mdla_info,
 	struct apusys_cmd_hnd *apusys_hd)
 {
@@ -418,6 +418,7 @@ int pmu_command_prepare(struct mdla_dev *mdla_info,
 		mdla_info->pmu.PMU_res_buf_addr1);
 	return 0;
 }
+#endif
 
 void pmu_command_counter_prt(struct mdla_dev *mdla_info)
 {

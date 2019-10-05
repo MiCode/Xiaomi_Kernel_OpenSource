@@ -298,8 +298,8 @@ static int mdla_probe(struct platform_device *pdev)
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	struct apusys_device *apusys_mdla_ptr = NULL;
 	struct mdla_dev *apusys_mdla_dev_ptr = NULL;
-#endif
 	int i;
+#endif
 
 	if (mdla_dts_map(pdev)) {
 		dev_info(dev, "%s: failed due to DTS failed\n", __func__);
@@ -564,8 +564,13 @@ static int mdla_dram_alloc(struct ioctl_malloc *malloc_data)
 	if (malloc_data->size > MAX_ALLOC_SIZE)
 		malloc_data->size = MAX_ALLOC_SIZE;
 
+#if 1
 	malloc_data->kva = dma_alloc_attrs(mdlactlDevice, malloc_data->size,
-			&dma_addr, GFP_KERNEL, 0);
+			&dma_addr, GFP_KERNEL|GFP_DMA, 0);
+#else
+	malloc_data->kva = dma_alloc_coherent(mdlactlDevice,
+		malloc_data->size, &dma_addr, GFP_KERNEL|GFP_DMA);
+#endif
 	malloc_data->pa = (void *)dma_to_phys(mdlactlDevice, dma_addr);
 	malloc_data->mva = (__u32)((long) malloc_data->pa);
 
@@ -695,10 +700,16 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 			(void *)cmd_data.req.kva,
 			cmd_data.req.mva,
 			phys_to_virt(cmd_data.req.mva));
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 		retval = mdla_run_command_sync(
 			&cmd_data.req,
 			&mdla_devices[0],//modify this to UT mdla0/1
 			NULL);
+#else
+		retval = mdla_run_command_sync(
+			&cmd_data.req,
+			&mdla_devices[0]);//modify this to UT mdla0/1
+#endif
 		if (copy_to_user((void *) arg, &cmd_data, sizeof(cmd_data)))
 			return -EFAULT;
 		break;

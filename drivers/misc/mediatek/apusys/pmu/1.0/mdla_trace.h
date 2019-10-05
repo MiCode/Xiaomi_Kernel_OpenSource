@@ -28,7 +28,9 @@ extern void trace_tag_customer(const char *fmt, ...);
 #endif
 extern void trace_tag_begin(const char *format, ...);
 extern void trace_tag_end(void);
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 extern void trace_async_tag(bool isBegin, const char *format, ...);
+#endif
 
 enum {
 	MDLA_TRACE_MODE_CMD = 0,

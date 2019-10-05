@@ -225,18 +225,23 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_wait_cmd *wt,
 	return 0;
 }
 #else
-//int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_wait_cmd *wt,
-//			  struct mdla_dev *mdla_info)
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 			  struct apusys_cmd_hnd *apusys_hd)
+#else
+int mdla_run_command_sync(struct mdla_run_cmd *cd,
+			  struct mdla_dev *mdla_info)
+#endif
 {
 	int ret = 0;
 	struct command_entry ce;
-	u32 id;
-	u64 deadline;
+	u32 id = 0;
+	u64 deadline = 0;
 	int core_id = 0;
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	int pmu_ret = 0;
-	long status;
+#endif
+	long status = 0;
 	/*forward compatibility temporary, This will be replaced by apusys*/
 	struct mdla_wait_cmd mdla_wt;
 	struct mdla_wait_cmd *wt = &mdla_wt;
@@ -252,8 +257,10 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 
 	mdla_run_command_prepare(cd, &ce);
 
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	if (apusys_hd != NULL)
 		pmu_ret = pmu_command_prepare(mdla_info, apusys_hd);
+#endif
 #if 0
 process_command:
 #endif
@@ -272,10 +279,10 @@ process_command:
 
 	/* Trace start */
 	mdla_trace_begin(core_id, &ce);
-
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	if (apusys_hd != NULL && pmu_ret == 0)
 		pmu_ret = pmu_cmd_handle(mdla_info);
-
+#endif
 	ce.poweron_t = sched_clock();
 	ce.req_start_t = sched_clock();
 
@@ -370,9 +377,10 @@ process_command:
 	mdla_perf_debug("exec: id:%d, res:%u, que_t:%u, busy_t:%u,bandwidth: %u\n",
 			wt->id, wt->result, wt->queue_time,
 			wt->busy_time, wt->bandwidth);
-
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	if (apusys_hd != NULL && pmu_ret == 0)
 		pmu_command_counter_prt(mdla_info);
+#endif
 
 	return ret;
 }

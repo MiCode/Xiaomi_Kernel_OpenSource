@@ -13,8 +13,12 @@
 
 #ifndef __MDLA_CMD_PROC_H__
 #define __MDLA_CMD_PROC_H__
-//int mdla_run_command_sync(struct mdla_run_cmd *cd,
-//		struct mdla_wait_cmd *wt, struct mdla_dev *mdla_info);
+#include "mdla.h"
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 			  struct apusys_cmd_hnd *apusys_hd);
+#else
+int mdla_run_command_sync(struct mdla_run_cmd *cd,
+			  struct mdla_dev *mdla_info);
+#endif
 #endif

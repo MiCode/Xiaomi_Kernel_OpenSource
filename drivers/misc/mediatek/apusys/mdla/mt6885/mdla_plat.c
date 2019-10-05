@@ -68,6 +68,7 @@ static void mdla_reg_write_with_mdlaid(u32 mdlaid, u32 value, u32 offset)
 	iowrite32(value,
 		mdla_reg_control[mdlaid].apu_mdla_cmde_mreg_top + offset);
 }
+
 #define mdla_cfg_set_with_mdlaid(mdlaid, mask, offset) \
 	mdla_cfg_write_with_mdlaid(mdlaid,\
 	mdla_cfg_read_with_mdlaid(mdlaid, offset) | (mask), (offset))
@@ -161,14 +162,14 @@ int mdla_dts_map(struct platform_device *pdev)
 
 
 	/* Get iospace GSM */
-	apu_mdla_gsm = platform_get_resource(pdev, IORESOURCE_MEM, 3);
+	apu_mdla_gsm = platform_get_resource(pdev, IORESOURCE_MEM, 6);
 	if (!apu_mdla_gsm) {
 		dev_info(dev, "apu_gsm address\n");
 		return -ENODEV;
 	}
 
 	/* Get iospace APU CONN */
-	apu_conn = platform_get_resource(pdev, IORESOURCE_MEM, 4);
+	apu_conn = platform_get_resource(pdev, IORESOURCE_MEM, 7);
 	if (!apu_conn) {
 		mdla_drv_debug("apu_conn address\n");
 		return -ENODEV;
@@ -223,7 +224,7 @@ int mdla_dts_map(struct platform_device *pdev)
 			return rc;
 		}
 		rc = request_irq(mdla_irqdesc[i].irq, mdla_irqdesc[i].handler,
-				IRQF_TRIGGER_LOW, DRIVER_NAME, dev);
+				IRQF_TRIGGER_HIGH, DRIVER_NAME, dev);
 
 		if (rc) {
 
@@ -268,11 +269,11 @@ void mdla_reset(int core, int res)
 		MREG_TOP_G_INTP2);
 
 	/* for DCM and CG */
-	mdla_reg_write_with_mdlaid(core, cfg_eng0, MREG_TOP_ENG0);
-	mdla_reg_write_with_mdlaid(core, cfg_eng1, MREG_TOP_ENG1);
-	mdla_reg_write_with_mdlaid(core, cfg_eng2, MREG_TOP_ENG2);
+	//mdla_reg_write_with_mdlaid(core, cfg_eng0, MREG_TOP_ENG0);
+	//mdla_reg_write_with_mdlaid(core, cfg_eng1, MREG_TOP_ENG1);
+	//mdla_reg_write_with_mdlaid(core, cfg_eng2, MREG_TOP_ENG2);
 	/*TODO, 0x0 after verification*/
-	mdla_reg_write_with_mdlaid(core, cfg_eng11, MREG_TOP_ENG11);
+	//mdla_reg_write_with_mdlaid(core, cfg_eng11, MREG_TOP_ENG11);
 
 #ifdef CONFIG_MTK_MDLA_ION
 	mdla_cfg_set_with_mdlaid(core, MDLA_AXI_CTRL_MASK, MDLA_AXI_CTRL);

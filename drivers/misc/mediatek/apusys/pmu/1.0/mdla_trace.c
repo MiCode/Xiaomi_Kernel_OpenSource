@@ -73,8 +73,9 @@ void mdla_trace_begin(int core_id, struct command_entry *ce)
 		len = TRACE_LEN - 1;
 
 	mdla_perf_debug("%s\n", __func__);
-
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	trace_async_tag(1, buf);
+#endif
 }
 
 void mdla_trace_end(int core, int status, struct command_entry *ce)
@@ -91,8 +92,9 @@ void mdla_trace_end(int core, int status, struct command_entry *ce)
 	len = snprintf(buf, sizeof(buf),
 		"mdla-%d|tid:%d,fin_id:%d,preempted:%d",
 		core, task_pid_nr(current), ce->fin_cid, status);
-
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	trace_async_tag(0, buf);
+#endif
 }
 /* MET: define to enable MET */
 #if defined(MDLA_MET_READY)
