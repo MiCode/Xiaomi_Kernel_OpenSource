@@ -235,6 +235,7 @@ config MTK_ANDROID_DEFAULT_SETTING
 	select PGTABLE_MAPPING if ZSMALLOC && (ARM || ARM64)
 	select PSI
 	select MTK_MIX_DEVICES
+	select SPECULATIVE_PAGE_FAULT if (ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT && ARCH_HAS_PTE_SPECIAL && MMU && SMP)
 	help
 	  Select the MTK android config by default
 	  to avoid missing basic or common setting
