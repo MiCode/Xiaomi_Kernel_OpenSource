@@ -17,6 +17,7 @@
 #include <linux/bitops.h>
 #include <linux/device.h>
 
+#if !IS_ENABLED(CONFIG_MTK_SMI_EXT)
 #ifdef CONFIG_MTK_SMI
 
 #define MTK_LARB_NR_MAX		16
@@ -53,6 +54,39 @@ static inline int mtk_smi_larb_get(struct device *larbdev)
 
 static inline void mtk_smi_larb_put(struct device *larbdev) { }
 
+#endif
+#else /* IS_ENABLED(CONFIG_MTK_SMI_EXT) */
+#include <linux/platform_device.h>
+
+struct mtk_smi_pair {
+	u32 off;
+	u32 val;
+};
+
+struct mtk_smi_dev {
+	u32 id;
+	struct device *dev;
+	void __iomem *base;
+	u32 *mmu;
+
+	u32 nr_clks;
+	struct clk **clks;
+	atomic_t clk_cnts;
+
+	u32 nr_conf_pairs;
+	struct mtk_smi_pair *conf_pairs;
+
+	u32 nr_scen_pairs;
+	struct mtk_smi_pair **scen_pairs;
+};
+
+s32 mtk_smi_clk_enable(const struct mtk_smi_dev *smi);
+void mtk_smi_clk_disable(const struct mtk_smi_dev *smi);
+
+struct mtk_smi_dev *mtk_smi_dev_get(const u32 id);
+s32 mtk_smi_conf_set(const struct mtk_smi_dev *smi, const u32 scen_id);
+
+s32 smi_register(void);
 #endif
 
 #endif
