@@ -1839,30 +1839,6 @@ static const struct snd_kcontrol_new mt6885_afe_debug_controls[] = {
 		     mt6885_afe_debug_get, mt6885_afe_debug_set),
 };
 
-static int mt6885_speech_enable_get(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	struct mt6885_afe_private *afe_priv = afe->platform_priv;
-
-	ucontrol->value.integer.value[0] = afe_priv->speech_en;
-
-	return 0;
-}
-
-static int mt6885_speech_enable_set(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	struct mt6885_afe_private *afe_priv = afe->platform_priv;
-
-	afe_priv->speech_en = ucontrol->value.integer.value[0];
-
-	return 0;
-}
-
 /* usb call control */
 static int mt6885_usb_echo_ref_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
@@ -2128,8 +2104,6 @@ static const struct snd_kcontrol_new mt6885_afe_speech_controls[] = {
 	SOC_SINGLE_EXT("Speech_SHM_Widx",
 		       SND_SOC_NOPM, 0, 0xFFFFFFFF, 0,
 		       speech_property_get, speech_property_set),
-	SOC_ENUM_EXT("Speech_Enable", mt6885_afe_misc_enum[0],
-		     mt6885_speech_enable_get, mt6885_speech_enable_set),
 };
 
 #if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)

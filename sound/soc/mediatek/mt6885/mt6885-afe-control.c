@@ -316,8 +316,11 @@ EXPORT_SYMBOL(mtk_audio_condition_enter_suspend);
 
 bool mtk_get_speech_status(void)
 {
-	struct mt6885_afe_private *afe_priv = local_afe->platform_priv;
+	int speech_en = 0;
 
-	return afe_priv->speech_en ? true : false;
+	regmap_read(local_afe->regmap,
+		    PCM2_INTF_CON, &speech_en);
+
+	return (speech_en & PCM2_EN_MASK_SFT) ? true : false;
 }
 EXPORT_SYMBOL(mtk_get_speech_status);
