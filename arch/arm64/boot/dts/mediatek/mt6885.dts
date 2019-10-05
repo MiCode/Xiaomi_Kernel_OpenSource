@@ -1681,7 +1681,7 @@ page_owner=on";
 		#endif
 
 		/* Number of lanes available per direction - either 1 or 2 */
-		lanes-per-direction = <1>;
+		lanes-per-direction = <2>;
 
 		/* Auto-Hibern8 Timer. Unit: ms	(0 means disabled) */
 		mediatek,auto-hibern8-timer = <10>;
