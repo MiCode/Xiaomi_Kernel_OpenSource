@@ -233,8 +233,10 @@
 
 	scpsys: scpsys@10001000 {
 		compatible = "mediatek,scpsys";
-		reg = <0 0x10001000 0 0x1000>,
-			<0 0x10007000 0 0x1000>;
+		reg = <0 0x10001000 0 0x1000>,		/* infracfg_ao */
+			<0 0x10006000 0 0x1000>,	/* spm */
+			<0 0x10000000 0 0x1000>;	/* topckgen */
+		#clock-cells = <1>;
 	};
 
 	scp_dvfs {
