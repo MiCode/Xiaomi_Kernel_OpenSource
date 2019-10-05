@@ -35,9 +35,19 @@
 #define or(v, o) ((v) | (o))
 #define aor(v, a, o) (((v) & (a)) | (o))
 
+#define DCM_BASE_INFO(_name) \
+{ \
+	.name = #_name, \
+	.base = &_name, \
+}
 /*****************************************************/
 typedef int (*DCM_FUNC)(int);
 typedef void (*DCM_PRESET_FUNC)(void);
+
+struct DCM_BASE {
+	char *name;
+	unsigned long *base;
+};
 
 struct DCM {
 	int current_state;
