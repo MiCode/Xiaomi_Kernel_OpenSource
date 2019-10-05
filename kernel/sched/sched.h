@@ -729,6 +729,8 @@ struct uclamp_group {
  * values, i.e. no min/max clamping at all.
  */
 struct uclamp_cpu {
+#define UCLAMP_FLAG_IDLE 0x01
+	int flags;
 	int value[UCLAMP_CNT];
 	struct uclamp_group group[UCLAMP_CNT][CONFIG_UCLAMP_GROUPS_COUNT + 1];
 };
