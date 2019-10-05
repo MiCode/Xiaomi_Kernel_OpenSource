@@ -24,6 +24,7 @@
 #include <mali_kbase_hwaccess_time.h>
 #include <backend/gpu/mali_kbase_device_internal.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
+#include <asm/arch_timer.h>
 
 void kbase_backend_get_gpu_time(struct kbase_device *kbdev, u64 *cycle_counter,
 				u64 *system_time, struct timespec *ts)
