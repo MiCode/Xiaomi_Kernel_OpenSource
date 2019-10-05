@@ -340,8 +340,7 @@ void cmdq_util_track(struct cmdq_pkt *pkt)
 	else
 		record->thread = -1;
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 	if (pkt->sec_data)
 		record->is_secure = true;
 #endif

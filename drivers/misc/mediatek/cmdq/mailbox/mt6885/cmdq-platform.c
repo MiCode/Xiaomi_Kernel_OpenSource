@@ -102,6 +102,9 @@ u32 cmdq_test_get_subsys_list(u32 **regs_out)
 		0x15020000,	/* IMGSYS1 */
 		0x15820000,	/* IMGSYS2 */
 		0x1B000000,	/* IPESYS */
+		0x112300A0,	/* perisys apb msdc0 SW_DBG_SEL */
+		0x1121004C,	/* perisys apb audio0 AFE_I2S_CON3_OFFSET */
+		0x110020BC,	/* perisys apb uart0 UART */
 	};
 
 	*regs_out = regs;

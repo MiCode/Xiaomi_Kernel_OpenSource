@@ -654,7 +654,8 @@ static void cmdq_test_mbox_handshake_event(struct cmdq_test *test)
 
 u32 cmdq_test_get_subsys_list(u32 **regs_out);
 
-static void cmdq_test_mbox_subsys_access(struct cmdq_test *test)
+static void cmdq_access_sub_impl(struct cmdq_test *test,
+	struct cmdq_client *clt, const char *tag)
 {
 	struct cmdq_pkt *pkt;
 	u32 *regs, count, *va, i;
@@ -662,7 +663,7 @@ static void cmdq_test_mbox_subsys_access(struct cmdq_test *test)
 	u8 swap_reg = CMDQ_THR_SPR_IDX1;
 	u32 pat_init = 0xdeaddead, pat_src = 0xbeefbeef;
 
-	va = cmdq_mbox_buf_alloc(test->clt->client.dev, &pa);
+	va = cmdq_mbox_buf_alloc(clt->client.dev, &pa);
 	count = cmdq_test_get_subsys_list(&regs);
 
 	for (i = 0; i < count; i++) {
@@ -675,14 +676,20 @@ static void cmdq_test_mbox_subsys_access(struct cmdq_test *test)
 
 		if (va[0] != pat_src)
 			cmdq_err(
-				"access reg fail addr:%#x val:%#x should be:%#x",
-				regs[i], va[0], pat_src);
+				"%s access reg fail addr:%#x val:%#x should be:%#x",
+				tag, regs[i], va[0], pat_src);
 
 		cmdq_pkt_destroy(pkt);
 	}
 
 	cmdq_mbox_buf_free(test->clt->client.dev, va, pa);
 	cmdq_msg("%s end", __func__);
+}
+
+static void cmdq_test_mbox_subsys_access(struct cmdq_test *test)
+{
+	cmdq_access_sub_impl(test, test->clt, "clt");
+	cmdq_access_sub_impl(test, test->loop, "loop");
 }
 
 static void cmdq_test_trigger(struct cmdq_test *test, const s32 id)
@@ -840,14 +847,14 @@ static int cmdq_test_probe(struct platform_device *pdev)
 	if (IS_ERR(test->gce.clk)) {
 		cmdq_err("devm_clk_get gce clk failed:%d",
 			PTR_ERR(test->gce.clk));
-		return PTR_ERR(test->gce.clk);
+		test->gce.clk = NULL;
 	}
 
 	test->gce.clk_timer = devm_clk_get(&np_pdev->dev, "gce-timer");
 	if (IS_ERR(test->gce.clk_timer)) {
 		cmdq_err("devm_clk_get gce clk_timer failed:%d",
 			PTR_ERR(test->gce.clk_timer));
-		return PTR_ERR(test->gce.clk_timer);
+		test->gce.clk_timer = NULL;
 	}
 	cmdq_msg("gce dev:%p va:%p pa:%pa",
 		test->gce.dev, test->gce.va, &test->gce.pa);
@@ -895,11 +902,13 @@ static int cmdq_test_probe(struct platform_device *pdev)
 		return PTR_ERR(test->loop);
 	}
 
+#ifdef CMDQ_SECURE_SUPPORT
 	test->sec = cmdq_mbox_create(&pdev->dev, 2);
 	if (IS_ERR(test->sec)) {
 		cmdq_err("cmdq_mbox_create failed:%d", PTR_ERR(test->sec));
 		return PTR_ERR(test->sec);
 	}
+#endif
 	cmdq_msg("test:%p dev:%p clt:%p loop:%p sec:%p",
 		test, test->dev, test->clt, test->loop, test->sec);
 
