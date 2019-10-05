@@ -6112,7 +6112,8 @@ static int mt6885_afe_pcm_dev_probe(struct platform_device *pdev)
 		return irq_id < 0 ? irq_id : -ENXIO;
 	}
 	ret = devm_request_irq(dev, irq_id, mt6885_afe_irq_handler,
-			       IRQF_TRIGGER_LOW, "Afe_ISR_Handle", (void *)afe);
+			       IRQF_TRIGGER_NONE,
+			       "Afe_ISR_Handle", (void *)afe);
 	if (ret) {
 		dev_err(dev, "could not request_irq for Afe_ISR_Handle\n");
 		return ret;
