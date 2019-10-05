@@ -23,7 +23,7 @@
 
 #include <dt-bindings/clock/mt6885-clk.h>
 
-#define MT_CCF_BRINGUP		1
+#define MT_CCF_BRINGUP		0
 #ifdef CONFIG_ARM64
 #define IOMEM(a)	((void __force __iomem *)((a)))
 #endif
@@ -310,6 +310,11 @@ static DEFINE_SPINLOCK(mt6885_clk_lock);
 #define MDP_CG0		0xFFFFFFFF
 #define MDP_CG1		0x13FF
 #define MDP_CG2		0x303
+
+#define INFRA_CG0	0x0
+#define INFRA_CG1	0x0
+#define INFRA_CG2	0x0
+#define INFRA_CG3	0x0
 
 static const struct mtk_fixed_clk fixed_clks[] __initconst = {
 	FIXED_CLK(TOP_CLK26M, "f26m_sel", "clk26m", 26000000),
@@ -3504,49 +3509,58 @@ static void __init mtk_topckgen_init(struct device_node *node)
 	clk_writel(CLK_SCP_CFG_1,
 			(clk_readl(CLK_SCP_CFG_1) & 0xFFFFEFF3) | 0x3);
 
-#if 0
-	/* TODO: MT6885 FIXME*/
-	clk_writel(cksys_base + CK_CFG_0_CLR, 0x80000000);
-	clk_writel(cksys_base + CK_CFG_0_SET, 0x80000000);
+#if 1
+	clk_writel(cksys_base + CLK_CFG_0_CLR, 0x00000000);
+	clk_writel(cksys_base + CLK_CFG_0_SET, 0x00000000);
 
-	clk_writel(cksys_base + CK_CFG_1_CLR, 0x80808080);
-	clk_writel(cksys_base + CK_CFG_1_SET, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_1_CLR, 0x00000000);
+	clk_writel(cksys_base + CLK_CFG_1_SET, 0x00000000);
 
-	clk_writel(cksys_base + CK_CFG_2_CLR, 0x80808080);
-	clk_writel(cksys_base + CK_CFG_2_SET, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_2_CLR, 0x80008000);
+	clk_writel(cksys_base + CLK_CFG_2_SET, 0x80008000);
 
-	clk_writel(cksys_base + CK_CFG_3_CLR, 0x80808080);
-	clk_writel(cksys_base + CK_CFG_3_SET, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_3_CLR, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_3_SET, 0x80808080);
 
-	clk_writel(cksys_base + CK_CFG_4_CLR, 0x80808080);
-	clk_writel(cksys_base + CK_CFG_4_SET, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_4_CLR, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_4_SET, 0x80808080);
 
-	clk_writel(cksys_base + CK_CFG_5_CLR, 0x80808080);
-	clk_writel(cksys_base + CK_CFG_5_SET, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_5_CLR, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_5_SET, 0x80808080);
 
-	clk_writel(cksys_base + CK_CFG_6_CLR, 0x00808080);/*pwrap_ulposc*/
-	clk_writel(cksys_base + CK_CFG_6_SET, 0x00808080);
+	clk_writel(cksys_base + CLK_CFG_6_CLR, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_6_SET, 0x80808080);
 
-	clk_writel(cksys_base + CK_CFG_7_CLR, 0x80800080);/*sspm*/
-	clk_writel(cksys_base + CK_CFG_7_SET, 0x80800080);
+	clk_writel(cksys_base + CLK_CFG_7_CLR, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_7_SET, 0x80808080);
 
-	clk_writel(cksys_base + CK_CFG_8_CLR, 0x00808080);/*spm*/
-	clk_writel(cksys_base + CK_CFG_8_SET, 0x00808080);
+	clk_writel(cksys_base + CLK_CFG_8_CLR, 0x00800080);
+	clk_writel(cksys_base + CLK_CFG_8_SET, 0x00800080);
 
-	clk_writel(cksys_base + CK_CFG_9_CLR, 0x80808080);
-	clk_writel(cksys_base + CK_CFG_9_SET, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_9_CLR, 0x00808080);
+	clk_writel(cksys_base + CLK_CFG_9_SET, 0x00808080);
 
-	clk_writel(cksys_base + CK_CFG_10_CLR, 0x80808080);
-	clk_writel(cksys_base + CK_CFG_10_SET, 0x80808000);/*dxcc*/
+	clk_writel(cksys_base + CLK_CFG_10_CLR, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_10_SET, 0x80808080);
 
-	clk_writel(cksys_base + CK_CFG_11_CLR, 0x80808080);
-	clk_writel(cksys_base + CK_CFG_11_SET, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_11_CLR, 0x80008080);/*dxcc*/
+	clk_writel(cksys_base + CLK_CFG_11_SET, 0x80008080);
 
-	clk_writel(cksys_base + CK_CFG_12_CLR, 0x80808080);
-	clk_writel(cksys_base + CK_CFG_12_SET, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_12_CLR, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_12_SET, 0x80808080);
 
-	clk_writel(cksys_base + CK_CFG_13_CLR, 0x80008080);/*busaximem*/
-	clk_writel(cksys_base + CK_CFG_13_SET, 0x80008080);
+	clk_writel(cksys_base + CLK_CFG_13_CLR, 0x00808080);
+	clk_writel(cksys_base + CLK_CFG_13_SET, 0x00808080);
+
+	clk_writel(cksys_base + CLK_CFG_14_CLR, 0x00808000);
+	clk_writel(cksys_base + CLK_CFG_14_SET, 0x00808000);
+
+	clk_writel(cksys_base + CLK_CFG_15_CLR, 0x00808080);/*mcupm*/
+	clk_writel(cksys_base + CLK_CFG_15_SET, 0x00808080);
+
+	clk_writel(cksys_base + CLK_CFG_16_CLR, 0x00000000);
+	clk_writel(cksys_base + CLK_CFG_16_SET, 0x00000000);
+
 #endif
 	pr_notice("%s(): init done\n", __func__);
 }
@@ -3772,64 +3786,64 @@ static struct mtk_gate_regs mdp_cg2 = {
 };
 static struct mtk_gate mdpsys_config_clks[] __initdata = {
 	/* MDPSYS_CG_CON0 */
-	GATE(MDP_MDP_RDMA0, "MDP_MDP_RDMA0", "disp_sel", mdp_cg0, 0, 0),
-	GATE(MDP_MDP_FG0, "MDP_MDP_FG0", "disp_sel", mdp_cg0, 1, 0),
-	GATE(MDP_MDP_HDR0, "MDP_MDP_HDR0", "disp_sel", mdp_cg0, 2, 0),
-	GATE(MDP_MDP_AAL0, "MDP_MDP_AAL0", "disp_sel", mdp_cg0, 3, 0),
-	GATE(MDP_MDP_RSZ0, "MDP_MDP_RSZ0", "disp_sel", mdp_cg0, 4, 0),
-	GATE(MDP_MDP_TDSHP0, "MDP_MDP_TDSHP0", "disp_sel", mdp_cg0, 5, 0),
-	GATE(MDP_MDP_TCC0, "MDP_MDP_TCC0", "disp_sel", mdp_cg0, 6, 0),
-	GATE(MDP_MDP_WROT0, "MDP_MDP_WROT0", "disp_sel", mdp_cg0, 7, 0),
-	GATE(MDP_MDP_RDMA2, "MDP_MDP_RDMA2", "disp_sel", mdp_cg0, 8, 0),
-	GATE(MDP_MDP_AAL2, "MDP_MDP_AAL2", "disp_sel", mdp_cg0, 9, 0),
-	GATE(MDP_MDP_RSZ2, "MDP_MDP_RSZ2", "disp_sel", mdp_cg0, 10, 0),
-	GATE(MDP_MDP_COLOR0, "MDP_MDP_COLOR0", "disp_sel", mdp_cg0, 11, 0),
-	GATE(MDP_MDP_TDSHP2, "MDP_MDP_TDSHP2", "disp_sel", mdp_cg0, 12, 0),
-	GATE(MDP_MDP_TCC2, "MDP_MDP_TCC2", "disp_sel", mdp_cg0, 13, 0),
-	GATE(MDP_MDP_WROT2, "MDP_MDP_WROT2", "disp_sel", mdp_cg0, 14, 0),
-	GATE(MDP_MDP_MUTEX0, "MDP_MDP_MUTEX0", "disp_sel", mdp_cg0, 15, 0),
-	GATE(MDP_MDP_RDMA1, "MDP_MDP_RDMA1", "disp_sel", mdp_cg0, 16, 0),
-	GATE(MDP_MDP_FG1, "MDP_MDP_FG1", "disp_sel", mdp_cg0, 17, 0),
-	GATE(MDP_MDP_HDR1, "MDP_MDP_HDR1", "disp_sel", mdp_cg0, 18, 0),
-	GATE(MDP_MDP_AAL1, "MDP_MDP_AAL1", "disp_sel", mdp_cg0, 19, 0),
-	GATE(MDP_MDP_RSZ1, "MDP_MDP_RSZ1", "disp_sel", mdp_cg0, 20, 0),
-	GATE(MDP_MDP_TDSHP1, "MDP_MDP_TDSHP1", "disp_sel", mdp_cg0, 21, 0),
-	GATE(MDP_MDP_TCC1, "MDP_MDP_TCC1", "disp_sel", mdp_cg0, 22, 0),
-	GATE(MDP_MDP_WROT1, "MDP_MDP_WROT1", "disp_sel", mdp_cg0, 23, 0),
-	GATE(MDP_MDP_RDMA3, "MDP_MDP_RDMA3", "disp_sel", mdp_cg0, 24, 0),
-	GATE(MDP_MDP_AAL3, "MDP_MDP_AAL3", "disp_sel", mdp_cg0, 25, 0),
-	GATE(MDP_MDP_RSZ3, "MDP_MDP_RSZ3", "disp_sel", mdp_cg0, 26, 0),
-	GATE(MDP_MDP_COLOR1, "MDP_MDP_COLOR1", "disp_sel", mdp_cg0, 27, 0),
-	GATE(MDP_MDP_TDSHP3, "MDP_MDP_TDSHP3", "disp_sel", mdp_cg0, 28, 0),
-	GATE(MDP_MDP_TCC3, "MDP_MDP_TCC3", "disp_sel", mdp_cg0, 29, 0),
-	GATE(MDP_MDP_WROT3, "MDP_MDP_WROT3", "disp_sel", mdp_cg0, 30, 0),
-	GATE(MDP_APB_BUS, "MDP_APB_BUS", "disp_sel", mdp_cg0, 31, 0),
+	GATE(MDP_MDP_RDMA0, "MDP_MDP_RDMA0", "mdp_sel", mdp_cg0, 0, 0),
+	GATE(MDP_MDP_FG0, "MDP_MDP_FG0", "mdp_sel", mdp_cg0, 1, 0),
+	GATE(MDP_MDP_HDR0, "MDP_MDP_HDR0", "mdp_sel", mdp_cg0, 2, 0),
+	GATE(MDP_MDP_AAL0, "MDP_MDP_AAL0", "mdp_sel", mdp_cg0, 3, 0),
+	GATE(MDP_MDP_RSZ0, "MDP_MDP_RSZ0", "mdp_sel", mdp_cg0, 4, 0),
+	GATE(MDP_MDP_TDSHP0, "MDP_MDP_TDSHP0", "mdp_sel", mdp_cg0, 5, 0),
+	GATE(MDP_MDP_TCC0, "MDP_MDP_TCC0", "mdp_sel", mdp_cg0, 6, 0),
+	GATE(MDP_MDP_WROT0, "MDP_MDP_WROT0", "mdp_sel", mdp_cg0, 7, 0),
+	GATE(MDP_MDP_RDMA2, "MDP_MDP_RDMA2", "mdp_sel", mdp_cg0, 8, 0),
+	GATE(MDP_MDP_AAL2, "MDP_MDP_AAL2", "mdp_sel", mdp_cg0, 9, 0),
+	GATE(MDP_MDP_RSZ2, "MDP_MDP_RSZ2", "mdp_sel", mdp_cg0, 10, 0),
+	GATE(MDP_MDP_COLOR0, "MDP_MDP_COLOR0", "mdp_sel", mdp_cg0, 11, 0),
+	GATE(MDP_MDP_TDSHP2, "MDP_MDP_TDSHP2", "mdp_sel", mdp_cg0, 12, 0),
+	GATE(MDP_MDP_TCC2, "MDP_MDP_TCC2", "mdp_sel", mdp_cg0, 13, 0),
+	GATE(MDP_MDP_WROT2, "MDP_MDP_WROT2", "mdp_sel", mdp_cg0, 14, 0),
+	GATE(MDP_MDP_MUTEX0, "MDP_MDP_MUTEX0", "mdp_sel", mdp_cg0, 15, 0),
+	GATE(MDP_MDP_RDMA1, "MDP_MDP_RDMA1", "mdp_sel", mdp_cg0, 16, 0),
+	GATE(MDP_MDP_FG1, "MDP_MDP_FG1", "mdp_sel", mdp_cg0, 17, 0),
+	GATE(MDP_MDP_HDR1, "MDP_MDP_HDR1", "mdp_sel", mdp_cg0, 18, 0),
+	GATE(MDP_MDP_AAL1, "MDP_MDP_AAL1", "mdp_sel", mdp_cg0, 19, 0),
+	GATE(MDP_MDP_RSZ1, "MDP_MDP_RSZ1", "mdp_sel", mdp_cg0, 20, 0),
+	GATE(MDP_MDP_TDSHP1, "MDP_MDP_TDSHP1", "mdp_sel", mdp_cg0, 21, 0),
+	GATE(MDP_MDP_TCC1, "MDP_MDP_TCC1", "mdp_sel", mdp_cg0, 22, 0),
+	GATE(MDP_MDP_WROT1, "MDP_MDP_WROT1", "mdp_sel", mdp_cg0, 23, 0),
+	GATE(MDP_MDP_RDMA3, "MDP_MDP_RDMA3", "mdp_sel", mdp_cg0, 24, 0),
+	GATE(MDP_MDP_AAL3, "MDP_MDP_AAL3", "mdp_sel", mdp_cg0, 25, 0),
+	GATE(MDP_MDP_RSZ3, "MDP_MDP_RSZ3", "mdp_sel", mdp_cg0, 26, 0),
+	GATE(MDP_MDP_COLOR1, "MDP_MDP_COLOR1", "mdp_sel", mdp_cg0, 27, 0),
+	GATE(MDP_MDP_TDSHP3, "MDP_MDP_TDSHP3", "mdp_sel", mdp_cg0, 28, 0),
+	GATE(MDP_MDP_TCC3, "MDP_MDP_TCC3", "mdp_sel", mdp_cg0, 29, 0),
+	GATE(MDP_MDP_WROT3, "MDP_MDP_WROT3", "mdp_sel", mdp_cg0, 30, 0),
+	GATE(MDP_APB_BUS, "MDP_APB_BUS", "mdp_sel", mdp_cg0, 31, 0),
 	/* MDPSYS_CG_CON1 */
-	GATE(MDP_MMSYSRAM, "MDP_MMSYSRAM", "disp_sel", mdp_cg1, 0, 0),
-	GATE(MDP_APMCU_GALS, "MDP_APMCU_GALS", "disp_sel", mdp_cg1, 1, 0),
-	GATE(MDP_MDP_FAKE_ENG0, "MDP_MDP_FAKE_ENG0", "disp_sel",
+	GATE(MDP_MMSYSRAM, "MDP_MMSYSRAM", "mdp_sel", mdp_cg1, 0, 0),
+	GATE(MDP_APMCU_GALS, "MDP_APMCU_GALS", "mdp_sel", mdp_cg1, 1, 0),
+	GATE(MDP_MDP_FAKE_ENG0, "MDP_MDP_FAKE_ENG0", "mdp_sel",
 		mdp_cg1, 2, 0),
-	GATE(MDP_MDP_FAKE_ENG1, "MDP_MDP_FAKE_ENG1", "disp_sel",
+	GATE(MDP_MDP_FAKE_ENG1, "MDP_MDP_FAKE_ENG1", "mdp_sel",
 		mdp_cg1, 3, 0),
-	GATE(MDP_SMI0, "MDP_SMI0", "disp_sel", mdp_cg1, 4, 0),
-	GATE(MDP_IMG_DL_ASYNC0, "MDP_IMG_DL_ASYNC0", "disp_sel",
+	GATE(MDP_SMI0, "MDP_SMI0", "mdp_sel", mdp_cg1, 4, 0),
+	GATE(MDP_IMG_DL_ASYNC0, "MDP_IMG_DL_ASYNC0", "mdp_sel",
 		mdp_cg1, 5, 0),
-	GATE(MDP_IMG_DL_ASYNC1, "MDP_IMG_DL_ASYNC1", "disp_sel",
+	GATE(MDP_IMG_DL_ASYNC1, "MDP_IMG_DL_ASYNC1", "mdp_sel",
 		mdp_cg1, 6, 0),
-	GATE(MDP_IMG_DL_ASYNC2, "MDP_IMG_DL_ASYNC2", "disp_sel",
+	GATE(MDP_IMG_DL_ASYNC2, "MDP_IMG_DL_ASYNC2", "mdp_sel",
 		mdp_cg1, 7, 0),
-	GATE(MDP_SMI1, "MDP_SMI1", "disp_sel", mdp_cg1, 8, 0),
-	GATE(MDP_IMG_DL_ASYNC3, "MDP_IMG_DL_ASYNC3", "disp_sel",
+	GATE(MDP_SMI1, "MDP_SMI1", "mdp_sel", mdp_cg1, 8, 0),
+	GATE(MDP_IMG_DL_ASYNC3, "MDP_IMG_DL_ASYNC3", "mdp_sel",
 		mdp_cg1, 9, 0),
-	GATE(MDP_SMI2, "MDP_SMI2", "disp_sel", mdp_cg1, 12, 0),
+	GATE(MDP_SMI2, "MDP_SMI2", "mdp_sel", mdp_cg1, 12, 0),
 	/* MDPSYS_CG_CON2 */
-	GATE(MDP_IMG0_IMG_DL_ASYNC0, "MDP_IMG0_IMG_DL_ASYNC0", "disp_sel",
+	GATE(MDP_IMG0_IMG_DL_ASYNC0, "MDP_IMG0_IMG_DL_ASYNC0", "mdp_sel",
 		mdp_cg2, 0, 0),
-	GATE(MDP_IMG0_IMG_DL_ASYNC1, "MDP_IMG0_IMG_DL_ASYNC1", "disp_sel",
+	GATE(MDP_IMG0_IMG_DL_ASYNC1, "MDP_IMG0_IMG_DL_ASYNC1", "mdp_sel",
 		mdp_cg2, 1, 0),
-	GATE(MDP_IMG1_IMG_DL_ASYNC2, "MDP_IMG1_IMG_DL_ASYNC2", "disp_sel",
+	GATE(MDP_IMG1_IMG_DL_ASYNC2, "MDP_IMG1_IMG_DL_ASYNC2", "mdp_sel",
 		mdp_cg2, 8, 0),
-	GATE(MDP_IMG1_IMG_DL_ASYNC3, "MDP_IMG1_IMG_DL_ASYNC3", "disp_sel",
+	GATE(MDP_IMG1_IMG_DL_ASYNC3, "MDP_IMG1_IMG_DL_ASYNC3", "mdp_sel",
 		mdp_cg2, 9, 0),
 };
 
@@ -3986,7 +4000,7 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 #define PLL_PWR_ON  (0x1 << 0)
 #define PLL_ISO_EN  (0x1 << 1)
 
-#if 0
+#if 1
 /*MMPLL*/
 	clk_clrl(MMPLL_CON0, PLL_EN);
 	clk_setl(MMPLL_CON3, PLL_ISO_EN);
@@ -4003,7 +4017,7 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	clk_clrl(UNIVPLL_CON0, PLL_EN);
 	clk_setl(UNIVPLL_CON3, PLL_ISO_EN);
 	clk_clrl(UNIVPLL_CON3, PLL_PWR_ON);
-/*#endif*/
+
 /*TVDPLL*/
 	clk_clrl(TVDPLL_CON0, PLL_EN);
 	clk_setl(TVDPLL_CON3, PLL_ISO_EN);
@@ -4021,6 +4035,10 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	clk_clrl(ADSPPLL_CON0, PLL_EN);
 	clk_setl(ADSPPLL_CON3, PLL_ISO_EN);
 	clk_clrl(ADSPPLL_CON3, PLL_PWR_ON);
+/*APUPLL*/
+	clk_clrl(APUPLL_CON0, PLL_EN);
+	clk_setl(APUPLL_CON3, PLL_ISO_EN);
+	clk_clrl(APUPLL_CON3, PLL_PWR_ON);
 #endif
 	pr_notice("%s(): init done\n", __func__);
 }
