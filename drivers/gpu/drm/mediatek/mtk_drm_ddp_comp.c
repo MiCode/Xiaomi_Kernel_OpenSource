@@ -36,6 +36,10 @@
 #include "mtk_drm_gem.h"
 #include "mtk_dump.h"
 
+#ifdef CONFIG_MTK_SMI_EXT
+#include "smi_public.h"
+#endif
+
 #define DISP_OD_EN 0x0000
 #define DISP_OD_INTEN 0x0008
 #define DISP_OD_INTSTA 0x000c
