@@ -276,6 +276,11 @@ struct held_lock {
 	 */
 	unsigned int gen_id;
 #endif
+
+	/* MTK_LOCK_DEBUG_HELD_LOCK */
+#define HELD_LOCK_STACK_TRACE_DEPTH 24
+	struct stack_trace trace;
+	unsigned long entries[HELD_LOCK_STACK_TRACE_DEPTH];
 };
 
 #ifdef CONFIG_LOCKDEP_CROSSRELEASE
