@@ -18,6 +18,13 @@ ifeq ($(CONFIG_MTK_GAUGE_VERSION),30)
 obj-y += mt6359_gauge.o
 endif
 
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885v1_64_fep")
+subdir-ccflags-y += -DLOW_BATTERY_PROTECT
+subdir-ccflags-y += -DBATTERY_OC_PROTECT
+subdir-ccflags-y += -DBATTERY_PERCENT_PROTECT
+subdir-ccflags-y += -DDLPT_FEATURE_SUPPORT
+endif
+
 obj-$(CONFIG_MTK_PMIC_CHIP_MT6359P)	+= pmic.o pmic_common.o \
 		pmic_debugfs.o \
 		pmic_irq.o \

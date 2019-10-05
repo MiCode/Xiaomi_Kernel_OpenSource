@@ -19,4 +19,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/pbm_v4/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/pbm_v4/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)/inc/
 
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885v1_64_fep")
+subdir-ccflags-y += -DDLPT_FEATURE_SUPPORT
+endif
+
 obj-y += mtk_pbm.o

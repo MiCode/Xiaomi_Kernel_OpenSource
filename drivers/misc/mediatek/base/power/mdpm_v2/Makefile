@@ -18,5 +18,9 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/mdpm_v2/$(MTK
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/
 
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885v1_64_fep")
+subdir-ccflags-y += -DDLPT_FEATURE_SUPPORT
+endif
+
 obj-y += mtk_mdpm_common.o
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/

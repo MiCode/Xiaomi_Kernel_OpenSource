@@ -18,7 +18,7 @@
 #include <mach/mtk_pmic.h>
 #include <mach/mtk_mdpm_api.h>
 
-#ifdef DISABLE_DLPT_FEATURE
+#if defined(DISABLE_DLPT_FEATURE) && !defined(DLPT_FEATURE_SUPPORT)
 #define DISABLE_PBM_FEATURE
 #endif
 

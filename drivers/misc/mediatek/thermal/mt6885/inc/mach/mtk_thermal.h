@@ -26,7 +26,7 @@
 #include "mtk_thermal_typedefs.h"
 
 /* TODO: remove this! */
-#define GPUFREQ_NOT_READY
+/*#define GPUFREQ_NOT_READY*/
 
 #ifdef GPUFREQ_NOT_READY
 struct mt_gpufreq_power_table_info {
