@@ -460,12 +460,10 @@ ssize_t fsg_store_file(struct fsg_lun *curlun, struct rw_semaphore *filesem,
 {
 	int		rc = 0;
 
-#if !defined(CONFIG_USB_G_ANDROID)
 	if (curlun->prevent_medium_removal && fsg_lun_is_open(curlun)) {
 		LDBG(curlun, "eject attempt prevented\n");
 		return -EBUSY;				/* "Door is locked" */
 	}
-#endif
 	pr_notice("%s file=%s, count=%d, curlun->cdrom=%d\n",
 			__func__, buf, (int)count, curlun->cdrom);
 
