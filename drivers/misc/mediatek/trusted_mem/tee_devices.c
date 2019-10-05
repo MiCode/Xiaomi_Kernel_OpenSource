@@ -36,95 +36,91 @@
 #include "private/tmem_priv.h"
 #include "private/tmem_utils.h"
 /* clang-format off */
-#include "mtee_impl/mtee_priv.h"
+#include "tee_impl/tee_priv.h"
 /* clang-format on */
+#include "tee_impl/tee_common.h"
 
-struct mtee_chunk_memory_configs {
-	enum TRUSTED_MEM_TYPE mem_type;
+struct tee_secure_memory_configs {
+	enum TRUSTED_MEM_TYPE tmem_type;
+	enum TEE_MEM_TYPE tee_smem_type;
 	u32 ssmr_feature_id;
-	struct mtee_peer_ops_priv_data priv_data;
+	struct tee_op_cmd_mappings *priv_data;
 	struct trusted_mem_configs *mem_cfg;
 	char *dev_name;
 };
 
-static struct trusted_mem_configs mchunk_general_configs = {
+static struct trusted_mem_configs tee_smem_general_configs = {
 	.session_keep_alive_enable = false,
-	.minimal_chunk_size = SIZE_4K,
-	.phys_mem_shift_bits = 10,
-	.phys_limit_min_alloc_size = (1 << 10),
-	.min_size_check_enable = true,
+	.minimal_chunk_size = SIZE_64K,
+	.phys_mem_shift_bits = 6,
+	.phys_limit_min_alloc_size = (1 << 6),
+	.min_size_check_enable = false,
 	.alignment_check_enable = true,
 	.caps = 0,
 };
 
-static struct mtee_chunk_memory_configs mtee_mchunks[] = {
-#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
+static struct tee_secure_memory_configs tee_smem_devs[] = {
+#ifdef CONFIG_MTK_SECURE_MEM_SUPPORT
 	{
-		.mem_type = TRUSTED_MEM_PROT,
+		.tmem_type = TRUSTED_MEM_SVP,
+		.tee_smem_type = TEE_MEM_SVP,
 #if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
-		.ssmr_feature_id = SSMR_FEAT_PROT_SHAREDMEM,
+		.ssmr_feature_id = SSMR_FEAT_SVP,
 #endif
-		.priv_data = {.mem_type = TRUSTED_MEM_PROT},
-		.mem_cfg = &mchunk_general_configs,
-		.dev_name = "PMEM",
+		.priv_data = NULL,
+		.mem_cfg = &tee_smem_general_configs,
+		.dev_name = "SECMEM_SVP",
 	},
 #endif
 
-#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
+#ifdef CONFIG_MTK_CAM_SECURITY_SUPPORT
 	{
-		.mem_type = TRUSTED_MEM_HAPP,
+		.tmem_type = TRUSTED_MEM_2D_FR,
+		.tee_smem_type = TEE_MEM_2D_FR,
 #if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
-		.ssmr_feature_id = SSMR_FEAT_TA_ELF,
+		.ssmr_feature_id = SSMR_FEAT_2D_FR,
 #endif
-		.priv_data = {.mem_type = TRUSTED_MEM_HAPP},
-		.mem_cfg = &mchunk_general_configs,
-		.dev_name = "MTEE_HAPP",
-	},
-	{
-		.mem_type = TRUSTED_MEM_HAPP_EXTRA,
-#if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
-		.ssmr_feature_id = SSMR_FEAT_TA_STACK_HEAP,
-#endif
-		.priv_data = {.mem_type = TRUSTED_MEM_HAPP_EXTRA},
-		.mem_cfg = &mchunk_general_configs,
-		.dev_name = "MTEE_HAPP_EXTRA",
+		.priv_data = NULL,
+		.mem_cfg = &tee_smem_general_configs,
+		.dev_name = "SECMEM_2DFR",
 	},
 #endif
 
-#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
+#ifdef CONFIG_MTK_WFD_SMEM_SUPPORT
 	{
-		.mem_type = TRUSTED_MEM_SDSP,
+		.tmem_type = TRUSTED_MEM_WFD,
+		.tee_smem_type = TEE_MEM_WFD,
 #if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
-		.ssmr_feature_id = SSMR_FEAT_SDSP_FIRMWARE,
+		.ssmr_feature_id = SSMR_FEAT_WFD,
 #endif
-		.priv_data = {.mem_type = TRUSTED_MEM_SDSP},
-		.mem_cfg = &mchunk_general_configs,
-		.dev_name = "SDSP",
+		.priv_data = NULL,
+		.mem_cfg = &tee_smem_general_configs,
+		.dev_name = "SECMEM_WFD",
 	},
 #endif
 
 #if defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                                \
-	&& (defined(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)                      \
-	    || defined(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
+	&& (defined(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE))
 	{
-		.mem_type = TRUSTED_MEM_SDSP_SHARED,
+		.tmem_type = TRUSTED_MEM_SDSP_SHARED,
+		.tee_smem_type = TEE_MEM_SDSP_SHARED,
 #if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
 		.ssmr_feature_id = SSMR_FEAT_SDSP_TEE_SHAREDMEM,
 #endif
-		.priv_data = {.mem_type = TRUSTED_MEM_SDSP_SHARED},
-		.mem_cfg = &mchunk_general_configs,
-		.dev_name = "SDSP_SHARED",
+		.priv_data = NULL,
+		.mem_cfg = &tee_smem_general_configs,
+		.dev_name = "SECMEM_SDSP",
 	},
 #endif
 };
 
-#define MTEE_MCHUNKS_DEVICE_COUNT ARRAY_SIZE(mtee_mchunks)
+#define TEE_SECURE_MEM_DEVICE_COUNT ARRAY_SIZE(tee_smem_devs)
 
 static struct trusted_mem_device *
-create_mtee_mchunk_device(enum TRUSTED_MEM_TYPE mem_type,
-			  struct trusted_mem_configs *cfg,
-			  struct mtee_peer_ops_priv_data *priv_data,
-			  u32 ssmr_feat_id, const char *dev_name)
+create_tee_smem_device(enum TRUSTED_MEM_TYPE mem_type,
+		       struct trusted_mem_configs *cfg,
+		       struct tee_op_cmd_mappings *priv_data, u32 ssmr_feat_id,
+		       const char *dev_name)
 {
 	int ret = TMEM_OK;
 	struct trusted_mem_device *t_device;
@@ -135,7 +131,7 @@ create_mtee_mchunk_device(enum TRUSTED_MEM_TYPE mem_type,
 		return NULL;
 	}
 
-	get_mtee_peer_ops(&t_device->peer_ops);
+	get_tee_peer_ops(&t_device->peer_ops);
 	t_device->peer_priv = priv_data;
 
 	snprintf(t_device->name, MAX_DEVICE_NAME_LEN, "%s", dev_name);
@@ -154,23 +150,27 @@ create_mtee_mchunk_device(enum TRUSTED_MEM_TYPE mem_type,
 	return t_device;
 }
 
-static int __init mtee_mchunks_init(void)
+static int __init tee_smem_devs_init(void)
 {
 	struct trusted_mem_device *t_device;
 	int idx = 0;
 
-	pr_info("%s:%d (%d)\n", __func__, __LINE__, MTEE_MCHUNKS_DEVICE_COUNT);
+	pr_info("%s:%d (%d)\n", __func__, __LINE__,
+		TEE_SECURE_MEM_DEVICE_COUNT);
 
-	for (idx = 0; idx < MTEE_MCHUNKS_DEVICE_COUNT; idx++) {
-		t_device = create_mtee_mchunk_device(
-			mtee_mchunks[idx].mem_type, mtee_mchunks[idx].mem_cfg,
-			&mtee_mchunks[idx].priv_data,
-			mtee_mchunks[idx].ssmr_feature_id,
-			mtee_mchunks[idx].dev_name);
+	for (idx = 0; idx < TEE_SECURE_MEM_DEVICE_COUNT; idx++) {
+		get_tee_peer_priv_data(tee_smem_devs[idx].tee_smem_type,
+				       &tee_smem_devs[idx].priv_data);
+		t_device = create_tee_smem_device(
+			tee_smem_devs[idx].tmem_type,
+			tee_smem_devs[idx].mem_cfg,
+			tee_smem_devs[idx].priv_data,
+			tee_smem_devs[idx].ssmr_feature_id,
+			tee_smem_devs[idx].dev_name);
 		if (INVALID(t_device)) {
-			pr_err("create mchunk device failed: %d:%s\n",
-			       mtee_mchunks[idx].mem_type,
-			       mtee_mchunks[idx].dev_name);
+			pr_err("create tee smem device failed: %d:%s\n",
+			       tee_smem_devs[idx].tmem_type,
+			       tee_smem_devs[idx].dev_name);
 			return TMEM_CREATE_DEVICE_FAILED;
 		}
 	}
@@ -179,13 +179,13 @@ static int __init mtee_mchunks_init(void)
 	return TMEM_OK;
 }
 
-static void __exit mtee_mchunks_exit(void)
+static void __exit tee_smem_devs_exit(void)
 {
 }
 
-module_init(mtee_mchunks_init);
-module_exit(mtee_mchunks_exit);
+module_init(tee_smem_devs_init);
+module_exit(tee_smem_devs_exit);
 
 MODULE_AUTHOR("MediaTek Inc.");
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek MTEE Multiple Chunks Memory Driver");
+MODULE_DESCRIPTION("MediaTek TEE Secure Memory Device Driver");
