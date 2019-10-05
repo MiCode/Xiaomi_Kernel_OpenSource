@@ -275,7 +275,7 @@ static u16 mss_done_event_id, msf_done_event_id;
 
 #define ISP_MSS_BASE		(MFB_devs[MSS_DEV_NODE_IDX].regs)
 #define ISP_MSF_BASE		(MFB_devs[MSF_DEV_NODE_IDX].regs)
-#define ISP_IMGSYS_BASE		(MFB_devs[IMGSYS_DEV_MODE_IDX].regs)/*YWtodo*/
+#define ISP_IMGSYS_BASE		(MFB_devs[IMGSYS_DEV_MODE_IDX].regs)
 /* #define ISP_MFB_BASE	(gISPSYS_Reg[MFB_DEV_NODE_IDX]) */
 
 #else
@@ -562,16 +562,13 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
 #define IRQ_LOG_PRINTER(irq, ppb, logT)
 #endif
 /*YWtodo>*/
-#define IMGSYS_REG_CG_CON                      (ISP_IMGSYS_BASE + 0x0)
-#define IMGSYS_REG_CG_SET                      (ISP_IMGSYS_BASE + 0x4)
-#define IMGSYS_REG_CG_CLR                      (ISP_IMGSYS_BASE + 0x8)
-#define IMGSYS_REG_SW_RST                      (ISP_IMGSYS_BASE + 0xc)
+#define IMGSYS_REG_CG_CON      (ISP_IMGSYS_BASE + 0x0)
+#define IMGSYS_REG_CG_SET      (ISP_IMGSYS_BASE + 0x4)
+#define IMGSYS_REG_CG_CLR      (ISP_IMGSYS_BASE + 0x8)
+#define IMGSYS_REG_SW_RST      (ISP_IMGSYS_BASE + 0xc)
 
-#define ISP_MSS_BASE_HW  (0x15012000)
-#define ISP_MSF_BASE_HW  (0x15010000)
-
-#define MFB_MSS_INT_STATUS_HW  (ISP_MSS_BASE + 0x508)
-#define MFB_MSF_INT_STATUS_HW  (ISP_MSF_BASE + 0x7c8)
+#define MFB_MSS_INT_STATUS_REG  (ISP_MSS_BASE + 0x508)
+#define MFB_MSF_INT_STATUS_REG  (ISP_MSF_BASE + 0x7c8)
 
 #define MFB_MSS_TDRI_BASE_REG  (ISP_MSS_BASE + 0x804)
 #define MFB_MSF_TDRI_BASE_REG  (ISP_MSF_BASE + 0x804)
@@ -585,11 +582,32 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
 #define MFB_MSS_CQLP_CMD_NUM_REG  (ISP_MSS_BASE + 0x600)
 #define MFB_MSF_CQLP_CMD_NUM_REG  (ISP_MSF_BASE + 0x7F0)
 
-#define MSS_MSSTOP_SUB_DONE_STA0 (ISP_MSS_BASE + 0x45C)
-#define MSS_MSSTOP_DMA_STOP_STA	(ISP_MSS_BASE + 0x418)
+#define MSSTOP_DMA_STOP_REG     (ISP_MSS_BASE + 0x414)
+#define MSSTOP_DMA_STOP_STA_REG (ISP_MSS_BASE + 0x418)
 
-#define MFB_MSS_START_HW  (0x1501250c)
-#define MFB_MSF_START_HW  (0x150107cc)
+#define MFBTOP_DMA_STOP_REG     (ISP_MSF_BASE + 0x4A4)
+#define MFBTOP_DMA_STOP_STA_REG (ISP_MSF_BASE + 0x4A8)
+#define MFBTOP_RESET_REG        (ISP_MSF_BASE + 0x4AC)
+#define MFB_MSF_CMDQ_ENABLE_REG (ISP_MSF_BASE + 0x7C4)
+
+#define MFB_MSF_TOP_DEBUG_SEL   (ISP_MSF_BASE + 0x4D0)
+#define MFB_MSF_TOP_DEBUG_STA   (ISP_MSF_BASE + 0x4D4)
+#define MFB_MSF_DMA_DEBUG_SEL   (ISP_MSF_BASE + 0x888)
+#define MFB_MSF_TOP_CRC_1       (ISP_MSF_BASE + 0x4CC)
+
+#define MFB_MSS_TOP_DBG_CTL0    (ISP_MSS_BASE + 0x434)
+#define MFB_MSS_TOP_DBG_OUT2    (ISP_MSS_BASE + 0x440)
+#define MFB_MSS_TOP_DBG_OUT3    (ISP_MSS_BASE + 0x444)
+#define MFB_MSS_DMA_DEBUG_SEL   (ISP_MSS_BASE + 0x888)
+
+#define MFB_MSS_INT_STATUS_HW  (0x15012508)
+#define MFB_MSF_INT_STATUS_HW  (0x150107c8)
+
+#define ISP_MSS_BASE_HW    (0x15012000)
+#define ISP_MSF_BASE_HW    (0x15010000)
+
+#define MFB_MSS_START_HW   (0x1501250c)
+#define MFB_MSF_START_HW   (0x150107cc)
 
 #define MFB_MSS_CMDQ_ENABLE_HW  (0x15012504)
 #define MFB_MSF_CMDQ_ENABLE_HW  (0x150107C4)
@@ -603,37 +621,15 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
 #define MFB_MSS_CQLP_ENG_EN_HW  (0x15012604)
 #define MFB_MSF_CQLP_ENG_EN_HW  (0x150107F4)
 
-
-#define MFBTOP_DMA_STOP     (0x150104A4)
-#define MFBTOP_DMA_STOP_STA (0x150104A8)
-#define MFBTOP_RESET        (0x150104AC)
-
-#define MSSTOP_DMA_STOP     (0x15012414)
-#define MSSTOP_DMA_STOP_STA (0x15012418)
-#define MSSTOP_RESET        (0x1501241C)
-
 #define MFB_MSS_TDRI_BASE_HW  (0x15012804)
+#define MFB_MSS_TDRI_OFST_HW  (0x15012808)
 #define MFB_MSF_TDRI_BASE_HW  (0x15010804)
+#define MFB_MSF_TDRI_OFST_HW  (0x15010808)
 
 #define MFB_MSS_IY_BASE_HW  (0x15012A00)
 #define MFB_MSS_IC_BASE_HW  (0x15012A40)
 #define MFB_MSS_OY_BASE_HW  (0x15012900)
 #define MFB_MSS_OC_BASE_HW  (0x15012940)
-
-#define MFB_MSS_TDRI_OFST_HW  (0x15012808)
-#define MFB_MSF_TDRI_OFST_HW  (0x15010808)
-
-#define MFB_MSS_INT_STATUS_ADDR  (0x15012508)
-#define MFB_MSF_INT_STATUS_ADDR  (0x150107c8)
-
-#define MFB_MSS_OMC_TOP_HW      (ISP_MSS_BASE + 0x100)
-
-#define MFB_MSF_TOP_DEBUG_SEL   (ISP_MSF_BASE + 0x4D0)
-#define MFB_MSF_TOP_DEBUG_STA   (ISP_MSF_BASE + 0x4D4)
-#define MFB_MSF_DMA_DEBUG_SEL   (ISP_MSF_BASE + 0x888)
-#define MFB_MSF_TOP_CRC_1       (ISP_MSF_BASE + 0x4CC)
-
-#define MSS_MSSTOP_SUB_DONE_STA0_ADDR  (0x1501245C)
 
 /*YWtodo<*/
 
@@ -935,8 +931,6 @@ signed int CmdqMSSHW(struct frame *frame)
 	cmdq_pkt_write(handle, NULL, (dma_addr_t)MFB_MSS_START_HW,
 			0x1, CMDQ_REG_MASK);
 	cmdq_pkt_wfe(handle, mss_done_event_id);
-	/*cmdq_pkt_write(handle, NULL, (dma_addr_t)MFB_MSS_INT_STATUS_HW,*/
-			/*0x1, CMDQ_REG_MASK);*/
 	/* non-blocking API, Please  use cmdqRecFlushAsync() */
 #endif
 #endif
@@ -1217,8 +1211,6 @@ signed int CmdqMSFHW(struct frame *frame)
 	cmdq_pkt_write(handle, NULL, (dma_addr_t)MFB_MSF_START_HW,
 			0x1, CMDQ_REG_MASK);
 	cmdq_pkt_wfe(handle, msf_done_event_id);
-	/*cmdq_pkt_write(handle, NULL, (dma_addr_t)MFB_MSF_INT_STATUS_HW,*/
-		/*0x1, CMDQ_REG_MASK);*/
 
 	/* non-blocking API, Please  use cmdqRecFlushAsync() */
 #endif
@@ -1373,7 +1365,6 @@ static const struct engine_ops vmsf_ops = {
 static signed int MSS_DumpReg(void)
 {
 	signed int Ret = 0;
-#if 0/*YWtodo*/
 	unsigned int i = 0;
 
 	LOG_INF("- E.");
@@ -1382,23 +1373,50 @@ static signed int MSS_DumpReg(void)
 	for (i = 0; i < MSS_REG_RANGE; i = i + 0x10) {
 		LOG_INF(
 		"[0x%08X %08X][0x%08X %08X][0x%08X %08X][0x%08X %08X]\n",
-		ISP_MSS_BASE + i + 0x0, MFB_RD32(ISP_MSS_BASE + i + 0x0),
-		ISP_MSS_BASE + i + 0x4, MFB_RD32(ISP_MSS_BASE + i + 0x4),
-		ISP_MSS_BASE + i + 0x8, MFB_RD32(ISP_MSS_BASE + i + 0x8),
-		ISP_MSS_BASE + i + 0xC, MFB_RD32(ISP_MSS_BASE + i + 0xC));
+		ISP_MSS_BASE_HW + i + 0x0, MFB_RD32(ISP_MSS_BASE + i + 0x0),
+		ISP_MSS_BASE_HW + i + 0x4, MFB_RD32(ISP_MSS_BASE + i + 0x4),
+		ISP_MSS_BASE_HW + i + 0x8, MFB_RD32(ISP_MSS_BASE + i + 0x8),
+		ISP_MSS_BASE_HW + i + 0xC, MFB_RD32(ISP_MSS_BASE + i + 0xC));
 	}
-	/*YWtodo sel*/
+#if 0 /*YWtodo sel*/
+for (i = 0; i < 3; i++) {
+	for (j = 1; j < 7; j++) {
+		MFB_WR32(MFB_MSS_DMA_DEBUG_SEL,
+			0x000F3F1F & ((i << 16) + (j << 8) + 0));
+		LOG_INF("debug_mux_data_%d 0x%08X\n",
+			i, MFB_RD32(MFB_MSS_TOP_DBG_OUT2));
+	}
+}
+for (i = 1; i < 7; i++) {
+	MFB_WR32(MFB_MSS_DMA_DEBUG_SEL, 0x0000001F & i);
+	LOG_INF("dma_debug_data_%d 0x%08X\n",
+			i, MFB_RD32(MFB_MSS_TOP_DBG_OUT2));
+}
+for (i = 0; i < 16; i++) {
+	MFB_WR32(MFB_MSS_DMA_DEBUG_SEL, 0x000F001F & ((i << 16) + 7));
+	LOG_INF("debug_cnt_data_%d 0x%08X\n",
+			i, MFB_RD32(MFB_MSS_TOP_DBG_OUT2));
+}
+for (i = 0; i < 24; i++) {
+	MFB_WR32(MFB_MSS_DMA_DEBUG_SEL, 0x00003F1F & ((i << 8) + 8));
+	LOG_INF("check_sum_debug_data_%d 0x%08X\n",
+			i, MFB_RD32(MFB_MSS_TOP_DBG_OUT2));
+}
+for (i = 0; i < 15; i++) {
+	MFB_WR32(MFB_MSS_TOP_DBG_CTL0, 0x0000FF00 & (0x0 << 8));
+	LOG_INF("mod_debug_%d 0x%08X\n",
+			i, MFB_RD32(MFB_MSS_TOP_DBG_OUT3));
+}
+#endif
 	LOG_INF("- X.");
 	/*  */
-#endif
 	return Ret;
 }
 
 static signed int MSF_DumpReg(void)
 {
 	signed int Ret = 0;
-#if 0/*YWtodo*/
-	unsigned int i = 0, j = 0;
+	unsigned int i = 0;
 
 	LOG_INF("- E.");
 
@@ -1406,12 +1424,12 @@ static signed int MSF_DumpReg(void)
 	for (i = 0; i < MSF_REG_RANGE; i = i + 0x10) {
 		LOG_INF(
 		"[0x%08X %08X][0x%08X %08X][0x%08X %08X][0x%08X %08X]\n",
-		ISP_MSF_BASE + i + 0x0, MFB_RD32(ISP_MSF_BASE + i + 0x0),
-		ISP_MSF_BASE + i + 0x4, MFB_RD32(ISP_MSF_BASE + i + 0x4),
-		ISP_MSF_BASE + i + 0x8, MFB_RD32(ISP_MSF_BASE + i + 0x8),
-		ISP_MSF_BASE + i + 0xC, MFB_RD32(ISP_MSF_BASE + i + 0xC));
+		ISP_MSF_BASE_HW + i + 0x0, MFB_RD32(ISP_MSF_BASE + i + 0x0),
+		ISP_MSF_BASE_HW + i + 0x4, MFB_RD32(ISP_MSF_BASE + i + 0x4),
+		ISP_MSF_BASE_HW + i + 0x8, MFB_RD32(ISP_MSF_BASE + i + 0x8),
+		ISP_MSF_BASE_HW + i + 0xC, MFB_RD32(ISP_MSF_BASE + i + 0xC));
 	}
-	/*YWtodo sel*/
+#if 0 /*YWtodo sel*/
 	for (i = 28; i < 32; i++) {
 		MFB_WR32(MFB_MSF_TOP_DEBUG_SEL, 0xFF000000 & (i << 24));
 		LOG_INF("mfb_top_rdy_ack_debug_%d 0x%08X\n",
@@ -1465,10 +1483,9 @@ static signed int MSF_DumpReg(void)
 		LOG_INF("submodule_CRC_%d 0x%08X\n",
 				i, MFB_RD32(MFB_MSF_TOP_CRC_1));
 	}
-
+#endif
 	LOG_INF("- X.");
 	/*  */
-#endif
 	return Ret;
 }
 
@@ -1630,9 +1647,7 @@ static void MFB_EnableClock(bool En)
  ******************************************************************************/
 static inline void MSS_Reset(void)
 {
-#if 0/*YWtodo*/
-	unsigned int temp;
-
+#if 1/*YWtodo*/
 	LOG_DBG("- E.");
 	LOG_DBG(" MSS Reset start!\n");
 	spin_lock(&(MFBInfo.SpinLockMFBRef));
@@ -1644,22 +1659,16 @@ static inline void MSS_Reset(void)
 		spin_unlock(&(MFBInfo.SpinLockMFBRef));
 
 		/* Reset MSS flow */
-		MFB_WR32(MFB_MSS_DMA_STOP_HW, 0x100);
-		while ((MFB_RD32(MFB_MSS_DMA_STOP_STA_HW) & 0x100) != 0x100)
+		MFB_WR32(MSSTOP_DMA_STOP_REG, 0x100);
+		while ((MFB_RD32(MSSTOP_DMA_STOP_STA_REG) & 0x100) != 0x100)
 			LOG_DBG("MSS resetting...\n");
 		/*Use IMGSYS1*/
 		MFB_WR32(IMGSYS_REG_SW_RST, 0x10000);
 		udelay(1);
-		MFB_WR32(MFB_MSS_DMA_STOP_HW, 0x0);
+		MFB_WR32(MSSTOP_DMA_STOP_REG, 0x0);
 		udelay(1);
 		MFB_WR32(IMGSYS_REG_SW_RST, 0x0);
 		LOG_DBG(" MSS Reset end!\n");
-
-		/* Reset OMC flow *//*YWtodo OMC workaround*/
-		temp = MFB_RD32(MFB_MSS_OMC_TOP_HW);
-		MFB_WR32(MFB_MSS_OMC_TOP_HW, temp | 0x4000);
-		udelay(1);
-		MFB_WR32(MFB_MSS_OMC_TOP_HW, temp & 0xFFFFBFFF);
 	}
 #endif
 }
@@ -1669,7 +1678,7 @@ static inline void MSS_Reset(void)
  ******************************************************************************/
 static inline void MSF_Reset(void)
 {
-#if 0/*YWtodo*/
+#if 1/*YWtodo*/
 	unsigned int temp;
 
 	LOG_DBG("- E.");
@@ -1683,21 +1692,21 @@ static inline void MSF_Reset(void)
 		spin_unlock(&(MFBInfo.SpinLockMFBRef));
 
 		/* Reset MSF flow */
-		MFB_WR32(MFB_MSF_DMA_STOP_HW, 0x80000000);
-		while ((MFB_RD32(MFB_MSF_DMA_STOP_STA_HW) & 0x80000000)
+		MFB_WR32(MFBTOP_DMA_STOP_REG, 0x80000000);
+		while ((MFB_RD32(MFBTOP_DMA_STOP_STA_REG) & 0x80000000)
 				!= 0x80000000)
 			LOG_DBG("MSF resetting...\n");
 
-		MFB_WR32(MFB_MSF_RESET_HW, 0x1);
+		MFB_WR32(MFBTOP_RESET_REG, 0x1);
 		udelay(1);
-		temp = MFB_RD32(MFB_MSF_CMDQ_ENABLE_HW);
-		MFB_WR32(MFB_MSF_CMDQ_ENABLE_HW, temp | 0x100);
+		temp = MFB_RD32(MFB_MSF_CMDQ_ENABLE_REG);
+		MFB_WR32(MFB_MSF_CMDQ_ENABLE_REG, temp | 0x100);
 		udelay(1);
-		MFB_WR32(MFB_MSF_DMA_STOP_HW, 0x0);
+		MFB_WR32(MFBTOP_DMA_STOP_REG, 0x0);
 		udelay(1);
-		MFB_WR32(MFB_MSF_RESET_HW, 0x0);
+		MFB_WR32(MFBTOP_RESET_REG, 0x0);
 		udelay(1);
-		MFB_WR32(MFB_MSF_CMDQ_ENABLE_HW, temp & 0xFFFFFEFF);
+		MFB_WR32(MFB_MSF_CMDQ_ENABLE_REG, temp & 0xFFFFFEFF);
 		LOG_DBG(" MSF Reset end!\n");
 	}
 #endif
@@ -4153,9 +4162,9 @@ int MFB_pm_restore_noirq(struct device *device)
  *  "MFB_DEV_NODE_ENUM" in camera_MFB.h
  */
 static const struct of_device_id MFB_of_ids[] = {
-	/*{.compatible = "mediatek,imgsys_config",},*/
 	{.compatible = "mediatek,mss",},
 	{.compatible = "mediatek,msf",},
+	{.compatible = "mediatek,imgsys_mfb",},
 	{}
 };
 #endif
@@ -4877,18 +4886,18 @@ static irqreturn_t ISP_Irq_MSS(signed int Irq, void *DeviceId)
 #if 1
 	unsigned int MssStatus;
 
-	MssStatus = MFB_RD32(MFB_MSS_INT_STATUS_HW);	/* MSS Status */
-	MFB_WR32(MFB_MSS_INT_STATUS_HW, MssStatus);	/* MSS Status */
+	MssStatus = MFB_RD32(MFB_MSS_INT_STATUS_REG);	/* MSS Status */
+	MFB_WR32(MFB_MSS_INT_STATUS_REG, MssStatus);	/* MSS Status */
 	LOG_DBG("%s:0x%x = 0x%x ", __func__,
-			MFB_MSS_INT_STATUS_ADDR, MssStatus);
+			MFB_MSS_INT_STATUS_HW, MssStatus);
 
 #else
 	unsigned int MssStatus;
 	bool bResulst = MFALSE;
 	pid_t ProcessID;
 
-	MssStatus = MFB_RD32(MFB_MSS_INT_STATUS_HW);	/* MSS Status */
-	MFB_WR32(MFB_MSS_INT_STATUS_HW, MssStatus);	/* MSS Status */
+	MssStatus = MFB_RD32(MFB_MSS_INT_STATUS_REG);	/* MSS Status */
+	MFB_WR32(MFB_MSS_INT_STATUS_REG, MssStatus);	/* MSS Status */
 
 	spin_lock(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]));
 	if (MSS_INT_ST == (MSS_INT_ST & MssStatus)) {
@@ -4922,7 +4931,7 @@ static irqreturn_t ISP_Irq_MSS(signed int Irq, void *DeviceId)
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MSS_ST, m_CurrentPPB, _LOG_INF,
 		       "Irq_MSS:%d, reg 0x%x : 0x%x, bResulst:%d, MssIrqCnt:0x%x\n",
-		       Irq, MFB_MSS_INT_STATUS_HW, MssStatus,
+		       Irq, MFB_MSS_INT_STATUS_REG, MssStatus,
 		       bResulst, MFBInfo.IrqInfo.MssIrqCnt);
 
 	#if (REQUEST_REGULATION == FRAME_BASE_REGULATION)
@@ -4943,17 +4952,17 @@ static irqreturn_t ISP_Irq_MSF(signed int Irq, void *DeviceId)
 #if 1
 	unsigned int MsfStatus;
 
-	MsfStatus = MFB_RD32(MFB_MSF_INT_STATUS_HW);	/* MSF Status */
-	MFB_WR32(MFB_MSF_INT_STATUS_HW, MsfStatus);	/* MSF Status */
+	MsfStatus = MFB_RD32(MFB_MSF_INT_STATUS_REG);	/* MSF Status */
+	MFB_WR32(MFB_MSF_INT_STATUS_REG, MsfStatus);	/* MSF Status */
 	LOG_DBG("%s:0x%x = 0x%x ", __func__,
-			MFB_MSF_INT_STATUS_ADDR, MsfStatus);
+			MFB_MSF_INT_STATUS_HW, MsfStatus);
 #else
 	unsigned int MsfStatus;
 	bool bResulst = MFALSE;
 	pid_t ProcessID;
 
-	MsfStatus = MFB_RD32(MFB_MSF_INT_STATUS_HW);	/* MSF Status */
-	MFB_WR32(MFB_MSF_INT_STATUS_HW, MsfStatus);	/* MSF Status */
+	MsfStatus = MFB_RD32(MFB_MSF_INT_STATUS_REG);	/* MSF Status */
+	MFB_WR32(MFB_MSF_INT_STATUS_REG, MsfStatus);	/* MSF Status */
 
 	spin_lock(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]));
 	if (MSF_INT_ST == (MSF_INT_ST & MsfStatus)) {
@@ -4987,7 +4996,7 @@ static irqreturn_t ISP_Irq_MSF(signed int Irq, void *DeviceId)
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MSF_ST, m_CurrentPPB, _LOG_INF,
 		       "Irq_MSF:%d, reg 0x%x : 0x%x, bResulst:%d, MsfIrqCnt:0x%x\n",
-		       Irq, MFB_MSF_INT_STATUS_HW, MsfStatus,
+		       Irq, MFB_MSF_INT_STATUS_REG, MsfStatus,
 		       bResulst, MFBInfo.IrqInfo.MsfIrqCnt);
 
 	#if (REQUEST_REGULATION == FRAME_BASE_REGULATION)

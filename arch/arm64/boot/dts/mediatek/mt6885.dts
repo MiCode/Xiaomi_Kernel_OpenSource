@@ -4513,15 +4513,6 @@ page_owner=on";
 		interrupts = <GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	mss@15012000 {
-		compatible = "mediatek,mss";
-		reg = <0 0x15012000 0 0x1000>;
-		interrupts = <GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH>;
-		mboxes = <&gce_mbox_m 19 0 CMDQ_THR_PRIO_1>;
-		mss_frame_done =
-		/bits/ 16 <CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_23>;
-	};
-
 	wpe_a@15011000 {
 		compatible = "mediatek,wpe_a";
 		reg = <0 0x15011000 0 0x1000>;
@@ -4544,6 +4535,15 @@ page_owner=on";
 		interrupts = <GIC_SPI 346 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	mss@15012000 {
+		compatible = "mediatek,mss";
+		reg = <0 0x15012000 0 0x1000>;
+		interrupts = <GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH>;
+		mboxes = <&gce_mbox_m 19 0 CMDQ_THR_PRIO_1>;
+		mss_frame_done =
+		/bits/ 16 <CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_23>;
+	};
+
 	msf@15010000 {
 		compatible = "mediatek,msf";
 		reg = <0 0x15010000 0 0x1000>;
@@ -4559,6 +4559,11 @@ page_owner=on";
 				"MFB_CG_IMG1_LARB9",
 				"MFB_CG_IMG1_MSS",
 				"MFB_CG_IMG1_MFB";
+	};
+
+	imgsys_mfb@15020000 {
+		compatible = "mediatek,imgsys_mfb";
+		reg = <0 0x15020000 0 0x1000>;
 	};
 
 	imgsys2_config: imgsys2_config@15820000 {
