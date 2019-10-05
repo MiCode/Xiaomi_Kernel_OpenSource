@@ -1092,7 +1092,7 @@
 
 	gce_mbox: gce_mbox@10228000 {
 		compatible = "mediatek,mailbox-gce";
-		reg = <0 0x10228000 0 0x1000>;
+		reg = <0 0x10228000 0 0x4000>;
 		interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_LOW>;
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
@@ -1528,17 +1528,16 @@
 
 	gce_mbox_m: gce_mbox_m@10318000 {
 		compatible = "mediatek,mailbox-gce";
-		reg = <0 0x10318000 0 0x1000>;
+		reg = <0 0x10318000 0 0x4000>;
 		interrupts = <GIC_SPI 205 IRQ_TYPE_LEVEL_LOW>;
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
 		#gce-subsys-cells = <2>;
 	};
 
-	gce@10228000 {
-		compatible = "mediatek,gce", "syscon";
-		reg = <0 0x10228000 0 0x4000>;
-		#clock-cells = <1>;
+	gce@10318000 {
+		compatible = "mediatek,gce";
+		reg = <0 0x10318000 0 0x4000>;
 		mmsys_config = <&mdpsys_config>;
 		thread_count = <24>;
 		mediatek,mailbox-gce = <&gce_mbox_m>;
