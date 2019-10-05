@@ -68,6 +68,26 @@ static ssize_t dirty_segments_show(struct f2fs_attr *a,
 		(unsigned long long)(dirty_segments(sbi)));
 }
 
+static ssize_t current_flush_merge_show(struct f2fs_attr *a,
+		struct f2fs_sb_info *sbi, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%lu\n",
+						(current_flush_merge));
+}
+
+static ssize_t current_flush_merge_store(struct f2fs_attr *a,
+		struct f2fs_sb_info *sbi, const char *buf, size_t len)
+{
+	int ret;
+	unsigned long t = 0;
+
+	ret = kstrtoul(skip_spaces(buf), 0, &t);
+	if (ret == 0 && t < 65536)
+		current_flush_merge = t;
+
+	return len;
+}
+
 static ssize_t lifetime_write_kbytes_show(struct f2fs_attr *a,
 		struct f2fs_sb_info *sbi, char *buf)
 {
@@ -390,6 +410,10 @@ static struct f2fs_attr f2fs_attr_##_name = {			\
 #define F2FS_GENERAL_RO_ATTR(name) \
 static struct f2fs_attr f2fs_attr_##name = __ATTR(name, 0444, name##_show, NULL)
 
+#define F2FS_GENERAL_RW_ATTR(name) \
+static struct f2fs_attr f2fs_attr_##name = __ATTR(name, 0644, \
+		name##_show, name##_store)
+
 #define F2FS_FEATURE_RO_ATTR(_name, _id)			\
 static struct f2fs_attr f2fs_attr_##_name = {			\
 	.attr = {.name = __stringify(_name), .mode = 0444 },	\
@@ -440,6 +464,8 @@ F2FS_GENERAL_RO_ATTR(dirty_segments);
 F2FS_GENERAL_RO_ATTR(lifetime_write_kbytes);
 F2FS_GENERAL_RO_ATTR(features);
 F2FS_GENERAL_RO_ATTR(current_reserved_blocks);
+
+F2FS_GENERAL_RW_ATTR(current_flush_merge);
 
 #ifdef CONFIG_F2FS_FS_ENCRYPTION
 F2FS_FEATURE_RO_ATTR(encryption, FEAT_CRYPTO);
@@ -499,6 +525,7 @@ static struct attribute *f2fs_attrs[] = {
 	ATTR_LIST(features),
 	ATTR_LIST(reserved_blocks),
 	ATTR_LIST(current_reserved_blocks),
+	ATTR_LIST(current_flush_merge),
 	NULL,
 };
 

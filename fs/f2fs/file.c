@@ -20,6 +20,7 @@
 #include <linux/uio.h>
 #include <linux/uuid.h>
 #include <linux/file.h>
+#include <linux/delay.h>
 
 #include "f2fs.h"
 #include "node.h"
@@ -29,6 +30,9 @@
 #include "gc.h"
 #include "trace.h"
 #include <trace/events/f2fs.h>
+
+static int delayflush;
+unsigned long current_flush_merge;
 
 static int f2fs_filemap_fault(struct vm_fault *vmf)
 {
@@ -312,6 +316,14 @@ sync_nodes:
 flush_out:
 	if (!atomic && F2FS_OPTION(sbi).fsync_mode != FSYNC_MODE_NOBARRIER)
 		ret = f2fs_issue_flush(sbi, inode->i_ino);
+	else {
+		delayflush++;
+		if ((current_flush_merge != 0) &&
+			(delayflush >= current_flush_merge)) {
+			ret = f2fs_issue_flush(sbi, inode->i_ino);
+			delayflush = 1;
+		}
+	}
 	if (!ret) {
 		f2fs_remove_ino_entry(sbi, ino, UPDATE_INO);
 		clear_inode_flag(inode, FI_UPDATE_WRITE);
