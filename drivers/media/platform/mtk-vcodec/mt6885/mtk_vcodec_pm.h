@@ -48,9 +48,6 @@ struct mtk_vcodec_pm {
 	struct clk *clk_MT_CG_VENC0;         /* VENC core 0*/
 	struct clk *clk_MT_CG_VDEC1;         /* VDEC core 1*/
 	struct clk *clk_MT_CG_VENC1;         /* VENC core 1*/
-	struct clk *clk_MT_SCP_SYS_VDE;          /* SCP_SYS_VDE */
-	struct clk *clk_MT_SCP_SYS_VEN;          /* SCP_SYS_VEN */
-	struct clk *clk_MT_SCP_SYS_DIS;          /* SCP_SYS_DIS */
 
 	atomic_t dec_active_cnt;
 	__u32 vdec_racing_info[MTK_VDEC_RACING_INFO_SIZE];

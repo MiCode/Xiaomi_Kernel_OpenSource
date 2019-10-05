@@ -68,7 +68,12 @@
 #define CAM_PATH                "/dev/camd"
 #define VCU_DEVNAME             "vcu"
 
+#ifdef CONFIG_MTK_ENG_BUILD
+#define IPI_TIMEOUT_MS          16000U
+#else
 #define IPI_TIMEOUT_MS          6000U
+#endif
+
 #define VCU_FW_VER_LEN          16
 #define VCODEC_INST_MAX         64
 #define GCE_EVENT_MAX           32
@@ -428,6 +433,7 @@ int vcu_ipi_send(struct platform_device *pdev,
 		if (!vcu_ptr->abort) {
 			task_lock(vcud_task);
 			send_sig(SIGTERM, vcud_task, 0);
+			send_sig(SIGKILL, vcud_task, 0);
 			task_unlock(vcud_task);
 		}
 		ret = -EIO;
@@ -1918,7 +1924,7 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 
 	for (i = 0; i < GCE_EVENT_MAX; i++)
 		vcu->gce_codec_eid[i] = -1;
-
+	/*
 	vcu->gce_codec_eid[VDEC_EVENT_0] =
 		cmdq_dev_get_event(dev, "vdec_pic_start");
 	vcu->gce_codec_eid[VDEC_EVENT_1] =
@@ -1943,6 +1949,7 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		cmdq_dev_get_event(dev, "vdec_wp_tble_done");
 	vcu->gce_codec_eid[VDEC_EVENT_11] =
 		cmdq_dev_get_event(dev, "vdec_count_sram_clr_done");
+	*/
 	vcu->gce_codec_eid[VENC_EOF] =
 		cmdq_dev_get_event(dev, "venc_eof");
 	vcu->gce_codec_eid[VENC_CMDQ_PAUSE_DONE] =

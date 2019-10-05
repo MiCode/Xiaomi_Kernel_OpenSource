@@ -88,20 +88,6 @@ int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
 	pm->dev = &pdev->dev;
 
 	if (pm->chip_node) {
-
-		pm->clk_MT_SCP_SYS_VDE =
-			devm_clk_get(&pdev->dev, "MT_SCP_SYS_VDE");
-		if (IS_ERR(pm->clk_MT_SCP_SYS_VDE)) {
-			mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_SCP_SYS_VDE\n");
-			return PTR_ERR(pm->clk_MT_SCP_SYS_VDE);
-		}
-		pm->clk_MT_SCP_SYS_DIS =
-			devm_clk_get(&pdev->dev, "MT_SCP_SYS_DIS");
-		if (IS_ERR(pm->clk_MT_SCP_SYS_DIS)) {
-			mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_SCP_SYS_DIS\n");
-			return PTR_ERR(pm->clk_MT_SCP_SYS_DIS);
-		}
-
 		pm->clk_MT_CG_SOC = devm_clk_get(&pdev->dev, "MT_CG_SOC");
 		if (IS_ERR(pm->clk_MT_CG_SOC)) {
 			mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_CG_SOC\n");

@@ -4682,13 +4682,9 @@ page_owner=on";
 		interrupts = <GIC_SPI 308 IRQ_TYPE_LEVEL_HIGH>;
 		mediatek,vcu = <&vcu>;
 		clocks =
-			<&scpsys SCP_SYS_DIS>,
-			<&scpsys SCP_SYS_VENC>,
 			<&venc_gcon VENC_GCON_SET1_VENC>,
 			<&venc_c1_gcon VENC_C1_GCON_SET1_VENC>;
 		clock-names =
-			"MT_SCP_SYS_DIS",
-			"MT_SCP_SYS_VEN",
 			"MT_CG_VENC0",
 			"MT_CG_VENC1";
 	};
@@ -4848,14 +4844,10 @@ page_owner=on";
 		<GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>;
 		mediatek,vcu = <&vcu>;
 		clocks =
-			<&scpsys SCP_SYS_DIS>,
-			<&scpsys SCP_SYS_VDEC>,
 			<&vdec_soc_gcon VDEC_SOC_GCON_VDEC_CKEN>,
 			<&vdec_gcon VDEC_GCON_VDEC_CKEN>,
 			<&vdec_soc_gcon VDEC_SOC_GCON_LAT_CKEN>;
 		clock-names =
-			"MT_SCP_SYS_DIS",
-			"MT_SCP_SYS_VDE",
 			"MT_CG_SOC",
 			"MT_CG_VDEC0",
 			"MT_CG_VDEC1";
