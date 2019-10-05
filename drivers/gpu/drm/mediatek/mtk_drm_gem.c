@@ -95,17 +95,14 @@ static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 #if defined(CONFIG_MTK_IOMMU_V2)
 	struct ion_client *client;
 	struct ion_handle *handle;
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-		(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	struct ion_mm_data mm_data;
-#endif
 	size_t mva_size;
 	ion_phys_addr_t phy_addr = 0;
 
 	mtk_gem->cookie = (void *)ioremap_nocache(pa, size);
 	mtk_gem->kvaddr = mtk_gem->cookie;
 
-	client = mtk_drm_gem_ion_create("disp_fb0");
+	client = mtk_drm_gem_ion_create_client("disp_fb0");
 	handle =
 		ion_alloc(client, size, (size_t)mtk_gem->kvaddr,
 			  ION_HEAP_MULTIMEDIA_MAP_MVA_MASK, 0);
@@ -114,8 +111,6 @@ static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 		return;
 	}
 
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-		(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
 	mm_data.config_buffer_param.module_id = 0;
 	mm_data.config_buffer_param.kernel_handle = handle;
@@ -126,7 +121,6 @@ static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 		ion_free(client, handle);
 		return;
 	}
-#endif
 
 	ion_phys(client, handle, &phy_addr, &mva_size);
 	mtk_gem->dma_addr = (unsigned int)phy_addr;
@@ -335,7 +329,7 @@ int mtk_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 }
 
 #if defined(CONFIG_MTK_IOMMU_V2)
-struct ion_client *mtk_drm_gem_ion_create(const char *name)
+struct ion_client *mtk_drm_gem_ion_create_client(const char *name)
 {
 	struct ion_client *disp_ion_client = NULL;
 
@@ -351,48 +345,71 @@ struct ion_client *mtk_drm_gem_ion_create(const char *name)
 
 	return disp_ion_client;
 }
-#endif
 
-struct drm_gem_object *
-mtk_gem_prime_import(struct drm_device *dev,
-			      struct dma_buf *dma_buf)
+void mtk_drm_gem_ion_destroy_client(struct ion_client *client)
 {
-	struct drm_gem_object *obj;
-#if defined(CONFIG_MTK_IOMMU_V2)
-	struct mtk_drm_private *priv = dev->dev_private;
-	struct ion_client *client;
-	struct ion_handle *handle;
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-			(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-	struct ion_mm_data mm_data;
-#endif
-
-	client = priv->client;
-	handle = ion_import_dma_buf(client, dma_buf);
-	if (IS_ERR(handle)) {
-		DDPPR_ERR("ion import failed, client:0x%p, dmabuf:0x%p\n",
-				client, dma_buf);
-		return NULL;
+	if (!client) {
+		DDPPR_ERR("invalid ion client!\n");
+		return;
 	}
 
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-			(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
-	mm_data.config_buffer_param.module_id = 0;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
-				 (unsigned long)&mm_data) < 0) {
-		DDPPR_ERR("ion config failed, handle:0x%p\n", handle);
-		return NULL;
-	}
-#endif
-#endif
-
-	obj = drm_gem_prime_import(dev, dma_buf);
-
-	return obj;
+	ion_client_destroy(client);
 }
+
+void mtk_drm_gem_ion_free_handle(struct ion_client *client,
+	struct ion_handle *handle)
+{
+	if (!client) {
+		DDPPR_ERR("invalid ion client!\n");
+		return;
+	}
+	if (!handle) {
+		DDPPR_ERR("invalid ion handle!\n");
+		return;
+	}
+
+	ion_free(client, handle);
+}
+
+/**
+ * Import ion handle and configure this buffer
+ * @client
+ * @fd ion shared fd
+ * @return ion handle
+ */
+struct ion_handle *mtk_drm_gem_ion_import_handle(struct ion_client *client,
+	int fd)
+{
+	struct ion_handle *handle = NULL;
+	struct ion_mm_data mm_data;
+
+	if (!client) {
+		DDPPR_ERR("invalid ion client!\n");
+		return handle;
+	}
+	handle = ion_import_dma_buf_fd(client, fd);
+	if (IS_ERR(handle)) {
+		DDPPR_ERR("import ion handle failed!\n");
+		return NULL;
+	}
+	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
+	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	mm_data.config_buffer_param.kernel_handle = handle;
+	mm_data.config_buffer_param.module_id = 0;
+	mm_data.config_buffer_param.security = 0;
+	mm_data.config_buffer_param.coherent = 0;
+
+	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
+		(unsigned long)&mm_data)) {
+		DDPPR_ERR("configure ion buffer failed!\n");
+		ion_free(client, handle);
+		return NULL;
+	}
+
+	return handle;
+}
+#endif
+
 
 /*
  * Allocate a sg_table for this GEM object.

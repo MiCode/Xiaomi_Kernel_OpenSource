@@ -1551,7 +1551,7 @@ static struct drm_driver mtk_drm_driver = {
 	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
 	.gem_prime_export = drm_gem_prime_export,
-	.gem_prime_import = mtk_gem_prime_import,
+	.gem_prime_import = drm_gem_prime_import,
 	.gem_prime_get_sg_table = mtk_gem_prime_get_sg_table,
 	.gem_prime_import_sg_table = mtk_gem_prime_import_sg_table,
 	.gem_prime_mmap = mtk_drm_gem_mmap_buf,
@@ -1763,7 +1763,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	private->config_regs_pa = mem->start;
 	private->mmsys_dev = dev;
 #if defined(CONFIG_MTK_IOMMU_V2)
-	private->client = mtk_drm_gem_ion_create("disp_mm");
+	private->client = mtk_drm_gem_ion_create_client("disp_mm");
 #endif
 
 #ifdef MTK_FB_MMDVFS_SUPPORT

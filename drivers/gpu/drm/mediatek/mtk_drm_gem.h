@@ -15,6 +15,13 @@
 #define _MTK_DRM_GEM_H_
 
 #include <drm/drm_gem.h>
+#if defined(CONFIG_MTK_IOMMU_V2)
+#include "ion_drv.h"
+#include "ion_priv.h"
+#include <soc/mediatek/smi.h>
+#include "mtk_iommu_ext.h"
+#include "pseudo_m4u.h"
+#endif
 
 /*
  * mtk drm buffer structure.
@@ -53,11 +60,13 @@ int mtk_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
 int mtk_drm_gem_mmap_buf(struct drm_gem_object *obj,
 			 struct vm_area_struct *vma);
 #if defined(CONFIG_MTK_IOMMU_V2)
-struct ion_client *mtk_drm_gem_ion_create(const char *name);
+struct ion_client *mtk_drm_gem_ion_create_client(const char *name);
+void mtk_drm_gem_ion_destroy_client(struct ion_client *client);
+void mtk_drm_gem_ion_free_handle(struct ion_client *client,
+	struct ion_handle *handle);
+struct ion_handle *mtk_drm_gem_ion_import_handle(struct ion_client *client,
+	int fd);
 #endif
-struct drm_gem_object *
-mtk_gem_prime_import(struct drm_device *dev,
-			      struct dma_buf *dma_buf);
 struct sg_table *mtk_gem_prime_get_sg_table(struct drm_gem_object *obj);
 struct drm_gem_object *
 mtk_gem_prime_import_sg_table(struct drm_device *dev,

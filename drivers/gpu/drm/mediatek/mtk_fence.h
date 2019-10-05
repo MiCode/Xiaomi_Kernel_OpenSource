@@ -53,6 +53,10 @@ struct mtk_fence_buf_info {
 	struct list_head list;
 	unsigned int idx;
 	int fence;
+#if defined(CONFIG_MTK_IOMMU_V2)
+	struct ion_client *client;
+	struct ion_handle *hnd;
+#endif
 	unsigned long mva;
 	unsigned int size;
 	unsigned int mva_offset;

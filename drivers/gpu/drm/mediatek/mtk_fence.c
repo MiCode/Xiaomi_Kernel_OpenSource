@@ -28,6 +28,8 @@
 #include "mtk_drm_session.h"
 #include "mtk_drm_plane.h"
 #include "mtk_drm_mmp.h"
+#include "mtk_drm_drv.h"
+#include "mtk_drm_gem.h"
 
 /************************* log*********************/
 static bool mtk_fence_on;
@@ -341,6 +343,10 @@ struct mtk_fence_buf_info *mtk_init_buf_info(struct mtk_fence_buf_info *buf)
 {
 	INIT_LIST_HEAD(&buf->list);
 	buf->fence = MTK_INVALID_FENCE_FD;
+#if defined(CONFIG_MTK_IOMMU_V2)
+	buf->client = NULL;
+	buf->hnd = NULL;
+#endif
 	buf->idx = 0;
 	buf->mva = 0;
 	buf->layer_type = 0;
@@ -428,6 +434,10 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 		layer_info->fence_fd = buf->fence;
 
 		list_del_init(&buf->list);
+#ifdef CONFIG_MTK_IOMMU_V2
+		if (buf->hnd)
+			mtk_drm_gem_ion_free_handle(buf->client, buf->hnd);
+#endif
 		ion_release_count++;
 
 		/* we must use another mutex for buffer list*/
@@ -659,6 +669,9 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	struct fence_data data;
 	struct mtk_fence_info *layer_info = NULL;
 	struct mtk_fence_session_sync_info *session_info = NULL;
+#if defined(CONFIG_MTK_IOMMU_V2)
+	struct mtk_drm_private *priv = dev->dev_private;
+#endif
 
 	if (buf == NULL) {
 		DDPPR_ERR("Prepare Buffer, buf is NULL!!\n");
@@ -699,6 +712,15 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	}
 	buf_info->fence = data.fence;
 	buf_info->idx = data.value;
+
+#if defined(CONFIG_MTK_IOMMU_V2)
+	buf_info->client = priv->client;
+	if (buf->fence_fd >= 0)
+		buf_info->hnd = mtk_drm_gem_ion_import_handle(buf_info->client,
+				buf->fence_fd);
+	else
+		DDPPR_ERR("invalid fence fd:%d\n", buf->fence_fd);
+#endif
 
 	buf_info->mva_offset = 0;
 	buf_info->trigger_ticket = 0;
