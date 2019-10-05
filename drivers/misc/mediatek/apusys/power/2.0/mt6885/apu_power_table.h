@@ -14,7 +14,7 @@
 #ifndef _APU_POWER_TABLE_H_
 #define _APU_POWER_TABLE_H_
 
-#include "apusys_power_cust.h"
+#include "apusys_power_user.h"
 
 
 /******************************************************

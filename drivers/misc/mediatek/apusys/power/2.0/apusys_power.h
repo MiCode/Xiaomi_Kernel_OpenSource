@@ -14,7 +14,7 @@
 #ifndef _APUSYS_POWER_H_
 #define _APUSYS_POWER_H_
 
-#include "apusys_power_cust.h"
+#include "apusys_power_user.h"
 
 
 /******************************************************
