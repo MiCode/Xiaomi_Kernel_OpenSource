@@ -27,6 +27,8 @@ CONFIG_ARM64_ERRATUM_858921,PLATFORM,hongxu.zhao,timer,X,X,y,X,y,X,y,X,y,X,y,X,y
 CONFIG_ASYMMETRIC_KEY_TYPE,PROJECT,pangyen.chen,,,,,,,,,,,,,,
 CONFIG_ASYMMETRIC_PUBLIC_KEY_SUBTYPE,PROJECT,pangyen.chen,,,,,,,,,,,,,,
 CONFIG_AUTO_ZRELADDR,PLATFORM,,,X,X,X,X,X,X,X,X,X,X,X,X,X
+CONFIG_BACKLIGHT_CLASS_DEVICE,PLATFORM,,,X,X,X,X,X,X,X,X,X,y,y,X,X
+CONFIG_BACKLIGHT_LCD_SUPPORT,PLATFORM,,,X,X,X,X,X,X,X,X,X,y,y,X,X
 CONFIG_BACKLIGHT_SUPPORT_LM3697,PROJECT,joan.cho,new config in this commit c1d836e76318074d6d130e603374f18cfca53661,,,,,,,,,,,,,
 CONFIG_BLK_DEV_BSG,COMMON,,,N,N,N,N,N,N,N,N,N,N,N,N,N
 CONFIG_BLK_DEV_DM,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
@@ -176,7 +178,9 @@ CONFIG_DMA_API_DEBUG,USER,miles.chen,,N,N,N,N,N,N,N,N,N,N,N,N,N
 CONFIG_DMA_MTK_UART,PLATFORM,qiangming.xia,,N,N,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_DMADEVICES,PLATFORM,qiangming.xia,,N,N,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_DMAUSER_PAGES,PROJECT,Miles.Chen,new config 246784055571763c932926925ddb585948ce81cd,,,,,,,,,,,,,
-CONFIG_DRM,PLATFORM,vincent.sung,whitney gpu requirement,X,X,X,X,X,X,X,X,X,X,X,X,X
+CONFIG_DRM,PLATFORM,vincent.sung,whitney gpu requirement,X,X,X,X,X,X,X,X,X,y,y,X,X
+CONFIG_DRM_MEDIATEK,PLATFORM,,,X,X,X,X,X,X,X,X,X,y,y,X,X
+CONFIG_DRM_PANEL_TRULY_TD4330_CMD,PROJECT,,,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_DUAL_ROLE_USB_INTF,PROJECT,vend_jeff_chang001,new config at this commit ebc855c95fb2bdff04b66d63675dbac9387577a8,,,,,,,,,,,,,
 CONFIG_DYNAMIC_DEBUG,PLATFORM,,,y,X,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_EFI,PLATFORM,my.chuang,arm64 only,N,X,N,X,N,X,N,X,N,X,N,X,N
@@ -520,7 +524,7 @@ CONFIG_MTK_ENG_BUILD,USER,,,N,N,N,N,N,N,N,N,N,N,N,N,N
 CONFIG_MTK_EXTBUCK,PROJECT,vend_jeff_chang001,,,,,,,,,,,,,,
 CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT,PROJECT,marvin.lin,,,,,,,,,,,,,,
 CONFIG_MTK_FAT_ON_NAND,PROJECT,chienwei.chang,,,,,,,,,,,,,,
-CONFIG_MTK_FB,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_MTK_FB,PROJECT,,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_FD_BAD_DEBUG,PROJECT,yuxian.xu,,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_MTK_FD_LEAK_DETECT,USER;PROJECT,yuxian.xu,,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_MTK_FD_LEAK_SPECIFIC_DEBUG,PROJECT,yuxian.xu,,O,O,O,O,O,O,O,O,O,O,O,O,O
@@ -606,7 +610,7 @@ CONFIG_MTK_LASTBUS_V2,PLATFORM,shun-chih.yu,new config in this commit 70642ef846
 CONFIG_MTK_LASTPC,PLATFORM,shun-chih.yu,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_LASTPC_V2,PLATFORM,shun-chih.yu,new config in this commit c10f203ca842501de3b383fa96aff89de5d325ca,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_LATE_MOUNT,PROJECT,juju.sung,,N,,N,,N,,N,,N,,N,,N
-CONFIG_MTK_LCM,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_MTK_LCM,PROJECT,,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_LCM_DEVICE_TREE_SUPPORT,PROJECT,joey.pan,,,,,,,,,,,,,,
 CONFIG_MTK_LCM_PHYSICAL_ROTATION,PROJECT,k.zhang,,,,,,,,,,,,,,
 CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW,PROJECT,k.zhang,new config in this commit bc9d4699ce3f9e687fbd71247a9c3ed3e7c6b5d5,,,,,,,,,,,,,

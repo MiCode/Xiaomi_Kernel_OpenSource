@@ -611,5 +611,30 @@
 };
 /* GPS GPIO standardization end */
 
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel@0 {
+		compatible = "truly,td4330,cmd";
+		reg = <0>;
+		pm-enable-gpios = <&pio 41 0>;
+		reset-gpios = <&pio 42 0>;
+		pinctrl-names = "default";
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	ports {
+		port {
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+};
+
 #include <k6885tv1_64/cust.dtsi>
 /*End of this file, DO NOT ADD ANYTHING HERE*/
