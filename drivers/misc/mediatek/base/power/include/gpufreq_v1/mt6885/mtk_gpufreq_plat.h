@@ -46,31 +46,31 @@
 #define MT_GPU_CORE_MASK_5_6  (T5C0 | T5C1)    /* Stack 5 */
 #define MT_GPU_CORE_MASK_7_8  (T6C0 | T6C1)    /* Stack 6 */
 
-#define MT_GPU_SHADER_PRESENT_1    (MT_GPU_CORE_MASK_0)          /* 1 core */
-#define MT_GPU_SHADER_PRESENT_2    (MT_GPU_CORE_MASK_1_2)        /* 2 core */
+#define MT_GPU_SHADER_PRESENT_1    (MT_GPU_CORE_MASK_0)
+#define MT_GPU_SHADER_PRESENT_2    (MT_GPU_CORE_MASK_1_2)
 #define MT_GPU_SHADER_PRESENT_3    (MT_GPU_CORE_MASK_0 | \
-					MT_GPU_CORE_MASK_1_2)    /* 3 core */
+					MT_GPU_CORE_MASK_1_2)
 #define MT_GPU_SHADER_PRESENT_4    (MT_GPU_CORE_MASK_1_2 | \
-					MT_GPU_CORE_MASK_3_4)    /* 4 core */
+					MT_GPU_CORE_MASK_3_4)
 #define MT_GPU_SHADER_PRESENT_5    (MT_GPU_CORE_MASK_0 | \
 					MT_GPU_CORE_MASK_1_2 | \
-					MT_GPU_CORE_MASK_3_4)    /* 5 core */
+					MT_GPU_CORE_MASK_3_4)
 #define MT_GPU_SHADER_PRESENT_6    (MT_GPU_CORE_MASK_1_2 | \
 					MT_GPU_CORE_MASK_3_4 | \
-					MT_GPU_CORE_MASK_5_6)    /* 6 core */
+					MT_GPU_CORE_MASK_5_6)
 #define MT_GPU_SHADER_PRESENT_7    (MT_GPU_CORE_MASK_0 | \
 					MT_GPU_CORE_MASK_1_2 | \
 					MT_GPU_CORE_MASK_3_4 | \
-					MT_GPU_CORE_MASK_5_6)    /* 7 core */
+					MT_GPU_CORE_MASK_5_6)
 #define MT_GPU_SHADER_PRESENT_8    (MT_GPU_CORE_MASK_1_2 | \
 					MT_GPU_CORE_MASK_3_4 | \
 					MT_GPU_CORE_MASK_5_6 | \
-					MT_GPU_CORE_MASK_7_8)    /* 8 core */
+					MT_GPU_CORE_MASK_7_8)
 #define MT_GPU_SHADER_PRESENT_9    (MT_GPU_CORE_MASK_0 | \
 					MT_GPU_CORE_MASK_1_2 | \
 					MT_GPU_CORE_MASK_3_4 | \
 					MT_GPU_CORE_MASK_5_6 | \
-					MT_GPU_CORE_MASK_7_8)    /* 9 core */
+					MT_GPU_CORE_MASK_7_8)
 
 struct mt_gpufreq_power_table_info {
 	unsigned int gpufreq_khz;
