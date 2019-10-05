@@ -2281,7 +2281,7 @@ static inline bool uclamp_group_active(struct uclamp_group *uc_grp,
  */
 static inline bool uclamp_task_affects(struct task_struct *p, int clamp_id)
 {
-	return (p->uclamp[clamp_id].group_id != UCLAMP_NOT_VALID);
+	return (p->uclamp_group_id[clamp_id] != UCLAMP_NOT_VALID);
 }
 
 /**
