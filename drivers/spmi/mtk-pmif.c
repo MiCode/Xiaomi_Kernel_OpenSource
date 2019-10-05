@@ -1087,11 +1087,16 @@ static void pmif_irq_register(struct platform_device *pdev,
 	ret = of_property_read_u32_array(pdev->dev.of_node, "irq_event_en",
 		irq_event_en, ARRAY_SIZE(irq_event_en));
 
-	pmif_writel(arb, irq_event_en[0], PMIF_IRQ_EVENT_EN_0);
-	pmif_writel(arb, irq_event_en[1], PMIF_IRQ_EVENT_EN_1);
-	pmif_writel(arb, irq_event_en[2], PMIF_IRQ_EVENT_EN_2);
-	pmif_writel(arb, irq_event_en[3], PMIF_IRQ_EVENT_EN_3);
-	pmif_writel(arb, irq_event_en[4], PMIF_IRQ_EVENT_EN_4);
+	pmif_writel(arb, irq_event_en[0] | pmif_readl(arb, PMIF_IRQ_EVENT_EN_0),
+			PMIF_IRQ_EVENT_EN_0);
+	pmif_writel(arb, irq_event_en[1] | pmif_readl(arb, PMIF_IRQ_EVENT_EN_1),
+			PMIF_IRQ_EVENT_EN_1);
+	pmif_writel(arb, irq_event_en[2] | pmif_readl(arb, PMIF_IRQ_EVENT_EN_2),
+			PMIF_IRQ_EVENT_EN_2);
+	pmif_writel(arb, irq_event_en[3] | pmif_readl(arb, PMIF_IRQ_EVENT_EN_3),
+			PMIF_IRQ_EVENT_EN_3);
+	pmif_writel(arb, irq_event_en[4] | pmif_readl(arb, PMIF_IRQ_EVENT_EN_4),
+			PMIF_IRQ_EVENT_EN_4);
 }
 
 static int mtk_spmimst_init(struct platform_device *pdev, struct pmif *arb)
