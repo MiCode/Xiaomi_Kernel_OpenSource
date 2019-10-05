@@ -81,13 +81,14 @@ struct mtk_ipi_chan_table {
  * @pre_cb: the callback handler before ipi send data
  * @post_cb: the callback handler after ipi send data
  * @prdata: private data for the callback use
- * @ipi_inited: set when mtk_ipi_device_register() done
- *
+ * @timeout_handler: the callback for waiting reply timeout
  * @lock_monitor: the lock for dump ipi timestamp
  * @ipi_last_done: the last processed ipi transmission
+ * @ipi_inited: set when mtk_ipi_device_register() done
  *
- * The value of mrpdev, table, mutex_ipi_reg, ipi_inited would be initialized by
- * mtk_ipi_device_register(), others should be declared by tinysys platform.
+ * Tinysys platform has necessary to define the vcalue of 'name', 'id', 'mbdev';
+ * and optional to define the 'pre_cb', 'post_cb', 'prdata', 'timeout_handler'.
+ * Othes would be initialized by mtk_ipi_device_register().
  */
 struct mtk_ipi_device  {
 	const char *name;

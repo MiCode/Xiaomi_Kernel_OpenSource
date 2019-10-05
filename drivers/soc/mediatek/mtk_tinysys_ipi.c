@@ -53,14 +53,10 @@ static void ipi_monitor(struct mtk_ipi_chan_table *chan, int stage)
 		chan->ipi_record[2].ts = 0;
 		break;
 	case RECV_MSG:
-		chan->ipi_record[1].ts = cpu_clock(0);
-		break;
-	case SEND_ACK:
-		chan->ipi_record[2].ts = cpu_clock(0);
-		break;
 	case ISR_RECV_ACK:
 		chan->ipi_record[1].ts = cpu_clock(0);
 		break;
+	case SEND_ACK:
 	case RECV_ACK:
 		chan->ipi_record[2].ts = cpu_clock(0);
 		break;
@@ -97,6 +93,7 @@ int mtk_ipi_device_register(struct mtk_ipi_device *ipidev,
 		unsigned int ipi_chan_count)
 {
 	int index;
+	char chan_name[RPMSG_NAME_SIZE];
 	struct mtk_ipi_chan_table *ipi_chan_table;
 	struct mtk_rpmsg_device *mtk_rpdev;
 	struct mtk_rpmsg_channel_info *mtk_rpchan;
@@ -120,8 +117,9 @@ int mtk_ipi_device_register(struct mtk_ipi_device *ipidev,
 	}
 
 	for (index = 0; index < ipi_chan_count; index++) {
-		// TODO: how to get the IPC name~?
-		mtk_rpchan = mtk_rpmsg_create_channel(mtk_rpdev, index, "ipi0");
+		sprintf(chan_name, "%s_ipi#%d", ipidev->name, index);
+		mtk_rpchan = mtk_rpmsg_create_channel(mtk_rpdev, index,
+				chan_name);
 		ipi_chan_table[index].rpchan = mtk_rpchan;
 		ipi_chan_table[index].ept =
 			rpmsg_create_ept(&(mtk_rpdev->rpdev),
@@ -148,8 +146,6 @@ int mtk_ipi_device_register(struct mtk_ipi_device *ipidev,
 		ipi_chan_table[mbox->pin_recv_table[index].chan_id].pin_recv =
 						&mbox->pin_recv_table[index];
 	}
-
-	// TODO: check_table_tag()
 
 	mbox->ipi_cb = ipi_isr_cb;
 	mbox->ipi_priv = (void *)ipidev;
@@ -308,7 +304,7 @@ int mtk_ipi_recv(struct mtk_ipi_device *ipidev, int ipi_id)
 	ipi_monitor(&ipidev->table[ipi_id], RECV_MSG);
 	ipidev->ipi_last_done = ipi_id;
 
-	if (pin->cb_ctx_opt == MBOX_CB_IN_PROCESS)
+	if (pin->mbox_pin_cb && pin->cb_ctx_opt == MBOX_CB_IN_PROCESS)
 		pin->mbox_pin_cb(ipi_id, pin->prdata, pin->pin_buf,
 			pin->msg_size);
 
@@ -383,7 +379,7 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 	ipi_monitor(&ipidev->table[ipi_id], SEND_MSG);
 
 	/* Run receive at least once */
-	wait_us = (wait_us < 0) ? IPI_POLLING_INTERVAL_US : wait_us;
+	wait_us = (wait_us < 1) ? IPI_POLLING_INTERVAL_US : wait_us;
 
 	ret = IPI_COMPL_TIMEOUT;
 	if (opt == IPI_SEND_POLLING) {
@@ -412,6 +408,7 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 	}
 
 	if (ret == IPI_COMPL_TIMEOUT) {
+		mtk_mbox_dump_recv_pin(ipidev->mbdev, pin_r);
 		ipi_monitor_dump(ipidev, ipi_id);
 		if (ipidev->timeout_handler)
 			ipidev->timeout_handler(ipi_id);
@@ -456,7 +453,7 @@ int mtk_ipi_recv_reply(struct mtk_ipi_device *ipidev, int ipi_id,
 	/* lock this pin until send ack*/
 	spin_lock_irqsave(&pin_s->pin_lock, flags);
 
-	if (pin_r->cb_ctx_opt == MBOX_CB_IN_PROCESS)
+	if (pin_r->mbox_pin_cb && pin_r->cb_ctx_opt == MBOX_CB_IN_PROCESS)
 		pin_r->mbox_pin_cb(ipi_id, pin_r->prdata, pin_r->pin_buf,
 			pin_r->msg_size);
 
@@ -495,7 +492,7 @@ static void ipi_isr_cb(struct mtk_mbox_pin_recv *pin, void *priv)
 
 	complete(&pin->notify);
 
-	if (pin->recv_opt == MBOX_RECV)
+	if (pin->recv_opt == MBOX_RECV_MESSAGE)
 		ipi_monitor(&ipidev->table[ipi_id], ISR_RECV_MSGV);
 	else
 		ipi_monitor(&ipidev->table[ipi_id], ISR_RECV_ACK);
