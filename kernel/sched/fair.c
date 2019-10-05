@@ -7606,10 +7606,10 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				 * efficient CPU (i.e. smallest capacity_orig)
 				 */
 				if (idle_cpu(i)) {
-					if (boosted &&
+					if ((boosted || turning) &&
 					    capacity_orig < target_capacity)
 						continue;
-					if (!boosted &&
+					if (!boosted  && !turning &&
 					    capacity_orig > target_capacity)
 						continue;
 					if (capacity_orig == target_capacity &&
