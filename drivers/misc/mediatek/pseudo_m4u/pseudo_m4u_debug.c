@@ -831,6 +831,22 @@ static int m4u_debug_set(void *data, u64 val)
 		mtk_iommu_switch_tf_test(false, __func__);
 	}
 	break;
+	case 31:
+	{
+		int i;
+
+		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
+			mtk_iommu_power_switch_by_id(i, true, "pseudo_debug");
+	}
+	break;
+	case 32:
+	{
+		int i;
+
+		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
+			mtk_iommu_power_switch_by_id(i, false, "pseudo_debug");
+	}
+	break;
 #ifdef M4U_TEE_SERVICE_ENABLE
 	case 50:
 	{
@@ -982,6 +998,10 @@ int m4u_debug_help_show(struct seq_file *s, void *unused)
 		      "echo 29 > /d/m4u/debug:	enable translation fault debug\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 30 > /d/m4u/debug:	disable translation fault debug\n");
+	M4U_PRINT_SEQ(s,
+		      "echo 31 > /d/m4u/debug:	iommu power on\n");
+	M4U_PRINT_SEQ(s,
+		      "echo 32 > /d/m4u/debug:	iommu power off\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 50 > /d/m4u/debug:	init the Trustlet and T-drv of secure IOMMU\n");
 	M4U_PRINT_SEQ(s,

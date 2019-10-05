@@ -1007,9 +1007,6 @@ static bool iova_rcache_insert(struct iova_domain *iovad, unsigned long pfn,
 	unsigned int log_size = order_base_2(size);
 
 	if (log_size >= IOVA_RANGE_CACHE_MAX_SIZE) {
-		pr_notice("%s, %d, size:0x%lx, MAX:0x%lx\n",
-			  __func__, __LINE__, log_size,
-			  IOVA_RANGE_CACHE_MAX_SIZE);
 		return false;
 	}
 

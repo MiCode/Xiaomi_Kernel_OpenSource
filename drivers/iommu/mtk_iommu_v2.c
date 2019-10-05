@@ -637,10 +637,10 @@ static int mtk_iommu_hw_clock_power_switch(const struct mtk_iommu_data *data,
 			  (is_clk ? "clock" : "power"), i,
 			  data->m4uid, err_id, master, ret);
 	else
-		pr_notice("%s: %s %s[%d] of iommu%d, id%d for %s, ret:%d\n",
-			  __func__, (enable ? "enable" : "disable"),
-			  (is_clk ? "clock" : "power"), i,
-			  data->m4uid, err_id, master, ret);
+		pr_debug("%s: %s %s[%d] of iommu%d, id%d for %s, ret:%d\n",
+			 __func__, (enable ? "enable" : "disable"),
+			 (is_clk ? "clock" : "power"), i,
+			 data->m4uid, err_id, master, ret);
 
 	return ret;
 #else
@@ -691,7 +691,7 @@ int mtk_iommu_port_clock_switch(unsigned int port, bool enable)
 #endif
 }
 
-int mtk_iommu_power_switch(const struct mtk_iommu_data *data,
+static int mtk_iommu_power_switch(const struct mtk_iommu_data *data,
 			bool enable, char *master)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
@@ -709,7 +709,9 @@ int mtk_iommu_power_switch(const struct mtk_iommu_data *data,
 		  enable ? "enable" : "disable",
 		  enable ? "power" : "clock",
 		  ret ? "error" : "pass",
-		  data->m4uid, master, ret);
+		  data->m4uid,
+		  master ? master : "NULL",
+		  ret);
 	if (ret)
 		return ret;
 
@@ -719,12 +721,36 @@ int mtk_iommu_power_switch(const struct mtk_iommu_data *data,
 		  enable ? "enable" : "disable",
 		  enable ? "clock" : "power",
 		  ret ? "error" : "pass",
-		  data->m4uid, master, ret);
+		  data->m4uid,
+		  master ? master : "NULL",
+		  ret);
 
 	return ret;
 #endif
 #endif
 	return 0;
+}
+
+int mtk_iommu_power_switch_by_id(unsigned int m4uid,
+			bool enable, char *master)
+{
+	const struct mtk_iommu_data *data;
+
+	if (m4uid >= MTK_IOMMU_M4U_COUNT) {
+		pr_notice("%s, invalid m4uid:%d,%s\n",
+			  __func__, m4uid,
+			  master ? master : "NULL");
+		return -1;
+	}
+
+	data = mtk_iommu_get_m4u_data(m4uid);
+	if (!data) {
+		pr_notice("%s, err data of m4uid:%d,%s\n",
+			  __func__, m4uid,
+			  master ? master : "NULL");
+		return -2;
+	}
+	return mtk_iommu_power_switch(data, enable, master);
 }
 
 static void __mtk_iommu_tlb_flush_all(const struct mtk_iommu_data *data)
@@ -746,8 +772,7 @@ static void __mtk_iommu_tlb_flush_all(const struct mtk_iommu_data *data)
 		   data->base + REG_MMU_INVLDT);
 	wmb(); /* Make sure the tlb flush all done */
 }
-static unsigned int g_start;
-static unsigned int g_end;
+
 static int __mtk_iommu_tlb_sync(struct mtk_iommu_data *data)
 {
 	return 0;
@@ -1163,6 +1188,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 			WARN_ON(1);
 			return 0;
 		}
+		pseudo_dump_port(port_id, true);
 
 		regval = readl_relaxed(data->base +
 					REG_MMU_FAULT_STATUS(slave_id));
@@ -1177,8 +1203,6 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 #endif
 		pr_notice("%s, %d, fault_iova=%lx, regval=0x%x\n",
 			  __func__, __LINE__, fault_iova, regval);
-		m4u_dump_pgtable(1);
-		pseudo_dump_port(port_id, true);
 
 		domain = __mtk_iommu_get_domain(data,
 					fault_larb, fault_port);
@@ -1186,16 +1210,14 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 			WARN_ON(1);
 			return 0;
 		}
-
 		pa = mtk_iommu_iova_to_phys(domain, fault_iova & PAGE_MASK);
-		pr_notice("fault_iova=%lx,mapping to pa=%x\n",
-			  fault_iova, (unsigned int)pa);
 
 		fault_pa = readl_relaxed(data->base +
 					REG_MMU_INVLD_PA(slave_id));
 		fault_pa |= (unsigned long)(regval &
 					F_MMU_FAULT_PA_BIT32) << 26;
-		pr_notice("fault_pa=%lx\n", fault_pa);
+		pr_notice("fault_pa=0x%lx,fault_iova=%lx,mapping to pa=%x\n",
+			  fault_pa, fault_iova, (unsigned int)pa);
 #ifdef APU_IOMMU_INDEX
 		if (m4uid >= APU_IOMMU_INDEX) {
 			is_vpu = true;
@@ -1223,6 +1245,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 				fault_larb, fault_port, is_vpu,
 				layer, write ? "write" : "read");
 		}
+		m4u_dump_pgtable(1);
 	}
 
 	if (int_state &
@@ -3551,13 +3574,13 @@ static s32 mtk_iommu_clks_get(struct mtk_iommu_data *data)
 		}
 		if (strcmp(name, "power")) {
 			m4u_clks->clks[m4u_clks->nr_clks] = clk;
-			dev_info(dev, "clks%d of %s init done\n",
-					m4u_clks->nr_clks, name);
+			dev_info(dev, "iommu:%d clks%d of %s init done\n",
+					data->m4uid, m4u_clks->nr_clks, name);
 			m4u_clks->nr_clks++;
 		} else {
 			m4u_clks->powers[m4u_clks->nr_powers] = clk;
-			dev_info(dev, "power%d of %s init done\n",
-					m4u_clks->nr_powers, name);
+			dev_info(dev, "iommu:%d power%d of %s init done\n",
+					data->m4uid, m4u_clks->nr_powers, name);
 			m4u_clks->nr_powers++;
 		}
 	}
@@ -3636,9 +3659,6 @@ static s32 mtk_iommu_larbs_get(struct mtk_iommu_data *data)
 			id = i;
 			pr_notice("%s, cannot find larbid, id=%d\n",
 				  __func__, id);
-		} else {
-			pr_notice("%s, find larbid, id=%d\n",
-				  __func__, id);
 		}
 
 		if (id >= MTK_LARB_NR_MAX) {
@@ -3689,7 +3709,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	int ret = 0;
 	unsigned int id = 0, slave = 0, mau = 0;
 
-	pr_notice("%s, %d,+\n",
+	pr_notice("%s+, %d\n",
 		  __func__, __LINE__);
 
 	ret = of_property_read_u32(dev->of_node, "cell-index", &id);
@@ -3733,11 +3753,6 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 		pr_notice("mtk_iommu base is null\n");
 		return PTR_ERR(data->base);
 	}
-#ifdef MTK_IOMMU_DEBUG
-	pr_notice("%s, %d, base=0x%lx, protect_base=0x%pa\n",
-		  __func__, __LINE__, (unsigned long)data->base,
-		  &data->protect_base);
-#endif
 	ioaddr = res->start;
 
 	data->irq = platform_get_irq(pdev, 0);
@@ -3791,9 +3806,9 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 
 	list_add_tail(&data->list, &m4ulist);
 	total_iommu_cnt++;
-	pr_notice("%s, %d, add m4ulist, use %s pgtable\n",
-		  __func__, __LINE__,
-		  MTK_IOMMU_PAGE_TABLE_SHARE ? "share" : "private");
+	pr_debug("%s, %d, add m4ulist, use %s pgtable\n",
+		 __func__, __LINE__,
+		 MTK_IOMMU_PAGE_TABLE_SHARE ? "share" : "private");
 	/*
 	 * trigger the bus to scan all the device to add them to iommu
 	 * domain after all the iommu have finished probe.
@@ -3840,8 +3855,9 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	}
 #endif
 
-	pr_notice("%s, %d,total_iommu_cnt=%d, m4uid=%d\n",
-		  __func__, __LINE__, total_iommu_cnt, data->m4uid);
+	pr_notice("%s-, %d,total=%d,m4u%d,base=0x%lx,protect=0x%pa\n",
+		  __func__, __LINE__, total_iommu_cnt, data->m4uid,
+		  (unsigned long)data->base, &data->protect_base);
 	return ret;
 }
 
@@ -4021,8 +4037,6 @@ static int __init mtk_iommu_init(void)
 {
 	int ret = 0;
 
-	pr_notice("%s, %d\n",
-		  __func__, __LINE__);
 	dma_debug_init(PREALLOC_DMA_DEBUG_ENTRIES);
 	ret = platform_driver_register(&mtk_iommu_driver);
 	if (ret != 0)
