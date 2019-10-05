@@ -360,9 +360,6 @@ static void scp_A_notify_ws(struct work_struct *ws)
 		mutex_unlock(&scp_A_notify_mutex);
 	}
 
-	if (!scp_ready[SCP_A_ID])
-		scp_aed(EXCEP_RESET, SCP_A_ID);
-
 #if SCP_RECOVERY_SUPPORT
 	/*clear reset status and unlock wake lock*/
 	pr_debug("[SCP] clear scp reset flag and unlock\n");
