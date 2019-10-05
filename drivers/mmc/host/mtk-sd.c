@@ -237,6 +237,7 @@
 #define MSDC_PATCH_BIT1_STOP_DLY  (0xf << 8)    /* RW */
 
 #define MSDC_PATCH_BIT2_CFGRESP   (0x1 << 15)   /* RW */
+#define MSDC_PATCH_BIT2_POPENCNT  (0xf << 20)   /* RW */
 #define MSDC_PATCH_BIT2_CFGCRCSTS (0x1 << 28)   /* RW */
 #define MSDC_PB2_SUPPORT_64G      (0x1 << 1)    /* RW */
 #define MSDC_PB2_RESPWAIT         (0x3 << 2)    /* RW */
@@ -461,6 +462,19 @@ static const struct mtk_mmc_compatible mt8173_compat = {
 	.tune_resp_data_together = false,
 };
 
+static const struct mtk_mmc_compatible mt8167_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = false,
+	.support_64g = false,
+	.tune_resp_data_together = true,
+};
+
 static const struct mtk_mmc_compatible mt8168_compat = {
 	.clk_div_bits = 12,
 	.hs400_tune = false,
@@ -529,6 +543,7 @@ static const struct mtk_mmc_compatible mt8183_compat = {
 static const struct of_device_id msdc_of_ids[] = {
 	{ .compatible = "mediatek,mt8135-mmc", .data = &mt8135_compat},
 	{ .compatible = "mediatek,mt8173-mmc", .data = &mt8173_compat},
+	{ .compatible = "mediatek,mt8167-mmc", .data = &mt8167_compat},
 	{ .compatible = "mediatek,mt8168-mmc", .data = &mt8168_compat},
 	{ .compatible = "mediatek,mt2701-mmc", .data = &mt2701_compat},
 	{ .compatible = "mediatek,mt2712-mmc", .data = &mt2712_compat},
@@ -1476,6 +1491,14 @@ static void msdc_init_hw(struct msdc_host *host)
 	if (host->dev_comp->stop_clk_fix) {
 		sdr_set_field(host->base + MSDC_PATCH_BIT1,
 			      MSDC_PATCH_BIT1_STOP_DLY, 3);
+		if (of_device_is_compatible(host->dev->of_node,
+					    "mediatek,mt8167-mmc")) {
+			sdr_set_field(host->base + MSDC_PATCH_BIT1,
+				      MSDC_PATCH_BIT1_STOP_DLY, 6);
+			sdr_set_field(host->base + MSDC_PATCH_BIT2,
+				      MSDC_PATCH_BIT2_POPENCNT, 0);
+		}
+
 		sdr_clr_bits(host->base + SDC_FIFO_CFG,
 			     SDC_FIFO_CFG_WRVALIDSEL);
 		sdr_clr_bits(host->base + SDC_FIFO_CFG,
