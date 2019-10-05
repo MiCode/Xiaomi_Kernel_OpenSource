@@ -368,28 +368,35 @@ inline int valid_cpu_prefer(int task_prefer)
 	return 1;
 }
 
+int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type)
+{
+	struct task_struct *p;
+	unsigned long flags;
+	int retval = 0;
+
+	if (!valid_cpu_prefer(prefer_type) || pid < 0)
+		return -EINVAL;
+
+	rcu_read_lock();
+	retval = -ESRCH;
+	p = find_task_by_vpid(pid);
+	if (p != NULL) {
+		raw_spin_lock_irqsave(&p->pi_lock, flags);
+		p->cpu_prefer = prefer_type;
+		raw_spin_unlock_irqrestore(&p->pi_lock, flags);
+		trace_sched_set_cpuprefer(p);
+	}
+	rcu_read_unlock();
+
+	return retval;
+}
+
 inline int hinted_cpu_prefer(int task_prefer)
 {
 	if (task_prefer <= SCHED_PREFER_NONE || task_prefer >= SCHED_PREFER_END)
 		return 0;
 
 	return 1;
-}
-
-int sched_setattr_enhanced(struct task_struct *p, const struct sched_attr *attr)
-{
-	unsigned long flags;
-
-	if (!valid_cpu_prefer(attr->sched_priority))
-		return -EINVAL;
-
-	raw_spin_lock_irqsave(&p->pi_lock, flags);
-	p->cpu_prefer = attr->sched_priority;
-	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
-
-	trace_sched_set_cpuprefer(p);
-
-	return 0;
 }
 
 /*
@@ -604,34 +611,18 @@ static ssize_t show_cpu_prefer(struct kobject *kobj,
 static ssize_t store_cpu_prefer(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	unsigned int pid, prefer_type;
-	struct task_struct *p;
-	unsigned long flags;
+	pid_t pid;
+	unsigned int prefer_type;
 
 	/*
 	 * 0: NO sched boost
 	 * 1: boost ALL task
 	 * 2: boost foreground task
 	 */
-	if (sscanf(buf, "%u %u", &pid, &prefer_type) != 0) {
-		if (!valid_cpu_prefer(prefer_type))
-			return -1;
-
-		rcu_read_lock();
-		if (pid) {
-			p = find_task_by_vpid(pid);
-			if (p != NULL) {
-				raw_spin_lock_irqsave(&p->pi_lock, flags);
-				p->cpu_prefer = prefer_type;
-				raw_spin_unlock_irqrestore(&p->pi_lock, flags);
-			} else {
-				return -1;
-			}
-		}
-		rcu_read_unlock();
-	} else {
+	if (sscanf(buf, "%d %u", &pid, &prefer_type) != 0)
+		sched_set_cpuprefer(pid, prefer_type);
+	else
 		return -1;
-	}
 
 	return count;
 }
@@ -710,7 +701,7 @@ int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
 	return new_cpu;
 }
 
-int sched_setattr_enhanced(struct task_struct *p, const struct sched_attr *attr)
+int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type)
 {
 	return -EINVAL;
 }
