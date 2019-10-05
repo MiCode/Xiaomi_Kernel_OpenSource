@@ -2693,7 +2693,6 @@ int mmc_blk_cmdq_issue_flush_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_cmdq_req *cmdq_req;
 	struct mmc_cmdq_context_info *ctx_info;
 
-	WARN_ON(!card); /*bug*/
 	host = card->host;
 	WARN_ON(!host); /*bug*/
 	WARN_ON(req->tag > card->ext_csd.cmdq_depth); /*bug*/
@@ -2954,8 +2953,6 @@ static enum blk_eh_timer_return mmc_blk_cmdq_req_timed_out(struct request *req)
 	struct mmc_request *mrq;
 	struct mmc_cmdq_req *cmdq_req;
 	struct mmc_cmdq_context_info *ctx_info = &host->cmdq_ctx;
-
-	WARN_ON(!host); /*bug*/
 
 	if (host->cmdq_ops->dumpstate)
 		host->cmdq_ops->dumpstate(host, true);
