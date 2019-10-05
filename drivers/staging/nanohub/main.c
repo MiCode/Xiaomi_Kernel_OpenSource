@@ -787,9 +787,10 @@ static int nanohub_kthread(void *arg)
 	while (!kthread_should_stop()) {
 		switch (nanohub_get_state(data)) {
 		case ST_IDLE:
-			wait_event_interruptible(data->kthread_wait,
-						 atomic_read(&data->kthread_run)
-						 );
+			if (wait_event_interruptible(
+					data->kthread_wait,
+					atomic_read(&data->kthread_run)))
+				continue;
 			nanohub_set_state(data, ST_RUNNING);
 			break;
 		case ST_ERROR:
