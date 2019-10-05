@@ -90,12 +90,12 @@ static int get_pwm_src_base(struct device *dev, struct mtk_disp_pwm *mdp)
 
 	node = of_parse_phandle(dev->of_node, "pwm_src_base", 0);
 	if (!node) {
-		dev_info(dev, "find pwm_src node failed\n");
+		dev_info(dev, "no pwm_src node\n");
 		return -1;
 	}
 	pmw_src_base = of_iomap(node, 0);
 	if (!pmw_src_base) {
-		dev_info(dev, "find pwm_src address failed\n");
+		dev_info(dev, "no pwm_src address\n");
 		of_node_put(node);
 		return -1;
 	}
@@ -153,10 +153,9 @@ static int pwm_src_power_off(struct mtk_disp_pwm *mdp)
 	return 0;
 }
 
-static int mtk_disp_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
+static int mtk_disp_pwm_config_impl(struct mtk_disp_pwm *mdp,
 			       int duty_ns, int period_ns)
 {
-	struct mtk_disp_pwm *mdp = to_mtk_disp_pwm(chip);
 	u32 clk_div, period, high_width, value;
 	u64 div, rate;
 	int err;
@@ -171,7 +170,7 @@ static int mtk_disp_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	 * period = (PWM_CLK_RATE * period_ns) / (10^9 * (clk_div + 1)) - 1
 	 * high_width = (PWM_CLK_RATE * duty_ns) / (10^9 * (clk_div + 1))
 	 */
-	dev_dbg(mdp->chip.dev, "duty=%d period=%d\n", duty_ns, period_ns);
+	dev_notice(mdp->chip.dev, "duty=%d period=%d\n", duty_ns, period_ns);
 	rate = clk_get_rate(mdp->clk_main);
 	clk_div = div_u64(rate * period_ns, NSEC_PER_SEC) >>
 			  PWM_PERIOD_BIT_WIDTH;
@@ -223,12 +222,18 @@ static int mtk_disp_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	return 0;
 }
 
-static int mtk_disp_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
+static int mtk_disp_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
+			       int duty_ns, int period_ns)
 {
 	struct mtk_disp_pwm *mdp = to_mtk_disp_pwm(chip);
+	return mtk_disp_pwm_config_impl(mdp, duty_ns, period_ns);
+}
+
+static int mtk_disp_pwm_enable_impl(struct mtk_disp_pwm *mdp)
+{
 	int err;
 
-	dev_info(mdp->chip.dev, "%s\n", __func__);
+	dev_dbg(mdp->chip.dev, "%s\n", __func__);
 	err = clk_enable(mdp->clk_main);
 	if (err < 0)
 		return err;
@@ -247,10 +252,14 @@ static int mtk_disp_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	return 0;
 }
 
-static void mtk_disp_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
+static int mtk_disp_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct mtk_disp_pwm *mdp = to_mtk_disp_pwm(chip);
+	return mtk_disp_pwm_enable_impl(mdp);
+}
 
+static void mtk_disp_pwm_disable_impl(struct mtk_disp_pwm *mdp)
+{
 	dev_dbg(mdp->chip.dev, "%s\n", __func__);
 	mtk_disp_pwm_update_bits(mdp, DISP_PWM_EN, mdp->data->enable_mask,
 				 0x0);
@@ -261,6 +270,13 @@ static void mtk_disp_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 	pwm_src_power_off(mdp);
 }
 
+static void mtk_disp_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
+{
+	struct mtk_disp_pwm *mdp = to_mtk_disp_pwm(chip);
+
+	mtk_disp_pwm_disable_impl(mdp);
+}
+
 static const struct pwm_ops mtk_disp_pwm_ops = {
 	.config = mtk_disp_pwm_config,
 	.enable = mtk_disp_pwm_enable,
@@ -268,81 +284,83 @@ static const struct pwm_ops mtk_disp_pwm_ops = {
 	.owner = THIS_MODULE,
 };
 
+static struct mtk_disp_pwm *g_mdp;
 static int mtk_disp_pwm_probe(struct platform_device *pdev)
 {
-	struct mtk_disp_pwm *mdp;
 	struct resource *r;
 	struct clk *pwm_src;
 	int ret;
 
-	mdp = devm_kzalloc(&pdev->dev, sizeof(*mdp), GFP_KERNEL);
-	if (!mdp)
+	pr_notice("%s start\n", __func__);
+	g_mdp = devm_kzalloc(&pdev->dev, sizeof(*g_mdp), GFP_KERNEL);
+	if (!g_mdp)
 		return -ENOMEM;
 
-	mdp->data = of_device_get_match_data(&pdev->dev);
+	g_mdp->data = of_device_get_match_data(&pdev->dev);
 
 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	mdp->base = devm_ioremap_resource(&pdev->dev, r);
-	if (IS_ERR(mdp->base))
-		return PTR_ERR(mdp->base);
+	g_mdp->base = devm_ioremap_resource(&pdev->dev, r);
+	if (IS_ERR(g_mdp->base))
+		return PTR_ERR(g_mdp->base);
 
-	mdp->clk_main = devm_clk_get(&pdev->dev, "main");
-	if (IS_ERR(mdp->clk_main))
-		return PTR_ERR(mdp->clk_main);
+	g_mdp->clk_main = devm_clk_get(&pdev->dev, "main");
+	if (IS_ERR(g_mdp->clk_main))
+		return PTR_ERR(g_mdp->clk_main);
 
-	mdp->clk_mm = devm_clk_get(&pdev->dev, "mm");
-	if (IS_ERR(mdp->clk_mm))
-		return PTR_ERR(mdp->clk_mm);
+	g_mdp->clk_mm = devm_clk_get(&pdev->dev, "mm");
+	if (IS_ERR(g_mdp->clk_mm))
+		return PTR_ERR(g_mdp->clk_mm);
 
-	ret = clk_prepare(mdp->clk_main);
+	ret = clk_prepare(g_mdp->clk_main);
 	if (ret < 0)
 		return ret;
 
-	ret = clk_prepare(mdp->clk_mm);
+	ret = clk_prepare(g_mdp->clk_mm);
 	if (ret < 0)
 		goto disable_clk_main;
 
 	pwm_src = devm_clk_get(&pdev->dev, "pwm_src");
 	if (!IS_ERR(pwm_src)) {
-		clk_enable(mdp->clk_mm);
-		clk_set_parent(mdp->clk_mm, pwm_src);
-		clk_disable(mdp->clk_mm);
+		clk_enable(g_mdp->clk_mm);
+		clk_set_parent(g_mdp->clk_mm, pwm_src);
+		clk_disable(g_mdp->clk_mm);
 		dev_info(&pdev->dev, "select clk_mm with pwm_src\n");
 	}
-	get_pwm_src_base(&pdev->dev, mdp);
+	get_pwm_src_base(&pdev->dev, g_mdp);
 
-	mdp->chip.dev = &pdev->dev;
-	mdp->chip.ops = &mtk_disp_pwm_ops;
-	mdp->chip.base = -1;
-	mdp->chip.npwm = 1;
+	g_mdp->chip.dev = &pdev->dev;
+	g_mdp->chip.ops = &mtk_disp_pwm_ops;
+	g_mdp->chip.base = -1;
+	g_mdp->chip.npwm = 1;
 
-	ret = pwmchip_add(&mdp->chip);
+	ret = pwmchip_add(&g_mdp->chip);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "pwmchip_add() failed: %d\n", ret);
 		goto disable_clk_mm;
 	}
 
-	platform_set_drvdata(pdev, mdp);
+	platform_set_drvdata(pdev, g_mdp);
 
 	/*
 	 * For MT2701, disable double buffer before writing register
 	 * and select manual mode and use PWM_PERIOD/PWM_HIGH_WIDTH.
 	 */
-	if (!mdp->data->has_commit) {
-		mtk_disp_pwm_update_bits(mdp, mdp->data->bls_debug,
-					 mdp->data->bls_debug_mask,
-					 mdp->data->bls_debug_mask);
-		mtk_disp_pwm_update_bits(mdp, mdp->data->con0,
-					 mdp->data->con0_sel,
-					 mdp->data->con0_sel);
+	if (!g_mdp->data->has_commit) {
+		mtk_disp_pwm_update_bits(g_mdp, g_mdp->data->bls_debug,
+					 g_mdp->data->bls_debug_mask,
+					 g_mdp->data->bls_debug_mask);
+		mtk_disp_pwm_update_bits(g_mdp, g_mdp->data->con0,
+					 g_mdp->data->con0_sel,
+					 g_mdp->data->con0_sel);
 	}
+	pr_notice("%s end\n", __func__);
 
 	return 0;
 
 disable_clk_mm:
-	clk_unprepare(mdp->clk_mm);
+	clk_unprepare(g_mdp->clk_mm);
 disable_clk_main:
-	clk_unprepare(mdp->clk_main);
+	clk_unprepare(g_mdp->clk_main);
 	return ret;
 }
 
@@ -407,6 +425,83 @@ static struct platform_driver mtk_disp_pwm_driver = {
 	.remove = mtk_disp_pwm_remove,
 };
 module_platform_driver(mtk_disp_pwm_driver);
+
+static s32 disp_pwm_ut_case;
+int disp_pwm_ut_set(const char *val, const struct kernel_param *kp)
+{
+	int result;
+	int value1, value2;
+
+	result = sscanf(val, "%d %d %d", &disp_pwm_ut_case,
+		&value1, &value2);
+	if (result != 3) {
+		pr_notice("invalid input: %s, result(%d)\n", val, result);
+		return -EINVAL;
+	}
+	pr_notice("%s: case_id=%d\n", __func__, disp_pwm_ut_case);
+
+	switch (disp_pwm_ut_case) {
+	case 0:
+		pr_notice("use read to dump current pwm setting\n");
+		break;
+	case 1:
+		pr_notice("use read to dump pwm watch\n");
+		break;
+	case 2:
+		pr_notice("test: duty_ns=%d period_ns=%d\n", value1, value2);
+		mtk_disp_pwm_config_impl(g_mdp, value1, value2);
+		break;
+	case 3:
+		pr_notice("enable clock\n");
+		mtk_disp_pwm_enable_impl(g_mdp);
+		break;
+	case 4:
+		pr_notice("disable clock\n");
+		mtk_disp_pwm_disable_impl(g_mdp);
+		break;
+	default:
+		pr_notice("invalid case_id: %d\n", disp_pwm_ut_case);
+		break;
+	}
+
+	pr_notice("%s END\n", __func__);
+	return 0;
+}
+
+int disp_pwm_ut_get(char *buf, const struct kernel_param *kp)
+{
+	int length = 0;
+
+	switch (disp_pwm_ut_case) {
+	case 0:
+	case 2:
+		length += snprintf(buf + length, PAGE_SIZE - length,
+			"con0: 0x%08x\n",
+			readl(g_mdp->base + g_mdp->data->con0));
+		length += snprintf(buf + length, PAGE_SIZE - length,
+			"con1: 0x%08x\n",
+			readl(g_mdp->base + g_mdp->data->con1));
+		break;
+	case 1:
+		length += snprintf(buf + length, PAGE_SIZE - length,
+			"watch2: 0x%08x\n", readl(g_mdp->base + 0x30));
+		break;
+	default:
+		pr_notice("not support read for case_id: %d\n",
+			disp_pwm_ut_case);
+		break;
+	}
+	buf[length] = '\0';
+
+	return length;
+}
+
+static struct kernel_param_ops disp_pwm_ops = {
+	.set = disp_pwm_ut_set,
+	.get = disp_pwm_ut_get,
+};
+module_param_cb(disp_pwm_case, &disp_pwm_ops, NULL, 0644);
+MODULE_PARM_DESC(disp_pwm_case, "force mtk disp pwm UT test case");
 
 MODULE_AUTHOR("YH Huang <yh.huang@mediatek.com>");
 MODULE_DESCRIPTION("MediaTek SoC display PWM driver");
