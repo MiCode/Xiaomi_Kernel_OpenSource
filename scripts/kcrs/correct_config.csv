@@ -658,7 +658,7 @@ CONFIG_MTK_SLC_BUFFER_SUPPORT,PROJECT,isaac.lee,new config in this commit ae5dc7
 CONFIG_MTK_SM100,PROJECT,qiyuan.song,new config in this commit 3d29631334b2361b7b4596ebe73e6414b64907dc,,,,,,,,
 CONFIG_MTK_SMART_BATTERY,COMMON,Henry.Chen,,y,y,y,y,,,,
 CONFIG_MTK_SMARTPA_SOUND,PROJECT,chipeng.chang,,X,X,X,X,,,,
-CONFIG_MTK_SMI_EXT,PLATFORM,kendrick.hsu,,y,X,y,y,,,,
+CONFIG_MTK_SMI_EXT,PLATFORM,kendrick.hsu,,y,y,y,y,,,,
 CONFIG_MTK_SND_SOC_CODEC,PROJECT,Chien-Wei.hsu,new config in this commit Id1263ee35209bb47f72e3e37cc57fa82d52c036f,,,,,,,,
 CONFIG_MTK_SND_SOC_NEW_ARCH,PLATFORM,Chien-Wei.hsu,new config in this commit Id1263ee35209bb47f72e3e37cc57fa82d52c036f,y,y,y,y,,,,
 CONFIG_MTK_SPEAKER,PROJECT,georgecy.lin,,,,,,,,,
