@@ -64,8 +64,9 @@ const unsigned int AP_PMIC_REG_6359P_gs_suspend_32kless_data[] = {
 	0x1262, 0x4, 0x4,/* AUXADC_MDRT_2 */
 	0x140C, 0x7, 0x0,/* BUCK_TOP_CLK_CON0 */
 	0x1412, 0x8, 0x8,/* BUCK_TOP_CLK_HWEN_CON0 */
-	0x1488, 0x1, 0x0,/* BUCK_VPU_CON0 */
-	0x1494, 0x5, 0x0,/* BUCK_VPU_OP_EN */
+	0x1488, 0x1, 0x1,/* BUCK_VPU_CON0 */
+	0x1494, 0x5, 0x5,/* BUCK_VPU_OP_EN */
+	0x149A, 0x5, 0x5,/* BUCK_VPU_OP_CFG */
 	0x1508, 0x1, 0x0,/* BUCK_VCORE_CON0 */
 	0x1514, 0x5, 0x0,/* BUCK_VCORE_OP_EN */
 	0x1588, 0x1, 0x1,/* BUCK_VGPU11_CON0 */
@@ -73,9 +74,8 @@ const unsigned int AP_PMIC_REG_6359P_gs_suspend_32kless_data[] = {
 	0x159A, 0x5, 0x5,/* BUCK_VGPU11_OP_CFG */
 	0x1608, 0x1, 0x0,/* BUCK_VGPU12_CON0 */
 	0x1614, 0x5, 0x0,/* BUCK_VGPU12_OP_EN */
-	0x1688, 0x1, 0x1,/* BUCK_VMODEM_CON0 */
-	0x1694, 0x5, 0x5,/* BUCK_VMODEM_OP_EN */
-	0x169A, 0x5, 0x5,/* BUCK_VMODEM_OP_CFG */
+	0x1688, 0x1, 0x0,/* BUCK_VMODEM_CON0 */
+	0x1694, 0x5, 0x0,/* BUCK_VMODEM_OP_EN */
 	0x1708, 0x1, 0x0,/* BUCK_VPROC1_CON0 */
 	0x1714, 0x5, 0x0,/* BUCK_VPROC1_OP_EN */
 	0x1788, 0x1, 0x0,/* BUCK_VPROC2_CON0 */
@@ -153,14 +153,12 @@ const unsigned int AP_PMIC_REG_6359P_gs_suspend_32kless_data[] = {
 	0x1D9C, 0x8000, 0x0,/* LDO_VUFS_CON1 */
 	0x1DA0, 0x1, 0x1,/* LDO_VUFS_OP_EN */
 	0x1DA6, 0x1, 0x1,/* LDO_VUFS_OP_CFG */
+	0x1E88, 0x1, 0x0,/* LDO_VSRAM_PROC1_CON0 */
 	0x1E8A, 0x8000, 0x0,/* LDO_VSRAM_PROC1_CON1 */
-	0x1E96, 0x1, 0x1,/* LDO_VSRAM_PROC1_OP_EN */
-	0x1E9C, 0x1, 0x1,/* LDO_VSRAM_PROC1_OP_CFG */
 	0x1EA8, 0x1, 0x0,/* LDO_VSRAM_PROC2_CON0 */
 	0x1EAA, 0x8000, 0x0,/* LDO_VSRAM_PROC2_CON1 */
+	0x1F08, 0x1, 0x0,/* LDO_VSRAM_OTHERS_CON0 */
 	0x1F0A, 0x8000, 0x0,/* LDO_VSRAM_OTHERS_CON1 */
-	0x1F16, 0x1, 0x1,/* LDO_VSRAM_OTHERS_OP_EN */
-	0x1F1C, 0x1, 0x1,/* LDO_VSRAM_OTHERS_OP_CFG */
 	0x1F2E, 0x1, 0x0,/* LDO_VSRAM_MD_CON0 */
 	0x1F30, 0x8000, 0x0 /* LDO_VSRAM_MD_CON1 */
 };
@@ -168,7 +166,7 @@ const unsigned int AP_PMIC_REG_6359P_gs_suspend_32kless_data[] = {
 const unsigned int *AP_PMIC_REG_6359P_gs_suspend_32kless =
 				AP_PMIC_REG_6359P_gs_suspend_32kless_data;
 
-unsigned int AP_PMIC_REG_6359P_gs_suspend_32kless_len = 432;
+unsigned int AP_PMIC_REG_6359P_gs_suspend_32kless_len = 426;
 
 const unsigned int AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless_data[] = {
 /*	Address		Mask		Golden Setting Value */
@@ -217,8 +215,9 @@ const unsigned int AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless_data[] = {
 	0x1262, 0x4, 0x4,/* AUXADC_MDRT_2 */
 	0x140C, 0x7, 0x0,/* BUCK_TOP_CLK_CON0 */
 	0x1412, 0x8, 0x8,/* BUCK_TOP_CLK_HWEN_CON0 */
-	0x1488, 0x1, 0x0,/* BUCK_VPU_CON0 */
-	0x1494, 0x5, 0x0,/* BUCK_VPU_OP_EN */
+	0x1488, 0x1, 0x1,/* BUCK_VPU_CON0 */
+	0x1494, 0x5, 0x5,/* BUCK_VPU_OP_EN */
+	0x149A, 0x5, 0x5,/* BUCK_VPU_OP_CFG */
 	0x1508, 0x1, 0x0,/* BUCK_VCORE_CON0 */
 	0x1514, 0x5, 0x0,/* BUCK_VCORE_OP_EN */
 	0x1588, 0x1, 0x1,/* BUCK_VGPU11_CON0 */
@@ -226,9 +225,8 @@ const unsigned int AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless_data[] = {
 	0x159A, 0x5, 0x5,/* BUCK_VGPU11_OP_CFG */
 	0x1608, 0x1, 0x0,/* BUCK_VGPU12_CON0 */
 	0x1614, 0x5, 0x0,/* BUCK_VGPU12_OP_EN */
-	0x1688, 0x1, 0x1,/* BUCK_VMODEM_CON0 */
-	0x1694, 0x5, 0x5,/* BUCK_VMODEM_OP_EN */
-	0x169A, 0x5, 0x5,/* BUCK_VMODEM_OP_CFG */
+	0x1688, 0x1, 0x0,/* BUCK_VMODEM_CON0 */
+	0x1694, 0x5, 0x0,/* BUCK_VMODEM_OP_EN */
 	0x1708, 0x1, 0x0,/* BUCK_VPROC1_CON0 */
 	0x1714, 0x5, 0x0,/* BUCK_VPROC1_OP_EN */
 	0x1788, 0x1, 0x0,/* BUCK_VPROC2_CON0 */
@@ -304,14 +302,12 @@ const unsigned int AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless_data[] = {
 	0x1D8A, 0x8000, 0x0,/* LDO_VM18_CON1 */
 	0x1D9A, 0x1, 0x1,/* LDO_VUFS_CON0 */
 	0x1D9C, 0x8000, 0x0,/* LDO_VUFS_CON1 */
+	0x1E88, 0x1, 0x0,/* LDO_VSRAM_PROC1_CON0 */
 	0x1E8A, 0x8000, 0x0,/* LDO_VSRAM_PROC1_CON1 */
-	0x1E96, 0x4, 0x4,/* LDO_VSRAM_PROC1_OP_EN */
-	0x1E9C, 0x4, 0x4,/* LDO_VSRAM_PROC1_OP_CFG */
 	0x1EA8, 0x1, 0x0,/* LDO_VSRAM_PROC2_CON0 */
 	0x1EAA, 0x8000, 0x0,/* LDO_VSRAM_PROC2_CON1 */
+	0x1F08, 0x1, 0x0,/* LDO_VSRAM_OTHERS_CON0 */
 	0x1F0A, 0x8000, 0x0,/* LDO_VSRAM_OTHERS_CON1 */
-	0x1F16, 0x4, 0x4,/* LDO_VSRAM_OTHERS_OP_EN */
-	0x1F1C, 0x4, 0x4,/* LDO_VSRAM_OTHERS_OP_CFG */
 	0x1F2E, 0x1, 0x0,/* LDO_VSRAM_MD_CON0 */
 	0x1F30, 0x8000, 0x0 /* LDO_VSRAM_MD_CON1 */
 };
@@ -319,7 +315,7 @@ const unsigned int AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless_data[] = {
 const unsigned int *AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless =
 		AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless_data;
 
-unsigned int AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless_len = 426;
+unsigned int AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless_len = 420;
 
 const unsigned int AP_PMIC_REG_6359P_gs_sodi3p0_32kless_data[] = {
 /*	Address		Mask		Golden Setting Value */
@@ -368,8 +364,9 @@ const unsigned int AP_PMIC_REG_6359P_gs_sodi3p0_32kless_data[] = {
 	0x1262, 0x4, 0x4,/* AUXADC_MDRT_2 */
 	0x140C, 0x7, 0x0,/* BUCK_TOP_CLK_CON0 */
 	0x1412, 0x8, 0x8,/* BUCK_TOP_CLK_HWEN_CON0 */
-	0x1488, 0x1, 0x0,/* BUCK_VPU_CON0 */
-	0x1494, 0x5, 0x0,/* BUCK_VPU_OP_EN */
+	0x1488, 0x1, 0x1,/* BUCK_VPU_CON0 */
+	0x1494, 0x5, 0x5,/* BUCK_VPU_OP_EN */
+	0x149A, 0x5, 0x5,/* BUCK_VPU_OP_CFG */
 	0x1508, 0x1, 0x0,/* BUCK_VCORE_CON0 */
 	0x1514, 0x5, 0x0,/* BUCK_VCORE_OP_EN */
 	0x1588, 0x1, 0x1,/* BUCK_VGPU11_CON0 */
@@ -377,9 +374,8 @@ const unsigned int AP_PMIC_REG_6359P_gs_sodi3p0_32kless_data[] = {
 	0x159A, 0x5, 0x5,/* BUCK_VGPU11_OP_CFG */
 	0x1608, 0x1, 0x0,/* BUCK_VGPU12_CON0 */
 	0x1614, 0x5, 0x0,/* BUCK_VGPU12_OP_EN */
-	0x1688, 0x1, 0x1,/* BUCK_VMODEM_CON0 */
-	0x1694, 0x5, 0x5,/* BUCK_VMODEM_OP_EN */
-	0x169A, 0x5, 0x5,/* BUCK_VMODEM_OP_CFG */
+	0x1688, 0x1, 0x0,/* BUCK_VMODEM_CON0 */
+	0x1694, 0x5, 0x0,/* BUCK_VMODEM_OP_EN */
 	0x1708, 0x1, 0x0,/* BUCK_VPROC1_CON0 */
 	0x1714, 0x5, 0x0,/* BUCK_VPROC1_OP_EN */
 	0x1788, 0x1, 0x0,/* BUCK_VPROC2_CON0 */
@@ -455,14 +451,12 @@ const unsigned int AP_PMIC_REG_6359P_gs_sodi3p0_32kless_data[] = {
 	0x1D8A, 0x8000, 0x0,/* LDO_VM18_CON1 */
 	0x1D9A, 0x1, 0x1,/* LDO_VUFS_CON0 */
 	0x1D9C, 0x8000, 0x0,/* LDO_VUFS_CON1 */
+	0x1E88, 0x1, 0x0,/* LDO_VSRAM_PROC1_CON0 */
 	0x1E8A, 0x8000, 0x0,/* LDO_VSRAM_PROC1_CON1 */
-	0x1E96, 0x1, 0x1,/* LDO_VSRAM_PROC1_OP_EN */
-	0x1E9C, 0x1, 0x1,/* LDO_VSRAM_PROC1_OP_CFG */
 	0x1EA8, 0x1, 0x0,/* LDO_VSRAM_PROC2_CON0 */
 	0x1EAA, 0x8000, 0x0,/* LDO_VSRAM_PROC2_CON1 */
+	0x1F08, 0x1, 0x0,/* LDO_VSRAM_OTHERS_CON0 */
 	0x1F0A, 0x8000, 0x0,/* LDO_VSRAM_OTHERS_CON1 */
-	0x1F16, 0x1, 0x1,/* LDO_VSRAM_OTHERS_OP_EN */
-	0x1F1C, 0x1, 0x1,/* LDO_VSRAM_OTHERS_OP_CFG */
 	0x1F2E, 0x1, 0x0,/* LDO_VSRAM_MD_CON0 */
 	0x1F30, 0x8000, 0x0 /* LDO_VSRAM_MD_CON1 */
 };
@@ -470,4 +464,4 @@ const unsigned int AP_PMIC_REG_6359P_gs_sodi3p0_32kless_data[] = {
 const unsigned int *AP_PMIC_REG_6359P_gs_sodi3p0_32kless =
 			AP_PMIC_REG_6359P_gs_sodi3p0_32kless_data;
 
-unsigned int AP_PMIC_REG_6359P_gs_sodi3p0_32kless_len = 426;
+unsigned int AP_PMIC_REG_6359P_gs_sodi3p0_32kless_len = 420;

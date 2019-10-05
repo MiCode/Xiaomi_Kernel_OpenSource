@@ -14,7 +14,8 @@
 #include "mtk_power_gs.h"
 #include "mtk_power_gs_array.h"
 #include "mt-plat/mtk_rtc.h"
-
+extern void dump_pmic_6315(int pmic_num, const char *scenario,
+			const unsigned int *pmic_gs, unsigned int pmic_gs_len);
 void mt_power_gs_table_init(void)
 {
 	mt_power_gs_base_remap_init("Suspend ", "CG  ",
@@ -43,10 +44,23 @@ void mt_power_gs_suspend_compare(unsigned int dump_flag)
 		/* 32k-less */
 		pr_debug("Power_gs: %s in 32k-less\n", __func__);
 			mt_power_gs_compare("Suspend ", "6359",
-			AP_PMIC_REG_gs_suspend_32kless,
-			AP_PMIC_REG_gs_suspend_32kless_len);
+			AP_PMIC_REG_6359P_gs_suspend_32kless,
+			AP_PMIC_REG_6359P_gs_suspend_32kless_len);
 	}
+	if (dump_flag & GS_PMIC_6315) {
+		pr_debug("Power_gs : %s\n", __func__);
+		dump_pmic_6315(1, "Suspend",
+			AP_PMIC_REG_MT6315_1_gs_suspend_32kless,
+			AP_PMIC_REG_MT6315_1_gs_suspend_32kless_len);
 
+		dump_pmic_6315(2, "Suspend",
+			AP_PMIC_REG_MT6315_2_gs_suspend_32kless,
+			AP_PMIC_REG_MT6315_2_gs_suspend_32kless_len);
+
+		dump_pmic_6315(3, "Suspend",
+			AP_PMIC_REG_MT6315_3_gs_suspend_32kless,
+			AP_PMIC_REG_MT6315_3_gs_suspend_32kless_len);
+	}
 	if (dump_flag & GS_CG) {
 		mt_power_gs_compare("Suspend ", "CG  ",
 				AP_CG_Golden_Setting_tcl_gs_suspend,
@@ -68,8 +82,23 @@ void mt_power_gs_dpidle_compare(unsigned int dump_flag)
 		/* 32k-less */
 		pr_debug("Power_gs: %s in 32k-less\n", __func__);
 			mt_power_gs_compare("DPIdle  ", "6359",
-			AP_PMIC_REG_gs_deepidle___lp_mp3_32kless,
-			AP_PMIC_REG_gs_deepidle___lp_mp3_32kless_len);
+			AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless,
+			AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless_len);
+	}
+
+	if (dump_flag & GS_PMIC_6315) {
+		pr_debug("Power_gs : %s\n", __func__);
+		dump_pmic_6315(1, "DPIdle",
+			AP_PMIC_REG_MT6315_1_gs_deepidle___lp_mp3_32kless,
+			AP_PMIC_REG_MT6315_1_gs_deepidle___lp_mp3_32kless_len);
+
+		dump_pmic_6315(2, "DPIdle",
+		AP_PMIC_REG_MT6315_2_gs_deepidle___lp_mp3_32kless,
+			AP_PMIC_REG_MT6315_2_gs_deepidle___lp_mp3_32kless_len);
+
+		dump_pmic_6315(3, "DPIdle",
+			AP_PMIC_REG_MT6315_3_gs_deepidle___lp_mp3_32kless,
+			AP_PMIC_REG_MT6315_3_gs_deepidle___lp_mp3_32kless_len);
 	}
 
 	if (dump_flag & GS_CG) {
@@ -93,8 +122,23 @@ void mt_power_gs_sodi_compare(unsigned int dump_flag)
 		/* 32k-less */
 		pr_debug("Power_gs: %s in 32k-less\n", __func__);
 		mt_power_gs_compare("SODI    ", "6359",
-			AP_PMIC_REG_gs_sodi3p0_32kless,
-			AP_PMIC_REG_gs_sodi3p0_32kless_len);
+			AP_PMIC_REG_6359P_gs_sodi3p0_32kless,
+			AP_PMIC_REG_6359P_gs_sodi3p0_32kless_len);
+	}
+
+	if (dump_flag & GS_PMIC_6315) {
+		pr_debug("Power_gs : %s\n", __func__);
+		dump_pmic_6315(1, "SODI",
+			AP_PMIC_REG_MT6315_1_gs_sodi3p0_32kless,
+			AP_PMIC_REG_MT6315_1_gs_sodi3p0_32kless_len);
+
+		dump_pmic_6315(2, "SODI",
+			AP_PMIC_REG_MT6315_2_gs_sodi3p0_32kless,
+			AP_PMIC_REG_MT6315_2_gs_sodi3p0_32kless_len);
+
+		dump_pmic_6315(3, "SODI",
+			AP_PMIC_REG_MT6315_3_gs_sodi3p0_32kless,
+			AP_PMIC_REG_MT6315_3_gs_sodi3p0_32kless_len);
 	}
 
 	if (dump_flag & GS_CG) {
