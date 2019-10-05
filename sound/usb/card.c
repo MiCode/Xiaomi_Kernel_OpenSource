@@ -638,6 +638,11 @@ static int usb_audio_probe(struct usb_interface *intf,
 	usb_chip[chip->index] = chip;
 	chip->num_interfaces++;
 	usb_set_intfdata(intf, chip);
+
+	/* enable auto suspend */
+	usb_enable_autosuspend(dev);
+	device_wakeup_enable(&dev->dev);
+
 	atomic_dec(&chip->active);
 	mutex_unlock(&register_mutex);
 	return 0;
