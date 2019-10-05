@@ -36,7 +36,4 @@ endif
 
 CFLAGS_KASAN_NOSANITIZE := -fno-builtin
 
-CFLAGS_KASAN += $(call cc-option, -Wno-format)
-CFLAGS_KASAN += $(call cc-option, -Wno-enum-compare)
-
 endif
