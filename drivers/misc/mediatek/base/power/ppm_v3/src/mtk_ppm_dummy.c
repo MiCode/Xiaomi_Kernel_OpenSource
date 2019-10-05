@@ -76,6 +76,12 @@ unsigned int mt_ppm_thermal_get_cur_power(void)
 	return 0;
 }
 
+int ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status)
+{
+	return 0;
+}
+
+
 /* User limit policy */
 unsigned int mt_ppm_userlimit_cpu_core(unsigned int cluster_num,
 	struct ppm_limit_data *data)
