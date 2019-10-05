@@ -84,7 +84,8 @@ static int inpocket_recv_data(struct data_unit_t *event, void *reserved)
 	if (event->flush_action == FLUSH_ACTION)
 		pr_debug("inpocket do not support flush\n");
 	else if (event->flush_action == DATA_ACTION)
-		err = situation_notify(ID_IN_POCKET);
+		err = situation_notify_t(ID_IN_POCKET,
+				(int64_t)event->time_stamp);
 	return err;
 }
 

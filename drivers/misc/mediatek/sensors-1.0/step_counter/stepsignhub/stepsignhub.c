@@ -298,7 +298,8 @@ static int step_detect_recv_data(struct data_unit_t *event,
 	if (event->flush_action == FLUSH_ACTION)
 		err = step_d_flush_report();
 	else if (event->flush_action == DATA_ACTION)
-		err = step_notify(TYPE_STEP_DETECTOR);
+		err = step_notify_t(TYPE_STEP_DETECTOR,
+			(int64_t)event->time_stamp);
 	return err;
 }
 
@@ -309,8 +310,9 @@ static int step_count_recv_data(struct data_unit_t *event, void *reserved)
 	if (event->flush_action == FLUSH_ACTION)
 		err = step_c_flush_report();
 	else if (event->flush_action == DATA_ACTION)
-		err = step_c_data_report(
-			event->step_counter_t.accumulated_step_count, 2);
+		err = step_c_data_report_t(
+			event->step_counter_t.accumulated_step_count,
+			2, (int64_t)event->time_stamp);
 	return err;
 }
 
@@ -321,7 +323,8 @@ static int sign_recv_data(struct data_unit_t *event, void *reserved)
 	if (event->flush_action == FLUSH_ACTION)
 		pr_err("sign do not support flush\n");
 	else if (event->flush_action == DATA_ACTION)
-		err = step_notify(TYPE_SIGNIFICANT);
+		err = step_notify_t(TYPE_SIGNIFICANT,
+			(int64_t)event->time_stamp);
 	return err;
 }
 
@@ -333,8 +336,9 @@ static int floor_count_recv_data(struct data_unit_t *event, void *reserved)
 	if (event->flush_action == FLUSH_ACTION)
 		err = floor_c_flush_report();
 	else if (event->flush_action == DATA_ACTION)
-		err = floor_c_data_report(
-			pfloor_counter->accumulated_floor_count, 2);
+		err = floor_c_data_report_t(
+			pfloor_counter->accumulated_floor_count, 2,
+			(int64_t)event->time_stamp);
 	return err;
 }
 
