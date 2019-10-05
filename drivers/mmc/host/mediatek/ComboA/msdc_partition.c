@@ -148,6 +148,7 @@ int msdc_can_apply_cache(unsigned long long start_addr,
 void msdc_get_cache_region(struct work_struct *work)
 {
 	struct hd_struct part = {0};
+	static int retry;
 
 	if (msdc_get_part_info("cache", &part)) {
 		g_cache_part_start = part.start_sect;
@@ -164,6 +165,14 @@ void msdc_get_cache_region(struct work_struct *work)
 		g_cache_part_start, g_cache_part_end,
 		g_usrdata_part_start, g_usrdata_part_end);
 
+	if ((!g_cache_part_start || !g_cache_part_end ||
+		!g_usrdata_part_start || !g_usrdata_part_end) &&
+		retry++ < 5) {
+		/* re-schedule, if part info not ready */
+		pr_info("part info not ready re-schedule(%d) %s\n",
+			retry, __func__);
+		schedule_delayed_work(&get_cache_info, msecs_to_jiffies(1000));
+	}
 }
 EXPORT_SYMBOL(msdc_get_cache_region);
 
@@ -176,7 +185,7 @@ static int __init init_get_cache_work(void)
 		return 0;
 
 	INIT_DELAYED_WORK(&get_cache_info, msdc_get_cache_region);
-	schedule_delayed_work(&get_cache_info, 100);
+	schedule_delayed_work(&get_cache_info, msecs_to_jiffies(500));
 	return 0;
 }
 
