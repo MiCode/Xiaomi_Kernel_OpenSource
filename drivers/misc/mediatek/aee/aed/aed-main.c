@@ -67,6 +67,8 @@ static int ke_log_available = 1;
 
 static struct proc_dir_entry *aed_proc_dir;
 
+static spinlock_t msg_destroy_lock;
+
 #define MaxStackSize 8100
 #define MaxMapsSize 8100
 
@@ -223,10 +225,12 @@ static struct aed_dev aed_dev;
 
 inline void msg_destroy(char **ppmsg)
 {
+	spin_lock(&msg_destroy_lock);
 	if (*ppmsg != NULL) {
 		vfree(*ppmsg);
 		*ppmsg = NULL;
 	}
+	spin_unlock(&msg_destroy_lock);
 }
 
 inline struct AE_Msg *msg_create(char **ppmsg, int extra_size)
@@ -2190,6 +2194,8 @@ static int __init aed_init(void)
 	spin_lock_init(&ee_queue.lock);
 	INIT_LIST_HEAD(&ke_queue.list);
 	INIT_LIST_HEAD(&ee_queue.list);
+
+	spin_lock_init(&msg_destroy_lock);
 
 	init_waitqueue_head(&aed_dev.eewait);
 	memset(&aed_dev.kerec, 0, sizeof(struct aed_kerec));
