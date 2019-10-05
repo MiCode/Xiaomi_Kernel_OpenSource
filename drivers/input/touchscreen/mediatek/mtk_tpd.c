@@ -148,7 +148,7 @@ static DEFINE_MUTEX(tpd_set_gpio_mutex);
 void tpd_gpio_as_int(int pin)
 {
 	mutex_lock(&tpd_set_gpio_mutex);
-	TPD_DEBUG("[tpd] $s\n", __func__);
+	TPD_DEBUG("[tpd] %s\n", __func__);
 	if (pin == 1)
 		pinctrl_select_state(pinctrl1, eint_as_int);
 	mutex_unlock(&tpd_set_gpio_mutex);
