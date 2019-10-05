@@ -762,6 +762,9 @@ static ssize_t ses_volt_ratio_proc_write(struct file *file,
 		goto out;
 	}
 
+	if (ses_node >= sesNum)
+		goto out;
+
 	if (atf != 2) {
 		drp_ratio[ses_node].HiCodeRatio = HiRatio;
 		drp_ratio[ses_node].LoCodeRatio = LoRatio;
