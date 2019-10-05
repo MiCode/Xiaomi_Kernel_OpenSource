@@ -105,7 +105,7 @@ void mdla_trace_end(int core, int status, struct command_entry *ce)
 void mdla_dump_prof(int coreid, struct seq_file *s)
 {
 	int i;
-	u32 c[MDLA_PMU_COUNTERS];
+	u32 c[MDLA_PMU_COUNTERS] = {};
 
 #define _SHOW_VAL(t) \
 	mdla_print_seq(s, "%s=%lu\n", #t, (unsigned long)cfg_##t)
@@ -113,8 +113,6 @@ void mdla_dump_prof(int coreid, struct seq_file *s)
 	_SHOW_VAL(period);
 	_SHOW_VAL(op_trace);
 	_SHOW_VAL(pmu_int);
-
-	memset(c, 0, sizeof(c));
 
 	pmu_counter_event_get_all(coreid, c);
 
@@ -127,10 +125,8 @@ void mdla_dump_prof(int coreid, struct seq_file *s)
  */
 static void mdla_profile_pmu_counter(int core_id)
 {
-	u32 c[MDLA_PMU_COUNTERS];
+	u32 c[MDLA_PMU_COUNTERS] = {};
 	struct mdla_dev *mdla_info = &mdla_devices[core_id];
-
-	memset(c, 0, sizeof(c));
 
 	if (mdla_info->pmu.pmu_hnd->mode == PER_CMD) {
 		pmu_reg_save(core_id);

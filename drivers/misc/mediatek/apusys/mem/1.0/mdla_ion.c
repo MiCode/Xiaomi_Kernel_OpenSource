@@ -49,7 +49,7 @@ int mdla_ion_kmap(unsigned long arg)
 	struct ioctl_ion ion_data;
 	struct ion_mm_data mm_data;
 	struct ion_handle *hndl;
-	ion_phys_addr_t mva;
+	ion_phys_addr_t mva = 0;
 	void *kva;
 	int ret;
 
