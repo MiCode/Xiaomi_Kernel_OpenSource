@@ -148,7 +148,7 @@ void msdc_dump_ldo_sts(char **buff, unsigned long *size,
 #if !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS) \
 	|| defined(MTK_MSDC_BRINGUP_DEBUG)
 	u32 ldo_en = 0, vm_mode = 0;
-	u32 ldo_vol[1] = {0}, ldo_cal[1] = {0};
+	u32 ldo_vol[2] = {0}, ldo_cal[2] = {0};
 	u32 id = host->id;
 
 	switch (id) {
