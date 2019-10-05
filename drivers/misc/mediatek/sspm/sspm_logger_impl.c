@@ -177,7 +177,7 @@ static unsigned int sspm_log_enable_set(unsigned int enable)
 		}
 
 		if (enable != ackdata) {
-			pr_err("SSPM: %s fail ret=%d\n", __func__);
+			pr_err("SSPM: %s fail ret=%d\n", __func__, ackdata);
 			goto error;
 		}
 
