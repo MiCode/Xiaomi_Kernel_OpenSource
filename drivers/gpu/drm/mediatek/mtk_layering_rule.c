@@ -460,6 +460,8 @@ static int layering_get_valid_hrt(int width, int height)
 
 	DDPINFO("get avail HRT BW:%u : %llu %llu\n",
 		mm_hrt_get_available_hrt_bw(PORT_VIRTUAL_DISP), dvfs_bw, tmp);
+#else
+	dvfs_bw = 600;
 #endif
 
 	return dvfs_bw;

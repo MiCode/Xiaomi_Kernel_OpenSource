@@ -1302,10 +1302,12 @@ int mtk_drm_get_info_ioctl(struct drm_device *dev, void *data,
 #endif
 	} else if (s_type == MTK_SESSION_MEMORY) {
 		return ret;
+	} else {
+		DDPPR_ERR("invalid session type:0x%08x\n", info->session_id);
+		return -EINVAL;
 	}
 
-	DDPPR_ERR("invalid session type:0x%08x\n", info->session_id);
-	return -EINVAL;
+	return ret;
 }
 
 int mtk_drm_set_ddp_mode(struct drm_device *dev, void *data,
