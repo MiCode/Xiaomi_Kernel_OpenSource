@@ -77,12 +77,6 @@ endif # !CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
 endif # !TCORE_UT_FWK_SUPPORT
 
 #==========================================================================
-# Protcted Shared Memory Core Driver
-#==========================================================================
-obj-$(CONFIG_MTK_PROT_MEM_SUPPORT) += pmem.o
-pmem-y += pmem/pmem_device.o
-
-#==========================================================================
 # SVP Secure Memory Core Driver
 #==========================================================================
 obj-$(CONFIG_MTK_SECURE_MEM_SUPPORT) += secmem.o
@@ -106,11 +100,10 @@ obj-$(CONFIG_MTK_WFD_SMEM_SUPPORT) += wfd_smem.o
 wfd_smem-y += wfd_smem/wfd_smem_device.o
 
 #==========================================================================
-# MTEE Multiple Chunk Memory Core Driver
+# MTEE Multiple Chunk Memory Device Driver
 #==========================================================================
-obj-$(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT) += mtee_chunks.o
-ifeq ($(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT),y)
-mtee_chunks-y += mtee_chunks/mtee_devices.o
+ifneq ($(filter y,$(CONFIG_MTK_PROT_MEM_SUPPORT) $(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)),)
+obj-y += mtee_devices.o
 endif
 
 #==========================================================================
