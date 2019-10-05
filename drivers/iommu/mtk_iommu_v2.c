@@ -972,8 +972,6 @@ static const struct iommu_gather_ops mtk_iommu_gather_ops = {
 	.tlb_sync = mtk_iommu_tlb_sync,
 };
 
-static struct timer_list iommu_isr_pause_timer;
-
 static inline void mtk_iommu_intr_modify_all(unsigned long enable)
 {
 	struct mtk_iommu_data *data, *temp;
@@ -1016,23 +1014,23 @@ static void mtk_iommu_isr_restart(unsigned long unused)
 	mtk_iommu_debug_reset();
 }
 
-static int mtk_iommu_isr_pause_timer_init(void)
+static int mtk_iommu_isr_pause_timer_init(struct mtk_iommu_data *data)
 {
-	init_timer(&iommu_isr_pause_timer);
-	iommu_isr_pause_timer.function = mtk_iommu_isr_restart;
+	init_timer(&data->iommu_isr_pause_timer);
+	data->iommu_isr_pause_timer.function = mtk_iommu_isr_restart;
 	return 0;
 }
 
-static int mtk_iommu_isr_pause(int delay)
+static int mtk_iommu_isr_pause(int delay, struct mtk_iommu_data *data)
 {
 	mtk_iommu_intr_modify_all(0); /* disable all intr */
 	/* delay seconds */
-	iommu_isr_pause_timer.expires = jiffies + delay * HZ;
-	add_timer(&iommu_isr_pause_timer);
+	data->iommu_isr_pause_timer.expires = jiffies + delay * HZ;
+	add_timer(&data->iommu_isr_pause_timer);
 	return 0;
 }
 
-static void mtk_iommu_isr_record(void)
+static void mtk_iommu_isr_record(struct mtk_iommu_data *data)
 {
 	static int isr_cnt;
 	static unsigned long first_jiffies;
@@ -1046,7 +1044,7 @@ static void mtk_iommu_isr_record(void)
 		if (isr_cnt >= 5) {
 			/* 5 irqs come in 5s, too many ! */
 			/* disable irq for a while, to avoid HWT timeout */
-			mtk_iommu_isr_pause(10);
+			mtk_iommu_isr_pause(10, data);
 			isr_cnt = 0;
 		}
 	}
@@ -1272,7 +1270,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	writel_relaxed(regval, data->base + REG_MMU_INT_CONTROL0);
 
 	mtk_iommu_tlb_flush_all(data);
-	mtk_iommu_isr_record();
+	mtk_iommu_isr_record(data);
 
 	return IRQ_HANDLED;
 }
@@ -3804,7 +3802,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	   total_iommu_cnt == MTK_IOMMU_M4U_COUNT)
 		bus_set_iommu(&platform_bus_type, &mtk_iommu_ops);
 
-	mtk_iommu_isr_pause_timer_init();
+	mtk_iommu_isr_pause_timer_init(data);
 
 	mtk_iommu_debug_init();
 	for (slave = 0;
