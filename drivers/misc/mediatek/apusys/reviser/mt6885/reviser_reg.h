@@ -28,7 +28,12 @@
 
 #define REVISER_BASE             (0x19021000)
 //Need to check boundary region with iommu team every project
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT == 34)
+#define BOUNDARY_APUSYS          (3)
+#else
 #define BOUNDARY_APUSYS          (0)
+#endif
 
 #define REVISER_FAIL             (0xFFFFFFFF)
 #define REVISER_DEFAULT          (0xFFFFFFFF)

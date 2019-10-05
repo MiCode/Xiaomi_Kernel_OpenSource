@@ -735,6 +735,8 @@ int reviser_boundary_init(void *drvinfo, uint8_t boundary)
 
 	DEBUG_TAG;
 
+	LOG_INFO("boundary %u\n", boundary);
+
 	for (i = 0; i < VLM_CTXT_MDLA_MAX; i++) {
 		if (reviser_set_boundary(
 			drvinfo, REVISER_DEVICE_MDLA,
