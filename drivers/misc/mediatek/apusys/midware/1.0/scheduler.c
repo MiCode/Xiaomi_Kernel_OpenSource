@@ -181,8 +181,9 @@ static int insert_pack_cmd(struct apusys_subcmd *sc, struct pack_cmd **ipc)
 	bit0 = test_and_change_bit(sc->idx, cmd->pc_col.pack_status);
 	bit1 = test_and_change_bit(sc->pack_idx, cmd->pc_col.pack_status);
 	if (bit0 && bit1) {
-		LOG_INFO("pack cmd satified(0x%llx)(%d/%d)\n",
-			cmd->cmd_id, sc->idx, sc->pack_idx);
+		LOG_INFO("pack cmd satified(0x%llx/0x%llx)(%d/%d)\n",
+			cmd->cmd_uid, cmd->cmd_id,
+			sc->idx, sc->pack_idx);
 		pc = kzalloc(sizeof(struct pack_cmd), GFP_KERNEL);
 		if (pc == NULL) {
 			LOG_ERR("alloc packcmd(0x%llx/%d) for execute fail\n",
@@ -260,6 +261,8 @@ static int exec_pack_cmd(void *iacq)
 			cmd = (struct apusys_cmd *)sc->parent_cmd;
 			count++;
 			DEBUG_TAG;
+			info->cmd_id = cmd->cmd_id;
+			info->sc_idx = sc->idx;
 			if (thread_pool_trigger(sc, info->dev)) {
 				LOG_ERR("tp cmd(0x%llx/%d)dev(%d/%d) fail\n",
 					cmd->cmd_id, sc->idx,
@@ -417,9 +420,10 @@ static int exec_cmd_func(void *isc, void *idev)
 	sc->state = CMD_STATE_RUN;
 
 	/* 2. get driver time start */
-	LOG_INFO("exec sc(%d/%p/%d) cmd(0x%llx) on dev(%d/%p)\n",
-		sc->idx, sc, sc->type,
-		cmd->cmd_id, dev->dev_type, dev);
+	LOG_INFO("exec cmd(0x%llx/0x%llx) sc(%d/%d) dev(%d/%d)\n",
+		cmd->cmd_uid, cmd->cmd_id,
+		sc->idx, sc->type,
+		dev->dev_type, dev->idx);
 
 	if (sc->d_time)
 		sc->d_time = get_time_from_system();
@@ -428,6 +432,8 @@ static int exec_cmd_func(void *isc, void *idev)
 	LOG_DEBUG("mnoc: cmd qos start(0x%llx/%d/%d/%d)\n",
 		cmd->cmd_id, sc->idx,
 		sc->type, dev->idx);
+
+	/* count qos start */
 	if (apu_cmd_qos_start(cmd->cmd_id, sc->idx, sc->type, dev->idx)) {
 		LOG_ERR("start qos for cmd(0x%llx/%d) fail\n",
 			cmd->cmd_id, sc->idx);
@@ -435,6 +441,11 @@ static int exec_cmd_func(void *isc, void *idev)
 
 	/* 4. execute subcmd */
 	ret = dev->send_cmd(APUSYS_CMD_EXECUTE, (void *)&cmd_hnd, dev);
+
+	LOG_INFO("cmd(0x%llx/0x%llx) sc(%d/%d) dev(%d/%d) done\n",
+		cmd->cmd_uid, cmd->cmd_id,
+		sc->idx, sc->type,
+		dev->dev_type, dev->idx);
 
 	/* count qos end */
 	sc->bw = apu_cmd_qos_end(cmd->cmd_id, sc->idx);
@@ -468,7 +479,7 @@ static int exec_cmd_func(void *isc, void *idev)
 		mutex_unlock(&sc->mtx);
 	}
 
-	// put back device
+	/* 5. put back device */
 	if (put_device_lock(dev)) {
 		LOG_ERR("return device(%d/%d/%p) fail\n",
 			dev->dev_type,
@@ -607,6 +618,8 @@ int sche_routine(void *arg)
 				info = list_entry(list_ptr,
 					struct apusys_dev_info, acq_list);
 				dev = info->dev;
+				info->cmd_id = cmd->cmd_id;
+				info->sc_idx = sc->idx;
 				ret = thread_pool_trigger(sc, dev);
 				if (ret)
 					LOG_ERR("trigger thread pool fail\n");

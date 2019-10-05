@@ -25,6 +25,7 @@
 #include "scheduler.h"
 #include "cmd_parser.h"
 #include "cmd_format.h"
+#include "memory_mgt.h"
 #include "resource_mgt.h"
 
 //----------------------------------------------
@@ -91,7 +92,6 @@ static void _print_header(void *ce)
 	LOG_DEBUG(" dependency list entry= 0x%llx\n", _get_dp_entry(ce));
 	LOG_DEBUG(" subcmd list entry    = 0x%llx\n", _get_sc_list_entry(ce));
 	LOG_DEBUG("=====================================\n");
-
 }
 
 uint64_t get_time_from_system(void)
@@ -320,19 +320,26 @@ int apusys_subcmd_delete(struct apusys_subcmd *sc)
 	return 0;
 }
 
-int apusys_cmd_create(void *cmd_entry, struct apusys_cmd **icmd)
+int apusys_cmd_create(int mem_fd, uint32_t offset,
+	struct apusys_cmd **icmd)
 {
 	struct apusys_cmd *cmd;
+	struct apusys_mem mem;
+	void *cmd_entry = NULL;
 	uint8_t cmd_version = 0;
 	uint64_t cmd_magic = 0;
 	int ret = 0, i = 0, ctx_idx = 0;
 	uint32_t sc_num = 0;
 
-	/* check argument */
-	if (cmd_entry == NULL) {
-		LOG_ERR("invalid argument\n");
-		return -EINVAL;
+	/* map kva */
+	memset(&mem, 0, sizeof(struct apusys_mem));
+	mem.ion_data.ion_share_fd = mem_fd;
+	if (apusys_mem_map_kva(&mem)) {
+		LOG_ERR("map cmd buffer kva from fd(%d)fail\n",
+			mem_fd);
+		return -ENOMEM;
 	}
+	cmd_entry = (void *)(mem.kva + offset);
 
 	_print_header(cmd_entry);
 
@@ -368,9 +375,13 @@ int apusys_cmd_create(void *cmd_entry, struct apusys_cmd **icmd)
 	}
 
 	/* assign value */
+	cmd->mem_fd = mem_fd;
+	cmd->mem_hnd = mem.ion_data.ion_khandle;
+
 	cmd->kva = (void *)cmd_entry;
 	//cmd->size = ioctl_cmd->size;
-	cmd->cmd_id = _get_cmdid(cmd->kva);
+	cmd->cmd_uid = _get_cmdid(cmd->kva);
+	cmd->cmd_id = (uint64_t)(cmd);
 	cmd->sc_num = sc_num;
 	cmd->sc_list_entry = (void *)_get_sc_list_entry(cmd->kva);
 	cmd->dp_entry = (void *)_get_dp_entry(cmd->kva);
@@ -437,8 +448,9 @@ int apusys_cmd_create(void *cmd_entry, struct apusys_cmd **icmd)
 
 	*icmd = cmd;
 
-	LOG_DEBUG("create cmd (0x%llx/%d)(%d/%d/%d)\n",
-		cmd->cmd_id, cmd->sc_num, cmd->priority,
+	LOG_INFO("create cmd (0x%llx/0x%llx/%d)(%d/%d/%d)\n",
+		cmd->cmd_uid, cmd->cmd_id,
+		cmd->sc_num, cmd->priority,
 		cmd->target_time, cmd->estimate_time);
 
 	return ret;
@@ -460,6 +472,7 @@ ce_fail:
 int apusys_cmd_delete(struct apusys_cmd *cmd)
 {
 	struct apusys_subcmd *sc = NULL;
+	struct apusys_mem mem;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 
 	if (cmd == NULL)
@@ -481,6 +494,15 @@ int apusys_cmd_delete(struct apusys_cmd *cmd)
 	DEBUG_TAG;
 
 	mutex_unlock(&cmd->sc_mtx);
+
+	/* map kva */
+	memset(&mem, 0, sizeof(struct apusys_mem));
+	mem.ion_data.ion_share_fd = cmd->mem_fd;
+	mem.ion_data.ion_khandle = cmd->mem_hnd;
+	if (apusys_mem_unmap_kva(&mem)) {
+		LOG_ERR("map cmd buffer kva from fd(%d)fail\n",
+			cmd->mem_fd);
+	}
 	mutex_unlock(&cmd->mtx);
 	kfree(cmd->pc_col.pack_status);
 	kfree(cmd->ctx_list);

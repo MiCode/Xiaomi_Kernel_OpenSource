@@ -357,6 +357,7 @@ int apusys_delete_user(struct apusys_user *user)
 
 		if (apusys_cmd_delete(cmd))
 			LOG_ERR("delete apusys cmd(%p) fail\n", cmd);
+
 	}
 	mutex_unlock(&user->cmd_mtx);
 
@@ -374,15 +375,43 @@ int apusys_delete_user(struct apusys_user *user)
 
 		list_del(&user_mem->list);
 
-		if (apusys_mem_free(&user_mem->mem)) {
-			LOG_ERR("free mem fail(%d/%d/0x%llx/0x%llx/0x%x/%d)\n",
-				user_mem->mem.mem_type,
-				user_mem->mem.ion_data.ion_share_fd,
-				user_mem->mem.uva,
-				user_mem->mem.kva,
-				user_mem->mem.iova,
-				user_mem->mem.size);
+		/* unmap buf */
+		if (user_mem->mem.ctl_data.cmd == APUSYS_MAP) {
+			/* unmap buf */
+			switch (user_mem->mem.ctl_data.map_param.map_type) {
+			case APUSYS_MAP_NONE:
+				DEBUG_TAG;
+				if (apusys_mem_free(&user_mem->mem)) {
+					LOG_ERR("free fail(%d/0x%llx/0x%x)\n",
+					user_mem->mem.ion_data.ion_share_fd,
+					user_mem->mem.kva,
+					user_mem->mem.iova);
+				}
+				break;
+			case APUSYS_MAP_KVA:
+				if (apusys_mem_unmap_kva(&user_mem->mem)) {
+					LOG_ERR("unkva fail(%d/0x%llx/0x%x)\n",
+					user_mem->mem.ion_data.ion_share_fd,
+					user_mem->mem.kva,
+					user_mem->mem.iova);
+				}
+				break;
+			case APUSYS_MAP_IOVA:
+				if (apusys_mem_unmap_iova(&user_mem->mem)) {
+					LOG_ERR("uniova fail(%d/0x%llx/0x%x)\n",
+					user_mem->mem.ion_data.ion_share_fd,
+					user_mem->mem.kva,
+					user_mem->mem.iova);
+				}
+				break;
+			case APUSYS_MAP_PA:
+				LOG_ERR("not support unmap pa\n");
+				break;
+			default:
+				break;
+			}
 		}
+
 		kfree(user_mem);
 	}
 

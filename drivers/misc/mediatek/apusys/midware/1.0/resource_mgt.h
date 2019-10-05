@@ -52,9 +52,10 @@ struct apusys_dev_aquire {
 /* device inst */
 struct apusys_dev_info {
 	struct apusys_device *dev;
-	struct apusys_cmd *cmd;
 
 	/* mgt info */
+	uint64_t cmd_id;
+	int sc_idx;
 	uint64_t cur_owner; // record this
 
 	/* acquire */

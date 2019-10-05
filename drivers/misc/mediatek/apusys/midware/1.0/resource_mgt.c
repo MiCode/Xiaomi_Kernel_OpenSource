@@ -157,7 +157,8 @@ int pop_subcmd(int type, void **isc)
 	sc = list_first_entry(&tab->prio_q->prio[priority],
 		struct apusys_subcmd, q_list);
 	if (sc == NULL) {
-		LOG_ERR("get cmd from device(%d) priority queue(%d) fail\n");
+		LOG_ERR("get cmd from device(%d) priority queue(%d) fail\n",
+			type, priority);
 		return -EINVAL;
 	}
 
@@ -182,11 +183,14 @@ int delete_subcmd(void *isc)
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_subcmd *sc_node = NULL;
 	struct apusys_subcmd *sc = (struct apusys_subcmd *)isc;
+	struct apusys_cmd *cmd = NULL;
 	struct apusys_res_table *tab = NULL;
 	int ret = -EINVAL, i = 0;
 
 	if (isc == NULL)
 		return -EINVAL;
+
+	cmd = (struct apusys_cmd *)sc->parent_cmd;
 
 	/* find subcmd from type priority queue */
 	tab = resource_get_table(sc->type);
@@ -206,8 +210,8 @@ int delete_subcmd(void *isc)
 			if (sc_node != sc)
 				continue;
 
-			LOG_DEBUG("delete sc(%p) from priority queue(%d/%d)\n",
-				sc->type, i);
+			LOG_DEBUG("delete sc(0x%llx/%d/%p) prio queue(%d/%d)\n",
+				cmd->cmd_id, sc->idx, sc, sc->type, i);
 			list_del(&sc->q_list);
 			if (list_empty(&tab->prio_q->prio[i])) {
 				bitmap_clear(tab->prio_q->node_exist, i, 1);
@@ -326,6 +330,8 @@ int put_apusys_device(struct apusys_device *dev)
 					dev_info->dev, dev);
 				return -ENODEV;
 			}
+			dev_info->cmd_id = 0;
+			dev_info->sc_idx = 0;
 			dev_info->cur_owner = acq->owner;
 			acq->acq_num++;
 			LOG_DEBUG("device (%d) add #%d dev to acq(%d/%d)\n",
@@ -347,6 +353,8 @@ int put_apusys_device(struct apusys_device *dev)
 		LOG_DEBUG("put device[%d](%d/%d)\n",
 			dev->dev_type, dev->idx, tab->dev_num);
 		tab->dev_list[dev->idx].cur_owner = APUSYS_DEV_OWNER_NONE;
+		tab->dev_list[dev->idx].cmd_id = 0;
+		tab->dev_list[dev->idx].sc_idx = 0;
 		bitmap_clear(tab->dev_status, dev->idx, 1); // clear status
 		tab->available_num++;
 
@@ -685,8 +693,8 @@ void resource_mgt_dump(void *s_file)
 						"",
 						"status       disable");
 					LOG_CON(s, LINEBAR);
+					continue;
 				}
-				continue;
 
 				LOG_CON(s, "| %9s(%4d) | %-8s#%-4d>%-26s|\n",
 					"dev type ",
@@ -721,11 +729,11 @@ void resource_mgt_dump(void *s_file)
 					"device ptr",
 					info->dev);
 
-				LOG_CON(s, "| %9s(%4d) | %-17s= %-21p|\n",
+				LOG_CON(s, "| %9s(%4d) | %-17s= %-21llx|\n",
 					"available",
 					tab->available_num,
 					"cmd id",
-					info->cmd);
+					info->cmd_id);
 			} else {
 				LOG_CON(s, "|%-17s| %-8s#%-4d>%-26s|\n",
 					"",
@@ -737,11 +745,15 @@ void resource_mgt_dump(void *s_file)
 					"device ptr",
 					info->dev);
 
-				LOG_CON(s, "|%-17s| %-17s= %-21p|\n",
+				LOG_CON(s, "|%-17s| %-17s= %-21llx|\n",
 					"",
 					"cmd id",
-					info->cmd);
+					info->cmd_id);
 			}
+			LOG_CON(s, "|%-17s| %-17s= 0x%-19lx|\n",
+				"",
+				"subcmd idx",
+				info->sc_idx);
 			LOG_CON(s, "|%-17s| %-17s= 0x%-19llx|\n",
 				"",
 				"current owner",
@@ -913,8 +925,8 @@ init_q_fail:
 	tab->prio_q = NULL;
 allc_q_fail:
 	/* release dev table*/
-	kfree(tab);
 	g_res_mgr.tab[tab->dev_type] = NULL;
+	kfree(tab);
 
 	return ret;
 

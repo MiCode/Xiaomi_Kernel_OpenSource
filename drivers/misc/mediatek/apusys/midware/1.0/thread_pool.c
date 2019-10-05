@@ -96,6 +96,11 @@ static int tp_service_routine(void *arg)
 			job_arg = list_entry(list_ptr, struct job_inst, list);
 			break;
 		}
+
+		if (job_arg == NULL) {
+			mutex_unlock(&g_pool_mgr.job_mtx);
+			continue;
+		}
 		list_del(&job_arg->list);
 
 		mutex_unlock(&g_pool_mgr.job_mtx);
@@ -107,15 +112,14 @@ static int tp_service_routine(void *arg)
 		/* 2. execute cmd */
 		mutex_lock(&inst->mtx);
 		inst->status = APUSYS_THREAD_STATUS_BUSY;
+		/* execute cmd */
 		inst->sc = job_arg->sc;
-		if (job_arg != NULL) {
-			/* execute cmd */
-			ret = g_pool_mgr.func_ptr(job_arg->sc, job_arg->dev);
-			if (ret) {
-				LOG_ERR("process arg(%p/%d) fail\n",
-					job_arg->sc, ret);
-			}
+		ret = g_pool_mgr.func_ptr(job_arg->sc, job_arg->dev);
+		if (ret) {
+			LOG_ERR("process arg(%p/%d) fail\n",
+				job_arg->sc, ret);
 		}
+
 		DEBUG_TAG;
 		kfree(job_arg);
 		inst->sc = NULL;
@@ -140,9 +144,11 @@ void thread_pool_dump(void)
 	LOG_INFO("=====================================\n");
 	LOG_INFO("| apusys thread pool status: total(%d)\n", g_pool_mgr.total);
 	list_for_each_safe(list_ptr, tmp, &g_pool_mgr.thread_list) {
-		LOG_INFO("-------------------------------------\n");
 		inst = list_entry(list_ptr, struct thread_pool_inst, list);
+		LOG_INFO("-------------------------------------\n");
 		sc = (struct apusys_subcmd *)inst->sc;
+		if (sc == NULL)
+			continue;
 		cmd = (struct apusys_cmd *)sc->parent_cmd;
 
 		LOG_INFO(" thread idx = %d\n", i);
