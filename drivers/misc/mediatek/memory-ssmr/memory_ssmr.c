@@ -133,43 +133,32 @@ static void __init setup_feature_size(struct reserved_mem *rmem)
 	}
 }
 
-static int __init finalize_region_size(void)
+static void __init finalize_scenario_size(void)
 {
 	int i = 0;
 
-	if (__MAX_NR_SSMRSUBS <= 0)
-		return 1;
-
-	for (; i < __MAX_NR_SSMRSUBS; i++) {
-		u64 max_feat_req_size = 0;
+	for (; i < __MAX_NR_SCHEME; i++) {
+		u64 total_size = 0;
 		int j = 0;
-
 		for (; j < __MAX_NR_SSMR_FEATURES; j++) {
-			if (_ssmr_feats[j].region == i) {
-				max_feat_req_size = max(max_feat_req_size,
-					_ssmr_feats[j].req_size);
-			}
+			if (_ssmr_feats[j].scheme_flag & _ssmrscheme[i].flags)
+				total_size += _ssmr_feats[j].req_size;
 		}
-		_ssmregs[i].usable_size = max_feat_req_size;
-		pr_info("%s, %s: %pa\n", __func__, _ssmregs[i].name,
-			&_ssmregs[i].usable_size);
+		_ssmrscheme[i].usable_size = total_size;
+		pr_info("%s, %s: %pa\n", __func__, _ssmrscheme[i].name,
+			&_ssmrscheme[i].usable_size);
 	}
-
-	return 0;
 }
 
-static u64 __init get_total_target_size(void)
+static u64 __init get_final_target_size(void)
 {
-	u64 total = 0;
 	int i = 0;
+	u64 final_size = 0;
 
-	if (__MAX_NR_SSMRSUBS <= 0)
-		return total;
+	for (; i < __MAX_NR_SCHEME; i++)
+		final_size = max(_ssmrscheme[i].usable_size, final_size);
 
-	for (; i < __MAX_NR_SSMRSUBS; i++)
-		total += _ssmregs[i].usable_size;
-
-	return total;
+	return final_size;
 }
 
 /*
@@ -190,25 +179,24 @@ static struct single_cma_registration saved_memory_ssmr_registration = {
 static int __init ssmr_preinit(struct reserved_mem *rmem)
 {
 	int rc = 1;
-	u64 total_target_size;
+	u64 final_target_size;
 
 	setup_feature_size(rmem);
-	finalize_region_size();
-	total_target_size = get_total_target_size();
+	finalize_scenario_size();
+	final_target_size = get_final_target_size();
+	pr_info("%s, final target size: %pa\n", __func__, &final_target_size);
 
-	pr_info("%s, total target size: %pa\n", __func__, &total_target_size);
+	memory_ssmr_registration.size = final_target_size;
+	saved_memory_ssmr_registration.size = final_target_size;
 
-	memory_ssmr_registration.size = total_target_size;
-	saved_memory_ssmr_registration.size = total_target_size;
-
-	if (total_target_size == 0) {
+	if (final_target_size == 0) {
 		/*
 		 * size is 0 and along with default alignment, zmc_memory_init
 		 * will bypass this registration and therefore ZONE_MOVABLE
 		 * will NOT be present.
 		 */
 		pr_alert("%s, SSMR init: skipped, no requirement\n", __func__);
-	} else if (total_target_size > 0 && total_target_size <= rmem->size) {
+	} else if (final_target_size > 0 && final_target_size <= rmem->size) {
 		memory_ssmr_registration.align = (1 << SSMR_ALIGN_SHIFT);
 		saved_memory_ssmr_registration.align = (1 << SSMR_ALIGN_SHIFT);
 		pr_info("%s, SSMR init: continue\n", __func__);
@@ -269,12 +257,13 @@ static int __init memory_ssmr_init(struct reserved_mem *rmem)
 RESERVEDMEM_OF_DECLARE(memory_ssmr, "mediatek,memory-ssmr",
 			memory_ssmr_init);
 
-#ifdef SSMR_TUI_REGION_ENABLE
-static int __init dedicate_tui_memory(struct reserved_mem *rmem)
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) ||\
+	defined(CONFIG_MTK_TEE_GP_SUPPORT)
+static int __init dedicate_svp_memory(struct reserved_mem *rmem)
 {
-	struct SSMR_Region *region;
+	struct SSMR_Feature *feature;
 
-	region = &_ssmregs[SSMR_TUI];
+	feature = &_ssmr_feats[SSMR_FEAT_SVP];
 
 	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n",
 		 __func__, rmem->name,
@@ -283,10 +272,36 @@ static int __init dedicate_tui_memory(struct reserved_mem *rmem)
 	if (ssmr_preinit(rmem))
 		return 1;
 
-	region->use_cache_memory = true;
-	region->is_unmapping = true;
-	region->count = rmem->size / PAGE_SIZE;
-	region->cache_page = phys_to_page(rmem->base);
+	feature->use_cache_memory = true;
+	feature->is_unmapping = true;
+	feature->count = rmem->size / PAGE_SIZE;
+	feature->cache_page = phys_to_page(rmem->base);
+
+	return 0;
+}
+RESERVEDMEM_OF_DECLARE(svp_memory, "mediatek,memory-svp",
+			dedicate_svp_memory);
+#endif
+
+#if defined(CONFIG_TRUSTONIC_TRUSTED_UI) ||\
+	defined(CONFIG_BLOWFISH_TUI_SUPPORT)
+static int __init dedicate_tui_memory(struct reserved_mem *rmem)
+{
+	struct SSMR_Feature *feature;
+
+	feature = &_ssmr_feats[SSMR_FEAT_TUI];
+
+	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n",
+		 __func__, rmem->name,
+		 &rmem->base, &rmem->size);
+
+	if (ssmr_preinit(rmem))
+		return 1;
+
+	feature->use_cache_memory = true;
+	feature->is_unmapping = true;
+	feature->count = rmem->size / PAGE_SIZE;
+	feature->cache_page = phys_to_page(rmem->base);
 
 	return 0;
 }
@@ -294,37 +309,12 @@ RESERVEDMEM_OF_DECLARE(tui_memory, "mediatek,memory-tui",
 			dedicate_tui_memory);
 #endif
 
-#ifdef SSMR_SECMEM_REGION_ENABLE
-static int __init dedicate_secmem_memory(struct reserved_mem *rmem)
-{
-	struct SSMR_Region *region;
-
-	region = &_ssmregs[SSMR_SECMEM];
-
-	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n",
-		 __func__, rmem->name,
-		 &rmem->base, &rmem->size);
-
-	if (ssmr_preinit(rmem))
-		return 1;
-
-	region->use_cache_memory = true;
-	region->is_unmapping = true;
-	region->count = rmem->size / PAGE_SIZE;
-	region->cache_page = phys_to_page(rmem->base);
-
-	return 0;
-}
-RESERVEDMEM_OF_DECLARE(secmem_memory, "mediatek,memory-secmem",
-			dedicate_secmem_memory);
-#endif
-
 #ifdef CONFIG_MTK_PROT_MEM_SUPPORT
 static int __init dedicate_prot_sharedmem_memory(struct reserved_mem *rmem)
 {
-	struct SSMR_Region *region;
+	struct SSMR_Feature *feature;
 
-	region = &_ssmregs[SSMR_PROT_SHAREDMEM];
+	feature = &_ssmr_feats[SSMR_FEAT_PROT_SHAREDMEM];
 
 	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n",
 		 __func__, rmem->name,
@@ -333,10 +323,10 @@ static int __init dedicate_prot_sharedmem_memory(struct reserved_mem *rmem)
 	if (ssmr_preinit(rmem))
 		return 1;
 
-	region->use_cache_memory = true;
-	region->is_unmapping = true;
-	region->count = rmem->size / PAGE_SIZE;
-	region->cache_page = phys_to_page(rmem->base);
+	feature->use_cache_memory = true;
+	feature->is_unmapping = true;
+	feature->count = rmem->size / PAGE_SIZE;
+	feature->cache_page = phys_to_page(rmem->base);
 
 	return 0;
 }
@@ -347,18 +337,18 @@ RESERVEDMEM_OF_DECLARE(prot_sharedmem_memory, "mediatek,memory-prot-sharedmem",
 #ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
 static int __init dedicate_ta_elf_memory(struct reserved_mem *rmem)
 {
-	struct SSMR_Region *region;
+	struct SSMR_Feature *feature;
 
-	region = &_ssmregs[SSMR_TA_ELF];
+	feature = &_ssmr_feats[SSMR_FEAT_TA_ELF];
 
 	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n",
 		 __func__, rmem->name,
 		 &rmem->base, &rmem->size);
 
-	region->use_cache_memory = true;
-	region->is_unmapping = true;
-	region->count = rmem->size / PAGE_SIZE;
-	region->cache_page = phys_to_page(rmem->base);
+	feature->use_cache_memory = true;
+	feature->is_unmapping = true;
+	feature->count = rmem->size / PAGE_SIZE;
+	feature->cache_page = phys_to_page(rmem->base);
 
 	return 0;
 }
@@ -367,18 +357,18 @@ RESERVEDMEM_OF_DECLARE(ta_elf_memory, "mediatek,ta_elf",
 
 static int __init dedicate_ta_stack_heap_memory(struct reserved_mem *rmem)
 {
-	struct SSMR_Region *region;
+	struct SSMR_Feature *feature;
 
-	region = &_ssmregs[SSMR_TA_STACK_HEAP];
+	feature = &_ssmr_feats[SSMR_FEAT_TA_STACK_HEAP];
 
 	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n",
 		 __func__, rmem->name,
 		 &rmem->base, &rmem->size);
 
-	region->use_cache_memory = true;
-	region->is_unmapping = true;
-	region->count = rmem->size / PAGE_SIZE;
-	region->cache_page = phys_to_page(rmem->base);
+	feature->use_cache_memory = true;
+	feature->is_unmapping = true;
+	feature->count = rmem->size / PAGE_SIZE;
+	feature->cache_page = phys_to_page(rmem->base);
 
 	return 0;
 }
@@ -389,18 +379,18 @@ RESERVEDMEM_OF_DECLARE(ta_stack_heap_memory, "mediatek,ta_stack_heap",
 #ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
 static int __init dedicate_sdsp_sharedmem_memory(struct reserved_mem *rmem)
 {
-	struct SSMR_Region *region;
+	struct SSMR_Feature *feature;
 
-	region = &_ssmregs[SSMR_SDSP_TEE_SHAREDMEM];
+	feature = &_ssmr_feats[SSMR_FEAT_SDSP_TEE_SHAREDMEM];
 
 	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n",
 		 __func__, rmem->name,
 		 &rmem->base, &rmem->size);
 
-	region->use_cache_memory = true;
-	region->is_unmapping = true;
-	region->count = rmem->size / PAGE_SIZE;
-	region->cache_page = phys_to_page(rmem->base);
+	feature->use_cache_memory = true;
+	feature->is_unmapping = true;
+	feature->count = rmem->size / PAGE_SIZE;
+	feature->cache_page = phys_to_page(rmem->base);
 
 	return 0;
 }
@@ -411,18 +401,18 @@ RESERVEDMEM_OF_DECLARE(sdsp_sharedmem_memory, "mediatek,sdsp_sharedmem",
 #ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
 static int __init dedicate_sdsp_firmware_memory(struct reserved_mem *rmem)
 {
-	struct SSMR_Region *region;
+	struct SSMR_Feature *feature;
 
-	region = &_ssmregs[SSMR_SDSP_FIRMWARE];
+	feature = &_ssmr_feats[SSMR_FEAT_SDSP_FIRMWARE];
 
 	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n",
 		 __func__, rmem->name,
 		 &rmem->base, &rmem->size);
 
-	region->use_cache_memory = true;
-	region->is_unmapping = true;
-	region->count = rmem->size / PAGE_SIZE;
-	region->cache_page = phys_to_page(rmem->base);
+	feature->use_cache_memory = true;
+	feature->is_unmapping = true;
+	feature->count = rmem->size / PAGE_SIZE;
+	feature->cache_page = phys_to_page(rmem->base);
 
 	return 0;
 }
@@ -435,13 +425,10 @@ static bool has_dedicate_resvmem_region(void)
 	bool ret = false;
 	int i = 0;
 
-	if (__MAX_NR_SSMRSUBS <= 0)
-		return ret;
-
-	for (; i < __MAX_NR_SSMRSUBS; i++) {
-		if (_ssmregs[i].use_cache_memory) {
+	for (; i < __MAX_NR_SSMR_FEATURES; i++) {
+		if (_ssmr_feats[i].use_cache_memory) {
 			pr_info("%s uses dedicate reserved memory\n",
-				_ssmregs[i].name);
+				_ssmr_feats[i].feat_name);
 			ret = true;
 		}
 	}
@@ -584,7 +571,7 @@ static inline int set_memory_mapping(unsigned long start, phys_addr_t size,
 }
 #endif
 
-static int memory_region_offline(struct SSMR_Region *region,
+static int memory_region_offline(struct SSMR_Feature *feature,
 		phys_addr_t *pa, unsigned long *size, u64 upper_limit)
 {
 	int offline_retry = 0;
@@ -594,38 +581,37 @@ static int memory_region_offline(struct SSMR_Region *region,
 	phys_addr_t page_phys;
 
 	/* Determine alloc pages by feature */
-	if (region->cache_page)
-		alloc_pages = region->count;
+	if (feature->cache_page)
+		alloc_pages = feature->count;
 	else
-		alloc_pages = _ssmr_feats[region->cur_feat].req_size /
+		alloc_pages = feature->req_size /
 				PAGE_SIZE;
 
-	region->alloc_pages = alloc_pages;
+	feature->alloc_pages = alloc_pages;
 
 	/* compare with function and system wise upper limit */
 	upper_limit = min(upper_limit, ssmr_upper_limit);
 
-	if (region->cache_page)
-		page_phys = page_to_phys(region->cache_page);
+	if (feature->cache_page)
+		page_phys = page_to_phys(feature->cache_page);
 	else
 		page_phys = 0;
 
 	pr_info("%s[%d]: upper_limit: %llx, region{ alloc_pages : %lu",
 			__func__, __LINE__, upper_limit, alloc_pages);
 	pr_info("count: %lu, is_unmapping: %c, use_cache_memory: %c,",
-		region->count, region->is_unmapping ? 'Y' : 'N',
-		region->use_cache_memory ? 'Y' : 'N');
+		feature->count, feature->is_unmapping ? 'Y' : 'N',
+		feature->use_cache_memory ? 'Y' : 'N');
 	pr_info("cache_page: %pa}\n", &page_phys);
 
-	if (region->use_cache_memory) {
-		if (!region->cache_page) {
+	if (feature->use_cache_memory) {
+		if (!feature->cache_page) {
 			pr_info("[NO_CACHE_MEMORY]:\n");
-			region->alloc_pages = 0;
-			region->cur_feat = __MAX_NR_SSMR_FEATURES;
+			feature->alloc_pages = 0;
 			return -EFAULT;
 		}
 
-		page = region->cache_page;
+		page = feature->cache_page;
 		goto out;
 	}
 
@@ -653,8 +639,7 @@ static int memory_region_offline(struct SSMR_Region *region,
 	}
 
 	if (!page) {
-		region->alloc_pages = 0;
-		region->cur_feat = __MAX_NR_SSMR_FEATURES;
+		feature->alloc_pages = 0;
 		return -EBUSY;
 	}
 
@@ -667,7 +652,7 @@ static int memory_region_offline(struct SSMR_Region *region,
 		pr_err("[unmapping fail]: virt:0x%lx, size:0x%lx",
 				(unsigned long)__va((page_to_phys(page))),
 				alloc_pages << PAGE_SHIFT);
-#if 0
+
 		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT
 			| DB_OPT_DUMPSYS_ACTIVITY
 			| DB_OPT_LOW_MEMORY_KILLER
@@ -679,13 +664,13 @@ static int memory_region_offline(struct SSMR_Region *region,
 			"[unmapping fail]: virt:0x%lx, size:0x%lx",
 			(unsigned long)__va((page_to_phys(page))),
 			alloc_pages << PAGE_SHIFT);
-#endif
-		region->is_unmapping = false;
+
+		feature->is_unmapping = false;
 	} else
-		region->is_unmapping = true;
+		feature->is_unmapping = true;
 
 out:
-	region->page = page;
+	feature->page = page;
 	if (pa)
 		*pa = page_to_phys(page);
 	if (size)
@@ -694,33 +679,32 @@ out:
 	return 0;
 }
 
-static int memory_region_online(struct SSMR_Region *region)
+static int memory_region_online(struct SSMR_Feature *feature)
 {
 	unsigned long alloc_pages;
 
-	alloc_pages = region->alloc_pages;
+	alloc_pages = feature->alloc_pages;
 
-	if (region->use_cache_memory) {
-		region->alloc_pages = 0;
-		region->cur_feat = __MAX_NR_SSMR_FEATURES;
-		region->page = NULL;
+	if (feature->use_cache_memory) {
+		feature->alloc_pages = 0;
+		feature->page = NULL;
 		return 0;
 	}
 
 	/* remapping if unmapping while offline */
-	if (region->is_unmapping) {
+	if (feature->is_unmapping) {
 		int ret_map;
 		unsigned long region_page_va =
-			(unsigned long)__va(page_to_phys(region->page));
+			(unsigned long)__va(page_to_phys(feature->page));
 
 		ret_map = memory_mapping(region_page_va,
-				region->alloc_pages << PAGE_SHIFT);
+				feature->alloc_pages << PAGE_SHIFT);
 
 		if (ret_map < 0) {
 			pr_err("[remapping fail]: virt:0x%lx, size:0x%lx",
 					region_page_va,
-					region->alloc_pages << PAGE_SHIFT);
-#if 0
+					feature->alloc_pages << PAGE_SHIFT);
+
 			aee_kernel_warning_api(__FILE__, __LINE__,
 				DB_OPT_DEFAULT
 				| DB_OPT_DUMPSYS_ACTIVITY
@@ -732,22 +716,21 @@ static int memory_region_online(struct SSMR_Region *region)
 				"online remap fail\nCRDISPATCH_KEY:SVP_SS1\n",
 				"[remapping fail]: virt:0x%lx, size:0x%lx",
 				region_page_va,
-				region->alloc_pages << PAGE_SHIFT);
-#endif
-			region->use_cache_memory = true;
-			region->cache_page = region->page;
+				feature->alloc_pages << PAGE_SHIFT);
+
+			feature->use_cache_memory = true;
+			feature->cache_page = feature->page;
 		} else
-			region->is_unmapping = false;
+			feature->is_unmapping = false;
 	}
 
-	if (!region->is_unmapping && !region->use_cache_memory) {
-		zmc_cma_release(cma, region->page, region->alloc_pages);
-		ssmr_usage_count -= region->alloc_pages;
-		region->alloc_pages = 0;
-		region->cur_feat = __MAX_NR_SSMR_FEATURES;
+	if (!feature->is_unmapping && !feature->use_cache_memory) {
+		zmc_cma_release(cma, feature->page, feature->alloc_pages);
+		ssmr_usage_count -= feature->alloc_pages;
+		feature->alloc_pages = 0;
 	}
 
-	region->page = NULL;
+	feature->page = NULL;
 	return 0;
 }
 
@@ -757,32 +740,32 @@ int _tui_region_offline(phys_addr_t *pa, unsigned long *size,
 		u64 upper_limit)
 {
 	int retval = 0;
-	struct SSMR_Region *region = &_ssmregs[SSMR_TUI];
+	struct SSMR_Feature *feature = &_ssmr_feats[SSMR_FEAT_TUI];
 
 	pr_info("%s: >>>>>> state: %s, upper_limit:0x%llx\n", __func__,
-			ssmr_state_text[region->state], upper_limit);
+			ssmr_state_text[feature->state], upper_limit);
 
-	if (region->state != SSMR_STATE_ON) {
+	if (feature->state != SSMR_STATE_ON) {
 		retval = -EBUSY;
 		goto out;
 	}
 
-	region->state = SSMR_STATE_OFFING;
-	retval = memory_region_offline(region, pa, size, upper_limit);
+	feature->state = SSMR_STATE_OFFING;
+	retval = memory_region_offline(feature, pa, size, upper_limit);
 	if (retval < 0) {
-		region->state = SSMR_STATE_ON;
+		feature->state = SSMR_STATE_ON;
 		retval = -EAGAIN;
 		goto out;
 	}
 
-	region->state = SSMR_STATE_OFF;
+	feature->state = SSMR_STATE_OFF;
 	pr_info("%s: [reserve done]: pa 0x%lx, size 0x%lx\n",
-			__func__, (unsigned long)page_to_phys(region->page),
-			region->count << PAGE_SHIFT);
+			__func__, (unsigned long)page_to_phys(feature->page),
+			feature->count << PAGE_SHIFT);
 
 out:
 	pr_info("%s: <<<<<< state: %s, retval: %d\n", __func__,
-			ssmr_state_text[region->state], retval);
+			ssmr_state_text[feature->state], retval);
 	return retval;
 }
 
@@ -800,24 +783,24 @@ EXPORT_SYMBOL(tui_region_offline64);
 
 int tui_region_online(void)
 {
-	struct SSMR_Region *region = &_ssmregs[SSMR_TUI];
+	struct SSMR_Feature *feature = &_ssmr_feats[SSMR_FEAT_TUI];
 	int retval;
 
 	pr_info("%s: >>>>>> enter state: %s\n", __func__,
-			ssmr_state_text[region->state]);
+			ssmr_state_text[feature->state]);
 
-	if (region->state != SSMR_STATE_OFF) {
+	if (feature->state != SSMR_STATE_OFF) {
 		retval = -EBUSY;
 		goto out;
 	}
 
-	region->state = SSMR_STATE_ONING_WAIT;
-	retval = memory_region_online(region);
-	region->state = SSMR_STATE_ON;
+	feature->state = SSMR_STATE_ONING_WAIT;
+	retval = memory_region_online(feature);
+	feature->state = SSMR_STATE_ON;
 
 out:
 	pr_info("%s: <<<<<< leave state: %s, retval: %d\n",
-			__func__, ssmr_state_text[region->state], retval);
+			__func__, ssmr_state_text[feature->state], retval);
 
 	return retval;
 }
@@ -853,7 +836,7 @@ static int _svp_wdt_kthread_func(void *data)
 			return 0;
 		}
 
-		if (_ssmregs[SSMR_SECMEM].state == SSMR_STATE_ON) {
+		if (_ssmr_feats[SSMR_FEAT_SVP].state == SSMR_STATE_ON) {
 			pr_info("[STOP COUNT DOWN]: SSMR has online\n");
 			reset_svp_online_task();
 			return 0;
@@ -867,7 +850,6 @@ static int _svp_wdt_kthread_func(void *data)
 	ion_sec_heap_dump_info();
 
 	pr_debug("Shareable SecureMemoryRegion trigger kernel warning");
-#if 0
 	aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT
 			| DB_OPT_DUMPSYS_ACTIVITY
 			| DB_OPT_LOW_MEMORY_KILLER
@@ -878,7 +860,7 @@ static int _svp_wdt_kthread_func(void *data)
 			| DB_OPT_DUMPSYS_PROCSTATS,
 			"SVP online fail.\nCRDISPATCH_KEY:SVP_SS1\n",
 			"[SSMR ONLINE FAIL]: online timeout.\n");
-#endif
+
 	reset_svp_online_task();
 	return 0;
 }
@@ -913,32 +895,32 @@ int _secmem_region_offline(phys_addr_t *pa, unsigned long *size,
 		u64 upper_limit)
 {
 	int retval = 0;
-	struct SSMR_Region *region = &_ssmregs[SSMR_SECMEM];
+	struct SSMR_Feature *feature = &_ssmr_feats[SSMR_FEAT_SVP];
 
 	pr_info("%s: >>>>>> state: %s, upper_limit:0x%llx\n", __func__,
-			ssmr_state_text[region->state], upper_limit);
+			ssmr_state_text[feature->state], upper_limit);
 
-	if (region->state != SSMR_STATE_ON) {
+	if (feature->state != SSMR_STATE_ON) {
 		retval = -EBUSY;
 		goto out;
 	}
 
-	region->state = SSMR_STATE_OFFING;
-	retval = memory_region_offline(region, pa, size, upper_limit);
+	feature->state = SSMR_STATE_OFFING;
+	retval = memory_region_offline(feature, pa, size, upper_limit);
 	if (retval < 0) {
-		region->state = SSMR_STATE_ON;
+		feature->state = SSMR_STATE_ON;
 		retval = -EAGAIN;
 		goto out;
 	}
 
-	region->state = SSMR_STATE_OFF;
+	feature->state = SSMR_STATE_OFF;
 	pr_info("%s: [reserve done]: pa 0x%lx, size 0x%lx\n",
-			__func__, (unsigned long)page_to_phys(region->page),
-			region->count << PAGE_SHIFT);
+			__func__, (unsigned long)page_to_phys(feature->page),
+			feature->count << PAGE_SHIFT);
 
 out:
 	pr_info("%s: <<<<<< state: %s, retval: %d\n", __func__,
-			ssmr_state_text[region->state], retval);
+			ssmr_state_text[feature->state], retval);
 	return retval;
 }
 
@@ -954,38 +936,26 @@ int svp_region_offline(phys_addr_t *pa, unsigned long *size)
 }
 EXPORT_SYMBOL(svp_region_offline);
 
-int secmem_region_offline64(phys_addr_t *pa, unsigned long *size)
-{
-	return _secmem_region_offline(pa, size, UPPER_LIMIT64);
-}
-EXPORT_SYMBOL(secmem_region_offline64);
-
-int secmem_region_offline(phys_addr_t *pa, unsigned long *size)
-{
-	return _secmem_region_offline(pa, size, UPPER_LIMIT32);
-}
-EXPORT_SYMBOL(secmem_region_offline);
-
 int secmem_region_online(void)
 {
-	struct SSMR_Region *region = &_ssmregs[SSMR_SECMEM];
+	struct SSMR_Feature *feature = &_ssmr_feats[SSMR_FEAT_SVP];
 	int retval;
 
 	pr_info("%s: >>>>>> enter state: %s\n", __func__,
-			ssmr_state_text[region->state]);
+			ssmr_state_text[feature->state]);
 
-	if (region->state != SSMR_STATE_OFF) {
+	if (feature->state != SSMR_STATE_OFF) {
 		retval = -EBUSY;
 		goto out;
 	}
 
-	region->state = SSMR_STATE_ONING_WAIT;
-	retval = memory_region_online(region);
-	region->state = SSMR_STATE_ON;
+	feature->state = SSMR_STATE_ONING_WAIT;
+	retval = memory_region_online(feature);
+	feature->state = SSMR_STATE_ON;
 
 out:
 	pr_info("%s: <<<<<< leave state: %s, retval: %d\n",
-			__func__, ssmr_state_text[region->state], retval);
+			__func__, ssmr_state_text[feature->state], retval);
 	return retval;
 }
 EXPORT_SYMBOL(secmem_region_online);
@@ -999,67 +969,85 @@ EXPORT_SYMBOL(svp_region_online);
 
 static bool is_valid_feature(unsigned int feat)
 {
-	unsigned int region_type = __MAX_NR_SSMRSUBS;
-
 	if (SSMR_INVALID_FEATURE(feat)) {
 		pr_info("%s: invalid feature_type: %d\n",
 			__func__, feat);
 		return false;
 	}
 
-	region_type = _ssmr_feats[feat].region;
-	if (SSMR_INVALID_REGION(region_type)) {
-		pr_info("%s: invalid region_type: %d\n",
-			__func__, region_type);
-		return false;
+	return true;
+}
+
+static void show_scheme_status(u64 size)
+{
+	int i = 0;
+
+	if (cma) {
+		pr_info("total cma size: 0x%lx, remaining size: 0x%lx\n",
+				cma_get_size(cma),
+				((cma_get_size(cma) >> PAGE_SHIFT) -
+				ssmr_usage_count)*PAGE_SIZE);
+		pr_info("request size: %pa\n", &size);
 	}
 
-	return true;
+	for (; i < __MAX_NR_SCHEME; i++) {
+		int j = 0;
+
+		pr_info("**** %s  (size: %pa)****\n",  _ssmrscheme[i].name,
+						&_ssmrscheme[i].usable_size);
+		for (; j < __MAX_NR_SSMR_FEATURES; j++) {
+			if (_ssmr_feats[j].scheme_flag & _ssmrscheme[i].flags) {
+				pr_info("%s: size= %pa, state=%s\n",
+					_ssmr_feats[j].feat_name,
+					&_ssmr_feats[j].req_size,
+					ssmr_state_text[_ssmr_feats[j].state]);
+			}
+		}
+	}
 }
 
 static int _ssmr_offline_internal(phys_addr_t *pa, unsigned long *size,
 		u64 upper_limit, unsigned int feat)
 {
 	int retval = 0;
-	struct SSMR_Region *region = NULL;
+	struct SSMR_Feature *feature = NULL;
 
-	region = &_ssmregs[_ssmr_feats[feat].region];
+	feature = &_ssmr_feats[feat];
 	pr_info("%s %d: >>>>>> feat: %s, state: %s, upper_limit:0x%llx\n",
 			__func__, __LINE__,
 			feat < __MAX_NR_SSMR_FEATURES ?
-			_ssmr_feats[feat].feat_name : "NULL",
-			ssmr_state_text[region->state], upper_limit);
+			feature->feat_name : "NULL",
+			ssmr_state_text[feature->state], upper_limit);
 
-	if (region->state != SSMR_STATE_ON) {
+	if (feature->state != SSMR_STATE_ON) {
 		retval = -EBUSY;
 		goto out;
 	}
 
-	/* Record current feature */
-	region->cur_feat = feat;
-
-	region->state = SSMR_STATE_OFFING;
-	retval = memory_region_offline(region, pa, size, upper_limit);
+	feature->state = SSMR_STATE_OFFING;
+	retval = memory_region_offline(feature, pa, size, upper_limit);
 	if (retval < 0) {
-		region->state = SSMR_STATE_ON;
+		feature->state = SSMR_STATE_ON;
 		retval = -EAGAIN;
 		goto out;
 	}
 
-	region->state = SSMR_STATE_OFF;
+	feature->state = SSMR_STATE_OFF;
 	pr_info("%s %d: [reserve done]: pa 0x%lx, size 0x%lx\n",
-		__func__, __LINE__, (unsigned long)page_to_phys(region->page),
-		region->alloc_pages << PAGE_SHIFT);
+		__func__, __LINE__, (unsigned long)page_to_phys(feature->page),
+		feature->alloc_pages << PAGE_SHIFT);
 
 out:
-	pr_info("%s %d: <<<<< request feat: %s, cur feat: %s, ",
+	pr_info("%s %d: <<<<< request feat: %s, state: %s, retval: %d\n",
 		__func__, __LINE__,
 		feat < __MAX_NR_SSMR_FEATURES ?
 		_ssmr_feats[feat].feat_name : "NULL",
-		region->cur_feat < __MAX_NR_SSMR_FEATURES ?
-		_ssmr_feats[region->cur_feat].feat_name : "NULL");
-	pr_info("state: %s, retval: %d\n", ssmr_state_text[region->state],
+		ssmr_state_text[feature->state],
 		retval);
+
+	if (retval < 0)
+		show_scheme_status(feature->req_size);
+
 	return retval;
 
 }
@@ -1079,39 +1067,29 @@ EXPORT_SYMBOL(ssmr_offline);
 static int _ssmr_online_internal(unsigned int feat)
 {
 	int retval;
-	struct SSMR_Region *region = NULL;
+	struct SSMR_Feature *feature = NULL;
 
-	region = &_ssmregs[_ssmr_feats[feat].region];
+	feature = &_ssmr_feats[feat];
 	pr_info("%s %d: >>>>>> enter state: %s\n", __func__, __LINE__,
-			ssmr_state_text[region->state]);
+			ssmr_state_text[feature->state]);
 
-	if (region->state != SSMR_STATE_OFF) {
+	if (feature->state != SSMR_STATE_OFF) {
 		retval = -EBUSY;
 		goto out;
 	}
 
-	/*
-	 * Assume feature A and feature B use with same region
-	 * If feature A is offline, feature B do online will return failed
-	 */
-	if (feat != region->cur_feat) {
-		retval = -EBUSY;
-		goto out;
-	}
-
-	region->state = SSMR_STATE_ONING_WAIT;
-	retval = memory_region_online(region);
-	region->state = SSMR_STATE_ON;
+	feature->state = SSMR_STATE_ONING_WAIT;
+	retval = memory_region_online(feature);
+	feature->state = SSMR_STATE_ON;
 
 out:
-	pr_info("%s %d: <<<<<< request feature: %s, curr feature: %s, ",
+	pr_info("%s %d: <<<<<< request feature: %s, ",
 		__func__, __LINE__,
 		feat < __MAX_NR_SSMR_FEATURES ?
-		_ssmr_feats[feat].feat_name : "NULL",
-		region->cur_feat < __MAX_NR_SSMR_FEATURES ?
-		_ssmr_feats[region->cur_feat].feat_name : "NULL");
-	pr_info("leave state: %s, retval: %d\n", ssmr_state_text[region->state],
-		retval);
+		_ssmr_feats[feat].feat_name : "NULL");
+	pr_info("leave state: %s, retval: %d\n",
+		ssmr_state_text[feature->state], retval);
+
 	return retval;
 
 }
@@ -1225,26 +1203,25 @@ static int memory_ssmr_show(struct seq_file *m, void *v)
 		__phys_to_pfn(cma_base), __phys_to_pfn(cma_end),
 		cma_get_size(cma) >> PAGE_SHIFT);
 
-	if (__MAX_NR_SSMRSUBS <= 0) {
+	if (__MAX_NR_SSMR_FEATURES <= 0) {
 		seq_puts(m, "no SSMR user enable\n");
 		return 0;
 	}
 
-	for (; i < __MAX_NR_SSMRSUBS; i++) {
+	for (; i < __MAX_NR_SSMR_FEATURES; i++) {
 		unsigned long region_pa;
 
-		region_pa = (unsigned long) page_to_phys(_ssmregs[i].page);
+		region_pa = (unsigned long) page_to_phys(_ssmr_feats[i].page);
 
 		seq_printf(m, "%s base:0x%lx, count %lu, ",
-			_ssmregs[i].name,
-			_ssmregs[i].page == NULL ? 0 : region_pa,
-			_ssmregs[i].count);
-		seq_printf(m, "alloc_pages %lu, cur_feat %s, state %s.%s\n",
-			_ssmregs[i].alloc_pages,
-			_ssmregs[i].cur_feat < __MAX_NR_SSMR_FEATURES ?
-			_ssmr_feats[_ssmregs[i].cur_feat].feat_name : "NULL",
-			ssmr_state_text[_ssmregs[i].state],
-			_ssmregs[i].use_cache_memory ? " (cache memory)" : "");
+			_ssmr_feats[i].feat_name,
+			_ssmr_feats[i].page == NULL ? 0 : region_pa,
+			_ssmr_feats[i].count);
+		seq_printf(m, "alloc_pages %lu, state %s.%s\n",
+			_ssmr_feats[i].alloc_pages,
+			ssmr_state_text[_ssmr_feats[i].state],
+			_ssmr_feats[i].use_cache_memory ?
+					 " (cache memory)" : "");
 	}
 
 	seq_printf(m, "cma usage: %lu pages\n", ssmr_usage_count);
@@ -1271,7 +1248,7 @@ static int __init ssmr_sanity(void)
 {
 	phys_addr_t start = 0;
 	unsigned long size = 0;
-	u64 total_target_size = 0;
+	u64 final_target_size = 0;
 	char *err_msg = NULL;
 
 	if (has_dedicate_resvmem_region())
@@ -1287,13 +1264,13 @@ static int __init ssmr_sanity(void)
 		goto out;
 	}
 
-	total_target_size = get_total_target_size();
+	final_target_size = get_final_target_size();
 	size = cma_get_size(cma);
 
-	if (total_target_size > size) {
+	if (final_target_size > size) {
 		start = cma_get_base(cma);
 		pr_info("Total target size: %pa, cma start: %pa, size: %pa\n",
-				&total_target_size, &start, &size);
+				&final_target_size, &start, &size);
 		err_msg = "SSMR sanity: not enough reserved memory\n";
 		goto out;
 	}
@@ -1301,7 +1278,6 @@ static int __init ssmr_sanity(void)
 	return 0;
 
 out:
-#if 0
 	aee_kernel_warning_api(__FILE__, __LINE__,
 			DB_OPT_DEFAULT
 			| DB_OPT_DUMPSYS_ACTIVITY
@@ -1309,20 +1285,19 @@ out:
 			| DB_OPT_DUMPSYS_PROCSTATS,
 			"SSMR Sanity fail.\nCRDISPATCH_KEY:SVP_SS1\n",
 			err_msg);
-#endif
 	return -1;
 }
 
 
-static int __init memory_ssmr_init_region(char *name, u64 size,
-	struct SSMR_Region *region, const struct file_operations *entry_fops)
+static int __init memory_ssmr_init_feature(char *name, u64 size,
+	struct SSMR_Feature *feature, const struct file_operations *entry_fops)
 {
 	struct proc_dir_entry *procfs_entry;
-	bool has_dedicate_memory = (region->use_cache_memory);
+	bool has_dedicate_memory = (feature->use_cache_memory);
 	bool has_region = (has_dedicate_memory || size > 0);
 
 	if (!has_region) {
-		region->state = SSMR_STATE_DISABLED;
+		feature->state = SSMR_STATE_DISABLED;
 		return -1;
 	}
 
@@ -1336,32 +1311,32 @@ static int __init memory_ssmr_init_region(char *name, u64 size,
 
 	if (has_dedicate_memory) {
 		pr_info("[%s]:Use dedicate memory as cached memory\n", name);
-		size = ((u64) region->count) * PAGE_SIZE;
+		size = ((u64) feature->count) * PAGE_SIZE;
 		goto region_init_done;
 	}
 
-	region->count = (unsigned long)(size >> PAGE_SHIFT);
+	feature->count = (unsigned long)(size >> PAGE_SHIFT);
 
 	if (is_pre_reserve_memory) {
 		int ret_map;
 		struct page *page;
 		unsigned long region_cache_page_va =
-			(unsigned long)__va(page_to_phys(region->cache_page));
+			(unsigned long)__va(page_to_phys(feature->cache_page));
 
-		page = zmc_cma_alloc(cma, region->count,
+		page = zmc_cma_alloc(cma, feature->count,
 				SSMR_CMA_ALIGN_PAGE_ORDER,
 				&memory_ssmr_registration);
-		region->use_cache_memory = true;
-		region->cache_page = page;
-		ssmr_usage_count += region->count;
+		feature->use_cache_memory = true;
+		feature->cache_page = page;
+		ssmr_usage_count += feature->count;
 		ret_map = memory_unmapping(region_cache_page_va,
-				region->count << PAGE_SHIFT);
+				feature->count << PAGE_SHIFT);
 
 		if (ret_map < 0) {
 			pr_err("[unmapping fail]: virt:0x%lx, size:0x%lx",
 				(unsigned long)__va((page_to_phys(page))),
-				region->count << PAGE_SHIFT);
-#if 0
+				feature->count << PAGE_SHIFT);
+
 			aee_kernel_warning_api(__FILE__, __LINE__,
 				DB_OPT_DEFAULT
 				| DB_OPT_DUMPSYS_ACTIVITY
@@ -1373,15 +1348,15 @@ static int __init memory_ssmr_init_region(char *name, u64 size,
 				"offline unmap fail\nCRDISPATCH_KEY:SVP_SS1\n",
 				"[unmapping fail]: virt:0x%lx, size:0x%lx",
 				(unsigned long)__va((page_to_phys(page))),
-				region->count << PAGE_SHIFT);
-#endif
-			region->is_unmapping = false;
+				feature->count << PAGE_SHIFT);
+
+			feature->is_unmapping = false;
 		} else
-			region->is_unmapping = true;
+			feature->is_unmapping = true;
 	}
 
 region_init_done:
-	region->state = SSMR_STATE_ON;
+	feature->state = SSMR_STATE_ON;
 	pr_info("%s: %s is enable with size: %pa\n",
 			__func__, name, &size);
 	return 0;
@@ -1408,17 +1383,17 @@ static int __init memory_ssmr_debug_init(void)
 	 * TODO: integrate into _svpregs[] initialization
 	 */
 #ifdef CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
-	_ssmregs[i].proc_entry_fops = &ssmr_cma_fops;
+	_ssmr_feats[i].proc_entry_fops = &ssmr_cma_fops;
 #endif
 
-	if (__MAX_NR_SSMRSUBS <= 0)
+	if (__MAX_NR_SSMR_FEATURES <= 0)
 		return 0;
 
-	for (; i < __MAX_NR_SSMRSUBS; i++) {
-		memory_ssmr_init_region(_ssmregs[i].name,
-			_ssmregs[i].usable_size,
-			&_ssmregs[i],
-			_ssmregs[i].proc_entry_fops);
+	for (; i < __MAX_NR_SSMR_FEATURES; i++) {
+		memory_ssmr_init_feature(_ssmr_feats[i].feat_name,
+			_ssmr_feats[i].req_size,
+			&_ssmr_feats[i],
+			_ssmr_feats[i].proc_entry_fops);
 	}
 
 	return 0;
