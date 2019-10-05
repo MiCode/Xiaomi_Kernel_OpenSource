@@ -157,6 +157,7 @@ const char *v4l2_type_names[] = {
 	[V4L2_BUF_TYPE_SDR_CAPTURE]        = "sdr-cap",
 	[V4L2_BUF_TYPE_SDR_OUTPUT]         = "sdr-out",
 	[V4L2_BUF_TYPE_META_CAPTURE]       = "meta-cap",
+	[V4L2_BUF_TYPE_META_OUTPUT]        = "meta-out",
 };
 EXPORT_SYMBOL(v4l2_type_names);
 
@@ -331,6 +332,7 @@ static void v4l_print_format(const void *arg, bool write_only)
 			(sdr->pixelformat >> 24) & 0xff);
 		break;
 	case V4L2_BUF_TYPE_META_CAPTURE:
+	case V4L2_BUF_TYPE_META_OUTPUT:
 		meta = &p->fmt.meta;
 		pr_cont(", dataformat=%c%c%c%c, buffersize=%u\n",
 			(meta->dataformat >>  0) & 0xff,
@@ -961,6 +963,10 @@ static int check_fmt(struct file *file, enum v4l2_buf_type type)
 		if (is_vid && is_rx && ops->vidioc_g_fmt_meta_cap)
 			return 0;
 		break;
+	case V4L2_BUF_TYPE_META_OUTPUT:
+		if (is_vid && is_tx && ops->vidioc_g_fmt_meta_out)
+			return 0;
+		break;
 	default:
 		break;
 	}
@@ -1417,6 +1423,11 @@ static int v4l_enum_fmt(const struct v4l2_ioctl_ops *ops,
 			break;
 		ret = ops->vidioc_enum_fmt_meta_cap(file, fh, arg);
 		break;
+	case V4L2_BUF_TYPE_META_OUTPUT:
+		if (unlikely(!ops->vidioc_enum_fmt_meta_out))
+			break;
+		ret = ops->vidioc_enum_fmt_meta_out(file, fh, arg);
+		break;
 	}
 	if (ret == 0)
 		v4l_fill_fmtdesc(p);
@@ -1495,6 +1506,8 @@ static int v4l_g_fmt(const struct v4l2_ioctl_ops *ops,
 		return ops->vidioc_g_fmt_sdr_out(file, fh, arg);
 	case V4L2_BUF_TYPE_META_CAPTURE:
 		return ops->vidioc_g_fmt_meta_cap(file, fh, arg);
+	case V4L2_BUF_TYPE_META_OUTPUT:
+		return ops->vidioc_g_fmt_meta_out(file, fh, arg);
 	}
 	return -EINVAL;
 }
@@ -1603,6 +1616,11 @@ static int v4l_s_fmt(const struct v4l2_ioctl_ops *ops,
 			break;
 		CLEAR_AFTER_FIELD(p, fmt.meta);
 		return ops->vidioc_s_fmt_meta_cap(file, fh, arg);
+	case V4L2_BUF_TYPE_META_OUTPUT:
+		if (unlikely(!ops->vidioc_s_fmt_meta_out))
+			break;
+		CLEAR_AFTER_FIELD(p, fmt.meta);
+		return ops->vidioc_s_fmt_meta_out(file, fh, arg);
 	}
 	return -EINVAL;
 }
@@ -1690,6 +1708,11 @@ static int v4l_try_fmt(const struct v4l2_ioctl_ops *ops,
 			break;
 		CLEAR_AFTER_FIELD(p, fmt.meta);
 		return ops->vidioc_try_fmt_meta_cap(file, fh, arg);
+	case V4L2_BUF_TYPE_META_OUTPUT:
+		if (unlikely(!ops->vidioc_try_fmt_meta_out))
+			break;
+		CLEAR_AFTER_FIELD(p, fmt.meta);
+		return ops->vidioc_try_fmt_meta_out(file, fh, arg);
 	}
 	return -EINVAL;
 }

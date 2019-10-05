@@ -46,5 +46,4 @@ ifeq ($(CONFIG_MACH_MT6779),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += isp_50/camera_rsc.o
 endif
 
-
 endif

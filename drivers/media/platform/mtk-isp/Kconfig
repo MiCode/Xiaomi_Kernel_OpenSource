@@ -1,0 +1,36 @@
+config VIDEO_MEDIATEK_ISP_COMMON
+	bool "Mediatek camera subsystem driver"
+	select DMA_SHARED_BUFFER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_MEM2MEM_DEV
+	select VIDEOBUF2_DMA_CONTIG
+	select VIDEOBUF2_DMA_SG
+	select VIDEOBUF2_CORE
+	select VIDEOBUF2_V4L2
+	select VIDEOBUF2_MEMOPS
+	select VIDEOBUF2_VMALLOC
+	select MEDIA_CONTROLLER
+	---help---
+	  Generic helpers for Mediatek SoCs ISP drivers. Mediatek
+	  SoCs ISP drivers have similar image handling flow. For
+	  example, Mediatek's ISP IPs may accept multiple input
+	  buffers of a frame and generate multiple output buffers
+	  of different format, size and effect. The helpers
+	  provide the functions to create the common flow.
+
+config VIDEO_MEDIATEK_ISP_RSC_SUPPORT
+	bool "Mediatek rsc function"
+
+	select DMA_SHARED_BUFFER
+	select VIDEO_V4L2_SUBDEV_API
+	select VIDEOBUF2_DMA_CONTIG
+	select VIDEOBUF2_CORE
+	select VIDEOBUF2_V4L2
+	select VIDEOBUF2_MEMOPS
+	select VIDEOBUF2_VMALLOC
+	select MEDIA_CONTROLLER
+	---help---
+	  This driver provides a capability and stability for the
+	  image quality. When user records the video, it may have
+	  jelly effection if moving is faster. This module can help
+	  to reduce the motion distortion.
