@@ -27,52 +27,53 @@
 #define DRV_BASE				0xb00
 
 static const struct mtk_pin_spec_pupd_set_samereg mt8173_spec_pupd[] = {
-	MTK_PIN_PUPD_SPEC_SR(119, 0xe00, 2, 1, 0),  /* KROW0 */
-	MTK_PIN_PUPD_SPEC_SR(120, 0xe00, 6, 5, 4),  /* KROW1 */
-	MTK_PIN_PUPD_SPEC_SR(121, 0xe00, 10, 9, 8), /* KROW2 */
-	MTK_PIN_PUPD_SPEC_SR(122, 0xe10, 2, 1, 0),  /* KCOL0 */
-	MTK_PIN_PUPD_SPEC_SR(123, 0xe10, 6, 5, 4),  /* KCOL1 */
-	MTK_PIN_PUPD_SPEC_SR(124, 0xe10, 10, 9, 8), /* KCOL2 */
+	MTK_PIN_PUPD_SPEC_SR(119, 0xe00, 2, 1, 0, 0),  /* KROW0 */
+	MTK_PIN_PUPD_SPEC_SR(120, 0xe00, 6, 5, 4, 0),  /* KROW1 */
+	MTK_PIN_PUPD_SPEC_SR(121, 0xe00, 10, 9, 8, 0), /* KROW2 */
+	MTK_PIN_PUPD_SPEC_SR(122, 0xe10, 2, 1, 0, 0),  /* KCOL0 */
+	MTK_PIN_PUPD_SPEC_SR(123, 0xe10, 6, 5, 4, 0),  /* KCOL1 */
+	MTK_PIN_PUPD_SPEC_SR(124, 0xe10, 10, 9, 8, 0), /* KCOL2 */
 
-	MTK_PIN_PUPD_SPEC_SR(67, 0xd10, 2, 1, 0),   /* ms0 DS */
-	MTK_PIN_PUPD_SPEC_SR(68, 0xd00, 2, 1, 0),   /* ms0 RST */
-	MTK_PIN_PUPD_SPEC_SR(66, 0xc10, 2, 1, 0),   /* ms0 cmd */
-	MTK_PIN_PUPD_SPEC_SR(65, 0xc00, 2, 1, 0),   /* ms0 clk */
-	MTK_PIN_PUPD_SPEC_SR(57, 0xc20, 2, 1, 0),   /* ms0 data0 */
-	MTK_PIN_PUPD_SPEC_SR(58, 0xc20, 2, 1, 0),   /* ms0 data1 */
-	MTK_PIN_PUPD_SPEC_SR(59, 0xc20, 2, 1, 0),   /* ms0 data2 */
-	MTK_PIN_PUPD_SPEC_SR(60, 0xc20, 2, 1, 0),   /* ms0 data3 */
-	MTK_PIN_PUPD_SPEC_SR(61, 0xc20, 2, 1, 0),   /* ms0 data4 */
-	MTK_PIN_PUPD_SPEC_SR(62, 0xc20, 2, 1, 0),   /* ms0 data5 */
-	MTK_PIN_PUPD_SPEC_SR(63, 0xc20, 2, 1, 0),   /* ms0 data6 */
-	MTK_PIN_PUPD_SPEC_SR(64, 0xc20, 2, 1, 0),   /* ms0 data7 */
+	MTK_PIN_PUPD_SPEC_SR(67, 0xd10, 2, 1, 0, 0),   /* ms0 DS */
+	MTK_PIN_PUPD_SPEC_SR(68, 0xd00, 2, 1, 0, 0),   /* ms0 RST */
+	MTK_PIN_PUPD_SPEC_SR(66, 0xc10, 2, 1, 0, 0),   /* ms0 cmd */
+	MTK_PIN_PUPD_SPEC_SR(65, 0xc00, 2, 1, 0, 0),   /* ms0 clk */
+	MTK_PIN_PUPD_SPEC_SR(57, 0xc20, 2, 1, 0, 0),   /* ms0 data0 */
+	MTK_PIN_PUPD_SPEC_SR(58, 0xc20, 2, 1, 0, 0),   /* ms0 data1 */
+	MTK_PIN_PUPD_SPEC_SR(59, 0xc20, 2, 1, 0, 0),   /* ms0 data2 */
+	MTK_PIN_PUPD_SPEC_SR(60, 0xc20, 2, 1, 0, 0),   /* ms0 data3 */
+	MTK_PIN_PUPD_SPEC_SR(61, 0xc20, 2, 1, 0, 0),   /* ms0 data4 */
+	MTK_PIN_PUPD_SPEC_SR(62, 0xc20, 2, 1, 0, 0),   /* ms0 data5 */
+	MTK_PIN_PUPD_SPEC_SR(63, 0xc20, 2, 1, 0, 0),   /* ms0 data6 */
+	MTK_PIN_PUPD_SPEC_SR(64, 0xc20, 2, 1, 0, 0),   /* ms0 data7 */
 
-	MTK_PIN_PUPD_SPEC_SR(78, 0xc50, 2, 1, 0),    /* ms1 cmd */
-	MTK_PIN_PUPD_SPEC_SR(73, 0xd20, 2, 1, 0),    /* ms1 dat0 */
-	MTK_PIN_PUPD_SPEC_SR(74, 0xd20, 6, 5, 4),    /* ms1 dat1 */
-	MTK_PIN_PUPD_SPEC_SR(75, 0xd20, 10, 9, 8),   /* ms1 dat2 */
-	MTK_PIN_PUPD_SPEC_SR(76, 0xd20, 14, 13, 12), /* ms1 dat3 */
-	MTK_PIN_PUPD_SPEC_SR(77, 0xc40, 2, 1, 0),    /* ms1 clk */
+	MTK_PIN_PUPD_SPEC_SR(78, 0xc50, 2, 1, 0, 0),    /* ms1 cmd */
+	MTK_PIN_PUPD_SPEC_SR(73, 0xd20, 2, 1, 0, 0),    /* ms1 dat0 */
+	MTK_PIN_PUPD_SPEC_SR(74, 0xd20, 6, 5, 4, 0),    /* ms1 dat1 */
+	MTK_PIN_PUPD_SPEC_SR(75, 0xd20, 10, 9, 8, 0),   /* ms1 dat2 */
+	MTK_PIN_PUPD_SPEC_SR(76, 0xd20, 14, 13, 12, 0), /* ms1 dat3 */
+	MTK_PIN_PUPD_SPEC_SR(77, 0xc40, 2, 1, 0, 0),    /* ms1 clk */
 
-	MTK_PIN_PUPD_SPEC_SR(100, 0xd40, 2, 1, 0),    /* ms2 dat0 */
-	MTK_PIN_PUPD_SPEC_SR(101, 0xd40, 6, 5, 4),    /* ms2 dat1 */
-	MTK_PIN_PUPD_SPEC_SR(102, 0xd40, 10, 9, 8),   /* ms2 dat2 */
-	MTK_PIN_PUPD_SPEC_SR(103, 0xd40, 14, 13, 12), /* ms2 dat3 */
-	MTK_PIN_PUPD_SPEC_SR(104, 0xc80, 2, 1, 0),    /* ms2 clk */
-	MTK_PIN_PUPD_SPEC_SR(105, 0xc90, 2, 1, 0),    /* ms2 cmd */
+	MTK_PIN_PUPD_SPEC_SR(100, 0xd40, 2, 1, 0, 0),    /* ms2 dat0 */
+	MTK_PIN_PUPD_SPEC_SR(101, 0xd40, 6, 5, 4, 0),    /* ms2 dat1 */
+	MTK_PIN_PUPD_SPEC_SR(102, 0xd40, 10, 9, 8, 0),   /* ms2 dat2 */
+	MTK_PIN_PUPD_SPEC_SR(103, 0xd40, 14, 13, 12, 0), /* ms2 dat3 */
+	MTK_PIN_PUPD_SPEC_SR(104, 0xc80, 2, 1, 0, 0),    /* ms2 clk */
+	MTK_PIN_PUPD_SPEC_SR(105, 0xc90, 2, 1, 0, 0),    /* ms2 cmd */
 
-	MTK_PIN_PUPD_SPEC_SR(22, 0xd60, 2, 1, 0),    /* ms3 dat0 */
-	MTK_PIN_PUPD_SPEC_SR(23, 0xd60, 6, 5, 4),    /* ms3 dat1 */
-	MTK_PIN_PUPD_SPEC_SR(24, 0xd60, 10, 9, 8),   /* ms3 dat2 */
-	MTK_PIN_PUPD_SPEC_SR(25, 0xd60, 14, 13, 12), /* ms3 dat3 */
-	MTK_PIN_PUPD_SPEC_SR(26, 0xcc0, 2, 1, 0),    /* ms3 clk */
-	MTK_PIN_PUPD_SPEC_SR(27, 0xcd0, 2, 1, 0)     /* ms3 cmd */
+	MTK_PIN_PUPD_SPEC_SR(22, 0xd60, 2, 1, 0, 0),    /* ms3 dat0 */
+	MTK_PIN_PUPD_SPEC_SR(23, 0xd60, 6, 5, 4, 0),    /* ms3 dat1 */
+	MTK_PIN_PUPD_SPEC_SR(24, 0xd60, 10, 9, 8, 0),   /* ms3 dat2 */
+	MTK_PIN_PUPD_SPEC_SR(25, 0xd60, 14, 13, 12, 0), /* ms3 dat3 */
+	MTK_PIN_PUPD_SPEC_SR(26, 0xcc0, 2, 1, 0, 0),    /* ms3 clk */
+	MTK_PIN_PUPD_SPEC_SR(27, 0xcd0, 2, 1, 0, 0)     /* ms3 cmd */
 };
 
-static int mt8173_spec_pull_set(struct regmap *regmap, unsigned int pin,
+static int mt8173_spec_pull_set(struct mtk_pinctrl *pctl,
+		struct regmap *regmap, unsigned int pin,
 		unsigned char align, bool isup, unsigned int r1r0)
 {
-	return mtk_pctrl_spec_pull_set_samereg(regmap, mt8173_spec_pupd,
+	return mtk_pctrl_spec_pull_set_samereg(pctl, regmap, mt8173_spec_pupd,
 		ARRAY_SIZE(mt8173_spec_pupd), pin, align, isup, r1r0);
 }
 
@@ -182,7 +183,8 @@ static const struct mtk_pin_ies_smt_set mt8173_ies_set[] = {
 	MTK_PIN_IES_SMT_SPEC(133, 134, 0x910, 8)
 };
 
-static int mt8173_ies_smt_set(struct regmap *regmap, unsigned int pin,
+static int mt8173_ies_smt_set(struct mtk_pinctrl *pctl,
+		struct regmap *regmap, unsigned int pin,
 		unsigned char align, int value, enum pin_config_param arg)
 {
 	if (arg == PIN_CONFIG_INPUT_ENABLE)
@@ -337,9 +339,11 @@ static const struct mtk_pinctrl_devdata mt8173_pinctrl_data = {
 	.pinmux_offset = 0x0600,
 	.type1_start = 135,
 	.type1_end = 135,
+	.regmap_num = 1,
 	.port_shf = 4,
 	.port_mask = 0xf,
 	.port_align = 4,
+	.port_pin_shf = 4,
 	.eint_offsets = {
 		.name = "mt8173_eint",
 		.stat      = 0x000,
