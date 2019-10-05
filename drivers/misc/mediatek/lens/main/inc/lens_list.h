@@ -27,7 +27,8 @@ extern int AK7371AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 extern long AK7371AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 			   unsigned long a_u4Param);
 extern int AK7371AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
-extern int AK7371AF_PowerDown(void);
+extern int AK7371AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
 extern int AK7371AF_GetFileName(unsigned char *pFileName);
 
 #define BU6424AF_SetI2Cclient BU6424AF_SetI2Cclient_Main
@@ -49,7 +50,8 @@ extern long bu64748af_Ioctl_Main(struct file *a_pstFile,
 				 unsigned long a_u4Param);
 extern int bu64748af_Release_Main(struct inode *a_pstInode,
 				  struct file *a_pstFile);
-extern int bu64748af_PowerDown_Main(void);
+extern int bu64748af_PowerDown_Main(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
 extern int bu64748af_GetFileName_Main(unsigned char *pFileName);
 
 #define BU6429AF_SetI2Cclient BU6429AF_SetI2Cclient_Main
@@ -85,7 +87,8 @@ extern int BU63169AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 extern long BU63169AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 			    unsigned long a_u4Param);
 extern int BU63169AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
-extern int BU63169AF_PowerDown(void);
+extern int BU63169AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
 extern int BU63169AF_GetFileName(unsigned char *pFileName);
 #endif
 
@@ -144,7 +147,8 @@ extern int DW9718SAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 extern long DW9718SAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 			    unsigned long a_u4Param);
 extern int DW9718SAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
-extern int DW9718SAF_PowerDown(void);
+extern int DW9718SAF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
 extern int DW9718SAF_GetFileName(unsigned char *pFileName);
 
 #define DW9719TAF_SetI2Cclient DW9719TAF_SetI2Cclient_Main
@@ -247,7 +251,8 @@ extern int LC898217AFC_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 extern long LC898217AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 			     unsigned long a_u4Param);
 extern int LC898217AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
-extern int LC898217AF_PowerDown(void);
+extern int LC898217AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
 extern int LC898217AF_GetFileName(unsigned char *pFileName);
 
 #define AD5820AF_SetI2Cclient AD5820AF_SetI2Cclient_Main
