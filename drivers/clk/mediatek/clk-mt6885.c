@@ -4242,9 +4242,10 @@ void pll_if_on(void)
 		pr_notice("suspend warning: APLL1 is on!!!\n");
 	if (clk_readl(APLL2_CON0) & 0x1)
 		pr_notice("suspend warning: APLL2 is on!!!\n");
+#if 0
 	if (ret > 0)
 		WARN_ON(1);
-
+#endif
 #if 0
 	pr_notice("%s: AP_PLL_CON3 = 0x%08x\r\n", __func__,
 		clk_readl(AP_PLL_CON3));

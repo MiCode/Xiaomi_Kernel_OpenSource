@@ -5501,9 +5501,10 @@ void subsys_if_on(void)
 		ret++;
 	}
 
+#if 0
 	if (ret > 0)
 		WARN_ON(1); /* BUG_ON(1); */
-
+#endif
 #if 0
 	for (i = 0; i < num; i++)
 		dump_cg_state(clks[i]);

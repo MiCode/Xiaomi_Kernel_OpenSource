@@ -15,7 +15,7 @@
 #include <linux/syscore_ops.h>
 #include <linux/version.h>
 
-#define WARN_ON_CHECK_PLL_FAIL		1
+#define WARN_ON_CHECK_PLL_FAIL	0
 #define CLKDBG_CCF_API_4_4	1
 
 #define TAG	"[clkchk] "
@@ -534,11 +534,15 @@ static const char *ccf_state(struct clk_hw *hw)
 	return "disabled";
 }
 
-static void print_enabled_clks(void)
+static void print_enabled_clks(int is_deferred)
 {
 	const char * const *cn = get_mt6885_all_clk_names();
 
-	pr_notice("enabled clks:\n");
+	if (is_deferred)
+		printk_deferred("enabled clks:\n");
+	else
+		pr_notice("enabled clks:\n");
+
 
 	for (; *cn; cn++) {
 		struct clk *c = __clk_lookup(*cn);
@@ -557,13 +561,23 @@ static void print_enabled_clks(void)
 		if (!__clk_get_enable_count(c))
 			continue;
 
-		pr_notice("[%-17s: %8s, %3d, %3d, %10ld, %17s]\n",
-			clk_hw_get_name(c_hw),
-			ccf_state(c_hw),
-			clk_hw_is_prepared(c_hw),
-			__clk_get_enable_count(c),
-			clk_hw_get_rate(c_hw),
-			p_hw ? clk_hw_get_name(p_hw) : "- ");
+		if (is_deferred)
+			printk_deferred(
+				"[%-17s: %8s, %3d, %3d, %10ld, %17s]\n",
+				clk_hw_get_name(c_hw),
+				ccf_state(c_hw),
+				clk_hw_is_prepared(c_hw),
+				__clk_get_enable_count(c),
+				clk_hw_get_rate(c_hw),
+				p_hw ? clk_hw_get_name(p_hw) : "- ");
+		else
+			pr_notice("[%-17s: %8s, %3d, %3d, %10ld, %17s]\n",
+				clk_hw_get_name(c_hw),
+				ccf_state(c_hw),
+				clk_hw_is_prepared(c_hw),
+				__clk_get_enable_count(c),
+				clk_hw_get_rate(c_hw),
+				p_hw ? clk_hw_get_name(p_hw) : "- ");
 	}
 }
 
@@ -614,7 +628,8 @@ static void check_pll_off(void)
 
 	if (invalid) {
 		pr_notice("unexpected unclosed PLL: %s\n", buf);
-		print_enabled_clks();
+
+		print_enabled_clks(1);
 
 #if WARN_ON_CHECK_PLL_FAIL
 		WARN_ON(1);
@@ -628,7 +643,7 @@ void print_enabled_clks_once(void)
 
 	if (first_flag) {
 		first_flag = false;
-		print_enabled_clks();
+		print_enabled_clks(0);
 	}
 }
 
