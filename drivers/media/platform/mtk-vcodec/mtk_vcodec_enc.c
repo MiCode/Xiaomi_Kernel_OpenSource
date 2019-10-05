@@ -561,7 +561,7 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 {
 	struct v4l2_pix_format_mplane *pix_fmt_mp = &f->fmt.pix_mp;
 	int org_w, org_h, i;
-	float bytesPP = 1;  /* bytes per pixel */
+	int bitsPP = 8;  /* bits per pixel */
 	__u32 bs_fourcc;
 	unsigned int step_width_in_pixel;
 	unsigned int step_height_in_pixel;
@@ -616,7 +616,7 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 				spec_size_info->stepwise.step_width * 4;
 			step_height_in_pixel =
 				spec_size_info->stepwise.step_height;
-			bytesPP = 1.25;
+			bitsPP = 10;
 			saligned = 6;
 		} else if (pix_fmt_mp->pixelformat == V4L2_PIX_FMT_P010M ||
 			pix_fmt_mp->pixelformat == V4L2_PIX_FMT_P010S) {
@@ -624,7 +624,7 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 				spec_size_info->stepwise.step_width / 2;
 			step_height_in_pixel =
 				spec_size_info->stepwise.step_height;
-			bytesPP = 2;
+			bitsPP = 16;
 			saligned = 6;
 		} else if (pix_fmt_mp->pixelformat == V4L2_PIX_FMT_ABGR32 ||
 			pix_fmt_mp->pixelformat == V4L2_PIX_FMT_ARGB32 ||
@@ -636,20 +636,20 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 			pix_fmt_mp->pixelformat == V4L2_PIX_FMT_BGRA1010102) {
 			step_width_in_pixel = 1;
 			step_height_in_pixel = 1;
-			bytesPP = 4;
+			bitsPP = 32;
 			saligned = 4;
 		} else if (pix_fmt_mp->pixelformat == V4L2_PIX_FMT_RGB24 ||
 			pix_fmt_mp->pixelformat == V4L2_PIX_FMT_BGR24) {
 			step_width_in_pixel = 1;
 			step_height_in_pixel = 1;
-			bytesPP = 3;
+			bitsPP = 24;
 			saligned = 4;
 		} else {
 			step_width_in_pixel =
 				spec_size_info->stepwise.step_width;
 			step_height_in_pixel =
 				spec_size_info->stepwise.step_height;
-			bytesPP = 1;
+			bitsPP = 8;
 			saligned = 6;
 		}
 
@@ -737,38 +737,38 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 			pix_fmt_mp->pixelformat == V4L2_PIX_FMT_RGB24 ||
 			pix_fmt_mp->pixelformat == V4L2_PIX_FMT_BGR24) {
 			pix_fmt_mp->plane_fmt[0].sizeimage =
-				imagePixels * bytesPP;
+				imagePixels * bitsPP / 8;
 			pix_fmt_mp->plane_fmt[0].bytesperline =
-			pix_fmt_mp->width * bytesPP;
+			pix_fmt_mp->width * bitsPP / 8;
 			pix_fmt_mp->num_planes = 1U;
 		} else if (pix_fmt_mp->num_planes == 1U) {
 			pix_fmt_mp->plane_fmt[0].sizeimage =
-				(imagePixels * bytesPP) +
-				(imagePixels * bytesPP) / 2;
+				(imagePixels * bitsPP / 8) +
+				(imagePixels * bitsPP / 8) / 2;
 			pix_fmt_mp->plane_fmt[0].bytesperline =
-				pix_fmt_mp->width * bytesPP;
+				pix_fmt_mp->width * bitsPP / 8;
 		} else if (pix_fmt_mp->num_planes == 2U) {
 			pix_fmt_mp->plane_fmt[0].sizeimage =
-				imagePixels * bytesPP;
+				imagePixels * bitsPP / 8;
 			pix_fmt_mp->plane_fmt[0].bytesperline =
-				pix_fmt_mp->width * bytesPP;
+				pix_fmt_mp->width * bitsPP / 8;
 			pix_fmt_mp->plane_fmt[1].sizeimage =
-				(imagePixels * bytesPP) / 2;
+				(imagePixels * bitsPP / 8) / 2;
 			pix_fmt_mp->plane_fmt[1].bytesperline =
-				pix_fmt_mp->width * bytesPP;
+				pix_fmt_mp->width * bitsPP / 8;
 		} else if (pix_fmt_mp->num_planes == 3U) {
 			pix_fmt_mp->plane_fmt[0].sizeimage =
-				imagePixels * bytesPP;
+				imagePixels * bitsPP / 8;
 			pix_fmt_mp->plane_fmt[0].bytesperline =
-				pix_fmt_mp->width * bytesPP;
+				pix_fmt_mp->width * bitsPP / 8;
 			pix_fmt_mp->plane_fmt[1].sizeimage =
-				(imagePixels * bytesPP) / 4;
+				(imagePixels * bitsPP / 8) / 4;
 			pix_fmt_mp->plane_fmt[1].bytesperline =
-				pix_fmt_mp->width * bytesPP / 2;
+				pix_fmt_mp->width * bitsPP / 8 / 2;
 			pix_fmt_mp->plane_fmt[2].sizeimage =
-				(imagePixels * bytesPP) / 4;
+				(imagePixels * bitsPP / 8) / 4;
 			pix_fmt_mp->plane_fmt[2].bytesperline =
-				pix_fmt_mp->width * bytesPP / 2;
+				pix_fmt_mp->width * bitsPP / 8 / 2;
 		} else
 			mtk_v4l2_err("Unsupport num planes = %d\n",
 				     pix_fmt_mp->num_planes);
@@ -1537,6 +1537,7 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 			return 0;
 	}
 
+	memset(&param, 0, sizeof(param));
 	mtk_venc_set_param(ctx, &param);
 	ret = venc_if_set_param(ctx, VENC_SET_PARAM_ENC, &param);
 	if (ret) {
