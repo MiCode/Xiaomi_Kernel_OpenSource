@@ -20,6 +20,11 @@
 #define R_CORE0_SW_RSTN_SET	(scpreg.cfg_core0 + 0x0004)
 #define R_CORE1_SW_RSTN_SET	(scpreg.cfg_core1 + 0x0004)
 
+
+#define R_CORE0_DBG_CTRL	(scpreg.cfg_core0 + 0x0010)
+#define R_CORE1_DBG_CTRL	(scpreg.cfg_core1 + 0x0010)
+	#define M_CORE_TBUF_DBG_SEL	(7 << 4)
+	#define S_CORE_TBUF_DBG_SEL	(4)
 #define R_CORE0_WDT_IRQ		(scpreg.cfg_core0 + 0x0030)
 #define R_CORE1_WDT_IRQ		(scpreg.cfg_core1 + 0x0030)
 	#define B_WDT_IRQ	(1 << 0)
@@ -51,6 +56,15 @@
 #define R_CORE1_MON_LR_LATCH		(scpreg.cfg_core1 + 0x00d4)
 #define R_CORE1_MON_SP_LATCH		(scpreg.cfg_core1 + 0x00d8)
 
+#define R_CORE0_TBUF_DATA31_0		(scpreg.cfg_core0 + 0x00e0)
+#define R_CORE0_TBUF_DATA63_32		(scpreg.cfg_core0 + 0x00e4)
+#define R_CORE0_TBUF_DATA95_64		(scpreg.cfg_core0 + 0x00e8)
+#define R_CORE0_TBUF_DATA127_96		(scpreg.cfg_core0 + 0x00ec)
+
+#define R_CORE1_TBUF_DATA31_0		(scpreg.cfg_core1 + 0x00e0)
+#define R_CORE1_TBUF_DATA63_32		(scpreg.cfg_core1 + 0x00e4)
+#define R_CORE1_TBUF_DATA95_64		(scpreg.cfg_core1 + 0x00e8)
+#define R_CORE1_TBUF_DATA127_96		(scpreg.cfg_core1 + 0x00ec)
 
 #define SCP_A_DEBUG_PC_REG       (scpreg.cfg + 0x00B4)
 #define SCP_A_DEBUG_PSP_REG      (scpreg.cfg + 0x00B0)

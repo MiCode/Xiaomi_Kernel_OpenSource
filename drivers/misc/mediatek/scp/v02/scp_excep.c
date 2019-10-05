@@ -131,13 +131,43 @@ void scp_do_l1cdump(uint32_t *out, uint32_t *out_end)
 	tmp = readl(R_SEC_CTRL);
 	/* enable cache debug */
 	writel(tmp | B_CORE0_CACHE_DBG_EN | B_CORE1_CACHE_DBG_EN, R_SEC_CTRL);
-	if ((uint32_t)buf + 0x40000 > (uint32_t)out_end) {
+	if ((uint32_t)buf + MDUMP_L1C_SIZE > (uint32_t)out_end) {
 		pr_notice("[SCP] %s overflow\n", __func__);
 		return;
 	}
-	memcpy_from_scp(buf, R_CORE0_CACHE_RAM, 0x40000);
+	memcpy_from_scp(buf, R_CORE0_CACHE_RAM, MDUMP_L1C_SIZE);
 	/* disable cache debug */
 	writel(tmp, R_SEC_CTRL);
+}
+
+void scp_do_tbufdump(uint32_t *out, uint32_t *out_end)
+{
+	uint32_t *buf = out;
+	uint32_t tmp;
+	int i;
+
+	tmp = readl(R_CORE0_DBG_CTRL) & (~M_CORE_TBUF_DBG_SEL);
+	for (i = 0; i < 7; i++) {
+		writel(tmp | (i << S_CORE_TBUF_DBG_SEL), R_CORE0_DBG_CTRL);
+		*(buf + 0) = readl(R_CORE0_TBUF_DATA31_0);
+		*(buf + 1) = readl(R_CORE0_TBUF_DATA63_32);
+		*(buf + 2) = readl(R_CORE0_TBUF_DATA95_64);
+		*(buf + 3) = readl(R_CORE0_TBUF_DATA127_96);
+		buf += 4;
+	}
+	tmp = readl(R_CORE1_DBG_CTRL) & (~M_CORE_TBUF_DBG_SEL);
+	for (i = 0; i < 7; i++) {
+		writel(tmp | (i << S_CORE_TBUF_DBG_SEL), R_CORE1_DBG_CTRL);
+		*(buf + 0) = readl(R_CORE1_TBUF_DATA31_0);
+		*(buf + 1) = readl(R_CORE1_TBUF_DATA63_32);
+		*(buf + 2) = readl(R_CORE1_TBUF_DATA95_64);
+		*(buf + 3) = readl(R_CORE1_TBUF_DATA127_96);
+		buf += 4;
+	}
+	for (i = 0; i < 32; i++) {
+		pr_notice("[SCP] %02d:0x%08x::0x%08x\n",
+			i, *(out + i), *(out + i + 1));
+	}
 }
 
 /*
@@ -169,9 +199,12 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 	scp_do_regdump((void *)&(pMemoryDump->regdump),
 		(void *)&(pMemoryDump->l1c));
 	scp_do_l1cdump((void *)&(pMemoryDump->l1c),
+		(void *)&(pMemoryDump->tbuf));
+	scp_do_tbufdump((void *)&(pMemoryDump->tbuf),
 		(void *)&(pMemoryDump->dram));
 
-	scp_dump_size = MDUMP_L2TCM_SIZE + MDUMP_REGDUMP_SIZE + MDUMP_L1C_SIZE;
+	scp_dump_size = MDUMP_L2TCM_SIZE + MDUMP_REGDUMP_SIZE
+		+ MDUMP_L1C_SIZE + MDUMP_TBUF_SIZE;
 	/* dram support? */
 	if ((int)(scp_region_info->ap_dram_size) <= 0) {
 		pr_notice("[scp] ap_dram_size <=0\n");

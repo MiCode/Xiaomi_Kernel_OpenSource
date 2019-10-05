@@ -58,7 +58,8 @@ extern struct scp_status_reg c1_m;
 
 #define MDUMP_L2TCM_SIZE	0x100000 /* L2_TCM */
 #define MDUMP_REGDUMP_SIZE	0x040000 /* register backup (max size) */
-#define MDUMP_L1C_SIZE		0x040000
+#define MDUMP_L1C_SIZE		0x03f000
+#define MDUMP_TBUF_SIZE		0x001000
 #define MDUMP_DRAM_SIZE		0x200000
 
 struct MemoryDump {
@@ -67,6 +68,7 @@ struct MemoryDump {
 	/*scp reg*/
 	char regdump[MDUMP_REGDUMP_SIZE];
 	char l1c[MDUMP_L1C_SIZE];
+	char tbuf[MDUMP_TBUF_SIZE];
 	char dram[MDUMP_DRAM_SIZE];
 };
 
