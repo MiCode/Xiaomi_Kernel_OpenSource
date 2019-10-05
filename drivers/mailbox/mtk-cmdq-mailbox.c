@@ -238,7 +238,7 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 	}
 }
 
-static dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread)
+dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread)
 {
 	struct cmdq *cmdq = container_of(thread->chan->mbox, struct cmdq, mbox);
 
@@ -251,7 +251,7 @@ static dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread)
 	return CMDQ_REG_REVERT_ADDR(readl(thread->base + CMDQ_THR_CURR_ADDR));
 }
 
-static dma_addr_t cmdq_thread_get_end(struct cmdq_thread *thread)
+dma_addr_t cmdq_thread_get_end(struct cmdq_thread *thread)
 {
 	dma_addr_t end = readl(thread->base + CMDQ_THR_END_ADDR);
 
@@ -927,12 +927,16 @@ void cmdq_dump_core(struct mbox_chan *chan)
 	cycle = readl(cmdq->base + CMDQ_THR_EXEC_CYCLES);
 	thd_timer = readl(cmdq->base + CMDQ_THR_TIMEOUT_TIMER);
 
-	cmdq_msg("irq:%#x loaded:%#x cycle:%#x thd timer:%#x",
+	cmdq_util_msg("irq:%#x loaded:%#x cycle:%#x thd timer:%#x",
 		irq, loaded, cycle, thd_timer);
+#if IS_ENABLED(CONFIG_CMDQ_MBOX_EXT)
+	cmdq_util_dump_dbg_reg(chan);
+#endif
 }
 EXPORT_SYMBOL(cmdq_dump_core);
 
-u64 cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt)
+void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
+	u64 **inst_out, dma_addr_t *pc_out)
 {
 	struct cmdq_thread *thread = (struct cmdq_thread *)chan->con_priv;
 	unsigned long flags;
@@ -985,27 +989,31 @@ u64 cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt)
 	}
 	spin_unlock_irqrestore(&chan->lock, flags);
 
-	cmdq_msg(
+	cmdq_util_msg(
 		"thd:%u pc:%#08x(%p) inst:%#016llx end:%#08x cnt:%#x token:%#08x",
 		thread->idx, curr_pa, curr_va, inst, end_pa, cnt, wait_token);
-	cmdq_msg(
-		"warn rst:%#x en:%#x suspend:%#x status:%#x irq:%x en:%#x cfg:%#x",
+	cmdq_util_msg(
+		"rst:%#x en:%#x suspend:%#x status:%#x irq:%x en:%#x cfg:%#x",
 		warn_rst, en, suspend, status, irq, irq_en, cfg);
 	if (pkt) {
-		cmdq_msg("cur pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
+		cmdq_util_msg(
+			"cur pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
 			pkt, size, va_base, &pa_base, pri);
-		cmdq_msg("last inst %#016llx %#016llx",
+		cmdq_util_msg("last inst %#016llx %#016llx",
 			last_inst[0], last_inst[1]);
+
+		if (cl_pkt != pkt) {
+			buf = list_first_entry(&pkt->buf, typeof(*buf),
+				list_entry);
+			cmdq_util_msg(
+				"expect pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
+				cl_pkt, cl_pkt->cmd_buf_size, buf->va_base,
+				&buf->pa_base, cl_pkt->priority);
+		}
 	}
 
-	if (cl_pkt != pkt) {
-		buf = list_first_entry(&pkt->buf, typeof(*buf), list_entry);
-		cmdq_msg("expect pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
-			cl_pkt, cl_pkt->cmd_buf_size, buf->va_base,
-			&buf->pa_base, cl_pkt->priority);
-	}
-
-	return inst;
+	*inst_out = curr_va;
+	*pc_out = curr_pa;
 }
 EXPORT_SYMBOL(cmdq_thread_dump);
 
@@ -1444,6 +1452,14 @@ void *cmdq_mbox_get_base(void *chan)
 		typeof(*cmdq), mbox);
 
 	return (void *)cmdq->base;
+}
+
+phys_addr_t cmdq_mbox_get_base_pa(void *chan)
+{
+	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
+		typeof(*cmdq), mbox);
+
+	return cmdq->base_pa;
 }
 
 struct device *cmdq_mbox_get_dev(void *chan)

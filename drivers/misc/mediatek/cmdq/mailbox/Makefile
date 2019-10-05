@@ -3,6 +3,8 @@
 # Copyright (c) 2019 MediaTek Inc.
 #
 
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include
+
 ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
 
 ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)

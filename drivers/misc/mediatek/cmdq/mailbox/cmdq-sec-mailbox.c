@@ -79,6 +79,7 @@ struct cmdqSecSharedMemoryStruct {
 };
 
 struct cmdq_sec {
+	/* mbox / base / base_pa must sync with struct cmdq */
 	struct mbox_controller	mbox;
 	void __iomem		*base;
 	phys_addr_t		base_pa;

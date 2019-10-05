@@ -13,9 +13,14 @@
 
 #include "cmdq-util.h"
 
-#define GCE_DBG_CTL	0x3000
-#define GCE_DBG0	0x3004
-#define GCE_DBG2	0x300C
+#define CMDQ_CURR_IRQ_STATUS		0x10
+#define CMDQ_CURR_LOADED_THR		0x18
+#define CMDQ_THR_EXEC_CYCLES		0x34
+#define CMDQ_THR_TIMEOUT_TIMER		0x38
+
+#define GCE_DBG_CTL			0x3000
+#define GCE_DBG0			0x3004
+#define GCE_DBG2			0x300C
 
 struct cmdq_util_error {
 	spinlock_t	lock;
@@ -113,7 +118,11 @@ static int cmdq_util_record_open(struct inode *inode, struct file *file)
 }
 
 static const struct file_operations cmdq_util_status_fops = {
+	.owner = THIS_MODULE,
 	.open = cmdq_util_status_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
 };
 
 static const struct file_operations cmdq_util_record_fops = {
@@ -195,6 +204,7 @@ void cmdq_util_dump_dbg_reg(void *chan)
 static int __init cmdq_util_init(void)
 {
 	struct dentry	*dir;
+	bool exists = false;
 
 	cmdq_msg("%s begin", __func__);
 
@@ -203,11 +213,13 @@ static int __init cmdq_util_init(void)
 	if (!util.err.buffer)
 		return -ENOMEM;
 
-	dir = debugfs_create_dir("cmdq", NULL);
-	if (IS_ERR(dir) && PTR_ERR(dir) != -EEXIST) {
-		cmdq_err("debugfs_create_dir cmdq failed:%ld", PTR_ERR(dir));
-		return PTR_ERR(dir);
-	}
+	dir = debugfs_lookup("cmdq", NULL);
+	if (!dir) {
+		dir = debugfs_create_dir("cmdq", NULL);
+		if (!dir)
+			cmdq_err("debugfs_create_dir cmdq failed");
+	} else
+		exists = true;
 
 	util.fs.status = debugfs_create_file(
 		"cmdq-status", 0444, dir, &util, &cmdq_util_status_fops);
@@ -232,6 +244,10 @@ static int __init cmdq_util_init(void)
 			PTR_ERR(util.fs.log_feature));
 		return PTR_ERR(util.fs.log_feature);
 	}
+
+	if (exists)
+		dput(dir);
+
 	return 0;
 }
 late_initcall(cmdq_util_init);

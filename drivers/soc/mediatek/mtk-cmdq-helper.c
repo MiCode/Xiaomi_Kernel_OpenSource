@@ -19,10 +19,6 @@
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
 
-#if IS_ENABLED(CMDQ_MBOX_EXT)
-#include "../drivers/misc/mediatek/cmdq/mailbox/cmdq-util.h"
-#endif
-
 #define CMDQ_ARG_A_WRITE_MASK	0xffff
 #define CMDQ_WRITE_ENABLE_MASK	BIT(0)
 #define CMDQ_EOC_IRQ_EN		BIT(0)
@@ -977,10 +973,10 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u16 tick, u16 reg_gpr)
 	const u32 tpr_en = 1 << reg_gpr;
 	const u16 event = (u16)GCE_TOKEN_GPR_TIMER + reg_gpr;
 	struct cmdq_client *cl = (struct cmdq_client *)pkt->cl;
-	struct cmdq_thread *thread = (struct cmdq_thread *)cl->chan->con_priv;
 	struct cmdq_operand lop = {.reg = true, .idx = CMDQ_TPR_ID};
 	struct cmdq_operand rop = {.reg = false, .value = 1};
-	const u32 timeout_en = thread->gce_pa + CMDQ_TPR_TIMEOUT_EN;
+	const u32 timeout_en = cmdq_mbox_get_base_pa(cl->chan) +
+		CMDQ_TPR_TIMEOUT_EN;
 
 	/* set target gpr value to max to avoid event trigger
 	 * before new value write to gpr
@@ -1284,21 +1280,44 @@ static void cmdq_flush_async_cb(struct cmdq_cb_data data)
 	item->cb(user_data);
 }
 
+static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
+	struct cmdq_instruction *inst)
+{
+#define txt_len 128
+	char text[txt_len];
+
+	cmdq_buf_print_wfe(text, txt_len, (u32)(pc & 0xFFFF), (void *)inst);
+	cmdq_util_msg("curr inst: %s value:%u",
+		text, cmdq_get_event(chan, inst->arg_a));
+}
+
 void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 {
+#if IS_ENABLED(CONFIG_CMDQ_MBOX_EXT)
+
 	static u32 err_num;
 	struct cmdq_pkt *pkt = (struct cmdq_pkt *)data.data;
 	struct cmdq_client *client = pkt->cl;
 	struct cmdq_flush_item *item =
 		(struct cmdq_flush_item *)pkt->flush_item;
-	u64 inst;
+	struct cmdq_instruction *inst = NULL;
 	dma_addr_t pc = 0;
+	phys_addr_t gce_pa = cmdq_mbox_get_base_pa(client->chan);
+	const char *mod = "CMDQ";
 
-	cmdq_dump("Begin of Error %u", err_num);
+	if (err_num == 0)
+		cmdq_util_error_enable();
+
+	cmdq_util_err("Begin of Error %u", err_num);
 
 	cmdq_dump_core(client->chan);
-	inst = cmdq_thread_dump(client->chan, pkt);
-	cmdq_buf_cmd_parse(&inst, 1, 0, "curr inst:");
+	cmdq_thread_dump(client->chan, pkt, (u64 **)&inst, &pc);
+	if (inst && inst->op == CMDQ_CODE_WFE)
+		cmdq_print_wait_summary(client->chan, pc, inst);
+	else if (inst)
+		cmdq_buf_cmd_parse((u64 *)inst, 1, pc, pc, "curr inst:");
+	else
+		cmdq_util_msg("curr inst: Not Available");
 
 	if (item->err_cb) {
 		struct cmdq_cb_data data = {
@@ -1309,10 +1328,25 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		item->err_cb(data);
 	}
 
-	cmdq_task_get_thread_pc(client->chan, &pc);
-	cmdq_pkt_dump_buf(pkt, pc);
+	cmdq_dump_pkt(pkt, pc);
 
-	cmdq_dump("End of Error %u", err_num++);
+	cmdq_util_err("End of Error %u", err_num);
+	err_num++;
+
+	if (inst->op == CMDQ_CODE_WFE) {
+		mod = cmdq_event_module_dispatch(gce_pa, inst->arg_a);
+		cmdq_util_aee(mod,
+			"%s inst:%#016llx OP:WAIT EVENT:%x",
+			mod, *(u64 *)inst, inst->arg_a);
+	} else {
+		cmdq_util_aee(mod,
+			"%s inst:%#016llx OP:%x",
+			mod, *(u64 *)inst, inst->op);
+	}
+
+#else
+	cmdq_err("cmdq error:%d", data.err);
+#endif
 }
 
 s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
@@ -1355,8 +1389,8 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 	struct cmdq_flush_item *item = pkt->flush_item;
 	unsigned long ret;
 	int cnt = 0;
-	u64 inst;
-	struct cmdq_instruction *inst_st = (struct cmdq_instruction *)&inst;
+	struct cmdq_instruction *inst = NULL;
+	dma_addr_t pc;
 
 	if (!item) {
 		cmdq_err("pkt need flush from flush async ex:%#p", pkt);
@@ -1373,16 +1407,14 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 		cnt++;
 
 		cmdq_dump_core(client->chan);
-		inst = cmdq_thread_dump(client->chan, pkt);
-		cmdq_buf_cmd_parse(&inst, 1, 0, "curr inst:");
-		if (inst_st->op == CMDQ_CODE_WFE)
-			cmdq_msg("event:%u value:%u",
-				inst_st->arg_a,
-				cmdq_get_event(client->chan, inst_st->arg_a));
-
-#if IS_ENABLED(CMDQ_MBOX_EXT)
-		cmdq_util_dump_dbg_reg(client->chan);
-#endif
+		cmdq_thread_dump(client->chan, pkt, (u64 **)&inst, &pc);
+		if (inst && inst->op == CMDQ_CODE_WFE)
+			cmdq_print_wait_summary(client->chan, pc, inst);
+		else if (inst)
+			cmdq_buf_cmd_parse((u64 *)inst, 1, pc, pc,
+				"curr inst:");
+		else
+			cmdq_util_msg("curr inst: Not Available");
 	} while (1);
 
 	return 0;
@@ -1471,14 +1503,14 @@ static void cmdq_buf_print_read(char *text, u32 txt_sz,
 		addr = cmdq_inst->arg_b & 0xfffc;
 
 		snprintf(text, txt_sz,
-			"0x%04x 0x%016llx [Read | Load] Reg Index 0x%08x = addr(low) 0x%04x",
+			"%#04x %#016llx [Read | Load] Reg Index %#08x = addr(low) %#04x",
 			offset, *((u64 *)cmdq_inst), cmdq_inst->arg_a, addr);
 	} else {
 		addr = ((u32)(cmdq_inst->arg_b |
 			(cmdq_inst->s_op << CMDQ_SUBSYS_SHIFT)));
 
 		snprintf(text, txt_sz,
-			"0x%04x 0x%016llx [Read | Load] Reg Index 0x%08x = %s0x%08x",
+			"%#04x %#016llx [Read | Load] Reg Index %#08x = %s%#08x",
 			offset, *((u64 *)cmdq_inst), cmdq_inst->arg_a,
 			cmdq_inst->arg_b_type ? "*Reg Index " : "SubSys Reg ",
 			addr);
@@ -1496,7 +1528,7 @@ static void cmdq_buf_print_write(char *text, u32 txt_sz,
 		addr = cmdq_inst->arg_a & 0xfffc;
 
 		snprintf(text, txt_sz,
-			"0x%04x 0x%016llx [Write | Store] addr(low) 0x%04x = %s0x%08x%s",
+			"%#04x %#016llx [Write | Store] addr(low) %#04x = %s%#08x%s",
 			offset, *((u64 *)cmdq_inst),
 			addr, CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
 			cmdq_inst->arg_b_type ? cmdq_inst->arg_b :
@@ -1508,7 +1540,7 @@ static void cmdq_buf_print_write(char *text, u32 txt_sz,
 			(cmdq_inst->s_op << CMDQ_SUBSYS_SHIFT)));
 
 		snprintf(text, txt_sz,
-			"0x%04x 0x%016llx [Write | Store] %s0x%08x = %s0x%08x%s",
+			"%#04x %#016llx [Write | Store] %s%#08x = %s%#08x%s",
 			offset, *((u64 *)cmdq_inst),
 			cmdq_inst->arg_a_type ? "*Reg Index " : "SubSys Reg ",
 			addr, CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
@@ -1519,9 +1551,10 @@ static void cmdq_buf_print_write(char *text, u32 txt_sz,
 	}
 }
 
-static void cmdq_buf_print_wfe(char *text, u32 txt_sz,
-	u32 offset, struct cmdq_instruction *cmdq_inst)
+void cmdq_buf_print_wfe(char *text, u32 txt_sz,
+	u32 offset, void *inst)
 {
+	struct cmdq_instruction *cmdq_inst = inst;
 	u32 cmd = CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c);
 	u32 event_op = cmd & 0x80008000;
 	u16 update_to = cmdq_inst->arg_b & GENMASK(11, 0);
@@ -1530,7 +1563,7 @@ static void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 	switch (event_op) {
 	case 0x80000000:
 		snprintf(text, txt_sz,
-			"0x%04x 0x%016llx [Sync ] %s event %u to %u",
+			"%#04x %#016llx [Sync ] %s event %u to %u",
 			offset, *((u64 *)cmdq_inst),
 			update_to ? "set" : "clear",
 			cmdq_inst->arg_a,
@@ -1538,7 +1571,7 @@ static void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 		break;
 	case 0x8000:
 		snprintf(text, txt_sz,
-			"0x%04x 0x%016llx [Sync ] wait for event %u become %u",
+			"%#04x %#016llx [Sync ] wait for event %u become %u",
 			offset, *((u64 *)cmdq_inst),
 			cmdq_inst->arg_a,
 			wait_to);
@@ -1546,7 +1579,7 @@ static void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 	case 0x80008000:
 	default:
 		snprintf(text, txt_sz,
-			"0x%04x 0x%016llx [Sync ] wait for event %u become %u and %s to %u",
+			"%#04x %#016llx [Sync ] wait for event %u become %u and %s to %u",
 			offset, *((u64 *)cmdq_inst),
 			cmdq_inst->arg_a,
 			wait_to,
@@ -1613,13 +1646,13 @@ static void cmdq_buf_print_move(char *text, u32 txt_sz,
 
 	if (cmdq_inst->arg_a_type)
 		snprintf(text, txt_sz,
-			"0x%04x 0x%016llx [Move ] move 0x%08x to %s0x%x",
+			"%#04x %#016llx [Move ] move %#08x to %s%#x",
 			offset, *((u64 *)cmdq_inst), val,
 			cmdq_inst->arg_a_type ? "*Reg Index " : "SubSys Reg ",
 			addr);
 	else
 		snprintf(text, txt_sz,
-			"0x%04x 0x%016llx [Move ] mask 0x%08x",
+			"%#04x %#016llx [Move ] mask %#08x",
 			offset, *((u64 *)cmdq_inst), ~val);
 }
 
@@ -1629,7 +1662,7 @@ static void cmdq_buf_print_logic(char *text, u32 txt_sz,
 	switch (cmdq_inst->s_op) {
 	case CMDQ_LOGIC_ASSIGN:
 		snprintf(text, txt_sz,
-			"0x%04x 0x%016llx [Logic] Reg Index 0x%04x %s%s0x%08x",
+			"%#04x %#016llx [Logic] Reg Index %#04x %s%s%#08x",
 			offset, *((u64 *)cmdq_inst), cmdq_inst->arg_a,
 			cmdq_parse_logic_sop(cmdq_inst->s_op),
 			CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
@@ -1637,7 +1670,7 @@ static void cmdq_buf_print_logic(char *text, u32 txt_sz,
 		break;
 	case CMDQ_LOGIC_NOT:
 		snprintf(text, txt_sz,
-			"0x%04x 0x%016llx [Logic] Reg Index 0x%04x %s%s0x%08x",
+			"%#04x %#016llx [Logic] Reg Index %#04x %s%s%#08x",
 			offset, *((u64 *)cmdq_inst), cmdq_inst->arg_a,
 			cmdq_parse_logic_sop(cmdq_inst->s_op),
 			CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
@@ -1645,7 +1678,7 @@ static void cmdq_buf_print_logic(char *text, u32 txt_sz,
 		break;
 	default:
 		snprintf(text, txt_sz,
-			"0x%04x 0x%016llx [Logic] %s0x%08x = %s0x%08x %s%s0x%08x",
+			"%#04x %#016llx [Logic] %s%#08x = %s%#08x %s%s%#08x",
 			offset, *((u64 *)cmdq_inst),
 			CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_a_type),
 			cmdq_inst->arg_a,
@@ -1661,7 +1694,7 @@ static void cmdq_buf_print_write_jump_c(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
 	snprintf(text, txt_sz,
-		"0x%04x 0x%016llx [Jumpc] %s if (%s0x%08x %s %s0x%08x) jump %s0x%08x",
+		"%#04x %#016llx [Jumpc] %s if (%s%#08x %s %s%#08x) jump %s%#08x",
 		offset, *((u64 *)cmdq_inst),
 		cmdq_inst->op == CMDQ_CODE_JUMP_C_ABSOLUTE ?
 		"absolute" : "relative",
@@ -1678,7 +1711,7 @@ static void cmdq_buf_print_poll(char *text, u32 txt_sz,
 		(cmdq_inst->s_op << CMDQ_SUBSYS_SHIFT)));
 
 	snprintf(text, txt_sz,
-		"0x%04x 0x%016llx [Poll ] poll %s0x%08x = %s0x%08x",
+		"%#04x %#016llx [Poll ] poll %s%#08x = %s%#08x",
 		offset, *((u64 *)cmdq_inst),
 		cmdq_inst->arg_a_type ? "*Reg Index " : "SubSys Reg ",
 		addr,
@@ -1692,7 +1725,7 @@ static void cmdq_buf_print_jump(char *text, u32 txt_sz,
 	u32 dst = ((u32)cmdq_inst->arg_b) << 16 | cmdq_inst->arg_c;
 
 	snprintf(text, txt_sz,
-		"0x%04x 0x%016llx [Jump ] jump %s 0x%llx",
+		"%#04x %#016llx [Jump ] jump %s %#llx",
 		offset, *((u64 *)cmdq_inst),
 		cmdq_inst->arg_a ? "absolute addr" : "relative offset",
 		cmdq_inst->arg_a ? CMDQ_REG_REVERT_ADDR((u64)dst) :
@@ -1713,75 +1746,77 @@ static void cmdq_buf_print_misc(char *text, u32 txt_sz,
 		break;
 	}
 
-	snprintf(text, txt_sz, "0x%04x 0x%016llx %s",
+	snprintf(text, txt_sz, "%#04x %#016llx %s",
 		offset, *((u64 *)cmdq_inst), cmd_str);
 }
 
-void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, u32 pa_offset, const char *info)
+void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
+	dma_addr_t cur_pa, const char *info)
 {
 #define txt_sz 128
 	static char text[txt_sz];
 	struct cmdq_instruction *cmdq_inst = (struct cmdq_instruction *)buf;
-	u32 i, offset = 0;
+	u32 i;
 
 	for (i = 0; i < cmd_nr; i++) {
 		switch (cmdq_inst[i].op) {
 		case CMDQ_CODE_WRITE_S:
 		case CMDQ_CODE_WRITE_S_W_MASK:
-			cmdq_buf_print_write(text, txt_sz, offset,
+			cmdq_buf_print_write(text, txt_sz, (u32)buf_pa,
 				&cmdq_inst[i]);
 			break;
 		case CMDQ_CODE_WFE:
-			cmdq_buf_print_wfe(text, txt_sz, offset, &cmdq_inst[i]);
+			cmdq_buf_print_wfe(text, txt_sz, (u32)buf_pa,
+				(void *)&cmdq_inst[i]);
 			break;
 		case CMDQ_CODE_MOVE:
-			cmdq_buf_print_move(text, txt_sz, offset,
+			cmdq_buf_print_move(text, txt_sz, (u32)buf_pa,
 				&cmdq_inst[i]);
 			break;
 		case CMDQ_CODE_READ_S:
-			cmdq_buf_print_read(text, txt_sz, offset,
+			cmdq_buf_print_read(text, txt_sz, (u32)buf_pa,
 				&cmdq_inst[i]);
 			break;
 		case CMDQ_CODE_LOGIC:
-			cmdq_buf_print_logic(text, txt_sz, offset,
+			cmdq_buf_print_logic(text, txt_sz, (u32)buf_pa,
 				&cmdq_inst[i]);
 			break;
 		case CMDQ_CODE_JUMP_C_ABSOLUTE:
 		case CMDQ_CODE_JUMP_C_RELATIVE:
-			cmdq_buf_print_write_jump_c(text, txt_sz, offset,
+			cmdq_buf_print_write_jump_c(text, txt_sz, (u32)buf_pa,
 				&cmdq_inst[i]);
 			break;
 		case CMDQ_CODE_POLL:
-			cmdq_buf_print_poll(text, txt_sz, offset,
+			cmdq_buf_print_poll(text, txt_sz, (u32)buf_pa,
 				&cmdq_inst[i]);
 			break;
 		case CMDQ_CODE_JUMP:
-			cmdq_buf_print_jump(text, txt_sz, offset,
+			cmdq_buf_print_jump(text, txt_sz, (u32)buf_pa,
 				&cmdq_inst[i]);
 			break;
 		default:
-			cmdq_buf_print_misc(text, txt_sz, offset,
+			cmdq_buf_print_misc(text, txt_sz, (u32)buf_pa,
 				&cmdq_inst[i]);
 			break;
 		}
-		cmdq_msg("%s%s",
-			info ? info : (offset == pa_offset ? ">>" : "  "),
+		cmdq_util_msg("%s%s",
+			info ? info : (buf_pa == cur_pa ? ">>" : "  "),
 			text);
-		offset += CMDQ_INST_SIZE;
+		buf_pa += CMDQ_INST_SIZE;
 	}
 }
 
 s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 {
 	struct cmdq_pkt_buffer *buf;
-	u32 pa_offset, size, cnt = 0;
+	u32 size, cnt = 0;
 
 	list_for_each_entry(buf, &pkt->buf, list_entry) {
 		if (list_is_last(&buf->list_entry, &pkt->buf)) {
 			size = CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
 		} else if (cnt > 2) {
-			cmdq_msg(
-				"buffer %u va:0x%p pa:%pa 0x%016llx (skip detail) 0x%016llx",
+			cmdq_util_msg(
+				"buffer %u va:0x%p pa:%pa %#016llx (skip detail) %#016llx",
 				cnt, buf->va_base, &buf->pa_base,
 				*((u64 *)buf->va_base),
 				*((u64 *)(buf->va_base +
@@ -1791,15 +1826,10 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 		} else {
 			size = CMDQ_CMD_BUFFER_SIZE;
 		}
-		cmdq_msg("pkt:0x%p buffer %u va:0x%p pa:%pa",
-			pkt, cnt, buf->va_base, &buf->pa_base);
-		if (curr_pa && curr_pa >= buf->pa_base && curr_pa <
-			buf->pa_base + CMDQ_CMD_BUFFER_SIZE)
-			pa_offset = curr_pa - buf->pa_base;
-		else
-			pa_offset = ~0;
+		cmdq_util_msg("buffer %u va:0x%p pa:%pa",
+			cnt, buf->va_base, &buf->pa_base);
 		cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
-			pa_offset, NULL);
+			buf->pa_base, curr_pa, NULL);
 		cnt++;
 	}
 
@@ -1807,17 +1837,16 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 }
 EXPORT_SYMBOL(cmdq_pkt_dump_buf);
 
-int cmdq_dump_pkt(struct cmdq_pkt *pkt)
+int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc)
 {
 	if (!pkt)
 		return -EINVAL;
 
-	cmdq_msg(
-		"dump cmdq pkt:0x%p size:%zu avail size:%zu priority:%u loop:%s",
+	cmdq_util_msg(
+		"pkt:0x%p size:%zu avail size:%zu priority:%u loop:%s",
 		pkt, pkt->buf_size, pkt->avail_buf_size, pkt->priority,
 		pkt->loop ? "true" : "false");
-	cmdq_pkt_dump_buf(pkt, 0);
-	cmdq_msg("dump cmdq pkt:0x%p end", pkt);
+	cmdq_pkt_dump_buf(pkt, pc);
 
 	return 0;
 }

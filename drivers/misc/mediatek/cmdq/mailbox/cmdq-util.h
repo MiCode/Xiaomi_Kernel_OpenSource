@@ -8,7 +8,7 @@
 
 #include <linux/kernel.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-#include <aee.h>
+#include <mt-plat/aee.h>
 #endif
 
 enum {
@@ -35,7 +35,7 @@ enum {
 
 #define cmdq_util_err(fmt, args...) \
 	do { \
-		cmdq_err(fmt, ##args); \
+		cmdq_dump(fmt, ##args); \
 		cmdq_util_error_save("[cmdq][err] "fmt"\n", ##args); \
 	} while (0)
 

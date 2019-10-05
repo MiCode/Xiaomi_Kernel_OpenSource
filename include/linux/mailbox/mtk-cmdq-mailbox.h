@@ -18,6 +18,13 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 
+#if IS_ENABLED(CONFIG_CMDQ_MBOX_EXT)
+#include "../../../drivers/misc/mediatek/cmdq/mailbox/cmdq-util.h"
+#else
+#define cmdq_util_msg(f, args...) cmdq_msg(f, ##args)
+#define cmdq_util_err(f, args...) cmdq_dump(f, ##args)
+#endif
+
 /* see also gce platform binding header */
 #define CMDQ_NO_TIMEOUT			0xffffffff
 #define CMDQ_TIMEOUT_DEFAULT		1000
@@ -163,12 +170,16 @@ do { \
 #define cmdq_dump(fmt, args...) \
 	pr_notice("[cmdq][err] "fmt"\n", ##args)
 
+dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread);
+dma_addr_t cmdq_thread_get_end(struct cmdq_thread *thread);
 void cmdq_mbox_channel_stop(struct mbox_chan *chan);
 void cmdq_dump_core(struct mbox_chan *chan);
-u64 cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt);
+void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
+	u64 **inst_out, dma_addr_t *pc_out);
 void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 	struct cmdq_pkt *pkt);
 void *cmdq_mbox_get_base(void *chan);
+phys_addr_t cmdq_mbox_get_base_pa(void *chan);
 s32 cmdq_mbox_thread_reset(void *chan);
 s32 cmdq_mbox_thread_suspend(void *chan);
 void cmdq_mbox_thread_disable(void *chan);

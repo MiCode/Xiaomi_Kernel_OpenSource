@@ -98,6 +98,8 @@ static void cmdq_test_mbox_err_dump(struct cmdq_test *test)
 	struct cmdq_pkt			*pkt;
 	struct cmdq_flush_completion	cmplt;
 	s32				ret;
+	u64				*inst;
+	dma_addr_t			pc;
 
 	clk_prepare_enable(test->gce.clk);
 
@@ -109,14 +111,15 @@ static void cmdq_test_mbox_err_dump(struct cmdq_test *test)
 	cmplt.pkt = pkt;
 	cmdq_pkt_flush_async(pkt, cmdq_test_mbox_cb, &cmplt);
 
-	cmdq_thread_dump(test->clt->chan, pkt);
+	cmdq_thread_dump(test->clt->chan, pkt, &inst, &pc);
 
 	cmdq_set_event(test->clt->chan, CMDQ_SYNC_TOKEN_USER_0);
 	ret = wait_for_completion_timeout(
 		&cmplt.cmplt, msecs_to_jiffies(CMDQ_TIMEOUT_DEFAULT));
 	if (!ret)
-		cmdq_err("wait_for_completion_timeout pkt:0x%p  ret:%d",
-			pkt, ret);
+		cmdq_err(
+			"wait_for_completion_timeout pkt:0x%p ret:%d inst:0x%016llx pc:%pa",
+			pkt, ret, inst ? *inst : 0, &pc);
 	else
 		cmdq_msg("%s done", __func__);
 
@@ -126,7 +129,7 @@ static void cmdq_test_mbox_err_dump(struct cmdq_test *test)
 	cmdq_clear_event(test->clt->chan, CMDQ_SYNC_TOKEN_USER_0);
 	cmdq_pkt_flush_async(pkt, cmdq_test_mbox_cb_dump, (void *)pkt);
 	ret = cmdq_pkt_wait_complete(pkt);
-	cmdq_msg("wait complete pkt:0x%p  ret:%d", pkt, ret);
+	cmdq_msg("wait complete pkt:0x%p ret:%d", pkt, ret);
 
 	cmdq_pkt_destroy(pkt);
 
@@ -392,7 +395,7 @@ static void cmdq_test_mbox_loop(struct cmdq_test *test)
 	cmdq_pkt_wfe(pkt, CMDQ_SYNC_TOKEN_USER_0);
 	cmdq_pkt_finalize_loop(pkt);
 
-	cmdq_dump_pkt(pkt);
+	cmdq_dump_pkt(pkt, 0);
 
 	test->iter = 0;
 	test->tick = true;

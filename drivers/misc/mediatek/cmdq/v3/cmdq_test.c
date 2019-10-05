@@ -7073,7 +7073,7 @@ void testmbox_loop(void)
 	cmdq_pkt_wfe(pkt, CMDQ_SYNC_TOKEN_USER_0);
 	cmdq_pkt_finalize_loop(pkt);
 
-	cmdq_dump_pkt(pkt);
+	cmdq_dump_pkt(pkt, 0);
 
 	setup_timer(&g_loopTimer, &_testcase_loop_timer_func,
 		CMDQ_SYNC_TOKEN_USER_0);
@@ -7438,6 +7438,8 @@ void testmbox_dump_err(void)
 	struct cmdq_pkt *pkt;
 	struct cmdq_flush_completion cmplt = {0};
 	u32 ret;
+	u64 *inst;
+	dma_addr_t pc = 0;
 
 	CMDQ_LOG("%s\n", __func__);
 
@@ -7450,14 +7452,15 @@ void testmbox_dump_err(void)
 	cmdq_pkt_flush_async(pkt, testmbox_cmplt_cb, &cmplt);
 
 	/* try dump */
-	cmdq_thread_dump(clt->chan, pkt);
+	cmdq_thread_dump(clt->chan, pkt, &inst, &pc);
 
 	/* set event and complete pkt */
 	cmdq_set_event(clt->chan, CMDQ_SYNC_TOKEN_USER_0);
 	ret = wait_for_completion_timeout(&cmplt.cmplt,
 		msecs_to_jiffies(CMDQ_TIMEOUT_DEFAULT));
 	if (!ret)
-		CMDQ_TEST_FAIL("wait pkt 0x%p timeout\n", pkt);
+		CMDQ_TEST_FAIL("wait pkt 0x%p timeout inst:%llx pc:%pa\n",
+			pkt, inst ? *inst : 0, &pc);
 	else
 		cmdq_pkt_destroy(pkt);
 
