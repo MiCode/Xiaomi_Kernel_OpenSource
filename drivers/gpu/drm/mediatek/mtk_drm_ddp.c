@@ -42,6 +42,7 @@
 #define MT2712_DISP_OVL0_MOUT_EN 0x030
 #define MT8173_DISP_OVL0_MOUT_EN 0x040
 #define MT6779_DISP_OVL0_MOUT_EN 0xf08
+#define DISP_OVL1_2L_MOUT_EN 0xf0c
 
 // for MT6779
 #define DISP_REG_CONFIG_DISP_OVL0_2L_MOUT_EN 0xf04
@@ -91,6 +92,7 @@
 #define DISP_REG_CONFIG_DISP_WDMA1_SEL_IN 0x09c
 #define DISP_REG_CONFIG_DISP_WDMA0_PRE_SEL_IN 0xF80
 #define DISP_REG_CONFIG_DISP_WDMA0_SEL_IN2 0xF84
+#define DISP_REG_CONFIG_DISP_OVL_TO_WDMA_SEL_IN 0xFC0
 
 #define DISP_REG_CONFIG_OUT_SEL 0x04c
 #define DISP_REG_CONFIG_DSI_SEL 0x050
@@ -238,8 +240,10 @@
 #define COLOR1_SEL_IN_OVL1 0x1
 #define WDMA0_SEL_IN_OD0 0x0
 #define WDMA1_SEL_IN_OD1 0x0
-#define WDMA0_SEL_IN_WDMA0_PRE 0x0
-#define WDMA0_PRE_SEL_IN_OVL0 0x3
+#define WDMA0_SEL_IN_WDMA0_PRE 0x3
+#define WDMA0_PRE_SEL_IN_OVL_TO_WDMA 0x0
+#define OVL_TO_WDMA_SEL_IN_OVL0 0x0
+#define OVL_TO_WDMA_SEL_IN_OVL1_2L 0x2
 
 #define PATH1_SOUT_DSI0 0x0
 #define PATH1_SOUT_DSI1 0x1
@@ -864,6 +868,10 @@ static int mtk_ddp_mout_en(const struct mtk_mmsys_reg_data *data,
 		   next == DDP_COMPONENT_WDMA_VIRTUAL0) {
 		*addr = DISP_REG_OVL0_MOUT_EN(data);
 		value = OVL0_MOUT_EN_WDMA0;
+	} else if (cur == DDP_COMPONENT_OVL1_2L &&
+		   next == DDP_COMPONENT_WDMA_VIRTUAL0) {
+		*addr = DISP_OVL1_2L_MOUT_EN;
+		value = OVL0_MOUT_EN_WDMA0;
 	} else {
 		value = -1;
 	}
@@ -939,11 +947,19 @@ static int mtk_ddp_sel_in(const struct mtk_mmsys_reg_data *data,
 		value = WDMA1_SEL_IN_OD1;
 	} else if (cur == DDP_COMPONENT_OVL0 &&
 		   next == DDP_COMPONENT_WDMA_VIRTUAL0) {
-		*addr = DISP_REG_CONFIG_DISP_WDMA0_SEL_IN2;
-		value = WDMA0_PRE_SEL_IN_OVL0;
+		*addr = DISP_REG_CONFIG_DISP_OVL_TO_WDMA_SEL_IN;
+		value = OVL_TO_WDMA_SEL_IN_OVL0;
+	} else if (cur == DDP_COMPONENT_OVL1_2L &&
+		   next == DDP_COMPONENT_WDMA_VIRTUAL0) {
+		*addr = DISP_REG_CONFIG_DISP_OVL_TO_WDMA_SEL_IN;
+		value = OVL_TO_WDMA_SEL_IN_OVL1_2L;
 	} else if (cur == DDP_COMPONENT_WDMA_VIRTUAL0 &&
 		   next == DDP_COMPONENT_WDMA_VIRTUAL1) {
 		*addr = DISP_REG_CONFIG_DISP_WDMA0_PRE_SEL_IN;
+		value = WDMA0_PRE_SEL_IN_OVL_TO_WDMA;
+	} else if (cur == DDP_COMPONENT_WDMA_VIRTUAL1 &&
+		   next == DDP_COMPONENT_WDMA0) {
+		*addr = DISP_REG_CONFIG_DISP_WDMA0_SEL_IN2;
 		value = WDMA0_SEL_IN_WDMA0_PRE;
 	} else {
 		value = -1;

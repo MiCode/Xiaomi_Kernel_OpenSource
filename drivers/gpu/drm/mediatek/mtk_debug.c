@@ -332,19 +332,17 @@ static void process_dbg_opt(const char *opt)
 	} else if (strncmp(opt, "diagnose", 8) == 0) {
 		struct drm_crtc *crtc;
 
-		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
-					typeof(*crtc), head);
+		drm_for_each_crtc(crtc, drm_dev) {
+			if (!crtc) {
+				DDPPR_ERR("find crtc fail\n");
+				continue;
+			}
+			if (!crtc->enabled)
+				continue;
 
-		if (!crtc) {
-			DDPPR_ERR("find crtc fail\n");
-			return;
+			mtk_drm_crtc_analysis(crtc);
+			mtk_drm_crtc_dump(crtc);
 		}
-
-		if (!crtc->enabled)
-			return;
-
-		mtk_drm_crtc_analysis(crtc);
-		mtk_drm_crtc_dump(crtc);
 	} else if (strncmp(opt, "repaint", 7) == 0) {
 		drm_trigger_repaint(DRM_REPAINT_FOR_IDLE, drm_dev);
 	} else if (strncmp(opt, "dalprintf", 9) == 0) {

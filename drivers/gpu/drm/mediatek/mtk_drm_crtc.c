@@ -56,6 +56,7 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "OUTPUT_Y", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "OUTPUT_WIDTH", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "OUTPUT_HEIGHT", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "OUTPUT_FB_ID", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "INTF_BUFF_IDX", 0, UINT_MAX, 0},
 };
 
@@ -255,8 +256,9 @@ static int mtk_drm_crtc_set_property(struct drm_crtc *crtc,
 	for (i = 0; i < CRTC_PROP_MAX; i++) {
 		if (private->crtc_property[index][i] == property) {
 			crtc_state->prop_val[i] = (unsigned int)val;
-			DDPINFO("set property:%s %d\n", property->name,
-				(unsigned int)val);
+			DDPINFO("crtc:%d set property:%s %d\n",
+					index, property->name,
+					(unsigned int)val);
 			return ret;
 		}
 	}
@@ -332,6 +334,7 @@ static int mtk_crtc_enable_vblank_thread(void *data)
 			atomic_read(&mtk_crtc->vblank_enable_task_active));
 
 		mutex_lock(&mtk_crtc->lock);
+
 		mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
 		mtk_ddp_comp_enable_vblank(comp, &mtk_crtc->base, NULL);
 		mutex_unlock(&mtk_crtc->lock);
@@ -578,9 +581,11 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 	state->lye_state = *lye_state;
 }
 
-static void mtk_crtc_free_lyeblob_ids(struct drm_device *dev,
+static void mtk_crtc_free_lyeblob_ids(struct drm_crtc *crtc,
 				      struct mtk_drm_lyeblob_ids *lyeblob_ids)
 {
+	struct drm_device *dev = crtc->dev;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct drm_property_blob *blob;
 	struct mtk_lye_ddp_state *lye_state;
 	int i;
@@ -590,7 +595,7 @@ static void mtk_crtc_free_lyeblob_ids(struct drm_device *dev,
 	drm_property_unreference_blob(blob);
 	drm_property_unreference_blob(blob);
 
-	for (i = 0; i < OVL_LAYER_NR; i++) {
+	for (i = 0 ; i < mtk_crtc->layer_nr; i++) {
 		if (lyeblob_ids->lye_plane_blob_id[0][i] > 0) {
 			blob = drm_property_lookup_blob(
 				dev, (lyeblob_ids->lye_plane_blob_id[0][i]));
@@ -609,7 +614,7 @@ static void mtk_crtc_get_plane_comp_state(struct drm_crtc *crtc,
 	struct mtk_plane_comp_state *comp_state;
 	int i, j, k;
 
-	for (i = 0; i < OVL_LAYER_NR; i++) {
+	for (i = 0; i < mtk_crtc->layer_nr; i++) {
 		struct drm_plane *plane = &mtk_crtc->planes[i].base;
 		struct mtk_plane_state *plane_state;
 		struct mtk_ddp_comp *comp = NULL;
@@ -694,7 +699,7 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 			break;
 		} else if (lyeblob_ids->lye_idx <
 			   crtc_state->prop_val[CRTC_PROP_LYE_IDX])
-			mtk_crtc_free_lyeblob_ids(crtc->dev, lyeblob_ids);
+			mtk_crtc_free_lyeblob_ids(crtc, lyeblob_ids);
 	}
 	mutex_unlock(&mtk_drm->lyeblob_list_mutex);
 }
@@ -869,7 +874,6 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
 	struct drm_crtc_state *crtc_state = cb_data->state;
-	struct mtk_crtc_state *mtk_crtc_state = to_mtk_crtc_state(crtc_state);
 	struct drm_atomic_state *atomic_state = crtc_state->state;
 	struct drm_crtc *crtc = crtc_state->crtc;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -878,21 +882,41 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	struct mtk_ddp_comp *comp;
 	int i, j;
 	unsigned int cur_hrt, hrt_idx;
+	int session_id = -1, id = drm_crtc_index(crtc);
+	unsigned int fence_idx = 0;
+
+	for (i = 0; i < MAX_SESSION_COUNT; i++) {
+		if ((id + 1) == MTK_SESSION_TYPE(private->session_id[i])) {
+			session_id = private->session_id[i];
+			break;
+		}
+	}
 
 	cmdq_buf = &(mtk_crtc->gce_obj.buf);
-	for (i = 0; i < OVL_LAYER_NR; i++) {
-		unsigned int fence_idx = 0;
+	/* Release Input buffer fence */
+	for (i = 0; i < mtk_crtc->layer_nr; i++) {
 		unsigned int subtractor = 0;
 
 		fence_idx = *(unsigned int *)(cmdq_buf->va_base +
-					      DISP_SLOT_CUR_CONFIG_FENCE(i));
-		subtractor =
-			*(unsigned int *)(cmdq_buf->va_base +
-					  DISP_SLOT_SUBTRACTOR_WHEN_FREE(i));
+					DISP_SLOT_CUR_CONFIG_FENCE(i));
+		subtractor = *(unsigned int *)(cmdq_buf->va_base +
+					DISP_SLOT_SUBTRACTOR_WHEN_FREE(i));
 		subtractor &= 0xFFFF;
-		mtk_release_fence(private->session_id[0], i,
-				  fence_idx - subtractor);
+		if (drm_crtc_index(crtc) == 2)
+			DDPINFO("%d, fence_idx:%d, subtractor:%d\n",
+					i, fence_idx, subtractor);
+		mtk_release_fence(session_id, i, fence_idx - subtractor);
 	}
+
+	/* Release output buffer fence */
+	fence_idx = *(unsigned int *)(cmdq_buf->va_base +
+			DISP_SLOT_CUR_OUTPUT_FENCE);
+	if (fence_idx) {
+		DDPINFO("output fence_idx:%d", fence_idx);
+		mtk_release_fence(session_id,
+			mtk_fence_get_output_timeline_id(), fence_idx);
+	}
+
 
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
@@ -927,31 +951,6 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	if (mtk_crtc->wb_enable == true) {
 		mtk_crtc->wb_enable = false;
 		drm_writeback_signal_completion(&mtk_crtc->wb_connector, 0);
-	}
-
-	if (mtk_crtc_state->prop_val[CRTC_PROP_OUTPUT_ENABLE] &&
-	    mtk_crtc_state->prop_val[CRTC_PROP_OUTPUT_FENCE_IDX] !=
-		    (unsigned int)-1) {
-		int layer_id = mtk_fence_get_output_timeline_id();
-		unsigned int id = drm_crtc_index(crtc), i;
-		int session_id = -1;
-
-		for (i = 0; i < MAX_SESSION_COUNT; i++) {
-			if (id + 1 ==
-			    MTK_SESSION_TYPE(private->session_id[i])) {
-				session_id = private->session_id[i];
-				break;
-			}
-		}
-		if (session_id == -1) {
-			DDPPR_ERR("%s no session for CRTC%u\n", __func__, id);
-			return;
-		}
-
-		/*Release output fence*/
-		mtk_release_fence(
-			session_id, layer_id,
-			mtk_crtc_state->prop_val[CRTC_PROP_OUTPUT_FENCE_IDX]);
 	}
 
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
@@ -1439,7 +1438,8 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc)
 		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
 
 	/* 4. stop trig loop  */
-	mtk_crtc_stop_trig_loop(mtk_crtc);
+	if (mtk_crtc_with_trigger_loop(&mtk_crtc->base))
+		mtk_crtc_stop_trig_loop(mtk_crtc);
 }
 
 /* TODO: how to remove add-on module? */
@@ -1855,6 +1855,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 	mtk_crtc_update_ddp_state(crtc, old_crtc_state, state,
 				  state->cmdq_handle);
 #endif
+
 	/* reset BW */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
 		if (!comp)
@@ -1921,7 +1922,6 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb, void *cb_data,
 			struct cmdq_pkt *cmdq_handle)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_private *private = crtc->dev->dev_private;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct mtk_ddp_comp *comp = NULL;
 
@@ -1974,31 +1974,18 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb, void *cb_data,
 			if (comp) {
 				struct mtk_ddp_config cfg;
 				dma_addr_t addr;
-				struct cmdq_pkt_buffer *cmdq_buf =
-					&(mtk_crtc->gce_obj.buf);
-				unsigned int session_id = 0;
-				unsigned long dst_mva = 0;
-				unsigned int dst_size = 0;
-				int i = 0;
+				struct cmdq_pkt_buffer *cmdq_buf;
+				unsigned int fb_id;
 
-				for (i = 0; i < MAX_SESSION_COUNT; i++) {
-					if (((private->session_id[i] >> 16) &
-					     0xFF) == MTK_SESSION_MEMORY) {
-						session_id =
-							private->session_id[i];
-						break;
-					}
-				}
-
+				cmdq_buf = &(mtk_crtc->gce_obj.buf);
 				memset(&cfg, 0x0,
-				       sizeof(struct mtk_ddp_config));
-				mtk_fence_query_buf_info(
-					session_id,
-					mtk_fence_get_output_timeline_id(),
-					state->prop_val
-						[CRTC_PROP_OUTPUT_FENCE_IDX],
-					&dst_mva, &dst_size, NULL, 0);
-				cfg.pa = (void *)dst_mva;
+						sizeof(struct mtk_ddp_config));
+				fb_id = state->prop_val[CRTC_PROP_OUTPUT_FB_ID];
+				comp->fb = drm_framebuffer_lookup(crtc->dev,
+							fb_id);
+				if (!comp->fb)
+					DDPPR_ERR("Unknown FB ID%d\n", fb_id);
+
 				cfg.w = state->prop_val[CRTC_PROP_OUTPUT_WIDTH];
 				cfg.h = state->prop_val
 						[CRTC_PROP_OUTPUT_HEIGHT];
@@ -2022,21 +2009,24 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb, void *cb_data,
 			}
 
 			cmdq_pkt_clear_event(cmdq_handle, gce_event);
-			mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[1],
-						   cmdq_handle,
-						   mtk_crtc->gce_obj.base);
-			cmdq_pkt_wfe(cmdq_handle, gce_event);
-		}
-
-		if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
-		    mtk_crtc_with_trigger_loop(crtc)) {
-			cmdq_pkt_set_event(
-				cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
-		} else {
 			mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0],
-						   cmdq_handle,
-						   mtk_crtc->gce_obj.base);
+					cmdq_handle, mtk_crtc->gce_obj.base);
+			cmdq_pkt_wfe(cmdq_handle, gce_event);
+		} else {
+			if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
+					mtk_crtc_with_trigger_loop(crtc)) {
+				int gce_event;
+				struct mtk_crtc_gce_obj *gce_obj;
+
+				gce_obj = &(mtk_crtc->gce_obj);
+				gce_event = gce_obj->event[EVENT_STREAM_DIRTY];
+				cmdq_pkt_set_event(cmdq_handle, gce_event);
+			} else {
+				mtk_disp_mutex_enable_cmdq(
+						mtk_crtc->mutex[0],
+						cmdq_handle,
+						mtk_crtc->gce_obj.base);
+			}
 		}
 	}
 
@@ -2487,8 +2477,9 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		mtk_crtc->ddp_ctx[p_mode].wb_comp[i] = comp;
 	}
 
-	mtk_crtc->planes = kcalloc(mtk_crtc->layer_nr,
-				   sizeof(struct mtk_drm_plane), GFP_KERNEL);
+	mtk_crtc->planes = devm_kzalloc(dev,
+			mtk_crtc->layer_nr * sizeof(struct mtk_drm_plane),
+			GFP_KERNEL);
 	if (!mtk_crtc->planes)
 		return -ENOMEM;
 

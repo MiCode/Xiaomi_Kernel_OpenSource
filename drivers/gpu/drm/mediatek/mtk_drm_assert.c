@@ -183,7 +183,7 @@ static struct mtk_ddp_comp *_handle_phy_top_plane(struct mtk_drm_crtc *mtk_crtc)
 
 	lay_num = mtk_ovl_layer_num(ovl_comp);
 
-	for (i = 0; i < OVL_LAYER_NR; ++i) {
+	for (i = 0 ; i < mtk_crtc->layer_nr; ++i) {
 		plane = &mtk_crtc->planes[i].base;
 		plane_state = to_mtk_plane_state(plane->state);
 		comp_state = plane_state->comp_state;
@@ -210,7 +210,7 @@ static struct mtk_plane_state *drm_set_dal_plane_state(struct drm_crtc *crtc,
 						       bool enable)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct drm_plane *plane = &mtk_crtc->planes[OVL_LAYER_NR - 1].base;
+	struct drm_plane *plane;
 	struct mtk_plane_state *plane_state;
 	struct mtk_plane_pending_state *pending;
 	struct mtk_ddp_comp *ovl_comp = _handle_phy_top_plane(mtk_crtc);
@@ -222,6 +222,7 @@ static struct mtk_plane_state *drm_set_dal_plane_state(struct drm_crtc *crtc,
 		return NULL;
 	}
 
+	plane = &mtk_crtc->planes[mtk_crtc->layer_nr - 1].base;
 	plane_state = to_mtk_plane_state(plane->state);
 	pending = &plane_state->pending;
 

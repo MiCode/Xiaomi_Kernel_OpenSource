@@ -45,6 +45,11 @@
 #define SMI_CON_FLD_SMI_OBUF_FULL_REQ REG_FLD_MSB_LSB(28, 28)
 #define DISP_REG_WDMA_CFG 0x0014
 #define CFG_FLD_UFO_DCP_ENABLE REG_FLD_MSB_LSB(18, 18)
+#define WDMA_OUT_FMT (0xf << 4)
+#define WDMA_CT_EN BIT(11)
+#define WDMA_CON_SWAP BIT(16)
+#define WDMA_UFO_DCP_ENABLE BIT(18)
+#define WDMA_INT_MTX_SEL (0xf << 24)
 #define DISP_REG_WDMA_SRC_SIZE 0x0018
 #define DISP_REG_WDMA_CLIP_SIZE 0x001c
 #define DISP_REG_WDMA_CLIP_COORD 0x0020
@@ -125,6 +130,7 @@
 #define MEM_MODE_INPUT_FORMAT_ARGB8888 (0x003U << 4)
 #define MEM_MODE_INPUT_FORMAT_UYVY (0x004U << 4)
 #define MEM_MODE_INPUT_FORMAT_YUYV (0x005U << 4)
+#define MEM_MODE_INPUT_FORMAT_IYUV (0x008U << 4)
 #define MEM_MODE_INPUT_SWAP BIT(16)
 
 enum GS_WDMA_FLD {
@@ -487,7 +493,6 @@ static void mtk_wdma_golden_setting(struct mtk_ddp_comp *comp,
 	unsigned int gs[GS_WDMA_FLD_NUM];
 	unsigned int value = 0;
 
-	/* TODO: Support Virtual DISP golden setting */
 	mtk_wdma_calc_golden_setting(gsc, comp->fb->pixel_format, true, gs);
 
 #if 0
@@ -647,36 +652,110 @@ static unsigned int wdma_fmt_convert(unsigned int fmt)
 		return MEM_MODE_INPUT_FORMAT_UYVY;
 	case DRM_FORMAT_YUYV:
 		return MEM_MODE_INPUT_FORMAT_YUYV;
+	case DRM_FORMAT_YUV420:
+		return MEM_MODE_INPUT_FORMAT_IYUV;
+	case DRM_FORMAT_YVU420:
+		return MEM_MODE_INPUT_FORMAT_IYUV | MEM_MODE_INPUT_SWAP;
 	}
+}
+
+static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
+			      uint32_t fmt, unsigned int dstPitch,
+			      unsigned int Height, unsigned long dstAddress,
+			      void *handle)
+{
+	/* size_t size; */
+	unsigned int u_off = 0;
+	unsigned int v_off = 0;
+	unsigned int u_stride = 0;
+	unsigned int y_size = 0;
+	unsigned int u_size = 0;
+	/* unsigned int v_size = 0; */
+	unsigned int stride = dstPitch;
+	int has_v = 1;
+
+	if (fmt != DRM_FORMAT_UYVY && fmt != DRM_FORMAT_YUYV &&
+		fmt != DRM_FORMAT_YUV420 && fmt != DRM_FORMAT_YVU420 &&
+		fmt != DRM_FORMAT_NV12 && fmt != DRM_FORMAT_NV21)
+		return 0;
+
+	if (fmt == DRM_FORMAT_UYVY || fmt == DRM_FORMAT_YUYV ||
+			fmt == DRM_FORMAT_YUV420 || fmt == DRM_FORMAT_YVU420) {
+		y_size = stride * Height;
+		u_stride = ALIGN_TO(stride / 2, 16);
+		u_size = u_stride * Height / 2;
+		u_off = y_size;
+		v_off = y_size + u_size;
+	} else if (fmt == DRM_FORMAT_NV12 || fmt == DRM_FORMAT_NV21) {
+		y_size = stride * Height;
+		u_stride = stride / 2;
+		u_size = u_stride * Height / 2;
+		u_off = y_size;
+		has_v = 0;
+	}
+
+	mtk_ddp_write(comp, dstAddress + u_off,
+		DISP_REG_WDMA_DST_ADDR1, handle);
+
+	if (has_v)
+		mtk_ddp_write(comp, dstAddress + v_off,
+			DISP_REG_WDMA_DST_ADDR2, handle);
+	mtk_ddp_write_mask(comp, u_stride,
+			DISP_REG_WDMA_DST_UV_PITCH, 0xFFFF, handle);
+	return 0;
 }
 
 static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 			    struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
-	unsigned int size, con;
-	u32 addr;
+	unsigned int size = 0;
+	unsigned int con = 0;
+	unsigned int addr = 0;
 
-	if (cfg->pa)
-		addr = (u32)cfg->pa;
-	else {
-		addr = (u32)mtk_fb_get_dma(comp->fb);
-		addr += comp->fb->offsets[0];
-	}
-	if (!addr)
+	if (!comp->fb) {
+		DDPPR_ERR("%s fb is empty\n", __func__);
 		return;
+	}
 
+	addr = (u32)mtk_fb_get_dma(comp->fb);
+	addr += comp->fb->offsets[0];
 	con = wdma_fmt_convert(comp->fb->pixel_format);
-	mtk_ddp_write_mask(comp, con, DISP_REG_WDMA_CFG, 0x100f0, handle);
-	mtk_ddp_write_mask(comp, 0, DISP_REG_WDMA_CFG, BIT(18), handle);
+	DDPMSG("%s fmt:0x%x, con:0x%x\n", __func__,
+		comp->fb->pixel_format, con);
+	if (!addr) {
+		DDPPR_ERR("%s wdma dst addr is zero\n", __func__);
+		return;
+	}
 
 	size = (cfg->w & 0x3FFFU) + ((cfg->h << 16U) & 0x3FFF0000U);
 	mtk_ddp_write(comp, size, DISP_REG_WDMA_SRC_SIZE, handle);
-	mtk_ddp_write(comp, size, DISP_REG_WDMA_CLIP_SIZE, handle);
-	mtk_ddp_write(comp, (cfg->y << 16) | cfg->x, DISP_REG_WDMA_CLIP_COORD,
-		      handle);
-	mtk_ddp_write(comp, cfg->w * 3UL, DISP_REG_WDMA_DST_WIN_BYTE, handle);
-	mtk_ddp_write(comp, addr & 0xFFFFFFFFU, DISP_REG_WDMA_DST_ADDR0,
-		      handle);
+	mtk_ddp_write(comp, (cfg->y << 16) | cfg->x,
+	DISP_REG_WDMA_CLIP_COORD, handle);
+	mtk_ddp_write(comp, (cfg->h << 16) | cfg->w,
+	DISP_REG_WDMA_CLIP_SIZE, handle);
+	mtk_ddp_write_mask(comp, con, DISP_REG_WDMA_CFG,
+		WDMA_OUT_FMT | WDMA_CON_SWAP, handle);
+
+	if (drm_format_num_planes(comp->fb->pixel_format) != 1) {
+		wdma_config_yuv420(comp, comp->fb->pixel_format,
+				comp->fb->pitches[0], cfg->h, addr, handle);
+		mtk_ddp_write_mask(comp, 0,
+				DISP_REG_WDMA_CFG, WDMA_UFO_DCP_ENABLE, handle);
+		mtk_ddp_write_mask(comp, WDMA_CT_EN,
+				DISP_REG_WDMA_CFG, WDMA_CT_EN, handle);
+		mtk_ddp_write_mask(comp, 0x02000000,
+				DISP_REG_WDMA_CFG, WDMA_INT_MTX_SEL, handle);
+	} else {
+		mtk_ddp_write_mask(comp, 0,
+				DISP_REG_WDMA_CFG, WDMA_UFO_DCP_ENABLE, handle);
+		mtk_ddp_write_mask(comp, 0,
+				DISP_REG_WDMA_CFG, WDMA_CT_EN, handle);
+	}
+
+	mtk_ddp_write(comp, comp->fb->pitches[0],
+		DISP_REG_WDMA_DST_WIN_BYTE, handle);
+	mtk_ddp_write(comp, addr & 0xFFFFFFFFU,
+			DISP_REG_WDMA_DST_ADDR0, handle);
 
 	mtk_wdma_golden_setting(comp, cfg, handle);
 }

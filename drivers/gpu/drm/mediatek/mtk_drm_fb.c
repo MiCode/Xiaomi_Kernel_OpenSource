@@ -88,9 +88,6 @@ mtk_drm_framebuffer_init(struct drm_device *dev,
 	struct mtk_drm_fb *mtk_fb;
 	int ret;
 
-	if (drm_format_num_planes(mode->pixel_format) != 1)
-		return ERR_PTR(-EINVAL);
-
 	mtk_fb = kzalloc(sizeof(*mtk_fb), GFP_KERNEL);
 	if (!mtk_fb)
 		return ERR_PTR(-ENOMEM);
@@ -161,9 +158,6 @@ mtk_drm_mode_fb_create(struct drm_device *dev, struct drm_file *file,
 	unsigned int height = cmd->height;
 	unsigned int size, bpp;
 	int ret;
-
-	if (drm_format_num_planes(cmd->pixel_format) != 1)
-		return ERR_PTR(-EINVAL);
 
 	if (cmd->pixel_format == DRM_FORMAT_C8)
 		goto fb_init;

@@ -134,8 +134,13 @@ void mtk_drm_idlemgr_kick(const char *source, struct drm_crtc *crtc,
 			  int need_lock)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_idlemgr *idlemgr = mtk_crtc->idlemgr;
-	struct mtk_drm_idlemgr_context *idlemgr_ctx = idlemgr->idlemgr_ctx;
+	struct mtk_drm_idlemgr *idlemgr;
+	struct mtk_drm_idlemgr_context *idlemgr_ctx;
+
+	if (!mtk_crtc->idlemgr)
+		return;
+	idlemgr = mtk_crtc->idlemgr;
+	idlemgr_ctx = idlemgr->idlemgr_ctx;
 
 	/* get lock to protect idlemgr_last_kick_time and is_idle */
 	if (need_lock)

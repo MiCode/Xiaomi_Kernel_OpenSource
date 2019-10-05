@@ -184,7 +184,7 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-		for (i = 0; i < OVL_LAYER_NR; i++) {
+		for (i = 0 ; i < mtk_crtc->layer_nr; i++) {
 			struct drm_plane *plane = &mtk_crtc->planes[i].base;
 
 			mtk_plane_get_comp_state(
@@ -208,10 +208,10 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 
 		if (i < OVL_LAYER_NR)
 			idx = i;
-		else if (i < OVL_LAYER_NR + EXTERNAL_INPUT_LAYER_NR)
+		else if (i < (OVL_LAYER_NR + EXTERNAL_INPUT_LAYER_NR))
 			idx = i - OVL_LAYER_NR;
 		else
-			idx = i - OVL_LAYER_NR + EXTERNAL_INPUT_LAYER_NR;
+			idx = i - (OVL_LAYER_NR + EXTERNAL_INPUT_LAYER_NR);
 
 		if (comp_state[drm_crtc_index(crtc)][idx].layer_caps &
 		    MTK_DISP_RSZ_LAYER) {
@@ -1134,13 +1134,11 @@ int mtk_drm_get_info_ioctl(struct drm_device *dev, void *data,
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)))
 	} else if (s_type == MTK_SESSION_EXTERNAL) {
 		/* TODO: external_display_get_info(info, info->session_id); */
-		DDPPR_ERR("%s not implement type:MTK_SESSION_EXTERNAL now\n");
+		DDPPR_ERR("%s not implement type:EXTERNAL\n", __func__);
 		return -EINVAL;
 #endif
 	} else if (s_type == MTK_SESSION_MEMORY) {
-		/* TODO: ovl2mem_get_info(info); */
-		DDPPR_ERR("%s not implement type:MTK_SESSION_MEMORY now\n");
-		return -EINVAL;
+		return ret;
 	}
 
 	DDPPR_ERR("invalid session type:0x%08x\n", info->session_id);

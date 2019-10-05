@@ -28,6 +28,8 @@ struct drm_device;
 struct mtk_plane_state;
 struct drm_crtc_state;
 
+#define ALIGN_TO(x, n)  (((x) + ((n) - 1)) & ~((n) - 1))
+
 enum mtk_ddp_comp_type {
 	MTK_DISP_OVL,
 	MTK_DISP_RDMA,

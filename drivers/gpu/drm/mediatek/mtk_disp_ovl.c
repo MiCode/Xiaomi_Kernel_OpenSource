@@ -247,8 +247,6 @@
 #define OVL_CON_AEN BIT(8)
 #define OVL_CON_ALPHA 0xff
 
-#define ALIGN_TO(x, n) (((x) + ((n)-1)) & ~((n)-1))
-
 #define M4U_PORT_DISP_OVL0_HDR 1
 #define M4U_PORT_DISP_OVL0 3
 #define M4U_PORT_DISP_OVL0_2L_HDR ((1 << 5) + 0)
