@@ -166,7 +166,7 @@ static int slp_suspend_ops_enter(suspend_state_t state)
 #if SLP_SLEEP_DPIDLE_EN
 #if defined(CONFIG_MTK_SND_SOC_NEW_ARCH) \
 || defined(CONFIG_SND_SOC_MTK_SMART_PHONE)
-	int fm_radio_is_playing = 0;
+	unsigned int fm_radio_is_playing = 0;
 
 	if (ConditionEnterSuspend() == true)
 		fm_radio_is_playing = 0;
