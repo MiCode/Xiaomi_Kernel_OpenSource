@@ -16,6 +16,7 @@
 
 #include <linux/init.h>
 #include <linux/mm.h>
+#include <linux/stacktrace.h>
 
 #define INIT_MEMBLOCK_REGIONS	128
 #define INIT_PHYSMEM_REGIONS	4
@@ -57,6 +58,25 @@ struct memblock {
 
 extern struct memblock memblock;
 extern int memblock_debug;
+#ifdef CONFIG_MTK_MEMCFG
+/* Record reserved memblock */
+#define MAX_MEMBLOCK_RECORD 150
+#define MAX_MEMBLOCK_TRACK_DEPTH 20
+struct memblock_record {
+	phys_addr_t base;
+	phys_addr_t end;
+	phys_addr_t size;
+	unsigned long flags;
+	unsigned long ip;
+};
+
+struct memblock_stack_trace {
+	unsigned long size;
+	unsigned long addrs[MAX_MEMBLOCK_TRACK_DEPTH];
+	int count;
+	int merge;
+};
+#endif
 
 #ifdef CONFIG_ARCH_DISCARD_MEMBLOCK
 #define __init_memblock __meminit

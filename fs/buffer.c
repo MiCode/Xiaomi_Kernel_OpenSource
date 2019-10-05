@@ -1080,6 +1080,10 @@ static struct buffer_head *
 __getblk_slow(struct block_device *bdev, sector_t block,
 	     unsigned size, gfp_t gfp)
 {
+#ifdef CONFIG_ZONE_MOVABLE_CMA
+	/* __GFP_MOVABLE is not allowed for buffer_head */
+	gfp &= ~__GFP_MOVABLE;
+#endif
 	/* Size must be multiple of hard sectorsize */
 	if (unlikely(size & (bdev_logical_block_size(bdev)-1) ||
 			(size < 512 || size > PAGE_SIZE))) {
