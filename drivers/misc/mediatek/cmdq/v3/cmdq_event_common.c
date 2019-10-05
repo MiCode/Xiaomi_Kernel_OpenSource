@@ -680,6 +680,10 @@ static struct cmdq_event_table cmdq_events[] = {
 	DECLAR_EVENT(CMDQ_SYNC_DISP_WDMA1_2NONSEC_END, sw_token)
 	DECLAR_EVENT(CMDQ_SYNC_DISP_EXT_STREAM_EOF, sw_token)
 
+	/* isp */
+	DECLAR_EVENT(CMDQ_SYNC_TOKEN_MSS, sw_token)
+	DECLAR_EVENT(CMDQ_SYNC_TOKEN_MSF, sw_token)
+
 	/**
 	 * Event for CMDQ to block executing command when append command
 	 * Plz sync CMDQ_SYNC_TOKEN_APPEND_THR(id) in cmdq_core source file.
