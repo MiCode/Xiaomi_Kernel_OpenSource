@@ -2345,11 +2345,17 @@ static void crypt_dtr(struct dm_target *ti)
 	/* Must zero key material before freeing */
 	kzfree(cc);
 
+/* MTK PATCH */
+#if defined(CONFIG_MTK_HW_FDE)
+	if (cc->hw_fde == 0)
+#endif
+	{
 	spin_lock(&dm_crypt_clients_lock);
 	WARN_ON(!dm_crypt_clients_n);
 	dm_crypt_clients_n--;
 	crypt_calculate_pages_per_client();
 	spin_unlock(&dm_crypt_clients_lock);
+	}
 }
 
 static int crypt_ctr_ivmode(struct dm_target *ti, const char *ivmode)
@@ -2809,6 +2815,20 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 			cc->id);
 #endif
 
+/* MTK PATCH */
+#if defined(CONFIG_MTK_HW_FDE)
+	if (cc->hw_fde == 1) {
+		additional_req_size = 0; /* for per_bio_data_size. */
+		/* Initialize and set key */
+		ret = crypt_set_key(ti->private, argv[1]);
+		if (ret < 0) {
+			ti->error = "Error decoding and setting key";
+			return ret;
+		}
+	} else
+#endif
+	{
+
 	spin_lock(&dm_crypt_clients_lock);
 	dm_crypt_clients_n++;
 	crypt_calculate_pages_per_client();
@@ -2824,19 +2844,6 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		if (ret)
 			goto bad;
 	}
-/* MTK PATCH */
-#if defined(CONFIG_MTK_HW_FDE)
-	if (cc->hw_fde == 1) {
-		additional_req_size = 0; /* for per_bio_data_size. */
-		/* Initialize and set key */
-		ret = crypt_set_key(ti->private, argv[1]);
-		if (ret < 0) {
-			ti->error = "Error decoding and setting key";
-			return ret;
-		}
-	} else
-#endif
-	{
 
 	ret = crypt_ctr_cipher(ti, argv[0], argv[1]);
 	if (ret < 0)
