@@ -703,12 +703,12 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 		retval = mdla_run_command_sync(
 			&cmd_data.req,
-			&mdla_devices[0],//modify this to UT mdla0/1
+			&mdla_devices[cmd_data.mdla_id],
 			NULL);
 #else
 		retval = mdla_run_command_sync(
 			&cmd_data.req,
-			&mdla_devices[0]);//modify this to UT mdla0/1
+			&mdla_devices[cmd_data.mdla_id]);
 #endif
 		if (copy_to_user((void *) arg, &cmd_data, sizeof(cmd_data)))
 			return -EFAULT;

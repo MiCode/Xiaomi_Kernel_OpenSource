@@ -143,6 +143,7 @@ struct mdla_run_cmd {
 struct mdla_run_cmd_sync {
 	struct mdla_run_cmd req;
 	struct mdla_wait_cmd res;
+	__u32 mdla_id;
 };
 
 struct mdla_pmu_info {
