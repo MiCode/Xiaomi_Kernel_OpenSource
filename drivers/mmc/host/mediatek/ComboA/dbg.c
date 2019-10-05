@@ -2850,7 +2850,7 @@ static int msdc_ext_csd_show(struct seq_file *m, void *v)
 #define EXT_CSD_STR_LEN 1025
 	struct msdc_host *host;
 	struct mmc_card *card;
-	u8 *ext_csd;
+	u8 *ext_csd = NULL;
 	int err, i;
 #if defined(CONFIG_MTK_EMMC_CQ_SUPPORT) || defined(CONFIG_MTK_EMMC_HW_CQ)
 	int cmdq_en;
