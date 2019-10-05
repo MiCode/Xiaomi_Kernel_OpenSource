@@ -31,7 +31,7 @@ pr_info(APUSYS_MNOC_LOG_PREFIX "[info] %s " x, __func__, ##args)
 
 #define LOG_DEBUG(x, args...) \
 	{ \
-		if (g_log_level > 0) \
+		if (mnoc_log_level > 0) \
 			pr_info(APUSYS_MNOC_LOG_PREFIX "[debug] %s/%d "\
 			x, __func__, __LINE__, ##args); \
 	}
@@ -44,7 +44,7 @@ extern void __iomem *mnoc_slp_prot_base2;
 extern spinlock_t mnoc_spinlock;
 extern bool mnoc_reg_valid;
 
-extern int g_log_level;
+extern int mnoc_log_level;
 
 
 #endif

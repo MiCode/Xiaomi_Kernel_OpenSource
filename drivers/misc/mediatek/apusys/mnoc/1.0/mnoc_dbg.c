@@ -35,7 +35,7 @@ static unsigned int mnoc_addr_phy;
 
 static int mnoc_log_level_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "g_log_level = %d\n", g_log_level);
+	seq_printf(m, "mnoc_log_level = %d\n", mnoc_log_level);
 
 	return 0;
 }
@@ -59,7 +59,7 @@ static ssize_t mnoc_log_level_write(struct file *file,
 
 	if (kstrtoint(buf, 10, &val) == 0)
 		if (val == 0 || val == 1)
-			g_log_level = val;
+			mnoc_log_level = val;
 
 out:
 	free_page((unsigned long)buf);

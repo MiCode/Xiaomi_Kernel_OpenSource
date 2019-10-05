@@ -71,7 +71,7 @@ void __iomem *mnoc_slp_prot_base1;
 void __iomem *mnoc_slp_prot_base2;
 
 bool mnoc_reg_valid;
-int g_log_level;
+int mnoc_log_level;
 
 /* After APUSYS top power on */
 void infra2apu_sram_en(void)
@@ -240,7 +240,7 @@ static int mnoc_probe(struct platform_device *pdev)
 	}
 
 	mnoc_reg_valid = false;
-	g_log_level = 0;
+	mnoc_log_level = 0;
 
 	create_debugfs();
 	spin_lock_init(&mnoc_spinlock);
