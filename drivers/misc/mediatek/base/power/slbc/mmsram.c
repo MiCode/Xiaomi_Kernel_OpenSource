@@ -367,6 +367,67 @@ static int mmsram_probe(struct platform_device *pdev)
 	return 0;
 }
 
+int test_mmsram;
+struct mmsram_data *data;
+int set_test_mmsram(const char *val, const struct kernel_param *kp)
+{
+	int result;
+	u32 test_case, offset, value;
+	const int str_len = 8;
+	const char *test_str = "12345678";
+	char result_str[str_len + 1] = {0};
+
+	result = sscanf(val, "%d %i %i", &test_case, &offset, &value);
+	if (result != 3) {
+		pr_notice("invalid input: %s, result(%d)\n", val, result);
+		return -EINVAL;
+	}
+	pr_notice("%s (test_case, offset, value): (%d,%#x,%#x)\n",
+		__func__, test_case, offset, value);
+
+	switch (test_case) {
+	case 0: /* Initialize */
+		data = kzalloc(sizeof(*data), GFP_KERNEL);
+		mmsram_get_info(data);
+		enable_mmsram();
+		mmsram_power_on();
+		break;
+	case 1: /* Uninitialize */
+		mmsram_power_off();
+		disable_mmsram();
+		kfree(data);
+		break;
+	case 2: /* Write value to offset */
+		writel(value, data->vaddr + offset);
+		value = readl(data->vaddr + offset);
+		pr_notice("write %#x success\n", value);
+		break;
+	case 3: /* Read value from offset */
+		value = readl(data->vaddr + offset);
+		pr_notice("read %#x success\n", value);
+		break;
+	case 4: /* Write test string to offset */
+		memcpy_toio(data->vaddr + offset, test_str, str_len);
+		pr_notice("write str:%s success\n", test_str);
+		break;
+	case 5: /* Write test string from offset */
+		memcpy_fromio(result_str, data->vaddr, str_len);
+		result_str[str_len] = '\0';
+		pr_notice("read str:%s success\n", result_str);
+		break;
+	default:
+		pr_notice("wrong input test_case:%d\n", test_case);
+	}
+
+	return 0;
+}
+static struct kernel_param_ops test_mmsram_ops = {
+	.set = set_test_mmsram,
+	.get = param_get_int,
+};
+module_param_cb(test_mmsram, &test_mmsram_ops, &test_mmsram, 0644);
+MODULE_PARM_DESC(test_mmsram, "test mmsram");
+
 static const struct of_device_id of_mmsram_match_tbl[] = {
 	{
 		.compatible = "mediatek,mmsram",
