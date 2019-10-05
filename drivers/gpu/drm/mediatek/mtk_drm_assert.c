@@ -278,8 +278,7 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
 	/* set DAL config and trigger display */
-	mtk_crtc_pkt_create(&cmdq_handle, crtc);
-	mtk_crtc_gce_commit_begin(crtc, cmdq_handle);
+	cmdq_handle = mtk_crtc_gce_commit_begin(crtc);
 
 	mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
 

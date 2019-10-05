@@ -110,8 +110,8 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		return -EINVAL;
 	}
 
-	mtk_crtc_pkt_create(&cmdq_handle, crtc);
-	cmdq_pkt_set_client(cmdq_handle, mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	mtk_crtc_pkt_create(&cmdq_handle, crtc,
+		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
 					 DDP_SECOND_PATH);
@@ -144,23 +144,20 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	}
 
 	mutex_unlock(&mtk_crtc->lock);
-	ret = cmdq_pkt_flush(mtk_crtc->gce_obj.client[CLIENT_CFG], cmdq_handle);
+	ret = cmdq_pkt_flush(cmdq_handle);
 
 	cmdq_pkt_destroy(cmdq_handle);
 
 	if (ret) {
 		if (need_wait_esd_eof(crtc, panel_ext)) {
 			/* TODO: set ESD_EOF event through CPU is better */
-			mtk_crtc_pkt_create(&cmdq_handle, crtc);
-			cmdq_pkt_set_client(
-				cmdq_handle,
+			mtk_crtc_pkt_create(&cmdq_handle, crtc,
 				mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 			cmdq_pkt_set_event(
 				cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
-			cmdq_pkt_flush(mtk_crtc->gce_obj.client[CLIENT_CFG],
-				       cmdq_handle);
+			cmdq_pkt_flush(cmdq_handle);
 			cmdq_pkt_destroy(cmdq_handle);
 		}
 		goto done;

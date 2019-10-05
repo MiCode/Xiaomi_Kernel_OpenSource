@@ -1053,9 +1053,8 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi)
 		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
 		struct cmdq_pkt *handle;
 
-		mtk_crtc_pkt_create(&handle, &mtk_crtc->base);
-		cmdq_pkt_set_client(handle,
-				    mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 		/* wait frame done */
 		cmdq_pkt_wait_no_clear(handle,
@@ -1064,7 +1063,7 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi)
 		/* stop vdo mode */
 		mtk_dsi_stop_vdo_mode(&dsi->ddp_comp, handle);
 
-		cmdq_pkt_flush(mtk_crtc->gce_obj.client[CLIENT_CFG], handle);
+		cmdq_pkt_flush(handle);
 		cmdq_pkt_destroy(handle);
 	}
 

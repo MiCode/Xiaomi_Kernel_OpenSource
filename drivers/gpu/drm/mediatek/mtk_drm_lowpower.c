@@ -36,8 +36,7 @@ static void mtk_drm_vdo_mode_enter_idle(struct drm_crtc *crtc)
 	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 	struct mtk_ddp_comp *comp;
 
-	mtk_crtc_pkt_create(&handle, crtc);
-	cmdq_pkt_set_client(handle, client);
+	mtk_crtc_pkt_create(&handle, crtc, client);
 
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
 				   MTK_DRM_OPT_IDLEMGR_BY_REPAINT) &&
@@ -57,7 +56,7 @@ static void mtk_drm_vdo_mode_enter_idle(struct drm_crtc *crtc)
 	if (comp)
 		mtk_ddp_comp_io_cmd(comp, handle, DSI_VFP_IDLE_MODE, NULL);
 
-	cmdq_pkt_flush(client, handle);
+	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);
 }
 
@@ -75,8 +74,7 @@ static void mtk_drm_vdo_mode_leave_idle(struct drm_crtc *crtc)
 	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 	struct mtk_ddp_comp *comp;
 
-	mtk_crtc_pkt_create(&handle, crtc);
-	cmdq_pkt_set_client(handle, client);
+	mtk_crtc_pkt_create(&handle, crtc, client);
 
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
 				   MTK_DRM_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ)) {
@@ -89,7 +87,7 @@ static void mtk_drm_vdo_mode_leave_idle(struct drm_crtc *crtc)
 	if (comp)
 		mtk_ddp_comp_io_cmd(comp, handle, DSI_VFP_DEFAULT_MODE, NULL);
 
-	cmdq_pkt_flush(client, handle);
+	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);
 }
 

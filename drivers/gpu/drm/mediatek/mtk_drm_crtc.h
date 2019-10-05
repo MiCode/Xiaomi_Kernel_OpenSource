@@ -576,10 +576,9 @@ void mtk_crtc_connect_addon_module(struct drm_crtc *crtc);
 void mtk_crtc_disconnect_addon_module(struct drm_crtc *crtc);
 void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb, void *cb_data,
 			struct cmdq_pkt *cmdq_handle);
-void mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
-	struct cmdq_pkt *cmdq_handle);
+struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc);
 void mtk_crtc_pkt_create(struct cmdq_pkt **cmdq_handle,
-	struct drm_crtc *crtc);
+	struct drm_crtc *crtc, struct cmdq_client *cl);
 int mtk_crtc_get_mutex_id(struct drm_crtc *crtc, unsigned int ddp_mode,
 			  enum mtk_ddp_comp_id find_comp);
 void mtk_crtc_disconnect_path_between_component(struct drm_crtc *crtc,
