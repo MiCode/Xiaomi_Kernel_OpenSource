@@ -93,6 +93,7 @@ struct mtk_ipi_device  {
 int mtk_ipi_device_register(struct mtk_ipi_device *ipidev,
 		struct platform_device *pdev, struct mtk_mbox_device *mbox,
 		unsigned int ipi_chan_count);
+int mtk_ipi_unregister(struct mtk_ipi_device *ipidev, int ipi_id);
 int mtk_ipi_register(struct mtk_ipi_device *ipidev, int ipi_id,
 		void *cb, void *prdata, void *msg);
 int mtk_ipi_send(struct mtk_ipi_device *ipidev, int ipi_id,

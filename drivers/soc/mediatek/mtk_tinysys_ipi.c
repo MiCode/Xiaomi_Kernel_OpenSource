@@ -120,6 +120,29 @@ int mtk_ipi_register(struct mtk_ipi_device *ipidev, int ipi_id,
 }
 EXPORT_SYMBOL(mtk_ipi_register);
 
+int mtk_ipi_unregister(struct mtk_ipi_device *ipidev, int ipi_id)
+{
+	struct mtk_mbox_pin_recv *pin_recv;
+
+	if (!ipidev->ipi_inited)
+		return IPI_DEV_ILLEGAL;
+
+	pin_recv = ipidev->table[ipi_id].pin_recv;
+	if (!pin_recv)
+		return IPI_UNAVAILABLE;
+
+	mutex_lock(&ipidev->mutex_ipi_reg);
+
+	pin_recv->mbox_pin_cb = NULL;
+	pin_recv->pin_buf = NULL;
+	pin_recv->prdata = NULL;
+
+	mutex_unlock(&ipidev->mutex_ipi_reg);
+
+	return IPI_ACTION_DONE;
+}
+EXPORT_SYMBOL(mtk_ipi_unregister);
+
 int mtk_ipi_send(struct mtk_ipi_device *ipidev, int ipi_id,
 		int opt, void *data, int len, int retry_timeout)
 {
