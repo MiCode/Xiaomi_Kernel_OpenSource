@@ -653,5 +653,9 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 
 #define MTK_IOMMU_PAGE_TABLE_SHARE (1)
 #define IOMMU_POWER_CLK_SUPPORT
+/*enable apu workaround*/
+#define IOMMU_REMOVE_POWER_ID (2) //fix me, @cui zhang
+/*disable apu workaround*/
+/*#define IOMMU_REMOVE_POWER_ID (4)*/ //fix me, @cui zhang
 
 #endif
