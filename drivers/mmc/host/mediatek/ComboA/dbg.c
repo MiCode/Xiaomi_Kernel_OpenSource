@@ -583,12 +583,12 @@ void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 	SPREAD_PRINTF(buff, size, m,
 		"part_curr  : %d\n",
 		mmc->card->part_curr);
+#endif
 	SPREAD_PRINTF(buff, size, m,
 		"claimed(%d), claim_cnt(%d), claimer pid(%d), comm %s\n",
 		mmc->claimed, mmc->claim_cnt,
 		mmc->claimer ? mmc->claimer->pid : 0,
 		mmc->claimer ? mmc->claimer->comm : "NULL");
-#endif
 }
 
 void msdc_dump_host_state(char **buff, unsigned long *size,
@@ -734,6 +734,16 @@ void msdc_cmdq_status_print(struct msdc_host *host, struct seq_file *m)
 	seq_printf(m, "cq_tuning_now: %d\n",
 		atomic_read(&mmc->cq_tuning_now));
 #endif
+	seq_printf(m, "host claimed : %d\n",
+		mmc->claimed);
+	seq_printf(m, "host claim cnt : %d\n",
+		mmc->claim_cnt);
+	seq_printf(m, "host claimer pid : %d\n",
+		mmc->claimer ? mmc->claimer->pid : 0);
+	seq_printf(m, "host claimer comm : %s\n",
+		mmc->claimer ? mmc->claimer->comm : "NULL");
+
+
 #if defined(CONFIG_MTK_EMMC_HW_CQ)
 	curr_state = mmc->cmdq_ctx.curr_state;
 
@@ -756,14 +766,6 @@ void msdc_cmdq_status_print(struct msdc_host *host, struct seq_file *m)
 			"FETCH_QUEUE":"");
 	seq_printf(m, "part_curr  : %d\n",
 		mmc->card->part_curr);
-	seq_printf(m, "host claimed : %d\n",
-		mmc->claimed);
-	seq_printf(m, "host claim cnt : %d\n",
-		mmc->claim_cnt);
-	seq_printf(m, "host claimer pid : %d\n",
-		mmc->claimer ? mmc->claimer->pid : 0);
-	seq_printf(m, "host claimer comm : %s\n",
-		mmc->claimer ? mmc->claimer->comm : "NULL");
 	seq_puts(m, "hardware cq support\n");
 #endif
 

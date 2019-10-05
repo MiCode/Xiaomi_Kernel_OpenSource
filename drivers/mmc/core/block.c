@@ -2490,7 +2490,7 @@ static void mmc_blk_rw_cmd_abort(struct mmc_queue *mq, struct mmc_card *card,
 	if (mmc_card_removed(card))
 		req->rq_flags |= RQF_QUIET;
 	while (blk_end_request(req, BLK_STS_IOERR, blk_rq_cur_bytes(req)));
-	mq->qcnt--;
+	atomic_dec(&mq->qcnt);
 }
 
 /**
@@ -2510,7 +2510,7 @@ static void mmc_blk_rw_try_restart(struct mmc_queue *mq, struct request *req,
 	if (mmc_card_removed(mq->card)) {
 		req->rq_flags |= RQF_QUIET;
 		blk_end_request_all(req, BLK_STS_IOERR);
-		mq->qcnt--; /* FIXME: just set to 0? */
+		atomic_dec(&mq->qcnt); /* FIXME: just set to 0? */
 		return;
 	}
 	/* Else proceed and try to restart the current async request */
@@ -3312,10 +3312,10 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 
 	if (new_req) {
 		mqrq_cur = req_to_mmc_queue_req(new_req);
-		mq->qcnt++;
+		atomic_inc(&mq->qcnt);
 	}
 
-	if (!mq->qcnt)
+	if (!atomic_read(&mq->qcnt))
 		return;
 
 	mt_biolog_mmcqd_req_check();
@@ -3410,12 +3410,12 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 				if (req_pending)
 					mmc_blk_rw_cmd_abort(mq, card, old_req, mq_rq);
 				else
-					mq->qcnt--;
+					atomic_dec(&mq->qcnt);
 				mmc_blk_rw_try_restart(mq, new_req, mqrq_cur);
 				return;
 			}
 			if (!req_pending) {
-				mq->qcnt--;
+				atomic_dec(&mq->qcnt);
 				mmc_blk_rw_try_restart(mq, new_req, mqrq_cur);
 				return;
 			}
@@ -3460,7 +3460,7 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 			req_pending = blk_end_request(old_req, BLK_STS_IOERR,
 						      brq->data.blksz);
 			if (!req_pending) {
-				mq->qcnt--;
+				atomic_dec(&mq->qcnt);
 				mmc_blk_rw_try_restart(mq, new_req, mqrq_cur);
 				return;
 			}
@@ -3490,7 +3490,7 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 		}
 	} while (req_pending);
 
-	mq->qcnt--;
+	atomic_dec(&mq->qcnt);
 }
 
 /* check if the partition support cmdq or not */
@@ -3565,6 +3565,7 @@ int mmc_blk_end_queued_req(struct mmc_host *host,
 		}
 		mmc_put_card(card);
 		atomic_set(&mq->mqrq[index].index, 0);
+		atomic_dec(&mq->qcnt);
 		atomic_dec(&host->areq_cnt);
 		break;
 	case MMC_BLK_CMD_ERR:
@@ -3598,6 +3599,7 @@ int mmc_blk_end_queued_req(struct mmc_host *host,
 		mmc_put_card(card);
 
 		atomic_set(&mq->mqrq[index].index, 0);
+		atomic_dec(&mq->qcnt);
 		atomic_dec(&host->areq_cnt);
 
 		if (!ret)
@@ -3638,6 +3640,7 @@ cmd_abort:
 	mmc_put_card(card);
 
 	atomic_set(&mq->mqrq[index].index, 0);
+	atomic_dec(&mq->qcnt);
 	atomic_dec(&host->areq_cnt);
 
 start_new_req:
@@ -3811,8 +3814,11 @@ void mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_blk_data *md = mq->blkdata;
 	struct mmc_card *card = md->queue.card;
 	bool part_cmdq_en = mmc_blk_part_cmdq_en(mq);
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	bool put_card = false;
+#endif
 
-	if (part_cmdq_en || (req && !mq->qcnt))
+	if (part_cmdq_en || (req && !atomic_read(&mq->qcnt)))
 		/* non-cq: claim host only for the first request
 		 * cq: claim host for per request
 		 */
@@ -3839,36 +3845,48 @@ void mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 			 * Complete ongoing async transfer before issuing
 			 * ioctl()s
 			 */
-			if (mq->qcnt)
+			if (atomic_read(&mq->qcnt))
 				mmc_blk_issue_rw_rq(mq, NULL);
 			mmc_blk_issue_drv_op(mq, req);
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+			put_card = true;
+#endif
 			break;
 		case REQ_OP_DISCARD:
 			/*
 			 * Complete ongoing async transfer before issuing
 			 * discard.
 			 */
-			if (mq->qcnt)
+			if (atomic_read(&mq->qcnt))
 				mmc_blk_issue_rw_rq(mq, NULL);
 			mmc_blk_issue_discard_rq(mq, req);
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+			put_card = true;
+#endif
 			break;
 		case REQ_OP_SECURE_ERASE:
 			/*
 			 * Complete ongoing async transfer before issuing
 			 * secure erase.
 			 */
-			if (mq->qcnt)
+			if (atomic_read(&mq->qcnt))
 				mmc_blk_issue_rw_rq(mq, NULL);
 			mmc_blk_issue_secdiscard_rq(mq, req);
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+			put_card = true;
+#endif
 			break;
 		case REQ_OP_FLUSH:
 			/*
 			 * Complete ongoing async transfer before issuing
 			 * flush.
 			 */
-			if (mq->qcnt)
+			if (atomic_read(&mq->qcnt))
 				mmc_blk_issue_rw_rq(mq, NULL);
 			mmc_blk_issue_flush(mq, req);
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+			put_card = true;
+#endif
 			break;
 		default:
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
@@ -3897,8 +3915,23 @@ void mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	}
 
 out:
-	if (!mq->qcnt)
-		mmc_put_card(card);
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	/*
+	 * Since CQ has its own thread to handle mmc_put_card().
+	 * We don't call mmc_put_card() for read/write requests.
+	 *
+	 * But for request REQ_OP_DRV_IN REQ_OP_DRV_OUT
+	 * REQ_OP_DISCARD REQ_OP_SECURE_ERASE REQ_OP_FLUSH
+	 * which is other than read/write request needs to
+	 * call mmc_put_card() here.
+	 */
+	if (part_cmdq_en) {
+		if (put_card)
+			mmc_put_card(card);
+	} else
+#endif
+		if (!atomic_read(&mq->qcnt))
+			mmc_put_card(card);
 }
 
 static inline int mmc_blk_readonly(struct mmc_card *card)
