@@ -132,6 +132,9 @@ static int eeprom_open(struct inode *a_inode, struct file *a_file)
 	pr_debug("open\n");
 
 	pdata = kmalloc(sizeof(struct EEPROM_DRV_FD_DATA), GFP_KERNEL);
+	if (pdata == NULL)
+		return -ENOMEM;
+
 	pdrv = container_of(a_inode->i_cdev, struct EEPROM_DRV, cdev);
 
 	pdata->pdrv = pdrv;
@@ -163,6 +166,9 @@ static ssize_t eeprom_read(struct file *a_file, char __user *user_buffer,
 
 	pr_debug("read %lu %llu\n", size, *offset);
 
+	if (kbuf == NULL)
+		return -ENOMEM;
+
 	if (read_region(pdata, kbuf, *offset, size) != size ||
 	    copy_to_user(user_buffer, kbuf, size)) {
 		kfree(kbuf);
@@ -182,6 +188,9 @@ static ssize_t eeprom_write(struct file *a_file, const char __user *user_buffer,
 	u8 *kbuf = kmalloc(size, GFP_KERNEL);
 
 	pr_debug("write %lu %llu\n", size, *offset);
+
+	if (kbuf == NULL)
+		return -ENOMEM;
 
 	if (copy_from_user(kbuf, user_buffer, size) ||
 	    write_region(pdata, kbuf, *offset, size) != size) {
@@ -258,16 +267,6 @@ static long eeprom_ioctl(struct file *a_file, unsigned int a_cmd,
 		kfree(pBuff);
 		pr_debug("No such command %d\n", a_cmd);
 		return -EPERM;
-	}
-
-	if ((_IOC_READ & _IOC_DIR(a_cmd)) &&
-	    copy_to_user((void __user *) a_param,
-			 pBuff,
-			 _IOC_SIZE(a_cmd))) {
-
-		kfree(pBuff);
-		pr_debug("ioctl copy to user failed\n");
-		return -EFAULT;
 	}
 
 	kfree(pBuff);
