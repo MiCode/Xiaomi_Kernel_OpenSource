@@ -31,13 +31,13 @@
 #include <asm/cputype.h>
 #include <asm/topology.h>
 
-static inline
+inline
 const struct sched_group_energy * const cpu_core_energy(int cpu)
 {
 	return sge_array[cpu][SD_LEVEL0];
 }
 
-static inline
+inline
 const struct sched_group_energy * const cpu_cluster_energy(int cpu)
 {
 	return sge_array[cpu][SD_LEVEL1];
