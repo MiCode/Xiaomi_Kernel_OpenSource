@@ -1873,7 +1873,7 @@ static void __mt_gpufreq_cal_sb_opp_index(void)
 
 	for (i = 0; i < g_max_opp_idx_num; i++) {
 		if (g_opp_table[i].gpufreq_vsram ==
-				g_opp_table[g_max_opp_idx_num].gpufreq_vsram) {
+			g_opp_table[g_max_opp_idx_num - 1].gpufreq_vsram) {
 			min_vsram_idx = i;
 			break;
 		}
