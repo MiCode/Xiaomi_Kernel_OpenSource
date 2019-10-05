@@ -138,3 +138,13 @@ config MICROTRUST_TEST_DRIVERS
 	  This framework supports DCIH and GP API test drivers.
 	  Say Y if you would like to enable the test framework.
 	  If unsure, say N.
+
+config MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
+	tristate "Microtrust tzdriver dynamical debug"
+	depends on MICROTRUST_TEE_SUPPORT
+	default n
+	---help---
+	  Enables support of Microtrust test driver kernel framework.
+	  This framework supports DCIH and GP API test drivers.
+	  Say Y if you would like to enable the test framework.
+	  If unsure, say N.

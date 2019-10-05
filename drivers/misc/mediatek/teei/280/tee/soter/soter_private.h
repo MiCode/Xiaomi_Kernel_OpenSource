@@ -19,6 +19,8 @@
 #include <tee_drv.h>
 #include <linux/types.h>
 
+#define TEEI_UUID_MAX_LEN 128
+
 /* Some Global Platform error codes used in this driver */
 #define TEEC_SUCCESS			0x00000000
 #define TEEC_ERROR_BAD_PARAMETERS	0xFFFF0006
@@ -43,6 +45,7 @@ struct soter_priv {
 struct soter_session {
 	struct list_head list_node;
 	u32 session_id;
+	char uuid[TEEI_UUID_MAX_LEN];
 };
 
 struct soter_context_data {
@@ -58,4 +61,11 @@ int soter_close_session(struct tee_context *ctx, u32 session);
 int soter_invoke_func(struct tee_context *ctx, struct tee_ioctl_invoke_arg *arg,
 		      struct tee_param *param);
 int soter_cancel_func(struct tee_context *ctx, u32 cancel_id, u32 session);
+
+#ifdef CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
+extern uint32_t tzdriver_dynamical_debug_flag;
+#define REE_DYNAMICAL_START 1
+#define REE_DYNAMICAL_STOP  2
+#endif
+
 #endif
