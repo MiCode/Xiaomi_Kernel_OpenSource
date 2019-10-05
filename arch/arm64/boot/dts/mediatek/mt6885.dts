@@ -100,7 +100,7 @@
 		consys-reserve-memory {
 			compatible = "mediatek,consys-reserve-memory";
 			no-map;
-			size = <0 0x400000>;
+			size = <0 0x850000>;
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
@@ -271,6 +271,27 @@
 		compatible = "mediatek,pericfg", "syscon";
 		reg = <0 0x10003000 0 0x1000>;
 		#clock-cells = <1>;
+	};
+
+	btif@1100c000 {
+		compatible = "mediatek,btif";
+		/*btif base*/
+		reg = <0 0x1100c000 0 0x1000>,
+			/*btif tx dma base*/
+			<0 0x11000d80 0 0x80>,
+			/*btif rx dma base*/
+			<0 0x11000e00 0 0x80>;
+		/*btif irq, IRQS_Sync ID, btif_irq_b*/
+		interrupts = <GIC_SPI 158 IRQ_TYPE_LEVEL_LOW>,
+				   /*btif tx dma irq*/
+				   <GIC_SPI 152 IRQ_TYPE_LEVEL_LOW>,
+				   /*btif rx dma irq*/
+				   <GIC_SPI 153 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&infracfg_ao INFRACFG_AO_BTIF_CG>,
+			   /*btif clock*/
+			   <&infracfg_ao INFRACFG_AO_AP_DMA_CG>;
+		/*ap dma clock*/
+		clock-names = "btifc","apdmac";
 	};
 
 	iocfg_rm: iocfg_rm@11c20000 {
@@ -3477,13 +3498,33 @@
 			/* conn_infra_rgu */
 		reg = <0 0x18000000 0 0x1000>,
 			/* conn_infra_cfg */
-		      <0 0x18001000 0 0x1000>,
+			<0 0x18001000 0 0x1000>,
 			/* conn_host_csr_top */
-		      <0 0x18060000 0 0x10000>,
+			<0 0x18060000 0 0x10000>,
 			/* infracfg_ao */
-		      <0 0x10001000 0 0x1000>,
+			<0 0x10001000 0 0x1000>,
 			/* TOP RGU */
-		      <0 0x10007000 0 0x1000>;
+			<0 0x10007000 0 0x1000>,
+			/* SPM */
+			<0 0x10006000 0 0x1000>,
+			/* INFRACFG */
+			<0 0x1020e000 0 0x1000>,
+			/* conn_wt_slp_ctl_reg */
+			<0 0x18005000 0 0x1000>,
+			/* conn_afe_ctl */
+			<0 0x18003000 0 0x1000>,
+			/* conn_infra_sysram */
+			<0 0x18050000 0 0x10000>,
+			/* GPIO */
+			<0 0x10005000 0 0x1000>,
+			/* conn_rf_spi_mst_reg */
+			<0 0x18004000 0 0x1000>,
+			/* conn_semaphore */
+			<0 0x18070000 0 0x10000>,
+			/* conn_top_therm_ctl */
+			<0 0x18002000 0 0x1000>,
+			/* IOCFG_RT */
+			<0 0x11ea0000 0 0x1000>;
 	};
 
 	wifi@18000000{
