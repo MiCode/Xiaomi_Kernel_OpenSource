@@ -196,9 +196,6 @@ enum {
 
 #define  GF_IOC_MAXNR    18  /* THIS MACRO IS NOT USED NOW... */
 
-/* SMT backup solution (just to get chip ID) */
-#define MTK_FP_IOC_FACTORY		_IOR(GF_IOC_MAGIC, 20, u8)
-
 struct gf_device {
 	dev_t devno;
 	struct cdev cdev;

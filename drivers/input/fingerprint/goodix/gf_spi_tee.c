@@ -63,10 +63,10 @@
 #include "gf_fw.h"
 
 /**************************defination******************************/
-#define GF_DEV_NAME "mtk_fp"
+#define GF_DEV_NAME "goodix_fp"
 #define GF_DEV_MAJOR 0	/* assigned */
 
-#define GF_CLASS_NAME "mtk_fp"
+#define GF_CLASS_NAME "goodix_fp"
 #define GF_INPUT_NAME "gf-keys"
 
 #define GF_LINUX_VERSION "V1.01.04"
@@ -102,7 +102,8 @@ static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
 
 static unsigned int bufsiz = (25 * 1024);
-static char chipID_verify;
+static int chipID_verify;
+module_param(chipID_verify, int, 0664);
 module_param(bufsiz, uint, 0444);
 MODULE_PARM_DESC(bufsiz, "maximum data bytes for SPI message");
 
@@ -1119,14 +1120,6 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		mutex_destroy(&gf_dev->buf_lock);
 		mutex_destroy(&gf_dev->release_lock);
 #endif
-		break;
-	case MTK_FP_IOC_FACTORY:
-		data = (void __user *) arg;
-		if (copy_to_user(data, &chipID_verify, 1)) {
-			retval = -EFAULT;
-			break;
-		}
-		gf_debug(INFO_LOG, "%s: GF_IOC_FTM ===\n", __func__);
 		break;
 
 #ifdef SUPPORT_REE_SPI
