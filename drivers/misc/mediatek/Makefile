@@ -98,6 +98,7 @@ obj-$(CONFIG_RT_REGMAP) += rt-regmap/
 ifeq ($(CONFIG_MTK_GAUGE_VERSION),30)
 obj-y += power/
 endif
+obj-y += log_store/
 obj-y += mmdvfs/
 obj-$(CONFIG_MTK_ECCCI_C2K) += c2k_usb/
 obj-$(CONFIG_USB) += usb_boost/
@@ -105,5 +106,4 @@ obj-$(CONFIG_MTK_USB_TYPEC) += typec/
 obj-$(CONFIG_MTK_SELINUX_AEE_WARNING) += selinux_warning/
 obj-$(CONFIG_THERMAL)   += thermal/
 obj-y   += performance/
-
 obj-y += io_boost/
