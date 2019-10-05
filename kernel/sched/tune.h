@@ -19,6 +19,7 @@ int schedtune_prefer_idle(struct task_struct *tsk);
 
 void schedtune_enqueue_task(struct task_struct *p, int cpu);
 void schedtune_dequeue_task(struct task_struct *p, int cpu);
+extern int stune_task_threshold;
 
 #else /* CONFIG_SCHED_TUNE */
 
@@ -29,5 +30,6 @@ void schedtune_dequeue_task(struct task_struct *p, int cpu);
 
 #define schedtune_enqueue_task(task, cpu) do { } while (0)
 #define schedtune_dequeue_task(task, cpu) do { } while (0)
+#define stune_task_threshold 0
 
 #endif /* CONFIG_SCHED_TUNE */
