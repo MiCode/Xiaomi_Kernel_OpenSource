@@ -109,14 +109,15 @@
 	int _l = lvl; \
 	((u32)(addr) >> ARM_V7S_LVL_SHIFT(_l)) & _ARM_V7S_IDX_MASK_32BIT(_l); \
 })
-/* 1st IOVA[33:20] 2nd IOVA[19:12] */
-#define ARM_V7S_LVL_IDX_34BIT(addr, lvl)	({ \
-	int _l = lvl; \
-	((u32)(addr) >> ARM_V7S_LVL_SHIFT(_l)) & _ARM_V7S_IDX_MASK_34BIT(_l); \
-})
 
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT == 34)
+/* 1st IOVA[33:20] 2nd IOVA[19:12] */
+#define ARM_V7S_LVL_IDX_34BIT(addr, lvl)	({ \
+	int _l = lvl; \
+	(((u64)(addr) & DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT)) >> \
+	  ARM_V7S_LVL_SHIFT(_l)) & _ARM_V7S_IDX_MASK_34BIT(_l); \
+})
 #define ARM_V7S_PTES_PER_LVL(lvl)	ARM_V7S_PTES_PER_LVL_34BIT(lvl)
 #define ARM_V7S_TABLE_SIZE(lvl)		ARM_V7S_TABLE_SIZE_34BIT(lvl)
 #define ARM_V7S_LVL_IDX(addr, lvl)	ARM_V7S_LVL_IDX_34BIT(addr, lvl)
