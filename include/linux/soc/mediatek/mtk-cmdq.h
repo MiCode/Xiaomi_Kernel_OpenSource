@@ -206,15 +206,11 @@ void cmdq_mbox_destroy(struct cmdq_client *client);
 
 /**
  * cmdq_pkt_create() - create a CMDQ packet
- * @pkt_ptr:	CMDQ packet pointer to retrieve cmdq_pkt
+ * @client:	the CMDQ mailbox client
  *
- * Return: 0 for success; else the error code is returned
+ * Return: CMDQ packet pointer
  */
-int cmdq_pkt_create(struct cmdq_pkt **pkt_ptr);
-
-void cmdq_pkt_set_client(struct cmdq_pkt *pkt, struct cmdq_client *cl);
-
-s32 cmdq_pkt_cl_create(struct cmdq_pkt **pkt_ptr, struct cmdq_client *cl);
+struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client);
 
 /**
  * cmdq_pkt_destroy() - destroy the CMDQ packet
@@ -361,15 +357,16 @@ s32 cmdq_pkt_finalize_loop(struct cmdq_pkt *pkt);
  * at the end of done packet. Note that this is an ASYNC function. When the
  * function returned, it may or may not be finished.
  */
-s32 cmdq_pkt_flush_async(struct cmdq_client *client, struct cmdq_pkt *pkt,
+s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
 	cmdq_async_flush_cb cb, void *data);
 
-s32 cmdq_pkt_flush_threaded(struct cmdq_client *client, struct cmdq_pkt *pkt,
+int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt);
+
+s32 cmdq_pkt_flush_threaded(struct cmdq_pkt *pkt,
 	cmdq_async_flush_cb cb, void *data);
 
 /**
  * cmdq_pkt_flush() - trigger CMDQ to execute the CMDQ packet
- * @client:	the CMDQ mailbox client
  * @pkt:	the CMDQ packet
  *
  * Return: 0 for success; else the error code is returned
@@ -378,12 +375,16 @@ s32 cmdq_pkt_flush_threaded(struct cmdq_client *client, struct cmdq_pkt *pkt,
  * synchronous flush function. When the function returned, the recorded
  * commands have been done.
  */
-s32 cmdq_pkt_flush(struct cmdq_client *client, struct cmdq_pkt *pkt);
+s32 cmdq_pkt_flush(struct cmdq_pkt *pkt);
 
-s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, u32 curr_pa);
+void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, u32 pa_offset, const char *info);
+
+s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa);
 
 int cmdq_dump_pkt(struct cmdq_pkt *pkt);
 
+void cmdq_pkt_set_err_cb(struct cmdq_pkt *pkt,
+	cmdq_async_flush_cb cb, void *data);
 
 struct cmdq_thread_task_info {
 	dma_addr_t		pa_base;

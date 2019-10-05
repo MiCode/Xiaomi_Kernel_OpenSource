@@ -110,8 +110,6 @@ struct cmdq_pkt_buffer {
 	bool			map;
 };
 
-typedef s32 (*cmdq_buf_cb)(struct cmdq_pkt_buffer *buf);
-
 struct cmdq_pkt {
 	struct list_head	buf;
 	size_t			avail_buf_size; /* available buf size */
@@ -121,9 +119,9 @@ struct cmdq_pkt {
 	struct cmdq_task_cb	cb;
 	struct cmdq_task_cb	err_cb;
 	void			*user_data;
-	void			*priv;
-	struct device		*dev;
+	void			*cl;
 	bool			loop;
+	void			*flush_item;
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	void			*sec_data;
@@ -165,9 +163,11 @@ do { \
 	pr_notice("[cmdq][err] "fmt"\n", ##args)
 
 void cmdq_mbox_channel_stop(struct mbox_chan *chan);
-void cmdq_thread_dump_err(struct mbox_chan *chan);
+void cmdq_dump_core(struct mbox_chan *chan);
+u64 cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt);
 void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 	struct cmdq_pkt *pkt);
+void *cmdq_mbox_get_base(void *chan);
 s32 cmdq_mbox_thread_reset(void *chan);
 s32 cmdq_mbox_thread_suspend(void *chan);
 void cmdq_mbox_thread_disable(void *chan);

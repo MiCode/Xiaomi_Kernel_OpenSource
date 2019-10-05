@@ -29,13 +29,18 @@
 #include <linux/of_device.h>
 #include <linux/atomic.h>
 #include <linux/sched/clock.h>
+#include <linux/arm-smccc.h>
+#include <mt-plat/mtk_secure_api.h>
 
 /* ddp main/sub, mdp path 0/1/2/3, general(misc) */
 #define CMDQ_OP_CODE_MASK		(0xff << CMDQ_OP_CODE_SHIFT)
 #define CMDQ_IRQ_MASK			GENMASK(CMDQ_THR_MAX_COUNT - 1, 0)
 
 #define CMDQ_CURR_IRQ_STATUS		0x10
+#define CMDQ_CURR_LOADED_THR		0x18
 #define CMDQ_THR_SLOT_CYCLES		0x30
+#define CMDQ_THR_EXEC_CYCLES		0x34
+#define CMDQ_THR_TIMEOUT_TIMER		0x38
 #define CMDQ_SYNC_TOKEN_ID		0x60
 #define CMDQ_SYNC_TOKEN_VAL		0x64
 #define CMDQ_SYNC_TOKEN_UPD		0x68
@@ -387,12 +392,8 @@ static void *cmdq_task_current_va(unsigned long pa, struct cmdq_pkt *pkt)
 				pkt->avail_buf_size;
 		else
 			end = buf->pa_base + CMDQ_CMD_BUFFER_SIZE;
-		if (pa >= buf->pa_base && pa < end) {
-			cmdq_log("current pkt:0x%p pc:0x%lx pa:%pa 0x%016llx",
-				pkt, pa, &buf->pa_base,
-				*((u64 *)(buf->va_base + (pa - buf->pa_base))));
+		if (pa >= buf->pa_base && pa < end)
 			return buf->va_base + (pa - buf->pa_base);
-		}
 	}
 
 	return NULL;
@@ -916,7 +917,22 @@ static void cmdq_thread_handle_timeout(unsigned long data)
 	}
 }
 
-void cmdq_thread_dump_err(struct mbox_chan *chan)
+void cmdq_dump_core(struct mbox_chan *chan)
+{
+	struct cmdq *cmdq = dev_get_drvdata(chan->mbox->dev);
+	u32 irq, loaded, cycle, thd_timer;
+
+	irq = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS);
+	loaded = readl(cmdq->base + CMDQ_CURR_LOADED_THR);
+	cycle = readl(cmdq->base + CMDQ_THR_EXEC_CYCLES);
+	thd_timer = readl(cmdq->base + CMDQ_THR_TIMEOUT_TIMER);
+
+	cmdq_msg("irq:%#x loaded:%#x cycle:%#x thd timer:%#x",
+		irq, loaded, cycle, thd_timer);
+}
+EXPORT_SYMBOL(cmdq_dump_core);
+
+u64 cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt)
 {
 	struct cmdq_thread *thread = (struct cmdq_thread *)chan->con_priv;
 	unsigned long flags;
@@ -925,7 +941,7 @@ void cmdq_thread_dump_err(struct mbox_chan *chan)
 
 	struct cmdq_pkt *pkt = NULL;
 	u32 warn_rst, en, suspend, status, irq, irq_en, curr_pa, end_pa, cnt,
-		wait_token, cfg, prefetch, cycles, thresx, pri = 0;
+		wait_token, cfg, prefetch, pri = 0;
 	size_t size = 0;
 	u64 *end_va, *curr_va = NULL, inst = 0, last_inst[2] = {0};
 	void *va_base = NULL;
@@ -946,8 +962,6 @@ void cmdq_thread_dump_err(struct mbox_chan *chan)
 	wait_token = readl(thread->base + CMDQ_THR_WAIT_TOKEN);
 	cfg = readl(thread->base + CMDQ_THR_CFG);
 	prefetch = readl(thread->base + CMDQ_THR_PREFETCH);
-	cycles = readl(thread->base + CMDQ_THR_INST_CYCLES);
-	thresx = readl(thread->base + CMDQ_THR_INST_THRESX);
 
 	list_for_each_entry(task, &thread->task_busy_list, list_entry) {
 		curr_va = (u64 *)cmdq_task_current_va(curr_pa, task->pkt);
@@ -971,22 +985,29 @@ void cmdq_thread_dump_err(struct mbox_chan *chan)
 	}
 	spin_unlock_irqrestore(&chan->lock, flags);
 
-	cmdq_dump("error thread:%u pc:0x%08x (0x%p) instruction:%016llx",
-		thread->idx, curr_pa, curr_va, inst);
-	cmdq_dump("end:0x%08x wait token:0x%08x irq:%x irq en:%x",
-		end_pa, wait_token, irq, irq_en);
-	cmdq_dump("warn rst:0x%x suspend:0x%x status:0x%x cnt:0x%x cfg:0x%x",
-		warn_rst, suspend, status, cnt, cfg);
-	cmdq_dump("prefetch:0x%x timeout cycle:%u thresx:0x%x",
-		prefetch, cycles, thresx);
+	cmdq_msg(
+		"thd:%u pc:%#08x(%p) inst:%#016llx end:%#08x cnt:%#x token:%#08x",
+		thread->idx, curr_pa, curr_va, inst, end_pa, cnt, wait_token);
+	cmdq_msg(
+		"warn rst:%#x en:%#x suspend:%#x status:%#x irq:%x en:%#x cfg:%#x",
+		warn_rst, en, suspend, status, irq, irq_en, cfg);
 	if (pkt) {
-		cmdq_dump("pkt:0x%p size:%zu base va:0x%p pa:%pa priority:%u",
+		cmdq_msg("cur pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
 			pkt, size, va_base, &pa_base, pri);
-		cmdq_dump("last inst 0x%016llx 0x%016llx",
+		cmdq_msg("last inst %#016llx %#016llx",
 			last_inst[0], last_inst[1]);
 	}
+
+	if (cl_pkt != pkt) {
+		buf = list_first_entry(&pkt->buf, typeof(*buf), list_entry);
+		cmdq_msg("expect pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
+			cl_pkt, cl_pkt->cmd_buf_size, buf->va_base,
+			&buf->pa_base, cl_pkt->priority);
+	}
+
+	return inst;
 }
-EXPORT_SYMBOL(cmdq_thread_dump_err);
+EXPORT_SYMBOL(cmdq_thread_dump);
 
 void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 	struct cmdq_pkt *pkt)
@@ -1415,6 +1436,14 @@ static __init int cmdq_init(void)
 	}
 
 	return 0;
+}
+
+void *cmdq_mbox_get_base(void *chan)
+{
+	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
+		typeof(*cmdq), mbox);
+
+	return (void *)cmdq->base;
 }
 
 struct device *cmdq_mbox_get_dev(void *chan)

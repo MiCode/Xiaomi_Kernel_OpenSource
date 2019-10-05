@@ -3,11 +3,19 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <linux/kernel.h>
+#include <linux/io.h>
 #include <linux/debugfs.h>
 #include <linux/sched/clock.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/arm-smccc.h>
+#include <mt-plat/mtk_secure_api.h>
 
 #include "cmdq-util.h"
+
+#define GCE_DBG_CTL	0x3000
+#define GCE_DBG0	0x3004
+#define GCE_DBG2	0x300C
 
 struct cmdq_util_error {
 	spinlock_t	lock;
@@ -143,9 +151,52 @@ static int cmdq_util_log_feature_set(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(cmdq_util_log_feature_fops,
 	cmdq_util_log_feature_get, cmdq_util_log_feature_set, "%llu");
 
+/* sync with request in atf */
+enum cmdq_smc_request {
+	CMDQ_ENABLE_DEBUG,
+};
+
+static atomic_t cmdq_dbg_ctrl = ATOMIC_INIT(0);
+
+void cmdq_util_dump_dbg_reg(void *chan)
+{
+	void *base = cmdq_mbox_get_base(chan);
+	u32 dbg0[3], dbg2[6], i;
+
+	if (!base) {
+		cmdq_util_msg("no cmdq dbg since no base");
+		return;
+	}
+
+	if (atomic_cmpxchg(&cmdq_dbg_ctrl, 0, 1) == 0) {
+		struct arm_smccc_res res;
+
+		arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_DEBUG,
+			0, 0, 0, 0, 0, 0, &res);
+	}
+
+	/* debug select */
+	for (i = 0; i < 6; i++) {
+		if (i < 3) {
+			writel((i << 8) | i, base + GCE_DBG_CTL);
+			dbg0[i] = readl(base + GCE_DBG0);
+		} else {
+			/* only other part */
+			writel(i << 8, base + GCE_DBG_CTL);
+		}
+		dbg2[i] = readl(base + GCE_DBG2);
+	}
+
+	cmdq_util_msg("dbg0:%#x %#x %#x dbg2:%#x %#x %#x %#x %#x %#x\n",
+		dbg0[0], dbg0[1], dbg0[2],
+		dbg2[0], dbg2[1], dbg2[2], dbg2[3], dbg2[4], dbg2[5]);
+}
+
 static int __init cmdq_util_init(void)
 {
 	struct dentry	*dir;
+
+	cmdq_msg("%s begin", __func__);
 
 	spin_lock_init(&util.err.lock);
 	util.err.buffer = kzalloc(ARG_MAX, GFP_KERNEL);

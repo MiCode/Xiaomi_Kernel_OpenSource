@@ -1009,13 +1009,19 @@ static void cmdq_sec_irq_notify_start(void)
 		return;
 	}
 
-	cmdq_pkt_cl_create(&cmdq_sec_irq_pkt, clt);
+	cmdq_sec_irq_pkt = cmdq_pkt_create(clt);
 	cmdq_pkt_wfe(cmdq_sec_irq_pkt, CMDQ_SYNC_SECURE_THR_EOF);
 	cmdq_pkt_finalize_loop(cmdq_sec_irq_pkt);
 
 	cmdqCoreClearEvent(CMDQ_SYNC_SECURE_THR_EOF);
 
-	err = cmdq_pkt_flush_async(clt, cmdq_sec_irq_pkt,
+	if (cmdq_sec_irq_pkt->cl != clt) {
+		CMDQ_LOG(
+			"[warn]client not match before flush sec irq pkt:%#p and %#p\n",
+			cmdq_sec_irq_pkt->cl, clt);
+		cmdq_sec_irq_pkt->cl = clt;
+	}
+	err = cmdq_pkt_flush_async(cmdq_sec_irq_pkt,
 		cmdq_sec_irq_notify_callback, (void *)g_cmdq);
 	if (err < 0) {
 		CMDQ_ERR("fail to start irq thread err:%d\n", err);

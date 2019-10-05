@@ -6,7 +6,10 @@
 #ifndef __CMDQ_UTIL_H__
 #define __CMDQ_UTIL_H__
 
+#include <linux/kernel.h>
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
+#endif
 
 enum {
 	CMDQ_LOG_FEAT_SECURE,
@@ -16,7 +19,7 @@ enum {
 
 #define cmdq_util_log(feat, fmt, args...) \
 	do { \
-		cmdq_util_save_first_error("[cmdq] "fmt"\n", ##args); \
+		cmdq_util_error_save("[cmdq] "fmt"\n", ##args); \
 		if (cmdq_util_get_bit_feature() & (1 << feat)) \
 			cmdq_msg(fmt, ##args); \
 	} while (0)
@@ -27,13 +30,13 @@ enum {
 #define cmdq_util_msg(fmt, args...) \
 	do { \
 		cmdq_msg(fmt, ##args); \
-		cmdq_util_save_first_error("[cmdq] "fmt"\n", ##args); \
+		cmdq_util_error_save("[cmdq] "fmt"\n", ##args); \
 	} while (0)
 
 #define cmdq_util_err(fmt, args...) \
 	do { \
 		cmdq_err(fmt, ##args); \
-		cmdq_util_save_first_error("[cmdq][err] "fmt"\n", ##args); \
+		cmdq_util_error_save("[cmdq][err] "fmt"\n", ##args); \
 	} while (0)
 
 #define DB_OPT_CMDQ	(DB_OPT_DEFAULT | DB_OPT_PROC_CMDQ_INFO | \
@@ -44,8 +47,8 @@ enum {
 		char tag[LINK_MAX]; \
 		snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
 		cmdq_aee("[cmdq][aee] "fmt, ##args); \
-		cmdq_util_save_first_error("[cmdq][aee] "fmt, ##args); \
-		cmdq_util_disable(); \
+		cmdq_util_error_save("[cmdq][aee] "fmt, ##args); \
+		cmdq_util_error_disable(); \
 		aee_kernel_warning_api(__FILE__, __LINE__, \
 			DB_OPT_CMDQ, tag, fmt, ##args); \
 	} while (0)
@@ -55,7 +58,9 @@ u32 cmdq_util_get_bit_feature(void);
 void cmdq_util_error_enable(void); // TODO : need be called
 void cmdq_util_error_disable(void);
 s32 cmdq_util_error_save(const char *str, ...);
+void cmdq_util_dump_dbg_reg(void *chan);
 
+/* function support in platform */
 const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event);
 
 #endif

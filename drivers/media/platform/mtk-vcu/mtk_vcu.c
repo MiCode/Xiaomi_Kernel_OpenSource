@@ -730,8 +730,11 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	atomic_inc(&vcu->gce_job_cnt[i][core_id]);
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
 
-	if (cmdq_pkt_cl_create(&pkt_ptr, cl) != 0)
-		pr_info("[VCU] cmdq_pkt_cl_create fail\n");
+	pkt_ptr = cmdq_pkt_create(cl);
+	if (IS_ERR(pkt_ptr)) {
+		pr_info("[VCU] cmdq_pkt_create fail\n");
+		pkt_ptr = NULL;
+	}
 	buff->pkt_ptr = pkt_ptr;
 
 	/* clear all registered event */
@@ -753,7 +756,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	}
 
 	/* flush cmd async */
-	cmdq_pkt_flush_threaded(cl, pkt_ptr,
+	cmdq_pkt_flush_threaded(pkt_ptr,
 		vcu_gce_flush_callback, (void *)buff);
 	pr_debug("[VCU] %s: buff %p type %d cnt %d order %d handle %llx\n",
 		__func__, buff, buff->cmdq_buff.codec_type,

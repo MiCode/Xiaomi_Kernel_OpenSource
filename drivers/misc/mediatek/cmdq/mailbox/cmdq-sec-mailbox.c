@@ -982,9 +982,9 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 			cmdq->clt, CMDQ_SEC_IRQ_THREAD);
 		return -ENOMEM;
 	}
-	cmdq_pkt_cl_create(&cmdq->clt_pkt, cmdq->clt);
+	cmdq->clt_pkt = cmdq_pkt_create(cmdq->clt);
 	if (!cmdq->clt_pkt || IS_ERR(cmdq->clt_pkt)) {
-		cmdq_err("clt_pkt cmdq_pkt_cl_create failed pkt:%p index:%d",
+		cmdq_err("clt_pkt cmdq_pkt_create failed pkt:%p index:%d",
 			cmdq->clt_pkt, CMDQ_SEC_IRQ_THREAD);
 		return -ENOMEM;
 	}

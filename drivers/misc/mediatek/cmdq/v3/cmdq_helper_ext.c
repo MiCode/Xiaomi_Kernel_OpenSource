@@ -5056,7 +5056,12 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 
 	CMDQ_SYSTRACE_BEGIN("%s\n", __func__);
 	cmdq_core_replace_v3_instr(handle, handle->thread);
-	err = cmdq_pkt_flush_async(client, handle->pkt, cmdq_pkt_flush_handler,
+	if (handle->pkt->cl != client) {
+		CMDQ_LOG("[warn]client not match before flush:0x%p and 0x%p\n",
+			handle->pkt->cl, client);
+		handle->pkt->cl = client;
+	}
+	err = cmdq_pkt_flush_async(handle->pkt, cmdq_pkt_flush_handler,
 		(void *)handle);
 	CMDQ_SYSTRACE_END();
 
@@ -5234,7 +5239,7 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 		}
 
 		cmdq_clients[chan_id] = clt;
-		CMDQ_LOG("chan %d 0x%p dev:0x%p\n",
+		CMDQ_LOG("chan %d 0x%px dev:0x%px\n",
 			chan_id, cmdq_clients[chan_id]->chan, dev);
 	}
 

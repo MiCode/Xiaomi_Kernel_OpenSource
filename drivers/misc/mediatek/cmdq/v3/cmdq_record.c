@@ -1225,30 +1225,24 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 			return -ENOMEM;
 	} else {
 		handle->user_req = NULL;
-		err = cmdq_pkt_create(&handle->pkt);
+		handle->pkt = cmdq_pkt_create(NULL);
+		err = PTR_ERR(handle->pkt);
 		if (err < 0) {
 			handle->pkt = NULL;
 			return err;
 		}
 	}
 #else
-	err = cmdq_pkt_create(&handle->pkt);
-	if (err < 0) {
+	handle->pkt = cmdq_pkt_create(NULL);
+	if (IS_ERR(handle->pkt)) {
+		err = PTR_ERR(handle->pkt);
+		CMDQ_ERR("creat pkt fail err:%d\n", err);
 		handle->pkt = NULL;
 		return err;
 	}
 
-	if (handle->thread != CMDQ_INVALID_THREAD) {
-		struct cmdq_client *cl =
-			cmdq_helper_mbox_client(handle->thread);
-
-		if (cl)
-			cmdq_pkt_set_client(handle->pkt, cl);
-	}
-
-	/* assign client or dev fail, assign cmdq dev directly */
-	if (!handle->pkt->dev)
-		handle->pkt->dev = cmdq_dev_get();
+	if (handle->thread != CMDQ_INVALID_THREAD)
+		handle->pkt->cl = cmdq_helper_mbox_client(handle->thread);
 #endif
 
 	/* assign handle to pkt */
