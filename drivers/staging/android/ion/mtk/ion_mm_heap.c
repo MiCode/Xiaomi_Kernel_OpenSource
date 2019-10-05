@@ -59,13 +59,15 @@ struct ion_mm_buffer_info {
 	unsigned int coherent;
 	unsigned int mva_cnt;
 	void *VA;
-	unsigned int MVA[DOMAIN_NUM];
-	unsigned int FIXED_MVA[DOMAIN_NUM];
-	unsigned int iova_start[DOMAIN_NUM];
-	unsigned int iova_end[DOMAIN_NUM];
+	unsigned long MVA[DOMAIN_NUM];
+	unsigned long FIXED_MVA[DOMAIN_NUM];
+	unsigned long iova_start[DOMAIN_NUM];
+	unsigned long iova_end[DOMAIN_NUM];
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	struct sg_table table[DOMAIN_NUM];
+	struct sg_table *table_orig;
+	int port[DOMAIN_NUM];
 #endif
 	struct ion_mm_buf_debug_info dbg_info;
 	ion_mm_buf_destroy_callback_t *destroy_fn;
@@ -234,9 +236,9 @@ static int ion_mm_pool_total(struct ion_system_heap *heap,
 static int ion_get_domain_id(int from_kernel, int *port)
 {
 	int domain_idx = 0;
+#ifdef CONFIG_MTK_IOMMU_V2
 	unsigned int port_id = *port;
 
-#ifdef CONFIG_MTK_IOMMU_V2
 	if (port_id >= M4U_PORT_UNKNOWN) {
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
@@ -283,6 +285,47 @@ static int ion_get_domain_id(int from_kernel, int *port)
 
 static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 			    ion_phys_addr_t *addr, size_t *len);
+
+static int ion_mm_heap_init_domain(struct ion_mm_buffer_info *buffer_info,
+				   struct sg_table *table)
+{
+	int i = 0;
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	int ret = 0;
+
+	buffer_info->table_orig = table;
+#endif
+	for (i = 0; i < DOMAIN_NUM; i++) {
+		buffer_info->MVA[i] = 0;
+		buffer_info->FIXED_MVA[i] = 0;
+		buffer_info->iova_start[i] = 0;
+		buffer_info->iova_end[i] = 0;
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		buffer_info->port[i] = -1;
+		ret = sg_alloc_table(&buffer_info->table[i],
+				     table->nents, GFP_KERNEL);
+		if (ret) {
+			IONMSG("%s sg alloc table failed,nents=%d, ret=%d.\n",
+			       __func__, table->nents, ret);
+			return -1;
+		}
+		ret = clone_sg_table(table,
+				     &buffer_info->table[i]);
+		if (ret) {
+			IONMSG(
+			       "%s, %d, err clone sg table, src n=%d, domain%d dest n=%d\n",
+			       __func__, __LINE__, i,
+			       table->nents,
+			       buffer_info->table[i].nents);
+			return -2;
+		}
+#endif
+	}
+
+	return 0;
+}
 
 static int ion_mm_heap_allocate(struct ion_heap *heap,
 				struct ion_buffer *buffer, unsigned long size,
@@ -399,7 +442,8 @@ static int ion_mm_heap_allocate(struct ion_heap *heap,
 
 	ret = sg_alloc_table(table, i, GFP_KERNEL);
 	if (ret) {
-		IONMSG("%s sg alloc table failed %d.\n", __func__, ret);
+		IONMSG("%s sg alloc table failed,nents=%d, ret=%d.\n",
+		       __func__, i, ret);
 		goto err1;
 	}
 
@@ -425,17 +469,10 @@ map_mva_exit:
 
 	buffer->sg_table = table;
 	buffer_info->VA = (void *)user_va;
-	for (i = 0; i < DOMAIN_NUM; i++) {
-		buffer_info->MVA[i] = 0;
-		buffer_info->FIXED_MVA[i] = 0;
-		buffer_info->iova_start[i] = 0;
-		buffer_info->iova_end[i] = 0;
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-		clone_sg_table(buffer->sg_table,
-			       &buffer_info->table[i]);
-#endif
-	}
+	ret = ion_mm_heap_init_domain(buffer_info, table);
+	if (ret)
+		goto err2;
+
 	buffer_info->module_id = -1;
 	buffer_info->fix_module_id = -1;
 	buffer_info->mva_cnt = 0;
@@ -454,6 +491,9 @@ map_mva_exit:
 	caller_tid = 0;
 
 	return 0;
+
+err2:
+	kfree(buffer_info);
 err1:
 	kfree(table);
 	IONMSG("error: alloc for sg_table fail\n");
@@ -488,8 +528,8 @@ void ion_mm_heap_free_buffer_info(struct ion_buffer *buffer)
 	struct sg_table *table = buffer->sg_table;
 	struct ion_mm_buffer_info *buffer_info =
 	    (struct ion_mm_buffer_info *)buffer->priv_virt;
-	unsigned int free_mva = 0;
-	int domain_idx = 0;
+	unsigned long free_mva = 0;
+	int domain_idx = 0, port = -1, ret = 0;
 
 	buffer->priv_virt = NULL;
 	if (!buffer_info)
@@ -518,22 +558,48 @@ void ion_mm_heap_free_buffer_info(struct ion_buffer *buffer)
 #if (defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U))
 		if (buffer_info->MVA[domain_idx]) {
 			free_mva = buffer_info->MVA[domain_idx];
-			m4u_dealloc_mva_sg(
-				buffer_info->module_id, table,
-				buffer->size,
-				free_mva);
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+			port = buffer_info->port[domain_idx];
+			table = &buffer_info->table[domain_idx];
+#else
+			port = buffer_info->module_id;
+			table = buffer->sg_table;
+#endif
+			ret = m4u_dealloc_mva_sg(
+				port, table,
+				buffer->size, free_mva);
 		}
 		if (buffer_info->FIXED_MVA[domain_idx]) {
 			free_mva =
 				buffer_info->FIXED_MVA[domain_idx];
-			m4u_dealloc_mva_sg(
-				buffer_info->fix_module_id,
-				table,
-				buffer->size,
-				free_mva);
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+			port = buffer_info->port[domain_idx];
+			table = &buffer_info->table[domain_idx];
+#else
+			port = buffer_info->fix_module_id;
+			table = buffer->sg_table;
+#endif
+			ret = m4u_dealloc_mva_sg(
+				port, table,
+				buffer->size, free_mva);
 		}
 
-		buffer_info->mva_cnt--;
+		if (!ret) {
+			buffer_info->mva_cnt--;
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+			buffer_info->port[domain_idx] = -1;
+#endif
+		} else {
+			IONMSG(
+			       "%s, %d, err free:0x%lx, mva:0x%lx, fix:0x%lx, port:%d\n",
+			       __func__, __LINE__, free_mva,
+			       buffer_info->MVA[domain_idx],
+			       buffer_info->FIXED_MVA[domain_idx],
+			       port);
+		}
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
 		if (free_mva)
@@ -557,9 +623,16 @@ out:
 void ion_mm_heap_free(struct ion_buffer *buffer)
 {
 	struct ion_heap *heap = buffer->heap;
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	struct ion_mm_buffer_info *buffer_info =
+	    (struct ion_mm_buffer_info *)buffer->priv_virt;
+	struct sg_table *table = buffer_info->table_orig;
+#else
+	struct sg_table *table = buffer->sg_table;
+#endif
 	struct ion_system_heap *sys_heap =
 	    container_of(heap, struct ion_system_heap, heap);
-	struct sg_table *table = buffer->sg_table;
 	struct scatterlist *sg;
 	LIST_HEAD(pages);
 	int i;
@@ -667,15 +740,15 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 		 pdbg->dbg_name);
 #elif (DOMAIN_NUM == 4)
 	ION_DUMP(s,
-		 "0x%p %8zu %3d %3d %3d %3d %3d %3lu %3lu %3lu %3lu 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
+		 "0x%p %8zu %3d %3d %3d %3d %3d %d-%3lu %d-%3lu %d-%3lu %d-%3lu 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
 		 buffer, buffer->size, buffer->kmap_cnt,
 		 atomic_read(&buffer->ref.refcount.refs),
 		 buffer->handle_count, val,
 		 bug_info->mva_cnt,
-		 bug_info->MVA[0],
-		 bug_info->MVA[1],
-		 bug_info->MVA[2],
-		 bug_info->MVA[3],
+		 bug_info->port[0], bug_info->MVA[0],
+		 bug_info->port[1], bug_info->MVA[1],
+		 bug_info->port[2], bug_info->MVA[2],
+		 bug_info->port[3], bug_info->MVA[3],
 		 bug_info->security,
 		 buffer->flags, buffer->pid, bug_info->pid,
 		 buffer->task_comm, pdbg->value1,
@@ -712,8 +785,6 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 				       "port name not matched",
 				       "dump user backtrace");
 #endif
-#else
-		//return -EFAULT;	/* Buffer not configured. */
 #endif
 	}
 
@@ -817,6 +888,16 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 			buffer_info->FIXED_MVA[domain_idx] = port_info.mva;
 
 		buffer_info->mva_cnt++;
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		buffer_info->port[domain_idx] = port_info.emoduleid;
+		IONDBG(
+		       "%d, port:%d, mva:0x%lx, fix:0x%lx, return:0x%lx, cnt=%d\n",
+		       __LINE__, buffer_info->port[domain_idx],
+		       buffer_info->MVA[domain_idx],
+		       buffer_info->FIXED_MVA[domain_idx],
+		       port_info.mva, mva_cnt);
+#endif
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
 		mmprofile_log_ex(ion_mmp_events[PROFILE_MVA_ALLOC],
@@ -903,8 +984,6 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 	struct ion_buffer *buffer;
 	struct ion_mm_buffer_info *bug_info;
 	unsigned int block_nr[DOMAIN_NUM] = {0};
-	unsigned int mva[DOMAIN_NUM] = {0};
-	unsigned int mva_fix[DOMAIN_NUM] = {0};
 	unsigned int i;
 	int pid;
 	#define MVA_SIZE_ORDER     20	/* 1M */
@@ -917,24 +996,18 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 
 	bug_info = (struct ion_mm_buffer_info *)buffer->priv_virt;
 	if (bug_info) {
-		pid = bug_info->pid;
 		for (i = 0; i < DOMAIN_NUM; i++) {
-			mva[i] = bug_info->MVA[i];
-			mva_fix[i] = bug_info->FIXED_MVA[i];
 			if (bug_info->MVA[i] ||
 			    bug_info->FIXED_MVA[i])
 				block_nr[i] = (buffer->size +
 					MVA_ALIGN_MASK) >> MVA_SIZE_ORDER;
 		}
-	} else {
-		pid = -1;
-		for (i = 0; i < DOMAIN_NUM; i++) {
-			mva[i] = 0;
-			mva_fix[i] = 0;
-			block_nr[i] = 0;
-		}
 	}
 	if (!buffer->handle_count) {
+		if (bug_info)
+			pid = bug_info->pid;
+		else
+			pid = -1;
 #if (DOMAIN_NUM == 1)
 		ION_DUMP(s,
 			 "0x%p %9d %16s %5d %5d %16s %4d %8x(%8x) %8d\n",
@@ -942,8 +1015,8 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 			 buffer->alloc_dbg,
 			 p->pid, p->tgid,
 			 p->comm, fd,
-			 mva[0],
-			 mva_fix[0],
+			 bug_info->MVA[0],
+			 bug_info->FIXED_MVA[0],
 			 block_nr[0]);
 #elif (DOMAIN_NUM == 2)
 		ION_DUMP(s,
@@ -952,11 +1025,11 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 			 buffer->alloc_dbg,
 			 p->pid, p->tgid,
 			 p->comm, fd,
-			 mva[0],
-			 mva_fix[0],
+			 bug_info->MVA[0],
+			 bug_info->FIXED_MVA[0],
 			 block_nr[0],
-			 mva[1],
-			 mva_fix[1],
+			 bug_info->MVA[1],
+			 bug_info->FIXED_MVA[1],
 			 block_nr[1]);
 #elif (DOMAIN_NUM == 4)
 		ION_DUMP(s,
@@ -965,13 +1038,13 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 			 buffer->alloc_dbg,
 			 p->pid, p->tgid,
 			 p->comm, fd,
-			 mva[0],
+			 bug_info->MVA[0],
 			 block_nr[0],
-			 mva[1],
+			 bug_info->MVA[1],
 			 block_nr[1],
-			 mva[2],
+			 bug_info->MVA[2],
 			 block_nr[2],
-			 mva[3],
+			 bug_info->MVA[3],
 			 block_nr[3]);
 #endif
 	}
@@ -1627,6 +1700,9 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			break;
 		}
 
+		IONDBG("config port:%d, %16.s\n",
+		       param.config_buffer_param.module_id,
+		       client->name);
 		buffer = ion_handle_buffer(kernel_handle);
 		buffer_type = buffer->heap->type;
 		domain_idx =
@@ -1700,6 +1776,10 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 					buffer_info->module_id =
 					    param.config_buffer_param.module_id;
 				}
+			IONDBG("config done:%d(%d)-%d,%16.s\n",
+			       param.config_buffer_param.module_id,
+			       domain_idx,
+			       buffer->heap->type, client->name);
 #ifndef CONFIG_MTK_IOMMU_V2
 			}
 #endif

@@ -1207,6 +1207,8 @@ struct sg_table *pseudo_find_sgtable(unsigned long mva)
 	list_for_each_entry(entry, &pseudo_sglist, list) {
 		if (entry->mva == mva) {
 			mutex_unlock(&pseudo_list_mutex);
+			M4U_DBG(" entry= 0x%lx, target=0x%lx\n",
+				entry->mva, mva);
 			return entry->table;
 		}
 	}
@@ -1228,7 +1230,7 @@ struct sg_table *pseudo_add_sgtable(struct mva_sglist *mva_sg)
 	list_add(&mva_sg->list, &pseudo_sglist);
 	mutex_unlock(&pseudo_list_mutex);
 
-	//M4U_DBG("adding pseudo_sglist, mva = 0x%x\n", mva_sg->mva);
+	M4U_DBG("adding pseudo_sglist, mva = 0x%lx\n", mva_sg->mva);
 	return table;
 }
 
@@ -1383,12 +1385,18 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 			int i;
 
 			table = kzalloc(sizeof(*table), GFP_KERNEL);
+			if (!table)
+				M4U_ERR("%d, table is NULL\n", __LINE__);
+
 			ret = sg_alloc_table(table,
 						 sg_table->nents,
 						 GFP_KERNEL);
 			if (ret) {
 				kfree(table);
 				*retmva = 0;
+				M4U_ERR(
+					"err failed to allocat table, ret=%d, nents=%d\n",
+					ret, sg_table->nents);
 				return ret;
 			}
 
@@ -1577,9 +1585,10 @@ int pseudo_alloc_mva_sg(struct port_mva_info_t *port_info,
 				  va_align, size_align,
 				  sg_table, flags, &mva_align);
 	if (ret) {
-		M4U_ERR("error alloc mva: port %d, 0x%x, 0x%lx, 0x%x, 0x%x\n",
+		M4U_ERR(
+			"error alloc mva: port %d, 0x%x, 0x%lx, 0x%x, 0x%x, ret=%d\n",
 			port_info->emoduleid, flags, port_info->va,
-			mva, port_info->buf_size);
+			mva_align, port_info->buf_size, ret);
 		mva = 0;
 		return ret;
 	}
@@ -1601,16 +1610,13 @@ struct sg_table *pseudo_del_sgtable(unsigned long mva)
 	struct mva_sglist *entry, *tmp;
 	struct sg_table *table = NULL;
 
-	M4U_DBG("mva = 0x%x\n", mva);
 	mutex_lock(&pseudo_list_mutex);
 	list_for_each_entry_safe(entry, tmp, &pseudo_sglist, list) {
-		M4U_DBG("entry->mva = 0x%x\n",
-			entry->mva);
 		if (entry->mva == mva) {
 			list_del(&entry->list);
 			mutex_unlock(&pseudo_list_mutex);
 			table = entry->table;
-			M4U_DBG("mva is 0x%x, entry->mva is 0x%x\n",
+			M4U_DBG("mva is 0x%lx, entry->mva is 0x%lx\n",
 				mva, entry->mva);
 			kfree(entry);
 			return table;
@@ -1651,7 +1657,6 @@ int __pseudo_dealloc_mva(struct m4u_client_t *client,
 {
 	struct sg_table *table = NULL;
 	struct device *dev = pseudo_get_larbdev(port);
-
 	unsigned long addr_align = mva;
 	unsigned long size_align = size;
 	int offset;
@@ -1661,7 +1666,7 @@ int __pseudo_dealloc_mva(struct m4u_client_t *client,
 		return -EINVAL;
 	}
 
-	M4U_MSG("larb%d, port%d, addr=0x%lx, size=0x%lx, iova=0x%x\n",
+	M4U_MSG("larb%d, port%d, addr=0x%lx, size=0x%lx, iova=0x%lx\n",
 		MTK_IOMMU_TO_LARB(port),
 		MTK_IOMMU_TO_PORT(port),
 		BufAddr, size, mva);
@@ -1678,10 +1683,10 @@ int __pseudo_dealloc_mva(struct m4u_client_t *client,
 		table = pseudo_del_sgtable(addr_align);
 		if (!table) {
 #ifdef IOMMU_DEBUG_ENABLED
-			M4U_ERR("err table of mva 0x%x-0x%lx\n",
-				__func__, __LINE__, mva, addr_align);
+			M4U_ERR("err table of mva 0x%lx-0x%lx\n",
+				mva, addr_align);
 			M4U_ERR("%s addr=0x%lx,size=0x%x\n",
-				__func__, __LINE__, m4u_get_module_name(port),
+				m4u_get_module_name(port),
 				BufAddr, size);
 #endif
 			dump_stack();

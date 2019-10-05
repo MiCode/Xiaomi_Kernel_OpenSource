@@ -957,8 +957,12 @@ int clone_sg_table(const struct sg_table *source, struct sg_table *dest)
 	int i = 0;
 	struct scatterlist *s_sg, *d_sg;
 
-	if (source->nents != dest->nents)
+	if (source->nents != dest->nents) {
+		IONMSG("%s, %d, source nents:%d, dest nents:%d\n",
+		       __func__, __LINE__,
+		       source->nents, dest->nents);
 		return -1;
+	}
 
 	d_sg = dest->sgl;
 	for_each_sg(source->sgl, s_sg, source->nents, i) {
