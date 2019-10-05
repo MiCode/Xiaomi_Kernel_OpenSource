@@ -46,6 +46,7 @@
 #include "mtk_iommu_ext.h"
 #endif
 #include "mach/pseudo_m4u.h"
+#include <clk-mt6885-pg.h>
 
 /* MET: define to enable MET*/
 #define ISP_MET_READY
@@ -638,6 +639,7 @@ enum ISP_WAITQ_HEAD_IRQ_ENUM {
 	ISP_WAITQ_HEAD_IRQ_FLKO_DONE,
 	ISP_WAITQ_HEAD_IRQ_AFO_DONE,
 	ISP_WAITQ_HEAD_IRQ_TSFSO_DONE,
+	ISP_WAITQ_HEAD_IRQ_LTMSO_DONE,
 	ISP_WAITQ_HEAD_IRQ_PDO_DONE,
 	ISP_WAITQ_HEAD_IRQ_AMOUNT
 };
@@ -911,6 +913,67 @@ struct _isp_bk_reg_t {
 
 static struct _isp_bk_reg_t g_BkReg[ISP_IRQ_TYPE_AMOUNT];
 
+static void cam_subsys_after_on(enum subsys_id sys_id)
+{
+/*
+ * SYS_CAM = 20,
+ * SYS_CAM_RAWA = 21,
+ * SYS_CAM_RAWB = 22,
+ * SYS_CAM_RAWC = 23,
+ */
+	LOG_INF("power on sys id=%d\n",
+		   sys_id);
+
+}
+
+static void cam_subsys_before_off(enum subsys_id sys_id)
+{
+	LOG_INF("power off sys id=%d\n",
+		   sys_id);
+}
+
+static void cam_subsys_debug_dump(enum subsys_id sys_id)
+{
+	int cg_con = ISP_RD32(CAMSYS_REG_CG_CON);
+	int cg_set = ISP_RD32(CAMSYS_REG_CG_SET);
+	int cg_clr = ISP_RD32(CAMSYS_REG_CG_CLR);
+
+	switch (sys_id) {
+	case SYS_CAM_RAWA:
+		LOG_INF("power on/off RAWA fail sys id=%d\n",
+			   sys_id, ISP_RD32(CAMSYS_RAWA_REG_CG_CON),
+			   ISP_RD32(CAMSYS_RAWA_REG_CG_SET),
+			   ISP_RD32(CAMSYS_RAWA_REG_CG_CLR));
+	break;
+	case SYS_CAM_RAWB:
+		LOG_INF("power on/off RAWB fail sys id=%d\n",
+			   sys_id, ISP_RD32(CAMSYS_RAWB_REG_CG_CON),
+			   ISP_RD32(CAMSYS_RAWB_REG_CG_SET),
+			   ISP_RD32(CAMSYS_RAWB_REG_CG_CLR));
+		break;
+	case SYS_CAM_RAWC:
+		LOG_INF("power on/off RAWC fail sys id=%d\n",
+			   sys_id, ISP_RD32(CAMSYS_RAWC_REG_CG_CON),
+			   ISP_RD32(CAMSYS_RAWC_REG_CG_SET),
+			   ISP_RD32(CAMSYS_RAWC_REG_CG_CLR));
+	break;
+	case SYS_CAM:
+	default:
+		LOG_INF("power on/off fail sys id=%d\n",
+			   sys_id, cg_con,
+			   cg_set,
+			   cg_clr);
+
+	}
+
+}
+
+static struct pg_callbacks cam_clk_subsys_handle = {
+	.after_on = cam_subsys_after_on,
+	.before_off = cam_subsys_before_off,
+	.debug_dump = cam_subsys_debug_dump,
+};
+
 /* CAM_REG_TG_INTER_ST 0x3b3c, CAMSV_REG_TG_INTER_ST 0x016C */
 void __iomem *CAMX_REG_TG_INTER_ST(int reg_module)
 {
@@ -1159,7 +1222,7 @@ static int32_t ISP_CheckUseCamWaitQ(enum ISP_IRQ_TYPE_ENUM type,
 		} else if (st_type == DMA_INT) {
 			if (status == AAO_DONE_ST || status == FLKO_DONE_ST ||
 			    status == AFO_DONE_ST || status == PDO_DONE_ST ||
-			    status == TSFSO_DONE_ST) {
+			status == TSFSO_DONE_ST || status == LTMSO_R1_DONE_ST) {
 				return 1;
 			}
 		}
@@ -1235,6 +1298,8 @@ static int32_t ISP_GetWaitQCamIrqIndex(enum ISP_ST_ENUM st_type,
 			index = ISP_WAITQ_HEAD_IRQ_AFO_DONE;
 		else if (status == TSFSO_DONE_ST)
 			index = ISP_WAITQ_HEAD_IRQ_TSFSO_DONE;
+		else if (status == LTMSO_R1_DONE_ST)
+			index = ISP_WAITQ_HEAD_IRQ_LTMSO_DONE;
 		else if (status == PDO_DONE_ST)
 			index = ISP_WAITQ_HEAD_IRQ_PDO_DONE;
 	}
@@ -6424,6 +6489,7 @@ static int ISP_probe(struct platform_device *pDev)
 			return PTR_ERR(isp_clk.ISP_CAM_TG_RAWC);
 		}
 
+		register_pg_callback(&cam_clk_subsys_handle);
 #endif
 		/*  */
 		for (i = 0; i < ISP_IRQ_TYPE_AMOUNT; i++)
@@ -7809,7 +7875,7 @@ static enum CAM_FrameST Irq_CAM_SttFrameStatus(enum ISP_DEV_NODE_ENUM module,
 		5, /* _flko_	 */
 		_cam_max_,	 /* _lceso_    */
 		_cam_max_,	 /* _lcesho_    */
-		_cam_max_, /* _ltmso_    */
+		6, /* _ltmso_    */
 		_cam_max_,	 /* _lmvo_	   */
 		_cam_max_,	 /* _rsso_     */
 		_cam_max_,  /* _rsso_r2_  */
@@ -7901,6 +7967,16 @@ static enum CAM_FrameST Irq_CAM_SttFrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 			fbc_ctrl2.Raw =
 				ISP_RD32(CAM_REG_FBC_TSFSO_CTL2(module));
+		}
+	}
+
+	if (_ltmso_ == dma_id) {
+		if (dma_en & _LTMSO_R1_EN_) {
+			fbc_ctrl1.Raw =
+				ISP_RD32(CAM_REG_FBC_LTMSO_CTL1(module));
+
+			fbc_ctrl2.Raw =
+				ISP_RD32(CAM_REG_FBC_LTMSO_CTL2(module));
 		}
 	}
 
@@ -9371,9 +9447,10 @@ unsigned int *reg_module_count)
 		   g_fbc_ctrl2[index][_afo_].Raw,
 		   g_fbc_ctrl2[index][_flko_].Raw
 		   );
-	LOG_NOTICE("fbc:pdo:0x%x,tsfso:0x%x\n",
+	LOG_NOTICE("fbc:pdo:0x%x,tsfso:0x%x,ltmso:0x%x\n",
 		   g_fbc_ctrl2[index][_pdo_].Raw,
-		   g_fbc_ctrl2[index][_tsfso_].Raw);
+		   g_fbc_ctrl2[index][_tsfso_].Raw,
+		   g_fbc_ctrl2[index][_ltmso_].Raw);
 	return 0;
 }
 
@@ -10406,7 +10483,8 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 
 				unsigned int subFrm = 0;
 				enum CAM_FrameST FrmStat_aao, FrmStat_afo,
-					FrmStat_aaho, FrmStat_flko, FrmStat_pdo;
+					FrmStat_aaho, FrmStat_flko, FrmStat_pdo,
+					FrmStat_ltmso;
 
 			ISP_GetDmaPortsStatus(reg_module,
 					IspInfo.TstpQInfo[module].DmaEnStatus);
@@ -10446,6 +10524,12 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				reg_module, module, _pdo_, irqDelay);
 				} else {
 					FrmStat_pdo = CAM_FST_DROP_FRAME;
+				}
+			if (IspInfo.TstpQInfo[module].DmaEnStatus[_ltmso_]) {
+				FrmStat_ltmso = Irq_CAM_SttFrameStatus(
+				reg_module, module, _ltmso_, irqDelay);
+				} else {
+					FrmStat_ltmso = CAM_FST_DROP_FRAME;
 				}
 			if (IspInfo.TstpQInfo[module].DmaEnStatus[_imgo_])
 				ISP_CompensateMissingSofTime(
@@ -10505,6 +10589,11 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			if (IspInfo.TstpQInfo[module].DmaEnStatus[_pdo_]) {
 				ISP_CompensateMissingSofTime(
 				reg_module, module, _pdo_,
+				sec, usec, 1);
+			}
+			if (IspInfo.TstpQInfo[module].DmaEnStatus[_ltmso_]) {
+				ISP_CompensateMissingSofTime(
+				reg_module, module, _ltmso_,
 				sec, usec, 1);
 			}
 			if (FrameStatus[module] != CAM_FST_DROP_FRAME) {
@@ -10662,6 +10751,14 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 							     usec, 1);
 				}
 			}
+			if (IspInfo.TstpQInfo[module]
+				    .DmaEnStatus[_ltmso_]) {
+				if (FrmStat_ltmso != CAM_FST_DROP_FRAME) {
+					ISP_PushBufTimestamp(module,
+							     _ltmso_, sec,
+							     usec, 1);
+				}
+			}
 #if (TSTMP_SUBSAMPLE_INTPL == 1)
 				gPrevSofTimestp[module] = cur_timestp;
 #endif
@@ -10717,6 +10814,21 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 					CAM_REG_FBC_PDO_CTL1(reg_module))),
 				(unsigned int)(ISP_RD32(
 					CAM_REG_FBC_PDO_CTL2(reg_module))));
+
+			IRQ_LOG_KEEPER(
+				module, m_CurrentPPB, _LOG_INF,
+				"CAM_%c_flk(0x%08x_0x%08x_0x%08x)ltms(0x%08x_0x%08x_0x%08x)\n",
+				'A' + cardinalNum,
+				ISP_RD32(CAM_REG_FLKO_BASE_ADDR(reg_module)),
+				(unsigned int)(ISP_RD32(
+					CAM_REG_FBC_FLKO_CTL1(reg_module))),
+				(unsigned int)(ISP_RD32(
+					CAM_REG_FBC_FLKO_CTL2(reg_module))),
+				ISP_RD32(CAM_REG_LTMSO_BASE_ADDR(reg_module)),
+				(unsigned int)(ISP_RD32(
+					CAM_REG_FBC_LTMSO_CTL1(reg_module))),
+				(unsigned int)(ISP_RD32(
+					CAM_REG_FBC_LTMSO_CTL2(reg_module))));
 #endif
 			/* keep current time */
 			m_sec = sec;
@@ -10751,7 +10863,8 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 LB_CAM_SOF_IGNORE:
 
 #ifdef ENABLE_STT_IRQ_LOG
-	if (DmaStatus & (AAO_DONE_ST | AFO_DONE_ST | PDO_DONE_ST)) {
+	if (DmaStatus & (AAO_DONE_ST | AFO_DONE_ST |
+		LTMSO_R1_DONE_ST | PDO_DONE_ST)) {
 		IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
 			       "CAM%c_STT_Done_%d_0x%x\n", 'A' + cardinalNum,
 			       (sof_count[module]) ? (sof_count[module] - 1)
@@ -10825,6 +10938,11 @@ LB_CAM_SOF_IGNORE:
 		wake_up_interruptible(
 			&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
 					     [ISP_WAITQ_HEAD_IRQ_TSFSO_DONE]);
+	}
+	if (DmaStatus & LTMSO_R1_DONE_ST) {
+		wake_up_interruptible(
+			&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
+					     [ISP_WAITQ_HEAD_IRQ_LTMSO_DONE]);
 	}
 	if (DmaStatus & PDO_DONE_ST) {
 		wake_up_interruptible(
