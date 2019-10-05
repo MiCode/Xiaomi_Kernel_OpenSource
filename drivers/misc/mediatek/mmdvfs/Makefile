@@ -57,6 +57,16 @@ BUILD_MMDVFS := true
 ccflags-y += -DPMQOS_USE_IOMMU_PORT
 endif
 
+ifeq ($(CONFIG_MTK_MMDVFS),y)
+HRT_MECHANISM := true
+BLOCKING_MECHANISM := true
+SUPPORT_MMP := true
+SKIP_SMI_CONFIG := false
+QOS_BOUND_DETECT := true
+FORCE_STEP0 := false
+ccflags-y += -DCHECK_VOLTAGE
+endif
+
 MMDVFS_PLATFORM_DIR=$(srctree)/drivers/misc/mediatek/mmdvfs/$(MTK_PLATFORM)
 platformdir_exists=$(shell if [ -d $(MMDVFS_PLATFORM_DIR) ]; then echo "y"; else echo "n"; fi;)
 
