@@ -136,6 +136,7 @@ int mtk_ipi_recv(struct mtk_ipi_device *ipidev, int ipi_id);
 int mtk_ipi_recv_reply(struct mtk_ipi_device *ipidev, int ipi_id,
 		void *reply_data, int len);
 
+void ipi_monitor_dump(struct mtk_ipi_device *ipidev);
 void mtk_ipi_tracking(struct mtk_ipi_device *ipidev, bool en);
 
 #endif

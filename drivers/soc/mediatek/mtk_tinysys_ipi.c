@@ -73,7 +73,7 @@ static void ipi_monitor(struct mtk_ipi_device *ipidev, int id, int stage)
 	case RECV_ACK:
 		chan->ipi_record[2].ts = cpu_clock(0);
 		ipi_echo(ipidev->mbdev->log_enable,
-			"%s: IPI_%d recv reply (#%d)\n",
+			"%s: IPI_%d recv ack (#%d)\n",
 			ipidev->name, id, chan->ipi_seqno);
 		break;
 	case ISR_RECV_ACK:
@@ -82,7 +82,7 @@ static void ipi_monitor(struct mtk_ipi_device *ipidev, int id, int stage)
 	case SEND_ACK:
 		chan->ipi_record[2].ts = cpu_clock(0);
 		ipi_echo(ipidev->mbdev->log_enable,
-			"%s: IPI_%d send reply (#%d)\n",
+			"%s: IPI_%d send ack (#%d)\n",
 			ipidev->name, id, chan->ipi_seqno);
 		break;
 	default:
@@ -94,7 +94,7 @@ static void ipi_monitor(struct mtk_ipi_device *ipidev, int id, int stage)
 	spin_unlock_irqrestore(&ipidev->lock_monitor, flags);
 }
 
-static void ipi_monitor_dump(struct mtk_ipi_device *ipidev, int ipi_id)
+static void ipi_timeout_dump(struct mtk_ipi_device *ipidev, int ipi_id)
 {
 	unsigned long flags = 0;
 	struct mtk_ipi_chan_table *chan;
@@ -111,6 +111,33 @@ static void ipi_monitor_dump(struct mtk_ipi_device *ipidev, int ipi_id)
 		chan->ipi_record[0].idx, chan->ipi_record[0].ts,
 		chan->ipi_record[1].idx, chan->ipi_record[1].ts,
 		chan->ipi_record[2].idx, chan->ipi_record[2].ts);
+
+	spin_unlock_irqrestore(&ipidev->lock_monitor, flags);
+}
+
+void ipi_monitor_dump(struct mtk_ipi_device *ipidev)
+{
+	int i;
+	unsigned int ipi_chan_count;
+	unsigned long flags = 0;
+	struct mtk_ipi_chan_table *chan;
+
+	ipi_chan_count = ipidev->mrpdev->rpdev.src;
+
+	pr_info("%s dump IPIMonitor:\n", ipidev->name);
+
+	spin_lock_irqsave(&ipidev->lock_monitor, flags);
+
+	for (i = 0; i < ipi_chan_count; i++) {
+		chan = &ipidev->table[i];
+		if (chan->ipi_stage == UNUSED)
+			continue;
+		pr_info("IPI %d: seqno=%d, state=%d, t%d=%lld, t%d=%lld, t%d=%lld\n",
+			i, chan->ipi_seqno, chan->ipi_stage,
+			chan->ipi_record[0].idx, chan->ipi_record[0].ts,
+			chan->ipi_record[1].idx, chan->ipi_record[1].ts,
+			chan->ipi_record[2].idx, chan->ipi_record[2].ts);
+	}
 
 	spin_unlock_irqrestore(&ipidev->lock_monitor, flags);
 }
@@ -337,9 +364,10 @@ int mtk_ipi_send(struct mtk_ipi_device *ipidev, int ipi_id,
 	if (ipidev->post_cb)
 		ipidev->post_cb(ipidev->prdata);
 
-	if (ret == MBOX_PIN_BUSY)
+	if (ret == MBOX_PIN_BUSY) {
+		ipi_timeout_dump(ipidev, ipi_id);
 		return IPI_PIN_BUSY;
-	else if (ret != IPI_ACTION_DONE) {
+	} else if (ret != IPI_ACTION_DONE) {
 		pr_warn("%s IPI %d send fail (%d)\n",
 			ipidev->name, ipi_id, ret);
 		return IPI_RPMSG_ERR;
@@ -477,7 +505,7 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 
 	if (ret == IPI_COMPL_TIMEOUT) {
 		mtk_mbox_dump_recv_pin(ipidev->mbdev, pin_r);
-		ipi_monitor_dump(ipidev, ipi_id);
+		ipi_timeout_dump(ipidev, ipi_id);
 		if (ipidev->timeout_handler)
 			ipidev->timeout_handler(ipi_id);
 	} else {
