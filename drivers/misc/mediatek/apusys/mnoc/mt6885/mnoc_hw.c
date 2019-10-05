@@ -479,10 +479,10 @@ static void set_lt_guardian_pre_ultra_locked(unsigned int idx, bool endis)
 		mnoc_write_field(
 			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 20, mni_map[idx]),
 			28:16, QG_LT_THL_PRE_ULTRA);
-		/* set QCC_LT_LV_DIS[3:0] = 4’b0001 */
+		/* set QCC_LT_LV_DIS[3:0] = 4’b1001 */
 		mnoc_write_field(
 			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 29, mni_map[idx]),
-			11:8, 0x1);
+			11:8, 0x9);
 		/* set STM mode QCC_LT_TH_MODE = 1 */
 		mnoc_write_field(
 			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 29, mni_map[idx]),
@@ -500,15 +500,15 @@ static void set_lt_guardian_pre_ultra_locked(unsigned int idx, bool endis)
 		mnoc_write_field(
 			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 20, mni_map[idx]),
 			28:16, 0x0);
-		/* set QCC_LT_LV_DIS[3:0] = 4’b0001 */
+		/* set QCC_LT_LV_DIS[3:0] = 4’b0000 */
 		mnoc_write_field(
 			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 29, mni_map[idx]),
 			11:8, 0x0);
-		/* set STM mode QCC_LT_TH_MODE = 1 */
+		/* set STM mode QCC_LT_TH_MODE = 0 */
 		mnoc_write_field(
 			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 29, mni_map[idx]),
 			16:16, 0x0);
-		/* set QCC_TOP_URGENT_EN = 0 */
+		/* set QCC_TOP_URGENT_EN = 1 */
 		mnoc_write_field(
 			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 29, mni_map[idx]),
 			19:19, 0x1);

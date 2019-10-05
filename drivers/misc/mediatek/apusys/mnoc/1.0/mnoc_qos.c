@@ -75,7 +75,7 @@ struct cmd_qos {
 	unsigned int core;
 	unsigned int status; /* running/blocked */
 
-	int32_t total_bw;
+	unsigned int total_bw;
 	unsigned int last_idx;
 	unsigned int count;
 
@@ -167,21 +167,21 @@ static void update_cmd_qos(struct qos_bound *qos_info, struct cmd_qos *cmd_qos)
 }
 
 /* called by timer up, update average bw according to idx/last_idx */
-static int update_cmd_qos_list(struct qos_bound *qos_info)
+static int update_cmd_qos_list_locked(struct qos_bound *qos_info)
 {
 	struct cmd_qos *cmd_qos = NULL;
 	struct qos_counter *counter = &qos_counter;
 
 	LOG_DEBUG("+\n");
 
-	mutex_lock(&counter->list_mtx);
+	/* mutex_lock(&counter->list_mtx); */
 
 	list_for_each_entry(cmd_qos, &counter->list, list) {
 		if (cmd_qos->status == CMD_RUNNING)
 			update_cmd_qos(qos_info, cmd_qos);
 	}
 
-	mutex_unlock(&counter->list_mtx);
+	/* mutex_unlock(&counter->list_mtx); */
 
 	LOG_DEBUG("-\n");
 
@@ -236,7 +236,6 @@ static int enque_cmd_qos(uint64_t cmd_id,
 
 static int deque_cmd_qos(struct cmd_qos *cmd_qos)
 {
-	struct qos_bound *qos_info = NULL;
 	/* struct qos_counter *counter = &qos_counter; */
 	int avg_bw = 0;
 
@@ -248,16 +247,6 @@ static int deque_cmd_qos(struct cmd_qos *cmd_qos)
 	/* mutex_unlock(&counter->list_mtx); */
 
 	LOG_DEBUG("cmd_qos = %p\n", cmd_qos);
-
-	/* get qos information */
-	qos_info = get_qos_bound();
-	if (qos_info == NULL) {
-		LOG_ERR("get info fail\n");
-		return 0;
-	}
-
-	/* sum the last bw */
-	update_cmd_qos(qos_info, cmd_qos);
 
 	/* average bw */
 	if (cmd_qos->count != 0) {
@@ -326,7 +315,9 @@ static void qos_work_func(struct work_struct *work)
 		LOG_DEBUG("peakbw[%d]=%d\n", i, peak_bw);
 	}
 
-	update_cmd_qos_list(qos_info);
+	mutex_lock(&(qos_counter.list_mtx));
+	update_cmd_qos_list_locked(qos_info);
+	mutex_unlock(&(qos_counter.list_mtx));
 
 #if MNOC_TIME_PROFILE
 	do_gettimeofday(&end);
@@ -401,7 +392,7 @@ static void apu_qos_timer_end(void)
 
 	/* fixme: if update request to default value necessary? */
 	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
-		pm_qos_update_request(&(engine_pm_qos_counter[i].qos_req),
+		update_qos_request(&(engine_pm_qos_counter[i].qos_req),
 			PM_QOS_APU_MEMORY_BANDWIDTH_DEFAULT_VALUE);
 	}
 
@@ -491,18 +482,15 @@ void apu_qos_resume(void)
 
 /*
  * enque cmd to qos_counter's linked list
- * assume maximum preemption level = 1
- * 1. if list is empty before enqueue, start qos timer
- * 2. if core already running cmd means preemption happen
- *    -> status from CMD_RUNNING to CMD_BLOCKED
+ * if list is empty before enqueue, start qos timer
  */
 int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 	int dev_type, int dev_core)
 {
 	struct qos_counter *counter = &qos_counter;
-	struct cmd_qos *cmd_qos = NULL, *pos;
+	struct cmd_qos *pos;
 	struct qos_bound *qos_info = NULL;
-	int core, cnt = 0;
+	int core;
 #if MNOC_TIME_PROFILE
 	struct timeval begin, end;
 	unsigned long val;
@@ -546,26 +534,6 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 			mutex_unlock(&counter->list_mtx);
 			return 0;
 		}
-		/* search if target core already running cmd */
-		if (pos->core == core) {
-			cmd_qos = pos;
-			cnt++;
-		}
-	}
-	if (cmd_qos != NULL) {
-		if (cmd_qos->status == CMD_RUNNING) {
-			LOG_DEBUG(
-			"set cmd(%llu/%llu) on core %d to CMD_BLOCKED\n",
-			cmd_qos->cmd_id, cmd_qos->sub_cmd_id,
-			cmd_qos->core);
-			mutex_lock(&cmd_qos->mtx);
-			cmd_qos->status = CMD_BLOCKED;
-			mutex_unlock(&cmd_qos->mtx);
-			/* update cmd qos of preempted cmd to latest status */
-			update_cmd_qos(qos_info, cmd_qos);
-		}
-		if (cnt > 1)
-			LOG_ERR("preemption level > 1\n");
 	}
 
 	/* enque cmd to counter's list */
@@ -665,18 +633,15 @@ EXPORT_SYMBOL(apu_cmd_qos_suspend);
 
 /*
  * deque cmd from qos_counter's linked list
- * assume maximum preemption level = 1
- * 1. if list becomes empty after dequeue, delete qos timer
- * 2. if core has bloked cmd means cmd's going to resume
- *    -> status from CMD_BLOCKED to CMD_RUNNING
+ * if list becomes empty after dequeue, delete qos timer
  */
 int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 {
 	struct qos_counter *counter = &qos_counter;
 	struct cmd_qos *cmd_qos = NULL, *pos;
 	struct qos_bound *qos_info = NULL;
-	int core = -1, cnt = 0;
-	int bw = 0;
+	int core = -1;
+	int bw = 0, total_bw = 0, total_count = 0;
 #if MNOC_TIME_PROFILE
 	struct timeval begin, end;
 	unsigned long val;
@@ -710,6 +675,12 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 		return -1;
 	}
 
+	/* update all cmd qos info */
+	update_cmd_qos_list_locked(qos_info);
+
+	total_bw = cmd_qos->total_bw;
+	total_count = cmd_qos->count;
+
 	/* deque cmd to counter's list */
 	bw = deque_cmd_qos(cmd_qos);
 
@@ -717,27 +688,28 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 	if (list_empty(&counter->list))
 		apu_qos_timer_end();
 
-	/* search if there is cmd on the same core needed resume */
-	cmd_qos = NULL;
-	list_for_each_entry(pos, &counter->list, list) {
-		if (pos->core == core) {
-			cmd_qos = pos;
-			cnt++;
-		}
-	}
-	if (cmd_qos != NULL) {
-		if (cmd_qos->status == CMD_BLOCKED) {
-			LOG_DEBUG(
-			"set cmd(%llu/%llu) on core %d to CMD_RUNNING\n",
-			cmd_qos->cmd_id, cmd_qos->sub_cmd_id, cmd_qos->core);
-
+	/* due to preemption,
+	 * there may be multiple cmds running on the same core,
+	 * need to subtract total_bw and total_count from all cmds
+	 * running on the same core to prevent recalculation
+	 */
+	list_for_each_entry(cmd_qos, &counter->list, list) {
+		if (cmd_qos->core == core) {
 			mutex_lock(&cmd_qos->mtx);
-			cmd_qos->last_idx = qos_info->idx;
-			cmd_qos->status = CMD_RUNNING;
+			if (cmd_qos->total_bw < total_bw)
+				LOG_ERR("cmd(%llu/%llu) total_bw(%d) < %d",
+					cmd_qos->cmd_id, cmd_qos->sub_cmd_id,
+					cmd_qos->total_bw, total_bw);
+			else
+				cmd_qos->total_bw -= total_bw;
+			if (cmd_qos->count < total_count)
+				LOG_ERR("cmd(%llu/%llu) count(%d) < %d",
+					cmd_qos->cmd_id, cmd_qos->sub_cmd_id,
+					cmd_qos->count, total_count);
+			else
+				cmd_qos->count -= total_count;
 			mutex_unlock(&cmd_qos->mtx);
 		}
-		if (cnt > 1)
-			LOG_ERR("preemption level > 1\n");
 	}
 
 	mutex_unlock(&counter->list_mtx);

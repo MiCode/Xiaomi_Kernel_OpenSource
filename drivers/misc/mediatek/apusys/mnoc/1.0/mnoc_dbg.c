@@ -99,6 +99,7 @@ static ssize_t mnoc_reg_rw_write(struct file *file,
 	char *buf = (char *) __get_free_page(GFP_USER);
 	unsigned int mnoc_value = 0;
 	unsigned char mnoc_rw = 0;
+	unsigned int addr_phy;
 
 	if (!buf)
 		return -ENOMEM;
@@ -111,42 +112,44 @@ static ssize_t mnoc_reg_rw_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%1s %x %x", &mnoc_rw, &mnoc_addr_phy,
+	if (sscanf(buf, "%1s %x %x", &mnoc_rw, &addr_phy,
 		&mnoc_value) == 3) {
 		if (mnoc_rw != 'w' && mnoc_rw != 'W')
 			goto out;
-		if (mnoc_addr_phy < APU_NOC_TOP_ADDR ||
-			mnoc_addr_phy >=
+		if (addr_phy < APU_NOC_TOP_ADDR ||
+			addr_phy >=
 			(APU_NOC_TOP_ADDR + APU_NOC_TOP_RANGE)) {
 			LOG_DEBUG("Reg[%08X] not in mnoc driver reg map\n",
-				mnoc_addr_phy);
+				addr_phy);
 		} else {
 			addr = (void *) ((uintptr_t) mnoc_base +
-					(mnoc_addr_phy - APU_NOC_TOP_ADDR));
+					(addr_phy - APU_NOC_TOP_ADDR));
 #if MNOC_DBG_ENABLE
 			spin_lock_irqsave(&mnoc_spinlock, flags);
+			mnoc_addr_phy = addr_phy;
 			if (mnoc_reg_valid)
 				mnoc_write(addr, mnoc_value);
 			spin_unlock_irqrestore(&mnoc_spinlock, flags);
 #endif
 		}
-	} else if (sscanf(buf, "%1s %x", &mnoc_rw, &mnoc_addr_phy) == 2) {
+	} else if (sscanf(buf, "%1s %x", &mnoc_rw, &addr_phy) == 2) {
 		if (mnoc_rw != 'r' && mnoc_rw != 'R')
 			goto out;
-		if (mnoc_addr_phy < APU_NOC_TOP_ADDR ||
-			mnoc_addr_phy >=
+		if (addr_phy < APU_NOC_TOP_ADDR ||
+			addr_phy >=
 			(APU_NOC_TOP_ADDR + APU_NOC_TOP_RANGE)) {
 			LOG_DEBUG("Reg[%08X] not in mnoc driver reg map\n",
-				mnoc_addr_phy);
+				addr_phy);
 		} else {
 			addr = (void *) ((uintptr_t) mnoc_base +
-					(mnoc_addr_phy - APU_NOC_TOP_ADDR));
+					(addr_phy - APU_NOC_TOP_ADDR));
 			spin_lock_irqsave(&mnoc_spinlock, flags);
+			mnoc_addr_phy = addr_phy;
 			if (mnoc_reg_valid)
 				val = mnoc_read(addr);
 			spin_unlock_irqrestore(&mnoc_spinlock, flags);
 			LOG_DEBUG("Read back, Reg[%08X] = 0x%08X\n",
-					mnoc_addr_phy, val);
+					addr_phy, val);
 		}
 	}
 
@@ -171,6 +174,7 @@ static ssize_t mnoc_pmu_reg_write(struct file *file,
 	char *buf = (char *) __get_free_page(GFP_USER);
 	unsigned int mnoc_value = 0, mnoc_op = 0;
 	unsigned char mnoc_rw = 0;
+	unsigned int pmu_addr_phy = 0;
 
 	if (!buf)
 		return -ENOMEM;
@@ -183,23 +187,23 @@ static ssize_t mnoc_pmu_reg_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%1s %x %x", &mnoc_rw, &mnoc_addr_phy,
+	if (sscanf(buf, "%1s %x %x", &mnoc_rw, &pmu_addr_phy,
 		&mnoc_value) == 3) {
 		if (mnoc_rw != 'w' && mnoc_rw != 'W')
 			goto out;
-		if (mnoc_addr_phy < APU_NOC_PMU_ADDR ||
-			mnoc_addr_phy >=
+		if (pmu_addr_phy < APU_NOC_PMU_ADDR ||
+			pmu_addr_phy >=
 			(APU_NOC_PMU_ADDR + APU_NOC_PMU_RANGE)) {
 			LOG_DEBUG("Reg[%08X] not in pmu reg map\n",
-				mnoc_addr_phy);
+				pmu_addr_phy);
 		} else {
 			addr = (void *) ((uintptr_t) mnoc_base +
-					(mnoc_addr_phy - APU_NOC_TOP_ADDR));
+					(pmu_addr_phy - APU_NOC_TOP_ADDR));
 			spin_lock_irqsave(&mnoc_spinlock, flags);
 			if (mnoc_reg_valid)
 				mnoc_write(addr, mnoc_value);
 			spin_unlock_irqrestore(&mnoc_spinlock, flags);
-			enque_pmu_reg(mnoc_addr_phy, mnoc_value);
+			enque_pmu_reg(pmu_addr_phy, mnoc_value);
 		}
 	} else if (kstrtoint(buf, 10, &mnoc_op) == 0) {
 		if (mnoc_op == 0)
