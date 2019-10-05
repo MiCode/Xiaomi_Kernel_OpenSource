@@ -5395,7 +5395,7 @@ page_owner=on";
 	pseudo_m4u-vpu-data {
 		compatible = "mediatek,mt-pseudo_m4u-port";
 		mediatek,larbid = <APU_PSEUDO_LARBID_DATA>;
-		iommus = <&iommu2 M4U_PORT_L21_APU_FAKE_DATA>;
+		iommus = <&iommu3 M4U_PORT_L21_APU_FAKE_DATA>;
 	};
 
 	pseudo_m4u-vpu-vlm {

@@ -208,6 +208,9 @@ static struct iommu_domain *__mtk_iommu_get_domain(
 	if (domain_id == MTK_IOVA_DOMAIN_COUNT)
 		return NULL;
 
+	if (!data->pgtable)
+		return NULL;
+
 	list_for_each_entry(dom, &data->pgtable->m4u_dom, list) {
 		if (dom->id == domain_id)
 			return &dom->domain;
@@ -1167,13 +1170,6 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 			return 0;
 		}
 
-		domain = __mtk_iommu_get_domain(data,
-					fault_larb, fault_port);
-		if (!domain) {
-			WARN_ON(1);
-			return 0;
-		}
-
 		regval = readl_relaxed(data->base +
 					REG_MMU_FAULT_STATUS(slave_id));
 		layer = regval & F_MMU_FAULT_VA_LAYER_BIT;
@@ -1185,6 +1181,18 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 #else
 		fault_iova = (unsigned long)(regval);
 #endif
+		pr_notice("%s, %d, fault_iova=%lx\n",
+			  __func__, __LINE__, fault_iova);
+		m4u_dump_pgtable(1);
+		pseudo_dump_port(port_id);
+
+		domain = __mtk_iommu_get_domain(data,
+					fault_larb, fault_port);
+		if (!domain) {
+			WARN_ON(1);
+			return 0;
+		}
+
 		pa = mtk_iommu_iova_to_phys(domain, fault_iova & PAGE_MASK);
 		pr_notice("fault_iova=%lx,mapping to pa=%x\n",
 			  fault_iova, (unsigned int)pa);
@@ -1220,8 +1228,6 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 				fault_larb, fault_port, is_vpu,
 				layer, write ? "write" : "read");
 		}
-		m4u_dump_pgtable(1);
-		pseudo_dump_port(port_id);
 	}
 
 	if (int_state &
