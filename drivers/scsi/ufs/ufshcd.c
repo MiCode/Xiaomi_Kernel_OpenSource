@@ -421,9 +421,19 @@ static void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
 static void ufshcd_dme_cmd_log(struct ufs_hba *hba, struct uic_command *ucmd,
 	enum ufs_trace_event event)
 {
+	u32 cmd;
+
+	if (event == UFS_TRACE_UIC_SEND)
+		cmd = ucmd->command;
+	else
+		cmd = ufshcd_readl(hba, REG_UIC_COMMAND);
+
 	ufs_mtk_dbg_add_trace(hba, event,
-		ucmd->argument1, 0, ucmd->argument2, ucmd->argument3,
-		ucmd->command, 0, 0, 0, 0);
+		ufshcd_readl(hba, REG_UIC_COMMAND_ARG_1),
+		0,
+		ufshcd_readl(hba, REG_UIC_COMMAND_ARG_2),
+		ufshcd_readl(hba, REG_UIC_COMMAND_ARG_3),
+		cmd, 0, 0, 0, 0);
 }
 
 static void ufshcd_reg_cmd_log(struct ufs_hba *hba, bool on)
@@ -2161,12 +2171,12 @@ ufshcd_dispatch_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 	hba->active_uic_cmd = uic_cmd;
 	ufshcd_vops_res_ctrl(hba, UFS_RESCTL_CMD_SEND);
 
-	ufshcd_dme_cmd_log(hba, uic_cmd, UFS_TRACE_UIC_SEND); /* MTK PATCH */
-
 	/* Write Args */
 	ufshcd_writel(hba, uic_cmd->argument1, REG_UIC_COMMAND_ARG_1);
 	ufshcd_writel(hba, uic_cmd->argument2, REG_UIC_COMMAND_ARG_2);
 	ufshcd_writel(hba, uic_cmd->argument3, REG_UIC_COMMAND_ARG_3);
+
+	ufshcd_dme_cmd_log(hba, uic_cmd, UFS_TRACE_UIC_SEND);
 
 	/* Write UIC Cmd */
 	ufshcd_writel(hba, uic_cmd->command & COMMAND_OPCODE_MASK,
