@@ -374,6 +374,7 @@ static int AF_Open(struct inode *a_pstInode, struct file *a_pstFile)
 	spin_unlock(&g_AF_SpinLock);
 
 #if !defined(CONFIG_MTK_LEGACY)
+	AFRegulatorCtrl(0);
 	AFRegulatorCtrl(1);
 #endif
 
@@ -569,10 +570,6 @@ static int AF_i2c_probe(struct i2c_client *client,
 	}
 
 	spin_lock_init(&g_AF_SpinLock);
-
-#if !defined(CONFIG_MTK_LEGACY)
-	AFRegulatorCtrl(0);
-#endif
 
 	LOG_INF("Attached!!\n");
 

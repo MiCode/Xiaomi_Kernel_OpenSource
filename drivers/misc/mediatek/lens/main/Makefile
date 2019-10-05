@@ -94,6 +94,7 @@ obj-y  += common/lc898217af/
 obj-y  += common/lc898217afa/
 obj-y  += common/lc898217afb/
 obj-y  += common/lc898217afc/
+obj-y  += common/lc898229af/
 obj-y  += common/lc898122af/
 obj-y  += common/wv511aaf/
 obj-y  += common/ak7371af/
