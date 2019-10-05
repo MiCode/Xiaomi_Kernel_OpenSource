@@ -58,7 +58,7 @@ struct mt6370_pmu_bled_platdata {
 #define MT6370_BLED_RAMPTSHFT (4)
 
 /* MT6370_PMU_REG_BLDIM2 : 0xA6 */
-#define MT6370_DIM2_MASK (0x7)
+#define MT6370_DIM2_MASK (0x07)
 
 /* MT6370_PMU_REG_BLDIM1 : 0xA5 */
 #define MT6370_DIM_MASK	(0xFF)
