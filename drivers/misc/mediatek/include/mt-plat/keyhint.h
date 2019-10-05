@@ -50,7 +50,7 @@ static inline int kh_release_hint(struct kh_dev *dev, int slot)
 	return 0;
 }
 
-static inline int kh_reset(struct kh_dev *dev)
+static inline int kh_suspend(struct kh_dev *dev)
 {
 	return 0;
 }
