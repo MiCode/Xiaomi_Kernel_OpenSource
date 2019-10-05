@@ -10,6 +10,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
+#include <linux/kobject.h>
 #include "adsp_clk.h"
 #include "adsp_mbox.h"
 #include "adsp_reserved_mem.h"
@@ -379,6 +380,39 @@ static struct miscdevice adsp_common_device = {
 	.name = "adsp",
 	.groups = adsp_common_attr_groups,
 	.fops = &adsp_common_file_ops,
+};
+
+/* user-space event notify */
+static int adsp_user_event_notify(struct notifier_block *nb,
+				  unsigned long event, void *ptr)
+{
+	struct device *dev = adsp_common_device.this_device;
+	int ret = 0;
+
+	if (!dev)
+		return NOTIFY_DONE;
+
+	switch (event) {
+	case ADSP_EVENT_STOP:
+		ret = kobject_uevent(&dev->kobj, KOBJ_OFFLINE);
+		break;
+	case ADSP_EVENT_READY:
+		ret = kobject_uevent(&dev->kobj, KOBJ_ONLINE);
+		break;
+	default:
+		pr_info("%s, ignore event %lu", __func__, event);
+		break;
+	}
+
+	if (ret)
+		pr_info("%s, uevnet(%lu) fail, ret %d", __func__, event, ret);
+
+	return NOTIFY_OK;
+}
+
+struct notifier_block adsp_uevent_notifier = {
+	.notifier_call = adsp_user_event_notify,
+	.priority = AUDIO_HAL_FEATURE_PRI,
 };
 
 static int adsp_common_drv_probe(struct platform_device *pdev)

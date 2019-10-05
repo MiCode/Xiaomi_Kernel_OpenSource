@@ -235,9 +235,6 @@ union ioctl_param {
 	    int16_t flag;
 	    uint16_t cid;
 	} cmd1;
-	struct {
-	    uint16_t magic[2];
-	} cmd2;
 };
 
 /* user-space feature reset */
@@ -253,32 +250,6 @@ void reset_hal_feature_table(void)
 		}
 	}
 }
-
-/* user-space event notify&listen */
-static int adsp_uevent;
-static DECLARE_COMPLETION(uevent_comp);
-
-static int adsp_user_event_listen(void)
-{
-	int ret = 0;
-
-	reinit_completion(&uevent_comp);
-	ret = wait_for_completion_interruptible(&uevent_comp);
-	return ret ? -EINTR : adsp_uevent;
-}
-
-static int adsp_user_event_notify(struct notifier_block *nb,
-				  unsigned long event, void *ptr)
-{
-	adsp_uevent = event;
-	complete(&uevent_comp);
-	return NOTIFY_DONE;
-}
-
-struct notifier_block adsp_uevent_notifier = {
-	.notifier_call = adsp_user_event_notify,
-	.priority = AUDIO_HAL_FEATURE_PRI,
-};
 
 /* file operations */
 static ssize_t adsp_driver_read(struct file *filp, char __user *data,
@@ -335,19 +306,6 @@ static long adsp_driver_ioctl(
 			ret = -EFAULT;
 			break;
 		}
-		break;
-	}
-	case AUDIO_DSP_IOCTL_ADSP_RESET_CBK: {
-		if (copy_from_user(&t, (void *)arg, sizeof(t))) {
-			ret = -EFAULT;
-			break;
-		}
-
-		if (t.cmd2.magic[0] + t.cmd2.magic[1] == 0xFFFF)
-			ret = adsp_user_event_listen();
-		else
-			ret = -EINVAL;
-
 		break;
 	}
 	default:
