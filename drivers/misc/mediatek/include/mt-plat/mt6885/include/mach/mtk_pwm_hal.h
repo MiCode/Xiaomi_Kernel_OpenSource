@@ -38,7 +38,7 @@ enum PWN_NO {
 	PWM3,
 	PWM4,
 	PWM_NUM,
-	PWM_MAX = PWM_NUM - 1 /* HW have PWM4, but no pad out */
+	PWM_MAX = PWM_NUM
 };
 
 enum TEST_SEL_BIT {
@@ -154,6 +154,14 @@ enum PWM_MODE_ENUM {
 	PWM_MODE_DELAY,
 	PWM_MODE_INVALID,
 };
+
+enum INFRA_CLK_SRC_CTRL {
+	CLK_32K = 0x00,
+	CLK_26M = 0x01,
+	CLK_78M = 0x2,
+	CLK_SEL_TOPCKGEN = 0x3,
+};
+
 #define PWM_NEW_MODE_DUTY_TOTAL_BITS 64
 
 void mt_set_pwm_3dlcm_enable_hal(u8 enable);

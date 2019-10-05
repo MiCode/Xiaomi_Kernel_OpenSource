@@ -1597,6 +1597,25 @@
 		reg = <0 0x0d100000 0 0x80000>;
 	};
 
+	pwm@11006000 {
+		compatible = "mediatek,pwm";
+		reg = <0 0x11006000 0 0x1000>;
+		interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&infracfg_ao INFRACFG_AO_PWM1_CG>,
+			<&infracfg_ao INFRACFG_AO_PWM2_CG>,
+			<&infracfg_ao INFRACFG_AO_PWM3_CG>,
+			<&infracfg_ao INFRACFG_AO_PWM4_CG>,
+			<&infracfg_ao INFRACFG_AO_PWM_HCLK_CG>,
+			<&infracfg_ao INFRACFG_AO_PWM_CG>;
+
+		clock-names = "PWM1-main",
+			"PWM2-main",
+			"PWM3-main",
+			"PWM4-main",
+			"PWM-HCLK-main",
+			"PWM-main";
+	};
+
 	dfd@13e00000 {
 		compatible = "mediatek,dfd";
 		reg = <0 0x13e00000 0 0x112000>;
@@ -3320,6 +3339,12 @@
 
 	mt_soc_playback_offload {
 		compatible = "mediatek,mt_soc_offload_common";
+	};
+
+	irtx_pwm:irtx_pwm {
+		compatible = "mediatek,irtx-pwm";
+		pwm_ch = <0>;
+		pwm_data_invert = <0>;
 	};
 };
 #include "cust_mt6885_msdc.dtsi"
