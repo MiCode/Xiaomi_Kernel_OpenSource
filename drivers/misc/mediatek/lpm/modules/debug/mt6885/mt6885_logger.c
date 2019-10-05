@@ -295,7 +295,7 @@ int __init mt6885_logger_init(void)
 {
 	struct device_node *node = NULL;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,spm");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,sleep");
 
 	if (node) {
 		mt6885_spm_base = of_iomap(node, 0);

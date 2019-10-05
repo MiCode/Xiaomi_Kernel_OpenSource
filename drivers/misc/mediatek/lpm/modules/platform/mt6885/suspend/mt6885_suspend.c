@@ -112,7 +112,7 @@ void mt6885_suspend_reflect(int cpu,
 			__func__, __LINE__);
 
 	if (issuer)
-		issuer->log(MT_LPM_ISSUER_CPUIDLE, "SUSPEND", NULL);
+		issuer->log(MT_LPM_ISSUER_CPUIDLE, "suspend", NULL);
 }
 
 struct mtk_lpm_model mt6885_model_suspend = {
