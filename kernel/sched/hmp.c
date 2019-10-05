@@ -149,22 +149,6 @@ static int is_heavy_task(struct task_struct *p)
 	return p->se.avg.loadwop_avg >= 650 ? 1 : 0;
 }
 
-#ifdef CONFIG_CFS_BANDWIDTH
-/* rq->task_clock normalized against any time this cfs_rq has spent throttled */
-inline u64 cfs_rq_clock_task_no_lockdep(struct cfs_rq *cfs_rq)
-{
-	if (unlikely(cfs_rq->throttle_count))
-		return cfs_rq->throttled_clock_task;
-
-	return cfs_rq->rq->clock_task - cfs_rq->throttled_clock_task_time;
-}
-#else
-inline u64 cfs_rq_clock_task_no_lockdep(struct cfs_rq *cfs_rq)
-{
-	return cfs_rq->rq->clock_task;
-}
-#endif
-
 struct clb_env {
 	struct clb_stats bstats;
 	struct clb_stats lstats;
@@ -258,29 +242,28 @@ static void adj_threshold(struct clb_env *clbenv)
 #define hmp_scale_down(w) ((w) >> HMP_RESOLUTION_SCALING)
 
 	unsigned long b_cap = 0, l_cap = 0;
-	int b_nacap, l_nacap, b_natask, l_natask;
+	int b_nacap, l_nacap;
 	const int hmp_max_weight = scale_load_down(HMP_MAX_LOAD);
 
 	b_cap = clbenv->bstats.cpu_power;
 	l_cap = clbenv->lstats.cpu_power;
-	b_nacap = clbenv->bstats.scaled_acap * b_cap / (l_cap+1);
-	b_natask = clbenv->bstats.scaled_atask *
-		b_cap / (l_cap+1);
-	l_nacap = clbenv->lstats.scaled_acap;
-	l_natask = clbenv->lstats.scaled_atask;
+	b_nacap = clbenv->bstats.acap;
+	l_nacap = clbenv->lstats.acap * l_cap / (b_cap+1);
 
 
-	b_nacap = hmp_scale_down(b_nacap);
-	l_nacap = hmp_scale_down(l_nacap);
-	b_natask = hmp_scale_down(b_natask);
-	l_natask = hmp_scale_down(l_natask);
+	if ((b_nacap + l_nacap) == 0) {
+		clbenv->bstats.threshold = hmp_max_weight;
+		clbenv->lstats.threshold = 0;
+	} else {
+		b_nacap = hmp_scale_down(b_nacap);
+		l_nacap = hmp_scale_down(l_nacap);
 
-	clbenv->bstats.threshold = hmp_max_weight -
-		(hmp_max_weight * b_nacap * b_natask) /
-		((b_nacap + l_nacap) * (b_natask + l_natask) + 1);
-	clbenv->lstats.threshold = hmp_max_weight * l_nacap * l_natask /
-		((b_nacap + l_nacap) * (b_natask + l_natask) + 1);
-
+		clbenv->bstats.threshold = hmp_max_weight -
+			(hmp_max_weight * b_nacap * b_nacap) /
+			((b_nacap + l_nacap) * (b_nacap + l_nacap));
+		clbenv->lstats.threshold = hmp_max_weight * l_nacap * l_nacap /
+			((b_nacap + l_nacap) * (b_nacap + l_nacap));
+	}
 	trace_sched_adj_threshold(clbenv->bstats.threshold,
 			clbenv->lstats.threshold, clbenv->ltarget,
 			l_cap, clbenv->btarget, b_cap);
@@ -293,9 +276,9 @@ static void sched_update_clbstats(struct clb_env *clbenv)
 		(int) arch_scale_cpu_capacity(NULL, clbenv->btarget);
 	clbenv->lstats.cpu_power =
 		(int) arch_scale_cpu_capacity(NULL, clbenv->ltarget);
-	clbenv->lstats.cpu_capacity = SCHED_CAPACITY_SCALE;
-	clbenv->bstats.cpu_capacity = SCHED_CAPACITY_SCALE *
-		clbenv->bstats.cpu_power / (clbenv->lstats.cpu_power+1);
+	clbenv->lstats.cpu_capacity = SCHED_CAPACITY_SCALE *
+		clbenv->lstats.cpu_power / (clbenv->bstats.cpu_power+1);
+	clbenv->bstats.cpu_capacity = SCHED_CAPACITY_SCALE;
 
 	collect_cluster_stats(&clbenv->bstats, &clbenv->bcpus, clbenv->btarget);
 	collect_cluster_stats(&clbenv->lstats, &clbenv->lcpus, clbenv->ltarget);
@@ -409,17 +392,13 @@ static inline unsigned int hmp_select_faster_cpu(struct task_struct *tsk,
 
 static inline void hmp_next_up_delay(struct sched_entity *se, int cpu)
 {
-	struct cfs_rq *cfs_rq = &cpu_rq(cpu)->cfs;
-
-	hmp_last_up_migration(cpu) = cfs_rq_clock_task_no_lockdep(cfs_rq);
+	hmp_last_up_migration(cpu) = sched_clock();
 	hmp_last_down_migration(cpu) = 0;
 }
 
 static inline void hmp_next_down_delay(struct sched_entity *se, int cpu)
 {
-	struct cfs_rq *cfs_rq = &cpu_rq(cpu)->cfs;
-
-	hmp_last_down_migration(cpu) = cfs_rq_clock_task_no_lockdep(cfs_rq);
+	hmp_last_down_migration(cpu) = sched_clock();
 	hmp_last_up_migration(cpu) = 0;
 }
 
@@ -485,8 +464,7 @@ static struct sched_entity *hmp_get_lightest_task(
  */
 static int hmp_up_stable(int cpu)
 {
-	struct cfs_rq *cfs_rq = &cpu_rq(cpu)->cfs;
-	u64 now = cfs_rq_clock_task_no_lockdep(cfs_rq);
+	u64 now = sched_clock();
 
 	if (((now - hmp_last_up_migration(cpu)) >> 10) < hmp_next_up_threshold)
 		return 0;
@@ -495,8 +473,7 @@ static int hmp_up_stable(int cpu)
 
 static int hmp_down_stable(int cpu)
 {
-	struct cfs_rq *cfs_rq = &cpu_rq(cpu)->cfs;
-	u64 now = cfs_rq_clock_task_no_lockdep(cfs_rq);
+	u64 now = sched_clock();
 	u64 duration = now - hmp_last_down_migration(cpu);
 
 	if ((duration >> 10) < hmp_next_down_threshold)
@@ -526,7 +503,6 @@ static unsigned int hmp_select_cpu(unsigned int caller, struct task_struct *p,
 	 * by the total number of CPU runnable tasks that includes RT tasks.
 	 */
 	target_wload = hmp_inc(cfs_load(target));
-	target_wload += cfs_pending_load(target);
 	target_wload *= rq_length(target);
 	for_each_cpu(curr, mask) {
 		/* Check CPU status and task affinity */
@@ -540,7 +516,6 @@ static unsigned int hmp_select_cpu(unsigned int caller, struct task_struct *p,
 			continue;
 
 		curr_wload = hmp_inc(cfs_load(curr));
-		curr_wload += cfs_pending_load(curr);
 		curr_wload *= rq_length(curr);
 		if (curr_wload < target_wload) {
 			target_wload = curr_wload;
@@ -642,7 +617,6 @@ static int hmp_select_task_rq_fair(int sd_flag, struct task_struct *p,
 		int prev_cpu, int new_cpu)
 {
 	struct list_head *pos;
-	struct sched_entity *se = &p->se;
 	struct cpumask fast_cpu_mask, slow_cpu_mask;
 
 	if (idle_cpu(new_cpu) && hmp_cpu_is_fastest(new_cpu))
@@ -684,9 +658,6 @@ out:
 		/* BUG_ON(1); */
 		new_cpu = prev_cpu;
 	}
-
-	cfs_nr_pending(new_cpu)++;
-	cfs_pending_load(new_cpu) += se_load(se);
 
 	return new_cpu;
 
@@ -812,7 +783,7 @@ static unsigned int hmp_up_migration(int cpu,
 	 * [4] Check dynamic migration threshold
 	 * Migrate task from LITTLE to big if load is greater than up-threshold
 	 */
-	if (se_load(se) > B->threshold) {
+	if (se_load(se) >= B->threshold) {
 		check->status |= HMP_MIGRATION_APPROVED;
 		check->result = 1;
 	}
@@ -920,11 +891,6 @@ static unsigned int hmp_down_migration(int cpu,
 	if (cpu_rq(curr_cpu)->cfs.h_nr_running > 1 &&
 			!hmp_fast_cpu_oversubscribed(caller, B, se, curr_cpu)) {
 		check->status |= HMP_BIG_NOT_OVERSUBSCRIBED;
-		goto trace;
-	}
-
-	if (!hmp_task_slow_cpu_afford(L, se)) {
-		check->status |= HMP_LITTLE_CAPACITY_INSUFFICIENT;
 		goto trace;
 	}
 
@@ -1252,8 +1218,6 @@ hmp_enqueue_entity_load_avg(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {
 	int cpu = cfs_rq->rq->cpu;
 
-	cfs_nr_pending(cpu) = 0;
-	cfs_pending_load(cpu) = 0;
 	cfs_rq->avg.loadwop_avg += se->avg.loadwop_avg;
 	cfs_rq->avg.loadwop_sum += se->avg.loadwop_sum;
 

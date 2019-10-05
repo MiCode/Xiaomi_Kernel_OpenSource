@@ -140,15 +140,6 @@ inline int valid_cpu_prefer(int task_prefer);
 inline int hinted_cpu_prefer(int task_prefer);
 int cpu_prefer(struct task_struct *p);
 extern unsigned int hmp_cpu_is_fastest(int cpu);
-#if defined(CONFIG_SCHED_HMP) || defined(CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT)
-int hmp_should_migrate_task(struct task_struct *p, struct rq *busiest_rq);
-#else
-static inline int hmp_should_migrate_task(struct task_struct *p,
-		struct rq *busiest_rq)
-{
-	return true;
-}
-#endif
 
 static int check_freq_turning(void);
 struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
