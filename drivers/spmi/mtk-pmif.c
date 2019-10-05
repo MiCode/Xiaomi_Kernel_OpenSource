@@ -30,6 +30,7 @@
  * marco
  */
 #define PMIF_TIMEOUT    0
+#define PMIF_BRINGUP    1
 
 /* macro for PMIF SWINF FSM */
 #define PMIF_SWINF_FSM_IDLE		0x00
@@ -222,10 +223,12 @@ static struct pmif mt6885_pmif_arb[] = {
 		.regs = mt6885_regs,
 		.spmimst_base = 0x0,
 		.spmimst_regs = mt6885_spmi_regs,
+#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
 		.infra_base = 0x0,
 		.infra_regs = mt6885_infra_regs,
 		.topckgen_base = 0x0,
 		.topckgen_regs = mt6885_topckgen_regs,
+#endif
 		.swinf_ch_start = 0,
 		.ap_swinf_no = 0,
 		.write = 0x0,
@@ -392,7 +395,7 @@ void mtk_spmi_writel(struct pmif *arb, u32 val,
 
 static void pmif_enable_soft_reset(struct pmif *arb)
 {
-#if defined(CONFIG_FPGA_EARLY_PORTING)
+#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
 	writel(0x1 << 14,
 		arb->infra_base + arb->infra_regs[INFRA_GLOBALCON_RST2_SET]);
 	writel(0x1 << 14,
@@ -402,7 +405,7 @@ static void pmif_enable_soft_reset(struct pmif *arb)
 
 static void pmif_spmi_enable_clk_set(struct pmif *arb)
 {
-#if defined(CONFIG_FPGA_EARLY_PORTING)
+#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
 	writel((0x1 << 15) | (0x1 << 12) | (0x7 << 8),
 		arb->topckgen_base + arb->topckgen_regs[CLK_CFG_8_CLR]);
 	writel(0x1 << 2,
@@ -754,7 +757,7 @@ static int mtk_spmi_read_eint_sta(struct pmif *arb, u8 *slv_eint_sta)
 static int mtk_spmi_config_master(struct pmif *arb,
 		unsigned int mstid, bool en)
 {
-#if defined(CONFIG_FPGA_EARLY_PORTING)
+#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
 	/* Software reset */
 	writel(0x85 << 24 | 0x1 << 4,
 		arb->topckgen_base + arb->topckgen_regs[WDT_SWSYSRST2]);
@@ -831,7 +834,7 @@ spmimst_init_done:
 
 static int pmif_probe(struct platform_device *pdev)
 {
-#if defined(CONFIG_FPGA_EARLY_PORTING)
+#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
 	struct device_node *node;
 #endif
 	const struct of_device_id *of_id =
@@ -842,6 +845,10 @@ static int pmif_probe(struct platform_device *pdev)
 	u32 swinf_ch_start = 0, ap_swinf_no = 0;
 	int err;
 
+#if PMIF_BRINGUP
+	dev_dbg(&pdev->dev, "[PMIF]bringup do nothing\n");
+	return 0;
+#endif
 	if (!of_id) {
 		dev_dbg(&pdev->dev, "Error: No device match found\n");
 		return -ENODEV;
@@ -862,7 +869,7 @@ static int pmif_probe(struct platform_device *pdev)
 		goto err_put_ctrl;
 	}
 	/* pmif is not initialized, just init once */
-#if defined(CONFIG_FPGA_EARLY_PORTING)
+#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
 		node = of_find_compatible_node(NULL, NULL,
 				"mediatek,infracfg_ao");
 		arb->infra_base = of_iomap(node, 0);
