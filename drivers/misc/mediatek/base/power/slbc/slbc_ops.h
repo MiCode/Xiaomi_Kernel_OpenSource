@@ -35,7 +35,7 @@
 
 /* need to modify slbc_uid_str  */
 enum slbc_uid {
-	UID_MM_VENC,
+	UID_MM_VENC = 1,
 	UID_MM_DISP,
 	UID_MM_MDP,
 	UID_MM_VDEC,
