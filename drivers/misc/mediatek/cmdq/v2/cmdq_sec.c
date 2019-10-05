@@ -1405,7 +1405,9 @@ struct cmdqSecContextStruct *cmdq_sec_context_handle_create(
 
 		handle->tgid = tgid;
 		handle->referCount = 0;
+#ifndef CONFIG_MTK_CMDQ_TAB
 		handle->openMobicoreByOther = 0;
+#endif
 	} else {
 		CMDQ_ERR("SecCtxHandle_CREATE: err[LOW_MEM], tgid[%d]\n",
 			tgid);
