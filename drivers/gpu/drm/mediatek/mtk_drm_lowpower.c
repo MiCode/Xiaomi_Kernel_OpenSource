@@ -206,6 +206,7 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_idlemgr *idlemgr = mtk_crtc->idlemgr;
 	struct mtk_drm_idlemgr_context *idlemgr_ctx = idlemgr->idlemgr_ctx;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	msleep(16000);
 	while (1) {
@@ -233,7 +234,9 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 			continue;
 		}
 
-		if (idlemgr_ctx->is_idle) {
+		if (idlemgr_ctx->is_idle
+			|| mtk_crtc_has_2nd_path(crtc)
+			|| priv->session_mode != MTK_DRM_SESSION_DL) {
 			mutex_unlock(&mtk_crtc->lock);
 			continue;
 		}

@@ -580,5 +580,9 @@ int mtk_crtc_find_comp(struct drm_crtc *crtc, unsigned int ddp_mode,
 int mtk_crtc_find_next_comp(struct drm_crtc *crtc, unsigned int ddp_mode,
 			    enum mtk_ddp_comp_id comp_id);
 int mtk_crtc_find_prev_comp(struct drm_crtc *crtc, unsigned int ddp_mode,
-			    enum mtk_ddp_comp_id comp_id);
+		enum mtk_ddp_comp_id comp_id);
+void mtk_drm_fake_vsync_switch(struct drm_crtc *crtc, bool enable);
+
+bool mtk_crtc_has_2nd_path(struct drm_crtc *crtc);
+
 #endif /* MTK_DRM_CRTC_H */
