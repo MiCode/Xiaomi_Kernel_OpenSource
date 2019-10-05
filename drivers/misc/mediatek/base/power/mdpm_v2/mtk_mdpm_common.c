@@ -63,6 +63,10 @@ void init_md_section_level(enum pbm_kicker kicker)
 		return;
 	}
 
+#ifdef DBM_RESERVE_OFFSET
+	share_mem += DBM_RESERVE_OFFSET;
+#endif
+
 	if (kicker == KR_MD1) {
 		init_md1_section_level(share_mem);
 		init_version_check(share_mem);
@@ -110,7 +114,11 @@ int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 		pr_info_ratelimited("can't get dbm share memory\n");
 		return MAX_MD1_POWER;
 	}
+#ifdef DBM_RESERVE_OFFSET
+	share_mem += DBM_RESERVE_OFFSET;
 #endif
+
+#endif /* MD_POWER_UT */
 
 #ifdef GET_MD_SCEANRIO_BY_SHARE_MEMORY
 	scenario = get_md1_scenario_by_shm(share_mem);
