@@ -26,6 +26,7 @@
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 #include "../../include/apusys_device.h"
 #endif
+#include "apusys_power.h"
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -301,6 +302,9 @@ static int mdla_probe(struct platform_device *pdev)
 	int i;
 #endif
 
+	if (!apusys_power_check())
+		return 0;
+
 	if (mdla_dts_map(pdev)) {
 		dev_info(dev, "%s: failed due to DTS failed\n", __func__);
 		return -EINVAL;
@@ -350,6 +354,9 @@ static int mdla_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	int i;
+
+	if (!apusys_power_check())
+		return 0;
 
 	mdla_drv_debug("%s start -\n", __func__);
 
