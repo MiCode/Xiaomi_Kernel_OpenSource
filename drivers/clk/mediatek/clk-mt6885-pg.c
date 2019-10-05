@@ -1061,11 +1061,101 @@ static void ram_console_update(void)
 			__func__,
 			clk_readl(INFRA_TOPAXI_PROTECTEN_SUB_INFRA_VDNR_STA1));
 
+		/* The code based on  clkdbg/clkdbg-mt6885. */
+		/* When power on/off fails, dump the related registers. */
+		init_regbase_mt6885();
+		print_subsys_reg("topckgen");
+		print_subsys_reg("infracfg");
+		print_subsys_reg("scpsys");
+		print_subsys_reg("apmixed");
+
+		if (DBG_STA == STA_POWER_DOWN) {
+			/* dump only when power off failes */
+			if (DBG_ID == DBG_ID_MFG0 || DBG_ID == DBG_ID_MFG1
+			|| DBG_ID == DBG_ID_MFG2 || DBG_ID == DBG_ID_MFG3
+			|| DBG_ID == DBG_ID_MFG4 || DBG_ID == DBG_ID_MFG5
+			|| DBG_ID == DBG_ID_MFG6)
+				print_subsys_reg("mfgsys");
+
+			if (DBG_ID == DBG_ID_AUDIO)
+				print_subsys_reg("audio");
+
+			if (DBG_ID == DBG_ID_DIS)
+				print_subsys_reg("mmsys");
+
+			if (DBG_ID == DBG_ID_MDP)
+				print_subsys_reg("mdpsys");
+
+			/* isp/img */
+			if (DBG_ID == DBG_ID_ISP) {
+				print_subsys_reg("mmsys");
+				print_subsys_reg("img1sys");
+				}
+			if (DBG_ID == DBG_ID_ISP2) {
+				print_subsys_reg("mmsys");
+				print_subsys_reg("mdpsys");
+				print_subsys_reg("img2sys");
+			}
+
+			/* ipe */
+			if (DBG_ID == DBG_ID_IPE) {
+				print_subsys_reg("mmsys");
+				print_subsys_reg("mdpsys");
+				print_subsys_reg("ipesys");
+			}
+
+			/* venc */
+			if (DBG_ID == DBG_ID_VEN) {
+				print_subsys_reg("mmsys");
+				print_subsys_reg("vencsys");
+			}
+			if (DBG_ID == DBG_ID_VEN_CORE1) {
+				print_subsys_reg("mmsys");
+				print_subsys_reg("mdpsys");
+				print_subsys_reg("venc_c1_sys");
+			}
+
+			/* vdec */
+			if (DBG_ID == DBG_ID_VDE) {
+				print_subsys_reg("mmsys");
+				print_subsys_reg("vdec_soc_sys");
+			}
+			if (DBG_ID == DBG_ID_VDE2) {
+				print_subsys_reg("mmsys");
+				print_subsys_reg("vdec_soc_sys");
+				print_subsys_reg("vdecsys");
+			}
+
+			/* cam */
+			if (DBG_ID == DBG_ID_CAM) {
+				print_subsys_reg("mmsys");
+				print_subsys_reg("mdpsys");
+				print_subsys_reg("camsys");
+			}
+			if (DBG_ID == DBG_ID_CAM_RAWA) {
+				print_subsys_reg("mmsys");
+				print_subsys_reg("mdpsys");
+				print_subsys_reg("camsys");
+				print_subsys_reg("cam_rawa_sys");
+			}
+			if (DBG_ID == DBG_ID_CAM_RAWB) {
+				print_subsys_reg("mmsys");
+				print_subsys_reg("mdpsys");
+				print_subsys_reg("camsys");
+				print_subsys_reg("cam_rawb_sys");
+			}
+			if (DBG_ID == DBG_ID_CAM_RAWC) {
+				print_subsys_reg("mmsys");
+				print_subsys_reg("mdpsys");
+				print_subsys_reg("camsys");
+				print_subsys_reg("cam_rawc_sys");
+			}
+		}
+
 		list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
 			if (pgcb->debug_dump)
 				pgcb->debug_dump(DBG_ID);
 		}
-
 	}
 	for (j = 0; j <= i; j++)
 		aee_rr_rec_clk(j, data[j]);
@@ -3976,7 +4066,7 @@ int spm_mtcmos_vpu(int state)
 			spm_read(SPM_CROSS_WAKE_M01_REQ) |
 						APMCU_WAKEUP_APU);
 
-		while (spm_read(OTHER_PWR_STATUS) & (0x1UL << 5) !=
+		while ((spm_read(OTHER_PWR_STATUS) & (0x1UL << 5)) !=
 							(0x1UL << 5)) {
 			ram_console_update();
 		}
@@ -4395,6 +4485,7 @@ int allow[NR_SYSS] = {
 0,	/* SYS_VPU = 25 */
 };
 #endif
+
 static int enable_subsys(enum subsys_id id)
 {
 	int r;

@@ -66,6 +66,14 @@ extern unsigned int mt_get_abist_freq(unsigned int ID);
 extern unsigned int mt_get_ckgen_freq(unsigned int ID);
 extern void print_enabled_clks_once(void);
 extern void mtk_wcn_cmb_stub_clock_fail_dump(void);
+
+/*
+ * Resident in clkdbg-mt6885.c
+ * For debug use.
+ */
+void init_regbase_mt6885(void);
+void print_subsys_reg(char *subsys_name);
+
 /*ram console api*/
 /*
  *[0] bus protect reg
