@@ -302,8 +302,7 @@ int apusys_user_delete_mem(struct apusys_user *user, struct apusys_mem *mem)
 	list_for_each_safe(list_ptr, tmp, &user->mem_list) {
 		user_mem = list_entry(list_ptr, struct apusys_user_mem, list);
 
-		if (user_mem->mem.kva == mem->kva &&
-			user_mem->mem.ion_data.ion_share_fd ==
+		if (user_mem->mem.ion_data.ion_share_fd ==
 			mem->ion_data.ion_share_fd &&
 			user_mem->mem.mem_type == mem->mem_type) {
 			/* delete memory struct */

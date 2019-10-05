@@ -119,6 +119,7 @@ struct apusys_mem {
 	unsigned long long kva;
 	unsigned int iova;
 	unsigned int size;
+	unsigned int iova_size;
 
 	unsigned int align;
 	unsigned int cache;

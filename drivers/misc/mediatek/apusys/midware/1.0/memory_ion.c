@@ -16,6 +16,12 @@
 #include <ion.h>
 #include <mtk/ion_drv.h>
 #include <mtk/mtk_ion.h>
+#ifdef CONFIG_MTK_M4U
+#include <m4u.h>
+#else
+#include <mt_iommu.h>
+#endif
+
 
 #include <linux/dma-mapping.h>
 #include <asm/mman.h>
@@ -24,6 +30,14 @@
 #include "apusys_drv.h"
 #include "memory_mgt.h"
 #include "memory_ion.h"
+
+#ifdef MTK_APUSYS_IOMMU_LEGACY
+#define APUSYS_IOMMU_PORT M4U_PORT_VPU
+#else
+#define APUSYS_IOMMU_PORT M4U_PORT_L21_APU_FAKE_DATA
+#endif
+
+
 
 int _ion_mem_ctl_cache(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 {
@@ -58,16 +72,18 @@ int _ion_mem_ctl_map(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 		ret = ion_mem_unmap_kva(mem_mgr, mem);
 		break;
 	case APUSYS_MAP_IOVA:
-		LOG_ERR("Not Support APUSYS_MAP_IOVA!");
+		ret = ion_mem_map_iova(mem_mgr, mem);
 		break;
 	case APUSYS_UNMAP_IOVA:
-		LOG_ERR("Not Support APUSYS_UNMAP_IOVA!");
+		ret = ion_mem_unmap_iova(mem_mgr, mem);
 		break;
 	case APUSYS_MAP_PA:
 		LOG_ERR("Not Support APUSYS_MAP_PA!");
+		ret = -EINVAL;
 		break;
 	case APUSYS_UNMAP_PA:
 		LOG_ERR("Not Support APUSYS_UNMAP_PA!");
+		ret = -EINVAL;
 		break;
 	default:
 		ret = -EINVAL;
@@ -76,12 +92,7 @@ int _ion_mem_ctl_map(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 	return ret;
 }
 
-int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
-{
-	int ret = 0;
 
-	return ret;
-}
 
 int ion_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 {
@@ -119,16 +130,6 @@ int ion_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 
 	LOG_DEBUG("mem(0x%x/0x%llx/0x%llx/%d)\n",
 		mem->iova, mem->uva, mem->kva, mem->size);
-	//LOG_DEBUG("try to write kva(%p/0x%llx)...\n", buffer, mem->kva);
-	//memset(buffer, 0, 10);
-	//LOG_DEBUG("write done...\n");
-
-	/* free ref count from import */
-	//ion_free(mem_mgr->client, ion_hnd);
-	//ion_free(g_mem_mgr.client, ion_hnd);
-	//LOG_DEBUG("try to write kva(%p)...\n", buffer);
-	//memset(buffer, 0, 10);
-	//LOG_DEBUG("write done...\n");
 
 	return ret;
 }
@@ -243,29 +244,84 @@ int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 		LOG_ERR("map kernel va fail(%p/%p)\n",
 			mem_mgr->client, ion_hnd);
 		ret = -ENOMEM;
+		goto free_import;
 	}
 	mem->ion_data.ion_khandle = (uint64_t)ion_hnd;
 	mem->kva = (uint64_t)buffer;
 
 	LOG_DEBUG("mem(0x%x/0x%llx/0x%llx/%d)\n",
 		mem->iova, mem->uva, mem->kva, mem->size);
-	//LOG_DEBUG("try to write kva(%p/0x%llx)...\n", buffer, mem->kva);
-	//memset(buffer, 0, 10);
-	//LOG_DEBUG("write done...\n");
 
-	/* free ref count from import */
-	//ion_free(mem_mgr->client, ion_hnd);
-	//ion_free(g_mem_mgr.client, ion_hnd);
-	//LOG_DEBUG("try to write kva(%p)...\n", buffer);
-	//memset(buffer, 0, 10);
-	//LOG_DEBUG("write done...\n");
+	return ret;
 
+free_import:
+	ion_free(mem_mgr->client, ion_hnd);
 	return ret;
 }
 
+int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
+{
+	int ret = 0;
+	struct ion_handle *ion_hnd = NULL;
+	struct ion_mm_data mm_data;
+	unsigned long iova;
+	size_t iova_size;
+
+	/* check argument */
+	if (mem == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	LOG_DEBUG("mem(0x%x/0x%llx/0x%llx/%d/%d)\n",
+		mem->iova, mem->uva, mem->kva, mem->size,
+		mem->ion_data.ion_share_fd);
+	/* import fd */
+	ion_hnd = ion_import_dma_buf_fd(mem_mgr->client,
+	mem->ion_data.ion_share_fd);
+
+	if (IS_ERR_OR_NULL(ion_hnd))
+		return -ENOMEM;
+
+	LOG_DEBUG("mem(%d/%p)\n",
+		mem->ion_data.ion_share_fd, ion_hnd);
+
+	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	mm_data.config_buffer_param.kernel_handle = ion_hnd;
+	mm_data.config_buffer_param.module_id = APUSYS_IOMMU_PORT;
+	mm_data.config_buffer_param.security = 0;
+	mm_data.config_buffer_param.coherent = 1;
+
+	if (ion_kernel_ioctl(mem_mgr->client, ION_CMD_MULTIMEDIA,
+			(unsigned long)&mm_data)) {
+		LOG_ERR("ion_config_buffer: ION_CMD_MULTIMEDIA failed\n");
+		ret = -ENOMEM;
+		goto free_import;
+	}
+
+	iova = ((unsigned long) APUSYS_IOMMU_PORT << 24);
+	if (ion_phys(mem_mgr->client, ion_hnd, &iova, &iova_size)) {
+		LOG_ERR("Get MVA failed\n");
+		ret = -ENOMEM;
+		goto free_import;
+	}
+
+	mem->iova = iova;
+	mem->iova_size = iova_size;
+	LOG_DEBUG("mem iova(0x%x/%d)\n",
+		mem->iova, mem->iova_size);
+
+	return ret;
+
+free_import:
+	ion_free(mem_mgr->client, ion_hnd);
+	return ret;
+}
 int ion_mem_unmap_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 {
 	int ret = 0;
+
+	DEBUG_TAG;
 
 	return ret;
 }
