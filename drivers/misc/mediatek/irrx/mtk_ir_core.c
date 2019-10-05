@@ -157,19 +157,6 @@ enum MTK_IR_MODE mtk_ir_core_getmode(void)
 	return MTK_IR_MAX;
 }
 
-static int mtk_ir_core_enable_clock(int enable)
-{
-	int res = 0;
-
-	MTK_IR_LOG(" enable clock: %d\n", enable);
-
-	if (enable)
-		res = clk_prepare_enable(mtk_ir_context_obj->hw->irrx_clk);
-	else
-		clk_disable_unprepare(mtk_ir_context_obj->hw->irrx_clk);
-	return res;
-}
-
 #ifdef CONFIG_PM_SLEEP
 static int mtk_ir_core_suspend(struct device *dev)
 {
@@ -356,16 +343,6 @@ static ssize_t mtk_ir_core_store_debug(struct device *dev,
 	int res;
 	struct mtk_ir_core_platform_data *pdata = get_mtk_ir_ctl_data();
 	struct attribute *pattr = &(attr->attr);
-
-	if (strcmp(pattr->name, "clock") == 0) {
-		res = kstrtoint(buf, 0, &val);
-		if (res == 0) {
-			if (val)
-				mtk_ir_core_enable_clock(1);
-			else
-				mtk_ir_core_enable_clock(0);
-		}
-	}
 
 	if (strcmp(pattr->name, "swirq") == 0) {
 		res = kstrtoint(buf, 0, &val);
@@ -826,7 +803,6 @@ static int mtk_ir_lirc_unregister(struct mtk_ir_context *pdev)
 
 static int mtk_ir_get_hw_info(struct platform_device *pdev)
 {
-	const char *clkname = "irrx_clock";
 	const char *compatible_name;
 	struct device_node *node;
 	struct mtk_ir_context *cxt;
@@ -841,22 +817,6 @@ static int mtk_ir_get_hw_info(struct platform_device *pdev)
 		MTK_IR_ERR(" Cannot get irrx register base address!\n");
 		return -ENODEV;
 	}
-	cxt->hw->irrx_clk = devm_clk_get(&pdev->dev, clkname);
-	if (IS_ERR(cxt->hw->irrx_clk)) {
-		MTK_IR_ERR(" Cannot get irrx clock!\n");
-		ret = PTR_ERR(cxt->hw->irrx_clk);
-		MTK_IR_ERR(" ret=%d!\n", ret);
-		iounmap(cxt->hw->irrx_base_addr);
-		return ret;
-	}
-
-	ret = mtk_ir_core_enable_clock(1);
-	if (ret) {
-		MTK_IR_ERR(" Enable clk failed!\n");
-		iounmap(cxt->hw->irrx_base_addr);
-		return -ENODEV;
-	}
-
 	node = of_find_matching_node(NULL, mtk_ir_of_match);
 	if (node) {
 		cxt->hw->irrx_irq = irq_of_parse_and_map(node, 0);
@@ -876,7 +836,6 @@ static int mtk_ir_get_hw_info(struct platform_device *pdev)
 	} else {
 		MTK_IR_ERR(" Device Tree: can not find IR node!\n");
 		iounmap(cxt->hw->irrx_base_addr);
-		clk_disable_unprepare(cxt->hw->irrx_clk);
 		return -ENODEV;
 	}
 
@@ -885,7 +844,6 @@ static int mtk_ir_get_hw_info(struct platform_device *pdev)
 		ret = PTR_ERR(irrx_pinctrl1);
 		MTK_IR_ERR(" Cannot find pinctrl %d!\n", ret);
 		iounmap(cxt->hw->irrx_base_addr);
-		clk_disable_unprepare(cxt->hw->irrx_clk);
 		return ret;
 	}
 	irrx_pins_default = pinctrl_lookup_state(irrx_pinctrl1, "default");
@@ -893,7 +851,6 @@ static int mtk_ir_get_hw_info(struct platform_device *pdev)
 		ret = PTR_ERR(irrx_pins_default);
 		MTK_IR_LOG("Cannot find pinctrl default %d!\n", ret);
 		iounmap(cxt->hw->irrx_base_addr);
-		clk_disable_unprepare(cxt->hw->irrx_clk);
 		return ret;
 	}
 	pinctrl_select_state(irrx_pinctrl1, irrx_pins_default);
