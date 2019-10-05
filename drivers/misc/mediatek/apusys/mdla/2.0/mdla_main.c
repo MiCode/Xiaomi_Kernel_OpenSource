@@ -27,6 +27,7 @@
 #include "../../include/apusys_device.h"
 #endif
 #include "apusys_power.h"
+#include "mtk_devinfo.h"
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -274,6 +275,9 @@ static int mdla_scheduler_init(struct device *dev)
 static int mdla_sw_multi_devices_init(void)
 {
 	int i;
+
+	if (get_devinfo_with_index(30) == 1)
+		mdla_max_num_core = 1;
 
 	for (i = 0; i < mdla_max_num_core; i++) {
 		mdla_devices[i].mdla_e1_detect_count = 0;
@@ -524,7 +528,8 @@ int apusys_mdla_handler(int type,
 	struct apusys_cmd_hnd *cmd_hnd = hnd;
 	struct mdla_dev *mdla_info = (struct mdla_dev *)dev->private;
 
-	if (dev->dev_type != APUSYS_DEVICE_MDLA)
+	if ((dev->dev_type != APUSYS_DEVICE_MDLA) ||
+		mdla_info->mdlaid >= mdla_max_num_core)
 		return -EINVAL;
 
 	switch (type) {
@@ -899,6 +904,7 @@ static void mdlactl_exit(void)
 
 }
 
-module_init(mdlactl_init);
+//module_init(mdlactl_init);
+late_initcall(mdlactl_init);
 module_exit(mdlactl_exit);
 

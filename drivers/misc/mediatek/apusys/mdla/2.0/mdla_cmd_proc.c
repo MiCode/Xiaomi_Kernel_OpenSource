@@ -257,7 +257,7 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	struct mdla_wait_cmd mdla_wt;
 	struct mdla_wait_cmd *wt = &mdla_wt;
 
-	if (!cd || !mdla_info)
+	if (!cd || !mdla_info || (mdla_info->mdlaid >= mdla_max_num_core))
 		return -EINVAL;
 
 	core_id = mdla_info->mdlaid;

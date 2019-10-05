@@ -164,7 +164,7 @@ int mdla_dts_map(struct platform_device *pdev)
 	/* Get iospace GSM */
 	apu_mdla_gsm = platform_get_resource(pdev,
 		IORESOURCE_MEM,
-		mdla_max_num_core*3);
+		6);
 	if (!apu_mdla_gsm) {
 		dev_info(dev, "apu_gsm address\n");
 		return -ENODEV;
@@ -173,7 +173,7 @@ int mdla_dts_map(struct platform_device *pdev)
 	/* Get iospace APU CONN */
 	apu_conn = platform_get_resource(pdev,
 		IORESOURCE_MEM,
-		mdla_max_num_core*3+1);
+		7);
 	if (!apu_conn) {
 		mdla_drv_debug("apu_conn address\n");
 		return -ENODEV;

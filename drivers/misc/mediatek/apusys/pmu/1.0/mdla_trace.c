@@ -226,7 +226,7 @@ static enum hrtimer_restart mdla_profile_polling(struct hrtimer *timer)
 	if (!cfg_period || !cfg_timer_en)
 		return HRTIMER_NORESTART;
 	/*call functions need to be called periodically*/
-	for (i = 0; i < MTK_MDLA_MAX_NUM; i++) {
+	for (i = 0; i < mdla_max_num_core; i++) {
 		if (mdla_trace_core_get() & (1 << i))
 			mdla_profile_register_read(i);
 	}
