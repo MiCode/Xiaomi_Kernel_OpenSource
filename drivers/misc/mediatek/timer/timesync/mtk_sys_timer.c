@@ -44,7 +44,7 @@
 #include <sspm_mbox_pin.h>
 #endif
 
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
+#if 0//def CONFIG_MTK_AUDIODSP_SUPPORT
 #include <adsp_helper.h>
 #endif
 
@@ -288,7 +288,7 @@ sys_timer_timesync_sync_base_internal(unsigned int flag)
 			freeze, tick, ts);
 	}
 
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
+#if 0//def CONFIG_MTK_AUDIODSP_SUPPORT
 	if (freeze == 0 && unfreeze == 0) {
 	/* sync with adsp */
 		adsp_enable_dsp_clk(true);
@@ -329,7 +329,7 @@ void sys_timer_timesync_sync_adsp(unsigned int flag)
 	sys_timer_timesync_inc_ver();
 
 	freeze = (flag & SYS_TIMER_TIMESYNC_FLAG_FREEZE) ? 1 : 0;
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
+#if 0//def CONFIG_MTK_AUDIODSP_SUPPORT
 	/* sync with adsp */
 	sys_timer_timesync_update_ram(ADSP_A_OSTIMER_BUFFER,
 		freeze, tick, ts);
