@@ -399,6 +399,7 @@ CONFIG_MTK_AKM8963_NEW,PROJECT,Lomen.Wu,,,,,,,,,,,,,,
 CONFIG_MTK_ALSPSHUB,PROJECT,weiqi.fu,new config in this commit ddc5d59450d236e7d3732ebd43a19c5056787cc0,,,,,,,,,,,,,
 CONFIG_MTK_ANDROID_DEFAULT_SETTING,COMMON,jades.shih,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_ANSWER_CALL_HUB,PROJECT,qiangming.xia,new config in this commit 187fb88cfe9b07a6e086117d157e5a75b76f244f,,,,,,,,,,,,,
+CONFIG_MTK_APUSYS_EDMA_SUPPORT,PLATFORM,jb.tsai,,N,N,y,N,N,N,N,N,N,y,y,y,y
 CONFIG_MTK_APUSYS_MDLA_SUPPORT,PLATFORM,mark.hung,,N,N,y,N,N,N,N,N,N,y,y,y,y
 CONFIG_MTK_APUSYS_SUPPORT,PLATFORM,Oscar.liu,,N,N,y,N,N,N,N,N,N,y,y,y,y
 CONFIG_MTK_APUSYS_VPU_DEBUG,PROJECT,perry.hsu,,,,,,,,,,,,,,
