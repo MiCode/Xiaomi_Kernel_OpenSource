@@ -117,11 +117,11 @@ static void vpu_debug_algo_prop(struct seq_file *s,
 
 }
 
-static void vpu_debug_algo_entry(struct seq_file *s,
+static int vpu_debug_algo_entry(struct seq_file *s,
 	struct vpu_device *vd, struct __vpu_algo *alg)
 {
 	int i;
-	int ret;
+	int ret = 0;
 	struct vpu_port *p;
 
 	seq_printf(s, "[%s: addr: 0x%llx, len: 0x%x]\n",
@@ -131,9 +131,8 @@ static void vpu_debug_algo_entry(struct seq_file *s,
 		__func__, alg->a.name, alg->a.mva, alg->a.len);
 
 	ret = vpu_alg_load(vd, NULL, alg);
-
 	if (ret)
-		return;
+		return ret;
 
 	vpu_alg_get(vd, NULL, alg);
 	if (!alg->a.port_count)
@@ -153,6 +152,7 @@ static void vpu_debug_algo_entry(struct seq_file *s,
 	vpu_debug_algo_prop(s, &alg->a.info, "Info.");
 out:
 	vpu_alg_put(alg);
+	return ret;
 }
 
 static int vpu_debug_algo(struct seq_file *s)
@@ -174,16 +174,22 @@ static int vpu_debug_algo(struct seq_file *s)
 		goto err_pwr;
 
 	ret = vpu_dev_boot(vd);
+	if (ret == -ETIMEDOUT)
+		goto err_pwr;
 	if (ret)
 		goto err_boot;
 
 	list_for_each_safe(ptr, tmp, &vd->algo) {
 		alg = list_entry(ptr, struct __vpu_algo, list);
-		vpu_debug_algo_entry(s, vd, alg);
+		ret = vpu_debug_algo_entry(s, vd, alg);
+		if (ret == -ETIMEDOUT)
+			goto err_pwr;
+		if (ret)
+			goto err_boot;
 	}
 
 err_boot:
-	vpu_pwr_put(vd);
+	vpu_pwr_put_locked(vd);
 err_pwr:
 	mutex_unlock(&vd->cmd_lock);
 
@@ -291,9 +297,8 @@ static int vpu_mesg_level_get(void *data, u64 *val)
 	return 0;
 }
 
-static int vpu_debug_mesg(struct seq_file *s)
+int vpu_mesg_seq(struct seq_file *s, struct vpu_device *vd)
 {
-	struct vpu_device *vd;
 	int i, wrap = false;
 	char *data = NULL;
 	u64 log_buf = 0;
@@ -301,8 +306,6 @@ static int vpu_debug_mesg(struct seq_file *s)
 
 	if (!s)
 		return -ENOENT;
-
-	vd = (struct vpu_device *)s->private;
 
 	if (!vd->iova_work.m.va)
 		return -ENOENT;
@@ -329,6 +332,15 @@ static int vpu_debug_mesg(struct seq_file *s)
 	} while (0);
 
 	return 0;
+
+}
+
+static int vpu_debug_mesg(struct seq_file *s)
+{
+	if (!s)
+		return -ENOENT;
+
+	return vpu_mesg_seq(s, (struct vpu_device *)s->private);
 }
 
 static int vpu_debug_reg(struct seq_file *s)
@@ -403,7 +415,7 @@ static int vpu_debug_reg(struct seq_file *s)
 	seq_vpu_reg(XTENSA_ALTRESETVEC);
 #undef seq_vpu_reg
 
-	vpu_pwr_put(vd);
+	vpu_pwr_put_locked(vd);
 	mutex_unlock(&vd->lock);
 
 	return 0;
@@ -454,6 +466,25 @@ static int vpu_debug_jtag_get(void *data, u64 *val)
 	return 0;
 }
 
+static int vpu_debug_vpu_memory(struct seq_file *s)
+{
+	vpu_dmp_seq(s);
+	return 0;
+}
+
+static int vpu_debug_dump(struct seq_file *s)
+{
+	struct vpu_device *vd;
+
+	if (!s)
+		return -ENOENT;
+
+	vd = (struct vpu_device *) s->private;
+	vpu_dmp_seq_core(s, vd);
+
+	return 0;
+}
+
 #define VPU_DEBUGFS_DEF(name) \
 static struct dentry *vpu_d##name; \
 static int vpu_debug_## name ##_show(struct seq_file *s, void *unused) \
@@ -474,8 +505,10 @@ static const struct file_operations vpu_debug_ ## name ## _fops = { \
 }
 
 VPU_DEBUGFS_DEF(algo);
+VPU_DEBUGFS_DEF(dump);
 VPU_DEBUGFS_DEF(mesg);
 VPU_DEBUGFS_DEF(reg);
+VPU_DEBUGFS_DEF(vpu_memory);
 
 #undef VPU_DEBUGFS_DEF
 
@@ -520,10 +553,16 @@ int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 
 	debugfs_create_u64("pw_off_latency", 0660, droot,
 		&vd->pw_off_latency);
+	debugfs_create_u64("cmd_timeout", 0660, droot,
+		&vd->cmd_timeout);
+	debugfs_create_u32("state", 0440, droot,
+		&vd->state);
 
+	vpu_dmp_init(vd);
 	vpu_mesg_init(vd);
 
 	VPU_DEBUGFS_CREATE(algo);
+	VPU_DEBUGFS_CREATE(dump);
 	VPU_DEBUGFS_CREATE(mesg);
 	VPU_DEBUGFS_CREATE(reg);
 	VPU_DEBUGFS_CREATE(jtag);
@@ -532,12 +571,12 @@ out:
 	return ret;
 }
 
-#undef VPU_DEBUGFS_CREATE
-
 void vpu_exit_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 {
 	if (!vpu_drv || !vpu_drv->droot || !vd || !vd->droot)
 		return;
+
+	vpu_dmp_exit(vd);
 
 	debugfs_remove_recursive(vd->droot);
 	vd->droot = NULL;
@@ -547,6 +586,7 @@ int vpu_init_debug(void)
 {
 	int ret = 0;
 	struct dentry *droot;
+	struct vpu_device *vd = NULL;
 
 	droot = debugfs_create_dir("vpu", NULL);
 
@@ -561,10 +601,13 @@ int vpu_init_debug(void)
 	vpu_klog = (VPU_DBG_DRV | VPU_DBG_PWR);
 	debugfs_create_u32("klog", 0660, droot, &vpu_klog);
 
+	VPU_DEBUGFS_CREATE(vpu_memory);
+
 out:
 	return ret;
 }
 
+#undef VPU_DEBUGFS_CREATE
 
 void vpu_exit_debug(void)
 {

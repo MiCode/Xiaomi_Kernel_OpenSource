@@ -61,11 +61,11 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 		pw = (struct apusys_power_hnd *)hnd;
 		vpu_cmd_debug("%s: APUSYS_CMD_POWERON, boost: %d, opp: %d\n",
 			__func__, pw->boost_val, pw->opp);
-		return vpu_pwr_get(vd, pw->boost_val);
+		return vpu_pwr_up(vd, pw->boost_val);
 	case APUSYS_CMD_POWERDOWN:
 		vpu_cmd_debug("%s: APUSYS_CMD_POWERDOWN\n", __func__);
-		vpu_pwr_put(vd);
-		break;
+		vpu_pwr_down(vd);
+		return 0;
 	case APUSYS_CMD_RESUME:
 		vpu_cmd_debug("%s: APUSYS_CMD_RESUME\n", __func__);
 		break;
@@ -247,6 +247,7 @@ static int vpu_shared_get(struct platform_device *pdev,
 		if (!iova)
 			goto error;
 		vpu_drv->mva_algo = iova;
+		vpu_drv->iova_algo.addr = iova;
 	}
 
 	if (!vpu_drv->mva_share) {
@@ -258,6 +259,7 @@ static int vpu_shared_get(struct platform_device *pdev,
 		if (!iova)
 			goto error;
 		vpu_drv->mva_share = iova;
+		vpu_drv->iova_share.addr = iova;
 	}
 
 	return 0;
@@ -280,6 +282,31 @@ static int vpu_exit_dev_mem(struct platform_device *pdev,
 	return 0;
 }
 
+static int vpu_iomem_dts(struct platform_device *pdev,
+	const char *name, int i, struct vpu_iomem *m)
+{
+	if (!m)
+		return 0;
+
+	m->res = platform_get_resource(pdev, IORESOURCE_MEM, i);
+
+	if (!m->res) {
+		dev_info(&pdev->dev, "unable to get resource: %s\n", name);
+		return -ENODEV;
+	}
+
+	m->m = devm_ioremap_resource(&pdev->dev, m->res);
+
+	if (!m->m) {
+		dev_info(&pdev->dev, "unable to map iomem: %s\n", name);
+		return -ENODEV;
+	}
+
+	dev_info(&pdev->dev, "mapped %s: 0x%lx\n", name, (unsigned long)m->m);
+
+	return 0;
+}
+
 static int vpu_init_dev_mem(struct platform_device *pdev,
 	struct vpu_device *vd)
 {
@@ -287,21 +314,15 @@ static int vpu_init_dev_mem(struct platform_device *pdev,
 	dma_addr_t iova = 0;
 	int ret = 0;
 
-	/* reg_base */
+	/* registers */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_info(&pdev->dev, "unable to get resource\n");
-		return -ENODEV;
-	}
-	vd->reg_base = devm_ioremap_resource(&pdev->dev, res); /* IPU_BASE */
 
-	if (!vd->reg_base) {
-		dev_info(&pdev->dev, "unable to map register base\n");
-		return -ENODEV;
+	if (vpu_iomem_dts(pdev, "reg", 0, &vd->reg) ||
+		vpu_iomem_dts(pdev, "dmem", 1, &vd->dmem) ||
+		vpu_iomem_dts(pdev, "dmem_log", 2, &vd->dmem_log) ||
+		vpu_iomem_dts(pdev, "imem", 3, &vd->imem)) {
+		goto error;
 	}
-
-	pr_info("%s: vpu%d: mapped reg_base: 0x%lx\n",
-		__func__, vd->id, (unsigned long)vd->reg_base);
 
 	/* iova */
 	if (vpu_iova_dts(pdev, "reset-vector", &vd->iova_reset) ||
@@ -339,6 +360,7 @@ static int vpu_init_dev_mem(struct platform_device *pdev,
 	pr_info("%s: vpu%d: iram data: %lx\n",  // TODO: remove debug log
 		__func__, vd->id, (unsigned long)iova);
 	vd->mva_iram = iova;
+	vd->iova_iram.addr = iova;
 
 	return 0;
 
@@ -495,11 +517,12 @@ static int vpu_suspend(struct platform_device *pdev, pm_message_t mesg)
 
 	mutex_lock(&vd->lock);
 	mutex_lock(&vd->cmd_lock);
-	if (!vpu_pwr_cnt(vd)) {
-		if (vd->state != VS_DOWN) {
-			vd->state = VS_SUSPENDED;
-			vpu_pwr_down(vd);
-		}
+	vpu_pwr_debug("%s: pw_ref: %d, state: %d\n",
+		__func__, vpu_pwr_cnt(vd), vd->state);
+
+	if (!vpu_pwr_cnt(vd) && (vd->state != VS_DOWN)) {
+		vpu_pwr_down_locked(vd);
+		vpu_pwr_debug("%s: suspended\n", __func__);
 	}
 	mutex_unlock(&vd->cmd_lock);
 	mutex_unlock(&vd->lock);
@@ -509,14 +532,6 @@ static int vpu_suspend(struct platform_device *pdev, pm_message_t mesg)
 
 static int vpu_resume(struct platform_device *pdev)
 {
-	struct vpu_device *vd = platform_get_drvdata(pdev);
-
-	mutex_lock(&vd->lock);
-	mutex_lock(&vd->cmd_lock);
-	vd->state = VS_DOWN;
-	mutex_unlock(&vd->cmd_lock);
-	mutex_unlock(&vd->lock);
-
 	return 0;
 }
 

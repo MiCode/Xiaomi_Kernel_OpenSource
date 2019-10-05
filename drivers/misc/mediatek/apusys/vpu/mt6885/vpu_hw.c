@@ -23,13 +23,11 @@
 #include "vpu_mem.h"
 #include "vpu_power.h"
 #include "vpu_debug.h"
+#include "vpu_dump.h"
 #include "vpu_trace.h"
 
 static int vpu_check_precond(struct vpu_device *vd);
 static int vpu_check_postcond(struct vpu_device *vd);
-
-/* command wait timeout (ms) */
-#define CMD_WAIT_TIME_MS    (3 * 1000)
 
 /* 20180703, 00:00: vpu log mechanism */
 // TODO: update device firmware version
@@ -62,7 +60,7 @@ start:
 	ret = wait_event_interruptible_timeout(
 		vd->cmd_wait,
 		vd->cmd_done,
-		msecs_to_jiffies(CMD_WAIT_TIME_MS));
+		msecs_to_jiffies(vd->cmd_timeout));
 
 	if (ret == -ERESTARTSYS) {
 		pr_info("%s: vpu%d: interrupt by signal: ret=%d\n",
@@ -103,7 +101,6 @@ start:
 		pr_info("%s: vpu%d: PWAITMODE: %d, info25: %x\n",
 			__func__, vd->id, PWAITMODE,
 			vpu_reg_read(vd, XTENSA_INFO25));
-		//	vpu_dump_register(NULL);
 		mdelay(2);
 	} while (count < WAIT_COMMAND_RETRY);
 
@@ -258,12 +255,6 @@ irqreturn_t vpu_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-void vpu_error_handler(struct vpu_device *vd, struct vpu_request *req)
-{
-	// TODO: add to aee db
-	// TODO: add vpu core dump
-}
-
 // vd->cmd_lock, should be acquired before calling this function
 int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 {
@@ -317,28 +308,27 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 	// TODO: add QOS
 //	vpu_cmd_qos_start(vd->id);
 
-	/* RUN_STALL pull down */
 	vpu_run(vd);
 	ktime_get_ts(&start);
 
 	ret = wait_command(vd);
+	vpu_stall(vd);
+
 	if (ret == -ERESTARTSYS)
 		goto err_cmd;
 
 	/* Error handling */
 	if (ret) {
-		pr_info("%s: vpu%d: DO_D2D fail: info00: 0x%x, ret: %d\n",
+		pr_info("%s: vpu%d: DO_D2D timeout: info00: 0x%x, ret: %d\n",
 			__func__, vd->id,
 			vpu_reg_read(vd, XTENSA_INFO00),
 			ret);
 		req->status = VPU_REQ_STATUS_TIMEOUT;
-		// vvpu_vmdla_vcore_checker();
-		vpu_error_handler(vd, req);
+		vpu_aee_excp(vd, req, "VPU Timeout",
+			"vpu%d: request (DO_D2D) timeout, algo: %s\n",
+			vd->id, vd->algo_curr->a.name);
 		goto err_cmd;
 	}
-
-	/* RUN_STALL pull up to avoid fake cmd */
-	vpu_stall(vd);
 
 	ktime_get_ts(&end);
 	latency += (uint64_t)(timespec_to_ns(&end) -
@@ -360,7 +350,6 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 //	req->bandwidth = vpu_cmd_qos_end(vd->id);
 
 err_cmd:
-	// TODO: add met trace
 	vpu_trace_end("vpu_%d|req_status: %d, ret: %d",
 		      vd->id, req->status, ret);
 
@@ -373,9 +362,6 @@ out:
 int vpu_dev_boot(struct vpu_device *vd)
 {
 	int ret = 0;
-
-	if (vd->state == VS_SUSPENDED)
-		return -EBUSY;
 
 	if (vd->state != VS_DOWN)
 		return ret;
@@ -452,6 +438,8 @@ int vpu_execute(struct vpu_device *vd, struct vpu_request *req)
 		goto err_remove;
 
 	ret = vpu_dev_boot(vd);
+	if (ret == -ETIMEDOUT)
+		goto err_remove;
 	if (ret)
 		goto err_boot;
 
@@ -472,16 +460,12 @@ send_req:
 	ret = vpu_execute_d2d(vd, req);
 
 err_alg:
-	/* Check Results */
-	if (ret) {
-		pr_info("%s: vpu%d: hw error, force shutdown\n",
-				__func__, vd->id);
-		vpu_pwr_down(vd);
-	}
+	if (ret == -ETIMEDOUT)
+		goto err_remove;
 
 err_boot:
 	vd->state = VS_IDLE;
-	vpu_pwr_put(vd);
+	vpu_pwr_put_locked(vd);
 
 err_remove:
 	mutex_unlock(&vd->cmd_lock);
@@ -538,6 +522,7 @@ int vpu_init_dev_hw(struct platform_device *pdev, struct vpu_device *vd)
 	mutex_init(&vd->cmd_lock);
 	init_waitqueue_head(&vd->cmd_wait);
 	vd->cmd_done = false;
+	vd->cmd_timeout = VPU_CMD_TIMEOUT;
 
 out:
 	return ret;
@@ -608,7 +593,6 @@ static int vpu_check_postcond(struct vpu_device *vd)
 int vpu_dev_boot_sequence(struct vpu_device *vd)
 {
 	int ret;
-	bool is_hw_fail = true;
 
 	/* 1. write register */
 	/* set specific address for reset vector in external boot */
@@ -649,27 +633,29 @@ int vpu_dev_boot_sequence(struct vpu_device *vd)
 
 	/* 3. wait until done */
 	ret = wait_command(vd);
+	vpu_stall(vd);
+	if (ret == -ETIMEDOUT)
+		goto err_timeout;
 	if (ret == -ERESTARTSYS)
-		is_hw_fail = false;
+		goto out;
 
 	ret = vpu_check_postcond(vd);
 
-	/* RUN_STALL pull up to avoid fake cmd */
-	vpu_stall(vd);
-
+err_timeout:
 	if (ret) {
 		pr_info("%s: vpu%d: boot-up timeout, info00: %d, ret: %d\n",
 			__func__, vd->id,
 			vpu_reg_read(vd, XTENSA_INFO00),
 			ret);
-		vpu_error_handler(vd, NULL);
+		vpu_aee_excp(vd, NULL, "VPU Timeout",
+			"vpu%d: boot-up timeout\n",	vd->id);
 	}
 
 	pr_info("%s: vpu%d: info00: %x, debug05: %x\n",  // TODO: remove debug
 		__func__, vd->id,
 		vpu_reg_read(vd, XTENSA_INFO00),
 		vpu_reg_read(vd, DEBUG_INFO05));
-
+out:
 	return ret;
 }
 
@@ -679,7 +665,6 @@ int vpu_dev_set_debug(struct vpu_device *vd)
 	int ret;
 	struct timespec now;
 	unsigned int device_version = 0x0;
-	bool is_hw_fail = true;
 
 	vpu_cmd_debug("%s: vpu%d\n", __func__, vd->id);
 
@@ -714,12 +699,13 @@ int vpu_dev_set_debug(struct vpu_device *vd)
 
 	/* 3. wait until done */
 	ret = wait_command(vd);
+	vpu_stall(vd);
+
+	if (ret == -ERESTARTSYS)
+		goto out;
 
 	if (ret)
 		goto err;
-
-	/* RUN_STALL pull up to avoid fake cmd */
-	vpu_stall(vd);
 
 	/*3-additional. check vpu device/host version is matched or not*/
 	device_version = vpu_reg_read(vd, XTENSA_INFO20);
@@ -741,21 +727,19 @@ err:
 		pr_info("%s: vpu%d: fail, status: %d, ret: %d\n",
 			__func__, vd->id,
 			vpu_reg_read(vd, XTENSA_INFO00), ret);
-
-		if (ret == -ERESTARTSYS)
-			is_hw_fail = false;
-
-		vpu_error_handler(vd, NULL);
-
+		vpu_aee_excp(vd, NULL, "VPU Timeout",
+			"vpu%d: set debug (SET_DEBUG) timeout\n",
+			vd->id);
 		goto out;
 	}
 
 	/* 4. check the result */
 	ret = vpu_check_postcond(vd);
+
+out:
 	if (ret)
 		pr_info("%s: vpu%d: fail to set debug\n", __func__, vd->id);
 
-out:
 	return ret;
 }
 
@@ -764,7 +748,6 @@ out:
 int vpu_hw_alg_init(struct vpu_device *vd, struct __vpu_algo *algo)
 {
 	int ret;
-	bool is_hw_fail = true;
 
 	vpu_cmd_debug("%s: vpu%d\n", __func__, vd->id);
 
@@ -803,26 +786,26 @@ int vpu_hw_alg_init(struct vpu_device *vd, struct __vpu_algo *algo)
 
 	/* 3. wait until done */
 	ret = wait_command(vd);
-	if (ret == -ERESTARTSYS)
-		is_hw_fail = false;
-
-	vpu_cmd_debug("%s: vpu%d: done\n", __func__, vd->id);
-
-	/* RUN_STALL pull up to avoid fake cmd */
 	vpu_stall(vd);
 
-	// TODO: add met trace
+	vpu_cmd_debug("%s: vpu%d: done\n", __func__, vd->id);
 	vpu_trace_end("vpu_%d|%s", vd->id, __func__);
+
+	if (ret == -ERESTARTSYS)
+		goto out;
+
 	if (ret) {
 		pr_info("%s: vpu%d load algo timeout, status:%d, cmd_done: %d, ret: %d\n",
 			__func__, vd->id,
 			vpu_reg_read(vd, XTENSA_INFO00),
 			vd->cmd_done,
-			ret); // debug
-		// TODO: Error handling, vpu dump
+			ret);
+		vpu_aee_excp(vd, NULL, "VPU Timeout",
+			"vpu%d: load algo (DO_LOADER) timeout, algo: %s\n",
+			vd->id, algo->a.name);
+
 		goto out;
 	}
-
 
 out:
 	return ret;
@@ -873,23 +856,19 @@ int vpu_hw_alg_info(struct vpu_device *vd, struct __vpu_algo *alg)
 
 	/* 3. wait until done */
 	ret = wait_command(vd);
+	vpu_stall(vd);
+
+	if (ret == -ERESTARTSYS)
+		goto out;
 
 	vpu_cmd_debug("%s: vpu%d: VPU_CMD_GET_ALGO done\n", __func__, vd->id);
+
 	if (ret) {
-//		vpu_dump_mesg(NULL);
-//		vpu_dump_register(NULL);
-		if (ret != -ERESTARTSYS) {
-//		vpu_dump_debug_stack(core, DEBUG_STACK_SIZE);
-//		vpu_dump_code_segment(core);
-			vpu_aee("VPU Timeout",
-				"core_%d timeout to get algo, algo: %s\n",
-				vd->id, vd->algo_curr->a.name);
-		}
+		vpu_aee_excp(vd, NULL, "VPU Timeout",
+			"vpu%d: timeout to get algo, algo: %s\n",
+			vd->id, vd->algo_curr->a.name);
 		goto out;
 	}
-
-	/* RUN_STALL pull up to avoid fake cmd */
-	vpu_stall(vd);
 
 	/* 4. get the return value */
 	port_count = vpu_reg_read(vd, XTENSA_INFO05);

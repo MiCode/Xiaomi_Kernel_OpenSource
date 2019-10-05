@@ -221,7 +221,8 @@ int vpu_alg_load(struct vpu_device *vd, const char *name,
 	ret = vpu_hw_alg_init(vd, alg);  // vpu_hw_load_algo
 	if (ret) {
 		pr_info("%s: vpu_hw_alg_init: %d\n", __func__, ret);
-		goto err;
+		vpu_alg_put(alg);
+		goto out;
 	}
 
 	vd->algo_curr = alg;
@@ -231,13 +232,9 @@ int vpu_alg_load(struct vpu_device *vd, const char *name,
 	if (!name && !alg->info_valid) {
 		ret = vpu_alg_load_info(vd, alg);
 		if (ret)
-			goto err;
+			vpu_alg_unload(vd);
 	}
 
-	goto out;
-
-err:
-	vpu_alg_put(alg);
 out:
 	return ret;
 }
@@ -320,7 +317,6 @@ int vpu_alg_del(struct vpu_device *vd, struct apusys_firmware_hnd *fw)
 	 */
 	list_for_each_entry_reverse(alg, &vd->algo, list) {
 		if (!strcmp(alg->a.name, fw->name)) {
-			/* found, reference count++ */
 			vpu_alg_debug("%s: name %s len %d mva 0x%lx\n",
 				      __func__, alg->a.name,
 				      alg->a.len, (unsigned long)alg->a.mva);

@@ -42,6 +42,7 @@ int vpu_init_debug(void);
 void vpu_exit_debug(void);
 int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *vd);
 void vpu_exit_dev_debug(struct platform_device *pdev, struct vpu_device *vd);
+int vpu_mesg_seq(struct seq_file *s, struct vpu_device *vd);
 
 #else
 
@@ -68,6 +69,12 @@ void vpu_exit_dev_debug(struct platform_device *pdev,
 
 static inline
 int vpu_debug_on(int mask)
+{
+	return 0;
+}
+
+static inline
+int vpu_mesg_seq(struct seq_file *s, struct vpu_device *vd)
 {
 	return 0;
 }

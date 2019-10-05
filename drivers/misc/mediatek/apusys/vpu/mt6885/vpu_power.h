@@ -23,11 +23,14 @@
 int vpu_init_dev_pwr(struct platform_device *pdev, struct vpu_device *vd);
 void vpu_exit_dev_pwr(struct platform_device *pdev, struct vpu_device *vd);
 
-int vpu_pwr_get(struct vpu_device *vd, uint8_t boost);
-void vpu_pwr_put(struct vpu_device *vd);
+int vpu_pwr_up(struct vpu_device *vd, uint8_t boost);
 void vpu_pwr_down(struct vpu_device *vd);
 
+int vpu_pwr_up_locked(struct vpu_device *vd, uint8_t boost);
+void vpu_pwr_down_locked(struct vpu_device *vd);
+
 int vpu_pwr_get_locked(struct vpu_device *vd, uint8_t boost);
+void vpu_pwr_put_locked(struct vpu_device *vd);
 
 static inline
 int vpu_pwr_get_locked_nb(struct vpu_device *vd)

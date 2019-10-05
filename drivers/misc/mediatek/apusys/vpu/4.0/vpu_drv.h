@@ -16,7 +16,6 @@
 
 #include <linux/types.h>
 #include <linux/kref.h>
- // #include <vpu_dvfs.h>
 #include "vpu_ioctl.h"
 
 /* kernel internal struct */

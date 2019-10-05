@@ -17,6 +17,8 @@
 #include <linux/platform_device.h>
 #include <linux/scatterlist.h>
 
+#define VPU_MEM_ALLOC  (0xFFFFFFFF)
+
 struct vpu_mem {
 	void *handle;
 	unsigned long va;

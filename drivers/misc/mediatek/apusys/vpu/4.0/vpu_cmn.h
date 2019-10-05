@@ -26,13 +26,16 @@
 #include "apusys_device.h"
 #include "vpu_drv.h"
 #include "vpu_mem.h"
+#include "vpu_dump.h"
 
 #include <aee.h>
 
 #ifdef CONFIG_MTK_AEE_FEATURE
-#define vpu_aee(key, format, args...) \
+#define vpu_aee_excp(vd, req, key, format, args...) \
 	do { \
 		pr_info(format, ##args); \
+		vpu_dmp_create(vd, req, format, ##args); \
+		vpu_pwr_down_locked(vd); \
 		aee_kernel_exception("VPU", \
 			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
 	} while (0)
@@ -44,7 +47,7 @@
 			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
 	} while (0)
 #else
-#define vpu_aee(key, format, args...)
+#define vpu_aee_excp(vd, req, key, format, args...)
 #define vpu_aee_warn(key, format, args...)
 #endif
 
@@ -88,12 +91,16 @@ enum vpu_state {
 	VS_UNKNOWN = 0,
 	VS_DISALBED,   // disabled by e-fuse
 	VS_DOWN,       // power down
-	VS_SUSPENDED,  // suspended
 	VS_BOOT,       // booting
 	VS_IDLE,       // power on, idle
 	VS_CMD_ALG,
 	VS_CMD_D2D,
 	VS_REMOVING
+};
+
+struct vpu_iomem {
+	void __iomem *m;
+	struct resource *res;
 };
 
 // device data
@@ -106,12 +113,18 @@ struct vpu_device {
 	struct apusys_device adev;
 	struct device *dev;      // platform device
 	struct rproc *rproc;
-	void __iomem *reg_base;  // IPU_BASE
+
+	/* iomem */
+	struct vpu_iomem reg;
+	struct vpu_iomem dmem;
+	struct vpu_iomem dmem_log;
+	struct vpu_iomem imem;
 
 	/* power */
 	struct kref pw_ref;
 	struct delayed_work pw_off_work;
-	uint64_t pw_off_latency; // 0 = always on
+	wait_queue_head_t pw_wait;
+	uint64_t pw_off_latency;   /* ms, 0 = always on */
 
 	/* iova settings */
 	struct vpu_iova iova_reset;
@@ -124,9 +137,6 @@ struct vpu_device {
 	dev_t devt;
 	struct cdev cdev;
 	struct device *ddev;
-
-	/* debugfs entry */
-	struct dentry *droot;
 
 	/* algorithm */
 	spinlock_t	algo_lock;
@@ -141,15 +151,16 @@ struct vpu_device {
 	struct mutex cmd_lock;
 	wait_queue_head_t cmd_wait;
 	bool cmd_done;
+	uint64_t cmd_timeout;  /* ms */
 
 	/* memory */
 	uint64_t mva_iram;
 
-	/* trace */
-	bool ftrace_avail;
-
-	/* jtag */
-	bool jtag_enabled;
+	/* debug */
+	struct dentry *droot;  /* debugfs entry */
+	bool ftrace_avail;     /* trace */
+	bool jtag_enabled;     /* jtag */
+	struct vpu_dmp *dmp;   /* dump */
 };
 
 

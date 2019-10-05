@@ -33,8 +33,6 @@
 #define VPU_IOVA_START (0x7DA00000)
 #define VPU_IOVA_END   (0x82600000)
 
-#define VPU_MEM_ALLOC  (0xFFFFFFFF)
-
 static struct page **vpu_map_kva_to_sgt(
 	const char *buf, size_t len, struct sg_table *sgt);
 

@@ -15,6 +15,7 @@
 #define _MT6885_VPU_REG_H_
 
 #include <sync_write.h>
+#include "vpu_cmn.h"
 
 /* Spare Register - Enum */
 enum {
@@ -110,7 +111,7 @@ enum {
 static inline
 unsigned long vpu_reg_base(struct vpu_device *vd)
 {
-	return (unsigned long)vd->reg_base;
+	return (unsigned long)vd->reg.m;
 }
 
 static inline
