@@ -63,9 +63,16 @@ struct CmdqMdpModuleBaseVA {
 static struct CmdqMdpModuleBaseVA gCmdqMdpModuleBaseVA;
 
 struct CmdqMdpModuleClock {
-	struct clk *clk_CAM_MDP;
-	struct clk *clk_IMG_DL_RELAY;
-	struct clk *clk_IMG_DL_ASYNC_TOP;
+	struct clk *clk_APB;
+	struct clk *clk_APMCU_GALS;
+	struct clk *clk_IMG_DL_ASYNC0;
+	struct clk *clk_IMG_DL_ASYNC1;
+	struct clk *clk_IMG_DL_ASYNC2;
+	struct clk *clk_IMG_DL_ASYNC3;
+	struct clk *clk_IMG0_IMG_DL_ASYNC0;
+	struct clk *clk_IMG0_IMG_DL_ASYNC1;
+	struct clk *clk_IMG1_IMG_DL_ASYNC2;
+	struct clk *clk_IMG1_IMG_DL_ASYNC3;
 	struct clk *clk_MDP_RDMA0;
 	struct clk *clk_MDP_RDMA1;
 	struct clk *clk_MDP_RDMA2;
@@ -111,9 +118,16 @@ bool cmdq_mdp_clock_is_enable_##FN_NAME(void)	\
 		gCmdqMdpModuleClock.clk_##HW_NAME);	\
 }
 
-IMP_ENABLE_MDP_HW_CLOCK(CAM_MDP, CAM_MDP);
-IMP_ENABLE_MDP_HW_CLOCK(IMG_DL_RELAY, IMG_DL_RELAY);
-IMP_ENABLE_MDP_HW_CLOCK(IMG_DL_ASYNC_TOP, IMG_DL_ASYNC_TOP);
+IMP_ENABLE_MDP_HW_CLOCK(APB, APB);
+IMP_ENABLE_MDP_HW_CLOCK(APMCU_GALS, APMCU_GALS);
+IMP_ENABLE_MDP_HW_CLOCK(IMG_DL_ASYNC0, IMG_DL_ASYNC0);
+IMP_ENABLE_MDP_HW_CLOCK(IMG_DL_ASYNC1, IMG_DL_ASYNC1);
+IMP_ENABLE_MDP_HW_CLOCK(IMG_DL_ASYNC2, IMG_DL_ASYNC2);
+IMP_ENABLE_MDP_HW_CLOCK(IMG_DL_ASYNC3, IMG_DL_ASYNC3);
+IMP_ENABLE_MDP_HW_CLOCK(IMG0_IMG_DL_ASYNC0, IMG0_IMG_DL_ASYNC0);
+IMP_ENABLE_MDP_HW_CLOCK(IMG0_IMG_DL_ASYNC1, IMG0_IMG_DL_ASYNC1);
+IMP_ENABLE_MDP_HW_CLOCK(IMG1_IMG_DL_ASYNC2, IMG1_IMG_DL_ASYNC2);
+IMP_ENABLE_MDP_HW_CLOCK(IMG1_IMG_DL_ASYNC3, IMG1_IMG_DL_ASYNC3);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_RDMA0, MDP_RDMA0);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_RDMA1, MDP_RDMA1);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_RDMA2, MDP_RDMA2);
@@ -144,9 +158,16 @@ IMP_ENABLE_MDP_HW_CLOCK(MDP_AAL0, MDP_AAL0);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_AAL1, MDP_AAL1);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_AAL2, MDP_AAL2);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_AAL3, MDP_AAL3);
-IMP_MDP_HW_CLOCK_IS_ENABLE(CAM_MDP, CAM_MDP);
-IMP_MDP_HW_CLOCK_IS_ENABLE(IMG_DL_RELAY, IMG_DL_RELAY);
-IMP_MDP_HW_CLOCK_IS_ENABLE(IMG_DL_ASYNC_TOP, IMG_DL_ASYNC_TOP);
+IMP_MDP_HW_CLOCK_IS_ENABLE(APB, APB);
+IMP_MDP_HW_CLOCK_IS_ENABLE(APMCU_GALS, APMCU_GALS);
+IMP_MDP_HW_CLOCK_IS_ENABLE(IMG_DL_ASYNC0, IMG_DL_ASYNC0);
+IMP_MDP_HW_CLOCK_IS_ENABLE(IMG_DL_ASYNC1, IMG_DL_ASYNC1);
+IMP_MDP_HW_CLOCK_IS_ENABLE(IMG_DL_ASYNC2, IMG_DL_ASYNC2);
+IMP_MDP_HW_CLOCK_IS_ENABLE(IMG_DL_ASYNC3, IMG_DL_ASYNC3);
+IMP_MDP_HW_CLOCK_IS_ENABLE(IMG0_IMG_DL_ASYNC0, IMG0_IMG_DL_ASYNC0);
+IMP_MDP_HW_CLOCK_IS_ENABLE(IMG0_IMG_DL_ASYNC1, IMG0_IMG_DL_ASYNC1);
+IMP_MDP_HW_CLOCK_IS_ENABLE(IMG1_IMG_DL_ASYNC2, IMG1_IMG_DL_ASYNC2);
+IMP_MDP_HW_CLOCK_IS_ENABLE(IMG1_IMG_DL_ASYNC3, IMG1_IMG_DL_ASYNC3);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_RDMA0, MDP_RDMA0);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_RDMA1, MDP_RDMA1);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_RDMA2, MDP_RDMA2);
@@ -790,9 +811,11 @@ bool cmdq_mdp_clock_is_on(enum CMDQ_ENG_ENUM engine)
 {
 	switch (engine) {
 	case CMDQ_ENG_MDP_CAMIN:
-		return cmdq_mdp_clock_is_enable_CAM_MDP() &&
-				cmdq_mdp_clock_is_enable_IMG_DL_RELAY() &&
-				cmdq_mdp_clock_is_enable_IMG_DL_ASYNC_TOP();
+		return cmdq_mdp_clock_is_enable_IMG_DL_ASYNC0() &&
+				cmdq_mdp_clock_is_enable_IMG0_IMG_DL_ASYNC0();
+	case CMDQ_ENG_MDP_CAMIN2:
+		return cmdq_mdp_clock_is_enable_IMG_DL_ASYNC1() &&
+				cmdq_mdp_clock_is_enable_IMG0_IMG_DL_ASYNC1();
 	case CMDQ_ENG_MDP_RDMA0:
 		return cmdq_mdp_clock_is_enable_MDP_RDMA0();
 	case CMDQ_ENG_MDP_RDMA1:
@@ -841,16 +864,18 @@ void cmdq_mdp_enable_clock(bool enable, enum CMDQ_ENG_ENUM engine)
 {
 	switch (engine) {
 	case CMDQ_ENG_MDP_CAMIN:
-		cmdq_mdp_enable_clock_CAM_MDP(enable);
-		cmdq_mdp_enable_clock_IMG_DL_RELAY(enable);
-		cmdq_mdp_enable_clock_IMG_DL_ASYNC_TOP(enable);
+		cmdq_mdp_enable_clock_IMG_DL_ASYNC0(enable);
+		cmdq_mdp_enable_clock_IMG0_IMG_DL_ASYNC0(enable);
+		break;
+	case CMDQ_ENG_MDP_CAMIN2:
+		cmdq_mdp_enable_clock_IMG_DL_ASYNC1(enable);
+		cmdq_mdp_enable_clock_IMG0_IMG_DL_ASYNC1(enable);
 		break;
 	case CMDQ_ENG_MDP_RDMA0:
 		cmdq_mdp_enable_clock_MDP_RDMA0(enable);
 		break;
 	case CMDQ_ENG_MDP_RDMA1:
 		cmdq_mdp_enable_clock_MDP_RDMA1(enable);
-		break;
 		break;
 	case CMDQ_ENG_MDP_RSZ0:
 		cmdq_mdp_enable_clock_MDP_RSZ0(enable);
@@ -909,12 +934,30 @@ void cmdq_mdp_enable_clock(bool enable, enum CMDQ_ENG_ENUM engine)
 /* Common Clock Framework */
 void cmdq_mdp_init_module_clk(void)
 {
-	cmdq_dev_get_module_clock_by_name("mmsys_config", "CAM_MDP",
-		&gCmdqMdpModuleClock.clk_CAM_MDP);
-	cmdq_dev_get_module_clock_by_name("mmsys_config", "IMG_DL_RELAY",
-		&gCmdqMdpModuleClock.clk_IMG_DL_RELAY);
-	cmdq_dev_get_module_clock_by_name("mmsys_config", "IMG_DL_ASYNC_TOP",
-		&gCmdqMdpModuleClock.clk_IMG_DL_ASYNC_TOP);
+	cmdq_dev_get_module_clock_by_name("mmsys_config", "MDP_APB_BUS",
+		&gCmdqMdpModuleClock.clk_APB);
+	cmdq_dev_get_module_clock_by_name("mmsys_config", "MDP_APMCU_GALS",
+		&gCmdqMdpModuleClock.clk_APMCU_GALS);
+	cmdq_dev_get_module_clock_by_name("mmsys_config", "MDP_IMG_DL_ASYNC0",
+		&gCmdqMdpModuleClock.clk_IMG_DL_ASYNC0);
+	cmdq_dev_get_module_clock_by_name("mmsys_config", "MDP_IMG_DL_ASYNC1",
+		&gCmdqMdpModuleClock.clk_IMG_DL_ASYNC1);
+	cmdq_dev_get_module_clock_by_name("mmsys_config", "MDP_IMG_DL_ASYNC2",
+		&gCmdqMdpModuleClock.clk_IMG_DL_ASYNC2);
+	cmdq_dev_get_module_clock_by_name("mmsys_config",
+		"MDP_IMG_DL_ASYNC3", &gCmdqMdpModuleClock.clk_IMG_DL_ASYNC3);
+	cmdq_dev_get_module_clock_by_name("mmsys_config",
+		"MDP_IMG0_IMG_DL_ASYNC0",
+		&gCmdqMdpModuleClock.clk_IMG0_IMG_DL_ASYNC0);
+	cmdq_dev_get_module_clock_by_name("mmsys_config",
+		"MDP_IMG0_IMG_DL_ASYNC1",
+		&gCmdqMdpModuleClock.clk_IMG0_IMG_DL_ASYNC1);
+	cmdq_dev_get_module_clock_by_name("mmsys_config",
+		"MDP_IMG1_IMG_DL_ASYNC2",
+		&gCmdqMdpModuleClock.clk_IMG1_IMG_DL_ASYNC2);
+	cmdq_dev_get_module_clock_by_name("mmsys_config",
+		"MDP_IMG1_IMG_DL_ASYNC3",
+		&gCmdqMdpModuleClock.clk_IMG1_IMG_DL_ASYNC3);
 	cmdq_dev_get_module_clock_by_name("mdp_rdma0", "MDP_RDMA0",
 		&gCmdqMdpModuleClock.clk_MDP_RDMA0);
 	cmdq_dev_get_module_clock_by_name("mdp_rdma1", "MDP_RDMA1",
@@ -1766,8 +1809,12 @@ static void cmdq_mdp_enable_common_clock(bool enable)
 		/* Use SMI clock API */
 		smi_bus_prepare_enable(SMI_LARB2, "MDP");
 		smi_bus_prepare_enable(SMI_LARB3, "MDP");
+		cmdq_mdp_enable_clock_APB(enable);
+		cmdq_mdp_enable_clock_APMCU_GALS(enable);
 	} else {
 		/* disable, reverse the sequence */
+		cmdq_mdp_enable_clock_APB(enable);
+		cmdq_mdp_enable_clock_APMCU_GALS(enable);
 		smi_bus_disable_unprepare(SMI_LARB2, "MDP");
 		smi_bus_disable_unprepare(SMI_LARB3, "MDP");
 	}

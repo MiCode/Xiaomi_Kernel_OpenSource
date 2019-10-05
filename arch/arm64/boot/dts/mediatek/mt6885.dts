@@ -2655,6 +2655,26 @@ page_owner=on";
 		reg = <0 0x1f000000 0 0x1000>;
 		#clock-cells = <1>;
 		interrupts = <GIC_SPI 273 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&mdpsys_config MDP_IMG_DL_ASYNC0>,
+			<&mdpsys_config MDP_IMG_DL_ASYNC1>,
+			<&mdpsys_config MDP_IMG_DL_ASYNC2>,
+			<&mdpsys_config MDP_IMG_DL_ASYNC3>,
+			<&mdpsys_config MDP_IMG0_IMG_DL_ASYNC0>,
+			<&mdpsys_config MDP_IMG0_IMG_DL_ASYNC1>,
+			<&mdpsys_config MDP_IMG1_IMG_DL_ASYNC2>,
+			<&mdpsys_config MDP_IMG1_IMG_DL_ASYNC3>,
+			<&mdpsys_config MDP_APB_BUS>,
+			<&mdpsys_config MDP_APMCU_GALS>;
+		clock-names = "MDP_IMG_DL_ASYNC0",
+				"MDP_IMG_DL_ASYNC1",
+				"MDP_IMG_DL_ASYNC2",
+				"MDP_IMG_DL_ASYNC3",
+				"MDP_IMG0_IMG_DL_ASYNC0",
+				"MDP_IMG0_IMG_DL_ASYNC1",
+				"MDP_IMG1_IMG_DL_ASYNC2",
+				"MDP_IMG1_IMG_DL_ASYNC3",
+				"MDP_APB_BUS",
+				"MDP_APMCU_GALS";
 	};
 
 	mdp_mutex: mdp_mutex@1f001000 {
