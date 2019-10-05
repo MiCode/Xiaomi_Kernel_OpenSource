@@ -34,14 +34,48 @@
 #define CREATE_TRACE_POINTS
 #include "mtk_sched_mon_trace.h"
 
-#define evt_ISR      0x001
-#define evt_SOFTIRQ  0x002
-#define evt_TASKLET  0x004
-#define evt_HRTIMER  0x008
-#define evt_STIMER   0x010
-#define evt_IPI      0x020
-#define evt_IRQWORK  0x040
-#define evt_HARDIRQ  0x080
+enum sched_mon_event {
+	evt_ISR,
+	evt_SOFTIRQ,
+	evt_TASKLET,
+	evt_HRTIMER,
+	evt_STIMER,
+	evt_IPI,
+	evt_IRQWORK,
+	evt_HARDIRQ,
+	evt_BURST_IRQ,
+	evt_PREEMPT_CNT,
+	NUM_EVENTS
+};
+
+struct sched_mon_event_count {
+	const char *name;
+	unsigned long warn_cnt;
+	unsigned long aee_cnt;
+};
+static struct sched_mon_event_count sched_mon_evt[NUM_EVENTS] = {
+	{"ISR", 0, 0},
+	{"SOFTIRQ", 0, 0},
+	{"TASKLET", 0, 0},
+	{"HRTIMER", 0, 0},
+	{"STIMER", 0, 0},
+	{"IPI", 0, 0},
+	{"IRQWORK", 0, 0},
+	{"HARDIRQ", 0, 0},
+	{"BURST_IRQ", 0, 0},
+	{"PREEMPT_CNT", 0, 0}
+};
+
+#define en_ISR          0x001
+#define en_SOFTIRQ      0x002
+#define en_TASKLET      0x004
+#define en_HRTIMER      0x008
+#define en_STIMER       0x010
+#define en_IPI          0x020
+#define en_IRQWORK      0x040
+#define en_HARDIRQ      0x080
+#define en_BURST_IRQ    0x100
+#define en_PREEMPT_CNT  0x200
 
 #define TO_KERNEL_LOG  0x1
 #define TO_FTRACE      0x2
@@ -66,37 +100,46 @@ static const char * const softirq_name[] = {
 
 #define TIME_1MS	1000000
 #define TIME_3MS	3000000
+#define TIME_5MS	5000000
 #define TIME_10MS	10000000
 #define TIME_50MS	50000000
 #define TIME_100MS	100000000
 #define TIME_200MS	200000000
 #define TIME_500MS	500000000
+#define BUFFER_TIME	10000000
 
-static unsigned int WARN_ISR_DUR = TIME_10MS;
-static unsigned int WARN_SOFTIRQ_DUR = TIME_10MS;
-static unsigned int WARN_TASKLET_DUR = TIME_10MS;
-static unsigned int WARN_HRTIMER_DUR = TIME_10MS;
-static unsigned int WARN_STIMER_DUR = TIME_10MS;
+static unsigned int WARN_ISR_DUR = TIME_3MS;
+static unsigned int WARN_SOFTIRQ_DUR = TIME_5MS;
+static unsigned int WARN_TASKLET_DUR = TIME_5MS;
+static unsigned int WARN_HRTIMER_DUR = TIME_3MS;
+static unsigned int WARN_STIMER_DUR = TIME_5MS;
 static unsigned int WARN_BURST_IRQ_DETECT = 25000;
 static unsigned int WARN_PREEMPT_DUR = TIME_3MS;
 static unsigned int WARN_IRQ_DISABLE_DUR = TIME_50MS;
+static unsigned int WARN_IRQ_WORK_DUR = TIME_500MS - BUFFER_TIME;
+static unsigned int AEE_COMMON_DUR = TIME_500MS;
 static unsigned int AEE_IRQ_DISABLE_DUR = TIME_500MS;
-static unsigned int WARN_IRQ_WORK_DUR = TIME_500MS - TIME_10MS;
-static unsigned int AEE_WARN_DUR = TIME_500MS;
-
-static unsigned int irq_info_enable;
 static unsigned int sched_mon_enable;
-static unsigned int sched_mon_warn_enable;
 static unsigned int sched_mon_door_key;
-static unsigned int sched_mon_func;
-static unsigned int skip_aee_once;
-static int sched_mon_aee_cnt;
+static unsigned int irq_info_enable;
+static unsigned int skip_aee;
+static unsigned int warning_on;
+static unsigned int sched_mon_func_select;
 static char *aee_buf;
 static char buf_tasklet[144];
 static char buf_hrtimer[144];
 static char buf_stimer[144];
 
-/* //////////////////////////////////////////////////////// */
+/* enable to generate aee db */
+static unsigned int aee_on_duration;
+static unsigned int aee_on_preempt_balance;
+static unsigned int aee_on_burst_irq;
+
+/* limit quantity of aee db */
+static int aee_cnt_duration;
+static int aee_cnt_preempt_balance;
+static int aee_cnt_burst_irq;
+
 DEFINE_PER_CPU(struct sched_block_event, ISR_mon);
 DEFINE_PER_CPU(struct sched_block_event, IPI_mon);
 DEFINE_PER_CPU(struct sched_block_event, SoftIRQ_mon);
@@ -148,13 +191,14 @@ static void sched_mon_msg(char *buf, int out)
 		printk_deferred("%s\n", buf);
 }
 
-static void sched_monitor_aee(unsigned int event, const char *msg,
-	struct sched_block_event *b)
+static void sched_monitor_aee(unsigned int event, const char *msg)
 {
 #ifdef CONFIG_MTK_AEE_FEATURE
 	char aee_str[64];
 
-	if (sched_mon_aee_cnt-- <= 0)
+	sched_mon_evt[event].aee_cnt++;
+
+	if (!aee_on_duration || !(aee_cnt_duration-- > 0))
 		return;
 
 	switch (event) {
@@ -179,10 +223,26 @@ static void sched_monitor_aee(unsigned int event, const char *msg,
 			DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE, aee_str,
 			"IRQ DISABLE DURATION WARN\n%s", msg);
 		break;
+	case evt_BURST_IRQ:
+		snprintf(aee_str, 64,
+			"SCHED MONITOR : BURST IRQ DURATION WARN");
+		aee_kernel_warning_api(__FILE__, __LINE__,
+			DB_OPT_DEFAULT | DB_OPT_FTRACE, aee_str,
+			"BURST IRQ DURATION WARN\n%s", msg);
+		break;
+	case evt_PREEMPT_CNT:
+		if (aee_on_preempt_balance &&
+			aee_cnt_preempt_balance-- > 0) {
+			snprintf(aee_str, 64,
+				"SCHED MONITOR : UNBALANCED PREEMPT COUNT WARN");
+			aee_kernel_warning_api(__FILE__, __LINE__,
+				DB_OPT_DEFAULT | DB_OPT_FTRACE, aee_str,
+				"UNBALANCED PREEMPT COUNT WARN\n%s", msg);
+		}
+		break;
 	}
 #endif
 }
-
 
 /* Real work */
 static void event_duration_check(struct sched_block_event *b)
@@ -198,10 +258,11 @@ static void event_duration_check(struct sched_block_event *b)
 	switch (b->type) {
 	case evt_ISR:
 		if (t_dur > WARN_ISR_DUR) {
-			if (sched_mon_warn_enable || t_dur > AEE_WARN_DUR) {
+			sched_mon_evt[b->type].warn_cnt++;
+			if (warning_on || t_dur > AEE_COMMON_DUR) {
 				snprintf(buf, sizeof(buf),
 					"[ISR DURATION WARN%s] IRQ[%d:%s] dur:%llu ms (s:%lld.%06lu,e:%lld.%06lu)",
-					t_dur > AEE_WARN_DUR ? "!" : "",
+					t_dur > AEE_COMMON_DUR ? "!" : "",
 					(int)b->last_event,
 					isr_name(b->last_event),
 					msec_high(t_dur),
@@ -211,10 +272,10 @@ static void event_duration_check(struct sched_block_event *b)
 					sec_low(b->last_te));
 				sched_mon_msg(buf, TO_BOTH);
 			}
-			if (t_dur > AEE_WARN_DUR) {
-				if (!skip_aee_once)
-					sched_monitor_aee(b->type, buf, b);
-				skip_aee_once = 0;
+			if (t_dur > AEE_COMMON_DUR) {
+				if (!skip_aee)
+					sched_monitor_aee(b->type, buf);
+				skip_aee = 0;
 			}
 		}
 		if (b->preempt_count != preempt_count()) {
@@ -225,17 +286,19 @@ static void event_duration_check(struct sched_block_event *b)
 				preempt_count(),
 				b->preempt_count);
 			sched_mon_msg(buf, TO_BOTH);
+			sched_monitor_aee(evt_PREEMPT_CNT, buf);
 		}
 		break;
 	case evt_SOFTIRQ:
 		if (t_dur > WARN_SOFTIRQ_DUR) {
 			struct sched_block_event *b_isr;
 
+			sched_mon_evt[b->type].warn_cnt++;
 			b_isr = &__raw_get_cpu_var(ISR_mon);
-			if (sched_mon_warn_enable || t_dur > AEE_WARN_DUR) {
+			if (warning_on || t_dur > AEE_COMMON_DUR) {
 				snprintf(buf, sizeof(buf),
 					"[SOFTIRQ DURATION WARN%s] SoftIRQ:%d[%s] dur:%llu ms (s:%lld.%06lu,e:%lld.%06lu)",
-					t_dur > AEE_WARN_DUR ? "!" : "",
+					t_dur > AEE_COMMON_DUR ? "!" : "",
 					(int)b->last_event,
 					softirq_name[(int)b->last_event],
 					msec_high(t_dur),
@@ -262,9 +325,10 @@ static void event_duration_check(struct sched_block_event *b)
 					sched_mon_msg(buf2, TO_BOTH);
 				}
 			}
-			if (t_dur > AEE_WARN_DUR
-				&& b->last_event != RCU_SOFTIRQ)
-				sched_monitor_aee(b->type, buf, b);
+			if (t_dur > AEE_COMMON_DUR
+				&& b->last_event != RCU_SOFTIRQ) {
+				sched_monitor_aee(b->type, buf);
+			}
 		}
 		if (b->preempt_count != preempt_count()) {
 			snprintf(buf, sizeof(buf),
@@ -273,13 +337,15 @@ static void event_duration_check(struct sched_block_event *b)
 				preempt_count(),
 				b->preempt_count);
 			sched_mon_msg(buf, TO_BOTH);
+			sched_monitor_aee(evt_PREEMPT_CNT, buf);
 		}
 		break;
 	case evt_TASKLET:
-		if ((sched_mon_warn_enable && t_dur > WARN_TASKLET_DUR)
-			|| (t_dur > AEE_WARN_DUR)) {
+		if ((warning_on && t_dur > WARN_TASKLET_DUR)
+			|| (t_dur > AEE_COMMON_DUR)) {
 			struct sched_block_event *b_isr;
 
+			sched_mon_evt[b->type].warn_cnt++;
 			b_isr = &__raw_get_cpu_var(ISR_mon);
 			snprintf(buf, sizeof(buf),
 				"[TASKLET DURATION WARN] Tasklet:%ps dur:%llu ms (s:%lld.%06lu,e:%lld.%06lu)",
@@ -288,7 +354,8 @@ static void event_duration_check(struct sched_block_event *b)
 				sec_high(b->last_ts), sec_low(b->last_ts),
 				sec_high(b->last_te), sec_low(b->last_te));
 			sched_mon_msg(buf, TO_BOTH);
-			if (t_dur > AEE_WARN_DUR) {
+			if (t_dur > AEE_COMMON_DUR) {
+				sched_mon_evt[b->type].aee_cnt++;
 				strncpy(buf_tasklet, buf,
 					sizeof(buf_tasklet) - 1);
 				aee_buf = buf_tasklet;
@@ -316,14 +383,16 @@ static void event_duration_check(struct sched_block_event *b)
 				preempt_count(),
 				b->preempt_count);
 			sched_mon_msg(buf, TO_BOTH);
+			sched_monitor_aee(evt_PREEMPT_CNT, buf);
 		}
 		break;
 	case evt_HRTIMER:
-		if ((sched_mon_warn_enable && t_dur > WARN_HRTIMER_DUR)
-			|| (t_dur > AEE_WARN_DUR)) {
+		if ((warning_on && t_dur > WARN_HRTIMER_DUR)
+			|| (t_dur > AEE_COMMON_DUR)) {
 			struct sched_lock_event *lock_e;
 			static char htimer_name[64];
 
+			sched_mon_evt[b->type].warn_cnt++;
 			/* tick_sched_timer -> irq_work_tick
 			 *                  -> wake_up_klogd_work_func
 			 * Too much log to console triggers duration warning on
@@ -332,7 +401,7 @@ static void event_duration_check(struct sched_block_event *b)
 			snprintf(htimer_name, sizeof(htimer_name), "%ps",
 			(void *)b->last_event);
 			if (strcmp(htimer_name, "tick_sched_timer") == 0)
-				skip_aee_once = 1;
+				skip_aee = 1;
 
 			lock_e = &__raw_get_cpu_var(rq_lock_mon);
 			snprintf(buf, sizeof(buf),
@@ -342,7 +411,8 @@ static void event_duration_check(struct sched_block_event *b)
 				sec_high(b->last_ts), sec_low(b->last_ts),
 				sec_high(b->last_te), sec_low(b->last_te));
 			sched_mon_msg(buf, TO_BOTH);
-			if (t_dur > AEE_WARN_DUR) {
+			if (t_dur > AEE_COMMON_DUR) {
+				sched_mon_evt[b->type].aee_cnt++;
 				strncpy(buf_hrtimer, buf,
 					sizeof(buf_hrtimer) - 1);
 				aee_buf = buf_hrtimer;
@@ -370,13 +440,15 @@ static void event_duration_check(struct sched_block_event *b)
 				preempt_count(),
 				b->preempt_count);
 			sched_mon_msg(buf, TO_BOTH);
+			sched_monitor_aee(evt_PREEMPT_CNT, buf);
 		}
 		break;
 	case evt_STIMER:
-		if ((sched_mon_warn_enable && t_dur > WARN_STIMER_DUR)
-			|| (t_dur > AEE_WARN_DUR)) {
+		if ((warning_on && t_dur > WARN_STIMER_DUR)
+			|| (t_dur > AEE_COMMON_DUR)) {
 			struct sched_block_event *b_isr;
 
+			sched_mon_evt[b->type].warn_cnt++;
 			b_isr = &__raw_get_cpu_var(ISR_mon);
 			snprintf(buf, sizeof(buf),
 				"[STIMER DURATION WARN] SoftTIMER:%ps dur:%llu ms (s:%lld.%06lu,e:%lld.%06lu)",
@@ -385,7 +457,8 @@ static void event_duration_check(struct sched_block_event *b)
 				sec_high(b->last_ts), sec_low(b->last_ts),
 				sec_high(b->last_te), sec_low(b->last_te));
 			sched_mon_msg(buf, TO_BOTH);
-			if (t_dur > AEE_WARN_DUR) {
+			if (t_dur > AEE_COMMON_DUR) {
+				sched_mon_evt[b->type].aee_cnt++;
 				strncpy(buf_stimer, buf,
 					sizeof(buf_stimer) - 1);
 				aee_buf = buf_stimer;
@@ -413,11 +486,13 @@ static void event_duration_check(struct sched_block_event *b)
 				preempt_count(),
 				b->preempt_count);
 			sched_mon_msg(buf, TO_BOTH);
+			sched_monitor_aee(evt_PREEMPT_CNT, buf);
 		}
 		break;
 	case evt_IPI:
-		if ((sched_mon_warn_enable && t_dur > WARN_ISR_DUR)
-			|| (t_dur > AEE_WARN_DUR)) {
+		if ((warning_on && t_dur > WARN_ISR_DUR)
+			|| (t_dur > AEE_COMMON_DUR)) {
+			sched_mon_evt[b->type].warn_cnt++;
 			snprintf(buf, sizeof(buf),
 				"[ISR DURATION WARN] IPI[%d] dur:%llu ms (s:%lld.%06lu,e:%lld.%06lu)",
 				(int)b->last_event,
@@ -425,6 +500,8 @@ static void event_duration_check(struct sched_block_event *b)
 				sec_high(b->last_ts), sec_low(b->last_ts),
 				sec_high(b->last_te), sec_low(b->last_te));
 			sched_mon_msg(buf, TO_BOTH);
+			if (t_dur > AEE_COMMON_DUR)
+				sched_mon_evt[b->type].aee_cnt++;
 		}
 		if (b->preempt_count != preempt_count()) {
 			snprintf(buf, sizeof(buf),
@@ -433,10 +510,12 @@ static void event_duration_check(struct sched_block_event *b)
 				preempt_count(),
 				b->preempt_count);
 			sched_mon_msg(buf, TO_BOTH);
+			sched_monitor_aee(evt_PREEMPT_CNT, buf);
 		}
 		break;
 	case evt_IRQWORK:
 		if (t_dur > WARN_IRQ_WORK_DUR) {
+			sched_mon_evt[b->type].warn_cnt++;
 			snprintf(buf, sizeof(buf),
 				"[IRQ WORK DURATION WARN] func: %ps, dur:%llu ms (s:%lld.%06lu,e:%lld.%06lu)",
 				(void *)b->last_event,
@@ -444,6 +523,8 @@ static void event_duration_check(struct sched_block_event *b)
 				sec_high(b->last_ts), sec_low(b->last_ts),
 				sec_high(b->last_te), sec_low(b->last_te));
 			sched_mon_msg(buf, TO_BOTH);
+			if (t_dur > AEE_COMMON_DUR)
+				sched_mon_evt[b->type].aee_cnt++;
 		}
 		if (b->preempt_count != preempt_count()) {
 			snprintf(buf, sizeof(buf),
@@ -452,6 +533,7 @@ static void event_duration_check(struct sched_block_event *b)
 				preempt_count(),
 				b->preempt_count);
 			sched_mon_msg(buf, TO_BOTH);
+			sched_monitor_aee(evt_PREEMPT_CNT, buf);
 		}
 		break;
 	}
@@ -470,8 +552,8 @@ static void softirq_event_duration_check(struct sched_block_event *b)
 	switch (b->type) {
 	case RCU_SOFTIRQ:
 		if (t_dur > WARN_SOFTIRQ_DUR) {
-			if (sched_mon_warn_enable
-				|| t_dur > (AEE_WARN_DUR - TIME_10MS)) {
+			if (warning_on
+				|| t_dur > (AEE_COMMON_DUR - BUFFER_TIME)) {
 				snprintf(buf, sizeof(buf),
 					"[RCU_SOFTIRQ DURATION WARN] func: %ps, dur:%llu ms (s:%lld.%06lu,e:%lld.%06lu)",
 					(void *)b->last_event,
@@ -481,9 +563,9 @@ static void softirq_event_duration_check(struct sched_block_event *b)
 					sec_high(b->last_te),
 					sec_low(b->last_te));
 				sched_mon_msg(buf, TO_BOTH);
-				if (t_dur > (AEE_WARN_DUR - TIME_10MS)) {
+				if (t_dur > (AEE_COMMON_DUR - BUFFER_TIME)) {
 					aee_buf = "";
-					sched_monitor_aee(evt_SOFTIRQ, buf, b);
+					sched_monitor_aee(evt_SOFTIRQ, buf);
 				}
 			}
 		}
@@ -812,7 +894,11 @@ static void burst_irq_check(int irq, int irq_num, unsigned long long t_diff,
 		t_avg = t_diff;
 		do_div(t_avg, count);
 		if (t_avg < WARN_BURST_IRQ_DETECT) {
-			pr_info("[BURST IRQ DURATION WARN] IRQ[%3d:%14s] +%d (dur:%lld us, avg:%lld us, %lld ~ %lld us)\n",
+			char buf[128];
+
+			sched_mon_evt[evt_BURST_IRQ].warn_cnt++;
+			snprintf(buf, sizeof(buf),
+				"[BURST IRQ DURATION WARN] IRQ[%3d:%14s] +%d (dur:%lld us, avg:%lld us, %lld ~ %lld us)\n",
 				irq,
 				isr_name(irq),
 				count,
@@ -820,6 +906,12 @@ static void burst_irq_check(int irq, int irq_num, unsigned long long t_diff,
 				usec_high(t_avg),
 				usec_high(t_start),
 				usec_high(t_end));
+			sched_mon_msg(buf, TO_BOTH);
+
+			if (aee_on_burst_irq && aee_cnt_burst_irq-- > 0) {
+				aee_buf = "";
+				sched_monitor_aee(evt_BURST_IRQ, buf);
+			}
 		}
 	}
 }
@@ -1029,7 +1121,7 @@ void MT_trace_hardirqs_on(void)
 	unsigned long long t_on, t_off, t_dur;
 	int output = TO_BOTH_SAVE;
 
-	if (sched_mon_enable && (sched_mon_func & evt_HARDIRQ)) {
+	if (sched_mon_enable && (sched_mon_func_select & en_HARDIRQ)) {
 #ifdef CONFIG_TRACE_IRQFLAGS
 		if (current->hardirqs_enabled) {
 			__raw_get_cpu_var(MT_tracing_cpu) = 0;
@@ -1055,6 +1147,7 @@ void MT_trace_hardirqs_on(void)
 				bool skip_aee = 0;
 				struct lock_block_event *b;
 
+				sched_mon_evt[evt_HARDIRQ].warn_cnt++;
 				snprintf(buf, sizeof(buf),
 					"IRQ disable monitor: dur[%llu ms] off[%lld.%06lu] on[%lld.%06lu]",
 					msec_high(t_dur),
@@ -1091,8 +1184,7 @@ void MT_trace_hardirqs_on(void)
 					msec_high(t_dur),
 					sec_high(t_off), sec_low(t_off),
 					sec_high(t_on), sec_low(t_on), buf2);
-					sched_monitor_aee(evt_HARDIRQ,
-						buf, NULL);
+					sched_monitor_aee(evt_HARDIRQ, buf);
 				}
 			}
 			__raw_get_cpu_var(t_irq_off) = 0;
@@ -1104,7 +1196,7 @@ EXPORT_SYMBOL(MT_trace_hardirqs_on);
 
 void MT_trace_hardirqs_off(void)
 {
-	if (sched_mon_enable && (sched_mon_func & evt_HARDIRQ)) {
+	if (sched_mon_enable && (sched_mon_func_select & en_HARDIRQ)) {
 #ifdef CONFIG_TRACE_IRQFLAGS
 		if (!current->hardirqs_enabled)
 			return;
@@ -1208,6 +1300,98 @@ void stop_sched_monitor(void)
 {
 }
 
+static ssize_t mt_sched_monitor_door_write(struct file *filp,
+	const char *ubuf, size_t cnt, loff_t *data)
+{
+	char buf[16];
+
+	if (cnt >= sizeof(buf) || cnt <= 1UL)
+		return cnt;
+
+	if (copy_from_user(&buf, ubuf, cnt))
+		return -EFAULT;
+
+	buf[cnt-1UL] = 0;
+
+	if (strcmp("open", buf) == 0)
+		sched_mon_door_key = 1;
+	if (strcmp("close", buf) == 0)
+		sched_mon_door_key = 0;
+
+	return cnt;
+}
+
+static const struct file_operations mt_sched_monitor_door_fops = {
+	.open = simple_open,
+	.write = mt_sched_monitor_door_write,
+};
+
+static int mt_sched_monitor_func_show(struct seq_file *m, void *v)
+{
+	SEQ_printf(m, "0x%x\n", sched_mon_func_select);
+	return 0;
+}
+
+static int mt_sched_monitor_func_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mt_sched_monitor_func_show, NULL);
+}
+
+static ssize_t mt_sched_monitor_func_write(struct file *filp,
+	const char *ubuf, size_t cnt, loff_t *data)
+{
+	char buf[64];
+	int ret;
+
+	if (!sched_mon_door_key)
+		return cnt;
+
+	if (cnt >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(&buf, ubuf, cnt))
+		return -EFAULT;
+
+	buf[cnt] = 0;
+
+	ret = kstrtouint(buf, 16, &sched_mon_func_select);
+	if (ret)
+		return ret;
+
+	return cnt;
+}
+
+static const struct file_operations mt_sched_monitor_func_select_fops = {
+	.open = mt_sched_monitor_func_open,
+	.read = seq_read,
+	.write = mt_sched_monitor_func_write,
+	.llseek	= seq_lseek,
+	.release = seq_release,
+};
+
+static int mt_sched_monitor_event_count_show(struct seq_file *m, void *v)
+{
+	int i;
+
+	for (i = 0; i < NUM_EVENTS; i++)
+		SEQ_printf(m, "    %s \twarn [%8lu]  aee [%4lu]\n",
+			sched_mon_evt[i].name,
+			sched_mon_evt[i].warn_cnt,
+			sched_mon_evt[i].aee_cnt);
+	return 0;
+}
+
+static int mt_sched_monitor_event_count_open(struct inode *inode,
+	struct file *file)
+{
+	return single_open(file, mt_sched_monitor_event_count_show, NULL);
+}
+
+static const struct file_operations mt_sched_monitor_event_count_fops = {
+	.open = mt_sched_monitor_event_count_open,
+	.read = seq_read,
+};
+
 #define DECLARE_MT_SCHED_MATCH(param, warn_dur)			\
 static ssize_t mt_sched_monitor_##param##_write(			\
 	struct file *filp,					\
@@ -1262,93 +1446,100 @@ static const struct file_operations mt_sched_monitor_##param##_fops = { \
 	.release = single_release, \
 }
 
+DECLARE_MT_SCHED_MATCH(SCHED_MON_ENABLE, sched_mon_enable);
 DECLARE_MT_SCHED_MATCH(ISR_DUR, WARN_ISR_DUR);
 DECLARE_MT_SCHED_MATCH(SOFTIRQ_DUR, WARN_SOFTIRQ_DUR);
 DECLARE_MT_SCHED_MATCH(TASKLET_DUR, WARN_TASKLET_DUR);
 DECLARE_MT_SCHED_MATCH(HRTIMER_DUR, WARN_HRTIMER_DUR);
 DECLARE_MT_SCHED_MATCH(STIMER_DUR, WARN_STIMER_DUR);
-DECLARE_MT_SCHED_MATCH(PREEMPT_DUR, WARN_PREEMPT_DUR);
+DECLARE_MT_SCHED_MATCH(IRQ_WORK_DUR, WARN_IRQ_WORK_DUR);
 DECLARE_MT_SCHED_MATCH(BURST_IRQ, WARN_BURST_IRQ_DETECT);
+DECLARE_MT_SCHED_MATCH(PREEMPT_DUR, WARN_PREEMPT_DUR);
 DECLARE_MT_SCHED_MATCH(IRQ_DISABLE_DUR, WARN_IRQ_DISABLE_DUR);
 DECLARE_MT_SCHED_MATCH(IRQ_DISABLE_AEE_DUR, AEE_IRQ_DISABLE_DUR);
-DECLARE_MT_SCHED_MATCH(IRQ_WORK_DUR, WARN_IRQ_WORK_DUR);
-DECLARE_MT_SCHED_MATCH(AEE_WARNING_DUR, AEE_WARN_DUR);
+DECLARE_MT_SCHED_MATCH(COMMON_AEE_DUR, AEE_COMMON_DUR);
 DECLARE_MT_SCHED_MATCH(IRQ_INFO_ENABLE, irq_info_enable);
-DECLARE_MT_SCHED_MATCH(SCHED_MON_ENABLE, sched_mon_enable);
-DECLARE_MT_SCHED_MATCH(SCHED_MON_WARN_ENABLE, sched_mon_warn_enable);
+DECLARE_MT_SCHED_MATCH(WARNING_ON, warning_on);
+DECLARE_MT_SCHED_MATCH(AEE_ON_DURATION, aee_on_duration);
+DECLARE_MT_SCHED_MATCH(AEE_ON_PREEMPT_BALANCE, aee_on_preempt_balance);
+DECLARE_MT_SCHED_MATCH(AEE_ON_BURST_IRQ, aee_on_burst_irq);
+DECLARE_MT_SCHED_MATCH(AEE_CNT_DURATION, aee_cnt_duration);
+DECLARE_MT_SCHED_MATCH(AEE_CNT_PREEMPT_BALANCE, aee_cnt_preempt_balance);
+DECLARE_MT_SCHED_MATCH(AEE_CNT_BURST_IRQ, aee_cnt_burst_irq);
 
-static ssize_t mt_sched_monitor_door_write(struct file *filp,
-	const char *ubuf, size_t cnt, loff_t *data)
-{
-	char buf[16];
-
-	if (cnt >= sizeof(buf) || cnt <= 1UL)
-		return cnt;
-
-	if (copy_from_user(&buf, ubuf, cnt))
-		return -EFAULT;
-
-	buf[cnt-1UL] = 0;
-
-	if (strcmp("open", buf) == 0)
-		sched_mon_door_key = 1;
-	if (strcmp("close", buf) == 0)
-		sched_mon_door_key = 0;
-
-	return cnt;
-}
-
-static const struct file_operations mt_sched_monitor_door_fops = {
-	.open = simple_open,
-	.write = mt_sched_monitor_door_write,
+enum sched_mon_dir_type {
+	ROOT,
+	DURATION,
+	WARN_AEE,
+	NUM_SCHED_MON_DIRS,
 };
+static struct proc_dir_entry *sched_mon_dir[NUM_SCHED_MON_DIRS];
 
-static int mt_sched_monitor_func_show(struct seq_file *m, void *v)
-{
-	SEQ_printf(m, "0x%x\n", sched_mon_func);
-	return 0;
-}
+struct sched_mon_proc_file {
+	const char *name;
+	enum sched_mon_dir_type dir;
+	umode_t mode;
+	const struct file_operations *proc_fops;
+};
+static struct sched_mon_proc_file sched_mon_file[] = {
+	/* /proc/mtmon */
+	{"sched_mon", ROOT, 0644,
+		&mt_sched_monitor_fops},
+	{"sched_mon_enable", ROOT, 0644,
+		&mt_sched_monitor_SCHED_MON_ENABLE_fops},
+	{"sched_mon_door", ROOT, 0220,
+		&mt_sched_monitor_door_fops},
+	{"sched_mon_event_count", ROOT, 0444,
+		&mt_sched_monitor_event_count_fops},
+	{"sched_mon_func_select", ROOT, 0664,
+		&mt_sched_monitor_func_select_fops},
+	{"irq_info_enable", ROOT, 0644,
+		&mt_sched_monitor_IRQ_INFO_ENABLE_fops},
 
-static int mt_sched_monitor_func_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, mt_sched_monitor_func_show, inode->i_private);
-}
+	/* /proc/mtmon/duration */
+	{"sched_mon_duration_ISR", DURATION, 0644,
+		&mt_sched_monitor_ISR_DUR_fops},
+	{"sched_mon_duration_SOFTIRQ", DURATION, 0644,
+		&mt_sched_monitor_SOFTIRQ_DUR_fops},
+	{"sched_mon_duration_TASKLET", DURATION, 0644,
+		&mt_sched_monitor_TASKLET_DUR_fops},
+	{"sched_mon_duration_HRTIMER", DURATION, 0644,
+		&mt_sched_monitor_HRTIMER_DUR_fops},
+	{"sched_mon_duration_STIMER", DURATION, 0644,
+		&mt_sched_monitor_STIMER_DUR_fops},
+	{"sched_mon_duration_IRQ_WORK", DURATION, 0644,
+		&mt_sched_monitor_IRQ_WORK_DUR_fops},
+	{"sched_mon_duration_BURST_IRQ", DURATION, 0644,
+		&mt_sched_monitor_BURST_IRQ_fops},
+	{"sched_mon_duration_PREEMPT", DURATION, 0644,
+		&mt_sched_monitor_PREEMPT_DUR_fops},
+	{"sched_mon_duration_IRQ_DISABLE", DURATION, 0644,
+		&mt_sched_monitor_IRQ_DISABLE_DUR_fops},
+	{"sched_mon_duration_IRQ_DISABLE_AEE", DURATION, 0644,
+		&mt_sched_monitor_IRQ_DISABLE_AEE_DUR_fops},
+	{"sched_mon_duration_COMMON_AEE", DURATION, 0644,
+		&mt_sched_monitor_COMMON_AEE_DUR_fops},
 
-static ssize_t mt_sched_monitor_func_write(struct file *filp,
-	const char *ubuf, size_t cnt, loff_t *data)
-{
-	char buf[64];
-	int ret;
-
-	if (!sched_mon_door_key)
-		return cnt;
-
-	if (cnt >= sizeof(buf))
-		return -EINVAL;
-
-	if (copy_from_user(&buf, ubuf, cnt))
-		return -EFAULT;
-
-	buf[cnt] = 0;
-
-	ret = kstrtouint(buf, 16, &sched_mon_func);
-	if (ret)
-		return ret;
-
-	return cnt;
-}
-
-static const struct file_operations mt_sched_monitor_func_fops = {
-	.open = mt_sched_monitor_func_open,
-	.read = seq_read,
-	.write = mt_sched_monitor_func_write,
-	.llseek	= seq_lseek,
-	.release = seq_release,
+	/* /proc/mtmon/warn_aee */
+	{"warning_on", WARN_AEE, 0644,
+		&mt_sched_monitor_WARNING_ON_fops},
+	{"aee_on_duration", WARN_AEE, 0644,
+		&mt_sched_monitor_AEE_ON_DURATION_fops},
+	{"aee_cnt_duration", WARN_AEE, 0644,
+		&mt_sched_monitor_AEE_CNT_DURATION_fops},
+	{"aee_on_preempt_balance", WARN_AEE, 0644,
+		&mt_sched_monitor_AEE_ON_PREEMPT_BALANCE_fops},
+	{"aee_cnt_preempt_balance", WARN_AEE, 0644,
+		&mt_sched_monitor_AEE_CNT_PREEMPT_BALANCE_fops},
+	{"aee_on_burst_irq", WARN_AEE, 0644,
+		&mt_sched_monitor_AEE_ON_BURST_IRQ_fops},
+	{"aee_cnt_burst_irq", WARN_AEE, 0644,
+		&mt_sched_monitor_AEE_CNT_BURST_IRQ_fops},
 };
 
 static int __init init_mtsched_mon(void)
 {
-	int cpu;
+	int cpu, i;
 	struct proc_dir_entry *pe;
 
 	for_each_possible_cpu(cpu) {
@@ -1369,82 +1560,38 @@ static int __init init_mtsched_mon(void)
 		per_cpu(RCU_SoftIRQ_mon, cpu).type = RCU_SOFTIRQ;
 	}
 
-	if (!proc_mkdir("mtmon", NULL))
+	sched_mon_dir[ROOT] = proc_mkdir("mtmon", NULL);
+	if (!sched_mon_dir[ROOT])
 		return -1;
-	pe = proc_create("mtmon/sched_mon", 0664, NULL, &mt_sched_monitor_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_duration_ISR", 0664, NULL,
-			 &mt_sched_monitor_ISR_DUR_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_duration_SOFTIRQ", 0664, NULL,
-			 &mt_sched_monitor_SOFTIRQ_DUR_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_duration_TASKLET", 0664, NULL,
-			 &mt_sched_monitor_TASKLET_DUR_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_duration_HRTIMER", 0664, NULL,
-			 &mt_sched_monitor_HRTIMER_DUR_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_duration_STIMER", 0664, NULL,
-			 &mt_sched_monitor_STIMER_DUR_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_duration_BURST_IRQ", 0664, NULL,
-			 &mt_sched_monitor_BURST_IRQ_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_duration_PREEMPT", 0664, NULL,
-			 &mt_sched_monitor_PREEMPT_DUR_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_duration_IRQ_DISABLE", 0664, NULL,
-			 &mt_sched_monitor_IRQ_DISABLE_DUR_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_duration_IRQ_DISABLE_AEE", 0664, NULL,
-			 &mt_sched_monitor_IRQ_DISABLE_AEE_DUR_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_duration_IRQ_WORK", 0664, NULL,
-			 &mt_sched_monitor_IRQ_WORK_DUR_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_duration_AEE_WARNING", 0664, NULL,
-			 &mt_sched_monitor_AEE_WARNING_DUR_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/irq_info_enable", 0664, NULL,
-			 &mt_sched_monitor_IRQ_INFO_ENABLE_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_enable", 0664, NULL,
-			 &mt_sched_monitor_SCHED_MON_ENABLE_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_warn_enable", 0664, NULL,
-			 &mt_sched_monitor_SCHED_MON_WARN_ENABLE_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_door", 0220, NULL,
-			&mt_sched_monitor_door_fops);
-	if (!pe)
-		return -ENOMEM;
-	pe = proc_create("mtmon/sched_mon_func", 0664, NULL,
-			 &mt_sched_monitor_func_fops);
-	if (!pe)
-		return -ENOMEM;
+	sched_mon_dir[DURATION] = proc_mkdir("duration", sched_mon_dir[ROOT]);
+	if (!sched_mon_dir[DURATION])
+		return -1;
+	sched_mon_dir[WARN_AEE] = proc_mkdir("warn_aee", sched_mon_dir[ROOT]);
+	if (!sched_mon_dir[WARN_AEE])
+		return -1;
 
-	mt_sched_monitor_test_init();
+	for (i = 0; i < ARRAY_SIZE(sched_mon_file); i++) {
+		pe = proc_create(sched_mon_file[i].name,
+			sched_mon_file[i].mode,
+			sched_mon_dir[sched_mon_file[i].dir],
+			sched_mon_file[i].proc_fops);
+		if (!pe) {
+			pr_info("create [%s] failed\n", sched_mon_file[i].name);
+			return -ENOMEM;
+		}
+	}
 
-	sched_mon_warn_enable = 0;
-	sched_mon_func = evt_HARDIRQ;
-	sched_mon_aee_cnt = 3;
+	mt_sched_monitor_test_init(sched_mon_dir[ROOT]);
+
 	sched_mon_enable = 1;
+	sched_mon_func_select = en_HARDIRQ;
+	warning_on = 0;
+	aee_on_duration = 0;
+	aee_cnt_duration = 3;
+	aee_on_preempt_balance = 1;
+	aee_cnt_preempt_balance = 1;
+	aee_on_burst_irq = 1;
+	aee_cnt_burst_irq = 1;
 
 	return 0;
 }
