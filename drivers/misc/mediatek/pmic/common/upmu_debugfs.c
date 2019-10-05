@@ -183,11 +183,6 @@ static ssize_t pmic_dbg_level_write(struct file *file,
 		pr_info("D %d, HK %d, IRQ %d, REG %d, COM %d\n",
 			gPMICDbgLvl, gPMICHKDbgLvl, gPMICIRQDbgLvl,
 			gPMICREGDbgLvl, gPMICCOMDbgLvl);
-	} else {
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-		pmic_ipi_test_code();
-		pr_info("pmic_ipi_test_code\n");
-#endif
 	}
 
 	return size;

@@ -16,7 +16,7 @@
 #include <linux/kernel.h>
 #include <mach/mtk_pmic_ipi.h>
 #include <sspm_define.h>
-#include <sspm_ipi_table.h>
+#include <sspm_ipi_id.h>
 
 #define PMIC_IPI_TIMEOUT 10
 
