@@ -223,6 +223,7 @@ static int gb_task_cpu;
 static int gb_boosted_util;
 
 static DEFINE_SPINLOCK(gb_max_util_lock);
+void (*fpsgo_sched_nominate_fp)(pid_t *id, int *utl);
 
 void sched_max_util_task_tracking(void)
 {
@@ -235,6 +236,8 @@ void sched_max_util_task_tracking(void)
 	ktime_t now = ktime_get();
 	unsigned long flag;
 	static ktime_t max_util_tracker_last_update;
+	pid_t tasks[NR_CPUS] = {0};
+	int   utils[NR_CPUS] = {0};
 
 	spin_lock_irqsave(&gb_max_util_lock, flag);
 
@@ -261,6 +264,11 @@ void sched_max_util_task_tracking(void)
 			max_task_pid = cpu_overutil->max_task_pid;
 		}
 
+		if (fpsgo_sched_nominate_fp) {
+			tasks[cpu] = cpu_overutil->max_task_pid;
+			utils[cpu] = cpu_overutil->max_task_util;
+		}
+
 		cpu_overutil->max_task_util = 0;
 		cpu_overutil->max_boost_util = 0;
 		cpu_overutil->max_task_pid = 0;
@@ -270,6 +278,9 @@ void sched_max_util_task_tracking(void)
 	gb_boosted_util = boost_util;
 	gb_task_pid = max_task_pid;
 	gb_task_cpu = max_cpu;
+
+	if (fpsgo_sched_nominate_fp)
+		fpsgo_sched_nominate_fp(&tasks[0], &utils[0]);
 
 #if defined(MET_SCHED_DEBUG) && MET_SCHED_DEBUG
 	met_tag_oneshot(0, "sched_max_task_util", max_util);
