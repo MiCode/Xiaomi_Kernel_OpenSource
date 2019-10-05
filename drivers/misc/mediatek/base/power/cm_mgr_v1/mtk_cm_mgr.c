@@ -59,7 +59,12 @@
 #endif /* defined(CONFIG_MACH_MT6771) */
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+#if defined(USE_SSMP_VER_V2)
+#include <sspm_ipi_id.h>
+int cm_ipi_ackdata;
+#else
 #include <sspm_ipi.h>
+#endif
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 
 /* todo: remove after DVFSRC compiled */
@@ -683,6 +688,56 @@ void cm_mgr_enable_fn(int enable)
 }
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+#if defined(USE_SSMP_VER_V2)
+int cm_mgr_to_sspm_command(u32 cmd, int val)
+{
+	unsigned int ret = 0;
+	struct cm_mgr_data cm_mgr_d;
+
+	cm_ipi_ackdata = 0;
+
+	switch (cmd) {
+	case IPI_CM_MGR_INIT:
+	case IPI_CM_MGR_ENABLE:
+	case IPI_CM_MGR_OPP_ENABLE:
+	case IPI_CM_MGR_SSPM_ENABLE:
+	case IPI_CM_MGR_BLANK:
+	case IPI_CM_MGR_DISABLE_FB:
+	case IPI_CM_MGR_DRAM_TYPE:
+	case IPI_CM_MGR_CPU_POWER_RATIO_UP:
+	case IPI_CM_MGR_CPU_POWER_RATIO_DOWN:
+	case IPI_CM_MGR_VCORE_POWER_RATIO_UP:
+	case IPI_CM_MGR_VCORE_POWER_RATIO_DOWN:
+	case IPI_CM_MGR_DEBOUNCE_UP:
+	case IPI_CM_MGR_DEBOUNCE_DOWN:
+	case IPI_CM_MGR_DEBOUNCE_TIMES_RESET_ADB:
+	case IPI_CM_MGR_DRAM_LEVEL:
+	case IPI_CM_MGR_LIGHT_LOAD_CPS:
+	case IPI_CM_MGR_LOADING_ENABLE:
+	case IPI_CM_MGR_LOADING_LEVEL:
+	case IPI_CM_MGR_EMI_DEMAND_CHECK:
+		cm_mgr_d.cmd = cmd;
+		cm_mgr_d.arg = val;
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_CM,
+		IPI_SEND_POLLING, &cm_mgr_d, CM_MGR_D_LEN, 10);
+		if (ret != 0) {
+			pr_info("#@# %s(%d) cmd(%d) error, return %d\n",
+					__func__, __LINE__, cmd, ret);
+		} else if (cm_ipi_ackdata != 0) {
+			ret = cm_ipi_ackdata;
+			pr_info("#@# %s(%d) cmd(%d) return %d\n",
+					__func__, __LINE__, cmd, ret);
+		}
+	break;
+	default:
+		pr_info("#@# %s(%d) wrong cmd(%d)!!!\n",
+			__func__, __LINE__, cmd);
+	break;
+	}
+
+	return ret;
+}
+#else
 int cm_mgr_to_sspm_command(u32 cmd, int val)
 {
 	unsigned int ret = 0;
@@ -730,6 +785,7 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 
 	return ret;
 }
+#endif
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 
 static int dbg_cm_mgr_status_proc_show(struct seq_file *m, void *v)
@@ -1294,6 +1350,14 @@ int __init cm_mgr_module_init(void)
 #endif /* USE_TIMER_CHECK */
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+	r = mtk_ipi_register(&sspm_ipidev, IPIS_C_CM, NULL, NULL,
+				(void *) &cm_ipi_ackdata);
+	if (r) {
+		pr_info("[SSPM] IPIS_C_CM ipi_register fail, ret %d\n", r);
+		return -1;
+	}
+	pr_info("SSPM is ready to service CM IPI\n");
+
 	cm_mgr_to_sspm_command(IPI_CM_MGR_INIT, 0);
 
 	cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,

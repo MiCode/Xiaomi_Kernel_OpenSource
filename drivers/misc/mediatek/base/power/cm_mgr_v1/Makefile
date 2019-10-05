@@ -11,6 +11,21 @@
 # GNU General Public License for more details.
 #
 
+ifdef CONFIG_MTK_PLATFORM
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+include $(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/Makefile
+endif
+
+ifeq ($(SSPM_VER),v2)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
+ccflags-y += -DUSE_SSMP_VER_V2
+else
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1
+ccflags-y += -DUSE_SSMP_VER_V1
+endif
+
+
+
 ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/met_drv/),)
 ccflags-y += -DMET_SUPPORT
 ccflags-y += -DMET_USER_EVENT_SUPPORT
@@ -31,7 +46,6 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include/mach \
-	-I$(srctree)/drivers/misc/mediatek/sspm \
 	-I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/include \
 
