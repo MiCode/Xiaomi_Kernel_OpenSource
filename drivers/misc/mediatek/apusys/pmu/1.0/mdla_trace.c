@@ -37,6 +37,7 @@ u32 cfg_eng0;
 u32 cfg_eng1;
 u32 cfg_eng2;
 u32 cfg_eng11;
+static u32 mdla_core_bitmask;
 static int timer_started;
 
 #ifdef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
@@ -138,20 +139,18 @@ static void mdla_profile_pmu_counter(int core_id)
 	trace_mdla_polling(core_id, c);
 }
 
-static void mdla_profile_register_read(void)
+static void mdla_profile_register_read(core_id)
 {
-	int i = 0;
-
-	if (!get_power_on_status(0))
+	if (!get_power_on_status(core_id))
 		return;
-	mdla_profile_pmu_counter(i);
+	mdla_profile_pmu_counter(core_id);
 }
 
 void mdla_trace_iter(int core_id)
 {
 	mutex_lock(&mdla_devices[core_id].power_lock);
 	if (cfg_timer_en)
-		mdla_profile_register_read();
+		mdla_profile_register_read(core_id);
 	mutex_unlock(&mdla_devices[core_id].power_lock);
 }
 
@@ -169,6 +168,22 @@ out:
 	return 0;
 }
 
+static void mdla_trace_core_set(int core_id)
+{
+	mdla_core_bitmask |= (1<<core_id);
+}
+
+static void mdla_trace_core_clr(int core_id)
+{
+	mdla_core_bitmask &= ~(1<<core_id);
+}
+
+u32 mdla_trace_core_get(void)
+{
+	return mdla_core_bitmask;
+}
+
+
 int mdla_profile_init(void)
 {
 	cfg_period = PERIOD_DEFAULT;
@@ -176,6 +191,7 @@ int mdla_profile_init(void)
 	cfg_pmu_int = MDLA_TRACE_MODE_CMD;
 	cfg_timer_en = 0;
 	timer_started = 0;
+	mdla_core_bitmask = 0;
 
 	return 0;
 }
@@ -204,10 +220,14 @@ void mdla_met_event_leave(int core)
  */
 static enum hrtimer_restart mdla_profile_polling(struct hrtimer *timer)
 {
+	int i;
 	if (!cfg_period || !cfg_timer_en)
 		return HRTIMER_NORESTART;
 	/*call functions need to be called periodically*/
-	mdla_profile_register_read();
+	for (i = 0; i < MTK_MDLA_MAX_NUM; i++) {
+		if (mdla_trace_core_get() & (1 << i))
+			mdla_profile_register_read(i);
+	}
 
 	hrtimer_forward_now(&hr_timer, ns_to_ktime(cfg_period * 1000));
 	return HRTIMER_RESTART;
@@ -243,6 +263,7 @@ static int mdla_profile_timer_stop(int wait)
 /* protected by cmd_list_lock @ mdla_main.c */
 int mdla_profile_start(u32 mdlaid)
 {
+	mdla_trace_core_set(mdlaid);
 	pmu_reset(mdlaid);
 	if (!cfg_timer_en)
 		return 0;
@@ -253,9 +274,10 @@ int mdla_profile_start(u32 mdlaid)
 	return 0;
 }
 
-int mdla_profile_stop(int wait)
+int mdla_profile_stop(u32 mdlaid, int wait)
 {
-	if (timer_started) {
+	mdla_trace_core_clr(mdlaid);
+	if ((timer_started) && mdla_trace_core_get() == 0) {
 		mdla_profile_timer_stop(wait);
 		timer_started = 0;
 	}
@@ -263,10 +285,10 @@ int mdla_profile_stop(int wait)
 	return 0;
 }
 
-int mdla_profile_exit(void)
+int mdla_profile_exit(u32 mdlaid)
 {
 	cfg_period = 0;
-	mdla_profile_stop(1);
+	mdla_profile_stop(mdlaid, 1);
 
 	return 0;
 }

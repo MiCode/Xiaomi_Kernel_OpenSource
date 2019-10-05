@@ -20,9 +20,10 @@
 #include <m4u.h>
 
 #include "mdla_ioctl.h"
+#include "mdla.h"
 #include "mdla_ion.h"
 #include "mdla_debug.h"
-#include "mdla.h"
+
 #ifdef CONFIG_MTK_MDLA_ION
 
 static struct ion_client *ion_client;

@@ -387,6 +387,27 @@ static const struct of_device_id mdla_of_match[] = {
 	{ /* end of list */},
 };
 
+static int mdla_resume(struct platform_device *pdev)
+{
+	int i;
+
+	for (i = 0; i < mdla_max_num_core; i++)
+		mutex_unlock(&mdla_devices[i].cmd_lock);
+	mdla_cmd_debug("%s: resume\n", __func__);
+	return 0;
+}
+static int mdla_suspend(struct platform_device *pdev, pm_message_t mesg)
+{
+	int i;
+	/*need refine to use wakelock*/
+	for (i = 0; i < mdla_max_num_core; i++) {
+		mutex_lock(&mdla_devices[i].cmd_lock);
+		mdla_pwr_off(i);
+	}
+	mdla_cmd_debug("%s: resume\n", __func__);
+	return 0;
+}
+
 MODULE_DEVICE_TABLE(of, mdla_of_match);
 static struct platform_driver mdla_driver = {
 	.driver = {
@@ -395,7 +416,7 @@ static struct platform_driver mdla_driver = {
 		.of_match_table = mdla_of_match,
 	},
 	.probe = mdla_probe,
-#if 0
+#if 1
 	.suspend = mdla_suspend,
 	.resume = mdla_resume,
 #endif

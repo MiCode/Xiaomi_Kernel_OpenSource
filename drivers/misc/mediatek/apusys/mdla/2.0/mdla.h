@@ -22,7 +22,9 @@
 #include "mdla_ioctl.h"
 
 #define DRIVER_NAME "mtk_mdla"
-#define MTK_MDLA_CORE 1//move to dts latter
+
+#define MTK_MDLA_MAX_NUM 2 // shift to dts later
+
 #ifndef CONFIG_MTK_MDLA_DEBUG
 #define CONFIG_MTK_MDLA_DEBUG
 #endif
@@ -144,7 +146,6 @@ struct mdla_run_cmd_sync {
 	struct mdla_wait_cmd res;
 };
 
-#define MTK_MDLA_MAX_NUM 2 // shift to dts later
 struct mdla_pmu_info {
 	u64 cmd_id;
 	u64 PMU_res_buf_addr0;

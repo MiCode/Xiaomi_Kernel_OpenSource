@@ -43,7 +43,7 @@ extern u32 cfg_pmu_event[MDLA_PMU_COUNTERS];
 #include <mt-plat/met_drv.h>
 
 int mdla_profile_init(void);
-int mdla_profile_exit(void);
+int mdla_profile_exit(u32 mdlaid);
 int mdla_profile_reset(int core, const char *str);
 int mdla_profile(const char *str);
 int mdla_profile_power_mode(u32 *stat);
@@ -51,7 +51,7 @@ void mdla_dump_prof(int coreid, struct seq_file *s);
 void mdla_trace_begin(int core, struct command_entry *ce);
 void mdla_trace_iter(int core_id);
 int mdla_profile_start(u32 mdlaid);
-int mdla_profile_stop(int type);
+int mdla_profile_stop(u32 mdlaid, int wait);
 void mdla_trace_end(int core, int status,
 		    struct command_entry *ce);
 void mdla_met_event_enter(int core, int vmdla_opp,
@@ -63,7 +63,7 @@ static inline int mdla_profile_init(void)
 {
 	return 0;
 }
-static inline int mdla_profile_exit(void)
+static int mdla_profile_exit(u32 mdlaid)
 {
 	return 0;
 }
@@ -75,7 +75,7 @@ static inline int mdla_profile_start(u32 mdlaid)
 {
 	return 0;
 }
-static inline int mdla_profile_stop(int type)
+static inline int mdla_profile_stop(u32 mdlaid, int wait)
 {
 	return 0;
 }

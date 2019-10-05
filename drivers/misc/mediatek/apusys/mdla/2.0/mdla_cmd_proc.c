@@ -69,7 +69,7 @@
 void mdla_command_done(int core_id)
 {
 	mutex_lock(&mdla_devices[core_id].power_lock);
-	mdla_profile_stop(1);
+	mdla_profile_stop(core_id, 1);
 	mdla_setup_power_down(core_id);
 	mutex_unlock(&mdla_devices[core_id].power_lock);
 }

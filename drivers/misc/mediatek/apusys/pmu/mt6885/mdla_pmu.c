@@ -26,22 +26,22 @@
 DECLARE_BITMAP(pmu0_bitmap, MDLA_PMU_COUNTERS);
 DECLARE_BITMAP(pmu1_bitmap, MDLA_PMU_COUNTERS);
 
-spinlock_t pmu_lock[MTK_MDLA_CORE];
+spinlock_t pmu_lock[MTK_MDLA_MAX_NUM];
 
 /* saved registers, used to restore config after pmu reset */
-u32 cfg_pmu_event[MTK_MDLA_CORE][MDLA_PMU_COUNTERS];
-//static u32 cfg_pmu_clr_mode[MTK_MDLA_CORE];
-static u8 cfg_pmu_percmd_mode[MTK_MDLA_CORE];
+u32 cfg_pmu_event[MTK_MDLA_MAX_NUM][MDLA_PMU_COUNTERS];
+//static u32 cfg_pmu_clr_mode[MTK_MDLA_MAX_NUM];
+static u8 cfg_pmu_percmd_mode[MTK_MDLA_MAX_NUM];
 
 /* lastest register values, since last command end */
-static u16 l_cmd_cnt[MTK_MDLA_CORE];
-static u16 l_cmd_id[MTK_MDLA_CORE];
-static u32 l_counters[MTK_MDLA_CORE][MDLA_PMU_COUNTERS];
-static u32 l_start_t[MTK_MDLA_CORE];
-static u32 l_end_t[MTK_MDLA_CORE];
-static u32 l_cycle[MTK_MDLA_CORE];
-//static struct mdla_pmu_event_handle mdla_pmu_event_hnd[MTK_MDLA_CORE];
-static u32 pmu_event_handle[MTK_MDLA_CORE][MDLA_PMU_COUNTERS];
+static u16 l_cmd_cnt[MTK_MDLA_MAX_NUM];
+static u16 l_cmd_id[MTK_MDLA_MAX_NUM];
+static u32 l_counters[MTK_MDLA_MAX_NUM][MDLA_PMU_COUNTERS];
+static u32 l_start_t[MTK_MDLA_MAX_NUM];
+static u32 l_end_t[MTK_MDLA_MAX_NUM];
+static u32 l_cycle[MTK_MDLA_MAX_NUM];
+//static struct mdla_pmu_event_handle mdla_pmu_event_hnd[MTK_MDLA_MAX_NUM];
+static u32 pmu_event_handle[MTK_MDLA_MAX_NUM][MDLA_PMU_COUNTERS];
 
 unsigned int pmu_reg_read_with_mdlaid(u32 mdlaid, u32 offset)
 {
