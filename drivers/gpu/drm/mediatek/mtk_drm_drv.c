@@ -1800,6 +1800,7 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_drm_platform_driver, &mtk_dsi_driver,
 	&mtk_mipi_tx_driver,      &mtk_lvds_driver,
 	&mtk_lvds_tx_driver,
+	&mtk_disp_dsc_driver,
 };
 
 static int __init mtk_drm_init(void)

@@ -53,6 +53,8 @@ enum mtk_ddp_comp_type {
 	MTK_DMDP_AAL,
 	MTK_DMDP_RSZ,
 	MTK_DMDP_TDSHP,
+	MTK_DISP_DSC,
+	MTK_DISP_MERGE,
 	MTK_DISP_VIRTUAL,
 	MTK_DDP_COMP_TYPE_MAX,
 };
@@ -97,6 +99,8 @@ enum mtk_ddp_comp_type {
 	EXPR(DDP_COMPONENT_DMDP_AAL0)                                          \
 	EXPR(DDP_COMPONENT_DMDP_RSZ0)                                          \
 	EXPR(DDP_COMPONENT_DMDP_TDSHP0)                                        \
+	EXPR(DDP_COMPONENT_DSC0)                                               \
+	EXPR(DDP_COMPONENT_MERGE0)                                             \
 	EXPR(DDP_COMPONENT_ID_MAX)
 
 #define DECLARE_NUM(ENUM) ENUM,

@@ -40,7 +40,8 @@ mediatek-drm-y := mtk_disp_color.o \
 		  mtk_drm_assert.o \
 		  mtk_drm_fbconsole.o \
 		  mtk_disp_recovery.o \
-		  mtk_disp_pmqos.o
+		  mtk_disp_pmqos.o \
+		  mtk_disp_dsc.o
 
 ifeq ($(CONFIG_DEBUG_FS),y)
 mediatek-drm-y += mtk_drm_debugfs.o

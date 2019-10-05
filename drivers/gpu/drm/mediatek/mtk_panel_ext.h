@@ -53,6 +53,36 @@ enum MIPITX_PHY_LANE_SWAP {
 	MIPITX_PHY_LANE_NUM
 };
 
+struct mtk_panel_dsc_params {
+	unsigned int enable;
+	unsigned int slice_width;
+	unsigned int slice_hight;
+	unsigned int bit_per_pixel;
+	unsigned int slice_mode;
+	unsigned int rgb_swap;
+	unsigned int dsc_cfg;
+	unsigned int dsc_line_buf_depth;
+	unsigned int bit_per_channel;
+	unsigned int rct_on;
+	unsigned int bp_enable;
+
+	unsigned int dec_delay;
+	unsigned int xmit_delay;
+	unsigned int scale_value;
+
+	unsigned int increment_interval;
+	unsigned int line_bpg_offset;
+	unsigned int decrement_interval;
+	unsigned int nfl_bpg_offset;
+	unsigned int slice_bpg_offset;
+	unsigned int initial_offset;
+	unsigned int final_offset;
+
+	unsigned int flatness_minqp;
+	unsigned int flatness_maxqp;
+	unsigned int rc_mode1_size;
+};
+
 struct mtk_panel_params {
 	unsigned int vfp_low_power;
 	unsigned int cust_esd_check;
@@ -74,6 +104,7 @@ struct mtk_panel_params {
 	unsigned int lane_swap_en;
 	enum MIPITX_PHY_LANE_SWAP
 		lane_swap[MIPITX_PHY_PORT_NUM][MIPITX_PHY_LANE_NUM];
+	struct mtk_panel_dsc_params dsc_params;
 };
 
 struct mtk_panel_ext {
