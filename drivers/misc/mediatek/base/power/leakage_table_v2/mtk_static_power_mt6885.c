@@ -30,6 +30,7 @@ char *spower_name[] = {
 	"MTK_SPOWER_ADSP",
 	"MTK_SPOWER_VSRAM_GPU",
 	"MTK_SPOWER_VSRAM_VPU_MDLA",
+	"MTK_SPOWER_VSRAM_MODEM_LEAKAGE",
 	"MTK_SPOWER_VCORE_OFF",
 	"MTK_SPOWER_MAX"
 };
@@ -173,6 +174,15 @@ struct spower_leakage_info spower_lkg_info[MTK_SPOWER_MAX] = {
 		.devinfo_offset = DEVINFO_OFF_VSRAM_VPU_MDLA,
 		.value = DEF_VSRAM_VPU_MDLA_LEAKAGE,
 		.v_of_fuse = V_OF_FUSE_VSRAM_VPU_MDLA,
+		.t_of_fuse = T_OF_FUSE,
+	},
+
+	[MTK_VSRAM_MODEM_LEAKAGE] = {
+		.name = __stringify(MTK_VSRAM_MODEM_LEAKAGE),
+		.devinfo_idx = DEVINFO_IDX_VSRAM_MODEM,
+		.devinfo_offset = DEVINFO_OFF_VSRAM_MODEM,
+		.value = DEF_VSRAM_MODEM_LEAKAGE,
+		.v_of_fuse = V_OF_FUSE_VSRAM_MODEM,
 		.t_of_fuse = T_OF_FUSE,
 	},
 

@@ -1268,9 +1268,9 @@ struct spower_raw_t spower_raw[MTK_SPOWER_MAX] = {
 		.tsize = TSIZE,
 		.table_size = MAX_TABLE_SIZE,
 		.table = {
-			(int *)&vpu_leakage_data[0],
-			(int *)&vpu_leakage_data[1],
-			(int *)&vpu_leakage_data[2]
+			(int *)&modem_leakage_data[0],
+			(int *)&modem_leakage_data[1],
+			(int *)&modem_leakage_data[2]
 		},
 		.devinfo_domain = NR_DEVINFO_DOMAIN,
 		.leakage_id = MTK_NR_LEAKAGE,
@@ -1283,9 +1283,9 @@ struct spower_raw_t spower_raw[MTK_SPOWER_MAX] = {
 		.tsize = TSIZE,
 		.table_size = MAX_TABLE_SIZE,
 		.table = {
-			(int *)&vpu_leakage_data[0],
-			(int *)&vpu_leakage_data[1],
-			(int *)&vpu_leakage_data[2]
+			(int *)&modem_leakage_data[0],
+			(int *)&modem_leakage_data[1],
+			(int *)&modem_leakage_data[2]
 		},
 		.devinfo_domain = MDLA_DEVINFO_DOMAIN,
 		.leakage_id = MTK_MDLA_LEAKAGE,
@@ -1308,21 +1308,6 @@ struct spower_raw_t spower_raw[MTK_SPOWER_MAX] = {
 		.print_leakage = true,
 	},
 
-	[MTK_VSRAM_GPU_LEAKAGE] = {
-		.vsize = VSIZE,
-		.tsize = TSIZE,
-		.table_size = MAX_TABLE_SIZE,
-		.table = {
-			(int *)&vpu_leakage_data[0],
-			(int *)&vpu_leakage_data[1],
-			(int *)&vpu_leakage_data[2]
-		},
-		.devinfo_domain = VSRAM_GPU_DEVINFO_DOMAIN,
-		.leakage_id = MTK_VSRAM_GPU_LEAKAGE,
-		.instance = DEFAULT_INSTANCE,
-		.print_leakage = true,
-	},
-
 	[MTK_VSRAM_VPU_MDLA_LEAKAGE] = {
 		.vsize = VSIZE,
 		.tsize = TSIZE,
@@ -1334,6 +1319,21 @@ struct spower_raw_t spower_raw[MTK_SPOWER_MAX] = {
 		},
 		.devinfo_domain = VSRAM_VPU_MDLA_DEVINFO_DOMAIN,
 		.leakage_id = MTK_VSRAM_VPU_MDLA_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_VSRAM_MODEM_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&modem_leakage_data[0],
+			(int *)&modem_leakage_data[1],
+			(int *)&modem_leakage_data[2]
+		},
+		.devinfo_domain = VSRAM_MODEM_DEVINFO_DOMAIN,
+		.leakage_id = MTK_VSRAM_MODEM_LEAKAGE,
 		.instance = DEFAULT_INSTANCE,
 		.print_leakage = true,
 	},
