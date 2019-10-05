@@ -211,7 +211,8 @@ config GENERIC_CALIBRATE_DELAY
 	def_bool y
 
 config ZONE_DMA
-	def_bool y
+	bool "Support DMA zone" if EXPERT
+	default y
 
 config HAVE_GENERIC_GUP
 	def_bool y
