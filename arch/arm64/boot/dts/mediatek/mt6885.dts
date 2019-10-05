@@ -2462,6 +2462,29 @@
 		interrupts = <GIC_SPI 312 IRQ_TYPE_LEVEL_LOW>;
 	};
 
+	dvs@1b100000 {
+		compatible = "mediatek,dvs";
+		reg = <0 0x1b100000 0 0x1000>;
+		interrupts = <GIC_SPI 360 IRQ_TYPE_LEVEL_LOW>;
+		mboxes = <&gce_mbox_m 16 0 CMDQ_THR_PRIO_1>;
+		EVENT_IPE_DVS_DONE = <CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_3>;
+		/* clocks = <&topckgen TOP_MUX_DPE>, */
+			/* <&ipesys_config IPE_DPE>; */
+		/* clock-names = "DPE_TOP_MUX", */
+			/* "DPE_CLK_IPE_DPE"; */
+	};
+
+	dvp@1b100800 {
+		compatible = "mediatek,dvp";
+		reg = <0 0x1b100000 0 0x1000>;
+		interrupts = <GIC_SPI 361 IRQ_TYPE_LEVEL_LOW>;
+		EVENT_IPE_DVP_DONE = <CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_4>;
+		/* clocks = <&topckgen TOP_MUX_DPE>, */
+			/* <&ipesys_config IPE_DPE>; */
+		/* clock-names = "DPE_TOP_MUX", */
+			/* "DPE_CLK_IPE_DPE"; */
+	};
+
 	venc@17820000 {
 		compatible = "mediatek,venc";
 		reg = <0 0x17820000 0 0x10000>;
