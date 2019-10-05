@@ -575,6 +575,7 @@ CONFIG_MTK_INTERNAL,PROJECT,junzhi.zhao,,y,,y,,y,,y,,y,,y,,y
 CONFIG_MTK_IO_BOOST,PLATFORM,stanley.chu,finetune for performance,X,X,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_IOMMU_V2,PROJECT,Cui.Zhang,,N,N,X,N,N,X,X,X,X,X,X,X,X
 CONFIG_MTK_ION,COMMON,youhua.li,new config in this commit 30f50f4e2f5b4c1996816cc4997e5c6b86d28386,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_MTK_IPI,PLATFORM,jiachiam.liu,new config in this commit e8c8b57bd4b43e51ffc94c62f20b675c02f96399,N,N,N,N,N,N,N,N,N,y,y,y,y
 CONFIG_MTK_IPV6_VZW,PROJECT,Xin.Xu,for customer project only,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_MTK_IRAT_SUPPORT,PROJECT,anny.hu,,,,,,,,,,,,,,
 CONFIG_MTK_IRIS_SUPPORT,PROJECT,yicheng.chen,new config in this commit Ie6ddb08406104d35a595ed9b83593cb455f91dca,,,,,,,,,,,,,
@@ -623,6 +624,7 @@ CONFIG_MTK_LSM6DS3HG,PROJECT,jy.lan,,,,,,,,,,,,,,
 CONFIG_MTK_LSM6DS3HGY,PROJECT,jy.lan,,,,,,,,,,,,,,
 CONFIG_MTK_M4U,PROJECT,Cui.Zhang,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_MAGHUB,PROJECT,weiqi.fu,new config in this commit ddc5d59450d236e7d3732ebd43a19c5056787cc0,,,,,,,,,,,,,
+CONFIG_MTK_MBOX,PLATFORM,ts.kuo,new config in this commit e8c8b57bd4b43e51ffc94c62f20b675c02f96399,N,N,N,N,N,N,N,N,N,y,y,y,y
 CONFIG_MTK_MC3410_I2C,PROJECT,ruixue.su,SS6,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_MTK_MC3410_NEW,PROJECT,jy.lan,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_MCIF_WIFI_SUPPORT,PLATFORM,cheng-dao.lee,MCIF connect WiFi driver,,,,,,,,,,,,,
@@ -699,6 +701,7 @@ CONFIG_MTK_RCU_MONITOR,USER;PROJECT,kobe-cp.wu,,X(USER),X(USER),X(USER),X(USER),
 CONFIG_MTK_ROOT_TRACE,USER;PROJECT,colin.lee,customer may set this in user load, a white list must be set before,,,,,,,,,,,,
 CONFIG_MTK_ROTATVECHUB,PROJECT,hongxu.zhao,new config in this commit bd8b67170550fbf1f721310116ae26ced96105a6,,,,,,,,,,,,,
 CONFIG_MTK_ROUND_CORNER_SUPPORT,PROJECT,k.zhang,,,,,,,,,,,,,,
+CONFIG_MTK_RPMSG_MBOX,PLATFORM,ts.kuo,new config in this commit e8c8b57bd4b43e51ffc94c62f20b675c02f96399,N,N,N,N,N,N,N,N,N,y,y,y,y
 CONFIG_MTK_RRC_SUPPORT,PROJECT,otis.huang,new config in this commit a9f470e71a32907be7675e8887db0add7a2a5e81,,,,,,,,,,,,,
 CONFIG_MTK_RT_THROTTLE_MON,USER,jing-ting.wu,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_RT9468_SUPPORT,PROJECT,vend_shufan_lee001,new config in this commit abba073794b7f1cf5e6b279c9126658285ce392f,,,,,,,,,,,,,
@@ -869,6 +872,7 @@ CONFIG_REGULATOR_RT5738,PROJECT,vend_jeff_chang001,new config in this commit b51
 CONFIG_REGULATOR_MT6359P,PLATFORM,jeter.chen,,X,X,X,X,X,X,X,X,X,y,y,y,y
 CONFIG_REGULATOR_MT6691,PLATFORM,jeter.chen,,X,X,X,X,X,X,X,X,X,y,y,X,X
 CONFIG_RESOURCE_COUNTERS,PROJECT,Chinwen.Chang,,,,,,,,,,,,,,
+CONFIG_RPMSG_MTK,PLATFORM,ts.kuo,new config in this commit e8c8b57bd4b43e51ffc94c62f20b675c02f96399,N,N,N,N,N,N,N,N,N,y,y,y,y
 CONFIG_RT_FLASHLIGHT,PROJECT,simon-tch.wang,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_RT_REGMAP,PROJECT,vend_jeff_chang001,new config at this commit ebc855c95fb2bdff04b66d63675dbac9387577a8,,,,,,,,,,,,,
 CONFIG_RT5081_PMU_BLED,PROJECT,vend_gene_chen001,,O,O,O,O,O,O,O,O,O,O,O,O,O
