@@ -3399,8 +3399,6 @@ static int msdc_do_request_cq(struct mmc_host *mmc,
 	u32 l_force_prg = 0;
 #endif
 
-	WARN_ON(!mmc || !mrq);
-
 	host->error = 0;
 	atomic_set(&host->abort, 0);
 
