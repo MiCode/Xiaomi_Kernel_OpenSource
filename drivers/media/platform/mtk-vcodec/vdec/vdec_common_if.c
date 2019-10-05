@@ -487,10 +487,28 @@ static int vdec_get_param(unsigned long h_vdec,
 		break;
 
 	case GET_PARAM_FREE_FRAME_BUFFER:
+	{
+		struct vdec_fb *pfb;
+		int i;
+
 		if (inst->vsi == NULL)
 			return -EINVAL;
 		vdec_get_fb(inst, &inst->vsi->list_free, false, out);
+
+		pfb = *((struct vdec_fb **)out);
+		if (pfb != NULL) {
+			for (i = 0; i < pfb->num_planes; i++) {
+				if (pfb->fb_base[i].buf_fd >= 0) {
+					mtk_vcodec_debug(inst, "free pfb->fb_base[%d].buf_fd:%llx\n",
+						i, pfb->fb_base[i].buf_fd);
+					close_mapped_fd((unsigned int)
+						pfb->fb_base[i].buf_fd);
+					pfb->fb_base[i].buf_fd = -1;
+				}
+			}
+		}
 		break;
+	}
 
 	case GET_PARAM_PIC_INFO:
 		get_pic_info(inst, out);

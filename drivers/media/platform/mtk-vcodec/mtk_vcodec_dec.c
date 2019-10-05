@@ -2142,6 +2142,7 @@ static void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 
 static int vb2ops_vdec_buf_init(struct vb2_buffer *vb)
 {
+	int i;
 	struct vb2_v4l2_buffer *vb2_v4l2 = container_of(vb,
 		struct vb2_v4l2_buffer, vb2_buf);
 	struct mtk_video_dec_buf *buf = container_of(vb2_v4l2,
@@ -2161,6 +2162,8 @@ static int vb2ops_vdec_buf_init(struct vb2_buffer *vb)
 			buf->ready_to_display = false;
 			buf->queued_in_v4l2 = false;
 		}
+		for (i = 0; i < VIDEO_MAX_PLANES; i++)
+			buf->frame_buffer.fb_base[i].buf_fd = -1;
 	} else if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		/* Do not reset EOS for 1st buffer with Early EOS*/
 		/* buf->lastframe = NON_EOS; */

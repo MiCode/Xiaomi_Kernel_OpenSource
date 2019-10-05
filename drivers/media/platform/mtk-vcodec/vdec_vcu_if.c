@@ -261,6 +261,8 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 					vsi->dec.fb_fd[i] = (uint64_t)
 						get_mapped_fd(
 							pfb->fb_base[i].dmabuf);
+					pfb->fb_base[i].buf_fd = (s64)
+						vsi->dec.fb_fd[i];
 					mtk_vcodec_debug(vcu, "+ vsi->dec.fb_fd[%d]:%llx\n",
 						i, vsi->dec.fb_fd[i]);
 				}

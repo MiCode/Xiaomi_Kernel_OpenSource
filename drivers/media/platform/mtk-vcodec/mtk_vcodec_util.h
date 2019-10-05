@@ -31,6 +31,7 @@ struct mtk_vcodec_mem {
 	struct dma_buf *dmabuf;
 	__u32 flags;
 	__u32 index;
+	__s64 buf_fd;
 };
 
 /**
