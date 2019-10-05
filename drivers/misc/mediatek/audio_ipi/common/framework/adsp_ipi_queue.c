@@ -34,7 +34,7 @@
 #include <adsp_helper.h>
 #endif
 
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 #include <scp_ipi.h>
 #endif
 
@@ -1075,7 +1075,7 @@ static int scp_send_msg_to_scp(
 	struct ipi_msg_t *p_ipi_msg = NULL;
 
 	uint32_t audio_ipi_id = 0xFFFFFFFF;
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 	enum ipi_id the_ipi_id = IPI_AUDIO;
 #endif
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
@@ -1109,7 +1109,7 @@ static int scp_send_msg_to_scp(
 	switch (dsp_id) {
 	case AUDIO_OPENDSP_USE_CM4_A:
 	case AUDIO_OPENDSP_USE_CM4_B:
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 		if ((enum scp_core_id)dsp_id >= SCP_CORE_TOTAL) {
 			pr_notice("dsp_id %u/%u not support!!",
 				  dsp_id, SCP_CORE_TOTAL);
@@ -1149,7 +1149,7 @@ static int scp_send_msg_to_scp(
 	for (try_cnt = 0; try_cnt < k_max_try_cnt; try_cnt++) {
 		if ((enum opendsp_id)dsp_id == AUDIO_OPENDSP_USE_CM4_A ||
 		    (enum opendsp_id)dsp_id == AUDIO_OPENDSP_USE_CM4_B) {
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 			the_ipi_id = (enum ipi_id)p_scp_msg->ipi_id;
 			retval = scp_ipi_send(
 					 the_ipi_id,

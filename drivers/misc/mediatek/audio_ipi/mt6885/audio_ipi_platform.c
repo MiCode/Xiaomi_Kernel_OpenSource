@@ -17,7 +17,7 @@
 #include <linux/bug.h>
 
 
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 #include <scp_ipi.h>
 #include <scp_helper.h>
 #endif
@@ -36,7 +36,7 @@ bool audio_opendsp_id_ready(const uint8_t opendsp_id)
 	switch (opendsp_id) {
 	case AUDIO_OPENDSP_USE_CM4_A:
 	case AUDIO_OPENDSP_USE_CM4_B:
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 		if (opendsp_id >= SCP_CORE_TOTAL) {
 			pr_notice("opendsp_id %u/%u not support!!\n",
 				  opendsp_id, SCP_CORE_TOTAL);
@@ -123,7 +123,7 @@ uint32_t audio_get_ipi_id(const uint8_t task)
 	switch (opendsp_id) {
 	case AUDIO_OPENDSP_USE_CM4_A:
 	case AUDIO_OPENDSP_USE_CM4_B:
-#if defined(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
+#if defined(CONFIG_MTK_AUDIO_CM4_SUPPORT)
 		ipi_id = IPI_AUDIO;
 #else
 		pr_notice("%s(), opendsp_id %u task %d not build!!\n",

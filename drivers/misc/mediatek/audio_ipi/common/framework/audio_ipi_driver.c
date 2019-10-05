@@ -35,7 +35,7 @@
 
 #include <audio_ipi_queue.h>
 
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 #include <scp_helper.h>
 #include <scp_ipi.h>
 #include <scp_feature_define.h>
@@ -439,7 +439,7 @@ static int audio_ipi_init_dsp_hifi3(void)
 }
 #endif
 
-#if defined(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
+#if defined(CONFIG_MTK_AUDIO_CM4_SUPPORT)
 /* SCP reboot */
 #if defined(SCP_RECOVERY_SUPPORT)
 static int audio_ctrl_event_receive_scp(
@@ -520,7 +520,7 @@ static int audio_ipi_init_dsp_cm4(void)
 
 	return ret;
 }
-#endif /* end of CONFIG_MTK_TINYSYS_SCP_SUPPORT */
+#endif /* end of CONFIG_MTK_AUDIO_CM4_SUPPORT */
 
 static long audio_ipi_driver_ioctl(
 	struct file *file, unsigned int cmd, unsigned long arg)
@@ -557,7 +557,7 @@ static long audio_ipi_driver_ioctl(
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
 		audio_ipi_init_dsp_hifi3();
 #endif
-#if defined(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
+#if defined(CONFIG_MTK_AUDIO_CM4_SUPPORT)
 		audio_ipi_init_dsp_cm4();
 #endif
 		break;
@@ -663,7 +663,7 @@ static int __init audio_ipi_driver_init(void)
 	adsp_A_register_notify(&audio_ctrl_notifier);
 #endif
 
-#if defined(CONFIG_MTK_TINYSYS_SCP_SUPPORT) && defined(SCP_RECOVERY_SUPPORT)
+#if defined(CONFIG_MTK_AUDIO_CM4_SUPPORT) && defined(SCP_RECOVERY_SUPPORT)
 	scp_A_register_notify(&audio_ctrl_notifier_scp);
 #endif
 

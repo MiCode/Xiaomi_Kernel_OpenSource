@@ -17,7 +17,7 @@
 #include <linux/spinlock.h>
 #include <linux/errno.h>
 
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 #include <scp_ipi.h>
 #endif
 
@@ -266,7 +266,7 @@ static void audio_ipi_msg_dispatcher(int id, void *data, unsigned int len)
 void audio_messenger_ipi_init(void)
 {
 	int i = 0;
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 	int ret_scp = 0;
 #endif
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
@@ -275,7 +275,7 @@ void audio_messenger_ipi_init(void)
 
 	current_idx = 0;
 
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
 	ret_scp = scp_ipi_registration(
 			  IPI_AUDIO,
 			  audio_ipi_msg_dispatcher,
