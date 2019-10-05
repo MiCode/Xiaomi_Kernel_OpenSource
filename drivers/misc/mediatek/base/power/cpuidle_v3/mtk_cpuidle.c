@@ -12,7 +12,6 @@
  */
 
 #include <linux/cpu_pm.h>
-#include <linux/irqchip/mtk-gic.h>
 #include <linux/of_irq.h>
 #include <linux/of.h>
 #include <linux/psci.h>
@@ -62,7 +61,7 @@ static void cpuidle_ts_init(void)
 	p = dma_zalloc_coherent(cpu_dev, PAGE_SIZE, &atf_addr, GFP_KERNEL);
 	WARN_ON(!p);
 
-	rc = kernel_smc_msg(0, 1, atf_addr);
+	rc = mt_secure_call(MTK_SIP_POWER_FLOW_DEBUG, 0, 1, atf_addr, 0);
 	WARN_ON(rc);
 
 	ts_pool = p;
@@ -223,7 +222,8 @@ static void cpuidle_fp_init(void)
 	cpuidle_fp_pa = (u32 *) aee_rr_rec_mtk_cpuidle_footprint_pa();
 
 	if (cpuidle_fp_va && cpuidle_fp_pa) {
-		kernel_smc_msg(0, 2, (ulong) cpuidle_fp_pa);
+		mt_secure_call(MTK_SIP_POWER_FLOW_DEBUG,
+				0, 2, (ulong) cpuidle_fp_pa, 0);
 		return;
 	}
 
@@ -248,20 +248,6 @@ static inline void cpuidle_fp_reset(int cpu)
 #define cpuidle_fp_reset(cpu)
 
 #endif /* CONFIG_MTK_RAM_CONSOLE */
-
-
-static void mtk_spm_wakeup_src_restore(void)
-{
-	int i;
-
-	for (i = 0; i < MAX_SPM_WAKEUP_SRC; i++) {
-		if (!spm_wakeup_src[i].irq_nr)
-			return;
-
-		if (readl_relaxed(SPM_SW_RSV_0) & spm_wakeup_src[i].irq_pending)
-			mt_irq_set_pending(spm_wakeup_src[i].irq_nr);
-	}
-}
 
 /*
  * Look up the wake up source wired to the SPM. These wake up sources
@@ -358,9 +344,6 @@ int mtk_enter_idle_state(int mode)
 		cpuidle_ts(cpu, CPUIDLE_TS_AFTER_ATF);
 
 		mtk_platform_restore(cpu);
-
-		if (mode > MTK_MCDI_CLUSTER_MODE)
-			mtk_spm_wakeup_src_restore();
 
 		cpu_pm_exit();
 
