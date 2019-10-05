@@ -229,6 +229,11 @@ void pmic_register_interrupt_callback(unsigned int intNo,
 {
 }
 
+void pmic_enable_interrupt(enum PMIC_FAKE_IRQ_ENUM intNo,
+	unsigned int en, char *str)
+{
+}
+
 unsigned int pmic_Read_Efuse_HPOffset(int i)
 {
 	return 0;

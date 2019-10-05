@@ -49,6 +49,13 @@
 
 #define ACCDET_DEVNAME "accdet"
 
+/****** SW ENV define *************************************/
+#define PMIC_ACCDET_KERNEL         1
+#define PMIC_ACCDET_CTP            0
+
+#define PMIC_ACCDET_DEBUG          0
+#define PMIC_ACCDET_SUPPORT
+
 #define NO_KEY	(0x0)
 #define UP_KEY	(0x01)
 #define MD_KEY	(0x02)
@@ -59,6 +66,11 @@
 #define HEADSET_MODE_2	(2)
 #define HEADSET_MODE_6	(6)
 
+/* IOCTL */
+#define ACCDET_IOC_MAGIC 'A'
+#define ACCDET_INIT _IO(ACCDET_IOC_MAGIC, 0)
+#define SET_CALL_STATE _IO(ACCDET_IOC_MAGIC, 1)
+#define GET_BUTTON_STATUS _IO(ACCDET_IOC_MAGIC, 2)
 
 /* 400us, Accdet irq clear timeout  */
 #define ACCDET_TIME_OUT 0x61A80
@@ -107,6 +119,15 @@ struct pwm_deb_settings {
 	unsigned int debounce3;
 	/* auxadc debounce */
 	unsigned int debounce4;
+	/* new, eint cmpmem pwm */
+	unsigned int eint_pwm_width;
+	unsigned int eint_pwm_thresh;
+	unsigned int eint_debounce0;
+	unsigned int eint_debounce1;
+	unsigned int eint_debounce2;
+	unsigned int eint_debounce3;
+	unsigned int eint_inverter_debounce;
+
 };
 
 struct head_dts_data {
@@ -125,6 +146,13 @@ struct head_dts_data {
 	struct pwm_deb_settings pwm_deb;
 	struct three_key_threshold three_key;
 	struct four_key_threshold four_key;
+	unsigned int moisture_detect_enable;
+	unsigned int eint_detect_mode;
+	unsigned int eint_use_ext_res;
+	unsigned int moisture_detect_mode;
+	unsigned int moisture_comp_vth;
+	unsigned int moisture_comp_vref2;
+	unsigned int moisture_use_ext_res;
 };
 
 enum {
@@ -140,9 +168,6 @@ enum {
 };
 
 extern const struct of_device_id accdet_of_match[];
-
-extern s32 pwrap_read(u32 adr, u32 *rdata);
-extern s32 pwrap_write(u32 adr, u32 wdata);
 /* just be called by audio module */
 int accdet_read_audio_res(unsigned int res_value);
 /* just be called by audio module for DC trim */
@@ -153,6 +178,8 @@ void mt_accdet_remove(void);
 void mt_accdet_suspend(void);
 void mt_accdet_resume(void);
 int mt_accdet_probe(struct platform_device *dev);
+long mt_accdet_unlocked_ioctl(struct file *file,
+	unsigned int cmd, unsigned long arg);
 
 #endif
 
