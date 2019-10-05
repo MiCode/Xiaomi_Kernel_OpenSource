@@ -953,15 +953,23 @@ static void decrease_mutt_limit(void)
 #endif
 	}
 #if defined(FEATURE_MUTT_INTERFACE_VER)
-	mtk_cooler_mutt_dprintk("%s : cl_mutt_param[%d]= 0x%x,", __func__,
-		curr_adp_mutt_level, cl_mutt_param[curr_adp_mutt_level]);
-	mtk_cooler_mutt_dprintk("cl_mutt_pa_param[%d]= 0x%x,",
-		curr_adp_mutt_level, cl_mutt_pa_param[curr_adp_mutt_level]);
-	mtk_cooler_mutt_dprintk("cl_mutt_ca_param[%d]= 0x%x\n",
-		curr_adp_mutt_level, cl_mutt_ca_param[curr_adp_mutt_level]);
+	if (curr_adp_mutt_level >= 0) {
+		mtk_cooler_mutt_dprintk("%s : cl_mutt_param[%d]= 0x%x,",
+			__func__, curr_adp_mutt_level,
+			cl_mutt_param[curr_adp_mutt_level]);
+		mtk_cooler_mutt_dprintk("cl_mutt_pa_param[%d]= 0x%x,",
+			curr_adp_mutt_level,
+			cl_mutt_pa_param[curr_adp_mutt_level]);
+		mtk_cooler_mutt_dprintk("cl_mutt_ca_param[%d]= 0x%x\n",
+			curr_adp_mutt_level,
+			cl_mutt_ca_param[curr_adp_mutt_level]);
+	}
 #else
-	 mtk_cooler_mutt_dprintk("%s : cl_mutt_param[%d]= 0x%x\n", __func__,
-		curr_adp_mutt_level, cl_mutt_param[curr_adp_mutt_level]);
+	if (curr_adp_mutt_level >= 0) {
+		mtk_cooler_mutt_dprintk("%s : cl_mutt_param[%d]= 0x%x\n",
+			__func__, curr_adp_mutt_level,
+			cl_mutt_param[curr_adp_mutt_level]);
+	}
 #endif
 }
 
