@@ -71,7 +71,11 @@
 
 #include <cmdq_core.h>
 #include <cmdq_record.h>
+#ifdef CONFIG_MTK_IOMMU_V2
+#include <mach/mt_iommu.h>
+#else /* CONFIG_MTK_IOMMU_V2 */
 #include <m4u.h>
+#endif /* CONFIG_MTK_IOMMU_V2 */
 #include <smi_public.h>
 #include "engine_request.h"
 #ifdef KERNEL_DMA_BUFFER
