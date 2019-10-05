@@ -52,6 +52,10 @@
 #endif
 
 #include "mdla.h"
+#ifdef __MDLA_DVFS_UT__
+#include <linux/random.h>
+#include "apusys_power_cust.h"
+#endif
 #include "mdla_trace.h"
 #include "mdla_debug.h"
 #include "mdla_plat_api.h"
@@ -253,6 +257,9 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	int pmu_ret = 0;
 #endif
+#ifdef __MDLA_DVFS_UT__
+	int opp_rand = 0;
+#endif
 	long status = 0;
 	/*forward compatibility temporary, This will be replaced by apusys*/
 	struct mdla_wait_cmd mdla_wt;
@@ -278,9 +285,7 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	if (apusys_hd != NULL)
 		pmu_ret = pmu_command_prepare(mdla_info, apusys_hd);
 #endif
-#if 0
-process_command:
-#endif
+
 	/* Compute deadline */
 	deadline = get_jiffies_64() + msecs_to_jiffies(mdla_timeout);
 
@@ -295,6 +300,12 @@ process_command:
 
 	if (apusys_hd != NULL)
 		mdla_set_opp(core_id, apusys_hd->boost_val);
+#ifdef __MDLA_DVFS_UT__//for MDLA DVFS UT Only
+	opp_rand = get_random_int() % APUSYS_MAX_NUM_OPPS;
+	mdla_cmd_debug("core: %d, rand opp: %d\n",
+		core_id, opp_rand);
+	apu_device_set_opp(MDLA0+core_id, opp_rand);
+#endif
 
 	/* Trace start */
 	mdla_trace_begin(core_id, &ce);
@@ -334,13 +345,6 @@ process_command:
 				break;
 			}
 		}
-#if 0//remove this latter
-		/* E1 HW timeout check here */
-		if (hw_e1_timeout_detect(core_id) != 0) {
-			mdla_reset_lock(mdla_info->mdlaid, REASON_TIMEOUT);
-			goto process_command;
-		}
-#endif
 	}
 
 #ifdef __APUSYS_MDLA_UT__
@@ -367,22 +371,15 @@ process_command:
 	/* Trace stop */
 	mdla_trace_end(core_id, 0, &ce);
 
-	cd->id = id;
+	cd->id = mdla_info->max_cmd_id;
 
 	if (mdla_info->max_cmd_id >= id) {
 		wt->result = 0;
 	}
 	else { // Command timeout
-#if 0
-		pr_info("%s: command: %d, max_cmd_id: %d deadline:%llu, jiffies: %lu\n",
-				__func__, id,
-				mdla_info->max_cmd_id,
-				deadline, jiffies);
-#else
 		pr_info("%s: command: %d, max_cmd_id: %d\n",
 				__func__, id,
 				mdla_info->max_cmd_id);
-#endif
 		mdla_dump_reg(core_id);
 		mdla_dump_ce(&ce);
 

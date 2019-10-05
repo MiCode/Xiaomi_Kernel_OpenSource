@@ -299,18 +299,13 @@ irqreturn_t mdla_interrupt(u32 mdlaid)
 	id = mdla_reg_read_with_mdlaid(mdlaid, MREG_TOP_G_FIN3);
 	pmu_reg_save(mdlaid);//pmu need refine for multi core
 
-	/* avoid max_cmd_id lost after timeout reset */
-	if (id > mdla_devices[mdlaid].max_cmd_id)
-		mdla_devices[mdlaid].max_cmd_id = id;
+	mdla_devices[mdlaid].max_cmd_id = id;
 
 	if (status_int & MDLA_IRQ_PMU_INTE)
 		mdla_reg_write_with_mdlaid(
 		mdlaid, MDLA_IRQ_PMU_INTE, MREG_TOP_G_INTP0);
 
 	spin_unlock_irqrestore(&mdla_devices[mdlaid].hw_lock, flags);
-
-	mdla_cmd_debug("%s: max_cmd_id[%d]: %d, id: %d\n",
-		__func__, mdlaid, mdla_devices[mdlaid].max_cmd_id, id);
 
 	complete(&mdla_devices[mdlaid].command_done);
 
