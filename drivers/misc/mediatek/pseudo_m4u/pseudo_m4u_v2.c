@@ -1456,9 +1456,11 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	current_ts = sched_clock();
 
 	if (!dma_addr || dma_addr == ARM_MAPPING_ERROR) {
-		M4U_ERR("err map, %s, iova:0x%lx+0x%x, f:0x%x, n:%d-%d\n",
+		M4U_ERR(
+			"err map, %s, iova:0x%lx+0x%x, pa=0x%lx, f:0x%x, n:%d-%d\n",
 			iommu_get_port_name(port),
 			(unsigned long)dma_addr, size,
+			sg_phys(table->sgl),
 			flags, table->nents, table->orig_nents);
 		goto ERR_EXIT;
 	}
@@ -1511,13 +1513,18 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	return 0;
 
 ERR_EXIT:
+	if (sg_phys(table->sgl) >= (1UL << MTK_PHYS_ADDR_BITS))
+		ret = -ERANGE;
+	else
+		ret = -EINVAL;
+
 	if (table && free_table) {
 		sg_free_table(table);
 		kfree(table);
 	}
 
 	*retmva = 0;
-	return -EINVAL;
+	return ret;
 }
 
 /* interface for ion */

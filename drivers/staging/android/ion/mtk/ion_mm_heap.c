@@ -781,10 +781,10 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 
 	if ((buffer_info->module_id == -1) &&
 	    (buffer_info->fix_module_id == -1)) {
-		IONMSG("[%s] warning. Buffer:0x%lx not configured.\n",
-		       __func__, buffer);
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		IONMSG("[%s] warning. Buffer:0x%lx not configured.\n",
+		       __func__, buffer);
 		ion_buffer_dump(buffer, NULL);
 		aee_kernel_warning_api(__FILE__, __LINE__,
 				       DB_OPT_DEFAULT |
@@ -895,9 +895,9 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		ret = m4u_alloc_mva_sg(&port_info, buffer->sg_table);
 #endif
 		if (ret < 0) {
-			IONMSG("[%s]Error: port %d MVA(0x%x), domain:%d",
+			IONMSG("[%s]Error: p:%d MVA:0x%x dom:%d ret:%d",
 			       __func__, port_info.emoduleid,
-			       *(unsigned int *)addr, domain_idx);
+			       *(unsigned int *)addr, domain_idx, ret);
 			IONMSG("(region 0x%x-0x%x)(VA 0x%lx-%zu-%d)\n",
 			       port_info.iova_start, port_info.iova_end,
 			       (unsigned long)buffer_info->VA, buffer->size,
@@ -905,7 +905,23 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 			*addr = 0;
 			if (port_info.flags > 0)
 				buffer_info->FIXED_MVA[domain_idx] = 0;
-			ret = -EFAULT;
+			if (ret == -ERANGE) {
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+				IONMSG("OUT OF RANGE(%d) pa=0x%lx orig=0x%lx\n",
+				       ret, sg_phys(buffer->sg_table->sgl),
+				       sg_phys(buffer_info->table_orig->sgl));
+#else
+				IONMSG("OUT OF RANGE(%d) pa=0x%lx\n",
+				       ret, sg_phys(buffer->sg_table->sgl));
+#endif
+				ion_buffer_dump(buffer, NULL);
+				aee_kernel_warning_api(__FILE__, __LINE__,
+						       DB_OPT_DEFAULT |
+						       DB_OPT_NATIVE_BACKTRACE,
+						       "pa out of range",
+						       "dump user backtrace");
+			}
 			goto out;
 		}
 

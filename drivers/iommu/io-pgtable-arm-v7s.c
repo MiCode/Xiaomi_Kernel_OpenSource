@@ -617,8 +617,7 @@ static int arm_v7s_map(struct io_pgtable_ops *ops, unsigned long iova,
 		return -ERANGE;
 	}
 
-	if (WARN_ON((paddr >= (1ULL << data->iop.cfg.oas)) &&
-		    !(iop->cfg.quirks & IO_PGTABLE_QUIRK_ARM_MTK_4GB))) {
+	if (WARN_ON(paddr >= (1ULL << data->iop.cfg.oas))) {
 		pr_notice("%s, %d, err paddr:0x%lx, oas=%d, quirks=0x%x\n",
 			  __func__, __LINE__, paddr,
 			  data->iop.cfg.oas, iop->cfg.quirks);
