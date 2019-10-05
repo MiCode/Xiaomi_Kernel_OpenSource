@@ -225,7 +225,7 @@ void clk_buf_ctrl_bblpm_hw(short on)
 	clk_buf_pr_dbg("%s(%u): bblpm_sel=0x%x\n", __func__, (on ? 1 : 0),
 		bblpm_sel);
 #else
-	clk_buf_pr_dbg("%s(%u): not support\n", __func__);
+	clk_buf_pr_dbg("%s: not support\n", __func__);
 #endif
 }
 
