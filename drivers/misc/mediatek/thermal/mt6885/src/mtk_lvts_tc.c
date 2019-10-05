@@ -53,6 +53,42 @@
 
 #include <mt-plat/mtk_devinfo.h>
 #include "mtk_thermal_ipi.h"
+
+
+/**
+ * curr_temp >= tscpu_polling_trip_temp1:
+ *	polling interval = interval
+ * tscpu_polling_trip_temp1 > cur_temp >= tscpu_polling_trip_temp2:
+ *	polling interval = interval * tscpu_polling_factor1
+ * tscpu_polling_trip_temp2 > cur_temp:
+ *	polling interval = interval * tscpu_polling_factor2
+ */
+/* chip dependent */
+int tscpu_polling_trip_temp1 = 40000;
+int tscpu_polling_trip_temp2 = 20000;
+int tscpu_polling_factor1 = 1;
+int tscpu_polling_factor2 = 4;
+
+#if MTKTSCPU_FAST_POLLING
+/* Combined fast_polling_trip_temp and fast_polling_factor,
+ * it means polling_delay will be 1/5 of original interval
+ * after mtktscpu reports > 65C w/o exit point
+ */
+int fast_polling_trip_temp = 60000;
+int fast_polling_trip_temp_high = 60000; /* deprecaed */
+int fast_polling_factor = 1;
+int tscpu_cur_fp_factor = 1;
+int tscpu_next_fp_factor = 1;
+#endif
+
+int tscpu_debug_log;
+
+#ifdef CONFIG_OF
+const struct of_device_id mt_thermal_of_match[2] = {
+	{.compatible = "mediatek,therm_ctrl",},
+	{},
+};
+#endif
 /*=============================================================
  * Local variable definition
  *=============================================================
@@ -63,102 +99,103 @@
  * Please confirm it.
  */
 /*
- * PTP#	module		LVTS Plan
- * 0	MCU_LITTLE	LVTS2-0, 1, 2
- * 1	MCU_BIG		LVTS1-0, 1
- * 2	MCU_CCI		LVTS2-0, 1, 2
- * 3	MFG (GPU)	LVTS3-0, 1
- * 4	VPU		LVTS4-0
- * No PTP bank 5
- * 6	TOP		LVTS4-0; LVTS3-0,1
- * 7	MD		LVTS9-0
+ * module			LVTS Plan
+ *=====================================================
+ * MCU_BIG(T1,T2)		LVTS1-0, LVTS1-1
+ * MCU_BIG(T3,T4)		LVTS2-0, LVTS2-1
+ * MCU_LITTLE(T5,T6,T7,T8)	LVTS3-0, LVTS3-1, LVTS3-2, LVTS3-3
+ * VPU_MLDA(T9,T10)		LVTS4-0, LVTS4-1
+ * GPU(T11,T12)			LVTS5-0, LVTS5-1
+ * INFA(T13)			LVTS6-0
+ * CAMSYS(T18)			LVTS6-1
+ * MDSYS(T14,T15,T20)		LVTS7-0, LVTS7-1, LVTS7-2
  */
+
 struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
-	[0] = {/*(AP)*/
+	[0] = {/*(MCU)*/
+		.ts = {L_TS_LVTS1_0, L_TS_LVTS1_1},
+		.ts_number = 2,
+		.dominator_ts_idx = 1,
+		.tc_offset = 0x26D000,
+		.tc_speed = {
+			0x001,
+			0x00C,
+			0x001,
+			0x001
+		}
+	},
+	[1] = {/*(MCU)*/
+		.ts = {L_TS_LVTS2_0, L_TS_LVTS2_1},
+		.ts_number = 2,
+		.dominator_ts_idx = 1,
+		.tc_offset = 0x26D100,
+		.tc_speed = {
+			0x001,
+			0x00C,
+			0x001,
+			0x001
+		}
+	},
+	[2] = {/*(MCU)*/
+		.ts = {L_TS_LVTS3_0, L_TS_LVTS3_1, L_TS_LVTS3_2, L_TS_LVTS3_3},
+		.ts_number = 4,
+		.dominator_ts_idx = 1,
+		.tc_offset = 0x26D200,
+		.tc_speed = {
+			0x001,
+			0x00C,
+			0x001,
+			0x001
+		}
+	},
+	[3] = {/*(AP)*/
 		.ts = {L_TS_LVTS4_0, L_TS_LVTS4_1},
 		.ts_number = 2,
 		.dominator_ts_idx = 1,
 		.tc_offset = 0x0,
 		.tc_speed = {
-			0x04F,
+			0x001,
 			0x00C,
 			0x001,
-			0x001,
+			0x001
 		}
 	},
-	[1] = {/*(AP)*/
+	[4] = {/*(AP)*/
 		.ts = {L_TS_LVTS5_0, L_TS_LVTS5_1},
 		.ts_number = 2,
-		.dominator_ts_idx = 1,
+		.dominator_ts_idx = 0,
 		.tc_offset = 0x100,
 		.tc_speed = {
-			0x04F,
+			0x001,
 			0x00C,
 			0x001,
-			0x001,
+			0x001
 		}
 	},
-	[2] = {/*(AP)*/
+	[5] = {/*(AP)*/
 		.ts = {L_TS_LVTS6_0, L_TS_LVTS6_1},
 		.ts_number = 2,
-		.dominator_ts_idx = 0,
+		.dominator_ts_idx = 1,
 		.tc_offset = 0x200,
 		.tc_speed = {
-			0x04F,
+			0x001,
 			0x00C,
 			0x001,
-			0x001,
+			0x001
 		}
 	},
-	[3] = {/*(AP)*/
+	[6] = {/*(AP)*/
 		.ts = {L_TS_LVTS7_0, L_TS_LVTS7_1, L_TS_LVTS7_2},
 		.ts_number = 3,
-		.dominator_ts_idx = 0,
+		.dominator_ts_idx = 1,
 		.tc_offset = 0x300,
 		.tc_speed = {
-			0x04F,
+			0x001,
 			0x00C,
 			0x001,
-			0x001,
-		}
-	},
-	[4] = {/*(MCU)*/
-		.ts = {L_TS_LVTS1_0, L_TS_LVTS1_1},
-		.ts_number = 2,
-		.dominator_ts_idx = 0,
-		.tc_offset = 0x300,
-		.tc_speed = {
-			0x04F,
-			0x00C,
-			0x001,
-			0x001,
-		}
-	},
-	[5] = {/*(MCU)*/
-		.ts = {L_TS_LVTS2_0, L_TS_LVTS2_1},
-		.ts_number = 2,
-		.dominator_ts_idx = 0,
-		.tc_offset = 0x300,
-		.tc_speed = {
-			0x04F,
-			0x00C,
-			0x001,
-			0x001,
-		}
-	},
-	[6] = {/*(MCU)*/
-		.ts = {L_TS_LVTS3_0, L_TS_LVTS3_1, L_TS_LVTS3_2, L_TS_LVTS3_3},
-		.ts_number = 4,
-		.dominator_ts_idx = 0,
-		.tc_offset = 0x300,
-		.tc_speed = {
-			0x04F,
-			0x00C,
-			0x001,
-			0x001,
+			0x001
 		}
 	}
-
 };
 
 static unsigned int g_golden_temp;
@@ -246,8 +283,8 @@ int diff_error_count;
 #define DEFAULT_EFUSE_COUNT			(350000)
 #define DEFAULT_EFUSE_COUNT_RC			(350000)
 #define FAKE_EFUSE_VALUE			0x2B048500
-#define LVTS_COEFF_A_X_1000			(-212830) //-212.83
-#define LVTS_COEFF_B_X_1000			 (212830) // 212.83
+#define LVTS_COEFF_A_X_1000			(-212830)
+#define LVTS_COEFF_B_X_1000			 (212830)
 #endif
 
 /*=============================================================
@@ -424,6 +461,9 @@ void lvts_device_read_count_RC_N(void)
 		offset = lvts_tscpu_g_tc[i].tc_offset;
 		num_ts = lvts_tscpu_g_tc[i].ts_number;
 
+		/* Set LVTS Manual-RCK operation */
+		lvts_write_device(0x81030000, 0x0E, 0x00, i);
+
 		for (j = 0; j < num_ts; j++) {
 			s_index = lvts_tscpu_g_tc[i].ts[j];
 
@@ -431,6 +471,12 @@ void lvts_device_read_count_RC_N(void)
 			lvts_write_device(0x81030000, 0x0D, j, i);
 			/* Set Device Single mode */
 			lvts_write_device(0x81030000, 0x06, 0x78, i);
+			/* Enable TS_EN */
+			lvts_write_device(0x81030000, 0x08, 0xF7, i);
+			/* Toggle TSDIV_EN & TSVCO_TG */
+			lvts_write_device(0x81030000, 0x08, 0xFE, i);
+			/* Toggle TSDIV_EN & TSVCO_TG */
+			lvts_write_device(0x81030000, 0x08, 0xF7, i);
 			/* Wait 8us for device settle + 2us buffer*/
 			udelay(10);
 			/* Kick-off RCK counting */
@@ -451,6 +497,9 @@ void lvts_device_read_count_RC_N(void)
 			data = lvts_read_device(0x81020000, 0x00, i);
 			/* wait 2us + 3us buffer*/
 			udelay(5);
+
+			/* Disable TS_EN */
+			lvts_write_device(0x81030000, 0x08, 0xF3, i);
 
 			lvts_device_check_read_write_status(i);
 
@@ -507,8 +556,9 @@ void lvts_efuse_setting(void)
 			s_index = lvts_tscpu_g_tc[i].ts[j];
 
 #if LVTS_DEVICE_AUTO_RCK == 0
-			efuse_data = g_count_rc_now[s_index] *
-				g_count_r[s_index];
+			efuse_data =
+			(((unsigned long long int)g_count_rc_now[s_index]) *
+				g_count_r[s_index]) >> 14;
 #else
 			efuse_data = g_count_r[s_index];
 #endif
@@ -801,21 +851,17 @@ void lvts_Device_Enable_Init_all_Devices(void)
 	lvts_dbg_printk("%s\n", __func__);
 
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		/* Release Counting StateMachine */
+		lvts_write_device(0x81030000, 0x03, 0x00, i);
 		/* Set LVTS device counting window 20us */
 		lvts_write_device(0x81030000, 0x04, 0x20, i);
 		lvts_write_device(0x81030000, 0x05, 0x00, i);
-		/* Release Counting StateMachine */
-		lvts_write_device(0x81030000, 0x03, 0x00, i);
 		/* TSV2F_CHOP_CKSEL & TSV2F_EN */
-		lvts_write_device(0x81030000, 0x08, 0xC3, i);
+		lvts_write_device(0x81030000, 0x0A, 0xC4, i);
 		/* TSBG_DEM_CKSEL * TSBG_CHOP_EN */
-		lvts_write_device(0x81030000, 0x09, 0x8D, i);
-		/* Set TS_RSV */
 		lvts_write_device(0x81030000, 0x0C, 0x7C, i);
-		/* TSBG_RSV[3:0] = 4'ha */
-		lvts_write_device(0x81030000, 0x0A, 0xA8, i);
-		/* TSV2F_RSV = 4?™h4 (Str_EN) */
-		lvts_write_device(0x81030000, 0x0B, 0x04, i);
+		/* Set TS_RSV */
+		lvts_write_device(0x81030000, 0x09, 0x8D, i);
 
 #if LVTS_DEVICE_AUTO_RCK == 0
 		/* Device low power mode can ignore these settings and
@@ -824,84 +870,110 @@ void lvts_Device_Enable_Init_all_Devices(void)
 		 */
 
 		/* Enable TS_EN */
-		lvts_write_device(0x81030000, 0x08, 0xC7, i);
+		lvts_write_device(0x81030000, 0x08, 0xF7, i);
 		/* Toggle TSDIV_EN & TSVCO_TG */
-		lvts_write_device(0x81030000, 0x08, 0xCE, i);
+		lvts_write_device(0x81030000, 0x08, 0xFE, i);
 		/* Toggle TSDIV_EN & TSVCO_TG */
-		lvts_write_device(0x81030000, 0x08, 0xC7, i);
+		lvts_write_device(0x81030000, 0x08, 0xF7, i);
 #endif
 	}
 }
 
 void lvts_thermal_cal_prepare(void)
 {
-	unsigned int temp[16];
+	unsigned int temp[22];
 	int i, offset;
 	char buffer[512];
 #if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
 	struct thermal_ipi_data thermal_data;
 #endif
 
-	temp[0] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_1); /* 0x01B0 */
-	temp[1] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_2); /* 0x01C8 */
-	temp[2] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_3); /* 0x095C */
-	temp[3] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_4); /* 0x01CC */
-	temp[4] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_5); /* 0x0960 */
-	temp[5] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_6); /* 0x093C */
-	temp[6] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_7); /* 0x0964 */
-	temp[7] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_8); /* 0x0940 */
-	temp[8] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_9); /* 0x0968 */
-	temp[9] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_10); /* 0x0944 */
-	temp[10] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_11); /* 0x096C */
-	temp[11] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_12); /* 0x0948 */
-	temp[12] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_13); /* 0x094C */
-	temp[13] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_14); /* 0x0950 */
-	temp[14] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_15); /* 0x0954 */
-	temp[15] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_16); /* 0x0958 */
+	temp[0] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_1);
+	temp[1] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_2);
+	temp[2] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_3);
+	temp[3] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_4);
+	temp[4] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_5);
+	temp[5] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_6);
+	temp[6] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_7);
+	temp[7] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_8);
+	temp[8] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_9);
+	temp[9] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_10);
+	temp[10] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_11);
+	temp[11] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_12);
+	temp[12] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_13);
+	temp[13] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_14);
+	temp[14] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_15);
+	temp[15] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_16);
+	temp[16] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_17);
+	temp[17] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_18);
+	temp[18] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_19);
+	temp[19] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_20);
+	temp[20] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_21);
+	temp[21] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_22);
 
-	for (i = 0; (i + 5) < 16; i = i + 5)
-		lvts_printk("[lvts_cal] %d: 0x%x, %d: 0x%x, %d: 0x%x, %d: 0x%x, %d: 0x%x\n",
+
+	for (i = 0; (i + 5) < 22; i = i + 5)
+		lvts_printk("[lvts_call] %d: 0x%x, %d: 0x%x, %d: 0x%x, %d: 0x%x, %d: 0x%x\n",
 		i, temp[i], i + 1, temp[i + 1], i + 2, temp[i + 2],
 		i + 3, temp[i + 3], i + 4, temp[i + 4]);
 
-	lvts_printk("[lvts_cal] 15: 0x%x\n", temp[15]);
+	lvts_printk("[lvts_call] 20: 0x%x,  21: 0x%x\n", temp[20], temp[21]);
 
-	g_golden_temp = (temp[0] & _BITMASK_(7:0));
-	g_count_r[0] = (temp[1] & _BITMASK_(23:0));
-	g_count_rc[0] = (temp[2] & _BITMASK_(23:0));
-	g_count_r[1] = (temp[3] & _BITMASK_(23:0));
-	g_count_rc[1] = (temp[4] & _BITMASK_(23:0));
-	g_count_r[2] = (temp[5] & _BITMASK_(23:0));
-	g_count_rc[2] = (temp[6] & _BITMASK_(23:0));
-	g_count_r[3] = (temp[7] & _BITMASK_(23:0));
-	g_count_rc[3] = (temp[8] & _BITMASK_(23:0));
-	g_count_r[4] = (temp[9] & _BITMASK_(23:0));
-	g_count_rc[4] = (temp[10] & _BITMASK_(23:0));
-	g_count_r[5] = (temp[11] & _BITMASK_(23:0));
-	g_count_rc[5] = ((temp[1] & _BITMASK_(31:24)) >> 8) +
-		((temp[3] & _BITMASK_(31:24)) >> 16)+
-		((temp[5] & _BITMASK_(31:24)) >> 24);
-	g_count_r[6] = (temp[12] & _BITMASK_(23:0));
-	g_count_rc[6] = ((temp[7] & _BITMASK_(31:24)) >> 8) +
-		((temp[9] & _BITMASK_(31:24)) >> 16) +
-		((temp[11] & _BITMASK_(31:24)) >> 24);
-	g_count_r[7] = (temp[13] & _BITMASK_(23:0));
-	g_count_rc[7] = ((temp[12] & _BITMASK_(31:24)) >> 8) +
-		((temp[13] & _BITMASK_(31:24)) >> 16) +
-		((temp[14] & _BITMASK_(31:24)) >> 24);
-	/* There is no LVTS4_1 in mt6785 compared with mt6779 */
-	/*
-	 * g_count_r[8] = (temp[14] & _BITMASK_(23:0));
-	 * g_count_rc[8] = ((temp[15] & _BITMASK_(31:24)) >> 8) +
-	 *	((temp[2] & _BITMASK_(31:24)) >> 16) +
-	 *	((temp[4] & _BITMASK_(31:24)) >> 24);
-	 */
-	g_count_r[8] = (temp[15] & _BITMASK_(23:0));
-	g_count_rc[8] = ((temp[6] & _BITMASK_(31:24)) >> 8) +
+
+	g_golden_temp = ((temp[0] & _BITMASK_(31:24)) >> 24);//0x11C1_01B4
+	g_count_r[0] = (temp[1] & _BITMASK_(23:0)); //0x11C1_01C4,LVTS1_0
+	g_count_r[1] = (temp[2] & _BITMASK_(23:0)); //0x11C1_01C8,LVTS1_1
+	g_count_r[2] = (temp[3] & _BITMASK_(23:0)); //0x11C1_01CC,LVTS2_0
+	g_count_r[3] = (temp[4] & _BITMASK_(23:0)); //0x11C1_01D0,LVTS2_1
+	g_count_r[4] = (temp[5] & _BITMASK_(23:0)); //0x11C1_01D4,LVTS3_0
+	g_count_r[5] = (temp[6] & _BITMASK_(23:0)); //0x11C1_01D8,LVTS3_1
+	g_count_r[6] = (temp[7] & _BITMASK_(23:0)); //0x11C1_01DC,LVTS3_2
+	g_count_r[7] = (temp[8] & _BITMASK_(23:0)); //0x11C1_01E0,LVTS3_3
+	g_count_r[8] = (temp[9] & _BITMASK_(23:0)); //0x11C1_01E4,LVTS4_0
+	g_count_r[9] = (temp[10] & _BITMASK_(23:0)); //0x11C1_01E8,LVTS4_1
+	g_count_r[10] = (temp[11] & _BITMASK_(23:0));//0x11C1_01EC,LVTS5_0
+	g_count_r[11] = (temp[12] & _BITMASK_(23:0));//0x11C1_01F0,LVTS5_1
+	g_count_r[12] = (temp[13] & _BITMASK_(23:0));//0x11C1_01F4,LVTS6_0
+	g_count_r[13] = (temp[14] & _BITMASK_(23:0));//0x11C1_01F8,LVTS6_1
+	g_count_r[14] = (temp[15] & _BITMASK_(23:0));//0x11C1_01FC,LVTS7_0
+	g_count_r[15] = (temp[16] & _BITMASK_(23:0));//0x11C1_0200,LVTS7_1
+	g_count_r[16] = (temp[17] & _BITMASK_(23:0));//0x11C1_0204,LVTS7_2
+
+	/*0214, LVTS1_0_COUNT_RC*/
+	g_count_rc[0] = (temp[21] & _BITMASK_(23:0));
+
+	/*01C4, 01C8, 01CC, LVTS2_0_COUNT_RC*/
+	g_count_rc[1] = ((temp[1] & _BITMASK_(31:24)) >> 8) +
+		((temp[2] & _BITMASK_(31:24)) >> 16)+
+		((temp[3] & _BITMASK_(31:24)) >> 24);
+
+	/*01D0, 01D4, 01D8, LVTS3_0_COUNT_RC*/
+	g_count_rc[2] = ((temp[4] & _BITMASK_(31:24)) >> 8) +
+		((temp[5] & _BITMASK_(31:24)) >> 16) +
+		((temp[6] & _BITMASK_(31:24)) >> 24);
+
+	/*01DC, 01E0, 01E4, LVTS4_0_COUNT_RC*/
+	g_count_rc[3] = ((temp[7] & _BITMASK_(31:24)) >> 8) +
 		((temp[8] & _BITMASK_(31:24)) >> 16) +
-		((temp[10] & _BITMASK_(31:24)) >> 24);
+		((temp[9] & _BITMASK_(31:24)) >> 24);
 
-	for (i = 0; i < 16; i++) {
+	/*01E8, 01EC, 01F0, LVTS5_0_COUNT_RC*/
+	g_count_rc[4] = ((temp[10] & _BITMASK_(31:24)) >> 8) +
+		((temp[11] & _BITMASK_(31:24)) >> 16) +
+		((temp[12] & _BITMASK_(31:24)) >> 24);
+
+	/*01F4, 01F8, 01FC, LVTS6_0_COUNT_RC*/
+	g_count_rc[5] = ((temp[13] & _BITMASK_(31:24)) >> 8) +
+		((temp[14] & _BITMASK_(31:24)) >> 16) +
+		((temp[15] & _BITMASK_(31:24)) >> 24);
+
+	/*0200, 0204, 0208, LVTS7_0_COUNT_RC*/
+	g_count_rc[6] = ((temp[16] & _BITMASK_(31:24)) >> 8) +
+		((temp[17] & _BITMASK_(31:24)) >> 16) +
+		((temp[18] & _BITMASK_(31:24)) >> 24);
+
+
+	for (i = 0; i < L_TS_LVTS_NUM; i++) {
 		if (i == 0) {
 			if ((temp[0] & _BITMASK_(7:0)) != 0)
 				break;
@@ -911,7 +983,7 @@ void lvts_thermal_cal_prepare(void)
 		}
 	}
 
-	if (i == 16) {
+	if (i == L_TS_LVTS_NUM) {
 		/* It means all efuse data are equal to 0 */
 		lvts_printk(
 			"[lvts_cal] This sample is not calibrated, fake !!\n");
@@ -1093,7 +1165,7 @@ irqreturn_t lvts_tscpu_thermal_all_tc_interrupt_handler(int irq, void *dev_id)
 
 	lvts_printk("%s : THERMINTST = 0x%x\n", __func__, ret);
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
-		mask = 1 << (i+3); /* shift 3 to skip THERMINT0,1,2 */
+		mask = 1 << i;
 
 		if ((ret & mask) == 0)
 			lvts_interrupt_handler(i);

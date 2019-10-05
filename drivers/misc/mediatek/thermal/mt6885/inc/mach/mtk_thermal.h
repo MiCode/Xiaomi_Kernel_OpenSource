@@ -42,12 +42,13 @@ struct mt_gpufreq_power_table_info {
  * LVTS SW Configs
  *=============================================================
  */
-#define CFG_THERM_LVTS				(0)
+#define CFG_THERM_LVTS				(1)
+#define CFG_THERM_NO_AUXADC			(1)
 
 #if CFG_THERM_LVTS
-#define	CFG_LVTS_DOMINATOR			(0)
+#define	CFG_LVTS_DOMINATOR			(1)
 #define	LVTS_THERMAL_CONTROLLER_HW_FILTER	(1) /* 1, 2, 4, 8, 16 */
-#define	LVTS_DEVICE_AUTO_RCK			(1)
+#define	LVTS_DEVICE_AUTO_RCK			(0)
 #else
 #define	CFG_LVTS_DOMINATOR			(0)
 #define	LVTS_THERMAL_CONTROLLER_HW_FILTER	(0)
@@ -55,34 +56,28 @@ struct mt_gpufreq_power_table_info {
 #endif
 
 /* public thermal sensor enum */
+
 enum thermal_sensor {
-	TS_MCU0 = 0,
-	TS_MCU1,
-	TS_MCU2,
-	/* There is no TSMCU3 in MT6785 compared with MT6779 */
-	TS_MCU4,
-	TS_MCU5,
-	TS_MCU6,
-	TS_MCU7,
-	TS_MCU8,
-	TS_MCU9,
 #if CFG_THERM_LVTS
-	TS_LVTS1_0,
+	TS_LVTS1_0 = 0,
 	TS_LVTS1_1,
 	TS_LVTS2_0,
 	TS_LVTS2_1,
-	TS_LVTS2_2,
 	TS_LVTS3_0,
 	TS_LVTS3_1,
+	TS_LVTS3_2,
+	TS_LVTS3_3,
 	TS_LVTS4_0,
-	/* There is no LVTS4_1 in MT6785 compared with MT6779 */
-	/* LVTS9_0 always has no temperature data because
-	 * there is no HW route to it
-	 */
-	TS_LVTS9_0,
+	TS_LVTS4_1,
+	TS_LVTS5_0,
+	TS_LVTS5_1,
+	TS_LVTS6_0,
+	TS_LVTS6_1,
+	TS_LVTS7_0,
+	TS_LVTS7_1,
+	TS_LVTS7_2,
 #endif
-	TS_ABB,
-	TS_ENUM_MAX,
+	TS_ENUM_MAX
 };
 
 enum thermal_bank_name {
@@ -91,9 +86,8 @@ enum thermal_bank_name {
 	THERMAL_BANK2,
 	THERMAL_BANK3,
 	THERMAL_BANK4,
-	/* No bank 5 */
+	THERMAL_BANK5,
 	THERMAL_BANK6,
-	THERMAL_BANK7,
 	THERMAL_BANK_NUM
 };
 

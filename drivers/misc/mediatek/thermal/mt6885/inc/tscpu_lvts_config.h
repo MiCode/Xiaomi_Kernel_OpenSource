@@ -19,7 +19,7 @@
  */
 /* chip dependent */
 /* TODO: change to new reg addr. */
-#define LVTS_ADDRESS_INDEX_1	113 /* 0x11C101B4 */
+#define LVTS_ADDRESS_INDEX_1	116 /* 0x11C101C0 */
 #define LVTS_ADDRESS_INDEX_2	117 /* 0x11C101C4 */
 #define LVTS_ADDRESS_INDEX_3	118 /* 0x11C101C8 */
 #define LVTS_ADDRESS_INDEX_4	119 /* 0x11C101CC */

@@ -170,7 +170,7 @@
 #endif
 #define LVTS_VALID_DATA_TIME_PROFILING (0)
 
-#define LVTS_USE_DOMINATOR_SENSING_POINT (0)
+#define LVTS_USE_DOMINATOR_SENSING_POINT (1)
 /*=============================================================
  *REG ACCESS
  *=============================================================
@@ -250,10 +250,66 @@ struct mtk_cpu_power_info {
 };
 
 /*=============================================================
+ * LVTS Structure and Enum
+ *=============================================================
+ */
+#if CFG_THERM_LVTS
+
+
+/* private thermal sensor enum */
+enum lvts_sensor_enum {
+	L_TS_LVTS1_0 = 0,	/* LVTS1-0 1*/
+	L_TS_LVTS1_1,		/* LVTS1-1 2*/
+	L_TS_LVTS2_0,		/* LVTS2-0 3*/
+	L_TS_LVTS2_1,		/* LVTS2-1 4*/
+	L_TS_LVTS3_0,		/* LVTS3-0 5*/
+	L_TS_LVTS3_1,		/* LVTS3-1 6*/
+	L_TS_LVTS3_2,		/* LVTS3-2 7*/
+	L_TS_LVTS3_3,		/* LVTS3-3 8*/
+	L_TS_LVTS4_0,		/* LVTS4-0 9*/
+	L_TS_LVTS4_1,		/* LVTS4-1 10*/
+	L_TS_LVTS5_0,		/* LVTS5-0 11*/
+	L_TS_LVTS5_1,		/* LVTS5-1 12*/
+	L_TS_LVTS6_0,		/* LVTS6-0 13*/
+	L_TS_LVTS6_1,		/* LVTS6-1 14*/
+	L_TS_LVTS7_0,		/* LVTS7-0 15*/
+	L_TS_LVTS7_1,		/* LVTS7-1 16*/
+	L_TS_LVTS7_2,		/* LVTS7-2 17*/
+	L_TS_LVTS_NUM
+};
+
+enum lvts_tc_enum {
+	LVTS_MCU_CONTROLLER0 = 0,/* LVTSMONCTL0 */
+	LVTS_MCU_CONTROLLER1,	/* LVTSMONCTL0_1 */
+	LVTS_MCU_CONTROLLER2,	/* LVTSMONCTL0_2 */
+	LVTS_AP_CONTROLLER0,    /* LVTSMONCTL0 */
+	LVTS_AP_CONTROLLER1,	/* LVTSMONCTL0_1 */
+	LVTS_AP_CONTROLLER2,	/* LVTSMONCTL0_2 */
+	LVTS_AP_CONTROLLER3,	/* LVTSMONCTL0_3 */
+	LVTS_CONTROLLER_NUM
+};
+
+struct lvts_thermal_controller_speed {
+	unsigned int group_interval_delay;
+	unsigned int period_unit;
+	unsigned int filter_interval_delay;
+	unsigned int sensor_interval_delay;
+};
+
+struct lvts_thermal_controller {
+	enum lvts_sensor_enum ts[4]; /* sensor point 0 ~ 3 */
+	int ts_number;
+	int dominator_ts_idx; /* hw protection ref TS (index of the ts array) */
+	int tc_offset;
+	struct lvts_thermal_controller_speed tc_speed;
+};
+#endif
+
+/*=============================================================
  * Tsense Structure and Enum
  *=============================================================
  */
-
+#if !defined(CFG_THERM_NO_AUXADC)
 /* private thermal sensor enum */
 enum tsmcu_sensor_enum {
 	L_TS_MCU0 = 0,
@@ -276,66 +332,29 @@ enum thermal_controller_name {
 	THERMAL_CONTROLLER2,		/* TEMPMONCTL0_2 */
 	THERMAL_CONTROLLER_NUM
 };
-
+#endif
 struct thermal_controller_speed {
 	unsigned int period_unit;
 	unsigned int filter_interval_delay;
 	unsigned int sensor_interval_delay;
 	unsigned int ahb_polling_interval;
 };
-
+#if CFG_THERM_LVTS
 struct thermal_controller {
-	enum tsmcu_sensor_enum ts[4]; /* Sensor point 0 ~ 3 */
+	enum lvts_sensor_enum ts[4]; /* Sensor point 0 ~ 3 */
 	int ts_number;
 	int dominator_ts_idx; //hw protection ref TS (index of the ts array)
 	int tc_offset;
 	struct thermal_controller_speed tc_speed;
 };
 
-/*=============================================================
- * LVTS Structure and Enum
- *=============================================================
- */
-#if CFG_THERM_LVTS
-/* private thermal sensor enum */
-enum lvts_sensor_enum {
-	L_TS_LVTS1_0 = 0,
-	L_TS_LVTS1_1,
-	L_TS_LVTS2_0,
-	L_TS_LVTS2_1,
-	L_TS_LVTS2_2,
-	L_TS_LVTS3_0,
-	L_TS_LVTS3_1,
-	L_TS_LVTS4_0,
-	/* There is no LVTS4_1 in MT6785 compared with MT6779 */
-	/* LVTS9_0 always has no temperature data because
-	 * there is no HW route to it
-	 */
-	L_TS_LVTS9_0,
-	L_TS_LVTS_NUM
-};
-
-enum lvts_tc_enum {
-	LVTS_CONTROLLER0 = 0,	/* LVTSMONCTL0 */
-	LVTS_CONTROLLER1,	/* LVTSMONCTL0_1 */
-	LVTS_CONTROLLER2,	/* LVTSMONCTL0_2 */
-	LVTS_CONTROLLER3,	/* LVTSMONCTL0_3 */
-	LVTS_CONTROLLER_NUM
-};
-
-struct lvts_thermal_controller_speed {
-	unsigned int group_interval_delay;
-	unsigned int period_unit;
-	unsigned int filter_interval_delay;
-	unsigned int sensor_interval_delay;
-};
-
-struct lvts_thermal_controller {
-	enum lvts_sensor_enum ts[4]; /* sensor point 0 ~ 3 */
+#else
+struct thermal_controller {
+	enum tsmcu_sensor_enum ts[4]; /* Sensor point 0 ~ 3 */
 	int ts_number;
-	int dominator_ts_idx; /* hw protection ref TS (index of the ts array) */
+	int dominator_ts_idx; //hw protection ref TS (index of the ts array)
 	int tc_offset;
-	struct lvts_thermal_controller_speed tc_speed;
+	struct thermal_controller_speed tc_speed;
 };
 #endif
 
@@ -345,6 +364,7 @@ struct lvts_thermal_controller {
  */
 #ifdef CONFIG_OF
 extern u32 thermal_irq_number;
+extern u32 thermal_mcu_irq_number;
 extern void __iomem *thermal_base;
 extern void __iomem *auxadc_ts_base;
 extern void __iomem *infracfg_ao_base;
@@ -375,12 +395,14 @@ extern int temp_dUART;
 
 extern int tscpu_debug_log;
 extern const struct of_device_id mt_thermal_of_match[2];
+#if !defined(CFG_THERM_NO_AUXADC)
 extern struct thermal_controller tscpu_g_tc[THERMAL_CONTROLLER_NUM];
+#endif
 extern int tscpu_polling_trip_temp1;
 extern int tscpu_polling_trip_temp2;
 extern int tscpu_polling_factor1;
 extern int tscpu_polling_factor2;
-
+#if !defined(CFG_THERM_NO_AUXADC)
 /*
  * temperature array to store both tsmcu and lvts (if exist) and export them
  */
@@ -392,6 +414,7 @@ extern int tscpu_ts_temp_r[TS_ENUM_MAX]; /* raw data */
  */
 extern int tscpu_ts_mcu_temp[L_TS_MCU_NUM];
 extern int tscpu_ts_mcu_temp_r[L_TS_MCU_NUM]; /* raw data */
+#endif
 
 #if CFG_THERM_LVTS
 /*
@@ -502,6 +525,7 @@ void tscpu_set_GPIO_toggle_for_monitor(void);
 #endif
 extern void tscpu_update_tempinfo(void);
 
+#if !defined(CFG_THERM_NO_AUXADC)
 /*In src/mtk_tc.c*/
 extern void tscpu_config_all_tc_hw_protect(int temperature, int temperature2);
 extern void tscpu_reset_thermal(void);
@@ -510,8 +534,7 @@ extern void tscpu_thermal_read_tc_temp(
 	int tc_num, enum tsmcu_sensor_enum type, int order);
 extern void tscpu_thermal_cal_prepare(void);
 extern void tscpu_thermal_cal_prepare_2(unsigned int ret);
-extern int tscpu_thermal_clock_on(void);
-extern int tscpu_thermal_clock_off(void);
+
 extern int tscpu_dump_cali_info(struct seq_file *m, void *v);
 extern int tscpu_thermal_fast_init(int tc_num);
 extern void thermal_get_AHB_clk_info(void);
@@ -523,7 +546,10 @@ extern void thermal_disable_all_periodoc_temp_sensing(void);
 extern void read_all_tc_tsmcu_temperature(void);
 extern irqreturn_t tscpu_thermal_all_tc_interrupt_handler(
 int irq, void *dev_id);
-
+#endif
+extern int tscpu_thermal_clock_on(void);
+extern int tscpu_thermal_clock_off(void);
+extern void lvts_tscpu_reset_thermal(void);
 /*
  * Support LVTS
  */

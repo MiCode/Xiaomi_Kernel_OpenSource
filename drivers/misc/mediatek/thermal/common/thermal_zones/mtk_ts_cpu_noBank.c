@@ -113,7 +113,7 @@ u32 thermal_irq_number;
 void __iomem *thermal_base;
 void __iomem *auxadc_ts_base;
 void __iomem *infracfg_ao_base;
-
+u32 thermal_mcu_irq_number;
 
 void __iomem *th_apmixed_base;
 void __iomem *INFRACFG_AO_base;
@@ -367,6 +367,7 @@ long long int thermal_get_current_time_us(void)
 	return temp;
 }
 
+#if !defined(CFG_THERM_NO_AUXADC)
 static void tscpu_fast_initial_sw_workaround(void)
 {
 	int i = 0;
@@ -383,6 +384,7 @@ static void tscpu_fast_initial_sw_workaround(void)
 	g_is_temp_valid = 0;
 	temp_valid_unlock(&flags);
 }
+#endif
 
 #if CFG_THERM_LVTS == (0)
 int tscpu_max_temperature(void)
@@ -1464,19 +1466,26 @@ static void tscpu_clear_all_temp(void)
 	/* GPU_TS_MCU1_T=26111; */
 	/* LTE_TS_MCU3_T=26111; */
 	int i, j;
-
+#if !defined(CFG_THERM_NO_AUXADC)
 	for (i = 0; i < ARRAY_SIZE(tscpu_g_tc); i++)
 		for (j = 0; j < tscpu_g_tc[i].ts_number; j++)
 			tscpu_ts_temp[tscpu_g_tc[i].ts[j]] = CLEAR_TEMP;
+#else
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++)
+		for (j = 0; j < lvts_tscpu_g_tc[i].ts_number; j++)
+			tscpu_ts_lvts_temp[lvts_tscpu_g_tc[i].ts[j]] =
+				CLEAR_TEMP;
+#endif
 }
 
 /*tscpu_thermal_suspend spend 1000us~1310us*/
 static int tscpu_thermal_suspend
 (struct platform_device *dev, pm_message_t state)
 {
+#if !defined(CFG_THERM_NO_AUXADC)
 	int cnt = 0;
 	int temp = 0;
-
+#endif
 	tscpu_printk("%s\n", __func__);
 #if THERMAL_PERFORMANCE_PROFILE
 	struct timeval begin, end;
@@ -1508,6 +1517,8 @@ static int tscpu_thermal_suspend
 			cnt++;
 		} while (temp != 0x0 && cnt < 50);
 #else
+
+#if !defined(CFG_THERM_NO_AUXADC)
 		thermal_pause_all_periodoc_temp_sensing(); /* TEMPMSRCTL1 */
 
 		do {
@@ -1519,15 +1530,20 @@ static int tscpu_thermal_suspend
 			udelay(2);
 			cnt++;
 		} while (temp != 0x0 && cnt < 50);
+#endif
+
 #if CFG_THERM_LVTS
 		lvts_disable_all_sensing_points();
 		lvts_wait_for_all_sensing_point_idle();
 		lvts_reset_device_and_stop_clk();
 #endif
+#if !defined(CFG_THERM_NO_AUXADC)
 		/* disable periodic temp measurement on sensor 0~2 */
 		thermal_disable_all_periodoc_temp_sensing(); /* TEMPMONCTL0 */
 #endif
+#endif
 
+#if !defined(CFG_THERM_NO_AUXADC)
 		/*TSCON1[5:4]=2'b11, Buffer off */
 		/*
 		 *mt6768 TSCON0[29:28]=2'b11, Buffer off
@@ -1535,6 +1551,7 @@ static int tscpu_thermal_suspend
 		/* turn off the sensor buffer to save power */
 		mt_reg_sync_writel(readl(TS_CONFIGURE) | TS_TURN_OFF,
 								TS_CONFIGURE);
+#endif
 #if defined(THERMAL_EBABLE_TC_CG)
 		tscpu_thermal_clock_off();
 #endif
@@ -1553,9 +1570,10 @@ static int tscpu_thermal_suspend
 /*tscpu_thermal_suspend spend 3000us~4000us*/
 static int tscpu_thermal_resume(struct platform_device *dev)
 {
+#if !defined(CFG_THERM_NO_AUXADC)
 	int temp = 0;
 	int cnt = 0;
-
+#endif
 	tscpu_printk("%s\n", __func__);
 
 	g_tc_resume = 1; /* set "1", don't read temp during start resume */
@@ -1567,13 +1585,18 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 #if defined(THERMAL_EBABLE_TC_CG)
 		tscpu_thermal_clock_on();
 #endif
+#if CFG_THERM_LVTS
+		lvts_tscpu_reset_thermal();
+#else
 		tscpu_reset_thermal();
+#endif
 		/*
 		 *  TS_CON0[29:28] default is 0x03, this is buffer off
 		 *  we should turn on this buffer berore we use thermal sensor,
 		 *  or this buffer off will let TC read a very small value
 		 *  from auxadc and this small value will trigger thermal reboot
 		 */
+#if !defined(CFG_THERM_NO_AUXADC)
 		temp = readl(TS_CONFIGURE);
 
 
@@ -1596,7 +1619,7 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 		 * to RGU
 		 */
 		tscpu_fast_initial_sw_workaround();
-
+#endif
 #if CFG_THERM_LVTS
 		lvts_device_identification();
 		lvts_Device_Enable_Init_all_Devices();
@@ -1622,6 +1645,8 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 			cnt++;
 		} while (temp != 0x0 && cnt < 50);
 #else
+
+#if !defined(CFG_THERM_NO_AUXADC)
 		thermal_pause_all_periodoc_temp_sensing(); /* TEMPMSRCTL1 */
 
 		do {
@@ -1637,11 +1662,15 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 		/* TEMPMONCTL0 */
 		thermal_disable_all_periodoc_temp_sensing();
 #endif
+#endif
+
+#if !defined(CFG_THERM_NO_AUXADC)
 		tscpu_thermal_initial_all_tc();
 
 		/* must release before start */
 		thermal_release_all_periodoc_temp_sensing();
 
+#endif
 		tscpu_clear_all_temp();
 #if CFG_THERM_LVTS
 		lvts_disable_all_sensing_points();
@@ -1766,13 +1795,13 @@ static int ktp_thread(void *arg)
 int tscpu_get_temp_by_bank(enum thermal_bank_name ts_bank)
 {
 	int bank_T = -127000;
-
+#if !defined(CFG_THERM_NO_AUXADC)
 	tscpu_dprintk("tscpu_get_temp %s, %d\n", __func__, __LINE__);
 	if (ts_bank < THERMAL_BANK_NUM)
 		bank_T = max_temperature_in_bank[ts_bank]();
 	else
 		panic("Bank number out of range\n");
-
+#endif
 	return bank_T;
 }
 
@@ -2033,6 +2062,7 @@ static void check_all_temp_valid(void)
 {
 	int i, j, raw;
 
+#if !defined(CFG_THERM_NO_AUXADC)
 	for (i = 0; i < ARRAY_SIZE(tscpu_g_tc); i++) {
 		for (j = 0; j < tscpu_g_tc[i].ts_number; j++) {
 			raw = tscpu_ts_temp_r[tscpu_g_tc[i].ts[j]];
@@ -2041,7 +2071,16 @@ static void check_all_temp_valid(void)
 				return;	/* The temperature is not valid. */
 		}
 	}
+#else
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		for (j = 0; j < lvts_tscpu_g_tc[i].ts_number; j++) {
+			raw = tscpu_ts_lvts_temp_r[lvts_tscpu_g_tc[i].ts[j]];
 
+			if (raw == THERMAL_INIT_VALUE)
+				return;	/* The temperature is not valid. */
+		}
+	}
+#endif
 	g_is_temp_valid = 1;
 }
 
@@ -2067,9 +2106,13 @@ int tscpu_is_temp_valid(void)
 static void read_all_tc_temperature(void)
 {
 #if CFG_THERM_LVTS
+#if !defined(CFG_THERM_NO_AUXADC)
 	read_all_tc_tsmcu_temperature();
 	read_all_tc_lvts_temperature();
 	combine_lvts_tsmcu_temp();
+#else
+	read_all_tc_lvts_temperature();
+#endif
 #else
 	int i = 0, j = 0;
 
@@ -2219,8 +2262,10 @@ static void tscpu_start_thermal_timer(void)
 
 static void init_thermal(void)
 {
+#if !defined(CFG_THERM_NO_AUXADC)
 	int temp = 0;
 	int cnt = 0;
+#endif
 
 #if (CONFIG_THERMAL_AEE_RR_REC == 1)
 	_mt_thermal_aee_init();
@@ -2228,10 +2273,12 @@ static void init_thermal(void)
 	aee_rr_rec_thermal_status(TSCPU_INIT);
 #endif
 
+#if !defined(CFG_THERM_NO_AUXADC)
 	tscpu_thermal_cal_prepare();
 	tscpu_thermal_cal_prepare_2(0);
 
 	tscpu_reset_thermal();
+#endif
 
 #if CFG_THERM_LVTS
 	lvts_thermal_cal_prepare();
@@ -2245,6 +2292,7 @@ static void init_thermal(void)
 	lvts_efuse_setting();
 #endif
 
+#if !defined(CFG_THERM_NO_AUXADC)
 	/*
 	 *  TS_CON1 default is 0x30, this is buffer off
 	 *  we should turn on this buffer berore we use thermal sensor,
@@ -2315,6 +2363,7 @@ static void init_thermal(void)
 
 	/* TEMPMSRCTL1 must release before start */
 	thermal_release_all_periodoc_temp_sensing();
+#endif
 
 #if CFG_THERM_LVTS
 	lvts_disable_all_sensing_points();

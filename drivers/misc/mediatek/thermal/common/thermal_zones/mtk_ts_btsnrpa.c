@@ -1424,7 +1424,7 @@ static int mtkts_btsnrpa_probe(struct platform_device *pdev)
 	if (!thermistor_ch2)
 		return -ENOMEM;
 
-	thermistor_ch2 = iio_channel_get(&pdev->dev, "thermistor-ch1");
+	thermistor_ch2 = iio_channel_get(&pdev->dev, "thermistor-ch2");
 	ret = IS_ERR(thermistor_ch2);
 	if (ret) {
 		mtkts_btsnrpa_printk("[%s] fail to get auxadc iio ch0: %d\n",

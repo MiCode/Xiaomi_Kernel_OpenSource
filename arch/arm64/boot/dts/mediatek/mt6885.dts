@@ -2468,11 +2468,14 @@ page_owner=on";
 
 	therm_ctrl@1100b000 {
 		compatible = "mediatek,therm_ctrl";
-		reg = <0 0x1100b000 0 0x1000>;
-		interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0 0x1100b000 0 0x26E200>;
+		interrupts =
+			<GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&infracfg_ao INFRACFG_AO_THERM_CG>;
 		clock-names = "therm-main";
 	};
+
 
 	tboard_thermistor1: thermal-sensor1 {
 		compatible = "mediatek,mtboard-thermistor1";
