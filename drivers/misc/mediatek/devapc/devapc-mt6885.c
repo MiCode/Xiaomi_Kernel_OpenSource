@@ -1485,12 +1485,41 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index)
 {
 	if (slave_type == SLAVE_TYPE_INFRA &&
 			vio_index < VIO_SLAVE_NUM_INFRA) {
+		if (vio_index == SMI_LARB0_VIO_INDEX ||
+				vio_index == SMI_LARB1_VIO_INDEX ||
+				vio_index == SMI_LARB2_VIO_INDEX ||
+				vio_index == SMI_LARB3_VIO_INDEX ||
+				vio_index == SMI_LARB4_VIO_INDEX ||
+				vio_index == SMI_LARB5_VIO_INDEX ||
+				vio_index == SMI_LARB6_VIO_INDEX ||
+				vio_index == SMI_LARB7_VIO_INDEX ||
+				vio_index == SMI_LARB8_VIO_INDEX ||
+				vio_index == SMI_LARB9_VIO_INDEX ||
+				vio_index == SMI_LARB10_VIO_INDEX ||
+				vio_index == SMI_LARB11_VIO_INDEX ||
+				vio_index == SMI_LARB12_VIO_INDEX ||
+				vio_index == SMI_LARB13_VIO_INDEX ||
+				vio_index == SMI_LARB14_VIO_INDEX ||
+				vio_index == SMI_LARB15_VIO_INDEX ||
+				vio_index == SMI_LARB16_VIO_INDEX ||
+				vio_index == SMI_LARB17_VIO_INDEX ||
+				vio_index == SMI_LARB18_VIO_INDEX ||
+				vio_index == SMI_LARB19_VIO_INDEX ||
+				vio_index == SMI_LARB20_VIO_INDEX)
+			return "SMI";
+
+		else if (vio_index >= CAM_SENINF_START &&
+				vio_index <= CAM_SENINF_END)
+			return "CAMSYS_SENINF";
+
 		switch (vio_index) {
 		case MFG_START ... MFG_END:
 			return "MFGSYS";
+		case MM_DISP_START ... MM_DISP_END:
+			return "MMSYS_DISP";
 		case MM_SSRAM_VIO_INDEX:
-		case MM_START ... MM_END:
-			return "MMSYS";
+		case MM_MDP_START ... MM_MDP_END:
+			return "MMSYS_MDP";
 		case IMG_START ... IMG_END:
 			return "IMGSYS";
 		case VDEC_START ... VDEC_END:
@@ -1500,12 +1529,14 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index)
 		case APU_SSRAM_VIO_INDEX:
 		case APU_START ... APU_END:
 			return "APUSYS";
+		case CAM_CCU_START ... CAM_CCU_END:
+			return "CAMSYS_CCU";
 		case CAM_START ... CAM_END:
 			return "CAMSYS";
 		case IPE_START ... IPE_END:
 			return "IPESYS";
 		case MDP_START ... MDP_END:
-			return "MDPSYS";
+			return "MMSYS_MDP";
 		default:
 			return mt6885_devices_infra[vio_index].device;
 		}
