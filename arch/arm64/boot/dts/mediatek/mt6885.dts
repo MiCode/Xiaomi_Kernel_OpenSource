@@ -3712,3 +3712,6 @@
 #include "cust_mt6885_msdc.dtsi"
 #include "mt6360.dtsi"
 #include "mt6360_pd.dtsi"
+#ifdef CONFIG_MTK_ENABLE_GENIEZONE
+#include "trusty.dtsi"
+#endif
