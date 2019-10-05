@@ -1178,6 +1178,7 @@ static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6779-disp-wdma",
 	 .data = &mt6779_wdma_driver_data},
 	{.compatible = "mediatek,mt8173-disp-wdma"},
+	{.compatible = "mediatek,mt6885-disp-wdma"},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_wdma_driver_dt_match);
