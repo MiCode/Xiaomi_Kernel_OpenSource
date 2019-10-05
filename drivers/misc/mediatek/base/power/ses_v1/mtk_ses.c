@@ -132,6 +132,8 @@
 struct drp_ratio_type {
 	unsigned int HiCodeRatio;
 	unsigned int LoCodeRatio;
+	unsigned int HiCodeVolt;
+	unsigned int LoCodeVolt;
 };
 
 struct drp_ratio_type drp_ratio[sesNum];
@@ -188,6 +190,17 @@ void mtk_ses_init(void)
 
 	arm_smccc_smc(MTK_SIP_SES_CONTROL,
 		MTK_SES_INIT, 0, 0, 0, 0, 0, 0, &res);
+}
+
+void mtk_ses_trim(unsigned int value,
+		unsigned int ses_node)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_SES_CONTROL,
+		MTK_SES_TRIM,
+		value,
+		ses_node, 0, 0, 0, 0, &res);
 }
 
 void mtk_ses_enable(unsigned int onOff,
@@ -347,6 +360,69 @@ out:
 
 static int ses_init_proc_show(struct seq_file *m, void *v)
 {
+	return 0;
+}
+
+static ssize_t ses_trim_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int trim_en, value, ses_node;
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
+
+	if (sscanf(buf, "%u 0x%x %u", &trim_en, &value, &ses_node) != 3) {
+		ses_debug("bad argument!! Should input 3 arguments.\n");
+		goto out;
+	}
+
+	if (trim_en == 1)
+		mtk_ses_trim(value, ses_node);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+}
+
+static int ses_trim_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int value = 0;
+	unsigned int ses_node = 0;
+
+	value = mtk_ses_status(SESV6_BG_CTRL);
+		seq_printf(m, "BG en, rnsel, rdsel, icali = %u %u %u %u\n",
+			GET_BITS_VAL(2:2, value),
+			GET_BITS_VAL(5:3, value),
+			GET_BITS_VAL(8:6, value),
+			GET_BITS_VAL(13:9, value));
+
+	for (ses_node = 0; ses_node < sesNum-1; ses_node++) {
+		value = mtk_ses_status(SESV6_REG1 + (0x200 * ses_node));
+		seq_printf(m, "ses_%u, voff0/1, vrefr, vrefi = %u %u %u %u\n",
+			ses_node,
+			GET_BITS_VAL(4:0, value),
+			GET_BITS_VAL(9:5, value),
+			GET_BITS_VAL(14:10, value),
+			GET_BITS_VAL(19:15, value));
+	}
+
+	value = mtk_ses_status(SESV6_DSU_REG1);
+		seq_printf(m, "ses_%u, voff0/1, vrefr, vrefi = %u %u %u %u\n",
+			ses_node,
+			GET_BITS_VAL(4:0, value),
+			GET_BITS_VAL(9:5, value),
+			GET_BITS_VAL(14:10, value),
+			GET_BITS_VAL(19:15, value));
+
 	return 0;
 }
 
@@ -600,7 +676,7 @@ static int ses_dly_filt_proc_show(struct seq_file *m, void *v)
 
 	for (ses_node = 0; ses_node < sesNum-1; ses_node++) {
 		value = mtk_ses_status(SESV6_REG2 + (0x200 * ses_node));
-		seq_printf(m, "ses_%u, dly= %x, filt[hi:lo]= %x,%x\n",
+		seq_printf(m, "ses_%u, dly= %u, filt[hi:lo]= %u, %u\n",
 			ses_node,
 			GET_BITS_VAL(6:2, value),
 			GET_BITS_VAL(16:12, value),
@@ -608,7 +684,7 @@ static int ses_dly_filt_proc_show(struct seq_file *m, void *v)
 	}
 
 	value = mtk_ses_status(SESV6_DSU_REG2);
-	seq_printf(m, "ses_%u, dly= %x, filt[hi:lo]= %x,%x\n",
+	seq_printf(m, "ses_%u, dly= %u, filt[hi:lo]= %u, %u\n",
 		ses_node,
 		GET_BITS_VAL(6:2, value),
 		GET_BITS_VAL(16:12, value),
@@ -634,7 +710,7 @@ static ssize_t ses_dly_filt_proc_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%u %u", &value, &ses_node) != 2) {
+	if (sscanf(buf, "0x%x %u", &value, &ses_node) != 2) {
 		ses_debug("bad argument!! Should input 2 arguments.\n");
 		goto out;
 	}
@@ -651,10 +727,12 @@ static int ses_volt_ratio_proc_show(struct seq_file *m, void *v)
 	unsigned int ses_node;
 
 	for (ses_node = 0; ses_node < sesNum; ses_node++) {
-		seq_printf(m, "ses_%u HiRatio = %u LoRatio = %u\n",
+		seq_printf(m, "ses_%u Hi/LoRatio = %u/%u %% (%u/%u mv)\n",
 					ses_node,
 					drp_ratio[ses_node].HiCodeRatio,
-					drp_ratio[ses_node].LoCodeRatio);
+					drp_ratio[ses_node].LoCodeRatio,
+					drp_ratio[ses_node].HiCodeVolt,
+					drp_ratio[ses_node].LoCodeVolt);
 	}
 	return 0;
 }
@@ -684,10 +762,25 @@ static ssize_t ses_volt_ratio_proc_write(struct file *file,
 		goto out;
 	}
 
-	drp_ratio[ses_node].HiCodeRatio = HiRatio;
-	drp_ratio[ses_node].LoCodeRatio = LoRatio;
+	if (atf != 2) {
+		if (HiRatio > 99 || LoRatio > 99)
+			goto out;
 
-	if (atf)
+		drp_ratio[ses_node].HiCodeRatio = HiRatio;
+		drp_ratio[ses_node].LoCodeRatio = LoRatio;
+		drp_ratio[ses_node].HiCodeVolt = 0;
+		drp_ratio[ses_node].LoCodeVolt = 0;
+	} else {
+		drp_ratio[ses_node].HiCodeRatio = 0;
+		drp_ratio[ses_node].LoCodeRatio = 0;
+		drp_ratio[ses_node].HiCodeVolt = HiRatio;
+		drp_ratio[ses_node].LoCodeVolt = LoRatio;
+	}
+
+	if (atf == 2) {
+		mtk_ses_volt_ratio_atf(HiRatio, 0, 100, ses_node);
+		mtk_ses_volt_ratio_atf(LoRatio, 100, 0, ses_node);
+	} else if (atf == 1)
 		mtk_ses_volt_ratio_atf(Volt, HiRatio, LoRatio, ses_node);
 	else
 		mtk_ses_volt_ratio(HiRatio, LoRatio, ses_node);
@@ -724,7 +817,7 @@ static int ses_status_dump_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "    .%u\n", i);
 
 	seq_puts(m, "BG, ses_reg :");
-	seq_printf(m, "\t0x%x = 0x%x",
+	seq_printf(m, "\t0x%x = 0x%x\n",
 			SESV6_BG_CTRL,
 			mtk_ses_status(SESV6_BG_CTRL));
 
@@ -765,6 +858,7 @@ static int ses_status_dump_proc_show(struct seq_file *m, void *v)
 #define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
 
 PROC_FOPS_RW(ses_init);
+PROC_FOPS_RW(ses_trim);
 PROC_FOPS_RW(ses_enable);
 PROC_FOPS_RW(ses_count);
 PROC_FOPS_RW(ses_hwgatepct);
@@ -786,6 +880,7 @@ static int create_procfs(void)
 
 	struct pentry ses_entries[] = {
 		PROC_ENTRY(ses_init),
+		PROC_ENTRY(ses_trim),
 		PROC_ENTRY(ses_enable),
 		PROC_ENTRY(ses_count),
 		PROC_ENTRY(ses_hwgatepct),
@@ -1227,7 +1322,7 @@ static int __init ses_init(void)
 {
 	int err = 0;
 
-#if MTK_SES_ON
+#if 0
 	unsigned int ptp_ftpgm;
 
 	ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xf;

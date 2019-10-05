@@ -13,7 +13,7 @@
 #ifndef _MTK_SES_
 #define _MTK_SES_
 
-#define MTK_SES_ON 0
+#define MTK_SES_ON 1
 
 
 #ifdef __KERNEL__
@@ -37,6 +37,7 @@
 #define MTK_SES_DLYFILT			6
 #define MTK_SES_STATUS			7
 #define MTK_SES_VOLT_RATIO		8
+#define MTK_SES_TRIM			9
 
 #define SES_STATUS_ADDR		(0x0C530000)
 #define SESV6_BG_CTRL		(SES_STATUS_ADDR + 0xAC40)
@@ -51,10 +52,9 @@
 #define SESV6_REG3			(SES_STATUS_ADDR + 0xB01C)
 #define SESV6_REG4			(SES_STATUS_ADDR + 0xB020)
 
-
-extern void mtk_drcc_enable(unsigned int onOff,
-						unsigned int drcc_num);
 extern void mtk_ses_init(void);
+extern void mtk_ses_trim(unsigned int value,
+						unsigned int ses_node);
 extern void mtk_ses_enable(unsigned int onOff,
 						unsigned int ses_node);
 extern unsigned int mtk_ses_event_count(unsigned int ByteSel,
