@@ -68,18 +68,13 @@ struct sched_domain_attr {
 
 extern int sched_domain_level_max;
 
-struct capacity_state {
 #ifndef CONFIG_MTK_UNIFY_POWER
+struct capacity_state {
 	unsigned long cap;	/* compute capacity */
 	unsigned long frequency;/* frequency */
 	unsigned long power;	/* power consumption at this compute capacity */
-#else
-	unsigned long long cap;	/* compute capacity */
-	unsigned int volt;	/* 10uv */
-	unsigned int dyn_pwr;	/* power consumption at this compute capacity */
-	unsigned int lkg_pwr[1];
-#endif
 };
+#endif
 
 struct idle_state {
 	unsigned long power;	 /* power consumption in this idle state */
