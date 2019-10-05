@@ -33,7 +33,7 @@
 /* #define SUPPORT_VOLT_HW_AUTO_TRACK 1 */
 /* #define CPU_DVFS_NOT_READY	1 */
 #endif
-
+#define DFD_WORKAROUND  1
 #define NR_FREQ		16
 #define NR_CCI_TBL		2
 
@@ -97,7 +97,9 @@ extern int mt_cpufreq_turbo_config(enum mt_cpu_dvfs_id id,
 extern int mt_cpufreq_regulator_map(struct platform_device *pdev);
 extern int mt_cpufreq_dts_map(void);
 extern unsigned int _mt_cpufreq_get_cpu_level(void);
-
+#ifdef DFD_WORKAROUND
+extern void _dfd_workaround(void);
+#endif
 /* CPU mask related */
 extern unsigned int cpufreq_get_nr_clusters(void);
 extern void cpufreq_get_cluster_cpus(struct cpumask *cpu_mask,

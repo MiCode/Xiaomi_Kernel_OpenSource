@@ -30,6 +30,7 @@
 #include "../../mtk_cpufreq_hybrid.h"
 #include "mtk_devinfo.h"
 
+
 static struct regulator *regulator_proc1;
 static struct regulator *regulator_proc2;
 static struct regulator *regulator_sram1;
@@ -680,6 +681,43 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val);
 	return lv;
 }
+#ifdef DFD_WORKAROUND
+void _dfd_workaround(void)
+{
+	int wait_flag = 0;
+	unsigned long long curtime = 0;
+	struct mt_cpu_dvfs *p_b = id_to_cpu_dvfs(MT_CPU_DVFS_L);
+	struct mt_cpu_dvfs *p_l = id_to_cpu_dvfs(MT_CPU_DVFS_LL);
+	struct buck_ctrl_t *l_vproc_p = id_to_buck_ctrl(p_l->Vproc_buck_id);
+	struct buck_ctrl_t *b_vproc_p = id_to_buck_ctrl(p_b->Vproc_buck_id);
+	struct buck_ctrl_t *l_vsram_p = id_to_buck_ctrl(p_l->Vsram_buck_id);
+	struct buck_ctrl_t *b_vsram_p = id_to_buck_ctrl(p_b->Vsram_buck_id);
+	ktime_t ktime = ktime_set(0, 0);
+	ktime_t start = ktime_set(0, 0);
+
+	start = ktime_get();
+	ktime = ktime_sub(ktime_get(), start);
+	cpuhvfs_write();
+	while (!wait_flag) {
+		wait_flag = cpuhvfs_read_ack();
+		ktime = ktime_sub(ktime_get(), start);
+		curtime = ktime_to_us(ktime);
+		if (curtime > 5000000)
+			break;
+	}
+
+	l_vproc_p->buck_ops->set_cur_volt(l_vproc_p, 110000);
+	b_vproc_p->buck_ops->set_cur_volt(b_vproc_p, 110000);
+	l_vsram_p->buck_ops->set_cur_volt(l_vsram_p,  80000);
+	b_vsram_p->buck_ops->set_cur_volt(b_vsram_p,  80000);
+	tag_pr_info("time_d = %llu, wflag = %d l_vproc %u l_vsram = %u\n",
+	curtime, wait_flag,
+	l_vproc_p->buck_ops->get_cur_volt(l_vproc_p),
+	l_vsram_p->buck_ops->get_cur_volt(l_vsram_p));
+
+
+}
+#endif
 
 unsigned int cpufreq_get_nr_clusters(void)
 {

@@ -440,3 +440,10 @@ unsigned int mt_cpufreq_get_cpu_level(void)
 	return lv;
 }
 EXPORT_SYMBOL(mt_cpufreq_get_cpu_level);
+#ifdef DFD_WORKAROUND
+void dfd_workaround(void)
+{
+	_dfd_workaround();
+}
+EXPORT_SYMBOL(dfd_workaround);
+#endif

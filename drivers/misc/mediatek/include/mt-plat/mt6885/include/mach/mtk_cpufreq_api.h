@@ -74,6 +74,9 @@ extern unsigned int mt_cpufreq_find_Vboot_idx(unsigned int cluster_id);
 /* Upower */
 extern unsigned int mt_cpufreq_get_cpu_level(void);
 
+/* dfd */
+extern void dfd_workaround(void);
+
 /* CPI */
 extern unsigned int mt_cpufreq_get_cur_freq_idx(unsigned int cluster_id);
 extern unsigned int mt_cpufreq_get_cur_cci_freq_idx(void);

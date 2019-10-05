@@ -86,6 +86,8 @@ static void __iomem *csram_base;
 #define OFFS_IMAX_THERMAL_INFO     0x11CC   /* 1139 */
 #define OFFS_IMAX_THERMAL_CHANGE   0x11D0   /* 1140 */
 #define OFFS_IMAX_THERMAL_EN       0x11D4   /* 1141 */
+#define OFFS_VPROC_CHANGE_STOP     0x11D8   /* 1142 */
+#define OFFS_VPROC_CHANGE_ACK      0x11DC   /* 1143 */
 #define PVT_CCI_TBL_SIZE    (OFFS_CCI_TBL_E - OFFS_CCI_TBL_S)
 #define PVT_IMAX_TBL_SIZE    (OFFS_IMAX_TBL_E - OFFS_IMAX_TBL_S)
 #define MCUCFG_BASE          0x0c530000
@@ -749,7 +751,17 @@ int cpuhvfs_set_turbo_scale(unsigned int turbo_f, unsigned int turbo_v)
 
 	return 0;
 }
+#ifdef DFD_WORKAROUND
+int cpuhvfs_read_ack(void)
+{
+	return csram_read(OFFS_VPROC_CHANGE_ACK);
+}
 
+void cpuhvfs_write(void)
+{
+	csram_write(OFFS_VPROC_CHANGE_STOP, 0x50415553);
+}
+#endif
 int cpuhvfs_set_init_sta(void)
 {
 	struct cdvfs_data cdvfs_d;
