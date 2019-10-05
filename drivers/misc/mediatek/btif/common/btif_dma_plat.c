@@ -1301,7 +1301,9 @@ int hal_dma_dump_reg(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 {
 	unsigned int i_ret = -1;
 
+#if defined(CONFIG_MTK_GIC_V3_EXT)
 	mt_irq_dump_status(p_dma_info->p_irq->irq_id);
+#endif
 	if (p_dma_info->dir == DMA_DIR_TX)
 		i_ret = hal_tx_dma_dump_reg(p_dma_info, flag);
 	else if (p_dma_info->dir == DMA_DIR_RX)
