@@ -136,6 +136,8 @@ struct cmdq {
 	struct wakeup_source	wake_lock;
 	bool			wake_locked;
 	spinlock_t		lock;
+	u32			token_cnt;
+	u16			*tokens;
 };
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
@@ -161,20 +163,9 @@ static void cmdq_init(struct cmdq *cmdq)
 		writel(i, cmdq->base + CMDQ_SYNC_TOKEN_UPD);
 
 	/* some of events need default 1 */
-	writel(CMDQ_TOKEN_GPR_SET_0 | BIT(16),
-		cmdq->base + CMDQ_SYNC_TOKEN_UPD);
-	writel(CMDQ_TOKEN_GPR_SET_1 | BIT(16),
-		cmdq->base + CMDQ_SYNC_TOKEN_UPD);
-	writel(CMDQ_TOKEN_GPR_SET_2 | BIT(16),
-		cmdq->base + CMDQ_SYNC_TOKEN_UPD);
-	writel(CMDQ_TOKEN_GPR_SET_3 | BIT(16),
-		cmdq->base + CMDQ_SYNC_TOKEN_UPD);
-	writel(CMDQ_TOKEN_GPR_SET_4 | BIT(16),
-		cmdq->base + CMDQ_SYNC_TOKEN_UPD);
-	writel(CMDQ_TOKEN_RESOURCE_WROT0 | BIT(16),
-		cmdq->base + CMDQ_SYNC_TOKEN_UPD);
-	writel(CMDQ_TOKEN_RESOURCE_WROT1 | BIT(16),
-		cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+	for (i = 0; i < cmdq->token_cnt; i++)
+		writel(cmdq->tokens[i] | BIT(16),
+			cmdq->base + CMDQ_SYNC_TOKEN_UPD);
 }
 
 static inline void cmdq_mmp_init(void)
@@ -1356,6 +1347,27 @@ static void cmdq_config_dma_mask(struct device *dev)
 	ret = dma_set_coherent_mask(dev, DMA_BIT_MASK(dma_mask_bit));
 	cmdq_msg("mbox set dma mask bit:%u result:%d\n",
 		dma_mask_bit, ret);
+}
+
+static void cmdq_config_default_token(struct device *dev, struct cmdq *cmdq)
+{
+	int count, ret;
+
+	count = of_property_count_u32_elems(dev->of_node, "default_tokens");
+	if (count <= 0) {
+		cmdq_err("no default tokens:%d", count);
+		return;
+	}
+
+	cmdq->token_cnt = count;
+	cmdq->tokens = devm_kcalloc(dev, count, sizeof(*cmdq->tokens),
+		GFP_KERNEL);
+	ret = of_property_read_u16_array(dev->of_node,
+		"default_tokens", cmdq->tokens, count);
+	if (ret < 0) {
+		cmdq_err("of_property_read_u16_array fail err:%d", ret);
+		cmdq->token_cnt = 0;
+	}
 }
 
 static int cmdq_probe(struct platform_device *pdev)

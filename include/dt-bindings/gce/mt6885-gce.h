@@ -480,4 +480,56 @@
 #define CMDQ_EVENT_MDP_RDMA1_SW_RST_DONE		342
 #define CMDQ_EVENT_MDP_RDMA0_SW_RST_DONE		343
 
+/* CMDQ sw tokens
+ * Following definitions are gce sw token which may use by clients
+ * event operation API.
+ * Note that token 512 to 639 may set secure
+ */
+
+/* end of hw event and begin of sw token */
+#define CMDQ_MAX_HW_EVENT				512
+
+/* Config thread notify trigger thread */
+#define CMDQ_SYNC_TOKEN_CONFIG_DIRTY			640
+/* Trigger thread notify config thread */
+#define CMDQ_SYNC_TOKEN_STREAM_EOF			641
+/* Block Trigger thread until the ESD check finishes. */
+#define CMDQ_SYNC_TOKEN_ESD_EOF				642
+#define CMDQ_SYNC_TOKEN_STREAM_BLOCK			643
+/* check CABC setup finish */
+#define CMDQ_SYNC_TOKEN_CABC_EOF			644
+
+/* Notify normal CMDQ there are some secure task done
+ * MUST NOT CHANGE, this token sync with secure world
+ */
+#define CMDQ_SYNC_SECURE_THR_EOF			647
+
+/* CMDQ use sw token */
+#define CMDQ_SYNC_TOKEN_USER_0				649
+#define CMDQ_SYNC_TOKEN_USER_1				650
+#define CMDQ_SYNC_TOKEN_POLL_MONITOR			651
+
+/* ISP sw token */
+#define CMDQ_SYNC_TOKEN_MSS				665
+#define CMDQ_SYNC_TOKEN_MSF				666
+
+/* GPR access tokens (for HW register backup)
+ * There are 15 32-bit GPR, 3 GPR form a set
+ * (64-bit for address, 32-bit for value)
+ * MUST NOT CHANGE, these tokens sync with MDP
+ */
+#define CMDQ_SYNC_TOKEN_GPR_SET_0			700
+#define CMDQ_SYNC_TOKEN_GPR_SET_1			701
+#define CMDQ_SYNC_TOKEN_GPR_SET_2			702
+#define CMDQ_SYNC_TOKEN_GPR_SET_3			703
+#define CMDQ_SYNC_TOKEN_GPR_SET_4			704
+
+/* Resource lock event to control resource in GCE thread */
+#define CMDQ_SYNC_RESOURCE_WROT0			710
+#define CMDQ_SYNC_RESOURCE_WROT1			711
+
+#define CMDQ_EVENT_MAX					0x3FF
+/* CMDQ sw tokens END */
+
+
 #endif
