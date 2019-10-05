@@ -956,6 +956,33 @@ unsigned int mt_gpufreq_get_min_power(void)
 			g_power_table[g_segment_min_opp_idx].gpufreq_power;
 }
 
+/* API : get idx on opp table */
+int mt_gpufreq_get_opp_idx_by_freq(unsigned int freq)
+{
+	int i = g_segment_min_opp_idx;
+
+	while (i >= g_segment_max_opp_idx) {
+		if (g_opp_table[i--].gpufreq_khz >= freq)
+			goto EXIT;
+	}
+
+EXIT:
+	return (i+1-g_segment_max_opp_idx);
+}
+
+/* API : get power on power table */
+unsigned int mt_gpufreq_get_power_by_idx(int idx)
+{
+	if (!g_power_table)
+		return 0;
+
+	idx += g_segment_max_opp_idx;
+	if (idx <= g_segment_min_opp_idx)
+		return g_power_table[idx].gpufreq_power;
+	else
+		return 0;
+}
+
 /* API : get static leakage power */
 unsigned int mt_gpufreq_get_leakage_mw(void)
 {

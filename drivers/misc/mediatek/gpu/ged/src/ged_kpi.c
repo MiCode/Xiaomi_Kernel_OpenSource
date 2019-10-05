@@ -142,7 +142,7 @@ struct GED_GPU_INFO {
 	unsigned long gpu_res5;
 	unsigned int gpu_res6;
 	unsigned int gpu_res7;
-	unsigned int gpu_res8;
+	unsigned int gpu_power;
 };
 
 union _cpu_gpu_info {
@@ -724,6 +724,9 @@ static void ged_kpi_statistics_and_remove(GED_KPI_HEAD *psHead, GED_KPI *psKPI)
 		<< GED_KPI_GPU_FREQ_MAX_INFO_SHIFT);
 	psKPI->frame_attr = frame_attr;
 
+	psKPI->cpu_gpu_info.gpu.gpu_power =
+		mt_gpufreq_get_power_by_idx(
+		mt_gpufreq_get_opp_idx_by_freq(psKPI->gpu_freq*1000));
 	/* statistics */
 	ged_log_buf_print(ghLogBuf,
 		"%d,%llu,%lu,%lu,%lu,%llu,%llu,%llu,%llu,%llu,%llu,%lu,%d,%d,%lld,%d,%lld,%lld,%llu,%lu,%lu,%lu,%lu,%lu,%lu,%u,%u,%u",
@@ -755,7 +758,7 @@ static void ged_kpi_statistics_and_remove(GED_KPI_HEAD *psHead, GED_KPI *psKPI)
 		psKPI->cpu_gpu_info.gpu.gpu_res5,
 		psKPI->cpu_gpu_info.gpu.gpu_res6,
 		psKPI->cpu_gpu_info.gpu.gpu_res7,
-		psKPI->cpu_gpu_info.gpu.gpu_res8
+		psKPI->cpu_gpu_info.gpu.gpu_power
 #else
 		psKPI->cpu_gpu_info.cpu.cpu_max_freq_LL,
 		psKPI->cpu_gpu_info.cpu.cpu_max_freq_L,
@@ -1486,7 +1489,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 						time_spent, psKPI->t_gpu_target
 						, psKPI->target_fps_margin
 						, g_force_gpu_dvfs_fallback);
-				else
+				else if (g_force_gpu_dvfs_fallback)
 					gpu_freq_pre = ged_kpi_gpu_dvfs(
 						time_spent, psKPI->t_gpu_target
 						, psKPI->target_fps_margin

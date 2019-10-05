@@ -144,6 +144,9 @@ extern void (*mtk_get_gpu_dvfs_cal_freq_fp)(unsigned long *pulGpu_tar_freq, int 
 extern void mtk_gpu_ged_hint(int, int);
 int ged_dvfs_boost_value(void);
 
+extern unsigned int mt_gpufreq_get_power_by_idx(int idx);
+extern int mt_gpufreq_get_opp_idx_by_freq(unsigned int freq);
+
 #if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
 extern void (*mtk_dvfs_margin_value_fp)(int i32MarginValue);
 extern int (*mtk_get_dvfs_margin_value_fp)(void);
