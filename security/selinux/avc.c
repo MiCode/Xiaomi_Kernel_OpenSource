@@ -730,7 +730,8 @@ static void avc_audit_post_callback(struct audit_buffer *ab, void *a)
 	if (ad->selinux_audit_data->denied) {
 		audit_log_format(ab, " permissive=%u",
 				 ad->selinux_audit_data->result ? 0 : 1);
-#ifdef CONFIG_MTK_SELINUX_AEE_WARNING
+#if defined(CONFIG_MTK_SELINUX_AEE_WARNING) &&\
+	defined(MTK_SELINUX_WARNING_ENABLE)
 		{
 			struct nlmsghdr *nlh;
 			char *selinux_data;
