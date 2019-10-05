@@ -453,7 +453,7 @@ int pseudo_get_reg_of_path(unsigned int port, bool is_va,
 	larb_port = m4u_port_2_larb_port(port);
 	larb_base = pseudo_larbbase[larb];
 	if (!larb_base) {
-		M4U_MSG("larb not existed, no need of config\n", larb);
+		M4U_MSG("larb(%u) not existed, no need of config\n", larb);
 		return -1;
 	}
 
@@ -622,7 +622,7 @@ int pseudo_dump_all_port_status(struct seq_file *s)
 	for (larb = 0; larb < SMI_LARB_NR; larb++) {
 		larb_base = pseudo_larbbase[larb];
 		if (!larb_base) {
-			M4U_MSG("larb not existed, no need of config\n", larb);
+			M4U_MSG("larb(%u) not existed, no need of config\n", larb);
 			continue;
 		}
 
@@ -1357,6 +1357,7 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	int ret;
 	struct device *dev = pseudo_get_larbdev(port);
 	dma_addr_t dma_addr = ARM_MAPPING_ERROR;
+	dma_addr_t paddr;
 	unsigned int i;
 	struct scatterlist *s;
 	dma_addr_t orig_addr = ARM_MAPPING_ERROR;
@@ -1372,7 +1373,7 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	}
 
 	if (va && sg_table) {
-		M4U_MSG("va/sg 0x%x are valid:0x%lx, 0x%p, 0x%x, 0x%x-0x%x\n",
+		M4U_MSG("va/sg 0x%x are valid:0x%lx, 0x%p, 0x%x, 0x%lx-0x%lx\n",
 			   port, va, sg_table, flags, *retmva, size);
 	} else if (!va && !sg_table) {
 		M4U_ERR("err va, err sg\n");
@@ -1456,11 +1457,11 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	current_ts = sched_clock();
 
 	if (!dma_addr || dma_addr == ARM_MAPPING_ERROR) {
-		M4U_ERR(
-			"err map, %s, iova:0x%lx+0x%x, pa=0x%lx, f:0x%x, n:%d-%d\n",
+		paddr = sg_phys(table->sgl);
+		M4U_ERR("err map, %s, iova:0x%pad+0x%lx, pa=0x%pad, f:0x%x, n:%d-%d\n",
 			iommu_get_port_name(port),
-			(unsigned long)dma_addr, size,
-			sg_phys(table->sgl),
+			&dma_addr, size,
+			&paddr,
 			flags, table->nents, table->orig_nents);
 		goto ERR_EXIT;
 	}
@@ -1482,11 +1483,12 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	pseudo_add_sgtable(mva_sg);
 
 #ifdef IOMMU_DEBUG_ENABLED
-	M4U_MSG("%s, p:%d(%d-%d) pa=0x%lx iova=0x%lx s=0x%lx n=%d",
+	paddr = sg_phys(table->sgl);
+	M4U_MSG("%s, p:%d(%d-%d) pa=0x%pad iova=0x%lx s=0x%lx n=%d",
 		iommu_get_port_name(port),
 		port, MTK_IOMMU_TO_LARB(port),
 		MTK_IOMMU_TO_PORT(port),
-		sg_phys(table->sgl),
+		&paddr,
 		*retmva, size, table->nents);
 #endif
 
@@ -1597,8 +1599,7 @@ int pseudo_alloc_mva_sg(struct port_mva_info_t *port_info,
 				  va_align, size_align,
 				  sg_table, flags, &mva_align);
 	if (ret) {
-		M4U_ERR(
-			"error alloc mva: port %d, 0x%x, 0x%lx, 0x%x, 0x%x, ret=%d\n",
+		M4U_ERR("error alloc mva: port %d, 0x%x, 0x%lx, 0x%lx, 0x%lx, ret=%d\n",
 			port_info->emoduleid, flags, port_info->va,
 			mva_align, port_info->buf_size, ret);
 		mva = 0;
@@ -1697,7 +1698,7 @@ int __pseudo_dealloc_mva(struct m4u_client_t *client,
 #ifdef IOMMU_DEBUG_ENABLED
 			M4U_ERR("err table of mva 0x%lx-0x%lx\n",
 				mva, addr_align);
-			M4U_ERR("%s addr=0x%lx,size=0x%x\n",
+			M4U_ERR("%s addr=0x%lx,size=0x%lx\n",
 				m4u_get_module_name(port),
 				BufAddr, size);
 #endif
@@ -1767,7 +1768,7 @@ int pseudo_dealloc_mva(struct m4u_client_t *client, int port, unsigned long mva)
 				   pMvaInfo->size, mva, NULL);
 
 #ifdef IOMMU_DEBUG_ENABLED
-	M4U_DBG("port %d, flags 0x%x, va 0x%lx, mva = 0x%x, size 0x%x\n",
+	M4U_DBG("port %d, flags 0x%x, va 0x%lx, mva = 0x%lx, size 0x%lx\n",
 		port, pMvaInfo->flags,
 		pMvaInfo->va, mva, pMvaInfo->size);
 #endif
@@ -1810,7 +1811,7 @@ int pseudo_destroy_client(struct m4u_client_t *client)
 					link);
 #ifdef IOMMU_DEBUG_ENABLED
 		M4U_MSG
-			("warn: clean garbage: %s,va=0x%lx,mva=0x%x,size=%d\n",
+			("warn: clean garbage: %s,va=0x%lx,mva=0x%lx,size=%lu\n",
 			 iommu_get_port_name(pMvaInfo->port), pMvaInfo->va,
 			 pMvaInfo->mva,
 			 pMvaInfo->size);
@@ -2042,7 +2043,7 @@ struct sg_table *m4u_create_sgtable(unsigned long va, unsigned long size)
 
 	table = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
 	if (!table) {
-		M4U_MSG("table kmalloc fail:va=0x%lx,size=0x%x,page_num=%d\n",
+		M4U_MSG("table kmalloc fail:va=0x%lx,size=0x%lx,page_num=%u\n",
 			va, size, page_num);
 		return ERR_PTR(-ENOMEM);
 	}
@@ -2050,7 +2051,7 @@ struct sg_table *m4u_create_sgtable(unsigned long va, unsigned long size)
 	ret = sg_alloc_table(table, page_num, GFP_KERNEL);
 	if (ret) {
 		kfree(table);
-		M4U_MSG("alloc_sgtable fail: va=0x%lx,size=0x%x,page_num=%d\n",
+		M4U_MSG("alloc_sgtable fail: va=0x%lx,size=0x%lx,page_num=%u\n",
 			va, size, page_num);
 		return ERR_PTR(-ENOMEM);
 	}
@@ -2072,7 +2073,7 @@ struct sg_table *m4u_create_sgtable(unsigned long va, unsigned long size)
 		} else {
 			ret = m4u_create_sgtable_user(va_align, table);
 			if (ret) {
-				M4U_ERR("error va=0x%lx, size=%d\n",
+				M4U_ERR("error va=0x%lx, size=%lu\n",
 					va, size);
 				goto err;
 			}
@@ -2182,11 +2183,11 @@ int m4u_mva_map_kernel(unsigned long mva,
 
 	if (!pMvaInfo || pMvaInfo->size < size) {
 		M4U_MSG(
-			"%s cannot find mva: mva=0x%x, size=0x%x\n",
+			"%s cannot find mva: mva=0x%lx, size=0x%lx\n",
 			__func__, mva, size);
 		if (pMvaInfo)
 			M4U_MSG(
-			"pMvaInfo: mva=0x%x, size=0x%x\n",
+			"pMvaInfo: mva=0x%lx, size=0x%lx\n",
 			pMvaInfo->mva, pMvaInfo->size);
 		return -1;
 	}
@@ -2222,8 +2223,7 @@ get_pages_done:
 		/* this should not happen, because we have
 		 * checked the size before.
 		 */
-		M4U_MSG(
-			"mva_map_kernel:only get %d pages: mva=0x%x, size=0x%x, pg_num=%d\n",
+		M4U_MSG("mva_map_kernel:only get %d pages: mva=0x%lx, size=0x%lx, pg_num=%u\n",
 				k, mva, size, page_num);
 		ret = -1;
 		goto error_out;
@@ -2247,8 +2247,7 @@ get_pages_done:
 
 error_out:
 	vfree(pages);
-	M4U_DBG(
-		"mva_map_kernel:mva=0x%x,size=0x%x,map_va=0x%lx,map_size=0x%x\n",
+	M4U_DBG("mva_map_kernel:mva=0x%lx,size=0x%lx,map_va=0x%lx,map_size=0x%lx\n",
 		   mva, size, *map_va, *map_size);
 
 	return ret;
@@ -2259,7 +2258,7 @@ int m4u_mva_unmap_kernel(unsigned long mva,
 		unsigned long size, unsigned long map_va)
 {
 	M4U_DBG(
-		"mva_unmap_kernel:mva=0x%x,size=0x%x,va=0x%lx\n",
+		"mva_unmap_kernel:mva=0x%lx,size=0x%lx,va=0x%lx\n",
 			mva, size, map_va);
 	vunmap((void *)(map_va & (~M4U_PAGE_MASK)));
 	return 0;
@@ -3116,7 +3115,7 @@ static int pseudo_port_probe(struct platform_device *pdev)
 		}
 	}
 
-	M4U_MSG("done, larbid:%d, mask:0x%lx)\n",
+	M4U_MSG("done, larbid:%u, mask:0x%llx)\n",
 		larbid, dev->coherent_dma_mask);
 	return 0;
 

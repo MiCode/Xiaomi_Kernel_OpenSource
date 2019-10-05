@@ -222,7 +222,7 @@ int m4u_test_fake_engine(void)
 
 	m4u_display_fake_engine_test(mva_rd, mva_wr);
 
-	M4U_MSG("(2) mva_wr:0x%x\n", mva_wr);
+	M4U_MSG("(2) mva_wr:0x%lx\n", mva_wr);
 
 	pseudo_dealloc_mva(client, M4U_PORT_OVL_DEBUG, mva_rd);
 	pseudo_dealloc_mva(client, M4U_PORT_OVL_DEBUG, mva_wr);
@@ -281,7 +281,7 @@ int m4u_test_ddp(void)
 	__pseudo_alloc_mva(client, M4U_PORT_OVL_DEBUG, *pDst,
 		      size, NULL, 0, &dst_pa);
 
-	M4U_INFO("pSrc=0x%p, pDst=0x%p, src_pa=0x%x, dst_pa=0x%x\n",
+	M4U_INFO("pSrc=0x%p, pDst=0x%p, src_pa=0x%lx, dst_pa=0x%lx\n",
 		pSrc, pDst, src_pa, dst_pa);
 
 	port.ePortID = M4U_PORT_OVL_DEBUG;
@@ -356,7 +356,7 @@ int m4u_test_tf(void)
 	__pseudo_alloc_mva(client, M4U_PORT_OVL_DEBUG, *pDst,
 		      size / 2, NULL, 0, &dst_pa);
 
-	M4U_INFO("pSrc=0x%p, pDst=0x%p, src_pa=0x%x, dst_pa=0x%x\n",
+	M4U_INFO("pSrc=0x%p, pDst=0x%p, src_pa=0x%lx, dst_pa=0x%lx\n",
 		pSrc, pDst, src_pa, dst_pa);
 
 	port.ePortID = M4U_PORT_OVL_DEBUG;
@@ -789,10 +789,10 @@ static int m4u_debug_set(void *data, u64 val)
 		m4u_dump_pgtable(1);
 
 		mtk_iommu_iova_to_pa(dev, mva, &pa);
-		M4U_MSG("(1) mva:0x%x pa:0x%lx\n", mva, pa);
+		M4U_MSG("(1) mva:0x%lx pa:0x%lx\n", mva, pa);
 			pseudo_dealloc_mva(client, M4U_PORT_OVL_DEBUG, mva);
 		mtk_iommu_iova_to_pa(dev, mva, &pa);
-		M4U_MSG("(2) mva:0x%x pa:0x%lx\n", mva, pa);
+		M4U_MSG("(2) mva:0x%lx pa:0x%lx\n", mva, pa);
 	}
 	break;
 	case 25:
