@@ -50,17 +50,22 @@ static uint8_t _get_priority(void *ce)
 	return *(TYPE_PRIORITY *)(ce + OFFSET_PRIORITY);
 }
 
-static uint16_t _get_targettime(void *ce)
+static uint16_t _get_hardlimit(void *ce)
 {
-	return *(TYPE_TARGET_TIME *)(ce + OFFSET_TARGET_TIME);
+	return *(TYPE_HARDLIMIT *)(ce + OFFSET_HARDLIMIT);
 }
 
-uint32_t _get_deadline(void *ce)
+static uint16_t _get_softlimit(void *ce)
 {
-	return *(TYPE_DEADLINE *)(ce + OFFSET_DEADLINE);
+	return *(TYPE_SOFTLIMIT *)(ce + OFFSET_SOFTLIMIT);
 }
 
-static uint32_t _get_numofsc(void *ce)
+static uint64_t _get_flag_bitmap(void *ce)
+{
+	return *(TYPE_FLAG *)(ce + OFFSET_FLAG);
+}
+
+static TYPE_NUM_OF_SUBGRAPH _get_numofsc(void *ce)
 {
 	return *(TYPE_NUM_OF_SUBGRAPH *)(ce + OFFSET_NUM_OF_SUBGRAPH);
 }
@@ -86,8 +91,9 @@ static void _print_header(void *ce)
 	LOG_DEBUG(" cmd id               = 0x%llx\n", _get_cmdid(ce));
 	LOG_DEBUG(" version              = %d\n", _get_cmdversion(ce));
 	LOG_DEBUG(" priority             = %d\n", _get_priority(ce));
-	LOG_DEBUG(" target time          = %d\n", _get_targettime(ce));
-	LOG_DEBUG(" deadline             = %d\n", _get_deadline(ce));
+	LOG_DEBUG(" hardlimit            = %hu\n", _get_hardlimit(ce));
+	LOG_DEBUG(" softlimit            = %hu\n", _get_softlimit(ce));
+	LOG_DEBUG(" flag                 = 0x%llx\n", _get_flag_bitmap(ce));
 	LOG_DEBUG(" #subcmd              = %d\n", _get_numofsc(ce));
 	LOG_DEBUG(" dependency list entry= 0x%llx\n", _get_dp_entry(ce));
 	LOG_DEBUG(" subcmd list entry    = 0x%llx\n", _get_sc_list_entry(ce));
@@ -132,29 +138,6 @@ uint32_t get_type_from_subcmd(void *sc_entry)
 	(sc_entry + OFFSET_SUBGRAPH_TYPE);
 }
 
-uint64_t get_utime_from_subcmd(void *sc_entry)
-{
-	if (sc_entry == NULL) {
-		LOG_ERR("invalid argument\n");
-		return 0;
-	}
-	return *(TYPE_SUBGRAPH_UP_TURNAROUND *)
-		(sc_entry + OFFSET_SUBGRAPH_UP_TURNAROUND);
-}
-
-int set_utime_to_subcmd(void *sc_entry, uint64_t us)
-{
-	if (sc_entry == NULL) {
-		LOG_ERR("invalid argument\n");
-		return -EINVAL;
-	}
-
-	*(TYPE_SUBGRAPH_UP_TURNAROUND *)
-		(sc_entry + OFFSET_SUBGRAPH_UP_TURNAROUND) = us;
-
-	return 0;
-}
-
 uint64_t get_dtime_from_subcmd(void *sc_entry)
 {
 	if (sc_entry == NULL) {
@@ -176,17 +159,49 @@ int set_dtime_to_subcmd(void *sc_entry, uint64_t us)
 	return 0;
 }
 
-uint32_t get_tcmusage_from_subcmd(void *sc_entry)
+static uint32_t get_suggesttime_from_subcmd(void *sc_entry)
 {
 	if (sc_entry == NULL) {
 		LOG_ERR("invalid argument\n");
 		return 0;
 	}
-	return *(TYPE_SUBGRAPH_TCM_USAGE *)
-		(sc_entry + OFFSET_SUBGRAPH_TCM_USAGE);
+	return *(TYPE_SUBGRAPH_SUGGEST_TIME *)
+		(sc_entry + OFFSET_SUBGRAPH_SUGGEST_TIME);
 }
 
-uint32_t get_tcmforce_from_subcmd(void *sc_entry)
+static uint32_t get_bandwidth_from_subcmd(void *sc_entry)
+{
+	if (sc_entry == NULL) {
+		LOG_ERR("invalid argument\n");
+		return 0;
+	}
+	return *(TYPE_SUBGRAPH_BANDWIDTH *)
+		(sc_entry + OFFSET_SUBGRAPH_BANDWIDTH);
+}
+
+int set_bandwidth_to_subcmd(void *sc_entry, uint32_t bandwidth)
+{
+	if (sc_entry == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+	*(TYPE_SUBGRAPH_BANDWIDTH *)
+		(sc_entry + OFFSET_SUBGRAPH_BANDWIDTH) = bandwidth;
+	return 0;
+}
+
+int set_tcmusage_from_subcmd(void *sc_entry, uint32_t tcm_usage)
+{
+	if (sc_entry == NULL) {
+		LOG_ERR("invalid argument\n");
+		return 0;
+	}
+	*(TYPE_SUBGRAPH_TCM_USAGE *)
+		(sc_entry + OFFSET_SUBGRAPH_TCM_USAGE) = tcm_usage;
+	return 0;
+}
+
+static uint8_t get_tcmforce_from_subcmd(void *sc_entry)
 {
 	if (sc_entry == NULL) {
 		LOG_ERR("invalid argument\n");
@@ -196,7 +211,17 @@ uint32_t get_tcmforce_from_subcmd(void *sc_entry)
 		(sc_entry + OFFSET_SUBGRAPH_TCM_FORCE);
 }
 
-uint32_t get_ctxid_from_subcmd(void *sc_entry)
+static uint8_t get_boostval_from_subcmd(void *sc_entry)
+{
+	if (sc_entry == NULL) {
+		LOG_ERR("invalid argument\n");
+		return 0;
+	}
+	return *(TYPE_SUBGRAPH_BANDWIDTH *)
+		(sc_entry + OFFSET_SUBGRAPH_BOOST_VAL);
+}
+
+static uint32_t get_ctxid_from_subcmd(void *sc_entry)
 {
 	if (sc_entry == NULL) {
 		LOG_ERR("invalid argument\n");
@@ -226,7 +251,7 @@ uint64_t get_addr_from_subcmd(void *sc_entry)
 		(sc_entry + OFFSET_SUBGRAPH_ADDR);
 }
 
-uint32_t get_packid_from_subcmd(void *sc_entry, int type)
+static uint32_t get_packid_from_subcmd(void *sc_entry, int type)
 {
 	if (sc_entry == NULL || (type != APUSYS_DEVICE_SAMPLE &&
 		type != APUSYS_DEVICE_VPU)) {
@@ -272,6 +297,16 @@ int apusys_subcmd_create(void *sc_entry,
 	sc->entry = sc_entry;
 	sc->type = type;
 	sc->parent_cmd = cmd;
+	sc->d_time = get_dtime_from_subcmd(sc_entry);
+	sc->boost_val = get_boostval_from_subcmd(sc_entry);
+	if (sc->boost_val > 100) {
+		LOG_DEBUG("boost_val over 100, set\n");
+		sc->boost_val = 100;
+	}
+	sc->suggest_time = get_suggesttime_from_subcmd(sc_entry);
+	sc->bw = get_bandwidth_from_subcmd(sc_entry);
+	sc->tcm_force = get_tcmforce_from_subcmd(sc_entry);
+	sc->tcm_usage = 0;
 	sc->pack_idx = get_packid_from_subcmd(sc_entry, sc->type);
 	sc->ctx_group = get_ctxid_from_subcmd(sc_entry);
 	if (sc->ctx_group != VALUE_SUBGAPH_CTX_ID_NONE &&
@@ -283,10 +318,6 @@ int apusys_subcmd_create(void *sc_entry,
 	}
 	sc->ctx_id = VALUE_SUBGAPH_CTX_ID_NONE;
 	sc->state = CMD_STATE_IDLE;
-	sc->d_time = get_dtime_from_subcmd(sc_entry);
-	sc->u_time = get_utime_from_subcmd(sc_entry);
-	if (sc->u_time)
-		sc->u_time = get_time_from_system();
 	INIT_LIST_HEAD(&sc->q_list);
 	INIT_LIST_HEAD(&sc->ce_list);
 	mutex_init(&sc->mtx);
@@ -379,16 +410,18 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	cmd->mem_hnd = mem.ion_data.ion_khandle;
 
 	cmd->kva = (void *)cmd_entry;
-	//cmd->size = ioctl_cmd->size;
 	cmd->cmd_uid = _get_cmdid(cmd->kva);
 	cmd->cmd_id = (uint64_t)(cmd);
 	cmd->sc_num = sc_num;
 	cmd->sc_list_entry = (void *)_get_sc_list_entry(cmd->kva);
 	cmd->dp_entry = (void *)_get_dp_entry(cmd->kva);
 	cmd->priority = _get_priority(cmd->kva);
+	cmd->hard_limit = _get_hardlimit(cmd->kva);
+	cmd->soft_limit = _get_softlimit(cmd->kva);
+	cmd->power_save = (_get_flag_bitmap(cmd->kva) &
+		1UL << CMD_FLAG_BITMAP_POWERSAVE) ? 1 : 0;
+
 	cmd->state = CMD_STATE_READY;
-	cmd->target_time = _get_deadline(cmd->kva);
-	cmd->estimate_time = _get_targettime(cmd->kva);
 
 	/* allocate subcmd bitmap for tracing status */
 	cmd->sc_status = kcalloc(BITS_TO_LONGS(cmd->sc_num),
@@ -448,10 +481,11 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 
 	*icmd = cmd;
 
-	LOG_INFO("create cmd (0x%llx/0x%llx/%d)(%d/%d/%d)\n",
+	LOG_INFO("create cmd (0x%llx/0x%llx/%u)(%u/%u/%u)(%u)\n",
 		cmd->cmd_uid, cmd->cmd_id,
 		cmd->sc_num, cmd->priority,
-		cmd->target_time, cmd->estimate_time);
+		cmd->hard_limit, cmd->soft_limit,
+		cmd->power_save);
 
 	return ret;
 

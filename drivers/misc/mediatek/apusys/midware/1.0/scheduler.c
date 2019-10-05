@@ -18,6 +18,7 @@
 #include <linux/kthread.h>
 
 #include "apusys_cmn.h"
+#include "apusys_options.h"
 #include "apusys_device.h"
 #include "apusys_dbg.h"
 #include "cmd_parser.h"
@@ -322,13 +323,11 @@ static void subcmd_done(void *isc)
 	sc->state = CMD_STATE_DONE;
 	kfree(sc->dp_status);
 	mutex_unlock(&sc->mtx);
-	if (sc->u_time)
-		sc->u_time = get_time_from_system() - sc->u_time;
 	/* write time back to cmdbuf */
 	set_dtime_to_subcmd(sc->entry, sc->d_time);
-	set_utime_to_subcmd(sc->entry, sc->u_time);
-	LOG_DEBUG("0x%llx-#%d sc: time(%llu/%llu) bw(%llu)\n",
-		cmd->cmd_id, sc->idx, sc->d_time, sc->u_time, sc->bw);
+	set_bandwidth_to_subcmd(sc->entry, sc->bw);
+	LOG_DEBUG("0x%llx-#%d sc: time(%llu) bw(%u)\n",
+		cmd->cmd_id, sc->idx, sc->d_time, sc->bw);
 
 	kfree(sc);
 	DEBUG_TAG;
@@ -398,7 +397,7 @@ static int exec_cmd_func(void *isc, void *idev)
 	/* get subcmd information */
 	cmd_hnd.kva = get_addr_from_subcmd(sc->entry);
 	cmd_hnd.size = get_size_from_subcmd(sc->entry);
-	cmd_hnd.boost_val = 100;
+	cmd_hnd.boost_val = sc->boost_val;
 	cmd_hnd.cmd_id = cmd->cmd_id;
 	cmd_hnd.cmd_entry = (uint64_t)cmd->kva;
 	if (cmd_hnd.kva == 0 || cmd_hnd.size == 0) {
@@ -432,14 +431,15 @@ static int exec_cmd_func(void *isc, void *idev)
 	sc->state = CMD_STATE_RUN;
 
 	/* 2. get driver time start */
-	LOG_INFO("exec cmd(0x%llx/0x%llx) sc(%d/%d) dev(%d/%d)\n",
+	LOG_INFO("exec cmd(0x%llx/0x%llx) sc(%d/%d) dev(%d/%d) boost(%u)\n",
 		cmd->cmd_uid, cmd->cmd_id,
 		sc->idx, sc->type,
-		dev->dev_type, dev->idx);
+		dev->dev_type, dev->idx,
+		cmd_hnd.boost_val);
 
-	if (sc->d_time)
-		sc->d_time = get_time_from_system();
+	sc->d_time = get_time_from_system();
 
+#ifdef APUSYS_OPTIONS_INF_MNOC
 	/* 3. start count cmd qos */
 	LOG_DEBUG("mnoc: cmd qos start(0x%llx/%d/%d/%d)\n",
 		cmd->cmd_id, sc->idx,
@@ -450,6 +450,7 @@ static int exec_cmd_func(void *isc, void *idev)
 		LOG_ERR("start qos for cmd(0x%llx/%d) fail\n",
 			cmd->cmd_id, sc->idx);
 	}
+#endif
 
 	/* 4. execute subcmd */
 	ret = dev->send_cmd(APUSYS_CMD_EXECUTE, (void *)&cmd_hnd, dev);
@@ -459,14 +460,15 @@ static int exec_cmd_func(void *isc, void *idev)
 		sc->idx, sc->type,
 		dev->dev_type, dev->idx);
 
+#ifdef APUSYS_OPTIONS_INF_MNOC
 	/* count qos end */
 	sc->bw = apu_cmd_qos_end(cmd->cmd_id, sc->idx);
 	LOG_DEBUG("mnoc: cmd qos end(0x%llx/%d/%d/%d), bw(%d)\n",
 		cmd->cmd_id, dev->idx, sc->type,
 		dev->idx, sc->bw);
+#endif
 
-	if (sc->d_time)
-		sc->d_time = get_time_from_system() - sc->d_time;
+	sc->d_time = get_time_from_system() - sc->d_time;
 
 	if (ret) {
 		LOG_ERR("execute cmd(0x%llx/%d) on devfail[%d/%d/%p]\n",
@@ -538,6 +540,7 @@ int sche_routine(void *arg)
 			continue;
 		}
 
+		memset(&available, 0, sizeof(available));
 		bitmap_and(available, res_mgr->cmd_exist,
 			res_mgr->dev_exist, APUSYS_DEV_TABLE_MAX);
 		/* if dev/cmd available or  */
@@ -774,14 +777,16 @@ int apusys_sched_add_list(struct apusys_cmd *cmd)
 			break;
 		}
 		sc->idx = i;
-		LOG_DEBUG("0x%llx-#%d sc(%p/%d)dp(%p/%d)set(%d/%d/%d)\n",
+		LOG_DEBUG("0x%llx-#%d sc(%p)dp(%p/%d)set(%u/%u/%u/%u/%d)\n",
 			cmd->cmd_id,
 			sc->idx,
-			sc, sc->idx,
+			sc,
 			dp_ptr,
 			dp_num,
 			sc->boost_val,
-			sc->exec_ms,
+			sc->suggest_time,
+			sc->bw,
+			sc->tcm_force,
 			sc->state);
 
 		/* setup subcmd's dependency */

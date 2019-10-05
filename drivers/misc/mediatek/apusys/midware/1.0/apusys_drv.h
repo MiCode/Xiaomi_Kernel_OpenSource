@@ -31,10 +31,12 @@ enum {
 };
 
 struct hs_begin {
-	unsigned int mem_support; // bitmap
 	unsigned long long dev_support; // bitmap
-
 	unsigned int dev_type_max;
+
+	unsigned int mem_support; // bitmap
+	unsigned int vlm_start;
+	unsigned int vlm_size;
 };
 
 struct hs_query_dev {
@@ -83,7 +85,7 @@ enum {
 enum {
 	APUSYS_MEM_DRAM_ION,
 	APUSYS_MEM_DRAM_DMA,
-	APUSYS_MEM_TCM,
+	APUSYS_MEM_VLM,
 
 	APUSYS_MEM_MAX,
 };

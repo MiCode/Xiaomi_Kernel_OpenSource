@@ -14,6 +14,7 @@
 #include <linux/errno.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/mutex.h>
 
 #include "../../include/apusys_device.h"
 #include "sample_cmn.h"
@@ -42,6 +43,10 @@ struct sample_dev_info {
 	char name[32];
 
 	struct sample_fw fw;
+
+	int run;
+
+	struct mutex mtx;
 };
 
 static struct sample_dev_info *sample_private[SAMPLE_DEVICE_NUM];
@@ -190,8 +195,16 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 		return -EINVAL;
 	};
 
+
 	req = (struct sample_request *)hnd->kva;
 	info = (struct sample_dev_info *)dev->private;
+	mutex_lock(&info->mtx);
+	if (info->run != 0) {
+		LOG_ERR("device is occupied\n");
+		mutex_unlock(&info->mtx);
+		return -EINVAL;
+	}
+	info->run = 1;
 
 	LOG_INFO("|====================================================|\n");
 	LOG_INFO("| sample driver request (use #%-2d device)             |\n",
@@ -214,10 +227,14 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 
 	if (req->driver_done != 0) {
 		LOG_WARN("driver done flag is (%d)\n", req->driver_done);
+		info->run = 0;
+		mutex_unlock(&info->mtx);
 		return -EINVAL;
 	}
 
+	info->run = 0;
 	req->driver_done = 1;
+	mutex_unlock(&info->mtx);
 
 	return 0;
 }
@@ -365,6 +382,8 @@ int sample_device_init(void)
 		sample_private[i]->dev->send_cmd = sample_send_cmd;
 		sample_private[i]->dev->idx = i;
 		sample_private[i]->idx = i;
+
+		mutex_init(&sample_private[i]->mtx);
 
 		/* register device to midware */
 		if (apusys_register_device(sample_private[i]->dev)) {

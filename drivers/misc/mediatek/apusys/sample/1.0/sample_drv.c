@@ -42,6 +42,7 @@ static long sample_ioctl(struct file *filp,
 
 static const struct file_operations sample_fops = {
 	.open = sample_open,
+	.release = sample_release,
 	.unlocked_ioctl = sample_ioctl,
 	.release = sample_release,
 };

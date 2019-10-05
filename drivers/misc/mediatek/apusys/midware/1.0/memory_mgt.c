@@ -18,6 +18,7 @@
 
 
 #include "apusys_cmn.h"
+#include "apusys_options.h"
 #include "apusys_drv.h"
 #include "memory_mgt.h"
 #include "memory_ion.h"
@@ -117,6 +118,7 @@ int apusys_mem_destroy(void)
 	}
 	return ret;
 }
+
 int apusys_mem_ctl(struct apusys_mem *mem)
 {
 	int ret = 0;
@@ -154,6 +156,7 @@ int apusys_mem_map_iova(struct apusys_mem *mem)
 
 	return ret;
 }
+
 int apusys_mem_map_kva(struct apusys_mem *mem)
 {
 	int ret = 0;
@@ -172,6 +175,7 @@ int apusys_mem_map_kva(struct apusys_mem *mem)
 
 	return ret;
 }
+
 int apusys_mem_unmap_iova(struct apusys_mem *mem)
 {
 	int ret = 0;
@@ -190,6 +194,7 @@ int apusys_mem_unmap_iova(struct apusys_mem *mem)
 
 	return ret;
 }
+
 int apusys_mem_unmap_kva(struct apusys_mem *mem)
 {
 	int ret = 0;
@@ -207,4 +212,34 @@ int apusys_mem_unmap_kva(struct apusys_mem *mem)
 	}
 
 	return ret;
+}
+
+unsigned int apusys_mem_get_support(void)
+{
+	unsigned int mem_support = 0;
+
+#ifdef APUSYS_OPTIONS_MEM_ION
+	mem_support |= (1UL << APUSYS_MEM_DRAM_ION);
+#endif
+
+#ifdef APUSYS_OPTIONS_MEM_DMA
+	mem_support |= (1UL << APUSYS_MEM_DRAM_DMA);
+#endif
+
+#ifdef APUSYS_OPTIONS_MEM_VLM
+	mem_support |= (1UL << APUSYS_MEM_VLM);
+#endif
+
+	return mem_support;
+}
+
+int apusys_mem_get_vlm(unsigned int *start, unsigned int *size)
+{
+	if (start == NULL || size == NULL)
+		return -EINVAL;
+
+	*start = APUSYS_VLM_START;
+	*size = APUSYS_VLM_SIZE;
+
+	return 0;
 }

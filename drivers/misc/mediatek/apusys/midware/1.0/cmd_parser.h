@@ -45,15 +45,16 @@ struct apusys_cmd {
 
 	void *kva;           // apusys cmd kernel va entry
 	uint64_t cmd_uid;    // cmd id from user
-	uint64_t cmd_id;      // cmd unique id
-	uint32_t size;        // total apusys cmd size
-	uint32_t sc_num;      // number of subcmds
+	uint64_t cmd_id;     // cmd unique id
+	uint32_t size;       // total apusys cmd size
+	uint32_t sc_num;     // number of subcmds
 	void *sc_list_entry; // subcmd list entry
 	void *dp_entry;      // dependency list bitmp [BITS_TO_LONGS(sc_num)]
-	uint8_t priority;     // cmd priority
+	uint8_t priority;    // cmd priority
+	uint32_t soft_limit; // deadline
+	uint32_t hard_limit; // execution time from trail run
 
-	uint32_t target_time;   // deadline
-	uint32_t estimate_time; // execution time from trail run
+	uint8_t power_save;  // power save flag, allow to downgrade opp
 
 	/* flow control */
 	/* apusys_subcmd */
@@ -87,24 +88,24 @@ struct apusys_cmd {
 
 struct apusys_subcmd {
 	/* basic information */
-	int type;                  // device type
+	int type;                 // device type
 	void *entry;              // subcmd info entry
 	void *parent_cmd;         // apusys_cmd ptr
-	int idx;                   // subcmd idx
+	int idx;                  // subcmd idx
 	unsigned long *dp_status; // dependency status
-	uint64_t d_time; // driver time
-	uint64_t u_time; // up time
+	uint64_t d_time;          // (us)driver turnaround time
 
-	/* execute information */
-	uint32_t boost_val;
-	unsigned long exec_ms;
-	int state;
+	uint32_t boost_val;       // boost value
+	uint32_t suggest_time;    // (ms)suggest time
+	uint32_t bw;              // (MB/s)bandwidth
+	uint8_t tcm_force;
+	uint32_t tcm_usage;
 
 	uint32_t pack_idx;
-	uint32_t ctx_group; // from user
-	uint32_t ctx_id;  // allocated from mem mgt
+	uint32_t ctx_group;       // from user
+	uint32_t ctx_id;          // allocated from mem mgt
 
-	uint64_t bw;
+	int state;
 
 	struct mutex mtx;
 
@@ -115,18 +116,21 @@ struct apusys_subcmd {
 };
 
 uint64_t get_time_from_system(void);
-int set_utime_to_subcmd(void *sc_entry, uint64_t us);
-int set_dtime_to_subcmd(void *sc_entry, uint64_t us);
 
+/* apusys cmd parse functions */
 uint8_t get_cmdformat_version(void);
 uint64_t get_cmdformat_magic(void);
+int set_dtime_to_subcmd(void *sc_entry, uint64_t us);
 
+/* subcmd parse functions */
 uint64_t get_subcmd_by_idx(struct apusys_cmd *cmd, int idx);
 uint32_t get_type_from_subcmd(void *sc_entry);
-uint32_t get_ctxid_from_subcmd(void *sc_entry);
+uint64_t get_dtime_from_subcmd(void *sc_entry);
+int set_dtime_to_subcmd(void *sc_entry, uint64_t us);
+int set_bandwidth_to_subcmd(void *sc_entry, uint32_t bandwidth);
+int set_tcmusage_from_subcmd(void *sc_entry, uint32_t tcm_usage);
 uint32_t get_size_from_subcmd(void *sc_entry);
 uint64_t get_addr_from_subcmd(void *sc_entry);
-uint32_t get_packid_from_subcmd(void *sc_entry, int type);
 
 int apusys_subcmd_create(void *sc_entry,
 	struct apusys_cmd *cmd, struct apusys_subcmd **isc);

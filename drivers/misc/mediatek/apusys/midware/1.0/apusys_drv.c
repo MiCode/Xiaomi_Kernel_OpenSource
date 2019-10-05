@@ -47,6 +47,7 @@ static struct cdev *apusys_cdev;
 static struct class *apusys_class;
 struct device *g_apusys_device;
 
+
 /* function declaration */
 static int apusys_open(struct inode *, struct file *);
 static int apusys_release(struct inode *, struct file *);
@@ -303,12 +304,24 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		hs.cmd_version = get_cmdformat_version();
 		switch (hs.type) {
 		case APUSYS_HANDSHAKE_BEGIN:
-			hs.begin.mem_support =
-				(1 << APUSYS_MEM_DRAM_ION | 1<<APUSYS_MEM_TCM);
+			hs.begin.mem_support = apusys_mem_get_support();
 			hs.begin.dev_support = resource_get_dev_support();
 			hs.begin.dev_type_max = APUSYS_DEVICE_MAX;
-			LOG_DEBUG("device support = 0x%llx\n",
-				hs.begin.dev_support);
+			if (hs.begin.mem_support & (1UL << APUSYS_MEM_VLM)) {
+				if (apusys_mem_get_vlm(&hs.begin.vlm_start,
+					&hs.begin.vlm_size)) {
+					LOG_WARN("vlm miss start and size\n");
+				}
+			} else {
+				hs.begin.vlm_start = 0;
+				hs.begin.vlm_size = 0;
+			}
+
+			LOG_INFO("support dev(0x%llx)mem(0x%x/0x%x/%u)\n",
+				hs.begin.dev_support,
+				hs.begin.mem_support,
+				hs.begin.vlm_start,
+				hs.begin.vlm_size);
 			break;
 
 		case APUSYS_HANDSHAKE_QUERY_DEV:
@@ -868,14 +881,14 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		mem.ion_data.ion_share_fd = ioctl_fw.mem_fd;
 		if (apusys_mem_map_kva(&mem)) {
 			LOG_ERR("map fw buffer kva from fd(%d)fail\n",
-				ioctl_cmd.mem_fd);
+				ioctl_fw.mem_fd);
 			ret = -EINVAL;
 			goto out;
 		}
 
 		if (apusys_mem_map_iova(&mem)) {
 			LOG_ERR("map cmd buffer iovva from fd(%d)fail\n",
-				ioctl_cmd.mem_fd);
+				ioctl_fw.mem_fd);
 			ret = -EINVAL;
 			goto out;
 		}

@@ -76,7 +76,7 @@ static int tp_service_routine(void *arg)
 		if (ret) {
 			switch (ret) {
 			case -ERESTARTSYS:
-				LOG_INFO("restart...\n");
+				LOG_ERR("restart...\n");
 				/* TODO: error handle, retry? */
 				msleep(50);
 				break;
@@ -85,6 +85,7 @@ static int tp_service_routine(void *arg)
 				/* TODO: error handle */
 				break;
 			}
+			continue;
 		}
 		DEBUG_TAG;
 
@@ -92,18 +93,20 @@ static int tp_service_routine(void *arg)
 		mutex_lock(&g_pool_mgr.job_mtx);
 
 		/* query list to find mem in apusys user */
+		job_arg = NULL;
 		list_for_each_safe(list_ptr, tmp, &g_pool_mgr.job_list) {
 			job_arg = list_entry(list_ptr, struct job_inst, list);
 			break;
 		}
 
+		/* if job_arg == null,  */
 		if (job_arg == NULL) {
 			mutex_unlock(&g_pool_mgr.job_mtx);
 			continue;
-		} else {
-			list_del(&job_arg->list);
-			mutex_unlock(&g_pool_mgr.job_mtx);
 		}
+		list_del(&job_arg->list);
+		mutex_unlock(&g_pool_mgr.job_mtx);
+
 		DEBUG_TAG;
 
 		LOG_DEBUG("thread(%d) execute sc(%p)\n",

@@ -18,6 +18,9 @@
 #include <mtk/ion_drv.h>
 #include <mtk/mtk_ion.h>
 
+#define APUSYS_VLM_START 0x1D000000 // tcm tmp
+#define APUSYS_VLM_SIZE 0x100000
+
 struct apusys_mem_mgr {
 	struct ion_client *client;
 
@@ -38,4 +41,8 @@ int apusys_mem_map_iova(struct apusys_mem *mem);
 int apusys_mem_map_kva(struct apusys_mem *mem);
 int apusys_mem_unmap_iova(struct apusys_mem *mem);
 int apusys_mem_unmap_kva(struct apusys_mem *mem);
+
+unsigned int apusys_mem_get_support(void);
+int apusys_mem_get_vlm(unsigned int *start, unsigned int *size);
+
 #endif

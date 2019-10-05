@@ -324,8 +324,8 @@ int put_apusys_device(struct apusys_device *dev)
 	/* query list to find mem in apusys user */
 	list_for_each_safe(list_ptr, tmp, &tab->acq_list) {
 		acq = list_entry(list_ptr, struct apusys_dev_aquire, tab_list);
-		LOG_DEBUG("device(%d) has acquire(%p) waiting, put device\n",
-			dev->dev_type, acq);
+		LOG_DEBUG("device(%d) has acquire(%p/%d) waiting, put device\n",
+			dev->dev_type, acq, acq->is_done);
 		if (acq->is_done == 0) {
 			DEBUG_TAG;
 			dev_info = &tab->dev_list[dev->idx];
@@ -346,11 +346,14 @@ int put_apusys_device(struct apusys_device *dev)
 				acq->is_done = 1;
 			list_add_tail(&dev_info->acq_list, &acq->dev_info_list);
 			DEBUG_TAG;
-			complete(&acq->comp);
+			if (acq->is_done)
+				complete(&acq->comp);
 			complete(&g_res_mgr.sched_comp);
 			return 0;
 		}
+		DEBUG_TAG;
 	}
+	DEBUG_TAG;
 
 	/* get idle device from bitmap */
 	if (dev != tab->dev_list[dev->idx].dev) {
@@ -367,6 +370,7 @@ int put_apusys_device(struct apusys_device *dev)
 		bitmap_set(g_res_mgr.dev_exist, tab->dev_type, 1);
 		complete(&g_res_mgr.sched_comp);
 	}
+	DEBUG_TAG;
 
 	return 0;
 }
@@ -541,6 +545,7 @@ int acquire_device_async(struct apusys_dev_aquire *acq)
 		LOG_DEBUG("add to acquire list\n");
 		list_add_tail(&acq->tab_list, &tab->acq_list);
 	}
+	DEBUG_TAG;
 
 	return acq->acq_num;
 }
@@ -563,6 +568,15 @@ int acquire_device_sync(struct apusys_dev_aquire *acq)
 		mutex_unlock(&g_res_mgr.mtx);
 		return ret;
 	}
+	DEBUG_TAG;
+
+	/* if acquire == target, return ok */
+	if (acq->acq_num == acq->target_num) {
+		DEBUG_TAG;
+		mutex_unlock(&g_res_mgr.mtx);
+		return acq->acq_num;
+	}
+	DEBUG_TAG;
 
 	mutex_unlock(&g_res_mgr.mtx);
 	while (acq->acq_num != acq->target_num) {
@@ -578,6 +592,7 @@ int acquire_device_sync(struct apusys_dev_aquire *acq)
 	if (acq->acq_num == acq->target_num) {
 		LOG_DEBUG("acquire device(%d/%d/%d sync ok\n",
 		acq->dev_type, acq->acq_num, acq->target_num, ret);
+		list_del(&acq->tab_list);
 	}
 
 	return acq->acq_num;
@@ -889,8 +904,7 @@ int apusys_register_device(struct apusys_device *dev)
 		bitmap_clear(tab->dev_status, tab->dev_num, 1); //status
 		tab->dev_type = dev->dev_type;// type
 		if (dev->idx != tab->dev_num) {
-			LOG_WARN("device(%d) registration",
-				" idx not match(%d/%d)\n",
+			LOG_WARN("dev(%d) idx not match(%d/%d)\n",
 				dev->dev_type, dev->idx, tab->dev_num);
 			dev->idx = tab->dev_num;
 		}
