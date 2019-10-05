@@ -1641,13 +1641,22 @@ page_owner=on";
 			<&infracfg_ao INFRACFG_AO_UFS_CG>,
 			<&infracfg_ao INFRACFG_AO_UNIPRO_SYSCLK_CG>,
 			<&infracfg_ao INFRACFG_AO_UFS_MP_SAP_BCLK_CG>,
-			<&infracfg_ao INFRACFG_AO_AES_UFSFDE_CG>;
+			<&infracfg_ao INFRACFG_AO_AES_UFSFDE_CG>,
+			<&topckgen TOP_MUX_AES_UFSFDE>,
+			<&topckgen TOP_UNIVPLL_D6>,
+			<&topckgen TOP_MAINPLL_D4>;
 		clock-names =
-			"ufs0-clock",
-			"ufs0-unipro-clk",
-			"ufs0-mp-clk",
-			"ufs0-aes-clk";
+			"ufs-clk",
+			"ufs-unipro-clk",
+			"ufs-mp-clk",
+			"ufs-crypto-clk",
+			"ufs-vendor-crypto-clk-mux",
+			"ufs-vendor-crypto-normal-parent-clk",
+			"ufs-vendor-crypto-perf-parent-clk";
 		freq-table-hz =
+			<0 0>,
+			<0 0>,
+			<0 0>,
 			<0 0>,
 			<0 0>,
 			<0 0>,
@@ -1683,6 +1692,9 @@ page_owner=on";
 
 		/* 3. Runtime Suspend Level */
 		mediatek,rpm-level = <3>;
+
+		/* Performance Mode */
+		mediatek,perf-crypto-vcore = <2>;
 	};
 
 	ufs_mphy@11fa0000 {
