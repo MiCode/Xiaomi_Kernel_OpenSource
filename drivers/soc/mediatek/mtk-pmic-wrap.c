@@ -170,6 +170,34 @@ static const u32 mt6397_regs[] = {
 	[PWRAP_DEW_CIPHER_SWRST] =	0xbc24,
 };
 
+static const u32 mt6357_regs[] = {
+	[PWRAP_DEW_DIO_EN] =		0x040a,
+	[PWRAP_DEW_READ_TEST] =		0x040c,
+	[PWRAP_DEW_WRITE_TEST] =	0x040e,
+	[PWRAP_DEW_CRC_SWRST] =		0x0410,
+	[PWRAP_DEW_CRC_EN] =		0x0412,
+	[PWRAP_DEW_CRC_VAL] =		0x0414,
+	[PWRAP_DEW_CIPHER_KEY_SEL] =	0x0418,
+	[PWRAP_DEW_CIPHER_IV_SEL] =	0x041a,
+	[PWRAP_DEW_CIPHER_EN] =		0x041c,
+	[PWRAP_DEW_CIPHER_RDY] =	0x041e,
+	[PWRAP_DEW_CIPHER_MODE] =	0x0420,
+	[PWRAP_DEW_CIPHER_SWRST] =	0x0422,
+	[PWRAP_DEW_RDDMY_NO] =		0x0424,
+	[PWRAP_DEW_RECORD_CMD0] =	0x0432,
+	[PWRAP_DEW_RECORD_CMD1] =	0x0434,
+	[PWRAP_DEW_RECORD_CMD2] =	0x0436,
+	[PWRAP_DEW_RECORD_WDATA0] =	0x0438,
+	[PWRAP_DEW_RECORD_WDATA1] =	0x043a,
+	[PWRAP_DEW_RECORD_WDATA2] =	0x043c,
+	[PWRAP_DEW_RG_ADDR_TARGET] =	0x043e,
+	[PWRAP_DEW_RG_ADDR_MASK] =	0x0440,
+	[PWRAP_DEW_RG_WDATA_TARGET] =	0x0442,
+	[PWRAP_DEW_RG_WDATA_MASK] =	0x0444,
+	[PWRAP_DEW_RG_SPI_RECORD_CLR] =	0x0446,
+	[PWRAP_DEW_RG_CMD_ALERT_CLR] =	0x0446,
+};
+
 static const u32 mt6358_regs[] = {
 	[PWRAP_DEW_RG_EN_RECORD] =	0x040a,
 	[PWRAP_DEW_DIO_EN] =		0x040c,
@@ -467,6 +495,90 @@ static int mt2701_regs[] = {
 	[PWRAP_ADC_RDATA_ADDR2] =	0x154,
 };
 
+static int mt6739_regs[] = {
+	[PWRAP_MUX_SEL] =		0x0,
+	[PWRAP_WRAP_EN] =		0x4,
+	[PWRAP_DIO_EN] =		0x8,
+	[PWRAP_RDDMY] =			0x20,
+	[PWRAP_CSHEXT_WRITE] =		0x24,
+	[PWRAP_CSHEXT_READ] =		0x28,
+	[PWRAP_CSLEXT_WRITE] =		0x2C,
+	[PWRAP_CSLEXT_READ] =		0x30,
+	[PWRAP_EXT_CK_WRITE] =		0x34,
+	[PWRAP_STAUPD_CTRL] =		0x3C,
+	[PWRAP_STAUPD_GRPEN] =		0x40,
+	[PWRAP_EINT_STA0_ADR] =		0x44,
+	[PWRAP_EINT_STA1_ADR] =		0x48,
+	[PWRAP_EINT_STA] =		0x4C,
+	[PWRAP_EINT_CLR] =		0x50,
+	[PWRAP_HPRIO_ARB_EN] =		0x6C,
+	[PWRAP_MAN_EN] =		0x7C,
+	[PWRAP_MAN_CMD] =		0x80,
+	[PWRAP_WACS0_EN] =		0x8C,
+	[PWRAP_WACS2_EN] =		0x9C,
+	[PWRAP_INIT_DONE2] =		0xa0,
+	[PWRAP_INT_EN] =		0xB4,
+	[PWRAP_INT0_FLG_RAW] =		0xB8,
+	[PWRAP_INT0_FLG] =		0xBC,
+	[PWRAP_INT0_CLR] =		0xC0,
+	[PWRAP_INT1_EN] =		0xC4,
+	[PWRAP_INT1_FLG_RAW] =		0xC8,
+	[PWRAP_INT1_FLG] =		0xCC,
+	[PWRAP_INT1_CLR] =		0xD0,
+	[PWRAP_TIMER_EN] =		0xE8,
+	[PWRAP_WDT_UNIT] =		0xF0,
+	[PWRAP_WDT_SRC_EN] =		0xF4,
+	[PWRAP_DCXO_CONN_ADR0] =	0x18C,
+	[PWRAP_DCXO_CONN_WDATA0] =	0x190,
+	[PWRAP_DCXO_CONN_ADR1] =	0x194,
+	[PWRAP_DCXO_CONN_WDATA1] =	0x198,
+	[PWRAP_SPMINF_STA] =		0x1AC,
+	[PWRAP_SPMINF_STA_1] =		0x1B0,
+	[PWRAP_SPMINF_BACKUP_STA] =	0x1B4,
+	[PWRAP_MCU_PMINF_STA_0] =	0x1B8,
+	[PWRAP_MCU_PMINF_STA_1] =	0x1BC,
+	[PWRAP_SCPINF_STA] =		0x1C0,
+	[PWRAP_DCM_EN] =		0x1DC,
+	[PWRAP_DCM_DBC_PRD] =		0x1E0,
+	[PWRAP_GPSINF_0_STA] =		0x1F4,
+	[PWRAP_GPSINF_1_STA] =		0x1F8,
+	[PWRAP_MD_ADCINF_0_STA_0] =	0x288,
+	[PWRAP_MD_ADCINF_0_STA_1] =	0x28C,
+	[PWRAP_MD_ADCINF_1_STA_0] =	0x290,
+	[PWRAP_MD_ADCINF_1_STA_1] =	0x294,
+	[PWRAP_PRIORITY_USER_SEL_0] =	0x2A8,
+	[PWRAP_PRIORITY_USER_SEL_1] =	0x2AC,
+	[PWRAP_ARBITER_OUT_SEL_0] =	0x2BC,
+	[PWRAP_ARBITER_OUT_SEL_1] =	0x2C0,
+	[PWRAP_MONITOR_CTRL_0] =	0x360,
+	[PWRAP_MONITOR_CTRL_1] =	0x364,
+	[PWRAP_MONITOR_CTRL_2] =	0x368,
+	[PWRAP_MONITOR_CTRL_3] =	0x36C,
+	[PWRAP_CHANNEL_SEQUENCE_0] =	0x370,
+	[PWRAP_CHANNEL_SEQUENCE_1] =	0x374,
+	[PWRAP_CHANNEL_SEQUENCE_2] =	0x378,
+	[PWRAP_CHANNEL_SEQUENCE_3] =	0x37C,
+	[PWRAP_CMD_SEQUENCE_0] =	0x380,
+	[PWRAP_CMD_SEQUENCE_1] =	0x384,
+	[PWRAP_CMD_SEQUENCE_2] =	0x388,
+	[PWRAP_CMD_SEQUENCE_3] =	0x38C,
+	[PWRAP_CMD_SEQUENCE_4] =	0x390,
+	[PWRAP_CMD_SEQUENCE_5] =	0x394,
+	[PWRAP_CMD_SEQUENCE_6] =	0x398,
+	[PWRAP_CMD_SEQUENCE_7] =	0x39C,
+	[PWRAP_WDATA_SEQUENCE_0] =	0x3A0,
+	[PWRAP_WDATA_SEQUENCE_1] =	0x3A4,
+	[PWRAP_WDATA_SEQUENCE_2] =	0x3A8,
+	[PWRAP_WDATA_SEQUENCE_3] =	0x3AC,
+	[PWRAP_WDATA_SEQUENCE_4] =	0x3B0,
+	[PWRAP_WDATA_SEQUENCE_5] =	0x3B4,
+	[PWRAP_WDATA_SEQUENCE_6] =	0x3B8,
+	[PWRAP_WDATA_SEQUENCE_7] =	0x3BC,
+	[PWRAP_WACS2_CMD] =		0xC20,
+	[PWRAP_WACS2_RDATA] =		0xC24,
+	[PWRAP_WACS2_VLDCLR] =		0xC28,
+};
+
 static int mt6771_regs[] = {
 	[PWRAP_MUX_SEL] =		0x0,
 	[PWRAP_WRAP_EN] =		0x4,
@@ -710,12 +822,14 @@ static int mt8135_regs[] = {
 
 enum pmic_type {
 	PMIC_MT6323,
+	PMIC_MT6357,
 	PMIC_MT6358,
 	PMIC_MT6397,
 };
 
 enum pwrap_type {
 	PWRAP_MT2701,
+	PWRAP_MT6739,
 	PWRAP_MT6771,
 	PWRAP_MT8135,
 	PWRAP_MT8173,
@@ -768,7 +882,7 @@ struct pmic_wrapper_type {
 
 static struct pmic_wrapper *wrp;
 static struct of_dev_auxdata pwrap_auxdata_lookup[] = {
-	OF_DEV_AUXDATA("mediatek,mt_pmic", 0, "mt-pmic", NULL),
+	OF_DEV_AUXDATA("mediatek,mt6357-pmic", 0, "mt-pmic", NULL),
 	{ /* sentinel */ },
 };
 
@@ -833,14 +947,14 @@ static inline void pwrap_dump_ap_register(void)
 
 	for (i = 0; i <= 0xFC; i++) {
 		reg_addr = wrp->base + (i * 4);
-		dev_dbg(wrp->dev, "addr:0x%p = 0x%x\n",
+		dev_dbg(wrp->dev, "addr:0x%x = 0x%x\n",
 			reg_addr, readl(reg_addr));
 	}
 
 	for (i = 0; i <= 14; i++) {
 		offset = 0xc00 + i * 4;
 		reg_addr = wrp->base + offset;
-		dev_dbg(wrp->dev, "addr:0x%p = 0x%x\n",
+		dev_dbg(wrp->dev, "addr:0x%x = 0x%x\n",
 			reg_addr, readl(reg_addr));
 	}
 	pwrap_writel(wrp, 0x0, PWRAP_WACS2_EN);
@@ -1347,6 +1461,7 @@ static int pwrap_init_cipher(struct pmic_wrapper *wrp)
 		pwrap_writel(wrp, 1, PWRAP_CIPHER_START);
 		break;
 	case PWRAP_MT2701:
+	case PWRAP_MT6739:
 	case PWRAP_MT6771:
 	case PWRAP_MT8173:
 	default:
@@ -1368,6 +1483,7 @@ static int pwrap_init_cipher(struct pmic_wrapper *wrp)
 			    0x1);
 		break;
 	case PMIC_MT6323:
+	case PMIC_MT6357:
 	case PMIC_MT6358:
 		pwrap_write(wrp, wrp->slave->dew_regs[PWRAP_DEW_CIPHER_EN],
 			    0x1);
@@ -1700,6 +1816,15 @@ static const struct pwrap_slv_type pmic_mt6397 = {
 	.pwrap_write = pwrap_write16,
 };
 
+static const struct pwrap_slv_type pmic_mt6357 = {
+	.dew_regs = mt6357_regs,
+	.type = PMIC_MT6357,
+	.regmap = &pwrap_regmap_config16,
+	.caps = 0,
+	.pwrap_read = pwrap_read16,
+	.pwrap_write = pwrap_write16,
+};
+
 static const struct pwrap_slv_type pmic_mt6358 = {
 	.dew_regs = mt6358_regs,
 	.type = PMIC_MT6358,
@@ -1716,6 +1841,9 @@ static const struct of_device_id of_slave_match_tbl[] = {
 	}, {
 		.compatible = "mediatek,mt6397",
 		.data = &pmic_mt6397,
+	}, {
+		.compatible = "mediatek,mt6357-pmic",
+		.data = &pmic_mt6357,
 	}, {
 		.compatible = "mediatek,mt_pmic",
 		.data = &pmic_mt6358,
@@ -1767,6 +1895,20 @@ static struct pmic_wrapper_type pwrap_mt8173 = {
 	.init_soc_specific = pwrap_mt8173_init_soc_specific,
 };
 
+static struct pmic_wrapper_type pwrap_mt6739 = {
+	.regs = mt6739_regs,
+	.type = PWRAP_MT6739,
+	.arb_en_all = 0x3fd25,
+	.int_en_all = 0xffffffff,
+	.int1_en_all =  0xfff,
+	.spi_w = PWRAP_MAN_CMD_SPI_WRITE,
+	.wdt_src = PWRAP_WDT_SRC_MASK_ALL,
+	.has_bridge = 0,
+	.caps = PWRAP_CAP_INT1_EN,
+	.init_reg_clock = pwrap_common_init_reg_clock,
+	.init_soc_specific = NULL,
+};
+
 static struct pmic_wrapper_type pwrap_mt6771 = {
 	.regs = mt6771_regs,
 	.type = PWRAP_MT6771,
@@ -1791,6 +1933,9 @@ static const struct of_device_id of_pwrap_match_tbl[] = {
 	}, {
 		.compatible = "mediatek,mt8173-pwrap",
 		.data = &pwrap_mt8173,
+	}, {
+		.compatible = "mediatek,mt6739-pwrap",
+		.data = &pwrap_mt6739,
 	}, {
 		.compatible = "mediatek,pwrap",
 		.data = &pwrap_mt6771,
@@ -2010,8 +2155,8 @@ static int pwrap_probe(struct platform_device *pdev)
 	    (rdata != PWRAP_DEW_WRITE_TEST_VAL)) {
 		dev_dbg(wrp->dev, "pwrap rdata=0x%04X\n", rdata);
 		goto err_out2;
-	}
-	dev_dbg(wrp->dev, "[PWRAP] Write Test pass\n");
+	} else
+		dev_notice(wrp->dev, "[PWRAP] Write Test pass\n");
 
 	return 0;
 
