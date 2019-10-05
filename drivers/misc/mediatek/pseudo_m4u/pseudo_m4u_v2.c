@@ -566,7 +566,7 @@ out:
 	return ret;
 }
 
-int pseudo_dump_port(int port)
+int pseudo_dump_port(int port, bool ignore_power)
 {
 	/* all the port will be attached by dma and configed by iommu driver */
 	unsigned long larb_base;
@@ -588,10 +588,12 @@ int pseudo_dump_port(int port)
 		return 0;
 	}
 
-	ret = larb_clock_on(larb, 1);
-	if (ret < 0) {
-		M4U_MSG("enable larb%d fail\n", larb);
-		return ret;
+	if (!ignore_power) {
+		ret = larb_clock_on(larb, 1);
+		if (ret < 0) {
+			M4U_MSG("enable larb%d fail\n", larb);
+			return ret;
+		}
 	}
 
 	regval = pseudo_readreg32(larb_base,
@@ -603,7 +605,8 @@ int pseudo_dump_port(int port)
 		regval, regval & F_SMI_MMU_EN,
 		F_SMI_ADDR_BIT32_VAL(regval));
 
-	larb_clock_off(larb, 1);
+	if (!ignore_power)
+		larb_clock_off(larb, 1);
 
 	return ret;
 }

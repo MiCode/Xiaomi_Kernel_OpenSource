@@ -265,7 +265,7 @@ void pseudo_put_iova_space(int port,
 void m4u_dump_pgtable(unsigned int level);
 void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
 		bool lock);
-int pseudo_dump_port(int port);
+int pseudo_dump_port(int port, bool ignore_power);
 int pseudo_dump_all_port_status(struct seq_file *s);
 int pseudo_dump_iova_reserved_region(struct seq_file *s);
 
