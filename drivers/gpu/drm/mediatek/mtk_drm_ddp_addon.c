@@ -199,7 +199,7 @@ void mtk_addon_connect_between(struct drm_crtc *crtc, unsigned int ddp_mode,
 	if (next_attach_comp_id == -1) {
 		comp = priv->ddp_comp[module_data->attach_comp];
 		DDPPR_ERR("Attach module:%s has not a next comp in path mode\n",
-			  mtk_dump_comp_str(comp), ddp_mode);
+			  mtk_dump_comp_str(comp));
 		return;
 	}
 

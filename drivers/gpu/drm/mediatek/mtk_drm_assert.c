@@ -94,7 +94,7 @@ int mtk_drm_dal_setscreencolor(enum DAL_COLOR color)
 
 	size = DAL_GetLayerSize();
 	if (!size) {
-		DDPPR_ERR("%s wrong fb size\n");
+		DDPINFO("%s wrong fb size\n", __func__);
 		return 0;
 	}
 	size -= offset;
@@ -129,7 +129,7 @@ int DAL_SetScreenColor(enum DAL_COLOR color)
 
 	size = DAL_GetLayerSize();
 	if (!size) {
-		DDPPR_ERR("%s wrong fb size\n");
+		DDPINFO("%s wrong fb size\n", __func__);
 		return 0;
 	}
 	size -= offset;
@@ -353,7 +353,7 @@ int DAL_Printf(const char *fmt, ...)
 	va_end(args);
 
 	if (i >= DAL_STR_BUF_LEN) {
-		DDPPR_ERR("%s, string size %u exceed limit\n", i);
+		DDPINFO("%s, string size %u exceed limit\n", __func__, i);
 		return -1;
 	}
 

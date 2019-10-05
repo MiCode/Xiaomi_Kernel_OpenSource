@@ -2941,7 +2941,7 @@ void mtk_drm_fake_vsync_switch(struct drm_crtc *crtc, bool enable)
 		return;
 
 	if (unlikely(!fake_vsync)) {
-		DDPPR_ERR("%s:invalid fake_vsync pointer\n");
+		DDPINFO("%s:invalid fake_vsync pointer\n", __func__);
 		return;
 	}
 

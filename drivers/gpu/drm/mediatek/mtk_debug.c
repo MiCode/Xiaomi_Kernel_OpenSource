@@ -335,12 +335,12 @@ static int debug_get_info(unsigned char *stringbuf, int buf_len)
 
 	if (!drm_dev) {
 		DDPPR_ERR("%s:%d, drm_dev is NULL\n",
-			__func__, __LINE__, drm_dev);
+			__func__, __LINE__);
 		return -1;
 	}
 	if (!drm_dev->dev_private) {
 		DDPPR_ERR("%s:%d, drm_dev->dev_private is NULL\n",
-			__func__, __LINE__, drm_dev->dev_private);
+			__func__, __LINE__);
 		return -1;
 	}
 
@@ -521,7 +521,7 @@ void fake_engine(struct drm_crtc *crtc, unsigned int idx, unsigned int en,
 				gem[i] = mtk_drm_gem_create(crtc->dev,
 							1024*1024, true);
 				mtk_fake_engine_iommu_enable(crtc->dev, i);
-				DDPMSG("fake_engine_%d va=0x%08x, pa=0x%08x\n",
+				DDPMSG("fake_engine_%d va=0x%08lx, pa=0x%08x\n",
 					i, (unsigned long)gem[i]->kvaddr,
 					(unsigned int)gem[i]->dma_addr);
 			}

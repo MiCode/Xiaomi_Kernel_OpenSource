@@ -1203,7 +1203,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		temp_bw = temp_bw * vrefresh;
 		do_div(temp_bw, 1000);
 
-		DDPDBG("comp %d + bw %u\n", comp->id, temp_bw);
+		DDPDBG("comp %d + bw %llu\n", comp->id, temp_bw);
 		comp->qos_bw += temp_bw;
 	}
 }
@@ -2418,7 +2418,7 @@ int drm_ovl_tf_cb(int port, unsigned long mva, void *data)
 {
 	struct mtk_disp_ovl *ovl = (struct mtk_disp_ovl *)data;
 
-	DDPPR_ERR("%s tf mva: 0x%x\n", mtk_dump_comp_str(&ovl->ddp_comp), mva);
+	DDPINFO("%s tf mva: 0x%lx\n", mtk_dump_comp_str(&ovl->ddp_comp), mva);
 
 	mtk_ovl_analysis(&ovl->ddp_comp);
 	mtk_ovl_dump(&ovl->ddp_comp);

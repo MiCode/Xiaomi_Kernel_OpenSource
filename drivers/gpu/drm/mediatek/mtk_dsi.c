@@ -2026,7 +2026,7 @@ static void mtk_dsi_cmdq_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 			goto_addr, (0xFFu << ((goto_addr & 0x3u) * 8)),
 			handle);
 
-		DDPINFO("set cmdqaddr %x, val:%x, mask %x\n", goto_addr,
+		DDPINFO("set cmdqaddr %lx, val:%x, mask %x\n", goto_addr,
 			tx_buf[i] << ((goto_addr & 0x3u) * 8),
 			(0xFFu << ((goto_addr & 0x3u) * 8)));
 	}

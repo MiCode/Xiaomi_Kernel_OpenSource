@@ -527,11 +527,11 @@ static int mtk_atomic_check(struct drm_device *dev,
 		    new_state->prop_val[CRTC_PROP_DOZE_ACTIVE])
 			continue;
 		DDPINFO("[CRTC:%d:%s] doze active changed\n", crtc->base.id,
-			crtc->name, new_state->prop_val[CRTC_PROP_DOZE_ACTIVE]);
+				crtc->name);
 		new_state->doze_changed = true;
 		ret = drm_atomic_add_affected_connectors(state, crtc);
 		if (ret) {
-			DDPPR_ERR("DRM add conn failed! state:%d, ret:%d\n",
+			DDPINFO("DRM add conn failed! state:%p, ret:%d\n",
 					state, ret);
 			return ret;
 		}
@@ -570,7 +570,7 @@ static int mtk_atomic_commit(struct drm_device *drm,
 
 	ret = drm_atomic_helper_swap_state(state, 0);
 	if (ret) {
-		DDPPR_ERR("DRM swap state failed! state:%d, ret:%d\n",
+		DDPINFO("DRM swap state failed! state:%p, ret:%d\n",
 				state, ret);
 		return ret;
 	}
@@ -1131,7 +1131,7 @@ static void mtk_drm_get_top_clk(struct drm_device *drm)
 		clk = of_clk_get(node, i);
 
 		if (IS_ERR(clk)) {
-			DDPPR_ERR("%s get %d clk failed\n", i);
+			DDPINFO("%s get %d clk failed\n", __func__, i);
 			priv->top_clk_num = -1;
 			return;
 		}
@@ -1162,7 +1162,7 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 
 	for (i = 0; i < priv->top_clk_num; i++) {
 		if (IS_ERR(priv->top_clk[i])) {
-			DDPPR_ERR("%s invalid %d clk\n", i);
+			DDPINFO("%s invalid %d clk\n", __func__, i);
 			return;
 		}
 		clk_prepare_enable(priv->top_clk[i]);
@@ -1190,7 +1190,7 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 
 	for (i = priv->top_clk_num - 1; i >= 0; i--) {
 		if (IS_ERR(priv->top_clk[i])) {
-			DDPPR_ERR("%s invalid %d clk\n", i);
+			DDPINFO("%s invalid %d clk\n", __func__, i);
 			return;
 		}
 		clk_disable_unprepare(priv->top_clk[i]);
