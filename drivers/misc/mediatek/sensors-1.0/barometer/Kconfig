@@ -1,8 +1,0 @@
-
-config CUSTOM_KERNEL_BAROMETER
-	bool "CUSTOM KERNEL BAROMETER Config"
-	help
-	  To detect barometer raw data
-
-source "drivers/misc/mediatek/sensors-1.0/barometer/barohub/Kconfig"
-source "drivers/misc/mediatek/sensors-1.0/barometer/BMP280-new/Kconfig"
