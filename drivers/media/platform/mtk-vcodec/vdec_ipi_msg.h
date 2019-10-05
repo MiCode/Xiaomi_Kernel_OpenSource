@@ -297,6 +297,7 @@ struct vdec_vcu_ipi_query_cap_ack {
  * @y_fb_dma    : dma address of Y frame buffer
  * @c_fb_dma    : dma address of C frame buffer
  * @poc         : picture order count of frame buffer
+ * @timestamp : timestamp of frame buffer
  * @reserved    : for 8 bytes alignment
  */
 struct vdec_ipi_fb {
@@ -304,6 +305,7 @@ struct vdec_ipi_fb {
 	__u64 y_fb_dma;
 	__u64 c_fb_dma;
 	__s32 poc;
+	__u64 timestamp;
 	__u32 reserved;
 };
 

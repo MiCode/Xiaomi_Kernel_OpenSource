@@ -168,6 +168,10 @@ static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx,
 			dstbuf->vb.vb2_buf.timestamp == ctx->input_max_ts)
 			dstbuf->vb.flags |= V4L2_BUF_FLAG_LAST;
 
+		if (ctx->input_driven)
+			dstbuf->vb.vb2_buf.timestamp =
+				disp_frame_buffer->timestamp;
+
 		mtk_v4l2_debug(2,
 			"[%d]status=%x queue id=%d to done_list %d %d flag=%x pts=%llu",
 			ctx->id, disp_frame_buffer->status,
@@ -531,7 +535,6 @@ static void mtk_vdec_worker(struct work_struct *work)
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
 	unsigned int fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 	unsigned int dpbsize = 0;
-	struct timeval timestamp;
 
 	mutex_lock(&ctx->worker_lock);
 
@@ -632,10 +635,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		return;
 	}
 
-	timestamp = ns_to_timeval(src_buf_info->vb.vb2_buf.timestamp);
-	ctx->dec_params.timestamp = timestamp.tv_sec * 1000000 +
-		timestamp.tv_usec;
-
+	ctx->dec_params.timestamp = src_buf_info->vb.vb2_buf.timestamp;
 	mtk_v4l2_debug(1,
 	"[%d] Bs VA=%p DMA=%p Size=%zx Len=%zx ion_buf = %p vb=%p eos=%d pts=%llu",
 		ctx->id, buf->va, &buf->dma_addr, buf->size,

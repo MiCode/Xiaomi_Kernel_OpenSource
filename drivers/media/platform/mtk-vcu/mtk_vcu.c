@@ -435,6 +435,7 @@ int vcu_ipi_send(struct platform_device *pdev,
 		if (!vcu_ptr->abort) {
 			task_lock(vcud_task);
 			send_sig(SIGTERM, vcud_task, 0);
+			send_sig(SIGKILL, vcud_task, 0);
 			task_unlock(vcud_task);
 			dev_info(vcu->dev, "wait for vpud killed %d\n",
 				vcu_ptr->vpud_killed.count);
@@ -1101,7 +1102,7 @@ static int vcu_init_ipi_handler(void *data, unsigned int len, void *priv)
 
 static int mtk_vcu_open(struct inode *inode, struct file *file)
 {
-	int vcuid;
+	int vcuid, ret;
 	struct mtk_vcu_queue *vcu_queue;
 
 	if (strcmp(current->comm, "camd") == 0)
@@ -1123,7 +1124,9 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	vcu_queue->vcu = vcu_mtkdev[vcuid];
 	file->private_data = vcu_queue;
 
-	vcu_ptr->vpud_killed.count = 0;
+	if (vcu_ptr->vpud_killed.count == 1)
+		ret = down_interruptible(&vcu_ptr->vpud_killed);
+
 	vcu_ptr->open_cnt++;
 	vcu_ptr->abort = false;
 	pr_info("[VCU] %s name: %s pid %d open_cnt %d\n", __func__,
@@ -1147,7 +1150,8 @@ static int mtk_vcu_release(struct inode *inode, struct file *file)
 		vcu_get_file_lock();
 		vcu_get_task(&task, &f, 1);
 		vcu_put_file_lock();
-		up(&vcu_ptr->vpud_killed);
+		if (vcu_ptr->vpud_killed.count == 0)
+			up(&vcu_ptr->vpud_killed);
 	}
 	return 0;
 }

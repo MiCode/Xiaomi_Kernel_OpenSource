@@ -351,15 +351,18 @@ static void vdec_get_fb(struct vdec_inst *inst,
 
 	vdec_fb_va = (unsigned long)list->fb_list[list->read_idx].vdec_fb_va;
 	fb = (struct vdec_fb *)vdec_fb_va;
+	fb->timestamp = list->fb_list[list->read_idx].timestamp;
+
 	if (disp_list)
 		fb->status |= FB_ST_DISPLAY;
 	else
 		fb->status |= FB_ST_FREE;
 
 	*out_fb = fb;
-	mtk_vcodec_debug(inst, "[FB] get %s fb st=%d poc=%d %llx",
+	mtk_vcodec_debug(inst, "[FB] get %s fb st=%d poc=%d ts=%llu %llx",
 		disp_list ? "disp" : "free",
 		fb->status, list->fb_list[list->read_idx].poc,
+		list->fb_list[list->read_idx].timestamp,
 		list->fb_list[list->read_idx].vdec_fb_va);
 
 	list->read_idx = (list->read_idx == DEC_MAX_FB_NUM - 1U) ?
