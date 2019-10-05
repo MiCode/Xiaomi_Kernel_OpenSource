@@ -218,18 +218,19 @@ static void get_picachu_efuse(void)
 	int *val;
 	phys_addr_t picachu_mem_base_phys;
 	phys_addr_t picachu_mem_size;
-	phys_addr_t picachu_mem_base_virt;
+	phys_addr_t picachu_mem_base_virt = 0;
 	unsigned int i, cnt, sig;
 	void __iomem *addr_ptr;
 
 	val = (int *)&eem_devinfo;
 
-	picachu_mem_base_phys = eem_read(EEM_TEMPSPARE0);
 	picachu_mem_size = 0x80000;
-	picachu_mem_base_virt =
-		(phys_addr_t)(uintptr_t)ioremap_wc(
-		picachu_mem_base_phys,
-		picachu_mem_size);
+	picachu_mem_base_phys = eem_read(EEM_TEMPSPARE0);
+	if ((void __iomem *)picachu_mem_base_phys != NULL)
+		picachu_mem_base_virt =
+			(phys_addr_t)(uintptr_t)ioremap_wc(
+			picachu_mem_base_phys,
+			picachu_mem_size);
 
 #if 0
 	eem_error("phys:0x%llx, size:0x%llx, virt:0x%llx\n",
