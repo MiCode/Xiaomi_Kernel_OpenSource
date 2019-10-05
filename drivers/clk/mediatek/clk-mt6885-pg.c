@@ -3303,6 +3303,116 @@ int spm_mtcmos_ctrl_audio(int state)
 	return err;
 }
 
+int spm_mtcmos_ctrl_adsp_dormant(int state)
+{
+	int err = 0;
+
+	DBG_ID = DBG_ID_ADSP;
+	DBG_STA = state;
+	DBG_STEP = 0;
+
+	/* TINFO="enable SPM register control" */
+	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
+
+	if (state == STA_POWER_DOWN) {
+		/* TINFO="Start to turn off ADSP" */
+		/* TINFO="Set bus protect - step1 : 0" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_2_SET, ADSP_PROT_STEP1_0_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+		while ((spm_read(INFRA_TOPAXI_PROTECTEN_STA1_2) &
+						ADSP_PROT_STEP1_0_ACK_MASK) !=
+						ADSP_PROT_STEP1_0_ACK_MASK) {
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
+		/* TINFO="Set SRAM_CKISO = 1" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) | SRAM_CKISO);
+		/* TINFO="Set SRAM_ISOINT_B = 0" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) &
+								~SRAM_ISOINT_B);
+		/* TINFO="Delay 1us" */
+		udelay(1);
+		/* TINFO="Set SRAM_SLEEP_B = 0" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) &
+							~ADSP_SRAM_SLEEP_B);
+#ifndef IGNORE_MTCMOS_CHECK
+		/* TINFO="Wait until ADSP_SRAM_SLEEP_B_ACK = 0" */
+		while (spm_read(ADSP_PWR_CON) & ADSP_SRAM_SLEEP_B_ACK)
+			ram_console_update();
+
+		INCREASE_STEPS;
+#endif
+		/* TINFO="Set PWR_ISO = 1" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) | PWR_ISO);
+		/* TINFO="Set PWR_CLK_DIS = 1" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) | PWR_CLK_DIS);
+		/* TINFO="Set PWR_RST_B = 0" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) & ~PWR_RST_B);
+		/* TINFO="Set PWR_ON = 0" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) & ~PWR_ON);
+		/* TINFO="Set PWR_ON_2ND = 0" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) & ~PWR_ON_2ND);
+#ifndef IGNORE_MTCMOS_CHECK
+		/* TINFO="Wait until PWR_STATUS = 0 and PWR_STATUS_2ND = 0" */
+		while ((spm_read(PWR_STATUS) & ADSP_PWR_STA_MASK)
+		       || (spm_read(PWR_STATUS_2ND) & ADSP_PWR_STA_MASK)) {
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
+		/* TINFO="Finish to turn off ADSP" */
+	} else {    /* STA_POWER_ON */
+		/* TINFO="Start to turn on ADSP" */
+		/* TINFO="Set PWR_ON = 1" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) | PWR_ON);
+		/* TINFO="Set PWR_ON_2ND = 1" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) | PWR_ON_2ND);
+#ifndef IGNORE_MTCMOS_CHECK
+		/* TINFO="Wait until PWR_STATUS = 1 and PWR_STATUS_2ND = 1" */
+		while (((spm_read(PWR_STATUS) & ADSP_PWR_STA_MASK) !=
+							ADSP_PWR_STA_MASK)
+		       || ((spm_read(PWR_STATUS_2ND) & ADSP_PWR_STA_MASK) !=
+							ADSP_PWR_STA_MASK)) {
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
+		/* TINFO="Set PWR_CLK_DIS = 0" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) & ~PWR_CLK_DIS);
+		/* TINFO="Set PWR_ISO = 0" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) & ~PWR_ISO);
+		/* TINFO="Set PWR_RST_B = 1" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) | PWR_RST_B);
+		/* TINFO="Set SRAM_SLEEP_B = 1" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) |
+							ADSP_SRAM_SLEEP_B);
+#ifndef IGNORE_MTCMOS_CHECK
+		/* TINFO="Wait until ADSP_SRAM_SLEEP_B_ACK = 1" */
+		while ((spm_read(ADSP_PWR_CON) & ADSP_SRAM_SLEEP_B_ACK) !=
+							ADSP_SRAM_SLEEP_B_ACK) {
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
+		/* TINFO="Delay 1us" */
+		udelay(1);
+		/* TINFO="Set SRAM_ISOINT_B = 1" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) | SRAM_ISOINT_B);
+		/* TINFO="Delay 1us" */
+		udelay(1);
+		/* TINFO="Set SRAM_CKISO = 0" */
+		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) & ~SRAM_CKISO);
+		/* TINFO="Release bus protect - step1 : 0" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_2_CLR, ADSP_PROT_STEP1_0_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+
+#endif
+		/* TINFO="Finish to turn on ADSP" */
+	}
+	return err;
+}
+
 
 int spm_mtcmos_ctrl_adsp_shut_down(int state)
 {
@@ -4157,7 +4267,9 @@ static int AUDIO_sys_enable_op(struct subsys *sys)
 }
 static int ADSP_sys_enable_op(struct subsys *sys)
 {
-	return spm_mtcmos_ctrl_adsp_shut_down(STA_POWER_ON);
+	/* return spm_mtcmos_ctrl_adsp_shut_down(STA_POWER_ON); */
+	/* MT6885: For ADSP, only enter dormant flow */
+	return spm_mtcmos_ctrl_adsp_dormant(STA_POWER_ON);
 }
 static int CAM_sys_enable_op(struct subsys *sys)
 {
@@ -4263,7 +4375,9 @@ static int AUDIO_sys_disable_op(struct subsys *sys)
 }
 static int ADSP_sys_disable_op(struct subsys *sys)
 {
-	return spm_mtcmos_ctrl_adsp_shut_down(STA_POWER_DOWN);
+	/* return spm_mtcmos_ctrl_adsp_shut_down(STA_POWER_DOWN); */
+	/* MT6885: For ADSP, only enter dormant flow */
+	return spm_mtcmos_ctrl_adsp_dormant(STA_POWER_DOWN);
 }
 static int CAM_sys_disable_op(struct subsys *sys)
 {
@@ -4979,6 +5093,7 @@ static void __init mt_scpsys_init(struct device_node *node)
 	pr_notice("MTCMOS AUDIO begin\n");
 	spm_mtcmos_ctrl_audio(STA_POWER_ON);
 	spm_mtcmos_ctrl_adsp_shut_down(STA_POWER_ON);
+	spm_mtcmos_ctrl_adsp_dormant(STA_POWER_ON);
 
 	pr_notice("MTCMOS CAM begin\n");
 	spm_mtcmos_ctrl_cam(STA_POWER_ON);
@@ -5292,6 +5407,7 @@ void mtcmos_force_off(void)
 	spm_mtcmos_ctrl_conn(STA_POWER_DOWN);
 
 	spm_mtcmos_ctrl_audio(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_adsp_shut_down(STA_POWER_DOWN);
+	/* spm_mtcmos_ctrl_adsp_shut_down(STA_POWER_DOWN); */
+	spm_mtcmos_ctrl_adsp_dormant(STA_POWER_DOWN);
 }
 #endif
