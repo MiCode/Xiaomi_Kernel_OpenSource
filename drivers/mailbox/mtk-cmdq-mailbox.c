@@ -150,8 +150,6 @@ struct cmdq_mmp_event {
 struct cmdq_mmp_event	cmdq_mmp;
 #endif
 
-static DEFINE_MUTEX(cmdq_wakelock_mutex);
-
 static inline void cmdq_mmp_init(void)
 {
 #if IS_ENABLED(CONFIG_MMPROFILE)
@@ -176,8 +174,6 @@ static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
 {
 	static bool is_locked;
 
-	mutex_lock(&cmdq_wakelock_mutex);
-
 	if (lock) {
 		if (!is_locked) {
 			__pm_stay_awake(&cmdq->wake_lock);
@@ -195,8 +191,6 @@ static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
 			cmdq_err("try unlock twice");
 		}
 	}
-
-	mutex_unlock(&cmdq_wakelock_mutex);
 }
 
 static s32 cmdq_clk_enable(struct cmdq *cmdq)
