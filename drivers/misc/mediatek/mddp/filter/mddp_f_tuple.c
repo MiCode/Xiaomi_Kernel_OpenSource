@@ -46,7 +46,6 @@ int32_t mddp_f_init_router_tuple(void)
 	router_tuple_hash =
 		vmalloc(sizeof(struct list_head) * ROUTER_TUPLE_HASH_SIZE);
 	if (!router_tuple_hash) {
-		pr_notice("%s: Del nat tuple fail, tuple[%p], next[%p], prev[%p].\n",
 		return -ENOMEM;
 	}
 
@@ -68,7 +67,6 @@ int32_t mddp_f_init_nat_tuple(void)
 	nat_tuple_hash =
 		vmalloc(sizeof(struct list_head) * NAT_TUPLE_HASH_SIZE);
 	if (!nat_tuple_hash) {
-		pr_notice("%s: Del nat tuple fail, tuple[%p], next[%p], prev[%p].\n",
 		return -ENOMEM;
 	}
 

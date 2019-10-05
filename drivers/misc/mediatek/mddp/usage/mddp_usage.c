@@ -74,7 +74,9 @@ void mddp_u_get_data_stats(void *buf, uint32_t *buf_len)
 	struct mddp_u_data_stats_t             *usage;
 	uint32_t                                sm_len = 0;
 
-	md_stats = get_smem_start_addr(MD_SYS1, SMEM_USER_RAW_NETD, &sm_len);
+	// <TODO> CCCI support ?
+	//md_stats = get_smem_start_addr(MD_SYS1, SMEM_USER_RAW_NETD, &sm_len);
+	md_stats = 0x0;
 
 	if (sm_len >= sizeof(struct mddp_u_data_stats_t)) {
 		usage = (struct mddp_u_data_stats_t *)buf;

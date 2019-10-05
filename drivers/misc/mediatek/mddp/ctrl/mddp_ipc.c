@@ -104,7 +104,9 @@ int32_t mddp_ipc_send_md(
 	ilm.msg_id = msg->msg_id;
 	ilm.local_para_ptr = local_para;
 
-	ret = ccci_ipc_send_ilm(0, &ilm);
+	// <TODO> CCCI TTY
+	//ret = ccci_ipc_send_ilm(0, &ilm);
+	ret = 0;
 	kfree(local_para);
 
 	if (unlikely(ret < 0)) {
@@ -128,15 +130,16 @@ int32_t mddp_ipc_get_md_smem_by_id(enum mddp_md_smem_user_id_e app_id,
 		void **smem_addr, uint8_t *smem_attr, uint32_t *smem_size)
 {
 	struct wfpm_smem_info_t  *smem_entry;
-	uint32_t                smem_total_len;
+	//uint32_t                smem_total_len;
 
 	smem_entry = &smem_info_s[app_id];
 	*smem_attr = smem_entry->attribute;
 	*smem_size = smem_entry->size;
 
+#if 0 // <TODO> share memory
 	*smem_addr = (uint8_t *)get_smem_start_addr(MD_SYS1,
 		SMEM_USER_RAW_USB, &smem_total_len) + smem_entry->offset;
-
+#endif
 
 	return 0;
 }
