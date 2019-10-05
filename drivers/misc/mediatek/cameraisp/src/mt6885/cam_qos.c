@@ -622,6 +622,8 @@ void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 		case _lsci_:
 		case _bpci_r2_:
 		case _pdi_:
+		case _cqi_r1_:
+		case _cqi_r2_:
 		{
 			mm_qos_set_request(
 				&gCAM_BW_REQ[module][portID],
