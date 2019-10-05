@@ -27,7 +27,6 @@
 #include "cam_cal.h"
 #include "cam_cal_define.h"
 #include "cam_cal_list.h"
-#include "eeprom_platform_def.h"
 #include <linux/dma-mapping.h>
 #ifdef CONFIG_COMPAT
 /* 64 bit */
@@ -35,6 +34,10 @@
 #include <linux/compat.h>
 #endif
 
+/* Include platform define if necessary */
+#ifdef EEPROM_PLATFORM_DEFINE
+#include "eeprom_platform_def.h"
+#endif
 
 static DEFINE_SPINLOCK(g_spinLock);
 
@@ -51,6 +54,9 @@ static struct i2c_client *g_pstI2CclientG;
 #endif
 
 #define EEPROM_I2C_MSG_SIZE_READ 2
+#ifndef EEPROM_I2C_READ_MSG_LENGTH_MAX
+#define EEPROM_I2C_READ_MSG_LENGTH_MAX 32
+#endif
 
 static int Read_I2C_CAM_CAL(u16 a_u2Addr, u32 ui4_length, u8 *a_puBuff)
 {
