@@ -261,6 +261,9 @@ static struct dentry *proc_uid_lookup(struct inode *dir, struct dentry *dentry,
 	uid_t uid = name_to_int(&dentry->d_name);
 	bool uid_exists;
 
+	if (uid == ~0U)
+		goto out;
+
 	rt_mutex_lock(&proc_uid_lock);
 	uid_exists = uid_hash_entry_exists_locked(uid);
 	rt_mutex_unlock(&proc_uid_lock);
@@ -269,6 +272,7 @@ static struct dentry *proc_uid_lookup(struct inode *dir, struct dentry *dentry,
 
 		result = proc_uid_instantiate(dir, dentry, NULL, &kuid);
 	}
+out:
 	return ERR_PTR(result);
 }
 
