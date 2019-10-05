@@ -896,7 +896,7 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		       __LINE__, buffer_info->port[domain_idx],
 		       buffer_info->MVA[domain_idx],
 		       buffer_info->FIXED_MVA[domain_idx],
-		       port_info.mva, mva_cnt);
+		       port_info.mva, buffer_info->mva_cnt);
 #endif
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
