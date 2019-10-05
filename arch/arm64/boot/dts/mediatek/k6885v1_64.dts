@@ -647,6 +647,8 @@
 		reg = <0>;
 		pm-enable-gpios = <&pio 41 0>;
 		reset-gpios = <&pio 42 0>;
+		bias-gpios = <&pio 28 0>,
+			<&pio 29 0>;
 		pinctrl-names = "default";
 		port {
 			panel_in: endpoint {

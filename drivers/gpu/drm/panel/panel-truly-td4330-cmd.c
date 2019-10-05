@@ -43,6 +43,7 @@ struct lcm {
 	struct drm_panel panel;
 	struct backlight_device *backlight;
 	struct gpio_desc *reset_gpio;
+	struct gpio_desc *bias_pos, *bias_neg;
 
 	bool prepared;
 	bool enabled;
@@ -465,6 +466,24 @@ static int lcm_unprepare(struct drm_panel *panel)
 	ctx->prepared = false;
 #if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
 	lcm_panel_bias_disable();
+#else
+	ctx->reset_gpio =
+		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
+	gpiod_set_value(ctx->reset_gpio, 0);
+	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+
+
+	ctx->bias_neg = devm_gpiod_get_index(ctx->dev,
+		"bias", 1, GPIOD_OUT_HIGH);
+	gpiod_set_value(ctx->bias_neg, 0);
+	devm_gpiod_put(ctx->dev, ctx->bias_neg);
+
+	udelay(1000);
+
+	ctx->bias_pos = devm_gpiod_get_index(ctx->dev,
+		"bias", 0, GPIOD_OUT_HIGH);
+	gpiod_set_value(ctx->bias_pos, 0);
+	devm_gpiod_put(ctx->dev, ctx->bias_pos);
 #endif
 
 	return 0;
@@ -481,6 +500,18 @@ static int lcm_prepare(struct drm_panel *panel)
 
 #if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
 	lcm_panel_bias_enable();
+#else
+	ctx->bias_pos = devm_gpiod_get_index(ctx->dev,
+		"bias", 0, GPIOD_OUT_HIGH);
+	gpiod_set_value(ctx->bias_pos, 1);
+	devm_gpiod_put(ctx->dev, ctx->bias_pos);
+
+	udelay(2000);
+
+	ctx->bias_neg = devm_gpiod_get_index(ctx->dev,
+		"bias", 1, GPIOD_OUT_HIGH);
+	gpiod_set_value(ctx->bias_neg, 1);
+	devm_gpiod_put(ctx->dev, ctx->bias_neg);
 #endif
 
 	lcm_panel_init(ctx);
@@ -691,6 +722,23 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 		return PTR_ERR(ctx->reset_gpio);
 	}
 	devm_gpiod_put(dev, ctx->reset_gpio);
+
+	ctx->bias_pos = devm_gpiod_get_index(dev, "bias", 0, GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->bias_pos)) {
+		dev_err(dev, "cannot get bias-gpios 0 %ld\n",
+			PTR_ERR(ctx->bias_pos));
+		return PTR_ERR(ctx->bias_pos);
+	}
+	devm_gpiod_put(dev, ctx->bias_pos);
+
+	ctx->bias_neg = devm_gpiod_get_index(dev, "bias", 1, GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->bias_neg)) {
+		dev_err(dev, "cannot get bias-gpios 1 %ld\n",
+			PTR_ERR(ctx->bias_neg));
+		return PTR_ERR(ctx->bias_neg);
+	}
+	devm_gpiod_put(dev, ctx->bias_neg);
+
 	ctx->prepared = true;
 	ctx->enabled = true;
 
