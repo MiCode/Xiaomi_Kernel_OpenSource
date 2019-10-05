@@ -286,7 +286,7 @@ int mt6885_afe_enable_clock(struct mtk_base_afe *afe)
 	if (ret) {
 		dev_err(afe->dev, "%s clk_prepare_enable %s fail %d\n",
 			__func__, aud_clks[CLK_INFRA_AUDIO_26M], ret);
-		goto CLK_INFRA_SYS_AUDIO_ERR;
+		goto CLK_INFRA_AUDIO_26M_ERR;
 	}
 
 	ret = clk_prepare_enable(afe_priv->clk[CLK_MUX_AUDIO]);
@@ -339,6 +339,8 @@ CLK_MUX_AUDIO_INTBUS_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 CLK_MUX_AUDIO_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIO]);
+CLK_INFRA_AUDIO_26M_ERR:
+	clk_disable_unprepare(afe_priv->clk[CLK_INFRA_AUDIO_26M]);
 CLK_INFRA_SYS_AUDIO_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_INFRA_SYS_AUDIO]);
 CLK_SCP_SYS_AUD_ERR:
