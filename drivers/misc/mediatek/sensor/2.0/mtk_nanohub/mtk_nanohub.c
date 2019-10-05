@@ -81,7 +81,6 @@ struct mtk_nanohub_device {
 	phys_addr_t shub_dram_virt;
 	atomic_t traces[ID_SENSOR_MAX];
 
-	atomic_t get_list_first_boot;
 	atomic_t cfg_data_after_reboot;
 	atomic_t start_timesync_first_boot;
 
@@ -1518,10 +1517,6 @@ static void mtk_nanohub_get_devinfo(void)
 	struct sensorInfo_t hubinfo;
 	struct sensorlist_info_t listinfo;
 	struct mag_libinfo_t maginfo;
-	struct mtk_nanohub_device *device = mtk_nanohub_dev;
-
-	if (likely(atomic_xchg(&device->get_list_first_boot, 1)))
-		return;
 
 	for (id = 0; id < ID_SENSOR_MAX; ++id) {
 		sensor = id_to_type(id);
@@ -1531,7 +1526,7 @@ static void mtk_nanohub_get_devinfo(void)
 		if (mtk_nanohub_set_cmd_to_hub(id,
 				CUST_ACTION_GET_SENSOR_INFO, &hubinfo) < 0) {
 			pr_err("type(%d) not registered\n", sensor);
-			continue;
+			strlcpy(hubinfo.name, "NULL", sizeof(hubinfo.name));
 		}
 		memset(&listinfo, 0, sizeof(struct sensorlist_info_t));
 		strlcpy(listinfo.name, hubinfo.name, sizeof(listinfo.name));
@@ -2283,7 +2278,6 @@ static int mtk_nanohub_probe(struct platform_device *pdev)
 	for (index = 0; index < ID_SENSOR_MAX; index++)
 		atomic_set(&device->traces[index], 0);
 	/* init scp boot flags */
-	atomic_set(&device->get_list_first_boot, 0);
 	atomic_set(&device->cfg_data_after_reboot, 0);
 	atomic_set(&device->start_timesync_first_boot, 0);
 	/* init timestamp sync worker */

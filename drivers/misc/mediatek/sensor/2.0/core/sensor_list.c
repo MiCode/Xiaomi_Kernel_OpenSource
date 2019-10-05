@@ -18,6 +18,8 @@
 #include <linux/types.h>
 #include <linux/spinlock.h>
 #include <linux/uaccess.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 
 #include "sensor_list.h"
 #include "hf_sensor_type.h"
@@ -67,13 +69,45 @@ int sensorlist_find_sensor(int sensor)
 	return handle;
 }
 
+int sensorlist_find_type(int handle)
+{
+	int type = -1;
+
+	switch (handle) {
+	case accel:
+		type = SENSOR_TYPE_ACCELEROMETER;
+		break;
+	case gyro:
+		type = SENSOR_TYPE_GYROSCOPE;
+		break;
+	case mag:
+		type = SENSOR_TYPE_MAGNETIC_FIELD;
+		break;
+	case als:
+		type = SENSOR_TYPE_LIGHT;
+		break;
+	case ps:
+		type = SENSOR_TYPE_PROXIMITY;
+		break;
+	case baro:
+		type = SENSOR_TYPE_PRESSURE;
+		break;
+	case sar:
+		type = SENSOR_TYPE_SAR;
+		break;
+	}
+	return type;
+}
+
 static void init_sensorlist_info(void)
 {
 	int handle = -1;
 
+	spin_lock(&sensorlist_info_lock);
 	for (handle = accel; handle < maxhandle; ++handle)
 		strlcpy(sensorlist_info[handle].name, "NULL",
 			sizeof(sensorlist_info[handle].name));
+	spin_unlock(&sensorlist_info_lock);
 }
 
 int sensorlist_register_devinfo(int sensor,
@@ -164,11 +198,42 @@ static struct miscdevice sensorlist_miscdev = {
 	.fops = &sensorlist_fops,
 };
 
+static int sensor_list_proc_show(struct seq_file *m, void *v)
+{
+	int handle = -1, type = -1;
+
+	seq_puts(m, "dynamic hardware sensorlist:\n");
+	spin_lock(&sensorlist_info_lock);
+	for (handle = accel; handle < maxhandle; ++handle) {
+		type = sensorlist_find_type(handle);
+		if (type < 0)
+			continue;
+		seq_printf(m, "sensortype:%d chipname:%s\n",
+			type, sensorlist_info[handle].name);
+	}
+	spin_unlock(&sensorlist_info_lock);
+	return 0;
+}
+
+static int sensor_list_proc_open(struct inode *inode,
+		struct file *filp)
+{
+	return single_open(filp, sensor_list_proc_show, NULL);
+}
+
+static const struct file_operations sensor_list_proc_fops = {
+	.open           = sensor_list_proc_open,
+	.release        = single_release,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+};
+
 static int __init sensorlist_init(void)
 {
 	init_sensorlist_info();
 	if (misc_register(&sensorlist_miscdev) < 0)
 		return -1;
+	proc_create("sensorlist", 0644, NULL, &sensor_list_proc_fops);
 	return 0;
 }
 
