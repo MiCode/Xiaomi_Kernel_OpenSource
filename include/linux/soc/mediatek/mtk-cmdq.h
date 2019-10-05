@@ -315,7 +315,7 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	u16 tick, u16 reg_gpr);
 
 s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
-	u32 value, u32 addr, u32 mask, u16 count, u16 reg_gpr);
+	u32 value, phys_addr_t addr, u32 mask, u16 count, u16 reg_gpr);
 
 void cmdq_pkt_perf_end(struct cmdq_pkt *pkt);
 void cmdq_pkt_perf_begin(struct cmdq_pkt *pkt);
