@@ -1798,10 +1798,10 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 
 	mtk_v4l2_debug(
 		2,
-		"[%d] Init Vdec OK wxh=%dx%d pic wxh=%dx%d bitdepth:%d ufo:%d sz[0]=0x%x sz[1]=0x%x",
+		"[%d] Init Vdec OK wxh=%dx%d pic wxh=%dx%d bitdepth:%d lo:%d sz[0]=0x%x sz[1]=0x%x",
 		ctx->id, ctx->picinfo.buf_w, ctx->picinfo.buf_h,
 		ctx->picinfo.pic_w, ctx->picinfo.pic_h, ctx->picinfo.bitdepth,
-		ctx->picinfo.ufo_mode, dst_q_data->sizeimage[0],
+		ctx->picinfo.layout_mode, dst_q_data->sizeimage[0],
 		dst_q_data->sizeimage[1]);
 
 	mtk_v4l2_debug(
