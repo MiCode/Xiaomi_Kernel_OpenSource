@@ -30,6 +30,8 @@
 #include <linux/mfd/mt6358/registers.h>
 #elif defined(CONFIG_MTK_PMIC_CHIP_MT6359)
 #include <linux/mfd/mt6359/registers.h>
+#elif defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
+#include <linux/mfd/mt6359p/registers.h>
 #endif
 
 #define AUXADC_RDY_SHIFT		15
@@ -158,7 +160,8 @@ static const struct auxadc_regs mt6358_auxadc_regs_tbl[] = {
 };
 
 static const struct auxadc_regs mt6359_auxadc_regs_tbl[] = {
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359) \
+|| defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
 	MT635x_AUXADC_REG(BATADC, MT6359, AUXADC_RQST0, 0, AUXADC_ADC0),
 	MT635x_AUXADC_REG(VCDT, MT6359, AUXADC_RQST0, 2, AUXADC_ADC2),
 	MT635x_AUXADC_REG(BAT_TEMP, MT6359, AUXADC_RQST0, 3, AUXADC_ADC3),
@@ -193,7 +196,8 @@ static const unsigned int mt6358_dbg_regs[] = {
 };
 
 static const unsigned int mt6359_dbg_regs[] = {
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359) \
+|| defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
 	MT6359_AUXADC_STA0, MT6359_AUXADC_STA1, MT6359_AUXADC_STA2,
 	MT6359_AUXADC_CON5, MT6359_AUXADC_CON9, MT6359_AUXADC_CON21,
 	MT6359_HK_TOP_LDO_STATUS,
@@ -239,7 +243,8 @@ static const unsigned int mt6358_rst_setting[][3] = {
 };
 
 static const unsigned int mt6359_rst_setting[][3] = {
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359) \
+|| defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
 	{
 		MT6359_HK_TOP_WKEY, 0xFFFF, 0x6359,
 	}, {
