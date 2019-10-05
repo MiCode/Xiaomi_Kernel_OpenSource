@@ -233,7 +233,7 @@ static int gyrohub_ReadAllReg(char *buf, int bufsize)
 	return 0;
 }
 
-static ssize_t show_chipinfo_value(struct device_driver *ddri, char *buf)
+static ssize_t chipinfo_show(struct device_driver *ddri, char *buf)
 {
 	struct gyrohub_ipi_data *obj = obj_ipi_data;
 	char strbuf[GYROHUB_BUFSIZE];
@@ -256,7 +256,7 @@ static ssize_t show_chipinfo_value(struct device_driver *ddri, char *buf)
 	return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
 }
 
-static ssize_t show_sensordata_value(struct device_driver *ddri,
+static ssize_t sensordata_show(struct device_driver *ddri,
 	char *buf)
 {
 	struct gyrohub_ipi_data *obj = obj_ipi_data;
@@ -276,7 +276,7 @@ static ssize_t show_sensordata_value(struct device_driver *ddri,
 	return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
 }
 
-static ssize_t show_trace_value(struct device_driver *ddri, char *buf)
+static ssize_t trace_show(struct device_driver *ddri, char *buf)
 {
 	ssize_t res;
 	struct gyrohub_ipi_data *obj = obj_ipi_data;
@@ -290,7 +290,7 @@ static ssize_t show_trace_value(struct device_driver *ddri, char *buf)
 	return res;
 }
 
-static ssize_t store_trace_value(struct device_driver *ddri,
+static ssize_t trace_store(struct device_driver *ddri,
 	const char *buf, size_t count)
 {
 	struct gyrohub_ipi_data *obj = obj_ipi_data;
@@ -319,7 +319,7 @@ static ssize_t store_trace_value(struct device_driver *ddri,
 	return count;
 }
 
-static ssize_t show_status_value(struct device_driver *ddri, char *buf)
+static ssize_t status_show(struct device_driver *ddri, char *buf)
 {
 	ssize_t len = 0;
 	struct gyrohub_ipi_data *obj = obj_ipi_data;
@@ -332,7 +332,7 @@ static ssize_t show_status_value(struct device_driver *ddri, char *buf)
 	return len;
 }
 
-static ssize_t show_chip_orientation(struct device_driver *ddri, char *buf)
+static ssize_t orientation_show(struct device_driver *ddri, char *buf)
 {
 	ssize_t _tLength = 0;
 	struct gyrohub_ipi_data *obj = obj_ipi_data;
@@ -343,7 +343,7 @@ static ssize_t show_chip_orientation(struct device_driver *ddri, char *buf)
 	return _tLength;
 }
 
-static ssize_t store_chip_orientation(struct device_driver *ddri,
+static ssize_t orientation_store(struct device_driver *ddri,
 	const char *buf, size_t tCount)
 {
 	int _nDirection = 0, ret = 0;
@@ -373,7 +373,7 @@ static ssize_t store_chip_orientation(struct device_driver *ddri,
 }
 
 static int gyrohub_factory_enable_calibration(void);
-static ssize_t store_test_cali(struct device_driver *ddri,
+static ssize_t test_cali_store(struct device_driver *ddri,
 	const char *buf, size_t tCount)
 {
 	int enable = 0, ret = 0;
@@ -388,13 +388,12 @@ static ssize_t store_test_cali(struct device_driver *ddri,
 	return tCount;
 }
 
-static DRIVER_ATTR(chipinfo, 0444, show_chipinfo_value, NULL);
-static DRIVER_ATTR(sensordata, 0444, show_sensordata_value, NULL);
-static DRIVER_ATTR(trace, 0644, show_trace_value, store_trace_value);
-static DRIVER_ATTR(status, 0444, show_status_value, NULL);
-static DRIVER_ATTR(orientation, 0644,
-	show_chip_orientation, store_chip_orientation);
-static DRIVER_ATTR(test_cali, 0644, NULL, store_test_cali);
+static DRIVER_ATTR_RO(chipinfo);
+static DRIVER_ATTR_RO(sensordata);
+static DRIVER_ATTR_RW(trace);
+static DRIVER_ATTR_RO(status);
+static DRIVER_ATTR_RW(orientation);
+static DRIVER_ATTR_WO(test_cali);
 
 static struct driver_attribute *gyrohub_attr_list[] = {
 	&driver_attr_chipinfo,	/*chip information */

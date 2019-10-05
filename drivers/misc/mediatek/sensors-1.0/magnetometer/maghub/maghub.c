@@ -109,14 +109,14 @@ static int maghub_ReadChipInfo(char *buf, int bufsize)
 	return 0;
 }
 
-static ssize_t show_chipinfo_value(struct device_driver *ddri, char *buf)
+static ssize_t chipinfo_show(struct device_driver *ddri, char *buf)
 {
 	char strbuf[MAGHUB_BUFSIZE];
 
 	maghub_ReadChipInfo(strbuf, MAGHUB_BUFSIZE);
 	return sprintf(buf, "%s\n", strbuf);
 }
-static ssize_t show_sensordata_value(struct device_driver *ddri,
+static ssize_t sensordata_show(struct device_driver *ddri,
 	char *buf)
 {
 	char strbuf[MAGHUB_BUFSIZE];
@@ -126,7 +126,7 @@ static ssize_t show_sensordata_value(struct device_driver *ddri,
 	maghub_GetMData(strbuf, MAGHUB_BUFSIZE);
 	return sprintf(buf, "%s\n", strbuf);
 }
-static ssize_t show_trace_value(struct device_driver *ddri, char *buf)
+static ssize_t trace_show(struct device_driver *ddri, char *buf)
 {
 	ssize_t res = 0;
 	struct maghub_ipi_data *obj = mag_ipi_data;
@@ -139,7 +139,7 @@ static ssize_t show_trace_value(struct device_driver *ddri, char *buf)
 	res = snprintf(buf, PAGE_SIZE, "0x%04X\n", atomic_read(&obj->trace));
 	return res;
 }
-static ssize_t store_trace_value(struct device_driver *ddri,
+static ssize_t trace_store(struct device_driver *ddri,
 	const char *buf, size_t count)
 {
 	struct maghub_ipi_data *obj = mag_ipi_data;
@@ -166,7 +166,7 @@ static ssize_t store_trace_value(struct device_driver *ddri,
 	return count;
 }
 
-static ssize_t show_chip_orientation(struct device_driver *ddri, char *buf)
+static ssize_t orientation_show(struct device_driver *ddri, char *buf)
 {
 	ssize_t _tLength = 0;
 	struct maghub_ipi_data *obj = mag_ipi_data;
@@ -179,7 +179,7 @@ static ssize_t show_chip_orientation(struct device_driver *ddri, char *buf)
 	return _tLength;
 }
 
-static ssize_t store_chip_orientation(struct device_driver *ddri,
+static ssize_t orientation_store(struct device_driver *ddri,
 	const char *buf, size_t tCount)
 {
 	int _nDirection = 0, err = 0;
@@ -209,19 +209,18 @@ static ssize_t store_chip_orientation(struct device_driver *ddri,
 	return tCount;
 }
 
-static ssize_t show_regiter_map(struct device_driver *ddri, char *buf)
+static ssize_t regmap_show(struct device_driver *ddri, char *buf)
 {
 
 	ssize_t _tLength = 0;
 
 	return _tLength;
 }
-static DRIVER_ATTR(chipinfo, 0444, show_chipinfo_value, NULL);
-static DRIVER_ATTR(sensordata, 0444, show_sensordata_value, NULL);
-static DRIVER_ATTR(trace, 0644, show_trace_value, store_trace_value);
-static DRIVER_ATTR(orientation, 0644,
-	show_chip_orientation, store_chip_orientation);
-static DRIVER_ATTR(regmap, 0444, show_regiter_map, NULL);
+static DRIVER_ATTR_RO(chipinfo);
+static DRIVER_ATTR_RO(sensordata);
+static DRIVER_ATTR_RW(trace);
+static DRIVER_ATTR_RW(orientation);
+static DRIVER_ATTR_RO(regmap);
 static struct driver_attribute *maghub_attr_list[] = {
 	&driver_attr_chipinfo,
 	&driver_attr_sensordata,
