@@ -15,21 +15,19 @@
 
 /* CONFIG (SW related) */
 /* #define EEMG_NOT_READY		(1) */
-#define CONFIG_EEMG_SHOWLOG	(1)
-#define EN_ISR_LOG		(1)
+#define CONFIG_EEMG_SHOWLOG	(0)
+#define EN_ISR_LOG		(0)
 #define EEMG_BANK_SOC		(0) /* use voltage bin, so disable it */
-#define EARLY_PORTING		(1)
+#define EARLY_PORTING		(0)
 #define DUMP_DATA_TO_DE		(1)
 #define EEMG_ENABLE		(1) /* enable; after pass HPT mini-SQC */
-#define EEMG_FAKE_EFUSE		(1)
+#define EEMG_FAKE_EFUSE		(0)
 
 /* FIX ME */
-#define UPDATE_TO_UPOWER	(0)
 #define EEMG_LOCKTIME_LIMIT	(3000)
 #define ENABLE_LOO		(1)
 #define ENABLE_LOO_B		(0)
 #define ENABLE_LOO_G		(1)
-#define ENABLE_CPU              (0)
 #define ENABLE_GPU		(1)
 
 #ifdef CORN_LOAD
@@ -43,10 +41,10 @@
 
 
 #define EEMG_OFFSET
-#define SET_PMIC_VOLT		(0)
-#define SET_PMIC_VOLT_TO_DVFS	(0)
+#define SET_PMIC_VOLT		(1)
+#define SET_PMIC_VOLT_TO_DVFS	(1)
 #define LOG_INTERVAL		(2LL * NSEC_PER_SEC)
-#define DVT			(1)
+#define DVT			(0)
 #define SUPPORT_DCONFIG		(1)
 #define ENABLE_HT_FT		(1)
 //#define EARLY_PORTING_VPU
@@ -271,12 +269,7 @@ enum mt_cpu_dvfs_id {
  ******************************************
  */
 #define NR_HW_RES_FOR_BANK	(18) /* real eem banks for efuse */
-#if ENABLE_CPU
-#define EEMG_INIT01_FLAG (0x0f) /* 0x0f=> [3]:GPU, [2]:CCI, [1]:B, [0]:L */
-#else
 #define EEMG_INIT01_FLAG (0x01) /* 0x01=> [0]:GPU */
-
-#endif
 #define EEMG_CORNER_FLAG (0x30) /* 0x30=> [5]:VPU, [4]:MDLA */
 #if 0
 #if ENABLE_LOO
@@ -329,11 +322,11 @@ enum mt_cpu_dvfs_id {
 #define EEMG_STEP		(625)
 
 /* CPU */
-#define CPU_PMIC_BASE_6359	(40000)
+#define CPU_PMIC_BASE_6359	(0)
 #define CPU_PMIC_STEP		(625) /* 1.231/1024=0.001202v=120(10uv)*/
 
 /* GPU */
-#define GPU_PMIC_BASE		(40000)
+#define GPU_PMIC_BASE		(0)
 #define GPU_PMIC_STEP		(625) /* 1.231/1024=0.001202v=120(10uv)*/
 
 /* common part: for cci, LL, L, GPU */
@@ -378,8 +371,8 @@ enum mt_cpu_dvfs_id {
 #define VMAX_VAL_GL                     (0x60)
 #define VMIN_VAL_GL                     (0x18)
 #define VCO_VAL_GL                      (0x18)
-#define DVTFIXED_VAL_GL					(0x04)
-#define DVTFIXED_VAL_GPU				(0x04)
+#define DVTFIXED_VAL_GL					(0x06)
+#define DVTFIXED_VAL_GPU				(0x06)
 
 /* different for GPU_H */
 #define VMAX_VAL_GH                     (0x60) /* volt domain: 1.11875v*/
@@ -444,9 +437,9 @@ enum mt_cpu_dvfs_id {
 
 /* for EEMCTL0's setting */
 #define EEMG_CTL0_L			(0xBA98000F)
-#define EEMG_CTL0_B			(0x00210003)
+#define EEMG_CTL0_B			(0x00540003)
 #define EEMG_CTL0_CCI		(0xBA98000F)
-#define EEMG_CTL0_GPU		(0x00740003)
+#define EEMG_CTL0_GPU		(0x00540003)
 #define EEMG_CTL0_VPU		(0x00210003)
 
 

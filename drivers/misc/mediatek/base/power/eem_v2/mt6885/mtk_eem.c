@@ -717,32 +717,32 @@ int base_ops_mon_mode(struct eem_det *det)
 	det->BTS = BTS_VAL;
 #else
 	if (det_to_id(det) == EEM_DET_L)
-		ts_bank = THERMAL_BANK0;
+		ts_bank = THERMAL_BANK2;
 	else if (det_to_id(det) == EEM_DET_B)
-		ts_bank = THERMAL_BANK1;
+		ts_bank = THERMAL_BANK0;
 	else if (det_to_id(det) == EEM_DET_CCI)
 		ts_bank = THERMAL_BANK2;
 #if ENABLE_GPU
 	else if (det_to_id(det) == EEM_DET_GPU)
-		ts_bank = THERMAL_BANK3;
+		ts_bank = THERMAL_BANK4;
 #endif
 #if ENABLE_VPU
 	else if (det_to_id(det) == EEM_DET_VPU)
-		ts_bank = THERMAL_BANK5;
+		ts_bank = THERMAL_BANK3;
 #endif
 #if ENABLE_MDLA
 	else if (det_to_id(det) == EEM_DET_MDLA)
-		ts_bank = THERMAL_BANK4;
+		ts_bank = THERMAL_BANK3;
 #endif
 #if ENABLE_GPU
 #if ENABLE_LOO_G
 	else if (det_to_id(det) == EEM_DET_GPU_HI)
-		ts_bank = THERMAL_BANK3;
+		ts_bank = THERMAL_BANK4;
 #endif
 #endif
 #if ENABLE_LOO_B
 	else if (det_to_id(det) == EEM_DET_B_HI)
-		ts_bank = THERMAL_BANK1;
+		ts_bank = THERMAL_BANK0;
 #endif
 	else
 		ts_bank = THERMAL_BANK0;
@@ -1053,31 +1053,31 @@ int base_ops_get_temp(struct eem_det *det)
 	enum thermal_bank_name ts_bank;
 
 	if (det_to_id(det) == EEM_DET_L)
-		ts_bank = THERMAL_BANK0;
+		ts_bank = THERMAL_BANK2;
 	else if (det_to_id(det) == EEM_DET_B)
-		ts_bank = THERMAL_BANK1;
+		ts_bank = THERMAL_BANK0;
 	else if (det_to_id(det) == EEM_DET_CCI)
 		ts_bank = THERMAL_BANK2;
 #if ENABLE_GPU
 	else if (det_to_id(det) == EEM_DET_GPU)
-		ts_bank = THERMAL_BANK3;
+		ts_bank = THERMAL_BANK4;
 
 #if ENABLE_LOO_G
 	else if (det_to_id(det) == EEM_DET_GPU_HI)
-		ts_bank = THERMAL_BANK3;
+		ts_bank = THERMAL_BANK4;
 #endif
 #endif
 #if ENABLE_MDLA
 	else if (det_to_id(det) == EEM_DET_MDLA)
-		ts_bank = THERMAL_BANK4;
+		ts_bank = THERMAL_BANK3;
 #endif
 #if ENABLE_VPU
 	else if (det_to_id(det) == EEM_DET_VPU)
-		ts_bank = THERMAL_BANK5;
+		ts_bank = THERMAL_BANK3;
 #endif
 #if ENABLE_LOO_B
 	else if (det_to_id(det) == EEM_DET_B_HI)
-		ts_bank = THERMAL_BANK1;
+		ts_bank = THERMAL_BANK0;
 #endif
 	else
 		ts_bank = THERMAL_BANK0;
@@ -2872,10 +2872,10 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 #ifdef CONFIG_THERMAL
 #if defined(__LP64__) || defined(_LP64)
 		temp_long = (unsigned long long)
-			tscpu_get_temp_by_bank(THERMAL_BANK0)/1000;
+			tscpu_get_temp_by_bank(THERMAL_BANK2)/1000;
 #else
 		temp_long = div_u64((unsigned long long)
-			tscpu_get_temp_by_bank(THERMAL_BANK0), 1000);
+			tscpu_get_temp_by_bank(THERMAL_BANK2), 1000);
 #endif
 		if (temp_long != 0) {
 			aee_rr_rec_ptp_temp(temp_long <<
@@ -2890,11 +2890,11 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 #ifdef CONFIG_THERMAL
 #if defined(__LP64__) || defined(_LP64)
 		temp_long =
-		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK1)/1000;
+		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK0)/1000;
 #else
 		temp_long = div_u64
 		((unsigned long long)
-		 tscpu_get_temp_by_bank(THERMAL_BANK1), 1000);
+		 tscpu_get_temp_by_bank(THERMAL_BANK0), 1000);
 #endif
 		if (temp_long != 0) {
 			aee_rr_rec_ptp_temp(temp_long <<
@@ -2929,10 +2929,10 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 #ifdef CONFIG_THERMAL
 #if defined(__LP64__) || defined(_LP64)
 		temp_long =
-		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK3)/1000;
+		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK4)/1000;
 #else
 		temp_long = div_u64
-		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK3),
+		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK4),
 		 1000);
 #endif
 		if (temp_long != 0) {
@@ -2948,10 +2948,10 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 #ifdef CONFIG_THERMAL
 #if defined(__LP64__) || defined(_LP64)
 		temp_long =
-		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK3)/1000;
+		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK4)/1000;
 #else
 		temp_long = div_u64
-		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK3),
+		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK4),
 		 1000);
 #endif
 		if (temp_long != 0) {
@@ -3351,11 +3351,11 @@ __func__, __LINE__, det->name, det->real_vboot, det->VBOOT);
 			}
 			/* BUG_ON(det->real_vboot != det->VBOOT); */
 			WARN_ON(det->real_vboot != det->VBOOT);
-			eem_debug
+#endif
+			eem_error
 			("@@!%s():%d, get_volt(%s) = 0x%08X, VBOOT = 0x%08X\n",
 			__func__, __LINE__, det->name, det->real_vboot,
 			det->VBOOT);
-#endif
 			mt_ptp_lock(&flag); /* <-XXX */
 			det->ops->init01(det);
 			mt_ptp_unlock(&flag); /* <-XXX */
@@ -3840,30 +3840,30 @@ void mt_eem_opp_status(enum eem_det_id id, unsigned int *temp,
 
 #ifdef CONFIG_THERMAL
 	if (id == EEM_DET_L)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK0);
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK2);
 	else if (id == EEM_DET_B)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK1);
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK0);
 	else if (id == EEM_DET_CCI)
 		*temp = tscpu_get_temp_by_bank(THERMAL_BANK2);
 #if ENABLE_GPU
 	else if (id == EEM_DET_GPU)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK3);
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK4);
 #if ENABLE_LOO_G
 	else if (id == EEM_DET_GPU_HI)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK3);
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK4);
 #endif
 #endif
 #if ENABLE_MDLA
 	else if (id == EEM_DET_MDLA)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK4);
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK3);
 #endif
 #if ENABLE_VPU
 	else if (id == EEM_DET_VPU)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK5);
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK3);
 #endif
 #if ENABLE_LOO_B
 	else if (id == EEM_DET_B_HI)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK1);
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK0);
 #endif
 
 	else
@@ -4167,7 +4167,7 @@ static int eem_hrid_proc_show(struct seq_file *m, void *v)
 
 	FUNC_ENTER(FUNC_LV_HELP);
 	for (i = 0; i < 4; i++)
-		seq_printf(m, "%s[HRID][%d]: 0x%x\n", EEM_TAG, i,
+		seq_printf(m, "%s[HRID][%d]: 0x%08X\n", EEM_TAG, i,
 			get_devinfo_with_index(DEVINFO_HRID_0 + i));
 
 	FUNC_EXIT(FUNC_LV_HELP);
@@ -4181,16 +4181,17 @@ static int eem_efuse_proc_show(struct seq_file *m, void *v)
 
 	FUNC_ENTER(FUNC_LV_HELP);
 	for (i = 0; i < 24; i++)
-		seq_printf(m, "%s[PTP_DUMP] ORIG_RES%d: 0x%X\n", EEM_TAG, i,
+		seq_printf(m, "%s[PTP_DUMP] ORIG_RES%d: 0x%08X\n", EEM_TAG, i,
 			get_devinfo_with_index(DEVINFO_IDX_0 + i));
 
 	/* Depend on EFUSE location */
 	for (i = 0; i < sizeof(struct eem_devinfo) / sizeof(unsigned int);
 		i++)
-		seq_printf(m, "%s[PTP_DUMP] RES%d: 0x%X\n", EEM_TAG, i, val[i]);
+		seq_printf(m, "%s[PTP_DUMP] RES%d: 0x%08X\n", EEM_TAG, i,
+			val[i]);
 
 	for (i = NR_HW_RES_FOR_BANK; i <= 24; i++)
-		seq_printf(m, "%s[PTP_DUMP] RES%d: 0x%X\n", EEM_TAG, i,
+		seq_printf(m, "%s[PTP_DUMP] RES%d: 0x%08X\n", EEM_TAG, i,
 			get_devinfo_with_index(DEVINFO_IDX_0 + i));
 
 	FUNC_EXIT(FUNC_LV_HELP);

@@ -74,17 +74,13 @@
 #ifdef CONFIG_MTK_GPU_SUPPORT
 #include "mtk_gpufreq.h"
 #endif
-#include <mt-plat/mtk_devinfo.h>
 #include <regulator/consumer.h>
 #include "pmic_regulator.h"
 //#include "mtk_pmic_regulator.h"
 #include "pmic_api_buck.h"
 
-#if UPDATE_TO_UPOWER
-#include "mtk_upower.h"
-#endif
-
 #include "mtk_mcdi_api.h"
+
 #ifdef CORN_LOAD
 #include "vpu_dvfs.h"
 #include "apu_dvfs.h"
@@ -95,35 +91,17 @@
  ****************************************
  */
 static unsigned int ctrl_EEMG_Enable = 1;
-#if ENABLE_CPU
-static unsigned int big_2line;
-#endif
 static unsigned int gpu_2line;
 
 /* Get time stmp to known the time period */
 static unsigned long long eemg_pTime_us, eemg_cTime_us, eemg_diff_us;
-#if ENABLE_CPU
-/* for setting pmic pwm mode and auto mode */
-struct regulator *eemg_regulator_vproc1;
-struct regulator *eemg_regulator_vproc2;
-#endif
 static int create_procfs(void);
 static void eemg_set_eemg_volt(struct eemg_det *det);
 static void eemg_restore_eemg_volt(struct eemg_det *det);
-#if ENABLE_CPU
-#if !EARLY_PORTING
-static void eemg_buck_set_mode(unsigned int mode);
-#endif
-#endif
 static unsigned int interpolate(unsigned int y1, unsigned int y0,
 	unsigned int x1, unsigned int x0, unsigned int ym);
 static void eemg_fill_freq_table(struct eemg_det *det);
 static void read_volt_from_VOP(struct eemg_det *det);
-#if UPDATE_TO_UPOWER
-static void eemg_update_init2_volt_to_upower
-	(struct eemg_det *det, unsigned int *pmic_volt);
-static enum upower_bank transfer_ptp_to_upower_bank(unsigned int det_id);
-#endif
 #ifdef CORN_LOAD
 static void eemg_corner(int testcnt);
 static unsigned int corn_init;
@@ -134,16 +112,6 @@ static unsigned int final_corner_flag;
 #endif
 static unsigned int final_init01_flag;
 
-#if ENABLE_CPU
-#if ENABLE_LOO_B
-static unsigned int bcpu_final_init02_flag;
-#endif
-static unsigned int cur_init02_flag;
-DEFINE_MUTEX(gpu_record_mutex);
-#if ENABLE_LOO_B
-DEFINE_MUTEX(bcpu_mutex_g);
-#endif
-#endif
 #if ENABLE_LOO_G
 DEFINE_MUTEX(gpu_mutex_g);
 #endif
@@ -246,13 +214,6 @@ static int get_devinfo(void)
 		eemg_debug("[CPU][EEM][PTP_DUMP] RES%d: 0x%X\n",
 			i, val[i]);
 
-#if ENABLE_CPU
-#if ENABLE_LOO_B
-	big_2line = 1;
-#else
-	big_2line = 0;
-#endif
-#endif
 #if ENABLE_LOO_G
 	gpu_2line = 1;
 #else
@@ -321,24 +282,6 @@ static void mt_ptpgpu_unlock(unsigned long *flags);
 static void _mt_eemg_aee_init(void)
 {
 	aee_rr_rec_ptp_vboot(0xFFFFFFFFFFFFFFFF);
-#if ENABLE_CPU
-	aee_rr_rec_ptp_cpu_big_volt(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_big_volt_1(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_big_volt_2(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_big_volt_3(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_little_volt(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_little_volt_1(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_little_volt_2(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_little_volt_3(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_2_little_volt(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_2_little_volt_1(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_2_little_volt_2(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_2_little_volt_3(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_cci_volt(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_cci_volt_1(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_cci_volt_2(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_cpu_cci_volt_3(0xFFFFFFFFFFFFFFFF);
-#endif
 	aee_rr_rec_ptp_gpu_volt(0xFFFFFFFFFFFFFFFF);
 	aee_rr_rec_ptp_gpu_volt_1(0xFFFFFFFFFFFFFFFF);
 	aee_rr_rec_ptp_gpu_volt_2(0xFFFFFFFFFFFFFFFF);
@@ -542,39 +485,24 @@ int base_ops_mon_mode_gpu(struct eemg_det *det)
 	det->MTS = MTS_VAL;
 	det->BTS = BTS_VAL;
 #else
-#if ENABLE_CPU
-	if (det_to_id(det) == EEMG_DET_L)
-		ts_bank = THERMAL_BANK0;
-	else if (det_to_id(det) == EEMG_DET_B)
-		ts_bank = THERMAL_BANK1;
-	else if (det_to_id(det) == EEMG_DET_CCI)
-		ts_bank = THERMAL_BANK2;
-	else if (det_to_id(det) == EEMG_DET_GPU)
-#else
+
 	if (det_to_id(det) == EEMG_DET_GPU)
-#endif
-		ts_bank = THERMAL_BANK3;
+		ts_bank = THERMAL_BANK4;
 #if ENABLE_VPU
 	else if (det_to_id(det) == EEMG_DET_VPU)
-		ts_bank = THERMAL_BANK5;
+		ts_bank = THERMAL_BANK3;
 #endif
 #if ENABLE_MDLA
 	else if (det_to_id(det) == EEMG_DET_MDLA)
-		ts_bank = THERMAL_BANK4;
+		ts_bank = THERMAL_BANK3;
 #endif
 
 #if ENABLE_LOO_G
 	else if (det_to_id(det) == EEMG_DET_GPU_HI)
-		ts_bank = THERMAL_BANK3;
-#endif
-#if ENABLE_CPU
-#if ENABLE_LOO_B
-	else if (det_to_id(det) == EEMG_DET_B_HI)
-		ts_bank = THERMAL_BANK1;
-#endif
+		ts_bank = THERMAL_BANK4;
 #endif
 	else
-		ts_bank = THERMAL_BANK0;
+		ts_bank = THERMAL_BANK4;
 
 #if defined(CFG_THERM_LVTS) && CFG_LVTS_DOMINATOR
 	get_lvts_slope_intercept(&ts_info, ts_bank);
@@ -882,40 +810,24 @@ int base_ops_get_temp_gpu(struct eemg_det *det)
 {
 #ifdef CONFIG_THERMAL
 	enum thermal_bank_name ts_bank;
-#if ENABLE_CPU
 
-	if (det_to_id(det) == EEMG_DET_L)
-		ts_bank = THERMAL_BANK0;
-	else if (det_to_id(det) == EEMG_DET_B)
-		ts_bank = THERMAL_BANK1;
-	else if (det_to_id(det) == EEMG_DET_CCI)
-		ts_bank = THERMAL_BANK2;
-	else if (det_to_id(det) == EEMG_DET_GPU)
-#else
 	if (det_to_id(det) == EEMG_DET_GPU)
-#endif
-		ts_bank = THERMAL_BANK3;
+		ts_bank = THERMAL_BANK4;
 
 #if ENABLE_LOO_G
 	else if (det_to_id(det) == EEMG_DET_GPU_HI)
-		ts_bank = THERMAL_BANK3;
+		ts_bank = THERMAL_BANK4;
 #endif
 #if ENABLE_MDLA
 	else if (det_to_id(det) == EEMG_DET_MDLA)
-		ts_bank = THERMAL_BANK4;
+		ts_bank = THERMAL_BANK3;
 #endif
 #if ENABLE_VPU
 	else if (det_to_id(det) == EEMG_DET_VPU)
-		ts_bank = THERMAL_BANK5;
-#endif
-#if ENABLE_CPU
-#if ENABLE_LOO_B
-	else if (det_to_id(det) == EEMG_DET_B_HI)
-		ts_bank = THERMAL_BANK1;
-#endif
+		ts_bank = THERMAL_BANK3;
 #endif
 	else
-		ts_bank = THERMAL_BANK0;
+		ts_bank = THERMAL_BANK4;
 
 	return tscpu_get_temp_by_bank(ts_bank);
 #else
@@ -1083,73 +995,6 @@ static void eemg_save_final_volt_aee(struct eemg_det *ndet)
 
 	for (i = 0; i < NR_FREQ; i++) {
 		switch (ndet->ctrl_id) {
-#if ENABLE_CPU
-		case EEMG_CTRL_L:
-			if (i < 8) {
-				aee_rr_rec_ptp_cpu_little_volt_2(
-				((unsigned long long)(ndet->volt_tbl_pmic[i])
-				<< (8 * i)) |
-				(aee_rr_curr_ptp_cpu_little_volt_2() & ~
-				((unsigned long long)(0xFF) << (8 * i)))
-				);
-			} else {
-				aee_rr_rec_ptp_cpu_little_volt_3(
-				((unsigned long long)(ndet->volt_tbl_pmic[i])
-				 << (8 * (i - 8))) |
-				(aee_rr_curr_ptp_cpu_little_volt_3() & ~
-					((unsigned long long)(0xFF)
-					<< (8 * (i - 8))))
-				);
-			}
-			break;
-
-		case EEMG_CTRL_B:
-			if (i < 8) {
-				aee_rr_rec_ptp_cpu_big_volt_2(
-					((unsigned long long)
-					(ndet->volt_tbl_pmic[i])
-					 << (8 * i)) |
-					(aee_rr_curr_ptp_cpu_big_volt_2() & ~
-						((unsigned long long)(0xFF)
-						 << (8 * i))
-					)
-				);
-			} else {
-				aee_rr_rec_ptp_cpu_big_volt_3(
-					((unsigned long long)
-					(ndet->volt_tbl_pmic[i])
-					 << (8 * (i - 8))) |
-					(aee_rr_curr_ptp_cpu_big_volt_3() & ~
-						((unsigned long long)(0xFF)
-						 << (8 * (i - 8)))
-					)
-				);
-			}
-			break;
-		case EEMG_CTRL_CCI:
-			if (i < 8) {
-				aee_rr_rec_ptp_cpu_cci_volt_2(
-					((unsigned long long)
-					(ndet->volt_tbl_pmic[i])
-					 << (8 * i)) |
-					(aee_rr_curr_ptp_cpu_cci_volt_2() & ~
-						((unsigned long long)(0xFF)
-						 << (8 * i))
-					)
-				);
-			} else {
-				aee_rr_rec_ptp_cpu_cci_volt_3(
-					((unsigned long long)
-					(ndet->volt_tbl_pmic[i])
-					 << (8 * (i - 8))) |
-					(aee_rr_curr_ptp_cpu_cci_volt_3() & ~
-						((unsigned long long)(0xFF)
-						 << (8 * (i - 8)))
-					)
-				);
-			}
-			break;
-#endif
 		case EEMG_CTRL_GPU:
 			if (i < 8) {
 				aee_rr_rec_ptp_gpu_volt_2(
@@ -1182,9 +1027,6 @@ static void eemg_save_final_volt_aee(struct eemg_det *ndet)
 static void get_volt_table_in_thread(struct eemg_det *det)
 {
 #if ENABLE_LOO
-#if ENABLE_CPU
-	unsigned int init2chk = 0;
-#endif
 	struct eemg_det *highdet;
 #endif
 	struct eemg_det *ndet = det;
@@ -1207,15 +1049,6 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 
 	/* Copy volt to volt_tbl_init2 */
 	if (det->init2_done == 0) {
-#if ENABLE_CPU
-		/* To check BCPU banks init2 isr */
-		if (det->ctrl_id == EEMG_CTRL_B)
-			cur_init02_flag |= BIT(det->ctrl_id);
-#if ENABLE_LOO_B
-		else if (det->ctrl_id == EEMG_CTRL_B_HI)
-			cur_init02_flag |= BIT(det->ctrl_id);
-#endif
-#endif
 #if ENABLE_LOO
 		/* Receive init2 isr and update init2 volt_table */
 		if (det->loo_role == HIGH_BANK) {
@@ -1254,69 +1087,6 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 	for (i = 0; i < NR_FREQ; i++) {
 #ifdef CONFIG_EEMG_AEE_RR_REC
 		switch (ndet->ctrl_id) {
-#if ENABLE_CPU
-		case EEMG_CTRL_L:
-			if (i < 8) {
-				aee_rr_rec_ptp_cpu_little_volt(
-				((unsigned long long)(ndet->volt_tbl[i])
-				<< (8 * i)) |
-				(aee_rr_curr_ptp_cpu_little_volt() & ~
-				((unsigned long long)(0xFF) << (8 * i)))
-				);
-			} else {
-				aee_rr_rec_ptp_cpu_little_volt_1(
-				((unsigned long long)(ndet->volt_tbl[i])
-				 << (8 * (i - 8))) |
-				(aee_rr_curr_ptp_cpu_little_volt_1() & ~
-					((unsigned long long)(0xFF)
-					<< (8 * (i - 8))))
-				);
-			}
-			break;
-
-		case EEMG_CTRL_B:
-			if (i < 8) {
-				aee_rr_rec_ptp_cpu_big_volt(
-					((unsigned long long)(ndet->volt_tbl[i])
-					 << (8 * i)) |
-					(aee_rr_curr_ptp_cpu_big_volt() & ~
-						((unsigned long long)(0xFF)
-						 << (8 * i))
-					)
-				);
-			} else {
-				aee_rr_rec_ptp_cpu_big_volt_1(
-					((unsigned long long)(ndet->volt_tbl[i])
-					 << (8 * (i - 8))) |
-					(aee_rr_curr_ptp_cpu_big_volt_1() & ~
-						((unsigned long long)(0xFF)
-						 << (8 * (i - 8)))
-					)
-				);
-			}
-			break;
-		case EEMG_CTRL_CCI:
-			if (i < 8) {
-				aee_rr_rec_ptp_cpu_cci_volt(
-					((unsigned long long)(ndet->volt_tbl[i])
-					 << (8 * i)) |
-					(aee_rr_curr_ptp_cpu_cci_volt() & ~
-						((unsigned long long)(0xFF)
-						 << (8 * i))
-					)
-				);
-			} else {
-				aee_rr_rec_ptp_cpu_cci_volt_1(
-					((unsigned long long)(ndet->volt_tbl[i])
-					 << (8 * (i - 8))) |
-					(aee_rr_curr_ptp_cpu_cci_volt_1() & ~
-						((unsigned long long)(0xFF)
-						 << (8 * (i - 8)))
-					)
-				);
-			}
-			break;
-#endif
 		case EEMG_CTRL_GPU:
 			if (i < 8) {
 				aee_rr_rec_ptp_gpu_volt(
@@ -1384,11 +1154,6 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 	/* Check Temperature */
 	ndet->temp = ndet->ops->get_temp_gpu(det);
 
-#if UPDATE_TO_UPOWER
-	upower_update_degree_by_eem
-		(transfer_ptp_to_upower_bank(det_to_id(ndet)),
-		ndet->temp/1000);
-#endif
 
 	if (ndet->temp <= EXTRA_LOW_TEMP_VAL)
 		ndet->isTempInv = EEM_EXTRALOW_T;
@@ -1456,56 +1221,6 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 		}
 
 		switch (ndet->ctrl_id) {
-#if ENABLE_CPU
-		case EEMG_CTRL_L:
-			ndet->volt_tbl_pmic[i] = min(
-			(unsigned int)(clamp(
-			ndet->ops->eemg_2_pmic(ndet,
-			(ndet->volt_tbl[i] + ndet->volt_offset +
-			low_temp_offset + ndet->volt_aging[i]) +
-			rm_dvtfix_offset - ndet->volt_dcv),
-			ndet->ops->eemg_2_pmic(ndet, ndet->VMIN),
-			ndet->ops->eemg_2_pmic(ndet, ndet->VMAX))),
-			ndet->volt_tbl_orig[i] + ndet->volt_clamp);
-			break;
-
-		case EEMG_CTRL_B:
-			ndet->volt_tbl_pmic[i] = min(
-			(unsigned int)(clamp(
-				ndet->ops->eemg_2_pmic(ndet,
-				(ndet->volt_tbl[i] + ndet->volt_offset +
-				low_temp_offset + ndet->volt_aging[i]) +
-				rm_dvtfix_offset - ndet->volt_dcv),
-				ndet->ops->eemg_2_pmic(ndet, ndet->VMIN),
-				ndet->ops->eemg_2_pmic(ndet, ndet->VMAX))),
-				ndet->volt_tbl_orig[i] + ndet->volt_clamp);
-
-			/*
-			 *  if (eemg_log_en)
-			 *	eemg_debug("L->hw_v[%d]=0x%X,V(%d)L(%d)
-			 *		volt_tbl_pmic[%d]=0x%X (%d)\n",
-			 *		i, det->volt_tbl[i],
-			 *		det->volt_offset, low_temp_offset,
-			 *		i, det->volt_tbl_pmic[i],
-			 *		det->ops->pmic_2_volt_gpu(det,
-			 *		det->volt_tbl_pmic[i]));
-			 *
-			 */
-
-			break;
-
-		case EEMG_CTRL_CCI:
-			ndet->volt_tbl_pmic[i] = min(
-			(unsigned int)(clamp(
-				ndet->ops->eemg_2_pmic(ndet,
-				(ndet->volt_tbl[i] + ndet->volt_offset +
-				low_temp_offset + ndet->volt_aging[i]) +
-				rm_dvtfix_offset - ndet->volt_dcv),
-				ndet->ops->eemg_2_pmic(ndet, ndet->VMIN),
-				ndet->ops->eemg_2_pmic(ndet, ndet->VMAX))),
-				ndet->volt_tbl_orig[i] + ndet->volt_clamp);
-			break;
-#endif
 		case EEMG_CTRL_GPU:
 			ndet->volt_tbl_pmic[i] = min(
 			(unsigned int)(clamp(
@@ -1584,37 +1299,6 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 
 	eemg_save_final_volt_aee(ndet);
 
-#if UPDATE_TO_UPOWER
-#if ENABLE_LOO
-	if ((ndet->set_volt_to_upower == 0) &&
-		(ndet->ctrl_id < EEMG_CTRL_GPU)) {
-		if (((ndet->ctrl_id == EEMG_CTRL_B) &&
-			(cur_init02_flag !=
-			bcpu_final_init02_flag)))
-			init2chk = 0;
-		else
-			init2chk = 1;
-		eemg_error("cur_flag:0x%x, b_flag:0x%x\n",
-			cur_init02_flag, bcpu_final_init02_flag);
-		/* only when set_volt_to_upower == 0,
-		 * the volt will be apply to upower
-		 */
-		if (init2chk) {
-			eemg_update_init2_volt_to_upower
-				(ndet, ndet->volt_tbl_pmic);
-			ndet->set_volt_to_upower = 1;
-		}
-	}
-#else
-	/* only when set_volt_to_upower == 0,
-	 * the volt will be apply to upower
-	 */
-	if (ndet->set_volt_to_upower == 0) {
-		eemg_update_init2_volt_to_upower(ndet, ndet->volt_tbl_pmic);
-		ndet->set_volt_to_upower = 1;
-	}
-#endif
-#endif
 	if (0 == (ndet->disabled % 2))
 		ndet->ops->set_volt_gpu(ndet);
 #if 0
@@ -1651,26 +1335,6 @@ static int eemg_volt_thread_handler(void *data)
 #ifdef CONFIG_EEMG_AEE_RR_REC
 			/* update set volt status for this bank */
 			switch (det->ctrl_id) {
-#if ENABLE_CPU
-			case EEMG_CTRL_L:
-				aee_rr_rec_ptp_status
-					(aee_rr_curr_ptp_status() |
-					(1 << EEMG_CPU_2_LITTLE_IS_SET_VOLT));
-				temp = EEMG_CPU_2_LITTLE_IS_SET_VOLT;
-				break;
-			case EEMG_CTRL_B:
-				aee_rr_rec_ptp_status
-					(aee_rr_curr_ptp_status() |
-					(1 << EEMG_CPU_LITTLE_IS_SET_VOLT));
-				temp = EEMG_CPU_LITTLE_IS_SET_VOLT;
-				break;
-			case EEMG_CTRL_CCI:
-				aee_rr_rec_ptp_status
-					(aee_rr_curr_ptp_status() |
-					(1 << EEMG_CPU_CCI_IS_SET_VOLT));
-				temp = EEMG_CPU_CCI_IS_SET_VOLT;
-				break;
-#endif
 			case EEMG_CTRL_GPU:
 				aee_rr_rec_ptp_status
 					(aee_rr_curr_ptp_status() |
@@ -1685,30 +1349,12 @@ static int eemg_volt_thread_handler(void *data)
 				temp = EEMG_GPU_HI_IS_SET_VOLT;
 				break;
 #endif
-#if ENABLE_CPU
-			case EEMG_CTRL_B_HI:
-#if ENABLE_LOO_B
-				aee_rr_rec_ptp_status
-					(aee_rr_curr_ptp_status() |
-					(1 << EEMG_CPU_BIG_HI_IS_SET_VOLT));
-				temp = EEMG_CPU_BIG_HI_IS_SET_VOLT;
-#endif
-				break;
-#endif
 			default:
 				eemg_error
 				("eemg_volt_handler :incorrect det id %d\n",
 				 det->ctrl_id);
 				break;
 			}
-#endif
-#if ENABLE_CPU
-			/* clear out set volt status for this bank */
-#ifdef CONFIG_EEMG_AEE_RR_REC
-			if (temp >= EEMG_CPU_2_LITTLE_IS_SET_VOLT)
-				aee_rr_rec_ptp_status
-				(aee_rr_curr_ptp_status() & ~(1 << temp));
-#endif
 #endif
 		}
 		if ((ctrl->volt_update & EEMG_VOLT_RESTORE) &&
@@ -1786,62 +1432,6 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 	inherit_base_det(det);
 	eemg_debug("IN init_det %s\n", det->name);
 	switch (det_id) {
-#if ENABLE_CPU
-	case EEMG_DET_L:
-		det->MDES	= devinfo->CPU_L_MDES;
-		det->BDES	= devinfo->CPU_L_BDES;
-		det->DCMDET	= devinfo->CPU_L_DCMDET;
-		det->DCBDET	= devinfo->CPU_L_DCBDET;
-		det->EEMINITEN	= devinfo->CPU_L_INITEN;
-		det->EEMMONEN	= devinfo->CPU_L_MONEN;
-		det->MTDES	= devinfo->CPU_L_MTDES;
-		det->SPEC	= devinfo->CPU_L_SPEC;
-		det->VMAX += det->DVTFIXED;
-		break;
-	case EEMG_DET_B:
-#if ENABLE_LOO_B
-		bcpu_final_init02_flag |= BIT(det_id);
-		if (big_2line) {
-			det->MDES	= devinfo->CPU_B_LO_MDES;
-			det->BDES	= devinfo->CPU_B_LO_BDES;
-			det->DCMDET	= devinfo->CPU_B_LO_DCMDET;
-			det->DCBDET	= devinfo->CPU_B_LO_DCBDET;
-			det->EEMINITEN	= devinfo->CPU_B_LO_INITEN;
-			det->EEMMONEN	= devinfo->CPU_B_LO_MONEN;
-			det->MTDES	= devinfo->CPU_B_LO_MTDES;
-			det->SPEC	= devinfo->CPU_B_LO_SPEC;
-			det->DVTFIXED = DVTFIXED_VAL_BL;
-			det->max_freq_khz = B_M_FREQ_BASE;
-			det->loo_role	= LOW_BANK;
-		} else {
-#endif
-			det->MDES	= devinfo->CPU_B_MDES;
-			det->BDES	= devinfo->CPU_B_BDES;
-			det->DCMDET	= devinfo->CPU_B_DCMDET;
-			det->DCBDET	= devinfo->CPU_B_DCBDET;
-			det->EEMINITEN	= devinfo->CPU_B_INITEN;
-			det->EEMMONEN	= devinfo->CPU_B_MONEN;
-			det->MTDES	= devinfo->CPU_B_MTDES;
-			det->SPEC	= devinfo->CPU_B_SPEC;
-			det->max_freq_khz = B_FREQ_BASE;
-#if ENABLE_LOO_B
-			det->loo_role = NO_LOO_BANK;
-		}
-#endif
-		det->VMAX += det->DVTFIXED;
-		break;
-	case EEMG_DET_CCI:
-		det->MDES	= devinfo->CCI_MDES;
-		det->BDES	= devinfo->CCI_BDES;
-		det->DCMDET	= devinfo->CCI_DCMDET;
-		det->DCBDET	= devinfo->CCI_DCBDET;
-		det->EEMINITEN	= devinfo->CCI_INITEN;
-		det->EEMMONEN	= devinfo->CCI_MONEN;
-		det->MTDES	= devinfo->CCI_MTDES;
-		det->SPEC       = devinfo->CCI_SPEC;
-		det->VMAX += det->DVTFIXED;
-		break;
-#endif
 	case EEMG_DET_GPU:
 #if ENABLE_LOO_G
 		if (gpu_2line) {
@@ -1913,25 +1503,6 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 		}
 		break;
 #endif
-#if ENABLE_CPU
-	case EEMG_DET_B_HI:
-#if ENABLE_LOO_B
-		det->MDES	= devinfo->CPU_B_HI_MDES;
-		det->BDES	= devinfo->CPU_B_HI_BDES;
-		det->DCMDET = devinfo->CPU_B_HI_DCMDET;
-		det->DCBDET = devinfo->CPU_B_HI_DCBDET;
-		det->EEMINITEN	= devinfo->CPU_B_HI_INITEN;
-		det->EEMMONEN	= devinfo->CPU_B_HI_MONEN;
-		det->MTDES	= devinfo->CPU_B_HI_MTDES;
-		det->SPEC	= devinfo->CPU_B_HI_SPEC;
-		det->VMAX += det->DVTFIXED;
-		if (!big_2line) {
-			det->features = 0;
-			det->loo_role = NO_LOO_BANK;
-		}
-#endif
-		break;
-#endif
 	default:
 		eemg_debug("[%s]: Unknown det_id %d\n", __func__, det_id);
 		break;
@@ -1963,68 +1534,10 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 	/* get DVFS frequency table */
 	if (det->ops->get_freq_table_gpu)
 		det->ops->get_freq_table_gpu(det);
-#if ENABLE_CPU
-#if ENABLE_LOO_B
-	if ((big_2line) &&
-		(det_id == EEMG_DET_B_HI)) {
-		if (det->turn_pt != 0)
-			bcpu_final_init02_flag |= BIT(det_id);
-		else
-			det->features = 0;
-	}
-#endif
-#endif
 	eemg_debug("END init_det %s, turn_pt:%d\n",
 		det->name, det->turn_pt);
 	FUNC_EXIT(FUNC_LV_HELP);
 }
-
-#if UPDATE_TO_UPOWER
-static enum upower_bank transfer_ptp_to_upower_bank(unsigned int det_id)
-{
-	enum upower_bank bank;
-
-	switch (det_id) {
-	case EEMG_DET_L:
-		bank = UPOWER_BANK_LL;
-		break;
-	case EEMG_DET_B:
-		bank = UPOWER_BANK_L;
-		break;
-	case EEMG_DET_CCI:
-		bank = UPOWER_BANK_CCI;
-		break;
-	default:
-		bank = NR_UPOWER_BANK;
-		break;
-	}
-	return bank;
-}
-
-static void eemg_update_init2_volt_to_upower
-	(struct eemg_det *det, unsigned int *pmic_volt)
-{
-	unsigned int volt_tbl[NR_FREQ_CPU];
-	enum upower_bank bank;
-	int i;
-
-	for (i = 0; i < det->num_freq_tbl; i++)
-		volt_tbl[i] = det->ops->pmic_2_volt_gpu(det, pmic_volt[i]);
-
-	bank = transfer_ptp_to_upower_bank(det_to_id(det));
-#if 1
-	if (bank < NR_UPOWER_BANK) {
-		upower_update_volt_by_eem(bank, volt_tbl, det->num_freq_tbl);
-		/* eemg_debug
-		 * ("update init2 volt to upower
-		 * (eem bank %ld upower bank %d)\n",
-		 * det_to_id(det), bank);
-		 */
-	}
-#endif
-
-}
-#endif
 
 static void eemg_set_eemg_volt(struct eemg_det *det)
 {
@@ -2534,78 +2047,20 @@ static inline void handle_mon_mode_isr(struct eemg_det *det)
 		tscpu_get_temp_by_bank(THERMAL_BANK0),
 		tscpu_get_temp_by_bank(THERMAL_BANK1),
 		tscpu_get_temp_by_bank(THERMAL_BANK2),
-		tscpu_get_temp_by_bank(THERMAL_BANK3)
+		tscpu_get_temp_by_bank(THERMAL_BANK4)
 		);
 #endif
 
 #ifdef CONFIG_EEMG_AEE_RR_REC
 	switch (det->ctrl_id) {
-#if ENABLE_CPU
-	case EEMG_CTRL_L:
-#ifdef CONFIG_THERMAL
-#if defined(__LP64__) || defined(_LP64)
-		temp_long = (unsigned long long)
-			tscpu_get_temp_by_bank(THERMAL_BANK0)/1000;
-#else
-		temp_long = div_u64((unsigned long long)
-			tscpu_get_temp_by_bank(THERMAL_BANK0), 1000);
-#endif
-		if (temp_long != 0) {
-			aee_rr_rec_ptp_temp(temp_long <<
-					(8 * EEMG_CPU_2_LITTLE_IS_SET_VOLT) |
-			(temp_cur & ~((0xFFULL) <<
-					(8 * EEMG_CPU_2_LITTLE_IS_SET_VOLT))));
-		}
-#endif
-		break;
-
-	case EEMG_CTRL_B:
-#ifdef CONFIG_THERMAL
-#if defined(__LP64__) || defined(_LP64)
-		temp_long =
-		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK1)/1000;
-#else
-		temp_long = div_u64
-		((unsigned long long)
-		 tscpu_get_temp_by_bank(THERMAL_BANK1), 1000);
-#endif
-		if (temp_long != 0) {
-			aee_rr_rec_ptp_temp(temp_long <<
-					(8 * EEMG_CPU_LITTLE_IS_SET_VOLT) |
-			(temp_cur & ~((0xFFULL) <<
-					(8 * EEMG_CPU_LITTLE_IS_SET_VOLT))));
-		}
-#endif
-		break;
-
-	case EEMG_CTRL_CCI:
-#ifdef CONFIG_THERMAL
-#if defined(__LP64__) || defined(_LP64)
-		temp_long =
-		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK2)/1000;
-#else
-		temp_long =
-		div_u64
-		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK2),
-		1000);
-#endif
-		if (temp_long != 0) {
-			aee_rr_rec_ptp_temp(temp_long <<
-					(8 * EEMG_CPU_CCI_IS_SET_VOLT)|
-			(temp_cur & ~((0xFFULL) <<
-					(8 * EEMG_CPU_CCI_IS_SET_VOLT))));
-		}
-#endif
-		break;
-#endif
 	case EEMG_CTRL_GPU:
 #ifdef CONFIG_THERMAL
 #if defined(__LP64__) || defined(_LP64)
 		temp_long =
-		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK3)/1000;
+		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK4)/1000;
 #else
 		temp_long = div_u64
-		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK3),
+		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK4),
 		 1000);
 #endif
 		if (temp_long != 0) {
@@ -2621,10 +2076,10 @@ static inline void handle_mon_mode_isr(struct eemg_det *det)
 #ifdef CONFIG_THERMAL
 #if defined(__LP64__) || defined(_LP64)
 		temp_long =
-		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK3)/1000;
+		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK4)/1000;
 #else
 		temp_long = div_u64
-		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK3),
+		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK4),
 		 1000);
 #endif
 		if (temp_long != 0) {
@@ -2853,44 +2308,6 @@ void eemg_init02_gpu(const char *str)
 	FUNC_EXIT(FUNC_LV_LOCAL);
 }
 
-#if ENABLE_CPU
-#if !EARLY_PORTING
-/* get regulator reference */
-static int eemg_buck_get(struct platform_device *pdev)
-{
-	int ret = 0;
-
-	eemg_regulator_vproc1 = regulator_get(&pdev->dev, "vproc1");
-	if (!eemg_regulator_vproc1) {
-		eemg_error("eemg_regulator_vproc1 error\n");
-		return -EINVAL;
-	}
-
-	eemg_regulator_vproc2 = regulator_get(&pdev->dev, "vproc2");
-	if (!eemg_regulator_vproc2) {
-		eemg_error("eemg_regulator_vproc2 error\n");
-		return -EINVAL;
-	}
-
-	return ret;
-}
-
-static void eemg_buck_set_mode(unsigned int mode)
-{
-	/* set pwm mode for each buck */
-	eemg_debug("pmic set mode (%d)\n", mode);
-	if (mode) {
-		regulator_set_mode(eemg_regulator_vproc1, REGULATOR_MODE_FAST);
-		regulator_set_mode(eemg_regulator_vproc2, REGULATOR_MODE_FAST);
-	} else {
-		regulator_set_mode(
-			eemg_regulator_vproc1, REGULATOR_MODE_NORMAL);
-		regulator_set_mode(
-			eemg_regulator_vproc2, REGULATOR_MODE_NORMAL);
-	}
-}
-#endif
-#endif
 #ifdef CORN_LOAD
 void eemg_corner(int testcnt)
 {
@@ -3041,25 +2458,12 @@ __func__, __LINE__, det->name, det->real_vboot, det->VBOOT);
 		}
 	}
 #if !EARLY_PORTING
-#if ENABLE_CPU
-	/* CPU/GPU post-process */
-	eemg_buck_set_mode(0);
-#endif
 #ifdef CONFIG_MTK_GPU_SUPPORT
 	mt_gpufreq_enable_by_ptpod(); /* enable gpu DVFS */
 #endif
 /* @@ */
 #if ENABLE_VPU
 	eemg_debug("vpu_enable_by_ptpod 1\n");
-#endif
-#if ENABLE_CPU
-
-	/* need to fix */
-	mt_cpufreq_ctrl_cci_volt(VBOOT_PMIC_CLR);
-
-	mt_ppm_ptpod_policy_deactivate();
-
-	mcdi_pause(MCDI_PAUSE_BY_EEM, false);
 #endif
 #endif
 	/* This patch is waiting for whole bank finish the init01 then go
@@ -3097,14 +2501,6 @@ __func__, __LINE__, det->name, det->real_vboot, det->VBOOT);
 		eemg_detectors[EEMG_DET_GPU].DCVOFFSETIN;
 	eemg_detectors[EEMG_DET_GPU_HI].AGEVOFFSETIN =
 		eemg_detectors[EEMG_DET_GPU].AGEVOFFSETIN;
-#endif
-#if ENABLE_CPU
-#if ENABLE_LOO_B
-	eemg_detectors[EEMG_DET_B_HI].DCVOFFSETIN =
-		eemg_detectors[EEMG_DET_B].DCVOFFSETIN;
-	eemg_detectors[EEMG_DET_B_HI].AGEVOFFSETIN =
-		eemg_detectors[EEMG_DET_B].AGEVOFFSETIN;
-#endif
 #endif
 	eemg_init02_gpu(__func__);
 	FUNC_EXIT(FUNC_LV_LOCAL);
@@ -3159,35 +2555,6 @@ static void eemg_dconfig_set_det(struct eemg_det *det, struct device_node *node)
 
 
 			switch (det_id) {
-#if ENABLE_CPU
-			case EEMG_DET_L:
-			case EEMG_DET_CCI:
-#if UPDATE_TO_UPOWER
-				if (HAS_FEATURE(det, FEA_INIT02) == 0)
-					eemg_update_init2_volt_to_upower
-					(det, det->volt_tbl_orig);
-#endif
-				break;
-			case EEMG_DET_B:
-#if UPDATE_TO_UPOWER
-				if (HAS_FEATURE(det, FEA_INIT02) == 0) {
-					eemg_update_init2_volt_to_upower
-					(det, det->volt_tbl_orig);
-#if ENABLE_LOO_B
-					bcpu_final_init02_flag = 0;
-#endif
-				}
-#endif
-
-#if ENABLE_LOO_B
-				if (big_2line) {
-					/* Change BCPU Low_bank & High_bank */
-					highdet = id_to_eemg_det(EEMG_DET_B_HI);
-					highdet->features = doe_initmon & 0x6;
-				}
-#endif
-				break;
-#endif
 			case EEMG_DET_GPU:
 #if ENABLE_LOO_G
 				if (gpu_2line) {
@@ -3261,6 +2628,12 @@ static int eemg_probe(struct platform_device *pdev)
 		return 0;
 	}
 
+	ret = mt_gpufreq_not_ready();
+	if (ret == EPROBE_DEFER) {
+		eemg_error("Check gpu status for EEMGPU:%d\n", ret);
+		return ret;
+	}
+
 	/* Setup IO addresses */
 	eemg_base = of_iomap(node, 0);
 	eemg_debug("[EEMG] eemg_base = 0x%p\n", eemg_base);
@@ -3306,15 +2679,6 @@ static int eemg_probe(struct platform_device *pdev)
 
 	eemg_debug("finish eemg_init_ctrl\n");
 #if !EARLY_PORTING
-#if ENABLE_CPU
-
-	/* CPU/GPU pre-process(need to fix) */
-	mt_cpufreq_ctrl_cci_volt(VBOOT_PMIC_VAL);
-
-	mcdi_pause(MCDI_PAUSE_BY_EEM, true);
-
-	mt_ppm_ptpod_policy_activate();
-#endif
 #ifdef CONFIG_MTK_GPU_SUPPORT
 	mt_gpufreq_disable_by_ptpod();
 #endif
@@ -3325,13 +2689,6 @@ static int eemg_probe(struct platform_device *pdev)
 	/* vpu_enable_mtcmos(); */
 #endif
 
-#if ENABLE_CPU
-	ret = eemg_buck_get(pdev);
-	if (ret != 0)
-		eemg_error("eemg_buck_get failed\n");
-
-	eemg_buck_set_mode(1);
-#endif
 #endif
 
 	/* for slow idle */
@@ -3456,38 +2813,22 @@ void mt_eemg_opp_status(enum eemg_det_id id, unsigned int *temp,
 	FUNC_ENTER(FUNC_LV_API);
 
 #ifdef CONFIG_THERMAL
-#if ENABLE_CPU
-	if (id == EEMG_DET_L)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK0);
-	else if (id == EEMG_DET_B)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK1);
-	else if (id == EEMG_DET_CCI)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK2);
-	else if (id == EEMG_DET_GPU)
-#else
 	if (id == EEMG_DET_GPU)
-#endif
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK3);
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK4);
 #if ENABLE_LOO_G
 	else if (id == EEMG_DET_GPU_HI)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK3);
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK4);
 #endif
 #if ENABLE_MDLA
 	else if (id == EEMG_DET_MDLA)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK4);
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK3);
 #endif
 #if ENABLE_VPU
 	else if (id == EEMG_DET_VPU)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK5);
-#endif
-#if ENABLE_CPU
-#if ENABLE_LOO_B
-	else if (id == EEMG_DET_B_HI)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK1);
-#endif
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK3);
 #endif
 	else
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK0);
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK4);
 #else
 	*temp = 0;
 #endif

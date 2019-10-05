@@ -18,10 +18,10 @@
 #define CONFIG_EEM_SHOWLOG	(0)
 #define EN_ISR_LOG		(0)
 #define EEM_BANK_SOC		(0) /* use voltage bin, so disable it */
-#define EARLY_PORTING		(1) /* for detecting real vboot in eem_init01 */
+#define EARLY_PORTING		(0) /* for detecting real vboot in eem_init01 */
 #define DUMP_DATA_TO_DE		(1)
 #define EEM_ENABLE		(1) /* enable; after pass HPT mini-SQC */
-#define EEM_FAKE_EFUSE		(1)
+#define EEM_FAKE_EFUSE		(0)
 
 /* FIX ME */
 #define UPDATE_TO_UPOWER	(0)
@@ -31,7 +31,7 @@
 #define ENABLE_LOO_G		(0)
 #define ENABLE_CPU			(1)
 #define ENABLE_GPU			(0)
-#define EN_EEM_THERM_CLK	(1)
+#define EN_EEM_THERM_CLK	(0)
 
 
 #ifdef CORN_LOAD
@@ -42,13 +42,13 @@
 #define ENABLE_MDLA             (0)
 #endif
 
-#define ENABLE_INIT1_STRESS	(0)
+#define ENABLE_INIT1_STRESS	(1)
 
 #define EEM_OFFSET
-#define SET_PMIC_VOLT		(0)
-#define SET_PMIC_VOLT_TO_DVFS	(0)
+#define SET_PMIC_VOLT		(1)
+#define SET_PMIC_VOLT_TO_DVFS	(1)
 #define LOG_INTERVAL		(2LL * NSEC_PER_SEC)
-#define DVT			(1)
+#define DVT			(0)
 #define SUPPORT_DCONFIG		(1)
 #define ENABLE_HT_FT		(1)
 //#define EARLY_PORTING_VPU
@@ -336,11 +336,11 @@ enum mt_cpu_dvfs_id {
 #define EEM_STEP		(625)
 
 /* CPU */
-#define CPU_PMIC_BASE_6359	(40000)
+#define CPU_PMIC_BASE_6359	(0)
 #define CPU_PMIC_STEP		(625) /* 1.231/1024=0.001202v=120(10uv)*/
 
 /* GPU */
-#define GPU_PMIC_BASE		(40000)
+#define GPU_PMIC_BASE		(0)
 #define GPU_PMIC_STEP		(625) /* 1.231/1024=0.001202v=120(10uv)*/
 
 /* common part: for cci, LL, L, GPU */
@@ -450,9 +450,9 @@ enum mt_cpu_dvfs_id {
 
 /* for EEMCTL0's setting */
 #define EEM_CTL0_L			(0xBA98000F)
-#define EEM_CTL0_B			(0x00210003)
+#define EEM_CTL0_B			(0x00540003)
 #define EEM_CTL0_CCI		(0xBA98000F)
-#define EEM_CTL0_GPU		(0x00740003)
+#define EEM_CTL0_GPU		(0x00540003)
 #define EEM_CTL0_VPU		(0x00210003)
 
 

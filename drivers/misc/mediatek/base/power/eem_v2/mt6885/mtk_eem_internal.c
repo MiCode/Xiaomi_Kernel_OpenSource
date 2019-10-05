@@ -147,7 +147,7 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.volt_offset	= 0,
 #endif
 		.ctrl_id	= EEM_CTRL_B,
-		.features	= FEA_INIT01 | FEA_INIT02 | FEA_MON,
+		.features	= FEA_INIT01 | FEA_INIT02,
 		.max_freq_khz	= B_FREQ_BASE,
 		.VBOOT		= VBOOT_VAL, /* 10uV */
 		.eem_v_base	= EEM_V_BASE,
@@ -354,7 +354,7 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.volt_offset	= 0,
 #endif
 		.ctrl_id	= EEM_CTRL_B_HI,
-		.features	= FEA_INIT02,
+		.features	= FEA_INIT02 | FEA_MON,
 		.max_freq_khz	= B_FREQ_BASE,
 		.VBOOT		= VBOOT_VAL, /* 10uV */
 		.VMAX		= VMAX_VAL_BH,
