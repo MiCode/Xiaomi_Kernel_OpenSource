@@ -1793,12 +1793,51 @@ unsigned int get_anaoffset_value(struct ana_trim_offset *offset)
 	return ret;
 }
 
+static int pick_hp_finetrim(int offset_base,
+			    int offset_finetrim_1,
+			    int offset_finetrim_3)
+{
+	if (abs(offset_base) < abs(offset_finetrim_1)) {
+		if (abs(offset_base) < abs(offset_finetrim_3))
+			return 0x0;
+		else
+			return 0x3;
+	} else {
+		if (abs(offset_finetrim_1) < abs(offset_finetrim_3))
+			return 0x1;
+		else
+			return 0x3;
+	}
+}
+
+static int pick_spk_finetrim(int offset_base,
+			     int offset_finetrim_2,
+			     int offset_finetrim_3)
+{
+	if (abs(offset_base) < abs(offset_finetrim_2)) {
+		if (abs(offset_base) < abs(offset_finetrim_3))
+			return 0x0;
+		else
+			return 0x3;
+	} else {
+		if (abs(offset_finetrim_2) < abs(offset_finetrim_3))
+			return 0x2;
+		else
+			return 0x3;
+	}
+}
+
 static void set_lr_trim_code(void)
 {
 	int hpl_base = 0, hpr_base = 0;
 	int hpl_min = 0, hpr_min = 0;
+	int hpl_ceiling = 0, hpr_ceiling = 0;
+	int hpl_floor = 0, hpr_floor = 0;
+	int hpl_finetrim_3 = 0, hpr_finetrim_3 = 0;
 	int trimcode[2] = { 0, 0 };
 	int finetrim[2] = { 0, 0 };
+	int trimcodel_ceiling = 0, trimcoder_ceiling = 0;
+	int trimcodel_floor = 0, trimcoder_floor = 0;
 	int tmp = 0;
 	bool code_change = false;
 
@@ -1838,66 +1877,100 @@ static void set_lr_trim_code(void)
 		code_change  = false;
 		hpl_min = hpl_dc_offset;
 		hpr_min = hpr_dc_offset;
-		if (hpl_base > 0)
-			trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] =
-				(((abs(hpl_base) * 3) /
-				    abs(hpl_base - hpl_min)) + 1) / 2;
-		else if (hpl_base < 0)
-			trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] =
-				(((abs(hpl_base) * 3) /
-				    abs(hpl_base - hpl_min)) + 1) / 2 + 8;
 
-		if (hpr_base > 0)
-			trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] =
-				(((abs(hpr_base) * 3) /
-				    abs(hpr_base - hpr_min)) + 1) / 2;
-		else if (hpr_base < 0)
-			trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] =
-				(((abs(hpr_base) * 3) /
-				    abs(hpr_base - hpr_min)) + 1) / 2 + 8;
+		/* Check floor & ceiling to avoid rounding error */
+		if (hpl_base > 0) {
+			trimcodel_floor = (abs(hpl_base) * 3) /
+				(abs(hpl_base - hpl_min));
+			trimcodel_ceiling = trimcodel_floor + 1;
+		} else if (hpl_base < 0) {
+			trimcodel_floor = (abs(hpl_base) * 3) /
+				(abs(hpl_base - hpl_min)) + 8;
+			trimcodel_ceiling = trimcodel_floor + 1;
+		}
+
+		if (hpr_base > 0) {
+			trimcoder_floor = (abs(hpr_base) * 3) /
+				(abs(hpr_base - hpr_min));
+			trimcoder_ceiling = trimcoder_floor + 1;
+		} else if (hpr_base < 0) {
+			trimcoder_floor = (abs(hpr_base) * 3) /
+				(abs(hpr_base - hpr_min)) + 8;
+			trimcoder_ceiling = trimcoder_floor + 1;
+		}
 	}
 
-	/* channel L */
-	Ana_Set_Reg(AUDDEC_ELR_0,
-		    trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] << HPTRIM_L_SHIFT,
+	/* Get the best trim code from floor and ceiling value */
+	/* Get floor trim code */
+	Ana_Set_Reg(AUDDEC_ELR_0, trimcodel_floor << HPTRIM_L_SHIFT,
 		    HPTRIM_L_MASK);
-	/* channel R */
-	Ana_Set_Reg(AUDDEC_ELR_0,
-		    trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] << HPTRIM_R_SHIFT,
+	Ana_Set_Reg(AUDDEC_ELR_0, trimcoder_floor << HPTRIM_R_SHIFT,
 		    HPTRIM_R_MASK);
+	get_hp_trim_offset();
+	hpl_floor = hpl_dc_offset;
+	hpr_floor = hpr_dc_offset;
+
+	/* Get ceiling trim code */
+	Ana_Set_Reg(AUDDEC_ELR_0, trimcodel_ceiling << HPTRIM_L_SHIFT,
+		    HPTRIM_L_MASK);
+	Ana_Set_Reg(AUDDEC_ELR_0, trimcoder_ceiling << HPTRIM_R_SHIFT,
+		    HPTRIM_R_MASK);
+	get_hp_trim_offset();
+	hpl_ceiling = hpl_dc_offset;
+	hpr_ceiling = hpr_dc_offset;
+
+	/* Choose the best & update DC offset */
+	if (abs(hpl_ceiling) < abs(hpl_floor)) {
+		hpl_base = hpl_ceiling;
+		trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] = trimcodel_ceiling;
+	} else {
+		hpl_base = hpl_floor;
+		trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] = trimcodel_floor;
+	}
+	if (abs(hpr_ceiling) < abs(hpr_floor)) {
+		hpr_base = hpr_ceiling;
+		trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] = trimcoder_ceiling;
+	} else {
+		hpr_base = hpr_floor;
+		trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] = trimcoder_floor;
+	}
+
 	/* Step2: Trim code refine +1/0/-1 */
 	usleep_range(10*1000, 15*1000);
-	get_hp_trim_offset();
-	hpl_base = hpl_dc_offset;
-	hpr_base = hpr_dc_offset;
 	if (hpl_base == 0 && hpr_base == 0)
 		goto EXIT;
-	if (hpl_base > 0) {
+	if ((hpl_base > 0) &&
+		(trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] != 0x7) &&
+		(trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] != 0x8)) {
 		tmp = trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] +
-		      ((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] > 7) ? -1 : 1);
+			((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] > 7) ? -1 : 1);
 		Ana_Set_Reg(AUDDEC_ELR_0,
-			    tmp << HPTRIM_L_SHIFT, HPTRIM_L_MASK);
+			tmp << HPTRIM_L_SHIFT, HPTRIM_L_MASK);
 		code_change = true;
-	} else if (hpl_base < 0 &&
-		   trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] != 0) {
+	} else if ((hpl_base < 0) &&
+		   (trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] != 0) &&
+		   (trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] != 0xf)) {
 		tmp = trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] -
-		      ((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] > 7) ? -1 : 1);
+			((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] > 7) ? -1 : 1);
 		Ana_Set_Reg(AUDDEC_ELR_0,
-			    tmp << HPTRIM_L_SHIFT, HPTRIM_L_MASK);
+			tmp << HPTRIM_L_SHIFT, HPTRIM_L_MASK);
 		code_change = true;
 	}
-	if (hpr_base > 0) {
+	if ((hpr_base > 0) &&
+		(trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] != 0x7) &&
+		(trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] != 0x8)) {
 		tmp = trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] +
-		      ((trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] > 7) ? -1 : 1);
+			((trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] > 7) ? -1 : 1);
 		Ana_Set_Reg(AUDDEC_ELR_0,
-			    tmp << HPTRIM_R_SHIFT, HPTRIM_R_MASK);
+			tmp << HPTRIM_R_SHIFT, HPTRIM_R_MASK);
 		code_change = true;
-	} else if (hpr_base < 0 &&
-		   trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] != 0) {
+	} else if ((hpr_base < 0) &&
+		(trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] != 0) &&
+		(trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] != 0xf)) {
 		tmp = trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] -
-		      ((trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] > 7) ? -1 : 1);
+			((trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] > 7) ? -1 : 1);
 		Ana_Set_Reg(AUDDEC_ELR_0,
-			    tmp << HPTRIM_R_SHIFT, HPTRIM_R_MASK);
+			tmp << HPTRIM_R_SHIFT, HPTRIM_R_MASK);
 		code_change = true;
 	}
 	if (code_change) {
@@ -1907,30 +1980,59 @@ static void set_lr_trim_code(void)
 		hpl_min = hpl_dc_offset;
 		hpr_min = hpr_dc_offset;
 		if (hpl_base > 0 &&
-		    (hpl_min >= 0 || abs(hpl_min) < abs(hpl_base)))
-			trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] =
+		    (hpl_min >= 0 || abs(hpl_min) < abs(hpl_base))) {
+			if ((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] != 0x7) &&
+			(trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] != 0x8)) {
+				trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] =
 				trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] +
 				((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] > 7) ?
-				 -1 : 1);
-		else if (hpl_base < 0 &&
-			 (hpl_min <= 0 || abs(hpl_min) < abs(hpl_base)))
-			trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] =
+				-1 : 1);
+			} else
+				pr_debug("%s(), [Step2][L>0, bit-overflow!!], don't refine, trimcodel = %d\n",
+					 __func__,
+					 trimcode[AUDIO_ANALOG_CHANNELS_LEFT1]);
+		} else if (hpl_base < 0 &&
+			(hpl_min <= 0 || abs(hpl_min) < abs(hpl_base))) {
+			if ((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] != 0) &&
+			(trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] != 0xf)) {
+				trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] =
 				trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] -
 				((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] > 7) ?
-				 -1 : 1);
+				-1 : 1);
+			} else {
+				pr_debug("%s(), [Step2][L<0, bit-overflow!!], don't refine, trimcodel = %d\n",
+					 __func__,
+					 trimcode[AUDIO_ANALOG_CHANNELS_LEFT1]);
+			}
+		}
 
 		if (hpr_base > 0 &&
-		    (hpr_min >= 0 || abs(hpr_min) < abs(hpr_base)))
-			trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] =
+		    (hpr_min >= 0 || abs(hpr_min) < abs(hpr_base))) {
+			if ((trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] != 0x7) &&
+			(trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] != 0x8)) {
+				trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] =
 				trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] +
 				((trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] > 7) ?
-				 -1 : 1);
-		else if (hpr_base < 0 &&
-			 (hpr_min <= 0 || abs(hpr_min) < abs(hpr_base)))
-			trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] =
+				-1 : 1);
+			} else {
+				pr_debug("%s(), [Step2][R>0, bit-overflow!!], don't refine, trimcoder = %d\n",
+					__func__,
+					trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1]);
+			}
+		} else if (hpr_base < 0 &&
+			(hpr_min <= 0 || abs(hpr_min) < abs(hpr_base))) {
+			if ((trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] != 0) &&
+			(trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] != 0xf)) {
+				trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] =
 				trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] -
 				((trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] > 7) ?
-				 -1 : 1);
+				-1 : 1);
+			} else {
+				pr_debug("%s(), [Step2][R<0, bit-overflow!!], don't refine, trimcoder = %d\n",
+					__func__,
+					trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1]);
+			}
+		}
 	}
 	/* channel L */
 	Ana_Set_Reg(AUDDEC_ELR_0,
@@ -1940,6 +2042,7 @@ static void set_lr_trim_code(void)
 	Ana_Set_Reg(AUDDEC_ELR_0,
 		    trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] << HPTRIM_R_SHIFT,
 		    HPTRIM_R_MASK);
+
 	/* Step3: Trim code fine tune */
 	usleep_range(10*1000, 15*1000);
 	get_hp_trim_offset();
@@ -1975,20 +2078,44 @@ static void set_lr_trim_code(void)
 		code_change = false;
 		hpl_min = hpl_dc_offset;
 		hpr_min = hpr_dc_offset;
+		if (hpl_base > 0 || hpr_base > 0) {
+			Ana_Set_Reg(AUDDEC_ELR_0, 0x3 << HPFINETRIM_L_SHIFT,
+				    HPFINETRIM_L_MASK);
+			Ana_Set_Reg(AUDDEC_ELR_0, 0x3 << HPFINETRIM_R_SHIFT,
+				    HPFINETRIM_R_MASK);
+			usleep_range(10*1000, 15*1000);
+			get_hp_trim_offset();
+			code_change = false;
+			hpl_finetrim_3 = hpl_dc_offset;
+			hpr_finetrim_3 = hpr_dc_offset;
+		}
 		/* channel L */
 		Ana_Set_Reg(AUDDEC_ELR_0, 0x0 << HPFINETRIM_L_SHIFT,
 			    HPFINETRIM_L_MASK);
 		/* channel R*/
 		Ana_Set_Reg(AUDDEC_ELR_0, 0x0 << HPFINETRIM_R_SHIFT,
 			    HPFINETRIM_R_MASK);
-		if (hpl_base > 0 &&
-		    (hpl_min >= 0 || abs(hpl_min) < abs(hpl_base)))
-			finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] = 0x1;
+		if (hpl_base > 0) {
+			/* Choose base, finetrim=1, and finetrim=3 */
+			finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] =
+				pick_hp_finetrim(hpl_base,
+						 hpl_min,
+						 hpl_finetrim_3);
+			pr_debug("%s(), [Step3] refine finetriml = %d\n",
+				__func__,
+				finetrim[AUDIO_ANALOG_CHANNELS_LEFT1]);
+		}
+		if (hpr_base > 0) {
+			/* Choose base, finetrim=1, and finetrim=3 */
+			finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] =
+				pick_hp_finetrim(hpr_base,
+						 hpr_min,
+						 hpr_finetrim_3);
+			pr_debug("%s(), [Step3] refine finetrimr = %d\n",
+				__func__,
+				finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1]);
 
-		if (hpr_base > 0 &&
-		    (hpr_min >= 0 || abs(hpr_min) < abs(hpr_base)))
-			finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] = 0x1;
-
+		}
 		if (hpl_base < 0 && hpl_min >= 0 &&
 		    (abs(hpl_min) < abs(hpl_base)))
 			finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] = 0x2;
@@ -1996,70 +2123,15 @@ static void set_lr_trim_code(void)
 		if (hpr_base < 0 && hpr_min >= 0 &&
 		    (abs(hpr_min) < abs(hpr_base)))
 			finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] = 0x2;
-
-		if (hpl_min < 0 || hpr_min < 0) {
-			if (hpl_min < 0 && hpl_base > 0) {
-				/* channel L */
-				Ana_Set_Reg(AUDDEC_ELR_0,
-					    0x3 << HPFINETRIM_L_SHIFT,
-					    HPFINETRIM_L_MASK);
-				code_change = true;
-			}
-			if (hpr_min < 0  && hpr_base > 0) {
-				/* channel R */
-				Ana_Set_Reg(AUDDEC_ELR_0,
-					    0x3 << HPFINETRIM_R_SHIFT,
-					    HPFINETRIM_R_MASK);
-				code_change = true;
-			}
-			pr_debug("%s(), step3_2 > 0 AUDDEC_ELR_0 = 0x%x\n ",
-				 __func__, Ana_Get_Reg(AUDDEC_ELR_0));
-			if (code_change) {
-				usleep_range(10*1000, 15*1000);
-				get_hp_trim_offset();
-				code_change = false;
-				hpl_min = hpl_dc_offset;
-				hpr_min = hpr_dc_offset;
-
-				/* channel L */
-				Ana_Set_Reg(AUDDEC_ELR_0,
-					    0x0 << HPFINETRIM_L_SHIFT,
-					    HPFINETRIM_L_MASK);
-				/* channel R*/
-				Ana_Set_Reg(AUDDEC_ELR_0,
-					    0x0 << HPFINETRIM_R_SHIFT,
-					    HPFINETRIM_R_MASK);
-
-				if (hpl_base > 0 && (hpl_min >= 0 ||
-				    abs(hpl_min) < abs(hpl_base)))
-					finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] =
-						0x3;
-				else if (hpl_base < 0 &&
-					 (hpl_min <= 0 ||
-					  abs(hpl_min) < abs(hpl_base)))
-					finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] =
-						0x2;
-				if (hpr_base > 0 &&
-				    (hpr_min >= 0 ||
-				     abs(hpr_min) < abs(hpr_base)))
-					finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] =
-						0x3;
-				else if (hpr_base < 0 &&
-					 (hpr_min <= 0 ||
-					  abs(hpr_min) < abs(hpr_base)))
-					finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] =
-						0x2;
-			}
-		}
 	}
 
 	/* channel L */
 	Ana_Set_Reg(AUDDEC_ELR_0,
 		    finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] <<
-			HPFINETRIM_L_SHIFT, HPFINETRIM_L_MASK);
+		    HPFINETRIM_L_SHIFT, HPFINETRIM_L_MASK);
 	Ana_Set_Reg(AUDDEC_ELR_0,
 		    finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] <<
-			HPFINETRIM_R_SHIFT, HPFINETRIM_R_MASK);
+		    HPFINETRIM_R_SHIFT, HPFINETRIM_R_MASK);
 
 	/* 4 pole fine trim */
 	usleep_range(10*1000, 15*1000);
@@ -2067,6 +2139,18 @@ static void set_lr_trim_code(void)
 	hpl_base = hpl_dc_offset;
 	hpr_base = hpr_dc_offset;
 EXIT:
+	/* check trimcode is valid */
+	if ((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] < 0 ||
+	    trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] > 0xf) ||
+	    (finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] < 0 ||
+	    finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] > 0x3) ||
+	    (trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] < 0 ||
+	    trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] > 0xf) ||
+	    (finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] < 0 ||
+	    finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] > 0x3))
+		pr_info("%s(), [Warning], invalid trimcode/finetrime (3pole)\n",
+			__func__);
+
 	set_anaoffset_value(&hp_3pole_anaoffset,
 			    trimcode[AUDIO_ANALOG_CHANNELS_LEFT1],
 			    trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1],
@@ -2077,7 +2161,7 @@ EXIT:
 	    (finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] == 0x0)) {
 		finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] = 0x2;
 	} else if ((hpl_base < 0) &&
-		   (finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] == 0x2)) {
+		(finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] == 0x2)) {
 		finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] = 0x0;
 		trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] =
 			trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] -
@@ -2087,13 +2171,26 @@ EXIT:
 	    (finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] == 0x0)) {
 		finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] = 0x2;
 	} else if ((hpr_base  < 0) &&
-		   (finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] == 0x2)) {
+		(finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] == 0x2)) {
 		finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] = 0x0;
 		trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] =
 			trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] -
 			((trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] > 7) ?
 			 -1 : 1);
 	}
+
+	/* check trimcode is valid */
+	if ((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] < 0 ||
+	    trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] > 0xf) ||
+	    (finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] < 0 ||
+	    finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] > 0x3) ||
+	    (trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] < 0 ||
+	    trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1] > 0xf) ||
+	    (finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] < 0 ||
+	    finetrim[AUDIO_ANALOG_CHANNELS_RIGHT1] > 0x3))
+		pr_info("%s(), [Warning], invalid trimcode/finetrime (4pole)\n",
+			__func__);
+
 	set_anaoffset_value(&hp_4pole_anaoffset,
 			    trimcode[AUDIO_ANALOG_CHANNELS_LEFT1],
 			    trimcode[AUDIO_ANALOG_CHANNELS_RIGHT1],
@@ -2113,14 +2210,20 @@ static void set_l_trim_code_spk(void)
 {
 	int hpl_base = 0;
 	int hpl_min = 0;
+	int hpl_ceiling = 0;
+	int hpl_floor = 0;
+	int hpl_finetrim_2 = 0;
+	int hpl_finetrim_3 = 0;
 	int trimcode[2] = { 0, 0 };
 	int finetrim[2] = { 0, 0 };
+	int trimcode_ceiling = 0;
+	int trimcode_floor = 0;
 	int trimcode_tmp = 0;
 
 	pr_debug("%s(), Start SPK DCtrim Calibrating\n", __func__);
 	Ana_Set_Reg(AUDDEC_ELR_0, 0x0, 0xffff);
-	Ana_Set_Reg(AUDDEC_ELR_0,
-		    0x0 << HPFINETRIM_L_SHIFT, HPFINETRIM_L_MASK);
+	Ana_Set_Reg(AUDDEC_ELR_0, 0x0 << HPFINETRIM_L_SHIFT,
+		    HPFINETRIM_L_MASK);
 	Ana_Set_Reg(AUDDEC_ELR_0,
 		    hp_3pole_anaoffset.hpr_trimecode << HPTRIM_R_SHIFT,
 		    HPTRIM_R_MASK);
@@ -2139,17 +2242,49 @@ static void set_l_trim_code_spk(void)
 			    0x2 << HPTRIM_L_SHIFT, HPTRIM_L_MASK);
 		usleep_range(10*1000, 15*1000);
 		hpl_min = get_spk_trim_offset(AUDIO_OFFSET_TRIM_MUX_HPL);
-		trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] =
-			(((abs(hpl_base) * 3) /
-			abs(hpl_base - hpl_min)) + 1) / 2;
+		/* Check floor and ceiling value to avoid rounding error */
+		trimcode_floor = (abs(hpl_base) * 3) /
+			(abs(hpl_base - hpl_min));
+		trimcode_ceiling = trimcode_floor + 1;
+		pr_debug("%s(), step1 > 0, get trim level trimcode_floor = %d, trimcode_ceiling = %d\n",
+			__func__, trimcode_floor, trimcode_ceiling);
 	} else {
 		Ana_Set_Reg(AUDDEC_ELR_0,
 			    0xa << HPTRIM_L_SHIFT, HPTRIM_L_MASK);
 		usleep_range(10*1000, 15*1000);
 		hpl_min = get_spk_trim_offset(AUDIO_OFFSET_TRIM_MUX_HPL);
-		trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] =
-			(((abs(hpl_base) * 3) /
-			abs(hpl_base - hpl_min)) + 1) / 2 + 8;
+		/* Check floor and ceiling value to avoid rounding error */
+		trimcode_floor = (abs(hpl_base) * 3) /
+			(abs(hpl_base - hpl_min)) + 8;
+		trimcode_ceiling = trimcode_floor + 1;
+		pr_debug("%s(), step1 < 0, get trim level trimcode_floor = %d, trimcode_ceiling = %d\n",
+			 __func__, trimcode_floor, trimcode_ceiling);
+	}
+
+	/* Get the best trim code from floor and ceiling value */
+	/* Get floor trim code */
+	Ana_Set_Reg(AUDDEC_ELR_0,
+		    trimcode_floor << HPTRIM_L_SHIFT, HPTRIM_L_MASK);
+	pr_debug("%s(), step1 floor AUDDEC_ELR_0 = 0x%x  trimcode_floor = %d\n",
+		 __func__, Ana_Get_Reg(AUDDEC_ELR_0), trimcode_floor);
+	hpl_floor = get_spk_trim_offset(AUDIO_OFFSET_TRIM_MUX_HPL);
+	mdelay(10);
+
+	/* Get ceiling trim code */
+	Ana_Set_Reg(AUDDEC_ELR_0,
+		    trimcode_ceiling << HPTRIM_L_SHIFT, HPTRIM_L_MASK);
+	pr_debug("%s(), step1 floor AUDDEC_ELR_0 = 0x%x  trimcode_ceiling = %d\n",
+		 __func__, Ana_Get_Reg(AUDDEC_ELR_0), trimcode_ceiling);
+	hpl_ceiling = get_spk_trim_offset(AUDIO_OFFSET_TRIM_MUX_HPL);
+	mdelay(10);
+
+	/* Choose the best */
+	if (abs(hpl_ceiling) < abs(hpl_floor)) {
+		hpl_base = hpl_ceiling;
+		trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] = trimcode_ceiling;
+	} else {
+		hpl_base = hpl_floor;
+		trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] = trimcode_floor;
 	}
 
 	Ana_Set_Reg(AUDDEC_ELR_0,
@@ -2161,19 +2296,26 @@ static void set_l_trim_code_spk(void)
 	if (hpl_base == 0)
 		goto EXIT;
 	if (hpl_base > 0) {
-		trimcode_tmp =
+		if ((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] != 0x7) &&
+			(trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] != 0x8)) {
+			trimcode_tmp =
 			trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] +
 			((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] > 7) ? -1 : 1);
-		Ana_Set_Reg(AUDDEC_ELR_0,
-			    trimcode_tmp << HPTRIM_L_SHIFT, HPTRIM_L_MASK);
-		usleep_range(10*1000, 15*1000);
-		hpl_min = get_spk_trim_offset(AUDIO_OFFSET_TRIM_MUX_HPL);
-		if (hpl_min >= 0 ||  abs(hpl_min) < abs(hpl_base)) {
-			trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] = trimcode_tmp;
-			hpl_base = hpl_min;
+			Ana_Set_Reg(AUDDEC_ELR_0,
+				    trimcode_tmp << HPTRIM_L_SHIFT,
+				    HPTRIM_L_MASK);
+			usleep_range(10*1000, 15*1000);
+			hpl_min =
+				get_spk_trim_offset(AUDIO_OFFSET_TRIM_MUX_HPL);
+			if (hpl_min >= 0 ||  abs(hpl_min) < abs(hpl_base)) {
+				trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] =
+					trimcode_tmp;
+				hpl_base = hpl_min;
+			}
 		}
 	} else {
-		if (trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] != 0) {
+		if ((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] != 0) &&
+			(trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] != 0xf)) {
 			trimcode_tmp =
 				trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] -
 				((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] > 7) ?
@@ -2194,6 +2336,7 @@ static void set_l_trim_code_spk(void)
 	Ana_Set_Reg(AUDDEC_ELR_0,
 		    trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] << HPTRIM_L_SHIFT,
 		    HPTRIM_L_MASK);
+
 	/* Step3: Trim code fine tune */
 	if (hpl_base == 0)
 		goto EXIT;
@@ -2218,34 +2361,52 @@ static void set_l_trim_code_spk(void)
 			}
 		}
 	} else {
+		/* SPK+HP finetrim=3 compensates positive DC value */
+		/* choose the best fine trim */
 		Ana_Set_Reg(AUDDEC_ELR_0,
 			    0x2 << HPFINETRIM_L_SHIFT, HPFINETRIM_L_MASK);
 		usleep_range(10*1000, 15*1000);
-		hpl_min = get_spk_trim_offset(AUDIO_OFFSET_TRIM_MUX_HPL);
-		if (hpl_min <= 0 || abs(hpl_min) < abs(hpl_base)) {
+		hpl_finetrim_2 = get_spk_trim_offset(AUDIO_OFFSET_TRIM_MUX_HPL);
+		if (hpl_finetrim_2 <= 0 ||
+			abs(hpl_finetrim_2) < abs(hpl_base)) {
 			finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] = 0x2;
-			hpl_base = hpl_min;
+			hpl_base = hpl_finetrim_2;
 		} else {
+			/* base and finetrim=2 across zero */
+			/* Choose best from base, finetrim=2, and finetrim=3 */
 			Ana_Set_Reg(AUDDEC_ELR_0,
 				    0x3 << HPFINETRIM_L_SHIFT,
 				    HPFINETRIM_L_MASK);
 			usleep_range(10*1000, 15*1000);
-			hpl_min =
+			hpl_finetrim_3 =
 				get_spk_trim_offset(AUDIO_OFFSET_TRIM_MUX_HPL);
-			if (hpl_min <= 0 && abs(hpl_min) < abs(hpl_base)) {
-				finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] = 0x3;
-				hpl_base = hpl_min;
-			}
+			finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] =
+				pick_spk_finetrim(hpl_base,
+						  hpl_finetrim_2,
+						  hpl_finetrim_3);
+			if (finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] == 0x2)
+				hpl_base = hpl_finetrim_2;
+			else if (finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] == 0x3)
+				hpl_base = hpl_finetrim_3;
 		}
 	}
 	Ana_Set_Reg(AUDDEC_ELR_0,
 		    finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] << HPFINETRIM_L_SHIFT,
 		    HPFINETRIM_L_MASK);
+
 	/* 4 pole fine trim */
 	usleep_range(10*1000, 15*1000);
 	hpl_base = get_spk_trim_offset(AUDIO_OFFSET_TRIM_MUX_HPL);
 	spkl_dc_offset = hpl_base;
 EXIT:
+	/* check trimcode is valid */
+	if ((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] < 0 ||
+	    trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] > 0xf) ||
+	    (finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] < 0 ||
+	    finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] > 0x3))
+		pr_info("%s(), [Warning], invalid trimcode/finetrime (3pole)\n",
+			__func__);
+
 	set_anaoffset_value(&hp_3pole_anaoffset,
 			    trimcode[AUDIO_ANALOG_CHANNELS_LEFT1],
 			    hp_3pole_anaoffset.hpr_trimecode,
@@ -2263,6 +2424,14 @@ EXIT:
 			((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] > 7) ? -1 : 1);
 	}
 
+	/* check trimcode is valid */
+	if ((trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] < 0 ||
+	    trimcode[AUDIO_ANALOG_CHANNELS_LEFT1] > 0xf) ||
+	    (finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] < 0 ||
+	    finetrim[AUDIO_ANALOG_CHANNELS_LEFT1] > 0x3))
+		pr_info("%s(), [Warning], invalid trimcode/finetrime (4pole)\n",
+			__func__);
+
 	set_anaoffset_value(&spk_4pole_anaoffset,
 			    trimcode[AUDIO_ANALOG_CHANNELS_LEFT1],
 			    hp_4pole_anaoffset.hpr_trimecode,
@@ -2272,7 +2441,7 @@ EXIT:
 		 __func__, Ana_Get_Reg(AUDDEC_ELR_0),
 		 get_anaoffset_value(&spk_3pole_anaoffset),
 		 get_anaoffset_value(&spk_4pole_anaoffset),
-		spkl_dc_offset, hpr_dc_offset);
+		 spkl_dc_offset, hpr_dc_offset);
 	/* clear AUDDEC_ELR_0 setting */
 	Ana_Set_Reg(AUDDEC_ELR_0, 0x0, 0xffff);
 }
@@ -2640,7 +2809,7 @@ static struct snd_soc_dai_driver mtk_6357_dai_codecs[] = {
 static void TurnOnDacPower(int device)
 {
 	pr_debug("%s()\n", __func__);
-
+	audckbufEnable(true);
 	/* gpio mosi mode */
 	set_playback_gpio(true);
 	/* Enable HP main CMFB Switch */
