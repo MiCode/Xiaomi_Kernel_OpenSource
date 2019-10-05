@@ -574,6 +574,7 @@ enum ufs_crypto_state {
  * @urgent_bkops_lvl: keeps track of urgent bkops level for device
  * @is_urgent_bkops_lvl_checked: keeps track if the urgent bkops level for
  *  device is known or not.
+ * @scsi_block_reqs_cnt: reference counting for scsi block requests
  */
 struct ufs_hba {
 	void __iomem *mmio_base;
@@ -719,6 +720,7 @@ struct ufs_hba {
 	/* Work Queues */
 	struct work_struct eh_work;
 	struct work_struct eeh_work;
+	struct work_struct rls_work;
 
 	/* HBA Errors */
 	u32 errors;
@@ -810,6 +812,9 @@ struct ufs_hba {
 	struct mutex rpmb_lock;
 
 	struct ufs_dev_desc *card;
+
+	atomic_t scsi_block_reqs_cnt;
+	bool restore_needed;
 };
 
 /* MTK PATCH */
