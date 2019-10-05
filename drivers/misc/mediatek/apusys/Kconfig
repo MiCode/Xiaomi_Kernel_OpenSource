@@ -34,3 +34,11 @@ config MTK_APUSYS_VPU_DEBUG
 	  kernel logs, register dumps, device logs,
 	  VPU jtag functions, and MET trace.
 	  Disable, if you don't need them.
+
+config MTK_APUSYS_EDMA_SUPPORT
+        bool "EDMA (External DMA) Driver"
+        help
+          The purpose of Mediatek eDMA is performing
+	  data transfer between external memory such as
+	  DRAM/TCM, It will cooperate with MDLA. eDMA
+	  support different modes for image process.

@@ -20,3 +20,4 @@ obj-$(CONFIG_MTK_APUSYS_SUPPORT) += midware/
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += sample/
 obj-$(CONFIG_MTK_APUSYS_MDLA_SUPPORT) += mdla/
 obj-$(CONFIG_MTK_APUSYS_VPU) += vpu/
+obj-$(CONFIG_MTK_APUSYS_EDMA_SUPPORT) += edma/
