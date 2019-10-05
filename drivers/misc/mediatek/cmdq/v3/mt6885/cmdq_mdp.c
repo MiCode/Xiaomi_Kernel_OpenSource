@@ -746,7 +746,7 @@ void cmdq_mdp_init_module_base_VA(void)
 	gCmdqMdpModuleBaseVA.VENC =
 		cmdq_dev_alloc_reference_VA_by_name("venc");
 	gCmdqMdpModuleBaseVA.MM_MUTEX =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_mutex");
+		cmdq_dev_alloc_reference_VA_by_name("mm_mutex");
 }
 
 void cmdq_mdp_deinit_module_base_VA(void)
