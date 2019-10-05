@@ -8762,7 +8762,7 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		ufshcd_update_reg_hist(&hba->ufs_stats.auto_hibern8_err,
 		       UIC_CMD_DME_HIBER_EXIT);
 
-		ret = -ETIMEDOUT;
+		ret = -EAGAIN;
 		goto enable_gating;
 	}
 
@@ -8825,8 +8825,22 @@ disable_clks:
 	 * host clocks are ON.
 	 */
 	ret = ufshcd_vops_suspend(hba, pm_op);
-	if (ret)
-		goto set_link_active;
+	if (ret) {
+		dev_err(hba->dev, "%s: vender suspend failed. ret = %d\n",
+			__func__, ret);
+
+		/* block commands from scsi mid-layer */
+		ufshcd_scsi_block_requests(hba);
+		hba->ufshcd_state = UFSHCD_STATE_ERROR;
+		hba->force_host_reset = true;
+		schedule_work(&hba->eh_work);
+
+		/* Unable to recover the link, so no point proceeding */
+		if (ret) {
+			ret = -EAGAIN;
+			goto set_link_active;
+		}
+	}
 
 	if (!ufshcd_is_link_active(hba))
 		ufshcd_setup_clocks(hba, false);
