@@ -24,39 +24,37 @@
 /* #define DEBUG_CM_MGR */
 #define USE_TIMER_CHECK
 /* #define USE_IDLE_NOTIFY */
-/* #define USE_NEW_CPU_OPP */
-/* #define USE_CM_MGR_AT_SSPM */
+#define USE_NEW_CPU_OPP
+#define USE_CM_MGR_AT_SSPM
 /* #define USE_SINGLE_CLUSTER */
+/* #define USE_CPU_TO_DRAM_MAP */
 
-#define CM_MGR_EMI_OPP	2
-#define CM_MGR_LOWER_OPP 10
+#define CM_MGR_EMI_OPP 4
+#define CM_MGR_LOWER_OPP 6
 #define CM_MGR_CPU_CLUSTER 2
 #define CM_MGR_CPU_COUNT 8
-#define CM_MGR_CPU_LIMIT 4
+#define CM_MGR_CPU_LIMIT 6
 
-#define CLUSTER0_MASK   0x0f
-#define CLUSTER1_MASK   0xf0
+#define CLUSTER0_MASK   0xff
+
+#define CM_MGR_CPU_OPP_SIZE 16
 
 #define VCORE_ARRAY_SIZE CM_MGR_EMI_OPP
 #define CM_MGR_CPU_ARRAY_SIZE (CM_MGR_CPU_CLUSTER * CM_MGR_EMI_OPP)
 #define RATIO_COUNT (100 / 5 - 1)
 #define IS_UP 1
 #define IS_DOWN 0
-#define USE_TIMER_CHECK_TIME msecs_to_jiffies(100)
+#define USE_TIMER_CHECK_TIME msecs_to_jiffies(50)
 #define CM_MGR_INIT_DELAY_MS 1
 #define CM_MGR_BW_VALUE 0
+#define CM_MGR_VCORE_OPP_COUNT 13
 
 enum {
-	CM_MGR_LP4X_2CH_3600 = 0,
-	CM_MGR_LP4X_2CH_3200,
-	CM_MGR_LP3_1CH_1866,
+	CM_MGR_LP4 = 0,
 	CM_MGR_MAX,
 };
 
-extern spinlock_t sw_zq_tx_lock;
-
 extern void __iomem *mcucfg_mp0_counter_base;
-extern void __iomem *mcucfg_mp2_counter_base;
 
 extern unsigned int cpu_power_up_array[CM_MGR_CPU_CLUSTER];
 extern unsigned int cpu_power_down_array[CM_MGR_CPU_CLUSTER];

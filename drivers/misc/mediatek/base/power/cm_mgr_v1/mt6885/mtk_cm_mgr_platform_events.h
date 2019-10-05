@@ -19,30 +19,21 @@
 
 #include <linux/tracepoint.h>
 
-TRACE_EVENT(CM_MGR__stall_raio_0,
-	TP_PROTO(unsigned int ratio_ratio),
-	TP_ARGS(ratio_ratio),
+TRACE_EVENT(CM_MGR__stall_raio,
+	TP_PROTO(int _id,
+		unsigned int _ratio),
+	TP_ARGS(_id,
+		_ratio),
 	TP_STRUCT__entry(
-		__field(unsigned int, ratio_ratio)
+		__field(int, _id)
+		__field(unsigned int, _ratio)
 	),
 	TP_fast_assign(
-		__entry->ratio_ratio = ratio_ratio;
+		__entry->_id = _id;
+		__entry->_ratio = _ratio;
 	),
-	TP_printk("mcucfg_reg__MP0_CPU_AVG_STALL_RATIO=%d",
-		__entry->ratio_ratio)
-);
-
-TRACE_EVENT(CM_MGR__stall_raio_1,
-	TP_PROTO(unsigned int ratio_ratio),
-	TP_ARGS(ratio_ratio),
-	TP_STRUCT__entry(
-		__field(unsigned int, ratio_ratio)
-	),
-	TP_fast_assign(
-		__entry->ratio_ratio = ratio_ratio;
-	),
-	TP_printk("ca57a_12ffc_config__CPU_AVG_STALL_RATIO=%d",
-		__entry->ratio_ratio)
+	TP_printk("CPU0_config_reg__CPU_AVG_STALL_RATIO=%d, _id=%d",
+		__entry->_ratio, __entry->_id)
 );
 
 #endif /* _TRACE_MTK_CM_MGR_EVENTS_H */

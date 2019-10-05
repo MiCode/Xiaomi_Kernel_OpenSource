@@ -62,6 +62,14 @@
 #include <sspm_ipi.h>
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 
+/* todo: remove after DVFSRC compiled */
+__weak int is_dvfsrc_enabled(void)
+{
+	pr_info("todo: weak %s\n", __func__);
+	return 0;
+}
+
+
 __attribute__((weak))
 void cm_mgr_update_dram_by_cpu_opp(int cpu_opp) {};
 
