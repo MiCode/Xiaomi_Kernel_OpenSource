@@ -287,7 +287,7 @@ void ion_sec_heap_free(struct ion_buffer *buffer)
 		((struct ion_sec_buffer_info *)buffer->priv_virt)->priv_phys;
 
 #ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
-	tmem_type = get_trusted_mem_type(heap->id);
+	tmem_type = get_trusted_mem_type(buffer->heap->id);
 	trusted_mem_api_unref(tmem_type, sec_handle,
 			      (uint8_t *)buffer->heap->name,
 			      buffer->heap->id);
