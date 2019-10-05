@@ -220,6 +220,18 @@ int larb_clock_on(int larb, bool config_mtcmos)
 	int ret = 0;
 
 #ifdef CONFIG_MTK_SMI_EXT
+	if (larb >= SMI_LARB_NR) {
+		M4U_MSG("invalid larb:%d, total:%d\n",
+			larb, SMI_LARB_NR);
+		return -1;
+	}
+
+	if (!pseudo_dev_larb[larb].dev ||
+	    !strcmp(pseudo_larbname[larb], "m4u_none")) {
+		M4U_MSG("ignore the invalid larb:%d\n", larb);
+		return 0;
+	}
+
 	if (larb < ARRAY_SIZE(pseudo_larb_clk_name))
 		ret = smi_bus_prepare_enable(larb,
 						 pseudo_larb_clk_name[larb]);
@@ -236,6 +248,18 @@ void larb_clock_off(int larb, bool config_mtcmos)
 {
 #ifdef CONFIG_MTK_SMI_EXT
 	int ret = 0;
+
+	if (larb >= SMI_LARB_NR) {
+		M4U_MSG("invalid larb:%d, total:%d\n",
+			larb, SMI_LARB_NR);
+		return;
+	}
+
+	if (!pseudo_dev_larb[larb].dev ||
+	    !strcmp(pseudo_larbname[larb], "m4u_none")) {
+		M4U_MSG("ignore the invalid larb:%d\n", larb);
+		return;
+	}
 
 	if (larb < ARRAY_SIZE(pseudo_larb_clk_name))
 		ret = smi_bus_disable_unprepare(larb,
