@@ -1,4 +1,4 @@
-config MTK_APUSYS
+config MTK_APUSYS_SUPPORT
 	bool "APUSYS driver"
 	help
 	  For Mediatek APUSYS features, such as APUSYS driver
@@ -7,7 +7,7 @@ config MTK_APUSYS
 	  if the APUSYS driver should be
 	  built in or not
 
-config MTK_APUSYS_MDLA
+config MTK_APUSYS_MDLA_SUPPORT
 	bool "MDLA driver"
 	help
 	  Support deep neural network calculation using
