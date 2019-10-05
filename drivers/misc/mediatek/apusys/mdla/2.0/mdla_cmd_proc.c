@@ -252,6 +252,8 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	core_id = mdla_info->mdlaid;
 	ce.queue_t = sched_clock();
 
+	memset(&ce, 0, sizeof(ce));
+
 	/* The critical region of command enqueue */
 	mutex_lock(&mdla_info->cmd_lock);
 

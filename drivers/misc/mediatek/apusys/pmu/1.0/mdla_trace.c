@@ -114,6 +114,8 @@ void mdla_dump_prof(int coreid, struct seq_file *s)
 	_SHOW_VAL(op_trace);
 	_SHOW_VAL(pmu_int);
 
+	memset(c, 0, sizeof(c));
+
 	pmu_counter_event_get_all(coreid, c);
 
 	for (i = 0; i < MDLA_PMU_COUNTERS; i++)
@@ -127,6 +129,8 @@ static void mdla_profile_pmu_counter(int core_id)
 {
 	u32 c[MDLA_PMU_COUNTERS];
 	struct mdla_dev *mdla_info = &mdla_devices[core_id];
+
+	memset(c, 0, sizeof(c));
 
 	if (mdla_info->pmu.pmu_hnd->mode == PER_CMD) {
 		pmu_reg_save(core_id);
