@@ -153,9 +153,10 @@ config MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
 config MICROTRUST_KM4_SUPPORT
 	tristate "Microtrust km4.0 support"
 	depends on MICROTRUST_TEE_SUPPORT
-	default n
+	depends on KEYMASTER_VERSION="4.0"
+	default y
 	---help---
 	  Enables support of Microtrust km4.0.
 	  Deactive dev/ut_keymaster ioctl function.
 	  Say Y if you would like to enable km4.0.
-	  If unsure, say N.
+	  If unsure, say Y.
