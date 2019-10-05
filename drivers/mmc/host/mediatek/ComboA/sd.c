@@ -5312,6 +5312,8 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	host->dma.gpd = dma_alloc_coherent(&pdev->dev,
 			MAX_GPD_NUM * sizeof(struct gpd_t),
 			&host->dma.gpd_addr, GFP_KERNEL);
+	if (!host->dma.gpd)
+		return -ENOMEM;
 	host->dma.bd = dma_alloc_coherent(&pdev->dev,
 			MAX_BD_NUM * sizeof(struct bd_t),
 			&host->dma.bd_addr, GFP_KERNEL);
@@ -5320,7 +5322,6 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	host->pio_kaddr = kmalloc_array(DIV_ROUND_UP(MAX_SGMT_SZ, PAGE_SIZE),
 		sizeof(ulong), GFP_KERNEL);
 	WARN_ON(!host->pio_kaddr);
-	WARN_ON(!host->dma.gpd);
 	msdc_init_gpd_bd(host, &host->dma);
 	mtk_msdc_host[host->id] = host;
 
