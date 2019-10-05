@@ -650,11 +650,12 @@ void mt_gpufreq_enable_by_ptpod(void)
 	g_DVFS_is_paused_by_ptpod = false;
 
 #if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
+#define AGING_LOAD_NAME "k6885tv1_64_aging"
 	gpufreq_pr_debug("@%s: flavor name: %s\n", __func__,
 			CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
 
 	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-						"k85v1_64_aging") != NULL) {
+						AGING_LOAD_NAME) != NULL) {
 		gpufreq_pr_info("@%s: AGING flavor !!!\n", __func__);
 		g_enable_aging_test = 1;
 	}
@@ -1829,14 +1830,16 @@ static int __mt_gpufreq_create_procfs(void)
 void __mt_gpufreq_update_aging(bool apply_aging_setting)
 {
 	int i;
+	int min_1875_index = 20;
+	int min_1250_index = 31;
 
 	if (apply_aging_setting) {
 		for (i = 0; i < g_max_opp_idx_num; i++) {
-			if (i >= 0 && i <= 6)
+			if (i >= 0 && i <= min_1875_index)
 				g_opp_table[i].gpufreq_volt -= 1875;
-			else if (i >= 7 && i <= 19)
+			else if (i <= min_1250_index)
 				g_opp_table[i].gpufreq_volt -= 1250;
-			else if (i >= 20 && i <= 36)
+			else
 				g_opp_table[i].gpufreq_volt -= 625;
 
 			g_opp_table[i].gpufreq_vsram =
@@ -1852,11 +1855,11 @@ void __mt_gpufreq_update_aging(bool apply_aging_setting)
 		}
 	} else {
 		for (i = 0; i < g_max_opp_idx_num; i++) {
-			if (i >= 0 && i <= 6)
+			if (i >= 0 && i <= min_1875_index)
 				g_opp_table[i].gpufreq_volt += 1875;
-			else if (i >= 7 && i <= 19)
+			else if (i <= min_1250_index)
 				g_opp_table[i].gpufreq_volt += 1250;
-			else if (i >= 20 && i <= 36)
+			else
 				g_opp_table[i].gpufreq_volt += 625;
 
 			g_opp_table[i].gpufreq_vsram =
