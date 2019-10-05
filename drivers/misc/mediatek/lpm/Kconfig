@@ -1,0 +1,18 @@
+config MTK_LPM_MT6779
+	tristate "Specify Mediatek LPM Platform is MT6779"
+	depends on MTK_LOW_POWER_MODULE
+	help
+	  Select MediaTek Low Power Module Platform is MT6779
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6779.
+	  If unsure, set N to disable.
+
+config MTK_LPM_MT6885
+        tristate "Specify Mediatek LPM Platform is MT6885"
+        depends on MTK_LOW_POWER_MODULE
+        help
+          Select MediaTek Low Power Module Platform is MT6885
+          for power management.
+          Set Y to select this feature for specific platform-mt6885.
+          If unsure, set N to disable.
+
