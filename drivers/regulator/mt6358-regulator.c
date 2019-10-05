@@ -284,7 +284,7 @@ static int mt6358_set_voltage_sel(
 static int mt6358_get_voltage_sel(struct regulator_dev *rdev)
 {
 	int idx, ret;
-	u32 selector;
+	u32 selector = 0;
 	struct mt6358_regulator_info *info = rdev_get_drvdata(rdev);
 	const u32 *pVoltidx;
 
@@ -312,7 +312,7 @@ static int mt6358_get_voltage_sel(struct regulator_dev *rdev)
 static int mt6358_get_status(struct regulator_dev *rdev)
 {
 	int ret;
-	u32 regval;
+	u32 regval = 0;
 	struct mt6358_regulator_info *info = rdev_get_drvdata(rdev);
 
 	ret = regmap_read(rdev->regmap, info->status_reg, &regval);
@@ -442,7 +442,7 @@ static int mt6358_regulator_probe(struct platform_device *pdev)
 	struct regulator_config config = {};
 	struct regulator_dev *rdev;
 	int i;
-	u32 reg_value;
+	u32 reg_value = 0;
 
 	/* Read PMIC chip revision to update constraints and voltage table */
 	if (regmap_read(mt6397->regmap, MT6358_SWCID, &reg_value) < 0) {
