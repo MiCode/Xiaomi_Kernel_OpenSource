@@ -887,7 +887,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	 */
 	status &= 0xfffe;
 	if (status) {
-		mtk_dsi_mask(dsi, DSI_INTSTA, status, 0);
+		writel((~status & 0xfffe), dsi->regs + DSI_INTSTA);
 		if (status & BUFFER_UNDERRUN_INT_FLAG) {
 			DDPPR_ERR("[IRQ] %s: buffer underrun\n",
 				  mtk_dump_comp_str(&dsi->ddp_comp));
@@ -1639,48 +1639,44 @@ int mtk_dsi_dump(struct mtk_ddp_comp *comp)
 	int k;
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	void __iomem *baddr = comp->regs;
+	unsigned int reg_val;
 
-	if (mtk_ddp_comp_helper_get_opt(comp,
-					MTK_DRM_OPT_REG_PARSER_RAW_DUMP)) {
-
-		DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
-		for (k = 0; k < 0x200; k += 16) {
-			DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
-				readl(dsi->regs + k),
-				readl(dsi->regs + k + 0x4),
-				readl(dsi->regs + k + 0x8),
-				readl(dsi->regs + k + 0xc));
-		}
-
-		DDPDUMP("- DSI CMD REGS -\n");
-		for (k = 0; k < 32; k += 16) {
-			DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
-				readl(dsi->regs + 0x200 + k),
-				readl(dsi->regs + 0x200 + k + 0x4),
-				readl(dsi->regs + 0x200 + k + 0x8),
-				readl(dsi->regs + 0x200 + k + 0xc));
-		}
-
-		mtk_mipi_tx_dump(dsi->phy);
+	if (DISP_REG_GET_FIELD(MODE_FLD_REG_MODE_CON,
+				   baddr + DSI_MODE_CTRL)) {
+		/* VDO mode */
+		reg_val = (readl(dsi->regs + 0x164)) & 0xff;
+		DDPDUMP("state7(vdo mode):%s\n",
+			mtk_dsi_vdo_mode_parse_state(reg_val));
 	} else {
-		unsigned int reg_val;
-
-		if (DISP_REG_GET_FIELD(MODE_FLD_REG_MODE_CON,
-				       baddr + DSI_MODE_CTRL)) {
-			/* VDO mode */
-			reg_val = (readl(dsi->regs + 0x164)) & 0xff;
-			DDPDUMP("state7(vdo mode):%s\n",
-				mtk_dsi_vdo_mode_parse_state(reg_val));
-		} else {
-			reg_val = (readl(dsi->regs + 0x160)) & 0xffff;
-			DDPDUMP("state6(cmd mode):%s\n",
-				mtk_dsi_cmd_mode_parse_state(reg_val));
-		}
-		reg_val = (readl(dsi->regs + 0x168)) & 0x3fff;
-		DDPDUMP("state8 WORD_COUNTER(cmd mode):%u\n", reg_val);
-		reg_val = (readl(dsi->regs + 0x16C)) & 0x3fffff;
-		DDPDUMP("state9 LINE_COUNTER(cmd mode):%u\n", reg_val);
+		reg_val = (readl(dsi->regs + 0x160)) & 0xffff;
+		DDPDUMP("state6(cmd mode):%s\n",
+			mtk_dsi_cmd_mode_parse_state(reg_val));
 	}
+	reg_val = (readl(dsi->regs + 0x168)) & 0x3fff;
+	DDPDUMP("state8 WORD_COUNTER(cmd mode):%u\n", reg_val);
+	reg_val = (readl(dsi->regs + 0x16C)) & 0x3fffff;
+	DDPDUMP("state9 LINE_COUNTER(cmd mode):%u\n", reg_val);
+
+	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	for (k = 0; k < 0x200; k += 16) {
+		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+			readl(dsi->regs + k),
+			readl(dsi->regs + k + 0x4),
+			readl(dsi->regs + k + 0x8),
+			readl(dsi->regs + k + 0xc));
+	}
+
+	DDPDUMP("- DSI CMD REGS -\n");
+	for (k = 0; k < 32; k += 16) {
+		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+			readl(dsi->regs + 0x200 + k),
+			readl(dsi->regs + 0x200 + k + 0x4),
+			readl(dsi->regs + 0x200 + k + 0x8),
+			readl(dsi->regs + 0x200 + k + 0xc));
+	}
+
+	mtk_mipi_tx_dump(dsi->phy);
+
 	return 0;
 }
 
