@@ -309,7 +309,7 @@ static int nr_WPE_devs;
 
 #else
 #define ISP_WPE_BASE                        (0x15011000)
-#define ISP_WPE_B_BASW                      (0x15811000)
+#define ISP_WPE_B_BASE                      (0x15811000)
 #endif
 
 static unsigned int g_u4EnableClockCount;
@@ -1397,8 +1397,8 @@ static signed int ConfigWPEHW(struct WPE_Config *pWPEConfig)
 	/* cmdqRecHandle handle; *//* kernel-3.18 usage */
 	uint64_t engineFlag = (1L << CMDQ_ENG_WPEI);
 #endif
-	//if (WPE_DBG_DBGLOG == (WPE_DBG_DBGLOG & WPEInfo.DebugMask)) {
-	if (1) {
+
+	if (WPE_DBG_DBGLOG == (WPE_DBG_DBGLOG & WPEInfo.DebugMask)) {
 
 		LOG_DBG("ConfigWPEHW Start!\n");
 		LOG_DBG("WPE_CTL_MOD_EN:0x%x!\n", pWPEConfig->WPE_CTL_MOD_EN);
@@ -4541,7 +4541,7 @@ static signed int WPE_open(struct inode *pInode, struct file *pFile)
 #define KERNEL_LOG
 #ifdef KERNEL_LOG
 	/* In EP, Add WPE_DBG_WRITE_REG for debug. Should remove it after EP */
-	WPEInfo.DebugMask = (WPE_DBG_INT | WPE_DBG_DBGLOG | WPE_DBG_WRITE_REG | WPE_DBG_INFLOG);
+	WPEInfo.DebugMask = (WPE_DBG_INT | WPE_DBG_DBGLOG | WPE_DBG_WRITE_REG);
 #endif
 	/*  */
 EXIT:
@@ -4796,17 +4796,17 @@ static signed int WPE_probe(struct platform_device *pDev)
 				"[ERROR] get irq flags from DTS fail!!\n");
 			return -ENODEV;
 		}
+
 		for (i = 0; i < WPE_IRQ_TYPE_AMOUNT; i++) {
 			if (strcmp(pDev->dev.of_node->name,
 				WPE_IRQ_CB_TBL[i].device_name) == 0) {
-				#if 1
 				Ret =
 				    request_irq(WPE_dev->irq,
 					(irq_handler_t) WPE_IRQ_CB_TBL[i].
 					isr_fp, irq_info[2],
 					(const char *)WPE_IRQ_CB_TBL[i].
 					device_name, NULL);
-				#endif
+
 				if (Ret) {
 					LOG_ERR(
 						"[ERROR] Unable to request IRQ, request_irq fail, nr_WPE_devs=%d, devnode(%s), irq=%d, ISR: %s\n",
@@ -4816,6 +4816,7 @@ static signed int WPE_probe(struct platform_device *pDev)
 						WPE_IRQ_CB_TBL[i].device_name);
 					return Ret;
 				}
+
 				LOG_INF(
 					"nr_WPE_devs=%d, devnode(%s), irq=%d, ISR: %s\n",
 					nr_WPE_devs,
@@ -4825,6 +4826,7 @@ static signed int WPE_probe(struct platform_device *pDev)
 				break;
 			}
 		}
+
 		if (i >= WPE_IRQ_TYPE_AMOUNT) {
 			LOG_INF(
 				"No corresponding ISR!!: nr_WPE_devs=%d, devnode(%s), irq=%d\n",
@@ -4850,6 +4852,7 @@ static signed int WPE_probe(struct platform_device *pDev)
 			return Ret;
 		}
 #ifdef EP_NO_CLKMGR
+
 #else
 		 /*CCF*/
 		wpe_clk.CG_IMGSYS_LARB9 =
