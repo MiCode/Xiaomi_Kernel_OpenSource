@@ -1154,9 +1154,15 @@ int dlpt_notify_handler(void *unused)
 				pr_info("[DLPT_POWER_OFF_EN] notify SOC=0 to power off, power_off_cnt=%d\n"
 					, power_off_cnt);
 
-				if (power_off_cnt >= 4)
-					kernel_restart(
-						"DLPT reboot system");
+				/*
+				 * TODO: After kernel-4.19, pm_mutex change to
+				 * system_transition_mutex.
+				 */
+				if (power_off_cnt >= 4 &&
+				    mutex_trylock(&pm_mutex)) {
+					kernel_restart("DLPT reboot system");
+					mutex_unlock(&pm_mutex);
+				}
 			} else
 				power_off_cnt = 0;
 		}
