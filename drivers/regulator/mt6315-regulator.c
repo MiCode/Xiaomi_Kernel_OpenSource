@@ -136,7 +136,7 @@ static int mt6315_regulator_disable(struct regulator_dev *rdev)
 static int mt6315_regulator_get_voltage_sel(struct regulator_dev *rdev)
 {
 	struct mt6315_regulator_info *info = rdev_get_drvdata(rdev);
-	int ret, regval;
+	int ret = 0, regval = 0;
 
 	ret = regmap_read(rdev->regmap, info->da_vsel_reg, &regval);
 	if (ret != 0) {
@@ -153,7 +153,7 @@ static int mt6315_regulator_get_voltage_sel(struct regulator_dev *rdev)
 static unsigned int mt6315_regulator_get_mode(struct regulator_dev *rdev)
 {
 	struct mt6315_regulator_info *info = rdev_get_drvdata(rdev);
-	int ret, regval;
+	int ret = 0, regval = 0;
 
 	ret = regmap_read(rdev->regmap, info->modeset_reg, &regval);
 	if (ret != 0) {
@@ -254,8 +254,8 @@ err_mode:
 
 static int mt6315_get_status(struct regulator_dev *rdev)
 {
-	int ret;
-	u32 regval;
+	int ret = 0;
+	u32 regval = 0;
 	struct mt6315_regulator_info *info = rdev_get_drvdata(rdev);
 
 	ret = regmap_read(rdev->regmap, info->da_reg, &regval);
@@ -355,7 +355,7 @@ static ssize_t store_extbuck_access(struct device *dev,
 				    const char *buf,
 				    size_t size)
 {
-	struct mt_regulator_drv_data *drvdata;
+	struct mt_regulator_drv_data *drvdata = NULL;
 	struct regmap *regmap;
 	int ret = 0;
 	char *pvalue = NULL, *addr, *val;
@@ -370,9 +370,10 @@ static ssize_t store_extbuck_access(struct device *dev,
 		regmap = dev_get_regmap(dev->parent, NULL);
 		if (!drvdata || !regmap)
 			return -ENODEV;
-	}
+	} else
+		return -ENODEV;
 
-	if (buf != NULL && size != 0) {
+	if (buf != NULL && size != 0 && drvdata != NULL) {
 		pr_info("[%s] size is %d, buf is %s\n"
 			, __func__, (int)size, buf);
 
@@ -413,8 +414,8 @@ static int mt6315_regulator_probe(struct platform_device *pdev)
 	struct regulator_config config = {};
 	struct regulator_dev *rdev;
 	struct regulation_constraints *c;
-	int i;
-	u32 reg_value;
+	int i = 0;
+	u32 reg_value = 0;
 
 	regmap = dev_get_regmap(dev->parent, NULL);
 	if (!regmap)
