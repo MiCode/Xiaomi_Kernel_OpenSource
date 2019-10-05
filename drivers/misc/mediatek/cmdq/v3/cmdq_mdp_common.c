@@ -1009,6 +1009,30 @@ static void cmdq_mdp_store_debug(struct cmdqCommandStruct *desc,
 	CMDQ_MSG("user debug string:%s\n", handle->user_debug_str);
 }
 
+static void cmdq_mdp_setup_sec_ext(struct cmdqCommandStruct *desc,
+	struct cmdqRecStruct *handle)
+{
+	/* assign extension feature flag and read back buffer */
+	handle->secData.extension = desc->secData.extension;
+	if (!handle->secData.extension)
+		return;
+
+	handle->reg_count = desc->regValue.count;
+	handle->reg_values = cmdq_core_alloc_hw_buffer(cmdq_dev_get(),
+		desc->regValue.count * sizeof(handle->reg_values[0]),
+		&handle->reg_values_pa,
+		GFP_KERNEL);
+	if (!handle->reg_values) {
+		CMDQ_ERR(
+			"fail to allocate read back buffer count:%u\n",
+			desc->regValue.count);
+		handle->secData.extension = 0;
+	}
+
+	CMDQ_LOG("secure read back cnt:%u extension:%#llx\n",
+		handle->reg_count, handle->secData.extension);
+}
+
 static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 	struct cmdqRecStruct *handle)
 {
@@ -1022,6 +1046,8 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 	handle->secData.enginesNeedPortSecurity =
 		desc->secData.enginesNeedPortSecurity;
 	handle->secData.addrMetadataCount = desc->secData.addrMetadataCount;
+
+	cmdq_mdp_setup_sec_ext(desc, handle);
 
 	/* copy isp meta */
 	handle->secData.ispMeta = desc->secData.ispMeta;

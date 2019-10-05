@@ -5602,6 +5602,68 @@ void testcase_cmdq_trigger_devapc(void)
 	CMDQ_LOG("%s END\n", __func__);
 }
 
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+void testcase_read_pq_sec(void)
+{
+	struct cmdqRecStruct *handle = NULL;
+	const u32 total_read = 1024;
+	u32 i;
+	dma_addr_t out_pa;
+	u32 *out_va;
+
+	CMDQ_LOG("%s\n", __func__);
+
+	/* Create Slot */
+	cmdq_dev_enable_gce_clock(true);
+
+	out_va = (u32 *)dma_alloc_coherent(cmdq_dev_get(), total_read * 4,
+		&out_pa, GFP_KERNEL);
+
+	/* assign efault value to detect */
+	for (i = 0; i < total_read; i++)
+		out_va[i] = 0xdead0000 + i;
+
+	/* flush empty task to secure world */
+	cmdq_task_create(CMDQ_SCENARIO_DEBUG, &handle);
+	cmdq_task_set_secure(handle, true);
+	handle->secData.extension = 0xffff;
+	handle->reg_values = out_va;
+	handle->reg_values_pa = out_pa;
+	handle->reg_count = total_read;
+	cmdq_pkt_jump(handle->pkt, CMDQ_INST_SIZE);
+
+	_test_flush_task(handle);
+
+	handle->reg_values = NULL;
+	handle->reg_values_pa = 0;
+	handle->reg_count = 0;
+
+	CMDQ_LOG("dump results ...\n");
+	for (i = 0; i < total_read; i += 16)
+		CMDQ_LOG(
+			"%#x:%#x,%#x,%#x,%#x,%#x,%#x,%#x,%#x,%#x,%#x,%#x,%#x,%#x,%#x,%#x,%#x\n",
+			i, out_va[i], out_va[i+1], out_va[i+2], out_va[i+3],
+			out_va[i+4], out_va[i+5], out_va[i+6], out_va[i+7],
+			out_va[i+8], out_va[i+9], out_va[i+10], out_va[i+11],
+			out_va[i+12], out_va[i+13], out_va[i+14], out_va[i+15]);
+
+	CMDQ_LOG("spr:%#x %#x %#x %#x gpr:%#x %#x %#x\n",
+		CMDQ_REG_GET32((GCE_BASE_VA + 0xF0)),
+		CMDQ_REG_GET32((GCE_BASE_VA + 0xF4)),
+		CMDQ_REG_GET32((GCE_BASE_VA + 0xF8)),
+		CMDQ_REG_GET32((GCE_BASE_VA + 0xFC)),
+		CMDQ_REG_GET32(CMDQ_GPR_R32(5)),
+		CMDQ_REG_GET32(CMDQ_GPR_R32(8)),
+		CMDQ_REG_GET32(CMDQ_GPR_R32(9)));
+
+	dma_free_coherent(cmdq_dev_get(), total_read * 4, out_va, out_pa);
+
+	cmdq_task_destroy(handle);
+
+	cmdq_dev_enable_gce_clock(false);
+}
+#endif
+
 /* CMDQ driver stress test */
 
 enum ENGINE_POLICY_ENUM {
@@ -7746,6 +7808,11 @@ static void testcase_general_handling(s32 testID)
 	case 300:
 		testcase_stress_basic();
 		break;
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	case 164:
+		testcase_read_pq_sec();
+		break;
+#endif
 	case 163:
 		testcase_cmdq_trigger_devapc();
 		break;
