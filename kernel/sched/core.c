@@ -5591,6 +5591,7 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf)
 	 * value of rq->clock[_task]
 	 */
 	update_rq_clock(rq);
+	unthrottle_offline_rt_rqs(rq);
 
 	for (;;) {
 		/*
