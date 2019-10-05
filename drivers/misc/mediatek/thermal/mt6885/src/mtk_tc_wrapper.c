@@ -195,12 +195,27 @@ THERMAL_BANK5,	//IFRA  (LVTS6)
 
 int (*max_temperature_in_bank[THERMAL_BANK_NUM])(void) = {
 	get_immediate_cpuB_LVTS1_wrap,
-	get_immediate_cpuB_LVTS1_wrap,
+	get_immediate_cpuB_LVTS2_wrap,
 	get_immediate_cpuL_wrap,
 	get_immediate_vpu_wrap,
 	get_immediate_gpu_wrap,
 	get_immediate_infa_wrap
 };
+
+int get_immediate_cpuB_wrap(void)
+{
+	int curr_temp;
+
+	curr_temp = MAX(get_immediate_cpuB_LVTS1_wrap(),
+			get_immediate_cpuB_LVTS2_wrap());
+
+
+	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
+
+	return curr_temp;
+}
+
+
 
 
 int get_immediate_ts0_wrap(void)
