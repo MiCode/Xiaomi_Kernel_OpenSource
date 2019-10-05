@@ -23,7 +23,7 @@
 #include "include/pmic_api.h"
 #include "include/pmic_api_buck.h"
 
-#define LP_INIT_SETTING_VERIFIED 1
+#define LP_INIT_SETTING_VERIFIED 0
 
 unsigned int g_pmic_chip_version = 1;
 
@@ -112,23 +112,23 @@ void PMIC_LP_INIT_SETTING(void)
 {
 	g_pmic_chip_version = PMIC_CHIP_VER();
 #if LP_INIT_SETTING_VERIFIED
-	/*Suspend*/
-	pmic_buck_vcore_lp(SRCLKEN0, 1, 1, HW_LP);
-	pmic_buck_vpu_lp(SW, 1, 1, SW_OFF);
+	/*SODI3*/
+	pmic_buck_vcore_lp(SW, 1, 1, SW_OFF);
+	pmic_buck_vpu_lp(SRCLKEN0, 1, 1, HW_LP);
 	pmic_buck_vproc1_lp(SW, 1, 1, SW_OFF);
 	pmic_buck_vproc2_lp(SW, 1, 1, SW_OFF);
-	pmic_buck_vgpu11_lp(SW, 1, 1, SW_OFF);
+	pmic_buck_vgpu11_lp(SRCLKEN0, 1, 1, HW_LP);
 	pmic_buck_vgpu12_lp(SW, 1, 1, SW_OFF);
-	pmic_buck_vmodem_lp(SRCLKEN0, 1, 1, HW_LP);
+	pmic_buck_vmodem_lp(SW, 1, 1, SW_OFF);
 	pmic_buck_vs1_lp(SRCLKEN0, 1, 1, HW_LP);
 	pmic_buck_vs2_lp(SRCLKEN0, 1, 1, HW_LP);
 	pmic_buck_vpa_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vsram_proc1_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vsram_proc2_lp(SW, 1, 1, SW_OFF);
-	pmic_ldo_vsram_others_lp(SRCLKEN0, 1, 1, HW_LP);
-	pmic_ldo_vsram_md_lp(SW, 1, 1, SW_ON);
+	pmic_ldo_vsram_others_lp(SW, 1, 1, SW_OFF);
+	pmic_ldo_vsram_md_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vcamio_lp(SW, 1, 1, SW_OFF);
-	pmic_ldo_vm18_lp(SW, 1, 1, SW_ON);
+	pmic_ldo_vm18_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vcn18_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vcn13_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vrf18_lp(SRCLKEN1, 1, 1, HW_OFF);
@@ -144,10 +144,10 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_ldo_vaud18_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vaux18_lp(SRCLKEN0, 1, 1, HW_LP);
 	pmic_ldo_vxo22_lp(SRCLKEN0, 1, 1, HW_LP);
-	pmic_ldo_vcn33_1_lp(SW, 1, 1, SW_OFF);
+	pmic_ldo_vcn33_1_lp(SW, 1, 1, SW_ON);
 	pmic_ldo_vcn33_2_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vusb_lp(SRCLKEN0, 1, 1, HW_LP);
-	pmic_ldo_vemc_lp(SW, 1, 1, SW_OFF);
+	pmic_ldo_vemc_lp(SW, 1, 1, SW_ON);
 	pmic_ldo_vio28_lp(SW, 1, 1, SW_ON);
 	pmic_ldo_vsim1_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vsim2_lp(SW, 1, 1, SW_OFF);
@@ -155,22 +155,22 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_ldo_vibr_lp(SW, 1, 1, SW_OFF);
 
 	/*Deepidle*/
-	pmic_buck_vcore_lp(SRCLKEN2, 1, 1, HW_LP);
-	pmic_buck_vpu_lp(SW, 1, 1, SW_OFF);
+	pmic_buck_vcore_lp(SW, 1, 1, SW_OFF);
+	pmic_buck_vpu_lp(SRCLKEN2, 1, 1, HW_LP);
 	pmic_buck_vproc1_lp(SW, 1, 1, SW_OFF);
 	pmic_buck_vproc2_lp(SW, 1, 1, SW_OFF);
-	pmic_buck_vgpu11_lp(SW, 1, 1, SW_OFF);
+	pmic_buck_vgpu11_lp(SRCLKEN2, 1, 1, HW_LP);
 	pmic_buck_vgpu12_lp(SW, 1, 1, SW_OFF);
-	pmic_buck_vmodem_lp(SW, 1, 1, SW_ON);
+	pmic_buck_vmodem_lp(SW, 1, 1, SW_OFF);
 	pmic_buck_vs1_lp(SRCLKEN2, 1, 1, HW_LP);
 	pmic_buck_vs2_lp(SRCLKEN2, 1, 1, HW_LP);
 	pmic_buck_vpa_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vsram_proc1_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vsram_proc2_lp(SW, 1, 1, SW_OFF);
-	pmic_ldo_vsram_others_lp(SRCLKEN2, 1, 1, HW_LP);
-	pmic_ldo_vsram_md_lp(SW, 1, 1, SW_ON);
+	pmic_ldo_vsram_others_lp(SW, 1, 1, SW_OFF);
+	pmic_ldo_vsram_md_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vcamio_lp(SW, 1, 1, SW_OFF);
-	pmic_ldo_vm18_lp(SW, 1, 1, SW_ON);
+	pmic_ldo_vm18_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vcn18_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vcn13_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vrf18_lp(SRCLKEN1, 1, 1, HW_OFF);
