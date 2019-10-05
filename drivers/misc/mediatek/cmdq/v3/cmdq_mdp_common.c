@@ -1089,6 +1089,9 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 		}
 	}
 
+	if (!cmdq_core_check_pkt_valid(handle->pkt))
+		return -EFAULT;
+
 	if (desc->regRequest.count &&
 			desc->regRequest.count <= CMDQ_MAX_DUMP_REG_COUNT &&
 			desc->regRequest.regAddresses) {
