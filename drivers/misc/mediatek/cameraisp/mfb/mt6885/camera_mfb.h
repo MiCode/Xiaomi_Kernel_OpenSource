@@ -92,7 +92,7 @@ struct MFB_CLEAR_IRQ_STRUCT {
 	int UserKey;		/* user key for doing interrupt operation */
 	unsigned int Status;	/* Input */
 };
-/*YWtoClr*/
+
 struct MFB_Config {
 	unsigned int C02_CON;
 	unsigned int C02_CROP_CON1;
@@ -325,7 +325,7 @@ struct MFB_MSFConfig {
 	unsigned int MFBDMT_TDRI_XSIZE[TPIPE_NUM_PER_FRAME];
 	unsigned int tpipe_used;
 };
-/*YWtodo<*/
+
 /******************************************************************************
  *
  ******************************************************************************/
@@ -364,6 +364,7 @@ struct tpipe_ctrl {
 
 struct cq_ctrl {
 	unsigned int ba;
+	unsigned int *va;
 	unsigned int en;
 
 	unsigned int cmd_num; /* plus 1 NOP/EXE */
