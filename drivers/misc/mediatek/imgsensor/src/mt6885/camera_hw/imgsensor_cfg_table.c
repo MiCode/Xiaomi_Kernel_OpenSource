@@ -250,6 +250,51 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 		},
 	},
 #endif
+#if defined(IMX319_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_IMX319_MIPI_RAW,
+		{
+			{PDN, Vol_Low, 0},
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_2800, 0},
+			{AFVDD, Vol_2800, 0},
+			{DVDD, Vol_1100, 0},
+			{DOVDD, Vol_1800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{PDN, Vol_High, 0},
+			{RST, Vol_High, 2}
+		},
+	},
+#endif
+#if defined(S5K3M5SX_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_S5K3M5SX_MIPI_RAW,
+		{
+			{PDN, Vol_Low, 0},
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_2800, 0},
+			{AFVDD, Vol_2800, 0},
+			{DVDD, Vol_1100, 0},
+			{DOVDD, Vol_1800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{PDN, Vol_High, 0},
+			{RST, Vol_High, 2}
+		},
+	},
+#endif
+#if defined(GC02M0_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_GC02M0_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_2800, 0},
+			{DVDD, Vol_1200, 0},
+			{DOVDD, Vol_1800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 2}
+		},
+	},
+#endif
 #if defined(IMX519_MIPI_RAW)
 	{
 		SENSOR_DRVNAME_IMX519_MIPI_RAW,
