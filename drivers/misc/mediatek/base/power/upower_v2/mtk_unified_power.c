@@ -450,6 +450,7 @@ static int upower_update_tbl_ref(void)
 
 static void get_L_pwr_efficiency(void)
 {
+#ifdef UPOWER_BANK_L
 	int i;
 	unsigned int max = 0;
 	unsigned int min = ~0U;
@@ -484,10 +485,12 @@ static void get_L_pwr_efficiency(void)
 
 	tbl->max_efficiency = max;
 	tbl->min_efficiency = min;
+#endif
 }
 
 static void get_LL_pwr_efficiency(void)
 {
+#if defined(UPOWER_BANK_CCI) && defined(UPOWER_BANK_LL)
 	int i;
 	unsigned int max = 0;
 	unsigned int min = ~0U;
@@ -528,10 +531,12 @@ static void get_LL_pwr_efficiency(void)
 
 	tbl->max_efficiency = max;
 	tbl->min_efficiency = min;
+#endif
 }
 static int upower_cal_turn_point(void)
 {
 	int i;
+#if defined(UPOWER_BANK_L) && defined(UPOWER_BANK_LL)
 	struct upower_tbl *L_tbl, *LL_tbl;
 	int tempLL;
 
@@ -549,6 +554,9 @@ static int upower_cal_turn_point(void)
 		}
 
 	}
+#else
+	i = -1;
+#endif
 	return i;
 
 }

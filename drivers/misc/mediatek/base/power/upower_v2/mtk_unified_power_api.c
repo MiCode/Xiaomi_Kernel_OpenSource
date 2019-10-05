@@ -105,12 +105,16 @@ EXPORT_SYMBOL(upower_get_tbl);
 
 int upower_get_turn_point(void)
 {
+#if defined(UPOWER_BANK_L)
 	struct upower_tbl *L_tbl;
 	int turn_point;
 
 	L_tbl = &upower_tbl_ref[UPOWER_BANK_L];
 	turn_point = L_tbl->turn_point;
 	return turn_point;
+#else
+	return -1;
+#endif
 
 }
 EXPORT_SYMBOL(upower_get_turn_point);
