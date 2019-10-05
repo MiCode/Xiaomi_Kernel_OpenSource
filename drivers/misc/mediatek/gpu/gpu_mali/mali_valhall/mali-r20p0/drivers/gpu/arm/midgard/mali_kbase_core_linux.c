@@ -103,6 +103,8 @@
 
 #include <mali_kbase_as_fault_debugfs.h>
 
+#include <mtk_gpufreq.h>
+
 /* GPU IRQ Tags */
 #define	JOB_IRQ_TAG	0
 #define MMU_IRQ_TAG	1
@@ -4114,6 +4116,16 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	unsigned prod_id;
 	const struct list_head *dev_list;
 	int err = 0;
+
+	/* MTK */
+	/* make sure gpufreq driver is ready */
+	pr_info("%s start\n", __func__);
+
+	if (mt_gpufreq_not_ready()) {
+		pr_info("gpufreq driver is not ready: %d\n", -EPROBE_DEFER);
+		return -EPROBE_DEFER;
+	}
+	/********/
 
 	kbdev = kbase_device_alloc();
 	if (!kbdev) {
