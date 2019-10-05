@@ -89,8 +89,9 @@ void ccu_qos_update_req(uint32_t *ccu_bw)
 	ccu_bw[2] = g_request;
 	if (!plist_head_empty(&ccu_request_list))
 		mm_qos_update_all_request(&ccu_request_list);
-#endif
+
 	mutex_unlock(&ccu_qos_mutex);
+#endif
 }
 
 void ccu_qos_uninit(void)
