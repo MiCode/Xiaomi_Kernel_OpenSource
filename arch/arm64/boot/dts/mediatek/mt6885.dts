@@ -253,12 +253,12 @@
 		reg = <0 0x11c20000 0 0x1000>;
 	};
 
-	iocfg_bm: iocfg_br@11d10000 {
+	iocfg_bm: iocfg_bm@11d10000 {
 		compatible = "mediatek,iocfg_bm";
 		reg = <0 0x11d10000 0 0x1000>;
 	};
 
-	iocfg_lm: iocfg_bl@11e20000 {
+	iocfg_lm: iocfg_lm@11e20000 {
 		compatible = "mediatek,iocfg_lm";
 		reg = <0 0x11e20000 0 0x1000>;
 	};
@@ -278,7 +278,7 @@
 		reg = <0 0x11f20000 0 0x1000>;
 	};
 
-	iocfg_tm: iocfg_tl@11f30000 {
+	iocfg_tm: iocfg_tm@11f30000 {
 		compatible = "mediatek,iocfg_tm";
 		reg = <0 0x11f30000 0 0x1000>;
 	};
