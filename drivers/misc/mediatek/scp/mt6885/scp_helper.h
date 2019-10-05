@@ -23,10 +23,8 @@
 #define SCP_TCM_SIZE		(scpreg.total_tcmsize)
 #define SCP_A_TCM_SIZE		(scpreg.scp_tcmsize)
 #define SCP_TCM			(scpreg.sram)
-#define SCP_REGION_INFO_OFFSET 0x400
+#define SCP_REGION_INFO_OFFSET	0x4
 #define SCP_RTOS_START		(0x800)
-#define SCP_A_SHARE_BUFFER	(scpreg.sram + \
-					SCP_RTOS_START -  SHARE_BUF_SIZE*2)
 
 /* scp dvfs return status flag */
 #define SET_PLL_FAIL		(1)
@@ -51,9 +49,6 @@ enum SCP_NOTIFY_EVENT {
 /* reset ID */
 #define SCP_ALL_ENABLE	0x00
 #define SCP_ALL_REBOOT	0x01
-#define SCP_A_ENABLE	0x10
-#define SCP_A_REBOOT	0x11
-
 
 /* scp semaphore definition*/
 enum SEMAPHORE_FLAG {
@@ -91,6 +86,7 @@ struct scp_regs {
 	void __iomem *l1cctrl;
 	void __iomem *cfg_core0;
 	void __iomem *cfg_core1;
+	void __iomem *cfg_sec;
 	int irq;
 	unsigned int total_tcmsize;
 	unsigned int cfgregsize;
@@ -151,8 +147,9 @@ struct scp_region_info_st {
 	uint32_t struct_size;
 	uint32_t scp_log_thru_ap_uart;
 	uint32_t TaskContext_ptr;
-	uint32_t Il1c_con;
-	uint32_t Dl1c_con;
+	uint32_t scpctl;
+	uint32_t regdump_start;
+	uint32_t regdump_size;
 };
 
 /* scp device attribute */
@@ -174,15 +171,14 @@ extern void scp_logger_stop(void);
 extern void scp_logger_cleanup(void);
 
 /* scp exception */
-extern int scp_excep_init(void);
-extern void scp_ram_dump_init(void);
-extern void scp_excep_cleanup(void);
-extern void scp_aee_last_reg(void);
+int scp_excep_init(void);
+void scp_ram_dump_init(void);
+void scp_excep_cleanup(void);
+void scp_reset_wait_timeout(void);
 
 /* scp irq */
 extern irqreturn_t scp_A_irq_handler(int irq, void *dev_id);
 extern void scp_A_irq_init(void);
-extern void scp_A_ipi_init(void);
 
 /* scp helper */
 extern void scp_A_register_notify(struct notifier_block *nb);
@@ -222,11 +218,12 @@ extern int scp_sys_full_reset(void);
 extern void scp_reset_awake_counts(void);
 extern void scp_awake_init(void);
 #if SCP_RECOVERY_SUPPORT
-extern phys_addr_t scp_loader_base_virt;
+
 extern unsigned int scp_reset_by_cmd;
 extern struct scp_region_info_st scp_region_info_copy;
 extern struct scp_region_info_st *scp_region_info;
-extern void __iomem *scp_l1c_start_virt;
-
+extern void __iomem *scp_ap_dram_virt;
+extern void __iomem *scp_loader_virt;
+extern void __iomem *scp_regdump_virt;
 #endif
 #endif

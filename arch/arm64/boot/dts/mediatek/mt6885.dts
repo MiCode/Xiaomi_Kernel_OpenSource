@@ -1670,6 +1670,7 @@
 		<0 0x10730000 0 0x1000>,	 /* cfg core0 */
 		<0 0x10740000 0 0x1000>,	 /* cfg core1 */
 		<0 0x10760000 0 0x40000>,	 /* llc */
+		<0 0x107a5000 0 0x4>,		 /* cfg_sec */
 		<0 0x107fb000 0 0x100>,		 /* mbox0 base */
 		<0 0x107fb100 0 0x4>,		 /* mbox0 set */
 		<0 0x107fb10c 0 0x4>,		 /* mbox0 clr */
@@ -1697,6 +1698,7 @@
 			"scp_cfgreg_core0",
 			"scp_cfgreg_core1",
 			"scp_l1creg",
+			"scp_cfgreg_sec",
 			"mbox0_base",
 			"mbox0_set",
 			"mbox0_clr",

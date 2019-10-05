@@ -217,9 +217,9 @@ void scp_enable_sram(void)
  */
 int scp_sys_full_reset(void)
 {
-	pr_debug("[SCP]reset\n");
+	pr_notice("[SCP] %s\n", __func__);
 	/*copy loader to scp sram*/
-	memcpy_to_scp(SCP_TCM, (const void *)(size_t)scp_loader_base_virt
+	memcpy_to_scp(SCP_TCM, (const void *)(size_t)scp_loader_virt
 		, scp_region_info_copy.ap_loader_size);
 	/*set info to sram*/
 	memcpy_to_scp(scp_region_info, (const void *)&scp_region_info_copy
