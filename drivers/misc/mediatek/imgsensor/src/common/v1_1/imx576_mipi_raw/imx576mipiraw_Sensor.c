@@ -2497,11 +2497,11 @@ static kal_uint32 set_test_pattern_mode(kal_bool enable)
 	if (enable) {
 	/* 0x5E00[8]: 1 enable,  0 disable */
 	/* 0x5E00[1:0]; 00 Color bar, 01 Random Data, 10 Square, 11 BLACK */
-		write_cmos_sensor(0x0601, 0x0002);
+		write_cmos_sensor_8(0x0601, 0x0002);
 	} else {
 	/* 0x5E00[8]: 1 enable,  0 disable */
 	/* 0x5E00[1:0]; 00 Color bar, 01 Random Data, 10 Square, 11 BLACK */
-		write_cmos_sensor(0x0601, 0x0000);
+		write_cmos_sensor_8(0x0601, 0x0000);
 	}
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.test_pattern = enable;
