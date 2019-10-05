@@ -56,6 +56,9 @@ unsigned char upower_enable = 1;
 #else
 unsigned char upower_enable;
 #endif
+#define LL_CORE_NUM 4
+#define L_CORE_NUM 2
+#define LKG_IDX 0
 
 /* reference to target upower tbl, ex: big upower tbl */
 struct upower_tbl *upower_tbl_ref;
@@ -169,6 +172,7 @@ void upower_ut(void)
 		}
 	}
 
+	upower_debug("@@turn_point= %d\n", upower_get_turn_point());
 	upower_debug("----upower_get_power()----\n");
 	for (i = 0; i < NR_UPOWER_BANK; i++) {
 		upower_debug("bank %d\n", i);
@@ -444,6 +448,111 @@ static int upower_update_tbl_ref(void)
 	return ret;
 }
 
+static void get_L_pwr_efficiency(void)
+{
+	int i;
+	unsigned int max = 0;
+	unsigned int min = ~0U;
+	unsigned long long sum;
+	struct upower_tbl *tbl;
+
+	for (i = 0; i < UPOWER_OPP_NUM; i++) {
+		tbl = &upower_tbl_ref[UPOWER_BANK_L];
+		sum = (unsigned long long)(tbl->row[i].lkg_pwr[LKG_IDX] +
+				tbl->row[i].dyn_pwr);
+#if defined(__LP64__) || defined(_LP64)
+		tbl->row[i].pwr_efficiency =
+			sum / (unsigned long long)tbl->row[i].cap;
+
+#else
+		tbl->row[i].pwr_efficiency =
+			div64_u64(sum, (unsigned long long)tbl->row[i].cap);
+#endif
+
+		upower_debug("L[%d] eff = %d dyn = %d lkg = %d cap = %d\n",
+			i, tbl->row[i].pwr_efficiency,
+			tbl->row[i].dyn_pwr,
+			tbl->row[i].lkg_pwr[LKG_IDX],
+			tbl->row[i].cap
+			);
+
+		if (tbl->row[i].pwr_efficiency > max)
+			max = tbl->row[i].pwr_efficiency;
+		if (tbl->row[i].pwr_efficiency < min)
+			min = tbl->row[i].pwr_efficiency;
+	}
+
+	tbl->max_efficiency = max;
+	tbl->min_efficiency = min;
+}
+
+static void get_LL_pwr_efficiency(void)
+{
+	int i;
+	unsigned int max = 0;
+	unsigned int min = ~0U;
+	unsigned long long LL_pwr, CCI_pwr;
+	unsigned long long sum;
+	struct upower_tbl *tbl, *ctbl;
+
+	tbl = &upower_tbl_ref[UPOWER_BANK_LL];
+	ctbl = &upower_tbl_ref[UPOWER_BANK_CCI];
+	for (i = 0; i < UPOWER_OPP_NUM; i++) {
+		LL_pwr = (unsigned long long)(tbl->row[i].lkg_pwr[LKG_IDX] +
+				tbl->row[i].dyn_pwr);
+		CCI_pwr = (unsigned long long)(ctbl->row[i].lkg_pwr[LKG_IDX] +
+				ctbl->row[i].dyn_pwr);
+		sum = (unsigned long long)LL_CORE_NUM * LL_pwr + CCI_pwr;
+#if defined(__LP64__) || defined(_LP64)
+		tbl->row[i].pwr_efficiency =
+		sum / (unsigned long long)(LL_CORE_NUM * tbl->row[i].cap);
+
+#else
+		tbl->row[i].pwr_efficiency =
+			div64_u64(LL_CORE_NUM * LL_pwr + CCI_pwr,
+			(unsigned long long)(LL_CORE_NUM * tbl->row[i].cap))
+#endif
+
+		upower_debug("LL[%d] eff = %d dyn = %d lkg = %d cap = %d\n",
+			i, tbl->row[i].pwr_efficiency,
+			tbl->row[i].dyn_pwr,
+			tbl->row[i].lkg_pwr[LKG_IDX],
+			tbl->row[i].cap
+			);
+
+		if (tbl->row[i].pwr_efficiency > max)
+			max = tbl->row[i].pwr_efficiency;
+		if (tbl->row[i].pwr_efficiency < min)
+			min = tbl->row[i].pwr_efficiency;
+	}
+
+	tbl->max_efficiency = max;
+	tbl->min_efficiency = min;
+}
+static int upower_cal_turn_point(void)
+{
+	int i;
+	struct upower_tbl *L_tbl, *LL_tbl;
+	int tempLL;
+
+	L_tbl = &upower_tbl_ref[UPOWER_BANK_L];
+	LL_tbl = &upower_tbl_ref[UPOWER_BANK_LL];
+	/* calculate turn point */
+	for (i = 0; i < UPOWER_OPP_NUM ; i++) {
+		tempLL = LL_tbl->row[i].pwr_efficiency;
+		upower_debug("@@LL_effi[%d] = %d , L_min_effi = %d\n",
+				i, tempLL, L_tbl->min_efficiency);
+		if (tempLL > L_tbl->min_efficiency) {
+			L_tbl->turn_point = i;
+			LL_tbl->turn_point = i;
+			break;
+		}
+
+	}
+	return i;
+
+}
+
 #ifdef UPOWER_USE_QOS_IPI
 #if UPOWER_ENABLE_TINYSYS_SSPM
 void upower_send_data_ipi(phys_addr_t phy_addr, unsigned long long size)
@@ -557,20 +666,23 @@ static int upower_debug_proc_show(struct seq_file *m, void *v)
 		seq_printf(m, "%s\n", upower_tbl_infos[i].name);
 		ptr_tbl = ptr_tbl_info[i].p_upower_tbl;
 		for (j = 0; j < UPOWER_OPP_NUM; j++) {
-			seq_printf(
-				m,
-	"cap = %lu, volt = %u, dyn = %u, lkg = {%u, %u, %u, %u, %u, %u}\n",
-				ptr_tbl->row[j].cap, ptr_tbl->row[j].volt,
-				ptr_tbl->row[j].dyn_pwr,
-				ptr_tbl->row[j].lkg_pwr[0],
-				ptr_tbl->row[j].lkg_pwr[1],
-				ptr_tbl->row[j].lkg_pwr[2],
-				ptr_tbl->row[j].lkg_pwr[3],
-				ptr_tbl->row[j].lkg_pwr[4],
-				ptr_tbl->row[j].lkg_pwr[5]);
+			seq_printf(m, " cap = %lu, volt = %u, dyn = %u,",
+					ptr_tbl->row[j].cap,
+					ptr_tbl->row[j].volt,
+					ptr_tbl->row[j].dyn_pwr);
+			seq_printf(m,
+			" lkg = {%u, %u, %u, %u, %u, %u} pwr_efficiency = %u\n",
+					ptr_tbl->row[j].lkg_pwr[0],
+					ptr_tbl->row[j].lkg_pwr[1],
+					ptr_tbl->row[j].lkg_pwr[2],
+					ptr_tbl->row[j].lkg_pwr[3],
+					ptr_tbl->row[j].lkg_pwr[4],
+					ptr_tbl->row[j].lkg_pwr[5],
+					ptr_tbl->row[j].pwr_efficiency);
+
 		}
-		seq_printf(m, " lkg_idx, num_row: %d, %d\n\n", ptr_tbl->lkg_idx,
-			   ptr_tbl->row_num);
+		seq_printf(m, " lkg_idx, num_row, turn_point: %d, %d, %d\n\n",
+		ptr_tbl->lkg_idx, ptr_tbl->row_num, ptr_tbl->turn_point);
 	}
 
 #ifdef UPOWER_USE_QOS_IPI
@@ -655,6 +767,7 @@ static int create_procfs(void)
 
 static int __init upower_init(void)
 {
+	int turn;
 #ifdef UPOWER_NOT_READY
 	return 0;
 #endif
@@ -689,6 +802,11 @@ static int __init upower_init(void)
 
 	upower_update_dyn_pwr();
 	upower_update_lkg_pwr();
+	get_L_pwr_efficiency();
+	get_LL_pwr_efficiency();
+	turn = upower_cal_turn_point();
+	set_sched_turn_point_cap();
+	upower_debug("@@~turn point is %d\n", turn);
 #ifdef UPOWER_L_PLUS
 	upower_update_L_plus_cap();
 	upower_update_L_plus_lkg_pwr();
