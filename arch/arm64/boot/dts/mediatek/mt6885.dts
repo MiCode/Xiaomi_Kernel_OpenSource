@@ -375,9 +375,10 @@ page_owner=on";
 		reg = <0 0x11f30000 0 0x1000>;
 	};
 
-	eint: eint@1000b000 {
-		compatible = "mediatek,eint";
+	eint: apirq@1000b000 {
+		compatible = "mediatek,apirq";
 		reg = <0 0x1000b000 0 0x1000>;
+		interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	gpio: gpio@10005000 {
@@ -394,8 +395,8 @@ page_owner=on";
 			    <&iocfg_lb>,
 			    <&iocfg_rt>,
 			    <&iocfg_lt>,
-			    <&iocfg_tm>,
-			    <&eint>;
+			    <&iocfg_tm>;
+		reg_base_eint = <&eint>;
 		pins-are-numbered;
 		gpio-controller;
 		gpio-ranges = <&pio 0 0 219>;
