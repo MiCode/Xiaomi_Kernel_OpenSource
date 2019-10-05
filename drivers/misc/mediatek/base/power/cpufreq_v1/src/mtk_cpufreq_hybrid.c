@@ -45,11 +45,6 @@
 #include <trace/events/power.h>
 /* #include <trace/events/mtk_events.h> */
 
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-/* just for sspm v1 */
-//#include "sspm_ipi.h"
-#endif
-
 #include <mt-plat/met_drv.h>
 
 #include "mtk_cpufreq_internal.h"
@@ -59,6 +54,12 @@
 #include "mtk_cpufreq_debug.h"
 
 #ifdef CONFIG_HYBRID_CPU_DVFS
+
+#ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
+#include <mt-plat/mtk-mbox.h>
+#include <mt-plat/mtk_tinysys_ipi.h>
+#include <mcupm_ipi_id.h>
+#endif
 
 #include <linux/of_address.h>
 u32 *g_dbg_repo;
@@ -130,9 +131,6 @@ void parse_log_content(unsigned int *local_buf, int idx)
 
 spinlock_t cpudvfs_lock;
 static struct task_struct *Ripi_cpu_dvfs_task;
-/* just for sspm v1
-struct ipi_action cpufreq_act;
-*/
 uint32_t cpufreq_buf[4];
 int Ripi_cpu_dvfs_thread(void *data)
 {
@@ -152,11 +150,6 @@ int Ripi_cpu_dvfs_thread(void *data)
 	int j;
 
 	/* tag_pr_info("CPU DVFS received thread\n"); */
-/* just for sspm v1
-	cpufreq_act.data = (void *)cpufreq_buf;
-	ret = sspm_ipi_recv_registration_ex(IPI_ID_CPU_DVFS,
-						&cpudvfs_lock, &cpufreq_act);
-*/
 	if (ret != 0) {
 		tag_pr_notice
 		("Error: ipi_recv_registration CPU DVFS error: %d\n", ret);
@@ -165,17 +158,15 @@ int Ripi_cpu_dvfs_thread(void *data)
 		} while (!kthread_should_stop());
 		return (-1);
 	}
-	/* tag_pr_info("sspm_ipi_recv_registration */
+	/* tag_pr_info("mtk_ipi_register */
 	/*IPI_ID_CPU_DVFS pass!!(%d)\n", ret); */
 
 	/* an endless loop in which we are doing our work */
 	do {
-		/* tag_pr_info("sspm_ipi_recv_wait IPI_ID_CPU_DVFS\n"); */
-/* just for sspm v1
-		sspm_ipi_recv_wait(IPI_ID_CPU_DVFS);
-*/
-		/* tag_pr_info("Info: CPU DVFS thread received ID=%d,*/
-		/* i=%d\n", cpufreq_act.id, i); */
+		/* tag_pr_info("mcupm_ipidev IPI_ID_CPU_DVFS\n"); */
+		mtk_ipi_recv(&mcupm_ipidev, CH_S_CPU_DVFS);
+
+		/* tag_pr_info("Info: CPU DVFS thread received i=%d\n", i); */
 		spin_lock_irqsave(&cpudvfs_lock, flags);
 		memcpy(pwdata, cpufreq_buf, sizeof(pwdata));
 		spin_unlock_irqrestore(&cpudvfs_lock, flags);
@@ -323,13 +314,10 @@ int Ripi_cpu_dvfs_thread(void *data)
 	return 0;
 }
 
-int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
+int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 {
 #define OPT				(0) /* reserve for extensibility */
 #define DVFS_D_LEN		(4) /* # of cmd + arg0 + arg1 + ... */
-/* just for sspm v1
-	unsigned int len = DVFS_D_LEN;
-*/
 	int ack_data = 0;
 	unsigned int ret = 0;
 
@@ -339,15 +327,15 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		cdvfs_d->cmd = cmd;
 
 		cpufreq_ver
-		("I'd like to initialize sspm DVFS, segment code = %d\n",
+		("I'd like to initialize mcupm DVFS, segment code = %d\n",
 		cdvfs_d->u.set_fv.arg[0]);
 
-/* just for sspm v1
-		ret = sspm_ipi_send_sync_new(IPI_ID_CPU_DVFS, IPI_OPT_POLLING,
-		cdvfs_d, len, &ack_data, 1);
-*/
+		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+				IPI_SEND_POLLING, cdvfs_d,
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
+
 		if (ret != 0) {
-			cpufreq_ver("#@# %s(%d) sspm_ipi_send_sync ret %d\n",
+			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
@@ -360,15 +348,15 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		cdvfs_d->cmd = cmd;
 
 		cpufreq_ver
-		("I'd like to initialize sspm DVFS, segment code = %d\n",
+		("I'd like to initialize mcupm DVFS, segment code = %d\n",
 		cdvfs_d->u.set_fv.arg[0]);
 
-/* just for sspm v1
-		ret = sspm_ipi_send_sync_new(IPI_ID_CPU_DVFS, IPI_OPT_POLLING,
-		cdvfs_d, len, &ack_data, 1);
-*/
+		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+				IPI_SEND_POLLING, cdvfs_d,
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
+
 		if (ret != 0) {
-			cpufreq_ver("#@# %s(%d) sspm_ipi_send_sync ret %d\n",
+			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
@@ -380,14 +368,17 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 	case IPI_SET_CLUSTER_ON_OFF:
 		cdvfs_d->cmd = cmd;
 
-		cpufreq_ver("I'd like to set cluster%d ON/OFF state to %d)\n",
-			cdvfs_d->u.set_fv.arg[0], cdvfs_d->u.set_fv.arg[1]);
+		cpufreq_ver("I'd like to set cluster%d ON/OFF state to %d\n",
+			cdvfs_d->u.set_fv.arg[0], cdvfs_d->u.set_fv.arg[1],
+			sizeof(struct cdvfs_data));
 
 		aee_record_cpu_dvfs_cb(6);
-/* just for sspm v1
-		ret = sspm_ipi_send_sync_new(IPI_ID_CPU_DVFS, IPI_OPT_POLLING,
-		cdvfs_d, len, &ack_data, 1);
-*/
+
+		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+				IPI_SEND_POLLING, cdvfs_d,
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE,
+				10000);
+
 		aee_record_cpu_dvfs_cb(7);
 		if (ret != 0) {
 			tag_pr_notice
@@ -395,7 +386,7 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 				ret, cdvfs_d->u.set_fv.arg[0],
 				cdvfs_d->u.set_fv.arg[1]);
 #if 0
-			cpufreq_ver("#@# %s(%d) sspm_ipi_send_sync ret %d\n",
+			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
 #endif
 		} else if (ack_data < 0) {
@@ -418,10 +409,11 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		cpufreq_ver("I'd like to set cluster%d freq to %d)\n",
 			cdvfs_d->u.set_fv.arg[0], cdvfs_d->u.set_fv.arg[1]);
 
-		ret = sspm_ipi_send_sync_new(IPI_ID_CPU_DVFS, IPI_OPT_POLLING,
-		cdvfs_d, len, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+				IPI_SEND_POLLING, cdvfs_d,
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
 		if (ret != 0) {
-			cpufreq_ver("#@# %s(%d) sspm_ipi_send_sync ret %d\n",
+			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
@@ -436,10 +428,11 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		cpufreq_ver("I'd like to set cluster%d volt to %d)\n",
 			cdvfs_d->u.set_fv.arg[0], cdvfs_d->u.set_fv.arg[1]);
 
-		ret = sspm_ipi_send_sync_new(IPI_ID_CPU_DVFS, IPI_OPT_POLLING,
-		cdvfs_d, len, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+				IPI_SEND_POLLING, cdvfs_d,
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
 		if (ret != 0) {
-			cpufreq_ver("#@# %s(%d) sspm_ipi_send_sync ret %d\n",
+			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
@@ -454,11 +447,12 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		cpufreq_ver("I'd like to get volt from Buck%d\n",
 		cdvfs_d->u.set_fv.arg[0]);
 
-		ret = sspm_ipi_send_sync_new(IPI_ID_CPU_DVFS, IPI_OPT_POLLING,
-		cdvfs_d, len, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+				IPI_SEND_POLLING, cdvfs_d,
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
 		cpufreq_ver("Get volt = %d\n", ack_data);
 		if (ret != 0) {
-			cpufreq_ver("#@# %s(%d) sspm_ipi_send_sync ret %d\n",
+			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
@@ -474,11 +468,12 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		cpufreq_ver("I'd like to get freq from pll%d\n",
 		cdvfs_d->u.set_fv.arg[0]);
 
-		ret = sspm_ipi_send_sync_new(IPI_ID_CPU_DVFS, IPI_OPT_POLLING,
-		cdvfs_d, len, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+				IPI_SEND_POLLING, cdvfs_d,
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
 		cpufreq_ver("Get freq = %d\n", ack_data);
 		if (ret != 0) {
-			cpufreq_ver("#@# %s(%d) sspm_ipi_send_sync ret %d\n",
+			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
@@ -495,12 +490,11 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 			cdvfs_d->u.set_fv.arg[0], cdvfs_d->u.set_fv.arg[1],
 			cdvfs_d->u.set_fv.arg[2]);
 
-/* just for sspm v1
-		ret = sspm_ipi_send_sync_new(IPI_ID_CPU_DVFS, IPI_OPT_POLLING,
-		cdvfs_d, len, &ack_data, 1);
-*/
+		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+				IPI_SEND_POLLING, cdvfs_d,
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
 		if (ret != 0) {
-			cpufreq_ver("#@# %s(%d) sspm_ipi_send_sync ret %d\n",
+			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
@@ -516,12 +510,11 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 			cdvfs_d->u.set_fv.arg[0], cdvfs_d->u.set_fv.arg[1],
 			cdvfs_d->u.set_fv.arg[2]);
 
-/* just for sspm v1
-		ret = sspm_ipi_send_sync_new(IPI_ID_CPU_DVFS, IPI_OPT_POLLING,
-		cdvfs_d, len, &ack_data, 1);
-*/
+		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+				IPI_SEND_POLLING, cdvfs_d,
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
 		if (ret != 0) {
-			cpufreq_ver("#@# %s(%d) sspm_ipi_send_sync ret %d\n",
+			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
@@ -736,7 +729,7 @@ int cpuhvfs_set_init_ptbl(void)
 
 	/* seg code */
 	cdvfs_d.u.set_fv.arg[0] = 0;
-	dvfs_to_spm2_command(IPI_DVFS_INIT_PTBL, &cdvfs_d);
+	dvfs_to_mcupm_command(IPI_DVFS_INIT_PTBL, &cdvfs_d);
 
 	return 0;
 }
@@ -755,7 +748,7 @@ int cpuhvfs_set_init_sta(void)
 
 	/* seg code */
 	cdvfs_d.u.set_fv.arg[0] = 0;
-	dvfs_to_spm2_command(IPI_DVFS_INIT, &cdvfs_d);
+	dvfs_to_mcupm_command(IPI_DVFS_INIT, &cdvfs_d);
 
 	return 0;
 }
@@ -769,7 +762,7 @@ int cpuhvfs_set_cluster_on_off(int cluster_id, int state)
 	cdvfs_d.u.set_fv.arg[1] = state;
 
 	aee_record_cpu_dvfs_cb(5);
-	dvfs_to_spm2_command(IPI_SET_CLUSTER_ON_OFF, &cdvfs_d);
+	dvfs_to_mcupm_command(IPI_SET_CLUSTER_ON_OFF, &cdvfs_d);
 
 	return 0;
 }
@@ -851,7 +844,7 @@ int cpuhvfs_get_volt(int buck_id)
 	/* Cluster, Volt */
 	cdvfs_d.u.set_fv.arg[0] = buck_id;
 
-	ret = dvfs_to_spm2_command(IPI_GET_VOLT, &cdvfs_d);
+	ret = dvfs_to_mcupm_command(IPI_GET_VOLT, &cdvfs_d);
 
 	return ret;
 #else
@@ -868,7 +861,7 @@ int cpuhvfs_get_freq(int pll_id)
 	/* Cluster, Freq */
 	cdvfs_d.u.set_fv.arg[0] = pll_id;
 
-	ret = dvfs_to_spm2_command(IPI_GET_FREQ, &cdvfs_d);
+	ret = dvfs_to_mcupm_command(IPI_GET_FREQ, &cdvfs_d);
 
 	return ret;
 #else
@@ -884,7 +877,7 @@ int cpuhvfs_set_volt(int cluster_id, unsigned int volt)
 	cdvfs_d.u.set_fv.arg[0] = cluster_id;
 	cdvfs_d.u.set_fv.arg[1] = volt;
 
-	dvfs_to_spm2_command(IPI_SET_VOLT, &cdvfs_d);
+	dvfs_to_mcupm_command(IPI_SET_VOLT, &cdvfs_d);
 #endif
 	return 0;
 }
@@ -897,7 +890,7 @@ int cpuhvfs_set_freq(int cluster_id, unsigned int freq)
 	cdvfs_d.u.set_fv.arg[0] = cluster_id;
 	cdvfs_d.u.set_fv.arg[1] = freq;
 
-	dvfs_to_spm2_command(IPI_SET_FREQ, &cdvfs_d);
+	dvfs_to_mcupm_command(IPI_SET_FREQ, &cdvfs_d);
 #endif
 	return 0;
 }
@@ -911,7 +904,7 @@ int cpuhvfs_set_turbo_mode(int turbo_mode, int freq_step, int volt_step)
 	cdvfs_d.u.set_fv.arg[1] = freq_step;
 	cdvfs_d.u.set_fv.arg[2] = volt_step;
 
-	dvfs_to_spm2_command(IPI_TURBO_MODE, &cdvfs_d);
+	dvfs_to_mcupm_command(IPI_TURBO_MODE, &cdvfs_d);
 
 	return 0;
 }
@@ -925,7 +918,7 @@ int cpuhvfs_get_time_profile(void)
 	cdvfs_d.u.set_fv.arg[1] = 0;
 	cdvfs_d.u.set_fv.arg[2] = 0;
 
-	dvfs_to_spm2_command(IPI_TIME_PROFILE, &cdvfs_d);
+	dvfs_to_mcupm_command(IPI_TIME_PROFILE, &cdvfs_d);
 #endif
 	return 0;
 }
@@ -1376,10 +1369,9 @@ int cpuhvfs_module_init(void)
 
 	/* SW Governor Report */
 	spin_lock_init(&cpudvfs_lock);
-	if (0)
-		Ripi_cpu_dvfs_task = kthread_run(Ripi_cpu_dvfs_thread, NULL,
-						"ipi_cpu_dvfs_rtask");
 
+	Ripi_cpu_dvfs_task = kthread_run(Ripi_cpu_dvfs_thread, NULL,
+						"ipi_cpu_dvfs_rtask");
 	return 0;
 }
 
@@ -1389,11 +1381,11 @@ static int dvfsp_module_init(void)
 
 	r = platform_driver_register(&_mt_dvfsp_pdrv);
 	if (r)
-		tag_pr_notice("fail to register sspm driver @ %s()\n",
+		tag_pr_notice("fail to register mcupm driver @ %s()\n",
 								__func__);
 
 	if (!dvfsp_probe_done) {
-		tag_pr_notice("FAILED TO PROBE SSPM DEVICE\n");
+		tag_pr_notice("FAILED TO PROBE MCUPM DEVICE\n");
 		return -ENODEV;
 	}
 
@@ -1461,9 +1453,12 @@ static int cpuhvfs_pre_module_init(void)
 
 	r = dvfsp_module_init();
 	if (r) {
-		tag_pr_notice("FAILED TO INIT DVFS SSPM (%d)\n", r);
+		tag_pr_notice("FAILED TO INIT DVFS MCUPM (%d)\n", r);
 		return r;
 	}
+
+	mtk_ipi_register(&mcupm_ipidev, CH_S_CPU_DVFS, NULL, NULL,
+				(void *) &cpufreq_buf);
 
 	init_cpuhvfs_debug_repo();
 	cpuhvfs_pvt_tbl_create();

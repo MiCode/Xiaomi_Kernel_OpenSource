@@ -21,6 +21,8 @@
 #include <linux/of.h>
 #include <linux/io.h>
 #include <linux/miscdevice.h>   /* needed by miscdevice* */
+#include <linux/delay.h>
+#include <linux/kthread.h>
 #include "mcupm_ipi_id.h"
 #include "mcupm_ipi_table.h"
 #include "mcupm_driver.h"
@@ -339,9 +341,9 @@ static unsigned int mcupm_log_enable_set(unsigned int enable)
 		mcupm_plt_ackdata = -1;
 
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
-					IPI_SEND_WAIT, &ipi_data,
-					sizeof(ipi_data) / MCUPM_MBOX_SLOT_SIZE,
-					0);
+			IPI_SEND_WAIT, &ipi_data,
+			sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
+			0);
 		if (ret) {
 			pr_err("MCUPM: logger IPI fail ret=%d\n", ret);
 			goto error;
@@ -465,7 +467,9 @@ static ssize_t mcupm_alive_show(struct device *kobj,
 	mcupm_plt_ackdata = 0;
 
 	ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM, IPI_SEND_WAIT,
-		&ipi_data, sizeof(ipi_data) / MCUPM_MBOX_SLOT_SIZE, 10);
+		&ipi_data,
+		sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
+		10);
 
 	return snprintf(buf, PAGE_SIZE, "%s\n",
 			mcupm_plt_ackdata ? "Alive" : "Dead");
@@ -525,7 +529,7 @@ int __init mcupm_plt_init(void)
 	last_ofs = plt_ctl->size;
 
 
-	pr_debug("MCUPM: %s(): after plt, ofs=%u\n", __func__, last_ofs);
+	pr_debug("MCUPM: %s(): after plt, ofs=0x%x\n", __func__, last_ofs);
 
 #if MCUPM_LOGGER_SUPPORT
 	plt_ctl->logger_ofs = last_ofs;
@@ -538,7 +542,7 @@ int __init mcupm_plt_init(void)
 	}
 
 	last_ofs += last_sz;
-	pr_debug("MCUPM: %s(): after logger, ofs=%u\n", __func__, last_ofs);
+	pr_debug("MCUPM: %s(): after logger, ofs=0x%x\n", __func__, last_ofs);
 #endif
 
 	ipi_data.cmd = MCUPM_PLT_INIT;
@@ -546,9 +550,10 @@ int __init mcupm_plt_init(void)
 	ipi_data.u.ctrl.size = mem_sz;
 	mcupm_plt_ackdata = 0;
 
-	ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
-				 IPI_SEND_POLLING, &ipi_data,
-				 sizeof(ipi_data) / MCUPM_MBOX_SLOT_SIZE, 10);
+	ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM, IPI_SEND_POLLING,
+		&ipi_data,
+		sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
+		10);
 	if (ret) {
 		pr_err("MCUPM: plt IPI fail ret=%d, ackdata=%d\n",
 			ret, mcupm_plt_ackdata);
@@ -688,6 +693,33 @@ static int mcupm_device_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static struct task_struct *mcupm_task;
+int mcupm_thread(void *data)
+{
+	struct  mcupm_ipi_data_s ipi_data;
+	int ret;
+
+	ipi_data.cmd = 0xDEAD;
+	mcupm_plt_ackdata = 0;
+
+	/* an endless loop in which we are doing our work */
+	do {
+		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
+			IPI_SEND_WAIT, &ipi_data,
+			sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
+			10);
+		if (ret) {
+			pr_info("MCUPM: alive ret=%d, ackdata=%d\n",
+				ret, mcupm_plt_ackdata);
+		} else {
+			pr_info("MCUPM is %s\n",
+				mcupm_plt_ackdata ? "Alive" : "Dead");
+		}
+		msleep(20000);
+	} while (!kthread_should_stop());
+	return 0;
+}
+
 static const struct of_device_id mcupm_of_match[] = {
 	{ .compatible = "mediatek,mcupm", },
 	{},
@@ -731,6 +763,9 @@ static int __init mcupm_init(void)
 		goto error;
 	}
 #endif
+
+	mcupm_task = kthread_run(mcupm_thread, NULL,
+					"mcupm_task");
 
 	pr_debug("[MCUPM] Helper Init\n");
 

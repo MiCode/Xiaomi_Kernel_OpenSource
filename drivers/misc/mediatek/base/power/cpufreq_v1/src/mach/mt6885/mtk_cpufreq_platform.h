@@ -18,8 +18,7 @@
 
 #define CPU_DVFS_DT_REG	1
 
-#if 0
-/* #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+#ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
 #define CONFIG_HYBRID_CPU_DVFS	1
 #define PPM_AP_SIDE	1
 #define EEM_AP_SIDE	1
@@ -42,7 +41,7 @@
 #define SINGLE_CLUSTER 1
 
 /* EEM VBOOT */
-#define VBOOT_VOLT 80000
+#define VBOOT_VOLT 75000
 
 /* buck ctrl configs */
 #define NORMAL_DIFF_VRSAM_VPROC		10000
@@ -69,8 +68,6 @@
 #define ENTRY_EACH_LOG		5
 #define REG_LEN                 4
 
-#undef APMIXED_BASE
-#undef MCUCFG_BASE
 
 extern struct mt_cpu_dvfs cpu_dvfs[NR_MT_CPU_DVFS];
 extern struct cpudvfs_doe dvfs_doe;

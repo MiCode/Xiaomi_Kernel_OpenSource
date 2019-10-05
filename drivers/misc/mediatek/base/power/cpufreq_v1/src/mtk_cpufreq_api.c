@@ -81,7 +81,6 @@ unsigned int mt_cpufreq_find_close_freq(unsigned int cluster_id,
 	return mt_cpufreq_get_freq_by_idx(id, idx);
 }
 
-#define VBOOT_VOLT 80000
 unsigned int mt_cpufreq_find_Vboot_idx(unsigned int cluster_id)
 {
 	enum mt_cpu_dvfs_id id = (enum mt_cpu_dvfs_id) cluster_id;
