@@ -464,11 +464,11 @@ static void of_spmi_register_devices(struct spmi_controller *ctrl)
 
 	for_each_available_child_of_node(ctrl->dev.of_node, node) {
 		struct spmi_device *sdev;
-		u32 reg[2];
+		u32 reg[4];
 
 		dev_dbg(&ctrl->dev, "adding child %pOF\n", node);
 
-		err = of_property_read_u32_array(node, "reg", reg, 2);
+		err = of_property_read_u32_array(node, "reg", reg, 4);
 		if (err) {
 			dev_err(&ctrl->dev,
 				"node %pOF err (%d) does not have 'reg' property\n",
@@ -484,11 +484,23 @@ static void of_spmi_register_devices(struct spmi_controller *ctrl)
 		}
 
 		if (reg[0] >= SPMI_MAX_SLAVE_ID) {
-			dev_err(&ctrl->dev, "invalid usid on node %pOF\n", node);
+			dev_err(&ctrl->dev, "invalid usid on node %pOF\n",
+					node);
 			continue;
 		}
 
 		dev_dbg(&ctrl->dev, "read usid %02x\n", reg[0]);
+		if (reg[3] != SPMI_GSID) {
+			dev_err(&ctrl->dev, "un-defined gsid on node %pOF\n",
+					node);
+			continue;
+		}
+
+		if (reg[2] >= SPMI_MAX_SLAVE_ID) {
+			dev_err(&ctrl->dev, "invalid gsid on node %pOF\n",
+					node);
+			continue;
+		}
 
 		sdev = spmi_device_alloc(ctrl);
 		if (!sdev)
