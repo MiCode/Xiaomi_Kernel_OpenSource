@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2015 MediaTek Inc.
+# Copyright (C) 2018 MediaTek Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -11,17 +11,7 @@
 # GNU General Public License for more details.
 #
 
-# common driver code for CMDQ
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739" "mt6768" "mt6771" "mt8168" "mt6785"))
-	obj-y += v3/
-else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt8167"))
-	obj-y += v2/
-endif
+# common driver code for MDP
 
-obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += mailbox/
-
-# mdp_sw_sync
-ifeq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885"))
-	obj-y += mdp_sync/
-endif
-# EOF
+# driver module
+obj-y += mdp_fence.o
