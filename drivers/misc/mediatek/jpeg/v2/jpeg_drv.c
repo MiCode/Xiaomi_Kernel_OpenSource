@@ -34,6 +34,12 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 
+#ifdef CONFIG_MTK_PSEUDO_M4U
+#include <mach/mt_iommu.h>
+#include "mach/pseudo_m4u.h"
+#include "smi_port.h"
+#endif
+
 /* #include <linux/xlog.h> */
 
 #include <linux/io.h>
@@ -191,7 +197,7 @@ static int dec_ready;
 /* hybrid decoder */
 #ifdef JPEG_HYBRID_DEC_DRIVER
 static wait_queue_head_t hybrid_dec_wait_queue[HW_CORE_NUMBER];
-static spinlock_t jpeg_hybrid_dec_lock;
+static DEFINE_MUTEX(jpeg_hybrid_dec_lock);
 #define JPGDEC_BASE_0 0x17040000
 #define JPGDEC_BASE_1 0x17050000
 #define JPGDEC_BASE_2 0x17840000
@@ -306,6 +312,10 @@ static irqreturn_t jpeg_drv_hybrid_dec_isr(int irq, void *dev_id)
 void jpeg_drv_hybrid_dec_power_on(int id)
 {
 	int ret;
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	int i, larb_port_num, larb_id;
+	struct M4U_PORT_STRUCT port;
+#endif
 
 	if (id <= 1) {
 		smi_bus_prepare_enable(SMI_LARB7, "JPEG0");
@@ -324,6 +334,30 @@ void jpeg_drv_hybrid_dec_power_on(int id)
 			JPEG_ERR("clk enable MT_CG_VENC_C1_JPGDEC failed %d",
 					ret);
 	}
+
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	if (id <= 1) {
+		larb_port_num = SMI_LARB7_PORT_NUM;
+		larb_id = 7;
+	} else {
+		larb_port_num = SMI_LARB8_PORT_NUM;
+		larb_id = 8;
+	}
+
+	//enable 34bits port configs & sram settings
+	for (i = 0; i < larb_port_num; i++) {
+		if (i == 11 || i == 12 ||
+			(i >= 23 && i <= 26)) {
+			port.ePortID = MTK_M4U_ID(larb_id, i);
+			port.Direction = 0;
+			port.Distance = 1;
+			port.domain = 0;
+			port.Security = 0;
+			port.Virtuality = 1;
+			m4u_config_port(&port);
+		}
+	}
+#endif
 	JPEG_MSG("JPEG Hybrid Decoder Power On %d\n", id);
 }
 
@@ -563,7 +597,7 @@ static int jpeg_drv_dec_hybrid_lock(unsigned int *pa)
 	int retValue = 0;
 	int id = 0;
 
-	spin_lock(&jpeg_hybrid_dec_lock);
+	mutex_lock(&jpeg_hybrid_dec_lock);
 	for (id = 0; id < HW_CORE_NUMBER; id++) {
 		if (dec_hwinfo[id].locked) {
 			JPEG_WRN("jpeg dec HW core %d is busy", id);
@@ -578,7 +612,7 @@ static int jpeg_drv_dec_hybrid_lock(unsigned int *pa)
 		}
 	}
 
-	spin_unlock(&jpeg_hybrid_dec_lock);
+	mutex_unlock(&jpeg_hybrid_dec_lock);
 	if (id == HW_CORE_NUMBER) {
 		JPEG_WRN("jpeg dec HW core all busy");
 		retValue = -EBUSY;
@@ -592,7 +626,7 @@ static void jpeg_drv_dec_hybrid_unlock(unsigned int *pa)
 {
 	int id = 0;
 
-	spin_lock(&jpeg_hybrid_dec_lock);
+	mutex_lock(&jpeg_hybrid_dec_lock);
 	for (id = 0; id < HW_CORE_NUMBER; id++) {
 		if (*pa == dec_hwinfo[id].hwpa) {
 			if (!dec_hwinfo[id].locked) {
@@ -605,7 +639,7 @@ static void jpeg_drv_dec_hybrid_unlock(unsigned int *pa)
 			break;
 		}
 	}
-	spin_unlock(&jpeg_hybrid_dec_lock);
+	mutex_unlock(&jpeg_hybrid_dec_lock);
 }
 #endif
 
@@ -2093,7 +2127,6 @@ static int jpeg_probe(struct platform_device *pdev)
 	#endif
 #endif
 #ifdef JPEG_HYBRID_DEC_DRIVER
-	spin_lock_init(&jpeg_hybrid_dec_lock);
 
 	memset(_jpeg_hybrid_dec_int_status, 0, HW_CORE_NUMBER);
 	for (i = 0; i < HW_CORE_NUMBER; i++) {
