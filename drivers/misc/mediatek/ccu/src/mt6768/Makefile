@@ -25,10 +25,11 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccu/src/1.1
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccu/src/1.2
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccu/inc/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccu/src/$(MTK_PLATFORM)/ccu_ext_interface/
 ccflags-y += -I$(srctree)/drivers/i2c/busses/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/imgsensor/inc
 
 
 #obj-$(CONFIG_MTK_VPU) += ccu_hw.o
