@@ -29,7 +29,7 @@ while getopts "cuh" opt; do
 	KCONFIG=`git show ${CHECK_COMMIT} --stat | gawk '/\/Kconfig.* +\| +[0-9]*/{print $1}'`
 	if [ ".$KCONFIG" != "." ]; then
 		echo From git commit: Checking all defconfig due to Kconfig is changed.
-		CONFIGS=`grep -rl CONFIG_MTK_PLATFORM arch/arm/configs arch/arm64/configs`
+		CONFIGS=`grep -rl "CONFIG_MTK_PLATFORM\|CONFIG_ARCH_MEDIATEK" arch/arm/configs arch/arm64/configs`
 		break
 	fi
 
