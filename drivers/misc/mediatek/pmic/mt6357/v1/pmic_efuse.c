@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2017 MediaTek Inc.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,10 +22,10 @@ unsigned int pmic_read_efuse_nolock(int i)
 	unsigned int efuse_data = 0;
 
 	/* 1. enable efuse ctrl engine clock */
-	pmic_set_register_value(PMIC_TOP_CKHWEN_CON0_CLR,
-				1 << PMIC_RG_EFUSE_CK_PDN_HWEN_SHIFT);
-	pmic_set_register_value(PMIC_TOP_CKPDN_CON0_CLR,
-				1 << PMIC_RG_EFUSE_CK_PDN_SHIFT);
+	pmic_set_register_value(PMIC_TOP_CKHWEN_CON0_CLR
+				, 1 << PMIC_RG_EFUSE_CK_PDN_HWEN_SHIFT);
+	pmic_set_register_value(PMIC_TOP_CKPDN_CON0_CLR
+				, 1 << PMIC_RG_EFUSE_CK_PDN_SHIFT);
 	/* 2. */
 	pmic_set_register_value(PMIC_RG_OTP_RD_SW, 1);
 	/* 3. Set row to read */
@@ -43,10 +43,10 @@ unsigned int pmic_read_efuse_nolock(int i)
 	udelay(100);
 	efuse_data = pmic_get_register_value(PMIC_RG_OTP_DOUT_SW);
 	/* 7. disable efuse ctrl engine clock */
-	pmic_set_register_value(PMIC_TOP_CKHWEN_CON0_SET,
-				1 << PMIC_RG_EFUSE_CK_PDN_HWEN_SHIFT);
-	pmic_set_register_value(PMIC_TOP_CKPDN_CON0_SET,
-				1 << PMIC_RG_EFUSE_CK_PDN_SHIFT);
+	pmic_set_register_value(PMIC_TOP_CKHWEN_CON0_SET
+				, 1 << PMIC_RG_EFUSE_CK_PDN_HWEN_SHIFT);
+	pmic_set_register_value(PMIC_TOP_CKPDN_CON0_SET
+				, 1 << PMIC_RG_EFUSE_CK_PDN_SHIFT);
 
 	return efuse_data;
 }

@@ -40,7 +40,8 @@ struct pmic_sp_irq {
 	unsigned short level_trig;
 	const char *name;
 	void (*callback)(void);
-	void (*oc_callback)(enum PMIC_IRQ_ENUM intNo, const char *name);
+	void (*oc_callback)(enum PMIC_IRQ_ENUM intNo,
+			    const char *name);
 	unsigned int times;
 };
 
