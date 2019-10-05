@@ -71,7 +71,7 @@ update_system_overutilized(struct lb_env *env)
 		return;
 
 	this_cpu = smp_processor_id();
-	max_capacity = cpu_rq(this_cpu)->rd->max_cpu_capacity.val;
+	max_capacity = capacity_orig_of(cpu_rq(this_cpu)->rd->max_cap_orig_cpu);
 
 	do {
 
