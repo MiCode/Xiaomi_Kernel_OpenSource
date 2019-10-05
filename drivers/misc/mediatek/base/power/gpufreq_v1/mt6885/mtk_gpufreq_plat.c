@@ -816,7 +816,7 @@ unsigned int mt_gpufreq_get_dvfs_en(void)
 unsigned int mt_gpufreq_not_ready(void)
 {
 	if (IS_ERR(g_pmic->reg_vgpu) || IS_ERR(g_pmic->reg_vsram_gpu)) {
-		gpufreq_pr_info("VGPU: %d, VSRAM_GPU: %d not initialized\n",
+		gpufreq_pr_info("VGPU: %lu, VSRAM_GPU: %ld not initialized\n",
 			PTR_ERR(g_pmic->reg_vgpu),
 			PTR_ERR(g_pmic->reg_vsram_gpu));
 		return true;
@@ -2822,7 +2822,7 @@ static int __mt_gpufreq_init_pmic(struct platform_device *pdev)
 	g_pmic->reg_vgpu =
 			regulator_get_optional(&pdev->dev, "_vgpu");
 	if (IS_ERR(g_pmic->reg_vgpu)) {
-		gpufreq_pr_info("@%s: cannot get VGPU, %d\n",
+		gpufreq_pr_info("@%s: cannot get VGPU, %ld\n",
 			__func__, PTR_ERR(g_pmic->reg_vgpu));
 		return PTR_ERR(g_pmic->reg_vgpu);
 	}
@@ -2830,7 +2830,7 @@ static int __mt_gpufreq_init_pmic(struct platform_device *pdev)
 	g_pmic->reg_vsram_gpu =
 			regulator_get_optional(&pdev->dev, "_vsram_gpu");
 	if (IS_ERR(g_pmic->reg_vsram_gpu)) {
-		gpufreq_pr_info("@%s: cannot get VSRAM_GPU, %d\n",
+		gpufreq_pr_info("@%s: cannot get VSRAM_GPU, %ld\n",
 			__func__, PTR_ERR(g_pmic->reg_vsram_gpu));
 		return PTR_ERR(g_pmic->reg_vsram_gpu);
 	}

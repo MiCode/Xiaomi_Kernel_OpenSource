@@ -983,7 +983,7 @@ int clk_buf_ctrl_bblpm_sw(bool enable)
 
 	clk_buf_get_bblpm_en();
 #else
-	clk_buf_pr_dbg("%s(%u): not support\n", __func__);
+	clk_buf_pr_dbg("%s: not support\n", __func__);
 #endif
 	return 0;
 }

@@ -378,8 +378,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		cdvfs_d->cmd = cmd;
 
 		cpufreq_ver("I'd like to set cluster%d ON/OFF state to %d\n",
-			cdvfs_d->u.set_fv.arg[0], cdvfs_d->u.set_fv.arg[1],
-			sizeof(struct cdvfs_data));
+			cdvfs_d->u.set_fv.arg[0], cdvfs_d->u.set_fv.arg[1]);
 
 		aee_record_cpu_dvfs_cb(6);
 
