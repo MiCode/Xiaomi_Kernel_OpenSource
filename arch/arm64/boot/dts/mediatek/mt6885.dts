@@ -5201,6 +5201,64 @@ page_owner=on";
 
 	subpmic_pmu_eint: mt6360_pmu_eint {
 	};
+
+	brisket: brisket {
+		compatible = "mediatek,brisket";
+		brisket4_doe_pllclken = <0>;
+		brisket5_doe_pllclken = <0>;
+		brisket6_doe_pllclken = <0>;
+		brisket7_doe_pllclken = <0>;
+		brisket4_doe_bren = <0>;
+		brisket5_doe_bren = <0>;
+		brisket6_doe_bren = <0>;
+		brisket7_doe_bren = <0>;
+	};
+
+	credit_didt: credit_didt {
+		compatible = "mediatek,credit_didt";
+		credit_didt4_doe_ls_period = <7>;
+		credit_didt5_doe_ls_period = <7>;
+		credit_didt6_doe_ls_period = <7>;
+		credit_didt7_doe_ls_period = <7>;
+		credit_didt4_doe_ls_credit = <6>;
+		credit_didt5_doe_ls_credit = <6>;
+		credit_didt6_doe_ls_credit = <6>;
+		credit_didt7_doe_ls_credit = <6>;
+		credit_didt4_doe_ls_low_freq_period = <7>;
+		credit_didt5_doe_ls_low_freq_period = <7>;
+		credit_didt6_doe_ls_low_freq_period = <7>;
+		credit_didt7_doe_ls_low_freq_period = <7>;
+		credit_didt4_doe_ls_low_freq_enable = <0>;
+		credit_didt5_doe_ls_low_freq_enable = <0>;
+		credit_didt6_doe_ls_low_freq_enable = <0>;
+		credit_didt7_doe_ls_low_freq_enable = <0>;
+		credit_didt4_doe_ls_enable = <0>;
+		credit_didt5_doe_ls_enable = <0>;
+		credit_didt6_doe_ls_enable = <0>;
+		credit_didt7_doe_ls_enable = <0>;
+		credit_didt4_doe_vx_period = <7>;
+		credit_didt5_doe_vx_period = <7>;
+		credit_didt6_doe_vx_period = <7>;
+		credit_didt7_doe_vx_period = <7>;
+		credit_didt4_doe_vx_credit = <6>;
+		credit_didt5_doe_vx_credit = <6>;
+		credit_didt6_doe_vx_credit = <6>;
+		credit_didt7_doe_vx_credit = <6>;
+		credit_didt4_doe_vx_low_freq_period = <7>;
+		credit_didt5_doe_vx_low_freq_period = <7>;
+		credit_didt6_doe_vx_low_freq_period = <7>;
+		credit_didt7_doe_vx_low_freq_period = <7>;
+		credit_didt4_doe_vx_low_freq_enable = <0>;
+		credit_didt5_doe_vx_low_freq_enable = <0>;
+		credit_didt6_doe_vx_low_freq_enable = <0>;
+		credit_didt7_doe_vx_low_freq_enable = <0>;
+		credit_didt4_doe_vx_enable = <0>;
+		credit_didt5_doe_vx_enable = <0>;
+		credit_didt6_doe_vx_enable = <0>;
+		credit_didt7_doe_vx_enable = <0>;
+	};
+
+
 };
 
 &mt6360_pmic {
