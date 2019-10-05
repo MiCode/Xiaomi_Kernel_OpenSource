@@ -165,7 +165,7 @@ buck_index < APUSYS_BUCK_NUM; buck_index++) {
 void apusys_pwr_constraint_check(void)
 {
 	uint8_t i = 0;
-	uint8_t opp_index = APUSYS_MAX_NUM_OPPS-1;
+	int8_t opp_index = APUSYS_MAX_NUM_OPPS-1;
 	enum DVFS_BUCK buck0;
 	enum DVFS_BUCK buck1;
 	enum DVFS_VOLTAGE voltage0;
