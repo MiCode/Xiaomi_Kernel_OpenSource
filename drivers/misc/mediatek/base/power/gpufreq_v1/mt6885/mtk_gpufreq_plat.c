@@ -133,6 +133,7 @@ static void __mt_gpufreq_vgpu_set_mode(unsigned int mode);
 static unsigned int __mt_gpufreq_get_cur_vgpu(void);
 static unsigned int __mt_gpufreq_get_cur_freq(void);
 static unsigned int __mt_gpufreq_get_cur_vsram_gpu(void);
+static unsigned int __mt_gpufreq_get_segment(void);
 static int __mt_gpufreq_get_opp_idx_by_vgpu(unsigned int vgpu);
 static unsigned int __mt_gpufreq_get_vsram_gpu_by_vgpu(unsigned int vgpu);
 static unsigned int __mt_gpufreq_get_limited_freq_by_power(
@@ -250,31 +251,28 @@ static void __iomem *g_mfg_base;
 u64 mt_gpufreq_get_shader_present(void)
 {
 	static u64 shader_present;
-	u32 segment_code = 0;
+	u32 segment_id = 0;
 
 	if (shader_present)
 		return shader_present;
 
-	segment_code = get_devinfo_with_index(30);
+	segment_id = __mt_gpufreq_get_segment();
 
-	switch (segment_code) {
-	case 0x1:
+	switch (segment_id) {
+	case MT6883_SEGMENT:
 		shader_present = MT_GPU_SHADER_PRESENT_5;
 		break;
 
-	case 0x4:
+	case MT6885_SEGMENT:
 		shader_present = MT_GPU_SHADER_PRESENT_7;
 		break;
 
-	case 0x10:
+	case MT6885T_SEGMENT:
 		shader_present = MT_GPU_SHADER_PRESENT_9;
 		break;
 
 	default:
 		shader_present = MT_GPU_SHADER_PRESENT_9;
-
-		gpufreq_pr_info("invalid segment: 0x%x, shader: 0x%llx\n",
-			segment_code, shader_present);
 	}
 
 	return shader_present;
@@ -1246,20 +1244,28 @@ void mt_gpufreq_power_limit_notify_registerCB(gpufreq_power_limit_notify pCB)
 {
 	/* legacy */
 }
+
 static unsigned int __mt_gpufreq_get_segment(void)
 {
 	unsigned int efuse_id, segment_id;
 
+	/* spare[7:0] */
 	efuse_id = (get_devinfo_with_index(30) & 0xFF);
 
-	if (efuse_id == 0x80 || efuse_id == 0x01 ||
-					efuse_id == 0x40 || efuse_id == 0x02)
-		segment_id = MT6783_SEGMENT;
-	else if (efuse_id == 0xC0 || efuse_id == 0x03 ||
-					efuse_id == 0x20 || efuse_id == 0x04)
-		segment_id = MT6785_SEGMENT;
-	else
-		segment_id = MT6785T_SEGMENT;
+	switch (efuse_id) {
+	case 0x1:
+		segment_id = MT6883_SEGMENT;
+		break;
+	case 0x4:
+		segment_id = MT6885_SEGMENT;
+		break;
+	case 0x10:
+		segment_id = MT6885T_SEGMENT;
+		break;
+	default:
+		segment_id = MT6885T_SEGMENT;
+		gpufreq_pr_info("invalid efuse id: 0x%x\n", efuse_id);
+	}
 
 	gpufreq_pr_info("@%s: efuse_id = 0x%x, segment_id = %d\n",
 						__func__, efuse_id, segment_id);
@@ -1344,11 +1350,9 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 			__mt_gpufreq_get_cur_freq(),
 			__mt_gpufreq_get_cur_vgpu(),
 			__mt_gpufreq_get_cur_vsram_gpu());
-	seq_printf(m, "segment_id = 0x%x\n", __mt_gpufreq_get_segment());
+	seq_printf(m, "segment_id = %d\n", __mt_gpufreq_get_segment());
 	seq_printf(m, "g_cg_on = %d, g_mtcmos_on = %d, g_buck_on = %d\n",
-			g_cg_on,
-			g_mtcmos_on,
-			g_buck_on);
+			g_cg_on, g_mtcmos_on, g_buck_on);
 	seq_printf(m, "g_opp_stress_test_state = %d\n",
 			g_opp_stress_test_state);
 	seq_printf(m, "g_max_limited_idx = %d\n",
@@ -1358,8 +1362,7 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 
 	for (i = 0; i < NUMBER_OF_LIMITED_IDX; i++)
 		seq_printf(m, "g_limited_idx_array[%d] = %d\n",
-				i,
-				g_limited_idx_array[i] - g_segment_max_opp_idx);
+			i, g_limited_idx_array[i] - g_segment_max_opp_idx);
 
 	return 0;
 }
