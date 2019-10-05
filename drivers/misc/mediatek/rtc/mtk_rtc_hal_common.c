@@ -163,9 +163,7 @@ static void rtc_get_tick(struct rtc_time *tm)
 	tm->tm_min = rtc_read(RTC_TC_MIN);
 	tm->tm_hour = rtc_read(RTC_TC_HOU);
 	tm->tm_mday = rtc_read(RTC_TC_DOM);
-#if !defined(CONFIG_MTK_PMIC_CHIP_MT6357)
 	tm->tm_mon = rtc_read(RTC_TC_MTH) & RTC_TC_MTH_MASK;
-#endif
 	tm->tm_year = rtc_read(RTC_TC_YEA);
 }
 
