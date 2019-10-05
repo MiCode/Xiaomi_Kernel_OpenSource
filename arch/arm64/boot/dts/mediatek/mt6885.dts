@@ -4104,6 +4104,14 @@ page_owner=on";
 		clock-names = "conn";
 	};
 
+	ccu@1a101000 {
+		compatible = "mediatek,ccu";
+		reg = <0 0x1a101000 0 0x1000>;
+		interrupts = <GIC_SPI 329 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&camsys CAMSYS_MAIN_CCU0_CGPDN>;
+		clock-names = "CCU_CLK_CAM_CCU";
+	};
+
 	wifi@18000000{
 		compatible = "mediatek,wifi";
 		reg = <0 0x18000000 0 0x700000>;

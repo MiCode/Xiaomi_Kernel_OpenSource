@@ -73,15 +73,16 @@
 
 //for mmdvfs
 #include <linux/pm_qos.h>
+#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 #include <mmdvfs_pmqos.h>
-
-/******************************************************************************
+#endif
+/***************************************************************************
  *
- *****************************************************************************/
+ **************************************************************************/
 
 #define CCU_DEV_NAME            "ccu"
 
-#define CCU_CLK_NUM 3 /* [0]: Camsys, [1]: Mmsys, [2]: TopMux */
+#define CCU_CLK_NUM 1 /* [0]: Camsys, [1]: Mmsys, [2]: TopMux */
 struct clk *ccu_clk_ctrl[CCU_CLK_NUM];
 
 struct ccu_device_s *g_ccu_device;
@@ -91,7 +92,8 @@ static uint32_t ccu_hw_base;
 static wait_queue_head_t wait_queue_deque;
 static wait_queue_head_t wait_queue_enque;
 
-static struct ion_handle *import_buffer_handle[CCU_IMPORT_BUF_NUM];
+static struct ion_handle
+	*import_buffer_handle[CCU_IMPORT_BUF_NUM];
 
 #ifdef CONFIG_PM_WAKELOCKS
 struct wakeup_source ccu_wake_lock;
@@ -100,7 +102,8 @@ struct wake_lock ccu_wake_lock;
 #endif
 /*static int g_bWaitLock;*/
 
-static irqreturn_t ccu_isr_callback_xxx(int rrq, void *device_id);
+static irqreturn_t ccu_isr_callback_xxx(int rrq,
+					void *device_id);
 
 typedef irqreturn_t(*ccu_isr_fp_t) (int, void *);
 
@@ -111,7 +114,8 @@ struct ccu_isr_callback_t {
 };
 
 /* int number is got from kernel api */
-const struct ccu_isr_callback_t ccu_isr_callbacks[CCU_IRQ_NUM_TYPES] = {
+const struct ccu_isr_callback_t
+	ccu_isr_callbacks[CCU_IRQ_NUM_TYPES] = {
 	/* The last used be mapping to device node.*/
 	/* Must be the same name with that in device node. */
 	{ccu_isr_callback_xxx, 0, "ccu2"}
@@ -122,22 +126,23 @@ static irqreturn_t ccu_isr_callback_xxx(int irq, void *device_id)
 	LOG_DBG("%s:0x%x\n", __func__, irq);
 	return IRQ_HANDLED;
 }
-
+#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 static struct pm_qos_request _ccu_qos_request;
 static u64 _g_freq_steps[MAX_FREQ_STEP];
 static u32 _step_size;
-
+#endif
 static int ccu_probe(struct platform_device *dev);
 
 static int ccu_remove(struct platform_device *dev);
 
-static int ccu_suspend(struct platform_device *dev, pm_message_t mesg);
+static int ccu_suspend(struct platform_device *dev,
+		       pm_message_t mesg);
 
 static int ccu_resume(struct platform_device *dev);
 
-/*---------------------------------------------------------------------------*/
-/* CCU Driver: pm operations                                                 */
-/*---------------------------------------------------------------------------*/
+/*-------------------------------------------------------------------------*/
+/* CCU Driver: pm operations                                               */
+/*-------------------------------------------------------------------------*/
 #ifdef CONFIG_PM
 int ccu_pm_suspend(struct device *device)
 {
@@ -201,15 +206,15 @@ static struct platform_driver ccu_driver = {
 	.suspend = ccu_suspend,
 	.resume = ccu_resume,
 	.driver = {
-		   .name = CCU_DEV_NAME,
-		   .owner = THIS_MODULE,
+		.name = CCU_DEV_NAME,
+		.owner = THIS_MODULE,
 #ifdef CONFIG_OF
-		   .of_match_table = ccu_of_ids,
+		.of_match_table = ccu_of_ids,
 #endif
 #ifdef CONFIG_PM
-		   .pm = &ccu_pm_ops,
+		.pm = &ccu_pm_ops,
 #endif
-		}
+	}
 };
 
 
@@ -220,13 +225,15 @@ static int ccu_open(struct inode *inode, struct file *flip);
 
 static int ccu_release(struct inode *inode, struct file *flip);
 
-static int ccu_mmap(struct file *flip, struct vm_area_struct *vma);
+static int ccu_mmap(struct file *flip,
+		    struct vm_area_struct *vma);
 
-static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg);
+static long ccu_ioctl(struct file *flip, unsigned int cmd,
+		      unsigned long arg);
 
 #ifdef CONFIG_COMPAT
-static long ccu_compat_ioctl(struct file *flip,
-	unsigned int cmd, unsigned long arg);
+static long ccu_compat_ioctl(struct file *flip, unsigned int cmd,
+			     unsigned long arg);
 #endif
 
 static const struct file_operations ccu_fops = {
@@ -276,7 +283,8 @@ int ccu_create_user(struct ccu_user_s **user)
 }
 
 
-int ccu_push_command_to_queue(struct ccu_user_s *user, struct ccu_cmd_s *cmd)
+int ccu_push_command_to_queue(struct ccu_user_s *user,
+			      struct ccu_cmd_s *cmd)
 {
 	if (!user) {
 		LOG_ERR("empty user");
@@ -332,7 +340,8 @@ int ccu_flush_commands_from_queue(struct ccu_user_s *user)
 	return 0;
 }
 
-int ccu_pop_command_from_queue(struct ccu_user_s *user, struct ccu_cmd_s **rcmd)
+int ccu_pop_command_from_queue(struct ccu_user_s *user,
+			       struct ccu_cmd_s **rcmd)
 {
 	int ret;
 	struct ccu_cmd_s *cmd;
@@ -365,7 +374,8 @@ int ccu_pop_command_from_queue(struct ccu_user_s *user, struct ccu_cmd_s **rcmd)
 	};
 
 	/* get first node from deque list */
-	cmd = vlist_node_of(user->deque_ccu_cmd_list.next, struct ccu_cmd_s);
+	cmd = vlist_node_of(user->deque_ccu_cmd_list.next,
+			    struct ccu_cmd_s);
 	list_del_init(vlist_link(cmd, struct ccu_cmd_s));
 
 	mutex_unlock(&user->data_mutex);
@@ -575,14 +585,17 @@ static int ccu_free_command(struct ccu_cmd_s *cmd)
 
 int ccu_clock_enable(void)
 {
-	int ret;
+	int ret = 0;
 
 	LOG_DBG_MUST("%s, 3 clks.\n", __func__);
+#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 	ccu_qos_init();
-
-	ret = (clk_prepare_enable(ccu_clk_ctrl[0]) |
+#endif
+#ifndef CCU_LDVT
+	ret = (clk_prepare_enable(ccu_clk_ctrl[0])/* |
 		clk_prepare_enable(ccu_clk_ctrl[1]) |
-		clk_prepare_enable(ccu_clk_ctrl[2]));
+		clk_prepare_enable(ccu_clk_ctrl[2])*/);
+#endif
 	if (ret)
 		LOG_ERR("clock enable fail.\n");
 	return ret;
@@ -591,14 +604,19 @@ int ccu_clock_enable(void)
 void ccu_clock_disable(void)
 {
 	LOG_DBG_MUST("%s.\n", __func__);
+#ifndef CCU_LDVT
 	clk_disable_unprepare(ccu_clk_ctrl[0]);
-	clk_disable_unprepare(ccu_clk_ctrl[1]);
-	clk_disable_unprepare(ccu_clk_ctrl[2]);
+	//clk_disable_unprepare(ccu_clk_ctrl[1]);
+	//clk_disable_unprepare(ccu_clk_ctrl[2]);
+#endif
 
+#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 	ccu_qos_uninit();
+#endif
 }
 
-static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
+static long ccu_ioctl(struct file *flip, unsigned int cmd,
+		      unsigned long arg)
 {
 	int ret = 0;
 	int i = 0;
@@ -618,6 +636,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 	}
 
 	switch (cmd) {
+
 	case CCU_IOCTL_SET_POWER:
 	{
 		LOG_DBG("ccuk: ioctl set powerk+\n");
@@ -632,11 +651,13 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 		LOG_DBG("ccuk: ioctl set powerk-\n");
 		break;
 	}
+
 	case CCU_IOCTL_SET_RUN:
 	{
 		ret = ccu_run();
 		break;
 	}
+
 	case CCU_IOCTL_ENQUE_COMMAND:
 	{
 		struct ccu_cmd_s *cmd = 0;
@@ -654,6 +675,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 		ret = ccu_push_command_to_queue(user, cmd);
 		break;
 	}
+
 	case CCU_IOCTL_DEQUE_COMMAND:
 	{
 		struct ccu_cmd_s *cmd = 0;
@@ -679,6 +701,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 
 		break;
 	}
+
 	case CCU_IOCTL_FLUSH_COMMAND:
 	{
 		ret = ccu_flush_commands_from_queue(user);
@@ -690,6 +713,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 
 		break;
 	}
+
 	case CCU_IOCTL_WAIT_IRQ:
 	{
 		if (copy_from_user(&IrqInfo,
@@ -725,6 +749,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 
 		break;
 	}
+
 	case CCU_IOCTL_WAIT_AF_IRQ:
 	{
 		if (copy_from_user(
@@ -773,8 +798,8 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 
 		break;
 	}
-	case CCU_IOCTL_SEND_CMD:	/*--todo: not used for now, remove it*/
-	{
+	case CCU_IOCTL_SEND_CMD:
+	{	/*--todo: not used for now, remove it*/
 		struct ccu_cmd_s cmd;
 
 		ret = copy_from_user(
@@ -783,25 +808,30 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 		if (ret != 0) {
 			LOG_ERR(
 			"[CCU_IOCTL_SEND_CMD] copy_from_user failed, ret=%d\n",
+			ret);
 			return -EFAULT;
 		}
 		ccu_send_command(&cmd);
 		break;
 	}
+
 	case CCU_IOCTL_FLUSH_LOG:
 	{
 		ccu_flushLog(0, NULL);
 		break;
 	}
+
 	case CCU_IOCTL_UPDATE_QOS_REQUEST:
 	{
 		uint32_t ccu_bw[3];
 
 		ccu_qos_update_req(&ccu_bw[0]);
+
 		ret = copy_to_user((void *)arg, &ccu_bw,
 			sizeof(uint32_t) * 3);
 		break;
 	}
+
 	case CCU_IOCTL_UPDATE_CAM_FREQ_REQUEST:
 	{
 		uint32_t freq_level;
@@ -810,7 +840,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 			(void *)arg, sizeof(uint32_t));
 
 		LOG_DBG_MUST("request freq level: %d\n", freq_level);
-
+#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 		if (freq_level == CCU_REQ_CAM_FREQ_NONE)
 			pm_qos_update_request(&_ccu_qos_request, 0);
 		else
@@ -821,9 +851,10 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 		//current freq setting
 		LOG_DBG_MUST("current freq: %d\n",
 			pm_qos_request(PM_QOS_CAM_FREQ));
-
+#endif
 		break;
 	}
+
 	case CCU_IOCTL_GET_I2C_DMA_BUF_ADDR:
 	{
 		struct ccu_i2c_buf_mva_ioarg ioarg;
@@ -848,6 +879,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 
 		break;
 	}
+
 	case CCU_IOCTL_SET_I2C_MODE:
 	{
 		ret = ccu_i2c_controller_init((enum CCU_I2C_CHANNEL)arg);
@@ -859,6 +891,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 
 		break;
 	}
+
 	case CCU_IOCTL_GET_CURRENT_FPS:
 	{
 		int32_t current_fps_list[IMGSENSOR_SENSOR_IDX_MAX_NUM];
@@ -870,14 +903,15 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 
 		break;
 	}
+
 	case CCU_IOCTL_GET_SENSOR_I2C_SLAVE_ADDR:
 	{
-		int32_t sensorI2cSlaveAddr[3];
+			int32_t sensorI2cSlaveAddr[5];
 
 		ccu_get_sensor_i2c_slave_addr(&sensorI2cSlaveAddr[0]);
 
-		ret = copy_to_user(
-		(void *)arg, &sensorI2cSlaveAddr, sizeof(int32_t)*3);
+		ret = copy_to_user((void *)arg,
+				&sensorI2cSlaveAddr, sizeof(int32_t) * 5);
 
 		break;
 	}
@@ -886,7 +920,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 	{
 		#define SENSOR_NAME_MAX_LEN 32
 
-		char *sensor_names[3];
+		char *sensor_names[5];
 
 		ccu_get_sensor_name(sensor_names);
 
@@ -917,6 +951,23 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 			}
 		}
 
+		if (sensor_names[3] != NULL) {
+			ret = copy_to_user(((char *)arg+SENSOR_NAME_MAX_LEN*3),
+				sensor_names[3], strlen(sensor_names[3])+1);
+			if (ret != 0) {
+				LOG_ERR("copy_to_user 4 failed: %d\n", ret);
+				break;
+			}
+		}
+
+		if (sensor_names[4] != NULL) {
+			ret = copy_to_user(((char *)arg+SENSOR_NAME_MAX_LEN*4),
+				sensor_names[4], strlen(sensor_names[4])+1);
+			if (ret != 0) {
+				LOG_ERR("copy_to_user 4 failed: %d\n", ret);
+				break;
+			}
+		}
 		#undef SENSOR_NAME_MAX_LEN
 		break;
 	}
@@ -927,6 +978,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 
 		return ccu_read_info_reg(regToRead);
 	}
+
 	case CCU_IOCTL_IMPORT_MEM:
 	{
 		struct ion_handle *handle;
@@ -962,6 +1014,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 
 		break;
 	}
+
 	default:
 		LOG_WARN("ioctl:No such command!\n");
 		ret = -EINVAL;
@@ -1024,7 +1077,7 @@ static int ccu_mmap(struct file *flip, struct vm_area_struct *vma)
 	pfn = vma->vm_pgoff << PAGE_SHIFT;
 
 	LOG_DBG
-	("CCU_mmap: vm_pgoff(0x%lx),pfn(0x%x),phy(0x%lx)\n"
+	("CCU_mmap: vm_pgoff(0x%lx),pfn(0x%x),phy(0x%lx)\n",
 	vma->vm_pgoff, pfn, vma->vm_pgoff << PAGE_SHIFT);
 	LOG_DBG
 	("vm_start(0x%lx),vm_end(0x%lx),length(0x%lx)\n",
@@ -1141,11 +1194,12 @@ EXIT:
 	return ret;
 }
 
-/******************************************************************************
+/*****************************************************************************
  * platform_driver
- *****************************************************************************/
+ ****************************************************************************/
 
-static int ccu_read_platform_info_from_dt(struct device_node *node)
+static int ccu_read_platform_info_from_dt(struct device_node
+		*node)
 {
 	uint32_t reg[4] = {0, 0, 0, 0};
 	int ret = 0;
@@ -1173,7 +1227,8 @@ static int ccu_probe(struct platform_device *pdev)
 
 	node = pdev->dev.of_node;
 	g_ccu_device->dev = &pdev->dev;
-	LOG_DBG("probe 0, pdev id = %d name = %s\n", pdev->id, pdev->name);
+	LOG_DBG("probe 0, pdev id = %d name = %s\n", pdev->id,
+		pdev->name);
 
 	ccu_read_platform_info_from_dt(node);
 
@@ -1185,7 +1240,8 @@ static int ccu_probe(struct platform_device *pdev)
 if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 
 /* get physical address of pmem  */
-/* ioremap_wc() has no access 4 bytes alignment limitation as of_iomap() does?
+/* ioremap_wc() has no access 4 bytes alignmen
+ * limitation as of_iomap() does?
  * https://forums.xilinx.com/xlnx/attachments/
  * xlnx/ELINUX/11158/1/Linux%20CPU%20to%20PL%20Access.pdf
  */
@@ -1193,32 +1249,52 @@ if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 	/*remap ccu_base*/
 	phy_addr = ccu_hw_base;
 	phy_size = 0x1000;
+#ifdef CCU_LDVT
+	g_ccu_device->ccu_base =
+		(unsigned long)ioremap_wc(phy_addr, phy_size);
+#else
 	g_ccu_device->ccu_base =
 		(unsigned long)ioremap(phy_addr, phy_size);
+#endif
 	LOG_INF("ccu_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
 	LOG_INF("ccu_base va: 0x%lx\n", g_ccu_device->ccu_base);
 
 	/*remap dmem_base*/
 	phy_addr = CCU_DMEM_BASE;
 	phy_size = CCU_DMEM_SIZE;
+#ifdef CCU_LDVT
+	g_ccu_device->dmem_base =
+		(unsigned long)ioremap_wc(phy_addr, phy_size);
+#else
 	g_ccu_device->dmem_base =
 		(unsigned long)ioremap(phy_addr, phy_size);
+#endif
 	LOG_INF("dmem_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
 	LOG_INF("dmem_base va: 0x%lx\n", g_ccu_device->dmem_base);
 
 	/*remap camsys_base*/
 	phy_addr = CCU_CAMSYS_BASE;
 	phy_size = CCU_CAMSYS_SIZE;
+#ifdef CCU_LDVT
 	g_ccu_device->camsys_base =
-		(unsigned long)ioremap(phy_addr, phy_size);
+		(unsigned long)ioremap_wc(phy_addr, phy_size);
+#else
+	g_ccu_device->camsys_base =
+		(unsigned long)ioremap_wc(phy_addr, phy_size);
+#endif
 	LOG_INF("camsys_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
 	LOG_INF("camsys_base va: 0x%lx\n", g_ccu_device->camsys_base);
 
 	/*remap n3d_a_base*/
 	phy_addr = CCU_N3D_A_BASE;
 	phy_size = CCU_N3D_A_SIZE;
+#ifdef CCU_LDVT
 	g_ccu_device->n3d_a_base =
-		(unsigned long)ioremap(phy_addr, phy_size);
+		(unsigned long)ioremap_wc(phy_addr, phy_size);
+#else
+	g_ccu_device->n3d_a_base =
+		(unsigned long)ioremap_wc(phy_addr, phy_size);
+#endif
 	LOG_INF("n3d_a_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
 	LOG_INF("n3d_a_base va: 0x%lx\n", g_ccu_device->n3d_a_base);
 
@@ -1228,6 +1304,7 @@ if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 		"CCU_CLK_CAM_CCU");
 	if (ccu_clk_ctrl[0] == NULL)
 		LOG_ERR("Get ccu clock ctrl camsys fail.\n");
+#if 0
 	ccu_clk_ctrl[1] = devm_clk_get(g_ccu_device->dev,
 		"CCU_CLK_MMSYS_CCU");
 	if (ccu_clk_ctrl[1] == NULL)
@@ -1236,7 +1313,7 @@ if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 		"CCU_CLK_TOP_MUX");
 	if (ccu_clk_ctrl[2] == NULL)
 		LOG_ERR("Get ccu clock ctrl mmsys fail.\n");
-
+#endif
 	g_ccu_device->irq_num = irq_of_parse_and_map(node, 0);
 	LOG_DBG("probe 1, ccu_base: 0x%lx, bin_base: 0x%lx,",
 		g_ccu_device->ccu_base, g_ccu_device->bin_base);
@@ -1289,16 +1366,18 @@ if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 #ifdef CONFIG_PM_WAKELOCKS
 	wakeup_source_init(&ccu_wake_lock, "ccu_lock_wakelock");
 #else
-	wake_lock_init(&ccu_wake_lock, WAKE_LOCK_SUSPEND, "ccu_lock_wakelock");
+			wake_lock_init(&ccu_wake_lock, WAKE_LOCK_SUSPEND,
+				       "ccu_lock_wakelock");
 #endif
 
 		/* enqueue/dequeue control in ihalpipe wrapper */
 		init_waitqueue_head(&wait_queue_deque);
 		init_waitqueue_head(&wait_queue_enque);
 
-/*for (i = 0; i < CCU_IRQ_NUM_TYPES; i++) {*/
-/*      tasklet_init(ccu_tasklet[i].pCCU_tkt, ccu_tasklet[i].tkt_cb, 0);*/
-/*}*/
+			/*for (i = 0; i < CCU_IRQ_NUM_TYPES; i++) {*/
+			/*      tasklet_init(ccu_tasklet[i].pCCU_tkt, */
+			/* ccu_tasklet[i].tkt_cb, 0);*/
+			/*}*/
 
 		/*register i2c driver callback*/
 		ret = ccu_i2c_register_driver();
@@ -1385,7 +1464,8 @@ static int ccu_remove(struct platform_device *pDev)
 	return 0;
 }
 
-static int ccu_suspend(struct platform_device *pdev, pm_message_t mesg)
+static int ccu_suspend(struct platform_device *pdev,
+		       pm_message_t mesg)
 {
 	return 0;
 }
@@ -1420,7 +1500,7 @@ static int __init CCU_INIT(void)
 	}
 
 	LOG_DBG("platform_driver_register finsish\n");
-
+#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 	//Call pm_qos_add_request when
 	//initialize module or driver prob
 	pm_qos_add_request(&_ccu_qos_request,
@@ -1430,7 +1510,7 @@ static int __init CCU_INIT(void)
 	//to get supported frequency
 	result = mmdvfs_qos_get_freq_steps(PM_QOS_CAM_FREQ,
 		_g_freq_steps, &_step_size);
-
+#endif
 	if (result < 0)
 		LOG_ERR("get MMDVFS freq steps failed, result: %d\n", result);
 
@@ -1440,9 +1520,11 @@ static int __init CCU_INIT(void)
 
 static void __exit CCU_EXIT(void)
 {
+#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 	//Call pm_qos_remove_request when
 	//de-initialize module or driver remove
 	pm_qos_remove_request(&_ccu_qos_request);
+#endif
 	platform_driver_unregister(&ccu_driver);
 	kfree(g_ccu_device);
 }
