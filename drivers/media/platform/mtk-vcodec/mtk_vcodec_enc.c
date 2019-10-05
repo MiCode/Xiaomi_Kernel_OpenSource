@@ -390,6 +390,13 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		p->roion = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_ROI_ON;
 		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_GRID_SIZE:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_GRID_SIZE: %d",
+			ctrl->val);
+		p->heif_grid_size = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_GRID_SIZE;
+		break;
 	default:
 		mtk_v4l2_err("ctrl-id=%d not support!", ctrl->id);
 		ret = -EINVAL;
@@ -824,18 +831,21 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->prependheader = enc_params->prependheader;
 	param->bitratemode = enc_params->bitratemode;
 	param->roion = enc_params->roion;
+	param->heif_grid_size = enc_params->heif_grid_size;
+
 	ctx->use_gce = (ctx->use_gce == 1) ?
 		ctx->use_gce :
 		(enc_params->operationrate >= MTK_SLOWMOTION_GCE_TH);
 
 	mtk_v4l2_debug(0,
-	"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d(%d), gop %d, i_period %d opr %d smvr %d",
+	"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d(%d), gop %d, i_period %d opr %d smvr %d grid size %d/%d",
 	param->input_yuv_fmt, param->profile,
 	param->level, param->width, param->height,
 	param->buf_width, param->buf_height,
 	param->frm_rate, param->bitrate, param->bitratemode,
 	param->gop_size, param->intra_period,
-	param->operationrate, ctx->use_gce);
+	param->operationrate, ctx->use_gce,
+	(param->heif_grid_size>>16), param->heif_grid_size&0xffff);
 }
 
 static int vidioc_venc_subscribe_evt(struct v4l2_fh *fh,
@@ -1492,6 +1502,7 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 
 	if ((ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H264 ||
 	     ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H265 ||
+	     ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_HEIF ||
 	     ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_MPEG4) &&
 	    (ctx->enc_params.seq_hdr_mode !=
 	     V4L2_MPEG_VIDEO_HEADER_MODE_SEPARATE)) {
@@ -1790,6 +1801,18 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 					&enc_prm);
 	}
 
+	if (!ret &&
+	mtk_buf->param_change & MTK_ENCODE_PARAM_GRID_SIZE) {
+		enc_prm.heif_grid_size = mtk_buf->enc_params.heif_grid_size;
+		mtk_v4l2_err("[%d] idx=%d, heif_grid_size=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				mtk_buf->enc_params.heif_grid_size);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_HEIF_GRID_SIZE,
+					&enc_prm);
+	}
+
 	mtk_buf->param_change = MTK_ENCODE_PARAM_NONE;
 
 	if (ret) {
@@ -2019,6 +2042,7 @@ static void m2mops_venc_device_run(void *priv)
 
 	if ((ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H264 ||
 	     ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H265 ||
+	     ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_HEIF ||
 	     ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_MPEG4 ||
 	     ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H263) &&
 	    (ctx->state != MTK_STATE_HEADER)) {
@@ -2281,6 +2305,18 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.min = 0;
 	cfg.max = 2048;
 	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_GRID_SIZE;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode heif grid size";
+	cfg.min = 0;
+	cfg.max = (3840<<16)+2176;
+	cfg.step = 16;
 	cfg.def = 0;
 	cfg.ops = ops;
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);

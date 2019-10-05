@@ -254,7 +254,8 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 	if (ctx->use_gce == 1)
 		boost_perc = 100;
 
-	if (ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H265)
+	if (ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H265 ||
+		ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_HEIF)
 		boost_perc = 150;
 
 	emi_bw = 8L * 1920 * 1080 * 3 * 10 * venc_freq;
