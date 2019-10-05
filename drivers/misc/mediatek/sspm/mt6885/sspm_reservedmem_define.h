@@ -66,7 +66,7 @@ static struct sspm_reserve_mblock sspm_reserve_mblock[NUMS_MEM_ID] = {
 #else
 	{
 		.num = MET_MEM_ID,
-		.size = 0x400000, /* 4M */
+		.size = 0x800000, /* 8M */
 	},
 #endif
 	{
