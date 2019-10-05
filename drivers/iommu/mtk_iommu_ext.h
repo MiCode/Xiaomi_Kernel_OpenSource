@@ -150,7 +150,7 @@ void mtk_iommu_trace_log(int event,
 void mtk_iommu_log_dump(void *seq_file);
 int m4u_user2kernel_port(int userport);
 
-int mtk_iommu_get_pgtable_base_addr(unsigned int *pgd_pa);
+int mtk_iommu_get_pgtable_base_addr(unsigned long *pgd_pa);
 int mtk_iommu_port_clock_switch(unsigned int port, bool enable);
 int mtk_iommu_larb_clock_switch(unsigned int larb, bool enable);
 unsigned int mtk_get_iommu_index(unsigned int larb);

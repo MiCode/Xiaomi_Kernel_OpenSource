@@ -760,13 +760,13 @@ static int m4u_debug_set(void *data, u64 val)
 	break;
 	case 23:
 	{
-		unsigned int pgd_pa = 0;
+		unsigned long pgd_pa = 0;
 
 		if (mtk_iommu_get_pgtable_base_addr(&pgd_pa)) {
 			M4U_MSG("failed to get pgd info\n");
 			break;
 		}
-		M4U_MSG("pgd_pa:0x%x\n", pgd_pa);
+		M4U_MSG("pgd_pa:0x%lx\n", pgd_pa);
 	}
 	break;
 	case 24:

@@ -1371,9 +1371,19 @@ int __mtk_iommu_get_pgtable_base_addr(
 	return 0;
 }
 
-int mtk_iommu_get_pgtable_base_addr(unsigned int *pgd_pa)
+int mtk_iommu_get_pgtable_base_addr(unsigned long *pgd_pa)
 {
-	return __mtk_iommu_get_pgtable_base_addr(NULL, pgd_pa);
+	unsigned int pgd_reg_val = 0;
+	int ret = 0;
+
+	ret = __mtk_iommu_get_pgtable_base_addr(NULL, &pgd_reg_val);
+	if (ret)
+		return ret;
+
+	*pgd_pa = ((pgd_reg_val & F_MMU_PT_BASE_ADDR_BIT32) << 32) |
+		   (pgd_reg_val & F_MMU_PT_BASE_ADDR_MSK);
+
+	return 0;
 }
 
 static int mtk_iommu_create_pgtable(struct mtk_iommu_data *data)
@@ -3563,12 +3573,15 @@ static s32 mtk_iommu_larbs_get(struct mtk_iommu_data *data)
 						compare_of, larbnode);
 	}
 
-	if (!match)
-		pr_notice("%s,%d, invalid match\n", __func__, __LINE__);
 
-	ret = component_master_add_with_match(dev,
-				&mtk_iommu_com_ops,
-				match);
+	if (match)
+		ret = component_master_add_with_match(dev,
+					&mtk_iommu_com_ops,
+					match);
+	else
+		ret = -ENOMEM;
+
+
 	if (ret)
 		pr_notice("%s, err add match, ret=%d, probe defer\n",
 			  __func__, ret);
