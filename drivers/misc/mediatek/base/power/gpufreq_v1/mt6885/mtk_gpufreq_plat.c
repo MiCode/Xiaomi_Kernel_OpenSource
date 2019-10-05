@@ -2126,7 +2126,7 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	}
 
 	gpufreq_pr_logbuf(
-	"posdiv: %d, real_posdiv: %d, dds: 0x%lx, pll: 0x%08x, parking: %d\n",
+	"posdiv: %d, real_posdiv: %d, dds: 0x%x, pll: 0x%08x, parking: %d\n",
 	(1 << posdiv_power), (1 << real_posdiv_power), dds, pll, parking);
 }
 
