@@ -496,7 +496,8 @@ static int ovl_create_or_link(struct dentry *dentry, struct inode *inode,
 		override_cred->fsgid = inode->i_gid;
 		if (!hardlink) {
 			err = security_dentry_create_files_as(dentry,
-					attr->mode, &dentry->d_name, old_cred,
+					attr->mode, &dentry->d_name,
+					old_cred ? old_cred : current_cred(),
 					override_cred);
 			if (err) {
 				put_cred(override_cred);
@@ -514,7 +515,7 @@ static int ovl_create_or_link(struct dentry *dentry, struct inode *inode,
 							hardlink);
 	}
 out_revert_creds:
-	revert_creds(old_cred);
+	ovl_revert_creds(old_cred);
 	if (!err) {
 		struct inode *realinode = d_inode(ovl_dentry_upper(dentry));
 
@@ -773,7 +774,7 @@ static int ovl_do_remove(struct dentry *dentry, bool is_dir)
 		err = ovl_remove_upper(dentry, is_dir);
 	else
 		err = ovl_remove_and_whiteout(dentry, is_dir);
-	revert_creds(old_cred);
+	ovl_revert_creds(old_cred);
 	if (!err) {
 		if (is_dir)
 			clear_nlink(dentry->d_inode);
@@ -1089,7 +1090,7 @@ out_dput_old:
 out_unlock:
 	unlock_rename(new_upperdir, old_upperdir);
 out_revert_creds:
-	revert_creds(old_cred);
+	ovl_revert_creds(old_cred);
 	ovl_nlink_end(new, locked);
 out_drop_write:
 	ovl_drop_write(old);

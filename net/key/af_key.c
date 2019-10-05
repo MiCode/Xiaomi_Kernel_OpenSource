@@ -212,7 +212,6 @@ static int pfkey_broadcast_one(struct sk_buff *skb, gfp_t allocation,
 		sk->sk_data_ready(sk);
 		err = 0;
 	}
-
 	return err;
 }
 
