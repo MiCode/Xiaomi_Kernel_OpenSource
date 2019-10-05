@@ -2141,6 +2141,9 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 		/* LC_CON */
 		mtk_serial_dump_reg(baddr, 0x280, 4);
 
+		/* WCG */
+		mtk_serial_dump_reg(baddr, 0x2D8, 2);
+
 		/* DATAPATH_EXT_CON */
 		mtk_serial_dump_reg(baddr, 0x324, 1);
 
@@ -2153,6 +2156,19 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 
 		/* SBCH */
 		mtk_serial_dump_reg(baddr, 0x3A0, 3);
+
+		/* WCG */
+		for (i = 0 ; i < 4 ; i++) {
+			mtk_serial_dump_reg(baddr, 0x500 + i * 40, 4);
+			mtk_serial_dump_reg(baddr, 0x510 + i * 40, 4);
+			mtk_serial_dump_reg(baddr, 0x520 + i * 40, 1);
+		}
+
+		for (i = 0 ; i < 3 ; i++) {
+			mtk_serial_dump_reg(baddr, 0x600 + i * 40, 4);
+			mtk_serial_dump_reg(baddr, 0x610 + i * 40, 4);
+			mtk_serial_dump_reg(baddr, 0x620 + i * 40, 1);
+		}
 
 		/* FBDC */
 		mtk_serial_dump_reg(baddr, 0x800, 3);
