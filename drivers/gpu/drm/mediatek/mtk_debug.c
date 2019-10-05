@@ -714,7 +714,7 @@ static void process_dbg_opt(const char *opt)
 		mtk_crtc_path_switch(crtc, path_sel, 1);
 	} else if (strncmp(opt, "enable_idlemgr:", 15) == 0) {
 		char *p = (char *)opt + 15;
-		unsigned int flg;
+		unsigned int flg = 0;
 		struct drm_crtc *crtc;
 		int ret;
 
