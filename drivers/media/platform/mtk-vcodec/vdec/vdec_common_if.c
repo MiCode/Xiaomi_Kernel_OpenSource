@@ -160,6 +160,9 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	case V4L2_PIX_FMT_RV40:
 		inst->vcu.id = IPI_VDEC_RV40;
 		break;
+	case V4L2_PIX_FMT_AV1:
+		inst->vcu.id = IPI_VDEC_AV1;
+		break;
 	default:
 		mtk_vcodec_err(inst, "%s no fourcc", __func__);
 		break;
@@ -176,6 +179,7 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	}
 
 	inst->vsi = (struct vdec_vsi *)inst->vcu.vsi;
+	ctx->input_driven = inst->vsi->input_driven;
 
 	mtk_vcodec_debug(inst, "Decoder Instance >> %p", inst);
 

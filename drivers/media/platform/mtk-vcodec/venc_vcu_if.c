@@ -114,7 +114,7 @@ static int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 		/* Prevent slowmotion with GCE mode on,
 		 * user thread enter freezing while holding mutex (enc lock)
 		 */
-		if (ctx->slowmotion)
+		if (ctx->use_gce)
 			current->flags |= PF_NOFREEZE;
 		break;
 	case VCU_IPIMSG_ENC_DEINIT_DONE:
@@ -446,7 +446,7 @@ int vcu_enc_deinit(struct venc_vcu_inst *vcu)
 		return -EINVAL;
 	}
 
-	if (vcu->ctx->slowmotion)
+	if (vcu->ctx->use_gce)
 		current->flags &= ~PF_NOFREEZE;
 
 	mtk_vcodec_debug_leave(vcu);
@@ -459,6 +459,16 @@ int vcu_enc_set_ctx_for_gce(struct venc_vcu_inst *vcu)
 	int err = 0;
 
 	vcu_set_codec_ctx(vcu->dev,
+		(void *)vcu->ctx, VCU_VENC);
+
+	return err;
+}
+
+int vcu_enc_clear_ctx_for_gce(struct venc_vcu_inst *vcu)
+{
+	int err = 0;
+
+	vcu_clear_codec_ctx(vcu->dev,
 		(void *)vcu->ctx, VCU_VENC);
 
 	return err;

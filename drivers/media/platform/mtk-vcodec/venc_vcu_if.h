@@ -60,5 +60,6 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 				   unsigned int *bs_size);
 int vcu_enc_deinit(struct venc_vcu_inst *vcu);
 int vcu_enc_set_ctx_for_gce(struct venc_vcu_inst *vcu);
+int vcu_enc_clear_ctx_for_gce(struct venc_vcu_inst *vcu);
 
 #endif

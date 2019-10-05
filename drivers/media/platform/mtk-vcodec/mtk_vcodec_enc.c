@@ -780,19 +780,14 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->intra_period = enc_params->intra_period;
 	param->gop_size = enc_params->gop_size;
 	param->bitrate = enc_params->bitrate;
-
-	ctx->slowmotion = atomic_read(&ctx->dev->enc_smvr) ? 0 :
-		(enc_params->operationrate >= MTK_SLOWMOTION_GCE_TH);
-	if (ctx->slowmotion)
-		atomic_set(&ctx->dev->enc_smvr, ctx->slowmotion);
-	else if (enc_params->operationrate >= MTK_SLOWMOTION_GCE_TH)
-		enc_params->operationrate = MTK_SLOWMOTION_GCE_TH / 4;
-
 	param->operationrate = enc_params->operationrate;
 	param->scenario = enc_params->scenario;
 	param->prependheader = enc_params->prependheader;
 	param->bitratemode = enc_params->bitratemode;
 	param->roion = enc_params->roion;
+	ctx->use_gce = (ctx->use_gce == 1) ?
+		ctx->use_gce :
+		(enc_params->operationrate >= MTK_SLOWMOTION_GCE_TH);
 
 	mtk_v4l2_debug(0,
 	"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d(%d), gop %d, i_period %d opr %d smvr %d",
@@ -801,7 +796,7 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->buf_width, param->buf_height,
 	param->frm_rate, param->bitrate, param->bitratemode,
 	param->gop_size, param->intra_period,
-	param->operationrate, ctx->slowmotion);
+	param->operationrate, ctx->use_gce);
 }
 
 static int vidioc_venc_subscribe_evt(struct v4l2_fh *fh,
@@ -1719,16 +1714,6 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_OPERATION_RATE) {
-		ctx->slowmotion = atomic_read(&ctx->dev->enc_smvr) ? 0 :
-			(mtk_buf->enc_params.operationrate >=
-				MTK_SLOWMOTION_GCE_TH);
-		if (ctx->slowmotion)
-			atomic_set(&ctx->dev->enc_smvr, ctx->slowmotion);
-		else if (mtk_buf->enc_params.operationrate >=
-				MTK_SLOWMOTION_GCE_TH)
-			mtk_buf->enc_params.operationrate =
-				MTK_SLOWMOTION_GCE_TH / 4;
-
 		enc_prm.operationrate = mtk_buf->enc_params.operationrate;
 		mtk_v4l2_debug(1, "[%d] idx=%d, operationrate=%d",
 				ctx->id,
@@ -1737,6 +1722,9 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_OPERATION_RATE,
 					&enc_prm);
+		ctx->use_gce = (ctx->use_gce == 1) ?
+			ctx->use_gce : (mtk_buf->enc_params.operationrate >=
+				MTK_SLOWMOTION_GCE_TH);
 	}
 
 	if (!ret &&
@@ -1878,11 +1866,8 @@ static void mtk_venc_worker(struct work_struct *work)
 			dst_vb2_v4l2->vb2_buf.timestamp =
 				src_vb2_v4l2->vb2_buf.timestamp;
 			dst_vb2_v4l2->timecode = src_vb2_v4l2->timecode;
-
 			dst_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
 			dst_buf->planes[0].bytesused = 0;
-			v4l2_m2m_buf_done(dst_vb2_v4l2,
-				VB2_BUF_STATE_DONE);
 
 			if (ret) {
 				mtk_v4l2_err("last venc_if_encode failed=%d",
@@ -1893,6 +1878,9 @@ static void mtk_venc_worker(struct work_struct *work)
 				}
 			} else
 				return_free_buffers(ctx);
+
+			v4l2_m2m_buf_done(dst_vb2_v4l2,
+				VB2_BUF_STATE_DONE);
 		}
 		mtk_vdec_queue_stop_enc_event(ctx);
 
@@ -2309,14 +2297,14 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	return vb2_queue_init(dst_vq);
 }
 
-int mtk_venc_unlock(struct mtk_vcodec_ctx *ctx)
+void mtk_venc_unlock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 {
-	mtk_v4l2_debug(4, "ctx %p [%d]", ctx, ctx->id);
-	up(&ctx->dev->enc_sem);
-	return 0;
+	mtk_v4l2_debug(4, "ctx %p [%d] core %d", ctx, ctx->id, hw_id);
+	if (hw_id < MTK_VENC_HW_NUM)
+		up(&ctx->dev->enc_sem[hw_id]);
 }
 
-int mtk_venc_lock(struct mtk_vcodec_ctx *ctx)
+void mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 {
 	unsigned int suspend_block_cnt = 0;
 
@@ -2330,7 +2318,8 @@ int mtk_venc_lock(struct mtk_vcodec_ctx *ctx)
 	}
 
 	mtk_v4l2_debug(4, "ctx %p [%d]", ctx, ctx->id);
-	return down_interruptible(&ctx->dev->enc_sem);
+	if (hw_id < MTK_VENC_HW_NUM)
+		down_interruptible(&ctx->dev->enc_sem[hw_id]);
 }
 
 void mtk_vcodec_enc_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx)
@@ -2362,8 +2351,6 @@ void mtk_vcodec_enc_release(struct mtk_vcodec_ctx *ctx)
 {
 	int ret = venc_if_deinit(ctx);
 
-	if (ctx->slowmotion)
-		atomic_set(&ctx->dev->enc_smvr, 0);
 	if (ret)
 		mtk_v4l2_err("venc_if_deinit failed=%d", ret);
 }
