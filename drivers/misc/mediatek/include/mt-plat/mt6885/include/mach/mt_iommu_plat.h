@@ -49,9 +49,16 @@ const char *smi_larb_id = "mediatek,larb-id";
 unsigned int iommu_power_id[MTK_IOMMU_M4U_COUNT] = {
 	0
 };
+char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
+	"mediatek,sec_m4u",
+};
 #else
 unsigned int iommu_power_id[MTK_IOMMU_M4U_COUNT] = {
 	0, 0, 0, 0
+};
+char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
+	"mediatek,sec_m4u0", "mediatek,sec_m4u1",
+	"mediatek,sec_m4u2", "mediatek,sec_m4u3",
 };
 #endif
 
@@ -318,7 +325,7 @@ static inline unsigned int iommu_get_field_by_mask(
 #define REG_MMU_INT_ID(MMU)	  (0x150+((MMU)<<2))
 #define F_MMU_INT_L2_SRC	  F_MSK(30, 28)
 #define F_MMU_INT_L1_SRC	  F_MSK(26, 24)
-#define F_MMU_INT_TF_MSK	  F_MSK(11, 0)
+#define F_MMU_INT_TF_VAL(regval)	  (regval & F_MSK(11, 2))
 
 #define REG_MMU_PERF_MON_PTLB	(0x180)
 #define F_MMU_PERF_MON_PTLB_ID	F_MSK(15, 0)
@@ -385,6 +392,7 @@ static inline unsigned int iommu_get_field_by_mask(
 #define REG_MMU_MAU_ASRT_ID(MMU, MAU)	(0x918 + MMU * 0x100 + MAU * 0)
 #define F_MMU_MAU_ASRT_ID_LARB(regval)    F_MSK_SHIFT(regval, 9, 5)
 #define F_MMU_MAU_ASRT_ID_PORT(regval)    F_MSK_SHIFT(regval, 4, 0)
+#define F_MMU_MAU_ASRT_ID_VAL    F_MSK(9, 0)
 
 #define REG_MMU_MAU_ADDR(MMU, MAU)	(0x91C + MMU * 0x100 + MAU * 0)
 #define REG_MMU_MAU_ADDR_BIT32(MMU, MAU)	(0x920 + MMU * 0x100 + MAU * 0)
@@ -578,8 +586,8 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #if (defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT))
 	{ //REE IOVA space
-	 .min_iova = RESERVED_IOVA_ADDR_VLM +
-			RESERVED_IOVA_SIZE_VLM,
+	 .min_iova = RESERVED_IOVA_ADDR_APU_VLM +
+			RESERVED_IOVA_SIZE_APU_VLM,
 	 .max_iova = DMA_BIT_MASK(MTK_IOVA_ADDR_BITS),
 	 .resv_start = {RESERVED_IOVA_ADDR_APU_CODE},
 	 .resv_size = {RESERVED_IOVA_SIZE_APU_CODE},
