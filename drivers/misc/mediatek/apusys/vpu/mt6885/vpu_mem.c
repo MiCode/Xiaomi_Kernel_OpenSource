@@ -226,7 +226,6 @@ static dma_addr_t
 vpu_map_to_iova(struct platform_device *pdev, void *addr, size_t len,
 	dma_addr_t given_iova, struct sg_table *sgt, struct page ***pages)
 {
-	int ret;
 	dma_addr_t iova = 0;
 	struct page **p;
 
@@ -235,12 +234,7 @@ vpu_map_to_iova(struct platform_device *pdev, void *addr, size_t len,
 
 	p = vpu_map_kva_to_sgt(addr, len, sgt);
 
-	if (IS_ERR_OR_NULL(p)) {
-		ret = IS_ERR(p) ? PTR_ERR(p) : -ENOMEM;
-		goto out;
-	}
-
-	if (ret)
+	if (IS_ERR_OR_NULL(p))
 		goto out;
 
 	iova = vpu_map_sg_to_iova(pdev, sgt->sgl, sgt->nents, len, given_iova);
