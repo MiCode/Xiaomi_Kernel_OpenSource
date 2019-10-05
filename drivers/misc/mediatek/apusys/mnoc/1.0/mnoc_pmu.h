@@ -32,6 +32,8 @@ void clear_pmu_reg_list(void);
 void mnoc_pmu_reg_init(void);
 void print_pmu_reg_list(struct seq_file *m);
 void mnoc_pmu_timer_start(void);
+void mnoc_pmu_suspend(void);
+void mnoc_pmu_resume(void);
 void mnoc_pmu_init(void);
 void mnoc_pmu_exit(void);
 

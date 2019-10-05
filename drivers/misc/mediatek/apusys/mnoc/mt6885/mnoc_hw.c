@@ -201,6 +201,10 @@ bool mnoc_check_int_status(void)
 
 	spin_lock_irqsave(&mnoc_spinlock, flags);
 
+	/* prevent register access if apusys power off */
+	if (!mnoc_reg_valid)
+		return mnoc_irq_triggered;
+
 	if (mnoc_read_field(MNI_QOS_IRQ_FLAG, 15:0) != 0) {
 		LOG_ERR("MNI_QOS_IRQ_FLAG = 0x%x\n",
 			mnoc_read(MNI_QOS_IRQ_FLAG));
@@ -335,9 +339,6 @@ void mnoc_get_pmu_counter(unsigned int *buf)
 	if (mnoc_reg_valid)
 		for (i = 0; i < NR_MNOC_PMU_CNTR; i++)
 			buf[i] = mnoc_read(PMU_COUNTER0_OUT + 4*i);
-	else
-		for (i = 0; i < NR_MNOC_PMU_CNTR; i++)
-			buf[i] = 0;
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
 	LOG_DEBUG("-\n");

@@ -33,6 +33,39 @@
 
 static unsigned int mnoc_addr_phy;
 
+static int mnoc_log_level_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "g_log_level = %d\n", g_log_level);
+
+	return 0;
+}
+
+static ssize_t mnoc_log_level_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	char *buf = (char *) __get_free_page(GFP_USER);
+	unsigned int val;
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
+
+	if (kstrtoint(buf, 10, &val) == 0)
+		if (val == 0 || val == 1)
+			g_log_level = val;
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+}
+
 static int mnoc_reg_rw_show(struct seq_file *m, void *v)
 {
 	void *addr = 0;
@@ -65,7 +98,7 @@ static ssize_t mnoc_reg_rw_write(struct file *file,
 	unsigned int val = 0;
 	char *buf = (char *) __get_free_page(GFP_USER);
 	unsigned int mnoc_value = 0;
-	unsigned char mnoc_rw[5] = {0, 0, 0, 0, 0};
+	unsigned char mnoc_rw = 0;
 
 	if (!buf)
 		return -ENOMEM;
@@ -78,8 +111,10 @@ static ssize_t mnoc_reg_rw_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%1s %x %x", mnoc_rw, &mnoc_addr_phy,
+	if (sscanf(buf, "%1s %x %x", &mnoc_rw, &mnoc_addr_phy,
 		&mnoc_value) == 3) {
+		if (mnoc_rw != 'w' && mnoc_rw != 'W')
+			goto out;
 		if (mnoc_addr_phy < APU_NOC_TOP_ADDR ||
 			mnoc_addr_phy >=
 			(APU_NOC_TOP_ADDR + APU_NOC_TOP_RANGE)) {
@@ -88,14 +123,16 @@ static ssize_t mnoc_reg_rw_write(struct file *file,
 		} else {
 			addr = (void *) ((uintptr_t) mnoc_base +
 					(mnoc_addr_phy - APU_NOC_TOP_ADDR));
+#if MNOC_DBG_ENABLE
 			spin_lock_irqsave(&mnoc_spinlock, flags);
 			if (mnoc_reg_valid)
 				mnoc_write(addr, mnoc_value);
 			spin_unlock_irqrestore(&mnoc_spinlock, flags);
-			LOG_DEBUG("Read back, Reg[%08X] = 0x%08X\n",
-					mnoc_addr_phy, mnoc_read(addr));
+#endif
 		}
-	} else if (sscanf(buf, "%1s %x", mnoc_rw, &mnoc_addr_phy) == 2) {
+	} else if (sscanf(buf, "%1s %x", &mnoc_rw, &mnoc_addr_phy) == 2) {
+		if (mnoc_rw != 'r' && mnoc_rw != 'R')
+			goto out;
 		if (mnoc_addr_phy < APU_NOC_TOP_ADDR ||
 			mnoc_addr_phy >=
 			(APU_NOC_TOP_ADDR + APU_NOC_TOP_RANGE)) {
@@ -133,6 +170,7 @@ static ssize_t mnoc_pmu_reg_write(struct file *file,
 	unsigned long flags;
 	char *buf = (char *) __get_free_page(GFP_USER);
 	unsigned int mnoc_value = 0, mnoc_op = 0;
+	unsigned char mnoc_rw = 0;
 
 	if (!buf)
 		return -ENOMEM;
@@ -145,8 +183,10 @@ static ssize_t mnoc_pmu_reg_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%x %x", &mnoc_addr_phy,
-		&mnoc_value) == 2) {
+	if (sscanf(buf, "%1s %x %x", &mnoc_rw, &mnoc_addr_phy,
+		&mnoc_value) == 3) {
+		if (mnoc_rw != 'w' && mnoc_rw != 'W')
+			goto out;
 		if (mnoc_addr_phy < APU_NOC_TOP_ADDR ||
 			mnoc_addr_phy >=
 			(APU_NOC_TOP_ADDR + APU_NOC_TOP_RANGE)) {
@@ -160,8 +200,6 @@ static ssize_t mnoc_pmu_reg_write(struct file *file,
 				mnoc_write(addr, mnoc_value);
 			spin_unlock_irqrestore(&mnoc_spinlock, flags);
 			enque_pmu_reg(mnoc_addr_phy, mnoc_value);
-			LOG_DEBUG("Read back, Reg[%08X] = 0x%08X\n",
-					mnoc_addr_phy, mnoc_read(addr));
 		}
 	} else if (kstrtoint(buf, 10, &mnoc_op) == 0) {
 		if (mnoc_op == 0)
@@ -211,10 +249,11 @@ out:
 	return count;
 }
 
+#if MNOC_DBG_ENABLE
 static int mnoc_cmd_qos_start_show(struct seq_file *m, void *v)
 {
 #if MNOC_TIME_PROFILE
-	seq_printf(m, "sum_start = %lu, cnt_start = %d, avg = %d\n",
+	seq_printf(m, "sum_start = %lu, cnt_start = %d, avg = %lu\n",
 		sum_start, cnt_start, sum_start/cnt_start);
 #endif
 	return 0;
@@ -240,8 +279,8 @@ static ssize_t mnoc_cmd_qos_start_write(struct file *file,
 
 	if (sscanf(buf, "%d %d %d %d", &cmd_id, &sub_cmd_id,
 		&dev_type, &devcore) == 4)
-		apu_cmd_qos_start((uint64_t) cmd_id,
-			(uint64_t) sub_cmd_id, dev_type, devcore);
+		apu_cmd_qos_start((unsigned long long) cmd_id,
+			(unsigned long long) sub_cmd_id, dev_type, devcore);
 
 out:
 	free_page((unsigned long)buf);
@@ -251,7 +290,7 @@ out:
 static int mnoc_cmd_qos_suspend_show(struct seq_file *m, void *v)
 {
 #if MNOC_TIME_PROFILE
-	seq_printf(m, "sum_suspend = %lu, cnt_suspend = %d, avg = %d\n",
+	seq_printf(m, "sum_suspend = %lu, cnt_suspend = %d, avg = %lu\n",
 		sum_suspend, cnt_suspend, sum_suspend/cnt_suspend);
 #endif
 	return 0;
@@ -275,7 +314,8 @@ static ssize_t mnoc_cmd_qos_suspend_write(struct file *file,
 	buf[count] = '\0';
 
 	if (sscanf(buf, "%d %d", &cmd_id, &sub_cmd_id) == 2)
-		apu_cmd_qos_suspend((uint64_t) cmd_id, (uint64_t) sub_cmd_id);
+		apu_cmd_qos_suspend((unsigned long long) cmd_id,
+			(unsigned long long) sub_cmd_id);
 
 out:
 	free_page((unsigned long)buf);
@@ -285,7 +325,7 @@ out:
 static int mnoc_cmd_qos_end_show(struct seq_file *m, void *v)
 {
 #if MNOC_TIME_PROFILE
-	seq_printf(m, "sum_end = %lu, cnt_end = %d, avg = %d\n",
+	seq_printf(m, "sum_end = %lu, cnt_end = %d, avg = %lu\n",
 		sum_end, cnt_end, sum_end/cnt_end);
 #endif
 	return 0;
@@ -309,16 +349,17 @@ static ssize_t mnoc_cmd_qos_end_write(struct file *file,
 	buf[count] = '\0';
 
 	if (sscanf(buf, "%d %d", &cmd_id, &sub_cmd_id) == 2)
-		apu_cmd_qos_end((uint64_t) cmd_id, (uint64_t) sub_cmd_id);
+		apu_cmd_qos_end((unsigned long long) cmd_id,
+			(unsigned long long) sub_cmd_id);
 
 out:
 	free_page((unsigned long)buf);
 	return count;
 }
+#endif
 
 static int mnoc_cmd_qos_dump_show(struct seq_file *m, void *v)
 {
-
 	seq_puts(m, "Print cmd_qos list\n");
 	print_cmd_qos_list(m);
 
@@ -368,12 +409,15 @@ static int mnoc_cmd_qos_dump_show(struct seq_file *m, void *v)
 	}
 
 
+DBG_FOPS_RW(mnoc_log_level);
 DBG_FOPS_RW(mnoc_reg_rw);
 DBG_FOPS_RW(mnoc_pmu_reg);
 DBG_FOPS_RW(mnoc_pmu_timer_en);
+#if MNOC_DBG_ENABLE
 DBG_FOPS_RW(mnoc_cmd_qos_start);
 DBG_FOPS_RW(mnoc_cmd_qos_suspend);
 DBG_FOPS_RW(mnoc_cmd_qos_end);
+#endif
 DBG_FOPS_RO(mnoc_cmd_qos_dump);
 
 struct dentry *mnoc_dbg_root;
@@ -391,12 +435,15 @@ int create_debugfs(void)
 		goto out;
 	}
 
+	CREATE_DBGFS(mnoc_log_level);
 	CREATE_DBGFS(mnoc_reg_rw);
 	CREATE_DBGFS(mnoc_pmu_reg);
 	CREATE_DBGFS(mnoc_pmu_timer_en);
+#if MNOC_DBG_ENABLE
 	CREATE_DBGFS(mnoc_cmd_qos_start);
 	CREATE_DBGFS(mnoc_cmd_qos_suspend);
 	CREATE_DBGFS(mnoc_cmd_qos_end);
+#endif
 	CREATE_DBGFS(mnoc_cmd_qos_dump);
 
 	LOG_DEBUG("-\n");

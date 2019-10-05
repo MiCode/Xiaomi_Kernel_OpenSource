@@ -13,10 +13,10 @@
 #ifndef __APUSYS_MNOC_DRV_H__
 #define __APUSYS_MNOC_DRV_H__
 
-/* #define MNOC_DEBUG */
-#define MNOC_TIME_PROFILE (0)
+#define MNOC_TIME_PROFILE (1)
 #define MNOC_INT_ENABLE (1)
 #define MNOC_QOS_ENABLE (0)
+#define MNOC_DBG_ENABLE (1)
 
 #define APUSYS_MNOC_DEV_NAME "apusys_mnoc"
 
@@ -29,12 +29,12 @@ pr_info(APUSYS_MNOC_LOG_PREFIX "[warn] %s " x, __func__, ##args)
 pr_info(APUSYS_MNOC_LOG_PREFIX "[info] %s " x, __func__, ##args)
 #define DEBUG_TAG LOG_DEBUG("\n")
 
-#ifdef MNOC_DEBUG
 #define LOG_DEBUG(x, args...) \
-pr_info(APUSYS_MNOC_LOG_PREFIX "[debug] %s/%d " x, __func__, __LINE__, ##args)
-#else
-#define LOG_DEBUG(x, args...)
-#endif
+	{ \
+		if (g_log_level > 0) \
+			pr_info(APUSYS_MNOC_LOG_PREFIX "[debug] %s/%d "\
+			x, __func__, __LINE__, ##args); \
+	}
 
 extern void __iomem *mnoc_base;
 extern void __iomem *mnoc_int_base;
@@ -43,6 +43,8 @@ extern void __iomem *mnoc_slp_prot_base1;
 extern void __iomem *mnoc_slp_prot_base2;
 extern spinlock_t mnoc_spinlock;
 extern bool mnoc_reg_valid;
+
+extern int g_log_level;
 
 
 #endif

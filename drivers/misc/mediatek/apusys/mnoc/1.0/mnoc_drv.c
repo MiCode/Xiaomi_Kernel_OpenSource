@@ -36,6 +36,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/of_fdt.h>
+#include <linux/of_platform.h>
 #endif
 
 #include "apusys_power.h"
@@ -70,6 +71,7 @@ void __iomem *mnoc_slp_prot_base1;
 void __iomem *mnoc_slp_prot_base2;
 
 bool mnoc_reg_valid;
+int g_log_level;
 
 /* After APUSYS top power on */
 void infra2apu_sram_en(void)
@@ -167,7 +169,6 @@ static void mnoc_apusys_top_after_pwr_on(void *para)
 	mnoc_reg_valid = true;
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
-
 	LOG_DEBUG("-\n");
 }
 
@@ -196,14 +197,14 @@ static irqreturn_t mnoc_isr(int irq, void *dev_id)
 
 	mnoc_irq_triggered = mnoc_check_int_status();
 
-	LOG_DEBUG("-\n");
-
 	if (mnoc_irq_triggered) {
 		LOG_ERR("INT triggered by mnoc\n");
 		return IRQ_HANDLED;
 	}
 
 	LOG_ERR("INT NOT triggered by mnoc\n");
+
+	LOG_DEBUG("-\n");
 
 	return IRQ_NONE;
 }
@@ -212,21 +213,39 @@ static irqreturn_t mnoc_isr(int irq, void *dev_id)
 
 static int mnoc_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret = 0;
+#if MNOC_INT_ENABLE
 	struct device *dev = &pdev->dev;
-	struct device_node *node = NULL;
+#endif
+	struct device_node *node, *sub_node;
+	struct platform_device *sub_pdev;
 
 	LOG_DEBUG("+\n");
 
+	/* make sure apusys_power driver initiallized before
+	 * calling apu_power_callback_device_register
+	 */
+	sub_node = of_find_compatible_node(NULL, NULL, "mediatek,apusys_power");
+	if (!sub_node) {
+		LOG_ERR("DT,mediatek,apusys_power not found\n");
+		return -EINVAL;
+	}
+
+	sub_pdev = of_find_device_by_node(sub_node);
+
+	if (!sub_pdev || !sub_pdev->dev.driver) {
+		LOG_DEBUG("Waiting for %s\n",
+			 sub_node->full_name);
+		return -EPROBE_DEFER;
+	}
+
 	mnoc_reg_valid = false;
+	g_log_level = 0;
 
 	create_debugfs();
 	spin_lock_init(&mnoc_spinlock);
 	apu_qos_counter_init();
 	mnoc_pmu_init();
-
-	apu_power_callback_device_register(MNOC,
-		mnoc_apusys_top_after_pwr_on, mnoc_apusys_top_before_pwr_off);
 
 	node = pdev->dev.of_node;
 	if (!node) {
@@ -247,13 +266,21 @@ static int mnoc_probe(struct platform_device *pdev)
 
 	/* set mnoc IRQ(GIC SPI pin shared with axi-reviser) */
 	ret = request_irq(mnoc_irq_number, mnoc_isr,
-			IRQF_TRIGGER_LOW | IRQF_SHARED,
+			IRQF_TRIGGER_HIGH | IRQF_SHARED,
 			APUSYS_MNOC_DEV_NAME, dev);
 	if (ret)
 		LOG_ERR("IRQ register failed (%d)\n", ret);
-
-	LOG_DEBUG("Set IRQ OK.\n");
+	else
+		LOG_DEBUG("Set IRQ OK.\n");
 #endif
+
+	ret = apu_power_callback_device_register(MNOC,
+		mnoc_apusys_top_after_pwr_on, mnoc_apusys_top_before_pwr_off);
+	if (ret) {
+		LOG_ERR("apu_power_callback_device_register return error(%d)\n",
+			ret);
+		return -EINVAL;
+	}
 
 	LOG_DEBUG("-\n");
 
@@ -262,21 +289,28 @@ static int mnoc_probe(struct platform_device *pdev)
 
 static int mnoc_suspend(struct platform_device *pdev, pm_message_t state)
 {
+	apu_qos_suspend();
+	mnoc_pmu_suspend();
 	return 0;
 }
 
 static int mnoc_resume(struct platform_device *pdev)
 {
+	apu_qos_resume();
+	mnoc_pmu_resume();
 	return 0;
 }
 
 static int mnoc_remove(struct platform_device *pdev)
 {
+#if MNOC_INT_ENABLE
 	struct device *dev = &pdev->dev;
+#endif
 	struct device_node *node = NULL;
 
 	LOG_DEBUG("+\n");
 
+	remove_debugfs();
 	apu_qos_counter_destroy();
 	mnoc_pmu_exit();
 
@@ -286,7 +320,6 @@ static int mnoc_remove(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	remove_debugfs();
 #if MNOC_INT_ENABLE
 	free_irq(mnoc_irq_number, dev);
 #endif

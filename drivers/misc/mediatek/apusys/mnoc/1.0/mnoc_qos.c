@@ -28,6 +28,11 @@
 #include "mnoc_drv.h"
 #include "mnoc_hw.h"
 
+#if MNOC_TIME_PROFILE
+unsigned long sum_start, sum_suspend, sum_end, sum_work_func;
+unsigned int cnt_start, cnt_suspend, cnt_end, cnt_work_func;
+#endif
+
 #if MNOC_QOS_ENABLE
 #include <mtk_qos_bound.h>
 #include <mtk_qos_sram.h>
@@ -40,11 +45,6 @@
 /* assume QOS_SMIBM_VPU0 is the first entry in qos_smibm_type for APUSYS */
 #define APUSYS_QOSBOUND_START (QOS_SMIBM_VPU0)
 #define get_qosbound_enum(x) (APUSYS_QOSBOUND_START + x)
-
-#if MNOC_TIME_PROFILE
-unsigned long sum_start, sum_suspend, sum_end, sum_work_func;
-unsigned int cnt_start, cnt_suspend, cnt_end, cnt_work_func;
-#endif
 
 enum apu_qos_cmd_status {
 	CMD_RUNNING,
@@ -70,8 +70,8 @@ struct engine_pm_qos_counter {
 };
 
 struct cmd_qos {
-	uint64_t cmd_id;
-	uint64_t sub_cmd_id;
+	unsigned long long cmd_id;
+	unsigned long long sub_cmd_id;
 	unsigned int core;
 	unsigned int status; /* running/blocked */
 
@@ -91,14 +91,15 @@ static struct engine_pm_qos_counter engine_pm_qos_counter[NR_APU_QOS_ENGINE];
 /* increase 1 when cmd enque, decrease 1 when cmd dequeue */
 static int engine_cmd_cntr[NR_APU_QOS_ENGINE];
 bool qos_timer_exist;
-struct mutex qos_timer_exist_mtx;
 
 
 /* register to apusys power on callback */
 void notify_sspm_apusys_on(void)
 {
 	LOG_DEBUG("+\n");
+
 	qos_sram_write(APU_CLK, 1);
+
 	LOG_DEBUG("-\n");
 }
 
@@ -158,7 +159,7 @@ static void update_cmd_qos(struct qos_bound *qos_info, struct cmd_qos *cmd_qos)
 		cmd_qos->count++;
 		idx = (idx + 1) % MTK_QOS_BUF_SIZE;
 	} while (idx != qos_info->idx);
-	LOG_DEBUG("(%d/%d)idx(%d ~ %d)\n", cmd_qos->cmd_id,
+	LOG_DEBUG("(%llu/%llu)idx(%d ~ %d)\n", cmd_qos->cmd_id,
 		cmd_qos->sub_cmd_id, cmd_qos->last_idx, idx);
 	/* update last idx */
 	cmd_qos->last_idx = idx;
@@ -175,7 +176,6 @@ static int update_cmd_qos_list(struct qos_bound *qos_info)
 
 	mutex_lock(&counter->list_mtx);
 
-	/* get first entry */
 	list_for_each_entry(cmd_qos, &counter->list, list) {
 		if (cmd_qos->status == CMD_RUNNING)
 			update_cmd_qos(qos_info, cmd_qos);
@@ -183,14 +183,13 @@ static int update_cmd_qos_list(struct qos_bound *qos_info)
 
 	mutex_unlock(&counter->list_mtx);
 
-	LOG_DEBUG("total bw(%d)\n", cmd_qos->total_bw);
-
 	LOG_DEBUG("-\n");
 
 	return 0;
 }
 
-static int enque_cmd_qos(uint64_t cmd_id, uint64_t sub_cmd_id, int core)
+static int enque_cmd_qos(unsigned long long cmd_id,
+	unsigned long long sub_cmd_id, int core)
 {
 	struct qos_counter *counter = &qos_counter;
 	struct qos_bound *qos_info = NULL;
@@ -201,7 +200,7 @@ static int enque_cmd_qos(uint64_t cmd_id, uint64_t sub_cmd_id, int core)
 	/* alloc cmd_qos */
 	cmd_qos = kzalloc(sizeof(struct cmd_qos), GFP_KERNEL);
 	if (cmd_qos == NULL) {
-		LOG_ERR("alloc cmd_qos(%d/%d) fail\n", cmd_id, sub_cmd_id);
+		LOG_ERR("alloc cmd_qos(%llu/%llu) fail\n", cmd_id, sub_cmd_id);
 		return -1;
 	};
 
@@ -267,7 +266,7 @@ static int deque_cmd_qos(struct cmd_qos *cmd_qos)
 		avg_bw = cmd_qos->total_bw;
 	};
 
-	LOG_DEBUG("cmd(%d/%d):bw(%d/%d)\n", cmd_qos->cmd_id,
+	LOG_DEBUG("cmd(%llu/%llu):bw(%d/%d)\n", cmd_qos->cmd_id,
 		cmd_qos->sub_cmd_id, avg_bw, cmd_qos->total_bw);
 
 	/* free cmd_qos */
@@ -290,14 +289,7 @@ static void qos_work_func(struct work_struct *work)
 	unsigned long val;
 #endif
 
-	mutex_lock(&qos_timer_exist_mtx);
-
 	LOG_DEBUG("+\n");
-
-	if (!qos_timer_exist) {
-		mutex_unlock(&qos_timer_exist_mtx);
-		return;
-	}
 
 #if MNOC_TIME_PROFILE
 	do_gettimeofday(&begin);
@@ -346,8 +338,6 @@ static void qos_work_func(struct work_struct *work)
 #endif
 
 	LOG_DEBUG("-\n");
-
-	mutex_unlock(&qos_timer_exist_mtx);
 }
 
 static void qos_timer_func(unsigned long arg)
@@ -368,6 +358,7 @@ static void qos_timer_func(unsigned long arg)
  * create timer to count current bandwidth of apu engines each 16ms
  * timer will schedule work to wq when time's up
  * @call at insertion to empty cmd_qos list
+ * must call with list_mtx locked
  */
 static void apu_qos_timer_start(void)
 {
@@ -385,9 +376,7 @@ static void apu_qos_timer_start(void)
 	counter->wait_ms = DEFAUTL_QOS_POLLING_TIME;
 	add_timer(&counter->qos_timer);
 
-	mutex_lock(&qos_timer_exist_mtx);
 	qos_timer_exist = true;
-	mutex_unlock(&qos_timer_exist_mtx);
 
 	LOG_DEBUG("-\n");
 }
@@ -396,6 +385,7 @@ static void apu_qos_timer_start(void)
  * delete timer
  * update pm qos request to default value
  * @call at deletion from cmd_qos list and result to list empty
+ * must call with list_mtx locked
  */
 static void apu_qos_timer_end(void)
 {
@@ -404,13 +394,10 @@ static void apu_qos_timer_end(void)
 
 	LOG_DEBUG("+\n");
 
-	mutex_lock(&qos_timer_exist_mtx);
 	if (qos_timer_exist) {
 		qos_timer_exist = false;
-		/* delete timer */
 		del_timer_sync(&counter->qos_timer);
 	}
-	mutex_unlock(&qos_timer_exist_mtx);
 
 	/* fixme: if update request to default value necessary? */
 	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
@@ -428,7 +415,7 @@ static void apu_qos_timer_end(void)
  * 2. if core already running cmd means preemption happen
  *    -> status from CMD_RUNNING to CMD_BLOCKED
  */
-int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
+int apu_cmd_qos_start(unsigned long long cmd_id, unsigned long long sub_cmd_id,
 	int dev_type, int dev_core)
 {
 	struct qos_counter *counter = &qos_counter;
@@ -469,7 +456,7 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 	list_for_each_entry(pos, &counter->list, list) {
 		/* search if cmd already exist */
 		if (pos->cmd_id == cmd_id && pos->sub_cmd_id == sub_cmd_id) {
-			LOG_DEBUG("resume cmd(%d/%d)\n",
+			LOG_DEBUG("resume cmd(%llu/%llu)\n",
 				cmd_id, sub_cmd_id);
 			mutex_lock(&pos->mtx);
 			pos->status = CMD_RUNNING;
@@ -486,9 +473,10 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 	}
 	if (cmd_qos != NULL) {
 		if (cmd_qos->status == CMD_RUNNING) {
-			LOG_DEBUG("set cmd(%d/%d) on core %d to CMD_BLOCKED\n",
-				cmd_qos->cmd_id, cmd_qos->sub_cmd_id,
-				cmd_qos->core);
+			LOG_DEBUG(
+			"set cmd(%llu/%llu) on core %d to CMD_BLOCKED\n",
+			cmd_qos->cmd_id, cmd_qos->sub_cmd_id,
+			cmd_qos->core);
 			mutex_lock(&cmd_qos->mtx);
 			cmd_qos->status = CMD_BLOCKED;
 			mutex_unlock(&cmd_qos->mtx);
@@ -524,13 +512,96 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 EXPORT_SYMBOL(apu_cmd_qos_start);
 
 /*
+ * called when apusys enter suspend
+ */
+void apu_qos_suspend(void)
+{
+	struct qos_counter *counter = &qos_counter;
+	struct cmd_qos *pos;
+	struct qos_bound *qos_info = NULL;
+
+	LOG_DEBUG("+\n");
+
+	/* get qos information */
+	qos_info = get_qos_bound();
+	if (qos_info == NULL) {
+		LOG_ERR("get info fail\n");
+		return;
+	}
+
+	mutex_lock(&counter->list_mtx);
+
+	/* no need to do suspend if no cmd exist */
+	if (list_empty(&counter->list)) {
+		mutex_unlock(&counter->list_mtx);
+		return;
+	}
+
+	apu_qos_timer_end();
+
+	list_for_each_entry(pos, &counter->list, list) {
+		/* update running cmd to latest state before enter suspend */
+		if (pos->status == CMD_RUNNING)
+			update_cmd_qos(qos_info, pos);
+	}
+
+	mutex_unlock(&counter->list_mtx);
+
+	LOG_DEBUG("-\n");
+}
+
+/*
+ * called when apusys resume
+ */
+void apu_qos_resume(void)
+{
+	struct qos_counter *counter = &qos_counter;
+	struct cmd_qos *pos;
+	struct qos_bound *qos_info = NULL;
+
+	LOG_DEBUG("+\n");
+
+	/* get qos information */
+	qos_info = get_qos_bound();
+	if (qos_info == NULL) {
+		LOG_ERR("get info fail\n");
+		return;
+	}
+
+	mutex_lock(&counter->list_mtx);
+
+	/* no need to do suspend if no cmd exist */
+	if (list_empty(&counter->list)) {
+		mutex_unlock(&counter->list_mtx);
+		return;
+	}
+
+	list_for_each_entry(pos, &counter->list, list) {
+		if (pos->status == CMD_RUNNING) {
+			/* update last_idx to current pm qos idx */
+			mutex_lock(&pos->mtx);
+			pos->last_idx = qos_info->idx;
+			mutex_unlock(&pos->mtx);
+		}
+	}
+
+	apu_qos_timer_start();
+
+	mutex_unlock(&counter->list_mtx);
+
+	LOG_DEBUG("-\n");
+}
+
+/*
  * suspend cmd due to preemption
  * set cmd status from CMD_RUNNING to CMD_BLOCKED
  */
-int apu_cmd_qos_suspend(uint64_t cmd_id, uint64_t sub_cmd_id)
+int apu_cmd_qos_suspend(unsigned long long cmd_id,
+	unsigned long long sub_cmd_id)
 {
 	struct qos_counter *counter = &qos_counter;
 	struct cmd_qos *cmd_qos = NULL, *pos;
+	struct qos_bound *qos_info = NULL;
 #if MNOC_TIME_PROFILE
 	struct timeval begin, end;
 	unsigned long val;
@@ -542,6 +613,13 @@ int apu_cmd_qos_suspend(uint64_t cmd_id, uint64_t sub_cmd_id)
 	do_gettimeofday(&begin);
 #endif
 
+	/* get qos information */
+	qos_info = get_qos_bound();
+	if (qos_info == NULL) {
+		LOG_ERR("get info fail\n");
+		return -1;
+	}
+
 	mutex_lock(&counter->list_mtx);
 
 	list_for_each_entry(pos, &counter->list, list) {
@@ -551,11 +629,12 @@ int apu_cmd_qos_suspend(uint64_t cmd_id, uint64_t sub_cmd_id)
 		}
 	}
 	if (cmd_qos == NULL) {
-		LOG_ERR("Can not find cmd(%d/%d)\n", cmd_id, sub_cmd_id);
+		LOG_ERR("Can not find cmd(%llu/%llu)\n", cmd_id, sub_cmd_id);
 		mutex_unlock(&counter->list_mtx);
 		return -1;
 	} else if (cmd_qos->status == CMD_BLOCKED) {
-		LOG_ERR("cmd(%d/%d) already in suspend\n", cmd_id, sub_cmd_id);
+		LOG_ERR("cmd(%llu/%llu) already in suspend\n",
+			cmd_id, sub_cmd_id);
 		mutex_unlock(&counter->list_mtx);
 		return -1;
 	}
@@ -563,6 +642,9 @@ int apu_cmd_qos_suspend(uint64_t cmd_id, uint64_t sub_cmd_id)
 	mutex_lock(&cmd_qos->mtx);
 	cmd_qos->status = CMD_BLOCKED;
 	mutex_unlock(&cmd_qos->mtx);
+
+	/* update cmd qos of preempted cmd to latest status */
+	update_cmd_qos(qos_info, cmd_qos);
 
 	mutex_unlock(&counter->list_mtx);
 
@@ -588,7 +670,7 @@ EXPORT_SYMBOL(apu_cmd_qos_suspend);
  * 2. if core has bloked cmd means cmd's going to resume
  *    -> status from CMD_BLOCKED to CMD_RUNNING
  */
-int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
+int apu_cmd_qos_end(unsigned long long cmd_id, unsigned long long sub_cmd_id)
 {
 	struct qos_counter *counter = &qos_counter;
 	struct cmd_qos *cmd_qos = NULL, *pos;
@@ -623,7 +705,7 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 		}
 	}
 	if (cmd_qos == NULL) {
-		LOG_ERR("Can not find cmd(%d/%d)\n", cmd_id, sub_cmd_id);
+		LOG_ERR("Can not find cmd(%llu/%llu)\n", cmd_id, sub_cmd_id);
 		mutex_unlock(&counter->list_mtx);
 		return -1;
 	}
@@ -645,7 +727,8 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 	}
 	if (cmd_qos != NULL) {
 		if (cmd_qos->status == CMD_BLOCKED) {
-			LOG_DEBUG("set cmd(%d/%d) on core %d to CMD_RUNNING\n",
+			LOG_DEBUG(
+			"set cmd(%llu/%llu) on core %d to CMD_RUNNING\n",
 			cmd_qos->cmd_id, cmd_qos->sub_cmd_id, cmd_qos->core);
 
 			mutex_lock(&cmd_qos->mtx);
@@ -686,7 +769,6 @@ void apu_qos_counter_init(void)
 
 	LOG_DEBUG("+\n");
 
-	mutex_init(&qos_timer_exist_mtx);
 	qos_timer_exist = false;
 
 	/* init counter's list */
@@ -737,15 +819,16 @@ void apu_qos_counter_destroy(void)
 
 	mutex_lock(&(qos_counter.list_mtx));
 
+	apu_qos_timer_end();
+
 	list_for_each_entry_safe(cmd_qos, pos, &(qos_counter.list), list) {
 		deque_cmd_qos(cmd_qos);
 	}
 
-	/* delete timer if cmd list empty */
-	if (list_empty(&(qos_counter.list)))
-		apu_qos_timer_end();
-
 	mutex_unlock(&(qos_counter.list_mtx));
+
+	/* make sure no work_func running after module exit */
+	cancel_work_sync(&qos_work);
 
 	/* remove pm_qos_request */
 	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
@@ -767,14 +850,16 @@ void print_cmd_qos_list(struct seq_file *m)
 	struct qos_counter *counter = &qos_counter;
 	struct cmd_qos *cmd_qos;
 
+	mutex_lock(&(qos_counter.list_mtx));
 	list_for_each_entry(cmd_qos, &counter->list, list) {
-		seq_printf(m, "cmd(%d/%d):\n",
+		seq_printf(m, "cmd(%llu/%llu):\n",
 			cmd_qos->cmd_id, cmd_qos->sub_cmd_id);
 		seq_printf(m, "core = %d, status = %d\n",
 			cmd_qos->core, cmd_qos->status);
 		seq_printf(m, "total_bw = %d, last_idx = %d, count = %d\n",
 			cmd_qos->total_bw, cmd_qos->last_idx, cmd_qos->count);
 	}
+	mutex_unlock(&(qos_counter.list_mtx));
 }
 
 #else
@@ -787,20 +872,29 @@ void notify_sspm_apusys_off(void)
 {
 }
 
-int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
+int apu_cmd_qos_start(unsigned long long cmd_id, unsigned long long sub_cmd_id,
 	int dev_type, int dev_core)
 {
 	return 0;
 }
 EXPORT_SYMBOL(apu_cmd_qos_start);
 
-int apu_cmd_qos_suspend(uint64_t cmd_id, uint64_t sub_cmd_id)
+void apu_qos_suspend(void)
+{
+}
+
+void apu_qos_resume(void)
+{
+}
+
+int apu_cmd_qos_suspend(unsigned long long cmd_id,
+	unsigned long long sub_cmd_id)
 {
 	return 0;
 }
 EXPORT_SYMBOL(apu_cmd_qos_suspend);
 
-int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
+int apu_cmd_qos_end(unsigned long long cmd_id, unsigned long long sub_cmd_id)
 {
 	return 0;
 }

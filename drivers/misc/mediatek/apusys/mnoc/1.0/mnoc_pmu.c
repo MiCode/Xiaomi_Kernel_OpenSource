@@ -32,6 +32,7 @@
 /* in micro-seconds (us) */
 #define PERIOD_DEFAULT 1000
 bool cfg_timer_en;
+static cfg_timer_en_copy;
 static u64 cfg_period;
 static struct hrtimer hr_timer;
 
@@ -122,10 +123,12 @@ void print_pmu_reg_list(struct seq_file *m)
 {
 	struct pmu_reg *pmu_reg = NULL;
 
+	mutex_lock(&(pmu_reg_list.list_mtx));
 	list_for_each_entry(pmu_reg, &(pmu_reg_list.list), list) {
 		seq_printf(m, "pmu_reg(0x%08x/0x%08x)\n",
 			pmu_reg->addr, pmu_reg->val);
 	}
+	mutex_unlock(&(pmu_reg_list.list_mtx));
 }
 
 /*
@@ -141,6 +144,7 @@ static enum hrtimer_restart mnoc_pmu_polling(struct hrtimer *timer)
 		return HRTIMER_NORESTART;
 
 	/* call functions need to be called periodically */
+	memset(mnoc_pmu_buf, 0, NR_MNOC_PMU_CNTR * sizeof(unsigned int));
 	mnoc_get_pmu_counter(mnoc_pmu_buf);
 	trace_mnoc_pmu_polling(mnoc_pmu_buf);
 
@@ -157,6 +161,29 @@ void mnoc_pmu_timer_start(void)
 
 	hrtimer_start(&hr_timer, ns_to_ktime(cfg_period * 1000),
 			HRTIMER_MODE_REL);
+
+	LOG_DEBUG("-\n");
+}
+
+void mnoc_pmu_suspend(void)
+{
+	LOG_DEBUG("+\n");
+
+	cfg_timer_en_copy = cfg_timer_en;
+	if (cfg_timer_en_copy)
+		cfg_timer_en = false;
+
+	LOG_DEBUG("-\n");
+}
+
+void mnoc_pmu_resume(void)
+{
+	LOG_DEBUG("+\n");
+
+	if (cfg_timer_en_copy) {
+		cfg_timer_en = true;
+		mnoc_pmu_timer_start();
+	}
 
 	LOG_DEBUG("-\n");
 }
