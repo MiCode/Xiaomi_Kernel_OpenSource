@@ -2501,7 +2501,7 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 #else
 				tscpu_thermal_all_tc_interrupt_handler,
 #endif /* CFG_LVTS_DOMINATOR */
-				IRQF_TRIGGER_LOW, THERMAL_NAME, NULL);
+				IRQF_TRIGGER_NONE, THERMAL_NAME, NULL);
 
 	if (err)
 		tscpu_warn("tscpu_init IRQ register fail\n");
