@@ -27,14 +27,22 @@ extern void __iomem *u3_sif2_base;
 #define SSUSB_SIFSLV_FM_BASE (u3_sif2_base+0x100)
 
 /* referenecd from ssusb_USB20_PHY_regmap_com_T28HPM.xls */
-#define U3D_USBPHYACR0      (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0000)	/*2:30 SIV_B */
-#define U3D_USBPHYACR1      (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0004)	/*0:23 SIV_B */
-#define U3D_USBPHYACR2      (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0008)	/*0:15 SIV_B */
-#define U3D_USBPHYACR4      (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0010)	/*0:31 SIV_B */
-#define U3D_USBPHYACR5      (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0014)	/*0:28 SIV_B */
-#define U3D_USBPHYACR6      (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0018)	/*0:31 SIV_B */
-#define U3D_U2PHYACR3       (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x001c)	/*0:31 SIV_B */
-#define U3D_U2PHYACR4_0     (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0020)	/*0:5 SIV_B */
+/*2:30 SIV_B */
+#define U3D_USBPHYACR0  (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0000)
+/*0:23 SIV_B */
+#define U3D_USBPHYACR1  (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0004)
+/*0:15 SIV_B */
+#define U3D_USBPHYACR2  (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0008)
+/*0:31 SIV_B */
+#define U3D_USBPHYACR4  (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0010)
+/*0:28 SIV_B */
+#define U3D_USBPHYACR5  (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0014)
+/*0:31 SIV_B */
+#define U3D_USBPHYACR6  (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0018)
+/*0:31 SIV_B */
+#define U3D_U2PHYACR3   (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x001c)
+/*0:5 SIV_B */
+#define U3D_U2PHYACR4_0 (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0020)
 
 #define U3D_USBPHYACR2_0	(SSUSB_SIFSLV_U2PHY_COM_BASE+0x0008)	/* 16:18 */
 #define U3D_U2PHYACR4       (SSUSB_SIFSLV_U2PHY_COM_BASE+0x0020)	/*8:18 */
@@ -75,7 +83,7 @@ extern void __iomem *u3_sif2_base;
 #define RG_SSUSB_VUSB09_ON (1<<29)
 #define RG_SSUSB_VUSB09_ON_OFST (29)
 
-/* ///////////////////////////////////////////////////////////////////////////// */
+/* ////////////////////////////////////////////////////////////// */
 
 struct u2phy_reg_e {
 	/* 0x0 */
@@ -178,7 +186,7 @@ struct u2phy_reg_e {
 
 /* U3D_USBPHYACR6 */
 #define RG_USB20_PHY_REV_6                  (0x3<<30)	/* 31:31 */
-#define RG_USB20_PHY_REV                   (0xef<<24)	/* 31:24 */
+#define RG_USB20_PHY_REV                   (0xff<<24)	/* 31:24 */
 #define RG_USB20_BC11_SW_EN                (0x1<<23)	/* 23:23 */
 #define RG_USB20_SR_CLK_SEL                (0x1<<22)	/* 22:22 */
 #define RG_USB20_OTG_VBUSCMP_EN            (0x1<<20)	/* 20:20 */
@@ -633,7 +641,7 @@ struct u2phy_reg_e {
 /* U3 PLL BAND*/
 #define RG_SSUSB_DA_SSUSB_PLL_BAND_OFST           (11)
 
-/* ///////////////////////////////////////////////////////////////////////////// */
+/* ////////////////////////////////////////////////////////////// */
 
 struct u3phya_reg_e {
 	/* 0x0 */
@@ -967,7 +975,7 @@ struct u3phya_reg_e {
 /* U3D_regC */
 #define RGS_SSUSB_RX_DEBUG_RESERVE_OFST    (0)
 
-/* ///////////////////////////////////////////////////////////////////////////// */
+/* ////////////////////////////////////////////////////////////// */
 
 struct u3phya_da_reg_e {
 	/* 0x0 */
@@ -1391,7 +1399,7 @@ struct u3phya_da_reg_e {
 #define RG_SSUSB_EQ_RSTEP2_PE1H_OFST       (2)
 #define RG_SSUSB_EQ_RSTEP2_U3_OFST         (0)
 
-/* ///////////////////////////////////////////////////////////////////////////// */
+/* ////////////////////////////////////////////////////////////// */
 
 struct u3phyd_reg_e {
 	/* 0x0 */
@@ -2413,7 +2421,7 @@ struct u3phyd_reg_e {
 #define RGS_SSUSB_PLL_VCOCAL_FAIL_OFST     (8)
 #define RGS_SSUSB_PLL_VCOCAL_STATE_OFST    (0)
 
-/* ///////////////////////////////////////////////////////////////////////////// */
+/* ////////////////////////////////////////////////////////////// */
 
 struct u3phyd_bank2_reg_e {
 	/* 0x0 */
@@ -2936,7 +2944,7 @@ struct u3phyd_bank2_reg_e {
 /* U3D_PHYD_MODEL */
 #define RGS_SSUSB_PHYD_MODEL_OFST          (0)
 
-/* ///////////////////////////////////////////////////////////////////////////// */
+/* ////////////////////////////////////////////////////////////// */
 
 struct sifslv_chip_reg_e {
 	/* 0x0 */
@@ -2945,7 +2953,7 @@ struct sifslv_chip_reg_e {
 	PHY_LE32 gpio_ctlc;
 };
 
-/* ///////////////////////////////////////////////////////////////////////////// */
+/* ////////////////////////////////////////////////////////////// */
 
 struct sifslv_fm_feg_e {
 	/* 0x0 */
@@ -3003,7 +3011,7 @@ struct sifslv_fm_feg_e {
 #define USBPLL_LOCK_OFST                          (1)
 #define USB_FM_VLD_OFST                           (0)
 
-/* ///////////////////////////////////////////////////////////////////////////// */
+/* ////////////////////////////////////////////////////////////// */
 
 struct spllc_reg_e {
 	/* 0x0 */
@@ -3192,7 +3200,7 @@ struct spllc_reg_e {
 #define RG_SSUSB_XTAL_VREGBIAS_PWD_OFST           (1)
 #define RG_SSUSB_XTAL_FRC_VREGBIAS_PWD_OFST       (0)
 
-/* ///////////////////////////////////////////////////////////////////////////// */
+/* ////////////////////////////////////////////////////////////// */
 PHY_INT32 phy_init_soc(struct u3phy_info *info);
 PHY_INT32 u2_slew_rate_calibration(struct u3phy_info *info);
 

@@ -25,15 +25,26 @@
 
 #define USBPHY_READ8(offset) \
 U3PhyReadReg8((u3phy_addr_t)(uintptr_t)(SSUSB_SIFSLV_U2PHY_COM_BASE+offset))
+
 #define USBPHY_WRITE8(offset, value) \
-U3PhyWriteReg8((u3phy_addr_t)(uintptr_t)(SSUSB_SIFSLV_U2PHY_COM_BASE+offset), value)
+U3PhyWriteReg8((u3phy_addr_t)(uintptr_t) \
+(SSUSB_SIFSLV_U2PHY_COM_BASE+offset), value)
+
 #define USBPHY_SET8(offset, mask) \
-U3PhyWriteReg8((u3phy_addr_t)(uintptr_t)(SSUSB_SIFSLV_U2PHY_COM_BASE+offset), \
-U3PhyReadReg8((u3phy_addr_t)(uintptr_t)(SSUSB_SIFSLV_U2PHY_COM_BASE+offset))|(mask))
+U3PhyWriteReg8((u3phy_addr_t)(uintptr_t) \
+(SSUSB_SIFSLV_U2PHY_COM_BASE+offset), \
+U3PhyReadReg8((u3phy_addr_t)(uintptr_t) \
+(SSUSB_SIFSLV_U2PHY_COM_BASE+offset))|(mask))
+
 #define USBPHY_CLR8(offset, mask) \
-U3PhyWriteReg8((u3phy_addr_t)(uintptr_t)(SSUSB_SIFSLV_U2PHY_COM_BASE+offset), \
-U3PhyReadReg8((u3phy_addr_t)(uintptr_t)(SSUSB_SIFSLV_U2PHY_COM_BASE+offset))&(~mask))
-#define MYDBG(fmt, args...) pr_notice("MTK_ICUSB [DBG], <%s(), %d> " fmt, __func__, __LINE__, ## args)
+U3PhyWriteReg8((u3phy_addr_t)(uintptr_t) \
+(SSUSB_SIFSLV_U2PHY_COM_BASE+offset), \
+U3PhyReadReg8((u3phy_addr_t)(uintptr_t) \
+(SSUSB_SIFSLV_U2PHY_COM_BASE+offset))&(~mask))
+
+#define MYDBG(fmt, args...) \
+	pr_notice("MTK_ICUSB [DBG], <%s(), %d> " fmt, __func__, \
+	__LINE__, ## args)
 
 /* general */
 #define BIT_WIDTH_1		1
@@ -123,10 +134,12 @@ void usb20_phy_debugfs_write_width1(u8 offset, u8 shift, char *buf)
 
 	if (clr_val || set_val) {
 		clr_val = VAL_MAX_WDITH_1 - set_val;
-		MYDBG("offset:%x, clr_val:%x, set_val:%x, before shft\n", offset, clr_val, set_val);
+		MYDBG("offset:%x, clr_val:%x, set_val:%x, before shft\n",
+			offset, clr_val, set_val);
 		clr_val <<= shift;
 		set_val <<= shift;
-		MYDBG("offset:%x, clr_val:%x, set_val:%x, after shft\n", offset, clr_val, set_val);
+		MYDBG("offset:%x, clr_val:%x, set_val:%x, after shft\n",
+			offset, clr_val, set_val);
 		USBPHY_CLR8(offset, clr_val);
 		USBPHY_SET8(offset, set_val);
 	} else {
@@ -210,13 +223,16 @@ void usb20_phy_debugfs_write_width3(u8 offset, u8 shift, char *buf)
 
 	if (clr_val || set_val) {
 		clr_val = VAL_MAX_WDITH_3 - set_val;
-		MYDBG("offset:%x, clr_val:%x, set_val:%x, before shft\n", offset, clr_val, set_val);
+		MYDBG("offset:%x, clr_val:%x, set_val:%x, before shft\n",
+			offset, clr_val, set_val);
 		clr_val <<= shift;
 		set_val <<= shift;
-		MYDBG("offset:%x, clr_val:%x, set_val:%x, after shft\n", offset, clr_val, set_val);
+		MYDBG("offset:%x, clr_val:%x, set_val:%x, after shft\n",
+			offset, clr_val, set_val);
 		USBPHY_CLR8(offset, clr_val);
 		USBPHY_SET8(offset, set_val);
-		MYDBG("PHY Register 0x%x = 0x%x\n", 0x800+offset, USBPHY_READ8(offset));
+		MYDBG("PHY Register 0x%x = 0x%x\n", 0x800+offset,
+			USBPHY_READ8(offset));
 	} else {
 		MYDBG("do nothing\n");
 	}
@@ -254,8 +270,9 @@ static int usb_driving_capability_show(struct seq_file *s, void *unused)
 	char str[16];
 	u8 combined_val, tmp_val = 0xff;
 
-	val = usb20_phy_debugfs_read_val(OFFSET_RG_USB20_TERM_VREF_SEL, SHFT_RG_USB20_TERM_VREF_SEL,
-					 MSK_RG_USB20_TERM_VREF_SEL, BIT_WIDTH_3, str);
+	val = usb20_phy_debugfs_read_val(OFFSET_RG_USB20_TERM_VREF_SEL,
+		SHFT_RG_USB20_TERM_VREF_SEL, MSK_RG_USB20_TERM_VREF_SEL,
+		BIT_WIDTH_3, str);
 	if (!strncmp(str, STRNG_0_WIDTH_3, BIT_WIDTH_3)) {
 		MYDBG("%s case\n", STRNG_0_WIDTH_3);
 		tmp_val = VAL_0_WIDTH_3;
@@ -291,8 +308,9 @@ static int usb_driving_capability_show(struct seq_file *s, void *unused)
 
 	combined_val = tmp_val;
 
-	val = usb20_phy_debugfs_read_val(OFFSET_RG_USB20_VRT_VREF_SEL, SHFT_RG_USB20_VRT_VREF_SEL,
-					 MSK_RG_USB20_VRT_VREF_SEL, BIT_WIDTH_3, str);
+	val = usb20_phy_debugfs_read_val(OFFSET_RG_USB20_VRT_VREF_SEL,
+		SHFT_RG_USB20_VRT_VREF_SEL, MSK_RG_USB20_VRT_VREF_SEL,
+		BIT_WIDTH_3, str);
 	if (!strncmp(str, STRNG_0_WIDTH_3, BIT_WIDTH_3)) {
 		MYDBG("%s case\n", STRNG_0_WIDTH_3);
 		tmp_val = VAL_0_WIDTH_3;
@@ -344,8 +362,9 @@ static int rg_usb20_term_vref_sel_show(struct seq_file *s, void *unused)
 	char str[16];
 
 	val =
-	    usb20_phy_debugfs_read_val(OFFSET_RG_USB20_TERM_VREF_SEL, SHFT_RG_USB20_TERM_VREF_SEL,
-				       MSK_RG_USB20_TERM_VREF_SEL, BIT_WIDTH_3, str);
+	    usb20_phy_debugfs_read_val(OFFSET_RG_USB20_TERM_VREF_SEL,
+			SHFT_RG_USB20_TERM_VREF_SEL, MSK_RG_USB20_TERM_VREF_SEL,
+			BIT_WIDTH_3, str);
 	seq_printf(s, "%s", str);
 	return 0;
 }
@@ -356,8 +375,9 @@ static int rg_usb20_hstx_srctrl_show(struct seq_file *s, void *unused)
 	char str[16];
 
 	val =
-	    usb20_phy_debugfs_read_val(OFFSET_RG_USB20_HSTX_SRCTRL, SHFT_RG_USB20_HSTX_SRCTRL,
-				       MSK_RG_USB20_HSTX_SRCTRL, BIT_WIDTH_3, str);
+	    usb20_phy_debugfs_read_val(OFFSET_RG_USB20_HSTX_SRCTRL,
+			SHFT_RG_USB20_HSTX_SRCTRL, MSK_RG_USB20_HSTX_SRCTRL,
+			BIT_WIDTH_3, str);
 	seq_printf(s, "%s", str);
 	return 0;
 }
@@ -368,8 +388,9 @@ static int rg_usb20_vrt_vref_sel_show(struct seq_file *s, void *unused)
 	char str[16];
 
 	val =
-	    usb20_phy_debugfs_read_val(OFFSET_RG_USB20_VRT_VREF_SEL, SHFT_RG_USB20_VRT_VREF_SEL,
-				       MSK_RG_USB20_VRT_VREF_SEL, BIT_WIDTH_3, str);
+	    usb20_phy_debugfs_read_val(OFFSET_RG_USB20_VRT_VREF_SEL,
+			SHFT_RG_USB20_VRT_VREF_SEL, MSK_RG_USB20_VRT_VREF_SEL,
+			BIT_WIDTH_3, str);
 	seq_printf(s, "%s", str);
 	return 0;
 }
@@ -380,8 +401,9 @@ static int rg_usb20_intr_en_show(struct seq_file *s, void *unused)
 	char str[16];
 
 	val =
-	    usb20_phy_debugfs_read_val(OFFSET_RG_USB20_INTR_EN, SHFT_RG_USB20_INTR_EN,
-				       MSK_RG_USB20_INTR_EN, BIT_WIDTH_1, str);
+	    usb20_phy_debugfs_read_val(OFFSET_RG_USB20_INTR_EN,
+			SHFT_RG_USB20_INTR_EN, MSK_RG_USB20_INTR_EN,
+			BIT_WIDTH_1, str);
 	seq_printf(s, "%s", str);
 	return 0;
 }
@@ -392,8 +414,9 @@ static int rg_usb20_rev6_show(struct seq_file *s, void *unused)
 	char str[16];
 
 	val =
-	    usb20_phy_debugfs_read_val(OFFSET_RG_USB20_PHY_REV6, SHFT_RG_USB20_PHY_REV6,
-				       MSK_RG_USB20_PHY_REV6, BIT_WIDTH_2, str);
+	    usb20_phy_debugfs_read_val(OFFSET_RG_USB20_PHY_REV6,
+			SHFT_RG_USB20_PHY_REV6, MSK_RG_USB20_PHY_REV6,
+			BIT_WIDTH_2, str);
 
 	seq_printf(s, "%s", str);
 
@@ -483,10 +506,12 @@ static ssize_t usb_driving_capability_write(struct file *file,
 	val_to_bstring_width3(tmp_val - val, str_rg_usb20_term_vref_sel);
 	val_to_bstring_width3(val, str_rg_usb20_vrt_vref_sel);
 	MYDBG("Config TERM_VREF_SEL %s\n", str_rg_usb20_term_vref_sel);
-	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_TERM_VREF_SEL, SHFT_RG_USB20_TERM_VREF_SEL,
+	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_TERM_VREF_SEL,
+		SHFT_RG_USB20_TERM_VREF_SEL,
 				       str_rg_usb20_term_vref_sel);
 	MYDBG("Config VRT_VREF_SEL %s\n", str_rg_usb20_vrt_vref_sel);
-	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_VRT_VREF_SEL, SHFT_RG_USB20_VRT_VREF_SEL,
+	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_VRT_VREF_SEL,
+		SHFT_RG_USB20_VRT_VREF_SEL,
 				       str_rg_usb20_vrt_vref_sel);
 	return count;
 }
@@ -500,7 +525,8 @@ static ssize_t rg_usb20_term_vref_sel_write(struct file *file,
 
 	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
-	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_TERM_VREF_SEL, SHFT_RG_USB20_TERM_VREF_SEL,
+	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_TERM_VREF_SEL,
+		SHFT_RG_USB20_TERM_VREF_SEL,
 				       buf);
 	return count;
 }
@@ -514,7 +540,8 @@ static ssize_t rg_usb20_hstx_srctrl_write(struct file *file,
 
 	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
-	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_HSTX_SRCTRL, SHFT_RG_USB20_HSTX_SRCTRL, buf);
+	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_HSTX_SRCTRL,
+		SHFT_RG_USB20_HSTX_SRCTRL, buf);
 	return count;
 }
 
@@ -527,7 +554,8 @@ static ssize_t rg_usb20_vrt_vref_sel_write(struct file *file,
 
 	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
-	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_VRT_VREF_SEL, SHFT_RG_USB20_VRT_VREF_SEL,
+	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_VRT_VREF_SEL,
+		SHFT_RG_USB20_VRT_VREF_SEL,
 				       buf);
 	return count;
 }
@@ -541,7 +569,8 @@ static ssize_t rg_usb20_intr_en_write(struct file *file,
 
 	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
-	usb20_phy_debugfs_write_width1(OFFSET_RG_USB20_INTR_EN, SHFT_RG_USB20_INTR_EN, buf);
+	usb20_phy_debugfs_write_width1(OFFSET_RG_USB20_INTR_EN,
+		SHFT_RG_USB20_INTR_EN, buf);
 	return count;
 }
 
@@ -553,7 +582,8 @@ static ssize_t rg_usb20_rev6_write(struct file *file,
 	memset(buf, 0x00, sizeof(buf));
 	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
-	usb20_phy_debugfs_rev6_write(OFFSET_RG_USB20_PHY_REV6, SHFT_RG_USB20_PHY_REV6, buf);
+	usb20_phy_debugfs_rev6_write(OFFSET_RG_USB20_PHY_REV6,
+		SHFT_RG_USB20_PHY_REV6, buf);
 	return count;
 }
 
@@ -610,16 +640,20 @@ static const struct file_operations rg_usb20_rev6_fops = {
 void mtk_usb_phy_tuning(void)
 {
 	/* USB_DRIVING_CAPABILITY */
-	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_TERM_VREF_SEL, SHFT_RG_USB20_TERM_VREF_SEL,
+	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_TERM_VREF_SEL,
+		SHFT_RG_USB20_TERM_VREF_SEL,
 				       "100");
-	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_VRT_VREF_SEL, SHFT_RG_USB20_VRT_VREF_SEL,
+	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_VRT_VREF_SEL,
+		SHFT_RG_USB20_VRT_VREF_SEL,
 				       "100");
 
 	/* RG_USB20_HSTX_SRCTRL */
-	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_HSTX_SRCTRL, SHFT_RG_USB20_HSTX_SRCTRL, "100");
+	usb20_phy_debugfs_write_width3(OFFSET_RG_USB20_HSTX_SRCTRL,
+		SHFT_RG_USB20_HSTX_SRCTRL, "100");
 
 	/* RG_USB20_ENHANCEMENT */
-	usb20_phy_debugfs_rev6_write(OFFSET_RG_USB20_PHY_REV6, SHFT_RG_USB20_PHY_REV6, "01");
+	usb20_phy_debugfs_rev6_write(OFFSET_RG_USB20_PHY_REV6,
+		SHFT_RG_USB20_PHY_REV6, "01");
 }
 
 int usb20_phy_init_debugfs(void)
@@ -634,37 +668,37 @@ int usb20_phy_init_debugfs(void)
 		goto err0;
 	}
 
-	file = debugfs_create_file(FILE_USB_DRIVING_CAPABILITY, S_IRUGO | S_IWUSR,
+	file = debugfs_create_file(FILE_USB_DRIVING_CAPABILITY, 0644,
 				   root, NULL, &usb_driving_capability_fops);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
 	}
-	file = debugfs_create_file(FILE_RG_USB20_TERM_VREF_SEL, S_IRUGO | S_IWUSR,
+	file = debugfs_create_file(FILE_RG_USB20_TERM_VREF_SEL, 0644,
 				   root, NULL, &rg_usb20_term_vref_sel_fops);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
 	}
-	file = debugfs_create_file(FILE_RG_USB20_HSTX_SRCTRL, S_IRUGO | S_IWUSR,
+	file = debugfs_create_file(FILE_RG_USB20_HSTX_SRCTRL, 0644,
 				   root, NULL, &rg_usb20_hstx_srctrl_fops);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
 	}
-	file = debugfs_create_file(FILE_RG_USB20_VRT_VREF_SEL, S_IRUGO | S_IWUSR,
+	file = debugfs_create_file(FILE_RG_USB20_VRT_VREF_SEL, 0644,
 				   root, NULL, &rg_usb20_vrt_vref_sel_fops);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
 	}
-	file = debugfs_create_file(FILE_RG_USB20_INTR_EN, S_IRUGO | S_IWUSR,
+	file = debugfs_create_file(FILE_RG_USB20_INTR_EN, 0644,
 				   root, NULL, &rg_usb20_intr_en_fops);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
 	}
-	file = debugfs_create_file(FILE_RG_USB20_PHY_REV6, S_IRUGO | S_IWUSR,
+	file = debugfs_create_file(FILE_RG_USB20_PHY_REV6, 0644,
 				   root, NULL, &rg_usb20_rev6_fops);
 	if (!file) {
 		ret = -ENOMEM;

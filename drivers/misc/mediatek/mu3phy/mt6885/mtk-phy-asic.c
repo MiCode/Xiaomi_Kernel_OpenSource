@@ -96,7 +96,8 @@ static void dpidle_timer_wakeup_func(unsigned long data)
 		static int skip_cnt;
 
 		if (__ratelimit(&ratelimit)) {
-			os_printk(K_INFO, "dpidle_timer<%p> alive, skip_cnt<%d>\n", timer, skip_cnt);
+			os_printk(K_INFO, "dpidle_timer<%p> alive, skip_cnt<%d>\n",
+				timer, skip_cnt);
 			skip_cnt = 0;
 		} else
 			skip_cnt++;
@@ -127,7 +128,8 @@ void usb_hal_dpidle_request(int mode)
 	unsigned long flags;
 
 #ifdef U3_COMPLIANCE
-	os_printk(K_INFO, "%s, U3_COMPLIANCE, fake to USB_DPIDLE_FORBIDDEN\n", __func__);
+	os_printk(K_INFO, "%s, U3_COMPLIANCE, fake to USB_DPIDLE_FORBIDDEN\n",
+		__func__);
 	mode = USB_DPIDLE_FORBIDDEN;
 #endif
 
@@ -162,7 +164,8 @@ void usb_hal_dpidle_request(int mode)
 			static int skip_cnt;
 
 			if (__ratelimit(&ratelimit)) {
-				os_printk(K_INFO, "USB_DPIDLE_SRAM, skip_cnt<%d>\n", skip_cnt);
+				os_printk(K_INFO, "USB_DPIDLE_SRAM, skip_cnt<%d>\n",
+					skip_cnt);
 				skip_cnt = 0;
 			} else
 				skip_cnt++;
@@ -232,8 +235,9 @@ void usb20_rev6_setting(int value, bool is_update)
 	if (is_update)
 		usb20_phy_rev6 = value;
 
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6, RG_USB20_PHY_REV_6_OFST,
-		RG_USB20_PHY_REV_6, value);
+	U3PhyWriteField32(
+		(phys_addr_t) (uintptr_t) U3D_USBPHYACR6,
+		RG_USB20_PHY_REV_6_OFST, RG_USB20_PHY_REV_6, value);
 }
 
 #ifdef CONFIG_MTK_UART_USB_SWITCH
@@ -246,25 +250,37 @@ void uart_usb_switch_dump_register(void)
 
 # ifdef CONFIG_MTK_FPGA
 	pr_debug("[MUSB]addr: 0x6B, value: %x\n",
-		USB_PHY_Read_Register8((phys_addr_t) (uintptr_t)U3D_U2PHYDTM0 + 0x3));
+		USB_PHY_Read_Register8((phys_addr_t)
+			(uintptr_t)U3D_U2PHYDTM0 + 0x3));
 	pr_debug("[MUSB]addr: 0x6E, value: %x\n",
-		USB_PHY_Read_Register8((phys_addr_t) (uintptr_t)U3D_U2PHYDTM1 + 0x2));
+		USB_PHY_Read_Register8((phys_addr_t)
+			(uintptr_t)U3D_U2PHYDTM1 + 0x2));
 	pr_debug("[MUSB]addr: 0x22, value: %x\n",
-		USB_PHY_Read_Register8((phys_addr_t) (uintptr_t)U3D_U2PHYACR4 + 0x2));
+		USB_PHY_Read_Register8((phys_addr_t)
+			(uintptr_t)U3D_U2PHYACR4 + 0x2));
 	pr_debug("[MUSB]addr: 0x68, value: %x\n",
-		USB_PHY_Read_Register8((phys_addr_t) (uintptr_t)U3D_U2PHYDTM0));
+		USB_PHY_Read_Register8((phys_addr_t)
+			(uintptr_t)U3D_U2PHYDTM0));
 	pr_debug("[MUSB]addr: 0x6A, value: %x\n",
-		USB_PHY_Read_Register8((phys_addr_t) (uintptr_t)U3D_U2PHYDTM0 + 0x2));
+		USB_PHY_Read_Register8((phys_addr_t)
+			(uintptr_t)U3D_U2PHYDTM0 + 0x2));
 	pr_debug("[MUSB]addr: 0x1A, value: %x\n",
-		USB_PHY_Read_Register8((phys_addr_t) (uintptr_t)U3D_U2PHYACR6 + 0x2));
+		USB_PHY_Read_Register8((phys_addr_t)
+			(uintptr_t)U3D_U2PHYACR6 + 0x2));
 #else
 #if 0
-	os_printk(K_INFO, "[MUSB]addr: 0x6B, value: %x\n", U3PhyReadReg8(U3D_U2PHYDTM0 + 0x3));
-	os_printk(K_INFO, "[MUSB]addr: 0x6E, value: %x\n", U3PhyReadReg8(U3D_U2PHYDTM1 + 0x2));
-	os_printk(K_INFO, "[MUSB]addr: 0x22, value: %x\n", U3PhyReadReg8(U3D_U2PHYACR4 + 0x2));
-	os_printk(K_INFO, "[MUSB]addr: 0x68, value: %x\n", U3PhyReadReg8(U3D_U2PHYDTM0));
-	os_printk(K_INFO, "[MUSB]addr: 0x6A, value: %x\n", U3PhyReadReg8(U3D_U2PHYDTM0 + 0x2));
-	os_printk(K_INFO, "[MUSB]addr: 0x1A, value: %x\n", U3PhyReadReg8(U3D_USBPHYACR6 + 0x2));
+	os_printk(K_INFO, "[MUSB]addr: 0x6B, value: %x\n",
+		U3PhyReadReg8(U3D_U2PHYDTM0 + 0x3));
+	os_printk(K_INFO, "[MUSB]addr: 0x6E, value: %x\n",
+		U3PhyReadReg8(U3D_U2PHYDTM1 + 0x2));
+	os_printk(K_INFO, "[MUSB]addr: 0x22, value: %x\n",
+		U3PhyReadReg8(U3D_U2PHYACR4 + 0x2));
+	os_printk(K_INFO, "[MUSB]addr: 0x68, value: %x\n",
+		U3PhyReadReg8(U3D_U2PHYDTM0));
+	os_printk(K_INFO, "[MUSB]addr: 0x6A, value: %x\n",
+		U3PhyReadReg8(U3D_U2PHYDTM0 + 0x2));
+	os_printk(K_INFO, "[MUSB]addr: 0x1A, value: %x\n",
+		U3PhyReadReg8(U3D_USBPHYACR6 + 0x2));
 #else
 	os_printk(K_INFO, "[MUSB]addr: 0x18, value: 0x%x\n",
 		U3PhyReadReg32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6));
@@ -292,7 +308,8 @@ bool usb_phy_check_in_uart_mode(void)
 	usb_enable_clock(true);
 
 	udelay(250);
-	usb_port_mode = U3PhyReadReg32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0) >> RG_UART_MODE_OFST;
+	usb_port_mode = U3PhyReadReg32(
+		(phys_addr_t) (uintptr_t) U3D_U2PHYDTM0) >> RG_UART_MODE_OFST;
 
 	/* f_fusb30_ck:125MHz */
 	usb_enable_clock(false);
@@ -320,54 +337,67 @@ void usb_phy_switch_to_uart(void)
 	udelay(250);
 
 	/* RG_USB20_BC11_SW_EN = 1'b0 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6, RG_USB20_BC11_SW_EN_OFST,
-			  RG_USB20_BC11_SW_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6,
+		RG_USB20_BC11_SW_EN_OFST, RG_USB20_BC11_SW_EN, 0);
 
 	/* RG_SUSPENDM to 1'b1 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_SUSPENDM_OFST, RG_SUSPENDM, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_SUSPENDM_OFST, RG_SUSPENDM, 1);
 
 	/* force suspendm = 1'b1 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_SUSPENDM_OFST, FORCE_SUSPENDM, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_SUSPENDM_OFST, FORCE_SUSPENDM, 1);
 
 	/* rg_uart_mode = 2'b01 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_UART_MODE_OFST, RG_UART_MODE, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_UART_MODE_OFST, RG_UART_MODE, 1);
 
 	/* force_uart_i = 1'b0 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_UART_I_OFST, FORCE_UART_I, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_UART_I_OFST, FORCE_UART_I, 0);
 
 	/* force_uart_bias_en = 1'b1 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_UART_BIAS_EN_OFST, FORCE_UART_BIAS_EN, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_UART_BIAS_EN_OFST, FORCE_UART_BIAS_EN, 1);
 
 	/* force_uart_tx_oe = 1'b1 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_UART_TX_OE_OFST, FORCE_UART_TX_OE, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_UART_TX_OE_OFST, FORCE_UART_TX_OE, 1);
 
 	/* force_uart_en = 1'b1 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_UART_EN_OFST, FORCE_UART_EN, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_UART_EN_OFST, FORCE_UART_EN, 1);
 
 	/* RG_UART_BIAS_EN = 1'b1 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, RG_UART_BIAS_EN_OFST, RG_UART_BIAS_EN, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		RG_UART_BIAS_EN_OFST, RG_UART_BIAS_EN, 1);
 
 	/* RG_UART_TX_OE = 1'b1 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, RG_UART_TX_OE_OFST, RG_UART_TX_OE, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		RG_UART_TX_OE_OFST, RG_UART_TX_OE, 1);
 
 	/* RG_UART_EN = 1'b1 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, RG_UART_EN_OFST, RG_UART_EN, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		RG_UART_EN_OFST, RG_UART_EN, 1);
 
 	/* RG_USB20_DM_100K_EN = 1'b1 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4, RG_USB20_DM_100K_EN_OFST,
-			  RG_USB20_DM_100K_EN, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4,
+		RG_USB20_DM_100K_EN_OFST, RG_USB20_DM_100K_EN, 1);
 
 	/* force_linestate = 1'b1 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, FORCE_LINESTATE_OFST, FORCE_LINESTATE, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		FORCE_LINESTATE_OFST, FORCE_LINESTATE, 1);
 
 	/* RG_LINESTATE = 2'b01 (J State) */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, RG_LINESTATE_OFST, RG_LINESTATE, 0x1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		RG_LINESTATE_OFST, RG_LINESTATE, 0x1);
 
 	/* f_fusb30_ck:125MHz */
 	usb_enable_clock(false);
 
 	/* SET USB to UART GPIO to UART0 */
-	DRV_WriteReg32(ap_uart0_base + 0x6E0, (DRV_Reg32(ap_uart0_base + 0x6E0) | (1<<20)));
+	DRV_WriteReg32(ap_uart0_base + 0x6E0,
+		(DRV_Reg32(ap_uart0_base + 0x6E0) | (1<<20)));
 
 	in_uart_mode = true;
 }
@@ -378,48 +408,57 @@ void usb_phy_switch_to_usb(void)
 	in_uart_mode = false;
 
 	/* force_uart_i = 1'b1 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_UART_I_OFST, FORCE_UART_I, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_UART_I_OFST, FORCE_UART_I, 1);
 
 	/* force_uart_en = 1'b1 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_UART_EN_OFST, FORCE_UART_EN, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_UART_EN_OFST, FORCE_UART_EN, 1);
 
 	/* RG_UART_EN = 1'b0 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, RG_UART_EN_OFST, RG_UART_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		RG_UART_EN_OFST, RG_UART_EN, 0);
 
 	/* RG_USB20_DM_100K_EN = 1'b0 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4, RG_USB20_DM_100K_EN_OFST,
-			  RG_USB20_DM_100K_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4,
+		RG_USB20_DM_100K_EN_OFST, RG_USB20_DM_100K_EN, 0);
 
 	/* rg_uart_mode = 2'b00 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_UART_MODE_OFST, RG_UART_MODE, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_UART_MODE_OFST, RG_UART_MODE, 0);
 
 	/* force_dp_pulldown     1'b0 */
 	/* U3D_U2PHYDTM0 FORCE_DP_PULLDOWN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_DP_PULLDOWN_OFST, FORCE_DP_PULLDOWN,
-			  0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_DP_PULLDOWN_OFST, FORCE_DP_PULLDOWN, 0);
 
 	/* force_dm_pulldown     1'b0 */
 	/* U3D_U2PHYDTM0 FORCE_DM_PULLDOWN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_DM_PULLDOWN_OFST, FORCE_DM_PULLDOWN,
-			  0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_DM_PULLDOWN_OFST, FORCE_DM_PULLDOWN, 0);
 
 	/* force_xcversel        1'b0 */
 	/* U3D_U2PHYDTM0 FORCE_XCVRSEL */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_XCVRSEL_OFST, FORCE_XCVRSEL, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_XCVRSEL_OFST, FORCE_XCVRSEL, 0);
 
 	/* force_termsel 1'b0 */
 	/* U3D_U2PHYDTM0 FORCE_TERMSEL */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_TERMSEL_OFST, FORCE_TERMSEL, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_TERMSEL_OFST, FORCE_TERMSEL, 0);
 
 	/* force_datain  1'b0 */
 	/* U3D_U2PHYDTM0 FORCE_DATAIN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_DATAIN_OFST, FORCE_DATAIN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_DATAIN_OFST, FORCE_DATAIN, 0);
 
 	/* force_linestate = 1'b0 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, FORCE_LINESTATE_OFST, FORCE_LINESTATE, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		FORCE_LINESTATE_OFST, FORCE_LINESTATE, 0);
 
 	/* CLEAR USB to UART GPIO to UART0 */
-	DRV_WriteReg32(ap_uart0_base + 0x6E0, (DRV_Reg32(ap_uart0_base + 0x6E0) & ~(1<<20)));
+	DRV_WriteReg32(ap_uart0_base + 0x6E0,
+		(DRV_Reg32(ap_uart0_base + 0x6E0) & ~(1<<20)));
 
 	phy_init_soc(u3phy);
 
@@ -443,19 +482,24 @@ bool u3_loop_back_test(void)
 	VA09_operation(VA09_OP_ON, true);
 	usb_enable_clock(true);
 
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USB30_PHYA_REG1, RG_SSUSB_VUSB09_ON_OFST,
-				RG_SSUSB_VUSB09_ON, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USB30_PHYA_REG1,
+		RG_SSUSB_VUSB09_ON_OFST, RG_SSUSB_VUSB09_ON, 1);
 
 	/*SSUSB_IP_SW_RST = 0*/
-	writel(readl(U3D_SSUSB_IP_PW_CTRL0)&~(SSUSB_IP_SW_RST), U3D_SSUSB_IP_PW_CTRL0);
+	writel(readl(U3D_SSUSB_IP_PW_CTRL0)&~(SSUSB_IP_SW_RST),
+		U3D_SSUSB_IP_PW_CTRL0);
 	/*SSUSB_IP_HOST_PDN = 0*/
-	writel(readl(U3D_SSUSB_IP_PW_CTRL1)&~(SSUSB_IP_HOST_PDN), U3D_SSUSB_IP_PW_CTRL1);
+	writel(readl(U3D_SSUSB_IP_PW_CTRL1)&~(SSUSB_IP_HOST_PDN),
+		U3D_SSUSB_IP_PW_CTRL1);
 	/*SSUSB_IP_DEV_PDN = 0*/
-	writel(readl(U3D_SSUSB_IP_PW_CTRL2)&~(SSUSB_IP_DEV_PDN), U3D_SSUSB_IP_PW_CTRL2);
+	writel(readl(U3D_SSUSB_IP_PW_CTRL2)&~(SSUSB_IP_DEV_PDN),
+		U3D_SSUSB_IP_PW_CTRL2);
 	/*SSUSB_IP_PCIE_PDN = 0*/
-	writel(readl(U3D_SSUSB_IP_PW_CTRL3)&~(SSUSB_IP_PCIE_PDN), U3D_SSUSB_IP_PW_CTRL3);
+	writel(readl(U3D_SSUSB_IP_PW_CTRL3)&~(SSUSB_IP_PCIE_PDN),
+		U3D_SSUSB_IP_PW_CTRL3);
 	/*SSUSB_U3_PORT_DIS/SSUSB_U3_PORT_PDN = 0*/
-	writel(readl(U3D_SSUSB_U3_CTRL_0P)&~(SSUSB_IP_PCIE_PDN | SSUSB_U3_PORT_PDN),
+	writel(readl(
+		U3D_SSUSB_U3_CTRL_0P)&~(SSUSB_IP_PCIE_PDN | SSUSB_U3_PORT_PDN),
 							U3D_SSUSB_U3_CTRL_0P);
 
 	mdelay(10);
@@ -520,7 +564,8 @@ bool u3_loop_back_test(void)
 							USB30_PHYD_RX0);
 	mdelay(100);
 
-	reg = U3PhyReadReg32((phys_addr_t) (uintptr_t) (SSUSB_SIFSLV_U3PHYD_BASE+0xb4));
+	reg = U3PhyReadReg32((phys_addr_t) (uintptr_t)
+		(SSUSB_SIFSLV_U3PHYD_BASE+0xb4));
 	os_printk(K_INFO, "read back             : 0x%x\n", reg);
 	os_printk(K_INFO, "read back t2rlb_lock  : %d\n", (reg>>2)&0x01);
 	os_printk(K_INFO, "read back t2rlb_pass  : %d\n", (reg>>3)&0x01);
@@ -536,15 +581,14 @@ bool u3_loop_back_test(void)
 #endif
 
 #ifdef CONFIG_MTK_SIB_USB_SWITCH
-#include <linux/wakelock.h>
-static struct wake_lock sib_wakelock;
+struct wakeup_source sib_wakelock;
 void usb_phy_sib_enable_switch(bool enable)
 {
 	static int inited;
 
 	if (!inited) {
 		os_printk(K_INFO, "%s wake_lock_init\n", __func__);
-		wake_lock_init(&sib_wakelock, WAKE_LOCK_SUSPEND, "SIB.lock");
+		wakeup_source_init(&sib_wakelock, "SIB.lock");
 		inited = 1;
 	}
 
@@ -552,19 +596,24 @@ void usb_phy_sib_enable_switch(bool enable)
 	usb_enable_clock(true);
 	udelay(250);
 
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USB30_PHYA_REG1, RG_SSUSB_VUSB09_ON_OFST,
-			  RG_SSUSB_VUSB09_ON, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USB30_PHYA_REG1,
+		RG_SSUSB_VUSB09_ON_OFST, RG_SSUSB_VUSB09_ON, 1);
 
 	/* SSUSB_IP_SW_RST = 0 */
-	U3PhyWriteReg32((phys_addr_t) (uintptr_t) (u3_ippc_base + 0x0), 0x00031000);
+	U3PhyWriteReg32((phys_addr_t) (uintptr_t) (u3_ippc_base + 0x0),
+		0x00031000);
 	/* SSUSB_IP_HOST_PDN = 0 */
-	U3PhyWriteReg32((phys_addr_t) (uintptr_t) (u3_ippc_base + 0x4), 0x00000000);
+	U3PhyWriteReg32((phys_addr_t) (uintptr_t) (u3_ippc_base + 0x4),
+		0x00000000);
 	/* SSUSB_IP_DEV_PDN = 0 */
-	U3PhyWriteReg32((phys_addr_t) (uintptr_t) (u3_ippc_base + 0x8), 0x00000000);
+	U3PhyWriteReg32((phys_addr_t) (uintptr_t) (u3_ippc_base + 0x8),
+		0x00000000);
 	/* SSUSB_IP_PCIE_PDN = 0 */
-	U3PhyWriteReg32((phys_addr_t) (uintptr_t) (u3_ippc_base + 0xC), 0x00000000);
+	U3PhyWriteReg32((phys_addr_t) (uintptr_t) (u3_ippc_base + 0xC),
+		0x00000000);
 	/* SSUSB_U3_PORT_DIS/SSUSB_U3_PORT_PDN = 0*/
-	U3PhyWriteReg32((phys_addr_t) (uintptr_t) (u3_ippc_base + 0x30), 0x0000000C);
+	U3PhyWriteReg32((phys_addr_t) (uintptr_t) (u3_ippc_base + 0x30),
+		0x0000000C);
 
 	/*
 	 * USBMAC mode is 0x62910002 (bit 1)
@@ -572,15 +621,17 @@ void usb_phy_sib_enable_switch(bool enable)
 	 * 0x0629 just likes a signature. Can't be removed.
 	 */
 	if (enable) {
-		U3PhyWriteReg32((phys_addr_t) (uintptr_t) SSUSB_SIFSLV_CHIP_BASE, 0x62910008);
+		U3PhyWriteReg32((phys_addr_t) (uintptr_t)
+			SSUSB_SIFSLV_CHIP_BASE, 0x62910008);
 		sib_mode = true;
-		if (!wake_lock_active(&sib_wakelock))
-			wake_lock(&sib_wakelock);
+		if (!sib_wakelock.active)
+			__pm_stay_awake(&sib_wakelock);
 	} else {
-		U3PhyWriteReg32((phys_addr_t) (uintptr_t) SSUSB_SIFSLV_CHIP_BASE, 0x62910002);
+		U3PhyWriteReg32((phys_addr_t) (uintptr_t)
+			SSUSB_SIFSLV_CHIP_BASE, 0x62910002);
 		sib_mode = false;
-		if (wake_lock_active(&sib_wakelock))
-			wake_unlock(&sib_wakelock);
+		if (sib_wakelock.active)
+			__pm_relax(&sib_wakelock);
 	}
 }
 
@@ -594,8 +645,8 @@ bool usb_phy_sib_enable_switch_status(void)
 	usb_enable_clock(true);
 	udelay(250);
 
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USB30_PHYA_REG1, RG_SSUSB_VUSB09_ON_OFST,
-			  RG_SSUSB_VUSB09_ON, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USB30_PHYA_REG1,
+		RG_SSUSB_VUSB09_ON_OFST, RG_SSUSB_VUSB09_ON, 1);
 
 	reg = U3PhyReadReg32((phys_addr_t) (uintptr_t) SSUSB_SIFSLV_CHIP_BASE);
 	if (reg == 0x62910008)
@@ -662,12 +713,16 @@ void usb_phy_tuning(void)
 
 	if (!inited) {
 		u2_vrt_ref = u2_term_ref = u2_enhance = -1;
-		of_node = of_find_compatible_node(NULL, NULL, "mediatek,phy_tuning");
+		of_node = of_find_compatible_node(NULL, NULL,
+			"mediatek,phy_tuning");
 		if (of_node) {
 			/* value won't be updated if property not being found */
-			of_property_read_u32(of_node, "u2_vrt_ref", (u32 *) &u2_vrt_ref);
-			of_property_read_u32(of_node, "u2_term_ref", (u32 *) &u2_term_ref);
-			of_property_read_u32(of_node, "u2_enhance", (u32 *) &u2_enhance);
+			of_property_read_u32(of_node, "u2_vrt_ref",
+				(u32 *) &u2_vrt_ref);
+			of_property_read_u32(of_node, "u2_term_ref",
+				(u32 *) &u2_term_ref);
+			of_property_read_u32(of_node, "u2_enhance",
+				(u32 *) &u2_enhance);
 		}
 		inited = true;
 	} else if (!of_node)
@@ -675,19 +730,22 @@ void usb_phy_tuning(void)
 
 	if (u2_vrt_ref != -1) {
 		if (u2_vrt_ref <= VAL_MAX_WIDTH_3) {
-			U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR1, RG_USB20_VRT_VREF_SEL_OFST,
+			U3PhyWriteField32((phys_addr_t) (uintptr_t)
+				U3D_USBPHYACR1, RG_USB20_VRT_VREF_SEL_OFST,
 					  RG_USB20_VRT_VREF_SEL, u2_vrt_ref);
 		}
 	}
 	if (u2_term_ref != -1) {
 		if (u2_term_ref <= VAL_MAX_WIDTH_3) {
-			U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR1, RG_USB20_TERM_VREF_SEL_OFST,
+			U3PhyWriteField32((phys_addr_t) (uintptr_t)
+				U3D_USBPHYACR1, RG_USB20_TERM_VREF_SEL_OFST,
 					  RG_USB20_TERM_VREF_SEL, u2_term_ref);
 		}
 	}
 	if (u2_enhance != -1) {
 		if (u2_enhance <= VAL_MAX_WIDTH_2) {
-			U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6, RG_USB20_PHY_REV_6_OFST,
+			U3PhyWriteField32((phys_addr_t) (uintptr_t)
+				U3D_USBPHYACR6, RG_USB20_PHY_REV_6_OFST,
 				RG_USB20_PHY_REV_6, u2_enhance);
 		}
 	}
@@ -697,7 +755,8 @@ PHY_INT32 phy_init_soc(struct u3phy_info *info)
 {
 	os_printk(K_INFO, "%s+\n", __func__);
 
-	/*This power on sequence refers to Sheet .1 of "6593_USB_PORT0_PWR Sequence 20130729.xls" */
+	/*This power on sequence refers to Sheet .1 of  */
+	/*"6593_USB_PORT0_PWR Sequence 20130729.xls" */
 
 	VA09_operation(VA09_OP_ON, false);
 
@@ -707,8 +766,8 @@ PHY_INT32 phy_init_soc(struct u3phy_info *info)
 	/*Wait 50 usec */
 	udelay(250);
 
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USB30_PHYA_REG1, RG_SSUSB_VUSB09_ON_OFST,
-			  RG_SSUSB_VUSB09_ON, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USB30_PHYA_REG1,
+		RG_SSUSB_VUSB09_ON_OFST, RG_SSUSB_VUSB09_ON, 1);
 
 #ifdef CONFIG_MTK_UART_USB_SWITCH
 	if (in_uart_mode)
@@ -716,33 +775,44 @@ PHY_INT32 phy_init_soc(struct u3phy_info *info)
 #endif
 
 	/*switch to USB function. (system register, force ip into usb mode) */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_UART_EN_OFST, FORCE_UART_EN, 0);
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, RG_UART_EN_OFST, RG_UART_EN, 0);
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4, RG_USB20_GPIO_CTL_OFST, RG_USB20_GPIO_CTL,
-			  0);
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4, USB20_GPIO_MODE_OFST, USB20_GPIO_MODE, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+	FORCE_UART_EN_OFST, FORCE_UART_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		RG_UART_EN_OFST, RG_UART_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4,
+		RG_USB20_GPIO_CTL_OFST, RG_USB20_GPIO_CTL, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4,
+		USB20_GPIO_MODE_OFST, USB20_GPIO_MODE, 0);
 	/*DP/DM BC1.1 path Disable */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6, RG_USB20_BC11_SW_EN_OFST,
-			  RG_USB20_BC11_SW_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6,
+		RG_USB20_BC11_SW_EN_OFST, RG_USB20_BC11_SW_EN, 0);
 	/*dp_100k disable */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4, RG_USB20_DP_100K_MODE_OFST,
-			  RG_USB20_DP_100K_MODE, 1);
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4, USB20_DP_100K_EN_OFST, USB20_DP_100K_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4,
+		RG_USB20_DP_100K_MODE_OFST, RG_USB20_DP_100K_MODE, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4,
+		USB20_DP_100K_EN_OFST, USB20_DP_100K_EN, 0);
 	/*dm_100k disable */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4, RG_USB20_DM_100K_EN_OFST,
-			  RG_USB20_DM_100K_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4,
+		RG_USB20_DM_100K_EN_OFST, RG_USB20_DM_100K_EN, 0);
 	/*OTG Enable */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6, RG_USB20_OTG_VBUSCMP_EN_OFST,
-			  RG_USB20_OTG_VBUSCMP_EN, 1);
-	/*Release force suspendm.  (force_suspendm=0) (let suspendm=1, enable usb 480MHz pll) */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_SUSPENDM_OFST, FORCE_SUSPENDM, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6,
+		RG_USB20_OTG_VBUSCMP_EN_OFST, RG_USB20_OTG_VBUSCMP_EN, 1);
+	/*Release force suspendm.  (force_suspendm=0) */
+	/*(let suspendm=1, enable usb 480MHz pll) */
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_SUSPENDM_OFST, FORCE_SUSPENDM, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6,
+		RG_USB20_PHY_REV_6_OFST, RG_USB20_PHY_REV_6, usb20_phy_rev6);
 
 	/*Wait 800 usec */
 	udelay(800);
 
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, FORCE_VBUSVALID_OFST, FORCE_VBUSVALID, 1);
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, FORCE_AVALID_OFST, FORCE_AVALID, 1);
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, FORCE_SESSEND_OFST, FORCE_SESSEND, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		FORCE_VBUSVALID_OFST, FORCE_VBUSVALID, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		FORCE_AVALID_OFST, FORCE_AVALID, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		FORCE_SESSEND_OFST, FORCE_SESSEND, 1);
 
 	/* USB PLL Force settings */
 	usb20_pll_settings(false, false);
@@ -766,16 +836,17 @@ PHY_INT32 u2_slew_rate_calibration(struct u3phy_info *info)
 
 	/* => RG_USB20_HSTX_SRCAL_EN = 1 */
 	/* enable USB ring oscillator */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR5, RG_USB20_HSTX_SRCAL_EN_OFST,
-			  RG_USB20_HSTX_SRCAL_EN, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR5,
+		RG_USB20_HSTX_SRCAL_EN_OFST, RG_USB20_HSTX_SRCAL_EN, 1);
 
 	/* wait 1us */
 	udelay(1);
 
 	/* => USBPHY base address + 0x110 = 1 */
 	/* Enable free run clock */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) (SSUSB_SIFSLV_FM_BASE + 0x10)
-			  , RG_FRCK_EN_OFST, RG_FRCK_EN, 0x1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t)
+		(SSUSB_SIFSLV_FM_BASE + 0x10), RG_FRCK_EN_OFST,
+		RG_FRCK_EN, 0x1);
 
 	/* => USBPHY base address + 0x100 = 0x04 */
 	/* Setting cyclecnt */
@@ -789,7 +860,8 @@ PHY_INT32 u2_slew_rate_calibration(struct u3phy_info *info)
 
 	/* USB_FM_VLD, should be 1'b1, Read frequency valid */
 	os_printk(K_DEBUG, "Freq_Valid=(0x%08X)\n",
-		  U3PhyReadReg32((phys_addr_t) (uintptr_t) (SSUSB_SIFSLV_FM_BASE + 0x10)));
+		  U3PhyReadReg32((phys_addr_t) (uintptr_t)
+			(SSUSB_SIFSLV_FM_BASE + 0x10)));
 
 	mdelay(1);
 
@@ -797,8 +869,10 @@ PHY_INT32 u2_slew_rate_calibration(struct u3phy_info *info)
 	for (i = 0; i < 10; i++) {
 		/* => USBPHY base address + 0x10C = FM_OUT */
 		/* Read result */
-		u4FmOut = U3PhyReadReg32((phys_addr_t) (uintptr_t) (SSUSB_SIFSLV_FM_BASE + 0xC));
-		os_printk(K_DEBUG, "FM_OUT value: u4FmOut = %d(0x%08X)\n", u4FmOut, u4FmOut);
+		u4FmOut = U3PhyReadReg32((phys_addr_t) (uintptr_t)
+			(SSUSB_SIFSLV_FM_BASE + 0xC));
+		os_printk(K_DEBUG, "FM_OUT value: u4FmOut = %d(0x%08X)\n",
+			u4FmOut, u4FmOut);
 
 		/* check if FM detection done */
 		if (u4FmOut != 0) {
@@ -816,27 +890,31 @@ PHY_INT32 u2_slew_rate_calibration(struct u3phy_info *info)
 
 	/* => USBPHY base address + 0x110 = 0x00 */
 	/* Disable free run clock */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) (SSUSB_SIFSLV_FM_BASE + 0x10)
-			  , RG_FRCK_EN_OFST, RG_FRCK_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t)
+		(SSUSB_SIFSLV_FM_BASE + 0x10), RG_FRCK_EN_OFST, RG_FRCK_EN, 0);
 
-	/* RG_USB20_HSTX_SRCTRL[2:0] = (1024/FM_OUT) * reference clock frequency * 0.028 */
+	/* RG_USB20_HSTX_SRCTRL[2:0] = (1024/FM_OUT) */
+	/* * reference clock frequency * 0.028 */
 	if (u4FmOut == 0) {
-		U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR5, RG_USB20_HSTX_SRCTRL_OFST,
-				  RG_USB20_HSTX_SRCTRL, 0x4);
+		U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR5,
+			RG_USB20_HSTX_SRCTRL_OFST, RG_USB20_HSTX_SRCTRL, 0x4);
 		fgRet = 1;
 	} else {
-		/* set reg = (1024/FM_OUT) * REF_CK * U2_SR_COEF_E60802 / 1000 (round to the nearest digits) */
-		/* u4Tmp = (((1024 * REF_CK * U2_SR_COEF_E60802) / u4FmOut) + 500) / 1000; */
+		/* set reg = (1024/FM_OUT) * REF_CK * U2_SR_COEF_E60802 */
+		/*  / 1000 (round to the nearest digits) */
+		/* u4Tmp = (((1024 * REF_CK * U2_SR_COEF_E60802) / u4FmOut) */
+		/* + 500) / 1000; */
 		u4Tmp = (1024 * REF_CK * U2_SR_COEF_E60802) / (u4FmOut * 1000);
-		os_printk(K_DEBUG, "SR calibration value u1SrCalVal = %d\n", (PHY_UINT8) u4Tmp);
-		U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR5, RG_USB20_HSTX_SRCTRL_OFST,
-				  RG_USB20_HSTX_SRCTRL, u4Tmp);
+		os_printk(K_DEBUG, "SR calibration value u1SrCalVal = %d\n",
+			(PHY_UINT8) u4Tmp);
+		U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR5,
+			RG_USB20_HSTX_SRCTRL_OFST, RG_USB20_HSTX_SRCTRL, u4Tmp);
 	}
 
 	/* => RG_USB20_HSTX_SRCAL_EN = 0 */
 	/* disable USB ring oscillator */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR5, RG_USB20_HSTX_SRCAL_EN_OFST,
-			  RG_USB20_HSTX_SRCAL_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR5,
+		RG_USB20_HSTX_SRCAL_EN_OFST, RG_USB20_HSTX_SRCAL_EN, 0);
 
 	return fgRet;
 }
@@ -858,39 +936,44 @@ void usb_phy_savecurrent(unsigned int clk_on)
 	/*switch to USB function. (system register, force ip into usb mode) */
 	/* force_uart_en      1'b0 */
 	/* U3D_U2PHYDTM0 FORCE_UART_EN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_UART_EN_OFST, FORCE_UART_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_UART_EN_OFST, FORCE_UART_EN, 0);
 	/* RG_UART_EN         1'b0 */
 	/* U3D_U2PHYDTM1 RG_UART_EN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, RG_UART_EN_OFST, RG_UART_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		RG_UART_EN_OFST, RG_UART_EN, 0);
 	/* rg_usb20_gpio_ctl  1'b0 */
 	/* U3D_U2PHYACR4 RG_USB20_GPIO_CTL */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4, RG_USB20_GPIO_CTL_OFST, RG_USB20_GPIO_CTL,
-			  0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4,
+		RG_USB20_GPIO_CTL_OFST, RG_USB20_GPIO_CTL, 0);
 	/* usb20_gpio_mode       1'b0 */
 	/* U3D_U2PHYACR4 USB20_GPIO_MODE */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4, USB20_GPIO_MODE_OFST, USB20_GPIO_MODE, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4,
+		USB20_GPIO_MODE_OFST, USB20_GPIO_MODE, 0);
 
 	/*DP/DM BC1.1 path Disable */
 	/* RG_USB20_BC11_SW_EN 1'b0 */
 	/* U3D_USBPHYACR6 RG_USB20_BC11_SW_EN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6, RG_USB20_BC11_SW_EN_OFST,
-			  RG_USB20_BC11_SW_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6,
+		RG_USB20_BC11_SW_EN_OFST, RG_USB20_BC11_SW_EN, 0);
 
 	/*OTG Disable */
 	/* RG_USB20_OTG_VBUSCMP_EN 1b0 */
 	/* U3D_USBPHYACR6 RG_USB20_OTG_VBUSCMP_EN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6, RG_USB20_OTG_VBUSCMP_EN_OFST,
-			  RG_USB20_OTG_VBUSCMP_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6,
+		RG_USB20_OTG_VBUSCMP_EN_OFST, RG_USB20_OTG_VBUSCMP_EN, 0);
 
 	/*let suspendm=1, enable usb 480MHz pll */
 	/* RG_SUSPENDM 1'b1 */
 	/* U3D_U2PHYDTM0 RG_SUSPENDM */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_SUSPENDM_OFST, RG_SUSPENDM, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_SUSPENDM_OFST, RG_SUSPENDM, 1);
 
 	/*force_suspendm=1 */
 	/* force_suspendm        1'b1 */
 	/* U3D_U2PHYDTM0 FORCE_SUSPENDM */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_SUSPENDM_OFST, FORCE_SUSPENDM, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_SUSPENDM_OFST, FORCE_SUSPENDM, 1);
 
 	/*Wait USBPLL stable. */
 	/* Wait 2 ms. */
@@ -898,45 +981,56 @@ void usb_phy_savecurrent(unsigned int clk_on)
 
 	/* RG_DPPULLDOWN 1'b1 */
 	/* U3D_U2PHYDTM0 RG_DPPULLDOWN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_DPPULLDOWN_OFST, RG_DPPULLDOWN, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_DPPULLDOWN_OFST, RG_DPPULLDOWN, 1);
 
 	/* RG_DMPULLDOWN 1'b1 */
 	/* U3D_U2PHYDTM0 RG_DMPULLDOWN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_DMPULLDOWN_OFST, RG_DMPULLDOWN, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_DMPULLDOWN_OFST, RG_DMPULLDOWN, 1);
 
 	/* RG_XCVRSEL[1:0] 2'b01 */
 	/* U3D_U2PHYDTM0 RG_XCVRSEL */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_XCVRSEL_OFST, RG_XCVRSEL, 0x1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_XCVRSEL_OFST, RG_XCVRSEL, 0x1);
 
 	/* RG_TERMSEL    1'b1 */
 	/* U3D_U2PHYDTM0 RG_TERMSEL */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_TERMSEL_OFST, RG_TERMSEL, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_TERMSEL_OFST, RG_TERMSEL, 1);
 
 	/* RG_DATAIN[3:0]        4'b0000 */
 	/* U3D_U2PHYDTM0 RG_DATAIN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_DATAIN_OFST, RG_DATAIN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_DATAIN_OFST, RG_DATAIN, 0);
 
 	/* force_dp_pulldown     1'b1 */
 	/* U3D_U2PHYDTM0 FORCE_DP_PULLDOWN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_DP_PULLDOWN_OFST, FORCE_DP_PULLDOWN,
-			  1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_DP_PULLDOWN_OFST, FORCE_DP_PULLDOWN, 1);
 
 	/* force_dm_pulldown     1'b1 */
 	/* U3D_U2PHYDTM0 FORCE_DM_PULLDOWN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_DM_PULLDOWN_OFST, FORCE_DM_PULLDOWN,
-			  1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_DM_PULLDOWN_OFST, FORCE_DM_PULLDOWN, 1);
 
 	/* force_xcversel        1'b1 */
 	/* U3D_U2PHYDTM0 FORCE_XCVRSEL */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_XCVRSEL_OFST, FORCE_XCVRSEL, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_XCVRSEL_OFST, FORCE_XCVRSEL, 1);
 
 	/* force_termsel 1'b1 */
 	/* U3D_U2PHYDTM0 FORCE_TERMSEL */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_TERMSEL_OFST, FORCE_TERMSEL, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_TERMSEL_OFST, FORCE_TERMSEL, 1);
 
 	/* force_datain  1'b1 */
 	/* U3D_U2PHYDTM0 FORCE_DATAIN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_DATAIN_OFST, FORCE_DATAIN, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_DATAIN_OFST, FORCE_DATAIN, 1);
+
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6,
+		RG_USB20_PHY_REV_OFST, RG_USB20_PHY_REV, 0x1000010);
 
 	/* wait 800us */
 	udelay(800);
@@ -944,14 +1038,18 @@ void usb_phy_savecurrent(unsigned int clk_on)
 	/*let suspendm=0, set utmi into analog power down */
 	/* RG_SUSPENDM 1'b0 */
 	/* U3D_U2PHYDTM0 RG_SUSPENDM */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_SUSPENDM_OFST, RG_SUSPENDM, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_SUSPENDM_OFST, RG_SUSPENDM, 0);
 
 	/* wait 1us */
 	udelay(1);
 
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, RG_VBUSVALID_OFST, RG_VBUSVALID, 0);
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, RG_AVALID_OFST, RG_AVALID, 0);
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, RG_SESSEND_OFST, RG_SESSEND, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		RG_VBUSVALID_OFST, RG_VBUSVALID, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		RG_AVALID_OFST, RG_AVALID, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		RG_SESSEND_OFST, RG_SESSEND, 1);
 
 	/* USB PLL Force settings */
 	usb20_pll_settings(false, false);
@@ -965,8 +1063,8 @@ reg_done:
 	 * Turn off SSUSB reference clock (26MHz)
 	 */
 	if (clk_on) {
-		U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USB30_PHYA_REG1, RG_SSUSB_VUSB09_ON_OFST,
-				RG_SSUSB_VUSB09_ON, 0);
+		U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USB30_PHYA_REG1,
+			RG_SSUSB_VUSB09_ON_OFST, RG_SSUSB_VUSB09_ON, 0);
 
 		/* Wait 10 usec. */
 		udelay(10);
@@ -993,8 +1091,8 @@ void usb_phy_recover(unsigned int clk_on)
 		/* Wait 50 usec. (PHY 3.3v & 1.8v power stable time) */
 		udelay(250);
 
-		U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USB30_PHYA_REG1, RG_SSUSB_VUSB09_ON_OFST,
-				RG_SSUSB_VUSB09_ON, 1);
+		U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USB30_PHYA_REG1,
+			RG_SSUSB_VUSB09_ON_OFST, RG_SSUSB_VUSB09_ON, 1);
 	}
 #ifdef CONFIG_MTK_UART_USB_SWITCH
 	if (in_uart_mode)
@@ -1004,83 +1102,104 @@ void usb_phy_recover(unsigned int clk_on)
 	/*switch to USB function. (system register, force ip into usb mode) */
 	/* force_uart_en      1'b0 */
 	/* U3D_U2PHYDTM0 FORCE_UART_EN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_UART_EN_OFST, FORCE_UART_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_UART_EN_OFST, FORCE_UART_EN, 0);
 	/* RG_UART_EN         1'b0 */
 	/* U3D_U2PHYDTM1 RG_UART_EN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, RG_UART_EN_OFST, RG_UART_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		RG_UART_EN_OFST, RG_UART_EN, 0);
 	/* rg_usb20_gpio_ctl  1'b0 */
 	/* U3D_U2PHYACR4 RG_USB20_GPIO_CTL */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4, RG_USB20_GPIO_CTL_OFST, RG_USB20_GPIO_CTL,
-			  0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4,
+		RG_USB20_GPIO_CTL_OFST, RG_USB20_GPIO_CTL, 0);
 	/* usb20_gpio_mode       1'b0 */
 	/* U3D_U2PHYACR4 USB20_GPIO_MODE */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4, USB20_GPIO_MODE_OFST, USB20_GPIO_MODE, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYACR4,
+		USB20_GPIO_MODE_OFST, USB20_GPIO_MODE, 0);
 
-	/*Release force suspendm. (force_suspendm=0) (let suspendm=1, enable usb 480MHz pll) */
+	/*Release force suspendm. (force_suspendm=0) */
+	/*(let suspendm=1, enable usb 480MHz pll) */
 	/*force_suspendm        1'b0 */
 	/* U3D_U2PHYDTM0 FORCE_SUSPENDM */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_SUSPENDM_OFST, FORCE_SUSPENDM, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_SUSPENDM_OFST, FORCE_SUSPENDM, 0);
 
 	/* RG_DPPULLDOWN 1'b0 */
 	/* U3D_U2PHYDTM0 RG_DPPULLDOWN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_DPPULLDOWN_OFST, RG_DPPULLDOWN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_DPPULLDOWN_OFST, RG_DPPULLDOWN, 0);
 
 	/* RG_DMPULLDOWN 1'b0 */
 	/* U3D_U2PHYDTM0 RG_DMPULLDOWN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_DMPULLDOWN_OFST, RG_DMPULLDOWN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_DMPULLDOWN_OFST, RG_DMPULLDOWN, 0);
 
 	/* RG_XCVRSEL[1:0]       2'b00 */
 	/* U3D_U2PHYDTM0 RG_XCVRSEL */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_XCVRSEL_OFST, RG_XCVRSEL, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_XCVRSEL_OFST, RG_XCVRSEL, 0);
 
 	/* RG_TERMSEL    1'b0 */
 	/* U3D_U2PHYDTM0 RG_TERMSEL */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_TERMSEL_OFST, RG_TERMSEL, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_TERMSEL_OFST, RG_TERMSEL, 0);
 
 	/* RG_DATAIN[3:0]        4'b0000 */
 	/* U3D_U2PHYDTM0 RG_DATAIN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, RG_DATAIN_OFST, RG_DATAIN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		RG_DATAIN_OFST, RG_DATAIN, 0);
 
 	/* force_dp_pulldown     1'b0 */
 	/* U3D_U2PHYDTM0 FORCE_DP_PULLDOWN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_DP_PULLDOWN_OFST, FORCE_DP_PULLDOWN,
-			  0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_DP_PULLDOWN_OFST, FORCE_DP_PULLDOWN, 0);
 
 	/* force_dm_pulldown     1'b0 */
 	/* U3D_U2PHYDTM0 FORCE_DM_PULLDOWN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_DM_PULLDOWN_OFST, FORCE_DM_PULLDOWN,
-			  0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_DM_PULLDOWN_OFST, FORCE_DM_PULLDOWN, 0);
 
 	/* force_xcversel        1'b0 */
 	/* U3D_U2PHYDTM0 FORCE_XCVRSEL */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_XCVRSEL_OFST, FORCE_XCVRSEL, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_XCVRSEL_OFST, FORCE_XCVRSEL, 0);
 
 	/* force_termsel 1'b0 */
 	/* U3D_U2PHYDTM0 FORCE_TERMSEL */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_TERMSEL_OFST, FORCE_TERMSEL, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_TERMSEL_OFST, FORCE_TERMSEL, 0);
 
 	/* force_datain  1'b0 */
 	/* U3D_U2PHYDTM0 FORCE_DATAIN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0, FORCE_DATAIN_OFST, FORCE_DATAIN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM0,
+		FORCE_DATAIN_OFST, FORCE_DATAIN, 0);
 
 	/*DP/DM BC1.1 path Disable */
 	/* RG_USB20_BC11_SW_EN   1'b0 */
 	/* U3D_USBPHYACR6 RG_USB20_BC11_SW_EN */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6, RG_USB20_BC11_SW_EN_OFST,
-			  RG_USB20_BC11_SW_EN, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6,
+		RG_USB20_BC11_SW_EN_OFST, RG_USB20_BC11_SW_EN, 0);
 
 	/*OTG Enable */
 	/* RG_USB20_OTG_VBUSCMP_EN       1b1 */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6, RG_USB20_OTG_VBUSCMP_EN_OFST,
-			  RG_USB20_OTG_VBUSCMP_EN, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6,
+		RG_USB20_OTG_VBUSCMP_EN_OFST, RG_USB20_OTG_VBUSCMP_EN, 1);
+
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6,
+		RG_USB20_PHY_REV_6_OFST, RG_USB20_PHY_REV_6, usb20_phy_rev6);
 
 	/* Wait 800 usec */
 	udelay(800);
 
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, RG_VBUSVALID_OFST, RG_VBUSVALID, 1);
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, RG_AVALID_OFST, RG_AVALID, 1);
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1, RG_SESSEND_OFST, RG_SESSEND, 0);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		RG_VBUSVALID_OFST, RG_VBUSVALID, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		RG_AVALID_OFST, RG_AVALID, 1);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_U2PHYDTM1,
+		RG_SESSEND_OFST, RG_SESSEND, 0);
 
+	/* Disable for Bring up */
+	#if 0
 	/* EFUSE related sequence */
 	{
 		u32 evalue;
@@ -1088,8 +1207,10 @@ void usb_phy_recover(unsigned int clk_on)
 		/* [4:0] => RG_USB20_INTR_CAL[4:0] */
 		evalue = (get_devinfo_with_index(108) & (0x1f<<0)) >> 0;
 		if (evalue) {
-			os_printk(K_INFO, "apply efuse setting, RG_USB20_INTR_CAL=0x%x\n", evalue);
-			U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR1, RG_USB20_INTR_CAL_OFST,
+			os_printk(K_INFO, "apply efuse setting, RG_USB20_INTR_CAL=0x%x\n",
+				evalue);
+			U3PhyWriteField32((phys_addr_t) (uintptr_t)
+				U3D_USBPHYACR1, RG_USB20_INTR_CAL_OFST,
 					RG_USB20_INTR_CAL, evalue);
 		} else
 			os_printk(K_DEBUG, "!evalue\n");
@@ -1097,37 +1218,42 @@ void usb_phy_recover(unsigned int clk_on)
 		/* [21:16] (BGR_code) => RG_SSUSB_IEXT_INTR_CTRL[5:0] */
 		evalue = (get_devinfo_with_index(107) & (0x3f << 16)) >> 16;
 		if (evalue) {
-			os_printk(K_INFO, "apply efuse setting, RG_SSUSB_IEXT_INTR_CTRL=0x%x\n", evalue);
-			U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USB30_PHYA_REG0, 10,
-					(0x3f<<10), evalue);
+			os_printk(K_INFO, "apply efuse setting, RG_SSUSB_IEXT_INTR_CTRL=0x%x\n",
+				evalue);
+			U3PhyWriteField32((phys_addr_t) (uintptr_t)
+				U3D_USB30_PHYA_REG0, 10, (0x3f<<10), evalue);
 		} else
 			os_printk(K_DEBUG, "!evalue\n");
 
 		/* [12:8] (RX_50_code) => RG_SSUSB_IEXT_RX_IMPSEL[4:0] */
 		evalue = (get_devinfo_with_index(107) & (0x1f << 8)) >> 8;
 		if (evalue) {
-			os_printk(K_INFO, "apply efuse setting, rg_ssusb_rx_impsel=0x%x\n", evalue);
-			U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_PHYD_IMPCAL1, RG_SSUSB_RX_IMPSEL_OFST,
+			os_printk(K_INFO, "apply efuse setting, rg_ssusb_rx_impsel=0x%x\n",
+				evalue);
+			U3PhyWriteField32((phys_addr_t) (uintptr_t)
+				U3D_PHYD_IMPCAL1, RG_SSUSB_RX_IMPSEL_OFST,
 					RG_SSUSB_RX_IMPSEL, evalue);
 		} else
 			os_printk(K_DEBUG, "!evalue\n");
 
-		/* [4:0] (TX_50_code) => RG_SSUSB_IEXT_TX_IMPSEL[4:0], don't care : 0-bit */
+		/* [4:0] (TX_50_code) => RG_SSUSB_IEXT_TX_IMPSEL[4:0] */
+		/* don't care : 0-bit */
 		evalue = (get_devinfo_with_index(107) & (0x1f << 0)) >> 0;
 		if (evalue) {
-			os_printk(K_INFO, "apply efuse setting, rg_ssusb_tx_impsel=0x%x\n", evalue);
-			U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_PHYD_IMPCAL0, RG_SSUSB_TX_IMPSEL_OFST,
+			os_printk(K_INFO, "apply efuse setting, rg_ssusb_tx_impsel=0x%x\n",
+				evalue);
+			U3PhyWriteField32((phys_addr_t) (uintptr_t)
+				U3D_PHYD_IMPCAL0, RG_SSUSB_TX_IMPSEL_OFST,
 					RG_SSUSB_TX_IMPSEL, evalue);
 
 		} else
 			os_printk(K_DEBUG, "!evalue\n");
 	}
+	#endif
 
 	/* For host, disconnect threshold */
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6, RG_USB20_DISCTH_OFST, RG_USB20_DISCTH, 0xF);
-
-	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6, RG_USB20_PHY_REV_6_OFST,
-		RG_USB20_PHY_REV_6, usb20_phy_rev6);
+	U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6,
+		RG_USB20_DISCTH_OFST, RG_USB20_DISCTH, 0xF);
 
 #ifdef MTK_USB_PHY_TUNING
 	mtk_usb_phy_tuning();
@@ -1138,22 +1264,31 @@ void usb_phy_recover(unsigned int clk_on)
 	/* USB PLL Force settings */
 	usb20_pll_settings(false, false);
 
+	/* No need for MT6885 */
+	#if 0
 	/* special request from DE */
 	{
 		u32 val, offset;
 
-		/* RG_SSUSB_TX_EIDLE_CM, 0x11F40B20[31:28], 4'b1000, ssusb_USB30_PHYA_regmap_T12FF_TPHY */
+		/* RG_SSUSB_TX_EIDLE_CM, 0x11F40B20[31:28] */
+		/* 4'b1000, ssusb_USB30_PHYA_regmap_T12FF_TPHY */
 		val = 0x8;
 		offset = 0x20;
-		U3PhyWriteField32((phys_addr_t) (uintptr_t) ((u3_sif2_base + 0xb00) + offset), 28,
+		U3PhyWriteField32(
+			(phys_addr_t) (uintptr_t)
+			((u3_sif2_base + 0xb00) + offset), 28,
 				(0xf<<28), val);
 
-		/* rg_ssusb_cdr_bir_ltr, 0x11F4095C[20:16]  5'b01101, ssusb_USB30_PHYD_regmap_T12FF_TPHY */
+		/* rg_ssusb_cdr_bir_ltr, 0x11F4095C[20:16]  5'b01101 */
+		/* ssusb_USB30_PHYD_regmap_T12FF_TPHY */
 		val = 0xd;
 		offset = 0x5c;
-		U3PhyWriteField32((phys_addr_t) (uintptr_t) ((u3_sif2_base + 0x900) + offset), 16,
+		U3PhyWriteField32(
+			(phys_addr_t) (uintptr_t)
+			((u3_sif2_base + 0x900) + offset), 16,
 				(0x1f<<16), val);
 	}
+	#endif
 
 #ifdef CONFIG_MTK_UART_USB_SWITCH
 reg_done:
@@ -1166,12 +1301,15 @@ reg_done:
  * The system boot has 3 situations.
  * 1. Booting without cable, so connection work called by musb_gadget_start()
  *    would turn off pwr/clk by musb_stop(). [REF CNT = 0]
- * 2. Booting with normal cable, the pwr/clk has already turned on at initial stage.
- *    and also set the flag (musb->is_clk_on=1).
+ * 2. Booting with normal cable, the pwr/clk has already turned on
+ *    at initial stage. and also set the flag (musb->is_clk_on=1).
  *    So musb_start() would not turn on again. [REF CNT = 1]
- * 3. Booting with OTG cable, the pwr/clk would be turned on by host one more time.[REF CNT=2]
- *    So device should turn off pwr/clk which are turned on during the initial stage.
- *    However, does _NOT_ touch the PHY registers. So we need this fake function to keep the REF CNT correct.
+ * 3. Booting with OTG cable, the pwr/clk would be turned on
+ *    by host one more time.[REF CNT=2]
+ *    So device should turn off pwr/clk which are turned on
+ *    during the initial stage.
+ *    However, does _NOT_ touch the PHY registers. So we need this fake
+ *    function to keep the REF CNT correct.
  *    NOT FOR TURN OFF PWR/CLK.
  */
 void usb_fake_powerdown(unsigned int clk_on)
@@ -1221,8 +1359,8 @@ void Charger_Detect_Init(void)
 		udelay(250);
 
 		/* RG_USB20_BC11_SW_EN = 1'b1 */
-		U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6, RG_USB20_BC11_SW_EN_OFST,
-				  RG_USB20_BC11_SW_EN, 1);
+		U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6,
+			RG_USB20_BC11_SW_EN_OFST, RG_USB20_BC11_SW_EN, 1);
 
 		udelay(1);
 
@@ -1263,8 +1401,8 @@ void Charger_Detect_Release(void)
 		udelay(250);
 
 		/* RG_USB20_BC11_SW_EN = 1'b0 */
-		U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6, RG_USB20_BC11_SW_EN_OFST,
-				  RG_USB20_BC11_SW_EN, 0);
+		U3PhyWriteField32((phys_addr_t) (uintptr_t) U3D_USBPHYACR6,
+			RG_USB20_BC11_SW_EN_OFST, RG_USB20_BC11_SW_EN, 0);
 
 		udelay(1);
 
@@ -1404,93 +1542,12 @@ MODULE_AUTHOR("MediaTek");
 MODULE_LICENSE("GPL v2");
 module_platform_driver(mt_usb_dts_driver);
 
-static int usb_ipsleep_irqnum;
-static int usb_ipsleep_init;
-
-void mask_ipsleep(void)
-{
-	disable_irq(usb_ipsleep_irqnum);
-}
-
-void unmask_ipsleep(void)
-{
-	enable_irq(usb_ipsleep_irqnum);
-}
-
 void enable_ipsleep_wakeup(void)
 {
-	if (usb_ipsleep_init)
-		unmask_ipsleep();
+	/* TODO */
 }
-
 void disable_ipsleep_wakeup(void)
 {
+	/* TODO */
 }
-
-static irqreturn_t musb_ipsleep_eint_isr(int irqnum, void *data)
-{
-	disable_irq_nosync(irqnum);
-	return IRQ_HANDLED;
-}
-
-static int mtk_usb_ipsleep_eint_irq_en(struct platform_device *pdev)
-{
-	int retval = 0;
-
-	retval = request_irq(usb_ipsleep_irqnum, musb_ipsleep_eint_isr,
-						 IRQF_TRIGGER_NONE, "usbcd_eint", pdev);
-	if (retval != 0)
-		os_printk(K_ERR, "usbcd request_irq fail, ret %d, irqnum %d!!!\n",
-				  retval, usb_ipsleep_irqnum);
-	else
-		enable_irq_wake(usb_ipsleep_irqnum);
-
-	return retval;
-}
-static int mt_usb_ipsleep_probe(struct platform_device *pdev)
-{
-	int retval = 0;
-	struct device *dev = &pdev->dev;
-	struct device_node *node = dev->of_node;
-
-	usb_ipsleep_irqnum = irq_of_parse_and_map(node, 0);
-
-	if (usb_ipsleep_irqnum < 0)
-		return -ENODEV;
-
-	retval = mtk_usb_ipsleep_eint_irq_en(pdev);
-	if (retval != 0)
-		goto irqfail;
-
-	usb_ipsleep_init = 1;
-irqfail:
-	os_printk(K_INFO, "mt_usb_ipsleep_probe done\n");
-	return retval;
-}
-
-static int mt_usb_ipsleep_remove(struct platform_device *pdev)
-{
-	free_irq(usb_ipsleep_irqnum, pdev);
-	return 0;
-}
-
-static const struct of_device_id usb_ipsleep_of_match[] = {
-	{.compatible = "mediatek,usb_ipsleep"},
-	{},
-};
-
-MODULE_DEVICE_TABLE(of, usb_ipsleep_of_match);
-static struct platform_driver mt_usb_ipsleep_driver = {
-	.remove = mt_usb_ipsleep_remove,
-	.probe = mt_usb_ipsleep_probe,
-	.driver = {
-		.name = "usb_ipsleep",
-		.of_match_table = usb_ipsleep_of_match,
-	},
-};
-
-MODULE_DESCRIPTION("musb ipsleep eint");
-MODULE_AUTHOR("MediaTek");
-MODULE_LICENSE("GPL v2");
-module_platform_driver(mt_usb_ipsleep_driver);
 #endif
