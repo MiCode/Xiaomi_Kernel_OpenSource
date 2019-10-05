@@ -48,7 +48,6 @@
 #include <sspm_reservedmem_define.h>
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 #include <sspm_ipi_id.h>
-#include <sspm_reservedmem.h>
 static bool smi_sspm_ipi_register;
 #else
 #include <v1/sspm_ipi.h>
@@ -182,6 +181,11 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 		smi_clk_record(id, true, user);
 
 #if IS_ENABLED(CONFIG_MACH_MT6885)
+	if (id == 6 || id == 10 || id == 12) {
+		SMIDBG("Invalid id:%u user:%s\n", id, user);
+		return -EINVAL;
+	}
+
 	switch (id) {
 	case 0:
 	case 1:
@@ -301,6 +305,13 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 		return 0;
 	} else if (id < SMI_LARB_NUM)
 		smi_clk_record(id, false, user);
+
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	if (id == 6 || id == 10 || id == 12) {
+		SMIDBG("Invalid id:%u user:%s\n", id, user);
+		return -EINVAL;
+	}
+#endif
 
 	if (ATOMR_CLK(id) == 1 && readl(smi_dev[id]->base + SMI_LARB_STAT))
 		aee_kernel_exception(user,
