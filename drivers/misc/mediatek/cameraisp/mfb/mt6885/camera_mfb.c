@@ -66,6 +66,7 @@
 #include <smi_public.h>
 
 /*#define MFB_PMQOS*//*YWtodo*/
+#define USE_SW_TOKEN
 #ifdef MFB_PMQOS
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
@@ -917,10 +918,12 @@ signed int CmdqMSSHW(struct frame *frame)/*YWtodo*/
 
 	/*if (pMssConfig->eng_secured == 1)*//*YWtodo*/
 		/*cmdq_engine_secured(handle, CMDQ_ENG_MSS);*/
+#ifdef USE_SW_TOKEN
+	cmdq_pkt_acquire_event(handle, CMDQ_SYNC_TOKEN_MSS);
+#endif
 #define TPIPE_MODE_PREVIEW
 #ifdef TPIPE_MODE_PREVIEW
 	mss_pkt_tcmds(handle, pMssConfig);
-	cmdq_pkt_flush_threaded(handle, mss_norm_sirq, (void *)handle);
 #else
 	cmdq_pkt_write(handle, NULL, (dma_addr_t)MFB_MSS_CMDQ_ENABLE_HW,
 			pMssConfig->MSSCMDQ_ENABLE[0], CMDQ_REG_MASK);
@@ -938,9 +941,13 @@ signed int CmdqMSSHW(struct frame *frame)/*YWtodo*/
 	/*cmdq_pkt_write(handle, NULL, (dma_addr_t)MFB_MSS_INT_STATUS_HW,*/
 			/*0x1, CMDQ_REG_MASK);*/
 	/* non-blocking API, Please  use cmdqRecFlushAsync() */
+#endif
+#endif
+#ifdef USE_SW_TOKEN
+	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSS);
+#endif
 	cmdq_pkt_flush_threaded(handle, mss_norm_sirq, (void *)handle);
-#endif
-#endif
+
 	return 0;
 }
 
@@ -989,7 +996,6 @@ signed int mss_deque_cb(struct frame *frames, void *req)
 	return 0;
 }
 
-#if 0 /*YWtodo*/
 static void mss_vss_sirq(struct cmdq_cb_data data)
 {
 	struct cmdq_pkt *pkt;
@@ -1038,7 +1044,6 @@ static void mss_vss_sirq(struct cmdq_cb_data data)
 EXIT:
 	cmdq_pkt_destroy(pkt);
 }
-#endif
 
 signed int vCmdqMSSHW(struct frame *frame)/*YWtodo*/
 {
@@ -1057,8 +1062,14 @@ signed int vCmdqMSSHW(struct frame *frame)/*YWtodo*/
 	/*cmdq_pkt_cl_create(&handle, mss_clt);*/
 	handle = cmdq_pkt_create(mss_clt);
 	handle->priority = 0;
+#ifdef USE_SW_TOKEN
+	cmdq_pkt_acquire_event(handle, CMDQ_SYNC_TOKEN_MSS);
+#endif
 	mss_pkt_tcmds(handle, pMssConfig);
-	cmdq_pkt_flush_threaded(handle, mss_norm_sirq, (void *)handle);
+#ifdef USE_SW_TOKEN
+	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSS);
+#endif
+	cmdq_pkt_flush_threaded(handle, mss_vss_sirq, (void *)handle);
 
 	return 0;
 }
@@ -1190,10 +1201,12 @@ signed int CmdqMSFHW(struct frame *frame)
 
 	/*if (pMssConfig->eng_secured == 1)*//*YWtodo*/
 		/*cmdq_engine_secured(handle, CMDQ_ENG_MSS);*/
-#ifdef TPIPE_MODE_PREVIEW
 	handle->priority = 20;
+#ifdef USE_SW_TOKEN
+	cmdq_pkt_acquire_event(handle, CMDQ_SYNC_TOKEN_MSF);
+#endif
+#ifdef TPIPE_MODE_PREVIEW
 	msf_pkt_tcmds(handle, pMsfConfig);
-	cmdq_pkt_flush_threaded(handle, msf_norm_sirq, (void *)handle);
 #else
 	cmdq_pkt_write(handle, NULL, (dma_addr_t)MFB_MSF_CMDQ_ENABLE_HW,
 			pMsfConfig->MSFCMDQ_ENABLE[0], CMDQ_REG_MASK);
@@ -1212,9 +1225,13 @@ signed int CmdqMSFHW(struct frame *frame)
 		/*0x1, CMDQ_REG_MASK);*/
 
 	/* non-blocking API, Please  use cmdqRecFlushAsync() */
+#endif
+#endif
+#ifdef USE_SW_TOKEN
+	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSF);
+#endif
 	cmdq_pkt_flush_threaded(handle, msf_norm_sirq, (void *)handle);
-#endif
-#endif
+
 	return 0;
 }
 
@@ -1262,7 +1279,6 @@ signed int msf_deque_cb(struct frame *frames, void *req)
 	return 0;
 }
 
-#if 0 /*YWtodo*/
 static void msf_vss_sirq(struct cmdq_cb_data data)
 {
 	struct cmdq_pkt *pkt;
@@ -1311,7 +1327,6 @@ static void msf_vss_sirq(struct cmdq_cb_data data)
 EXIT:
 	cmdq_pkt_destroy(pkt);
 }
-#endif
 
 signed int vCmdqMSFHW(struct frame *frame)/*YWtodo*/
 {
@@ -1330,8 +1345,14 @@ signed int vCmdqMSFHW(struct frame *frame)/*YWtodo*/
 	/*cmdq_pkt_cl_create(&handle, msf_clt);*/
 	handle = cmdq_pkt_create(msf_clt);
 	handle->priority = 0;
+#ifdef USE_SW_TOKEN
+	cmdq_pkt_acquire_event(handle, CMDQ_SYNC_TOKEN_MSF);
+#endif
 	msf_pkt_tcmds(handle, pMsfConfig);
-	cmdq_pkt_flush_threaded(handle, msf_norm_sirq, (void *)handle);
+#ifdef USE_SW_TOKEN
+	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSF);
+#endif
+	cmdq_pkt_flush_threaded(handle, msf_vss_sirq, (void *)handle);
 
 	return 0;
 }
