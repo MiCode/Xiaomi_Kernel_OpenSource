@@ -210,7 +210,7 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		}
 
 		if (args[0] < 0 || args[0] > 1) {
-			PWR_LOG_INF("user is invalid\n",
+			PWR_LOG_INF("user(%d) is invalid\n",
 					(int)(args[0]));
 			goto out;
 		}

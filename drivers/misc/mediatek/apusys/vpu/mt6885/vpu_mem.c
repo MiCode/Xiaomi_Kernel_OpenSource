@@ -76,7 +76,7 @@ vpu_mem_alloc(struct platform_device *pdev,
 		goto out;
 	}
 
-	vpu_mem_debug("%s: size: 0x%lx, given iova: 0x%lx (%s alloc)\n",
+	vpu_mem_debug("%s: size: 0x%x, given iova: 0x%lx (%s alloc)\n",
 		__func__, i->size, (unsigned long)given_iova,
 		(given_iova == VPU_IOVA_END) ? "dynamic" : "static");
 

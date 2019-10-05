@@ -184,11 +184,11 @@ void vpu_exit_dev_algo(struct platform_device *pdev, struct vpu_device *vd)
 	struct __vpu_algo *alg, *tmp;
 
 	vpu_alg_debug("%s: vd: %p, vpu%d, vd->algo: %p\n",
-		__func__, vd, vd->id, vd->algo);
+		__func__, vd, vd->id, &vd->algo);
 
 	list_for_each_entry_safe(alg, tmp, &vd->algo, list) {
 		vpu_alg_debug("%s: vd: %p, vpu%d, vd->algo: %p, alg: %p\n",
-			__func__, vd, vd->id, vd->algo, alg);
+			__func__, vd, vd->id, &vd->algo, alg);
 		vpu_alg_put(alg);
 	}
 }
@@ -242,8 +242,8 @@ irqreturn_t vpu_isr(int irq, void *dev_id)
 	val = vpu_reg_read(vd, XTENSA_INT);
 
 	if (val != 0) {
-		vpu_cmd_debug("%s: vpu%d FLD_APMCU_INT = (%d)\n", vd->id,
-			val);
+		vpu_cmd_debug("%s: vpu%d FLD_APMCU_INT = (%d)\n",
+				__func__, vd->id, val);
 	}
 	vpu_reg_write(vd, XTENSA_INT, 1);
 
@@ -292,7 +292,7 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 
 	vpu_iova_sync_for_device(vd->dev, &vd->iova_work);
 
-	vpu_cmd_debug("%s: vpu%d: %s: bw: %d, buf_cnt: %x, sett: %x +%x\n",
+	vpu_cmd_debug("%s: vpu%d: %s: bw: %d, buf_cnt: %x, sett: %llx +%x\n",
 		__func__, vd->id, vd->algo_curr->a.name,
 		req->power_param.bw, req->buffer_count,
 		req->sett_ptr, req->sett_length);
@@ -750,7 +750,7 @@ int vpu_dev_set_debug(struct vpu_device *vd)
 	device_version = vpu_reg_read(vd, XTENSA_INFO20);
 
 	if ((int)device_version < (int)HOST_VERSION) {
-		pr_info("%s: vpu%d: incompatible ftrace version: vd: %s, host: %x\n",
+		pr_info("%s: vpu%d: incompatible ftrace version: vd: %x, host: %x\n",
 			__func__, vd->id,
 			vpu_reg_read(vd, XTENSA_INFO20),
 			vpu_reg_read(vd, XTENSA_INFO29));

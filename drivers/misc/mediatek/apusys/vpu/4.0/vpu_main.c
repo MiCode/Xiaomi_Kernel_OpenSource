@@ -86,7 +86,7 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 		break;
 	case APUSYS_CMD_FIRMWARE:
 		fw = (struct apusys_firmware_hnd *)hnd;
-		vpu_cmd_debug("%s: APUSYS_CMD_FIRMWARE, kva: %p\n",
+		vpu_cmd_debug("%s: APUSYS_CMD_FIRMWARE, kva: %llx\n",
 			__func__, fw->kva);
 		break;
 	default:

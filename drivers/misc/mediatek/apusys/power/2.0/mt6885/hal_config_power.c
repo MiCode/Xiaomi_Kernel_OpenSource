@@ -206,20 +206,20 @@ static int init_power_resource(void *param)
 	g_APU_MDLA0_BASE = init_data->mdla0_base_addr;
 	g_APU_MDLA1_BASE = init_data->mdla1_base_addr;
 
-	LOG_WRN("%s , g_APU_RPCTOP_BASE 0x%x\n", __func__, g_APU_RPCTOP_BASE);
-	LOG_WRN("%s , g_APU_PCUTOP_BASE 0x%x\n", __func__, g_APU_PCUTOP_BASE);
-	LOG_WRN("%s , g_APU_VCORE_BASE 0x%x\n", __func__, g_APU_VCORE_BASE);
-	LOG_WRN("%s , g_APU_INFRACFG_AO_BASE 0x%x\n", __func__,
+	LOG_WRN("%s , g_APU_RPCTOP_BASE 0x%p\n", __func__, g_APU_RPCTOP_BASE);
+	LOG_WRN("%s , g_APU_PCUTOP_BASE 0x%p\n", __func__, g_APU_PCUTOP_BASE);
+	LOG_WRN("%s , g_APU_VCORE_BASE 0x%p\n", __func__, g_APU_VCORE_BASE);
+	LOG_WRN("%s , g_APU_INFRACFG_AO_BASE 0x%p\n", __func__,
 						g_APU_INFRACFG_AO_BASE);
-	LOG_WRN("%s , g_APU_INFRA_BCRM_BASE 0x%x\n", __func__,
+	LOG_WRN("%s , g_APU_INFRA_BCRM_BASE 0x%p\n", __func__,
 						g_APU_INFRA_BCRM_BASE);
 
-	LOG_WRN("%s , g_APU_CONN_BASE 0x%x\n", __func__, g_APU_CONN_BASE);
-	LOG_WRN("%s , g_APU_VPU0_BASE 0x%x\n", __func__, g_APU_VPU0_BASE);
-	LOG_WRN("%s , g_APU_VPU1_BASE 0x%x\n", __func__, g_APU_VPU1_BASE);
-	LOG_WRN("%s , g_APU_VPU2_BASE 0x%x\n", __func__, g_APU_VPU2_BASE);
-	LOG_WRN("%s , g_APU_MDLA0_BASE 0x%x\n", __func__, g_APU_MDLA0_BASE);
-	LOG_WRN("%s , g_APU_MDLA1_BASE 0x%x\n", __func__, g_APU_MDLA1_BASE);
+	LOG_WRN("%s , g_APU_CONN_BASE 0x%p\n", __func__, g_APU_CONN_BASE);
+	LOG_WRN("%s , g_APU_VPU0_BASE 0x%p\n", __func__, g_APU_VPU0_BASE);
+	LOG_WRN("%s , g_APU_VPU1_BASE 0x%p\n", __func__, g_APU_VPU1_BASE);
+	LOG_WRN("%s , g_APU_VPU2_BASE 0x%p\n", __func__, g_APU_VPU2_BASE);
+	LOG_WRN("%s , g_APU_MDLA0_BASE 0x%p\n", __func__, g_APU_MDLA0_BASE);
+	LOG_WRN("%s , g_APU_MDLA1_BASE 0x%p\n", __func__, g_APU_MDLA1_BASE);
 
 	if (!is_apu_power_initilized) {
 		prepare_apu_regulator(dev, 1);
@@ -456,7 +456,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			// BIT(4) to Power on
 			DRV_WriteReg32(APU_RPC_SW_FIFO_WE,
 					(domain_idx | BIT(4)));
-			LOG_WRN("%s APU_RPC_SW_FIFO_WE write 0x%x\n", __func__,
+			LOG_WRN("%s APU_RPC_SW_FIFO_WE write 0x%lx\n", __func__,
 						(domain_idx | BIT(4)));
 			rpc_power_status_check(domain_idx, enable);
 		}

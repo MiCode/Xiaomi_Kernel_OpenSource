@@ -598,7 +598,7 @@ static struct clk *find_clk_by_domain(enum DVFS_VOLTAGE_DOMAIN domain)
 		return clk_top_dsp7_sel;
 
 	default:
-		LOG_ERR("%s fail to find clk !\n");
+		LOG_ERR("%s fail to find clk !\n", __func__);
 	case V_VCORE:
 		return clk_top_ipu_if_sel;
 	}

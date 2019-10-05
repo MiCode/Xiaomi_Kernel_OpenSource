@@ -82,7 +82,7 @@ struct hal_param_init_power *init_power_data)
 		goto err_exit;
 	}
 
-	LOG_INF("%s apusys_rpc = 0x%x, size = %d\n", __func__,
+	LOG_INF("%s apusys_rpc = 0x%p, size = %d\n", __func__,
 				init_power_data->rpc_base_addr,
 				(unsigned int)resource_size(apusys_rpc_res));
 
@@ -97,7 +97,7 @@ struct hal_param_init_power *init_power_data)
 		goto err_exit;
 	}
 
-	LOG_INF("%s apusys_pcu = 0x%x, size = %d\n", __func__,
+	LOG_INF("%s apusys_pcu = 0x%p, size = %d\n", __func__,
 				init_power_data->pcu_base_addr,
 				(unsigned int)resource_size(apusys_pcu_res));
 
@@ -112,7 +112,7 @@ struct hal_param_init_power *init_power_data)
 		goto err_exit;
 	}
 
-	LOG_INF("%s apusys_vcore = 0x%x, size = %d\n", __func__,
+	LOG_INF("%s apusys_vcore = 0x%p, size = %d\n", __func__,
 				init_power_data->vcore_base_addr,
 				(unsigned int)resource_size(apusys_vcore_res));
 

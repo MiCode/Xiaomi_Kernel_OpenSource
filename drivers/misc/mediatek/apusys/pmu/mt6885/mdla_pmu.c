@@ -426,7 +426,7 @@ int pmu_command_prepare(struct mdla_dev *mdla_info,
 	if (mdla_info->pmu.pmu_mode == PER_CMD)
 		cfg_timer_en = 1;
 
-	mdla_pmu_debug("command entry:%08x, pmu kva: %08x, pmu addr0: %08x, pmu addr1: %08x\n",
+	mdla_pmu_debug("command entry:%08llx, pmu kva: %08llx, pmu addr0: %08llx, pmu addr1: %08llx\n",
 		apusys_hd->cmd_entry,
 		apusys_hd->pmu_kva,
 		mdla_info->pmu.PMU_res_buf_addr0,
