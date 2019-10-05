@@ -1494,14 +1494,14 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		(1 + (src_y + src_h - 1) / (tile_h >> 1)) * (tile_h >> 1) - 1;
 	src_h_half_align = src_y_end_half_align - src_y_half_align + 1;
 
-	if (rotate)
+	if (rotate) {
 		tile_offset = (src_x_align + src_w_align - tile_w) / tile_w +
 			(pitch / tile_w / Bpp) *
 			(src_y_align + src_h_align - tile_h) /
 			tile_h;
 		if (src_y_end_align == src_y_end_half_align)
 			lx_2nd_subbuf = 1;
-	else {
+	} else {
 		tile_offset = src_x_align / tile_w +
 			(pitch / tile_w / Bpp) * src_y_align / tile_h;
 		if (src_y_align != src_y_half_align)

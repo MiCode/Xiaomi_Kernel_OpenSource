@@ -221,7 +221,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			(init_delay_limit > 15) ? 15 : init_delay_limit;
 		init_delay_height = init_delay_height_min;
 
-		reg_val = !!dsc_params->slice_mode |
+		reg_val = (!!dsc_params->slice_mode) |
 					(!!dsc_params->rgb_swap << 2) |
 					(init_delay_height << 8);
 		mtk_ddp_write_mask(comp, reg_val,

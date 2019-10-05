@@ -55,7 +55,7 @@
 #define HRT_AEE_WEIGHT 200
 #define HRT_ROUND_CORNER_WEIGHT 200
 
-#define HRT_GET_FIRST_SET_BIT(n) ((n - (n & n - 1)))
+#define HRT_GET_FIRST_SET_BIT(n) (((n) - ((n) & ((n) - 1))))
 
 enum HRT_DISP_TYPE {
 	HRT_PRIMARY = 0,
