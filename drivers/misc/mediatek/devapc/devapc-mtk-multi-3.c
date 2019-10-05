@@ -408,7 +408,7 @@ static uint32_t sync_vio_dbg(enum DEVAPC_SLAVE_TYPE slave_type,
 
 	if (slave_type >= SLAVE_TYPE_NUM ||
 			shift_bit >= (MOD_NO_IN_1_DEVAPC * 2)) {
-		pr_err(PFX "%s: param check failed, %s:0x%x, %s:0x%x\n",
+		pr_err(PFX "param check failed, %s:0x%x, %s:0x%x\n",
 				"slave_type", slave_type,
 				"shift_bit", shift_bit);
 		return 0;
@@ -998,7 +998,7 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 		if (parm_str != NULL)
 			err = kstrtol(parm_str, 10, &ctrl_index);
 
-		pr_info(PFX "%s:0x%x, %s:0x%x, %s:0x%x, %s:0x%x\n",
+		pr_info(PFX "%s:0x%x, %s:0x%lx, %s:0x%lx, %s:0x%lx\n",
 				"slave_type", slave_type,
 				"sys_index", sys_index,
 				"domain_id", domain,
