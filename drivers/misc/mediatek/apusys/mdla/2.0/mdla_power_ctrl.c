@@ -73,7 +73,6 @@ int mdla_pwr_on(int core_id)
 	u64 poweron_t;   /*power on start time */
 	#endif
 
-	//TODO, fix it for Multi MDLA
 	enum DVFS_USER register_user = MDLA;
 
 	mutex_lock(&mdla_devices[core_id].power_lock);
@@ -123,7 +122,6 @@ int mdla_pwr_off(int core_id)
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	enum DVFS_USER register_user = MDLA;
 
-	//TODO, fix it for Multi MDLA
 	mutex_lock(&mdla_devices[core_id].power_lock);
 
 	if (get_power_on_status(core_id) == PWR_OFF)
@@ -215,12 +213,13 @@ int mdla_unregister_power(struct platform_device *pdev)
 {
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	enum DVFS_USER register_user = MDLA;
+	int i;
 
-	mdla_start_power_off(0);
+	for (i = 0; i < mdla_max_num_core; i++)
+		mdla_start_power_off(i);
 
 	apu_power_device_unregister(register_user);
 #endif
 	return 0;
 
 }
-

@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-
 #include <linux/semaphore.h>
 #include <linux/completion.h>
 #include "mdla.h"
@@ -165,9 +164,8 @@ struct mdla_reg_ctl mdla_reg_control[] = {
 		.apu_mdla_config_top = 0,
 	}
 };
-void *infracfg_ao_top;//bus protect, only for mt6779
-void *apu_conn_top;//mdla rst, rst pad only for mt6779
-
+//void *infracfg_ao_top;//bus protect, only for mt6779
+void *apu_conn_top;
 void *apu_mdla_gsm_top;
 void *apu_mdla_gsm_base;
 
@@ -179,8 +177,6 @@ static u32 cmd_id;
 
 
 static LIST_HEAD(cmd_list);
-//static LIST_HEAD(cmd_fin_list);
-
 
 static const struct file_operations fops = {
 	.open = mdla_open,
@@ -300,17 +296,14 @@ static int mdla_probe(struct platform_device *pdev)
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	struct apusys_device *apusys_mdla_ptr = NULL;
 	struct mdla_dev *apusys_mdla_dev_ptr = NULL;
-	int i;
 #endif
-
-	//mdla_sw_multi_devices_init();
+	int i;
 
 	if (mdla_dts_map(pdev)) {
 		dev_info(dev, "%s: failed due to DTS failed\n", __func__);
 		return -EINVAL;
 	}
 
-	//mdla_init_hw(0, pdev);
 	if (mdla_register_power(pdev)) {
 		dev_info(dev, "register mdla power fail\n");
 		return -EINVAL;
@@ -321,7 +314,8 @@ static int mdla_probe(struct platform_device *pdev)
 #endif
 
 #if defined(CONFIG_FPGA_EARLY_PORTING)
-	mdla_reset_lock(0, REASON_DRVINIT);//TODO consider multi core
+	for (i = 0; i < mdla_max_num_core; i++)
+		mdla_reset_lock(i, REASON_DRVINIT);//TODO consider multi core
 #endif
 
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
@@ -353,11 +347,13 @@ static int mdla_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
+	int i;
+
 	mdla_drv_debug("%s start -\n", __func__);
 
-	mdla_start_power_off(0);
+	for (i = 0; i < mdla_max_num_core; i++)
+		mdla_start_power_off(i);
 
-	//mdla_uninit_hw();
 	if (mdla_unregister_power(pdev)) {
 		dev_info(dev, "unregister mdla power fail\n");
 		return -EINVAL;
@@ -365,15 +361,17 @@ static int mdla_remove(struct platform_device *pdev)
 
 	mdla_drv_debug("%s unregister power -\n", __func__);
 
-	//FIXME for multi core
-	free_irq(mdla_irqdesc[0].irq, dev);
-	iounmap(infracfg_ao_top);
+	//iounmap(infracfg_ao_top);
 	iounmap(apu_conn_top);
-	//TODO: need handle for Multi Core
-	iounmap(mdla_reg_control[0].apu_mdla_config_top);
-	iounmap(mdla_reg_control[0].apu_mdla_cmde_mreg_top);
-	iounmap(mdla_reg_control[0].apu_mdla_biu_top);
 	iounmap(apu_mdla_gsm_top);
+
+	for (i = 0; i < mdla_max_num_core; i++) {
+		free_irq(mdla_irqdesc[i].irq, dev);
+		iounmap(mdla_reg_control[i].apu_mdla_config_top);
+		iounmap(mdla_reg_control[i].apu_mdla_cmde_mreg_top);
+		iounmap(mdla_reg_control[i].apu_mdla_biu_top);
+	}
+
 #ifdef CONFIG_MTK_MDLA_ION
 	mdla_ion_exit();
 #endif
@@ -537,14 +535,14 @@ int apusys_mdla_handler(APUSYS_DEVICE_CMD_E type,
 #define MAX_ALLOC_SIZE (128 * 1024 * 1024)
 static int mdla_dram_alloc(struct ioctl_malloc *malloc_data)
 {
-	dma_addr_t phyaddr = 0;
+	dma_addr_t dma_addr = 0;
 
 	if (malloc_data->size > MAX_ALLOC_SIZE)
 		malloc_data->size = MAX_ALLOC_SIZE;
 
-	malloc_data->kva = dma_alloc_coherent(mdlactlDevice, malloc_data->size,
-			&phyaddr, GFP_KERNEL);
-	malloc_data->pa = (void *)dma_to_phys(mdlactlDevice, phyaddr);
+	malloc_data->kva = dma_alloc_attrs(mdlactlDevice, malloc_data->size,
+			&dma_addr, GFP_KERNEL, 0);
+	malloc_data->pa = (void *)dma_to_phys(mdlactlDevice, dma_addr);
 	malloc_data->mva = (__u32)((long) malloc_data->pa);
 
 	mdla_mem_debug("%s: kva:%p, mva:%x\n",
@@ -557,8 +555,8 @@ static void mdla_dram_free(struct ioctl_malloc *malloc_data)
 {
 	mdla_mem_debug("%s: kva:%p, mva:%x\n",
 		__func__, malloc_data->kva, malloc_data->mva);
-	dma_free_coherent(mdlactlDevice, malloc_data->size,
-			(void *) malloc_data->kva, malloc_data->mva);
+	dma_free_attrs(mdlactlDevice, malloc_data->size,
+			(void *) malloc_data->kva, malloc_data->mva, 0);
 }
 
 static long mdla_ioctl_config(unsigned long arg)
