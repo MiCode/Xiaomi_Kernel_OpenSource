@@ -65,6 +65,11 @@ int qos_ipi_to_sspm_command(void *buffer, int slot)
 	struct qos_ipi_data *qos_ipi_d = buffer;
 	int slot_num = sizeof(struct qos_ipi_data)/SSPM_MBOX_SLOT_SIZE;
 
+	if (qos_sspm_ready != 1) {
+		pr_info("qos ipi not ready, skip cmd=%d\n", qos_ipi_d->cmd);
+		goto error;
+	}
+
 	qos_ipi_ackdata = 0;
 
 	if (slot > slot_num) {
@@ -87,8 +92,6 @@ int qos_ipi_to_sspm_command(void *buffer, int slot)
 		qos_ipi_d->cmd, qos_ipi_ackdata);
 		goto error;
 	}
-
-
 
 	return qos_ipi_ackdata;
 error:
@@ -117,8 +120,9 @@ void qos_ipi_init(void)
 		qos_sspm_ready = -2;
 		return;
 	}
-	qos_sspm_enable();
 	qos_sspm_ready = 1;
+	qos_sspm_enable();
+	pr_info("qos ipi is ready!\n");
 #endif
 }
 
