@@ -4007,6 +4007,16 @@ page_owner=on";
 		compatible = "mediatek,wpe_a";
 		reg = <0 0x15011000 0 0x1000>;
 		interrupts = <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>;
+		clocks =
+				<&imgsys_config IMGSYS1_LARB9_CGPDN>,
+				<&imgsys_config IMGSYS1_WPE_CGPDN>,
+				<&imgsys_config IMGSYS2_LARB11_CGPDN>,
+				<&imgsys_config IMGSYS2_WPE_CGPDN>;
+		clock-names =
+				"WPE_CLK_IMG_LARB9",
+				"WPE_CLK_IMG_WPE_A",
+				"WPE_CLK_IMG_LARB11",
+				"WPE_CLK_IMG_WPE_B";
 	};
 
 	msfdl@15010000 {

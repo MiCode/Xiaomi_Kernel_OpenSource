@@ -114,6 +114,11 @@ enum CMDQ_ENG_ENUM {
 				 (1LL << CMDQ_ENG_ISP_IMGO) |	\
 				 (1LL << CMDQ_ENG_ISP_IMG2O))
 
+#define CMDQ_ENG_WPE_GROUP_BITS	((1LL << CMDQ_ENG_WPEI) |	\
+				 (1LL << CMDQ_ENG_WPEO) }   \
+				 (1LL << CMDQ_ENG_WPEI2) |	\
+				 (1LL << CMDQ_ENG_WPEO2))
+
 #define CMDQ_ENG_MDP_GROUP_BITS	((1LL << CMDQ_ENG_MDP_CAMIN) |	\
 				 (1LL << CMDQ_ENG_MDP_CAMIN2) |	\
 				 (1LL << CMDQ_ENG_MDP_RDMA0) |	\
@@ -167,6 +172,7 @@ enum CMDQ_ENG_ENUM {
 #define CMDQ_ENG_RSC_GROUP_FLAG(flag)	((flag) & (CMDQ_ENG_RSC_GROUP_BITS))
 #define CMDQ_ENG_GEPF_GROUP_FLAG(flag)	((flag) & (CMDQ_ENG_GEPF_GROUP_BITS))
 #define CMDQ_ENG_EAF_GROUP_FLAG(flag)	((flag) & (CMDQ_ENG_EAF_GROUP_BITS))
+#define CMDQ_ENG_WPE_GROUP_FLAG(flag)	((flag) & (CMDQ_ENG_WPE_GROUP_BITS))
 
 #define CMDQ_FOREACH_GROUP(ACTION_struct)\
 	ACTION_struct(CMDQ_GROUP_ISP, ISP)	\
@@ -177,7 +183,8 @@ enum CMDQ_ENG_ENUM {
 	ACTION_struct(CMDQ_GROUP_DPE, DPE)	\
 	ACTION_struct(CMDQ_GROUP_RSC, RSC)	\
 	ACTION_struct(CMDQ_GROUP_GEPF, GEPF)	\
-	ACTION_struct(CMDQ_GROUP_EAF, EAF)
+	ACTION_struct(CMDQ_GROUP_EAF, EAF)  \
+	ACTION_struct(CMDQ_GROUP_WPE, WPE)
 
 #define MDP_GENERATE_ENUM(_enum, _string) _enum,
 
