@@ -25,12 +25,14 @@ extern void disable_mmsram(void);
 extern void mmsram_get_info(struct mmsram_data *data);
 extern int mmsram_power_on(void);
 extern void mmsram_power_off(void);
+extern void mmsram_set_secure(bool secure_on);
 #else
-int enable_mmsram(void) { return 0; };
-void disable_mmsram(void);
-void mmsram_get_info(struct mmsram_data *data);
-int mmsram_power_on(void) { return 0; };
-void mmsram_power_off(void);
+static inline int enable_mmsram(void) { return 0; }
+static inline void disable_mmsram(void) {}
+static inline void mmsram_get_info(struct mmsram_data *data) {}
+static inline int mmsram_power_on(void) { return 0; }
+static inline void mmsram_power_off(void) {}
+static inline void mmsram_set_secure(bool secure_on) {}
 #endif /* CONFIG_MTK_SLBC */
 
 #endif

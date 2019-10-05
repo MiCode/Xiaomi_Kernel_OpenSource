@@ -277,6 +277,9 @@
 #define MTK_SIP_APUSYS_MNOC_CONTROL \
 	(0x82000519 | MTK_SIP_SMC_AARCH_BIT)
 
+#define MTK_SIP_MMSRAM_CONTROL \
+	(0x8200051D | MTK_SIP_SMC_AARCH_BIT)
+
 extern size_t mt_secure_call_all(size_t function_id,
 	size_t arg0, size_t arg1, size_t arg2,
 	size_t arg3, size_t *r1, size_t *r2, size_t *r3);
