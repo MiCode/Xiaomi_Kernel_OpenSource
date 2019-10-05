@@ -4146,6 +4146,9 @@ page_owner=on";
 		compatible = "mediatek,mt6885-vcodec-enc";
 		reg = <0 0x17000000 0 0x10000>,
 			<0 0x17020000 0 0x1000>;
+#ifdef CONFIG_MTK_IOMMU_V2
+		iommus = <&iommu0 M4U_PORT_L7_VENC_RD_COMV_DISP>;
+#endif
 		mediatek,larb = <&smi_larb7>;
 		interrupts = <GIC_SPI 308 IRQ_TYPE_LEVEL_HIGH>;
 		mediatek,vcu = <&vcu>;
@@ -4303,6 +4306,9 @@ page_owner=on";
 			 <0 0x16025000 0 0x1000>,		/* VDEC_MISC */
 			 <0 0x16010000 0 0x1000>, /* VDEC_LAT_MISC */
 			 <0 0x16004000 0 0x1000>; /* VDEC_RACING_CTRL */
+#ifdef CONFIG_MTK_IOMMU_V2
+		iommus = <&iommu0 M4U_PORT_L4_VDEC_MC_EXT_MDP>;
+#endif
 		mediatek,larb = <&smi_larb4>;
 		interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>,
 		<GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>;
