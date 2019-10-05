@@ -501,6 +501,13 @@ struct mtk_drm_crtc {
 	struct task_struct *dc_main_path_commit_task;
 	wait_queue_head_t dc_main_path_commit_wq;
 	atomic_t dc_main_path_commit_event;
+	struct task_struct *trigger_event_task;
+	struct task_struct *trigger_delay_task;
+	atomic_t trig_event_act;
+	atomic_t trig_delay_act;
+	atomic_t delayed_trig;
+	wait_queue_head_t trigger_delay;
+	wait_queue_head_t trigger_event;
 };
 
 struct mtk_crtc_state {
@@ -598,6 +605,7 @@ int mtk_crtc_find_next_comp(struct drm_crtc *crtc, unsigned int ddp_mode,
 int mtk_crtc_find_prev_comp(struct drm_crtc *crtc, unsigned int ddp_mode,
 		enum mtk_ddp_comp_id comp_id);
 void mtk_drm_fake_vsync_switch(struct drm_crtc *crtc, bool enable);
+void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay);
 
 bool mtk_crtc_is_dc_mode(struct drm_crtc *crtc);
 

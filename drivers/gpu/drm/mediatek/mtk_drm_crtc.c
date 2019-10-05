@@ -128,6 +128,8 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 
 	DDPINFO("%s\n", __func__);
 
+	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+
 	mmsys_config_dump_reg(mtk_crtc->config_regs);
 	mutex_dump_reg(mtk_crtc->mutex[0]);
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) mtk_dump_reg(comp);
@@ -161,6 +163,8 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	int crtc_id = drm_crtc_index(crtc);
 
 	DDPINFO("%s\n", __func__);
+
+	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
 	mmsys_config_dump_analysis(mtk_crtc->config_regs);
 	mutex_dump_analysis(mtk_crtc->mutex[0]);
@@ -1542,6 +1546,87 @@ static void mtk_crtc_set_dirty(struct mtk_drm_crtc *mtk_crtc)
 	cmdq_pkt_destroy(cmdq_handle);
 }
 
+static int __mtk_check_trigger(struct mtk_drm_crtc *mtk_crtc)
+{
+	mutex_lock(&mtk_crtc->lock);
+
+	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
+
+	mtk_crtc_set_dirty(mtk_crtc);
+
+	mutex_unlock(&mtk_crtc->lock);
+
+	return 0;
+}
+
+static int _mtk_crtc_check_trigger(void *data)
+{
+	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *) data;
+	struct sched_param param = {.sched_priority = 94 };
+	int ret;
+
+	sched_setscheduler(current, SCHED_RR, &param);
+
+	atomic_set(&mtk_crtc->trig_event_act, 0);
+	while (1) {
+		ret = wait_event_interruptible(mtk_crtc->trigger_event,
+			atomic_read(&mtk_crtc->trig_event_act));
+		if (ret < 0)
+			DDPPR_ERR("wait %s fail, ret=%d\n", __func__, ret);
+		atomic_set(&mtk_crtc->trig_event_act, 0);
+
+		__mtk_check_trigger(mtk_crtc);
+
+		if (kthread_should_stop())
+			break;
+	}
+
+	return 0;
+}
+
+static int _mtk_crtc_check_trigger_delay(void *data)
+{
+	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *) data;
+	struct sched_param param = {.sched_priority = 94 };
+	int ret;
+
+	sched_setscheduler(current, SCHED_RR, &param);
+
+	atomic_set(&mtk_crtc->trig_delay_act, 0);
+
+	while (1) {
+		ret = wait_event_interruptible(mtk_crtc->trigger_delay,
+			atomic_read(&mtk_crtc->trig_delay_act));
+		if (ret < 0)
+			DDPPR_ERR("wait %s fail, ret=%d\n", __func__, ret);
+		atomic_set(&mtk_crtc->trig_delay_act, 0);
+		atomic_set(&mtk_crtc->delayed_trig, 0);
+
+		usleep_range(32000, 33000);
+		if (!atomic_read(&mtk_crtc->delayed_trig))
+			__mtk_check_trigger(mtk_crtc);
+
+		if (kthread_should_stop())
+			break;
+	}
+
+	return 0;
+}
+
+void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay)
+{
+	if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
+		return;
+
+	if (delay) {
+		atomic_set(&mtk_crtc->trig_delay_act, 1);
+		wake_up_interruptible(&mtk_crtc->trigger_delay);
+	} else {
+		atomic_set(&mtk_crtc->trig_event_act, 1);
+		wake_up_interruptible(&mtk_crtc->trigger_event);
+	}
+}
+
 void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 {
 	int i, j;
@@ -2302,6 +2387,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		mtk_disp_mutex_release(mtk_crtc->mutex[0]);
 	}
 
+	atomic_set(&mtk_crtc->delayed_trig, 1);
 	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
 	cb_data->state = old_crtc_state;
 	cb_data->cmdq_handle = cmdq_handle;
@@ -2867,6 +2953,18 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		atomic_set(&mtk_crtc->dc_main_path_commit_event, 1);
 		init_waitqueue_head(&mtk_crtc->dc_main_path_commit_wq);
 	}
+
+	mtk_crtc->trigger_event_task =
+		kthread_create(_mtk_crtc_check_trigger,
+					mtk_crtc, "ddp_trig");
+	init_waitqueue_head(&mtk_crtc->trigger_event);
+	wake_up_process(mtk_crtc->trigger_event_task);
+
+	mtk_crtc->trigger_delay_task =
+		kthread_create(_mtk_crtc_check_trigger_delay,
+					mtk_crtc, "ddp_trig_d");
+	init_waitqueue_head(&mtk_crtc->trigger_delay);
+	wake_up_process(mtk_crtc->trigger_delay_task);
 
 	/* init wakelock resources */
 	{

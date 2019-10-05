@@ -774,6 +774,35 @@ static void process_dbg_opt(const char *opt)
 		mtk_drm_set_idlemgr(crtc, 0, 1);
 		fake_engine(crtc, idx, en, wr_en, rd_en, wr_pat1, wr_pat2,
 			latency, preultra_cnt, ultra_cnt);
+	} else if (strncmp(opt, "checkt", 6) == 0) { /* check trigger */
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
+		mtk_crtc_check_trigger(mtk_crtc, 0);
+	} else if (strncmp(opt, "checkd", 6) == 0) { /* check trigger delay */
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
+		mtk_crtc_check_trigger(mtk_crtc, 1);
 	}
 }
 
