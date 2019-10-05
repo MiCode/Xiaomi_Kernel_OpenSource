@@ -46,7 +46,6 @@ static int mtk_cpu_num;
 static int ram_console_init_done;
 static unsigned int old_wdt_status;
 static int ram_console_clear;
-static bool reserve_mem_fail;
 
 /*
  *  This group of API call by sub-driver module to report reboot reasons
@@ -597,7 +596,6 @@ static int __init ram_console_init(struct ram_console_buffer *buffer,
 	return 0;
 }
 
-#if defined(CONFIG_MTK_RAM_CONSOLE_USING_DRAM)
 static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
 {
 	struct page **pages;
@@ -630,14 +628,14 @@ static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
 
 	return vaddr + offset_in_page(start);
 }
-#endif
 
 struct mem_desc_t {
 	unsigned int start;
 	unsigned int size;
+	unsigned int def_type;
+	unsigned int offset;
 };
 
-#if defined(CONFIG_MTK_RAM_CONSOLE_USING_SRAM)
 #ifdef CONFIG_OF
 static int __init dt_get_ram_console(unsigned long node, const char *uname,
 		int depth, void *data)
@@ -651,30 +649,153 @@ static int __init dt_get_ram_console(unsigned long node, const char *uname,
 	sram = (struct mem_desc_t *) of_get_flat_dt_prop(node,
 			"ram_console", NULL);
 	if (sram) {
-		pr_notice("ram_console:[DT] 0x%x@0x%x\n",
-				sram->size, sram->start);
+		pr_notice("ram_console:[DT] 0x%x@0x%x, 0x%x(0x%x)\n",
+				sram->size, sram->start,
+				sram->def_type, sram->offset);
 		*(struct mem_desc_t *) data = *sram;
 	}
 
 	return 1;
 }
 #endif
-#endif
+
+enum RAM_CONSOLE_DEF_TYPE {
+	RAM_CONSOLE_DEF_UNKNOWN = 0,
+	RAM_CONSOLE_DEF_SRAM,
+	RAM_CONSOLE_DEF_DRAM,
+};
+
+#define MEM_MAGIC1 0x61646472 /* "addr" */
+#define MEM_MAGIC2 0x73697a65 /* "size" */
+struct ram_console_memory_info {
+	u32 magic1;
+	u32 sram_plat_dbg_info_addr;
+	u32 sram_plat_dbg_info_size;
+	u32 sram_log_store_addr;
+	u32 sram_log_store_size;
+	u32 mrdump_addr;
+	u32 mrdump_size;
+	u32 dram_addr;
+	u32 dram_size;
+	u32 pstore_addr;
+	u32 pstore_size;
+	u32 pstore_console_size;
+	u32 pstore_pmsg_size;
+	u32 mrdump_mini_header_addr;
+	u32 mrdump_mini_header_size;
+	u32 magic2;
+};
+
+static void ram_console_fatal(const char *str)
+{
+	pr_err("ram_console: FATAL:%s\n", str);
+	BUG();
+}
+
+void __weak pstore_set_addr_size(unsigned int addr, unsigned int size,
+		unsigned int console_size, unsigned int pmsg_size)
+{
+}
+void __weak mrdump_mini_set_addr_size(unsigned int addr, unsigned int size)
+{
+}
+
+void __weak sram_log_store_set_addr_size(unsigned int addr, unsigned int size)
+{
+}
+
+static void ram_console_parse_memory_info(struct mem_desc_t *sram,
+		struct ram_console_memory_info *p_memory_info)
+{
+	struct ram_console_memory_info *memory_info = NULL;
+	u32 magic1, magic2;
+	u32 log_store_addr, log_store_size;
+	u32 mrdump_addr, mrdump_size;
+	u32 dram_addr, dram_size;
+	u32 pstore_addr, pstore_size;
+	u32 pstore_console_size, pstore_pmsg_size;
+	u32 mini_addr, mini_size;
+
+	if (sram->offset > sram->size) {
+		memory_info = ioremap_wc((sram->start + sram->offset),
+				sizeof(struct ram_console_memory_info));
+		if (memory_info == NULL) {
+			pr_err("ram_console: [DT] offset:0x%x not map\n",
+					sram->offset);
+			ram_console_fatal("memory_info not map");
+		}
+		magic1 = memory_info->magic1;
+		magic2 = memory_info->magic2;
+		log_store_addr = memory_info->sram_log_store_addr;
+		log_store_size = memory_info->sram_log_store_size;
+		mrdump_addr = memory_info->mrdump_addr;
+		mrdump_size = memory_info->mrdump_size;
+		dram_addr = memory_info->dram_addr;
+		dram_size = memory_info->dram_size;
+		pstore_addr = memory_info->pstore_addr;
+		pstore_size = memory_info->pstore_size;
+		pstore_console_size = memory_info->pstore_console_size;
+		pstore_pmsg_size = memory_info->pstore_pmsg_size;
+		mini_addr = memory_info->mrdump_mini_header_addr;
+		mini_size = memory_info->mrdump_mini_header_size;
+
+		if (magic1 == MEM_MAGIC1 && magic2 == MEM_MAGIC2) {
+			pstore_set_addr_size(pstore_addr, pstore_size,
+				pstore_console_size, pstore_pmsg_size);
+			mrdump_mini_set_addr_size(mini_addr, mini_size);
+			sram_log_store_set_addr_size(log_store_addr,
+					log_store_size);
+			pr_notice("ram_console: [DT] 0x%x@0x%x-0x%x@0x%x\n",
+					pstore_size, pstore_addr,
+					mini_size, mini_addr);
+			memcpy(p_memory_info, memory_info,
+					sizeof(struct ram_console_memory_info));
+		} else {
+			pr_err("ram_console: [DT] self (0x%x@0x%x)-0x%x@0x%x\n",
+					magic1, magic2,
+					dram_size, dram_addr);
+			pr_err("ram_console: [DT] pstore 0x%x@0x%x-0x%x@0x%x\n",
+					pstore_size, pstore_addr,
+					pstore_console_size, pstore_pmsg_size);
+			pr_err("ram_console: [DT] mrdump 0x%x@0x%x-0x%x@0x%x\n",
+					mini_size, mini_addr,
+					mrdump_size, mrdump_addr);
+			ram_console_fatal("illegal magic number");
+		}
+	} else {
+		pr_err("ram_console: [DT] offset:0x%x illegal\n",
+			sram->offset);
+		ram_console_fatal("illegal offset");
+	}
+}
 
 static int __init ram_console_early_init(void)
 {
 	struct ram_console_buffer *bufp = NULL;
 	size_t buffer_size = 0;
-#if defined(CONFIG_MTK_RAM_CONSOLE_USING_SRAM)
 #ifdef CONFIG_OF
 	struct mem_desc_t sram = { 0 };
+	struct ram_console_memory_info memory_info_data = {0};
+	unsigned int start, size;
 
 	if (of_scan_flat_dt(dt_get_ram_console, &sram)) {
-		if (sram.start == 0) {
-			sram.start = CONFIG_MTK_RAM_CONSOLE_ADDR;
-			sram.size = CONFIG_MTK_RAM_CONSOLE_SIZE;
+		ram_console_parse_memory_info(&sram, &memory_info_data);
+		if (sram.def_type == RAM_CONSOLE_DEF_SRAM) {
+			pr_info("ram_console: using sram:0x%x\n", sram.start);
+			start = sram.start;
+			size  = sram.size;
+			bufp = ioremap_wc(sram.start, sram.size);
+		} else if (sram.def_type == RAM_CONSOLE_DEF_DRAM) {
+			pr_info("ram_console: using dram:0x%x\n",
+					memory_info_data.dram_addr);
+			start = memory_info_data.dram_addr;
+			size = memory_info_data.dram_size;
+			bufp = remap_lowmem(start, size);
+		} else {
+			pr_err("ram_console: unknown def type:%d\n",
+					sram.def_type);
+			ram_console_fatal("unknown def type");
 		}
-		bufp = ioremap_wc(sram.start, sram.size);
 		/* unsigned long conversion:
 		 * make size equals to pointer size
 		 * to avoid build error as below for aarch64 case
@@ -683,46 +804,29 @@ static int __init ram_console_early_init(void)
 		 * [-Werror,-Wint-to-pointer-cast])
 		 */
 		ram_console_buffer_pa =
-			(struct ram_console_buffer *)(unsigned long)sram.start;
-		if (bufp)
-			buffer_size = sram.size;
-		else {
+			(struct ram_console_buffer *)(unsigned long)start;
+		if (bufp) {
+			buffer_size = size;
+			if (bufp->sig != REBOOT_REASON_SIG) {
+				pr_err("ram_console: illegal sig:0x%x\n",
+						bufp->sig);
+				ram_console_fatal("illegal sig");
+			}
+		} else {
 			pr_err("ram_console: ioremap failed, [0x%x, 0x%x]\n",
-					sram.start,
-			       sram.size);
-			return 0;
+					start, size);
+			ram_console_fatal("ioremap failed");
 		}
 	} else {
-		return 0;
+		pr_err("ram_console: of_scan_flat_dt failed\n");
+		ram_console_fatal("of_scan_flat_dt failed");
 	}
 #else
-	bufp = ioremap_wc(CONFIG_MTK_RAM_CONSOLE_ADDR,
-			CONFIG_MTK_RAM_CONSOLE_SIZE);
-	if (bufp)
-		buffer_size = CONFIG_MTK_RAM_CONSOLE_SIZE;
-		ram_console_buffer_pa = CONFIG_MTK_RAM_CONSOLE_ADDR;
-	else {
-		pr_err("ram_console: ioremap failed, [0x%x, 0x%x]\n",
-				sram.start, sram.size);
-		return 0;
-	}
-#endif
-#elif defined(CONFIG_MTK_RAM_CONSOLE_USING_DRAM)
-	bufp = remap_lowmem(CONFIG_MTK_RAM_CONSOLE_DRAM_ADDR,
-			CONFIG_MTK_RAM_CONSOLE_DRAM_SIZE);
-	ram_console_buffer_pa =
-		(struct ram_console_buffer *)CONFIG_MTK_RAM_CONSOLE_DRAM_ADDR;
-	if (bufp == NULL) {
-		pr_err("ram_console: ioremap failed\n");
-		return 0;
-	}
-	buffer_size = CONFIG_MTK_RAM_CONSOLE_DRAM_SIZE;
-#else
-	return 0;
+#error "CONFIG_OF NOT defined"
 #endif
 
-	pr_notice("ram_console: buffer start: 0x%p, size: 0x%zx\n",
-			bufp, buffer_size);
+	pr_notice("ram_console: buffer start: 0x%lx, size: 0x%zx\n",
+			(unsigned long)bufp, buffer_size);
 	mtk_cpu_num = num_present_cpus();
 	return ram_console_init(bufp, buffer_size);
 }
@@ -750,10 +854,6 @@ static int __init ram_console_late_init(void)
 {
 	struct proc_dir_entry *entry;
 
-	if (reserve_mem_fail) {
-		pr_info("ram_console/pstore wrong reserved memory\n");
-		BUG();
-	}
 	entry = proc_create("last_kmsg", 0444, NULL, &ram_console_file_ops);
 	if (!entry) {
 		pr_err("ram_console: failed to create proc entry\n");
@@ -769,13 +869,6 @@ late_initcall(ram_console_late_init);
 
 int ram_console_pstore_reserve_memory(struct reserved_mem *rmem)
 {
-#ifndef DUMMY_MEMORY_LAYOUT
-	if (rmem->base != KERN_PSTORE_BASE ||
-		rmem->size > KERN_PSTORE_MAX_SIZE) {
-		reserve_mem_fail = true;
-		pr_info("pstore: Check the reserved address and size\n");
-	}
-#endif
 	pr_info("[memblock]%s: 0x%llx - 0x%llx (0x%llx)\n", "mediatek,pstore",
 		 (unsigned long long)rmem->base,
 		 (unsigned long long)rmem->base +
@@ -786,13 +879,6 @@ int ram_console_pstore_reserve_memory(struct reserved_mem *rmem)
 
 int ram_console_binary_reserve_memory(struct reserved_mem *rmem)
 {
-#ifndef DUMMY_MEMORY_LAYOUT
-	if (rmem->base != KERN_RAMCONSOLE_BASE ||
-		rmem->size > KERN_RAMCONSOLE_MAX_SIZE) {
-		reserve_mem_fail = true;
-		pr_info("ram_console: Check the reserved address and size\n");
-	}
-#endif
 	pr_info("[memblock]%s: 0x%llx - 0x%llx (0x%llx)\n",
 		"mediatek,ram_console",
 		 (unsigned long long)rmem->base,
