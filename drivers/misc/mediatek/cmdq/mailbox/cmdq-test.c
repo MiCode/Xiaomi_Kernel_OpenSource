@@ -759,58 +759,45 @@ static void cmdq_test_err_irq(struct cmdq_test *test)
 	cmdq_msg("%s end", __func__);
 }
 
-static void cmdq_test_trigger(struct cmdq_test *test, const s32 id)
+static void
+cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 {
-	switch (id < 0 ? -id : id) {
+#ifndef CMDQ_SECURE_SUPPORT
+	if (sec) {
+		cmdq_err("CMDQ_SECURE not support");
+		return;
+	}
+#endif
+
+	switch (id) {
 	case 0:
-		cmdq_test_mbox_write(test, false, false);
-		cmdq_test_mbox_write(test, false, true);
-#ifdef CMDQ_SECURE_SUPPORT
-		cmdq_test_mbox_write(test, true, false);
-		cmdq_test_mbox_write(test, true, true);
-#endif
-
-		cmdq_test_mbox_flush(test, false, false);
-		cmdq_test_mbox_flush(test, false, true);
-#ifdef CMDQ_SECURE_SUPPORT
-		cmdq_test_mbox_flush(test, true, false);
-		cmdq_test_mbox_flush(test, true, true);
-#endif
-
-		cmdq_test_mbox_polling(test, false, false);
-		cmdq_test_mbox_polling(test, false, true);
-#ifdef CMDQ_SECURE_SUPPORT
-		cmdq_test_mbox_polling(test, true, false);
-		cmdq_test_mbox_polling(test, true, true);
-#endif
-
-		cmdq_test_mbox_dma_access(test, false);
-#ifdef CMDQ_SECURE_SUPPORT
-		cmdq_test_mbox_dma_access(test, true);
-#endif
-
+		cmdq_test_mbox_write(test, sec, false);
+		cmdq_test_mbox_write(test, sec, true);
+		cmdq_test_mbox_flush(test, sec, false);
+		cmdq_test_mbox_flush(test, sec, true);
+		cmdq_test_mbox_polling(test, sec, false);
+		cmdq_test_mbox_polling(test, sec, true);
+		cmdq_test_mbox_dma_access(test, sec);
 		cmdq_test_mbox_gpr_sleep(test, false);
 		cmdq_test_mbox_gpr_sleep(test, true);
-
 		cmdq_test_mbox_loop(test);
 		cmdq_test_mbox_large_cmd(test);
-
 		cmdq_test_mbox_cpr(test);
 		break;
 	case 1:
-		cmdq_test_mbox_write(test, id < 0 ? true : false, false);
-		cmdq_test_mbox_write(test, id < 0 ? true : false, true);
+		cmdq_test_mbox_write(test, sec, false);
+		cmdq_test_mbox_write(test, sec, true);
 		break;
 	case 2:
-		cmdq_test_mbox_flush(test, id < 0 ? true : false, false);
-		cmdq_test_mbox_flush(test, id < 0 ? true : false, true);
+		cmdq_test_mbox_flush(test, sec, false);
+		cmdq_test_mbox_flush(test, sec, true);
 		break;
 	case 3:
-		cmdq_test_mbox_polling(test, id < 0 ? true : false, false);
-		cmdq_test_mbox_polling(test, id < 0 ? true : false, true);
+		cmdq_test_mbox_polling(test, sec, false);
+		cmdq_test_mbox_polling(test, sec, true);
 		break;
 	case 4:
-		cmdq_test_mbox_dma_access(test, id < 0 ? true : false);
+		cmdq_test_mbox_dma_access(test, sec);
 		break;
 	case 5:
 		cmdq_test_mbox_gpr_sleep(test, false);
@@ -847,7 +834,7 @@ cmdq_test_write(struct file *filp, const char *buf, size_t count, loff_t *offp)
 {
 	struct cmdq_test *test = (struct cmdq_test *)filp->f_inode->i_private;
 	char		str[MAX_INPUT] = {0};
-	s32		len, id = 0;
+	s32		len, sec, id = 0;
 
 	len = (count < MAX_INPUT - 1) ? count : (MAX_INPUT - 1);
 	if (copy_from_user(str, buf, len)) {
@@ -856,14 +843,14 @@ cmdq_test_write(struct file *filp, const char *buf, size_t count, loff_t *offp)
 	}
 	str[len] = '\0';
 
-	if (kstrtoint(str, 0, &id)) {
-		cmdq_err("sscanf failed str:%s id:%d", str, id);
+	if (sscanf(str, "%d %d", &sec, &id) != 2) {
+		cmdq_err("sscanf failed str:%s sec:%d id:%d", str, sec, id);
 		return count;
 	}
-	cmdq_msg("test:%p len:%d id:%d str:%s", test, len, id, str);
+	cmdq_msg("test:%p len:%d sec:%d id:%d str:%s", test, len, sec, id, str);
 
 	mutex_lock(&test->lock);
-	cmdq_test_trigger(test, id);
+	cmdq_test_trigger(test, sec, id);
 	mutex_unlock(&test->lock);
 	return count;
 }
