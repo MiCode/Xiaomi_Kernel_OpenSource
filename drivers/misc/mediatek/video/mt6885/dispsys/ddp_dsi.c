@@ -3816,7 +3816,6 @@ int ddp_dsi_init(enum DISP_MODULE_ENUM module, void *cmdq)
 		if (module == DISP_MODULE_DSI0 ||
 			module == DISP_MODULE_DSIDUAL) {
 			ddp_clk_prepare_enable(CLK_DSI0_MM_CLK);
-			ddp_clk_prepare_enable(CLK_IMG_DL_RELAY);
 			ddp_clk_prepare_enable(CLK_DSI0_IF_CLK);
 		}
 
@@ -4846,7 +4845,6 @@ int ddp_dsi_power_on(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 
 	if (module == DISP_MODULE_DSI0 || module == DISP_MODULE_DSIDUAL) {
 		ddp_clk_prepare_enable(CLK_DSI0_MM_CLK);
-		ddp_clk_prepare_enable(CLK_IMG_DL_RELAY);
 		ddp_clk_prepare_enable(CLK_DSI0_IF_CLK);
 	}
 
@@ -4881,7 +4879,6 @@ int ddp_dsi_power_off(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 #ifdef ENABLE_CLK_MGR
 	if (module == DISP_MODULE_DSI0 || module == DISP_MODULE_DSIDUAL) {
 		ddp_clk_disable_unprepare(CLK_DSI0_MM_CLK);
-		ddp_clk_disable_unprepare(CLK_IMG_DL_RELAY);
 		ddp_clk_disable_unprepare(CLK_DSI0_IF_CLK);
 	}
 #endif
