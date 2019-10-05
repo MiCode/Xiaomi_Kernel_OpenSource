@@ -19,5 +19,5 @@ ifeq ($(word 2,$(MTK_GPU_VERSION)),clark)
 endif
 
 ifeq ($(word 2,$(MTK_GPU_VERSION)),auckland)
-	obj-y += m1.10ED5051533/
+	obj-y += m1.11ED5348463/
 endif
