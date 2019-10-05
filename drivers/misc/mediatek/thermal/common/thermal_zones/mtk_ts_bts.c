@@ -560,19 +560,23 @@ static __s16 mtkts_bts_thermistor_conver_temp(__s32 Res)
 static __s16 mtk_ts_bts_volt_to_temp(__u32 dwVolt)
 {
 	__s32 TRes;
-	__s32 dwVCriAP = 0;
+	__u64 dwVCriAP = 0;
 	__s32 BTS_TMP = -100;
-
+	__u64 dwVCriAP2 = 0;
 	/* SW workaround-----------------------------------------------------
 	 * dwVCriAP = (TAP_OVER_CRITICAL_LOW * 1800) /
 	 *		(TAP_OVER_CRITICAL_LOW + 39000);
 	 * dwVCriAP = (TAP_OVER_CRITICAL_LOW * RAP_PULL_UP_VOLT) /
 	 *		(TAP_OVER_CRITICAL_LOW + RAP_PULL_UP_R);
 	 */
-	dwVCriAP = (g_TAP_over_critical_low * g_RAP_pull_up_voltage)
-				/ (g_TAP_over_critical_low + g_RAP_pull_up_R);
 
-	if (dwVolt > dwVCriAP) {
+	dwVCriAP = ((__u64)g_TAP_over_critical_low *
+		(__u64)g_RAP_pull_up_voltage);
+	dwVCriAP2 = (g_TAP_over_critical_low + g_RAP_pull_up_R);
+	do_div(dwVCriAP, dwVCriAP2);
+
+
+	if (dwVolt > ((__u32)dwVCriAP)) {
 		TRes = g_TAP_over_critical_low;
 	} else {
 		/* TRes = (39000*dwVolt) / (1800-dwVolt); */
@@ -581,7 +585,6 @@ static __s16 mtk_ts_bts_volt_to_temp(__u32 dwVolt)
 					(g_RAP_pull_up_voltage - dwVolt);
 	}
 	/* ------------------------------------------------------------------ */
-
 	g_AP_TemperatureR = TRes;
 
 	/* convert register to temperature */
