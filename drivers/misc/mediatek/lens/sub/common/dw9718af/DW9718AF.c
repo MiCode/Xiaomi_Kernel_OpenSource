@@ -159,6 +159,8 @@ static int initAF(void)
 			return -1;
 		}
 
+		LOG_INF("driver init success!!\n");
+
 		spin_lock(g_pAF_SpinLock);
 		*g_pAF_Opened = 2;
 		spin_unlock(g_pAF_SpinLock);
@@ -272,11 +274,14 @@ int DW9718AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 
 int DW9718AF_GetFileName(unsigned char *pFileName)
 {
-	char *FileString = (strrchr(__FILE__, '/') + 1);
+	char FilePath[512];
+	char *FileString;
 
-	strncpy(pFileName, FileString, AF_MOTOR_NAME);
-	FileString = strchr(pFileName, '.');
+	sprintf(FilePath, "%s", __FILE__);
+	FileString = strrchr(FilePath, '/');
 	*FileString = '\0';
+	FileString = (strrchr(FilePath, '/') + 1);
+	strncpy(pFileName, FileString, AF_MOTOR_NAME);
 	LOG_INF("FileName : %s\n", pFileName);
 
 	return 1;

@@ -31,7 +31,7 @@
 #define AF_DEBUG
 #ifdef AF_DEBUG
 #define LOG_INF(format, args...)                                               \
-	pr_debug(AF_DRVNAME " [%s] " format, __func__, ##args)
+	pr_info(AF_DRVNAME " [%s] " format, __func__, ##args)
 #else
 #define LOG_INF(format, args...)
 #endif
@@ -42,18 +42,19 @@ static struct i2c_client *g_pstAF_I2Cclient;
 static int *g_pAF_Opened;
 static spinlock_t *g_pAF_SpinLock;
 
-#if POWER_ALWAYS_ON
-static int g_TimeOutChk;
-static unsigned int g_PreTime;
-#endif
-
 static unsigned long g_u4AF_INF;
 static unsigned long g_u4AF_MACRO = 1023;
 static unsigned long g_u4CurrPosition;
-static unsigned int  g_MotorDirection;
-static unsigned int  g_MotorResolution;
 #define Min_Pos 0
 #define Max_Pos 1023
+
+#if POWER_ALWAYS_ON
+static int g_TimeOutChk;
+static unsigned int g_PreTime;
+static struct timespec g_TSAFOpen;
+static struct timespec g_TSAFClose;
+static unsigned int g_SkipAFUninit;
+#endif
 
 static int s4AF_ReadReg(u8 a_uAddr, u8 *a_uData)
 {
@@ -106,17 +107,8 @@ static int setPosition(unsigned short UsPosition)
 	unsigned char UcPosL;
 	unsigned int i4RetValue = 0;
 
-	if (g_MotorDirection == 0)
-		UsPosition = 1023 - UsPosition;
-
-	if (g_MotorResolution == 0) {
-		TarPos = UsPosition;
-	} else {
-		if (UsPosition < 512)
-			TarPos = 0x800 + (UsPosition << 2);
-		else
-			TarPos = ((UsPosition - 512) << 2);
-	}
+	UsPosition = 1023 - UsPosition;
+	TarPos = UsPosition;
 
 	/* LOG_INF("DAC(%04d) -> %03x\n", UsPosition, TarPos); */
 
@@ -163,8 +155,15 @@ static int initAF(void)
 		int i4RetValue = 0;
 		int ret = 0;
 		int cnt = 0;
-
 		unsigned char Temp;
+
+		#if POWER_ALWAYS_ON
+		if (g_SkipAFUninit == 1) {
+			LOG_INF("Skip init driver\n");
+			g_SkipAFUninit = 0;
+			return 1;
+		}
+		#endif
 
 		s4AF_WriteReg(0, 0xF6, 0x00);
 		s4AF_WriteReg(0, 0x96, 0x20);
@@ -192,6 +191,7 @@ static int initAF(void)
 		} else {
 			LOG_INF("Check HW version: %x\n", Temp);
 		}
+
 
 		spin_lock(g_pAF_SpinLock);
 		*g_pAF_Opened = 2;
@@ -276,13 +276,43 @@ long LC898217AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 /* Q1 : Try release multiple times. */
 int LC898217AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 {
+	int Ret = 0;
+
 	LOG_INF("Start\n");
 
 	if (*g_pAF_Opened == 2) {
-		LOG_INF("Wait\n");
-		s4AF_WriteReg(0, 0x98, 0xC0);
-		s4AF_WriteReg(0, 0x96, 0x28);
-		s4AF_WriteReg(0, 0xF6, 0x80);
+		#if POWER_ALWAYS_ON
+		unsigned long long start_ms, end_ms;
+		unsigned int diff_ms;
+
+		g_TSAFClose = CURRENT_TIME;
+		start_ms = (g_TSAFOpen.tv_sec * NSEC_PER_SEC +
+				g_TSAFOpen.tv_nsec) / 1000000;
+		end_ms = (g_TSAFClose.tv_sec * NSEC_PER_SEC +
+				g_TSAFClose.tv_nsec) / 1000000;
+		diff_ms = end_ms - start_ms;
+
+		LOG_INF("Wait - Excute Time %d\n", diff_ms);
+
+		if (diff_ms < 600) {
+			g_SkipAFUninit = 1;
+			LOG_INF("Wait - skip uninit\n");
+		} else {
+			Ret = s4AF_WriteReg(0, 0x98, 0xC0);
+			if (Ret == 0)
+				Ret = s4AF_WriteReg(0, 0x96, 0x28);
+			if (Ret == 0)
+				Ret = s4AF_WriteReg(0, 0xF6, 0x80);
+			LOG_INF("Wait - power down\n");
+		}
+		#else
+		Ret = s4AF_WriteReg(0, 0x98, 0xC0);
+		if (Ret == 0)
+			Ret = s4AF_WriteReg(0, 0x96, 0x28);
+		if (Ret == 0)
+			Ret = s4AF_WriteReg(0, 0xF6, 0x80);
+		LOG_INF("Wait - power down\n");
+		#endif
 		LOG_INF("Close\n");
 	}
 
@@ -296,7 +326,7 @@ int LC898217AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 
 	LOG_INF("End\n");
 
-	return 0;
+	return Ret;
 }
 
 int LC898217AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
@@ -325,6 +355,7 @@ int LC898217AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
 			if (Ret < 0) {
 				g_PreTime = CurTime;
 				g_TimeOutChk = 1;
+				return -1;
 			}
 
 			LOG_INF("LC898217AF Power Down = %d\n", CurTime);
@@ -350,60 +381,12 @@ int LC898217AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
 int LC898217AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 			    spinlock_t *pAF_SpinLock, int *pAF_Opened)
 {
+	#if POWER_ALWAYS_ON
+	g_TSAFOpen = CURRENT_TIME;
+	#endif
 	g_pstAF_I2Cclient = pstAF_I2Cclient;
 	g_pAF_SpinLock = pAF_SpinLock;
 	g_pAF_Opened = pAF_Opened;
-
-	/* mt6739 */
-	g_MotorDirection = 0;
-	g_MotorResolution = 0;
-
-	initAF();
-
-	return 1;
-}
-
-int LC898217AFA_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
-			     spinlock_t *pAF_SpinLock, int *pAF_Opened)
-{
-	g_pstAF_I2Cclient = pstAF_I2Cclient;
-	g_pAF_SpinLock = pAF_SpinLock;
-	g_pAF_Opened = pAF_Opened;
-
-	/* mt6775, mt6771 - single camera */
-	g_MotorDirection = 1;
-	g_MotorResolution = 0;
-
-	initAF();
-
-	return 1;
-}
-
-int LC898217AFB_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
-			     spinlock_t *pAF_SpinLock, int *pAF_Opened)
-{
-	g_pstAF_I2Cclient = pstAF_I2Cclient;
-	g_pAF_SpinLock = pAF_SpinLock;
-	g_pAF_Opened = pAF_Opened;
-
-	/* mt6775, mt6771 - dual camera W + T */
-	g_MotorDirection = 0;
-	g_MotorResolution = 1;
-
-	initAF();
-
-	return 1;
-}
-
-int LC898217AFC_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
-			     spinlock_t *pAF_SpinLock, int *pAF_Opened)
-{
-	g_pstAF_I2Cclient = pstAF_I2Cclient;
-	g_pAF_SpinLock = pAF_SpinLock;
-	g_pAF_Opened = pAF_Opened;
-
-	g_MotorDirection = 1;
-	g_MotorResolution = 1;
 
 	initAF();
 
@@ -412,11 +395,14 @@ int LC898217AFC_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 
 int LC898217AF_GetFileName(unsigned char *pFileName)
 {
-	char *FileString = (strrchr(__FILE__, '/') + 1);
+	char FilePath[512];
+	char *FileString;
 
-	strncpy(pFileName, FileString, AF_MOTOR_NAME);
-	FileString = strchr(pFileName, '.');
+	sprintf(FilePath, "%s", __FILE__);
+	FileString = strrchr(FilePath, '/');
 	*FileString = '\0';
+	FileString = (strrchr(FilePath, '/') + 1);
+	strncpy(pFileName, FileString, AF_MOTOR_NAME);
 	LOG_INF("FileName : %s\n", pFileName);
 
 	return 1;
