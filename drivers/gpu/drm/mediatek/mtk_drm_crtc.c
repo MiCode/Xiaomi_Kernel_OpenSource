@@ -951,7 +951,7 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 	if (!fb_id)
 		goto end;
 
-	fb = drm_framebuffer_lookup(mtk_crtc->base.dev, fb_id);
+	fb = drm_framebuffer_lookup(mtk_crtc->base.dev, NULL, fb_id);
 	plane_state.pending.enable = true;
 	plane_state.pending.pitch = fb->pitches[0];
 	plane_state.pending.format = fb->pixel_format;
@@ -1041,7 +1041,9 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc)
 	if (cur_hrt != NO_PENDING_HRT) {
 		DDPINFO("release HRT %u %u\n", cur_hrt,
 				mtk_crtc->qos_ctx->last_hrt_req);
+#ifdef MTK_FB_MMDVFS_SUPPORT
 		mtk_disp_set_hrt_bw(mtk_crtc, cur_hrt);
+#endif
 		mtk_crtc->qos_ctx->last_hrt_req = cur_hrt;
 		*(unsigned int *)(cmdq_buf->va_base + DISP_SLOT_CUR_HRT_LEVEL) =
 				NO_PENDING_HRT;
@@ -2157,7 +2159,7 @@ static void mtk_crtc_wb_comp_config(struct drm_crtc *crtc,
 	memset(&cfg, 0x0, sizeof(struct mtk_ddp_config));
 	if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
 		/* Output buffer configuration for virtual display */
-		comp->fb = drm_framebuffer_lookup(crtc->dev,
+		comp->fb = drm_framebuffer_lookup(crtc->dev, NULL,
 				state->prop_val[CRTC_PROP_OUTPUT_FB_ID]);
 		cfg.w = state->prop_val[CRTC_PROP_OUTPUT_WIDTH];
 		cfg.h = state->prop_val[CRTC_PROP_OUTPUT_HEIGHT];
@@ -2246,8 +2248,12 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 			cmdq_handle, mtk_crtc->gce_obj.base);
 	}
 
-	gce_obj = &(mtk_crtc->gce_obj);
-	cmdq_pkt_flush_threaded(cmdq_handle, gce_cb, cb_data);
+	if (mtk_crtc_is_dc_mode(crtc))
+		cmdq_pkt_flush_threaded(cmdq_handle,
+			gce_cb, cb_data);
+	else
+		cmdq_pkt_flush_threaded(cmdq_handle,
+			gce_cb, cb_data);
 }
 
 static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
