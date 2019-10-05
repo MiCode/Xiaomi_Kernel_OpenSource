@@ -1315,6 +1315,19 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 			descr = "RealVideo 9/10"; break;
 		case V4L2_PIX_FMT_AV1:
 			descr = "AV1"; break;
+		case V4L2_PIX_FMT_MT10S:
+			descr = "MTK 10-bit compressed single"; break;
+		case V4L2_PIX_FMT_MT10:
+			descr = "MTK 10-bit compressed"; break;
+		case V4L2_PIX_FMT_P010S:
+			descr = "10-bit P010 LSB 6-bit not used single"; break;
+		case V4L2_PIX_FMT_P010M:
+			descr = "10-bit P010 LSB 6-bit not used"; break;
+		case V4L2_PIX_FMT_ARGB1010102:
+		case V4L2_PIX_FMT_ABGR1010102:
+		case V4L2_PIX_FMT_RGBA1010102:
+		case V4L2_PIX_FMT_BGRA1010102:
+			descr = "10-bit for RGB, 2-bit for A"; break;
 		case V4L2_PIX_FMT_MT21C:
 		case V4L2_PIX_FMT_MT21:
 		case V4L2_PIX_FMT_MT2110T:

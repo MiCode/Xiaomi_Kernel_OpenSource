@@ -281,7 +281,7 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 					(__force void *)dev->enc_reg_base[i]);
 				goto err_res;
 			}
-			mtk_v4l2_debug(2, "reg[%d] base=0x%p",
+			mtk_v4l2_debug(2, "reg[%d] base=0x%px",
 				i, dev->enc_reg_base[i]);
 		}
 	} else {

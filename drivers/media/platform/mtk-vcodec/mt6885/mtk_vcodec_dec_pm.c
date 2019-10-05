@@ -23,8 +23,10 @@
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
 
-#if 0 // def CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_PSEUDO_M4U
 #include <mach/mt_iommu.h>
+#include "mach/pseudo_m4u.h"
+#include "smi_port.h"
 #endif
 
 #if DEC_DVFS
@@ -140,13 +142,13 @@ void mtk_vcodec_dec_pw_off(struct mtk_vcodec_pm *pm, int hw_id)
 void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 {
 
-#if 0 // def CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_PSEUDO_M4U
 	int i, larb_port_num, larb_id;
-	M4U_PORT_STRUCT port;
+	struct M4U_PORT_STRUCT port;
 #endif
 
 #ifndef FPGA_PWRCLK_API_DISABLE
-	int ret;
+	int j, ret;
 	struct mtk_vcodec_dev *dev;
 	void __iomem *vdec_racing_addr;
 
@@ -171,12 +173,13 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 		vdec_racing_addr =
 			dev->dec_reg_base[VDEC_RACING_CTRL] +
 				MTK_VDEC_RACING_INFO_OFFSET;
-		memcpy(vdec_racing_addr, pm->vdec_racing_info,
-			sizeof(pm->vdec_racing_info));
+		for (j = 0; j < MTK_VDEC_RACING_INFO_SIZE; j++)
+			writel(pm->vdec_racing_info[j],
+				vdec_racing_addr + j * 4);
 	}
 #endif
 
-#if 0 // def CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_PSEUDO_M4U
 	if (hw_id == MTK_VDEC_CORE) {
 		larb_port_num = SMI_LARB4_PORT_NUM;
 		larb_id = 4;
@@ -208,6 +211,7 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 #ifndef FPGA_PWRCLK_API_DISABLE
 	struct mtk_vcodec_dev *dev;
 	void __iomem *vdec_racing_addr;
+	int i;
 
 	if (atomic_dec_and_test(&pm->dec_active_cnt)) {
 		/* backup racing info read/write ptr */
@@ -215,8 +219,9 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 		vdec_racing_addr =
 			dev->dec_reg_base[VDEC_RACING_CTRL] +
 				MTK_VDEC_RACING_INFO_OFFSET;
-		memcpy(pm->vdec_racing_info, vdec_racing_addr,
-			sizeof(pm->vdec_racing_info));
+		for (i = 0; i < MTK_VDEC_RACING_INFO_SIZE; i++)
+			pm->vdec_racing_info[i] =
+				readl(vdec_racing_addr + i * 4);
 	}
 
 	if (hw_id == MTK_VDEC_CORE) {

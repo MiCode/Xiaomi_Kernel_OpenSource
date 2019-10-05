@@ -188,7 +188,19 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	if (vcu->abort)
 		return -EINVAL;
 
-	if (msg->status == 0) {
+	if (msg->msg_id == VCU_IPIMSG_DEC_WAITISR) {
+		/* wait decoder done interrupt */
+		do_gettimeofday(&t_s);
+		mtk_vcodec_wait_for_done_ctx(vcu->ctx,
+			msg->status,
+			MTK_INST_IRQ_RECEIVED,
+			WAIT_INTR_TIMEOUT_MS);
+		do_gettimeofday(&t_e);
+		mtk_vcodec_perf_log("irq:%ld",
+			(t_e.tv_sec - t_s.tv_sec) * 1000000 +
+			(t_e.tv_usec - t_s.tv_usec));
+		ret = 1;
+	} else if (msg->status == 0) {
 		switch (msg->msg_id) {
 		case VCU_IPIMSG_DEC_INIT_ACK:
 			handle_init_ack_msg(data);
@@ -201,19 +213,6 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 		case VCU_IPIMSG_DEC_DEINIT_ACK:
 		case VCU_IPIMSG_DEC_RESET_ACK:
 		case VCU_IPIMSG_DEC_SET_PARAM_ACK:
-			break;
-		case VCU_IPIMSG_DEC_WAITISR:
-			/* wait decoder done interrupt */
-			do_gettimeofday(&t_s);
-			mtk_vcodec_wait_for_done_ctx(vcu->ctx,
-				msg->status,
-				MTK_INST_IRQ_RECEIVED,
-				WAIT_INTR_TIMEOUT_MS);
-			do_gettimeofday(&t_e);
-			mtk_vcodec_perf_log("irq:%ld",
-				(t_e.tv_sec - t_s.tv_sec) * 1000000 +
-				(t_e.tv_usec - t_s.tv_usec));
-			ret = 1;
 			break;
 		case VCU_IPIMSG_DEC_LOCK_LAT:
 			vdec_decode_prepare(vcu->ctx, MTK_VDEC_LAT);

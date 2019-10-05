@@ -286,7 +286,8 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 			ret = PTR_ERR((__force void *)dev->dec_reg_base[i]);
 			goto err_res;
 		}
-		mtk_v4l2_debug(2, "reg[%d] base=%p", i, dev->dec_reg_base[i]);
+		mtk_v4l2_debug(2, "reg[%d] base=0x%px",
+			i, dev->dec_reg_base[i]);
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);

@@ -24,8 +24,10 @@
 #include "smi_public.h"
 #include "slbc_ops.h"
 
-#if 0 //def CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_PSEUDO_M4U
 #include <mach/mt_iommu.h>
+#include "mach/pseudo_m4u.h"
+#include "smi_port.h"
 #endif
 
 #if ENC_DVFS
@@ -143,9 +145,9 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
 {
 	struct slbc_data enc_sram_data;
 	int ret;
-#if 0 // def CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_PSEUDO_M4U
 	int i, larb_port_num, larb_id;
-	M4U_PORT_STRUCT port;
+	struct M4U_PORT_STRUCT port;
 #endif
 
 #ifndef FPGA_PWRCLK_API_DISABLE
@@ -171,7 +173,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
 
 	ret = slbc_power_on(&enc_sram_data);
 
-#if 0 //def CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_PSEUDO_M4U
 	if (core_id == MTK_VENC_CORE_0) {
 		larb_port_num = SMI_LARB7_PORT_NUM;
 		larb_id = 7;
@@ -187,13 +189,13 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
 
 	//enable 34bits port configs & sram settings
 	for (i = 0; i < larb_port_num; i++) {
-		if (i == 6 || i == 7 || i == 8 ||
-			i == 19 || i == 20 || i == 21) {
+		if (i == 5 || i == 6 || i == 13 ||
+			i == 14 || i == 21 || i == 22) {
 			ret = smi_sysram_enable(MTK_M4U_ID(larb_id, i),
 				true, "LARB_VENC");
 			if (ret)
 				mtk_v4l2_err("%#x is not ready err: %#x\n",
-					i, err);
+					i, ret);
 		} else {
 			port.ePortID = MTK_M4U_ID(larb_id, i);
 			port.Direction = 0;
