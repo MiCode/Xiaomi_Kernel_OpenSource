@@ -21,15 +21,9 @@
 #if defined(TMEM_PROFILE_FMT)
 #define LOG_PROFILE "[PROFILE]"
 #define pr_fmt(fmt) LOG_TAG LOG_PROFILE fmt
-#elif defined(TMEM_MEMMGR_FMT)
-#define LOG_MEMMGR "[MEMMGR]"
-#define pr_fmt(fmt) LOG_TAG LOG_MEMMGR fmt
 #elif defined(TMEM_UT_TEST_FMT)
 #define LOG_UT_TEST "[UT_TEST]"
 #define pr_fmt(fmt) LOG_TAG LOG_UT_TEST fmt
-#elif defined(TMEM_MOCK_FMT)
-#define LOG_MOCK "[MOCK]"
-#define pr_fmt(fmt) LOG_TAG LOG_MOCK fmt
 #else
 #define pr_fmt(fmt) LOG_TAG fmt
 #endif

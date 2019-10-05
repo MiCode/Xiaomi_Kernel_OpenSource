@@ -82,12 +82,6 @@ endif # !TCORE_UT_FWK_SUPPORT
 obj-$(CONFIG_MTK_PROT_MEM_SUPPORT) += pmem.o
 pmem-y += pmem/pmem_device.o
 
-ifeq ($(PMEM_MOCK_OBJECT_SUPPORT),y)
-pmem-y += pmem/pmem_mock.o
-pmem-y += pmem/memmgr_buddy.o
-ccflags-y += -DPMEM_MOCK_OBJECT_SUPPORT
-endif # !PMEM_MOCK_OBJECT_SUPPORT
-
 #==========================================================================
 # SVP Secure Memory Core Driver
 #==========================================================================

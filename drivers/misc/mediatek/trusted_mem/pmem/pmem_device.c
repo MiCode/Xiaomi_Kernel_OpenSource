@@ -31,7 +31,6 @@
 #include <memory_ssmr.h>
 #endif
 
-#include "pmem/pmem_mock.h"
 #include "private/mld_helper.h"
 #include "private/tmem_error.h"
 #include "private/tmem_priv.h"
@@ -43,8 +42,6 @@
 #define PMEM_DEVICE_NAME "PMEM"
 
 static struct trusted_mem_configs pmem_configs = {
-	.mock_peer_enable = false,
-	.mock_ssmr_enable = false,
 	.session_keep_alive_enable = false,
 	.minimal_chunk_size = SIZE_4K,
 	.phys_mem_shift_bits = 10,
@@ -53,65 +50,6 @@ static struct trusted_mem_configs pmem_configs = {
 	.alignment_check_enable = true,
 	.caps = 0,
 };
-
-#ifdef PMEM_MOCK_OBJECT_SUPPORT
-static int pmem_open(struct inode *inode, struct file *file)
-{
-	UNUSED(inode);
-	UNUSED(file);
-
-	pr_info("%s:%d\n", __func__, __LINE__);
-	return TMEM_OK;
-}
-
-static int pmem_release(struct inode *inode, struct file *file)
-{
-	UNUSED(inode);
-	UNUSED(file);
-
-	pr_info("%s:%d\n", __func__, __LINE__);
-	return TMEM_OK;
-}
-
-#define REG_CORE_OPS_STR_LEN (32)
-static char register_core_ops_str[REG_CORE_OPS_STR_LEN];
-static char *get_registered_core_ops(void)
-{
-	return register_core_ops_str;
-}
-
-static ssize_t pmem_read(struct file *file, char __user *user_buf, size_t count,
-			 loff_t *offset)
-{
-	char *ops_str = get_registered_core_ops();
-
-	return simple_read_from_buffer(user_buf, count, offset, ops_str,
-				       strlen(ops_str));
-}
-
-static const struct file_operations pmem_proc_fops = {
-	.owner = THIS_MODULE,
-	.open = pmem_open,
-	.release = pmem_release,
-	.read = pmem_read,
-};
-
-static void pmem_create_proc_entry(void)
-{
-#if defined(PMEM_MOCK_MTEE) && defined(PMEM_MOCK_SSMR)
-	pr_info("PMEM_MOCK_ALL\n");
-	snprintf(register_core_ops_str, REG_CORE_OPS_STR_LEN, "PMEM_MOCK_ALL");
-#elif defined(PMEM_MOCK_MTEE)
-	pr_info("PMEM_MOCK_MTEE\n");
-	snprintf(register_core_ops_str, REG_CORE_OPS_STR_LEN, "PMEM_MOCK_MTEE");
-#else
-	pr_info("PMEM_CORE_OPS\n");
-	snprintf(register_core_ops_str, REG_CORE_OPS_STR_LEN, "PMEM_CORE_OPS");
-#endif
-
-	proc_create("pmem0", 0664, NULL, &pmem_proc_fops);
-}
-#endif
 
 static struct mtee_peer_ops_priv_data pmem_priv_data = {
 	.mem_type = TRUSTED_MEM_PROT,
@@ -130,12 +68,6 @@ static int __init pmem_init(void)
 		return TMEM_CREATE_DEVICE_FAILED;
 	}
 
-#ifdef PMEM_MOCK_OBJECT_SUPPORT
-	if (pmem_configs.mock_peer_enable)
-		get_mocked_peer_ops(&t_device->mock_peer_ops);
-	if (pmem_configs.mock_ssmr_enable)
-		get_mocked_ssmr_ops(&t_device->mock_ssmr_ops);
-#endif
 	get_mtee_peer_ops(&t_device->peer_ops);
 	t_device->peer_priv = &pmem_priv_data;
 
@@ -151,10 +83,6 @@ static int __init pmem_init(void)
 		pr_err("register PMEM device failed\n");
 		return ret;
 	}
-
-#ifdef PMEM_MOCK_OBJECT_SUPPORT
-	pmem_create_proc_entry();
-#endif
 
 	pr_info("%s:%d (end)\n", __func__, __LINE__);
 	return TMEM_OK;
