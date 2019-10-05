@@ -2730,7 +2730,9 @@ static void __mt_gpufreq_init_table(void)
 			g_max_opp_idx_num,
 			g_segment_min_opp_idx);
 
+	mutex_lock(&mt_gpufreq_lock);
 	__mt_gpufreq_cal_sb_opp_index();
+	mutex_unlock(&mt_gpufreq_lock);
 	__mt_gpufreq_setup_opp_power_table(num);
 }
 
