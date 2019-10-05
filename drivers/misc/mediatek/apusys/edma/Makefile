@@ -11,7 +11,11 @@
 # GNU General Public License for more details.
 #
 
-ccflags-y += -I$(obj)/../include/
+PDIR = $(MTK_PLATFORM)
+
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(PDIR)
 
 obj-m += edma.o
 

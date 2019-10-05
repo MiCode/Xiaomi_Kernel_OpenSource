@@ -28,6 +28,7 @@
 #include "edma_driver.h"
 #include "edma_cmd_hnd.h"
 #include "edma_queue.h"
+#include "apusys_power.h"
 
 #define EDMA_DEV_NAME		"edma"
 
@@ -419,6 +420,11 @@ static struct platform_driver edma_driver = {
 static int __init EDMA_INIT(void)
 {
 	int ret = 0;
+
+	if (!apusys_power_check()) {
+		pr_info("%s: edma is disabled by apusys\n", __func__);
+		return -ENODEV;
+	}
 
 	ret = platform_driver_register(&mtk_edma_sub_driver);
 	if (ret != 0) {
