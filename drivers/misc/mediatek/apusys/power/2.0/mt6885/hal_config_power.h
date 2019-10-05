@@ -21,16 +21,17 @@
  * command base hal interface
  ************************************/
 enum HAL_POWER_CMD {
-	PWR_CMD_INIT_POWER,
-	PWR_CMD_SET_BOOT_UP,
-	PWR_CMD_SET_SHUT_DOWN,
-	PWR_CMD_SET_VOLT,
-	PWR_CMD_SET_REGULATOR_MODE,
-	PWR_CMD_SET_MTCMOS,
-	PWR_CMD_SET_CLK,
-	PWR_CMD_SET_FREQ,
-	PWR_CMD_GET_POWER_INFO,
-	PWR_CMD_UNINIT_POWER,
+	PWR_CMD_INIT_POWER,		// 0
+	PWR_CMD_SET_BOOT_UP,		// 1
+	PWR_CMD_SET_SHUT_DOWN,		// 2
+	PWR_CMD_SET_VOLT,		// 3
+	PWR_CMD_SET_REGULATOR_MODE,	// 4
+	PWR_CMD_SET_MTCMOS,		// 5
+	PWR_CMD_SET_CLK,		// 6
+	PWR_CMD_SET_FREQ,		// 7
+	PWR_CMD_GET_POWER_INFO,		// 8
+	PWR_CMD_REG_DUMP,		// 9
+	PWR_CMD_UNINIT_POWER,		//10
 };
 
 
@@ -43,6 +44,14 @@ struct hal_param_init_power {
 	void *rpc_base_addr;
 	void *pcu_base_addr;
 	void *vcore_base_addr;
+	void *infracfg_ao_base_addr;
+	void *infra_bcrm_base_addr;
+	void *conn_base_addr;
+	void *vpu0_base_addr;
+	void *vpu1_base_addr;
+	void *vpu2_base_addr;
+	void *mdla0_base_addr;
+	void *mdla1_base_addr;
 };
 
 // regulator only

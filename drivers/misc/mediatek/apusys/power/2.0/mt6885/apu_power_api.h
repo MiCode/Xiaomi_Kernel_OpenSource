@@ -28,6 +28,7 @@ struct apu_power_info {
 	unsigned int dsp3_freq;		// vpu core2
 	unsigned int dsp6_freq;		// mdla core0 & core1
 	unsigned int dsp7_freq;		// iommu
+	unsigned int apupll_freq;	// apupll for mdla usage
 	unsigned int ipuif_freq;	// ipu interface
 	unsigned int max_opp_limit;
 	unsigned int min_opp_limit;
@@ -50,8 +51,10 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
 int prepare_apu_clock(struct device *dev);
 void unprepare_apu_clock(void);
 void disable_apu_clock(enum DVFS_USER);
+void disable_apu_conn_vcore_clock(void);
 void enable_apu_clock(enum DVFS_USER);
+void enable_apu_conn_vcore_clock(void);
 void enable_apu_mtcmos(int enable);
-int config_apupll(enum DVFS_FREQ freq);
+int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
 
 #endif // _APU_POWER_API_H_

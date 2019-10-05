@@ -27,7 +27,6 @@
 #include "hal_config_power.h"
 #include "apu_log.h"
 
-#define POWER_ON_DELAY	(100)
 
 struct apusys_dvfs_opps apusys_opps;
 bool is_power_debug_lock;

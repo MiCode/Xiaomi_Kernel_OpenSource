@@ -11,28 +11,87 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#include <linux/device.h>
 #include <linux/err.h>
-#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
-#include <linux/of.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
 #include <linux/jiffies.h>
 #include <linux/sched.h>
 #include <linux/kthread.h>
 
-
 #include "apu_log.h"
 #include "apusys_power_ctl.h"
 #include "apusys_power_cust.h"
 #include "apusys_power_debug.h"
+#include "apu_platform_resource.h"
 #include "hal_config_power.h"
 
+#define APUSYS_POWER_ENABLE	(0)
+#define FOR_BRING_UP		(1)
+#define SUPPORT_DVFS		(0)
 
-#define POWER_ON_DELAY	(100)
+
+struct hal_param_init_power init_power_data;
+static int apu_power_counter;
+
+#if FOR_BRING_UP
+
+int apu_power_device_register(enum DVFS_USER user, struct platform_device *dev)
+{ apu_power_counter++; return 0; }
+EXPORT_SYMBOL(apu_power_device_register);
+
+void apu_power_device_unregister(enum DVFS_USER user)
+{ apu_power_counter--; }
+EXPORT_SYMBOL(apu_power_device_unregister);
+
+int apu_device_power_on(enum DVFS_USER user)
+{ return 0; }
+EXPORT_SYMBOL(apu_device_power_on);
+
+int apu_device_power_off(enum DVFS_USER user)
+{ return 0; }
+EXPORT_SYMBOL(apu_device_power_off);
+
+void apu_device_set_opp(enum DVFS_USER user, uint8_t opp)
+{}
+EXPORT_SYMBOL(apu_device_set_opp);
+
+bool apu_get_power_on_status(enum DVFS_USER user)
+{ return 1; }
+EXPORT_SYMBOL(apu_get_power_on_status);
+
+void apu_power_on_callback(void)
+{}
+EXPORT_SYMBOL(apu_power_on_callback);
+
+int apu_power_callback_device_register(enum POWER_CALLBACK_USER user,
+				void (*power_on_callback)(void *para),
+				void (*power_off_callback)(void *para))
+{ return 0; }
+EXPORT_SYMBOL(apu_power_callback_device_register);
+
+void apu_power_callback_device_unregister(enum POWER_CALLBACK_USER user)
+{}
+EXPORT_SYMBOL(apu_power_callback_device_unregister);
+
+void apu_power_reg_dump(void)
+{
+	hal_config_power(PWR_CMD_REG_DUMP, VPU0, NULL);
+}
+EXPORT_SYMBOL(apu_power_reg_dump);
+
+void apu_get_power_info(void)
+{
+	struct hal_param_pwr_info info;
+
+	info.id = 0;
+	hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
+}
+EXPORT_SYMBOL(apu_get_power_info);
+
+#else
 
 struct power_device {
 	enum DVFS_USER dev_usr;
@@ -52,13 +111,9 @@ static LIST_HEAD(power_device_list);
 static LIST_HEAD(power_callback_device_list);
 static struct mutex power_device_list_mtx;
 static struct mutex power_opp_mtx;
-static int apu_power_counter;
 static int power_callback_counter;
 static struct task_struct *power_task_handle;
 static uint64_t timestamp;
-
-struct hal_param_init_power init_power_data;
-
 
 uint64_t get_current_time_us(void)
 {
@@ -124,6 +179,19 @@ void apu_get_power_info(void)
 }
 EXPORT_SYMBOL(apu_get_power_info);
 
+
+void apu_power_reg_dump(void)
+{
+	mutex_lock(&power_device_list_mtx);
+
+	if (apu_power_counter != 0)
+		hal_config_power(PWR_CMD_REG_DUMP, VPU0, NULL);
+	else
+		LOG_WRN("%s apu_power_counter = 0 , bypss\n", __func__);
+
+	mutex_unlock(&power_device_list_mtx);
+}
+EXPORT_SYMBOL(apu_power_reg_dump);
 
 
 static struct power_device *find_out_device_by_user(enum DVFS_USER user)
@@ -297,6 +365,8 @@ void apu_device_set_opp(enum DVFS_USER user, uint8_t opp)
 #ifdef MTK_FPGA_PORTING
 	LOG_WRN("%s FPGA porting bypass DVFS\n", __func__);
 #else
+
+#if SUPPORT_DVFS
 	if (user >= 0 && user < APUSYS_DVFS_USER_NUM
 		&& opp < APUSYS_MAX_NUM_OPPS) {
 
@@ -313,6 +383,10 @@ void apu_device_set_opp(enum DVFS_USER user, uint8_t opp)
 
 		mutex_unlock(&power_opp_mtx);
 	}
+#else
+	LOG_WRN("%s bypass since not support DVFS\n", __func__);
+#endif
+
 #endif
 }
 EXPORT_SYMBOL(apu_device_set_opp);
@@ -420,66 +494,44 @@ void apu_power_callback_device_unregister(enum POWER_CALLBACK_USER user)
 }
 EXPORT_SYMBOL(apu_power_callback_device_unregister);
 
+#endif // FOR_BRING_UP
 
 static int apu_power_probe(struct platform_device *pdev)
 {
-	int err = 0;
-	struct resource *apusys_rpc_res = NULL;
-	struct resource *apusys_pcu_res = NULL;
-	struct resource *apusys_vcore_res = NULL;
-	struct device *apusys_dev = &pdev->dev;
+#if APUSYS_POWER_ENABLE
+	int ret = 0;
+	int err;
 
-	LOG_INF("%s pdev id = %d name = %s, name = %s\n", __func__,
-						pdev->id, pdev->name,
-						pdev->dev.of_node->name);
-	init_power_data.dev = apusys_dev;
+	ret = init_platform_resource(pdev, &init_power_data);
 
-	apusys_rpc_res = platform_get_resource_byname(pdev,
-					IORESOURCE_MEM, "apusys_rpc");
-	init_power_data.rpc_base_addr = devm_ioremap_resource(
-						apusys_dev, apusys_rpc_res);
-
-	if (IS_ERR((void *)init_power_data.rpc_base_addr)) {
-		LOG_ERR("Unable to ioremap apusys_rpc\n");
+	if (ret)
 		goto err_exit;
-	}
 
-	LOG_INF("%s apusys_rpc = 0x%x, size = %d\n", __func__,
-				init_power_data.rpc_base_addr,
-				(unsigned int)resource_size(apusys_rpc_res));
+	apusys_power_init(VPU0, (void *)&init_power_data);
 
-	apusys_pcu_res = platform_get_resource_byname(pdev,
-					IORESOURCE_MEM, "apusys_pcu");
-	init_power_data.pcu_base_addr = devm_ioremap_resource(
-						apusys_dev, apusys_pcu_res);
+#if FOR_BRING_UP
+	apusys_power_on(VPU0);
+	apusys_power_on(VPU1);
+	apusys_power_on(VPU2);
+	apusys_power_on(MDLA0);
+	apusys_power_on(MDLA1);
 
-	if (IS_ERR((void *)init_power_data.pcu_base_addr)) {
-		LOG_ERR("Unable to ioremap apusys_pcu\n");
-		goto err_exit;
-	}
+	udelay(100);
 
-	LOG_INF("%s apusys_pcu = 0x%x, size = %d\n", __func__,
-				init_power_data.pcu_base_addr,
-				(unsigned int)resource_size(apusys_pcu_res));
+	apusys_set_opp(VPU0, 0);
+	apusys_set_opp(VPU1, 0);
+	apusys_set_opp(VPU2, 0);
+	apusys_set_opp(MDLA0, 0);
+	apusys_set_opp(MDLA1, 0);
 
-	apusys_vcore_res = platform_get_resource_byname(pdev,
-					IORESOURCE_MEM, "apusys_vcore");
-	init_power_data.vcore_base_addr = devm_ioremap_resource(
-						apusys_dev, apusys_vcore_res);
-
-	if (IS_ERR((void *)init_power_data.vcore_base_addr)) {
-		LOG_ERR("Unable to ioremap apusys_vcore\n");
-		goto err_exit;
-	}
-
-	LOG_INF("%s apusys_vcore = 0x%x, size = %d\n", __func__,
-				init_power_data.vcore_base_addr,
-				(unsigned int)resource_size(apusys_vcore_res));
+	apusys_dvfs_policy(0);
+	apu_power_counter++;
+	apu_get_power_info();
+#else
 
 	power_task_handle = kthread_create(apusys_power_task,
 						(void *)NULL, "apusys_power");
 	if (IS_ERR(power_task_handle)) {
-		power_task_handle = NULL;
 		LOG_ERR("%s create power task fail\n");
 		goto err_exit;
 	}
@@ -487,26 +539,100 @@ static int apu_power_probe(struct platform_device *pdev)
 	wake_up_process(power_task_handle);
 	mutex_init(&power_device_list_mtx);
 	mutex_init(&power_opp_mtx);
+#endif // FOR_BRING_UP
 
 	apusys_power_debugfs_init();
+	apu_power_reg_dump();
+
 	return 0;
 
 err_exit:
-	init_power_data.rpc_base_addr = NULL;
-	init_power_data.pcu_base_addr = NULL;
+#if !FOR_BRING_UP
+	if (power_task_handle != NULL) {
+		kfree(power_task_handle);
+		power_task_handle = NULL;
+	}
+#endif // !FOR_BRING_UP
 	return err;
+#else
+	LOG_WRN("%s bypass #########################\n", __func__);
+#endif // APUSYS_POWER_ENABLE
+
+	return 0;
 }
 
+int apu_power_power_stress(int type, int device, int opp)
+{
+	LOG_WRN("%s begin with type %d +++\n", __func__, type);
+
+	switch (type) {
+	case 0: // config opp
+		if (opp < 0 || opp >= APUSYS_MAX_NUM_OPPS)
+			return -1;
+
+		if (device == 9) { // all devices
+			apusys_set_opp(VPU0, opp);
+			apusys_set_opp(VPU1, opp);
+			apusys_set_opp(VPU2, opp);
+			apusys_set_opp(MDLA0, opp);
+			apusys_set_opp(MDLA1, opp);
+		} else {
+			apusys_set_opp(device, opp);
+		}
+
+		udelay(100);
+
+		apusys_dvfs_policy(0);
+		break;
+
+	case 1: // config power on
+
+		if (device == 9) { // all devices
+			apusys_power_on(VPU0);
+			apusys_power_on(VPU1);
+			apusys_power_on(VPU2);
+			apusys_power_on(MDLA0);
+			apusys_power_on(MDLA1);
+		} else {
+			apusys_power_on(device);
+		}
+		break;
+
+	case 2: // config power off
+
+		if (device == 9) { // all devices
+			apusys_power_off(VPU0);
+			apusys_power_off(VPU1);
+			apusys_power_off(VPU2);
+			apusys_power_off(MDLA0);
+			apusys_power_off(MDLA1);
+		} else {
+			apusys_power_off(device);
+		}
+		break;
+
+	default:
+		LOG_WRN("%s invalid type %d !\n", __func__, type);
+	}
+
+	apu_get_power_info();
+
+	LOG_WRN("%s end with type %d ---\n", __func__, type);
+
+	return 0;
+}
 
 static int apu_power_remove(struct platform_device *pdev)
 {
 	apusys_power_debugfs_exit();
 
+#if !FOR_BRING_UP
 	if (power_task_handle)
 		kthread_stop(power_task_handle);
 
 	mutex_destroy(&power_opp_mtx);
 	mutex_destroy(&power_device_list_mtx);
+#endif
 
 	return 0;
 }
@@ -532,7 +658,7 @@ static int __init apu_power_drv_init(void)
 	return platform_driver_register(&apu_power_driver);
 }
 
-late_initcall(apu_power_drv_init)
+module_init(apu_power_drv_init)
 
 static void __exit apu_power_drv_exit(void)
 {

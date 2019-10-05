@@ -34,6 +34,7 @@ enum DVFS_USER {
 	MDLA0 = 3,
 	MDLA1 = 4,
 	APUSYS_DVFS_USER_NUM,
+	EDMA,
 };
 
 

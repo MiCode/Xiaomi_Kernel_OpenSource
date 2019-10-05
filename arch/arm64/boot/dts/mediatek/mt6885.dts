@@ -5099,6 +5099,7 @@ page_owner=on";
 		vvpu-supply = <&mt_pmic_vproc1_buck_reg>;
 		vmdla-supply = <&mt_pmic_vproc2_buck_reg>;
 		vsram_apu-supply = <&mt_pmic_vsram_md_ldo_reg>;
+		vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
 
 		clocks = <&topckgen TOP_MUX_DSP>,	/* CONN */
 			<&topckgen TOP_MUX_DSP1>,	/* VPU_CORE0 */
@@ -5130,6 +5131,7 @@ page_owner=on";
 			<&apu_mdla0 APU_MDLA0_MDLA_CG11>,
 			<&apu_mdla0 APU_MDLA0_MDLA_CG12>,
 			<&apu_mdla0 APU_MDLA0_APB_CG>,
+			<&apu_mdla0 APU_MDLA0_AXI_M_CG>,
 			<&apu_mdla1 APU_MDLA1_MDLA_CG0>,
 			<&apu_mdla1 APU_MDLA1_MDLA_CG1>,
 			<&apu_mdla1 APU_MDLA1_MDLA_CG2>,
@@ -5144,6 +5146,7 @@ page_owner=on";
 			<&apu_mdla1 APU_MDLA1_MDLA_CG11>,
 			<&apu_mdla1 APU_MDLA1_MDLA_CG12>,
 			<&apu_mdla1 APU_MDLA1_APB_CG>,
+			<&apu_mdla1 APU_MDLA1_AXI_M_CG>,
 			<&apu_conn APU_CONN_AHB_CG>,
 			<&apu_conn APU_CONN_AXI_CG>,
 			<&apu_conn APU_CONN_ISP_CG>,
@@ -5218,6 +5221,7 @@ page_owner=on";
 			"clk_apu_mdla0_cg_b11",
 			"clk_apu_mdla0_cg_b12",
 			"clk_apu_mdla0_apb_cg",
+			"clk_apu_mdla0_axi_m_cg",
 			"clk_apu_mdla1_cg_b0",
 			"clk_apu_mdla1_cg_b1",
 			"clk_apu_mdla1_cg_b2",
@@ -5232,6 +5236,7 @@ page_owner=on";
 			"clk_apu_mdla1_cg_b11",
 			"clk_apu_mdla1_cg_b12",
 			"clk_apu_mdla1_apb_cg",
+			"clk_apu_mdla1_axi_m_cg",
 			"clk_apu_conn_ahb_cg",
 			"clk_apu_conn_axi_cg",
 			"clk_apu_conn_isp_cg",

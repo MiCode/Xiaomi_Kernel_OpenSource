@@ -33,6 +33,7 @@
 #include "hal_config_power.h"
 #include "apu_log.h"
 #include "apusys_power_debug.h"
+#include "apusys_power.h"
 
 
 static int apusys_debug_power_show(struct seq_file *s, void *unused)
@@ -329,6 +330,31 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 							DVFS_VOLT_00_650000_V;
 		}
 		break;
+	case POWER_PARAM_GET_POWER_REG:
+		ret = (argc == 1) ? 0 : -EINVAL;
+		if (ret) {
+			PWR_LOG_INF(
+				"invalid argument, expected:1, received:%d\n",
+									argc);
+			goto out;
+		}
+		apu_power_reg_dump();
+		break;
+	case POWER_PARAM_POWER_STRESS:
+		ret = (argc == 3) ? 0 : -EINVAL;
+		if (ret) {
+			PWR_LOG_INF(
+				"invalid argument, expected:3, received:%d\n",
+				argc);
+			goto out;
+		}
+		/*
+		 * arg0 : type
+		 * arg1 : device , 9 = all devices
+		 * arg2 : opp
+		 */
+		apu_power_power_stress(args[0], args[1], args[2]);
+		break;
 	default:
 		PWR_LOG_INF("unsupport the power parameter:%d\n", param);
 		break;
@@ -386,6 +412,10 @@ static ssize_t apusys_debug_power_write(struct file *flip,
 		param = POWER_PARAM_SET_POWER_HAL_OPP;
 	else if (strcmp(token, "power_off") == 0)
 		param = POWER_PARAM_SET_POWER_OFF;
+	else if (strcmp(token, "reg_dump") == 0)
+		param = POWER_PARAM_GET_POWER_REG;
+	else if (strcmp(token, "power_stress") == 0)
+		param = POWER_PARAM_POWER_STRESS;
 	else {
 		ret = -EINVAL;
 		PWR_LOG_INF("no power param[%s]!\n", token);
@@ -436,7 +466,7 @@ void apusys_power_debugfs_init(void)
 		return;
 	}
 
-	debugfs_create_file("power", (0444),
+	debugfs_create_file("power", (0744),
 		apusys_power_dir, NULL, &apusys_debug_power_fops);
 }
 

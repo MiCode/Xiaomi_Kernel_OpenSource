@@ -233,7 +233,7 @@ static int settle_time_check
 		settle_time = volt_diff / 10000 + 8;
 	} else if (volt_diff < 0) {
 		// Falling spec : 5mV/us + 8us
-		settle_time = volt_diff / 5000 + 8;
+		settle_time = (0 - volt_diff) / 5000 + 8;
 	} else {
 		LOG_DBG("%s buck:%d voltage no change (%d)\n",
 					__func__, buck, voltage_mV);
@@ -260,12 +260,14 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	uint16_t buck_addr = 0x0;	// Bit[31:16]
 	uint16_t volt_code = 0x0;	// Bit[15:0]
 	uint32_t pmic_cmd = 0x0;
+	uint32_t check_round = 0;
+	uint32_t formula_param = 0;
 #endif
 	int ret = 0;
 	int voltage_MAX = voltage_mV + 50000;
 	int settle_time = 0;
 
-	LOG_DBG("%s try to config buck : %d to %d(max:%d)\n", __func__,
+	LOG_WRN("%s try to config buck : %d to %d(max:%d)\n", __func__,
 						buck, voltage_mV, voltage_MAX);
 
 	if (voltage_mV <= DVFS_VOLT_NOT_SUPPORT
@@ -278,24 +280,35 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 #if SUPPORT_HW_CONTROL_PMIC
 	if (buck == VPU_BUCK) {
 		buck_addr = PMIC_RG_BUCK_VPROC1_VOSEL_ADDR;
-
+		formula_param = 400000; // 0.4 V
 	} else if (buck == MDLA_BUCK) {
 		buck_addr = PMIC_RG_BUCK_VPROC2_VOSEL_ADDR;
-
+		formula_param = 400000; // 0.4 V
 	} else if (buck == SRAM_BUCK) {
 		buck_addr = PMIC_RG_LDO_VSRAM_MD_VOSEL_ADDR;
-
+		formula_param = 500000; // 0.5 V
 	} else {
 		LOG_ERR("%s not support buck : %d\n", __func__, buck);
 		return -1;
 	}
 
-	// Vout = 0.4V + 6.25 mV*code
-	volt_code = (uint32_t)((voltage_mV - 400000) / 6250);
+	// Vout = formula_param + 6.25 mV*code
+	volt_code = (uint32_t)((voltage_mV - formula_param) / 6250);
 	pmic_cmd = (buck_addr << 16) | volt_code;
 
 	LOG_DBG("%s pmic_cmd = 0x%x\n", __func__, pmic_cmd);
 	DRV_WriteReg32(APU_PCU_PMIC_TAR_BUF, pmic_cmd);
+
+	while ((DRV_Reg32(APU_PCU_PMIC_IRQ) & 0x1) == 0) {
+		udelay(50);
+		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
+			LOG_WRN("%s wait APU_PCU_PMIC_IRQ timeout !\n",
+								__func__);
+			break;
+		}
+	}
+
+	DRV_WriteReg32(APU_PCU_PMIC_IRQ, 0x1);
 
 	LOG_DBG("%s read back from reg = 0x%x\n",
 				DRV_Reg32(APU_PCU_PMIC_CUR_BUF));
@@ -395,6 +408,6 @@ void dump_voltage(struct apu_power_info *info)
 	info->vcore = vcore / dump_div;
 	info->vsram = vsram / dump_div;
 
-	LOG_DBG("vvpu=%d, vmdla=%d, vcore=%d, vsram=%d\n",
+	LOG_WRN("vvpu=%d, vmdla=%d, vcore=%d, vsram=%d\n",
 						vvpu, vmdla, vcore, vsram);
 }

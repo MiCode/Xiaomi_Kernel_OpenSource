@@ -12,7 +12,7 @@
 #
 
 #obj-m += midware/
-obj-m += power/
+obj-y += power/
 #obj-m += sample/
 obj-m += reviser/
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += mnoc/

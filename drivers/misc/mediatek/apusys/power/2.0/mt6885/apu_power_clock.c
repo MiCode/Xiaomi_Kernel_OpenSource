@@ -64,6 +64,7 @@ static struct clk *clk_apu_mdla0_cg_b10;
 static struct clk *clk_apu_mdla0_cg_b11;
 static struct clk *clk_apu_mdla0_cg_b12;
 static struct clk *clk_apu_mdla0_apb_cg;
+static struct clk *clk_apu_mdla0_axi_m_cg;
 
 /* for mdla core 1 */
 static struct clk *clk_apu_mdla1_cg_b0;
@@ -80,6 +81,7 @@ static struct clk *clk_apu_mdla1_cg_b10;
 static struct clk *clk_apu_mdla1_cg_b11;
 static struct clk *clk_apu_mdla1_cg_b12;
 static struct clk *clk_apu_mdla1_apb_cg;
+static struct clk *clk_apu_mdla1_axi_m_cg;
 
 /* for apu conn */
 static struct clk *clk_apu_conn_ahb_cg;
@@ -138,7 +140,7 @@ static struct clk *mtcmos_scp_sys_vpu;		// mtcmos for apu conn/vcore
 
 void enable_apu_mtcmos(int enable)
 {
-	LOG_DBG("%s enable var = %d", __func__, enable);
+	LOG_DBG("%s enable var = %d\n", __func__, enable);
 
 	if (enable) {
 		ENABLE_MTCMOS(mtcmos_scp_sys_vpu);
@@ -202,6 +204,7 @@ int prepare_apu_clock(struct device *dev)
 	PREPARE_CLK(clk_apu_mdla0_cg_b11);
 	PREPARE_CLK(clk_apu_mdla0_cg_b12);
 	PREPARE_CLK(clk_apu_mdla0_apb_cg);
+	PREPARE_CLK(clk_apu_mdla0_axi_m_cg);
 
 	PREPARE_CLK(clk_apu_mdla1_cg_b0);
 	PREPARE_CLK(clk_apu_mdla1_cg_b1);
@@ -217,6 +220,7 @@ int prepare_apu_clock(struct device *dev)
 	PREPARE_CLK(clk_apu_mdla1_cg_b11);
 	PREPARE_CLK(clk_apu_mdla1_cg_b12);
 	PREPARE_CLK(clk_apu_mdla1_apb_cg);
+	PREPARE_CLK(clk_apu_mdla1_axi_m_cg);
 
 	PREPARE_CLK(clk_top_dsp_sel);
 	PREPARE_CLK(clk_top_dsp1_sel);
@@ -280,6 +284,7 @@ void unprepare_apu_clock(void)
 	UNPREPARE_CLK(clk_apu_mdla0_cg_b11);
 	UNPREPARE_CLK(clk_apu_mdla0_cg_b12);
 	UNPREPARE_CLK(clk_apu_mdla0_apb_cg);
+	UNPREPARE_CLK(clk_apu_mdla0_axi_m_cg);
 
 	UNPREPARE_CLK(clk_apu_mdla1_cg_b0);
 	UNPREPARE_CLK(clk_apu_mdla1_cg_b1);
@@ -295,6 +300,7 @@ void unprepare_apu_clock(void)
 	UNPREPARE_CLK(clk_apu_mdla1_cg_b11);
 	UNPREPARE_CLK(clk_apu_mdla1_cg_b12);
 	UNPREPARE_CLK(clk_apu_mdla1_apb_cg);
+	UNPREPARE_CLK(clk_apu_mdla1_axi_m_cg);
 
 	UNPREPARE_CLK(clk_apu_conn_ahb_cg);
 	UNPREPARE_CLK(clk_apu_conn_axi_cg);
@@ -351,12 +357,30 @@ void unprepare_apu_clock(void)
 	UNPREPARE_CLK(clk_apmixed_apupll_rate);
 }
 
-static void vcore_cg_ctl(int enable)
+void enable_apu_conn_vcore_clock(void)
 {
-	if (enable)
-		DRV_WriteReg32(APU_VCORE_CG_CLR, 0x0000000F);
-	else
-		DRV_WriteReg32(APU_VCORE_CG_SET, 0x0000000F);
+	ENABLE_CLK(clk_apusys_vcore_ahb_cg);
+	ENABLE_CLK(clk_apusys_vcore_axi_cg);
+	ENABLE_CLK(clk_apusys_vcore_adl_cg);
+	ENABLE_CLK(clk_apusys_vcore_qos_cg);
+
+	ENABLE_CLK(clk_apu_conn_ahb_cg);
+	ENABLE_CLK(clk_apu_conn_axi_cg);
+	ENABLE_CLK(clk_apu_conn_isp_cg);
+	ENABLE_CLK(clk_apu_conn_cam_adl_cg);
+	ENABLE_CLK(clk_apu_conn_img_adl_cg);
+	ENABLE_CLK(clk_apu_conn_emi_26m_cg);
+	ENABLE_CLK(clk_apu_conn_vpu_udi_cg);
+	ENABLE_CLK(clk_apu_conn_edma_0_cg);
+	ENABLE_CLK(clk_apu_conn_edma_1_cg);
+	ENABLE_CLK(clk_apu_conn_edmal_0_cg);
+	ENABLE_CLK(clk_apu_conn_edmal_1_cg);
+	ENABLE_CLK(clk_apu_conn_mnoc_cg);
+	ENABLE_CLK(clk_apu_conn_tcm_cg);
+	ENABLE_CLK(clk_apu_conn_md32_cg);
+	ENABLE_CLK(clk_apu_conn_iommu_0_cg);
+	ENABLE_CLK(clk_apu_conn_iommu_1_cg);
+	ENABLE_CLK(clk_apu_conn_md32_32k_cg);
 }
 
 //per user
@@ -380,34 +404,11 @@ void enable_apu_clock(enum DVFS_USER user)
 	case MDLA0:
 	case MDLA1:
 		ENABLE_CLK(clk_top_dsp6_sel);
-		ENABLE_CLK(clk_apmixed_apupll_rate);
+		ENABLE_CLK(clk_top_apupll_ck);
 		break;
 	}
 
-	ENABLE_CLK(clk_apusys_vcore_ahb_cg);
-	ENABLE_CLK(clk_apusys_vcore_axi_cg);
-	ENABLE_CLK(clk_apusys_vcore_adl_cg);
-	ENABLE_CLK(clk_apusys_vcore_qos_cg);
-
-	vcore_cg_ctl(1);
-
-	ENABLE_CLK(clk_apu_conn_ahb_cg);
-	ENABLE_CLK(clk_apu_conn_axi_cg);
-	ENABLE_CLK(clk_apu_conn_isp_cg);
-	ENABLE_CLK(clk_apu_conn_cam_adl_cg);
-	ENABLE_CLK(clk_apu_conn_img_adl_cg);
-	ENABLE_CLK(clk_apu_conn_emi_26m_cg);
-	ENABLE_CLK(clk_apu_conn_vpu_udi_cg);
-	ENABLE_CLK(clk_apu_conn_edma_0_cg);
-	ENABLE_CLK(clk_apu_conn_edma_1_cg);
-	ENABLE_CLK(clk_apu_conn_edmal_0_cg);
-	ENABLE_CLK(clk_apu_conn_edmal_1_cg);
-	ENABLE_CLK(clk_apu_conn_mnoc_cg);
-	ENABLE_CLK(clk_apu_conn_tcm_cg);
-	ENABLE_CLK(clk_apu_conn_md32_cg);
-	ENABLE_CLK(clk_apu_conn_iommu_0_cg);
-	ENABLE_CLK(clk_apu_conn_iommu_1_cg);
-	ENABLE_CLK(clk_apu_conn_md32_32k_cg);
+	enable_apu_conn_vcore_clock();
 
 	switch (user) {
 	default:
@@ -441,6 +442,7 @@ void enable_apu_clock(enum DVFS_USER user)
 		ENABLE_CLK(clk_apu_mdla0_cg_b11);
 		ENABLE_CLK(clk_apu_mdla0_cg_b12);
 		ENABLE_CLK(clk_apu_mdla0_apb_cg);
+		ENABLE_CLK(clk_apu_mdla0_axi_m_cg);
 		break;
 	case MDLA1:
 		ENABLE_CLK(clk_apu_mdla1_cg_b0);
@@ -457,10 +459,37 @@ void enable_apu_clock(enum DVFS_USER user)
 		ENABLE_CLK(clk_apu_mdla1_cg_b11);
 		ENABLE_CLK(clk_apu_mdla1_cg_b12);
 		ENABLE_CLK(clk_apu_mdla1_apb_cg);
+		ENABLE_CLK(clk_apu_mdla1_axi_m_cg);
 		break;
 	}
 
-	LOG_DBG("%s enable clk for DVFS_USER: %d", __func__, user);
+	LOG_DBG("%s enable clk for DVFS_USER: %d\n", __func__, user);
+}
+
+void disable_apu_conn_vcore_clock(void)
+{
+	DISABLE_CLK(clk_apu_conn_ahb_cg);
+	DISABLE_CLK(clk_apu_conn_axi_cg);
+	DISABLE_CLK(clk_apu_conn_isp_cg);
+	DISABLE_CLK(clk_apu_conn_cam_adl_cg);
+	DISABLE_CLK(clk_apu_conn_img_adl_cg);
+	DISABLE_CLK(clk_apu_conn_emi_26m_cg);
+	DISABLE_CLK(clk_apu_conn_vpu_udi_cg);
+	DISABLE_CLK(clk_apu_conn_edma_0_cg);
+	DISABLE_CLK(clk_apu_conn_edma_1_cg);
+	DISABLE_CLK(clk_apu_conn_edmal_0_cg);
+	DISABLE_CLK(clk_apu_conn_edmal_1_cg);
+	DISABLE_CLK(clk_apu_conn_mnoc_cg);
+	DISABLE_CLK(clk_apu_conn_tcm_cg);
+	DISABLE_CLK(clk_apu_conn_md32_cg);
+	DISABLE_CLK(clk_apu_conn_iommu_0_cg);
+	DISABLE_CLK(clk_apu_conn_iommu_1_cg);
+	DISABLE_CLK(clk_apu_conn_md32_32k_cg);
+
+	DISABLE_CLK(clk_apusys_vcore_ahb_cg);
+	DISABLE_CLK(clk_apusys_vcore_axi_cg);
+	DISABLE_CLK(clk_apusys_vcore_adl_cg);
+	DISABLE_CLK(clk_apusys_vcore_qos_cg);
 }
 
 //per user
@@ -498,6 +527,7 @@ void disable_apu_clock(enum DVFS_USER user)
 		DISABLE_CLK(clk_apu_mdla0_cg_b11);
 		DISABLE_CLK(clk_apu_mdla0_cg_b12);
 		DISABLE_CLK(clk_apu_mdla0_apb_cg);
+		DISABLE_CLK(clk_apu_mdla0_axi_m_cg);
 		break;
 	case MDLA1:
 		DISABLE_CLK(clk_apu_mdla1_cg_b0);
@@ -514,34 +544,11 @@ void disable_apu_clock(enum DVFS_USER user)
 		DISABLE_CLK(clk_apu_mdla1_cg_b11);
 		DISABLE_CLK(clk_apu_mdla1_cg_b12);
 		DISABLE_CLK(clk_apu_mdla1_apb_cg);
+		DISABLE_CLK(clk_apu_mdla1_axi_m_cg);
 		break;
 	}
 
-	DISABLE_CLK(clk_apu_conn_ahb_cg);
-	DISABLE_CLK(clk_apu_conn_axi_cg);
-	DISABLE_CLK(clk_apu_conn_isp_cg);
-	DISABLE_CLK(clk_apu_conn_cam_adl_cg);
-	DISABLE_CLK(clk_apu_conn_img_adl_cg);
-	DISABLE_CLK(clk_apu_conn_emi_26m_cg);
-	DISABLE_CLK(clk_apu_conn_vpu_udi_cg);
-	DISABLE_CLK(clk_apu_conn_edma_0_cg);
-	DISABLE_CLK(clk_apu_conn_edma_1_cg);
-	DISABLE_CLK(clk_apu_conn_edmal_0_cg);
-	DISABLE_CLK(clk_apu_conn_edmal_1_cg);
-	DISABLE_CLK(clk_apu_conn_mnoc_cg);
-	DISABLE_CLK(clk_apu_conn_tcm_cg);
-	DISABLE_CLK(clk_apu_conn_md32_cg);
-	DISABLE_CLK(clk_apu_conn_iommu_0_cg);
-	DISABLE_CLK(clk_apu_conn_iommu_1_cg);
-	DISABLE_CLK(clk_apu_conn_md32_32k_cg);
-
-	// TODO: check this can be removed ?
-	// vcore_cg_ctl(0);
-
-	DISABLE_CLK(clk_apusys_vcore_ahb_cg);
-	DISABLE_CLK(clk_apusys_vcore_axi_cg);
-	DISABLE_CLK(clk_apusys_vcore_adl_cg);
-	DISABLE_CLK(clk_apusys_vcore_qos_cg);
+	disable_apu_conn_vcore_clock();
 
 	DISABLE_CLK(clk_top_dsp_sel);
 	DISABLE_CLK(clk_top_ipu_if_sel);
@@ -561,11 +568,11 @@ void disable_apu_clock(enum DVFS_USER user)
 	case MDLA0:
 	case MDLA1:
 		DISABLE_CLK(clk_top_dsp6_sel);
-		DISABLE_CLK(clk_apmixed_apupll_rate);
+		DISABLE_CLK(clk_top_apupll_ck);
 		break;
 	}
 
-	LOG_DBG("%s disable clk for DVFS_USER: %d", __func__, user);
+	LOG_DBG("%s disable clk for DVFS_USER: %d\n", __func__, user);
 }
 
 static struct clk *find_clk_by_domain(enum DVFS_VOLTAGE_DOMAIN domain)
@@ -591,6 +598,7 @@ static struct clk *find_clk_by_domain(enum DVFS_VOLTAGE_DOMAIN domain)
 		return clk_top_dsp7_sel;
 
 	default:
+		LOG_ERR("%s fail to find clk !\n");
 	case V_VCORE:
 		return clk_top_ipu_if_sel;
 	}
@@ -706,19 +714,21 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	case DVFS_FREQ_NOT_SUPPORT:
 	default:
 		clk_src = clk_top_clk26m;
-		LOG_ERR("%s wrong freq : %d, force assign 26M", __func__, freq);
+		LOG_ERR("%s wrong freq : %d, force assign 26M\n",
+							__func__, freq);
 	}
 
-	LOG_DBG("%s config domain %d to opp %d", __func__, domain, freq);
+	LOG_DBG("%s config domain %d to opp %d\n", __func__, domain, freq);
 	return clk_set_parent(find_clk_by_domain(domain), clk_src);
 }
 
-int config_apupll(enum DVFS_FREQ freq)
+int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
 	int scaled_freq = freq * 1000;
 
-	LOG_DBG("%s to freq %d", __func__, scaled_freq);
-	return clk_set_rate(clk_apmixed_apupll_rate, scaled_freq);
+	clk_set_parent(find_clk_by_domain(domain), clk_top_apupll_ck);
+
+	return clk_set_rate(clk_top_apupll_ck, scaled_freq);
 }
 
 // dump related frequencies of APUsys
@@ -730,13 +740,13 @@ void dump_frequency(struct apu_power_info *info)
 	int dsp3_freq = 0;
 	int dsp6_freq = 0;
 	int dsp7_freq = 0;
+	int apupll_freq = 0;
 	int ipuif_freq = 0;
 	int dump_div = 1;
 	int temp_id = 1;
 	int temp_freq = 0;
 
 	temp_freq = mt_get_ckgen_freq(temp_id);
-
 	dsp_freq = mt_get_ckgen_freq(13);
 	if (dsp_freq == 0) {
 		temp_freq = mt_get_ckgen_freq(temp_id);
@@ -772,7 +782,14 @@ void dump_frequency(struct apu_power_info *info)
 		temp_freq = mt_get_ckgen_freq(temp_id);
 		dsp7_freq = mt_get_ckgen_freq(20);
 	}
-
+#if 0
+	temp_freq = mt_get_abist_freq(temp_id);
+	apupll_freq = mt_get_abist_freq(5);
+	if (apupll_freq == 0) {
+		temp_freq = mt_get_abist_freq(temp_id);
+		apupll_freq = mt_get_abist_freq(5);
+	}
+#endif
 	ipuif_freq = mt_get_ckgen_freq(21);
 	if (ipuif_freq == 0) {
 		temp_freq = mt_get_ckgen_freq(temp_id);
@@ -790,13 +807,15 @@ void dump_frequency(struct apu_power_info *info)
 	info->dsp3_freq = dsp3_freq / dump_div;
 	info->dsp6_freq = dsp6_freq / dump_div;
 	info->dsp7_freq = dsp7_freq / dump_div;
+	info->apupll_freq = apupll_freq / dump_div;
 	info->ipuif_freq = ipuif_freq / dump_div;
 
-	LOG_DBG("dsp_freq = %d\n", dsp_freq);
-	LOG_DBG("dsp1_freq = %d\n", dsp1_freq);
-	LOG_DBG("dsp2_freq = %d\n", dsp2_freq);
-	LOG_DBG("dsp3_freq = %d\n", dsp3_freq);
-	LOG_DBG("dsp6_freq = %d\n", dsp6_freq);
-	LOG_DBG("dsp7_freq = %d\n", dsp7_freq);
-	LOG_DBG("ipuif_freq = %d\n", ipuif_freq);
+	LOG_WRN("dsp_freq = %d\n", dsp_freq);
+	LOG_WRN("dsp1_freq = %d\n", dsp1_freq);
+	LOG_WRN("dsp2_freq = %d\n", dsp2_freq);
+	LOG_WRN("dsp3_freq = %d\n", dsp3_freq);
+	LOG_WRN("dsp6_freq = %d\n", dsp6_freq);
+	LOG_WRN("dsp7_freq = %d\n", dsp7_freq);
+	LOG_WRN("apupll_freq = %d\n", apupll_freq);
+	LOG_WRN("ipuif_freq = %d\n", ipuif_freq);
 }
