@@ -3122,12 +3122,12 @@ int iommu_perf_monitor_stop(int m4u_id)
 }
 
 #define IOMMU_REG_BACKUP_SIZE	 (100 * sizeof(unsigned int))
-static unsigned int *p_reg_backup;
-static unsigned int g_reg_backup_real_size;
+static unsigned int *p_reg_backup[MTK_IOMMU_M4U_COUNT];
+static unsigned int g_reg_backup_real_size[MTK_IOMMU_M4U_COUNT];
 
 static int mau_reg_backup(const struct mtk_iommu_data *data)
 {
-	unsigned int *p_reg = p_reg_backup;
+	unsigned int *p_reg;
 	void __iomem *base = data->base;
 	int slave;
 	int mau;
@@ -3135,6 +3135,13 @@ static int mau_reg_backup(const struct mtk_iommu_data *data)
 
 	if (!g_secure_status[data->m4uid])
 		return 0;
+
+	if (!p_reg_backup[data->m4uid]) {
+		pr_notice("%s, %d, iommu:%d no memory for backup\n",
+			  __func__, __LINE__, data->m4uid);
+		return -1;
+	}
+	p_reg = p_reg_backup[data->m4uid];
 
 	for (slave = 0; slave < MTK_MMU_NUM_OF_IOMMU(data->m4uid); slave++) {
 		for (mau = 0; mau < MTK_MAU_NUM_OF_MMU(slave); mau++) {
@@ -3160,19 +3167,19 @@ static int mau_reg_backup(const struct mtk_iommu_data *data)
 	}
 
 	/* check register size (to prevent overflow) */
-	real_size = (p_reg - p_reg_backup) * sizeof(unsigned int);
+	real_size = (p_reg - p_reg_backup[data->m4uid]) * sizeof(unsigned int);
 	if (real_size > IOMMU_REG_BACKUP_SIZE)
 		mmu_aee_print("m4u_reg overflow! %d>%d\n",
 			real_size, (int)IOMMU_REG_BACKUP_SIZE);
 
-	g_reg_backup_real_size = real_size;
+	g_reg_backup_real_size[data->m4uid] = real_size;
 
 	return 0;
 }
 
 static int mau_reg_restore(const struct mtk_iommu_data *data)
 {
-	unsigned int *p_reg = p_reg_backup;
+	unsigned int *p_reg;
 	void __iomem *base = data->base;
 	int slave;
 	int mau;
@@ -3180,6 +3187,13 @@ static int mau_reg_restore(const struct mtk_iommu_data *data)
 
 	if (!g_secure_status[data->m4uid])
 		return 0;
+
+	if (!p_reg_backup[data->m4uid]) {
+		pr_notice("%s, %d, iommu:%d no memory for restore\n",
+			  __func__, __LINE__, data->m4uid);
+		return -1;
+	}
+	p_reg = p_reg_backup[data->m4uid];
 
 	for (slave = 0; slave < MTK_MMU_NUM_OF_IOMMU(data->m4uid); slave++) {
 		for (mau = 0; mau < MTK_MAU_NUM_OF_MMU(slave); mau++) {
@@ -3205,10 +3219,11 @@ static int mau_reg_restore(const struct mtk_iommu_data *data)
 	}
 
 	/* check register size (to prevent overflow) */
-	real_size = (p_reg - p_reg_backup) * sizeof(unsigned int);
-	if (real_size != g_reg_backup_real_size)
+	real_size = (p_reg - p_reg_backup[data->m4uid]) * sizeof(unsigned int);
+	if (real_size != g_reg_backup_real_size[data->m4uid])
 		mmu_aee_print("m4u_reg_retore %d!=%d\n",
-			real_size, g_reg_backup_real_size);
+			real_size,
+			g_reg_backup_real_size[data->m4uid]);
 
 	return 0;
 }
@@ -3403,6 +3418,11 @@ static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 		dev_err(data->dev, "Failed @ IRQ-%d Request\n", data->irq);
 		return -ENODEV;
 	}
+
+	p_reg_backup[m4u_id] = kmalloc(IOMMU_REG_BACKUP_SIZE,
+		GFP_KERNEL | __GFP_ZERO);
+	if (p_reg_backup[m4u_id] == NULL)
+		return -ENOMEM;
 
 #ifdef MTK_M4U_SECURE_IRQ_SUPPORT
 	/* register secure bank irq */
