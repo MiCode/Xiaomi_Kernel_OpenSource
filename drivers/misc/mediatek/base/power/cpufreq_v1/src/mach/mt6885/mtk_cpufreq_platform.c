@@ -684,6 +684,10 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 #ifdef DFD_WORKAROUND
 void _dfd_workaround(void)
 {
+
+#ifndef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
+	return;
+#else
 	int wait_flag = 0;
 	unsigned long long curtime = 0;
 	struct mt_cpu_dvfs *p_b = id_to_cpu_dvfs(MT_CPU_DVFS_L);
@@ -714,8 +718,7 @@ void _dfd_workaround(void)
 	curtime, wait_flag,
 	l_vproc_p->buck_ops->get_cur_volt(l_vproc_p),
 	l_vsram_p->buck_ops->get_cur_volt(l_vsram_p));
-
-
+#endif
 }
 #endif
 
