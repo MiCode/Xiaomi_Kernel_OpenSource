@@ -1189,6 +1189,7 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 
 	spin_lock_irqsave(&dsp_ringbuf_lock, flags);
 	availsize = RingBuf_getFreeSpace(ringbuf);
+	spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
 
 	if (availsize >= copy_size) {
 		RingBuf_copyFromUserLinear(ringbuf, buf, copy_size);
@@ -1202,7 +1203,6 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 	ipi_audio_buf = (void *)dsp_mem->msg_atod_share_buf.va_addr;
 	memcpy((void *)ipi_audio_buf, (void *)&dsp_mem->adsp_buf,
 	       sizeof(struct audio_hw_buffer));
-	spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
 
 	Ringbuf_Check(&dsp_mem->ring_buf);
 	Ringbuf_Bridge_Check(
