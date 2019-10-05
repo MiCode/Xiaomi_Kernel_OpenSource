@@ -194,8 +194,6 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 	case 11:
 	case 14:
 	case 17:
-	case 19:
-	case 20:
 		ret = smi_unit_prepare_enable(21); // disp
 		if (ret)
 			return ret;
@@ -214,6 +212,28 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 	case 13:
 	case 16:
 	case 18:
+		ret = smi_unit_prepare_enable(22); // mdp
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(26); // mdp-subcom
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(27); // mdp-subcom1
+		if (ret)
+			return ret;
+		break;
+	case 19:
+	case 20:
+		ret = smi_unit_prepare_enable(21); // disp
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(24); // disp-subcom
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(25); // disp-subcom1
+		if (ret)
+			return ret;
+
 		ret = smi_unit_prepare_enable(22); // mdp
 		if (ret)
 			return ret;
@@ -361,8 +381,6 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 	case 11:
 	case 14:
 	case 17:
-	case 19:
-	case 20:
 		smi_unit_disable_unprepare(25); // disp-subcom1
 		smi_unit_disable_unprepare(24); // disp-subcom
 		smi_unit_disable_unprepare(21); // disp
@@ -378,6 +396,16 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 		smi_unit_disable_unprepare(27); // mdp-subcom1
 		smi_unit_disable_unprepare(26); // mdp-subcom
 		smi_unit_disable_unprepare(22); // mdp
+		break;
+	case 19:
+	case 20:
+		smi_unit_disable_unprepare(27); // mdp-subcom1
+		smi_unit_disable_unprepare(26); // mdp-subcom
+		smi_unit_disable_unprepare(22); // mdp
+
+		smi_unit_disable_unprepare(25); // disp-subcom1
+		smi_unit_disable_unprepare(24); // disp-subcom
+		smi_unit_disable_unprepare(21); // disp
 		break;
 	}
 #else // !CONFIG_MACH_MT6885
