@@ -11,9 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __H_DDP_INFO__
-#define __H_DDP_INFO__
-
+#ifndef _H_DDP_INFO
+#define _H_DDP_INFO
 #include <linux/types.h>
 #include <linux/wait.h>
 #include <disp_session.h>
@@ -23,10 +22,6 @@
 #include "ddp_ovl.h"
 #include "disp_event.h"
 
-/**
- * bit  24  23  17    16  15     10        9       8  0
- *     rsv|RGB|bpp|BLOCK|VDO|FORMAT|BYTESWAP|RGBSWAP|ID
- */
 #define _UFMT_ID_SHIFT 0
 #define _UFMT_ID_WIDTH 8
 #define _UFMT_RGBSWAP_SHIFT (_UFMT_ID_SHIFT+_UFMT_ID_WIDTH)
@@ -60,22 +55,23 @@
 	((id)			<< _UFMT_ID_SHIFT))
 
 #define UFMT_GET_RGB(fmt) \
-		_MASK_SHIFT(fmt, _UFMT_RGB_WIDTH, _UFMT_RGB_SHIFT)
+	_MASK_SHIFT(fmt, _UFMT_RGB_WIDTH, _UFMT_RGB_SHIFT)
 #define UFMT_GET_bpp(fmt) \
-		_MASK_SHIFT(fmt, _UFMT_bpp_WIDTH, _UFMT_bpp_SHIFT)
+	_MASK_SHIFT(fmt, _UFMT_bpp_WIDTH, _UFMT_bpp_SHIFT)
 #define UFMT_GET_BLOCK(fmt) \
-		_MASK_SHIFT(fmt, _UFMT_BLOCK_WIDTH, _UFMT_BLOCK_SHIT)
+	_MASK_SHIFT(fmt, _UFMT_BLOCK_WIDTH, _UFMT_BLOCK_SHIT)
 #define UFMT_GET_VDO(fmt) \
-		_MASK_SHIFT(fmt, _UFMT_VDO_WIDTH, _UFMT_VDO_SHIFT)
+	_MASK_SHIFT(fmt, _UFMT_VDO_WIDTH, _UFMT_VDO_SHIFT)
 #define UFMT_GET_FORMAT(fmt) \
-		_MASK_SHIFT(fmt, _UFMT_FORMAT_WIDTH, _UFMT_FORMAT_SHIFT)
+	_MASK_SHIFT(fmt, _UFMT_FORMAT_WIDTH, _UFMT_FORMAT_SHIFT)
 #define UFMT_GET_BYTESWAP(fmt) \
-		_MASK_SHIFT(fmt, _UFMT_BYTESWAP_WIDTH, _UFMT_BYTESWAP_SHIFT)
+	_MASK_SHIFT(fmt, _UFMT_BYTESWAP_WIDTH, _UFMT_BYTESWAP_SHIFT)
 #define UFMT_GET_RGBSWAP(fmt) \
-		_MASK_SHIFT(fmt, _UFMT_RGBSWAP_WIDTH, _UFMT_RGBSWAP_SHIFT)
+	_MASK_SHIFT(fmt, _UFMT_RGBSWAP_WIDTH, _UFMT_RGBSWAP_SHIFT)
 #define UFMT_GET_ID(fmt) \
-		_MASK_SHIFT(fmt, _UFMT_ID_WIDTH, _UFMT_ID_SHIFT)
-#define UFMT_GET_Bpp(fmt) (UFMT_GET_bpp(fmt)/8)
+	_MASK_SHIFT(fmt, _UFMT_ID_WIDTH, _UFMT_ID_SHIFT)
+#define UFMT_GET_Bpp(fmt) \
+	(UFMT_GET_bpp(fmt)/8)
 
 unsigned int ufmt_get_rgb(unsigned int fmt);
 unsigned int ufmt_get_bpp(unsigned int fmt);
@@ -137,16 +133,40 @@ enum UNIFIED_COLOR_FMT {
 	UFMT_PRGBA8888 = MAKE_UNIFIED_COLOR_FMT(1, 32, 0, 0, 3, 0, 1, 44),
 	UFMT_PBGRA8888 = MAKE_UNIFIED_COLOR_FMT(1, 32, 0, 0, 3, 0, 0, 45),
 };
-
 char *unified_color_fmt_name(enum UNIFIED_COLOR_FMT fmt);
 enum UNIFIED_COLOR_FMT display_fmt_reg_to_unified_fmt(int fmt_reg_val,
-						int byteswap, int rgbswap);
+	int byteswap, int rgbswap);
 int is_unified_color_fmt_supported(enum UNIFIED_COLOR_FMT ufmt);
 enum UNIFIED_COLOR_FMT disp_fmt_to_unified_fmt(enum DISP_FORMAT src_fmt);
 int ufmt_disable_X_channel(enum UNIFIED_COLOR_FMT src_fmt,
-			   enum UNIFIED_COLOR_FMT *dst_fmt, int *const_bld);
+	enum UNIFIED_COLOR_FMT *dst_fmt, int *const_bld);
 int ufmt_disable_P(enum UNIFIED_COLOR_FMT src_fmt,
-		   enum UNIFIED_COLOR_FMT *dst_fmt);
+	enum UNIFIED_COLOR_FMT *dst_fmt);
+
+enum SBCH_BIT {
+	UPDATE = 0,
+	TRANS_EN = 1,
+	CNST_EN = 2,
+	BCH_BIT_NUM = 3
+};
+
+struct sbch {
+	/* the number of ext layer on this phy */
+	int ext_layer_num;/*ext:-1  phy:0~3*/
+	unsigned long pre_addr;
+	unsigned int dst_x;
+	unsigned int dst_y;
+	unsigned int dst_w;
+	unsigned int dst_h;
+	unsigned int height;
+	unsigned int width;
+	int phy_layer;
+	int const_bld;
+	enum UNIFIED_COLOR_FMT fmt;
+	unsigned long long sbch_en_cnt;
+	int full_trans_en;
+	unsigned int layer_disable_by_partial_update;
+};
 
 struct disp_rect {
 	int x;
@@ -159,9 +179,11 @@ struct OVL_CONFIG_STRUCT {
 	unsigned int ovl_index;
 	unsigned int layer;
 	unsigned int layer_en;
+	unsigned int layer_disable_by_partial_update;
 	enum OVL_LAYER_SOURCE source;
 	enum UNIFIED_COLOR_FMT fmt;
 	unsigned long addr;
+	unsigned long real_addr;
 	unsigned long vaddr;
 	unsigned int src_x;
 	unsigned int src_y;
@@ -170,6 +192,10 @@ struct OVL_CONFIG_STRUCT {
 	unsigned int src_pitch;
 	unsigned int dst_x;
 	unsigned int dst_y;
+	unsigned int real_dst_x;
+	unsigned int real_dst_y;
+	unsigned int real_dst_w;
+	unsigned int real_dst_h;
 	unsigned int dst_w;
 	unsigned int dst_h;
 	unsigned int keyEn;
@@ -254,7 +280,7 @@ struct rdma_bg_ctrl_t {
 };
 
 struct RDMA_CONFIG_STRUCT {
-	unsigned int idx;	/* instance index */
+	unsigned int idx;		/* instance index */
 	enum UNIFIED_COLOR_FMT inputFormat;
 	unsigned long address;
 	unsigned int pitch;
@@ -270,13 +296,13 @@ struct RDMA_CONFIG_STRUCT {
 };
 
 struct WDMA_CONFIG_STRUCT {
-	unsigned int idx;	/* instance index */
+	unsigned int idx;		/* instance index */
 	unsigned int srcWidth;
 	unsigned int srcHeight;	/* input */
 	unsigned int clipX;
 	unsigned int clipY;
 	unsigned int clipWidth;
-	unsigned int clipHeight; /* clip */
+	unsigned int clipHeight;	/* clip */
 	enum UNIFIED_COLOR_FMT outputFormat;
 	unsigned long dstAddress;
 	unsigned int dstPitch;	/* output */
@@ -288,6 +314,7 @@ struct WDMA_CONFIG_STRUCT {
 struct golden_setting_context {
 	unsigned int fifo_mode;
 	unsigned int is_wrot_sram;
+	unsigned int is_rsz_sram;
 	unsigned int mmsys_clk;
 	unsigned int hrt_num;
 	unsigned int ext_hrt_num;
@@ -306,31 +333,32 @@ struct golden_setting_context {
 };
 
 struct disp_idlemgr_context {
-	struct task_struct *primary_display_idlemgr_task;
-	wait_queue_head_t idlemgr_wait_queue;
+	struct task_struct  *primary_display_idlemgr_task;
+	wait_queue_head_t  idlemgr_wait_queue;
 	unsigned long long idlemgr_last_kick_time;
 	unsigned int enterulps;
 	int session_mode_before_enter_idle;
 	int is_primary_idle;
 	int cur_lp_cust_mode;
-#if (CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
-	struct task_struct *external_display_idlemgr_task;
-	wait_queue_head_t ext_idlemgr_wait_queue;
+#if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
+	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
+	struct task_struct  *external_display_idlemgr_task;
+	wait_queue_head_t  ext_idlemgr_wait_queue;
 	unsigned long long ext_idlemgr_last_kick_time;
 	int is_external_idle;
 #endif
 };
 
 struct disp_ddp_path_config {
-	/* for OVL */
+	/* for ovl */
 	bool ovl_dirty;
 	bool ovl_partial_dirty;
 	bool rdma_dirty;
 	bool wdma_dirty;
 	bool dst_dirty;
-	/* each bit represents one layer */
+	/*each bit represent one layer */
 	int ovl_layer_dirty;
-	/* each bit reprsents one layer, used for OVL engines */
+	/*each bit reprsent one layer, used for ovl engines */
 	int ovl_layer_scanned;
 	int overlap_layer_num;
 	struct OVL_CONFIG_STRUCT ovl_config[TOTAL_REAL_OVL_LAYER_NUM];
@@ -350,11 +378,31 @@ struct disp_ddp_path_config {
 	bool rsz_enable;
 	int hrt_path;
 	int hrt_scale;
+	int sbch_enable;
+	int read_dum_reg[OVL_NUM];
+};
+
+struct rx_data {
+	unsigned char byte0;
+	unsigned char byte1;
+	unsigned char byte2;
+	unsigned char byte3;
+};
+
+struct ddp_lcm_read_cmd_table {
+	unsigned char cmd[3];
+	struct rx_data data[3];
+};
+
+struct ddp_lcm_write_cmd_table {
+	unsigned char cmd;
+	unsigned char count;
+	unsigned char para_list[64];
 };
 
 /* dpmgr_ioctl cmd definition */
 enum DDP_IOCTL_NAME {
-	/* DSI operation */
+/* DSI operation */
 	DDP_SWITCH_DSI_MODE = 0,
 	DDP_STOP_VIDEO_MODE = 1,
 	DDP_BACK_LIGHT = 2,
@@ -376,7 +424,6 @@ enum DDP_IOCTL_NAME {
 	DDP_DSI_MIPI_POWER_ON,
 	DDP_OVL_MVA_REPLACEMENT,
 	DDP_DSI_ENABLE_TE,
-	DDP_DBI_SW_INIT,
 };
 
 struct ddp_io_golden_setting_arg {
@@ -399,7 +446,7 @@ struct DDP_MODULE_DRIVER {
 	int (*init)(enum DISP_MODULE_ENUM module, void *handle);
 	int (*deinit)(enum DISP_MODULE_ENUM module, void *handle);
 	int (*config)(enum DISP_MODULE_ENUM module,
-		      struct disp_ddp_path_config *config, void *handle);
+		struct disp_ddp_path_config *config, void *handle);
 	int (*start)(enum DISP_MODULE_ENUM module, void *handle);
 	int (*trigger)(enum DISP_MODULE_ENUM module, void *handle);
 	int (*stop)(enum DISP_MODULE_ENUM module, void *handle);
@@ -413,20 +460,20 @@ struct DDP_MODULE_DRIVER {
 	int (*dump_info)(enum DISP_MODULE_ENUM module, int level);
 	int (*bypass)(enum DISP_MODULE_ENUM module, int bypass);
 	int (*build_cmdq)(enum DISP_MODULE_ENUM module, void *cmdq_handle,
-			  enum CMDQ_STATE state);
+		enum CMDQ_STATE state);
 	int (*set_lcm_utils)(enum DISP_MODULE_ENUM module,
-			     struct LCM_DRIVER *lcm_drv);
+		struct LCM_DRIVER *lcm_drv);
 	int (*set_listener)(enum DISP_MODULE_ENUM module,
-			    ddp_module_notify notify);
+		ddp_module_notify notify);
 	int (*cmd)(enum DISP_MODULE_ENUM module, unsigned int msg,
 			unsigned long arg, void *handle);
 	int (*ioctl)(enum DISP_MODULE_ENUM module, void *handle,
-		     enum DDP_IOCTL_NAME ioctl_cmd, void *params);
+		enum DDP_IOCTL_NAME ioctl_cmd, void *params);
 	int (*enable_irq)(enum DISP_MODULE_ENUM module, void *handle,
-			  enum DDP_IRQ_LEVEL irq_level);
+		enum DDP_IRQ_LEVEL irq_level);
 	int (*connect)(enum DISP_MODULE_ENUM module,
-		       enum DISP_MODULE_ENUM prev, enum DISP_MODULE_ENUM next,
-		       int connect, void *handle);
+		enum DISP_MODULE_ENUM prev, enum DISP_MODULE_ENUM next,
+		int connect, void *handle);
 	int (*switch_to_nonsec)(enum DISP_MODULE_ENUM module, void *handle);
 };
 
@@ -435,12 +482,8 @@ struct DDP_MODULE_DRIVER {
 extern struct DDP_MODULE_DRIVER ddp_driver_dsi0;
 extern struct DDP_MODULE_DRIVER ddp_driver_dsi1;
 extern struct DDP_MODULE_DRIVER ddp_driver_dsidual;
-
 /* dpi */
 extern struct DDP_MODULE_DRIVER ddp_driver_dpi;
-
-/* dbi  */
-extern struct DDP_MODULE_DRIVER ddp_driver_dbi;
 
 /* ovl */
 extern struct DDP_MODULE_DRIVER ddp_driver_ovl;
@@ -460,7 +503,10 @@ extern struct DDP_MODULE_DRIVER ddp_driver_dither;
 extern struct DDP_MODULE_DRIVER ddp_driver_ccorr;
 /* split */
 extern struct DDP_MODULE_DRIVER ddp_driver_split;
+/* rsz */
 extern struct DDP_MODULE_DRIVER ddp_driver_rsz;
+/* postmask */
+extern struct DDP_MODULE_DRIVER ddp_driver_postmask;
 
 /* pwm */
 extern struct DDP_MODULE_DRIVER ddp_driver_pwm;
@@ -481,7 +527,7 @@ struct ddp_module {
 	enum DISP_MODULE_ENUM module_id;
 	enum DISP_MODULE_TYPE_ENUM module_type;
 	const char *module_name;
-	unsigned int can_connect; /* module can be connected if 1 */
+	unsigned int can_connect; /* module can be connect if 1 */
 	struct DDP_MODULE_DRIVER *module_driver;
 
 	/* hw info */
@@ -492,7 +538,9 @@ unsigned int is_ddp_module(enum DISP_MODULE_ENUM module);
 unsigned int is_ddp_module_has_reg_info(enum DISP_MODULE_ENUM module);
 const char *ddp_get_module_name(enum DISP_MODULE_ENUM module);
 unsigned int _can_connect(enum DISP_MODULE_ENUM module);
-struct DDP_MODULE_DRIVER *ddp_get_module_driver(enum DISP_MODULE_ENUM module);
+struct DDP_MODULE_DRIVER  *ddp_get_module_driver(enum DISP_MODULE_ENUM module);
+void ddp_set_module_driver(enum DISP_MODULE_ENUM module,
+	struct DDP_MODULE_DRIVER *drv);
 const char *ddp_get_module_dtname(enum DISP_MODULE_ENUM module);
 unsigned int ddp_get_module_checkirq(enum DISP_MODULE_ENUM module);
 unsigned long ddp_get_module_pa(enum DISP_MODULE_ENUM module);
@@ -505,12 +553,11 @@ unsigned long ddp_get_module_va(enum DISP_MODULE_ENUM module);
 unsigned int ddp_get_module_irq(enum DISP_MODULE_ENUM module);
 unsigned int is_reg_addr_valid(unsigned int isVa, unsigned long addr);
 unsigned int ddp_get_module_num_by_t(enum DISP_MODULE_TYPE_ENUM module_t);
-
-enum DISP_MODULE_ENUM
-ddp_get_module_id_by_idx(enum DISP_MODULE_TYPE_ENUM module_t, unsigned int idx);
-
+enum DISP_MODULE_ENUM ddp_get_module_id_by_idx(
+	enum DISP_MODULE_TYPE_ENUM module_t, unsigned int idx);
 enum DISP_MODULE_ENUM disp_irq_to_module(unsigned int irq);
 const char *ddp_get_ioctl_name(enum DDP_IOCTL_NAME ioctl);
+extern int disp_late_bias_enable(void);
 extern int display_bias_enable(void);
 extern int display_bias_regulator_init(void);
 

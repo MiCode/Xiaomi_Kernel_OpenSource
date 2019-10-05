@@ -14,6 +14,8 @@
 #ifndef __DSI_DRV_H__
 #define __DSI_DRV_H__
 
+
+
 #include "lcm_drv.h"
 #include "ddp_hal.h"
 #include "fbconfig_kdebug.h"
@@ -22,17 +24,17 @@
 extern "C" {
 #endif
 
-#define UINT8	unsigned char
-#define UINT16	unsigned short
-#define UINT32	unsigned int
+#define UINT8 unsigned char
+#define UINT16 unsigned short
+#define UINT32 unsigned int
 #define INT32	int
 
 /* ------------------------------------------------------------------------- */
 
-#define DSI_CHECK_RET(expr)			\
-	do {					\
-		enum DSI_STATUS ret = (expr);	\
-		ASSERT(ret == DSI_STATUS_OK);	\
+#define DSI_CHECK_RET(expr)             \
+	do {                                \
+		enum DSI_STATUS ret = (expr);        \
+		ASSERT(ret == DSI_STATUS_OK);   \
 	} while (0)
 
 /* ------------------------------------------------------------------------- */
@@ -101,6 +103,7 @@ enum DSI_CMDQ_RPT {
 	ENABLE_RPT = 1,
 };
 
+
 struct DSI_CMDQ_CONFG {
 	unsigned type:2;
 	unsigned BTA:1;
@@ -110,6 +113,7 @@ struct DSI_CMDQ_CONFG {
 	unsigned Rsv:1;
 	unsigned RPT:1;
 };
+
 
 struct DSI_T0_INS {
 	unsigned CONFG:8;
@@ -171,32 +175,33 @@ enum DSI_PORCH_TYPE {
 extern const struct LCM_UTIL_FUNCS PM_lcm_utils_dsi0;
 /* defined in mtkfb.c */
 extern bool is_ipoh_bootup;
+extern char mtkfb_lcm_name[];
+
 
 int DSI_enable_checksum(enum DISP_MODULE_ENUM module,
-			struct cmdqRecStruct *cmdq);
+	struct cmdqRecStruct *cmdq);
 void DSI_ChangeClk(enum DISP_MODULE_ENUM module, UINT32 clk);
 INT32 DSI_ssc_enable(UINT32 dsi_idx, UINT32 en);
 UINT32 PanelMaster_get_CC(UINT32 dsi_idx);
 void PanelMaster_set_CC(UINT32 dsi_index, UINT32 enable);
 UINT32 PanelMaster_get_dsi_timing(UINT32 dsi_index,
-				  enum MIPI_SETTING_TYPE type);
+	enum MIPI_SETTING_TYPE type);
 UINT32 PanelMaster_get_TE_status(UINT32 dsi_idx);
 void PanelMaster_DSI_set_timing(UINT32 dsi_index, struct MIPI_TIMING timing);
 unsigned int PanelMaster_set_PM_enable(unsigned int value);
 unsigned int PanelMaster_is_enable(void);
 
 UINT32 DSI_dcs_read_lcm_reg_v2(enum DISP_MODULE_ENUM module,
-			       struct cmdqRecStruct *cmdq, UINT8 cmd,
-			       UINT8 *buffer, UINT8 buffer_size);
+	struct cmdqRecStruct *cmdq, UINT8 cmd, UINT8 *buffer,
+	UINT8 buffer_size);
 void *get_dsi_params_handle(UINT32 dsi_idx);
 void dsi_analysis(enum DISP_MODULE_ENUM module);
 void DSI_LFR_UPDATE(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq);
 void DSI_Set_LFR(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
-		 unsigned int mode, unsigned int type, unsigned int enable,
-		 unsigned int skip_num);
+	unsigned int mode, unsigned int type, unsigned int enable,
+	unsigned int skip_num);
 enum DSI_STATUS DSI_BIST_Pattern_Test(enum DISP_MODULE_ENUM module,
-				      struct cmdqRecStruct *cmdq, bool enable,
-				      unsigned int color);
+	struct cmdqRecStruct *cmdq,	bool enable, unsigned int color);
 int ddp_dsi_start(enum DISP_MODULE_ENUM module, void *cmdq);
 enum DSI_STATUS DSI_DumpRegisters(enum DISP_MODULE_ENUM module, int level);
 void DSI_ForceConfig(int forceconfig);
@@ -204,18 +209,26 @@ int DSI_set_roi(int x, int y);
 int DSI_check_roi(void);
 int ddp_dsi_trigger(enum DISP_MODULE_ENUM module, void *cmdq);
 void DSI_set_cmdq_V2(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
-		     unsigned int cmd, unsigned char count,
-		     unsigned char *para_list, unsigned char force_update);
+	unsigned int cmd, unsigned char count, unsigned char *para_list,
+	unsigned char force_update);
 
 int dsi_enable_irq(enum DISP_MODULE_ENUM module, void *handle,
-		   unsigned int enable);
+	unsigned int enable);
 int ddp_dsi_power_on(enum DISP_MODULE_ENUM module, void *cmdq_handle);
 int dsi_basic_irq_enable(enum DISP_MODULE_ENUM module, void *cmdq);
 extern int mipi_clk_change(int msg, int en);
+extern int mipi_clk_change_by_data_rate(int en, int mipi_data_rate);
 unsigned int _is_power_on_status(enum DISP_MODULE_ENUM module);
+int ddp_dsi_read_lcm_cmdq(enum DISP_MODULE_ENUM module,
+		cmdqBackupSlotHandle *read_Slot,
+		struct cmdqRecStruct *cmdq_trigger_handle,
+		struct ddp_lcm_read_cmd_table *read_table);
+int ddp_dsi_write_lcm_cmdq(enum DISP_MODULE_ENUM module,
+		struct cmdqRecStruct *cmdq,
+		unsigned char cmd, unsigned char count,
+		unsigned char *para_list);
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __DSI_DRV_H__ */
+#endif				/* __DPI_DRV_H__ */

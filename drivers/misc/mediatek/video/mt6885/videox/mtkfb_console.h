@@ -14,6 +14,7 @@
 #ifndef __MTK_FB_CONSOLE_H__
 #define __MTK_FB_CONSOLE_H__
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -23,10 +24,10 @@ extern "C" {
 #define INT32 int
 #define BYTE unsigned char
 
-#define MFC_CHECK_RET(expr)			\
-do {						\
-	enum MFC_STATUS ret = (expr);		\
-	ASSERT(!(ret == MFC_STATUS_OK));	\
+#define MFC_CHECK_RET(expr)             \
+do {                                \
+	enum MFC_STATUS ret = (expr);        \
+	ASSERT(!(ret == MFC_STATUS_OK));   \
 } while (0)
 
 enum MFC_STATUS {
@@ -40,6 +41,8 @@ enum MFC_STATUS {
 };
 
 #define MFC_HANDLE void *
+
+/* ----------------------------------------------------------------W--------- */
 
 struct MFC_CONTEXT {
 	struct semaphore sem;
@@ -57,47 +60,47 @@ struct MFC_CONTEXT {
 	UINT32 cursor_col;
 	UINT32 font_width;
 	UINT32 font_height;
-	UINT32 scale;
 	UINT32 font_scale;
 };
 
 /* MTK Framebuffer Console API */
-enum MFC_STATUS MFC_Open(MFC_HANDLE *handle, void *fb_addr,
-			 unsigned int fb_width, unsigned int fb_height,
-			 unsigned int fb_bpp, unsigned int fg_color,
-			 unsigned int bg_color);
+enum MFC_STATUS MFC_Open(MFC_HANDLE *handle,
+	void *fb_addr,
+	unsigned int fb_width,
+	unsigned int fb_height,
+	unsigned int fb_bpp, unsigned int fg_color, unsigned int bg_color);
 
-enum MFC_STATUS MFC_Open_Ex(MFC_HANDLE *handle, void *fb_addr,
-			    unsigned int fb_width, unsigned int fb_height,
-			    unsigned int fb_pitch, unsigned int fb_bpp,
-			    unsigned int fg_color, unsigned int bg_color);
+enum MFC_STATUS MFC_Open_Ex(MFC_HANDLE *handle,
+	void *fb_addr,
+	unsigned int fb_width,
+	unsigned int fb_height,
+	unsigned int fb_pitch,
+	unsigned int fb_bpp, unsigned int fg_color, unsigned int bg_color);
+
 
 enum MFC_STATUS MFC_Close(MFC_HANDLE handle);
+
 enum MFC_STATUS MFC_SetScale(MFC_HANDLE handle, unsigned int scale);
 
 enum MFC_STATUS MFC_SetColor(MFC_HANDLE handle, unsigned int fg_color,
-			     unsigned int bg_color);
+	unsigned int bg_color);
 
 enum MFC_STATUS MFC_ResetCursor(MFC_HANDLE handle);
-
-enum MFC_STATUS MFC_SetCursor(MFC_HANDLE handle, unsigned int x,
-			     unsigned int y);
-
+enum MFC_STATUS MFC_SetCursor(MFC_HANDLE handle,
+	unsigned int x, unsigned int y);
 enum MFC_STATUS MFC_Print(MFC_HANDLE handle, const char *str);
 
 enum MFC_STATUS MFC_LowMemory_Printf(MFC_HANDLE handle, const char *str,
-				     UINT32 fg_color, UINT32 bg_color);
+	UINT32 fg_color, UINT32 bg_color);
 
 enum MFC_STATUS MFC_SetMem(MFC_HANDLE handle, const char *str, UINT32 color);
 UINT32 MFC_Get_Cursor_Offset(MFC_HANDLE handle);
 
-
-/* -------- screen logger -------- */
+/* screen logger */
 struct screen_logger {
 	struct list_head list;
 	char *obj;
 	char *message;
-	struct mutex lock;
 };
 
 enum message_mode {
@@ -107,14 +110,12 @@ enum message_mode {
 
 void screen_logger_init(void);
 void screen_logger_add_message(char *obj, enum message_mode mode,
-			       char *message);
+	char *message);
 void screen_logger_remove_message(char *obj);
 void screen_logger_print(MFC_HANDLE handle);
 void screen_logger_empty(void);
 void screen_logger_test_case(MFC_HANDLE handle);
-
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __MTK_FB_CONSOLE_H__ */
+#endif				/* __MTK_FB_CONSOLE_H__ */

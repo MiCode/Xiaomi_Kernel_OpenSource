@@ -42,7 +42,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/compat.h>
 #ifdef CONFIG_MTK_AEE_FEATURE
-#  include "mt-plat/aee.h"
+#include "mt-plat/aee.h"
 #endif
 #include "mt-plat/mtk_boot.h"
 #include "debug.h"
@@ -69,17 +69,15 @@
 #include "ddp_log.h"
 #include "ddp_m4u.h"
 #include "extd_multi_control.h"
-#if (CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
+#if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
+	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
 #include "external_display.h"
 #endif
-#ifndef _UAPI__ASMARM_SETUP_H
-#define _UAPI__ASMARM_SETUP_H
-#endif
-#ifndef __ASMARM_SETUP_H
-#define __ASMARM_SETUP_H
-#endif
+
 #include <mt-plat/mtk_ccci_common.h>
 #include "ddp_dsi.h"
+
+#include "smi_public.h"
 
 /* static variable */
 static u32 MTK_FB_XRES;
@@ -105,52 +103,50 @@ static struct disp_session_input_config session_input;
 #define MTK_FB_BYPP  ((MTK_FB_BPP + 7) >> 3)
 #define MTK_FB_LINE  (ALIGN_TO(MTK_FB_XRES, MTK_FB_ALIGNMENT) * MTK_FB_BYPP)
 #define MTK_FB_SIZE  (MTK_FB_LINE * ALIGN_TO(MTK_FB_YRES, MTK_FB_ALIGNMENT))
-#define MTK_FB_SIZEV (MTK_FB_LINE * ALIGN_TO(MTK_FB_YRES, MTK_FB_ALIGNMENT) * \
-		      MTK_FB_PAGES)
-#define ASSERT_LAYER (DDP_OVL_LAYER_MUN-1)
+#define MTK_FB_SIZEV (MTK_FB_LINE * ALIGN_TO(MTK_FB_YRES, MTK_FB_ALIGNMENT) \
+	* MTK_FB_PAGES)
+#define ASSERT_LAYER    (DDP_OVL_LAYER_MUN-1)
 #define DISP_DEFAULT_UI_LAYER_ID (DDP_OVL_LAYER_MUN-1)
 #define DISP_CHANGED_UI_LAYER_ID (DDP_OVL_LAYER_MUN-2)
-#define NOT_REFERENCED(x)	{ (x) = (x); }
-
+#define NOT_REFERENCED(x)   { (x) = (x); }
 #ifdef CONFIG_MTK_AEE_FEATURE
-#  define CHECK_RET(expr)					\
-do {								\
-	int ret = (expr);					\
-	aee_kernel_exception("mtkfb", "[DISP]error:%s,%d",	\
-			     __FILE__, __LINE__);		\
+#define CHECK_RET(expr)    \
+do {                   \
+	int ret = (expr);  \
+	aee_kernel_exception("mtkfb", "[DISP]error:%s,%d", \
+	 __FILE__, __LINE__);  \
 } while (0)
 #else
-#  define CHECK_RET(expr)
+#define CHECK_RET(expr)
 #endif
-
-#define MTKFB_LOG(fmt, arg...)					\
-	do {							\
-		if (mtkfb_log_on)				\
+#define MTKFB_LOG(fmt, arg...) \
+	do { \
+		if (mtkfb_log_on) \
 			DISP_LOG_PRINT(ANDROID_LOG_WARN, "MTKFB", fmt, ##arg); \
 	} while (0)
 /* always show this debug info while the global debug log is off */
-#define MTKFB_LOG_DBG(fmt, arg...)				\
-	do {							\
-		if (!mtkfb_log_on)				\
+#define MTKFB_LOG_DBG(fmt, arg...) \
+	do { \
+		if (!mtkfb_log_on) \
 			DISP_LOG_PRINT(ANDROID_LOG_WARN, "MTKFB", fmt, ##arg); \
 	} while (0)
 
-#define MTKFB_FUNC()						\
-	do {							\
-		if (mtkfb_log_on)				\
+#define MTKFB_FUNC()	\
+	do { \
+		if (mtkfb_log_on) \
 			DISP_LOG_PRINT(ANDROID_LOG_INFO, "MTKFB", \
-				       "[Func]%s\n", __func__);	\
+				"[Func]%s\n", __func__); \
 	} while (0)
 
-#define PRNERR(fmt, args...)					\
-		DISP_LOG_PRINT(ANDROID_LOG_INFO, "MTKFB", fmt, ## args)
+#define PRNERR(fmt, args...) \
+	DISP_LOG_PRINT(ANDROID_LOG_INFO, "MTKFB", fmt, ## args)
 
-/* ------------------------------------------------------------ */
+/* ------------------------------------------------------------------------- */
 /* local variables */
-/* ------------------------------------------------------------ */
+/* ------------------------------------------------------------------------- */
 struct notifier_block pm_nb;
 unsigned int EnableVSyncLog;
-unsigned long fb_mva;
+unsigned long fb_pa;
 atomic_t has_pending_update = ATOMIC_INIT(0);
 struct fb_overlay_layer video_layerInfo;
 UINT32 dbr_backup;
@@ -185,9 +181,9 @@ DEFINE_SEMAPHORE(sem_flipping);
 DEFINE_SEMAPHORE(sem_early_suspend);
 DEFINE_SEMAPHORE(sem_overlay_buffer);
 
-/* ----------------------------------------------------------- */
+/* ------------------------------------------------------------------------- */
 /* local function declarations */
-/* ----------------------------------------------------------- */
+/* ------------------------------------------------------------------------- */
 static int mtkfb_set_par(struct fb_info *fbi);
 static int init_framebuffer(struct fb_info *info);
 static int mtkfb_get_overlay_layer_info(
@@ -196,8 +192,11 @@ static int mtkfb_get_overlay_layer_info(
 #ifdef CONFIG_OF
 static int _parse_tag_videolfb(void);
 #endif
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void mtkfb_late_resume(void);
 static void mtkfb_early_suspend(void);
+#endif
+
 
 void mtkfb_log_enable(int enable)
 {
@@ -206,9 +205,9 @@ void mtkfb_log_enable(int enable)
 }
 
 /*
- * ----------------------------------------------------------
+ * ---------------------------------------------------------------------------
  * fbdev framework callbacks and the ioctl interface
- * ----------------------------------------------------------
+ * ---------------------------------------------------------------------------
  */
 /* Called each time the mtkfb device is opened */
 static int mtkfb_open(struct fb_info *info, int user)
@@ -225,6 +224,7 @@ static int mtkfb_open(struct fb_info *info, int user)
 /* gfx DMA operations are ended, before we return. */
 static int mtkfb_release(struct fb_info *info, int user)
 {
+
 	NOT_REFERENCED(info);
 	NOT_REFERENCED(user);
 	DISPFUNC();
@@ -234,16 +234,16 @@ static int mtkfb_release(struct fb_info *info, int user)
 	return 0;
 }
 
-/**
- * Store a single color palette entry into a pseudo palette or the hardware
+/* Store a single color palette entry into a pseudo palette or the hardware
  * palette if one is available. For now we support only 16bpp and thus store
  * the entry only to the pseudo palette.
  */
-static int mtkfb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
-			   u_int transp, struct fb_info *info)
+static int mtkfb_setcolreg(u_int regno, u_int red, u_int green,
+	u_int blue, u_int transp, struct fb_info *info)
 {
-	int ret = 0;
-	unsigned int bpp, m;
+	int r = 0;
+	unsigned int bpp;
+	unsigned long long m;
 
 	NOT_REFERENCED(transp);
 
@@ -252,7 +252,7 @@ static int mtkfb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
 	bpp = info->var.bits_per_pixel;
 	m = 1 << bpp;
 	if (regno >= m) {
-		ret = -EINVAL;
+		r = -EINVAL;
 		goto exit;
 	}
 
@@ -274,26 +274,26 @@ static int mtkfb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
 		/* TODO: RGB888, BGR888, ABGR8888 */
 
 	default:
-		DDPPR_ERR("set color info fail,bpp=%d\n", bpp);
+		DISPERR("set color info fail,bpp=%d\n", bpp);
 		ASSERT(0);
-		ret = -EINVAL;
+		r = -EINVAL;
 	}
 
 exit:
 	MSG_FUNC_LEAVE();
-	return ret;
+	return r;
 }
 
+#if defined(CONFIG_PM_AUTOSLEEP)
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
 static int mtkfb1_blank(int blank_mode, struct fb_info *info)
 {
-	pr_debug("%s blank mode :%d\n", __func__, blank_mode);
+	pr_debug("mtkfb1_blank blank mode :%d\n", blank_mode);
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 	case FB_BLANK_NORMAL:
-		/*
-		 * parameter 0 is to all external display should be resumed,
+		/* parameter 0 is to all external display should be resumed,
 		 * 0x20003 is dual lcm session
 		 */
 		external_display_resume(0x20003);
@@ -302,8 +302,7 @@ static int mtkfb1_blank(int blank_mode, struct fb_info *info)
 	case FB_BLANK_HSYNC_SUSPEND:
 		break;
 	case FB_BLANK_POWERDOWN:
-		/*
-		 * parameter 0 is to all external display should be suspend,
+		/* parameter 0 is to all external display should be suspend,
 		 * 0x20003 is dual lcm session
 		 */
 		external_display_suspend(0x20003);
@@ -326,7 +325,7 @@ static int mtkfb_blank(int blank_mode, struct fb_info *info)
 		DISPDBG("%s mtkfb_late_resume\n", __func__);
 		if (bypass_blank) {
 			DISPWARN("FB_BLANK_UNBLANK bypass_blank %d\n",
-				 bypass_blank);
+				bypass_blank);
 			break;
 		}
 
@@ -342,7 +341,7 @@ static int mtkfb_blank(int blank_mode, struct fb_info *info)
 		DISPDBG("%s mtkfb_early_suspend\n", __func__);
 		if (bypass_blank) {
 			DISPWARN("FB_BLANK_POWERDOWN bypass_blank %d\n",
-				 bypass_blank);
+				bypass_blank);
 			break;
 		}
 
@@ -358,14 +357,15 @@ static int mtkfb_blank(int blank_mode, struct fb_info *info)
 
 	return 0;
 }
+#endif
 
 int mtkfb_set_backlight_level(unsigned int level)
 {
 	MTKFB_FUNC();
-	DISPDBG("%s:%d Start\n",
-		__func__, level);
+	DISPDBG("mtkfb_set_backlight_level:%d Start\n",
+		level);
 	primary_display_setbacklight(level);
-	DISPDBG("%s End\n", __func__);
+	DISPDBG("mtkfb_set_backlight_level End\n");
 	return 0;
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
@@ -387,12 +387,14 @@ int mtkfb_set_backlight_mode(unsigned int mode)
 {
 	MTKFB_FUNC();
 	if (down_interruptible(&sem_flipping)) {
-		DDPPR_ERR("[FB Driver] can't get semaphore:%d\n", __LINE__);
+		DISPERR("[FB Driver] can't get semaphore:%d\n",
+			__LINE__);
 		return -ERESTARTSYS;
 	}
 	sem_flipping_cnt--;
 	if (down_interruptible(&sem_early_suspend)) {
-		DDPPR_ERR("[FB Driver] can't get semaphore:%d\n", __LINE__);
+		DISPERR("[FB Driver] can't get semaphore:%d\n",
+			__LINE__);
 		sem_flipping_cnt++;
 		up(&sem_flipping);
 		return -ERESTARTSYS;
@@ -400,10 +402,10 @@ int mtkfb_set_backlight_mode(unsigned int mode)
 
 	sem_early_suspend_cnt--;
 	if (primary_display_is_sleepd())
-		goto end;
+		goto End;
 
 	/* DISP_SetBacklight_mode(mode); */
-end:
+End:
 	sem_flipping_cnt++;
 	sem_early_suspend_cnt++;
 	up(&sem_early_suspend);
@@ -416,22 +418,23 @@ int mtkfb_set_backlight_pwm(int div)
 {
 	MTKFB_FUNC();
 	if (down_interruptible(&sem_flipping)) {
-		DDPPR_ERR("[FB Driver] can't get semaphore:%d\n", __LINE__);
+		DISPERR("[FB Driver] can't get semaphore:%d\n",
+			__LINE__);
 		return -ERESTARTSYS;
 	}
 	sem_flipping_cnt--;
 	if (down_interruptible(&sem_early_suspend)) {
-		DDPPR_ERR("[FB Driver] can't get semaphore:%d\n", __LINE__);
+		DISPERR("[FB Driver] can't get semaphore:%d\n",
+			__LINE__);
 		sem_flipping_cnt++;
 		up(&sem_flipping);
 		return -ERESTARTSYS;
 	}
 	sem_early_suspend_cnt--;
 	if (primary_display_is_sleepd())
-		goto end;
+		goto End;
 	/* DISP_SetPWM(div); */
-
-end:
+End:
 	sem_flipping_cnt++;
 	sem_early_suspend_cnt++;
 	up(&sem_early_suspend);
@@ -466,7 +469,7 @@ void mtkfb_waitVsync(void)
 EXPORT_SYMBOL(mtkfb_waitVsync);
 
 static int _convert_fb_layer_to_disp_input(struct fb_overlay_layer *src,
-					   struct disp_input_config *dst)
+	struct disp_input_config *dst)
 {
 
 	dst->layer_id = src->layer_id;
@@ -501,6 +504,10 @@ static int _convert_fb_layer_to_disp_input(struct fb_overlay_layer *src,
 		dst->src_fmt = DISP_FORMAT_ABGR8888;
 		break;
 
+	case MTK_FB_FORMAT_BGRA8888:
+		dst->src_fmt = DISP_FORMAT_BGRA8888;
+		break;
+
 	case MTK_FB_FORMAT_XRGB8888:
 		dst->src_fmt = DISP_FORMAT_XRGB8888;
 		break;
@@ -514,14 +521,16 @@ static int _convert_fb_layer_to_disp_input(struct fb_overlay_layer *src,
 		break;
 
 	default:
-		DDPPR_ERR("Invalid color format: 0x%x\n", src->src_fmt);
+		DISPWARN("Invalid color format: 0x%x\n",
+			src->src_fmt);
 		return -1;
 	}
 
 	dst->src_base_addr = src->src_base_addr;
 	dst->security = src->security;
 	dst->src_phy_addr = src->src_phy_addr;
-	DISPDBG("%s, dst->addr=0x%p\n",	__func__, dst->src_phy_addr);
+	DISPDBG("%s:dst->addr=0x%p\n", __func__,
+		dst->src_phy_addr);
 
 	dst->isTdshp = src->isTdshp;
 	dst->next_buff_idx = src->next_buff_idx;
@@ -561,22 +570,24 @@ static int _convert_fb_layer_to_disp_input(struct fb_overlay_layer *src,
 	dst->layer_enable = src->layer_enable;
 	dst->ext_sel_layer = -1;
 #if 1
-	DISPDBG("%s:id=%u,en=%u,next_idx=%u,vaddr=%p,pa=%p,srcfmt=%u,dstfmt=%u,pitch=%u\n",
-		__func__, dst->layer_id, dst->layer_enable, dst->next_buff_idx,
-		dst->src_base_addr, dst->src_phy_addr,
-		src->src_fmt, dst->src_fmt, dst->src_pitch);
-	DISPDBG("%s:src(%u,%u,%ux%u),target(%u,%u,%ux%u),aen=%u\n",
-		__func__, dst->src_offset_x, dst->src_offset_y,
-		dst->src_width, dst->src_height,
-		dst->tgt_offset_x, dst->tgt_offset_y,
-		dst->tgt_width, dst->tgt_height, dst->alpha_enable);
+	DISPDBG(
+	"%s:id=%u,en=%u,next_idx=%u,vaddr=%p,pa=%p,srcfmt=%u,dstfmt=%u,pitch=%u,x=%u,y=%u,w=%u,h=%u\n",
+	     __func__, dst->layer_id, dst->layer_enable,
+	     dst->next_buff_idx, dst->src_base_addr,
+	     dst->src_phy_addr, src->src_fmt, dst->src_fmt,
+	     dst->src_pitch, dst->src_offset_x,
+	     dst->src_offset_y, dst->src_width, dst->src_height);
+	DISPDBG(
+		"%s:target xoff=%u, target yoff=%u, target w=%u, target h=%u, aen=%u\n",
+	     __func__, dst->tgt_offset_x, dst->tgt_offset_y,
+	     dst->tgt_width, dst->tgt_height, dst->alpha_enable);
 #endif
 
 	return 0;
 }
 
 static int mtkfb_pan_display_impl(struct fb_var_screeninfo *var,
-				  struct fb_info *info)
+	struct fb_info *info)
 {
 	UINT32 offset = 0;
 	UINT32 paStart = 0;
@@ -591,7 +602,8 @@ static int mtkfb_pan_display_impl(struct fb_var_screeninfo *var,
 	/* DISPFUNC(); */
 
 	if (no_update) {
-		DISPMSG("the first time of %s will be ignored\n", __func__);
+		DISPMSG(
+			"the first time of%s will be ignored\n", __func__);
 		return ret;
 	}
 
@@ -601,17 +613,19 @@ static int mtkfb_pan_display_impl(struct fb_var_screeninfo *var,
 
 	info->var.yoffset = var->yoffset;
 	offset = var->yoffset * info->fix.line_length;
-	paStart = fb_mva + offset;
+	paStart = fb_pa + offset;
 	vaStart = info->screen_base + offset;
 	vaEnd = vaStart + info->var.yres * info->fix.line_length;
 
 	DISPCHECK("fb dump: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
-		  *(unsigned int *)vaStart, *(unsigned int *)(vaStart+4),
-		  *(unsigned int *)(vaStart+8), *(unsigned int *)(vaStart+0xC));
+				*(unsigned int *)vaStart,
+				*(unsigned int *)(vaStart+4),
+				*(unsigned int *)(vaStart+8),
+				*(unsigned int *)(vaStart+0xC));
 
 	session_input = kzalloc(sizeof(*session_input), GFP_KERNEL);
 	if (!session_input) {
-		DDPPR_ERR("session input allocate fail\n");
+		DISPERR("session input allocat fail\n");
 		ASSERT(0);
 		return -1;
 	}
@@ -645,8 +659,7 @@ static int mtkfb_pan_display_impl(struct fb_var_screeninfo *var,
 			DISP_FORMAT_BGRA8888 : DISP_FORMAT_RGBX8888;
 		break;
 	default:
-		DDPPR_ERR("Invalid color format bpp: %d\n",
-				var->bits_per_pixel);
+		DISPWARN("Invalid color format bpp: %d\n", var->bits_per_pixel);
 		kfree(session_input);
 		return -1;
 	}
@@ -660,23 +673,12 @@ static int mtkfb_pan_display_impl(struct fb_var_screeninfo *var,
 
 	session_input->config_layer_num++;
 
+	session_input->setter = SESSION_USER_PANDISP;
 
-	if (get_debug_draw_line()) {
-		unsigned int i = 0;
-		unsigned int *fb_start;
-		unsigned int fbsize = primary_display_get_height() *
-				primary_display_get_width();
-
-		fb_start = (unsigned int *)vaStart;
-		for (i = 0; i < fbsize / 4; i++) {
-			*fb_start = (0x55) << ((2 % 4) * 8);
-			fb_start++;
-		}
-	}
 	if (!is_DAL_Enabled()) {
 		/* disable font layer(layer3) drawed in lk */
 		session_input->config[1].layer_id =
-				primary_display_get_option("ASSERT_LAYER");
+			primary_display_get_option("ASSERT_LAYER");
 		session_input->config[1].next_buff_idx = -1;
 		session_input->config[1].layer_enable = 0;
 		session_input->config_layer_num++;
@@ -688,8 +690,8 @@ static int mtkfb_pan_display_impl(struct fb_var_screeninfo *var,
 	return ret;
 }
 
-/**
- * Set fb_info.fix fields and also updates fbdev.
+
+/* Set fb_info.fix fields and also updates fbdev.
  * When calling this fb_info.var must be set up already.
  */
 static void set_fb_fix(struct mtkfb_device *fbdev)
@@ -715,14 +717,14 @@ static void set_fb_fix(struct mtkfb_device *fbdev)
 		fix->visual = FB_VISUAL_PSEUDOCOLOR;
 		break;
 	default:
-		DDPPR_ERR("set fb fix fail,bits per pixel=%d\n",
+		DISPERR("set fb fix fail,bits per pixel=%d\n",
 			var->bits_per_pixel);
 		return;
 	}
 
 	fix->accel = FB_ACCEL_NONE;
 	fix->line_length = ALIGN_TO(var->xres_virtual, MTK_FB_ALIGNMENT) *
-				var->bits_per_pixel / 8;
+		var->bits_per_pixel / 8;
 	fix->smem_len = fbdev->fb_size_in_byte;
 	fix->smem_start = fbdev->fb_pa_base;
 
@@ -734,8 +736,8 @@ static void set_fb_fix(struct mtkfb_device *fbdev)
 	fbops->fb_imageblit = cfb_imageblit;
 }
 
-/**
- * Check values in var, try to adjust them in case of out of bound values if
+
+/* Check values in var, try to adjust them in case of out of bound values if
  * possible, or return error.
  */
 static int mtkfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
@@ -748,10 +750,11 @@ static int mtkfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
 
 	/* DISPFUNC(); */
 
-	DISPCHECK("%s:xres=%u,yres=%u,x_virt=%u,y_virt=%u,xoffset=%u,yoffset=%u,bits_per_pixel=%u)\n",
-		  __func__, var->xres, var->yres,
-		  var->xres_virtual, var->yres_virtual,
-		  var->xoffset, var->yoffset, var->bits_per_pixel);
+	DISPCHECK(
+	"%s:xres=%u,yres=%u,x_virt=%u,y_virt=%u,xoffset=%u,yoffset=%u,bits_per_pixel=%u)\n",
+		  __func__, var->xres, var->yres, var->xres_virtual,
+		  var->yres_virtual, var->xoffset, var->yoffset,
+		  var->bits_per_pixel);
 
 	bpp = var->bits_per_pixel;
 
@@ -796,19 +799,21 @@ static int mtkfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
 			var->yres_virtual = max_frame_size / line_size;
 		}
 	}
-	DISPDBG("%s:xres=%u,yres=%u,x_virt=%u,y_virl=%u,xoffset=%u,yoffset=%u,bits_per_pixel=%u)\n",
-		__func__, var->xres, var->yres,
-		var->xres_virtual, var->yres_virtual,
-		var->xoffset, var->yoffset, var->bits_per_pixel);
+	DISPDBG(
+		"%s: xres=%u,yres=%u,x_virt=%u,y_virl=%u,xoffset=%u,yoffset=%u,bits_per_pixel=%u)\n",
+		__func__, var->xres, var->yres, var->xres_virtual,
+		var->yres_virtual, var->xoffset, var->yoffset,
+		var->bits_per_pixel);
 	if (var->xres + var->xoffset > var->xres_virtual)
 		var->xoffset = var->xres_virtual - var->xres;
 	if (var->yres + var->yoffset > var->yres_virtual)
 		var->yoffset = var->yres_virtual - var->yres;
 
-	DISPMSG("%s:xres=%u,yres=%u,x_virt=%u,y_virt=%u,xoffset=%u,yoffset=%u,bits_per_pixel=%u)\n",
-		__func__, var->xres, var->yres,
-		var->xres_virtual, var->yres_virtual,
-		var->xoffset, var->yoffset, var->bits_per_pixel);
+	DISPMSG(
+		"%s: xres=%u,yres=%u,x_virt=%u,y_virt=%u,xoffset=%u,yoffset=%u,bits_per_pixel=%u)\n",
+		__func__, var->xres, var->yres, var->xres_virtual,
+		var->yres_virtual, var->xoffset, var->yoffset,
+		var->bits_per_pixel);
 
 	if (bpp == 16) {
 		var->red.offset = 11;
@@ -828,14 +833,14 @@ static int mtkfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
 		ASSERT((var->red.offset == 16 || var->red.offset == 0));
 	} else if (bpp == 32) {
 		var->red.length = var->green.length =
-				var->blue.length = var->transp.length = 8;
+			var->blue.length = var->transp.length = 8;
 
 		ASSERT(var->red.offset + var->blue.offset == 16);
 		ASSERT((var->red.offset == 16 || var->red.offset == 0));
 	}
 
 	var->red.msb_right = var->green.msb_right =
-			var->blue.msb_right = var->transp.msb_right = 0;
+		var->blue.msb_right = var->transp.msb_right = 0;
 
 	if (var->activate & FB_ACTIVATE_NO_UPDATE)
 		no_update = true;
@@ -864,8 +869,9 @@ static int mtkfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
 	return 0;
 }
 
-/**
- * Switch to a new mode. The parameters for it has been check already by
+
+
+/* Switch to a new mode. The parameters for it has been check already by
  * mtkfb_check_var.
  */
 static int mtkfb_set_par(struct fb_info *fbi)
@@ -876,6 +882,7 @@ static int mtkfb_set_par(struct fb_info *fbi)
 	u32 bpp = var->bits_per_pixel;
 	struct disp_session_input_config *session_input;
 	struct disp_input_config *input;
+
 
 	/* DISPFUNC(); */
 	memset(&fb_layer, 0, sizeof(struct fb_overlay_layer));
@@ -889,7 +896,7 @@ static int mtkfb_set_par(struct fb_info *fbi)
 	case 24:
 		fb_layer.src_use_color_key = 1;
 		fb_layer.src_fmt = (var->blue.offset == 0) ?
-				MTK_FB_FORMAT_RGB888 : MTK_FB_FORMAT_BGR888;
+		    MTK_FB_FORMAT_RGB888 : MTK_FB_FORMAT_BGR888;
 		fb_layer.src_color_key = 0xFF000000;
 		break;
 
@@ -897,13 +904,13 @@ static int mtkfb_set_par(struct fb_info *fbi)
 		fb_layer.src_use_color_key = 0;
 		DISPDBG("set_par,var->blue.offset=%d\n", var->blue.offset);
 		fb_layer.src_fmt = (var->blue.offset == 0) ?
-				MTK_FB_FORMAT_ARGB8888 : MTK_FB_FORMAT_ABGR8888;
+		    MTK_FB_FORMAT_ARGB8888 : MTK_FB_FORMAT_BGRA8888;
 		fb_layer.src_color_key = 0;
 		break;
 
 	default:
 		fb_layer.src_fmt = MTK_FB_FORMAT_UNKNOWN;
-		DDPPR_ERR("[%s]unsupported bpp: %d", __func__, bpp);
+		DISPWARN("[%s]unsupported bpp: %d", __func__, bpp);
 		return -1;
 	}
 
@@ -911,12 +918,14 @@ static int mtkfb_set_par(struct fb_info *fbi)
 
 	fb_layer.layer_id = primary_display_get_option("FB_LAYER");
 	fb_layer.layer_enable = 1;
-	fb_layer.src_base_addr = (void *)((unsigned long)fbdev->fb_va_base +
-					var->yoffset * fbi->fix.line_length);
-	DISPDBG("fb_pa=0x%08lx,var->yoffset=%u,fbi->fix.line_length=%u\n",
-		fb_mva, var->yoffset, fbi->fix.line_length);
-	fb_layer.src_phy_addr = (void *)(fb_mva + var->yoffset *
-					 fbi->fix.line_length);
+	fb_layer.src_base_addr =
+	    (void *)((unsigned long)fbdev->fb_va_base + var->yoffset *
+	    fbi->fix.line_length);
+	DISPDBG(
+		"fb_pa=0x%08lx, var->yoffset=0x%08x,fbi->fix.line_length=0x%08x\n",
+		fb_pa, var->yoffset, fbi->fix.line_length);
+	fb_layer.src_phy_addr =
+		(void *)(fb_pa + var->yoffset * fbi->fix.line_length);
 	fb_layer.src_direct_link = 0;
 	fb_layer.src_offset_x = fb_layer.src_offset_y = 0;
 	fb_layer.src_pitch = ALIGN_TO(var->xres, MTK_FB_ALIGNMENT);
@@ -927,7 +936,7 @@ static int mtkfb_set_par(struct fb_info *fbi)
 	/* fb_layer.src_color_key = 0; */
 	fb_layer.layer_rotation = MTK_FB_ORIENTATION_0;
 	fb_layer.layer_type = LAYER_2D;
-	DISPDBG("%s, fb_layer.src_fmt=%x\n", __func__, fb_layer.src_fmt);
+	DISPDBG("%s: fb_layer.src_fmt=%x\n", __func__, fb_layer.src_fmt);
 
 	session_input = kzalloc(sizeof(*session_input), GFP_KERNEL);
 	if (!session_input)
@@ -962,6 +971,7 @@ out:
 	return 0;
 }
 
+
 static int mtkfb_soft_cursor(struct fb_info *info, struct fb_cursor *cursor)
 {
 	NOT_REFERENCED(info);
@@ -970,7 +980,8 @@ static int mtkfb_soft_cursor(struct fb_info *info, struct fb_cursor *cursor)
 	return 0;
 }
 
-static int mtkfb_get_overlay_layer_info(struct fb_overlay_layer_info *layerInfo)
+static int mtkfb_get_overlay_layer_info(
+	struct fb_overlay_layer_info *layerInfo)
 {
 	return 0;
 }
@@ -979,20 +990,22 @@ void mtkfb_dump_layer_info(void)
 {
 }
 
-UINT32 color;
 
+UINT32 color;
 unsigned int mtkfb_fm_auto_test(void)
 {
 	unsigned int result = 0;
 	unsigned int i = 0;
 	unsigned long fbVirAddr;
 	UINT32 fbsize;
-	int ret = 0;
+	int r = 0;
 	unsigned int *fb_buffer;
-	struct mtkfb_device *fbdev = (struct mtkfb_device *)mtkfb_fbi->par;
+	struct mtkfb_device *fbdev =
+		(struct mtkfb_device *)mtkfb_fbi->par;
 	struct fb_var_screeninfo var;
 
-	int idle_state_backup = disp_helper_get_option(DISP_OPT_IDLE_MGR);
+	int idle_state_backup =
+		disp_helper_get_option(DISP_OPT_IDLE_MGR);
 
 	if (primary_display_is_sleepd()) {
 		DISPWARN("primary display path is already sleep, skip\n");
@@ -1018,8 +1031,8 @@ unsigned int mtkfb_fm_auto_test(void)
 	var.blue.offset = 0;
 	var.blue.length = 8;
 
-	ret = mtkfb_check_var(&var, mtkfb_fbi);
-	if (ret)
+	r = mtkfb_check_var(&var, mtkfb_fbi);
+	if (r != 0)
 		PRNERR("failed to mtkfb_check_var\n");
 
 	mtkfb_fbi->var = var;
@@ -1041,81 +1054,83 @@ unsigned int mtkfb_fm_auto_test(void)
 		disp_helper_set_option(DISP_OPT_IDLE_MGR, idle_state_backup);
 
 	if (result == 0)
-		DDPPR_ERR("ATA LCM failed\n");
+		DISPERR("ATA LCM failed\n");
 	else
 		DISPMSG("ATA LCM passed\n");
+
 
 	return result;
 }
 
 static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
-		       unsigned long arg)
+	unsigned long arg)
 {
 	void __user *argp = (void __user *)arg;
-	enum DISP_STATUS stat = 0;
-	int ret = 0;
+	enum DISP_STATUS ret = 0;
+	int r = 0;
 
 	DISPFUNC();
-	/* M: dump debug mmprofile log info */
-	DISPDBG("%s: info=%p, cmd nr=0x%08x, cmd size=0x%08x\n", __func__,
+	/* / M: dump debug mmprofile log info */
+	DISPDBG("mtkfb_ioctl, info=%p, cmd nr=0x%08x, cmd size=0x%08x\n",
 		info, (unsigned int)_IOC_NR(cmd), (unsigned int)_IOC_SIZE(cmd));
 
 	switch (cmd) {
+
 	case MTKFB_GET_FRAMEBUFFER_MVA:
-		return copy_to_user(argp, &fb_mva, sizeof(fb_mva)) ?
-			-EFAULT : 0;
+		return copy_to_user(argp, &fb_pa, sizeof(fb_pa)) ? -EFAULT : 0;
 
 	case MTKFB_GET_DISPLAY_IF_INFORMATION:
 	{
 		int displayid = 0;
 
 		if (copy_from_user(&displayid, (void __user *)arg,
-				   sizeof(displayid))) {
+			sizeof(displayid))) {
 			MTKFB_LOG("[FB]: copy_from_user failed! line:%d\n",
-				  __LINE__);
+				__LINE__);
 			return -EFAULT;
 		}
 
 		if (displayid == 0) {
 			dispif_info[displayid].displayWidth =
-						primary_display_get_width();
+				primary_display_get_width();
 			dispif_info[displayid].displayHeight =
-						primary_display_get_height();
+				primary_display_get_height();
 
 			dispif_info[displayid].lcmOriginalWidth =
-				    primary_display_get_original_width();
+			    primary_display_get_original_width();
 			dispif_info[displayid].lcmOriginalHeight =
-				    primary_display_get_original_height();
+			    primary_display_get_original_height();
 			dispif_info[displayid].displayMode =
-				    primary_display_is_video_mode() ? 0 : 1;
+			    primary_display_is_video_mode() ? 0 : 1;
 		} else {
-			DDPPR_ERR("information for displayid: %d is not available now\n",
+			DISPERR(
+				"information for displayid: %d is not available now\n",
 				displayid);
 			return -EFAULT;
 		}
 
 		if (copy_to_user((void __user *)arg, &(dispif_info[displayid]),
-				 sizeof(struct mtk_dispif_info))) {
+			sizeof(struct mtk_dispif_info))) {
 			MTKFB_LOG("[FB]: copy_to_user failed! line:%d\n",
-				  __LINE__);
-			ret = -EFAULT;
+				__LINE__);
+			r = -EFAULT;
 		}
 
-		return ret;
+		return r;
 	}
 	case MTKFB_SET_AOD_POWER_MODE:
 	{
 		enum mtkfb_aod_power_mode aod_pm = MTKFB_AOD_POWER_MODE_ERROR;
 		enum mtkfb_power_mode prev_pm =
-					primary_display_get_power_mode();
+			primary_display_get_power_mode();
 
 		aod_pm = (enum mtkfb_aod_power_mode)arg;
 		DISPCHECK("AOD: ioctl: %s\n",
-			  aod_pm ? "AOD_DOZE_SUSPEND" : "AOD_DOZE");
+			aod_pm ? "AOD_DOZE_SUSPEND" : "AOD_DOZE");
 
 		if (!primary_is_aod_supported()) {
 			DISPCHECK("AOD: feature not support\n");
-			return ret;
+			return r;
 		}
 
 		if (aod_pm == MTKFB_AOD_DOZE_SUSPEND) {
@@ -1125,7 +1140,7 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 			 * power off dispsys.
 			 */
 			if (primary_display_is_sleepd() &&
-			    primary_display_get_lcm_power_state()) {
+				primary_display_get_lcm_power_state()) {
 				primary_display_set_power_mode(DOZE);
 				primary_display_resume();
 
@@ -1133,20 +1148,20 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 			}
 
 			primary_display_set_power_mode(DOZE_SUSPEND);
-			stat = primary_display_suspend();
+			ret = primary_display_suspend();
 
 			debug_print_power_mode_check(prev_pm, DOZE_SUSPEND);
 		} else if (aod_pm == MTKFB_AOD_DOZE) {
 			primary_display_set_power_mode(DOZE);
-			stat = primary_display_resume();
+			ret = primary_display_resume();
 
 			debug_print_power_mode_check(prev_pm, DOZE);
 		} else {
-			DDPPR_ERR("AOD: error: unknown AOD power mode %d\n",
+			DISPERR("AOD: error: unknown AOD power mode %d\n",
 				aod_pm);
 		}
-		if (stat < 0)
-			DDPPR_ERR("AOD: set %s failed\n",
+		if (ret < 0)
+			DISPERR("AOD: set %s failed\n",
 				aod_pm ? "AOD_SUSPEND" : "AOD_RESUME");
 
 		break;
@@ -1155,27 +1170,41 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 	{
 		MTKFB_FUNC();
 		if (primary_display_is_sleepd()) {
-			DISPWARN("[FB Driver] is still in MTKFB_POWEROFF!\n");
-			return ret;
+			DISPWARN("[FB Driver] is still in MTKFB_POWEROFF!!!\n");
+			return r;
 		}
 
 		DISPDBG("[FB Driver] enter MTKFB_POWEROFF\n");
+		/* TODO: remove unnessecary IOCTL
+		 * It will call SurfaceFlinger blank before this
+		 * that do the same thing,
+		 * so it is trivial now.
+		 */
+		/*ret = primary_display_suspend();*/
+		if (ret < 0)
+			DISPERR("primary display suspend failed\n");
 		DISPDBG("[FB Driver] leave MTKFB_POWEROFF\n");
 
-		is_early_suspended = TRUE; /* no care */
-		return ret;
+		is_early_suspended = TRUE;	/* no care */
+		return r;
 	}
 	case MTKFB_POWERON:
 	{
 		MTKFB_FUNC();
 		if (primary_display_is_alive()) {
-			DDPPR_ERR("[FB Driver] is still in MTKFB_POWERON!\n");
-			return ret;
+			DISPWARN("[FB Driver] is still in MTKFB_POWERON!!!\n");
+			return r;
 		}
 		DISPDBG("[FB Driver] enter MTKFB_POWERON\n");
+		/* TODO: remove unnessecary IOCTL
+		 * It will call SurfaceFlinger unblank after this
+		 * that do the same thing,
+		 * so it is trivial now.
+		 */
+		/*primary_display_resume();*/
 		DISPDBG("[FB Driver] leave MTKFB_POWERON\n");
-		is_early_suspended = FALSE; /* no care */
-		return ret;
+		is_early_suspended = FALSE;	/* no care */
+		return r;
 	}
 	case MTKFB_GET_POWERSTATE:
 	{
@@ -1186,8 +1215,9 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 		else
 			power_state = 1;
 
-		if (copy_to_user(argp, &power_state, sizeof(power_state))) {
-			pr_err("MTKFB_GET_POWERSTATE failed\n");
+		if (copy_to_user(argp, &power_state,
+				sizeof(power_state))) {
+			pr_info("MTKFB_GET_POWERSTATE failed\n");
 			return -EFAULT;
 		}
 
@@ -1196,65 +1226,60 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 	case MTKFB_CONFIG_IMMEDIATE_UPDATE:
 	{
 		MTKFB_LOG("[%s] MTKFB_CONFIG_IMMEDIATE_UPDATE, enable = %lu\n",
-			  __func__, arg);
+			__func__, arg);
 		if (down_interruptible(&sem_early_suspend)) {
 			MTKFB_LOG("[%s] can't get semaphore:%d\n",
-				  __func__, __LINE__);
+				__func__, __LINE__);
 			return -ERESTARTSYS;
 		}
 		sem_early_suspend_cnt--;
 		up(&sem_early_suspend);
-		return ret;
+		return r;
 	}
 	case MTKFB_CAPTURE_FRAMEBUFFER:
 	{
-		unsigned long dst_pbuf = 0;
 		unsigned long *src_pbuf = 0;
 		unsigned int pixel_bpp = primary_display_get_bpp() / 8;
 		unsigned int fbsize = DISP_GetScreenHeight() *
 			DISP_GetScreenWidth() * pixel_bpp;
 
-		if (copy_from_user(&dst_pbuf, (void __user *)arg,
-				   sizeof(dst_pbuf))) {
-			MTKFB_LOG("[FB]: copy_from_user failed! line:%d\n",
-				  __LINE__);
-			return -EFAULT;
-		}
-
 		src_pbuf = vmalloc(fbsize);
 		if (!src_pbuf) {
-			MTKFB_LOG("[FB]: vmalloc capture src_pbuf failed! line:%d\n",
-				  __LINE__);
+			MTKFB_LOG(
+				"[FB]: vmalloc capture src_pbuf failed! line:%d\n",
+				__LINE__);
 			return -EFAULT;
 		}
 
 		dprec_logger_start(DPREC_LOGGER_WDMA_DUMP, 0, 0);
-		ret = primary_display_capture_framebuffer_ovl(
-					(unsigned long)src_pbuf, UFMT_BGRA8888);
-		if (ret < 0)
-			DDPPR_ERR("primary display capture framebuffer failed!\n");
+		r = primary_display_capture_framebuffer_ovl(
+			(unsigned long)src_pbuf, UFMT_BGRA8888);
+		if (r < 0)
+			DISPERR(
+			"primary display capture framebuffer failed!\n");
 		dprec_logger_done(DPREC_LOGGER_WDMA_DUMP, 0, 0);
-		if (copy_to_user((unsigned long *)dst_pbuf, src_pbuf, fbsize)) {
+		if (copy_to_user((void __user *)arg, src_pbuf, fbsize)) {
 			MTKFB_LOG("[FB]: copy_to_user failed! line:%d\n",
-				  __LINE__);
-			ret = -EFAULT;
+				__LINE__);
+			r = -EFAULT;
 		}
 		vfree(src_pbuf);
-		return ret;
+		return r;
 	}
 	case MTKFB_SLT_AUTO_CAPTURE:
 	{
+#if 0
 		struct fb_slt_catpure capConfig;
 		unsigned long *src_pbuf = 0;
 		unsigned int format;
 		unsigned int pixel_bpp = primary_display_get_bpp() / 8;
 		unsigned int fbsize = DISP_GetScreenHeight() *
-					DISP_GetScreenWidth() * pixel_bpp;
+			DISP_GetScreenWidth() * pixel_bpp;
 
 		if (copy_from_user(&capConfig, (void __user *)arg,
-				   sizeof(capConfig))) {
+				sizeof(capConfig))) {
 			MTKFB_LOG("[FB]: copy_from_user failed! line:%d\n",
-				  __LINE__);
+				__LINE__);
 			return -EFAULT;
 		}
 
@@ -1281,36 +1306,38 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 		}
 		src_pbuf = vmalloc(fbsize);
 		if (!src_pbuf) {
-			MTKFB_LOG("[FB]: vmalloc capture src_pbuf failed! line:%d\n",
-				  __LINE__);
+			MTKFB_LOG(
+				"[FB]: vmalloc capture src_pbuf failed! line:%d\n",
+				__LINE__);
 			return -EFAULT;
 		}
 
-		ret = primary_display_capture_framebuffer_ovl(
-					(unsigned long)src_pbuf, format);
-		if (ret < 0)
-			DDPPR_ERR("primary display capture framebuffer failed\n");
+		r = primary_display_capture_framebuffer_ovl(
+				(unsigned long)src_pbuf, format);
+		if (r < 0)
+			DISPERR(
+			"primary display capture framebuffer failed!\n");
 
-		if (copy_to_user((unsigned long *)capConfig.outputBuffer,
-				 src_pbuf, fbsize)) {
+		if (copy_to_user((void __user *)arg,
+				src_pbuf, fbsize)) {
 			MTKFB_LOG("[FB]: copy_to_user failed! line:%d\n",
-				  __LINE__);
-			ret = -EFAULT;
+				__LINE__);
+			r = -EFAULT;
 		}
 		vfree(src_pbuf);
-		return ret;
+#endif
+		return r;
 	}
 	case MTKFB_GET_OVERLAY_LAYER_INFO:
 	{
 		struct fb_overlay_layer_info layerInfo;
 
-		MTKFB_LOG("%s():MTKFB_GET_OVERLAY_LAYER_INFO\n",
-				__func__);
+		MTKFB_LOG(" %s():MTKFB_GET_OVERLAY_LAYER_INFO\n", __func__);
 
 		if (copy_from_user(&layerInfo, (void __user *)arg,
-				   sizeof(layerInfo))) {
+				sizeof(layerInfo))) {
 			MTKFB_LOG("[FB]: copy_from_user failed! line:%d\n",
-				  __LINE__);
+				__LINE__);
 			return -EFAULT;
 		}
 		if (mtkfb_get_overlay_layer_info(&layerInfo) < 0) {
@@ -1318,12 +1345,12 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 			return -EFAULT;
 		}
 		if (copy_to_user((void __user *)arg, &layerInfo,
-				 sizeof(layerInfo))) {
+				sizeof(layerInfo))) {
 			MTKFB_LOG("[FB]: copy_to_user failed! line:%d\n",
-				  __LINE__);
-			ret = -EFAULT;
+				__LINE__);
+			r = -EFAULT;
 		}
-		return ret;
+		return r;
 	}
 	case MTKFB_SET_OVERLAY_LAYER:
 	{		/* no function */
@@ -1331,27 +1358,25 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 		struct disp_input_config *input;
 		int layer_num;
 
-		DISPMSG("%s():MTKFB_SET_OVERLAY_LAYER\n",
-				__func__);
+		DISPMSG(" %s():MTKFB_SET_OVERLAY_LAYER\n", __func__);
 
 		layerInfo = kmalloc(sizeof(*layerInfo), GFP_KERNEL);
 		if (!layerInfo)
 			return -ENOMEM;
 
 		if (copy_from_user(layerInfo, (void __user *)arg,
-				   sizeof(*layerInfo))) {
+				sizeof(*layerInfo))) {
 			MTKFB_LOG("[FB]: copy_from_user failed! line:%d\n",
-				  __LINE__);
+				__LINE__);
 			kfree(layerInfo);
 			return -EFAULT;
 		}
 
-		/*
-		 * in early suspend mode, will not update buffer index,
+		/* in early suspend mode ,will not update buffer index,
 		 * info SF by return value
 		 */
 		if (primary_display_is_sleepd()) {
-			DDPPR_ERR("[FB] set overlay in early suspend ,skip!\n");
+			DISPWARN("[FB] set overlay in early suspend ,skip!\n");
 			kfree(layerInfo);
 			return MTKFB_ERROR_IS_EARLY_SUSPEND;
 		}
@@ -1360,28 +1385,29 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 		layer_num = session_input.config_layer_num;
 		input = &session_input.config[layer_num];
 		session_input.config_layer_num++;
+		session_input.setter = SESSION_USER_PANDISP;
 		_convert_fb_layer_to_disp_input(layerInfo, input);
 		primary_display_config_input_multiple(&session_input);
 		primary_display_trigger(1, NULL, 0);
 
 		kfree(layerInfo);
-		return ret;
+		return r;
 	}
 	case MTKFB_ERROR_INDEX_UPDATE_TIMEOUT:
 	{
-		DDPPR_ERR("[DDP] %s():MTKFB_ERROR_INDEX_UPDATE_TIMEOUT\n",
-				__func__);
+		pr_info("[DDP] %s():MTKFB_ERROR_INDEX_UPDATE_TIMEOUT\n",
+			__func__);
 		/* call info dump function here */
 		/* mtkfb_dump_layer_info(); */
-		return ret;
+		return r;
 	}
 	case MTKFB_ERROR_INDEX_UPDATE_TIMEOUT_AEE:
 	{
-		DDPPR_ERR("[DDP] %s():MTKFB_ERROR_INDEX_UPDATE_TIMEOUT\n",
-				__func__);
+		pr_info("[DDP] %s():MTKFB_ERROR_INDEX_UPDATE_TIMEOUT\n",
+			__func__);
 		/* call info dump function here */
 		/* mtkfb_dump_layer_info(); */
-		return ret;
+		return r;
 	}
 	case MTKFB_SET_VIDEO_LAYERS:
 	{
@@ -1394,22 +1420,22 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 
 		struct fb_overlay_layer *layerInfo;
 		int layerInfo_size = sizeof(struct fb_overlay_layer) *
-							VIDEO_LAYER_COUNT;
+			VIDEO_LAYER_COUNT;
 		int32_t i;
 		struct disp_input_config *input;
 		int layer_num;
 
-		DISPMSG("%s():MTKFB_SET_VIDEO_LAYERS\n",
-				__func__);
+		DISPMSG(" %s():MTKFB_SET_VIDEO_LAYERS\n",
+			__func__);
 
 		layerInfo = kmalloc(layerInfo_size, GFP_KERNEL);
 		if (!layerInfo)
 			return -ENOMEM;
 
 		if (copy_from_user(layerInfo, (void __user *)arg,
-				   layerInfo_size)) {
+				layerInfo_size)) {
 			MTKFB_LOG("[FB]: copy_from_user failed! line:%d\n",
-				  __LINE__);
+				__LINE__);
 			kfree(layerInfo);
 			return -EFAULT;
 		}
@@ -1417,8 +1443,9 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 		memset((void *)&session_input, 0, sizeof(session_input));
 		for (i = 0; i < VIDEO_LAYER_COUNT; ++i) {
 			if (layerInfo[i].layer_id >= TOTAL_OVL_LAYER_NUM) {
-				DDPPR_ERR("MTKFB_SET_VIDEO_LAYERS, layer_id invalid=%d\n",
-					 layerInfo[i].layer_id);
+				DISPWARN(
+					"MTKFB_SET_VIDEO_LAYERS, layer_id invalid=%d\n",
+				     layerInfo[i].layer_id);
 				continue;
 			}
 
@@ -1427,16 +1454,16 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 			session_input.config_layer_num++;
 			_convert_fb_layer_to_disp_input(&layerInfo[i], input);
 		}
+		session_input.setter = SESSION_USER_PANDISP;
 		primary_display_config_input_multiple(&session_input);
 		primary_display_trigger(1, NULL, 0);
 		kfree(layerInfo);
 
-		return ret;
+		return r;
 	}
 	case MTKFB_TRIG_OVERLAY_OUT:
 	{
-		DISPMSG("%s():MTKFB_TRIG_OVERLAY_OUT\n",
-				__func__);
+		DISPMSG("%s():MTKFB_TRIG_OVERLAY_OUT\n", __func__);
 		primary_display_trigger(1, NULL, 0);
 		return 0;
 	}
@@ -1449,19 +1476,19 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 
 		/* invalidate params from userspace */
 		if (var.xres > MTK_FB_XRES ||
-				var.yres > MTK_FB_YRES ||
-				var.xres_virtual > MTK_FB_XRESV ||
-				var.yres_virtual > MTK_FB_YRESV ||
-				var.xoffset > MTK_FB_XRES ||
-				var.yoffset > MTK_FB_YRESV * (MTK_FB_PAGES - 1))
+			var.yres > MTK_FB_YRES ||
+			var.xres_virtual > MTK_FB_XRESV ||
+			var.yres_virtual > MTK_FB_YRESV ||
+			var.xoffset > MTK_FB_XRES ||
+			var.yoffset > MTK_FB_YRESV * (MTK_FB_PAGES - 1))
 			return -EFAULT;
 
 		info->var.yoffset = var.yoffset;
 
 		/* check var.yoffset passed by user space */
 		if (info->var.yres + info->var.yoffset > info->var.yres_virtual)
-			info->var.yoffset = info->var.yres_virtual -
-						info->var.yres;
+			info->var.yoffset =
+				info->var.yres_virtual - info->var.yres;
 
 		init_framebuffer(info);
 
@@ -1475,7 +1502,8 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 
 		DISPMSG("[MTKFB EM]MTKFB_GET_DEFAULT_UPDATESPEED is %d\n",
 			speed);
-		return copy_to_user(argp, &speed, sizeof(speed)) ? -EFAULT : 0;
+		return copy_to_user(argp, &speed,
+			sizeof(speed)) ? -EFAULT : 0;
 	}
 	case MTKFB_GET_CURR_UPDATESPEED:
 	{
@@ -1483,8 +1511,11 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 
 		MTKFB_LOG("[MTKFB] get current update speed\n");
 
-		DISPMSG("[MTKFB EM]MTKFB_GET_CURR_UPDATESPEED is %d\n", speed);
-		return copy_to_user(argp, &speed, sizeof(speed)) ? -EFAULT : 0;
+
+		DISPMSG("[MTKFB EM]MTKFB_GET_CURR_UPDATESPEED is %d\n",
+			speed);
+		return copy_to_user(argp, &speed,
+			sizeof(speed)) ? -EFAULT : 0;
 	}
 	case MTKFB_CHANGE_UPDATESPEED:
 	{
@@ -1494,21 +1525,21 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 
 		if (copy_from_user(&speed, (void __user *)arg, sizeof(speed))) {
 			MTKFB_LOG("[FB]: copy_from_user failed! line:%d\n",
-				  __LINE__);
-			ret = -EFAULT;
+				__LINE__);
+			r = -EFAULT;
 		} else {
 			DISPMSG("[MTKFB EM]MTKFB_CHANGE_UPDATESPEED is %d\n",
 				speed);
 
 		}
-		return ret;
+		return r;
 	}
 	case MTKFB_AEE_LAYER_EXIST:
 	{
 		int dal_en = is_DAL_Enabled();
 
-		return copy_to_user(argp, &dal_en, sizeof(dal_en)) ?
-					-EFAULT : 0;
+		return copy_to_user(argp, &dal_en,
+			sizeof(dal_en)) ? -EFAULT : 0;
 	}
 	case MTKFB_LOCK_FRONT_BUFFER:
 		return 0;
@@ -1521,20 +1552,21 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 
 		DISPMSG("factory mode: lcm auto test\n");
 		result = mtkfb_fm_auto_test();
-		return copy_to_user(argp, &result, sizeof(result)) ?
-					-EFAULT : 0;
+		return copy_to_user(argp, &result,
+			sizeof(result)) ? -EFAULT : 0;
 	}
 	case MTKFB_META_SHOW_BOOTLOGO:
 	{
 		int i, layer_num;
-		struct mtkfb_device *fbdev = (struct mtkfb_device *)
-						mtkfb_fbi->par;
+		struct mtkfb_device *fbdev =
+			(struct mtkfb_device *)mtkfb_fbi->par;
 		struct disp_input_config *input;
 
 		DISPMSG("MTKFB_META_SHOW_BOOTLOGO\n");
 		memset((void *)&session_input, 0, sizeof(session_input));
 
 		for (i = 0; i < 2; i++) {
+
 			layer_num = session_input.config_layer_num;
 			input = &session_input.config[layer_num];
 			session_input.config_layer_num++;
@@ -1550,8 +1582,8 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 			input->tgt_width = MTK_FB_XRES;
 			input->tgt_height = MTK_FB_YRES;
 
-			input->src_pitch = ALIGN_TO(MTK_FB_XRES,
-						    MTK_FB_ALIGNMENT) * 4;
+			input->src_pitch =
+				ALIGN_TO(MTK_FB_XRES, MTK_FB_ALIGNMENT) * 4;
 			input->alpha_enable = 1;
 			input->alpha = 0xff;
 			input->next_buff_idx = -1;
@@ -1559,28 +1591,30 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 
 		input = &session_input.config[0];
 		input->layer_id = 0;
-		input->src_phy_addr = (void *)(unsigned long)
-					(fbdev->fb_pa_base);
+		input->src_phy_addr =
+			(void *)(unsigned long)(fbdev->fb_pa_base);
 
 		input = &session_input.config[1];
 		input->layer_id = 3;
-		input->src_phy_addr = (void *)(unsigned long)
-				(fbdev->fb_pa_base +
-				 (ALIGN_TO(MTK_FB_XRES, MTK_FB_ALIGNMENT) *
-				  ALIGN_TO(MTK_FB_YRES, MTK_FB_ALIGNMENT) * 4));
+		input->src_phy_addr =
+			(void *)(unsigned long)(fbdev->fb_pa_base +
+				(ALIGN_TO(MTK_FB_XRES, MTK_FB_ALIGNMENT) *
+				ALIGN_TO(MTK_FB_YRES, MTK_FB_ALIGNMENT) * 4));
 
+		session_input.setter = SESSION_USER_PANDISP;
 		primary_display_config_input_multiple(&session_input);
 		primary_display_trigger(1, NULL, 0);
 
 		return 0;
 	}
 	default:
-		DISPWARN("%s: Not support:info=0x%p, cmd=0x%08x, arg=0x%08lx\n",
-			 __func__, info, (unsigned int)cmd, arg);
+		DISPWARN(
+			"%s Not support, info=0x%p, cmd=0x%08x, arg=0x%08lx\n",
+			__func__, info, (unsigned int)cmd, arg);
 		return -EINVAL;
 	}
 
-	return ret;
+	return r;
 }
 
 #ifdef CONFIG_COMPAT
@@ -1590,10 +1624,10 @@ static void compat_convert(struct compat_fb_overlay_layer *compat_info,
 {
 	info->layer_id = compat_info->layer_id;
 	info->layer_enable = compat_info->layer_enable;
-	info->src_base_addr = (void *)((unsigned long)
-				       (compat_info->src_base_addr));
-	info->src_phy_addr = (void *)((unsigned long)
-				      (compat_info->src_phy_addr));
+	info->src_base_addr =
+		(void *)((unsigned long)(compat_info->src_base_addr));
+	info->src_phy_addr =
+		(void *)((unsigned long)(compat_info->src_phy_addr));
 	info->src_direct_link = compat_info->src_direct_link;
 	info->src_fmt = compat_info->src_fmt;
 	info->src_use_color_key = compat_info->src_use_color_key;
@@ -1623,15 +1657,16 @@ static void compat_convert(struct compat_fb_overlay_layer *compat_info,
 	info->ion_fd = compat_info->ion_fd;
 }
 
+
 static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
-			      unsigned long arg)
+	unsigned long arg)
 {
 	struct fb_overlay_layer layerInfo;
 	long ret = 0;
 
-	DISPDBG("[FB Driver] %s: cmd=0x%08x, cmd nr=0x%08x, cmd size=0x%08x\n",
-		__func__, cmd, (unsigned int)_IOC_NR(cmd),
-		(unsigned int)_IOC_SIZE(cmd));
+	DISPDBG(
+		"[FB Driver] mtkfb_compat_ioctl, cmd=0x%08x, cmd nr=0x%08x, cmd size=0x%08x\n",
+		cmd, (unsigned int)_IOC_NR(cmd), (unsigned int)_IOC_SIZE(cmd));
 
 	switch (cmd) {
 	case COMPAT_MTKFB_GET_FRAMEBUFFER_MVA:
@@ -1640,12 +1675,12 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 		__u32 data;
 
 		data32 = compat_ptr(arg);
-		data = (__u32)fb_mva;
+		data = (__u32) fb_pa;
 		if (put_user(data, data32)) {
-			pr_err("MTKFB_FRAMEBUFFER_MVA failed\n");
+			pr_info("MTKFB_FRAMEBUFFER_MVA failed\n");
 			ret = -EFAULT;
 		}
-		DISPDBG("MTKFB_FRAMEBUFFER_MVA success 0x%lx\n", fb_mva);
+		DISPDBG("MTKFB_FRAMEBUFFER_MVA success 0x%lx\n", fb_pa);
 		return ret;
 	}
 	case COMPAT_MTKFB_GET_DISPLAY_IF_INFORMATION:
@@ -1655,34 +1690,35 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 
 		data32 = compat_ptr(arg);
 		if (get_user(displayid, data32)) {
-			pr_err("COMPAT_MTKFB_GET_DISPLAY_IF_INFORMATION failed\n");
+			pr_info("COMPAT_MTKFB_GET_DISPLAY_IF_INFORMATION failed\n");
 			return -EFAULT;
 		}
 		if (displayid >= MTKFB_MAX_DISPLAY_COUNT) {
-			pr_err("[FB]: invalid display id:%d\n", displayid);
+			pr_info("[FB]: invalid display id:%d\n", displayid);
 			return -EFAULT;
 		}
 		if (displayid == 0) {
 			dispif_info[displayid].displayWidth =
-						primary_display_get_width();
+				primary_display_get_width();
 			dispif_info[displayid].displayHeight =
-						primary_display_get_height();
+				primary_display_get_height();
 
 			dispif_info[displayid].lcmOriginalWidth =
-					primary_display_get_original_width();
+				primary_display_get_original_width();
 			dispif_info[displayid].lcmOriginalHeight =
-					primary_display_get_original_height();
+				primary_display_get_original_height();
 			dispif_info[displayid].displayMode =
-					primary_display_is_video_mode() ? 0 : 1;
+				primary_display_is_video_mode() ? 0 : 1;
 		} else {
-			DDPPR_ERR("information for displayid: %d is not available now\n",
+			DISPWARN(
+				"information for displayid: %d is not available now\n",
 			displayid);
 		}
 
 		if (copy_to_user((void __user *)arg, &(dispif_info[displayid]),
-				 sizeof(struct compat_mtk_dispif_info))) {
-			pr_err("[FB]: copy_to_user failed! line:%d\n",
-			       __LINE__);
+			sizeof(struct compat_mtk_dispif_info))) {
+			pr_info("[FB]: copy_to_user failed! line:%d\n",
+				__LINE__);
 			return -EFAULT;
 		}
 		break;
@@ -1708,7 +1744,7 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 		else
 			power_state = 1;
 		if (put_user(power_state, data32)) {
-			pr_err("MTKFB_GET_POWERSTATE failed\n");
+			pr_info("MTKFB_GET_POWERSTATE failed\n");
 			ret = -EFAULT;
 		}
 		DISPDBG("MTKFB_GET_POWERSTATE success %d\n", power_state);
@@ -1725,7 +1761,7 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = get_user(l, data32);
 		ret |= put_user(l, pbuf);
 		ret = mtkfb_ioctl(info, MTKFB_CAPTURE_FRAMEBUFFER,
-				  (unsigned long)pbuf);
+			(unsigned long)pbuf);
 		break;
 	}
 	case COMPAT_MTKFB_TRIG_OVERLAY_OUT:
@@ -1745,18 +1781,19 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 		struct compat_fb_overlay_layer *compat_layerInfo;
 
 		compat_layerInfo = kmalloc(sizeof(*compat_layerInfo),
-					   GFP_KERNEL);
+			GFP_KERNEL);
 		if (!compat_layerInfo)
 			return -ENOMEM;
 
 		MTKFB_LOG("%s():MTKFB_SET_OVERLAY_LAYER\n",
-				__func__);
+			__func__);
 
 		arg = (unsigned long)compat_ptr(arg);
 		if (copy_from_user(compat_layerInfo, (void __user *)arg,
-				   sizeof(*compat_layerInfo))) {
-			MTKFB_LOG("[FB Driver]: copy_from_user failed! line:%d\n",
-				  __LINE__);
+			sizeof(*compat_layerInfo))) {
+			MTKFB_LOG(
+				"[FB Driver]: copy_from_user failed! line:%d\n",
+				__LINE__);
 			ret = -EFAULT;
 		} else {
 			struct disp_input_config *input;
@@ -1764,21 +1801,21 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 
 			compat_convert(compat_layerInfo, &layerInfo);
 
-			/*
-			 * in early suspend mode ,will not update buffer index,
+			/* in early suspend mode ,will not update buffer index,
 			 * info SF by return value
 			 */
 			if (primary_display_is_sleepd()) {
-				DDPPR_ERR("[FB Driver] set overlay in early suspend ,skip!\n");
+				DISPWARN(
+					"[FB Driver] set overlay in early suspend ,skip!\n");
 				kfree(compat_layerInfo);
 				return MTKFB_ERROR_IS_EARLY_SUSPEND;
 			}
 			memset((void *)&session_input, 0,
-			       sizeof(session_input));
+				sizeof(session_input));
 			layer_num = session_input.config_layer_num;
 			input = &session_input.config[layer_num];
 			session_input.config_layer_num++;
-
+			session_input.setter = SESSION_USER_PANDISP;
 			_convert_fb_layer_to_disp_input(&layerInfo, input);
 			primary_display_config_input_multiple(&session_input);
 			/* primary_display_trigger(1, NULL, 0); */
@@ -1793,19 +1830,20 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 		struct compat_fb_overlay_layer *compat_layerInfo;
 		int layer_num;
 		int l_info_size = sizeof(struct compat_fb_overlay_layer) *
-							VIDEO_LAYER_COUNT;
+			VIDEO_LAYER_COUNT;
 
 		compat_layerInfo = kmalloc(l_info_size, GFP_KERNEL);
 		if (!compat_layerInfo)
 			return -ENOMEM;
 
 		MTKFB_LOG("%s():MTKFB_SET_VIDEO_LAYERS\n",
-				__func__);
+			__func__);
 
 		if (copy_from_user(compat_layerInfo, (void __user *)arg,
-				   l_info_size)) {
-			MTKFB_LOG("[FB Driver]: copy_from_user failed! line:%d\n",
-				  __LINE__);
+				l_info_size)) {
+			MTKFB_LOG(
+				"[FB Driver]: copy_from_user failed! line:%d\n",
+				__LINE__);
 			kfree(compat_layerInfo);
 			return -EFAULT;
 		}
@@ -1818,6 +1856,7 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 			session_input.config_layer_num++;
 			_convert_fb_layer_to_disp_input(&layerInfo, input);
 		}
+		session_input.setter = SESSION_USER_PANDISP;
 		primary_display_config_input_multiple(&session_input);
 		kfree(compat_layerInfo);
 		break;
@@ -1829,7 +1868,7 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 
 		data32 = compat_ptr(arg);
 		if (put_user(dal_en, data32)) {
-			pr_err("MTKFB_GET_POWERSTATE failed\n");
+			pr_info("MTKFB_GET_POWERSTATE failed\n");
 			ret = -EFAULT;
 		}
 		break;
@@ -1843,7 +1882,7 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 		result = mtkfb_fm_auto_test();
 		data32 = compat_ptr(arg);
 		if (put_user(result, data32)) {
-			pr_err("MTKFB_GET_POWERSTATE failed\n");
+			pr_info("MTKFB_GET_POWERSTATE failed\n");
 			ret = -EFAULT;
 		}
 		break;
@@ -1866,7 +1905,7 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 #endif
 
 static int mtkfb_pan_display_proxy(struct fb_var_screeninfo *var,
-				   struct fb_info *info)
+	struct fb_info *info)
 {
 #ifdef CONFIG_MTPROF_APPLAUNCH	/* eng enable, user disable */
 	LOG_PRINT(ANDROID_LOG_INFO, "AppLaunch", "mtkfb_pan_display_proxy.\n");
@@ -1874,8 +1913,7 @@ static int mtkfb_pan_display_proxy(struct fb_var_screeninfo *var,
 	return mtkfb_pan_display_impl(var, info);
 }
 
-/*
- * Callback table for the frame buffer framework. Some of these pointers
+/* Callback table for the frame buffer framework. Some of these pointers
  * will be changed according to the current setting of fb_info->accel_flags.
  */
 static struct fb_ops mtkfb_ops = {
@@ -1894,7 +1932,9 @@ static struct fb_ops mtkfb_ops = {
 #ifdef CONFIG_COMPAT
 	.fb_compat_ioctl = mtkfb_compat_ioctl,
 #endif
+#if defined(CONFIG_PM_AUTOSLEEP)
 	.fb_blank = mtkfb_blank,
+#endif
 };
 
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
@@ -1916,13 +1956,15 @@ static struct fb_ops mtkfb1_ops = {
 #ifdef CONFIG_COMPAT
 	.fb_compat_ioctl = NULL,
 #endif
+#if defined(CONFIG_PM_AUTOSLEEP)
 	.fb_blank = mtkfb1_blank,
+#endif
 };
 #endif
 /*
- * ---------------------------------------------------------------
+ * ---------------------------------------------------------------------------
  * Sysfs interface
- * ---------------------------------------------------------------
+ * ---------------------------------------------------------------------------
  */
 
 static int mtkfb_register_sysfs(struct mtkfb_device *fbdev)
@@ -1938,9 +1980,9 @@ static void mtkfb_unregister_sysfs(struct mtkfb_device *fbdev)
 }
 
 /*
- * ----------------------------------------------------------------
+ * ---------------------------------------------------------------------------
  * LDM callbacks
- * ----------------------------------------------------------------
+ * ---------------------------------------------------------------------------
  */
 /* Initialize system fb_info object and set the default video mode.
  * The frame buffer memory already allocated by lcddma_init
@@ -1949,7 +1991,7 @@ static int mtkfb_fbinfo_init(struct fb_info *info)
 {
 	struct mtkfb_device *fbdev = (struct mtkfb_device *)info->par;
 	struct fb_var_screeninfo var;
-	int ret = 0;
+	int r = 0;
 
 	DISPFUNC();
 
@@ -1960,8 +2002,8 @@ static int mtkfb_fbinfo_init(struct fb_info *info)
 	info->screen_size = fbdev->fb_size_in_byte;
 	info->pseudo_palette = fbdev->pseudo_palette;
 
-	ret = fb_alloc_cmap(&info->cmap, 32, 0);
-	if (ret)
+	r = fb_alloc_cmap(&info->cmap, 32, 0);
+	if (r != 0)
 		DISPERR("unable to allocate color map memory\n");
 
 	/* setup the initial video mode (RGB565) */
@@ -1972,7 +2014,8 @@ static int mtkfb_fbinfo_init(struct fb_info *info)
 	var.yres = MTK_FB_YRES;
 	var.xres_virtual = MTK_FB_XRESV;
 	var.yres_virtual = MTK_FB_YRESV;
-	DISPMSG("%s var.xres=%d,var.yres=%d,var.xres_virtual=%d,var.yres_virtual=%d\n",
+	DISPMSG(
+		"%s var.xres=%d,var.yres=%d,var.xres_virtual=%d,var.yres_virtual=%d\n",
 		__func__, var.xres, var.yres, var.xres_virtual,
 		var.yres_virtual);
 	/* use 32 bit framebuffer as default */
@@ -2001,18 +2044,18 @@ static int mtkfb_fbinfo_init(struct fb_info *info)
 
 	var.activate = FB_ACTIVATE_NOW;
 
-	ret = mtkfb_check_var(&var, info);
-	if (ret)
-		DDPPR_ERR("failed to mtkfb_check_var\n");
+	r = mtkfb_check_var(&var, info);
+	if (r != 0)
+		DISPERR("failed to mtkfb_check_var\n");
 
 	info->var = var;
 
-	ret = mtkfb_set_par(info);
-	if (ret)
-		DDPPR_ERR("failed to mtkfb_set_par\n");
+	r = mtkfb_set_par(info);
+	if (r != 0)
+		DISPERR("failed to mtkfb_set_par\n");
 
 	MSG_FUNC_LEAVE();
-	return ret;
+	return r;
 }
 
 /* Release the fb_info object */
@@ -2040,18 +2083,17 @@ static int init_framebuffer(struct fb_info *info)
 }
 
 
-/**
- * Free driver resources. Can be called to rollback an aborted initialization
+/* Free driver resources. Can be called to rollback an aborted initialization
  * sequence.
  */
 static void mtkfb_free_resources(struct mtkfb_device *fbdev, int state)
 {
-	int ret = 0;
+	int r = 0;
 
 	switch (state) {
 	case MTKFB_ACTIVE:
-		ret = unregister_framebuffer(fbdev->fb_info);
-		ASSERT(ret == 0);
+		r = unregister_framebuffer(fbdev->fb_info);
+		ASSERT(r == 0);
 		/* lint -fallthrough */
 	case 5:
 		mtkfb_unregister_sysfs(fbdev);
@@ -2065,7 +2107,7 @@ static void mtkfb_free_resources(struct mtkfb_device *fbdev, int state)
 	case 2:
 #ifndef CONFIG_FPGA_EARLY_PORTING
 		dma_free_coherent(0, fbdev->fb_size_in_byte, fbdev->fb_va_base,
-				  fbdev->fb_pa_base);
+			fbdev->fb_pa_base);
 #endif
 		/* lint -fallthrough */
 	case 1:
@@ -2076,8 +2118,7 @@ static void mtkfb_free_resources(struct mtkfb_device *fbdev, int state)
 		/* nothing to free */
 		break;
 	default:
-		DDPPR_ERR("free resources fail, state=%d\n", state);
-		break;
+		DISPERR("free resources fail, state=%d\n", state);
 	}
 }
 
@@ -2089,11 +2130,13 @@ void disp_get_fb_address(unsigned long *fbVirAddr, unsigned long *fbPhysAddr)
 	fb_size = mtkfb_fbi->var.yoffset * mtkfb_fbi->fix.line_length;
 	*fbVirAddr = (unsigned long)fbdev->fb_va_base + fb_size;
 	*fbPhysAddr = (unsigned long)fbdev->fb_pa_base + fb_size;
+	DISPCHECK(
+		  "[pam_disp_test] fbdev->fb_pa_base = 0x%lx, fbdev->fb_va_base = 0x%p\n",
+		  (unsigned long)fbdev->fb_pa_base, fbdev->fb_va_base);
 }
 
 static void _mtkfb_draw_block(unsigned long addr, unsigned int x,
-			      unsigned int y, unsigned int w, unsigned int h,
-			      unsigned int color)
+	unsigned int y, unsigned int w, unsigned int h, unsigned int color)
 {
 	int i = 0;
 	int j = 0;
@@ -2101,8 +2144,8 @@ static void _mtkfb_draw_block(unsigned long addr, unsigned int x,
 
 	for (j = 0; j < h; j++) {
 		for (i = 0; i < w; i++)
-			mt_reg_sync_writel(color, (start_addr + i * 4 +
-						   j * MTK_FB_XRESV * 4));
+			mt_reg_sync_writel(color,
+				(start_addr + i * 4 + j * MTK_FB_XRESV * 4));
 	}
 }
 
@@ -2118,17 +2161,18 @@ int _mtkfb_internal_test(unsigned long va, unsigned int w, unsigned int h)
 	/* this is for debug, used in bring up day */
 	unsigned int i = 0;
 	unsigned int color = 0;
-	int block_sz = 120;
+	int _block_size = 120;
 
-	for (i = 0; i < w * h / block_sz / block_sz; i++) {
+	for (i = 0; i < w * h / _block_size / _block_size; i++) {
 		color = (i & 0x1) * 0xff;
-		color += ((i & 0x2) >> 1) * 0xff00;
-		color += ((i & 0x4) >> 2) * 0xff0000;
+		color += ((i&0x2)>>1)*0xff00;
+		color += ((i&0x4)>>2)*0xff0000;
 		color += 0xff000000U;
-		/* color = 0xff000000U; */
-		_mtkfb_draw_block(va, i % (w / block_sz) * block_sz,
-				  i / (w / block_sz) * block_sz,
-				  block_sz, block_sz, color);
+		/*color = 0xff000000U;*/
+		_mtkfb_draw_block(va,
+			i % (w / _block_size) * _block_size,
+			i / (w / _block_size) * _block_size,
+			_block_size, _block_size, color);
 	}
 
 	primary_display_trigger(1, NULL, 0);
@@ -2137,14 +2181,13 @@ int _mtkfb_internal_test(unsigned long va, unsigned int w, unsigned int h)
 }
 
 #ifdef CONFIG_OF
-struct tag_videolfb {
+struct tag_video_lfb {
 	u64 fb_base;
 	u32 islcmfound;
 	u32 fps;
 	u32 vram;
 	char lcmname[1];	/* this is the minimum size */
 };
-
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
 struct tag_ext_videolfb {
@@ -2175,54 +2218,60 @@ static int __parse_tag_videolfb_extra(struct device_node *node)
 	unsigned long size = 0;
 	u32 fb_base_h, fb_base_l;
 
-	prop = (void *)of_get_property(node, "atag,videolfb-fb_base_h", NULL);
+	prop = (void *)of_get_property(node,
+		"atag,videolfb-fb_base_h", NULL);
 	if (!prop)
 		return -1;
 	fb_base_h = of_read_number(prop, 1);
 
-	prop = (void *)of_get_property(node, "atag,videolfb-fb_base_l", NULL);
+	prop = (void *)of_get_property(node,
+		"atag,videolfb-fb_base_l", NULL);
 	if (!prop)
 		return -1;
 	fb_base_l = of_read_number(prop, 1);
 
 	fb_base = ((u64) fb_base_h << 32) | (u64) fb_base_l;
 
-	prop = (void *)of_get_property(node, "atag,videolfb-islcmfound", NULL);
+	prop = (void *)of_get_property(node,
+		"atag,videolfb-islcmfound", NULL);
 	if (!prop)
 		return -1;
 	islcmconnected = of_read_number(prop, 1);
 
-	prop = (void *)of_get_property(node, "atag,videolfb-islcm_inited",
-				       NULL);
+	prop = (void *)of_get_property(node,
+		"atag,videolfb-islcm_inited", NULL);
 	if (!prop)
 		is_lcm_inited = 1;
 	else
 		is_lcm_inited = of_read_number(prop, 1);
 
-	prop = (void *)of_get_property(node, "atag,videolfb-fps", NULL);
+	prop = (void *)of_get_property(node,
+		"atag,videolfb-fps", NULL);
 	if (!prop)
 		return -1;
 	lcd_fps = of_read_number(prop, 1);
 	if (lcd_fps == 0)
 		lcd_fps = 6000;
 
-	prop = (void *)of_get_property(node, "atag,videolfb-vramSize", NULL);
+	prop = (void *)of_get_property(node,
+		"atag,videolfb-vramSize", NULL);
 	if (!prop)
 		return -1;
 	vramsize = of_read_number(prop, 1);
 
-	prop = (void *)of_get_property(node, "atag,videolfb-fb_base_l", NULL);
+	prop = (void *)of_get_property(node,
+		"atag,videolfb-fb_base_l", NULL);
 	if (!prop)
 		return -1;
 	fb_base_l = of_read_number(prop, 1);
 
-	prop = (void *)of_get_property(node, "atag,videolfb-lcmname",
-				       (int *)&size);
+	prop = (void *)of_get_property(node,
+		"atag,videolfb-lcmname", (int *)&size);
 	if (!prop)
 		return -1;
 	if (size >= sizeof(mtkfb_lcm_name)) {
 		DISPCHECK("%s: error to get lcmname size=%ld\n",
-			  __func__, size);
+			__func__, size);
 		return -1;
 	}
 	memset((void *)mtkfb_lcm_name, 0, sizeof(mtkfb_lcm_name));
@@ -2234,15 +2283,15 @@ static int __parse_tag_videolfb_extra(struct device_node *node)
 
 static int __parse_tag_videolfb(struct device_node *node)
 {
-	struct tag_videolfb *videolfb_tag = NULL;
+	struct tag_video_lfb *videolfb_tag = NULL;
 	unsigned long size = 0;
 
-	videolfb_tag = (struct tag_videolfb *)
-			of_get_property(node, "atag,videolfb", (int *)&size);
+	videolfb_tag = (struct tag_video_lfb *)of_get_property(node,
+		"atag,videolfb", (int *)&size);
 	if (videolfb_tag) {
 		memset((void *)mtkfb_lcm_name, 0, sizeof(mtkfb_lcm_name));
 		strncpy((char *)mtkfb_lcm_name, videolfb_tag->lcmname,
-				sizeof(mtkfb_lcm_name));
+			sizeof(mtkfb_lcm_name));
 		mtkfb_lcm_name[strlen(videolfb_tag->lcmname)] = '\0';
 
 		lcd_fps = videolfb_tag->fps;
@@ -2269,9 +2318,9 @@ int __init __parse_tag_ext_videolfb(unsigned long node)
 	unsigned long size = 0;
 	char *lcm_name;
 
-	tag_ext_videolfb = (struct tag_ext_videolfb *)
-				of_get_flat_dt_prop(node, "atag,ext_videolfb",
-						    (int *)&size);
+	tag_ext_videolfb =
+		(struct tag_ext_videolfb *)of_get_flat_dt_prop(
+			node, "atag,ext_videolfb", (int *)&size);
 	if (tag_ext_videolfb) {
 		lcm_name = tag_ext_videolfb->ext_lcmname;
 		memset((void *)ext_mtkfb_lcm_name, 0,
@@ -2302,7 +2351,7 @@ static int _parse_tag_videolfb(void)
 	struct device_node *chosen_node;
 
 	DISPCHECK("[DT][videolfb]isvideofb_parse_done = %d\n",
-		  is_videofb_parse_done);
+		is_videofb_parse_done);
 
 	if (is_videofb_parse_done)
 		return 0;
@@ -2348,11 +2397,11 @@ found:
 		ext_islcmconnected);
 	DISPCHECK("[DT][videolfb] ext_is_lcm_inited = %d\n",
 		ext_is_lcm_inited);
-	DISPCHECK("[DT][videolfb] ext_fps	 = %d\n",
+	DISPCHECK("[DT][videolfb] ext_fps		 = %d\n",
 		ext_lcd_fps);
 	DISPCHECK("[DT][videolfb] ext_fb_base	 = 0x%lx\n",
 		(unsigned long)ext_fb_base);
-	DISPCHECK("[DT][videolfb] ext_vram	 = 0x%x (%d)\n",
+	DISPCHECK("[DT][videolfb] ext_vram		 = 0x%x (%d)\n",
 		ext_vramsize, ext_vramsize);
 	DISPCHECK("[DT][videolfb] ext_lcmname	 = %s\n",
 		ext_mtkfb_lcm_name);
@@ -2375,7 +2424,7 @@ size_t mtkfb_get_fb_size(void)
 EXPORT_SYMBOL(mtkfb_get_fb_size);
 #endif
 
-/* used when early porting, test pan display */
+/* used when early porting, test pan display*/
 int pan_display_test(int frame_num, int bpp)
 {
 	int i, j;
@@ -2392,14 +2441,14 @@ int pan_display_test(int frame_num, int bpp)
 	fb_size = mtkfb_fbi->fix.smem_len;
 	w = mtkfb_fbi->var.xres;
 	h = mtkfb_fbi->var.yres;
-	fb_h = fb_size / (w * Bpp) - 10;
+	fb_h = fb_size / (ALIGN_TO(w, MTK_FB_ALIGNMENT) * Bpp) - 10;
 
 	DISPMSG("%s: frame_num=%d,bpp=%d, w=%d,h=%d,fb_h=%d\n",
 		__func__, frame_num, bpp, w, h, fb_h);
 
 	for (i = 0; i < fb_h; i++)
 		for (j = 0; j < w; j++) {
-			int x = (i * w + j) * Bpp;
+			int x = (i * ALIGN_TO(w, MTK_FB_ALIGNMENT) + j) * Bpp;
 
 			fb_va[x++] = (i + j) % 256;
 			fb_va[x++] = (i + j) % 256;
@@ -2413,6 +2462,7 @@ int pan_display_test(int frame_num, int bpp)
 	yoffset_max = fb_h - h;
 	yoffset = 0;
 	for (i = 0; i < frame_num; i++, yoffset += 10) {
+
 		if (yoffset >= yoffset_max)
 			yoffset = 0;
 
@@ -2427,15 +2477,14 @@ int pan_display_test(int frame_num, int bpp)
 /* #define FPGA_DEBUG_PAN */
 #ifdef FPGA_DEBUG_PAN
 static struct task_struct *test_task;
-
 static int update_test_kthread(void *data)
 {
 	unsigned int i = 0, j = 0;
 	unsigned long fb_va;
 	unsigned long fb_pa;
 	unsigned int *fb_start;
-	unsigned int fbsize = primary_display_get_height() *
-				primary_display_get_width();
+	unsigned int fbsize =
+		primary_display_get_height() * primary_display_get_width();
 
 	mtkfb_fbi->var.yoffset = 0;
 	disp_get_fb_address(&fb_va, &fb_pa);
@@ -2472,14 +2521,14 @@ static struct fb_info *allocate_fb_by_index(struct device *dev)
 
 	fb_dev = framebuffer_alloc(sizeof(struct mtkfb_device), dev);
 	if (!fb_dev) {
-		DDPPR_ERR("unable to allocate memory for device info\n");
+		DISPERR("unable to allocate memory for device info\n");
 		return NULL;
 	}
 
 	fbdev = (struct mtkfb_device *)fb_dev->par;
 	fbdev->fb_info = fb_dev;
 	fbdev->dev = dev;
-	/* dev_set_drvdata(dev, fbdev); */
+	/*dev_set_drvdata(dev, fbdev);*/
 
 	fb_dev->fbops = &mtkfb1_ops;
 	fb_dev->flags = FBINFO_FLAG_DEFAULT;
@@ -2498,9 +2547,9 @@ static int mtkfb_probe(struct platform_device *pdev)
 	struct fb_info *fb1;
 #endif
 	int init_state;
-	int ret = 0;
+	int r = 0;
 
-#ifdef CONFIG_MTK_IOMMU
+#ifdef CONFIG_MTK_IOMMU_V2
 	struct ion_client *ion_display_client = NULL;
 	struct ion_handle *ion_display_handle = NULL;
 	size_t temp_va = 0;
@@ -2508,8 +2557,15 @@ static int mtkfb_probe(struct platform_device *pdev)
 	/* struct platform_device *pdev; */
 	long dts_gpio_state = 0;
 
-	DISPMSG("%s name [%s] = [%s][%p]\n", __func__,
+	DISPMSG("%s name [%s]  = [%s][%p]\n", __func__,
 		pdev->name, pdev->dev.init_name, (void *)&pdev->dev);
+
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		if (!smi_mm_first_get()) {
+			DISPMSG("SMI not start probe\n");
+			return -EPROBE_DEFER;
+		}
+	}
 
 	_parse_tag_videolfb();
 
@@ -2518,13 +2574,13 @@ static int mtkfb_probe(struct platform_device *pdev)
 	/* pdev = to_platform_device(dev); */
 	/* repo call DTS gpio module, if not necessary, invoke nothing */
 	dts_gpio_state = disp_dts_gpio_init_repo(pdev);
-	if (dts_gpio_state)
-		dev_err(&pdev->dev, "retrieve GPIO DTS failed.");
+	if (dts_gpio_state != 0)
+		DISPMSG("retrieve GPIO DTS failed.");
 
 	fbi = framebuffer_alloc(sizeof(struct mtkfb_device), &(pdev->dev));
 	if (!fbi) {
-		DDPPR_ERR("unable to allocate memory for device info\n");
-		ret = -ENOMEM;
+		DISPERR("unable to allocate memory for device info\n");
+		r = -ENOMEM;
 		goto cleanup;
 	}
 	mtkfb_fbi = fbi;
@@ -2534,41 +2590,45 @@ static int mtkfb_probe(struct platform_device *pdev)
 	fbdev->dev = &(pdev->dev);
 	dev_set_drvdata(&(pdev->dev), fbdev);
 
-	DISPMSG("%s: fb_pa = %pa\n", __func__, &fb_base);
+	pr_notice("%s: fb_pa = %pa\n", __func__, &fb_base);
 
-#ifdef CONFIG_MTK_IOMMU
-	temp_va = (size_t)ioremap_nocache(fb_base, vramsize);
+#ifdef CONFIG_MTK_IOMMU_V2
+	temp_va = (size_t)ioremap_nocache(fb_base,
+		(fb_base + vramsize - fb_base));
 	fbdev->fb_va_base = (void *)temp_va;
 	ion_display_client = disp_ion_create("disp_fb0");
 	if (ion_display_client == NULL) {
-		DDPPR_ERR("%s: fail to create ion\n", __func__);
-		ret = -1;
+		DISPERR("%s: fail to create ion\n", __func__);
+		r = -1;
 		goto cleanup;
 	}
 
 	ion_display_handle = disp_ion_alloc(ion_display_client,
-					    ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
-					    temp_va, vramsize);
-	if (ret) {
-		DDPPR_ERR("%s: fail to allocate buffer\n", __func__);
-		ret = -1;
+		ION_HEAP_MULTIMEDIA_PA2MVA_MASK, fb_base,
+		(fb_base + vramsize - fb_base));
+	if (r != 0) {
+		DISPERR("%s: fail to allocate buffer\n", __func__);
+		r = -1;
 		goto cleanup;
 	}
 
-	disp_ion_get_mva(ion_display_client, ion_display_handle,
-			 (unsigned int *)&fb_mva, DISP_M4U_PORT_DISP_OVL0);
+	disp_ion_get_mva(ion_display_client,
+		ion_display_handle,
+		&fb_pa, 0,
+		DISP_M4U_PORT_DISP_OVL0);
 #else
+#ifdef CONFIG_MTK_M4U
 	disp_hal_allocate_framebuffer(fb_base, (fb_base + vramsize - 1),
-				(unsigned long *)(&fbdev->fb_va_base), &fb_mva);
+		(unsigned long *)(&fbdev->fb_va_base), &fb_pa);
+#endif
 #endif
 	fbdev->fb_pa_base = fb_base;
 
-	primary_display_set_frame_buffer_address((unsigned long)
-						 (fbdev->fb_va_base),
-						 fb_mva, fb_base);
+	primary_display_set_frame_buffer_address(
+		(unsigned long)(fbdev->fb_va_base), fb_pa, fb_base);
 	primary_display_init(mtkfb_find_lcm_driver(), lcd_fps, is_lcm_inited);
 
-	init_state++; /* 1 */
+	init_state++;		/* 1 */
 	MTK_FB_XRES = DISP_GetScreenWidth();
 	MTK_FB_YRES = DISP_GetScreenHeight();
 	fb_xres_update = MTK_FB_XRES;
@@ -2576,61 +2636,62 @@ static int mtkfb_probe(struct platform_device *pdev)
 
 	MTK_FB_BPP = DISP_GetScreenBpp();
 	MTK_FB_PAGES = DISP_GetPages();
-	DISPCHECK("MTK_FB_XRES=%d, MTKFB_YRES=%d, MTKFB_BPP=%d, MTK_FB_PAGES=%d, MTKFB_LINE=%d, MTKFB_SIZEV=%d\n",
-		  MTK_FB_XRES, MTK_FB_YRES, MTK_FB_BPP, MTK_FB_PAGES,
+	DISPCHECK(
+		  "%s, MTK_FB_XRES=%d, MTKFB_YRES=%d, MTKFB_BPP=%d, MTK_FB_PAGES=%d, MTKFB_LINE=%d, MTKFB_SIZEV=%d\n",
+		  __func__, MTK_FB_XRES, MTK_FB_YRES, MTK_FB_BPP, MTK_FB_PAGES,
 		  MTK_FB_LINE, MTK_FB_SIZEV);
 	fbdev->fb_size_in_byte = MTK_FB_SIZEV;
 
-	/* allocate and initialize video frame buffer */
-	DISPCHECK("[FB Driver] fbdev->fb_pa_base=0x%p,fbdev->fb_va_base=0x%p\n",
-		  &(fbdev->fb_pa_base), fbdev->fb_va_base);
+	/* Allocate and initialize video frame buffer */
+	DISPCHECK(
+		  "%s, [FB Driver] fbdev->fb_pa_base = 0x%lx, fbdev->fb_va_base = 0x%p\n",
+		  __func__, (unsigned long)fbdev->fb_pa_base,
+		  fbdev->fb_va_base);
 
 	if (!fbdev->fb_va_base) {
-		DDPPR_ERR("unable to allocate memory for frame buffer\n");
-		ret = -ENOMEM;
+		DISPERR("unable to allocate memory for frame buffer\n");
+		r = -ENOMEM;
 		goto cleanup;
 	}
-	init_state++; /* 2 */
+	init_state++;		/* 2 */
 
-	ret = mtkfb_fbinfo_init(fbi);
-	if (ret) {
-		DDPPR_ERR("mtkfb_fbinfo_init fail, ret = %d\n", ret);
+	r = mtkfb_fbinfo_init(fbi);
+	if (r) {
+		DISPERR("mtkfb_fbinfo_init fail, r = %d\n", r);
 		goto cleanup;
 	}
-	init_state++; /* 4 */
-	DISPMSG("mtkfb_fbinfo_init done\n");
+	init_state++;		/* 4 */
+	DISPMSG("\nmtkfb_fbinfo_init done\n");
 
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
-		/*
-		 * dal_init should after mtkfb_fbinfo_init, otherwise layer
+		/* dal_init should after mtkfb_fbinfo_init, otherwise layer
 		 * 3 will show dal background color
 		 */
 		enum DAL_STATUS ret;
 		unsigned long fbVA = (unsigned long)(fbdev->fb_va_base);
-		unsigned long fbMVA = fb_mva;
+		unsigned long fbPA = fb_pa;
 
-		/* DAL init here */
+		/* / DAL init here */
 		fbVA += DISP_GetFBRamSize();
-		fbMVA += DISP_GetFBRamSize();
-		ret = DAL_Init(fbVA, fbMVA);
+		fbPA += DISP_GetFBRamSize();
+		ret = DAL_Init(fbVA, fbPA);
 		DISPMSG("DAL_Init done\n");
 	}
 
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
 		_mtkfb_internal_test((unsigned long)(fbdev->fb_va_base),
-				     MTK_FB_XRES, MTK_FB_YRES);
+			MTK_FB_XRES, MTK_FB_YRES);
 
-	ret = mtkfb_register_sysfs(fbdev);
-	if (ret) {
-		DDPPR_ERR("mtkfb_register_sysfs fail, ret = %d\n", ret);
+	r = mtkfb_register_sysfs(fbdev);
+	if (r) {
+		DISPERR("mtkfb_register_sysfs fail, r = %d\n", r);
 		goto cleanup;
 	}
-	init_state++; /* 5 */
-
+	init_state++;		/* 5 */
 	DISPMSG("register_framebuffer start...\n");
-	ret = register_framebuffer(fbi);
-	if (ret) {
-		DDPPR_ERR("register_framebuffer failed\n");
+	r = register_framebuffer(fbi);
+	if (r != 0) {
+		DISPERR("register_framebuffer failed\n");
 		goto cleanup;
 	}
 	DISPMSG("register_framebuffer done\n");
@@ -2645,31 +2706,30 @@ static int mtkfb_probe(struct platform_device *pdev)
 #endif
 
 #ifdef FPGA_DEBUG_PAN
-	test_task = kthread_create(update_test_kthread, NULL,
-				   "update_test_kthread");
+	test_task = kthread_create(update_test_kthread,
+		NULL, "update_test_kthread");
 	wake_up_process(test_task);
 #endif
 
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
 		primary_display_diagnose();
 
-	/*
-	 * this function will get fb_heap base address to ion
+
+	/* this function will get fb_heap base address to ion
 	 * for management frame buffer
 	 */
-#ifdef MTK_FB_ION_SUPPORT /* FIXME: remove when ION ready */
-	ion_drv_create_FB_heap(mtkfb_get_fb_base(),
-			mtkfb_get_fb_size() - DAL_GetLayerSize());
+#ifdef MTK_FB_ION_SUPPORT
+	ion_drv_create_FB_heap(mtkfb_get_fb_base(), mtkfb_get_fb_size());
 #endif
 	fbdev->state = MTKFB_ACTIVE;
 
+#if 0
 	if (!strcmp(mtkfb_find_lcm_driver(),
-			"oppo17321_tianma_td4310_1080p_dsi_vdo") ||
-	    !strcmp(mtkfb_find_lcm_driver(),
-			"oppo17321_tianma_nt36672_1080p_dsi_vdo")) {
-		register_ccci_sys_call_back(MD_SYS1, MD_DISPLAY_DYNAMIC_MIPI,
-				mipi_clk_change);
+		"nt35521_hd_dsi_vdo_truly_rt5081_drv")) {
+		register_ccci_sys_call_back(MD_SYS1,
+			MD_DISPLAY_DYNAMIC_MIPI, mipi_clk_change);
 	}
+#endif
 
 	MSG_FUNC_LEAVE();
 	pr_info("disp driver(2) %s end\n", __func__);
@@ -2678,8 +2738,8 @@ static int mtkfb_probe(struct platform_device *pdev)
 cleanup:
 	mtkfb_free_resources(fbdev, init_state);
 
-	pr_info("disp driver(3) %s end\n", __func__);
-	return ret;
+	pr_info("disp driver(2) %s end\n", __func__);
+	return r;
 }
 
 /* Called when the device is being detached from the driver */
@@ -2698,13 +2758,14 @@ static int mtkfb_remove(struct platform_device *pdev)
 	return 0;
 }
 
+
 /* PM suspend */
 static int mtkfb_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
 	DISPFUNC();
 	NOT_REFERENCED(pdev);
 	MSG_FUNC_ENTER();
-	MTKFB_LOG("[FB Driver] %s(): 0x%x\n", __func__, mesg.event);
+	MTKFB_LOG("[FB Driver] mtkfb_suspend(): 0x%x\n", mesg.event);
 	ovl2mem_wait_done();
 	MSG_FUNC_LEAVE();
 	return 0;
@@ -2713,9 +2774,10 @@ static int mtkfb_suspend(struct platform_device *pdev, pm_message_t mesg)
 /* PM resume */
 static int mtkfb_resume(struct platform_device *pdev)
 {
+	DISPFUNC();
 	NOT_REFERENCED(pdev);
 	MSG_FUNC_ENTER();
-	MTKFB_LOG("[FB Driver] %s()\n", __func__);
+	MTKFB_LOG("[FB Driver] mtkfb_resume()\n");
 	MSG_FUNC_LEAVE();
 	return 0;
 }
@@ -2748,14 +2810,17 @@ int mtkfb_ipoh_restore(struct notifier_block *nb, unsigned long val, void *ign)
 {
 	switch (val) {
 	case PM_HIBERNATION_PREPARE:
-		DISPDBG("[FB Driver] %s PM_HIBERNATION_PREPARE\n", __func__);
+		DISPDBG("[FB Driver] %s PM_HIBERNATION_PREPARE\n",
+			__func__);
 		return NOTIFY_DONE;
 	case PM_RESTORE_PREPARE:
 		primary_display_ipoh_restore();
-		DISPDBG("[FB Driver] %s PM_RESTORE_PREPARE\n", __func__);
+		DISPDBG("[FB Driver] %s PM_RESTORE_PREPARE\n",
+			__func__);
 		return NOTIFY_DONE;
 	case PM_POST_HIBERNATION:
-		DISPDBG("[FB Driver] %s PM_POST_HIBERNATION\n", __func__);
+		DISPDBG("[FB Driver] %s PM_POST_HIBERNATION\n",
+			__func__);
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;
@@ -2774,6 +2839,7 @@ void mtkfb_clear_lcm(void)
 {
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void mtkfb_early_suspend(void)
 {
 	int ret = 0;
@@ -2786,7 +2852,7 @@ static void mtkfb_early_suspend(void)
 	ret = primary_display_suspend();
 
 	if (ret < 0) {
-		DDPPR_ERR("primary display suspend failed\n");
+		DISPERR("primary display suspend failed\n");
 		return;
 	}
 
@@ -2806,16 +2872,18 @@ static void mtkfb_late_resume(void)
 	ret = primary_display_resume();
 
 	if (ret) {
-		DDPPR_ERR("primary display resume failed\n");
+		DISPERR("primary display resume failed\n");
 		return;
 	}
 
 	DISPMSG("[FB Driver] leave late_resume\n");
 
 }
+#endif
 
+/*---------------------------------------------------------------------------*/
 #ifdef CONFIG_PM
-
+/*---------------------------------------------------------------------------*/
 int mtkfb_pm_suspend(struct device *device)
 {
 	/* pr_debug("calling %s()\n", __func__); */
@@ -2867,18 +2935,19 @@ int mtkfb_pm_restore_noirq(struct device *device)
 #endif
 	DISPDBG("%s: %d\n", __func__, __LINE__);
 	return 0;
+
 }
 
-#else /* !CONFIG_PM */
-
-#define mtkfb_pm_suspend	NULL
-#define mtkfb_pm_resume		NULL
-#define mtkfb_pm_restore_noirq	NULL
-#define mtkfb_pm_freeze		NULL
-
-#endif /* CONFIG_PM */
-
-
+/*---------------------------------------------------------------------------*/
+#else				/*CONFIG_PM */
+/*---------------------------------------------------------------------------*/
+#define mtkfb_pm_suspend NULL
+#define mtkfb_pm_resume  NULL
+#define mtkfb_pm_restore_noirq NULL
+#define mtkfb_pm_freeze NULL
+/*---------------------------------------------------------------------------*/
+#endif				/*CONFIG_PM */
+/*---------------------------------------------------------------------------*/
 static const struct of_device_id mtkfb_of_ids[] = {
 	{.compatible = "mediatek,MTKFB",},
 	{}
@@ -2930,39 +2999,46 @@ int mtkfb_get_debug_state(char *stringbuf, int buf_len)
 	unsigned long pa = fbdev->fb_pa_base;
 	unsigned int resv_size = vramsize;
 
-	len += scnprintf(stringbuf + len, buf_len - len,
-			 "|------------------------------------------------------------------|\n");
+	len +=
+	    scnprintf(stringbuf + len, buf_len - len,
+			"|--------------------------------------------------------------------------------------|\n");
 
-	len += scnprintf(stringbuf + len, buf_len - len,
-			 "|Framebuffer VA:0x%lx, PA:0x%lx, MVA:0x%lx, Reserved Size:0x%08x|%d\n",
-			 va, pa, mva, resv_size, resv_size);
-	len += scnprintf(stringbuf + len, buf_len - len,
-			 "|xoffset=%d, yoffset=%d\n",
-			 mtkfb_fbi->var.xoffset, mtkfb_fbi->var.yoffset);
-	len += scnprintf(stringbuf + len, buf_len - len,
-			 "|framebuffer line alignment(for gpu)=%d\n",
-			 MTK_FB_ALIGNMENT);
-	len += scnprintf(stringbuf + len, buf_len - len,
-			 "|xres=%d, yres=%d,bpp=%d,pages=%d,linebytes=%d,total size=%d\n",
-			 MTK_FB_XRES, MTK_FB_YRES, MTK_FB_BPP, MTK_FB_PAGES,
-			 MTK_FB_LINE, MTK_FB_SIZEV);
+	len +=
+	    scnprintf(stringbuf + len, buf_len - len,
+			"|Framebuffer VA:0x%lx, PA:0x%lx, MVA:0x%lx, Reserved Size:0x%08x|%d\n",
+			va, pa, mva, resv_size, resv_size);
+	len +=
+	    scnprintf(stringbuf + len, buf_len - len,
+			"|xoffset=%d, yoffset=%d\n",
+			mtkfb_fbi->var.xoffset, mtkfb_fbi->var.yoffset);
+	len +=
+	    scnprintf(stringbuf + len, buf_len - len,
+			"|framebuffer line alignment(for gpu)=%d\n",
+			MTK_FB_ALIGNMENT);
+	len +=
+	    scnprintf(stringbuf + len, buf_len - len,
+			"|xres=%d, yres=%d,bpp=%d,pages=%d,linebytes=%d,total size=%d\n",
+			MTK_FB_XRES, MTK_FB_YRES, MTK_FB_BPP, MTK_FB_PAGES,
+			MTK_FB_LINE, MTK_FB_SIZEV);
 	/* use extern in case DAL_LOCK is hold, then can't get any debug info */
-	len += scnprintf(stringbuf + len, buf_len - len, "|AEE Layer is %s\n",
-			 is_DAL_Enabled() ? "enabled" : "disabled");
+	len +=
+	    scnprintf(stringbuf + len, buf_len - len, "|AEE Layer is %s\n",
+		      is_DAL_Enabled() ? "enabled" : "disabled");
 
 	return len;
 }
 
+
 /* Register both the driver and the device */
 int __init mtkfb_init(void)
 {
-	int ret = 0;
+	int r = 0;
 
 	MSG_FUNC_ENTER();
-	DISPCHECK("%s Enter\n", __func__);
+	DISPCHECK("%sEnter\n", __func__);
 	if (platform_driver_register(&mtkfb_driver)) {
 		PRNERR("failed to register mtkfb driver\n");
-		ret = -ENODEV;
+		r = -ENODEV;
 		goto exit;
 	}
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -2974,8 +3050,9 @@ int __init mtkfb_init(void)
 exit:
 	MSG_FUNC_LEAVE();
 	DISPCHECK("%s LEAVE\n", __func__);
-	return ret;
+	return r;
 }
+
 
 static void __exit mtkfb_cleanup(void)
 {

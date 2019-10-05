@@ -55,8 +55,4 @@ enum DISP_ENGINE_SIGNAL0 {
 char *ddp_get_fmt_name(enum DISP_MODULE_ENUM module, unsigned int fmt);
 int ddp_dump_analysis(enum DISP_MODULE_ENUM module);
 int ddp_dump_reg(enum DISP_MODULE_ENUM module);
-
-void dump_reg_row(unsigned long baddr, unsigned long offset,
-		  unsigned int count);
-
-#endif /* _DDP_DUMP_H_ */
+#endif

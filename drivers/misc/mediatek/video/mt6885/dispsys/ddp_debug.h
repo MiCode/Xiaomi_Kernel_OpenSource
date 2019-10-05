@@ -50,13 +50,4 @@ int ddp_debug_partial_statistic(void);
 int ddp_mem_test(void);
 int ddp_lcd_test(void);
 
-enum ONESHOT_DUMP_STAGE {
-	ONESHOT_DUMP_INIT,
-	ONESHOT_DUMP_UNDERGOING,
-	ONESHOT_DUMP_FINISHED,
-};
-
-enum ONESHOT_DUMP_STAGE get_oneshot_dump(void);
-void set_oneshot_dump(enum ONESHOT_DUMP_STAGE);
-
 #endif /* __DDP_DEBUG_H__ */

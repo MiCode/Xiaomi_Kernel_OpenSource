@@ -23,7 +23,9 @@ else
 	######################################
 	obj-$(CONFIG_MTK_FB) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 	obj-$(CONFIG_MACH_MT6771) += common/
+	obj-$(CONFIG_MACH_MT6768) += common/
 	obj-$(CONFIG_MACH_MT8168) += common/
 	obj-$(CONFIG_MACH_MT6739) += common/
+	obj-$(CONFIG_MACH_MT6885) += common/
 endif
 

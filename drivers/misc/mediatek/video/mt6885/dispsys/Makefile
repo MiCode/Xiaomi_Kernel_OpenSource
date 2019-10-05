@@ -17,13 +17,14 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/include/ \
              -I$(srctree)/drivers/misc/mediatek/video/common/ \
              -I$(srctree)/drivers/misc/mediatek/video/common/rdma20/ \
              -I$(srctree)/drivers/misc/mediatek/video/common/wdma20/ \
+             -I$(srctree)/drivers/misc/mediatek/video/common/layering_rule_base/v1.1/ \
              -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox/ \
              -I$(srctree)/drivers/misc/mediatek/base/power/include/ \
              -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/gpu/ged/include/ \
              -I$(srctree)/drivers/iommu/ \
              -I$(srctree)/drivers/misc/mediatek/smi/variant/ \
-             -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM) \
+             -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)
 
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM) \
@@ -32,8 +33,13 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM) \
 subdir-ccflags-y += -I$(srctree)/drivers/staging/android/ion \
 		    -I$(srctree)/drivers/staging/android/ion/mtk
 
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/ \
-		    -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
+
+ifeq ($(CONFIG_MACH_MT6761),y)
+    subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/mt6765/
+else
+    subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
+endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 
@@ -64,10 +70,10 @@ obj-y += ddp_ovl.o
 obj-y += ddp_rdma_ex.o
 obj-y += ddp_wdma_ex.o
 obj-y += ddp_dsi.o
-obj-y += ddp_dpi.o
-obj-y += ddp_dbi.o
+#obj-y += ddp_dpi.o
 obj-y += ddp_clkmgr.o
 obj-y += ddp_rsz.o
+obj-y += ddp_postmask.o
 #common
 obj-y += ddp_drv.o
 obj-y += ddp_path.o
@@ -82,10 +88,10 @@ obj-y += ddp_info.o
 obj-y += ddp_color_format.o
 obj-y += ddp_pwm_mux.o
 
-#obj-y += data_rgb888_64x64.o
-#obj-y += data_rgb888_64x64_golden.o
 
+ifeq ($(CONFIG_MMPROFILE), y)
 obj-y += ddp_mmp.o
+endif
 obj-y += ddp_met.o
 
 obj-y += display_recorder.o

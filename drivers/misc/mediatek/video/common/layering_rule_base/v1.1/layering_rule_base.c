@@ -38,6 +38,8 @@ static struct layering_rule_info_t *l_rule_info;
 static struct layering_rule_ops *l_rule_ops;
 static int ext_id_tuning(struct disp_layer_info *disp_info, int disp_idx);
 static unsigned int adaptive_dc_request;
+static unsigned int roll_gpu_for_idle;
+
 
 static struct {
 	enum LYE_HELPER_OPT opt;
@@ -407,7 +409,7 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 	struct layer_config *layer_info;
 
 #define _HRT_FMT \
-	"HRT hrt_num:0x%x/fps:%d/dal:%d/p:%d/r:%s/layer_tb:%d/bd_tb:%d/dc:%d\n"
+	"HRT hrt_num:0x%x/fps:%d/dal:%d/p:%d/r:%s/layer_tb:%d/bd_tb:%d/dc:%d/i:%d\n"
 #define _L_FMT \
 	"L%d->%d/of(%d,%d)/swh(%d,%d)/dwh(%d,%d)/fmt:0x%x/ext:%d/caps:0x%x\n"
 
@@ -418,7 +420,8 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 			HRT_GET_PATH_ID(l_rule_info->disp_path),
 			get_scale_name(l_rule_info->scale_rate),
 			l_rule_info->layer_tb_idx, l_rule_info->bound_tb_idx,
-			HRT_GET_DC_FLAG(disp_info->hrt_num));
+			HRT_GET_DC_FLAG(disp_info->hrt_num),
+			roll_gpu_for_idle);
 
 		for (i = 0 ; i < 2 ; i++) {
 			if (disp_info->layer_num[i] <= 0)
@@ -453,7 +456,8 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 			get_scale_name(l_rule_info->scale_rate),
 			l_rule_info->layer_tb_idx,
 			l_rule_info->bound_tb_idx,
-			HRT_GET_DC_FLAG(disp_info->hrt_num));
+			HRT_GET_DC_FLAG(disp_info->hrt_num),
+			roll_gpu_for_idle);
 
 		for (i = 0 ; i < 2 ; i++) {
 			if (disp_info->layer_num[i] <= 0)
@@ -1376,7 +1380,7 @@ static int ext_layer_grouping(struct disp_layer_info *disp_info)
 	int cont_ext_layer_cnt = 0, ext_idx = 0;
 	int is_ext_layer, disp_idx, i;
 	struct layer_config *src_info, *dst_info;
-	int available_layers = 0;
+	int available_layers = 0, phy_layer_cnt = 0;
 
 	for (disp_idx = 0 ; disp_idx < 2 ; disp_idx++) {
 
@@ -1391,6 +1395,15 @@ static int ext_layer_grouping(struct disp_layer_info *disp_info)
 		if (disp_idx == HRT_SECONDARY)
 			continue;
 #endif
+
+		/* If the physical layer > input layer, */
+		/* then skip using extended layer. */
+		phy_layer_cnt = get_phy_layer_limit(
+		l_rule_ops->get_mapping_table(
+			DISP_HW_LAYER_TB, MAX_PHY_OVL_CNT - 1),
+			disp_idx);
+		if (phy_layer_cnt > disp_info->layer_num[disp_idx])
+			continue;
 
 		for (i = 1 ; i < disp_info->layer_num[disp_idx]; i++) {
 			dst_info = &disp_info->input_config[disp_idx][i];
@@ -1627,123 +1640,101 @@ int check_disp_info(struct disp_layer_info *disp_info)
 	return 0;
 }
 
-int set_disp_info(struct disp_layer_info *disp_info_user, int debug_mode)
+static int _copy_layer_info_from_disp(struct disp_layer_info *disp_info_user,
+	int debug_mode, int disp_idx)
 {
+	struct disp_layer_info *l_info = &layering_info;
+	unsigned long int layer_size = 0;
+	int ret = 0, layer_num = 0;
 
-	memcpy(&layering_info, disp_info_user, sizeof(struct disp_layer_info));
+	if (l_info->layer_num[disp_idx] <= 0)
+		return -EFAULT;
 
-	if (layering_info.layer_num[0]) {
-		layering_info.input_config[0] =
-			kcalloc(layering_info.layer_num[0],
-				sizeof(struct layer_config),
-				GFP_KERNEL);
 
-		if (layering_info.input_config[0] == NULL) {
-			DISPERR("[HRT]: alloc input config 0 fail, layer_num:%d\n",
-				layering_info.layer_num[0]);
-			return -EFAULT;
-		}
+	layer_num = l_info->layer_num[disp_idx];
+	layer_size = sizeof(struct layer_config) * layer_num;
+	l_info->input_config[disp_idx] =
+		kzalloc(layer_size, GFP_KERNEL);
 
-		if (debug_mode) {
-			memcpy(layering_info.input_config[0],
-				disp_info_user->input_config[0],
-				sizeof(struct layer_config) *
-				layering_info.layer_num[0]);
-		} else {
-			if (copy_from_user(layering_info.input_config[0],
-			    disp_info_user->input_config[0],
-			    sizeof(struct layer_config) *
-			    layering_info.layer_num[0])) {
-				DISPERR("[FB]: copy_to_user failed! line:%d\n",
-					__LINE__);
-				return -EFAULT;
-			}
-		}
+	if (l_info->input_config[disp_idx] == NULL) {
+		pr_info("[DISP][HRT]:alloc input config 0 fail, layer_num:%d\n",
+			l_info->layer_num[disp_idx]);
+		return -EFAULT;
 	}
 
-	if (layering_info.layer_num[1]) {
-		layering_info.input_config[1] =
-			kcalloc(layering_info.layer_num[1],
-				sizeof(struct layer_config),
-				GFP_KERNEL);
-		if (layering_info.input_config[1] == NULL) {
-			DISPERR("[HRT]: alloc input config 1 fail, layer_num:%d\n",
-				layering_info.layer_num[1]);
-			return -EFAULT;
-		}
-
-		if (debug_mode) {
-			memcpy(layering_info.input_config[1],
-				disp_info_user->input_config[1],
-				sizeof(struct layer_config) *
-				layering_info.layer_num[1]);
-		} else {
-			if (copy_from_user(layering_info.input_config[1],
-			    disp_info_user->input_config[1],
-			    sizeof(struct layer_config) *
-			    layering_info.layer_num[1])) {
-				DISPERR("[FB]: copy_to_user failed! line:%d\n",
-					__LINE__);
-				return -EFAULT;
-			}
-		}
-	}
-
-	l_rule_info->disp_path = HRT_PATH_UNKNOWN;
-	return 0;
-}
-
-int copy_layer_info_to_user(struct disp_layer_info *disp_info_user,
-				int debug_mode)
-{
-	int ret = 0;
-
-	disp_info_user->hrt_num = layering_info.hrt_num;
-	if (layering_info.layer_num[0] > 0) {
-		disp_info_user->gles_head[0] = layering_info.gles_head[0];
-		disp_info_user->gles_tail[0] = layering_info.gles_tail[0];
-
-		if (debug_mode) {
-			memcpy(disp_info_user->input_config[0],
-				layering_info.input_config[0],
-				sizeof(struct layer_config) *
-				disp_info_user->layer_num[0]);
-		} else {
-			if (copy_to_user(disp_info_user->input_config[0],
-			    layering_info.input_config[0],
-			    sizeof(struct layer_config) *
-			    layering_info.layer_num[0])) {
-				DISPERR("[FB]: copy_to_user failed! line:%d\n",
-					__LINE__);
-				ret = -EFAULT;
-			}
-			kfree(layering_info.input_config[0]);
-		}
-	}
-
-	if (layering_info.layer_num[1] > 0) {
-		disp_info_user->gles_head[1] = layering_info.gles_head[1];
-		disp_info_user->gles_tail[1] = layering_info.gles_tail[1];
-		if (debug_mode) {
-			memcpy(disp_info_user->input_config[1],
-				layering_info.input_config[1],
-				sizeof(struct layer_config) *
-				disp_info_user->layer_num[1]);
-		} else {
-			if (copy_to_user(disp_info_user->input_config[1],
-			   layering_info.input_config[1],
-			   sizeof(struct layer_config) *
-			   layering_info.layer_num[1])) {
-				DISPERR("[FB]: copy_to_user failed! line:%d\n",
+	if (debug_mode) {
+		memcpy(l_info->input_config[disp_idx],
+			disp_info_user->input_config[disp_idx],
+			layer_size);
+	} else {
+		if (copy_from_user(l_info->input_config[disp_idx],
+				disp_info_user->input_config[disp_idx],
+				layer_size)) {
+			pr_info("[DISP][FB]: copy_to_user failed! line:%d\n",
 				__LINE__);
-				ret = -EFAULT;
-			}
-			kfree(layering_info.input_config[1]);
+			return -EFAULT;
 		}
 	}
 
 	return ret;
 }
+
+int set_disp_info(struct disp_layer_info *disp_info_user, int debug_mode)
+{
+	memcpy(&layering_info, disp_info_user, sizeof(struct disp_layer_info));
+
+	_copy_layer_info_from_disp(disp_info_user, debug_mode, 0);
+	_copy_layer_info_from_disp(disp_info_user, debug_mode, 1);
+
+	l_rule_info->disp_path = HRT_PATH_UNKNOWN;
+	return 0;
+}
+
+static int _copy_layer_info_by_disp(struct disp_layer_info *disp_info_user,
+	int debug_mode, int disp_idx)
+{
+	struct disp_layer_info *l_info = &layering_info;
+	unsigned long int layer_size = 0;
+	int ret = 0;
+
+	if (l_info->layer_num[disp_idx] <= 0)
+		return -EFAULT;
+
+	disp_info_user->gles_head[disp_idx] = l_info->gles_head[disp_idx];
+	disp_info_user->gles_tail[disp_idx] = l_info->gles_tail[disp_idx];
+
+	layer_size = sizeof(struct layer_config) *
+		disp_info_user->layer_num[disp_idx];
+
+	if (debug_mode) {
+		memcpy(disp_info_user->input_config[disp_idx],
+			l_info->input_config[disp_idx], layer_size);
+	} else {
+		if (copy_to_user(disp_info_user->input_config[disp_idx],
+				l_info->input_config[disp_idx], layer_size)) {
+			pr_info("[DISP][FB]: copy_to_user failed! line:%d\n",
+				__LINE__);
+			ret = -EFAULT;
+		}
+		kfree(l_info->input_config[disp_idx]);
+	}
+
+	return ret;
+}
+
+int copy_layer_info_to_user(struct disp_layer_info *disp_info_user,
+	int debug_mode)
+{
+	int ret = 0;
+	struct disp_layer_info *l_info = &layering_info;
+
+	disp_info_user->hrt_num = l_info->hrt_num;
+	_copy_layer_info_by_disp(disp_info_user, debug_mode, 0);
+	_copy_layer_info_by_disp(disp_info_user, debug_mode, 1);
+
+	return ret;
+}
+
 
 int set_hrt_state(enum HRT_SYS_STATE sys_state, int en)
 {
@@ -1785,6 +1776,7 @@ int layering_rule_start(struct disp_layer_info *disp_info_user,
 	int debug_mode)
 {
 	int ret;
+	roll_gpu_for_idle = 0;
 
 	if (l_rule_ops == NULL || l_rule_info == NULL) {
 		DISPWARN("Layering rule has not been initialize.\n");
@@ -1849,7 +1841,12 @@ int layering_rule_start(struct disp_layer_info *disp_info_user,
  * Fill layer id for each input layers.
  * All the gles layers set as same layer id.
  */
-	if (l_rule_ops->adaptive_dc_enabled == NULL ||
+	if (l_rule_ops->rollback_all_to_GPU_for_idle != NULL &&
+		l_rule_ops->rollback_all_to_GPU_for_idle()) {
+		roll_gpu_for_idle = 1;
+		rollback_all_to_GPU(&layering_info, HRT_PRIMARY);
+		layering_info.hrt_num = HRT_LEVEL_LEVEL0;
+	} else if (l_rule_ops->adaptive_dc_enabled == NULL ||
 	    !l_rule_ops->adaptive_dc_enabled() ||
 	    l_rule_info->dal_enable ||
 	    layering_info.hrt_num < HRT_LEVEL_NUM) {
@@ -1971,6 +1968,7 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 
 	if (!filp->f_op) {
 		DISPWARN("File Operation Method Error!!\n");
+		filp_close(filp, NULL);
 		return -1;
 	}
 

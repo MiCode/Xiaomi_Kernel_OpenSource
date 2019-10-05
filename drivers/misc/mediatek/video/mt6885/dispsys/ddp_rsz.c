@@ -229,10 +229,8 @@ static int rsz_config(enum DISP_MODULE_ENUM module,
 		rsz_config->frm_out_h = pconfig->dst_h;
 	}
 
-
 	rsz_get_in_out_roi(pconfig, &frm_in_w, &frm_in_h,
-						&frm_out_w, &frm_out_h);
-
+			   &frm_out_w, &frm_out_h);
 	rsz_config->frm_in_w = frm_in_w;
 	rsz_config->frm_in_h = frm_in_h;
 	rsz_config->frm_out_w = frm_out_w;
@@ -249,7 +247,7 @@ static int rsz_config(enum DISP_MODULE_ENUM module,
 		if (!dump) {
 			dump = true;
 			primary_display_diagnose();
-			disp_aee_print("need rsz but input width(%u) > limit(%u)\n",
+			disp_aee_print("need rsz but input w(%u) > (%u)\n",
 				       rsz_config->frm_in_w, RSZ_TILE_LENGTH);
 		}
 		return -EINVAL;
@@ -406,7 +404,8 @@ void rsz_dump_analysis(enum DISP_MODULE_ENUM module)
 	DDPDUMP("== DISP %s ANALYSIS ==\n", ddp_get_module_name(module));
 
 	DISP_REG_SET(NULL, rsz_base + DISP_REG_RSZ_DEBUG_SEL, 0x3);
-	DDPDUMP("en:%d,rst:%d,h_en:%d,v_en:%d,h_table:%d,v_table:%d,dcm_dis:%d,int_en:%d,wclr_en:%d\n",
+	DDPDUMP(
+		"en:%d,rst:%d,h_en:%d,v_en:%d,h_table:%d,v_table:%d,dcm_dis:%d,int_en:%d,wclr_en:%d\n",
 		REG_FLD_VAL_GET(FLD_RSZ_EN, enable),
 		REG_FLD_VAL_GET(FLD_RSZ_RST, enable),
 		REG_FLD_VAL_GET(FLD_RSZ_HORIZONTAL_EN, con1),
@@ -416,7 +415,8 @@ void rsz_dump_analysis(enum DISP_MODULE_ENUM module)
 		REG_FLD_VAL_GET(FLD_RSZ_DCM_DIS, con1),
 		REG_FLD_VAL_GET(FLD_RSZ_INTEN, con1),
 		REG_FLD_VAL_GET(FLD_RSZ_INT_WCLR_EN, con1));
-	DDPDUMP("power_saving:%d,rgb_bit_mode:%d,frm_start:%d,frm_end:%d,size_err:%d,sof_rst:%d\n",
+	DDPDUMP(
+		"power_saving:%d,rgb_bit_mode:%d,frm_start:%d,frm_end:%d,size_err:%d,sof_rst:%d\n",
 		REG_FLD_VAL_GET(FLD_RSZ_POWER_SAVING, con2),
 		REG_FLD_VAL_GET(FLD_RSZ_RGB_BIT_MODE, con2),
 		REG_FLD_VAL_GET(FLD_RSZ_FRAME_START, int_flag),
@@ -439,7 +439,8 @@ void rsz_dump_analysis(enum DISP_MODULE_ENUM module)
 			     DISP_REG_RSZ_LUMA_VERTICAL_INTEGER_OFFSET),
 		DISP_REG_GET(rsz_base +
 			     DISP_REG_RSZ_LUMA_VERTICAL_SUBPIXEL_OFFSET));
-	DDPDUMP("dbg_sel:%d, in(%u,%u);shadow_ctrl:bypass:%d,force:%d,read_working:%d\n",
+	DDPDUMP(
+		"dbg_sel:%d, in(%u,%u);shadow_ctrl:bypass:%d,force:%d,read_working:%d\n",
 		DISP_REG_GET(rsz_base + DISP_REG_RSZ_DEBUG_SEL),
 		in_pos & 0xFFFF, (in_pos >> 16) & 0xFFFF,
 		REG_FLD_VAL_GET(FLD_RSZ_BYPASS_SHADOW, shadow),

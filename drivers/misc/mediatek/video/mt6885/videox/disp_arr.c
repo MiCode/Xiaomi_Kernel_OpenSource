@@ -36,12 +36,11 @@
 #include "mtkfb_fence.h"
 #include "display_recorder.h"
 #include "fbconfig_kdebug.h"
-#include "mtk_sync.h"
+//#include "mtk_sync.h"
 #include "disp_session.h"
 #include "disp_helper.h"
 #include "mtk_disp_mgr.h"
 #include "mtkfb_console.h"
-#include "mt-plat/aee.h"
 #include "disp_lowpower.h"
 #include "disp_recovery.h"
 #include "layering_rule.h"
@@ -101,15 +100,5 @@ int primary_display_set_refresh_rate(unsigned int refresh_rate)
 	/* AP set refresh rate */
 	ret = primary_display_force_set_vsync_fps(refresh_rate, 0);
 	return ret;
-}
-
-int primary_display_force_vdo_mode(unsigned int force_on)
-{
-	if (force_on)
-		primary_display_switch_dst_mode(1);
-	else
-		primary_display_switch_dst_mode(0);
-
-	return 0;
 }
 

@@ -232,7 +232,7 @@ int disp_sync_get_debug_info(char *stringbuf, int buf_len);
 int disp_sync_get_ovl_timeline_id(int layer_id);
 int disp_sync_get_output_timeline_id(void);
 int disp_sync_get_output_interface_timeline_id(void);
-int disp_sync_get_present_timeline_id(unsigned int session_id);
+int disp_sync_get_present_timeline_id(void);
 struct disp_session_sync_info
 *disp_get_session_sync_info_for_debug(unsigned int session_id);
 
