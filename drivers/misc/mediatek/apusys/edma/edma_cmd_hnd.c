@@ -26,6 +26,7 @@
 #include "edma_reg.h"
 #include "edma_queue.h"
 #include "edma_api.h"
+#include "apusys_power.h"
 
 #define NO_INTERRUPT		0
 
@@ -1389,10 +1390,24 @@ int edma_ext_by_sub(struct edma_sub *edma_sub, struct edma_request *req)
 
 void edma_power_on(struct edma_sub *edma_sub)
 {
+	struct edma_device *edma_device;
+
+	edma_device = edma_sub->edma_device;
+	if (edma_device->power_state == EDMA_POWER_OFF) {
+		edma_device->power_state = EDMA_POWER_ON;
+		apu_device_power_on(EDMA);
+	}
 }
 
 void edma_power_off(struct edma_sub *edma_sub)
 {
+	struct edma_device *edma_device;
+
+	edma_device = edma_sub->edma_device;
+	if (edma_device->power_state == EDMA_POWER_ON) {
+		edma_device->power_state = EDMA_POWER_OFF;
+		apu_device_power_off(EDMA);
+	}
 }
 
 int edma_execute(struct edma_sub *edma_sub, struct edma_ext *edma_ext)

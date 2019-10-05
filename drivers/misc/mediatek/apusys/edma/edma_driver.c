@@ -174,6 +174,7 @@ int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
 	case APUSYS_CMD_RESUME:
 		break;
 	case APUSYS_CMD_SUSPEND:
+		edma_power_off(edma_sub);
 		break;
 	case APUSYS_CMD_EXECUTE:{
 			struct apusys_cmd_hnd *cmd_hnd;
@@ -311,6 +312,7 @@ static int edma_setup_resource(struct platform_device *pdev,
 			return -EPROBE_DEFER;
 		}
 	}
+	apu_power_device_register(EDMA, pdev);
 
 	return 0;
 }
@@ -334,6 +336,7 @@ static int edma_probe(struct platform_device *pdev)
 	edma_device->edma_num_users = 0;
 	edma_device->dev = &pdev->dev;
 	edma_device->dbgfs_reg_core = 0;
+	edma_device->power_state = EDMA_POWER_OFF;
 
 	if (edma_reg_chardev(edma_device) == 0) {
 		/* Create class register */
@@ -374,6 +377,7 @@ static int edma_remove(struct platform_device *pdev)
 {
 	struct edma_device *edma_device = platform_get_drvdata(pdev);
 
+	apu_power_device_unregister(EDMA);
 	edma_unreg_chardev(edma_device);
 	device_destroy(edma_class, edma_device->edma_devt);
 	class_destroy(edma_class);

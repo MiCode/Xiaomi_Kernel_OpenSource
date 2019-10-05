@@ -32,6 +32,11 @@ enum edma_sub_state {
 	EDMA_SLEEP,
 };
 
+enum edma_power_state {
+	EDMA_POWER_OFF,
+	EDMA_POWER_ON,
+};
+
 struct edma_sub {
 	struct device *dev;
 	struct apusys_device adev;
@@ -64,6 +69,7 @@ struct edma_device {
 	struct mutex user_mutex;
 	struct list_head user_list;
 	int edma_num_users;
+	enum edma_power_state power_state;
 
 	dev_t edma_devt;
 	struct cdev edma_chardev;

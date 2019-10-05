@@ -74,11 +74,28 @@ static ssize_t set_edma_register(struct device *dev,
 	return count;
 }
 
+static ssize_t show_edma_power(struct device *dev,
+				   struct device_attribute *attr, char *buf)
+{
+	int count = 0;
+	struct edma_device *edma_device = dev_get_drvdata(dev);
+
+	count += scnprintf(buf + count, PAGE_SIZE - count, "edma power:\n");
+	if (edma_device->power_state == EDMA_POWER_ON)
+		count += scnprintf(buf + count, PAGE_SIZE - count, "ON\n");
+	else
+		count += scnprintf(buf + count, PAGE_SIZE - count, "OFF\n");
+
+	return count;
+}
+
 DEVICE_ATTR(edma_register, 0644, show_edma_register,
 	    set_edma_register);
+DEVICE_ATTR(edma_power, 0644, show_edma_power, NULL);
 
 static struct attribute *edma_sysfs_entries[] = {
 	&dev_attr_edma_register.attr,
+	&dev_attr_edma_power.attr,
 	NULL,
 };
 
