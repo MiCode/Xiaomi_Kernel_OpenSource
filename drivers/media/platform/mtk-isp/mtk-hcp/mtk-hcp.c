@@ -664,9 +664,6 @@ static int mtk_hcp_mmap(struct file *file, struct vm_area_struct *vma)
 	long length = 0;
 	unsigned int pfn = 0x0;
 
-	dev_dbg(hcp_dev->dev, "start:0x%llx end:0x%llx offset:0x%llx",
-		vma->vm_start, vma->vm_end, vma->vm_pgoff);
-
 	/* dealing with register remap */
 	length = vma->vm_end - vma->vm_start;
 	/*  */
@@ -732,9 +729,6 @@ static int mtk_hcp_mmap(struct file *file, struct vm_area_struct *vma)
 	}
 
 remap:
-	dev_dbg(hcp_dev->dev,
-		"remap info start:0x%llx pgoff:0x%llx page_prot:0x%llx",
-		vma->vm_start, vma->vm_pgoff, vma->vm_page_prot);
 	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
 		length, vma->vm_page_prot) != 0) {
 		return -EAGAIN;
@@ -755,7 +749,7 @@ static int mtk_hcp_get_data(struct mtk_hcp *hcp_dev, unsigned long arg)
 
 	atomic_set(&hcp_dev->ipi_done[module_id], 1);
 	dev_info(hcp_dev->dev, "%s ipi_done[%d] = %d\n", __func__, module_id,
-		hcp_dev->ipi_done[module_id]);
+		atomic_read(&hcp_dev->ipi_got[module_id]));
 	ret = wait_event_freezable(hcp_dev->get_wq[module_id],
 		atomic_read(&hcp_dev->ipi_got[module_id]));
 	if (ret != 0) {
@@ -815,7 +809,7 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 		{
 			struct share_buf  user_data_addr;
 
-			copy_from_user(&user_data_addr, (void *)arg,
+			ret = (long)copy_from_user(&user_data_addr, (void *)arg,
 				sizeof(struct share_buf));
 			module_notify(hcp_dev, &user_data_addr);
 			ret = 0;
@@ -825,7 +819,7 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 		{
 			struct share_buf  user_data_addr;
 
-			copy_from_user(&user_data_addr, (void *)arg,
+			ret = (long)copy_from_user(&user_data_addr, (void *)arg,
 				sizeof(struct share_buf));
 			module_notify(hcp_dev, &user_data_addr);
 			module_wake_up(hcp_dev, &user_data_addr);
@@ -836,7 +830,7 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 		{
 			struct share_buf  user_data_addr;
 
-			copy_from_user(&user_data_addr, (void *)arg,
+			ret = (long)copy_from_user(&user_data_addr, (void *)arg,
 				sizeof(struct share_buf));
 			module_wake_up(hcp_dev, &user_data_addr);
 			ret = 0;

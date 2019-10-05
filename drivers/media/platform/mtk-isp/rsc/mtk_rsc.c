@@ -429,8 +429,6 @@ int mtk_rsc_enqueue(struct platform_device *pdev,
 	struct rsc_device_ctx *rsc_ctx;
 	struct mtk_isp_rsc_drv_data *rsc_drv;
 
-	unsigned long flags;
-
 	rsc_drv = dev_get_drvdata(&pdev->dev);
 	rsc_hw_dev = &rsc_drv->rsc_hw_dev;
 	rsc_ctx = &rsc_hw_dev->rsc_ctx;
@@ -528,7 +526,6 @@ static int mtk_rsc_probe(struct platform_device *pdev)
 
 	signed int ret = 0;
 	signed int i = 0;
-	unsigned char n;
 	unsigned int irq_info[3];
 
 	dev_info(&pdev->dev, "- E. RSC driver probe.\n");
