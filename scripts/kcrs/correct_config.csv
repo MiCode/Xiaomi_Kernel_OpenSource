@@ -821,6 +821,7 @@ CONFIG_NLS_CODEPAGE_437,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_NLS_CODEPAGE_950,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_NLS_ISO8859_1,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_NLS_UTF8,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_NONLINEAR_FREQ_CTL,PROJECT,Yun.Hsiang,,X,X,X,X,X,X,X,X,X,X,y,X,X
 CONFIG_NOP_USB_XCEIV,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_NR_CPUS,PLATFORM,Frank.Lin,,8,X,8,8,8,8,8,8,8,8,8,8,8
 CONFIG_ONEKEY_REBOOT_NORMAL_MODE,PROJECT,Elvin.Lin,,,,,,,,,,,,,,
