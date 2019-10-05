@@ -219,6 +219,7 @@ struct __drm_private_objs_state {
  * @dev: parent DRM device
  * @allow_modeset: allow full modeset
  * @legacy_cursor_update: hint to enforce legacy cursor IOCTL semantics
+ * @legacy_set_config: Disable conflicting encoders instead of failing with -EINVAL.
  * @async_update: hint for asynchronous plane update
  * @planes: pointer to array of structures with per-plane data
  * @crtcs: pointer to array of CRTC pointers
@@ -234,6 +235,7 @@ struct drm_atomic_state {
 	struct drm_device *dev;
 	bool allow_modeset : 1;
 	bool legacy_cursor_update : 1;
+	bool legacy_set_config : 1;
 	bool async_update : 1;
 	struct __drm_planes_state *planes;
 	struct __drm_crtcs_state *crtcs;
