@@ -680,6 +680,17 @@ config UCLAMP_MAP_OPP
 	  This feature map utilization clamping value to cpu opp capacity.
 
 	  If in doubt, say N.
+
+config NONLINEAR_FREQ_CTL
+	bool "Non-linear frequency control"
+	depends on MTK_CPU_FREQ
+	depends on MTK_UNIFY_POWER
+	default n
+	help
+	  Use power table capacity to control DVFS, cpu capacity/
+	  loading tracking/opp calculation will be affected.
+	  If unsure, say N.
+
 endmenu
 
 menu "FAIR Scheuler tunables"
