@@ -27,12 +27,12 @@ obj-$(CONFIG_MACH_MT6771) += spm_v4/
 obj-$(CONFIG_MACH_MT6739) += spm_v4/
 obj-$(CONFIG_MACH_MT6771) += vcorefs_v3/
 obj-$(CONFIG_MACH_MT6739) += vcorefs_v3/
+obj-$(CONFIG_MACH_MT6739) += cpufreq_v2/
 obj-$(CONFIG_MACH_MT6771) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6739) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6771) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6739) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6739) += power_gs_v1/
-obj-$(CONFIG_MACH_MT6739) += cpufreq_v2/
 endif
 ifeq ($(CONFIG_MTK_CM_MGR), y)
 obj-$(CONFIG_MTK_CM_MGR) += cm_mgr_v1/
