@@ -809,6 +809,10 @@ unsigned int mt_gpufreq_get_cust_init_en(void)
 /* need to sub g_segment_max_opp_idx to map to real idx */
 unsigned int mt_gpufreq_get_dvfs_table_num(void)
 {
+	/* prevent get wrong index */
+	if (mt_gpufreq_not_ready())
+		return -1;
+
 	return g_segment_min_opp_idx - g_segment_max_opp_idx + 1;
 }
 
