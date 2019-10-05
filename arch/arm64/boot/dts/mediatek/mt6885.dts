@@ -4124,6 +4124,12 @@ page_owner=on";
 		interrupts = <GIC_SPI 310 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 311 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&venc_gcon VENC_GCON_SET3_JPGDEC>,
+			<&venc_gcon  VENC_GCON_SET4_JPGDEC_C1>,
+			<&venc_c1_gcon  VENC_C1_GCON_SET3_JPGDEC>;
+		clock-names = "MT_CG_VENC_JPGDEC",
+			"MT_CG_VENC_JPGDEC_C1",
+			"MT_CG_VENC_C1_JPGDEC";
 	};
 
 	mbist@17060000 {

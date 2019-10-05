@@ -111,7 +111,7 @@ struct JpegDeviceStruct {
 	long hybriddecRegBaseVA[HW_CORE_NUMBER];
 	uint32_t encIrqId;
 	uint32_t decIrqId;
-
+	uint32_t hybriddecIrqId[HW_CORE_NUMBER];
 };
 
 const long jpeg_dev_get_encoder_base_VA(void);
@@ -142,6 +142,8 @@ struct JpegClk {
 	struct clk *clk_venc_larb;
 	struct clk *clk_venc_jpgEnc;
 	struct clk *clk_venc_jpgDec;
+	struct clk *clk_venc_jpgDec_c1;
+	struct clk *clk_venc_c1_jpgDec;
 };
 #endif				/* !defined(CONFIG_MTK_LEGACY) */
 

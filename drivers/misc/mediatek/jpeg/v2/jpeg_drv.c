@@ -175,11 +175,10 @@ static const struct of_device_id jdec_of_ids[] = {
 
 #endif
 
-#if defined(JPEG_DEC_DRIVER) || defined(JPEG_ENC_DRIVER)
 #ifndef CONFIG_MTK_CLKMGR
 static struct JpegClk gJpegClk;
 #endif
-#endif
+
 /* decoder */
 #ifdef JPEG_DEC_DRIVER
 static wait_queue_head_t dec_wait_queue;
@@ -306,13 +305,40 @@ static irqreturn_t jpeg_drv_hybrid_dec_isr(int irq, void *dev_id)
 }
 void jpeg_drv_hybrid_dec_power_on(int id)
 {
-	// TODO: implement
+	int ret;
+
+	if (id <= 1) {
+		smi_bus_prepare_enable(SMI_LARB7, "JPEG0");
+		ret = clk_prepare_enable(gJpegClk.clk_venc_jpgDec);
+		if (ret)
+			JPEG_ERR("clk enable MT_CG_VENC_JPGDEC failed %d",
+					ret);
+		ret = clk_prepare_enable(gJpegClk.clk_venc_jpgDec_c1);
+		if (ret)
+			JPEG_ERR("clk enable MT_CG_VENC_JPGDEC_C1 failed %d",
+					ret);
+	} else {
+		smi_bus_prepare_enable(SMI_LARB8, "JPEG1");
+		ret = clk_prepare_enable(gJpegClk.clk_venc_c1_jpgDec);
+		if (ret)
+			JPEG_ERR("clk enable MT_CG_VENC_C1_JPGDEC failed %d",
+					ret);
+	}
 	JPEG_MSG("JPEG Hybrid Decoder Power On %d\n", id);
 }
 
 void jpeg_drv_hybrid_dec_power_off(int id)
 {
-	// TODO: implement
+	if (id <= 1) {
+		if (!dec_hwinfo[(id+1)%2].locked) {
+			clk_disable_unprepare(gJpegClk.clk_venc_jpgDec);
+			clk_disable_unprepare(gJpegClk.clk_venc_jpgDec_c1);
+		}
+		smi_bus_disable_unprepare(SMI_LARB7, "JPEG0");
+	} else {
+		clk_disable_unprepare(gJpegClk.clk_venc_c1_jpgDec);
+		smi_bus_disable_unprepare(SMI_LARB8, "JPEG1");
+	}
 	JPEG_MSG("JPEG Hybrid Decoder Power Off %d\n", id);
 }
 
@@ -1957,6 +1983,20 @@ static int jpeg_probe(struct platform_device *pdev)
 				i, jpegDev->hybriddecRegBaseVA[i],
 				jpegDev->hybriddecIrqId[i]);
 	}
+	JPEG_MSG("get JPGDEC clk!");
+	gJpegClk.clk_venc_jpgDec =
+			 of_clk_get_by_name(node, "MT_CG_VENC_JPGDEC");
+	if (IS_ERR(gJpegClk.clk_venc_jpgDec))
+		JPEG_ERR("get MT_CG_VENC_JPGDEC clk error!");
+	gJpegClk.clk_venc_jpgDec_c1 =
+			 of_clk_get_by_name(node, "MT_CG_VENC_JPGDEC_C1");
+	if (IS_ERR(gJpegClk.clk_venc_jpgDec_c1))
+		JPEG_ERR("get MT_CG_VENC_JPGDEC_C1 clk error!");
+	gJpegClk.clk_venc_c1_jpgDec =
+			 of_clk_get_by_name(node, "MT_CG_VENC_C1_JPGDEC");
+	if (IS_ERR(gJpegClk.clk_venc_c1_jpgDec))
+		JPEG_ERR("get MT_CG_VENC_C1_JPGDEC clk error!");
+	JPEG_MSG("get JPGDEC clk done!");
 #endif
 	#ifdef JPEG_DEC_DRIVER
 		jpegDev->decRegBaseVA = (unsigned long)of_iomap(node, 1);
@@ -2057,10 +2097,11 @@ static int jpeg_probe(struct platform_device *pdev)
 
 	memset(_jpeg_hybrid_dec_int_status, 0, HW_CORE_NUMBER);
 	for (i = 0; i < HW_CORE_NUMBER; i++) {
+		JPEG_MSG("Request irq %d\n", gJpegqDev.hybriddecIrqId[i]);
 		init_waitqueue_head(&(hybrid_dec_wait_queue[i]));
 		enable_irq(gJpegqDev.hybriddecIrqId[i]);
 		if (request_irq(gJpegqDev.hybriddecIrqId[i],
-				 jpeg_drv_hybrid_dec_isr, IRQF_TRIGGER_LOW,
+				 jpeg_drv_hybrid_dec_isr, IRQF_TRIGGER_HIGH,
 				 "jpeg_dec_driver", NULL))
 			JPEG_ERR("JPEG Hybrid DEC requestirq %d failed\n", i);
 	}

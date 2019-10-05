@@ -65,6 +65,7 @@ endif
 
 ifneq ($(CONFIG_MACH_MT6885),y)
   ccflags-y += -DJPEG_ENC_DRIVER
+endif
 
 ifeq ($(CONFIG_MACH_MT8163),y)
   ccflags-y += -DJPEG_PM_DOMAIN_ENABLE

@@ -28,10 +28,10 @@ int jpeg_isr_hybrid_dec_lisr(int id)
 {
 	unsigned int tmp = 0;
 
-	tmp = IMG_REG_READ(REG_JPGDEC_HYBRID_INTERRUPT_STATUS(id));
+	tmp = IMG_REG_READ(REG_JPGDEC_HYBRID_INT_STATUS(id));
 	if (tmp) {
 		_jpeg_hybrid_dec_int_status[id] = tmp;
-		IMG_REG_WRITE(tmp, REG_JPGDEC_HYBRID_INTERRUPT_STATUS(id));
+		IMG_REG_WRITE(tmp, REG_JPGDEC_HYBRID_INT_STATUS(id));
 		JPEG_WRN("%s return 0", __func__);
 		return 0;
 	}
