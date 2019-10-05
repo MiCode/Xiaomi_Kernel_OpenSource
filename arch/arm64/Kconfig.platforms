@@ -385,6 +385,7 @@ config MACH_MT6885
         select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
 	select MTK_POL_DEPRECATED
         select ARM64_CRYPTO
+	select MTK_GIC_TARGET_ALL
         select CRYPTO_SHA2_ARM64_CE
         select CRYPTO_AES_ARM64_CE_BLK
         select MTK_ES_REG
