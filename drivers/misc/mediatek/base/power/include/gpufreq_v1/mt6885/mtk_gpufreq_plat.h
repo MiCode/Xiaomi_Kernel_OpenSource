@@ -30,6 +30,38 @@
 #define gpufreq_pr_info(fmt, args...)	pr_info(GPUFERQ_TAG fmt, ##args)
 #define gpufreq_pr_debug(fmt, args...)	pr_debug(GPUFERQ_TAG fmt, ##args)
 
+#define MT_GPU_CORE_MASK_0       (1 <<  0)
+#define MT_GPU_CORE_MASK_1_2    ((1 <<  1) | (1 <<  2))
+#define MT_GPU_CORE_MASK_3_4    ((1 <<  5) | (1 <<  6))
+#define MT_GPU_CORE_MASK_5_6    ((1 << 17) | (1 << 18))
+#define MT_GPU_CORE_MASK_7_8    ((1 << 21) | (1 << 22))
+
+#define MT_GPU_SHADER_PRESENT_1    (MT_GPU_CORE_MASK_0)          /* 1 core */
+#define MT_GPU_SHADER_PRESENT_2    (MT_GPU_CORE_MASK_1_2)        /* 2 core */
+#define MT_GPU_SHADER_PRESENT_3    (MT_GPU_CORE_MASK_0 | \
+					MT_GPU_CORE_MASK_1_2)    /* 3 core */
+#define MT_GPU_SHADER_PRESENT_4    (MT_GPU_CORE_MASK_1_2 | \
+					MT_GPU_CORE_MASK_3_4)    /* 4 core */
+#define MT_GPU_SHADER_PRESENT_5    (MT_GPU_CORE_MASK_0 | \
+					MT_GPU_CORE_MASK_1_2 | \
+					MT_GPU_CORE_MASK_3_4)    /* 5 core */
+#define MT_GPU_SHADER_PRESENT_6    (MT_GPU_CORE_MASK_1_2 | \
+					MT_GPU_CORE_MASK_3_4 | \
+					MT_GPU_CORE_MASK_5_6)    /* 6 core */
+#define MT_GPU_SHADER_PRESENT_7    (MT_GPU_CORE_MASK_0 | \
+					MT_GPU_CORE_MASK_1_2 | \
+					MT_GPU_CORE_MASK_3_4 | \
+					MT_GPU_CORE_MASK_5_6)    /* 7 core */
+#define MT_GPU_SHADER_PRESENT_8    (MT_GPU_CORE_MASK_1_2 | \
+					MT_GPU_CORE_MASK_3_4 | \
+					MT_GPU_CORE_MASK_5_6 | \
+					MT_GPU_CORE_MASK_7_8)    /* 8 core */
+#define MT_GPU_SHADER_PRESENT_9    (MT_GPU_CORE_MASK_0 | \
+					MT_GPU_CORE_MASK_1_2 | \
+					MT_GPU_CORE_MASK_3_4 | \
+					MT_GPU_CORE_MASK_5_6 | \
+					MT_GPU_CORE_MASK_7_8)    /* 9 core */
+
 struct mt_gpufreq_power_table_info {
 	unsigned int gpufreq_khz;
 	unsigned int gpufreq_volt;
@@ -105,6 +137,7 @@ extern void mt_gpufreq_power_control(enum mt_power_state, enum mt_cg_state,
 		enum mt_mtcmos_state, enum mt_buck_state);
 extern void mt_gpufreq_set_timestamp(void);
 extern void mt_gpufreq_check_bus_idle(void);
+extern u64 mt_gpufreq_get_shader_present(void);
 
 #ifdef CONFIG_MTK_RAM_CONSOLE
 extern void aee_rr_rec_gpu_dvfs_vgpu(u8 val);

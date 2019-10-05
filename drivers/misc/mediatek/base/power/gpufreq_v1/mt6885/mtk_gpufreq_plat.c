@@ -250,6 +250,11 @@ static void __iomem *g_mfg_base;
 extern GED_LOG_BUF_HANDLE gpufreq_ged_log;
 #endif
 
+u64 mt_gpufreq_get_shader_present(void)
+{
+	return MT_GPU_SHADER_PRESENT_9;
+}
+
 static unsigned int mt_gpufreq_update_by_condition(unsigned int t_idx)
 {
 	unsigned int index = t_idx;
@@ -488,29 +493,53 @@ static void mt_gpufreq_cg_control(enum mt_power_state power)
 
 static void mt_gpufreq_mtcmos_control(enum mt_power_state power)
 {
+	u64 shader_present = 0;
 	gpufreq_pr_debug("@%s: power = %d\n", __func__, power);
+
+	shader_present = mt_gpufreq_get_shader_present();
 
 	if (power == POWER_ON) {
 		if (clk_prepare_enable(g_clk->mtcmos_mfg_async))
 			gpufreq_pr_info("failed when enable mtcmos_mfg_async\n");
+
 		if (clk_prepare_enable(g_clk->mtcmos_mfg))
 			gpufreq_pr_info("failed when enable mtcmos_mfg\n");
-		if (clk_prepare_enable(g_clk->mtcmos_mfg_core0))
-			gpufreq_pr_info("failed when enable mtcmos_mfg_core0\n");
-		if (clk_prepare_enable(g_clk->mtcmos_mfg_core1_2))
-			gpufreq_pr_info("failed when enable mtcmos_mfg_core1_2\n");
-		if (clk_prepare_enable(g_clk->mtcmos_mfg_core3_4))
-			gpufreq_pr_info("failed when enable mtcmos_mfg_core3_4\n");
-		if (clk_prepare_enable(g_clk->mtcmos_mfg_core5_6))
-			gpufreq_pr_info("failed when enable mtcmos_mfg_core5_6\n");
-		if (clk_prepare_enable(g_clk->mtcmos_mfg_core7_8))
-			gpufreq_pr_info("failed when enable mtcmos_mfg_core7_8\n");
+
+		if (shader_present & MT_GPU_CORE_MASK_0)
+			if (clk_prepare_enable(g_clk->mtcmos_mfg_core0))
+				gpufreq_pr_info("failed when enable mtcmos_mfg_core0\n");
+
+		if (shader_present & MT_GPU_CORE_MASK_1_2)
+			if (clk_prepare_enable(g_clk->mtcmos_mfg_core1_2))
+				gpufreq_pr_info("failed when enable mtcmos_mfg_core1_2\n");
+
+		if (shader_present & MT_GPU_CORE_MASK_3_4)
+			if (clk_prepare_enable(g_clk->mtcmos_mfg_core3_4))
+				gpufreq_pr_info("failed when enable mtcmos_mfg_core3_4\n");
+
+		if (shader_present & MT_GPU_CORE_MASK_5_6)
+			if (clk_prepare_enable(g_clk->mtcmos_mfg_core5_6))
+				gpufreq_pr_info("failed when enable mtcmos_mfg_core5_6\n");
+
+		if (shader_present & MT_GPU_CORE_MASK_7_8)
+			if (clk_prepare_enable(g_clk->mtcmos_mfg_core7_8))
+				gpufreq_pr_info("failed when enable mtcmos_mfg_core7_8\n");
 	} else {
-		clk_disable_unprepare(g_clk->mtcmos_mfg_core7_8);
-		clk_disable_unprepare(g_clk->mtcmos_mfg_core5_6);
-		clk_disable_unprepare(g_clk->mtcmos_mfg_core3_4);
-		clk_disable_unprepare(g_clk->mtcmos_mfg_core1_2);
-		clk_disable_unprepare(g_clk->mtcmos_mfg_core0);
+		if (shader_present & MT_GPU_CORE_MASK_7_8)
+			clk_disable_unprepare(g_clk->mtcmos_mfg_core7_8);
+
+		if (shader_present & MT_GPU_CORE_MASK_5_6)
+			clk_disable_unprepare(g_clk->mtcmos_mfg_core5_6);
+
+		if (shader_present & MT_GPU_CORE_MASK_3_4)
+			clk_disable_unprepare(g_clk->mtcmos_mfg_core3_4);
+
+		if (shader_present & MT_GPU_CORE_MASK_1_2)
+			clk_disable_unprepare(g_clk->mtcmos_mfg_core1_2);
+
+		if (shader_present & MT_GPU_CORE_MASK_0)
+			clk_disable_unprepare(g_clk->mtcmos_mfg_core0);
+
 		clk_disable_unprepare(g_clk->mtcmos_mfg);
 		clk_disable_unprepare(g_clk->mtcmos_mfg_async);
 	}
