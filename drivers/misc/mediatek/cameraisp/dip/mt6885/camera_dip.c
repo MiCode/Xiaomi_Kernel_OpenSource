@@ -3406,6 +3406,11 @@ static signed int DIP_P2_BufQue_CTRL_FUNC(
 		LOG_INF("after pty/pID/cID (%d/0x%x/0x%x),idx(%d)\n",
 			property, param.processID, param.callerID, idx);
 #endif
+		if (idx ==  -1) {
+			LOG_ERR("index is a negative value!");
+			ret =  -EFAULT;
+			return ret;
+		}
 		spin_lock(&(SpinLock_P2FrameList));
 		/* [2]check the buffer is dequeued or not */
 		if (P2_FramePackage_List[property][idx].dequedNum ==
