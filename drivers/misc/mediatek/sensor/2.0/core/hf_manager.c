@@ -901,7 +901,7 @@ static int hf_manager_proc_show(struct seq_file *m, void *v)
 			continue;
 		seq_printf(m, "manager: param:[%d,%lld]\n",
 			atomic_read(&manager->io_enabled),
-			atomic64_read(&manager->io_poll_interval));
+			(int64_t)atomic64_read(&manager->io_poll_interval));
 		seq_printf(m, "device:%s poll:%s bus:%s online\n",
 			device->dev_name,
 			device->device_poll ? "io_polling" : "io_interrupt",
@@ -931,7 +931,8 @@ static int hf_manager_proc_show(struct seq_file *m, void *v)
 				client->request[i].enable,
 				client->request[i].delay,
 				client->request[i].latency,
-				atomic64_read(&client->request[i].start_time));
+				(int64_t)atomic64_read(
+					&client->request[i].start_time));
 		}
 	}
 	spin_unlock_irqrestore(&hf_client_list_lock, flags);

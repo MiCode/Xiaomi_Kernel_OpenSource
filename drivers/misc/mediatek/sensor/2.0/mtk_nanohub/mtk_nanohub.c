@@ -1627,7 +1627,7 @@ void mtk_nanohub_power_up_loop(void *data)
 	WRITE_ONCE(device->scp_sensor_fifo,
 		(struct sensor_fifo *)
 		(long)scp_get_reserve_mem_virt(SENS_MEM_ID));
-	WARN_ON(device->scp_sensor_fifo == NULL);
+	BUG_ON(device->scp_sensor_fifo == NULL);
 	WRITE_ONCE(device->scp_sensor_fifo->wp, 0);
 	WRITE_ONCE(device->scp_sensor_fifo->rp, 0);
 	WRITE_ONCE(device->scp_sensor_fifo->fifo_size,
