@@ -68,6 +68,12 @@
 #include "mtk_ppm_api.h"
 #endif
 
+#ifndef TASK_STATE_TO_CHAR_STR
+#define TASK_STATE_TO_CHAR_STR "RSDTtXZxKWPNn"
+#endif
+
+
+
 phys_addr_t gConEmiPhyBase;
 EXPORT_SYMBOL(gConEmiPhyBase);
 unsigned long long gConEmiSize;

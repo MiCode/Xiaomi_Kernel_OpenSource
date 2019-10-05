@@ -39,6 +39,10 @@
 #include "mtk_btif_exp.h"
 #include "mtk_btif.h"
 
+#define DRIVER_ATTR(_name, _mode, _show, _store) \
+	struct driver_attribute driver_attr_##_name = \
+	__ATTR(_name, _mode, _show, _store)
+
 /*-----------static function declearation----------------*/
 static int mtk_btif_probe(struct platform_device *pdev);
 static int mtk_btif_remove(struct platform_device *pdev);
@@ -2293,7 +2297,7 @@ static int mtk_btif_rxd_be_blocked_by_data(void)
 					 in_index) % BTIF_LOG_ENTRY_NUM;
 	if (dump_size != 0) {
 		while (dump_size--) {
-			p_log_buf = p_log_que->p_queue[0] + out_index;
+			p_log_buf = p_log_que->p_queue + out_index;
 			len = p_log_buf->len;
 			if (len > BTIF_LOG_SZ)
 				len = BTIF_LOG_SZ;
@@ -3086,7 +3090,7 @@ int btif_log_buf_dmp_in(struct _btif_log_queue_t_ *p_log_que,
 	spin_lock_irqsave(&(p_log_que->lock), flags);
 
 /*get next log buffer for record usage*/
-	p_log_buf = p_log_que->p_queue[0] + p_log_que->in;
+	p_log_buf = p_log_que->p_queue + p_log_que->in;
 	p_timer = &p_log_buf->timer;
 	p_ts = &p_log_buf->ts;
 
@@ -3122,63 +3126,101 @@ int btif_log_buf_dmp_in(struct _btif_log_queue_t_ *p_log_que,
 	return 0;
 }
 
-int btif_log_buf_dmp_out(struct _btif_log_queue_t_ *p_log_que)
+static void btif_log_buf_dmp_out_work(struct work_struct *work)
 {
+	struct _btif_log_queue_t_ *p_log_que = container_of(work,
+		struct _btif_log_queue_t_, dump_work);
 	struct _btif_log_buf_t_ *p_log_buf = NULL;
-	unsigned int out_index = 0;
-	unsigned int in_index = 0;
-	unsigned int dump_size = 0;
 	unsigned char *p_buf = NULL;
 	unsigned int len = 0;
 	unsigned int pkt_count = 0;
 	unsigned char *p_dir = NULL;
 	struct timeval *p_timer = NULL;
 	struct timespec *p_ts = NULL;
+	int i;
+
+	if (p_log_que == NULL || p_log_que->p_dump_queue == NULL)
+		return;
+
+	BTIF_DBG_FUNC("++\n");
+	p_dir = p_log_que->dir == BTIF_TX ? "Tx" : "Rx";
+	BTIF_INFO_FUNC("btif %s log buffer size:%d\n",
+		p_dir, p_log_que->dump_size);
+
+	for (i = 0; i < p_log_que->dump_size; i++) {
+		p_log_buf = p_log_que->p_dump_queue + i;
+		len = p_log_buf->len;
+		p_buf = p_log_buf->buffer;
+		p_timer = &p_log_buf->timer;
+		p_ts = &p_log_buf->ts;
+		len = len > BTIF_LOG_SZ ? BTIF_LOG_SZ : len;
+
+		BTIF_INFO_FUNC(
+			"dir:%s,pkt_count:%d,%d.%d(%lld.%.9ld)len:%d\n",
+			p_dir,
+			pkt_count++,
+			(int)p_timer->tv_sec,
+			(int)p_timer->tv_usec,
+			(long long)p_ts->tv_sec,
+			p_ts->tv_nsec, len);
+		/*output buffer content*/
+		btif_dump_data(p_log_buf->buffer, len);
+	}
+	p_log_que->dump_size = 0;
+	kfree(p_log_que->p_dump_queue);
+	p_log_que->p_dump_queue = NULL;
+	BTIF_DBG_FUNC("--\n");
+}
+
+int btif_log_buf_dmp_out(struct _btif_log_queue_t_ *p_log_que)
+{
+	unsigned int out_index = 0;
+	unsigned int in_index = 0;
+	unsigned int dump_size = 0;
 	unsigned long flags;
 
-#if 0				/* no matter enable or not, we allowed output */
-	if (!(p_log_que->enable))
-		return;
-#endif
-	BTIF_DBG_FUNC("++\n");
-
 	spin_lock_irqsave(&p_log_que->lock, flags);
-	in_index = p_log_que->in;
+
+	if (p_log_que->p_dump_queue != NULL) {
+		spin_unlock_irqrestore(&p_log_que->lock, flags);
+		BTIF_DBG_FUNC("log dump is ongoing\n");
+		return -1;
+	}
+
 	dump_size = p_log_que->size;
-	out_index = p_log_que->size >=
+	p_log_que->p_dump_queue = kmalloc_array(
+		dump_size,
+		sizeof(struct _btif_log_buf_t_),
+		GFP_ATOMIC);
+	if (p_log_que->p_dump_queue == NULL) {
+		spin_unlock_irqrestore(&p_log_que->lock, flags);
+		BTIF_DBG_FUNC("no memory for log dump %d\n", dump_size);
+		return -1;
+	}
+
+	in_index = p_log_que->in;
+	p_log_que->dump_size = dump_size;
+	out_index = dump_size >=
 	    BTIF_LOG_ENTRY_NUM ? in_index : (BTIF_LOG_ENTRY_NUM -
-					     p_log_que->size +
+					     dump_size +
 					     in_index) % BTIF_LOG_ENTRY_NUM;
-	p_dir = p_log_que->dir == BTIF_TX ? "Tx" : "Rx";
 
-	BTIF_INFO_FUNC("btif %s log buffer size:%d\n", p_dir, dump_size);
+	if (out_index + dump_size > BTIF_LOG_ENTRY_NUM) {
+		int tail_num = BTIF_LOG_ENTRY_NUM - out_index;
 
-	if (dump_size != 0) {
-		while (dump_size--) {
-			p_log_buf = p_log_que->p_queue[0] + out_index;
-
-			len = p_log_buf->len;
-			p_buf = p_log_buf->buffer;
-			p_timer = &p_log_buf->timer;
-			p_ts = &p_log_buf->ts;
-			len = len > BTIF_LOG_SZ ? BTIF_LOG_SZ : len;
-
-			BTIF_INFO_FUNC(
-			       "dir:%s,pkt_count:%d,%d.%d(%lld.%.9ld)len:%d\n",
-			       p_dir,
-			       pkt_count++,
-			       (int)p_timer->tv_sec,
-			       (int)p_timer->tv_usec,
-			       (long long)p_ts->tv_sec,
-			       p_ts->tv_nsec, len);
-/*output buffer content*/
-			btif_dump_data(p_log_buf->buffer, len);
-			out_index++;
-			out_index %= BTIF_LOG_ENTRY_NUM;
-		}
+		memcpy(p_log_que->p_dump_queue, p_log_que->p_queue + out_index,
+			sizeof(struct _btif_log_buf_t_) * tail_num);
+		memcpy(p_log_que->p_dump_queue + tail_num, p_log_que->p_queue,
+			sizeof(struct _btif_log_buf_t_) *
+			(dump_size - tail_num));
+	} else {
+		memcpy(p_log_que->p_dump_queue, p_log_que->p_queue + out_index,
+			sizeof(struct _btif_log_buf_t_) * dump_size);
 	}
 	spin_unlock_irqrestore(&p_log_que->lock, flags);
-	BTIF_DBG_FUNC("--\n");
+
+	schedule_work(&p_log_que->dump_work);
+	BTIF_DBG_FUNC("log dump is scheduled %d\n", dump_size);
 
 	return 0;
 }
@@ -3242,7 +3284,6 @@ int btif_log_buf_reset(struct _btif_log_queue_t_ *p_log_que)
 	p_log_que->out = 0;
 	p_log_que->size = 0;
 	p_log_que->enable = true;
-	memset((p_log_que->p_queue[0]), 0, sizeof(struct _btif_log_buf_t_));
 
 	spin_unlock_irqrestore(&p_log_que->lock, flags);
 	BTIF_DBG_FUNC("reset %s log buffer\n",
@@ -3260,8 +3301,8 @@ int btif_log_buf_init(struct _mtk_btif_ *p_btif)
 	p_btif->tx_log.output_flag = false;
 	p_btif->tx_log.enable = true;
 	spin_lock_init(&(p_btif->tx_log.lock));
-	BTIF_DBG_FUNC("tx_log.p_queue:0x%p\n", p_btif->tx_log.p_queue[0]);
-	memset((p_btif->tx_log.p_queue[0]), 0, sizeof(struct _btif_log_buf_t_));
+	INIT_WORK(&(p_btif->tx_log.dump_work), btif_log_buf_dmp_out_work);
+	BTIF_DBG_FUNC("tx_log.p_queue:0x%p\n", p_btif->tx_log.p_queue);
 
 /*rx log buffer init*/
 	p_btif->rx_log.dir = BTIF_RX;
@@ -3271,8 +3312,8 @@ int btif_log_buf_init(struct _mtk_btif_ *p_btif)
 	p_btif->rx_log.output_flag = false;
 	p_btif->rx_log.enable = true;
 	spin_lock_init(&(p_btif->rx_log.lock));
-	BTIF_DBG_FUNC("rx_log.p_queue:0x%p\n", p_btif->rx_log.p_queue[0]);
-	memset((p_btif->rx_log.p_queue[0]), 0, sizeof(struct _btif_log_buf_t_));
+	INIT_WORK(&(p_btif->rx_log.dump_work), btif_log_buf_dmp_out_work);
+	BTIF_DBG_FUNC("rx_log.p_queue:0x%p\n", p_btif->rx_log.p_queue);
 
 	return 0;
 }
@@ -3366,9 +3407,9 @@ static int BTIF_init(void)
 		g_btif[index].rx_cb = NULL;
 		g_btif[index].rx_notify = NULL;
 		g_btif[index].btif_buf.p_buf = p_btif_buffer;
-		g_btif[index].tx_log.p_queue[0] =
+		g_btif[index].tx_log.p_queue =
 				(struct _btif_log_buf_t_ *) p_tx_queue;
-		g_btif[index].rx_log.p_queue[0] =
+		g_btif[index].rx_log.p_queue =
 				(struct _btif_log_buf_t_ *) p_rx_queue;
 		btif_log_buf_init(&g_btif[index]);
 
