@@ -3793,7 +3793,7 @@ page_owner=on";
 
 	flashlights_mt6360: flashlights_mt6360 {
 		compatible = "mediatek,flashlights_mt6360";
-		decouple = <0>;
+		decouple = <1>;
 		channel@1 {
 			type = <0>;
 			ct = <0>;
