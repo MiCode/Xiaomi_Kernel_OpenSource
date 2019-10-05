@@ -16,7 +16,7 @@
 #include "seninf_clk.h"
 
 static struct SENINF_CLK_CTRL gseninf_mclk_name[SENINF_CLK_IDX_MAX_NUM] = {
-	{"SCP_SYS_DIS"},
+	{"SCP_SYS_MDP"},
 	{"SCP_SYS_CAM"},
 	{"CAMSYS_SENINF_CGPDN"},
 	{"TOP_MUX_SENINF"},

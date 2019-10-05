@@ -3490,7 +3490,7 @@ page_owner=on";
 		interrupts = <GIC_SPI 251 IRQ_TYPE_LEVEL_LOW>;
 #endif
 
-		clocks = <&scpsys SCP_SYS_DIS>,
+		clocks = <&scpsys SCP_SYS_MDP>,
 			<&scpsys SCP_SYS_CAM>,
 			<&camsys CAMSYS_MAIN_SENINF_CGPDN>,
 			<&topckgen TOP_MUX_SENINF>,
@@ -3510,7 +3510,7 @@ page_owner=on";
 			<&topckgen TOP_F26M_CK_D2>,
 			<&topckgen TOP_UNIVP_192M_D16>,
 			<&topckgen TOP_UNIVP_192M_D32>;
-		clock-names = "SCP_SYS_DIS",
+		clock-names = "SCP_SYS_MDP",
 			"SCP_SYS_CAM",
 			"CAMSYS_SENINF_CGPDN",
 			"TOP_MUX_SENINF",
