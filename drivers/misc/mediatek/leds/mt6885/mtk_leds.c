@@ -44,12 +44,14 @@
 #include "mtkfb.h"
 #endif
 
+#define MET_USER_EVENT_SUPPORT
 #ifdef MET_USER_EVENT_SUPPORT
 #include <mt-plat/met_drv.h>
 #endif
 
 #include "mtk_leds_sw.h"
 #include "mtk_leds_hal.h"
+#include "../mtk_leds_drv.h"
 
 /* for LED&Backlight bringup, define the dummy API */
 #ifndef CONFIG_MTK_PMIC_NEW_ARCH
@@ -149,14 +151,14 @@ struct cust_mt65xx_led *get_cust_led_dtsi(void)
 	struct device_node *led_node = NULL;
 	bool isSupportDTS = false;
 	int i, ret;
-	int mode, data;
+	int mode, data, led_bits;
 	int pwm_config[5] = { 0 };
 
 	if (pled_dtsi) {
-		pr_info("[LED] %s pled_dtsi not null\n", __func__);
 		goto out;
 	}
 
+	pr_info("[LED] %s pled_dtsi is null, load dts file\n", __func__);
 	pled_dtsi = kmalloc(TYPE_TOTAL * sizeof(struct cust_mt65xx_led),
 			GFP_KERNEL);
 	if (pled_dtsi == NULL) {
@@ -212,6 +214,18 @@ struct cust_mt65xx_led *get_cust_led_dtsi(void)
 			pled_dtsi[i].data = -1;
 		}
 
+		ret =
+		    of_property_read_u32(led_node, "led_bits",
+					 &led_bits);
+		if (!ret) {
+			pled_dtsi[i].led_bits = led_bits;
+			LEDS_DEBUG("The %s's led led_bits is : %d\n",
+			     pled_dtsi[i].name, pled_dtsi[i].led_bits);
+		} else {
+			pled_dtsi[i].led_bits = 8;
+			LEDS_DEBUG("led dts can not get %s led led_bits\n",
+			    pled_dtsi[i].name);
+		}
 		ret = of_property_read_u32_array(led_node, "pwm_config",
 				pwm_config, ARRAY_SIZE(pwm_config));
 		if (!ret) {
@@ -482,7 +496,7 @@ static int led_switch_breath_pmic(enum mt65xx_led_pmic pmic_type,
 }
 #endif
 
-#ifndef CONFIG_MTK_PMIC_CHIP_MT6358
+#ifdef CONFIG_MTK_PMIC_CHIP_MT6357
 
 #define PMIC_PERIOD_NUM 8
 int pmic_period_array[] = { 2, 4, 6, 8, 10, 12, 20, 60 };
@@ -502,7 +516,7 @@ static int find_time_index_pmic(int time_ms)
 
 int mt_led_blink_pmic(enum mt65xx_led_pmic pmic_type, struct nled_setting *led)
 {
-#ifdef CONFIG_MTK_PMIC_CHIP_MT6358
+#ifndef CONFIG_MTK_PMIC_CHIP_MT6357
 	LEDS_DEBUG("%s pmic_type = %d isink does not support this path\n",
 		__func__, pmic_type);
 #else
@@ -675,7 +689,7 @@ void mt_led_pwm_disable(int pwm_num)
 
 int mt_brightness_set_pmic(enum mt65xx_led_pmic pmic_type, u32 level, u32 div)
 {
-#ifdef CONFIG_MTK_PMIC_CHIP_MT6358
+#ifndef CONFIG_MTK_PMIC_CHIP_MT6357
 	LEDS_DEBUG("%s, pmic_type = %d isink does not support this path\n",
 		__func__, pmic_type);
 #else
@@ -850,6 +864,8 @@ void mt_mt65xx_led_work(struct work_struct *work)
 
 void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 {
+
+	int trans_level;
 	struct mt65xx_led_data *led_data =
 	    container_of(led_cdev, struct mt65xx_led_data, cdev);
 	/* unsigned long flags; */
@@ -874,17 +890,17 @@ void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 		level = (level * CONFIG_LIGHTNESS_MAPPING_VALUE) / 255;
 
 	backlight_debug_log(led_data->level, level);
-	disp_pq_notify_backlight_changed((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT)
-					    - 1) * level + 127) / 255);
+	trans_level = ((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT)
+				    - 1) * level +
+				    (((1 << led_data->cust.led_bits) - 1) / 2))
+				    / ((1 << led_data->cust.led_bits) - 1));
+
+	disp_pq_notify_backlight_changed(trans_level);
 #ifdef CONFIG_MTK_AAL_SUPPORT
-	disp_aal_notify_backlight_changed((((1 <<
-					MT_LED_INTERNAL_LEVEL_BIT_CNT)
-					    - 1) * level + 127) / 255);
+	disp_aal_notify_backlight_changed(trans_level);
 #else
 	if (led_data->cust.mode == MT65XX_LED_MODE_CUST_BLS_PWM)
-		mt_mt65xx_led_set_cust(&led_data->cust,
-			((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT)
-				- 1) * level + 127) / 255));
+		mt_mt65xx_led_set_cust(&led_data->cust, trans_level);
 	else
 		mt_mt65xx_led_set_cust(&led_data->cust, level);
 #endif
