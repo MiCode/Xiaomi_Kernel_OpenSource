@@ -66,7 +66,9 @@ struct cdvfs_data {
 		} set_fv;
 	} u;
 };
-
+#ifdef ENABLE_DOE
+void srate_doe(void);
+#endif
 int cpuhvfs_module_init(void);
 int cpuhvfs_set_init_sta(void);
 int cpuhvfs_set_turbo_scale(unsigned int turbo_f, unsigned int turbo_v);
@@ -90,6 +92,17 @@ int cpuhvfs_set_cpu_load_freq(unsigned int cpu,
 	enum cpu_dvfs_sched_type state, unsigned int freq);
 #else
 int cpuhvfs_set_cluster_load_freq(enum mt_cpu_dvfs_id id, unsigned int freq);
+int cpuhvfs_set_set_cci_volt(unsigned int volt);
+unsigned int cpuhvfs_get_cci_result(unsigned int idx_1, unsigned int idx_2,
+	unsigned int mode);
+void cpuhvfs_update_cci_map_tbl(unsigned int idx_1, unsigned int idx_2,
+	unsigned char result, unsigned int mode, unsigned int use_id);
+unsigned int cpuhvfs_get_cci_mode(void);
+void cpuhvfs_update_cci_mode(unsigned int mode, unsigned int use_id);
+unsigned int cpuhvfs_get_imax_state(void);
+unsigned int cpuhvfs_get_imax_thermal_state(void);
+void cpuhvfs_update_imax_state(unsigned int state);
+void cpuhvfs_update_imax_thermal_state(unsigned int state);
 #endif
 int cpuhvfs_set_iccs_freq(enum mt_cpu_dvfs_id id, unsigned int freq);
 int cpuhvfs_update_volt(unsigned int cluster_id, unsigned int *volt_tbl,
