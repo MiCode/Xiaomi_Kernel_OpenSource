@@ -553,8 +553,7 @@ static int apu_power_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_exit;
 
-	apusys_power_init(VPU0, (void *)&init_power_data);
-
+//	apusys_power_init(VPU0, (void *)&init_power_data);
 //	d_work_func();
 
 #if !FOR_BRING_UP
@@ -617,6 +616,12 @@ int apu_power_power_stress(int type, int device, int opp)
 	}
 
 	mutex_lock(&power_stress_mtx);
+
+	if (apu_power_counter == 0) {
+		// prepare clock and get regulator handle
+		apusys_power_init(VPU0, (void *)&init_power_data);
+		apu_power_counter++;
+	}
 
 	switch (type) {
 	case 0: // config opp
