@@ -776,20 +776,31 @@ bool mtk_crtc_with_trigger_loop(struct drm_crtc *crtc)
 	return false;
 }
 
-bool mtk_crtc_has_2nd_path(struct drm_crtc *crtc)
-{
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-
-	if (mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].ddp_comp_nr[1])
-		return true;
-	return false;
-}
-
 bool mtk_crtc_is_frame_trigger_mode(struct drm_crtc *crtc)
 {
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	return mtk_dsi_is_cmd_mode(priv->ddp_comp[DDP_COMPONENT_DSI0]);
+}
+
+static bool mtk_crtc_target_is_dc_mode(struct drm_crtc *crtc,
+				unsigned int ddp_mode)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	if (ddp_mode >= DDP_MODE_NR)
+		return false;
+
+	if (mtk_crtc->ddp_ctx[ddp_mode].ddp_comp_nr[1])
+		return true;
+	return false;
+}
+
+bool mtk_crtc_is_dc_mode(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	return mtk_crtc_target_is_dc_mode(crtc, mtk_crtc->ddp_mode);
 }
 
 int get_path_wait_event(struct mtk_drm_crtc *mtk_crtc,
@@ -884,7 +895,7 @@ void mtk_crtc_prim_path_config(struct drm_crtc *crtc)
 
 	mutex_lock(&mtk_crtc->lock);
 
-	if (!mtk_crtc_has_2nd_path(crtc)) {
+	if (!mtk_crtc_is_dc_mode(crtc)) {
 		mutex_unlock(&mtk_crtc->lock);
 		return;
 	}
@@ -921,8 +932,7 @@ void mtk_crtc_prim_path_config(struct drm_crtc *crtc)
 	mtk_ddp_comp_layer_config(ddp_ctx->ddp_comp[DDP_SECOND_PATH][0], 0,
 				  &plane_state, cmdq_handle);
 
-	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
-	    mtk_crtc->ddp_mode == 1)
+	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
 		cmdq_pkt_set_event(cmdq_handle,
 				   mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 
@@ -1018,7 +1028,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
 
-	if (mtk_crtc_has_2nd_path(crtc))
+	if (mtk_crtc_is_dc_mode(crtc))
 		mtk_crtc_prim_path_config(crtc);
 }
 
@@ -1326,7 +1336,7 @@ void mtk_crtc_connect_default_path(struct mtk_drm_crtc *mtk_crtc)
 	}
 
 	/* add module in mutex */
-	if (mtk_crtc_has_2nd_path(crtc)) {
+	if (mtk_crtc_is_dc_mode(crtc)) {
 		for_each_comp_in_crtc_target_path(comp, mtk_crtc, i,
 						  DDP_FIRST_PATH)
 			mtk_disp_mutex_add_comp(mtk_crtc->mutex[1], comp->id);
@@ -1530,15 +1540,15 @@ void mtk_crtc_disconnect_default_path(struct mtk_drm_crtc *mtk_crtc)
 			ddp_comp[j]->id, ddp_comp[j + 1]->id);
 	}
 
-	if (mtk_crtc_has_2nd_path(crtc)) {
+	if (mtk_crtc_is_dc_mode(crtc)) {
 		for_each_comp_in_crtc_target_path(comp, mtk_crtc, i,
 						  DDP_FIRST_PATH)
 			mtk_disp_mutex_remove_comp(mtk_crtc->mutex[1],
-						   comp->id);
+						  comp->id);
 		for_each_comp_in_crtc_target_path(comp, mtk_crtc, i,
 						  DDP_SECOND_PATH)
 			mtk_disp_mutex_remove_comp(mtk_crtc->mutex[0],
-						   comp->id);
+						  comp->id);
 	} else {
 		for_each_comp_in_crtc_target_path(comp, mtk_crtc, i,
 						  DDP_FIRST_PATH)
@@ -1561,6 +1571,9 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 		return;
 	}
 	DDPINFO("crtc%d do %s\n", crtc_id, __func__);
+
+	/* attach the crtc to each componet */
+	mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
 
 	/* 1. power on mtcmos */
 	mtk_drm_top_clk_prepare_enable(crtc->dev);
@@ -1890,7 +1903,7 @@ void mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	if (mtk_crtc_has_2nd_path(crtc))
+	if (mtk_crtc_is_dc_mode(crtc))
 		cmdq_pkt_set_client(cmdq_handle,
 				    mtk_crtc->gce_obj.client[CLIENT_SUB_CFG]);
 	else
@@ -1910,6 +1923,9 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 
 	if (mtk_crtc->event && state->base.event)
 		DRM_ERROR("new event while there is still a pending event\n");
+
+	if (mtk_crtc->ddp_mode == DDP_NO_USE)
+		return;
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
@@ -1996,8 +2012,9 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb, void *cb_data,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct mtk_ddp_comp *comp = NULL;
+	struct mtk_crtc_gce_obj *gce_obj;
 
-	if (mtk_crtc_has_2nd_path(crtc)) {
+	if (mtk_crtc_is_dc_mode(crtc)) {
 		struct mtk_crtc_ddp_ctx *ddp_ctx;
 
 		comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_WDMA0);
@@ -2088,7 +2105,6 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb, void *cb_data,
 			if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
 					mtk_crtc_with_trigger_loop(crtc)) {
 				int gce_event;
-				struct mtk_crtc_gce_obj *gce_obj;
 
 				gce_obj = &(mtk_crtc->gce_obj);
 				gce_event = gce_obj->event[EVENT_STREAM_DIRTY];
@@ -2102,13 +2118,13 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb, void *cb_data,
 		}
 	}
 
-	if (mtk_crtc_has_2nd_path(crtc))
-		cmdq_pkt_flush_threaded(
-			mtk_crtc->gce_obj.client[CLIENT_SUB_CFG], cmdq_handle,
-			gce_cb, cb_data);
+	gce_obj = &(mtk_crtc->gce_obj);
+	if (mtk_crtc_is_dc_mode(crtc))
+		cmdq_pkt_flush_threaded(gce_obj->client[CLIENT_SUB_CFG],
+			cmdq_handle, gce_cb, cb_data);
 	else
-		cmdq_pkt_flush_threaded(mtk_crtc->gce_obj.client[CLIENT_CFG],
-					cmdq_handle, gce_cb, cb_data);
+		cmdq_pkt_flush_threaded(gce_obj->client[CLIENT_CFG],
+			cmdq_handle, gce_cb, cb_data);
 }
 
 static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
@@ -2123,6 +2139,9 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 	struct mtk_cmdq_cb_data *cb_data;
 	struct mtk_ddp_comp *comp;
+
+	if (mtk_crtc->ddp_mode == DDP_NO_USE)
+		return;
 
 	if (mtk_crtc->event)
 		mtk_crtc->pending_needs_vblank = true;
@@ -2931,6 +2950,7 @@ static void mtk_crtc_create_wb_path_cmdq(struct drm_crtc *crtc,
 		if (1)
 			mtk_ddp_comp_bypass(comp, cmdq_handle);
 	}
+	cmdq_pkt_wfe(cmdq_handle, mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
 }
 
 static void mtk_crtc_destroy_wb_path_cmdq(struct drm_crtc *crtc,
@@ -3152,15 +3172,8 @@ static void __mtk_crtc_sub_path_create(
 	cmdq_pkt_destroy(cmdq_handle);
 }
 
-bool mtk_crtc_is_dc_mode(struct drm_crtc *crtc, unsigned int ddp_mode)
-{
-	/* TODO: Check if it is DC mode */
-	if (ddp_mode == 1)
-		return true;
-	return false;
-}
-
-static void mtk_crtc_dc_fb_control(struct drm_crtc *crtc, unsigned int ddp_mode)
+static void mtk_crtc_dc_fb_control(struct drm_crtc *crtc,
+				unsigned int ddp_mode)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_ddp_ctx *ddp_ctx;
@@ -3168,7 +3181,7 @@ static void mtk_crtc_dc_fb_control(struct drm_crtc *crtc, unsigned int ddp_mode)
 	struct mtk_drm_gem_obj *mtk_gem;
 
 	ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
-	if (mtk_crtc_is_dc_mode(crtc, ddp_mode)) {
+	if (mtk_crtc_target_is_dc_mode(crtc, ddp_mode)) {
 		ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
 		mode.width = crtc->state->adjusted_mode.hdisplay;
 		mode.height = crtc->state->adjusted_mode.vdisplay;
@@ -3182,7 +3195,8 @@ static void mtk_crtc_dc_fb_control(struct drm_crtc *crtc, unsigned int ddp_mode)
 	}
 
 	ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
-	if (!mtk_crtc_is_dc_mode(crtc, mtk_crtc->ddp_mode) && ddp_ctx->dc_fb) {
+	if (!mtk_crtc_target_is_dc_mode(crtc, mtk_crtc->ddp_mode)
+		&& ddp_ctx->dc_fb) {
 		drm_framebuffer_cleanup(ddp_ctx->dc_fb);
 		ddp_ctx->dc_fb_idx = 0;
 	}
@@ -3202,6 +3216,8 @@ void mtk_crtc_path_switch_prepare(struct drm_crtc *crtc, unsigned int ddp_mode,
 	cfg->h = crtc->state->adjusted_mode.vdisplay;
 	cfg->vrefresh = crtc->state->adjusted_mode.vrefresh;
 	cfg->bpc = mtk_crtc->bpc;
+	cfg->x = 0;
+	cfg->y = 0;
 	cfg->p_golden_setting_context = __get_golden_setting_context(mtk_crtc);
 
 	/* The components in target ddp_mode may be used during path switching,
@@ -3232,6 +3248,8 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 	if (ddp_mode == mtk_crtc->ddp_mode || !crtc->enabled)
 		goto done;
 
+	DDPINFO("%s path switch(%d->%d)\n",
+		__func__, mtk_crtc->ddp_mode, ddp_mode);
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
 	/* 0. Special NO_USE ddp mode control. In NO_USE ddp mode, the HW path
@@ -3265,7 +3283,8 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 	mtk_crtc_dc_fb_control(crtc, ddp_mode);
 done:
 	mtk_crtc->ddp_mode = ddp_mode;
-	mtk_crtc_update_ddp_sw_status(crtc, true);
+	if (crtc->enabled && mtk_crtc->ddp_mode != DDP_NO_USE)
+		mtk_crtc_update_ddp_sw_status(crtc, true);
 
 	if (need_lock)
 		mutex_unlock(&mtk_crtc->lock);

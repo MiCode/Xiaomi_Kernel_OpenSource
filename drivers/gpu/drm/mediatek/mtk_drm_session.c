@@ -88,7 +88,7 @@ int mtk_session_get_mode(struct drm_device *dev, struct drm_crtc *crtc)
 
 int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode)
 {
-	unsigned int i;
+	int i;
 	struct mtk_drm_private *private = dev->dev_private;
 	const struct mtk_session_mode_tb *mode_tb = private->data->mode_tb;
 
@@ -98,9 +98,11 @@ int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode)
 		return -EINVAL;
 	}
 
-	/* For releasing HW resource purpose, the ddp mode should switching
-	 * reversely
-	 * in some situation. CRTC2 -> CRTC1 ->CRTC0
+	if (session_mode == private->session_mode)
+		return 0;
+	/* For releasing HW resource purpose, the ddp mode should
+	 * switching reversely in some situation.
+	 * CRTC2 -> CRTC1 ->CRTC0
 	 */
 	if (session_mode == MTK_DRM_SESSION_DC_MIRROR ||
 	    private->session_mode == MTK_DRM_SESSION_TRIPLE_DL) {

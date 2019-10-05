@@ -310,8 +310,9 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
 	struct drm_framebuffer *fb = plane->state->fb;
 	int src_w, src_h, dst_x, dst_y, dst_w, dst_h, i;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	if (!crtc || WARN_ON(!fb))
+	if (!crtc || WARN_ON(!fb) || mtk_crtc->ddp_mode == DDP_NO_USE)
 		return;
 
 	src_w = drm_rect_width(&plane->state->src) >> 16;

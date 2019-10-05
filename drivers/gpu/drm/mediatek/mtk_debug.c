@@ -521,13 +521,17 @@ static void process_dbg_opt(const char *opt)
 			g_detail_log = 0;
 	} else if (strncmp(opt, "diagnose", 8) == 0) {
 		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
 
 		drm_for_each_crtc(crtc, drm_dev) {
 			if (!crtc) {
 				DDPPR_ERR("find crtc fail\n");
 				continue;
 			}
-			if (!crtc->enabled)
+
+			mtk_crtc = to_mtk_crtc(crtc);
+			if (!crtc->enabled
+				|| mtk_crtc->ddp_mode == DDP_NO_USE)
 				continue;
 
 			mtk_drm_crtc_analysis(crtc);

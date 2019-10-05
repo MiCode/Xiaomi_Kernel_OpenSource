@@ -569,9 +569,9 @@ void mtk_crtc_disconnect_addon_module(struct drm_crtc *crtc);
 void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb, void *cb_data,
 			struct cmdq_pkt *cmdq_handle);
 void mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
-			       struct cmdq_pkt *cmdq_handle);
-void mtk_crtc_pkt_create(struct cmdq_pkt **cmdq_handle, struct drm_crtc *crtc);
-bool mtk_crtc_is_dc_mode(struct drm_crtc *crtc, unsigned int ddp_mode);
+	struct cmdq_pkt *cmdq_handle);
+void mtk_crtc_pkt_create(struct cmdq_pkt **cmdq_handle,
+	struct drm_crtc *crtc);
 int mtk_crtc_get_mutex_id(struct drm_crtc *crtc, unsigned int ddp_mode,
 			  enum mtk_ddp_comp_id find_comp);
 void mtk_crtc_disconnect_path_between_component(struct drm_crtc *crtc,
@@ -592,6 +592,6 @@ int mtk_crtc_find_prev_comp(struct drm_crtc *crtc, unsigned int ddp_mode,
 		enum mtk_ddp_comp_id comp_id);
 void mtk_drm_fake_vsync_switch(struct drm_crtc *crtc, bool enable);
 
-bool mtk_crtc_has_2nd_path(struct drm_crtc *crtc);
+bool mtk_crtc_is_dc_mode(struct drm_crtc *crtc);
 
 #endif /* MTK_DRM_CRTC_H */

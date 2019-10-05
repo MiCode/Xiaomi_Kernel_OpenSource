@@ -235,7 +235,7 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 		}
 
 		if (idlemgr_ctx->is_idle
-			|| mtk_crtc_has_2nd_path(crtc)
+			|| mtk_crtc_is_dc_mode(crtc)
 			|| priv->session_mode != MTK_DRM_SESSION_DL) {
 			mutex_unlock(&mtk_crtc->lock);
 			continue;

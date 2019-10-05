@@ -78,7 +78,7 @@ void mtk_drm_refresh_tag_start(struct mtk_ddp_comp *ddp_comp)
 		return;
 
 	crtc_idx = drm_crtc_index(&mtk_crtc->base);
-	if (mtk_crtc_is_dc_mode(&mtk_crtc->base, mtk_crtc->ddp_mode) == 1) {
+	if (mtk_crtc_is_dc_mode(&mtk_crtc->base)) {
 		mtk_ddp_comp_io_cmd(ddp_comp, NULL, BACKUP_INFO_CMP,
 				    &b_layer_changed);
 	} else {
