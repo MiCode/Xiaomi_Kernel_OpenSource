@@ -362,12 +362,43 @@ void fgauge_get_profile_id(void)
 	int id_volt = 0;
 	int id = 0;
 	int ret = 0;
+	int auxadc_voltage = 0;
+	struct iio_channel *channel;
+	struct device_node *batterty_node;
+	struct platform_device *battery_dev;
 
-	ret = IMM_GetOneChannelValue_Cali(BATTERY_ID_CHANNEL_NUM, &id_volt);
-	if (ret != 0)
-		bm_debug("[%s]id_volt read fail\n", __func__);
-	else
-		bm_debug("[%s]id_volt = %d\n", __func__, id_volt);
+	batterty_node = of_find_node_by_name(NULL, "battery");
+	if (!batterty_node) {
+		bm_err("[%s] of_find_node_by_name fail\n", __func__);
+		return;
+	}
+
+	battery_dev = of_find_device_by_node(batterty_node);
+	if (!battery_dev) {
+		bm_err("[%s] of_find_device_by_node fail\n", __func__);
+		return;
+	}
+
+	channel = iio_channel_get(&(battery_dev->dev), "batteryID-channel");
+	if (IS_ERR(channel)) {
+		ret = PTR_ERR(channel);
+		bm_err("[%s] iio channel not found %d\n",
+		__func__, ret);
+		return;
+	}
+
+	if (channel)
+		ret = iio_read_channel_processed(channel, &auxadc_voltage);
+
+
+	if (ret <= 0) {
+		bm_err("[%s] iio_read_channel_processed failed\n", __func__);
+		return;
+	}
+
+	bm_err("[%s]auxadc_voltage is %d\n", __func__, auxadc_voltage);
+	id_volt = auxadc_voltage * 1500 / 4096;
+	bm_err("[%s]battery_id_voltage is %d\n", __func__, id_volt);
 
 	if ((sizeof(g_battery_id_voltage) /
 		sizeof(int)) != TOTAL_BATTERY_NUMBER) {
