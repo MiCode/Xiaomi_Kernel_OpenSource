@@ -1017,7 +1017,7 @@ static void cmdq_sec_irq_notify_start(void)
 
 	if (cmdq_sec_irq_pkt->cl != clt) {
 		CMDQ_LOG(
-			"[warn]client not match before flush sec irq pkt:%#p and %#p\n",
+			"[warn]client not match before flush sec irq pkt:%p and %p\n",
 			cmdq_sec_irq_pkt->cl, clt);
 		cmdq_sec_irq_pkt->cl = clt;
 	}
@@ -1233,7 +1233,7 @@ s32 cmdq_sec_insert_backup_cookie_instr(struct cmdqRecStruct *task, s32 thread)
 	err = cmdq_pkt_read(task->pkt, cmdq_helper_mbox_base(), regAddr,
 		CMDQ_THR_SPR_IDX1);
 	if (err != 0) {
-		CMDQ_ERR("fail to read pkt:%#p reg:%#x err:%d\n",
+		CMDQ_ERR("fail to read pkt:%p reg:%#x err:%d\n",
 			task->pkt, regAddr, err);
 		return err;
 	}
@@ -1250,7 +1250,7 @@ s32 cmdq_sec_insert_backup_cookie_instr(struct cmdqRecStruct *task, s32 thread)
 	err = cmdq_pkt_write_indriect(task->pkt, cmdq_helper_mbox_base(),
 		WSMCookieAddr, CMDQ_THR_SPR_IDX1, ~0);
 	if (err < 0) {
-		CMDQ_ERR("fail to write pkt:%#p wsm:%#llx err:%d\n",
+		CMDQ_ERR("fail to write pkt:%p wsm:%#llx err:%d\n",
 			task->pkt, WSMCookieAddr, err);
 		return err;
 	}
@@ -1803,7 +1803,7 @@ static void cmdq_sec_exec_task_async_impl(struct work_struct *work_item)
 		"-->EXEC: pkt:0x%p on thread:%d begin va:0x%p\n",
 		handle->pkt, thread_id, buf->va_base);
 	cmdq_long_string(long_msg, &msg_offset, &msg_max_size,
-		" command size:%d bufferSize:%zu scenario:%d flag:0x%llx\n",
+		" command size:%zu bufferSize:%zu scenario:%d flag:0x%llx\n",
 		handle->pkt->cmd_buf_size, handle->pkt->buf_size,
 		handle->scenario, handle->engineFlag);
 	CMDQ_MSG("%s", long_msg);
@@ -1927,7 +1927,7 @@ static int cmdq_mbox_send_data(struct mbox_chan *chan, void *data)
 
 static bool cmdq_sec_thread_timeout_excceed(struct cmdq_sec_thread *thread)
 {
-	struct cmdq_task *task;
+	struct cmdq_task *task = NULL;
 	struct cmdqRecStruct *handle;
 	u64 duration, now, timeout;
 	s32 i, last_idx;
