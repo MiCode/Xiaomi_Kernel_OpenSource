@@ -46,7 +46,7 @@
 #define ISP_MET_READY
 
 /* #define EP_STAGE */
-#define EP_STAGE
+//#define EP_STAGE
 #ifdef EP_STAGE
 #define EP_MARK_SMI /* disable SMI related for EP */
 //#define DUMMY_INT   /* For early if load dont need to use camera */
@@ -1563,102 +1563,224 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 
 static inline void smi_control_clock_mtcmos(bool en)
 {
-#define LARB9PORTSIZE 21
-#define LARB10PORTSIZE 29
+/* reference smi_port.h */
+#define LARB13PORTSIZE 12
+#define LARB14PORTSIZE 6
+#define LARB16PORTSIZE 17
+#define LARB17PORTSIZE 17
+#define LARB18PORTSIZE 17
 
 #ifndef EP_MARK_SMI
-	int ret = 0, inx = 0;
-	static const char *larb9_port_Name[LARB9PORTSIZE] = {
-		"imgo_r1_c",
-		"rrzo_r1_c",
-		"lsci_r1_c",
-		"bpci_r1_c",
-		/*"imgco_c", */ "yuvo_r1_c",
-		"ufdi_r2_c",
-		"rawi_r2_c",
-		"camsv_1",
-		"camsv_2",
-		"camsv_3",
-		"camsv_4",
-		"camsv_5",
-		"camsv_6",
-		"aao_r1_c",
-		"afo_r1_c",
-		"flko_r1_c",
-		"lceso_r1_c",
-		"crzo_r1_c",
-		"ltmso_r1_c",
-		"rsso_r1_c",
-		/*"ccui",     "ccuo"   , */ "fake"};
+	s32 inx = 0;
+#ifdef CONFIG_MTK_SMI_EXT
+	s32 ret = 0;
+	static const char *larb13_port_Name[LARB13PORTSIZE] = {
+		"mrawi_mdp",
+		"mrawo0_mdp",
+		"mrawo1_mdp",
+		"camsv1_mdp",
+		"camsv2_mdp",
+		"camsv3_mdp",
+		"camsv4_mdp",
+		"camsv5_mdp",
+		"camsv6_mdp",
+		"ccui_mdp",
+		"ccuo_mdp",
+		"fake_mdp"};
 
-	static const char *larb10_port_Name[LARB10PORTSIZE] = {
-		"imgo_r1_a",  "rrzo_r1_a",  "lsci_r1_a", "bpci_r1_a",
-		"yuvo_r1_a",  "ufdi_r2_a",  "rawi_r2_a", /*"rawi_r5_a", */
-		"imgo_r1_b",  "rrzo_r1_b",  "lsci_r1_b", "bpci_r1_b",
-		"yuvo_r1_b",  "ufdi_r2_b",  "rawi_r2_b", /*"rawi_r5_b", */
-		"camsv_0",    "aao_r1_a",   "afo_r1_a",  "flko_r1_a",
-		"lceso_r1_a", "crzo_r1_a",  "aao_r1_b",  "afo_r1_b",
-		"flko_r1_b",  "lceso_r1_b", "crzo_r1_b", "ltmso_r1_a",
-		"rsso_r1_a",  "ltmso_r1_b", "rsso_r1_b"};
+	static const char *larb14_port_Name[LARB14PORTSIZE] = {
+		"mrawi_disp",
+		"mrawo0_disp",
+		"mrawo1_disp",
+		"camsv0_disp",
+		"ccui_disp",
+		"ccuo_disp"};
 
-	/* Don't use Larb11 */
-	/* const char *larb11_port_Name[LARB11PORTSIZE] =
-	 *              {"ipuo", "ipu2o", "ipu3o" ,
-	 *               "ipui", "ipu2i" };
-	 */
+	static const char *larb16_port_Name[LARB16PORTSIZE] = {
+		"imgo_r1_a",  "rrzo_r1_a",  "cqi_r1_a",  "bpci_r1_a",
+		"yuvo_r1_a",  "ufdi_r2_a",  "rawi_r2_a", "rawi_r3_a",
+		"aao_r1_a",   "afo_r1_a",   "flko_r1_a", "lceso_r1_a",
+		"crzo_r1_a",  "ltmso_r1_a", "rsso_r1_a", "aaho_r1_a",
+		"lsci_r1_a"};
+
+	static const char *larb17_port_Name[LARB16PORTSIZE] = {
+		"imgo_r1_b",  "rrzo_r1_b",  "cqi_r1_b",  "bpci_r1_b",
+		"yuvo_r1_b",  "ufdi_r2_b",  "rawi_r2_b", "rawi_r3_b",
+		"aao_r1_b",   "afo_r1_b",   "flko_r1_b", "lceso_r1_b",
+		"crzo_r1_b",  "ltmso_r1_b", "rsso_r1_b", "aaho_r1_b",
+		"lsci_r1_b"};
+
+	static const char *larb18_port_Name[LARB18PORTSIZE] = {
+		"imgo_r1_c",  "rrzo_r1_c",	"cqi_r1_c",  "bpci_r1_c",
+		"yuvo_r1_c",  "ufdi_r2_c",	"rawi_r2_c", "rawi_r3_c",
+		"aao_r1_c",   "afo_r1_c",	"flko_r1_c", "lceso_r1_c",
+		"crzo_r1_c",  "ltmso_r1_c", "rsso_r1_c", "aaho_r1_c",
+		"lsci_r1_c"};
+
+#endif
 
 	if (en == CAMERA_SMI_ENABLE) {
 		LOG_INF("enable CG/MTCMOS through SMI CLK API\n");
-		for (inx = 0; inx < LARB9PORTSIZE; inx++) {
+		for (inx = 0; inx < LARB13PORTSIZE; inx++) {
 
+#ifndef CONFIG_MTK_SMI_EXT
+			smi_bus_prepare_enable(
+				SMI_LARB13, larb13_port_Name[inx]);
+#else
 			ret = smi_bus_prepare_enable(
-				SMI_LARB9_REG_INDX, larb9_port_Name[inx], true);
+				SMI_LARB13, larb13_port_Name[inx]);
 			if (ret != 0) {
 				LOG_NOTICE(
-					"LARB9_%s:smi_bus_prepare_enable fail",
-					larb9_port_Name[inx]);
+					"LARB13_%s:smi_bus_prepare_enable fail",
+					larb13_port_Name[inx]);
 			}
+#endif
 		}
 
-		for (inx = 0; inx < LARB10PORTSIZE; inx++) {
-
-			ret = smi_bus_prepare_enable(SMI_LARB10_REG_INDX,
-						     larb10_port_Name[inx],
-						     true);
+		for (inx = 0; inx < LARB14PORTSIZE; inx++) {
+#ifndef CONFIG_MTK_SMI_EXT
+			smi_bus_prepare_enable(SMI_LARB14,
+						     larb14_port_Name[inx]);
+#else
+			ret = smi_bus_prepare_enable(SMI_LARB14,
+						     larb14_port_Name[inx]);
 			if (ret != 0) {
 				LOG_NOTICE(
-					"LARB10_%s:smi_bus_prepare_enable fail",
-					larb10_port_Name[inx]);
+					"LARB14_%s:smi_bus_prepare_enable fail",
+					larb14_port_Name[inx]);
 			}
+#endif
 		}
+
+		for (inx = 0; inx < LARB16PORTSIZE; inx++) {
+#ifndef CONFIG_MTK_SMI_EXT
+			smi_bus_prepare_enable(SMI_LARB16,
+							 larb16_port_Name[inx]);
+#else
+			ret = smi_bus_prepare_enable(SMI_LARB16,
+							 larb16_port_Name[inx]);
+			if (ret != 0) {
+				LOG_NOTICE(
+					"LARB16_%s:smi_bus_prepare_enable fail",
+					larb16_port_Name[inx]);
+			}
+#endif
+		}
+
+		for (inx = 0; inx < LARB17PORTSIZE; inx++) {
+#ifndef CONFIG_MTK_SMI_EXT
+			smi_bus_prepare_enable(SMI_LARB17,
+							 larb17_port_Name[inx]);
+#else
+			ret = smi_bus_prepare_enable(SMI_LARB17,
+							 larb17_port_Name[inx]);
+			if (ret != 0) {
+				LOG_NOTICE(
+					"LARB17_%s:smi_bus_prepare_enable fail",
+					larb17_port_Name[inx]);
+			}
+#endif
+		}
+
+		for (inx = 0; inx < LARB18PORTSIZE; inx++) {
+#ifndef CONFIG_MTK_SMI_EXT
+			smi_bus_prepare_enable(SMI_LARB18,
+							 larb18_port_Name[inx]);
+#else
+			ret = smi_bus_prepare_enable(SMI_LARB18,
+							 larb18_port_Name[inx]);
+			if (ret != 0) {
+				LOG_NOTICE(
+					"LARB18_%s:smi_bus_prepare_enable fail",
+					larb18_port_Name[inx]);
+			}
+#endif
+		}
+
 	} else {
 		LOG_INF("disable CG/MTCMOS through SMI CLK API\n");
-		for (inx = 0; inx < LARB9PORTSIZE; inx++) {
-
-			ret = smi_bus_disable_unprepare(
-				SMI_LARB9_REG_INDX, larb9_port_Name[inx], true);
+		for (inx = 0; inx < LARB13PORTSIZE; inx++) {
+#ifndef CONFIG_MTK_SMI_EXT
+			smi_bus_disable_unprepare(
+				SMI_LARB13, larb13_port_Name[inx]);
+#else
+			ret = smi_bus_disable_unprepare(SMI_LARB13,
+							larb13_port_Name[inx]);
 			if (ret != 0) {
 				LOG_NOTICE(
-					"LARB9_%s:smi_bus_prepare_disable fail",
-					larb9_port_Name[inx]);
+					"LARB13_%s:smi_bus_prepare_disable fail",
+					larb13_port_Name[inx]);
 			}
+#endif
 		}
 
-		for (inx = 0; inx < LARB10PORTSIZE; inx++) {
-
-			ret = smi_bus_disable_unprepare(SMI_LARB10_REG_INDX,
-							larb10_port_Name[inx],
-							true);
+		for (inx = 0; inx < LARB14PORTSIZE; inx++) {
+#ifndef CONFIG_MTK_SMI_EXT
+			smi_bus_disable_unprepare(SMI_LARB14,
+					larb14_port_Name[inx]);
+#else
+			ret = smi_bus_disable_unprepare(SMI_LARB14,
+							larb14_port_Name[inx]);
 			if (ret != 0) {
 				LOG_NOTICE(
-					"LARB10_%s:smi_bus_prepare_disable fail",
-					larb10_port_Name[inx]);
+					"LARB14_%s:smi_bus_prepare_disable fail",
+					larb14_port_Name[inx]);
 			}
+#endif
 		}
+
+		for (inx = 0; inx < LARB16PORTSIZE; inx++) {
+#ifndef CONFIG_MTK_SMI_EXT
+			smi_bus_disable_unprepare(SMI_LARB16,
+					larb16_port_Name[inx]);
+#else
+			ret = smi_bus_disable_unprepare(SMI_LARB16,
+					larb16_port_Name[inx]);
+			if (ret != 0) {
+				LOG_NOTICE(
+					"LARB16_%s:smi_bus_prepare_disable fail",
+					larb16_port_Name[inx]);
+			}
+#endif
+		}
+
+		for (inx = 0; inx < LARB17PORTSIZE; inx++) {
+#ifndef CONFIG_MTK_SMI_EXT
+			smi_bus_disable_unprepare(SMI_LARB17,
+					larb17_port_Name[inx]);
+#else
+			ret = smi_bus_disable_unprepare(SMI_LARB17,
+					larb17_port_Name[inx]);
+			if (ret != 0) {
+				LOG_NOTICE(
+					"LARB17_%s:smi_bus_prepare_disable fail",
+					larb17_port_Name[inx]);
+			}
+#endif
+		}
+
+		for (inx = 0; inx < LARB18PORTSIZE; inx++) {
+#ifndef CONFIG_MTK_SMI_EXT
+			smi_bus_disable_unprepare(SMI_LARB18,
+					larb18_port_Name[inx]);
+#else
+			ret = smi_bus_disable_unprepare(SMI_LARB18,
+					larb18_port_Name[inx]);
+			if (ret != 0) {
+				LOG_NOTICE(
+					"LARB14_%s:smi_bus_prepare_disable fail",
+					larb18_port_Name[inx]);
+			}
+#endif
+		}
+
 	}
 #endif
-#undef LARB9PORTSIZE
-#undef LARB10PORTSIZE
+#undef LARB13PORTSIZE
+#undef LARB14PORTSIZE
+#undef LARB16PORTSIZE
+#undef LARB17PORTSIZE
+#undef LARB18PORTSIZE
 }
 
 static inline void Prepare_Enable_ccf_clock(void)
@@ -10446,15 +10568,13 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 
 				LOG_NOTICE("ERR:SMI_DUMP by module:%d\n",
 					   irq_module);
-
-				if (smi_debug_bus_hang_detect(
-					    SMI_PARAM_BUS_OPTIMIZATION, true,
-					    false, true) != 0) {
-					LOG_NOTICE(
-						"ERR:smi_debug_bus_hang_detect");
-				}
+#ifdef CONFIG_MTK_SMI_EXT
+		if (smi_debug_bus_hang_detect(false, "camera_isp") != 0)
+			LOG_NOTICE("ERR:smi_debug_bus_hang_detect");
+#else
+		smi_debug_bus_hang_detect(false, "camera_isp");
+#endif
 			}
-
 			g_ISPIntStatus_SMI[irq_module].ispIntErr =
 				g_ISPIntStatus_SMI[irq_module].ispInt5Err = 0;
 		}
@@ -10509,14 +10629,14 @@ EXIT_CQ_RECOVER:
 				LOG_NOTICE("ERR:SMI_DUMP by module:%d\n",
 					   irq_module);
 
-				if (smi_debug_bus_hang_detect(
-					    SMI_PARAM_BUS_OPTIMIZATION, true,
-					    false, true) != 0) {
-					LOG_NOTICE(
-						"ERR:smi_debug_bus_hang_detect");
-				}
-			}
+#ifdef CONFIG_MTK_SMI_EXT
+		if (smi_debug_bus_hang_detect(false, "camera_isp_camsv") != 0)
+			LOG_NOTICE("ERR:smi_debug_bus_hang_detect");
+#else
+		smi_debug_bus_hang_detect(false, "camera_isp_camsv");
+#endif
 
+			}
 			g_ISPIntStatus_SMI[irq_module].ispIntErr = 0;
 		}
 		break;
