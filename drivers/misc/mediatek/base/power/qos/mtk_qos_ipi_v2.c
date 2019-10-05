@@ -22,7 +22,7 @@
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 int qos_ipi_ackdata;
-int qos_recv_ackdata;
+struct qos_ipi_data qos_recv_ackdata;
 
 static void qos_sspm_enable(void)
 {
@@ -34,7 +34,7 @@ static void qos_sspm_enable(void)
 
 static int qos_ipi_recv_thread(void *arg)
 {
-	struct qos_ipi_data qos_ipi_d;
+	struct qos_ipi_data *qos_ipi_d;
 	unsigned int rdata, ret;
 
 	/* for AP to SSPM */
@@ -60,14 +60,16 @@ static int qos_ipi_recv_thread(void *arg)
 		rdata = 0;
 		mtk_ipi_recv(&sspm_ipidev, IPIR_I_QOS);
 
-		switch (qos_ipi_d.cmd) {
+		qos_ipi_d = &qos_recv_ackdata;
+
+		switch (qos_ipi_d->cmd) {
 		case QOS_IPI_QOS_BOUND:
 			qos_notifier_call_chain(
-					qos_ipi_d.u.qos_bound.state,
+					qos_ipi_d->u.qos_bound.state,
 					get_qos_bound());
 			break;
 		default:
-			pr_err("wrong QoS IPI command: %d\n", qos_ipi_d.cmd);
+			pr_info("wrong QoS IPI command: %d\n", qos_ipi_d->cmd);
 		}
 	} while (!kthread_should_stop());
 
