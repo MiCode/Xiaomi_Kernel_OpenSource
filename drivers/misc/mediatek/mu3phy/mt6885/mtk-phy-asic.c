@@ -1281,6 +1281,39 @@ void Charger_Detect_Release(void)
 	os_printk(K_INFO, "%s-\n", __func__);
 }
 
+void usb_dpdm_pulldown(bool enable)
+{
+	os_printk(K_INFO, "%s+\n", __func__);
+#if 0
+	usb_enable_clock(true);
+	udelay(250);
+	if (enable) {
+		U3PhyWriteField32((phys_addr_t) (uintptr_t)U3D_U2PHYDTM0,
+			RG_DPPULLDOWN_OFST, RG_DPPULLDOWN, 1);
+		U3PhyWriteField32((phys_addr_t) (uintptr_t)U3D_U2PHYDTM0,
+			RG_DMPULLDOWN_OFST, RG_DMPULLDOWN, 1);
+
+		U3PhyWriteField32((phys_addr_t) (uintptr_t)U3D_USBPHYACR6,
+			RG_USB20_PHY_REV_OFST, (0x2<<24), 0x0);
+	} else {
+		U3PhyWriteField32((phys_addr_t) (uintptr_t)U3D_U2PHYDTM0,
+			RG_DPPULLDOWN_OFST,	RG_DPPULLDOWN, 0);
+		U3PhyWriteField32((phys_addr_t) (uintptr_t)U3D_U2PHYDTM0,
+			RG_DMPULLDOWN_OFST,	RG_DMPULLDOWN, 0);
+
+		/*For water detection function,
+		 *need to set DPPULLDOWN and DMPULLDOWN 0
+		 *Also adjust RG_USB20_PHY_REV to prevent power leakage
+		 */
+		U3PhyWriteField32((phys_addr_t) (uintptr_t)U3D_USBPHYACR6,
+			RG_USB20_PHY_REV_OFST, (0x2<<24), 0x2);
+	}
+	udelay(1);
+	usb_enable_clock(false);
+#endif
+	os_printk(K_INFO, "%s-\n", __func__);
+}
+
 static int mt_usb_dts_probe(struct platform_device *pdev)
 {
 	int retval = 0;
