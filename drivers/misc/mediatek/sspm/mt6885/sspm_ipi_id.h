@@ -27,12 +27,13 @@
 #define IPIS_C_SMI            8
 #define IPIS_C_CM             9
 #define IPIS_C_SLBC           10
-#define IPIR_I_QOS            11
-#define IPIR_C_MET            12
-#define IPIR_C_GPU_DVFS       13
-#define IPIR_C_PLATFORM       14
-#define IPIR_C_SLBC           15
-#define SSPM_IPI_COUNT        16
+#define IPIS_C_SPM_SUSPEND    11
+#define IPIR_I_QOS            12
+#define IPIR_C_MET            13
+#define IPIR_C_GPU_DVFS       14
+#define IPIR_C_PLATFORM       15
+#define IPIR_C_SLBC           16
+#define SSPM_IPI_COUNT        17
 
 extern struct mtk_mbox_device sspm_mboxdev;
 extern struct mtk_ipi_device sspm_ipidev;
