@@ -534,12 +534,6 @@ static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 	if ((sid & ~(0xf)) != 0x0)
 		return -EINVAL;
 
-	if ((addr & ~(0xffff)) != 0x0)
-		return -EINVAL;
-
-	if ((*buf & ~(0xffff)) != 0x0)
-		return -EINVAL;
-
 	if ((bc & ~(0x1)) != 0x0)
 		return -EINVAL;
 
@@ -609,12 +603,6 @@ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 		return -EINVAL;
 
 	if ((sid & ~(0xf)) != 0x0)
-		return -EINVAL;
-
-	if ((addr & ~(0xffff)) != 0x0)
-		return -EINVAL;
-
-	if ((*buf & ~(0xffff)) != 0x0)
 		return -EINVAL;
 
 	if ((bc & ~(0x1)) != 0x0)
