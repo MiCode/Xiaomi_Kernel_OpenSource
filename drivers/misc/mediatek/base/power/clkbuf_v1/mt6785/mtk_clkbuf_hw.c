@@ -956,8 +956,8 @@ static ssize_t clk_buf_show_status_info_internal(char *buf)
 	int len = 0;
 	u32 pmic_cw00 = 0, pmic_cw09 = 0, pmic_cw12 = 0, pmic_cw13 = 0,
 	    pmic_cw15 = 0, pmic_cw19 = 0;
-	u32 top_spi_con1, ldo_vrfck_op_en, ldo_vrfck_en,
-		ldo_vbbck_op_en, ldo_vbbck_en;
+	u32 top_spi_con1 = 0, ldo_vrfck_op_en = 0, ldo_vrfck_en = 0,
+		ldo_vbbck_op_en = 0, ldo_vbbck_en = 0;
 	u32 buf2_mode, buf3_mode, buf4_mode, buf6_mode, buf7_mode;
 	u32 buf2_en_m, buf3_en_m, buf4_en_m, buf6_en_m, buf7_en_m;
 
@@ -1272,7 +1272,7 @@ static ssize_t clk_buf_debug_show(struct kobject *kobj,
 static ssize_t clk_buf_bblpm_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	u32 onoff;
+	u32 onoff = 0;
 	int ret = 0;
 
 	if ((kstrtouint(buf, 10, &onoff))) {
