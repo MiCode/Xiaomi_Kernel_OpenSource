@@ -37,6 +37,7 @@
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 #include <linux/sched/clock.h>
+#include <linux/dma-mapping.h>
 
 // V4L2
 #include <linux/mutex.h>
@@ -152,7 +153,7 @@ struct DPE_CLK_STRUCT dpe_clk;
 #endif
 
 #define DPE_DEV_NAME "camera-dpe"
-#define EP_NO_CLKMGR
+//#define EP_NO_CLKMGR
 #define BYPASS_REG (0)
 #define DUMMY_DPE (0)
 #define UT_CASE
@@ -2545,7 +2546,8 @@ static inline void DPE_Prepare_Enable_ccf_clock(void)
 	ret = clk_prepare_enable(dpe_clk.CG_TOP_MUX_DPE);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_TOP_MUX_DPE clock\n");
-	smi_bus_prepare_enable(SMI_LARB7, DPE_DEV_NAME);
+	smi_bus_prepare_enable(SMI_LARB19, DPE_DEV_NAME);
+	smi_bus_prepare_enable(SMI_LARB20, DPE_DEV_NAME);
 	ret = clk_prepare_enable(dpe_clk.CG_IPESYS_DPE);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IPESYS_DPE clock\n");
@@ -2555,7 +2557,8 @@ static inline void DPE_Prepare_Enable_ccf_clock(void)
 static inline void DPE_Disable_Unprepare_ccf_clock(void)
 {
 	clk_disable_unprepare(dpe_clk.CG_IPESYS_DPE);
-	smi_bus_disable_unprepare(SMI_LARB7, DPE_DEV_NAME);
+	smi_bus_disable_unprepare(SMI_LARB19, DPE_DEV_NAME);
+	smi_bus_disable_unprepare(SMI_LARB20, DPE_DEV_NAME);
 	clk_disable_unprepare(dpe_clk.CG_TOP_MUX_DPE);
 }
 #endif
@@ -2613,6 +2616,7 @@ static void DPE_EnableClock(bool En)
 			 * 1. CAMSYS_CG_CLR (0x1A000008) = 0xffffffff;
 			 * 2. IMG_CG_CLR (0x15000008) = 0xffffffff;
 			 */
+			LOG_ERR("[Debug] It's LDVT load, EP_NO_CLKMGR");
 			setReg = 0xFFFFFFFF;
 			DPE_WR32(IPESYS_REG_CG_CLR, setReg);
 #endif
