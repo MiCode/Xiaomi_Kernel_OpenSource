@@ -242,6 +242,9 @@ static void mnoc_reg_init(void)
 
 	spin_lock_irqsave(&mnoc_spinlock, flags);
 
+	/* EMI fine tune: SLV12_QOS ~ SLV15_QOS = 0x7 */
+	mnoc_write_field(MNOC_REG(SLV_QOS_CTRL1), 31:16, 0x7777);
+
 	/* enable mnoc interrupt */
 	mnoc_write_field(MNOC_INT_EN, 1:0, 3);
 
@@ -299,7 +302,7 @@ bool mnoc_check_int_status(void)
 	}
 
 	for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
-		val = mnoc_read(MNOC_INT_STA_REG(mni_int_sta_offset[int_idx]));
+		val = mnoc_read(MNOC_REG(mni_int_sta_offset[int_idx]));
 		if ((val & 0xFFFF) != 0) {
 			LOG_ERR("%s = 0x%x\n",
 				mni_int_sta_string[int_idx], val);
@@ -308,14 +311,14 @@ bool mnoc_check_int_status(void)
 					LOG_ERR("From %s\n",
 						mni_map_string[ni_idx]);
 			mnoc_write_field(
-				MNOC_INT_STA_REG(mni_int_sta_offset[int_idx]),
+				MNOC_REG(mni_int_sta_offset[int_idx]),
 				15:0, 0xFFFF);
 			mnoc_irq_triggered = true;
 		}
 	}
 
 	for (int_idx = 0; int_idx < NR_SNI_INT_STA; int_idx++) {
-		val = mnoc_read(MNOC_INT_STA_REG(sni_int_sta_offset[int_idx]));
+		val = mnoc_read(MNOC_REG(sni_int_sta_offset[int_idx]));
 		if ((val & 0xFFFF) != 0) {
 			LOG_ERR("%s = 0x%x\n",
 				sni_int_sta_string[int_idx], val);
@@ -324,14 +327,14 @@ bool mnoc_check_int_status(void)
 					LOG_ERR("From %s\n",
 						sni_map_string[ni_idx]);
 			mnoc_write_field(
-				MNOC_INT_STA_REG(sni_int_sta_offset[int_idx]),
+				MNOC_REG(sni_int_sta_offset[int_idx]),
 				15:0, 0xFFFF);
 			mnoc_irq_triggered = true;
 		}
 	}
 
 	for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
-		val = mnoc_read(MNOC_INT_STA_REG(rt_int_sta_offset[int_idx]));
+		val = mnoc_read(MNOC_REG(rt_int_sta_offset[int_idx]));
 		if ((val & 0x1F) != 0) {
 			LOG_ERR("%s = 0x%x\n",
 				rt_int_sta_string[int_idx], val);
@@ -339,7 +342,7 @@ bool mnoc_check_int_status(void)
 				if ((val & (1 << ni_idx)) != 0)
 					LOG_ERR("From RT %d\n", ni_idx);
 			mnoc_write_field(
-				MNOC_INT_STA_REG(rt_int_sta_offset[int_idx]),
+				MNOC_REG(rt_int_sta_offset[int_idx]),
 				4:0, 0x1F);
 			mnoc_irq_triggered = true;
 		}

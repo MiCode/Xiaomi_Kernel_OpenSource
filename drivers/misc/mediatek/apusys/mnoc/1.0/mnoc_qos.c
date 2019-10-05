@@ -75,7 +75,7 @@ struct cmd_qos {
 	unsigned int core;
 	unsigned int status; /* running/blocked */
 
-	unsigned int total_bw;
+	int total_bw;
 	unsigned int last_idx;
 	unsigned int count;
 
@@ -153,13 +153,13 @@ static void update_cmd_qos(struct qos_bound *qos_info, struct cmd_qos *cmd_qos)
 	/* sum current bw value to cmd_qos */
 	mutex_lock(&cmd_qos->mtx);
 	idx = cmd_qos->last_idx;
-	do {
+	while (idx != ((qos_info->idx + 1) % MTK_QOS_BUF_SIZE)) {
 		cmd_qos->total_bw +=
 		qos_info->stats[idx].smibw_mon[qos_smi_idx];
 		cmd_qos->count++;
 		idx = (idx + 1) % MTK_QOS_BUF_SIZE;
-	} while (idx != qos_info->idx);
-	LOG_DEBUG("(%llu/%llu)idx(%d ~ %d)\n", cmd_qos->cmd_id,
+	}
+	LOG_DEBUG("(0x%llx/0x%llx)idx(%d ~ %d)\n", cmd_qos->cmd_id,
 		cmd_qos->sub_cmd_id, cmd_qos->last_idx, idx);
 	/* update last idx */
 	cmd_qos->last_idx = idx;
@@ -200,7 +200,8 @@ static int enque_cmd_qos(uint64_t cmd_id,
 	/* alloc cmd_qos */
 	cmd_qos = kzalloc(sizeof(struct cmd_qos), GFP_KERNEL);
 	if (cmd_qos == NULL) {
-		LOG_ERR("alloc cmd_qos(%llu/%llu) fail\n", cmd_id, sub_cmd_id);
+		LOG_ERR("alloc cmd_qos(0x%llx/0x%llx) fail\n",
+			cmd_id, sub_cmd_id);
 		return -1;
 	};
 
@@ -255,7 +256,7 @@ static int deque_cmd_qos(struct cmd_qos *cmd_qos)
 		avg_bw = cmd_qos->total_bw;
 	};
 
-	LOG_DEBUG("cmd(%llu/%llu):bw(%d/%d)\n", cmd_qos->cmd_id,
+	LOG_DEBUG("cmd(0x%llx/0x%llx):bw(%d/%d)\n", cmd_qos->cmd_id,
 		cmd_qos->sub_cmd_id, avg_bw, cmd_qos->total_bw);
 
 	/* free cmd_qos */
@@ -526,7 +527,7 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 	list_for_each_entry(pos, &counter->list, list) {
 		/* search if cmd already exist */
 		if (pos->cmd_id == cmd_id && pos->sub_cmd_id == sub_cmd_id) {
-			LOG_DEBUG("resume cmd(%llu/%llu)\n",
+			LOG_DEBUG("resume cmd(0x%llx/0x%llx)\n",
 				cmd_id, sub_cmd_id);
 			mutex_lock(&pos->mtx);
 			pos->status = CMD_RUNNING;
@@ -598,11 +599,12 @@ int apu_cmd_qos_suspend(uint64_t cmd_id,
 		}
 	}
 	if (cmd_qos == NULL) {
-		LOG_ERR("Can not find cmd(%llu/%llu)\n", cmd_id, sub_cmd_id);
+		LOG_ERR("Can not find cmd(0x%llx/0x%llx)\n",
+			cmd_id, sub_cmd_id);
 		mutex_unlock(&counter->list_mtx);
 		return -1;
 	} else if (cmd_qos->status == CMD_BLOCKED) {
-		LOG_ERR("cmd(%llu/%llu) already in suspend\n",
+		LOG_ERR("cmd(0x%llx/0x%llx) already in suspend\n",
 			cmd_id, sub_cmd_id);
 		mutex_unlock(&counter->list_mtx);
 		return -1;
@@ -671,7 +673,8 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 		}
 	}
 	if (cmd_qos == NULL) {
-		LOG_ERR("Can not find cmd(%llu/%llu)\n", cmd_id, sub_cmd_id);
+		LOG_ERR("Can not find cmd(0x%llx/0x%llx)\n",
+			cmd_id, sub_cmd_id);
 		mutex_unlock(&counter->list_mtx);
 		return -1;
 	}
@@ -697,18 +700,28 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 	list_for_each_entry(cmd_qos, &counter->list, list) {
 		if (cmd_qos->core == core) {
 			mutex_lock(&cmd_qos->mtx);
-			if (cmd_qos->total_bw < total_bw)
-				LOG_ERR("cmd(%llu/%llu) total_bw(%d) < %d",
+
+			if (cmd_qos->total_bw < total_bw) {
+				LOG_ERR("cmd(0x%llx/0x%llx) total_bw(%d) < %d",
 					cmd_qos->cmd_id, cmd_qos->sub_cmd_id,
 					cmd_qos->total_bw, total_bw);
-			else
+				cmd_qos->total_bw = 0;
+			} else
 				cmd_qos->total_bw -= total_bw;
+
 			if (cmd_qos->count < total_count)
-				LOG_ERR("cmd(%llu/%llu) count(%d) < %d",
+				LOG_ERR("cmd(0x%llx/0x%llx) count(%d) < %d",
 					cmd_qos->cmd_id, cmd_qos->sub_cmd_id,
 					cmd_qos->count, total_count);
 			else
 				cmd_qos->count -= total_count;
+
+			/* workaround to prevent including last
+			 * cmd's bw due to monitor delay 1.26 ms
+			 */
+			cmd_qos->last_idx =
+				(qos_info->idx + 1) % MTK_QOS_BUF_SIZE;
+
 			mutex_unlock(&cmd_qos->mtx);
 		}
 	}
@@ -825,7 +838,7 @@ void print_cmd_qos_list(struct seq_file *m)
 
 	mutex_lock(&(qos_counter.list_mtx));
 	list_for_each_entry(cmd_qos, &counter->list, list) {
-		seq_printf(m, "cmd(%llu/%llu):\n",
+		seq_printf(m, "cmd(0x%llx/0x%llx):\n",
 			cmd_qos->cmd_id, cmd_qos->sub_cmd_id);
 		seq_printf(m, "core = %d, status = %d\n",
 			cmd_qos->core, cmd_qos->status);

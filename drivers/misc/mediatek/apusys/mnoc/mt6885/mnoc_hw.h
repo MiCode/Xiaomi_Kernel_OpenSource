@@ -143,6 +143,7 @@ enum rt_int_sta {
 #define RSP_RT_PMU_BASE (APU_NOC_TOP_BASEADDR + 0x600)
 #define MNOC_RT_PMU_REG(base, reg_num, rt_num)	(base + reg_num*5*4 + rt_num*4)
 
+#define SLV_QOS_CTRL1 (0x14)
 #define MNI_QOS_IRQ_FLAG (0x18)
 #define ADDR_DEC_ERR_FLAG (0x30)
 #define MST_PARITY_ERR_FLAG (0x38)
@@ -160,7 +161,7 @@ enum rt_int_sta {
 #define REQRT_CRDT_ERR_FLAG (0x198)
 #define RSPRT_CRDT_ERR_FLAG (0x19C)
 
-#define MNOC_INT_STA_REG(offset) (APU_NOC_TOP_BASEADDR + offset)
+#define MNOC_REG(offset) (APU_NOC_TOP_BASEADDR + offset)
 
 #define PMU_COUNTER0_OUT (APU_NOC_TOP_BASEADDR + 0x240)
 
