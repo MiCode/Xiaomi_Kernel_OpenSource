@@ -305,6 +305,10 @@ static int mt6358_irq_init(struct mt6358_chip *chip)
 		if (ret < 0) {
 			dev_notice(chip->dev, "%s missing pmic-irqs\n", name);
 			break;
+		} else if (sp >= chip->num_sps) {
+			dev_notice(chip->dev, "%s has invalid sp %d\n",
+				   name, sp);
+			break;
 		}
 		pmic_irq = pmic_irqs + hwirq;
 		pmic_irq->name = name;
