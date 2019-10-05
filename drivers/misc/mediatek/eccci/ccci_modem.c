@@ -58,12 +58,12 @@ struct ccci_smem_region md1_6297_noncacheable_fat[] = {
 {SMEM_USER_CCISM_SCP,		64*1024,	32*1024,	0, },
 {SMEM_USER_RAW_CCB_CTRL,	96*1024,	4*1024,
 	SMF_NCLR_FIRST, },
-{SMEM_USER_RAW_NETD,		100*1024,	4*1024,		0, },
-{SMEM_USER_RAW_USB,		104*1024,	4*1024,		0, },
-{SMEM_USER_RAW_AUDIO,		108*1024,	52*1024,
+{SMEM_USER_RAW_NETD,		100*1024,	8*1024,		0, },
+{SMEM_USER_RAW_USB,		108*1024,	4*1024,		0, },
+{SMEM_USER_RAW_AUDIO,		112*1024,	52*1024,
 	SMF_NCLR_FIRST, },
-{SMEM_USER_CCISM_MCU,		160*1024,	(720+1)*1024,	0, },
-{SMEM_USER_CCISM_MCU_EXP,	881*1024,	(120+1)*1024,	0, },
+{SMEM_USER_CCISM_MCU,		164*1024,	(720+1)*1024,	0, },
+{SMEM_USER_CCISM_MCU_EXP,	885*1024,	(120+1)*1024,	0, },
 {SMEM_USER_RAW_UDC_DATA,	0,		0,		0, },
 {SMEM_USER_MD_WIFI_PROXY,	0,		0,		0,},
 {SMEM_USER_RAW_DFD,		0,		0,		0, },
@@ -107,15 +107,14 @@ struct ccci_smem_region md1_6293_noncacheable_fat[] = {
 					SMF_NCLR_FIRST, },
 {SMEM_USER_CCISM_MCU,		160*1024,	(720+1)*1024,	0, },
 {SMEM_USER_CCISM_MCU_EXP,	881*1024,	(120+1)*1024,	0, },
-{SMEM_USER_RAW_DFD,		1*1024*1024,	448*1024,	0, },
-{SMEM_USER_RAW_AMMS_POS,	(1*1024 + 448)*1024,	0,
-					SMF_NCLR_FIRST, },
-{SMEM_USER_RAW_ALIGN_PADDING,	(1*1024 + 448)*1024,	0,
-					SMF_NCLR_FIRST, },
+{SMEM_USER_RAW_DFD,		1*1024*1024,	0*1024,	0, },
+{SMEM_USER_RAW_UDC_DATA, 1*1024*1024, 0*1024*1024,	0, },
+{SMEM_USER_RAW_AMMS_POS,	1*1024*1024,	0, SMF_NCLR_FIRST, },
+{SMEM_USER_RAW_ALIGN_PADDING,	1*1024*1024,	0, SMF_NCLR_FIRST, },
 
 /* for SIB */
-{SMEM_USER_RAW_LWA,		(1*1024+448)*1024,	0*1024*1024,	0, },
-{SMEM_USER_RAW_PHY_CAP,	(1*1024+448)*1024, 0*1024*1024, SMF_NCLR_FIRST, },
+{SMEM_USER_RAW_LWA,		(1*1024)*1024,	0*1024*1024,	0, },
+{SMEM_USER_RAW_PHY_CAP,	(1*1024)*1024, 0*1024*1024, SMF_NCLR_FIRST, },
 {SMEM_USER_MAX, }, /* tail guard */
 };
 
@@ -262,11 +261,12 @@ static void init_smem_regions(struct ccci_smem_region *regions,
 		regions[i].base_md_view_phy =
 			base_md_view_phy + regions[i].offset;
 		CCCI_BOOTUP_LOG(-1, TAG,
-			"%s: reg[%d]<%d>(%lx %p %lx)\n", __func__,
+			"%s: reg[%d]<%d>(%lx %lx %lx)[%x]\n", __func__,
 			i, regions[i].id,
 			(unsigned long)regions[i].base_ap_view_phy,
-			regions[i].base_ap_view_vir,
-			(unsigned long)regions[i].base_md_view_phy);
+			(unsigned long)regions[i].base_ap_view_vir,
+			(unsigned long)regions[i].base_md_view_phy,
+			regions[i].size);
 	}
 }
 
@@ -353,18 +353,18 @@ int __attribute__((weak)) amms_cma_free(phys_addr_t addr, unsigned long size)
 	return 0;
 }
 
-static inline int update_dfd_info(struct ccci_smem_region *item)
+static inline int update_smem_region(struct ccci_smem_region *region)
 {
 	unsigned int offset, size;
 	int ret = 0;
 
-	if (get_nc_smem_region_info(SMEM_USER_RAW_DFD, &offset, NULL, &size)) {
-		item->offset = offset;
-		item->size = size;
+	if (get_nc_smem_region_info(region->id, &offset, NULL, &size)) {
+		region->offset = offset;
+		region->size = size;
 		ret = 1;
+		CCCI_BOOTUP_LOG(MD_SYS1, TAG, "Update <%d>:0x%x 0x%x\n",
+			region->id, region->offset, region->size);
 	}
-	CCCI_BOOTUP_LOG(MD_SYS1, TAG,
-			"Adjust DFD:0x%x 0x%x\n", item->offset, item->size);
 	return ret;
 }
 
@@ -373,31 +373,26 @@ static void ccci_6297_md_smem_layout_config(struct ccci_modem *md)
 	struct ccci_mem_layout *mm_str = &md->mem_layout;
 	unsigned int md_resv_mem_offset = 0, ccb_offset = 0;
 	unsigned int md_resv_mem_size = 0, ccb_size = 0;
-	unsigned int offset_adjust_flag = 0;
 	unsigned int i;
 	phys_addr_t md_resv_smem_addr = 0, smem_amms_pos_addr = 0;
 	int size;
 
 	/* non-cacheable start */
 	get_md_resv_mem_info(md->index, NULL, NULL, &md_resv_smem_addr, NULL);
-	for (i = 0; i < (sizeof(md1_6297_noncacheable_fat)/
+	for (i = 1; i < (sizeof(md1_6297_noncacheable_fat)/
 		sizeof(struct ccci_smem_region)); i++) {
-		/* update offset */
-		if (offset_adjust_flag == 1)
+		update_smem_region(&md1_6297_noncacheable_fat[i]);
+		if (md1_6297_noncacheable_fat[i].size == 0)
+			/* update offset */
 			md1_6297_noncacheable_fat[i].offset =
 				md1_6297_noncacheable_fat[i-1].offset
 				+ md1_6297_noncacheable_fat[i-1].size;
+
+		/* Special case */
 		switch (md1_6297_noncacheable_fat[i].id) {
-		case SMEM_USER_RAW_DFD:
-			if (update_dfd_info(&md1_6297_noncacheable_fat[i]))
-				offset_adjust_flag = 1;
-			break;
 		case SMEM_USER_RAW_AMMS_POS:
 			size = get_smem_amms_pos_size(MD_SYS1);
-			if (size >= 0 && size !=
-			md1_6297_noncacheable_fat[i].size) {
-				md1_6297_noncacheable_fat[i].size = size;
-				offset_adjust_flag = 1;
+			if (size >= 0) {
 				/* free AMMS POS smem*/
 				smem_amms_pos_addr = md_resv_smem_addr
 					+ md1_6297_noncacheable_fat[i].offset;
@@ -469,12 +464,23 @@ static void ccci_6297_md_smem_layout_config(struct ccci_modem *md)
 				md1_6297_cacheable[i].size);
 			break;
 		case SMEM_USER_RAW_MD_CONSYS: /* go through */
+		case SMEM_USER_MD_NVRAM_CACHE: /* go through */
+		case SMEM_USER_RAW_UDC_DESCTAB: /* go through */
 		case SMEM_USER_RAW_USIP:
 			get_md_cache_region_info(md1_6297_cacheable[i].id,
 				&md_resv_mem_offset,
 				&md_resv_mem_size);
+
 			md1_6297_cacheable[i].size = md_resv_mem_size;
-			md1_6297_cacheable[i].offset = md_resv_mem_offset;
+			if (md_resv_mem_offset || md_resv_mem_size)
+				md1_6297_cacheable[i].offset =
+					md_resv_mem_offset; /* LK config */
+			else if (i == 0)
+				md1_6297_cacheable[i].offset = 0;
+			else
+				md1_6297_cacheable[i].offset =
+					md1_6297_cacheable[i - 1].offset +
+					md1_6297_cacheable[i - 1].size;
 			break;
 		default:
 			md1_6297_cacheable[i].size = 0;
@@ -802,17 +808,19 @@ void ccci_md_config(struct ccci_modem *md)
 #endif
 #endif
 	CCCI_BOOTUP_LOG(md->index, TAG,
-		"smem info: (%lx %lx %p %d) (%lx %lx %p %d)\n",
+		"smem info: (%lx %lx %lx %d) (%lx %lx %lx %d)\n",
 		(unsigned long)
 		md->mem_layout.md_bank4_noncacheable_total.base_ap_view_phy,
 		(unsigned long)
 		md->mem_layout.md_bank4_noncacheable_total.base_md_view_phy,
+		(unsigned long)
 		md->mem_layout.md_bank4_noncacheable_total.base_ap_view_vir,
 		md->mem_layout.md_bank4_noncacheable_total.size,
 		(unsigned long)
 		md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy,
 		(unsigned long)
 		md->mem_layout.md_bank4_cacheable_total.base_md_view_phy,
+		(unsigned long)
 		md->mem_layout.md_bank4_cacheable_total.base_ap_view_vir,
 		md->mem_layout.md_bank4_cacheable_total.size);
 

@@ -650,11 +650,11 @@ int md_cd_power_on(struct ccci_modem *md)
 	inform_nfc_vsim_change(md->index, 1, 0);
 #endif
 #ifdef BRINGUP_BYPASS_BROM
-	#define MDPERIMISC_BASE    (0x20060000)
+	#define MDPERIMISC_BASE    (0x20061000)
 	md_peri_base = ioremap_nocache(MDPERIMISC_BASE, 0x200);
-	ccci_write32(md_peri_base, 0x110C, 0x5500);
-	ccci_write32(md_peri_base, 0x1104, 0x0);
-	ccci_write32(md_peri_base, 0x1108, 0x1);
+	ccci_write32(md_peri_base, 0x010C, 0x5500);
+	ccci_write32(md_peri_base, 0x0104, 0x0);
+	ccci_write32(md_peri_base, 0x0108, 0x1);
 	iounmap(md_peri_base);
 #endif
 	return 0;

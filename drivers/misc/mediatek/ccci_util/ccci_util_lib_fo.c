@@ -144,13 +144,15 @@ static int s_g_curr_ccci_fo_version;
 #define MD_CAP_TDD_LTE		(1<<3)
 #define MD_CAP_FDD_LTE		(1<<4)
 #define MD_CAP_CDMA2000		(1<<5)
+#define MD_CAP_NR		(1<<6)
 #define MD_CAP_MASK		(MD_CAP_GSM\
 						|MD_CAP_TDS_CDMA\
 						|MD_CAP_WCDMA\
 						|MD_CAP_TDD_LTE\
 						|MD_CAP_FDD_LTE\
-						|MD_CAP_CDMA2000)
-#define MD_CAP_BIT_NUM		(6)
+				|MD_CAP_CDMA2000\
+				|MD_CAP_NR)
+#define MD_CAP_BIT_NUM		(7)
 
 /*------------------------------------------*/
 /* Bit map defination at MD side diff to AP */
@@ -161,6 +163,7 @@ static int s_g_curr_ccci_fo_version;
 #define MD_CAP_TDD_LTE_AT_MD	(1<<4)
 #define MD_CAP_FDD_LTE_AT_MD	(1<<5)
 #define MD_CAP_CDMA2000_AT_MD	(1<<2)
+#define MD_CAP_NR_AT_MD		(1<<6)
 
 #define LEGACY_UBIN_START_ID	(8)
 #define LEGACY_UBIN_END_ID	(21)
@@ -214,6 +217,9 @@ static unsigned int ap_rat_bitmap_to_md_bitmap(unsigned int rat_cfg)
 	/* CMMA2000 */
 	if (rat_cfg & MD_CAP_CDMA2000)
 		md_rat_cfg |= MD_CAP_CDMA2000_AT_MD;
+	/* NR */
+	if (rat_cfg & MD_CAP_NR)
+		md_rat_cfg |= MD_CAP_NR_AT_MD;
 
 	return md_rat_cfg;
 }
@@ -248,7 +254,16 @@ static unsigned int legacy_ubin_rat_map[] = {
 	/* ulftg */
 	(MD_CAP_FDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM),
 	/* ulfctg */
-	(MD_CAP_FDD_LTE|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA|MD_CAP_GSM)
+	(MD_CAP_FDD_LTE|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA|MD_CAP_GSM),
+	/* unlwg */
+	(MD_CAP_NR|MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA
+	|MD_CAP_GSM),
+	/* unlwtg */
+	(MD_CAP_NR|MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA
+	|MD_CAP_TDS_CDMA|MD_CAP_GSM),
+	/* ulwctg */
+	(MD_CAP_NR|MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000
+	|MD_CAP_TDS_CDMA|MD_CAP_GSM),
 };
 
 static unsigned int ubin_md_support_id_to_rat(int md_support_id)
@@ -610,6 +625,7 @@ static int md1_smem_dfd_size = -1;
 static int smem_amms_pos_size = -1;
 static int smem_align_padding_size = -1;
 static unsigned int md1_bank4_cache_offset;
+
 struct _udc_info {
 	unsigned int noncache_size;
 	unsigned int cache_size;
@@ -675,6 +691,16 @@ static void nc_smem_info_parsing(void)
 			s_nc_layout[i].id, s_nc_layout[i].ap_offset,
 			s_nc_layout[i].md_offset, s_nc_layout[i].size);
 	}
+
+	/* For compatible of legacy design */
+	/* DFD part */
+	if (get_nc_smem_region_info(SMEM_USER_RAW_DFD, NULL, NULL,
+					(unsigned int *)&md1_smem_dfd_size))
+		CCCI_UTIL_INF_MSG("change dfd to: 0x%x\n", md1_smem_dfd_size);
+	/* AMMS POS part */
+	if (get_nc_smem_region_info(SMEM_USER_RAW_AMMS_POS, NULL, NULL,
+					(unsigned int *)&smem_amms_pos_size))
+		CCCI_UTIL_INF_MSG("change POS to: 0x%x\n", smem_amms_pos_size);
 }
 
 
@@ -895,11 +921,6 @@ static void share_memory_info_parsing(void)
 		CCCI_UTIL_INF_MSG("MTEE support: 0x%x\n", md_mtee_support);
 
 	nc_smem_info_parsing();
-
-	/* DFD test */
-	get_nc_smem_region_info(SMEM_USER_RAW_DFD, NULL, NULL,
-					(unsigned int *)&md1_smem_dfd_size);
-	CCCI_UTIL_INF_MSG("change dfd to: 0x%x\n", md1_smem_dfd_size);
 
 	cshare_memory_info_parsing();
 {
