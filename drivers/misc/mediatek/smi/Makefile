@@ -26,6 +26,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/ # qos/$(MTK_
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/
