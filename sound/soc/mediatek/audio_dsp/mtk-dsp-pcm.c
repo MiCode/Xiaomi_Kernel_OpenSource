@@ -40,7 +40,7 @@ static const struct snd_pcm_hardware audio_dsp_hardware = {
 	.period_bytes_max = 4 * 48 * 1024,
 	.periods_min = 2,
 	.periods_max = 4096,
-	.buffer_bytes_max = 8 * 48 * 1024,
+	.buffer_bytes_max = 4 * 48 * 1024,
 	.fifo_size = 0,
 };
 

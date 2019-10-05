@@ -157,14 +157,25 @@ const struct snd_pcm_ops mtk_afe_pcm_ops = {
 
 int mtk_afe_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
-	size_t size;
+	size_t size = 0;
 	struct snd_pcm *pcm = rtd->pcm;
 	struct mtk_base_afe *afe = snd_soc_platform_get_drvdata(rtd->platform);
+	int ret = 0;
 
-	size = afe->mtk_afe_hardware->buffer_bytes_max;
-	return snd_pcm_lib_preallocate_pages_for_all(pcm, SNDRV_DMA_TYPE_DEV,
-						     afe->dev,
-						     size, size);
+	if (rtd->cpu_dai->id < afe->memif_size) { /* DL and UL memif pcm */
+		size = afe->mtk_afe_hardware->buffer_bytes_max;
+		ret = snd_pcm_lib_preallocate_pages_for_all(pcm,
+							    SNDRV_DMA_TYPE_DEV,
+							    afe->dev,
+							    size, size);
+	}
+
+	dev_info(afe->dev, "%s(), dai_link_name : %s, memif_id : %d, size : %zu, ret : %d\n",
+		 __func__,
+		 rtd->dai_link->name,
+		 rtd->cpu_dai->id,
+		 size, ret);
+	return ret;
 }
 
 void mtk_afe_pcm_free(struct snd_pcm *pcm)
