@@ -6,6 +6,7 @@
 #include <linux/arm-smccc.h>
 #include <linux/fs.h>
 #include <linux/interrupt.h>
+#include <linux/irqchip/mtk-gic-extend.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
@@ -15,10 +16,6 @@
 #include <linux/uaccess.h>
 #include <mt-plat/mtk_secure_api.h>
 #include <tee_sanity.h>
-
-#if defined(CONFIG_MTK_GIC_V3_EXT)
-#include <linux/irqchip/mtk-gic-extend.h>
-#endif
 
 bool enable_ut;
 bool enable_read_hwirq;
