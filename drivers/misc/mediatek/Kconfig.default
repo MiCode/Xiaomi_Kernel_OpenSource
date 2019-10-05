@@ -163,7 +163,6 @@ config ANDROID_DEFAULT_SETTING
 	select NF_SOCKET_IPV6
 	select NO_HZ
 	select PACKET
-	select PM_AUTOSLEEP
 	select PM_WAKELOCKS
 	select PPP
 	select PPP_BSDCOMP
