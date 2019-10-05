@@ -14,7 +14,7 @@
 /* TODO: implement function */
 int arch_get_nr_clusters(void)
 {
-	return 0;
+	return 2;
 }
 
 /* TODO: implement function */
