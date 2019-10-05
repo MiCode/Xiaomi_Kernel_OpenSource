@@ -4596,10 +4596,12 @@ page_owner=on";
 		compatible = "mediatek,apusys_power";
 
 		reg = <0 0x190f0000 0 0x1000>,
-		      <0 0x190f1000 0 0x1000>;
+		      <0 0x190f1000 0 0x1000>,
+		      <0 0x19029000 0 0x1000>;
 
 		reg-names = "apusys_rpc",
-			    "apusys_pcu";
+			    "apusys_pcu",
+			    "apusys_vcore";
 
 		vvpu-supply = <&mt_pmic_vproc1_buck_reg>;
 		vmdla-supply = <&mt_pmic_vproc2_buck_reg>;

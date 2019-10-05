@@ -180,6 +180,7 @@ static int init_power_resource(enum DVFS_USER user, void *param)
 	dev = init_data->dev;
 	g_APU_RPCTOP_BASE = init_data->rpc_base_addr;
 	g_APU_PCUTOP_BASE = init_data->pcu_base_addr;
+	g_APU_VCORE_BASE = init_data->vcore_base_addr;
 
 	if (!is_apu_power_initilized) {
 		prepare_apu_regulator(dev, 1);

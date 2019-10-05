@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-
 #include <linux/types.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
@@ -29,7 +28,6 @@
 #include <linux/kthread.h>
 #include <linux/uaccess.h>
 #include <linux/string.h>
-
 
 #include "apusys_power_ctl.h"
 #include "hal_config_power.h"
@@ -53,6 +51,7 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 {
 	int ret = 0;
 	int i = 0, j = 0;
+	int opp = 0;
 
 	switch (param) {
 	case POWER_PARAM_FIX_OPP:
@@ -100,11 +99,40 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		}
 		PWR_LOG_INF("@@test%d\n", argc);
 
-		for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++)
-			apusys_opps.cur_opp_index[i] = args[0];
+		// determine vpu / mdla / vcore voltage
+		apusys_opps.cur_buck_volt[VPU_BUCK] =
+			apusys_opps.opps[args[0]][V_VPU0].voltage;
+		apusys_opps.cur_buck_volt[MDLA_BUCK] =
+			apusys_opps.opps[args[0]][V_MDLA0].voltage;
+		apusys_opps.cur_buck_volt[VCORE_BUCK] =
+			apusys_opps.opps[args[0]][V_VCORE].voltage;
+
+		// determine buck domain opp
+		for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++) {
+			for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
+				if ((i == V_VPU0 || i == V_VPU1 ||
+					i == V_VPU2 || i == V_APU_CONN ||
+					i == V_TOP_IOMMU) &&
+					(apusys_opps.opps[opp][i].voltage ==
+					apusys_opps.cur_buck_volt[VPU_BUCK])) {
+					apusys_opps.cur_opp_index[i] = opp;
+					break;
+				} else if ((i == V_MDLA0 || i == V_MDLA1) &&
+					(apusys_opps.opps[opp][i].voltage ==
+					apusys_opps.cur_buck_volt[MDLA_BUCK])) {
+					apusys_opps.cur_opp_index[i] = opp;
+					break;
+				} else if (i == V_VCORE &&
+				apusys_opps.opps[opp][i].voltage ==
+				apusys_opps.cur_buck_volt[VCORE_BUCK]) {
+					apusys_opps.cur_opp_index[i] = opp;
+					break;
+				}
+			}
+		}
 
 		is_power_debug_lock = true;
-
+		apusys_dvfs_policy(0);
 		break;
 #if 0
 	case POWER_PARAM_JTAG:
@@ -213,7 +241,7 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 					apusys_boost_value_to_opp(i, args[2]);
 			}
 		}
-
+		apusys_dvfs_policy(0);
 		break;
 	}
 #if 0

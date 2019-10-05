@@ -14,6 +14,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 
+#include "apusys_power_reg.h"
 #include "apu_power_api.h"
 #include "power_clock.h"
 #include "apu_log.h"
@@ -350,6 +351,14 @@ void unprepare_apu_clock(void)
 	UNPREPARE_CLK(clk_apmixed_apupll_rate);
 }
 
+static void vcore_cg_ctl(int enable)
+{
+	if (enable)
+		DRV_WriteReg32(APU_VCORE_CG_CLR, 0x0000000F);
+	else
+		DRV_WriteReg32(APU_VCORE_CG_SET, 0x0000000F);
+}
+
 //per user
 void enable_apu_clock(enum DVFS_USER user)
 {
@@ -379,6 +388,8 @@ void enable_apu_clock(enum DVFS_USER user)
 	ENABLE_CLK(clk_apusys_vcore_axi_cg);
 	ENABLE_CLK(clk_apusys_vcore_adl_cg);
 	ENABLE_CLK(clk_apusys_vcore_qos_cg);
+
+	vcore_cg_ctl(1);
 
 	ENABLE_CLK(clk_apu_conn_ahb_cg);
 	ENABLE_CLK(clk_apu_conn_axi_cg);
@@ -523,6 +534,9 @@ void disable_apu_clock(enum DVFS_USER user)
 	DISABLE_CLK(clk_apu_conn_iommu_0_cg);
 	DISABLE_CLK(clk_apu_conn_iommu_1_cg);
 	DISABLE_CLK(clk_apu_conn_md32_32k_cg);
+
+	// TODO: check this can be removed ?
+	// vcore_cg_ctl(0);
 
 	DISABLE_CLK(clk_apusys_vcore_ahb_cg);
 	DISABLE_CLK(clk_apusys_vcore_axi_cg);

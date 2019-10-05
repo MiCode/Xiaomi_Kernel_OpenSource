@@ -125,6 +125,7 @@ void apu_get_power_info(void)
 EXPORT_SYMBOL(apu_get_power_info);
 
 
+
 static struct power_device *find_out_device_by_user(enum DVFS_USER user)
 {
 	struct power_device *pwr_dev = NULL;
@@ -149,6 +150,23 @@ static struct power_device *find_out_device_by_user(enum DVFS_USER user)
 	mutex_unlock(&power_device_list_mtx);
 	return NULL;
 }
+
+
+bool apu_get_power_on_status(enum DVFS_USER user)
+{
+	bool power_on_status;
+	struct power_device *pwr_dev = find_out_device_by_user(user);
+
+	mutex_lock(&power_device_list_mtx);
+
+	power_on_status = pwr_dev->is_power_on;
+
+	mutex_unlock(&power_device_list_mtx);
+
+	return power_on_status;
+}
+EXPORT_SYMBOL(apu_get_power_on_status);
+
 
 static void power_callback_caller(int power_on)
 {
@@ -408,6 +426,7 @@ static int apu_power_probe(struct platform_device *pdev)
 	int err = 0;
 	struct resource *apusys_rpc_res = NULL;
 	struct resource *apusys_pcu_res = NULL;
+	struct resource *apusys_vcore_res = NULL;
 	struct device *apusys_dev = &pdev->dev;
 
 	LOG_INF("%s pdev id = %d name = %s, name = %s\n", __func__,
@@ -442,6 +461,20 @@ static int apu_power_probe(struct platform_device *pdev)
 	LOG_INF("%s apusys_pcu = 0x%x, size = %d\n", __func__,
 				init_power_data.pcu_base_addr,
 				(unsigned int)resource_size(apusys_pcu_res));
+
+	apusys_vcore_res = platform_get_resource_byname(pdev,
+					IORESOURCE_MEM, "apusys_vcore");
+	init_power_data.vcore_base_addr = devm_ioremap_resource(
+						apusys_dev, apusys_vcore_res);
+
+	if (IS_ERR((void *)init_power_data.vcore_base_addr)) {
+		LOG_ERR("Unable to ioremap apusys_vcore\n");
+		goto err_exit;
+	}
+
+	LOG_INF("%s apusys_vcore = 0x%x, size = %d\n", __func__,
+				init_power_data.vcore_base_addr,
+				(unsigned int)resource_size(apusys_vcore_res));
 
 	power_task_handle = kthread_create(apusys_power_task,
 						(void *)NULL, "apusys_power");

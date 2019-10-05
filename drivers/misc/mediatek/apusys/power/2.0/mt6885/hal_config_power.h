@@ -42,6 +42,7 @@ struct hal_param_init_power {
 	struct device *dev;
 	void *rpc_base_addr;
 	void *pcu_base_addr;
+	void *vcore_base_addr;
 };
 
 // regulator only

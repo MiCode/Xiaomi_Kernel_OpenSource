@@ -71,6 +71,48 @@ enum DVFS_VOLTAGE sram_constraint[CONSTRAINTS_2_SIZE][3] = {
 
 struct hal_param_init_power init_power_data;
 
+void apusys_set_power_parameter(void)
+{
+	int i = 0, j = 0;
+	int args[1] = {4};
+	int opp = 0;
+
+	apusys_opps.cur_buck_volt[VPU_BUCK] =
+			apusys_opps.opps[args[0]][V_VPU0].voltage;
+		apusys_opps.cur_buck_volt[MDLA_BUCK] =
+			apusys_opps.opps[args[0]][V_MDLA0].voltage;
+		apusys_opps.cur_buck_volt[VCORE_BUCK] =
+			apusys_opps.opps[args[0]][V_VCORE].voltage;
+
+		// determine buck domain opp
+		for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++) {
+			for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
+				if ((i == V_VPU0 || i == V_VPU1 ||
+					i == V_VPU2 || i == V_APU_CONN ||
+					i == V_TOP_IOMMU) &&
+					(apusys_opps.opps[opp][i].voltage ==
+					apusys_opps.cur_buck_volt[VPU_BUCK])) {
+					apusys_opps.cur_opp_index[i] = opp;
+					break;
+				} else if ((i == V_MDLA0 || i == V_MDLA1) &&
+					(apusys_opps.opps[opp][i].voltage ==
+					apusys_opps.cur_buck_volt[MDLA_BUCK])) {
+					apusys_opps.cur_opp_index[i] = opp;
+					break;
+				} else if (i == V_VCORE &&
+				apusys_opps.opps[opp][i].voltage ==
+				apusys_opps.cur_buck_volt[VCORE_BUCK]) {
+					apusys_opps.cur_opp_index[i] = opp;
+					break;
+				}
+			}
+		}
+
+		is_power_debug_lock = true;
+		apusys_dvfs_policy(0);
+}
+
+
 int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 {
 	int target_volt = 0;
@@ -176,6 +218,7 @@ void test_case(int power_on_round, int opp_change_round, int fail_stop)
 {
 	int i, j, k, opp;
 
+
 	for (i = 1 ; i <= power_on_round ; i++) {
 		LOG_INF("### power on round #%d start ###\n", i);
 		apusys_power_on(VPU0);
@@ -201,6 +244,8 @@ void test_case(int power_on_round, int opp_change_round, int fail_stop)
 
 			LOG_INF("## opp change round #%d end ##\n", j);
 		}
+
+		//apusys_set_power_parameter();
 
 		apusys_power_off(VPU0);
 		apusys_power_off(MDLA0);

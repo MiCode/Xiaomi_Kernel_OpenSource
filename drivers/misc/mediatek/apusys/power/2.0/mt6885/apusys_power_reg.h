@@ -35,6 +35,7 @@ static inline void DRV_SetBitReg32(void *addr, uint32_t bit_mask)
 
 static void *g_APU_RPCTOP_BASE;
 static void *g_APU_PCUTOP_BASE;
+static void *g_APU_VCORE_BASE;
 
 
 /**************************************************
@@ -61,3 +62,10 @@ static void *g_APU_PCUTOP_BASE;
 
 #define	APU_PCU_PMIC_TAR_BUF	(void *)(APU_PCUTOP_BASE + 0x120)
 #define	APU_PCU_PMIC_CUR_BUF	(void *)(APU_PCUTOP_BASE + 0x124)
+
+/**************************************************
+ * APU_VCORE related register
+ *************************************************/
+#define	APU_VCORE_BASE		(g_APU_VCORE_BASE)
+#define APU_VCORE_CG_SET	(void *)(APU_VCORE_BASE + 0x004)
+#define	APU_VCORE_CG_CLR	(void *)(APU_VCORE_BASE + 0x008)
