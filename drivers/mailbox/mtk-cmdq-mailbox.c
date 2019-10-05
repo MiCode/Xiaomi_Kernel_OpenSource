@@ -1559,4 +1559,53 @@ u32 cmdq_get_event(void *chan, u16 event_id)
 }
 EXPORT_SYMBOL(cmdq_get_event);
 
+void cmdq_event_verify(void *chan, u16 event_id)
+{
+	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
+		typeof(*cmdq), mbox);
+	/* should be CMDQ_SYNC_TOKEN_USER_0 */
+	const u16 test_token = 649;
+	u32 i;
+
+	cmdq_msg("chan:%lx cmdq:%lx event:%u",
+		(unsigned long)chan, (unsigned long)cmdq, event_id);
+
+	if (event_id > 512)
+		event_id = 512;
+
+	/* check if this event can be set and clear */
+	writel((1L << 16) | event_id, cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+	writel(event_id, cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+	if (!readl(cmdq->base + CMDQ_SYNC_TOKEN_VAL))
+		cmdq_msg("event cannot be set:%u", event_id);
+
+	writel(event_id, cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+	if (readl(cmdq->base + CMDQ_SYNC_TOKEN_VAL))
+		cmdq_msg("event cannot be clear:%u", event_id);
+
+	/* check if sw token can be set and clear */
+	writel((1L << 16) | test_token, cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+	writel(test_token, cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+	if (!readl(cmdq->base + CMDQ_SYNC_TOKEN_VAL))
+		cmdq_msg("event cannot be set:%u", test_token);
+
+	writel(test_token, cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+	if (readl(cmdq->base + CMDQ_SYNC_TOKEN_VAL))
+		cmdq_msg("event cannot be clear:%u", test_token);
+
+	/* clear all event first */
+	for (i = 0; i < event_id + 20; i++)
+		writel(i, cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+
+	/* now see if any event unable to clear */
+	for (i = 0; i < event_id + 20; i++) {
+		writel(i, cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+		if (readl(cmdq->base + CMDQ_SYNC_TOKEN_VAL))
+			cmdq_msg("event still on:%u", i);
+	}
+
+	cmdq_msg("end debug event for %u", event_id);
+}
+EXPORT_SYMBOL(cmdq_event_verify);
+
 arch_initcall(cmdq_init);

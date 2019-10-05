@@ -181,5 +181,6 @@ s32 cmdq_task_get_pkt_from_thread(struct mbox_chan *chan,
 void cmdq_set_event(void *chan, u16 event_id);
 void cmdq_clear_event(void *chan, u16 event_id);
 u32 cmdq_get_event(void *chan, u16 event_id);
+void cmdq_event_verify(void *chan, u16 event_id);
 
 #endif /* __MTK_CMDQ_MAILBOX_H__ */
