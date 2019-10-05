@@ -62,8 +62,10 @@ void pmic_enable_smart_reset(unsigned char smart_en,
 		, pmic_get_register_value(PMIC_PWRKEY_DEB)?"released":"pressed"
 		, pmic_get_register_value(PMIC_PWRKEY_LONG_PRESS_COUNT) << 5
 		, pmic_get_register_value(PMIC_JUST_SMART_RST));
+	pmic_set_register_value(PMIC_RG_CPS_W_KEY, 0x4729);
 	pmic_set_register_value(PMIC_RG_SMART_RST_MODE, smart_en);
 	pmic_set_register_value(PMIC_RG_SMART_RST_SDN_EN, smart_sdn_en);
+	pmic_set_register_value(PMIC_RG_CPS_W_KEY, 0);
 	pr_info("[%s] smart_en:%d, smart_sdn_en:%d\n",
 		__func__, smart_en, smart_sdn_en);
 }
