@@ -428,7 +428,7 @@ static uint32_t sync_vio_dbg(enum DEVAPC_SLAVE_TYPE slave_type,
 	for (shift_count = 0; (shift_count < 100) &&
 			((readl(pd_vio_shift_con_reg) & 0x3) != 0x3);
 			++shift_count)
-		NULL;
+		;
 
 	if ((readl(pd_vio_shift_con_reg) & 0x3) == 0x3)
 		sync_done = 1;
