@@ -425,7 +425,12 @@ int m4u_clean_pte(struct m4u_domain *domain, unsigned int mva,
 					12; /*(next_mva - tmp_mva) MMU_SMALL_PAGE_SIZE*/
 			pte_end = pte + sync_entry_nr;
 			/* do cache sync for [pte, pte_end) */
+#ifdef CONFIG_ARM64
+			__dma_flush_area((void *)pte,
+					sync_entry_nr * sizeof(*pte));
+#else
 			dmac_flush_range((void *)pte, (void *)pte_end);
+#endif
 			/* M4UMSG("dmac_flush_range: 0x%p ~ 0x%p\n", pte,
 			 * pte_end);
 			 */
