@@ -24,7 +24,7 @@
 #define EEM_FAKE_EFUSE		(0)
 
 /* FIX ME */
-#define UPDATE_TO_UPOWER	(0)
+#define UPDATE_TO_UPOWER	(1)
 #define EEM_LOCKTIME_LIMIT	(3000)
 #define ENABLE_LOO		(1)
 #define ENABLE_LOO_B		(1)
@@ -32,6 +32,7 @@
 #define ENABLE_CPU			(1)
 #define ENABLE_GPU			(0)
 #define EN_EEM_THERM_CLK	(0)
+#define SUPPORT_PICACHU		(0)
 
 
 #ifdef CORN_LOAD

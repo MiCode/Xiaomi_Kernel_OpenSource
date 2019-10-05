@@ -78,7 +78,6 @@
 #include <mt-plat/mtk_devinfo.h>
 #include <regulator/consumer.h>
 #include "pmic_regulator.h"
-//#include "mtk_pmic_regulator.h"
 #include "pmic_api_buck.h"
 
 #if UPDATE_TO_UPOWER
@@ -166,34 +165,9 @@ DEFINE_SPINLOCK(record_spinlock);
 
 #define WAIT_TIME	(2500000)
 #define FALL_NUM        (3)
-#if 0
-#define PI_MDES_BDES_MASK	(0xFFFF)
-#define PI_MTDES_MASK		(0xFF)
-#define PI_DVTFIXED_MASK	(0xF)
-struct pi_efuse_index {
-	enum eem_det_id det_id;
-
-	unsigned int mdes_bdes_index : 8;
-	unsigned int mdes_bdes_shift : 8;
-
-	unsigned int mtdes_index : 8;
-	unsigned int mtdes_shift : 8;
-
-	unsigned int dvtfixed_index : 8;
-	unsigned int dvtfixed_shift : 8;
-	unsigned int loo_enabled : 1;
-	unsigned int reserved : 15;
-
-	union {
-		/* Original MTDES/MDES/BDES */
-		u64 orig_mbb;
-
-		struct {
-			unsigned int orig_mdes_bdes;
-			unsigned int orig_mtdes;
-		};
-	};
-};
+#if SUPPORT_PICACHU
+#define PICACHU_SIG					(0xA5)
+#define PICACHU_SIGNATURE_SHIFT_BIT	(24)
 #endif
 /******************************************
  * common variables for legacy ptp
@@ -238,10 +212,54 @@ static struct eem_det *id_to_eem_det(enum eem_det_id id)
 		return NULL;
 }
 
+#if SUPPORT_PICACHU
+static void get_picachu_efuse(int *val)
+{
+	phys_addr_t picachu_mem_base_phys;
+	phys_addr_t picachu_mem_size;
+	phys_addr_t picachu_mem_base_virt;
+	void __iomem *virt_addr;
+	unsigned int i, cnt, sig;
+	void __iomem *addr_ptr;
+
+	virt_addr = ioremap((phys_addr_t)EEM_TEMPSPARE0, 0);
+	picachu_mem_base_phys = eem_read(virt_addr);
+	picachu_mem_size = 0x80000;
+	picachu_mem_base_virt =
+		(phys_addr_t)(uintptr_t)ioremap_wc(
+		picachu_mem_base_phys,
+		picachu_mem_size);
+
+	eem_error("phys:0x%llx, size:0x%llx, virt:0x%llx\n",
+		(unsigned long long)picachu_mem_base_phys,
+		(unsigned long long)picachu_mem_size,
+		(unsigned long long)picachu_mem_base_virt);
+
+	/* 0x60000 was reserved for eem efuse using */
+	addr_ptr = (void __iomem *)(picachu_mem_base_virt + 0x60000);
+
+	if (addr_ptr != NULL) {
+		/* check signature */
+		sig = (eem_read(addr_ptr) >>
+			PICACHU_SIGNATURE_SHIFT_BIT) & 0xff;
+		if (sig == PICACHU_SIG) {
+			cnt = eem_read(addr_ptr) & 0xff;
+			/* eem_error("efuse cnt 0x%X\n", cnt); */
+			if (cnt > NR_HW_RES_FOR_BANK)
+				cnt = NR_HW_RES_FOR_BANK;
+			addr_ptr += 8;
+			for (i = 1; i < cnt; i++, addr_ptr += 4)
+				val[i] = eem_read(addr_ptr);
+		}
+	}
+
+}
+#endif
+
 static int get_devinfo(void)
 {
+
 #if 0
-	struct pi_efuse_index *p;
 	struct eem_det *det;
 	unsigned int tmp;
 	int err;
@@ -322,84 +340,13 @@ static int get_devinfo(void)
 	val[17] = DEVINFO_17;
 #endif
 
+#if SUPPORT_PICACHU
+	get_picachu_efuse(val);
+#endif
+
 	for (i = 0; i < NR_HW_RES_FOR_BANK; i++)
-		eem_debug("[CPU][EEM][PTP_DUMP] RES%d: 0x%X\n",
+		eem_debug("[PTP_DUMP] RES%d: 0x%X\n",
 			i, val[i]);
-
-
-#if 0
-	/* Backup the original values */
-	for (p = &pi_efuse_idx[0]; p->mdes_bdes_index != 0; p++) {
-		p->orig_mdes_bdes = val[p->mdes_bdes_index];
-		p->orig_mtdes = val[p->mtdes_index];
-	}
-
-	/* Update MTDES/BDES/MDES if they are modified by PICACHU. */
-	for (p = &pi_efuse_idx[0]; p->mdes_bdes_index != 0; p++) {
-
-		det = id_to_eem_det(p->det_id);
-		if (det == NULL)
-			continue;
-
-		if (det->pi_loo_enabled != p->loo_enabled)
-			continue;
-
-		if (det->pi_dvtfixed) {
-			val[p->dvtfixed_index] &=
-				~(PI_DVTFIXED_MASK << p->dvtfixed_shift);
-			val[p->dvtfixed_index] |=
-				(det->pi_dvtfixed << p->dvtfixed_shift);
-		}
-
-		if (!det->pi_efuse)
-			continue;
-
-		/* Get mdes/bdes efuse data from Picachu */
-		tmp = (det->pi_efuse >> 8) & PI_MDES_BDES_MASK;
-
-		/* Update mdes/bdes */
-		val[p->mdes_bdes_index] &=
-				~(PI_MDES_BDES_MASK << p->mdes_bdes_shift);
-
-		val[p->mdes_bdes_index] |= (tmp << p->mdes_bdes_shift);
-
-		/* Get mtdes efuse data from Picachu */
-		tmp = det->pi_efuse & PI_MTDES_MASK;
-
-		/* Update mtdes */
-		val[p->mtdes_index] &= ~(PI_MTDES_MASK << p->mtdes_shift);
-		val[p->mtdes_index] |= (tmp << p->mtdes_shift);
-	}
-
-	/*
-	 * One-line
-	 */
-
-	/* CCI */
-	aee_rr_rec_ptp_devinfo_3((unsigned int) pi_efuse_idx[0].orig_mdes_bdes);
-	aee_rr_rec_ptp_devinfo_4((unsigned int) pi_efuse_idx[0].orig_mtdes);
-
-	/* Little: MDES and BDES */
-	aee_rr_rec_ptp_devinfo_5((unsigned int) pi_efuse_idx[1].orig_mdes_bdes);
-
-	/* Big and little: MTDES */
-	aee_rr_rec_ptp_devinfo_6((unsigned int) pi_efuse_idx[1].orig_mtdes);
-
-	/* Big: MDES and BDES */
-	aee_rr_rec_ptp_devinfo_7((unsigned int) pi_efuse_idx[2].orig_mdes_bdes);
-
-	/*
-	 * Two-line
-	 */
-
-#if ENABLE_LOO_B
-	/* Big_Hi */
-	aee_rr_rec_ptp_cpu_2_little_volt(pi_efuse_idx[3].orig_mbb);
-
-	/* Big_Low */
-	aee_rr_rec_ptp_cpu_2_little_volt_1(pi_efuse_idx[4].orig_mbb);
-#endif
-#endif
 
 #ifdef CONFIG_EEM_AEE_RR_REC
 	aee_rr_rec_ptp_e0((unsigned int)val[0]);
@@ -434,17 +381,14 @@ static int get_devinfo(void)
 #endif
 #endif
 
-
-	/* NR_HW_RES_FOR_BANK =  10 for 5 banks efuse */
 	for (i = 1; i < NR_HW_RES_FOR_BANK; i++) {
 		if ((i == 5) || (i == 6) ||
-			(i == 11) ||  (i == 12) ||  (i == 15))
+			(i == 11) || (i == 12) || (i == 15))
 			continue;
 		else if (val[i] == 0) {
 			ret = 1;
 			safeEfuse = 1;
-			eem_error("No EFUSE, use safe efuse\n");
-			eem_error("EEM (val[%d] !!\n", i);
+			eem_error("No EFUSE (val[%d]), use safe efuse\n", i);
 			break;
 		}
 	}
@@ -2721,7 +2665,7 @@ static void read_volt_from_VOP(struct eem_det *det)
 
 static inline void handle_init02_isr(struct eem_det *det)
 {
-	unsigned int i, dcvoffset = 0;
+	unsigned int i;
 
 	FUNC_ENTER(FUNC_LV_LOCAL);
 
@@ -2757,14 +2701,14 @@ static inline void handle_init02_isr(struct eem_det *det)
 	det->init2_vop30 = eem_read(EEM_VOP30);
 	det->init2_vop74 = eem_read(EEM_VOP74);
 #endif
-
+#if 0
 	/* To remove extra volt add by detector */
 	dcvoffset = eem_read(EEM_DCVALUES) & 0xffff;
 	if ((dcvoffset / 128) >= 2)
 		det->volt_dcv = 2;
 	else
 		det->volt_dcv = (dcvoffset / 128);
-
+#endif
 	det->vop_check = 0;
 	eem_set_eem_volt(det);
 	/*
@@ -3334,8 +3278,7 @@ void eem_init01(void)
 #endif
 			}
 			timeout = 0;
-//test by Angus
-#if 0
+
 			while (det->real_vboot != det->VBOOT) {
 				eem_debug
 			("@%s():%d, get_volt(%s) = 0x%08X, VBOOT = 0x%08X\n",
@@ -3344,15 +3287,15 @@ void eem_init01(void)
 
 				det->real_vboot = det->ops->volt_2_eem(det,
 					det->ops->get_volt(det));
-				if (timeout++ % 300 == 0)
+				if (timeout++ % 1000 == 0)
 					eem_error
 ("@%s():%d, get_volt(%s) = 0x%08X, VBOOT = 0x%08X\n",
 __func__, __LINE__, det->name, det->real_vboot, det->VBOOT);
 			}
 			/* BUG_ON(det->real_vboot != det->VBOOT); */
 			WARN_ON(det->real_vboot != det->VBOOT);
-#endif
-			eem_error
+
+			eem_debug
 			("@@!%s():%d, get_volt(%s) = 0x%08X, VBOOT = 0x%08X\n",
 			__func__, __LINE__, det->name, det->real_vboot,
 			det->VBOOT);

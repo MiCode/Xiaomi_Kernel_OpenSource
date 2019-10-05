@@ -211,7 +211,7 @@ static int get_devinfo(void)
 #endif
 
 	for (i = 0; i < NR_HW_RES_FOR_BANK; i++)
-		eemg_debug("[CPU][EEM][PTP_DUMP] RES%d: 0x%X\n",
+		eemg_debug("[PTP_DUMP] RES%d: 0x%X\n",
 			i, val[i]);
 
 #if ENABLE_LOO_G
@@ -220,16 +220,14 @@ static int get_devinfo(void)
 	gpu_2line = 0;
 #endif
 
-	/* NR_HW_RES_FOR_BANK =  10 for 5 banks efuse */
 	for (i = 1; i < NR_HW_RES_FOR_BANK; i++) {
 		if ((i == 5) || (i == 6) ||
-			(i == 11) ||  (i == 12) ||  (i == 15))
+			(i == 11) || (i == 12) || (i == 15))
 			continue;
 		else if (val[i] == 0) {
 			ret = 1;
 			safeEfuse = 1;
-			eemg_error("No EFUSE, use safe efuse\n");
-			eemg_error("EEM (val[%d] !!\n", i);
+			eemg_error("No EFUSE (val[%d]), use safe efuse\n", i);
 			break;
 		}
 	}
@@ -1906,7 +1904,7 @@ static void read_volt_from_VOP(struct eemg_det *det)
 
 static inline void handle_init02_isr(struct eemg_det *det)
 {
-	unsigned int i, dcvoffset = 0;
+	unsigned int i;
 
 	FUNC_ENTER(FUNC_LV_LOCAL);
 
@@ -1942,14 +1940,14 @@ static inline void handle_init02_isr(struct eemg_det *det)
 	det->init2_vop30 = eemg_read(EEMG_VOP30);
 	det->init2_vop74 = eemg_read(EEMG_VOP74);
 #endif
-
+#if 0
 	/* To remove extra volt add by detector */
 	dcvoffset = eemg_read(EEMG_DCVALUES) & 0xffff;
 	if ((dcvoffset / 128) >= 2)
 		det->volt_dcv = 2;
 	else
 		det->volt_dcv = (dcvoffset / 128);
-
+#endif
 	det->vop_check = 0;
 	eemg_set_eemg_volt(det);
 	/*
@@ -2429,8 +2427,6 @@ void eemg_init01_gpu(void)
 #endif
 			}
 			timeout = 0;
-//test by Angus
-#if 0
 
 			while (det->real_vboot != det->VBOOT) {
 				eemg_debug
@@ -2451,7 +2447,7 @@ __func__, __LINE__, det->name, det->real_vboot, det->VBOOT);
 			("%s():%d, get_volt_gpu(%s) = 0x%08X, VBOOT = 0x%08X\n",
 			__func__, __LINE__, det->name, det->real_vboot,
 			det->VBOOT);
-#endif
+
 			mt_ptpgpu_lock(&flag); /* <-XXX */
 			det->ops->init01_gpu(det);
 			mt_ptpgpu_unlock(&flag); /* <-XXX */
