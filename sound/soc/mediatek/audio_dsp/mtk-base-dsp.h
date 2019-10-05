@@ -27,7 +27,9 @@ struct gen_pool;
 #define MAX_PAYLOAD_SIZE (32) /* 32bytes */
 
 struct mtk_dsp_ipi_ops {
-	int (*ipi_message_callback)(struct ipi_msg_t *ipi_msg);
+	void (*ipi_message_callback)(struct ipi_msg_t *ipi_msg);
+	void (*ipi_handler)(struct mtk_base_dsp *dsp,
+			    struct ipi_msg_t *ipi_msg);
 };
 
 struct mtk_base_dsp_mem {
@@ -36,7 +38,6 @@ struct mtk_base_dsp_mem {
 	struct audio_hw_buffer audio_afepcm_buf; /* dsp <-> audio data struct */
 	struct RingBuf ring_buf;
 	struct snd_pcm_substream *substream;
-	struct mtk_dsp_ipi_ops dsp_ipi_ops;
 	struct gen_pool *gen_pool_buffer;
 	struct audio_dsp_dram msg_atod_share_buf;
 	struct audio_dsp_dram msg_dtoa_share_buf;
@@ -48,7 +49,7 @@ struct mtk_base_dsp_mem {
 struct mtk_base_dsp {
 	struct device *dev;
 	const struct snd_pcm_hardware *mtk_dsp_hardware;
-	struct mtk_base_dsp_mem dsp_mem[AUDIO_DSP_SHARE_MEM_NUM];
+	struct mtk_base_dsp_mem dsp_mem[AUDIO_TASK_DAI_NUM];
 	struct snd_soc_dai_driver *dai_drivers;
 	unsigned int num_dai_drivers;
 	const struct snd_soc_component_driver *component_driver;
@@ -61,6 +62,16 @@ struct mtk_base_dsp {
 
 	bool suspended;
 	int dsp_dram_resource_counter;
+	struct mtk_dsp_ipi_ops dsp_ipi_ops;
+
+	/*
+	 * 0: playback task direct to AFE DL ,
+	 * aud_playback task get data from UL and write to AFE HW
+	 * 1: playback task as a source write to target
+	 * aud_playback task get data from source and write to AFE HW
+	 */
+
+	int dsp_ver;
 };
 
 struct mtk_adsp_task_attr {

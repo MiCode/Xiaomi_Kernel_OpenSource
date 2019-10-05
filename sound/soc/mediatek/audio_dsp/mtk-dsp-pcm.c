@@ -50,10 +50,12 @@ static char *dsp_task_dsp_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_OFFLOAD_ID]     = "mtk_dsp_offload",
 	[AUDIO_TASK_DEEPBUFFER_ID]  = "mtk_dsp_deep",
 	[AUDIO_TASK_PLAYBACK_ID]    = "mtk_dsp_playback",
+	[AUDIO_TASK_MUSIC_ID]       = "mtk_dsp_music",
 	[AUDIO_TASK_CAPTURE_UL1_ID] = "mtk_dsp_capture1",
 	[AUDIO_TASK_A2DP_ID]        = "mtk_dsp_a2dp",
 	[AUDIO_TASK_DATAPROVIDER_ID] = "mtk_dsp_dataprovider",
 	[AUDIO_TASK_CALL_FINAL_ID] = "mtk_dsp_call_final",
+	[AUDIO_TASK_FAST_ID]        = "mtk_dsp_fast",
 };
 
 static int dsp_runtime_suspend(struct device *dev)
@@ -69,10 +71,14 @@ static int dsp_runtime_resume(struct device *dev)
 static int dsp_pcm_taskattr_init(struct platform_device *pdev)
 {
 	struct mtk_adsp_task_attr task_attr;
+	struct mtk_base_dsp *dsp = platform_get_drvdata(pdev);
 	int ret = 0;
 	int dsp_id = 0;
-
 	pr_info("%s\n", __func__);
+
+	if (!dsp)
+		return -1;
+
 	if (pdev->dev.of_node) {
 		for (dsp_id = 0; dsp_id < AUDIO_TASK_DAI_NUM; dsp_id++) {
 			ret = of_property_read_u32_array(pdev->dev.of_node,
@@ -80,7 +86,7 @@ static int dsp_pcm_taskattr_init(struct platform_device *pdev)
 						 (unsigned int *)&task_attr,
 						 SND_DSP_DTS_SIZE);
 			if (ret != 0) {
-				pr_info("%s mtk_dsp_voip error dsp_id[%d]\n",
+				pr_info("%s error dsp_id[%d]\n",
 					__func__, dsp_id);
 				continue;
 			}
@@ -96,18 +102,23 @@ static int dsp_pcm_taskattr_init(struct platform_device *pdev)
 			set_task_attr(dsp_id,
 				      ADSP_TASK_ATTR_MEMREF,
 				      task_attr.afe_memif_ref);
-			if (dsp_id == AUDIO_TASK_PLAYBACK_ID) {
-				ret = of_property_read_u32(pdev->dev.of_node,
-					"swdsp_smartpa_process_enable",
-					&(task_attr.spk_protect_in_dsp));
-				if (ret)
-					task_attr.spk_protect_in_dsp = 0;
-				set_task_attr(dsp_id,
-					      ADSP_TASK_ATTR_SMARTPA,
-					      task_attr.spk_protect_in_dsp);
-			}
 		}
 		dump_all_task_attr();
+
+		/* get dsp version */
+		ret = of_property_read_u32(pdev->dev.of_node,
+					   "mtk_dsp_ver",
+					   &dsp->dsp_ver);
+		if (ret != 0)
+			pr_info("%s mtk_dsp_ver error\n", __func__);
+
+		ret = of_property_read_u32(pdev->dev.of_node,
+			"swdsp_smartpa_process_enable",
+			&(task_attr.spk_protect_in_dsp));
+		if (ret)
+			task_attr.spk_protect_in_dsp = 0;
+		set_task_attr(AUDIO_TASK_PLAYBACK_ID, ADSP_TASK_ATTR_SMARTPA,
+			      task_attr.spk_protect_in_dsp);
 	}
 	return 0;
 }
@@ -135,6 +146,9 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 	dsp->request_dram_resource = dsp_dram_request;
 	dsp->release_dram_resource = dsp_dram_release;
 
+	dsp->dsp_ipi_ops.ipi_message_callback = mtk_dsp_pcm_ipi_recv;
+	dsp->dsp_ipi_ops.ipi_handler = mtk_dsp_handler;
+
 	platform_set_drvdata(pdev, dsp);
 	pm_runtime_enable(&pdev->dev);
 
@@ -150,10 +164,11 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 					      dsp->component_driver,
 					      dsp->dai_drivers,
 					      dsp->num_dai_drivers);
-	init_mtk_adsp_dram_segment();
-	dsp_pcm_taskattr_init(pdev);
+
 	set_ipi_recv_private((void *)dsp);
 	set_dsp_base((void *)dsp);
+	init_mtk_adsp_dram_segment();
+	dsp_pcm_taskattr_init(pdev);
 
 	ret = mtk_adsp_init_gen_pool(dsp);
 	if (ret)

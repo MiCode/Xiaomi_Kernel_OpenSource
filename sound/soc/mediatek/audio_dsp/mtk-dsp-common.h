@@ -59,6 +59,7 @@ struct snd_soc_dai;
 struct mtk_base_afe;
 struct audio_hw_buffer;
 struct platform_device;
+struct ipi_msg_t;
 
 int mtk_scp_ipi_send(int task_scene, int data_type, int ack_type,
 		     uint16_t msg_id, uint32_t param1, uint32_t param2,
@@ -67,6 +68,10 @@ int mtk_scp_ipi_send(int task_scene, int data_type, int ack_type,
 /* set priv data when receive IPI message */
 void *get_ipi_recv_private(void);
 void set_ipi_recv_private(void *priv);
+
+void mtk_dsp_pcm_ipi_recv(struct ipi_msg_t *ipi_msg);
+void mtk_dsp_handler(struct mtk_base_dsp *dsp,
+		     struct ipi_msg_t *ipi_msg);
 
 /* dsp dai id ==> task scene mapping */
 int get_dspscene_by_dspdaiid(int id);

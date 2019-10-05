@@ -1089,7 +1089,7 @@ void dump_rbuf_bridge(struct ringbuf_bridge *ring_buffer_bridge)
 	if (ring_buffer_bridge == NULL)
 		return;
 #if defined(__linux__)
-	pr_info("%s pBufBase = 0x%llx pBufEnd = 0x%llx pRead = 0x%llx pWrite = 0x%llx bufLen=%llu readidx = %llu writeidx = %llu\n",
+	pr_info("%s pBufBase = 0x%x pBufEnd = 0x%x pRead = 0x%x pWrite = 0x%x bufLen=%llu readidx = 0x%x writeidx = 0x%x\n",
 		 __func__, ring_buffer_bridge->pBufBase,
 		 ring_buffer_bridge->pBufEnd, ring_buffer_bridge->pRead,
 		 ring_buffer_bridge->pWrite, ring_buffer_bridge->bufLen,
@@ -1119,7 +1119,7 @@ void dump_rbuf_bridge_s(const char *appendingstring,
 	if (ring_buffer_bridge == NULL)
 		return;
 #if defined(__linux__)
-	pr_info("%s %s pBufBase = 0x%llx pBufEnd = 0x%llx pRead = 0x%llx pWrite = 0x%llx bufLen=%llu readidx = %llu writeidx = %llu\n",
+	pr_info("%s %s pBufBase = 0x%x pBufEnd = 0x%x pRead = 0x%x pWrite = 0x%x bufLen=%llu readidx = 0x%x writeidx = 0x%x\n",
 		appendingstring, __func__, ring_buffer_bridge->pBufBase,
 		ring_buffer_bridge->pBufEnd, ring_buffer_bridge->pRead,
 		ring_buffer_bridge->pWrite, ring_buffer_bridge->bufLen,
@@ -1133,7 +1133,7 @@ void dump_rbuf_bridge_s(const char *appendingstring,
 		  ring_buffer_bridge->pBufEnd,
 		  ring_buffer_bridge->bufLen
 		  );
-	AUD_LOG_D("R= 0x%llx W= 0x%llx ridx = %llu widx = %llu\n",
+	AUD_LOG_D("R= 0x%x W= 0x%x ridx = 0x%x widx = 0x%x\n",
 		  ring_buffer_bridge->pRead,
 		  ring_buffer_bridge->pWrite,
 		  (ring_buffer_bridge->pRead - ring_buffer_bridge->pBufBase),
@@ -1220,7 +1220,15 @@ void dump_audio_hwbuffer(struct audio_hw_buffer *audio_hwbuf)
 {
 	if (audio_hwbuf == NULL)
 		return;
-
+#if defined(__linux__)
+	pr_info(
+		"%s hw_buffer = %d audio_memiftype = %d irq_num = %d memory_type = %d counter = %d",
+		__func__, audio_hwbuf->hw_buffer,
+		audio_hwbuf->audio_memiftype,
+		audio_hwbuf->irq_num,
+		audio_hwbuf->memory_type,
+		audio_hwbuf->counter);
+#else
 	AUD_LOG_D(
 		"%s hw_buffer = %d audio_memiftype = %d irq_num = %d memory_type = %d counter = %d",
 		__func__, audio_hwbuf->hw_buffer,
@@ -1229,6 +1237,7 @@ void dump_audio_hwbuffer(struct audio_hw_buffer *audio_hwbuf)
 		audio_hwbuf->memory_type,
 		audio_hwbuf->counter);
 
+#endif
 	dump_audio_buffer(&audio_hwbuf->aud_buffer);
 }
 

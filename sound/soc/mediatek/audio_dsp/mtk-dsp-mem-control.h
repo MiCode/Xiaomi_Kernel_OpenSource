@@ -32,8 +32,6 @@ enum {
 /* first time to inint scp dram segment */
 void init_mtk_adsp_dram_segment(void);
 
-int get_mtk_adsp_dram(struct audio_dsp_dram *dsp_dram, int id);
-
 /* dump dsp reserved dram stats */
 void dump_mtk_adsp_dram(struct audio_dsp_dram buffer);
 void dump_all_adsp_dram(void);
@@ -48,7 +46,6 @@ void mtk_dump_sndbuffer(struct snd_dma_buffer *dma_audio_buffer);
 int wrap_dspdram_sndbuffer(struct snd_dma_buffer *dma_audio_buffer,
 			   struct audio_dsp_dram *dsp_dram_buffer);
 
-int scp_reservedid_to_dsp_daiid(int id);
 int dsp_daiid_to_scp_reservedid(int task_dai_id);
 int get_taskid_by_afe_daiid(int task_dai_id);
 int get_afememdl_by_afe_taskid(int task_dai_id);
@@ -80,8 +77,10 @@ unsigned int mtk_get_adsp_sharemem_size(int audio_task_id,
 /* init dsp share memory */
 int mtk_adsp_init_gen_pool(struct mtk_base_dsp *dsp);
 int mtk_init_adsp_audio_share_mem(struct mtk_base_dsp *dsp);
-int mtk_reinit_adsp_audio_share_mem(void);
 
+/* init task with certain task id */
+int adsp_task_init(int task_id, struct mtk_base_dsp *dsp);
+int mtk_reinit_adsp(void);
 
 int dsp_dram_request(struct device *dev);
 int dsp_dram_release(struct device *dev);
