@@ -45,7 +45,11 @@ struct lsm6dsm_device {
 	uint32_t direction;
 };
 
-static int lsm6dsm_enable(struct hf_device *hfdev, int en)
+static unsigned char support_sensors[] = {
+	HIGH_FREQUENCY_SENSOR_GYRO,
+};
+
+static int lsm6dsm_enable(struct hf_device *hfdev, int sensor_id, int en)
 {
 	int err = 0;
 	unsigned char tx_buffer[2] = {0};
@@ -73,7 +77,7 @@ static int lsm6dsm_enable(struct hf_device *hfdev, int en)
 	return err;
 }
 
-static int lsm6dsm_batch(struct hf_device *hfdev,
+static int lsm6dsm_batch(struct hf_device *hfdev, int sensor_id,
 		int64_t delay, int64_t latency)
 {
 	return 0;
@@ -100,7 +104,8 @@ static void lsm6dsm_sample_complete(void *ctx)
 	event.word[0] = data[0] * GYRO_SCALER;
 	event.word[1] = data[1] * GYRO_SCALER;
 	event.word[2] = data[2] * GYRO_SCALER;
-	manager->complete(manager, &event);
+	manager->report(manager, &event);
+	manager->complete(manager);
 }
 
 static int lsm6dsm_sample(struct hf_device *hfdev)
@@ -181,7 +186,8 @@ static int lsm6dsm_probe(struct spi_device *spi_dev)
 	driver_dev->hf_dev.dev_name = LSM6DSM_SECONDARY_NAME;
 	driver_dev->hf_dev.device_poll = HF_DEVICE_IO_POLLING;
 	driver_dev->hf_dev.device_bus = HF_DEVICE_IO_ASYNC;
-	driver_dev->hf_dev.sensor_id = HIGH_FREQUENCY_SENSOR_GYRO;
+	driver_dev->hf_dev.support_list = support_sensors;
+	driver_dev->hf_dev.support_size = ARRAY_SIZE(support_sensors);
 	driver_dev->hf_dev.enable = lsm6dsm_enable;
 	driver_dev->hf_dev.batch = lsm6dsm_batch;
 	driver_dev->hf_dev.sample = lsm6dsm_sample;
