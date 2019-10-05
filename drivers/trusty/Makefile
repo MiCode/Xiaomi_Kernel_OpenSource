@@ -9,9 +9,6 @@ obj-$(CONFIG_TRUSTY_FIQ_ARM)	+= trusty-fiq-arm.o
 obj-$(CONFIG_TRUSTY_FIQ_ARM64)	+= trusty-fiq-arm64.o trusty-fiq-arm64-glue.o
 ifeq ($(CONFIG_MTK_ENABLE_GENIEZONE),y)
 obj-$(CONFIG_TRUSTY_LOG)	+= gz-log.o
-ifeq ($(CONFIG_MTK_NEBULA_VM_SUPPORT),y)
-obj-$(CONFIG_TRUSTY_LOG)	+= trusty-log.o
-endif
 else
 obj-$(CONFIG_TRUSTY_LOG)	+= trusty-log.o
 endif

@@ -26,7 +26,7 @@ extern void get_kernel_log_buffer(unsigned long *addr, unsigned long *size,
 		unsigned long *start);
 extern void get_hang_detect_buffer(unsigned long *addr, unsigned long *size,
 		unsigned long *start);
-#if defined(CONFIG_TRUSTY_LOG)
+#if defined(CONFIG_GZ_LOG)
 extern void get_gz_log_buffer(unsigned long *addr, unsigned long *paddr,
 			unsigned long *size, unsigned long *start);
 #endif

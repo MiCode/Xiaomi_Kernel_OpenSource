@@ -18,7 +18,7 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#ifdef CONFIG_MT_TRUSTY_DEBUGFS
+#ifdef CONFIG_MT_GZ_TRUSTY_DEBUGFS
 #include <linux/random.h>
 #endif
 #include <linux/slab.h>
@@ -31,10 +31,8 @@
 #include <linux/string.h>
 
 #if 0
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #ifdef CONFIG_MTK_RAM_CONSOLE
 #include "trusty-ramconsole.h"
-#endif
 #endif
 #endif
 
@@ -89,16 +87,6 @@ static inline ulong smc_asm(ulong r0, ulong r1, ulong r2, ulong r3)
 		      : SMC_REGISTERS_TRASHED);
 	return _r0;
 }
-
-#ifdef CONFIG_TRUSTY_WDT_FIQ_ARMV7_SUPPORT
-s32 trusty_fast_call32_nodev(u32 smcnr, u32 a0, u32 a1, u32 a2)
-{
-	WARN_ON(!SMC_IS_FASTCALL(smcnr));
-	WARN_ON(SMC_IS_SMC64(smcnr));
-
-	return smc_asm(smcnr, a0, a1, a2);
-}
-#endif
 
 s32 trusty_fast_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2)
 {
@@ -230,7 +218,7 @@ static void trusty_std_call_cpu_idle(struct trusty_state *s)
 	int ret;
 	unsigned long timeout = HZ * 10;
 
-#ifdef CONFIG_TRUSTY_INTERRUPT_FIQ_ONLY
+#ifdef CONFIG_GZ_TRUSTY_INTERRUPT_FIQ_ONLY
 	timeout = HZ / 5;	/* 200 ms */
 #endif
 
@@ -364,7 +352,6 @@ static ssize_t trusty_version_store(struct device *dev,
 DEVICE_ATTR_RW(trusty_version);
 
 #if 0
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #ifdef CONFIG_MTK_RAM_CONSOLE
 static void init_gz_ramconsole(struct device *dev)
 {
@@ -389,9 +376,8 @@ static void init_gz_ramconsole(struct device *dev)
 }
 #endif
 #endif
-#endif
 
-#ifdef CONFIG_MT_TRUSTY_DEBUGFS
+#ifdef CONFIG_MT_GZ_TRUSTY_DEBUGFS
 
 ssize_t trusty_add_show(struct device *dev,
 		   struct device_attribute *attr, char *buf)
@@ -581,7 +567,7 @@ err_create_trusty_add:
 
 }
 
-#endif				/* CONFIG_MT_TRUSTY_DEBUGFS */
+#endif				/* CONFIG_MT_GZ_TRUSTY_DEBUGFS */
 
 const char *trusty_version_str_get(struct device *dev)
 {
@@ -978,20 +964,18 @@ static int trusty_probe(struct platform_device *pdev)
 		trusty_info(&pdev->dev, "Failed to add children: %d\n", ret);
 		goto err_add_children;
 	}
-#ifdef CONFIG_MT_TRUSTY_DEBUGFS
+#ifdef CONFIG_MT_GZ_TRUSTY_DEBUGFS
 	if (is_trusty_tee(tee_id))
 		trusty_create_debugfs(s, &pdev->dev);
 	else if (is_nebula_tee(tee_id))
 		trusty_create_debugfs_vmm(s, &pdev->dev);
 #else
-	trusty_info(&pdev->dev, "%s, Not CONFIG_MT_TRUSTY_DEBUGFS\n", __func__);
+	trusty_info(&pdev->dev, "%s, Not MT_GZ_TRUSTY_DEBUGFS\n", __func__);
 #endif
 
 #if 0
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #ifdef CONFIG_MTK_RAM_CONSOLE
 	init_gz_ramconsole(&pdev->dev);
-#endif
 #endif
 #endif
 	return 0;
@@ -1078,13 +1062,13 @@ static int __init trusty_driver_init(void)
 {
 	int ret = 0;
 
-	pr_info("======= register the trusty main driver =======\n");
+	pr_info("======= register the gz-trusty main driver =======\n");
 
 	ret = platform_driver_register(&trusty_driver);
 	if (ret)
 		goto err_trusty_driver;
 
-	pr_info("======= register the nebula main driver =======\n");
+	pr_info("======= register the gz-nebula main driver =======\n");
 	ret = platform_driver_register(&nebula_driver);
 	if (ret)
 		goto err_nebula_driver;

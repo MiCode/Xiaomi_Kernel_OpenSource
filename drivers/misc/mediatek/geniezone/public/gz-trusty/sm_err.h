@@ -14,15 +14,6 @@
 #ifndef __LINUX_TRUSTY_SM_ERR_MAPPING_H
 #define __LINUX_TRUSTY_SM_ERR_MAPPING_H
 
-#if 0
-#if defined(CONFIG_MTK_NEBULA_VM_SUPPORT) && defined(CONFIG_GZ_SMC_CALL_REMAP)
-#include <gz-trusty/hv_err.h>
-#include <gz-trusty/sm_err_remap.h>
-#else
-#include <gz-trusty/sm_err_trusty.h>
-#endif
-#endif
-
 #include <gz-trusty/hv_err.h>
 #include <gz-trusty/sm_err_trusty.h>
 

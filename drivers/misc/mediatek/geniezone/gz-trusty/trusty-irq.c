@@ -24,7 +24,7 @@
 #include <gz-trusty/smcall.h>
 #include <gz-trusty/sm_err.h>
 #include <gz-trusty/trusty.h>
-#ifdef CONFIG_TRUSTY_INTERRUPT_MAP
+#ifdef CONFIG_GZ_TRUSTY_INTERRUPT_MAP
 #include <linux/irqdomain.h>
 #include <linux/of_irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -60,7 +60,7 @@ static LIST_HEAD(trusty_irq_state_list);
 
 static int trusty_irq_cpuhp_slot = -1;
 
-#ifdef CONFIG_TRUSTY_INTERRUPT_MAP
+#ifdef CONFIG_GZ_TRUSTY_INTERRUPT_MAP
 static struct device_node *spi_node;
 static struct device_node *ppi_node;
 static struct trusty_irq __percpu *trusty_ipi_data[16];
@@ -78,19 +78,11 @@ static void trusty_irq_enable_pending_irqs(struct trusty_irq_state *is,
 		dev_dbg(is->dev,
 			"%s: enable pending irq %d, percpu %d, cpu %d\n",
 			__func__, trusty_irq->irq, percpu, smp_processor_id());
-#ifndef CONFIG_TRUSTY_INTERRUPT_FIQ_ONLY
 		if (percpu)
 			enable_percpu_irq(trusty_irq->irq, 0);
 		else
 			enable_irq(trusty_irq->irq);
-#else
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
-		if (percpu)
-			enable_percpu_irq(trusty_irq->irq, 0);
-		else
-			enable_irq(trusty_irq->irq);
-#endif
-#endif
+
 		hlist_del(&trusty_irq->node);
 		hlist_add_head(&trusty_irq->node, &irqset->inactive);
 	}
@@ -186,22 +178,10 @@ irqreturn_t trusty_irq_handler(int irq, void *data)
 		trusty_irq->enable);
 
 	if (trusty_irq->percpu) {
-#ifndef CONFIG_TRUSTY_INTERRUPT_FIQ_ONLY
 		disable_percpu_irq(irq);
-#else
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
-		disable_percpu_irq(irq);
-#endif
-#endif
 		irqset = this_cpu_ptr(is->percpu_irqs);
 	} else {
-#ifndef CONFIG_TRUSTY_INTERRUPT_FIQ_ONLY
 		disable_irq_nosync(irq);
-#else
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
-		disable_irq_nosync(irq);
-#endif
-#endif
 		irqset = &is->normal_irqs;
 	}
 
@@ -219,7 +199,7 @@ irqreturn_t trusty_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-#ifdef CONFIG_TRUSTY_INTERRUPT_MAP
+#ifdef CONFIG_GZ_TRUSTY_INTERRUPT_MAP
 void handle_trusty_ipi(int ipinr)
 {
 	if (trusty_ipi_init[ipinr] == 0)
@@ -365,7 +345,7 @@ static int trusty_irq_init_normal_irq(struct trusty_irq_state *is, int tirq)
 	if (!trusty_irq)
 		return -ENOMEM;
 
-#ifdef CONFIG_TRUSTY_INTERRUPT_MAP
+#ifdef CONFIG_GZ_TRUSTY_INTERRUPT_MAP
 	if (spi_node) {
 		struct of_phandle_args oirq;
 
@@ -451,7 +431,7 @@ static int trusty_irq_init_per_cpu_irq(struct trusty_irq_state *is, int tirq)
 		trusty_irq->percpu_ptr = trusty_irq_handler_data;
 	}
 
-#ifdef CONFIG_TRUSTY_INTERRUPT_MAP
+#ifdef CONFIG_GZ_TRUSTY_INTERRUPT_MAP
 	if (irq < 16) {		/* IPI (SGI) */
 		trusty_ipi_data[irq] = trusty_irq_handler_data;
 		trusty_ipi_init[irq] = 1;
@@ -575,7 +555,7 @@ static void trusty_irq_free_irqs(struct trusty_irq_state *is)
 	}
 }
 
-#ifdef CONFIG_TRUSTY_INTERRUPT_MAP
+#ifdef CONFIG_GZ_TRUSTY_INTERRUPT_MAP
 static void init_irq_node(struct device_node *node)
 {
 	struct device_node *spi;
@@ -609,7 +589,7 @@ static int trusty_irq_probe(struct platform_device *pdev)
 	int i;
 
 	dev_dbg(&pdev->dev, "%s\n", __func__);
-#ifdef CONFIG_TRUSTY_INTERRUPT_MAP
+#ifdef CONFIG_GZ_TRUSTY_INTERRUPT_MAP
 	init_irq_node(pdev->dev.of_node);
 #endif
 
