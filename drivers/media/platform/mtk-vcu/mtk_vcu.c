@@ -285,7 +285,7 @@ struct mtk_vcu {
 	void *curr_ctx[VCU_CODEC_MAX];
 	wait_queue_head_t gce_wq[VCU_CODEC_MAX];
 	struct gce_ctx_info gce_info[VCODEC_INST_MAX];
-	atomic_t gce_job_cnt[VCU_CODEC_MAX];
+	atomic_t gce_job_cnt[VCU_CODEC_MAX][GCE_THNUM_MAX];
 	unsigned long flags[VCU_CODEC_MAX];
 	int open_cnt;
 	bool abort;
@@ -618,9 +618,11 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 	struct gce_callback_data *buff;
 	struct mtk_vcu *vcu;
 	struct gce_cmds *cmds;
+	unsigned int core_id;
 
 	buff = (struct gce_callback_data *)data.data;
 	i = (buff->cmdq_buff.codec_type == VCU_VDEC) ? VCU_VDEC : VCU_VENC;
+	core_id = buff->cmdq_buff.core_id;
 
 	vcu = buff->vcu_ptr;
 	j = vcu_gce_get_inst_id(buff->cmdq_buff.gce_handle);
@@ -636,7 +638,7 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 	cmdq_pkt_destroy(buff->pkt_ptr);
 
 	mutex_lock(&vcu->vcu_gce_mutex[i]);
-	if (atomic_dec_and_test(&vcu->gce_job_cnt[i]) &&
+	if (atomic_dec_and_test(&vcu->gce_job_cnt[i][core_id]) &&
 		vcu->gce_info[j].v4l2_ctx != NULL){
 		if (i == VCU_VENC)
 			venc_encode_unprepare(vcu->gce_info[j].v4l2_ctx,
@@ -657,6 +659,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	struct cmdq_client *cl;
 	struct gce_cmds *cmds;
 	unsigned int suspend_block_cnt = 0;
+	unsigned int core_id;
 
 	buff = (struct gce_callback_data *)
 		kzalloc(sizeof(struct gce_callback_data), GFP_KERNEL);
@@ -677,21 +680,22 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	ret = (long)copy_from_user(cmds, user_data_addr,
 				   (unsigned long)sizeof(struct gce_cmds));
 	buff->cmdq_buff.cmds_user_ptr = (u64)(unsigned long)cmds;
+	core_id = buff->cmdq_buff.core_id;
 
-	if (buff->cmdq_buff.core_id >=
+	if (core_id >=
 		vcu->gce_th_num[buff->cmdq_buff.codec_type]) {
 		pr_info("[VCU] %s invalid core(th) id %d\n",
-			__func__, buff->cmdq_buff.core_id);
+			__func__, core_id);
 		return -EINVAL;
 	}
 
 	cl = (buff->cmdq_buff.codec_type == VCU_VDEC) ?
-		vcu->clt_vdec[buff->cmdq_buff.core_id] :
-		vcu->clt_venc[buff->cmdq_buff.core_id];
+		vcu->clt_vdec[core_id] :
+		vcu->clt_venc[core_id];
 
 	if (cl == NULL) {
 		pr_info("[VCU] %s gce thread is null id %d type %d\n",
-			__func__, buff->cmdq_buff.core_id,
+			__func__, core_id,
 			buff->cmdq_buff.codec_type);
 		return -EINVAL;
 	}
@@ -715,14 +719,14 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 			buff->cmdq_buff.gce_handle);
 
 	mutex_lock(&vcu->vcu_gce_mutex[i]);
-	if (atomic_read(&vcu->gce_job_cnt[i]) == 0 &&
+	if (atomic_read(&vcu->gce_job_cnt[i][core_id]) == 0 &&
 		vcu->gce_info[j].v4l2_ctx != NULL){
 		if (i == VCU_VENC) {
 			venc_encode_prepare(vcu->gce_info[j].v4l2_ctx,
-				buff->cmdq_buff.core_id, &vcu->flags[i]);
+				core_id, &vcu->flags[i]);
 		}
 	}
-	atomic_inc(&vcu->gce_job_cnt[i]);
+	atomic_inc(&vcu->gce_job_cnt[i][core_id]);
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
 
 	if (cmdq_pkt_cl_create(&pkt_ptr, cl) != 0)
@@ -1637,8 +1641,10 @@ static int mtk_vcu_suspend(struct device *pDev)
 {
 	if (atomic_read(&vcu_ptr->ipi_done[VCU_VDEC]) == 0 ||
 		atomic_read(&vcu_ptr->ipi_done[VCU_VENC]) == 0 ||
-		atomic_read(&vcu_ptr->gce_job_cnt[VCU_VDEC]) > 0 ||
-		atomic_read(&vcu_ptr->gce_job_cnt[VCU_VENC]) > 0) {
+		atomic_read(&vcu_ptr->gce_job_cnt[VCU_VDEC][0]) > 0 ||
+		atomic_read(&vcu_ptr->gce_job_cnt[VCU_VDEC][1]) > 0 ||
+		atomic_read(&vcu_ptr->gce_job_cnt[VCU_VENC][0]) > 0 ||
+		atomic_read(&vcu_ptr->gce_job_cnt[VCU_VENC][1]) > 0) {
 		pr_info("[VCU] %s fail due to videocodec activity\n", __func__);
 		return -EBUSY;
 	}
@@ -1672,15 +1678,23 @@ static int mtk_vcu_suspend_notifier(struct notifier_block *nb,
 		vcu_ptr->is_entering_suspend = 1;
 		while (atomic_read(&vcu_ptr->ipi_done[VCU_VDEC]) == 0 ||
 			atomic_read(&vcu_ptr->ipi_done[VCU_VENC]) == 0 ||
-			atomic_read(&vcu_ptr->gce_job_cnt[VCU_VDEC]) > 0 ||
-			atomic_read(&vcu_ptr->gce_job_cnt[VCU_VENC]) > 0) {
+			atomic_read(&vcu_ptr->gce_job_cnt[VCU_VDEC][0]) > 0 ||
+			atomic_read(&vcu_ptr->gce_job_cnt[VCU_VDEC][1]) > 0 ||
+			atomic_read(&vcu_ptr->gce_job_cnt[VCU_VENC][0]) > 0 ||
+			atomic_read(&vcu_ptr->gce_job_cnt[VCU_VENC][1]) > 0) {
 			wait_cnt++;
 			if (wait_cnt > 5) {
 				pr_info("vcodec_pm_suspend waiting %d %d %d %d\n",
 				  atomic_read(&vcu_ptr->ipi_done[VCU_VDEC]),
 				  atomic_read(&vcu_ptr->ipi_done[VCU_VENC]),
-				  atomic_read(&vcu_ptr->gce_job_cnt[VCU_VDEC]),
-				  atomic_read(&vcu_ptr->gce_job_cnt[VCU_VENC]));
+				  atomic_read(
+				    &vcu_ptr->gce_job_cnt[VCU_VDEC][0]),
+				  atomic_read(
+				    &vcu_ptr->gce_job_cnt[VCU_VDEC][1]),
+				  atomic_read(
+				    &vcu_ptr->gce_job_cnt[VCU_VENC][0]),
+				  atomic_read(
+				    &vcu_ptr->gce_job_cnt[VCU_VENC][1]));
 				/* Current task is still not finished, don't
 				 * care, will check again in real suspend
 				 */
@@ -1808,8 +1822,10 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		vcu->gce_info[i].user_hdl = 0;
 		vcu->gce_info[i].v4l2_ctx = NULL;
 	}
-	atomic_set(&vcu->gce_job_cnt[VCU_VDEC], 0);
-	atomic_set(&vcu->gce_job_cnt[VCU_VENC], 0);
+	atomic_set(&vcu->gce_job_cnt[VCU_VDEC][0], 0);
+	atomic_set(&vcu->gce_job_cnt[VCU_VDEC][1], 0);
+	atomic_set(&vcu->gce_job_cnt[VCU_VENC][0], 0);
+	atomic_set(&vcu->gce_job_cnt[VCU_VENC][1], 0);
 	INIT_LIST_HEAD(&vcu->pa_pages.list);
 	/* init character device */
 
