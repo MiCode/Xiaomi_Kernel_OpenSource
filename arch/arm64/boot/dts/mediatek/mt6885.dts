@@ -4685,6 +4685,21 @@
 		compatible = "mediatek,mt_soc_offload_common";
 	};
 
+	slbc: slbc {
+		compatible = "mediatek,slbc";
+		status = "enable";
+	};
+
+	mmsram@1f005000 {
+		compatible = "mediatek,mmsram";
+		reg = <0 0x1f005000 0 0x1000>,
+			<0 0x1e000000 0 0x160000>;
+#ifndef CONFIG_FPGA_EARLY_PORTING
+		clocks = <&topckgen TOP_MUX_MDP>;
+		clock-names = "mmsram_mux";
+#endif
+	};
+
 	irtx_pwm:irtx_pwm {
 		compatible = "mediatek,irtx-pwm";
 		pwm_ch = <0>;
