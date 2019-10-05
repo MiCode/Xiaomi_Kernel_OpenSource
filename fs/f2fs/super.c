@@ -2269,12 +2269,12 @@ static int __f2fs_set_bio_ctx(struct inode *inode,
 }
 
 static int __f2fs_key_payload(struct bio_crypt_ctx *ctx,
-	const char *data, const unsigned char **key)
+	const unsigned char **key)
 {
-	if (ctx->bc_fs_type != F2FS_SUPER_MAGIC)
+	if (ctx->bc_sb->s_magic != F2FS_SUPER_MAGIC)
 		return -EINVAL;
 
-	return fscrypt_key_payload(ctx, data, key);
+	return fscrypt_key_payload(ctx, key);
 }
 
 struct hie_fs f2fs_hie = {

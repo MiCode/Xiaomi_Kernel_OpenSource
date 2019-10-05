@@ -253,6 +253,12 @@ static void bio_free(struct bio *bio)
 
 	bio_uninit(bio);
 
+	if (bio->bi_crypt_ctx.bc_info_act) {
+		bio->bi_crypt_ctx.bc_info_act(
+			bio->bi_crypt_ctx.bc_info,
+			BIO_BC_INFO_PUT);
+	}
+
 	if (bs) {
 		bvec_free(bs->bvec_pool, bio->bi_io_vec, BVEC_POOL_IDX(bio));
 
@@ -577,6 +583,24 @@ inline int bio_phys_segments(struct request_queue *q, struct bio *bio)
 }
 EXPORT_SYMBOL(bio_phys_segments);
 
+static inline void bio_clone_crypt_info(struct bio *dst, const struct bio *src)
+{
+	/* for HIE */
+	dst->bi_crypt_ctx = src->bi_crypt_ctx;
+
+	if (src->bi_crypt_ctx.bc_info) {
+		src->bi_crypt_ctx.bc_info_act(
+		  src->bi_crypt_ctx.bc_info,
+		  BIO_BC_INFO_GET);
+	}
+
+#if defined(CONFIG_MTK_HW_FDE)
+	/* for FDE */
+	dst->bi_hw_fde = src->bi_hw_fde;
+	dst->bi_key_idx = src->bi_key_idx;
+#endif
+}
+
 /**
  * 	__bio_clone_fast - clone a bio that shares the original bio's biovec
  * 	@bio: destination bio
@@ -605,16 +629,8 @@ void __bio_clone_fast(struct bio *bio, struct bio *bio_src)
 	bio->bi_write_hint = bio_src->bi_write_hint;
 	bio->bi_iter = bio_src->bi_iter;
 	bio->bi_io_vec = bio_src->bi_io_vec;
-	bio->bi_crypt_ctx = bio_src->bi_crypt_ctx;
 
-#if defined(CONFIG_MTK_HW_FDE)
-	/*
-	 * MTK PATCH:
-	 * Also clone all hw fde related members.
-	 */
-	bio->bi_hw_fde = bio_src->bi_hw_fde;
-	bio->bi_key_idx = bio_src->bi_key_idx;
-#endif
+	bio_clone_crypt_info(bio, bio_src);
 
 	bio_clone_blkcg_association(bio, bio_src);
 }
@@ -723,6 +739,8 @@ struct bio *bio_clone_bioset(struct bio *bio_src, gfp_t gfp_mask,
 			return NULL;
 		}
 	}
+
+	bio_clone_crypt_info(bio, bio_src);
 
 	bio_clone_blkcg_association(bio, bio_src);
 

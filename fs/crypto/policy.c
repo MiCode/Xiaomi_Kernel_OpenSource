@@ -307,13 +307,16 @@ int fscrypt_set_bio_ctx(struct inode *inode, struct bio *bio)
 	    (ci->ci_data_mode == FS_ENCRYPTION_MODE_PRIVATE)) {
 		WARN_ON(!hie_is_capable(inode->i_sb));
 		/* HIE: default use aes-256-xts */
-		bio->bi_crypt_ctx.bc_flags |= (BC_CRYPT | BC_AES_256_XTS);
-		/* HIE: always use FS_AES_256_XTS_KEY_SIZE = 64*/
-		bio->bi_crypt_ctx.bc_key_size = 64;
-		bio->bi_crypt_ctx.bc_keyring_key = ci->ci_keyring_key;
-		bio->bi_crypt_ctx.bc_fs_type = inode->i_sb->s_magic;
+		bio_bcf_set(bio, BC_CRYPT | BC_AES_256_XTS);
+		bio->bi_crypt_ctx.bc_key_size = FS_AES_256_XTS_KEY_SIZE;
 		bio->bi_crypt_ctx.bc_ino = inode->i_ino;
 		bio->bi_crypt_ctx.bc_sb = inode->i_sb;
+
+		bio->bi_crypt_ctx.bc_info_act = &fscrypt_crypt_info_act;
+		bio->bi_crypt_ctx.bc_info =
+			fscrypt_crypt_info_act(
+			ci, BIO_BC_INFO_GET);
+		WARN_ON(!bio->bi_crypt_ctx.bc_info);
 
 #ifdef CONFIG_HIE_DEBUG
 		if (hie_debug(HIE_DBG_FS))
@@ -322,27 +325,27 @@ int fscrypt_set_bio_ctx(struct inode *inode, struct bio *bio)
 #endif
 		ret = 0;
 	} else
-		bio->bi_crypt_ctx.bc_flags &= ~BC_CRYPT;
+		bio_bcf_clear(bio, BC_CRYPT);
 
 	return ret;
 }
 
 int fscrypt_key_payload(struct bio_crypt_ctx *ctx,
-		const char *data, const unsigned char **key)
+		const unsigned char **key)
 {
-	struct fscrypt_key *master_key;
+	struct fscrypt_info *fi;
 
-	master_key = (struct fscrypt_key *)data;
+	fi = (struct fscrypt_info *)ctx->bc_info;
 
-	if (!master_key) {
-		pr_info("%s: master key was not exist\n", __func__);
+	if (!fi) {
+		pr_info("HIE: %s: missing crypto info\n", __func__);
 		return -ENOKEY;
 	}
 
 	if (key)
-		*key = &master_key->raw[0];
+		*key = &(fi->ci_raw_key[0]);
 
-	return master_key->size;
+	return ctx->bc_key_size;
 }
 
 int fscrypt_is_hw_encrypt(struct inode *inode)

@@ -82,7 +82,7 @@ extern int fscrypt_has_permitted_context(struct inode *, struct inode *);
 extern int fscrypt_inherit_context(struct inode *, struct inode *,
 					void *, bool);
 extern int fscrypt_set_bio_ctx(struct inode *inode, struct bio *bio);
-extern int fscrypt_key_payload(struct bio_crypt_ctx *ctx, const char *data,
+extern int fscrypt_key_payload(struct bio_crypt_ctx *ctx,
 				const unsigned char **key);
 extern int fscrypt_is_hw_encrypt(struct inode *inode);
 extern int fscrypt_is_sw_encrypt(struct inode *inode);
@@ -90,6 +90,7 @@ extern int fscrypt_is_sw_encrypt(struct inode *inode);
 /* keyinfo.c */
 extern int fscrypt_get_encryption_info(struct inode *);
 extern void fscrypt_put_encryption_info(struct inode *);
+extern void *fscrypt_crypt_info_act(void *ci, int act);
 
 /* fname.c */
 extern int fscrypt_setup_filename(struct inode *, const struct qstr *,

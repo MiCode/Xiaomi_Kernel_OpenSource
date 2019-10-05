@@ -17,6 +17,8 @@
 #include <crypto/hash.h>
 
 /* Encryption parameters */
+#define FS_AES_256_XTS_KEY_SIZE		64
+
 #define FS_KEY_DERIVATION_NONCE_SIZE	16
 
 /**
@@ -50,6 +52,8 @@ struct fscrypt_symlink_data {
 	char encrypted_path[1];
 } __packed;
 
+#define CI_FREEING (1 << 0)
+
 /*
  * fscrypt_info - the "encryption key" for an inode
  *
@@ -80,16 +84,17 @@ struct fscrypt_info {
 	 * Otherwise, this inode uses a derived key.
 	 */
 	struct fscrypt_master_key *ci_master_key;
-	
-	/* The Key is required by HIE driver */
-	struct key	*ci_keyring_key;
 
 	/* fields from the fscrypt_context */
 	u8 ci_data_mode;
 	u8 ci_filename_mode;
 	u8 ci_flags;
+	u8 ci_status;
+	atomic_t ci_count;
+	spinlock_t ci_lock;
 	u8 ci_master_key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
 	u8 ci_nonce[FS_KEY_DERIVATION_NONCE_SIZE];
+	u8 ci_raw_key[FS_MAX_KEY_SIZE];
 };
 
 typedef enum {
