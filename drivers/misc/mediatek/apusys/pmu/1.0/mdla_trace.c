@@ -141,7 +141,7 @@ static void mdla_profile_pmu_counter(int core_id)
 	trace_mdla_polling(core_id, c);
 }
 
-static void mdla_profile_register_read(core_id)
+static void mdla_profile_register_read(int core_id)
 {
 	if (!get_power_on_status(core_id))
 		return;

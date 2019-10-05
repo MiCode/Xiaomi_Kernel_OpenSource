@@ -19,7 +19,7 @@
 #include "mdla_ioctl.h"
 
 #define GSM_SIZE        (SZ_1M)
-#define GSM_MVA_BASE    (0x80000000)
+#define GSM_MVA_BASE    (0x1D000000)
 #define GSM_MVA_INVALID (0xFFFFFFFF)
 
 void *gsm_alloc(size_t size);

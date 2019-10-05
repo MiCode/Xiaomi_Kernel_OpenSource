@@ -348,7 +348,7 @@ process_command:
 	/* Trace stop */
 	mdla_trace_end(core_id, 0, &ce);
 
-	wt->id = id;
+	cd->id = id;
 
 	if (mdla_info->max_cmd_id >= id)
 		wt->result = 0;
