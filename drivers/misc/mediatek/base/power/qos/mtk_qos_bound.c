@@ -18,7 +18,7 @@
 #include "mtk_qos_ipi.h"
 
 #include <sspm_define.h>
-#include <v1/sspm_reservedmem.h>
+#include <sspm_reservedmem.h>
 
 #ifdef CONFIG_MTK_DRAMC
 #include <mtk_dramc.h>
@@ -83,10 +83,13 @@ unsigned int get_qos_bound_count(void)
 {
 	return qos_bound_count;
 }
+EXPORT_SYMBOL(get_qos_bound_count);
+
 unsigned int *get_qos_bound_buf(void)
 {
 	return qos_bound_buf;
 }
+EXPORT_SYMBOL(get_qos_bound_buf);
 
 void qos_bound_init(void)
 {
@@ -97,6 +100,7 @@ struct qos_bound *get_qos_bound(void)
 {
 	return bound;
 }
+EXPORT_SYMBOL(get_qos_bound);
 
 int get_qos_bound_bw_threshold(int state)
 {
@@ -109,6 +113,7 @@ int get_qos_bound_bw_threshold(int state)
 
 	return 0;
 }
+EXPORT_SYMBOL(get_qos_bound_bw_threshold);
 
 unsigned short get_qos_bound_idx(void)
 {
@@ -117,18 +122,19 @@ unsigned short get_qos_bound_idx(void)
 
 	return bound->idx;
 }
+EXPORT_SYMBOL(get_qos_bound_idx);
 
 int register_qos_notifier(struct notifier_block *nb)
 {
 	return blocking_notifier_chain_register(&qos_bound_chain_head, nb);
 }
-EXPORT_SYMBOL_GPL(register_qos_notifier);
+EXPORT_SYMBOL(register_qos_notifier);
 
 int unregister_qos_notifier(struct notifier_block *nb)
 {
 	return blocking_notifier_chain_unregister(&qos_bound_chain_head, nb);
 }
-EXPORT_SYMBOL_GPL(unregister_qos_notifier);
+EXPORT_SYMBOL(unregister_qos_notifier);
 
 int qos_notifier_call_chain(unsigned long val, void *v)
 {

@@ -11,10 +11,23 @@
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
 
+ifdef CONFIG_MTK_PLATFORM
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+include $(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/Makefile
+endif
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/
 
-obj-y += mtk_qos_main.o mtk_qos_bound.o mtk_qos_sram.o mtk_qos_ipi.o mtk_qos_sysfs.o
+ifeq ($(SSPM_VER),v2)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
+obj-y += mtk_qos_ipi_v2.o
+else
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1
+obj-y += mtk_qos_ipi.o
+endif
+
+obj-y += mtk_qos_main.o mtk_qos_bound.o mtk_qos_sram.o mtk_qos_sysfs.o
 # obj-y += $(MTK_PLATFORM)/
