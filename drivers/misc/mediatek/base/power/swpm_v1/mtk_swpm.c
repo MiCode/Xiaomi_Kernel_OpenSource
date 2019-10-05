@@ -40,7 +40,7 @@
  ****************************************************************************/
 #define DEFAULT_AVG_WINDOW		(50)
 /* #define LOG_LOOP_TIME_PROFILE */
-/* #define IDD_TBL_DBG */
+#define IDD_TBL_DBG
 
 #define MAX(a, b)			((a) >= (b) ? (a) : (b))
 #define MIN(a, b)			((a) >= (b) ? (b) : (a))
@@ -126,7 +126,7 @@ static int dump_power_proc_show(struct seq_file *m, void *v)
 {
 	char buf[256];
 	char *ptr = buf;
-	unsigned int i;
+	int i;
 
 	for (i = 0; i < NR_POWER_RAIL; i++) {
 		ptr += snprintf(ptr, 256, "%s",
@@ -139,7 +139,7 @@ static int dump_power_proc_show(struct seq_file *m, void *v)
 
 	for (i = 0; i < NR_POWER_RAIL; i++) {
 		ptr += snprintf(ptr, 256, "%d",
-			swpm_get_avg_power(i, avg_window));
+			swpm_get_avg_power((enum power_rail)i, avg_window));
 		if (i != NR_POWER_RAIL - 1)
 			ptr += sprintf(ptr, "/");
 		else
@@ -306,14 +306,12 @@ static ssize_t update_cnt_proc_write(struct file *file,
 	if (!buf)
 		return -EINVAL;
 
-	swpm_lock(&swpm_mutex);
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	if (sscanf(buf, "%d %d", &type, &cnt) == 2)
 		swpm_set_update_cnt(type, cnt);
 	else
 		swpm_err("echo <type or 65535> <cnt> > /proc/swpm/update_cnt\n");
 #endif
-	swpm_unlock(&swpm_mutex);
 
 	return count;
 }
@@ -596,7 +594,7 @@ static int log_loop(void)
 	unsigned long expires;
 	char buf[256] = {0};
 	char *ptr = buf;
-	unsigned int i;
+	int i;
 #ifdef LOG_LOOP_TIME_PROFILE
 	ktime_t t1, t2;
 	unsigned long long diff, diff2;
@@ -616,7 +614,7 @@ static int log_loop(void)
 	for (i = 0; i < NR_POWER_RAIL; i++) {
 		if ((1 << i) & log_mask) {
 			ptr += snprintf(ptr, 256, "%d/",
-				swpm_get_avg_power(i, 50));
+				swpm_get_avg_power((enum power_rail)i, 50));
 		}
 	}
 	ptr--;
@@ -681,7 +679,7 @@ late_initcall(swpm_init);
 /***************************************************************************
  *  API
  ***************************************************************************/
-unsigned int swpm_get_avg_power(unsigned int type, unsigned int avg_window)
+unsigned int swpm_get_avg_power(enum power_rail type, unsigned int avg_window)
 {
 	unsigned int *ptr;
 	unsigned int cnt, idx, sum = 0, pwr = 0;

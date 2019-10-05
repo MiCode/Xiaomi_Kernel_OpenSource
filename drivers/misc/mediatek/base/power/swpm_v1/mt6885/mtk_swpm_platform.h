@@ -14,12 +14,16 @@
 #ifndef __MTK_SWPM_PLATFORM_H__
 #define __MTK_SWPM_PLATFORM_H__
 
-#define MAX_RECORD_CNT			(64)
+#define MAX_RECORD_CNT                  (64)
+#define MAX_APHY_PWR                    (10)
+#define DEFAULT_LOG_INTERVAL_MS         (1000)
+#define DEFAULT_LOG_MASK                (0x13) /* VPROC2 + VPROC1 + VDRAM */
 
+#define NR_CPU_OPP                      (16)
+#define NR_CPU_L_CORE                   (6)
 
 /* data shared w/ SSPM */
 enum profile_point {
-	READ_EMI_TIME,
 	MON_TIME,
 	CALC_TIME,
 	REC_TIME,
@@ -28,40 +32,47 @@ enum profile_point {
 	NR_PROFILE_POINT
 };
 
-enum power_rail {
-	VPROC12,
-	VPROC11,
-	VGPU,
-	VCORE,
-	VDRAM1,
-	VIO18_DDR,
-	VIO18_DRAM,
-
-	NR_POWER_RAIL
-};
-
 enum power_meter_type {
 	CPU_POWER_METER,
 	GPU_POWER_METER,
 	CORE_POWER_METER,
 	MEM_POWER_METER,
+	VPU_POWER_METER,
 
 	NR_POWER_METER
 };
 
+enum power_rail {
+	VPROC2,
+	VPROC1,
+	VGPU,
+	VCORE,
+	VDRAM,
+	VIO12_DDR,
+	VIO18_DDR,
+	VIO18_DRAM,
+	VVPU,
+
+	NR_POWER_RAIL
+};
+
 enum ddr_freq {
+	DDR_400,
+	DDR_600,
 	DDR_800,
 	DDR_1200,
 	DDR_1600,
-	DDR_1800,
+	DDR_1866,
+	DDR_2133,
 
 	NR_DDR_FREQ
 };
 
 enum aphy_pwr_type {
-	APHY_VCORE_0P7V,
+	APHY_VCORE,
 	APHY_VDDQ_0P6V,
-	APHY_VM_1P1V,
+	APHY_VM_0P75V,
+	APHY_VIO_1P2V,
 	APHY_VIO_1P8V,
 
 	NR_APHY_PWR_TYPE
@@ -75,15 +86,36 @@ enum dram_pwr_type {
 	NR_DRAM_PWR_TYPE
 };
 
+enum cpu_lkg_type {
+	CPU_L_LKG,
+	CPU_B_LKG,
+	DSU_LKG,
+
+	NR_CPU_LKG_TYPE
+};
+
+enum gpu_power_counter {
+	gfreq,
+	gvolt,
+	galu_urate,
+	gtex_urate,
+	glsc_urate,
+	gl2c_urate,
+	gvary_urate,
+	gtiler_urate,
+	gloading,
+
+	GPU_POWER_COUNTER_LAST
+};
+
 struct aphy_pwr {
-	unsigned short bw[5];
-	unsigned short coef[5];
+	unsigned short bw[MAX_APHY_PWR];
+	unsigned short coef[MAX_APHY_PWR];
 };
 
 /* unit: uW / V^2 */
 struct aphy_pwr_data {
-	struct aphy_pwr read_pwr[NR_DDR_FREQ];
-	struct aphy_pwr write_pwr[NR_DDR_FREQ];
+	struct aphy_pwr pwr[NR_DDR_FREQ];
 	unsigned short coef_idle[NR_DDR_FREQ];
 };
 
@@ -103,27 +135,40 @@ struct swpm_rec_data {
 	unsigned int cur_idx;
 	unsigned int profile_enable;
 
-	/* 4(int) * 64(rec_cnt) * 4 = 1KB */
-	unsigned int pwr[NR_POWER_METER][MAX_RECORD_CNT];
+	/* 2(short) * 7(ddr_opp) = 14 bytes */
+	unsigned short ddr_opp_freq[NR_DDR_FREQ];
+
+	/* 4(int) * 64(rec_cnt) * 9 = 2304 bytes */
+	unsigned int pwr[NR_POWER_RAIL][MAX_RECORD_CNT];
 
 	/* 8(long) * 5(prof_pt) * 3 = 120 bytes */
 	unsigned long long avg_latency[NR_PROFILE_POINT];
 	unsigned long long max_latency[NR_PROFILE_POINT];
 	unsigned long long prof_cnt[NR_PROFILE_POINT];
 
-	/* 2(short) * 4(pwr_type) * 84 = 672 bytes */
+	/* 2(short) * 5(pwr_type) * 147 = 1470 bytes */
 	struct aphy_pwr_data aphy_pwr_tbl[NR_APHY_PWR_TYPE];
 
 	/* 4(int) * 3(pwr_type) * 7 = 84 bytes */
 	struct dram_pwr_conf dram_conf[NR_DRAM_PWR_TYPE];
 
-	/* reserv for emi_idx in SSPM = 1024 bytes */
-	unsigned char reserv[1024];
+	/* 4(int) * 3(lkg_type) * 16 = 192 bytes */
+	unsigned int cpu_lkg_pwr[NR_CPU_LKG_TYPE][NR_CPU_OPP];
 
-	/* remaining size = 148 bytes */
+	/* 4(int) * 10 = 40 bytes */
+	unsigned int gpu_enable;
+	unsigned int gpu_counter[GPU_POWER_COUNTER_LAST];
+
+	/* remaining size = 1912 bytes */
 };
 
 extern struct swpm_rec_data *swpm_info_ref;
+
+#ifdef CONFIG_MTK_CACHE_CONTROL
+extern int ca_force_stop_set_in_kernel(int val);
+#endif
+extern void swpm_update_gpu_counter(unsigned int gpu_pmu[]);
+extern int swpm_get_gpu_enable(void);
 
 #endif
 
