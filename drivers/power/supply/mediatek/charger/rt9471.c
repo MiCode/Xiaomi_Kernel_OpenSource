@@ -1053,6 +1053,13 @@ static int rt9471_inform_psy_changed(struct rt9471_chip *chip)
 	dev_info(chip->dev, "%s vbus_gd = %d, type = %d\n", __func__,
 			    vbus_gd, chip->chg_type);
 
+	/* Get chg type det power supply */
+	chip->psy = power_supply_get_by_name("charger");
+	if (!chip->psy) {
+		dev_notice(chip->dev, "%s get power supply fail\n", __func__);
+		return -EINVAL;
+	}
+
 	/* inform chg det power supply */
 	propval.intval = vbus_gd;
 	ret = power_supply_set_property(chip->psy, POWER_SUPPLY_PROP_ONLINE,
@@ -2421,14 +2428,6 @@ static int rt9471_probe(struct i2c_client *client,
 		goto err_init;
 	}
 
-	/* Get chg type det power supply */
-	chip->psy = power_supply_get_by_name("charger");
-	if (!chip->psy) {
-		dev_notice(chip->dev, "%s get power supply fail\n", __func__);
-		ret = -EINVAL;
-		goto err_psy;
-	}
-
 	/* Register charger device */
 	chip->chg_dev = charger_device_register(chip->desc->chg_name,
 			chip->dev, chip, &rt9471_chg_ops, &chip->chg_props);
@@ -2474,7 +2473,6 @@ err_register_irq:
 	charger_device_unregister(chip->chg_dev);
 err_register_chg_dev:
 	power_supply_put(chip->psy);
-err_psy:
 err_init:
 #ifdef CONFIG_RT_REGMAP
 	rt_regmap_device_unregister(chip->rm_dev);

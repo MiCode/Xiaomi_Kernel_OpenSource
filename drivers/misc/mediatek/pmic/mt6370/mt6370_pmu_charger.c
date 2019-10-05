@@ -844,6 +844,14 @@ static int mt6370_inform_psy_changed(struct mt6370_pmu_charger_data *chg_data)
 	dev_info(chg_data->dev, "%s: pwr_rdy = %d, type = %d\n", __func__,
 		chg_data->pwr_rdy, chg_data->chg_type);
 
+	/* Get chg type det power supply */
+	chg_data->psy = power_supply_get_by_name("charger");
+	if (!chg_data->psy) {
+		dev_notice(chg_data->dev, "%s: get power supply failed\n",
+			__func__);
+		return -EINVAL;
+	}
+
 	/* Inform chg det power supply */
 	propval.intval = chg_data->pwr_rdy;
 	ret = power_supply_set_property(chg_data->psy, POWER_SUPPLY_PROP_ONLINE,
@@ -4135,15 +4143,6 @@ static int mt6370_pmu_charger_probe(struct platform_device *pdev)
 	INIT_WORK(&chg_data->chgdet_work, mt6370_chgdet_work_handler);
 #endif /* CONFIG_MT6370_PMU_CHARGER_TYPE_DETECT && !CONFIG_TCPC_CLASS */
 
-	/* Get chg type det power supply */
-	chg_data->psy = power_supply_get_by_name("charger");
-	if (!chg_data->psy) {
-		dev_err(chg_data->dev, "%s: get power supply failed\n",
-			__func__);
-		ret = -EINVAL;
-		goto err_no_psy;
-	}
-
 	/* Do initial setting */
 	ret = mt6370_chg_init_setting(chg_data);
 	if (ret < 0) {
@@ -4201,7 +4200,6 @@ err_register_ls_dev:
 err_register_chg_dev:
 err_chg_sw_workaround:
 err_chg_init_setting:
-err_no_psy:
 	mutex_destroy(&chg_data->ichg_access_lock);
 	mutex_destroy(&chg_data->adc_access_lock);
 	mutex_destroy(&chg_data->irq_access_lock);

@@ -997,6 +997,13 @@ static int rt9467_inform_psy_changed(struct rt9467_info *info)
 	dev_info(info->dev, "%s: pwr_rdy = %d, type = %d\n", __func__,
 		info->pwr_rdy, info->chg_type);
 
+	/* Get chg type det power supply */
+	info->psy = power_supply_get_by_name("charger");
+	if (!info->psy) {
+		dev_notice(info->dev, "%s: get power supply fail\n", __func__);
+		return -EINVAL;
+	}
+
 	/* inform chg det power supply */
 	propval.intval = info->pwr_rdy;
 	ret = power_supply_set_property(info->psy, POWER_SUPPLY_PROP_ONLINE,
@@ -3675,14 +3682,6 @@ static int rt9467_probe(struct i2c_client *client,
 		dev_notice(info->dev, "%s: get usb switch fail\n", __func__);
 #endif
 
-	/* Get chg type det power supply */
-	info->psy = power_supply_get_by_name("charger");
-	if (!info->psy) {
-		dev_notice(info->dev, "%s: get power supply fail\n", __func__);
-		ret = -EINVAL;
-		goto err_no_psy;
-	}
-
 	ret = rt9467_reset_chip(info);
 	if (ret < 0) {
 		dev_notice(info->dev, "%s: reset chip fail\n", __func__);
@@ -3726,7 +3725,6 @@ err_irq_register:
 err_register_chg_dev:
 err_init_setting:
 err_reset_chip:
-err_no_psy:
 #ifdef CONFIG_RT_REGMAP
 	rt_regmap_device_unregister(info->regmap_dev);
 err_register_regmap:
