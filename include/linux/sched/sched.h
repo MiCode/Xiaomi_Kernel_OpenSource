@@ -35,6 +35,7 @@ do { \
 #define mt_sched_printf(event, x...) do {} while (0)
 #endif
 
+#define tsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)
 
 /* cpu_core_energy & cpu_cluster_energy both implmented in topology.c */
 extern

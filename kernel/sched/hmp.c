@@ -515,7 +515,7 @@ static unsigned int hmp_select_cpu(unsigned int caller, struct task_struct *p,
 	struct cpumask srcp;
 	struct cpumask *tsk_cpus_allow = &p->cpus_allowed;
 
-	cpumask_copy(&srcp, cpu_online_mask);
+	cpumask_andnot(&srcp, cpu_online_mask, cpu_isolated_mask);
 	cpumask_and(&srcp, &srcp, mask);
 	target = cpumask_any_and(&srcp, tsk_cpus_allow);
 	if (target >= num_possible_cpus())
@@ -531,7 +531,8 @@ static unsigned int hmp_select_cpu(unsigned int caller, struct task_struct *p,
 	for_each_cpu(curr, mask) {
 		/* Check CPU status and task affinity */
 		if (!cpu_online(curr) ||
-				!cpumask_test_cpu(curr, tsk_cpus_allow))
+				!cpumask_test_cpu(curr, tsk_cpus_allow) ||
+				cpu_isolated(curr))
 			continue;
 
 		/* For global load balancing, unstable CPU will be bypassed */
@@ -759,7 +760,7 @@ static unsigned int hmp_up_migration(int cpu,
 	check->status |= HMP_TASK_UP_MIGRATION;
 	check->result = 0;
 
-	cpumask_copy(&act_mask, cpu_active_mask);
+	cpumask_andnot(&act_mask, cpu_active_mask, cpu_isolated_mask);
 
 	/*
 	 * No migration is needed if
@@ -855,7 +856,7 @@ static unsigned int hmp_down_migration(int cpu,
 	check->status |= HMP_TASK_DOWN_MIGRATION;
 	check->result = 0;
 
-	cpumask_copy(&act_mask, cpu_active_mask);
+	cpumask_andnot(&act_mask, cpu_active_mask, cpu_isolated_mask);
 
 	/*
 	 * No migration is needed if
@@ -1480,7 +1481,8 @@ inline int hmp_fork_balance(struct task_struct *p, int prev_cpu)
 		lowest_ratio = hmp_domain_min_load(hmpdom, &new_cpu);
 
 		if (new_cpu < nr_cpu_ids &&
-				cpumask_test_cpu(new_cpu, &p->cpus_allowed))
+				cpumask_test_cpu(new_cpu, &p->cpus_allowed)
+				&& !cpu_isolated(new_cpu))
 			return new_cpu;
 
 		new_cpu = cpumask_any_and(&hmp_faster_domain(cpu)->cpus,
