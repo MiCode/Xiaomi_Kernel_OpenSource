@@ -77,7 +77,7 @@ uint8_t apusys_boost_value_to_opp(enum DVFS_USER user, uint8_t boost_value)
 	return opp;
 
 }
-
+EXPORT_SYMBOL(apusys_boost_value_to_opp);
 
 
 void apusys_set_pwr_lock(enum DVFS_USER user, uint8_t min_opp, uint8_t max_opp)

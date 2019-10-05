@@ -56,5 +56,17 @@ void enable_apu_clock(enum DVFS_USER);
 void enable_apu_conn_vcore_clock(void);
 void enable_apu_mtcmos(int enable);
 int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
-void enable_apu_clksrc(void);
+
+void enable_apu_conn_vcore_clksrc(void);
+void enable_apu_device_clksrc(enum DVFS_USER user);
+void enable_apu_conn_vcore_clock(void);
+void enable_apu_device_clock(enum DVFS_USER user);
+
+void disable_apu_conn_vcore_clock(void);
+void disable_apu_device_clock(enum DVFS_USER user);
+void disable_apu_conn_vcore_clksrc(void);
+void disable_apu_device_clksrc(enum DVFS_USER user);
+
+void reinit_iommu_apu_resource(void);
+
 #endif // _APU_POWER_API_H_

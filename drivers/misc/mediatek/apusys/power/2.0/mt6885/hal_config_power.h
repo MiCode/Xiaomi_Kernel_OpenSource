@@ -26,12 +26,15 @@ enum HAL_POWER_CMD {
 	PWR_CMD_SET_SHUT_DOWN,		// 2
 	PWR_CMD_SET_VOLT,		// 3
 	PWR_CMD_SET_REGULATOR_MODE,	// 4
-	PWR_CMD_SET_MTCMOS,		// 5
-	PWR_CMD_SET_CLK,		// 6
-	PWR_CMD_SET_FREQ,		// 7
-	PWR_CMD_GET_POWER_INFO,		// 8
-	PWR_CMD_REG_DUMP,		// 9
-	PWR_CMD_UNINIT_POWER,		//10
+	PWR_CMD_SET_FREQ,		// 5
+	PWR_CMD_GET_POWER_INFO,		// 6
+	PWR_CMD_REG_DUMP,		// 7
+	PWR_CMD_UNINIT_POWER,		// 8
+// do not control mtcmos and clock individually
+#if 0
+	PWR_CMD_SET_MTCMOS,
+	PWR_CMD_SET_CLK,
+#endif
 };
 
 

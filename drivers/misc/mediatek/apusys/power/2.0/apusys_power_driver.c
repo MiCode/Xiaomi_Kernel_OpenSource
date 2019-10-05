@@ -39,8 +39,6 @@ static struct hal_param_init_power init_power_data;
 #endif
 
 static int apu_power_counter;
-//static void d_work_func(struct work_struct *work);
-//static DECLARE_DELAYED_WORK(d_work, d_work_func);
 
 bool apusys_power_check(void)
 {
@@ -135,7 +133,7 @@ static LIST_HEAD(power_device_list);
 static LIST_HEAD(power_callback_device_list);
 static struct mutex power_device_list_mtx;
 static struct mutex power_opp_mtx;
-//static int power_callback_counter;
+static int power_callback_counter;
 static struct task_struct *power_task_handle;
 static uint64_t timestamp;
 
@@ -259,18 +257,17 @@ bool apu_get_power_on_status(enum DVFS_USER user)
 }
 EXPORT_SYMBOL(apu_get_power_on_status);
 
-#if 0
 static void power_callback_caller(int power_on)
 {
 	struct power_callback_device *pwr_dev = NULL;
 
-	LOG_DBG("%s begin (%d)\n", __func__, power_on);
+	LOG_WRN("%s begin (%d)\n", __func__, power_on);
 
 	if (!list_empty(&power_callback_device_list)) {
 		list_for_each_entry(pwr_dev,
 			&power_callback_device_list, list) {
 
-			LOG_DBG("%s calling %d in state %d\n", __func__,
+			LOG_WRN("%s calling %d in state %d\n", __func__,
 					pwr_dev->power_callback_usr, power_on);
 
 			if (power_on) {
@@ -283,9 +280,9 @@ static void power_callback_caller(int power_on)
 		}
 	}
 
-	LOG_DBG("%s end (%d)\n", __func__, power_on);
+	LOG_WRN("%s end (%d)\n", __func__, power_on);
 }
-#endif
+
 static struct power_callback_device*
 find_out_callback_device_by_user(enum POWER_CALLBACK_USER user)
 {
@@ -314,7 +311,6 @@ find_out_callback_device_by_user(enum POWER_CALLBACK_USER user)
 
 int apu_device_power_off(enum DVFS_USER user)
 {
-#if 0
 	struct power_device *pwr_dev = find_out_device_by_user(user);
 
 	if (pwr_dev == NULL) {
@@ -333,8 +329,10 @@ int apu_device_power_off(enum DVFS_USER user)
 			power_callback_caller(0);
 		}
 
+		// for debug
+		dump_stack();
 		// disable clock and set regulator mode to idle (lowest volt)
-		// apusys_power_off(user);
+		apusys_power_off(user);
 		pwr_dev->is_power_on = 0;
 
 	} else {
@@ -343,14 +341,13 @@ int apu_device_power_off(enum DVFS_USER user)
 	}
 
 	mutex_unlock(&power_device_list_mtx);
-#endif
+
 	return 0;
 }
 EXPORT_SYMBOL(apu_device_power_off);
 
 int apu_device_power_on(enum DVFS_USER user)
 {
-#if 0
 	struct power_device *pwr_dev = find_out_device_by_user(user);
 
 	if (pwr_dev == NULL) {
@@ -363,8 +360,10 @@ int apu_device_power_on(enum DVFS_USER user)
 	if (!pwr_dev->is_power_on) {
 		LOG_INF("%s for user : %d, cnt : %d\n", __func__,
 						user, apu_power_counter);
+		// for debug
+		dump_stack();
 		// enable clock and set regulator mode to normal
-		// apusys_power_on(user);
+		apusys_power_on(user);
 		pwr_dev->is_power_on = 1;
 
 		if (power_callback_counter == 0) {
@@ -378,7 +377,7 @@ int apu_device_power_on(enum DVFS_USER user)
 								__func__, user);
 	}
 	mutex_unlock(&power_device_list_mtx);
-#endif
+
 	return 0;
 }
 EXPORT_SYMBOL(apu_device_power_on);
@@ -520,7 +519,7 @@ EXPORT_SYMBOL(apu_power_callback_device_unregister);
 
 #endif // FOR_BRING_UP
 
-//static void d_work_func(struct work_struct *work)
+#if 0
 static void d_work_func(void)
 {
 	LOG_WRN("### apusys power on all device ###\n");
@@ -538,6 +537,7 @@ static void d_work_func(void)
 
 	apu_power_reg_dump();
 }
+#endif
 
 static int apu_power_probe(struct platform_device *pdev)
 {
@@ -555,9 +555,7 @@ static int apu_power_probe(struct platform_device *pdev)
 
 	apusys_power_init(VPU0, (void *)&init_power_data);
 
-	d_work_func();
-//	mod_delayed_work(system_freezable_power_efficient_wq,
-//					&d_work, msecs_to_jiffies(5000));
+//	d_work_func();
 
 #if !FOR_BRING_UP
 	power_task_handle = kthread_create(apusys_power_task,
@@ -595,19 +593,36 @@ err_exit:
 
 int apu_power_power_stress(int type, int device, int opp)
 {
+	static struct mutex power_stress_mtx;
+	static int power_stress_dev_pwr_stat[APUSYS_DVFS_USER_NUM] = {0};
+	int id = 0;
+
+	mutex_init(&power_stress_mtx);
+
 	LOG_WRN("%s begin with type %d +++\n", __func__, type);
+
+	if (type < 0 || type >= 10) {
+		LOG_ERR("%s err with type = %d\n", __func__, type);
+		return -1;
+	}
+
+	if (device != 9 && (device < 0 || device >= APUSYS_DVFS_USER_NUM)) {
+		LOG_ERR("%s err with device = %d\n", __func__, device);
+		return -1;
+	}
+
+	if (opp < 0 || opp >= APUSYS_MAX_NUM_OPPS) {
+		LOG_ERR("%s err with opp = %d\n", __func__, opp);
+		return -1;
+	}
+
+	mutex_lock(&power_stress_mtx);
 
 	switch (type) {
 	case 0: // config opp
-		if (opp < 0 || opp >= APUSYS_MAX_NUM_OPPS)
-			return -1;
-
 		if (device == 9) { // all devices
-			apusys_set_opp(VPU0, opp);
-			apusys_set_opp(VPU1, opp);
-			apusys_set_opp(VPU2, opp);
-			apusys_set_opp(MDLA0, opp);
-			apusys_set_opp(MDLA1, opp);
+			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++)
+				apusys_set_opp(id, opp);
 		} else {
 			apusys_set_opp(device, opp);
 		}
@@ -620,26 +635,34 @@ int apu_power_power_stress(int type, int device, int opp)
 	case 1: // config power on
 
 		if (device == 9) { // all devices
-			apusys_power_on(VPU0);
-			apusys_power_on(VPU1);
-			apusys_power_on(VPU2);
-			apusys_power_on(MDLA0);
-			apusys_power_on(MDLA1);
+			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
+				if (!power_stress_dev_pwr_stat[id]) {
+					apusys_power_on(id);
+					power_stress_dev_pwr_stat[id] = 1;
+				}
+			}
 		} else {
-			apusys_power_on(device);
+			if (!power_stress_dev_pwr_stat[device]) {
+				apusys_power_on(device);
+				power_stress_dev_pwr_stat[device] = 1;
+			}
 		}
 		break;
 
 	case 2: // config power off
 
 		if (device == 9) { // all devices
-			apusys_power_off(VPU0);
-			apusys_power_off(VPU1);
-			apusys_power_off(VPU2);
-			apusys_power_off(MDLA0);
-			apusys_power_off(MDLA1);
+			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
+				if (power_stress_dev_pwr_stat[id]) {
+					apusys_power_off(id);
+					power_stress_dev_pwr_stat[id] = 0;
+				}
+			}
 		} else {
-			apusys_power_off(device);
+			if (power_stress_dev_pwr_stat[device]) {
+				apusys_power_off(device);
+				power_stress_dev_pwr_stat[device] = 0;
+			}
 		}
 		break;
 
@@ -648,6 +671,8 @@ int apu_power_power_stress(int type, int device, int opp)
 	}
 
 	apu_get_power_info();
+
+	mutex_unlock(&power_stress_mtx);
 
 	LOG_WRN("%s end with type %d ---\n", __func__, type);
 
