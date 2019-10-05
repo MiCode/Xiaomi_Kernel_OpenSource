@@ -21,10 +21,12 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/machine.h>
 #include <linux/iio/driver.h>
+#include <linux/iio/adc/mt635x-auxadc-internal.h>
+#include <linux/regmap.h>
+#include <linux/mfd/mt6358/core.h>
+#include <linux/mfd/mt6358/registers.h>
 
-#include <mt-plat/upmu_common.h>
-#include "pmic.h"
-#include "mt635x-auxadc-internal.h"
+#define AUXADC_RDY_SHIFT		15
 
 #define AUXADC_DEF_R_RATIO		1
 #define AUXADC_DEF_AVG_NUM		8
@@ -37,10 +39,17 @@
 #define AUXADC_CHAN_MAX			AUXADC_VBIF
 
 struct mt635x_auxadc_device {
-	struct device		*dev;
-	unsigned int		nchannels;
-	struct iio_chan_spec	*iio_chans;
-	struct mutex		lock;
+	unsigned int chip_id;
+	struct regmap *regmap;
+	struct device *dev;
+	unsigned int nchannels;
+	struct iio_chan_spec *iio_chans;
+	struct mutex lock;
+	const struct auxadc_regs *auxadc_regs_tbl;
+	const unsigned int *dbg_regs;
+	unsigned int num_dbg_regs;
+	const unsigned int (*rst_setting)[3];
+	unsigned int num_rst_setting;
 };
 
 /*
@@ -56,7 +65,7 @@ struct auxadc_channels {
 	unsigned char res;
 	unsigned char r_ratio[2];
 	unsigned short avg_num;
-	struct auxadc_regs *regs;
+	const struct auxadc_regs *regs;
 	void (*convert_fn)(unsigned char convert);
 	int (*cali_fn)(int val, int precision_factor);
 };
@@ -94,22 +103,58 @@ static struct auxadc_channels auxadc_chans[] = {
 	MT635x_AUXADC_CHANNEL(VBIF, 11, 12),
 };
 
-static unsigned short auxadc_read(enum PMU_FLAGS_LIST auxadc_reg);
-static unsigned short auxadc_write(enum PMU_FLAGS_LIST auxadc_reg,
-				   unsigned int val);
+struct auxadc_regs {
+	unsigned int rqst_reg;
+	unsigned int rqst_shift;
+	unsigned int out_reg;
+};
 
-void __attribute__ ((weak)) pmic_auxadc_chip_timeout_handler(
-	struct device *dev, bool is_timeout, unsigned char ch_num)
-{
-	dev_notice(dev, "(%d)Time out!\n", ch_num);
-}
+#define MT635x_AUXADC_REG(_ch_name, _chip, _rqst_reg, _rqst_shift, _out_reg) \
+	[AUXADC_##_ch_name] = {				\
+		.rqst_reg = _chip##_##_rqst_reg,	\
+		.rqst_shift = _rqst_shift,		\
+		.out_reg = _chip##_##_out_reg,		\
+	}						\
+
+static const struct auxadc_regs mt6358_auxadc_regs_tbl[] = {
+	MT635x_AUXADC_REG(BATADC, MT6358, AUXADC_RQST0, 0, AUXADC_ADC0),
+	MT635x_AUXADC_REG(VCDT, MT6358, AUXADC_RQST0, 2, AUXADC_ADC2),
+	MT635x_AUXADC_REG(BAT_TEMP, MT6358, AUXADC_RQST0, 3, AUXADC_ADC3),
+	MT635x_AUXADC_REG(CHIP_TEMP, MT6358, AUXADC_RQST0, 4, AUXADC_ADC4),
+	MT635x_AUXADC_REG(VCORE_TEMP, MT6358, AUXADC_RQST1, 8, AUXADC_ADC38),
+	MT635x_AUXADC_REG(VPROC_TEMP, MT6358, AUXADC_RQST1, 9, AUXADC_ADC39),
+	MT635x_AUXADC_REG(VGPU_TEMP, MT6358, AUXADC_RQST1, 10, AUXADC_ADC40),
+	MT635x_AUXADC_REG(ACCDET, MT6358, AUXADC_RQST0, 5, AUXADC_ADC5),
+	MT635x_AUXADC_REG(VDCXO, MT6358, AUXADC_RQST0, 6, AUXADC_ADC6),
+	MT635x_AUXADC_REG(TSX_TEMP, MT6358, AUXADC_RQST0, 7, AUXADC_ADC7),
+	MT635x_AUXADC_REG(HPOFS_CAL, MT6358, AUXADC_RQST0, 9, AUXADC_ADC9),
+	MT635x_AUXADC_REG(DCXO_TEMP, MT6358, AUXADC_RQST0, 10, AUXADC_ADC10),
+	MT635x_AUXADC_REG(VBIF, MT6358, AUXADC_RQST0, 11, AUXADC_ADC11),
+};
+
+static const unsigned int mt6358_dbg_regs[] = {
+	MT6358_AUXADC_STA0, MT6358_AUXADC_STA1, MT6358_AUXADC_STA2,
+	MT6358_STRUP_CON6, MT6358_HK_TOP_RST_CON0,
+	MT6358_HK_TOP_CLK_CON0, MT6358_HK_TOP_CLK_CON1,
+	MT6358_AUXADC_CON20, /* check DATA_REUSE */
+};
+
+static const unsigned int mt6358_rst_setting[][3] = {
+	{
+		MT6358_HK_TOP_RST_CON0, 0x9, 0x9,
+	}, {
+		MT6358_HK_TOP_RST_CON0, 0x9, 0,
+	}, {
+		MT6358_AUXADC_RQST0, 0x80, 0x80,
+	}, {
+		MT6358_AUXADC_RQST1, 0x40, 0x40,
+	}
+};
+
+static unsigned short get_auxadc_out(struct mt635x_auxadc_device *adc_dev,
+				     int channel);
 
 /* Exported function for chip init */
-void auxadc_set_regs(int channel, struct auxadc_regs *regs)
-{
-	auxadc_chans[channel].regs = regs;
-}
-
 void auxadc_set_convert_fn(int channel, void (*convert_fn)(unsigned char))
 {
 	auxadc_chans[channel].convert_fn = convert_fn;
@@ -120,50 +165,31 @@ void auxadc_set_cali_fn(int channel, int (*cali_fn)(int, int))
 	auxadc_chans[channel].cali_fn = cali_fn;
 }
 
-int auxadc_priv_read_channel(int channel)
+int auxadc_priv_read_channel(struct device *dev, int channel)
 {
-	int val = 0;
-	unsigned int count = 0;
 	const struct auxadc_channels *auxadc_chan;
+	struct iio_dev *indio_dev;
+	struct mt635x_auxadc_device *adc_dev;
+	int val;
 
 	auxadc_chan = &auxadc_chans[channel];
-	if (auxadc_chan->convert_fn)
-		auxadc_chan->convert_fn(1);
+	indio_dev = platform_get_drvdata(to_platform_device(dev));
+	adc_dev = iio_priv(indio_dev);
 
-	if (auxadc_chan->regs->ch_rqst != -1)
-		auxadc_write(auxadc_chan->regs->ch_rqst, 1);
-	udelay(auxadc_chan->avg_num * AUXADC_AVG_TIME_US);
-
-	while (auxadc_read(auxadc_chan->regs->ch_rdy) != 1) {
-		usleep_range(100, 200);
-		if ((count++) > MAX_TIMEOUT_COUNT)
-			break;
-	}
-	val = (int)auxadc_read(auxadc_chan->regs->ch_out);
+	val = (int)get_auxadc_out(adc_dev, channel);
 	val = val * auxadc_chan->r_ratio[0] * VOLT_FULL;
 	val = (val / auxadc_chan->r_ratio[1]) >> auxadc_chan->res;
-
-	if (auxadc_chan->convert_fn)
-		auxadc_chan->convert_fn(0);
 
 	return val;
 }
 
-#if defined CONFIG_MTK_PMIC_WRAP
 #define AUXADC_MAP(_adc_channel_label)				\
 	{							\
 		.adc_channel_label = _adc_channel_label,	\
-		.consumer_dev_name = "1000d000.pwrap:mt-pmic:mt635x-auxadc",\
+		.consumer_dev_name = "mt635x-auxadc",		\
 		.consumer_channel = "AUXADC_"_adc_channel_label,\
 	}
-#else
-#define AUXADC_MAP(_adc_channel_label)				\
-	{							\
-		.adc_channel_label = _adc_channel_label,	\
-		.consumer_dev_name = "mt-pmic:mt635x-auxadc",	\
-		.consumer_channel = "AUXADC_"_adc_channel_label,\
-	}
-#endif
+
 /* for consumer drivers */
 static struct iio_map mt635x_auxadc_default_maps[] = {
 	AUXADC_MAP("BATADC"),
@@ -184,15 +210,44 @@ static struct iio_map mt635x_auxadc_default_maps[] = {
 	{},
 };
 
-static unsigned short auxadc_read(enum PMU_FLAGS_LIST auxadc_reg)
+static void auxadc_reset(struct mt635x_auxadc_device *adc_dev)
 {
-	return pmic_get_register_value(auxadc_reg);
+	int i;
+
+	for (i = 0; i < adc_dev->num_rst_setting; i++) {
+		regmap_update_bits(adc_dev->regmap,
+				   adc_dev->rst_setting[i][0],
+				   adc_dev->rst_setting[i][1],
+				   adc_dev->rst_setting[i][2]);
+	}
+	dev_notice(adc_dev->dev, "reset AUXADC done\n");
 }
 
-static unsigned short auxadc_write(
-	enum PMU_FLAGS_LIST auxadc_reg, unsigned int val)
+static void auxadc_timeout_handler(struct mt635x_auxadc_device *adc_dev,
+			    bool is_timeout, unsigned char ch_num)
 {
-	return pmic_set_hk_reg_value(auxadc_reg, val);
+	int i;
+	unsigned char reg_log[631] = "", reg_str[21] = "";
+	unsigned int reg_val = 0;
+	static unsigned short timeout_times;
+
+	if (is_timeout == false) {
+		timeout_times = 0;
+		return;
+	}
+	timeout_times++;
+	for (i = 0; i < adc_dev->num_dbg_regs; i++) {
+		regmap_read(adc_dev->regmap,
+			    adc_dev->dbg_regs[i], &reg_val);
+		snprintf(reg_str, 20, "Reg[0x%x]=0x%x, ",
+			adc_dev->dbg_regs[i], reg_val);
+		strncat(reg_log, reg_str, ARRAY_SIZE(reg_log) - 1);
+	}
+	dev_notice(adc_dev->dev,
+		   "(%d)Time out!(%d) %s\n",
+		   ch_num, timeout_times, reg_log);
+	if (timeout_times == 11)
+		auxadc_reset(adc_dev);
 }
 
 /*
@@ -204,7 +259,7 @@ static unsigned short get_auxadc_out(struct mt635x_auxadc_device *adc_dev,
 				     int channel)
 {
 	unsigned int count = 0;
-	unsigned short auxadc_out = 0;
+	unsigned int auxadc_out = 0;
 	bool is_timeout = false;
 	const struct auxadc_channels *auxadc_chan;
 
@@ -212,22 +267,24 @@ static unsigned short get_auxadc_out(struct mt635x_auxadc_device *adc_dev,
 	if (auxadc_chan->convert_fn)
 		auxadc_chan->convert_fn(1);
 
-	if (auxadc_chan->regs->ch_rqst != -1)
-		auxadc_write(auxadc_chan->regs->ch_rqst, 1);
+	regmap_write(adc_dev->regmap,
+		     auxadc_chan->regs->rqst_reg,
+		     BIT(auxadc_chan->regs->rqst_shift));
 	udelay(auxadc_chan->avg_num * AUXADC_AVG_TIME_US);
 
-	while (auxadc_read(auxadc_chan->regs->ch_rdy) != 1) {
+	regmap_read(adc_dev->regmap,
+		    auxadc_chan->regs->out_reg, &auxadc_out);
+	while (((auxadc_out >> AUXADC_RDY_SHIFT) & 0x1) != 1) {
 		usleep_range(100, 200);
 		if ((count++) > MAX_TIMEOUT_COUNT) {
 			is_timeout = true;
 			break;
 		}
+		regmap_read(adc_dev->regmap,
+			    auxadc_chan->regs->out_reg, &auxadc_out);
 	}
-	auxadc_out = auxadc_read(auxadc_chan->regs->ch_out);
-	pmic_auxadc_chip_timeout_handler(
-		adc_dev->dev,
-		is_timeout,
-		auxadc_chan->ch_num);
+	auxadc_out &= BIT(auxadc_chan->res) - 1;
+	auxadc_timeout_handler(adc_dev, is_timeout, auxadc_chan->ch_num);
 
 	if (auxadc_chan->convert_fn)
 		auxadc_chan->convert_fn(0);
@@ -276,12 +333,9 @@ static int mt635x_auxadc_read_raw(struct iio_dev *indio_dev,
 			"name:%s, channel=%d, adc_out=0x%x, adc_result=%d\n",
 			auxadc_chan->ch_name, auxadc_chan->ch_num,
 			auxadc_out, *val);
-	} else {
-		HKLOG("name:%s, channel=%d, adc_out=0x%x, adc_result=%d\n",
-			auxadc_chan->ch_name, auxadc_chan->ch_num,
-			auxadc_out, *val);
 	}
 	return ret;
+
 }
 
 static int mt635x_auxadc_of_xlate(struct iio_dev *indio_dev,
@@ -313,12 +367,12 @@ static int auxadc_get_data_from_dt(struct mt635x_auxadc_device *adc_dev,
 
 	ret = of_property_read_u32(node, "channel", channel);
 	if (ret) {
-		dev_err(adc_dev->dev,
+		dev_notice(adc_dev->dev,
 			"invalid channel in node:%s\n", node->name);
 		return ret;
 	}
 	if (*channel < AUXADC_CHAN_MIN || *channel > AUXADC_CHAN_MAX) {
-		dev_err(adc_dev->dev,
+		dev_notice(adc_dev->dev,
 			"invalid channel number %d in node:%s\n",
 			*channel, node->name);
 		return ret;
@@ -368,6 +422,7 @@ static int auxadc_parse_dt(struct mt635x_auxadc_device *adc_dev,
 			of_node_put(child);
 			return ret;
 		}
+		auxadc_chans[channel].regs = &adc_dev->auxadc_regs_tbl[channel];
 		auxadc_chan = &auxadc_chans[channel];
 
 		iio_chan->channel = channel;
@@ -389,20 +444,34 @@ static int mt635x_auxadc_probe(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	struct mt635x_auxadc_device *adc_dev;
 	struct iio_dev *indio_dev;
+	struct mt6358_chip *chip;
 	int ret;
 
+	chip = dev_get_drvdata(pdev->dev.parent);
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*adc_dev));
 	if (!indio_dev)
 		return -ENOMEM;
 
 	adc_dev = iio_priv(indio_dev);
+	adc_dev->regmap = chip->regmap;
 	adc_dev->dev = &pdev->dev;
 	mutex_init(&adc_dev->lock);
 	device_init_wakeup(&pdev->dev, true);
+	adc_dev->chip_id = (uintptr_t)of_device_get_match_data(&pdev->dev);
+
+	switch (adc_dev->chip_id) {
+	case 0x6358:
+		adc_dev->auxadc_regs_tbl = mt6358_auxadc_regs_tbl;
+		adc_dev->dbg_regs = mt6358_dbg_regs;
+		adc_dev->num_dbg_regs = ARRAY_SIZE(mt6358_dbg_regs);
+		adc_dev->rst_setting = mt6358_rst_setting;
+		adc_dev->num_rst_setting = ARRAY_SIZE(mt6358_rst_setting);
+		break;
+	}
 
 	ret = auxadc_parse_dt(adc_dev, node);
 	if (ret < 0) {
-		dev_err(&pdev->dev,
+		dev_notice(&pdev->dev,
 			"auxadc_parse_dt fail, ret=%d\n", ret);
 		return ret;
 	}
@@ -416,7 +485,7 @@ static int mt635x_auxadc_probe(struct platform_device *pdev)
 
 	ret = iio_map_array_register(indio_dev, mt635x_auxadc_default_maps);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to register IIO maps: %d\n", ret);
+		dev_notice(&pdev->dev, "failed to register iio map:%d\n", ret);
 		return ret;
 	}
 
@@ -424,7 +493,7 @@ static int mt635x_auxadc_probe(struct platform_device *pdev)
 
 	ret = iio_device_register(indio_dev);
 	if (ret < 0) {
-		dev_err(&pdev->dev, "failed to register iio device!\n");
+		dev_notice(&pdev->dev, "failed to register iio device!\n");
 		iio_map_array_unregister(indio_dev);
 		return ret;
 	}
@@ -432,7 +501,7 @@ static int mt635x_auxadc_probe(struct platform_device *pdev)
 
 	ret = pmic_auxadc_chip_init(&pdev->dev);
 	if (ret < 0) {
-		dev_err(&pdev->dev,
+		dev_notice(&pdev->dev,
 			"pmic_auxadc_chip_init fail, ret=%d\n", ret);
 		return ret;
 	}
@@ -451,8 +520,12 @@ static int mt635x_auxadc_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mt635x_auxadc_of_match[] = {
-	{ .compatible = "mediatek,mt635x-auxadc", },
-	{ }
+	{
+		.compatible = "mediatek,mt6358-auxadc",
+		.data = (void *)0x6358,
+	}, {
+		/* sentinel */
+	}
 };
 MODULE_DEVICE_TABLE(of, mt635x_auxadc_of_match);
 

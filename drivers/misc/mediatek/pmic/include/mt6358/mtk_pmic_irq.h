@@ -38,7 +38,7 @@ struct pmic_sp_irq {
 	unsigned short used;
 	const char *name;
 	void (*callback)(void);
-	void (*oc_callback)(enum PMIC_IRQ_ENUM intNo, const char *name);
+	void (*oc_callback)(enum PMIC_IRQ_ENUM intNo, const char *int_name);
 	unsigned int times;
 };
 
@@ -56,7 +56,7 @@ struct pmic_sp_interrupt {
 #if defined(MTK_EVB_PLATFORM) || defined(CONFIG_FPGA_EARLY_PORTING)
 #define ENABLE_ALL_OC_IRQ 0
 #else
-#define ENABLE_ALL_OC_IRQ 1
+#define ENABLE_ALL_OC_IRQ 0
 #endif
 
 #endif /*--PMIC_IRQ_H--*/
