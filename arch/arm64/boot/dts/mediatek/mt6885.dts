@@ -694,6 +694,7 @@ page_owner=on";
 				/*CCIF0 195/227*/
 		clocks = <&scpsys SCP_SYS_MD1>,
 			<&infracfg_ao INFRACFG_AO_DPMAIF_MAIN_CG>,
+			<&infracfg_ao INFRACFG_AO_CLDMA_BCLK_CK>,
 			<&infracfg_ao INFRACFG_AO_CCIF_AP_CG>,
 			<&infracfg_ao INFRACFG_AO_CCIF_MD_CG>,
 			<&infracfg_ao INFRACFG_AO_CCIF1_AP_CG>,
@@ -703,6 +704,7 @@ page_owner=on";
 			<&infracfg_ao INFRACFG_AO_CCIF4_MD_CG>;
 		clock-names = "scp-sys-md1-main",
 			"infra-dpmaif-clk",
+			"infra-dpmaif-blk-clk",
 			"infra-ccif-ap",
 			"infra-ccif-md",
 			"infra-ccif1-ap",

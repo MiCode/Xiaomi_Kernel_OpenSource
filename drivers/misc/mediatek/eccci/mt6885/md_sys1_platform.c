@@ -53,6 +53,7 @@
 static struct ccci_clk_node clk_table[] = {
 	{ NULL, "scp-sys-md1-main"},
 	{ NULL, "infra-dpmaif-clk"},
+	{ NULL, "infra-dpmaif-blk-clk"},
 	{ NULL, "infra-ccif-ap"},
 	{ NULL, "infra-ccif-md"},
 	{ NULL, "infra-ccif1-ap"},
