@@ -31,30 +31,15 @@ static char msg_legacy_ipi_mpool_1[PIN_IN_SIZE_SCP_MPOOL * MBOX_SLOT_SIZE];
 
 /* the order of ipi_id should be consistent with IPI_LEGACY_GROUP */
 enum ipi_id {
+	IPI_MPOOL,
 	IPI_CHRE,
 	IPI_CHREX,
 	IPI_SENSOR,
-	IPI_MPOOL,
 	SCP_NR_IPI,
 };
 
 #define SCP_IPI_LEGACY_GROUP				  \
 {							  \
-	{	.out_id_0 = IPI_OUT_CHRE_0,		  \
-		.in_id_0 = IPI_IN_CHRE_0,		  \
-		.out_size = PIN_OUT_SIZE_CHRE_0,	  \
-		.in_size = PIN_IN_SIZE_CHRE_0,		  \
-		.msg_0 = msg_legacy_ipi_chre,		  \
-	},						  \
-	{	.out_id_0 = IPI_OUT_CHREX_0,		  \
-		.out_size = PIN_OUT_SIZE_CHREX_0,	  \
-	},						  \
-	{	.out_id_0 = IPI_OUT_SENSOR_0,		  \
-		.in_id_0 = IPI_IN_SENSOR_0,		  \
-		.out_size = PIN_OUT_SIZE_SENSOR_0,	  \
-		.in_size = PIN_IN_SIZE_SENSOR_0,	  \
-		.msg_0 = msg_legacy_ipi_sensor,		  \
-	},						  \
 	{	.out_id_0 = IPI_OUT_SCP_MPOOL_0,	  \
 		.out_id_1 = IPI_OUT_SCP_MPOOL_1,	  \
 		.in_id_0 = IPI_IN_SCP_MPOOL_0,		  \
