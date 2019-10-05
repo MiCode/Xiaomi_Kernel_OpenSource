@@ -1,0 +1,173 @@
+/*
+ * Copyright (C) 2019 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+#include <linux/module.h>  /* Needed by all modules */
+#include <linux/kernel.h>  /* Needed for KERN_ALERT */
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include <linux/delay.h>
+#include <linux/jiffies.h>
+#include <linux/platform_device.h>
+
+#include <linux/init.h>
+#include <linux/io.h>
+
+#include "sample_drv.h"
+#include "sample_cmn.h"
+#include "sample_inf.h"
+
+/* define */
+#define APUSYS_DEV_NAME "apusys_sample"
+
+/* global variable */
+static dev_t sample_devt;
+static struct cdev *sample_cdev;
+//static struct class *sample_class;
+
+/* function declaration */
+static int sample_open(struct inode *, struct file *);
+static int sample_release(struct inode *, struct file *);
+static long sample_ioctl(struct file *filp,
+	unsigned int cmd, unsigned long arg);
+
+static const struct file_operations sample_fops = {
+	.open = sample_open,
+	.unlocked_ioctl = sample_ioctl,
+	.release = sample_release,
+};
+
+static int sample_open(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static int sample_release(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static int sample_probe(struct platform_device *pdev)
+{
+	DEBUG_TAG;
+	sample_device_init();
+
+	return 0;
+}
+
+static int sample_remove(struct platform_device *pdev)
+{
+	sample_device_destroy();
+	return 0;
+}
+
+static int sample_suspend(struct platform_device *pdev, pm_message_t mesg)
+{
+	return 0;
+}
+
+static int sample_resume(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static long sample_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	return 0;
+}
+
+static const struct of_device_id sample_of_match[] = {
+	{ .compatible = "mediatek,apusys_sample", },
+	{/* end of list */},
+};
+
+static struct platform_driver sample_driver = {
+	.probe = sample_probe,
+	.remove = sample_remove,
+	.suspend = sample_suspend,
+	.resume  = sample_resume,
+	//.pm = apusys_pm_qos,
+	.driver = {
+		.name = APUSYS_DEV_NAME,
+		.owner = THIS_MODULE,
+		.of_match_table = sample_of_match,
+	},
+};
+
+static int __init sample_init(void)
+{
+	int ret = 0;
+	//struct device *dev = NULL;
+
+	DEBUG_TAG;
+
+	/* get major */
+	ret = alloc_chrdev_region(&sample_devt, 0, 1, APUSYS_DEV_NAME);
+	if (ret < 0) {
+		LOG_ERR("alloc_chrdev_region failed, %d\n", ret);
+		return ret;
+	}
+
+	/* Allocate driver */
+	sample_cdev = cdev_alloc();
+	if (sample_cdev == NULL) {
+		LOG_ERR("cdev_alloc failed\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	/* Attatch file operation. */
+	cdev_init(sample_cdev, &sample_fops);
+	sample_cdev->owner = THIS_MODULE;
+	DEBUG_TAG;
+
+	/* Add to system */
+	ret = cdev_add(sample_cdev, sample_devt, 1);
+	if (ret < 0) {
+		LOG_ERR("Attatch file operation failed, %d\n", ret);
+		goto out;
+	}
+
+	DEBUG_TAG;
+
+	if (platform_driver_register(&sample_driver)) {
+		LOG_ERR("failed to register APUSYS driver");
+		goto out;
+	}
+
+out:
+	/* Release char driver */
+	if (sample_cdev != NULL) {
+		cdev_del(sample_cdev);
+		sample_cdev = NULL;
+	}
+	unregister_chrdev_region(sample_devt, 1);
+
+	return ret;
+}
+
+static void __exit sample_destroy(void)
+{
+	/* Release char driver */
+	if (sample_cdev != NULL) {
+		cdev_del(sample_cdev);
+		sample_cdev = NULL;
+	}
+	unregister_chrdev_region(sample_devt, 1);
+	platform_driver_unregister(&sample_driver);
+}
+
+module_init(sample_init);
+module_exit(sample_destroy);
+MODULE_DESCRIPTION("MTK APUSYS SAMPLE Driver");
+MODULE_AUTHOR("SS5");
+MODULE_LICENSE("GPL");

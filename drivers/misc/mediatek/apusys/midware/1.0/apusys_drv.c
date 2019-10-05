@@ -1,0 +1,841 @@
+/*
+ * Copyright (C) 2019 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+#include <linux/module.h>  /* Needed by all modules */
+#include <linux/kernel.h>  /* Needed for KERN_ALERT */
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include <linux/delay.h>
+#include <linux/jiffies.h>
+#include <linux/platform_device.h>
+#include <linux/uaccess.h>
+#include <linux/slab.h>
+
+#include <linux/init.h>
+#include <linux/io.h>
+
+#include "apusys_drv.h"
+#include "apusys_user.h"
+#include "apusys_cmn.h"
+#include "scheduler.h"
+#include "resource_mgt.h"
+#include "memory_mgt.h"
+#include "cmd_parser.h"
+#include "apusys_dbg.h"
+
+#include "apusys_device.h"
+
+
+#include <linux/dma-mapping.h>
+
+/* define */
+#define APUSYS_DEV_NAME "apusys"
+
+/* global variable */
+static dev_t apusys_devt;
+static struct cdev *apusys_cdev;
+static struct class *apusys_class;
+struct device *g_apusys_device;
+
+/* function declaration */
+static int apusys_open(struct inode *, struct file *);
+static int apusys_release(struct inode *, struct file *);
+static long apusys_ioctl(struct file *, unsigned int, unsigned long);
+static long apusys_compat_ioctl(struct file *, unsigned int, unsigned long);
+static int apusys_mmap(struct file *filp, struct vm_area_struct *vma);
+
+static const struct file_operations apusys_fops = {
+	.open = apusys_open,
+	.unlocked_ioctl = apusys_ioctl,
+	.compat_ioctl = apusys_compat_ioctl,
+	.release = apusys_release,
+	.mmap = apusys_mmap,
+};
+
+static int apusys_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	unsigned long offset = vma->vm_pgoff;
+	unsigned long size = vma->vm_end - vma->vm_start;
+
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+	if (remap_pfn_range(vma, vma->vm_start, offset, size,
+			vma->vm_page_prot)) {
+		LOG_ERR("remap_pfn_range fail: %p\n", vma);
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+
+static int apusys_open(struct inode *inode, struct file *filp)
+{
+	struct apusys_user *u = NULL;
+	int ret = 0;
+
+	ret = apusys_create_user(&u);
+	if (ret) {
+		LOG_ERR("create apusys user fail (%d)\n", ret);
+		return -ENOMEM;
+	}
+
+	filp->private_data = u;
+
+	LOG_INFO("create user %p(0x%llx/%d/%d)\n",
+		u,
+		u->id,
+		u->open_pid,
+		u->open_tgid);
+
+	return 0;
+}
+
+static int apusys_release(struct inode *inode, struct file *filp)
+{
+	struct apusys_user *u = filp->private_data;
+	int ret = 0;
+
+	if (u == NULL) {
+		LOG_ERR("miss apusys user\n");
+		return -ENOMEM;
+	}
+
+	LOG_INFO("delete user %p(0x%llx/0x%llx/0x%llx)\n",
+		u,
+		u->id,
+		u->open_pid,
+		u->open_tgid);
+
+	ret = apusys_delete_user(u);
+	if (ret) {
+		LOG_ERR("delete apusys user fail(%d)\n", ret);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int apusys_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct device *dev = NULL;
+
+	LOG_DEBUG("+\n");
+	g_apusys_device = &pdev->dev;
+
+	/* get major */
+	ret = alloc_chrdev_region(&apusys_devt, 0, 1, APUSYS_DEV_NAME);
+	if (ret < 0) {
+		LOG_ERR("alloc_chrdev_region failed, %d\n", ret);
+		return ret;
+	}
+
+	/* Allocate driver */
+	apusys_cdev = cdev_alloc();
+	if (apusys_cdev == NULL) {
+		LOG_ERR("cdev_alloc failed\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	/* Attatch file operation. */
+	cdev_init(apusys_cdev, &apusys_fops);
+	apusys_cdev->owner = THIS_MODULE;
+
+	/* Add to system */
+	ret = cdev_add(apusys_cdev, apusys_devt, 1);
+	if (ret < 0) {
+		LOG_ERR("Attatch file operation failed, %d\n", ret);
+		goto out;
+	}
+
+	/* Create class register */
+	apusys_class = class_create(THIS_MODULE, "apusysdrv");
+	if (IS_ERR(apusys_class)) {
+		ret = PTR_ERR(apusys_class);
+		LOG_ERR("Unable to create class, err = %d\n", ret);
+		goto out;
+	}
+
+	dev = device_create(apusys_class, NULL, apusys_devt,
+		NULL, APUSYS_DEV_NAME);
+	if (IS_ERR(dev)) {
+		ret = PTR_ERR(dev);
+		LOG_ERR("Failed to create device: /dev/%s, err = %d",
+			APUSYS_DEV_NAME, ret);
+		goto out;
+	}
+
+	/* init function */
+	if (apusys_user_init()) {
+		ret = -EINVAL;
+		goto out;
+	}
+	if (resource_mgt_init()) {
+		ret = -EINVAL;
+		goto resource_init_fail;
+	}
+	if (apusys_sched_init()) {
+		ret = -EINVAL;
+		goto sched_init_fail;
+	}
+	if (apusys_mem_init(&pdev->dev)) {
+		ret = -EINVAL;
+		goto mem_init_fail;
+	}
+	if (apusys_dbg_init()) {
+		ret = -EINVAL;
+		goto dbg_init_fail;
+	}
+
+	LOG_DEBUG("-\n");
+
+	return 0;
+
+	apusys_dbg_destroy();
+dbg_init_fail:
+	apusys_mem_destroy();
+mem_init_fail:
+	apusys_sched_destroy();
+sched_init_fail:
+	resource_mgt_destroy();
+resource_init_fail:
+	apusys_user_destroy();
+out:
+
+	/* Release device */
+	if (dev != NULL)
+		device_destroy(apusys_class, apusys_devt);
+
+	/* Release class */
+	if (apusys_class != NULL)
+		class_destroy(apusys_class);
+
+	/* Release char driver */
+	if (apusys_cdev != NULL) {
+		cdev_del(apusys_cdev);
+		apusys_cdev = NULL;
+	}
+	unregister_chrdev_region(apusys_devt, 1);
+
+	return ret;
+}
+
+static int apusys_remove(struct platform_device *pdev)
+{
+	LOG_DEBUG("+\n");
+	/* release logical resource */
+	apusys_dbg_destroy();
+	apusys_mem_destroy();
+	apusys_sched_destroy();
+	resource_mgt_destroy();
+	apusys_user_destroy();
+
+	/* Release device */
+	device_destroy(apusys_class, apusys_devt);
+
+	/* Release class */
+	if (apusys_class != NULL)
+		class_destroy(apusys_class);
+
+	/* Release char driver */
+	if (apusys_cdev != NULL) {
+		cdev_del(apusys_cdev);
+		apusys_cdev = NULL;
+	}
+	unregister_chrdev_region(apusys_devt, 1);
+	LOG_DEBUG("-\n");
+	return 0;
+}
+
+static int apusys_suspend(struct platform_device *pdev, pm_message_t mesg)
+{
+	return 0;
+}
+
+static int apusys_resume(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	int ret = 0;
+	struct apusys_user *user = (struct apusys_user *)filp->private_data;
+	struct apusys_ioctl_cmd ioctl_cmd;
+	struct apusys_mem mem;
+	struct apusys_ioctl_hs hs;
+	struct apusys_ioctl_dev dev_alloc;
+	struct apusys_cmd *a_cmd = NULL;
+	struct apusys_device *dev = NULL;
+	struct apusys_dev_aquire acq;
+	struct apusys_ioctl_power ioctl_pwr;
+	struct apusys_ioctl_fw ioctl_fw;
+
+	/* check apusys user is available */
+	if (user == NULL) {
+		LOG_ERR("ioctl miss apusys user");
+		return -EINVAL;
+	}
+
+	switch (cmd) {
+	case APUSYS_IOCTL_HANDSHAKE:
+		DEBUG_TAG;
+		/* handshaking, pass kernel apusys information */
+		if (copy_from_user(&hs, (void *)arg,
+			sizeof(struct apusys_ioctl_hs))) {
+			LOG_ERR("copy handshake struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		hs.magic_num = get_cmdformat_magic();
+		hs.cmd_version = get_cmdformat_version();
+		switch (hs.type) {
+		case APUSYS_HANDSHAKE_BEGIN:
+			hs.begin.mem_support =
+				(1 << APUSYS_MEM_DRAM_ION | 1<<APUSYS_MEM_TCM);
+			hs.begin.dev_support = resource_get_dev_support();
+			hs.begin.dev_type_max = APUSYS_DEVICE_MAX;
+			LOG_DEBUG("device support = 0x%llx\n",
+				hs.begin.dev_support);
+			break;
+
+		case APUSYS_HANDSHAKE_QUERY_DEV:
+			hs.dev.num = resource_get_device_num(hs.dev.type);
+			LOG_DEBUG("device(%d) support(%d) core\n",
+				hs.type, hs.dev.num);
+
+			if (hs.dev.num < 0)
+				ret = -EINVAL;
+
+			break;
+
+		default:
+			LOG_DEBUG("wrong handshake type(%d)\n",
+				hs.type);
+			ret = -EINVAL;
+			break;
+		}
+
+		if (copy_to_user((void *)arg, &hs,
+			sizeof(struct apusys_ioctl_hs))) {
+			LOG_ERR("handshake with user fail\n");
+			ret = -EINVAL;
+		}
+		break;
+
+	case APUSYS_IOCTL_MEM_ALLOC:
+		DEBUG_TAG;
+		if (copy_from_user(&mem, (void *)arg,
+			sizeof(struct apusys_mem))) {
+			LOG_ERR("copy mem struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* allocate memory, mapping kernel va */
+		ret = apusys_mem_alloc(&mem);
+		if (ret)
+			break;
+
+		if (copy_to_user((void *)arg, &mem,
+			sizeof(struct apusys_mem))) {
+			LOG_ERR("copy mem struct to user fail\n");
+			if (apusys_mem_free(&mem))
+				LOG_ERR("free unused mem fail\n");
+
+			ret = -EINVAL;
+		} else {
+			if (apusys_user_insert_mem(user, &mem)) {
+				LOG_ERR("insert mem to user fail",
+					" (0x%llx/%d/%d/0x%llx/0x%x/%d)\n",
+					user->id,
+					mem.mem_type,
+					mem.ion_data.ion_share_fd,
+					mem.kva,
+					mem.iova,
+					mem.size);
+			}
+		}
+
+		break;
+
+	case APUSYS_IOCTL_MEM_FREE:
+		DEBUG_TAG;
+		if (copy_from_user(&mem, (void *)arg,
+			sizeof(struct apusys_mem))) {
+			LOG_ERR("copy mem struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* free memory, free kernel memory ref count */
+		ret = apusys_mem_free(&mem);
+		if (ret) {
+			LOG_ERR("free apusys mem fail\n");
+			break;
+		}
+
+		if (apusys_user_delete_mem(user, &mem)) {
+			LOG_ERR("delete mem from user fail ",
+				"(0x%llx/%d/%d/0x%llx/0x%x/%d)\n",
+				user->id,
+				mem.mem_type,
+				mem.ion_data.ion_share_fd,
+				mem.kva,
+				mem.iova,
+				mem.size);
+			ret = -EINVAL;
+			goto out;
+		} else {
+			if (copy_to_user((void *)arg, &mem,
+				sizeof(struct apusys_mem))) {
+
+				LOG_ERR("copy mem struct to user fail\n");
+				ret = -EINVAL;
+			}
+		}
+
+		break;
+
+	case APUSYS_IOCTL_MEM_CTL:
+		DEBUG_TAG;
+		if (copy_from_user(&mem, (void *)arg,
+			sizeof(struct apusys_mem))) {
+			LOG_ERR("copy mem struct fail\n");
+			ret = -EINVAL;
+		}
+
+		ret = apusys_mem_ctl(&mem);
+		if (ret)
+			LOG_ERR("control apusys mem fail\n");
+
+		if (ret == 0) {
+			if (copy_to_user((void *)arg, &mem,
+				sizeof(struct apusys_mem))) {
+				LOG_ERR("copy mem struct to user fail\n");
+				ret = -EINVAL;
+			}
+		}
+		break;
+
+	case APUSYS_IOCTL_RUN_CMD_SYNC:
+		if (copy_from_user(&ioctl_cmd, (void *)arg,
+			sizeof(struct apusys_ioctl_cmd))) {
+			LOG_ERR("copy cmd struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		LOG_DEBUG("ioctl_cmd: 0x%x/0x%llx/0x%llx/%d\n",
+			ioctl_cmd.iova,
+			ioctl_cmd.uva,
+			ioctl_cmd.kva,
+			ioctl_cmd.size);
+
+		/* parse command buffer, and get struct apusys_cmd */
+		ret = apusys_cmd_create(&ioctl_cmd, &a_cmd);
+		if (ret || a_cmd == NULL) {
+			LOG_ERR("parser cmd fail(%d/%p).\n", ret, a_cmd);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* insert cmd to user list */
+		ret = apusys_user_insert_cmd(user, (void *)a_cmd);
+		if (ret) {
+			LOG_ERR("insert apusys cmd(0x%llx) to user list fail\n",
+				a_cmd->cmd_id);
+			if (apusys_cmd_delete(a_cmd))
+				LOG_ERR("delete apusys cmd(%p) fail\n", a_cmd);
+
+			goto out;
+		}
+
+		/* insert cmd to priority queue */
+		if (apusys_sched_add_list(a_cmd)) {
+			LOG_ERR("add cmd(0x%llx) to list fail\n",
+				a_cmd->cmd_id);
+			if (apusys_user_delete_cmd(user, a_cmd)) {
+				LOG_ERR("delete cmd(0x%llx) from user fail\n",
+					a_cmd->cmd_id);
+			}
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* wait cmd done */
+		ret = apusys_sched_wait_cmd(a_cmd);
+		if (ret) {
+			LOG_ERR("wati cmd, delete cmd(0x%llx) from user fail\n",
+				a_cmd->cmd_id);
+			ret = -EINVAL;
+		}
+
+		/* delete cmd from user list */
+		if (apusys_user_delete_cmd(user, (void *)a_cmd))
+			LOG_ERR("delete cmd(0x%llx) from user fail\n",
+			a_cmd->cmd_id);
+
+		if (apusys_cmd_delete(a_cmd))
+			LOG_ERR("delete apusys cmd(%p) fail\n", a_cmd);
+
+		break;
+
+	case APUSYS_IOCTL_RUN_CMD_ASYNC:
+		if (copy_from_user(&ioctl_cmd, (void *)arg,
+			sizeof(struct apusys_ioctl_cmd))) {
+			LOG_ERR("copy cmd struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		LOG_DEBUG("ioctl_cmd: 0x%x/0x%llx/0x%llx/%d\n",
+			ioctl_cmd.iova,
+			ioctl_cmd.uva,
+			ioctl_cmd.kva,
+			ioctl_cmd.size);
+		/* parse command buffer, and get struct apusys_cmd */
+		ret = apusys_cmd_create(&ioctl_cmd, &a_cmd);
+		if (ret || a_cmd == NULL) {
+			LOG_ERR("parser cmd fail(%d/%p).\n", ret, a_cmd);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* insert cmd to user list */
+		ret = apusys_user_insert_cmd(user, (void *)a_cmd);
+		if (ret) {
+			LOG_ERR("insert apusys cmd(0x%llx) to user list fail\n",
+				a_cmd->cmd_id);
+
+			if (apusys_cmd_delete(a_cmd))
+				LOG_ERR("delete apusys cmd(%p) fail\n", a_cmd);
+
+			goto out;
+		}
+
+		/* insert cmd to priority queue */
+		ret = apusys_sched_add_list(a_cmd);
+		if (ret) {
+			LOG_ERR("add cmd(0x%llx) to list fail\n",
+				a_cmd->cmd_id);
+			if (apusys_user_delete_cmd(user, a_cmd))
+				LOG_ERR("delete cmd(0x%llx) from user fail\n",
+				a_cmd->cmd_id);
+
+			goto out;
+		}
+
+		ioctl_cmd.cmd_id = a_cmd->cmd_id;
+		if (copy_to_user((void *)arg, &ioctl_cmd,
+			sizeof(struct apusys_ioctl_cmd))) {
+			LOG_ERR("copy cmd struct to user fail\n");
+			ret = -EINVAL;
+		}
+
+		break;
+
+	case APUSYS_IOCTL_WAIT_CMD:
+		DEBUG_TAG;
+		if (copy_from_user(&ioctl_cmd, (void *)arg,
+			sizeof(struct apusys_ioctl_cmd))) {
+			LOG_ERR("copy cmd struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		if (ioctl_cmd.cmd_id == 0) {
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* get cmd from user list */
+		ret = apusys_user_get_cmd(user, (void **)&a_cmd,
+		ioctl_cmd.cmd_id);
+		if (ret) {
+			LOG_ERR("get cmd(0x%llx) from user fail\n",
+				ioctl_cmd.cmd_id);
+			goto out;
+		}
+
+		if (a_cmd->cmd_ret) {
+
+		} else {
+			/* wait cmd done */
+			ret = apusys_sched_wait_cmd(a_cmd);
+			if (ret) {
+				LOG_ERR("wait cmd, delete cmd(0x%llx)",
+					" from user fail\n",
+					a_cmd->cmd_id);
+				ret = -EINVAL;
+			}
+		}
+
+		/* delete cmd from user list */
+		if (apusys_user_delete_cmd(user, (void *)a_cmd))
+			LOG_ERR("delete cmd(0x%llx) from user fail\n",
+			a_cmd->cmd_id);
+
+		if (apusys_cmd_delete(a_cmd))
+			LOG_ERR("delete apusys cmd(%p) fail\n", a_cmd);
+
+		break;
+
+	case APUSYS_IOCTL_SET_POWER:
+		DEBUG_TAG;
+		if (copy_from_user(&ioctl_pwr, (void *)arg,
+			sizeof(struct apusys_ioctl_power))) {
+			LOG_ERR("copy power struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		LOG_DEBUG("set power: device(%d/%d) boost_val(%d)\n",
+			ioctl_pwr.dev_type,
+			ioctl_pwr.idx,
+			ioctl_pwr.boost_val);
+
+		/* call power on functions */
+		ret = resource_set_power(ioctl_pwr.dev_type, ioctl_pwr.idx,
+		ioctl_pwr.boost_val);
+		if (ret) {
+			LOG_ERR("set power: device(%d/%d)",
+				" boost_val(%d) fail(%d)\n",
+				ioctl_pwr.dev_type,
+				ioctl_pwr.idx,
+				ioctl_pwr.boost_val,
+				ret);
+		}
+
+		break;
+
+	case APUSYS_IOCTL_DEVICE_ALLOC:
+		DEBUG_TAG;
+		if (copy_from_user(&dev_alloc, (void *)arg,
+			sizeof(struct apusys_ioctl_dev))) {
+			LOG_ERR("copy dev_alloc struct fail\n");
+			ret = -EINVAL;
+		}
+
+		/* get type device from resource mgr */
+		memset(&acq, 0, sizeof(acq));
+		acq.target_num = 1;
+		acq.dev_type = dev_alloc.dev_type;
+		acq.is_done = 0;
+		acq.owner = user->open_pid;
+		if (acquire_device_sync_lock(&acq) <= 0) {
+			LOG_ERR("alloc device(%d) by user(%p/0x%llx) fail\n",
+				dev_alloc.dev_type,
+				user, user->id);
+
+			ret = -ENODEV;
+		}
+
+		/* insert allocated device to user list */
+		ret = apusys_user_insert_dev(user, dev);
+		if (ret) {
+			if (resource_put_device(dev)) {
+				LOG_ERR("insert to user's dev list fail",
+					" and put device fail, may device leak!\n");
+				ret = -ENODEV;
+			}
+			break;
+		}
+
+		dev_alloc.handle = (uint64_t)dev;
+		if (ret == 0) {
+			if (copy_to_user((void *)arg, &dev_alloc,
+				sizeof(struct apusys_ioctl_dev))) {
+				LOG_ERR("copy user dev struct to user fail\n");
+				ret = -EINVAL;
+			}
+		}
+
+		break;
+
+	case APUSYS_IOCTL_DEVICE_FREE:
+		DEBUG_TAG;
+		if (copy_from_user(&dev_alloc, (void *)arg,
+			sizeof(struct apusys_ioctl_dev))) {
+			LOG_ERR("copy dev_alloc struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* check parameters */
+		if (dev_alloc.num == 0 || dev_alloc.handle == 0 ||
+			dev_alloc.dev_idx < 0) {
+			LOG_ERR("invalid parameter(%d/0x%llx/%d)\n",
+				dev_alloc.num,
+				dev_alloc.handle,
+				dev_alloc.dev_idx);
+
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* put device back to dev table */
+		dev = (struct apusys_device *)dev_alloc.handle;
+		ret = resource_put_device(dev);
+		if (ret) {
+			LOG_ERR("free device(%p) fail(%d)\n", dev, ret);
+			ret = -ENODEV;
+		} else {
+			/* delete device from user */
+			if (apusys_user_delete_dev(user, dev)) {
+				LOG_ERR("delete device(%p)",
+					" from user(0x%llx) fail(%d)\n",
+					dev,
+					user->id,
+					ret);
+
+				ret = -ENODEV;
+			}
+		}
+
+		break;
+
+	case APUSYS_IOCTL_FW_LOAD:
+		DEBUG_TAG;
+		if (copy_from_user(&ioctl_fw,
+			(void *)arg, sizeof(struct apusys_ioctl_fw))) {
+			LOG_ERR("copy fw struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		ret = resource_load_fw(ioctl_fw.dev_type,
+			ioctl_fw.idx, ioctl_fw.kva,
+			ioctl_fw.iova, ioctl_fw.size,
+			APUSYS_FIRMWARE_LOAD);
+
+		if (ret) {
+			LOG_ERR("load fw to device(%d/%d)",
+				" (0x%llx/0x%x/0x%x) fail\n",
+				ioctl_fw.dev_type,
+				ioctl_fw.idx,
+				ioctl_fw.kva,
+				ioctl_fw.iova,
+				ioctl_fw.size);
+		}
+
+		break;
+
+	case APUSYS_IOCTL_FW_UNLOAD:
+		DEBUG_TAG;
+		if (copy_from_user(&ioctl_fw, (void *)arg,
+			sizeof(struct apusys_ioctl_fw))) {
+			LOG_ERR("copy fw struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		ret = resource_load_fw(ioctl_fw.dev_type,
+			ioctl_fw.idx, ioctl_fw.kva,
+			ioctl_fw.iova, ioctl_fw.size,
+			APUSYS_FIRMWARE_UNLOAD);
+
+		if (ret) {
+			LOG_ERR("load fw to device(%d/%d)",
+				"(0x%llx/0x%x/0x%x) fail\n",
+				ioctl_fw.dev_type,
+				ioctl_fw.idx,
+				ioctl_fw.kva,
+				ioctl_fw.iova,
+				ioctl_fw.size);
+		}
+
+		break;
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+out:
+	return ret;
+}
+
+static long apusys_compat_ioctl(struct file *flip, unsigned int cmd,
+	unsigned long arg)
+{
+	DEBUG_TAG;
+
+	switch (cmd) {
+	case APUSYS_IOCTL_HANDSHAKE:
+	case APUSYS_IOCTL_MEM_ALLOC:
+	case APUSYS_IOCTL_MEM_FREE:
+	case APUSYS_IOCTL_MEM_CTL:
+	case APUSYS_IOCTL_RUN_CMD_SYNC:
+	case APUSYS_IOCTL_RUN_CMD_ASYNC:
+	case APUSYS_IOCTL_WAIT_CMD:
+	case APUSYS_IOCTL_SET_POWER:
+	case APUSYS_IOCTL_DEVICE_ALLOC:
+	case APUSYS_IOCTL_DEVICE_FREE:
+	case APUSYS_IOCTL_FW_LOAD:
+	case APUSYS_IOCTL_FW_UNLOAD:
+	{
+		return flip->f_op->unlocked_ioctl(flip, cmd,
+					(unsigned long)compat_ptr(arg));
+	}
+	default:
+		return -ENOIOCTLCMD;
+		/*return vpu_ioctl(flip, cmd, arg);*/
+	}
+
+	return 0;
+}
+
+static const struct of_device_id apusys_of_match[] = {
+	{.compatible = "mediatek,apusys",},
+	{/* end of list */},
+};
+
+static struct platform_driver apusys_driver = {
+	.probe = apusys_probe,
+	.remove = apusys_remove,
+	.suspend = apusys_suspend,
+	.resume  = apusys_resume,
+	//.pm = apusys_pm_qos,
+	.driver = {
+		.name = APUSYS_DEV_NAME,
+		.owner = THIS_MODULE,
+		.of_match_table = apusys_of_match,
+	},
+};
+
+static int __init apusys_init(void)
+{
+	int ret = 0;
+
+	DEBUG_TAG;
+
+	if (platform_driver_register(&apusys_driver)) {
+		LOG_ERR("failed to register APUSYS driver");
+		return -ENODEV;
+	}
+
+	return ret;
+}
+
+static void __exit apusys_destroy(void)
+{
+	platform_driver_unregister(&apusys_driver);
+}
+
+module_init(apusys_init);
+module_exit(apusys_destroy);
+MODULE_DESCRIPTION("MTK APUSYS Driver");
+MODULE_AUTHOR("SPT1/SS5");
+MODULE_LICENSE("GPL");

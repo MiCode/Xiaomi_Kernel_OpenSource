@@ -24,7 +24,7 @@ enum {
 	APUSYS_DEVICE_EDMA,
 	APUSYS_DEVICE_WAIT, // subgraph mean wait event
 
-	APUSYS_DEVICE_MAX,
+	APUSYS_DEVICE_MAX, //total support 64 different devices
 };
 
 /* device cmd type */
@@ -76,16 +76,21 @@ struct apusys_cmd_hnd {
 	uint32_t iova;
 	uint32_t size;
 
+	uint64_t cmd_id;
 	uint64_t pmu_kva;
+	uint64_t cmd_entry;
 
 	int boost_val;
 };
 
 struct apusys_firmware_hnd {
-	void *kva;
+	uint64_t kva;
+	uint32_t iova;
 	uint32_t size;
 
-	int load;
+	int idx;
+
+	int op;
 };
 
 struct apusys_preempt_hnd {
@@ -96,6 +101,7 @@ struct apusys_preempt_hnd {
 /* device definition */
 struct apusys_device {
 	int dev_type;
+	int idx;
 	int preempt_type;
 	uint8_t preempt_level;
 
