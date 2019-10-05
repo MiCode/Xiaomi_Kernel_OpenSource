@@ -500,8 +500,12 @@ void mm_qos_update_larb_bwl(u32 larb_update, bool bw_change)
 	if (unlikely(force_larb_mode >= 0))
 		larb_soft_mode = force_larb_mode;
 
-	for (i = 0; i < MAX_COMM_NUM; i++)
-		freq[i] = mmdvfs_qos_get_freq(comm_freq_class[i]);
+	for (i = 0; i < MAX_COMM_NUM; i++) {
+		if (comm_freq_class[i] == 0)
+			freq[i] = 0;
+		else
+			freq[i] = mmdvfs_qos_get_freq(comm_freq_class[i]);
+	}
 
 	for (i = 0; i < length; i++) {
 		if (!(larb_update & (1 << i)))
@@ -1657,9 +1661,6 @@ static int mmdvfs_probe(struct platform_device *pdev)
 		mmdvfs_get_limit_step_node(&pdev->dev, mm_freq->prop_name,
 			&mm_freq->limit_config);
 	}
-
-	for (i = 0; i < MAX_COMM_NUM; i++) /* Set init value */
-		comm_freq_class[i] = PM_QOS_DISP_FREQ;
 
 	of_property_for_each_string(node, "comm_freq", prop, mux_name) {
 		if (comm_count >= MAX_COMM_NUM) {
