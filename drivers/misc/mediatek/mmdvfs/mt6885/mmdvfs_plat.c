@@ -52,7 +52,6 @@ void mmdvfs_update_qos_sram(struct mm_larb_request larb_req[], u32 larb_update)
 {
 
 	u32 bw;
-	struct mm_qos_request *enum_req = NULL;
 
 	if (larb_update & ((1 << mdp_comm_port_shift)
 				| (1 << mdp_comm_port2_shift))) {
