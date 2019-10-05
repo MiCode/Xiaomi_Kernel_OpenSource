@@ -49,7 +49,7 @@ TRACE_EVENT(slbc_data,
 		__entry->_api_name = _api_name;
 		__entry->_data = _data;
 	),
-	TP_printk("%s %d %x %ld %p %p %d %x %p %d",
+	TP_printk("%s %d %x %ld %p %p %d %x %p %d %d",
 		__entry->_api_name,
 		__entry->_data->uid,
 		__entry->_data->type,
@@ -59,7 +59,8 @@ TRACE_EVENT(slbc_data,
 		__entry->_data->sid,
 		__entry->_data->slot_used,
 		__entry->_data->config,
-		__entry->_data->ref)
+		__entry->_data->ref,
+		__entry->_data->pwr_ref)
 );
 
 #endif /* _TRACE_SLBC_EVENTS_H */

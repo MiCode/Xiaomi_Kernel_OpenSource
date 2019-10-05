@@ -76,6 +76,7 @@ struct slbc_data {
 	int slot_used;
 	void *config;
 	int ref;
+	int pwr_ref;
 };
 
 struct slbc_ops {
