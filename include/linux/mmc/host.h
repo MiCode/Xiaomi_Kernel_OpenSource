@@ -253,7 +253,6 @@ struct mmc_async_req {
 	struct mmc_request	*mrq;
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	struct mmc_request	*mrq_que;
-	bool cmdq_en;
 #endif
 	/*
 	 * Check error status of completed mmc request.

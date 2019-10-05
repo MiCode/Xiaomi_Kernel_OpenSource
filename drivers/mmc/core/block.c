@@ -2125,6 +2125,11 @@ static enum mmc_blk_status mmc_blk_err_check(struct mmc_card *card,
 	int need_retune = card->host->need_retune;
 	bool ecc_err = false;
 	bool gen_err = false;
+	bool cmdq_en = false;
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	cmdq_en = mmc_card_cmdq(card);
+#endif
 
 	/*
 	 * sbc.error indicates a problem with the set block count
@@ -2136,10 +2141,7 @@ static enum mmc_blk_status mmc_blk_err_check(struct mmc_card *card,
 	 * stop.error indicates a problem with the stop command.  Data
 	 * may have been transferred, or may still be transferring.
 	 */
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (!areq->cmdq_en) {
-#endif
-
+	if (!cmdq_en) {
 		mmc_blk_eval_resp_error(brq);
 
 		if (brq->sbc.error || brq->cmd.error ||
@@ -2156,9 +2158,7 @@ static enum mmc_blk_status mmc_blk_err_check(struct mmc_card *card,
 				break;
 			}
 		}
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	}
-#endif
 
 	/*
 	 * Check for errors relating to the execution of the
@@ -2177,10 +2177,7 @@ static enum mmc_blk_status mmc_blk_err_check(struct mmc_card *card,
 	 * program mode, which we have to wait for it to complete.
 	 */
 	if (!mmc_host_is_spi(card->host) && rq_data_dir(req) != READ
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	&& !areq->cmdq_en
-#endif
-	) {
+		&& !cmdq_en) {
 		int err;
 
 		/* Check stop command response */
@@ -2359,6 +2356,9 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 	struct request *req = mmc_queue_req_to_req(mqrq);
 	struct mmc_blk_data *md = mq->blkdata;
 	bool do_rel_wr, do_data_tag;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	bool cmdq_en = mmc_card_cmdq(card);
+#endif
 
 	mmc_blk_data_prep(mq, mqrq, disable_multi, &do_rel_wr, &do_data_tag);
 
@@ -2384,7 +2384,7 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 		writecmd = MMC_WRITE_BLOCK;
 	}
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (mmc_card_cmdq(card)) {
+	if (cmdq_en) {
 		readcmd = MMC_EXECUTE_READ_TASK;
 		writecmd = MMC_EXECUTE_WRITE_TASK;
 	}
@@ -2423,7 +2423,7 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 
 	mqrq->areq.err_check = mmc_blk_err_check;
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (mmc_card_cmdq(card)) {
+	if (cmdq_en) {
 		int rt = IS_RT_CLASS_REQ(req);
 
 		brq->mrq.flags = rt;
@@ -3312,8 +3312,6 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 	bool req_pending = true;
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	struct mmc_host *mmc;
-
 	if (mmc_card_cmdq(card) && !new_req) {
 		mmc_wait_cmdq_empty(card->host);
 		return;
@@ -3348,12 +3346,9 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 			new_areq = &mqrq_cur->areq;
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 			if (mmc_card_cmdq(card)) {
-				new_areq->cmdq_en = true;
 				card->host->areq_que[
 					atomic_read(&mqrq_cur->index) - 1] =
 					new_areq;
-			} else {
-				new_areq->cmdq_en = false;
 			}
 #endif
 		} else
@@ -3389,7 +3384,6 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 			if (status == MMC_BLK_SUCCESS) {
 				req_pending = 0;
-				mmc = brq->mrq.host;
 				spin_lock_irq(&md->lock);
 				blk_complete_request(old_req);
 				spin_unlock_irq(&md->lock);
@@ -3531,7 +3525,6 @@ int mmc_blk_end_queued_req(struct mmc_host *host,
 	struct mmc_blk_data *md;
 	struct mmc_card *card = host->card;
 	struct mmc_blk_request *brq;
-	struct mmc_host *mmc;
 	int ret = 1, type, areq_cnt;
 	struct mmc_queue_req *mq_rq;
 	struct request *req;
@@ -3552,7 +3545,6 @@ int mmc_blk_end_queued_req(struct mmc_host *host,
 		 */
 		mmc_blk_reset_success(md, type);
 
-		mmc = brq->mrq.host;
 #ifdef CONFIG_HIE
 		hie_req_end_size(req, brq->data.bytes_xfered);
 #endif
