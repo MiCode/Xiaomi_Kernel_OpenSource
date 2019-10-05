@@ -297,6 +297,11 @@ static irqreturn_t jpeg_drv_hybrid_dec_isr(int irq, void *dev_id)
 	JPEG_MSG("JPEG Hybrid Decoder Interrupt %d\n", irq);
 	for (i = 0 ; i < HW_CORE_NUMBER; i++) {
 		if (irq == gJpegqDev.hybriddecIrqId[i]) {
+			if (!dec_hwinfo[i].locked) {
+				JPEG_ERR("JPEG isr from unlocked HW %d",
+						i);
+				return IRQ_HANDLED;
+			}
 			ret = jpeg_isr_hybrid_dec_lisr(i);
 			if (ret == 0)
 				wake_up_interruptible(
@@ -608,6 +613,7 @@ static int jpeg_drv_dec_hybrid_lock(unsigned int *pa)
 			JPEG_WRN("jpeg dec get %d HW core pa 0x%x", id, *pa);
 			_jpeg_hybrid_dec_int_status[id] = 0;
 			jpeg_drv_hybrid_dec_power_on(id);
+			enable_irq(gJpegqDev.hybriddecIrqId[id]);
 			break;
 		}
 	}
@@ -635,6 +641,7 @@ static void jpeg_drv_dec_hybrid_unlock(unsigned int *pa)
 				dec_hwinfo[id].locked = false;
 				JPEG_WRN("jpeg dec HW core %d is unlocked", id);
 				jpeg_drv_hybrid_dec_power_off(id);
+				disable_irq(gJpegqDev.hybriddecIrqId[id]);
 			}
 			break;
 		}
@@ -2132,11 +2139,11 @@ static int jpeg_probe(struct platform_device *pdev)
 	for (i = 0; i < HW_CORE_NUMBER; i++) {
 		JPEG_MSG("Request irq %d\n", gJpegqDev.hybriddecIrqId[i]);
 		init_waitqueue_head(&(hybrid_dec_wait_queue[i]));
-		enable_irq(gJpegqDev.hybriddecIrqId[i]);
 		if (request_irq(gJpegqDev.hybriddecIrqId[i],
 				 jpeg_drv_hybrid_dec_isr, IRQF_TRIGGER_HIGH,
 				 "jpeg_dec_driver", NULL))
 			JPEG_ERR("JPEG Hybrid DEC requestirq %d failed\n", i);
+		disable_irq(gJpegqDev.hybriddecIrqId[i]);
 	}
 #endif
 	JPEG_MSG("JPEG Probe Done\n");
