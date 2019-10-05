@@ -52,8 +52,8 @@ config MTK_TYPEC_WATER_DETECT_BY_PCB
 	bool "Let PCB decides enabling water detection or not"
 	depends on MTK_TYPEC_WATER_DETECT
 	help
-	  Query GPIO on PCB to judge whether type-C water detection
-	  need to be enabled. (0: EVB; 1: Phone)
+	  Query GPIO on PCB to judge whether type-c water detection
+	  need to be enabled.
 	  Say Yes to let PCB decides enabling water detection or not.
 	  If unsure, say N.
 
