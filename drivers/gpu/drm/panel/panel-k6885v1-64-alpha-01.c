@@ -287,6 +287,7 @@ static void lcm_panel_init(struct lcm *ctx)
 	lcm_dcs_write_seq_static(ctx, 0x9F, 0xA5, 0xA5);
 	lcm_dcs_write_seq_static(ctx, 0x29);
 	lcm_dcs_write_seq_static(ctx, 0x9F, 0x5A, 0x5A);
+	lcm_dcs_write_seq_static(ctx, 0x51, 0x03, 0xFF);
 }
 
 static int lcm_disable(struct drm_panel *panel)
@@ -565,7 +566,7 @@ static int lcm_remove(struct mipi_dsi_device *dsi)
 }
 
 static const struct of_device_id lcm_of_match[] = {
-	{ .compatible = "ams641rw01,lcm,drv", },
+	{ .compatible = "ams641rw01,lcm", },
 	{ }
 };
 
