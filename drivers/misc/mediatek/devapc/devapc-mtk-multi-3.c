@@ -475,7 +475,7 @@ static void devapc_vio_reason(uint8_t perm)
 
 	if (perm == 0 || perm > 3)
 		pr_info(PFX "Reason: power/clock is not enabled\n");
-	else if (perm == 1 || perm == 2)
+	else if (perm == 1 || perm == 2 || perm == 3)
 		pr_info(PFX "Reason: might be permission denied\n");
 }
 
