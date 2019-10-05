@@ -44,7 +44,6 @@
 #ifdef CONFIG_THERMAL
 #include "mtk_thermal.h"
 #endif
-#undef CONFIG_MTK_FREQ_HOPPING
 #ifdef CONFIG_MTK_FREQ_HOPPING
 #include "mtk_freqhopping_drv.h"
 #endif
