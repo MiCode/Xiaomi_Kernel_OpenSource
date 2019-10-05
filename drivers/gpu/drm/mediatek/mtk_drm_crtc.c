@@ -130,8 +130,8 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
-	mmsys_config_dump_reg(mtk_crtc->config_regs);
-	mutex_dump_reg(mtk_crtc->mutex[0]);
+	mmsys_config_dump_reg_mt6885(mtk_crtc->config_regs);
+	mutex_dump_reg_mt6885(mtk_crtc->mutex[0]);
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) mtk_dump_reg(comp);
 
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
@@ -166,8 +166,8 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
-	mmsys_config_dump_analysis(mtk_crtc->config_regs);
-	mutex_dump_analysis(mtk_crtc->mutex[0]);
+	mmsys_config_dump_analysis_mt6885(mtk_crtc->config_regs);
+	mutex_dump_analysis_mt6885(mtk_crtc->mutex[0]);
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_dump_analysis(comp);
 
