@@ -817,7 +817,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		LOG_DEBUG("%x\n", ioctl_fw.magic);
 
 		if (apusys_mem_map_iova(&mem)) {
-			LOG_ERR("map cmd buffer iovva from fd(%d)fail\n",
+			LOG_ERR("map cmd buffer iova from fd(%d)fail\n",
 				ioctl_cmd.mem_fd);
 			ret = -EINVAL;
 			goto out;

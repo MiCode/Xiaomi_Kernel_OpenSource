@@ -67,14 +67,22 @@ int apusys_mem_free(struct apusys_mem *mem)
 
 int apusys_mem_flush(void)
 {
+	int ret = 0;
+
 	DEBUG_TAG;
 
-	return 0;
+	ret = -EINVAL;
+	return ret;
 }
 
 int apusys_mem_invalidate(void)
 {
-	return 0;
+	int ret = 0;
+
+	DEBUG_TAG;
+
+	ret = -EINVAL;
+	return ret;
 }
 
 int apusys_mem_init(struct device *dev)
@@ -129,7 +137,7 @@ int apusys_mem_ctl(struct apusys_mem *mem)
 		ret = ion_mem_ctl(&g_mem_mgr, mem);
 		break;
 	case APUSYS_MEM_DRAM_DMA:
-
+		ret = -EINVAL;
 		break;
 	default:
 		ret = -EINVAL;
@@ -144,10 +152,10 @@ int apusys_mem_map_iova(struct apusys_mem *mem)
 
 	switch (g_mem_type) {
 	case APUSYS_MEM_DRAM_ION:
-
+		ret = ion_mem_map_iova(&g_mem_mgr, mem);
 		break;
 	case APUSYS_MEM_DRAM_DMA:
-
+		ret = -EINVAL;
 		break;
 	default:
 		ret = -EINVAL;
@@ -166,7 +174,7 @@ int apusys_mem_map_kva(struct apusys_mem *mem)
 		ret = ion_mem_map_kva(&g_mem_mgr, mem);
 		break;
 	case APUSYS_MEM_DRAM_DMA:
-
+		ret = -EINVAL;
 		break;
 	default:
 		ret = -EINVAL;
@@ -182,10 +190,10 @@ int apusys_mem_unmap_iova(struct apusys_mem *mem)
 
 	switch (g_mem_type) {
 	case APUSYS_MEM_DRAM_ION:
-
+		ret = ion_mem_unmap_iova(&g_mem_mgr, mem);
 		break;
 	case APUSYS_MEM_DRAM_DMA:
-
+		ret = -EINVAL;
 		break;
 	default:
 		ret = -EINVAL;
@@ -204,7 +212,7 @@ int apusys_mem_unmap_kva(struct apusys_mem *mem)
 		ret = ion_mem_unmap_kva(&g_mem_mgr, mem);
 		break;
 	case APUSYS_MEM_DRAM_DMA:
-
+		ret = -EINVAL;
 		break;
 	default:
 		ret = -EINVAL;
