@@ -577,6 +577,7 @@ CONFIG_MTK_INPKHUB,PROJECT,qiangming.xia,new config in this commit e5afb39d5bc74
 CONFIG_MTK_INTERNAL,PROJECT,junzhi.zhao,,y,,y,,y,,y,,y,,y,,y
 CONFIG_MTK_IO_BOOST,PLATFORM,stanley.chu,finetune for performance,X,X,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_IOMMU_V2,PROJECT,Cui.Zhang,,N,N,X,N,N,X,X,X,X,X,X,X,X
+CONFIG_MTK_IOMMU_PGTABLE_EXT,PROJECT,Cui.Zhang,,N,N,N,N,N,N,N,N,N,N,X,X,X
 CONFIG_MTK_ION,COMMON,youhua.li,new config in this commit 30f50f4e2f5b4c1996816cc4997e5c6b86d28386,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_IPI,PLATFORM,jiachiam.liu,new config in this commit e8c8b57bd4b43e51ffc94c62f20b675c02f96399,N,N,N,N,N,N,N,N,N,y,y,y,y
 CONFIG_MTK_IPV6_VZW,PROJECT,Xin.Xu,for customer project only,O,O,O,O,O,O,O,O,O,O,O,O,O
