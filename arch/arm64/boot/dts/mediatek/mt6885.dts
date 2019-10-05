@@ -4947,8 +4947,22 @@ page_owner=on";
 		reg-names = "pmif", "pmifmpu", "spmimst";
 		interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "pmif_irq";
-		clocks = <&clk26m>, <&clk26m>;
-		clock-names = "pmif", "spmimst";
+		clocks = <&infracfg_ao INFRACFG_AO_PMIC_CG_AP>,
+			<&infracfg_ao INFRACFG_AO_PMIC_CG_TMR>,
+			<&topckgen TOP_MUX_PWRAP_ULPOSC>,
+			<&topckgen TOP_OSC_D10>,
+			<&clk26m>,
+			<&topckgen TOP_MUX_SPMI_MST>,
+			<&clk26m>,
+			<&topckgen TOP_OSC_D10>;
+		clock-names = "pmif_sys_ck",
+			"pmif_tmr_ck",
+			"pmif_clk_mux",
+			"pmif_clk_osc_d10",
+			"pmif_clk26m",
+			"spmimst_clk_mux",
+			"spmimst_clk26m",
+			"spmimst_clk_osc_d10";
 		swinf_ch_start = <4>;
 		ap_swinf_no = <2>;
 		#address-cells = <2>;

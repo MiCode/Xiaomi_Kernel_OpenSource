@@ -148,21 +148,23 @@ enum {
 	SPMI_RCS_MST_W = 1,
 	SPMI_RCS_SLV_W = 3
 };
-#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
+
 enum infra_regs {
 	MODULE_SW_CG_0_SET,
 	MODULE_SW_CG_0_CLR,
 	MODULE_SW_CG_2_SET,
 	MODULE_SW_CG_2_CLR,
+	PMICW_CLOCK_CTRL,
 	INFRA_GLOBALCON_RST2_SET,
 	INFRA_GLOBALCON_RST2_CLR,
 };
 
-static const u32 mt6885_infra_regs[] = {
+static const u32 mt6xxx_infra_regs[] = {
 	[MODULE_SW_CG_0_SET] =			0x0080,
 	[MODULE_SW_CG_0_CLR] =			0x0084,
 	[MODULE_SW_CG_2_SET] =			0x00a4,
 	[MODULE_SW_CG_2_CLR] =			0x00a8,
+	[PMICW_CLOCK_CTRL] =			0x0108,
 	[INFRA_GLOBALCON_RST2_SET] =		0x0140,
 	[INFRA_GLOBALCON_RST2_CLR] =		0x0144,
 };
@@ -172,17 +174,18 @@ enum topckgen_regs {
 	CLK_CFG_UPDATE2,
 	WDT_SWSYSRST2,
 	CLK_CFG_8_CLR,
+	CLK_CFG_16,
 	CLK_CFG_16_CLR,
 };
 
-static const u32 mt6885_topckgen_regs[] = {
+static const u32 mt6xxx_topckgen_regs[] = {
 	[CLK_CFG_UPDATE1] =			0x0008,
 	[CLK_CFG_UPDATE2] =			0x000c,
 	[WDT_SWSYSRST2] =			0x0090,
 	[CLK_CFG_8_CLR] =			0x0098,
+	[CLK_CFG_16] =				0x0110,
 	[CLK_CFG_16_CLR] =			0x0118,
 };
-#endif
 
 /*
  * pmif internal API declaration
@@ -223,12 +226,10 @@ static struct pmif mt6885_pmif_arb[] = {
 		.regs = mt6885_regs,
 		.spmimst_base = 0x0,
 		.spmimst_regs = mt6885_spmi_regs,
-#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
 		.infra_base = 0x0,
-		.infra_regs = mt6885_infra_regs,
+		.infra_regs = mt6xxx_infra_regs,
 		.topckgen_base = 0x0,
-		.topckgen_regs = mt6885_topckgen_regs,
-#endif
+		.topckgen_regs = mt6xxx_topckgen_regs,
 		.swinf_ch_start = 0,
 		.ap_swinf_no = 0,
 		.write = 0x0,
@@ -395,17 +396,14 @@ void mtk_spmi_writel(struct pmif *arb, u32 val,
 
 static void pmif_enable_soft_reset(struct pmif *arb)
 {
-#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
 	writel(0x1 << 14,
 		arb->infra_base + arb->infra_regs[INFRA_GLOBALCON_RST2_SET]);
 	writel(0x1 << 14,
 		arb->infra_base + arb->infra_regs[INFRA_GLOBALCON_RST2_CLR]);
-#endif
 }
 
 static void pmif_spmi_enable_clk_set(struct pmif *arb)
 {
-#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
 	writel((0x1 << 15) | (0x1 << 12) | (0x7 << 8),
 		arb->topckgen_base + arb->topckgen_regs[CLK_CFG_8_CLR]);
 	writel(0x1 << 2,
@@ -427,7 +425,6 @@ static void pmif_spmi_enable_clk_set(struct pmif *arb)
 	/* turn on clock */
 	writel(0x00000100,
 		arb->infra_base + arb->infra_regs[MODULE_SW_CG_2_CLR]);
-#endif
 }
 
 static void pmif_spmi_force_normal_mode(struct pmif *arb)
@@ -487,11 +484,11 @@ static int mtk_spmi_ctrl_op_st(struct spmi_controller *ctrl,
 	mtk_spmi_writel(arb, (cmd << 0x4) | sid, SPMI_OP_ST_CTRL);
 
 	rdata = mtk_spmi_readl(arb, SPMI_OP_ST_CTRL);
-	pr_notice("pmif_ctrl_op_st 0x%x\r\n", rdata);
+	pr_notice("[SPMIMST]:pmif_ctrl_op_st 0x%x\r\n", rdata);
 
 	do {
 		rdata = mtk_spmi_readl(arb, SPMI_OP_ST_STA);
-		pr_notice("pmif_ctrl_op_st 0x%x\r\n", rdata);
+		pr_notice("[SPMIMST]:pmif_ctrl_op_st 0x%x\r\n", rdata);
 
 		if (((rdata >> 0x1) & SPMI_OP_ST_NACK) == SPMI_OP_ST_NACK) {
 			spmi_dump_mst_record_reg(arb);
@@ -662,45 +659,45 @@ static int mtk_spmi_enable_rcs(struct spmi_controller *ctrl, unsigned int mstid)
 	wdata = 0x2;
 	spmi_ext_register_writel(dev, MT6315_PMIC_RG_INT_RCS1_ADDR, &wdata);
 	spmi_ext_register_readl(dev, MT6315_PMIC_RG_INT_RCS1_ADDR, &rdata);
-	pr_notice("usid:%x After set RG_NT_RCS1[0x%x]=0x%x\r\n",
+	pr_notice("[SPMISLV]:usid:%x After set RG_NT_RCS1[0x%x]=0x%x\r\n",
 			dev->usid, MT6315_PMIC_RG_INT_RCS1_ADDR, rdata);
 
 	spmi_ext_register_readl(dev, MT6315_PMIC_RG_RCS_ID_ADDR, &rdata);
 	wdata = rdata & 0xf;
 	spmi_ext_register_writel(dev, MT6315_PMIC_RG_RCS_ID_ADDR, &wdata);
 	spmi_ext_register_readl(dev, MT6315_PMIC_RG_RCS_ID_ADDR, &rdata);
-	pr_notice("usid:%x After set ID[0x%x]=0x%x\r\n",
+	pr_notice("[SPMISLV]:usid:%x After set ID[0x%x]=0x%x\r\n",
 			dev->usid, MT6315_PMIC_RG_RCS_ID_ADDR, rdata);
 	wdata = rdata | (SPMI_RCS_A_BIT << 0x1);
 	spmi_ext_register_writel(dev, MT6315_PMIC_RG_RCS_ABIT_ADDR, &wdata);
 	spmi_ext_register_readl(dev, MT6315_PMIC_RG_RCS_ABIT_ADDR, &rdata);
-	pr_notice("usid:%x After set ABIT[0x%x]=0x%x\r\n",
+	pr_notice("[SPMISLV]:usid:%x After set ABIT[0x%x]=0x%x\r\n",
 			dev->usid, MT6315_PMIC_RG_RCS_ABIT_ADDR, rdata);
 	spmi_ext_register_readl(dev, MT6315_PMIC_RG_RCS_CMD_ADDR, &rdata);
 	wdata = rdata | (SPMI_RCS_MST_W << MT6315_PMIC_RG_RCS_CMD_SHIFT);
 	spmi_ext_register_writel(dev, MT6315_PMIC_RG_RCS_CMD_ADDR, &wdata);
 	spmi_ext_register_readl(dev, MT6315_PMIC_RG_RCS_CMD_ADDR, &rdata);
-	pr_notice("usid:%x After set CMD[0x%x]=0x%x\r\n",
+	pr_notice("[SPMISLV]:usid:%x After set CMD[0x%x]=0x%x\r\n",
 			dev->usid, MT6315_PMIC_RG_RCS_CMD_ADDR, rdata);
 
 	wdata = 0xF8;
 	spmi_ext_register_writel(dev, MT6315_PMIC_RG_RCS_ADDR_ADDR, &wdata);
 	spmi_ext_register_readl(dev, MT6315_PMIC_RG_RCS_ADDR_ADDR, &rdata);
-	pr_notice("usid:%x After set RCS_ADDR[0x%x]=0x%x\r\n",
+	pr_notice("[SPMISLV]:usid:%x After set RCS_ADDR[0x%x]=0x%x\r\n",
 			dev->usid, MT6315_PMIC_RG_RCS_ADDR_ADDR, rdata);
 
 	spmi_ext_register_readl(dev, MT6315_PMIC_RG_RCS_ENABLE_ADDR, &rdata);
 	wdata = rdata | 0x1;
 	spmi_ext_register_writel(dev, MT6315_PMIC_RG_RCS_ENABLE_ADDR, &wdata);
 	spmi_ext_register_readl(dev, MT6315_PMIC_RG_RCS_ENABLE_ADDR, &rdata);
-	pr_notice("usid:%x After set Enable[0x%x]=0x%x\r\n",
+	pr_notice("[SPMISLV]:usid:%x After set Enable[0x%x]=0x%x\r\n",
 			dev->usid, MT6315_PMIC_RG_RCS_ENABLE_ADDR, rdata);
 
 	wdata = (0x1 << MT6315_PMIC_RG_INT_EN_RCS0_SHIFT) |
 		(0x1 << MT6315_PMIC_RG_INT_EN_RCS1_SHIFT);
 	spmi_ext_register_writel(dev, MT6315_PMIC_RG_INT_EN_RCS0_ADDR, &wdata);
 	spmi_ext_register_readl(dev, MT6315_PMIC_RG_INT_EN_RCS0_ADDR, &rdata);
-	pr_notice("usid:%x After set RG_INT_EN[0x%x]=0x%x\r\n",
+	pr_notice("[SPMISLV]:usid:%x After set RG_INT_EN[0x%x]=0x%x\r\n",
 			dev->usid, MT6315_PMIC_RG_INT_EN_RCS0_ADDR, rdata);
 
 	wdata = 0x0;
@@ -708,7 +705,7 @@ static int mtk_spmi_enable_rcs(struct spmi_controller *ctrl, unsigned int mstid)
 			MT6315_PMIC_RG_INT_MASK_RCS0_ADDR, &wdata);
 	spmi_ext_register_readl(dev,
 			MT6315_PMIC_RG_INT_MASK_RCS0_ADDR, &rdata);
-	pr_notice("usid:%x After set RG_INT_MASK[0x%x]=0x%x\r\n",
+	pr_notice("[SPMISLV]:usid:%x After set RG_INT_MASK[0x%x]=0x%x\r\n",
 			dev->usid, MT6315_PMIC_RG_INT_MASK_RCS0_ADDR, rdata);
 }
 
@@ -728,7 +725,7 @@ static int mtk_spmi_read_eint_sta(struct pmif *arb, u8 *slv_eint_sta)
 	}
 
 	for (offset = 0; offset < 16; offset++) {
-		pr_notice("mtk-spmi%d, slv_eint_sta[0x%x]\r\n",
+		pr_notice("[SPMIMST]:of:%d, slv_eint_sta[0x%x]\r\n",
 				offset, *(slv_eint_sta + offset));
 	}
 	mtk_spmi_writel(arb, 0xffffffff, SPMI_SLV_3_0_EINT);
@@ -737,7 +734,7 @@ static int mtk_spmi_read_eint_sta(struct pmif *arb, u8 *slv_eint_sta)
 	mtk_spmi_writel(arb, 0xffffffff, SPMI_SLV_F_C_EINT);
 
 	rdata = mtk_spmi_readl(arb, SPMI_DEC_DBG);
-	pr_notice("%s, [0x%x]=0x%x\r\n", __func__,
+	pr_notice("[SPMIMST]:%s, [0x%x]=0x%x\r\n", __func__,
 			arb->spmimst_regs[SPMI_DEC_DBG], rdata);
 }
 #endif
@@ -745,7 +742,6 @@ static int mtk_spmi_read_eint_sta(struct pmif *arb, u8 *slv_eint_sta)
 static int mtk_spmi_config_master(struct pmif *arb,
 		unsigned int mstid, bool en)
 {
-#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
 	/* Software reset */
 	writel(0x85 << 24 | 0x1 << 4,
 		arb->topckgen_base + arb->topckgen_regs[WDT_SWSYSRST2]);
@@ -758,7 +754,7 @@ static int mtk_spmi_config_master(struct pmif *arb,
 	/* Software reset */
 	writel(0x85 << 24,
 		arb->topckgen_base + arb->topckgen_regs[WDT_SWSYSRST2]);
-#endif
+
 	/* Enable SPMI */
 	mtk_spmi_writel(arb, en, SPMI_MST_REQ_EN);
 
@@ -794,27 +790,27 @@ static int mtk_spmimst_init(struct platform_device *pdev, struct pmif *arb)
 
 	err = of_property_read_u32(pdev->dev.of_node, "grpid", &arb->grpid);
 	if (err) {
-		dev_dbg(&pdev->dev, "grpid unspecified.\n");
+		dev_dbg(&pdev->dev, "[SPMIMST]:grpid unspecified.\n");
 		return -EINVAL;
 	}
 	/* set group id */
 	mtk_spmi_enable_group_id(arb, arb->grpid);
 
-	if (mtk_spmi_readl(arb, SPMI_MST_REQ_EN) == 1)
-		goto spmimst_init_done;
-
-	mtk_spmi_config_master(arb, SPMI_MASTER_0, true);
-	for (i = 0; i < 3; i++) {
-		mtk_spmi_cali_rd_clock_polarity(arb, SPMI_MASTER_0);
+	/* if spmimst not enabled, enable it */
+	if ((mtk_spmi_readl(arb, SPMI_MST_REQ_EN) & 0x1) != 0x1) {
+		dev_info(&pdev->dev, "[SPMIMST]:enable spmimst.\n");
+		mtk_spmi_config_master(arb, SPMI_MASTER_0, true);
+		for (i = 0; i < 3; i++) {
+			mtk_spmi_cali_rd_clock_polarity(arb, SPMI_MASTER_0);
 #if SPMI_RCS_SUPPORT
-		/* enable master rcs support */
-		mtk_spmi_writel(arb, 0x4, SPMI_MST_RCS_CTRL);
-		mtk_spmi_enable_rcs(&spmi_dev[i], SPMI_MASTER_0);
+			/* enable master rcs support */
+			mtk_spmi_writel(arb, 0x4, SPMI_MST_RCS_CTRL);
+			mtk_spmi_enable_rcs(&spmi_dev[i], SPMI_MASTER_0);
 #endif
 
+		}
 	}
-spmimst_init_done:
-	pr_notice("%s done\n", __func__);
+	pr_notice("[SPMIMST]:%s done\n", __func__);
 
 	return 0;
 }
@@ -822,23 +818,22 @@ spmimst_init_done:
 
 static int pmif_probe(struct platform_device *pdev)
 {
-#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
 	struct device_node *node;
-#endif
 	const struct of_device_id *of_id =
 		of_match_device(pmif_match_table, &pdev->dev);
 	struct spmi_controller *ctrl;
 	struct pmif *arb;
 	struct resource *res;
 	u32 swinf_ch_start = 0, ap_swinf_no = 0;
-	int err;
+	int pmif_clk26m = 0, spmimst_clk26m = 0;
+	int err = 0;
 
 #if PMIF_BRINGUP
 	dev_dbg(&pdev->dev, "[PMIF]bringup do nothing\n");
 	return 0;
 #endif
 	if (!of_id) {
-		dev_dbg(&pdev->dev, "Error: No device match found\n");
+		dev_dbg(&pdev->dev, "[PMIF]:Error: No device match found\n");
 		return -ENODEV;
 	}
 
@@ -857,45 +852,126 @@ static int pmif_probe(struct platform_device *pdev)
 		goto err_put_ctrl;
 	}
 	/* pmif is not initialized, just init once */
-#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
-		node = of_find_compatible_node(NULL, NULL,
-				"mediatek,infracfg_ao");
-		arb->infra_base = of_iomap(node, 0);
-		dev_dbg(&pdev->dev, "mtk-pmif arb infra ao base:0x%x\n",
-				arb->infra_base);
-
-		node = of_find_compatible_node(NULL, NULL,
-				"mediatek,topckgen");
-		arb->topckgen_base = of_iomap(node, 0);
-		dev_dbg(&pdev->dev, "mtk-pmif arb topckgen base:0x%x\n",
-				arb->topckgen_base);
-#endif
-	/* get pmif/spmimst clock */
-	arb->clk_pmif_arb = devm_clk_get(&pdev->dev, "pmif");
-	if (IS_ERR(arb->clk_pmif_arb)) {
-		dev_dbg(&pdev->dev, "failed to get clock: %ld\n",
-			PTR_ERR(arb->clk_pmif_arb));
-		return PTR_ERR(arb->clk_pmif_arb);
+	node = of_find_compatible_node(NULL, NULL,
+			"mediatek,infracfg_ao");
+	arb->infra_base = of_iomap(node, 0);
+	dev_info(&pdev->dev, "[PMIF]:mtk-pmif arb infra ao base:0x%x\n",
+			arb->infra_base);
+	if (IS_ERR(arb->infra_base)) {
+		err = PTR_ERR(arb->infra_base);
+		goto err_put_ctrl;
 	}
 
-	arb->clk_spmimst = devm_clk_get(&pdev->dev, "spmimst");
-	if (IS_ERR(arb->clk_spmimst)) {
-		dev_dbg(&pdev->dev, "failed to get clock: %ld\n",
-			PTR_ERR(arb->clk_spmimst));
-		return PTR_ERR(arb->clk_spmimst);
+	node = of_find_compatible_node(NULL, NULL,
+			"mediatek,topckgen");
+	arb->topckgen_base = of_iomap(node, 0);
+	dev_info(&pdev->dev, "[PMIF]:mtk-pmif arb topckgen base:0x%x\n",
+			arb->topckgen_base);
+	if (IS_ERR(arb->topckgen_base)) {
+		err = PTR_ERR(arb->topckgen_base);
+		goto err_put_ctrl;
 	}
-	err = clk_prepare_enable(arb->clk_pmif_arb);
+	/* get pmif infracfg_ao clock */
+	arb->pmif_sys_ck = devm_clk_get(&pdev->dev, "pmif_sys_ck");
+	if (IS_ERR(arb->pmif_sys_ck)) {
+		dev_dbg(&pdev->dev, "[PMIF]:failed to get ap clock: %ld\n",
+			PTR_ERR(arb->pmif_sys_ck));
+		return PTR_ERR(arb->pmif_sys_ck);
+	}
+
+	arb->pmif_tmr_ck = devm_clk_get(&pdev->dev, "pmif_tmr_ck");
+	if (IS_ERR(arb->pmif_tmr_ck)) {
+		dev_dbg(&pdev->dev, "[PMIF]:failed to get tmr clock: %ld\n",
+			PTR_ERR(arb->pmif_tmr_ck));
+		return PTR_ERR(arb->pmif_tmr_ck);
+	}
+
+	/* get pmif topckgen clock */
+	arb->pmif_clk_mux = devm_clk_get(&pdev->dev, "pmif_clk_mux");
+	if (IS_ERR(arb->pmif_clk_mux)) {
+		dev_dbg(&pdev->dev, "[PMIF]:failed to get clock: %ld\n",
+			PTR_ERR(arb->pmif_clk_mux));
+		return PTR_ERR(arb->pmif_clk_mux);
+	}
+
+	arb->pmif_clk_osc_d10 = devm_clk_get(&pdev->dev, "pmif_clk_osc_d10");
+	if (IS_ERR(arb->pmif_clk_osc_d10)) {
+		dev_dbg(&pdev->dev, "[PMIF]:failed to get clock: %ld\n",
+			PTR_ERR(arb->pmif_clk_osc_d10));
+		return PTR_ERR(arb->pmif_clk_osc_d10);
+	}
+
+	arb->pmif_clk26m = devm_clk_get(&pdev->dev, "pmif_clk26m");
+	if (IS_ERR(arb->pmif_clk26m)) {
+		dev_dbg(&pdev->dev, "[PMIF]:failed to get clock: %ld\n",
+			PTR_ERR(arb->pmif_clk26m));
+		return PTR_ERR(arb->pmif_clk26m);
+	}
+
+	/* now enable pmif/spmimst clock */
+	pmif_clk26m =
+		readl(arb->infra_base + arb->infra_regs[PMICW_CLOCK_CTRL]);
+
+	if ((pmif_clk26m & 0x1) == 0x1) {
+		dev_info(&pdev->dev, "[PMIF]:enable clk26m.\n");
+		err = clk_prepare_enable(arb->pmif_clk26m);
+		if (err)
+			return err;
+	} else {
+		dev_info(&pdev->dev, "[PMIF]:enable ulposc1 osc d10.\n");
+		err = clk_prepare_enable(arb->pmif_clk_mux);
+		if (err)
+			return err;
+		err = clk_set_parent(arb->pmif_clk_mux, arb->pmif_clk_osc_d10);
+		if (err)
+			return err;
+	}
+
+	/* get spmimst topckgen clock */
+	arb->spmimst_clk_mux = devm_clk_get(&pdev->dev, "spmimst_clk_mux");
+	if (IS_ERR(arb->spmimst_clk_mux)) {
+		dev_dbg(&pdev->dev, "[SPMIMST]:failed to get clock: %ld\n",
+			PTR_ERR(arb->spmimst_clk_mux));
+		return PTR_ERR(arb->spmimst_clk_mux);
+	}
+	arb->spmimst_clk26m = devm_clk_get(&pdev->dev, "spmimst_clk26m");
+	if (IS_ERR(arb->spmimst_clk26m)) {
+		dev_dbg(&pdev->dev, "[SPMIMST]:failed to get clock: %ld\n",
+			PTR_ERR(arb->spmimst_clk26m));
+		return PTR_ERR(arb->spmimst_clk26m);
+	}
+	arb->spmimst_clk_osc_d10 = devm_clk_get(&pdev->dev,
+			"spmimst_clk_osc_d10");
+	if (IS_ERR(arb->spmimst_clk_osc_d10)) {
+		dev_dbg(&pdev->dev, "[SPMIMST]:failed to get clock: %ld\n",
+			PTR_ERR(arb->spmimst_clk_osc_d10));
+		return PTR_ERR(arb->spmimst_clk_osc_d10);
+	}
+	err = clk_prepare_enable(arb->spmimst_clk_mux);
 	if (err)
 		return err;
 
-	err = clk_prepare_enable(arb->clk_spmimst);
-	if (err)
-		goto err_put_clk;
+	spmimst_clk26m =
+		readl(arb->topckgen_base + arb->topckgen_regs[CLK_CFG_16]);
+
+	if ((spmimst_clk26m & 0x7) == 0) {
+		dev_info(&pdev->dev, "[SPMIMST]:enable clk26m.\n");
+		err = clk_set_parent(arb->spmimst_clk_mux,
+				arb->spmimst_clk26m);
+		if (err)
+			return err;
+	} else if ((spmimst_clk26m & 0x7) == 0x3) {
+		dev_info(&pdev->dev, "[SPMIMST]:enable ulposc1 osc d10.\n");
+		err = clk_set_parent(arb->spmimst_clk_mux,
+				arb->spmimst_clk_osc_d10);
+		if (err)
+			return err;
+	}
 
 	err = of_property_read_u32(pdev->dev.of_node,
 			"swinf_ch_start", &swinf_ch_start);
 	if (err) {
-		dev_dbg(&pdev->dev, "swinf_ch_start unspecified.\n");
+		dev_dbg(&pdev->dev, "[PMIF]:swinf_ch_start unspecified.\n");
 		goto err_put_ctrl;
 	}
 	arb->swinf_ch_start = swinf_ch_start;
@@ -903,7 +979,7 @@ static int pmif_probe(struct platform_device *pdev)
 	err = of_property_read_u32(pdev->dev.of_node,
 			"ap_swinf_no", &ap_swinf_no);
 	if (err) {
-		dev_dbg(&pdev->dev, "ap_swinf_no unspecified.\n");
+		dev_dbg(&pdev->dev, "[PMIF]:ap_swinf_no unspecified.\n");
 		goto err_put_ctrl;
 	}
 	arb->ap_swinf_no = ap_swinf_no;
@@ -952,9 +1028,12 @@ static int pmif_probe(struct platform_device *pdev)
 	return 0;
 
 err_domain_remove:
-	clk_disable_unprepare(arb->clk_spmimst);
+	clk_disable_unprepare(arb->spmimst_clk_mux);
 err_put_clk:
-	clk_disable_unprepare(arb->clk_pmif_arb);
+	if ((pmif_clk26m & 0x1) == 0x1)
+		clk_disable_unprepare(arb->pmif_clk26m);
+	else
+		clk_disable_unprepare(arb->pmif_clk_mux);
 err_put_ctrl:
 	spmi_controller_put(ctrl);
 	return err;

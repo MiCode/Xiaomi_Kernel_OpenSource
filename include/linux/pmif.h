@@ -32,8 +32,14 @@ enum {
  * @grpid:	indicates which group id we used.
  * @lock:	indicate lock key.
  * @spmic:	indicate spmi controller.
- * @clk_pmif_arb:	indicate pmif clock source, be as consumer.
- * @clk_spmimst:	indicate spmimst clock source, be as consumer.
+ * @pmif_sys_ck:	indicate pmif infracfg_ao sys_ck cg.
+ * @pmif_tmr_ck:	indicate pmif infracfg_ao tmr_ck cg.
+ * @pmif_clk_mux:	indicate pmif clock source, be as consumer.
+ * @pmif_clk_osc_d10:	indicate pmif clock source to osc d10.
+ * @pmif_clk26m:	indicate pmif clock source to clk26m.
+ * @spmimst_clk_mux:	indicate spmimst clock source, be as consumer.
+ * @spmimst_clk26m:	indicate spmimst clock sourc to clk26m.
+ * @spmimst_clk_osc_d10:	indicate spmimst clock source to osc d10.
  * @cmd:	sends a non-data command sequence on the SPMI bus.
  * @read_cmd:	sends a register read command sequence on the SPMI bus.
  * @write_cmd:	sends a register write command sequence on the SPMI bus.
@@ -62,8 +68,14 @@ struct pmif {
 	int			grpid;
 	raw_spinlock_t          lock;
 	struct spmi_controller  *spmic;
-	struct clk *clk_pmif_arb;
-	struct clk *clk_spmimst;
+	struct clk *pmif_sys_ck;
+	struct clk *pmif_tmr_ck;
+	struct clk *pmif_clk_mux;
+	struct clk *pmif_clk_osc_d10;
+	struct clk *pmif_clk26m;
+	struct clk *spmimst_clk_mux;
+	struct clk *spmimst_clk26m;
+	struct clk *spmimst_clk_osc_d10;
 	int (*cmd)(struct spmi_controller *ctrl, unsigned int opcode);
 	int (*read_cmd)(struct spmi_controller *ctrl, u8 opc, u8 sid,
 			u16 addr, u8 *buf, size_t len);
