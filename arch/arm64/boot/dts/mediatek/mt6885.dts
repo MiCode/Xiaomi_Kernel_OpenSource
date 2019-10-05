@@ -4610,6 +4610,9 @@
 
 };
 
+#include "mt6315_s6.dtsi"
+#include "mt6315_s7.dtsi"
+#include "mt6315_s3.dtsi"
 #include "mt6359p.dtsi"
 #include "cust_mt6885_msdc.dtsi"
 #include "mt6360.dtsi"

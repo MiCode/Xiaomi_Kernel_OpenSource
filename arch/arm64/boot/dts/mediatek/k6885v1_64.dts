@@ -189,34 +189,6 @@
 };
 /* accdet end */
 
-&spmi_bus {
-	grpid = <11>;
-	mt6315_6: mt6315@6 {
-		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
-		reg = <0x6 SPMI_USID
-			   0xb SPMI_GSID>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-	};
-	mt6315_7: mt6315@7 {
-		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
-		reg = <0x7 SPMI_USID
-			   0xb SPMI_GSID>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-	};
-	mt6315_3: mt6315@3 {
-		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
-		reg = <0x3 SPMI_USID
-			   0xb SPMI_GSID>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-	};
-};
-
 /* IRTX GPIO Start */
 &irtx_pwm {
 	pinctrl-names = "irtx_gpio_led_default", "irtx_gpio_led_set";

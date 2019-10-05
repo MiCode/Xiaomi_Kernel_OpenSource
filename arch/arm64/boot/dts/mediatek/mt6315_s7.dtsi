@@ -1,0 +1,54 @@
+/*
+ * Copyright (C) 2019 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
+
+#include <dt-bindings/spmi/spmi.h>
+#include <generated/autoconf.h>
+
+&spmi_bus {
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	grpid = <8>;
+	mt6315_11: mt6315@11 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0xb SPMI_USID
+			   0x8 SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+	};
+#else
+	grpid = <11>;
+	mt6315_7: mt6315@7 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0x7 SPMI_USID
+			   0xb SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		mt6315_7_regulator: mt6315_7_regulator {
+			compatible = "mediatek,mt6315_7-regulator";
+			mt6315_7_vbuck1: 7_vbuck1 {
+				regulator-name = "7_vbuck1";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+			};
+			mt6315_7_vbuck3: 7_vbuck3 {
+				regulator-name = "7_vbuck3";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+			};
+		};
+	};
+#endif
+};
