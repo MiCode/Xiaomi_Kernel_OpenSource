@@ -87,4 +87,7 @@ $(objtree)/dtboimg.cfg: FORCE
 		rm $@.tmp; \
 	fi
 
+else
+dtbo_check:
+
 endif#MTK_PLATFORM
