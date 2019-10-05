@@ -40,12 +40,13 @@
 #endif
 #define MPU_REGION_ID_SCP_SMEM       6
 
+#define SCPSYS_CORE0           0
+#define SCPSYS_CORE1           1
+
 /* scp feature ID list */
 enum feature_id {
 	VOW_FEATURE_ID,
-	OPEN_DSP_FEATURE_ID,
 	SENS_FEATURE_ID,
-	MP3_FEATURE_ID,
 	FLP_FEATURE_ID,
 	RTOS_FEATURE_ID,
 	SPEAKER_PROTECT_FEATURE_ID,
@@ -112,7 +113,7 @@ struct scp_feature_tb {
 	uint32_t feature;
 	uint32_t freq;
 	uint32_t enable;
-	uint32_t sub_feature;
+	uint32_t sys_id; /* run at which subsys? */
 };
 
 struct scp_sub_feature_tb {

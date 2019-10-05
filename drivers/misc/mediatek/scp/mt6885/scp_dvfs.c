@@ -172,6 +172,8 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 uint32_t scp_get_freq(void)
 {
 	uint32_t i;
+	uint32_t sum_core0 = 0;
+	uint32_t sum_core1 = 0;
 	uint32_t sum = 0;
 	uint32_t return_freq = 0;
 
@@ -179,8 +181,12 @@ uint32_t scp_get_freq(void)
 	 * calculate scp frequence
 	 */
 	for (i = 0; i < NUM_FEATURE_ID; i++) {
-		if (feature_table[i].enable == 1)
-			sum += feature_table[i].freq;
+		if (feature_table[i].enable == 1) {
+			if (feature_table[i].sys_id == SCPSYS_CORE0)
+				sum_core0 += feature_table[i].freq;
+			else
+				sum_core1 += feature_table[i].freq;
+		}
 	}
 	/*
 	 * calculate scp sensor frequence
@@ -189,7 +195,9 @@ uint32_t scp_get_freq(void)
 		if (sensor_type_table[i].enable == 1)
 			sum += sensor_type_table[i].freq;
 	}
-
+	sum = sum_core0;
+	if (sum_core1 > sum_core0)
+		sum = sum_core1;
 	/*pr_debug("[SCP] needed freq sum:%d\n",sum);*/
 	if (sum <= CLK_OPP0)
 		return_freq = CLK_OPP0;

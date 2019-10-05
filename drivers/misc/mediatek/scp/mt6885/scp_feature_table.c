@@ -14,58 +14,59 @@
 #include <linux/module.h>       /* needed by all modules */
 #include "scp_feature_define.h"
 #include "scp_ipi_pin.h"
+
+
 /*scp feature list*/
 struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 	{
-		.feature     = VOW_FEATURE_ID,
-		.freq        = 75,
-		.enable      = 0,
-		.sub_feature = 0,
+		.feature	= VOW_FEATURE_ID,
+		.freq		= 43,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE1,
 	},
 	{
-		.feature     = OPEN_DSP_FEATURE_ID,
-		.freq        = 356,
-		.enable      = 0,
-		.sub_feature = 0,
+		.feature	= SENS_FEATURE_ID,
+		.freq		= 29,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE0,
 	},
 	{
-		.feature     = SENS_FEATURE_ID,
-		.freq        = 0,
-		.enable      = 0,
-		.sub_feature = 1,
+		.feature	= FLP_FEATURE_ID,
+		.freq		= 26,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE0,
 	},
 	{
-		.feature     = MP3_FEATURE_ID,
-		.freq        = 47,
-		.enable      = 0,
-		.sub_feature = 0,
+		.feature	= RTOS_FEATURE_ID,
+		.freq		= 0,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE0,
 	},
 	{
-		.feature     = FLP_FEATURE_ID,
-		.freq        = 26,
-		.enable      = 0,
-		.sub_feature = 0,
+		.feature	= SPEAKER_PROTECT_FEATURE_ID,
+		.freq		= 200,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE1,
 	},
 	{
-		.feature     = RTOS_FEATURE_ID,
-		.freq        = 0,
-		.enable      = 0,
-		.sub_feature = 0,
+		.feature	= VCORE_TEST_FEATURE_ID,
+		.freq		= 77,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE1,
 	},
 	{
-		.feature     = SPEAKER_PROTECT_FEATURE_ID,
-		.freq        = 200,
-		.enable      = 0,
-		.sub_feature = 0,
+		.feature	= VOW_BARGEIN_FEATURE_ID,
+		.freq		= 100,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE1,
 	},
 	{
-		.feature     = VCORE_TEST_FEATURE_ID,
-		.freq        = 0,
-		.enable      = 0,
-		.sub_feature = 0,
+		.feature	= VOW_DUMP_FEATURE_ID,
+		.freq		= 0,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE1,
 	},
 };
-
 
 /*scp sensor type list*/
 struct scp_sub_feature_tb sensor_type_table[NUM_SENSOR_TYPE] = {
@@ -164,5 +165,5 @@ struct scp_sub_feature_tb sensor_type_table[NUM_SENSOR_TYPE] = {
 		.freq    = 3,
 		.enable  = 0,
 	},
-	};
+};
 
