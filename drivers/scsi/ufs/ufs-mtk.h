@@ -229,5 +229,9 @@ static inline int ufs_mtk_hie_req_done(
 }
 #endif
 
+struct ufs_mtk_host {
+	struct ufs_hba *hba;
+};
+
 #endif /* !_UFS_MTK_H */
 
