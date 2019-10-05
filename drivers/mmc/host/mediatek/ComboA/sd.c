@@ -5482,6 +5482,12 @@ static int msdc_runtime_suspend(struct device *dev)
 	if (host->mclk)
 		msdc_clk_disable(host);
 
+	clk_unprepare(host->clk_ctl);
+	if (host->aes_clk_ctl)
+		clk_unprepare(host->aes_clk_ctl);
+	if (host->hclk_ctl)
+		clk_unprepare(host->hclk_ctl);
+
 #ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
 	spin_lock_irqsave(&msdc_cg_lock, flags);
 	msdc_cg_cnt--;
@@ -5506,6 +5512,12 @@ static int msdc_runtime_resume(struct device *dev)
 		spm_resource_req(SPM_RESOURCE_USER_MSDC, SPM_RESOURCE_ALL);
 	spin_unlock_irqrestore(&msdc_cg_lock, flags);
 #endif
+
+	(void)clk_prepare(host->clk_ctl);
+	if (host->aes_clk_ctl)
+		(void)clk_prepare(host->aes_clk_ctl);
+	if (host->hclk_ctl)
+		(void)clk_prepare(host->hclk_ctl);
 
 	/* mclk = 0 means core layer resume will enable clk later. */
 	if (host->mclk)
