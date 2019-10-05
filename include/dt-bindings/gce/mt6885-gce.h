@@ -486,9 +486,35 @@
 
 /* Config thread notify trigger thread */
 #define CMDQ_SYNC_TOKEN_CONFIG_DIRTY			640
+/* Trigger thread notify config thread */
+#define CMDQ_SYNC_TOKEN_STREAM_EOF			641
+/* Block Trigger thread until the ESD check finishes. */
+#define CMDQ_SYNC_TOKEN_ESD_EOF				642
+/* check CABC setup finish */
+#define CMDQ_SYNC_TOKEN_CABC_EOF			643
 
-/* secure world notify normal world task done */
-#define CMDQ_SYNC_TOKEN_SEC_DONE			694
+/* Notify normal CMDQ there are some secure task done */
+#define CMDQ_SYNC_SECURE_THR_EOF			647
+
+/* CMDQ use sw token */
+#define CMDQ_SYNC_TOKEN_USER_0				649
+#define CMDQ_SYNC_TOKEN_USER_1				650
+#define CMDQ_SYNC_TOKEN_POLL_MONITOR			651
+
+/* Secure video path notify SW token */
+#define CMDQ_SYNC_DISP_OVL0_2NONSEC_END			655
+#define CMDQ_SYNC_DISP_OVL1_2NONSEC_END			656
+#define CMDQ_SYNC_DISP_2LOVL0_2NONSEC_END		657
+#define CMDQ_SYNC_DISP_2LOVL1_2NONSEC_END		658
+#define CMDQ_SYNC_DISP_RDMA0_2NONSEC_END		659
+#define CMDQ_SYNC_DISP_RDMA1_2NONSEC_END		660
+#define CMDQ_SYNC_DISP_WDMA0_2NONSEC_END		661
+#define CMDQ_SYNC_DISP_WDMA1_2NONSEC_END		662
+#define CMDQ_SYNC_DISP_EXT_STREAM_EOF			663
+
+/* ISP sw token */
+#define CMDQ_SYNC_TOKEN_MSS				665
+#define CMDQ_SYNC_TOKEN_MSF				666
 
 /* GPR access tokens (for HW register backup)
  * There are 15 32-bit GPR, 3 GPR form a set

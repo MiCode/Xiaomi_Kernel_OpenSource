@@ -558,6 +558,13 @@ enum cmdq_event {
 	CMDQ_SYNC_DISP_WDMA1_2NONSEC_END,		/* 662 */
 	CMDQ_SYNC_DISP_EXT_STREAM_EOF,			/* 663 */
 
+	/* disp */
+	CMDQ_SYNC_TOKEN_VFP_CHANGED,			/* 664 */
+
+	/* isp */
+	CMDQ_SYNC_TOKEN_MSS,				/* 665 */
+	CMDQ_SYNC_TOKEN_MSF,				/* 666 */
+
 	/* Event for CMDQ to block executing command when append command
 	 * Plz sync CMDQ_SYNC_TOKEN_APPEND_THR(id) in cmdq_core source file.
 	 */
