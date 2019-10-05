@@ -829,13 +829,14 @@ int mtk_init_adsp_audio_share_mem(struct mtk_base_dsp *dsp)
 		return -1;
 	}
 
-	adsp_register_feature(AUDIO_PLAYBACK_FEATURE_ID);
+	adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
 
 	/* init for dsp-audio task share memory address */
 	for (task_id = 0; task_id < AUDIO_TASK_DAI_NUM; task_id++)
 		adsp_task_init(task_id, dsp);
 
-	adsp_deregister_feature(AUDIO_PLAYBACK_FEATURE_ID);
+	adsp_deregister_feature(AUDIO_CONTROLLER_FEATURE_ID);
+
 	pr_debug("-%s task_id = %d\n", __func__, task_id);
 	return 0;
 }
