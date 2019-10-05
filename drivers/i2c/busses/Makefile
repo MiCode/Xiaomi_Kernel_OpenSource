@@ -3,6 +3,8 @@
 # Makefile for the i2c bus drivers.
 #
 
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
+
 # ACPI drivers
 obj-$(CONFIG_I2C_SCMI)		+= i2c-scmi.o
 
