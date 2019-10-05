@@ -61,6 +61,7 @@ static struct shutdown_controller sdc;
 static int g_vbat_lt;
 static int g_vbat_lt_lv1;
 static int shutdown_cond_flag;
+static int fix_coverity;
 
 static void wake_up_power_misc(struct shutdown_controller *sdd)
 {
@@ -345,8 +346,8 @@ static int shutdown_event_handler(struct shutdown_controller *sdd)
 		duraction = timespec_sub(now, sdd->pre_time[DLPT_SHUTDOWN]);
 		polling++;
 		if (duraction.tv_sec >= SHUTDOWN_TIME) {
-			bm_err("dlpt shutdown count, %ld\n",
-				(long int)duraction.tv_sec);
+			bm_err("dlpt shutdown\n");
+			kernel_power_off();
 			return next_waketime(polling);
 		}
 	}
@@ -500,7 +501,11 @@ static int power_misc_routine_thread(void *arg)
 			bm_err("%s battery overheat~ power off\n",
 				__func__);
 			kernel_power_off();
+			fix_coverity = 1;
+			return 1;
 		}
+		if (fix_coverity == 1)
+			break;
 	}
 
 	return 0;
