@@ -22,12 +22,26 @@
 
 #define SAMPLE_DEVICE_NUM 2
 
+#define SAMPLE_BOOST_MAGIC 87
+#define SAMPLE_OPP_MAGIC 7
+#define SAMPLE_FW_MAGIC 0x35904
+#define SAMPLE_FW_PTN 0x8A
+
+struct sample_fw {
+	char name[32];
+
+	uint64_t kva;
+	uint32_t size;
+};
+
 /* sample driver's private structure */
 struct sample_dev_info {
 	struct apusys_device *dev;
 
 	uint32_t idx; // core idx
 	char name[32];
+
+	struct sample_fw fw;
 };
 
 static struct sample_dev_info *sample_private[SAMPLE_DEVICE_NUM];
@@ -57,6 +71,7 @@ static void _print_hnd(int type, void *hnd)
 	struct apusys_cmd_hnd *cmd = NULL;
 	struct apusys_power_hnd *pwr = NULL;
 	struct apusys_preempt_hnd *pmt = NULL;
+	struct apusys_firmware_hnd *fw = NULL;
 
 	/* check argument */
 	if (hnd == NULL) {
@@ -64,49 +79,62 @@ static void _print_hnd(int type, void *hnd)
 		return;
 	}
 
-	LOG_INFO("=============================");
+	LOG_INFO("================================");
 
 	/* print */
 	switch (type) {
 	case APUSYS_CMD_POWERON:
 		pwr = (struct apusys_power_hnd *)hnd;
-		LOG_INFO(" power on hnd\n");
-		LOG_INFO("-----------------------------");
-		LOG_INFO(" opp      = %d\n", pwr->opp);
-		LOG_INFO(" boostval = %d\n", pwr->boost_val);
+		LOG_INFO("| power on hnd                 |\n");
+		LOG_INFO("--------------------------------");
+		LOG_INFO("| opp      = %-18d|\n", pwr->opp);
+		LOG_INFO("| boostval = %-18d|\n", pwr->boost_val);
 		break;
 
 	case APUSYS_CMD_EXECUTE:
 		cmd = (struct apusys_cmd_hnd *)hnd;
-		LOG_INFO(" cmd hnd\n");
-		LOG_INFO("-----------------------------");
-		LOG_INFO(" kva      = 0x%llx\n", cmd->kva);
-		LOG_INFO(" iova     = 0x%x\n", cmd->iova);
-		LOG_INFO(" size     = %d\n", cmd->iova);
-		LOG_INFO(" boostval = %d\n", cmd->boost_val);
+		LOG_INFO(" cmd hnd                       |\n");
+		LOG_INFO("--------------------------------");
+		LOG_INFO("| kva      = 0x%-16llx|\n", cmd->kva);
+		LOG_INFO("| iova     = 0x%-16x|\n", cmd->iova);
+		LOG_INFO("| size     = %-18d|\n", cmd->iova);
+		LOG_INFO("| boostval = %-18d|\n", cmd->boost_val);
 		break;
 
 	case APUSYS_CMD_PREEMPT:
 		pmt = (struct apusys_preempt_hnd *)hnd;
-		LOG_INFO(" pmt hnd\n");
-		LOG_INFO("-----------------------------");
-		LOG_INFO(" <new cmd>\n");
-		LOG_INFO(" kva      = 0x%llx\n", pmt->new_cmd->kva);
-		LOG_INFO(" iova     = 0x%x\n", pmt->new_cmd->iova);
-		LOG_INFO(" size     = %d\n", pmt->new_cmd->iova);
-		LOG_INFO(" boostval = %d\n", pmt->new_cmd->boost_val);
-		LOG_INFO(" <old cmd>\n");
-		LOG_INFO(" kva      = 0x%llx\n", pmt->old_cmd->kva);
-		LOG_INFO(" iova     = 0x%x\n", pmt->old_cmd->iova);
-		LOG_INFO(" size     = %d\n", pmt->old_cmd->size);
-		LOG_INFO(" boostval = %d\n", pmt->old_cmd->boost_val);
+		LOG_INFO("| pmt hnd                      |\n");
+		LOG_INFO("--------------------------------");
+		LOG_INFO("| <new cmd>                    |\n");
+		LOG_INFO("| kva      = 0x%-16llx|\n", pmt->new_cmd->kva);
+		LOG_INFO("| iova     = 0x%-16x|\n", pmt->new_cmd->iova);
+		LOG_INFO("| size     = %-18d|\n", pmt->new_cmd->iova);
+		LOG_INFO("| boostval = %-18d|\n", pmt->new_cmd->boost_val);
+		LOG_INFO("| <old cmd>                    |\n");
+		LOG_INFO("| kva      = 0x%-16llx|\n", pmt->old_cmd->kva);
+		LOG_INFO("| iova     = 0x%-16x|\n", pmt->old_cmd->iova);
+		LOG_INFO("| size     = %-18d|\n", pmt->old_cmd->size);
+		LOG_INFO("| boostval = %-18d|\n", pmt->old_cmd->boost_val);
+		break;
+
+	case APUSYS_CMD_FIRMWARE:
+		fw = (struct apusys_firmware_hnd *)hnd;
+		LOG_INFO("| fw hnd                      |\n");
+		LOG_INFO("--------------------------------");
+		LOG_INFO("| name     = %-18s|\n", fw->name);
+		LOG_INFO("| magic    = 0x%-16x|\n", fw->magic);
+		LOG_INFO("| kva      = 0x%-16llx|\n", fw->kva);
+		LOG_INFO("| iova     = 0x%-16x|\n", fw->iova);
+		LOG_INFO("| size     = 0x%-16llx|\n", fw->size);
+		LOG_INFO("| idx      = %-18d|\n", fw->idx);
+		LOG_INFO("| op       = %-18d|\n", fw->op);
 		break;
 
 	default:
-		LOG_INFO(" type(%d) hnd\n", type);
+		LOG_INFO("| not support type(%-2d) hnd    |\n", type);
 		break;
 	}
-	LOG_INFO("=============================");
+	LOG_INFO("================================");
 
 }
 
@@ -116,12 +144,19 @@ static int _sample_poweron(struct apusys_power_hnd *hnd)
 	if (hnd == NULL)
 		return -EINVAL;
 
+	if (hnd->boost_val != SAMPLE_BOOST_MAGIC) {
+		LOG_ERR("sample poweron wrong params(%d)\n",
+			hnd->boost_val);
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
 static int _sample_powerdown(void)
 {
-	return 0;
+	LOG_ERR("don't support power down function\n");
+	return -EINVAL;
 }
 
 static int _sample_resume(void)
@@ -195,6 +230,41 @@ static int _sample_preempt(struct apusys_preempt_hnd *hnd)
 	return 0;
 }
 
+static int _sample_firmware(struct apusys_firmware_hnd *hnd,
+	struct sample_dev_info *info)
+{
+	int ret = 0;
+
+	/* check argument */
+	if (hnd == NULL || info == NULL)
+		return -EINVAL;
+
+	/* check fw magic */
+	if (hnd->magic != SAMPLE_FW_MAGIC || hnd->kva == 0
+		|| hnd->size == 0) {
+		LOG_ERR("apusys sample error(0x%x/0x%llx/0x%x/%lu)\n",
+			hnd->magic, hnd->kva, hnd->iova, hnd->size);
+		return -EINVAL;
+	}
+
+	/* execute fw command */
+	if (hnd->op == APUSYS_FIRMWARE_LOAD) {
+		LOG_INFO("load firmware(%s)\n", hnd->name);
+		memset((void *)hnd->kva, SAMPLE_FW_PTN, hnd->size);
+		strncpy(info->fw.name, hnd->name, sizeof(info->fw.name)-1);
+		info->fw.kva = hnd->kva;
+		info->fw.size = hnd->size;
+	} else {
+		LOG_INFO("unload firmware(%s)\n", hnd->name);
+		memset((void *)info->fw.kva, 0, info->fw.size);
+		memset(info->fw.name, 0, sizeof(info->fw.name));
+		info->fw.kva = 0;
+		info->fw.size = 0;
+	}
+
+	return ret;
+}
+
 //----------------------------------------------
 int sample_send_cmd(int type, void *hnd, struct apusys_device *dev)
 {
@@ -207,33 +277,39 @@ int sample_send_cmd(int type, void *hnd, struct apusys_device *dev)
 
 	switch (type) {
 	case APUSYS_CMD_POWERON:
-		LOG_INFO("cmd poweron");
+		LOG_INFO("cmd poweron\n");
 		ret = _sample_poweron(hnd);
 		break;
 
 	case APUSYS_CMD_POWERDOWN:
-		LOG_INFO("cmd powerdown");
+		LOG_INFO("cmd powerdown\n");
 		ret = _sample_powerdown();
 		break;
 
 	case APUSYS_CMD_RESUME:
-		LOG_INFO("cmd resume");
+		LOG_INFO("cmd resume\n");
 		ret = _sample_resume();
 		break;
 
 	case APUSYS_CMD_SUSPEND:
-		LOG_INFO("cmd suspend");
+		LOG_INFO("cmd suspend\n");
 		ret = _sample_suspend();
 		break;
 
 	case APUSYS_CMD_EXECUTE:
-		LOG_INFO("cmd execute");
+		LOG_INFO("cmd execute\n");
 		ret = _sample_execute(hnd, dev);
 		break;
 
 	case APUSYS_CMD_PREEMPT:
-		LOG_INFO("cmd preempt");
+		LOG_INFO("cmd preempt\n");
 		ret = _sample_preempt(hnd);
+		break;
+
+	case APUSYS_CMD_FIRMWARE:
+		LOG_INFO("cmd firmware\n");
+		ret = _sample_firmware(hnd,
+			(struct sample_dev_info *)dev->private);
 		break;
 
 	default:
@@ -243,7 +319,7 @@ int sample_send_cmd(int type, void *hnd, struct apusys_device *dev)
 	}
 
 	if (ret) {
-		LOG_ERR("sample driver send cmd fail, %d,(%d/%p/%p)\n",
+		LOG_ERR("sample driver send cmd fail, %d (%d/%p/%p)\n",
 			ret, type, hnd, dev);
 	}
 

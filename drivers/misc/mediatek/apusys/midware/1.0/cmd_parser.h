@@ -118,8 +118,8 @@ uint64_t get_time_from_system(void);
 int set_utime_to_subcmd(void *sc_entry, uint64_t us);
 int set_dtime_to_subcmd(void *sc_entry, uint64_t us);
 
-inline uint8_t get_cmdformat_version(void);
-inline uint64_t get_cmdformat_magic(void);
+uint8_t get_cmdformat_version(void);
+uint64_t get_cmdformat_magic(void);
 
 uint64_t get_subcmd_by_idx(struct apusys_cmd *cmd, int idx);
 uint32_t get_type_from_subcmd(void *sc_entry);

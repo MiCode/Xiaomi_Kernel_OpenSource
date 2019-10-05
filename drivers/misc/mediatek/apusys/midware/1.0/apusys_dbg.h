@@ -14,7 +14,7 @@
 #ifndef __APUSYS_DEBUG_H__
 #define __APUSYS_DEBUG_H__
 
-#define APUSYS_DBG_DIR "apusys"
+#define APUSYS_DBG_DIR "apusys_midware"
 
 /* feature option */
 enum {

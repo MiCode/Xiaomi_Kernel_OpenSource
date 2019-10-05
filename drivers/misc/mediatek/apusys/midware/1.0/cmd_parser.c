@@ -238,12 +238,12 @@ uint32_t get_packid_from_subcmd(void *sc_entry, int type)
 }
 
 //----------------------------------------------
-inline uint8_t get_cmdformat_version(void)
+uint8_t get_cmdformat_version(void)
 {
 	return APUSYS_CMD_VERSION;
 }
 
-inline uint64_t get_cmdformat_magic(void)
+uint64_t get_cmdformat_magic(void)
 {
 	return APUSYS_MAGIC_NUMBER;
 }
