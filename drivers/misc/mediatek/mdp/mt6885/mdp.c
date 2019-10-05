@@ -1819,7 +1819,7 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 			CMDQ_REG_SET32(MDP_TDSHP1_BASE + 0x100, 0x0);
 			CMDQ_MSG("Disable MDP_TDSHP1 clock\n");
 			cmdq_mdp_get_func()->enableMdpClock(false,
-				CMDQ_ENG_MDP_TDSHP0);
+				CMDQ_ENG_MDP_TDSHP1);
 		}
 	}
 
