@@ -3442,6 +3442,9 @@ __drm_atomic_helper_connector_duplicate_state(struct drm_connector *connector,
 	memcpy(state, connector->state, sizeof(*state));
 	if (state->crtc)
 		drm_connector_get(connector);
+
+	/* Don't copy over a writeback job, they are used only once */
+	state->writeback_job = NULL;
 }
 EXPORT_SYMBOL(__drm_atomic_helper_connector_duplicate_state);
 
@@ -3669,8 +3672,5 @@ void __drm_atomic_helper_private_obj_duplicate_state(struct drm_private_obj *obj
 						     struct drm_private_state *state)
 {
 	memcpy(state, obj->state, sizeof(*state));
-
-	/* Don't copy over a writeback job, they are used only once */
-	state->writeback_job = NULL;
 }
 EXPORT_SYMBOL(__drm_atomic_helper_private_obj_duplicate_state);
