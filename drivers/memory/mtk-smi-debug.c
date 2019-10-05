@@ -381,7 +381,7 @@ static int smi_debug_set(void *data, u64 val)
 	pr_info("%s:val=%llx, case%d larb %d, port %d\n",
 		__func__, val, testcase, larbid, portid);
 
-	if (larbid > MTK_LARB_NR_MAX)
+	if (larbid >= MTK_LARB_NR_MAX)
 		return -EINVAL;
 
 	if (!dbgmng->res_init) {
