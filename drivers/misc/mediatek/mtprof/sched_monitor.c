@@ -35,8 +35,8 @@ unsigned int irq_time_aee_limit;
 
 #ifdef CONFIG_MTK_IRQ_COUNT_TRACER
 static bool irq_count_tracer;
-static unsigned long long irq_period_th1_ns = 200000; /* log */
-static unsigned long long irq_period_th2_ns = 200000; /* aee */
+static unsigned int irq_period_th1_ns = 200000; /* log */
+static unsigned int irq_period_th2_ns = 200000; /* aee */
 static unsigned int irq_count_aee_limit;
 #endif
 #ifdef CONFIG_MTK_IRQ_OFF_TRACER
@@ -82,7 +82,7 @@ void sched_mon_msg(int out, char *buf, ...)
 	va_end(args);
 
 	if (out & TO_FTRACE)
-		trace_sched_mon_msg(str);
+		trace_sched_mon_msg_rcuidle(str);
 	if (out & TO_KERNEL_LOG)
 		pr_info("%s\n", str);
 	if (out & TO_DEFERRED)
@@ -127,8 +127,8 @@ DEFINE_SCHED_MON_OPS(irq_time_aee_limit, unsigned int, 0, 100);
 
 #ifdef CONFIG_MTK_IRQ_COUNT_TRACER
 DEFINE_SCHED_MON_OPS(irq_count_tracer, bool, 0, 1);
-DEFINE_SCHED_MON_OPS(irq_period_th1_ns, unsigned long long, 1, 1000000000);
-DEFINE_SCHED_MON_OPS(irq_period_th2_ns, unsigned long long, 0, 1000000000);
+DEFINE_SCHED_MON_OPS(irq_period_th1_ns, unsigned int, 1, 1000000000);
+DEFINE_SCHED_MON_OPS(irq_period_th2_ns, unsigned int, 0, 1000000000);
 DEFINE_SCHED_MON_OPS(irq_count_aee_limit, unsigned int, 0, 100);
 #endif
 #ifdef CONFIG_MTK_IRQ_OFF_TRACER
@@ -659,8 +659,8 @@ void sched_mon_device_tree(void)
 #ifdef CONFIG_MTK_IRQ_COUNT_TRACER
 	of_property_read_u32(node, "irq_count_tracer", &value);
 	irq_count_tracer = (bool)value;
-	of_property_read_u64(node, "irq_period_th1_ns", &irq_period_th1_ns);
-	of_property_read_u64(node, "irq_period_th2_ns", &irq_period_th2_ns);
+	of_property_read_u32(node, "irq_period_th1_ns", &irq_period_th1_ns);
+	of_property_read_u32(node, "irq_period_th2_ns", &irq_period_th2_ns);
 	of_property_read_u32(node, "irq_count_aee_limit", &irq_count_aee_limit);
 #endif
 #ifdef CONFIG_MTK_IRQ_OFF_TRACER
