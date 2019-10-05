@@ -117,6 +117,7 @@ config MACH_MT6771
 	select MTK_CACHE_FLUSH_BY_SF
 	select MTK_TIMER_APXGPT
 	select MTK_EMI
+	select MTK_DRAMC
 
 	help
 	  This enables support for MediaTek MT6771
