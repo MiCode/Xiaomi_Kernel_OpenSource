@@ -4614,14 +4614,16 @@ int primary_display_suspend(void)
 	_display_set_lcm_refresh_rate(60);
 
 	/* restore to full roi */
-	suspend_to_full_roi();
+	if (disp_helper_get_option(DISP_OPT_USE_CMDQ))
+		suspend_to_full_roi();
 
 	/* need to leave share sram for suspend */
 	if (disp_helper_get_option(DISP_OPT_SHARE_SRAM))
 		leave_share_sram(CMDQ_SYNC_RESOURCE_WROT1);
 
 	/* blocking flush before stop trigger loop */
-	_blocking_flush();
+	if (disp_helper_get_option(DISP_OPT_USE_CMDQ))
+		_blocking_flush();
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
 		MMPROFILE_FLAG_PULSE, 0, 1);
 	if (dpmgr_path_is_busy(pgc->dpmgr_handle)) {

@@ -4874,7 +4874,8 @@ int ddp_dsi_power_off(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 		return DSI_STATUS_OK;
 
 	/* DSI_BackupRegisters(module, NULL); */
-	DSI_enter_ULPS(module);
+	if (disp_helper_get_option(DISP_OPT_USE_CMDQ))
+		DSI_enter_ULPS(module);
 
 #ifdef ENABLE_CLK_MGR
 	if (module == DISP_MODULE_DSI0 || module == DISP_MODULE_DSIDUAL) {
