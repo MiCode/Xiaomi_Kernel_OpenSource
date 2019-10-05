@@ -866,27 +866,18 @@ static s32 cmdq_append_rw_s_command(struct cmdqRecStruct *handle,
 		handle, code, arg_a, arg_b, arg_a_type, arg_b_type);
 
 	if (arg_addr_type == 0) {
-		/* arg_a is the HW register address to read from */
-		subsys = cmdq_core_subsys_from_phys_addr(arg_addr);
-		if (subsys == CMDQ_SPECIAL_SUBSYS_ADDR) {
-			CMDQ_MSG(
-				"REC: Special handle memory base address 0x%08x\n",
-				arg_a);
-			/* Assign extra handle APB address to SPR */
-			cmdq_append_command_pkt(handle->pkt, CMDQ_CODE_LOGIC,
-				(4 << 21) | (CMDQ_LOGIC_ASSIGN << 16) |
-				CMDQ_SPR_FOR_TEMP, arg_addr);
-			/* change final arg_addr to GPR */
-			subsys = 0;
-			arg_addr = CMDQ_SPR_FOR_TEMP;
-			/* change arg_addr type to 1 */
-			arg_addr_type = 1;
-		} else if (arg_addr_type == 0 && subsys < 0) {
-			CMDQ_ERR(
-				"REC: Unsupported memory base address 0x%08x\n",
-				arg_addr);
-			status = -EFAULT;
-		}
+		CMDQ_MSG(
+			"REC: Special handle memory base address 0x%08x\n",
+			arg_a);
+		/* Assign extra handle APB address to SPR */
+		cmdq_append_command_pkt(handle->pkt, CMDQ_CODE_LOGIC,
+			(4 << 21) | (CMDQ_LOGIC_ASSIGN << 16) |
+			CMDQ_SPR_FOR_TEMP, arg_addr);
+		/* change final arg_addr to GPR */
+		subsys = 0;
+		arg_addr = CMDQ_SPR_FOR_TEMP;
+		/* change arg_addr type to 1 */
+		arg_addr_type = 1;
 	}
 
 	if (status < 0)
