@@ -494,5 +494,9 @@ int ion_handle_put(struct ion_handle *handle);
 int ion_query_heaps(struct ion_client *client, struct ion_heap_query *query);
 
 extern struct ion_device *g_ion_device;
+#ifdef CONFIG_MTK_PSEUDO_M4U
+extern struct device *g_iommu_device;
+#endif
 
+extern atomic64_t page_sz_cnt;
 #endif /* _ION_PRIV_H */

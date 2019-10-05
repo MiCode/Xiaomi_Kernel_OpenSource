@@ -48,6 +48,7 @@ static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 	ion_pages_sync_for_device(g_ion_device->dev.this_device,
 				  page, PAGE_SIZE << pool->order,
 				  DMA_BIDIRECTIONAL);
+	atomic64_add_return((1 << pool->order), &page_sz_cnt);
 	return page;
 }
 
@@ -55,6 +56,12 @@ static void ion_page_pool_free_pages(struct ion_page_pool *pool,
 				     struct page *page)
 {
 	__free_pages(page, pool->order);
+	if (atomic64_sub_return((1 << pool->order), &page_sz_cnt) < 0) {
+		IONMSG("underflow!, total_now[%lu]free[%lu]\n",
+		       atomic64_read(&page_sz_cnt),
+		       (unsigned long)(1 << pool->order));
+		atomic64_set(&page_sz_cnt, 0);
+	}
 }
 
 static int ion_page_pool_add(struct ion_page_pool *pool, struct page *page)
