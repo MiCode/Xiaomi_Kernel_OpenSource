@@ -80,95 +80,133 @@ static noinline int mt_secure_call_brisket(u64 function_id,
 /************************************************
  * Register addr, offset, bits range
  ************************************************/
-//BRISKET base_addr
+/* BRISKET base_addr */
+
 #ifdef BRISKET_KRUG
-#define CPU6_CONFIG_REG	(0x0C533000)
-#define CPU7_CONFIG_REG	(0x0C533800)
+#define BRISKET_CPU6_CONFIG_REG	(0x0C533000)
+#define BRISKET_CPU7_CONFIG_REG	(0x0C533800)
 #endif
 
 #ifdef BRISKET_PETRUS
-#define CPU4_CONFIG_REG	(0x0C532000)
-#define CPU5_CONFIG_REG	(0x0C532800)
-#define CPU6_CONFIG_REG	(0x0C533000)
-#define CPU7_CONFIG_REG	(0x0C533800)
+#define BRISKET_CPU4_CONFIG_REG	(0x0C532000)
+#define BRISKET_CPU5_CONFIG_REG	(0x0C532800)
+#define BRISKET_CPU6_CONFIG_REG	(0x0C533000)
+#define BRISKET_CPU7_CONFIG_REG	(0x0C533800)
 #endif
 
+/* BRISKET control register offset */
+#define BRISKET_CONTROL_OFFSET	(0x310)
+#define BRISKET01_OFFSET		(0x600)
+#define BRISKET02_OFFSET		(0x604)
+#define BRISKET03_OFFSET		(0x608)
+#define BRISKET04_OFFSET		(0x60C)
+#define BRISKET05_OFFSET		(0x610)
+#define BRISKET06_OFFSET		(0x614)
+#define BRISKET07_OFFSET		(0x618)
+#define BRISKET08_OFFSET		(0x61C)
+#define BRISKET09_OFFSET		(0x620)
 
-#define MCUSYS_REG_BASE_ADDR	(0x0C530000)
-#define MCUSYS_RESERVED_REG0	(MCUSYS_REG_BASE_ADDR + 0xFFE0)
+/* BRISKET control register range */
+/* BRISKET_CONTROL config */
+#define BRISKET_CONTROL_BITS_Pllclken		1
+/* BRISKET01 config */
+#define BRISKET01_BITS_ErrOnline			11
+#define BRISKET01_BITS_ErrOffline			11
+#define BRISKET01_BITS_fsm_state			2
+/* BRISKET02 config */
+#define BRISKET02_BITS_cctrl_ping			6
+#define BRISKET02_BITS_fctrl_ping			6
+#define BRISKET02_BITS_cctrl_pong			6
+#define BRISKET02_BITS_fctrl_pong			6
+/* BRISKET03 config */
+#define BRISKET03_BITS_InFreq				8
+#define BRISKET03_BITS_OutFreq				8
+#define BRISKET03_BITS_CalFreq				8
+/* BRISKET04 config */
+#define BRISKET04_BITS_Status				8
+#define BRISKET04_BITS_PhaseErr				16
+#define BRISKET04_BITS_LockDet				1
+#define BRISKET04_BITS_Clk26mDet			1
+/* BRISKET05 config */
+#define BRISKET05_BITS_Bren					1
+#define BRISKET05_BITS_KpOnline				4
+#define BRISKET05_BITS_KiOnline				6
+#define BRISKET05_BITS_KpOffline			4
+#define BRISKET05_BITS_KiOffline			6
+/* BRISKET06 config */
+#define BRISKET06_BITS_FreqErrWtOnline		6
+#define BRISKET06_BITS_FreqErrWtOffline		6
+#define BRISKET06_BITS_PhaseErrWt			4
+/* BRISKET07 config */
+#define BRISKET07_BITS_FreqErrCapOnline		4
+#define BRISKET07_BITS_FreqErrCapOffline	4
+#define BRISKET07_BITS_PhaseErrCap			4
+/* BRISKET08 config */
+#define BRISKET08_BITS_PingMaxThreshold		6
+#define BRISKET08_BITS_PongMinThreshold		6
+#define BRISKET08_BITS_StartInPong			1
+/* BRISKET09 config */
+#define BRISKET09_BITS_PhlockThresh			3
+#define BRISKET09_BITS_PhlockCycles			3
+#define BRISKET09_BITS_Control				8
 
-//BRISKET control register offset
-#define BRISKET_CONTROL	(0x310)
-#define BRISKET01		(0x600)
-#define BRISKET02		(0x604)
-#define BRISKET03		(0x608)
-#define BRISKET04		(0x60C)
-#define BRISKET05		(0x610)
-#define BRISKET06		(0x614)
-#define BRISKET07		(0x618)
-#define BRISKET08		(0x61C)
-#define BRISKET09		(0x620)
-#define BRISKET_END		(0x624)
-#define BRISKET_REG_SET	(10) // total sets of brisket control register
-
-//BRISKET control register range
-//BRISKET_CONTROL config
-#define BRISKET_CONTROL_Pllclken	(0:0)
-//BRISKET01 config
-#define BRISKET01_ErrOnline			(23:13)
-#define BRISKET01_ErrOffline		(12:2)
-#define BRISKET01_fsm_state			(1:0)
-//BRISKET02 config
-#define BRISKET02_cctrl_ping		(23:18)
-#define BRISKET02_fctrl_ping		(17:12)
-#define BRISKET02_cctrl_pong		(11:6)
-#define BRISKET02_fctrl_pong		(5:0)
-//BRISKET03 config
-#define BRISKET03_InFreq			(23:16)
-#define BRISKET03_OutFreq			(15:8)
-#define BRISKET03_CalFreq			(7:0)
-//BRISKET04 config
-#define BRISKET04_Status			(25:18)
-#define BRISKET04_PhaseErr			(17:2)
-#define BRISKET04_LockDet			(1:1)
-#define BRISKET04_Clk26mDet			(0:0)
-//BRISKET05 config
-#define BRISKET05_Bren				(20:20)
-#define BRISKET05_KpOnline			(19:16)
-#define BRISKET05_KiOnline			(15:10)
-#define BRISKET05_KpOffline			(9:6)
-#define BRISKET05_KiOffline			(5:0)
-//BRISKET06 config
-#define BRISKET06_FreqErrWtOnline	(15:10)
-#define BRISKET06_FreqErrWtOffline	(9:4)
-#define BRISKET06_PhaseErrWt		(3:0)
-//BRISKET07 config
-#define BRISKET07_FreqErrCapOnline	(11:8)
-#define BRISKET07_FreqErrCapOffline	(7:4)
-#define BRISKET07_PhaseErrCap		(3:0)
-//BRISKET08 config
-#define BRISKET08_PingMaxThreshold	(12:7)
-#define BRISKET08_PongMinThreshold	(6:1)
-#define BRISKET08_StartInPong		(0:0)
-//BRISKET09 config
-#define BRISKET09_PhlockThresh		(13:11)
-#define BRISKET09_PhlockCycles		(10:8)
-#define BRISKET09_Control			(7:0)
+/* BRISKET_CONTROL config */
+#define BRISKET_CONTROL_SHIFT_Pllclken		0
+/* BRISKET01 config */
+#define BRISKET01_SHIFT_ErrOnline			13
+#define BRISKET01_SHIFT_ErrOffline			2
+#define BRISKET01_SHIFT_fsm_state			0
+/* BRISKET02 config */
+#define BRISKET02_SHIFT_cctrl_ping			18
+#define BRISKET02_SHIFT_fctrl_ping			12
+#define BRISKET02_SHIFT_cctrl_pong			6
+#define BRISKET02_SHIFT_fctrl_pong			0
+/* BRISKET03 config */
+#define BRISKET03_SHIFT_InFreq				16
+#define BRISKET03_SHIFT_OutFreq				8
+#define BRISKET03_SHIFT_CalFreq				0
+/* BRISKET04 config */
+#define BRISKET04_SHIFT_Status				18
+#define BRISKET04_SHIFT_PhaseErr			2
+#define BRISKET04_SHIFT_LockDet				1
+#define BRISKET04_SHIFT_Clk26mDet			0
+/* BRISKET05 config */
+#define BRISKET05_SHIFT_Bren				20
+#define BRISKET05_SHIFT_KpOnline			16
+#define BRISKET05_SHIFT_KiOnline			10
+#define BRISKET05_SHIFT_KpOffline			6
+#define BRISKET05_SHIFT_KiOffline			0
+/* BRISKET06 config */
+#define BRISKET06_SHIFT_FreqErrWtOnline		10
+#define BRISKET06_SHIFT_FreqErrWtOffline	4
+#define BRISKET06_SHIFT_PhaseErrWt			0
+/* BRISKET07 config */
+#define BRISKET07_SHIFT_FreqErrCapOnline	8
+#define BRISKET07_SHIFT_FreqErrCapOffline	4
+#define BRISKET07_SHIFT_PhaseErrCap			0
+/* BRISKET08 config */
+#define BRISKET08_SHIFT_PingMaxThreshold	7
+#define BRISKET08_SHIFT_PongMinThreshold	1
+#define BRISKET08_SHIFT_StartInPong			0
+/* BRISKET09 config */
+#define BRISKET09_SHIFT_PhlockThresh		11
+#define BRISKET09_SHIFT_PhlockCycles		8
+#define BRISKET09_SHIFT_Control				0
 
 
 #ifdef BRISKET_KRUG
 static const unsigned int BRISKET_CPU_BASE[NR_BRISKET_CPU] = {
-	CPU6_CONFIG_REG,
-	CPU7_CONFIG_REG
+	BRISKET_CPU6_CONFIG_REG,
+	BRISKET_CPU7_CONFIG_REG
 };
 #endif
 
 #ifdef BRISKET_PETRUS
 static const unsigned int BRISKET_CPU_BASE[NR_BRISKET_CPU] = {
-	CPU4_CONFIG_REG,
-	CPU5_CONFIG_REG,
-	CPU6_CONFIG_REG,
-	CPU7_CONFIG_REG
+	BRISKET_CPU4_CONFIG_REG,
+	BRISKET_CPU5_CONFIG_REG,
+	BRISKET_CPU6_CONFIG_REG,
+	BRISKET_CPU7_CONFIG_REG
 };
 #endif
 #define brisket_per_cpu(cpu, reg) (BRISKET_CPU_BASE[cpu] + reg)
@@ -199,12 +237,13 @@ enum BRISKET_GROUP {
 };
 
 
+
 /************************************************
  * association with ATF use
  ************************************************/
 #ifdef CONFIG_ARM64
-#define MTK_SIP_KERNEL_BRISKET_CONTROL				0xC2000340
+#define MTK_SIP_KERNEL_BRISKET_CONTROL				0xC200051B
 #else
-#define MTK_SIP_KERNEL_BRISKET_CONTROL				0x82000340
+#define MTK_SIP_KERNEL_BRISKET_CONTROL				0x8200051B
 #endif
 #endif //_MTK_BRISKET_

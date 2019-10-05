@@ -113,15 +113,11 @@ static unsigned long long brisket_pTime_us, brisket_cTime_us, brisket_diff_us;
 static DEFINE_SPINLOCK(brisket_spinlock);
 #endif
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF
-static unsigned int brisket4_doe_pllclken;
-static unsigned int brisket5_doe_pllclken;
-static unsigned int brisket6_doe_pllclken;
-static unsigned int brisket7_doe_pllclken;
-static unsigned int brisket4_doe_bren;
-static unsigned int brisket5_doe_bren;
-static unsigned int brisket6_doe_bren;
-static unsigned int brisket7_doe_bren;
+static unsigned int brisket_doe_pllclken;
+static unsigned int brisket_doe_bren;
+#endif
 #endif
 
 /************************************************
@@ -162,36 +158,40 @@ static void mtk_brisket_unlock(unsigned long *flags)
 }
 #endif
 
-void mtk_brisket_pllclken(unsigned int cpu,
-		unsigned int brisket_pllclken)
+void mtk_brisket_pllclken(unsigned int brisket_pllclken)
 {
+	unsigned int cpu;
 	const unsigned int brisket_group = BRISKET_GROUP_CONTROL;
 	const unsigned int bits = 1;
 	const unsigned int shift = 0;
 	unsigned int brisket_group_bits_shift =
 		(brisket_group << 16) | (bits << 8) | shift;
 
-	mt_secure_call_brisket(MTK_SIP_KERNEL_BRISKET_CONTROL,
-		BRISKET_RW_WRITE,
-		cpu,
-		brisket_group_bits_shift,
-		brisket_pllclken);
+	for (cpu = BRISKET_CPU_START_ID; cpu <= BRISKET_CPU_END_ID; cpu++) {
+		mt_secure_call_brisket(MTK_SIP_KERNEL_BRISKET_CONTROL,
+			BRISKET_RW_WRITE,
+			cpu,
+			brisket_group_bits_shift,
+			(brisket_pllclken >> cpu) & 1);
+	}
 }
 
-void mtk_brisket_bren(unsigned int cpu,
-		unsigned int brisket_bren)
+void mtk_brisket_bren(unsigned int brisket_bren)
 {
+	unsigned int cpu;
 	const unsigned int brisket_group = BRISKET_GROUP_05;
 	const unsigned int bits = 1;
 	const unsigned int shift = 20;
 	unsigned int brisket_group_bits_shift =
 		(brisket_group << 16) | (bits << 8) | shift;
 
-	mt_secure_call_brisket(MTK_SIP_KERNEL_BRISKET_CONTROL,
-		BRISKET_RW_WRITE,
-		cpu,
-		brisket_group_bits_shift,
-		brisket_bren);
+	for (cpu = BRISKET_CPU_START_ID; cpu <= BRISKET_CPU_END_ID; cpu++) {
+		mt_secure_call_brisket(MTK_SIP_KERNEL_BRISKET_CONTROL,
+			BRISKET_RW_WRITE,
+			cpu,
+			brisket_group_bits_shift,
+			(brisket_bren >> cpu) & 1);
+	}
 }
 
 static void mtk_brisket(unsigned int cpu, unsigned int brisket_group,
@@ -214,7 +214,7 @@ static ssize_t brisket_pllclken_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
 	/* parameter input */
-	int cpu, brisket_pllclken;
+	int brisket_pllclken;
 
 	/* proc template for check */
 	char *buf = (char *) __get_free_page(GFP_USER);
@@ -231,13 +231,13 @@ static ssize_t brisket_pllclken_proc_write(struct file *file,
 	buf[count] = '\0';
 
 	/* parameter check */
-	if (sscanf(buf, "%u %u", &cpu, &brisket_pllclken) != 2) {
-		brisket_debug("bad argument!! Should input 2 arguments.\n");
+	if (kstrtou32(buf, 0, &brisket_pllclken) != 1) {
+		brisket_debug("bad argument!! Should input 1 arguments.\n");
 		goto out;
 	}
 
 	/* sync parameter with trust-zoon */
-	mtk_brisket_pllclken((unsigned int)cpu, (unsigned int)brisket_pllclken);
+	mtk_brisket_pllclken((unsigned int)brisket_pllclken);
 
 out:
 	free_page((unsigned long)buf);
@@ -281,7 +281,7 @@ static ssize_t brisket_bren_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
 	/* parameter input */
-	int cpu, brisket_bren;
+	int brisket_bren;
 
 	/* proc template for check */
 	char *buf = (char *) __get_free_page(GFP_USER);
@@ -298,13 +298,13 @@ static ssize_t brisket_bren_proc_write(struct file *file,
 	buf[count] = '\0';
 
 	/* parameter check */
-	if (sscanf(buf, "%u %u", &cpu, &brisket_bren) != 2) {
-		brisket_debug("bad argument!! Should input 2 arguments.\n");
+	if (kstrtou32(buf, 0, &brisket_bren) != 1) {
+		brisket_debug("bad argument!! Should input 1 arguments.\n");
 		goto out;
 	}
 
 	/* sync parameter with trust-zoon */
-	mtk_brisket_bren((unsigned int)cpu, (unsigned int)brisket_bren);
+	mtk_brisket_bren((unsigned int)brisket_bren);
 
 out:
 	free_page((unsigned long)buf);
@@ -491,7 +491,8 @@ static int create_procfs(void)
 
 static int brisket_probe(struct platform_device *pdev)
 {
-	#ifdef CONFIG_OF
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF
 	struct device_node *node = NULL;
 	int rc = 0;
 
@@ -502,96 +503,30 @@ static int brisket_probe(struct platform_device *pdev)
 	}
 
 	rc = of_property_read_u32(node,
-		"brisket4_doe_pllclken", &brisket4_doe_pllclken);
+		"brisket_doe_pllclken", &brisket_doe_pllclken);
 	if (!rc) {
-		brisket_debug("[xxxxbrisket] brisket4_doe_pllclken from DTree; rc(%d) brisket4_doe_pllclken(0x%x)\n",
+		brisket_debug("[xxxxbrisket] brisket_doe_pllclken from DTree; rc(%d) brisket_doe_pllclken(0x%x)\n",
 			rc,
-			brisket4_doe_pllclken);
+			brisket_doe_pllclken);
 
-		if (brisket4_doe_pllclken >= 0)
-			mtk_brisket_pllclken(4, brisket4_doe_pllclken);
+		if (brisket_doe_pllclken >= 0)
+			mtk_brisket_pllclken(brisket_doe_pllclken);
 	}
 
 	rc = of_property_read_u32(node,
-		"brisket5_doe_pllclken", &brisket5_doe_pllclken);
+		"brisket_doe_bren", &brisket_doe_bren);
 	if (!rc) {
-		brisket_debug("[xxxxbrisket] brisket5_doe_pllclken from DTree; rc(%d) brisket5_doe_pllclken(0x%x)\n",
+		brisket_debug("[xxxxbrisket] brisket_doe_bren from DTree; rc(%d) brisket_doe_bren(0x%x)\n",
 			rc,
-			brisket5_doe_pllclken);
+			brisket_doe_bren);
 
-		if (brisket5_doe_pllclken >= 0)
-			mtk_brisket_pllclken(5, brisket5_doe_pllclken);
-	}
-
-	rc = of_property_read_u32(node,
-		"brisket6_doe_pllclken", &brisket6_doe_pllclken);
-	if (!rc) {
-		brisket_debug("[xxxxbrisket] brisket6_doe_pllclken from DTree; rc(%d) brisket6_doe_pllclken(0x%x)\n",
-			rc,
-			brisket6_doe_pllclken);
-
-		if (brisket6_doe_pllclken >= 0)
-			mtk_brisket_pllclken(6, brisket6_doe_pllclken);
-	}
-
-	rc = of_property_read_u32(node,
-		"brisket7_doe_pllclken", &brisket7_doe_pllclken);
-	if (!rc) {
-		brisket_debug("[xxxxbrisket] brisket7_doe_pllclken from DTree; rc(%d) brisket7_doe_pllclken(0x%x)\n",
-			rc,
-			brisket7_doe_pllclken);
-
-		if (brisket7_doe_pllclken >= 0)
-			mtk_brisket_pllclken(7, brisket7_doe_pllclken);
-	}
-
-	rc = of_property_read_u32(node,
-		"brisket4_doe_bren", &brisket4_doe_bren);
-	if (!rc) {
-		brisket_debug("[xxxxbrisket] brisket4_doe_bren from DTree; rc(%d) brisket4_doe_bren(0x%x)\n",
-			rc,
-			brisket4_doe_bren);
-
-		if (brisket4_doe_bren >= 0)
-			mtk_brisket_bren(4, brisket4_doe_bren);
-	}
-
-	rc = of_property_read_u32(node,
-		"brisket5_doe_bren", &brisket5_doe_bren);
-	if (!rc) {
-		brisket_debug("[xxxxbrisket] brisket5_doe_bren from DTree; rc(%d) brisket5_doe_bren(0x%x)\n",
-			rc,
-			brisket5_doe_bren);
-
-		if (brisket5_doe_bren >= 0)
-			mtk_brisket_bren(5, brisket5_doe_bren);
-	}
-
-	rc = of_property_read_u32(node,
-		"brisket6_doe_bren", &brisket6_doe_bren);
-	if (!rc) {
-		brisket_debug("[xxxxbrisket] brisket6_doe_bren from DTree; rc(%d) brisket6_doe_bren(0x%x)\n",
-			rc,
-			brisket6_doe_bren);
-
-		if (brisket6_doe_bren >= 0)
-			mtk_brisket_bren(6, brisket6_doe_bren);
-	}
-
-	rc = of_property_read_u32(node,
-		"brisket7_doe_bren", &brisket7_doe_bren);
-	if (!rc) {
-		brisket_debug("[xxxxbrisket] brisket7_doe_bren from DTree; rc(%d) brisket7_doe_bren(0x%x)\n",
-			rc,
-			brisket7_doe_bren);
-
-		if (brisket7_doe_bren >= 0)
-			mtk_brisket_bren(7, brisket7_doe_bren);
+		if (brisket_doe_bren >= 0)
+			mtk_brisket_bren(brisket_doe_bren);
 	}
 
 	brisket_debug("brisket probe ok!!\n");
-	#endif
-
+#endif
+#endif
 	return 0;
 }
 

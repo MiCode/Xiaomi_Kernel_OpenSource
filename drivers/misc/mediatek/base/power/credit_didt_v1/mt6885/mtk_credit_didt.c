@@ -84,7 +84,10 @@
 /************************************************
  * static Variable
  ************************************************/
+#ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF
+static unsigned int credit_didt_doe_enable;
+
 static unsigned int credit_didt4_doe_ls_period;
 static unsigned int credit_didt5_doe_ls_period;
 static unsigned int credit_didt6_doe_ls_period;
@@ -101,10 +104,6 @@ static unsigned int credit_didt4_doe_ls_low_freq_enable;
 static unsigned int credit_didt5_doe_ls_low_freq_enable;
 static unsigned int credit_didt6_doe_ls_low_freq_enable;
 static unsigned int credit_didt7_doe_ls_low_freq_enable;
-static unsigned int credit_didt4_doe_ls_enable;
-static unsigned int credit_didt5_doe_ls_enable;
-static unsigned int credit_didt6_doe_ls_enable;
-static unsigned int credit_didt7_doe_ls_enable;
 
 static unsigned int credit_didt4_doe_vx_period;
 static unsigned int credit_didt5_doe_vx_period;
@@ -122,12 +121,8 @@ static unsigned int credit_didt4_doe_vx_low_freq_enable;
 static unsigned int credit_didt5_doe_vx_low_freq_enable;
 static unsigned int credit_didt6_doe_vx_low_freq_enable;
 static unsigned int credit_didt7_doe_vx_low_freq_enable;
-static unsigned int credit_didt4_doe_vx_enable;
-static unsigned int credit_didt5_doe_vx_enable;
-static unsigned int credit_didt6_doe_vx_enable;
-static unsigned int credit_didt7_doe_vx_enable;
 #endif
-
+#endif
 
 /************************************************
  * update CREDIT_DIDT status with ATF
@@ -265,6 +260,94 @@ out:
 	return count;
 }
 
+static int credit_didt_en_proc_show(struct seq_file *m, void *v)
+{
+	int cpu, ls_vx, cfg, param, cpu_tmp;
+
+	unsigned char credit_didt_info[NR_CREDIT_DIDT_CPU]
+		[NR_CREDIT_DIDT_CHANNEL][NR_CREDIT_DIDT_CFG];
+
+	for (cpu = CREDIT_DIDT_CPU_START_ID;
+		cpu <= CREDIT_DIDT_CPU_END_ID; cpu++) {
+
+		for (ls_vx = 0; ls_vx < NR_CREDIT_DIDT_CHANNEL; ls_vx++) {
+			for (cfg = 0; cfg < NR_CREDIT_DIDT_CFG; cfg++) {
+				param = ls_vx * NR_CREDIT_DIDT_CFG + cfg;
+
+				cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
+				credit_didt_info[cpu_tmp][ls_vx][cfg] =
+				mt_secure_call_credit_didt(
+					MTK_SIP_KERNEL_CREDIT_DIDT_CONTROL,
+					CREDIT_DIDT_RW_READ,
+					cpu,
+					param,
+					0);
+
+				credit_didt_debug("Get cpu=%d ls_vx=%d cfg=%d value=%d\n",
+					cpu, ls_vx, cfg,
+					credit_didt_info[cpu][ls_vx][cfg]);
+			}
+		}
+	}
+
+	for (cpu = CREDIT_DIDT_CPU_START_ID;
+		cpu <= CREDIT_DIDT_CPU_END_ID; cpu++) {
+		for (ls_vx = 0;
+			ls_vx < NR_CREDIT_DIDT_CHANNEL; ls_vx++) {
+
+			cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
+
+			seq_printf(m,
+			"cpu%d %s enable=%d\n",
+			cpu, (ls_vx == 0 ? "LS" : "VX"),
+			credit_didt_info[cpu_tmp][ls_vx]
+				[CREDIT_DIDT_CFG_ENABLE]
+				);
+		}
+	}
+	return 0;
+}
+
+static ssize_t credit_didt_en_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	int cpu, ls_vx, value;
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
+
+	if (kstrtou32(buf, 0, &value) != 1) {
+		credit_didt_debug("bad argument!! Should input 1 arguments.\n");
+		goto out;
+	}
+
+	for (ls_vx = 0; ls_vx < NR_CREDIT_DIDT_CHANNEL; ls_vx++) {
+		for (cpu = CREDIT_DIDT_CPU_START_ID;
+			cpu <= CREDIT_DIDT_CPU_END_ID; cpu++) {
+			mtk_credit_didt(cpu, ls_vx,
+				CREDIT_DIDT_CFG_ENABLE,
+				(value >> (ls_vx*
+				(CREDIT_DIDT_CPU_END_ID+1)+cpu))&1);
+		}
+	}
+
+out:
+	free_page((unsigned long)buf);
+
+	return count;
+}
+
+
+
 #define PROC_FOPS_RW(name)						\
 	static int name ## _proc_open(struct inode *inode,		\
 		struct file *file)					\
@@ -299,6 +382,7 @@ out:
 #define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
 
 PROC_FOPS_RW(credit_didt);
+PROC_FOPS_RW(credit_didt_en);
 
 static int create_procfs(void)
 {
@@ -312,6 +396,7 @@ static int create_procfs(void)
 
 	struct pentry credit_didt_entries[] = {
 		PROC_ENTRY(credit_didt),
+		PROC_ENTRY(credit_didt_en),
 	};
 
 	credit_didt_dir = proc_mkdir("credit_didt", NULL);
@@ -337,14 +422,41 @@ static int create_procfs(void)
 
 static int credit_didt_probe(struct platform_device *pdev)
 {
-	#ifdef CONFIG_OF
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF
 	struct device_node *node = NULL;
 	int rc = 0;
+	int cpu, ls_vx;
 
 	node = pdev->dev.of_node;
 	if (!node) {
 		credit_didt_debug("get credit_didt device node err\n");
 		return -ENODEV;
+	}
+
+	rc = of_property_read_u32(node,
+		"credit_didt_doe_enable", &credit_didt_doe_enable);
+
+	if (!rc) {
+		credit_didt_debug("[xxxxcredit_didt] credit_didt_doe_enable from DTree; rc(%d) credit_didt_doe_enable(0x%x)\n",
+			rc,
+			credit_didt_doe_enable);
+
+		if (credit_didt_doe_enable >= 0) {
+			for (ls_vx = 0;
+				ls_vx < NR_CREDIT_DIDT_CHANNEL; ls_vx++) {
+				for (cpu = CREDIT_DIDT_CPU_START_ID;
+					cpu <= CREDIT_DIDT_CPU_END_ID; cpu++) {
+					mtk_credit_didt(cpu, ls_vx,
+						CREDIT_DIDT_CFG_ENABLE,
+						(credit_didt_doe_enable >>
+						(ls_vx*
+						(CREDIT_DIDT_CPU_END_ID+1)
+						+cpu))&1);
+				}
+			}
+		}
 	}
 
 	/* cpux, ls_period */
@@ -570,60 +682,6 @@ static int credit_didt_probe(struct platform_device *pdev)
 				credit_didt7_doe_ls_low_freq_enable);
 	}
 
-	/* cpux, ls_enable */
-	rc = of_property_read_u32(node,
-		"credit_didt4_doe_ls_enable", &credit_didt4_doe_ls_enable);
-
-	if (!rc) {
-		credit_didt_debug("[xxxxcredit_didt] credit_didt4_doe_ls_enable from DTree; rc(%d) credit_didt4_doe_ls_enable(0x%x)\n",
-			rc,
-			credit_didt4_doe_ls_enable);
-
-		if (credit_didt4_doe_ls_enable >= 0)
-			mtk_credit_didt(4, CREDIT_DIDT_CHANNEL_LS,
-				CREDIT_DIDT_CFG_ENABLE,
-				credit_didt4_doe_ls_enable);
-	}
-	rc = of_property_read_u32(node,
-		"credit_didt5_doe_ls_enable", &credit_didt5_doe_ls_enable);
-
-	if (!rc) {
-		credit_didt_debug("[xxxxcredit_didt] credit_didt5_doe_ls_enable from DTree; rc(%d) credit_didt5_doe_ls_enable(0x%x)\n",
-			rc,
-			credit_didt5_doe_ls_enable);
-
-		if (credit_didt5_doe_ls_enable >= 0)
-			mtk_credit_didt(5, CREDIT_DIDT_CHANNEL_LS,
-				CREDIT_DIDT_CFG_ENABLE,
-				credit_didt5_doe_ls_enable);
-	}
-
-	rc = of_property_read_u32(node,
-		"credit_didt6_doe_ls_enable", &credit_didt6_doe_ls_enable);
-	if (!rc) {
-		credit_didt_debug("[xxxxcredit_didt] credit_didt6_doe_ls_enable from DTree; rc(%d) credit_didt6_doe_ls_enable(0x%x)\n",
-			rc,
-			credit_didt6_doe_ls_enable);
-
-		if (credit_didt6_doe_ls_enable >= 0)
-			mtk_credit_didt(6, CREDIT_DIDT_CHANNEL_LS,
-				CREDIT_DIDT_CFG_ENABLE,
-				credit_didt6_doe_ls_enable);
-	}
-
-	rc = of_property_read_u32(node,
-		"credit_didt7_doe_ls_enable", &credit_didt7_doe_ls_enable);
-	if (!rc) {
-		credit_didt_debug("[xxxxcredit_didt] credit_didt7_doe_ls_enable from DTree; rc(%d) credit_didt7_doe_ls_enable(0x%x)\n",
-			rc,
-			credit_didt7_doe_ls_enable);
-
-		if (credit_didt7_doe_ls_enable >= 0)
-			mtk_credit_didt(7, CREDIT_DIDT_CHANNEL_LS,
-				CREDIT_DIDT_CFG_ENABLE,
-				credit_didt7_doe_ls_enable);
-	}
-
 	/* cpux, vx_period */
 	rc = of_property_read_u32(node,
 		"credit_didt4_doe_vx_period", &credit_didt4_doe_vx_period);
@@ -847,63 +905,9 @@ static int credit_didt_probe(struct platform_device *pdev)
 				credit_didt7_doe_vx_low_freq_enable);
 	}
 
-	/* cpux, vx_enable */
-	rc = of_property_read_u32(node,
-		"credit_didt4_doe_vx_enable", &credit_didt4_doe_vx_enable);
-
-	if (!rc) {
-		credit_didt_debug("[xxxxcredit_didt] credit_didt4_doe_vx_enable from DTree; rc(%d) credit_didt4_doe_vx_enable(0x%x)\n",
-			rc,
-			credit_didt4_doe_vx_enable);
-
-		if (credit_didt4_doe_vx_enable >= 0)
-			mtk_credit_didt(4, CREDIT_DIDT_CHANNEL_VX,
-				CREDIT_DIDT_CFG_ENABLE,
-				credit_didt4_doe_vx_enable);
-	}
-	rc = of_property_read_u32(node,
-		"credit_didt5_doe_vx_enable", &credit_didt5_doe_vx_enable);
-
-	if (!rc) {
-		credit_didt_debug("[xxxxcredit_didt] credit_didt5_doe_vx_enable from DTree; rc(%d) credit_didt5_doe_vx_enable(0x%x)\n",
-			rc,
-			credit_didt5_doe_vx_enable);
-
-		if (credit_didt5_doe_vx_enable >= 0)
-			mtk_credit_didt(5, CREDIT_DIDT_CHANNEL_VX,
-				CREDIT_DIDT_CFG_ENABLE,
-				credit_didt5_doe_vx_enable);
-	}
-
-	rc = of_property_read_u32(node,
-		"credit_didt6_doe_vx_enable", &credit_didt6_doe_vx_enable);
-	if (!rc) {
-		credit_didt_debug("[xxxxcredit_didt] credit_didt6_doe_vx_enable from DTree; rc(%d) credit_didt6_doe_vx_enable(0x%x)\n",
-			rc,
-			credit_didt6_doe_vx_enable);
-
-		if (credit_didt6_doe_vx_enable >= 0)
-			mtk_credit_didt(6, CREDIT_DIDT_CHANNEL_VX,
-				CREDIT_DIDT_CFG_ENABLE,
-				credit_didt6_doe_vx_enable);
-	}
-
-	rc = of_property_read_u32(node,
-		"credit_didt7_doe_vx_enable", &credit_didt7_doe_vx_enable);
-	if (!rc) {
-		credit_didt_debug("[xxxxcredit_didt] credit_didt7_doe_vx_enable from DTree; rc(%d) credit_didt7_doe_vx_enable(0x%x)\n",
-			rc,
-			credit_didt7_doe_vx_enable);
-
-		if (credit_didt7_doe_vx_enable >= 0)
-			mtk_credit_didt(7, CREDIT_DIDT_CHANNEL_VX,
-				CREDIT_DIDT_CFG_ENABLE,
-				credit_didt7_doe_vx_enable);
-	}
-
 	credit_didt_debug("credit_didt probe ok!!\n");
-	#endif
-
+#endif
+#endif
 	return 0;
 }
 
@@ -933,7 +937,7 @@ static struct platform_driver credit_didt_driver = {
 	.driver		= {
 		.name   = "mt-credit_didt",
 #ifdef CONFIG_OF
-	.of_match_table = mt_credit_didt_of_match,
+		.of_match_table = mt_credit_didt_of_match,
 #endif
 	},
 };
