@@ -127,6 +127,8 @@ struct __vpu_algo *vpu_alg_get(struct vpu_device *vd, const char *name,
 not_found:
 	alg = NULL;
 out:
+	vpu_alg_debug("%s: vpu%d: %s: ref: %d\n",
+		__func__, vd->id, alg->a.name, kref_read(&alg->ref));
 	return alg;
 }
 
@@ -141,12 +143,17 @@ void vpu_alg_release(struct kref *ref)
 	alg->vd->algo_cnt--;
 	spin_unlock(&alg->vd->algo_lock);
 
+	vpu_alg_debug("%s: vpu%d: %s, algo_cnt: %d\n",
+		__func__, alg->vd->id, alg->a.name, alg->vd->algo_cnt);
+
 	/* free __vpu_algo memory */
 	kfree(container_of(ref, struct __vpu_algo, ref));
 }
 
 void vpu_alg_put(struct __vpu_algo *alg)
 {
+	vpu_alg_debug("%s: vpu%d: %s: ref: %d\n",
+		__func__, alg->vd->id, alg->a.name, kref_read(&alg->ref));
 	kref_put(&alg->ref, vpu_alg_release);
 }
 
@@ -175,7 +182,29 @@ err:
 	return ret;
 }
 
-// vd->cmd_lock, should be acquired before calling this function
+/**
+ * vpu_alg_unload() - unload currently loaded algortihm from vpu
+ * @vd: vpu device
+ *
+ * vd->cmd_lock, should be locked before calling this function
+ */
+void vpu_alg_unload(struct vpu_device *vd)
+{
+	if (!vd || !vd->algo_curr)
+		return;
+
+	vpu_alg_put(vd->algo_curr);
+	vd->algo_curr = NULL;
+}
+
+/**
+ * vpu_alg_load() - load an algortihm for d2d execution
+ * @vd: vpu device
+ *
+ * Automatically unload currently loaded algortihm, and
+ * load given one.
+ * vd->cmd_lock, should be locked before calling this function.
+ */
 int vpu_alg_load(struct vpu_device *vd, const char *name,
 	struct __vpu_algo *alg)
 {
@@ -187,10 +216,7 @@ int vpu_alg_load(struct vpu_device *vd, const char *name,
 		return -ENOENT;
 	}
 
-	if (vd->algo_curr) {
-		vpu_alg_put(vd->algo_curr);
-		vd->algo_curr = NULL;
-	}
+	vpu_alg_unload(vd);
 
 	ret = vpu_hw_alg_init(vd, alg);  // vpu_hw_load_algo
 	if (ret) {
@@ -213,7 +239,6 @@ int vpu_alg_load(struct vpu_device *vd, const char *name,
 err:
 	vpu_alg_put(alg);
 out:
-	vpu_alg_debug("%s: %d\n", __func__, ret);  // debug
 	return ret;
 }
 

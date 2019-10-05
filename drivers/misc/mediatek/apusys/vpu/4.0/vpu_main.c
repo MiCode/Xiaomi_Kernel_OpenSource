@@ -24,12 +24,13 @@
 #include <linux/of_irq.h>
 
 /* internal headers */
+#include "apusys_power.h"
 #include "vpu_drv.h"
+#include "vpu_power.h"
 #include "vpu_cmn.h"
 #include "vpu_mem.h"
 #include "vpu_algo.h"
 #include "vpu_debug.h"
-#include "apusys_power.h"
 #include "remoteproc_internal.h"  // TODO: move to drivers/remoteproc/../..
 #include "vpu_trace.h"
 
@@ -61,9 +62,10 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 		pw = (struct apusys_power_hnd *)hnd;
 		vpu_cmd_debug("%s: APUSYS_CMD_POWERON, boost: %d, opp: %d\n",
 			__func__, pw->boost_val, pw->opp);
-		break;
+		return vpu_pwr_get(vd, pw->boost_val);
 	case APUSYS_CMD_POWERDOWN:
 		vpu_cmd_debug("%s: APUSYS_CMD_POWERDOWN\n", __func__);
+		vpu_pwr_put(vd);
 		break;
 	case APUSYS_CMD_RESUME:
 		vpu_cmd_debug("%s: APUSYS_CMD_RESUME\n", __func__);
@@ -132,6 +134,12 @@ void vpu_drv_put(void)
 {
 	if (!vpu_drv)
 		return;
+
+	if (vpu_drv->wq) {
+		flush_workqueue(vpu_drv->wq);
+		destroy_workqueue(vpu_drv->wq);
+		vpu_drv->wq = NULL;
+	}
 
 	vpu_drv_debug("%s:\n", __func__);
 	kref_put(&vpu_drv->ref, vpu_drv_release);
@@ -412,24 +420,9 @@ static int vpu_probe(struct platform_device *pdev)
 		goto free_rproc;
 
 	/* power initialization */
-	vpu_drv_debug("%s: apu_power_device_register call\n", __func__);
-	if (vd->id != 0) { // we just need to take pdev of core0 to init power
-//		ret = apu_power_device_register(VPU0 + vd->id, NULL);
-	} else {
-//		ret = apu_power_device_register(VPU0 + vd->id, pdev);
-	}
-	if (ret) {
-		dev_info(&pdev->dev, "apu_power_device_register: %d\n",
-			ret);
+	ret = vpu_init_dev_pwr(pdev, vd);
+	if (ret)
 		goto free_rproc;
-	}
-
-	vpu_drv_debug("%s: apu_device_power_on call\n", __func__);
-//	ret = apu_device_power_on((VPU0 + vd->id));
-	if (ret) {
-		dev_info(&pdev->dev, "apu_device_power_on: %d\n", ret);
-		goto free_rproc;
-	}
 
 	/* device algo initialization */
 	INIT_LIST_HEAD(&vd->algo);
@@ -491,8 +484,7 @@ static int vpu_remove(struct platform_device *pdev)
 	apusys_unregister_device(&vd->adev);
 	rproc_del(vd->rproc);
 	rproc_free(vd->rproc);
-//	apu_device_power_off(VPU0 + vd->id);
-//	apu_power_device_unregister(VPU0 + vd->id);
+	vpu_exit_dev_pwr(pdev, vd);
 	vpu_drv_put();
 
 	return 0;
@@ -500,11 +492,32 @@ static int vpu_remove(struct platform_device *pdev)
 
 static int vpu_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
+	struct vpu_device *vd = platform_get_drvdata(pdev);
+
+	mutex_lock(&vd->lock);
+	mutex_lock(&vd->cmd_lock);
+	if (!vpu_pwr_cnt(vd)) {
+		if (vd->state != VS_DOWN) {
+			vd->state = VS_SUSPENDED;
+			vpu_pwr_down(vd);
+		}
+	}
+	mutex_unlock(&vd->cmd_lock);
+	mutex_unlock(&vd->lock);
+
 	return 0;
 }
 
 static int vpu_resume(struct platform_device *pdev)
 {
+	struct vpu_device *vd = platform_get_drvdata(pdev);
+
+	mutex_lock(&vd->lock);
+	mutex_lock(&vd->cmd_lock);
+	vd->state = VS_DOWN;
+	mutex_unlock(&vd->cmd_lock);
+	mutex_unlock(&vd->lock);
+
 	return 0;
 }
 
@@ -596,6 +609,7 @@ static int __init vpu_init(void)
 
 	vpu_drv->mva_algo = 0;
 	vpu_drv->mva_share = 0;
+	vpu_drv->wq = create_workqueue("vpu_wq");
 
 	vpu_init_drv_hw();
 

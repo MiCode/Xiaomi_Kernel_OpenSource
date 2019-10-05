@@ -21,10 +21,7 @@
 #include "mtk_devinfo.h"
 #include "vpu_algo.h"
 #include "vpu_mem.h"
-
-// TODO: group power related functions
-#include <linux/regulator/consumer.h>
-#include <linux/pm_qos.h>
+#include "vpu_power.h"
 #include "vpu_debug.h"
 #include "vpu_trace.h"
 
@@ -377,19 +374,13 @@ int vpu_dev_boot(struct vpu_device *vd)
 {
 	int ret = 0;
 
+	if (vd->state == VS_SUSPENDED)
+		return -EBUSY;
+
 	if (vd->state != VS_DOWN)
 		return ret;
 
 	vd->state = VS_BOOT;
-
-#if 0  // TODO: get power
-	/* Enable power and clock */
-	ret = vpu_get_power(vd->id, false);
-	if (ret) {
-		pr_info("%s: vpu_get_power: %d\n", __func__, ret);
-		goto err;
-	}
-#endif
 
 	/* VPU boot up sequence */
 	ret = vpu_dev_boot_sequence(vd);
@@ -452,21 +443,14 @@ int vpu_execute(struct vpu_device *vd, struct vpu_request *req)
 	// TODO: Add preemption handling
 	mutex_lock(&vd->cmd_lock);
 
-	if (vd->state == VS_REMOVING) {
-		pr_info("%s: vpu%d is going to be removed\n",
-			__func__, vd->id);
-		goto err_remove;
-	}
-
-	if (vd->state != VS_IDLE) {
-		pr_info("%s: vpu%d state was not idle: %d\n",
-			__func__, vd->id, vd->state);
-	}
 	vpu_cmd_debug("%s: vpu%d, req: %p\n", __func__, vd->id, req);  // debug
-
 	vpu_dump_req(vd, req);
 
 	/* Bootup VPU */
+	ret = vpu_pwr_get_locked(vd, req->power_param.boost_value);
+	if (ret)
+		goto err_remove;
+
 	ret = vpu_dev_boot(vd);
 	if (ret)
 		goto err_boot;
@@ -490,22 +474,16 @@ send_req:
 err_alg:
 	/* Check Results */
 	if (ret) {
-		// TODO: check power counter
 		pr_info("%s: vpu%d: hw error, force shutdown\n",
 				__func__, vd->id);
-#if 0  // TODO: force shutdown
-		vpu_shut_down(vd->id);
-#endif
-		vd->state = VS_DOWN;
-	} else {
-#if 0  // TODO: put power
-		vpu_put_power(vd->id, VPT_ENQUE_ON);
-#endif
+		vpu_pwr_down(vd);
 	}
 
 err_boot:
-err_remove:
 	vd->state = VS_IDLE;
+	vpu_pwr_put(vd);
+
+err_remove:
 	mutex_unlock(&vd->cmd_lock);
 
 	return ret;
@@ -576,9 +554,6 @@ int vpu_exit_drv_hw(void)
 int vpu_exit_dev_hw(struct platform_device *pdev, struct vpu_device *vd)
 {
 	free_irq(vd->irq_num, vd);
-	// TODO: unregister power
-//	uninit_power_resource();
-
 	return 0;
 }
 

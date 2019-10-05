@@ -22,11 +22,7 @@ enum VPU_DEBUG_MASK {
 	VPU_DBG_MEM = 0x02,
 	VPU_DBG_ALG = 0x04,
 	VPU_DBG_CMD = 0x08,
-	VPU_DBG_PMU = 0x10,
-	VPU_DBG_PERF = 0x20,
-	VPU_DBG_QOS = 0x40,
-	VPU_DBG_TIMEOUT = 0x80,
-	VPU_DBG_DVFS = 0x100,
+	VPU_DBG_PWR = 0x10,
 };
 
 #ifdef CONFIG_MTK_APUSYS_VPU_DEBUG
@@ -82,11 +78,7 @@ int vpu_debug_on(int mask)
 #define vpu_mem_debug(...) vpu_debug(VPU_DBG_MEM, __VA_ARGS__)
 #define vpu_cmd_debug(...) vpu_debug(VPU_DBG_CMD, __VA_ARGS__)
 #define vpu_alg_debug(...) vpu_debug(VPU_DBG_ALG, __VA_ARGS__)
-#define vpu_pmu_debug(...) vpu_debug(VPU_DBG_PMU, __VA_ARGS__)
-#define vpu_perf_debug(...) vpu_debug(VPU_DBG_PERF, __VA_ARGS__)
-#define vpu_qos_debug(...) vpu_debug(VPU_DBG_QOS, __VA_ARGS__)
-#define vpu_timeout_debug(...) vpu_debug(VPU_DBG_TIMEOUT, __VA_ARGS__)
-#define vpu_dvfs_debug(...) vpu_debug(VPU_DBG_DVFS, __VA_ARGS__)
+#define vpu_pwr_debug(...) vpu_debug(VPU_DBG_PWR, __VA_ARGS__)
 
 #endif
 

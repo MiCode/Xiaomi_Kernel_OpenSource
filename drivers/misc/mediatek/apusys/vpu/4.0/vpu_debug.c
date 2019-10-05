@@ -17,6 +17,7 @@
 #include "vpu_algo.h"
 #include "vpu_debug.h"
 #include "vpu_hw.h"
+#include "vpu_power.h"
 
 u32 vpu_klog;
 
@@ -118,6 +119,7 @@ static void vpu_debug_algo_entry(struct seq_file *s,
 	if (ret)
 		return;
 
+	vpu_alg_get(vd, NULL, alg);
 	if (!alg->a.port_count)
 		goto out;
 
@@ -151,17 +153,22 @@ static int vpu_debug_algo(struct seq_file *s)
 
 	mutex_lock(&vd->cmd_lock);
 
-	/* Bootup VPU */
+	ret = vpu_pwr_get_locked_nb(vd);
+	if (ret)
+		goto err_pwr;
+
 	ret = vpu_dev_boot(vd);
 	if (ret)
-		goto out;
+		goto err_boot;
 
 	list_for_each_safe(ptr, tmp, &vd->algo) {
 		alg = list_entry(ptr, struct __vpu_algo, list);
 		vpu_debug_algo_entry(s, vd, alg);
 	}
 
-out:
+err_boot:
+	vpu_pwr_put(vd);
+err_pwr:
 	mutex_unlock(&vd->cmd_lock);
 
 	return 0;
@@ -192,11 +199,17 @@ static int vpu_debug_mesg(struct seq_file *s)
 static int vpu_debug_reg(struct seq_file *s)
 {
 	struct vpu_device *vd;
+	int ret;
 
 	if (!s)
 		return -ENOENT;
 
 	vd = (struct vpu_device *) s->private;
+
+	mutex_lock(&vd->lock);
+	ret = vpu_pwr_get_locked_nb(vd);
+	if (ret)
+		return ret;
 
 	seq_printf(s, "vpu%d registers\n", vd->id);
 	seq_puts(s, "name\toffset\tvalue\n");
@@ -254,6 +267,9 @@ static int vpu_debug_reg(struct seq_file *s)
 	seq_vpu_reg(DEBUG_INFO07);
 	seq_vpu_reg(XTENSA_ALTRESETVEC);
 #undef seq_vpu_reg
+
+	vpu_pwr_put(vd);
+	mutex_unlock(&vd->lock);
 
 	return 0;
 }
@@ -363,6 +379,9 @@ int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 		goto out;
 	}
 
+	debugfs_create_u64("pw_off_latency", 0660, droot,
+		&vd->pw_off_latency);
+
 	VPU_DEBUGFS_CREATE(algo);
 	VPU_DEBUGFS_CREATE(mesg);
 	VPU_DEBUGFS_CREATE(reg);
@@ -397,8 +416,8 @@ int vpu_init_debug(void)
 	}
 
 	vpu_drv->droot = droot;
+	vpu_klog = (VPU_DBG_DRV | VPU_DBG_PWR);
 	debugfs_create_u32("klog", 0660, droot, &vpu_klog);
-	vpu_klog = VPU_DBG_DRV;
 
 out:
 	return ret;

@@ -216,7 +216,7 @@ vpu_map_sg_to_iova(
 		((iova == given_iova) ? "(static alloc)" : "(unexpected)"));
 
 	if ((given_iova != VPU_IOVA_END) && (given_iova != iova))
-		aee_kernel_warning("VPU", "iova mapping error");
+		vpu_aee_warn("VPU", "iova mapping error");
 
 	return iova;
 

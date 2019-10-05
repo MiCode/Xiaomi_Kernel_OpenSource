@@ -21,27 +21,13 @@
 #include <linux/wait.h>
 #include <linux/mutex.h>
 #include <linux/scatterlist.h>
+#include <linux/workqueue.h>
 
 #include "apusys_device.h"
 #include "vpu_drv.h"
 #include "vpu_mem.h"
 
 #include <aee.h>
-
-// TODO: move power related defines elsewhere
-enum VpuPowerOnType {
-	/* power on previously by setPower */
-	VPT_PRE_ON		= 1,
-	/* power on by enque */
-	VPT_ENQUE_ON	= 2,
-	/* power on by enque, but want to immediately off(when exception) */
-	VPT_IMT_OFF		= 3,
-};
-
-// TODO: remove vpu_user
-struct vpu_user {
-	int deprecated;
-};
 
 #ifdef CONFIG_MTK_AEE_FEATURE
 #define vpu_aee(key, format, args...) \
@@ -74,6 +60,9 @@ struct vpu_driver {
 	unsigned long bin_pa;
 	unsigned int bin_size;
 
+	/* power work queue */
+	struct workqueue_struct *wq;
+
 	/* iova settings */
 	struct kref iova_ref;
 	struct device *iova_dev;
@@ -99,6 +88,7 @@ enum vpu_state {
 	VS_UNKNOWN = 0,
 	VS_DISALBED,   // disabled by e-fuse
 	VS_DOWN,       // power down
+	VS_SUSPENDED,  // suspended
 	VS_BOOT,       // booting
 	VS_IDLE,       // power on, idle
 	VS_CMD_ALG,
@@ -117,6 +107,11 @@ struct vpu_device {
 	struct device *dev;      // platform device
 	struct rproc *rproc;
 	void __iomem *reg_base;  // IPU_BASE
+
+	/* power */
+	struct kref pw_ref;
+	struct delayed_work pw_off_work;
+	uint64_t pw_off_latency; // 0 = always on
 
 	/* iova settings */
 	struct vpu_iova iova_reset;

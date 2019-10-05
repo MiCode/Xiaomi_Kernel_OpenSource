@@ -39,6 +39,7 @@ struct __vpu_algo *vpu_alg_alloc(struct vpu_device *vd);
 void vpu_alg_free(struct __vpu_algo *alg);
 int vpu_alg_load(struct vpu_device *vd, const char *name,
 	struct __vpu_algo *alg);
+void vpu_alg_unload(struct vpu_device *vd);
 struct __vpu_algo *vpu_alg_get(struct vpu_device *vd, const char *name,
 	struct __vpu_algo *alg);
 void vpu_alg_put(struct __vpu_algo *alg);
