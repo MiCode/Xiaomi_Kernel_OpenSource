@@ -281,6 +281,8 @@ struct held_lock {
 #define HELD_LOCK_STACK_TRACE_DEPTH 24
 	struct stack_trace trace;
 	unsigned long entries[HELD_LOCK_STACK_TRACE_DEPTH];
+	/* MTK_LOCK_MONITOR */
+	unsigned long long timestamp;
 };
 
 #ifdef CONFIG_LOCKDEP_CROSSRELEASE

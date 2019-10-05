@@ -252,6 +252,9 @@ static void ftrace_events_enable(int enable)
 #ifdef CONFIG_MTK_SCHED_MONITOR
 		trace_set_clr_event(NULL, "sched_mon_msg", 1);
 #endif
+#ifdef CONFIG_LOCKDEP
+		trace_set_clr_event(NULL, "lock_monitor_msg", 1);
+#endif
 		trace_set_clr_event("mtk_events", NULL, 1);
 		if (boot_trace) {
 			trace_set_clr_event("android_fs", NULL, 1);
