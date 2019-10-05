@@ -339,6 +339,12 @@
 #define ALPHA_2_ID                              0x0846
 #define ALPHA_3_ID                              0x2345
 #define ALPHA_4_ID                              0x2509
+
+#define S5KGD1SP_SENSOR_ID                      0x0841
+#define HI846_SENSOR_ID                         0x0846
+#define GC02M0_SENSOR_ID                        0x2345
+#define OV02A10_MONO_SENSOR_ID                  0x2509
+
 /* CAMERA DRIVER NAME */
 #define CAMERA_HW_DEVNAME                       "kd_camera_hw"
 /* SENSOR DEVICE DRIVER NAME */
@@ -533,6 +539,11 @@
 #define SENSOR_DRVNAME_K6885V1_64_ALPHA_2       "alpha_2"
 #define SENSOR_DRVNAME_K6885V1_64_ALPHA_3       "alpha_3"
 #define SENSOR_DRVNAME_K6885V1_64_ALPHA_4       "alpha_4"
+
+#define SENSOR_DRVNAME_S5KGD1SP_MIPI_RAW        "s5kgd1sp_mipi_raw"
+#define SENSOR_DRVNAME_HI846_MIPI_RAW           "hi846_mipi_raw"
+#define SENSOR_DRVNAME_GC02M0_MIPI_RAW          "gc02m0_mipi_raw"
+#define SENSOR_DRVNAME_OV02A10_MIPI_MONO        "ov02a10_mipi_mono"
 
 /******************************************************************************
  *

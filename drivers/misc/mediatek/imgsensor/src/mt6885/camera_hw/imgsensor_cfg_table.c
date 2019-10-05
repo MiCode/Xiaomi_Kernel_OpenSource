@@ -68,7 +68,7 @@ struct IMGSENSOR_HW_CFG imgsensor_custom_config[] = {
 	},
 	{
 		IMGSENSOR_SENSOR_IDX_SUB2,
-		IMGSENSOR_I2C_DEV_4,
+		IMGSENSOR_I2C_DEV_3,
 		{
 			{IMGSENSOR_HW_PIN_MCLK,  IMGSENSOR_HW_ID_MCLK},
 			{IMGSENSOR_HW_PIN_AVDD,  IMGSENSOR_HW_ID_GPIO},
@@ -1060,6 +1060,59 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 			{RST, Vol_Low, 9}
 		},
 	},
+#endif
+#if defined(S5KGD1SP_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_S5KGD1SP_MIPI_RAW,
+			{
+				{RST, Vol_Low, 1},
+				{AVDD, Vol_2800, 0},
+				{DVDD, Vol_1100, 0},
+				{DOVDD, Vol_1800, 1},
+				{SensorMCLK, Vol_High, 1},
+				{RST, Vol_High, 2}
+			},
+		},
+#endif
+#if defined(HI846_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_HI846_MIPI_RAW,
+			{
+				{RST, Vol_Low, 1},
+				{AVDD, Vol_2800, 0},
+				{DVDD, Vol_1200, 0},
+				{DOVDD, Vol_1800, 1},
+				{SensorMCLK, Vol_High, 1},
+				{RST, Vol_High, 2}
+			},
+		},
+#endif
+#if defined(GC02M0_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_GC02M0_MIPI_RAW,
+			{
+				{RST, Vol_Low, 1},
+				{AVDD, Vol_2800, 0},
+				{DVDD, Vol_1200, 0},
+				{DOVDD, Vol_1800, 1},
+				{SensorMCLK, Vol_High, 1},
+				{RST, Vol_High, 2}
+			},
+		},
+#endif
+#if defined(OV02A10_MIPI_MONO)
+		{
+			SENSOR_DRVNAME_OV02A10_MIPI_MONO,
+			{
+				{RST, Vol_High, 1},
+				{AVDD, Vol_2800, 0},
+			/*main3 has no dvdd, compatible with sub2*/
+				{DVDD, Vol_1200, 0},
+				{DOVDD, Vol_1800, 0},
+				{SensorMCLK, Vol_High, 5},
+				{RST, Vol_Low, 9}
+			},
+		},
 #endif
 
 	/* add new sensor before this line */
