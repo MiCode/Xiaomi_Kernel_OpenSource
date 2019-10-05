@@ -171,7 +171,7 @@ static int Audio_Speech_Mic_Mute_Set(struct snd_kcontrol *kcontrol,
 {
 	if (ucontrol->value.integer.value[0] > 1 ||
 	    ucontrol->value.integer.value[0] < 0) {
-		pr_debug("%s() wrong mute value=%d\n", __func__,
+		pr_debug("%s() wrong mute value=%ld\n", __func__,
 			 ucontrol->value.integer.value[0]);
 		return -EINVAL;
 	}
