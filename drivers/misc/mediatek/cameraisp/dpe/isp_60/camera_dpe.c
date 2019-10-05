@@ -78,6 +78,8 @@
 #else /* CONFIG_MTK_IOMMU_V2 */
 #include <m4u.h>
 #endif /* CONFIG_MTK_IOMMU_V2 */
+#include "mach/pseudo_m4u.h"
+
 #include <smi_public.h>
 #include "engine_request.h"
 #ifdef KERNEL_DMA_BUFFER
@@ -215,6 +217,10 @@ struct DPE_CLK_STRUCT dpe_clk;
 #define ALIGN16(x) (((x)+MASK_15)&(~(MASK_15)))
 #define MAX_NUM_TILE 4
 #define TILE_WITH_NUM 3
+
+#ifdef CONFIG_MTK_IOMMU_V2
+static int DPE_MEM_USE_VIRTUL = 1;
+#endif
 
 /* static irqreturn_t DPE_Irq_CAM_A(signed int  Irq,void *DeviceId); */
 static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId);
@@ -2554,6 +2560,34 @@ static inline void DPE_Disable_Unprepare_ccf_clock(void)
 }
 #endif
 
+#ifdef CONFIG_MTK_IOMMU_V2
+static inline int m4u_control_iommu_port(void)
+{
+	struct M4U_PORT_STRUCT sPort;
+	int ret = 0;
+
+	/* LARB19 */
+	sPort.ePortID = M4U_PORT_L19_IPE_DVS_RDMA_DISP;
+	sPort.Virtuality = DPE_MEM_USE_VIRTUL;
+
+#if defined(CONFIG_MTK_M4U)
+	ret = m4u_config_port(&sPort);
+#endif
+
+	if (ret == 0) {
+		LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L19_IPE_DVS_RDMA_DISP),
+			DPE_MEM_USE_VIRTUL ? "virtual" : "physical");
+	} else {
+		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L19_IPE_DVS_RDMA_DISP),
+			DPE_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
+		ret = -1;
+	}
+
+	return ret;
+}
+#endif
 /**************************************************************
  *
  **************************************************************/
@@ -2561,6 +2595,10 @@ static void DPE_EnableClock(bool En)
 {
 #if defined(EP_NO_CLKMGR)
 	unsigned int setReg;
+#endif
+
+#ifdef CONFIG_MTK_IOMMU_V2
+	int ret = 0;
 #endif
 
 	if (En) {		/* Enable clock. */
@@ -2595,6 +2633,14 @@ static void DPE_EnableClock(bool En)
 		spin_lock(&(DPEInfo.SpinLockDPE));
 		g_u4EnableClockCount++;
 		spin_unlock(&(DPEInfo.SpinLockDPE));
+
+#ifdef CONFIG_MTK_IOMMU_V2
+		if (g_u4EnableClockCount == 1) {
+			ret = m4u_control_iommu_port();
+			if (ret)
+				LOG_ERR("cannot config M4U IOMMU PORTS\n");
+		}
+#endif
 	} else {		/* Disable clock. */
 
 		/* LOG_DBG("Dpe clock disabled. g_u4EnableClockCount: %d.",
@@ -4333,6 +4379,14 @@ static signed int DPE_probe(struct platform_device *pDev)
 			nr_DPE_devs, pDev->dev.of_node->name);
 		return -ENOMEM;
 	}
+
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		*(DPE_dev->dev->dma_mask) =
+			(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
+		DPE_dev->dev->coherent_dma_mask =
+			(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
+#endif
 
 	LOG_INF("nr_DPE_devs=%d, devnode(%s), map_addr=0x%lx\n", nr_DPE_devs,
 		pDev->dev.of_node->name, (unsigned long)DPE_dev->regs);
