@@ -2053,7 +2053,6 @@ void ufs_mtk_runtime_pm_init(struct scsi_device *sdev)
 
 static void ufs_mtk_auto_hibern8(struct ufs_hba *hba, bool enable)
 {
-#if 0
 	/* if auto-hibern8 is not enabled by device tree, return */
 	if (!hba->ahit)
 		return;
@@ -2074,7 +2073,6 @@ static void ufs_mtk_auto_hibern8(struct ufs_hba *hba, bool enable)
 
 		ufs_mtk_auto_hibern8_enabled = false;
 	}
-#endif
 }
 
 int ufs_mtk_auto_hiber8_quirk_handler(struct ufs_hba *hba, bool enable)
