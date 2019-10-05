@@ -354,6 +354,18 @@ out:
 	return ret;
 }
 
+static int cpu_util_min_pct_write_u64(struct cgroup_subsys_state *css,
+				  struct cftype *cftype, u64 pct)
+{
+	u64 min_value;
+
+	if (pct < 0 || pct > 100)
+		return -ERANGE;
+
+	min_value = scale_from_percent(pct);
+	return cpu_util_min_write_u64(css, cftype, min_value);
+}
+
 static int cpu_util_max_write_u64(struct cgroup_subsys_state *css,
 				  struct cftype *cftype, u64 max_value)
 {
@@ -391,6 +403,18 @@ out:
 	mutex_unlock(&uclamp_mutex);
 
 	return ret;
+}
+
+static int cpu_util_max_pct_write_u64(struct cgroup_subsys_state *css,
+				  struct cftype *cftype, u64 pct)
+{
+	u64 max_value;
+
+	if (pct < 0 || pct > 100)
+		return -ERANGE;
+
+	max_value = scale_from_percent(pct);
+	return cpu_util_max_write_u64(css, cftype, max_value);
 }
 
 static inline u64 cpu_uclamp_read(struct cgroup_subsys_state *css,
@@ -755,6 +779,10 @@ static struct cftype files[] = {
 		.write_u64 = cpu_util_min_write_u64,
 	},
 	{
+		.name = "util.min.pct",
+		.write_u64 = cpu_util_min_pct_write_u64,
+	},
+	{
 		.name = "util.min.effective",
 		.read_u64 = cpu_util_min_effective_read_u64,
 	},
@@ -762,6 +790,10 @@ static struct cftype files[] = {
 		.name = "util.max",
 		.read_u64 = cpu_util_max_read_u64,
 		.write_u64 = cpu_util_max_write_u64,
+	},
+	{
+		.name = "util.max.pct",
+		.write_u64 = cpu_util_max_pct_write_u64,
 	},
 	{
 		.name = "util.max.effective",
