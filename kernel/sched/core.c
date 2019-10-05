@@ -6766,7 +6766,6 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf,
 			!cpumask_intersects(&avail_cpus, &next->cpus_allowed)) {
 			detach_one_task(next, rq, &tasks);
 			num_pinned_kthreads += 1;
-			rq_unlock(rq, rf);
 			continue;
 		}
 		/*
