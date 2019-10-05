@@ -102,6 +102,11 @@ int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
 			return PTR_ERR(pm->clk_MT_SCP_SYS_DIS);
 		}
 
+		pm->clk_MT_CG_SOC = devm_clk_get(&pdev->dev, "MT_CG_SOC");
+		if (IS_ERR(pm->clk_MT_CG_SOC)) {
+			mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_CG_SOC\n");
+			return PTR_ERR(pm->clk_MT_CG_SOC);
+		}
 		pm->clk_MT_CG_VDEC0 = devm_clk_get(&pdev->dev, "MT_CG_VDEC0");
 		if (IS_ERR(pm->clk_MT_CG_VDEC0)) {
 			mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_CG_VDEC0\n");
@@ -154,6 +159,10 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 
 	if (hw_id == MTK_VDEC_CORE) {
 		smi_bus_prepare_enable(SMI_LARB4, "VDEC_CORE");
+		ret = clk_prepare_enable(pm->clk_MT_CG_SOC);
+		if (ret)
+			mtk_v4l2_err("clk_prepare_enable VDEC_SOC fail %d",
+				ret);
 		ret = clk_prepare_enable(pm->clk_MT_CG_VDEC0);
 		if (ret)
 			mtk_v4l2_err("clk_prepare_enable VDEC_CORE fail %d",
@@ -226,6 +235,7 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 
 	if (hw_id == MTK_VDEC_CORE) {
 		clk_disable_unprepare(pm->clk_MT_CG_VDEC0);
+		clk_disable_unprepare(pm->clk_MT_CG_SOC);
 		smi_bus_disable_unprepare(SMI_LARB4, "VDEC_CORE");
 	} else if (hw_id == MTK_VDEC_LAT) {
 		clk_disable_unprepare(pm->clk_MT_CG_VDEC1);

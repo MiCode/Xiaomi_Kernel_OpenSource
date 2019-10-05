@@ -43,6 +43,7 @@ struct mtk_vcodec_pm {
 	struct device_node      *chip_node;
 	struct mtk_vcodec_dev   *mtkdev;
 
+	struct clk *clk_MT_CG_SOC;           /* VDEC SOC*/
 	struct clk *clk_MT_CG_VDEC0;         /* VDEC core 0*/
 	struct clk *clk_MT_CG_VENC0;         /* VENC core 0*/
 	struct clk *clk_MT_CG_VDEC1;         /* VDEC core 1*/
