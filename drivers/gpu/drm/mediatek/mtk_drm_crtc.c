@@ -370,6 +370,66 @@ int mtk_drm_crtc_enable_vblank(struct drm_device *drm, unsigned int pipe)
 	return 0;
 }
 
+static void bl_cmdq_cb(struct cmdq_cb_data data)
+{
+	struct mtk_cmdq_cb_data *cb_data = data.data;
+
+	cmdq_pkt_destroy(cb_data->cmdq_handle);
+	kfree(cb_data);
+}
+
+
+int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct cmdq_pkt *cmdq_handle;
+	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
+	struct mtk_cmdq_cb_data *cb_data;
+	bool is_frame_mode;
+
+	mutex_lock(&mtk_crtc->lock);
+
+	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+
+	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
+	cmdq_pkt_create(&cmdq_handle);
+	cmdq_pkt_set_client(cmdq_handle, mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	if (is_frame_mode) {
+		cmdq_pkt_wfe(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_clear_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+	}
+
+	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_SECOND_PATH);
+	else
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_FIRST_PATH);
+	/* set backlight */
+	if (comp->funcs && comp->funcs->io_cmd)
+		comp->funcs->io_cmd(comp, cmdq_handle, DSI_SET_BL, &level);
+
+	if (is_frame_mode) {
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+	}
+
+	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+	cb_data->cmdq_handle = cmdq_handle;
+
+	cmdq_pkt_flush_threaded(mtk_crtc->gce_obj.client[CLIENT_CFG],
+		cmdq_handle, bl_cmdq_cb, cb_data);
+
+	mutex_unlock(&mtk_crtc->lock);
+
+	return 0;
+}
+
 void mtk_drm_crtc_disable_vblank(struct drm_device *drm, unsigned int pipe)
 {
 	struct mtk_drm_private *priv = drm->dev_private;
@@ -1093,6 +1153,8 @@ void mtk_crtc_start_trig_loop(struct mtk_drm_crtc *mtk_crtc)
 				       mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 		cmdq_pkt_clear_event(cmdq_handle,
 				     mtk_crtc->gce_obj.event[EVENT_TE]);
+		cmdq_pkt_wait_no_clear(cmdq_handle,
+				     mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 		cmdq_pkt_wfe(cmdq_handle, mtk_crtc->gce_obj.event[EVENT_TE]);
 
 		/* The STREAM BLOCK EVENT is used for stopping frame trigger if
@@ -1137,6 +1199,8 @@ void mtk_crtc_start_trig_loop(struct mtk_drm_crtc *mtk_crtc)
 				   mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 		cmdq_pkt_set_event(cmdq_handle2,
 				   mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+		cmdq_pkt_set_event(cmdq_handle2,
+				   mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 		cmdq_pkt_flush(mtk_crtc->gce_obj.client[CLIENT_CFG],
 			       cmdq_handle2);
 		cmdq_pkt_destroy(cmdq_handle2);
@@ -1326,8 +1390,11 @@ static void mtk_crtc_set_dirty(struct mtk_drm_crtc *mtk_crtc)
 	cmdq_pkt_set_client(cmdq_handle, mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 	cmdq_pkt_set_event(cmdq_handle,
-			   mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
-	cmdq_pkt_set_event(cmdq_handle, mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+		mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+	cmdq_pkt_set_event(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+	cmdq_pkt_set_event(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 
 	cmdq_pkt_flush(mtk_crtc->gce_obj.client[CLIENT_CFG], cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
@@ -2258,6 +2325,10 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 	case EVENT_STREAM_BLOCK:
 		len = snprintf(buf, buf_len, "disp_token_stream_block%d",
 			       drm_crtc_index(&mtk_crtc->base));
+		break;
+	case EVENT_CABC_EOF:
+		len = snprintf(buf, buf_len, "disp_token_cabc_eof%d",
+			drm_crtc_index(&mtk_crtc->base));
 		break;
 	default:
 		DDPPR_ERR("%s invalid event_id:%d\n", __func__, event_id);

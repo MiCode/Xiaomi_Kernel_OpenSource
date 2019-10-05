@@ -251,6 +251,24 @@ int mtk_dprec_logger_get_buf(enum DPREC_LOGGER_PR_TYPE type, char *stringbuf,
 	return n;
 }
 
+extern int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level);
+int mtkfb_set_backlight_level(unsigned int level)
+{
+	struct drm_crtc *crtc;
+
+	/* this debug cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return 0;
+	}
+	mtk_drm_setbacklight(crtc, level);
+
+	return 0;
+}
+EXPORT_SYMBOL(mtkfb_set_backlight_level);
+
 static int debug_get_info(unsigned char *stringbuf, int buf_len)
 {
 	int n = 0;

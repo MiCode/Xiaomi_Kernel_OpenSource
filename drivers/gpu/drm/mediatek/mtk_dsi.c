@@ -1800,114 +1800,6 @@ static void mtk_dsi_leave_idle(struct mtk_dsi *dsi)
 	mtk_dsi_clk_hs_mode(dsi, 1);
 }
 
-static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
-			  enum mtk_ddp_io_cmd cmd, void *params)
-{
-	struct mtk_panel_ext **ext;
-	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
-	void **out_params;
-	struct mtk_panel_ext *panel_ext = NULL;
-	struct drm_display_mode **mode;
-	bool *enable;
-
-	switch (cmd) {
-	case REQ_PANEL_EXT:
-		ext = (struct mtk_panel_ext **)params;
-
-		*ext = mtk_dsi_get_panel_ext(comp);
-		break;
-	case DSI_START_VDO_MODE:
-		mtk_dsi_start_vdo_mode(comp, handle);
-		break;
-	case DSI_STOP_VDO_MODE:
-		mtk_dsi_stop_vdo_mode(comp, handle);
-		break;
-	case ESD_CHECK_READ:
-		mtk_dsi_esd_read(comp, handle, (uintptr_t)params);
-		break;
-	case ESD_CHECK_CMP:
-		return mtk_dsi_esd_cmp(comp, handle, params);
-	case REQ_ESD_EINT_COMPAT:
-		out_params = (void **)params;
-
-		*out_params = (void *)dsi->driver_data->esd_eint_compat;
-		break;
-	case COMP_REG_START:
-		mtk_dsi_trigger(comp, handle);
-		break;
-	case CONNECTOR_PANEL_ENABLE:
-		mtk_output_dsi_enable(dsi);
-		break;
-	case CONNECTOR_PANEL_DISABLE:
-		mtk_output_dsi_disable(dsi);
-		break;
-	case CONNECTOR_ENABLE:
-		mtk_dsi_leave_idle(dsi);
-		break;
-	case CONNECTOR_DISABLE:
-		mtk_dsi_enter_idle(dsi);
-		break;
-	case CONNECTOR_IS_ENABLE:
-		enable = (bool *)params;
-		*enable = dsi->output_en;
-		break;
-	case DSI_VFP_IDLE_MODE:
-		panel_ext = mtk_dsi_get_panel_ext(comp);
-		if (panel_ext && panel_ext->params &&
-		    panel_ext->params->vfp_low_power)
-			mtk_dsi_porch_setting(comp, handle, DSI_VFP,
-					      panel_ext->params->vfp_low_power);
-		break;
-	case DSI_VFP_DEFAULT_MODE:
-		mtk_dsi_porch_setting(comp, handle, DSI_VFP,
-				      dsi->vm.vfront_porch);
-		break;
-	case DSI_GET_TIMING:
-		mode = (struct drm_display_mode **)params;
-		*mode = list_first_entry(&dsi->conn.modes,
-					 struct drm_display_mode, head);
-		break;
-
-	case IRQ_LEVEL_IDLE: {
-		unsigned int inten;
-
-		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && handle) {
-			inten = FRAME_DONE_INT_FLAG;
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				       comp->regs_pa + DSI_INTEN, 0, inten);
-		}
-	} break;
-	case IRQ_LEVEL_ALL: {
-		unsigned int inten;
-
-		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && handle) {
-			inten = FRAME_DONE_INT_FLAG;
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				       comp->regs_pa + DSI_INTEN, inten, inten);
-		}
-	} break;
-	case LCM_RESET: {
-		struct mtk_dsi *dsi =
-			container_of(comp, struct mtk_dsi, ddp_comp);
-
-		panel_ext = mtk_dsi_get_panel_ext(comp);
-		if (panel_ext && panel_ext->funcs && panel_ext->funcs->reset)
-			panel_ext->funcs->reset(dsi->panel, *(int *)params);
-	} break;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
-static const struct mtk_ddp_comp_funcs mtk_dsi_funcs = {
-	.prepare = mtk_dsi_ddp_prepare,
-	.unprepare = mtk_dsi_ddp_unprepare,
-	.config_trigger = mtk_dsi_config_trigger,
-	.io_cmd = mtk_dsi_io_cmd,
-};
-
 static int mtk_dsi_host_attach(struct mipi_dsi_host *host,
 			       struct mipi_dsi_device *device)
 {
@@ -1997,6 +1889,96 @@ static void mtk_dsi_cmdq(struct mtk_dsi *dsi, const struct mipi_dsi_msg *msg)
 	mtk_dsi_mask(dsi, DSI_CMDQ_SIZE, CMDQ_SIZE, cmdq_size);
 }
 
+static void mtk_dsi_cmdq_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
+				const struct mipi_dsi_msg *msg)
+{
+	const char *tx_buf = msg->tx_buf;
+	u8 config, cmdq_size, cmdq_off, type = msg->type;
+	u32 reg_val, cmdq_mask, i;
+	unsigned long goto_addr;
+
+	if (MTK_DSI_HOST_IS_READ(type))
+		config = BTA;
+	else
+		config = (msg->tx_len > 2) ? LONG_PACKET : SHORT_PACKET;
+
+	if (msg->tx_len > 2) {
+		cmdq_size = 1 + (msg->tx_len + 3) / 4;
+		cmdq_off = 4;
+		cmdq_mask = CONFIG | DATA_ID | DATA_0 | DATA_1;
+		reg_val = (msg->tx_len << 16) | (type << 8) | config;
+	} else {
+		cmdq_size = 1;
+		cmdq_off = 2;
+		cmdq_mask = CONFIG | DATA_ID;
+		reg_val = (type << 8) | config;
+	}
+
+	for (i = 0; i < msg->tx_len; i++) {
+		goto_addr = dsi->driver_data->reg_cmdq_ofs + cmdq_off + i;
+		cmdq_mask = (0xFFu << ((goto_addr & 0x3u) * 8));
+		mtk_ddp_write_mask(&dsi->ddp_comp,
+			tx_buf[i] << ((goto_addr & 0x3u) * 8),
+			goto_addr, (0xFFu << ((goto_addr & 0x3u) * 8)),
+			handle);
+
+		DDPINFO("set cmdqaddr %x, val:%x, mask %x\n", goto_addr,
+			tx_buf[i] << ((goto_addr & 0x3u) * 8),
+			(0xFFu << ((goto_addr & 0x3u) * 8)));
+	}
+	if (msg->tx_len > 2)
+		cmdq_mask = CONFIG | DATA_ID | DATA_0 | DATA_1;
+	else
+		cmdq_mask = CONFIG | DATA_ID;
+
+	mtk_ddp_write_mask(&dsi->ddp_comp, reg_val,
+				dsi->driver_data->reg_cmdq_ofs,
+				cmdq_mask, handle);
+	DDPINFO("set cmdqaddr %u, val:%x, mask %x\n",
+			dsi->driver_data->reg_cmdq_ofs,
+			reg_val,
+			cmdq_mask);
+	mtk_ddp_write_mask(&dsi->ddp_comp, cmdq_size,
+				DSI_CMDQ_SIZE, CMDQ_SIZE, handle);
+	DDPINFO("set cmdqaddr %u, val:%x, mask %x\n", DSI_CMDQ_SIZE, cmdq_size,
+			CMDQ_SIZE);
+}
+
+void mipi_dsi_dcs_write_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
+				  const void *data, size_t len)
+{
+	struct mipi_dsi_msg msg = {
+		.tx_buf = data,
+		.tx_len = len
+	};
+
+	switch (len) {
+	case 0:
+		return;
+
+	case 1:
+		msg.type = MIPI_DSI_DCS_SHORT_WRITE;
+		break;
+
+	case 2:
+		msg.type = MIPI_DSI_DCS_SHORT_WRITE_PARAM;
+		break;
+
+	default:
+		msg.type = MIPI_DSI_DCS_LONG_WRITE;
+		break;
+	}
+
+	mtk_dsi_poll_for_idle(dsi, handle);
+
+	mtk_dsi_cmdq_gce(dsi, handle, &msg);
+
+	cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+		dsi->ddp_comp.regs_pa + DSI_START, 0x0, ~0);
+	cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+		dsi->ddp_comp.regs_pa + DSI_START, 0x1, ~0);
+}
+
 static ssize_t mtk_dsi_host_send_cmd(struct mtk_dsi *dsi,
 				     const struct mipi_dsi_msg *msg, u8 flag)
 {
@@ -2068,6 +2050,135 @@ static const struct mipi_dsi_host_ops mtk_dsi_ops = {
 	.attach = mtk_dsi_host_attach,
 	.detach = mtk_dsi_host_detach,
 	.transfer = mtk_dsi_host_transfer,
+};
+
+static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+			  enum mtk_ddp_io_cmd cmd, void *params)
+{
+	struct mtk_panel_ext **ext;
+	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+	void **out_params;
+	struct mtk_panel_ext *panel_ext = NULL;
+	struct drm_display_mode **mode;
+	bool *enable;
+
+	switch (cmd) {
+	case REQ_PANEL_EXT:
+		ext = (struct mtk_panel_ext **)params;
+
+		*ext = mtk_dsi_get_panel_ext(comp);
+		break;
+	case DSI_START_VDO_MODE:
+		mtk_dsi_start_vdo_mode(comp, handle);
+		break;
+	case DSI_STOP_VDO_MODE:
+		mtk_dsi_stop_vdo_mode(comp, handle);
+		break;
+	case ESD_CHECK_READ:
+		mtk_dsi_esd_read(comp, handle, (uintptr_t)params);
+		break;
+	case ESD_CHECK_CMP:
+		return mtk_dsi_esd_cmp(comp, handle, params);
+	case REQ_ESD_EINT_COMPAT:
+		out_params = (void **)params;
+
+		*out_params = (void *)dsi->driver_data->esd_eint_compat;
+		break;
+	case COMP_REG_START:
+		mtk_dsi_trigger(comp, handle);
+		break;
+	case CONNECTOR_PANEL_ENABLE:
+		mtk_output_dsi_enable(dsi);
+		break;
+	case CONNECTOR_PANEL_DISABLE:
+		mtk_output_dsi_disable(dsi);
+		break;
+	case CONNECTOR_ENABLE:
+		mtk_dsi_leave_idle(dsi);
+		break;
+	case CONNECTOR_DISABLE:
+		mtk_dsi_enter_idle(dsi);
+		break;
+	case CONNECTOR_IS_ENABLE:
+		enable = (bool *)params;
+		*enable = dsi->output_en;
+		break;
+	case DSI_VFP_IDLE_MODE:
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (panel_ext && panel_ext->params
+			&& panel_ext->params->vfp_low_power)
+			mtk_dsi_porch_setting(comp, handle, DSI_VFP,
+				panel_ext->params->vfp_low_power);
+		break;
+	case DSI_VFP_DEFAULT_MODE:
+		mtk_dsi_porch_setting(comp, handle, DSI_VFP,
+				dsi->vm.vfront_porch);
+		break;
+	case DSI_GET_TIMING:
+		mode = (struct drm_display_mode **)params;
+		*mode = list_first_entry(&dsi->conn.modes,
+			struct drm_display_mode, head);
+		break;
+
+	case IRQ_LEVEL_IDLE:
+	{
+		unsigned int inten;
+
+		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && handle) {
+			inten = FRAME_DONE_INT_FLAG;
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DSI_INTEN, 0, inten);
+		}
+	}
+		break;
+	case IRQ_LEVEL_ALL:
+	{
+		unsigned int inten;
+
+		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && handle) {
+			inten = FRAME_DONE_INT_FLAG;
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DSI_INTEN, inten, inten);
+		}
+	}
+		break;
+	case LCM_RESET:
+	{
+		struct mtk_dsi *dsi =
+			container_of(comp, struct mtk_dsi, ddp_comp);
+
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (panel_ext && panel_ext->funcs
+			&& panel_ext->funcs->reset)
+			panel_ext->funcs->reset(dsi->panel, *(int *)params);
+	}
+		break;
+	case DSI_SET_BL:
+	{
+		struct mtk_dsi *dsi =
+			container_of(comp, struct mtk_dsi, ddp_comp);
+
+
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (panel_ext && panel_ext->funcs
+			&& panel_ext->funcs->set_backlight_cmdq)
+			panel_ext->funcs->set_backlight_cmdq(dsi,
+					mipi_dsi_dcs_write_gce,
+					handle, *(int *)params);
+	}
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static const struct mtk_ddp_comp_funcs mtk_dsi_funcs = {
+	.prepare = mtk_dsi_ddp_prepare,
+	.unprepare = mtk_dsi_ddp_unprepare,
+	.config_trigger = mtk_dsi_config_trigger,
+	.io_cmd = mtk_dsi_io_cmd,
 };
 
 static int mtk_dsi_bind(struct device *dev, struct device *master, void *data)

@@ -18,6 +18,12 @@
 
 #define RT_MAX_NUM 10
 #define ESD_CHECK_NUM 3
+
+struct mtk_dsi;
+struct cmdq_pkt;
+typedef void (*dcs_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
+				  const void *data, size_t len);
+
 struct esd_check_item {
 	unsigned char cmd;
 	unsigned char count;
@@ -25,7 +31,8 @@ struct esd_check_item {
 };
 
 struct mtk_panel_funcs {
-	int (*set_backlight_cmdq)(void *handle, unsigned int level);
+	int (*set_backlight_cmdq)(void *dsi_drv, dcs_write_gce cb,
+		void *handle, unsigned int level);
 	int (*aod)(void *handle, int enter);
 	int (*reset)(struct drm_panel *panel, int on);
 };
@@ -91,5 +98,6 @@ int mtk_panel_ext_create(struct device *dev,
 			 struct mtk_panel_params *ext_params,
 			 struct mtk_panel_funcs *ext_funcs,
 			 struct drm_panel *panel);
+
 
 #endif

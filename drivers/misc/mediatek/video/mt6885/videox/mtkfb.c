@@ -308,6 +308,7 @@ static int mtkfb_blank(int blank_mode, struct fb_info *info)
 }
 #endif
 
+#ifndef CONFIG_DRM_MEDIATEK
 int mtkfb_set_backlight_level(unsigned int level)
 {
 	MTKFB_FUNC();
@@ -318,6 +319,7 @@ int mtkfb_set_backlight_level(unsigned int level)
 	return 0;
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
+#endif
 
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)

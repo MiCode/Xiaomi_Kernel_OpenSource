@@ -347,8 +347,31 @@ static struct mtk_panel_params ext_params = {
 	.physical_height_um = 136512,
 };
 
-static struct mtk_panel_funcs ext_funcs = {
+static int samsung_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
+		void *handle, unsigned int level)
+{
+	char bl_tb0[] = {0xf0, 0x5a, 0x5a};
+	char bl_tb1[] = {0x51, 0xff, 0xff};
+	char bl_tb2[] = {0xf0, 0xa5, 0xa5};
 
+	if (level > 255)
+		level = 255;
+
+	level = level * 1023 / 255;
+	bl_tb1[1] = ((level >> 8) & 0x3);
+	bl_tb1[2] = (level & 0xff);
+
+	if (!cb)
+		return -1;
+
+	cb(dsi, handle, bl_tb0, ARRAY_SIZE(bl_tb0));
+	cb(dsi, handle, bl_tb1, ARRAY_SIZE(bl_tb1));
+	cb(dsi, handle, bl_tb2, ARRAY_SIZE(bl_tb2));
+
+	return 0;
+}
+static struct mtk_panel_funcs ext_funcs = {
+	.set_backlight_cmdq = samsung_setbacklight_cmdq,
 };
 #endif
 

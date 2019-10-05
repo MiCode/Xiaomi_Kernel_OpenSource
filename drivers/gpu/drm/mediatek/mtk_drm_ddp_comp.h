@@ -176,6 +176,7 @@ enum mtk_ddp_io_cmd {
 	OVL_REPLACE_BOOTUP_MVA,
 	BACKUP_INFO_CMP,
 	LCM_RESET,
+	DSI_SET_BL,
 };
 
 struct golden_setting_context {
