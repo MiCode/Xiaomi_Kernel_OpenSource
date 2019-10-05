@@ -2406,6 +2406,7 @@ enum {
 #define AFE_SIDETONE_CON1                              0x01e8
 #define AFE_SIDETONE_GAIN                              0x01ec
 #define AFE_SINEGEN_CON0                               0x01f0
+#define AFE_I2S_MON2                                   0x01f8
 #define AFE_SINEGEN_CON_TDM                            0x01fc
 #define AFE_TOP_CON0                                   0x0200
 #define AFE_VUL2_CON0                                  0x020c

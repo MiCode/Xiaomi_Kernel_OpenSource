@@ -9,22 +9,26 @@
 #ifndef _MT6885_AFE_CLOCK_CTRL_H_
 #define _MT6885_AFE_CLOCK_CTRL_H_
 
-#define AP_PLL_CON5 0x0014
-#define APLL1_CON0 0x02c0
-#define APLL1_CON1 0x02c4
-#define APLL1_CON2 0x02c8
-#define APLL1_CON3 0x02cc
-#define APLL1_PWR_CON0 0x02d0
+#define AP_PLL_CON3 0x0014
+#define APLL1_CON0 0x0318
+#define APLL1_CON1 0x031c
+#define APLL1_CON2 0x0320
+#define APLL1_CON4 0x0328
+#define APLL1_TUNER_CON0 0x0040
 
-#define APLL2_CON0 0x02d4
-#define APLL2_CON1 0x02d8
-#define APLL2_CON2 0x02dc
-#define APLL2_CON3 0x02e0
-#define APLL2_PWR_CON0 0x02e4
+#define APLL2_CON0 0x032c
+#define APLL2_CON1 0x0330
+#define APLL2_CON2 0x0334
+#define APLL2_CON4 0x033c
+#define APLL2_TUNER_CON0 0x0044
 
-#define APMIXEDSYS_MAX_LENGTH APLL2_PWR_CON0
+#define CLK_CFG_7 0x0080
+#define CLK_CFG_8 0x0090
+#define CLK_CFG_11 0x00c0
+#define CLK_CFG_12 0x00d0
+#define CLK_CFG_13 0x00e0
+#define CLK_CFG_15 0x0100
 
-#define CLK_CFG_6 0x0080
 #define CLK_AUDDIV_0 0x0320
 #define CLK_AUDDIV_1 0x0324
 #define CLK_AUDDIV_2 0x0328
@@ -32,13 +36,6 @@
 #define CLK_AUDDIV_4 0x0338
 #define CKSYS_AUD_TOP_CFG 0x032c
 #define CKSYS_AUD_TOP_MON 0x0330
-
-#define CLK_MAX_LENGTH CLK_AUDDIV_4
-
-/* CLK_CFG_6 */
-#define CLK_AUD_INTBUS_SEL_SFT              16
-#define CLK_AUD_INTBUS_SEL_MASK             0x3
-#define CLK_AUD_INTBUS_SEL_MASK_SFT         (0x3 << 16)
 
 /* CLK_AUDDIV_0 */
 #define APLL_PDN_RESERVE0_SFT              0

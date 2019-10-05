@@ -3676,37 +3676,70 @@ static ssize_t mt6885_debugfs_read(struct file *file, char __user *buf,
 			       i, afe->memif[i].irq_usage);
 	}
 
+	regmap_read(afe_priv->topckgen, CLK_CFG_7, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "CLK_CFG_6 = 0x%x\n",
-		       regmap_read(afe_priv->topckgen, CLK_CFG_6, &value));
+		       "CLK_CFG_7 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_CFG_8, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "CLK_AUDDIV_0 = 0x%x\n",
-		       regmap_read(afe_priv->topckgen, CLK_AUDDIV_0, &value));
+		       "CLK_CFG_8 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_CFG_11, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "CLK_AUDDIV_1 = 0x%x\n",
-		       regmap_read(afe_priv->topckgen, CLK_AUDDIV_1, &value));
+		       "CLK_CFG_11 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_CFG_12, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "CLK_AUDDIV_2 = 0x%x\n",
-		       regmap_read(afe_priv->topckgen, CLK_AUDDIV_2, &value));
+		       "CLK_CFG_12 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_CFG_13, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "CLK_AUDDIV_3 = 0x%x\n",
-		       regmap_read(afe_priv->topckgen, CLK_AUDDIV_3, &value));
+		       "CLK_CFG_13 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_CFG_15, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "CLK_CFG_15 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_AUDDIV_0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "CLK_AUDDIV_0 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_AUDDIV_1, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "CLK_AUDDIV_1 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_AUDDIV_2, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "CLK_AUDDIV_2 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_AUDDIV_3, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "CLK_AUDDIV_3 = 0x%x\n", value);
 
+	regmap_read(afe_priv->apmixed, AP_PLL_CON3, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "AP_PLL_CON5 = 0x%x\n",
-		       regmap_read(afe_priv->apmixed, AP_PLL_CON5, &value));
+		       "AP_PLL_CON3 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL1_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "APLL1_CON1 = 0x%x\n",
-		       regmap_read(afe_priv->apmixed, APLL1_CON1, &value));
+		       "APLL1_CON0 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL1_CON1, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "APLL1_CON2 = 0x%x\n",
-		       regmap_read(afe_priv->apmixed, APLL1_CON2, &value));
+		       "APLL1_CON1 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL1_CON2, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "APLL2_CON1 = 0x%x\n",
-		       regmap_read(afe_priv->apmixed, APLL2_CON1, &value));
+		       "APLL1_CON2 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL1_CON4, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "APLL2_CON2 = 0x%x\n",
-		       regmap_read(afe_priv->apmixed, APLL2_CON2, &value));
+		       "APLL1_CON4 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL2_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "APLL2_CON0 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL2_CON1, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "APLL2_CON1 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL2_CON2, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "APLL2_CON2 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL2_CON4, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "APLL2_CON4 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL1_TUNER_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "APLL1_TUNER_CON0 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL2_TUNER_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "APLL2_TUNER_CON0 = 0x%x\n", value);
 
 	regmap_read(afe->regmap, AUDIO_TOP_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
@@ -4004,6 +4037,9 @@ static ssize_t mt6885_debugfs_read(struct file *file, char __user *buf,
 	regmap_read(afe->regmap, AFE_SINEGEN_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_SINEGEN_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_I2S_MON2, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_I2S_MON2 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SINEGEN_CON_TDM, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_SINEGEN_CON_TDM = 0x%x\n", value);

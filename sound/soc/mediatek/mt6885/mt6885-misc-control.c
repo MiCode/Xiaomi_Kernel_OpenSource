@@ -505,6 +505,8 @@ static int mt6885_afe_debug_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "AFE_SIDETONE_GAIN = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SINEGEN_CON0, &value);
 	dev_info(afe->dev, "AFE_SINEGEN_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_I2S_MON2, &value);
+	dev_info(afe->dev, "AFE_I2S_MON2 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SINEGEN_CON_TDM, &value);
 	dev_info(afe->dev, "AFE_SINEGEN_CON_TDM = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_TOP_CON0, &value);
