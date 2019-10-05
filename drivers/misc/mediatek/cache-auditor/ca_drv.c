@@ -118,6 +118,7 @@ static int ca_pmu_create_counter(int cpu)
 		.size           = sizeof(struct perf_event_attr),
 		.pinned         = 1,
 		.sample_period  = 0,
+		.disabled	= 1,
 	};
 	configs = per_cpu(ca_pmu_stats, cpu).config;
 
