@@ -54,6 +54,8 @@
 			/* with it: enable fast unknown TA detection */
 			fast_unknown_ta_dect;
 			/* enable_polling; */	/* is this charger needs polling */
+			/* with it: do post aicl measure */
+			post_aicl;
 		};
 		mt6370_pmu_fled1 {
 			compatible = "mediatek,mt6370_pmu_fled1";
