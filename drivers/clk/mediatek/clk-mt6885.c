@@ -3954,8 +3954,8 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	apmixed_base = base;
 
 	/* MT6885, should porting to CTP also */
-	clk_writel(PLLON_CON0, 0x07EFF7FB);
-	clk_writel(PLLON_CON1, 0x07EFF7FB);
+	/* clk_writel(PLLON_CON0, 0x07EFF7FB); */
+	/* clk_writel(PLLON_CON1, 0x07EFF7FB); */
 
 #define PLL_EN  (0x1 << 0)
 #define PLL_PWR_ON  (0x1 << 0)
