@@ -300,6 +300,15 @@ static int gf_get_gpio_dts_info(struct gf_device *gf_dev)
 #ifdef CONFIG_MTK_MT6306_GPIO_SUPPORT
 	}
 #endif
+	gf_dev->eint_init =
+	pinctrl_lookup_state(gf_dev->pinctrl_gpio, "eint_init");
+	if (IS_ERR(gf_dev->eint_init)) {
+		ret = PTR_ERR(gf_dev->eint_init);
+		gf_debug(ERR_LOG,
+			"%s pinctrl eint_init get fail\n", __func__);
+		return ret;
+	}
+	pinctrl_select_state(gf_dev->pinctrl_gpio, gf_dev->eint_init);
 
 	gf_debug(DEBUG_LOG, "%s, get pinctrl success!\n", __func__);
 
