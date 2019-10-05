@@ -27,6 +27,8 @@
 #include <linux/kdev_t.h>
 #include <linux/uaccess.h>
 #include <linux/random.h>
+#include <linux/sizes.h>
+
 #include <gz-trusty/smcall.h>
 #include <gz-trusty/trusty.h>
 
@@ -44,7 +46,8 @@
 #include "gz_chmem_ut.h"
 /***************************************************/
 /*you can update the following #define option*/
-#if 1
+#define enbFg 1
+#if enbFg
 /*this case can test only one chmem: MTEE/TEE Protect-shared */
 #define ssmr_ready_for_mcm 0
 #else
@@ -84,21 +87,6 @@
 #define test_main_entry 1
 
 #if test_data
-#define _sz_4K   4096
-#define _sz_8K   (_sz_4K*2)
-#define _sz_16K  (_sz_4K*4)
-#define _sz_32K  (_sz_4K*8)
-#define _sz_64K  (_sz_4K*16)
-#define _sz_128K (_sz_4K*32)
-#define _sz_256K (_sz_4K*64)
-#define _sz_512K (_sz_4K*128)
-#define _sz_1M   (_sz_4K*256)
-#define _sz_2M   (_sz_4K*512)
-#define _sz_4M   (_sz_4K*1024)
-#define _sz_8M   (_sz_4K*2048)
-#define _sz_16M  (_sz_4K*4096)
-#define _sz_32M  (_sz_4K*8192)
-#define _sz_64M  (_sz_4K*16384)
 
 #define _flag_align_y 1
 #define _flag_align_n 0
@@ -118,13 +106,13 @@ struct _test_chmem_regions {
 /*limit: PA & Size needs 64KB alignment (p60)*/
 /*test data will be replaced with SSMR setting*/
 struct _test_chmem_regions _t_CM_ary[] = {
-	{0x0, 0x0, 0x0, _sz_1M, _sz_1M},	/* MTEE/TEE Protect-shared    */
-	{0x0, 0x0, 0x1, _sz_1M, _sz_1M},	/* HA ELF                     */
-	{0x0, 0x0, 0x2, _sz_1M, _sz_1M},	/* HA Stack/Heap              */
-	{0x0, 0x0, 0x3, _sz_1M, _sz_1M},	/* SDSP Firmware              */
-	{0x0, 0x0, 0x4, _sz_1M, _sz_1M},	/* SDSP Shared (VPU/TEE)      */
-	{0x0, 0x0, 0x5, _sz_1M, _sz_1M},	/* SDSP Shared (MTEE/TEE)     */
-	{0x0, 0x0, 0x6, _sz_1M, _sz_1M}	/* SDSP Shared (VPU/MTEE/TEE) */
+	{0x0, 0x0, 0x0, SZ_1M, SZ_1M},	/* MTEE/TEE Protect-shared    */
+	{0x0, 0x0, 0x1, SZ_1M, SZ_1M},	/* HA ELF                     */
+	{0x0, 0x0, 0x2, SZ_1M, SZ_1M},	/* HA Stack/Heap              */
+	{0x0, 0x0, 0x3, SZ_1M, SZ_1M},	/* SDSP Firmware              */
+	{0x0, 0x0, 0x4, SZ_1M, SZ_1M},	/* SDSP Shared (VPU/TEE)      */
+	{0x0, 0x0, 0x5, SZ_1M, SZ_1M},	/* SDSP Shared (MTEE/TEE)     */
+	{0x0, 0x0, 0x6, SZ_1M, SZ_1M}	/* SDSP Shared (VPU/MTEE/TEE) */
 };
 
 struct _ssmr_chmem_regions {
@@ -182,7 +170,7 @@ void _show_t_CM_ary(void)
 
 	KREE_DEBUG("\n==================TEST CHMEM INFO=================\n");
 	for (i = 0; i < countof(_t_CM_ary); i++) {
-		if (_t_CM_ary[i].pa == 0x0)
+		if (!_t_CM_ary[i].pa)
 			continue;
 
 		switch (_t_CM_ary[i].region_id) {
@@ -235,7 +223,7 @@ static int ssmr_get(u64 *pa, u32 *size, u32 feat)
 
 	*pa = (u64) ssmr_pa;
 	*size = (u32) ssmr_size;
-	if (((*pa) == 0) || ((*size) == 0)) {
+	if (!(*pa) || !(*size)) {
 		KREE_ERR("ssmr pa(0x%llx) & size(0x%x) is invalid\n",
 			 *pa, *size);
 		return TZ_RESULT_ERROR_GENERIC;
@@ -279,8 +267,8 @@ void _get_MCM_from_SSMR(void)
 		_t_CM_ary[i].size = size;
 		_t_CM_ary[i].feat = _ssmr_CM_ary[i].feat;
 		_t_CM_ary[i].region_id = _ssmr_CM_ary[i].region_id;
-		_t_CM_ary[i]._t_sz_beg = _sz_2M;	/*default: 2MB */
-		_t_CM_ary[i]._t_sz_end = _sz_2M;	/*default: 2MB */
+		_t_CM_ary[i]._t_sz_beg = SZ_2M;	/*default: 2MB */
+		_t_CM_ary[i]._t_sz_end = SZ_2M;	/*default: 2MB */
 		if (pa != 0x0)
 			_available_mcm_num++;
 	}
@@ -415,7 +403,7 @@ int _alloc_chmem(uint32_t test_type, KREE_SESSION alloc_sn,
 {
 	int ret;
 
-	if (flags == 0)
+	if (!flags)
 		if (test_type == (uint32_t) ION_chmem)
 			ret = KREE_ION_AllocChunkmem(alloc_sn, append_hd,
 						     alloc_hd, alignment,
@@ -445,31 +433,6 @@ int _alloc_chmem(uint32_t test_type, KREE_SESSION alloc_sn,
 	return TZ_RESULT_SUCCESS;
 }
 
-/* allocate chm */
-int _alloc_chmem_and_check(uint32_t test_type,
-			   KREE_SESSION alloc_sn, KREE_HANDLE append_hd,
-			   int alloc_size, int alignment, int flags,
-			   KREE_HANDLE *alloc_hd)
-{
-	int ret;
-
-	TEST_BEGIN("====> call alloc_chmem_and_check");
-	/*RESET_UNITTESTS; */
-
-	ret = _alloc_chmem(test_type, alloc_sn, alloc_hd,
-			   append_hd, alloc_size, alignment, flags);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "alloc chmem");
-	CHECK_NEQ(0, *alloc_hd, "alloc chmem_handle");
-	if ((ret != TZ_RESULT_SUCCESS) || (*alloc_hd == 0)) {
-		KREE_ERR("alloc fail, hd=0x%x\n", (*alloc_hd));
-		ret = TZ_RESULT_ERROR_GENERIC;
-	}
-
-	TEST_END_NO_PRT;
-	/*REPORT_UNITTESTS; */
-	return ret;
-}
-
 /*unref from a chunk memory*/
 int _free_chmem(uint32_t test_type, KREE_SESSION alloc_sn, KREE_HANDLE alloc_hd)
 {
@@ -490,24 +453,6 @@ int _free_chmem(uint32_t test_type, KREE_SESSION alloc_sn, KREE_HANDLE alloc_hd)
 	return TZ_RESULT_SUCCESS;
 }
 
-int _free_chmem_and_check(uint32_t test_type,
-			  KREE_SESSION alloc_sn, KREE_HANDLE alloc_hd)
-{
-	int ret;
-
-	TEST_BEGIN("====> call free_chmem_and_check");
-	/*RESET_UNITTESTS; */
-
-	ret = _free_chmem(test_type, alloc_sn, alloc_hd);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "unref chmem");
-	if (ret != TZ_RESULT_SUCCESS)
-		KREE_ERR("free fail: alloc_hd=0x%x\n", alloc_hd);
-
-	TEST_END_NO_PRT;
-	/*REPORT_UNITTESTS; */
-	return ret;
-}
-
 /*reference an allocated chunk memory*/
 int _ref_chmem(uint32_t test_type, KREE_SESSION alloc_sn, KREE_HANDLE alloc_hd)
 {
@@ -522,27 +467,6 @@ int _ref_chmem(uint32_t test_type, KREE_SESSION alloc_sn, KREE_HANDLE alloc_hd)
 		return TZ_RESULT_ERROR_GENERIC;
 	}
 	return TZ_RESULT_SUCCESS;
-}
-
-int _ref_chmem_and_check(uint32_t test_type, KREE_SESSION alloc_sn,
-			 KREE_HANDLE alloc_hd)
-{
-	int ret;
-
-	TEST_BEGIN("====> call ref_chmem_and_check");
-	/*RESET_UNITTESTS; */
-
-	if (test_type == (uint32_t) ION_chmem)
-		ret = KREE_ION_ReferenceChunkmem(alloc_sn, alloc_hd);
-	else			/*default case */
-		ret = KREE_ReferenceSecureMultichunkmem(alloc_sn, alloc_hd);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "Ref. chmem");
-	if (ret != TZ_RESULT_SUCCESS)
-		KREE_ERR("Ref. Chmem(hd=0x%x) Fail(0x%x)\n", alloc_hd, ret);
-
-	TEST_END_NO_PRT;
-	/*REPORT_UNITTESTS; */
-	return ret;
 }
 
 /*cmd: echo @ 0x9995*/
@@ -562,29 +486,6 @@ int _query_chmem(uint32_t test_type, KREE_SESSION echo_sn,
 	}
 	return TZ_RESULT_SUCCESS;
 }
-
-/*cmd: echo @ 0x9995*/
-int _query_chmem_and_check(uint32_t test_type, KREE_SESSION echo_sn,
-			   KREE_HANDLE alloc_hd, uint32_t cmd)
-{
-	int ret;
-
-	TEST_BEGIN("====> call query_chmem_and_check");
-	/*RESET_UNITTESTS; */
-
-	if (test_type == (uint32_t) ION_chmem)
-		ret = KREE_ION_QueryChunkmem_TEST(echo_sn, alloc_hd, cmd);
-	else			/*default case */
-		ret = KREE_QueryChunkmem_TEST(echo_sn, alloc_hd, cmd);
-
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "Query chmem");
-	if (ret != TZ_RESULT_SUCCESS)
-		KREE_ERR("Query Chmem(hd=0x%x) Fail(0x%x)\n", alloc_hd, ret);
-
-	TEST_END_NO_PRT;
-	/*REPORT_UNITTESTS; */
-	return ret;
-}
 #endif				/*end of #if common_fun */
 
 #if test_body_fun
@@ -594,26 +495,25 @@ typedef int (*_ut_func_case) (uint32_t test_type, KREE_SESSION alloc_sn,
 			      KREE_HANDLE *alloc_hd);
 
 int _mcm_test_body_saturation(uint32_t test_type, KREE_SESSION alloc_sn,
-			      KREE_HANDLE append_hd, int alloc_size,
-			      int alignment, int flags, int _alloc_num,
-			      KREE_HANDLE *alloc_hd)
+	KREE_HANDLE append_hd, int alloc_size,
+	int alignment, int flags, int _alloc_num,
+	KREE_HANDLE *alloc_hd)
 {
 	TZ_RESULT ret;
 	int i;
 	KREE_HANDLE extra_alloc_hd;
 
-	TEST_BEGIN("test saturation");
-	/*RESET_UNITTESTS; */
 
 	/*alloc */
 	for (i = 0; i < _alloc_num; i++) {
 		//KREE_DEBUG("==> alloc %d/%d\n", i, (_alloc_num-1));
-		ret = _alloc_chmem_and_check(test_type, alloc_sn,
-					     append_hd, alloc_size, alignment,
-					     flags, &alloc_hd[i]);
-		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR("alloc[%d] fail\n", i);
-			break;
+		ret = _alloc_chmem(test_type, alloc_sn,
+				&alloc_hd[i], append_hd, alloc_size,
+				alignment, flags);
+		if ((ret != TZ_RESULT_SUCCESS) || (alloc_hd[i] == 0)) {
+			KREE_ERR("alloc[%d] fail, hd=0x%x, ret=0x%x\n",
+				i, alloc_hd[i], ret);
+			return TZ_RESULT_ERROR_GENERIC;
 		}
 	}
 
@@ -622,26 +522,28 @@ int _mcm_test_body_saturation(uint32_t test_type, KREE_SESSION alloc_sn,
 	KREE_DEBUG("====> extra alloc. fail is right!\n");
 	ret = _alloc_chmem(test_type, alloc_sn, &extra_alloc_hd,
 			   append_hd, alloc_size, alignment, flags);
-	CHECK_NEQ(TZ_RESULT_SUCCESS, ret, "alloc extra chmem");
-	CHECK_EQ(0, extra_alloc_hd, "alloc extra chmem");
-
+	if (ret == TZ_RESULT_SUCCESS) {
+		KREE_ERR("extra alloc fail(hd=0x%x)\n", extra_alloc_hd);
+		return TZ_RESULT_ERROR_GENERIC;
+	}
 
 	/*free */
 	for (i = 0; i < _alloc_num; i++) {
 		//KREE_DEBUG("==> Free %d/%d\n", i, (_alloc_num-1));
-		ret = _free_chmem_and_check(test_type, alloc_sn, alloc_hd[i]);
+		ret = _free_chmem(test_type, alloc_sn, alloc_hd[i]);
 		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR("free[%d] fail\n", i);
-			break;
+			KREE_ERR("free fail: ret=0x%x,alloc_hd[%d]=0x%x\n",
+				ret, i, alloc_hd[i]);
+			return TZ_RESULT_ERROR_GENERIC;
 		}
+
 	}
 
 	/* KREE_DEBUG("[%s] ====> ends\n", __func__); */
 
-	TEST_END_NO_PRT;
-	/*REPORT_UNITTESTS; */
 	return TZ_RESULT_SUCCESS;
 }
+
 
 int _mcm_test_body_all_funs(uint32_t test_type, KREE_SESSION alloc_sn,
 			    KREE_HANDLE append_hd, int alloc_size,
@@ -652,8 +554,6 @@ int _mcm_test_body_all_funs(uint32_t test_type, KREE_SESSION alloc_sn,
 	int i;
 
 	KREE_SESSION echo_sn;
-
-	TEST_BEGIN("test all funs");
 
 	/*session: echo svr */
 	ret1 = _create_session(echo_srv_name, &echo_sn);
@@ -666,42 +566,46 @@ int _mcm_test_body_all_funs(uint32_t test_type, KREE_SESSION alloc_sn,
 		//KREE_DEBUG("==> test loop %d/%d\n", i, (_alloc_num-1));
 
 		/*alloc */
-		ret = _alloc_chmem_and_check(test_type, alloc_sn,
-					     append_hd, alloc_size, alignment,
-					     flags, &alloc_hd[i]);
-		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR("alloc fail: i=%d\n", i);
-			break;
+		ret = _alloc_chmem(test_type, alloc_sn,
+				&alloc_hd[i], append_hd, alloc_size,
+				alignment, flags);
+		if ((ret != TZ_RESULT_SUCCESS) || (alloc_hd[i] == 0)) {
+			KREE_ERR("alloc[%d] fail, hd=0x%x, ret=0x%x\n",
+				i, alloc_hd[i], ret);
+			return TZ_RESULT_ERROR_GENERIC;
 		}
 
 		/*ref */
-		ret = _ref_chmem_and_check(test_type, alloc_sn, alloc_hd[i]);
+		ret = _ref_chmem(test_type, alloc_sn, alloc_hd[i]);
 		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR("ref fail: i=%d\n", i);
-			break;
+			KREE_ERR("ref[%d] fail, hd=0x%x, ret=0x%x\n",
+				i, alloc_hd[i], ret);
+			return TZ_RESULT_ERROR_GENERIC;
 		}
 
 		/*query */
-		ret =
-		    _query_chmem_and_check(test_type, echo_sn, alloc_hd[i],
-					   0x9995);
+		ret = _query_chmem(test_type, echo_sn, alloc_hd[i],
+				0x9995);
 		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR("query fail: i=%d\n", i);
-			break;
+			KREE_ERR("query[%d] fail, hd=0x%x, ret=0x%x\n",
+				i, alloc_hd[i], ret);
+			return TZ_RESULT_ERROR_GENERIC;
 		}
 
 		/*unref */
-		ret = _free_chmem_and_check(test_type, alloc_sn, alloc_hd[i]);
+		ret = _free_chmem(test_type, alloc_sn, alloc_hd[i]);
 		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR("unref fail: i=%d\n", i);
-			break;
+			KREE_ERR("unref[%d] fail, hd=0x%x, ret=0x%x\n",
+				i, alloc_hd[i], ret);
+			return TZ_RESULT_ERROR_GENERIC;
 		}
 
 		/*free */
-		ret = _free_chmem_and_check(test_type, alloc_sn, alloc_hd[i]);
+		ret = _free_chmem(test_type, alloc_sn, alloc_hd[i]);
 		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR("free fail: i=%d\n", i);
-			break;
+			KREE_ERR("free[%d] fail, hd=0x%x, ret=0x%x\n",
+				i, alloc_hd[i], ret);
+			return TZ_RESULT_ERROR_GENERIC;
 		}
 	}
 
@@ -712,8 +616,7 @@ int _mcm_test_body_all_funs(uint32_t test_type, KREE_SESSION alloc_sn,
 		return ret1;
 	}
 
-	TEST_END_NO_PRT;
-	return ret;
+	return TZ_RESULT_SUCCESS;
 }
 
 int _mcm_test_body_main(_ut_func_case _ut_func, uint32_t test_type,
@@ -726,18 +629,35 @@ int _mcm_test_body_main(_ut_func_case _ut_func, uint32_t test_type,
 	/*_alloc_size, alignment, zalloc*/
 	ret = _ut_func(test_type, alloc_sn, append_hd, alloc_size, 0,
 		       _flag_zalloc_y, _alloc_num, alloc_hd);
+	if (ret != TZ_RESULT_SUCCESS) {
+		KREE_ERR("_alloc_size, alignment, zalloc fail\n");
+		return ret;
+	}
 
 	/*_alloc_size, no-alignment, zalloc*/
 	ret = _ut_func(test_type, alloc_sn, append_hd, alloc_size, alloc_size,
 		       _flag_zalloc_y, _alloc_num, alloc_hd);
+	if (ret != TZ_RESULT_SUCCESS) {
+		KREE_ERR("_alloc_size, no-alignment, zalloc fail\n");
+		return ret;
+	}
 
 	/*_alloc_size, alignment, no-zalloc*/
 	ret = _ut_func(test_type, alloc_sn, append_hd, alloc_size, 0,
 		       _flag_zalloc_n, _alloc_num, alloc_hd);
+	if (ret != TZ_RESULT_SUCCESS) {
+		KREE_ERR("_alloc_size, alignment, no-zalloc fail\n");
+		return ret;
+	}
 
 	/*_alloc_size, no-alignment, no-zalloc*/
 	ret = _ut_func(test_type, alloc_sn, append_hd, alloc_size, alloc_size,
 		       _flag_zalloc_n, _alloc_num, alloc_hd);
+	if (ret != TZ_RESULT_SUCCESS) {
+		KREE_ERR("_alloc_size, no-alignment, no-zalloc fail\n");
+		return ret;
+	}
+
 	return ret;
 }
 
@@ -805,16 +725,18 @@ TZ_RESULT _mcm_test_main(void)
 			}
 
 			/*test all chmem APIs */
-			_mcm_test_body_main(_mcm_test_body_all_funs,
+			ret = _mcm_test_body_main(_mcm_test_body_all_funs,
 					    _t_test_type, alloc_sn,
 					    append_hd[i], _alloc_size,
 					    _alloc_num, alloc_hd);
+			CHECK_EQ(TZ_RESULT_SUCCESS, ret, "test_all_funs");
 
 			/*test alloc saturation cases */
-			_mcm_test_body_main(_mcm_test_body_saturation,
+			ret = _mcm_test_body_main(_mcm_test_body_saturation,
 					    _t_test_type, alloc_sn,
 					    append_hd[i], _alloc_size,
 					    _alloc_num, alloc_hd);
+			CHECK_EQ(TZ_RESULT_SUCCESS, ret, "test_saturation");
 
 			if (alloc_hd != NULL)
 				kfree(alloc_hd);
@@ -857,17 +779,19 @@ int chunk_memory_ut(void *args)
 
 	_get_MCM_from_SSMR();
 
-#if 1
+#if enbFg
 	/*default test alloc_size is 2MB, you can update by the API */
-	ret = _set_test_size(MTEE_MCHUNKS_PROT, _sz_32M, _sz_64M);
+	ret = _set_test_size(MTEE_MCHUNKS_PROT, SZ_32M, SZ_64M);
 	if (ret != TZ_RESULT_SUCCESS)
 		goto out;
 
-	ret =
-	    _set_test_size(MTEE_MCHUNKS_SDSP_SHARED_VPU_MTEE_TEE, _sz_4M,
-			   _sz_4M);
-	if (ret != TZ_RESULT_SUCCESS)
-		goto out;
+/*  // another chunk memory
+ *	ret =
+ *	    _set_test_size(MTEE_MCHUNKS_SDSP_SHARED_VPU_MTEE_TEE, _sz_4M,
+ *			   _sz_4M);
+ *	if (ret != TZ_RESULT_SUCCESS)
+ *		goto out;
+ */
 #endif
 
 	ret = _mcm_test_main();
