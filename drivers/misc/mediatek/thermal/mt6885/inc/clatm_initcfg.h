@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,14 +18,14 @@
 
 #define CLATM_INIT_CFG_0_TARGET_TJ		(75000)
 #define CLATM_INIT_CFG_0_EXIT_POINT		(10000)
-#define CLATM_INIT_CFG_0_FIRST_STEP		(2000)
+#define CLATM_INIT_CFG_0_FIRST_STEP		(3960)
 #define CLATM_INIT_CFG_0_THETA_RISE		(2)
 #define CLATM_INIT_CFG_0_THETA_FALL		(8)
 #define CLATM_INIT_CFG_0_MIN_BUDGET_CHG		(1)
-#define CLATM_INIT_CFG_0_MIN_CPU_PWR	(400)
-#define CLATM_INIT_CFG_0_MAX_CPU_PWR	(2000)
-#define CLATM_INIT_CFG_0_MIN_GPU_PWR	(200)
-#define CLATM_INIT_CFG_0_MAX_GPU_PWR	(700)
+#define CLATM_INIT_CFG_0_MIN_CPU_PWR		(300)
+#define CLATM_INIT_CFG_0_MAX_CPU_PWR		(3960)
+#define CLATM_INIT_CFG_0_MIN_GPU_PWR		(800)
+#define CLATM_INIT_CFG_0_MAX_GPU_PWR		(2000)
 
 #define CLATM_INIT_CFG_1_TARGET_TJ		(65000)
 #define CLATM_INIT_CFG_1_EXIT_POINT		(10000)
@@ -61,5 +61,6 @@
 
 #define CLATM_INIT_HRTIMER_POLLING_DELAY	(50)
 
-#define CLATM_USE_MIN_CPU_OPP			(1)
+/* TODO: enable this */
+#define CLATM_USE_MIN_CPU_OPP			(0)
 #endif	/* __CLATM_INITCFG_H__ */

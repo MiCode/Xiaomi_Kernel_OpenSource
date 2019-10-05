@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -12,8 +12,6 @@
  */
 #ifndef __TMP_BTS_H__
 #define __TMP_BTS_H__
-
-/* chip dependent */
 
 #define APPLY_PRECISE_NTC_TABLE
 #define APPLY_AUXADC_CALI_DATA

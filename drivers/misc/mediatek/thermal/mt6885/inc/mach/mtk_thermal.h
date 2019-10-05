@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -10,8 +10,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-#ifndef __MT6885_THERMAL_H__
-#define __MT6885_THERMAL_H__
+#ifndef __MT6785_THERMAL_H__
+#define __MT6785_THERMAL_H__
 
 #include <linux/module.h>
 #include <linux/types.h>
@@ -22,7 +22,11 @@
 #include <linux/uaccess.h>
 
 #include "mt-plat/sync_write.h"
+
 #include "mtk_thermal_typedefs.h"
+
+/* TODO: remove this! */
+#define GPUFREQ_NOT_READY
 
 #ifdef GPUFREQ_NOT_READY
 struct mt_gpufreq_power_table_info {
@@ -34,31 +38,62 @@ struct mt_gpufreq_power_table_info {
 #include "mtk_gpufreq.h"
 #endif
 
-/* chip dependent */
-
-/* MT6885
- * Bank0        CA7LL           TSMCU4
- * Bank1        CA7BL           TSMCU5
- * Bank2        CCI             TSMCU4+5
- * Bank3        GPU             TSMCU2
- * Bank4        SoC+MD1         TSMCU1 + TSMCU3
+/*=============================================================
+ * LVTS SW Configs
+ *=============================================================
  */
+#define CFG_THERM_LVTS				(0)
+
+#if CFG_THERM_LVTS
+#define	CFG_LVTS_DOMINATOR			(0)
+#define	LVTS_THERMAL_CONTROLLER_HW_FILTER	(1) /* 1, 2, 4, 8, 16 */
+#define	LVTS_DEVICE_AUTO_RCK			(1)
+#else
+#define	CFG_LVTS_DOMINATOR			(0)
+#define	LVTS_THERMAL_CONTROLLER_HW_FILTER	(0)
+#define	LVTS_DEVICE_AUTO_RCK			(1)
+#endif
+
+/* public thermal sensor enum */
 enum thermal_sensor {
-	TS_MCU1 = 0,
+	TS_MCU0 = 0,
+	TS_MCU1,
 	TS_MCU2,
-	TS_MCU3,
+	/* There is no TSMCU3 in MT6785 compared with MT6779 */
 	TS_MCU4,
 	TS_MCU5,
-	TS_ABB, /* TODO: double check if TS_ABB exists. */
+	TS_MCU6,
+	TS_MCU7,
+	TS_MCU8,
+	TS_MCU9,
+#if CFG_THERM_LVTS
+	TS_LVTS1_0,
+	TS_LVTS1_1,
+	TS_LVTS2_0,
+	TS_LVTS2_1,
+	TS_LVTS2_2,
+	TS_LVTS3_0,
+	TS_LVTS3_1,
+	TS_LVTS4_0,
+	/* There is no LVTS4_1 in MT6785 compared with MT6779 */
+	/* LVTS9_0 always has no temperature data because
+	 * there is no HW route to it
+	 */
+	TS_LVTS9_0,
+#endif
+	TS_ABB,
 	TS_ENUM_MAX,
 };
 
 enum thermal_bank_name {
-	THERMAL_BANK0     = 0,
-	THERMAL_BANK1     = 1,
-	THERMAL_BANK2     = 2,
-	THERMAL_BANK3     = 3,
-	THERMAL_BANK4     = 4,
+	THERMAL_BANK0 = 0,
+	THERMAL_BANK1,
+	THERMAL_BANK2,
+	THERMAL_BANK3,
+	THERMAL_BANK4,
+	/* No bank 5 */
+	THERMAL_BANK6,
+	THERMAL_BANK7,
 	THERMAL_BANK_NUM
 };
 
@@ -72,8 +107,13 @@ extern int mtktscpu_limited_dmips;
 /* Valid if it returns 1, invalid if it returns 0. */
 extern int tscpu_is_temp_valid(void);
 
-extern void get_thermal_slope_intercept
-(struct TS_PTPOD *ts_info, enum thermal_bank_name ts_bank);
+extern void get_thermal_slope_intercept(
+	struct TS_PTPOD *ts_info, enum thermal_bank_name ts_bank);
+
+#if CFG_THERM_LVTS
+extern void get_lvts_slope_intercept(
+		struct TS_PTPOD *ts_info, enum thermal_bank_name ts_bank);
+#endif
 
 extern void set_taklking_flag(bool flag);
 
@@ -84,13 +124,13 @@ extern int tscpu_get_temp_by_bank(enum thermal_bank_name ts_bank);
 #define THERMAL_WRAP_WR32(val, addr)	\
 	mt_reg_sync_writel((val), ((void *)addr))
 
-extern int get_immediate_gpu_wrap(void);
-
 extern int get_immediate_cpuL_wrap(void);
-
-extern int get_immediate_cpuLL_wrap(void);
-
+extern int get_immediate_cpuB_wrap(void);
 extern int get_immediate_mcucci_wrap(void);
+extern int get_immediate_gpu_wrap(void);
+extern int get_immediate_vpu_wrap(void);
+extern int get_immediate_top_wrap(void);
+extern int get_immediate_md_wrap(void);
 
 /* Added for DLPT/EARA */
 extern int tscpu_get_min_cpu_pwr(void);
@@ -100,11 +140,28 @@ extern int tscpu_get_min_mdla_pwr(void);
 
 /* Five thermal sensors. */
 enum mtk_thermal_sensor_cpu_id_met {
-	MTK_THERMAL_SENSOR_TS1 = 0,
+	MTK_THERMAL_SENSOR_TS0 = 0,
+	MTK_THERMAL_SENSOR_TS1,
 	MTK_THERMAL_SENSOR_TS2,
-	MTK_THERMAL_SENSOR_TS3,
+	/* No TSMCU3 */
 	MTK_THERMAL_SENSOR_TS4,
 	MTK_THERMAL_SENSOR_TS5,
+	MTK_THERMAL_SENSOR_TS6,
+	MTK_THERMAL_SENSOR_TS7,
+	MTK_THERMAL_SENSOR_TS8,
+	MTK_THERMAL_SENSOR_TS9,
+#if CFG_THERM_LVTS
+	MTK_THERMAL_SENSOR_LVTS1_0,
+	MTK_THERMAL_SENSOR_LVTS1_1,
+	MTK_THERMAL_SENSOR_LVTS2_0,
+	MTK_THERMAL_SENSOR_LVTS2_1,
+	MTK_THERMAL_SENSOR_LVTS2_2,
+	MTK_THERMAL_SENSOR_LVTS3_0,
+	MTK_THERMAL_SENSOR_LVTS3_1,
+	MTK_THERMAL_SENSOR_LVTS4_0,
+	/* No LVTS4_1 */
+	MTK_THERMAL_SENSOR_LVTS9_0,
+#endif
 	MTK_THERMAL_SENSOR_TSABB,
 
 	ATM_CPU_LIMIT,
@@ -125,15 +182,29 @@ extern void mtkTTimer_start_timer(void);
 
 extern int mtkts_bts_get_hw_temp(void);
 
+extern int get_immediate_ts0_wrap(void);
 extern int get_immediate_ts1_wrap(void);
-
 extern int get_immediate_ts2_wrap(void);
-
 extern int get_immediate_ts3_wrap(void);
-
 extern int get_immediate_ts4_wrap(void);
-
 extern int get_immediate_ts5_wrap(void);
+extern int get_immediate_ts6_wrap(void);
+extern int get_immediate_ts7_wrap(void);
+extern int get_immediate_ts8_wrap(void);
+extern int get_immediate_ts9_wrap(void);
+
+#if CFG_THERM_LVTS
+extern int get_immediate_tslvts1_0_wrap(void);
+extern int get_immediate_tslvts1_1_wrap(void);
+extern int get_immediate_tslvts2_0_wrap(void);
+extern int get_immediate_tslvts2_1_wrap(void);
+extern int get_immediate_tslvts2_2_wrap(void);
+extern int get_immediate_tslvts3_0_wrap(void);
+extern int get_immediate_tslvts3_1_wrap(void);
+extern int get_immediate_tslvts4_0_wrap(void);
+/* No LVTS4_1 */
+extern int get_immediate_tslvts9_0_wrap(void);
+#endif
 
 extern int get_immediate_tsabb_wrap(void);
 
@@ -147,19 +218,22 @@ extern int get_cpu_target_tj(void);
 
 extern int get_cpu_target_offset(void);
 
-extern int mtk_gpufreq_register
-(struct mt_gpufreq_power_table_info *freqs, int num);
+#if 0
+extern int mtk_gpufreq_register(
+	struct mt_gpufreq_power_table_info *freqs, int num);
+#endif
 
 extern int get_target_tj(void);
 
 extern int mtk_thermal_get_tpcb_target(void);
 
-extern void thermal_set_big_core_speed
-(unsigned int tempMonCtl1, unsigned int tempMonCtl2, unsigned int tempAhbPoll);
+extern void thermal_set_big_core_speed(
+unsigned int tempMonCtl1, unsigned int tempMonCtl2, unsigned int tempAhbPoll);
 
-/* return value(1): cooler of abcct/abcct_lcmoff is deactive,
+/*
+ * return value(1): cooler of abcct/abcct_lcmoff is deactive,
  * and no thermal current limit.
  */
 extern int mtk_cooler_is_abcct_unlimit(void);
 
-#endif /* __MT6885_THERMAL_H__ */
+#endif /* __MT6785_THERMAL_H__ */
