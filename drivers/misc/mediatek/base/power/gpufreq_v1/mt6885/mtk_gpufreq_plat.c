@@ -558,22 +558,30 @@ static void mt_gpufreq_buck_control(enum mt_power_state power)
 	gpufreq_pr_debug("@%s: power = %d", __func__, power);
 
 	if (power == POWER_ON) {
-		if (regulator_enable(g_pmic->reg_vsram_gpu)) {
-			gpufreq_pr_info("enable VSRAM_GPU failed\n");
-			return;
+		if (regulator_is_enabled(g_pmic->reg_vsram_gpu) == 0) {
+			if (regulator_enable(g_pmic->reg_vsram_gpu)) {
+				gpufreq_pr_info("enable VSRAM_GPU failed\n");
+				return;
+			}
 		}
-		if (regulator_enable(g_pmic->reg_vgpu)) {
-			gpufreq_pr_info("enable VGPU failed\n");
-			return;
+		if (regulator_is_enabled(g_pmic->reg_vgpu) == 0) {
+			if (regulator_enable(g_pmic->reg_vgpu)) {
+				gpufreq_pr_info("enable VGPU failed\n");
+				return;
+			}
 		}
 	} else {
-		if (regulator_disable(g_pmic->reg_vgpu)) {
-			gpufreq_pr_info("disable VGPU failed\n");
-			return;
+		if (regulator_is_enabled(g_pmic->reg_vgpu) > 0) {
+			if (regulator_disable(g_pmic->reg_vgpu)) {
+				gpufreq_pr_info("disable VGPU failed\n");
+				return;
+			}
 		}
-		if (regulator_disable(g_pmic->reg_vsram_gpu)) {
-			gpufreq_pr_info("disable VSRAM_GPU failed\n");
-			return;
+		if (regulator_is_enabled(g_pmic->reg_vsram_gpu) > 0) {
+			if (regulator_disable(g_pmic->reg_vsram_gpu)) {
+				gpufreq_pr_info("disable VSRAM_GPU failed\n");
+				return;
+			}
 		}
 	}
 
