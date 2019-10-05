@@ -32,7 +32,7 @@
 
 #####################################
 # Common Source files for all chips
-ifneq (y, $(filter y, $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6759) $(CONFIG_MACH_MT6758) $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6775) $(CONFIG_MACH_MT6771) $(CONFIG_MACH_MT6739)))
+ifneq (y, $(filter y, $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6759) $(CONFIG_MACH_MT6758) $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6775) $(CONFIG_MACH_MT6771) $(CONFIG_MACH_MT6739) $(CONFIG_MACH_MT8168)))
 obj-$(CONFIG_MTK_FB) += 			\
 			mtkfb_fence.o \
 			fbconfig_kdebug.o
@@ -68,7 +68,7 @@ ccflags-y += \
 				-I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox \
 				-I$(srctree)/drivers/misc/mediatek/sync/      \
 
-ifeq (y, $(filter y, $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6759) $(CONFIG_MACH_MT6758) $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6775) $(CONFIG_MACH_MT6771) $(CONFIG_MACH_MT6739)))
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6759) $(CONFIG_MACH_MT6758) $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6775) $(CONFIG_MACH_MT6771) $(CONFIG_MACH_MT6739) $(CONFIG_MACH_MT8168)))
 ccflags-y += \
 				-I$(srctree)/drivers/misc/mediatek/cmdq/v3/ \
 				-I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
