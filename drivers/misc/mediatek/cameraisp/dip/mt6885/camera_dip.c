@@ -5290,10 +5290,10 @@ static const struct file_operations dip_dump_proc_fops = {
  **************************************************************/
 #ifdef CONFIG_MTK_IOMMU_V2
 enum mtk_iommu_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
-	unsigned int mva, void *data)
+	unsigned long mva, void *data)
 #else
 enum m4u_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
-	unsigned long mva, void *data)
+	unsigned int mva, void *data)
 #endif
 {
 
