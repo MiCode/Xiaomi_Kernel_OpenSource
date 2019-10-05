@@ -20,7 +20,7 @@
 /* config: MTK_QOS_SUPPORT or VCORE_DVFS_OPP_SUPPORT */
 /* define in Makefile */
 /*#endif # PM_DEVFREQ*/
-#define API_READY 0
+#define API_READY 1
 
 #if defined(MTK_QOS_SUPPORT)
 #include <linux/pm_qos.h>
