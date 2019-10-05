@@ -34,6 +34,7 @@
 #include <linux/uaccess.h>
 #include <linux/atomic.h>
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <linux/mm.h>
 #include <linux/vmalloc.h>
 #include <linux/seq_file.h>
@@ -1621,7 +1622,8 @@ static inline void FDVT_Prepare_Enable_ccf_clock(void)
 		log_err("cannot prepare and enable CG_IMGSYS_LARB clock\n");
 #else
 	//smi_bus_enable(SMI_LARB_IMGSYS1, "camera_fdvt"); //modified by Gasper
-	smi_bus_prepare_enable(SMI_LARB5_REG_INDX, "camera-fdvt", true);
+	// tony
+	//smi_bus_prepare_enable(SMI_LARB5_REG_INDX, "camera-fdvt", true);
 #endif
 
 	ret = clk_prepare_enable(fdvt_clk.CG_IMGSYS_FDVT);
@@ -1652,7 +1654,8 @@ static inline void FDVT_Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(fdvt_clk.CG_SCP_SYS_MM0);
 #else
 	//smi_bus_disable(SMI_LARB_IMGSYS1, "camera_fdvt"); // marked by gasper
-	smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, "camera-fdvt", true);
+	// tony
+	//smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, "camera-fdvt", true);
 #endif
 }
 #endif

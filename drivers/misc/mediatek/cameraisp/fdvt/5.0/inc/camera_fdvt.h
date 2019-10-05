@@ -41,7 +41,7 @@
 
 #define FDVT_REG_RANGE           (0x1000)
 
-#define FDVT_BASE_HW   0x1B001000
+#define FDVT_BASE_HW   0x1500B000
 
 
 /*This macro is for setting irq status represnted
@@ -112,6 +112,8 @@ struct FDVT_Config {
 	unsigned int FDVT_FD_CON_BASE_ADR;
 	unsigned int FDVT_YUV_SRC_WD_HT;
 	unsigned int FD_MODE;
+	unsigned int RESULT;
+	unsigned int RESULT1;
 };
 #define FDVT_Config struct FDVT_Config
 
