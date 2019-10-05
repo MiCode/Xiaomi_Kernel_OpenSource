@@ -664,15 +664,15 @@ static ssize_t proc_generate_kernel_notify_write(struct file *file,
 
 	switch (msg[0]) {
 	case 'R':
-		aee_kernel_reminding(&msg[2], colon_ptr + 1);
+		aee_kernel_reminding(&msg[2], "Hello World[Error]");
 		break;
 
 	case 'W':
-		aee_kernel_warning(&msg[2], colon_ptr + 1);
+		aee_kernel_warning(&msg[2], "Hello World[Error]");
 		break;
 
 	case 'E':
-		aee_kernel_exception(&msg[2], colon_ptr + 1);
+		aee_kernel_exception(&msg[2], "Hello World[Error]");
 		break;
 
 	default:
