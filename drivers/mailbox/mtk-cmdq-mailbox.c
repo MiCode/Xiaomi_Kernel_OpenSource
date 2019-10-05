@@ -641,13 +641,12 @@ static void cmdq_buf_dump_schedule(struct cmdq_task *task, bool timeout,
 		inst ? *inst : -1);
 }
 
-static void cmdq_task_handle_error(struct cmdq_task *task, u32 pa_curr)
+static void cmdq_task_handle_error(struct cmdq_task *task)
 {
 	struct cmdq_thread *thread = task->thread;
 	struct cmdq_task *next_task;
 
 	cmdq_err("task 0x%p pkt 0x%p error", task, task->pkt);
-	cmdq_buf_dump_schedule(task, false, pa_curr);
 	WARN_ON(cmdq_thread_suspend(task->cmdq, thread) < 0);
 	next_task = list_first_entry_or_null(&thread->task_busy_list,
 			struct cmdq_task, list_entry);
@@ -730,8 +729,9 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		} else if (err) {
 			cmdq_err("pkt:0x%p thread:%u err:%d",
 				curr_task->pkt, thread->idx, err);
+			cmdq_buf_dump_schedule(task, false, curr_pa);
 			cmdq_task_exec_done(task, err);
-			cmdq_task_handle_error(curr_task, curr_pa);
+			cmdq_task_handle_error(curr_task);
 			kfree(task);
 		}
 
@@ -1353,7 +1353,7 @@ static void cmdq_config_default_token(struct device *dev, struct cmdq *cmdq)
 {
 	int count, ret;
 
-	count = of_property_count_u32_elems(dev->of_node, "default_tokens");
+	count = of_property_count_u16_elems(dev->of_node, "default_tokens");
 	if (count <= 0) {
 		cmdq_err("no default tokens:%d", count);
 		return;
@@ -1409,6 +1409,7 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	cmdq_config_prefetch(dev->of_node, cmdq);
 	cmdq_config_dma_mask(dev);
+	cmdq_config_default_token(dev, cmdq);
 
 	cmdq->clock = devm_clk_get(dev, "gce");
 	if (IS_ERR(cmdq->clock)) {

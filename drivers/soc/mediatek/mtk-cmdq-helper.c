@@ -1353,12 +1353,49 @@ static struct cmdq_flush_item *cmdq_prepare_flush_tiem(struct cmdq_pkt *pkt)
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
+{
+	struct cmdq_client *client = pkt->cl;
+	dma_addr_t pc = 0;
+	struct cmdq_instruction *inst = NULL;
+	const char *mod = "CMDQ";
+
+	cmdq_task_get_thread_pc(client->chan, &pc);
+
+	struct cmdq_pkt_buffer *buf;
+	u32 size, cnt = 0;
+
+	if (pc) {
+		list_for_each_entry(buf, &pkt->buf, list_entry) {
+			if (pc < buf->pa_base ||
+				pc > buf->pa_base + CMDQ_CMD_BUFFER_SIZE)
+				continue;
+			inst  = (struct cmdq_instruction *)(
+				buf->va_base + (pc - buf->pa_base));
+			break;
+		}
+	}
+
+	if (inst) {
+		/* not sync case, print raw */
+		cmdq_util_aee(mod,
+			"%s inst:%#016llx OP:%x",
+			mod, *(u64 *)inst, inst->op);
+	} else {
+		/* no inst available */
+		cmdq_util_aee(mod, "%s unknown instruction", mod);
+	}
+}
+
 static void cmdq_flush_async_cb(struct cmdq_cb_data data)
 {
 	struct cmdq_pkt *pkt = (struct cmdq_pkt *)data.data;
 	struct cmdq_flush_item *item = pkt->flush_item;
 	struct cmdq_cb_data user_data = {
 		.data = item->data, .err = data.err };
+
+	if (data.err == -EINVAL)
+		cmdq_pkt_err_irq_dump(pkt);
 
 	if (item->cb)
 		item->cb(user_data);

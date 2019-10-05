@@ -129,7 +129,8 @@ static void cmdq_test_mbox_err_dump(struct cmdq_test *test)
 	pkt->err_cb.cb = cmdq_test_mbox_cb_dump_err;
 	pkt->err_cb.data = pkt;
 	cmdq_clear_event(test->clt->chan, test->token_user0);
-	cmdq_pkt_flush_async(pkt, cmdq_test_mbox_cb_dump, (void *)pkt);
+	ret = cmdq_pkt_flush_async(pkt, cmdq_test_mbox_cb_dump, (void *)pkt);
+	cmdq_msg("flush pkt:0x%p ret:%d", pkt, ret);
 	ret = cmdq_pkt_wait_complete(pkt);
 	cmdq_msg("wait complete pkt:0x%p ret:%d", pkt, ret);
 
