@@ -48,7 +48,6 @@
 #define KERNEL_DMA_BUFFER
 #ifdef KERNEL_DMA_BUFFER
 #include <media/videobuf2-memops.h>
-#include <linux/dma-mapping.h>
 #include <linux/dma-direction.h>
 #include <linux/dma-buf.h>
 #endif
@@ -2451,6 +2450,8 @@ static signed int DPE_DumpReg(void)
 		(unsigned int)DPE_RD32(DVS_CTRL02_REG));
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_CTRL03_HW),
 		(unsigned int)DPE_RD32(DVS_CTRL03_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_CTRL06_HW),
+		(unsigned int)DPE_RD32(DVS_CTRL06_REG));
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_CTRL07_HW),
 		(unsigned int)DPE_RD32(DVS_CTRL07_REG));
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_IRQ_00_HW),
@@ -2461,6 +2462,8 @@ static signed int DPE_DumpReg(void)
 //		(unsigned int)DPE_RD32(DVS_CTRL_STATUS1_REG));
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_CTRL_STATUS2_HW),
 		(unsigned int)DPE_RD32(DVS_CTRL_STATUS2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_IRQ_STATUS_HW),
+		(unsigned int)DPE_RD32(DVS_IRQ_STATUS_REG));
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_FRM_STATUS0_HW),
 		(unsigned int)DPE_RD32(DVS_FRM_STATUS0_REG));
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_FRM_STATUS1_HW),
@@ -2473,8 +2476,16 @@ static signed int DPE_DumpReg(void)
 		(unsigned int)DPE_RD32(DVS_CUR_STATUS_REG));
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_CTRL_HW),
 		(unsigned int)DPE_RD32(DVS_SRC_CTRL_REG));
-	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_CTRL00_HW),
-		(unsigned int)DPE_RD32(DVS_CTRL00_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_CRC_CTRL_HW),
+		(unsigned int)DPE_RD32(DVS_CRC_CTRL_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_CRC_IN_HW),
+		(unsigned int)DPE_RD32(DVS_CRC_IN_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_DRAM_STA0_HW),
+		(unsigned int)DPE_RD32(DVS_DRAM_STA0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_DRAM_STA1_HW),
+		(unsigned int)DPE_RD32(DVS_DRAM_STA1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_DRAM_ULT_HW),
+		(unsigned int)DPE_RD32(DVS_DRAM_ULT_REG));
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_DRAM_PITCH_HW),
 		(unsigned int)DPE_RD32(DVS_DRAM_PITCH_REG));
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_00_HW),
@@ -2487,6 +2498,139 @@ static signed int DPE_DumpReg(void)
 		(unsigned int)DPE_RD32(DVS_SRC_03_REG));
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_04_HW),
 		(unsigned int)DPE_RD32(DVS_SRC_04_REG));
+
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_05_L_FRM0_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_05_L_FRM0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_06_L_FRM1_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_06_L_FRM1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_07_L_FRM2_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_07_L_FRM2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_08_L_FRM3_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_08_L_FRM3_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_09_R_FRM0_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_09_R_FRM0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_10_R_FRM1_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_10_R_FRM1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_11_R_FRM2_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_11_R_FRM2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_12_R_FRM3_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_12_R_FRM3_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_13_L_VMAP0_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_13_L_VMAP0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_14_L_VMAP1_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_14_L_VMAP1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_15_L_VMAP2_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_15_L_VMAP2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_16_L_VMAP3_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_16_L_VMAP3_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_17_R_VMAP0_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_17_R_VMAP0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_18_R_VMAP1_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_18_R_VMAP1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_19_R_VMAP2_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_19_R_VMAP2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_20_R_VMAP3_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_20_R_VMAP3_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_21_INTER_MEDV_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_21_INTER_MEDV_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_26_OCCDV0_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_26_OCCDV0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_27_OCCDV1_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_27_OCCDV1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_28_OCCDV2_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_28_OCCDV2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_29_OCCDV3_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_29_OCCDV3_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_30_DCV_CONF0_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_30_DCV_CONF0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_31_DCV_CONF1_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_31_DCV_CONF1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_32_DCV_CONF2_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_32_DCV_CONF2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_33_DCV_CONF3_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_33_DCV_CONF3_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_34_DCV_L_FRM0_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_34_DCV_L_FRM0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_42_OCCDV_EXT0_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_42_OCCDV_EXT0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_43_OCCDV_EXT1_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_43_OCCDV_EXT1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_44_OCCDV_EXT2_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_44_OCCDV_EXT2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_SRC_45_OCCDV_EXT3_HW),
+		(unsigned int)DPE_RD32(DVS_SRC_45_OCCDV_EXT3_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_CRC_OUT_0_HW),
+		(unsigned int)DPE_RD32(DVS_CRC_OUT_0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_CRC_OUT_1_HW),
+		(unsigned int)DPE_RD32(DVS_CRC_OUT_1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_CRC_OUT_2_HW),
+		(unsigned int)DPE_RD32(DVS_CRC_OUT_2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_CRC_OUT_3_HW),
+		(unsigned int)DPE_RD32(DVS_CRC_OUT_3_REG));
+
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_00_HW),
+		(unsigned int)DPE_RD32(DVS_ME_00_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_01_HW),
+		(unsigned int)DPE_RD32(DVS_ME_01_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_02_HW),
+		(unsigned int)DPE_RD32(DVS_ME_02_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_03_HW),
+		(unsigned int)DPE_RD32(DVS_ME_03_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_04_HW),
+		(unsigned int)DPE_RD32(DVS_ME_04_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_05_HW),
+		(unsigned int)DPE_RD32(DVS_ME_05_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_06_HW),
+		(unsigned int)DPE_RD32(DVS_ME_06_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_07_HW),
+		(unsigned int)DPE_RD32(DVS_ME_07_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_08_HW),
+		(unsigned int)DPE_RD32(DVS_ME_08_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_09_HW),
+		(unsigned int)DPE_RD32(DVS_ME_09_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_10_HW),
+		(unsigned int)DPE_RD32(DVS_ME_10_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_11_HW),
+		(unsigned int)DPE_RD32(DVS_ME_11_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_12_HW),
+		(unsigned int)DPE_RD32(DVS_ME_12_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_13_HW),
+		(unsigned int)DPE_RD32(DVS_ME_13_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_14_HW),
+		(unsigned int)DPE_RD32(DVS_ME_14_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_15_HW),
+		(unsigned int)DPE_RD32(DVS_ME_15_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_16_HW),
+		(unsigned int)DPE_RD32(DVS_ME_16_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_17_HW),
+		(unsigned int)DPE_RD32(DVS_ME_17_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_18_HW),
+		(unsigned int)DPE_RD32(DVS_ME_18_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_19_HW),
+		(unsigned int)DPE_RD32(DVS_ME_19_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_20_HW),
+		(unsigned int)DPE_RD32(DVS_ME_20_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_21_HW),
+		(unsigned int)DPE_RD32(DVS_ME_21_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_22_HW),
+		(unsigned int)DPE_RD32(DVS_ME_22_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_23_HW),
+		(unsigned int)DPE_RD32(DVS_ME_23_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_ME_24_HW),
+		(unsigned int)DPE_RD32(DVS_ME_24_REG));
+
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_OCC_PQ_0_HW),
+		(unsigned int)DPE_RD32(DVS_OCC_PQ_0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_OCC_PQ_1_HW),
+		(unsigned int)DPE_RD32(DVS_OCC_PQ_1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_OCC_PQ_2_HW),
+		(unsigned int)DPE_RD32(DVS_OCC_PQ_2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_OCC_PQ_3_HW),
+		(unsigned int)DPE_RD32(DVS_OCC_PQ_3_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_OCC_PQ_4_HW),
+		(unsigned int)DPE_RD32(DVS_OCC_PQ_4_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_OCC_PQ_5_HW),
+		(unsigned int)DPE_RD32(DVS_OCC_PQ_5_REG));
 
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CTRL00_HW),
 		(unsigned int)DPE_RD32(DVP_CTRL00_REG));
@@ -2530,7 +2674,128 @@ static signed int DPE_DumpReg(void)
 		(unsigned int)DPE_RD32(DVP_SRC_03_REG));
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_04_HW),
 		(unsigned int)DPE_RD32(DVP_SRC_04_REG));
-
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_05_Y_FRM0_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_05_Y_FRM0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_06_Y_FRM1_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_06_Y_FRM1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_07_Y_FRM2_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_07_Y_FRM2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_08_Y_FRM3_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_08_Y_FRM3_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_09_C_FRM0_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_09_C_FRM0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_10_C_FRM1_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_10_C_FRM1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_11_C_FRM2_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_11_C_FRM2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_12_C_FRM3_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_12_C_FRM3_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_13_OCCDV0_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_13_OCCDV0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_14_OCCDV1_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_14_OCCDV1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_15_OCCDV2_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_15_OCCDV2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_16_OCCDV3_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_16_OCCDV3_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_17_CRM_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_17_CRM_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_18_ASF_RMDV_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_18_ASF_RMDV_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_19_ASF_RDDV_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_19_ASF_RDDV_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_20_ASF_DV0_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_20_ASF_DV0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_21_ASF_DV1_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_21_ASF_DV1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_22_ASF_DV2_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_22_ASF_DV2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_23_ASF_DV3_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_23_ASF_DV3_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_24_WMF_HFDV_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_24_WMF_HFDV_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_25_WMF_DV0_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_25_WMF_DV0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_26_WMF_DV1_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_26_WMF_DV1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_27_WMF_DV2_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_27_WMF_DV2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_28_WMF_DV3_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_28_WMF_DV3_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_00_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_00_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_01_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_01_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_02_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_02_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_03_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_03_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_04_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_04_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_05_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_05_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_06_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_06_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_07_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_07_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_08_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_08_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_09_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_09_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_10_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_10_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_11_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_11_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_12_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_12_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_13_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_13_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_14_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_14_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_15_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_15_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_SRC_CTRL_HW),
+		(unsigned int)DPE_RD32(DVP_SRC_CTRL_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CRC_OUT_0_HW),
+		(unsigned int)DPE_RD32(DVP_CRC_OUT_0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CRC_OUT_1_HW),
+		(unsigned int)DPE_RD32(DVP_CRC_OUT_1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CRC_OUT_2_HW),
+		(unsigned int)DPE_RD32(DVP_CRC_OUT_2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CRC_CTRL_HW),
+		(unsigned int)DPE_RD32(DVP_CRC_CTRL_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CRC_OUT_HW),
+		(unsigned int)DPE_RD32(DVP_CRC_OUT_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CRC_IN_HW),
+		(unsigned int)DPE_RD32(DVP_CRC_IN_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_DRAM_STA_HW),
+		(unsigned int)DPE_RD32(DVP_DRAM_STA_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_DRAM_ULT_HW),
+		(unsigned int)DPE_RD32(DVP_DRAM_ULT_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_DRAM_PITCH_HW),
+		(unsigned int)DPE_RD32(DVP_DRAM_PITCH_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_CORE_CRC_IN_HW),
+		(unsigned int)DPE_RD32(DVP_CORE_CRC_IN_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_EXT_SRC_13_OCCDV0_HW),
+		(unsigned int)DPE_RD32(DVP_EXT_SRC_13_OCCDV0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_EXT_SRC_14_OCCDV1_HW),
+		(unsigned int)DPE_RD32(DVP_EXT_SRC_14_OCCDV1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_EXT_SRC_15_OCCDV2_HW),
+		(unsigned int)DPE_RD32(DVP_EXT_SRC_15_OCCDV2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_EXT_SRC_16_OCCDV3_HW),
+		(unsigned int)DPE_RD32(DVP_EXT_SRC_16_OCCDV3_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_EXT_SRC_18_ASF_RMDV_HW),
+		(unsigned int)DPE_RD32(DVP_EXT_SRC_18_ASF_RMDV_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_EXT_SRC_19_ASF_RDDV_HW),
+		(unsigned int)DPE_RD32(DVP_EXT_SRC_19_ASF_RDDV_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_EXT_SRC_20_ASF_DV0_HW),
+		(unsigned int)DPE_RD32(DVP_EXT_SRC_20_ASF_DV0_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_EXT_SRC_21_ASF_DV1_HW),
+		(unsigned int)DPE_RD32(DVP_EXT_SRC_21_ASF_DV1_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_EXT_SRC_22_ASF_DV2_HW),
+		(unsigned int)DPE_RD32(DVP_EXT_SRC_22_ASF_DV2_REG));
+	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVP_EXT_SRC_23_ASF_DV3_HW),
+		(unsigned int)DPE_RD32(DVP_EXT_SRC_23_ASF_DV3_REG));
 #endif
 	LOG_INF("- X.");
 	/*  */
@@ -4285,8 +4550,8 @@ static int vidioc_querycap(struct file *file, void  *priv,
 	struct DPE_device *dev = video_drvdata(file);
 	/*struct video_device *vdev = video_devdata(file);*/
 
-	strcpy(cap->driver, "dpe");
-	strcpy(cap->card, "dpe");
+	strlcpy(cap->driver, "dpe", sizeof(cap->driver));
+	strlcpy(cap->card, "dpe", sizeof(cap->card));
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 			"platform:%s", dev->v4l2_dev.name);
 	LOG_ERR("[%s]\n", __func__);
