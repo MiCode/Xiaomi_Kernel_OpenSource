@@ -871,6 +871,9 @@ static struct rt6_info *ip6_pol_route_lookup(struct net *net,
 	struct fib6_node *fn;
 	struct rt6_info *rt;
 
+	if (fl6->flowi6_flags & FLOWI_FLAG_SKIP_NH_OIF)
+		flags &= ~RT6_LOOKUP_F_IFACE;
+
 	read_lock_bh(&table->tb6_lock);
 	fn = fib6_lookup(&table->tb6_root, &fl6->daddr, &fl6->saddr);
 restart:
@@ -1219,11 +1222,16 @@ static void ip6_multipath_l3_keys(const struct sk_buff *skb,
 	const struct ipv6hdr *inner_iph;
 	const struct icmp6hdr *icmph;
 	struct ipv6hdr _inner_iph;
+	struct icmp6hdr _icmph;
 
 	if (likely(outer_iph->nexthdr != IPPROTO_ICMPV6))
 		goto out;
 
-	icmph = icmp6_hdr(skb);
+	icmph = skb_header_pointer(skb, skb_transport_offset(skb),
+				   sizeof(_icmph), &_icmph);
+	if (!icmph)
+		goto out;
+
 	if (icmph->icmp6_type != ICMPV6_DEST_UNREACH &&
 	    icmph->icmp6_type != ICMPV6_PKT_TOOBIG &&
 	    icmph->icmp6_type != ICMPV6_TIME_EXCEED &&
@@ -1242,7 +1250,7 @@ out:
 	keys->control.addr_type = FLOW_DISSECTOR_KEY_IPV6_ADDRS;
 	keys->addrs.v6addrs.src = key_iph->saddr;
 	keys->addrs.v6addrs.dst = key_iph->daddr;
-	keys->tags.flow_label = ip6_flowinfo(key_iph);
+	keys->tags.flow_label = ip6_flowlabel(key_iph);
 	keys->basic.ip_proto = key_iph->nexthdr;
 }
 
@@ -1467,9 +1475,6 @@ static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
 {
 	const struct in6_addr *daddr, *saddr;
 	struct rt6_info *rt6 = (struct rt6_info *)dst;
-
-	if (rt6->rt6i_flags & RTF_LOCAL)
-		return;
 
 	if (dst_metric_locked(dst, RTAX_MTU))
 		return;
@@ -2928,6 +2933,7 @@ void rt6_mtu_change(struct net_device *dev, unsigned int mtu)
 
 static const struct nla_policy rtm_ipv6_policy[RTA_MAX+1] = {
 	[RTA_GATEWAY]           = { .len = sizeof(struct in6_addr) },
+	[RTA_PREFSRC]		= { .len = sizeof(struct in6_addr) },
 	[RTA_OIF]               = { .type = NLA_U32 },
 	[RTA_IIF]		= { .type = NLA_U32 },
 	[RTA_PRIORITY]          = { .type = NLA_U32 },
@@ -2939,6 +2945,7 @@ static const struct nla_policy rtm_ipv6_policy[RTA_MAX+1] = {
 	[RTA_EXPIRES]		= { .type = NLA_U32 },
 	[RTA_UID]		= { .type = NLA_U32 },
 	[RTA_MARK]		= { .type = NLA_U32 },
+	[RTA_TABLE]		= { .type = NLA_U32 },
 };
 
 static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,

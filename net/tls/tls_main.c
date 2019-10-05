@@ -87,6 +87,7 @@ int tls_push_sg(struct sock *sk,
 	size = sg->length - offset;
 	offset += sg->offset;
 
+	ctx->in_tcp_sendpages = true;
 	while (1) {
 		if (sg_is_last(sg))
 			sendpage_flags = flags;
@@ -107,6 +108,7 @@ retry:
 			offset -= sg->offset;
 			ctx->partially_sent_offset = offset;
 			ctx->partially_sent_record = (void *)sg;
+			ctx->in_tcp_sendpages = false;
 			return ret;
 		}
 
@@ -121,6 +123,8 @@ retry:
 	}
 
 	clear_bit(TLS_PENDING_CLOSED_RECORD, &ctx->flags);
+	ctx->in_tcp_sendpages = false;
+	ctx->sk_write_space(sk);
 
 	return 0;
 }
@@ -189,6 +193,10 @@ int tls_push_pending_closed_record(struct sock *sk, struct tls_context *ctx,
 static void tls_write_space(struct sock *sk)
 {
 	struct tls_context *ctx = tls_get_ctx(sk);
+
+	/* We are already sending pages, ignore notification */
+	if (ctx->in_tcp_sendpages)
+		return;
 
 	if (!sk->sk_write_pending && tls_is_pending_closed_record(ctx)) {
 		gfp_t sk_allocation = sk->sk_allocation;
@@ -291,7 +299,8 @@ static int do_tls_getsockopt_tx(struct sock *sk, char __user *optval,
 			goto out;
 		}
 		lock_sock(sk);
-		memcpy(crypto_info_aes_gcm_128->iv, ctx->iv,
+		memcpy(crypto_info_aes_gcm_128->iv,
+		       ctx->iv + TLS_CIPHER_AES_GCM_128_SALT_SIZE,
 		       TLS_CIPHER_AES_GCM_128_IV_SIZE);
 		release_sock(sk);
 		if (copy_to_user(optval,

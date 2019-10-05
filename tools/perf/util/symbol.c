@@ -93,6 +93,11 @@ static int prefix_underscores_count(const char *str)
 	return tail - str;
 }
 
+const char * __weak arch__normalize_symbol_name(const char *name)
+{
+	return name;
+}
+
 int __weak arch__compare_symbol_names(const char *namea, const char *nameb)
 {
 	return strcmp(namea, nameb);
@@ -2088,14 +2093,12 @@ static bool symbol__read_kptr_restrict(void)
 
 int symbol__annotation_init(void)
 {
+	if (symbol_conf.init_annotation)
+		return 0;
+
 	if (symbol_conf.initialized) {
 		pr_err("Annotation needs to be init before symbol__init()\n");
 		return -1;
-	}
-
-	if (symbol_conf.init_annotation) {
-		pr_warning("Annotation being initialized multiple times\n");
-		return 0;
 	}
 
 	symbol_conf.priv_size += sizeof(struct annotation);

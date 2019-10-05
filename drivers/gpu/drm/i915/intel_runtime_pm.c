@@ -622,18 +622,17 @@ void skl_enable_dc6(struct drm_i915_private *dev_priv)
 
 	DRM_DEBUG_KMS("Enabling DC6\n");
 
-	gen9_set_dc_state(dev_priv, DC_STATE_EN_UPTO_DC6);
+	/* Wa Display #1183: skl,kbl,cfl */
+	if (IS_GEN9_BC(dev_priv))
+		I915_WRITE(GEN8_CHICKEN_DCPR_1, I915_READ(GEN8_CHICKEN_DCPR_1) |
+			   SKL_SELECT_ALTERNATE_DC_EXIT);
 
+	gen9_set_dc_state(dev_priv, DC_STATE_EN_UPTO_DC6);
 }
 
 void skl_disable_dc6(struct drm_i915_private *dev_priv)
 {
 	DRM_DEBUG_KMS("Disabling DC6\n");
-
-	/* Wa Display #1183: skl,kbl,cfl */
-	if (IS_GEN9_BC(dev_priv))
-		I915_WRITE(GEN8_CHICKEN_DCPR_1, I915_READ(GEN8_CHICKEN_DCPR_1) |
-			   SKL_SELECT_ALTERNATE_DC_EXIT);
 
 	gen9_set_dc_state(dev_priv, DC_STATE_DISABLE);
 }
@@ -1844,6 +1843,7 @@ void intel_display_power_put(struct drm_i915_private *dev_priv,
 	CNL_DISPLAY_POWERWELL_2_POWER_DOMAINS |		\
 	BIT_ULL(POWER_DOMAIN_MODESET) |			\
 	BIT_ULL(POWER_DOMAIN_AUX_A) |			\
+	BIT_ULL(POWER_DOMAIN_GMBUS) |			\
 	BIT_ULL(POWER_DOMAIN_INIT))
 
 static const struct i915_power_well_ops i9xx_always_on_power_well_ops = {
