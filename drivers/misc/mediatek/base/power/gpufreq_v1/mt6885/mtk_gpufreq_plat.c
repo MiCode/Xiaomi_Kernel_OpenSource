@@ -1830,8 +1830,8 @@ static int __mt_gpufreq_create_procfs(void)
 void __mt_gpufreq_update_aging(bool apply_aging_setting)
 {
 	int i;
-	int min_1875_index = 20;
-	int min_1250_index = 31;
+	int min_1875_index = 12;
+	int min_1250_index = 23;
 
 	if (apply_aging_setting) {
 		for (i = 0; i < g_max_opp_idx_num; i++) {
