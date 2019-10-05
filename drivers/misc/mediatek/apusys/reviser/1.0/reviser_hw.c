@@ -664,7 +664,18 @@ uint32_t reviser_get_interrupt_offset(void *drvinfo)
 
 	return offset;
 }
+int reviser_set_default_iova(void *drvinfo)
+{
+	if (g_mem_sys.iova == 0) {
+		LOG_ERR("invalid iova\n");
+		return -1;
+	}
+	_reviser_set_default_iova(drvinfo, g_mem_sys.iova);
 
+	LOG_INFO("Set IOVA %x\n", g_mem_sys.iova);
+
+	return 0;
+}
 
 
 int reviser_dram_remap_init(void *drvinfo)
@@ -687,8 +698,7 @@ int reviser_dram_remap_init(void *drvinfo)
 		return -ENOMEM;
 	}
 
-
-	_reviser_set_default_iova(drvinfo, g_mem_sys.iova);
+	//_reviser_set_default_iova(drvinfo, g_mem_sys.iova);
 
 	info->dram_base = (void *) g_mem_sys.kva;
 

@@ -24,6 +24,11 @@
 #include <linux/init.h>
 #include <linux/io.h>
 
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_platform.h>
+#endif
+
 #include "reviser_drv.h"
 #include "reviser_ioctl.h"
 #include "reviser_cmn.h"
@@ -39,7 +44,7 @@
 /* global variable */
 
 static struct class *reviser_class;
-
+static struct reviser_dev_info *g_reviser_device;
 
 
 /* function declaration */
@@ -48,6 +53,9 @@ static int reviser_release(struct inode *, struct file *);
 static long reviser_ioctl(struct file *filp,
 		unsigned int cmd, unsigned long arg);
 static long reviser_compat_ioctl(struct file *, unsigned int, unsigned long);
+
+static void reviser_power_on(void *para);
+static void reviser_power_off(void *para);
 
 irqreturn_t reviser_interrupt(int irq, void *private_data)
 {
@@ -66,6 +74,36 @@ static const struct file_operations reviser_fops = {
 	.release = reviser_release,
 	.compat_ioctl = reviser_compat_ioctl,
 };
+
+
+static void reviser_power_on(void *para)
+{
+	if (g_reviser_device == NULL) {
+		LOG_ERR("Not Found reviser_device\n");
+		return;
+	}
+	g_reviser_device->power = true;
+	if (reviser_boundary_init(g_reviser_device, BOUNDARY_APUSYS)) {
+		LOG_ERR("Set Boundary Fail\n");
+		return;
+	}
+	if (reviser_set_default_iova(g_reviser_device)) {
+		LOG_ERR("Set Default IOVA Fail\n");
+		return;
+	}
+
+}
+
+static void reviser_power_off(void *para)
+{
+	if (g_reviser_device == NULL) {
+		LOG_ERR("Not Found reviser_device\n");
+		return;
+	}
+
+
+	g_reviser_device->power = false;
+}
 
 static int reviser_open(struct inode *inode, struct file *filp)
 {
@@ -97,16 +135,40 @@ static int reviser_probe(struct platform_device *pdev)
 	struct resource *apusys_reviser_tcm; /* IO mem resources */
 	struct resource *apusys_reviser_vlm; /* IO mem resources */
 	struct device *dev = &pdev->dev;
-
 	struct reviser_dev_info *reviser_device;
 
+	struct device_node *power_node;
+	struct platform_device *power_pdev;
 
 	DEBUG_TAG;
+
+	g_reviser_device = NULL;
+
+	/* make sure apusys_power driver initiallized before
+	 * calling apu_power_callback_device_register
+	 */
+	power_node = of_find_compatible_node(
+			NULL, NULL, "mediatek,apusys_power");
+	if (!power_node) {
+		LOG_ERR("DT,mediatek,apusys_power not found\n");
+		return -EINVAL;
+	}
+
+	power_pdev = of_find_device_by_node(power_node);
+
+	if (!power_pdev || !power_pdev->dev.driver) {
+		LOG_DEBUG("Waiting for %s\n",
+				power_node->full_name);
+		return -EPROBE_DEFER;
+	}
+
+
 	reviser_device = devm_kzalloc(dev, sizeof(*reviser_device), GFP_KERNEL);
 	if (!reviser_device)
 		return -ENOMEM;
 
 	reviser_device->init_done = false;
+
 	mutex_init(&reviser_device->mutex_ctxid);
 	mutex_init(&reviser_device->mutex_tcm);
 	mutex_init(&reviser_device->mutex_vlm_pgtable);
@@ -233,10 +295,7 @@ static int reviser_probe(struct platform_device *pdev)
 	}
 
 
-	if (reviser_boundary_init(reviser_device, BOUNDARY_APUSYS)) {
-		ret = -EINVAL;
-		goto free_map;
-	}
+
 	if (reviser_table_init_ctxID(reviser_device)) {
 		ret = -EINVAL;
 		goto free_map;
@@ -257,6 +316,21 @@ static int reviser_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto free_map;
 	}
+	g_reviser_device = reviser_device;
+
+	ret = apu_power_callback_device_register(REVISOR,
+			reviser_power_on, reviser_power_off);
+	if (ret) {
+		LOG_ERR("apu_power_callback_device_register return error(%d)\n",
+			ret);
+		ret = -EINVAL;
+		goto free_map;
+	}
+
+	/* Workaround for power all on mode*/
+	//reviser_power_on(NULL);
+
+
 	reviser_device->init_done = true;
 	platform_set_drvdata(pdev, reviser_device);
 	dev_set_drvdata(dev, reviser_device);
@@ -292,6 +366,10 @@ static int reviser_remove(struct platform_device *pdev)
 
 	DEBUG_TAG;
 
+	apu_power_callback_device_unregister(REVISOR);
+
+	g_reviser_device = NULL;
+
 	reviser_dbg_destroy(reviser_device);
 	reviser_dram_remap_destroy(reviser_device);
 	iounmap(reviser_device->pctrl_top);
@@ -307,6 +385,8 @@ static int reviser_remove(struct platform_device *pdev)
 	cdev_del(&reviser_device->reviser_cdev);
 
 	unregister_chrdev_region(reviser_device->reviser_devt, 1);
+
+
 	return 0;
 }
 

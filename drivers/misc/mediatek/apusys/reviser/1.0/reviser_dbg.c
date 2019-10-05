@@ -60,6 +60,11 @@ static int reviser_dbg_show_remap_table(struct seq_file *s, void *unused)
 {
 	struct reviser_dev_info *reviser_device = s->private;
 
+	if (!reviser_device->power) {
+		LOG_ERR("Can Not Read when power disable\n");
+		return -EINVAL;
+	}
+
 	reviser_print_remap_table(reviser_device, s);
 	return 0;
 }
@@ -85,6 +90,11 @@ static int reviser_dbg_show_context_ID(struct seq_file *s, void *unused)
 {
 	struct reviser_dev_info *reviser_device = s->private;
 
+	if (!reviser_device->power) {
+		LOG_ERR("Can Not Read when power disable\n");
+		return -EINVAL;
+	}
+
 	reviser_print_context_ID(reviser_device, s);
 	return 0;
 }
@@ -109,6 +119,11 @@ static const struct file_operations reviser_dbg_fops_context_ID = {
 static int reviser_dbg_show_boundary(struct seq_file *s, void *unused)
 {
 	struct reviser_dev_info *reviser_device = s->private;
+
+	if (!reviser_device->power) {
+		LOG_ERR("Can Not Read when power disable\n");
+		return -EINVAL;
+	}
 
 	reviser_print_boundary(reviser_device, s);
 	return 0;
@@ -210,9 +225,13 @@ static ssize_t reviser_dbg_read_mem_tcm(struct file *filp, char *buffer,
 
 	if (g_reviser_mem_tcm_bank >= VLM_TCM_BANK_MAX) {
 		LOG_ERR("copy TCM out of range. %d\n", g_reviser_mem_tcm_bank);
-		return res;
+		return -EINVAL;
 	}
 
+	if (!reviser_device->power) {
+		LOG_ERR("Can Not Read when power disable\n");
+		return -EINVAL;
+	}
 
 	vbuffer = (unsigned char *)
 			__get_free_pages(GFP_KERNEL, get_order(VLM_BANK_SIZE));

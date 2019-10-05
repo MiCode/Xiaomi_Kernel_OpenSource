@@ -46,7 +46,7 @@ void reviser_init_mem(void);
 void reviser_destroy_mem(void);
 int reviser_alloc_mem(void *usr);
 int reviser_free_mem(void *usr);
-
+int reviser_set_default_iova(void *drvinfo);
 uint32_t reviser_get_interrupt_offset(void *drvinfo);
 
 int reviser_boundary_init(void *drvinfo, uint8_t boundary);

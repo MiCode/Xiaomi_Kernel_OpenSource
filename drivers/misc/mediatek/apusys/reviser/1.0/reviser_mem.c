@@ -86,7 +86,7 @@ int reviser_mem_alloc(struct reviser_mem *mem)
 	}
 
 	LOG_DEBUG("client %p\n", ion_client);
-	LOG_DEBUG("size: %d\n", mem->size);
+	LOG_DEBUG("size: %x\n", mem->size);
 
 	handle = ion_alloc(ion_client, mem->size, 0,
 			ION_HEAP_MULTIMEDIA_MASK, 0);
@@ -115,7 +115,6 @@ int reviser_mem_alloc(struct reviser_mem *mem)
 		LOG_ERR("ion_config_buffer: ION_CMD_MULTIMEDIA failed\n");
 		goto free_map;
 	}
-	LOG_DEBUG("Config Pass\n");
 
 
 	//pa = ((unsigned long)M4U_PORT_VPU<<24) | ION_FLAG_GET_FIXED_PHYS;
@@ -169,9 +168,6 @@ int reviser_mem_init(void)
 
 	g_rmem.client = ion_client_create(g_ion_device, "vpu");
 	g_rmem.is_init = 1;
-
-	LOG_DEBUG("client %p\n", g_rmem.client);
-	LOG_DEBUG("done\n");
 
 	return 0;
 }
