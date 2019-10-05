@@ -26,6 +26,7 @@ static struct mtk_devapc_context {
 	/* HW reg mapped addr */
 	void __iomem *devapc_pd_base[SLAVE_TYPE_NUM];
 	void __iomem *devapc_infra_ao_base;
+	void __iomem *infracfg_base;
 	void __iomem *sramrom_base;
 
 	struct mtk_devapc_soc *soc;
@@ -207,16 +208,10 @@ static int32_t clear_vio_status(enum DEVAPC_SLAVE_TYPE slave_type,
 	struct mtk_devapc_vio_info *vio_info = mtk_devapc_ctx->soc->vio_info;
 	uint32_t apc_register_index;
 	uint32_t apc_set_index;
-	int sramrom_vio_idx;
 	void __iomem *reg;
 
 	apc_register_index = module / (MOD_NO_IN_1_DEVAPC * 2);
 	apc_set_index = module % (MOD_NO_IN_1_DEVAPC * 2);
-
-	/* Clear SRAMROM violation first */
-	sramrom_vio_idx = mtk_devapc_ctx->soc->vio_info->sramrom_vio_idx;
-	if (slave_type == SLAVE_TYPE_INFRA && module == sramrom_vio_idx)
-		sramrom_vio_handler();
 
 	if ((slave_type == SLAVE_TYPE_INFRA &&
 		apc_register_index < vio_info->vio_mask_sta_num_infra) ||
@@ -279,6 +274,46 @@ static void print_vio_mask_sta(void)
 			);
 }
 
+static bool check_type2_vio_status(enum DEVAPC_SLAVE_TYPE slave_type)
+{
+	uint32_t sramrom_vio_idx;
+	uint32_t mdp_vio_idx, disp2_vio_idx, mmsys_vio_idx;
+	bool mdp_vio, disp2_vio, mmsys_vio;
+
+	sramrom_vio_idx = mtk_devapc_ctx->soc->vio_info->sramrom_vio_idx;
+	mdp_vio_idx = mtk_devapc_ctx->soc->vio_info->mdp_vio_idx;
+	disp2_vio_idx = mtk_devapc_ctx->soc->vio_info->disp2_vio_idx;
+	mmsys_vio_idx = mtk_devapc_ctx->soc->vio_info->mmsys_vio_idx;
+
+	/* check SRAMROM */
+	if (slave_type == SLAVE_TYPE_INFRA &&
+			check_vio_status(slave_type, sramrom_vio_idx)) {
+
+		sramrom_vio_handler();
+		return true;
+	}
+
+	/* check mm2nd */
+	mdp_vio = check_vio_status(slave_type, mdp_vio_idx) ==
+		VIOLATION_TRIGGERED;
+	disp2_vio = check_vio_status(slave_type, disp2_vio_idx) ==
+		VIOLATION_TRIGGERED;
+	mmsys_vio = check_vio_status(slave_type, mmsys_vio_idx) ==
+		VIOLATION_TRIGGERED;
+
+	if (slave_type == SLAVE_TYPE_PERI &&
+			(mdp_vio || disp2_vio || mmsys_vio)) {
+
+		mtk_devapc_ctx->soc->mm2nd_vio_handler(
+				mtk_devapc_ctx->infracfg_base,
+				mtk_devapc_ctx->soc->vio_info,
+				mdp_vio, disp2_vio, mmsys_vio);
+		return true;
+	}
+
+	return false;
+}
+
 /*
  * start_devapc - initialize devapc status and start receiving interrupt
  *		  while devapc violation is triggered.
@@ -325,6 +360,8 @@ static void start_devapc(void)
 					readl(pd_vio_shift_sta_reg));
 
 		}
+
+		check_type2_vio_status(slave_type);
 
 		/* Clear violation status */
 		for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
@@ -681,7 +718,8 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	/* There are multiple DEVAPC_PD */
 	for (slave_type = 0; slave_type < SLAVE_TYPE_NUM; slave_type++) {
 
-		mtk_devapc_dump_vio_dbg(slave_type);
+		if (!check_type2_vio_status(slave_type))
+			mtk_devapc_dump_vio_dbg(slave_type);
 
 		for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
 			if (!device_info[slave_type][i].enable_vio_irq)
@@ -1010,6 +1048,13 @@ int mtk_devapc_probe(struct platform_device *pdev,
 			DT_DEVAPC_INFRA_AO_IDX);
 	if (unlikely(mtk_devapc_ctx->devapc_infra_ao_base == NULL)) {
 		pr_err(PFX "parse devapc_infra_ao_base failed\n");
+		return -EINVAL;
+	}
+
+	mtk_devapc_ctx->infracfg_base = of_iomap(node,
+			DT_INFRACFG_IDX);
+	if (unlikely(mtk_devapc_ctx->infracfg_base == NULL)) {
+		pr_err(PFX "parse infracfg_base failed\n");
 		return -EINVAL;
 	}
 

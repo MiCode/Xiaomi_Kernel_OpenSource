@@ -29,6 +29,7 @@ enum DEVAPC_DT_NODE_INDEX {
 	DT_DEVAPC_PERI_PD_IDX,
 	DT_DEVAPC_PERI_PD2_IDX,
 	DT_DEVAPC_INFRA_AO_IDX,
+	DT_INFRACFG_IDX,
 	DT_SRAMROM_IDX,
 };
 
@@ -114,6 +115,9 @@ struct mtk_devapc_vio_info {
 	int vio_mask_sta_num_peri;
 	int vio_mask_sta_num_peri2;
 	int sramrom_vio_idx;
+	int mdp_vio_idx;
+	int disp2_vio_idx;
+	int mmsys_vio_idx;
 	int vio_trigger_times;
 };
 
@@ -164,6 +168,9 @@ struct mtk_devapc_soc {
 	/* platform specific operations */
 	const char* (*subsys_get)(int slave_type, uint32_t vio_index);
 	const char* (*master_get)(int bus_id, uint32_t vio_addr);
+	void (*mm2nd_vio_handler)(void __iomem *infracfg,
+			struct mtk_devapc_vio_info *vio_info,
+			bool mdp_vio, bool disp2_vio, bool mmsys_vio);
 };
 
 extern int mtk_devapc_probe(struct platform_device *pdev,

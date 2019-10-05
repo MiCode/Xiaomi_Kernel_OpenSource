@@ -7,6 +7,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <asm-generic/io.h>
 
 #include "devapc-mt6885.h"
 #include "devapc-mtk-multi-3.h"
@@ -1530,6 +1531,77 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index)
 	return "OUT_OF_BOUND";
 }
 
+static void mm2nd_vio_handler(void __iomem *infracfg,
+			      struct mtk_devapc_vio_info *vio_info,
+			      bool mdp_vio, bool disp2_vio, bool mmsys_vio)
+{
+	uint32_t vio_sta, vio_dbg, rw;
+	uint32_t vio_sta_num;
+	uint32_t vio0_offset;
+	char mm_str[64] = {0};
+	void __iomem *reg;
+	int i;
+
+	if (!infracfg) {
+		pr_err(PFX "%s, param check failed, infracfg ptr is NULL\n",
+				__func__);
+	}
+
+	if (mdp_vio) {
+		vio_sta_num = INFRACFG_MDP_VIO_STA_NUM;
+		vio0_offset = INFRACFG_MDP_SEC_VIO0_OFFSET;
+
+		strncpy(mm_str, "INFRACFG_MDP_SEC_VIO", sizeof(mm_str));
+
+	} else if (disp2_vio) {
+		vio_sta_num = INFRACFG_DISP2_VIO_STA_NUM;
+		vio0_offset = INFRACFG_DISP2_SEC_VIO0_OFFSET;
+
+		strncpy(mm_str, "INFRACFG_DISP2_SEC_VIO", sizeof(mm_str));
+
+	} else if (mmsys_vio) {
+		vio_sta_num = INFRACFG_MM_VIO_STA_NUM;
+		vio0_offset = INFRACFG_MM_SEC_VIO0_OFFSET;
+
+		strncpy(mm_str, "INFRACFG_MM_SEC_VIO", sizeof(mm_str));
+
+	} else {
+		pr_err(PFX "%s: param check failed, %s:%s, %s:%s, %s:%s\n",
+				__func__,
+				"mdp_vio", mdp_vio ? "true" : "false",
+				"disp2_vio", disp2_vio ? "true" : "false",
+				"mmsys_vio", mmsys_vio ? "true" : "false");
+	}
+
+	/* Get mm2nd violation status */
+	for (i = 0; i < vio_sta_num; i++) {
+		reg = infracfg + vio0_offset + i * 4;
+		vio_sta = readl(reg);
+		if (vio_sta)
+			pr_info(PFX "MM 2nd violation: %s%d:0x%x\n",
+					mm_str, i, vio_sta);
+	}
+
+	/* Get mm2nd violation address */
+	reg = infracfg + vio0_offset + i * 4;
+	vio_info->vio_addr = readl(reg);
+
+	/* Get mm2nd violation information */
+	reg = infracfg + vio0_offset + (i + 1) * 4;
+	vio_dbg = readl(reg);
+
+	vio_info->domain_id = (vio_dbg & INFRACFG_MM2ND_VIO_DOMAIN_MASK) >>
+		INFRACFG_MM2ND_VIO_DOMAIN_SHIFT;
+
+	vio_info->master_id = (vio_dbg & INFRACFG_MM2ND_VIO_ID_MASK) >>
+		INFRACFG_MM2ND_VIO_ID_SHIFT;
+
+	rw = (vio_dbg & INFRACFG_MM2ND_VIO_RW_MASK) >>
+		INFRACFG_MM2ND_VIO_RW_SHIFT;
+	vio_info->read = (rw == 0);
+	vio_info->write = (rw == 1);
+}
+
 static struct mtk_devapc_dbg_status mt6885_devapc_dbg_stat = {
 	.enable_ut = PLAT_DBG_UT_DEFAULT,
 	.enable_KE = PLAT_DBG_KE_DEFAULT,
@@ -1543,6 +1615,9 @@ static struct mtk_devapc_vio_info mt6885_devapc_vio_info = {
 	.vio_mask_sta_num_peri = VIO_MASK_STA_NUM_PERI,
 	.vio_mask_sta_num_peri2 = VIO_MASK_STA_NUM_PERI2,
 	.sramrom_vio_idx = SRAMROM_VIO_INDEX,
+	.mdp_vio_idx = MDP_VIO_INDEX,
+	.disp2_vio_idx = DISP2_VIO_INDEX,
+	.mmsys_vio_idx = MMSYS_VIO_INDEX,
 };
 
 static const struct mtk_infra_vio_dbg_desc mt6885_vio_dbgs = {
@@ -1591,6 +1666,7 @@ static struct mtk_devapc_soc mt6885_data = {
 	.devapc_pds = mt6885_devapc_pds,
 	.subsys_get = &index_to_subsys,
 	.master_get = &mt6885_bus_id_to_master,
+	.mm2nd_vio_handler = &mm2nd_vio_handler,
 };
 
 static const struct of_device_id mt6885_devapc_dt_match[] = {
