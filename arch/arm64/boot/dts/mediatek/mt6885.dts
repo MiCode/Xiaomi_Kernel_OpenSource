@@ -3315,25 +3315,29 @@ page_owner=on";
 		compatible = "mediatek,camsys", "syscon";
 		reg = <0 0x1a000000 0 0x10000>;
 		#clock-cells = <1>;
-		#if 0
 		/* Camera CCF */
-		clocks = <&scpsys SCP_SYS_DIS>,
+		clocks = <&scpsys SCP_SYS_MDP>,
 				<&scpsys SCP_SYS_CAM>,
-				<&camsys CAMSYS_CAM_CGPDN>,
-				<&camsys CAMSYS_CAMTG_CGPDN>,
-				<&camsys CAMSYS_CAMSV0_CGPDN>,
-				<&camsys CAMSYS_CAMSV1_CGPDN>,
-				<&camsys CAMSYS_CAMSV2_CGPDN>,
-				<&camsys CAMSYS_CAMSV3_CGPDN>;
-		clock-names = "ISP_SCP_SYS_DIS",
+				<&scpsys SCP_SYS_CAM_RAWA>,
+				<&scpsys SCP_SYS_CAM_RAWB>,
+				<&scpsys SCP_SYS_CAM_RAWC>,
+				<&camsys CAMSYS_MAIN_CAM_CGPDN>,
+				<&camsys CAMSYS_MAIN_CAMTG_CGPDN>,
+				<&camsys CAMSYS_MAIN_CAMSV0_CGPDN>,
+				<&camsys CAMSYS_MAIN_CAMSV1_CGPDN>,
+				<&camsys CAMSYS_MAIN_CAMSV2_CGPDN>,
+				<&camsys CAMSYS_MAIN_CAMSV3_CGPDN>;
+		clock-names = "ISP_SCP_SYS_MDP",
 				"ISP_SCP_SYS_CAM",
+				"ISP_SCP_SYS_RAWA",
+				"ISP_SCP_SYS_RAWB",
+				"ISP_SCP_SYS_RAWC",
 				"CAMSYS_CAM_CGPDN",
 				"CAMSYS_CAMTG_CGPDN",
 				"CAMSYS_CAMSV0_CGPDN",
 				"CAMSYS_CAMSV1_CGPDN",
 				"CAMSYS_CAMSV2_CGPDN",
 				"CAMSYS_CAMSV3_CGPDN";
-		#endif
 	};
 
 	smi_larb13: smi_larb13@1a001000 {
