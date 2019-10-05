@@ -84,10 +84,10 @@ static inline void gpu_dvfs_status_reset_footprint(void)
 
 static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 {
-#if MT_GPUFREQ_BRINGUP == 1
-	mtk_set_vgpu_power_on_flag(MTK_VGPU_POWER_ON);
-	return 1;
-#endif
+	if (mt_gpufreq_bringup()) {
+		mtk_set_vgpu_power_on_flag(MTK_VGPU_POWER_ON);
+		return 1;
+	}
 
 	if (!mt_gpufreq_power_ctl_en()) {
 		mtk_set_vgpu_power_on_flag(MTK_VGPU_POWER_ON);
@@ -135,12 +135,11 @@ static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 
 static void pm_callback_power_off_nolock(struct kbase_device *kbdev)
 {
-#if MT_GPUFREQ_BRINGUP == 1
-	return ;
-#endif
+	if (mt_gpufreq_bringup())
+		return;
 
 	if (!mt_gpufreq_power_ctl_en())
-		return ;
+		return;
 
 	if (mtk_get_vgpu_power_on_flag() == MTK_VGPU_POWER_OFF)
 		return;
