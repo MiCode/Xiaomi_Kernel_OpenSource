@@ -458,7 +458,7 @@ static int mtk_dump_rs_sta_info(struct mtk_iommu_data *data, int mmu)
 	return mtk_dump_reg(data, REG_MMU_RS_STA(mmu, 0), MTK_IOMMU_RS_COUNT);
 }
 
-int mtk_dump_reg_for_hang_issue(unsigned int m4u_id)
+int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id)
 {
 	int cnt, ret;
 	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
@@ -509,8 +509,18 @@ int mtk_dump_reg_for_hang_issue(unsigned int m4u_id)
 	if (ret)
 		pr_notice("%s, %d, failed to disable secure debug signal\n",
 			  __func__, __LINE__);
+
 	return 0;
 }
+
+void mtk_dump_reg_for_hang_issue(void)
+{
+	int i;
+
+	for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
+		__mtk_dump_reg_for_hang_issue(i);
+}
+EXPORT_SYMBOL_GPL(mtk_dump_reg_for_hang_issue);
 
 int mtk_iommu_dump_reg(int m4u_id, unsigned int start, unsigned int end)
 {
