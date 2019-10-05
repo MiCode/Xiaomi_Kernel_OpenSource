@@ -95,7 +95,11 @@
 #include <fdrv.h>
 #include <linux/topology.h>
 
-#if CONFIG_MICROTRUST_TZ_DRIVER_MTK_BOOTPROF
+#ifdef CONFIG_MTPROF
+#include "bootprof.h"
+#endif
+
+#if (CONFIG_MICROTRUST_TZ_DRIVER_MTK_BOOTPROF && CONFIG_MTPROF)
 #define TEEI_BOOT_FOOTPRINT(str) log_boot(str)
 #else
 #define TEEI_BOOT_FOOTPRINT(str) IMSG_PRINTK("%s\n", str)
@@ -967,7 +971,9 @@ static int init_teei_framework(void)
 
 	teei_config_flag = 1;
 	complete(&global_down_lock);
+#ifdef CONFIG_MICROTRUST_FP_DRIVER
 	wake_up(&__fp_open_wq);
+#endif
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT All Completed");
 
 	return TEEI_BOOT_OK;
@@ -1864,7 +1870,7 @@ void show_utdriver_lock_status(void)
 		up(&api_lock);
 	}
 
-
+#ifdef CONFIG_MICROTRUST_FP_DRIVER
 	retVal = down_trylock(&fp_api_lock);
 	if (retVal == 1)
 		IMSG_PRINTK("[%s][%d] fp_api_lock is down\n",
@@ -1874,6 +1880,7 @@ void show_utdriver_lock_status(void)
 							__func__, __LINE__);
 		up(&fp_api_lock);
 	}
+#endif
 
 	retVal = down_trylock(&keymaster_api_lock);
 	if (retVal == 1)
@@ -2007,7 +2014,9 @@ static const struct file_operations teei_client_fops = {
 #else
 	.unlocked_ioctl = teei_client_ioctl,
 #endif
+#ifdef CONFIG_COMPAT
 	.compat_ioctl = teei_client_ioctl,
+#endif
 	.open = teei_client_open,
 	.mmap = teei_client_mmap,
 	.read = teei_client_dump,

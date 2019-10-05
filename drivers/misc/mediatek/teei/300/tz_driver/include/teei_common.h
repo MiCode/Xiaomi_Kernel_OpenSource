@@ -144,5 +144,4 @@ struct service_handler {
 	int (*handle)(struct service_handler *handler);
 };
 
-extern void log_boot(char *str);
 #endif /* __TEEI_COMMON_H_ */

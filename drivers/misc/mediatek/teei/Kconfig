@@ -24,12 +24,12 @@ config MICROTRUST_TEE_SUPPORT
 config MICROTRUST_TEE_VERSION
 	string "MICROTRUST TEE Version"
 	depends on MICROTRUST_TEE_SUPPORT
-	default "280"
+	default "300"
 	---help---
 	  Enables the support of Microtrust new version.
 	  All Microtrust related TEE drivers will depend on this option.
-	  Say 270 if you would like to enable this feature.
-	  If unsure, say 280.
+	  Say 300 if you would like to enable this feature.
+	  If unsure, say 300.
 
 config MICROTRUST_TZ_DRIVER
 	tristate "Microtrust TEEI Driver"
@@ -45,6 +45,7 @@ config MICROTRUST_TZ_DRIVER
 config MICROTRUST_TZ_DRIVER_MTK_BOOTPROF
 	bool "Enable MTK bootprof"
 	depends on MICROTRUST_TZ_DRIVER
+	depends on MTPROF
 	default y
 	---help---
 	  Enables the support of Mediatek bootprof feature in Microtrust
@@ -147,4 +148,14 @@ config MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
 	  Enables support of Microtrust test driver kernel framework.
 	  This framework supports DCIH and GP API test drivers.
 	  Say Y if you would like to enable the test framework.
+	  If unsure, say N.
+
+config MICROTRUST_KM4_SUPPORT
+	tristate "Microtrust km4.0 support"
+	depends on MICROTRUST_TEE_SUPPORT
+	default n
+	---help---
+	  Enables support of Microtrust km4.0.
+	  Deactive dev/ut_keymaster ioctl function.
+	  Say Y if you would like to enable km4.0.
 	  If unsure, say N.

@@ -11,15 +11,18 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
+
 #include <linux/slab.h>
-#include "teei_fp.h"
+#include "teei_keymaster.h"
 #include "teei_client_transfer_data.h"
 #define IMSG_TAG "[tz_driver]"
 #include <imsg_log.h>
+#include <linux/vmalloc.h>
 
-unsigned long fp_buff_addr;
+#define KM_COMMAND_MAGIC 'X'
+unsigned long keymaster_buff_addr;
 
-unsigned long create_fp_fdrv(int buff_size)
+unsigned long create_keymaster_fdrv(int buff_size)
 {
 	unsigned long addr = 0;
 
@@ -27,7 +30,7 @@ unsigned long create_fp_fdrv(int buff_size)
 		IMSG_ERROR("Wrong buffer size %d:", buff_size);
 		return 0;
 	}
-	addr = (unsigned long) kmalloc(buff_size, GFP_KERNEL);
+	addr = (unsigned long) vmalloc(buff_size);
 	if (addr == 0) {
 		IMSG_ERROR("kmalloc buffer failed");
 		return 0;
@@ -36,37 +39,31 @@ unsigned long create_fp_fdrv(int buff_size)
 	return addr;
 }
 
-static struct TEEC_Context context;
-static int context_initialized;
-struct TEEC_UUID uuid_fp = { 0x7778c03f, 0xc30c, 0x4dd0,
-{ 0xa3, 0x19, 0xea, 0x29, 0x64, 0x3d, 0x4d, 0x4b } };
-int send_fp_command(void *buffer, unsigned long size)
+int send_keymaster_command(void *buffer, unsigned long size)
 {
 	int ret = 0;
+	struct TEEC_Context context;
+	struct TEEC_UUID uuid_ta = { 0xc09c9c5d, 0xaa50, 0x4b78,
+	{ 0xb0, 0xe4, 0x6e, 0xda, 0x61, 0x55, 0x6c, 0x3a } };
 
 	if (buffer == NULL || size < 1)
 		return -1;
 
-	if (context_initialized == 0) {
-		memset(&context, 0, sizeof(context));
-		ret = ut_pf_gp_initialize_context(&context);
-		if (ret) {
-			IMSG_ERROR("Failed to initialize fp context ,err: %x",
-			ret);
-			goto release_1;
-		}
-		context_initialized = 1;
+	memset(&context, 0, sizeof(context));
+	ret = ut_pf_gp_initialize_context(&context);
+	if (ret) {
+		IMSG_ERROR("Failed to initialize keymaster context ,err: %x",
+		ret);
+		goto release_1;
 	}
-	ret = ut_pf_gp_transfer_data(&context, &uuid_fp, 1, buffer, size);
+	ret = ut_pf_gp_transfer_data(&context, &uuid_ta, KM_COMMAND_MAGIC,
+	buffer, size);
 	if (ret) {
 		IMSG_ERROR("Failed to transfer data,err: %x", ret);
 		goto release_2;
 	}
 release_2:
-	if (ret) {
-		ut_pf_gp_finalize_context(&context);
-		context_initialized = 0;
-	}
+	ut_pf_gp_finalize_context(&context);
 release_1:
 	return ret;
 }

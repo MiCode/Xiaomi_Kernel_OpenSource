@@ -428,7 +428,6 @@ static void switch_fn(struct kthread_work *work)
 		break;
 	}
 
-	IMSG_DEBUG("%s: Dump TZ_LOG, call_type 0x%x\n", __func__, call_type);
 	atomic_notifier_call_chain(&s->notifier, TZ_CALL_RETURNED, NULL);
 	retVal = destroy_switch_call_struct(switch_ent);
 	if (retVal != 0)

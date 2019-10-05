@@ -168,46 +168,6 @@ static inline void __Invalidate_Dcache_By_Area(unsigned long start,
 static inline void Invalidate_Dcache_By_Area(unsigned long start,
 						unsigned long end)
 {
-#if 0
-	__asm__ __volatile__ ("dsb" : : : "memory"); /* dsb */
-	__asm__ __volatile__ (
-		/* Invalidate Data Cache Line (using MVA) Register */
-		"1:  mcr p15, 0, %[i], c7, c6, 1\n"
-		"    add %[i], %[i], %[clsz]\n"
-		"    cmp %[i], %[end]\n"
-		"    blo 1b\n"
-		:
-		[i]    "=&r" (start)
-		:      "0"   ((unsigned long)start & (~(Cache_line_size - 1))),
-		[end]  "r"   (end),
-		[clsz] "i"   (Cache_line_size)
-		: "memory");
-
-	/* invalidate btc */
-	asm volatile ("mcr p15, 0, %0, c7, c5, 0" : : "r" (0) : "memory");
-	__asm__ __volatile__ ("dsb" : : : "memory"); /* dsb */
-#endif
-
-#if 0
-	__asm__ volatile(
-		"mrs	x3, ctr_el0\n\t"
-		"lsr	x3, x3, #16\n\t"
-		"and	x3, x3, #0xf\n\t"
-		"mov	x2, #4\n\t"
-		"lsl	x2, x2, x3\n\t"
-		"sub	x3, x2, #1\n\t"
-		"bic	%[start], %[start], x3\n\t"
-		/* invalidate D line / unified line */
-		"1:	dc	ivac, %[start]\n\t"
-		"add	%[start],%[start] , x2\n\t"
-		"cmp	%[start], %[end]\n\t"
-		"b.lo	1b\n\t"
-		"dsb	sy\n\t"
-		: :
-		[start]  "r" (start),
-		[end]  "r"  (end)
-		: "memory");
-#endif
 	if (boot_soter_flag == START_STATUS)
 		__Invalidate_Dcache_By_Area(start, end);
 }
