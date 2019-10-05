@@ -303,6 +303,7 @@ int mtk_dbgtop_dfd_count_en(int value)
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_dbgtop_dfd_count_en);
 
 int mtk_dbgtop_dfd_therm1_dis(int value)
 {
@@ -326,6 +327,7 @@ int mtk_dbgtop_dfd_therm1_dis(int value)
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_dbgtop_dfd_therm1_dis);
 
 int mtk_dbgtop_dfd_therm2_dis(int value)
 {
@@ -348,8 +350,9 @@ int mtk_dbgtop_dfd_therm2_dis(int value)
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_dbgtop_dfd_therm2_dis);
 
-int mtk_dbgtop_wdt_dfd_timeout(int value)
+int mtk_dbgtop_dfd_timeout(int value)
 {
 	unsigned int tmp;
 
@@ -367,6 +370,7 @@ int mtk_dbgtop_wdt_dfd_timeout(int value)
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_dbgtop_dfd_timeout);
 
 core_initcall(mtk_dbgtop_get_base_addr);
 module_init(mtk_dbgtop_init);
