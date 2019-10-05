@@ -501,8 +501,8 @@ config MCP3422
 
 config MEDIATEK_MT6577_AUXADC
         tristate "MediaTek AUXADC driver"
-        depends on ARCH_MEDIATEK || COMPILE_TEST
         depends on HAS_IOMEM
+        default n
         help
           Say yes here to enable support for MediaTek mt65xx AUXADC.
 
