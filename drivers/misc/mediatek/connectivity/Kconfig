@@ -244,14 +244,6 @@ config MTK_COMBO_WIFI
 	select WIRELESS_EXT
 	select WEXT_PRIV
 
-config MTK_WAPI_SUPPORT
-	bool "MTK_WAPI_SUPPORT"
-	depends on MTK_COMBO_WIFI
-	default y
-	help
-	  if it is set to TRUE: Support WAPI (WLAN Authentication and
-	  Privacy Infrastructure)
-
 config MTK_PASSPOINT_R1_SUPPORT
 	bool "MTK_PASSPOINT_R1_SUPPORT"
 	depends on MTK_COMBO_WIFI
