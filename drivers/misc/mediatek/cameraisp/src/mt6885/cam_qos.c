@@ -507,6 +507,29 @@ default:
 			break;
 		}
 		break;
+	case _cqi_r1_:
+	case _cqi_r2_:
+		switch (module) {
+		case ISP_IRQ_TYPE_INT_CAM_A_ST:
+			mm_qos_add_request(&gBW_LIST[module],
+				   &gCAM_BW_REQ[module][portID],
+				   M4U_PORT_L16_CAM_CQI_R1_A_MDP);
+			break;
+		case ISP_IRQ_TYPE_INT_CAM_B_ST:
+			mm_qos_add_request(&gBW_LIST[module],
+				   &gCAM_BW_REQ[module][portID],
+				   M4U_PORT_L17_CAM_CQI_R1_B_DISP);
+			break;
+		case ISP_IRQ_TYPE_INT_CAM_C_ST:
+			mm_qos_add_request(&gBW_LIST[module],
+				   &gCAM_BW_REQ[module][portID],
+				   M4U_PORT_L18_CAM_CQI_R1_C_MDP);
+			break;
+		default:
+			LOG_NOTICE("unsupported module:%d\n", module);
+			break;
+		}
+		break;
 	case _lsci_:
 		switch (module) {
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
