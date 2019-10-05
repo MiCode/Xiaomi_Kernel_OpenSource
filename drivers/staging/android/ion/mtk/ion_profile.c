@@ -16,7 +16,6 @@ mmp_event ion_mmp_events[PROFILE_MAX];
 /*because avoid CamelCase, will modify after*/
 void ion_profile_init(void)
 {
-#ifndef ION_MIGRATION_MT6771
 	mmp_event ion_event;
 
 	mmprofile_enable(1);
@@ -70,5 +69,4 @@ void ion_profile_init(void)
 	mmprofile_enable_event(ion_mmp_events[PROFILE_MVA_DEALLOC], 1);
 
 	mmprofile_start(1);
-#endif
 }

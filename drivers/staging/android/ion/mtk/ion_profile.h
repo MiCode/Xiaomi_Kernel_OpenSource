@@ -36,15 +36,12 @@ enum ION_PROFILE_TYPE {
 	PROFILE_MAX,
 };
 
-//#define ION_PROFILE//hc1 delete
-#include "mtk/ion_drv.h"//hc1 add
+#define ION_PROFILE
 
 #define mmp_root_event 1
 
 #ifndef ION_PROFILE
-#ifndef ION_MIGRATION_MT6771
 #define mmprofile_enable_event(...)
-#endif
 #define mmprofile_log_ex(...)
 #define mmprofile_enable(...)
 #define mmprofile_start(...)

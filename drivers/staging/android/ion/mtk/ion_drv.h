@@ -19,7 +19,6 @@
 
 #define BACKTRACE_SIZE 10
 
-#define ION_MIGRATION_MT6771   //hc1 add
 
 /* Structure definitions */
 

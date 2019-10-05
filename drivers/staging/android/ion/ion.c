@@ -36,8 +36,8 @@
 #include <linux/debugfs.h>
 #include <linux/dma-buf.h>
 #include <linux/idr.h>
-#include <linux/sched/task.h>//hc2
-#include <linux/sched/clock.h>//hc2
+#include <linux/sched/task.h>
+#include <linux/sched/clock.h>
 #include "ion.h"
 #include "ion_priv.h"
 #include "compat_ion.h"
@@ -894,12 +894,12 @@ void ion_client_destroy(struct ion_client *client)
 		IONMSG("%s:hdl=%p,buf=%p,sz=%zu,ref=%d,kmp=%d\n",
 		       __func__, handle, handle->buffer,
 		       handle->buffer->size,
-		       atomic_read(&handle->buffer->ref.refcount.refs),//hc2
+		       atomic_read(&handle->buffer->ref.refcount.refs),
 		       handle->buffer->kmap_cnt);
 		IONMSG("%s:client=%s,disp=%s,dbg=%s\n",
 		       __func__, client->name ? client->name : NULL,
 		       client->display_name ? client->display_name : NULL,
-		       client->dbg_name);//hc2
+		       client->dbg_name);
 		ion_handle_destroy(&handle->ref);
 		mutex_unlock(&client->lock);
 	}
@@ -1499,7 +1499,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 				   buffer->task_comm, buffer->pid,
 				   buffer->size, buffer->kmap_cnt,
 				   atomic_read(
-					&buffer->ref.refcount.refs));//hc2
+					&buffer->ref.refcount.refs));
 			total_orphaned_size += buffer->size;
 		}
 	}

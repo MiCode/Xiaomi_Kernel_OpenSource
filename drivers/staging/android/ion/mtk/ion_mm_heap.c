@@ -24,9 +24,9 @@
 #include <linux/debugfs.h>
 #include <linux/kthread.h>
 #include <linux/fdtable.h>
-#include <linux/sched/task.h>//hc2
-#include <linux/sched/signal.h>//hc2
-#include <linux/sched/clock.h>//hc2
+#include <linux/sched/task.h>
+#include <linux/sched/signal.h>
+#include <linux/sched/clock.h>
 #include "mtk/mtk_ion.h"
 #include "ion_profile.h"
 #include "ion_drv_priv.h"
@@ -34,9 +34,7 @@
 #include "ion_priv.h"
 #include "mtk/ion_drv.h"
 #include "ion_sec_heap.h"
-#ifndef ION_MIGRATION_MT6771
 #include <mmprofile.h>
-#endif
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
 #include "pseudo_m4u.h"
@@ -768,7 +766,7 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 				     "0x%p %8zu %3d %3d %3d %3d %8x %3u %3lu %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
 				     buffer, buffer->size, buffer->kmap_cnt,
 				     atomic_read(
-				     &buffer->ref.refcount.refs),//hc2
+				     &buffer->ref.refcount.refs),
 				     buffer->handle_count, bug_info->module_id,
 				     bug_info->MVA, bug_info->security,
 				     buffer->flags, buffer->pid, bug_info->pid,

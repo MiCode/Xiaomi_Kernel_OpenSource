@@ -30,9 +30,7 @@
 #include "ion_drv_priv.h"
 #include "mtk/ion_drv.h"
 #include "mtk/mtk_ion.h"
-#ifndef ION_MIGRATION_MT6771
 #include <mmprofile.h>
-#endif
 
 struct task_struct *ion_comm_kthread;
 wait_queue_head_t ion_comm_wq;
