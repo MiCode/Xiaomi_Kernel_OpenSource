@@ -23,8 +23,9 @@
 #endif
 
 #if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
-#include "sspm_ipi.h"
+#include <mt-plat/mtk_tinysys_ipi.h>
 #include <sspm_reservedmem_define.h>
+#include <sspm_ipi_table.h>
 
 #define THERMAL_SLOT_NUM (4)
 #define BIG_CORE_THRESHOLD_ARRAY_SIZE (3)
