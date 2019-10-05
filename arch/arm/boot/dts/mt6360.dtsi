@@ -116,7 +116,7 @@
 		};
 	};
 
-	mt6360_pmic_dts {
+	mt6360_pmic: mt6360_pmic_dts {
 		status = "ok";
 		interrupt-parent = <&mt6360_pmu>;
 		interrupts = <96 0>, <100 0>, <101 0>, <102 0>,
@@ -128,11 +128,7 @@
 				  "buck2_ov_evt", "buck2_uv_evt",
 				  "ldo6_oc_evt", "ldo7_oc_evt",
 				  "ldo6_pgb_evt", "ldo7_pgb_evt";
-		sys_ctrls = [25 c0 10];
-		buck1_ctrls = [a9 80 82 6a 00 80 02 70];
-		buck2_ctrls = [a9 80 81 6a 00 80 02 70];
-		ldo6_ctrls = [30 80 02 ec 44];
-		ldo7_ctrls = [30 80 02 ec 44];
+		pwr_off_seq = [06 04 00 02];
 		buck1 {
 			regulator-compatible = "BUCK1";
 			regulator-name = "VMDLA";
@@ -172,11 +168,7 @@
 				  "ldo3_oc_evt", "ldo5_oc_evt",
 				  "ldo1_pgb_evt", "ldo2_pgb_evt",
 				  "ldo3_pgb_evt", "ldo5_pgb_evt";
-		ldo1_ctrls = [00 80 01 2d 44];
-		ldo2_ctrls = [00 80 01 2d 44];
-		ldo3_ctrls = [00 80 01 2d a4];
-		ldo5_ctrls = [00 80 81 2d a4];
-		ldo1 {
+		mt_pmic_vfp_ldo_reg: ldo1 {
 			regulator-compatible = "LDO1";
 			regulator-name = "VFP";
 			regulator-min-microvolt = <1200000>;
