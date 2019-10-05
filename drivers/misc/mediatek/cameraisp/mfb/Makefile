@@ -21,6 +21,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/staging/android/ion \
              -I$(srctree)/drivers/staging/android/ion/mtk
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
+ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/iommu
+ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/
 
 obj-y := camera_mfb_dummy.o
 
@@ -32,3 +34,6 @@ ifeq ($(CONFIG_MACH_MT6775),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_50/camera_mfb.o
 endif
 
+ifeq ($(CONFIG_MACH_MT6885),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += mt6885/camera_mfb.o
+endif
