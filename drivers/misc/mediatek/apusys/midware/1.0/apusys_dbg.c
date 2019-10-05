@@ -40,7 +40,7 @@ EXPORT_SYMBOL(cfg_apusys_trace);
 uint8_t apusys_fo_list[APUSYS_FO_MAX];
 
 //----------------------------------------------
-int get_fo_from_list(int idx)
+inline int get_fo_from_list(int idx)
 {
 	if (idx >= APUSYS_FO_MAX)
 		return -EINVAL;
@@ -97,8 +97,8 @@ static int apusys_dbg_fo_dump(struct seq_file *s, void *unused)
 	LOG_CON(s, "|---------------------------------|\n");
 	LOG_CON(s, "| multicore  = %-3d                |\n",
 		apusys_fo_list[APUSYS_FO_MULTICORE]);
-	LOG_CON(s, "| deadline   = %-3d                |\n",
-		apusys_fo_list[APUSYS_FO_DEADLINE]);
+	LOG_CON(s, "| scheduler  = %-3d                |\n",
+		apusys_fo_list[APUSYS_FO_SCHED]);
 	LOG_CON(s, "| preemption = %-3d                |\n",
 		apusys_fo_list[APUSYS_FO_PREEMPTION]);
 	LOG_CON(s, "| timerecord = %-3d                |\n",
@@ -139,8 +139,8 @@ static ssize_t apusys_dbg_fo_write(struct file *flip,
 	token = strsep(&cursor, " ");
 	if (strcmp(token, "multicore") == 0)
 		fo = APUSYS_FO_MULTICORE;
-	else if (strcmp(token, "deadline") == 0)
-		fo = APUSYS_FO_DEADLINE;
+	else if (strcmp(token, "scheduler") == 0)
+		fo = APUSYS_FO_SCHED;
 	else if (strcmp(token, "preemption") == 0)
 		fo = APUSYS_FO_PREEMPTION;
 	else if (strcmp(token, "timerecord") == 0)
@@ -234,7 +234,7 @@ int apusys_dbg_init(void)
 
 	/* init feature option */
 	apusys_fo_list[APUSYS_FO_MULTICORE] = 0;
-	apusys_fo_list[APUSYS_FO_DEADLINE] = 0;
+	apusys_fo_list[APUSYS_FO_SCHED] = 1;
 	apusys_fo_list[APUSYS_FO_PREEMPTION] = 0;
 	apusys_fo_list[APUSYS_FO_TIMERECORD] = 0;
 

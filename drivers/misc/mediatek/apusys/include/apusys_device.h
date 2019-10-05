@@ -84,6 +84,9 @@ struct apusys_cmd_hnd {
 };
 
 struct apusys_firmware_hnd {
+	char name[32];
+	uint32_t magic; // for user checking byself
+
 	uint64_t kva;
 	uint32_t iova;
 	uint32_t size;

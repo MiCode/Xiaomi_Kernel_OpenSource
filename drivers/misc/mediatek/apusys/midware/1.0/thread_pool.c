@@ -100,10 +100,10 @@ static int tp_service_routine(void *arg)
 		if (job_arg == NULL) {
 			mutex_unlock(&g_pool_mgr.job_mtx);
 			continue;
+		} else {
+			list_del(&job_arg->list);
+			mutex_unlock(&g_pool_mgr.job_mtx);
 		}
-		list_del(&job_arg->list);
-
-		mutex_unlock(&g_pool_mgr.job_mtx);
 		DEBUG_TAG;
 
 		LOG_DEBUG("thread(%d) execute sc(%p)\n",

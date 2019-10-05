@@ -154,6 +154,7 @@ struct apusys_ioctl_dev {
 
 /* for APUSYS_IOCTL_FW */
 struct apusys_ioctl_fw {
+	unsigned int magic;
 	int dev_type;
 	int idx;
 

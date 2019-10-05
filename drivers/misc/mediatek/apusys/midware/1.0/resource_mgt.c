@@ -154,6 +154,7 @@ int pop_subcmd(int type, void **isc)
 		return -EINVAL;
 	}
 
+
 	sc = list_first_entry(&tab->prio_q->prio[priority],
 		struct apusys_subcmd, q_list);
 	if (sc == NULL) {
@@ -161,6 +162,10 @@ int pop_subcmd(int type, void **isc)
 			type, priority);
 		return -EINVAL;
 	}
+
+	LOG_DEBUG("pop subcmd(%d/%d) from q(%d/%d)\n",
+		((struct apusys_cmd *)sc->parent_cmd)->cmd_id,
+		sc->idx, type, priority);
 
 	list_del(&sc->q_list);
 	if (list_empty(&tab->prio_q->prio[priority])) {
@@ -341,6 +346,7 @@ int put_apusys_device(struct apusys_device *dev)
 				acq->is_done = 1;
 			list_add_tail(&dev_info->acq_list, &acq->dev_info_list);
 			DEBUG_TAG;
+			complete(&acq->comp);
 			complete(&g_res_mgr.sched_comp);
 			return 0;
 		}
@@ -477,10 +483,17 @@ int acquire_device_async(struct apusys_dev_aquire *acq)
 	if (acq == NULL)
 		return -EINVAL;
 
-	if (acq->dev_type >= APUSYS_DEVICE_MAX || acq->target_num <= 0)
+	if (acq->dev_type >= APUSYS_DEVICE_MAX || acq->target_num <= 0 ||
+		acq->acq_num != 0) {
+		LOG_WARN("invalid arg, dev(%d) num(%d/%d)\n",
+			acq->dev_type,
+			acq->target_num,
+			acq->acq_num);
 		return -EINVAL;
+	}
 
-	acq->acq_num = 0;
+	init_completion(&acq->comp);
+	INIT_LIST_HEAD(&acq->dev_info_list);
 
 	/* get apusys_res_table*/
 	tab = resource_get_table(acq->dev_type);
@@ -520,6 +533,7 @@ int acquire_device_async(struct apusys_dev_aquire *acq)
 			return -EINVAL;
 		}
 	}
+	DEBUG_TAG;
 
 	if (acq->acq_num < acq->target_num) {
 		LOG_INFO("acquire device(%d/%d/%d) async...\n",
@@ -538,18 +552,26 @@ int acquire_device_sync(struct apusys_dev_aquire *acq)
 	if (acq == NULL)
 		return -EINVAL;
 
-	ret = acquire_device_async(acq);
-	if (ret < 0)
-		return ret;
-
 	acq->acq_num = 0;
+	DEBUG_TAG;
 
+	mutex_lock(&g_res_mgr.mtx);
+
+
+	ret = acquire_device_async(acq);
+	if (ret < 0) {
+		mutex_unlock(&g_res_mgr.mtx);
+		return ret;
+	}
+
+	mutex_unlock(&g_res_mgr.mtx);
 	while (acq->acq_num != acq->target_num) {
 		ret = wait_for_completion_interruptible(&acq->comp);
 		if (ret) {
 			LOG_ERR("acquire device(%d/%d/%d) interrupt, ret(%d)\n",
 				acq->dev_type, acq->acq_num,
 				acq->target_num, ret);
+			break;
 		}
 	}
 
@@ -559,17 +581,6 @@ int acquire_device_sync(struct apusys_dev_aquire *acq)
 	}
 
 	return acq->acq_num;
-}
-
-int acquire_device_sync_lock(struct apusys_dev_aquire *acq)
-{
-	int ret = 0;
-
-	mutex_lock(&g_res_mgr.mtx);
-	ret = acquire_device_sync(acq);
-	mutex_unlock(&g_res_mgr.mtx);
-
-	return ret;
 }
 
 int resource_set_power(int dev_type, uint32_t idx, uint32_t boost_val)
@@ -614,13 +625,16 @@ int resource_set_power(int dev_type, uint32_t idx, uint32_t boost_val)
 	return ret;
 }
 
-int resource_load_fw(int dev_type, int idx,
-	uint64_t kva, uint32_t iova, uint32_t size, int op)
+int resource_load_fw(int dev_type, uint32_t magic, const char *name,
+	int idx, uint64_t kva, uint32_t iova, uint32_t size, int op)
 {
 	struct apusys_res_table *tab = NULL;
 	struct apusys_dev_info *info = NULL;
 	struct apusys_firmware_hnd hnd;
 	int ret = 0;
+
+	if (name == NULL)
+		return -EINVAL;
 
 	tab = resource_get_table(dev_type);
 	if (tab == NULL) {
@@ -640,10 +654,13 @@ int resource_load_fw(int dev_type, int idx,
 		return -EINVAL;
 	}
 
+	memset(&hnd, 0, sizeof(struct apusys_firmware_hnd));
+	hnd.magic = magic;
 	hnd.kva = kva;
 	hnd.iova = iova;
 	hnd.size = size;
 	hnd.op = op;
+	strncpy(hnd.name, name, sizeof(hnd.name)-1);
 
 	ret = info->dev->send_cmd(APUSYS_CMD_FIRMWARE, &hnd, info->dev);
 	if (ret) {
@@ -653,6 +670,19 @@ int resource_load_fw(int dev_type, int idx,
 	}
 
 	return ret;
+}
+
+void  resource_sched_enable(int enable)
+{
+	mutex_lock(&g_res_mgr.mtx);
+	if (enable) {
+		LOG_INFO("start apusys sched\n");
+		g_res_mgr.sched_pause = 0;
+	} else {
+		LOG_INFO("pause apusys sched\n");
+		g_res_mgr.sched_pause = 1;
+	}
+	mutex_unlock(&g_res_mgr.mtx);
 }
 
 void resource_mgt_dump(void *s_file)
@@ -750,11 +780,11 @@ void resource_mgt_dump(void *s_file)
 					"cmd id",
 					info->cmd_id);
 			}
-			LOG_CON(s, "|%-17s| %-17s= 0x%-19lx|\n",
+			LOG_CON(s, "|%-17s| %-17s= 0x%-19d|\n",
 				"",
 				"subcmd idx",
 				info->sc_idx);
-			LOG_CON(s, "|%-17s| %-17s= 0x%-19llx|\n",
+			LOG_CON(s, "|%-17s| %-17s= %-21llu|\n",
 				"",
 				"current owner",
 				info->cur_owner);

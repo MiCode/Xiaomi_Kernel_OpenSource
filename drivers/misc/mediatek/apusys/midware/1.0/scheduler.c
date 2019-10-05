@@ -19,6 +19,7 @@
 
 #include "apusys_cmn.h"
 #include "apusys_device.h"
+#include "apusys_dbg.h"
 #include "cmd_parser.h"
 #include "resource_mgt.h"
 #include "scheduler.h"
@@ -233,15 +234,20 @@ static int insert_pack_cmd(struct apusys_subcmd *sc, struct pack_cmd **ipc)
 
 static int exec_pack_cmd(void *iacq)
 {
-	struct apusys_dev_aquire *acq = (struct apusys_dev_aquire *)iacq;
-	struct pack_cmd *pc = (struct pack_cmd *)acq->user;
+	struct apusys_dev_aquire *acq = NULL;
+	struct pack_cmd *pc = NULL;
 	struct apusys_cmd *cmd = NULL;
 	struct apusys_subcmd *sc = NULL;
 	struct apusys_dev_info *info = NULL;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	int count = 0;
 
-	if (acq == NULL || pc == NULL)
+	acq = (struct apusys_dev_aquire *)iacq;
+	if (acq == NULL)
+		return -EINVAL;
+
+	pc = (struct pack_cmd *)acq->user;
+	if (pc == NULL)
 		return -EINVAL;
 
 	list_for_each_safe(list_ptr, tmp, &acq->dev_info_list) {
@@ -284,18 +290,24 @@ static int exec_pack_cmd(void *iacq)
 
 static void subcmd_done(void *isc)
 {
-	struct apusys_subcmd *sc = (struct apusys_subcmd *)isc;
-	struct apusys_cmd *cmd = (struct apusys_cmd *)sc->parent_cmd;
+	struct apusys_subcmd *sc = NULL;
+	struct apusys_cmd *cmd = NULL;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_subcmd *sc_node = NULL;
 	int ret = 0, done_idx = 0, state = 0;
 	struct apusys_res_mgr *res_mgr = resource_get_mgr();
 
+	sc = (struct apusys_subcmd *)isc;
 	if (sc == NULL) {
-		LOG_ERR("invalid argument(%p)\n", sc);
+		LOG_ERR("invalid sc(%p)\n", sc);
 		return;
 	}
 
+	cmd = (struct apusys_cmd *)sc->parent_cmd;
+	if (cmd == NULL) {
+		LOG_ERR("invalid apusys cmd\n");
+		return;
+	}
 	DEBUG_TAG;
 
 	mutex_lock(&cmd->mtx);
@@ -518,6 +530,13 @@ int sche_routine(void *arg)
 			LOG_WARN("sched thread(%d)\n", ret);
 
 		DEBUG_TAG;
+		if (get_fo_from_list(APUSYS_FO_SCHED) == 0 ||
+			res_mgr->sched_pause != 0) {
+			LOG_DEBUG("sched pause(%d/%d)\n",
+				get_fo_from_list(APUSYS_FO_SCHED),
+				res_mgr->sched_pause);
+			continue;
+		}
 
 		bitmap_and(available, res_mgr->cmd_exist,
 			res_mgr->dev_exist, APUSYS_DEV_TABLE_MAX);

@@ -125,7 +125,6 @@ int apusys_user_delete_cmd(struct apusys_user *user, void *icmd)
 
 	mutex_lock(&user->cmd_mtx);
 
-	DEBUG_TAG;
 	/* delete all sc */
 	mutex_lock(&cmd->sc_mtx);
 	DEBUG_TAG;
@@ -231,6 +230,31 @@ int apusys_user_delete_dev(struct apusys_user *user, void *idev)
 		dev, dev->dev_type, user, user->id);
 	return -ENODEV;
 }
+
+struct apusys_device *apusys_user_get_dev(struct apusys_user *user,
+	uint64_t hnd)
+{
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	struct apusys_user_dev *udev = NULL;
+
+	if (user == NULL || hnd == 0)
+		return NULL;
+
+	mutex_lock(&user->dev_mtx);
+
+	/* query list to find cmd in apusys user */
+	list_for_each_safe(list_ptr, tmp, &user->dev_list) {
+		udev = list_entry(list_ptr, struct apusys_user_dev, list);
+		if ((uint64_t)udev->dev == hnd) {
+			LOG_DEBUG("get device!!\n");
+			break;
+		}
+	}
+	mutex_unlock(&user->dev_mtx);
+
+	return udev->dev;
+}
+
 
 int apusys_user_insert_mem(struct apusys_user *user, struct apusys_mem *mem)
 {
@@ -367,7 +391,7 @@ int apusys_delete_user(struct apusys_user *user)
 	list_for_each_safe(list_ptr, tmp, &user->mem_list) {
 		user_mem = list_entry(list_ptr, struct apusys_user_mem, list);
 		/* delete memory */
-		LOG_DEBUG("mem(%p/%d/%d/0x%llx/0x%x/%d)\n",
+		LOG_WARN("undeleted mem(%p/%d/%d/0x%llx/0x%x/%d)\n",
 		user_mem, user_mem->mem.mem_type,
 		user_mem->mem.ion_data.ion_share_fd,
 		user_mem->mem.kva, user_mem->mem.iova,

@@ -102,14 +102,14 @@ int ion_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 	ion_hnd = ion_import_dma_buf_fd(mem_mgr->client,
 	mem->ion_data.ion_share_fd);
 
-	if (ion_hnd == NULL)
+	if (IS_ERR_OR_NULL(ion_hnd))
 		return -ENOMEM;
 
 	LOG_DEBUG("mem(%d/%p)\n", mem->ion_data.ion_share_fd, ion_hnd);
 
 	/* map kernel va*/
 	buffer = ion_map_kernel(mem_mgr->client, ion_hnd);
-	if (buffer == NULL) {
+	if (IS_ERR_OR_NULL(buffer)) {
 		LOG_ERR("map kernel va fail(%d/%p)\n",
 			mem_mgr->client, ion_hnd);
 		ret = -ENOMEM;
@@ -231,7 +231,7 @@ int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 	ion_hnd = ion_import_dma_buf_fd(mem_mgr->client,
 	mem->ion_data.ion_share_fd);
 
-	if (ion_hnd == NULL)
+	if (IS_ERR_OR_NULL(ion_hnd))
 		return -ENOMEM;
 
 	LOG_DEBUG("mem(%d/%p)\n",
@@ -239,7 +239,7 @@ int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 
 	/* map kernel va*/
 	buffer = ion_map_kernel(mem_mgr->client, ion_hnd);
-	if (buffer == NULL) {
+	if (IS_ERR_OR_NULL(buffer)) {
 		LOG_ERR("map kernel va fail(%d/%p)\n",
 			mem_mgr->client, ion_hnd);
 		ret = -ENOMEM;

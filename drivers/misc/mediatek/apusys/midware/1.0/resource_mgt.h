@@ -92,6 +92,7 @@ struct apusys_res_mgr {
 	unsigned long acquire_exist[BITS_TO_LONGS(APUSYS_DEV_TABLE_MAX)];
 	struct completion sched_comp;
 	uint8_t sched_stop;
+	uint8_t sched_pause;
 
 	struct mutex mtx;
 };
@@ -110,14 +111,13 @@ int acquire_device_try(struct apusys_dev_aquire *acq);
 int acquire_device_async(struct apusys_dev_aquire *acq);
 int acquire_device_sync(struct apusys_dev_aquire *acq);
 int acquire_device_check(struct apusys_dev_aquire **iacq);
-int acquire_device_sync_lock(struct apusys_dev_aquire *acq);
 
 int put_device_lock(struct apusys_device *dev);
 int put_apusys_device(struct apusys_device *dev);
 
 int resource_set_power(int dev_type, uint32_t idx, uint32_t boost_val);
-int resource_load_fw(int dev_type, int idx, uint64_t kva,
-	uint32_t iova, uint32_t size, int op);
+int resource_load_fw(int dev_type, uint32_t magic, const char *name,
+	int idx, uint64_t kva, uint32_t iova, uint32_t size, int op);
 
 int resource_get_device_num(int dev_type);
 uint64_t resource_get_dev_support(void);
