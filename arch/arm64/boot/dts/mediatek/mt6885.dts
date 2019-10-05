@@ -5474,6 +5474,9 @@ page_owner=on";
 	smart_pa: smart_pa {
 	};
 
+	dsi_te: dsi_te {
+	};
+
 	md1_sim1_hot_plug_eint: md1_sim1_hot_plug_eint {
 	};
 
