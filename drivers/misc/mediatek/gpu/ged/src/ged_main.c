@@ -119,7 +119,8 @@ static long ged_dispatch(struct file *pFile, GED_BRIDGE_PACKAGE *psBridgePackage
 	if (psBridgePackageKM->i32InBufferSize >= 0 && psBridgePackageKM->i32OutBufferSize >= 0) {
 
 		if (psBridgePackageKM->i32InBufferSize > 0) {
-			pvIn = kmalloc(psBridgePackageKM->i32InBufferSize, GFP_KERNEL);
+			pvIn = kmalloc(psBridgePackageKM->i32InBufferSize
+					+ sizeof(uint32_t *), GFP_KERNEL);
 
 			if (pvIn == NULL)
 				goto dispatch_exit;
