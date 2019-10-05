@@ -65,6 +65,11 @@
 		reg = <0 0x40000000 0 0x3e605000>;
 	};
 
+	psci {
+		compatible      = "arm,psci-1.0";
+		method          = "smc";
+	};
+
 	reserved_memory: reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
