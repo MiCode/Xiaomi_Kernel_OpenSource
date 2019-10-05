@@ -77,7 +77,7 @@ static ssize_t sspm_ipi_debug_help(struct device *kobj,
 static ssize_t sspm_ipi_debug_set(struct device *kobj,
 	struct device_attribute *attr, const char *buf, size_t n)
 {
-	unsigned int opt;
+	unsigned int opt = 0xFFFF;
 
 	if (kstrtouint(buf, 10, &opt) != 0)
 		return -EINVAL;
