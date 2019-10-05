@@ -42,6 +42,7 @@ const char *g_vpu_port_dir_names[VPU_NUM_PORT_DIRS] = {
 static void vpu_debug_algo_info(struct seq_file *s,
 	struct vpu_prop *p, struct vpu_prop_desc *d)
 {
+#if 0
 	int i;
 	unsigned long ptr = p->ptr + d->offset;
 
@@ -68,6 +69,7 @@ static void vpu_debug_algo_info(struct seq_file *s,
 		}
 		ptr += g_vpu_prop_type_size[d->type];
 	}
+#endif
 }
 
 static void vpu_debug_algo_prop(struct seq_file *s,
