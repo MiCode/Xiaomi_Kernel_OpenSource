@@ -768,7 +768,7 @@ int dpmgr_path_get_mutex(disp_path_handle dp_handle)
 {
 	struct ddp_path_handle *handle = NULL;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	return handle->hwmutexid;
 }
