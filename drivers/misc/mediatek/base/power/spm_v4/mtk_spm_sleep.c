@@ -162,7 +162,11 @@ static void spm_trigger_wfi_for_sleep(struct pwr_ctrl *pwrctrl)
 		spm_crit2("spm_dormant_sta %d", spm_dormant_sta);
 
 	if (is_infra_pdn(pwrctrl->pcm_flags))
+#if defined(CONFIG_MACH_MT6739)
+		mtk_uart_restore();
+#else
 		mtk8250_restore_dev();
+#endif
 }
 
 static void spm_suspend_pcm_setup_before_wfi(u32 cpu,
@@ -403,7 +407,11 @@ unsigned int spm_go_to_sleep(u32 spm_flags, u32 spm_data)
 	spm_suspend_footprint(SPM_SUSPEND_ENTER_UART_SLEEP);
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if defined(CONFIG_MACH_MT6739)
+	if (request_uart_to_sleep()) {
+#else
 	if (mtk8250_request_to_sleep()) {
+#endif
 		last_wr = WR_UART_BUSY;
 		goto RESTORE_IRQ;
 	}
@@ -416,7 +424,11 @@ unsigned int spm_go_to_sleep(u32 spm_flags, u32 spm_data)
 	spm_suspend_footprint(SPM_SUSPEND_LEAVE_WFI);
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if defined(CONFIG_MACH_MT6739)
+	request_uart_to_wakeup();
+#else
 	mtk8250_request_to_wakeup();
+#endif
 RESTORE_IRQ:
 #endif
 

@@ -18,5 +18,11 @@ endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/
 ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6358)+= -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6358
 
+ifneq (,$(filter y,$(CONFIG_MTK_PMIC_CHIP_MT6357)))
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/rtc/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/rtc/mt6357
+obj-$(CONFIG_MTK_RTC) += mtk_rtc_common.o mtk_rtc_hal_common.o
+obj-$(CONFIG_MTK_RTC) += mt6357/
+endif
 
-
+obj-$(CONFIG_MTK_RTC) += mtk_rtc_debug.o

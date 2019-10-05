@@ -19,25 +19,56 @@
 #include <mt-plat/mtk_auxadc_intf.h>
 
 static struct mtk_auxadc_intf *auxadc_intf;
-
+const char *pmic_auxadc_channel_name[] = {
+#ifdef CONFIG_MTK_PMIC_CHIP_MT6357
+	/* mt6357 */
+	"BATADC",
+	"VCDT",
+	"BAT TEMP",
+	"BATID",
+	"VBIF",
+	"MT6357 CHIP TEMP",
+	"DCXO",
+	"ACCDET",
+	"TSX",
+	"HP",
+	"ISENSE",
+	"BUCK1_TEMP",
+	"BUCK2_TEMP",
+#endif
+};
 const char *pmic_get_auxadc_name(u8 list)
 {
 	return pmic_auxadc_channel_name[list];
 }
 EXPORT_SYMBOL(pmic_get_auxadc_name);
 
-int pmic_get_auxadc_value(u8 list)
+int pmic_get_auxadc_value(int list)
 {
 	int value = 0;
-
+#ifdef CONFIG_MTK_PMIC_CHIP_MT6357
+	if (list >= AUXADC_LIST_MT6357_START &&
+			list <= AUXADC_LIST_MT6357_END) {
+		value = mt6357_get_auxadc_value(list);
+		return value;
+	}
+#else
 	if (list >= AUXADC_LIST_START && list <= AUXADC_LIST_END) {
 		value = mt_get_auxadc_value(list);
 		return value;
 	}
+#endif
 	pr_info("%s Invalid AUXADC LIST\n", __func__);
 	return -EINVAL;
 }
+void pmic_auxadc_dump_regs(char *buf)
+{
+	snprintf(buf+strlen(buf), 1024, "====%s====\n", __func__);
 
+#ifdef CONFIG_MTK_PMIC_CHIP_MT6357
+	mt6357_auxadc_dump_regs(buf);
+#endif /* CONFIG_MTK_PMIC_CHIP_MT6357 */
+}
 static struct mtk_auxadc_ops pmic_auxadc_ops = {
 	.get_channel_value = pmic_get_auxadc_value,
 	.dump_regs = pmic_auxadc_dump_regs,
@@ -62,9 +93,12 @@ void mtk_auxadc_init(void)
 #if 0
 	pmic_auxadc_init();
 #endif
-
+#ifdef CONFIG_MTK_PMIC_CHIP_MT6357
+	mt6357_auxadc_init();
+#endif /* CONFIG_MTK_PMIC_CHIP_MT6357 */
+#if 0
 	pmic_auxadc_intf.channel_num = pmic_get_auxadc_channel_max();
-
+#endif
 	if (register_mtk_auxadc_intf(&pmic_auxadc_intf) < 0)
 		pr_notice("[%s] register MTK Auxadc Intf Fail\n", __func__);
 }

@@ -378,7 +378,7 @@ void spm_set_dummy_read_addr(int debug)
 				enable_4G(), rank0_addr, rank1_addr);
 
 	mt_secure_call(MTK_SIP_KERNEL_SPM_DUMMY_READ,
-		       rank0_addr, rank1_addr, 0);
+		       rank0_addr, rank1_addr, 0, 0);
 #endif /* CONFIG_MACH_MT6739 */
 }
 

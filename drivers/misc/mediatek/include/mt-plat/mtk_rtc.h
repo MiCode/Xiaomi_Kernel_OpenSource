@@ -56,5 +56,13 @@ extern bool crystal_exist_status(void);
 #define set_rtc_spare0_fg_value(val)	({ 0; })
 #define crystal_exist_status()		({ 0; })
 #endif/*ifdef CONFIG_MTK_RTC*/
-
+void __attribute__((weak)) rtc_clock_enable(int enable)
+{
+}
+void __attribute__((weak)) rtc_lpsd_restore_al_mask(void)
+{
+}
+void __attribute__((weak)) rtc_reset_bbpu_alarm_status(void)
+{
+}
 #endif
