@@ -527,7 +527,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	struct timeval worktvstart;
 	struct timeval worktvstart1;
 	struct timeval vputvend;
-	struct mtk_video_dec_buf *dst_buf_info, *src_buf_info;
+	struct mtk_video_dec_buf *dst_buf_info = NULL, *src_buf_info = NULL;
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
 	unsigned int fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 	unsigned int dpbsize = 0;

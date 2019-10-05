@@ -166,13 +166,12 @@ static int venc_encode_header(struct venc_inst *inst,
 		inst->vsi->venc.venc_bs_va = (u64)(uintptr_t)bs_buf;
 
 	inst->vsi->venc.venc_fb_va = 0;
-	ret = vcu_enc_encode(&inst->vcu_inst, VENC_BS_MODE_SEQ_HDR, NULL,
-						 bs_buf, bs_size);
-	if (ret)
-		return ret;
 
 	mtk_vcodec_debug(inst, "vsi venc_bs_va 0x%llx",
 			 inst->vsi->venc.venc_bs_va);
+
+	ret = vcu_enc_encode(&inst->vcu_inst, VENC_BS_MODE_SEQ_HDR, NULL,
+						 bs_buf, bs_size);
 
 	return ret;
 }
