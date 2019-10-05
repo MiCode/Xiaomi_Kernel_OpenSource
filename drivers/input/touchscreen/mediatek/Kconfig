@@ -78,7 +78,17 @@ config TOUCHSCREEN_MTK_NT36xxx
 	  To compile this dirver as a module, choose M here: the
 	  module will be called.
 
+config TOUCHSCREEN_MTK_GT9XX_LM
+	bool "GT9XX_LM for Mediatek package"
+	help
+	  Say Y here if you have GT9XX_LM touch panel.
 
+	  If unsure, say N.
+
+	  you can config it if you want to use MTK9XX_LM for
+	  touch panel.
+
+source "drivers/input/touchscreen/mediatek/GT9XX_LM/Kconfig"
 
 
 endif
