@@ -59,3 +59,6 @@ ifeq ($(CONFIG_MALI_NO_MALI),y)
 	# HW error simulation
 	BACKEND += backend/gpu/mali_kbase_model_error_generator.c
 endif
+
+ccflags-y += \
+	-I$(src)/platform/mtk_platform_common/
