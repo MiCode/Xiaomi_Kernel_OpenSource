@@ -1048,6 +1048,12 @@ int m4u_config_prog_dist(int port,
 
 	larb = m4u_port_2_larbid(port);
 	larb_port = m4u_port_2_larb_port(port);
+
+	if (unlikely(larb >= SMI_LARB_NR)) {
+		M4ULOG_HIGH("%d port id errror port %d\n", __LINE__, port);
+		return -1;
+	}
+
 	larb_base = gLarbBaseAddr[larb];
 
 	pProgPfh = gM4UProgPfh[m4u_index];
@@ -1314,6 +1320,13 @@ static int _m4u_config_port(int port, int virt, int sec, int dis, int dir)
 
 		larb = m4u_port_2_larbid(port);
 		larb_port = m4u_port_2_larb_port(port);
+
+		if (unlikely(larb >= SMI_LARB_NR)) {
+			M4ULOG_HIGH("%d port id errror port %d\n",
+				    __LINE__, port);
+			return -1;
+		}
+
 		larb_base = gLarbBaseAddr[larb];
 		m4uHw_set_field_by_mask(larb_base,
 			SMI_LARB_NON_SEC_CONx(larb_port),
