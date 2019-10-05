@@ -164,7 +164,7 @@ struct mtk_smi_pair smi_larb0_init_pair[SMI_LARB0_PORT_NUM] = {
 	{SMI_LARB_OSTDL_PORT(11), 0x8},
 	{SMI_LARB_OSTDL_PORT(12), 0x8},
 	{SMI_LARB_OSTDL_PORT(13), 0x1},
-	{SMI_LARB_OSTDL_PORT(14), 0x1},
+	{SMI_LARB_OSTDL_PORT(14), 0x3f},
 };
 
 struct mtk_smi_pair smi_larb1_init_pair[SMI_LARB1_PORT_NUM] = {
@@ -182,7 +182,7 @@ struct mtk_smi_pair smi_larb1_init_pair[SMI_LARB1_PORT_NUM] = {
 	{SMI_LARB_OSTDL_PORT(11), 0x8},
 	{SMI_LARB_OSTDL_PORT(12), 0x8},
 	{SMI_LARB_OSTDL_PORT(13), 0x1},
-	{SMI_LARB_OSTDL_PORT(14), 0x1},
+	{SMI_LARB_OSTDL_PORT(14), 0x3f},
 };
 
 struct mtk_smi_pair smi_larb2_init_pair[SMI_LARB2_PORT_NUM] = {
@@ -191,7 +191,7 @@ struct mtk_smi_pair smi_larb2_init_pair[SMI_LARB2_PORT_NUM] = {
 	{SMI_LARB_OSTDL_PORT(2), 0x5},
 	{SMI_LARB_OSTDL_PORT(3), 0x5},
 	{SMI_LARB_OSTDL_PORT(4), 0x1},
-	{SMI_LARB_OSTDL_PORT(5), 0x1},
+	{SMI_LARB_OSTDL_PORT(5), 0x3f},
 };
 
 struct mtk_smi_pair smi_larb3_init_pair[SMI_LARB3_PORT_NUM] = {
@@ -200,7 +200,7 @@ struct mtk_smi_pair smi_larb3_init_pair[SMI_LARB3_PORT_NUM] = {
 	{SMI_LARB_OSTDL_PORT(2), 0x5},
 	{SMI_LARB_OSTDL_PORT(3), 0x5},
 	{SMI_LARB_OSTDL_PORT(4), 0x1},
-	{SMI_LARB_OSTDL_PORT(5), 0x1},
+	{SMI_LARB_OSTDL_PORT(5), 0x3f},
 };
 
 struct mtk_smi_pair smi_larb4_init_pair[SMI_LARB4_PORT_NUM] = {
