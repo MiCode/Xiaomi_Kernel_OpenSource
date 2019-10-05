@@ -10,10 +10,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
-#ifndef __APUSYS_MNOC_DBG_H__
-#define __APUSYS_MNOC_DBG_H__
+#ifndef __APUSYS_MNOC_API_H__
+#define __APUSYS_MNOC_API_H__
 
-int create_debugfs(void);
-void remove_debugfs(void);
+int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
+	int dev_type, int dev_core);
+int apu_cmd_qos_suspend(uint64_t cmd_id, uint64_t sub_cmd_id);
+int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id);
 
 #endif

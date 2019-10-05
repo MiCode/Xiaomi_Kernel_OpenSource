@@ -17,12 +17,14 @@
 void notify_sspm_apusys_on(void);
 void notify_sspm_apusys_off(void);
 
-int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id, unsigned int core);
-int apu_cmd_qos_suspend(uint64_t cmd_id, uint64_t sub_cmd_id);
-int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id);
 void apu_qos_counter_init(void);
 void apu_qos_counter_destroy(void);
 
 void print_cmd_qos_list(struct seq_file *m);
+
+#if MNOC_TIME_PROFILE
+extern unsigned long sum_start, sum_suspend, sum_end;
+extern unsigned int cnt_start, cnt_suspend, cnt_end;
+#endif
 
 #endif

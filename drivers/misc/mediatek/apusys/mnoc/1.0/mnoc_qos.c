@@ -38,12 +38,12 @@
 #define MTK_QOS_BUF_SIZE QOS_BOUND_BUF_SIZE
 
 /* assume QOS_SMIBM_VPU0 is the first entry in qos_smibm_type for APUSYS */
-#if 0
 #define APUSYS_QOSBOUND_START (QOS_SMIBM_VPU0)
 #define get_qosbound_enum(x) (APUSYS_QOSBOUND_START + x)
-#else
-#define APUSYS_QOSBOUND_START (QOS_SMIBM_VPU0)
-#define get_qosbound_enum(x) (APUSYS_QOSBOUND_START)
+
+#if MNOC_TIME_PROFILE
+unsigned long sum_start, sum_suspend, sum_end;
+unsigned int cnt_start, cnt_suspend, cnt_end;
 #endif
 
 enum apu_qos_cmd_status {
@@ -144,13 +144,32 @@ static int destroy_qos_request(struct pm_qos_request *req)
 	return 0;
 }
 
+static void update_cmd_qos(struct qos_bound *qos_info, struct cmd_qos *cmd_qos)
+{
+	int idx = 0, qos_smi_idx = 0;
+
+	qos_smi_idx = get_qosbound_enum(cmd_qos->core);
+	/* sum current bw value to cmd_qos */
+	mutex_lock(&cmd_qos->mtx);
+	idx = cmd_qos->last_idx;
+	do {
+		cmd_qos->total_bw +=
+		qos_info->stats[idx].smibw_mon[qos_smi_idx];
+		cmd_qos->count++;
+		idx = (idx + 1) % MTK_QOS_BUF_SIZE;
+	} while (idx != qos_info->idx);
+	LOG_DEBUG("(%d/%d)idx(%d ~ %d)\n", cmd_qos->cmd_id,
+		cmd_qos->sub_cmd_id, cmd_qos->last_idx, idx);
+	/* update last idx */
+	cmd_qos->last_idx = idx;
+	mutex_unlock(&cmd_qos->mtx);
+}
+
 /* called by timer up, update average bw according to idx/last_idx */
-static int update_cmd_qos(struct qos_bound *qos_info)
+static int update_cmd_qos_list(struct qos_bound *qos_info)
 {
 	struct cmd_qos *cmd_qos = NULL;
 	struct qos_counter *counter = &qos_counter;
-	int idx = 0;
-	int qos_smi_idx = 0;
 
 	LOG_DEBUG("+\n");
 
@@ -158,24 +177,8 @@ static int update_cmd_qos(struct qos_bound *qos_info)
 
 	/* get first entry */
 	list_for_each_entry(cmd_qos, &counter->list, list) {
-		if (cmd_qos->status == CMD_RUNNING) {
-			/* get qos smibm enum */
-			qos_smi_idx = get_qosbound_enum(cmd_qos->core);
-			/* sum current bw value to cmd_qos */
-			mutex_lock(&cmd_qos->mtx);
-			idx = cmd_qos->last_idx;
-			do {
-				cmd_qos->total_bw +=
-				qos_info->stats[idx].smibw_mon[qos_smi_idx];
-				cmd_qos->count++;
-				idx = (idx + 1) % MTK_QOS_BUF_SIZE;
-			} while (idx != qos_info->idx);
-			LOG_DEBUG("(%d/%d)idx(%d ~ %d)\n", cmd_qos->cmd_id,
-				cmd_qos->sub_cmd_id, cmd_qos->last_idx, idx);
-			/* update last idx */
-			cmd_qos->last_idx = idx;
-			mutex_unlock(&cmd_qos->mtx);
-		}
+		if (cmd_qos->status == CMD_RUNNING)
+			update_cmd_qos(qos_info, cmd_qos);
 	}
 
 	mutex_unlock(&counter->list_mtx);
@@ -187,8 +190,7 @@ static int update_cmd_qos(struct qos_bound *qos_info)
 	return 0;
 }
 
-static int enque_cmd_qos(uint64_t cmd_id, uint64_t sub_cmd_id,
-	unsigned int core)
+static int enque_cmd_qos(uint64_t cmd_id, uint64_t sub_cmd_id, int core)
 {
 	struct qos_counter *counter = &qos_counter;
 	struct qos_bound *qos_info = NULL;
@@ -237,9 +239,7 @@ static int deque_cmd_qos(struct cmd_qos *cmd_qos)
 {
 	struct qos_bound *qos_info = NULL;
 	/* struct qos_counter *counter = &qos_counter; */
-	int qos_smi_idx = 0;
 	int avg_bw = 0;
-	int idx = 0;
 
 	LOG_DEBUG("+\n");
 
@@ -257,22 +257,8 @@ static int deque_cmd_qos(struct cmd_qos *cmd_qos)
 		return 0;
 	}
 
-	/* get qos smibm enum */
-	qos_smi_idx = get_qosbound_enum(cmd_qos->core);
-
 	/* sum the last bw */
-	mutex_lock(&cmd_qos->mtx);
-	idx = cmd_qos->last_idx;
-	do {
-		cmd_qos->total_bw +=
-			qos_info->stats[idx].smibw_mon[qos_smi_idx];
-		cmd_qos->count++;
-		idx = (idx + 1) % MTK_QOS_BUF_SIZE;
-	} while (idx != qos_info->idx);
-	LOG_DEBUG("idx(%d ~ %d)\n", cmd_qos->last_idx, idx);
-	cmd_qos->last_idx = idx;
-
-	mutex_unlock(&cmd_qos->mtx);
+	update_cmd_qos(qos_info, cmd_qos);
 
 	/* average bw */
 	if (cmd_qos->count != 0) {
@@ -297,27 +283,25 @@ static void qos_work_func(struct work_struct *work)
 	struct qos_bound *qos_info = NULL;
 	struct engine_pm_qos_counter *counter = NULL;
 	int qos_smi_idx = 0;
-	int idx = 0;
+	int i = 0, idx = 0;
 	unsigned int peak_bw = 0;
-	int i = 0;
 #if MNOC_TIME_PROFILE
 	struct timeval begin, end;
 	unsigned long val;
 #endif
 
-	LOG_DEBUG("+\n");
-
-#if MNOC_TIME_PROFILE
-	do_gettimeofday(&begin);
-#endif
-
 	mutex_lock(&qos_timer_exist_mtx);
+
+	LOG_DEBUG("+\n");
 
 	if (!qos_timer_exist) {
 		mutex_unlock(&qos_timer_exist_mtx);
 		return;
 	}
 
+#if MNOC_TIME_PROFILE
+	do_gettimeofday(&begin);
+#endif
 
 	/* get qos bound */
 	qos_info = get_qos_bound();
@@ -350,18 +334,18 @@ static void qos_work_func(struct work_struct *work)
 		LOG_DEBUG("peakbw[%d]=%d\n", i, peak_bw);
 	}
 
-	update_cmd_qos(qos_info);
-
-	mutex_unlock(&qos_timer_exist_mtx);
+	update_cmd_qos_list(qos_info);
 
 #if MNOC_TIME_PROFILE
 	do_gettimeofday(&end);
 	val = (end.tv_sec - begin.tv_sec) * 1000000;
 	val += (end.tv_usec - begin.tv_usec);
-	LOG_ERR("val = %d us\n", val);
+	LOG_DEBUG("val = %d us\n", val);
 #endif
 
 	LOG_DEBUG("-\n");
+
+	mutex_unlock(&qos_timer_exist_mtx);
 }
 
 static void qos_timer_func(unsigned long arg)
@@ -399,6 +383,10 @@ static void apu_qos_timer_start(void)
 	counter->wait_ms = DEFAUTL_QOS_POLLING_TIME;
 	add_timer(&counter->qos_timer);
 
+	mutex_lock(&qos_timer_exist_mtx);
+	qos_timer_exist = true;
+	mutex_unlock(&qos_timer_exist_mtx);
+
 	LOG_DEBUG("-\n");
 }
 
@@ -414,8 +402,13 @@ static void apu_qos_timer_end(void)
 
 	LOG_DEBUG("+\n");
 
-	/* delete timer */
-	del_timer_sync(&counter->qos_timer);
+	mutex_lock(&qos_timer_exist_mtx);
+	if (qos_timer_exist) {
+		qos_timer_exist = false;
+		/* delete timer */
+		del_timer_sync(&counter->qos_timer);
+	}
+	mutex_unlock(&qos_timer_exist_mtx);
 
 	/* fixme: if update request to default value necessary? */
 	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
@@ -428,14 +421,18 @@ static void apu_qos_timer_end(void)
 
 /*
  * enque cmd to qos_counter's linked list
- * if list is empty before enqueue, start qos timer
- * if cmd already exist, denotes the cmd need to resume
- * -> status from CMD_BLOCKED to CMD_RUNNING
+ * assume maximum preemption level = 1
+ * 1. if list is empty before enqueue, start qos timer
+ * 2. if core already running cmd means preemption happen
+ *    -> status from CMD_RUNNING to CMD_BLOCKED
  */
-int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id, unsigned int core)
+int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
+	int dev_type, int dev_core)
 {
 	struct qos_counter *counter = &qos_counter;
 	struct cmd_qos *cmd_qos = NULL, *pos;
+	struct qos_bound *qos_info = NULL;
+	int core = -1, cnt = 0;
 #if MNOC_TIME_PROFILE
 	struct timeval begin, end;
 	unsigned long val;
@@ -447,9 +444,17 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id, unsigned int core)
 	do_gettimeofday(&begin);
 #endif
 
-	if (core >= NR_APU_QOS_ENGINE) {
-		LOG_ERR("core(%d) exceed max apu core num(%d)\n",
-			core, NR_APU_QOS_ENGINE - 1);
+	core = apusys_dev_to_core_id(dev_type, dev_core);
+
+	if (core == -1) {
+		LOG_ERR("Invalid device(%d/%d)", dev_type, dev_core);
+		return -1;
+	}
+
+	/* get qos information */
+	qos_info = get_qos_bound();
+	if (qos_info == NULL) {
+		LOG_ERR("get info fail\n");
 		return -1;
 	}
 
@@ -460,31 +465,37 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id, unsigned int core)
 		apu_qos_timer_start();
 
 	list_for_each_entry(pos, &counter->list, list) {
+		/* search if cmd already exist */
 		if (pos->cmd_id == cmd_id && pos->sub_cmd_id == sub_cmd_id) {
+			LOG_DEBUG("resume cmd(%d/%d)\n",
+				cmd_id, sub_cmd_id);
+			mutex_lock(&pos->mtx);
+			pos->status = CMD_RUNNING;
+			mutex_unlock(&pos->mtx);
+
+			mutex_unlock(&counter->list_mtx);
+			return 0;
+		}
+		/* search if target core already running cmd */
+		if (pos->core == core) {
 			cmd_qos = pos;
-			break;
+			cnt++;
 		}
 	}
 	if (cmd_qos != NULL) {
-		if (cmd_qos->status != CMD_BLOCKED) {
-			LOG_ERR("cmd(%d/%d) already exist\n",
-				cmd_id, sub_cmd_id);
-			mutex_unlock(&counter->list_mtx);
-			return -1;
+		if (cmd_qos->status == CMD_RUNNING) {
+			LOG_DEBUG("set cmd(%d/%d) on core %d to CMD_BLOCKED\n",
+				cmd_qos->cmd_id, cmd_qos->sub_cmd_id,
+				cmd_qos->core);
+			mutex_lock(&cmd_qos->mtx);
+			cmd_qos->status = CMD_BLOCKED;
+			mutex_unlock(&cmd_qos->mtx);
+			/* update cmd qos of preempted cmd to latest status */
+			update_cmd_qos(qos_info, cmd_qos);
 		}
-		LOG_DEBUG("set cmd(%d/%d) to CMD_RUNNING\n",
-			cmd_id, sub_cmd_id);
-
-		mutex_lock(&cmd_qos->mtx);
-		cmd_qos->status = CMD_RUNNING;
-		/* Q: possible to change exection engine? */
-		cmd_qos->core = core;
-		mutex_unlock(&cmd_qos->mtx);
-
-		mutex_unlock(&counter->list_mtx);
-		return 0;
+		if (cnt > 1)
+			LOG_ERR("preemption level > 1\n");
 	}
-
 
 	/* enque cmd to counter's list */
 	if (enque_cmd_qos(cmd_id, sub_cmd_id, core)) {
@@ -499,13 +510,16 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id, unsigned int core)
 	do_gettimeofday(&end);
 	val = (end.tv_sec - begin.tv_sec) * 1000000;
 	val += (end.tv_usec - begin.tv_usec);
-	LOG_INFO("val = %d us\n", val);
+	/* LOG_INFO("val = %d us\n", val); */
+	sum_start += val;
+	cnt_start += 1;
 #endif
 
 	LOG_DEBUG("-\n");
 
 	return 0;
 }
+EXPORT_SYMBOL(apu_cmd_qos_start);
 
 /*
  * suspend cmd due to preemption
@@ -556,21 +570,28 @@ int apu_cmd_qos_suspend(uint64_t cmd_id, uint64_t sub_cmd_id)
 	do_gettimeofday(&end);
 	val = (end.tv_sec - begin.tv_sec) * 1000000;
 	val += (end.tv_usec - begin.tv_usec);
-	LOG_INFO("val = %d us\n", val);
+	/* LOG_INFO("val = %d us\n", val); */
+	sum_suspend += val;
+	cnt_suspend += 1;
 #endif
 
 	return 0;
 }
+EXPORT_SYMBOL(apu_cmd_qos_suspend);
 
 /*
  * deque cmd from qos_counter's linked list
- * if list becomes empty after dequeue, delete qos timer
- * fixme: if mutex protect range too large?
+ * assume maximum preemption level = 1
+ * 1. if list becomes empty after dequeue, delete qos timer
+ * 2. if core has bloked cmd means cmd's going to resume
+ *    -> status from CMD_BLOCKED to CMD_RUNNING
  */
 int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 {
 	struct qos_counter *counter = &qos_counter;
 	struct cmd_qos *cmd_qos = NULL, *pos;
+	struct qos_bound *qos_info = NULL;
+	int core = -1, cnt = 0;
 	int bw = 0;
 #if MNOC_TIME_PROFILE
 	struct timeval begin, end;
@@ -583,18 +604,26 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 	do_gettimeofday(&begin);
 #endif
 
+	/* get qos information */
+	qos_info = get_qos_bound();
+	if (qos_info == NULL) {
+		LOG_ERR("get info fail\n");
+		return -1;
+	}
+
 	mutex_lock(&counter->list_mtx);
 
 	list_for_each_entry(pos, &counter->list, list) {
 		if (pos->cmd_id == cmd_id && pos->sub_cmd_id == sub_cmd_id) {
 			cmd_qos = pos;
+			core = cmd_qos->core;
 			break;
 		}
 	}
 	if (cmd_qos == NULL) {
 		LOG_ERR("Can not find cmd(%d/%d)\n", cmd_id, sub_cmd_id);
 		mutex_unlock(&counter->list_mtx);
-		return 1;
+		return -1;
 	}
 
 	/* deque cmd to counter's list */
@@ -604,6 +633,28 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 	if (list_empty(&counter->list))
 		apu_qos_timer_end();
 
+	/* search if there is cmd on the same core needed resume */
+	cmd_qos = NULL;
+	list_for_each_entry(pos, &counter->list, list) {
+		if (pos->core == core) {
+			cmd_qos = pos;
+			cnt++;
+		}
+	}
+	if (cmd_qos != NULL) {
+		if (cmd_qos->status == CMD_BLOCKED) {
+			LOG_DEBUG("set cmd(%d/%d) on core %d to CMD_RUNNING\n",
+			cmd_qos->cmd_id, cmd_qos->sub_cmd_id, cmd_qos->core);
+
+			mutex_lock(&cmd_qos->mtx);
+			cmd_qos->last_idx = qos_info->idx;
+			cmd_qos->status = CMD_RUNNING;
+			mutex_unlock(&cmd_qos->mtx);
+		}
+		if (cnt > 1)
+			LOG_ERR("preemption level > 1\n");
+	}
+
 	mutex_unlock(&counter->list_mtx);
 
 	LOG_DEBUG("-\n");
@@ -612,12 +663,15 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 	do_gettimeofday(&end);
 	val = (end.tv_sec - begin.tv_sec) * 1000000;
 	val += (end.tv_usec - begin.tv_usec);
-	LOG_INFO("val = %d us\n", val);
+	/* LOG_INFO("val = %d us\n", val); */
+	sum_end += val;
+	cnt_end += 1;
 #endif
 
 	/* return 1 if bw = 0 (eara requirement) */
 	return bw == 0 ? 1 : bw;
 }
+EXPORT_SYMBOL(apu_cmd_qos_end);
 
 /*
  * create qos workqueue for count bandwidth
@@ -631,10 +685,7 @@ void apu_qos_counter_init(void)
 	LOG_DEBUG("+\n");
 
 	mutex_init(&qos_timer_exist_mtx);
-
-	mutex_lock(&qos_timer_exist_mtx);
-	qos_timer_exist = true;
-	mutex_unlock(&qos_timer_exist_mtx);
+	qos_timer_exist = false;
 
 	/* init counter's list */
 	INIT_LIST_HEAD(&(qos_counter.list));
@@ -655,6 +706,15 @@ void apu_qos_counter_init(void)
 		counter->core = i;
 		add_qos_request(&counter->qos_req);
 	}
+
+#if MNOC_TIME_PROFILE
+	sum_start = 0;
+	sum_suspend = 0;
+	sum_end = 0;
+	cnt_start = 0;
+	cnt_suspend = 0;
+	cnt_end = 0;
+#endif
 
 	LOG_DEBUG("-\n");
 }
@@ -682,10 +742,6 @@ void apu_qos_counter_destroy(void)
 		apu_qos_timer_end();
 
 	mutex_unlock(&(qos_counter.list_mtx));
-
-	mutex_lock(&qos_timer_exist_mtx);
-	qos_timer_exist = false;
-	mutex_unlock(&qos_timer_exist_mtx);
 
 	/* remove pm_qos_request */
 	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
@@ -727,20 +783,24 @@ void notify_sspm_apusys_off(void)
 {
 }
 
-int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id, unsigned int core)
+int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
+	int dev_type, int dev_core)
 {
 	return 0;
 }
+EXPORT_SYMBOL(apu_cmd_qos_start);
 
 int apu_cmd_qos_suspend(uint64_t cmd_id, uint64_t sub_cmd_id)
 {
 	return 0;
 }
+EXPORT_SYMBOL(apu_cmd_qos_suspend);
 
 int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 {
 	return 0;
 }
+EXPORT_SYMBOL(apu_cmd_qos_end);
 
 void apu_qos_counter_init(void)
 {

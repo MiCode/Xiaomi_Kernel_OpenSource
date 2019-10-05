@@ -38,10 +38,14 @@
 #include <linux/of_fdt.h>
 #endif
 
+#include "apusys_power.h"
+#include "apusys_power_cust.h"
+
 #include "mnoc_drv.h"
 #include "mnoc_hw.h"
 #include "mnoc_qos.h"
 #include "mnoc_dbg.h"
+#include "mnoc_pmu.h"
 
 enum APUSYS_MNOC_SMC_ID {
 	MNOC_INFRA2APU_SRAM_EN,
@@ -61,14 +65,18 @@ DEFINE_SPINLOCK(mnoc_spinlock);
 
 void __iomem *mnoc_base;
 void __iomem *mnoc_int_base;
+void __iomem *mnoc_apu_conn_base;
 void __iomem *mnoc_slp_prot_base1;
 void __iomem *mnoc_slp_prot_base2;
 
+bool mnoc_reg_valid;
 
 /* After APUSYS top power on */
 void infra2apu_sram_en(void)
 {
 	struct arm_smccc_res res;
+
+	LOG_DEBUG("+\n");
 
 	/*
 	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
@@ -79,12 +87,16 @@ void infra2apu_sram_en(void)
 	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
 		MNOC_INFRA2APU_SRAM_EN,
 		0, 0, 0, 0, 0, 0, &res);
+
+	LOG_DEBUG("-\n");
 }
 
 /* Before APUSYS top power off */
 void infra2apu_sram_dis(void)
 {
 	struct arm_smccc_res res;
+
+	LOG_DEBUG("+\n");
 
 	/*
 	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
@@ -95,12 +107,16 @@ void infra2apu_sram_dis(void)
 	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
 		MNOC_INFRA2APU_SRAM_DIS,
 		0, 0, 0, 0, 0, 0, &res);
+
+	LOG_DEBUG("-\n");
 }
 
 /* Before APUSYS reset */
 void apu2infra_bus_protect_en(void)
 {
 	struct arm_smccc_res res;
+
+	LOG_DEBUG("+\n");
 
 	/*
 	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
@@ -111,12 +127,16 @@ void apu2infra_bus_protect_en(void)
 	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
 		MNOC_APU2INFRA_BUS_PROTECT_EN,
 		0, 0, 0, 0, 0, 0, &res);
+
+	LOG_DEBUG("-\n");
 }
 
 /* After APUSYS reset */
 void apu2infra_bus_protect_dis(void)
 {
 	struct arm_smccc_res res;
+
+	LOG_DEBUG("+\n");
 
 	/*
 	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
@@ -127,23 +147,39 @@ void apu2infra_bus_protect_dis(void)
 	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
 		MNOC_APU2INFRA_BUS_PROTECT_DIS,
 		0, 0, 0, 0, 0, 0, &res);
+
+	LOG_DEBUG("-\n");
 }
 
-void mnoc_apusys_top_after_pwr_on(void)
+static void mnoc_apusys_top_after_pwr_on(void *para)
 {
+	unsigned long flags;
+
 	LOG_DEBUG("+\n");
 
 	infra2apu_sram_en();
 	mnoc_reg_init();
 	mnoc_qos_reg_init();
+	mnoc_pmu_reg_init();
 	notify_sspm_apusys_on();
+
+	spin_lock_irqsave(&mnoc_spinlock, flags);
+	mnoc_reg_valid = true;
+	spin_unlock_irqrestore(&mnoc_spinlock, flags);
+
 
 	LOG_DEBUG("-\n");
 }
 
-void mnoc_apusys_top_before_pwr_off(void)
+static void mnoc_apusys_top_before_pwr_off(void *para)
 {
+	unsigned long flags;
+
 	LOG_DEBUG("+\n");
+
+	spin_lock_irqsave(&mnoc_spinlock, flags);
+	mnoc_reg_valid = false;
+	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
 	infra2apu_sram_dis();
 	notify_sspm_apusys_off();
@@ -182,7 +218,15 @@ static int mnoc_probe(struct platform_device *pdev)
 
 	LOG_DEBUG("+\n");
 
+	mnoc_reg_valid = false;
+
+	create_debugfs();
+	spin_lock_init(&mnoc_spinlock);
 	apu_qos_counter_init();
+	mnoc_pmu_init();
+
+	apu_power_callback_device_register(MNOC,
+		mnoc_apusys_top_after_pwr_on, mnoc_apusys_top_before_pwr_off);
 
 	node = pdev->dev.of_node;
 	if (!node) {
@@ -193,8 +237,9 @@ static int mnoc_probe(struct platform_device *pdev)
 	/* Setup IO addresses */
 	mnoc_base = of_iomap(node, 0);
 	mnoc_int_base = of_iomap(node, 1);
-	mnoc_slp_prot_base1 = of_iomap(node, 2);
-	mnoc_slp_prot_base2 = of_iomap(node, 3);
+	mnoc_apu_conn_base = of_iomap(node, 2);
+	mnoc_slp_prot_base1 = of_iomap(node, 3);
+	mnoc_slp_prot_base2 = of_iomap(node, 4);
 
 #if MNOC_INT_ENABLE
 	mnoc_irq_number = irq_of_parse_and_map(node, 0);
@@ -233,6 +278,7 @@ static int mnoc_remove(struct platform_device *pdev)
 	LOG_DEBUG("+\n");
 
 	apu_qos_counter_destroy();
+	mnoc_pmu_exit();
 
 	node = pdev->dev.of_node;
 	if (!node) {
@@ -240,12 +286,13 @@ static int mnoc_remove(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	remove_procfs();
+	remove_debugfs();
 #if MNOC_INT_ENABLE
 	free_irq(mnoc_irq_number, dev);
 #endif
 	iounmap(mnoc_base);
 	iounmap(mnoc_int_base);
+	iounmap(mnoc_apu_conn_base);
 	iounmap(mnoc_slp_prot_base1);
 	iounmap(mnoc_slp_prot_base2);
 
@@ -274,10 +321,6 @@ static struct platform_driver mnoc_driver = {
 static int __init mnoc_init(void)
 {
 	LOG_DEBUG("driver init start\n");
-
-	create_procfs();
-
-	spin_lock_init(&mnoc_spinlock);
 
 	if (platform_driver_register(&mnoc_driver)) {
 		LOG_ERR("failed to register %s driver", APUSYS_MNOC_DEV_NAME);

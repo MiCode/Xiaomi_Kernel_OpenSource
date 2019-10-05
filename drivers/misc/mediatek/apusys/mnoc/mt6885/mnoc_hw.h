@@ -58,25 +58,31 @@ enum apu_qos_mni {
 };
 
 enum apu_qos_engine {
-	VPU0,
-	VPU1,
-	VPU2,
-	MDLA0,
-	MDLA1,
-	EDMA0,
-	EDMA1,
-	MD32,
+	APU_QOS_ENGINE_VPU0,
+	APU_QOS_ENGINE_VPU1,
+	APU_QOS_ENGINE_VPU2,
+	APU_QOS_ENGINE_MDLA0,
+	APU_QOS_ENGINE_MDLA1,
+	APU_QOS_ENGINE_EDMA0,
+	APU_QOS_ENGINE_EDMA1,
+	APU_QOS_ENGINE_MD32,
 
 	NR_APU_QOS_ENGINE
 };
 
-#define MDLA_NUM (2)
-#define MNOC_RT_NUM (5)
+#define NR_APU_ENGINE_VPU (3)
+#define NR_APU_ENGINE_MDLA (2)
+#define NR_APU_ENGINE_EDMA (2)
+
+#define NR_MNOC_RT (5)
+#define NR_MNOC_PMU_CNTR (16)
 
 /* 0x1906E000 */
 #define APU_NOC_TOP_BASEADDR mnoc_base
 /* 0x19001000 */
 #define MNOC_INT_BASEADDR mnoc_int_base
+/* 0x19001000 */
+#define MNOC_APU_CONN_BASEADDR mnoc_apu_conn_base
 /* 0x10001000 */
 #define MNOC_SLP_PROT_BASEADDR1 mnoc_slp_prot_base1
 /* 0x10215000 */
@@ -85,6 +91,8 @@ enum apu_qos_engine {
 /* MNoC register definition */
 #define MNOC_INT_EN (MNOC_INT_BASEADDR + 0x80)
 #define MNOC_INT_STA (MNOC_INT_BASEADDR + 0x34)
+
+#define APU_TCM_HASH_TRUNCATE_CTRL0 (MNOC_APU_CONN_BASEADDR + 0x7C)
 
 /* #define APU_NOC_TOP_BASEADDR			(0x1906E000) */
 #define APU_NOC_TOP_ADDR			(0x1906E000)
@@ -116,8 +124,13 @@ enum apu_qos_engine {
 #define REQRT_CRDT_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x198)
 #define RSPRT_CRDT_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x19C)
 
+#define PMU_COUNTER0_OUT (APU_NOC_TOP_BASEADDR + 0x240)
+
 void mnoc_qos_reg_init(void);
 void mnoc_reg_init(void);
 bool mnoc_check_int_status(void);
+int apusys_dev_to_core_id(int dev_type, int dev_core);
+void mnoc_get_pmu_counter(unsigned int *buf);
+void mnoc_tcm_hash_set(unsigned int sel, unsigned int en0, unsigned int en1);
 
 #endif

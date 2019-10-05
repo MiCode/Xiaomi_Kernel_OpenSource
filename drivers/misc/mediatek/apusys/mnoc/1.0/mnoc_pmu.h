@@ -10,10 +10,29 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
-#ifndef __APUSYS_MNOC_DBG_H__
-#define __APUSYS_MNOC_DBG_H__
+#ifndef __APUSYS_MNOC_PMU_H__
+#define __APUSYS_MNOC_PMU_H__
 
-int create_debugfs(void);
-void remove_debugfs(void);
+struct pmu_reg_list {
+	struct list_head list;
+	struct mutex list_mtx;
+};
+
+struct pmu_reg {
+	unsigned int addr;
+	unsigned int val;
+
+	struct list_head list;
+};
+
+extern bool cfg_timer_en;
+
+void enque_pmu_reg(unsigned int addr, unsigned int val);
+void clear_pmu_reg_list(void);
+void mnoc_pmu_reg_init(void);
+void print_pmu_reg_list(struct seq_file *m);
+void mnoc_pmu_timer_start(void);
+void mnoc_pmu_init(void);
+void mnoc_pmu_exit(void);
 
 #endif

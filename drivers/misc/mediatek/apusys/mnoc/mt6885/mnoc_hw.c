@@ -22,8 +22,36 @@
 #include <linux/io.h>
 #include <linux/spinlock.h>
 
+#include "apusys_device.h"
 #include "mnoc_hw.h"
 #include "mnoc_drv.h"
+
+
+int apusys_dev_to_core_id(int dev_type, int dev_core)
+{
+	int ret = -1;
+
+	switch (dev_type) {
+	case APUSYS_DEVICE_VPU:
+		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_VPU)
+			ret = dev_core;
+		break;
+	case APUSYS_DEVICE_MDLA:
+		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_MDLA)
+			ret = NR_APU_ENGINE_VPU + dev_core;
+		break;
+	case APUSYS_DEVICE_EDMA:
+		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_EDMA)
+			ret = NR_APU_ENGINE_VPU + NR_APU_ENGINE_MDLA + dev_core;
+		break;
+	default:
+		ret = -1;
+		break;
+	}
+
+	return ret;
+}
+
 
 /**
  * MNI offset 0 -> MNI05_QOS_CTRL0
@@ -129,7 +157,7 @@ void mnoc_reg_init(void)
 	mnoc_write_field(MNOC_INT_EN, 1:0, 3);
 
 	/* set request router timeout interrupt */
-	for (i = 0; i < MNOC_RT_NUM; i++) {
+	for (i = 0; i < NR_MNOC_RT; i++) {
 		/* all VC enabled */
 		mnoc_write(MNOC_RT_PMU_REG(REQ_RT_PMU_BASE, 3, i), 0xFFFFFFFF);
 		mnoc_write(MNOC_RT_PMU_REG(REQ_RT_PMU_BASE, 4, i), 0xFFFFFFFF);
@@ -142,7 +170,7 @@ void mnoc_reg_init(void)
 	}
 
 	/* set response router timeout interrupt */
-	for (i = 0; i < MNOC_RT_NUM; i++) {
+	for (i = 0; i < NR_MNOC_RT; i++) {
 		/* all VC enabled */
 		mnoc_write(MNOC_RT_PMU_REG(RSP_RT_PMU_BASE, 3, i), 0xFFFFFFFF);
 		mnoc_write(MNOC_RT_PMU_REG(RSP_RT_PMU_BASE, 4, i), 0xFFFFFFFF);
@@ -168,6 +196,8 @@ bool mnoc_check_int_status(void)
 {
 	unsigned long flags;
 	bool mnoc_irq_triggered = false;
+
+	LOG_DEBUG("+\n");
 
 	spin_lock_irqsave(&mnoc_spinlock, flags);
 
@@ -288,7 +318,45 @@ bool mnoc_check_int_status(void)
 
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
+	LOG_DEBUG("-\n");
+
 	return mnoc_irq_triggered;
 }
 
+/* read PMU_COUNTER_OUT 0~15 value to pmu buffer */
+void mnoc_get_pmu_counter(unsigned int *buf)
+{
+	int i;
+	unsigned long flags;
 
+	LOG_DEBUG("+\n");
+
+	spin_lock_irqsave(&mnoc_spinlock, flags);
+	if (mnoc_reg_valid)
+		for (i = 0; i < NR_MNOC_PMU_CNTR; i++)
+			buf[i] = mnoc_read(PMU_COUNTER0_OUT + 4*i);
+	else
+		for (i = 0; i < NR_MNOC_PMU_CNTR; i++)
+			buf[i] = 0;
+	spin_unlock_irqrestore(&mnoc_spinlock, flags);
+
+	LOG_DEBUG("-\n");
+}
+
+void mnoc_tcm_hash_set(unsigned int sel, unsigned int en0, unsigned int en1)
+{
+	unsigned long flags;
+
+	LOG_DEBUG("+\n");
+
+	spin_lock_irqsave(&mnoc_spinlock, flags);
+	mnoc_write_field(APU_TCM_HASH_TRUNCATE_CTRL0, 2:0, sel);
+	mnoc_write_field(APU_TCM_HASH_TRUNCATE_CTRL0, 6:3, en0);
+	mnoc_write_field(APU_TCM_HASH_TRUNCATE_CTRL0, 10:7, en1);
+	spin_unlock_irqrestore(&mnoc_spinlock, flags);
+
+	LOG_DEBUG("APU_TCM_HASH_TRUNCATE_CTRL0 = 0x%x\n",
+		mnoc_read(APU_TCM_HASH_TRUNCATE_CTRL0));
+
+	LOG_DEBUG("-\n");
+}
