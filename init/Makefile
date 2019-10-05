@@ -5,6 +5,10 @@
 
 ccflags-y := -fno-function-sections -fno-data-sections
 
+ifdef CONFIG_MTPROF
+ccflags-y += -Idrivers/misc/mediatek/mtprof/
+endif
+
 obj-y                          := main.o version.o mounts.o
 obj-y                          += noinitramfs.o
 obj-$(CONFIG_BLK_DEV_INITRD)   += initramfs.o

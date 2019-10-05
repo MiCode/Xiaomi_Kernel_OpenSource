@@ -810,21 +810,31 @@ static int __init_or_module do_one_initcall_debug(initcall_t fn)
 
 	return ret;
 }
+#ifdef CONFIG_MTPROF
+#include <bootprof.h>
+#else
+#define TIME_LOG_START()
+#define TIME_LOG_END()
+#define bootprof_initcall(fn, ts)
+#endif
 
 int __init_or_module do_one_initcall(initcall_t fn)
 {
 	int count = preempt_count();
 	int ret;
 	char msgbuf[64];
-
+#ifdef CONFIG_MTPROF
+	unsigned long long ts = 0;
+#endif
 	if (initcall_blacklisted(fn))
 		return -EPERM;
 
+	TIME_LOG_START();
 	if (initcall_debug)
 		ret = do_one_initcall_debug(fn);
 	else
 		ret = fn();
-
+	TIME_LOG_END();
 	msgbuf[0] = 0;
 
 	if (preempt_count() != count) {
@@ -838,6 +848,7 @@ int __init_or_module do_one_initcall(initcall_t fn)
 	WARN(msgbuf[0], "initcall %pF returned with %s\n", fn, msgbuf);
 
 	add_latent_entropy();
+	bootprof_initcall(fn, ts);
 	return ret;
 }
 
@@ -1007,7 +1018,9 @@ static int __ref kernel_init(void *unused)
 	numa_default_policy();
 
 	rcu_end_inkernel_boot();
-
+#ifdef CONFIG_MTPROF
+		log_boot("Kernel_init_done");
+#endif
 	if (ramdisk_execute_command) {
 		ret = run_init_process(ramdisk_execute_command);
 		if (!ret)
