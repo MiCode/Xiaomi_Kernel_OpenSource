@@ -904,7 +904,7 @@ static void config_port_34bit(enum CMDQ_ENG_ENUM engine)
 	sPort.Virtuality = 1;
 	ret = m4u_config_port(&sPort);
 	if (ret < 0)
-		CMDQ_MSG("m4u config port fail! %ll\n", engine);
+		CMDQ_MSG("m4u config port fail! %d\n", engine);
 #endif
 
 }
