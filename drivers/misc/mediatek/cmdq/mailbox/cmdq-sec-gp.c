@@ -109,7 +109,7 @@ s32 cmdq_sec_free_wsm(struct cmdq_sec_tee_context *tee,
 s32 cmdq_sec_open_session(struct cmdq_sec_tee_context *tee,
 	void *wsm_buffer)
 {
-	s32 status, ret_origin;
+	s32 status, ret_origin = 0;
 
 	if (!wsm_buffer) {
 		cmdq_err("[SEC]open_session: invalid param wsm buffer:0x%p",

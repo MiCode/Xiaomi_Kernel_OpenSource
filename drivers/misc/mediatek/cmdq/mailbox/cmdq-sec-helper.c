@@ -70,6 +70,8 @@ static s32 cmdq_sec_append_metadata(
 		max = ADDR_METADATA_MAX_COUNT_ORIGIN;
 	else if (idx >= sec_data->addrMetadataMaxCount)
 		max = sec_data->addrMetadataMaxCount * 2;
+	else
+		max = sec_data->addrMetadataMaxCount;
 	ret = cmdq_sec_realloc_addr_list(pkt, max);
 	if (ret)
 		return ret;

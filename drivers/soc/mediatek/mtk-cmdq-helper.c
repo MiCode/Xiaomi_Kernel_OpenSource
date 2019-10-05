@@ -1421,15 +1421,19 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	cmdq_util_err("End of Error %u", err_num);
 	err_num++;
 
-	if (inst->op == CMDQ_CODE_WFE) {
+	if (inst && inst->op == CMDQ_CODE_WFE) {
 		mod = cmdq_event_module_dispatch(gce_pa, inst->arg_a);
 		cmdq_util_aee(mod,
 			"%s inst:%#016llx OP:WAIT EVENT:%x",
 			mod, *(u64 *)inst, inst->arg_a);
-	} else {
+	} else if (inst) {
+		/* not sync case, print raw */
 		cmdq_util_aee(mod,
 			"%s inst:%#016llx OP:%x",
 			mod, *(u64 *)inst, inst->op);
+	} else {
+		/* no inst available */
+		cmdq_util_aee(mod, "%s unknown instruction", mod);
 	}
 
 #else

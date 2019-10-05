@@ -460,6 +460,7 @@ static s32 cmdq_sec_session_send(struct cmdqSecContextStruct *context,
 		err = cmdq_sec_fill_iwc_msg(context, task, thrd_idx);
 		if (err)
 			return err;
+		break;
 	case CMD_CMDQ_TL_CANCEL_TASK:
 		iwc_msg->cancelTask.waitCookie = task->waitCookie;
 		iwc_msg->cancelTask.thread = thrd_idx;
@@ -793,6 +794,7 @@ static int cmdq_sec_mbox_send_data(struct mbox_chan *chan, void *data)
 	} else {
 		cmdq_err("pkt:%p sec_data not ready from thrd-idx:%u",
 			pkt, thread->idx);
+		kfree(task);
 		return -EINVAL;
 	}
 
@@ -832,7 +834,7 @@ static void cmdq_sec_task_timeout_work(struct work_struct *work_item)
 	}
 
 	// cmdq_sec_thread_timeout_excceed
-	head = list_first_entry_or_null(
+	head = list_first_entry(
 		&thread->task_list, struct cmdq_sec_task, list_entry);
 	duration = div_u64(sched_clock() - head->trigger, 1000000);
 	if (duration < thread->timeout_ms) {
@@ -871,7 +873,8 @@ static void cmdq_sec_task_timeout_work(struct work_struct *work_item)
 	}
 	cmdq_sec_irq_handler(thread, cookie, -ETIMEDOUT);
 	cmdq_err("duration:%llu cookie:%u task:%p pkt:%p thrd-idx:%u",
-		duration, cookie, out_task, out_task->pkt, thread->idx);
+		duration, cookie, out_task, out_task ? out_task->pkt : NULL,
+		thread->idx);
 }
 
 static int cmdq_sec_mbox_startup(struct mbox_chan *chan)

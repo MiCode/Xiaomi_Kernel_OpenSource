@@ -381,8 +381,10 @@ static int __init cmdq_util_init(void)
 	dir = debugfs_lookup("cmdq", NULL);
 	if (!dir) {
 		dir = debugfs_create_dir("cmdq", NULL);
-		if (!dir)
+		if (!dir) {
 			cmdq_err("debugfs_create_dir cmdq failed");
+			return -EINVAL;
+		}
 	} else
 		exists = true;
 
