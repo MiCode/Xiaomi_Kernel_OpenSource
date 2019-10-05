@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--dct_version="2.5" buid_sn="161102" dws_modification_time="08.25.2019.13:14:49"-->
+<!--dct_version="2.5" buid_sn="161102" dws_modification_time="09.10.2019.11:01:07"-->
 <dct_cfg>
     <general chip="MT6885">
         <proj>Internal phone</proj>
@@ -34,7 +34,7 @@
             <pmic_clk4>
                 <varName>HW_CONTROL</varName>
                 <cur_buf_output>30</cur_buf_output>
-                <cur_driving_control>230 ohm</cur_driving_control>
+                <cur_driving_control>390 ohm</cur_driving_control>
             </pmic_clk4>
             <pmic_clk7>
                 <varName>SW_CONTROL</varName>

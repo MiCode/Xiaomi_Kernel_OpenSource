@@ -862,7 +862,7 @@ void clk_buf_dump_clkbuf_log(void)
 	u32 pmic_cw00 = 0, pmic_cw09 = 0, pmic_cw12 = 0, pmic_cw13 = 0,
 	    pmic_cw15 = 0, pmic_cw19 = 0, top_spi_con1 = 0,
 	    ldo_vrfck_op = 0, ldo_vbbck_op = 0, ldo_vrfck_en = 0,
-	    ldo_vbbck_en = 0;
+	    ldo_vbbck_en = 0, vrfck_hv_en = 0;
 
 	pmic_read_interface(PMIC_XO_EXTBUF1_MODE_ADDR, &pmic_cw00,
 		PMIC_REG_MASK, PMIC_REG_SHIFT);
@@ -888,12 +888,16 @@ void clk_buf_dump_clkbuf_log(void)
 		PMIC_RG_LDO_VRFCK_EN_MASK, PMIC_RG_LDO_VRFCK_EN_SHIFT);
 	pmic_read_interface(PMIC_RG_LDO_VBBCK_EN_ADDR, &ldo_vbbck_en,
 		 PMIC_RG_LDO_VBBCK_EN_MASK, PMIC_RG_LDO_VBBCK_EN_SHIFT);
+	pmic_read_interface(PMIC_RG_VRFCK_HV_EN_ADDR, &vrfck_hv_en,
+				PMIC_RG_VRFCK_HV_EN_MASK,
+				PMIC_RG_VRFCK_HV_EN_SHIFT);
 	pr_info("%s DCXO_CW00/09/12/13/15/19=0x%x %x %x %x %x %x\n",
 		     __func__, pmic_cw00, pmic_cw09, pmic_cw12, pmic_cw13,
 		     pmic_cw15, pmic_cw19);
 	pr_info("%s in3_en/rf_op/bb_op/rf_en/bb_en=0x%x %x %x %x %x\n",
 		     __func__, top_spi_con1, ldo_vrfck_op, ldo_vbbck_op,
 		     ldo_vrfck_en, ldo_vbbck_en);
+	pr_info("%s vrfck_hv_en=0x%x\n", __func__, vrfck_hv_en);
 }
 
 static u32 dcxo_dbg_read_auxout(u16 sel)
