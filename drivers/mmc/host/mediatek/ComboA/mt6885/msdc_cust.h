@@ -47,7 +47,7 @@
 /* Section 2: Power                                           */
 /**************************************************************/
 #if !defined(FPGA_PLATFORM)
-#define POWER_READY
+/* #define POWER_READY */
 #define CLOCK_READY
 //#define SPM_READY
 #endif
