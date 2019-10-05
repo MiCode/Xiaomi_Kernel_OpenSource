@@ -1912,7 +1912,7 @@ static ssize_t ufshcd_clkgate_enable_store(struct device *dev,
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
 	unsigned long flags;
-	u32 value;
+	u32 value = 0;
 
 	if (kstrtou32(buf, 0, &value))
 		return -EINVAL;
