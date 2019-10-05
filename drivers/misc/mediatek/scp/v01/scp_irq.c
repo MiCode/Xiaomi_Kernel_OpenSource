@@ -22,6 +22,8 @@
 #include "scp_dvfs.h"
 
 
+#define SCP_WAIT_LOOP_FOR_WDT		20000
+
 /*
  * handler for wdt irq for scp
  * dump scp register
@@ -56,17 +58,16 @@ irqreturn_t scp_A_irq_handler(int irq, void *dev_id)
 			pr_notice("scp_A_wdt_handler: scp resetting\n");
 
 		/* clr after SCP side INT trigger,
-		 * or SCP may lost INT max wait 5000*40u = 200ms
+		 * or SCP may lost INT max wait 20000 * 10 us = 200 ms
 		 */
-		for (retry = SCP_AWAKE_TIMEOUT; retry > 0; retry--) {
+		for (retry = SCP_WAIT_LOOP_FOR_WDT; retry > 0; retry--) {
 			tmp = readl(SCP_GPR_CM4_A_REBOOT);
 			if (tmp == CM4_A_READY_TO_REBOOT)
 				break;
-			udelay(40);
+			udelay(10);
 		}
 		if (retry == 0)
 			pr_debug("[SCP] SCP_A wakeup timeout\n");
-		udelay(10);
 		writel(SCP_IRQ_WDT, SCP_A_TO_HOST_REG);
 	} else if (reg & SCP_IRQ_SCP2HOST) {
 		/* if WDT and IPI triggered on the same time, ignore the IPI */
