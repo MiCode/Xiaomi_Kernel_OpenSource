@@ -248,6 +248,14 @@ int Ripi_cpu_dvfs_thread(void *data)
 				p->idx_opp_ppm_base =
 	(int)(log_box_parsed[num_log - 1].cluster_opp_cfg[i].base_idx);
 
+				if (p->idx_opp_ppm_base > 15 ||
+					p->idx_opp_ppm_base < 0)
+					p->idx_opp_ppm_base = 15;
+
+				if (p->idx_opp_ppm_limit > 15 ||
+					p->idx_opp_ppm_limit < 0)
+					p->idx_opp_ppm_limit = 0;
+
 				if (j < p->idx_opp_ppm_limit)
 					j = p->idx_opp_ppm_limit;
 
@@ -255,6 +263,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 					j = p->idx_opp_ppm_base;
 
 				/* Update policy min/max */
+
 				p->mt_policy->min =
 					cpu_dvfs_get_freq_by_idx(p,
 					p->idx_opp_ppm_base);
