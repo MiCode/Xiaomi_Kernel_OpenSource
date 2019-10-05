@@ -234,7 +234,6 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 static void scp_prepare_aed_dump(char *aed_str,
 		enum scp_core_id id)
 {
-	u32 memory_dump_size;
 	struct MemoryDump *md = (struct MemoryDump *) scp_dump.ramdump;
 	char *scp_A_log = NULL;
 
@@ -260,12 +259,12 @@ static void scp_prepare_aed_dump(char *aed_str,
 	}
 
 	/*prepare scp A db file*/
-	memory_dump_size = 0;
+	scp_dump.ramdump_length = 0;
 	memset(md, 0x0, sizeof(*md));
-	memory_dump_size = scp_crash_dump(md, SCP_A_ID);
+	scp_dump.ramdump_length = scp_crash_dump(md, SCP_A_ID);
 
 	pr_notice("[SCP] %s ends, @%px, size = %x\n", __func__,
-		md, memory_dump_size);
+		md, scp_dump.ramdump_length);
 }
 
 /*
