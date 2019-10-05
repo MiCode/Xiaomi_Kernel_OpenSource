@@ -943,14 +943,14 @@ out:
 	return check->result;
 }
 
-static int hmp_force_up_cpu_stop(void *data)
+static int hmp_active_load_balance_cpu_stop(void *data)
 {
-	return hmp_active_task_migration_cpu_stop(data);
-}
+	int ret;
+	struct task_struct *p = ((struct rq *)data)->migrate_task;
 
-static int hmp_force_down_cpu_stop(void *data)
-{
-	return hmp_active_task_migration_cpu_stop(data);
+	ret = active_load_balance_cpu_stop(data);
+	put_task_struct(p);
+	return ret;
 }
 
 /*
@@ -1072,22 +1072,24 @@ static void hmp_force_down_migration(int this_cpu)
 			!cpu_park(cpu_of(target))) {
 		if (p->state != TASK_DEAD) {
 			get_task_struct(p);
-			target->active_balance = 1; /* force down */
+			target->active_balance = MIGR_DOWN_MIGRATE;
 			target->push_cpu = target_cpu;
 			target->migrate_task = p;
 			force = 1;
-			trace_sched_hmp_migrate(p, target->push_cpu, 1);
+			trace_sched_hmp_migrate(p, target->push_cpu,
+					MIGR_DOWN_MIGRATE);
 			hmp_next_down_delay(&p->se, target->push_cpu);
 		}
 	}
 	raw_spin_unlock_irqrestore(&target->lock, flags);
 	if (force) {
 		if (!stop_one_cpu_nowait(cpu_of(target),
-					hmp_force_down_cpu_stop,
+					hmp_active_load_balance_cpu_stop,
 					target, &target->active_balance_work)) {
 			put_task_struct(p); /* out of rq->lock */
 			raw_spin_lock_irqsave(&target->lock, flags);
 			target->active_balance = 0;
+			target->migrate_task = NULL;
 			force = 0;
 			raw_spin_unlock_irqrestore(&target->lock, flags);
 		}
@@ -1206,11 +1208,12 @@ static void hmp_force_up_migration(int this_cpu)
 				!cpu_park(cpu_of(target))) {
 			if (p->state != TASK_DEAD) {
 				get_task_struct(p);
-				target->active_balance = 1; /* force up */
+				target->active_balance = MIGR_UP_MIGRATE;
 				target->push_cpu = target_cpu;
 				target->migrate_task = p;
 				force = 1;
-				trace_sched_hmp_migrate(p, target->push_cpu, 2);
+				trace_sched_hmp_migrate(p, target->push_cpu,
+						MIGR_UP_MIGRATE);
 				hmp_next_up_delay(&p->se, target->push_cpu);
 			}
 		}
@@ -1218,11 +1221,12 @@ static void hmp_force_up_migration(int this_cpu)
 		raw_spin_unlock_irqrestore(&target->lock, flags);
 		if (force) {
 			if (!stop_one_cpu_nowait(cpu_of(target),
-					hmp_force_up_cpu_stop,
+					hmp_active_load_balance_cpu_stop,
 					target, &target->active_balance_work)) {
 				put_task_struct(p); /* out of rq->lock */
 				raw_spin_lock_irqsave(&target->lock, flags);
 				target->active_balance = 0;
+				target->migrate_task = NULL;
 				force = 0;
 				raw_spin_unlock_irqrestore(
 						&target->lock, flags);

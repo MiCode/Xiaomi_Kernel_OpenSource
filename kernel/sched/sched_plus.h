@@ -47,6 +47,11 @@ task_prefer_match_on_cpu(struct task_struct *p, int src_cpu, int target_cpu);
 #define LB_EAS_AFFINE   (0x18  << LB_POLICY_SHIFT)
 #define LB_EAS_LB       (0x28  << LB_POLICY_SHIFT)
 
+#define MIGR_LOAD_BALANCE      1
+#define MIGR_UP_MIGRATE        2
+#define MIGR_DOWN_MIGRATE      3
+#define MIGR_IDLE_RUNNING      4
+
 #define CPU_RESERVED 1
 #define TASK_ROTATION_THRESHOLD_NS      6000000
 #define HEAVY_TASK_NUM  4
