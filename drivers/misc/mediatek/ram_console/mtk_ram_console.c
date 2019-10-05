@@ -633,8 +633,8 @@ static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
 #endif
 
 struct mem_desc_t {
-	unsigned long start;
-	unsigned long size;
+	unsigned int start;
+	unsigned int size;
 };
 
 #if defined(CONFIG_MTK_RAM_CONSOLE_USING_SRAM)
@@ -651,7 +651,7 @@ static int __init dt_get_ram_console(unsigned long node, const char *uname,
 	sram = (struct mem_desc_t *) of_get_flat_dt_prop(node,
 			"ram_console", NULL);
 	if (sram) {
-		pr_notice("ram_console:[DT] 0x%lx@0x%lx\n",
+		pr_notice("ram_console:[DT] 0x%x@0x%x\n",
 				sram->size, sram->start);
 		*(struct mem_desc_t *) data = *sram;
 	}
@@ -675,11 +675,19 @@ static int __init ram_console_early_init(void)
 			sram.size = CONFIG_MTK_RAM_CONSOLE_SIZE;
 		}
 		bufp = ioremap_wc(sram.start, sram.size);
-		ram_console_buffer_pa = (struct ram_console_buffer *)sram.start;
+		/* unsigned long conversion:
+		 * make size equals to pointer size
+		 * to avoid build error as below for aarch64 case
+		 * (error: cast to 'struct ram_console_buffer *' from
+		 * smaller integer type 'unsigned int'
+		 * [-Werror,-Wint-to-pointer-cast])
+		 */
+		ram_console_buffer_pa =
+			(struct ram_console_buffer *)(unsigned long)sram.start;
 		if (bufp)
 			buffer_size = sram.size;
 		else {
-			pr_err("ram_console: ioremap failed, [0x%lx, 0x%lx]\n",
+			pr_err("ram_console: ioremap failed, [0x%x, 0x%x]\n",
 					sram.start,
 			       sram.size);
 			return 0;
