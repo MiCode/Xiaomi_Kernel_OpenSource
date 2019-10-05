@@ -25,7 +25,7 @@ struct pmu_reg {
 	struct list_head list;
 };
 
-extern bool cfg_timer_en;
+extern bool mnoc_cfg_timer_en;
 
 void enque_pmu_reg(unsigned int addr, unsigned int val);
 void clear_pmu_reg_list(void);

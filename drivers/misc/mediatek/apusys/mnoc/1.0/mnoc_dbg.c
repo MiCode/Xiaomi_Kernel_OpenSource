@@ -213,7 +213,7 @@ out:
 
 static int mnoc_pmu_timer_en_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "cfg_timer_en = %d\n", cfg_timer_en);
+	seq_printf(m, "mnoc_cfg_timer_en = %d\n", mnoc_cfg_timer_en);
 
 	return 0;
 }
@@ -237,9 +237,9 @@ static ssize_t mnoc_pmu_timer_en_write(struct file *file,
 
 	if (kstrtoint(buf, 10, &val) == 0) {
 		if (val == 0)
-			cfg_timer_en = false;
+			mnoc_cfg_timer_en = false;
 		else if (val == 1) {
-			cfg_timer_en = true;
+			mnoc_cfg_timer_en = true;
 			mnoc_pmu_timer_start();
 		}
 	}

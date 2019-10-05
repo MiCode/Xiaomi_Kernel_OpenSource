@@ -31,8 +31,8 @@
 
 /* in micro-seconds (us) */
 #define PERIOD_DEFAULT 1000
-bool cfg_timer_en;
-static bool cfg_timer_en_copy;
+bool mnoc_cfg_timer_en;
+static bool mnoc_cfg_timer_en_copy;
 static u64 cfg_period;
 static struct hrtimer hr_timer;
 
@@ -140,7 +140,7 @@ static enum hrtimer_restart mnoc_pmu_polling(struct hrtimer *timer)
 
 	LOG_DEBUG("+\n");
 
-	if (!cfg_period || !cfg_timer_en)
+	if (!cfg_period || !mnoc_cfg_timer_en)
 		return HRTIMER_NORESTART;
 
 	/* call functions need to be called periodically */
@@ -169,9 +169,9 @@ void mnoc_pmu_suspend(void)
 {
 	LOG_DEBUG("+\n");
 
-	cfg_timer_en_copy = cfg_timer_en;
-	if (cfg_timer_en_copy)
-		cfg_timer_en = false;
+	mnoc_cfg_timer_en_copy = mnoc_cfg_timer_en;
+	if (mnoc_cfg_timer_en_copy)
+		mnoc_cfg_timer_en = false;
 
 	LOG_DEBUG("-\n");
 }
@@ -180,8 +180,8 @@ void mnoc_pmu_resume(void)
 {
 	LOG_DEBUG("+\n");
 
-	if (cfg_timer_en_copy) {
-		cfg_timer_en = true;
+	if (mnoc_cfg_timer_en_copy) {
+		mnoc_cfg_timer_en = true;
 		mnoc_pmu_timer_start();
 	}
 
@@ -197,7 +197,7 @@ void mnoc_pmu_init(void)
 	mutex_init(&(pmu_reg_list.list_mtx));
 
 	cfg_period = PERIOD_DEFAULT;
-	cfg_timer_en = false;
+	mnoc_cfg_timer_en = false;
 	hrtimer_init(&hr_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	hr_timer.function = mnoc_pmu_polling;
 
