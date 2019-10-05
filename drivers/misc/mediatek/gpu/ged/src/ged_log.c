@@ -268,14 +268,16 @@ static int __ged_log_buf_write(GED_LOG_BUF *psGEDLogBuf, const char __user *pszB
 static int __ged_log_buf_check_get_early_list(GED_LOG_BUF_HANDLE hLogBuf, const char *pszName)
 {
 	struct list_head *psListEntry, *psListEntryTemp, *psList;
-	GED_LOG_LISTEN *psFound = NULL, *psLogListen;
+	GED_LOG_LISTEN *psFound = NULL, *psLogListen = NULL;
 
 	read_lock_bh(&gsGEDLogBufList.sLock);
 
 	psList = &gsGEDLogBufList.sList_listen;
 	list_for_each_safe(psListEntry, psListEntryTemp, psList) {
 		psLogListen = list_entry(psListEntry, GED_LOG_LISTEN, sList);
-		if (0 == strcmp(psLogListen->acName, pszName)) {
+		if ((pszName != NULL)
+				&& (psLogListen != NULL)
+				&& 0 == strcmp(psLogListen->acName, pszName)) {
 			psFound = psLogListen;
 			break;
 		}

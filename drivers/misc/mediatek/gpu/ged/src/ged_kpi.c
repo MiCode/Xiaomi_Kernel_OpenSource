@@ -28,7 +28,6 @@
 #include "ged_thread.h"
 /* #include <ged_vsync.h> */
 #ifdef MTK_GED_KPI
-#include <primary_display.h>
 #include <mt-plat/mtk_gpu_utility.h>
 #include <mtk_gpufreq.h>
 #endif
