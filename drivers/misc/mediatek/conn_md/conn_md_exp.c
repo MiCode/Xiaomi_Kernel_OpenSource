@@ -29,7 +29,7 @@ int mtk_conn_md_bridge_reg(uint32 u_id, struct conn_md_bridge_ops *p_ops)
 		i_ret = conn_md_add_user(u_id, p_ops);
 	} else {
 		CONN_MD_ERR_FUNC("ERROR, u_id(0x%08x)\n", u_id);
-		CONN_MD_ERR_FUNC("ERROR, p_ops(0x%08x), rx_cb(0x%08x)\n",
+		CONN_MD_ERR_FUNC("ERROR, p_ops(%p), rx_cb(%p)\n",
 				p_ops, NULL == p_ops ? NULL : p_ops->rx_cb);
 		i_ret = CONN_MD_ERR_INVALID_PARAM;
 	}
@@ -56,7 +56,7 @@ int mtk_conn_md_bridge_send_msg(struct ipc_ilm *ilm)
 		/*send data */
 		i_ret = conn_md_send_msg(ilm);
 	} else {
-		CONN_MD_ERR_FUNC("ERROR, ilm(0x%08x),local_para_ptr(0x%08x)\n",
+		CONN_MD_ERR_FUNC("ERROR, ilm(%p),local_para_ptr(%p)\n",
 				ilm, ilm == NULL ? NULL : ilm->local_para_ptr);
 		i_ret = CONN_MD_ERR_INVALID_PARAM;
 	}
