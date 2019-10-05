@@ -97,7 +97,7 @@ void ufs_mtk_di_init(struct ufs_hba *hba)
 		((u64)ud_buf[UNIT_DESC_PARAM_LOGICAL_BLK_COUNT+6] << 8) |
 		((u64)ud_buf[UNIT_DESC_PARAM_LOGICAL_BLK_COUNT+7]));
 
-	pr_info("%s: mtk ufs di need %lluMB memory for total lba %llu(0x%llx)\n",
+	dev_info(hba->dev, "%s: need %llu MB memory for total lba %llu(0x%llx)\n",
 		__func__, logblk_cnt * sizeof(u16) * 2 / 1024 / 1024
 		, logblk_cnt, logblk_cnt);
 
@@ -105,7 +105,7 @@ void ufs_mtk_di_init(struct ufs_hba *hba)
 	if (LBA_CRC16_ARRAY)
 		LBA_CRC16_ARRAY_NE = LBA_CRC16_ARRAY + logblk_cnt;
 	else
-		pr_err("%s allocate CRC16 memory of size 0x%llx error\n"
+		dev_info(hba->dev, "%s: failed to allocate crc16 array of size 0x%llx bytes\n"
 			, __func__, logblk_cnt * sizeof(u16) * 2);
 
 	di_init = 1;
@@ -210,8 +210,10 @@ for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
 			} else {
 				if (LBA_CRC16_ARRAY[lba] != crc_temp) {
 					dev_info(hba->dev,
-				"FDE EN expect crc16 of lba 0x%x is 0x%x, but ori is 0x%x\n",
-					lba, crc_temp, LBA_CRC16_ARRAY[lba]);
+					"%s: crc err! expected: 0x%x, current: 0x%x, LBA: 0x%x (EN, FDE)\n",
+					__func__, LBA_CRC16_ARRAY[lba],
+					crc_temp, lba);
+					WARN_ON(1);
 					return -EIO;
 				}
 			}
@@ -224,15 +226,16 @@ for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
 					 CRC16_CAL_SIZE);
 				if (crc_temp == 0)
 					crc_temp++;
-				if (LBA_CRC16_ARRAY[lba] == 0) {
+				if (LBA_CRC16_ARRAY[lba] == 0)
 					LBA_CRC16_ARRAY[lba] = crc_temp;
-				} else {
-					if (LBA_CRC16_ARRAY[lba] != crc_temp) {
-						dev_info(hba->dev,
-			"FBE EN expect crc16 of lba 0x%x is 0x%x, but ori is 0x%x\n",
-					lba, crc_temp, LBA_CRC16_ARRAY[lba]);
-						return 0;
-					}
+				else if (LBA_CRC16_ARRAY[lba] != crc_temp) {
+					dev_info(hba->dev,
+						 "%s: crc err! expected: 0x%x, current: 0x%x, LBA: 0x%x (EN, FBE)\n",
+						 __func__,
+						 LBA_CRC16_ARRAY[lba],
+						 crc_temp, lba);
+					WARN_ON(1);
+					return 0;
 				}
 			} else {
 				crc_temp =
@@ -243,10 +246,13 @@ for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
 					LBA_CRC16_ARRAY_NE[lba] = crc_temp;
 				} else {
 					if (LBA_CRC16_ARRAY_NE[lba]
-						!= crc_temp) {
+					    != crc_temp) {
 						dev_info(hba->dev,
-			"NE expect crc16 of lba 0x%x is 0x%x, but ori is 0x%x\n",
-					lba, crc_temp, LBA_CRC16_ARRAY_NE[lba]);
+						"%s: crc err! expected: 0x%x, current: 0x%x, LBA: 0x%x (NE)\n",
+						__func__,
+						LBA_CRC16_ARRAY_NE[lba],
+						crc_temp, lba);
+						WARN_ON(1);
 						return -EIO;
 					}
 				}
