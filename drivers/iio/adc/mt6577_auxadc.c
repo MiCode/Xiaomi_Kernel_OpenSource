@@ -28,6 +28,8 @@
 /* Register definitions */
 #define MT6577_AUXADC_CON0                    0x00
 #define MT6577_AUXADC_CON1                    0x04
+#define MT6577_AUXADC_CON1_SET                0x08
+#define MT6577_AUXADC_CON1_CLR                0x0C
 #define MT6577_AUXADC_CON2                    0x10
 #define MT6577_AUXADC_STA                     BIT(0)
 
@@ -222,8 +224,7 @@ static int mt6577_auxadc_read(struct iio_dev *indio_dev,
 
 	mutex_lock(&adc_dev->lock);
 
-	mt6577_auxadc_mod_reg(adc_dev->reg_base + MT6577_AUXADC_CON1,
-			      0, 1 << chan->channel);
+	writel(1 << chan->channel, adc_dev->reg_base + MT6577_AUXADC_CON1_CLR);
 
 	/* read channel and make sure old ready bit == 0 */
 	ret = readl_poll_timeout(reg_channel, val,
@@ -238,8 +239,7 @@ static int mt6577_auxadc_read(struct iio_dev *indio_dev,
 	}
 
 	/* set bit to trigger sample */
-	mt6577_auxadc_mod_reg(adc_dev->reg_base + MT6577_AUXADC_CON1,
-			      1 << chan->channel, 0);
+	writel(1 << chan->channel, adc_dev->reg_base + MT6577_AUXADC_CON1_SET);
 
 	/* we must delay here for hardware sample channel data */
 	udelay(MT6577_AUXADC_SAMPLE_READY_US);
