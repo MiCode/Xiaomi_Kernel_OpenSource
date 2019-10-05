@@ -40,6 +40,7 @@ struct pack_collect {
 
 struct apusys_cmd {
 	/* basic info */
+	int mem_fd;
 	void *kva;           // apusys cmd kernel va entry
 	uint64_t cmd_id;      // apusys cmd unique id
 	uint32_t size;        // total apusys cmd size
@@ -128,7 +129,7 @@ int apusys_subcmd_create(void *sc_entry,
 	struct apusys_cmd *cmd, struct apusys_subcmd **isc);
 int apusys_subcmd_delete(struct apusys_subcmd *sc);
 
-int apusys_cmd_create(struct apusys_ioctl_cmd *ioctl_cmd,
+int apusys_cmd_create(void *cmd_entry,
 	struct apusys_cmd **icmd);
 int apusys_cmd_delete(struct apusys_cmd *cmd);
 

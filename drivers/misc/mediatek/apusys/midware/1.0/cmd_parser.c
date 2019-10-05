@@ -302,7 +302,7 @@ int apusys_subcmd_delete(struct apusys_subcmd *sc)
 
 	list_del(&sc->ce_list);
 	sc->parent_cmd = NULL;
-	resource_delete_subcmd((void *)sc);
+	delete_subcmd_lock((void *)sc);
 	if (sc->dp_status != NULL) {
 		DEBUG_TAG;
 		kfree(sc->dp_status);
@@ -313,34 +313,32 @@ int apusys_subcmd_delete(struct apusys_subcmd *sc)
 	return 0;
 }
 
-int apusys_cmd_create(struct apusys_ioctl_cmd *ioctl_cmd,
-	struct apusys_cmd **icmd)
+int apusys_cmd_create(void *cmd_entry, struct apusys_cmd **icmd)
 {
 	struct apusys_cmd *cmd;
 	uint8_t cmd_version = 0;
+	uint64_t cmd_magic = 0;
 	int ret = 0, i = 0, ctx_idx = 0;
 	uint32_t sc_num = 0;
 
 	/* check argument */
-	if (ioctl_cmd == NULL) {
+	if (cmd_entry == NULL) {
 		LOG_ERR("invalid argument\n");
 		return -EINVAL;
 	}
 
-	/* check cmd valid */
-	if (ioctl_cmd->iova == 0 || ioctl_cmd->uva == 0 ||
-		ioctl_cmd->kva == 0 || ioctl_cmd->size == 0) {
-		LOG_ERR("invalid cmd(%d/%d/%d/%d)\n",
-			ioctl_cmd->iova, ioctl_cmd->uva,
-			ioctl_cmd->kva, ioctl_cmd->size);
+	_print_header(cmd_entry);
+
+	/* check magic */
+	cmd_magic = _get_magic(cmd_entry);
+	if (cmd_magic != APUSYS_MAGIC_NUMBER) {
+		LOG_ERR("cmd magic mismatch(0x%llx)\n",
+			cmd_magic);
 		return -EINVAL;
 	}
 
-	/* print header for debug */
-	_print_header((void *)ioctl_cmd->kva);
-
 	/* check version */
-	cmd_version = _get_cmdversion((void *)ioctl_cmd->kva);
+	cmd_version = _get_cmdversion(cmd_entry);
 	if (cmd_version != APUSYS_CMD_VERSION) {
 		LOG_ERR("cmd version mismatch(%d/%d)\n",
 			cmd_version, APUSYS_CMD_VERSION);
@@ -348,7 +346,7 @@ int apusys_cmd_create(struct apusys_ioctl_cmd *ioctl_cmd,
 	}
 
 	/* check subcmd num */
-	sc_num = _get_numofsc((void *)ioctl_cmd->kva);
+	sc_num = _get_numofsc(cmd_entry);
 	if (sc_num == 0) {
 		LOG_ERR("subcmd num(%d), nothing to do\n", sc_num);
 		return -EINVAL;
@@ -363,8 +361,8 @@ int apusys_cmd_create(struct apusys_ioctl_cmd *ioctl_cmd,
 	}
 
 	/* assign value */
-	cmd->kva = (void *)ioctl_cmd->kva;
-	cmd->size = ioctl_cmd->size;
+	cmd->kva = (void *)cmd_entry;
+	//cmd->size = ioctl_cmd->size;
 	cmd->cmd_id = _get_cmdid(cmd->kva);
 	cmd->sc_num = sc_num;
 	cmd->sc_list_entry = (void *)_get_sc_list_entry(cmd->kva);

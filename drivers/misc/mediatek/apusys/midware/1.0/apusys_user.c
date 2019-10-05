@@ -394,7 +394,7 @@ int apusys_delete_user(struct apusys_user *user)
 	list_for_each_safe(list_ptr, tmp, &user->dev_list) {
 		user_dev = list_entry(list_ptr, struct apusys_user_dev, list);
 		if (user_dev->dev != NULL) {
-			if (resource_put_device(user_dev->dev)) {
+			if (put_device_lock(user_dev->dev)) {
 				LOG_ERR("put device(%p) user(0x%llx) fail\n",
 					user_dev->dev,
 					user->id);

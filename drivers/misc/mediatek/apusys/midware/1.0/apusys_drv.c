@@ -201,7 +201,6 @@ static int apusys_probe(struct platform_device *pdev)
 
 	return 0;
 
-	apusys_dbg_destroy();
 dbg_init_fail:
 	apusys_mem_destroy();
 mem_init_fail:
@@ -414,6 +413,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			sizeof(struct apusys_mem))) {
 			LOG_ERR("copy mem struct fail\n");
 			ret = -EINVAL;
+			goto out;
 		}
 
 		ret = apusys_mem_ctl(&mem);
@@ -437,19 +437,40 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto out;
 		}
 
-		LOG_DEBUG("ioctl_cmd: 0x%x/0x%llx/0x%llx/%d\n",
-			ioctl_cmd.iova,
-			ioctl_cmd.uva,
-			ioctl_cmd.kva,
-			ioctl_cmd.size);
+		/* map kva */
+		memset(&mem, 0, sizeof(struct apusys_mem));
+
+		mem.ion_data.ion_share_fd = ioctl_cmd.mem_fd;
+		if (apusys_mem_map_kva(&mem)) {
+			LOG_ERR("map cmd buffer kva from fd(%d)fail\n",
+				ioctl_cmd.mem_fd);
+			ret = -EINVAL;
+			goto out;
+		}
+
+#if 0 // TODO, check size
+		/* check size */
+		if (ioctl_cmd.offset + ioctl_cmd.size > mem.size) {
+			LOG_ERR("cmd size invalid(%d/%d/%d)\n",
+				ioctl_cmd.offset, ioctl_cmd.size, mem.size);
+			ret = -EINVAL;
+			if (apusys_mem_unmap_kva(&mem))
+				LOG_ERR("unmap cmd buf(%d) fail\n",
+					ioctl_cmd.mem_fd);
+
+			goto out;
+		}
+#endif
 
 		/* parse command buffer, and get struct apusys_cmd */
-		ret = apusys_cmd_create(&ioctl_cmd, &a_cmd);
+		ret = apusys_cmd_create
+			((void *)(mem.kva + ioctl_cmd.offset), &a_cmd);
 		if (ret || a_cmd == NULL) {
 			LOG_ERR("parser cmd fail(%d/%p).\n", ret, a_cmd);
 			ret = -EINVAL;
 			goto out;
 		}
+		a_cmd->mem_fd = ioctl_cmd.mem_fd;
 
 		/* insert cmd to user list */
 		ret = apusys_user_insert_cmd(user, (void *)a_cmd);
@@ -490,6 +511,9 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (apusys_cmd_delete(a_cmd))
 			LOG_ERR("delete apusys cmd(%p) fail\n", a_cmd);
 
+		if (apusys_mem_unmap_kva(&mem))
+			LOG_ERR("unmap cmd buf(%d) fail\n", ioctl_cmd.mem_fd);
+
 		break;
 
 	case APUSYS_IOCTL_RUN_CMD_ASYNC:
@@ -500,18 +524,39 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto out;
 		}
 
-		LOG_DEBUG("ioctl_cmd: 0x%x/0x%llx/0x%llx/%d\n",
-			ioctl_cmd.iova,
-			ioctl_cmd.uva,
-			ioctl_cmd.kva,
-			ioctl_cmd.size);
+		memset(&mem, 0, sizeof(struct apusys_mem));
+
+		mem.ion_data.ion_share_fd = ioctl_cmd.mem_fd;
+		if (apusys_mem_map_kva(&mem)) {
+			LOG_ERR("map cmd buffer kva from fd(%d)fail\n",
+				ioctl_cmd.mem_fd);
+			ret = -EINVAL;
+			goto out;
+		}
+
+#if 0 // TODO, check size
+		/* check size */
+		if (ioctl_cmd.offset + ioctl_cmd.size > mem.size) {
+			LOG_ERR("cmd size invalid(%d/%d/%d)\n",
+				ioctl_cmd.offset, ioctl_cmd.size, mem.size);
+			ret = -EINVAL;
+			if (apusys_mem_unmap_kva(&mem))
+				LOG_ERR("unmap cmd buf(%d) fail\n",
+					ioctl_cmd.mem_fd);
+
+			goto out;
+		}
+#endif
+
 		/* parse command buffer, and get struct apusys_cmd */
-		ret = apusys_cmd_create(&ioctl_cmd, &a_cmd);
+		ret = apusys_cmd_create
+			((void *)(mem.kva + ioctl_cmd.offset), &a_cmd);
 		if (ret || a_cmd == NULL) {
 			LOG_ERR("parser cmd fail(%d/%p).\n", ret, a_cmd);
 			ret = -EINVAL;
 			goto out;
 		}
+		a_cmd->mem_fd = ioctl_cmd.mem_fd;
 
 		/* insert cmd to user list */
 		ret = apusys_user_insert_cmd(user, (void *)a_cmd);
@@ -590,6 +635,11 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (apusys_cmd_delete(a_cmd))
 			LOG_ERR("delete apusys cmd(%p) fail\n", a_cmd);
 
+		memset(&mem, 0, sizeof(struct apusys_mem));
+		mem.ion_data.ion_share_fd = a_cmd->mem_fd;
+		if (apusys_mem_unmap_kva(&mem))
+			LOG_ERR("unmap cmd buf(%d) fail\n", ioctl_cmd.mem_fd);
+
 		break;
 
 	case APUSYS_IOCTL_SET_POWER:
@@ -626,6 +676,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			sizeof(struct apusys_ioctl_dev))) {
 			LOG_ERR("copy dev_alloc struct fail\n");
 			ret = -EINVAL;
+			goto out;
 		}
 
 		/* get type device from resource mgr */
@@ -640,12 +691,13 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				user, user->id);
 
 			ret = -ENODEV;
+			goto out;
 		}
 
 		/* insert allocated device to user list */
 		ret = apusys_user_insert_dev(user, dev);
 		if (ret) {
-			if (resource_put_device(dev)) {
+			if (put_device_lock(dev)) {
 				LOG_ERR("insert to user's dev list fail",
 					" and put device fail, may device leak!\n");
 				ret = -ENODEV;
@@ -687,7 +739,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		/* put device back to dev table */
 		dev = (struct apusys_device *)dev_alloc.handle;
-		ret = resource_put_device(dev);
+		ret = put_device_lock(dev);
 		if (ret) {
 			LOG_ERR("free device(%p) fail(%d)\n", dev, ret);
 			ret = -ENODEV;
@@ -715,9 +767,19 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto out;
 		}
 
+		memset(&mem, 0, sizeof(struct apusys_mem));
+
+		mem.ion_data.ion_share_fd = ioctl_cmd.mem_fd;
+		if (apusys_mem_map_kva(&mem)) {
+			LOG_ERR("map cmd buffer kva from fd(%d)fail\n",
+				ioctl_cmd.mem_fd);
+			ret = -EINVAL;
+			goto out;
+		}
+
 		ret = resource_load_fw(ioctl_fw.dev_type,
-			ioctl_fw.idx, ioctl_fw.kva,
-			ioctl_fw.iova, ioctl_fw.size,
+			ioctl_fw.idx, mem.kva,
+			mem.iova, ioctl_fw.size,
 			APUSYS_FIRMWARE_LOAD);
 
 		if (ret) {
@@ -725,8 +787,8 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				" (0x%llx/0x%x/0x%x) fail\n",
 				ioctl_fw.dev_type,
 				ioctl_fw.idx,
-				ioctl_fw.kva,
-				ioctl_fw.iova,
+				mem.kva,
+				mem.iova,
 				ioctl_fw.size);
 		}
 
@@ -740,10 +802,19 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			ret = -EINVAL;
 			goto out;
 		}
+		memset(&mem, 0, sizeof(struct apusys_mem));
+
+		mem.ion_data.ion_share_fd = ioctl_cmd.mem_fd;
+		if (apusys_mem_map_kva(&mem)) {
+			LOG_ERR("map cmd buffer kva from fd(%d)fail\n",
+				ioctl_cmd.mem_fd);
+			ret = -EINVAL;
+			goto out;
+		}
 
 		ret = resource_load_fw(ioctl_fw.dev_type,
-			ioctl_fw.idx, ioctl_fw.kva,
-			ioctl_fw.iova, ioctl_fw.size,
+			ioctl_fw.idx, mem.kva,
+			mem.iova, ioctl_fw.size,
 			APUSYS_FIRMWARE_UNLOAD);
 
 		if (ret) {
@@ -751,8 +822,8 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				"(0x%llx/0x%x/0x%x) fail\n",
 				ioctl_fw.dev_type,
 				ioctl_fw.idx,
-				ioctl_fw.kva,
-				ioctl_fw.iova,
+				mem.kva,
+				mem.iova,
 				ioctl_fw.size);
 		}
 

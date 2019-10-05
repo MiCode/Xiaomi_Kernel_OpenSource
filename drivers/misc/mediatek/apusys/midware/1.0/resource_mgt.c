@@ -32,6 +32,9 @@ struct apusys_res_mgr g_res_mgr;
 //----------------------------------------------
 struct apusys_res_table *resource_get_table(int type)
 {
+	if (type <= APUSYS_DEVICE_NONE || type >= APUSYS_DEVICE_MAX)
+		return NULL;
+
 	return g_res_mgr.tab[type];
 }
 
@@ -62,7 +65,7 @@ int resource_get_device_num(int dev_type)
 
 	tab = resource_get_table(dev_type);
 	if (tab == NULL) {
-		LOG_DEBUG("no device(%d) available\n", dev_type);
+		LOG_ERR("no device(%d) available\n", dev_type);
 		return 0;
 	}
 
@@ -86,7 +89,7 @@ uint64_t resource_get_dev_support(void)
 	return ret;
 }
 
-int insert_apusys_subcmd(void *isc, int priority)
+int insert_subcmd(void *isc, int priority)
 {
 	struct apusys_res_table *tab = NULL;
 	struct prio_q_inst *inst = NULL;
@@ -95,7 +98,7 @@ int insert_apusys_subcmd(void *isc, int priority)
 	tab = resource_get_table(sc->type);
 	// can't find info, unlock and return fail
 	if (tab == NULL) {
-		LOG_DEBUG("no device[%d] available\n", sc->type);
+		LOG_ERR("no device(%d) available\n", sc->type);
 		return -EINVAL;
 	}
 
@@ -117,7 +120,7 @@ int insert_apusys_subcmd(void *isc, int priority)
 	return 0;
 }
 
-int resource_insert_subcmd(void *isc, int priority)
+int insert_subcmd_lock(void *isc, int priority)
 {
 	int ret = 0;
 	struct apusys_subcmd *sc = (struct apusys_subcmd *)isc;
@@ -125,13 +128,13 @@ int resource_insert_subcmd(void *isc, int priority)
 	mutex_lock(&g_res_mgr.mtx);
 	/* delete subcmd node from ce list */
 	list_del(&sc->ce_list);
-	ret = insert_apusys_subcmd(isc, priority);
+	ret = insert_subcmd(isc, priority);
 	mutex_unlock(&g_res_mgr.mtx);
 
 	return ret;
 }
 
-int pop_apusys_subcmd(int type, void **isc)
+int pop_subcmd(int type, void **isc)
 {
 	struct apusys_res_table *tab = NULL;
 	int priority = 0;
@@ -140,7 +143,7 @@ int pop_apusys_subcmd(int type, void **isc)
 
 	tab = resource_get_table(type);
 	if (tab == NULL) {
-		LOG_DEBUG("no device[%d] available\n", type);
+		LOG_ERR("no device(%d) available\n", type);
 		return -EINVAL;
 	}
 
@@ -174,7 +177,7 @@ int pop_apusys_subcmd(int type, void **isc)
 	return 0;
 }
 
-int resource_delete_subcmd(void *isc)
+int delete_subcmd(void *isc)
 {
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_subcmd *sc_node = NULL;
@@ -185,11 +188,10 @@ int resource_delete_subcmd(void *isc)
 	if (isc == NULL)
 		return -EINVAL;
 
-	mutex_lock(&g_res_mgr.mtx);
-
 	/* find subcmd from type priority queue */
 	tab = resource_get_table(sc->type);
 	if (tab == NULL) {
+		LOG_ERR("no device(%d) available\n", sc->type);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -226,7 +228,17 @@ int resource_delete_subcmd(void *isc)
 	DEBUG_TAG;
 
 out:
+	return ret;
+}
+
+int delete_subcmd_lock(void *isc)
+{
+	int ret = 0;
+
+	mutex_lock(&g_res_mgr.mtx);
+	ret = delete_subcmd(isc);
 	mutex_unlock(&g_res_mgr.mtx);
+
 	return ret;
 }
 
@@ -248,7 +260,7 @@ int get_apusys_device(int dev_type, uint64_t owner, struct apusys_device **dev)
 	tab = resource_get_table(dev_type);
 	/* can't find info, unlock and return fail */
 	if (tab == NULL) {
-		LOG_DEBUG("no device[%d] available\n", dev_type);
+		LOG_ERR("no device[%d] available\n", dev_type);
 		return -EINVAL;
 	}
 
@@ -295,7 +307,7 @@ int put_apusys_device(struct apusys_device *dev)
 	tab = resource_get_table(dev->dev_type);
 	/* can't find info, unlock and return fail */
 	if (tab == NULL) {
-		LOG_DEBUG("no device[%d] available\n", dev->dev_type);
+		LOG_ERR("no device[%d] available\n", dev->dev_type);
 		return -ENODEV;
 	}
 
@@ -345,7 +357,7 @@ int put_apusys_device(struct apusys_device *dev)
 	return 0;
 }
 
-int resource_put_device(struct apusys_device *dev)
+int put_device_lock(struct apusys_device *dev)
 {
 	int ret = 0;
 
@@ -466,7 +478,7 @@ int acquire_device_async(struct apusys_dev_aquire *acq)
 	tab = resource_get_table(acq->dev_type);
 	/* can't find info, unlock and return fail */
 	if (tab == NULL) {
-		LOG_ERR("no device[%d] available\n", acq->dev_type);
+		LOG_ERR("no device(%d) available\n", acq->dev_type);
 		return -EINVAL;
 	}
 
@@ -484,7 +496,7 @@ int acquire_device_async(struct apusys_dev_aquire *acq)
 		? tab->available_num : (acq->target_num-acq->acq_num);
 	for (i = 0; i < num; i++) {
 		bit_idx = find_first_zero_bit(tab->dev_status, tab->dev_num);
-		LOG_DEBUG("dev[%d] idx[%lu/%u] available\n",
+		LOG_DEBUG("dev(%d) idx(%lu/%u) available\n",
 			acq->dev_type, bit_idx, tab->dev_num);
 		if (bit_idx < tab->dev_num) {
 			LOG_DEBUG("add to acquire list\n");
@@ -923,7 +935,6 @@ int apusys_unregister_device(struct apusys_device *dev)
 	mutex_lock(&g_res_mgr.mtx);
 
 	/* TODO: should flush cmd from dev */
-
 	tab = resource_get_table(dev->dev_type);
 	if (tab == NULL) {
 		LOG_ERR("can't find dev table(%d)\n", dev->dev_type);

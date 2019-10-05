@@ -129,10 +129,9 @@ struct apusys_mem {
 /* for APUSYS_IOCTL_RUN_CMD_SYNC */
 struct apusys_ioctl_cmd {
 	uint64_t cmd_id;
-	//uint8_t priority;
-	uint64_t uva; // user va
-	uint64_t kva; // kernel va
-	uint32_t iova; // device va
+
+	int mem_fd; //  memory buffer fd
+	uint32_t offset;
 	uint32_t size;
 };
 
@@ -160,8 +159,8 @@ struct apusys_ioctl_fw {
 
 	char name[32];
 
-	uint64_t kva;
-	uint32_t iova;
+	int mem_fd;
+	uint32_t offset;
 	uint32_t size;
 };
 

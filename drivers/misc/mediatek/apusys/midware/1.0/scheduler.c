@@ -230,8 +230,9 @@ static int insert_pack_cmd(struct apusys_subcmd *sc, struct pack_cmd **ipc)
 	return ret;
 }
 
-static int exec_pack_cmd(struct apusys_dev_aquire *acq)
+static int exec_pack_cmd(void *iacq)
 {
+	struct apusys_dev_aquire *acq = (struct apusys_dev_aquire *)iacq;
 	struct pack_cmd *pc = (struct pack_cmd *)acq->user;
 	struct apusys_cmd *cmd = NULL;
 	struct apusys_subcmd *sc = NULL;
@@ -278,8 +279,9 @@ static int exec_pack_cmd(struct apusys_dev_aquire *acq)
 	return 0;
 }
 
-static void subcmd_done(struct apusys_subcmd *sc)
+static void subcmd_done(void *isc)
 {
+	struct apusys_subcmd *sc = (struct apusys_subcmd *)isc;
 	struct apusys_cmd *cmd = (struct apusys_cmd *)sc->parent_cmd;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_subcmd *sc_node = NULL;
@@ -337,7 +339,7 @@ static void subcmd_done(struct apusys_subcmd *sc)
 			LOG_DEBUG("sc(%d/%p) dp satified, insert to queue(%d)n",
 				sc_node->idx, sc_node, cmd->priority);
 			list_del(&sc_node->ce_list);
-			ret = insert_apusys_subcmd(sc_node, cmd->priority);
+			ret = insert_subcmd(sc_node, cmd->priority);
 			if (ret) {
 				LOG_ERR("insert sc(%p/%p) to q(%d/%d) fail\n",
 					sc_node->entry, sc_node,
@@ -389,6 +391,7 @@ static int exec_cmd_func(void *isc, void *idev)
 		goto out;
 	}
 
+	/* fill specific subcmd info */
 	if (sc->type == APUSYS_DEVICE_MDLA) {
 		if (parse_mdla_sg((struct apusys_cmd *)sc->parent_cmd,
 			(void *)sc, &cmd_hnd))
@@ -449,7 +452,7 @@ static int exec_cmd_func(void *isc, void *idev)
 			dev);
 		cmd->cmd_ret = ret;
 		mutex_unlock(&sc->mtx);
-		if (resource_put_device(dev)) {
+		if (put_device_lock(dev)) {
 			LOG_ERR("return device(%d/%d/%p) fail\n",
 				dev->dev_type,
 				dev->idx,
@@ -464,7 +467,7 @@ static int exec_cmd_func(void *isc, void *idev)
 	}
 
 	// put back device
-	if (resource_put_device(dev)) {
+	if (put_device_lock(dev)) {
 		LOG_ERR("return device(%d/%d/%p) fail\n",
 			dev->dev_type,
 			dev->idx,
@@ -512,9 +515,11 @@ int sche_routine(void *arg)
 			DEBUG_TAG;
 			mutex_lock(&res_mgr->mtx);
 
+			/* check any device acq ready for packcmd */
 			if (acq_async != NULL) {
 				LOG_DEBUG("get pack cmd(%d) ready",
 					acq_async->dev_type);
+				/* exec packcmd */
 				if (exec_pack_cmd(acq_async))
 					LOG_ERR("execute pack cmd fail\n");
 
@@ -527,9 +532,14 @@ int sche_routine(void *arg)
 
 			/* get type from available */
 			type = find_first_bit(available, APUSYS_DEV_TABLE_MAX);
+			if (type >= APUSYS_DEV_TABLE_MAX) {
+				LOG_WARN("find first bit for type(%d) fail\n",
+					type);
+				goto sched_retrigger;
+			}
 
 			/* pop cmd from priority queue */
-			ret = pop_apusys_subcmd(type, (void **)&sc);
+			ret = pop_subcmd(type, (void **)&sc);
 			if (ret) {
 				LOG_ERR("pop subcmd for dev(%d) fail\n", type);
 				goto sched_retrigger;
@@ -578,7 +588,8 @@ int sche_routine(void *arg)
 			if (ret < 0 || acq.acq_num <= 0) {
 				LOG_ERR("no dev(%d) available\n", type);
 				mutex_lock(&sc->mtx);
-				if (insert_apusys_subcmd(sc, cmd->priority)) {
+				/* can't get device, insert sc back */
+				if (insert_subcmd(sc, cmd->priority)) {
 					LOG_ERR("re sc(%p) devq(%d/%d) fail\n",
 						sc,
 						type,
@@ -616,6 +627,7 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 	int ret = 0, state = -1, i = 0;
 	struct apusys_subcmd *sc = NULL;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
+	struct apusys_res_mgr *res_mgr = resource_get_mgr();
 
 	if (cmd == NULL)
 		return -EINVAL;
@@ -632,7 +644,7 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 	if (ret) {
 		LOG_ERR("user ctx int(%d), error handle...\n",
 			ret);
-		if (state == CMD_STATE_DONE)
+		if (cmd->state == CMD_STATE_DONE)
 			return 0;
 
 		/* delete all subcmd in cmd */
@@ -641,9 +653,8 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 		list_for_each_safe(list_ptr, tmp, &cmd->sc_list) {
 			sc = list_entry(list_ptr,
 				struct apusys_subcmd, ce_list);
-			if (sc == NULL)
-				continue;
 
+			mutex_lock(&res_mgr->mtx);
 			mutex_lock(&sc->mtx);
 			if (sc->state < CMD_STATE_RUN) {
 				/* delete from cmd */
@@ -651,9 +662,10 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 				bitmap_clear(cmd->sc_status, sc->idx, 1);
 
 				/* delete subcmd from priority q */
-				/* TODO: lockProve(sc->mtx, res_mgr.mtx) */
-				resource_delete_subcmd((void *)sc);
-
+				if (delete_subcmd((void *)sc)) {
+					LOG_ERR("delete sc(0x%llx/%d) fail\n",
+						cmd->cmd_id, sc->idx);
+				}
 				if (free_ctx(sc, cmd))
 					LOG_ERR("free memory ctx id fail\n");
 
@@ -663,10 +675,12 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 				}
 
 				mutex_unlock(&sc->mtx);
+				mutex_unlock(&res_mgr->mtx);
 
 				kfree(sc);
 			} else {
 				mutex_unlock(&sc->mtx);
+				mutex_unlock(&res_mgr->mtx);
 			}
 		}
 		mutex_unlock(&cmd->sc_mtx);
@@ -756,11 +770,12 @@ int apusys_sched_add_list(struct apusys_cmd *cmd)
 				*cmd->sc_status);
 		}
 
+		/* add sc to cmd's sc_list*/
 		list_add_tail(&sc->ce_list, &cmd->sc_list);
 
 		if (bitmap_empty(sc->dp_status, cmd->sc_num)) {
 			/* insert to type priority queue */
-			ret = resource_insert_subcmd(sc, cmd->priority);
+			ret = insert_subcmd_lock(sc, cmd->priority);
 			if (ret) {
 				LOG_ERR("insert sc(%p/%p) to q(%d/%d) fail\n",
 					sc->entry, sc, type, cmd->priority);

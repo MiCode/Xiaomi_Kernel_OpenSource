@@ -97,10 +97,11 @@ struct apusys_res_mgr {
 
 struct apusys_res_mgr *resource_get_mgr(void);
 
-int insert_apusys_subcmd(void *isc, int priority);
-int resource_insert_subcmd(void *isc, int priority);
-int pop_apusys_subcmd(int type, void **isc);
-int resource_delete_subcmd(void *isc);
+int insert_subcmd(void *isc, int priority);
+int insert_subcmd_lock(void *isc, int priority);
+int pop_subcmd(int type, void **isc);
+int delete_subcmd(void *isc);
+int delete_subcmd_lock(void *isc);
 
 int get_apusys_device(int dev_type, uint64_t owner, struct apusys_device **dev);
 
@@ -110,7 +111,7 @@ int acquire_device_sync(struct apusys_dev_aquire *acq);
 int acquire_device_check(struct apusys_dev_aquire **iacq);
 int acquire_device_sync_lock(struct apusys_dev_aquire *acq);
 
-int resource_put_device(struct apusys_device *dev);
+int put_device_lock(struct apusys_device *dev);
 int put_apusys_device(struct apusys_device *dev);
 
 int resource_set_power(int dev_type, uint32_t idx, uint32_t boost_val);
