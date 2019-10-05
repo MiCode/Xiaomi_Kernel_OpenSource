@@ -261,8 +261,7 @@ static void sugov_set_iowait_boost(struct sugov_cpu *sg_cpu, u64 time,
 		 * blocked RT utilization.
 		 */
 		max_boost = sg_cpu->iowait_boost_max;
-		if (!sched_get_rt_rq_util(sg_cpu->cpu))
-			max_boost = uclamp_util(sg_cpu->cpu, max_boost);
+		max_boost = uclamp_util(sg_cpu->cpu, max_boost);
 
 		if (sg_cpu->iowait_boost) {
 			sg_cpu->iowait_boost <<= 1;
