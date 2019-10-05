@@ -2777,7 +2777,6 @@ page_owner=on";
 		clock-names = "MDP_RDMA0";
 		mmsys_config = <&mdpsys_config>;
 		mm_mutex   = <&mdp_mutex>;
-		mediatek,mailbox-gce = <&gce_mbox>;
 		mboxes = <&gce_mbox_m 12 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox_m 13 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox_m 14 0 CMDQ_THR_PRIO_1>,
@@ -2827,6 +2826,8 @@ page_owner=on";
 		mdp_tcc3   = <&mdp_tcc3>;
 		/* To Do: refine after DRM enabled */
 		thread_count = <24>;
+		mediatek,mailbox-gce = <&gce_mbox>;
+		mediatek,mailbox-gce-m = <&gce_mbox_m>;
 		disp_mutex_reg = <0x14120000 0x1000>;
 		g3d_config_base = <0x13000000 0 0xffff0000>;
 		mmsys_config_base = <0x14000000 1 0xffff0000>;

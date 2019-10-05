@@ -533,6 +533,7 @@ void cmdq_dev_init(struct platform_device *pDevice)
 		memset(&gCmdqDev, 0x0, sizeof(struct CmdqDeviceStruct));
 
 		gCmdqDev.pDev = &pDevice->dev;
+#if !IS_ENABLED(CONFIG_MACH_MT6885)
 		gCmdqDev.regBaseVA = (unsigned long)of_iomap(node, 0);
 		gCmdqDev.regBasePA = cmdq_dev_get_gce_node_PA(node, 0);
 		gCmdqDev.irqId = irq_of_parse_and_map(node, 0);
@@ -549,16 +550,43 @@ void cmdq_dev_init(struct platform_device *pDevice)
 			gCmdqDev.regBaseVA, gCmdqDev.irqId,
 			gCmdqDev.irqSecId);
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
-		node2 = of_parse_phandle(pDevice->dev.of_node,
-			"mediatek,mailbox-gce", 0);
+#else
+		node2 = of_parse_phandle(node, "mediatek,mailbox-gce-m", 0);
 		if (!node2)
 			break;
 		pdevice2 = of_find_device_by_node(node2);
-		gCmdqDev.pdev2 = &pdevice2->dev;
 		of_node_put(node2);
-		if (!gCmdqDev.pdev2)
+		if (!pdevice2)
 			break;
+		gCmdqDev.regBaseVA = (unsigned long)of_iomap(
+			pdevice2->dev.of_node, 0);
+		gCmdqDev.regBasePA = cmdq_dev_get_gce_node_PA(
+			pdevice2->dev.of_node, 0);
+		gCmdqDev.irqId = irq_of_parse_and_map(pdevice2->dev.of_node, 0);
+		gCmdqDev.irqSecId = irq_of_parse_and_map(
+			pdevice2->dev.of_node, 1);
+		gCmdqDev.irqId2 = irq_of_parse_and_map(
+			pdevice2->dev.of_node, 2);
+		gCmdqDev.clk_gce = devm_clk_get(gCmdqDev.pDev, "GCE");
+		gCmdqDev.clk_gce_timer = devm_clk_get(gCmdqDev.pDev,
+			"GCE_TIMER");
+		gCmdqDev.clk_mmsys_mtcmos = devm_clk_get(gCmdqDev.pDev,
+			"MMSYS_MTCMOS");
+
+		CMDQ_LOG(
+			"[CMDQ] platform_dev: dev:%p PA:%pa VA:%lx irqId:%d irqSecId:%d\n",
+			gCmdqDev.pDev, &gCmdqDev.regBasePA,
+			gCmdqDev.regBaseVA, gCmdqDev.irqId,
+			gCmdqDev.irqSecId);
+
+		node2 = of_parse_phandle(node, "mediatek,mailbox-gce", 0);
+		if (!node2)
+			break;
+		pdevice2 = of_find_device_by_node(node2);
+		of_node_put(node2);
+		if (!pdevice2)
+			break;
+		gCmdqDev.pdev2 = &pdevice2->dev;
 		gCmdqDev.va2 = (unsigned long)of_iomap(
 			pdevice2->dev.of_node, 0);
 		if (!gCmdqDev.va2)
@@ -567,7 +595,6 @@ void cmdq_dev_init(struct platform_device *pDevice)
 			&res))
 			break;
 		gCmdqDev.pa2 = res.start;
-		gCmdqDev.irqId2 = irq_of_parse_and_map(node, 2);
 
 		CMDQ_LOG(
 			"[CMDQ] 2nd dev:%p PA:%pa VA:%lx irqId:%d\n",
