@@ -16,8 +16,10 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/slab.h>
+#include <linux/sched/clock.h>
 #include <mt-plat/mtk-mbox.h>
 
+#define MTK_MBOX_DEBUGGIN 0
 /*
  * memory copy to tiny
  * @param dest: dest address
@@ -62,10 +64,16 @@ int mtk_mbox_write_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	struct mtk_ipi_msg *ipimsg;
 	void __iomem *base;
 	int len;
+	unsigned long flags;
 
-	if (!mbdev || mbox >= mbdev->count || !msg) {
-		pr_notice("[MBOX]write header fail, dev or ptr null");
-		return MBOX_PARA_ERROR;
+	if (!mbdev) {
+		pr_notice("[MBOX]write header fail, dev null");
+		return MBOX_PLT_ERR;
+	}
+
+	if (mbox >= mbdev->count || !msg) {
+		pr_notice("[MBOX]write header config err");
+		return MBOX_PARA_ERR;
 	}
 
 	minfo = &(mbdev->info_table[mbox]);
@@ -75,6 +83,10 @@ int mtk_mbox_write_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	ipimsg = (struct mtk_ipi_msg *)msg;
 	len = ipimsg->ipihd.len;
 
+	if (len > size * MBOX_SLOT_SIZE)
+		return MBOX_WRITE_SZ_ERR;
+
+	spin_lock_irqsave(&mbdev->info_table[mbox].mbox_lock, flags);
 	/*ipi header and payload*/
 	if (mbdev->memcpy_to_tiny) {
 		mbdev->memcpy_to_tiny((void __iomem *)(base + slot_ofs),
@@ -90,6 +102,9 @@ int mtk_mbox_write_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 			ipimsg->data, len);
 	}
 
+	minfo->record.write_count++;
+	spin_unlock_irqrestore(&mbdev->info_table[mbox].mbox_lock, flags);
+
 	return MBOX_DONE;
 }
 
@@ -104,10 +119,16 @@ int mtk_mbox_read_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	struct mtk_mbox_info *minfo;
 	struct mtk_ipi_msg_hd *ipihd;
 	void __iomem *base;
+	unsigned long flags;
 
-	if (!mbdev || mbox >= mbdev->count || !dest) {
-		pr_notice("[MBOX]read header fail, dev or ptr null");
-		return MBOX_PARA_ERROR;
+	if (!mbdev) {
+		pr_notice("[MBOX]read header fail, dev null");
+		return MBOX_PLT_ERR;
+	}
+
+	if (mbox >= mbdev->count || !dest) {
+		pr_notice("[MBOX]read header config err");
+		return MBOX_PARA_ERR;
 	}
 
 	minfo = &(mbdev->info_table[mbox]);
@@ -116,6 +137,10 @@ int mtk_mbox_read_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	size = minfo->slot;
 	ipihd = (struct mtk_ipi_msg_hd *)(base + slot_ofs);
 
+	if (ipihd->len > size * MBOX_SLOT_SIZE)
+		return MBOX_READ_SZ_ERR;
+
+	spin_lock_irqsave(&mbdev->info_table[mbox].mbox_lock, flags);
 	/*ipi header and payload*/
 	if (mbdev->memcpy_from_tiny)
 		mbdev->memcpy_from_tiny(dest, (void __iomem *)
@@ -125,6 +150,7 @@ int mtk_mbox_read_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 		mtk_memcpy_from_tinysys(dest, (void __iomem *)
 			(base + slot_ofs + sizeof(struct mtk_ipi_msg_hd)),
 			ipihd->len);
+	spin_unlock_irqrestore(&mbdev->info_table[mbox].mbox_lock, flags);
 
 	return MBOX_DONE;
 }
@@ -138,14 +164,15 @@ int mtk_mbox_write(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	unsigned int slot_ofs, size;
 	struct mtk_mbox_info *minfo;
 	void __iomem *base;
+	unsigned long flags;
 
-	if (!mbdev || !data) {
+	if (!mbdev) {
 		pr_notice("[MBOX]write fail, dev or ptr null");
-		return MBOX_PARA_ERROR;
+		return MBOX_PLT_ERR;
 	}
 
-	if (mbox >= mbdev->count)
-		return MBOX_PARA_ERROR;
+	if (mbox >= mbdev->count || !data)
+		return MBOX_PARA_ERR;
 
 	minfo = &(mbdev->info_table[mbox]);
 	base = minfo->base;
@@ -153,8 +180,9 @@ int mtk_mbox_write(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	size = minfo->slot;
 
 	if (slot > size)
-		return MBOX_PARA_ERROR;
+		return MBOX_WRITE_SZ_ERR;
 
+	spin_lock_irqsave(&mbdev->info_table[mbox].mbox_lock, flags);
 	if (mbdev->memcpy_to_tiny)
 		mbdev->memcpy_to_tiny((void __iomem *)(base + slot_ofs),
 			data, len);
@@ -162,6 +190,8 @@ int mtk_mbox_write(struct mtk_mbox_device *mbdev, unsigned int mbox,
 		mtk_memcpy_to_tinysys((void __iomem *)(base + slot_ofs),
 			data, len);
 
+	minfo->record.write_count++;
+	spin_unlock_irqrestore(&mbdev->info_table[mbox].mbox_lock, flags);
 
 	return MBOX_DONE;
 }
@@ -175,14 +205,15 @@ int mtk_mbox_read(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	unsigned int slot_ofs, size;
 	struct mtk_mbox_info *minfo;
 	void __iomem *base;
+	unsigned long flags;
 
 	if (!mbdev || !data) {
 		pr_notice("[MBOX]read fail,dev or ptr null");
-		return MBOX_PARA_ERROR;
+		return MBOX_PLT_ERR;
 	}
 
 	if (mbox >= mbdev->count)
-		return MBOX_PARA_ERROR;
+		return MBOX_PARA_ERR;
 
 	minfo = &(mbdev->info_table[mbox]);
 	base = minfo->base;
@@ -190,14 +221,16 @@ int mtk_mbox_read(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	size = minfo->slot;
 
 	if (slot > size)
-		return MBOX_PARA_ERROR;
+		return MBOX_READ_SZ_ERR;
 
+	spin_lock_irqsave(&mbdev->info_table[mbox].mbox_lock, flags);
 	if (mbdev->memcpy_from_tiny)
 		mbdev->memcpy_from_tiny(data,
 			(void __iomem *)(base + slot_ofs), len);
 	else
 		mtk_memcpy_from_tinysys(data,
 			(void __iomem *)(base + slot_ofs), len);
+	spin_unlock_irqrestore(&mbdev->info_table[mbox].mbox_lock, flags);
 
 	return MBOX_DONE;
 }
@@ -212,10 +245,10 @@ int mtk_mbox_clr_irq(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	struct mtk_mbox_info *minfo;
 
 	if (!mbdev)
-		return MBOX_PARA_ERROR;
+		return MBOX_PLT_ERR;
 
 	if (mbox >= mbdev->count)
-		return MBOX_PARA_ERROR;
+		return MBOX_IRQ_ERR;
 
 	minfo = &(mbdev->info_table[mbox]);
 	writel(irq, minfo->clr_irq_reg);
@@ -231,15 +264,19 @@ int mtk_mbox_trigger_irq(struct mtk_mbox_device *mbdev, unsigned int mbox,
 		unsigned int irq)
 {
 	struct mtk_mbox_info *minfo;
+	unsigned long flags;
 
 	if (!mbdev)
-		return MBOX_PARA_ERROR;
+		return MBOX_PLT_ERR;
 
 	if (mbox >= mbdev->count)
-		return MBOX_PARA_ERROR;
+		return MBOX_IRQ_ERR;
 
 	minfo = &(mbdev->info_table[mbox]);
+	spin_lock_irqsave(&mbdev->info_table[mbox].mbox_lock, flags);
 	writel(irq, minfo->set_irq_reg);
+	minfo->record.trig_irq_count++;
+	spin_unlock_irqrestore(&mbdev->info_table[mbox].mbox_lock, flags);
 
 	return MBOX_DONE;
 }
@@ -254,6 +291,7 @@ unsigned int mtk_mbox_check_send_irq(struct mtk_mbox_device *mbdev,
 {
 	struct mtk_mbox_info *minfo;
 	unsigned int reg, irq_state;
+	unsigned long flags;
 
 	if (!mbdev)
 		return 0;
@@ -261,13 +299,20 @@ unsigned int mtk_mbox_check_send_irq(struct mtk_mbox_device *mbdev,
 	if (mbox >= mbdev->count)
 		return 0;
 
+	spin_lock_irqsave(&mbdev->info_table[mbox].mbox_lock, flags);
 	irq_state = 0;
 	minfo = &(mbdev->info_table[mbox]);
 	if (minfo->send_status_reg)
 		reg = readl(minfo->send_status_reg);
 	else
 		reg = readl(minfo->set_irq_reg);
+
 	irq_state = (reg & (0x1 << pin_index));
+
+	if (irq_state)
+		minfo->record.busy_count++;
+
+	spin_unlock_irqrestore(&mbdev->info_table[mbox].mbox_lock, flags);
 
 	return irq_state;
 }
@@ -277,7 +322,7 @@ unsigned int mtk_mbox_check_send_irq(struct mtk_mbox_device *mbdev,
  * with read/write function must in critical context
  * @return irq status 0: not triggered , other: irq triggered
  */
-unsigned int mbox_read_recv_irq(struct mtk_mbox_device *mbdev,
+unsigned int mtk_mbox_read_recv_irq(struct mtk_mbox_device *mbdev,
 		unsigned int mbox)
 {
 	struct mtk_mbox_info *minfo;
@@ -290,6 +335,7 @@ unsigned int mbox_read_recv_irq(struct mtk_mbox_device *mbdev,
 		return 0;
 
 	minfo = &(mbdev->info_table[mbox]);
+
 	if (minfo->recv_status_reg)
 		reg = readl(minfo->recv_status_reg);
 	else
@@ -308,13 +354,14 @@ int mtk_mbox_set_base_reg(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	struct mtk_mbox_info *minfo;
 
 	if (!mbdev)
-		return MBOX_PARA_ERROR;
+		return MBOX_PLT_ERR;
 
 	if (mbox >= mbdev->count)
-		return MBOX_PARA_ERROR;
+		return MBOX_PARA_ERR;
 
 	minfo = &(mbdev->info_table[mbox]);
 	writel(addr, minfo->init_base_reg);
+
 
 	return MBOX_DONE;
 }
@@ -331,13 +378,12 @@ int mtk_mbox_set_base_addr(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	int ret;
 
 	if (!mbdev)
-		return MBOX_PARA_ERROR;
+		return MBOX_PLT_ERR;
 
 	if (mbox >= mbdev->count)
-		return MBOX_PARA_ERROR;
+		return MBOX_PARA_ERR;
 
 	spin_lock_irqsave(&mbdev->info_table[mbox].mbox_lock, flags);
-
 	ret = mtk_mbox_set_base_reg(mbdev, mbox, addr);
 
 	if (ret != MBOX_DONE) {
@@ -348,7 +394,6 @@ int mtk_mbox_set_base_addr(struct mtk_mbox_device *mbdev, unsigned int mbox,
 
 	minfo = &(mbdev->info_table[mbox]);
 	writel(addr, minfo->base);
-
 	spin_unlock_irqrestore(&mbdev->info_table[mbox].mbox_lock, flags);
 
 	return MBOX_DONE;
@@ -364,7 +409,7 @@ int mtk_mbox_cb_register(struct mtk_mbox_device *mbdev, unsigned int pin_offset,
 	struct mtk_mbox_pin_recv *pin_recv;
 
 	if (!mbdev)
-		return MBOX_PARA_ERROR;
+		return MBOX_PLT_ERR;
 
 	pin_recv = &(mbdev->pin_recv_table[pin_offset]);
 	pin_recv->mbox_pin_cb = mbox_pin_cb;
@@ -385,6 +430,12 @@ int mtk_mbox_polling(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	unsigned int recv_pin_index;
 	int ret;
 
+	if (!mbdev)
+		return MBOX_PLT_ERR;
+
+	if (mbox >= mbdev->count)
+		return MBOX_PARA_ERR;
+
 	recv_pin_index = pin_recv->pin_index;
 	minfo = &(mbdev->info_table[mbox]);
 
@@ -393,10 +444,11 @@ int mtk_mbox_polling(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	if (pin_recv->lock == MBOX_PIN_BUSY) {
 		spin_unlock_irqrestore(
 			&mbdev->info_table[mbox].mbox_lock, flags);
+		minfo->record.busy_count++;
 		return MBOX_PIN_BUSY;
 	}
 	/*check bit*/
-	reg = mbox_read_recv_irq(mbdev, mbox);
+	reg = mtk_mbox_read_recv_irq(mbdev, mbox);
 	irq_state = (reg & (0x1 << recv_pin_index));
 
 	if (irq_state > 0) {
@@ -405,6 +457,7 @@ int mtk_mbox_polling(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	} else {
 		spin_unlock_irqrestore(
 			&mbdev->info_table[mbox].mbox_lock, flags);
+		minfo->record.busy_count++;
 		return MBOX_PIN_BUSY;
 	}
 
@@ -454,7 +507,7 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 	/*lock pin*/
 	mtk_mbox_set_lock(mbdev, MBOX_PIN_BUSY);
 	/*get irq status*/
-	irq_status = mbox_read_recv_irq(mbdev, mbox);
+	irq_status = mtk_mbox_read_recv_irq(mbdev, mbox);
 	irq_temp = 0;
 	spin_unlock_irqrestore(&minfo->mbox_lock, flags);
 
@@ -468,6 +521,8 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 			continue;
 		/*recv irq trigger*/
 		if (((0x1 << pin_recv->pin_index) & irq_status) > 0x0) {
+			pin_recv->recv_record.recv_irq_count++;
+			pin_recv->recv_record.irq_reg_value = irq_status;
 			irq_temp = irq_temp | (0x1 << pin_recv->pin_index);
 			/*check user buf*/
 			if (!pin_recv->pin_buf) {
@@ -483,14 +538,19 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 				ret = mtk_mbox_read_hd(mbdev, mbox,
 					pin_recv->offset, pin_recv->pin_buf);
 
-				if (pin_recv->recv_opt == MBOX_RECV
+				if (pin_recv->recv_opt == MBOX_RECV_MESSAGE
 					&& pin_recv->cb_ctx_opt
 						== MBOX_CB_IN_ISR
 					&& pin_recv->mbox_pin_cb
 					&& ret == MBOX_DONE) {
+					pin_recv->recv_record.pre_timestamp
+						= cpu_clock(0);
 					pin_recv->mbox_pin_cb(ipihead->id,
 					pin_recv->prdata, pin_recv->pin_buf,
 					(unsigned int)ipihead->len);
+					pin_recv->recv_record.post_timestamp
+						= cpu_clock(0);
+					pin_recv->recv_record.cb_count++;
 				}
 			} else {
 				/*direct mode*/
@@ -498,24 +558,36 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 					pin_recv->offset, pin_recv->pin_buf,
 					pin_recv->msg_size * MBOX_SLOT_SIZE);
 
-				if (pin_recv->recv_opt == MBOX_RECV
+				if (pin_recv->recv_opt == MBOX_RECV_MESSAGE
 					&& pin_recv->cb_ctx_opt
 						== MBOX_CB_IN_ISR
 					&& pin_recv->mbox_pin_cb
-					&& ret == MBOX_DONE)
+					&& ret == MBOX_DONE) {
+					pin_recv->recv_record.pre_timestamp
+						= cpu_clock(0);
 					pin_recv->mbox_pin_cb(pin_recv->chan_id,
 					pin_recv->prdata, pin_recv->pin_buf,
 					pin_recv->msg_size * MBOX_SLOT_SIZE);
+					pin_recv->recv_record.post_timestamp
+						= cpu_clock(0);
+					pin_recv->recv_record.cb_count++;
+				}
 			}
 			/*notify task*/
-			if (ret == MBOX_DONE && mbdev->ipi_cb)
+			if (ret == MBOX_DONE && mbdev->ipi_cb) {
 				mbdev->ipi_cb(pin_recv, mbdev->ipi_priv);
+				pin_recv->recv_record.notify_count++;
+			}
+
 		}
+#if MTK_MBOX_DEBUGGIN
+		mtk_mbox_dump_recv(mbdev, i);
+#endif
 	}
 
 	if (ret != MBOX_DONE)
-		pr_notice("[MBOX ISR]read fail,dev=%d chan=%d",
-			mbdev->id, pin_recv->chan_id);
+		pr_notice("[MBOX ISR]read fail,dev=%d chan=%d ret=%d",
+			mbdev->id, pin_recv->chan_id, ret);
 
 	if (mbdev->post_cb)
 		mbdev->post_cb(mbdev->prdata);
@@ -573,7 +645,7 @@ int mtk_smem_init(struct platform_device *pdev, struct mtk_mbox_device *mbdev,
 	return MBOX_DONE;
 
 smem_fail:
-	return MBOX_CONFIG_ERROR;
+	return MBOX_CONFIG_ERR;
 }
 
 /*
@@ -663,34 +735,155 @@ int mtk_mbox_probe(struct platform_device *pdev, struct mtk_mbox_device *mbdev,
 	return MBOX_DONE;
 
 mtk_mbox_probe_fail:
-	return MBOX_CONFIG_ERROR;
+	return MBOX_CONFIG_ERR;
 }
+
+/*
+ *mbox print receive pin function
+ */
+void mtk_mbox_print_recv(struct mtk_mbox_device *mbdev,
+	struct mtk_mbox_pin_recv *pin_recv)
+{
+	pr_notice("[MBOX]dev=%u recv mbox=%u off=%u cv_opt=%u ctx_opt=%u mg_sz=%u p_idx=%u id=%u irq_reg=%u cv_irq=%u noti=%u cb=%u pre_ts=%llu po_ts%llu\n"
+		, mbdev->id
+		, pin_recv->mbox
+		, pin_recv->offset
+		, pin_recv->recv_opt
+		, pin_recv->cb_ctx_opt
+		, pin_recv->msg_size
+		, pin_recv->pin_index
+		, pin_recv->chan_id
+		, pin_recv->recv_record.irq_reg_value
+		, pin_recv->recv_record.recv_irq_count
+		, pin_recv->recv_record.notify_count
+		, pin_recv->recv_record.cb_count
+		, pin_recv->recv_record.pre_timestamp
+		, pin_recv->recv_record.post_timestamp);
+}
+
+/*
+ *mbox print send pin function
+ */
+void mtk_mbox_print_send(struct mtk_mbox_device *mbdev,
+	struct mtk_mbox_pin_send *pin_send)
+{
+	pr_notice("[MBOX]dev=%u send mbox=%u off=%u s_opt=%u mg_sz=%u p_idx=%u id=%u\n"
+		, mbdev->id
+		, pin_send->mbox
+		, pin_send->offset
+		, pin_send->send_opt
+		, pin_send->msg_size
+		, pin_send->pin_index
+		, pin_send->chan_id);
+}
+
+/*
+ *mbox print mbox function
+ */
+void mtk_mbox_print_minfo(struct mtk_mbox_device *mbdev,
+	struct mtk_mbox_info *minfo)
+{
+	pr_notice("[MBOX]dev=%u mbox id=%u slot=%u opt=%u base=%p set_irq=%p clr_irq=%p init_base=%p send_status=%p recv_status=%p write=%u busy=%u tri_irq=%u"
+		, mbdev->id
+		, minfo->id
+		, minfo->slot
+		, minfo->opt
+		, minfo->base
+		, minfo->set_irq_reg
+		, minfo->clr_irq_reg
+		, minfo->init_base_reg
+		, minfo->send_status_reg
+		, minfo->recv_status_reg
+		, minfo->record.write_count
+		, minfo->record.busy_count
+		, minfo->record.trig_irq_count);
+}
+
 
 /*
  *mbox information dump
  */
-void mtk_mbox_info_dump(struct mtk_mbox_device *mbdev)
+void mtk_mbox_dump_all(struct mtk_mbox_device *mbdev)
 {
 	struct mtk_mbox_pin_recv *pin_recv;
 	struct mtk_mbox_pin_send *pin_send;
+	struct mtk_mbox_info *minfo;
 	int i;
 
-	pr_notice("[MBOX]dev=%u recv count=%u send count=%u",
+	if (!mbdev)
+		return;
+
+	pr_notice("[MBOX]dev=%u recv count=%u send count=%u\n",
 		mbdev->id, mbdev->recv_count, mbdev->send_count);
 
 	for (i = 0; i < mbdev->recv_count; i++) {
 		pin_recv = &(mbdev->pin_recv_table[i]);
-		pr_notice("[MBOX]recv pin:%d mbox=%u offset=%u recv_opt=%u cb_ctx_opt=%u msg_size=%u pin_index=%u chan_id=%u",
-			i, pin_recv->mbox, pin_recv->offset, pin_recv->recv_opt,
-			pin_recv->cb_ctx_opt, pin_recv->msg_size,
-			pin_recv->pin_index, pin_recv->chan_id);
+		mtk_mbox_print_recv(mbdev, pin_recv);
 	}
 
 	for (i = 0; i < mbdev->send_count; i++) {
 		pin_send = &(mbdev->pin_send_table[i]);
-		pr_notice("[MBOX]send pin:%d mbox=%u offset=%u send_opt=%u msg_size=%u pin_index=%u chan_id=%u",
-			i, pin_send->mbox, pin_send->offset, pin_send->send_opt,
-			pin_send->msg_size, pin_send->pin_index,
-			pin_send->chan_id);
+		mtk_mbox_print_send(mbdev, pin_send);
+	}
+
+	for (i = 0; i < mbdev->count; i++) {
+		minfo = &(mbdev->info_table[i]);
+		mtk_mbox_print_minfo(mbdev, minfo);
+	}
+}
+
+
+/*
+ *mbox single receive pin information dump
+ */
+void mtk_mbox_dump_recv(struct mtk_mbox_device *mbdev, unsigned int pin)
+{
+	struct mtk_mbox_pin_recv *pin_recv;
+
+	if (mbdev) {
+		if (pin < mbdev->recv_count) {
+			pin_recv = &(mbdev->pin_recv_table[pin]);
+			mtk_mbox_print_recv(mbdev, pin_recv);
+		}
+	}
+}
+
+/*
+ *mbox single receive pin information dump
+ */
+void mtk_mbox_dump_recv_pin(struct mtk_mbox_device *mbdev,
+	struct mtk_mbox_pin_recv *pin_recv)
+{
+	if (mbdev && pin_recv)
+		mtk_mbox_print_recv(mbdev, pin_recv);
+}
+
+/*
+ *mbox single send pin information dump
+ */
+void mtk_mbox_dump_send(struct mtk_mbox_device *mbdev, unsigned int pin)
+{
+	struct mtk_mbox_pin_send *pin_send;
+
+	if (mbdev) {
+		if (pin < mbdev->send_count) {
+			pin_send = &(mbdev->pin_send_table[pin]);
+			mtk_mbox_print_send(mbdev, pin_send);
+		}
+	}
+}
+
+/*
+ *mbox single mbox information dump
+ */
+void mtk_mbox_dump(struct mtk_mbox_device *mbdev, unsigned int mbox)
+{
+	struct mtk_mbox_info *minfo;
+
+	if (mbdev) {
+		if (mbox < mbdev->count) {
+			minfo = &(mbdev->info_table[mbox]);
+			mtk_mbox_print_minfo(mbdev, minfo);
+		}
 	}
 }
