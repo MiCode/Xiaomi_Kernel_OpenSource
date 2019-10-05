@@ -15,7 +15,7 @@
 #define __APUSYS_OPTIONS_H__
 
 /* apusys interface support */
-//#define APUSYS_OPTIONS_INF_MNOC
+#define APUSYS_OPTIONS_INF_MNOC
 #define APUSYS_OPTIONS_INF_REVISER
 #define APUSYS_OPTIONS_INF_POWERARCH
 

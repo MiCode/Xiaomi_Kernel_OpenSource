@@ -183,6 +183,7 @@ static void mnoc_apusys_top_before_pwr_off(void *para)
 
 	infra2apu_sram_dis();
 	notify_sspm_apusys_off();
+	apu_pm_qos_off();
 
 	LOG_DEBUG("-\n");
 }

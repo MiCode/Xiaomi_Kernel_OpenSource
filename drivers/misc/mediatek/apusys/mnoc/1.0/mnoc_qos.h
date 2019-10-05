@@ -16,6 +16,7 @@
 
 void notify_sspm_apusys_on(void);
 void notify_sspm_apusys_off(void);
+void apu_pm_qos_off(void);
 
 void apu_qos_counter_init(void);
 void apu_qos_counter_destroy(void);

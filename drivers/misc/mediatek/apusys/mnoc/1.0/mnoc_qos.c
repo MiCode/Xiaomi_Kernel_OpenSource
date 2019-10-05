@@ -145,6 +145,17 @@ static int destroy_qos_request(struct pm_qos_request *req)
 	return 0;
 }
 
+/* to prevent pm qos request value stay at last cmd's peak bw */
+void apu_pm_qos_off(void)
+{
+	int i = 0;
+
+	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
+		update_qos_request(&(engine_pm_qos_counter[i].qos_req),
+			PM_QOS_APU_MEMORY_BANDWIDTH_DEFAULT_VALUE);
+	}
+}
+
 static void update_cmd_qos(struct qos_bound *qos_info, struct cmd_qos *cmd_qos)
 {
 	int idx = 0, qos_smi_idx = 0;
