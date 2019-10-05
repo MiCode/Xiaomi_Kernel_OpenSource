@@ -694,6 +694,8 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 		vcu->gce_th_num[buff->cmdq_buff.codec_type]) {
 		pr_info("[VCU] %s invalid core(th) id %d\n",
 			__func__, core_id);
+		kfree(cmds);
+		kfree(buff);
 		return -EINVAL;
 	}
 
@@ -705,6 +707,8 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 		pr_info("[VCU] %s gce thread is null id %d type %d\n",
 			__func__, core_id,
 			buff->cmdq_buff.codec_type);
+		kfree(cmds);
+		kfree(buff);
 		return -EINVAL;
 	}
 

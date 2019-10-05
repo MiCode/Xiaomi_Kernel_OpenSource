@@ -60,7 +60,6 @@ void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 	enc_sram_data.size = 0;
 	enc_sram_data.flag = FG_POWER;
 	slbc_request(&enc_sram_data);
-	slbc_power_off(&enc_sram_data);
 }
 
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)

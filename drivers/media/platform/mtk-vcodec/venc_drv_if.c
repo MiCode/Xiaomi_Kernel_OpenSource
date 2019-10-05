@@ -129,6 +129,12 @@ void venc_encode_unprepare(void *ctx_unprepare,
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_unprepare;
 
+	if (ctx->dev->enc_sem[core_id].count != 0) {
+		mtk_v4l2_err("HW not prepared, enc_sem[%d].count = %d",
+			core_id, ctx->dev->enc_sem[core_id].count);
+		return;
+	}
+
 	mtk_vcodec_enc_clock_off(&ctx->dev->pm, core_id);
 	spin_lock_irqsave(&ctx->dev->irqlock, *flags);
 	ctx->dev->curr_ctx = NULL;

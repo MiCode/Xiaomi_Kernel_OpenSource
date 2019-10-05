@@ -844,7 +844,8 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 
 void mtk_vdec_unlock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 {
-	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d", ctx, ctx->id, hw_id);
+	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
+		ctx, ctx->id, hw_id, ctx->dev->dec_sem[hw_id].count);
 	if (hw_id < MTK_VDEC_HW_NUM)
 		up(&ctx->dev->dec_sem[hw_id]);
 }
@@ -863,7 +864,8 @@ void mtk_vdec_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 		usleep_range(10000, 20000);
 	}
 
-	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d", ctx, ctx->id, hw_id);
+	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
+		ctx, ctx->id, hw_id, ctx->dev->dec_sem[hw_id].count);
 	while (hw_id < MTK_VDEC_HW_NUM && ret != 0)
 		ret = down_interruptible(&ctx->dev->dec_sem[hw_id]);
 }

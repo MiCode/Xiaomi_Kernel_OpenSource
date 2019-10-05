@@ -208,6 +208,12 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_unprepare;
 
+	if (ctx->dev->dec_sem[hw_id].count != 0) {
+		mtk_v4l2_err("HW not prepared, dec_sem[%d].count = %d",
+			hw_id, ctx->dev->dec_sem[hw_id].count);
+		return;
+	}
+
 	disable_irq(ctx->dev->dec_irq[hw_id]);
 	mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
 	mtk_vcodec_set_curr_ctx(ctx->dev, NULL);
