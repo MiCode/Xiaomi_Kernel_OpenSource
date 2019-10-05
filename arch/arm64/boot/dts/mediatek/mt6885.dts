@@ -2007,6 +2007,47 @@ page_owner=on";
 			"PWM-main";
 	};
 
+	ses: ses {
+		compatible = "mediatek,ses";
+		state = <0>;
+		ses0_reg3 = <0>;
+		ses1_reg3 = <0>;
+		ses2_reg3 = <0>;
+		ses3_reg3 = <0>;
+		ses4_reg3 = <0>;
+		ses5_reg3 = <0>;
+		ses6_reg3 = <0>;
+		ses7_reg3 = <0>;
+		ses8_reg3 = <0>;
+		ses0_reg2 = <0>;
+		ses1_reg2 = <0>;
+		ses2_reg2 = <0>;
+		ses3_reg2 = <0>;
+		ses4_reg2 = <0>;
+		ses5_reg2 = <0>;
+		ses6_reg2 = <0>;
+		ses7_reg2 = <0>;
+		ses8_reg2 = <0>;
+		ses0_drphipct = <0>;
+		ses1_drphipct = <0>;
+		ses2_drphipct = <0>;
+		ses3_drphipct = <0>;
+		ses4_drphipct = <0>;
+		ses5_drphipct = <0>;
+		ses6_drphipct = <0>;
+		ses7_drphipct = <0>;
+		ses8_drphipct = <0>;
+		ses0_drplopct = <0>;
+		ses1_drplopct = <0>;
+		ses2_drplopct = <0>;
+		ses3_drplopct = <0>;
+		ses4_drplopct = <0>;
+		ses5_drplopct = <0>;
+		ses6_drplopct = <0>;
+		ses7_drplopct = <0>;
+		ses8_drplopct = <0>;
+	};
+
 	eem_fsm: eem_fsm@1100b000 {
 		compatible = "mediatek,eem_fsm";
 		reg = <0 0x1100b000 0 0x1000>;
