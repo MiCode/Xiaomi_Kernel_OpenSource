@@ -120,6 +120,7 @@ CONFIG_CUSTOM_KERNEL_STEP_COUNTER,PROJECT,yucong.xiong,new config in this commit
 CONFIG_CUSTOM_KERNEL_TILT_DETECTOR_SENSOR,PROJECT,qiangming.xia,,,,,
 CONFIG_CUSTOM_KERNEL_UNCALI_GYRO_SENSOR,PROJECT,weiqi.fu,new config in this commit 6cf72299191fe832dffff96cd9233bcf981b52a0,,,,
 CONFIG_CUSTOM_KERNEL_UNCALI_MAG_SENSOR,PROJECT,weiqi.fu,new config in this commit 6cf72299191fe832dffff96cd9233bcf981b52a0,,,,
+CONFIG_CUSTOM_KERNEL_UNCALI_ACC_SENSOR,PROJECT,benjamin.chao,new config in this commit b624c6a7d0e407c6270158ad25cdd88a6ccfb247,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_WAKE_GESTURE_SENSOR,PROJECT,qiangming.xia,,,,,
 CONFIG_CUSTOM_LCM_X,PROJECT,xiaobin.wei,new config in this commit f4016501cb0eecec097a1de0760984fa6a0c4175,,,,
 CONFIG_DEBUG_ATOMIC_SLEEP,USER,,,N,N,N,N
@@ -685,6 +686,7 @@ CONFIG_MTK_UFOZIP,PROJECT,Chinwen.Chang,,,,,
 CONFIG_MTK_UFS_SUPPORT,PROJECT,chun-hung.wu,new config in this commit 6c0e95524c592fe1b6fe1b2b10a066b5b1406f50,,,,
 CONFIG_MTK_UNCALI_GYROHUB,PROJECT,weiqi.fu,new config in this commit 6cf72299191fe832dffff96cd9233bcf981b52a0,,,,
 CONFIG_MTK_UNCALI_MAGHUB,PROJECT,weiqi.fu,new config in this commit 6cf72299191fe832dffff96cd9233bcf981b52a0,,,,
+CONFIG_MTK_UNCALI_ACCHUB,PROJECT,benjamin.chao,new config in this commit b624c6a7d0e407c6270158ad25cdd88a6ccfb247,,,,,,,,,,
 CONFIG_MTK_UNIFY_POWER,PLATFORM,irene.luo,,y,y,y,y
 CONFIG_MTK_USB2JTAG_SUPPORT,PLATFORM,shun-chih.yu,only D1 support,X,X,X,X
 CONFIG_MTK_USB_TYPEC_U3_MUX,PROJECT,Eddie.Hung,,X,X,y,y
