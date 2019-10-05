@@ -150,6 +150,7 @@ struct DIP_GET_DUMP_INFO_STRUCT {
 	unsigned int imgi_baseaddr;
 	unsigned int tdri_baseaddr;
 	unsigned int dmgi_baseaddr;
+	unsigned int cmdq_baseaddr;
 };
 
 enum DIP_MEMORY_INFO_CMD {

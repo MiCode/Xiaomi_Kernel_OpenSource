@@ -317,7 +317,7 @@ static bool g_bDumpPhyDIPBuf = MFALSE;
 static unsigned int g_tdriaddr = 0xffffffff;
 static unsigned int g_cmdqaddr = 0xffffffff;
 static struct DIP_GET_DUMP_INFO_STRUCT g_dumpInfo =	{
-	0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+	0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
 static struct DIP_MEM_INFO_STRUCT g_TpipeBaseAddrInfo = {0x0, 0x0, NULL, 0x0};
 static struct DIP_MEM_INFO_STRUCT g_CmdqBaseAddrInfo = {0x0, 0x0, NULL, 0x0};
 static unsigned int m_CurrentPPB;
@@ -867,6 +867,7 @@ static signed int DIP_DumpDIPReg(void)
 				break;
 			}
 		}
+		g_dumpInfo.cmdq_baseaddr = g_cmdqaddr;
 		if ((g_TpipeBaseAddrInfo.MemPa != 0) &&
 			(g_TpipeBaseAddrInfo.MemVa != NULL) &&
 			(g_pKWTpipeBuffer != NULL)) {
@@ -3983,6 +3984,7 @@ static signed int DIP_open(
 	g_dumpInfo.tdri_baseaddr = 0xFFFFFFFF;/* 0x15022304 */
 	g_dumpInfo.imgi_baseaddr = 0xFFFFFFFF;/* 0x15022500 */
 	g_dumpInfo.dmgi_baseaddr = 0xFFFFFFFF;/* 0x15022620 */
+	g_dumpInfo.cmdq_baseaddr = 0xFFFFFFFF;/* 0x15022620 */
 	g_tdriaddr = 0xffffffff;
 	g_cmdqaddr = 0xffffffff;
 	DumpBufferField = 0;
