@@ -34,6 +34,9 @@
 #if IS_ENABLED(CONFIG_MTK_M4U)
 #include <m4u.h>
 #endif
+#ifdef MMDVFS_HOOK
+#include <mmdvfs_mgr.h>
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #include <sspm_ipi.h>
@@ -496,6 +499,35 @@ static long smi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			ret = smi_bwc_conf(&conf);
 		break;
 	}
+#ifdef MMDVFS_HOOK
+	case MTK_IOC_SMI_BWC_INFO_SET:
+	{
+		set_mm_info_ioctl_wrapper(file, cmd, arg);
+		break;
+	}
+	case MTK_IOC_SMI_BWC_INFO_GET:
+	{
+		get_mm_info_ioctl_wrapper(file, cmd, arg);
+		break;
+	}
+	case MTK_IOC_MMDVFS_CMD:
+	{
+		struct MTK_MMDVFS_CMD mmdvfs_cmd;
+
+		if (copy_from_user(&mmdvfs_cmd,
+			(void *)arg, sizeof(struct MTK_MMDVFS_CMD)))
+			return -EFAULT;
+
+
+		mmdvfs_handle_cmd(&mmdvfs_cmd);
+
+		if (copy_to_user((void *)arg,
+			(void *)&mmdvfs_cmd, sizeof(struct MTK_MMDVFS_CMD))) {
+			return -EFAULT;
+		}
+	}
+	break;
+#endif
 	default:
 		ret = -ENOIOCTLCMD;
 		break;
@@ -657,6 +689,10 @@ s32 smi_register(void)
 	/* mmsys */
 	of_node = of_parse_phandle(
 		smi_dev[SMI_LARB_NUM]->dev->of_node, "mmsys_config", 0);
+#ifdef MMDVFS_HOOK
+	mmdvfs_init();
+	mmdvfs_clks_init(of_node);
+#endif
 	smi_mmsys_base = (void *)of_iomap(of_node, 0);
 	if (!smi_mmsys_base) {
 		SMIERR("Unable to parse or iomap mmsys_config\n");
