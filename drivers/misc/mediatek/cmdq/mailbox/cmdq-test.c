@@ -386,10 +386,8 @@ static void cmdq_test_mbox_large_cmd(struct cmdq_test *test)
 	writel(0xdeaddead, (void *)va);
 
 	pkt = cmdq_pkt_create(test->clt);
-	if (!perf_en) {
-		cmdq_pkt_timer_en(pkt);
+	if (!perf_en)
 		cmdq_pkt_perf_begin(pkt);
-	}
 	for (i = 0; i < 64 * 1024 / 8; i++) // 64k instructions
 		cmdq_pkt_write(pkt, NULL, pa, i, ~0);
 	if (!perf_en)

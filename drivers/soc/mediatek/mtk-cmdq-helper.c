@@ -502,10 +502,8 @@ struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client)
 		pkt->dev = client->chan->mbox->dev;
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	if (client && cmdq_util_is_feature_en(CMDQ_LOG_FEAT_PERF)) {
-		cmdq_pkt_timer_en(pkt);
+	if (client && cmdq_util_is_feature_en(CMDQ_LOG_FEAT_PERF))
 		cmdq_pkt_perf_begin(pkt);
-	}
 #endif
 
 	return pkt;
