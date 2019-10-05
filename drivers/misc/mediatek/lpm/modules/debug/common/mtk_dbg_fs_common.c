@@ -235,10 +235,10 @@ static ssize_t mtk_dbg_get_spmfw_version(char *ToUserBuf,
 	char *p = ToUserBuf;
 
 	struct device_node *node =
-		of_find_compatible_node(NULL, NULL, "mediatek,mtk-lpm");
+		of_find_compatible_node(NULL, NULL, "mediatek,sleep");
 
 	if (node == NULL) {
-		mtk_dbg_log("No Found mediatek,mtk-lpm\n");
+		mtk_dbg_log("No Found mediatek,mediatek,sleep\n");
 		goto return_size;
 	}
 
