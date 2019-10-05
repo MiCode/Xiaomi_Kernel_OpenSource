@@ -82,7 +82,7 @@ struct mt_regulator_drv_data {
 		.owner = THIS_MODULE,					\
 		.uV_step = (step),					\
 		.linear_min_sel = (0x30),				\
-		.n_voltages = ((max) - (min)) / (step) + 1,		\
+		.n_voltages = (max) / (step) + 1,			\
 		.min_uV = (min),					\
 		.linear_ranges = volt_ranges,				\
 		.n_linear_ranges = ARRAY_SIZE(volt_ranges),		\
