@@ -28,6 +28,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#include <linux/debugfs.h>
+#include <linux/uaccess.h>
 
 #include "xhci.h"
 #include "xhci-mtk.h"
@@ -81,6 +83,150 @@
 #define UWK_CTL1_IDDIG_P	BIT(9)  /* polarity */
 #define UWK_CTL1_0P_LS_P	BIT(7)
 #define UWK_CTL1_IS_P		BIT(6)  /* polarity for ip sleep */
+
+/* test mode */
+#define HOST_CMD_TEST_J             0x1
+#define HOST_CMD_TEST_K             0x2
+#define HOST_CMD_TEST_SE0_NAK       0x3
+#define HOST_CMD_TEST_PACKET        0x4
+#define PMSC_PORT_TEST_CTRL_OFFSET  28
+
+static ssize_t xhci_mtk_test_mode_write(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
+
+{
+	struct seq_file *s = file->private_data;
+	struct xhci_hcd_mtk *mtk = s->private;
+	struct xhci_hcd *xhci = hcd_to_xhci(mtk->hcd);
+	int ports = HCS_MAX_PORTS(xhci->hcs_params1);
+	char buf[20];
+	u8 test = 0;
+	u32 temp;
+	u32 __iomem *addr;
+	int i;
+
+	memset(buf, 0x00, sizeof(buf));
+
+	if (copy_from_user(buf, ubuf,
+			min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (!strncmp(buf, "test packet", 10))
+		test = HOST_CMD_TEST_PACKET;
+	else if (!strncmp(buf, "test K", 6))
+		test = HOST_CMD_TEST_K;
+	else if (!strncmp(buf, "test J", 6))
+		test = HOST_CMD_TEST_J;
+	else if (!strncmp(buf, "test SE0 NAK", 12))
+		test = HOST_CMD_TEST_SE0_NAK;
+
+	if (test) {
+		xhci_info(xhci, "set test mode %d\n", test);
+
+		/* set the Run/Stop in USBCMD to 0 */
+		addr = &xhci->op_regs->command;
+		temp = readl(addr);
+		temp &= ~CMD_RUN;
+		writel(temp, addr);
+
+		/*  wait for HCHalted */
+		xhci_halt(xhci);
+
+		/* test mode */
+		for (i = 0; i < ports; i++) {
+			addr = &xhci->op_regs->port_power_base +
+				NUM_PORT_REGS * (i & 0xff);
+			temp = readl(addr);
+			temp &= ~(0xf << PMSC_PORT_TEST_CTRL_OFFSET);
+			temp |= (test << PMSC_PORT_TEST_CTRL_OFFSET);
+			writel(temp, addr);
+		}
+	} else {
+		xhci_info(xhci, "test mode command error\n");
+	}
+
+	return count;
+}
+
+static int xhci_mtk_test_mode_show(struct seq_file *s, void *unused)
+{
+	seq_puts(s, "xhci_mtk test mode\n");
+	return 0;
+}
+
+
+static int xhci_mtk_test_mode_open(struct inode *inode,
+					struct file *file)
+{
+	return single_open(file, xhci_mtk_test_mode_show,
+					   inode->i_private);
+}
+
+static const struct file_operations xhci_mtk_test_mode_fops = {
+	.open = xhci_mtk_test_mode_open,
+	.write = xhci_mtk_test_mode_write,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int xhci_mtk_dbg_init(struct xhci_hcd_mtk *mtk)
+{
+	int ret = 0;
+	struct dentry *root;
+	struct dentry *file;
+
+	root = debugfs_create_dir("xhci_mtk_dbg", NULL);
+	if (IS_ERR_OR_NULL(root)) {
+		ret = PTR_ERR(root);
+		goto err0;
+	}
+
+	file = debugfs_create_file("testmode", 0644, root,
+						mtk, &xhci_mtk_test_mode_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		ret = PTR_ERR(file);
+		goto err0;
+	}
+
+	mtk->debugfs_root = root;
+
+	return 0;
+err0:
+	return ret;
+}
+
+static int xhci_mtk_dbg_exit(struct xhci_hcd_mtk *mtk)
+{
+	debugfs_remove_recursive(mtk->debugfs_root);
+	return 0;
+}
+
+int mtk_xhci_wakelock_lock(struct xhci_hcd_mtk *mtk)
+{
+	struct device_node *of_node = mtk->dev->of_node;
+	struct xhci_hcd *xhci = hcd_to_xhci(mtk->hcd);
+
+	if (of_device_is_compatible(of_node, "mediatek,mt67xx-xhci")) {
+		pm_stay_awake(mtk->dev);
+		xhci_info(xhci, "wakelock_lock\n");
+	}
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_xhci_wakelock_lock);
+
+int mtk_xhci_wakelock_unlock(struct xhci_hcd_mtk *mtk)
+{
+	struct device_node *of_node = mtk->dev->of_node;
+	struct xhci_hcd *xhci = hcd_to_xhci(mtk->hcd);
+
+	if (of_device_is_compatible(of_node, "mediatek,mt67xx-xhci")) {
+		pm_relax(mtk->dev);
+		xhci_info(xhci, "wakelock_unlock\n");
+	}
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_xhci_wakelock_unlock);
 
 enum ssusb_wakeup_src {
 	SSUSB_WK_IP_SLEEP = 1,
@@ -514,6 +660,8 @@ static int xhci_mtk_setup(struct usb_hcd *hcd)
 			return ret;
 	}
 
+	/* set runtime pm available */
+	pm_runtime_put_noidle(mtk->dev);
 	return ret;
 }
 
@@ -588,7 +736,7 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 		mtk->num_phys = 0;
 	}
 	pm_runtime_enable(dev);
-	pm_runtime_get_sync(dev);
+	pm_runtime_get_noresume(dev);
 	device_enable_async_suspend(dev);
 
 	ret = xhci_mtk_ldos_enable(mtk);
@@ -688,6 +836,13 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 	if (ret)
 		goto dealloc_usb2_hcd;
 
+	xhci_mtk_dbg_init(mtk);
+
+#if IS_ENABLED(CONFIG_USB_XHCI_MTK_SUSPEND)
+	device_set_wakeup_enable(&hcd->self.root_hub->dev, 1);
+	device_set_wakeup_enable(&xhci->shared_hcd->self.root_hub->dev, 1);
+#endif
+	mtk_xhci_wakelock_lock(mtk);
 	return 0;
 
 dealloc_usb2_hcd:
@@ -714,7 +869,7 @@ disable_ldos:
 	xhci_mtk_ldos_disable(mtk);
 
 disable_pm:
-	pm_runtime_put_sync(dev);
+	pm_runtime_put_noidle(dev);
 	pm_runtime_disable(dev);
 	return ret;
 }
@@ -726,21 +881,51 @@ static int xhci_mtk_remove(struct platform_device *dev)
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
 	struct usb_hcd  *shared_hcd = xhci->shared_hcd;
 
+	xhci->xhc_state |= XHCI_STATE_REMOVING;
+
 	usb_remove_hcd(shared_hcd);
 	xhci->shared_hcd = NULL;
 	xhci_mtk_phy_power_off(mtk);
 	xhci_mtk_phy_exit(mtk);
 	device_init_wakeup(&dev->dev, false);
 
+	mtk_xhci_wakelock_unlock(mtk);
+	xhci_mtk_dbg_exit(mtk);
 	usb_remove_hcd(hcd);
 	usb_put_hcd(shared_hcd);
 	usb_put_hcd(hcd);
 	xhci_mtk_sch_exit(mtk);
 	xhci_mtk_clks_disable(mtk);
 	xhci_mtk_ldos_disable(mtk);
-	pm_runtime_put_sync(&dev->dev);
+	pm_runtime_put_noidle(&dev->dev);
 	pm_runtime_disable(&dev->dev);
 
+	return 0;
+}
+
+static int __maybe_unused xhci_mtk_runtime_suspend(struct device *dev)
+{
+	struct xhci_hcd_mtk *mtk = dev_get_drvdata(dev);
+	struct xhci_hcd *xhci = hcd_to_xhci(mtk->hcd);
+
+	xhci_info(xhci, "%s\n", __func__);
+	xhci_mtk_host_disable(mtk);
+#if IS_ENABLED(CONFIG_MTK_UAC_POWER_SAVING)
+	xhci_mtk_set_sleep(true);
+#endif
+	return 0;
+}
+
+static int __maybe_unused xhci_mtk_runtime_resume(struct device *dev)
+{
+	struct xhci_hcd_mtk *mtk = dev_get_drvdata(dev);
+	struct xhci_hcd *xhci = hcd_to_xhci(mtk->hcd);
+
+	xhci_info(xhci, "%s\n", __func__);
+	xhci_mtk_host_enable(mtk);
+#if IS_ENABLED(CONFIG_MTK_UAC_POWER_SAVING)
+	xhci_mtk_set_sleep(false);
+#endif
 	return 0;
 }
 
@@ -757,6 +942,7 @@ static int __maybe_unused xhci_mtk_suspend(struct device *dev)
 	struct usb_hcd *hcd = mtk->hcd;
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 
+	xhci_info(xhci, "%s\n", __func__);
 	xhci_dbg(xhci, "%s: stop port polling\n", __func__);
 	clear_bit(HCD_FLAG_POLL_RH, &hcd->flags);
 	del_timer_sync(&hcd->rh_timer);
@@ -776,6 +962,7 @@ static int __maybe_unused xhci_mtk_resume(struct device *dev)
 	struct usb_hcd *hcd = mtk->hcd;
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 
+	xhci_info(xhci, "%s\n", __func__);
 	usb_wakeup_disable(mtk);
 	xhci_mtk_clks_enable(mtk);
 	xhci_mtk_phy_power_on(mtk);
@@ -794,6 +981,14 @@ static const struct dev_pm_ops xhci_mtk_pm_ops = {
 };
 #define DEV_PM_OPS IS_ENABLED(CONFIG_PM) ? &xhci_mtk_pm_ops : NULL
 
+static const struct dev_pm_ops xhci_mtk_phone_pm_ops = {
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(xhci_mtk_suspend, xhci_mtk_resume)
+	SET_RUNTIME_PM_OPS(xhci_mtk_runtime_suspend,
+			xhci_mtk_runtime_resume, NULL)
+};
+#define DEV_PHONE_PM_OPS (IS_ENABLED(CONFIG_PM) ? &xhci_mtk_phone_pm_ops : NULL)
+
+
 #ifdef CONFIG_OF
 static const struct of_device_id mtk_xhci_of_match[] = {
 	{ .compatible = "mediatek,mt8173-xhci"},
@@ -801,6 +996,13 @@ static const struct of_device_id mtk_xhci_of_match[] = {
 	{ },
 };
 MODULE_DEVICE_TABLE(of, mtk_xhci_of_match);
+
+static const struct of_device_id mtk_xhci_phone_of_match[] = {
+	{ .compatible = "mediatek,mt67xx-xhci"},
+	{ },
+};
+MODULE_DEVICE_TABLE(of, mtk_xhci_phone_of_match);
+
 #endif
 
 static struct platform_driver mtk_xhci_driver = {
@@ -812,7 +1014,28 @@ static struct platform_driver mtk_xhci_driver = {
 		.of_match_table = of_match_ptr(mtk_xhci_of_match),
 	},
 };
+
+static struct platform_driver mtk_xhci_phone_driver = {
+	.probe	= xhci_mtk_probe,
+	.remove	= xhci_mtk_remove,
+	.driver	= {
+		.name = "xhci-mtk-phone",
+		.pm = DEV_PHONE_PM_OPS,
+		.of_match_table = of_match_ptr(mtk_xhci_phone_of_match),
+	},
+};
+
 MODULE_ALIAS("platform:xhci-mtk");
+
+int xhci_mtk_register_plat(void)
+{
+	return platform_driver_register(&mtk_xhci_phone_driver);
+}
+
+void xhci_mtk_unregister_plat(void)
+{
+	platform_driver_unregister(&mtk_xhci_phone_driver);
+}
 
 static int __init xhci_mtk_init(void)
 {
