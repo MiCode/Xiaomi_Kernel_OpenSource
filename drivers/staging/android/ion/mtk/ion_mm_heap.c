@@ -997,6 +997,9 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 	struct ion_buffer *buffer;
 	struct ion_mm_buffer_info *bug_info;
 	unsigned int block_nr[DOMAIN_NUM] = {0};
+	int port[DOMAIN_NUM] = {0};
+	unsigned long mva[DOMAIN_NUM] = {0};
+	unsigned long mva_fix[DOMAIN_NUM] = {0};
 	unsigned int i;
 	int pid;
 	#define MVA_SIZE_ORDER     20	/* 1M */
@@ -1012,6 +1015,12 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 		for (i = 0; i < DOMAIN_NUM; i++) {
 			if (bug_info->MVA[i] ||
 			    bug_info->FIXED_MVA[i])
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+				port[i] = bug_info->port[i];
+#endif
+				mva[i] =  bug_info->MVA[i];
+				mva_fix[i] =  bug_info->FIXED_MVA[i];
 				block_nr[i] = (buffer->size +
 					MVA_ALIGN_MASK) >> MVA_SIZE_ORDER;
 		}
@@ -1028,8 +1037,7 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 			 buffer->alloc_dbg,
 			 p->pid, p->tgid,
 			 p->comm, fd,
-			 bug_info->MVA[0],
-			 bug_info->FIXED_MVA[0],
+			 mva[0], mva_fix[0],
 			 block_nr[0]);
 #elif (DOMAIN_NUM == 2)
 		ION_DUMP(s,
@@ -1038,31 +1046,24 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 			 buffer->alloc_dbg,
 			 p->pid, p->tgid,
 			 p->comm, fd,
-			 bug_info->MVA[0],
-			 bug_info->FIXED_MVA[0],
+			 mva[0], mva_fix[0],
 			 block_nr[0],
-			 bug_info->MVA[1],
-			 bug_info->FIXED_MVA[1],
+			 mva[1], mva_fix[1],
 			 block_nr[1]);
 #elif (DOMAIN_NUM == 4)
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		ION_DUMP(s,
 			 "0x%p %9d %16s %5d %5d %16s %4d %d:(0x%8x+%8d) %d:(0x%8x+%8d) %d:(0x%8x+%8d) %d:(0x%8x+%8d)\n",
 			 buffer, pid,
 			 buffer->alloc_dbg,
 			 p->pid, p->tgid,
 			 p->comm, fd,
-			 bug_info->port[0],
-			 bug_info->MVA[0],
-			 block_nr[0],
-			 bug_info->port[1],
-			 bug_info->MVA[1],
-			 block_nr[1],
-			 bug_info->port[2],
-			 bug_info->MVA[2],
-			 block_nr[2],
-			 bug_info->port[3],
-			 bug_info->MVA[3],
-			 block_nr[3]);
+			 port[0], mva[0], block_nr[0],
+			 port[1], mva[1], block_nr[1],
+			 port[2], mva[2], block_nr[2],
+			 port[3], mva[3], block_nr[3]);
+#endif
 #endif
 	}
 	return 0;

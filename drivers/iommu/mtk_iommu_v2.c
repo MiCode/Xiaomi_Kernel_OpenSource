@@ -1969,7 +1969,6 @@ static struct iommu_group *mtk_iommu_device_group(struct device *dev)
 		}
 	}
 
-	pr_notice("%s, %d, init data:%d\n", __func__, __LINE__, init_data_id);
 	return mtk_iommu_create_iova_space(data, dev);
 }
 
@@ -3443,6 +3442,7 @@ static s32 mtk_iommu_clks_get(struct mtk_iommu_data *data)
 	unsigned int nr = 0;
 	struct mtk_iommu_clks *m4u_clks;
 	const char *name, *clk_names = "clock-names";
+	int i, ret = 0;
 
 	if (!data || !data->dev) {
 		pr_info("iommu No such device or address\n");
@@ -3461,19 +3461,19 @@ static s32 mtk_iommu_clks_get(struct mtk_iommu_data *data)
 	if (nr > IOMMU_CLK_ID_COUNT * 2) {
 		pr_info("iommu clk count %d exceed the max number of %d\n",
 			nr, IOMMU_CLK_ID_COUNT);
-		return -ENXIO;
+		ret = -ENXIO;
+		goto free_clks;
 	}
 
 	m4u_clks->nr_clks = 0;
 	m4u_clks->nr_powers = 0;
 	of_property_for_each_string(dev->of_node, clk_names, prop, name) {
-		clk = kzalloc(sizeof(*m4u_clks), GFP_KERNEL);
-		if (!clk)
-			return -ENOMEM;
 		clk = devm_clk_get(dev, name);
 		if (IS_ERR(clk)) {
 			dev_info(dev, "clks of %s init failed\n",
 				name);
+			ret = PTR_ERR(clk);
+			kfree(clk);
 			break;
 		}
 		if (strcmp(name, "power")) {
@@ -3488,12 +3488,27 @@ static s32 mtk_iommu_clks_get(struct mtk_iommu_data *data)
 			m4u_clks->nr_powers++;
 		}
 	}
-	if (m4u_clks->nr_clks + m4u_clks->nr_powers < nr)
-		return PTR_ERR(m4u_clks->clks[m4u_clks->nr_clks]);
+
+	if (ret)
+		goto free_clk;
 
 	data->m4u_clks = m4u_clks;
-#endif
 	return 0;
+
+free_clk:
+	for (i = 0; i <  m4u_clks->nr_clks; i++)
+		kfree(m4u_clks->clks[i]);
+
+	for (i = 0; i <  m4u_clks->nr_powers; i++)
+		kfree(m4u_clks->powers[i]);
+
+free_clks:
+	kfree(m4u_clks);
+	return ret;
+
+#else
+	return 0;
+#endif
 }
 
 #ifdef CONFIG_MTK_SMI_EXT
@@ -3608,9 +3623,6 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	if (ret)
 		pr_notice("%s, failed to get cell index, ret=%d\n",
 			  __func__, ret);
-	else
-		pr_notice("%s, probe of cell index %d\n",
-			  __func__, id);
 
 	if (total_iommu_cnt >= MTK_IOMMU_M4U_COUNT ||
 	    id >= MTK_IOMMU_M4U_COUNT) {

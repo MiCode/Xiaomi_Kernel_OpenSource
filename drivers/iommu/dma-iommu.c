@@ -284,8 +284,6 @@ int iommu_dma_init_domain(struct iommu_domain *domain, dma_addr_t base,
 		return -EINVAL;
 
 	/* Use the smallest supported page size for IOVA granularity */
-	dev_notice(dev, "%s, %d, start:0x%lx, size:0x%lx\n",
-		  __func__, __LINE__, base, size);
 	order = __ffs(domain->pgsize_bitmap);
 	base_pfn = max_t(unsigned long, 1, base >> order);
 	end_pfn = (base + size - 1) >> order;
@@ -303,8 +301,6 @@ int iommu_dma_init_domain(struct iommu_domain *domain, dma_addr_t base,
 			base = domain->geometry.aperture_start;
 			size = domain->geometry.aperture_end -
 				domain->geometry.aperture_start + 1;
-			pr_notice("correct the domain base/size to 0x%lx+0x%lx\n",
-				base, size);
 #endif
 		}
 		/* ...then finally give it a kicking to make sure it fits */

@@ -56,10 +56,6 @@ init_iova_domain(struct iova_domain *iovad, unsigned long granule,
 	iovad->flush_cb = NULL;
 	iovad->fq = NULL;
 	init_iova_rcaches(iovad);
-#ifdef IOMMU_DEBUG_ENABLED
-	pr_notice("%s, %d, start:0x%lx, end:0x%lx\n",
-		  __func__, __LINE__, iovad->start_pfn, iovad->dma_32bit_pfn);
-#endif
 }
 EXPORT_SYMBOL_GPL(init_iova_domain);
 

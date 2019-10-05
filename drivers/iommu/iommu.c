@@ -616,7 +616,7 @@ rename:
 
 	trace_add_device_to_group(group->id, dev);
 
-	pr_info("Adding device %s to group %d\n", dev_name(dev), group->id);
+	pr_debug("Adding device %s to group %d\n", dev_name(dev), group->id);
 
 	return 0;
 
@@ -1702,7 +1702,7 @@ size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 		phys_addr_t phys;
 		if (!IS_ERR(sg_page(s))) {
 			phys = page_to_phys(sg_page(s)) + s->offset;
-#ifdef IOMMU_DEBUG_ENABLED
+#if 0 //def IOMMU_DEBUG_ENABLED
 			if (i == 0 || i == nents-1)
 				pr_notice("%s, %d, sg[%d],domain:%p, iova:0x%lx, nents=%d, mapped=0x%lx, phys=0x%lx, length=0x%x\n",
 					__func__, __LINE__, i,
@@ -1712,7 +1712,7 @@ size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 		} else if (sg_dma_address(s)) {
 			phys = sg_dma_address(s);
 			s->length = sg_dma_len(s);
-#ifdef IOMMU_DEBUG_ENABLED
+#if 0 //def IOMMU_DEBUG_ENABLED
 			if (i == 0 || i == nents-1)
 				pr_notice("%s, %d, sg[%d],domain:%p, iova:0x%lx, nents=%d, mapped=0x%lx, phys=0x%lx, length=0x%x\n",
 					__func__, __LINE__, i,
