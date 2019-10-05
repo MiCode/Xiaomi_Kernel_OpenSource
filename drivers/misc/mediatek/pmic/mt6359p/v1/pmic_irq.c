@@ -21,7 +21,7 @@
 
 #include <mt-plat/aee.h>
 #include <mt-plat/upmu_common.h>
-#ifdef CONFIG_MTK_PMIC_WRAP_HAL
+#if defined(CONFIG_MTK_PMIC_WRAP_HAL) || defined(CONFIG_MTK_PMIC_WRAP)
 #include <mach/mtk_pmic_wrap.h>
 #endif
 #include <mach/mtk_pmic.h>
