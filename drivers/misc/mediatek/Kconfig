@@ -128,6 +128,15 @@ source "drivers/misc/mediatek/base/power/Kconfig"
 source "drivers/misc/mediatek/power/Kconfig"
 source "drivers/misc/mediatek/thermal/Kconfig"
 
+config MTK_SPMTWAM
+	tristate "Mediatek Signal profiling tool"
+	depends on OF
+	help
+	  For Mediatek low power signal profiling features.
+	  Profiling several hw signals for debug purposes.
+	  Select "y" if you want to use.
+	  Select "n" if you are not sure.
+
 config MTK_MEMORY_LOWPOWER
 	bool "Support Mediatek memory lowpower technology"
 	depends on CMA && ZONE_MOVABLE_CMA
