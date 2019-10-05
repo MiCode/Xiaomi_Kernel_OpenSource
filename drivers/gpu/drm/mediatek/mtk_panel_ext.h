@@ -87,8 +87,28 @@ struct mtk_panel_dsc_params {
 	unsigned int flatness_maxqp;
 	unsigned int rc_mode1_size;
 };
+struct mtk_dsi_phy_timcon {
+	unsigned int hs_trail;
+	unsigned int hs_prpr;
+	unsigned int hs_zero;
+	unsigned int lpx;
+	unsigned int ta_get;
+	unsigned int ta_sure;
+	unsigned int ta_go;
+	unsigned int da_hs_exit;
+	unsigned int clk_trail;
+	unsigned int cont_det;
+	unsigned int da_hs_sync;
+	unsigned int clk_zero;
+	unsigned int clk_hs_prpr;
+	unsigned int clk_hs_exit;
+	unsigned int clk_hs_post;
+};
 
 struct mtk_panel_params {
+	unsigned int pll_clk;
+	unsigned int data_rate;
+	struct mtk_dsi_phy_timcon phy_timcon;
 	unsigned int vfp_low_power;
 	unsigned int cust_esd_check;
 	unsigned int esd_check_enable;

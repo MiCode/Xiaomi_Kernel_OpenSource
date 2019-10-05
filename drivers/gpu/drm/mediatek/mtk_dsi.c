@@ -154,22 +154,36 @@
 #define HS_PREP (0xff << 8)
 #define HS_ZERO (0xff << 16)
 #define HS_TRAIL (0xff << 24)
+#define FLD_LPX REG_FLD_MSB_LSB(7, 0)
+#define FLD_HS_PREP REG_FLD_MSB_LSB(15, 8)
+#define FLD_HS_ZERO REG_FLD_MSB_LSB(23, 16)
+#define FLD_HS_TRAIL REG_FLD_MSB_LSB(31, 24)
 
 #define DSI_PHY_TIMECON1 0x114
 #define TA_GO (0xff << 0)
 #define TA_SURE (0xff << 8)
 #define TA_GET (0xff << 16)
 #define DA_HS_EXIT (0xff << 24)
+#define FLD_TA_GO REG_FLD_MSB_LSB(7, 0)
+#define FLD_TA_SURE REG_FLD_MSB_LSB(15, 8)
+#define FLD_TA_GET REG_FLD_MSB_LSB(23, 16)
+#define FLD_DA_HS_EXIT REG_FLD_MSB_LSB(31, 24)
 
 #define DSI_PHY_TIMECON2 0x118
 #define CONT_DET (0xff << 0)
 #define CLK_ZERO (0xff << 16)
 #define CLK_TRAIL (0xff << 24)
+#define FLD_DA_HS_SYNC REG_FLD_MSB_LSB(15, 8)
+#define FLD_CLK_HS_ZERO REG_FLD_MSB_LSB(23, 16)
+#define	FLD_CLK_HS_TRAIL REG_FLD_MSB_LSB(31, 24)
 
 #define DSI_PHY_TIMECON3 0x11c
 #define CLK_HS_PREP (0xff << 0)
 #define CLK_HS_POST (0xff << 8)
 #define CLK_HS_EXIT (0xff << 16)
+#define FLD_CLK_HS_PREP REG_FLD_MSB_LSB(7, 0)
+#define FLD_CLK_HS_POST REG_FLD_MSB_LSB(15, 8)
+#define FLD_CLK_HS_EXIT REG_FLD_MSB_LSB(23, 16)
 
 #define DSI_VM_CMD_CON 0x130
 #define VM_CMD_EN BIT(0)
@@ -295,6 +309,19 @@ struct mtk_dsi {
 
 	struct t_condition_wq enter_ulps_done;
 	struct t_condition_wq exit_ulps_done;
+	unsigned int hs_trail;
+	unsigned int hs_prpr;
+	unsigned int hs_zero;
+	unsigned int lpx;
+	unsigned int ta_get;
+	unsigned int ta_sure;
+	unsigned int ta_go;
+	unsigned int da_hs_exit;
+	unsigned int cont_det;
+	unsigned int clk_zero;
+	unsigned int clk_hs_prpr;
+	unsigned int clk_hs_exit;
+	unsigned int clk_hs_post;
 };
 
 enum DSI_MODE_CON {
@@ -326,33 +353,85 @@ static void mtk_dsi_mask(struct mtk_dsi *dsi, u32 offset, u32 mask, u32 data)
 	writel((temp & ~mask) | (data & mask), dsi->regs + offset);
 }
 
+#define CHK_SWITCH(a, b)  ((a == 0) ? b : a)
+
 static void mtk_dsi_phy_timconfig(struct mtk_dsi *dsi)
 {
-	u32 timcon0, timcon1, timcon2, timcon3;
+	struct mtk_dsi_phy_timcon *phy_timcon;
+	u32 lpx, hs_prpr, hs_zero, hs_trail;
+	u32 ta_get, ta_sure, ta_go, da_hs_exit;
+	u32 clk_zero, clk_trail, da_hs_sync;
+	u32 clk_hs_prpr, clk_hs_exit, clk_hs_post;
 	u32 ui, cycle_time;
+	u32 value;
 
 	ui = 1000 / dsi->data_rate + 0x01;
 	cycle_time = 8000 / dsi->data_rate + 0x01;
 
-	timcon0 = NS_TO_CYCLE(0x55, cycle_time) |
-		  NS_TO_CYCLE((0x40 + 0x5 * ui), cycle_time) << 8 |
-		  NS_TO_CYCLE((0xC8 + 0x0a * ui), cycle_time) << 16 |
-		  NS_TO_CYCLE((0x4 * ui + 0x50), cycle_time) << 24;
-	timcon1 = 5 * NS_TO_CYCLE(0x55, cycle_time) |
-		  (3 * NS_TO_CYCLE(0x55, cycle_time) / 2) << 8 |
-		  4 * NS_TO_CYCLE(0x55, cycle_time) << 16 |
-		  2 * NS_TO_CYCLE(0x55, cycle_time) << 24;
-	timcon2 = (NS_TO_CYCLE(0x190, cycle_time) << 16) |
-		  (NS_TO_CYCLE(0x60, cycle_time) << 24);
-	timcon2 |= (0x1 << 8);
-	timcon3 = NS_TO_CYCLE(0x40, cycle_time) |
-		  (2 * NS_TO_CYCLE(0x55, cycle_time)) << 16 |
-		  NS_TO_CYCLE(0x60 + 0x34 * ui, cycle_time) << 8;
+	lpx = NS_TO_CYCLE(dsi->data_rate * 2 * 0x4B, 0x1F40) + 0x1;
+	hs_prpr = NS_TO_CYCLE((0x40 + 0x5 * ui), cycle_time) + 0x1;
+	hs_zero = NS_TO_CYCLE((0xC8 + 0x0A * ui), cycle_time);
+	hs_trail = NS_TO_CYCLE((0x4 * ui + 0x50) *
+		dsi->data_rate, 0x1F40) + 0x1;
 
-	writel(timcon0, dsi->regs + DSI_PHY_TIMECON0);
-	writel(timcon1, dsi->regs + DSI_PHY_TIMECON1);
-	writel(timcon2, dsi->regs + DSI_PHY_TIMECON2);
-	writel(timcon3, dsi->regs + DSI_PHY_TIMECON3);
+	ta_get = 5 * NS_TO_CYCLE(0x55, cycle_time);
+	ta_sure = 3 * NS_TO_CYCLE(0x55, cycle_time) / 2;
+	ta_go = 4 * NS_TO_CYCLE(0x55, cycle_time);
+	da_hs_exit = 2 * NS_TO_CYCLE(0x55, cycle_time);
+
+	clk_zero = NS_TO_CYCLE(0x190, cycle_time);
+	clk_trail = NS_TO_CYCLE(0x64 * dsi->data_rate, 0x1F40) + 0x1;
+	da_hs_sync = 0x1;
+
+	clk_hs_prpr = NS_TO_CYCLE(0x50 * dsi->data_rate, 0x1F40);
+	clk_hs_exit = 2 * NS_TO_CYCLE(0x55, cycle_time);
+	clk_hs_post = NS_TO_CYCLE(0x60 + 0x34 * ui, cycle_time);
+
+	if (!(dsi->ext && dsi->ext->params))
+		goto CONFIG_REG;
+
+	phy_timcon = &dsi->ext->params->phy_timcon;
+
+	lpx = CHK_SWITCH(phy_timcon->lpx, lpx);
+	hs_prpr = CHK_SWITCH(phy_timcon->hs_prpr, hs_prpr);
+	hs_zero = CHK_SWITCH(phy_timcon->hs_zero, hs_zero);
+	hs_trail = CHK_SWITCH(phy_timcon->hs_trail, hs_trail);
+
+	ta_get = CHK_SWITCH(phy_timcon->ta_get, ta_get);
+	ta_sure = CHK_SWITCH(phy_timcon->ta_sure, ta_sure);
+	ta_go = CHK_SWITCH(phy_timcon->ta_go, ta_go);
+	da_hs_exit = CHK_SWITCH(phy_timcon->da_hs_exit, da_hs_exit);
+
+	clk_zero = CHK_SWITCH(phy_timcon->clk_zero, clk_zero);
+	clk_trail = CHK_SWITCH(phy_timcon->clk_trail, clk_trail);
+	da_hs_sync = CHK_SWITCH(phy_timcon->da_hs_sync, da_hs_sync);
+
+	clk_hs_prpr = CHK_SWITCH(phy_timcon->clk_hs_prpr, clk_hs_prpr);
+	clk_hs_exit = CHK_SWITCH(phy_timcon->clk_hs_exit, clk_hs_exit);
+	clk_hs_post = CHK_SWITCH(phy_timcon->clk_hs_post, clk_hs_post);
+
+CONFIG_REG:
+	value = REG_FLD_VAL(FLD_LPX, lpx)
+		| REG_FLD_VAL(FLD_HS_PREP, hs_prpr)
+		| REG_FLD_VAL(FLD_HS_ZERO, hs_zero)
+		| REG_FLD_VAL(FLD_HS_TRAIL, hs_trail);
+	writel(value, dsi->regs + DSI_PHY_TIMECON0);
+
+	value = REG_FLD_VAL(FLD_TA_GO, ta_go)
+		| REG_FLD_VAL(FLD_TA_SURE, ta_sure)
+		| REG_FLD_VAL(FLD_TA_GET, ta_get)
+		| REG_FLD_VAL(FLD_DA_HS_EXIT, da_hs_exit);
+	writel(value, dsi->regs + DSI_PHY_TIMECON1);
+
+	value = REG_FLD_VAL(FLD_DA_HS_SYNC, da_hs_sync)
+		| REG_FLD_VAL(FLD_CLK_HS_ZERO, clk_zero)
+		| REG_FLD_VAL(FLD_CLK_HS_TRAIL, clk_trail);
+	writel(value, dsi->regs + DSI_PHY_TIMECON2);
+
+	value = REG_FLD_VAL(FLD_CLK_HS_PREP, clk_hs_prpr)
+		| REG_FLD_VAL(FLD_CLK_HS_POST, clk_hs_post)
+		| REG_FLD_VAL(FLD_CLK_HS_EXIT, clk_hs_exit);
+	writel(value, dsi->regs + DSI_PHY_TIMECON3);
 }
 
 static void mtk_dsi_enable(struct mtk_dsi *dsi)
@@ -410,18 +489,25 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	 * mipi_ratio = (htotal_time + overhead_time) / htotal_time
 	 * data_rate = pixel_clock * bit_per_pixel * mipi_ratio / num_lanes;
 	 */
-	pixel_clock = dsi->vm.pixelclock * 1000;
-	htotal = dsi->vm.hactive + dsi->vm.hback_porch + dsi->vm.hfront_porch +
-		 dsi->vm.hsync_len;
-	htotal_bits = htotal * bit_per_pixel;
 
-	overhead_cycles =
-		T_LPX + T_HS_PREP + T_HS_ZERO + T_HS_TRAIL + T_HS_EXIT;
-	overhead_bits = overhead_cycles * dsi->lanes * 8;
-	total_bits = htotal_bits + overhead_bits;
+	if (dsi->ext && dsi->ext->params->data_rate)
+		dsi->data_rate = dsi->ext->params->data_rate * 1000000;
+	else if (dsi->ext && dsi->ext->params->pll_clk)
+		dsi->data_rate = dsi->ext->params->pll_clk * 2000000;
+	else {
+		pixel_clock = dsi->vm.pixelclock * 1000;
+		htotal = dsi->vm.hactive + dsi->vm.hback_porch +
+			dsi->vm.hfront_porch + dsi->vm.hsync_len;
+		htotal_bits = htotal * bit_per_pixel;
 
-	dsi->data_rate =
-		DIV_ROUND_UP_ULL(pixel_clock * total_bits, htotal * dsi->lanes);
+		overhead_cycles = T_LPX + T_HS_PREP + T_HS_ZERO + T_HS_TRAIL +
+				T_HS_EXIT;
+		overhead_bits = overhead_cycles * dsi->lanes * 8;
+		total_bits = htotal_bits + overhead_bits;
+
+		dsi->data_rate = DIV_ROUND_UP_ULL(pixel_clock * total_bits,
+						  htotal * dsi->lanes);
+	}
 
 	mipi_tx_rate = dsi->data_rate;
 
