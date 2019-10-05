@@ -8049,6 +8049,8 @@ struct LCM_DRIVER *DISP_GetLcmDrv(void)
 	return NULL;
 }
 
+#if defined(CONFIG_MTK_M4U) || \
+	defined(CONFIG_MTK_IOMMU_V2)
 static int _screen_cap_by_cmdq(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt,
 			       enum DISP_MODULE_ENUM after_eng)
 {
@@ -8192,6 +8194,7 @@ static int _screen_cap_by_cpu(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt,
 	_primary_path_unlock(__func__);
 	return 0;
 }
+#endif
 
 #ifdef CONFIG_MTK_IOMMU_V2
 int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
