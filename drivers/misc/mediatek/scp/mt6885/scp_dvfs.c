@@ -70,8 +70,8 @@
 #define DRV_SetReg32(addr, val)	DRV_WriteReg32(addr, DRV_Reg32(addr) | (val))
 #define DRV_ClrReg32(addr, val)	DRV_WriteReg32(addr, DRV_Reg32(addr) & ~(val))
 
-#define SCP_ATF_RESOURCE_REQUEST	0
-#define SCP_VCORE_REQ_TO_DVFSRC		0
+#define SCP_ATF_RESOURCE_REQUEST	1
+#define SCP_VCORE_REQ_TO_DVFSRC		1
 
 /* -1:SCP DVFS OFF, 1:SCP DVFS ON */
 static int scp_dvfs_flag = 1;
@@ -174,8 +174,8 @@ uint32_t scp_get_freq(void)
 	uint32_t i;
 	uint32_t sum_core0 = 0;
 	uint32_t sum_core1 = 0;
-	uint32_t sum = 0;
 	uint32_t return_freq = 0;
+	uint32_t sum = 0;
 
 	/*
 	 * calculate scp frequence
@@ -188,6 +188,7 @@ uint32_t scp_get_freq(void)
 				sum_core1 += feature_table[i].freq;
 		}
 	}
+
 	/*
 	 * calculate scp sensor frequence
 	 */
@@ -195,7 +196,8 @@ uint32_t scp_get_freq(void)
 		if (sensor_type_table[i].enable == 1)
 			sum += sensor_type_table[i].freq;
 	}
-	sum = sum_core0;
+
+	sum += sum_core0;
 	if (sum_core1 > sum_core0)
 		sum = sum_core1;
 	/*pr_debug("[SCP] needed freq sum:%d\n",sum);*/
@@ -575,8 +577,11 @@ static int mt_scp_dvfs_ctrl_proc_show(struct seq_file *m, void *v)
  ***********************************/
 static void _mt_scp_dvfs_set_test_opp(int dvfs_opp)
 {
+	uint32_t sum_core0 = 0;
+	uint32_t sum_core1 = 0;
+	uint32_t added_freq = 0;
+	uint32_t sum = 0;
 	uint32_t i;
-	uint32_t sum = 0, added_freq = 0;
 
 	pr_info("manually set opp = %d\n", dvfs_opp);
 
@@ -585,8 +590,12 @@ static void _mt_scp_dvfs_set_test_opp(int dvfs_opp)
 	 */
 	for (i = 0; i < NUM_FEATURE_ID; i++) {
 		if (i != VCORE_TEST_FEATURE_ID &&
-			feature_table[i].enable == 1)
-			sum += feature_table[i].freq;
+				feature_table[i].enable == 1) {
+			if (feature_table[i].sys_id == SCPSYS_CORE0)
+				sum_core0 += feature_table[i].freq;
+			else
+				sum_core1 += feature_table[i].freq;
+		}
 	}
 
 	/*
@@ -595,6 +604,12 @@ static void _mt_scp_dvfs_set_test_opp(int dvfs_opp)
 	for (i = 0; i < NUM_SENSOR_TYPE; i++) {
 		if (sensor_type_table[i].enable == 1)
 			sum += sensor_type_table[i].freq;
+	}
+
+	sum += sum_core0;
+	if (sum_core1 > sum_core0) {
+		sum = sum_core1;
+		feature_table[VCORE_TEST_FEATURE_ID].sys_id = SCPSYS_CORE1;
 	}
 
 	if (dvfs_opp == 0 && sum < CLK_OPP0)
