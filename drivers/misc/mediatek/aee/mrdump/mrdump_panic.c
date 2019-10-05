@@ -32,10 +32,6 @@
 #include "mrdump_private.h"
 #include "mrdump_mini.h"
 
-#undef mrdump_virt_addr_valid
-#define mrdump_virt_addr_valid(kaddr) \
-	kernel_addr_valid((unsigned long)kaddr)
-
 int __weak ipanic_atflog_buffer(void *data, unsigned char *buffer,
 		size_t sz_buf)
 {
