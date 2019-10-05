@@ -47,6 +47,8 @@
 #define PRIMARY_OVL_PHY_LAYER_NR 6L
 #define PRIMARY_OVL_EXT_LAYER_NR 6L
 
+#define pgc	_get_context()
+
 /* TODO: BW report module should not hardcode */
 enum DISP_PMQOS_SLOT {
 	DISP_PMQOS_OVL0_BW = 0,
@@ -620,5 +622,9 @@ void mtk_drm_fake_vsync_switch(struct drm_crtc *crtc, bool enable);
 void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay);
 
 bool mtk_crtc_is_dc_mode(struct drm_crtc *crtc);
+
+/********************** Legacy DISP API ****************************/
+unsigned int DISP_GetScreenWidth(void);
+unsigned int DISP_GetScreenHeight(void);
 
 #endif /* MTK_DRM_CRTC_H */

@@ -186,8 +186,4 @@ struct mtk_panel_params *mtk_drm_get_lcm_ext_params(struct drm_crtc *crtc);
 bool mtk_drm_session_mode_is_decouple_mode(struct drm_device *dev);
 bool mtk_drm_session_mode_is_mirror_mode(struct drm_device *dev);
 
-/********************** Legacy DISP API ****************************/
-unsigned int DISP_GetScreenWidth(void);
-unsigned int DISP_GetScreenHeight(void);
-
 #endif /* MTK_DRM_DRV_H */

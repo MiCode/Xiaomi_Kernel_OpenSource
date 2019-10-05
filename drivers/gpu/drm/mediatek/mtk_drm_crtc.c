@@ -65,6 +65,20 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 static const char * const crtc_gce_client_str[] = {
 	DECLARE_GCE_CLIENT(DECLARE_STR)};
 
+struct drm_crtc *_get_context(void)
+{
+	static int is_context_inited;
+	static struct drm_crtc g_context;
+
+	if (!is_context_inited) {
+		memset((void *)&g_context, 0, sizeof(
+					struct drm_crtc));
+		is_context_inited = 1;
+	}
+
+	return &g_context;
+}
+
 static void mtk_drm_crtc_finish_page_flip(struct mtk_drm_crtc *mtk_crtc)
 {
 	struct drm_crtc *crtc = &mtk_crtc->base;
@@ -1975,6 +1989,7 @@ void mtk_crtc_load_round_corner_pattern(struct drm_crtc *crtc,
 static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
 	struct mtk_ddp_comp *comp;
 	struct drm_display_mode *timing = NULL;
 
@@ -1990,6 +2005,13 @@ static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 	crtc->mode.vdisplay = timing->vdisplay;
 
 	mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
+
+	/* backup display context */
+	if (crtc_id == 0) {
+		pgc->mode = *timing;
+		DDPMSG("width:%d, height:%d\n", pgc->mode.hdisplay,
+			pgc->mode.vdisplay);
+	}
 }
 
 void mtk_crtc_enable_iommu(struct mtk_drm_crtc *mtk_crtc,
@@ -3986,3 +4008,26 @@ int mtk_crtc_find_prev_comp(struct drm_crtc *crtc, unsigned int ddp_mode,
 
 	return -1;
 }
+
+
+/********************** Legacy DISP API ****************************/
+unsigned int DISP_GetScreenWidth(void)
+{
+	if (!pgc) {
+		DDPPR_ERR("LCM is not registered.\n");
+		return 0;
+	}
+
+	return pgc->mode.hdisplay;
+}
+
+unsigned int DISP_GetScreenHeight(void)
+{
+	if (!pgc) {
+		DDPPR_ERR("LCM is not registered.\n");
+		return 0;
+	}
+
+	return pgc->mode.vdisplay;
+}
+

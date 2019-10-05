@@ -1465,19 +1465,6 @@ static void mtk_drm_kms_deinit(struct drm_device *drm)
 	disp_dbg_deinit();
 }
 
-/********************** Legacy DISP API ****************************/
-unsigned int DISP_GetScreenWidth(void)
-{
-	/* TO-DO */
-	return 0;
-}
-
-unsigned int DISP_GetScreenHeight(void)
-{
-	/* TO-DO */
-	return 0;
-}
-
 static const struct drm_ioctl_desc mtk_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MTK_GEM_CREATE, mtk_gem_create_ioctl,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
