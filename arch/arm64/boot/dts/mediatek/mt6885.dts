@@ -3313,7 +3313,7 @@ page_owner=on";
 
 	disp_smi_subcom1@14121000 {
 		compatible = "mediatek,disp_smi_subcom1", "mediatek,smi_common";
-		reg = <0 0x14121000 0 0x1000>;
+		reg = <0 0x14121000 0 0x3000>;
 		clocks = <&scpsys SCP_SYS_DIS>;
 		clock-names = "scp-dis";
 		mediatek,smi-id = <25>;
@@ -3367,7 +3367,7 @@ page_owner=on";
 
 	mdp_smi_subcom1@1f024000 {
 		compatible = "mediatek,mdp_smi_subcom1", "mediatek,smi_common";
-		reg = <0 0x1f024000 0 0x1000>;
+		reg = <0 0x1f024000 0 0x3000>;
 		clocks = <&scpsys SCP_SYS_MDP>;
 		clock-names = "scp-mdp";
 		mediatek,smi-id = <27>;

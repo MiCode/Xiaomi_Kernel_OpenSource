@@ -65,7 +65,8 @@
 	do { \
 		if (cmdq != 0) \
 			cmdq_util_msg(string, ##args); \
-		pr_info(string, ##args); \
+		else \
+			pr_info(string, ##args); \
 	} while (0)
 #elif IS_ENABLED(CONFIG_MTK_CMDQ)
 #include <cmdq_helper_ext.h>
@@ -523,6 +524,25 @@ static s32 smi_debug_dumper(const bool gce, const bool off, const u32 id)
 	SMIWRN(gce, "======== %s%u non-zero value, clk:%d ========\n",
 		name, id, ATOMR_CLK(j));
 	smi_debug_print(gce, nr_debugs, debugs, temp);
+
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	if (id != SMI_LARB_NUM + 4 && id != SMI_LARB_NUM + 6)
+		return 0;
+
+	nr_debugs = SMI_RSI_DEBUG_NUM;
+	debugs = smi_rsi_debug_offset;
+
+	for (i = 0; i < nr_debugs && ATOMR_CLK(j) > 0; i++)
+		temp[i] = readl(base + debugs[i]);
+	if (i < nr_debugs) {
+		SMIWRN(gce, "======== %s%u RSI OFF ========\n", name, id);
+		return 0;
+	}
+
+	SMIWRN(gce, "======== %s%u RSI non-zero value, clk:%d ========\n",
+		name, id, ATOMR_CLK(j));
+	smi_debug_print(gce, nr_debugs, debugs, temp);
+#endif
 	return 0;
 }
 
