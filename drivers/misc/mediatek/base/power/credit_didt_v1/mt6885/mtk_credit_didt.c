@@ -98,6 +98,7 @@
  ************************************************/
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF
+static unsigned int credit_didt_doe_ptp;
 static unsigned int credit_didt_doe_enable;
 
 static unsigned int credit_didt4_doe_ls_period;
@@ -558,6 +559,23 @@ static int credit_didt_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	/* ptp control */
+	rc = of_property_read_u32(node,
+		"credit_didt_doe_ptp", &credit_didt_doe_ptp);
+
+	if (credit_didt_doe_ptp < 255) {
+		ptp_ftpgm = credit_didt_doe_ptp;
+		credit_didt_debug("PTPv%u, ptp control from Build-in DOE. credit_didt_doe_ptp = %d\n",
+			ptp_ftpgm, credit_didt_doe_ptp);
+	}
+
+	if (!rc) {
+		credit_didt_debug("[xxxxbrisket] credit_didt_doe_ptp from DTree; rc(%d) credit_didt_doe_ptp(0x%x)\n",
+			rc,
+			credit_didt_doe_ptp);
+	}
+
+	/* enable control */
 	rc = of_property_read_u32(node,
 		"credit_didt_doe_enable", &credit_didt_doe_enable);
 

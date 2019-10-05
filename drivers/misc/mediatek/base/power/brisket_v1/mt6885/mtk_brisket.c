@@ -102,8 +102,14 @@
 #ifdef CONFIG_OF
 
 /* B-DOE use */
+static unsigned int brisket_doe_ptp;
 static unsigned int brisket_doe_pllclken;
 static unsigned int brisket_doe_bren;
+static unsigned int brisket_doe_brisket05;
+static unsigned int brisket_doe_brisket06;
+static unsigned int brisket_doe_brisket07;
+static unsigned int brisket_doe_brisket08;
+static unsigned int brisket_doe_brisket09;
 
 #endif
 #endif
@@ -554,6 +560,7 @@ static int brisket_probe(struct platform_device *pdev)
 	struct device_node *node = NULL;
 	int rc = 0;
 	unsigned int ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xf;
+	int cpu;
 
 	node = pdev->dev.of_node;
 	if (!node) {
@@ -561,6 +568,24 @@ static int brisket_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	/* ptp control */
+	rc = of_property_read_u32(node,
+		"brisket_doe_ptp", &brisket_doe_ptp);
+
+	if (brisket_doe_ptp < 255) {
+		ptp_ftpgm = brisket_doe_ptp;
+		brisket_debug("PTPv%u, ptp control from Build-in DOE. brisket_doe_ptp = %d\n",
+			ptp_ftpgm, brisket_doe_ptp);
+	}
+
+	if (!rc) {
+		brisket_debug("[xxxxbrisket] brisket_doe_ptp from DTree; rc(%d) brisket_doe_ptp(0x%x)\n",
+			rc,
+			brisket_doe_ptp);
+	}
+
+
+	/* pllclken control */
 	rc = of_property_read_u32(node,
 		"brisket_doe_pllclken", &brisket_doe_pllclken);
 
@@ -580,6 +605,7 @@ static int brisket_probe(struct platform_device *pdev)
 			mtk_brisket_pllclken(brisket_doe_pllclken);
 	}
 
+	/* bren control */
 	rc = of_property_read_u32(node,
 		"brisket_doe_bren", &brisket_doe_bren);
 
@@ -597,6 +623,111 @@ static int brisket_probe(struct platform_device *pdev)
 
 		if (brisket_doe_bren >= 0)
 			mtk_brisket_bren(brisket_doe_bren);
+	}
+
+	/*brisket05*/
+	rc = of_property_read_u32(node,
+		"brisket_doe_brisket05", &brisket_doe_brisket05);
+
+	if (!rc) {
+		brisket_debug("[xxxxbrisket] brisket_doe_brisket05 from DTree; rc(%d) brisket_doe_brisket05(0x%x)\n",
+			rc,
+			brisket_doe_brisket05);
+
+		if (brisket_doe_brisket05 >= 0) {
+			for (cpu = BRISKET_CPU_START_ID;
+				cpu <= BRISKET_CPU_END_ID; cpu++) {
+				mtk_brisket(cpu,
+							5,
+							31,
+							0,
+							brisket_doe_brisket05);
+			}
+		}
+	}
+
+	/*brisket06*/
+	rc = of_property_read_u32(node,
+		"brisket_doe_brisket06", &brisket_doe_brisket06);
+
+	if (!rc) {
+		brisket_debug("[xxxxbrisket] brisket_doe_brisket06 from DTree; rc(%d) brisket_doe_brisket06(0x%x)\n",
+			rc,
+			brisket_doe_brisket06);
+
+		if (brisket_doe_brisket06 >= 0) {
+			for (cpu = BRISKET_CPU_START_ID;
+				cpu <= BRISKET_CPU_END_ID; cpu++) {
+				mtk_brisket(cpu,
+							6,
+							31,
+							0,
+							brisket_doe_brisket06);
+			}
+		}
+	}
+
+	/*brisket07*/
+	rc = of_property_read_u32(node,
+		"brisket_doe_brisket07", &brisket_doe_brisket07);
+
+	if (!rc) {
+		brisket_debug("[xxxxbrisket] brisket_doe_brisket07 from DTree; rc(%d) brisket_doe_brisket07(0x%x)\n",
+			rc,
+			brisket_doe_brisket07);
+
+		if (brisket_doe_brisket07 >= 0) {
+			for (cpu = BRISKET_CPU_START_ID;
+				cpu <= BRISKET_CPU_END_ID; cpu++) {
+				mtk_brisket(cpu,
+							7,
+							31,
+							0,
+							brisket_doe_brisket07);
+			}
+		}
+	}
+
+	/*brisket08*/
+	rc = of_property_read_u32(node,
+		"brisket_doe_brisket08", &brisket_doe_brisket08);
+
+	if (!rc) {
+		brisket_debug("[xxxxbrisket] brisket_doe_brisket08 from DTree; rc(%d) brisket_doe_brisket08(0x%x)\n",
+			rc,
+			brisket_doe_brisket08);
+
+		if (brisket_doe_brisket08 >= 0) {
+			for (cpu = BRISKET_CPU_START_ID;
+				cpu <= BRISKET_CPU_END_ID; cpu++) {
+				mtk_brisket(cpu,
+							8,
+							31,
+							0,
+							brisket_doe_brisket08);
+			}
+		}
+	}
+
+	/*brisket09*/
+	rc = of_property_read_u32(node,
+		"brisket_doe_brisket09", &brisket_doe_brisket09);
+
+	if (!rc) {
+		brisket_debug("[xxxxbrisket] brisket_doe_brisket09 from DTree; rc(%d) brisket_doe_brisket09(0x%x)\n",
+			rc,
+			brisket_doe_brisket09);
+
+		if (brisket_doe_brisket09 >= 0) {
+			for (cpu = BRISKET_CPU_START_ID;
+				cpu <= BRISKET_CPU_END_ID; cpu++) {
+				mtk_brisket(cpu,
+							9,
+							31,
+							0,
+							brisket_doe_brisket09);
+			}
+		}
 	}
 
 	brisket_debug("brisket probe ok!!\n");

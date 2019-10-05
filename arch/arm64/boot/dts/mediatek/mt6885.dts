@@ -2556,12 +2556,19 @@ page_owner=on";
 
 	brisket: brisket {
 		compatible = "mediatek,brisket";
+		brisket_doe_ptp = <255>;
 		brisket_doe_pllclken = <240>;
 		brisket_doe_bren = <240>;
+		brisket_doe_brisket05 = <1116226>;
+		brisket_doe_brisket06 = <64497>;
+		brisket_doe_brisket07 = <4095>;
+		brisket_doe_brisket08 = <3210>;
+		brisket_doe_brisket09 = <15872>;
 	};
 
 	credit_didt: credit_didt {
 		compatible = "mediatek,credit_didt";
+		credit_didt_doe_ptp = <255>;
 		credit_didt_doe_enable = <61440>;
 		credit_didt4_doe_ls_period = <6>;
 		credit_didt5_doe_ls_period = <6>;
