@@ -39,8 +39,9 @@ struct drm_property;
 struct regmap;
 
 struct mtk_fake_eng_reg {
-	unsigned int CG;
-	unsigned int bit;
+	unsigned int CG_idx;
+	unsigned int CG_bit;
+	bool share_port;
 };
 
 struct mtk_fake_eng_data {

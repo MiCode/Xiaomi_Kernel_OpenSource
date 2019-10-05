@@ -40,6 +40,9 @@
 #define DISP_REG_CONFIG_DISP_FAKE_ENG_RD_ADDR(idx) (0x210 + 0x20 * (idx))
 #define DISP_REG_CONFIG_DISP_FAKE_ENG_WR_ADDR(idx) (0x214 + 0x20 * (idx))
 #define DISP_REG_CONFIG_DISP_FAKE_ENG_STATE(idx) (0x218 + 0x20 * (idx))
+#define DISP_REG_CONFIG_RDMA_SHARE_SRAM_CON (0x654)
+#define	DISP_RDMA_FAKE_SMI_SEL(idx) (BIT(4 + idx))
+#define SMI_LARB_VC_PRI_MODE (0x020)
 #define SMI_LARB_NON_SEC_CON(port) (0x380 + 4 * (port))
 #define GET_M4U_PORT 0x1F
 
@@ -344,11 +347,64 @@ static void mtk_fake_engine_iommu_enable(struct drm_device *dev,
 	writel_relaxed(value, baddr + SMI_LARB_NON_SEC_CON(port));
 }
 
-void fake_engine(struct drm_crtc *crtc, unsigned int idx, unsigned int en,
-		unsigned int wr_en, unsigned int rd_en, unsigned int latency,
-		unsigned int preultra_cnt, unsigned int ultra_cnt)
+static void mtk_fake_engine_share_port_config(struct drm_crtc *crtc,
+						unsigned int idx, bool en)
 {
-	int wr_pat = 4;
+	unsigned int value;
+	struct device_node *larb_node;
+	static void __iomem **baddr;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	const struct mtk_fake_eng_data *fake_eng_data =
+						priv->data->fake_eng_data;
+	int i;
+
+	if (!baddr) {
+		baddr = devm_kmalloc_array(crtc->dev->dev,
+				fake_eng_data->fake_eng_num,
+				sizeof(void __iomem *),
+				GFP_KERNEL);
+		for (i = 0; i < fake_eng_data->fake_eng_num; i++) {
+			larb_node = of_parse_phandle(priv->mmsys_dev->of_node,
+				"fake-engine", i * 2);
+			if (!larb_node) {
+				DDPPR_ERR("Cannot find larb node\n");
+				return;
+			}
+			baddr[i] = of_iomap(larb_node, 0);
+			of_node_put(larb_node);
+		}
+	}
+
+	if (en) {
+		value = readl(baddr[idx] + SMI_LARB_VC_PRI_MODE);
+		value = (value & ~0x3) | (0x0 & 0x3);
+		writel_relaxed(value, baddr + SMI_LARB_VC_PRI_MODE);
+
+		value = readl(mtk_crtc->config_regs +
+				DISP_REG_CONFIG_RDMA_SHARE_SRAM_CON);
+		value |= DISP_RDMA_FAKE_SMI_SEL(idx);
+		writel_relaxed(value, mtk_crtc->config_regs +
+				DISP_REG_CONFIG_RDMA_SHARE_SRAM_CON);
+	} else {
+		value = readl(baddr[idx] + SMI_LARB_VC_PRI_MODE);
+		value = (value & ~0x3) | (0x1 & 0x3);
+		writel_relaxed(value, baddr + SMI_LARB_VC_PRI_MODE);
+
+		value = readl(mtk_crtc->config_regs +
+				DISP_REG_CONFIG_RDMA_SHARE_SRAM_CON);
+		value &= ~(DISP_RDMA_FAKE_SMI_SEL(idx));
+		writel_relaxed(value, mtk_crtc->config_regs +
+				DISP_REG_CONFIG_RDMA_SHARE_SRAM_CON);
+	}
+}
+
+void fake_engine(struct drm_crtc *crtc, unsigned int idx, unsigned int en,
+		unsigned int wr_en, unsigned int rd_en, unsigned int wr_pat1,
+		unsigned int wr_pat2, unsigned int latency,
+		unsigned int preultra_cnt,
+		unsigned int ultra_cnt)
+{
 	int burst = 7;
 	int test_len = 255;
 	int loop = 1;
@@ -403,8 +459,11 @@ void fake_engine(struct drm_crtc *crtc, unsigned int idx, unsigned int en,
 			}
 		}
 
-		writel_relaxed(BIT(fake_eng->bit), mtk_crtc->config_regs +
-			DISP_REG_CONFIG_MMSYS_CG_CLR(fake_eng->CG));
+		if (fake_eng->share_port)
+			mtk_fake_engine_share_port_config(crtc, idx, en);
+
+		writel_relaxed(BIT(fake_eng->CG_bit), mtk_crtc->config_regs +
+			DISP_REG_CONFIG_MMSYS_CG_CLR(fake_eng->CG_idx));
 
 		writel_relaxed((unsigned int)gem[idx]->dma_addr,
 			mtk_crtc->config_regs +
@@ -412,7 +471,7 @@ void fake_engine(struct drm_crtc *crtc, unsigned int idx, unsigned int en,
 		writel_relaxed((unsigned int)gem[idx]->dma_addr + 4096,
 			mtk_crtc->config_regs +
 			DISP_REG_CONFIG_DISP_FAKE_ENG_WR_ADDR(idx));
-		writel_relaxed((wr_pat << 24) | (loop << 22) | test_len,
+		writel_relaxed((wr_pat1 << 24) | (loop << 22) | test_len,
 			mtk_crtc->config_regs +
 			DISP_REG_CONFIG_DISP_FAKE_ENG_CON0(idx));
 		writel_relaxed((ultra_en << 23) | (ultra_cnt << 20) |
@@ -427,6 +486,12 @@ void fake_engine(struct drm_crtc *crtc, unsigned int idx, unsigned int en,
 			DISP_REG_CONFIG_DISP_FAKE_ENG_RST(idx));
 		writel_relaxed(0x3, mtk_crtc->config_regs +
 			DISP_REG_CONFIG_DISP_FAKE_ENG_EN(idx));
+
+		if (wr_pat2 != wr_pat1)
+			writel_relaxed((wr_pat2 << 24) | (loop << 22) |
+				test_len,
+				mtk_crtc->config_regs +
+				DISP_REG_CONFIG_DISP_FAKE_ENG_CON0(idx));
 
 		DDPMSG("fake_engine_%d enable\n", idx);
 	} else {
@@ -448,8 +513,11 @@ void fake_engine(struct drm_crtc *crtc, unsigned int idx, unsigned int en,
 		writel_relaxed(0x0, mtk_crtc->config_regs +
 			DISP_REG_CONFIG_DISP_FAKE_ENG_EN(idx));
 
-		writel_relaxed(BIT(fake_eng->bit), mtk_crtc->config_regs +
-			DISP_REG_CONFIG_MMSYS_CG_SET(fake_eng->CG));
+		writel_relaxed(BIT(fake_eng->CG_bit), mtk_crtc->config_regs +
+			DISP_REG_CONFIG_MMSYS_CG_SET(fake_eng->CG_idx));
+
+		if (fake_eng->share_port)
+			mtk_fake_engine_share_port_config(crtc, idx, en);
 
 		DDPMSG("fake_engine_%d disable\n", idx);
 	}
@@ -679,16 +747,16 @@ static void process_dbg_opt(const char *opt)
 		mtk_crtc = to_mtk_crtc(crtc);
 		dump_fake_engine(mtk_crtc->config_regs);
 	} else if (!strncmp(opt, "fake_engine:", 12)) {
-		unsigned int en, idx, wr_en, rd_en, latency,
+		unsigned int en, idx, wr_en, rd_en, wr_pat1, wr_pat2, latency,
 				preultra_cnt, ultra_cnt;
 		struct drm_crtc *crtc;
 		int ret = 0;
 
-		ret = sscanf(opt, "fake_engine:%d,%d,%d,%d,%d,%d,%d\n",
-				&idx, &en, &wr_en, &rd_en, &latency,
-				&preultra_cnt, &ultra_cnt);
+		ret = sscanf(opt, "fake_engine:%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+				&idx, &en, &wr_en, &rd_en, &wr_pat1, &wr_pat2,
+				&latency, &preultra_cnt, &ultra_cnt);
 
-		if (ret != 7) {
+		if (ret != 9) {
 			DDPPR_ERR("%d error to parse cmd %s\n",
 				__LINE__, opt);
 			return;
@@ -703,8 +771,8 @@ static void process_dbg_opt(const char *opt)
 
 		mtk_drm_idlemgr_kick(__func__, crtc, 1);
 		mtk_drm_set_idlemgr(crtc, 0, 1);
-		fake_engine(crtc, idx, en, wr_en, rd_en, latency, preultra_cnt,
-			ultra_cnt);
+		fake_engine(crtc, idx, en, wr_en, rd_en, wr_pat1, wr_pat2,
+			latency, preultra_cnt, ultra_cnt);
 	}
 }
 

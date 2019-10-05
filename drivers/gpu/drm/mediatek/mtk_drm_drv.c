@@ -784,8 +784,8 @@ const struct mtk_session_mode_tb mt6779_mode_tb[MTK_DRM_SESSION_NUM] = {
 };
 
 static const struct mtk_fake_eng_reg mt6779_fake_eng_reg[] = {
-		{.CG = 0, .bit = 19},
-		{.CG = 1, .bit = 4},
+		{.CG_idx = 0, .CG_bit = 19, .share_port = false},
+		{.CG_idx = 1, .CG_bit = 4, .share_port = false},
 };
 
 static const struct mtk_fake_eng_data mt6779_fake_eng_data = {
