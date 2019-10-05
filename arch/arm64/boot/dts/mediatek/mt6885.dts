@@ -523,7 +523,7 @@ page_owner=on";
 		reg = <0 0x1000f000 0 0x1000>;
 	};
 
-	kp@10010000 {
+	keypad: kp@10010000 {
 		compatible = "mediatek,kp";
 		reg = <0 0x10010000 0 0x1000>;
 		interrupts = <GIC_SPI 74 IRQ_TYPE_EDGE_RISING>;
@@ -5456,6 +5456,28 @@ page_owner=on";
 		brisket5_doe_bren = <0>;
 		brisket6_doe_bren = <0>;
 		brisket7_doe_bren = <0>;
+	};
+
+	mrdump_ext_rst: mrdump_ext_rst {
+		compatible = "mediatek, mrdump_ext_rst-eint";
+		mode = "IRQ";
+		status = "okay";
+	};
+
+	touch: touch {
+		compatible = "mediatek,touch";
+	};
+
+	tcpc_pd: tcpc_pd {
+	};
+
+	smart_pa: smart_pa {
+	};
+
+	md1_sim1_hot_plug_eint: md1_sim1_hot_plug_eint {
+	};
+
+	md1_sim2_hot_plug_eint: md1_sim2_hot_plug_eint {
 	};
 
 	credit_didt: credit_didt {

@@ -539,6 +539,5 @@
 };
 /* GPS GPIO standardization end */
 
-/* temp disable include until dtsi is gen. */
-/* #include <k6885v1_64/cust.dtsi> */
+#include <k6885v1_64/cust.dtsi>
 /*End of this file, DO NOT ADD ANYTHING HERE*/
