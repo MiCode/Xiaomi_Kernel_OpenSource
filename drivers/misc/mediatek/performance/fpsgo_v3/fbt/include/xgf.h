@@ -175,6 +175,7 @@ int xgf_stat_xchg(int enable);
 void *xgf_alloc(int size);
 void xgf_free(void *block);
 void *xgf_atomic_val_assign(int select);
+int *xgf_extra_sub_assign(void);
 int xgf_atomic_read(atomic_t *val);
 int xgf_atomic_inc_return(atomic_t *val);
 void xgf_atomic_set(atomic_t *val, int i);

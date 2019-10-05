@@ -57,7 +57,9 @@ static atomic_t xgf_atomic_val_0 = ATOMIC_INIT(0);
 static atomic_t xgf_atomic_val_1 = ATOMIC_INIT(0);
 static unsigned long long last_update2spid_ts;
 static char *xgf_sp_name = SP_ALLOW_NAME;
+static int xgf_extra_sub;
 module_param(xgf_sp_name, charp, 0644);
+module_param(xgf_extra_sub, int, 0644);
 
 HLIST_HEAD(xgf_renders);
 HLIST_HEAD(xgf_hw_events);
@@ -133,6 +135,12 @@ void *xgf_atomic_val_assign(int select)
 		return (void *)(&xgf_atomic_val_1);
 }
 EXPORT_SYMBOL(xgf_atomic_val_assign);
+
+int *xgf_extra_sub_assign(void)
+{
+	return (int *)(&xgf_extra_sub);
+}
+EXPORT_SYMBOL(xgf_extra_sub_assign);
 
 int xgf_atomic_read(atomic_t *val)
 {
