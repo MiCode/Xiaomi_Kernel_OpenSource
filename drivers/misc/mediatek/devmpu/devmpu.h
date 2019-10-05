@@ -16,7 +16,7 @@
 
 #include <devmpu_mt.h>
 
-// general utils
+/* general utils */
 #define DEVMPU_MASK             (~(DEVMPU_PAGE_SIZE-1))
 #define DEVMPU_ALIGN_UP(x)      ((x + DEVMPU_PAGE_SIZE - 1) & DEVMPU_MASK)
 #define DEVMPU_ALIGN_DOWN(x)    ((x) & DEVMPU_MASK)
@@ -37,5 +37,5 @@
  * Return: 0 on success, -1 if any error
  */
 int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
-		uint32_t vio_domain, uint32_t vio_is_write, bool from_emimpu);
-#endif // __DEVMPU_H__
+		uint32_t vio_domain, uint32_t vio_rw, bool from_emimpu);
+#endif /* __DEVMPU_H__ */
