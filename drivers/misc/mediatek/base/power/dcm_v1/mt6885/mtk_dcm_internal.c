@@ -35,9 +35,16 @@ unsigned int all_dcm_type =
 		(ARMCORE_DCM_TYPE | MCUSYS_DCM_TYPE | STALL_DCM_TYPE |
 		INFRA_DCM_TYPE | DDRPHY_DCM_TYPE | EMI_DCM_TYPE
 		| DRAMC_DCM_TYPE);
+
+#if defined(BUSDVT_ONLY_MD)
+static unsigned int init_dcm_type = BUSDVT_DCM_TYPE;
+#else
 unsigned int init_dcm_type =
 		(ARMCORE_DCM_TYPE | MCUSYS_DCM_TYPE | STALL_DCM_TYPE |
 		INFRA_DCM_TYPE);
+#endif
+
+
 
 #if defined(__KERNEL__) && defined(CONFIG_OF)
 unsigned long  dcm_mp_cpusys_top_base;
@@ -279,16 +286,20 @@ int dcm_infra(int on)
 	dcm_infracfg_ao_infra_bus_dcm(on);
 	dcm_infracfg_ao_infra_conn_bus_dcm(on);
 	dcm_infracfg_ao_infra_rx_p2p_dcm(on);
-	dcm_infracfg_ao_mts_bus_dcm(on);
 	dcm_infracfg_ao_peri_bus_dcm(on);
 	dcm_infracfg_ao_peri_module_dcm(on);
+
 	/* INFRACFG_AO_MEM */
-	dcm_infracfg_ao_mem_dcm_emi_group(on);
+	/* move to preloader */
+	/* dcm_infracfg_ao_mem_dcm_emi_group(on); */
+
 	/* INFRA_AO_BCRM */
 	dcm_infra_ao_bcrm_infra_bus_dcm(on);
 	dcm_infra_ao_bcrm_peri_bus_dcm(on);
 	/* SUB_INFRACFG_AO_MEM */
-	dcm_sub_infracfg_ao_mem_dcm_emi_group(on);
+
+	/* move to preloader */
+	/* dcm_sub_infracfg_ao_mem_dcm_emi_group(on); */
 #else
 	dcm_infracfg_ao_infra_bus_dcm(on);
 
@@ -468,6 +479,26 @@ int dcm_mcsi(int on)
 	return 0;
 }
 
+int dcm_busdvt(int on)
+{
+	dcm_infracfg_ao_aximem_bus_dcm(on);
+	dcm_infracfg_ao_infra_bus_dcm(on);
+	dcm_infracfg_ao_infra_conn_bus_dcm(on);
+	dcm_infracfg_ao_infra_rx_p2p_dcm(on);
+	dcm_infracfg_ao_peri_bus_dcm(on);
+	dcm_infracfg_ao_peri_module_dcm(on);
+	dcm_infra_ao_bcrm_infra_bus_dcm(on);
+	dcm_infra_ao_bcrm_peri_bus_dcm(on);
+
+	dcm_dramc_ch0_top5_ddrphy(on);
+	dcm_dramc_ch1_top5_ddrphy(on);
+	/* move to preloader */
+	/*dcm_infracfg_ao_mem_dcm_emi_group(on);*/
+	/*dcm_sub_infracfg_ao_mem_dcm_emi_group(on);*/
+
+	return 0;
+}
+
 struct DCM dcm_array[NR_DCM_TYPE] = {
 	{
 	 .typeid = ARMCORE_DCM_TYPE,
@@ -587,6 +618,14 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .func = (DCM_FUNC) dcm_mcsi,
 	 .current_state = MCSI_DCM_ON,
 	 .default_state = MCSI_DCM_ON,
+	 .disable_refcnt = 0,
+	 },
+	{
+	 .typeid = BUSDVT_DCM_TYPE,
+	 .name = "MCSI_DCM",
+	 .func = (DCM_FUNC) dcm_busdvt,
+	 .current_state = BUSDVT_DCM_ON,
+	 .default_state = BUSDVT_DCM_ON,
 	 .disable_refcnt = 0,
 	 },
 };

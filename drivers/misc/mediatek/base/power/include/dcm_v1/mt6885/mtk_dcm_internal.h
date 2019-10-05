@@ -19,6 +19,8 @@
 
 /* #define DCM_DEFAULT_ALL_OFF */
 #define DCM_BRINGUP
+/* BUS DVT only mode */
+/* #define BUSDVT_ONLY_MD */
 
 /* Note: ENABLE_DCM_IN_LK is used in kernel if DCM is enabled in LK */
 #define ENABLE_DCM_IN_LK
@@ -137,6 +139,11 @@ enum {
 };
 
 enum {
+	BUSDVT_DCM_OFF = DCM_OFF,
+	BUSDVT_DCM_ON = DCM_ON,
+};
+
+enum {
 	ARMCORE_DCM = 0,
 	MCUSYS_DCM,
 	INFRA_DCM,
@@ -152,6 +159,7 @@ enum {
 	TOPCKG_DCM,
 	LPDMA_DCM,
 	MCSI_DCM,
+	BUSDVT_DCM,
 	NR_DCM,
 };
 
@@ -171,6 +179,7 @@ enum {
 	TOPCKG_DCM_TYPE		= (1U << TOPCKG_DCM),
 	LPDMA_DCM_TYPE		= (1U << LPDMA_DCM),
 	MCSI_DCM_TYPE		= (1U << MCSI_DCM),
+	BUSDVT_DCM_TYPE		= (1U << BUSDVT_DCM),
 	NR_DCM_TYPE = NR_DCM,
 };
 
