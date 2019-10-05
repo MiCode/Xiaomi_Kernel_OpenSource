@@ -166,7 +166,8 @@ struct mtk_devapc_soc {
 	const uint32_t *devapc_pds;
 
 	/* platform specific operations */
-	const char* (*subsys_get)(int slave_type, uint32_t vio_index);
+	const char* (*subsys_get)(int slave_type, uint32_t vio_index,
+			uint32_t vio_addr);
 	const char* (*master_get)(int bus_id, uint32_t vio_addr);
 	void (*mm2nd_vio_handler)(void __iomem *infracfg,
 			struct mtk_devapc_vio_info *vio_info,

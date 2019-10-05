@@ -1481,10 +1481,13 @@ static const char *mt6885_bus_id_to_master(int bus_id, uint32_t vio_addr)
 }
 
 /* violation index corresponds to subsys */
-const char *index_to_subsys(int slave_type, uint32_t vio_index)
+const char *index_to_subsys(int slave_type, uint32_t vio_index,
+		uint32_t vio_addr)
 {
 	if (slave_type == SLAVE_TYPE_INFRA &&
 			vio_index < VIO_SLAVE_NUM_INFRA) {
+
+		/* check violation index */
 		if (vio_index == SMI_LARB0_VIO_INDEX ||
 				vio_index == SMI_LARB1_VIO_INDEX ||
 				vio_index == SMI_LARB2_VIO_INDEX ||
@@ -1543,6 +1546,8 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index)
 
 	} else if (slave_type == SLAVE_TYPE_PERI &&
 			vio_index < VIO_SLAVE_NUM_PERI) {
+
+		/* check violation index */
 		switch (vio_index) {
 		case TINY_START ... TINY_END:
 			return "TINYSYS";
@@ -1556,6 +1561,11 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index)
 
 	} else if (slave_type == SLAVE_TYPE_PERI2 &&
 			vio_index < VIO_SLAVE_NUM_PERI2) {
+
+		/* check violation address */
+		if (vio_addr >= GCE_PA_START && vio_addr <= GCE_PA_END)
+			return "GCE";
+
 		return mt6885_devices_peri2[vio_index].device;
 	}
 

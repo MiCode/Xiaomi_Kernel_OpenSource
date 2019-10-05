@@ -613,7 +613,7 @@ static void mtk_devapc_dump_vio_dbg(enum DEVAPC_SLAVE_TYPE slave_type)
  * 2. call subsys handler to get more debug information
  */
 static void devapc_extra_handler(enum DEVAPC_SLAVE_TYPE slave_type,
-		const char *vio_master, uint32_t vio_index)
+		const char *vio_master, uint32_t vio_index, uint32_t vio_addr)
 {
 	const struct mtk_device_info *device_info[SLAVE_TYPE_NUM];
 	struct mtk_devapc_dbg_status *dbg_stat;
@@ -633,7 +633,7 @@ static void devapc_extra_handler(enum DEVAPC_SLAVE_TYPE slave_type,
 	/* Dispatch slave owner if APMCU access. Others, dispatch master */
 	if (!strncmp(vio_master, "APMCU", 5))
 		strncpy(dispatch_key, mtk_devapc_ctx->soc->subsys_get(
-				slave_type, vio_index),
+				slave_type, vio_index, vio_addr),
 				sizeof(dispatch_key));
 	else
 		strncpy(dispatch_key, vio_master, sizeof(dispatch_key));
@@ -648,7 +648,8 @@ static void devapc_extra_handler(enum DEVAPC_SLAVE_TYPE slave_type,
 		id = INFRA_SUBSYS_CONN;
 	else if (!strncasecmp(vio_master, "TINYSYS", 7))
 		id = INFRA_SUBSYS_ADSP;
-	else if (!strncasecmp(vio_master, "GCE", 3))
+	else if (!strncasecmp(vio_master, "GCE", 3) ||
+			!strncasecmp(dispatch_key, "GCE", 3))
 		id = INFRA_SUBSYS_GCE;
 	else if (!strncasecmp(vio_master, "APMCU", 5))
 		id = INFRA_SUBSYS_APMCU;
@@ -770,7 +771,8 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 			pr_info(PFX "Permission setting: %s\n",
 				perm_to_string(perm));
 
-			devapc_extra_handler(slave_type, vio_master, vio_idx);
+			devapc_extra_handler(slave_type, vio_master, vio_idx,
+					vio_info->vio_addr);
 
 			mask_module_irq(slave_type, vio_idx, false);
 
