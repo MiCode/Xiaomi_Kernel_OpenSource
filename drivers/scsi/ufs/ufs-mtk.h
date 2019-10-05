@@ -22,6 +22,7 @@
 #include <linux/of.h>
 #include <linux/rpmb.h>
 #include <linux/hie.h>
+#include <linux/pm_qos.h>
 #include "ufshcd.h"
 
 #define UPIU_COMMAND_CRYPTO_EN_OFFSET	23
@@ -185,6 +186,19 @@ struct ufs_mtk_host {
 	struct pm_qos_request *req_vcore;
 
 	bool spm_sw_mode;
+	atomic_t pm_qos_state;
+	struct pm_qos_request pm_qos_req;
+	struct delayed_work pm_qos_get;
+	struct delayed_work pm_qos_rel;
+	spinlock_t qos_lock;
+	int pm_qos_value;
+};
+
+enum {
+	PMQOS_UNREQ = 0,
+	PMQOS_REQ = 1,
+	PMQOS_UNREQING = 2,
+	PMQOS_REQING = 3
 };
 
 extern bool ufs_mtk_auto_hibern8_enabled;
