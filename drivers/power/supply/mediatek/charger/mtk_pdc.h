@@ -68,10 +68,7 @@ struct pdc {
 };
 
 extern int pdc_init(void);
-extern bool pdc_is_enable(void);
-extern bool pdc_is_connect(void);
 extern bool pdc_is_ready(void);
-extern int pdc_reset(void);
 extern int pdc_stop(void);
 extern int pdc_run(void);
 extern int pdc_set_data(struct pdc_data data);
