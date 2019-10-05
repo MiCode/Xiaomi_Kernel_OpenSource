@@ -917,7 +917,7 @@ static long dfrc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		res = dfrc_reg_policy(&policy);
 		if (res)
 			pr_warn("reg_policy : failed to register fps policy[%d]\n",
-					res);
+					(int)res);
 		break;
 
 	case DFRC_IOCTL_CMD_SET_POLICY:
@@ -928,7 +928,7 @@ static long dfrc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		res = dfrc_set_policy(&policy);
 		if (res)
 			pr_warn("set_fps_policy : failed to set fps policy with %dfps\n",
-					policy.fps);
+					(int)policy.fps);
 		break;
 
 	case DFRC_IOCTL_CMD_UNREG_POLICY:

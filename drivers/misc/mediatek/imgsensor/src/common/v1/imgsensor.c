@@ -24,7 +24,7 @@
 
 
 #ifdef CONFIG_MTK_SMI_EXT
-#include "mmdvfs_mgr.h"
+/* #include "mmdvfs_mgr.h" */
 #endif
 #ifdef CONFIG_OF
 /* device tree */
