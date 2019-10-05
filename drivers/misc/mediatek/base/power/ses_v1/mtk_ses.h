@@ -13,7 +13,7 @@
 #ifndef _MTK_SES_
 #define _MTK_SES_
 
-#define MTK_SES_ON 1
+#define MTK_SES_DOE 0
 
 
 #ifdef __KERNEL__

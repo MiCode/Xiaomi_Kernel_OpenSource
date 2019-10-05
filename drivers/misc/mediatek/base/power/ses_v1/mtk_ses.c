@@ -140,8 +140,8 @@ struct drp_ratio_type drp_ratio[sesNum];
 
 static unsigned int ses_ByteSel = 4;
 
-#if MTK_SES_ON
 static unsigned int state;
+#if MTK_SES_DOE
 static unsigned int ses0_reg3;
 static unsigned int ses1_reg3;
 static unsigned int ses2_reg3;
@@ -160,6 +160,7 @@ static unsigned int ses5_reg2;
 static unsigned int ses6_reg2;
 static unsigned int ses7_reg2;
 static unsigned int ses8_reg2;
+#endif
 static unsigned int ses0_drphipct;
 static unsigned int ses1_drphipct;
 static unsigned int ses2_drphipct;
@@ -178,8 +179,6 @@ static unsigned int ses5_drplopct;
 static unsigned int ses6_drplopct;
 static unsigned int ses7_drplopct;
 static unsigned int ses8_drplopct;
-
-#endif
 
 /************************************************
  * Global function definition
@@ -913,7 +912,6 @@ static int create_procfs(void)
 
 static int ses_probe(struct platform_device *pdev)
 {
-#if MTK_SES_ON
 	struct device_node *node = NULL;
 	int rc = 0;
 	unsigned int ses_node = 0;
@@ -934,6 +932,7 @@ static int ses_probe(struct platform_device *pdev)
 			mtk_ses_enable((state >> ses_node) & 0x01, ses_node);
 	}
 
+#if MTK_SES_DOE
 	rc = of_property_read_u32(node, "ses0_reg3", &ses0_reg3);
 	if (!rc) {
 		ses_debug("[cpu_ses] ses0_reg3 from DTree; rc(%d) ses0_reg3(0x%x)\n",
@@ -1172,6 +1171,8 @@ static int ses_probe(struct platform_device *pdev)
 			mtk_ses_dly_filt(GET_BITS_VAL(16:2, ses8_reg2), 8);
 	}
 
+#endif
+
 	rc = of_property_read_u32(node, "ses0_drphipct", &ses0_drphipct);
 	if (!rc) {
 		rc = of_property_read_u32(node,
@@ -1279,8 +1280,6 @@ static int ses_probe(struct platform_device *pdev)
 		if (ses8_drphipct != 0 && ses8_drplopct != 0)
 			mtk_ses_volt_ratio_eb(ses8_drphipct, ses8_drplopct, 8);
 	}
-
-#endif
 
 	ses_debug("ses probe ok!!\n");
 
