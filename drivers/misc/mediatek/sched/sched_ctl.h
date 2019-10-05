@@ -32,6 +32,8 @@ extern int sched_scheduler_switch(enum SCHED_LB_TYPE new_sched);
 #endif
 #ifdef CONFIG_SCHED_TUNE
 extern int schedtune_task_boost(struct task_struct *tsk);
+#else
+#define schedtune_task_boost(tsk) 0
 #endif
 
 extern unsigned int hmp_cpu_is_slowest(int cpu);
