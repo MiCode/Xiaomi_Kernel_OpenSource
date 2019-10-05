@@ -82,6 +82,7 @@ config ANDROID_DEFAULT_SETTING
 	select IPV6_ROUTE_INFO
 	select IPV6_ROUTER_PREF
 	select IPV6_VTI
+	select L2TP
 	select MAGIC_SYSRQ
 	select MEMCG
 	select MEMCG_SWAP
@@ -90,6 +91,7 @@ config ANDROID_DEFAULT_SETTING
 	select MODVERSIONS
 	select NET
 	select NET_CLS_ACT
+	select NET_CLS_BPF
 	select NET_CLS_U32
 	select NETDEVICES
 	select NET_EMATCH
@@ -130,6 +132,7 @@ config ANDROID_DEFAULT_SETTING
 	select NETFILTER_XT_TARGET_TCPMSS
 	select NETFILTER_XT_TARGET_TPROXY
 	select NETFILTER_XT_TARGET_TRACE
+	select NET_IPGRE_DEMUX
 	select NET_IPVTI
 	select NET_KEY
 	select NET_SCHED
@@ -162,6 +165,8 @@ config ANDROID_DEFAULT_SETTING
 	select PPP_BSDCOMP
 	select PPP_DEFLATE
 	select PPP_MPPE
+	select PPPOL2TP
+	select PPTP
 	select PREEMPT
 	select PROC_FS
 	select PROFILING
