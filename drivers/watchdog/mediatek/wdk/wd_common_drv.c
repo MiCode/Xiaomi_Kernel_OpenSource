@@ -858,7 +858,7 @@ static void wdk_work_callback(struct work_struct *work)
 
 	wk_proc_init();
 
-	cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN + 5, "watchdog:wdkctrl",
+	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN, "watchdog:wdkctrl",
 				     wk_cpu_callback_online,
 				     wk_cpu_callback_offline);
 
