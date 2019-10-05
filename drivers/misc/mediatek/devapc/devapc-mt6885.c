@@ -1545,6 +1545,7 @@ static void mm2nd_vio_handler(void __iomem *infracfg,
 	if (!infracfg) {
 		pr_err(PFX "%s, param check failed, infracfg ptr is NULL\n",
 				__func__);
+		return;
 	}
 
 	if (mdp_vio) {
@@ -1571,6 +1572,7 @@ static void mm2nd_vio_handler(void __iomem *infracfg,
 				"mdp_vio", mdp_vio ? "true" : "false",
 				"disp2_vio", disp2_vio ? "true" : "false",
 				"mmsys_vio", mmsys_vio ? "true" : "false");
+		return;
 	}
 
 	/* Get mm2nd violation status */
