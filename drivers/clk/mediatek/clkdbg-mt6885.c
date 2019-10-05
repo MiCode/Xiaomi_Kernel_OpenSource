@@ -985,8 +985,10 @@ void print_subsys_reg(char *subsys_name)
 	struct regbase *rb;
 	const struct regname *rns = &rn_mt6885[0];
 
-	if (rns == NULL)
-		return;
+	/*
+	 * if (rns == NULL)
+	 *	return;
+	 */
 
 	rb = lookup_regbase(subsys_name);
 	if (rb == NULL) {
