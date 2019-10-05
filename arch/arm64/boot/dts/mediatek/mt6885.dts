@@ -231,6 +231,46 @@ page_owner=on";
 		#clock-cells = <1>;
 	};
 
+	dcm: dcm@10001000 {
+		compatible = "mediatek,mt6885-dcm";
+		reg = <0 0x10001000 0 0x1000>,
+			<0 0x10002000 0 0x1000>,
+			<0 0x10022000 0 0x1000>,
+			<0 0x10219000 0 0x1000>,
+			<0 0x1021d000 0 0x1000>,
+			<0 0x10235000 0 0x1000>,
+			<0 0x10238000 0 0x1000>,
+			<0 0x10245000 0 0x1000>,
+			<0 0x10248000 0 0x1000>,
+			<0 0x10255000 0 0x1000>,
+			<0 0x10258000 0 0x1000>,
+			<0 0x10265000 0 0x1000>,
+			<0 0x10268000 0 0x1000>,
+			<0 0x1030e000 0 0x1000>,
+			<0 0x10400000 0 0x50000>,
+			<0 0x11210000 0 0x1000>,
+			<0 0x0c538000 0 0x5000>,
+			<0 0x0c53a800 0 0x1000>;
+		reg-names = "infracfg_ao",
+			"infracfg_ao_mem",
+			"infra_ao_bcrm",
+			"emi",
+			"sub_emi",
+			"chn0_emi",
+			"dramc_ch0_top5",
+			"chn1_emi",
+			"dramc_ch1_top5",
+			"chn2_emi",
+			"dramc_ch2_top5",
+			"chn3_emi",
+			"dramc_ch3_top5",
+			"sub_infracfg_ao_mem",
+			"sspm",
+			"audio",
+			"mp_cpusys_top",
+			"cpccfg_reg";
+	};
+
 	scpsys: scpsys@10001000 {
 		compatible = "mediatek,scpsys";
 		reg = <0 0x10001000 0 0x1000>,		/* infracfg_ao */
