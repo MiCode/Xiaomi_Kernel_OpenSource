@@ -617,7 +617,7 @@ static unsigned int lcm_ata_check(unsigned char *buffer)
 {
 #ifndef BUILD_LK
 	unsigned int ret = 0;
-	unsigned int id[3] = {0x83, 0x11, 0x2B};
+	unsigned int id[3] = {0x00, 0x00, 0x00};
 	unsigned int data_array[3];
 	unsigned char read_buf[3];
 
