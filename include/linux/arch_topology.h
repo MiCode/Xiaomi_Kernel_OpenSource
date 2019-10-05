@@ -45,4 +45,14 @@ unsigned long topology_get_max_freq_scale(struct sched_domain *sd, int cpu)
 	return per_cpu(max_freq_scale, cpu);
 }
 
+#define topology_max_cpu_capacity(cpu) (arch_get_max_cpu_capacity(cpu))
+#define topology_cur_cpu_capacity(cpu) (arch_get_cur_cpu_capacity(cpu))
+
+/* Extras of CPU & Cluster functions */
+extern int arch_get_nr_clusters(void);
+extern int arch_get_cluster_id(unsigned int cpu);
+extern unsigned long arch_get_max_cpu_capacity(int cpu);
+extern unsigned long arch_get_cur_cpu_capacity(int cpu);
+extern void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id);
+
 #endif /* _LINUX_ARCH_TOPOLOGY_H_ */

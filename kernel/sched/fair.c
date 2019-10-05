@@ -3501,8 +3501,19 @@ static inline void update_load_avg(struct sched_entity *se, int flags)
 	 * Track task load average for carrying it to new CPU after migrated, and
 	 * track group sched_entity load average for task_h_load calc in migration
 	 */
-	if (se->avg.last_update_time && !(flags & SKIP_AGE_LOAD))
+	if (se->avg.last_update_time && !(flags & SKIP_AGE_LOAD)) {
+#ifdef CONFIG_MTK_SCHED_RQAVG_US
+		if (entity_is_task(se) && se->on_rq)
+			inc_nr_heavy_running("__update_load_avg-",
+				task_of(se), -1, false);
+#endif
 		__update_load_avg_se(now, cpu, cfs_rq, se);
+#ifdef CONFIG_MTK_SCHED_RQAVG_US
+		if (entity_is_task(se) && se->on_rq)
+			inc_nr_heavy_running("__update_load_avg+",
+				task_of(se), 1, false);
+#endif
+	}
 
 	decayed  = update_cfs_rq_load_avg(now, cfs_rq);
 	decayed |= propagate_entity_load_avg(se);
@@ -5261,6 +5272,9 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 
 	if (!se) {
 		add_nr_running(rq, 1);
+#ifdef CONFIG_MTK_SCHED_RQAVG_US
+		inc_nr_heavy_running(__func__, p, 1, false);
+#endif
 		if (!task_new)
 			update_overutilized_status(rq);
 		walt_inc_cumulative_runnable_avg(rq, p);
@@ -5334,6 +5348,9 @@ static void dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 
 	if (!se) {
 		sub_nr_running(rq, 1);
+#ifdef CONFIG_MTK_SCHED_RQAVG_US
+		inc_nr_heavy_running(__func__, p, -1, false);
+#endif
 		walt_dec_cumulative_runnable_avg(rq, p);
 	}
 
