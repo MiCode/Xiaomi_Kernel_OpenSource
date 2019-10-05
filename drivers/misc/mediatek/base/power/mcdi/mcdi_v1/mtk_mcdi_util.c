@@ -19,6 +19,7 @@
 #include <mtk_mcdi_util.h>
 #include <mtk_mcdi_plat.h>
 #include <mtk_mcdi_reg.h>
+#include <mtk_mcdi_mcupm.h>
 
 #include <mt-plat/mtk_secure_api.h>
 
@@ -54,17 +55,36 @@ static inline int mcdi_sspm_ready(void)
 
 static inline unsigned int mcdi_mcupm_read(int id)
 {
-	return mcdi_read((uintptr_t)id);
+	if (mcdi_mcupm_sram_is_ready())
+		return mcdi_read((uintptr_t)(MCDI_MBOX + (4 * id)));
+	else
+		return 0;
 }
 
 static inline void mcdi_mcupm_write(int id, unsigned int val)
 {
-	mcdi_write((uintptr_t)id, val);
+	if (mcdi_mcupm_sram_is_ready())
+		mcdi_write((uintptr_t)(MCDI_MBOX + (4 * id)), val);
 }
 
 static inline int mcdi_mcupm_ready(void)
 {
-	return false;
+	int sta = get_mcupmfw_load_info();
+	bool ret = false;
+
+	ret = (sta) ? true : false;
+	if (sta == -1) {
+		sta = mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
+			MCDI_SMC_EVENT_MCUPM_FW_STA, 0, 0, 0);
+		ret = (sta == MCUPM_FW_KICK) ? true : false;
+		set_mcupmfw_load_info((ret == true) ? 1 : 0);
+		if (!ret)
+			printk_deferred("[MCDI] load mcupmfw fail(%s - 0x%x)\n",
+				(sta == MCUPM_SMC_CALL) ? "smc fail" :
+				(sta == MCUPM_FW_PARSE) ? "fw parse fail" :
+				"unknown", sta);
+	}
+	return ret;
 }
 
 #if defined(MCDI_SSPM_INTF)
