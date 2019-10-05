@@ -62,7 +62,7 @@ struct cmdq_sec_thread {
 	u32			priority;
 	u32			idx;
 	bool			occupied;
-	// bool			dirty;
+	bool			dirty;
 
 	/* following part only secure ctrl */
 	u32			wait_cookie;
@@ -159,11 +159,12 @@ s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt)
 	struct cmdq_operand left, right;
 	s32 err;
 
-	cmdq_log("pkt:%p thread idx:%u", pkt, thread->idx);
-	if (!cmdq->hSecSharedMem) {
-		cmdq_err("hSecSharedMem is NULL");
+	if (!thread->occupied || !cmdq->hSecSharedMem) {
+		cmdq_err("hSecSharedMem is NULL pkt:%p thrd-idx:%u cmdq:%p",
+			pkt, thread->idx, cmdq);
 		return -EFAULT;
 	}
+	cmdq_log("pkt:%p thrd-idx:%u cmdq:%p", pkt, thread->idx, cmdq);
 
 	err = cmdq_pkt_read(pkt, cmdq->clt_base,
 		(u32)(thread->gce_pa + CMDQ_THR_BASE +
@@ -225,8 +226,12 @@ static void cmdq_sec_irq_handler(
 			cookie + 1;
 	done += err ? 1 : 0;
 
-	cmdq_log("thread idx:%u wait_cookie:%u hw_cookie:%u done:%d err:%d",
-		thread->idx, thread->wait_cookie, cookie, done, err);
+	if (err)
+		cmdq_err("thrd-idx:%u wait_cookie:%u cookie:%u done:%d err:%d",
+			thread->idx, thread->wait_cookie, cookie, done, err);
+	else
+		cmdq_log("thrd-idx:%u wait_cookie:%u cookie:%u done:%d err:%d",
+			thread->idx, thread->wait_cookie, cookie, done, err);
 
 	list_for_each_entry_safe(task, temp, &thread->task_list, list_entry) {
 		// cmdq_sec_task_callback
@@ -240,7 +245,7 @@ static void cmdq_sec_irq_handler(
 		// cmdq_sec_remove_handle_from_thread_by_cookie
 		list_del(&task->list_entry);
 		if (!thread->task_cnt)
-			cmdq_err("thread idx:%u task_cnt:%u cannot below zero",
+			cmdq_err("thrd-idx:%u task_cnt:%u cannot below zero",
 				thread->idx, thread->task_cnt);
 		else
 			thread->task_cnt -= 1;
@@ -544,8 +549,8 @@ static void cmdq_sec_task_attach_status(struct cmdq_sec *cmdq,
 	case -CMDQ_ERR_ADDR_CONVERT_HANDLE_2_PA:
 		*dispatch = "TEE";
 		break;
-	case CMDQ_ERR_ADDR_CONVERT_ALLOC_MVA:
-	case CMDQ_ERR_ADDR_CONVERT_ALLOC_MVA_N2S:
+	case -CMDQ_ERR_ADDR_CONVERT_ALLOC_MVA:
+	case -CMDQ_ERR_ADDR_CONVERT_ALLOC_MVA_N2S:
 		switch (iwc_msg->command.thread) {
 		case CMDQ_THREAD_SEC_PRIMARY_DISP:
 		case CMDQ_THREAD_SEC_SUB_DISP:
@@ -578,7 +583,7 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 	u64 entry, exit;
 	s32 err;
 
-	cmdq_log("task:%p iwc_cmd:%u cmdq:%p thrd_idx:%u tgid:%u",
+	cmdq_log("task:%p iwc_cmd:%u cmdq:%p thrd-idx:%u tgid:%u",
 		task, iwc_cmd, cmdq, thrd_idx, current->tgid);
 	do {
 		// cmdq_sec_context_handle_create
@@ -669,7 +674,7 @@ static void cmdq_sec_task_exec_work(struct work_struct *work_item)
 	unsigned long flags;
 	s32 err;
 
-	cmdq_log("cmdq:%p task:%p thrd_idx:%u", cmdq, task, task->thread->idx);
+	cmdq_log("cmdq:%p task:%p thrd-idx:%u", cmdq, task, task->thread->idx);
 	buf = list_first_entry(
 		&task->pkt->buf, struct cmdq_pkt_buffer, list_entry);
 	// log
@@ -716,7 +721,7 @@ static void cmdq_sec_task_exec_work(struct work_struct *work_item)
 	}
 
 	if (task->thread->task_cnt > CMDQ_MAX_TASK_IN_SECURE_THREAD) {
-		cmdq_err("task_cnt:%u cannot more than %u task:%p thrd_idx:%u",
+		cmdq_err("task_cnt:%u cannot more than %u task:%p thrd-idx:%u",
 			task->thread->task_cnt, CMDQ_MAX_TASK_IN_SECURE_THREAD,
 			task, task->thread->idx);
 		err = -EMSGSIZE;
@@ -736,16 +741,18 @@ task_err_callback:
 		struct cmdq_cb_data cb_data;
 
 		cb_data.err = err;
-		cb_data.data = task->pkt->cb.data;
+		cb_data.data = task->pkt->err_cb.data;
 		if (task->pkt->err_cb.cb)
 			task->pkt->err_cb.cb(cb_data);
+
+		cb_data.data = task->pkt->cb.data;
 		if (task->pkt->cb.cb)
 			task->pkt->cb.cb(cb_data);
 
 		// cmdq_sec_remove_handle_from_thread_by_cookie
 		spin_lock_irqsave(&task->thread->chan->lock, flags);
 		if (!task->thread->task_cnt)
-			cmdq_err("thread idx:%u task_cnt:%u cannot below zero",
+			cmdq_err("thrd-idx:%u task_cnt:%u cannot below zero",
 				task->thread->idx, task->thread->task_cnt);
 		else
 			task->thread->task_cnt -= 1;
@@ -754,7 +761,7 @@ task_err_callback:
 			CMDQ_MAX_COOKIE_VALUE) % CMDQ_MAX_COOKIE_VALUE;
 		list_del(&task->list_entry);
 		cmdq_msg(
-			"err:%d task:%p thrd_idx:%u task_cnt:%u wait_cookie:%u next_cookie:%u",
+			"err:%d task:%p thrd-idx:%u task_cnt:%u wait_cookie:%u next_cookie:%u",
 			err, task, task->thread->idx, task->thread->task_cnt,
 			task->thread->wait_cookie, task->thread->next_cookie);
 		spin_unlock_irqrestore(&task->thread->chan->lock, flags);
@@ -784,7 +791,7 @@ static int cmdq_sec_mbox_send_data(struct mbox_chan *chan, void *data)
 		task->engineFlag = sec_data->enginesNeedDAPC |
 			sec_data->enginesNeedPortSecurity;
 	} else {
-		cmdq_err("pkt:%p sec_data not ready from thrd_idx:%u",
+		cmdq_err("pkt:%p sec_data not ready from thrd-idx:%u",
 			pkt, thread->idx);
 		return -EINVAL;
 	}
@@ -819,7 +826,7 @@ static void cmdq_sec_task_timeout_work(struct work_struct *work_item)
 
 	spin_lock_irqsave(&thread->chan->lock, flags);
 	if (list_empty(&thread->task_list)) {
-		cmdq_log("thread idx:%u task_list is empty", thread->idx);
+		cmdq_log("thrd-idx:%u task_list is empty", thread->idx);
 		spin_unlock_irqrestore(&thread->chan->lock, flags);
 		return;
 	}
@@ -859,11 +866,11 @@ static void cmdq_sec_task_timeout_work(struct work_struct *work_item)
 		struct cmdq_cb_data cb_data;
 
 		cb_data.err = -ETIMEDOUT;
-		cb_data.data = out_task->pkt->cb.data;
+		cb_data.data = out_task->pkt->err_cb.data;
 		out_task->pkt->err_cb.cb(cb_data);
 	}
 	cmdq_sec_irq_handler(thread, cookie, -ETIMEDOUT);
-	cmdq_log("duration:%llu cookie:%u task:%p pkt:%p thread idx:%u",
+	cmdq_err("duration:%llu cookie:%u task:%p pkt:%p thrd-idx:%u",
 		duration, cookie, out_task, out_task->pkt, thread->idx);
 }
 
@@ -912,7 +919,7 @@ static struct mbox_chan *cmdq_sec_mbox_of_xlate(
 	s32 idx = sp->args[0];
 
 	if (mbox->num_chans <= idx) {
-		cmdq_err("invalid thread idx:%u", idx);
+		cmdq_err("invalid thrd-idx:%u", idx);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -1003,7 +1010,7 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, cmdq);
 	WARN_ON(clk_prepare(cmdq->clock) < 0);
 
-	cmdq_log("va:%p pa:%pa", cmdq->base, &cmdq->base_pa);
+	cmdq_msg("cmdq:%p va:%p pa:%pa", cmdq, cmdq->base, &cmdq->base_pa);
 	return 0;
 }
 

@@ -393,7 +393,7 @@ static void cmdq_test_mbox_sync_token_loop_iter(unsigned long data)
 static void cmdq_test_mbox_loop(struct cmdq_test *test)
 {
 	struct cmdq_pkt		*pkt;
-	struct cmdq_thread	*thrd =
+	struct cmdq_thread	*thread =
 		(struct cmdq_thread *)test->loop->chan->con_priv;
 	s32		ret;
 
@@ -414,8 +414,8 @@ static void cmdq_test_mbox_loop(struct cmdq_test *test)
 
 	ret = cmdq_pkt_flush_async(pkt, NULL, 0);
 	while (test->iter < CMDQ_TEST_CNT) {
-		cmdq_msg("loop thrd_idx:%u pkt:%p iter:%u",
-			thrd->idx, pkt, test->iter);
+		cmdq_msg("loop thrd-idx:%u pkt:%p iter:%u",
+			thread->idx, pkt, test->iter);
 		msleep_interruptible(1000);
 	}
 

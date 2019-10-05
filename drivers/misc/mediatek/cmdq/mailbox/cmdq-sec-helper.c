@@ -10,6 +10,9 @@
 
 #define ADDR_METADATA_MAX_COUNT_ORIGIN	(8)
 
+#define CMDQ_IMMEDIATE_VALUE		(0)
+#define CMDQ_REG_TYPE			(1)
+
 // s32 cmdq_rec_realloc_addr_metadata_buffer
 static s32 cmdq_sec_realloc_addr_list(struct cmdq_pkt *pkt, const u32 count)
 {
@@ -87,6 +90,7 @@ static s32 cmdq_sec_append_metadata(
 	meta[idx].offset = offset;
 	meta[idx].size = size;
 	meta[idx].port = port;
+	sec_data->addrMetadataCount += 1;
 	return 0;
 }
 
@@ -123,9 +127,17 @@ s32 cmdq_sec_pkt_write_reg(struct cmdq_pkt *pkt, u32 addr, u64 base,
 {
 	s32 ret;
 
-	ret = cmdq_pkt_write_value_addr(pkt, addr, base, UINT_MAX);
+	ret = cmdq_pkt_assign_command(pkt, CMDQ_SPR_FOR_TEMP, addr);
 	if (ret)
 		return ret;
+
+	ret = cmdq_pkt_append_command(pkt,
+		base & 0xffff, base >> 16, CMDQ_SPR_FOR_TEMP, 0,
+		CMDQ_IMMEDIATE_VALUE, CMDQ_IMMEDIATE_VALUE, CMDQ_REG_TYPE,
+		CMDQ_CODE_WRITE_S);
+	if (ret)
+		return ret;
+
 	return cmdq_sec_append_metadata(pkt, type, base, offset, size, port);
 }
 EXPORT_SYMBOL(cmdq_sec_pkt_write_reg);
