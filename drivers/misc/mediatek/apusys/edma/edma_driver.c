@@ -32,6 +32,8 @@
 
 #define EDMA_DEV_NAME		"edma"
 
+static struct class *edma_class;
+
 static int edma_init_queue_task(struct edma_sub *edma_sub)
 {
 	edma_sub->enque_task = kthread_create(edma_enque_routine_loop,

@@ -23,8 +23,6 @@
 #define EDMA_SUB_NAME_SIZE 20
 #define CMD_WAIT_TIME_MS	(2000 * 1000)
 
-static struct class *edma_class;
-
 struct edma_device;
 
 enum edma_sub_state {
