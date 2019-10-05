@@ -34,6 +34,7 @@
 struct CmdqDeviceStruct {
 	struct device *pDev;
 	struct clk *clk_gce;
+	struct clk *clk_gce2;
 	struct clk *clk_gce_timer;
 	struct clk *clk_mmsys_mtcmos;
 	long regBaseVA;		/* considering 64 bit kernel, use long */
@@ -227,6 +228,7 @@ void cmdq_dev_init_module_clk(void)
 void cmdq_dev_enable_gce_clock(bool enable)
 {
 	cmdq_dev_enable_device_clock(enable, gCmdqDev.clk_gce, "gce-clk");
+	cmdq_dev_enable_device_clock(enable, gCmdqDev.clk_gce2, "gce2-clk");
 	if (!IS_ERR(gCmdqDev.clk_gce_timer))
 		cmdq_dev_enable_device_clock(enable, gCmdqDev.clk_gce_timer,
 			"gce-clk-timer");
@@ -546,6 +548,7 @@ void cmdq_dev_init(struct platform_device *pDevice)
 		gCmdqDev.irqId = irq_of_parse_and_map(node, 0);
 		gCmdqDev.irqSecId = irq_of_parse_and_map(node, 1);
 		gCmdqDev.clk_gce = devm_clk_get(&pDevice->dev, "GCE");
+		gCmdqDev.clk_gce2 = devm_clk_get(&pDevice->dev, "GCE2");
 		gCmdqDev.clk_gce_timer = devm_clk_get(&pDevice->dev,
 			"GCE_TIMER");
 		gCmdqDev.clk_mmsys_mtcmos = devm_clk_get(&pDevice->dev,
@@ -556,6 +559,8 @@ void cmdq_dev_init(struct platform_device *pDevice)
 			gCmdqDev.pDev, &gCmdqDev.regBasePA,
 			gCmdqDev.regBaseVA, gCmdqDev.irqId,
 			gCmdqDev.irqSecId);
+		CMDQ_LOG("gce:%p gce2:%p\n",
+			gCmdqDev.clk_gce, gCmdqDev.clk_gce2);
 
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 		node2 = of_parse_phandle(pDevice->dev.of_node,

@@ -2246,9 +2246,10 @@ page_owner=on";
 		mdp_tcc1   = <&mdp_tcc1>;
 		mdp_tcc2   = <&mdp_tcc2>;
 		mdp_tcc3   = <&mdp_tcc3>;
-		clock-names = "GCE", "GCE_TIMER";
-		clocks = <&infracfg_ao INFRACFG_AO_GCE2_CG>,
-			<&infracfg_ao INFRACFG_AO_GCE_26M>;
+		clock-names = "GCE", "GCE_TIMER", "GCE2";
+		clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>,
+			<&infracfg_ao INFRACFG_AO_GCE_26M>,
+			<&infracfg_ao INFRACFG_AO_GCE2_CG>;
 	};
 
 	scp: scp@10700000 {
