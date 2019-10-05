@@ -167,8 +167,8 @@ extern struct spower_leakage_info spower_lkg_info[MTK_SPOWER_MAX];
 
 /* used to calculate total leakage that search from raw table */
 #define DEFAULT_CORE_INSTANCE 4
-#define DEFAULT_LL_CORE_INSTANCE 6
-#define DEFAULT_L_CORE_INSTANCE 2
+#define DEFAULT_LL_CORE_INSTANCE 4
+#define DEFAULT_L_CORE_INSTANCE 4
 #define DEFAULT_INSTANCE 1
 
 extern char *spower_name[];
