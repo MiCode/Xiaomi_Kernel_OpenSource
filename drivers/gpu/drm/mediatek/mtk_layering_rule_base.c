@@ -54,6 +54,7 @@ static int g_emi_bound_table[HRT_LEVEL_NUM];
 #define RSZ_TILE_LENGTH 1080
 #define RSZ_ALIGNMENT_MARGIN 6
 #define RSZ_IN_MAX_HEIGHT 4096
+#define DISP_RSZ_LAYER_NUM 2
 
 static struct {
 	enum LYE_HELPER_OPT opt;
@@ -1893,8 +1894,29 @@ static int is_same_ratio(struct drm_mtk_layer_config *ref,
 	return true;
 }
 
-static int RPO_rule(struct drm_mtk_layering_info *disp_info, int disp_idx,
-		    bool has_pq)
+#define RATIO_LIMIT  2
+static bool same_ratio_limitation(struct drm_crtc *crtc,
+			struct drm_mtk_layer_config *tgt, int limitation)
+{
+	int panel_w = 0, panel_h = 0;
+	int diff_w = 0, diff_h = 0;
+
+	panel_w = crtc->mode.hdisplay;
+	panel_h = crtc->mode.vdisplay;
+	diff_w = tgt->dst_width - tgt->src_width;
+	diff_h = tgt->dst_height - tgt->src_height;
+	if (panel_w <= 0 || panel_w <= 0)
+		return false;
+	if (((100 * diff_w/panel_w < limitation) && (diff_w > 0)) ||
+			((100 * diff_h/panel_h < limitation) && (diff_h > 0)))
+		return true;
+	else
+		return false;
+}
+
+static int RPO_rule(struct drm_crtc *crtc,
+		struct drm_mtk_layering_info *disp_info, int disp_idx,
+		bool has_pq)
 {
 	struct drm_mtk_layer_config *c = NULL;
 	struct drm_mtk_layer_config *ref_layer = NULL;
@@ -1924,7 +1946,7 @@ static int RPO_rule(struct drm_mtk_layering_info *disp_info, int disp_idx,
 	}
 
 	for (i = 0; i < disp_info->layer_num[disp_idx] &&
-		i < HRT_TYPE_NUM; i++) {
+						i < DISP_RSZ_LAYER_NUM; i++) {
 		c = &disp_info->input_config[disp_idx][i];
 
 		/*if (i == 0 && c->src_fmt == MTK_DRM_FORMAT_DIM)
@@ -1940,15 +1962,21 @@ static int RPO_rule(struct drm_mtk_layering_info *disp_info, int disp_idx,
 
 		if (!ref_layer)
 			ref_layer = c;
-		else if (is_same_ratio(ref_layer, c) <= 0)
+		else if (is_same_ratio(ref_layer, c) <= 0 &&
+				is_same_ratio(c, ref_layer) <= 0)
+			break;
+		else if (same_ratio_limitation(crtc, c, RATIO_LIMIT))
 			break;
 
 		mtk_rect_make(&src_layer_roi,
-			      c->dst_offset_x * c->src_width / c->dst_width,
-			      c->dst_offset_y * c->src_height / c->dst_height,
-			      c->src_width, c->src_height);
-		mtk_rect_make(&dst_layer_roi, c->dst_offset_x, c->dst_offset_y,
-			      c->dst_width, c->dst_height);
+			((c->dst_offset_x * c->src_width * 10)
+				/ c->dst_width + 5) / 10,
+			((c->dst_offset_y * c->src_height * 10)
+				/ c->dst_height + 5) / 10,
+			c->src_width, c->src_height);
+		mtk_rect_make(&dst_layer_roi,
+			c->dst_offset_x, c->dst_offset_y,
+			c->dst_width, c->dst_height);
 		mtk_rect_join(&src_layer_roi, &src_roi, &src_roi);
 		mtk_rect_join(&dst_layer_roi, &dst_roi, &dst_roi);
 		if (src_roi.width > dst_roi.width ||
@@ -1974,22 +2002,29 @@ done:
 }
 
 /* resizing_rule - layering rule resize layer layout */
-static unsigned int resizing_rule(struct drm_mtk_layering_info *disp_info,
-				  bool has_pq)
+static unsigned int resizing_rule(struct drm_device *dev,
+			struct drm_mtk_layering_info *disp_info,
+			bool has_pq)
 {
 	unsigned int scale_num = 0;
+	struct drm_crtc *crtc;
 
-	/*RPO only support primary*/
+	/* RPO only support primary */
 	if (disp_info->layer_num[HRT_SECONDARY] > 0)
 		mtk_rollback_all_resize_layer_to_GPU(disp_info, HRT_SECONDARY);
 	if (disp_info->layer_num[HRT_THIRD] > 0)
 		mtk_rollback_all_resize_layer_to_GPU(disp_info, HRT_THIRD);
 
 	if (disp_info->layer_num[HRT_PRIMARY] > 0) {
-		scale_num = RPO_rule(disp_info, HRT_PRIMARY, has_pq);
-		mtk_rollback_resize_layer_to_GPU_range(
-			disp_info, HRT_PRIMARY, scale_num,
-			disp_info->layer_num[HRT_PRIMARY] - 1);
+		drm_for_each_crtc(crtc, dev)
+			if (drm_crtc_index(crtc) == 0)
+				break;
+
+		if (crtc)
+			scale_num = RPO_rule(crtc, disp_info, HRT_PRIMARY,
+					has_pq);
+		mtk_rollback_resize_layer_to_GPU_range(disp_info, HRT_PRIMARY,
+			scale_num, disp_info->layer_num[HRT_PRIMARY] - 1);
 	}
 
 	return scale_num;
@@ -2052,7 +2087,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	if (get_layering_opt(LYE_OPT_RPO)) {
 		bool has_pq = (scn_decision_flag & SCN_NEED_VP_PQ)
 				| (scn_decision_flag & SCN_NEED_GAME_PQ);
-		scale_num = resizing_rule(&layering_info, has_pq);
+		scale_num = resizing_rule(dev, &layering_info, has_pq);
 	} else {
 		mtk_rollback_all_resize_layer_to_GPU(&layering_info,
 						     HRT_PRIMARY);

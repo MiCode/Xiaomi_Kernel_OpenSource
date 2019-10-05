@@ -323,8 +323,10 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	dst_h = drm_rect_height(&plane->state->dst);
 
 	if (src_w < dst_w || src_h < dst_h) {
-		dst_x = ((dst_x * src_w) / dst_w) - crtc_state->rsz_src_roi.x;
-		dst_y = ((dst_y * src_h) / dst_h) - crtc_state->rsz_src_roi.y;
+		dst_x = ((dst_x * src_w * 10) / dst_w + 5) / 10
+			- crtc_state->rsz_src_roi.x;
+		dst_y = ((dst_y * src_h * 10) / dst_h + 5) / 10
+			- crtc_state->rsz_src_roi.y;
 		dst_w = src_w;
 		dst_h = src_h;
 	}

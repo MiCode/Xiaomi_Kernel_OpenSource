@@ -213,12 +213,15 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 		else
 			idx = i - (OVL_LAYER_NR + EXTERNAL_INPUT_LAYER_NR);
 
-		if (comp_state[drm_crtc_index(crtc)][idx].layer_caps &
-		    MTK_DISP_RSZ_LAYER) {
-			mtk_rect_make(&src_layer_roi, dst_x * src_w / dst_w,
-				      dst_y * src_h / dst_h, src_w, src_h);
-			mtk_rect_make(&dst_layer_roi, dst_x, dst_y, dst_w,
-				      dst_h);
+		if (comp_state[drm_crtc_index(crtc)][idx].layer_caps
+			& MTK_DISP_RSZ_LAYER) {
+			mtk_rect_make(&src_layer_roi,
+				((dst_x * src_w * 10) / dst_w + 5) / 10,
+				((dst_y * src_h * 10) / dst_h + 5) / 10,
+				src_w, src_h);
+			mtk_rect_make(&dst_layer_roi,
+				dst_x, dst_y,
+				dst_w, dst_h);
 			mtk_rect_join(&src_layer_roi,
 				      &src_total_roi[drm_crtc_index(
 					      plane_state->crtc)],
