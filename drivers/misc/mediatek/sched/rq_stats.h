@@ -11,6 +11,13 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+
+/* get kernel function */
+#include "../../../kernel/sched/sched.h"
+extern unsigned long boosted_cpu_util(int cpu, unsigned long other_util);
+extern void get_task_util(struct task_struct *p, unsigned long *util,
+		unsigned long *boost_util);
+
 struct rq_data {
 	unsigned int rq_avg;
 	unsigned long rq_poll_jiffies;
@@ -33,7 +40,7 @@ extern struct workqueue_struct *rq_wq;
 
 /* For heavy task detection */
 extern int sched_get_nr_heavy_running_avg(int cid, int *avg);
-extern void sched_update_nr_heavy_prod(const char *invoker,
+extern void sched_update_nr_heavy_prod(int invoker,
 	struct task_struct *p, int cpu, int heavy_nr_inc, bool ack_cap);
 extern int reset_heavy_task_stats(int cpu);
 extern int is_ack_curcap(int cpu);
@@ -45,9 +52,7 @@ extern void overutil_thresh_chg_notify(void);
 extern int get_overutil_stats(char *buf, int buf_size);
 extern unsigned long get_cpu_orig_capacity(unsigned int cpu);
 extern int get_overutil_threshold(void);
-
-#ifdef CONFIG_SCHED_HMP_PRIO_FILTER
-static unsigned int heavy_task_prio =
-	NICE_TO_PRIO(CONFIG_SCHED_HMP_PRIO_FILTER_VAL);
-#define task_low_priority(prio) ((prio >= heavy_task_prio)?1:0)
+#ifdef CONFIG_MTK_SCHED_EAS_POWER_SUPPORT
+extern bool is_game_mode;
 #endif
+extern int show_btask(char *buf, int buf_size);
