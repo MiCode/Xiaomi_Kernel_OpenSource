@@ -932,6 +932,9 @@ CONFIG_SOUND_PRIME,COMMON,Michael.Hsiao,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_SPECIFY_IMGSENSOR,PROJECT,josepchi.tsai,,X,X,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_SPI,COMMON,Freddy.Hsin,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_SPI_MT65XX,PLATFORM,Freddy.Hsin,,X,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_SPMI,PLATFORM,argus lin,spmi driver for pmic,X,X,X,X,X,X,X,X,X,y,y,y,y
+CONFIG_MTK_PMIF,PLATFORM,argus lin,pmif driver for pmic,X,X,X,X,X,X,X,X,X,y,y,y,y
+CONFIG_MTK_MFD_SPMI_PMIC,PLATFORM,argus lin,mfd spmi driver for pmic,X,X,X,X,X,X,X,X,X,y,y,y,y
 CONFIG_SW_SYNC,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_SW_SYNC_USER,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_SWITCH,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
