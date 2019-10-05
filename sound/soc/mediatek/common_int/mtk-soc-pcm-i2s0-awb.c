@@ -87,29 +87,12 @@ static struct snd_pcm_hardware mtk_I2S0_awb_hardware = {
 
 static void StopAudioI2sInAWBHardware(struct snd_pcm_substream *substream)
 {
-	if (get_afe_platform_ops()->set_smartpa_echo_ref != NULL) {
-		get_afe_platform_ops()->set_smartpa_echo_ref(
-			substream->runtime->rate, extcodec_echoref_control,
-			false);
-		goto bypass_default_i2s_in;
-	}
-
-	/* stop default i2s in: i2s0 */
+	/* stop connection between default i2s in(i2s0) and awb.
+	 * i2s in configuration is in mtk-soc-pcm-dl1-i2s0.c
+	 */
 	SetIntfConnection(Soc_Aud_InterCon_DisConnect,
 			  Soc_Aud_AFE_IO_Block_I2S0,
 			  Soc_Aud_AFE_IO_Block_MEM_AWB);
-
-	SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_2, false);
-	if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_2) == false) {
-		Set2ndI2SEnable(false);
-		udelay(20);
-		Afe_Set_Reg(AUDIO_TOP_CON1, 0x1 << 4,
-			    0x1 << 4); /* I2S0 clock-gated */
-		pr_debug("%s, AFE_I2S_CON = 0x%x\n", __func__,
-			 Afe_Get_Reg(AFE_I2S_CON));
-	}
-
-bypass_default_i2s_in:
 
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_AWB, false);
 
@@ -122,46 +105,12 @@ bypass_default_i2s_in:
 
 static void StartAudioI2sInAWBHardware(struct snd_pcm_substream *substream)
 {
-	unsigned int u32Audio2ndI2sIn = 0;
-
-	/*
-	 * SmartPa might use different i2s in different chips.
-	 * Check if there is callback function for specific config in the chip.
-	 * If not, use default i2s in config.
+	/* start connection between default i2s in(i2s0) and awb.
+	 * i2s in configuration is in mtk-soc-pcm-dl1-i2s0.c
 	 */
-	if (get_afe_platform_ops()->set_smartpa_echo_ref != NULL) {
-		get_afe_platform_ops()->set_smartpa_echo_ref(
-			substream->runtime->rate, extcodec_echoref_control,
-			true);
-		goto bypass_default_i2s_in;
-	}
-
-	/* default i2s in for echo reference is i2s0 */
-	Afe_Set_Reg(AUDIO_TOP_CON1, 0x1 << 4, 0x1 << 4); /* I2S0 clock-gated */
-
-	SetSampleRate(Soc_Aud_Digital_Block_MEM_I2S, substream->runtime->rate);
-
-	SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_2, true);
-	u32Audio2ndI2sIn |= (Soc_Aud_LR_SWAP_NO_SWAP << 31);
-	u32Audio2ndI2sIn |= (Soc_Aud_LOW_JITTER_CLOCK << 12);
-	u32Audio2ndI2sIn |= (Soc_Aud_I2S_IN_PAD_SEL_I2S_IN_FROM_IO_MUX << 28);
-	u32Audio2ndI2sIn |= (Soc_Aud_INV_LRCK_NO_INVERSE << 5);
-	u32Audio2ndI2sIn |= (Soc_Aud_I2S_FORMAT_I2S << 3);
-	u32Audio2ndI2sIn |= (Soc_Aud_I2S_WLEN_WLEN_32BITS << 1);
-	Afe_Set_Reg(AFE_I2S_CON, u32Audio2ndI2sIn, MASK_ALL);
-
-	Afe_Set_Reg(AUDIO_TOP_CON1, 0 << 4,
-		    0x1 << 4); /* Clear I2S0 clock-gated */
-	Set2ndI2SEnable(true); /* Enable I2S0 */
-
-	pr_debug("%s, AFE_I2S_CON = 0x%x, AFE_DAC_CON1 = 0x%x\n", __func__,
-		 Afe_Get_Reg(AFE_I2S_CON), Afe_Get_Reg(AFE_DAC_CON1));
-
 	SetIntfConnection(Soc_Aud_InterCon_Connection,
 			  Soc_Aud_AFE_IO_Block_I2S0,
 			  Soc_Aud_AFE_IO_Block_MEM_AWB);
-
-bypass_default_i2s_in:
 
 	/* here to set interrupt */
 	irq_add_user(
