@@ -1,0 +1,19 @@
+#######################################
+# Specify source files
+#######################################
+
+core_obj += $(asf_link)/core/sec_boot_core.o
+core_obj += $(asf_link)/core/sec_mod_core.o
+core_obj += $(asf_link)/core/sec_osal.o
+core_obj += $(asf_link)/core/sec_legacy.o
+core_obj += $(asf_link)/module/sec_mod.o
+ifneq ($(wildcard $(MASP_CORE_DRIVER_DIR)/$(asf_link)/module/$(MTK_PLATFORM)/sec_clk.c),)
+core_obj += $(asf_link)/module/$(MTK_PLATFORM)/sec_clk.o
+else
+core_obj += $(asf_link)/module/sec_clk.o
+endif
+
+# HEADER FILE
+ccflags-y += -I$(src)/$(asf_link)/asf_inc
+ccflags-y += -I$(src)/$(asf_link)/asf_export_inc
+ccflags-y += -I$(src)/$(asf_link)/module
