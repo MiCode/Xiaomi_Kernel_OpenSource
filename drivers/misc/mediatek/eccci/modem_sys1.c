@@ -54,6 +54,11 @@
 
 #define TAG "mcd"
 
+#ifdef DISABLE_MD_WDT
+static int disable_md_wdt_flag;
+static unsigned long disable_md_wdt_time;
+#endif
+
 void ccif_enable_irq(struct ccci_modem *md)
 {
 	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
@@ -100,9 +105,20 @@ static irqreturn_t md_cd_wdt_isr(int irq, void *data)
 
 	CCCI_ERROR_LOG(md->index, TAG, "MD WDT IRQ\n");
 
-	ccif_disable_irq(md);
 	wdt_disable_irq(md);
 
+#ifdef DISABLE_MD_WDT
+	if (disable_md_wdt_flag == 0) {
+		disable_md_wdt_flag++;
+
+		if (time_before(jiffies, disable_md_wdt_time)) {
+			CCCI_ERROR_LOG(md->index, TAG, "bypass MD WDT.\n");
+			return IRQ_HANDLED;
+		}
+	}
+#endif
+
+	ccif_disable_irq(md);
 	ccci_event_log("md%d: MD WDT IRQ\n", md->index);
 #ifndef DISABLE_MD_WDT_PROCESS
 	/* 1. disable MD WDT */
@@ -414,6 +430,9 @@ static int md_cd_start(struct ccci_modem *md)
 	int ret = 0;
 
 	if (md->per_md_data.config.setting & MD_SETTING_FIRST_BOOT) {
+#ifdef DISABLE_MD_WDT
+		disable_md_wdt_time = jiffies + (HZ * 2);
+#endif
 		ret = md_start_platform(md);
 		if (ret) {
 			CCCI_BOOTUP_LOG(md->index, TAG,
