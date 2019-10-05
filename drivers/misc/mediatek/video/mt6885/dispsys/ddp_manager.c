@@ -1982,7 +1982,7 @@ int dpmgr_path_dsi_power_off(disp_path_handle dp_handle, void *cmdqhandle)
 	enum DISP_MODULE_ENUM dst_module;
 	struct DDP_MODULE_DRIVER *mod_drv;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	dst_module = ddp_get_dst_module(handle->scenario);
 
