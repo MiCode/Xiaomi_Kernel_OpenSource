@@ -1263,22 +1263,6 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 		handle->secData.enginesNeedPortSecurity = 0LL;
 	}
 
-	if (handle->timeout_info) {
-		struct cmdq_thread_task_info *task_info = NULL, *tmp = NULL;
-
-		list_for_each_entry_safe(task_info, tmp,
-			&handle->timeout_info->task_list, list_entry) {
-			list_del(&task_info->list_entry);
-			kfree(task_info->pkt);
-			kfree(task_info);
-		}
-
-		list_del_init(&handle->timeout_info->task_list);
-	}
-
-	kfree(handle->timeout_info);
-	handle->timeout_info = NULL;
-
 	/* performance debug begin */
 	if (cmdq_core_profile_exec_enabled()) {
 		cmdq_pkt_write(handle->pkt, NULL, CMDQ_TPR_MASK_PA,
@@ -2358,22 +2342,6 @@ s32 cmdq_task_destroy(struct cmdqRecStruct *handle)
 		handle->thread = CMDQ_INVALID_THREAD;
 		handle->thd_dispatch = CMDQ_THREAD_NOTSET;
 	}
-
-	/* Free command handle */
-	if (handle->timeout_info) {
-		struct cmdq_thread_task_info *task_info = NULL, *tmp = NULL;
-
-		list_for_each_entry_safe(task_info, tmp,
-			&handle->timeout_info->task_list, list_entry) {
-			list_del(&task_info->list_entry);
-			kfree(task_info->pkt);
-			kfree(task_info);
-		}
-
-		list_del_init(&handle->timeout_info->task_list);
-	}
-	kfree(handle->timeout_info);
-	handle->timeout_info = NULL;
 
 	cmdq_task_release_property(handle);
 
