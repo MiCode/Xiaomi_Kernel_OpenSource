@@ -2361,9 +2361,20 @@ page_owner=on";
 		reg = <0 0x0c400000 0 0x40000>;
 	};
 
-	dfd@0c600000 {
+	dfd@10200b00 {
 		compatible = "mediatek,dfd";
-		reg = <0 0x0c600000 0 0x100000>;
+		reg = <0 0x10200b00 0 0x10000>;
+
+		mediatek,enabled = <0>;
+		mediatek,chain_length = <0x1940>;
+		mediatek,rg_dfd_timeout = <0xa0>;
+	};
+
+	dfd_cache: dfd_cache {
+		compatible = "mediatek,dfd_cache";
+		mediatek,enabled = <0>;
+		mediatek,l2c_trigger = <0>;
+		mediatek,rg_dfd_timeout = <0x5dc0>;
 	};
 
 	dbg_ao@0d000000 {
@@ -2627,11 +2638,6 @@ page_owner=on";
 			"mtcmos_mfg_core7_8";
 			_vgpu-supply = <&mt6315_7_vbuck1>;
 			_vsram_gpu-supply = <&mt_pmic_vsram_others_ldo_reg>;
-	};
-
-	dfd@13e00000 {
-		compatible = "mediatek,dfd";
-		reg = <0 0x13e00000 0 0x112000>;
 	};
 
 	mali_dvfs_hint@13fbb000 {
