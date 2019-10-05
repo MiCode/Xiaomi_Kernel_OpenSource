@@ -100,28 +100,46 @@ void switch_irtx_gpio(int mode)
 	struct pinctrl_state *pins_irtx = NULL;
 
 	if (mode >= (ARRAY_SIZE(irtx_gpio_cfg))) {
-		pr_notice("%s() IRTX[PinC](%d) fail!! - invalid parameter!\n",
+		pr_notice("%s() [PinC](%d) fail!! - invalid parameter!\n",
 			__func__, mode);
 		return;
 	}
 
 	if (IS_ERR(ppinctrl_irtx)) {
-		pr_notice("%s() IRTX[PinC] ppinctrl_irtx:%p Error! err:%ld\n",
+		pr_notice("%s() [PinC] ppinctrl_irtx:%p Error! err:%ld\n",
 		       __func__, ppinctrl_irtx, PTR_ERR(ppinctrl_irtx));
 		return;
 	}
 
+	if (mt_irtx_dev.buck != NULL) {
+		if (mode == IRTX_GPIO_MODE_LED_SET) {
+			if (!regulator_is_enabled(mt_irtx_dev.buck)
+				&& regulator_enable(mt_irtx_dev.buck) < 0) {
+				pr_notice("%s() regulator_enable fail!\n",
+					__func__);
+				return;
+			}
+		} else {
+			if (regulator_is_enabled(mt_irtx_dev.buck)
+				&& regulator_disable(mt_irtx_dev.buck) < 0) {
+				pr_notice("%s() regulator_disable fail!\n",
+					__func__);
+				return;
+			}
+		}
+	}
+
 	pins_irtx = pinctrl_lookup_state(ppinctrl_irtx, irtx_gpio_cfg[mode]);
 	if (IS_ERR(pins_irtx)) {
-		pr_notice("%s() IRTX[PinC] pinctrl_lockup(%p, %s) fail!\n",
+		pr_notice("%s() [PinC] pinctrl_lockup(%p, %s) fail!\n",
 			__func__, ppinctrl_irtx, irtx_gpio_cfg[mode]);
-		pr_notice("%s() IRTX[PinC] ppinctrl:%p, err:%ld\n",
+		pr_notice("%s() [PinC] ppinctrl:%p, err:%ld\n",
 			__func__, pins_irtx, PTR_ERR(pins_irtx));
 		return;
 	}
 
 	pinctrl_select_state(ppinctrl_irtx, pins_irtx);
-	pr_info("%s() IRTX[PinC] to mode:%d done.\n", __func__, mode);
+	pr_info("%s() [PinC] to mode:%d done.\n", __func__, mode);
 }
 
 static int dev_char_open(struct inode *inode, struct file *file)
@@ -309,6 +327,32 @@ static long dev_char_ioctl(struct file *file, unsigned int cmd,
 	return ret;
 }
 
+#ifdef CONFIG_COMPAT
+static long compat_dev_char_ioctl(struct file *file, unsigned int cmd,
+		unsigned long arg)
+{
+	if (!file->f_op || !file->f_op->unlocked_ioctl) {
+		pr_info("irtx file has no f_op or no unlocked_ioctl.\n");
+		return -ENOTTY;
+	}
+
+	switch (cmd) {
+	case COMPAT_IRTX_IOC_GET_SOLUTTION_TYPE:
+	case COMPAT_IRTX_IOC_SET_IRTX_LED_EN:
+	case COMPAT_IRTX_IOC_SET_DUTY_CYCLE:
+	case COMPAT_IRTX_IOC_SET_CARRIER_FREQ:
+		pr_debug("irtx compat_ioctl : command: 0x%x\n", cmd);
+		return file->f_op->unlocked_ioctl(
+			file, cmd, (unsigned long)compat_ptr(arg));
+		break;
+	default:
+		pr_info("irtx compat_ioctl : No such command!! 0x%x\n", cmd);
+		return -ENOIOCTLCMD;
+	}
+}
+#endif
+
+
 static struct file_operations const char_dev_fops = {
 	.owner = THIS_MODULE,
 	.open = &dev_char_open,
@@ -316,7 +360,11 @@ static struct file_operations const char_dev_fops = {
 	.read = &dev_char_read,
 	.write = &dev_char_write,
 	.unlocked_ioctl = &dev_char_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = &compat_dev_char_ioctl,
+#endif
 };
+
 static int irtx_probe(struct platform_device *plat_dev)
 {
 	struct cdev *c_dev;
@@ -346,6 +394,19 @@ static int irtx_probe(struct platform_device *plat_dev)
 			__func__, PTR_ERR(mt_irtx_dev.ppinctrl_irtx));
 		ret = PTR_ERR(mt_irtx_dev.ppinctrl_irtx);
 		goto exit;
+	}
+
+	mt_irtx_dev.buck = regulator_get_optional(NULL, "irtx_ldo");
+	if (IS_ERR(mt_irtx_dev.buck)) {
+		mt_irtx_dev.buck = NULL;
+		pr_notice("%s() irtx_ldo regulator not found\n", __func__);
+	} else {
+		ret = regulator_set_voltage(mt_irtx_dev.buck, 2800000, 2800000);
+		if (ret < 0) {
+			pr_notice("%s() regulator_set_voltage fail! ret:%d.\n",
+				__func__, ret);
+			goto exit;
+		}
 	}
 
 	switch_irtx_gpio(IRTX_GPIO_MODE_LED_DEFAULT);
