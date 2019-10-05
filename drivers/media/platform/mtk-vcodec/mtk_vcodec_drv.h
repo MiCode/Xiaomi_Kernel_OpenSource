@@ -335,7 +335,7 @@ struct mtk_vcodec_ctx {
 	unsigned int errormap_info[VB2_MAX_FRAME];
 	u64 input_max_ts;
 
-	int int_cond;
+	int int_cond[MTK_VDEC_HW_NUM];
 	int int_type;
 	wait_queue_head_t queue[MTK_VDEC_HW_NUM];
 	unsigned int irq_status;

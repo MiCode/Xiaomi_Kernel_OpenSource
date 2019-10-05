@@ -627,6 +627,12 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 
 	vcu = buff->vcu_ptr;
 	j = vcu_gce_get_inst_id(buff->cmdq_buff.gce_handle);
+
+	if (j < 0) {
+		pr_info("[VCU] flush_callback get_inst_id fail!!%d\n", j);
+		return;
+	}
+
 	atomic_inc(&vcu->gce_info[j].flush_done);
 	wake_up(&vcu->gce_wq[i]);
 	cmds = (struct gce_cmds *)(unsigned long)buff->cmdq_buff.cmds_user_ptr;
@@ -719,8 +725,11 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	if (j < 0)
 		j = vcu_gce_set_inst_id(vcu->curr_ctx[i],
 			buff->cmdq_buff.gce_handle);
-	if (j < 0)
+	if (j < 0) {
+		kfree(cmds);
+		kfree(buff);
 		return -EINVAL;
+	}
 
 	mutex_lock(&vcu->vcu_gce_mutex[i]);
 	if (atomic_read(&vcu->gce_job_cnt[i][core_id]) == 0 &&
@@ -788,6 +797,10 @@ static int vcu_wait_gce_callback(struct mtk_vcu *vcu, unsigned long arg)
 	 * mutex in user process which cannot be freezed
 	 */
 	j = vcu_gce_get_inst_id(obj.gce_handle);
+
+	if (j < 0)
+		return -EINVAL;
+
 	ret = wait_event_interruptible(vcu->gce_wq[i],
 		atomic_read(&vcu->gce_info[j].flush_done) > 0);
 	if (ret != 0) {
@@ -1273,7 +1286,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 	long ret = -1;
 	void *mem_priv;
 	unsigned char *user_data_addr = NULL;
-	dma_addr_t temp_pa;
+	dma_addr_t temp_pa = 0;
 	struct mtk_vcu *vcu_dev;
 	struct device *dev;
 	struct share_obj share_buff_data;
