@@ -18,8 +18,6 @@
 
 #include <linux/videodev2.h>
 #include <linux/v4l2-controls.h>
-#include "videodev2.h"
-#include "v4l2-controls.h"
 
 enum mtk_venc_hw_id {
 	MTK_VENC_CORE_0 = 0,
