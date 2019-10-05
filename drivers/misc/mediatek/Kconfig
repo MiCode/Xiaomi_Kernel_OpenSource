@@ -153,6 +153,7 @@ source "drivers/misc/mediatek/aee/Kconfig"
 source "drivers/misc/mediatek/mu3d/Kconfig"
 source "drivers/misc/mediatek/mu3phy/Kconfig"
 source "drivers/misc/mediatek/rtc/Kconfig"
+source "drivers/misc/mediatek/rt-regmap/Kconfig"
 
 endmenu # Other Peripheral
 
