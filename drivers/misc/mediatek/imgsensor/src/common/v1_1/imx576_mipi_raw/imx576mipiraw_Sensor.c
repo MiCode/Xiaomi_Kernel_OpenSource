@@ -72,7 +72,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 
 	.module_id = 0x01,  /* 0x01 Sunny,0x05 QTEK */
 
-	.checksum_value = 0x77de2ddb,
+	.checksum_value = 0x4cb91a94,
 
 	.pre = {
 		#if NO_USE_3HDR
@@ -202,7 +202,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	/* 0,MIPI_OPHY_NCSI2;  1,MIPI_OPHY_CSI2 */
 	.mipi_settle_delay_mode = 0,
 	/* 0,MIPI_SETTLEDELAY_AUTO; 1,MIPI_SETTLEDELAY_MANNUAL */
-	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
+	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	.mclk = 24,
 	.mipi_lane_num = SENSOR_MIPI_4_LANE,
 	.i2c_addr_table = {0x34, 0x20, 0xff},
@@ -211,7 +211,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 
 
 static struct imgsensor_struct imgsensor = {
-	.mirror = IMAGE_HV_MIRROR, /* mirrorflip information */
+	.mirror = IMAGE_NORMAL, /* mirrorflip information */
 	/* IMGSENSOR_MODE enum value,record current sensor mode,such as:
 	 *  INIT, Preview, Capture, Video,High Speed Video, Slim Video
 	 */
