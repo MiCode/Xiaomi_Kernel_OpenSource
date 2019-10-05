@@ -261,7 +261,9 @@ struct mtk_ddp_comp {
 	const struct mtk_ddp_comp_funcs *funcs;
 	void *comp_mode;
 	struct cmdq_base *cmdq_base;
+#if 0
 	u8 cmdq_subsys;
+#endif
 	unsigned int qos_attr;
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	struct mm_qos_request qos_req;

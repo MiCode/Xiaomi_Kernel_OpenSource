@@ -42,6 +42,7 @@
 #define MT2712_DISP_OVL0_MOUT_EN 0x030
 #define MT8173_DISP_OVL0_MOUT_EN 0x040
 #define MT6779_DISP_OVL0_MOUT_EN 0xf08
+#define MT6885_DISP_OVL0_MOUT_EN 0xf10
 #define DISP_OVL1_2L_MOUT_EN 0xf0c
 
 // for MT6779
@@ -605,6 +606,14 @@ const struct mtk_mmsys_reg_data mt6779_mmsys_reg_data = {
 	.rdma0_sout_sel_in = DISP_REG_CONFIG_DISP_RDMA0_SOUT_SEL_IN,
 	.rdma0_sout_color0 = RDMA0_SOUT_COLOR0,
 };
+
+const struct mtk_mmsys_reg_data mt6885_mmsys_reg_data = {
+	// To-Do
+	.ovl0_mout_en = MT6885_DISP_OVL0_MOUT_EN,
+	.rdma0_sout_sel_in = MT6885_DISP_RDMA0_SEL_IN,
+	.rdma0_sout_color0 = RDMA0_SOUT_COLOR0,
+};
+
 
 static char *ddp_signal_0_mt6885(int bit)
 {
@@ -2219,6 +2228,9 @@ mtk_ddp_get_mmsys_reg_data(enum mtk_mmsys_id mmsys_id)
 		break;
 	case MMSYS_MT6779:
 		data = &mt6779_mmsys_reg_data;
+		break;
+	case MMSYS_MT6885:
+		data = &mt6885_mmsys_reg_data;
 		break;
 	default:
 		pr_info("mtk drm not support mmsys id %d\n", mmsys_id);

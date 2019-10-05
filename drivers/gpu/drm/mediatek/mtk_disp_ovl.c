@@ -32,7 +32,7 @@
 #include "mtk_drm_helper.h"
 #include "mtk_drm_drv.h"
 #include "mtk_disp_pmqos.h"
-#ifdef CONFIG_MTK_IOMMU
+#ifdef CONFIG_MTK_IOMMU_V2
 #include "mtk_iommu_ext.h"
 #endif
 
@@ -1430,6 +1430,15 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	unsigned int lx_2nd_subbuf = 0;
 	unsigned int lx_pitch_msb = 0;
 
+	DDPDBG("%s:%d, addr:0x%x, pitch:%d, vpitch:%d\n",
+		__func__, __LINE__, addr,
+		pitch, vpitch);
+	DDPDBG("src:(%d,%d,%d,%d), fmt:%d, Bpp:%d, compress:%d\n",
+		src_x, src_y,
+		src_w, src_h,
+		fmt, Bpp,
+		compress);
+
 #ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
 	if (drm_crtc_index(&comp->mtk_crtc->base) == 0)
 		rotate = 1;
@@ -2448,7 +2457,7 @@ static int mtk_disp_ovl_bind(struct device *dev, struct device *master,
 	}
 #endif
 
-#ifdef CONFIG_MTK_IOMMU
+#ifdef CONFIG_MTK_IOMMU_V2
 	if (priv->ddp_comp.id == DDP_COMPONENT_OVL0) {
 		mtk_iommu_register_fault_callback(
 			M4U_PORT_DISP_OVL0_HDR,
@@ -2584,7 +2593,7 @@ static const struct mtk_disp_ovl_data mt6885_ovl_driver_data = {
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
-	.compr_info = &compr_info_mt6885,
+	.compr_info = NULL,  // &compr_info_mt6885,
 };
 
 static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {

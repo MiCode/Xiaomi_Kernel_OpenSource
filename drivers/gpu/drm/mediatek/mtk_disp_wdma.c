@@ -505,7 +505,7 @@ static void mtk_wdma_golden_setting(struct mtk_ddp_comp *comp,
 	unsigned int gs[GS_WDMA_FLD_NUM];
 	unsigned int value = 0;
 
-	mtk_wdma_calc_golden_setting(gsc, comp->fb->pixel_format, true, gs);
+	mtk_wdma_calc_golden_setting(gsc, comp->fb->format->format, true, gs);
 
 #if 0
 	mtk_ddp_write(comp, 0x800000ff, 0x2C, handle);
@@ -731,7 +731,7 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 
 	addr = (u32)mtk_fb_get_dma(comp->fb);
 	addr += comp->fb->offsets[0];
-	con = wdma_fmt_convert(comp->fb->pixel_format);
+	con = wdma_fmt_convert(comp->fb->format->format);
 	DDPMSG("%s fmt:0x%x, con:0x%x\n", __func__,
 		comp->fb->pixel_format, con);
 	if (!addr) {

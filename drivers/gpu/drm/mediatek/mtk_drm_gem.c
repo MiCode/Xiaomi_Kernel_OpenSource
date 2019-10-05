@@ -24,7 +24,7 @@
 #include "ion_drv.h"
 #include <ion_priv.h>
 #include <soc/mediatek/smi.h>
-#ifdef CONFIG_MTK_IOMMU
+#ifdef CONFIG_MTK_IOMMU_V2
 #include "mt_iommu.h"
 #include "mtk_iommu_ext.h"
 #include "mtk/mtk_ion.h"
@@ -87,7 +87,7 @@ static void mtk_gem_vmap_pa(phys_addr_t pa, uint size, int cached,
 static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 				   struct mtk_drm_gem_obj *mtk_gem)
 {
-#ifdef CONFIG_MTK_IOMMU
+#ifdef CONFIG_MTK_IOMMU_V2
 	struct ion_client *ion_display_client = NULL;
 	struct ion_handle *ion_display_handle = NULL;
 	struct ion_mm_data mm_data;
@@ -108,7 +108,7 @@ static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 		return;
 	}
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
-	mm_data.config_buffer_param.module_id = M4U_PORT_DISP_OVL0;
+	mm_data.config_buffer_param.module_id = M4U_PORT_L0_OVL_RDMA0;
 	mm_data.config_buffer_param.kernel_handle = ion_display_handle;
 	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
 	if (ion_kernel_ioctl(ion_display_client, ION_CMD_MULTIMEDIA,

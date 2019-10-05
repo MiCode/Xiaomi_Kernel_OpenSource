@@ -145,7 +145,9 @@ static void mtk_unreference_work(struct work_struct *work)
 	list_for_each_entry_safe(state, tmp, &mtk_drm->unreference.list, list) {
 		list_del(&state->list);
 		spin_unlock_irqrestore(&mtk_drm->unreference.lock, flags);
+#ifdef MTK_DRM_ATOMIC_RELEASE
 		mtk_atomic_state_put(&state->base);
+#endif
 		spin_lock_irqsave(&mtk_drm->unreference.lock, flags);
 	}
 	spin_unlock_irqrestore(&mtk_drm->unreference.lock, flags);
@@ -402,6 +404,7 @@ static bool mtk_atomic_skip_plane_update(struct mtk_drm_private *private,
 	return true;
 }
 
+#ifdef MTK_DRM_ESD_SUPPORT
 static void drm_atomic_esd_chk_first_enable(struct drm_device *dev,
 				     struct drm_atomic_state *old_state)
 {
@@ -423,6 +426,7 @@ static void drm_atomic_esd_chk_first_enable(struct drm_device *dev,
 		is_first = false;
 	}
 }
+#endif
 
 static void mtk_atomic_complete(struct mtk_drm_private *private,
 				struct drm_atomic_state *state)
@@ -461,8 +465,9 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 	if (!mtk_atomic_skip_plane_update(private, state)) {
 		drm_atomic_helper_commit_planes(drm, state,
 						DRM_PLANE_COMMIT_ACTIVE_ONLY);
-
+#ifdef MTK_DRM_ESD_SUPPORT
 		drm_atomic_esd_chk_first_enable(drm, state);
+#endif
 	}
 
 	if (!mtk_drm_helper_get_opt(private->helper_opt,
@@ -471,8 +476,9 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 
 	drm_atomic_helper_cleanup_planes(drm, state);
 
+#ifdef MTK_DRM_ATOMIC_RELEASE
 	mtk_atomic_state_put(state);
-
+#endif
 }
 
 static void mtk_atomic_work(struct work_struct *work)
@@ -870,6 +876,29 @@ static const struct mtk_fake_eng_data mt6779_fake_eng_data = {
 	.fake_eng_reg = mt6779_fake_eng_reg,
 };
 
+const struct mtk_session_mode_tb mt6885_mode_tb[MTK_DRM_SESSION_NUM] = {
+		[MTK_DRM_SESSION_DL] = {
+
+				.en = 1,
+				.ddp_mode = {DDP_MAJOR, DDP_MAJOR, DDP_MAJOR},
+			},
+		[MTK_DRM_SESSION_DOUBLE_DL] = {
+
+				.en = 1,
+				.ddp_mode = {DDP_MAJOR, DDP_MAJOR, DDP_MAJOR},
+			},
+		[MTK_DRM_SESSION_DC_MIRROR] = {
+
+				.en = 1,
+				.ddp_mode = {DDP_MINOR, DDP_MAJOR, DDP_NO_USE},
+			},
+		[MTK_DRM_SESSION_TRIPLE_DL] = {
+
+				.en = 1,
+				.ddp_mode = {DDP_MAJOR, DDP_MINOR, DDP_MAJOR},
+			},
+};
+
 static const struct mtk_fake_eng_reg mt6885_fake_eng_reg[] = {
 		{.CG_idx = 0, .CG_bit = 14, .share_port = true},
 		{.CG_idx = 0, .CG_bit = 15, .share_port = true},
@@ -912,6 +941,8 @@ static const struct mtk_mmsys_driver_data mt6779_mmsys_driver_data = {
 static const struct mtk_mmsys_driver_data mt6885_mmsys_driver_data = {
 	.main_path_data = &mt6885_mtk_main_path_data,
 	.fake_eng_data = &mt6885_fake_eng_data,
+	.mmsys_id = MMSYS_MT6885,
+	.mode_tb = mt6885_mode_tb,
 };
 
 #ifdef MTK_DRM_FENCE_SUPPORT

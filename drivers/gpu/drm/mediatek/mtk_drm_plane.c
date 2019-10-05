@@ -229,7 +229,7 @@ static int mtk_plane_atomic_check(struct drm_plane *plane,
 	if (!fb)
 		return 0;
 
-	if (!mtk_fb_get_gem_obj(fb) && fb->pixel_format != DRM_FORMAT_C8) {
+	if (!mtk_fb_get_gem_obj(fb) && fb->format->format != DRM_FORMAT_C8) {
 		DRM_DEBUG_KMS("buffer is null\n");
 		return -EFAULT;
 	}
@@ -333,7 +333,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 
 	state->pending.enable = plane->state->visible;
 	state->pending.pitch = fb->pitches[0];
-	state->pending.format = fb->pixel_format;
+	state->pending.format = fb->format->format;
 	state->pending.modifier = fb->modifier[0];
 	state->pending.addr = mtk_fb_get_dma(fb);
 	state->pending.src_x = (plane->state->src.x1 >> 16);

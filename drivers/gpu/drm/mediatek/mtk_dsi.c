@@ -793,7 +793,13 @@ static void mtk_dsi_cmdq_poll(struct mtk_ddp_comp *comp,
 	if (handle == NULL)
 		DDPPR_ERR("%s no cmdq handle\n", __func__);
 
+#if 0
 	cmdq_pkt_poll_reg(handle, val, comp->cmdq_subsys, reg & 0xFFFF, mask);
+#else
+	cmdq_pkt_poll_timeout(handle, val, SUBSYS_NO_SUPPORT,
+				  reg & 0xFFFF, mask, 0xFFFF,
+				  CMDQ_GPR_R07);
+#endif
 }
 
 static s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle)
@@ -1482,7 +1488,7 @@ int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, uintptr_t slot)
 
 		cmdq_pkt_poll_timeout(handle, (u32)comp->cmdq_base, 0x1,
 				      comp->regs_pa + DSI_INTSTA, 0x1, 400,
-				      CMDQ_GPR_R08);
+				      CMDQ_GPR_R06);
 
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DSI_INTSTA, 0x0, 0x1);
@@ -2445,7 +2451,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		goto error;
 	}
 
-	irq_set_status_flags(irq_num, IRQ_TYPE_LEVEL_LOW);
+	irq_set_status_flags(irq_num, IRQ_TYPE_LEVEL_HIGH);
 	ret = devm_request_irq(
 		&pdev->dev, irq_num, dsi->driver_data->irq_handler,
 		IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(&pdev->dev), dsi);

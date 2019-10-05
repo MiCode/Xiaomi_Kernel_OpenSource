@@ -331,8 +331,20 @@ EXPORT_SYMBOL(mtkfb_set_backlight_level);
 static int debug_get_info(unsigned char *stringbuf, int buf_len)
 {
 	int n = 0;
-	struct mtk_drm_private *private = drm_dev->dev_private;
+	struct mtk_drm_private *private;
 
+	if (!drm_dev) {
+		DDPPR_ERR("%s:%d, drm_dev is NULL\n",
+			__func__, __LINE__, drm_dev);
+		return -1;
+	}
+	if (!drm_dev->dev_private) {
+		DDPPR_ERR("%s:%d, drm_dev->dev_private is NULL\n",
+			__func__, __LINE__, drm_dev->dev_private);
+		return -1;
+	}
+
+	private = drm_dev->dev_private;
 #if 0
 	DISPFUNC();
 

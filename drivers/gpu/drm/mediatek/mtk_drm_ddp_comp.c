@@ -24,7 +24,7 @@
 #include <drm/drmP.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <soc/mediatek/smi.h>
-#ifdef CONFIG_MTK_IOMMU
+#ifdef CONFIG_MTK_IOMMU_V2
 #include "mt_iommu.h"
 #include "mtk_iommu_ext.h"
 #endif
@@ -381,7 +381,7 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 	if (comp->larb_dev != NULL)
 		return;
 
-	ret = of_property_read_u32(comp->larb_dev->of_node,
+	ret = of_property_read_u32(larb_node,
 				"mediatek,smi-id", &larb_id);
 	if (ret) {
 		dev_err(comp->larb_dev,
@@ -477,11 +477,13 @@ int mtk_ddp_comp_init(struct device *dev, struct device_node *node,
 
 	comp->cmdq_base = cmdq_register_device(&comp_pdev->dev);
 
+#if 0
 	/* TODO: if no subsys id, use 99 instead. CMDQ owner would define 99 in
 	 * DTS afterward.
 	 */
 	if (of_property_read_u8(node, "my_subsys_id", &comp->cmdq_subsys))
 		comp->cmdq_subsys = 99;
+#endif
 
 	/* handle larb resources */
 	mtk_ddp_comp_set_larb(dev, node, comp);
@@ -537,7 +539,7 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 #endif
 }
 
-#ifdef CONFIG_MTK_IOMMU
+#ifdef CONFIG_MTK_IOMMU_V2
 static int mtk_ddp_m4u_callback(int port, unsigned long mva, void *data)
 {
 	struct mtk_ddp_comp *comp = data;
@@ -571,7 +573,7 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 		if (ret < 0)
 			break;
 
-#ifdef CONFIG_MTK_IOMMU
+#ifdef CONFIG_MTK_IOMMU_V2
 		mtk_iommu_register_fault_callback(
 			port, (mtk_iommu_fault_callback_t)mtk_ddp_m4u_callback,
 			comp);

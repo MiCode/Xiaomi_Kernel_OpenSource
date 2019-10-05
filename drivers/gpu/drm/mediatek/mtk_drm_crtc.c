@@ -958,7 +958,7 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 	fb = drm_framebuffer_lookup(mtk_crtc->base.dev, NULL, fb_id);
 	plane_state.pending.enable = true;
 	plane_state.pending.pitch = fb->pitches[0];
-	plane_state.pending.format = fb->pixel_format;
+	plane_state.pending.format = fb->format->format;
 	plane_state.pending.addr =
 		mtk_fb_get_dma(fb) + mtk_crtc_get_dc_fb_size(crtc) * fb_idx;
 	plane_state.pending.src_x = 0;
@@ -1053,6 +1053,8 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc)
 				NO_PENDING_HRT;
 	}
 }
+
+#ifdef MTK_DRM_CMDQ_ASYNC
 static void ddp_cmdq_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
@@ -1060,9 +1062,19 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	struct drm_atomic_state *atomic_state = crtc_state->state;
 	struct drm_crtc *crtc = crtc_state->crtc;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_private *private = mtk_crtc->base.dev->dev_private;
-	int session_id = -1, id = drm_crtc_index(crtc), i;
+	struct mtk_drm_private *private;
+	int session_id = -1, id, i;
 
+	DDPINFO("%s:%d, data:%px, cb_data:%px\n",
+		__func__, __LINE__,
+		&data, cb_data);
+	DDPINFO("crtc_state:%px, atomic_state:%px, crtc:%px\n",
+		crtc_state,
+		atomic_state,
+		crtc);
+
+	id = drm_crtc_index(crtc);
+	private = mtk_crtc->base.dev->dev_private;
 	for (i = 0; i < MAX_SESSION_COUNT; i++) {
 		if ((id + 1) == MTK_SESSION_TYPE(private->session_id[i])) {
 			session_id = private->session_id[i];
@@ -1092,6 +1104,57 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	kfree(cb_data);
 
 }
+
+#else
+static void ddp_cmdq_cb_blocking(struct mtk_cmdq_cb_data *cb_data)
+{
+	struct drm_crtc_state *crtc_state = cb_data->state;
+	struct drm_atomic_state *atomic_state = crtc_state->state;
+	struct drm_crtc *crtc = crtc_state->crtc;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *private;
+	int session_id = -1, id, i;
+
+	DDPINFO("%s:%d, cb_data:%px\n",
+		__func__, __LINE__,
+		cb_data);
+	DDPINFO("crtc_state:%px, atomic_state:%px, crtc:%px\n",
+		crtc_state,
+		atomic_state,
+		crtc);
+
+	id = drm_crtc_index(crtc);
+	private = mtk_crtc->base.dev->dev_private;
+	for (i = 0; i < MAX_SESSION_COUNT; i++) {
+		if ((id + 1) == MTK_SESSION_TYPE(private->session_id[i])) {
+			session_id = private->session_id[i];
+			break;
+		}
+	}
+
+	mtk_crtc_release_input_layer_fence(crtc, session_id);
+
+	mtk_crtc_release_output_buffer_fence(crtc, session_id);
+
+	mtk_crtc_update_hrt_qos(crtc);
+
+	if (mtk_crtc->pending_needs_vblank) {
+		mtk_drm_crtc_finish_page_flip(mtk_crtc);
+		mtk_crtc->pending_needs_vblank = false;
+	}
+
+	mtk_atomic_state_put_queue(atomic_state);
+
+	if (mtk_crtc->wb_enable == true) {
+		mtk_crtc->wb_enable = false;
+		drm_writeback_signal_completion(&mtk_crtc->wb_connector, 0);
+	}
+
+	cmdq_pkt_destroy(cb_data->cmdq_handle);
+	kfree(cb_data);
+}
+
+#endif
 
 static struct golden_setting_context *
 __get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc)
@@ -1819,9 +1882,11 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	/* 8. set vblank*/
 	drm_crtc_vblank_on(crtc);
 
+#ifdef MTK_DRM_ESD_SUPPORT
 	/* 9. enable ESD check */
 	if (mtk_drm_lcm_is_connect())
 		mtk_disp_esd_check_switch(crtc, true);
+#endif
 
 	/* 10. set CRTC SW status */
 	mtk_crtc_set_status(crtc, true);
@@ -1831,6 +1896,18 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 }
 
 void mtk_drm_crtc_resume(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	/* hold wakelock */
+	DDPMSG("%s hold wakelock\n", __func__);
+	__pm_stay_awake(&mtk_crtc->wk_lock);
+
+	mtk_drm_crtc_enable(crtc);
+}
+
+void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
+				struct drm_crtc_state *old_crtc_state)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
@@ -2333,12 +2410,20 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 			cmdq_handle, mtk_crtc->gce_obj.base);
 	}
 
+#ifdef MTK_DRM_CMDQ_ASYNC
 	if (mtk_crtc_is_dc_mode(crtc))
 		cmdq_pkt_flush_threaded(cmdq_handle,
 			gce_cb, cb_data);
 	else
 		cmdq_pkt_flush_threaded(cmdq_handle,
 			gce_cb, cb_data);
+#else
+	if (mtk_crtc_is_dc_mode(crtc))
+		cmdq_pkt_flush(cmdq_handle);
+	else {
+		cmdq_pkt_flush(cmdq_handle);
+	}
+#endif
 }
 
 static void mtk_drm_crtc_enable_fake_layer(struct drm_crtc *crtc,
@@ -2366,7 +2451,7 @@ static void mtk_drm_crtc_enable_fake_layer(struct drm_crtc *crtc,
 
 		pending->addr = mtk_fb_get_dma(fake_layer->fake_layer_buf[i]);
 		pending->pitch = fake_layer->fake_layer_buf[i]->pitches[0];
-		pending->format = fake_layer->fake_layer_buf[i]->pixel_format;
+		pending->format = fake_layer->fake_layer_buf[i]->format->format;
 		pending->modifier = fake_layer->fake_layer_buf[i]->modifier[0];
 		pending->src_x = 0;
 		pending->src_y = 0;
@@ -2526,7 +2611,13 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
 	cb_data->state = old_crtc_state;
 	cb_data->cmdq_handle = cmdq_handle;
+
+#ifdef MTK_DRM_CMDQ_ASYNC
 	mtk_crtc_gce_flush(crtc, ddp_cmdq_cb, cb_data, cmdq_handle);
+#else
+	mtk_crtc_gce_flush(crtc, NULL, NULL, cmdq_handle);
+	ddp_cmdq_cb_blocking(cb_data);
+#endif
 
 #ifdef MTK_DRM_FENCE_SUPPORT
 	if (state->prop_val[CRTC_PROP_PRES_FENCE_IDX] != (unsigned int)-1)
@@ -2549,7 +2640,7 @@ static const struct drm_crtc_funcs mtk_crtc_funcs = {
 static const struct drm_crtc_helper_funcs mtk_crtc_helper_funcs = {
 	.mode_fixup = mtk_drm_crtc_mode_fixup,
 	.mode_set_nofb = mtk_drm_crtc_mode_set_nofb,
-	/* .enable = mtk_drm_crtc_resume, */
+	.atomic_enable = mtk_drm_crtc_atomic_resume,
 	.disable = mtk_drm_crtc_suspend,
 	.atomic_begin = mtk_drm_crtc_atomic_begin,
 	.atomic_flush = mtk_drm_crtc_atomic_flush,
@@ -3415,7 +3506,7 @@ static void mtk_crtc_config_wb_path_cmdq(struct drm_crtc *crtc,
 	}
 	plane_state.pending.enable = true;
 	plane_state.pending.pitch = fb->pitches[0];
-	plane_state.pending.format = fb->pixel_format;
+	plane_state.pending.format = fb->format->format;
 	plane_state.pending.addr = mtk_fb_get_dma(fb);
 	plane_state.pending.src_x = 0;
 	plane_state.pending.src_y = 0;

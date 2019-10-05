@@ -28,8 +28,11 @@
 #define MAX_CRTC 3
 #define MAX_CONNECTOR 3
 
-/* #define MTK_DRM_FENCE_SUPPORT */
-/* #define CONFIG_MTK_DISPLAY_CMDQ */
+#define MTK_DRM_FENCE_SUPPORT
+/* #define MTK_DRM_ESD_SUPPORT */
+/* #define MTK_DRM_CMDQ_ASYNC */
+/* #define MTK_DRM_ATOMIC_RELEASE */
+#define CONFIG_MTK_DISPLAY_CMDQ
 
 struct device;
 struct device_node;

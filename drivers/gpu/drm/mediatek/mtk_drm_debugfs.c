@@ -433,6 +433,7 @@ void mtk_drm_debugfs_init(struct drm_device *dev, struct mtk_drm_private *priv)
 	struct resource res;
 	int i;
 	enum mtk_ddp_comp_id comp_id;
+	const struct mtk_crtc_path_data *ext_path_data;
 	int ret;
 
 	DRM_DEBUG_DRIVER("%s\n", __func__);
@@ -469,21 +470,24 @@ void mtk_drm_debugfs_init(struct drm_device *dev, struct mtk_drm_private *priv)
 	/* TODO: The debugfs_init would be different in latest kernel version,
 	 * so we will refine the debugfs with multiple path in latest verion.
 	 */
-	for (i = 0; i < priv->data->ext_path_data->path_len[DDP_MAJOR][0] - 1;
-	     i++) {
-		np = priv->comp_node[comp_id];
-		if (!priv->ddp_comp[comp_id])
-			continue;
-		gdrm_disp2_base[i] = of_iomap(np, 0);
-		ret = of_address_to_resource(np, 0, &res);
-		if (ret < 0)
-			DRM_INFO("comp_node[%d] map address fail\n", i);
-		gdrm_disp2_reg_range[i].reg_base = res.start;
+	ext_path_data = priv->data->ext_path_data;
+	if (ext_path_data) {
+		for (i = 0; i < ext_path_data->path_len[DDP_MAJOR][0] - 1;
+		     i++) {
+			np = priv->comp_node[comp_id];
+			if (!priv->ddp_comp[comp_id])
+				continue;
+			gdrm_disp2_base[i] = of_iomap(np, 0);
+			ret = of_address_to_resource(np, 0, &res);
+			if (ret < 0)
+				DRM_INFO("comp_node[%d] map address fail\n", i);
+			gdrm_disp2_reg_range[i].reg_base = res.start;
+		}
+		gdrm_disp2_base[i] = priv->config_regs;
+		gdrm_disp2_reg_range[i++].reg_base = 0x14000000;
+		gdrm_disp2_base[i] = mutex_regs;
+		gdrm_disp2_reg_range[i].reg_base = mutex_phys;
 	}
-	gdrm_disp2_base[i] = priv->config_regs;
-	gdrm_disp2_reg_range[i++].reg_base = 0x14000000;
-	gdrm_disp2_base[i] = mutex_regs;
-	gdrm_disp2_reg_range[i].reg_base = mutex_phys;
 
 	DRM_DEBUG_DRIVER("%s..done\n", __func__);
 }
