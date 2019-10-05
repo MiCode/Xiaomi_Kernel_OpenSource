@@ -102,6 +102,7 @@ void lbat_test_callback(unsigned int thd)
 #endif
 
 static struct lbat_user lbat_pt;
+static struct lbat_user lbat_pt_ext;
 int g_low_battery_level;
 int g_low_battery_stop;
 /* give one change to ignore DLPT power off. battery voltage
@@ -209,7 +210,7 @@ void low_battery_protect_init(void)
 			, POWER_INT0_VOLT, POWER_INT1_VOLT
 			, POWER_INT2_VOLT, exec_low_battery_callback);
 
-	ret = lbat_user_register(&lbat_pt, "power throttling ext"
+	ret = lbat_user_register(&lbat_pt_ext, "power throttling ext"
 		, POWER_INT0_VOLT_EXT, POWER_INT1_VOLT_EXT
 		, POWER_INT2_VOLT_EXT, exec_low_battery_callback_ext);
 
