@@ -527,8 +527,8 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 				host,
 				"exe_cq/%d", host->index);
 			if (IS_ERR(host->cmdq_thread)) {
-				pr_notice("%s: cmdq: failed to start exe_cq thread\n",
-					mmc_hostname(host));
+				pr_notice("%s: %d: cmdq: failed to start exe_cq thread\n",
+					mmc_hostname(host), ret);
 			}
 		}
 #endif

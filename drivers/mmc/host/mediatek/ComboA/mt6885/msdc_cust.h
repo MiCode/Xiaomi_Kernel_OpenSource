@@ -39,10 +39,9 @@
 #define MSDC0_HCLK_NAME         "msdc0-hclock"
 #define MSDC1_CLK_NAME          "msdc1-clock"
 #define MSDC1_HCLK_NAME         "msdc1-hclock"
-#define MSDC0_IOCFG_NAME        "mediatek,iocfg_tl"
-#define MSDC1_IOCFG_NAME        "mediatek,iocfg_rm"
-#define MSDC1_A_IOCFG_NAME      "mediatek,iocfg_lb"
-
+#define MSDC0_IOCFG_NAME        "mediatek,iocfg_tm"
+#define MSDC1_IOCFG_NAME        "mediatek,iocfg_lm"
+#define MSDC1_A_IOCFG_NAME      "mediatek,iocfg_rm"
 
 /**************************************************************/
 /* Section 2: Power                                           */
@@ -53,15 +52,15 @@
 
 #include <mt-plat/upmu_common.h>
 
-#define REG_VEMC_VOSEL_CAL      PMIC_RG_VEMC_VOCAL_ADDR
-#define MASK_VEMC_VOSEL_CAL     PMIC_RG_VEMC_VOCAL_MASK
-#define SHIFT_VEMC_VOSEL_CAL    PMIC_RG_VEMC_VOCAL_SHIFT
+#define REG_VEMC_VOSEL_CAL      PMIC_RG_VEMC_VOCAL_0_ADDR
+#define MASK_VEMC_VOSEL_CAL     PMIC_RG_VEMC_VOCAL_0_MASK
+#define SHIFT_VEMC_VOSEL_CAL    PMIC_RG_VEMC_VOCAL_0_SHIFT
 #define FIELD_VEMC_VOSEL_CAL    (MASK_VEMC_VOSEL_CAL \
 					<< SHIFT_VEMC_VOSEL_CAL)
 
-#define REG_VEMC_VOSEL          PMIC_RG_VEMC_VOSEL_ADDR
-#define MASK_VEMC_VOSEL         PMIC_RG_VEMC_VOSEL_MASK
-#define SHIFT_VEMC_VOSEL        PMIC_RG_VEMC_VOSEL_SHIFT
+#define REG_VEMC_VOSEL          PMIC_RG_VEMC_VOSEL_0_ADDR
+#define MASK_VEMC_VOSEL         PMIC_RG_VEMC_VOSEL_0_MASK
+#define SHIFT_VEMC_VOSEL        PMIC_RG_VEMC_VOSEL_0_SHIFT
 #define FIELD_VEMC_VOSEL        (MASK_VEMC_VOSEL << SHIFT_VEMC_VOSEL)
 
 #define REG_VEMC_EN             PMIC_RG_LDO_VEMC_EN_ADDR
@@ -113,9 +112,9 @@
 #define FIELD_VMCH_OC_STATUS    (MASK_VMCH_OC_STATUS << SHIFT_VMCH_OC_STATUS)
 
 #define VEMC_VOSEL_CAL_mV(cal)  ((cal >= 0) ? ((cal)/10) : 0)
-#define VEMC_VOSEL_2V9          (2)
-#define VEMC_VOSEL_3V           (3)
-#define VEMC_VOSEL_3V3          (5)
+#define VEMC_VOSEL_2V9          (10)
+#define VEMC_VOSEL_3V           (11)
+#define VEMC_VOSEL_3V3          (13)
 #define VMC_VOSEL_CAL_mV(cal)   ((cal >= 0) ? ((cal)/10) : 0)
 #define VMC_VOSEL_1V8           (4)
 #define VMC_VOSEL_2V9           (10)
@@ -137,10 +136,10 @@
 /**************************************************************/
 #if !defined(FPGA_PLATFORM)
 /* MSDCPLL register offset */
-#define MSDCPLL_CON0_OFFSET     (0x260)
-#define MSDCPLL_CON1_OFFSET     (0x264)
-#define MSDCPLL_CON2_OFFSET     (0x268)
-#define MSDCPLL_PWR_CON0_OFFSET (0x26c)
+#define MSDCPLL_CON0_OFFSET     (0x350)
+#define MSDCPLL_CON1_OFFSET     (0x354)
+#define MSDCPLL_CON2_OFFSET     (0x358)
+#define MSDCPLL_PWR_CON0_OFFSET (0x35c)
 #endif
 
 #define MSDCPLL_FREQ            400000000
@@ -177,43 +176,45 @@
 /* MSDC GPIO Related Register                                               */
 /*--------------------------------------------------------------------------*/
 /* MSDC0 */
-#define MSDC0_GPIO_MODE20			(MSDC_GPIO_BASE + 0x440)
-#define MSDC0_GPIO_MODE21			(MSDC_GPIO_BASE + 0x450)
 #define MSDC0_GPIO_MODE22			(MSDC_GPIO_BASE + 0x460)
+#define MSDC0_GPIO_MODE23			(MSDC_GPIO_BASE + 0x470)
+#define MSDC0_GPIO_MODE24			(MSDC_GPIO_BASE + 0x480)
 #define MSDC0_GPIO_DRV0				(MSDC0_IO_PAD_BASE + 0x00)
-#define MSDC0_GPIO_IES				(MSDC0_IO_PAD_BASE + 0x10)
-#define MSDC0_GPIO_PUPD0			(MSDC0_IO_PAD_BASE + 0x20)
-#define MSDC0_GPIO_R0				(MSDC0_IO_PAD_BASE + 0x30)
-#define MSDC0_GPIO_R1				(MSDC0_IO_PAD_BASE + 0x40)
-#define MSDC0_GPIO_RDSEL0			(MSDC0_IO_PAD_BASE + 0x50)
-#define MSDC0_GPIO_SMT				(MSDC0_IO_PAD_BASE + 0x60)
-#define MSDC0_GPIO_TDSEL0			(MSDC0_IO_PAD_BASE + 0x70)
+#define MSDC0_GPIO_IES				(MSDC0_IO_PAD_BASE + 0x50)
+#define MSDC0_GPIO_PUPD0			(MSDC0_IO_PAD_BASE + 0x80)
+#define MSDC0_GPIO_R0				(MSDC0_IO_PAD_BASE + 0xA0)
+#define MSDC0_GPIO_R1				(MSDC0_IO_PAD_BASE + 0xB0)
+#define MSDC0_GPIO_RDSEL0			(MSDC0_IO_PAD_BASE + 0xC0)
+#define MSDC0_GPIO_RDSEL0_1			(MSDC0_IO_PAD_BASE + 0xD0)
+#define MSDC0_GPIO_SMT				(MSDC0_IO_PAD_BASE + 0xF0)
+#define MSDC0_GPIO_TDSEL0			(MSDC0_IO_PAD_BASE + 0x100)
 
 /* MSDC1 */
-#define MSDC1_GPIO_MODE16			(MSDC_GPIO_BASE + 0x400)
-#define MSDC1_GPIO_MODE17			(MSDC_GPIO_BASE + 0x410)
+#define MSDC1_GPIO_MODE6			(MSDC_GPIO_BASE + 0x360)
+#define MSDC1_GPIO_MODE7			(MSDC_GPIO_BASE + 0x370)
 #define MSDC1_GPIO_DRV0				(MSDC1_IO_PAD_BASE + 0x00)
-#define MSDC1_GPIO_IES				(MSDC1_IO_PAD_BASE + 0x30)
-#define MSDC1_GPIO_PUPD0			(MSDC1_IO_PAD_BASE + 0x60)
-#define MSDC1_GPIO_R0				(MSDC1_IO_PAD_BASE + 0x80)
-#define MSDC1_GPIO_R1				(MSDC1_IO_PAD_BASE + 0x90)
-#define MSDC1_GPIO_RDSEL0			(MSDC1_IO_PAD_BASE + 0xa0)
-#define MSDC1_GPIO_SMT				(MSDC1_IO_PAD_BASE + 0xb0)
-#define MSDC1_GPIO_SR				(MSDC1_IO_PAD_BASE + 0xc0)
-#define MSDC1_GPIO_TDSEL0			(MSDC1_IO_PAD_BASE + 0xd0)
+#define MSDC1_GPIO_IES				(MSDC1_IO_PAD_BASE + 0x20)
+#define MSDC1_GPIO_PUPD0			(MSDC1_IO_PAD_BASE + 0x40)
+#define MSDC1_GPIO_R0				(MSDC1_IO_PAD_BASE + 0x60)
+#define MSDC1_GPIO_R1				(MSDC1_IO_PAD_BASE + 0x70)
+#define MSDC1_GPIO_RDSEL0			(MSDC1_IO_PAD_BASE + 0x80)
+#define MSDC1_GPIO_SMT				(MSDC1_IO_PAD_BASE + 0x90)
+#define MSDC1_GPIO_SR				(MSDC1_IO_PAD_BASE + 0xA0)
+#define MSDC1_GPIO_TDSEL0			(MSDC1_IO_PAD_BASE + 0xB0)
+#define MSDC1_GPIO_TDSEL0_1			(MSDC1_IO_PAD_BASE + 0xC0)
 
 /* MSDC1_PADA */
 #define MSDC1_GPIO_MISC				(MSDC_GPIO_BASE + 0x600)
 #define MSDC1_GPIO_MODE1			(MSDC_GPIO_BASE + 0x310)
 #define MSDC1_GPIO_DRV0_A			(MSDC1_IO_PAD_BASE + 0x00)
-#define MSDC1_GPIO_IES_A			(MSDC1_IO_PAD_BASE + 0x30)
-#define MSDC1_GPIO_PUPD0_A			(MSDC1_IO_PAD_BASE + 0x50)
-#define MSDC1_GPIO_R0_A				(MSDC1_IO_PAD_BASE + 0x70)
-#define MSDC1_GPIO_R1_A				(MSDC1_IO_PAD_BASE + 0x80)
-#define MSDC1_GPIO_RDSEL0_A			(MSDC1_IO_PAD_BASE + 0x90)
-#define MSDC1_GPIO_SMT_A			(MSDC1_IO_PAD_BASE + 0xb0)
-#define MSDC1_GPIO_SR				(MSDC1_IO_PAD_BASE + 0xc0)
-#define MSDC1_GPIO_TDSEL0_A			(MSDC1_IO_PAD_BASE + 0xd0)
+#define MSDC1_GPIO_IES_A			(MSDC1_IO_PAD_BASE + 0x20)
+#define MSDC1_GPIO_PUPD0_A			(MSDC1_IO_PAD_BASE + 0x40)
+#define MSDC1_GPIO_R0_A				(MSDC1_IO_PAD_BASE + 0x60)
+#define MSDC1_GPIO_R1_A				(MSDC1_IO_PAD_BASE + 0x70)
+#define MSDC1_GPIO_RDSEL0_A			(MSDC1_IO_PAD_BASE + 0x80)
+#define MSDC1_GPIO_SMT_A			(MSDC1_IO_PAD_BASE + 0x90)
+#define MSDC1_GPIO_SR				(MSDC1_IO_PAD_BASE + 0xA0)
+#define MSDC1_GPIO_TDSEL0_A			(MSDC1_IO_PAD_BASE + 0xB0)
 
 /*
  * MSDC0 GPIO and PAD register and bitfields definition
@@ -237,37 +238,38 @@
 #define MSDC0_MODE_CLK_MASK			(0x7 << 0)
 
 /* MSDC0 IES mask */
-#define MSDC0_IES_RSTB_MASK			(0x1 << 11)
-#define MSDC0_IES_DSL_MASK			(0x1 << 10)
-#define MSDC0_IES_DAT_MASK			(0xFF << 2)
-#define MSDC0_IES_CMD_MASK			(0x1 << 1)
-#define MSDC0_IES_CLK_MASK			(0x1 << 0)
-#define MSDC0_IES_ALL_MASK			(0xFFF << 0)
+#define MSDC0_IES_RSTB_MASK			(0x1 << 29)
+#define MSDC0_IES_DSL_MASK			(0x1 << 28)
+#define MSDC0_IES_DAT_MASK			(0xFF << 20)
+#define MSDC0_IES_CMD_MASK			(0x1 << 19)
+#define MSDC0_IES_CLK_MASK			(0x1 << 18)
+#define MSDC0_IES_ALL_MASK			(0xFFF << 18)
 /* MSDC0 SMT mask */
-#define MSDC0_SMT_DSL_MASK			(0x1 << 3)
-#define MSDC0_SMT_DAT_MASK			(0x1 << 2)
-#define MSDC0_SMT_CMD_MASK			(0x1 << 1)
-#define MSDC0_SMT_CLK_MASK			(0x1 << 0)
-#define MSDC0_SMT_ALL_MASK			(0xF << 0)
+#define MSDC0_SMT_DSL_MASK			(0x1 << 5)
+#define MSDC0_SMT_DAT_MASK			(0x1 << 4)
+#define MSDC0_SMT_CMD_MASK			(0x1 << 3)
+#define MSDC0_SMT_CLK_MASK			(0x1 << 2)
+#define MSDC0_SMT_ALL_MASK			(0xF << 2)
 /* MSDC0 TDSEL0 mask */
-#define MSDC0_TDSEL0_DSL_MASK		(0xF << 12)
-#define MSDC0_TDSEL0_DAT_MASK		(0xF << 8)
-#define MSDC0_TDSEL0_CMD_MASK		(0xF << 4)
-#define MSDC0_TDSEL0_CLK_MASK		(0xF << 0)
-#define MSDC0_TDSEL0_ALL_MASK		(0xFFFF << 0)
+#define MSDC0_TDSEL0_DSL_MASK		(0xF << 24)
+#define MSDC0_TDSEL0_DAT_MASK		(0xF << 20)
+#define MSDC0_TDSEL0_CMD_MASK		(0xF << 16)
+#define MSDC0_TDSEL0_CLK_MASK		(0xF << 12)
+#define MSDC0_TDSEL0_ALL_MASK		(0xFFFF << 12)
 /* MSDC0 RDSEL0 mask */
-#define MSDC0_RDSEL0_RSTB_MASK		(0x3F << 24)
-#define MSDC0_RDSEL0_DSL_MASK		(0x3F << 18)
-#define MSDC0_RDSEL0_DAT_MASK		(0x3F << 12)
-#define MSDC0_RDSEL0_CMD_MASK		(0x3F << 6)
-#define MSDC0_RDSEL0_CLK_MASK		(0x3F << 0)
-#define MSDC0_RDSEL0_ALL_MASK		(0x3FFFFFFF << 0)
+#define MSDC0_RDSEL0_RSTB_MASK		(0x3F << 0)
+#define MSDC0_RDSEL0_DSL_MASK		(0x3F << 24)
+#define MSDC0_RDSEL0_DAT_MASK		(0x3F << 18)
+#define MSDC0_RDSEL0_CMD_MASK		(0x3F << 12)
+#define MSDC0_RDSEL0_CLK_MASK		(0x3F << 6)
+#define MSDC0_RDSEL0_ALL_MASK_0		(0xFFFFFF << 6)
+#define MSDC0_RDSEL0_ALL_MASK_1		(0x3F << 0)
 /* MSDC0 DRV0 mask */
-#define MSDC0_DRV0_DSL_MASK			(0x7 << 9)
-#define MSDC0_DRV0_DAT_MASK			(0x7 << 6)
-#define MSDC0_DRV0_CMD_MASK			(0x7 << 3)
-#define MSDC0_DRV0_CLK_MASK			(0x7 << 0)
-#define MSDC0_DRV0_ALL_MASK			(0xFFF << 0)
+#define MSDC0_DRV0_DSL_MASK			(0x7 << 15)
+#define MSDC0_DRV0_DAT_MASK			(0x7 << 12)
+#define MSDC0_DRV0_CMD_MASK			(0x7 << 9)
+#define MSDC0_DRV0_CLK_MASK			(0x7 << 6)
+#define MSDC0_DRV0_ALL_MASK			(0xFFF << 6)
 /* MSDC0 PUPD mask*/
 #define MSDC0_PUPD_RSTB_MASK		(0x1  << 11)
 #define MSDC0_PUPD_DSL_MASK			(0x1  << 10)
@@ -317,39 +319,39 @@
  * MSDC1 GPIO and PAD register and bitfields definition
  */
 /* MSDC1_GPIO_MODE16, 0001b is msdc mode */
-#define MSDC1_MODE_CMD_MASK			(0x7 << 28)
-#define MSDC1_MODE_CLK_MASK			(0x7 << 24)
+#define MSDC1_MODE_CMD_MASK			(0x7 << 16)
+#define MSDC1_MODE_CLK_MASK			(0x7 << 12)
 /* MSDC1_GPIO_MODE17, 0001b is msdc mode */
-#define MSDC1_MODE_DAT1_MASK		(0x7 << 12)
-#define MSDC1_MODE_DAT2_MASK		(0x7 << 8)
-#define MSDC1_MODE_DAT0_MASK		(0x7 << 4)
-#define MSDC1_MODE_DAT3_MASK		(0x7 << 0)
+#define MSDC1_MODE_DAT1_MASK		(0x7 << 0)
+#define MSDC1_MODE_DAT2_MASK		(0x7 << 28)
+#define MSDC1_MODE_DAT0_MASK		(0x7 << 24)
+#define MSDC1_MODE_DAT3_MASK		(0x7 << 20)
 
 /* MSDC1 IES mask*/
-#define MSDC1_IES_DAT_MASK			(0xF <<  2)
-#define MSDC1_IES_CMD_MASK			(0x1 <<  1)
-#define MSDC1_IES_CLK_MASK			(0x1 <<  0)
-#define MSDC1_IES_ALL_MASK			(0x3F <<  0)
+#define MSDC1_IES_DAT_MASK			(0xF <<  18)
+#define MSDC1_IES_CMD_MASK			(0x1 <<  17)
+#define MSDC1_IES_CLK_MASK			(0x1 <<  16)
+#define MSDC1_IES_ALL_MASK			(0x3F <<  16)
 /* MSDC1 SMT mask*/
-#define MSDC1_SMT_DAT_MASK			(0x1 <<  2)
-#define MSDC1_SMT_CMD_MASK			(0x1 <<  1)
-#define MSDC1_SMT_CLK_MASK			(0x1 <<  0)
-#define MSDC1_SMT_ALL_MASK			(0x7 <<  0)
+#define MSDC1_SMT_DAT_MASK			(0x1 <<  8)
+#define MSDC1_SMT_CMD_MASK			(0x1 <<  7)
+#define MSDC1_SMT_CLK_MASK			(0x1 <<  6)
+#define MSDC1_SMT_ALL_MASK			(0x7 <<  6)
 /* MSDC1 TDSEL0 mask*/
-#define MSDC1_TDSEL0_DAT_MASK		(0xF << 8)
-#define MSDC1_TDSEL0_CMD_MASK		(0xF << 4)
-#define MSDC1_TDSEL0_CLK_MASK		(0xF << 0)
-#define MSDC1_TDSEL0_ALL_MASK		(0xFFF << 0)
+#define MSDC1_TDSEL0_DAT_MASK		(0xF << 0)
+#define MSDC1_TDSEL0_CMD_MASK		(0xF << 28)
+#define MSDC1_TDSEL0_CLK_MASK		(0xF << 24)
+#define MSDC1_TDSEL0_ALL_MASK		(0xFF << 24)
 /* MSDC1 RDSEL0 mask*/
-#define MSDC1_RDSEL0_DAT_MASK		(0x3F << 12)
-#define MSDC1_RDSEL0_CMD_MASK		(0x3F << 6)
-#define MSDC1_RDSEL0_CLK_MASK		(0x3F << 0)
-#define MSDC1_RDSEL0_ALL_MASK		(0x3FFFF << 0)
+#define MSDC1_RDSEL0_DAT_MASK		(0x3F << 24)
+#define MSDC1_RDSEL0_CMD_MASK		(0x3F << 18)
+#define MSDC1_RDSEL0_CLK_MASK		(0x3F << 12)
+#define MSDC1_RDSEL0_ALL_MASK		(0x3FFFF << 12)
 /* MSDC1 DRV0 mask*/
-#define MSDC1_DRV0_DAT_MASK			(0x7 << 6)
-#define MSDC1_DRV0_CMD_MASK			(0x7 << 3)
-#define MSDC1_DRV0_CLK_MASK			(0x7 << 0)
-#define MSDC1_DRV0_ALL_MASK			(0x1FF << 0)
+#define MSDC1_DRV0_DAT_MASK			(0x7 << 24)
+#define MSDC1_DRV0_CMD_MASK			(0x7 << 21)
+#define MSDC1_DRV0_CLK_MASK			(0x7 << 18)
+#define MSDC1_DRV0_ALL_MASK			(0x1FF << 18)
 /* MSDC1 PUPD mask*/
 #define MSDC1_PUPD_DAT3_MASK		(0x1  << 5)
 #define MSDC1_PUPD_DAT2_MASK		(0x1  << 4)
@@ -376,15 +378,15 @@
 #define MSDC1_R1_ALL_MASK			(0x3F << 0)
 
 /* FOR msdc_io_check() */
-#define MSDC1_PUPD_DAT0_ADDR		MSDC1_GPIO_PUPD0_ADDR
-#define MSDC1_PUPD_DAT1_ADDR		MSDC1_GPIO_PUPD0_ADDR
-#define MSDC1_PUPD_DAT2_ADDR		MSDC1_GPIO_PUPD0_ADDR
-#define MSDC1_R0_DAT0_ADDR			MSDC1_GPIO_R0_ADDR
-#define MSDC1_R0_DAT1_ADDR			MSDC1_GPIO_R0_ADDR
-#define MSDC1_R0_DAT2_ADDR			MSDC1_GPIO_R0_ADDR
-#define MSDC1_R1_DAT0_ADDR			MSDC1_GPIO_R1_ADDR
-#define MSDC1_R1_DAT1_ADDR			MSDC1_GPIO_R1_ADDR
-#define MSDC1_R1_DAT2_ADDR			MSDC1_GPIO_R1_ADDR
+#define MSDC1_PUPD_DAT0_ADDR		MSDC1_GPIO_PUPD0
+#define MSDC1_PUPD_DAT1_ADDR		MSDC1_GPIO_PUPD0
+#define MSDC1_PUPD_DAT2_ADDR		MSDC1_GPIO_PUPD0
+#define MSDC1_R0_DAT0_ADDR			MSDC1_GPIO_R0
+#define MSDC1_R0_DAT1_ADDR			MSDC1_GPIO_R0
+#define MSDC1_R0_DAT2_ADDR			MSDC1_GPIO_R0
+#define MSDC1_R1_DAT0_ADDR			MSDC1_GPIO_R1
+#define MSDC1_R1_DAT1_ADDR			MSDC1_GPIO_R1
+#define MSDC1_R1_DAT2_ADDR			MSDC1_GPIO_R1
 #define MSDC1_PU					(0)
 #define MSDC1_PD					(1)
 #define MSDC1_8K					(1)
@@ -401,24 +403,24 @@
 #define MSDC1_MODE_CLK_A_MASK		(0x7 << 8)
 
 /* MSDC1_A IES mask*/
-#define MSDC1_IES_ALL_MASK_A		(0x3F <<  10)
+#define MSDC1_IES_ALL_MASK_A		(0x3F <<  9)
 /* MSDC1_A SMT mask*/
-#define MSDC1_SMT_ALL_MASK_A		(0x7 <<  1)
+#define MSDC1_SMT_ALL_MASK_A		(0x1 <<  4)
 /* MSDC1_A TDSEL0 mask*/
 #define MSDC1_TDSEL0_DAT_MASK_A		(0xF << 16)
-#define MSDC1_TDSEL0_CMD_MASK_A		(0xF << 12)
-#define MSDC1_TDSEL0_CLK_MASK_A		(0xF << 8)
+#define MSDC1_TDSEL0_CMD_MASK_A		(0xF << 16)
+#define MSDC1_TDSEL0_CLK_MASK_A		(0xF << 16)
 /* MSDC1_A RDSEL0 mask*/
-#define MSDC1_RDSEL0_DAT_MASK_A		(0x3F << 16)
-#define MSDC1_RDSEL0_CMD_MASK_A		(0x3F << 10)
-#define MSDC1_RDSEL0_CLK_MASK_A		(0x3F << 4)
+#define MSDC1_RDSEL0_DAT_MASK_A		(0x3F << 8)
+#define MSDC1_RDSEL0_CMD_MASK_A		(0x3F << 8)
+#define MSDC1_RDSEL0_CLK_MASK_A		(0x3F << 8)
 /* MSDC1_A DRV0 mask*/
-#define MSDC1_DRV0_DAT1_MASK_A		(0x7 << 21)
-#define MSDC1_DRV0_DAT2_MASK_A		(0x7 << 18)
-#define MSDC1_DRV0_DAT0_MASK_A		(0x7 << 15)
+#define MSDC1_DRV0_DAT1_MASK_A		(0x7 << 12)
+#define MSDC1_DRV0_DAT2_MASK_A		(0x7 << 12)
+#define MSDC1_DRV0_DAT0_MASK_A		(0x7 << 12)
 #define MSDC1_DRV0_DAT3_MASK_A		(0x7 << 12)
-#define MSDC1_DRV0_CMD_MASK_A		(0x7 << 9)
-#define MSDC1_DRV0_CLK_MASK_A		(0x7 << 6)
+#define MSDC1_DRV0_CMD_MASK_A		(0x7 << 12)
+#define MSDC1_DRV0_CLK_MASK_A		(0x7 << 12)
 /* MSDC1_A PUPD mask*/
 #define MSDC1_PUPD_DAT1_MASK_A		(0x1  << 5)
 #define MSDC1_PUPD_DAT2_MASK_A		(0x1  << 4)
@@ -444,15 +446,15 @@
 #define MSDC1_R1_CLK_MASK_A			(0x1  << 0)
 #define MSDC1_R1_ALL_MASK_A			(0x3F << 0)
 /* FOR msdc1_A_io_check() */
-#define MSDC1_PUPD_DAT0_ADDR_A		MSDC1_GPIO_PUPD0_ADDR_A
-#define MSDC1_PUPD_DAT1_ADDR_A		MSDC1_GPIO_PUPD0_ADDR_A
-#define MSDC1_PUPD_DAT2_ADDR_A		MSDC1_GPIO_PUPD0_ADDR_A
-#define MSDC1_R0_DAT0_ADDR_A		MSDC1_GPIO_R0_ADDR_A
-#define MSDC1_R0_DAT1_ADDR_A		MSDC1_GPIO_R0_ADDR_A
-#define MSDC1_R0_DAT2_ADDR_A		MSDC1_GPIO_R0_ADDR_A
-#define MSDC1_R1_DAT0_ADDR_A		MSDC1_GPIO_R1_ADDR_A
-#define MSDC1_R1_DAT1_ADDR_A		MSDC1_GPIO_R1_ADDR_A
-#define MSDC1_R1_DAT2_ADDR_A		MSDC1_GPIO_R1_ADDR_A
+#define MSDC1_PUPD_DAT0_ADDR_A		MSDC1_GPIO_PUPD0_A
+#define MSDC1_PUPD_DAT1_ADDR_A		MSDC1_GPIO_PUPD0_A
+#define MSDC1_PUPD_DAT2_ADDR_A		MSDC1_GPIO_PUPD0_A
+#define MSDC1_R0_DAT0_ADDR_A		MSDC1_GPIO_R0_A
+#define MSDC1_R0_DAT1_ADDR_A		MSDC1_GPIO_R0_A
+#define MSDC1_R0_DAT2_ADDR_A		MSDC1_GPIO_R0_A
+#define MSDC1_R1_DAT0_ADDR_A		MSDC1_GPIO_R1_A
+#define MSDC1_R1_DAT1_ADDR_A		MSDC1_GPIO_R1_A
+#define MSDC1_R1_DAT2_ADDR_A		MSDC1_GPIO_R1_A
 
 /**************************************************************/
 /* Section 5: Adjustable Driver Parameter                     */

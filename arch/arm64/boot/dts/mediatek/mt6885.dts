@@ -411,13 +411,22 @@ page_owner=on";
 		compatible = "mediatek,msdc", "syscon";
 		reg = <0 0x11230000 0 0x10000>;
 		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_LOW>;
-		#clock-cells = <1>;
 	};
 
 	msdc1: msdc@11240000{
 		compatible = "mediatek,msdc";
 		reg = <0 0x11240000 0 0x1000>;
 		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	msdc0_top@11f50000 {
+		compatible = "mediatek,msdc0_top";
+		reg = <0 0x11f50000 0 0x1000>;
+	};
+
+	msdc1_top@11e10000 {
+		compatible = "mediatek,msdc1_top";
+		reg = <0 0x11e10000 0 0x1000>;
 	};
 
 	sleep@10006000 {

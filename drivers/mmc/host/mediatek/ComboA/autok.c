@@ -3142,8 +3142,10 @@ static int autok_write_param(struct msdc_host *host,
 int autok_path_sel(struct msdc_host *host)
 {
 	void __iomem *base = host->base;
-	void __iomem *base_top = host->base_top;
-
+	void __iomem *base_top = NULL;
+#if !defined(FPGA_PLATFORM)
+	base_top = host->base_top;
+#endif
 	struct AUTOK_PLAT_PARA_TX platform_para_tx;
 	struct AUTOK_PLAT_PARA_RX platform_para_rx;
 	struct AUTOK_PLAT_FUNC platform_para_func;
