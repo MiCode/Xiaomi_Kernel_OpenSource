@@ -300,6 +300,13 @@ static void cmdq_thread_set_end(struct cmdq_thread *thread, dma_addr_t end)
 	writel(CMDQ_REG_SHIFT_ADDR(end), thread->base + CMDQ_THR_END_ADDR);
 }
 
+void cmdq_thread_set_spr(struct mbox_chan *chan, u8 id, u32 val)
+{
+	struct cmdq_thread *thread = (struct cmdq_thread *)chan->con_priv;
+
+	writel(val, thread->base + CMDQ_THR_SPR + id * 4);
+}
+
 static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 {
 	u32 status;
