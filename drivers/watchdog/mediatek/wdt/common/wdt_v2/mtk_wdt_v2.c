@@ -32,6 +32,7 @@
 #include <linux/types.h>
 #include <mtk_wdt.h>
 #include <linux/delay.h>
+#include <mtk_cpufreq_api.h>
 
 #include <linux/device.h>
 #include <linux/kdev_t.h>
@@ -579,8 +580,10 @@ void wdt_arch_reset(char mode)
 	if (!(mode & WD_SW_RESET_KEEP_DDR_RESERVE)) {
 		mtk_rgu_dram_reserved(0);
 		mtk_dbgtop_dram_reserved(0);
-	} else
+	} else {
 		mtk_rgu_pause_dvfsrc(1);
+		dfd_workaround();
+	}
 
 	udelay(100);
 

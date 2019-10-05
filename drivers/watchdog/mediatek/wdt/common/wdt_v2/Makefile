@@ -13,4 +13,5 @@
 
 ccflags-y += -I$(srctree)/drivers/watchdog/mediatek/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6885/include/mach
 obj-y += mtk_wdt_v2.o
