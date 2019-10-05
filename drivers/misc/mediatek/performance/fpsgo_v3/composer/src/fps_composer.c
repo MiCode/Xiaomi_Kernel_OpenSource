@@ -163,6 +163,38 @@ int fpsgo_com_update_render_api_info(struct render_info *f_render)
 	return 1;
 }
 
+static int fpsgo_com_refetch_buffer(struct render_info *f_render, int pid,
+		unsigned long long identifier, int enqueue)
+{
+	int ret;
+	unsigned long long buffer_id = 0;
+	int queue_SF = 0;
+
+	if (!f_render)
+		return 0;
+
+	fpsgo_lockprove(__func__);
+	fpsgo_thread_lockprove(__func__, &(f_render->thr_mlock));
+
+	ret = fpsgo_get_BQid_pair(pid, f_render->tgid,
+		identifier, &buffer_id, &queue_SF, enqueue);
+	if (!ret || !buffer_id) {
+		FPSGO_LOGI("refetch %d: %llu, %d, %llu\n",
+			pid, buffer_id, queue_SF, identifier);
+		fpsgo_main_trace("COMP: refetch %d: %llu, %d, %llu\n",
+			pid, buffer_id, queue_SF, identifier);
+		return 0;
+	}
+
+	f_render->buffer_id = buffer_id;
+	f_render->queue_SF = queue_SF;
+
+	FPSGO_COM_TRACE("%s: refetch %d: %llu, %llu, %d\n", __func__,
+				pid, identifier, buffer_id, queue_SF);
+
+	return 1;
+}
+
 void fpsgo_ctrl2comp_enqueue_start(int pid,
 	unsigned long long enqueue_start_time,
 	unsigned long long identifier)
@@ -170,8 +202,7 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 	struct render_info *f_render;
 	int xgf_ret = 0;
 	int check_render;
-	unsigned long long buffer_id = 0;
-	int queue_SF = 0;
+	int ret;
 
 	FPSGO_COM_TRACE("%s pid[%d] id %llu", __func__, pid, identifier);
 
@@ -197,22 +228,13 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 	 * with @api at the same time
 	 */
 	if (!f_render->api && identifier) {
-		int ret;
-
-		ret = fpsgo_get_BQid_pair(pid, f_render->tgid,
-			identifier, &buffer_id, &queue_SF);
-		if (!ret || !buffer_id) {
-			FPSGO_LOGI("QueueS %d: %llu, %d, %llu\n",
-				pid, buffer_id, queue_SF, identifier);
-			fpsgo_main_trace("COMP: QueueS %d: %llu, %d, %llu\n",
-				pid, buffer_id, queue_SF, identifier);
+		ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 1);
+		if (!ret) {
 			fpsgo_render_tree_unlock(__func__);
 			fpsgo_thread_unlock(&f_render->thr_mlock);
 			return;
 		}
 
-		f_render->buffer_id = buffer_id;
-		f_render->queue_SF = queue_SF;
 		ret = fpsgo_com_update_render_api_info(f_render);
 		if (!ret) {
 			fpsgo_render_tree_unlock(__func__);
@@ -220,22 +242,12 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 			return;
 		}
 	} else if (identifier) {
-		int ret;
-
-		ret = fpsgo_get_BQid_pair(pid, f_render->tgid,
-			identifier, &buffer_id, &queue_SF);
-		if (!ret || !buffer_id) {
-			FPSGO_LOGI("QueueS %d: %llu, %d, %llu\n",
-				pid, buffer_id, queue_SF, identifier);
-			fpsgo_main_trace("COMP: QueueS %d: %llu, %d, %llu\n",
-				pid, buffer_id, queue_SF, identifier);
+		ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 1);
+		if (!ret) {
 			fpsgo_render_tree_unlock(__func__);
 			fpsgo_thread_unlock(&f_render->thr_mlock);
 			return;
 		}
-
-		f_render->buffer_id = buffer_id;
-		f_render->queue_SF = queue_SF;
 	}
 
 	fpsgo_render_tree_unlock(__func__);
@@ -287,8 +299,9 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 	int check_render;
 	unsigned long long running_time = 0;
 	unsigned long long mid = 0;
+	int ret;
 
-	FPSGO_COM_TRACE("%s pid[%d]", __func__, pid);
+	FPSGO_COM_TRACE("%s pid[%d] id %llu", __func__, pid, identifier);
 
 	check_render = fpsgo_com_check_is_surfaceflinger(pid);
 
@@ -308,6 +321,13 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 	}
 
 	fpsgo_thread_lock(&f_render->thr_mlock);
+
+	ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 0);
+	if (!ret) {
+		fpsgo_render_tree_unlock(__func__);
+		fpsgo_thread_unlock(&f_render->thr_mlock);
+		return;
+	}
 
 	fpsgo_render_tree_unlock(__func__);
 
@@ -367,26 +387,50 @@ void fpsgo_ctrl2comp_dequeue_start(int pid,
 	struct render_info *f_render;
 	int xgf_ret = 0;
 	int check_render;
+	int ret;
+
+	FPSGO_COM_TRACE("%s pid[%d] id %llu", __func__, pid, identifier);
 
 	check_render = fpsgo_com_check_is_surfaceflinger(pid);
 
 	if (check_render != FPSGO_COM_IS_RENDER)
 		return;
 
-	FPSGO_COM_TRACE("%s pid[%d]", __func__, pid);
-
 	fpsgo_render_tree_lock(__func__);
 
 	f_render = fpsgo_search_and_add_render_info(pid, 0);
 
 	if (!f_render) {
-		fpsgo_render_tree_unlock(__func__);
-		FPSGO_COM_TRACE("%s: NON pair frame info : %d !!!!\n",
-			__func__, pid);
-		return;
+		struct BQ_id *pair;
+
+		pair = fpsgo_find_BQ_id(pid, 0, identifier, ACTION_FIND, 0);
+		if (pair) {
+			FPSGO_COM_TRACE("%s: find pair enqueuer: %d, %d\n",
+				__func__, pid, pair->queue_pid);
+			pid = pair->queue_pid;
+			f_render = fpsgo_search_and_add_render_info(pid, 0);
+			if (!f_render) {
+				fpsgo_render_tree_unlock(__func__);
+				FPSGO_COM_TRACE("%s: NO pair enqueuer: %d\n",
+					__func__, pid);
+				return;
+			}
+		} else {
+			fpsgo_render_tree_unlock(__func__);
+			FPSGO_COM_TRACE("%s: NO pair enqueuer: %d\n",
+				__func__, pid);
+			return;
+		}
 	}
 
 	fpsgo_thread_lock(&f_render->thr_mlock);
+
+	ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 0);
+	if (!ret) {
+		fpsgo_render_tree_unlock(__func__);
+		fpsgo_thread_unlock(&f_render->thr_mlock);
+		return;
+	}
 
 	fpsgo_render_tree_unlock(__func__);
 
@@ -425,27 +469,44 @@ void fpsgo_ctrl2comp_dequeue_end(int pid,
 	struct render_info *f_render;
 	int xgf_ret = 0;
 	int check_render;
+	int ret;
 
-	FPSGO_COM_TRACE("%s pid[%d]", __func__, pid);
+	FPSGO_COM_TRACE("%s pid[%d] id %llu", __func__, pid, identifier);
 
 	check_render = fpsgo_com_check_is_surfaceflinger(pid);
 
 	if (check_render != FPSGO_COM_IS_RENDER)
 		return;
 
-
 	fpsgo_render_tree_lock(__func__);
 
 	f_render = fpsgo_search_and_add_render_info(pid, 0);
 
 	if (!f_render) {
-		fpsgo_render_tree_unlock(__func__);
-		FPSGO_COM_TRACE("%s: NON pair frame info : %d !!!!\n",
-			__func__, pid);
-		return;
+		struct BQ_id *pair;
+
+		pair = fpsgo_find_BQ_id(pid, 0, identifier, ACTION_FIND, 0);
+		if (pair) {
+			pid = pair->queue_pid;
+			f_render = fpsgo_search_and_add_render_info(pid, 0);
+		}
+
+		if (!f_render) {
+			fpsgo_render_tree_unlock(__func__);
+			FPSGO_COM_TRACE("%s: NO pair enqueuer: %d\n",
+				__func__, pid);
+			return;
+		}
 	}
 
 	fpsgo_thread_lock(&f_render->thr_mlock);
+
+	ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 0);
+	if (!ret) {
+		fpsgo_render_tree_unlock(__func__);
+		fpsgo_thread_unlock(&f_render->thr_mlock);
+		return;
+	}
 
 	fpsgo_render_tree_unlock(__func__);
 
@@ -501,7 +562,7 @@ void fpsgo_ctrl2comp_connect_api(int pid, int api,
 
 	fpsgo_render_tree_lock(__func__);
 
-	ret = fpsgo_get_BQid_pair(pid, 0, identifier, &buffer_id, &queue_SF);
+	ret = fpsgo_get_BQid_pair(pid, 0, identifier, &buffer_id, &queue_SF, 0);
 	if (!ret || !buffer_id) {
 		FPSGO_LOGI("connect %d: %llu, %llu\n",
 				pid, buffer_id, identifier);
@@ -595,7 +656,7 @@ void fpsgo_ctrl2comp_disconnect_api(
 
 	fpsgo_render_tree_lock(__func__);
 
-	ret = fpsgo_get_BQid_pair(pid, 0, identifier, &buffer_id, &queue_SF);
+	ret = fpsgo_get_BQid_pair(pid, 0, identifier, &buffer_id, &queue_SF, 0);
 	if (!ret || !buffer_id) {
 		FPSGO_LOGI("disconnect %d: %llu, %llu\n",
 				pid, buffer_id, identifier);

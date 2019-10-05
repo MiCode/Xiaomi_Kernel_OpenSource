@@ -126,6 +126,7 @@ struct BQ_id {
 	unsigned long long buffer_id;
 	int queue_SF;
 	int pid;
+	int queue_pid;
 	struct rb_node entry;
 };
 
@@ -162,7 +163,7 @@ void fpsgo_clear(void);
 struct BQ_id *fpsgo_find_BQ_id(int pid, int tgid, long long identifier,
 		int action, unsigned long long buffer_id);
 int fpsgo_get_BQid_pair(int pid, int tgid, long long identifier,
-		unsigned long long *buffer_id, int *queue_SF);
+		unsigned long long *buffer_id, int *queue_SF, int enqueue);
 void fpsgo_main_trace(const char *fmt, ...);
 void fpsgo_clear_uclamp_boost(int check);
 
