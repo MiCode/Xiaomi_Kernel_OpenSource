@@ -9,6 +9,8 @@
 #include <linux/kernel.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 
+#include "cmdq-sec-iwc-common.h"
+
 enum CMDQ_SCENARIO_ENUM {
 	CMDQ_SCENARIO_JPEG_DEC = 0,
 	CMDQ_SCENARIO_PRIMARY_DISP = 1,

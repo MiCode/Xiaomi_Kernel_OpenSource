@@ -13,7 +13,6 @@
 #include "cmdq-sec.h"
 #include "cmdq-sec-gp.h"
 #include "cmdq-sec-mailbox.h"
-#include "cmdq-sec-iwc-common.h"
 #include "cmdq-sec-tl-api.h"
 
 #define CMDQ_SEC_DRV_NAME	"cmdq_sec_mbox"

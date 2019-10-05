@@ -7,7 +7,6 @@
 
 #include "cmdq-util.h"
 #include "cmdq-sec.h"
-#include "cmdq-sec-iwc-common.h"
 
 #define ADDR_METADATA_MAX_COUNT_ORIGIN	(8)
 
