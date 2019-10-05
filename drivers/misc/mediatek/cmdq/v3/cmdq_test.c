@@ -999,7 +999,7 @@ static void testcase_prefetch_scenarios(void)
 			scn == CMDQ_SCENARIO_TIMER_LOOP)
 			continue;
 
-		CMDQ_MSG("%s scenario:%d\n", scn);
+		CMDQ_MSG("%s scenario:%d\n", __func__, scn);
 		cmdq_task_create((enum CMDQ_SCENARIO_ENUM) scn, &hConfig);
 		cmdq_task_reset(hConfig);
 		/* insert tons of instructions */
