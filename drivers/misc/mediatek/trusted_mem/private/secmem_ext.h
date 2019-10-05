@@ -23,6 +23,7 @@ int secmem_fr_dump_info(void);
 #if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
 int secmem_svp_dump_info(void);
 int secmem_dynamic_debug_control(bool enable_dbg);
+int secmem_force_hw_protection(void);
 #endif
 
 #if defined(CONFIG_MTK_WFD_SMEM_SUPPORT)
