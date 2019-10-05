@@ -16,7 +16,7 @@
 
 #include <mach/upmu_hw.h>
 
-#define PMIC_VCORE_ADDR		PMIC_RG_BUCK_VCORE_VOSEL
+#define PMIC_VCORE_ADDR		PMIC_RG_BUCK_VGPU11_VOSEL
 #define VCORE_BASE_UV		400000
 #define VCORE_STEP_UV		6250
 

@@ -90,26 +90,31 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 
 
 		{ DVFSRC_DDR_REQUEST,        0x00004321 },
-		{ DVFSRC_DDR_REQUEST,        0x00000065 },
+		{ DVFSRC_DDR_REQUEST3,       0x00000065 },
 		{ DVFSRC_DDR_ADD_REQUEST,    0x66543210 },
 		{ DVFSRC_EMI_ADD_REQUEST,    0x55543210 },
-		{ DVFSRC_HRT_REQUEST,        0x77654321 },
+		{ DVFSRC_HRT_REQUEST,        0x66654321 },
+		{ DVFSRC_DDR_REQUEST5,	     0x54321000 },
+		{ DVFSRC_DDR_REQUEST7,       0x66000000 },
+		{ DVFSRC_EMI_MON_DEBOUNCE_TIME,   0x4C2D0000 },
+		{ DVFSRC_VCORE_REQUEST4,     0x21110000 },
 
 		{ DVFSRC_HRT_HIGH_3,         0x314C314C },
-		{ DVFSRC_HRT_HIGH_2,         0x314c2306 },
+		{ DVFSRC_HRT_HIGH_2,         0x314C2306 },
 		{ DVFSRC_HRT_HIGH_1,         0x1AD21700 },
 		{ DVFSRC_HRT_HIGH,           0x0E100960 },
-		{ DVFSRC_HRT_LOW_3,          0x314b314B },
+		{ DVFSRC_HRT_LOW_3,          0x314B314B },
 		{ DVFSRC_HRT_LOW_2,          0x314B2305 },
 		{ DVFSRC_HRT_LOW_1,          0x1AD116FF },
 		{ DVFSRC_HRT_LOW,            0x0E0F095F },
 
 		{ DVFSRC_BASIC_CONTROL_3,    0x0000000E },
+		{ DVFSRC_INT_EN,             0x00000002 },
+		{ DVFSRC_QOS_EN,             0x0000407C },
 
-		{ DVFSRC_BASIC_CONTROL,      0x02A0004B },
 		{ DVFSRC_CURRENT_FORCE,      0x00000001 },
-		{ DVFSRC_BASIC_CONTROL,      0x02A0404B },
-		{ DVFSRC_BASIC_CONTROL,      0x02A0014B },
+		{ DVFSRC_BASIC_CONTROL,      0x62A0404B },
+		{ DVFSRC_BASIC_CONTROL,      0x62A0014B },
 		{ DVFSRC_CURRENT_FORCE,      0x00000000 },
 		{ -1, 0 },
 	},
@@ -367,17 +372,6 @@ void get_spm_reg(char *p)
 	p += sprintf(p, "%-24s: 0x%08x\n",
 			"SPM_DVFS_MISC",
 			spm_reg_read(SPM_DVFS_MISC));
-	p += sprintf(p, "%-24s: 0x%08x\n",
-			"SPM_VCORE_DVFS_SHORTCUT00",
-			spm_reg_read(SPM_VCORE_DVFS_SHORTCUT00));
-	p += sprintf(p, "%-24s: 0x%08x, 0x%08x\n",
-			"SPM_VCORE_DVFS_SHORTCUT_STAx",
-			spm_reg_read(SPM_VCORE_DVFS_SHORTCUT_STA0),
-			spm_reg_read(SPM_VCORE_DVFS_SHORTCUT_STA1));
-	p += sprintf(p, "%-24s: 0x%08x, 0x%08x\n",
-			"SPM_DVFS_HISTORY_STAx",
-			spm_reg_read(SPM_DVFS_HISTORY_STA0),
-			spm_reg_read(SPM_DVFS_HISTORY_STA1));
 	p += sprintf(p, "%-24s: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
 			"SPM_DVFS_CMD0~3",
 			spm_reg_read(SPM_DVFS_CMD0),
@@ -393,7 +387,6 @@ void get_opp_info(char *p)
 	int vsram_val = 0;
 #else
 	int pmic_val = pmic_get_register_value(PMIC_VCORE_ADDR);
-	int vsram_val = pmic_get_register_value(PMIC_VSRAM_OTHERS_ADDR);
 #endif
 #ifdef CONFIG_MTK_DRAMC
 	int ddr_khz = get_dram_data_rate() * 1000;
@@ -401,12 +394,9 @@ void get_opp_info(char *p)
 	int ddr_khz = 0;
 #endif
 	int vcore_uv = vcore_pmic_to_uv(pmic_val);
-	int vsram_uv = vsram_pmic_to_uv(vsram_val);
 
 	p += sprintf(p, "%-10s: %-8u uv  (PMIC: 0x%x)\n",
 			"Vcore", vcore_uv, vcore_uv_to_pmic(vcore_uv));
-	p += sprintf(p, "%-10s: %-8u uv  (PMIC: 0x%x)\n",
-			"Vsram", vsram_uv, vsram_uv_to_pmic(vsram_uv));
 	p += sprintf(p, "%-10s: %-8u khz\n", "DDR", ddr_khz);
 }
 

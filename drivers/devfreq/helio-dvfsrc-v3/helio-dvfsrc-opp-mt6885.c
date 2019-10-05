@@ -23,6 +23,8 @@
 #endif
 #define SOC_CPE_DETECT
 
+#define AGING_VALUE 12500
+
 #ifndef CONFIG_MTK_DRAMC
 static int dram_steps_freq(unsigned int step)
 {
@@ -147,7 +149,6 @@ static int __init dvfsrc_opp_init(void)
 	int is_vcore_ct = is_ct_support();
 	int is_vcore_aging = is_aging_test();
 	int doe_ct = 0;
-	int doe_vcore_mode = 0;
 	int dvfs_v_mode = 0;
 
 	set_pwrap_cmd(VCORE_OPP_0, 0);
@@ -158,7 +159,7 @@ static int __init dvfsrc_opp_init(void)
 	vcore_opp_0_uv = 725000;
 	vcore_opp_1_uv = 650000;
 	vcore_opp_2_uv = 600000;
-	vcore_opp_3_uv = 550000;
+	vcore_opp_3_uv = 575000;
 
 	dvfsrc_node =
 		of_find_compatible_node(NULL, NULL, "mediatek,dvfsrc");
@@ -175,37 +176,26 @@ static int __init dvfsrc_opp_init(void)
 			pr_info("%s: DOE DVFS_V_MODE = %d\n",
 				__func__, dvfs_v_mode);
 
-		if (of_property_read_u32(dvfsrc_node, "doe_vcore_mode",
-			(u32 *) &doe_vcore_mode) == 0) {
-			pr_info("%s: DOE DRAM_VCORE_MODE = %d\n",
-				__func__, doe_vcore_mode);
-#if 0 /* TODO: fill when LV/HV setting*/
-			if (doe_vcore_mode == 1) {
-				/*Doe HV */
-				doe_vcore_mode = 1;
-			} else if (doe_vcore_mode == 3)  {
-				/*Doe LV */
-				doe_vcore_mode = 3;
-			} else {
-				/*Doe NV */
-				doe_vcore_mode = 0;
-			}
-#endif
-		}
 	}
-#if 0 /* TODO: fill when LV/HV setting*/
-
-	if (doe_vcore_mode == 0) {
-		if (is_vcore_qea || (dvfs_v_mode == 3)) {
-			/* LV */
-			doe_vcore_mode = 3;
-		} else if (dvfs_v_mode == 1) {
-			/* HV */
-			doe_vcore_mode = 1;
-		} else if (is_vcore_aging) {
-			/*Doe NV */
-			doe_vcore_mode = 0;
-		}
+#if 1 /* TODO: fill when LV/HV setting*/
+	if (is_vcore_qea || (dvfs_v_mode == 3)) {
+		/* LV */
+		vcore_opp_0_uv = 688750;
+		vcore_opp_1_uv = 617500;
+		vcore_opp_2_uv = 570000;
+		vcore_opp_3_uv = 546250;
+	} else if (dvfs_v_mode == 1) {
+		/* HV */
+		vcore_opp_0_uv = 761250;
+		vcore_opp_1_uv = 682500;
+		vcore_opp_2_uv = 630000;
+		vcore_opp_3_uv = 603750;
+	} else if (is_vcore_aging) {
+		/*Doe NV */
+		vcore_opp_0_uv -= AGING_VALUE;
+		vcore_opp_1_uv -= AGING_VALUE;
+		vcore_opp_2_uv -= AGING_VALUE;
+		vcore_opp_3_uv -= AGING_VALUE;
 	}
 #endif
 

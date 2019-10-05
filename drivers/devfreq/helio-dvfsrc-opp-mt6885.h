@@ -74,4 +74,4 @@ enum vcore_dvfs_opp {
 	VCORE_DVFS_OPP_UNREQ = PM_QOS_VCORE_DVFS_FORCE_OPP_DEFAULT_VALUE,
 };
 
-#endif /* __HELIO_DVFSRC_OPP_MT6785_H */
+#endif /* __HELIO_DVFSRC_OPP_MT6885_H */
