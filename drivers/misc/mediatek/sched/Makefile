@@ -13,6 +13,9 @@
 
 LINUXINCLUDE += -include $(srctree)/kernel/sched/sched.h
 
+# For CPU topology to user space
+obj-y += cputopo.o
+
 # For RT monitor
 obj-$(CONFIG_MTK_RT_THROTTLE_MON) += rt_monitor.o
 
