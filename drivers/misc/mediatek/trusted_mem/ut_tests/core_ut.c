@@ -226,6 +226,7 @@ static enum UT_RET_STATE device_core_run_all(struct ut_params *params)
 }
 #endif
 
+#if MULTIPLE_REGION_MULTIPLE_THREAD_TEST_ENABLE
 static enum UT_RET_STATE
 multiple_region_multiple_thread_alloc(struct ut_params *params)
 {
@@ -236,6 +237,20 @@ multiple_region_multiple_thread_alloc(struct ut_params *params)
 
 	END_UT_TEST;
 }
+#endif
+
+#if MTEE_MCHUNKS_MULTIPLE_THREAD_TEST_ENABLE
+static enum UT_RET_STATE
+mtee_mchunks_multiple_thread_alloc(struct ut_params *params)
+{
+	BEGIN_UT_TEST;
+
+	ASSERT_EQ(0, mem_mtee_mchunks_alloc_multithread_test(),
+		  "mtee multiple chunks multithread alloc test");
+
+	END_UT_TEST;
+}
+#endif
 
 BEGIN_TEST_SUITE(TMEM_UT_CORE_BASE, TMEM_UT_CORE_MAX, tmem_core_ut_run, NULL)
 DEFINE_TEST_CASE(TMEM_UT_CORE_MULTIPLE_SSMR_REGION_REQUEST,
@@ -250,7 +265,13 @@ DEFINE_TEST_CASE(TMEM_UT_CORE_DEVICE_VIRT_REGION_ALLOC,
 		 device_virt_region_alloc)
 DEFINE_TEST_CASE(TMEM_UT_CORE_ALL, device_core_run_all)
 #endif
+#if MULTIPLE_REGION_MULTIPLE_THREAD_TEST_ENABLE
 DEFINE_TEST_CASE(TMEM_UT_CORE_MULTIPLE_REGION_MULTIPLE_THREAD_ALLOC,
 		 multiple_region_multiple_thread_alloc)
+#endif
+#if MTEE_MCHUNKS_MULTIPLE_THREAD_TEST_ENABLE
+DEFINE_TEST_CASE(TMEM_UT_CORE_MTEE_MCHUNKS_MULTIPLE_THREAD_ALLOC,
+		 mtee_mchunks_multiple_thread_alloc)
+#endif
 END_TEST_SUITE(NULL)
 REGISTER_TEST_SUITE(TMEM_UT_CORE_BASE, TMEM_UT_CORE_MAX, tmem_core_ut_run)

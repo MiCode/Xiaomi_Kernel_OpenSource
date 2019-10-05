@@ -20,10 +20,63 @@
 #include <linux/unistd.h>
 #include <linux/version.h>
 
+#include "private/tmem_error.h"
+#ifdef TCORE_UT_FWK_SUPPORT
+#include "private/ut_common.h"
+#endif
 #include "private/ut_entry.h"
 #include "tee_impl/tee_common.h"
 #include "tee_impl/tee_invoke.h"
 #include "secmem_api.h"
+
+#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
+	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+int secmem_fr_set_prot_shared_region(u64 pa, u32 size)
+{
+	struct trusted_driver_cmd_params cmd_params = {0};
+
+	cmd_params.cmd = CMD_SEC_MEM_SET_PROT_REGION;
+	cmd_params.param0 = pa;
+	cmd_params.param1 = size;
+
+#ifdef TCORE_UT_FWK_SUPPORT
+	if (is_multi_type_alloc_multithread_test_locked()) {
+		pr_debug("%s:%d return for UT purpose!\n", __func__, __LINE__);
+		return TMEM_OK;
+	}
+#endif
+
+	return tee_directly_invoke_cmd(&cmd_params);
+}
+
+int secmem_fr_dump_info(void)
+{
+	struct trusted_driver_cmd_params cmd_params = {0};
+
+	cmd_params.cmd = CMD_SEC_MEM_DUMP_MEM_INFO;
+	return tee_directly_invoke_cmd(&cmd_params);
+}
+#endif
+
+#if defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)
+int secmem_set_sdsp_shared_region(u64 pa, u32 size)
+{
+	struct trusted_driver_cmd_params cmd_params = {0};
+
+	cmd_params.cmd = CMD_SEC_MEM_SET_SDSP_REGION;
+	cmd_params.param0 = pa;
+	cmd_params.param1 = size;
+
+#ifdef TCORE_UT_FWK_SUPPORT
+	if (is_multi_type_alloc_multithread_test_locked()) {
+		pr_debug("%s:%d return for UT purpose!\n", __func__, __LINE__);
+		return TMEM_OK;
+	}
+#endif
+
+	return tee_directly_invoke_cmd(&cmd_params);
+}
+#endif
 
 int secmem_svp_dump_info(void)
 {

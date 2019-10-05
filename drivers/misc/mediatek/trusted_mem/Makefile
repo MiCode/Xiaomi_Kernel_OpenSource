@@ -64,6 +64,16 @@ endif # !CONFIG_MTK_CAM_SECURITY_SUPPORT
 ifeq ($(CONFIG_MTK_WFD_SMEM_SUPPORT),y)
 trusted_mem-y += ut_tests/wfd_smem_ut.o
 endif # !CONFIG_MTK_WFD_SMEM_SUPPORT
+ifeq ($(CONFIG_MTK_HAPP_MEM_SUPPORT),y)
+trusted_mem-y += ut_tests/happ_ut.o
+trusted_mem-y += ut_tests/happ_extra_ut.o
+endif # !CONFIG_MTK_HAPP_MEM_SUPPORT
+ifeq ($(CONFIG_MTK_SDSP_MEM_SUPPORT),y)
+trusted_mem-y += ut_tests/sdsp_ut.o
+endif # !CONFIG_MTK_SDSP_MEM_SUPPORT
+ifeq ($(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT),y)
+trusted_mem-y += ut_tests/sdsp_shared_ut.o
+endif # !CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
 endif # !TCORE_UT_FWK_SUPPORT
 
 #==========================================================================
@@ -86,16 +96,20 @@ obj-$(CONFIG_MTK_SECURE_MEM_SUPPORT) += secmem.o
 secmem-y += secmem/secmem_device.o
 secmem-y += secmem/secmem_api.o
 
-ifeq ($(CONFIG_MTK_CAM_SECURITY_SUPPORT),y)
-secmem-y += secmem/fr_api.o
-endif # !CONFIG_MTK_CAM_SECURITY_SUPPORT
-
 #==========================================================================
 # WFD Secure Memory Core Driver
 #==========================================================================
 obj-$(CONFIG_MTK_WFD_SMEM_SUPPORT) += wfd_smem.o
 wfd_smem-y += wfd_smem/wfd_smem_device.o
 wfd_smem-y += wfd_smem/wfd_smem_api.o
+
+#==========================================================================
+# MTEE Multiple Chunk Memory Core Driver
+#==========================================================================
+obj-$(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT) += mtee_chunks.o
+ifeq ($(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT),y)
+mtee_chunks-y += mtee_chunks/mtee_devices.o
+endif
 
 #==========================================================================
 # Trustzone Peer Driver
@@ -108,6 +122,14 @@ tee_impl-y += tee_impl/tee_invoke.o
 ifneq ($(filter y,$(CONFIG_MTK_TEE_GP_SUPPORT) $(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
 tee_impl-y += tee_impl/tee_gp.o
 endif
+endif
+
+#==========================================================================
+# Geniezone Peer Driver
+#==========================================================================
+ifeq ($(CONFIG_MTK_GZ_KREE),y)
+obj-y += mtee_impl.o
+mtee_impl-y += mtee_impl/mtee_ops.o
 endif
 
 #==========================================================================

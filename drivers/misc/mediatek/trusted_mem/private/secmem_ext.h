@@ -20,6 +20,10 @@ int secmem_fr_set_prot_shared_region(u64 pa, u32 size);
 int secmem_fr_dump_info(void);
 #endif
 
+#if defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)
+int secmem_set_sdsp_shared_region(u64 pa, u32 size);
+#endif
+
 #if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
 int secmem_svp_dump_info(void);
 int secmem_dynamic_debug_control(bool enable_dbg);
