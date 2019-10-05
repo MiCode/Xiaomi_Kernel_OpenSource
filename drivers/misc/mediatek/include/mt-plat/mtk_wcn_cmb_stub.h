@@ -95,6 +95,7 @@ typedef void (*wmt_bgf_eirq_cb) (void);
 typedef int (*wmt_aif_ctrl_cb) (enum CMB_STUB_AIF_X, enum CMB_STUB_AIF_CTRL);
 typedef void (*wmt_func_ctrl_cb) (unsigned int, unsigned int);
 typedef signed long (*wmt_thermal_query_cb) (void);
+typedef int (*wmt_trigger_assert_cb) (void);
 typedef int (*wmt_deep_idle_ctrl_cb) (unsigned int);
 typedef int (*wmt_func_do_reset) (unsigned int);
 
@@ -122,6 +123,7 @@ struct _CMB_STUB_CB_ {
 	wmt_aif_ctrl_cb aif_ctrl_cb;
 	wmt_func_ctrl_cb func_ctrl_cb;
 	wmt_thermal_query_cb thermal_query_cb;
+	wmt_trigger_assert_cb trigger_assert_cb;
 	wmt_deep_idle_ctrl_cb deep_idle_ctrl_cb;
 	wmt_func_do_reset wmt_do_reset_cb;
 #if MTK_WCN_CMB_FOR_SDIO_1V_AUTOK
@@ -167,6 +169,7 @@ extern int mt_combo_plt_exit_deep_idle(enum COMBO_IF src);
  */
 extern void mtk_wcn_cmb_stub_func_ctrl(unsigned int type, unsigned int on);
 extern int mtk_wcn_cmb_stub_query_ctrl(void);
+extern int mtk_wcn_cmb_stub_trigger_assert(void);
 extern void mtk_wcn_cmb_stub_clock_fail_dump(void);
 extern int board_sdio_ctrl(unsigned int sdio_port_num, unsigned int on);
 extern int mtk_wcn_sdio_irq_flag_set(int falg);
