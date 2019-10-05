@@ -5041,6 +5041,8 @@ page_owner=on";
 		interrupts = <GIC_SPI 357 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&ipesys_config IPESYS_FD_CGPDN>;
 		clock-names = "FD_CLK_IPE_FD";
+		mboxes = <&gce_mbox_m 17 0 CMDQ_THR_PRIO_1>;
+		fdvt_frame_done = <CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0>;
 	};
 
 	fe@1b002000 {

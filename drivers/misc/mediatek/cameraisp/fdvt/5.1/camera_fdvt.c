@@ -61,8 +61,13 @@
 #else /* CONFIG_MTK_IOMMU_V2 */
 #include <m4u.h>
 #endif /* CONFIG_MTK_IOMMU_V2 */
+#define CMDQ_MAIL_BOX
+#ifdef CMDQ_MAIL_BOX
+#include <linux/soc/mediatek/mtk-cmdq.h>
+#else /* CMDQ_MAIL_BOX */
 #include <cmdq_core.h>
 #include <cmdq_record.h>
+#endif /* CMDQ_MAIL_BOX */
 #include <smi_public.h>
 #include <linux/dma-mapping.h>
 #include "mach/pseudo_m4u.h"
@@ -362,6 +367,8 @@ struct S_START_T {
 static struct FDVT_REQUEST_RING_STRUCT fdvt_req_ring;
 static struct FDVT_CONFIG_STRUCT fdvt_enq_req;
 static struct FDVT_CONFIG_STRUCT fdvt_deq_req;
+static struct cmdq_client *fdvt_clt;
+static s32 fdvt_event_id;
 
 /*****************************************************************************
  *
@@ -1383,11 +1390,12 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 #if !BYPASS_REG
 {
 #ifdef FDVT_USE_GCE
+#ifdef CMDQ_MAIL_BOX
+	struct cmdq_pkt *pkt;
+#else /* CMDQ_MAIL_BOX */
 	struct cmdqRecStruct *handle;
 	int64_t engineFlag = (uint64_t)(1LL << CMDQ_ENG_FDVT);
-#if 0
-	int i = 0;
-#endif
+#endif /* CMDQ_MAIL_BOX */
 #endif /* FDVT_USE_GCE */
 	if (FDVT_DBG_DBGLOG == (FDVT_DBG_DBGLOG & fdvt_info.debug_mask)) {
 		log_dbg("config_fdvt_hw Start!\n");
@@ -1409,7 +1417,9 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 #ifdef __FDVT_KERNEL_PERFORMANCE_MEASURE__
 	mt_kernel_trace_begin("config_fdvt_hw");
 #endif
-
+#ifdef CMDQ_MAIL_BOX
+	pkt = cmdq_pkt_create(fdvt_clt);
+#else /* CMDQ_MAIL_BOX */
 	cmdqRecCreate(CMDQ_SCENARIO_ISP_FDVT, &handle);
 	/* CMDQ driver dispatches CMDQ HW thread
 	 * and HW thread's priority according to scenario
@@ -1417,6 +1427,8 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 	cmdqRecSetEngine(handle, engineFlag);
 	/* Use command queue to write register */
 	/* BIT0 for INT_EN */
+#endif /* CMDQ_MAIL_BOX */
+
 #if 0
 	cmdqRecWrite(handle, FDVT_WRA_0_CON3_HW, 0x0, CMDQ_REG_MASK);
 	cmdqRecWrite(handle, FDVT_WRA_1_CON3_HW, 0x0, CMDQ_REG_MASK);
@@ -1429,27 +1441,45 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 	cmdqRecWrite(handle, FDVT_RDB_1_CON3_HW, 0x0, CMDQ_REG_MASK);
 #endif
 
-#if 0 //add for fpga
-#define IPESYS_BASE           (0x1b000000)
-#define IPESYS_IMG_CG_CLR     ((int)(0x008))
-#define SMI_LARB8_BASE        (0x1b00F000)
-#define SMI_LARB_NON_SEC_CON  ((int)(0x380))
-#define SMI_LARB_SEC_CON      ((int)(0xf80))
-	cmdqRecWrite(handle, IPESYS_BASE + IPESYS_IMG_CG_CLR, 0xFFFFFFFF,
-		     CMDQ_REG_MASK);
-#endif
-#if 0
-	/*FDVT at port0 to port3 */
-	for (i = 0; i < 4; i++) {
-		cmdqRecWrite(handle,
-			     SMI_LARB8_BASE + SMI_LARB_NON_SEC_CON + 4 * i,
-			     0x00000000, CMDQ_REG_MASK);
-		cmdqRecWrite(handle,
-			     SMI_LARB8_BASE + SMI_LARB_SEC_CON + 4 * i,
-			     0x00000000, CMDQ_REG_MASK);
+#ifdef CMDQ_MAIL_BOX
+	log_dbg("fdvt use cmdq mail box api\n");
+	if (basic_config->FD_MODE == 0) {
+		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000111,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00004202,
+			       CMDQ_REG_MASK);
+	} else if (basic_config->FD_MODE == 1) {
+		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000101,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00001200,
+			       CMDQ_REG_MASK);
+	} else if (basic_config->FD_MODE == 2) {
+		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000101,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00001200,
+			       CMDQ_REG_MASK);
 	}
-#endif
+	cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
+	cmdq_pkt_write(pkt, NULL, FDVT_RS_CON_BASE_ADR_HW,
+		       basic_config->FDVT_RSCON_BASE_ADR, CMDQ_REG_MASK);
+	cmdq_pkt_write(pkt, NULL, FDVT_FD_CON_BASE_ADR_HW,
+		       basic_config->FDVT_FD_CON_BASE_ADR, CMDQ_REG_MASK);
+	cmdq_pkt_write(pkt, NULL, FDVT_YUV2RGB_CON_BASE_ADR_HW,
+		       basic_config->FDVT_YUV2RGBCON_BASE_ADR, CMDQ_REG_MASK);
 
+	cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
+
+	cmdq_pkt_wfe(pkt, fdvt_event_id);
+	/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
+	cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
+
+	/* non-blocking API, Please use cmdqRecFlushAsync() */
+	log_dbg("FDVT CMDQ Task flush\n");
+
+	cmdq_pkt_flush(pkt);
+	/* release resource */
+	cmdq_pkt_destroy(pkt);
+#else /* CMDQ_MAIL_BOX */
 	if (basic_config->FD_MODE == 0) {
 		cmdqRecWrite(handle, FDVT_ENABLE_HW, 0x00000111,
 			     CMDQ_REG_MASK);
@@ -1465,21 +1495,21 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 	}
 	cmdqRecWrite(handle, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
 	cmdqRecWrite(handle, FDVT_RS_CON_BASE_ADR_HW,
-		     basic_config->FDVT_RSCON_BASE_ADR, CMDQ_REG_MASK);
+		 basic_config->FDVT_RSCON_BASE_ADR, CMDQ_REG_MASK);
 	cmdqRecWrite(handle, FDVT_FD_CON_BASE_ADR_HW,
-		     basic_config->FDVT_FD_CON_BASE_ADR, CMDQ_REG_MASK);
+		 basic_config->FDVT_FD_CON_BASE_ADR, CMDQ_REG_MASK);
 	cmdqRecWrite(handle, FDVT_YUV2RGB_CON_BASE_ADR_HW,
-		     basic_config->FDVT_YUV2RGBCON_BASE_ADR, CMDQ_REG_MASK);
+		 basic_config->FDVT_YUV2RGBCON_BASE_ADR, CMDQ_REG_MASK);
 
 	cmdqRecWrite(handle, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
-    /* comment for build pass */
-	/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
+	cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);
 	cmdqRecWrite(handle, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
 
 	/* non-blocking API, Please use cmdqRecFlushAsync() */
 	log_dbg("FDVT CMDQ Task flush\n");
-	cmdq_task_flush_async_destroy(handle);	/* flush and destroy in cmdq */
+	cmdq_task_flush_async_destroy(handle);  /* flush and destroy in cmdq */
 	//fdvt_dump_reg(); // ADD by gasper
+#endif /* CMDQ_MAIL_BOX */
 #ifdef __FDVT_KERNEL_PERFORMANCE_MEASURE__
 	mt_kernel_trace_end();
 #endif
@@ -3350,6 +3380,17 @@ static signed int FDVT_probe(struct platform_device *pDev)
 			nr_fdvt_devs,
 			pDev->dev.of_node->name, FDVT_dev->irq);
 	}
+
+	fdvt_clt = cmdq_mbox_create(FDVT_dev->dev, 0);
+	if (!fdvt_clt)
+		log_err("cmdq mbox create fail\n");
+	else
+		log_inf("cmdq mbox create done\n");
+
+	of_property_read_u32(pDev->dev.of_node, "fdvt_frame_done",
+			     &fdvt_event_id);
+	log_inf("fdvt event id is %d\n", fdvt_event_id);
+
 #endif
 	/* Only register char driver in the 1st time */
 	if (nr_fdvt_devs == 1) {
