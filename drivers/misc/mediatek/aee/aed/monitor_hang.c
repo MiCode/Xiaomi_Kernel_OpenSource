@@ -705,9 +705,8 @@ void show_thread_info(struct task_struct *p, bool dump_bt)
 		get_kernel_bt(p);
 }
 
-static int DumpThreadNativeMaps_log(pid_t pid)
+static int DumpThreadNativeMaps_log(pid_t pid, struct task_struct *current_task)
 {
-	struct task_struct *current_task;
 	struct vm_area_struct *vma;
 	int mapcount = 0;
 	struct file *file;
@@ -718,9 +717,6 @@ static int DumpThreadNativeMaps_log(pid_t pid)
 	char *path_p = NULL;
 	struct path base_path;
 
-	rcu_read_lock();
-	current_task = find_task_by_vpid(pid);	/* get tid task */
-	rcu_read_unlock();
 	if (current_task == NULL)
 		return -ESRCH;
 	user_ret = task_pt_regs(current_task);
@@ -790,19 +786,14 @@ static int DumpThreadNativeMaps_log(pid_t pid)
 	return 0;
 }
 
-
-
-static int DumpThreadNativeInfo_By_tid_log(pid_t tid)
+static int DumpThreadNativeInfo_By_tid_log(pid_t tid,
+	struct task_struct *current_task)
 {
-	struct task_struct *current_task;
+
 	struct pt_regs *user_ret;
 	struct vm_area_struct *vma;
 	int ret = -1;
 
-	/* current_task = get_current(); */
-	rcu_read_lock();
-	current_task = find_task_by_vpid(tid);	/* get tid task */
-	rcu_read_unlock();
 	if (current_task == NULL)
 		return -ESRCH;
 	user_ret = task_pt_regs(current_task);
@@ -1086,23 +1077,26 @@ void show_native_bt_by_pid(int task_pid)
 	pid = find_get_pid(task_pid);
 	t = p = get_pid_task(pid, PIDTYPE_PID);
 
-	if (p != NULL) {
+	if (p != NULL && try_get_task_stack(p)) {
 		pr_info("show_bt_by_pid: %d: %s.\n", task_pid, t->comm);
 
-		DumpThreadNativeMaps_log(task_pid);
+		DumpThreadNativeMaps_log(task_pid, p);
 		/* catch maps to Userthread_maps */
 		/* change send ptrace_stop to send signal stop */
 		do_send_sig_info(SIGSTOP, SEND_SIG_FORCED, p, true);
 		do {
-			if (t) {
+			if (t && try_get_task_stack(t)) {
 				pid_t tid = 0;
 
+				get_task_struct(t);
 				tid = task_pid_vnr(t);
 				state = t->state ? __ffs(t->state) + 1 : 0;
 				pr_info("%s sysTid=%d, pid=%d\n",
 					t->comm, tid, task_pid);
-				DumpThreadNativeInfo_By_tid_log(tid);
+				DumpThreadNativeInfo_By_tid_log(tid, t);
 				/* catch user-space bt */
+				put_task_stack(t);
+				put_task_struct(t);
 			}
 			if ((++count) % 5 == 4)
 				msleep(20);
@@ -1110,17 +1104,18 @@ void show_native_bt_by_pid(int task_pid)
 		/* change send ptrace_stop to send signal stop */
 		if (stat_nam[state] != 'T')
 			do_send_sig_info(SIGCONT, SEND_SIG_FORCED, p, true);
+		put_task_stack(p);
 		put_task_struct(p);
-	}
+	} else if (p != NULL)
+		put_task_struct(p);
 	put_pid(pid);
 }
 EXPORT_SYMBOL(show_native_bt_by_pid);
 
 
 
-static int DumpThreadNativeMaps(pid_t pid)
+static int DumpThreadNativeMaps(pid_t pid, struct task_struct *current_task)
 {
-	struct task_struct *current_task;
 	struct vm_area_struct *vma;
 	int mapcount = 0;
 	struct file *file;
@@ -1131,9 +1126,6 @@ static int DumpThreadNativeMaps(pid_t pid)
 	char *path_p = NULL;
 	struct path base_path;
 
-	rcu_read_lock();
-	current_task = find_task_by_vpid(pid);	/* get tid task */
-	rcu_read_unlock();
 	if (current_task == NULL)
 		return -ESRCH;
 	user_ret = task_pt_regs(current_task);
@@ -1224,19 +1216,15 @@ static int DumpThreadNativeMaps(pid_t pid)
 
 
 
-static int DumpThreadNativeInfo_By_tid(pid_t tid)
+static int DumpThreadNativeInfo_By_tid(pid_t tid,
+	struct task_struct *current_task)
 {
-	struct task_struct *current_task;
 	struct pt_regs *user_ret;
 	struct vm_area_struct *vma;
 	unsigned long userstack_start = 0;
 	unsigned long userstack_end = 0, length = 0;
 	int ret = -1;
 
-	/* current_task = get_current(); */
-	rcu_read_lock();
-	current_task = find_task_by_vpid(tid);	/* get tid task */
-	rcu_read_unlock();
 	if (current_task == NULL)
 		return -ESRCH;
 	user_ret = task_pt_regs(current_task);
@@ -1499,7 +1487,7 @@ static void show_bt_by_pid(int task_pid)
 	pid = find_get_pid(task_pid);
 	t = p = get_pid_task(pid, PIDTYPE_PID);
 
-	if (p != NULL && p->stack != NULL) {
+	if (p != NULL && try_get_task_stack(p)) {
 		Log2HangInfo("%s: %d: %s.\n", __func__, task_pid, t->comm);
 #ifndef __aarch64__	 /* 32bit */
 		if (strcmp(t->comm, "system_server") == 0)
@@ -1528,11 +1516,12 @@ static void show_bt_by_pid(int task_pid)
 #endif
 		if (dump_native == 1)
 			/* catch maps to Userthread_maps */
-			DumpThreadNativeMaps(task_pid);
+			DumpThreadNativeMaps(task_pid, p);
 		do {
-			if (t) {
+			if (t && try_get_task_stack(t)) {
 				pid_t tid = 0;
 
+				get_task_struct(t);
 				tid = task_pid_vnr(t);
 				state = t->state ? __ffs(t->state) + 1 : 0;
 				LOGV("lhd: %-15.15s %c pid(%d),tid(%d)",
@@ -1546,12 +1535,15 @@ static void show_bt_by_pid(int task_pid)
 						tid, task_pid);
 
 				if (dump_native == 1)
-					DumpThreadNativeInfo_By_tid(tid);
+					DumpThreadNativeInfo_By_tid(tid, t);
+				put_task_stack(t);
+				put_task_struct(t);
 			}
 			if ((++count) % 5 == 4)
 				msleep(20);
 			Log2HangInfo("-\n");
 		} while_each_thread(p, t);
+		put_task_stack(p);
 		put_task_struct(p);
 	} else if (p != NULL) {
 		put_task_struct(p);
@@ -1571,6 +1563,7 @@ static void hang_dump_backtrace(void)
 
 	read_lock(&tasklist_lock);
 	for_each_process(p) {
+		get_task_struct(p);
 		if (Hang_Detect_first == false) {
 			if (strcmp(p->comm, "system_server") == 0)
 				system_server_task = p;
@@ -1589,11 +1582,18 @@ static void hang_dump_backtrace(void)
 			read_unlock(&tasklist_lock);
 			show_bt_by_pid(p->pid);
 			read_lock(&tasklist_lock);
+			put_task_struct(p);
 			continue;
 		}
 		for_each_thread(p, t) {
-			show_thread_info(t, false);
+			if (try_get_task_stack(t)) {
+				get_task_struct(t);
+				show_thread_info(t, false);
+				put_task_stack(t);
+				put_task_struct(t);
+			}
 		}
+		put_task_struct(p);
 	}
 	read_unlock(&tasklist_lock);
 	Log2HangInfo("dump backtrace end.\n");
