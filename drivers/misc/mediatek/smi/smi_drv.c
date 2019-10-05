@@ -60,7 +60,7 @@
 #define SMIDBG(string, args...) pr_debug(string, ##args)
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-#include <cmdq_util.h>
+#include <cmdq-util.h>
 #define SMIWRN(cmdq, string, args...) \
 	do { \
 		if (cmdq != 0) \
