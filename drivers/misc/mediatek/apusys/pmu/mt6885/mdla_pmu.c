@@ -20,6 +20,7 @@
 #include "mdla_hw_reg.h"
 #include "mdla_pmu.h"
 #include "mdla.h"
+#include "mdla_trace.h"
 
 #define COUNTER_CLEAR 0xFFFFFFFF
 
@@ -30,6 +31,10 @@ spinlock_t pmu_lock[MTK_MDLA_MAX_NUM];
 
 /* saved registers, used to restore config after pmu reset */
 u32 cfg_pmu_event[MTK_MDLA_MAX_NUM][MDLA_PMU_COUNTERS];
+
+/* used to save event from ioctl */
+u32 cfg_pmu_event_trace[MDLA_PMU_COUNTERS];
+
 //static u32 cfg_pmu_clr_mode[MTK_MDLA_MAX_NUM];
 static u8 cfg_pmu_percmd_mode[MTK_MDLA_MAX_NUM];
 
@@ -377,12 +382,22 @@ int pmu_cmd_handle(struct mdla_dev *mdla_info)
 		mdla_info->pmu.pmu_hnd->number_of_event,
 		mdla_info->pmu.pmu_mode);
 
-	for (i = 0; i < mdla_info->pmu.pmu_hnd->number_of_event; i++) {
-		pmu_event_handle[mdla_info->mdlaid][i] =
-			pmu_counter_alloc(mdla_info->mdlaid,
-			(mdla_info->pmu.pmu_hnd->event[i]&0xff00)>>8,
-			mdla_info->pmu.pmu_hnd->event[i]&0xff);
+	if (!cfg_apusys_trace) {
+		for (i = 0; i < mdla_info->pmu.pmu_hnd->number_of_event; i++) {
+			pmu_event_handle[mdla_info->mdlaid][i] =
+				pmu_counter_alloc(mdla_info->mdlaid,
+				(mdla_info->pmu.pmu_hnd->event[i]&0xff00)>>8,
+				mdla_info->pmu.pmu_hnd->event[i]&0xff);
+		}
+	} else {
+		for (i = 0; i < MDLA_PMU_COUNTERS; i++) {
+			pmu_event_handle[mdla_info->mdlaid][i] =
+				pmu_counter_alloc(mdla_info->mdlaid,
+				(cfg_pmu_event_trace[i]&0xff00)>>8,
+				cfg_pmu_event_trace[i]&0xff);
+		}
 	}
+
 	return 0;
 
 }

@@ -21,9 +21,9 @@ extern u32 cfg_eng0;
 extern u32 cfg_eng1;
 extern u32 cfg_eng2;
 extern u32 cfg_eng11;
+extern u8 cfg_apusys_trace;
 extern int get_power_on_status(int core_id);
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-extern u8 cfg_apusys_trace;
 extern void trace_tag_customer(const char *fmt, ...);
 #endif
 extern void trace_tag_begin(const char *format, ...);
@@ -36,7 +36,8 @@ enum {
 	MDLA_TRACE_MODE_CMD = 0,
 	MDLA_TRACE_MODE_INT = 1
 };
-extern u32 cfg_pmu_event[MDLA_PMU_COUNTERS];
+extern u32 cfg_pmu_event[MTK_MDLA_MAX_NUM][MDLA_PMU_COUNTERS];
+extern u32 cfg_pmu_event_trace[MDLA_PMU_COUNTERS];
 #ifdef CONFIG_MTK_MDLA_DEBUG
 
 #define MDLA_MET_READY 1

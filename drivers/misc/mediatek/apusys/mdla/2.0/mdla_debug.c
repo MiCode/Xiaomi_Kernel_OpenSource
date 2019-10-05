@@ -219,8 +219,10 @@ static const struct file_operations mdla_debug_prof_fops = {
 
 	DEFINE_MDLA_DEBUGFS(root);
 	DEFINE_MDLA_DEBUGFS(timeout);
+#if 0
 	DEFINE_MDLA_DEBUGFS(e1_detect_timeout);
 	DEFINE_MDLA_DEBUGFS(e1_detect_count);
+#endif
 	DEFINE_MDLA_DEBUGFS(poweroff_time);
 	DEFINE_MDLA_DEBUGFS(klog);
 	DEFINE_MDLA_DEBUGFS(register);
@@ -278,11 +280,13 @@ void mdla_debugfs_init(void)
 
 	mdla_dtimeout = debugfs_create_u32("timeout", 0660, mdla_droot,
 		&mdla_timeout);
+#if 0
 	mdla_de1_detect_timeout = debugfs_create_u32("e1_detect_timeout",
 			0660, mdla_droot, &mdla_e1_detect_timeout);
 	mdla_de1_detect_timeout = debugfs_create_u32("e1_detect_count",
 			0440, mdla_droot,
 			&mdla_devices[0].mdla_e1_detect_count);
+#endif
 	mdla_dpoweroff_time = debugfs_create_u32("poweroff_time",
 		0660, mdla_droot, &mdla_poweroff_time);
 	mdla_dklog = debugfs_create_u32("klog", 0660, mdla_droot,
@@ -303,35 +307,35 @@ void mdla_debugfs_init(void)
 			0660, mdla_droot, &cfg_timer_en);
 
 	mdla_dc1 = debugfs_create_u32("c1",	0660,
-			mdla_droot, &cfg_pmu_event[0]);
+			mdla_droot, &cfg_pmu_event_trace[0]);
 	mdla_dc2 = debugfs_create_u32("c2",	0660,
-			mdla_droot, &cfg_pmu_event[1]);
+			mdla_droot, &cfg_pmu_event_trace[1]);
 	mdla_dc3 = debugfs_create_u32("c3",	0660,
-			mdla_droot, &cfg_pmu_event[2]);
+			mdla_droot, &cfg_pmu_event_trace[2]);
 	mdla_dc4 = debugfs_create_u32("c4",	0660,
-			mdla_droot, &cfg_pmu_event[3]);
+			mdla_droot, &cfg_pmu_event_trace[3]);
 	mdla_dc5 = debugfs_create_u32("c5",	0660,
-			mdla_droot, &cfg_pmu_event[4]);
+			mdla_droot, &cfg_pmu_event_trace[4]);
 	mdla_dc6 = debugfs_create_u32("c6",	0660,
-			mdla_droot, &cfg_pmu_event[5]);
+			mdla_droot, &cfg_pmu_event_trace[5]);
 	mdla_dc7 = debugfs_create_u32("c7",	0660,
-			mdla_droot, &cfg_pmu_event[6]);
+			mdla_droot, &cfg_pmu_event_trace[6]);
 	mdla_dc8 = debugfs_create_u32("c8",	0660,
-			mdla_droot, &cfg_pmu_event[7]);
+			mdla_droot, &cfg_pmu_event_trace[7]);
 	mdla_dc9 = debugfs_create_u32("c9",	0660,
-			mdla_droot, &cfg_pmu_event[8]);
+			mdla_droot, &cfg_pmu_event_trace[8]);
 	mdla_dc10 = debugfs_create_u32("c10",	0660,
-			mdla_droot, &cfg_pmu_event[9]);
+			mdla_droot, &cfg_pmu_event_trace[9]);
 	mdla_dc11 = debugfs_create_u32("c11",
-			0660, mdla_droot, &cfg_pmu_event[10]);
+			0660, mdla_droot, &cfg_pmu_event_trace[10]);
 	mdla_dc12 = debugfs_create_u32("c12",
-			0660, mdla_droot, &cfg_pmu_event[11]);
+			0660, mdla_droot, &cfg_pmu_event_trace[11]);
 	mdla_dc13 = debugfs_create_u32("c13",
-			0660, mdla_droot, &cfg_pmu_event[12]);
+			0660, mdla_droot, &cfg_pmu_event_trace[12]);
 	mdla_dc14 = debugfs_create_u32("c14",
-			0660, mdla_droot, &cfg_pmu_event[13]);
+			0660, mdla_droot, &cfg_pmu_event_trace[13]);
 	mdla_dc15 = debugfs_create_u32("c15",
-			0660, mdla_droot, &cfg_pmu_event[14]);
+			0660, mdla_droot, &cfg_pmu_event_trace[14]);
 
 
 	mdla_dperiod = debugfs_create_u64("period",
