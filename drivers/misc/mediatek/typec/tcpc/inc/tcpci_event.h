@@ -91,8 +91,8 @@ enum pd_event_type {
 	PD_EVT_TCP_MSG,
 };
 
+enum pd_msg_type {
 /* Control Message type */
-enum pd_ctrl_msg_type {
 	/* 0 Reserved */
 	PD_CTRL_GOOD_CRC = 1,
 	PD_CTRL_GOTO_MIN = 2,
@@ -108,9 +108,7 @@ enum pd_ctrl_msg_type {
 	PD_CTRL_WAIT = 12,
 	PD_CTRL_SOFT_RESET = 13,
 	/* 14-15 Reserved */
-
 	PD_CTRL_PD30_START = 0x10 + 0,
-
 #ifdef CONFIG_USB_PD_REV30
 	PD_CTRL_NOT_SUPPORTED = 0x10 + 0,
 	PD_CTRL_GET_SOURCE_CAP_EXT = 0x10 + 1,
@@ -119,65 +117,44 @@ enum pd_ctrl_msg_type {
 	PD_CTRL_GET_PPS_STATUS = 0x10 + 4,
 	PD_CTRL_GET_COUNTRY_CODE = 0x10 + 5,
 #endif	/* CONFIG_USB_PD_REV30 */
-
 	/* 22-31 Reserved */
-
 	PD_CTRL_MSG_NR,
-};
-
 /* Data message type */
-enum pd_data_msg_type {
 	/* 0 Reserved */
 	PD_DATA_SOURCE_CAP = 1,
 	PD_DATA_REQUEST = 2,
 	PD_DATA_BIST = 3,
 	PD_DATA_SINK_CAP = 4,
-
 	PD_DATA_PD30_START = 5,
-
 #ifdef CONFIG_USB_PD_REV30
 	PD_DATA_BAT_STATUS = 5,
 	PD_DATA_ALERT = 6,
 	PD_DATA_GET_COUNTRY_INFO = 7,
 #endif	/* CONFIG_USB_PD_REV30 */
-
 	/* 7-14 Reserved */
 	PD_DATA_VENDOR_DEF = 15,
 	PD_DATA_MSG_NR,
-};
-
-/* Extended message type */
 #ifdef CONFIG_USB_PD_REV30
-enum pd_ext_msg_type {
+/* Extended message type */
 	/* 0 Reserved */
 	PD_EXT_SOURCE_CAP_EXT = 1,
 	PD_EXT_STATUS = 2,
-
 	PD_EXT_GET_BAT_CAP = 3,
 	PD_EXT_GET_BAT_STATUS = 4,
 	PD_EXT_BAT_CAP = 5,
-
 	PD_EXT_GET_MFR_INFO = 6,
 	PD_EXT_MFR_INFO = 7,
-
 	PD_EXT_SEC_REQUEST = 8,
 	PD_EXT_SEC_RESPONSE = 9,
-
 	PD_EXT_FW_UPDATE_REQUEST = 10,
 	PD_EXT_FW_UPDATE_RESPONSE = 11,
-
 	PD_EXT_PPS_STATUS = 12,
-
 	PD_EXT_COUNTRY_INFO = 13,
 	PD_EXT_COUNTRY_CODES = 14,
-
 	/* 15 Reserved */
 	PD_EXT_MSG_NR,
-};
 #endif	/* CONFIG_USB_PD_REV30 */
-
 /* HW Message type */
-enum pd_hw_msg_type {
 	PD_HW_CC_DETACHED = 0,
 	PD_HW_CC_ATTACHED,
 	PD_HW_RECV_HARD_RESET,
@@ -188,16 +165,11 @@ enum pd_hw_msg_type {
 	PD_HW_TX_FAILED,	/* no good crc or discard */
 	PD_HW_TX_DISCARD,	/* discard vdm msg */
 	PD_HW_RETRY_VDM,	/* discard vdm msg (retry) */
-
 #ifdef CONFIG_USB_PD_REV30_COLLISION_AVOID
 	PD_HW_SINK_TX_CHANGE,
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
-
 	PD_HW_MSG_NR,
-};
-
 /* PE Message type*/
-enum pd_pe_msg_type {
 	PD_PE_RESET_PRL_COMPLETED = 0,
 	PD_PE_POWER_ROLE_AT_DEFAULT,
 	PD_PE_HARD_RESET_COMPLETED,
@@ -205,11 +177,7 @@ enum pd_pe_msg_type {
 	PD_PE_VDM_RESET,
 	PD_PE_VDM_NOT_SUPPORT,
 	PD_PE_MSG_NR,
-};
-
 /* DPM Message type */
-
-enum pd_dpm_msg_type {
 	PD_DPM_NOTIFIED = 0,
 	PD_DPM_ACK = PD_DPM_NOTIFIED,
 	PD_DPM_NAK,

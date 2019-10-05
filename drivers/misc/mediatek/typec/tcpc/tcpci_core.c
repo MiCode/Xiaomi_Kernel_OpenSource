@@ -445,11 +445,12 @@ static int tcpc_device_irq_enable(struct tcpc_device *tcpc)
 	tcpci_lock_typec(tcpc);
 	ret = tcpc_typec_init(tcpc, tcpc->desc.role_def + 1);
 	tcpci_unlock_typec(tcpc);
-
 	if (ret < 0) {
 		pr_err("%s : tcpc typec init fail\n", __func__);
 		return ret;
 	}
+	if (tcpc->ops->init_alert_mask)
+		tcpci_init_alert_mask(tcpc);
 
 	schedule_delayed_work(
 		&tcpc->event_init_work, msecs_to_jiffies(10*1000));
@@ -853,6 +854,7 @@ subsys_initcall(tcpc_class_init);
 module_exit(tcpc_class_exit);
 
 
+#ifdef CONFIG_USB_POWER_DELIVERY
 #ifdef CONFIG_TCPC_NOTIFIER_LATE_SYNC
 #ifdef CONFIG_RECV_BAT_ABSENT_NOTIFY
 static int fg_bat_notifier_call(struct notifier_block *nb,
@@ -873,15 +875,18 @@ static int fg_bat_notifier_call(struct notifier_block *nb,
 }
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
 #endif /* CONFIG_TCPC_NOTIFIER_LATE_SYNC */
+#endif /* CONFIG_USB_POWER_DELIVERY */
 
 #ifdef CONFIG_TCPC_NOTIFIER_LATE_SYNC
 static int __tcpc_class_complete_work(struct device *dev, void *data)
 {
 	struct tcpc_device *tcpc = dev_get_drvdata(dev);
+#ifdef CONFIG_USB_POWER_DELIVERY
 #ifdef CONFIG_RECV_BAT_ABSENT_NOTIFY
 	struct notifier_block *fg_bat_nb = &tcpc->pd_port.fg_bat_nb;
 	int ret = 0;
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
+#endif /* CONFIG_USB_POWER_DELIVERY */
 
 	if (tcpc != NULL) {
 		pr_info("%s = %s\n", __func__, dev_name(dev));
@@ -892,6 +897,7 @@ static int __tcpc_class_complete_work(struct device *dev, void *data)
 			msecs_to_jiffies(1000));
 #endif
 
+#ifdef CONFIG_USB_POWER_DELIVERY
 #ifdef CONFIG_RECV_BAT_ABSENT_NOTIFY
 		fg_bat_nb->notifier_call = fg_bat_notifier_call;
 		ret = register_battery_notifier(fg_bat_nb);
@@ -900,6 +906,7 @@ static int __tcpc_class_complete_work(struct device *dev, void *data)
 			return -EINVAL;
 		}
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
+#endif /* CONFIG_USB_POWER_DELIVERY */
 	}
 	return 0;
 }

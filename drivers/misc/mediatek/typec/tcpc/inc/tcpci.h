@@ -81,6 +81,7 @@ int tcpci_get_alert_status(struct tcpc_device *tcpc, uint32_t *alert);
 int tcpci_get_fault_status(struct tcpc_device *tcpc, uint8_t *fault);
 int tcpci_get_power_status(struct tcpc_device *tcpc, uint16_t *pw_status);
 int tcpci_init(struct tcpc_device *tcpc, bool sw_reset);
+int tcpci_init_alert_mask(struct tcpc_device *tcpc);
 
 int tcpci_get_cc(struct tcpc_device *tcpc);
 int tcpci_set_cc(struct tcpc_device *tcpc, int pull);
@@ -92,6 +93,20 @@ int tcpci_is_low_power_mode(struct tcpc_device *tcpc);
 int tcpci_set_low_power_mode(struct tcpc_device *tcpc, bool en, int pull);
 int tcpci_idle_poll_ctrl(struct tcpc_device *tcpc, bool en, bool lock);
 int tcpci_set_watchdog(struct tcpc_device *tcpc, bool en);
+int tcpci_alert_vendor_defined_handler(struct tcpc_device *tcpc);
+#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+int tcpci_is_vsafe0v(struct tcpc_device *tcpc);
+#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
+
+#ifdef CONFIG_WATER_DETECTION
+int tcpci_is_water_detected(struct tcpc_device *tcpc);
+int tcpci_set_water_protection(struct tcpc_device *tcpc, bool en);
+int tcpci_notify_wd_status(struct tcpc_device *tcpc, bool water_detected);
+#endif /* CONFIG_WATER_DETECTION */
+
+#ifdef CONFIG_CABLE_TYPE_DETECTION
+int tcpci_notify_cable_type(struct tcpc_device *tcpc);
+#endif /* CONFIG_CABLE_TYPE_DETECTION */
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 

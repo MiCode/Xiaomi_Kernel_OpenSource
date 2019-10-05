@@ -969,8 +969,10 @@ static inline void pd_pe_state_change(
 	uint8_t old_state = pd_port->pe_state_curr;
 	uint8_t new_state = pd_port->pe_state_next;
 
-	PD_BUG_ON(old_state >= PD_NR_PE_STATES);
-	PD_BUG_ON(new_state >= PD_NR_PE_STATES);
+	if (old_state >= PD_NR_PE_STATES || new_state >= PD_NR_PE_STATES) {
+		PD_BUG_ON(1);
+		return;
+	}
 
 	if (new_state < PE_IDLE1)
 		prev_exit_action = pe_get_exit_action(old_state);

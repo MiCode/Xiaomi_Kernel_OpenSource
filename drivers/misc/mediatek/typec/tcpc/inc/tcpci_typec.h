@@ -54,4 +54,13 @@ extern int tcpc_typec_handle_pe_pr_swap(struct tcpc_device *tcpc_dev);
 extern int tcpc_typec_swap_role(struct tcpc_device *tcpc_dev);
 #endif /* CONFIG_TYPEC_CAP_ROLE_SWAP */
 
+#ifdef CONFIG_WATER_DETECTION
+extern int tcpc_typec_handle_wd(struct tcpc_device *tcpc_dev, bool wd);
+#endif /* CONFIG_WATER_DETECTION */
+
+#ifdef CONFIG_CABLE_TYPE_DETECTION
+extern int tcpc_typec_handle_ctd(struct tcpc_device *tcpc_dev,
+				 enum tcpc_cable_type cable_type);
+#endif /* CONFIG_CABLE_TYPEC_DETECTION */
+
 #endif /* #ifndef __LINUX_TCPCI_TYPEC_H */
