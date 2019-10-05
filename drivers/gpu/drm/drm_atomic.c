@@ -357,6 +357,35 @@ static s32 __user *get_out_fence_for_connector(struct drm_atomic_state *state,
 	return fence_ptr;
 }
 
+static int set_out_fence_for_connector(struct drm_atomic_state *state,
+					struct drm_connector *connector,
+					s32 __user *fence_ptr)
+{
+	unsigned int index = drm_connector_index(connector);
+
+	if (!fence_ptr)
+		return 0;
+
+	if (put_user(-1, fence_ptr))
+		return -EFAULT;
+
+	state->connectors[index].out_fence_ptr = fence_ptr;
+
+	return 0;
+}
+
+static s32 __user *get_out_fence_for_connector(struct drm_atomic_state *state,
+					       struct drm_connector *connector)
+{
+	unsigned int index = drm_connector_index(connector);
+	s32 __user *fence_ptr;
+
+	fence_ptr = state->connectors[index].out_fence_ptr;
+	state->connectors[index].out_fence_ptr = NULL;
+
+	return fence_ptr;
+}
+
 /**
  * drm_atomic_set_mode_for_crtc - set mode for CRTC
  * @state: the CRTC whose incoming state to update
@@ -711,6 +740,12 @@ static int drm_atomic_connector_check(struct drm_connector *connector,
 		DRM_DEBUG_ATOMIC("[CONNECTOR:%d:%s] has framebuffer, but [CRTC:%d] is off\n",
 				 connector->base.id, connector->name,
 				 state->crtc->base.id);
+		return -EINVAL;
+	}
+
+	if (writeback_job->out_fence && !writeback_job->fb) {
+		DRM_DEBUG_ATOMIC("[CONNECTOR:%d:%s] requesting out-fence without framebuffer\n",
+				 connector->base.id, connector->name);
 		return -EINVAL;
 	}
 
