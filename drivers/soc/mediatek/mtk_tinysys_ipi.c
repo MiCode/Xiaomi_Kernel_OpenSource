@@ -253,7 +253,7 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 
 	wait_us = timeout * 1000;
 	ret = rpmsg_trysend(ipidev->table[ipi_id].ept, data, len);
-	while (wait_us > 0 && ret) {
+	while (ret && wait_us > 0) {
 		udelay(IPI_POLLING_INTERVAL_US);
 		wait_us -= IPI_POLLING_INTERVAL_US;
 		ret = rpmsg_trysend(ipidev->table[ipi_id].ept, data, len);
@@ -276,7 +276,7 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 		return IPI_UNAVAILABLE;
 
 	/* Run receive at least once */
-	wait_us = (wait_us > 0) ? : IPI_POLLING_INTERVAL_US;
+	wait_us = (wait_us < 0) ? IPI_POLLING_INTERVAL_US : wait_us;
 
 	ret = IPI_COMPL_TIMEOUT;
 	if (opt == IPI_SEND_POLLING) {
