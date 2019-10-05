@@ -70,6 +70,8 @@ ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH)
 
 ifeq ($(CONFIG_MTK_IOMMU_PGTABLE_EXT),34)
 	ccflags-y += -I$(srctree)/drivers/staging/android/ion
+	ccflags-y += -I$(srctree)/drivers/iommu
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 endif
 
 subdir-ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux -I$(src)/include

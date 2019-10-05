@@ -1292,7 +1292,7 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 
 	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
 	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.config_buffer_param.module_id = 1;
+	mm_data.config_buffer_param.module_id = M4U_PORT_GPU;
 	mm_data.config_buffer_param.security = 0;
 	mm_data.config_buffer_param.coherent = 0;
 

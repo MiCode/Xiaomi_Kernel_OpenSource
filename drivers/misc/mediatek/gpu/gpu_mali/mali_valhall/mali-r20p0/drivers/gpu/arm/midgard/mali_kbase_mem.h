@@ -46,6 +46,7 @@
 #include <mtk/ion_drv.h>
 #include <mtk/mtk_ion.h>
 #include <ion.h>
+#include <mach/mt_iommu.h>
 #endif
 
 static inline void kbase_process_page_usage_inc(struct kbase_context *kctx,
