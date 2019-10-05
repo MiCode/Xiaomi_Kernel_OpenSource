@@ -93,7 +93,7 @@ int mdla_pwr_on(int core_id)
 						__func__, register_user);
 	}
 
-	mdla_perf_debug("mdla %d: power on info: apu_device_power_on_time: %u\n",
+	mdla_perf_debug("mdla %d: power on info: apu_device_power_on_time: %llu\n",
 			core_id, sched_clock()-poweron_t);
 
 	mdla_reset_lock(core_id, REASON_DRVINIT);
