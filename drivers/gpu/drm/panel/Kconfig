@@ -117,4 +117,81 @@ config DRM_PANEL_SITRONIX_ST7789V
 	  Say Y here if you want to enable support for the Sitronix
 	  ST7789V controller for 240x320 LCD panels
 
+config DRM_PANEL_AUO_U40073
+        tristate "AUO U40073 FHD video mode panel"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for AUO U40073 VDO
+          mode Full HD panel. The panel has a 1080x1920 resolution and
+          uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+          to host.
+
+config DRM_PANEL_LG_U40073
+        tristate "LG U40073 FHD video mode panel"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for LG U40073 CMD
+          mode Full HD panel. The panel has a 1080x1920 resolution and
+          uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+          to host.
+
+config DRM_PANEL_LG_0565G40108
+        tristate "LG  FHD+ video mode panel"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for LG 0565G40108 VDO
+          mode Full HD Plus panel. The panel has a 1080x2160 resolution
+          and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+          to host.
+
+config DRM_PANEL_LG_0565G40108_CMD
+        tristate "LG  FHD+ cmd mode panel"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for LG 0565G40108 CMD
+          mode Full HD Plus panel. The panel has a 1080x2160 esolution and
+          uses 24-bits RGB per pixel. It provides a MIPI DSI interface to
+          host.
+
+config DRM_PANEL_SAMSUNG_AMS601NN04_CMD
+        tristate "SAMSUNG  FHD+ amoled cmd mode panel"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for SAMSUNG AMS601NN04
+          CMD mode Full HD Plus panel. The panel has a 1080x2160 resolution
+          and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+          to host.
+
+config DRM_PANEL_TRULY_TD4330_VDO
+        tristate "TRULY  FHD+ video mode panel"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for TRULY TD4330 VDO
+          mode Full HD Plus panel. The panel has a 1080x2280 resolution
+          and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+          to host.
+
+config DRM_PANEL_TRULY_TD4330_CMD
+        tristate "TRULY  FHD+ cmd mode panel"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for TRULY TD4330 CMD
+          mode Full HD Plus panel. The panel has a 1080x2280 resolution
+          and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+          to host.
+
 endmenu
