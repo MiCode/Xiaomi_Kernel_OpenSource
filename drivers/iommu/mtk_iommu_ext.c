@@ -28,7 +28,7 @@
 #include <mmprofile.h>
 
 #define mmu_translation_log_format \
-	"\nCRDISPATCH_KEY:M4U_%s\ntranslation fault:port=%s,mva=0x%x,pa=0x%x\n"
+	"\nCRDISPATCH_KEY:M4U_%s\ntranslation fault:port=%s,mva=0x%lx,pa=0x%lx\n"
 
 
 #define ERROR_LARB_PORT_ID M4U_PORT_NR

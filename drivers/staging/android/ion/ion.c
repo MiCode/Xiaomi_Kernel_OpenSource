@@ -1777,7 +1777,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	unsigned int map_mva_id = ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA;
 
 	seq_printf(s, "total sz[%llu]\n",
-		   4096 * atomic64_read(&page_sz_cnt));
+		   (unsigned long long)(4096 * atomic64_read(&page_sz_cnt)));
 	seq_printf(s, "%16.s(%16.s) %16.s %16.s %s\n",
 		   "client", "dbg_name", "pid", "size", "address");
 	seq_puts(s, "----------------------------------------------------\n");
