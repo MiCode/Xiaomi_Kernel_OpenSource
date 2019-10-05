@@ -96,19 +96,21 @@ static void __iomem *mtk_devapc_pd_get(enum DEVAPC_SLAVE_TYPE slave_type,
 static void sramrom_vio_handler(void)
 {
 	const struct mtk_sramrom_sec_vio_desc *sramrom_vios;
-	size_t sramrom_vio_sta, sramrom_vio_addr;
-	uint32_t master_id, domain_id, rw;
+	struct mtk_devapc_vio_info *vio_info;
 	struct arm_smccc_res res;
+	size_t sramrom_vio_sta;
 	int sramrom_vio;
+	uint32_t rw;
 
 	sramrom_vios = mtk_devapc_ctx->soc->sramrom_sec_vios;
+	vio_info = mtk_devapc_ctx->soc->vio_info;
 
 	arm_smccc_smc(MTK_SIP_KERNEL_CLR_SRAMROM_VIO,
 			0, 0, 0, 0, 0, 0, 0, &res);
 
 	sramrom_vio = res.a0;
 	sramrom_vio_sta = res.a1;
-	sramrom_vio_addr = res.a2;
+	vio_info->vio_addr = res.a2;
 
 	if (sramrom_vio == SRAM_VIOLATION)
 		pr_info(PFX "%s, SRAM violation is triggered\n", __func__);
@@ -119,18 +121,23 @@ static void sramrom_vio_handler(void)
 		return;
 	}
 
-	master_id = (sramrom_vio_sta & sramrom_vios->vio_id_mask) >>
-			sramrom_vios->vio_id_shift;
-	domain_id = (sramrom_vio_sta & sramrom_vios->vio_domain_mask) >>
-			sramrom_vios->vio_domain_shift;
+	vio_info->master_id = (sramrom_vio_sta & sramrom_vios->vio_id_mask)
+			>> sramrom_vios->vio_id_shift;
+	vio_info->domain_id = (sramrom_vio_sta & sramrom_vios->vio_domain_mask)
+			>> sramrom_vios->vio_domain_shift;
 	rw = (sramrom_vio_sta & sramrom_vios->vio_rw_mask) >>
 			sramrom_vios->vio_rw_shift;
 
+	if (rw)
+		vio_info->write = 1;
+	else
+		vio_info->read = 1;
+
 	pr_info(PFX "%s: %s:0x%x, %s:0x%x, %s:%s, %s:0x%x\n",
-		__func__, "master_id", master_id,
-		"domain_id", domain_id,
+		__func__, "master_id", vio_info->master_id,
+		"domain_id", vio_info->domain_id,
 		"rw", rw ? "Write" : "Read",
-		"vio_addr", sramrom_vio_addr);
+		"vio_addr", vio_info->vio_addr);
 }
 
 static void mask_module_irq(enum DEVAPC_SLAVE_TYPE slave_type,
