@@ -58,16 +58,16 @@ int pseudo_test_alloc_dealloc(int port, unsigned long va,
 			va, size, ret);
 		return ret;
 	}
-	m4u_dump_pgtable(1, 0);
+	__m4u_dump_pgtable(NULL, 1, true, 0);
 	ret = m4u_switch_acp(port, mva, size, 1);
 	if (!ret) {
-		m4u_dump_pgtable(1, 0);
+		__m4u_dump_pgtable(NULL, 1, true, 0);
 		ret = m4u_switch_acp(port, mva, size, 0);
 		if (!ret)
-			m4u_dump_pgtable(1, 0);
+			__m4u_dump_pgtable(NULL, 1, true, 0);
 	}
 	ret = pseudo_dealloc_mva(client, port, mva);
-	m4u_dump_pgtable(1, 0);
+	__m4u_dump_pgtable(NULL, 1, true, 0);
 
 	return 0;
 }
@@ -218,7 +218,7 @@ int m4u_test_fake_engine(void)
 		(unsigned long)*pDst,
 		allocated_size, NULL, 0, &mva_wr);
 
-	m4u_dump_pgtable(1, 0);
+	__m4u_dump_pgtable(NULL, 1, true, 0);
 
 	m4u_display_fake_engine_test(mva_rd, mva_wr);
 
@@ -484,12 +484,12 @@ static int dma_buf_test_alloc_dealloc(int port, struct sg_table *table,
 			  __func__, __LINE__, ret);
 		return -1;
 	}
-	m4u_dump_pgtable(1, 0);
+	__m4u_dump_pgtable(NULL, 1, true, 0);
 
 	dma_unmap_sg_attrs(dev, table->sgl,
 			table->orig_nents, dir,
 			DMA_ATTR_SKIP_CPU_SYNC);
-	m4u_dump_pgtable(1, 0);
+	__m4u_dump_pgtable(NULL, 1, true, 0);
 	return 0;
 }
 #endif
@@ -786,7 +786,7 @@ static int m4u_debug_set(void *data, u64 val)
 		__pseudo_alloc_mva(client, M4U_PORT_OVL_DEBUG,
 			(unsigned long)*pSrc, 128, NULL, 0, &mva);
 
-		m4u_dump_pgtable(1, 0);
+		__m4u_dump_pgtable(NULL, 1, true, 0);
 
 		mtk_iommu_iova_to_pa(dev, mva, &pa);
 		M4U_MSG("(1) mva:0x%lx pa:0x%lx\n", mva, pa);

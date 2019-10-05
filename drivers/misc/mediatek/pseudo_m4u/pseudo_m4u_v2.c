@@ -1392,6 +1392,11 @@ void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
 	if (!client)
 		return;
 
+	if (lock) //lock is not support in irq context
+		mutex_lock(&(client->dataMutex));
+	else //mvaList may be destroyed at dump
+		goto iova_dump;
+
 	M4U_PRINT_SEQ(s,
 		      "======== pseudo_m4u IOVA List ==========\n");
 	if (s)
@@ -1400,18 +1405,20 @@ void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
 		      " IOVA_start ~ IOVA_end	PA_start ~ PA_end	size(Byte)	port(larb-port)	name	time(ms)	process(pid)\n");
 	if (s)
 		pr_notice(" IOVA_start ~ IOVA_end	PA_start ~ PA_end	size(Byte)	port(larb-port)	name	time(ms)	process(pid)\n");
-	if (lock)
-		mutex_lock(&(client->dataMutex));
+
 	list_for_each(pListHead, &(client->mvaList)) {
 		pList = container_of(pListHead, struct m4u_buf_info_t, link);
+		if (!pList)
+			continue;
+
 		start = pList->mva;
 		end = pList->mva + pList->size - 1;
+		dev = pseudo_get_larbdev(pList->port);
 		if (target &&
 		    ((end <= target - MTK_PGTABLE_DUMP_RANGE) ||
 		    (start >= target + MTK_PGTABLE_DUMP_RANGE)))
 			continue;
 
-		dev = pseudo_get_larbdev(pList->port);
 		mtk_iommu_iova_to_pa(dev, start, &p_start);
 		mtk_iommu_iova_to_pa(dev, end, &p_end);
 		M4U_PRINT_SEQ(s,
@@ -1435,9 +1442,11 @@ void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
 				  pList->timestamp,
 				  pList->task_comm, pList->pid);
 	}
+
 	if (lock)
 		mutex_unlock(&(client->dataMutex));
 
+iova_dump:
 	if (level == MTK_PGTABLE_DUMP_LEVEL_FULL)
 		mtk_iommu_dump_iova_space(target);
 }
@@ -1565,7 +1574,12 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 			&dma_addr, size,
 			&paddr,
 			flags, table->nents, table->orig_nents);
-		__m4u_dump_pgtable(NULL, 1, false, 0);
+		__m4u_dump_pgtable(NULL, 1, true, 0);
+		aee_kernel_warning_api(__FILE__, __LINE__,
+				       DB_OPT_DEFAULT |
+				       DB_OPT_NATIVE_BACKTRACE,
+				       "iova space is not enough",
+				       "dump user backtrace");
 		goto ERR_EXIT;
 	}
 	if (sg_table) {
