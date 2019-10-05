@@ -166,7 +166,7 @@ static int s_g_curr_ccci_fo_version;
 #define MD_CAP_NR_AT_MD		(1<<6)
 
 #define LEGACY_UBIN_START_ID	(8)
-#define LEGACY_UBIN_END_ID	(21)
+#define LEGACY_UBIN_END_ID	(24)
 
 static const unsigned int ubin_convert_table_src[] = {
 	(MD_CAP_GSM|MD_CAP_TDD_LTE|MD_CAP_FDD_LTE|MD_CAP_CDMA2000),
