@@ -22,14 +22,18 @@ from GpioObj import GpioObj_MT6759
 from GpioObj import GpioObj_MT6739
 from GpioObj import GpioObj_MT6771
 from GpioObj import GpioObj_MT6763
+from GpioObj import GpioObj_MT6768
+from GpioObj import GpioObj_MT6785
 from EintObj import EintObj
 from EintObj import EintObj_MT6750S
 from EintObj import EintObj_MT6739
 from AdcObj import AdcObj
+from AdcObj import AdcObj_MT6785
 from ClkObj import ClkObj
 from ClkObj import ClkObj_Everest
 from ClkObj import ClkObj_Olympus
 from ClkObj import ClkObj_Rushmore
+from ClkObj import ClkObj_MT6779
 from I2cObj import I2cObj
 from I2cObj import I2cObj_MT6759
 from I2cObj import I2cObj_MT6775
@@ -436,3 +440,45 @@ class MT6775(ChipObj):
         ChipObj.refresh_eintGpioMap(self)
 
 
+class MT6779(ChipObj):
+    def __init__(self, dws_path, gen_path):
+        ChipObj.__init__(self, dws_path, gen_path)
+
+    def init_objs(self):
+        ChipObj.init_objs(self)
+        ChipObj.replace_obj(self, 'clk', ClkObj_MT6779())
+        ChipObj.replace_obj(self, 'pmic', PmicObj_MT6758())
+        ChipObj.replace_obj(self, 'gpio', GpioObj_MT6771())
+        ChipObj.replace_obj(self, 'eint', EintObj_MT6739(ChipObj.get_gpioObj(self)))
+        ChipObj.replace_obj(self, 'md1_eint', Md1EintObj_MT6739())
+        ChipObj.replace_obj(self, "i2c", I2cObj_MT6775())
+        ChipObj.refresh_eintGpioMap(self)
+
+class MT6785(ChipObj):
+    def __init__(self, dws_path, gen_path):
+        ChipObj.__init__(self, dws_path, gen_path)
+
+    def init_objs(self):
+        ChipObj.init_objs(self)
+        ChipObj.replace_obj(self, 'adc', AdcObj_MT6785())
+        ChipObj.replace_obj(self, 'clk', ClkObj_MT6779())
+        ChipObj.replace_obj(self, 'pmic', PmicObj_MT6758())
+        ChipObj.replace_obj(self, 'gpio', GpioObj_MT6785())
+        ChipObj.replace_obj(self, 'eint', EintObj_MT6739(ChipObj.get_gpioObj(self)))
+        ChipObj.replace_obj(self, 'md1_eint', Md1EintObj_MT6739())
+        ChipObj.replace_obj(self, "i2c", I2cObj_MT6775())
+        ChipObj.refresh_eintGpioMap(self)
+
+
+class MT6768(ChipObj):
+    def __init__(self, dws_path, gen_path):
+        ChipObj.__init__(self, dws_path, gen_path)
+
+    def init_objs(self):
+        ChipObj.init_objs(self)
+        ChipObj.replace_obj(self, 'pmic', PmicObj_MT6758())
+        ChipObj.replace_obj(self, 'gpio', GpioObj_MT6768())
+        ChipObj.replace_obj(self, 'eint', EintObj_MT6739(ChipObj.get_gpioObj(self)))
+        ChipObj.replace_obj(self, 'md1_eint', Md1EintObj_MT6739())
+        ChipObj.replace_obj(self, "i2c", I2cObj_MT6775())
+        ChipObj.refresh_eintGpioMap(self)
