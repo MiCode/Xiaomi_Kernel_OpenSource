@@ -19,3 +19,4 @@ obj-$(CONFIG_DRM_PANEL_SAMSUNG_AMS601NN04_CMD) += panel-samsung-ams601nn04-cmd.o
 obj-$(CONFIG_DRM_PANEL_TRULY_TD4330_VDO) += panel-truly-td4330-vdo.o
 obj-$(CONFIG_DRM_PANEL_TRULY_TD4330_CMD) += panel-truly-td4330-cmd.o
 obj-$(CONFIG_DRM_PANEL_K6885V1_64_ALPHA_01) += panel-k6885v1-64-alpha-01.o
+obj-$(CONFIG_DRM_PANEL_TIANMA_R66451_CMD) += panel-tianma-r66451-cmd.o

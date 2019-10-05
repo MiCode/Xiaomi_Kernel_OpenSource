@@ -718,8 +718,6 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	if (buf->fence_fd >= 0)
 		buf_info->hnd = mtk_drm_gem_ion_import_handle(buf_info->client,
 				buf->fence_fd);
-	else
-		DDPPR_ERR("invalid fence fd:%d\n", buf->fence_fd);
 #endif
 
 	buf_info->mva_offset = 0;

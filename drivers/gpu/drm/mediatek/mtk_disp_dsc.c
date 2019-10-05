@@ -142,7 +142,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 {
 	u32 reg_val;
 	struct mtk_disp_dsc *dsc = comp_to_dsc(comp);
-	unsigned int pic_group_width, slice_width, slice_hight;
+	unsigned int pic_group_width, slice_width, slice_height;
 	unsigned int pic_height_ext_num, slice_group_width;
 	unsigned int bit_per_pixel, chrunk_size, pad_num;
 	unsigned int init_delay_limit, init_delay_height_min;
@@ -157,12 +157,12 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		DDPMSG("%s, w:0x%x, h:0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
 			mtk_dump_comp_str(comp), cfg->w, cfg->h,
 			dsc_params->slice_mode,	dsc_params->slice_width,
-			dsc_params->slice_hight, dsc_params->bit_per_pixel);
+			dsc_params->slice_height, dsc_params->bit_per_pixel);
 
 		pic_group_width = (cfg->w + 2)/3;
 		slice_width = dsc_params->slice_width;
-		slice_hight = dsc_params->slice_hight;
-		pic_height_ext_num = (cfg->h + slice_hight - 1) / slice_hight;
+		slice_height = dsc_params->slice_height;
+		pic_height_ext_num = (cfg->h + slice_height - 1) / slice_height;
 		slice_group_width = (slice_width + 2)/3;
 		/* 128=1/3, 196=1/2 */
 		bit_per_pixel = dsc_params->bit_per_pixel;
@@ -187,7 +187,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			DISP_REG_DSC_PIC_W, handle);
 
 		mtk_ddp_write_relaxed(comp,
-			(pic_height_ext_num * slice_hight - 1) << 16 |
+			(pic_height_ext_num * slice_height - 1) << 16 |
 			(cfg->h - 1),
 			DISP_REG_DSC_PIC_H, handle);
 
@@ -202,7 +202,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		mtk_ddp_write_relaxed(comp,
 			(slice_width % 3) << 30 |
 			(pic_height_ext_num - 1) << 16 |
-			(slice_hight - 1),
+			(slice_height - 1),
 			DISP_REG_DSC_SLICE_H, handle);
 
 		mtk_ddp_write_relaxed(comp, chrunk_size,
@@ -211,7 +211,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		mtk_ddp_write_relaxed(comp,	pad_num,
 			DISP_REG_DSC_PAD, handle);
 
-		mtk_ddp_write_relaxed(comp,	chrunk_size * slice_hight,
+		mtk_ddp_write_relaxed(comp,	chrunk_size * slice_height,
 			DISP_REG_DSC_BUF_SIZE, handle);
 
 		init_delay_limit =
@@ -242,6 +242,10 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 					DISP_REG_DSC_DBG_CON, DSC_CKSM_CAL_EN,
 					handle);
 
+		mtk_ddp_write_mask(comp,
+			(((dsc_params->ver & 0xf) == 2) ? 0x40 : 0x20),
+			0x200, 0x60, handle);
+
 		if (dsc_params->dsc_line_buf_depth == 0)
 			reg_val = 0x9;
 		else
@@ -265,7 +269,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		if (dsc_params->xmit_delay == 0)
 			reg_val = 0x200;
 		else
-			reg_val = (dsc_params->xmit_delay << 4);
+			reg_val = (dsc_params->xmit_delay);
 		if (dsc_params->dec_delay == 0)
 			reg_val |= (0x268 << 16);
 		else
@@ -305,8 +309,8 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			0x3 : dsc_params->flatness_minqp);
 		reg_val |= ((dsc_params->flatness_maxqp == 0) ?
 			0xc : dsc_params->flatness_maxqp) << 8;
-		reg_val |= ((dsc_params->rc_mode1_size == 0) ?
-			0x2000 : dsc_params->rc_mode1_size) << 16;
+		reg_val |= ((dsc_params->rc_model_size == 0) ?
+			0x2000 : dsc_params->rc_model_size) << 16;
 		mtk_ddp_write_relaxed(comp,	reg_val,
 			DISP_REG_DSC_PPS6, handle);
 
@@ -334,7 +338,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 	}
 }
 
-int mtk_dsc_dump(struct mtk_ddp_comp *comp)
+void mtk_dsc_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 	int i;
@@ -348,14 +352,14 @@ int mtk_dsc_dump(struct mtk_ddp_comp *comp)
 		readl(baddr + DISP_REG_DSC_SLICE_H));
 	DDPDUMP("(0x000)DSC_WIDTH=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_W));
 	DDPDUMP("(0x000)DSC_HEIGHT=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_H));
+	DDPDUMP("(0x000)DSC_SHADOW=0x%x\n",
+		readl(baddr + DISP_REG_DSC_SHADOW));
 	DDPDUMP("-- Start dump dsc registers --\n");
 	for (i = 0; i < 204; i += 16) {
 		DDPDUMP("DSC+%x: 0x%x 0x%x 0x%x 0x%x\n", i, readl(baddr + i),
 			 readl(baddr + i + 0x4), readl(baddr + i + 0x8),
 			 readl(baddr + i + 0xc));
 	}
-
-	return 0;
 }
 
 int mtk_dsc_analysis(struct mtk_ddp_comp *comp)

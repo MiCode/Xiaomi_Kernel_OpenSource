@@ -27,6 +27,7 @@ void mtk_ccorr_dump(struct mtk_ddp_comp *comp);
 void mtk_dither_dump(struct mtk_ddp_comp *comp);
 void mtk_aal_dump(struct mtk_ddp_comp *comp);
 void mtk_gamma_dump(struct mtk_ddp_comp *comp);
+void mtk_dsc_dump(struct mtk_ddp_comp *comp);
 
 int mtk_ovl_analysis(struct mtk_ddp_comp *comp);
 int mtk_rdma_analysis(struct mtk_ddp_comp *comp);

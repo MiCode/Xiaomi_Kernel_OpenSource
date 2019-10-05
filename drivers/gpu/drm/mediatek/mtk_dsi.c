@@ -331,6 +331,8 @@ enum DSI_MODE_CON {
 	MODE_CON_BURST_VDO,
 };
 
+struct mtk_panel_ext *mtk_dsi_get_panel_ext(struct mtk_ddp_comp *comp);
+
 static inline struct mtk_dsi *encoder_to_dsi(struct drm_encoder *e)
 {
 	return container_of(e, struct mtk_dsi, encoder);
@@ -591,41 +593,53 @@ static void mtk_dsi_set_vm_cmd(struct mtk_dsi *dsi)
 static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 {
 	struct videomode *vm = &dsi->vm;
-	u32 dsi_buf_bpp, ps_wc;
-	u32 ps_bpp_mode;
-	u32 tmp_reg;
+	u32 ps_wc, ps_sel = PACKED_PS_24BIT_RGB888, size;
+	u32 dsi_buf_bpp, val;
 	u32 width = dsi->encoder.crtc->mode.hdisplay;
 	u32 height = dsi->encoder.crtc->mode.vdisplay;
+	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
+	struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
 
 	if (dsi->format == MIPI_DSI_FMT_RGB565)
 		dsi_buf_bpp = 2;
 	else
 		dsi_buf_bpp = 3;
 
-	ps_wc = vm->hactive * dsi_buf_bpp;
-	ps_bpp_mode = ps_wc;
+	if (dsc_params->enable == 0) {
+		ps_wc = vm->hactive * dsi_buf_bpp;
 
-	switch (dsi->format) {
-	case MIPI_DSI_FMT_RGB888:
-		ps_bpp_mode |= PACKED_PS_24BIT_RGB888;
-		break;
-	case MIPI_DSI_FMT_RGB666:
-		ps_bpp_mode |= PACKED_PS_18BIT_RGB666;
-		break;
-	case MIPI_DSI_FMT_RGB666_PACKED:
-		ps_bpp_mode |= LOOSELY_PS_18BIT_RGB666;
-		break;
-	case MIPI_DSI_FMT_RGB565:
-		ps_bpp_mode |= PACKED_PS_16BIT_RGB565;
-		break;
+		switch (dsi->format) {
+		case MIPI_DSI_FMT_RGB888:
+			ps_sel = PACKED_PS_24BIT_RGB888;
+			break;
+		case MIPI_DSI_FMT_RGB666:
+			ps_sel = PACKED_PS_18BIT_RGB666;
+			break;
+		case MIPI_DSI_FMT_RGB666_PACKED:
+			ps_sel = LOOSELY_PS_18BIT_RGB666;
+			break;
+		case MIPI_DSI_FMT_RGB565:
+			ps_sel = PACKED_PS_16BIT_RGB565;
+			break;
+		}
+		size = (height << 16) + width;
+	} else {
+		ps_wc = (((dsc_params->chunk_size + 2) / 3) * 3);
+		if (dsc_params->slice_mode == 1)
+			ps_wc *= 2;
+		ps_sel = (5 << 16);
+		size = (height << 16) + (ps_wc / 3);
 	}
 
 	writel(vm->vactive, dsi->regs + DSI_VACT_NL);
-	writel(ps_bpp_mode, dsi->regs + DSI_PSCTRL);
-	writel(ps_wc, dsi->regs + DSI_HSTX_CKL_WC);
 
-	tmp_reg = (height << 16) | width;
-	writel(tmp_reg, dsi->regs + DSI_SIZE_CON);
+	val = ps_wc + ps_sel;
+	writel(val, dsi->regs + DSI_PSCTRL);
+
+	val = vm->hactive * dsi_buf_bpp;
+	writel(val, dsi->regs + DSI_HSTX_CKL_WC);
+
+	writel(size, dsi->regs + DSI_SIZE_CON);
 }
 
 static void mtk_dsi_rxtx_control(struct mtk_dsi *dsi)

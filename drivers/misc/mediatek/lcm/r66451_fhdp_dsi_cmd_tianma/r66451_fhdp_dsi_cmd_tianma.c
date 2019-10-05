@@ -113,8 +113,11 @@ static struct LCM_setting_table lcm_suspend_setting[] = {
 static struct LCM_setting_table init_setting_cmd[] = {
 	{REGFLAG_DELAY, 200, {} },
 
+	/* set PLL to 190M */
 	{0xB0, 1, {0x00} },
-	{0xEB, 2, {0x00, 0x00} },
+	{0xB6, 12, {0x51, 0x00, 0x06, 0x23, 0x8A, 0x13, 0x1A, 0x05,
+		      0x04, 0xFA, 0x05, 0x20} },
+
 	{0x51, 2, {0x0F, 0xff} },
 	{0x53, 1, {0x04} },
 	{0x35, 1, {0x00} },
@@ -131,9 +134,26 @@ static struct LCM_setting_table init_setting_cmd[] = {
 		    0x0E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, 0x00,
 		    0x53, 0x18, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00,
 		    0x00, 0x00} },
+
+	/* set PPS to table and choose table 0 */
+	{0xF7, 1, {0x01} }, /* key */
+	{0xF8, 128, {0x11, 0x00, 0x00, 0x89, 0x30, 0x80, 0x09, 0x24, 0x04, 0x38,
+		0x00, 0x14, 0x02, 0x1c, 0x02, 0x1c, 0x02, 0x00, 0x02, 0x0e,
+		0x00, 0x20, 0x01, 0xe8, 0x00, 0x07, 0x00, 0x0c, 0x05, 0x0e,
+		0x05, 0x16, 0x18, 0x00, 0x10, 0xf0, 0x03, 0x0c, 0x20, 0x00,
+		0x06, 0x0b, 0x0b, 0x33, 0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54,
+		0x62, 0x69, 0x70, 0x77, 0x79, 0x7b, 0x7d, 0x7e, 0x01, 0x02,
+		0x01, 0x00, 0x09, 0x40, 0x09, 0xbe, 0x19, 0xfc, 0x19, 0xfa,
+		0x19, 0xf8, 0x1a, 0x38, 0x1a, 0x78, 0x1a, 0xb6, 0x2a, 0xf6,
+		0x2b, 0x34, 0x2b, 0x74, 0x3b, 0x74, 0x6b, 0xf4, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00} },
+
+	/* Turn on DSC */
 	{0xB0, 1, {0x00} },
-	{0xEB, 2, {0x00, 0x00} },
-	{0xF7, 1, {0x00} },
+	{0xEB, 2, {0x8B, 0x8B} },
 
 	//Flash QE setting
 	{0xDF, 2, {0x50, 0x40} },
@@ -249,9 +269,9 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	/* params->dsi.ssc_disable = 1; */
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #if (LCM_DSI_CMD_MODE)
-	params->dsi.PLL_CLOCK = 540;
+	params->dsi.PLL_CLOCK = 190;
 #else
-	params->dsi.PLL_CLOCK = 540;
+	params->dsi.PLL_CLOCK = 190;
 #endif
 	params->dsi.PLL_CK_CMD = 540;
 	params->dsi.PLL_CK_VDO = 540;
@@ -275,6 +295,39 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	params->corner_pattern_tp_size = sizeof(top_rc_pattern);
 	params->corner_pattern_lt_addr = (void *)top_rc_pattern;
 #endif
+	params->dsi.dsc_enable = 1;
+	params->dsi.dsc_params.ver = 18;
+	params->dsi.dsc_params.slice_mode = 1;
+	params->dsi.dsc_params.rgb_swap = 0;
+	params->dsi.dsc_params.dsc_cfg = 34;
+	params->dsi.dsc_params.rct_on = 1;
+	params->dsi.dsc_params.bit_per_channel = 8;
+	params->dsi.dsc_params.dsc_line_buf_depth = 9;
+	params->dsi.dsc_params.bp_enable = 1;
+	params->dsi.dsc_params.bit_per_pixel = 128;
+	params->dsi.dsc_params.pic_height = 2340;
+	params->dsi.dsc_params.pic_width = 1080;
+	params->dsi.dsc_params.slice_height = 20;
+	params->dsi.dsc_params.slice_width = 540;
+	params->dsi.dsc_params.chunk_size = 540;
+	params->dsi.dsc_params.xmit_delay = 512;
+	params->dsi.dsc_params.dec_delay = 526;
+	params->dsi.dsc_params.scale_value = 32;
+	params->dsi.dsc_params.increment_interval = 488;
+	params->dsi.dsc_params.decrement_interval = 7;
+	params->dsi.dsc_params.line_bpg_offset = 12;
+	params->dsi.dsc_params.nfl_bpg_offset = 1294;
+	params->dsi.dsc_params.slice_bpg_offset = 1302;
+	params->dsi.dsc_params.initial_offset = 6144;
+	params->dsi.dsc_params.final_offset = 4336;
+	params->dsi.dsc_params.flatness_minqp = 3;
+	params->dsi.dsc_params.flatness_maxqp = 12;
+	params->dsi.dsc_params.rc_model_size = 8192;
+	params->dsi.dsc_params.rc_edge_factor = 6;
+	params->dsi.dsc_params.rc_quant_incr_limit0 = 11;
+	params->dsi.dsc_params.rc_quant_incr_limit1 = 11;
+	params->dsi.dsc_params.rc_tgt_offset_hi = 3;
+	params->dsi.dsc_params.rc_tgt_offset_lo = 3;
 }
 
 static void lcm_setbacklight_cmdq(void *handle, unsigned int level)

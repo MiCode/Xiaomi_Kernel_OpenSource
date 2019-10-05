@@ -61,6 +61,9 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_POSTMASK0:
 		mtk_postmask_dump(comp);
 		break;
+	case DDP_COMPONENT_DSC0:
+		mtk_dsc_dump(comp);
+		break;
 	default:
 		return 0;
 	}

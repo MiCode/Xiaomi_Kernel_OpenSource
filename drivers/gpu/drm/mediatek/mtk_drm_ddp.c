@@ -306,6 +306,10 @@
 	#define DISP_RSZ0_SEL_IN_FROM_DISP_TOVL0_OUT0_MOUT	0x0
 #define MT6885_DISP_RSZ0_MOUT_EN	0xF7C
 	#define DISP_RSZ0_MOUT_EN_TO_DISP_RDMA2_RSZ0_RSZ1_SEL	BIT(3)
+#define MT6885_DISP_PQ0_SOUT_SEL	0xFF8
+#define MT6885_DISP_RDMA4_PQ0_MERGE0_SEL_IN	0xF88
+#define MT6885_DISP_DSI0_DSC_WRAP_SOUT_SEL	0xF80
+#define MT6885_DISP_DSC_WRAP_SOUT_SEL	0xF48
 
 #define MT6885_DISP_MUTEX0_MOD0 0x30
 #define MT6885_DISP_MUTEX0_SOF 0x2C
@@ -489,6 +493,7 @@ static const unsigned int mt6885_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 		[DDP_COMPONENT_WDMA0] = MT6885_MUTEX_MOD0_DISP_WDMA0,
 		[DDP_COMPONENT_RSZ0] = MT6885_MUTEX_MOD0_DISP_RSZ0,
 		[DDP_COMPONENT_POSTMASK0] = MT6885_MUTEX_MOD0_DISP_POSTMASK0,
+		[DDP_COMPONENT_DSC0] = MT6885_MUTEX_MOD0_DISP_DSC0,
 };
 
 
@@ -2224,6 +2229,86 @@ void mtk_ddp_remove_comp_from_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 	if (value >= 0)
 		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 			       mtk_crtc->config_regs_pa + addr, ~value, value);
+}
+
+void mtk_ddp_insert_dsc_prim_MT6885(struct mtk_drm_crtc *mtk_crtc,
+	struct cmdq_pkt *handle)
+{
+	unsigned int addr, value;
+
+	/* DISP_DITHER0_MOUT -> DISP_PQ0_SOUT */
+	addr = MT6885_DISP_DITHER0_MOUT_EN;
+	value = (1 << 3);
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	/* DISP_PQ0_SOUT -> DISP_RDMA4_PQ0_MERGE0_SEL_IN */
+	addr = MT6885_DISP_PQ0_SOUT_SEL;
+	value = 1;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	addr = MT6885_DISP_RDMA4_PQ0_MERGE0_SEL_IN;
+	value = 1;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	/* DISP_DSI0_DSC_WRAP_SOUT -> DISP_DSC_WRAP0 */
+	addr = MT6885_DISP_DSI0_DSC_WRAP_SOUT_SEL;
+	value = 1;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	/* DISP_DSC_WRAP_SOUT -> DSI0 */
+	addr = MT6885_DISP_DSC_WRAP_SOUT_SEL;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	addr = MT6885_DSI0_SEL_IN;
+	value = 3;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+}
+
+void mtk_ddp_remove_dsc_prim_MT6885(struct mtk_drm_crtc *mtk_crtc,
+	struct cmdq_pkt *handle)
+{
+	unsigned int addr, value;
+
+	/* DISP_DITHER0_MOUT -> DISP_PQ0_SOUT */
+	addr = MT6885_DISP_DITHER0_MOUT_EN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	/* DISP_PQ0_SOUT -> DISP_RDMA4_PQ0_MERGE0_SEL_IN */
+	addr = MT6885_DISP_PQ0_SOUT_SEL;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	addr = MT6885_DISP_RDMA4_PQ0_MERGE0_SEL_IN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	/* DISP_DSI0_DSC_WRAP_SOUT -> DISP_DSC_WRAP0 */
+	addr = MT6885_DISP_DSI0_DSC_WRAP_SOUT_SEL;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	/* DISP_DSC_WRAP_SOUT -> DSI0 */
+	addr = MT6885_DISP_DSC_WRAP_SOUT_SEL;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	addr = MT6885_DSI0_SEL_IN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
 }
 
 const struct mtk_mmsys_reg_data *
