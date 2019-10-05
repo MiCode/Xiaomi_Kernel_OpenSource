@@ -95,16 +95,25 @@ int get_immediate_cpuL_wrap(void)
 	return curr_temp;
 }
 
-int get_immediate_cpuB_wrap(void)
+int get_immediate_cpuB_LVTS1_wrap(void)
 {
 	int curr_temp;
 
-	curr_temp = MAX(
-		MAX(tscpu_ts_lvts_temp[L_TS_LVTS1_0],
-			tscpu_ts_lvts_temp[L_TS_LVTS1_1]),
-		MAX(tscpu_ts_lvts_temp[L_TS_LVTS2_0],
-			tscpu_ts_lvts_temp[L_TS_LVTS2_1])
-		);
+	curr_temp = MAX(tscpu_ts_lvts_temp[L_TS_LVTS1_0],
+			tscpu_ts_lvts_temp[L_TS_LVTS1_1]);
+
+	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
+
+	return curr_temp;
+}
+
+int get_immediate_cpuB_LVTS2_wrap(void)
+{
+	int curr_temp;
+
+	curr_temp = MAX(tscpu_ts_lvts_temp[L_TS_LVTS2_0],
+			tscpu_ts_lvts_temp[L_TS_LVTS2_1]);
+
 
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
@@ -147,6 +156,7 @@ int get_immediate_infa_wrap(void)
 
 	return curr_temp;
 }
+
 int get_immediate_camsys_wrap(void)
 {
 	int curr_temp;
@@ -175,23 +185,21 @@ int get_immediate_md_wrap(void)
 
 
 /*
- * PTP Bank 0 :MCU_BIG(T1,T2)		LVTS1-0, LVTS1-1
- * PTP Bank 1 :MCU_BIG(T3,T4)		LVTS2-0, LVTS2-1
- * PTP Bank 2 :MCU_LITTLE(T5,T6,T7,T8)	LVTS3-0, LVTS3-1, LVTS3-2, LVTS3-3
- * PTP Bank 0 :VPU_MLDA(T9,T10)		LVTS4-0, LVTS4-1
- * PTP Bank 1 :GPU(T11,T12)		LVTS5-0, LVTS5-1
- * PTP Bank 2 :INFA(T13)		LVTS6-0
- * PTP Bank 3 :CAMSYS(T18)		LVTS6-1
- * PTP Bank 0 :MDSYS(T14,T15,T20)	LVTS7-0, LVTS7-1, LVTS7-2
- */
+THERMAL_BANK0,	//B CPU (LVTS1)
+THERMAL_BANK1,  //B CPU (LVTS2)
+THERMAL_BANK2,	//L CPU (LVTS3)
+THERMAL_BANK3,	//VPU   (LVTS4)
+THERMAL_BANK4,	//GPU   (LVTS5)
+THERMAL_BANK5,	//IFRA  (LVTS6)
+*/
+
 int (*max_temperature_in_bank[THERMAL_BANK_NUM])(void) = {
+	get_immediate_cpuB_LVTS1_wrap,
+	get_immediate_cpuB_LVTS1_wrap,
 	get_immediate_cpuL_wrap,
-	get_immediate_cpuB_wrap,
-	get_immediate_gpu_wrap,
 	get_immediate_vpu_wrap,
-	get_immediate_infa_wrap,
-	get_immediate_camsys_wrap,
-	get_immediate_md_wrap
+	get_immediate_gpu_wrap,
+	get_immediate_infa_wrap
 };
 
 

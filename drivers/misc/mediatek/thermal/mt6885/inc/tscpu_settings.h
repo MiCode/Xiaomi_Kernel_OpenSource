@@ -255,6 +255,18 @@ struct mtk_cpu_power_info {
  */
 #if CFG_THERM_LVTS
 
+/*
+ * module			LVTS Plan
+ *=====================================================
+ * MCU_BIG(T1,T2)		LVTS1-0, LVTS1-1
+ * MCU_BIG(T3,T4)		LVTS2-0, LVTS2-1
+ * MCU_LITTLE(T5,T6,T7,T8)	LVTS3-0, LVTS3-1, LVTS3-2, LVTS3-3
+ * VPU_MLDA(T9,T10)		LVTS4-0, LVTS4-1
+ * GPU(T11,T12)			LVTS5-0, LVTS5-1
+ * INFA(T13)			LVTS6-0
+ * CAMSYS(T18)			LVTS6-1
+ * MDSYS(T14,T15,T20)		LVTS7-0, LVTS7-1, LVTS7-2
+ */
 
 /* private thermal sensor enum */
 enum lvts_sensor_enum {
@@ -541,12 +553,13 @@ extern void thermal_get_AHB_clk_info(void);
 extern void print_risky_temps(char *prefix, int offset, int printLevel);
 extern void thermal_pause_all_periodoc_temp_sensing(void);
 extern void thermal_release_all_periodoc_temp_sensing(void);
-extern int (*max_temperature_in_bank[THERMAL_BANK_NUM])(void);
+
 extern void thermal_disable_all_periodoc_temp_sensing(void);
 extern void read_all_tc_tsmcu_temperature(void);
 extern irqreturn_t tscpu_thermal_all_tc_interrupt_handler(
 int irq, void *dev_id);
 #endif
+extern int (*max_temperature_in_bank[THERMAL_BANK_NUM])(void);
 extern int tscpu_thermal_clock_on(void);
 extern int tscpu_thermal_clock_off(void);
 extern void lvts_tscpu_reset_thermal(void);

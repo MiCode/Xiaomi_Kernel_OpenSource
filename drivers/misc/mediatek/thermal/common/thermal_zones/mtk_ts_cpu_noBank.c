@@ -1795,13 +1795,13 @@ static int ktp_thread(void *arg)
 int tscpu_get_temp_by_bank(enum thermal_bank_name ts_bank)
 {
 	int bank_T = -127000;
-#if !defined(CFG_THERM_NO_AUXADC)
+
 	tscpu_dprintk("tscpu_get_temp %s, %d\n", __func__, __LINE__);
 	if (ts_bank < THERMAL_BANK_NUM)
 		bank_T = max_temperature_in_bank[ts_bank]();
 	else
 		panic("Bank number out of range\n");
-#endif
+
 	return bank_T;
 }
 

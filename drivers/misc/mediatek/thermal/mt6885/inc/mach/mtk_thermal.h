@@ -87,7 +87,6 @@ enum thermal_bank_name {
 	THERMAL_BANK3,
 	THERMAL_BANK4,
 	THERMAL_BANK5,
-	THERMAL_BANK6,
 	THERMAL_BANK_NUM
 };
 
