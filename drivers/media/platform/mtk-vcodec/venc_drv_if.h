@@ -60,11 +60,6 @@ enum venc_start_opt {
 	VENC_START_OPT_ENCODE_FRAME,
 	VENC_START_OPT_ENCODE_FRAME_FINAL
 };
-enum teeType {
-	NONE_TEE = 0,
-	TRUSTONIC_TEE = 1,
-	INHOUSE_TEE = 2,
-};
 
 /*
  * struct venc_done_result - This is return information used in venc_if_encode()
@@ -127,5 +122,9 @@ int venc_if_encode(struct mtk_vcodec_ctx *ctx,
 				   struct venc_frm_buf *frm_buf,
 				   struct mtk_vcodec_mem *bs_buf,
 				   struct venc_done_result *result);
+
+
+void venc_encode_prepare(void *ctx_prepare, unsigned long *flags);
+void venc_encode_unprepare(void *ctx_unprepare, unsigned long *flags);
 
 #endif /* _VENC_DRV_IF_H_ */

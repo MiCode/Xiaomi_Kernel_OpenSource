@@ -18,9 +18,9 @@
 #include "linux/videodev2.h"
 #include "vcodec_ipi_msg.h"
 
-#define MTK_MAX_DEC_CODECS_SUPPORT (128)
-#define DEC_MAX_FB_NUM VIDEO_MAX_FRAME
-#define DEC_MAX_BS_NUM VIDEO_MAX_FRAME
+#define MTK_MAX_DEC_CODECS_SUPPORT       (128)
+#define DEC_MAX_FB_NUM              VIDEO_MAX_FRAME
+#define DEC_MAX_BS_NUM              VIDEO_MAX_FRAME
 
 /**
  * enum vdec_src_chg_type - decoder src change type
@@ -33,22 +33,22 @@
  * @VDEC_CROP_CHANGED: notification to update frame crop info
  */
 enum vdec_src_chg_type {
-	VDEC_NO_CHANGE = (0 << 0),
-	VDEC_RES_CHANGE = (1 << 0),
-	VDEC_REALLOC_MV_BUF = (1 << 1),
-	VDEC_HW_NOT_SUPPORT = (1 << 2),
-	VDEC_NEED_SEQ_HEADER = (1 << 3),
+	VDEC_NO_CHANGE              = (0 << 0),
+	VDEC_RES_CHANGE             = (1 << 0),
+	VDEC_REALLOC_MV_BUF         = (1 << 1),
+	VDEC_HW_NOT_SUPPORT         = (1 << 2),
+	VDEC_NEED_SEQ_HEADER        = (1 << 3),
 	VDEC_NEED_MORE_OUTPUT_BUF   = (1 << 4),
 	VDEC_CROP_CHANGED           = (1 << 5),
 };
 
 enum vdec_ipi_msg_status {
-	VDEC_IPI_MSG_STATUS_OK = 0,
-	VDEC_IPI_MSG_STATUS_FAIL = -1,
-	VDEC_IPI_MSG_STATUS_MAX_INST = -2,
-	VDEC_IPI_MSG_STATUS_ILSEQ = -3,
-	VDEC_IPI_MSG_STATUS_INVALID_ID = -4,
-	VDEC_IPI_MSG_STATUS_DMA_FAIL = -5,
+	VDEC_IPI_MSG_STATUS_OK      = 0,
+	VDEC_IPI_MSG_STATUS_FAIL    = -1,
+	VDEC_IPI_MSG_STATUS_MAX_INST    = -2,
+	VDEC_IPI_MSG_STATUS_ILSEQ   = -3,
+	VDEC_IPI_MSG_STATUS_INVALID_ID  = -4,
+	VDEC_IPI_MSG_STATUS_DMA_FAIL    = -5,
 };
 
 /**
@@ -135,7 +135,8 @@ enum vdec_set_param_type {
 	SET_PARAM_FB_NUM_PLANES,
 	SET_PARAM_WAIT_KEY_FRAME,
 	SET_PARAM_NAL_SIZE_LENGTH,
-	SET_PARAM_OPERATING_RATE
+	SET_PARAM_OPERATING_RATE,
+	SET_PARAM_TOTAL_FRAME_BUFQ_COUNT
 };
 
 /**

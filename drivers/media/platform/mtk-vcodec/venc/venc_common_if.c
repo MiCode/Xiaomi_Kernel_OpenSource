@@ -18,8 +18,8 @@
 #include <linux/slab.h>
 
 #include "../mtk_vcodec_drv.h"
-#include "../mtk_vcodec_enc.h"
 #include "../mtk_vcodec_util.h"
+#include "../mtk_vcodec_enc.h"
 #include "../venc_drv_base.h"
 #include "../venc_ipi_msg.h"
 #include "../venc_vcu_if.h"
@@ -27,69 +27,10 @@
 #include "mtk_vcodec_intr.h"
 #include "mtk_vcu.h"
 
-static unsigned int venc_h264_get_profile(struct venc_inst *inst,
-					  unsigned int profile)
-{
-	switch (profile) {
-	case V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE:
-		return 66;
-	case V4L2_MPEG_VIDEO_H264_PROFILE_MAIN:
-		return 77;
-	case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH:
-		return 100;
-	case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE:
-		mtk_vcodec_err(inst, "unsupported CONSTRAINED_BASELINE");
-		return 0;
-	case V4L2_MPEG_VIDEO_H264_PROFILE_EXTENDED:
-		mtk_vcodec_err(inst, "unsupported EXTENDED");
-		return 0;
-	default:
-		mtk_vcodec_debug(inst, "unsupported profile %d", profile);
-		return 100;
-	}
-}
 
-static unsigned int venc_h264_get_level(struct venc_inst *inst,
-					unsigned int level)
-{
-	switch (level) {
-	case V4L2_MPEG_VIDEO_H264_LEVEL_1B:
-		mtk_vcodec_err(inst, "unsupported 1B");
-		return 0;
-	case V4L2_MPEG_VIDEO_H264_LEVEL_1_0:
-		return 10;
-	case V4L2_MPEG_VIDEO_H264_LEVEL_1_1:
-		return 11;
-	case V4L2_MPEG_VIDEO_H264_LEVEL_1_2:
-		return 12;
-	case V4L2_MPEG_VIDEO_H264_LEVEL_1_3:
-		return 13;
-	case V4L2_MPEG_VIDEO_H264_LEVEL_2_0:
-		return 20;
-	case V4L2_MPEG_VIDEO_H264_LEVEL_2_1:
-		return 21;
-	case V4L2_MPEG_VIDEO_H264_LEVEL_2_2:
-		return 22;
-	case V4L2_MPEG_VIDEO_H264_LEVEL_3_0:
-		return 30;
-	case V4L2_MPEG_VIDEO_H264_LEVEL_3_1:
-		return 31;
-	case V4L2_MPEG_VIDEO_H264_LEVEL_3_2:
-		return 32;
-	case V4L2_MPEG_VIDEO_H264_LEVEL_4_0:
-		return 40;
-	case V4L2_MPEG_VIDEO_H264_LEVEL_4_1:
-		return 41;
-	case V4L2_MPEG_VIDEO_H264_LEVEL_4_2:
-		return 42;
-	default:
-		mtk_vcodec_debug(inst, "unsupported level %d", level);
-		return 31;
-	}
-}
 
 static unsigned int venc_h265_get_profile(struct venc_inst *inst,
-					  unsigned int profile)
+	unsigned int profile)
 {
 	switch (profile) {
 	case V4L2_MPEG_VIDEO_H265_PROFILE_MAIN:
@@ -105,7 +46,7 @@ static unsigned int venc_h265_get_profile(struct venc_inst *inst,
 }
 
 static unsigned int venc_h265_get_level(struct venc_inst *inst,
-					unsigned int level)
+	unsigned int level)
 {
 	switch (level) {
 	case V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_1:
@@ -167,7 +108,7 @@ static unsigned int venc_h265_get_level(struct venc_inst *inst,
 }
 
 static unsigned int venc_mpeg4_get_profile(struct venc_inst *inst,
-					   unsigned int profile)
+	unsigned int profile)
 {
 	switch (profile) {
 	case V4L2_MPEG_VIDEO_MPEG4_PROFILE_SIMPLE:
@@ -187,7 +128,7 @@ static unsigned int venc_mpeg4_get_profile(struct venc_inst *inst,
 }
 
 static unsigned int venc_mpeg4_get_level(struct venc_inst *inst,
-					 unsigned int level)
+	unsigned int level)
 {
 	switch (level) {
 	case V4L2_MPEG_VIDEO_MPEG4_LEVEL_0:
@@ -213,8 +154,8 @@ static unsigned int venc_mpeg4_get_level(struct venc_inst *inst,
 }
 
 static int venc_encode_header(struct venc_inst *inst,
-			      struct mtk_vcodec_mem *bs_buf,
-			      unsigned int *bs_size)
+	struct mtk_vcodec_mem *bs_buf,
+	unsigned int *bs_size)
 {
 	int ret = 0;
 
@@ -226,7 +167,7 @@ static int venc_encode_header(struct venc_inst *inst,
 
 	inst->vsi->venc.venc_fb_va = 0;
 	ret = vcu_enc_encode(&inst->vcu_inst, VENC_BS_MODE_SEQ_HDR, NULL,
-			     bs_buf, bs_size);
+						 bs_buf, bs_size);
 	if (ret)
 		return ret;
 
@@ -237,9 +178,9 @@ static int venc_encode_header(struct venc_inst *inst,
 }
 
 static int venc_encode_frame(struct venc_inst *inst,
-			     struct venc_frm_buf *frm_buf,
-			     struct mtk_vcodec_mem *bs_buf,
-			     unsigned int *bs_size)
+	struct venc_frm_buf *frm_buf,
+	struct mtk_vcodec_mem *bs_buf,
+	unsigned int *bs_size)
 {
 	int ret = 0;
 	unsigned int fm_fourcc = inst->ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
@@ -254,11 +195,15 @@ static int venc_encode_frame(struct venc_inst *inst,
 
 	if (frm_buf == NULL)
 		inst->vsi->venc.venc_fb_va = 0;
-	else
+	else {
 		inst->vsi->venc.venc_fb_va = (u64)(uintptr_t)frm_buf;
+		inst->vsi->venc.timestamp = frm_buf->timestamp;
+		inst->vsi->venc.roimap = frm_buf->roimap;
 
+		mtk_vcodec_debug(inst, "ROI: 0x%X", inst->vsi->venc.roimap);
+	}
 	ret = vcu_enc_encode(&inst->vcu_inst, VENC_BS_MODE_FRAME, frm_buf,
-			     bs_buf, bs_size);
+						 bs_buf, bs_size);
 	if (ret)
 		return ret;
 
@@ -276,9 +221,9 @@ static int venc_encode_frame(struct venc_inst *inst,
 }
 
 static int venc_encode_frame_final(struct venc_inst *inst,
-				   struct venc_frm_buf *frm_buf,
-				   struct mtk_vcodec_mem *bs_buf,
-				   unsigned int *bs_size)
+	struct venc_frm_buf *frm_buf,
+	struct mtk_vcodec_mem *bs_buf,
+	unsigned int *bs_size)
 {
 	int ret = 0;
 
@@ -293,7 +238,7 @@ static int venc_encode_frame_final(struct venc_inst *inst,
 		inst->vsi->venc.venc_fb_va = (u64)(uintptr_t)frm_buf;
 
 	ret = vcu_enc_encode(&inst->vcu_inst, VENC_BS_MODE_FRAME_FINAL, frm_buf,
-			     bs_buf, bs_size);
+						 bs_buf, bs_size);
 	if (ret)
 		return ret;
 
@@ -302,6 +247,7 @@ static int venc_encode_frame_final(struct venc_inst *inst,
 
 	return ret;
 }
+
 
 static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 {
@@ -319,14 +265,10 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 
 	switch (fourcc) {
 	case V4L2_PIX_FMT_H264: {
-		if (ctx->enc_params.svp_mode == INHOUSE_TEE) {
-			inst->vcu_inst.id = IPI_VENC_INHOUSE_H264;
-		} else {
-			if (ctx->oal_vcodec == 1)
-				inst->vcu_inst.id = IPI_VENC_HYBRID_H264;
-			else
-				inst->vcu_inst.id = IPI_VENC_H264;
-		}
+		if (ctx->oal_vcodec == 1)
+			inst->vcu_inst.id = IPI_VENC_HYBRID_H264;
+		else
+			inst->vcu_inst.id = IPI_VENC_H264;
 		break;
 	}
 
@@ -340,6 +282,10 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 		break;
 	}
 
+	case V4L2_PIX_FMT_H263: {
+		inst->vcu_inst.id = IPI_VENC_H263;
+		break;
+	}
 	case V4L2_PIX_FMT_H265: {
 		inst->vcu_inst.id = IPI_VENC_H265;
 		break;
@@ -369,10 +315,11 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	return ret;
 }
 
-static int venc_encode(unsigned long handle, enum venc_start_opt opt,
-		       struct venc_frm_buf *frm_buf,
-		       struct mtk_vcodec_mem *bs_buf,
-		       struct venc_done_result *result)
+static int venc_encode(unsigned long handle,
+					   enum venc_start_opt opt,
+					   struct venc_frm_buf *frm_buf,
+					   struct mtk_vcodec_mem *bs_buf,
+					   struct venc_done_result *result)
 {
 	int ret = 0;
 	struct venc_inst *inst = (struct venc_inst *)handle;
@@ -380,7 +327,7 @@ static int venc_encode(unsigned long handle, enum venc_start_opt opt,
 
 	mtk_vcodec_debug(inst, "opt %d ->", opt);
 
-	if (ctx->oal_vcodec == 0 && NONE_TEE == ctx->enc_params.svp_mode)
+	if (ctx->oal_vcodec == 0)
 		enable_irq(ctx->dev->enc_irq);
 
 	switch (opt) {
@@ -399,7 +346,7 @@ static int venc_encode(unsigned long handle, enum venc_start_opt opt,
 	case VENC_START_OPT_ENCODE_FRAME: {
 
 		ret = venc_encode_frame(inst, frm_buf, bs_buf,
-					&result->bs_size);
+			&result->bs_size);
 		if (ret)
 			goto encode_err;
 		result->is_key_frm = inst->vcu_inst.is_key_frm;
@@ -407,8 +354,8 @@ static int venc_encode(unsigned long handle, enum venc_start_opt opt,
 	}
 
 	case VENC_START_OPT_ENCODE_FRAME_FINAL: {
-		ret = venc_encode_frame_final(inst, frm_buf, bs_buf,
-					      &result->bs_size);
+		ret = venc_encode_frame_final(inst,
+			frm_buf, bs_buf, &result->bs_size);
 		if (ret)
 			goto encode_err;
 		result->is_key_frm = inst->vcu_inst.is_key_frm;
@@ -423,7 +370,7 @@ static int venc_encode(unsigned long handle, enum venc_start_opt opt,
 
 encode_err:
 
-	if (ctx->oal_vcodec == 0 && NONE_TEE == ctx->enc_params.svp_mode)
+	if (ctx->oal_vcodec == 0)
 		disable_irq(ctx->dev->enc_irq);
 	mtk_vcodec_debug(inst, "opt %d <-", opt);
 
@@ -431,8 +378,8 @@ encode_err:
 }
 
 static void venc_get_free_buffers(struct venc_inst *inst,
-				  struct ring_input_list *list,
-				  struct venc_done_result *pResult)
+			     struct ring_input_list *list,
+			     struct venc_done_result *pResult)
 {
 	if (list->count == 0) {
 		mtk_vcodec_debug(inst, "[FB] there is no free buffers");
@@ -454,17 +401,20 @@ static void venc_get_free_buffers(struct venc_inst *inst,
 		pResult->bs_size,
 		pResult->is_key_frm);
 
-	list->read_idx = (list->read_idx == VENC_MAX_FB_NUM - 1U)
-				 ? 0U
-				 : list->read_idx + 1U;
+	list->read_idx = (list->read_idx == VENC_MAX_FB_NUM - 1U) ?
+			 0U : list->read_idx + 1U;
 	list->count--;
 }
 
-static int venc_get_param(unsigned long handle, enum venc_get_param_type type,
-			  void *out)
+static int venc_get_param(unsigned long handle,
+						  enum venc_get_param_type type,
+						  void *out)
 {
 	int ret = 0;
 	struct venc_inst *inst = (struct venc_inst *)handle;
+
+	if (inst == NULL)
+		return -EINVAL;
 
 	mtk_vcodec_debug(inst, "%s: %d", __func__, type);
 	inst->vcu_inst.ctx = inst->ctx;
@@ -479,6 +429,12 @@ static int venc_get_param(unsigned long handle, enum venc_get_param_type type,
 			return -EINVAL;
 		venc_get_free_buffers(inst, &inst->vsi->list_free, out);
 		break;
+	case GET_PARAM_ROI_RC_QP: {
+		if (inst->vsi == NULL || out == NULL)
+			return -EINVAL;
+		*(int *)out = inst->vsi->config.roi_rc_qp;
+		break;
+	}
 	default:
 		mtk_vcodec_err(inst, "invalid get parameter type=%d", type);
 		ret = -EINVAL;
@@ -488,12 +444,16 @@ static int venc_get_param(unsigned long handle, enum venc_get_param_type type,
 	return ret;
 }
 
-static int venc_set_param(unsigned long handle, enum venc_set_param_type type,
-			  struct venc_enc_param *enc_prm)
+static int venc_set_param(unsigned long handle,
+	enum venc_set_param_type type,
+	struct venc_enc_param *enc_prm)
 {
 	int i;
 	int ret = 0;
 	struct venc_inst *inst = (struct venc_inst *)handle;
+
+	if (inst == NULL)
+		return -EINVAL;
 
 	mtk_vcodec_debug(inst, "->type=%d, ipi_id=%d", type, inst->vcu_inst.id);
 
@@ -510,15 +470,14 @@ static int venc_set_param(unsigned long handle, enum venc_set_param_type type,
 		inst->vsi->config.intra_period = enc_prm->intra_period;
 		inst->vsi->config.operationrate = enc_prm->operationrate;
 		inst->vsi->config.bitratemode = enc_prm->bitratemode;
+		inst->vsi->config.roion = enc_prm->roion;
 		inst->vsi->config.scenario = enc_prm->scenario;
 		inst->vsi->config.prependheader = enc_prm->prependheader;
 
 		if (inst->vcu_inst.id == IPI_VENC_H264 ||
-		    inst->vcu_inst.id == IPI_VENC_HYBRID_H264) {
-			inst->vsi->config.profile =
-				venc_h264_get_profile(inst, enc_prm->profile);
-			inst->vsi->config.level =
-				venc_h264_get_level(inst, enc_prm->level);
+			inst->vcu_inst.id == IPI_VENC_HYBRID_H264) {
+			inst->vsi->config.profile = enc_prm->profile;
+			inst->vsi->config.level = enc_prm->level;
 		} else if (inst->vcu_inst.id == IPI_VENC_H265) {
 			inst->vsi->config.profile =
 				venc_h265_get_profile(inst, enc_prm->profile);
@@ -536,10 +495,13 @@ static int venc_set_param(unsigned long handle, enum venc_set_param_type type,
 			break;
 
 		for (i = 0; i < MTK_VCODEC_MAX_PLANES; i++) {
-			enc_prm->sizeimage[i] = inst->vsi->sizeimage[i];
+			enc_prm->sizeimage[i] =
+				inst->vsi->sizeimage[i];
 			mtk_vcodec_debug(inst, "sizeimage[%d] size=0x%x", i,
-					 enc_prm->sizeimage[i]);
+							 enc_prm->sizeimage[i]);
 		}
+		if (inst->ctx->slowmotion)
+			vcu_enc_set_ctx_for_gce(&inst->vcu_inst);
 
 		break;
 	case VENC_SET_PARAM_PREPEND_HEADER:

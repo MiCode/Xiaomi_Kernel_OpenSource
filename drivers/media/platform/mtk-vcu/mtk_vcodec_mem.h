@@ -19,9 +19,11 @@
 #include <uapi/linux/mtk_vcu_controls.h>
 #include <linux/slab.h>
 #include <asm/cacheflush.h>
+#include <linux/mm.h>
+#include <linux/dma-mapping.h>
 
 #ifndef CONFIG_ARM64
-#include "../arch/arm/mm/dma.h"
+#include "mm/dma.h"
 #endif
 
 #ifndef dmac_map_area
