@@ -481,10 +481,13 @@ static void mt6315_regulator_shutdown(struct platform_device *pdev)
 		return;
 	}
 
-	ret = regmap_update_bits(regmap,
-		MT6315_PMIC_RG_SEQ_OFF_ADDR,
-		0x1 << MT6315_PMIC_RG_SEQ_OFF_SHIFT,
-		0x1 << MT6315_PMIC_RG_SEQ_OFF_SHIFT);
+	ret |= regmap_write(regmap, MT6315_PMIC_TMA_KEY_H_ADDR, 0x9C);
+	ret |= regmap_write(regmap, MT6315_PMIC_TMA_KEY_ADDR, 0xEA);
+	ret |= regmap_update_bits(regmap,
+		MT6315_PMIC_RG_TOP2_RSV2_ADDR,
+		0x1 << 0, 0x1 << 0);
+	ret |= regmap_write(regmap, MT6315_PMIC_TMA_KEY_ADDR, 0);
+	ret |= regmap_write(regmap, MT6315_PMIC_TMA_KEY_H_ADDR, 0);
 	if (ret < 0) {
 		dev_notice(&pdev->dev, "%s: enable power off sequence failed.\n"
 			   , __func__);
