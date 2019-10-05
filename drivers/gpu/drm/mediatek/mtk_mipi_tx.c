@@ -692,7 +692,7 @@ static int mtk_mipi_tx_pll_prepare_mt6885(struct clk_hw *hw)
 	writel(tmp, mipi_tx->regs + MIPITX_PLL_CON0);
 
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,
-			      FLD_RG_DSI_PLL_POSDIV, txdiv0);
+			      FLD_RG_DSI_PLL_POSDIV, txdiv0 << 8);
 	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_PLL_CON1,
 			       RG_DSI_PLL_EN);
 
@@ -823,6 +823,7 @@ static struct clk_ops mtk_mipi_tx_pll_ops = {
 
 static int mtk_mipi_tx_power_on_signal(struct phy *phy)
 {
+#ifndef CONFIG_MACH_MT6885
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 	u32 reg;
 
@@ -832,7 +833,7 @@ static int mtk_mipi_tx_power_on_signal(struct phy *phy)
 
 	mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_DSI_TOP_CON,
 			       RG_DSI_PAD_TIE_LOW_EN);
-
+#endif
 	return 0;
 }
 
@@ -855,6 +856,7 @@ static int mtk_mipi_tx_power_on(struct phy *phy)
 
 static void mtk_mipi_tx_power_off_signal(struct phy *phy)
 {
+#ifndef CONFIG_MACH_MT6885
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 	u32 reg;
 
@@ -864,6 +866,7 @@ static void mtk_mipi_tx_power_off_signal(struct phy *phy)
 	for (reg = MIPITX_DSI_CLOCK_LANE; reg <= MIPITX_DSI_DATA_LANE3;
 	     reg += 4)
 		mtk_mipi_tx_clear_bits(mipi_tx, reg, RG_DSI_LNTx_LDOOUT_EN);
+#endif
 }
 
 static int mtk_mipi_tx_power_off(struct phy *phy)
@@ -1000,7 +1003,7 @@ static const struct of_device_id mtk_mipi_tx_match[] = {
 	{.compatible = "mediatek,mt2701-mipi-tx", .data = &mt2701_mipitx_data},
 	{.compatible = "mediatek,mt6779-mipi-tx", .data = &mt6779_mipitx_data},
 	{.compatible = "mediatek,mt8173-mipi-tx", .data = &mt8173_mipitx_data},
-	{.compatible = "mediatek,mt6885-mipi-tx", .data = &mt6779_mipitx_data},
+	{.compatible = "mediatek,mt6885-mipi-tx", .data = &mt6885_mipitx_data},
 	{},
 };
 

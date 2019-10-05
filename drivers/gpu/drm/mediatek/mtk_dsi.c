@@ -2532,6 +2532,18 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 
 	init_waitqueue_head(&dsi->irq_wait_queue);
 
+	/* set ccf reference cnt = 1 */
+	phy_power_on(dsi->phy);
+	ret = clk_prepare_enable(dsi->engine_clk);
+	if (ret < 0)
+		pr_info("%s Failed to enable engine clock: %d\n",
+			__func__, ret);
+
+	ret = clk_prepare_enable(dsi->digital_clk);
+	if (ret < 0)
+		pr_info("%s Failed to enable digital clock: %d\n",
+			__func__, ret);
+
 	dsi->output_en = true;
 	dsi->clk_refcnt = 1;
 
