@@ -20,5 +20,12 @@ struct mtk_cpuidle_op {
 	void (*cpuidle_resume)(struct cpuidle_driver *drv, int index);
 };
 
+/*
+ * Set cpuidle operator for lpm. If the operator have been set before the
+ * return value will be -EACCES. Must call mtk_lpm_drv_cpuidle_ops_clr()
+ * when the cpuidle operator need to set new cpuidle operator
+ */
 int mtk_lpm_drv_cpuidle_ops_set(struct mtk_cpuidle_op *op);
+void mtk_lpm_drv_cpuidle_ops_clr(void);
+
 #endif
