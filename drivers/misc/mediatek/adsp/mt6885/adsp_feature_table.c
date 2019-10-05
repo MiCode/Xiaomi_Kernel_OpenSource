@@ -17,7 +17,7 @@ struct adsp_feature_tb {
 static struct adsp_feature_control feature_ctrl[ADSP_CORE_TOTAL];
 /*adsp feature list*/
 static struct adsp_feature_tb feature_table[ADSP_NUM_FEATURE_ID] = {
-	[SYSTEM_FEATURE_ID]           = {.name = "system", .counter = {1, 1} },
+	[SYSTEM_FEATURE_ID]           = {.name = "system", .counter = {2, 1} },
 	[ADSP_LOGGER_FEATURE_ID]      = {.name = "logger"},
 	[AURISYS_FEATURE_ID]          = {.name = "aurisys"},
 	[AUDIO_CONTROLLER_FEATURE_ID] = {.name = "audio_controller"},
@@ -99,10 +99,13 @@ int _adsp_register_feature(u32 cid, u32 fid, u32 opt)
 	if (!item->name)
 		return -EINVAL;
 
+	if (cid == ADSP_B_ID)
+		_adsp_register_feature(ADSP_A_ID, SYSTEM_FEATURE_ID, 0);
+
 	mutex_lock(&ctrl->lock);
 
 	if (ctrl->total == 0 && ctrl->resume) {
-		cancel_delayed_work_sync(&ctrl->suspend_work);
+		cancel_delayed_work(&ctrl->suspend_work);
 		ret = ctrl->resume();
 	}
 	if (ret == 0) {
@@ -146,6 +149,10 @@ int _adsp_deregister_feature(u32 cid, u32 fid, u32 opt)
 	}
 
 	mutex_unlock(&ctrl->lock);
+
+	if (cid == ADSP_B_ID)
+		_adsp_deregister_feature(ADSP_A_ID, SYSTEM_FEATURE_ID, 0);
+
 	return 0;
 }
 
@@ -155,6 +162,21 @@ bool is_feature_in_set(u32 cid, u32 fid)
 		return false;
 
 	return (feature_ctrl[cid].feature_set >> fid) & 0x1;
+}
+
+int adsp_feature_in_which_core(enum adsp_feature_id fid)
+{
+	u32 cid = 0;
+
+	if (fid >= ADSP_NUM_FEATURE_ID)
+		return -1;
+
+	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
+		if (is_feature_in_set(cid, fid))
+			return cid;
+	}
+
+	return -1;
 }
 
 int adsp_register_feature(enum adsp_feature_id fid)
@@ -216,8 +238,10 @@ static void suspend_work_ws(struct work_struct *work)
 	struct adsp_feature_control *ctrl = container_of(work,
 				struct adsp_feature_control, suspend_work.work);
 
+	mutex_lock(&ctrl->lock);
 	if (ctrl->total == 0 && ctrl->suspend)
 		ctrl->suspend();
+	mutex_unlock(&ctrl->lock);
 }
 
 int init_adsp_feature_control(u32 cid, u32 feature_set, int delay_ms,

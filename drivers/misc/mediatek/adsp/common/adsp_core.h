@@ -9,10 +9,10 @@
 #include "adsp_helper.h"
 
 enum ADSP_CORE_STATE {
-	ADSP_INIT      = 0,
-	ADSP_RUNNING   = 1,
-	ADSP_SUSPEND   = 2,
-	ADSP_RESET     = 3,
+	ADSP_RESET     = 0,
+	ADSP_SUSPEND   = 1,
+	ADSP_SLEEP     = 2,
+	ADSP_RUNNING   = 3,
 };
 
 struct adsp_priv;
@@ -31,6 +31,8 @@ int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, void *src,
 			int count);
 int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst,
 			int count);
+
+void switch_adsp_power(bool on);
 
 /* semaphore */
 int get_adsp_semaphore(unsigned int flags);

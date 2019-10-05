@@ -51,11 +51,14 @@ enum semaphore_3way_flag {
 
 /* platform method */
 void adsp_mt_set_base(void *base);
-void adsp_mt_sw_reset(void);
-void adsp_mt_run(int core_id);
-void adsp_mt_stop(int core_id);
+void adsp_mt_sw_reset(int cid);
+void adsp_mt_run(int cid);
+void adsp_mt_stop(int cid);
 void adsp_mt_clear(void);
 void adsp_mt_clr_spm(void);
+
+bool check_hifi_status(int mask);
+void switch_adsp_clk_cg(bool en, int mask);
 void adsp_platform_init(void *base);
 
 #endif

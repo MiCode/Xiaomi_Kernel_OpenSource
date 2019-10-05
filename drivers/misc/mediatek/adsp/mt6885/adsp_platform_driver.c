@@ -7,12 +7,13 @@
 #include <linux/debugfs.h>
 #include <linux/of.h>
 #include <linux/io.h>
+#include <linux/delay.h>
 #include <linux/platform_device.h>
-
 #include "adsp_clk.h"
 #include "adsp_mbox.h"
 #include "adsp_reserved_mem.h"
 #include "adsp_logger.h"
+#include "adsp_reg.h"
 #include "adsp_platform.h"
 #include "adsp_platform_driver.h"
 #include "adsp_core.h"
@@ -93,7 +94,7 @@ int adsp_core0_init(struct adsp_priv *pdata)
 
 	adsp_wq = alloc_workqueue("adsp_wq", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
 	pdata->wq = adsp_wq;
-	init_adsp_feature_control(pdata->id, pdata->feature_set, 1000,
+	init_adsp_feature_control(pdata->id, pdata->feature_set, 1100,
 				adsp_wq,
 				adsp_core0_suspend,
 				adsp_core0_resume);
@@ -124,7 +125,7 @@ int adsp_core1_init(struct adsp_priv *pdata)
 	pdata->debugfs = debugfs_create_file("audiodsp1", S_IFREG | 0644, NULL,
 					     pdata, &adsp_debug_ops);
 	pdata->wq = adsp_wq;
-	init_adsp_feature_control(pdata->id, pdata->feature_set, 1000,
+	init_adsp_feature_control(pdata->id, pdata->feature_set, 900,
 				adsp_wq,
 				adsp_core1_suspend,
 				adsp_core1_resume);
@@ -142,25 +143,138 @@ int adsp_core1_init(struct adsp_priv *pdata)
 	return ret;
 }
 
+static bool is_adsp_core_suspend(struct adsp_priv *pdata)
+{
+	u32 status = 0;
+
+	if (unlikely(!pdata))
+		return false;
+
+	adsp_copy_from_sharedmem(pdata,
+				 ADSP_SHAREDMEM_SYS_STATUS,
+				 &status, sizeof(status));
+
+	if (pdata->id == ADSP_A_ID) {
+		return check_hifi_status(ADSP_A_IS_WFI) &&
+		       check_hifi_status(ADSP_B_IS_WFI) &&
+		       check_hifi_status(ADSP_AXI_BUS_IS_IDLE) &&
+		       (status == ADSP_SUSPEND) &&
+		       (get_adsp_state(adsp_cores[ADSP_B_ID]) == ADSP_SUSPEND);
+	} else { /* ADSP_B_ID */
+		return check_hifi_status(ADSP_B_IS_WFI) &&
+		       (status == ADSP_SUSPEND);
+	}
+}
+
 int adsp_core0_suspend(void)
 {
-	pr_info("%s()", __func__);
+	int ret = 0, retry = 10;
+	u32 status = 0;
+	struct adsp_priv *pdata = adsp_cores[ADSP_A_ID];
+
+	if (get_adsp_state(pdata) == ADSP_RUNNING) {
+		reinit_completion(&pdata->done);
+		if (adsp_push_message(ADSP_IPI_DVFS_SUSPEND, &status,
+				      sizeof(status), 0, pdata->id)) {
+			ret = -EPIPE;
+			goto ERROR;
+		}
+		wait_for_completion_timeout(&pdata->done,
+					msecs_to_jiffies(2000));
+
+		while (--retry && !is_adsp_core_suspend(pdata))
+			usleep_range(100, 200);
+
+		if (retry == 0) {
+			ret = -ETIME;
+			goto ERROR;
+		}
+
+		adsp_mt_stop(pdata->id);
+		switch_adsp_power(false);
+		set_adsp_state(pdata, ADSP_SUSPEND);
+	}
 	return 0;
+ERROR:
+	pr_warn("%s(), can't going to suspend, ret(%d)\n", __func__, ret);
+	return ret;
 }
+
 int adsp_core0_resume(void)
 {
-	pr_info("%s()", __func__);
+	struct adsp_priv *pdata = adsp_cores[ADSP_A_ID];
+
+	if (get_adsp_state(pdata) == ADSP_SUSPEND) {
+		switch_adsp_power(true);
+		adsp_mt_sw_reset(pdata->id);
+
+		reinit_completion(&pdata->done);
+		adsp_mt_run(pdata->id);
+		wait_for_completion_timeout(&pdata->done,
+					msecs_to_jiffies(2000));
+
+		if (get_adsp_state(pdata) != ADSP_RUNNING) {
+			pr_warn("%s, can't going to resume\n", __func__);
+			return -ETIME;
+		}
+	}
 	return 0;
 }
+
 int adsp_core1_suspend(void)
 {
-	pr_info("%s()", __func__);
+	int ret = 0, retry = 10;
+	u32 status = 0;
+	struct adsp_priv *pdata = adsp_cores[ADSP_B_ID];
+
+	if (get_adsp_state(pdata) == ADSP_RUNNING) {
+		reinit_completion(&pdata->done);
+		if (adsp_push_message(ADSP_IPI_DVFS_SUSPEND, &status,
+				      sizeof(status), 0, pdata->id)) {
+			ret = -EPIPE;
+			goto ERROR;
+		}
+		wait_for_completion_timeout(&pdata->done,
+					msecs_to_jiffies(2000));
+
+		while (--retry && !is_adsp_core_suspend(pdata))
+			usleep_range(100, 200);
+
+		if (retry == 0) {
+			ret = -ETIME;
+			goto ERROR;
+		}
+
+		adsp_mt_stop(pdata->id);
+		switch_adsp_clk_cg(false, ADSP_CLK_CORE_1_EN);
+		set_adsp_state(pdata, ADSP_SUSPEND);
+	}
 	return 0;
+ERROR:
+	pr_warn("%s(), can't going to suspend, ret(%d)\n", __func__, ret);
+	return ret;
 }
+
 int adsp_core1_resume(void)
 {
-	pr_info("%s()", __func__);
-	return 0;
+	int ret = 0;
+	struct adsp_priv *pdata = adsp_cores[ADSP_B_ID];
+
+	if (get_adsp_state(pdata) == ADSP_SUSPEND) {
+		switch_adsp_clk_cg(true, ADSP_CLK_CORE_1_EN);
+		adsp_mt_sw_reset(pdata->id);
+
+		reinit_completion(&pdata->done);
+		adsp_mt_run(pdata->id);
+		wait_for_completion_timeout(&pdata->done,
+					msecs_to_jiffies(2000));
+
+		if (get_adsp_state(pdata) != ADSP_RUNNING) {
+			pr_warn("%s, can't going to resume\n", __func__);
+			return -ETIME;
+		}
+	}
+	return ret;
 }
 
 void adsp_logger_init0_cb(struct work_struct *ws)

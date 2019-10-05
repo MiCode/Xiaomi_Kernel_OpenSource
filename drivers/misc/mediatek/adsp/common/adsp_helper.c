@@ -759,10 +759,9 @@ static int adsp_core_device_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device *dev = &pdev->dev;
 	u32 core_id;
-#ifndef FPGA_EARLY_DEVELOPMENT
 	int ret;
 	u32 sysram[2] = {0, 0};
-#endif
+
 	of_property_read_u32(pdev->dev.of_node, "core_id", &core_id);
 
 	/* memory */
@@ -780,7 +779,7 @@ static int adsp_core_device_probe(struct platform_device *pdev)
 
 	adsp_core[core_id].total_tcmsize = adsp_core[core_id].i_tcmsize
 					   + adsp_core[core_id].d_tcmsize;
-#ifndef FPGA_EARLY_DEVELOPMENT
+
 	ret = of_property_read_u32(pdev->dev.of_node,
 			"sysram", &sysram[0]);
 	if (ret)
@@ -791,7 +790,7 @@ static int adsp_core_device_probe(struct platform_device *pdev)
 		goto ERROR;
 	adsp_core[core_id].sysram = ioremap_wc(sysram[0], sysram[1]);
 	adsp_core[core_id].sysram_size = sysram[1];
-#endif
+
 	/* irq */
 	adsp_core[core_id].ipc_irq = platform_get_irq(pdev, 0);
 	if (request_irq(adsp_core[core_id].ipc_irq, adsp_ipc_dispatch,

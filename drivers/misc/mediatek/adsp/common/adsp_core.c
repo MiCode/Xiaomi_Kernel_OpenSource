@@ -44,7 +44,7 @@ int get_adsp_state(struct adsp_priv *pdata)
 
 int is_adsp_ready(int cid)
 {
-	if (cid >= ADSP_CORE_TOTAL)
+	if (unlikely(cid >= ADSP_CORE_TOTAL))
 		return 0;
 
 	return (adsp_cores[cid]->state == ADSP_RUNNING);
@@ -67,14 +67,14 @@ int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, void *src,
 	void __iomem *dst = NULL;
 	const struct sharedmem_info *item;
 
-	if (id >= ADSP_SHAREDMEM_NUM)
+	if (unlikely(id >= ADSP_SHAREDMEM_NUM))
 		return 0;
 
 	item = pdata->mapping_table + id;
 	if (item->offset)
 		dst = pdata->dtcm + pdata->dtcm_size - item->offset;
 
-	if (!dst || !src)
+	if (unlikely(!dst || !src))
 		return 0;
 
 	if (count > item->size)
@@ -91,14 +91,14 @@ int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst,
 	void __iomem *src;
 	const struct sharedmem_info *item;
 
-	if (id >= ADSP_SHAREDMEM_NUM)
+	if (unlikely(id >= ADSP_SHAREDMEM_NUM))
 		return 0;
 
 	item = pdata->mapping_table + id;
 	if (item->offset)
-		dst = pdata->dtcm + pdata->dtcm_size - item->offset;
+		src = pdata->dtcm + pdata->dtcm_size - item->offset;
 
-	if (!dst || !src)
+	if (unlikely(!dst || !src))
 		return 0;
 
 	if (count > item->size)
@@ -157,33 +157,38 @@ void enable_adsp(bool en)
 
 void switch_adsp_power(bool on)
 {
-	unsigned long flags = 0;
-
 	if (on) {
 		adsp_enable_clock();
 		adsp_set_clock_freq(CLK_DEFAULT_INIT_CK);
-
-		write_lock_irqsave(&access_rwlock, flags);
-		adsp_mt_sw_reset();
-		write_unlock_irqrestore(&access_rwlock, flags);
 	} else {
 		adsp_set_clock_freq(CLK_DEFAULT_26M_CK);
 		adsp_disable_clock();
 	}
 }
 
-void adsp_ready_ipi_handler(int id, void *data, unsigned int len)
+static void adsp_ready_ipi_handler(int id, void *data, unsigned int len)
 {
-	unsigned int core_id = *(unsigned int *)data;
-	struct adsp_priv *pdata = get_adsp_core_by_id(core_id);
+	unsigned int cid = *(unsigned int *)data;
+	struct adsp_priv *pdata = get_adsp_core_by_id(cid);
 
-	if (!pdata)
+	if (unlikely(!pdata))
 		return;
 
 	if (get_adsp_state(pdata) != ADSP_RUNNING) {
 		set_adsp_state(pdata, ADSP_RUNNING);
 		complete(&pdata->done);
 	}
+}
+
+static void adsp_suspend_ipi_handler(int id, void *data, unsigned int len)
+{
+	unsigned int cid = *(unsigned int *)data;
+	struct adsp_priv *pdata = get_adsp_core_by_id(cid);
+
+	if (unlikely(!pdata))
+		return;
+
+	complete(&pdata->done);
 }
 
 static int __init adsp_init(void)
@@ -200,6 +205,9 @@ static int __init adsp_init(void)
 	adsp_ipi_registration(ADSP_IPI_ADSP_A_READY,
 			      adsp_ready_ipi_handler,
 			      "adsp_ready");
+	adsp_ipi_registration(ADSP_IPI_DVFS_SUSPEND,
+			      adsp_suspend_ipi_handler,
+			      "adsp_suspend_ack");
 
 	pr_info("%s, ret(%d)\n", __func__, ret);
 
@@ -209,7 +217,6 @@ static int __init adsp_init(void)
 static int __init adsp_module_init(void)
 {
 	int ret = 0, cid = 0;
-
 	struct adsp_priv *pdata;
 
 	switch_adsp_power(true);
@@ -217,13 +224,15 @@ static int __init adsp_module_init(void)
 	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
 		pdata = adsp_cores[cid];
 
-		if (!pdata) {
+		if (unlikely(!pdata)) {
 			ret = -EFAULT;
 			goto ERROR;
 		}
 
+		adsp_mt_sw_reset(cid);
+
 		ret = pdata->ops->initialize(pdata);
-		if (ret) {
+		if (unlikely(ret)) {
 			pr_warn("%s, initialize %d is fail\n", __func__, cid);
 			goto ERROR;
 		}
@@ -233,7 +242,7 @@ static int __init adsp_module_init(void)
 		ret = wait_for_completion_timeout(&pdata->done,
 					    msecs_to_jiffies(1000));
 
-		if (ret == 0) {
+		if (unlikely(ret == 0)) {
 			pr_warn("%s, core %d boot_up timeout\n", __func__, cid);
 			ret = -ETIME;
 			goto ERROR;

@@ -17,7 +17,7 @@
 static struct adsp_reserve_mblock adsp_reserve_mem = {0};
 
 static struct adsp_reserve_mblock adsp_reserve_mblocks[] = {
-#ifdef FPGA_EARLY_DEVELOPMENT
+#ifdef CONFIG_FPGA_EARLY_PORTING
 	[ADSP_IPI_DMA_MEM_ID]       = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
 	[ADSP_A_LOGGER_MEM_ID]      = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
 	[ADSP_B_LOGGER_MEM_ID]      = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
@@ -93,7 +93,7 @@ void adsp_init_reserve_memory(void)
 		return;
 
 	/* assign to each memory block */
-	for (id = ADSP_SHARED_MEM_BEGIN; id < ADSP_NUMS_MEM_ID; id++) {
+	for (id = 0; id < ADSP_NUMS_MEM_ID; id++) {
 		adsp_reserve_mblocks[id].phys_addr = mem->phys_addr + acc_size;
 		adsp_reserve_mblocks[id].virt_addr = mem->virt_addr + acc_size;
 		acc_size += adsp_reserve_mblocks[id].size;
@@ -112,13 +112,13 @@ ssize_t adsp_reserve_memory_dump(char *buffer, int size)
 	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
 
 	n += scnprintf(buffer + n, size - n,
-		"Reserve-memory-all:0x%x 0x%p 0x%x\n",
+		"Reserve-memory-all:0x%llx 0x%p 0x%zx\n",
 		mem->phys_addr, mem->virt_addr, mem->size);
 
 	for (i = 0; i < ADSP_NUMS_MEM_ID; i++) {
 		mem = &adsp_reserve_mblocks[i];
 		n += scnprintf(buffer + n, size - n,
-			"Reserve-memory-Block[%02d]:0x%x 0x%p 0x%x\n",
+			"Reserve-memory-Block[%02d]:0x%llx 0x%p 0x%zx\n",
 			i, mem->phys_addr, mem->virt_addr, mem->size);
 	}
 	return n;

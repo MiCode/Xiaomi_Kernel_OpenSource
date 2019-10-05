@@ -8,10 +8,8 @@
 
 /*#define ADSP_BASE in use file */
 #define ADSP_CFGREG_SW_RSTN         (ADSP_BASE + 0x0000)
-#define ADSP_A_SW_RSTN              (1 << 0)
-#define ADSP_A_SW_DBG_RSTN          (1 << 4)
-#define ADSP_B_SW_RSTN              (1 << 1)
-#define ADSP_B_SW_DBG_RSTN          (1 << 5)
+#define ADSP_A_SW_RSTN              (0x11)
+#define ADSP_B_SW_RSTN              (0x22)
 #define ADSP_SW_RSTN                (0x33)
 
 #define ADSP_HIFI3_IO_CONFIG        (ADSP_BASE + 0x000C)
@@ -110,7 +108,6 @@
 /* adsp power state*/
 #define ADSP_A_IS_RESET             (0x00)
 #define ADSP_A_IS_ACTIVE            (0x10)
-#define ADSP_A_IS_WFI               (0x20)
 /* adsp current state */
 #define ADSP_A_CUR_RESET             (0x0)
 #define ADSP_A_CUR_STALL             (0x1)
@@ -118,17 +115,18 @@
 #define ADSP_A_CUR_WFI               (0x4)
 #define ADSP_A_CUR_WAKEUP            (0x5) //Wakeup state (Receive irq)
 
-#define ADSP_A_AXI_BUS_IS_IDLE      (1 << 1)
+#define ADSP_A_IS_WFI               (1 << 0)
+#define ADSP_B_IS_WFI               (1 << 1)
+#define ADSP_AXI_BUS_IS_IDLE        (1 << 2)
 
 /* clk reg */
-#define ADSP_CLK_CTRL_OFFSET        (0x1000)
-#define ADSP_CLK_CTRL_BASE          (adsp_common.clkctrl)
+#define ADSP_CLK_CTRL_BASE          (ADSP_BASE + 0x1000)
 #define ADSP_CLK_UART_EN            (1 << 5)
 #define ADSP_CLK_DMA_EN             (1 << 4)
 #define ADSP_CLK_TIMER_EN           (1 << 3)
 #define ADSP_CLK_CORE_1_EN          (1 << 1)
 #define ADSP_CLK_CORE_0_EN          (1 << 0)
-#define ADSP_UART_CTRL              (adsp_common.clkctrl + 0x0010)
+#define ADSP_UART_CTRL              (ADSP_BASE + 0x1010)
 #define ADSP_UART_RST_N             (1 << 3)
 #define ADSP_UART_CLK_SEL           (1 << 1)
 #define ADSP_UART_BCLK_CG           (1 << 0)

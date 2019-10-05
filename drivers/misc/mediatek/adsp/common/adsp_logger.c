@@ -131,7 +131,7 @@ struct log_ctrl_s *adsp_logger_init(int mem_id)
 	struct buffer_info_s *buf_info;
 
 	if (!addr || size < MINIMUM_LOG_BUF_SIZE) {
-		pr_info("%s(), failed addr=%p, size=%llu\n", __func__,
+		pr_info("%s(), failed addr=%p, size=%zu\n", __func__,
 			addr, size);
 		return addr;
 	}

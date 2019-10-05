@@ -8,14 +8,12 @@
 
 #include "adsp_platform_driver.h"
 
-#define FPGA_EARLY_DEVELOPMENT			(1)
-
 /* adsp reserve memory ID definition*/
 enum adsp_reserve_mem_id_t {
 	ADSP_IPI_DMA_MEM_ID,
 	ADSP_A_LOGGER_MEM_ID,
 	ADSP_B_LOGGER_MEM_ID,
-#ifndef FPGA_EARLY_DEVELOPMENT
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	ADSP_AUDIO_COMMON_MEM_ID,
 	ADSP_OFFLOAD_MEM_ID,
 	ADSP_CALL_FINAL_MEM_ID,
@@ -27,8 +25,6 @@ enum adsp_reserve_mem_id_t {
 	ADSP_A_CORE_DUMP_MEM_ID,
 	ADSP_B_CORE_DUMP_MEM_ID,
 	ADSP_NUMS_MEM_ID,
-	ADSP_SHARED_MEM_BEGIN = ADSP_IPI_DMA_MEM_ID,
-	ADSP_SHARED_MEM_END = ADSP_B_CORE_DUMP_MEM_ID,
 };
 
 struct adsp_reserve_mblock {

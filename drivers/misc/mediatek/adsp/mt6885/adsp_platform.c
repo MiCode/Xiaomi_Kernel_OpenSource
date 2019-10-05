@@ -26,21 +26,30 @@ void adsp_mt_set_base(void *base)
 		mt_base = base;
 }
 
-void adsp_mt_sw_reset(void)
+void adsp_mt_sw_reset(int cid)
 {
-	writel(ADSP_SW_RSTN, ADSP_CFGREG_SW_RSTN);
-	udelay(1);
-	writel(0, ADSP_CFGREG_SW_RSTN);
+	if (unlikely(cid >= ADSP_CORE_TOTAL))
+		return;
+
+	if (cid == ADSP_A_ID) {
+		SET_BITS(ADSP_CFGREG_SW_RSTN, ADSP_A_SW_RSTN);
+		udelay(1);
+		CLR_BITS(ADSP_CFGREG_SW_RSTN, ADSP_A_SW_RSTN);
+	} else {
+		SET_BITS(ADSP_CFGREG_SW_RSTN, ADSP_B_SW_RSTN);
+		udelay(1);
+		CLR_BITS(ADSP_CFGREG_SW_RSTN, ADSP_B_SW_RSTN);
+	}
 }
 
-void adsp_mt_run(int core_id)
+void adsp_mt_run(int cid)
 {
 	//int timeout = 1000;
-	if (core_id >= ADSP_CORE_TOTAL)
+	if (unlikely(cid >= ADSP_CORE_TOTAL))
 		return;
 
 	/* request infra/26M/apsrc/v18/ ddr resource */
-	if (core_id == ADSP_A_ID)
+	if (cid == ADSP_A_ID)
 		SET_BITS(ADSP_A_DDREN_REQ, ADSP_SPM_SRC_BITS);
 	else
 		SET_BITS(ADSP_B_DDREN_REQ, ADSP_SPM_SRC_BITS);
@@ -55,18 +64,18 @@ void adsp_mt_run(int core_id)
 		}
 	}
 #endif
-	if (core_id == ADSP_A_ID)
+	if (cid == ADSP_A_ID)
 		CLR_BITS(ADSP_HIFI3_IO_CONFIG, ADSP_A_RUNSTALL);
 	else
 		CLR_BITS(ADSP_HIFI3_IO_CONFIG, ADSP_B_RUNSTALL);
 }
 
-void adsp_mt_stop(int core_id)
+void adsp_mt_stop(int cid)
 {
-	if (core_id >= ADSP_CORE_TOTAL)
+	if (unlikely(cid >= ADSP_CORE_TOTAL))
 		return;
 
-	if (core_id == ADSP_A_ID)
+	if (cid == ADSP_A_ID)
 		SET_BITS(ADSP_HIFI3_IO_CONFIG, ADSP_A_RUNSTALL);
 	else
 		SET_BITS(ADSP_HIFI3_IO_CONFIG, ADSP_B_RUNSTALL);
@@ -89,6 +98,19 @@ void adsp_mt_clear(void)
 void adsp_mt_clr_spm(void)
 {
 	//CLR_BITS(ADSP_A_SPM_WAKEUPSRC, ADSP_WAKEUP_SPM);
+}
+
+bool check_hifi_status(int mask)
+{
+	return !!(readl(ADSP_SLEEP_STATUS_REG) & mask);
+}
+
+void switch_adsp_clk_cg(bool en, int mask)
+{
+	if (en)
+		SET_BITS(ADSP_CLK_CTRL_BASE, mask);
+	else
+		CLR_BITS(ADSP_CLK_CTRL_BASE, mask);
 }
 
 void adsp_platform_init(void *base)

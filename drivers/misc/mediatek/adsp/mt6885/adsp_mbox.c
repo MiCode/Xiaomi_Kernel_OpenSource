@@ -111,7 +111,7 @@ int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 	result = mtk_mbox_trigger_irq(mbdev, pin_send->mbox,
 				      0x1 << pin_send->pin_index);
 	if (result != MBOX_DONE) {
-		pr_err("%s() error mbox trigger, result %d\n",
+		pr_err("%s() error mbox%d trigger, result %d\n",
 		       __func__, pin_send->mbox, result);
 		return result;
 	}
