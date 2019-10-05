@@ -3059,7 +3059,7 @@ static int pseudo_port_probe(struct platform_device *pdev)
 	LIST_HEAD(list);
 #endif
 
-	M4U_MSG("%s start\n");
+	M4U_MSG("start\n");
 	/* dma will split the iova into max size to 65535 byte by default */
 	/* if we do not set this.*/
 	dma_param = kzalloc(sizeof(*dma_param), GFP_KERNEL);
