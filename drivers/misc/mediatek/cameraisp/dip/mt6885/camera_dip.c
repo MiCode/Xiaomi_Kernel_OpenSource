@@ -1221,6 +1221,14 @@ static signed int DIP_DumpDIPReg(void)
 			dbg_sel, dbg_out);
 	}
 
+	for (dd = 0; dd < 9; dd++) {
+		dbg_sel = 0x00000302 | (dd << 16);
+		DIP_WR32(DIP_A_BASE + 0x1190, dbg_sel);
+		dbg_out = DIP_RD32(DIP_A_BASE + 0x1194);
+		CMDQ_ERR("YNR dbg_sel: 0x%08x dbg_out: 0x%08x\n",
+		dbg_sel, dbg_out);
+	}
+
 
 	/* DMA Error */
 	CMDQ_ERR("img2o  0x15021068(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x68));
@@ -1772,11 +1780,21 @@ static signed int DIP_DumpDIPReg(void)
 
 	DIP_WR32(MSF_BASE + 0x4d0, 0x0);
 	for (i = 0; i < 59 ; i++) {
-		mfbcmd = i << 8;
+		mfbcmd = 0x11;
+		mfbcmd |= (i << 8);
 		DIP_WR32(MSF_BASE + 0x888, mfbcmd);
 		CMDQ_ERR("idx:%d cmd:0x%x debug0(0x%x)\n",
 				i, mfbcmd, DIP_RD32(MSF_BASE + 0x4d4));
 	}
+
+	for (i = 0; i < 112 ; i++) {
+		mfbcmd = 0x3000000;
+		mfbcmd |= (i << 16);
+		DIP_WR32(MSF_BASE + 0x4d0, mfbcmd);
+		CMDQ_ERR("idx:%d cmd:0x%x debug0(0x%x)\n",
+				i, mfbcmd, DIP_RD32(MSF_BASE + 0x4cc));
+	}
+
 
 	for (loop = 0; loop < (0x73C/0x4); loop++) {
 		CMDQ_ERR("MSFREG: 0x%08X 0x%08X\n",
