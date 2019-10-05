@@ -15,7 +15,9 @@
 #define __MTK_SPM_MISC_H__
 
 /* TODO: fix */
-#if !defined(SPM_K414_EARLY_PORTING) && !defined(CONFIG_MACH_MT6739)
+#if !defined(SPM_K414_EARLY_PORTING) && \
+	!defined(CONFIG_MACH_MT6739) && \
+	!defined(CONFIG_MACH_MT6771)
 #include <linux/irqchip/mtk-gic.h>
 #else
 #include <linux/irqchip/mtk-gic-extend.h>
