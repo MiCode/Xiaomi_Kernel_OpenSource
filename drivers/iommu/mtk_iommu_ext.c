@@ -25,11 +25,6 @@
 #include <linux/fs.h>
 #include <linux/file.h>
 #include <linux/seq_file.h>
-
-#ifdef CONFIG_MTK_AEE_FEATURE
-#include <aee.h>
-#endif
-
 #include <mmprofile.h>
 
 #define mmu_translation_log_format \
