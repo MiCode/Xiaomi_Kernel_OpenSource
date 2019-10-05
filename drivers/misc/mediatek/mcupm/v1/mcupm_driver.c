@@ -701,6 +701,7 @@ static int mcupm_device_probe(struct platform_device *pdev)
 	return 0;
 }
 
+#if MCUPM_ALIVE_THREAD
 static struct task_struct *mcupm_task;
 int mcupm_thread(void *data)
 {
@@ -727,6 +728,7 @@ int mcupm_thread(void *data)
 	} while (!kthread_should_stop());
 	return 0;
 }
+#endif
 
 static const struct of_device_id mcupm_of_match[] = {
 	{ .compatible = "mediatek,mcupm", },
@@ -772,8 +774,10 @@ static int __init mcupm_init(void)
 	}
 #endif
 
+#if MCUPM_ALIVE_THREAD
 	mcupm_task = kthread_run(mcupm_thread, NULL,
 					"mcupm_task");
+#endif
 
 	pr_debug("[MCUPM] Helper Init\n");
 
