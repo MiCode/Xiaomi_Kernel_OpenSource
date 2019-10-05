@@ -726,7 +726,7 @@ void *vb2_dc_attach_dmabuf(struct device *dev, struct dma_buf *dbuf,
 /*       DMA CONTIG exported functions       */
 /*********************************************/
 
-const struct vb2_mem_ops vb2_dma_contig_memops = {
+const struct vb2_mem_ops vb2_dpe_dma_contig_memops = {
 	.alloc		= vb2_dc_alloc,
 	.put		= vb2_dc_put,
 	.get_dmabuf	= vb2_dc_get_dmabuf,
@@ -743,10 +743,10 @@ const struct vb2_mem_ops vb2_dma_contig_memops = {
 	.detach_dmabuf	= vb2_dc_detach_dmabuf,
 	.num_users	= vb2_dc_num_users,
 };
-EXPORT_SYMBOL_GPL(vb2_dma_contig_memops);
+EXPORT_SYMBOL_GPL(vb2_dpe_dma_contig_memops);
 
 /**
- * vb2_dma_contig_set_max_seg_size() - configure DMA max segment size
+ * vb2_dpe_dma_contig_set_max_seg_size() - configure DMA max segment size
  * @dev:	device for configuring DMA parameters
  * @size:	size of DMA max segment size to set
  *
@@ -769,7 +769,7 @@ EXPORT_SYMBOL_GPL(vb2_dma_contig_memops);
  * (either USERPTR or DMABUF). This should be done before initializing
  * videobuf2 queue.
  */
-int vb2_dma_contig_set_max_seg_size(struct device *dev, unsigned int size)
+int vb2_dpe_dma_contig_set_max_seg_size(struct device *dev, unsigned int size)
 {
 	if (!dev->dma_parms) {
 		dev->dma_parms = kzalloc(sizeof(*dev->dma_parms), GFP_KERNEL);
@@ -781,22 +781,23 @@ int vb2_dma_contig_set_max_seg_size(struct device *dev, unsigned int size)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(vb2_dma_contig_set_max_seg_size);
+EXPORT_SYMBOL_GPL(vb2_dpe_dma_contig_set_max_seg_size);
 
 /*
- * vb2_dma_contig_clear_max_seg_size() - release resources for DMA parameters
+ * vb2_dpe_dma_contig_clear_max_seg_size() -
+ * release resources for DMA parameters
  * @dev:	device for configuring DMA parameters
  *
  * This function releases resources allocated to configure DMA parameters
- * (see vb2_dma_contig_set_max_seg_size() function). It should be called from
- * device drivers on driver remove.
+ * (see vb2_dpe_dma_contig_set_max_seg_size() function).
+ * It should be called from device drivers on driver remove.
  */
-void vb2_dma_contig_clear_max_seg_size(struct device *dev)
+void vb2_dpe_dma_contig_clear_max_seg_size(struct device *dev)
 {
 	kfree(dev->dma_parms);
 	dev->dma_parms = NULL;
 }
-EXPORT_SYMBOL_GPL(vb2_dma_contig_clear_max_seg_size);
+EXPORT_SYMBOL_GPL(vb2_dpe_dma_contig_clear_max_seg_size);
 
 MODULE_DESCRIPTION("DMA-contig memory handling routines for videobuf2");
 MODULE_AUTHOR("Pawel Osciak <pawel@osciak.com>");

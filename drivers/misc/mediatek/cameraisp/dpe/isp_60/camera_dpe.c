@@ -2050,7 +2050,8 @@ signed int CmdqDPEHW(struct frame *frame)
 
 	//cmdqRecSetEngine(handle, engineFlag);
 
-	cmdq_pkt_cl_create(&handle, dpe_clt);
+	//cmdq_pkt_cl_create(&handle, dpe_clt);
+	handle = cmdq_pkt_create(dpe_clt);
 
 #define CMDQWR(REG) \
 	cmdq_pkt_write(handle, dpe_clt_base, \
@@ -2293,7 +2294,7 @@ cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x00000000, 0x20000000);
 	/* non-blocking API, Please  use cmdqRecFlushAsync() */
 	//cmdq_task_flush_async_destroy(handle);
 	/* flush and destroy in cmdq */
-	cmdq_pkt_flush_threaded(dpe_clt, handle,
+	cmdq_pkt_flush_threaded(handle,
 	cmdq_cb_destroy, (void *)handle);
 
 	return 0;
