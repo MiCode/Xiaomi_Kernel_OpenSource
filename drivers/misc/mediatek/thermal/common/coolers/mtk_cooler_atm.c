@@ -2363,7 +2363,7 @@ static ssize_t tscpu_write_atm_setting
 						MINIMUM_GPU_POWERS[i_id];
 
 			tscpu_printk(
-				"tscpu_write_dtm_setting applied %d %d %d %d %d %d %d %d %d\n",
+				"tscpu_write_atm_setting applied %d %d %d %d %d %d %d %d %d\n",
 					i_id,
 					FIRST_STEP_TOTAL_POWER_BUDGETS[i_id],
 					PACKAGE_THETA_JA_RISES[i_id],
@@ -2384,7 +2384,7 @@ static ssize_t tscpu_write_atm_setting
 
 		return count;
 	}
-	tscpu_dprintk("tscpu_write_dtm_setting bad argument\n");
+	tscpu_dprintk("tscpu_write_atm_setting bad argument\n");
 	return -EINVAL;
 }
 

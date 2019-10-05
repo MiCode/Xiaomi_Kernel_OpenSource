@@ -1235,8 +1235,15 @@ static ssize_t tscpu_write
 		 * PTPOD still need to use this function for getting temperature
 		 */
 
+		/* avoid thermal reboot after unbinding coolers
+		 * during HT stress
+		 */
 #if defined(CONFIG_ARCH_MT6797)
 		apthermolmt_set_general_cpu_power_limit(900);
+#endif
+#if defined(CONFIG_MACH_MT6885)
+		if (tscpu_g_curr_temp > 85000)
+			apthermolmt_set_general_cpu_power_limit(500);
 #endif
 
 		down(&sem_mutex);
@@ -1418,7 +1425,7 @@ static ssize_t tscpu_write
 		tscpu_register_thermal();
 		up(&sem_mutex);
 
-#if defined(CONFIG_ARCH_MT6797)
+#if defined(CONFIG_ARCH_MT6797) || defined(CONFIG_MACH_MT6885)
 		apthermolmt_set_general_cpu_power_limit(0);
 #endif
 		proc_write_flag = 1;
