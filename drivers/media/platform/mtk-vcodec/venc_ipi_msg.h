@@ -94,6 +94,7 @@ enum venc_set_param_type {
 	VENC_SET_PARAM_RFS_ON,
 	VENC_SET_PARAM_PREPEND_SPSPPS_TO_IDR,
 	VENC_SET_PARAM_OPERATION_RATE,
+	VENC_SET_PARAM_BITRATE_MODE,
 	VENC_SET_PARAM_SEC_MODE,
 };
 
@@ -373,6 +374,10 @@ struct venc_vcu_config {
 	__u32 profile;
 	__u32 level;
 	__u32 wfd;
+	__u32 operationrate;
+	__u32 scenario;
+	__u32 prependheader;
+	__u32 bitratemode;
 };
 
 /**

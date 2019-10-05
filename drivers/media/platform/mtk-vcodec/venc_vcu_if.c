@@ -305,6 +305,10 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 		out.data_item = 1;
 		out.data[0] = enc_param->operationrate;
 		break;
+	case VENC_SET_PARAM_BITRATE_MODE:
+		out.data_item = 1;
+		out.data[0] = enc_param->bitratemode;
+		break;
 	case VENC_SET_PARAM_SEC_MODE:
 		out.data_item = 1;
 		out.data[0] = enc_param->svp_mode;
