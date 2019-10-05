@@ -883,12 +883,6 @@ void ddp_check_path(enum DDP_SCENARIO_ENUM scenario)
 
 int ddp_path_top_clock_on(void)
 {
-#if defined(CONFIG_MTK_IOMMU_V2) && \
-	defined(CONFIG_MTK_SMI_EXT)
-	struct disp_iommu_device *iommu_dev;
-	int larb_idx = 0;
-#endif
-
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
 		return 0;
 
@@ -908,16 +902,6 @@ int ddp_path_top_clock_on(void)
 #endif
 	ddp_clk_prepare_enable(CLK_MM_26M);
 
-#if defined(CONFIG_MTK_IOMMU_V2) && \
-	defined(CONFIG_MTK_SMI_EXT)
-	iommu_dev = disp_get_iommu_dev();
-	if (!iommu_dev) {
-		DISPERR("%s iommu is null\n", __func__);
-		return 0;
-	}
-	for (larb_idx = 0; larb_idx < DISP_LARB_COUNT; larb_idx++)
-		mtk_smi_larb_get(&iommu_dev->larb_pdev[larb_idx]->dev);
-#endif
 	/* enable_clock(MT_CG_DISP0_MUTEX_32K, "DDP_MUTEX"); */
 	DISPINFO("ddp CG0:%x, CG1:%x\n",
 		DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0),
@@ -928,17 +912,6 @@ int ddp_path_top_clock_on(void)
 
 int ddp_path_top_clock_off(void)
 {
-#if defined(CONFIG_MTK_IOMMU_V2) && \
-	defined(CONFIG_MTK_SMI_EXT)
-	struct disp_iommu_device *iommu_dev;
-	int larb_idx = 0;
-
-	iommu_dev = disp_get_iommu_dev();
-
-	for (larb_idx = 0; larb_idx < DISP_LARB_COUNT; larb_idx++)
-		mtk_smi_larb_put(&iommu_dev->larb_pdev[larb_idx]->dev);
-#endif
-
 	ddp_clk_disable_unprepare(CLK_MM_26M);
 #ifdef CONFIG_MTK_SMI_EXT
 	smi_bus_disable_unprepare(SMI_LARB0, "DISP");

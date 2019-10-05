@@ -74,6 +74,9 @@
 
 #define SMI_LARB_NON_SEC_CON 0x0380
 
+#define MTK_DDP_COMP_USER "DISP"
+
+
 void mtk_ddp_write(struct mtk_ddp_comp *comp, unsigned int value,
 		   unsigned int offset, void *handle)
 {
@@ -348,9 +351,11 @@ struct mtk_ddp_comp *mtk_ddp_comp_find_by_id(struct drm_crtc *crtc,
 static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 				  struct mtk_ddp_comp *comp)
 {
+	int ret;
 	struct device_node *larb_node;
 	struct platform_device *larb_pdev;
 	enum mtk_ddp_comp_type type = mtk_ddp_comp_get_type(comp->id);
+	unsigned int larb_id;
 
 	comp->larb_dev = NULL;
 
@@ -365,6 +370,15 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 
 	if (comp->larb_dev != NULL)
 		return;
+
+	ret = of_property_read_u32(comp->larb_dev->of_node,
+				"mediatek,smi-id", &larb_id);
+	if (ret) {
+		dev_err(comp->larb_dev,
+			"LARB%u read failed:%d\n", larb_id, ret);
+		return;
+	}
+	comp->larb_id = larb_id;
 
 	/* check if this module need larb_dev */
 	if (type == MTK_DISP_OVL || type == MTK_DISP_RDMA ||
@@ -492,7 +506,7 @@ void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)
 
 #ifdef CONFIG_MTK_SMI_EXT
 	if (comp->larb_dev)
-		mtk_smi_larb_get(comp->larb_dev);
+		smi_bus_prepare_enable(comp->larb_id, MTK_DDP_COMP_USER);
 #endif
 
 	if (comp->clk)
@@ -509,7 +523,7 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 
 #ifdef CONFIG_MTK_SMI_EXT
 	if (comp->larb_dev)
-		mtk_smi_larb_put(comp->larb_dev);
+		smi_bus_disable_unprepare(comp->larb_id, MTK_DDP_COMP_USER);
 #endif
 }
 

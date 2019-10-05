@@ -246,6 +246,7 @@ struct mtk_ddp_comp {
 	struct device *larb_dev;
 	struct device *dev;
 	struct mtk_drm_crtc *mtk_crtc;
+	u32 larb_id;
 	enum mtk_ddp_comp_id id;
 	struct drm_framebuffer *fb;
 	const struct mtk_ddp_comp_funcs *funcs;
