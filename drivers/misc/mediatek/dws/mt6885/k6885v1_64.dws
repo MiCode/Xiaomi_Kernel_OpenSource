@@ -78,6 +78,13 @@
                 <sensitive_level>Level</sensitive_level>
                 <debounce_en>Disable</debounce_en>
             </eint31>
+            <eint41>
+                <varName>DSI_TE</varName>
+                <debounce_time>0</debounce_time>
+                <polarity>High</polarity>
+                <sensitive_level>Edge</sensitive_level>
+                <debounce_en>Disable</debounce_en>
+            </eint41>
         </module>
         <module name="gpio">
             <count>227</count>
