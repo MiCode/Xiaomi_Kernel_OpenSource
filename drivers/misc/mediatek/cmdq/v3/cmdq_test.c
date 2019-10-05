@@ -7424,8 +7424,8 @@ void testmbox_poll_timeout_run(u32 poll_value, u32 poll_mask,
 	*(out_va + 1) = 0;
 
 	cmdq_pkt_write_indriect(pkt, clt_base, out_pa, CMDQ_CPR_STRAT_ID, ~0);
-	cmdq_pkt_poll_timeout(pkt, clt_base, poll_value, dst_reg_pa, poll_mask,
-		100, CMDQ_DATA_REG_DEBUG);
+	cmdq_pkt_poll_timeout(pkt, poll_value, SUBSYS_NO_SUPPORT, dst_reg_pa,
+		poll_mask, 100, CMDQ_DATA_REG_DEBUG);
 	cmdq_pkt_write_indriect(pkt, clt_base, out_pa + 4,
 		CMDQ_CPR_STRAT_ID, ~0);
 	cmdq_pkt_set_event(pkt, CMDQ_SYNC_TOKEN_GPR_SET_4);
@@ -7601,7 +7601,7 @@ void testmbox_sleep(void)
 	*(out_va + 1) = 0;
 
 	cmdq_pkt_write_indriect(pkt, clt_base, out_pa, CMDQ_TPR_ID, ~0);
-	cmdq_pkt_sleep(pkt, clt_base, 100, CMDQ_DATA_REG_DEBUG);
+	cmdq_pkt_sleep(pkt, 100, CMDQ_DATA_REG_DEBUG);
 	cmdq_pkt_write_indriect(pkt, clt_base, out_pa + 4, CMDQ_TPR_ID, ~0);
 	cmdq_pkt_set_event(pkt, CMDQ_SYNC_TOKEN_GPR_SET_4);
 

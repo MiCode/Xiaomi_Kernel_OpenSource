@@ -28,6 +28,7 @@
 #define CMDQ_GPR_CNT_ID			(32)
 #define CMDQ_CPR_STRAT_ID		(0x8000)
 #define CMDQ_EVENT_MAX			0x3FF
+#define SUBSYS_NO_SUPPORT		99
 
 /* GCE provide 26M timer, thus each tick 1/26M second,
  * which is, 1 microsecond = 26 ticks
@@ -305,17 +306,15 @@ s32 cmdq_pkt_poll(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 
 /* cmdq_pkt_sleep() - append commands to wait a short time in microsecond
  * @pkt:	the CMDQ packet
- * @clt_base:	the CMDQ base
  * @tick:	sleep time in tick, use CMDQ_MS_TO_TICK to translate into ms
  * @reg_gpr:	GPR use to counting
  *
  * Return 0 for success; else the error code is returned
  */
-s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
-	u16 tick, u16 reg_gpr);
+s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u16 tick, u16 reg_gpr);
 
-s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
-	u32 value, phys_addr_t addr, u32 mask, u16 count, u16 reg_gpr);
+s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
+	phys_addr_t addr, u32 mask, u16 count, u16 reg_gpr);
 
 void cmdq_pkt_perf_end(struct cmdq_pkt *pkt);
 void cmdq_pkt_perf_begin(struct cmdq_pkt *pkt);
