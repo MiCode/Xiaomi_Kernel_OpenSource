@@ -894,7 +894,7 @@ void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 				(((1 << led_data->cust.led_bits) - 1) / 2))
 				/ ((1 << led_data->cust.led_bits) - 1));
 
-	pr_info("[LED] disp_pq_notify_backlight_changed: %d-%d()",
+	pr_info("[LED] disp_pq_notify_backlight_changed: %d-%d(%d)",
 			level, trans_level, led_data->cust.led_bits);
 	disp_pq_notify_backlight_changed(trans_level);
 #ifdef CONFIG_MTK_AAL_SUPPORT
