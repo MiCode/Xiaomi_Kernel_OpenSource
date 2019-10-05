@@ -19,7 +19,7 @@
 
 struct DPI_PARAM_CONTEXT {
 	int hdmi_width;	/* DPI read buffer width */
-	int hdmi_height;/* DPI read buffer height */
+	int hdmi_height;	/* DPI read buffer height */
 	int bg_width;	/* DPI read buffer width */
 	int bg_height;	/* DPI read buffer height */
 	enum HDMI_VIDEO_RESOLUTION output_video_resolution;

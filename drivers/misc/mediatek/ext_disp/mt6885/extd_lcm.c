@@ -36,6 +36,7 @@
  */
 
 /***************************************/
+/***************************************/
 #include "extd_info.h"
 
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) &&	\
@@ -72,56 +73,48 @@
 #include "extd_utils.h"
 #include "external_display.h"
 
-/* the static variable */
+/* ~~~~~~~~~~~~the static variable~~~~~~ */
 static unsigned int ovl_layer_num;
 
-/* the global variable */
+/* ~~~~~~~~~the gloable variable~~~~~~~~~ */
 LCM_PARAMS extd_interface_params;
 
-/* the definition */
+/* ~~~~~~~~~~~~the definition~~~~~~~~~~ */
 
-#define LCM_SESSION_ID		(0x20003)
-
-unsigned int lcm_get_width(void)
-{
-	return extd_interface_params.width;
-}
-
-unsigned int lcm_get_height(void)
-{
-	return extd_interface_params.height;
-}
-
+#define EXTD_LCM_SESSION_ID          (0x20003)
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 int lcm_get_dev_info(int is_sf, void *info)
 {
 	int ret = 0;
-	struct disp_session_info *dispif_info;
 
-	if (is_sf != SF_GET_INFO)
-		return ret;
+	if (is_sf == SF_GET_INFO) {
+		struct disp_session_info *dispif_info =
+		    (struct disp_session_info *)info;
 
-	dispif_info = (struct disp_session_info *)info;
-	memset((void *)dispif_info, 0, sizeof(*dispif_info));
+		memset((void *)dispif_info, 0,
+		       sizeof(struct disp_session_info));
 
-	dispif_info->isOVLDisabled = (ovl_layer_num == 1) ? 1 : 0;
-	dispif_info->maxLayerNum = ovl_layer_num;
-	if (extd_interface_params.type == LCM_TYPE_DSI) {
-		dispif_info->displayFormat =
-			extd_interface_params.dsi.data_format.format;
-		dispif_info->displayHeight = extd_interface_params.height;
-		dispif_info->displayWidth = extd_interface_params.width;
-		dispif_info->displayType = DISP_IF_TYPE_DSI1;
-		if (extd_interface_params.dsi.mode == CMD_MODE)
-			dispif_info->displayMode = DISP_IF_MODE_COMMAND;
-		else
-			dispif_info->displayMode = DISP_IF_MODE_VIDEO;
+		dispif_info->isOVLDisabled = (ovl_layer_num == 1) ? 1 : 0;
+		dispif_info->maxLayerNum = ovl_layer_num;
+		if (extd_interface_params.type == LCM_TYPE_DSI) {
+			dispif_info->displayFormat =
+			    extd_interface_params.dsi.data_format.format;
+			dispif_info->displayHeight =
+			    extd_interface_params.height;
+			dispif_info->displayWidth = extd_interface_params.width;
+			dispif_info->displayType = DISP_IF_TYPE_DSI1;
+			if (extd_interface_params.dsi.mode == CMD_MODE)
+				dispif_info->displayMode = DISP_IF_MODE_COMMAND;
+			else
+				dispif_info->displayMode = DISP_IF_MODE_VIDEO;
+		}
+
+		dispif_info->isHwVsyncAvailable = 1;
+		dispif_info->vsyncFPS = 6000;
+		dispif_info->physicalHeight = dispif_info->physicalWidth = 0;
+
+		dispif_info->isConnected = 1;
 	}
-
-	dispif_info->isHwVsyncAvailable = 1;
-	dispif_info->vsyncFPS = 6000;
-	dispif_info->physicalHeight = dispif_info->physicalWidth = 0;
-
-	dispif_info->isConnected = 1;
 
 	return ret;
 }
@@ -134,12 +127,13 @@ void lcm_set_layer_num(int layer_num)
 #else
 		ovl_layer_num = layer_num;
 #endif
+
 }
 
 int lcm_ioctl(unsigned int ioctl_cmd, int param1, int param2,
 	      unsigned long *params)
 {
-	/* HDMI_LOG("hdmi_ioctl ioctl_cmd:%d\n", ioctl_cmd); */
+	/* EXTDINFO("hdmi_ioctl ioctl_cmd:%d\n", ioctl_cmd); */
 	int ret = 0;
 
 	switch (ioctl_cmd) {
@@ -147,7 +141,7 @@ int lcm_ioctl(unsigned int ioctl_cmd, int param1, int param2,
 		lcm_set_layer_num(param1);
 		break;
 	default:
-		LCM_LOG("%s unknown command\n", __func__);
+		EXTDERR("%s unknown command\n", __func__);
 		break;
 	}
 
@@ -159,6 +153,7 @@ int lcm_post_init(void)
 	struct disp_lcm_handle *plcm;
 	LCM_PARAMS *lcm_param;
 
+	EXTDFUNC();
 	memset((void *)&extd_interface_params, 0, sizeof(LCM_PARAMS));
 
 	extd_disp_get_interface((struct disp_lcm_handle **)&plcm);
@@ -168,7 +163,9 @@ int lcm_post_init(void)
 			memcpy(&extd_interface_params, lcm_param,
 			       sizeof(LCM_PARAMS));
 	}
-	extd_dbg_init();
+
+	Extd_DBG_Init();
+	EXTDINFO("%s done\n", __func__);
 	return 0;
 }
 #endif

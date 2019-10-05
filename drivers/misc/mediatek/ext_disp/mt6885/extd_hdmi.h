@@ -12,10 +12,10 @@
  */
 
 /* ------------------------------------- */
-#ifndef __HDMITX_H__
-#define __HDMITX_H__
+#ifndef HDMITX_H
+#define     HDMITX_H
 
-/* #include "mtkfb.h" */
+/* /#include "mtkfb.h" */
 #include "disp_session.h"
 
 #define MHL_UART_SHARE_PIN
@@ -205,7 +205,6 @@ struct HDMITX_AUDIO_PARA {
 	unsigned char bhdmi_LCh_status[5];
 	unsigned char bhdmi_RCh_status[5];
 };
-
 extern int enable_ut;
 int hdmi_post_init(void);
 void hdmi_force_on(int from_uart_drv);
@@ -220,7 +219,9 @@ void hdmi_power_off(void);
 
 int hdmi_wait_vsync_debug(int enable);
 int hdmi_dump_vendor_chip_register(void);
+void hdmi_get_max_resolution(struct _HDMI_EDID_T *edid_info);
+int hdmi_set_resolution(int res);
+int hdmi_get_edid(void *edid_info);
 
-extern void extd_dbg_init(void);
-
-#endif /* __HDMITX_H__ */
+extern void Extd_DBG_Init(void);
+#endif
