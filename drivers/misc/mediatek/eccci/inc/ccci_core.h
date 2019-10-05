@@ -576,6 +576,7 @@ enum md_bc_event {
 	MD_STA_EV_HS1,
 	MD_STA_EV_READY,
 	MD_STA_EV_EXCEPTION,
+	MD_STA_EV_STOP,
 };
 
 /* ========================================================================= */
