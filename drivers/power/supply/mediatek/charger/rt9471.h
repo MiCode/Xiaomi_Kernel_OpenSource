@@ -15,6 +15,8 @@
 #define __RT9471_CHARGER_H
 
 #define RT9471_SLAVE_ADDR	0x53
+#define RT9470_DEVID		0x09
+#define RT9470D_DEVID		0x0A
 #define RT9471_DEVID		0x0D
 #define RT9471D_DEVID		0x0E
 
