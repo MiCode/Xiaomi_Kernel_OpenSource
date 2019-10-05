@@ -242,8 +242,6 @@ static int vpu_shared_get(struct platform_device *pdev,
 		if (vpu_iova_dts(pdev, "algo", &vpu_drv->iova_algo))
 			goto error;
 		iova = vpu_iova_alloc(pdev,	&vpu_drv->iova_algo);
-		pr_info("%s: algo: %lx\n",  // TODO: remove debug log
-			__func__, (unsigned long)iova);
 		if (!iova)
 			goto error;
 		vpu_drv->mva_algo = iova;
@@ -254,8 +252,6 @@ static int vpu_shared_get(struct platform_device *pdev,
 		if (vpu_iova_dts(pdev, "share-data", &vpu_drv->iova_share))
 			goto error;
 		iova = vpu_iova_alloc(pdev,	&vpu_drv->iova_share);
-		pr_info("%s: share data: %lx\n",  // TODO: remove debug log
-			__func__, (unsigned long)iova);
 		if (!iova)
 			goto error;
 		vpu_drv->mva_share = iova;
@@ -337,28 +333,18 @@ static int vpu_init_dev_mem(struct platform_device *pdev,
 	if (ret)
 		goto error;
 	iova = vpu_iova_alloc(pdev, &vd->iova_reset);
-	pr_info("%s: vpu%d: reset vector: %lx\n",  // TODO: remove debug log
-		__func__, vd->id, (unsigned long)iova);
 	if (!iova)
 		goto free;
 	iova = vpu_iova_alloc(pdev, &vd->iova_main);
-	pr_info("%s: vpu%d: main prog: %lx\n",  // TODO: remove debug log
-		__func__, vd->id, (unsigned long)iova);
 	if (!iova)
 		goto free;
 	iova = vpu_iova_alloc(pdev, &vd->iova_kernel);
-	pr_info("%s: vpu%d: kernel lib: %lx\n",
-		__func__, vd->id, (unsigned long)iova);
 	if (!iova)
 		goto free;
 	iova = vpu_iova_alloc(pdev, &vd->iova_work);
-	pr_info("%s: vpu%d: work buf: %lx\n",  // TODO: remove debug log
-		__func__, vd->id, (unsigned long)iova);
 	if (!iova)
 		goto free;
 	iova = vpu_iova_alloc(pdev, &vd->iova_iram);
-	pr_info("%s: vpu%d: iram data: %lx\n",  // TODO: remove debug log
-		__func__, vd->id, (unsigned long)iova);
 	vd->mva_iram = iova;
 	vd->iova_iram.addr = iova;
 

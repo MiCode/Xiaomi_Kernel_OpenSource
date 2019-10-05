@@ -78,8 +78,6 @@ start:
 
 	/* command success */
 	if (ret) {
-		vpu_cmd_debug("%s: vpu%d: command done\n",
-			__func__, vd->id);  // debug
 		ret = 0;
 		goto out;
 	}
@@ -192,15 +190,7 @@ irqreturn_t vpu_isr(int irq, void *dev_id)
 	struct vpu_device *vd = (struct vpu_device *)dev_id;
 	int req_cmd = 0, normal_check_done = 0;
 	int req_dump = 0;
-//	unsigned int apmcu_log_buf_ofst;
-//	unsigned int log_buf_addr = 0x0;
-//	unsigned int log_buf_size = 0x0;
-//	struct vpu_log_reader_t *vpu_log_reader;
-//	void *ptr;
 	uint32_t val;
-
-	// debug
-	vpu_cmd_debug("%s: enter\n", __func__);
 
 	/* INFO 17 was used to reply command done */
 	req_cmd = vpu_reg_read(vd, XTENSA_INFO17);
@@ -247,11 +237,6 @@ irqreturn_t vpu_isr(int irq, void *dev_id)
 		wake_up_interruptible(&vd->cmd_wait);
 	}
 
-	// debug
-	vpu_cmd_debug("%s: INFO00: %x, INFO17: %x, INFO18: %x, cmd_done: %d\n",
-		__func__, vpu_reg_read(vd, XTENSA_INFO00),
-		req_cmd, req_dump, normal_check_done);
-
 	return IRQ_HANDLED;
 }
 
@@ -265,8 +250,6 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 	uint64_t latency = 0;
 
 	// TODO: add met trace
-	vpu_cmd_debug("%s: Enter\n", __func__);  // debug
-
 	ret = vpu_check_precond(vd);
 	if (ret) {
 		req->status = VPU_REQ_STATUS_BUSY;
@@ -342,9 +325,6 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 			VPU_REQ_STATUS_FAILURE : VPU_REQ_STATUS_SUCCESS;
 
 	req->busy_time = (uint64_t)latency;
-	vpu_cmd_debug("%s: command done, result: %s\n", __func__,
-		(req->status == VPU_REQ_STATUS_SUCCESS) ?
-		"success" : "fail");  // debug
 
 	// TODO: add QOS
 //	req->bandwidth = vpu_cmd_qos_end(vd->id);
@@ -401,36 +381,12 @@ int vpu_dev_down(struct vpu_device *vd)
 }
 
 // Equal to vpu_hw_processing_request
-
-// debug
-static void vpu_dump_req(struct vpu_device *vd, struct vpu_request *req)
-{
-	int i, j;
-
-	pr_info("%s: req: %p, algo: %s, bufcnt: %d, sett_len: %d\n",
-		__func__, req, req->algo, req->buffer_count, req->sett_length);
-
-	for (i = 0; i < req->buffer_count; i++) {
-		struct vpu_buffer *b = &req->buffers[i];
-
-		for (j = 0; j < b->plane_count; j++) {
-			pr_info("%s: req: %p, buf%d, plane%d, size: %d, mva: 0x%lx\n",
-				__func__, req, i, j, b->planes[j].length,
-				(unsigned long)b->planes[j].ptr);
-		}
-	}
-}
-
-
 int vpu_execute(struct vpu_device *vd, struct vpu_request *req)
 {
 	int ret = 0;
 
 	// TODO: Add preemption handling
 	mutex_lock(&vd->cmd_lock);
-
-	vpu_cmd_debug("%s: vpu%d, req: %p\n", __func__, vd->id, req);  // debug
-	vpu_dump_req(vd, req);
 
 	/* Bootup VPU */
 	ret = vpu_pwr_get_locked(vd, req->power_param.boost_value);
@@ -651,10 +607,6 @@ err_timeout:
 			"vpu%d: boot-up timeout\n",	vd->id);
 	}
 
-	pr_info("%s: vpu%d: info00: %x, debug05: %x\n",  // TODO: remove debug
-		__func__, vd->id,
-		vpu_reg_read(vd, XTENSA_INFO00),
-		vpu_reg_read(vd, DEBUG_INFO05));
 out:
 	return ret;
 }
