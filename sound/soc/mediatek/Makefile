@@ -13,7 +13,7 @@
 subdir-ccflags-y += -Werror
 
 # btcvsd
-obj-$(CONFIG_SND_SOC_MTK_BTCVSD) += common_int/
+obj-$(CONFIG_SND_SOC_MTK_BTCVSD) += common/
 
 obj-$(CONFIG_SND_SOC_MEDIATEK) += common/
 obj-$(CONFIG_SND_SOC_MT2701) += mt2701/
