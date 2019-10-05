@@ -91,6 +91,37 @@ enum scp_ipi_status scp_ipi_registration(enum ipi_id id,
 EXPORT_SYMBOL_GPL(scp_ipi_registration);
 
 /*
+ * API let apps unregister an ipi handler
+ * @param id:	   IPI ID
+ */
+enum scp_ipi_status scp_ipi_unregistration(enum ipi_id id)
+{
+	int ret;
+
+	if (id >= SCP_NR_IPI)
+		return SCP_IPI_ERROR;
+
+	if (scp_ipi_legacy_id[id].in_id_0 != 0) {
+		ret = mtk_ipi_unregister(&scp_ipidev,
+					scp_ipi_legacy_id[id].in_id_0);
+
+		if (ret != IPI_ACTION_DONE)
+			return SCP_IPI_ERROR;
+	}
+
+	if (scp_ipi_legacy_id[id].in_id_1 != 0) {
+		ret = mtk_ipi_unregister(&scp_ipidev,
+					scp_ipi_legacy_id[id].in_id_1);
+
+		if (ret != IPI_ACTION_DONE)
+			return SCP_IPI_ERROR;
+	}
+
+	return SCP_IPI_DONE;
+}
+EXPORT_SYMBOL_GPL(scp_ipi_unregistration);
+
+/*
  * API for apps to send an IPI to scp
  * @param id:   IPI ID
  * @param buf:  the pointer of data
