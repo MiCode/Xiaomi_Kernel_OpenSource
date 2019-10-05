@@ -3763,6 +3763,9 @@
 		compatible = "mediatek,rt-pd-manager";
 	};
 
+	subpmic_pmu_eint: mt6360_pmu_eint {
+	};
+
 };
 
 #include "mt6359p.dtsi"
