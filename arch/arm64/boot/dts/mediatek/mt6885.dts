@@ -2987,6 +2987,7 @@ page_owner=on";
 		clock-names = "scp-dis",
 			      "mm-comm", "mm-gals", "mm-infra", "mm-iommu";
 		mediatek,smi-id = <21>;
+		mmsys_config = <&dispsys_config>;
 	};
 
 	disp_smi_subcom@14120000 {
