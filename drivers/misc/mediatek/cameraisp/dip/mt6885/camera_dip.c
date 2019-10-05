@@ -51,8 +51,11 @@
 
 #ifdef CONFIG_MTK_IOMMU_V2
 #include <mach/mt_iommu.h>
+#include "mach/pseudo_m4u.h"
 #else
+#ifdef CONFIG_MTK_M4U
 #include <m4u.h>
+#endif
 #endif
 
 #ifndef EP_CODE_MARK_CMDQ
@@ -203,6 +206,10 @@ struct ISR_TABLE {
 	char            device_name[16];
 };
 
+#if (MTK_DIP_COUNT == 2)
+#define DIP_COUNT_IS_2
+#endif
+
 #ifndef CONFIG_OF
 const struct ISR_TABLE DIP_IRQ_CB_TBL[DIP_IRQ_TYPE_AMOUNT] = {
 	{NULL,              0,    "DIP_A"}
@@ -223,10 +230,12 @@ const struct ISR_TABLE DIP_IRQ_CB_TBL[DIP_IRQ_TYPE_AMOUNT] = {
 static const struct of_device_id dip_of_ids[] = {
 	{ .compatible = "mediatek,imgsys", },
 	{ .compatible = "mediatek,dip1", },
-	{ .compatible = "mediatek,imgsys2", },
-	{ .compatible = "mediatek,dip2", },
 	{ .compatible = "mediatek,mssdl", },
 	{ .compatible = "mediatek,msfdl", },
+#ifdef DIP_COUNT_IS_2
+	{ .compatible = "mediatek,imgsys2", },
+	{ .compatible = "mediatek,dip2", },
+#endif
 	{}
 };
 
@@ -268,6 +277,10 @@ static DEFINE_MUTEX(gDipMutex);
 struct DIP_CLK_STRUCT {
 	struct clk *DIP_IMG_LARB9;
 	struct clk *DIP_IMG_DIP;
+#if (MTK_DIP_COUNT == 2)
+	struct clk *DIP_IMG_LARB11;
+	struct clk *DIP_IMG_DIP2;
+#endif
 };
 struct DIP_CLK_STRUCT dip_clk;
 #endif
@@ -348,6 +361,10 @@ static unsigned int g_dip1sterr = DIP_GCE_EVENT_NONE;
 #define DIP_A_BASE                  (dip_devs[DIP_DIP_A_IDX].regs)
 #define MSS_BASE                    (dip_devs[DIP_MSS_IDX].regs)
 #define MSF_BASE                    (dip_devs[DIP_MSF_IDX].regs)
+#if (MTK_DIP_COUNT == 2)
+#define DIP_IMGSYS2_CONFIG_BASE     (dip_devs[DIP_IMGSYS2_CONFIG_IDX].regs)
+#define DIP_B_BASE                  (dip_devs[DIP_DIP_B_IDX].regs)
+#endif
 
 #else
 #define DIP_ADDR                        (IMGSYS_BASE + 0x4000)
@@ -355,6 +372,10 @@ static unsigned int g_dip1sterr = DIP_GCE_EVENT_NONE;
 #define DIP_ADDR_CAMINF                 IMGSYS_BASE
 #define DIP_MIPI_ANA_ADDR               0x10217000
 #define DIP_GPIO_ADDR                   GPIO_BASE
+#if (MTK_DIP_COUNT == 2)
+#define DIP_B_ADDR                       (IMGSYS2_BASE + 0x4000)
+#define DIP_IMGSYS2_BASE                 IMGSYS2_BASE
+#endif
 
 #endif
 /* TODO: Remove end, Jessy */
@@ -443,6 +464,10 @@ static void *pBuf_kmalloc[DIP_IRQ_TYPE_AMOUNT];
 
 static unsigned int G_u4DipEnClkCnt;
 static unsigned int g_u4DipCnt;
+
+#ifdef CONFIG_MTK_IOMMU_V2
+static int DIP_MEM_USE_VIRTUL = 1;
+#endif
 
 int DIP_pr_detect_count;
 
@@ -1976,6 +2001,17 @@ static inline void Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_ERR("cannot prepare and enable DIP_IMG_DIP clock\n");
 
+#if (MTK_DIP_COUNT == 2)
+	smi_bus_prepare_enable(SMI_LARB11, DIP_DEV_NAME);
+
+	ret = clk_prepare_enable(dip_clk.DIP_IMG_LARB11);
+	if (ret)
+		LOG_ERR("cannot prepare and enable DIP_IMG_LARB9 clock\n");
+
+	ret = clk_prepare_enable(dip_clk.DIP_IMG_DIP2);
+	if (ret)
+		LOG_ERR("cannot prepare and enable DIP_IMG_DIP clock\n");
+#endif
 }
 
 static inline void Disable_Unprepare_ccf_clock(void)
@@ -1984,9 +2020,66 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(dip_clk.DIP_IMG_LARB9);
 
 	smi_bus_disable_unprepare(SMI_LARB9, DIP_DEV_NAME);
+
+#if (MTK_DIP_COUNT == 2)
+	clk_disable_unprepare(dip_clk.DIP_IMG_DIP2);
+	clk_disable_unprepare(dip_clk.DIP_IMG_LARB11);
+
+	smi_bus_disable_unprepare(SMI_LARB11, DIP_DEV_NAME);
+#endif
+
 }
 
 #endif
+
+#ifdef CONFIG_MTK_IOMMU_V2
+static inline int m4u_control_iommu_port(void)
+{
+	struct M4U_PORT_STRUCT sPort;
+	int ret = 0;
+
+	/* LARB9 */
+	sPort.ePortID = M4U_PORT_L9_IMG_IMGI_D1_MDP;
+	sPort.Virtuality = DIP_MEM_USE_VIRTUL;
+
+#if defined(CONFIG_MTK_M4U)
+	ret = m4u_config_port(&sPort);
+#endif
+
+	if (ret == 0) {
+		LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L9_IMG_IMGI_D1_MDP),
+			DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
+	} else {
+		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L9_IMG_IMGI_D1_MDP),
+			DIP_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
+		ret = -1;
+	}
+
+	/* LARB11 */
+	sPort.ePortID = M4U_PORT_L11_IMG_IMGI_D1_DISP;
+	sPort.Virtuality = DIP_MEM_USE_VIRTUL;
+
+#if defined(CONFIG_MTK_M4U)
+	ret = m4u_config_port(&sPort);
+#endif
+
+	if (ret == 0) {
+		LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L11_IMG_IMGI_D1_DISP),
+			DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
+	} else {
+		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L11_IMG_IMGI_D1_DISP),
+			DIP_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
+		ret = -1;
+	}
+
+	return ret;
+}
+#endif
+
 
 /**************************************************************
  *
@@ -1995,6 +2088,10 @@ static void DIP_EnableClock(bool En)
 {
 #if defined(EP_NO_CLKMGR)
 	unsigned int setReg;
+#endif
+
+#ifdef CONFIG_MTK_IOMMU_V2
+	int ret = 0;
 #endif
 
 	if (En) {
@@ -2009,6 +2106,10 @@ static void DIP_EnableClock(bool En)
 			setReg = 0xFFFFFFFF;
 			/*DIP_WR32(CAMSYS_REG_CG_CLR, setReg);*/
 			DIP_WR32(IMGSYS_REG_CG_CLR, setReg);
+#if (MTK_DIP_COUNT == 2)
+			DIP_WR32(IMGSYS2_REG_CG_CLR, setReg);
+#endif
+
 			break;
 		default:
 			break;
@@ -2016,12 +2117,29 @@ static void DIP_EnableClock(bool En)
 		G_u4DipEnClkCnt++;
 		spin_unlock(&(IspInfo.SpinLockClock));
 
+#ifdef CONFIG_MTK_IOMMU_V2
+		if (G_u4DipEnClkCnt == 1) {
+			ret = m4u_control_iommu_port();
+			if (ret)
+				LOG_ERR("cannot config M4U IOMMU PORTS\n");
+		}
+#endif
+
 #else/*CCF*/
 		/*LOG_INF("CCF:prepare_enable clk");*/
 		spin_lock(&(IspInfo.SpinLockClock));
 		G_u4DipEnClkCnt++;
 		spin_unlock(&(IspInfo.SpinLockClock));
 		Prepare_Enable_ccf_clock(); /* !!cannot be used in spinlock!! */
+
+#ifdef CONFIG_MTK_IOMMU_V2
+		if (G_u4DipEnClkCnt == 1) {
+			ret = m4u_control_iommu_port();
+			if (ret)
+				LOG_ERR("cannot config M4U IOMMU PORTS\n");
+		}
+#endif
+
 #endif
 	} else {                /* Disable clock. */
 #if defined(EP_NO_CLKMGR)
@@ -4611,7 +4729,7 @@ static signed int DIP_probe(struct platform_device *pDev)
 	struct device *dev = NULL;
 #endif
 
-	LOG_INF("- E. DIP driver probe.\n");
+	LOG_INF("- E. DIP driver probe. nr_dip_devs : %d.\n", nr_dip_devs);
 
 	/* Get platform_device parameters */
 #ifdef CONFIG_OF
@@ -4653,6 +4771,14 @@ static signed int DIP_probe(struct platform_device *pDev)
 			nr_dip_devs, pDev->dev.of_node->name);
 		return -ENOMEM;
 	}
+
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		*(dip_dev->dev->dma_mask) =
+			(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
+		dip_dev->dev->coherent_dma_mask =
+			(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
+#endif
 
 	LOG_INF("nr_dip_devs=%d, devnode(%s), map_addr=0x%lx\n",
 		nr_dip_devs,
@@ -4783,6 +4909,21 @@ static signed int DIP_probe(struct platform_device *pDev)
 			return PTR_ERR(dip_clk.DIP_IMG_DIP);
 		}
 
+#if (MTK_DIP_COUNT == 2)
+		dip_clk.DIP_IMG_LARB11 =
+			devm_clk_get(&pDev->dev, "DIP_CG_IMG_LARB11");
+		if (IS_ERR(dip_clk.DIP_IMG_LARB11)) {
+			LOG_ERR("cannot get DIP_IMG_LARB11 clock\n");
+			return PTR_ERR(dip_clk.DIP_IMG_LARB11);
+		}
+
+		dip_clk.DIP_IMG_DIP2 =
+			devm_clk_get(&pDev->dev, "DIP_CG_IMG_DIP2");
+		if (IS_ERR(dip_clk.DIP_IMG_DIP2)) {
+			LOG_ERR("cannot get DIP_IMG_DIP2 clock\n");
+			return PTR_ERR(dip_clk.DIP_IMG_DIP2);
+		}
+#endif
 #endif
 		/*  */
 		for (i = 0 ; i < DIP_IRQ_TYPE_AMOUNT; i++)

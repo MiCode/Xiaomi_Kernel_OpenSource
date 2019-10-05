@@ -12,6 +12,7 @@
 #
 
 obj-y := cameradip_dummy.o
+MTK_DIP_COUNT := 1
 
 ifeq ($(CONFIG_MACH_MT6775),y)
   obj-y += $(subst ",,isp_50)/
@@ -23,8 +24,16 @@ endif
 
 ifeq ($(CONFIG_MACH_MT6885),y)
   obj-y += $(subst ",,mt6885)/
+  MTK_DIP_COUNT := 2
+endif
+
+ifeq ($(CONFIG_MACH_MT6883),y)
+  obj-y += $(subst ",,mt6885)/
+  MTK_DIP_COUNT := 2
 endif
 
 ifeq ($(CONFIG_MACH_MT3967),y)
   obj-y += $(subst ",,isp_50)/
 endif
+
+subdir-ccflags-y += -DMTK_DIP_COUNT=$(MTK_DIP_COUNT)
