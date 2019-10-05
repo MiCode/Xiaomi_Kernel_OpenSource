@@ -323,12 +323,8 @@ static int venc_encode(unsigned long handle,
 {
 	int ret = 0;
 	struct venc_inst *inst = (struct venc_inst *)handle;
-	struct mtk_vcodec_ctx *ctx = inst->ctx;
 
 	mtk_vcodec_debug(inst, "opt %d ->", opt);
-
-	if (ctx->oal_vcodec == 0)
-		enable_irq(ctx->dev->enc_irq);
 
 	switch (opt) {
 	case VENC_START_OPT_ENCODE_SEQUENCE_HEADER: {
@@ -369,9 +365,6 @@ static int venc_encode(unsigned long handle,
 	}
 
 encode_err:
-
-	if (ctx->oal_vcodec == 0)
-		disable_irq(ctx->dev->enc_irq);
 	mtk_vcodec_debug(inst, "opt %d <-", opt);
 
 	return ret;
