@@ -182,40 +182,89 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 	switch (id) {
 	case 0:
 	case 1:
+	case 5:
 	case 7:
+	case 11:
 	case 14:
 	case 17:
-		ret = smi_unit_prepare_enable(SMI_LARB_NUM); // disp
-		if (ret)
-			return ret;
-		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 2); // sysram
-		if (ret)
-			return ret;
-		break;
-	case 5:
-	case 11:
 	case 19:
 	case 20:
-		ret = smi_unit_prepare_enable(SMI_LARB_NUM); // disp
+		ret = smi_unit_prepare_enable(21); // disp
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(24); // disp-subcom
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(25); // disp-subcom1
 		if (ret)
 			return ret;
 		break;
 	case 2:
 	case 3:
+	case 4:
 	case 8:
+	case 9:
 	case 13:
 	case 16:
 	case 18:
-		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 1); // mdp
+		ret = smi_unit_prepare_enable(22); // mdp
 		if (ret)
 			return ret;
-		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 2); // sysram
+		ret = smi_unit_prepare_enable(26); // mdp-subcom
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(27); // mdp-subcom1
 		if (ret)
 			return ret;
 		break;
-	case 4:
-	case 9:
-		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 1); // mdp
+	}
+
+	switch (id) {
+	case 0:
+	case 1:
+	case 2:
+	case 3:
+	case 7:
+	case 8:
+		ret = smi_unit_prepare_enable(23); // sysram
+		if (ret)
+			return ret;
+		break;
+	case 13:
+		ret = smi_unit_prepare_enable(23); // sysram
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(29); // cam-subcom
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(31); // cam-subcom2
+		if (ret)
+			return ret;
+		break;
+	case 14:
+		ret = smi_unit_prepare_enable(23); // sysram
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(30); // cam-subcom1
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(31); // cam-subcom2
+		if (ret)
+			return ret;
+		break;
+	case 16:
+	case 17:
+	case 18:
+		ret = smi_unit_prepare_enable(23); // sysram
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(31); // cam-subcom2
+		if (ret)
+			return ret;
+		break;
+	case 19:
+	case 20:
+		ret = smi_unit_prepare_enable(28); // ipe-subcom
 		if (ret)
 			return ret;
 		break;
@@ -248,37 +297,67 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 		smi_clk_record(id, false, user);
 
 	if (ATOMR_CLK(id) == 1 && readl(smi_dev[id]->base + SMI_LARB_STAT))
-		SMIWRN(1, "LARB%u OFF by %s but busy\n", id, user);
+		aee_kernel_exception(user,
+			"larb%u disable by %s but still busy\n", id, user);
 	smi_unit_disable_unprepare(id);
 
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 	switch (id) {
 	case 0:
 	case 1:
+	case 2:
+	case 3:
 	case 7:
-	case 14:
-	case 17:
-		smi_unit_disable_unprepare(SMI_LARB_NUM + 2); // sysram
-		smi_unit_disable_unprepare(SMI_LARB_NUM); // disp
+	case 8:
+		smi_unit_disable_unprepare(23); // sysram
 		break;
-	case 5:
-	case 11:
+	case 13:
+		smi_unit_disable_unprepare(31); // cam-subcom2
+		smi_unit_disable_unprepare(29); // cam-subcom
+		smi_unit_disable_unprepare(23); // sysram
+		break;
+	case 14:
+		smi_unit_disable_unprepare(31); // cam-subcom2
+		smi_unit_disable_unprepare(30); // cam-subcom1
+		smi_unit_disable_unprepare(23); // sysram
+		break;
+	case 16:
+	case 17:
+	case 18:
+		smi_unit_disable_unprepare(31); // cam-subcom2
+		smi_unit_disable_unprepare(23); // sysram
+		break;
 	case 19:
 	case 20:
-		smi_unit_disable_unprepare(SMI_LARB_NUM); // disp
+		smi_unit_disable_unprepare(28); // ipe-subcom
+		break;
+	}
+
+	switch (id) {
+	case 0:
+	case 1:
+	case 5:
+	case 7:
+	case 11:
+	case 14:
+	case 17:
+	case 19:
+	case 20:
+		smi_unit_disable_unprepare(25); // disp-subcom1
+		smi_unit_disable_unprepare(24); // disp-subcom
+		smi_unit_disable_unprepare(21); // disp
 		break;
 	case 2:
 	case 3:
+	case 4:
 	case 8:
+	case 9:
 	case 13:
 	case 16:
 	case 18:
-		smi_unit_disable_unprepare(SMI_LARB_NUM + 2); // sysram
-		smi_unit_disable_unprepare(SMI_LARB_NUM + 1); // mdp
-		break;
-	case 4:
-	case 9:
-		smi_unit_disable_unprepare(SMI_LARB_NUM + 1); // mdp
+		smi_unit_disable_unprepare(27); // mdp-subcom1
+		smi_unit_disable_unprepare(26); // mdp-subcom
+		smi_unit_disable_unprepare(22); // mdp
 		break;
 	}
 #else // !CONFIG_MACH_MT6885
@@ -879,6 +958,9 @@ s32 smi_register(void)
 	/* init */
 	spin_lock(&(smi_drv.lock));
 	smi_subsys_on = smi_subsys_to_larbs[SYS_DIS];
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	smi_subsys_on |= smi_subsys_to_larbs[SYS_MDP];
+#endif
 	spin_unlock(&(smi_drv.lock));
 	for (i = SMI_DEV_NUM - 1; i >= 0; i--) {
 		smi_conf_get(i);

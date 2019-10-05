@@ -4352,9 +4352,9 @@ page_owner=on";
 		reg = <0 0x1600d000 0 0x1000>;
 		mediatek,larb-id = <5>;
 		interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&scpsys SCP_SYS_VDEC2>,
+		clocks = <&scpsys SCP_SYS_VDEC>,
 			 <&vdec_soc_gcon VDEC_SOC_GCON_LARB1_CKEN>;
-		clock-names = "scp-vdec2", "vdec-soc-larb";
+		clock-names = "scp-vdec", "vdec-soc-larb";
 		mediatek,smi-id = <5>;
 	};
 
@@ -4384,9 +4384,10 @@ page_owner=on";
 		reg = <0 0x1602e000 0 0x1000>;
 		mediatek,larb-id = <4>;
 		interrupts = <GIC_SPI 428 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&scpsys SCP_SYS_VDEC>,
+		clocks = <&scpsys SCP_SYS_VDEC2>,
+			 <&scpsys SCP_SYS_VDEC>,
 			 <&vdec_gcon VDEC_GCON_LARB1_CKEN>;
-		clock-names = "scp-vdec", "vdec-larb";
+		clock-names = "scp-vdec2", "scp-vdec", "vdec-larb";
 		mediatek,smi-id = <4>;
 	};
 
