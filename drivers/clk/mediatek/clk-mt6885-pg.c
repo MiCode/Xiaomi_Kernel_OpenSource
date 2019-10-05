@@ -26,8 +26,8 @@
 
 #include <dt-bindings/clock/mt6885-clk.h>
 
-#define MT_CCF_DEBUG	1
-#define MT_CCF_BRINGUP  1
+#define MT_CCF_DEBUG	0
+#define MT_CCF_BRINGUP  0
 #define CONTROL_LIMIT	1
 
 #define	CHECK_PWR_ST	1
@@ -4581,32 +4581,32 @@ static int subsys_is_on(enum subsys_id id)
 
 #if CONTROL_LIMIT
 int allow[NR_SYSS] = {
-0,	/* SYS_MD1 = 0 */
-0,	/* SYS_CONN = 1 */
-0,	/* SYS_MFG0 = 2 */
-0,	/* SYS_MFG1 = 3 */
-0,	/* SYS_MFG2 = 4 */
-0,	/* SYS_MFG3 = 5 */
-0,	/* SYS_MFG4 = 6 */
-0,	/* SYS_MFG5 = 7 */
-0,	/* SYS_MFG6 = 8 */
-0,	/* SYS_ISP = 9 */
-0,	/* SYS_ISP2 = 10 */
-0,	/* SYS_IPE = 11 */
-0,	/* SYS_VDE = 12 */
-0,	/* SYS_VDE2 = 13 */
-0,	/* SYS_VEN = 14 */
-0,	/* SYS_VEN_CORE1 = 15 */
-0,	/* SYS_MDP = 16 */
-0,	/* SYS_DIS = 17 */
-0,	/* SYS_AUDIO = 18 */
-0,	/* SYS_ADSP = 19 */
-0,	/* SYS_CAM = 20 */
-0,	/* SYS_CAM_RAWA = 21 */
-0,	/* SYS_CAM_RAWB = 22 */
-0,	/* SYS_CAM_RAWC = 23 */
-0,	/* SYS_DP_TX = 24 */
-0,	/* SYS_VPU = 25 */
+1,	/* SYS_MD1 = 0 */
+1,	/* SYS_CONN = 1 */
+1,	/* SYS_MFG0 = 2 */
+1,	/* SYS_MFG1 = 3 */
+1,	/* SYS_MFG2 = 4 */
+1,	/* SYS_MFG3 = 5 */
+1,	/* SYS_MFG4 = 6 */
+1,	/* SYS_MFG5 = 7 */
+1,	/* SYS_MFG6 = 8 */
+1,	/* SYS_ISP = 9 */
+1,	/* SYS_ISP2 = 10 */
+1,	/* SYS_IPE = 11 */
+1,	/* SYS_VDE = 12 */
+1,	/* SYS_VDE2 = 13 */
+1,	/* SYS_VEN = 14 */
+1,	/* SYS_VEN_CORE1 = 15 */
+1,	/* SYS_MDP = 16 */
+1,	/* SYS_DIS = 17 */
+1,	/* SYS_AUDIO = 18 */
+1,	/* SYS_ADSP = 19 */
+1,	/* SYS_CAM = 20 */
+1,	/* SYS_CAM_RAWA = 21 */
+1,	/* SYS_CAM_RAWB = 22 */
+1,	/* SYS_CAM_RAWC = 23 */
+1,	/* SYS_DP_TX = 24 */
+1,	/* SYS_VPU = 25 */
 };
 #endif
 
@@ -4672,6 +4672,7 @@ static int enable_subsys(enum subsys_id id)
 		if (pgcb->after_on)
 			pgcb->after_on(id);
 	}
+
 	return r;
 }
 
@@ -4747,6 +4748,8 @@ static int disable_subsys(enum subsys_id id)
 struct mt_power_gate {
 	struct clk_hw hw;
 	struct clk *pre_clk;
+	struct clk *pre_clk2;
+	struct clk *pre_clk3;
 	enum subsys_id pd_id;
 };
 
@@ -4799,6 +4802,21 @@ int pg_prepare(struct clk_hw *hw)
 		if (r)
 			return r;
 	}
+	if (pg->pre_clk2) {
+		r = clk_prepare_enable(pg->pre_clk2);
+		if (r) {
+			clk_disable_unprepare(pg->pre_clk);
+			return r;
+		}
+	}
+	if (pg->pre_clk3) {
+		r = clk_prepare_enable(pg->pre_clk3);
+		if (r) {
+			clk_disable_unprepare(pg->pre_clk2);
+			clk_disable_unprepare(pg->pre_clk);
+			return r;
+		}
+	}
 
 	return pg_enable(hw);
 
@@ -4816,8 +4834,13 @@ void pg_unprepare(struct clk_hw *hw)
 
 	pg_disable(hw);
 
+	if (pg->pre_clk3)
+		clk_disable_unprepare(pg->pre_clk3);
+	if (pg->pre_clk2)
+		clk_disable_unprepare(pg->pre_clk2);
 	if (pg->pre_clk)
 		clk_disable_unprepare(pg->pre_clk);
+
 }
 
 static const struct clk_ops mt_power_gate_ops = {
@@ -4829,6 +4852,8 @@ static const struct clk_ops mt_power_gate_ops = {
 struct clk *mt_clk_register_power_gate(const char *name,
 					const char *parent_name,
 					struct clk *pre_clk,
+					struct clk *pre_clk2,
+					struct clk *pre_clk3,
 					enum subsys_id pd_id)
 {
 	struct mt_power_gate *pg;
@@ -4846,6 +4871,8 @@ struct clk *mt_clk_register_power_gate(const char *name,
 	init.ops = &mt_power_gate_ops;
 
 	pg->pre_clk = pre_clk;
+	pg->pre_clk2 = pre_clk2;
+	pg->pre_clk3 = pre_clk3;
 	pg->pd_id = pd_id;
 	pg->hw.init = &init;
 
@@ -4861,6 +4888,8 @@ struct mtk_power_gate {
 	const char *name;
 	const char *parent_name;
 	const char *pre_clk_name;
+	const char *pre_clk2_name;
+	const char *pre_clk3_name;
 	enum subsys_id pd_id;
 };
 
@@ -4869,6 +4898,16 @@ struct mtk_power_gate {
 		.name = _name,				\
 		.parent_name = _parent,			\
 		.pre_clk_name = _pre_clk,		\
+		.pd_id = _pd_id,			\
+	}
+
+#define PGATE3(_id, _name, _parent, _pre_clk, _pre2_clk, _pre3_clk, _pd_id) {\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.pre_clk_name = _pre_clk,		\
+		.pre_clk2_name = _pre2_clk,		\
+		.pre_clk3_name = _pre3_clk,		\
 		.pd_id = _pd_id,			\
 	}
 
@@ -4894,7 +4933,8 @@ struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_VENC, "PG_VENC", "PG_DIS", "venc_sel", SYS_VEN),
 	PGATE(SCP_SYS_VENC_CORE1, "PG_VENC_C1", "PG_DIS", "venc_sel",
 								SYS_VEN_CORE1),
-	PGATE(SCP_SYS_AUDIO, "PG_AUDIO", NULL, "aud_intbus_sel", SYS_AUDIO),
+	PGATE3(SCP_SYS_AUDIO, "PG_AUDIO", NULL, "aud_intbus_sel",
+			"infracfg_ao_audio_26m_bclk_ck", NULL, SYS_AUDIO),
 	PGATE(SCP_SYS_ADSP, "PG_ADSP", NULL, "adsp_sel", SYS_ADSP),
 	PGATE(SCP_SYS_CAM, "PG_CAM", "PG_DIS", "cam_sel", SYS_CAM),
 	PGATE(SCP_SYS_CAM_RAWA, "PG_CAM_RAWA", "PG_CAM", NULL, SYS_CAM_RAWA),
@@ -4902,8 +4942,8 @@ struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_CAM_RAWC, "PG_CAM_RAWC", "PG_CAM", NULL, SYS_CAM_RAWC),
 	PGATE(SCP_SYS_DP_TX, "PG_DP_TX", "PG_DIS", NULL, SYS_DP_TX),
 	/* Gary Wang: no need to turn of disp mtcmos*/
-	PGATE(SCP_SYS_VPU, "PG_VPU", NULL, NULL, SYS_VPU),
-
+	PGATE3(SCP_SYS_VPU, "PG_VPU", NULL, "dsp_sel", "dsp7_sel",
+							"ipu_if_sel", SYS_VPU),
 };
 
 static void __init init_clk_scpsys(void __iomem *infracfg_reg,
@@ -4912,7 +4952,8 @@ static void __init init_clk_scpsys(void __iomem *infracfg_reg,
 {
 	int i;
 	struct clk *clk;
-	struct clk *pre_clk;
+	struct clk *pre_clk, *pre_clk2, *pre_clk3;
+
 
 	infracfg_base = infracfg_reg;
 	spm_base = spm_reg;
@@ -4923,8 +4964,14 @@ static void __init init_clk_scpsys(void __iomem *infracfg_reg,
 		pre_clk = pg->pre_clk_name ?
 			__clk_lookup(pg->pre_clk_name) : NULL;
 
+		pre_clk2 = pg->pre_clk2_name ?
+			__clk_lookup(pg->pre_clk2_name) : NULL;
+
+		pre_clk3 = pg->pre_clk3_name ?
+			__clk_lookup(pg->pre_clk3_name) : NULL;
+
 		clk = mt_clk_register_power_gate(pg->name, pg->parent_name,
-			pre_clk, pg->pd_id);
+			pre_clk, pre_clk2, pre_clk3, pg->pd_id);
 
 		if (IS_ERR(clk)) {
 			pr_notice("[CCF] %s: Failed to register clk %s: %ld\n",
