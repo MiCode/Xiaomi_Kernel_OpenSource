@@ -17,7 +17,7 @@ typedef int (*mtk_pwr_conservation_fn)(int type,
 				struct cpuidle_driver *drv,
 				int index);
 
-static struct mtk_cpuidle_op *mtk_lpm_ops __read_mostly;
+static struct mtk_cpuidle_op __rcu *mtk_lpm_ops __read_mostly;
 
 int mtk_lpm_drv_cpuidle_ops_set(struct mtk_cpuidle_op *op)
 {
