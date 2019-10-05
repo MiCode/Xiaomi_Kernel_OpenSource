@@ -567,7 +567,7 @@ void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 		"curr_state  : 0x%lx\n",
 		curr_state);
 	SPREAD_PRINTF(buff, size, m,
-		"%s %s %s %s %s %s\n",
+		"%s %s %s %s %s\n",
 		curr_state & (1 << CMDQ_STATE_ERR) ?
 			"ERR":"",
 		curr_state & (1 << CMDQ_STATE_DCMD_ACTIVE) ?
@@ -577,9 +577,7 @@ void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 		curr_state & (1 << CMDQ_STATE_CQ_DISABLE) ?
 			"CQ_DISABLE":"",
 		curr_state & (1 << CMDQ_STATE_REQ_TIMED_OUT) ?
-			"REQ_TIMED_OUT":"",
-		curr_state & (1 << CMDQ_STATE_FETCH_QUEUE) ?
-			"FETCH_QUEUE":"");
+			"REQ_TIMED_OUT":"");
 	SPREAD_PRINTF(buff, size, m,
 		"part_curr  : %d\n",
 		mmc->card->part_curr);
@@ -751,7 +749,7 @@ void msdc_cmdq_status_print(struct msdc_host *host, struct seq_file *m)
 		mmc->cmdq_ctx.active_reqs);
 	seq_printf(m, "curr_state  : 0x%lx\n",
 		curr_state);
-	seq_printf(m, "%s %s %s %s %s %s\n",
+	seq_printf(m, "%s %s %s %s %s\n",
 		curr_state & (1 << CMDQ_STATE_ERR) ?
 			"ERR":"",
 		curr_state & (1 << CMDQ_STATE_DCMD_ACTIVE) ?
@@ -761,9 +759,7 @@ void msdc_cmdq_status_print(struct msdc_host *host, struct seq_file *m)
 		curr_state & (1 << CMDQ_STATE_CQ_DISABLE) ?
 			"CQ_DISABLE":"",
 		curr_state & (1 << CMDQ_STATE_REQ_TIMED_OUT) ?
-			"REQ_TIMED_OUT":"",
-		curr_state & (1 << CMDQ_STATE_FETCH_QUEUE) ?
-			"FETCH_QUEUE":"");
+			"REQ_TIMED_OUT":"");
 	seq_printf(m, "part_curr  : %d\n",
 		mmc->card->part_curr);
 	seq_puts(m, "hardware cq support\n");

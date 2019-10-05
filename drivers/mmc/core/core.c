@@ -1536,8 +1536,10 @@ int mmc_cmdq_wait_for_dcmd(struct mmc_host *host,
 	if (err)
 		return err;
 
+	mmc_cmdq_up_rwsem(host);
 	wait_for_completion_io(&mrq->completion);
-	if (cmd->error) {
+	err = mmc_cmdq_down_rwsem(host, mrq->req);
+	if (err || cmd->error) {
 		pr_notice("%s: dcmd %d failed with err %d\n",
 				mmc_hostname(host), cmd->opcode,
 				cmd->error);
@@ -3413,6 +3415,26 @@ int mmc_cmdq_erase(struct mmc_cmdq_req *cmdq_req,
 	return mmc_cmdq_do_erase(cmdq_req, card, from, to, arg);
 }
 EXPORT_SYMBOL(mmc_cmdq_erase);
+
+void mmc_cmdq_up_rwsem(struct mmc_host *host)
+{
+	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
+
+	up_read(&ctx->err_rwsem);
+}
+EXPORT_SYMBOL(mmc_cmdq_up_rwsem);
+
+int mmc_cmdq_down_rwsem(struct mmc_host *host, struct request *rq)
+{
+	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
+
+	down_read(&ctx->err_rwsem);
+	if (rq && !(rq->rq_flags & RQF_QUEUED))
+		return -EINVAL;
+	else
+		return 0;
+}
+EXPORT_SYMBOL(mmc_cmdq_down_rwsem);
 #endif
 
 /**
