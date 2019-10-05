@@ -30,11 +30,13 @@ extern void apu_device_set_opp(enum DVFS_USER user, uint8_t opp);
 extern void apu_get_power_info(void);
 extern bool apu_get_power_on_status(enum DVFS_USER user);
 extern void apu_power_on_callback(void);
-extern int apu_device_power_off(enum DVFS_USER user);
 extern int apu_power_callback_device_register(enum POWER_CALLBACK_USER user,
 					void (*power_on_callback)(void *para),
 					void (*power_off_callback)(void *para));
 extern void apu_power_callback_device_unregister(enum POWER_CALLBACK_USER user);
+extern uint8_t apusys_boost_value_to_opp
+				(enum DVFS_USER user, uint8_t boost_value);
+
 extern void apu_power_reg_dump(void);
 extern int apu_power_power_stress(int type, int device, int opp);
 extern bool apusys_power_check(void);

@@ -415,7 +415,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 {
 	unsigned int enable = ((struct hal_param_mtcmos *)param)->enable;
 	unsigned int domain_idx = 0;
-//	unsigned int regValue = 0;
+	unsigned int regValue = 0;
 
 	LOG_INF("%s , user: %d , enable: %d\n", __func__, user, enable);
 
@@ -433,9 +433,6 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 		domain_idx = 7;
 	else
 		LOG_DBG("%s not support user : %d\n", __func__, user);
-
-	enable_apu_conn_vcore_clock();
-	udelay(100);
 
 	if (enable) {
 		// call spm api to enable wake up signal for apu_conn/apu_vcore
@@ -476,11 +473,9 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 		 * call spm api to disable wake up signal
 		 * for apu_conn/apu_vcore
 		 */
-			LOG_WRN("%s bypass vcore_conn mtcmos off\n", __func__);
-// FIXME: need to debug
-#if 0
-			LOG_WRN("%s disable wakeup signal\n", __func__);
-			DRV_SetBitReg32(APU_RPC_TOP_CON, REG_WAKEUP_CLR);
+			DRV_WriteReg32(APU_RPC_TOP_CON, REG_WAKEUP_CLR);
+			LOG_WRN("%s disable wakeup signal = 0x%x\n",
+				__func__, DRV_Reg32(APU_RPC_INTF_PWR_RDY));
 			//enable_apu_mtcmos(0);
 			//udelay(100);
 
@@ -499,11 +494,8 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			regValue = DRV_Reg32(APU_RPC_TOP_CON);
 			regValue |= 0x1;
 			DRV_WriteReg32(APU_RPC_TOP_CON, regValue);
-#endif
 		}
 	}
-
-	disable_apu_conn_vcore_clock();
 
 	return 0;
 }
@@ -612,16 +604,10 @@ static int set_power_boot_up(enum DVFS_USER user, void *param)
 		mdla_volt_data.target_buck = MDLA_BUCK;
 		mdla_volt_data.target_volt = VMDLA_DEFAULT_VOLT;
 		ret |= set_power_voltage(user, (void *)&mdla_volt_data);
-	}
-// FIXME
-#if 0
-	struct hal_param_regulator_mode mode_data;
 
-	// Set regulator mode
-	vcore_mode_data.target_buck = apusys_user_to_buck[user];
-	vcore_mode_data.target_mode = 1;
-	hal_config_power(PWR_CMD_SET_REGULATOR_MODE, user, (void *)&mode_data);
-#endif
+		enable_apu_clksrc();
+	}
+
 	// Set mtcmos enable
 	mtcmos_data.enable = 1;
 	ret |= set_power_mtcmos(user, (void *)&mtcmos_data);
@@ -647,15 +633,6 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 
 	power_bit_mask = ((struct hal_param_pwr_mask *)param)->power_bit_mask;
 
-// FIXME
-#if 0
-	struct hal_param_regulator_mode mode_data;
-
-	// Set regulator voltage
-	vcore_mode_data.target_buck = apusys_user_to_buck[user];
-	vcore_mode_data.target_mode = 0;
-	hal_config_power(PWR_CMD_SET_REGULATOR_MODE, user, (void *)&mode_data);
-#endif
 	// Set mtcmos disable
 	mtcmos_data.enable = 0;
 	ret |= set_power_mtcmos(user, (void *)&mtcmos_data);

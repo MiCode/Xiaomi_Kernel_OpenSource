@@ -23,6 +23,8 @@
 
 #define EFUSE_INDEX 72	// 0x11C105D8
 
+#define FOR_HQA_TEST	(1)
+
 /* regulator id */
 static struct regulator *vvpu_reg_id;
 static struct regulator *vmdla_reg_id;
@@ -350,6 +352,11 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	}
 #endif
 
+#if FOR_HQA_TEST
+	config_regulator_mode(buck, 0);	// force pwm for HQA
+#else
+	config_regulator_mode(buck, 1);	// auto normal for HQA
+#endif
 	settle_time = settle_time_check(buck, voltage_mV);
 	udelay(settle_time);
 
@@ -366,6 +373,14 @@ int config_vcore(enum DVFS_USER user, int vcore_opp)
 	return ret;
 }
 
+/*
+ * @ include/linux/regulator/consumer.h
+ * REGULATOR_MODE_INVALID                  0x0
+ * REGULATOR_MODE_FAST                     0x1	(force pwm)
+ * REGULATOR_MODE_NORMAL                   0x2	(auto mode)
+ * REGULATOR_MODE_IDLE                     0x4
+ * REGULATOR_MODE_STANDBY                  0x8
+ */
 int config_regulator_mode(enum DVFS_BUCK buck, int is_normal)
 {
 	int ret = 0;
@@ -380,17 +395,17 @@ int config_regulator_mode(enum DVFS_BUCK buck, int is_normal)
 
 	if (buck == VPU_BUCK) {
 		ret = regulator_set_mode(vvpu_reg_id, is_normal ?
-				REGULATOR_MODE_NORMAL : REGULATOR_MODE_IDLE);
+				REGULATOR_MODE_NORMAL : REGULATOR_MODE_FAST);
 		udelay(100); // slew rate:rising10mV/us
 
 	} else if (buck == MDLA_BUCK) {
 		ret = regulator_set_mode(vmdla_reg_id, is_normal ?
-				REGULATOR_MODE_NORMAL : REGULATOR_MODE_IDLE);
+				REGULATOR_MODE_NORMAL : REGULATOR_MODE_FAST);
 		udelay(100); // slew rate:rising10mV/us
 
 	} else if (buck == SRAM_BUCK) {
 		ret = regulator_set_mode(vsram_reg_id, is_normal ?
-				REGULATOR_MODE_NORMAL : REGULATOR_MODE_IDLE);
+				REGULATOR_MODE_NORMAL : REGULATOR_MODE_FAST);
 		udelay(100); // slew rate:rising10mV/us
 
 	} else {

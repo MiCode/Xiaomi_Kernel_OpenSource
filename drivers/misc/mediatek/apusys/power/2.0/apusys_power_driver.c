@@ -21,6 +21,7 @@
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/init.h>
+#include <linux/workqueue.h>
 
 #include "apu_log.h"
 #include "apusys_power_ctl.h"
@@ -30,12 +31,16 @@
 #include "hal_config_power.h"
 
 #define APUSYS_POWER_ENABLE	(1)
-#define FOR_BRING_UP		(1)
-#define SUPPORT_DVFS		(0)
+#define FOR_BRING_UP		(0)
+#define SUPPORT_DVFS		(1)
 
+#if APUSYS_POWER_ENABLE
+static struct hal_param_init_power init_power_data;
+#endif
 
-struct hal_param_init_power init_power_data;
 static int apu_power_counter;
+//static void d_work_func(struct work_struct *work);
+//static DECLARE_DELAYED_WORK(d_work, d_work_func);
 
 bool apusys_power_check(void)
 {
@@ -130,7 +135,7 @@ static LIST_HEAD(power_device_list);
 static LIST_HEAD(power_callback_device_list);
 static struct mutex power_device_list_mtx;
 static struct mutex power_opp_mtx;
-static int power_callback_counter;
+//static int power_callback_counter;
 static struct task_struct *power_task_handle;
 static uint64_t timestamp;
 
@@ -254,13 +259,12 @@ bool apu_get_power_on_status(enum DVFS_USER user)
 }
 EXPORT_SYMBOL(apu_get_power_on_status);
 
-
+#if 0
 static void power_callback_caller(int power_on)
 {
 	struct power_callback_device *pwr_dev = NULL;
 
 	LOG_DBG("%s begin (%d)\n", __func__, power_on);
-	mutex_lock(&power_device_list_mtx);
 
 	if (!list_empty(&power_callback_device_list)) {
 		list_for_each_entry(pwr_dev,
@@ -279,10 +283,9 @@ static void power_callback_caller(int power_on)
 		}
 	}
 
-	mutex_unlock(&power_device_list_mtx);
 	LOG_DBG("%s end (%d)\n", __func__, power_on);
 }
-
+#endif
 static struct power_callback_device*
 find_out_callback_device_by_user(enum POWER_CALLBACK_USER user)
 {
@@ -311,6 +314,7 @@ find_out_callback_device_by_user(enum POWER_CALLBACK_USER user)
 
 int apu_device_power_off(enum DVFS_USER user)
 {
+#if 0
 	struct power_device *pwr_dev = find_out_device_by_user(user);
 
 	if (pwr_dev == NULL) {
@@ -330,7 +334,7 @@ int apu_device_power_off(enum DVFS_USER user)
 		}
 
 		// disable clock and set regulator mode to idle (lowest volt)
-		apusys_power_off(user);
+		// apusys_power_off(user);
 		pwr_dev->is_power_on = 0;
 
 	} else {
@@ -339,13 +343,14 @@ int apu_device_power_off(enum DVFS_USER user)
 	}
 
 	mutex_unlock(&power_device_list_mtx);
-
+#endif
 	return 0;
 }
 EXPORT_SYMBOL(apu_device_power_off);
 
 int apu_device_power_on(enum DVFS_USER user)
 {
+#if 0
 	struct power_device *pwr_dev = find_out_device_by_user(user);
 
 	if (pwr_dev == NULL) {
@@ -359,7 +364,7 @@ int apu_device_power_on(enum DVFS_USER user)
 		LOG_INF("%s for user : %d, cnt : %d\n", __func__,
 						user, apu_power_counter);
 		// enable clock and set regulator mode to normal
-		apusys_power_on(user);
+		// apusys_power_on(user);
 		pwr_dev->is_power_on = 1;
 
 		if (power_callback_counter == 0) {
@@ -373,7 +378,7 @@ int apu_device_power_on(enum DVFS_USER user)
 								__func__, user);
 	}
 	mutex_unlock(&power_device_list_mtx);
-
+#endif
 	return 0;
 }
 EXPORT_SYMBOL(apu_device_power_on);
@@ -515,6 +520,25 @@ EXPORT_SYMBOL(apu_power_callback_device_unregister);
 
 #endif // FOR_BRING_UP
 
+//static void d_work_func(struct work_struct *work)
+static void d_work_func(void)
+{
+	LOG_WRN("### apusys power on all device ###\n");
+	apusys_power_on(VPU0);
+	udelay(200);
+	apusys_power_on(VPU1);
+	udelay(200);
+	apusys_power_on(VPU2);
+	udelay(200);
+	apusys_power_on(MDLA0);
+	udelay(200);
+	apusys_power_on(MDLA1);
+	udelay(200);
+	apu_power_counter++;
+
+	apu_power_reg_dump();
+}
+
 static int apu_power_probe(struct platform_device *pdev)
 {
 #if APUSYS_POWER_ENABLE
@@ -531,26 +555,11 @@ static int apu_power_probe(struct platform_device *pdev)
 
 	apusys_power_init(VPU0, (void *)&init_power_data);
 
-#if FOR_BRING_UP
-	apusys_power_on(VPU0);
-	apusys_power_on(VPU1);
-	apusys_power_on(VPU2);
-	apusys_power_on(MDLA0);
-	apusys_power_on(MDLA1);
+	d_work_func();
+//	mod_delayed_work(system_freezable_power_efficient_wq,
+//					&d_work, msecs_to_jiffies(5000));
 
-	udelay(100);
-
-	apusys_set_opp(VPU0, 0);
-	apusys_set_opp(VPU1, 0);
-	apusys_set_opp(VPU2, 0);
-	apusys_set_opp(MDLA0, 0);
-	apusys_set_opp(MDLA1, 0);
-
-	apusys_dvfs_policy(0);
-	apu_power_counter++;
-	apu_get_power_info();
-#else
-
+#if !FOR_BRING_UP
 	power_task_handle = kthread_create(apusys_power_task,
 						(void *)NULL, "apusys_power");
 	if (IS_ERR(power_task_handle)) {
@@ -561,10 +570,11 @@ static int apu_power_probe(struct platform_device *pdev)
 	wake_up_process(power_task_handle);
 	mutex_init(&power_device_list_mtx);
 	mutex_init(&power_opp_mtx);
-#endif // FOR_BRING_UP
+
+	apu_power_reg_dump();
+#endif // !FOR_BRING_UP
 
 	apusys_power_debugfs_init();
-	apu_power_reg_dump();
 
 	return 0;
 

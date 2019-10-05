@@ -383,9 +383,21 @@ void enable_apu_conn_vcore_clock(void)
 	ENABLE_CLK(clk_apu_conn_md32_32k_cg);
 }
 
+void enable_apu_clksrc(void)
+{
+	ENABLE_CLK(clk_top_dsp_sel);
+	ENABLE_CLK(clk_top_dsp7_sel);
+	ENABLE_CLK(clk_top_ipu_if_sel);
+	ENABLE_CLK(clk_top_dsp1_sel);
+	ENABLE_CLK(clk_top_dsp2_sel);
+	ENABLE_CLK(clk_top_dsp3_sel);
+	ENABLE_CLK(clk_top_dsp6_sel);
+}
+
 //per user
 void enable_apu_clock(enum DVFS_USER user)
 {
+#if 0
 	ENABLE_CLK(clk_top_dsp_sel);
 	ENABLE_CLK(clk_top_dsp7_sel);
 	ENABLE_CLK(clk_top_ipu_if_sel);
@@ -404,10 +416,9 @@ void enable_apu_clock(enum DVFS_USER user)
 	case MDLA0:
 	case MDLA1:
 		ENABLE_CLK(clk_top_dsp6_sel);
-		ENABLE_CLK(clk_top_apupll_ck);
 		break;
 	}
-
+#endif
 	enable_apu_conn_vcore_clock();
 
 	switch (user) {
@@ -463,6 +474,8 @@ void enable_apu_clock(enum DVFS_USER user)
 		break;
 	}
 
+	ENABLE_CLK(clk_top_apupll_ck);
+
 	LOG_DBG("%s enable clk for DVFS_USER: %d\n", __func__, user);
 }
 
@@ -495,6 +508,8 @@ void disable_apu_conn_vcore_clock(void)
 //per user
 void disable_apu_clock(enum DVFS_USER user)
 {
+	DISABLE_CLK(clk_top_apupll_ck);
+
 	switch (user) {
 	default:
 	case VPU0:
@@ -549,7 +564,7 @@ void disable_apu_clock(enum DVFS_USER user)
 	}
 
 	disable_apu_conn_vcore_clock();
-
+#if 0
 	DISABLE_CLK(clk_top_dsp_sel);
 	DISABLE_CLK(clk_top_ipu_if_sel);
 	DISABLE_CLK(clk_top_dsp7_sel);
@@ -568,10 +583,9 @@ void disable_apu_clock(enum DVFS_USER user)
 	case MDLA0:
 	case MDLA1:
 		DISABLE_CLK(clk_top_dsp6_sel);
-		DISABLE_CLK(clk_top_apupll_ck);
 		break;
 	}
-
+#endif
 	LOG_DBG("%s disable clk for DVFS_USER: %d\n", __func__, user);
 }
 
@@ -708,6 +722,10 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		break;
 
 	case DVFS_FREQ_00_850000_F:
+		clk_src = clk_top_apupll_ck;
+		break;
+
+	case DVFS_FREQ_00_880000_F:
 		clk_src = clk_top_apupll_ck;
 		break;
 

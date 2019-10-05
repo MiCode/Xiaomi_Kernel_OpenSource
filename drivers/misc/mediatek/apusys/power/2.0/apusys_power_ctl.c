@@ -120,7 +120,11 @@ void apusys_clk_path_update_pwr(enum DVFS_USER user, enum DVFS_VOLTAGE voltage)
 
 	for (path_volt_index = 0;
 	path_volt_index < APUSYS_PATH_USER_NUM; path_volt_index++){
-		apusys_opps.user_path_volt[user][path_volt_index] = voltage;
+		apusys_opps.user_path_volt[user][path_volt_index] =
+			(voltage >
+			dvfs_clk_path_max_vol[user][path_volt_index] ?
+			dvfs_clk_path_max_vol[user][path_volt_index] :
+			voltage);
 		PWR_LOG_INF("%s, user_path_volt[%s][%d]=%d\n",
 			__func__,
 			user_str[user],

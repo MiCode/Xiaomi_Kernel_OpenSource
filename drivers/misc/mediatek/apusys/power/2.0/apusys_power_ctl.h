@@ -29,6 +29,4 @@ extern void apusys_power_init(enum DVFS_USER user, void *init_power_data);
 extern void apusys_power_uninit(enum DVFS_USER user);
 extern void apusys_power_on(enum DVFS_USER user);
 extern void apusys_power_off(enum DVFS_USER user);
-extern uint8_t apusys_boost_value_to_opp
-	(enum DVFS_USER user, uint8_t boost_value);
 #endif

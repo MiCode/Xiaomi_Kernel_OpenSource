@@ -56,5 +56,5 @@ void enable_apu_clock(enum DVFS_USER);
 void enable_apu_conn_vcore_clock(void);
 void enable_apu_mtcmos(int enable);
 int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
-
+void enable_apu_clksrc(void);
 #endif // _APU_POWER_API_H_
