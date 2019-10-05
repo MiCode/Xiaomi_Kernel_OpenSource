@@ -1480,9 +1480,10 @@
 		#gce-subsys-cells = <2>;
 	};
 
-	gce@10318000 {
-		compatible = "mediatek,gce";
-		reg = <0 0x10318000 0 0x4000>;
+	gce@10228000 {
+		compatible = "mediatek,gce", "syscon";
+		reg = <0 0x10228000 0 0x4000>;
+		#clock-cells = <1>;
 		mmsys_config = <&mdpsys_config>;
 		thread_count = <24>;
 		mediatek,mailbox-gce = <&gce_mbox_m>;
