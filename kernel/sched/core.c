@@ -785,15 +785,15 @@ static DEFINE_MUTEX(uclamp_mutex);
 
 /*
  * Minimum utilization for tasks in the root cgroup
- * default: 0
+ * default: 0%
  */
 unsigned int sysctl_sched_uclamp_util_min;
 
 /*
  * Maximum utilization for tasks in the root cgroup
- * default: 1024
+ * default: 100%
  */
-unsigned int sysctl_sched_uclamp_util_max = 1024;
+unsigned int sysctl_sched_uclamp_util_max = 100;
 
 static struct uclamp_se uclamp_default[UCLAMP_CNT];
 
@@ -1374,6 +1374,7 @@ int sched_uclamp_handler(struct ctl_table *table, int write,
 	int group_id[UCLAMP_CNT] = { UCLAMP_NOT_VALID };
 	struct uclamp_se *uc_se;
 	int old_min, old_max;
+	unsigned int value;
 	int result;
 
 	mutex_lock(&uclamp_mutex);
@@ -1389,7 +1390,7 @@ int sched_uclamp_handler(struct ctl_table *table, int write,
 
 	if (sysctl_sched_uclamp_util_min > sysctl_sched_uclamp_util_max)
 		goto undo;
-	if (sysctl_sched_uclamp_util_max > 1024)
+	if (sysctl_sched_uclamp_util_max > 100)
 		goto undo;
 
 	/* Find a valid group_id for each required clamp value */
@@ -1417,13 +1418,15 @@ int sched_uclamp_handler(struct ctl_table *table, int write,
 	/* Update each required clamp group */
 	if (old_min != sysctl_sched_uclamp_util_min) {
 		uc_se = &uclamp_default[UCLAMP_MIN];
+		value = scale_from_percent(sysctl_sched_uclamp_util_min);
 		uclamp_group_get(NULL, NULL, UCLAMP_MIN, group_id[UCLAMP_MIN],
-				 uc_se, sysctl_sched_uclamp_util_min);
+				 uc_se, value);
 	}
 	if (old_max != sysctl_sched_uclamp_util_max) {
 		uc_se = &uclamp_default[UCLAMP_MAX];
+		value = scale_from_percent(sysctl_sched_uclamp_util_max);
 		uclamp_group_get(NULL, NULL, UCLAMP_MAX, group_id[UCLAMP_MAX],
-				 uc_se, sysctl_sched_uclamp_util_max);
+				 uc_se, value);
 	}
 
 	if (result) {
@@ -1587,7 +1590,10 @@ static inline int alloc_uclamp_sched_group(struct task_group *tg,
 {
 	return 1;
 }
-int set_task_uclamp(int ucalamp_id, int uclamp_value) { return -ENOSPC; }
+int set_task_uclamp(int ucalamp_id, int uclamp_value)
+{
+	return -ENOSPC;
+}
 #endif /* CONFIG_UCLAMP_TASK  */
 
 static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
@@ -7471,8 +7477,10 @@ static int cpu_util_max_write_u64(struct cgroup_subsys_state *css,
 	int ret = -EINVAL;
 	int group_id;
 
-	if (max_value > SCHED_CAPACITY_SCALE)
+	/* Check range and scale to internal representation */
+	if (max_value > 100)
 		return -ERANGE;
+	max_value = scale_from_percent(max_value);
 
 	mutex_lock(&uclamp_mutex);
 	rcu_read_lock();
@@ -7523,7 +7531,7 @@ static inline u64 cpu_uclamp_read(struct cgroup_subsys_state *css,
 		: tg->uclamp[clamp_id].value;
 	rcu_read_unlock();
 
-	return util_clamp;
+	return scale_to_percent(util_clamp);
 }
 
 static u64 cpu_util_min_read_u64(struct cgroup_subsys_state *css,
