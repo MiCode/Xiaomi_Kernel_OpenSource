@@ -238,6 +238,10 @@ struct DISP_PQ_DC_PARAM {
 	int param[PQDC_INDEX_MAX];
 };
 
+struct DISP_COLOR_TRANSFORM {
+	int matrix[4][4];
+};
+
 /* OD */
 struct DISP_OD_CMD {
 	unsigned int size;
