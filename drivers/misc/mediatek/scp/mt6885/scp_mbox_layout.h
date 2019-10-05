@@ -17,9 +17,9 @@
 
 /* core0 */
 /* definition of slot size for send PINs */
-#define PIN_OUT_SIZE_CHRE_0		33 /* the following will use mbox 0 */
-#define PIN_OUT_SIZE_CHREX_0		13 /* the following will use mbox 0 */
-#define PIN_OUT_SIZE_SENSOR_0		13 /* the following will use mbox 0 */
+#define PIN_OUT_SIZE_CHRE_0		34 /* the following will use mbox 0 */
+#define PIN_OUT_SIZE_CHREX_0		14 /* the following will use mbox 0 */
+#define PIN_OUT_SIZE_SENSOR_0		14 /* the following will use mbox 0 */
 
 #define PIN_OUT_SIZE_APCCCI_0		 2 /* the following will use mbox 1 */
 #define PIN_OUT_SIZE_DVFS_SLEEP_0	 1 /* the following will use mbox 1 */
@@ -27,8 +27,8 @@
 #define PIN_OUT_SIZE_TEST_0		 1 /* the following will use mbox 1 */
 
 /* definition of slot size for received PINs */
-#define PIN_IN_SIZE_CHRE_0		13 /* the following will use mbox 1 */
-#define PIN_IN_SIZE_SENSOR_0		13 /* the following will use mbox 1 */
+#define PIN_IN_SIZE_CHRE_0		14 /* the following will use mbox 1 */
+#define PIN_IN_SIZE_SENSOR_0		14 /* the following will use mbox 1 */
 #define PIN_IN_SIZE_APCCCI_0		 2 /* the following will use mbox 1 */
 #define PIN_IN_SIZE_SCP_ERROR_INFO_0	10 /* the following will use mbox 1 */
 #define PIN_IN_SIZE_SCP_READY_0		 1 /* the following will use mbox 1 */

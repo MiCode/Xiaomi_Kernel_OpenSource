@@ -24,10 +24,10 @@ struct scp_ipi_desc {
 	void (*handler)(int id, void *data, unsigned int len);
 };
 
-static char *msg_legacy_ipi_chre[PIN_IN_SIZE_CHRE_0 * MBOX_SLOT_SIZE];
-static char *msg_legacy_ipi_sensor[PIN_IN_SIZE_SENSOR_0 * MBOX_SLOT_SIZE];
-static char *msg_legacy_ipi_mpool_0[PIN_IN_SIZE_SCP_MPOOL * MBOX_SLOT_SIZE];
-static char *msg_legacy_ipi_mpool_1[PIN_IN_SIZE_SCP_MPOOL * MBOX_SLOT_SIZE];
+static char msg_legacy_ipi_chre[PIN_IN_SIZE_CHRE_0 * MBOX_SLOT_SIZE];
+static char msg_legacy_ipi_sensor[PIN_IN_SIZE_SENSOR_0 * MBOX_SLOT_SIZE];
+static char msg_legacy_ipi_mpool_0[PIN_IN_SIZE_SCP_MPOOL * MBOX_SLOT_SIZE];
+static char msg_legacy_ipi_mpool_1[PIN_IN_SIZE_SCP_MPOOL * MBOX_SLOT_SIZE];
 
 /* the order of ipi_id should be consistent with IPI_LEGACY_GROUP */
 enum ipi_id {

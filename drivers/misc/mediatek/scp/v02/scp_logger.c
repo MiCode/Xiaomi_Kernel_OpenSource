@@ -67,11 +67,11 @@ struct buffer_info_s {
 };
 
 struct SCP_LOG_INFO {
-	unsigned int scp_log_dram_addr;
-	unsigned int scp_log_buf_addr;
-	unsigned int scp_log_start_addr;
-	unsigned int scp_log_end_addr;
-	unsigned int scp_log_buf_maxlen;
+	uint32_t scp_log_dram_addr;
+	uint32_t scp_log_buf_addr;
+	uint32_t scp_log_start_addr;
+	uint32_t scp_log_end_addr;
+	uint32_t scp_log_buf_maxlen;
 };
 
 
@@ -101,7 +101,7 @@ static struct mutex scp_logger_mutex;
 
 /* ipi message buffer */
 struct SCP_LOG_INFO msg_logger_init;
-void *msg_logger_wk;
+char msg_logger_wk[4];
 
 /*
  * get log from scp when received a buf full notify
@@ -681,7 +681,7 @@ int scp_logger_init(phys_addr_t start, phys_addr_t limit)
 	/* register log wakeup IPI */
 	mtk_ipi_register(&scp_ipidev, IPI_IN_LOGGER_WAKEUP_1,
 			(void *)scp_logger_wakeup_handler, NULL,
-			&msg_logger_wk);
+			msg_logger_wk);
 
 	scp_A_logger_inited = 1;
 

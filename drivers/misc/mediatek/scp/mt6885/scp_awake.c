@@ -242,3 +242,13 @@ int scp_sys_full_reset(void)
 	return 0;
 }
 
+void scp_clr_spm_reg(void)
+{
+	/* AP side write 0x1 to SCP2SPM_IPC_CLR to clear
+	 * scp side write 0x1 to SCP2SPM_IPC_SET to set SPM reg
+	 * scp set        bit[0]
+	 */
+	writel(0x1, SCP_TO_SPM_REG);
+}
+EXPORT_SYMBOL_GPL(scp_clr_spm_reg);
+

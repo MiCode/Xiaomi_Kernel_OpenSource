@@ -174,6 +174,7 @@ struct mtk_mbox_device scp_mboxdev = {
 	.count = SCP_MBOX_TOTAL,
 	.recv_count = SCP_TOTAL_RECV_PIN,
 	.send_count = SCP_TOTAL_SEND_PIN,
+	.post_cb = (mbox_rx_cb_t)scp_clr_spm_reg,
 };
 
 struct mtk_ipi_device scp_ipidev = {

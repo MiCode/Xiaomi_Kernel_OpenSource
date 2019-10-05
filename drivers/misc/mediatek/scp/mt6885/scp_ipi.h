@@ -23,10 +23,10 @@ enum scp_ipi_status {
 };
 
 struct scp_ipi_wrapper {
-	uint8_t out_id_0;
-	uint8_t out_id_1;
-	uint8_t in_id_0;
-	uint8_t in_id_1;
+	uint32_t out_id_0;
+	uint32_t out_id_1;
+	uint32_t in_id_0;
+	uint32_t in_id_1;
 	uint32_t out_size;
 	uint32_t in_size;
 	void *msg_0;

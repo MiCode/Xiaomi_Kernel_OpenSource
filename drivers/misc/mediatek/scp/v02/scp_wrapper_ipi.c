@@ -13,8 +13,11 @@
 
 #include "scp_ipi.h"
 
+#define IPI_NO_USE 0xFF
+
 struct scp_ipi_desc mpool[SCP_NR_IPI - IPI_MPOOL - 1];
-static struct scp_ipi_wrapper scp_ipi_legacy_id[] = SCP_IPI_LEGACY_GROUP;
+struct scp_ipi_wrapper scp_ipi_legacy_id[] = SCP_IPI_LEGACY_GROUP;
+
 struct scp_ipi_legacy_pkt {
 	unsigned int id;
 	unsigned int len;
@@ -55,7 +58,7 @@ enum scp_ipi_status scp_ipi_registration(enum ipi_id id,
 	void (*ipi_handler)(int id, void *data, unsigned int len),
 	const char *name)
 {
-	int ret;
+	int ret = SCP_IPI_ERROR;
 
 	if (id >= SCP_NR_IPI || id == IPI_MPOOL)
 		return SCP_IPI_ERROR;
@@ -68,21 +71,21 @@ enum scp_ipi_status scp_ipi_registration(enum ipi_id id,
 		return SCP_IPI_DONE;
 	}
 
-	if (scp_ipi_legacy_id[id].in_id_0 != 0) {
+	if (scp_ipi_legacy_id[id].in_id_0 != IPI_NO_USE) {
 		ret =
 		    mtk_ipi_register(&scp_ipidev, scp_ipi_legacy_id[id].in_id_0,
 				    (void *)scp_legacy_handler, ipi_handler,
-				    &scp_ipi_legacy_id[id].msg_0);
+				    scp_ipi_legacy_id[id].msg_0);
 
 		if (ret != IPI_ACTION_DONE)
 			return SCP_IPI_ERROR;
 	}
 
-	if (scp_ipi_legacy_id[id].in_id_1 != 0) {
+	if (scp_ipi_legacy_id[id].in_id_1 != IPI_NO_USE) {
 		ret =
 		    mtk_ipi_register(&scp_ipidev, scp_ipi_legacy_id[id].in_id_1,
 				    (void *)scp_legacy_handler, ipi_handler,
-				    &scp_ipi_legacy_id[id].msg_1);
+				    scp_ipi_legacy_id[id].msg_1);
 
 		if (ret != IPI_ACTION_DONE)
 			return SCP_IPI_ERROR;
@@ -109,7 +112,7 @@ enum scp_ipi_status scp_ipi_unregistration(enum ipi_id id)
 		return SCP_IPI_DONE;
 	}
 
-	if (scp_ipi_legacy_id[id].in_id_0 != 0) {
+	if (scp_ipi_legacy_id[id].in_id_0 != IPI_NO_USE) {
 		ret = mtk_ipi_unregister(&scp_ipidev,
 					scp_ipi_legacy_id[id].in_id_0);
 
@@ -117,7 +120,7 @@ enum scp_ipi_status scp_ipi_unregistration(enum ipi_id id)
 			return SCP_IPI_ERROR;
 	}
 
-	if (scp_ipi_legacy_id[id].in_id_1 != 0) {
+	if (scp_ipi_legacy_id[id].in_id_1 != IPI_NO_USE) {
 		ret = mtk_ipi_unregister(&scp_ipidev,
 					scp_ipi_legacy_id[id].in_id_1);
 
@@ -142,7 +145,7 @@ enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 {
 	/* declare pkt with a mbox maximum size for re-structing data */
 	char pkt[256];
-	int ret = 0, tmp_id;
+	int ret = SCP_IPI_ERROR, tmp_id;
 	void *ptr;
 
 	if (id >= SCP_NR_IPI || id == IPI_MPOOL)
@@ -166,7 +169,8 @@ enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 	memcpy((void *)(pkt + 8), buf, len);
 	ptr = pkt;
 
-	if (scp_ipi_legacy_id[tmp_id].out_id_0 != 0 && scp_id == SCP_CORE0_ID) {
+	if (scp_ipi_legacy_id[tmp_id].out_id_0 != IPI_NO_USE
+	    && scp_id == SCP_CORE0_ID) {
 		ret =
 		   mtk_ipi_send(&scp_ipidev, scp_ipi_legacy_id[tmp_id].out_id_0,
 				0, ptr, scp_ipi_legacy_id[tmp_id].out_size,
@@ -176,7 +180,8 @@ enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 			return SCP_IPI_DONE;
 	}
 
-	if (scp_ipi_legacy_id[tmp_id].out_id_1 != 0 && scp_id == SCP_CORE1_ID) {
+	if (scp_ipi_legacy_id[tmp_id].out_id_1 != IPI_NO_USE
+	    && scp_id == SCP_CORE1_ID) {
 		ret =
 		   mtk_ipi_send(&scp_ipidev, scp_ipi_legacy_id[tmp_id].out_id_1,
 				0, ptr, scp_ipi_legacy_id[tmp_id].out_size,
