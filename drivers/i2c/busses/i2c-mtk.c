@@ -578,7 +578,7 @@ static int i2c_set_speed(struct mt_i2c *i2c, unsigned int clk_src_in_hz)
 	else
 		speed_hz = i2c->speed_hz;
 
-	if (speed_hz > MAX_FS_MODE_SPEED && !i2c->hs_only) {
+	if (speed_hz > MAX_FS_PLUS_MODE_SPEED && !i2c->hs_only) {
 		/* Set the hign speed mode register */
 		ret = mtk_i2c_calculate_speed(i2c, clk_src_in_hz,
 			MAX_FS_MODE_SPEED, &l_step_cnt, &l_sample_cnt);
@@ -590,20 +590,22 @@ static int i2c_set_speed(struct mt_i2c *i2c, unsigned int clk_src_in_hz)
 		if (ret < 0)
 			return ret;
 
-		i2c->high_speed_reg = I2C_TIME_DEFAULT_VALUE | I2C_HS_SPEED |
+		i2c->high_speed_reg = I2C_HS_HOLD_TIME |
+			I2C_TIME_DEFAULT_VALUE | I2C_HS_SPEED |
 			(sample_cnt & I2C_TIMING_SAMPLE_COUNT_MASK) << 12 |
-			(step_cnt & I2C_TIMING_SAMPLE_COUNT_MASK) << 8;
+			((step_cnt - 1) & I2C_TIMING_SAMPLE_COUNT_MASK) << 8;
 
 		i2c->timing_reg =
 			(l_sample_cnt & I2C_TIMING_SAMPLE_COUNT_MASK) << 8 |
 			(l_step_cnt & I2C_TIMING_STEP_DIV_MASK) << 0;
 
 		if (i2c->dev_comp->set_ltiming) {
-			i2c->ltiming_reg = (l_sample_cnt << 6) |
-				(l_step_cnt << 0) |
+			i2c->ltiming_reg = I2C_HS_HOLD_SEL | (l_sample_cnt << 6)
+				| (l_step_cnt << 0) |
 				(sample_cnt &
 					I2C_TIMING_SAMPLE_COUNT_MASK) << 12 |
-				(step_cnt & I2C_TIMING_SAMPLE_COUNT_MASK) << 9;
+				((step_cnt + 1) &
+					I2C_TIMING_SAMPLE_COUNT_MASK) << 9;
 		}
 	} else {
 		if (speed_hz > I2C_DEFAUT_SPEED
@@ -938,11 +940,16 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 		control_reg |= I2C_CONTROL_RS;
 	if (i2c->op == I2C_MASTER_WRRD)
 		control_reg |= I2C_CONTROL_DIR_CHANGE | I2C_CONTROL_RS;
+	if (i2c->dev_comp->control_irq_sel == 1)
+		control_reg |= I2C_CONTROL_IRQ_SEL;
 	i2c_writew(control_reg, i2c, OFFSET_CONTROL);
 
 	/* set start condition */
 	if (speed_hz <= 100000)
 		i2c_writew(I2C_ST_START_CON, i2c, OFFSET_EXT_CONF);
+	else if (speed_hz > MAX_FS_PLUS_MODE_SPEED) {
+		i2c_writew(I2C_FS_PLUS_START_CON, i2c, OFFSET_EXT_CONF);
+	}
 	else {
 		if (i2c->dev_comp->ext_time_config != 0)
 			i2c_writew(i2c->dev_comp->ext_time_config,
@@ -966,6 +973,15 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 	}
 	i2c_writew(ioconfig_reg, i2c, OFFSET_IO_CONFIG);
 
+	/* set i3c high speed master code */
+	i2c->i3c_en = (i2c_readw(i2c, OFFSET_DMA_FSM_DEBUG)) & I3C_EN;
+	if (i2c->i3c_en && (i2c->speed_hz > MAX_FS_PLUS_MODE_SPEED)
+		&& (!i2c->hs_only)) {
+		i2c_writew(I2C_HFIFO_ADDR_CLR, i2c, OFFSET_FIFO_ADDR_CLR);
+		i2c_writew(I3C_UNLOCK_HFIFO | I3C_NINTH_BIT | MASTER_CODE,
+			i2c, OFFSET_HFIFO_DATA);
+	}
+
 	if (i2c->dev_comp->ver != 0x2)
 		i2c_writew(i2c->timing_reg, i2c, OFFSET_TIMING);
 	else
@@ -986,7 +1002,7 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 		  I2C_TRANSAC_COMP | I2C_ARB_LOST;
 	if (i2c->dev_comp->ver == 0x2)
 		int_reg |= I2C_BUS_ERR | I2C_TIMEOUT;
-	if (i2c->ch_offset)
+	if (i2c->ch_offset || (i2c->dev_comp->control_irq_sel == 1))
 		int_reg &= ~(I2C_HS_NACKERR | I2C_ACKERR);
 	/* Clear interrupt status */
 	i2c_writew(I2C_INTR_ALL, i2c, OFFSET_INTR_STAT);
@@ -1023,6 +1039,10 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 
 	/* Prepare buffer data to start transfer */
 	if (isDMA == true && (!i2c->is_ccu_trig)) {
+		if (i2c_readl_dma(i2c, OFFSET_EN)) {
+			i2c_writel_dma(I2C_DMA_WARM_RST, i2c, OFFSET_RST);
+			udelay(5);
+		}
 #ifdef CONFIG_MTK_LM_MODE
 		if ((i2c->dev_comp->dma_support == 1) && (enable_4G())) {
 			i2c_writel_dma(0x1, i2c, OFFSET_TX_MEM_ADDR2);
@@ -1600,6 +1620,7 @@ static irqreturn_t mt_i2c_irq(int irqno, void *dev_id)
 			if ((i2c->irq_stat & (I2C_IBI | I2C_BUS_ERR))) {
 				dev_info(i2c->dev, "[bxx]cg_cnt:%d,irq_stat:0x%x\n",
 					i2c->cg_cnt, i2c->irq_stat);
+#if 0
 				dev_info(i2c->dev, "0x84=0x%x\n",
 					i2c_readw(i2c, OFFSET_ERROR));
 
@@ -1629,6 +1650,7 @@ static irqreturn_t mt_i2c_irq(int irqno, void *dev_id)
 					_i2c_readw(i2c, 0x154),
 					_i2c_readw(i2c, 0x254));
 				/* for bxx debug end */
+#endif
 			}
 		}
 	} else {/* dump regs info for hw trig i2c if ACK err */
@@ -1746,6 +1768,8 @@ int mt_i2c_parse_comp_data(void)
 		(u8 *)&i2c_common_compat.dma_ver);
 	of_property_read_u8(comp_node, "cnt_constraint",
 		(u8 *)&i2c_common_compat.cnt_constraint);
+	of_property_read_u8(comp_node, "control_irq_sel",
+		(u8 *)&i2c_common_compat.control_irq_sel);
 	return 0;
 }
 
