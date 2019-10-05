@@ -28,6 +28,10 @@ struct mt6370_pmu_bled_platdata {
 	uint8_t pwm_avg_cycle:3;
 	uint8_t bled_ramptime:4;
 	uint8_t bled_flash_ramp:3;
+	uint8_t bled_curr_scale:2;
+	uint8_t pwm_lpf_coef:2;
+	uint8_t pwm_lpf_en:1;
+	uint8_t bled_curr_mode:1;
 	uint32_t max_bled_brightness;
 	const char *bled_name;
 };
@@ -67,4 +71,9 @@ struct mt6370_pmu_bled_platdata {
 /* MT6370_PMU_REG_BLFLTO : 0xA8 */
 #define MT6370_BLSTRB_TOMASK (0x7F)
 
+/* MT6370_PMU_REG_BLMODECTRL : 0xAD */
+#define MT6370_BLED_CURR_SCALESHFT	(4)
+#define MT6370_PWM_LPF_COEFSHFT		(2)
+#define MT6370_PWM_LPF_ENSHFT		(1)
+#define MT6370_BLED_CURR_MODESHFT	(0)
 #endif
