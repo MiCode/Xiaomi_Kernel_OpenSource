@@ -122,8 +122,10 @@ static inline int qlen(struct usb_gadget *gadget, unsigned qmult)
 /*-------------------------------------------------------------------------*/
 unsigned int rndis_test_last_resp_id;
 unsigned int rndis_test_last_msg_id;
+EXPORT_SYMBOL_GPL(rndis_test_last_msg_id);
 
 unsigned long rndis_test_reset_msg_cnt;
+EXPORT_SYMBOL_GPL(rndis_test_reset_msg_cnt);
 
 unsigned long rndis_test_rx_usb_in;
 unsigned long rndis_test_rx_net_out;
@@ -138,6 +140,7 @@ unsigned long rndis_test_tx_usb_out;
 unsigned long rndis_test_tx_complete;
 #define U_ETHER_DBG(fmt, args...) \
 		pr_debug("U_ETHER,%s, " fmt, __func__, ## args)
+
 
 /* NETWORK DRIVER HOOKUP (to the layer above this driver) */
 
@@ -1421,6 +1424,7 @@ void gether_update_dl_max_xfer_size(struct gether *link, uint32_t s)
 	dev->dl_max_xfer_size = s;
 	spin_unlock_irqrestore(&dev->lock, flags);
 }
+EXPORT_SYMBOL_GPL(gether_update_dl_max_xfer_size);
 
 /**
  * gether_cleanup - remove Ethernet-over-USB device
