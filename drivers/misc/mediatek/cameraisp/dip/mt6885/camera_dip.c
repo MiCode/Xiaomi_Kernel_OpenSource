@@ -5293,7 +5293,7 @@ enum mtk_iommu_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
 	unsigned int mva, void *data)
 #else
 enum m4u_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
-	unsigned int mva, void *data)
+	unsigned long mva, void *data)
 #endif
 {
 
