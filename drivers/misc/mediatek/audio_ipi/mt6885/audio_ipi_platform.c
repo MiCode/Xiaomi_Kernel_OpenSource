@@ -102,6 +102,8 @@ uint32_t audio_get_opendsp_id(const uint8_t task)
 	case TASK_SCENE_AUD_DAEMON:
 	case TASK_SCENE_AUDIO_CONTROLLER_HIFI3:
 	case TASK_SCENE_CALL_FINAL:
+	case TASK_SCENE_MUSIC:
+	case TASK_SCENE_FAST:
 		opendsp_id = AUDIO_OPENDSP_USE_HIFI3_A;
 		break;
 	default:

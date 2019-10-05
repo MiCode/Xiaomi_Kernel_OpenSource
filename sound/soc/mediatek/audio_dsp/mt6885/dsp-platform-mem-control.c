@@ -41,7 +41,7 @@ static struct mtk_adsp_task_attr adsp_task_attr[AUDIO_TASK_DAI_NUM] = {
 				    MT6885_MEMIF_AWB2,
 				    AUDIO_PLAYBACK_FEATURE_ID, false},
 	[AUDIO_TASK_MUSIC_ID] = {false, -1, -1, -1,
-				 AUDIO_TASK_MUSIC_ID, false},
+				 AUDIO_MUSIC_FEATURE_ID, false},
 	[AUDIO_TASK_CAPTURE_UL1_ID] = {true, -1,
 				       MT6885_MEMIF_VUL12,
 				       MT6885_MEMIF_AWB2,

@@ -25,6 +25,7 @@ static struct adsp_feature_tb feature_table[ADSP_NUM_FEATURE_ID] = {
 	[DEEPBUF_FEATURE_ID]          = {.name = "deepbuf"},
 	[OFFLOAD_FEATURE_ID]          = {.name = "offload"},
 	[AUDIO_PLAYBACK_FEATURE_ID]   = {.name = "audplayback"},
+	[AUDIO_MUSIC_FEATURE_ID]      = {.name = "music"},
 	[A2DP_PLAYBACK_FEATURE_ID]    = {.name = "a2dp_playback"},
 	[AUDIO_DATAPROVIDER_FEATURE_ID] = {.name = "dataprovider"},
 	[SPK_PROTECT_FEATURE_ID]      = {.name = "spk_protect"},
@@ -32,6 +33,7 @@ static struct adsp_feature_tb feature_table[ADSP_NUM_FEATURE_ID] = {
 	[VOIP_FEATURE_ID]             = {.name = "voip"},
 	[CAPTURE_UL1_FEATURE_ID]      = {.name = "capture_ul1"},
 	[CALL_FINAL_FEATURE_ID]       = {.name = "call_final"},
+	[FAST_FEATURE_ID]             = {.name = "fast"},
 };
 
 int adsp_get_feature_index(char *str)

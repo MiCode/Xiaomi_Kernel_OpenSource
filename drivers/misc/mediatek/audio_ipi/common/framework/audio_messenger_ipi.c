@@ -200,6 +200,10 @@ bool check_print_msg_info(const struct ipi_msg_t *p_ipi_msg)
 	if (p_ipi_msg->task_scene == TASK_SCENE_CAPTURE_UL1 &&
 	    p_ipi_msg->msg_id == AUDIO_DSP_TASK_ULCOPY)
 		return false;
+
+	if (p_ipi_msg->task_scene == TASK_SCENE_FAST &&
+	    p_ipi_msg->msg_id == AUDIO_DSP_TASK_DLCOPY)
+		return false;
 #endif
 
 	if (p_ipi_msg->ack_type == AUDIO_IPI_MSG_NEED_ACK ||

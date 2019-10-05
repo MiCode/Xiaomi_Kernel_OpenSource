@@ -139,6 +139,8 @@ int get_dspscene_by_dspdaiid(int id)
 		return TASK_SCENE_CALL_FINAL;
 	case AUDIO_TASK_FAST_ID:
 		return TASK_SCENE_FAST;
+	case AUDIO_TASK_MUSIC_ID:
+		return TASK_SCENE_MUSIC;
 	default:
 		pr_warn("%s() err\n", __func__);
 		return -1;
@@ -167,6 +169,8 @@ int get_dspdaiid_by_dspscene(int dspscene)
 		return AUDIO_TASK_DATAPROVIDER_ID;
 	case TASK_SCENE_FAST:
 		return AUDIO_TASK_FAST_ID;
+	case TASK_SCENE_MUSIC:
+		return AUDIO_TASK_MUSIC_ID;
 	default:
 		pr_warn("%s() err\n", __func__);
 		return -1;

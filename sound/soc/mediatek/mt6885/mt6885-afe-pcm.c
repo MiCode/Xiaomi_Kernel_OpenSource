@@ -1293,6 +1293,33 @@ static int mt6885_adsp_a2dp_mem_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int mt6885_adsp_fast_mem_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	int memif_num = get_dsp_task_attr(AUDIO_TASK_FAST_ID,
+					  ADSP_TASK_ATTR_MEMUL);
+	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
+
+	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
+	return 0;
+
+}
+
+static int mt6885_adsp_fast_mem_set(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	int memif_numul = get_dsp_task_attr(AUDIO_TASK_FAST_ID,
+					    ADSP_TASK_ATTR_MEMUL);
+	struct mtk_base_afe_memif *memiful = &afe->memif[memif_numul];
+
+	memiful->use_adsp_share_mem = ucontrol->value.integer.value[0];
+	return 0;
+}
+
 #endif
 
 static int mt6885_mmap_dl_scene_get(struct snd_kcontrol *kcontrol,
@@ -1496,6 +1523,10 @@ static const struct snd_kcontrol_new mt6885_pcm_kcontrols[] = {
 		       SND_SOC_NOPM, 0, 0x1, 0,
 		       mt6885_adsp_a2dp_mem_get,
 		       mt6885_adsp_a2dp_mem_set),
+	SOC_SINGLE_EXT("adsp_fast_sharemem_scenario",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       mt6885_adsp_fast_mem_get,
+		       mt6885_adsp_fast_mem_set),
 #endif
 	SOC_SINGLE_EXT("mmap_play_scenario", SND_SOC_NOPM, 0, 0x1, 0,
 		       mt6885_mmap_dl_scene_get, mt6885_mmap_dl_scene_set),
