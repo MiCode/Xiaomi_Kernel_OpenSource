@@ -15,6 +15,8 @@
 #define __MTK_MFG_COUNTER_H_
 
 #include <mt-plat/mtk_gpu_utility.h>
+#define MALI_HWC_TYPES					4
+#define MALI_COUNTERS_PER_BLOCK			64
 
 enum {
 	PMU_OK = 0,
@@ -29,9 +31,11 @@ extern int (*mtk_get_gpu_pmu_swapnreset_fp)(GPU_PMU *pmus, int pmu_size);
 extern int (*mtk_get_gpu_pmu_swapnreset_stop_fp)(void);
 /* Need to get current gpu freq from GPU DVFS module */
 extern unsigned int mt_gpufreq_get_cur_freq(void);
+extern unsigned int mt_gpufreq_get_cur_volt(void);
 
 void mtk_mfg_counter_init(void);
 void mtk_mfg_counter_destroy(void);
+int gator_gpu_pmu_init(void);
 
 
 #endif
