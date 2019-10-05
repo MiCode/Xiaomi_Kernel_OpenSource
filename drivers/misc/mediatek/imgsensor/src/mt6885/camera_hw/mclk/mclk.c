@@ -13,7 +13,7 @@
 
 #include "mclk.h"
 struct MCLK_PINCTRL_NAMES mclk_pinctrl[MCLK_STATE_MAX_NUM] = {
-	{"2mA"},
+	{"off"},
 	{"2mA"},
 	{"4mA"},
 	{"6mA"},
