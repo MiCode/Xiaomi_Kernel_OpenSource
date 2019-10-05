@@ -104,6 +104,7 @@ static const char *const DAC_DL_SINEGEN_AMPLITUE[] = {
 	"1/128", "1/64", "1/32", "1/16", "1/8", "1/4", "1/2", "1"};
 static const char *const spk_type_str[] = {"MTK_SPK_NOT_SMARTPA",
 					   "MTK_SPK_RICHTEK_RT5509",
+					   "MTK_SPK_TI_TAS5782M",
 					   "MTK_SPK_MTK_MT6660"};
 
 static bool mEnableSideToneFilter;
