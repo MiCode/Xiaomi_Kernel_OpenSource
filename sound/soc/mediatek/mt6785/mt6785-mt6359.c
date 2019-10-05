@@ -239,23 +239,36 @@ static int mt6785_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 
 		if (afe_priv->mtkaif_chosen_phase[0] >= 0 &&
 		    afe_priv->mtkaif_chosen_phase[1] >= 0 &&
-		    afe_priv->mtkaif_chosen_phase[2] >= 0)
+		    afe_priv->mtkaif_chosen_phase[2] >= 0) {
+			dev_info(afe->dev, "%s(), get phase %d pass, mtkaif_chosen_phase[0/1/2]:%d/%d/%d\n",
+				 __func__, phase,
+				 afe_priv->mtkaif_chosen_phase[0],
+				 afe_priv->mtkaif_chosen_phase[1],
+				 afe_priv->mtkaif_chosen_phase[2]);
 			break;
+		} else {
+			dev_info(afe->dev, "%s(), get phase %d fail, mtkaif_chosen_phase[0/1/2]:%d/%d/%d\n",
+				 __func__, phase,
+				 afe_priv->mtkaif_chosen_phase[0],
+				 afe_priv->mtkaif_chosen_phase[1],
+				 afe_priv->mtkaif_chosen_phase[2]);
+		}
 	}
 
-	if (afe_priv->mtkaif_chosen_phase[0] < 0 ||
-	    afe_priv->mtkaif_chosen_phase[1] < 0 ||
-	    afe_priv->mtkaif_chosen_phase[2] < 0)
-		afe_priv->mtkaif_calibration_ok = false;
+	mt6359_set_mtkaif_calibration_phase(&rtd->codec->component,
+		(afe_priv->mtkaif_chosen_phase[0] < 0) ?
+		0 : afe_priv->mtkaif_chosen_phase[0],
+		(afe_priv->mtkaif_chosen_phase[1] < 0) ?
+		0 : afe_priv->mtkaif_chosen_phase[1],
+		(afe_priv->mtkaif_chosen_phase[2] < 0) ?
+		0 : afe_priv->mtkaif_chosen_phase[2]);
 
-	if (!afe_priv->mtkaif_calibration_ok)
-		mt6359_set_mtkaif_calibration_phase(&rtd->codec->component,
-						    0, 0, 0);
+	/* Check miso0 and miso1 only */
+	if (afe_priv->mtkaif_chosen_phase[0] < 0 ||
+	    afe_priv->mtkaif_chosen_phase[1] < 0)
+		afe_priv->mtkaif_calibration_ok = false;
 	else
-		mt6359_set_mtkaif_calibration_phase(&rtd->codec->component,
-			afe_priv->mtkaif_chosen_phase[0],
-			afe_priv->mtkaif_chosen_phase[1],
-			afe_priv->mtkaif_chosen_phase[2]);
+		afe_priv->mtkaif_calibration_ok = true;
 
 	/* disable rx fifo */
 	regmap_update_bits(afe->regmap, AFE_AUD_PAD_TOP, 0xff, 0x38);
@@ -268,9 +281,12 @@ static int mt6785_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	mt6785_afe_gpio_request(afe, false, MT6785_DAI_ADDA_CH34, 0);
 	pm_runtime_put(afe->dev);
 
-	dev_info(afe->dev, "%s(), end, calibration ok %d\n",
+	dev_info(afe->dev, "%s(), end, calibration ok %d, mtkaif_chosen_phase[0/1/2]:%d/%d/%d\n",
 		 __func__,
-		 afe_priv->mtkaif_calibration_ok);
+		 afe_priv->mtkaif_calibration_ok,
+		 afe_priv->mtkaif_chosen_phase[0],
+		 afe_priv->mtkaif_chosen_phase[1],
+		 afe_priv->mtkaif_chosen_phase[2]);
 
 	return 0;
 }
