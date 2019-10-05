@@ -275,7 +275,7 @@ void ppm_cobra_update_limit(void *user_req)
 			req->limit[PPM_CLUSTER_B].max_cpu_core);
 
 	for_each_ppm_clusters(i) {
-		arch_get_cluster_cpus(&cluster_cpu, i);
+		ppm_get_cl_cpus(&cluster_cpu, i);
 		cpumask_and(&online_cpu, &cluster_cpu, cpu_online_mask);
 
 		cl_status[i].core_num = cpumask_weight(&online_cpu);
@@ -639,18 +639,24 @@ prepare_next_round:
 void ppm_cobra_init(void)
 {
 	int i, j;
+
+#ifdef PPM_SSPM_SUPPORT
 	/* remap sram for cobra */
 	cobra_tbl = ioremap_nocache(PPM_COBRA_TBL_SRAM_ADDR,
 					PPM_COBRA_TBL_SRAM_SIZE);
+#else
+	cobra_tbl = kzalloc(PPM_COBRA_TBL_SRAM_SIZE, GFP_KERNEL);
+#endif
 	if (!cobra_tbl) {
-		ppm_err("remap cobra_tbl failed!\n");
 		WARN_ON(1);
 		return;
 	}
 
+#ifdef PPM_SSPM_SUPPORT
 	/* ppm_info("addr of cobra_tbl = 0x%p, size = %lu\n", */
 	/* cobra_tbl, PPM_COBRA_TBL_SRAM_SIZE); */
 	memset_io((u8 *)cobra_tbl, 0x00, PPM_COBRA_TBL_SRAM_SIZE);
+#endif
 
 #ifdef CONFIG_MTK_UNIFY_POWER
 	{
