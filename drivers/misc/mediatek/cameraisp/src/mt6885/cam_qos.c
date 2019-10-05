@@ -208,6 +208,8 @@ default:
 		}
 		break;
 	case _ltmso_:
+	case _lcesho_:
+	case _tsfso_:
 		switch (module) {
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
@@ -273,9 +275,29 @@ default:
 			break;
 		}
 		break;
-	case _aao_:
 	case _aaho_:
-	case _tsfso_:
+		switch (module) {
+		case ISP_IRQ_TYPE_INT_CAM_A_ST:
+			mm_qos_add_request(&gBW_LIST[module],
+				   &gCAM_BW_REQ[module][portID],
+				   M4U_PORT_L16_CAM_AAHO_R1_A_MDP);
+			break;
+		case ISP_IRQ_TYPE_INT_CAM_B_ST:
+			mm_qos_add_request(&gBW_LIST[module],
+				   &gCAM_BW_REQ[module][portID],
+				   M4U_PORT_L17_CAM_AAHO_R1_B_DISP);
+			break;
+		case ISP_IRQ_TYPE_INT_CAM_C_ST:
+			mm_qos_add_request(&gBW_LIST[module],
+				   &gCAM_BW_REQ[module][portID],
+				   M4U_PORT_L18_CAM_AAHO_R1_C_MDP);
+			break;
+		default:
+			LOG_NOTICE("unsupported module:%d\n", module);
+			break;
+		}
+		break;
+	case _aao_:
 		switch (module) {
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
@@ -438,8 +460,32 @@ default:
 			break;
 		}
 		break;
+	case _rawi_r3_:
+		switch (module) {
+		case ISP_IRQ_TYPE_INT_CAM_A_ST:
+			mm_qos_add_request(&gBW_LIST[module],
+				   &gCAM_BW_REQ[module][portID],
+				   M4U_PORT_L16_CAM_RAWI_R3_A_MDP);
+			break;
+		case ISP_IRQ_TYPE_INT_CAM_B_ST:
+			mm_qos_add_request(&gBW_LIST[module],
+				   &gCAM_BW_REQ[module][portID],
+				   M4U_PORT_L17_CAM_RAWI_R3_B_DISP);
+			break;
+		case ISP_IRQ_TYPE_INT_CAM_C_ST:
+			mm_qos_add_request(&gBW_LIST[module],
+				   &gCAM_BW_REQ[module][portID],
+				   M4U_PORT_L18_CAM_RAWI_R3_C_MDP);
+			break;
+		default:
+			LOG_NOTICE("unsupported module:%d\n", module);
+			break;
+		}
+		break;
 	case _bpci_:
 	case _bpci_r2_:
+	case _bpci_r3_:
+	case _pdi_:
 		switch (module) {
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
@@ -462,7 +508,6 @@ default:
 		}
 		break;
 	case _lsci_:
-	case _pdi_:
 		switch (module) {
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
