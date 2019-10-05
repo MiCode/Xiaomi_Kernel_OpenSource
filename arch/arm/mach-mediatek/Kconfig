@@ -67,6 +67,8 @@ config MACH_MT8168
 	select HAVE_ARM_ARCH_TIMER
 	select ARM_PSCI
 	select ARM_CRYPTO
+	select CRYPTO_SHA2_ARM_CE
+	select CRYPTO_AES_ARM_CE
 	select SMP
 	select ARM_GIC_V3
 	select VFP
@@ -110,9 +112,9 @@ config MACH_MT6771
 	select MTK_SYS_CIRQ
 	select FAST_CIRQ_CLONE_FLUSH
 	select MTK_SYSTRACKER_V2
-	select ARM64_CRYPTO
-	select CRYPTO_SHA2_ARM64_CE
-	select CRYPTO_AES_ARM64_CE_BLK
+	select ARM_CRYPTO
+	select CRYPTO_SHA2_ARM_CE
+	select CRYPTO_AES_ARM_CE
 	select MTK_SYSTRACKER_V2
 	select MTK_CACHE_FLUSH_BY_SF
 	select MTK_TIMER_APXGPT
