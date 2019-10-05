@@ -3547,7 +3547,7 @@ page_owner=on";
 
 	dip_a1@15022000 {
 		compatible = "mediatek,dip_a1";
-		reg = <0 0x15022000 0 0x1000>;
+		reg = <0 0x15022000 0 0xc000>;
 	};
 
 	dip_a2@15023000 {
@@ -3685,7 +3685,7 @@ page_owner=on";
 
 	dip_b0@15821000 {
 		compatible = "mediatek,dip2";
-		reg = <0 0x15821000 0 0x1000>;
+		reg = <0 0x15821000 0 0xc000>;
 		interrupts = <GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
