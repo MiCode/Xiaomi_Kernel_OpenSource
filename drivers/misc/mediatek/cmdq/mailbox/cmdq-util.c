@@ -5,6 +5,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/module.h>
+#include <linux/sched/clock.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 
 #include "cmdq-util.h"
@@ -14,6 +15,9 @@ struct cmdq_util {
 	spinlock_t lock;
 	char *buf; // ARG_MAX
 	u32 len;
+	u64 nsec;
+	char caller[TASK_COMM_LEN]; // TODO
+
 	struct dentry *fs_status;
 	struct dentry *fs_record;
 };
@@ -21,6 +25,7 @@ static struct cmdq_util *g_util;
 
 void cmdq_util_enable(void)
 {
+	g_util->nsec = sched_clock();
 	g_util->ena = true;
 }
 EXPORT_SYMBOL(cmdq_util_enable);
@@ -56,8 +61,18 @@ s32 cmdq_util_save_first_error(const char *str, ...)
 }
 EXPORT_SYMBOL(cmdq_util_save_first_error);
 
-static int cmdq_util_print_status(struct seq_file *seq, void *data)
+static int cmdq_util_print_status(struct seq_file *seq, void *arg)
 {
+	struct cmdq_util *util = (struct cmdq_util *)seq->private;
+	u64 sec = util->nsec;
+	unsigned long nsec = do_div(sec, 1000000000);
+
+	if (!util->len)
+		return 0;
+
+	seq_printf(seq, "======== [cmdq] first error [%5llu.%06lu] ========\n",
+		sec, nsec);
+	seq_printf(seq, "%s", util->buf);
 	return 0;
 }
 
@@ -99,7 +114,6 @@ static int __init cmdq_util_init(void)
 	util->buf = kzalloc(ARG_MAX, GFP_KERNEL);
 	if (!util->buf)
 		return -ENOMEM;
-	cmdq_util_enable();
 
 	// fs
 	dir = debugfs_create_dir("cmdq", NULL);
