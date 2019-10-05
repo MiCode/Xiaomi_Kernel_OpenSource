@@ -5102,8 +5102,8 @@ static void __init mt_scpsys_init(struct device_node *node)
 	spm_mtcmos_ctrl_cam_rawc(STA_POWER_ON);
 	spm_mtcmos_ctrl_dp_tx(STA_POWER_ON);
 
-	pr_notice("MTCMOS VPU begin\n");
-	spm_mtcmos_vpu(STA_POWER_ON);
+	/* pr_notice("MTCMOS VPU begin\n"); */
+	/* spm_mtcmos_vpu(STA_POWER_ON); */
 
 	pr_notice("MTCMOS AO end\n");
 #endif /* CONFIG_FPGA_EARLY_PORTING */

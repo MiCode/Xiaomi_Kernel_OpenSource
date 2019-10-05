@@ -23,7 +23,7 @@
 
 #include <dt-bindings/clock/mt6885-clk.h>
 
-#define MT_CCF_BRINGUP	1
+#define MT_CCF_BRINGUP		1
 #ifdef CONFIG_ARM64
 #define IOMEM(a)	((void __force __iomem *)((a)))
 #endif
@@ -2136,7 +2136,7 @@ static void mtk_apu_vcore_init(struct device_node *node)
 			APUSYS_VCORE_NR_CLK);
 	if (!apu_vcore_base)
 		return;
-#if MT_CCF_BRINGUP
+#if 0
 	clk_writel(APU_VCORE_CG_CLR, APU_VCORE_CG);
 	pr_notice("%s(): init done\n", __func__);
 #endif
@@ -2195,7 +2195,7 @@ static void mtk_apu_conn_init(struct device_node *node)
 				ARRAY_SIZE(apu_conn_clks), APU_CONN_NR_CLK);
 	if (!apu_conn_base)
 		return;
-#if MT_CCF_BRINGUP
+#if 0
 	clk_writel(APU_CONN_CG_CLR, APU_CONN_CG);
 	pr_notice("%s(): init done\n", __func__);
 #endif
