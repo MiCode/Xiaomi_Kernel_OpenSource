@@ -1612,7 +1612,7 @@ static ssize_t ufshcd_clkscale_enable_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
-	u32 value;
+	u32 value = 0;
 	int err;
 
 	if (kstrtou32(buf, 0, &value))
