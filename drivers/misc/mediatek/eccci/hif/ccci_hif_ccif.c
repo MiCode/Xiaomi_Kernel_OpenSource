@@ -293,6 +293,9 @@ static int ccci_ch_to_c2k_ch(int md_state, int ccci_ch, int direction)
 	u16 channel_map;
 	int i = 0;
 
+	if (md_state == INVALID)
+		goto md_state_invalid;
+
 	ccci_channel_id = (u16) ccci_ch;
 	for (i = 0; i < (sizeof(c2k_ports) / sizeof(struct c2k_port)); i++) {
 		channel_map = (direction == OUT) ? c2k_ports[i].tx_ch_mapping :
@@ -306,6 +309,8 @@ static int ccci_ch_to_c2k_ch(int md_state, int ccci_ch, int direction)
 				c2k_ports[i].excp_ch;
 		}
 	}
+
+md_state_invalid:
 
 	CCCI_ERROR_LOG(MD_SYS3, TAG,
 		"%s:ERR cannot find mapped ccci ch ID(%d)\n",
