@@ -20,8 +20,7 @@
 #include "mtk_vcorefs_manager.h"
 #include "mtk_vcorefs_governor.h"
 #include "mtk_spm_vcore_dvfs.h"
-/* hh, temp fix build error */
-/* #include "mmdvfs_mgr.h" */
+#include "mmdvfs_pmqos.h"
 
 __weak char *spm_vcorefs_dump_dvfs_regs(char *p)
 {
@@ -129,9 +128,6 @@ int spm_msdc_dvfs_setting(int msdc, bool enable)
 {
 #if !defined(CONFIG_MACH_MT6759) && !defined(CONFIG_MACH_MT6759)
 	struct vcorefs_profile *pwrctrl = &vcorefs_ctrl;
-	/* hh, temp fix build error */
-	//struct mmdvfs_prepare_action_event evt_from_vcore =
-	//	{MMDVFS_EVENT_PREPARE_CALIBRATION_END};
 
 	if (msdc != KIR_AUTOK_SDIO)
 		return 0;
@@ -150,8 +146,7 @@ int spm_msdc_dvfs_setting(int msdc, bool enable)
 #endif /* end of CONFIG_MTK_DCS */
 
 	/* notify MM DVFS for msdc autok end */
-	/* hh, temp fix build error */
-	/* mmdvfs_notify_prepare_action(&evt_from_vcore); */
+	mmdvfs_prepare_action(MMDVFS_PREPARE_CALIBRATION_END);
 #endif
 	return 0;
 }

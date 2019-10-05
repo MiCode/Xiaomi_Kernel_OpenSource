@@ -33,8 +33,7 @@
 #endif
 #include <mtk_spm.h>
 /* #include <mtk_eem.h> */
-/* hh, temp fix build error */
-/* #include "mmdvfs_mgr.h" */
+#include "mmdvfs_pmqos.h"
 
 #if defined(CONFIG_MACH_MT6775) || defined(CONFIG_MACH_MT6771)
 #include <mtk_dvfsrc_reg.h>
@@ -812,12 +811,9 @@ int vcorefs_module_init(void)
 void governor_autok_manager(void)
 {
 	int r;
-	/* hh, temp fix build error */
-	// struct mmdvfs_prepare_action_event evt_from_vcore =
-	//		{MMDVFS_EVENT_PREPARE_CALIBRATION_START};
 
 	/* notify MM DVFS for msdc autok start */
-	//mmdvfs_notify_prepare_action(&evt_from_vcore);
+	mmdvfs_prepare_action(MMDVFS_PREPARE_CALIBRATION_START);
 
 	r = emmc_autok();
 	vcorefs_crit("EMMC autok done: %s\n", (r == 0) ? "Yes" : "No");
