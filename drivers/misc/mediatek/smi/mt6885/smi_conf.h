@@ -103,14 +103,20 @@ struct mtk_smi_pair smi_larb13_conf_pair[SMI_LARB13_CONF_NUM] = {
 	{INT_SMI_LARB_DBG_CON, 0x1},
 };
 
+#define SMI_LARB16_CONF_NUM	(4)
+struct mtk_smi_pair smi_larb16_conf_pair[SMI_LARB16_CONF_NUM] = {
+	{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_SW_FLAG, 0x1},
+	{SMI_LARB_FORCE_ULTRA, 0x8000}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+};
+
 u32 smi_conf_pair_num[SMI_DEV_NUM] = {
 	SMI_LARB0_CONF_NUM, SMI_LARB0_CONF_NUM, SMI_LARB2_CONF_NUM,
 	SMI_LARB2_CONF_NUM, SMI_LARB4_CONF_NUM, SMI_LARB4_CONF_NUM,
 	SMI_LARB6_CONF_NUM, SMI_LARB7_CONF_NUM, SMI_LARB7_CONF_NUM,
 	SMI_LARB4_CONF_NUM, SMI_LARB6_CONF_NUM, SMI_LARB4_CONF_NUM,
 	SMI_LARB6_CONF_NUM, SMI_LARB13_CONF_NUM, SMI_LARB13_CONF_NUM,
-	SMI_LARB4_CONF_NUM, SMI_LARB2_CONF_NUM, SMI_LARB2_CONF_NUM,
-	SMI_LARB2_CONF_NUM, SMI_LARB4_CONF_NUM, SMI_LARB4_CONF_NUM,
+	SMI_LARB4_CONF_NUM, SMI_LARB16_CONF_NUM, SMI_LARB16_CONF_NUM,
+	SMI_LARB16_CONF_NUM, SMI_LARB4_CONF_NUM, SMI_LARB4_CONF_NUM,
 	SMI_COMM_CONF_NUM, SMI_COMM_CONF_NUM, SMI_SRAM_COMM_CONF_NUM,
 	SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM,
 	SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM,
@@ -123,8 +129,8 @@ struct mtk_smi_pair *smi_conf_pair[SMI_DEV_NUM] = {
 	smi_larb6_conf_pair, smi_larb7_conf_pair, smi_larb7_conf_pair,
 	smi_larb4_conf_pair, smi_larb6_conf_pair, smi_larb4_conf_pair,
 	smi_larb6_conf_pair, smi_larb13_conf_pair, smi_larb13_conf_pair,
-	smi_larb4_conf_pair, smi_larb2_conf_pair, smi_larb2_conf_pair,
-	smi_larb2_conf_pair, smi_larb4_conf_pair, smi_larb4_conf_pair,
+	smi_larb4_conf_pair, smi_larb16_conf_pair, smi_larb16_conf_pair,
+	smi_larb16_conf_pair, smi_larb4_conf_pair, smi_larb4_conf_pair,
 	smi_comm_conf_pair, smi_comm_conf_pair, smi_sram_comm_conf_pair,
 	smi_sub_comm_conf_pair, smi_sub_comm_conf_pair, smi_sub_comm_conf_pair,
 	smi_sub_comm_conf_pair, smi_sub_comm_conf_pair, smi_sub_comm_conf_pair,
