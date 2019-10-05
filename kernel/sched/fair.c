@@ -8081,7 +8081,8 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 			return target_cpu;
 
 		/* sched: no need energy calculation if the same domain */
-		if (is_intra_domain(task_cpu(p), target_cpu) &&
+		if (target_cpu >= 0 &&
+			is_intra_domain(task_cpu(p), target_cpu) &&
 			target_cpu != l_plus_cpu && !cpu_isolated(target_cpu)) {
 
 			if (idle_cpu(prev_cpu) && idle_cpu(target_cpu)) {
