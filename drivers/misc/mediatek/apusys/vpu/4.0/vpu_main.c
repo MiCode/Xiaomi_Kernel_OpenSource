@@ -31,6 +31,7 @@
 #include "vpu_debug.h"
 #include "apusys_power.h"
 #include "remoteproc_internal.h"  // TODO: move to drivers/remoteproc/../..
+#include "vpu_trace.h"
 
 /* remote proc */
 #define VPU_FIRMWARE_NAME "mtk_vpu"
@@ -72,8 +73,11 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 		break;
 	case APUSYS_CMD_EXECUTE:
 		cmd = (struct apusys_cmd_hnd *)hnd;
+		vpu_trace_begin("%s|cmd execute cmd_id: 0x%08x",
+				__func__, cmd->cmd_id);
 		vpu_cmd_debug("%s: APUSYS_CMD_EXECUTE, kva: %lx\n",
 			__func__, (unsigned long)cmd->kva);
+		vpu_trace_end("%s|end", __func__);
 		return vpu_execute(vd, (struct vpu_request *)cmd->kva);
 	case APUSYS_CMD_PREEMPT:
 		pmt = (struct apusys_preempt_hnd *)hnd;

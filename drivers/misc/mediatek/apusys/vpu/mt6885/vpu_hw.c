@@ -26,6 +26,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/pm_qos.h>
 #include "vpu_debug.h"
+#include "vpu_trace.h"
 
 static int vpu_check_precond(struct vpu_device *vd);
 static int vpu_check_postcond(struct vpu_device *vd);
@@ -276,9 +277,6 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 	uint64_t latency = 0;
 
 	// TODO: add met trace
-//	vpu_trace_begin("[vpu_%d] hw_processing_request(%d)",
-//				core, request->algo_id[core]);
-
 	vpu_cmd_debug("%s: Enter\n", __func__);  // debug
 
 	ret = vpu_check_precond(vd);
@@ -313,7 +311,11 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 
 	/* 2. trigger interrupt */
 	// TODO: add MET trace
-//	vpu_trace_begin("[vpu_%d] dsp:d2d running", core);
+	/* vpu_trace_begin("[vpu_%d] dsp:d2d running", vd->id); */
+	vpu_trace_begin("vpu_%d|hw_processing_request(%s)",
+				vd->id, vd->algo_curr->a.name);
+
+
 //	MET_Events_Trace(1, core, request->algo_id[core]);
 	// TODO: add QOS
 //	vpu_cmd_qos_start(vd->id);
@@ -362,7 +364,8 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 
 err_cmd:
 	// TODO: add met trace
-	//	vpu_trace_end();
+	vpu_trace_end("vpu_%d|req_status: %d, ret: %d",
+		      vd->id, req->status, ret);
 
 out:
 	return ret;
@@ -724,7 +727,7 @@ int vpu_dev_set_debug(struct vpu_device *vd)
 		vpu_reg_read(vd, XTENSA_INFO23));
 
 	/* 2. trigger interrupt */
-	// vpu_trace_begin("dsp:running");
+	vpu_trace_begin("vpu_%d|%s", vd->id, __func__);
 	vpu_run(vd);
 
 	vpu_cmd_debug("%s: timestamp: %.2lu:%.2lu:%.2lu:%.6lu\n",
@@ -757,6 +760,8 @@ int vpu_dev_set_debug(struct vpu_device *vd)
 	}
 
 err:
+	vpu_trace_end("vpu_%d|%s", vd->id, __func__);
+
 	if (ret) {
 		pr_info("%s: vpu%d: fail, status: %d, ret: %d\n",
 			__func__, vd->id,
@@ -816,7 +821,7 @@ int vpu_hw_alg_init(struct vpu_device *vd, struct __vpu_algo *algo)
 
 	/* 2. trigger interrupt */
 	// TODO: add met trace
-	//	vpu_trace_begin("dsp:running");
+	vpu_trace_begin("vpu_%d|%s", vd->id, __func__);
 
 	/* RUN_STALL down */
 	vpu_run(vd);
@@ -832,7 +837,7 @@ int vpu_hw_alg_init(struct vpu_device *vd, struct __vpu_algo *algo)
 	vpu_stall(vd);
 
 	// TODO: add met trace
-	//	vpu_trace_end();
+	vpu_trace_end("vpu_%d|%s", vd->id, __func__);
 	if (ret) {
 		pr_info("%s: vpu%d load algo timeout, status:%d, cmd_done: %d, ret: %d\n",
 			__func__, vd->id,
@@ -861,7 +866,6 @@ int vpu_hw_alg_info(struct vpu_device *vd, struct __vpu_algo *alg)
 	uintptr_t va = vd->iova_work.m.va;
 	int i;
 
-//	vpu_trace_begin("%s(%d)", __func__, algo->id[vd->id]);
 	ret = vpu_check_precond(vd);
 	if (ret) {
 		pr_info("%s: vpu%d: device is not ready\n",
@@ -887,7 +891,7 @@ int vpu_hw_alg_info(struct vpu_device *vd, struct __vpu_algo *alg)
 	vpu_reg_write(vd, XTENSA_INFO12, iova + ofs_sett_descs);
 
 	/* 2. trigger interrupt */
-//	vpu_trace_begin("dsp:running");
+	vpu_trace_begin("vpu_%d|%s", vd->id, __func__);
 
 	/* RUN_STALL pull down */
 	vpu_run(vd);
@@ -896,7 +900,6 @@ int vpu_hw_alg_info(struct vpu_device *vd, struct __vpu_algo *alg)
 	ret = wait_command(vd);
 
 	vpu_cmd_debug("%s: vpu%d: VPU_CMD_GET_ALGO done\n", __func__, vd->id);
-//	vpu_trace_end();
 	if (ret) {
 //		vpu_dump_mesg(NULL);
 //		vpu_dump_register(NULL);
@@ -951,7 +954,7 @@ int vpu_hw_alg_info(struct vpu_device *vd, struct __vpu_algo *alg)
 		alg->a.info.desc_cnt, alg->a.sett.desc_cnt);
 
 out:
-//	vpu_trace_end();
+	vpu_trace_end("vpu_%d|ret:%d", vd->id, ret);
 	return ret;
 
 }

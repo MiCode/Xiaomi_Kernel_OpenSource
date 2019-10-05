@@ -36,6 +36,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(PDIR)
 # VPU driver
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/vpu/$(VDIR)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/vpu/$(PDIR)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/util
 
 # power related
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(PDIR)/
