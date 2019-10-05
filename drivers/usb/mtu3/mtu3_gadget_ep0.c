@@ -16,8 +16,6 @@
  *
  */
 
-#include <linux/usb/composite.h>
-
 #include "mtu3.h"
 
 /* ep0 is always mtu3->in_eps[0] */

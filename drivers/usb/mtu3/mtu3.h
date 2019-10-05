@@ -337,7 +337,6 @@ static inline struct ssusb_mtk *dev_to_ssusb(struct device *dev)
  *		MTU3_U3_IP_SLOT_DEFAULT for U3 IP
  * @may_wakeup: means device's remote wakeup is enabled
  * @is_self_powered: is reported in device status and the config descriptor
- * @delayed_status: true when function drivers ask for delayed status
  * @ep0_req: dummy request used while handling standard USB requests
  *		for GET_STATUS and SET_SEL
  * @setup_buf: ep0 response buffer for GET_STATUS and SET_SEL requests
