@@ -91,6 +91,11 @@ enum CMDQ_SEC_ENG_ENUM {
 	CMDQ_SEC_ISP_UFBCI,	/* 31 */
 	CMDQ_SEC_ISP_UFBCO,	/* 32 */
 
+	CMDQ_SEC_MDP_WROT2,	/* 33 */
+	CMDQ_SEC_MDP_WROT3,	/* 34 */
+	CMDQ_SEC_MDP_RDMA2,	/* 35 */
+	CMDQ_SEC_MDP_RDMA3,	/* 36 */
+
 	CMDQ_SEC_MAX_ENG_COUNT	/* ALWAYS keep at the end */
 };
 
