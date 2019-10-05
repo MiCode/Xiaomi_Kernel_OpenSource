@@ -57,3 +57,5 @@ size_t mt_secure_call_all(size_t function_id,
 		*r3 = reg3;
 	return ret;
 }
+EXPORT_SYMBOL(mt_secure_call_all);
+
