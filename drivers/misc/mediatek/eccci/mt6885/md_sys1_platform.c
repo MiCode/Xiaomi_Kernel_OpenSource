@@ -40,6 +40,7 @@
 #include <linux/pm_qos.h>
 #include <helio-dvfsrc-opp.h>
 #endif
+#include <clk-mt6885-pg.h>
 #include "ccci_core.h"
 #include "ccci_platform.h"
 
@@ -69,6 +70,31 @@ unsigned int devapc_check_flag = 1;
 void md_cldma_hw_reset(unsigned char md_id)
 {
 }
+
+void md1_subsys_debug_dump(enum subsys_id sys)
+{
+	struct ccci_modem *md;
+
+	if (sys != SYS_MD1)
+		return;
+		/* add debug dump */
+
+	CCCI_NORMAL_LOG(0, TAG, "%s\n", __func__);
+	md = ccci_md_get_modem_by_id(0);
+	if (md != NULL) {
+		CCCI_NORMAL_LOG(0, TAG, "%s dump start\n", __func__);
+		md->ops->dump_info(md, DUMP_FLAG_CCIF_REG | DUMP_FLAG_CCIF |
+			DUMP_FLAG_REG | DUMP_FLAG_QUEUE_0_1 |
+			DUMP_MD_BOOTUP_STATUS, NULL, 0);
+		mdelay(1000);
+		md->ops->dump_info(md, DUMP_FLAG_REG, NULL, 0);
+	}
+	CCCI_NORMAL_LOG(0, TAG, "%s exit\n", __func__);
+}
+
+struct pg_callbacks md1_subsys_handle = {
+	.debug_dump = md1_subsys_debug_dump,
+};
 
 int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	struct ccci_dev_cfg *dev_cfg, struct md_hw_info *hw_info)
@@ -183,6 +209,7 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		"ccif_irq0:%d,ccif_irq1:%d,md_wdt_irq:%d\n",
 		hw_info->ap_ccif_irq0_id, hw_info->ap_ccif_irq1_id,
 		hw_info->md_wdt_irq_id);
+	register_pg_callback(&md1_subsys_handle);
 	return 0;
 }
 
