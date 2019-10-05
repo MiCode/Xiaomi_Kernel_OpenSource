@@ -1,0 +1,8 @@
+config MTK_AUDIO_SCP_RECOVERY_SUPPORT
+	bool "Enable MTK AUDIO SCP RECOVERY Support"
+	depends on MTK_TINYSYS_SCP_SUPPORT && SND_SOC_MTK_SCP_SMARTPA
+	help
+	  This enable MTK audio SCP recovery support.
+	  SCP recovery mechanism will help SCP SmartPA recovery when
+	  scp reset happens. The recovery mechanism will inform audio
+	  userspace to close audio and restart again.
