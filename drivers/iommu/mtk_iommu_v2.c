@@ -3247,7 +3247,7 @@ static int mtk_iommu_reg_backup(struct mtk_iommu_data *data)
 	return 0;
 }
 
-static static int mtk_iommu_reg_restore(struct mtk_iommu_data *data)
+static int mtk_iommu_reg_restore(struct mtk_iommu_data *data)
 {
 	struct mtk_iommu_suspend_reg *reg = &data->reg;
 	void __iomem *base = data->base;
