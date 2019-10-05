@@ -1524,7 +1524,7 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index)
 		}
 
 	} else if (slave_type == SLAVE_TYPE_PERI2 &&
-			vio_index < VIO_SLAVE_NUM_PERI) {
+			vio_index < VIO_SLAVE_NUM_PERI2) {
 		return mt6885_devices_peri2[vio_index].device;
 	}
 

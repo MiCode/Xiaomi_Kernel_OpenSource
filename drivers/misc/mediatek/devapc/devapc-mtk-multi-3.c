@@ -476,6 +476,8 @@ static uint8_t get_permission(enum DEVAPC_SLAVE_TYPE slave_type,
 	uint32_t ret;
 	int i;
 
+	ndevices = mtk_devapc_ctx->soc->ndevices;
+
 	if (slave_type >= SLAVE_TYPE_NUM ||
 			vio_index >= ndevices[slave_type].vio_slave_num) {
 		pr_err(PFX "%s: param check failed, %s:0x%x, %s:0x%xn",
@@ -861,12 +863,12 @@ ssize_t mtk_devapc_dbg_read(struct file *file, char __user *buffer,
 ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 			     size_t count, loff_t *data)
 {
-	uint32_t slave_type, sys_index, domain, ctrl_index, apc_set_idx;
+	long param, sys_index, domain, ctrl_index;
 	struct mtk_devapc_dbg_status *dbg_stat;
+	uint32_t slave_type, apc_set_idx, ret;
 	char *parm_str, *cmd_str, *pinput;
 	struct arm_smccc_res res;
 	char input[32] = {0};
-	uint32_t param, ret;
 	int err, len;
 
 	dbg_stat = mtk_devapc_ctx->soc->dbg_stat;
@@ -894,7 +896,7 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 	if (!parm_str)
 		return -EINVAL;
 
-	err = kstrtol(parm_str, 10, (long *)&param);
+	err = kstrtol(parm_str, 10, &param);
 
 	if (err)
 		return err;
@@ -944,7 +946,7 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 		}
 
 		/* slave_type is already parse before */
-		slave_type = param;
+		slave_type = (uint32_t)param;
 
 		if (slave_type >= SLAVE_TYPE_NUM) {
 			pr_err(PFX "Wrong slave type:0x%x\n", slave_type);
@@ -954,21 +956,21 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 		/* Parse sys_index */
 		parm_str = strsep(&pinput, " ");
 		if (parm_str)
-			err = kstrtol(parm_str, 10, (long *)&sys_index);
+			err = kstrtol(parm_str, 10, &sys_index);
 		else
 			sys_index = 0xFFFFFFFF;
 
 		/* Parse domain id */
 		parm_str = strsep(&pinput, " ");
 		if (parm_str)
-			err = kstrtol(parm_str, 10, (long *)&domain);
+			err = kstrtol(parm_str, 10, &domain);
 		else
 			domain = DOMAIN_OTHERS;
 
 		/* Parse ctrl_index */
 		parm_str = strsep(&pinput, " ");
 		if (parm_str != NULL)
-			err = kstrtol(parm_str, 10, (long *)&ctrl_index);
+			err = kstrtol(parm_str, 10, &ctrl_index);
 		else
 			ctrl_index = 0xFFFFFFFF;
 
