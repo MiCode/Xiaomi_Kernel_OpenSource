@@ -418,6 +418,7 @@ CONFIG_MTK_BTIF,PROJECT,xiufeng.wu,combo with sdio,,,,,,,,,,,,,
 CONFIG_MTK_BUS_TRACER,PLATFORM,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_C2K_LTE_MODE,PROJECT,yanbin.ren,,,,,,,,,,,,,,
 CONFIG_MTK_C2K_SLOT2_SUPPORT,PROJECT,anny.hu,,,,,,,,,,,,,,
+CONFIG_MTK_CACHE_CONTROL,PROJECT,C-J.Chen,L3cc,X,X,X,X,X,X,X,X,X,X,y,X,X
 CONFIG_MTK_CACHE_FLUSH_RANGE_PARALLEL,PROJECT,shun-chih.yu,new config in this commit 08da46e2ec4ab3df1cc4f518956524038a2201da,,,,,,,,,,,,,
 CONFIG_MTK_CAM_CAL,PROJECT,luke.hu,,,,,,,,,,,,,,
 CONFIG_MTK_CAM_SECURITY_SUPPORT,PROJECT,yicheng.chen,,,,,,,,,,,,,,
