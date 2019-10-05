@@ -88,6 +88,9 @@ struct last_reboot_reason {
 	uint32_t deepidle_data;
 	uint32_t sodi3_data;
 	uint32_t sodi_data;
+	uint32_t cidle_model;
+	uint32_t cidle_data;
+	uint64_t cidle_time;
 	uint32_t mcsodi_data;
 	uint32_t spm_suspend_data;
 	uint32_t spm_common_scenario_data;
@@ -1183,6 +1186,42 @@ void aee_rr_rec_sodi_val(u32 val)
 u32 aee_rr_curr_sodi_val(void)
 {
 	return LAST_RR_VAL(sodi_data);
+}
+
+void aee_rr_rec_cidle_model_val(u32 val)
+{
+	if (!ram_console_init_done || !ram_console_buffer)
+		return;
+	LAST_RR_SET(cidle_model, val);
+}
+
+u32 aee_rr_curr_cidle_model_val(void)
+{
+	return LAST_RR_VAL(cidle_model);
+}
+
+void aee_rr_rec_cidle_data_val(u32 val)
+{
+	if (!ram_console_init_done || !ram_console_buffer)
+		return;
+	LAST_RR_SET(cidle_data, val);
+}
+
+u32 aee_rr_curr_cidle_data_val(void)
+{
+	return LAST_RR_VAL(cidle_data);
+}
+
+void aee_rr_rec_cidle_time_val(u32 val)
+{
+	if (!ram_console_init_done || !ram_console_buffer)
+		return;
+	LAST_RR_SET(cidle_time, val);
+}
+
+u32 aee_rr_curr_cidle_time_val(void)
+{
+	return LAST_RR_VAL(cidle_time);
 }
 
 void aee_rr_rec_mcsodi_val(u32 val)
@@ -2548,6 +2587,21 @@ void aee_rr_show_sodi(struct seq_file *m)
 	seq_printf(m, "sodi: 0x%x\n", LAST_RRR_VAL(sodi_data));
 }
 
+void aee_rr_show_cidle_model(struct seq_file *m)
+{
+	seq_printf(m, "cidle_model: 0x%x\n", LAST_RRR_VAL(cidle_model));
+}
+
+void aee_rr_show_cidle_data(struct seq_file *m)
+{
+	seq_printf(m, "cidle_data: 0x%x\n", LAST_RRR_VAL(cidle_data));
+}
+
+void aee_rr_show_cidle_time(struct seq_file *m)
+{
+	seq_printf(m, "cidle_time: %llu\n", LAST_RRR_VAL(cidle_time));
+}
+
 void aee_rr_show_mcsodi(struct seq_file *m)
 {
 	seq_printf(m, "mcsodi: 0x%x\n", LAST_RRR_VAL(mcsodi_data));
@@ -3353,6 +3407,9 @@ last_rr_show_t aee_rr_show[] = {
 	aee_rr_show_deepidle,
 	aee_rr_show_sodi3,
 	aee_rr_show_sodi,
+	aee_rr_show_cidle_model,
+	aee_rr_show_cidle_data,
+	aee_rr_show_cidle_time,
 	aee_rr_show_mcsodi,
 	aee_rr_show_spm_suspend,
 	aee_rr_show_spm_common_scenario,

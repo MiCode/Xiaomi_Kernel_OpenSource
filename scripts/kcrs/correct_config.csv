@@ -375,6 +375,7 @@ CONFIG_MTK_ALSPSHUB,PROJECT,weiqi.fu,new config in this commit ddc5d59450d236e7d
 CONFIG_MTK_ANDROID_DEFAULT_SETTING,COMMON,jades.shih,,y,y,y,y,,,,
 CONFIG_MTK_ANSWER_CALL_HUB,PROJECT,qiangming.xia,new config in this commit 187fb88cfe9b07a6e086117d157e5a75b76f244f,,,,,,,,
 CONFIG_MTK_AUDIO_TUNNELING_SUPPORT,PROJECT,Hsin-Yi.Chang,new config in this commit f23b551da1530a08af42299c2c9f900d1127b72c,,,,,,,,
+CONFIG_MTK_AUDIODSP_SUPPORT,PROJECT,Hsin-Yi.Chang,new config in this commit 7f27be63cc0f9751ffc022f08fffe7a7aaca5cab,,,,,,,,
 CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT,PROJECT,harvey.huang,new config in this commit 84b8edd0a561f4c498e46acb2a702dd9fabf7447,,,,,,,,
 CONFIG_MTK_AUXADC,PLATFORM,qiangming.xia,,y,y,y,y,y,y,y,y
 CONFIG_MTK_AUXADC_INTF,PLATFORM,jeter.chen,,y,y,y,y,,,,

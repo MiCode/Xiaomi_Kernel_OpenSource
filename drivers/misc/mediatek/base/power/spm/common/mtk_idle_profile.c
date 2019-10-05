@@ -30,6 +30,9 @@
 #include <core/met_drv.h>
 #endif
 
+#include <mtk_idle_profile.h>
+#include <mtk_idle_module.h>
+
 #define idle_get_current_time_us(x) do {\
 		struct timeval t;\
 		do_gettimeofday(&t);\
@@ -492,6 +495,46 @@ void mtk_idle_block_setting(
 	if (type == IDLE_TYPE_RG)
 		met_tag_init();
 	#endif
+}
+
+void mtk_idle_block_reason_report(struct MTK_IDLE_MODEL_CLERK const *clerk)
+{
+	int i;
+	/* xxidle, rgidle count */
+	reset_idle_buf(idle_state_log);
+	idle_buf_append(idle_state_log
+		, "CNT(%s): ", clerk->name);
+
+	for (i = 0; i < nr_cpu_ids; i++)
+		idle_buf_append(idle_state_log
+			, "[%d] = (%lu), "
+			, i, clerk->status.cnt.enter[i]);
+
+	printk_deferred("[name:spm&]Power/swap %s\n"
+		, get_idle_buf(idle_state_log));
+
+	/* block category */
+	reset_idle_buf(idle_state_log);
+	idle_buf_append(idle_state_log, "%s_block_cnt: ", clerk->name);
+	for (i = 0; i < NR_REASONS; i++)
+		if (clerk->status.cnt.block[i] > 0)
+			idle_buf_append(idle_state_log
+					, "[%s] = %lu, "
+					, mtk_idle_block_reason_name(i)
+					, clerk->status.cnt.block[i]);
+	printk_deferred("[name:spm&]Power/swap %s\n"
+		, get_idle_buf(idle_state_log));
+
+	/* block mask */
+	reset_idle_buf(idle_state_log);
+	idle_buf_append(idle_state_log
+			, "%s_block_mask: ", clerk->name);
+	idle_state_log.p_idx += mtk_idle_cond_append_info(true, clerk->type,
+		idle_state_log.p_idx,
+		IDLE_LOG_BUF_LEN - strlen(idle_state_log.buf));
+	printk_deferred("[name:spm&]Power/swap %s\n"
+		, get_idle_buf(idle_state_log));
+	spm_resource_req_block_dump();
 }
 
 void mtk_idle_recent_ratio_get(
