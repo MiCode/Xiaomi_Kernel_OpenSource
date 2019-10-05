@@ -64,7 +64,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_LEVEL_LABEL_20_21,  0x00100011 },
 
 		{ DVFSRC_MD_LATENCY_IMPROVE, 0x00000020 },
-		{ DVSFRC_HRT_REQ_MD_URG,     0x000D50D5 },
+		{ DVSFRC_HRT_REQ_MD_URG,     0x001AA1AA },
 		{ DVFSRC_HRT_REQ_MD_BW_0,    0x00200802 },
 		{ DVFSRC_HRT_REQ_MD_BW_1,    0x00200802 },
 		{ DVFSRC_HRT_REQ_MD_BW_2,    0x00200800 },
@@ -75,7 +75,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_HRT_REQ_MD_BW_7,    0x00000024 },
 		{ DVFSRC_HRT_REQ_MD_BW_8,    0x00000000 },
 		{ DVFSRC_HRT_REQ_MD_BW_9,    0x00000000 },
-		{ DVFSRC_HRT_REQ_MD_BW_10,   0x00035400 },
+		{ DVFSRC_HRT_REQ_MD_BW_10,   0x0006A800 },
 		{ DVFSRC_HRT1_REQ_MD_BW_0,   0x04B12C4B },
 		{ DVFSRC_HRT1_REQ_MD_BW_1,   0x04B12C4B },
 		{ DVFSRC_HRT1_REQ_MD_BW_2,   0x04B12C00 },
@@ -86,7 +86,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_HRT1_REQ_MD_BW_7,   0x0000005C },
 		{ DVFSRC_HRT1_REQ_MD_BW_8,	 0x00000000 },
 		{ DVFSRC_HRT1_REQ_MD_BW_9,	 0x00000000 },
-		{ DVFSRC_HRT1_REQ_MD_BW_10,	 0x00035400 },
+		{ DVFSRC_HRT1_REQ_MD_BW_10,	 0x0006A800 },
 
 
 		{ DVFSRC_DDR_REQUEST,        0x00004321 },
@@ -113,8 +113,8 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_QOS_EN,             0x0000407C },
 
 		{ DVFSRC_CURRENT_FORCE,      0x00000001 },
-		{ DVFSRC_BASIC_CONTROL,      0x62A0404B },
-		{ DVFSRC_BASIC_CONTROL,      0x62A0014B },
+		{ DVFSRC_BASIC_CONTROL,      0x66B8404B },
+		{ DVFSRC_BASIC_CONTROL,      0x66B8014B },
 		{ DVFSRC_CURRENT_FORCE,      0x00000000 },
 		{ -1, 0 },
 	},
@@ -217,17 +217,17 @@ static int dvfsrc_get_emi_mon_gear(void)
 
 static u32 dvfsrc_calc_hrt_opp(int data)
 {
-	if (data < 0x04B0)
+	if (data < 0x0960)
 		return DDR_OPP_6;
-	else if (data < 0x0708)
+	else if (data < 0x0E10)
 		return DDR_OPP_5;
-	else if (data < 0x0B80)
+	else if (data < 0x1700)
 		return DDR_OPP_4;
-	else if (data < 0x0D69)
+	else if (data < 0x1AD2)
 		return DDR_OPP_3;
-	else if (data < 0x1183)
+	else if (data < 0x2306)
 		return DDR_OPP_2;
-	else if (data < 0x18A6)
+	else if (data < 0x314C)
 		return DDR_OPP_1;
 	else
 		return DDR_OPP_0;
@@ -250,7 +250,7 @@ u32 dvfsrc_calc_isp_hrt_opp(int data)
 
 struct regulator *dvfsrc_vcore_requlator(struct device *dev)
 {
-	return regulator_get(dev, "vcore");
+	return regulator_get(dev, "vgpu11");
 }
 
 
@@ -384,7 +384,6 @@ void get_opp_info(char *p)
 {
 #if defined(CONFIG_FPGA_EARLY_PORTING) || !defined(CONFIG_MTK_PMIC_COMMON)
 	int pmic_val = 0;
-	int vsram_val = 0;
 #else
 	int pmic_val = pmic_get_register_value(PMIC_VCORE_ADDR);
 #endif

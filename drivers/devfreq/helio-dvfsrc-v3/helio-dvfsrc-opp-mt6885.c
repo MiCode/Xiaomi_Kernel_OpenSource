@@ -125,7 +125,9 @@ static int is_aging_test(void)
 		CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
 
 	if ((strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-			"k85v1_64_aging") != NULL)) {
+			"k6885tv1_64_aging") != NULL) ||
+		(strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
+			"k6885v1_64_alpha_aging") != NULL)) {
 		pr_info("[VcoreFS]: AGING flavor !!!\n");
 		return 1;
 	}
