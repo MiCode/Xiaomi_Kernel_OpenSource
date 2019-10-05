@@ -20,6 +20,8 @@ struct ufs_cmd_hlist_struct {
 	enum ufs_trace_event event;
 	u8 opcode;
 	u8 lun;
+	u8 crypted;
+	u8 keyslot;
 	pid_t pid;
 	u32 tag;
 	u32 transfer_len;
