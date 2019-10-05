@@ -951,6 +951,14 @@ void cmdq_mdp_init_module_clk(void)
 		&gCmdqMdpModuleClock.clk_MDP_COLOR0);
 	cmdq_dev_get_module_clock_by_name("mdp_color1", "MDP_COLOR1",
 		&gCmdqMdpModuleClock.clk_MDP_COLOR1);
+	cmdq_dev_get_module_clock_by_name("mdp_aal0", "MDP_AAL0",
+		&gCmdqMdpModuleClock.clk_MDP_AAL0);
+	cmdq_dev_get_module_clock_by_name("mdp_aal1", "MDP_AAL1",
+		&gCmdqMdpModuleClock.clk_MDP_AAL1);
+	cmdq_dev_get_module_clock_by_name("mdp_aal2", "MDP_AAL2",
+		&gCmdqMdpModuleClock.clk_MDP_AAL2);
+	cmdq_dev_get_module_clock_by_name("mdp_aal3", "MDP_AAL3",
+		&gCmdqMdpModuleClock.clk_MDP_AAL3);
 	cmdq_dev_get_module_clock_by_name("mdp_hdr0", "MDP_HDR0",
 		&gCmdqMdpModuleClock.clk_MDP_HDR0);
 	cmdq_dev_get_module_clock_by_name("mdp_hdr1", "MDP_HDR1",
@@ -959,6 +967,15 @@ void cmdq_mdp_init_module_clk(void)
 		&gCmdqMdpModuleClock.clk_MDP_FG0);
 	cmdq_dev_get_module_clock_by_name("mdp_fg1", "MDP_FG1",
 		&gCmdqMdpModuleClock.clk_MDP_FG1);
+	cmdq_dev_get_module_clock_by_name("mdp_tcc0", "MDP_TCC0",
+		&gCmdqMdpModuleClock.clk_MDP_TCC0);
+	cmdq_dev_get_module_clock_by_name("mdp_tcc1", "MDP_TCC1",
+		&gCmdqMdpModuleClock.clk_MDP_TCC1);
+	cmdq_dev_get_module_clock_by_name("mdp_tcc2", "MDP_TCC2",
+		&gCmdqMdpModuleClock.clk_MDP_TCC2);
+	cmdq_dev_get_module_clock_by_name("mdp_tcc3", "MDP_TCC3",
+		&gCmdqMdpModuleClock.clk_MDP_TCC3);
+
 }
 /* MDP engine dump */
 void cmdq_mdp_dump_rsz(const unsigned long base, const char *label)
@@ -1747,11 +1764,12 @@ static void cmdq_mdp_enable_common_clock(bool enable)
 #ifdef CONFIG_MTK_SMI_EXT
 	if (enable) {
 		/* Use SMI clock API */
-		smi_bus_prepare_enable(SMI_LARB0, "MDP");
-
+		smi_bus_prepare_enable(SMI_LARB2, "MDP");
+		smi_bus_prepare_enable(SMI_LARB3, "MDP");
 	} else {
 		/* disable, reverse the sequence */
-		smi_bus_disable_unprepare(SMI_LARB0, "MDP");
+		smi_bus_disable_unprepare(SMI_LARB2, "MDP");
+		smi_bus_disable_unprepare(SMI_LARB3, "MDP");
 	}
 #endif
 #endif	/* CMDQ_PWR_AWARE */
