@@ -58,11 +58,9 @@
 #endif
 #endif
 
-#include <cmdq_core.h>
-#include <cmdq_record.h>
+#include "cmdq_helper_ext.h"
 #include <smi_public.h>
 #include <mt-plat/mtk_chip.h>
-
 
 /*#define __WPE_EP_NO_CLKMGR__*/
 /* Measure the kernel performance
@@ -112,10 +110,6 @@ static unsigned long __read_mostly tracing_mark_write_addr;
 
 #include "inc/camera_wpe.h"
 
-/* DPE Command Queue */
-/* #include "../../cmdq/mt6797/cmdq_record.h" */
-/* #include "../../cmdq/mt6797/cmdq_core.h" */
-
 #if (MTK_WPE_COUNT == 2)
 #define WPE_COUNT_IS_2
 #endif
@@ -140,8 +134,6 @@ unsigned int ver;
 #ifndef MFALSE
 #define MFALSE              0
 #endif
-
-
 
 #define WPE_DEV_NAME                "camera-wpe"
 //#define EP_NO_CLKMGR
@@ -738,6 +730,25 @@ static struct SV_LOG_STR gSvLog[WPE_IRQ_TYPE_AMOUNT];
 #define WPE_WPEO_CON3_HW                (WPE_BASE_HW + 0x0414)
 #define WPE_WPEO_CROP_HW                (WPE_BASE_HW + 0x0418)
 
+#define WPE_WPEO2_BASE_ADDR_HW          (WPE_BASE_HW + 0x0630)
+#define WPE_WPEO2_OFST_ADDR_HW          (WPE_BASE_HW + 0x0634)
+#define WPE_WPEO2_XSIZE_HW              (WPE_BASE_HW + 0x0638)
+#define WPE_WPEO2_YSIZE_HW              (WPE_BASE_HW + 0x063C)
+#define WPE_WPEO2_STRIDE_HW             (WPE_BASE_HW + 0x0640)
+#define WPE_WPEO2_CON2_HW               (WPE_BASE_HW + 0x0648)
+#define WPE_WPEO2_CON3_HW               (WPE_BASE_HW + 0x064C)
+#define WPE_WPEO2_FMT_HW                (WPE_BASE_HW + 0x0658)
+
+#define WPE_MSKO_BASE_ADDR_HW           (WPE_BASE_HW + 0x0420)
+#define WPE_MSKO_OFST_ADDR_HW           (WPE_BASE_HW + 0x0428)
+#define WPE_MSKO_XSIZE_HW               (WPE_BASE_HW + 0x0430)
+#define WPE_MSKO_YSIZE_HW               (WPE_BASE_HW + 0x0434)
+#define WPE_MSKO_STRIDE_HW              (WPE_BASE_HW + 0x0438)
+#define WPE_MSKO_CON_HW                 (WPE_BASE_HW + 0x043C)
+#define WPE_MSKO_CON2_HW                (WPE_BASE_HW + 0x0440)
+#define WPE_MSKO_CON3_HW                (WPE_BASE_HW + 0x0444)
+#define WPE_MSKO_CROP_HW                (WPE_BASE_HW + 0x0448)
+
 #define WPE_VECI_BASE_ADDR_HW           (WPE_BASE_HW + 0x0450)
 #define WPE_VECI_OFST_ADDR_HW           (WPE_BASE_HW + 0x0458)
 #define WPE_VECI_XSIZE_HW               (WPE_BASE_HW + 0x0460)
@@ -901,6 +912,25 @@ static struct SV_LOG_STR gSvLog[WPE_IRQ_TYPE_AMOUNT];
 #define WPE_WPEO_CON2_REG               (ISP_WPE_BASE + 0x0410)
 #define WPE_WPEO_CON3_REG               (ISP_WPE_BASE + 0x0414)
 #define WPE_WPEO_CROP_REG               (ISP_WPE_BASE + 0x0418)
+
+#define WPE_WPEO2_BASE_ADDR_REG         (ISP_WPE_BASE + 0x0630)
+#define WPE_WPEO2_OFST_ADDR_REG         (ISP_WPE_BASE + 0x0634)
+#define WPE_WPEO2_XSIZE_REG             (ISP_WPE_BASE + 0x0638)
+#define WPE_WPEO2_YSIZE_REG             (ISP_WPE_BASE + 0x063C)
+#define WPE_WPEO2_STRIDE_REG            (ISP_WPE_BASE + 0x0640)
+#define WPE_WPEO2_CON2_REG              (ISP_WPE_BASE + 0x0648)
+#define WPE_WPEO2_CON3_REG              (ISP_WPE_BASE + 0x064C)
+#define WPE_WPEO2_FMT_REG               (ISP_WPE_BASE + 0x0658)
+
+#define WPE_MSKO_BASE_ADDR_REG          (ISP_WPE_BASE + 0x0420)
+#define WPE_MSKO_OFST_ADDR_REG          (ISP_WPE_BASE + 0x0428)
+#define WPE_MSKO_XSIZE_REG              (ISP_WPE_BASE + 0x0430)
+#define WPE_MSKO_YSIZE_REG              (ISP_WPE_BASE + 0x0434)
+#define WPE_MSKO_STRIDE_REG             (ISP_WPE_BASE + 0x0438)
+#define WPE_MSKO_CON_REG                (ISP_WPE_BASE + 0x043C)
+#define WPE_MSKO_CON2_REG               (ISP_WPE_BASE + 0x0440)
+#define WPE_MSKO_CON3_REG               (ISP_WPE_BASE + 0x0444)
+#define WPE_MSKO_CROP_REG               (ISP_WPE_BASE + 0x0448)
 
 #define WPE_VECI_BASE_ADDR_REG          (ISP_WPE_BASE + 0x0450)
 #define WPE_VECI_OFST_ADDR_REG          (ISP_WPE_BASE + 0x0458)
@@ -1392,12 +1422,6 @@ static bool UpdateWPE(pid_t *ProcessID)
 static signed int ConfigWPEHW(struct WPE_Config *pWPEConfig)
 #if !BYPASS_REG
 {
-#ifdef WPE_USE_GCE
-	struct cmdqRecStruct *handle;	/* kernel-4.4 usage */
-	/* cmdqRecHandle handle; *//* kernel-3.18 usage */
-	uint64_t engineFlag = (1L << CMDQ_ENG_WPEI);
-#endif
-
 	if (WPE_DBG_DBGLOG == (WPE_DBG_DBGLOG & WPEInfo.DebugMask)) {
 
 		LOG_DBG("ConfigWPEHW Start!\n");
@@ -1709,351 +1733,6 @@ static signed int ConfigWPEHW(struct WPE_Config *pWPEConfig)
 			pWPEConfig->WPE_DMA_DEBUG_SEL);
 
 	}
-#ifdef WPE_USE_GCE
-
-#ifdef __WPE_KERNEL_PERFORMANCE_MEASURE__
-	mt_kernel_trace_begin("ConfigWPEHW");
-#endif
-
-	cmdqRecCreate(CMDQ_SCENARIO_KERNEL_CONFIG_GENERAL, &handle);
-	/* CMDQ driver dispatches CMDQ HW thread */
-	/*and HW thread's priority according to scenario */
-
-	cmdqRecSetEngine(handle, engineFlag);
-
-	cmdqRecReset(handle);
-
-	/* Use command queue to write register */
-	cmdqRecWrite(handle, WPE_CTL_MOD_EN_HW,
-	pWPEConfig->WPE_CTL_MOD_EN, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_DMA_EN_HW,
-		pWPEConfig->WPE_CTL_DMA_EN, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_CTL_CFG_HW,
-		pWPEConfig->WPE_CTL_CFG, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_FMT_SEL_HW,
-		pWPEConfig->WPE_CTL_FMT_SEL, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_INT_EN_HW,
-		pWPEConfig->WPE_CTL_INT_EN, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_CTL_INT_STATUS_HW,
-		pWPEConfig->WPE_CTL_INT_STATUS, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_INT_STATUSX_HW,
-		pWPEConfig->WPE_CTL_INT_STATUSX, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_TDR_TILE_HW,
-		pWPEConfig->WPE_CTL_TDR_TILE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_TDR_DBG_STATUS_HW,
-		pWPEConfig->WPE_CTL_TDR_DBG_STATUS, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_TDR_TCM_EN_HW,
-		pWPEConfig->WPE_CTL_TDR_TCM_EN, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_SW_CTL_HW,
-		pWPEConfig->WPE_CTL_SW_CTL, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_SPARE0_HW,
-		pWPEConfig->WPE_CTL_SPARE0, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_SPARE1_HW,
-		pWPEConfig->WPE_CTL_SPARE1, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_SPARE2_HW,
-		pWPEConfig->WPE_CTL_SPARE2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_DONE_SEL_HW,
-		pWPEConfig->WPE_CTL_DONE_SEL, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_DBG_SET_HW,
-		pWPEConfig->WPE_CTL_DBG_SET, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_DBG_PORT_HW,
-		pWPEConfig->WPE_CTL_DBG_PORT, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_DATE_CODE_HW,
-		pWPEConfig->WPE_CTL_DATE_CODE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_PROJ_CODE_HW,
-		pWPEConfig->WPE_CTL_PROJ_CODE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_WPE_DCM_DIS_HW,
-		pWPEConfig->WPE_CTL_WPE_DCM_DIS, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_DMA_DCM_DIS_HW,
-		pWPEConfig->WPE_CTL_DMA_DCM_DIS, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_WPE_DCM_STATUS_HW,
-		pWPEConfig->WPE_CTL_WPE_DCM_STATUS, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_DMA_DCM_STATUS_HW,
-		pWPEConfig->WPE_CTL_DMA_DCM_STATUS, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_WPE_REQ_STATUS_HW,
-		pWPEConfig->WPE_CTL_WPE_REQ_STATUS, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_DMA_REQ_STATUS_HW,
-		pWPEConfig->WPE_CTL_DMA_REQ_STATUS, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_WPE_RDY_STATUS_HW,
-		pWPEConfig->WPE_CTL_WPE_RDY_STATUS, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CTL_DMA_RDY_STATUS_HW,
-		pWPEConfig->WPE_CTL_DMA_RDY_STATUS, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_VGEN_CTL_HW,
-		pWPEConfig->WPE_VGEN_CTL, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VGEN_IN_IMG_HW,
-		pWPEConfig->WPE_VGEN_IN_IMG, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VGEN_OUT_IMG_HW,
-		pWPEConfig->WPE_VGEN_OUT_IMG, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VGEN_HORI_STEP_HW,
-		pWPEConfig->WPE_VGEN_HORI_STEP, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VGEN_VERT_STEP_HW,
-		pWPEConfig->WPE_VGEN_VERT_STEP, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VGEN_HORI_INT_OFST_HW,
-		pWPEConfig->WPE_VGEN_HORI_INT_OFST, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VGEN_HORI_SUB_OFST_HW,
-		pWPEConfig->WPE_VGEN_HORI_SUB_OFST, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VGEN_VERT_INT_OFST_HW,
-		pWPEConfig->WPE_VGEN_VERT_INT_OFST, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VGEN_VERT_SUB_OFST_HW,
-		pWPEConfig->WPE_VGEN_VERT_SUB_OFST, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_VGEN_POST_CTL_HW,
-		pWPEConfig->WPE_VGEN_POST_CTL, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VGEN_POST_COMP_X_HW,
-		pWPEConfig->WPE_VGEN_POST_COMP_X, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VGEN_POST_COMP_Y_HW,
-		pWPEConfig->WPE_VGEN_POST_COMP_Y, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VGEN_MAX_VEC_HW,
-		pWPEConfig->WPE_VGEN_MAX_VEC, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VFIFO_CTL_HW,
-		pWPEConfig->WPE_VFIFO_CTL, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_CFIFO_CTL_HW,
-		pWPEConfig->WPE_CFIFO_CTL, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_RWCTL_CTL_HW,
-		pWPEConfig->WPE_RWCTL_CTL, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_CACHI_SPECIAL_FUN_EN_HW,
-		pWPEConfig->WPE_CACHI_SPECIAL_FUN_EN, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_C24_TILE_EDGE_HW,
-		pWPEConfig->WPE_C24_TILE_EDGE, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_MDP_CROP_X_HW,
-		pWPEConfig->WPE_MDP_CROP_X, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_MDP_CROP_Y_HW,
-		pWPEConfig->WPE_MDP_CROP_Y, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_ISPCROP_CON1_HW,
-		pWPEConfig->WPE_ISPCROP_CON1, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ISPCROP_CON2_HW,
-		pWPEConfig->WPE_ISPCROP_CON2, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_PSP_CTL_HW,
-		pWPEConfig->WPE_PSP_CTL, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_PSP2_CTL_HW,
-		pWPEConfig->WPE_PSP2_CTL, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_ADDR_GEN_SOFT_RSTSTAT_0_HW,
-		pWPEConfig->WPE_ADDR_GEN_SOFT_RSTSTAT_0, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_BASE_ADDR_0_HW,
-		pWPEConfig->WPE_ADDR_GEN_BASE_ADDR_0, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_OFFSET_ADDR_0_HW,
-		pWPEConfig->WPE_ADDR_GEN_OFFSET_ADDR_0, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_STRIDE_0_HW,
-		pWPEConfig->WPE_ADDR_GEN_STRIDE_0, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CACHI_CON_0_HW,
-		pWPEConfig->WPE_CACHI_CON_0, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CACHI_CON2_0_HW,
-		pWPEConfig->WPE_CACHI_CON2_0, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CACHI_CON3_0_HW,
-		pWPEConfig->WPE_CACHI_CON3_0, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_ERR_CTRL_0_HW,
-		pWPEConfig->WPE_ADDR_GEN_ERR_CTRL_0, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_ERR_STAT_0_HW,
-		pWPEConfig->WPE_ADDR_GEN_ERR_STAT_0, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_RSV1_0_HW,
-		pWPEConfig->WPE_ADDR_GEN_RSV1_0, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_DEBUG_SEL_0_HW,
-		pWPEConfig->WPE_ADDR_GEN_DEBUG_SEL_0, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_ADDR_GEN_SOFT_RSTSTAT_1_HW,
-		pWPEConfig->WPE_ADDR_GEN_SOFT_RSTSTAT_1, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_BASE_ADDR_1_HW,
-		pWPEConfig->WPE_ADDR_GEN_BASE_ADDR_1, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_OFFSET_ADDR_1_HW,
-		pWPEConfig->WPE_ADDR_GEN_OFFSET_ADDR_1, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_STRIDE_1_HW,
-		pWPEConfig->WPE_ADDR_GEN_STRIDE_1, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CACHI_CON_1_HW,
-		pWPEConfig->WPE_CACHI_CON_1, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CACHI_CON2_1_HW,
-		pWPEConfig->WPE_CACHI_CON2_1, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CACHI_CON3_1_HW,
-		pWPEConfig->WPE_CACHI_CON3_1, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_ERR_CTRL_1_HW,
-		pWPEConfig->WPE_ADDR_GEN_ERR_CTRL_1, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_ERR_STAT_1_HW,
-		pWPEConfig->WPE_ADDR_GEN_ERR_STAT_1, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_RSV1_1_HW,
-		pWPEConfig->WPE_ADDR_GEN_RSV1_1, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_DEBUG_SEL_1_HW,
-		pWPEConfig->WPE_ADDR_GEN_DEBUG_SEL_1, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_ADDR_GEN_SOFT_RSTSTAT_2_HW,
-		pWPEConfig->WPE_ADDR_GEN_SOFT_RSTSTAT_2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_BASE_ADDR_2_HW,
-		pWPEConfig->WPE_ADDR_GEN_BASE_ADDR_2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_OFFSET_ADDR_2_HW,
-		pWPEConfig->WPE_ADDR_GEN_OFFSET_ADDR_2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_STRIDE_2_HW,
-		pWPEConfig->WPE_ADDR_GEN_STRIDE_2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CACHI_CON_2_HW,
-		pWPEConfig->WPE_CACHI_CON_2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CACHI_CON2_2_HW,
-		pWPEConfig->WPE_CACHI_CON2_2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CACHI_CON3_2_HW,
-		pWPEConfig->WPE_CACHI_CON3_2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_ERR_CTRL_2_HW,
-		pWPEConfig->WPE_ADDR_GEN_ERR_CTRL_2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_ERR_STAT_2_HW,
-		pWPEConfig->WPE_ADDR_GEN_ERR_STAT_2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_RSV1_2_HW,
-		pWPEConfig->WPE_ADDR_GEN_RSV1_2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_DEBUG_SEL_2_HW,
-		pWPEConfig->WPE_ADDR_GEN_DEBUG_SEL_2, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_ADDR_GEN_SOFT_RSTSTAT_3_HW,
-		pWPEConfig->WPE_ADDR_GEN_SOFT_RSTSTAT_3, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_BASE_ADDR_3_HW,
-		pWPEConfig->WPE_ADDR_GEN_BASE_ADDR_3, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_OFFSET_ADDR_3_HW,
-		pWPEConfig->WPE_ADDR_GEN_OFFSET_ADDR_3, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_STRIDE_3_HW,
-		pWPEConfig->WPE_ADDR_GEN_STRIDE_3, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CACHI_CON_3_HW,
-		pWPEConfig->WPE_CACHI_CON_3, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CACHI_CON2_3_HW,
-		pWPEConfig->WPE_CACHI_CON2_3, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_CACHI_CON3_3_HW,
-		pWPEConfig->WPE_CACHI_CON3_3, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_ERR_CTRL_3_HW,
-		pWPEConfig->WPE_ADDR_GEN_ERR_CTRL_3, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_ERR_STAT_3_HW,
-		pWPEConfig->WPE_ADDR_GEN_ERR_STAT_3, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_RSV1_3_HW,
-		pWPEConfig->WPE_ADDR_GEN_RSV1_3, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_ADDR_GEN_DEBUG_SEL_3_HW,
-		pWPEConfig->WPE_ADDR_GEN_DEBUG_SEL_3, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_DMA_SOFT_RSTSTAT_HW,
-		pWPEConfig->WPE_DMA_SOFT_RSTSTAT, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_TDRI_BASE_ADDR_HW,
-		pWPEConfig->WPE_TDRI_BASE_ADDR, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_TDRI_OFST_ADDR_HW,
-		pWPEConfig->WPE_TDRI_OFST_ADDR, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_TDRI_XSIZE_HW,
-		pWPEConfig->WPE_TDRI_XSIZE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VERTICAL_FLIP_EN_HW,
-		pWPEConfig->WPE_VERTICAL_FLIP_EN, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_DMA_SOFT_RESET_HW,
-		pWPEConfig->WPE_DMA_SOFT_RESET, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_LAST_ULTRA_EN_HW,
-		pWPEConfig->WPE_LAST_ULTRA_EN, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_SPECIAL_FUN_EN_HW,
-		pWPEConfig->WPE_SPECIAL_FUN_EN, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_WPEO_BASE_ADDR_HW,
-		pWPEConfig->WPE_WPEO_BASE_ADDR, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_WPEO_OFST_ADDR_HW,
-		pWPEConfig->WPE_WPEO_OFST_ADDR, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_WPEO_XSIZE_HW,
-		pWPEConfig->WPE_WPEO_XSIZE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_WPEO_YSIZE_HW,
-		pWPEConfig->WPE_WPEO_YSIZE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_WPEO_STRIDE_HW,
-		pWPEConfig->WPE_WPEO_STRIDE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_WPEO_CON_HW,
-		pWPEConfig->WPE_WPEO_CON, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_WPEO_CON2_HW,
-		pWPEConfig->WPE_WPEO_CON2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_WPEO_CON3_HW,
-		pWPEConfig->WPE_WPEO_CON3, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_WPEO_CROP_HW,
-		pWPEConfig->WPE_WPEO_CROP, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_VECI_BASE_ADDR_HW,
-		pWPEConfig->WPE_VECI_BASE_ADDR, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VECI_OFST_ADDR_HW,
-		pWPEConfig->WPE_VECI_OFST_ADDR, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VECI_XSIZE_HW,
-		pWPEConfig->WPE_VECI_XSIZE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VECI_YSIZE_HW,
-		pWPEConfig->WPE_VECI_YSIZE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VECI_STRIDE_HW,
-		pWPEConfig->WPE_VECI_STRIDE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VECI_CON_HW,
-		pWPEConfig->WPE_VECI_CON, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VECI_CON2_HW,
-		pWPEConfig->WPE_VECI_CON2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VECI_CON3_HW,
-		pWPEConfig->WPE_VECI_CON3, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_VEC2I_BASE_ADDR_HW,
-		pWPEConfig->WPE_VEC2I_BASE_ADDR, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC2I_OFST_ADDR_HW,
-		pWPEConfig->WPE_VEC2I_OFST_ADDR, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC2I_XSIZE_HW,
-		pWPEConfig->WPE_VEC2I_XSIZE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC2I_YSIZE_HW,
-		pWPEConfig->WPE_VEC2I_YSIZE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC2I_STRIDE_HW,
-		pWPEConfig->WPE_VEC2I_STRIDE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC2I_CON_HW,
-		pWPEConfig->WPE_VEC2I_CON, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC2I_CON2_HW,
-		pWPEConfig->WPE_VEC2I_CON2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC2I_CON3_HW,
-		pWPEConfig->WPE_VEC2I_CON3, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_VEC3I_BASE_ADDR_HW,
-		pWPEConfig->WPE_VEC3I_BASE_ADDR, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC3I_OFST_ADDR_HW,
-		pWPEConfig->WPE_VEC3I_OFST_ADDR, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC3I_XSIZE_HW,
-		pWPEConfig->WPE_VEC3I_XSIZE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC3I_YSIZE_HW,
-		pWPEConfig->WPE_VEC3I_YSIZE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC3I_STRIDE_HW,
-		pWPEConfig->WPE_VEC3I_STRIDE, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC3I_CON_HW,
-		pWPEConfig->WPE_VEC3I_CON, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC3I_CON2_HW,
-		pWPEConfig->WPE_VEC3I_CON2, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC3I_CON3_HW,
-		pWPEConfig->WPE_VEC3I_CON3, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_DMA_ERR_CTRL_HW,
-		pWPEConfig->WPE_DMA_ERR_CTRL, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_WPEO_ERR_STAT_HW,
-		pWPEConfig->WPE_WPEO_ERR_STAT, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_MSKO_ERR_STAT_HW,
-		pWPEConfig->WPE_MSKO_ERR_STAT, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VECI_ERR_STAT_HW,
-		pWPEConfig->WPE_VECI_ERR_STAT, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC2I_ERR_STAT_HW,
-		pWPEConfig->WPE_VEC2I_ERR_STAT, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_VEC3I_ERR_STAT_HW,
-		pWPEConfig->WPE_VEC3I_ERR_STAT, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, WPE_DMA_DEBUG_ADDR_HW,
-		pWPEConfig->WPE_DMA_DEBUG_ADDR, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_DMA_DEBUG_SEL_HW,
-		pWPEConfig->WPE_DMA_DEBUG_SEL, CMDQ_REG_MASK);
-
-	cmdqRecWrite(handle, WPE_WPE_START_HW, 0x1, CMDQ_REG_MASK);
-
-	cmdqRecWait(handle, CMDQ_EVENT_WPE_A_EOF);
-
-	cmdqRecWrite(handle, WPE_WPE_START_HW, 0x0, CMDQ_REG_MASK);
-
-	/* non-blocking API, Please  use cmdqRecFlushAsync() */
-	cmdqRecFlushAsync(handle);
-	cmdqRecReset(handle);
-	/* if you want to re-use the handle, please reset the handle */
-	cmdqRecDestroy(handle);	/* recycle the memory */
-
-#ifdef __WPE_KERNEL_PERFORMANCE_MEASURE__
-	mt_kernel_trace_end();
-#endif
-
-#else
 
 #ifdef __WPE_KERNEL_PERFORMANCE_MEASURE__
 	mt_kernel_trace_begin("ConfigWPEHW");
@@ -2294,8 +1973,6 @@ static signed int ConfigWPEHW(struct WPE_Config *pWPEConfig)
 
 #ifdef __WPE_KERNEL_PERFORMANCE_MEASURE__
 	mt_kernel_trace_end();
-#endif
-
 #endif
 	return 0;
 }
@@ -5489,7 +5166,6 @@ static signed int __init WPE_Init(void)
 		/* log buffer ,in case of overflow */
 	}
 
-#if 1
 	/* Cmdq */
 	/* Register WPE callback */
 	LOG_DBG("register wpe callback for CMDQ");
@@ -5498,7 +5174,6 @@ static signed int __init WPE_Init(void)
 			   WPE_DumpCallback,
 			   WPE_ResetCallback,
 			   WPE_ClockOffCallback);
-#endif
 
 	LOG_DBG("- X. Ret: %d.", Ret);
 	return Ret;
@@ -5515,11 +5190,9 @@ static void __exit WPE_Exit(void)
 	/*  */
 	platform_driver_unregister(&WPEDriver);
 	/*  */
-#if 1
 	/* Cmdq */
 	/* Unregister WPE callback */
 	cmdqCoreRegisterCB(CMDQ_GROUP_WPE, NULL, NULL, NULL, NULL);
-#endif
 
 	kfree(pLog_kmalloc);
 
