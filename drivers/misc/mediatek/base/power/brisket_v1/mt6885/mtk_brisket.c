@@ -218,16 +218,6 @@ void mtk_brisket_pllclken(unsigned int brisket_pllclken)
 	unsigned int brisket_group_bits_shift =
 		(brisket_group << 16) | (bits << 8) | shift;
 
-#ifndef CONFIG_FPGA_EARLY_PORTING
-	unsigned int ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xf;
-
-	if (ptp_ftpgm <= 1) {
-		/* for PTPv0 and PTPv1, disable BCDE */
-		brisket_pllclken = 0;
-		brisket_debug("PTPv%u, force brisket disable.\n", ptp_ftpgm);
-	}
-#endif
-
 	for (cpu = BRISKET_CPU_START_ID; cpu <= BRISKET_CPU_END_ID; cpu++) {
 		mt_secure_call_brisket(MTK_SIP_KERNEL_BRISKET_CONTROL,
 			BRISKET_RW_WRITE,
@@ -246,16 +236,6 @@ void mtk_brisket_bren(unsigned int brisket_bren)
 	const unsigned int shift = 20;
 	unsigned int brisket_group_bits_shift =
 		(brisket_group << 16) | (bits << 8) | shift;
-
-#ifndef CONFIG_FPGA_EARLY_PORTING
-	unsigned int ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xf;
-
-	if (ptp_ftpgm <= 1) {
-		/* for PTPv0 and PTPv1, disable BCDE */
-		brisket_bren = 0;
-		brisket_debug("PTPv%u, force brisket disable.\n", ptp_ftpgm);
-	}
-#endif
 
 	for (cpu = BRISKET_CPU_START_ID; cpu <= BRISKET_CPU_END_ID; cpu++) {
 		mt_secure_call_brisket(MTK_SIP_KERNEL_BRISKET_CONTROL,
@@ -573,6 +553,7 @@ static int brisket_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 	struct device_node *node = NULL;
 	int rc = 0;
+	unsigned int ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xf;
 
 	node = pdev->dev.of_node;
 	if (!node) {
@@ -582,6 +563,14 @@ static int brisket_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node,
 		"brisket_doe_pllclken", &brisket_doe_pllclken);
+
+	if (ptp_ftpgm <= 1) {
+		/* for PTPv0 and PTPv1, disable BCDE */
+		brisket_doe_pllclken = 0;
+		brisket_debug("PTPv%u, force brisket disable. brisket_doe_pllclken = %d\n",
+			ptp_ftpgm, brisket_doe_pllclken);
+	}
+
 	if (!rc) {
 		brisket_debug("[xxxxbrisket] brisket_doe_pllclken from DTree; rc(%d) brisket_doe_pllclken(0x%x)\n",
 			rc,
@@ -593,6 +582,14 @@ static int brisket_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node,
 		"brisket_doe_bren", &brisket_doe_bren);
+
+	if (ptp_ftpgm <= 1) {
+		/* for PTPv0 and PTPv1, disable BCDE */
+		brisket_doe_bren = 0;
+		brisket_debug("PTPv%u, force brisket disable. brisket_doe_bren = %d\n",
+			ptp_ftpgm, brisket_doe_bren);
+	}
+
 	if (!rc) {
 		brisket_debug("[xxxxbrisket] brisket_doe_bren from DTree; rc(%d) brisket_doe_bren(0x%x)\n",
 			rc,

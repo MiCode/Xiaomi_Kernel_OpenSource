@@ -255,19 +255,6 @@ static void mtk_credit_didt(unsigned int cpu,
 {
 	unsigned int param = ls_vx * NR_CREDIT_DIDT_CFG + cfg;
 
-#ifndef CONFIG_FPGA_EARLY_PORTING
-	unsigned int ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xf;
-
-	if (cfg == CREDIT_DIDT_CFG_ENABLE) {
-		if (ptp_ftpgm <= 1) {
-			/* for PTPv0 and PTPv1, disable BCDE */
-			value = 0;
-			credit_didt_debug("PTPv%u, force credit_didt disable.\n",
-				ptp_ftpgm);
-		}
-	}
-#endif
-
 	if ((cpu >= CREDIT_DIDT_CPU_START_ID)
 		&& (cpu <= CREDIT_DIDT_CPU_END_ID)) {
 
@@ -563,6 +550,8 @@ static int credit_didt_probe(struct platform_device *pdev)
 	int rc = 0;
 	int cpu, ls_vx;
 
+	unsigned int ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xf;
+
 	node = pdev->dev.of_node;
 	if (!node) {
 		credit_didt_debug("get credit_didt device node err\n");
@@ -571,6 +560,13 @@ static int credit_didt_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node,
 		"credit_didt_doe_enable", &credit_didt_doe_enable);
+
+	if (ptp_ftpgm <= 1) {
+		/* for PTPv0 and PTPv1, disable BCDE */
+		credit_didt_doe_enable = 0;
+		credit_didt_debug("PTPv%u, force credit_didt disable.\n",
+			ptp_ftpgm);
+	}
 
 	if (!rc) {
 		credit_didt_debug("[xxxxcredit_didt] credit_didt_doe_enable from DTree; rc(%d) credit_didt_doe_enable(0x%x)\n",
