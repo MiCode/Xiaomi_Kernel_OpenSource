@@ -45,6 +45,12 @@
 #include "mach/mt_iommu_plat.h"
 #include "mach/pseudo_m4u.h"
 #include "mtk_iommu_ext.h"
+#if defined(APU_IOMMU_INDEX) && \
+	defined(IOMMU_POWER_CLK_SUPPORT)
+#include "apusys_power.h"
+
+static unsigned int g_power_ref;
+#endif
 
 #define PREALLOC_DMA_DEBUG_ENTRIES 4096
 
@@ -56,7 +62,6 @@
 #define DMA_32BIT_PFN	   IOVA_PFN(DMA_BIT_MASK(32))
 
 #define MTK_PROTECT_PA_ALIGN			128
-
 
 #ifdef IOMMU_DEBUG_ENABLED
 static bool g_tf_test;
@@ -569,13 +574,14 @@ int mtk_iommu_dump_reg(int m4u_id, unsigned int start, unsigned int end)
 }
 
 #ifdef IOMMU_POWER_CLK_SUPPORT
-static int mtk_iommu_hw_clock_switch(const struct mtk_iommu_data *data,
-			bool enable, char *master)
+static int mtk_iommu_hw_clock_power_switch(const struct mtk_iommu_data *data,
+			bool enable, char *master, bool is_clk)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	int err_id = -1, ret = 0;
-	unsigned int i;
+	unsigned int i, clk_nr;
 	struct mtk_iommu_clks *m4u_clks;
+	struct clk *clk_node;
 
 	if (!data) {
 		pr_notice("%s, %d, invalid data\n", __func__, __LINE__);
@@ -588,13 +594,22 @@ static int mtk_iommu_hw_clock_switch(const struct mtk_iommu_data *data,
 		return -1;
 	}
 
-	for (i = 0; i < m4u_clks->nr_clks; i++) {
-		if (enable)
-			ret = clk_prepare_enable(
-					m4u_clks->clks[i]);
+	if (is_clk)
+		clk_nr = m4u_clks->nr_clks;
+	else
+		clk_nr = m4u_clks->nr_powers;
+
+	for (i = 0; i < clk_nr; i++) {
+		if (is_clk)
+			clk_node = m4u_clks->clks[i];
 		else
-			clk_disable_unprepare(
-					m4u_clks->clks[i]);
+			clk_node = m4u_clks->powers[i];
+
+		if (enable)
+			ret = clk_prepare_enable(clk_node);
+		else
+			clk_disable_unprepare(clk_node);
+
 		if (ret) {
 			err_id = i;
 			if (enable) {
@@ -608,13 +623,15 @@ static int mtk_iommu_hw_clock_switch(const struct mtk_iommu_data *data,
 	}
 
 	if (ret)
-		pr_notice("%s failed to %s clock of iommu%d, id%d for %s\n",
+		pr_notice("%s failed to %s %s[%d] of iommu%d, id%d for %s, ret:%d\n",
 			  __func__, (enable ? "enable" : "disable"),
-			  data->m4uid, err_id, master);
+			  (is_clk ? "clock" : "power"), i,
+			  data->m4uid, err_id, master, ret);
 	else
-		pr_notice("%s %s clock of iommu%d for %s\n",
+		pr_notice("%s: %s %s[%d] of iommu%d, id%d for %s, ret:%d\n",
 			  __func__, (enable ? "enable" : "disable"),
-			  data->m4uid, master);
+			  (is_clk ? "clock" : "power"), i,
+			  data->m4uid, err_id, master, ret);
 
 	return ret;
 #else
@@ -637,7 +654,8 @@ int mtk_iommu_larb_clock_switch(unsigned int larb, bool enable)
 
 	iommu_id = mtk_get_iommu_index(larb);
 	data = mtk_iommu_get_m4u_data(iommu_id);
-	ret = mtk_iommu_hw_clock_switch(data, enable, smi_clk_name[larb]);
+	ret = mtk_iommu_hw_clock_power_switch(data,
+				enable, smi_clk_name[larb], true);
 
 	if (ret)
 		pr_notice("switch larb clock err:%d, larb:%d, on:%d\n",
@@ -671,18 +689,24 @@ int mtk_iommu_power_switch(const struct mtk_iommu_data *data,
 #ifdef IOMMU_POWER_CLK_SUPPORT
 	int ret = 0;
 
-	ret = mtk_iommu_hw_clock_switch(data, enable, master);
+	ret = mtk_iommu_hw_clock_power_switch(data, enable, master, !enable);
+	pr_notice("%s: %d: %s %s %s of iommu%d for %s, ret=%d\n",
+		  __func__, __LINE__,
+		  enable ? "enable" : "disable",
+		  enable ? "power" : "clock",
+		  ret ? "error" : "pass",
+		  data->m4uid, master, ret);
 	if (ret)
-		pr_notice("%s, %d, clock off failed at iommu%d, for %s\n",
-			  __func__, __LINE__, data->m4uid, master);
-	if (enable)
-		ret = pwrap_write(data->power_id, 1);
-	else
-		ret = pwrap_write(data->power_id, 0);
+		return ret;
 
-	if (ret)
-		pr_notice("%s, %d, power switch %d failed at iommu%d, for %s\n",
-			  __func__, __LINE__, enable, data->m4uid, master);
+	ret = mtk_iommu_hw_clock_power_switch(data, enable, master, enable);
+	pr_notice("%s, %d, %s %s %s at iommu%d, for %s, ret=%d\n",
+		  __func__, __LINE__,
+		  enable ? "enable" : "disable",
+		  enable ? "clock" : "power",
+		  ret ? "error" : "pass",
+		  data->m4uid, master, ret);
+
 	return ret;
 #endif
 #endif
@@ -697,9 +721,11 @@ static void __mtk_iommu_tlb_flush_all(const struct mtk_iommu_data *data)
 		return;
 	}
 
+#ifndef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= 2) { // fix me, @cui zhang
 		return;
 	}
+#endif
 	writel_relaxed(F_MMU_INV_EN_L2 | F_MMU_INV_EN_L1,
 		   data->base + REG_INVLID_SEL);
 	writel_relaxed(F_MMU_INVLDT_ALL,
@@ -728,10 +754,12 @@ static int __mtk_iommu_tlb_sync(struct mtk_iommu_data *data)
 		return 0;
 	}
 
+#ifndef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= 2) { // fix me, @cui zhang
 		data->tlb_flush_active = false;
 		return 0;
 	}
+#endif
 	g_sync_start = sched_clock();
 	ret = readl_poll_timeout_atomic(data->base +
 					REG_MMU_CPE_DONE, //0x12c
@@ -779,9 +807,11 @@ static void __mtk_iommu_tlb_add_flush_nosync(
 		return;
 	}
 
+#ifndef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= 2) { // fix me, @cui zhang
 		return;
 	}
+#endif
 	start = round_down(iova_start, SZ_4K);
 	end = round_up(iova_end, SZ_4K);
 
@@ -3076,6 +3106,227 @@ int iommu_perf_monitor_stop(int m4u_id)
 	return 0;
 }
 
+#define IOMMU_REG_BACKUP_SIZE	 (100 * sizeof(unsigned int))
+static unsigned int *p_reg_backup;
+static unsigned int g_reg_backup_real_size;
+
+static int mau_reg_backup(const struct mtk_iommu_data *data)
+{
+	unsigned int *p_reg = p_reg_backup;
+	void __iomem *base = data->base;
+	int slave;
+	int mau;
+	unsigned int real_size;
+
+	if (!g_secure_status[data->m4uid])
+		return 0;
+
+	for (slave = 0; slave < MTK_MMU_NUM_OF_IOMMU(data->m4uid); slave++) {
+		for (mau = 0; mau < MTK_MAU_NUM_OF_MMU(slave); mau++) {
+			*(p_reg++) = readl_relaxed(base +
+				REG_MMU_MAU_SA(slave, mau));
+			*(p_reg++) = readl_relaxed(base +
+				REG_MMU_MAU_SA_EXT(slave, mau));
+			*(p_reg++) = readl_relaxed(base +
+				REG_MMU_MAU_EA(slave, mau));
+			*(p_reg++) = readl_relaxed(base +
+				REG_MMU_MAU_EA_EXT(slave, mau));
+			*(p_reg++) = readl_relaxed(base +
+				REG_MMU_MAU_PORT_EN(slave, mau));
+		}
+		*(p_reg++) = readl_relaxed(base +
+			REG_MMU_MAU_LARB_EN(slave));
+		*(p_reg++) = readl_relaxed(base +
+			REG_MMU_MAU_IO(slave));
+		*(p_reg++) = readl_relaxed(base +
+			REG_MMU_MAU_RW(slave));
+		*(p_reg++) = readl_relaxed(base +
+			REG_MMU_MAU_VA(slave));
+	}
+
+	/* check register size (to prevent overflow) */
+	real_size = (p_reg - p_reg_backup) * sizeof(unsigned int);
+	if (real_size > IOMMU_REG_BACKUP_SIZE)
+		mmu_aee_print("m4u_reg overflow! %d>%d\n",
+			real_size, (int)IOMMU_REG_BACKUP_SIZE);
+
+	g_reg_backup_real_size = real_size;
+
+	return 0;
+}
+
+static int mau_reg_restore(const struct mtk_iommu_data *data)
+{
+	unsigned int *p_reg = p_reg_backup;
+	void __iomem *base = data->base;
+	int slave;
+	int mau;
+	unsigned int real_size;
+
+	if (!g_secure_status[data->m4uid])
+		return 0;
+
+	for (slave = 0; slave < MTK_MMU_NUM_OF_IOMMU(data->m4uid); slave++) {
+		for (mau = 0; mau < MTK_MAU_NUM_OF_MMU(slave); mau++) {
+			writel_relaxed(*(p_reg++), base +
+				REG_MMU_MAU_SA(slave, mau));
+			writel_relaxed(*(p_reg++), base +
+				REG_MMU_MAU_SA_EXT(slave, mau));
+			writel_relaxed(*(p_reg++), base +
+				REG_MMU_MAU_EA(slave, mau));
+			writel_relaxed(*(p_reg++), base +
+				REG_MMU_MAU_EA_EXT(slave, mau));
+			writel_relaxed(*(p_reg++), base +
+				REG_MMU_MAU_PORT_EN(slave, mau));
+		}
+		writel_relaxed(*(p_reg++), base +
+			REG_MMU_MAU_LARB_EN(slave));
+		writel_relaxed(*(p_reg++), base +
+			REG_MMU_MAU_IO(slave));
+		writel_relaxed(*(p_reg++), base +
+			REG_MMU_MAU_RW(slave));
+		writel_relaxed(*(p_reg++), base +
+			REG_MMU_MAU_VA(slave));
+	}
+
+	/* check register size (to prevent overflow) */
+	real_size = (p_reg - p_reg_backup) * sizeof(unsigned int);
+	if (real_size != g_reg_backup_real_size)
+		mmu_aee_print("m4u_reg_retore %d!=%d\n",
+			real_size, g_reg_backup_real_size);
+
+	return 0;
+}
+
+static int mtk_iommu_reg_backup(struct mtk_iommu_data *data)
+{
+	struct mtk_iommu_suspend_reg *reg = &data->reg;
+	void __iomem *base = data->base;
+	int ret = 0;
+
+	if (!base || IS_ERR((void *)(unsigned long)base)) {
+		pr_notice("%s, %d, invalid base addr\n",
+			  __func__, __LINE__);
+		return -1;
+	}
+	reg->standard_axi_mode = readl_relaxed(base +
+					   REG_MMU_MISC_CTRL);
+	reg->dcm_dis = readl_relaxed(base +
+					   REG_MMU_DCM_DIS);
+	reg->ctrl_reg = readl_relaxed(base +
+					   REG_MMU_CTRL_REG);
+	reg->int_control0 = readl_relaxed(base +
+					   REG_MMU_INT_CONTROL0);
+	reg->int_main_control = readl_relaxed(base +
+					   REG_MMU_INT_MAIN_CONTROL);
+	reg->pt_base = readl_relaxed(base +
+					   REG_MMU_PT_BASE_ADDR);
+	reg->wr_ctrl = readl_relaxed(base +
+					   REG_MMU_WR_LEN_CTRL);
+	reg->ivrp_paddr = readl_relaxed(base +
+					   REG_MMU_TFRP_PADDR);
+	reg->dummy = readl_relaxed(base +
+					   REG_MMU_DUMMY);
+	if (g_secure_status[data->m4uid]) {
+		ret = mtk_iommu_atf_call(IOMMU_ATF_SECURITY_BACKUP,
+				   data->m4uid, 4);
+		if (!ret)
+			mau_reg_backup(data);
+	}
+
+	return 0;
+}
+
+static static int mtk_iommu_reg_restore(struct mtk_iommu_data *data)
+{
+	struct mtk_iommu_suspend_reg *reg = &data->reg;
+	void __iomem *base = data->base;
+	int ret = 0;
+
+	if (!base || IS_ERR(base)) {
+		pr_notice("%s, %d, invalid base addr\n",
+			  __func__, __LINE__);
+		return -1;
+	}
+
+	if (g_secure_status[data->m4uid]) {
+		ret = mtk_iommu_atf_call(IOMMU_ATF_SECURITY_RESTORE,
+				   data->m4uid, 4);
+		if (!ret)
+			mau_reg_restore(data);
+	}
+	writel_relaxed(reg->standard_axi_mode, base +
+		   REG_MMU_MISC_CTRL);
+	writel_relaxed(reg->dcm_dis, base +
+		   REG_MMU_DCM_DIS);
+	writel_relaxed(reg->ctrl_reg, base +
+		   REG_MMU_CTRL_REG);
+	writel_relaxed(reg->int_control0, base +
+		   REG_MMU_INT_CONTROL0);
+	writel_relaxed(reg->int_main_control, base +
+		   REG_MMU_INT_MAIN_CONTROL);
+	writel_relaxed(reg->pt_base, base +
+		   REG_MMU_PT_BASE_ADDR);
+	writel_relaxed(reg->wr_ctrl, base +
+		   REG_MMU_WR_LEN_CTRL);
+	writel_relaxed(reg->ivrp_paddr, base +
+		   REG_MMU_TFRP_PADDR);
+	writel_relaxed(reg->dummy, base +
+		   REG_MMU_DUMMY);
+	return 0;
+}
+
+#if defined(APU_IOMMU_INDEX) && \
+	defined(IOMMU_POWER_CLK_SUPPORT)
+void mtk_iommu_apu_power_on_callback(void *para)
+{
+	struct mtk_iommu_data *data;
+	int ret = 0, i;
+
+	for (i = APU_IOMMU_INDEX; i < MTK_IOMMU_M4U_COUNT; i++) {
+		data = mtk_iommu_get_m4u_data(i);
+		if (!data) {
+			pr_notice("%s, %d iommu %d is null\n",
+				  __func__, __LINE__, i);
+			continue;
+		}
+
+		ret = mtk_iommu_reg_restore(data);
+		if (ret) {
+			pr_notice("%s, %d, iommu:%d, backup failed %d\n",
+				  __func__, __LINE__, data->m4uid, ret);
+			continue;
+		}
+		pr_notice("%s, %d, iommu:%d, restore after power on\n",
+			  __func__, __LINE__, data->m4uid);
+	}
+}
+
+void mtk_iommu_apu_power_off_callback(void *para)
+{
+	struct mtk_iommu_data *data;
+	int ret = 0, i;
+
+	for (i = APU_IOMMU_INDEX; i < MTK_IOMMU_M4U_COUNT; i++) {
+		data = mtk_iommu_get_m4u_data(i);
+		if (!data) {
+			pr_notice("%s, %d iommu %d is null\n",
+				  __func__, __LINE__, i);
+			continue;
+		}
+
+		ret = mtk_iommu_reg_backup(data);
+		if (ret) {
+			pr_notice("%s, %d, iommu:%d, backup failed %d\n",
+				  __func__, __LINE__, data->m4uid, ret);
+			continue;
+		}
+		pr_notice("%s, %d, iommu:%d, backup before power off\n",
+			  __func__, __LINE__, data->m4uid);
+	}
+}
+#endif
+
 static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 {
 	u32 regval, i, wr_en;
@@ -3179,9 +3430,9 @@ static s32 mtk_iommu_clks_get(struct mtk_iommu_data *data)
 	struct property *prop;
 	struct device *dev;
 	struct clk *clk;
+	unsigned int nr = 0;
 	struct mtk_iommu_clks *m4u_clks;
 	const char *name, *clk_names = "clock-names";
-	s32 i = 0;
 
 	if (!data || !data->dev) {
 		pr_info("iommu No such device or address\n");
@@ -3196,30 +3447,39 @@ static s32 mtk_iommu_clks_get(struct mtk_iommu_data *data)
 	if (!m4u_clks)
 		return -ENOMEM;
 
-	m4u_clks->nr_clks = of_property_count_strings(dev->of_node, clk_names);
-	if (m4u_clks->nr_clks > IOMMU_CLK_ID_COUNT) {
+	nr = of_property_count_strings(dev->of_node, clk_names);
+	if (nr > IOMMU_CLK_ID_COUNT * 2) {
 		pr_info("iommu clk count %d exceed the max number of %d\n",
-			m4u_clks->nr_clks, IOMMU_CLK_ID_COUNT);
+			nr, IOMMU_CLK_ID_COUNT);
 		return -ENXIO;
 	}
 
+	m4u_clks->nr_clks = 0;
+	m4u_clks->nr_powers = 0;
 	of_property_for_each_string(dev->of_node, clk_names, prop, name) {
 		clk = kzalloc(sizeof(*m4u_clks), GFP_KERNEL);
 		if (!clk)
 			return -ENOMEM;
 		clk = devm_clk_get(dev, name);
 		if (IS_ERR(clk)) {
-			dev_info(dev, "clks%d of %s init failed\n",
-				i, name);
+			dev_info(dev, "clks of %s init failed\n",
+				name);
 			break;
 		}
-		m4u_clks->clks[i] = clk;
-		dev_info(dev, "clks%d of %s init done\n",
-				i, name);
-		i += 1;
+		if (strcmp(name, "power")) {
+			m4u_clks->clks[m4u_clks->nr_clks] = clk;
+			dev_info(dev, "clks%d of %s init done\n",
+					m4u_clks->nr_clks, name);
+			m4u_clks->nr_clks++;
+		} else {
+			m4u_clks->powers[m4u_clks->nr_powers] = clk;
+			dev_info(dev, "power%d of %s init done\n",
+					m4u_clks->nr_powers, name);
+			m4u_clks->nr_powers++;
+		}
 	}
-	if (i < m4u_clks->nr_clks)
-		return PTR_ERR(m4u_clks->clks[i]);
+	if (m4u_clks->nr_clks + m4u_clks->nr_powers < nr)
+		return PTR_ERR(m4u_clks->clks[m4u_clks->nr_clks]);
 
 	data->m4u_clks = m4u_clks;
 #endif
@@ -3393,7 +3653,6 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	}
 #endif
 	platform_set_drvdata(pdev, data);
-	data->power_id = iommu_power_id[data->m4uid];
 
 	ret = mtk_iommu_clks_get(data);
 	if (ret) {
@@ -3401,7 +3660,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = mtk_iommu_power_switch(data, 1, "iommu_probe");
+	ret = mtk_iommu_power_switch(data, true, "iommu_probe");
 	if (ret) {
 		pr_notice("%s, failed to power switch on\n", __func__);
 		return ret;
@@ -3446,20 +3705,40 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	mtk_iommu_isr_pause_timer_init();
 
 	mtk_iommu_debug_init();
-#ifdef APU_IOMMU_INDEX
-	if (data->m4uid >= APU_IOMMU_INDEX) {
-		ret = mtk_iommu_power_switch(data, 0, "iommu_probe");
-		if (ret) {
-			pr_notice("%s, failed to power switch off\n", __func__);
-			return ret;
-		}
-	}
-#endif
-
 	for (slave = 0;
 	     slave < MTK_MMU_NUM_OF_IOMMU(data->m4uid); slave++)
 		for (mau = 0; mau < MTK_MAU_NUM_OF_MMU(slave); mau++)
 			mau_stop_monitor(data->m4uid, slave, mau);
+
+#if defined(APU_IOMMU_INDEX) && \
+	defined(IOMMU_POWER_CLK_SUPPORT)
+	if (data->m4uid >= APU_IOMMU_INDEX) {
+#ifdef APU_POWER_BINARY_READY
+		if (g_power_ref == 0) {
+			ret = apu_power_callback_device_register(IOMMU,
+					mtk_iommu_apu_power_on_callback,
+					mtk_iommu_apu_power_off_callback);
+			if (ret) {
+				pr_notice("%s, %d, iommu:%d, register power callback failed:%d\n",
+					  __func__, __LINE__, data->m4uid, ret);
+				return ret;
+			}
+		}
+		g_power_ref++;
+
+		ret = mtk_iommu_reg_backup(data);
+		if (ret) {
+			pr_notice("%s, %d, iommu:%d, backup failed %d\n",
+				  __func__, __LINE__, data->m4uid, ret);
+			return ret;
+		}
+
+		ret = mtk_iommu_power_switch(data, false, "iommu_probe");
+		if (ret)
+			pr_notice("%s, failed to power switch off\n", __func__);
+#endif
+	}
+#endif
 
 	pr_notice("%s, %d,total_iommu_cnt=%d, m4uid=%d\n",
 		  __func__, __LINE__, total_iommu_cnt, data->m4uid);
@@ -3472,6 +3751,17 @@ static int mtk_iommu_remove(struct platform_device *pdev)
 
 	pr_notice("%s, %d\n",
 		  __func__, __LINE__);
+
+#if defined(APU_IOMMU_INDEX) && \
+	defined(IOMMU_POWER_CLK_SUPPORT)
+	if (data->m4uid >= APU_IOMMU_INDEX)
+		g_power_ref--;
+
+#ifdef APU_POWER_BINARY_READY
+	if (g_power_ref == 0)
+		apu_power_callback_device_unregister(IOMMU);
+#endif
+#endif
 	iommu_device_sysfs_remove(&data->iommu);
 	iommu_device_unregister(&data->iommu);
 
@@ -3490,176 +3780,6 @@ static void mtk_iommu_shutdown(struct platform_device *pdev)
 	mtk_iommu_remove(pdev);
 }
 
-#define IOMMU_REG_BACKUP_SIZE	 (100 * sizeof(unsigned int))
-static unsigned int *p_reg_backup;
-static unsigned int g_reg_backup_real_size;
-
-static int mau_reg_backup(const struct mtk_iommu_data *data)
-{
-	unsigned int *p_reg = p_reg_backup;
-	void __iomem *base = data->base;
-	int slave;
-	int mau;
-	unsigned int real_size;
-
-	if (!g_secure_status[data->m4uid])
-		return 0;
-
-	for (slave = 0; slave < MTK_MMU_NUM_OF_IOMMU(data->m4uid); slave++) {
-		for (mau = 0; mau < MTK_MAU_NUM_OF_MMU(slave); mau++) {
-			*(p_reg++) = readl_relaxed(base +
-				REG_MMU_MAU_SA(slave, mau));
-			*(p_reg++) = readl_relaxed(base +
-				REG_MMU_MAU_SA_EXT(slave, mau));
-			*(p_reg++) = readl_relaxed(base +
-				REG_MMU_MAU_EA(slave, mau));
-			*(p_reg++) = readl_relaxed(base +
-				REG_MMU_MAU_EA_EXT(slave, mau));
-			*(p_reg++) = readl_relaxed(base +
-				REG_MMU_MAU_PORT_EN(slave, mau));
-		}
-		*(p_reg++) = readl_relaxed(base +
-			REG_MMU_MAU_LARB_EN(slave));
-		*(p_reg++) = readl_relaxed(base +
-			REG_MMU_MAU_IO(slave));
-		*(p_reg++) = readl_relaxed(base +
-			REG_MMU_MAU_RW(slave));
-		*(p_reg++) = readl_relaxed(base +
-			REG_MMU_MAU_VA(slave));
-	}
-
-	/* check register size (to prevent overflow) */
-	real_size = (p_reg - p_reg_backup) * sizeof(unsigned int);
-	if (real_size > IOMMU_REG_BACKUP_SIZE)
-		mmu_aee_print("m4u_reg overflow! %d>%d\n",
-			real_size, (int)IOMMU_REG_BACKUP_SIZE);
-
-	g_reg_backup_real_size = real_size;
-
-	return 0;
-}
-
-static int mau_reg_restore(const struct mtk_iommu_data *data)
-{
-	unsigned int *p_reg = p_reg_backup;
-	void __iomem *base = data->base;
-	int slave;
-	int mau;
-	unsigned int real_size;
-
-	if (!g_secure_status[data->m4uid])
-		return 0;
-
-	for (slave = 0; slave < MTK_MMU_NUM_OF_IOMMU(data->m4uid); slave++) {
-		for (mau = 0; mau < MTK_MAU_NUM_OF_MMU(slave); mau++) {
-			writel_relaxed(*(p_reg++), base +
-				   REG_MMU_MAU_SA(slave, mau));
-			writel_relaxed(*(p_reg++), base +
-				   REG_MMU_MAU_SA_EXT(slave, mau));
-			writel_relaxed(*(p_reg++), base +
-				   REG_MMU_MAU_EA(slave, mau));
-			writel_relaxed(*(p_reg++), base +
-				   REG_MMU_MAU_EA_EXT(slave, mau));
-			writel_relaxed(*(p_reg++), base +
-				   REG_MMU_MAU_PORT_EN(slave, mau));
-		}
-		writel_relaxed(*(p_reg++), base +
-			   REG_MMU_MAU_LARB_EN(slave));
-		writel_relaxed(*(p_reg++), base +
-			   REG_MMU_MAU_IO(slave));
-		writel_relaxed(*(p_reg++), base +
-			   REG_MMU_MAU_RW(slave));
-		writel_relaxed(*(p_reg++), base +
-			   REG_MMU_MAU_VA(slave));
-	}
-
-	/* check register size (to prevent overflow) */
-	real_size = (p_reg - p_reg_backup) * sizeof(unsigned int);
-	if (real_size != g_reg_backup_real_size)
-		mmu_aee_print("m4u_reg_retore %d!=%d\n",
-				real_size, g_reg_backup_real_size);
-
-	return 0;
-}
-
-static int mtk_iommu_reg_backup(struct mtk_iommu_data *data)
-{
-	struct mtk_iommu_suspend_reg *reg = &data->reg;
-	void __iomem *base = data->base;
-	int ret = 0;
-
-	if (!base || IS_ERR((void *)(unsigned long)base)) {
-		pr_notice("%s, %d, invalid base addr\n",
-			  __func__, __LINE__);
-		return -1;
-	}
-	reg->standard_axi_mode = readl_relaxed(base +
-					   REG_MMU_MISC_CTRL);
-	reg->dcm_dis = readl_relaxed(base +
-					   REG_MMU_DCM_DIS);
-	reg->ctrl_reg = readl_relaxed(base +
-					   REG_MMU_CTRL_REG);
-	reg->int_control0 = readl_relaxed(base +
-					   REG_MMU_INT_CONTROL0);
-	reg->int_main_control = readl_relaxed(base +
-					   REG_MMU_INT_MAIN_CONTROL);
-	reg->pt_base = readl_relaxed(base +
-					   REG_MMU_PT_BASE_ADDR);
-	reg->wr_ctrl = readl_relaxed(base +
-					   REG_MMU_WR_LEN_CTRL);
-	reg->ivrp_paddr = readl_relaxed(base +
-					   REG_MMU_TFRP_PADDR);
-	reg->dummy = readl_relaxed(base +
-					   REG_MMU_DUMMY);
-	if (g_secure_status[data->m4uid]) {
-		ret = mtk_iommu_atf_call(IOMMU_ATF_SECURITY_BACKUP,
-				   data->m4uid, 4);
-		if (!ret)
-			mau_reg_backup(data);
-	}
-
-	return 0;
-}
-
-static static int mtk_iommu_reg_restore(struct mtk_iommu_data *data)
-{
-	struct mtk_iommu_suspend_reg *reg = &data->reg;
-	void __iomem *base = data->base;
-	int ret = 0;
-
-	if (!base || IS_ERR(base)) {
-		pr_notice("%s, %d, invalid base addr\n",
-			  __func__, __LINE__);
-		return -1;
-	}
-
-	if (g_secure_status[data->m4uid]) {
-		ret = mtk_iommu_atf_call(IOMMU_ATF_SECURITY_RESTORE,
-				   data->m4uid, 4);
-		if (!ret)
-			mau_reg_restore(data);
-	}
-	writel_relaxed(reg->standard_axi_mode, base +
-		   REG_MMU_MISC_CTRL);
-	writel_relaxed(reg->dcm_dis, base +
-		   REG_MMU_DCM_DIS);
-	writel_relaxed(reg->ctrl_reg, base +
-		   REG_MMU_CTRL_REG);
-	writel_relaxed(reg->int_control0, base +
-		   REG_MMU_INT_CONTROL0);
-	writel_relaxed(reg->int_main_control, base +
-		   REG_MMU_INT_MAIN_CONTROL);
-	writel_relaxed(reg->pt_base, base +
-		   REG_MMU_PT_BASE_ADDR);
-	writel_relaxed(reg->wr_ctrl, base +
-		   REG_MMU_WR_LEN_CTRL);
-	writel_relaxed(reg->ivrp_paddr, base +
-		   REG_MMU_TFRP_PADDR);
-	writel_relaxed(reg->dummy, base +
-		   REG_MMU_DUMMY);
-	return 0;
-}
-
 static int mtk_iommu_suspend(struct device *dev)
 {
 	struct mtk_iommu_data *data = dev_get_drvdata(dev);
@@ -3672,7 +3792,13 @@ static int mtk_iommu_suspend(struct device *dev)
 #ifdef APU_IOMMU_INDEX
 	if (data->m4uid < APU_IOMMU_INDEX) {
 		ret = mtk_iommu_reg_backup(data);
-		mtk_iommu_power_switch(data, 0, "iommu_suspend");
+		if (ret)
+			pr_notice("%s, %d, iommu:%d, backup failed %d\n",
+				  __func__, __LINE__, data->m4uid, ret);
+
+		ret = mtk_iommu_power_switch(data, false, "iommu_suspend");
+		if (ret)
+			pr_notice("%s, failed to power switch off\n", __func__);
 	}
 #endif
 
@@ -3690,8 +3816,14 @@ static int mtk_iommu_resume(struct device *dev)
 	 */
 #ifdef APU_IOMMU_INDEX
 	if (data->m4uid < APU_IOMMU_INDEX) {
-		mtk_iommu_power_switch(data, 1, "iommu_resume");
+		ret = mtk_iommu_power_switch(data, true, "iommu_resume");
+		if (ret)
+			pr_notice("%s, failed to power switch on\n", __func__);
+
 		ret = mtk_iommu_reg_restore(data);
+		if (ret)
+			pr_notice("%s, %d, iommu:%d, restore failed %d\n",
+				  __func__, __LINE__, data->m4uid, ret);
 	}
 #endif
 

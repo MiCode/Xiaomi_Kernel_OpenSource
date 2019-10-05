@@ -46,16 +46,10 @@ unsigned int port_size_not_aligned[] = {
 const char *smi_larb_id = "mediatek,larb-id";
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
-unsigned int iommu_power_id[MTK_IOMMU_M4U_COUNT] = {
-	0
-};
 char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
 	"mediatek,sec_m4u",
 };
 #else
-unsigned int iommu_power_id[MTK_IOMMU_M4U_COUNT] = {
-	0, 0, 0, 0
-};
 char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
 	"mediatek,sec_m4u0", "mediatek,sec_m4u1",
 	"mediatek,sec_m4u2", "mediatek,sec_m4u3",
@@ -658,5 +652,6 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #endif
 
 #define MTK_IOMMU_PAGE_TABLE_SHARE (1)
+#define IOMMU_POWER_CLK_SUPPORT
 
 #endif

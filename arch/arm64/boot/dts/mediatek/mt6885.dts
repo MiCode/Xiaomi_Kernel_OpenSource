@@ -1062,9 +1062,10 @@ page_owner=on";
 				<&smi_larb7 &smi_larb11 &smi_larb14>,
 				<&smi_larb17 &smi_larb19 &smi_larb20>;
 		interrupts = <GIC_SPI 300 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&iommu0 0>,
-		       <&iommu0 0>;
-		clock-names = "smi-infra-ck", "smi-iommu-ck";
+		clocks = <&dispsys_config MM_SMI_INFRA>,
+		       <&dispsys_config MM_SMI_IOMMU>,
+		       <&scpsys SCP_SYS_DIS>;
+		clock-names = "disp-infra-ck", "disp-iommu-ck", "power";
 		#iommu-cells = <1>;
 	};
 
@@ -1076,8 +1077,9 @@ page_owner=on";
 				<&smi_larb8 &smi_larb9 &smi_larb13>,
 				<&smi_larb16 &smi_larb18>;
 		interrupts = <GIC_SPI 498 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&iommu1 0>;
-		clock-names = "smi2-ck";
+		clocks = <&mdpsys_config MDP_SMI2>,
+		       <&scpsys SCP_SYS_MDP>;
+		clock-names = "mdp-smi2-ck", "power";
 		#iommu-cells = <1>;
 	};
 
@@ -1086,8 +1088,9 @@ page_owner=on";
 		compatible = "mediatek,iommu_v0";
 		reg = <0 0x19010000 0 0x1000>;
 		interrupts = <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&iommu2 0>;
-		clock-names = "vpu0-ck";
+		clocks = <&apu_conn APU_CONN_IOMMU_0_CG>,
+		       <&scpsys SCP_SYS_VPU>;
+		clock-names = "clock", "power";
 		#iommu-cells = <1>;
 	};
 
@@ -1096,8 +1099,9 @@ page_owner=on";
 		compatible = "mediatek,iommu_v0";
 		reg = <0 0x19015000 0 0x1000>;
 		interrupts = <GIC_SPI 398 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&iommu3 0>;
-		clock-names = "vpu1-ck";
+		clocks = <&apu_conn APU_CONN_IOMMU_1_CG>,
+		       <&scpsys SCP_SYS_VPU>;
+		clock-names = "clock", "power";
 		#iommu-cells = <1>;
 	};
 
