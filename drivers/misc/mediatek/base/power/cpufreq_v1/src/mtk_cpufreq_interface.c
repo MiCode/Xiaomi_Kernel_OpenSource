@@ -483,11 +483,212 @@ static ssize_t cpufreq_dvfs_time_profile_proc_write(struct file *file,
 	return count;
 }
 
+#ifdef CCI_MAP_TBL_SUPPORT
+/* cpufreq_cci_map_table */
+static int cpufreq_cci_map_table_proc_show(struct seq_file *m, void *v)
+{
+	int i, j, k;
+	unsigned int result;
+	unsigned int pt_1 = 0, pt_2 = 0;
+
+#ifdef CONFIG_HYBRID_CPU_DVFS
+	for (k = 0; k < NR_CCI_TBL; k++) {
+		if (k == 0 && !pt_1) {
+			seq_puts(m, "CCI MAP Normal Mode:\n");
+			pt_1 = 1;
+		} else if (k == 1 && !pt_2) {
+			seq_puts(m, "CCI MAP Perf Mode:\n");
+			pt_2 = 1;
+		}
+		for (i = 0; i < NR_FREQ; i++) {
+			for (j = 0; j < NR_FREQ; j++) {
+				result = cpuhvfs_get_cci_result(i, j, k);
+				if (j == 0)
+					seq_printf(m, "{%d", result);
+				else if (j == (NR_FREQ - 1))
+					seq_printf(m, ", %d},", result);
+				else
+					seq_printf(m, ", %d", result);
+			}
+			seq_puts(m, "\n");
+		}
+	}
+#endif
+	return 0;
+}
+
+static ssize_t cpufreq_cci_map_table_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int idx_1, idx_2, result, mode;
+
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (sscanf(buf, "%d %d %d %d",
+		&idx_1, &idx_2, &result, &mode) == 4) {
+#ifdef CONFIG_HYBRID_CPU_DVFS
+		/* BY_PROC_FS */
+		cpuhvfs_update_cci_map_tbl(idx_1,
+			idx_2, result, mode, 0);
+#endif
+	} else
+		tag_pr_info(
+		"Usage: echo <L_idx> <B_idx> <result> <mode>\n");
+
+	return count;
+}
+/* cpufreq_cci_mode */
+static int cpufreq_cci_mode_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int mode;
+
+#ifdef CONFIG_HYBRID_CPU_DVFS
+	mode = cpuhvfs_get_cci_mode();
+	if (mode == 0)
+		seq_puts(m, "cci_mode as Normal mode\n");
+	else if (mode == 1)
+		seq_puts(m, "cci_mode as Perf mode\n");
+	else
+		seq_puts(m, "cci_mode as Unknown mode\n");
+#endif
+	return 0;
+}
+
+static ssize_t cpufreq_cci_mode_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int mode;
+	int rc;
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	rc = kstrtoint(buf, 10, &mode);
+
+	if (rc < 0)
+		tag_pr_info(
+		"Usage: echo <mode>(0:Nom 1:Perf)\n");
+	else {
+#ifdef CONFIG_HYBRID_CPU_DVFS
+		/* BY_PROC_FS */
+		cpuhvfs_update_cci_mode(mode, 0);
+#endif
+	}
+
+	return count;
+}
+#endif
+
+#ifdef IMAX_ENABLE
+static int cpufreq_imax_enable_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int state;
+
+#ifdef CONFIG_HYBRID_CPU_DVFS
+	state = cpuhvfs_get_imax_state();
+	seq_printf(m, "IMAX MODE = %d, (DISABLE = 0, ENABLE = 1, MPMM = 2)\n",
+			state);
+#endif
+	return 0;
+}
+
+static ssize_t cpufreq_imax_enable_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int state;
+	int rc;
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	rc = kstrtoint(buf, 10, &state);
+
+	if (rc < 0)
+		tag_pr_info(
+		"Usage: echo ON/OFF(0:Disable 1:Enable 2:Enable MPMM)\n");
+	else {
+#ifdef CONFIG_HYBRID_CPU_DVFS
+		/* BY_PROC_FS */
+		cpuhvfs_update_imax_state(state);
+#endif
+	}
+
+	return count;
+}
+
+static int cpufreq_imax_reg_dump_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int reg_val[REG_LEN];
+	unsigned int addr_arr[REG_LEN] = { 0xcd10, 0xce0c, 0xce10, 0xce14 };
+	unsigned int i;
+
+#ifdef CONFIG_HYBRID_CPU_DVFS
+	cpufreq_get_imax_reg(addr_arr, reg_val);
+	for (i = 0; i < REG_LEN; i++)
+		seq_printf(m, "IMAX addr 0x%x = 0x%x\n", addr_arr[i],
+				reg_val[i]);
+#endif
+	return 0;
+}
+
+static int cpufreq_imax_thermal_protect_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int state;
+
+#ifdef CONFIG_HYBRID_CPU_DVFS
+	state = cpuhvfs_get_imax_thermal_state();
+	seq_printf(m, "IMAX THERMAL protect = %d, (DISABLE = 0, ENABLE = 1)\n",
+			state);
+#endif
+	return 0;
+}
+
+static ssize_t cpufreq_imax_thermal_protect_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int state;
+	int rc;
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	rc = kstrtoint(buf, 10, &state);
+
+	if (rc < 0)
+		tag_pr_info(
+		"Usage: echo ON/OFF(0:Disable 1:Enable)\n");
+	else {
+#ifdef CONFIG_HYBRID_CPU_DVFS
+		/* BY_PROC_FS */
+		cpuhvfs_update_imax_thermal_state(state);
+#endif
+	}
+
+	return count;
+}
+
+#endif
+
 PROC_FOPS_RW(cpufreq_debug);
 PROC_FOPS_RW(cpufreq_stress_test);
 PROC_FOPS_RW(cpufreq_power_mode);
 PROC_FOPS_RW(cpufreq_sched_disable);
 PROC_FOPS_RW(cpufreq_dvfs_time_profile);
+#ifdef CCI_MAP_TBL_SUPPORT
+PROC_FOPS_RW(cpufreq_cci_map_table);
+PROC_FOPS_RW(cpufreq_cci_mode);
+#endif
+#ifdef IMAX_ENABLE
+PROC_FOPS_RW(cpufreq_imax_enable);
+PROC_FOPS_RO(cpufreq_imax_reg_dump);
+PROC_FOPS_RW(cpufreq_imax_thermal_protect);
+#endif
 
 PROC_FOPS_RW(cpufreq_oppidx);
 PROC_FOPS_RW(cpufreq_freq);
@@ -512,6 +713,16 @@ int cpufreq_procfs_init(void)
 		PROC_ENTRY(cpufreq_power_mode),
 		PROC_ENTRY(cpufreq_sched_disable),
 		PROC_ENTRY(cpufreq_dvfs_time_profile),
+#ifdef CCI_MAP_TBL_SUPPORT
+		PROC_ENTRY(cpufreq_cci_map_table),
+		PROC_ENTRY(cpufreq_cci_mode),
+#endif
+#ifdef IMAX_ENABLE
+		PROC_ENTRY(cpufreq_imax_enable),
+		PROC_ENTRY(cpufreq_imax_reg_dump),
+		PROC_ENTRY(cpufreq_imax_thermal_protect),
+#endif
+
 	};
 
 	const struct pentry cpu_entries[] = {

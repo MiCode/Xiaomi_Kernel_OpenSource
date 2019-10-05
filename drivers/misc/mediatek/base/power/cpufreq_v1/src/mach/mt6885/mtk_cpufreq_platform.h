@@ -23,15 +23,15 @@
 #define PPM_AP_SIDE	1
 #define EEM_AP_SIDE	1
 #define CCI_MAP_TBL_SUPPORT	1
-#define ENABLE_DOE              1
+//#define ENABLE_DOE              1
 #define MET_READY              1
-#define IMAX_ENABLE             1
+/* #define IMAX_ENABLE             1 */
 #define IMAX_INIT_STATE         1
-/* #define CPU_DVFS_NOT_READY	1 */
+//#define CPU_DVFS_NOT_READY	1
 #define REPORT_IDLE_FREQ	1
 #else
-#define SUPPORT_VOLT_HW_AUTO_TRACK 1
-/*#define CPU_DVFS_NOT_READY	1  */
+//#define SUPPORT_VOLT_HW_AUTO_TRACK 1
+//#define CPU_DVFS_NOT_READY	1
 #endif
 
 #define NR_FREQ		16
@@ -45,7 +45,7 @@
 
 /* buck ctrl configs */
 #define NORMAL_DIFF_VRSAM_VPROC		10000
-#define MAX_DIFF_VSRAM_VPROC		22500
+#define MAX_DIFF_VSRAM_VPROC		25000
 #define MIN_VSRAM_VOLT			85000
 #define MAX_VSRAM_VOLT			112000
 #define MIN_VPROC_VOLT			60000
@@ -59,7 +59,7 @@
 #define PLL_SETTLE_TIME		20
 #define POS_SETTLE_TIME		1
 
-#define DVFSP_DT_NODE		"mediatek,mt6785-dvfsp"
+#define DVFSP_DT_NODE		"mediatek,mt6885-dvfsp"
 
 #define CSRAM_BASE		0x0011bc00
 #define CSRAM_SIZE		0x1400		/* 5K bytes */
@@ -68,6 +68,8 @@
 #define ENTRY_EACH_LOG		5
 #define REG_LEN                 4
 
+#undef APMIXED_BASE
+#undef MCUCFG_BASE
 
 extern struct mt_cpu_dvfs cpu_dvfs[NR_MT_CPU_DVFS];
 extern struct cpudvfs_doe dvfs_doe;

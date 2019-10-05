@@ -189,9 +189,15 @@ extern struct mt_cpu_dvfs cpu_dvfs[NR_MT_CPU_DVFS];
 
 #define for_each_cpu_dvfs(i, p)			\
 for (i = 0, p = cpu_dvfs; i < NR_MT_CPU_DVFS; i++, p = &cpu_dvfs[i])
+
+#ifndef ONE_CLUSTER
 #define for_each_cpu_dvfs_only(i, p)	\
 for (i = 0, p = cpu_dvfs; (i < NR_MT_CPU_DVFS) && \
 (i != MT_CPU_DVFS_CCI); i++, p = &cpu_dvfs[i])
+#else
+#define for_each_cpu_dvfs_only(i, p)	\
+for (i = 0, p = cpu_dvfs; i < NR_MT_CPU_DVFS; i++, p = &cpu_dvfs[i])
+#endif
 
 #define cpu_dvfs_is(p, id) (p == &cpu_dvfs[id])
 #define cpu_dvfs_is_available(p) (p->opp_tbl)
