@@ -36,7 +36,7 @@ int dma_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 
 	mem->iova = dma_to_phys(mem_mgr->dev, dma_addr);
 
-	LOG_DEBUG("iova: %08x kva: %08x\n", mem->iova, mem->kva);
+	LOG_DEBUG("iova: %08x kva: %08llx\n", mem->iova, mem->kva);
 
 	return (mem->kva) ? 0 : -ENOMEM;
 }

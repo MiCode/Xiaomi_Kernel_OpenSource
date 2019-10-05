@@ -337,8 +337,8 @@ static void subcmd_done(void *isc)
 	/* should insert subcmd which dependency satisfied */
 	list_for_each_safe(list_ptr, tmp, &cmd->sc_list) {
 		sc_node = list_entry(list_ptr, struct apusys_subcmd, ce_list);
-		LOG_DEBUG("check dependency satified(0x%x/%d)\n",
-			*sc_node->dp_status, done_idx);
+		LOG_DEBUG("check dependency satified(0x%lx/%d)\n",
+			(unsigned long)*sc_node->dp_status, done_idx);
 		mutex_lock(&res_mgr->mtx);
 		mutex_lock(&sc_node->mtx);
 		bitmap_clear(sc_node->dp_status, done_idx, 1);
@@ -801,12 +801,12 @@ int apusys_sched_add_list(struct apusys_cmd *cmd)
 
 		if (bitmap_and(sc->dp_status, sc->dp_status,
 			cmd->sc_status, cmd->sc_num)) {
-			LOG_ERR("AND dp sc status fail(%p/%p)(%d)(0x%x/0x%x)\n",
+			LOG_ERR("AND sc status fail(%p/%p)(%u)(0x%lx/0x%lx)\n",
 				sc,
 				cmd,
 				cmd->sc_num,
-				*sc->dp_status,
-				*cmd->sc_status);
+				(unsigned long)*sc->dp_status,
+				(unsigned long)*cmd->sc_status);
 		}
 
 		/* add sc to cmd's sc_list*/

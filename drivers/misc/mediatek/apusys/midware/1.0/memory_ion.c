@@ -110,7 +110,7 @@ int ion_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 	/* map kernel va*/
 	buffer = ion_map_kernel(mem_mgr->client, ion_hnd);
 	if (IS_ERR_OR_NULL(buffer)) {
-		LOG_ERR("map kernel va fail(%d/%p)\n",
+		LOG_ERR("map kernel va fail(%p/%p)\n",
 			mem_mgr->client, ion_hnd);
 		ret = -ENOMEM;
 	}
@@ -240,7 +240,7 @@ int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 	/* map kernel va*/
 	buffer = ion_map_kernel(mem_mgr->client, ion_hnd);
 	if (IS_ERR_OR_NULL(buffer)) {
-		LOG_ERR("map kernel va fail(%d/%p)\n",
+		LOG_ERR("map kernel va fail(%p/%p)\n",
 			mem_mgr->client, ion_hnd);
 		ret = -ENOMEM;
 	}

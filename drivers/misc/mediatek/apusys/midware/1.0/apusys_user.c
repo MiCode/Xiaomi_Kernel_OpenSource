@@ -217,8 +217,7 @@ int apusys_user_delete_dev(struct apusys_user *user, void *idev)
 			user_dev->dev = NULL;
 			kfree(user_dev);
 			mutex_unlock(&user->dev_mtx);
-			LOG_DEBUG("delete dev(%p/%d)",
-				" from user(%p/0x%llx) done\n",
+			LOG_DEBUG("del dev(%p/%d) u(%p/0x%llx) done\n",
 				dev, dev->dev_type, user, user->id);
 			return 0;
 		}
@@ -346,8 +345,10 @@ int apusys_create_user(struct apusys_user **user)
 	mutex_init(&u->dev_mtx);
 	INIT_LIST_HEAD(&u->dev_list);
 
-	LOG_DEBUG("apusys user(0x%llx/0x%llx/0x%llx)\n",
-		u->id, u->open_pid, u->open_tgid);
+	LOG_DEBUG("apusys user(0x%llx/%d/%d)\n",
+		u->id,
+		(int)u->open_pid,
+		(int)u->open_tgid);
 
 	*user = u;
 

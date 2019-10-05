@@ -163,7 +163,7 @@ int pop_subcmd(int type, void **isc)
 		return -EINVAL;
 	}
 
-	LOG_DEBUG("pop subcmd(%d/%d) from q(%d/%d)\n",
+	LOG_DEBUG("pop subcmd(0x%llx/%d) from q(%d/%d)\n",
 		((struct apusys_cmd *)sc->parent_cmd)->cmd_id,
 		sc->idx, type, priority);
 
@@ -418,7 +418,7 @@ int acquire_device_try(struct apusys_dev_aquire *acq)
 	/* get idle device from bitmap */
 	ret_num = acq->target_num < tab->available_num
 		? acq->target_num : tab->available_num;
-	LOG_DEBUG("allocate device(%d) (%d/%d/%d/%d)\n",
+	LOG_DEBUG("allocate device(%d) (%d/%d/%d)\n",
 		acq->dev_type, acq->target_num,
 		tab->available_num, tab->dev_num);
 	for (i = 0; i < ret_num; i++) {
@@ -521,7 +521,7 @@ int acquire_device_async(struct apusys_dev_aquire *acq)
 		? tab->available_num : (acq->target_num-acq->acq_num);
 	for (i = 0; i < num; i++) {
 		bit_idx = find_first_zero_bit(tab->dev_status, tab->dev_num);
-		LOG_DEBUG("dev(%d) idx(%lu/%u) available\n",
+		LOG_DEBUG("dev(%d) idx(%d/%u) available\n",
 			acq->dev_type, bit_idx, tab->dev_num);
 		if (bit_idx < tab->dev_num) {
 			LOG_DEBUG("add to acquire list\n");
@@ -590,8 +590,8 @@ int acquire_device_sync(struct apusys_dev_aquire *acq)
 	}
 
 	if (acq->acq_num == acq->target_num) {
-		LOG_DEBUG("acquire device(%d/%d/%d sync ok\n",
-		acq->dev_type, acq->acq_num, acq->target_num, ret);
+		LOG_DEBUG("acquire dev(%d/%d/%d) sync ok\n",
+		acq->dev_type, acq->acq_num, acq->target_num);
 		list_del(&acq->tab_list);
 	}
 
@@ -679,9 +679,8 @@ int resource_load_fw(int dev_type, uint32_t magic, const char *name,
 
 	ret = info->dev->send_cmd(APUSYS_CMD_FIRMWARE, &hnd, info->dev);
 	if (ret) {
-		LOG_ERR("load(%d) firmware to device(%d/%d)",
-			" (0x%llx/0x%x/0x%x) fail(%d)\n",
-			op, dev_type, idx, kva, iova, size, ret);
+		LOG_ERR("load(%d) dev(%d/%d) fw(0x%x/0x%x) fail(%d)",
+			op, dev_type, idx, iova, size, ret);
 	}
 
 	return ret;
@@ -1003,7 +1002,8 @@ int apusys_unregister_device(struct apusys_device *dev)
 			LOG_DEBUG("get dev(%p)\n", dev);
 			if (tab->dev_list[i].cur_owner ==
 				APUSYS_DEV_OWNER_NONE) {
-				LOG_DEBUG("dev(%p) is free, can release\n");
+				LOG_DEBUG("dev(%p) is free, can release\n",
+					tab->dev_list[i].dev);
 
 				/* clear dev info */
 				memset(&tab->dev_list[i], 0,
@@ -1013,8 +1013,7 @@ int apusys_unregister_device(struct apusys_device *dev)
 				bitmap_set(tab->dev_status, i, 1);
 				tab->available_num--;
 			} else {
-				LOG_ERR("dev(%p) is busy, release fail,",
-					" should implement flush mechansim\n",
+				LOG_ERR("dev(%p) is busy, release fail\n",
 					dev);
 				ret = -EINVAL;
 			}
@@ -1023,7 +1022,7 @@ int apusys_unregister_device(struct apusys_device *dev)
 	}
 
 	if (i >= APUSYS_DEV_TABLE_MAX) {
-		LOG_ERR("can't find dev(%p), release device fail\n");
+		LOG_ERR("can't find dev, release device fail\n");
 		ret = -EINVAL;
 	}
 

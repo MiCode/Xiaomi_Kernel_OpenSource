@@ -110,11 +110,11 @@ static int apusys_release(struct inode *inode, struct file *filp)
 		return -ENOMEM;
 	}
 
-	LOG_INFO("delete user %p(0x%llx/0x%llx/0x%llx)\n",
+	LOG_INFO("delete user %p(0x%llx/%d/%d)\n",
 		u,
 		u->id,
-		u->open_pid,
-		u->open_tgid);
+		(int)u->open_pid,
+		(int)u->open_tgid);
 
 	ret = apusys_delete_user(u);
 	if (ret) {
@@ -371,14 +371,11 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			ret = -EINVAL;
 		} else {
 			if (apusys_user_insert_mem(user, &mem)) {
-				LOG_ERR("insert mem to user fail",
-					" (0x%llx/%d/%d/0x%llx/0x%x/%d)\n",
+				LOG_ERR("insmemd fail(0x%llx/%d/%d/0x%llx)\n",
 					user->id,
 					mem.mem_type,
 					mem.ion_data.ion_share_fd,
-					mem.kva,
-					mem.iova,
-					mem.size);
+					mem.kva);
 				ret = -EINVAL;
 
 				if (apusys_mem_free(&mem))
@@ -405,14 +402,11 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 
 		if (apusys_user_delete_mem(user, &mem)) {
-			LOG_ERR("delete mem from user fail ",
-				"(0x%llx/%d/%d/0x%llx/0x%x/%d)\n",
+			LOG_ERR("delmem fail(0x%llx/%d/%d/0x%llx)\n",
 				user->id,
 				mem.mem_type,
 				mem.ion_data.ion_share_fd,
-				mem.kva,
-				mem.iova,
-				mem.size);
+				mem.kva);
 			ret = -EINVAL;
 			goto out;
 		} else {
@@ -445,28 +439,20 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			case APUSYS_MAP_IOVA:
 			case APUSYS_MAP_PA:
 				if (apusys_user_insert_mem(user, &mem)) {
-					LOG_ERR("delete mem from user fail ",
-						"(0x%llx/%d/%d/0x%llx/0x%x/%d)\n",
+					LOG_ERR("delmem fail(0x%llx/%d/%d)\n",
 						user->id,
 						mem.mem_type,
-						mem.ion_data.ion_share_fd,
-						mem.kva,
-						mem.iova,
-						mem.size);
+						mem.ion_data.ion_share_fd);
 				}
 				break;
 			case APUSYS_UNMAP_KVA:
 			case APUSYS_UNMAP_IOVA:
 			case APUSYS_UNMAP_PA:
 				if (apusys_user_delete_mem(user, &mem)) {
-					LOG_ERR("delete mem from user fail ",
-						"(0x%llx/%d/%d/0x%llx/0x%x/%d)\n",
+					LOG_ERR("delmem fail(0x%llx/%d/%d)\n",
 						user->id,
 						mem.mem_type,
-						mem.ion_data.ion_share_fd,
-						mem.kva,
-						mem.iova,
-						mem.size);
+						mem.ion_data.ion_share_fd);
 				}
 				break;
 			default:
@@ -658,8 +644,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			/* wait cmd done */
 			ret = apusys_sched_wait_cmd(a_cmd);
 			if (ret) {
-				LOG_ERR("wait cmd, delete cmd(0x%llx)",
-					" from user fail\n",
+				LOG_ERR("wait cmd, fail delete cmd(0x%llx)",
 					a_cmd->cmd_id);
 				ret = -EINVAL;
 			}
@@ -698,8 +683,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret = resource_set_power(ioctl_pwr.dev_type, ioctl_pwr.idx,
 		ioctl_pwr.boost_val);
 		if (ret) {
-			LOG_ERR("set power: device(%d/%d)",
-				" boost_val(%d) fail(%d)\n",
+			LOG_ERR("set power: device(%d/%u/%u) (%d)",
 				ioctl_pwr.dev_type,
 				ioctl_pwr.idx,
 				ioctl_pwr.boost_val,
@@ -790,7 +774,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		/* put device back to dev table */
 		dev = apusys_user_get_dev(user, dev_alloc.handle);
 		if (dev == NULL) {
-			LOG_ERR("can't find device(0xd/0x%llx) user(%p)\n",
+			LOG_ERR("can't find device(%d/0x%llx) user(%p)\n",
 				dev_alloc.dev_type, dev_alloc.handle, user);
 		}
 		ret = put_device_lock(dev);
@@ -800,8 +784,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		} else {
 			/* delete device from user */
 			if (apusys_user_delete_dev(user, dev)) {
-				LOG_ERR("delete device(%p)",
-					" from user(0x%llx) fail(%d)\n",
+				LOG_ERR("del dev(%p/0x%llx) ret(%d)\n",
 					dev,
 					user->id,
 					ret);

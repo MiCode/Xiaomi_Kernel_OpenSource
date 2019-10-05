@@ -130,7 +130,7 @@ static void _print_hnd(int type, void *hnd)
 		LOG_INFO("| magic    = 0x%-16x|\n", fw->magic);
 		LOG_INFO("| kva      = 0x%-16llx|\n", fw->kva);
 		LOG_INFO("| iova     = 0x%-16x|\n", fw->iova);
-		LOG_INFO("| size     = 0x%-16llx|\n", fw->size);
+		LOG_INFO("| size     = 0x%-16x|\n", fw->size);
 		LOG_INFO("| idx      = %-18d|\n", fw->idx);
 		LOG_INFO("| op       = %-18d|\n", fw->op);
 		break;
@@ -191,7 +191,9 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 	if (hnd->kva == 0 || hnd->size == 0 ||
 		hnd->size != sizeof(struct sample_request)) {
 		LOG_ERR("execute command invalid(0x%llx/%d/%d)\n",
-			hnd->kva, hnd->size, sizeof(struct sample_request));
+			hnd->kva,
+			(int)hnd->size,
+			(int)sizeof(struct sample_request));
 		return -EINVAL;
 	};
 
@@ -259,7 +261,7 @@ static int _sample_firmware(struct apusys_firmware_hnd *hnd,
 	/* check fw magic */
 	if (hnd->magic != SAMPLE_FW_MAGIC || hnd->kva == 0
 		|| hnd->size == 0) {
-		LOG_ERR("apusys sample error(0x%x/0x%llx/0x%x/%lu)\n",
+		LOG_ERR("apusys sample error(0x%x/0x%llx/0x%x/%d)\n",
 			hnd->magic, hnd->kva, hnd->iova, hnd->size);
 		return -EINVAL;
 	}
