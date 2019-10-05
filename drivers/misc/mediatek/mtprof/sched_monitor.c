@@ -437,7 +437,7 @@ inline void trace_hardirqs_on_time(void)
 		static unsigned long long aee_ts;
 		unsigned long long now = sched_clock();
 
-		if (now - aee_ts > irq_off_aee_debounce_ms * 1000000) {
+		if (now - aee_ts > irq_off_aee_debounce_ms * 1000000ULL) {
 			aee_ts = now;
 			irq_off_aee_limit--;
 			schedule_monitor_aee(msg, "IRQ OFF");
