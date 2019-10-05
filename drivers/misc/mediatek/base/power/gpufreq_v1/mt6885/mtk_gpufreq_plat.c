@@ -1305,7 +1305,7 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 			g_cur_opp_vgpu,
 			g_cur_opp_vsram_gpu);
 	seq_printf(m, "(real) freq: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
-			mt_get_ckgen_freq(15),
+			mt_get_ckgen_freq(22),
 			__mt_gpufreq_get_cur_freq(),
 			__mt_gpufreq_get_cur_vgpu(),
 			__mt_gpufreq_get_cur_vsram_gpu());
@@ -1970,7 +1970,7 @@ static void __mt_gpufreq_set(
 		"@%s: done idx: %d -> %d, clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
 		__func__,
 		idx_old, idx_new,
-		mt_get_ckgen_freq(15),
+		mt_get_ckgen_freq(22),
 		__mt_gpufreq_get_cur_freq(),
 		__mt_gpufreq_get_cur_vgpu(),
 		__mt_gpufreq_get_cur_vsram_gpu());
@@ -1979,7 +1979,7 @@ static void __mt_gpufreq_set(
 	ged_log_buf_print2(gpufreq_ged_log, GED_LOG_ATTR_TIME,
 		"done idx: %d -> %d, clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
 		idx_old, idx_new,
-		mt_get_ckgen_freq(15),
+		mt_get_ckgen_freq(22),
 		__mt_gpufreq_get_cur_freq(),
 		__mt_gpufreq_get_cur_vgpu(),
 		__mt_gpufreq_get_cur_vsram_gpu());
@@ -3063,7 +3063,7 @@ static int __init __mt_gpufreq_init(void)
 
 	if (mt_gpufreq_bringup()) {
 		/* skip driver init in bring up stage */
-		gpufreq_pr_info("init clk = %d\n", mt_get_ckgen_freq(15));
+		gpufreq_pr_info("init clk = %d\n", mt_get_ckgen_freq(22));
 		return 0;
 	}
 
