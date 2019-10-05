@@ -31,7 +31,6 @@
 
 #ifdef MMDVFS_MMP
 #include "mmprofile.h"
-#include "mmprofile_function.h"
 #endif
 
 #undef pr_fmt
