@@ -24,6 +24,10 @@
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
 #endif
+#ifdef CONFIG_MTK_IOMMU_V2
+#include <mach/mt_iommu.h>
+#include "mach/pseudo_m4u.h"
+#endif
 
 #include "cmdq_device.h"
 struct CmdqMdpModuleBaseVA {
@@ -860,6 +864,51 @@ bool cmdq_mdp_clock_is_on(enum CMDQ_ENG_ENUM engine)
 	}
 }
 
+static void config_port_34bit(enum CMDQ_ENG_ENUM engine)
+{
+#ifdef CONFIG_MTK_IOMMU_V2
+	struct M4U_PORT_STRUCT sPort;
+	int ret = 0;
+
+	switch (engine) {
+	case CMDQ_ENG_MDP_RDMA0:
+		sPort.ePortID = M4U_PORT_L2_MDP_RDMA0;
+		break;
+	case CMDQ_ENG_MDP_RDMA1:
+		sPort.ePortID = M4U_PORT_L3_MDP_RDMA1;
+		break;
+#if 0
+	case CMDQ_ENG_MDP_RDMA2:
+		sPort.ePortID = M4U_PORT_L2_MDP_RDMA2;
+		break;
+	case CMDQ_ENG_MDP_RDMA3:
+		sPort.ePortID = M4U_PORT_L3_MDP_RDMA3;
+		break;
+	case CMDQ_ENG_MDP_WROT2:
+		sPort.ePortID = M4U_PORT_L2_MDP_WROT2;
+		break;
+	case CMDQ_ENG_MDP_WROT3:
+		sPort.ePortID = M4U_PORT_L3_MDP_WROT3;
+		break;
+#endif
+	case CMDQ_ENG_MDP_WROT0:
+		sPort.ePortID = M4U_PORT_L2_MDP_WROT0;
+		break;
+	case CMDQ_ENG_MDP_WROT1:
+		sPort.ePortID = M4U_PORT_L3_MDP_WROT1;
+		break;
+	default:
+		sPort.ePortID = M4U_PORT_L2_MDP_RDMA0;
+	}
+	/* 1 for IOVA, 0 for PA */
+	sPort.Virtuality = 1;
+	ret = m4u_config_port(&sPort);
+	if (ret < 0)
+		CMDQ_MSG("m4u config port fail! %ll\n", engine);
+#endif
+
+}
+
 void cmdq_mdp_enable_clock(bool enable, enum CMDQ_ENG_ENUM engine)
 {
 	switch (engine) {
@@ -872,9 +921,13 @@ void cmdq_mdp_enable_clock(bool enable, enum CMDQ_ENG_ENUM engine)
 		cmdq_mdp_enable_clock_IMG0_IMG_DL_ASYNC1(enable);
 		break;
 	case CMDQ_ENG_MDP_RDMA0:
+		if (enable)
+			config_port_34bit(CMDQ_ENG_MDP_RDMA0);
 		cmdq_mdp_enable_clock_MDP_RDMA0(enable);
 		break;
 	case CMDQ_ENG_MDP_RDMA1:
+		if (enable)
+			config_port_34bit(CMDQ_ENG_MDP_RDMA1);
 		cmdq_mdp_enable_clock_MDP_RDMA1(enable);
 		break;
 	case CMDQ_ENG_MDP_RSZ0:
@@ -884,9 +937,13 @@ void cmdq_mdp_enable_clock(bool enable, enum CMDQ_ENG_ENUM engine)
 		cmdq_mdp_enable_clock_MDP_RSZ1(enable);
 		break;
 	case CMDQ_ENG_MDP_WROT0:
+		if (enable)
+			config_port_34bit(CMDQ_ENG_MDP_WROT0);
 		cmdq_mdp_enable_clock_MDP_WROT0(enable);
 		break;
 	case CMDQ_ENG_MDP_WROT1:
+		if (enable)
+			config_port_34bit(CMDQ_ENG_MDP_WROT1);
 		cmdq_mdp_enable_clock_MDP_WROT1(enable);
 		break;
 	case CMDQ_ENG_MDP_TDSHP0:
