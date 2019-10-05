@@ -657,7 +657,7 @@ static int mcupm_device_probe(struct platform_device *pdev)
 			ret = mtk_mbox_probe(pdev, mcupm_mbox_table[i].mbdev,
 						i);
 			if (ret) {
-				pr_err("[MCUPM] mbox probe fail on mbox-0, ret %d\n",
+				pr_err("[MCUPM] mbox(%d) probe fail on mbox-0, ret %d\n",
 					i, ret);
 				return -1;
 			}
