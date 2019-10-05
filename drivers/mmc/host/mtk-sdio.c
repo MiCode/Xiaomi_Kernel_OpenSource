@@ -3298,8 +3298,8 @@ static int execute_online_tuning(struct msdc_host *host, u8 *res)
 			}
 		}
 		score = autok_simple_score64(tune_result_str64, RawData64);
-		ATK_DBG(ATK_RES, "[AUTOK]CMD %d \t %d \t %s\r\n",
-			       uCmdEdge, score, tune_result_str64);
+		//ATK_DBG(ATK_RES, "[AUTOK]CMD %d \t %d \t %s\r\n",
+		//	       uCmdEdge, score, tune_result_str64);
 		if (autok_check_scan_res64(RawData64, pBdInfo) != 0) {
 			host->autok_error = AUTOK_FAIL;
 			msdc_dump_all_register(host);
@@ -3362,8 +3362,8 @@ static int execute_online_tuning(struct msdc_host *host, u8 *res)
 			}
 		}
 		score = autok_simple_score64(tune_result_str64, RawData64);
-		ATK_DBG(ATK_RES, "[AUTOK]DAT %d \t %d \t %s\r\n",
-			uDatEdge, score, tune_result_str64);
+		//ATK_DBG(ATK_RES, "[AUTOK]DAT %d \t %d \t %s\r\n",
+		//	uDatEdge, score, tune_result_str64);
 		if (autok_check_scan_res64(RawData64, pBdInfo) != 0) {
 			host->autok_error = AUTOK_FAIL;
 			msdc_dump_all_register(host);
