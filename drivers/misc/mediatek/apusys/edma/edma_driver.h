@@ -15,6 +15,8 @@
 #ifndef __EDMA_DRIVER_H__
 #define __EDMA_DRIVER_H__
 
+#include "apusys_device.h"
+
 #define DEBUG
 
 #define EDMA_SUB_NUM 2
@@ -34,6 +36,7 @@ enum edma_sub_state {
 
 struct edma_sub {
 	struct device *dev;
+	struct apusys_device adev;
 	u32 sub;
 	struct edma_device *edma_device;
 

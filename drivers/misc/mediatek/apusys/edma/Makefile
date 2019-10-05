@@ -11,5 +11,9 @@
 # GNU General Public License for more details.
 #
 
-obj-$(CONFIG_MTK_APUSYS_EDMA_SUPPORT) += edma_driver.o edma_dbgfs.o edma_ioctl.o edma_queue.o
-obj-$(CONFIG_MTK_APUSYS_EDMA_SUPPORT) += edma_cmd_hnd.o
+ccflags-y += -I$(obj)/../include/
+
+obj-m += edma.o
+
+edma-objs += edma_driver.o edma_dbgfs.o edma_ioctl.o edma_queue.o
+edma-objs += edma_cmd_hnd.o

@@ -164,12 +164,66 @@ static const struct of_device_id mtk_edma_sub_of_ids[] = {
 	{}
 };
 
+int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
+{
+	struct edma_sub *edma_sub;
+
+	if (adev == NULL)
+		return -EINVAL;
+
+	edma_sub = (struct edma_sub *)adev->private;
+
+	if (!edma_sub->edma_device->edma_init_done) {
+		int ret;
+
+		ret = edma_initialize(edma_sub->edma_device);
+		if (ret) {
+			pr_notice("fail to initialize edma");
+			return ret;
+		}
+	}
+
+	switch (cmd) {
+	case APUSYS_CMD_POWERON:
+		break;
+	case APUSYS_CMD_POWERDOWN:
+		break;
+	case APUSYS_CMD_RESUME:
+		break;
+	case APUSYS_CMD_SUSPEND:
+		break;
+	case APUSYS_CMD_EXECUTE:{
+			struct apusys_cmd_hnd *cmd_hnd;
+			struct edma_ext *edma_ext;
+
+			if (hnd == NULL)
+				break;
+
+			cmd_hnd = (struct apusys_cmd_hnd *)hnd;
+			if (cmd_hnd->kva == 0 ||
+				cmd_hnd->size != sizeof(struct edma_ext))
+				break;
+
+			edma_ext = (struct edma_ext *)cmd_hnd->kva;
+
+			return edma_execute(edma_sub, edma_ext);
+		}
+	case APUSYS_CMD_PREEMPT:
+		break;
+	default:
+		break;
+	}
+
+	return -EINVAL;
+}
+
 static int mtk_edma_sub_probe(struct platform_device *pdev)
 {
 	int irq, ret;
 	struct resource *mem;
 	struct edma_sub *edma_sub;
 	struct device *dev = &pdev->dev;
+	static int apusys_idx;
 
 	edma_sub = devm_kzalloc(dev, sizeof(*edma_sub), GFP_KERNEL);
 	if (!edma_sub)
@@ -193,6 +247,19 @@ static int mtk_edma_sub_probe(struct platform_device *pdev)
 			       edma_sub);
 	if (ret < 0) {
 		dev_notice(dev, "Failed to request irq %d: %d\n", irq, ret);
+		return ret;
+	}
+
+	/* register device to APUSYS */
+	edma_sub->adev.dev_type = APUSYS_DEVICE_EDMA;
+	edma_sub->adev.preempt_type = APUSYS_PREEMPT_NONE;
+	edma_sub->adev.preempt_level = 0;
+	edma_sub->adev.private = edma_sub;
+	edma_sub->adev.send_cmd = edma_send_cmd;
+	edma_sub->adev.idx = apusys_idx++;
+	ret = apusys_register_device(&edma_sub->adev);
+	if (ret) {
+		dev_notice(dev, "Failed to register apusys (%d)\n", ret);
 		return ret;
 	}
 

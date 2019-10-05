@@ -1358,6 +1358,35 @@ int edma_sync_ext_mode(struct edma_device *edma_device,
 	return ret;
 }
 
+int edma_ext_by_sub(struct edma_sub *edma_sub, struct edma_request *req)
+{
+	int ret = 0;
+	void __iomem *base_addr;
+
+	base_addr = edma_sub->base_addr;
+	edma_power_on(edma_sub);
+	edma_enable_sequence(edma_sub);
+
+	lock_command(edma_sub);
+	edma_write_reg32(base_addr, APU_EDMA2_FILL_VALUE, req->fill_value);
+	edma_trigger_external(edma_sub->base_addr,
+				req->ext_reg_addr,
+				req->ext_count,
+				req->desp_iommu_en);
+
+	ret = wait_command(edma_sub, CMD_WAIT_TIME_MS);
+	if (ret) {
+		pr_notice
+		    ("%s:timeout\n", __func__);
+		print_error_status(edma_sub);
+	}
+
+	unlock_command(edma_sub);
+	edma_power_off(edma_sub);
+
+	return ret;
+}
+
 void edma_power_on(struct edma_sub *edma_sub)
 {
 }
@@ -1366,4 +1395,22 @@ void edma_power_off(struct edma_sub *edma_sub)
 {
 }
 
+int edma_execute(struct edma_sub *edma_sub, struct edma_ext *edma_ext)
+{
+	int ret = 0;
+	struct edma_request *req = NULL;
+
+	ret = edma_alloc_request(&req);
+	if (ret) {
+		pr_notice("alloc request failed, ret=%d\n",
+			ret);
+		return ret;
+	}
+
+	edma_setup_ext_mode_request(req, edma_ext, EDMA_PROC_EXT_MODE);
+	ret = edma_ext_by_sub(edma_sub, req);
+	edma_free_request(req);
+
+	return ret;
+}
 
