@@ -79,25 +79,21 @@ void mtk_clr_sspm_lp_cmd(void)
 			APMCU_SSPM_MBOX_SPM_CMD_SIZE);
 }
 
-void mtk_mcupm_pwr_ctrl_en(int dev)
+static void mtk_mcupm_pwr_ctrl_setting(int dev)
+{
+	mbox[MBOX_MCUPM].write(APMCU_MCUPM_MBOX_PWR_CTRL_EN, &dev, 1);
+}
+
+bool mtk_mcupm_cm_is_notified(void)
 {
 	unsigned int en_mask = 0;
 
 	mbox[MBOX_MCUPM].read(APMCU_MCUPM_MBOX_PWR_CTRL_EN, &en_mask, 1);
-	en_mask |= (dev & MCUPM_PWR_CTRL_MASK);
-	mbox[MBOX_MCUPM].write(APMCU_MCUPM_MBOX_PWR_CTRL_EN, &en_mask, 1);
-}
-EXPORT_SYMBOL(mtk_mcupm_pwr_ctrl_en);
 
-void mtk_mcupm_pwr_ctrl_dis(int dev)
-{
-	unsigned int en_mask = 0;
-
-	mbox[MBOX_MCUPM].read(APMCU_MCUPM_MBOX_PWR_CTRL_EN, &en_mask, 1);
-	en_mask &= ~(dev & MCUPM_PWR_CTRL_MASK);
-	mbox[MBOX_MCUPM].write(APMCU_MCUPM_MBOX_PWR_CTRL_EN, &en_mask, 1);
+	return !!(en_mask | MCUPM_CM_CTRL);
 }
-EXPORT_SYMBOL(mtk_mcupm_pwr_ctrl_dis);
+EXPORT_SYMBOL(mtk_mcupm_cm_is_notified);
+
 
 void mtk_set_mcupm_pll_mode(unsigned int mode)
 {
@@ -173,9 +169,13 @@ void mtk_wait_mbox_init_done(void)
 	mtk_set_mcupm_pll_mode(MCUPM_ARMPLL_OFF);
 	mtk_set_mcupm_buck_mode(MCUPM_BUCK_OFF_MODE);
 
-	mtk_mcupm_pwr_ctrl_en(MCUPM_MCUSYS_CTRL);
-	mtk_mcupm_pwr_ctrl_en(MCUPM_BUCK_CTRL);
-	mtk_mcupm_pwr_ctrl_en(MCUPM_ARMPLL_CTRL);
+	mtk_mcupm_pwr_ctrl_setting(
+			 MCUPM_MCUSYS_CTRL |
+#ifdef CONFIG_MTK_CM_MGR
+			 MCUPM_CM_CTRL |
+#endif
+			 MCUPM_BUCK_CTRL |
+			 MCUPM_ARMPLL_CTRL);
 }
 
 void mtk_notify_subsys_ap_ready(void)

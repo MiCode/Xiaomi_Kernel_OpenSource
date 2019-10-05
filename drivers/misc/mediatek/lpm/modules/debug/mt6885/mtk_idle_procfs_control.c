@@ -283,12 +283,33 @@ free:
 	return ret;
 }
 
+static int idle_proc_notify_cm_show(struct seq_file *m, void *v)
+{
+	bool notify;
+
+	notify = mtk_mcupm_cm_is_notified();
+
+	seq_printf(m, "mcupm cm mgr : %s\n",
+		notify ? "Enable" : "Disable");
+
+	seq_puts(m, "\n======== Command Usage ========\n");
+	seq_puts(m, "Read Only : Not support dynamic control\n");
+	return 0;
+}
+
+static ssize_t idle_proc_notify_cm_write(struct file *filp,
+		const char __user *userbuf, size_t count, loff_t *f_pos)
+{
+	return count;
+}
+
 PROC_FOPS(log);
 PROC_FOPS(timer);
 PROC_FOPS(stress);
 PROC_FOPS(stress_time);
 PROC_FOPS(buck_mode);
 PROC_FOPS(armpll_mode);
+PROC_FOPS(notify_cm);
 void __init mtk_idle_procfs_control_dir_init(struct proc_dir_entry *parent)
 {
 	int i;
@@ -300,7 +321,8 @@ void __init mtk_idle_procfs_control_dir_init(struct proc_dir_entry *parent)
 		PROC_ENTRY(stress),
 		PROC_ENTRY(stress_time),
 		PROC_ENTRY(buck_mode),
-		PROC_ENTRY(armpll_mode)
+		PROC_ENTRY(armpll_mode),
+		PROC_ENTRY(notify_cm)
 	};
 
 	dir = proc_mkdir("control", parent);

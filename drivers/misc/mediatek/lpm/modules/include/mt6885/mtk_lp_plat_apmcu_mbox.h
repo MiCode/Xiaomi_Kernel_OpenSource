@@ -59,7 +59,8 @@ void mtk_clr_sspm_lp_cmd(void);
 #define MCUPM_MCUSYS_CTRL               (1 << 0)
 #define MCUPM_BUCK_CTRL                 (1 << 1)
 #define MCUPM_ARMPLL_CTRL               (1 << 2)
-#define MCUPM_PWR_CTRL_MASK             ((1 << 3) - 1)
+#define MCUPM_CM_CTRL                   (1 << 3)
+#define MCUPM_PWR_CTRL_MASK             ((1 << 4) - 1)
 
 /* Mbox Slot: APMCU_MCUPM_MBOX_L3_CACHE_MODE (5) */
 #define MCUPM_L3_OFF_MODE               0 /* default */
@@ -87,8 +88,7 @@ void mtk_clr_sspm_lp_cmd(void);
 #define MCUPM_TASK_RUN                  4
 #define MCUPM_TASK_PAUSE                5
 
-void mtk_mcupm_pwr_ctrl_en(int dev);
-void mtk_mcupm_pwr_ctrl_dis(int dev);
+bool mtk_mcupm_cm_is_notified(void);
 
 void mtk_set_mcupm_pll_mode(unsigned int mode);
 int mtk_get_mcupm_pll_mode(void);
