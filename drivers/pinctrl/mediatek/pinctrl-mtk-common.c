@@ -50,6 +50,96 @@ static const char * const mtk_gpio_functions[] = {
 	"func8", "func9", "func10", "func11",
 	"func12", "func13", "func14", "func15",
 };
+static const struct mtk_pin_info *mtk_pinctrl_get_gpio_array(int pin, int size,
+	const struct mtk_pin_info pArray[])
+{
+	int i = 0;
+
+	for (i = 0; i < size; i++) {
+		if (pin == pArray[i].pin)
+			return &pArray[i];
+	}
+	return NULL;
+}
+
+int mtk_pinctrl_set_gpio_value(struct mtk_pinctrl *pctl, int pin,
+	bool value, int size, const struct mtk_pin_info pin_info[])
+{
+	unsigned int reg_bit, reg_set_addr, reg_rst_addr;
+	const struct mtk_pin_info *spec_pin_info;
+	struct regmap *regmap;
+	unsigned char  port_align;
+	unsigned char bit_width;
+	unsigned int mask, reg_value;
+
+	spec_pin_info = mtk_pinctrl_get_gpio_array(pin, size, pin_info);
+
+	if (spec_pin_info != NULL) {
+		port_align = pctl->devdata->port_align;
+		reg_set_addr = spec_pin_info->offset + port_align;
+		reg_rst_addr = spec_pin_info->offset + (port_align << 1);
+		reg_bit = BIT(spec_pin_info->bit);
+		regmap = pctl->regmap[spec_pin_info->ip_num];
+		reg_value = value << spec_pin_info->bit;
+		bit_width = spec_pin_info->width;
+		mask = (BIT(bit_width) - 1) << spec_pin_info->bit;
+		return regmap_update_bits(regmap,
+			spec_pin_info->offset, mask, reg_value);
+	} else {
+		return -EPERM;
+	}
+	return 0;
+}
+
+int mtk_pinctrl_update_gpio_value(struct mtk_pinctrl *pctl, int pin,
+	unsigned char value, int size, const struct mtk_pin_info pin_info[])
+{
+	unsigned int reg_update_addr;
+	unsigned int mask, reg_value;
+	const struct mtk_pin_info *spec_update_pin;
+	struct regmap *regmap;
+	unsigned char bit_width;
+
+	spec_update_pin = mtk_pinctrl_get_gpio_array(pin, size, pin_info);
+
+	if (spec_update_pin != NULL) {
+		reg_update_addr = spec_update_pin->offset;
+		regmap = pctl->regmap[spec_update_pin->ip_num];
+		reg_value = value << spec_update_pin->bit;
+		bit_width = spec_update_pin->width;
+		mask = (BIT(bit_width) - 1) << spec_update_pin->bit;
+		return regmap_update_bits(regmap,
+			reg_update_addr, mask, reg_value);
+	} else {
+		return -EPERM;
+	}
+
+	return 0;
+}
+
+int mtk_pinctrl_get_gpio_value(struct mtk_pinctrl *pctl,
+	int pin, int size, const struct mtk_pin_info pin_info[])
+{
+	unsigned int reg_value, reg_get_addr;
+	const struct mtk_pin_info *spec_pin_info;
+	struct regmap *regmap;
+	unsigned char bit_width, reg_bit;
+
+	spec_pin_info = mtk_pinctrl_get_gpio_array(pin, size, pin_info);
+
+	if (spec_pin_info != NULL) {
+		reg_get_addr = spec_pin_info->offset;
+		bit_width = spec_pin_info->width;
+		reg_bit = spec_pin_info->bit;
+		regmap = pctl->regmap[spec_pin_info->ip_num];
+		regmap_read(regmap, reg_get_addr, &reg_value);
+		return ((reg_value >> reg_bit) & (BIT(bit_width) - 1));
+	} else {
+		return -EPERM;
+	}
+
+	return 0;
+}
 
 /*
  * There are two base address for pull related configuration
@@ -68,7 +158,7 @@ static struct regmap *mtk_get_regmap(struct mtk_pinctrl *pctl,
 static unsigned int mtk_get_port(struct mtk_pinctrl *pctl, unsigned long pin)
 {
 	/* Different SoC has different mask and port shift. */
-	return ((pin >> 4) & pctl->devdata->port_mask)
+	return ((pin >> pctl->devdata->port_pin_shf) & pctl->devdata->port_mask)
 			<< pctl->devdata->port_shf;
 }
 
@@ -81,7 +171,7 @@ static int mtk_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 	struct mtk_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
 
 	reg_addr = mtk_get_port(pctl, offset) + pctl->devdata->dir_offset;
-	bit = BIT(offset & 0xf);
+	bit = BIT(offset & pctl->devdata->port_mask);
 
 	if (pctl->devdata->spec_dir_set)
 		pctl->devdata->spec_dir_set(&reg_addr, offset);
@@ -103,7 +193,7 @@ static void mtk_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 	struct mtk_pinctrl *pctl = gpiochip_get_data(chip);
 
 	reg_addr = mtk_get_port(pctl, offset) + pctl->devdata->dout_offset;
-	bit = BIT(offset & 0xf);
+	bit = BIT(offset & pctl->devdata->port_mask);
 
 	if (value)
 		reg_addr = SET_ADDR(reg_addr, pctl);
@@ -138,8 +228,9 @@ static int mtk_pconf_set_ies_smt(struct mtk_pinctrl *pctl, unsigned pin,
 	 * control register are discontinuous, so we need this special handle.
 	 */
 	if (pctl->devdata->spec_ies_smt_set) {
-		return pctl->devdata->spec_ies_smt_set(mtk_get_regmap(pctl, pin),
-			pin, pctl->devdata->port_align, value, arg);
+		return pctl->devdata->spec_ies_smt_set(pctl,
+			mtk_get_regmap(pctl, pin), pin,
+			pctl->devdata->port_align, value, arg);
 	}
 
 	bit = BIT(pin & 0xf);
@@ -198,6 +289,13 @@ static const struct mtk_pin_drv_grp *mtk_find_pin_drv_grp_by_pin(
 	return NULL;
 }
 
+static int mtk_pinctrl_set_gpio_driving(struct mtk_pinctrl *pctl,
+	int pin, unsigned char driving)
+{
+	return mtk_pinctrl_update_gpio_value(pctl, pin, driving,
+		pctl->devdata->n_pin_drv, pctl->devdata->pin_drv_grps);
+}
+
 static int mtk_pconf_set_driving(struct mtk_pinctrl *pctl,
 		unsigned int pin, unsigned char driving)
 {
@@ -205,6 +303,11 @@ static int mtk_pconf_set_driving(struct mtk_pinctrl *pctl,
 	unsigned int val;
 	unsigned int bits, mask, shift;
 	const struct mtk_drv_group_desc *drv_grp;
+
+	if (pctl->devdata->pin_drv_grps) {
+		return mtk_pinctrl_set_gpio_driving(pctl,
+			pin, driving);
+	}
 
 	if (pin >= pctl->devdata->npins)
 		return -EINVAL;
@@ -229,7 +332,8 @@ static int mtk_pconf_set_driving(struct mtk_pinctrl *pctl,
 	return -EINVAL;
 }
 
-int mtk_pctrl_spec_pull_set_samereg(struct regmap *regmap,
+int mtk_pctrl_spec_pull_set_samereg(struct mtk_pinctrl *pctl,
+		struct regmap *regmap,
 		const struct mtk_pin_spec_pupd_set_samereg *pupd_infos,
 		unsigned int info_num, unsigned int pin,
 		unsigned char align, bool isup, unsigned int r1r0)
@@ -259,6 +363,8 @@ int mtk_pctrl_spec_pull_set_samereg(struct regmap *regmap,
 	else
 		reg_pupd = reg_set;
 
+	if (spec_pupd_pin->ip_num != 0)
+		regmap = pctl->regmap[i];
 	bit_pupd = BIT(spec_pupd_pin->pupd_bit);
 	regmap_write(regmap, reg_pupd, bit_pupd);
 
@@ -305,10 +411,22 @@ static int mtk_pconf_set_pull_select(struct mtk_pinctrl *pctl,
 		 * the parameter should be "MTK_PUPD_SET_R1R0_00".
 		 */
 		r1r0 = enable ? arg : MTK_PUPD_SET_R1R0_00;
-		ret = pctl->devdata->spec_pull_set(mtk_get_regmap(pctl, pin),
-			pin, pctl->devdata->port_align, isup, r1r0);
+		ret = pctl->devdata->spec_pull_set(pctl,
+			mtk_get_regmap(pctl, pin), pin,
+			pctl->devdata->port_align, isup, r1r0);
 		if (!ret)
 			return 0;
+	}
+
+	if (pctl->devdata->pin_pullen_grps ||
+		pctl->devdata->pin_pullsel_grps) {
+		mtk_pinctrl_set_gpio_value(pctl, pin, enable,
+			pctl->devdata->n_pin_pullen,
+			pctl->devdata->pin_pullen_grps);
+		mtk_pinctrl_set_gpio_value(pctl, pin, isup,
+			pctl->devdata->n_pin_pullsel,
+			pctl->devdata->pin_pullsel_grps);
+		return 0;
 	}
 
 	/* For generic pull config, default arg value should be 0 or 1. */
@@ -318,7 +436,7 @@ static int mtk_pconf_set_pull_select(struct mtk_pinctrl *pctl,
 		return -EINVAL;
 	}
 
-	bit = BIT(pin & 0xf);
+	bit = BIT(pin & pctl->devdata->port_mask);
 	if (enable)
 		reg_pullen = SET_ADDR(mtk_get_port(pctl, pin) +
 			pctl->devdata->pullen_offset, pctl);
@@ -1386,6 +1504,17 @@ int mtk_pctrl_init(struct platform_device *pdev,
 		pctl->regmap2 = syscon_node_to_regmap(node);
 		if (IS_ERR(pctl->regmap2))
 			return PTR_ERR(pctl->regmap2);
+	}
+
+	if (data->regmap_num > 2) {
+		for (i = 0; i <= data->regmap_num; i++) {
+			node = of_parse_phandle(np, "mediatek,pctl-regmap", i);
+			if (node) {
+				pctl->regmap[i] = syscon_node_to_regmap(node);
+				if (IS_ERR(pctl->regmap[i]))
+					return PTR_ERR(pctl->regmap[i]);
+			}
+		}
 	}
 
 	pctl->devdata = data;
