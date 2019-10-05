@@ -70,21 +70,24 @@ enum mt_cpu_dvfs_id {
 };
 
 #define DEVINFO_IDX_0 50
+#define DEVINFO_IDX_1 51
 #define DEVINFO_IDX_2 52
 #define DEVINFO_IDX_3 53
 #define DEVINFO_IDX_4 54
 #define DEVINFO_IDX_5 55
 #define DEVINFO_IDX_6 56
-
+#define DEVINFO_IDX_7 57
+#define DEVINFO_IDX_8 58
+#define DEVINFO_IDX_9 59
 #define DEVINFO_IDX_10 60
 #define DEVINFO_IDX_11 61
 #define DEVINFO_IDX_12 62
+#define DEVINFO_IDX_13 63
+#define DEVINFO_IDX_14 64
+#define DEVINFO_IDX_15 65
 #define DEVINFO_IDX_16 66
 #define DEVINFO_IDX_17 67
-#define DEVINFO_IDX_18 68
-#define DEVINFO_IDX_19 69
-#define DEVINFO_IDX_23 73
-#define DEVINFO_IDX_24 74
+
 
 #define DEVINFO_TIME_IDX 132
 
@@ -225,43 +228,43 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_24 0x9B0BA096
 #else
 /* MC99 Safe EFUSE */
-#define DEVINFO_0 0x00060006
+#define DEVINFO_0 0x0
 /* L_LO */
-#define DEVINFO_1 0x0
+#define DEVINFO_1 0x7A150028
 /* B_LO + L_LO */
-#define DEVINFO_2 0x000000AB
+#define DEVINFO_2 0x4A1B0028
 /* B_LO */
-#define DEVINFO_3 0x9B0B336B
+#define DEVINFO_3 0x49120041
 /* CCI */
-#define DEVINFO_4 0x9B0B156C
+#define DEVINFO_4 0x7A150028
 /* GPU_LO + CCI */
-#define DEVINFO_5 0x00A500A6
+#define DEVINFO_5 0x0
 /* GPU_LO */
-#define DEVINFO_6 0x9B0BBF96
+#define DEVINFO_6 0x0
 /* APU */
-#define DEVINFO_7 0x10bd3c1b
+#define DEVINFO_7 0x7A150028
 /* L_HI + APU */
-#define DEVINFO_8 0x550055
+#define DEVINFO_8 0x56100076
 /* L_HI */
-#define DEVINFO_9 0x10bd3c1b
+#define DEVINFO_9 0x7AE20076
 /* B_HI */
-#define DEVINFO_10 0x9B0B2565
+#define DEVINFO_10 0x3A150032
 /* MODEM + B_HI */
-#define DEVINFO_11 0x00B90000
+#define DEVINFO_11 0xCB6F0083
 /* MODEM */
-#define DEVINFO_12 0x570B166E
+#define DEVINFO_12 0x356A00A5
+/* MODEM */
+#define DEVINFO_13 0x1B031B03
+/* MODEM */
+#define DEVINFO_14 0x1B031B03
+/* MODEM */
+#define DEVINFO_15 0x0
 /* L */
-#define DEVINFO_16 0x9B0B126F
+#define DEVINFO_16 0x1B031B03
 /* B + L */
-#define DEVINFO_17 0x00A500B9
-/* B */
-#define DEVINFO_18 0x9B0B3668
-/* MDLA */
-#define DEVINFO_19 0x9B0BD594
-/* GPU + MDLA */
-#define DEVINFO_23 0x00B100B1
-/* GPU */
-#define DEVINFO_24 0x9B0BC56E
+#define DEVINFO_17 0x1B031B03
+
+
 #endif
 #endif
 
@@ -270,7 +273,7 @@ enum mt_cpu_dvfs_id {
  * eem sw setting
  ******************************************
  */
-#define NR_HW_RES_FOR_BANK	(14) /* real eem banks for efuse */
+#define NR_HW_RES_FOR_BANK	(17) /* real eem banks for efuse */
 #if ENABLE_GPU
 #define EEM_INIT01_FLAG (0x0f) /* 0x0f=> [3]:GPU, [2]:CCI, [1]:B, [0]:L */
 #else
@@ -295,14 +298,12 @@ enum mt_cpu_dvfs_id {
 #define NR_FREQ_CPU 16
 
 #define L_FREQ_BASE			2000000
-#define B_FREQ_BASE			2050000
-#define	CCI_FREQ_BASE		1400000
+#define B_FREQ_BASE			2202000
+#define	CCI_FREQ_BASE		1540000
 #define GPU_FREQ_BASE		806000
-#define B_M_FREQ_BASE		1670000
+#define B_M_FREQ_BASE		1750000
 #define GPU_M_FREQ_BASE		620000
 
-#define BANK_L_TURN_FREQ	1800000
-#define BANK_B_TURN_FREQ	1800000
 #define BANK_L_TURN_PT		0
 #define BANK_GPU_TURN_PT	6
 #if ENABLE_LOO_B
@@ -339,23 +340,21 @@ enum mt_cpu_dvfs_id {
 
 /* common part: for cci, LL, L, GPU */
 /* common part: for  LL, L */
-#define VBOOT_PMIC_VAL	(80000)
+#define VBOOT_PMIC_VAL	(75000)
 #define VBOOT_PMIC_CLR	(0)
-#define VBOOT_VAL		(0x40) /* volt domain: 0.8v */
-#define VMAX_VAL		(0x73) /* volt domain: 1.11875v*/
-#define VMIN_VAL		(0x20) /* volt domain: 0.6v*/
-#define VCO_VAL			(0x20)
+#define VBOOT_VAL		(0x38) /* volt domain: 0.75v */
+#define VMAX_VAL		(0x60) /* volt domain: 1v*/
+#define VMIN_VAL		(0x20) /* volt domain: 0.55v*/
+#define VCO_VAL			(0x18)
 #define DVTFIXED_VAL	(0x6)
-#define DVTFIXED_VAL_V2	(10)
 
-#define DVTFIXED_M_VAL	(0x07)
+#define DVTFIXED_M_VAL	(0x6)
 
 
-#define VMAX_VAL_B		(0x73) /* volt domain: 1.11875v*/
+#define VMAX_VAL_B		(0x60) /* volt domain: 1v*/
 #define VMIN_VAL_B		(0x20) /* volt domain: 0.6v*/
-#define VCO_VAL_B		(0x20) /* volt domain: 0.6v*/
+#define VCO_VAL_B		(0x18) /* volt domain: 0.55v*/
 #define DVTFIXED_VAL_B	(0x6)
-#define DVTFIXED_VAL_B_V2	(10)
 
 #define DTHI_VAL		(0x01) /* positive */
 #define DTLO_VAL		(0xfe) /* negative (2's compliment) */
@@ -366,29 +365,28 @@ enum mt_cpu_dvfs_id {
 #define DCCONFIG_VAL	(0x555555)
 
 /* different for CCI */
-#define VMAX_VAL_CCI		(0x73) /* volt domain: 1.11875v*/
+#define VMAX_VAL_CCI		(0x60) /* volt domain: 1v*/
 #define VMIN_VAL_CCI		(0x20)
-#define VCO_VAL_CCI			(0x20)
+#define VCO_VAL_CCI			(0x18)
 #define DVTFIXED_VAL_CCI	(0x6)
-#define DVTFIXED_VAL_CCI_V2	(10)
 
 
 /* different for GPU */
-#define VMAX_VAL_GPU                    (0x73) /* eem domain: 1.11875v*/
-#define VMIN_VAL_GPU                    (0x22) /* eem domain: 0.6125v*/
-#define VCO_VAL_GPU                     (0x1C) /* eem domain: 0.575v*/
+#define VMAX_VAL_GPU                    (0x60) /* eem domain: 1v*/
+#define VMIN_VAL_GPU                    (0x18) /* eem domain: 0.55v*/
+#define VCO_VAL_GPU                     (0x18) /* eem domain: 0.55v*/
 
 /* different for GPU_L */
-#define VMAX_VAL_GL                     (0x73)
-#define VMIN_VAL_GL                     (0x22)
-#define VCO_VAL_GL                      (0x1C)
+#define VMAX_VAL_GL                     (0x60)
+#define VMIN_VAL_GL                     (0x18)
+#define VCO_VAL_GL                      (0x18)
 #define DVTFIXED_VAL_GL					(0x04)
 #define DVTFIXED_VAL_GPU				(0x04)
 
 /* different for GPU_H */
-#define VMAX_VAL_GH                     (0x73) /* volt domain: 1.11875v*/
-#define VMIN_VAL_GH                     (0x22)
-#define VCO_VAL_GH                      (0x1C)
+#define VMAX_VAL_GH                     (0x60) /* volt domain: 1.11875v*/
+#define VMIN_VAL_GH                     (0x18)
+#define VCO_VAL_GH                      (0x18)
 
 /* different for L_L */
 #define VMAX_VAL_LL                     (0x37)
@@ -396,9 +394,9 @@ enum mt_cpu_dvfs_id {
 #define VCO_VAL_LL                      (0x15)
 
 /* different for B_L */
-#define VMAX_VAL_BL                     (0x73) /* volt domain: 1.11875v*/
+#define VMAX_VAL_BL                     (0x60) /* volt domain: 1.11875v*/
 #define VMIN_VAL_BL                     (0x20)
-#define VCO_VAL_BL                      (0x20)
+#define VCO_VAL_BL                      (0x18)
 #define DVTFIXED_VAL_BL					(0x6)
 
 /* different for L_H */
@@ -410,7 +408,7 @@ enum mt_cpu_dvfs_id {
 /* different for B_H */
 #define VMAX_VAL_BH			(0x73) /* volt domain: 1.11875v*/
 #define VMIN_VAL_BH			(0x20)
-#define VCO_VAL_BH			(0x20)
+#define VCO_VAL_BH			(0x18)
 #define DVTFIXED_VAL_BH		(0x6)
 
 /* different for APU */
@@ -429,41 +427,34 @@ enum mt_cpu_dvfs_id {
 #define CORESEL_INIT2_VAL		(0x0fff0000)
 
 
-#define INVERT_TEMP_VAL		(25000)
-#define INVERT_LOW_TEMP_VAL	(10000)
-#define OVER_INV_TEM_VAL	(27000)
-#define HIGH_TEM_VAL		(85000)
-#define LOWER_HIGH_TEM_VAL	(83000)
+#define LOW_TEMP_VAL		(25000)
+#define EXTRA_LOW_TEMP_VAL	(10000)
+#define HIGH_TEMP_VAL		(85000)
 
 #define LOW_TEMP_OFF_DEFAULT	(0)
-#define EXTRA_TEMP_OFF_L		(8)
-#define EXTRA_TEMP_OFF_B		(8)
-#define EXTRA_TEMP_OFF_GPU		(4)
+#define LOW_TEMP_OFF_L		(8)
+#define HIGH_TEMP_OFF_L		(3)
+#define LOW_TEMP_OFF_B		(8)
+#define HIGH_TEMP_OFF_B		(3)
+#define LOW_TEMP_OFF_GPU		(4)
+#define HIGH_TEMP_OFF_GPU		(3)
 #define EXTRA_LOW_TEMP_OFF_GPU	(7)
-#define EXTRA_TEMP_OFF_B_LO		(2)
 #define MARGIN_ADD_OFF			(5)
 #define MARGIN_CLAMP_OFF		(8)
 
 
-#define LOW_TEMP_OFF_L (0x04)
-#define LOW_TEMP_OFF_B (0x05)
-#define LOW_TEMP_OFF_CCI (0x04)
-#define LOW_TEMP_OFF_GPU (0x03)
-#define LOW_TEMP_OFF_VPU (0x04)
-
-
 /* for EEMCTL0's setting */
 #define EEM_CTL0_L			(0x06540007)
-#define EEM_CTL0_B			(0x00980003)
+#define EEM_CTL0_B			(0x00100003)
 #define EEM_CTL0_CCI		(0x06540007)
-#define EEM_CTL0_GPU		(0x00100003)
-#define EEM_CTL0_VPU		(0x00010001)
+#define EEM_CTL0_GPU		(0x00980003)
+#define EEM_CTL0_VPU		(0x000C0001)
 
 
-#define AGING_VAL_CPU_L		(0x5) /* CPU aging margin : 31mv*/
-#define AGING_VAL_CPU		(0x6) /* CPU aging margin : 37mv*/
-#define AGING_VAL_GPU		(0x5) /* GPU aging margin : 43.75mv*/
-#define BPCU_ADD_OFT_V5				(5) /* Add 31mv */
+#define AGING_VAL_CPU		(0x0) /* CPU aging margin : 31mv*/
+#define AGING_VAL_CPU_B		(0x0) /* CPU aging margin : 37mv*/
+#define AGING_VAL_GPU		(0x0) /* GPU aging margin : 43.75mv*/
+
 
 
 #if SEC_MOD_SEL == 0x00

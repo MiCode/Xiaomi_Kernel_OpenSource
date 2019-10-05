@@ -2121,12 +2121,10 @@ page_owner=on";
 		ses8_drplopct = <0>;
 	};
 
-	eem_fsm: eem_fsm@1100b000 {
+	eem_fsm: eem_fsm@11278000 {
 		compatible = "mediatek,eem_fsm";
 		reg = <0 0x1100b000 0 0x1000>;
-		interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_LOW>;
-		clocks = <&infracfg_ao INFRACFG_AO_THERM_CG>;
-		clock-names = "ptp-main";
+		interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_LOW>;
 		eem-status = <1>;
 		eem-initmon-little = <0xf>;
 		eem-initmon-big = <0xf>;
@@ -2145,9 +2143,7 @@ page_owner=on";
 	eemg_fsm: eemgpu_fsm@1100b000 {
 		compatible = "mediatek,eemgpu_fsm";
 		reg = <0 0x1100b000 0 0x1000>;
-		interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_LOW>;
-		clocks = <&infracfg_ao INFRACFG_AO_THERM_CG>;
-		clock-names = "ptp-main";
+		interrupts = <GIC_SPI 167 IRQ_TYPE_LEVEL_LOW>;
 		eemg-status = <1>;
 		eemg-initmon-gpu = <0xf>;
 		eemg-clamp-gpu = <0>;
