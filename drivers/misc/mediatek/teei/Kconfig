@@ -149,14 +149,3 @@ config MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
 	  This framework supports DCIH and GP API test drivers.
 	  Say Y if you would like to enable the test framework.
 	  If unsure, say N.
-
-config MICROTRUST_KM4_SUPPORT
-	tristate "Microtrust km4.0 support"
-	depends on MICROTRUST_TEE_SUPPORT
-	depends on KEYMASTER_VERSION="4.0"
-	default y
-	---help---
-	  Enables support of Microtrust km4.0.
-	  Deactive dev/ut_keymaster ioctl function.
-	  Say Y if you would like to enable km4.0.
-	  If unsure, say Y.
