@@ -2862,9 +2862,10 @@ page_owner=on";
 			<&topckgen TOP_MUX_DISP_PWM>,
 			<&infracfg_ao INFRACFG_AO_DISP_PWM_CG>,
 			<&clk26m>,
-			<&topckgen CLK_TOP_UNIVPLL2_D4>,
-			<&topckgen CLK_TOP_ULPOSC1_D2>,
-			<&topckgen CLK_TOP_ULPOSC1_D8>;
+			<&topckgen TOP_UNIVPLL_D6_D4>,
+			<&topckgen TOP_OSC_D2>,
+			<&topckgen TOP_OSC_D4>,
+			<&topckgen TOP_OSC_D16>;
 
 		clock-names = "MMSYS_MTCMOS",
 			"MMSYS_SMI_COMMON",
@@ -2891,9 +2892,10 @@ page_owner=on";
 			"TOP_MUX_DISP_PWM",
 			"DISP_PWM",
 			"TOP_26M",
-			"TOP_UNIVPLL2_D4",
-			"TOP_ULPOSC1_D2",
-			"TOP_ULPOSC1_D8";
+			"TOP_UNIVPLL_D6_D4",
+			"TOP_OSC_D2",
+			"TOP_OSC_D4",
+			"TOP_OSC_D16";
 	};
 
 	disp_pwm0@1100e000 {

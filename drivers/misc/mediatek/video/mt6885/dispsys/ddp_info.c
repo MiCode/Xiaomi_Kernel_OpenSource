@@ -423,10 +423,10 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 DISP_T_PWM,
 	 "pwm0",
 	 0,
-	 NULL,
+	 &ddp_driver_pwm,
 	 {"mediatek,disp_pwm0",
 	  0x1100E000,
-	  0,
+	  151,
 	  0,
 	  0,
 	  0}

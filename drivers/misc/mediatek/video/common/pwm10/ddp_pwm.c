@@ -165,6 +165,8 @@ int disp_pwm_get_cust_led(unsigned int *clocksource, unsigned int *clockdiv)
 		if (!ret) {
 			*clocksource = pwm_config[0];
 			*clockdiv = pwm_config[1];
+			PWM_MSG("led dts pwm config data. %d %d\n",
+				pwm_config[0], pwm_config[1]);
 		} else {
 			PWM_ERR("led dts can not get pwm config data.\n");
 		}
@@ -281,6 +283,8 @@ static int disp_pwm_config_init(enum DISP_MODULE_ENUM module,
 	pwm_div = PWM_DEFAULT_DIV_VALUE;
 
 	ret = disp_pwm_get_cust_led(&pwm_src, &pwm_div);
+	PWM_NOTICE("disp_pwm_init : PWM config init data (%d,%d), ret=%d\n",
+			pwm_src, pwm_div, ret);
 	if (!ret) {
 		disp_pwm_set_pwmmux(pwm_src);
 
@@ -646,14 +650,14 @@ static int ddp_pwm_power_on(enum DISP_MODULE_ENUM module, void *handle)
 #if defined(CONFIG_MACH_MT6759) || defined(CONFIG_MACH_MT6758) || \
 	defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6765) || \
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6768) || \
-	defined(CONFIG_MACH_MT8168) || defined(CONFIG_MACH_MT6885)
+	defined(CONFIG_MACH_MT8168)
 
 	/* pwm ccf api */
 	ddp_clk_prepare_enable(ddp_get_module_clk_id(module));
 #elif defined(CONFIG_MACH_MT6763) || defined(CONFIG_MACH_MT6771)
 	ddp_clk_prepare_enable(ddp_get_module_clk_id(module));
 	ddp_clk_prepare_enable(TOP_MUX_DISP_PWM);
-#elif defined(CONFIG_MACH_MT3967)
+#elif defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6885)
 	ddp_clk_prepare_enable(ddp_get_module_clk_id(module));
 	ddp_clk_prepare_enable(CLK_MUX_DISP_PWM);
 #else
@@ -706,14 +710,14 @@ static int ddp_pwm_power_off(enum DISP_MODULE_ENUM module, void *handle)
 #if defined(CONFIG_MACH_MT6759) || defined(CONFIG_MACH_MT6758) || \
 	defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6765) || \
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6768) || \
-	defined(CONFIG_MACH_MT8168) || defined(CONFIG_MACH_MT6885)
+	defined(CONFIG_MACH_MT8168)
 
 	/* pwm ccf api */
 	ddp_clk_disable_unprepare(ddp_get_module_clk_id(module));
 #elif defined(CONFIG_MACH_MT6763) || defined(CONFIG_MACH_MT6771)
 	ddp_clk_disable_unprepare(ddp_get_module_clk_id(module));
 	ddp_clk_disable_unprepare(TOP_MUX_DISP_PWM);
-#elif defined(CONFIG_MACH_MT3967)
+#elif defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6885)
 	ddp_clk_disable_unprepare(ddp_get_module_clk_id(module));
 	ddp_clk_disable_unprepare(CLK_MUX_DISP_PWM);
 #else
