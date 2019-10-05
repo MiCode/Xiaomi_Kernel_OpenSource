@@ -313,7 +313,7 @@ int vpu_iova_dts(struct platform_device *pdev,
 {
 	if (of_property_read_u32_array(pdev->dev.of_node,
 			name, &i->addr, 3)) {
-		dev_info(&pdev->dev, "%s: vpu%d: unable to get %s\n",
+		dev_info(&pdev->dev, "%s: vpu: unable to get %s\n",
 			__func__, name);
 		return -ENODEV;
 	}
