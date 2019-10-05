@@ -12,7 +12,9 @@
 #
 
 # common driver code for CMDQ
-obj-y += v3/
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739" "mt6768" "mt6771" "mt6885" "mt8168"))
+	obj-y += v3/
+endif
 # mdp_sw_sync
 obj-y += mdp_sync/
 # EOF
