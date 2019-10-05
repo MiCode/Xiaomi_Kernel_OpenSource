@@ -652,9 +652,9 @@ int md_cd_power_on(struct ccci_modem *md)
 #ifdef BRINGUP_BYPASS_BROM
 	#define MDPERIMISC_BASE    (0x20060000)
 	md_peri_base = ioremap_nocache(MDPERIMISC_BASE, 0x200);
-	ccci_write32(md_peri_base, 0x10C, 0x5500);
-	ccci_write32(md_peri_base, 0x104, 0x0);
-	ccci_write32(md_peri_base, 0x108, 0x1);
+	ccci_write32(md_peri_base, 0x110C, 0x5500);
+	ccci_write32(md_peri_base, 0x1104, 0x0);
+	ccci_write32(md_peri_base, 0x1108, 0x1);
 	iounmap(md_peri_base);
 #endif
 	return 0;
