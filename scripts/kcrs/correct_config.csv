@@ -36,6 +36,7 @@ CONFIG_BLK_DEV_SD,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_BOUNCE,PLATFORM,miles.chen,,N,X,N,X,N,X,N,X,N,X,N,X,N
 CONFIG_BRIDGE,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_BRIDGE_NETFILTER,PROJECT,hw.tung,,,X,,X,,X,,X,,X,,X,
+CONFIG_BT,PLATFORM,yu-min.lin,,y,y,X,y,y,X,X,X,X,y,y,X,X
 CONFIG_BUG_ON_DATA_CORRUPTION,COMMON,chunhui.li,new config,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE,PLATFORM,chia-hao.hsu,,X,y,X,y,X,y,X,y,X,y,X,y,X
 CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES,PROJECT,,,X,O,X,O,X,O,X,O,X,O,X,O,X
@@ -45,7 +46,6 @@ CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE,PLATFORM,chia-hao.hsu,,y,X,y,X,y,X,y,X,y,X
 CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES,PROJECT,,,O,X,O,X,O,X,O,X,O,X,O,X,O
 CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE,PROJECT,chia-hao.hsu,,X,,X,,X,,X,,X,,X,,X
 CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,PROJECT,,,,,,,,,,,,,,,
-CONFIG_BT,PLATFORM,yu-min.lin,,y,y,X,y,y,X,X,X,X,y,y,X,X
 CONFIG_CC_OPTIMIZE_FOR_SIZE,PROJECT,Johnson.Lin,new config in this commit 9367ac77e8f7c369c26aa3bed4955030064d9e3e,,,,,,,,,,,,,
 CONFIG_CC_STACKPROTECTOR_REGULAR,USER,my.chuang,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_CC_STACKPROTECTOR_STRONG,COMMON,my.chuang,,y,y,y,y,y,y,y,y,y,y,y,y,y
@@ -100,6 +100,7 @@ CONFIG_CRYPTO_SHA512_ARM,PROJECT,Calvin.Liao,,,y,,y,,y,,y,,y,,y,
 CONFIG_CRYPTO_TWOFISH,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_CRYPTO_XCBC,PROJECT,linger.lee,ubifs,,,,,,,,,,,,,
 CONFIG_CT6M_SUPPORT,PROJECT,Yanbin.Ren,new config ed4d60d7f1f8eb2fd663c6aceb92cd33d455de06,,,,,,,,,,,,,
+CONFIG_CUSTOM_BATTERY_EXTERNAL_CHANNEL,PROJECT,Pengshun.Zhao,,,,,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_ACCELEROMETER,PROJECT,Lomen.Wu,,,,,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_ACCELEROMETER_MODULE,PROJECT,Yue Wu,new config in this commit I7597083eee235dfc7189c82e62d210be5534b595,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_CUSTOM_KERNEL_ACCELGYRO,PROJECT,ruixue.su,,X,O,X,O,X,O,X,O,X,O,X,O,X
@@ -135,7 +136,6 @@ CONFIG_CUSTOM_KERNEL_SIGNIFICANT_MOTION,PROJECT,weiqi.fu,new config in this comm
 CONFIG_CUSTOM_KERNEL_SITUATION,PROJECT,jy.lan,,,,,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_STEP_COUNTER,PROJECT,yucong.xiong,new config in this commit a1a78f1763fbee529159f277816c062515ac238e,,,,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_TILT_DETECTOR_SENSOR,PROJECT,qiangming.xia,,,,,,,,,,,,,,
-CONFIG_MTK_SENSOR_ARCHITECTURE,PROJECT,hongxu.zhao,,,,,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_UNCALI_ACC_SENSOR,PROJECT,zhichao.liu,,,,,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_UNCALI_GYRO_SENSOR,PROJECT,weiqi.fu,new config in this commit 6cf72299191fe832dffff96cd9233bcf981b52a0,,,,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_UNCALI_MAG_SENSOR,PROJECT,weiqi.fu,new config in this commit 6cf72299191fe832dffff96cd9233bcf981b52a0,,,,,,,,,,,,,
@@ -399,8 +399,8 @@ CONFIG_MTK_AKM8963_NEW,PROJECT,Lomen.Wu,,,,,,,,,,,,,,
 CONFIG_MTK_ALSPSHUB,PROJECT,weiqi.fu,new config in this commit ddc5d59450d236e7d3732ebd43a19c5056787cc0,,,,,,,,,,,,,
 CONFIG_MTK_ANDROID_DEFAULT_SETTING,COMMON,jades.shih,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_ANSWER_CALL_HUB,PROJECT,qiangming.xia,new config in this commit 187fb88cfe9b07a6e086117d157e5a75b76f244f,,,,,,,,,,,,,
-CONFIG_MTK_APUSYS_SUPPORT,PLATFORM,Oscar.liu,,N,N,y,N,N,N,N,N,N,y,y,y,y
 CONFIG_MTK_APUSYS_MDLA_SUPPORT,PLATFORM,mark.hung,,N,N,y,N,N,N,N,N,N,y,y,y,y
+CONFIG_MTK_APUSYS_SUPPORT,PLATFORM,Oscar.liu,,N,N,y,N,N,N,N,N,N,y,y,y,y
 CONFIG_MTK_AUDIO_SCP_SPKPROTECT_SUPPORT,PROJECT,Shane.Chien,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_AUDIO_TUNNELING_SUPPORT,PROJECT,Hsin-Yi.Chang,new config in this commit f23b551da1530a08af42299c2c9f900d1127b72c,,,,,,,,,,,,,
 CONFIG_MTK_AUDIODSP_SUPPORT,PLATFORM,doug.wang,,X,X,y,X,X,X,X,X,y,X,y,X,y
@@ -476,6 +476,7 @@ CONFIG_MTK_DEVAPC_DRIVER,COMMON,neal.liu,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_DEVICE_ORIENTATION_HUB,PROJECT,jy.lan,,,,,,,,,,,,,,
 CONFIG_MTK_DFD_INTERNAL_DUMP,PLATFORM,shun-chih.yu,new config in this commit 7eafd5acba56cd7ac2de590f4b4b303822a08d00,y,X,y,X,y,X,y,X,y,X,y,X,y
 CONFIG_MTK_DHCPV6C_WIFI,PROJECT,Zhuoliang.Zhang,,,,,,,,,,,,,,
+CONFIG_MTK_DISABLE_GAUGE,PROJECT,Pengshun.Zhao,,,,,,,,,,,,,,
 CONFIG_MTK_DISABLE_POWER_ON_OFF_VOLTAGE_LIMITATION,PROJECT,menghui.lin,new config in this commit 6321904276499042c6c5d05746941980acaf5b2e,,,,,,,,,,,,,
 CONFIG_MTK_DISPLAY_120HZ_SUPPORT,PROJECT,otis.huang,new config in this commit a9f470e71a32907be7675e8887db0add7a2a5e81,,,,,,,,,,,,,
 CONFIG_MTK_DM_VERITY_OFF,PROJECT,denis.hsu,set Y for A-GO,O,O,O,O,O,O,O,O,O,O,O,O,O
@@ -578,8 +579,8 @@ CONFIG_MTK_IMGSENSOR,COMMON,Josepchi.Tsai,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_INPKHUB,PROJECT,qiangming.xia,new config in this commit e5afb39d5bc749c04142bb69e4f89131015320a6,,,,,,,,,,,,,
 CONFIG_MTK_INTERNAL,PROJECT,junzhi.zhao,,y,,y,,y,,y,,y,,y,,y
 CONFIG_MTK_IO_BOOST,PLATFORM,stanley.chu,finetune for performance,X,X,y,y,y,y,y,y,y,y,y,y,y
-CONFIG_MTK_IOMMU_V2,PROJECT,Cui.Zhang,,N,N,X,N,N,X,X,X,X,X,X,X,X
 CONFIG_MTK_IOMMU_PGTABLE_EXT,PROJECT,Cui.Zhang,,N,N,N,N,N,N,N,N,N,N,X,X,X
+CONFIG_MTK_IOMMU_V2,PROJECT,Cui.Zhang,,N,N,X,N,N,X,X,X,X,X,X,X,X
 CONFIG_MTK_ION,COMMON,youhua.li,new config in this commit 30f50f4e2f5b4c1996816cc4997e5c6b86d28386,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_IPI,PLATFORM,jiachiam.liu,new config in this commit e8c8b57bd4b43e51ffc94c62f20b675c02f96399,N,N,N,N,N,N,N,N,N,y,y,y,y
 CONFIG_MTK_IPV6_VZW,PROJECT,Xin.Xu,for customer project only,O,O,O,O,O,O,O,O,O,O,O,O,O
@@ -634,14 +635,15 @@ CONFIG_MTK_MBOX,PLATFORM,ts.kuo,new config in this commit e8c8b57bd4b43e51ffc94c
 CONFIG_MTK_MC3410_I2C,PROJECT,ruixue.su,SS6,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_MTK_MC3410_NEW,PROJECT,jy.lan,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_MCIF_WIFI_SUPPORT,PLATFORM,cheng-dao.lee,MCIF connect WiFi driver,,,,,,,,,,,,,
-CONFIG_MTK_MDDP_WH_SUPPORT,PROJECT,tj.chang,MDDP WiFi Hostpot,,,,,,,,,,,,,
 CONFIG_MTK_MD_DIRECT_TETHERING_SUPPORT,PROJECT,jun-quan.chen,,,,,,,,,,,,,,
 CONFIG_MTK_MD1_SUPPORT,PROJECT,yanbin.ren,,,,,,,,,,,,,,
 CONFIG_MTK_MD3_SUPPORT,PROJECT,yanbin.ren,,,,,,,,,,,,,,
+CONFIG_MTK_MDDP_WH_SUPPORT,PROJECT,tj.chang,MDDP WiFi Hostpot,,,,,,,,,,,,,
 CONFIG_MTK_MEMORY_LOWPOWER,PROJECT,Miles.Chen,Specific hardware,,X,,X,,X,,X,,X,,X,
 CONFIG_MTK_MERGE_INTERFACE_SUPPORT,PROJECT,Heiping.Lei,,O,X,O,X,O,X,O,X,O,X,O,X,O
 CONFIG_MTK_MET,COMMON,chengchang.wu,6755 32 bits not ready,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_MET_PLF,COMMON,chengchang.wu,6755 32 bits not ready,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_MTK_MFD_SPMI_PMIC,PLATFORM,argus lin,mfd spmi driver for pmic,X,X,X,X,X,X,X,X,X,y,y,y,y
 CONFIG_MTK_MJC_DRIVER,PLATFORM,easer.su,new config in this commit 669b19c5c1c997fe0e430fa5e7de77c0406acf41,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_MLC_NAND_SUPPORT,PROJECT,chienwei.chang,,,,,,,,,,,,,,
 CONFIG_MTK_MLOG,COMMON,chinwen.chang,,X,X,X,X,X,X,X,X,X,X,X,X,X
@@ -685,6 +687,7 @@ CONFIG_MTK_PMIC_COMMON,PLATFORM,jeter.chen,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_PMIC_NEW_ARCH,PROJECT,jimmy-yj.huang,,,,,,,,,,,,,,
 CONFIG_MTK_PMIC_WRAP,PLATFORM,brian-py.chen,pmic wrap upstream support option,X,X,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_PMIC_WRAP_HAL,PLATFORM,brian-py.chen,pmic wrap support option,X,X,y,y,y,y,y,y,y,X,X,y,y
+CONFIG_MTK_PMIF,PLATFORM,argus lin,pmif driver for pmic,X,X,X,X,X,X,X,X,X,y,y,y,y
 CONFIG_MTK_PQ_COLOR_MODE,PROJECT,Yj.li, new config I1b7b0441f385f77703b529b6efe6b78d122676b1,,,,,,,,,,,,,
 CONFIG_MTK_PSCI,PLATFORM,scott.shu,,y,X,y,X,y,X,y,X,y,X,y,X,y
 CONFIG_MTK_PSEUDO_M4U,PROJECT,Cui.Zhang,,N,N,X,N,N,X,X,X,X,X,X,X,X
@@ -696,6 +699,7 @@ CONFIG_MTK_PUMP_EXPRESS_PLUS_SUPPORT,PROJECT,wy.chuang,(<NEW>new config in this 
 CONFIG_MTK_PUMP_EXPRESS_SUPPORT,PROJECT,elvin.lin,,,,,,,,,,,,,,
 CONFIG_MTK_PWM,PROJECT,qiangming.xia,not required if not used,,,,,,,,,,,,,
 CONFIG_MTK_QOS_SUPPORT,PLATFORM,Cheng-En.Chung,DVFS related options,X,X,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_MTK_QOS_V2,PROJECT,Howard.Hsu,,,,,,,,,,,,,,
 CONFIG_MTK_RAM_CONSOLE,COMMON,Xinghua.Yang,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_RAM_CONSOLE_ADDR,PLATFORM,Xinghua.Yang,,0x0011D000,0x0010DC00,0x0011D000,0x0011D000,0x0011D000,0x0010DC00,0x0010DC00,0x0011D000,0x0011D000,0x0011D000,0x0011D000,0x0011D000,0x0011D000
 CONFIG_MTK_RAM_CONSOLE_DRAM_ADDR,PLATFORM,Xinghua.Yang,,0x54400000,0x44400000,0x4D000000,0x54400000,0x54400000,0x4D000000,0x4D000000,0x4D000000,0x4D000000,0x4D000000,0x4D000000,0x4D000000,0x4D000000
@@ -730,6 +734,7 @@ CONFIG_MTK_SEC_MODEM_NVRAM_ANTI_CLONE,PLATFORM,pangyen.chen,project config shoul
 CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT,PROJECT,fy.yang,,,,,,,,,,,,,,
 CONFIG_MTK_SECURITY_SW_SUPPORT,COMMON,chin-ting.kuo,default y enable in 1faa87778d595b421ee71871d0edab00154309a3,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_SELINUX_AEE_WARNING,USER;PROJECT,colin.lee,new config in this commit 569e37b259c48a72f358131ea72b69da512ea010,,,,,,,,,,,,,
+CONFIG_MTK_SENSOR_ARCHITECTURE,PROJECT,hongxu.zhao,,,,,,,,,,,,,,
 CONFIG_MTK_SENSOR_BIO,PROJECT,jy.lan,,,,,,,,,,,,,,
 CONFIG_MTK_SENSOR_HUB_SUPPORT,PROJECT,yue.wu,,,,,,,,,,,,,,
 CONFIG_MTK_SENSOR_SUPPORT,PROJECT,qiangming.xia,,,,,,,,,,,,,,
@@ -737,6 +742,8 @@ CONFIG_MTK_SENSORS_1_0,PROJECT,jy.lan,,,,,,,,,,,,,,
 CONFIG_MTK_SHARED_SDCARD,PROJECT,sophie.wang,,,,,,,,,,,,,,
 CONFIG_MTK_SIB_USB_SWITCH,PLATFORM,eddie.hung,Modem signal throug USB 3.0 pin,X,X,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT,PROJECT,yanbin.ren,new config in this commit 6ebd8f9b343a9925e51161cef20c78c0c797d19c,,,,,,,,,,,,,
+CONFIG_MTK_SLBC,PLATFORM,Morven-CF.Yeh,,X,X,X,X,X,X,X,X,X,y,y,y,y
+CONFIG_MTK_SLBC_MMSRAM,PLATFORM,Morven-CF.Yeh,,X,X,X,X,X,X,X,X,X,y,y,y,y
 CONFIG_MTK_SLC_BUFFER_SUPPORT,PROJECT,isaac.lee,new config in this commit ae5dc71d9ef6ebac8e6d05c6ce48ba26c40e4f7d,,,,,,,,,,,,,
 CONFIG_MTK_SM100,PROJECT,qiyuan.song,new config in this commit 3d29631334b2361b7b4596ebe73e6414b64907dc,,,,,,,,,,,,,
 CONFIG_MTK_SMART_BATTERY,COMMON,Henry.Chen,,y,y,y,y,y,y,y,y,y,y,y,y,y
@@ -762,9 +769,9 @@ CONFIG_MTK_TEE_GP_SUPPORT,PROJECT,fy.yang,,,,,,,,,,,,,,
 CONFIG_MTK_THERMAL_PA_VIA_ATCMD,PROJECT,ethan.chang,,,,,,,,,,,,,,
 CONFIG_MTK_TILTDETECTHUB,PROJECT,weiqi.fu,,,,,,,,,,,,,,
 CONFIG_MTK_TIMER_TIMESYNC,COMMON,chang-an.chen,timer,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_MTK_TINYSYS_MCUPM_SUPPORT,PROJECT,rogercl.yang,new config in this commit a71f48f842e99476badeb8ff6699fb54062f5f54,X,X,X,X,X,X,X,X,X,O,O,X,X
 CONFIG_MTK_TINYSYS_SCP_SUPPORT,PROJECT,ts.kuo,new config in this commit a093c6e6d759ab57ff80b7553294c2a02c04a522,,,,,,,,,,,,,
 CONFIG_MTK_TINYSYS_SSPM_SUPPORT,PLATFORM,jiachiam.liu,new config in this commit 0882fbfb410389a677423c4418d05ccf72744111,y,X,y,y,y,y,y,y,y,y,y,y,y
-CONFIG_MTK_TINYSYS_MCUPM_SUPPORT,PROJECT,rogercl.yang,new config in this commit a71f48f842e99476badeb8ff6699fb54062f5f54,X,X,X,X,X,X,X,X,X,O,O,X,X
 CONFIG_MTK_TLC_NAND_SUPPORT,PROJECT,chienwei.chang,TLC nand project only,,,,,,,,,,,,,
 CONFIG_MTK_TRUSTONIC_TEE_DEBUGFS,USER;PROJECT,tryout.chen,,,,,,,,,,,,,,
 CONFIG_MTK_TRUSTY_DEBUGFS,USER;PROJECT,vink.shen,,,,,,,,,,,,,,
@@ -875,10 +882,10 @@ CONFIG_REGULATOR_ISL91302A,PLATFORM,jeter.chen,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_REGULATOR_MT6315,PLATFORM,wen.su,,X,X,X,X,X,X,X,X,X,y,y,X,X
 CONFIG_REGULATOR_MT6358,PLATFORM,wen.su,,X,X,X,X,X,y,y,X,X,X,X,X,X
 CONFIG_REGULATOR_MT6359,PLATFORM,wen.su,,X,X,X,X,X,X,X,y,y,y,y,y,y
-CONFIG_REGULATOR_MTK,PROJECT,vend_jeff_chang001,new config in this commit 96c0c6f571fd090208bc172e912776bfd41a9945,,,,,,,,,,,,,
-CONFIG_REGULATOR_RT5738,PROJECT,vend_jeff_chang001,new config in this commit b51f08961a7debca7a9c080790906cbae194e9af,,,,,,,,,,,,,
 CONFIG_REGULATOR_MT6359P,PLATFORM,jeter.chen,,X,X,X,X,X,X,X,X,X,y,y,y,y
 CONFIG_REGULATOR_MT6691,PLATFORM,jeter.chen,,X,X,X,X,X,X,X,X,X,y,y,X,X
+CONFIG_REGULATOR_MTK,PROJECT,vend_jeff_chang001,new config in this commit 96c0c6f571fd090208bc172e912776bfd41a9945,,,,,,,,,,,,,
+CONFIG_REGULATOR_RT5738,PROJECT,vend_jeff_chang001,new config in this commit b51f08961a7debca7a9c080790906cbae194e9af,,,,,,,,,,,,,
 CONFIG_RESOURCE_COUNTERS,PROJECT,Chinwen.Chang,,,,,,,,,,,,,,
 CONFIG_RPMSG_MTK,PLATFORM,ts.kuo,new config in this commit e8c8b57bd4b43e51ffc94c62f20b675c02f96399,N,N,N,N,N,N,N,N,N,y,y,y,y
 CONFIG_RT_FLASHLIGHT,PROJECT,simon-tch.wang,,y,y,y,y,y,y,y,y,y,y,y,y,y
@@ -958,8 +965,6 @@ CONFIG_SPECIFY_IMGSENSOR,PROJECT,josepchi.tsai,,X,X,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_SPI,COMMON,Freddy.Hsin,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_SPI_MT65XX,PLATFORM,Freddy.Hsin,,X,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_SPMI,PLATFORM,argus lin,spmi driver for pmic,X,X,X,X,X,X,X,X,X,y,y,y,y
-CONFIG_MTK_PMIF,PLATFORM,argus lin,pmif driver for pmic,X,X,X,X,X,X,X,X,X,y,y,y,y
-CONFIG_MTK_MFD_SPMI_PMIC,PLATFORM,argus lin,mfd spmi driver for pmic,X,X,X,X,X,X,X,X,X,y,y,y,y
 CONFIG_SW_SYNC,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_SW_SYNC_USER,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_SWITCH,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
@@ -1089,6 +1094,3 @@ CONFIG_ZRAM_LZ4_COMPRESS,PROJECT,Chinwen.Chang,,,,,,,,,,,,,,
 CONFIG_ZRAM_LZ4K_COMPRESS,PROJECT,Chinwen.Chang,,,,,,,,,,,,,,
 CONFIG_ZSM,PROJECT,Robbin.Chiu,new config 84a52cb60725192d8ae0c80b58c363c35484cfd4,,,,,,,,,,,,,
 CONFIG_ZSMALLOC,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
-CONFIG_MTK_SLBC,PLATFORM,Morven-CF.Yeh,,X,X,X,X,X,X,X,X,X,y,y,y,y
-CONFIG_MTK_SLBC_MMSRAM,PLATFORM,Morven-CF.Yeh,,X,X,X,X,X,X,X,X,X,y,y,y,y
-CONFIG_MTK_QOS_V2,PROJECT,Howard.Hsu,,,,,,,,,,,,,,
