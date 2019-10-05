@@ -325,6 +325,9 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 		owner ? task_pid_nr(owner) : -1, owner_cpu,
 		sec_high(lock->lock_t), sec_low(lock->lock_t));
 
+#ifdef CONFIG_MACH_MT6771
+		continue;
+#endif
 		/* lock is already released */
 		if (owner == NULL || owner_cpu == -1)
 			continue;
