@@ -295,4 +295,10 @@ static inline void tick_nohz_task_switch(void)
 		__tick_nohz_task_switch();
 }
 
+#if defined(CONFIG_TICK_ONESHOT) && defined(CONFIG_MTK_RAM_CONSOLE)
+extern void tick_broadcast_mtk_aee_dump(void);
+#else
+static inline void tick_broadcast_mtk_aee_dump(void) { };
+#endif
+
 #endif
