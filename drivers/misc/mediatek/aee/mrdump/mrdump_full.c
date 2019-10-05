@@ -130,7 +130,7 @@ static void aee_kdump_cpu_stop(void *arg, void *regs, void *svc_sp)
 	local_fiq_disable();
 	local_irq_disable();
 
-	dis_D_inner_fL1L2();
+	dis_D_inner_flush_all();
 	while (1)
 		cpu_relax();
 }
@@ -174,7 +174,7 @@ static void mrdump_stop_noncore_cpu(void *unused)
 	local_fiq_disable();
 	local_irq_disable();
 
-	dis_D_inner_fL1L2();
+	dis_D_inner_flush_all();
 	while (1)
 		cpu_relax();
 }

@@ -146,7 +146,7 @@ void ipanic_recursive_ke(struct pt_regs *regs, struct pt_regs *excp_regs,
 	}
 	mrdump_mini_ke_cpu_regs(excp_regs);
 	mrdump_mini_per_cpu_regs(cpu, regs, current);
-	dis_D_inner_fL1L2();
+	dis_D_inner_flush_all();
 	aee_exception_reboot();
 }
 EXPORT_SYMBOL(ipanic_recursive_ke);
@@ -193,7 +193,7 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 	}
 
 	mrdump_mini_ke_cpu_regs(regs);
-	dis_D_inner_fL1L2();
+	dis_D_inner_flush_all();
 	console_unlock();
 	aee_exception_reboot();
 	return NOTIFY_DONE;

@@ -246,7 +246,7 @@ static inline void mrdump_mini_reserve_memory(void)
 {
 }
 #endif
-__weak void dis_D_inner_fL1L2(void)
+__weak void dis_D_inner_flush_all(void)
 {
 	pr_notice("%s:weak function.\n", __func__);
 }
