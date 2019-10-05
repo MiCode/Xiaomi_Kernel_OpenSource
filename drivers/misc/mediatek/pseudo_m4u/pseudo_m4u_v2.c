@@ -3116,7 +3116,7 @@ static int pseudo_port_probe(struct platform_device *pdev)
 		}
 	}
 
-	dev_notice(dev, "%s done, larbid:%d, mask:0x%lx)\n",
+	M4U_MSG("%s done, larbid:%d, mask:0x%lx)\n",
 		__func__, larbid, dev->coherent_dma_mask);
 	return 0;
 
