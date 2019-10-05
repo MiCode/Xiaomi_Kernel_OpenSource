@@ -27,7 +27,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
-#include <linux/sched_clock.h>
+#include <linux/sched/clock.h>
 #include <clocksource/arm_arch_timer.h>
 
 #include <mt-plat/mtk_gpt.h>
