@@ -70,25 +70,19 @@ struct vpu_user {
 
 // driver data
 struct vpu_driver {
-	// unsigned long vpu_syscfg_base;
-	// unsigned long vpu_adlctrl_base;
-	// unsigned long vpu_vcorecfg_base;
-	// unsigned long smi_cmn_base;
-	int cores;                 /* # of VPU cores */
 	void *bin_va;
 	unsigned long bin_pa;
 	unsigned int bin_size;
 
-	struct ion_client *ion;    /* ion client */
-	struct m4u_client_t *m4u;  /* m4u client */
+	/* iova settings */
+	struct kref iova_ref;
+	struct device *iova_dev;
+	struct vpu_iova iova_algo;
+	struct vpu_iova iova_share;
 
-	struct class *class;
-
-	/* memory, allocated by vpu_init_hw() */
-	struct vpu_mem *share_data;
-
-	/* shared algo */
+	/* shared */
 	uint64_t mva_algo;
+	uint64_t mva_share;
 
 	/* list of devices */
 	struct list_head devs;
@@ -124,6 +118,13 @@ struct vpu_device {
 	struct rproc *rproc;
 	void __iomem *reg_base;  // IPU_BASE
 
+	/* iova settings */
+	struct vpu_iova iova_reset;
+	struct vpu_iova iova_main;
+	struct vpu_iova iova_kernel;
+	struct vpu_iova iova_iram;
+	struct vpu_iova iova_work;
+
 	/* character device */
 	dev_t devt;
 	struct cdev cdev;
@@ -133,32 +134,27 @@ struct vpu_device {
 	struct dentry *droot;
 
 	/* algorithm */
+	spinlock_t	algo_lock;
 	struct list_head algo;
-	struct __vpu_algo *algo_curr;  // current active algorithm
-	unsigned int algo_cnt;       // # of algorithms in vpu binary
+	struct __vpu_algo *algo_curr;  /* current active algorithm */
+	unsigned int algo_cnt;         /* # of algorithms in vpu binary */
 
 	/* irq */
 	unsigned int irq_num;
-	unsigned int irq_level;
 
 	/* command */
 	struct mutex cmd_lock;
 	wait_queue_head_t cmd_wait;
-	bool cmd_done;               // command done
+	bool cmd_done;
 
-	/* memory, allocated by vpu_init_hw() */
-	struct vpu_mem *work_buf;     /* working buffer */
-	struct vpu_mem *kernel_lib;   /* execution kernel library */
-
-	/* scatter-gather tables */
-	struct sg_table sg_reset_vector;
-	struct sg_table sg_main_program;
-	struct sg_table sg_algo_binary_data;
-	struct sg_table sg_iram_data;
+	/* memory */
 	uint64_t mva_iram;
 
 	/* trace */
 	bool ftrace_avail;
+
+	/* jtag */
+	bool jtag_enabled;
 };
 
 
@@ -171,14 +167,19 @@ extern struct vpu_driver *vpu_drv;
  * @core:   core index of vpu_device.
  * @device: the pointer of vpu_device.
  */
-int vpu_init_dev_hw(struct platform_device *pdev, struct vpu_device *dev);
+int vpu_init_dev_hw(struct platform_device *pdev, struct vpu_device *vd);
 int vpu_init_drv_hw(void);
+/**
+ * vpu_is_disabled - return whether efuse enable/disable on vd->id
+ * @vd: vpu device.
+ */
+bool vpu_is_disabled(struct vpu_device *vd);
 
 
 /**
  * vpu_uninit_hw - close resources related to hw module
  */
-int vpu_exit_dev_hw(struct platform_device *pdev, struct vpu_device *dev);
+int vpu_exit_dev_hw(struct platform_device *pdev, struct vpu_device *vd);
 int vpu_exit_drv_hw(void);
 
 /**
@@ -187,7 +188,7 @@ int vpu_exit_drv_hw(void);
  * @id          the serial id
  * @name:       return the algo's name
  */
-int vpu_get_name_of_algo(struct vpu_device *dev, int id, char **name);
+int vpu_get_name_of_algo(struct vpu_device *vd, int id, char **name);
 
 /**
  * vpu_hw_load_algo - call vpu program to load algo, by specifying the
@@ -195,7 +196,7 @@ int vpu_get_name_of_algo(struct vpu_device *dev, int id, char **name);
  * @core:	core index of device.
  * @algo:       the pointer to struct algo, which has right binary-data info.
  */
-int vpu_hw_load_algo(struct vpu_device *dev, struct __vpu_algo *algo);
+int vpu_hw_load_algo(struct vpu_device *vd, struct __vpu_algo *algo);
 
 /**
  * vpu_hw_get_algo_info - prepare a memory for vpu program to dump algo info
@@ -206,7 +207,7 @@ int vpu_hw_load_algo(struct vpu_device *dev, struct __vpu_algo *algo);
  * Should create enough of memory
  * for properties dump, and assign the pointer to vpu_props_t's ptr.
  */
-int vpu_hw_get_algo_info(struct vpu_device *dev, struct __vpu_algo *algo);
+int vpu_hw_get_algo_info(struct vpu_device *vd, struct __vpu_algo *algo);
 
 /**
  * vpu_get_entry_of_algo - get the address and length from binary data
@@ -216,7 +217,7 @@ int vpu_hw_get_algo_info(struct vpu_device *dev, struct __vpu_algo *algo);
  * @mva:        return the mva of algo binary
  * @length:     return the length of algo binary
  */
-int vpu_get_entry_of_algo(struct vpu_device *dev, char *name, int *id,
+int vpu_get_entry_of_algo(struct vpu_device *vd, char *name, int *id,
 	unsigned int *mva, int *length);
 
 int vpu_alloc_request(struct vpu_request **rreq);
@@ -225,7 +226,7 @@ int vpu_free_request(struct vpu_request *req);
 int vpu_alloc_algo(struct __vpu_algo **ralgo);
 int vpu_free_algo(struct __vpu_algo *algo);
 
-int vpu_execute(struct vpu_device *dev, struct vpu_request *req);
+int vpu_execute(struct vpu_device *vd, struct vpu_request *req);
 
 #endif
 

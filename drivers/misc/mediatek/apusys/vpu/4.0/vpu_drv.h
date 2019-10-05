@@ -25,5 +25,6 @@ struct __vpu_algo {
 	bool info_valid;        /* is algo info valid */
 	struct kref ref;        /* reference count */
 	struct list_head list;  /* link to device algo list */
+	struct vpu_device *vd;
 };
 #endif

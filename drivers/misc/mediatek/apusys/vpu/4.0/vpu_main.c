@@ -30,7 +30,6 @@
 #include "vpu_algo.h"
 #include "vpu_debug.h"
 #include "apusys_power.h"
-// #include "../mt6779/vpu_dvfs.h"  // TODO: for vpu_boost_value_to_opp()
 #include "remoteproc_internal.h"  // TODO: move to drivers/remoteproc/../..
 
 /* remote proc */
@@ -39,18 +38,26 @@
 /* interface to APUSYS */
 int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 {
-	struct vpu_device *dev;
-	struct apusys_cmd_hnd *cmd = (struct apusys_cmd_hnd *)hnd;
-//	struct apusys_power_hnd *pw = (struct apusys_power_hnd *)hnd;
-//	struct apusys_preempt_hnd *pmt = (struct apusys_preempt_hnd *)hnd;
-//	struct apusys_firmware_hnd *fw = (struct apusys_firmware_hnd *)hnd;
+	struct vpu_device *vd;
+	struct apusys_cmd_hnd *cmd;
+	struct apusys_power_hnd *pw;
+	struct apusys_preempt_hnd *pmt;
+	struct apusys_firmware_hnd *fw;
 
-	dev = (struct vpu_device *)adev->private;
+	// TODO: implement these sub-functions and remove UNUSED()
+#define UNUSED(x) ((void)x)
+	UNUSED(pw);
+	UNUSED(pmt);
+	UNUSED(fw);
+#undef UNUSED
+
+	vd = (struct vpu_device *)adev->private;
 
 	vpu_cmd_debug("%s: cmd: %d, hnd: %p\n", __func__, op, hnd);
 
 	switch (op) {
 	case APUSYS_CMD_POWERON:
+		pw = (struct apusys_power_hnd *)hnd;
 		vpu_cmd_debug("%s: APUSYS_CMD_POWERON, boost: %d, opp: %d\n",
 			__func__, pw->boost_val, pw->opp);
 		break;
@@ -64,14 +71,17 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 		vpu_cmd_debug("%s: APUSYS_CMD_SUSPEND\n", __func__);
 		break;
 	case APUSYS_CMD_EXECUTE:
+		cmd = (struct apusys_cmd_hnd *)hnd;
 		vpu_cmd_debug("%s: APUSYS_CMD_EXECUTE, kva: %lx\n",
 			__func__, (unsigned long)cmd->kva);
-		return vpu_execute(dev, (struct vpu_request *)cmd->kva);
+		return vpu_execute(vd, (struct vpu_request *)cmd->kva);
 	case APUSYS_CMD_PREEMPT:
+		pmt = (struct apusys_preempt_hnd *)hnd;
 		vpu_cmd_debug("%s: APUSYS_CMD_PREEMPT, new cmd kva: %lx\n",
 			__func__, (unsigned long)pmt->new_cmd->kva);
 		break;
 	case APUSYS_CMD_FIRMWARE:
+		fw = (struct apusys_firmware_hnd *)hnd;
 		vpu_cmd_debug("%s: APUSYS_CMD_FIRMWARE, kva: %p\n",
 			__func__, fw->kva);
 		break;
@@ -109,8 +119,6 @@ struct vpu_driver *vpu_drv;
 
 void vpu_drv_release(struct kref *ref)
 {
-	class_destroy(vpu_drv->class);
-	vpu_drv->class = NULL;
 	vpu_drv_debug("%s:\n", __func__);
 	kfree(vpu_drv);
 	vpu_drv = NULL;
@@ -154,227 +162,6 @@ static const struct rproc_ops vpu_ops = {
 	.da_to_va = vpu_da_to_va,
 };
 
-/*---------------------------------------------------------------------------*/
-/* File operations                                                           */
-/*---------------------------------------------------------------------------*/
-static int vpu_open(struct inode *inode, struct file *flip)
-{
-	struct vpu_device *dev;
-
-	dev = container_of(inode->i_cdev, struct vpu_device, cdev);
-
-	if (dev->state == VS_DISALBED || dev->state == VS_REMOVING) {
-		pr_info("%s: %s is disabled or removed, state: %d.\n",
-			__func__, dev->name, dev->state);
-		return -ENODEV;
-	}
-
-	flip->private_data = dev;
-
-	return 0;
-}
-
-#ifdef CONFIG_COMPAT
-static long vpu_compat_ioctl(struct file *flip, unsigned int cmd,
-	unsigned long arg)
-{
-	switch (cmd) {
-	case VPU_IOCTL_SET_POWER:
-	case VPU_IOCTL_EARA_LOCK_POWER:
-	case VPU_IOCTL_EARA_UNLOCK_POWER:
-	case VPU_IOCTL_POWER_HAL_LOCK_POWER:
-	case VPU_IOCTL_POWER_HAL_UNLOCK_POWER:
-	case VPU_IOCTL_ENQUE_REQUEST:
-	case VPU_IOCTL_DEQUE_REQUEST:
-	case VPU_IOCTL_GET_ALGO_INFO:
-	case VPU_IOCTL_REG_WRITE:
-	case VPU_IOCTL_REG_READ:
-	case VPU_IOCTL_LOAD_ALG_TO_POOL:
-	case VPU_IOCTL_GET_CORE_STATUS:
-	case VPU_IOCTL_CREATE_ALGO:
-	case VPU_IOCTL_FREE_ALGO:
-	case VPU_IOCTL_OPEN_DEV_NOTICE:
-	case VPU_IOCTL_CLOSE_DEV_NOTICE:
-	{
-		return flip->f_op->unlocked_ioctl(flip, cmd,
-					(unsigned long)compat_ptr(arg));
-	}
-	case VPU_IOCTL_LOCK:
-	case VPU_IOCTL_UNLOCK:
-	default:
-		return -ENOIOCTLCMD;
-		/*return vpu_ioctl(flip, cmd, arg);*/
-	}
-}
-#endif
-
-static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
-{
-	int ret = 0;
-	struct vpu_device *dev = filp->private_data;
-
-	switch (cmd) {
-	case VPU_IOCTL_SET_POWER:
-	case VPU_IOCTL_EARA_LOCK_POWER:
-	case VPU_IOCTL_EARA_UNLOCK_POWER:
-	case VPU_IOCTL_POWER_HAL_LOCK_POWER:
-	case VPU_IOCTL_POWER_HAL_UNLOCK_POWER:
-	case VPU_IOCTL_DEQUE_REQUEST:
-	case VPU_IOCTL_FLUSH_REQUEST:
-	case VPU_IOCTL_GET_ALGO_INFO:
-	case VPU_IOCTL_REG_WRITE:
-	case VPU_IOCTL_LOCK:
-	case VPU_IOCTL_UNLOCK:
-	case VPU_IOCTL_OPEN_DEV_NOTICE:
-	case VPU_IOCTL_CLOSE_DEV_NOTICE:
-	case VPU_IOCTL_SDSP_SEC_LOCK:
-	case VPU_IOCTL_SDSP_SEC_UNLOCK:
-		vpu_drv_debug("%s: function not implemented: %x\n",
-			__func__, cmd);
-			break;
-
-	case VPU_IOCTL_ENQUE_REQUEST:
-	{
-		struct vpu_request *req;
-//		struct vpu_power *pw;
-
-		ret = vpu_alloc_request(&req);
-		if (ret) {
-			pr_info("%s: REQ: vpu_alloc_request: %d\n",
-				__func__, ret);
-			goto out;
-		}
-
-		ret = copy_from_user(req, (void *)arg,
-			sizeof(struct vpu_request));
-
-		if (ret) {
-			pr_info("%s: REQ: copy_from_user: %d\n",
-				__func__, ret);
-			goto enqueue_err;
-		}
-
-		/* opp_step counted by vpu driver */
-#if 0
-		pw = &req->power_param;
-		if (pw->boost_value != 0xff) {
-			if (pw->boost_value >= 0 &&	pw->boost_value <= 100)
-				pw->opp_step = pw->freq_step =
-					vpu_boost_value_to_opp(pw->boost_value);
-			else
-				pw->opp_step = pw->freq_step = 0xFF;
-		}
-#endif
-
-		if (req->priority >= VPU_REQ_MAX_NUM_PRIORITY) {
-			pr_info("%s: REQ: invalid priority (%d)\n",
-				__func__, req->priority);
-			ret = -EINVAL;
-			goto enqueue_err;
-		}
-
-		if (req->buffer_count > VPU_MAX_NUM_PORTS) {
-			pr_info("%s: REQ: buffer count wrong: %d\n",
-				__func__, req->buffer_count);
-			ret = -EINVAL;
-			goto enqueue_err;
-		}
-
-		/* run request */
-		ret = vpu_send_cmd(APUSYS_CMD_EXECUTE, req, &dev->adev);
-
-		if (ret) {
-			pr_info("%s: vpu_send_cmd: %d\n", __func__, ret);
-			goto enqueue_err;
-		}
-
-		/* update execution results */
-		ret = copy_to_user((void *)arg, req,
-			sizeof(struct vpu_request));
-
-		if (ret) {
-			pr_info("%s: REQ: copy_to_user: %d\n",
-				__func__, ret);
-			goto enqueue_err;
-		}
-
-enqueue_err:
-		/* free the request, error happened here*/
-		vpu_free_request(req);
-		break;
-	}
-
-	case VPU_IOCTL_LOAD_ALG_TO_POOL:
-	{
-		vpu_drv_debug("%s: VPU_IOCTL_LOAD_ALG_TO_POOL is deprecated\n",
-			__func__);
-		break;
-	}
-	case VPU_IOCTL_CREATE_ALGO:
-	{
-		vpu_drv_debug("%s: VPU_IOCTL_CREATE_ALGO is deprecated\n",
-			__func__);
-		break;
-	}
-	case VPU_IOCTL_FREE_ALGO:
-	{
-		vpu_drv_debug("%s: VPU_IOCTL_FREE_ALGO is deprecated\n",
-			__func__);
-		break;
-	}
-
-	case VPU_IOCTL_GET_CORE_STATUS:
-	{
-		vpu_drv_debug("%s: VPU_IOCTL_GET_CORE_STATUS is deprecated\n",
-			__func__);
-		break;
-	}
-
-	default:
-		vpu_drv_debug("%s: unknown command: %d\n", __func__, cmd);
-		ret = -EINVAL;
-		break;
-	}
-
-out:
-	if (ret)
-		pr_info("%s: ret=%d, cmd(%d)\n", __func__, ret, cmd);
-
-	return ret;
-}
-
-static int vpu_release(struct inode *inode, struct file *flip)
-{
-	return 0;
-}
-
-static int vpu_mmap(struct file *flip, struct vm_area_struct *vma)
-{
-	unsigned long length = 0;
-	unsigned int pfn = 0x0;
-
-	length = (vma->vm_end - vma->vm_start);
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-	pfn = vma->vm_pgoff << PAGE_SHIFT;
-
-	switch (pfn) {
-	default:
-		pr_info("illegal hw addr for mmap!\n");
-		return -EAGAIN;
-	}
-}
-
-static const struct file_operations vpu_fops = {
-	.owner = THIS_MODULE,
-	.open = vpu_open,
-	.release = vpu_release,
-	.mmap = vpu_mmap,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl = vpu_compat_ioctl,
-#endif
-	.unlocked_ioctl = vpu_ioctl
-};
-
 static int vpu_init_bin(void)
 {
 	struct device_node *node;
@@ -398,171 +185,259 @@ static int vpu_init_bin(void)
 	vpu_drv->bin_pa = phy_addr;
 	vpu_drv->bin_size = phy_size;
 
-	pr_info("%s: mapped vpu firmware: pa: %ld, size: %u, kva: %p\n",
+	pr_info("%s: mapped vpu firmware: pa: 0x%lx, size: 0x%x, kva: 0x%lx\n",
 		__func__, vpu_drv->bin_pa, vpu_drv->bin_size,
-		vpu_drv->bin_va);  // debug
+		(unsigned long)vpu_drv->bin_va);  // debug
+
+	return 0;
+}
+
+static void vpu_shared_release(struct kref *ref)
+{
+	vpu_drv_debug("%s:\n", __func__);
+
+	if (vpu_drv->mva_algo) {
+		vpu_iova_free(vpu_drv->iova_dev, &vpu_drv->iova_algo);
+		vpu_drv->mva_algo = 0;
+	}
+
+	if (vpu_drv->mva_share) {
+		vpu_iova_free(vpu_drv->iova_dev, &vpu_drv->iova_share);
+		vpu_drv->mva_share = 0;
+	}
+}
+
+static int vpu_shared_put(struct platform_device *pdev,
+	struct vpu_device *vd)
+{
+	vpu_drv->iova_dev = &pdev->dev;
+	kref_put(&vpu_drv->iova_ref, vpu_shared_release);
+	return 0;
+}
+
+static int vpu_shared_get(struct platform_device *pdev,
+	struct vpu_device *vd)
+{
+	dma_addr_t iova = 0;
+
+	if (vpu_drv->mva_algo && vpu_drv->mva_share) {
+		kref_get(&vpu_drv->iova_ref);
+		return 0;
+	}
+
+	kref_init(&vpu_drv->iova_ref);
+
+	if (!vpu_drv->mva_algo) {
+		if (vpu_iova_dts(pdev, "algo", &vpu_drv->iova_algo))
+			goto error;
+		iova = vpu_iova_alloc(pdev,	&vpu_drv->iova_algo);
+		pr_info("%s: algo: %lx\n",  // TODO: remove debug log
+			__func__, (unsigned long)iova);
+		if (!iova)
+			goto error;
+		vpu_drv->mva_algo = iova;
+	}
+
+	if (!vpu_drv->mva_share) {
+		if (vpu_iova_dts(pdev, "share-data", &vpu_drv->iova_share))
+			goto error;
+		iova = vpu_iova_alloc(pdev,	&vpu_drv->iova_share);
+		pr_info("%s: share data: %lx\n",  // TODO: remove debug log
+			__func__, (unsigned long)iova);
+		if (!iova)
+			goto error;
+		vpu_drv->mva_share = iova;
+	}
+
+	return 0;
+
+error:
+	vpu_shared_put(pdev, vd);
+	return -ENOMEM;
+}
+
+static int vpu_exit_dev_mem(struct platform_device *pdev,
+	struct vpu_device *vd)
+{
+	vpu_iova_free(&pdev->dev, &vd->iova_reset);
+	vpu_iova_free(&pdev->dev, &vd->iova_main);
+	vpu_iova_free(&pdev->dev, &vd->iova_kernel);
+	vpu_iova_free(&pdev->dev, &vd->iova_work);
+	vpu_iova_free(&pdev->dev, &vd->iova_iram);
+	vpu_shared_put(pdev, vd);
 
 	return 0;
 }
 
 static int vpu_init_dev_mem(struct platform_device *pdev,
-	struct vpu_device *dev)
+	struct vpu_device *vd)
 {
 	struct resource *res;
+	dma_addr_t iova = 0;
 	int ret = 0;
 
+	/* reg_base */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
-		dev_err(&pdev->dev, "unable to get resource\n");
+		dev_info(&pdev->dev, "unable to get resource\n");
 		return -ENODEV;
 	}
-	dev->reg_base = devm_ioremap_resource(&pdev->dev, res); /* IPU_BASE */
+	vd->reg_base = devm_ioremap_resource(&pdev->dev, res); /* IPU_BASE */
 
-	return ret;
+	if (!vd->reg_base) {
+		dev_info(&pdev->dev, "unable to map register base\n");
+		return -ENODEV;
+	}
+
+	pr_info("%s: vpu%d: mapped reg_base: 0x%lx\n",
+		__func__, vd->id, (unsigned long)vd->reg_base);
+
+	/* iova */
+	if (vpu_iova_dts(pdev, "reset-vector", &vd->iova_reset) ||
+		vpu_iova_dts(pdev, "main-prog", &vd->iova_main) ||
+		vpu_iova_dts(pdev, "kernel-lib", &vd->iova_kernel) ||
+		vpu_iova_dts(pdev, "iram-data", &vd->iova_iram) ||
+		vpu_iova_dts(pdev, "work-buf", &vd->iova_work)) {
+		goto error;
+	}
+
+	ret = vpu_shared_get(pdev, vd);
+	if (ret)
+		goto error;
+	iova = vpu_iova_alloc(pdev, &vd->iova_reset);
+	pr_info("%s: vpu%d: reset vector: %lx\n",  // TODO: remove debug log
+		__func__, vd->id, (unsigned long)iova);
+	if (!iova)
+		goto free;
+	iova = vpu_iova_alloc(pdev, &vd->iova_main);
+	pr_info("%s: vpu%d: main prog: %lx\n",  // TODO: remove debug log
+		__func__, vd->id, (unsigned long)iova);
+	if (!iova)
+		goto free;
+	iova = vpu_iova_alloc(pdev, &vd->iova_kernel);
+	pr_info("%s: vpu%d: kernel lib: %lx\n",
+		__func__, vd->id, (unsigned long)iova);
+	if (!iova)
+		goto free;
+	iova = vpu_iova_alloc(pdev, &vd->iova_work);
+	pr_info("%s: vpu%d: work buf: %lx\n",  // TODO: remove debug log
+		__func__, vd->id, (unsigned long)iova);
+	if (!iova)
+		goto free;
+	iova = vpu_iova_alloc(pdev, &vd->iova_iram);
+	pr_info("%s: vpu%d: iram data: %lx\n",  // TODO: remove debug log
+		__func__, vd->id, (unsigned long)iova);
+	vd->mva_iram = iova;
+
+	return 0;
+
+free:
+	vpu_exit_dev_mem(pdev, vd);
+error:
+	return -ENOMEM;
 }
 
+
 static int vpu_init_dev_irq(struct platform_device *pdev,
-	struct vpu_device *dev)
+	struct vpu_device *vd)
 {
-	unsigned int irq_info[3];
+	vd->irq_num = irq_of_parse_and_map(pdev->dev.of_node, 0);
 
-	dev->irq_num = irq_of_parse_and_map(pdev->dev.of_node, 0);
-
-	if (dev->irq_num > 0) {
-		/* Get IRQ Flag from device node */
-		if (of_property_read_u32_array(pdev->dev.of_node,
-				"interrupts", irq_info, ARRAY_SIZE(irq_info))) {
-			dev_err(&pdev->dev, "get irq flags from DTS fail!!\n");
-			return -ENODEV;
-		}
-		dev->irq_level = irq_info[2];
-		dev_info(&pdev->dev, "irq_level (0x%x), %s(0x%x)\n",
-			dev->irq_level,
-			"IRQF_TRIGGER_NONE", IRQF_TRIGGER_NONE);
-	} else {
-		dev_err(&pdev->dev, "Invalid IRQ number: %d\n", dev->irq_num);
+	if (vd->irq_num <= 0) {
+		pr_info("%s: %s: invalid IRQ: %d\n",
+			__func__, vd->name, vd->irq_num);
 		return -ENODEV;
 	}
+
+	pr_info("%s: %s: IRQ: %d\n",
+		__func__, vd->name, vd->irq_num);
 
 	return 0;
 }
 
-static void vpu_unreg_chardev(struct platform_device *pdev,
-	struct vpu_device *dev)
-{
-	cdev_del(&dev->cdev);
-	unregister_chrdev_region(dev->devt, 1);
-	// TODO: device_destroy(dev->ddev);
-}
-
-static int vpu_reg_chardev(struct platform_device *pdev, struct vpu_device *dev)
-{
-	int ret = 0;
-
-	ret = alloc_chrdev_region(&dev->devt, 0, 1, dev->name);
-	if ((ret) < 0) {
-		dev_err(&pdev->dev, "alloc_chrdev_region, failed: %d\n", ret);
-		return ret;
-	}
-
-	/* Attatch file operation. */
-	cdev_init(&dev->cdev, &vpu_fops);
-	dev->cdev.owner = THIS_MODULE;
-	dev->cdev.kobj.parent = &pdev->dev.kobj;
-
-	/* Create character device */
-	dev->ddev = device_create(vpu_drv->class, NULL,
-		dev->devt, NULL, dev->name);
-
-	if (IS_ERR(dev->ddev)) {
-		ret = PTR_ERR(dev->ddev);
-		dev_err(&pdev->dev,	"failed to create device: /dev/%s: %d",
-			dev->name, ret);
-		goto out;
-	}
-
-	/* Add to system */
-	ret = cdev_add(&dev->cdev, dev->devt, 1);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "attatch cdev failed: %d\n", ret);
-		goto out;
-	}
-
-out:
-	if (ret < 0)
-		vpu_unreg_chardev(pdev, dev);
-
-	return ret;
-}
-
 static int vpu_probe(struct platform_device *pdev)
 {
-	struct vpu_device *dev;
+	struct vpu_device *vd;
 	struct rproc *rproc;
 	int ret;
 
 	vpu_drv_debug("%s:\n", __func__);
 
 	rproc = rproc_alloc(&pdev->dev, pdev->name, &vpu_ops,
-		VPU_FIRMWARE_NAME, sizeof(*dev));
+		VPU_FIRMWARE_NAME, sizeof(*vd));
 
 	if (!rproc) {
-		dev_err(&pdev->dev, "failed to allocate rproc\n");
+		dev_info(&pdev->dev, "failed to allocate rproc\n");
 		return -ENOMEM;
 	}
 
 	/* initialize device (core specific) data */
 	rproc->fw_ops = &vpu_fw_ops;
-	dev = (struct vpu_device *)rproc->priv;
-	dev->dev = &pdev->dev;
-	dev->rproc = rproc;
-	platform_set_drvdata(pdev, dev);
-	dev->id = vpu_drv->cores;
-	snprintf(dev->name, sizeof(dev->name), "vpu%d", dev->id);
+	vd = (struct vpu_device *)rproc->priv;
+	vd->dev = &pdev->dev;
+	vd->rproc = rproc;
+	platform_set_drvdata(pdev, vd);
+
+	if (of_property_read_u32(pdev->dev.of_node, "id", &vd->id)) {
+		pr_info("%s: unable to get core id from dts\n", __func__);
+		ret = -ENODEV;
+		goto free_rproc;
+	}
+
+	snprintf(vd->name, sizeof(vd->name), "vpu%d", vd->id);
+
+	/* put efuse judgement at beginning */
+	if (vpu_is_disabled(vd)) {
+		ret = -ENODEV;
+		vd->state = VS_DISALBED;
+		goto free_rproc;
+	} else {
+		vd->state = VS_DOWN;
+	}
 
 	/* allocate resources */
-	ret = vpu_init_dev_mem(pdev, dev);
+	ret = vpu_init_dev_mem(pdev, vd);
 	if (ret)
 		goto free_rproc;
 
-	ret = vpu_init_dev_irq(pdev, dev);
+	ret = vpu_init_dev_irq(pdev, vd);
 	if (ret)
 		goto free_rproc;
 
 	/* device hw initialization */
-	ret = vpu_init_dev_hw(pdev, dev);
+	ret = vpu_init_dev_hw(pdev, vd);
 	if (ret)
 		goto free_rproc;
 
 	/* power initialization */
 	vpu_drv_debug("%s: apu_power_device_register call\n", __func__);
-	if (dev->id != 0) { // we just need to take pdev of core0 to init power
-		ret = apu_power_device_register(VPU0 + dev->id, NULL);
+	if (vd->id != 0) { // we just need to take pdev of core0 to init power
+//		ret = apu_power_device_register(VPU0 + vd->id, NULL);
 	} else {
-		ret = apu_power_device_register(VPU0 + dev->id, pdev);
+//		ret = apu_power_device_register(VPU0 + vd->id, pdev);
 	}
 	vpu_drv_debug("%s: apu_power_device_register = %d\n", __func__, ret);
 	if (ret)
 		goto free_rproc;
 
 	vpu_drv_debug("%s: apu_device_power_on call\n", __func__);
-	ret = apu_device_power_on((VPU0 + dev->id));
+//	ret = apu_device_power_on((VPU0 + vd->id));
 	vpu_drv_debug("%s: apu_device_power_on = %d\n", __func__, ret);
 	if (ret)
 		goto free_rproc;
 
 	/* device algo initialization */
-	INIT_LIST_HEAD(&dev->algo);
-	ret = vpu_init_dev_algo(pdev, dev);
+	INIT_LIST_HEAD(&vd->algo);
+	ret = vpu_init_dev_algo(pdev, vd);
 	if (ret)
 		goto free_rproc;
 
 	/* register device to APUSYS */
-	dev->adev.dev_type = APUSYS_DEVICE_VPU;
-	dev->adev.preempt_type = APUSYS_PREEMPT_WAITCOMPLETED;
-	dev->adev.private = dev;
-	dev->adev.send_cmd = vpu_send_cmd;
-	ret = apusys_register_device(&dev->adev);
+	vd->adev.dev_type = APUSYS_DEVICE_VPU;
+	vd->adev.preempt_type = APUSYS_PREEMPT_WAITCOMPLETED;
+	vd->adev.private = vd;
+	vd->adev.send_cmd = vpu_send_cmd;
+	ret = apusys_register_device(&vd->adev);
 	if (ret)
 		goto free_rproc;
 
@@ -571,22 +446,15 @@ static int vpu_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_rproc;
 
-	// TODO: remove legacy character device, we used them for UT only
-	/* register character device */
-	ret = vpu_reg_chardev(pdev, dev);
-	if (ret)
-		goto free_rproc;
-
 	/* register debugfs nodes */
-	ret = vpu_init_dev_debug(pdev, dev);
+	ret = vpu_init_dev_debug(pdev, vd);
 	if (ret)
 		goto free_rproc;
 
-	/* add to dev list, increment total VPU cores */
+	/* add to vd list */
 	mutex_lock(&vpu_drv->lock);
 	vpu_drv_get();
-	vpu_drv->cores++;
-	list_add_tail(&dev->list, &vpu_drv->devs);
+	list_add_tail(&vd->list, &vpu_drv->devs);
 	mutex_unlock(&vpu_drv->lock);
 
 	return 0;
@@ -595,24 +463,24 @@ static int vpu_probe(struct platform_device *pdev)
 
 free_rproc:
 	rproc_free(rproc);
+	dev_info(&pdev->dev, "failed to probing\n");
 	return ret;
 }
 
 static int vpu_remove(struct platform_device *pdev)
 {
-	struct vpu_device *dev = platform_get_drvdata(pdev);
+	struct vpu_device *vd = platform_get_drvdata(pdev);
 
-	vpu_exit_dev_debug(pdev, dev);
-	vpu_exit_dev_hw(pdev, dev);
-	vpu_unreg_chardev(pdev, dev);
-	vpu_exit_dev_algo(pdev, dev);
-	disable_irq(dev->irq_num);
-	free_irq(dev->irq_num, (void *) dev);
-	apusys_unregister_device(&dev->adev);
-	rproc_del(dev->rproc);
-	rproc_free(dev->rproc);
-	apu_device_power_off(VPU0 + dev->id);
-	apu_power_device_unregister(VPU0 + dev->id);
+	vpu_exit_dev_debug(pdev, vd);
+	vpu_exit_dev_hw(pdev, vd);
+	vpu_exit_dev_algo(pdev, vd);
+	vpu_exit_dev_mem(pdev, vd);
+	disable_irq(vd->irq_num);
+	apusys_unregister_device(&vd->adev);
+	rproc_del(vd->rproc);
+	rproc_free(vd->rproc);
+//	apu_device_power_off(VPU0 + vd->id);
+//	apu_power_device_unregister(VPU0 + vd->id);
 	vpu_drv_put();
 
 	return 0;
@@ -709,20 +577,11 @@ static int __init vpu_init(void)
 	vpu_drv_debug("%s: vpu_init_debug\n", __func__);  // debug
 	vpu_init_debug();
 
-	vpu_drv_debug("%s: vpu_init_mem\n", __func__);  // debug
-	vpu_init_mem();
-
-	vpu_drv_debug("%s: class_create\n", __func__); // debug
-	vpu_drv->class = class_create(THIS_MODULE, "vpudrv");
-	if (IS_ERR(vpu_drv->class)) {
-		ret = PTR_ERR(vpu_drv->class);
-		pr_info("%s: class_create: %d\n", __func__, ret); // debug
-		goto error_out;
-	}
-//	vpu_drv->class->shutdown = NULL;
-
 	INIT_LIST_HEAD(&vpu_drv->devs);
 	mutex_init(&vpu_drv->lock);
+
+	vpu_drv->mva_algo = 0;
+	vpu_drv->mva_share = 0;
 
 	vpu_drv_debug("%s: vpu_init_drv_hw\n", __func__);  // debug
 	vpu_init_drv_hw();
@@ -740,7 +599,7 @@ error_out:
 
 static void __exit vpu_exit(void)
 {
-	struct vpu_device *dev;
+	struct vpu_device *vd;
 	struct list_head *ptr, *tmp;
 
 	/* notify all devices that we are going to be removed
@@ -748,11 +607,11 @@ static void __exit vpu_exit(void)
 	 **/
 	mutex_lock(&vpu_drv->lock);
 	list_for_each_safe(ptr, tmp, &vpu_drv->devs) {
-		dev = list_entry(ptr, struct vpu_device, list);
+		vd = list_entry(ptr, struct vpu_device, list);
 		list_del(ptr);
-		mutex_lock(&dev->cmd_lock);
-		dev->state = VS_REMOVING;
-		mutex_unlock(&dev->cmd_lock);
+		mutex_lock(&vd->cmd_lock);
+		vd->state = VS_REMOVING;
+		mutex_unlock(&vd->cmd_lock);
 	}
 	mutex_unlock(&vpu_drv->lock);
 
@@ -766,7 +625,6 @@ static void __exit vpu_exit(void)
 			vpu_drv->bin_va = NULL;
 		}
 
-		vpu_exit_mem();
 		vpu_drv_put();
 	}
 
@@ -774,7 +632,7 @@ static void __exit vpu_exit(void)
 	platform_driver_unregister(&vpu_plat_drv);
 }
 
-late_initcall(vpu_init);
+module_init(vpu_init);
 module_exit(vpu_exit);
 MODULE_DESCRIPTION("Mediatek VPU Driver");
 MODULE_LICENSE("GPL");

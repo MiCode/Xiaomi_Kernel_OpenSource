@@ -20,15 +20,7 @@
 
 #define ALGO_NAMELEN 32
 
-// #define VPU_TRYLOCK_CORENUM 0x87
-
-// extern unsigned int efuse_data;
-// extern struct ion_client *my_ion_client; // moved to vpu_driver->ion_client;
-
 typedef uint8_t vpu_id_t;
-
-/* the last byte of string must be '/0' */
-//typedef char vpu_name_t[32];
 
 /**
  * Documentation index:
@@ -388,33 +380,5 @@ struct vpu_lock_power {
 #ifdef CONFIG_GZ_SUPPORT_SDSP
 extern int mtee_sdsp_enable(u32 on);
 #endif
-
-/*---------------------------------------------------------------------------*/
-/*  IOCTL Command                                                            */
-/*---------------------------------------------------------------------------*/
-#define VPU_MAGICNO                 'v'
-#define VPU_IOCTL_SET_POWER         _IOW(VPU_MAGICNO,   0, int)
-#define VPU_IOCTL_ENQUE_REQUEST     _IOW(VPU_MAGICNO,   1, int)
-#define VPU_IOCTL_DEQUE_REQUEST     _IOWR(VPU_MAGICNO,  2, int)
-#define VPU_IOCTL_FLUSH_REQUEST     _IOW(VPU_MAGICNO,   3, int)
-#define VPU_IOCTL_GET_ALGO_INFO     _IOWR(VPU_MAGICNO,  4, int)
-#define VPU_IOCTL_LOCK              _IOW(VPU_MAGICNO,   5, int)
-#define VPU_IOCTL_UNLOCK            _IOW(VPU_MAGICNO,   6, int)
-#define VPU_IOCTL_LOAD_ALG_TO_POOL  _IOW(VPU_MAGICNO,   7, int)
-#define VPU_IOCTL_REG_WRITE         _IOW(VPU_MAGICNO,   8, int)
-#define VPU_IOCTL_REG_READ          _IOWR(VPU_MAGICNO,  9, int)
-#define VPU_IOCTL_GET_CORE_STATUS   _IOWR(VPU_MAGICNO,  10, int)
-#define VPU_IOCTL_OPEN_DEV_NOTICE   _IOWR(VPU_MAGICNO,  11, int)
-#define VPU_IOCTL_CLOSE_DEV_NOTICE  _IOWR(VPU_MAGICNO,  12, int)
-#define VPU_IOCTL_EARA_LOCK_POWER         _IOW(VPU_MAGICNO,   13, int)
-#define VPU_IOCTL_POWER_HAL_LOCK_POWER         _IOW(VPU_MAGICNO,   14, int)
-#define VPU_IOCTL_EARA_UNLOCK_POWER         _IOW(VPU_MAGICNO,   15, int)
-#define VPU_IOCTL_POWER_HAL_UNLOCK_POWER         _IOW(VPU_MAGICNO,   16, int)
-
-#define VPU_IOCTL_CREATE_ALGO       _IOWR(VPU_MAGICNO,  17, int)
-#define VPU_IOCTL_FREE_ALGO         _IOWR(VPU_MAGICNO,  18, int)
-
-#define VPU_IOCTL_SDSP_SEC_LOCK     _IOW(VPU_MAGICNO,   60, int)
-#define VPU_IOCTL_SDSP_SEC_UNLOCK   _IOW(VPU_MAGICNO,   61, int)
 
 #endif

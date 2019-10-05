@@ -102,7 +102,7 @@ static int vpu_calc_prop_offset(struct vpu_prop_desc *descs,
 	return 0;
 }
 
-struct __vpu_algo *vpu_alg_get(struct vpu_device *dev, const char *name,
+struct __vpu_algo *vpu_alg_get(struct vpu_device *vd, const char *name,
 	struct __vpu_algo *alg)
 {
 	if (alg) {
@@ -116,7 +116,7 @@ struct __vpu_algo *vpu_alg_get(struct vpu_device *dev, const char *name,
 	/* search from tail, so that existing algorithm can be
 	 * overidden by dynamic loaded ones.
 	 **/
-	list_for_each_entry_reverse(alg, &dev->algo, list) {
+	list_for_each_entry_reverse(alg, &vd->algo, list) {
 		if (!strcmp(alg->a.name, name)) {
 			/* found, reference count++ */
 			kref_get(&alg->ref);
@@ -132,6 +132,16 @@ out:
 
 void vpu_alg_release(struct kref *ref)
 {
+	struct __vpu_algo *alg
+		= container_of(ref, struct __vpu_algo, ref);
+
+	/* delete __vpu_algo itself from vd->algo list */
+	spin_lock(&alg->vd->algo_lock);
+	list_del(&alg->list);
+	alg->vd->algo_cnt--;
+	spin_unlock(&alg->vd->algo_lock);
+
+	/* free __vpu_algo memory */
 	kfree(container_of(ref, struct __vpu_algo, ref));
 }
 
@@ -140,12 +150,12 @@ void vpu_alg_put(struct __vpu_algo *alg)
 	kref_put(&alg->ref, vpu_alg_release);
 }
 
-// dev->cmd_lock, should be acquired before calling this function
-static int vpu_alg_load_info(struct vpu_device *dev, struct __vpu_algo *alg)
+// vd->cmd_lock, should be acquired before calling this function
+static int vpu_alg_load_info(struct vpu_device *vd, struct __vpu_algo *alg)
 {
 	int ret;
 
-	ret = vpu_hw_alg_info(dev, alg);  // vpu_hw_get_algo_info
+	ret = vpu_hw_alg_info(vd, alg);  // vpu_hw_get_algo_info
 	if (ret) {
 		pr_info("%s: vpu_hw_alg_info: %d\n", __func__, ret);
 		goto err;
@@ -153,11 +163,11 @@ static int vpu_alg_load_info(struct vpu_device *dev, struct __vpu_algo *alg)
 	vpu_calc_prop_offset(alg->a.info.desc,
 		alg->a.info.desc_cnt, &alg->a.info.length);
 	vpu_alg_debug("%s: vpu%d: sett.len: 0x%x\n",
-		__func__, dev->id, alg->a.info.length);
+		__func__, vd->id, alg->a.info.length);
 	vpu_calc_prop_offset(alg->a.sett.desc,
 		alg->a.sett.desc_cnt, &alg->a.sett.length);
 	vpu_alg_debug("%s: vpu%d: sett.len: 0x%x\n",
-		__func__, dev->id, alg->a.sett.length);
+		__func__, vd->id, alg->a.sett.length);
 
 	alg->info_valid = true;
 
@@ -165,35 +175,35 @@ err:
 	return ret;
 }
 
-// dev->cmd_lock, should be acquired before calling this function
-int vpu_alg_load(struct vpu_device *dev, const char *name,
+// vd->cmd_lock, should be acquired before calling this function
+int vpu_alg_load(struct vpu_device *vd, const char *name,
 	struct __vpu_algo *alg)
 {
 	int ret = 0;
 
-	alg = vpu_alg_get(dev, name, alg);
+	alg = vpu_alg_get(vd, name, alg);
 	if (!alg) {
 		pr_info("%s: \"%s\" was not found\n", __func__, name);
 		return -ENOENT;
 	}
 
-	if (dev->algo_curr) {
-		vpu_alg_put(dev->algo_curr);
-		dev->algo_curr = NULL;
+	if (vd->algo_curr) {
+		vpu_alg_put(vd->algo_curr);
+		vd->algo_curr = NULL;
 	}
 
-	ret = vpu_hw_alg_init(dev, alg);  // vpu_hw_load_algo
+	ret = vpu_hw_alg_init(vd, alg);  // vpu_hw_load_algo
 	if (ret) {
 		pr_info("%s: vpu_hw_alg_init: %d\n", __func__, ret);
 		goto err;
 	}
 
-	dev->algo_curr = alg;
+	vd->algo_curr = alg;
 
 	// get algo info when
 	// info is invalid and not from vpu_execute()
 	if (!name && !alg->info_valid) {
-		ret = vpu_alg_load_info(dev, alg);
+		ret = vpu_alg_load_info(vd, alg);
 		if (ret)
 			goto err;
 	}
@@ -207,7 +217,7 @@ out:
 	return ret;
 }
 
-struct __vpu_algo *vpu_alg_alloc(void)
+struct __vpu_algo *vpu_alg_alloc(struct vpu_device *vd)
 {
 	struct __vpu_algo *algo;
 
@@ -219,6 +229,7 @@ struct __vpu_algo *vpu_alg_alloc(void)
 	algo->a.info.ptr = (uintptr_t) algo + sizeof(struct __vpu_algo);
 	algo->a.info.length = prop_info_data_length;
 	algo->info_valid = false;
+	algo->vd = vd;
 
 	INIT_LIST_HEAD(&algo->list);
 	kref_init(&algo->ref);  /* init count = 1 */

@@ -99,7 +99,7 @@ static void vpu_debug_algo_prop(struct seq_file *s,
 }
 
 static void vpu_debug_algo_entry(struct seq_file *s,
-	struct vpu_device *dev, struct __vpu_algo *alg)
+	struct vpu_device *vd, struct __vpu_algo *alg)
 {
 	int i;
 	int ret;
@@ -111,7 +111,7 @@ static void vpu_debug_algo_entry(struct seq_file *s,
 	vpu_alg_debug("%s: [%s: addr: 0x%llx, len: 0x%x]\n",
 		__func__, alg->a.name, alg->a.mva, alg->a.len);
 
-	ret = vpu_alg_load(dev, NULL, alg);
+	ret = vpu_alg_load(vd, NULL, alg);
 
 	if (ret)
 		return;
@@ -137,7 +137,7 @@ out:
 
 static int vpu_debug_algo(struct seq_file *s)
 {
-	struct vpu_device *dev;
+	struct vpu_device *vd;
 	struct list_head *ptr, *tmp;
 	struct __vpu_algo *alg;
 	int ret;
@@ -145,43 +145,43 @@ static int vpu_debug_algo(struct seq_file *s)
 	if (!s)
 		return -ENOENT;
 
-	dev = (struct vpu_device *) s->private;
+	vd = (struct vpu_device *) s->private;
 
-	mutex_lock(&dev->cmd_lock);
+	mutex_lock(&vd->cmd_lock);
 
 	/* Bootup VPU */
-	ret = vpu_dev_boot(dev);
+	ret = vpu_dev_boot(vd);
 	if (ret)
 		goto out;
 
-	list_for_each_safe(ptr, tmp, &dev->algo) {
+	list_for_each_safe(ptr, tmp, &vd->algo) {
 		alg = list_entry(ptr, struct __vpu_algo, list);
-		vpu_debug_algo_entry(s, dev, alg);
+		vpu_debug_algo_entry(s, vd, alg);
 	}
 
 out:
-	mutex_unlock(&dev->cmd_lock);
+	mutex_unlock(&vd->cmd_lock);
 
 	return 0;
 }
 
 static int vpu_debug_mesg(struct seq_file *s)
 {
-	struct vpu_device *dev;
+	struct vpu_device *vd;
 	char *head, *body, *tail;
 
 	if (!s)
 		return -ENOENT;
 
-	dev = (struct vpu_device *) s->private;
+	vd = (struct vpu_device *) s->private;
 
-	head = (char *)(dev->work_buf->va + VPU_OFFSET_LOG);
+	head = (char *)(vd->iova_work.m.va + VPU_OFFSET_LOG);
 	body = head + VPU_SIZE_LOG_HEADER;
 	tail = head + VPU_SIZE_LOG_BUF - 1;
 
 	*tail = '\0';
 
-	seq_printf(s, "=== VPU_%d Log Buffer ===\n", dev->id);
+	seq_printf(s, "=== VPU_%d Log Buffer ===\n", vd->id);
 	seq_printf(s, "%s\n", body);
 
 	return 0;
@@ -189,32 +189,115 @@ static int vpu_debug_mesg(struct seq_file *s)
 
 static int vpu_debug_reg(struct seq_file *s)
 {
-	struct vpu_device *dev;
-	int i;
+	struct vpu_device *vd;
 
 	if (!s)
 		return -ENOENT;
 
-	dev = (struct vpu_device *) s->private;
+	vd = (struct vpu_device *) s->private;
 
-	seq_printf(s, "vpu%d registers\n", dev->id);
-	seq_puts(s, "name, offset, value\n");
+	seq_printf(s, "vpu%d registers\n", vd->id);
+	seq_puts(s, "name\toffset\tvalue\n");
 
-	// TODO: read registers only when power is enabled
-	for (i = 0; i < VPU_NUM_REGS; i++) {
-		struct vpu_reg_desc *reg;
-		uint32_t reg_val;
+#define seq_vpu_reg(r) \
+	seq_printf(s, "%s\t%4xh\t%08xh\n", #r, r, vpu_reg_read(vd, r))
 
-		reg = &g_vpu_reg_descs[i];
-		reg_val = vpu_read_reg32(
-			(unsigned long)dev->reg_base, reg->offset);
+	seq_vpu_reg(CG_CON);
+	seq_vpu_reg(SW_RST);
+	seq_vpu_reg(DONE_ST);
+	seq_vpu_reg(CTRL);
+	seq_vpu_reg(XTENSA_INT);
+	seq_vpu_reg(CTL_XTENSA_INT);
+	seq_vpu_reg(DEFAULT0);
+	seq_vpu_reg(DEFAULT1);
+	seq_vpu_reg(XTENSA_INFO00);
+	seq_vpu_reg(XTENSA_INFO01);
+	seq_vpu_reg(XTENSA_INFO02);
+	seq_vpu_reg(XTENSA_INFO03);
+	seq_vpu_reg(XTENSA_INFO04);
+	seq_vpu_reg(XTENSA_INFO05);
+	seq_vpu_reg(XTENSA_INFO06);
+	seq_vpu_reg(XTENSA_INFO07);
+	seq_vpu_reg(XTENSA_INFO08);
+	seq_vpu_reg(XTENSA_INFO09);
+	seq_vpu_reg(XTENSA_INFO10);
+	seq_vpu_reg(XTENSA_INFO11);
+	seq_vpu_reg(XTENSA_INFO12);
+	seq_vpu_reg(XTENSA_INFO13);
+	seq_vpu_reg(XTENSA_INFO14);
+	seq_vpu_reg(XTENSA_INFO15);
+	seq_vpu_reg(XTENSA_INFO16);
+	seq_vpu_reg(XTENSA_INFO17);
+	seq_vpu_reg(XTENSA_INFO18);
+	seq_vpu_reg(XTENSA_INFO19);
+	seq_vpu_reg(XTENSA_INFO20);
+	seq_vpu_reg(XTENSA_INFO21);
+	seq_vpu_reg(XTENSA_INFO22);
+	seq_vpu_reg(XTENSA_INFO23);
+	seq_vpu_reg(XTENSA_INFO24);
+	seq_vpu_reg(XTENSA_INFO25);
+	seq_vpu_reg(XTENSA_INFO26);
+	seq_vpu_reg(XTENSA_INFO27);
+	seq_vpu_reg(XTENSA_INFO28);
+	seq_vpu_reg(XTENSA_INFO29);
+	seq_vpu_reg(XTENSA_INFO30);
+	seq_vpu_reg(XTENSA_INFO31);
+	seq_vpu_reg(DEBUG_INFO00);
+	seq_vpu_reg(DEBUG_INFO01);
+	seq_vpu_reg(DEBUG_INFO02);
+	seq_vpu_reg(DEBUG_INFO03);
+	seq_vpu_reg(DEBUG_INFO04);
+	seq_vpu_reg(DEBUG_INFO05);
+	seq_vpu_reg(DEBUG_INFO06);
+	seq_vpu_reg(DEBUG_INFO07);
+	seq_vpu_reg(XTENSA_ALTRESETVEC);
+#undef seq_vpu_reg
 
-		seq_printf(s, "%s, %08x, %08x\n",
-			  reg->name,
-			  reg->offset,
-			  reg_val);
+	return 0;
+}
+
+/**
+ * vpu_debug_jtag_set - enable/disable jtag
+ *
+ * @data: vpu device
+ * @val: user write value
+ *
+ * return 0: enable/disable success
+ */
+static int vpu_debug_jtag_set(void *data, u64 val)
+{
+	struct vpu_device *vd = data;
+	int ret = 0;
+
+	if (!vd)
+		return -ENOENT;
+
+	if (val) {
+		/* enable jtag */
+		vd->jtag_enabled = 1;
+	} else {
+		/* disable jtag */
+		vd->jtag_enabled = 0;
 	}
 
+	return ret;
+}
+
+/**
+ * vpu_debug_jtag_get - show jtag status of vpu
+ * @data: vpu device
+ * @val: return value
+ *
+ * return 0: operation success
+ */
+static int vpu_debug_jtag_get(void *data, u64 *val)
+{
+	struct vpu_device *vd = data;
+
+	if (!vd)
+		return -ENOENT;
+
+	*val = vd->jtag_enabled;
 	return 0;
 }
 
@@ -243,6 +326,10 @@ VPU_DEBUGFS_DEF(reg);
 
 #undef VPU_DEBUGFS_DEF
 
+static struct dentry *vpu_djtag;
+DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_jtag_fops, vpu_debug_jtag_get,
+			vpu_debug_jtag_set, "%lld\n");
+
 #define VPU_DEBUGFS_CREATE(name) \
 { \
 	vpu_d##name = debugfs_create_file(#name, 0644, \
@@ -251,13 +338,13 @@ VPU_DEBUGFS_DEF(reg);
 	if (IS_ERR_OR_NULL(vpu_d##name)) { \
 		ret = PTR_ERR(vpu_d##name); \
 		pr_info("%s: vpu%d: " #name "): %d\n", \
-			__func__, dev->id, ret); \
+			__func__, vd->id, ret); \
 		goto out; \
 	} \
-	vpu_d##name->d_inode->i_private = dev; \
+	vpu_d##name->d_inode->i_private = vd; \
 }
 
-int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *dev)
+int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 {
 	int ret = 0;
 	struct dentry *droot;
@@ -265,32 +352,32 @@ int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *dev)
 	if (!vpu_drv->droot)
 		return -ENODEV;
 
-	droot = debugfs_create_dir(dev->name, vpu_drv->droot);
+	droot = debugfs_create_dir(vd->name, vpu_drv->droot);
 
 	if (IS_ERR_OR_NULL(droot)) {
 		ret = PTR_ERR(droot);
 		pr_info("%s: failed to create debugfs node: vpu/%s: %d\n",
-			__func__, dev->name, ret);
+			__func__, vd->name, ret);
 		goto out;
 	}
 
 	VPU_DEBUGFS_CREATE(algo);
 	VPU_DEBUGFS_CREATE(mesg);
 	VPU_DEBUGFS_CREATE(reg);
-
+	VPU_DEBUGFS_CREATE(jtag);
 out:
 	return ret;
 }
 
 #undef VPU_DEBUGFS_CREATE
 
-void vpu_exit_dev_debug(struct platform_device *pdev, struct vpu_device *dev)
+void vpu_exit_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 {
-	if (!vpu_drv || !vpu_drv->droot || !dev || !dev->droot)
+	if (!vpu_drv || !vpu_drv->droot || !vd || !vd->droot)
 		return;
 
-	debugfs_remove_recursive(dev->droot);
-	dev->droot = NULL;
+	debugfs_remove_recursive(vd->droot);
+	vd->droot = NULL;
 }
 
 int vpu_init_debug(void)

@@ -11,274 +11,325 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/of.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
-
-#ifdef CONFIG_MTK_ION
-#include <ion.h>
-#include <mtk/ion_drv.h>
-#include <mtk/mtk_ion.h>
-#include <m4u.h>
-#include <m4u_port.h>
-#define VPU_PORT_OF_IOMMU M4U_PORT_VPU
-
-/* vpu_mem_alloc */
-#define IOMMU_VA_START      (0x7DA00000)
-#define IOMMU_VA_END        (0x82600000)
-#endif
+#include <linux/dma-direction.h>
+#include <linux/dma-mapping.h>
+#include <linux/scatterlist.h>
+#include <linux/highmem.h>
 
 #include "vpu_mem.h"
 #include "vpu_drv.h"
 #include "vpu_debug.h"
 
-#ifdef CONFIG_MTK_ION
-int vpu_mem_flush(struct vpu_mem *s)
+#define VPU_IOVA_START (0x7DA00000)
+#define VPU_IOVA_END   (0x82600000)
+#define VPU_MEM_ALLOC  (0xFFFFFFFF)
+
+static struct page **vpu_map_kva_to_sgt(
+	const char *buf, size_t len, struct sg_table *sgt);
+
+static dma_addr_t vpu_map_sg_to_iova(
+	struct platform_device *pdev, struct scatterlist *sg,
+	unsigned int nents,	size_t len, dma_addr_t given_iova);
+
+static void vpu_dump_sg(struct scatterlist *s, unsigned int nents)
 {
-	struct ion_sys_data sys_data;
-	int ret;
+	unsigned int i;
 
-	sys_data.sys_cmd = ION_SYS_CACHE_SYNC;
-	sys_data.cache_sync_param.kernel_handle =
-		(struct ion_handle *)s->handle;
-	sys_data.cache_sync_param.sync_type = ION_CACHE_FLUSH_BY_RANGE;
-	sys_data.cache_sync_param.va = (void *)s->va;
-	sys_data.cache_sync_param.size = s->length;
+	if (!s || !vpu_debug_on(VPU_DBG_MEM))
+		return;
 
-	ret = ion_kernel_ioctl(vpu_drv->ion, ION_CMD_SYSTEM,
-		(unsigned long)&sys_data);
+	for (i = 0; i < nents; i++) {
+		struct page *p = sg_page(&s[i]);
+		phys_addr_t phys = page_to_phys(p);
 
-	vpu_mem_debug("%s: ion_kernel_ioctl kernel_handle=%llx\n",
-		__func__, (unsigned long long)s->handle);
-
-	if (ret) {
-		vpu_mem_debug("%s: ion_kernel_ioctl(hndl=%llx): %d failed\n",
-			__func__, (unsigned long long)s->handle, ret);
+		pr_info("%s: sg[%d]: pfn: %lx, pa: %lx, len: %lx, dma_addr: %lx\n",
+			__func__, i,
+			(unsigned long) page_to_pfn(p),
+			(unsigned long) phys,
+			(unsigned long) s[i].length,
+			(unsigned long) s[i].dma_address);
 	}
-
-	return 0;
 }
 
-int vpu_mem_alloc(struct vpu_mem **shmem,
-	struct vpu_mem_param *param)
+static void vpu_dump_sgt(struct sg_table *sgt)
+{
+	if (!sgt)
+		return;
+
+	vpu_dump_sg(sgt->sgl, sgt->nents);
+}
+
+static int
+vpu_mem_alloc(struct platform_device *pdev,
+	struct vpu_iova *i, dma_addr_t given_iova)
 {
 	int ret = 0;
-	struct ion_mm_data mm_data;
-	struct ion_sys_data sys_data;
-	struct ion_handle *handle = NULL;
+	void *kva;
+	dma_addr_t iova;
 
-	*shmem = kzalloc(sizeof(struct vpu_mem), GFP_KERNEL);
-	ret = (*shmem == NULL);
-	if (ret) {
-		pr_info("%s: fail to kzalloc 'struct memory'!\n",
-			__func__);
+	if (!i) {
+		ret = -EINVAL;
 		goto out;
 	}
 
-	handle = ion_alloc(vpu_drv->ion, param->size, 0,
-					ION_HEAP_MULTIMEDIA_MASK, 0);
-	ret = (handle == NULL) ? -ENOMEM : 0;
-	if (ret) {
-		pr_info("%s: fail to alloc ion buffer, ret=%d\n",
-			__func__, ret);
-		goto out;
+	pr_info("%s: size: 0x%lx, given iova: 0x%lx (%s alloc)\n",
+		__func__, i->size, (unsigned long)given_iova,
+		(given_iova == VPU_IOVA_END) ? "dynamic" : "static");
+
+	kva = kvmalloc(i->size, GFP_KERNEL);
+
+	if (!kva) {
+		pr_info("%s: kvmalloc: failed\n", __func__);
+		ret = -ENOMEM;
+		goto error;
 	}
 
-	(*shmem)->handle = (void *) handle;
+	pr_info("%s: kvmalloc: %p\n", __func__, kva);
 
-	vpu_mem_debug("%s: allocated handle: %p, size: %d\n",
-		__func__, (*shmem)->handle, param->size);
+	i->pages = vpu_map_kva_to_sgt(kva, i->size, &i->sgt);
 
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER_EXT;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.config_buffer_param.module_id = VPU_PORT_OF_IOMMU;
-	mm_data.config_buffer_param.security = 0;
-	mm_data.config_buffer_param.coherent = 1;
-	if (param->fixed_addr) {
-		mm_data.config_buffer_param.reserve_iova_start =
-							param->fixed_addr;
-
-		mm_data.config_buffer_param.reserve_iova_end = IOMMU_VA_END;
-	} else {
-		/* need revise starting address for working buffer*/
-		mm_data.config_buffer_param.reserve_iova_start = 0x60000000;
-		mm_data.config_buffer_param.reserve_iova_end = IOMMU_VA_END;
-	}
-	ret = ion_kernel_ioctl(vpu_drv->ion, ION_CMD_MULTIMEDIA,
-					(unsigned long)&mm_data);
-	if (ret) {
-		pr_info("%s: fail to config ion buffer, ret=%d\n",
-			__func__, ret);
-		goto out;
+	if (IS_ERR_OR_NULL(i->pages)) {
+		ret = IS_ERR(i->pages) ? PTR_ERR(i->pages) : -ENOMEM;
+		i->pages = NULL;
+		goto error;
 	}
 
-	/* map pa */
-	vpu_mem_debug("%s: vpu param->require_pa(%d)\n",
-		__func__, param->require_pa);
-	if (param->require_pa) {
-		sys_data.sys_cmd = ION_SYS_GET_PHYS;
-		sys_data.get_phys_param.kernel_handle = handle;
-		sys_data.get_phys_param.phy_addr =
-			(unsigned long)(VPU_PORT_OF_IOMMU) << 24 |
-			ION_FLAG_GET_FIXED_PHYS;
-		sys_data.get_phys_param.len = ION_FLAG_GET_FIXED_PHYS;
-		ret = ion_kernel_ioctl(vpu_drv->ion, ION_CMD_SYSTEM,
-						(unsigned long)&sys_data);
-		if (ret) {
-			pr_info("%s: fail to get ion phys, ret=%d\n",
-				__func__, ret);
-			goto out;
-		}
+	iova = vpu_map_sg_to_iova(pdev, i->sgt.sgl, i->sgt.nents,
+		i->size, given_iova);
 
-		(*shmem)->pa = sys_data.get_phys_param.phy_addr;
-		(*shmem)->length = sys_data.get_phys_param.len;
-	}
+	if (!iova)
+		goto error;
 
-	/* map va */
-	if (param->require_va) {
-		(*shmem)->va =
-			(uint64_t)ion_map_kernel(vpu_drv->ion, handle);
-		ret = ((*shmem)->va) ? 0 : -ENOMEM;
-		if (ret) {
-			pr_info("%s: fail to map va of buffer!\n", __func__);
-			goto out;
-		}
-	}
+	i->m.va = (uint64_t)kva;
+	i->m.pa = (uint32_t)iova;
+	i->m.length = i->size;
 
-	return 0;
+	goto out;
 
+error:
+	kfree(kva);
 out:
-	if (handle)
-		ion_free(vpu_drv->ion, handle);
-
-	if (*shmem) {
-		kfree(*shmem);
-		*shmem = NULL;
-	}
-
 	return ret;
 }
 
-void vpu_mem_free(struct vpu_mem **shmem)
+void vpu_mem_free(struct vpu_mem *m)
 {
-	struct ion_handle *handle;
+	kfree((void *)m->va);
+}
 
-	if (!vpu_drv || !vpu_drv->ion)
-		return;
+static struct page **
+vpu_map_kva_to_sgt(const char *buf, size_t len, struct sg_table *sgt)
+{
+	struct page **pages = NULL;
+	unsigned int nr_pages;
+	unsigned int index;
+	const char *p;
+	int ret;
 
-	if (!shmem || !*shmem)
-		return;
+	pr_info("%s: buf: %p, len: %lx, sgt: %p\n",
+		__func__, buf, len, sgt);
 
-	handle = (struct ion_handle *) (*shmem)->handle;
+	nr_pages = DIV_ROUND_UP((unsigned long)buf + len, PAGE_SIZE)
+		- ((unsigned long)buf / PAGE_SIZE);
+	pages = kmalloc_array(nr_pages, sizeof(struct page *), GFP_KERNEL);
 
-	vpu_mem_debug("%s: shmem: %p, handle: %p\n",
-		__func__, *shmem, handle);
+	if (!pages)
+		return ERR_PTR(-ENOMEM);
 
-	if (handle) {
-		ion_unmap_kernel(vpu_drv->ion, handle);
-		ion_free(vpu_drv->ion, handle);
+	p = buf - offset_in_page(buf);
+
+	for (index = 0; index < nr_pages; index++) {
+		if (is_vmalloc_addr(p))
+			pages[index] = vmalloc_to_page(p);
+		else
+			pages[index] = kmap_to_page((void *)p);
+		if (!pages[index]) {
+			kfree(pages);
+			pr_info("%s: map failed.\n", __func__);
+			return ERR_PTR(-EFAULT);
+		}
+		p += PAGE_SIZE;
 	}
 
-	kfree(*shmem);
-	*shmem = NULL;
-}
-#else
-// TODO: implement memory allocators for simulator
-int vpu_mem_flush(struct vpu_mem *s)
-{
-}
+	pr_info("%s: nr_pages: %d\n", __func__, nr_pages);
 
-int vpu_mem_alloc(struct vpu_mem **shmem,
-	struct vpu_mem_param *param)
-{
-	return 0;
-}
+	ret = sg_alloc_table_from_pages(sgt, pages, index,
+		offset_in_page(buf), len, GFP_KERNEL);
 
-void vpu_mem_free(struct vpu_mem **shmem)
-{
-}
-#endif
-
-#ifdef CONFIG_MTK_M4U
-int vpu_mva_alloc(unsigned long va, struct sg_table *sg,
-	unsigned int size, unsigned int flags,
-	unsigned int *pMva)
-{
-	return m4u_alloc_mva(vpu_drv->m4u, VPU_PORT_OF_IOMMU,
-		va, sg, size, M4U_PROT_READ | M4U_PROT_WRITE, flags, pMva);
-}
-
-int vpu_mva_free(const unsigned int mva)
-{
-	return m4u_dealloc_mva(vpu_drv->m4u, VPU_PORT_OF_IOMMU, mva);
-}
-
-enum m4u_callback_ret_t vpu_m4u_fault_callback(int port,
-	unsigned int mva, void *data)
-{
-	vpu_mem_debug("%s: port=%d, mva=0x%x", __func__, port, mva);
-	// TODO: add check
-	return M4U_CALLBACK_HANDLED;
-}
-#else
-// TODO: implement mva mappers for simulator
-int vpu_mva_alloc(unsigned long va, struct sg_table *sg,
-	unsigned int size, unsigned int flags,
-	unsigned int *pMva)
-{
-	return 0;
-}
-
-int vpu_mva_free(const unsigned int mva)
-{
-	return 0;
-}
-#endif
-
-/* called by vpu_init() */
-int vpu_init_mem(void)
-{
-#ifdef CONFIG_MTK_M4U
-	vpu_drv_debug("%s: m4u_register_fault_callback\n", __func__);  // debug
-	m4u_register_fault_callback(VPU_PORT_OF_IOMMU,
-		vpu_m4u_fault_callback, NULL);
-
-	vpu_drv_debug("%s: m4u_create_client\n", __func__);	// debug
-	if (!vpu_drv->m4u)
-		vpu_drv->m4u = m4u_create_client();
-#endif
-
-#ifdef CONFIG_MTK_ION
-	vpu_drv_debug("%s: ion_client_create\n", __func__); // debug
-	if (!vpu_drv->ion)
-		vpu_drv->ion = ion_client_create(g_ion_device, "vpu");
-#endif
-
-	return 0;
-}
-
-/* called by vpu_exit() */
-void vpu_exit_mem(void)
-{
-	if (!vpu_drv)
-		return;
-
-#ifdef CONFIG_MTK_M4U
-	vpu_drv_debug("%s: m4u_unregister_fault_callback\n", __func__);
-	m4u_unregister_fault_callback(VPU_PORT_OF_IOMMU);
-
-	vpu_drv_debug("%s: m4u_destroy_client\n", __func__);
-	if (vpu_drv->m4u) {
-		m4u_destroy_client(vpu_drv->m4u);
-		vpu_drv->m4u = NULL;
+	if (ret) {
+		pr_info("%s: sg_alloc_table_from_pages: %d\n",
+			__func__, ret);
+		kfree(pages);
+		return ERR_PTR(ret);
 	}
-#endif
 
-#ifdef CONFIG_MTK_ION
-	vpu_drv_debug("%s: ion_client_destroy\n", __func__);
-	if (vpu_drv->ion) {
-		ion_client_destroy(vpu_drv->ion);
-		vpu_drv->ion = NULL;
+	vpu_dump_sgt(sgt);
+
+	return pages;
+}
+
+static dma_addr_t
+vpu_map_sg_to_iova(
+	struct platform_device *pdev, struct scatterlist *sg,
+	unsigned int nents,	size_t len, dma_addr_t given_iova)
+{
+	dma_addr_t mask;
+	dma_addr_t iova = 0;
+	int ret;
+
+	if (given_iova >= VPU_IOVA_END) {
+		mask = VPU_IOVA_END - 1;
+		pr_info("%s: dev: %p, len: %lx, given_iova mask: %lx (dynamic alloc)\n",
+			__func__, &pdev->dev,
+			(unsigned long)len, (unsigned long)given_iova);
+	} else {
+		mask = given_iova + len - 1; // Eq. desired iova end
+		pr_info("%s: dev: %p, len: %lx, given_iova start ~ end(mask): %lx ~ %lx\n",
+			__func__, &pdev->dev,
+			(unsigned long)len, (unsigned long)given_iova,
+			(unsigned long)mask);
 	}
-#endif
+
+	dma_set_mask_and_coherent(&pdev->dev, mask);
+
+	ret = dma_map_sg_attrs(&pdev->dev, sg, nents,
+		DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
+
+	if (ret <= 0) {
+		pr_info("%s: dma_map_sg_attrs: failed with %d\n",
+			__func__, ret);
+		return 0;
+	}
+
+	iova = sg_dma_address(&sg[0]);
+
+	pr_info("%s: sg_dma_address: mapped iova address: %lx %s\n",
+		__func__, (unsigned long)iova,
+		(given_iova == VPU_IOVA_END) ? "(dynamic alloc)" :
+		((iova == given_iova) ? "(static alloc)" : "(unexpected)"));
+
+	// TODO: replace with aee
+	// WARN_ON((given_iova != VPU_IOVA_END) && (given_iova != iova));
+
+	return iova;
+
+}
+
+static dma_addr_t
+vpu_map_to_iova(struct platform_device *pdev, void *addr, size_t len,
+	dma_addr_t given_iova, struct sg_table *sgt, struct page ***pages)
+{
+	int ret;
+	dma_addr_t iova = 0;
+	struct page **p;
+
+	if (!sgt || !pages)
+		goto out;
+
+	p = vpu_map_kva_to_sgt(addr, len, sgt);
+
+	if (IS_ERR_OR_NULL(p)) {
+		ret = IS_ERR(p) ? PTR_ERR(p) : -ENOMEM;
+		goto out;
+	}
+
+	if (ret)
+		goto out;
+
+	iova = vpu_map_sg_to_iova(pdev, sgt->sgl, sgt->nents, len, given_iova);
+	*pages = p;
+
+out:
+	return iova;
+}
+
+dma_addr_t vpu_iova_alloc(struct platform_device *pdev,
+	struct vpu_iova *i)
+{
+	int ret = 0;
+	dma_addr_t iova = 0;
+	// mt6885 maps va to iova
+	unsigned long base = (unsigned long)vpu_drv->bin_va;
+
+	if (!pdev || !i || !i->size)
+		goto out;
+
+	iova = i->addr ? i->addr : VPU_IOVA_END;
+
+	i->sgt.sgl = NULL;
+	i->pages = NULL;
+	i->m.handle = NULL;
+	i->m.va = 0;
+	i->m.pa = 0;
+	i->m.length = 0;
+
+	/* allocate kvm and map */
+	if (i->bin == VPU_MEM_ALLOC) {
+		dev_info(&pdev->dev, // TODO: remove debug log
+			"%s: vpu_mem_alloc(%x, %x)\n",
+			__func__, i->size, (unsigned long)iova);
+		ret = vpu_mem_alloc(pdev, i, iova);
+		iova = i->m.pa;
+	/* map from vpu firmware loaded at bootloader */
+	} else if (i->size) {
+		dev_info(&pdev->dev, // TODO: remove debug log
+			"%s: vpu_map_to_iova(%lx, %x, %lx)\n",
+			__func__, (base + i->bin), i->size,
+			(unsigned long)iova);
+		iova = vpu_map_to_iova(pdev,
+			(void *)(base + i->bin), i->size, iova,
+			&i->sgt, &i->pages);
+	} else {
+		dev_info(&pdev->dev, // TODO: remove debug log
+			"%s: unknown setting (%x, %x, %x)\n",
+			__func__, i->addr, i->bin, i->size);
+		iova = 0;
+	}
+
+out:
+	return iova;
+}
+
+void vpu_iova_free(struct device *dev, struct vpu_iova *i)
+{
+	vpu_mem_free(&i->m);
+	if (i->sgt.sgl) {
+		dma_unmap_sg(dev, i->sgt.sgl, i->sgt.nents, DMA_BIDIRECTIONAL);
+		sg_free_table(&i->sgt);
+	}
+	kfree(i->pages);
+}
+
+void vpu_iova_sync_for_device(struct device *dev,
+	struct vpu_iova *i)
+{
+	dma_sync_sg_for_device(dev, i->sgt.sgl, i->sgt.nents,
+		DMA_TO_DEVICE);
+}
+
+void vpu_iova_sync_for_cpu(struct device *dev,
+	struct vpu_iova *i)
+{
+	dma_sync_sg_for_cpu(dev, i->sgt.sgl, i->sgt.nents,
+		DMA_FROM_DEVICE);
+}
+
+int vpu_iova_dts(struct platform_device *pdev,
+	const char *name, struct vpu_iova *i)
+{
+	if (of_property_read_u32_array(pdev->dev.of_node,
+			name, &i->addr, 3)) {
+		dev_info(&pdev->dev, "%s: vpu%d: unable to get %s\n",
+			__func__, name);
+		return -ENODEV;
+	}
+
+	dev_info(&pdev->dev, "%s: %s: addr: %08xh, size: %08xh, bin: %08xh\n",
+		__func__, name, i->addr, i->size, i->bin);
+
+	return 0;
 }
 

@@ -14,46 +14,41 @@
 #ifndef __VPU_MEM_H__
 #define __VPU_MEM_H__
 
+#include <linux/platform_device.h>
 #include <linux/scatterlist.h>
-
-#ifdef CONFIG_MTK_M4U
-#include <m4u.h>
-
-#define	VPU_MVA_START_FROM (M4U_FLAGS_START_FROM)
-#define VPU_MVA_SG_READY   (M4U_FLAGS_SG_READY)
-#else
-#define	VPU_MVA_START_FROM (0)
-#define VPU_MVA_SG_READY   (1)
-#endif
-
-struct vpu_mem_param {
-	uint32_t size;
-	bool require_pa;
-	bool require_va;
-	uint32_t fixed_addr;
-};
 
 struct vpu_mem {
 	void *handle;
-	uint64_t va;
+	unsigned long va;
 	uint32_t pa;
 	uint32_t length;
 };
 
-int vpu_init_mem(void);
-void vpu_exit_mem(void);
+struct vpu_iova {
+	/* settings from dts */
+	uint32_t addr;  /* iova */
+	uint32_t size;
+	uint32_t bin;   /* offset in binary */
+	/* allocated memory */
+	struct vpu_mem m;
+	/* allocated iova */
+	struct sg_table sgt;
+	struct page **pages;
+};
 
-// interface to ION
-int vpu_mem_alloc(struct vpu_mem **m, struct vpu_mem_param *param);
-void vpu_mem_free(struct vpu_mem **m);
-int vpu_mem_flush(struct vpu_mem *m);
+dma_addr_t vpu_iova_alloc(struct platform_device *pdev,
+	struct vpu_iova *i);
 
-// interface to M4U
-int vpu_mva_alloc(unsigned long va, struct sg_table *sg,
-	unsigned int size, unsigned int flags,
-	unsigned int *pMva);
+void vpu_iova_free(struct device *dev, struct vpu_iova *i);
 
-int vpu_mva_free(const unsigned int mva);
+void vpu_iova_sync_for_device(struct device *dev,
+	struct vpu_iova *i);
+
+void vpu_iova_sync_for_cpu(struct device *dev,
+	struct vpu_iova *i);
+
+int vpu_iova_dts(struct platform_device *pdev,
+	const char *name, struct vpu_iova *i);
 
 #endif
 

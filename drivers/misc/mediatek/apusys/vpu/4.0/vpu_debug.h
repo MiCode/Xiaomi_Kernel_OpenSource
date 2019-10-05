@@ -29,17 +29,23 @@ enum VPU_DEBUG_MASK {
 	VPU_DBG_DVFS = 0x100,
 };
 
-#ifdef CONFIG_MTK_VPU_DEBUG
-
+#ifdef CONFIG_MTK_APUSYS_VPU_DEBUG
 extern u32 vpu_klog;
-#define vpu_debug(mask, ...) do { if (vpu_klog & mask) \
-		pr_debug(__VA_ARGS__); \
+
+static inline
+int vpu_debug_on(int mask)
+{
+	return (vpu_klog & mask);
+}
+
+#define vpu_debug(mask, ...) do { if (vpu_debug_on(mask)) \
+		pr_info(__VA_ARGS__); \
 	} while (0)
 
 int vpu_init_debug(void);
 void vpu_exit_debug(void);
-int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *dev);
-void vpu_exit_dev_debug(struct platform_device *pdev, struct vpu_device *dev);
+int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *vd);
+void vpu_exit_dev_debug(struct platform_device *pdev, struct vpu_device *vd);
 
 #else
 
@@ -53,15 +59,21 @@ void vpu_exit_debug(void) { }
 
 static inline
 int vpu_init_dev_debug(struct platform_device *pdev,
-	struct vpu_device *dev)
+	struct vpu_device *vd)
 {
 	return 0;
 }
 
 static inline
 void vpu_exit_dev_debug(struct platform_device *pdev,
-	struct vpu_device *dev)
+	struct vpu_device *vd)
 {
+}
+
+static inline
+int vpu_debug_on(int mask)
+{
+	return 0;
 }
 
 #endif

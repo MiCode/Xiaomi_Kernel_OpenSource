@@ -35,18 +35,18 @@ int vpu_init_algo(void);
  */
 
 /* vpu_algo.c */
-struct __vpu_algo *vpu_alg_alloc(void);
+struct __vpu_algo *vpu_alg_alloc(struct vpu_device *vd);
 void vpu_alg_free(struct __vpu_algo *alg);
-int vpu_alg_load(struct vpu_device *dev, const char *name,
+int vpu_alg_load(struct vpu_device *vd, const char *name,
 	struct __vpu_algo *alg);
-struct __vpu_algo *vpu_alg_get(struct vpu_device *dev, const char *name,
+struct __vpu_algo *vpu_alg_get(struct vpu_device *vd, const char *name,
 	struct __vpu_algo *alg);
 void vpu_alg_put(struct __vpu_algo *alg);
 
 /* vpu_hw.c */
-int vpu_init_dev_algo(struct platform_device *pdev, struct vpu_device *dev);
-void vpu_exit_dev_algo(struct platform_device *pdev, struct vpu_device *dev);
-int vpu_hw_alg_init(struct vpu_device *dev, struct __vpu_algo *alg);
-int vpu_hw_alg_info(struct vpu_device *dev, struct __vpu_algo *alg);
+int vpu_init_dev_algo(struct platform_device *pdev, struct vpu_device *vd);
+void vpu_exit_dev_algo(struct platform_device *pdev, struct vpu_device *vd);
+int vpu_hw_alg_init(struct vpu_device *vd, struct __vpu_algo *alg);
+int vpu_hw_alg_info(struct vpu_device *vd, struct __vpu_algo *alg);
 
 #endif

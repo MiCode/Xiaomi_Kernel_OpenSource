@@ -11,66 +11,39 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _MT6779_VPU_HW_H_
-#define _MT6779_VPU_HW_H_
+#ifndef _MT6885_VPU_HW_H_
+#define _MT6885_VPU_HW_H_
 
 #include "vpu_drv.h"
 #include "vpu_cmn.h"
 #include "vpu_reg.h"
 
-/* ----- power: start ----*/
-#include <linux/delay.h>
-#include <linux/pm_qos.h>
-#ifndef MTK_VPU_FPGA_PORTING
-#include <mmdvfs_mgr.h>
-#endif
-#include <mtk_vcorefs_manager.h>
-#include "vpu_dvfs.h"
-/* ----- power: end ---- */
-
 #define VPU_MAX_NUM_CODE_SEGMENTS       (50)
 #define VPU_MAX_NUM_ALGOS               (50)
 
-/* MVA */
-#define VPU_MVA_RESET_VECTOR            (0x7DA00000)
-#define VPU2_MVA_RESET_VECTOR           (0x7E300000)
-#define VPU3_MVA_RESET_VECTOR           (0x7EC00000)
-#define VPU_MVA_MAIN_PROGRAM            (0x7DB00000)
-#define VPU2_MVA_MAIN_PROGRAM           (0x7E400000)
-#define VPU3_MVA_MAIN_PROGRAM           (0x7ED00000)
-#define VPU_MVA_KERNEL_LIB				(0x7DE00000)
-#define VPU2_MVA_KERNEL_LIB				(0x7E700000)
-#define VPU3_MVA_KERNEL_LIB				(0x7F000000)
-#define VPU_MVA_SHARED_DATA				(0x7F500000)
-#define VPU_MVA_RESERVED_END			(0x82600000)
-
 /* Sum of all parts */
 #define VPU_SIZE_BINARY_CODE            (0x02A10000)
+
 /* Size */
-#define VPU_SIZE_RESET_VECTOR           (0x00100000)
-#define VPU_SIZE_MAIN_PROGRAM           (0x00300000)
-#define VPU_SIZE_ALGO_KERNEL_LIB        (0x00500000)
-#define VPU_SIZE_ALGO_AREA              (0x00500000)
-#define VPU_SIZE_MAIN_PROGRAM_IMEM      (0x00030000)
-#define VPU_SIZE_SHARED_DATA            (0x00600000)
 #define VPU_NUMS_IMAGE_HEADER           (3)
 
 /* Offset */
-#define VPU_OFFSET_RESET_VECTOR         (0x00000000)
-#define VPU_OFFSET_MAIN_PROGRAM         (0x00100000)
 #define VPU_OFFSET_ALGO_AREA            (0x00C00000)
 #define VPU_OFFSET_MAIN_PROGRAM_IMEM    (VPU_SIZE_BINARY_CODE - 0xC0000)
 #define VPU_OFFSET_IMAGE_HEADERS        (VPU_SIZE_BINARY_CODE - 0x30000)
-#define VPU_DDR_SHIFT_RESET_VECTOR		(0x00400000)
-#define VPU_DDR_SHIFT_IRAM_DATA			(0x00030000)
 
+
+/* Time Constrains */
+#define VPU_CHECK_COUNT  2000
+#define VPU_CHECK_MIN_US 500
+#define VPU_CHECK_MAX_US 1000
 
 struct vpu_code_segment {
-	uint32_t vpu_core;		/* core index*/
-	uint32_t offset;        /* offset from this partition */
-	uint32_t dst_addr;      /* the DDR position is IPU can realize. */
-	uint32_t length;        /* total size for this segment */
-	uint32_t file_size;     /* file size to copy */
+	uint32_t vpu_core;   /* core index*/
+	uint32_t offset;     /* offset from this partition */
+	uint32_t dst_addr;   /* the DDR position is IPU can realize. */
+	uint32_t length;     /* total size for this segment */
+	uint32_t file_size;  /* file size to copy */
 };
 
 struct vpu_algo_info {
@@ -181,9 +154,12 @@ struct vpu_image_header {
  *  | Field           | Description                           | Filled By |
  *  +-----------------+---------------------------------------+-----------+
  *  |FLD_XTENSA_INFO1 | 0x40(SET_DEG)                         | Driver    |
- *  |FLD_XTENSA_INFO21| mva of log buffer                     | Driver    |
+ *  |FLD_XTENSA_INFO19| iram_data_mva                         | Driver    |
+ *  |FLD_XTENSA_INFO21| pa of log buffer                      | Driver    |
  *  |FLD_XTENSA_INFO22| length of log buffer                  | Driver    |
  *  |FLD_XTENSA_INFO23| system time in us                     | Driver    |
+ *  |FLD_XTENSA_INFO29| host version                          | Driver    |
+ *  |FLD_XTENSA_INFO30| size of log                           | Driver    |
  *  +-----------------+---------------------------------------+-----------+
  */
 
@@ -191,37 +167,12 @@ struct vpu_image_header {
  * vpu_dev_boot_sequence - do booting sequence
  * @core:	core index of device
  */
-int vpu_dev_boot_sequence(struct vpu_device *dev);
+int vpu_dev_boot_sequence(struct vpu_device *vd);
 
 /**
  * vpu_dev_set_debug - set log buffer and size to VPU
  */
-int vpu_dev_set_debug(struct vpu_device *dev);
-
-
-#if 0
-/**
- * vpu_hw_enable_jtag - start dsp debug via jtag
- */
-int vpu_hw_enable_jtag(struct vpu_device *dev, bool enabled);
-
-/**
- * vpu_dump_debug_stack - for vpu timeout debug.
- */
-void vpu_dump_debug_stack(int core, int size);
-
-/**
- * vpu_dump_code_segment - for vpu timeout debug, dump code segment in algo
- *                         execution area.
- */
-void vpu_dump_code_segment(int core);
-
-/**
- * vpu_dump_algo_segment - for vpu timeout debug, dump source algo segment
- *                         from bin file.
- */
-void vpu_dump_algo_segment(int core, int algo_id, int size);
-#endif
+int vpu_dev_set_debug(struct vpu_device *vd);
 
 /**
  * Working buffer's offset
@@ -253,7 +204,7 @@ void vpu_dump_algo_segment(int core, int algo_id, int size);
 
 #define VPU_SIZE_LOG_DATA  (VPU_SIZE_LOG_BUF - VPU_SIZE_LOG_HEADER)
 
-int vpu_dev_boot(struct vpu_device *dev);
-int vpu_dev_down(struct vpu_device *dev);
+int vpu_dev_boot(struct vpu_device *vd);
+int vpu_dev_down(struct vpu_device *vd);
 
 #endif

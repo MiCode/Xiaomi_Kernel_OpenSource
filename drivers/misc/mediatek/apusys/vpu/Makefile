@@ -11,7 +11,7 @@
 # GNU General Public License for more details.
 #
 
-ifneq (,$(filter $(strip $(PDIR)), mt6885))
+ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt6885))
 
 PDIR = $(MTK_PLATFORM)
 VDIR = 4.0
@@ -49,9 +49,8 @@ obj-m += vpu.o
 
 vpu-$(CONFIG_MTK_APUSYS_VPU_DEBUG) += $(VDIR)/vpu_debug.o
 vpu-y += $(VDIR)/vpu_main.o $(VDIR)/vpu_algo.o
-vpu-y += $(PDIR)/vpu_hw.o $(PDIR)/vpu_reg.o $(PDIR)/vpu_mem.o
+vpu-y += $(PDIR)/vpu_hw.o $(PDIR)/vpu_mem.o
 
-else
 
 endif
 

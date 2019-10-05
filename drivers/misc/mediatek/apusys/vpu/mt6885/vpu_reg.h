@@ -16,34 +16,6 @@
 
 #include <sync_write.h>
 
-#define CTRL_BASE_OFFSET 0x0
-
-#define F_VAL(val, msb, lsb) \
-	((msb - lsb > 30) ? val : (((val)&((1<<(msb-lsb+1))-1))<<lsb))
-
-#define F_MSK(msb, lsb)         F_VAL(0xffffffff, msb, lsb)
-#define F_BIT_SET(bit)          (1<<(bit))
-#define F_BIT_VAL(val, bit)     ((!!(val))<<(bit))
-
-#define VPU_SET_BIT(reg, bit) \
-	((*(unsigned int *)((uintptr_t)reg)) |= (unsigned int)(1 << (bit)))
-
-#define VPU_CLR_BIT(reg, bit) \
-	((*(unsigned int *)((uintptr_t)reg)) &= ~((unsigned int)(1 << (bit))))
-
-static inline unsigned int vpu_read_reg32(unsigned long vpu_base,
-			unsigned int offset)
-{
-	return ioread32((void *) (vpu_base + offset));
-}
-
-static inline void vpu_write_reg32(unsigned long vpu_base,
-			unsigned int offset, unsigned int val)
-{
-	mt_reg_sync_writel(val, (void *) (vpu_base + offset));
-}
-
-
 /* Spare Register - Enum */
 enum {
 	VPU_CMD_DO_EXIT         = 0x00,
@@ -77,196 +49,92 @@ enum {
 	VPU_REQ_DO_CLOSED_FILE     = 0x102
 };
 
-enum vpu_reg {
-	/* module vpu */
-	REG_CG_CON,
-	REG_CG_SET,
-	REG_CG_CLR,
-	REG_SW_RST,
-	REG_DONE_ST,
-	REG_CTRL,
-	REG_XTENSA_INT,
-	REG_CTL_XTENSA_INT,
-	REG_CTL_XTENSA_INT_CLR,
-	REG_INT_MASK,
-	REG_AXI_DEFAULT0,
-	REG_AXI_DEFAULT1,
-	REG_AXI_DEFAULT2,
-	REG_AXI_DEFAULT3,
-	REG_XTENSA_INFO00,
-	REG_XTENSA_INFO01,
-	REG_XTENSA_INFO02,
-	REG_XTENSA_INFO03,
-	REG_XTENSA_INFO04,
-	REG_XTENSA_INFO05,
-	REG_XTENSA_INFO06,
-	REG_XTENSA_INFO07,
-	REG_XTENSA_INFO08,
-	REG_XTENSA_INFO09,
-	REG_XTENSA_INFO10,
-	REG_XTENSA_INFO11,
-	REG_XTENSA_INFO12,
-	REG_XTENSA_INFO13,
-	REG_XTENSA_INFO14,
-	REG_XTENSA_INFO15,
-	REG_XTENSA_INFO16,
-	REG_XTENSA_INFO17,
-	REG_XTENSA_INFO18,
-	REG_XTENSA_INFO19,
-	REG_XTENSA_INFO20,
-	REG_XTENSA_INFO21,
-	REG_XTENSA_INFO22,
-	REG_XTENSA_INFO23,
-	REG_XTENSA_INFO24,
-	REG_XTENSA_INFO25,
-	REG_XTENSA_INFO26,
-	REG_XTENSA_INFO27,
-	REG_XTENSA_INFO28,
-	REG_XTENSA_INFO29,
-	REG_XTENSA_INFO30,
-	REG_XTENSA_INFO31,
-	REG_DEBUG_INFO00,
-	REG_DEBUG_INFO01,
-	REG_DEBUG_INFO02,
-	REG_DEBUG_INFO03,
-	REG_DEBUG_INFO04,
-	REG_DEBUG_INFO05,
-	REG_DEBUG_INFO06,
-	REG_DEBUG_INFO07,
-	REG_XTENSA_ALTRESETVEC,
-	VPU_NUM_REGS
-};
+/* core register offsets */
+#define CG_CON		0x100
+#define CG_CLR		0x108
+#define SW_RST		0x10C
+#define DONE_ST		0x90C
+#define CTRL		0x910
+#define XTENSA_INT	0x200
+#define CTL_XTENSA_INT	0x204
+#define DEFAULT0	0x93C
+#define DEFAULT1	0x940
+#define DEFAULT2	0x944
+#define XTENSA_INFO00	0x250
+#define XTENSA_INFO01	0x254
+#define XTENSA_INFO02	0x258
+#define XTENSA_INFO03	0x25C
+#define XTENSA_INFO04	0x260
+#define XTENSA_INFO05	0x264
+#define XTENSA_INFO06	0x268
+#define XTENSA_INFO07	0x26C
+#define XTENSA_INFO08	0x270
+#define XTENSA_INFO09	0x274
+#define XTENSA_INFO10	0x278
+#define XTENSA_INFO11	0x27C
+#define XTENSA_INFO12	0x280
+#define XTENSA_INFO13	0x284
+#define XTENSA_INFO14	0x288
+#define XTENSA_INFO15	0x28C
+#define XTENSA_INFO16	0x290
+#define XTENSA_INFO17	0x294
+#define XTENSA_INFO18	0x298
+#define XTENSA_INFO19	0x29C
+#define XTENSA_INFO20	0x2A0
+#define XTENSA_INFO21	0x2A4
+#define XTENSA_INFO22	0x2A8
+#define XTENSA_INFO23	0x2AC
+#define XTENSA_INFO24	0x2B0
+#define XTENSA_INFO25	0x2B4
+#define XTENSA_INFO26	0x2B8
+#define XTENSA_INFO27	0x2BC
+#define XTENSA_INFO28	0x2C0
+#define XTENSA_INFO29	0x2C4
+#define XTENSA_INFO30	0x2C8
+#define XTENSA_INFO31	0x2CC
+#define DEBUG_INFO00	0x2D0
+#define DEBUG_INFO01	0x2D4
+#define DEBUG_INFO02	0x2D8
+#define DEBUG_INFO03	0x2DC
+#define DEBUG_INFO04	0x2E0
+#define DEBUG_INFO05	0x2E4
+#define DEBUG_INFO06	0x2E8
+#define DEBUG_INFO07	0x2EC
+#define XTENSA_ALTRESETVEC	0x2F8
 
-enum vpu_reg_field {
-	/* module vpu */
-	FLD_IPU_CG,
-	FLD_AXI_M_CG,
-	FLD_JTAG_CG,
-	FLD_IPU_CG_SET,
-	FLD_AXI_M_CG_SET,
-	FLD_JTAG_CG_SET,
-	FLD_IPU_CG_CLR,
-	FLD_AXI_M_CG_CLR,
-	FLD_JTAG_CG_CLR,
-	FLD_OCDHALTONRESET,
-	FLD_IPU_D_RST,
-	FLD_IPU_B_RST,
-	FLD_IPU_APB_RST,
-	FLD_AXI_M_RST,
-	FLD_IPU_HW_RST,
-	FLD_PWAITMODE,
-	FLD_P_DEBUG_ENABLE,
-	FLD_STROBE,
-	FLD_SRAM_CONFIGURE,
-	FLD_PBCLK_ENABLE,
-	FLD_RUN_STALL,
-	FLD_TRIG_IN_DMA,
-	FLD_BREAK_OUT_ACK,
-	FLD_BREAK_IN,
-	FLD_STATE_VECTOR_SELECT,
-	FLD_TIE2APB_GATED_ENABLE,
-	FLD_PIF_GATED,
-	FLD_PRID,
-	FLD_NMI,
-	FLD_APMCU_INT,
-	FLD_CTL_INT,
-	FLD_CTL_INT_CLR,
-	FLD_IPU2CAM_INT_MASK,
-	FLD_APMCU_INT_MASK,
-	FLD_CTL_INT_MASK,
-	FLD_ARUSER_8_4,
-	FLD_AWUSER_8_4,
-	FLD_ARDOMAIN,
-	FLD_ARFLUSH,
-	FLD_ARULTRA,
-	FLD_AWDOMAIN,
-	FLD_AWFLUSH,
-	FLD_AWULTRA,
-	FLD_ARUSER_IDMA_8_4,
-	FLD_AWUSER_IDMA_8_4,
-	FLD_ARDOMAIN_IDMA,
-	FLD_ARFLUSH_IDMA,
-	FLD_ARULTRA_IDMA,
-	FLD_AWDOMAIN_IDMA,
-	FLD_AWFLUSH_IDMA,
-	FLD_AWULTRA_IDMA,
-	FLD_SPIDEN,
-	FLD_SPNIDEN,
-	FLD_NIDEN,
-	FLD_DBG_EN,
-	FLD_XTENSA_INFO00,
-	FLD_XTENSA_INFO01,
-	FLD_XTENSA_INFO02,
-	FLD_XTENSA_INFO03,
-	FLD_XTENSA_INFO04,
-	FLD_XTENSA_INFO05,
-	FLD_XTENSA_INFO06,
-	FLD_XTENSA_INFO07,
-	FLD_XTENSA_INFO08,
-	FLD_XTENSA_INFO09,
-	FLD_XTENSA_INFO10,
-	FLD_XTENSA_INFO11,
-	FLD_XTENSA_INFO12,
-	FLD_XTENSA_INFO13,
-	FLD_XTENSA_INFO14,
-	FLD_XTENSA_INFO15,
-	FLD_XTENSA_INFO16,
-	FLD_XTENSA_INFO17,
-	FLD_XTENSA_INFO18,
-	FLD_XTENSA_INFO19,
-	FLD_XTENSA_INFO20,
-	FLD_XTENSA_INFO21,
-	FLD_XTENSA_INFO22,
-	FLD_XTENSA_INFO23,
-	FLD_XTENSA_INFO24,
-	FLD_XTENSA_INFO25,
-	FLD_XTENSA_INFO26,
-	FLD_XTENSA_INFO27,
-	FLD_XTENSA_INFO28,
-	FLD_XTENSA_INFO29,
-	FLD_XTENSA_INFO30,
-	FLD_XTENSA_INFO31,
-	FLD_P_DEBUG_DATA,
-	FLD_IPU_INFO_01,
-	FLD_P_DEBUG_STATUS,
-	FLD_P_DEBUG_INB_PIF,
-	FLD_P_DEBUG_INST,
-	FLD_P_DEBUG_LS0_STAT,
-	FLD_P_DEBUG_LS1_STAT,
-	FLD_P_DEBUG_PC,
-	FLD_IPU_INFO_06,
-	FLD_PSLVERR,
-	FLD_IRAM0_LOAD_STORE,
-	FLD_P_FAULT_INFO_VALID,
-	FLD_P_FATAL_ERROR,
-	FLD_DOUBLE_EXCEPTION_ERROR,
-	FLD_TRIG_OUT_IDMA,
-	FLD_P_FAULT_INFO,
-	FLD_CORE_XTENSA_ALTRESETVEC,
-	VPU_NUM_REG_FIELDS
-};
+/* efuse register related define */
+#define EFUSE_VPU_OFFSET	5
+#define EFUSE_VPU_MASK		0x7
+#define EFUSE_VPU_SHIFT		0
 
+static inline
+unsigned long vpu_reg_base(struct vpu_device *vd)
+{
+	return (unsigned long)vd->reg_base;
+}
 
-struct vpu_reg_desc {
-	enum vpu_reg reg;
-	char *name;
-	uint32_t offset;
-	uint8_t size;
-};
+static inline
+uint32_t vpu_reg_read(struct vpu_device *vd, int offset)
+{
+	return ioread32((void *) (vpu_reg_base(vd) + offset));
+}
 
+static inline
+void vpu_reg_write(struct vpu_device *vd, int offset, uint32_t val)
+{
+	mt_reg_sync_writel(val, (void *) (vpu_reg_base(vd) + offset));
+}
 
-struct vpu_reg_field_desc {
-	enum vpu_reg reg;
-	enum vpu_reg_field field;
-	char *name;
-	uint8_t msb;
-	uint8_t lsb;
-};
+static inline
+void vpu_reg_clr(struct vpu_device *vd, int offset, uint32_t mask)
+{
+	vpu_reg_write(vd, offset, vpu_reg_read(vd, offset) & ~mask);
+}
 
-extern struct vpu_reg_desc g_vpu_reg_descs[VPU_NUM_REGS];
-extern struct vpu_reg_field_desc g_vpu_reg_field_descs[VPU_NUM_REG_FIELDS];
-
-uint32_t vpu_read_field(struct vpu_device *dev, enum vpu_reg_field f);
-void vpu_write_field(struct vpu_device *dev, enum vpu_reg_field f, uint32_t v);
+static inline
+void vpu_reg_set(struct vpu_device *vd, int offset, uint32_t mask)
+{
+	vpu_reg_write(vd, offset, vpu_reg_read(vd, offset) | mask);
+}
 
 #endif
