@@ -1054,7 +1054,8 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	cmdq_pkt_assign_command(pkt, reg_val, value);
 
 	/* init loop counter as 0 */
-	cmdq_pkt_assign_command(pkt, reg_counter, 0);
+	if (count != ~0)
+		cmdq_pkt_assign_command(pkt, reg_counter, 0);
 
 	/* mark begin offset of this operation */
 	begin_mark = pkt->cmd_buf_size;
@@ -1092,17 +1093,20 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	cmdq_pkt_cond_jump_abs(pkt, reg_tmp, &lop, &rop, CMDQ_EQUAL);
 
 	/* check if timeup and inc counter */
-	lop.reg = true;
-	lop.idx = reg_counter;
-	rop.reg = false;
-	rop.value = count;
-	cmdq_pkt_cond_jump_abs(pkt, reg_tmp, &lop, &rop,
-		CMDQ_GREATER_THAN_AND_EQUAL);
-	lop.reg = true;
-	lop.idx = reg_counter;
-	rop.reg = false;
-	rop.value = 1;
-	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, reg_counter, &lop, &rop);
+	if (count != ~0) {
+		lop.reg = true;
+		lop.idx = reg_counter;
+		rop.reg = false;
+		rop.value = count;
+		cmdq_pkt_cond_jump_abs(pkt, reg_tmp, &lop, &rop,
+			CMDQ_GREATER_THAN_AND_EQUAL);
+		lop.reg = true;
+		lop.idx = reg_counter;
+		rop.reg = false;
+		rop.value = 1;
+		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, reg_counter, &lop,
+			&rop);
+	}
 
 	/* sleep for 5 tick, which around 192us */
 	cmdq_pkt_sleep(pkt, 5, reg_gpr);
