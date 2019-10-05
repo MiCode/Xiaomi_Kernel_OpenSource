@@ -2024,7 +2024,7 @@ static void mtk_apu0_init(struct device_node *node)
 					ARRAY_SIZE(apu0_clks), APU0_NR_CLK);
 	if (!apu0_base)
 		return;
-#if MT_CCF_BRINGUP
+#if 0
 	clk_writel(APU_CORE0_CG_CLR, APU_CORE0_CG);
 	pr_notice("%s(): init done\n", __func__);
 #endif
@@ -2056,7 +2056,7 @@ static void mtk_apu1_init(struct device_node *node)
 					ARRAY_SIZE(apu1_clks), APU1_NR_CLK);
 	if (!apu1_base)
 		return;
-#if MT_CCF_BRINGUP
+#if 0
 	clk_writel(APU_CORE1_CG_CLR, APU_CORE1_CG);
 	pr_notice("%s(): init done\n", __func__);
 #endif
@@ -2087,7 +2087,7 @@ static void mtk_apu2_init(struct device_node *node)
 					ARRAY_SIZE(apu2_clks), APU2_NR_CLK);
 	if (!apu2_base)
 		return;
-#if MT_CCF_BRINGUP
+#if 0
 	clk_writel(APU_CORE2_CG_CLR, APU_CORE2_CG);
 	pr_notice("%s(): init done\n", __func__);
 #endif
@@ -2121,7 +2121,7 @@ static void mtk_apu_vcore_init(struct device_node *node)
 			APUSYS_VCORE_NR_CLK);
 	if (!apu_vcore_base)
 		return;
-#if MT_CCF_BRINGUP
+#if 0
 	clk_writel(APU_VCORE_CG_CLR, APU_VCORE_CG);
 	pr_notice("%s(): init done\n", __func__);
 #endif
@@ -2180,7 +2180,7 @@ static void mtk_apu_conn_init(struct device_node *node)
 				ARRAY_SIZE(apu_conn_clks), APU_CONN_NR_CLK);
 	if (!apu_conn_base)
 		return;
-#if MT_CCF_BRINGUP
+#if 0
 	clk_writel(APU_CONN_CG_CLR, APU_CONN_CG);
 	pr_notice("%s(): init done\n", __func__);
 #endif
@@ -2234,7 +2234,7 @@ static void mtk_apu_mdla0_init(struct device_node *node)
 			APU_MDLA0_NR_CLK);
 	if (!apu_mdla0_base)
 		return;
-#if MT_CCF_BRINGUP
+#if 0
 	clk_writel(APU_MDLA0_CG_CLR, APU_MDLA0_CG);
 	pr_notice("%s(): init done\n", __func__);
 #endif
@@ -2288,7 +2288,7 @@ static void mtk_apu_mdla1_init(struct device_node *node)
 			APU_MDLA1_NR_CLK);
 	if (!apu_mdla1_base)
 		return;
-#if MT_CCF_BRINGUP
+#if 0
 	clk_writel(APU_MDLA1_CG_CLR, APU_MDLA1_CG);
 	pr_notice("%s(): init done\n", __func__);
 #endif
