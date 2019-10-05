@@ -173,6 +173,10 @@ static inline void cmdq_mmp_init(void)
 static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
 {
 	static bool is_locked;
+	unsigned long flags;
+	static DEFINE_SPINLOCK(cmdq_wake_lock);
+
+	spin_lock_irqsave(&cmdq_wake_lock, flags);
 
 	if (lock) {
 		if (!is_locked) {
@@ -191,6 +195,8 @@ static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
 			cmdq_err("try unlock twice");
 		}
 	}
+
+	spin_unlock_irqrestore(&cmdq_wake_lock, flags);
 }
 
 static s32 cmdq_clk_enable(struct cmdq *cmdq)
