@@ -33,7 +33,6 @@
 static void __iomem *ufs_mtk_mmio_base_gpio;
 static void __iomem *ufs_mtk_mmio_base_infracfg_ao;
 static void __iomem *ufs_mtk_mmio_base_ufs_mphy;
-static struct regulator *reg_va09;
 
 /**
  * ufs_mtk_pltfrm_pwr_change_final_gear - change pwr mode fianl gear value.
@@ -73,10 +72,6 @@ void wdt_pmic_full_reset(struct ufs_hba *hba)
 	 */
 	pmic_set_register_value_nolock(PMIC_RG_STRUP_EXT_PMIC_SEL, 0x1);
 
-	/* VA09 off, may not require */
-	/* pmic_set_register_value_nolock(PMIC_RG_STRUP_EXT_PMIC_EN, 0x1); */
-	/* pmic_set_register_value_nolock(PMIC_RG_STRUP_EXT_PMIC_SEL, 0x2); */
-
 	/* PMIC cold reset */
 	pmic_set_register_value_nolock(PMIC_RG_CRST, 1);
 }
@@ -87,16 +82,15 @@ void wdt_pmic_full_reset(struct ufs_hba *hba)
 void ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(struct ufs_hba *hba)
 {
 #ifdef UPMU_READY
-	int vcc_enabled, vcc_value, vccq2_enabled, va09_enabled;
+	int vcc_enabled, vcc_value, vccq2_enabled;
 
 	vcc_enabled = pmic_get_register_value(PMIC_RG_LDO_VEMC_EN);
 	vcc_value = pmic_get_register_value(PMIC_RG_VEMC_VOSEL);
 	vccq2_enabled = pmic_get_register_value(PMIC_DA_EXT_PMIC_EN1);
-	va09_enabled = pmic_get_register_value(PMIC_DA_EXT_PMIC_EN1);
-	/* dump vcc, vccq2 and va09 info */
+	/* dump vcc, vccq2 info */
 	dev_info(hba->dev,
-		"vcc_enabled:%d, vcc_value:%d, vccq2_enabled:%d, va09:%d!!!\n",
-		vcc_enabled, vcc_value, vccq2_enabled, va09_enabled);
+		"vcc_enabled:%d, vcc_value:%d, vccq2_enabled:%d!!!\n",
+		vcc_enabled, vcc_value, vccq2_enabled);
 	/* dump clock buffer */
 	clk_buf_dump_clkbuf_log();
 #endif
@@ -243,6 +237,29 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 	int retry;
 
 	/*
+	 * Delay before disable ref-clk: H8 -> delay A -> disable ref-clk
+	 *		delayA
+	 * Hynix	30us
+	 * Samsung	1us
+	 * Toshiba	100us
+	 */
+	if (!on) {
+		switch (ufs_mtk_hba->card->wmanufacturerid) {
+		case UFS_VENDOR_TOSHIBA:
+			udelay(100);
+			break;
+		case UFS_VENDOR_SKHYNIX:
+			udelay(30);
+			break;
+		case UFS_VENDOR_SAMSUNG:
+			udelay(1);
+			break;
+		default:
+			break;
+		}
+	}
+
+	/*
 	 * REG_UFS_ADDR_XOUFS_ST[0] is xoufs_req_s
 	 * REG_UFS_ADDR_XOUFS_ST[1] is xoufs_ack_s
 	 * xoufs_req_s is used for XOUFS Clock request to SPI
@@ -272,6 +289,29 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 			return -EIO;
 		}
 	} while (1);
+
+
+	/* Delay after enable ref-clk: enable ref-clk -> delay B -> leave H8
+	 *		delayB
+	 * Hynix	30us
+	 * Samsung	max(1us,32us)
+	 * Toshiba	32us
+	 */
+	if (on) {
+		switch (ufs_mtk_hba->card->wmanufacturerid) {
+		case UFS_VENDOR_TOSHIBA:
+			udelay(32);
+			break;
+		case UFS_VENDOR_SKHYNIX:
+			udelay(30);
+			break;
+		case UFS_VENDOR_SAMSUNG:
+			udelay(32);
+			break;
+		default:
+			break;
+		}
+	}
 
 	return 0;
 }
@@ -359,27 +399,6 @@ int ufs_mtk_pltfrm_deepidle_check_h8(void)
 	}
 
 	if (tmp == VENDOR_POWERSTATE_HIBERNATE) {
-		/*
-		 * Delay before disable XO_UFS: H8 -> delay A -> disable XO_UFS
-		 *		delayA
-		 * Hynix	30us
-		 * Samsung	1us
-		 * Toshiba	100us
-		 */
-		switch (ufs_mtk_hba->card->wmanufacturerid) {
-		case UFS_VENDOR_TOSHIBA:
-			udelay(100);
-			break;
-		case UFS_VENDOR_SKHYNIX:
-			udelay(30);
-			break;
-		case UFS_VENDOR_SAMSUNG:
-			udelay(1);
-			break;
-		default:
-			break;
-		}
-
 		/* Host need turn off clock by self */
 		ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, false);
 
@@ -414,14 +433,6 @@ void ufs_mtk_pltfrm_deepidle_leave(void)
 
 	/* Host need turn on clock by self */
 	ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, true);
-
-	/* Delay after enable XO_UFS: enable XO_UFS -> delay B -> leave H8
-	 *		delayB
-	 * Hynix	30us
-	 * Samsung	max(1us,32us)
-	 * Toshiba	32us
-	 */
-	udelay(32);
 }
 
 /**
@@ -587,150 +598,18 @@ int ufs_mtk_pltfrm_parse_dt(struct ufs_hba *hba)
 	} else
 		dev_err(hba->dev, "error: ufs_mtk_mmio_base_infracfg_ao init fail\n");
 
-	/* get va09 regulator and enable it */
-	reg_va09 = regulator_get(hba->dev, "va09");
-	if (!reg_va09) {
-		dev_info(hba->dev, "%s: get va09 fail!!!\n", __func__);
-		return -EINVAL;
-	}
-	err = regulator_enable(reg_va09);
-	if (err < 0) {
-		dev_info(hba->dev, "%s: enalbe va09 fail, err = %d\n",
-			__func__, err);
-		return err;
-	}
-
 	return err;
 }
 
 int ufs_mtk_pltfrm_resume(struct ufs_hba *hba)
 {
-	int ret = 0;
-	u32 reg;
-
 	ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, true);
 
-	/* Set regulator to turn on VA09 LDO */
-	ret = regulator_enable(reg_va09);
-	if (ret < 0) {
-		dev_info(hba->dev,
-			"%s: enalbe va09 fail, err = %d\n", __func__, ret);
-		return ret;
-	}
-
-	/* wait 200 us to stablize VA09 */
-	udelay(200);
-
-	/* Step 1: Set RG_VA09_ON to 1 */
-	mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 1, 1, 0, 0);
-
-	/* Step 2: release DA_MP_PLL_PWR_ON */
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-	reg = reg | (0x1 << 11);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-	reg = reg & ~(0x1 << 10);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-
-	/* Step 3: release DA_MP_PLL_ISO_EN */
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-	reg = reg & ~(0x1 << 9);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-	reg = reg & ~(0x1 << 8);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-
-	/* Step 4: release DA_MP_CDR_PWR_ON */
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-	reg = reg | (0x1 << 18);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-	reg = reg & ~(0x1 << 17);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-
-	/* Step 5: release DA_MP_CDR_ISO_EN */
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-	reg = reg & ~(0x1 << 20);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-	reg = reg & ~(0x1 << 19);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-
-	/* Step 6: release DA_MP_RX0_SQ_EN */
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0xA0AC);
-	reg = reg | (0x1 << 1);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0xA0AC);
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0xA0AC);
-	reg = reg & ~(0x1);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0xA0AC);
-
-	/* Delay 1us to wait DIFZ stable */
-	udelay(1);
-
-	/* Step 7: release DIFZ */
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0xA09C);
-	reg = reg & ~(0x1 << 18);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0xA09C);
-
-	return ret;
+	return 0;
 }
 
 int ufs_mtk_pltfrm_suspend(struct ufs_hba *hba)
 {
-	int ret = 0;
-	u32 reg;
-
-	/* Step 1: force DIFZ */
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0xA09C);
-	reg = reg | (0x1 << 18);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0xA09C);
-
-	/* Step 2: force DA_MP_RX0_SQ_EN */
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0xA0AC);
-	reg = reg | (0x1);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0xA0AC);
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0xA0AC);
-	reg = reg & ~(0x1 << 1);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0xA0AC);
-
-	/* Step 3: force DA_MP_CDR_ISO_EN */
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-	reg = reg | (0x1 << 19);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-	reg = reg | (0x1 << 20);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-
-	/* Step 4: force DA_MP_CDR_PWR_ON */
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-	reg = reg | (0x1 << 17);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-	reg = reg & ~(0x1 << 18);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0xB044);
-
-	/* Step 5: force DA_MP_PLL_ISO_EN */
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-	reg = reg | (0x1 << 8);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-	reg = reg | (0x1 << 9);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-
-	/* Step 6: force DA_MP_PLL_PWR_ON */
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-	reg = reg | (0x1 << 10);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-	reg = readl(ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-	reg = reg & ~(0x1 << 11);
-	writel(reg, ufs_mtk_mmio_base_ufs_mphy + 0x008C);
-
-	/* Step 7: Set RG_VA09_ON to 0 */
-	mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 1, 0, 0, 0);
-
-	/* delay awhile to satisfy T_HIBERNATE */
-	mdelay(15);
-
 	/* Disable MPHY 26MHz ref clock in H8 mode */
 	ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, false);
 
@@ -739,20 +618,12 @@ int ufs_mtk_pltfrm_suspend(struct ufs_hba *hba)
 		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
 #endif
 
-	/* Set regulator to turn off VA09 LDO */
-	ret = regulator_disable(reg_va09);
-	if (ret < 0) {
-		dev_info(hba->dev,
-			"%s: disalbe va09 fail, err = %d\n",
-			__func__, ret);
-		return ret;
-	}
 #if 0
 	/* TEST ONLY: emulate UFSHCI power off by HCI SW reset */
 	ufs_mtk_pltfrm_host_sw_rst(hba, SW_RST_TARGET_UFSHCI);
 #endif
 
-	return ret;
+	return 0;
 }
 
 
