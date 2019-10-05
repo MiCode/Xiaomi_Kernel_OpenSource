@@ -17,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/usb/class-dual-role.h>
 
+#ifndef CONFIG_TCPC_CLASS
 #ifdef CONFIG_DUAL_ROLE_USB_INTF
 enum dualrole_state {
 	DUALROLE_NONE,
@@ -136,4 +137,5 @@ int mt_usb_dual_role_init(struct device *dev)
 	return 0;
 }
 #endif /* CONFIG_DUAL_ROLE_USB_INTF */
+#endif /* CONFIG_TCPC_CLASS */
 
