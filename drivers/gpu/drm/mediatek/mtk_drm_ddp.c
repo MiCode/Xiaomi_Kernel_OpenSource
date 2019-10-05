@@ -577,7 +577,7 @@ static const struct mtk_disp_ddp_data mt6779_ddp_driver_data = {
 
 static const struct mtk_disp_ddp_data mt6885_ddp_driver_data = {
 	.mutex_mod = mt6885_mutex_mod,
-	.mutex_sof = mt6885_mutex_mod,
+	.mutex_sof = mt6885_mutex_sof,
 	.mutex_mod_reg = MT6885_DISP_MUTEX0_MOD0,
 	.mutex_sof_reg = MT6885_DISP_MUTEX0_SOF,
 };
@@ -2812,7 +2812,7 @@ void mutex_dump_analysis_mt6885(struct mtk_disp_mutex *mutex)
 			continue;
 
 		val = readl_relaxed(ddp->regs +
-				    DISP_REG_MUTEX_MOD(ddp->data, i));
+				    DISP_REG_MUTEX_SOF(ddp->data, i));
 
 		len = sprintf(p, "MUTEX%d:SOF=%s,EOF=%s,WAIT=%d,module=(", i,
 			      mtk_ddp_get_mutex_sof_name(
@@ -2899,6 +2899,9 @@ void mmsys_config_dump_reg_mt6885(void __iomem *config_regs)
 		mtk_serial_dump_reg(config_regs, off, 4);
 
 	for (off = 0x500; off <= 0x550; off += 0x10)
+		mtk_serial_dump_reg(config_regs, off, 4);
+
+	for (off = 0x650; off <= 0x670; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);
 
 	for (off = 0xE70; off <= 0xff0; off += 0x10)

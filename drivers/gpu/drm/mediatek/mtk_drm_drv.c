@@ -145,9 +145,7 @@ static void mtk_unreference_work(struct work_struct *work)
 	list_for_each_entry_safe(state, tmp, &mtk_drm->unreference.list, list) {
 		list_del(&state->list);
 		spin_unlock_irqrestore(&mtk_drm->unreference.lock, flags);
-#ifdef MTK_DRM_ATOMIC_RELEASE
 		mtk_atomic_state_put(&state->base);
-#endif
 		spin_lock_irqsave(&mtk_drm->unreference.lock, flags);
 	}
 	spin_unlock_irqrestore(&mtk_drm->unreference.lock, flags);
@@ -428,6 +426,26 @@ static void drm_atomic_esd_chk_first_enable(struct drm_device *dev,
 }
 #endif
 
+static void mtk_drm_enable_trig(struct drm_device *drm,
+		struct drm_atomic_state *old_state)
+{
+	struct drm_connector *connector;
+	struct drm_connector_state *new_conn_state;
+	int i;
+
+	for_each_new_connector_in_state(old_state, connector,
+				new_conn_state, i) {
+		if (!new_conn_state->best_encoder)
+			continue;
+
+		if (!new_conn_state->crtc->state->active ||
+		    !drm_atomic_crtc_needs_modeset(new_conn_state->crtc->state))
+			continue;
+
+		mtk_crtc_hw_block_ready(new_conn_state->crtc);
+	}
+}
+
 static void mtk_atomic_complete(struct mtk_drm_private *private,
 				struct drm_atomic_state *state)
 {
@@ -452,6 +470,7 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 	drm_atomic_helper_commit_modeset_disables(drm, state);
 	drm_atomic_helper_commit_modeset_enables(drm, state);
 
+	mtk_drm_enable_trig(drm, state);
 	/*
 	 * To change the CRTC doze state, call the encorder enable/disable
 	 * directly if the actvie state doesn't change.
@@ -476,9 +495,6 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 
 	drm_atomic_helper_cleanup_planes(drm, state);
 
-#ifdef MTK_DRM_ATOMIC_RELEASE
-	mtk_atomic_state_put(state);
-#endif
 }
 
 static void mtk_atomic_work(struct work_struct *work)

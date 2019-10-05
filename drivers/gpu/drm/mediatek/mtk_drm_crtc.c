@@ -1313,7 +1313,9 @@ void mtk_crtc_start_trig_loop(struct mtk_drm_crtc *mtk_crtc)
 				     mtk_crtc->gce_obj.event[EVENT_TE]);
 		cmdq_pkt_wait_no_clear(cmdq_handle,
 				     mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-		cmdq_pkt_wfe(cmdq_handle, mtk_crtc->gce_obj.event[EVENT_TE]);
+		if (mtk_drm_lcm_is_connect())
+			cmdq_pkt_wfe(cmdq_handle,
+					 mtk_crtc->gce_obj.event[EVENT_TE]);
 
 		/* The STREAM BLOCK EVENT is used for stopping frame trigger if
 		 * the engine is stopped
@@ -1354,12 +1356,24 @@ void mtk_crtc_start_trig_loop(struct mtk_drm_crtc *mtk_crtc)
 		cmdq_pkt_set_event(cmdq_handle2,
 				   mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 		cmdq_pkt_set_event(cmdq_handle2,
-				   mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
-		cmdq_pkt_set_event(cmdq_handle2,
 				   mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 		cmdq_pkt_flush(cmdq_handle2);
 		cmdq_pkt_destroy(cmdq_handle2);
 	}
+}
+
+void mtk_crtc_hw_block_ready(struct drm_crtc *crtc)
+{
+	struct cmdq_pkt *cmdq_handle;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+		mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	cmdq_pkt_set_event(cmdq_handle,
+			   mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
 }
 
 static void mtk_crtc_stop_trig_loop(struct mtk_drm_crtc *mtk_crtc)

@@ -1772,8 +1772,9 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 
 	switch (flag) {
 	case MTK_TRIG_FLAG_TRIGGER:
-		cmdq_pkt_write(handle, comp->cmdq_base, 0x14000000 + 0xF0, 0x14,
-			       0x14);
+		/* TODO: avoid hardcode: 0xF0 register offset  */
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->mtk_crtc->config_regs_pa + 0xF0, 0x1, 0x1);
 
 		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x200,
 			       0x002c3909, ~0);

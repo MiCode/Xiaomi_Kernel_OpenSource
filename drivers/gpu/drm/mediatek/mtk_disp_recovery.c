@@ -408,8 +408,13 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 
 void mtk_disp_esd_check_switch(struct drm_crtc *crtc, bool enable)
 {
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
+
+	if (!mtk_drm_helper_get_opt(priv->helper_opt,
+					   MTK_DRM_OPT_ESD_CHECK_RECOVERY))
+		return;
 
 	if (unlikely(!esd_ctx)) {
 		DDPINFO("%s:invalid ESD context, crtc id:%d\n",
