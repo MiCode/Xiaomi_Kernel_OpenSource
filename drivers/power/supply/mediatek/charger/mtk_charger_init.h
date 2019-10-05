@@ -30,6 +30,11 @@
 #define APPLE_2_1A_CHARGER_CURRENT		800000
 #define TA_AC_CHARGING_CURRENT	3000000
 
+/* dynamic mivr */
+#define V_CHARGER_MIN_1 4400000 /* 4.4 V */
+#define V_CHARGER_MIN_2 4200000 /* 4.2 V */
+#define MAX_DMIVR_CHARGER_CURRENT 1400000 /* 1.4 A */
+
 /* sw jeita */
 #define JEITA_TEMP_ABOVE_T4_CV	4240000
 #define JEITA_TEMP_T3_TO_T4_CV	4240000
@@ -71,7 +76,10 @@
 /* dual charger */
 #define TA_AC_MASTER_CHARGING_CURRENT 1500000
 #define TA_AC_SLAVE_CHARGING_CURRENT 1500000
+#define SLAVE_MIVR_DIFF 100000
 
+/* slave charger */
+#define CHG2_EFF 90
 
 /* cable measurement impedance */
 #define CABLE_IMP_THRESHOLD 699
@@ -87,8 +95,27 @@
 
 #define MAX_CHARGING_TIME (12 * 60 * 60) /* 12 hours */
 
+#define DEFAULT_BC12_CHARGER 0 /* MAIN_CHARGER */
+
 /* battery warning */
 #define BATTERY_NOTIFY_CASE_0001_VCHARGER
 #define BATTERY_NOTIFY_CASE_0002_VBATTEMP
+
+/* pe4 */
+#define PE40_MAX_VBUS 11000
+#define PE40_MAX_IBUS 3000
+#define HIGH_TEMP_TO_LEAVE_PE40 46
+#define HIGH_TEMP_TO_ENTER_PE40 39
+#define LOW_TEMP_TO_LEAVE_PE40 10
+#define LOW_TEMP_TO_ENTER_PE40 16
+
+/* pd */
+#define PD_VBUS_UPPER_BOUND 10000000	/* uv */
+#define PD_VBUS_LOW_BOUND 5000000	/* uv */
+#define PD_ICHG_LEAVE_THRESHOLD 1000000 /* uA */
+#define PD_STOP_BATTERY_SOC 80
+
+#define VSYS_WATT 5000000
+#define IBUS_ERR 14
 
 #endif /*__MTK_CHARGER_INIT_H__*/

@@ -20,6 +20,8 @@
 #include <linux/gpio.h>
 #include <linux/pm_wakeup.h>
 #include <linux/reboot.h>
+#include <linux/pm.h>
+#include <linux/cpumask.h>
 
 #include "tcpm.h"
 
@@ -59,11 +61,6 @@ static unsigned char vconn_on;
 static struct charger_device *primary_charger;
 static struct charger_consumer *chg_consumer;
 #endif
-
-static void tcpc_mt_power_off(void)
-{
-	kernel_power_off();
-}
 
 #if CONFIG_MTK_GAUGE_VERSION == 20
 #ifdef CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT
@@ -161,9 +158,6 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 					unsigned long event, void *data)
 {
 	struct tcp_notify *noti = data;
-	u32 vbus = 0;
-	int ret = 0;
-	int boot_mode = 0;
 
 	switch (event) {
 	case TCP_NOTIFY_SOURCE_VCONN:
@@ -245,72 +239,15 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		}
 		break;
 	case TCP_NOTIFY_TYPEC_STATE:
-		if (noti->typec_state.new_state == TYPEC_ATTACHED_SNK ||
-		    noti->typec_state.new_state == TYPEC_ATTACHED_CUSTOM_SRC ||
-		    noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC) {
-#ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
-#if CONFIG_MTK_GAUGE_VERSION == 30
-			charger_dev_enable_chg_type_det(primary_charger, true);
-#else
-			mtk_chr_enable_chr_type_det(true);
-#endif
-#else
-			mtk_pmic_enable_chr_type_det(true);
-#endif
-			pr_info("%s USB Plug in, pol = %d\n", __func__,
-					noti->typec_state.polarity);
-#if CONFIG_MTK_GAUGE_VERSION == 20
-#ifdef CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT
-			mutex_lock(&pd_chr_mutex);
-			isCableIn = true;
-			updatechrdet = true;
-			wake_up_pd_chrdet();
-			mutex_unlock(&pd_chr_mutex);
-			pr_notice("TCP_NOTIFY_SINK_VBUS=> plug in");
-#endif
-#endif
-		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SNK ||
-		    noti->typec_state.old_state == TYPEC_ATTACHED_CUSTOM_SRC ||
-			noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC)
-			&& (noti->typec_state.new_state == TYPEC_UNATTACHED ||
-			noti->typec_state.new_state == TYPEC_ATTACHED_SRC)) {
-			if (tcpc_kpoc) {
-				vbus = battery_get_vbus();
-				pr_info("%s KPOC Plug out, vbus = %d\n",
-					__func__, vbus);
-				tcpc_mt_power_off();
-				break;
-			}
-			pr_info("%s USB Plug out\n", __func__);
-#if CONFIG_MTK_GAUGE_VERSION == 20
-#ifdef CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT
-			mutex_lock(&pd_chr_mutex);
-			isCableIn = false;
-			updatechrdet = true;
-			wake_up_pd_chrdet();
-			mutex_unlock(&pd_chr_mutex);
-			pr_notice("TCP_NOTIFY_SINK_VBUS=> plug out");
-#endif
-#endif
-#ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
-#if CONFIG_MTK_GAUGE_VERSION == 30
-			ret = charger_dev_enable_chg_type_det(primary_charger,
-				false);
-#else
-			ret = mtk_chr_enable_chr_type_det(false);
-#endif
-#else
-			mtk_pmic_enable_chr_type_det(false);
-#endif
-			boot_mode = get_boot_mode();
-			if (ret < 0) {
-				if (boot_mode == KERNEL_POWER_OFF_CHARGING_BOOT
-				|| boot_mode == LOW_POWER_OFF_CHARGING_BOOT) {
-					pr_info("%s: notify chg detach fail, power off\n",
-						__func__);
-					kernel_power_off();
-				}
-			}
+		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
+			noti->typec_state.new_state == TYPEC_ATTACHED_AUDIO) {
+			/* AUDIO plug in */
+			pr_info("%s audio plug in\n", __func__);
+
+		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO
+			&& noti->typec_state.new_state == TYPEC_UNATTACHED) {
+			/* AUDIO plug out */
+			pr_info("%s audio plug out\n", __func__);
 		}
 		break;
 	case TCP_NOTIFY_PD_STATE:
@@ -330,15 +267,33 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 #endif
 		break;
 
-	case TCP_NOTIFY_HARD_RESET_STATE:
-		if (noti->hreset_state.state == TCP_HRESET_RESULT_DONE ||
-			noti->hreset_state.state == TCP_HRESET_RESULT_FAIL) {
-			charger_manager_enable_kpoc_shutdown(chg_consumer,
-				true);
-		} else if (noti->hreset_state.state == TCP_HRESET_SIGNAL_SEND ||
-			noti->hreset_state.state == TCP_HRESET_SIGNAL_RECV) {
-			charger_manager_enable_kpoc_shutdown(chg_consumer,
-				false);
+	case TCP_NOTIFY_WD_STATUS:
+		pr_info("%s wd status = %d\n",
+			__func__, noti->wd_status.water_detected);
+
+		if (tcpc_kpoc) {
+			if (noti->wd_status.water_detected) {
+				pr_info("Water is detected in KPOC, disable HV charging\n");
+				charger_manager_enable_high_voltage_charging(
+					chg_consumer, false);
+			} else {
+				pr_info("Water is removed in KPOC, enable HV charging\n");
+				charger_manager_enable_high_voltage_charging(
+					chg_consumer, true);
+			}
+		}
+		break;
+	case TCP_NOTIFY_CABLE_TYPE:
+		pr_info("%s cable type = %d\n", __func__,
+			noti->cable_type.type);
+		break;
+	case TCP_NOTIFY_PLUG_OUT:
+		pr_info("%s typec plug out\n", __func__);
+
+		if (tcpc_kpoc) {
+			pr_info("[%s] typec cable plug out, power off\n",
+				__func__);
+			kernel_power_off();
 		}
 		break;
 	default:
@@ -465,7 +420,7 @@ static void __exit rt_pd_manager_exit(void)
 	platform_driver_unregister(&rt_pd_manager_driver);
 }
 
-late_initcall_sync(rt_pd_manager_init);
+late_initcall(rt_pd_manager_init);
 module_exit(rt_pd_manager_exit);
 
 MODULE_AUTHOR("Jeff Chang");

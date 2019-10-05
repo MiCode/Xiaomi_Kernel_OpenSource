@@ -38,6 +38,7 @@ enum {
 enum {
 	MAIN_CHARGER = 0,
 	SLAVE_CHARGER = 1,
+	TOTAL_CHARGER = 2,
 	DIRECT_CHARGER = 10,
 };
 
@@ -98,14 +99,20 @@ extern int charger_manager_enable_power_path(
 	struct charger_consumer *consumer,
 	int idx,
 	bool en);
+extern int charger_manager_enable_charging(
+	struct charger_consumer *consumer,
+	int idx,
+	bool en);
 extern int charger_manager_get_zcv(
 	struct charger_consumer *consumer,
 	int idx,
 	u32 *uV);
-extern int charger_manager_enable_kpoc_shutdown(
+extern int charger_manager_enable_chg_type_det(
 	struct charger_consumer *consumer,
 	bool en);
 extern int mtk_chr_is_charger_exist(unsigned char *exist);
 extern bool is_power_path_supported(void);
+extern int charger_get_vbus(void);
+extern bool mt_charger_plugin(void);
 
 #endif /* __MTK_CHARGER_H__ */
