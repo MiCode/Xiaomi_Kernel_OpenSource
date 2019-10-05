@@ -10,6 +10,7 @@
 #include <linux/slab.h>
 #include <linux/cpu_pm.h>
 #include <linux/syscore_ops.h>
+#include <linux/suspend.h>
 #include <asm/cpuidle.h>
 #include <asm/suspend.h>
 
@@ -126,5 +127,9 @@ struct mtk_lpm_model mt6885_model_suspend = {
 int __init mt6885_model_suspend_init(void)
 {
 	mtk_lpm_suspend_registry("suspend", &mt6885_model_suspend);
+
+#ifdef CONFIG_PM_SLEEP_DEBUG
+	pm_print_times_enabled = false;
+#endif
 	return 0;
 }
