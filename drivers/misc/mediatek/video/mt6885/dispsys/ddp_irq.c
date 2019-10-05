@@ -47,7 +47,7 @@
 /* IRQ log print kthread */
 static struct task_struct *disp_irq_log_task;
 static wait_queue_head_t disp_irq_log_wq;
-static int disp_irq_log_module;
+static unsigned long disp_irq_log_module;
 static int disp_irq_rdma_underflow;
 static int irq_init;
 
@@ -320,7 +320,7 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 			DDPERR("IRQ: WDMA%d underrun! cnt=%d\n", index,
 			       cnt_wdma_underflow[index]++);
 
-			disp_irq_log_module |= 1 << module;
+			disp_irq_log_module |= 1UL << module;
 		}
 		/* clear intr */
 		DISP_CPU_REG_SET(DISP_REG_WDMA_INTSTA, ~reg_val);
@@ -375,7 +375,7 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 
 			DDPERR("IRQ: RDMA%d abnormal! cnt=%d\n",
 				index, cnt_rdma_abnormal[index]++);
-			disp_irq_log_module |= 1 << module;
+			disp_irq_log_module |= 1UL << module;
 
 		}
 		if (reg_val & (1 << 4)) {
@@ -396,7 +396,7 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 					    DISP_RDMA_INDEX_OFFSET * index),
 			       DISP_REG_GET(DISP_REG_RDMA_OUT_LINE_CNT +
 					    DISP_RDMA_INDEX_OFFSET * index));
-			disp_irq_log_module |= 1 << module;
+			disp_irq_log_module |= 1UL << module;
 			rdma_underflow_irq_cnt[index]++;
 			disp_irq_rdma_underflow = 1;
 		}
@@ -577,10 +577,10 @@ static int disp_irq_log_kthread_func(void *data)
 
 	while (1) {
 		wait_event_interruptible(disp_irq_log_wq, disp_irq_log_module);
-		DDPMSG("%s dump intr register: disp_irq_log_module=%d\n",
+		DDPMSG("%s dump intr register: disp_irq_log_module=%ld\n",
 		       __func__, disp_irq_log_module);
 		for (i = 0; i < DISP_MODULE_NUM; i++) {
-			if ((disp_irq_log_module & (1 << i)) != 0)
+			if ((disp_irq_log_module & (1UL << i)) != 0)
 				ddp_dump_reg(i);
 
 		}

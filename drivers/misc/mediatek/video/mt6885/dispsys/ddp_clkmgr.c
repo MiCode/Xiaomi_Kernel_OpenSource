@@ -54,6 +54,7 @@ static struct ddp_clk ddp_clks[MAX_DISP_CLK_CNT] = {
 	{NULL, "MMSYS_DISP_COLOR0", 0, (1), DISP_MODULE_COLOR0},
 	{NULL, "MMSYS_DISP_CCORR0", 0, (1), DISP_MODULE_CCORR0},
 	{NULL, "MMSYS_DISP_AAL0", 0, (1), DISP_MODULE_AAL0},
+	{NULL, "MMSYS_DISP_MDP_AAL4", 0, (1), DISP_MODULE_MDP_AAL4},
 	{NULL, "MMSYS_DISP_GAMMA0", 0, (1), DISP_MODULE_GAMMA0},
 	{NULL, "MMSYS_DISP_POSTMASK0", 0, (1), DISP_MODULE_POSTMASK0},
 	{NULL, "MMSYS_DISP_DITHER0", 0, (1), DISP_MODULE_DITHER0},
@@ -492,6 +493,9 @@ int ddp_clk_enable_by_module(enum DISP_MODULE_ENUM module)
 	case DISP_MODULE_AAL0:
 		ddp_clk_prepare_enable(CLK_DISP_AAL0);
 		break;
+	case DISP_MODULE_MDP_AAL4:
+		ddp_clk_prepare_enable(CLK_DISP_MDP_AAL4);
+		break;
 	case DISP_MODULE_GAMMA0:
 		ddp_clk_prepare_enable(CLK_DISP_GAMMA0);
 		break;
@@ -541,6 +545,9 @@ int ddp_clk_disable_by_module(enum DISP_MODULE_ENUM module)
 		break;
 	case DISP_MODULE_AAL0:
 		ddp_clk_disable_unprepare(CLK_DISP_AAL0);
+		break;
+	case DISP_MODULE_MDP_AAL4:
+		ddp_clk_disable_unprepare(CLK_DISP_MDP_AAL4);
 		break;
 	case DISP_MODULE_GAMMA0:
 		ddp_clk_disable_unprepare(CLK_DISP_GAMMA0);
