@@ -365,40 +365,41 @@ config MACH_MT8168
           Support for mt8168 related projects
 
 config MACH_MT6885
-        bool "MediaTek MT6885"
-        select GENERIC_TIME
-        select GENERIC_CLOCKEVENTS
-        select ARCH_HAS_CPUFREQ
-        select ARM_AMBA
-        select CPU_V7
-        select HAVE_SMP
-        select NEED_MACH_MEMORY_H
-        select IRQ_DOMAIN
-        select IRQ_DOMAIN_DEBUG
-        select GENERIC_SCHED_CLOCK
-        select ARMV7_COMPAT
-        select ARMV7_COMPAT_CPUINFO
-        select PINCTRL
-        select PINCTRL_MT6885
-        select MFD_SYSCON
-        select CPU_IDLE
-        select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	bool "MediaTek MT6885"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select PINCTRL_MT6885
+	select MFD_SYSCON
+	select CPU_IDLE
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
 	select MTK_POL_DEPRECATED
-        select ARM64_CRYPTO
+	select ARM64_CRYPTO
 	select MTK_GIC_TARGET_ALL
-        select CRYPTO_SHA2_ARM64_CE
-        select CRYPTO_AES_ARM64_CE_BLK
-        select MTK_ES_REG
-        select MTK_CQDMA
-        select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
-        select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
-        select MTK_TIMER_SYSTIMER
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select MTK_ES_REG
+	select MTK_CQDMA
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_TIMER_SYSTIMER
 	select MTK_BASE_POWER
 	select ARM_MTK_NEW_ARCH_CPUIDLE
 	select MTK_LPM
 	select MTK_LOW_POWER_MODULE
 	select MTK_LPM_MT6885
-        select COMMON_CLK_MT6885
+	select COMMON_CLK_MT6885
+	select DEVAPC_MT6885
         help
           This enables support for MediaTek MT6885
           Support for aarch64 Architecture
