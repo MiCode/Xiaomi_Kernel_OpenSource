@@ -1143,12 +1143,14 @@ static inline unsigned int uclamp_effective_group_id(struct task_struct *p,
 		unsigned int clamp_max;
 		unsigned int group_max;
 
+		/* Group specific clamp value */
 		uc_se = task_schedtune_uclamp(p, clamp_id);
 		clamp_max = uc_se->effective.value;
 		group_max = uc_se->effective.group_id;
 
+		/* Use group clamp value restrict task clamp value */
 		if (!p->uclamp[clamp_id].user_defined ||
-		    clamp_value > clamp_max) {
+			(clamp_max > 0 && clamp_value != clamp_max)) {
 			clamp_value = clamp_max;
 			group_id = group_max;
 		}
