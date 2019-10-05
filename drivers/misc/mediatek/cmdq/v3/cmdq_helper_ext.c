@@ -4317,17 +4317,6 @@ dma_addr_t cmdq_core_get_end(s32 thread)
 	return CMDQ_REG_REVERT_ADDR(end);
 }
 
-unsigned long cmdq_get_tracing_mark(void)
-{
-	static unsigned long __read_mostly tracing_mark_write_addr;
-
-	if (unlikely(tracing_mark_write_addr == 0))
-		tracing_mark_write_addr =
-			kallsyms_lookup_name("tracing_mark_write");
-
-	return tracing_mark_write_addr;
-}
-
 static s32 cmdq_pkt_handle_wait_result(struct cmdqRecStruct *handle, s32 thread)
 {
 	s32 ret = 0;

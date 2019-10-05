@@ -1502,6 +1502,7 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 	}
 
 	pkt->rec_wait = sched_clock();
+	cmdq_trace_begin("%s", __func__);
 
 	do {
 		ret = wait_for_completion_timeout(&item->cmplt,
@@ -1523,6 +1524,7 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 			cmdq_util_msg("curr inst: Not Available");
 	} while (1);
 
+	cmdq_trace_end();
 	cmdq_util_track(pkt);
 
 	return item->err;

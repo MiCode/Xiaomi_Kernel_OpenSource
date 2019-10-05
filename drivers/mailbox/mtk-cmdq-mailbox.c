@@ -1256,7 +1256,9 @@ static int cmdq_remove(struct platform_device *pdev)
 
 static int cmdq_mbox_send_data(struct mbox_chan *chan, void *data)
 {
+	cmdq_trace_begin("%s", __func__);
 	cmdq_task_exec(data, chan->con_priv);
+	cmdq_trace_end();
 	return 0;
 }
 
@@ -1818,5 +1820,16 @@ void cmdq_event_verify(void *chan, u16 event_id)
 	cmdq_msg("end debug event for %u", event_id);
 }
 EXPORT_SYMBOL(cmdq_event_verify);
+
+unsigned long cmdq_get_tracing_mark(void)
+{
+	static unsigned long __read_mostly tracing_mark_write_addr;
+
+	if (unlikely(tracing_mark_write_addr == 0))
+		tracing_mark_write_addr =
+			kallsyms_lookup_name("tracing_mark_write");
+
+	return tracing_mark_write_addr;
+}
 
 arch_initcall(cmdq_drv_init);

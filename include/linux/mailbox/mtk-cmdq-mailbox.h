@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/trace_events.h>
 
 #if !IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 #define cmdq_util_msg(f, args...) cmdq_msg(f, ##args)
@@ -241,6 +242,20 @@ do { \
 #define cmdq_dump(fmt, args...) \
 	pr_notice("[cmdq][err] "fmt"\n", ##args)
 
+/* CMDQ FTRACE */
+#define cmdq_trace_begin(fmt, args...) do { \
+	preempt_disable(); \
+	event_trace_printk(cmdq_get_tracing_mark(), \
+		"B|%d|"fmt"\n", current->tgid, ##args); \
+	preempt_enable();\
+} while (0)
+
+#define cmdq_trace_end() do { \
+	preempt_disable(); \
+	event_trace_printk(cmdq_get_tracing_mark(), "E\n"); \
+	preempt_enable(); \
+} while (0)
+
 dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread);
 dma_addr_t cmdq_thread_get_end(struct cmdq_thread *thread);
 void cmdq_mbox_channel_stop(struct mbox_chan *chan);
@@ -271,8 +286,11 @@ void cmdq_set_event(void *chan, u16 event_id);
 void cmdq_clear_event(void *chan, u16 event_id);
 u32 cmdq_get_event(void *chan, u16 event_id);
 void cmdq_event_verify(void *chan, u16 event_id);
+unsigned long cmdq_get_tracing_mark(void);
+
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt);
 #endif
+
 #endif /* __MTK_CMDQ_MAILBOX_H__ */

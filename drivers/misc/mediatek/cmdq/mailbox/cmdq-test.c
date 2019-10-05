@@ -718,6 +718,25 @@ static void cmdq_test_mbox_subsys_access(struct cmdq_test *test)
 	cmdq_access_sub_impl(test, test->loop, "loop");
 }
 
+static void cmdq_test_err_irq(struct cmdq_test *test)
+{
+	struct cmdq_pkt *pkt;
+	struct cmdq_pkt_buffer *buf;
+	u64 *inst;
+
+	pkt = cmdq_pkt_create(test->clt);
+	cmdq_pkt_jump(pkt, 0);
+
+	buf = list_first_entry(&pkt->buf, typeof(*buf), list_entry);
+	inst = (u64 *)buf->va_base;
+	*inst = 0xffffbeefdeadbeef;
+
+	cmdq_pkt_flush(pkt);
+	cmdq_pkt_destroy(pkt);
+
+	cmdq_msg("%s end", __func__);
+}
+
 static void cmdq_test_trigger(struct cmdq_test *test, const s32 id)
 {
 	switch (id < 0 ? -id : id) {
@@ -794,6 +813,9 @@ static void cmdq_test_trigger(struct cmdq_test *test, const s32 id)
 		break;
 	case 11:
 		cmdq_test_mbox_subsys_access(test);
+		break;
+	case 12:
+		cmdq_test_err_irq(test);
 		break;
 	default:
 		break;

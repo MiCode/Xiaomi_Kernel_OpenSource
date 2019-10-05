@@ -983,7 +983,6 @@ struct ContextStruct *cmdq_core_get_context(void);
 struct CmdqCBkStruct *cmdq_core_get_group_cb(void);
 dma_addr_t cmdq_core_get_pc(s32 thread);
 dma_addr_t cmdq_core_get_end(s32 thread);
-unsigned long cmdq_get_tracing_mark(void);
 const struct cmdq_controller *cmdq_core_get_controller(void);
 
 
