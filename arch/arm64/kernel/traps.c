@@ -694,6 +694,15 @@ asmlinkage void bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
 {
 	console_verbose();
 
+#ifdef CONFIG_MEDIATEK_SOLUTION
+	/*
+	 * reason is defined in entry.S, 3 means BAD_ERROR,
+	 * which would be triggered by async abort
+	 */
+	if ((reason == 3) && async_abort_handler)
+		async_abort_handler(regs, async_abort_priv);
+#endif
+
 	pr_crit("Bad mode in %s handler detected on CPU%d, code 0x%08x -- %s\n",
 		handler[reason], smp_processor_id(), esr,
 		esr_get_class_string(esr));
