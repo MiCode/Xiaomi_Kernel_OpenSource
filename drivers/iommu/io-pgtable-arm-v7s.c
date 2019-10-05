@@ -361,9 +361,11 @@ static arm_v7s_iopte arm_v7s_prot_to_pte(int prot, int lvl,
 	else if (prot & IOMMU_CACHE)
 		pte |= ARM_V7S_ATTR_B | ARM_V7S_ATTR_C;
 
+#ifdef CONFIG_MTK_IOMMU_V2
 	if (WARN_ON(pte & 0x400))
 		pr_notice("%s, %d, acp is configured, lvl:%d\n",
 			  __func__, __LINE__, lvl);
+#endif
 
 	pte |= ARM_V7S_PTE_TYPE_PAGE;
 	if (lvl == 1 && (cfg->quirks & IO_PGTABLE_QUIRK_ARM_NS))
