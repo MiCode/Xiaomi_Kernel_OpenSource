@@ -109,12 +109,12 @@ struct mrdump_machdesc {
 	uint64_t high_memory;
 
 	uint64_t kimage_vaddr;
-	uint64_t kimage_init_begin;
-	uint64_t kimage_init_end;
+	uint64_t dram_start;
+	uint64_t dram_end;
 	uint64_t kimage_stext;
 	uint64_t kimage_etext;
-	uint64_t kimage_srodata;
-	uint64_t kimage_erodata;
+	uint64_t kimage_stext_real;
+	uint64_t kimage_voffset;
 	uint64_t kimage_sdata;
 	uint64_t kimage_edata;
 
@@ -238,19 +238,9 @@ static inline void mrdump_rsvmem(void)
 }
 #endif
 
-typedef int (*mrdump_write)(void *buf, int off, int len, int encrypt);
 #if defined(CONFIG_MTK_AEE_IPANIC)
-int mrdump_mini_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
-		mrdump_write write, loff_t sd_offset, const char *msg,
-		va_list ap);
 void mrdump_mini_reserve_memory(void);
 #else
-static inline int mrdump_mini_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
-		mrdump_write write, loff_t sd_offset, const char *msg,
-		va_list ap)
-{
-	return 0;
-}
 
 static inline void mrdump_mini_reserve_memory(void)
 {
