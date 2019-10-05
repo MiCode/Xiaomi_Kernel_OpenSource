@@ -1379,12 +1379,20 @@ int goodix_ts_input_dev_config(struct goodix_ts_core *core_data)
  *input_mt_init_slots(input_dev, ts_bdata->panel_max_id,
  *			INPUT_MT_DIRECT);
  */
-	input_mt_init_slots(input_dev,
+	r = input_mt_init_slots(input_dev,
 			ts_bdata->panel_max_id * 2 + 1,
 			INPUT_MT_DIRECT);
+	if (r < 0) {
+		ts_err("input_mt_init_slots err0");
+		return r;
+	}
 #else
-	input_mt_init_slots(input_dev,
+	r = input_mt_init_slots(input_dev,
 			ts_bdata->panel_max_id * 2 + 1);
+	if (r < 0) {
+		ts_err("input_mt_init_slots err1");
+		return r;
+	}
 #endif
 #endif
 
