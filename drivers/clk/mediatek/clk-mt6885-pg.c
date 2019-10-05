@@ -1167,7 +1167,7 @@ static void ram_console_update(void)
 				pgcb->debug_dump(DBG_ID);
 		}
 	}
-	for (j = 0; j <= i; j++)
+	for (j = 0; j < ARRAY_SIZE(data); j++)
 		aee_rr_rec_clk(j, data[j]);
 	/*todo: add each domain's debug register to ram console*/
 #endif
