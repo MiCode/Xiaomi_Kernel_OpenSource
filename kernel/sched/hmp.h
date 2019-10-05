@@ -19,6 +19,8 @@ LIST_HEAD(hmp_domains);
  *  if hybrid enabled and system is over-utilized.
  */
 static bool sd_overutilized(struct sched_domain *sd);
+
+extern bool sched_smp_initialized;
 static inline bool should_hmp(int cpu)
 {
 #ifdef CONFIG_MTK_SCHED_EAS_POWER_SUPPORT
@@ -34,11 +36,10 @@ static inline bool should_hmp(int cpu)
 
 	rcu_read_unlock();
 #endif
-	return sched_feat(SCHED_HMP);
+	return sched_smp_initialized && sched_feat(SCHED_HMP);
 }
 
 extern int cpu_park(int cpu);
-static void __init hmp_cpu_mask_setup(void);
 
 #ifdef CONFIG_SCHED_HMP
 
