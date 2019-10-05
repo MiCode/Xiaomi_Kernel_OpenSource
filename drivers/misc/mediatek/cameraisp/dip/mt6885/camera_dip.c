@@ -2126,43 +2126,56 @@ static inline int m4u_control_iommu_port(void)
 	int ret = 0;
 
 	/* LARB9 */
-	sPort.ePortID = M4U_PORT_L9_IMG_IMGI_D1_MDP;
-	sPort.Virtuality = DIP_MEM_USE_VIRTUL;
+	int count_of_ports = 0;
+	int i = 0;
 
-#if defined(CONFIG_MTK_M4U)
-	ret = m4u_config_port(&sPort);
-#endif
+	/* LARB13 config all ports */
+	count_of_ports = M4U_PORT_L9_IMG_UFBC_R0_MDP -
+		M4U_PORT_L9_IMG_IMGI_D1_MDP + 1;
+	for (i = 0; i < count_of_ports; i++) {
+		sPort.ePortID = M4U_PORT_L9_IMG_IMGI_D1_MDP+i;
+		sPort.Virtuality = DIP_MEM_USE_VIRTUL;
+		LOG_INF("config M4U Port ePortID=%d\n", sPort.ePortID);
+	#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
+		ret = m4u_config_port(&sPort);
 
-	if (ret == 0) {
-		LOG_INF("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L9_IMG_IMGI_D1_MDP),
+		if (ret == 0) {
+			LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L9_IMG_IMGI_D1_MDP+i),
 			DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
-	} else {
-		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
-			iommu_get_port_name(M4U_PORT_L9_IMG_IMGI_D1_MDP),
+		} else {
+			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L9_IMG_IMGI_D1_MDP+i),
 			DIP_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
-		ret = -1;
-	}
+			ret = -1;
+		}
+	#endif
 
+
+	}
 	/* LARB11 */
-	sPort.ePortID = M4U_PORT_L11_IMG_IMGI_D1_DISP;
-	sPort.Virtuality = DIP_MEM_USE_VIRTUL;
+		count_of_ports = M4U_PORT_L11_IMG_UFBC_R0_DISP -
+		M4U_PORT_L11_IMG_IMGI_D1_DISP + 1;
+	for (i = 0; i < count_of_ports; i++) {
+		sPort.ePortID = M4U_PORT_L11_IMG_IMGI_D1_DISP+i;
+		sPort.Virtuality = DIP_MEM_USE_VIRTUL;
+		LOG_INF("config M4U Port ePortID=%d\n", sPort.ePortID);
+	#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
+		ret = m4u_config_port(&sPort);
 
-#if defined(CONFIG_MTK_M4U)
-	ret = m4u_config_port(&sPort);
-#endif
-
-	if (ret == 0) {
-		LOG_INF("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L11_IMG_IMGI_D1_DISP),
+		if (ret == 0) {
+			LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L11_IMG_IMGI_D1_DISP+i),
 			DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
-	} else {
-		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
-			iommu_get_port_name(M4U_PORT_L11_IMG_IMGI_D1_DISP),
+		} else {
+			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L11_IMG_IMGI_D1_DISP+i),
 			DIP_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
-		ret = -1;
-	}
+			ret = -1;
+		}
+	#endif
 
+	}
 	return ret;
 }
 #endif
@@ -4886,7 +4899,6 @@ static signed int DIP_probe(struct platform_device *pDev)
 		dip_dev->dev->coherent_dma_mask =
 			(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
 #endif
-
 	LOG_INF("nr_dip_devs=%d, devnode(%s), map_addr=0x%lx\n",
 		nr_dip_devs,
 		pDev->dev.of_node->name,
