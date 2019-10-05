@@ -85,12 +85,14 @@ void mtk_atomic_state_get(struct drm_atomic_state *state)
 	struct mtk_atomic_state *mtk_state = to_mtk_state(state);
 
 	kref_get(&mtk_state->kref);
+	kref_get(&state->ref);
 }
 
 static void mtk_atomic_state_put(struct drm_atomic_state *state)
 {
 	struct mtk_atomic_state *mtk_state = to_mtk_state(state);
 
+	drm_atomic_state_put(state);
 	kref_put(&mtk_state->kref, mtk_atomic_state_free);
 }
 

@@ -30,8 +30,7 @@
 
 #define MTK_DRM_FENCE_SUPPORT
 #define MTK_DRM_ESD_SUPPORT
-/* #define MTK_DRM_CMDQ_ASYNC */
-/* #define MTK_DRM_ATOMIC_RELEASE */
+#define MTK_DRM_CMDQ_ASYNC
 #define CONFIG_MTK_DISPLAY_CMDQ
 
 struct device;
