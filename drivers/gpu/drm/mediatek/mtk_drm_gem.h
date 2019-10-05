@@ -52,6 +52,12 @@ int mtk_drm_gem_dumb_map_offset(struct drm_file *file_priv,
 int mtk_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
 int mtk_drm_gem_mmap_buf(struct drm_gem_object *obj,
 			 struct vm_area_struct *vma);
+#if defined(CONFIG_MTK_IOMMU_V2)
+struct ion_client *mtk_drm_gem_ion_create(const char *name);
+#endif
+struct drm_gem_object *
+mtk_gem_prime_import(struct drm_device *dev,
+			      struct dma_buf *dma_buf);
 struct sg_table *mtk_gem_prime_get_sg_table(struct drm_gem_object *obj);
 struct drm_gem_object *
 mtk_gem_prime_import_sg_table(struct drm_device *dev,

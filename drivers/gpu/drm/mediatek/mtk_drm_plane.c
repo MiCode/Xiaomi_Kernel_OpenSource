@@ -200,7 +200,7 @@ static int mtk_plane_atomic_get_property(struct drm_plane *plane,
 		}
 	}
 
-	DDPINFO("%s:%d fail to get property:%s %p\n", __func__, __LINE__,
+	DDPPR_ERR("%s:%d fail to get property:%s %p\n", __func__, __LINE__,
 			property->name, val);
 
 	return -EINVAL;

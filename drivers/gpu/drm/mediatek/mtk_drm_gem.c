@@ -22,9 +22,9 @@
 #include "mtk_fence.h"
 #include "mtk_drm_session.h"
 #include "ion_drv.h"
-#include <ion_priv.h>
+#include "ion_priv.h"
 #include <soc/mediatek/smi.h>
-#ifdef CONFIG_MTK_IOMMU_V2
+#if defined(CONFIG_MTK_IOMMU_V2)
 #include "mt_iommu.h"
 #include "mtk_iommu_ext.h"
 #include "mtk/mtk_ion.h"
@@ -87,39 +87,43 @@ static void mtk_gem_vmap_pa(phys_addr_t pa, uint size, int cached,
 static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 				   struct mtk_drm_gem_obj *mtk_gem)
 {
-#ifdef CONFIG_MTK_IOMMU_V2
-	struct ion_client *ion_display_client = NULL;
-	struct ion_handle *ion_display_handle = NULL;
+#if defined(CONFIG_MTK_IOMMU_V2)
+	struct ion_client *client;
+	struct ion_handle *handle;
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+		(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	struct ion_mm_data mm_data;
+#endif
 	size_t mva_size;
 	ion_phys_addr_t phy_addr = 0;
 
 	mtk_gem->cookie = (void *)ioremap_nocache(pa, size);
 	mtk_gem->kvaddr = mtk_gem->cookie;
-	ion_display_client = ion_client_create(g_ion_device, "disp_fb0");
-	if (ion_display_client == NULL)
-		DDPPR_ERR("%s: fail to create ion\n", __func__);
 
-	ion_display_handle =
-		ion_alloc(ion_display_client, size, (size_t)mtk_gem->kvaddr,
+	client = mtk_drm_gem_ion_create("disp_fb0");
+	handle =
+		ion_alloc(client, size, (size_t)mtk_gem->kvaddr,
 			  ION_HEAP_MULTIMEDIA_MAP_MVA_MASK, 0);
-	if (IS_ERR(ion_display_client)) {
-		DDPPR_ERR("%s error 0x%p\n", __func__, ion_display_handle);
-		return;
-	}
-	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
-	mm_data.config_buffer_param.module_id = M4U_PORT_L0_OVL_RDMA0;
-	mm_data.config_buffer_param.kernel_handle = ion_display_handle;
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	if (ion_kernel_ioctl(ion_display_client, ION_CMD_MULTIMEDIA,
-			     (unsigned long)&mm_data) < 0) {
-		DDPPR_ERR("%s: config buffer failed.0x%p -0x%p\n", __func__,
-			  ion_display_client, ion_display_handle);
-		ion_free(ion_display_client, ion_display_handle);
+	if (IS_ERR(handle)) {
+		DDPPR_ERR("ion alloc failed, handle:0x%p\n", handle);
 		return;
 	}
 
-	ion_phys(ion_display_client, ion_display_handle, &phy_addr, &mva_size);
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+		(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
+	mm_data.config_buffer_param.module_id = 0;
+	mm_data.config_buffer_param.kernel_handle = handle;
+	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
+				 (unsigned long)&mm_data) < 0) {
+		DDPPR_ERR("ion config failed, handle:0x%p\n", handle);
+		ion_free(client, handle);
+		return;
+	}
+#endif
+
+	ion_phys(client, handle, &phy_addr, &mva_size);
 	mtk_gem->dma_addr = (unsigned int)phy_addr;
 #endif
 }
@@ -323,6 +327,66 @@ int mtk_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	obj = vma->vm_private_data;
 
 	return mtk_drm_gem_object_mmap(obj, vma);
+}
+
+#if defined(CONFIG_MTK_IOMMU_V2)
+struct ion_client *mtk_drm_gem_ion_create(const char *name)
+{
+	struct ion_client *disp_ion_client = NULL;
+
+	if (g_ion_device)
+		disp_ion_client = ion_client_create(g_ion_device, name);
+	else
+		DDPPR_ERR("invalid g_ion_device\n");
+
+	if (!disp_ion_client) {
+		DDPPR_ERR("create ion client failed!\n");
+		return NULL;
+	}
+
+	return disp_ion_client;
+}
+#endif
+
+struct drm_gem_object *
+mtk_gem_prime_import(struct drm_device *dev,
+			      struct dma_buf *dma_buf)
+{
+	struct drm_gem_object *obj;
+#if defined(CONFIG_MTK_IOMMU_V2)
+	struct mtk_drm_private *priv = dev->dev_private;
+	struct ion_client *client;
+	struct ion_handle *handle;
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+			(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	struct ion_mm_data mm_data;
+#endif
+
+	client = priv->client;
+	handle = ion_import_dma_buf(client, dma_buf);
+	if (IS_ERR(handle)) {
+		DDPPR_ERR("ion import failed, client:0x%p, dmabuf:0x%p\n",
+				client, dma_buf);
+		return NULL;
+	}
+
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+			(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
+	mm_data.config_buffer_param.module_id = 0;
+	mm_data.config_buffer_param.kernel_handle = handle;
+	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
+				 (unsigned long)&mm_data) < 0) {
+		DDPPR_ERR("ion config failed, handle:0x%p\n", handle);
+		return NULL;
+	}
+#endif
+#endif
+
+	obj = drm_gem_prime_import(dev, dma_buf);
+
+	return obj;
 }
 
 /*

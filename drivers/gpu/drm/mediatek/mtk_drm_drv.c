@@ -1131,7 +1131,7 @@ static void mtk_drm_get_top_clk(struct drm_device *drm)
 		clk = of_clk_get(node, i);
 
 		if (IS_ERR(clk)) {
-			DDPINFO("%s get %d clk failed\n", __func__, i);
+			DDPPR_ERR("%s get %d clk failed\n", __func__, i);
 			priv->top_clk_num = -1;
 			return;
 		}
@@ -1162,7 +1162,7 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 
 	for (i = 0; i < priv->top_clk_num; i++) {
 		if (IS_ERR(priv->top_clk[i])) {
-			DDPINFO("%s invalid %d clk\n", __func__, i);
+			DDPPR_ERR("%s invalid %d clk\n", __func__, i);
 			return;
 		}
 		clk_prepare_enable(priv->top_clk[i]);
@@ -1190,7 +1190,7 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 
 	for (i = priv->top_clk_num - 1; i >= 0; i--) {
 		if (IS_ERR(priv->top_clk[i])) {
-			DDPINFO("%s invalid %d clk\n", __func__, i);
+			DDPPR_ERR("%s invalid %d clk\n", __func__, i);
 			return;
 		}
 		clk_disable_unprepare(priv->top_clk[i]);
@@ -1548,7 +1548,7 @@ static struct drm_driver mtk_drm_driver = {
 	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
 	.gem_prime_export = drm_gem_prime_export,
-	.gem_prime_import = drm_gem_prime_import,
+	.gem_prime_import = mtk_gem_prime_import,
 	.gem_prime_get_sg_table = mtk_gem_prime_get_sg_table,
 	.gem_prime_import_sg_table = mtk_gem_prime_import_sg_table,
 	.gem_prime_mmap = mtk_drm_gem_mmap_buf,
@@ -1759,6 +1759,9 @@ static int mtk_drm_probe(struct platform_device *pdev)
 
 	private->config_regs_pa = mem->start;
 	private->mmsys_dev = dev;
+#if defined(CONFIG_MTK_IOMMU_V2)
+	private->client = mtk_drm_gem_ion_create("disp_mm");
+#endif
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	plist_head_init(&private->bw_request_list);

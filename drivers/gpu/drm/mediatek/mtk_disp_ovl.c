@@ -2276,7 +2276,7 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 
 		Lx_addr_base = baddr + layer * 0x4;
 		Lx_addr_base +=
-			(DISP_REG_OVL_EL_ADDR(0) - DISP_REG_OVL_ADDR_MT6779);
+			(DISP_REG_OVL_EL_ADDR(0) - DISP_REG_OVL_ADDR_MT6885);
 	} else {
 		Lx_base = baddr + layer * OVL_LAYER_OFFSET;
 		Lx_addr_base = baddr + layer * OVL_LAYER_OFFSET;
@@ -2286,7 +2286,7 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 	offset = readl(DISP_REG_OVL_L0_OFFSET + Lx_base);
 	src_size = readl(DISP_REG_OVL_L0_SRC_SIZE + Lx_base);
 	pitch = readl(DISP_REG_OVL_L0_PITCH + Lx_base);
-	addr = readl(DISP_REG_OVL_ADDR_MT6779 + Lx_addr_base);
+	addr = readl(DISP_REG_OVL_ADDR_MT6885 + Lx_addr_base);
 
 	/* TODO
 	 * fmt = display_fmt_reg_to_unified_fmt(
@@ -2418,7 +2418,7 @@ int drm_ovl_tf_cb(int port, unsigned long mva, void *data)
 {
 	struct mtk_disp_ovl *ovl = (struct mtk_disp_ovl *)data;
 
-	DDPINFO("%s tf mva: 0x%lx\n", mtk_dump_comp_str(&ovl->ddp_comp), mva);
+	DDPPR_ERR("%s tf mva: 0x%lx\n", mtk_dump_comp_str(&ovl->ddp_comp), mva);
 
 	mtk_ovl_analysis(&ovl->ddp_comp);
 	mtk_ovl_dump(&ovl->ddp_comp);
