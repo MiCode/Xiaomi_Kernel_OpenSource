@@ -556,7 +556,7 @@ static long ion_sys_ioctl(struct ion_client *client, unsigned int cmd,
 				       __func__);
 				ret = -EFAULT;
 			}
-			param.get_phys_param.phy_addr = (unsigned int)phy_addr;
+			param.get_phys_param.phy_addr = phy_addr;
 			ion_drv_put_kernel_handle(kernel_handle);
 		}
 		break;
