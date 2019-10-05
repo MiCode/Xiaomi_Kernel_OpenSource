@@ -19,12 +19,16 @@
 #include "scp_reg.h"
 #include "scp_feature_define.h"
 
+#define ROUNDUP(a, b)		        (((a) + ((b)-1)) & ~((b)-1))
+
 /* scp config reg. definition*/
 #define SCP_TCM_SIZE		(scpreg.total_tcmsize)
 #define SCP_A_TCM_SIZE		(scpreg.scp_tcmsize)
 #define SCP_TCM			(scpreg.sram)
 #define SCP_REGION_INFO_OFFSET	0x4
 #define SCP_RTOS_START		(0x800)
+
+#define SCP_DRAM_MAPSIZE	(0x100000)
 
 /* scp dvfs return status flag */
 #define SET_PLL_FAIL		(1)

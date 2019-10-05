@@ -60,7 +60,7 @@ extern struct scp_status_reg c1_m;
 #define MDUMP_REGDUMP_SIZE	0x040000 /* register backup (max size) */
 #define MDUMP_L1C_SIZE		0x03f000
 #define MDUMP_TBUF_SIZE		0x001000
-#define MDUMP_DRAM_SIZE		0x200000
+#define MDUMP_DRAM_SIZE		SCP_DRAM_MAPSIZE
 
 struct MemoryDump {
 	/*scp sram*/

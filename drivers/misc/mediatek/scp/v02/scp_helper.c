@@ -727,13 +727,14 @@ DEVICE_ATTR(scp_ipi_test, 0444, scp_ipi_test_show, NULL);
 #endif
 
 #if SCP_RECOVERY_SUPPORT
-void scp_wdt_reset(enum scp_core_id cpu_id)
+void scp_wdt_reset(int cpu_id)
 {
 	switch (cpu_id) {
-	case SCP_A_ID:
-		writel(0x8000000f, SCP_A_WDT_REG);
+	case 0:
+		writel(V_INSTANT_WDT, R_CORE0_WDT_CFG);
 		break;
-	default:
+	case 1:
+		writel(V_INSTANT_WDT, R_CORE1_WDT_CFG);
 		break;
 	}
 }
@@ -753,7 +754,9 @@ static ssize_t scp_wdt_trigger(struct device *dev
 	pr_debug("[SCP] %s: %8s\n", __func__, buf);
 	if (kstrtouint(buf, 10, &value) == 0) {
 		if (value == 666)
-			scp_wdt_reset(SCP_A_ID);
+			scp_wdt_reset(0);
+		else if (value == 667)
+			scp_wdt_reset(1);
 	}
 	return count;
 }
@@ -1559,10 +1562,10 @@ void scp_recovery_init(void)
 		scp_region_info_copy.regdump_size);
 
 	if ((int)(scp_region_info_copy.ap_dram_size) > 0) {
-		/*if l1c enable, map it */
+		/*if l1c enable, map it (include backup) */
 		scp_ap_dram_virt = ioremap_wc(
 		scp_region_info_copy.ap_dram_start,
-		scp_region_info_copy.ap_dram_size);
+		ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*4);
 
 	pr_debug("[SCP] scp_ap_dram_virt map: 0x%x + 0x%x\n",
 		scp_region_info_copy.ap_dram_start,

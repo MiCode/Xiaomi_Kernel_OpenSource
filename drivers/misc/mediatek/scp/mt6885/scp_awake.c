@@ -217,13 +217,27 @@ void scp_enable_sram(void)
  */
 int scp_sys_full_reset(void)
 {
+	void *tmp;
+
 	pr_notice("[SCP] %s\n", __func__);
+	/* clear whole TCM */
+	memset_io(SCP_TCM, 0, SCP_TCM_SIZE);
 	/*copy loader to scp sram*/
 	memcpy_to_scp(SCP_TCM, (const void *)(size_t)scp_loader_virt
 		, scp_region_info_copy.ap_loader_size);
 	/*set info to sram*/
 	memcpy_to_scp(scp_region_info, (const void *)&scp_region_info_copy
 			, sizeof(scp_region_info_copy));
+
+	/* reset dram from dram back */
+	if ((int)(scp_region_info_copy.ap_dram_size) > 0) {
+		tmp = (void *)(scp_ap_dram_virt +
+			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*2);
+		memset(scp_ap_dram_virt, 0,
+			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*2);
+		memcpy(scp_ap_dram_virt, tmp,
+			scp_region_info_copy.ap_dram_size);
+	}
 	return 0;
 }
 

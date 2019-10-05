@@ -14,6 +14,40 @@
 #ifndef __SCP_REG_H
 #define __SCP_REG_H
 
+#define SCP_TO_SPM_REG          (scpreg.cfg + 0x0020)
+#define SCP_GIPC_IN_REG		(scpreg.cfg + 0x0028)
+	#define HOST_TO_SCP_A       (1 << 0)
+	#define HOST_TO_SCP_B       (1 << 1)
+	/* scp awake lock definition*/
+	#define SCP_A_IPI_AWAKE_NUM		(2)
+	#define SCP_B_IPI_AWAKE_NUM		(3)
+
+#define SCP_SEMAPHORE			(scpreg.cfg + 0x0018)
+#define SCP_SCP2SPM_VOL_LV		(scpreg.cfg + 0x0094)
+
+#define R_GIPC_IN_SET			(scpreg.cfg + 0x0098)
+#define R_GIPC_IN_CLR			(scpreg.cfg + 0x009c)
+	#define B_GIPC0_SETCLR_0	(1 << 0)
+	#define B_GIPC0_SETCLR_1	(1 << 1)
+	#define B_GIPC0_SETCLR_2	(1 << 2)
+	#define B_GIPC0_SETCLR_3	(1 << 3)
+	#define B_GIPC1_SETCLR_0	(1 << 4)
+	#define B_GIPC1_SETCLR_1	(1 << 5)
+	#define B_GIPC1_SETCLR_2	(1 << 6)
+	#define B_GIPC1_SETCLR_3	(1 << 7)
+	#define B_GIPC2_SETCLR_0	(1 << 8)
+	#define B_GIPC2_SETCLR_1	(1 << 9)
+	#define B_GIPC2_SETCLR_2	(1 << 10)
+	#define B_GIPC2_SETCLR_3	(1 << 11)
+	#define B_GIPC3_SETCLR_0	(1 << 12)
+	#define B_GIPC3_SETCLR_1	(1 << 13)
+	#define B_GIPC3_SETCLR_2	(1 << 14)
+	#define B_GIPC3_SETCLR_3	(1 << 15)
+	#define B_GIPC4_SETCLR_0	(1 << 16)
+	#define B_GIPC4_SETCLR_1	(1 << 17)
+	#define B_GIPC4_SETCLR_2	(1 << 18)
+	#define B_GIPC4_SETCLR_3	(1 << 19)
+
 #define R_CORE0_SW_RSTN_CLR	(scpreg.cfg_core0 + 0x0000)
 #define R_CORE1_SW_RSTN_CLR	(scpreg.cfg_core1 + 0x0000)
 
@@ -29,14 +63,9 @@
 #define R_CORE1_WDT_IRQ		(scpreg.cfg_core1 + 0x0030)
 	#define B_WDT_IRQ	(1 << 0)
 
-#define SCP_TO_SPM_REG           (scpreg.cfg + 0x0020)
-
-#define SCP_GIPC_IN_REG		(scpreg.cfg + 0x0028)
-	#define HOST_TO_SCP_A       (1 << 0)
-	#define HOST_TO_SCP_B       (1 << 1)
-	/* scp awake lock definition*/
-	#define SCP_A_IPI_AWAKE_NUM		(2)
-	#define SCP_B_IPI_AWAKE_NUM		(3)
+#define R_CORE0_WDT_CFG		(scpreg.cfg_core0 + 0x0034)
+#define R_CORE1_WDT_CFG		(scpreg.cfg_core1 + 0x0034)
+	#define V_INSTANT_WDT	0x80000000
 
 #define R_CORE0_STATUS			(scpreg.cfg_core0 + 0x0070)
 	#define B_CORE_GATED		(1 << 0)
@@ -66,12 +95,6 @@
 #define R_CORE1_TBUF_DATA95_64		(scpreg.cfg_core1 + 0x00e8)
 #define R_CORE1_TBUF_DATA127_96		(scpreg.cfg_core1 + 0x00ec)
 
-#define SCP_A_DEBUG_PC_REG       (scpreg.cfg + 0x00B4)
-#define SCP_A_DEBUG_PSP_REG      (scpreg.cfg + 0x00B0)
-#define SCP_A_DEBUG_LR_REG       (scpreg.cfg + 0x00AC)
-#define SCP_A_DEBUG_SP_REG       (scpreg.cfg + 0x00A8)
-#define SCP_A_WDT_REG            (scpreg.cfg + 0x0084)
-
 #define SCP_A_GENERAL_REG0       (scpreg.cfg_core0 + 0x0040)
 /* DRAM reserved address and size */
 #define SCP_A_GENERAL_REG1       (scpreg.cfg_core0 + 0x0044)
@@ -94,56 +117,12 @@
 
 #define SCP_GPR_CORE1_REBOOT		(scpreg.cfg_core1 + 0x54)
 
-#define SCP_SEMAPHORE			(scpreg.cfg  + 0x90)
-#define SCP_SCP2SPM_VOL_LV		 (scpreg.cfg + 0x0094)
-
-#define SCP_SLP_PROTECT_CFG		(scpreg.cfg + 0x00C8)
-
-#define SCP_WDT_SP			(scpreg.cfg + 0x00B8)
-#define SCP_WDT_LR			(scpreg.cfg + 0x00BC)
-#define SCP_WDT_PSP			(scpreg.cfg + 0x00C0)
-#define SCP_WDT_PC			(scpreg.cfg + 0x00C4)
-#define SCP_BUS_CTRL			(scpreg.cfg + 0x00F0)
-	#define dbg_irq_info_sel_shift 26
-	#define dbg_irq_info_sel_mask (0x3 << 26)
-#define SCP_DEBUG_ADDR_S2R		(scpreg.cfg + 0x00F4)
-#define SCP_DEBUG_ADDR_DMA		(scpreg.cfg + 0x00F8)
-#define SCP_DEBUG_ADDR_SPI0		(scpreg.cfg + 0x00FC)
-#define SCP_DEBUG_ADDR_SPI1		(scpreg.cfg + 0x0100)
-#define SCP_DEBUG_ADDR_SPI2		(scpreg.cfg + 0x0104)
-#define SCP_DEBUG_BUS_STATUS		(scpreg.cfg + 0x0110)
-
-#define SCP_CPU_SLEEP_STATUS		(scpreg.cfg + 0x0114)
-	#define SCP_A_DEEP_SLEEP_BIT	(1)
-	#define SCP_B_DEEP_SLEEP_BIT	(3)
-
-
-#define INFRA_CTRL_STATUS		(scpreg.cfg + 0x011C)
-#define SCP_DEBUG_IRQ_INFO		(scpreg.cfg + 0x0160)
-
 /* clk reg*/
-#define SCP_CLK_CTRL_BASE		(scpreg.clkctrl)
-#define SCP_CLK_SW_SEL			(scpreg.clkctrl)
-#define SCP_CLK_ENABLE			(scpreg.clkctrl + 0x0004)
 #define SCP_A_SLEEP_DEBUG_REG		(scpreg.clkctrl + 0x0028)
-#define SCP_SRAM_PDN				(scpreg.clkctrl + 0x002C)
+#define SCP_SRAM_PDN			(scpreg.clkctrl + 0x002C)
 #define SCP_CLK_HIGH_CORE_CG		(scpreg.clkctrl + 0x005C)
 #define SCP_CLK_CTRL_L1_SRAM_PD		(scpreg.clkctrl + 0x0080)
 #define SCP_CLK_CTRL_TCM_TAIL_SRAM_PD	(scpreg.clkctrl + 0x0094)
-
-/* SCP System Reset */
-#define MODULE_RESET_SET		(scpreg.scpsys + 0x0140)
-#define MODULE_RESET_CLR		(scpreg.scpsys + 0x0144)
-#define MODULE_RESET_STATUS		(scpreg.scpsys + 0x0148)
-    #define SCP_RESET_BIT		(1 << 3)
-    #define SCP_SEC_RESET_BIT		(1 << 10)
-/* SCP INTC register*/
-#define SCP_INTC_IRQ_STATUS		(scpreg.cfg + 0x2000)
-#define SCP_INTC_IRQ_ENABLE		(scpreg.cfg + 0x2004)
-#define SCP_INTC_IRQ_SLEEP		(scpreg.cfg + 0x200C)
-#define SCP_INTC_IRQ_STATUS_MSB		(scpreg.cfg + 0x2080)
-#define SCP_INTC_IRQ_ENABLE_MSB		(scpreg.cfg + 0x2084)
-#define SCP_INTC_IRQ_SLEEP_MSB		(scpreg.cfg + 0x208C)
 
 #define R_SEC_CTRL			(scpreg.cfg_sec + 0x0000)
 	#define B_CORE0_CACHE_DBG_EN	(1 << 28)
