@@ -1784,6 +1784,9 @@ static struct platform_driver mmdvfs_pmqos_driver = {
 
 static int __init mmdvfs_pmqos_init(void)
 {
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	return 0;
+#else
 	s32 status;
 
 	status = platform_driver_register(&mmdvfs_pmqos_driver);
@@ -1795,6 +1798,7 @@ static int __init mmdvfs_pmqos_init(void)
 
 	pr_notice("%s\n", __func__);
 	return 0;
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 }
 
 #ifdef QOS_BOUND_DETECT
