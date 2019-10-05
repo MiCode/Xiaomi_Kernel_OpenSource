@@ -460,7 +460,7 @@ page_owner=on";
 	};
 
 	apmixed: apmixed@1000c000 {
-		compatible = "mediatek,apmixed";
+		compatible = "mediatek,apmixed", "syscon";
 		reg = <0 0x1000c000 0 0xe00>;
 	};
 
@@ -1232,6 +1232,12 @@ page_owner=on";
 		reg = <0 0x10227000 0 0x1000>;
 	};
 
+	gce_clock: gce_clock@10228000 {
+		compatible = "mediatek,gce_clock", "syscon";
+		reg = <0 0x10228000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
 	gce_mbox: gce_mbox@10228000 {
 		compatible = "mediatek,mailbox-gce";
 		reg = <0 0x10228000 0 0x4000>;
@@ -1726,6 +1732,12 @@ page_owner=on";
 	sys_cirq@10314000 {
 		compatible = "mediatek,sys_cirq";
 		reg = <0 0x10314000 0 0x1000>;
+	};
+
+	mdp_gce_clock: mdp_gce_clock@10318000 {
+		compatible = "mediatek,mdp_gce_clock", "syscon";
+		reg = <0 0x10318000 0 0x1000>;
+		#clock-cells = <1>;
 	};
 
 	gce_mbox_m: gce_mbox_m@10318000 {
@@ -2344,8 +2356,9 @@ page_owner=on";
 	};
 
 	mdpsys_config: mdpsys_config@1f000000 {
-		compatible = "mediatek,mdpsys_config";
+		compatible = "mediatek,mdpsys_config", "syscon";
 		reg = <0 0x1f000000 0 0x1000>;
+		#clock-cells = <1>;
 		interrupts = <GIC_SPI 273 IRQ_TYPE_LEVEL_LOW>;
 	};
 
