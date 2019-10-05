@@ -14,22 +14,27 @@
 #ifndef __MTK_SYS_TIMER_MBOX_H__
 #define __MTK_SYS_TIMER_MBOX_H__
 
-#include <sspm_ipi_mbox_layout.h>
+enum mbox_idx {
+	MBOX_TICK_H = 0,
+	MBOX_TICK_L,
+	MBOX_TS_H,
+	MBOX_TS_L,
+	MBOX_DEBUG_TS_H,
+	MBOX_DEBUG_TS_L,
+};
+
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+#include <sspm_mbox_pin.h>
 
 #define SYS_TIMER_MBOX                      SHAREMBOX_NO_MCDI
 #define SYS_TIMER_MBOX_OFFSET_BASE          SHAREMBOX_OFFSET_TIMESTAMP
+#endif
 
-/*
- * Shared MBOX: AP write, SSPM read
- * Unit for each offset: 4 bytes
- */
+#if defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT)
+#include <mcupm_driver.h>
 
-#define SYS_TIMER_MBOX_TICK_H               (SYS_TIMER_MBOX_OFFSET_BASE + 0)
-#define SYS_TIMER_MBOX_TICK_L               (SYS_TIMER_MBOX_OFFSET_BASE + 1)
-#define SYS_TIMER_MBOX_TS_H                 (SYS_TIMER_MBOX_OFFSET_BASE + 2)
-#define SYS_TIMER_MBOX_TS_L                 (SYS_TIMER_MBOX_OFFSET_BASE + 3)
-#define SYS_TIMER_MBOX_DEBUG_TS_H           (SYS_TIMER_MBOX_OFFSET_BASE + 4)
-#define SYS_TIMER_MBOX_DEBUG_TS_L           (SYS_TIMER_MBOX_OFFSET_BASE + 5)
-
+#define SYS_TIMER_MCUPM_MBOX                MCUPM_MBOX_NO_SUSPEND
+#define SYS_TIMER_MCUPM_MBOX_OFFSET_BASE    MCUPM_MBOX_OFFSET_TIMESTAMP
+#endif
 #endif /* __MTK_SYS_TIMER_MBOX_H__ */
 
