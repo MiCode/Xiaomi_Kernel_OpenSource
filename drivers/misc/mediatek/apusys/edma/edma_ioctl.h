@@ -245,7 +245,7 @@ struct edma_ext {
 	__u32 reg_addr;
 	__u32 fill_value;
 	__u8  desp_iommu_en;
-};
+} __attribute__ ((__packed__));
 
 struct edma_cmd_deque {
 	__u64 cmd_handle;

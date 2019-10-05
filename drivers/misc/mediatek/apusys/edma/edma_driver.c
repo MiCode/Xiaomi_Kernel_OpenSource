@@ -308,7 +308,7 @@ static int edma_setup_resource(struct platform_device *pdev,
 		if (ret) {
 			dev_notice(dev,
 				"Failed to register apusys (%d)\n", ret);
-			return ret;
+			return -EPROBE_DEFER;
 		}
 	}
 
