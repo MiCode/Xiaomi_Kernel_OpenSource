@@ -469,6 +469,16 @@ static const char *perm_to_string(uint8_t perm)
 		return perm_to_str[4];
 }
 
+static void devapc_vio_reason(uint8_t perm)
+{
+	pr_info(PFX "Permission setting: %s\n", perm_to_string(perm));
+
+	if (perm == 0 || perm > 3)
+		pr_info(PFX "Reason: power/clock is not enabled\n");
+	else if (perm == 1 || perm == 2)
+		pr_info(PFX "Reason: might be permission denied\n");
+}
+
 /*
  * get_permission - get slave's access permission of domain id.
  *
@@ -768,8 +778,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 				"access violation slave:",
 				device_info[slave_type][i].device);
 
-			pr_info(PFX "Permission setting: %s\n",
-				perm_to_string(perm));
+			devapc_vio_reason(perm);
 
 			devapc_extra_handler(slave_type, vio_master, vio_idx,
 					vio_info->vio_addr);
