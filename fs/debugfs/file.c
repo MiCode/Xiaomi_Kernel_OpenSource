@@ -97,6 +97,14 @@ EXPORT_SYMBOL_GPL(debugfs_use_file_finish);
 
 #define F_DENTRY(filp) ((filp)->f_path.dentry)
 
+const struct file_operations *debugfs_real_fops(const struct file *filp)
+{
+	struct debugfs_fsdata *fsd = F_DENTRY(filp)->d_fsdata;
+
+	return fsd->real_fops;
+}
+EXPORT_SYMBOL_GPL(debugfs_real_fops);
+
 static int open_proxy_open(struct inode *inode, struct file *filp)
 {
 	const struct dentry *dentry = F_DENTRY(filp);
