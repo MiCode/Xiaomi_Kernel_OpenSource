@@ -106,6 +106,9 @@ int aee_dump_stack_top_binary(char *buf, int buf_len, unsigned long bottom,
 			return -3;
 	}
 
+	if (top > ALIGN(bottom, THREAD_SIZE))
+		top = ALIGN(bottom, THREAD_SIZE);
+
 	if (buf_len < top - bottom)
 		return -4;
 
