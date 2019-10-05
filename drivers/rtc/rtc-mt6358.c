@@ -26,10 +26,15 @@
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/bitops.h>
-
-#include <upmu_common.h>
-#include <mt-plat/mtk_boot_common.h>
-
+#include <linux/mfd/mt6358/core.h>
+#include <linux/irqdomain.h>
+#include <linux/platform_device.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#include <linux/io.h>
+#include <asm/div64.h>
+#include "../misc/mediatek/include/mt-plat/mtk_boot_common.h"
+#include "../misc/mediatek/include/mt-plat/mtk_reboot.h"
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -37,7 +42,8 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #define RTC_NAME	"mt-rtc"
-#define RTC_RELPWR_WHEN_XRST	1	/* BBPU = 0 when xreset_rstb goes low */
+#define IPIMB
+
 
 /* we map HW YEA 0 (2000) to 1968 not 1970 because 2000 is the leap year */
 #define RTC_MIN_YEAR		1968
@@ -114,6 +120,9 @@
 #define RTC_BBPU_AUTO			BIT(3)
 #define RTC_BBPU_CLR			BIT(1)
 #define RTC_BBPU_PWREN			BIT(0)
+#define RTC_BBPU_AL_STA			BIT(7)
+#define RTC_BBPU_RESET_AL		BIT(3)
+#define RTC_BBPU_RESET_SPAR		BIT(2)
 
 #define RTC_AL_MASK_DOW			BIT(4)
 
@@ -168,6 +177,7 @@ static struct mt6358_rtc *mt_rtc;
 
 static int rtc_show_time;
 static int rtc_show_alarm = 1;
+static int apply_lpsd_solution;
 module_param(rtc_show_time, int, 0644);
 module_param(rtc_show_alarm, int, 0644);
 
@@ -546,13 +556,15 @@ void mtk_rtc_lp_exception(void)
 static bool mtk_rtc_is_alarm_irq(void)
 {
 	u32 irqsta, bbpu;
-	int ret;
+	int ret, val;
 
 	ret = rtc_read(RTC_IRQ_STA, &irqsta);	/* read clear */
 	if ((ret == 0) && (irqsta & RTC_IRQ_STA_AL)) {
 		bbpu = RTC_BBPU_KEY | RTC_BBPU_PWREN;
 		rtc_write(RTC_BBPU, bbpu);
-		rtc_write_trigger();
+		val = rtc_write_trigger();
+		if (val < 0)
+			pr_notice("%s error\n", __func__);
 		return true;
 	}
 #ifndef USER_BUILD_KERNEL
@@ -561,26 +573,6 @@ static bool mtk_rtc_is_alarm_irq(void)
 #endif
 
 	return false;
-}
-
-static void mtk_rtc_reload_power(void)
-{
-	int ret;
-
-	/* set AUTO bit because AUTO = 0 when PWREN = 1 and alarm occurs */
-	ret = rtc_update_bits(RTC_BBPU,
-						(RTC_BBPU_KEY | RTC_BBPU_AUTO),
-						(RTC_BBPU_KEY | RTC_BBPU_AUTO));
-	if (ret < 0)
-		goto exit;
-
-	ret = rtc_write_trigger();
-	if (ret < 0)
-		goto exit;
-
-	return;
-exit:
-	pr_err("%s error\n", __func__);
 }
 
 static void mtk_rtc_update_pwron_alarm_flag(void)
@@ -604,7 +596,40 @@ exit:
 	pr_err("%s error\n", __func__);
 }
 
-static void mtk_rtc_irq_handler(void)
+static void mtk_rtc_reset_bbpu_alarm_status(void)
+{
+	u32 bbpu;
+	int ret;
+	unsigned long long timeout = sched_clock() + 500000000;
+
+	if (apply_lpsd_solution) {
+		pr_notice("%s:lpsd\n", __func__);
+		return;
+	}
+
+	bbpu = RTC_BBPU_KEY | RTC_BBPU_PWREN | RTC_BBPU_RESET_AL;
+	rtc_write(RTC_BBPU, bbpu);
+	ret = rtc_write_trigger();
+	if (ret < 0)
+		goto exit;
+
+	do {
+		rtc_read(RTC_BBPU, &bbpu);
+		if ((bbpu & RTC_BBPU_AL_STA) == 0)
+			break;
+		else if (sched_clock() > timeout) {
+			pr_notice("%s, time out, %x,\n",
+				__func__, bbpu);
+			break;
+		}
+	} while (1);
+
+	return;
+exit:
+	pr_err("%s error\n", __func__);
+}
+
+static irqreturn_t mtk_rtc_irq_handler(int irq, void *data)
 {
 	bool pwron_alm = false, isAlarmIrq = false, pwron_alarm = false;
 	struct rtc_time nowtm, tm;
@@ -616,12 +641,11 @@ static void mtk_rtc_irq_handler(void)
 	isAlarmIrq = mtk_rtc_is_alarm_irq();
 	if (!isAlarmIrq) {
 		spin_unlock_irqrestore(&mt_rtc->lock, flags);
-		return;
+		return IRQ_HANDLED;
 	}
-#if RTC_RELPWR_WHEN_XRST
-	/* set AUTO bit because AUTO = 0 when PWREN = 1 and alarm occurs */
-	mtk_rtc_reload_power();
-#endif
+
+	mtk_rtc_reset_bbpu_alarm_status();
+
 	pwron_alarm = mtk_rtc_is_pwron_alarm(&nowtm, &tm);
 	nowtm.tm_year += RTC_MIN_YEAR;
 	tm.tm_year += RTC_MIN_YEAR;
@@ -659,7 +683,7 @@ static void mtk_rtc_irq_handler(void)
 						   tm.tm_min, tm.tm_sec);
 				} while (time <= now_time);
 				spin_unlock_irqrestore(&mt_rtc->lock, flags);
-				kernel_restart("kpoc");
+				arch_reset(0, "kpoc");
 			} else {
 				mtk_rtc_update_pwron_alarm_flag();
 				pwron_alm = true;
@@ -679,6 +703,8 @@ static void mtk_rtc_irq_handler(void)
 
 	if (rtc_show_alarm)
 		pr_notice("%s time is up\n", pwron_alm ? "power-on" : "alarm");
+
+	return IRQ_NONE;
 }
 
 static int rtc_ops_read_time(struct device *dev, struct rtc_time *tm)
@@ -907,14 +933,28 @@ exit:
 
 static int mtk_rtc_pdrv_probe(struct platform_device *pdev)
 {
+#ifndef IPIMB
+	struct mt6358_chip *mt6358_chip = dev_get_drvdata(pdev->dev.parent);
+#endif
 	struct mt6358_rtc *rtc;
 	unsigned long flags;
+	int ret;
 
 	rtc = devm_kzalloc(&pdev->dev, sizeof(struct mt6358_rtc), GFP_KERNEL);
 	if (!rtc)
 		return -ENOMEM;
 
-	rtc->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	rtc->irq = platform_get_irq(pdev, 0);
+	if (rtc->irq <= 0)
+		return -EINVAL;
+	pr_notice("%s: rtc->irq = %d(%d)\n", __func__, rtc->irq,
+					platform_get_irq_byname(pdev, "rtc"));
+
+#ifndef IPIMB
+	rtc->regmap = mt6358_chip->regmap;
+#else
+	rtc->regmap = dev_get_regmap(pdev->dev.parent->parent, NULL);
+#endif
 	if (!rtc->regmap) {
 		pr_err("%s: get regmap failed\n", __func__);
 		return -ENODEV;
@@ -926,27 +966,45 @@ static int mtk_rtc_pdrv_probe(struct platform_device *pdev)
 	mt_rtc = rtc;
 	platform_set_drvdata(pdev, rtc);
 
-	rtc->addr_base = RTC_DSN_ID;
+	if (of_property_read_u32(pdev->dev.of_node, "base", &rtc->addr_base))
+		rtc->addr_base = RTC_DSN_ID;
 	pr_notice("%s: rtc->addr_base =0x%x\n", __func__, rtc->addr_base);
 
 	spin_lock_irqsave(&rtc->lock, flags);
 	mtk_rtc_set_lp_irq();
 	spin_unlock_irqrestore(&rtc->lock, flags);
 
+	ret = request_threaded_irq(rtc->irq, NULL,
+				   mtk_rtc_irq_handler,
+				   IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
+				   "mt6358-rtc", rtc);
+	if (ret) {
+		dev_dbg(&pdev->dev, "Failed to request alarm IRQ: %d: %d\n",
+			rtc->irq, ret);
+		goto out_dispose_irq;
+	}
+
 	device_init_wakeup(&pdev->dev, 1);
 
 	/* register rtc device (/dev/rtc0) */
 	rtc->rtc_dev = rtc_device_register(RTC_NAME,
 					&pdev->dev, &rtc_ops, THIS_MODULE);
-	if (IS_ERR(rtc)) {
-		pr_err("register rtc device failed (%ld)\n", PTR_ERR(rtc));
-		return PTR_ERR(rtc);
+	if (IS_ERR(rtc->rtc_dev)) {
+		dev_dbg(&pdev->dev, "register rtc device failed\n");
+		ret = PTR_ERR(rtc->rtc_dev);
+		goto out_free_irq;
 	}
 
-	pmic_register_interrupt_callback(INT_RTC, mtk_rtc_irq_handler);
-	pmic_enable_interrupt(INT_RTC, 1, "RTC");
-
+	if (of_property_read_bool(pdev->dev.of_node, "apply-lpsd-solution")) {
+		apply_lpsd_solution = 1;
+		pr_notice("%s: apply_lpsd_solution\n", __func__);
+	}
 	return 0;
+out_free_irq:
+	free_irq(rtc->irq, rtc->rtc_dev);
+out_dispose_irq:
+	irq_dispose_mapping(rtc->irq);
+	return ret;
 }
 
 static int mtk_rtc_pdrv_remove(struct platform_device *pdev)
@@ -980,4 +1038,3 @@ module_platform_driver(mtk_rtc_pdrv);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Wilma Wu <wilma.wu@mediatek.com>");
 MODULE_DESCRIPTION("RTC Driver for MediaTek MT6358 PMIC");
-

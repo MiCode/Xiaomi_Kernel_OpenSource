@@ -13,6 +13,10 @@
 
 #set IP folder name
 
+ifeq ($(CONFIG_RTC_DRV_MT6358), y)
+obj-$(CONFIG_MTK_RTC) += mtk_rtc_debug.o
+else
+#legacy
 ifneq (,$(filter y,$(CONFIG_MTK_PMIC_CHIP_MT6355)))
   MDI_IP_FOLDER:=mt6355
 endif
@@ -46,4 +50,4 @@ MTK_MDI_IP_SRC:= $(MDI_IP_FOLDER)/
 #IP dependent part
 obj-y += \
     $(MTK_MDI_IP_SRC)
-
+endif

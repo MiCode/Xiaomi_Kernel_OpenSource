@@ -98,3 +98,4 @@ int __init rtc_debug_init(void)
 	return 0;
 }
 
+device_initcall(rtc_debug_init);
