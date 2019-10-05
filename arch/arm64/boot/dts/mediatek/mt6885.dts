@@ -6212,7 +6212,7 @@ page_owner=on";
 			"aud_3rd_dac_hires_clk",
 			"scp_sys_audio",
 			"aud_infra_clk",
-			"mtkaif_26m_clk",
+			"aud_infra_26m_clk",
 			"top_mux_audio",
 			"top_mux_audio_int",
 			"top_mainpll_d4_d4",
