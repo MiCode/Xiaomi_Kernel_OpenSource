@@ -3098,6 +3098,7 @@ page_owner=on";
 		clock-names = "scp-dis",
 			      "mm-comm", "mm-gals", "mm-infra", "mm-iommu";
 		mediatek,smi-id = <21>;
+		mediatek,smi-cnt = <32>;
 		mmsys_config = <&dispsys_config>;
 	};
 
@@ -4010,7 +4011,7 @@ page_owner=on";
 		mediatek,larb-id = <5>;
 		interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&scpsys SCP_SYS_VDEC2>,
-			 <&vdec_gcon VDEC_SOC_GCON_LARB1_CKEN>;
+			 <&vdec_soc_gcon VDEC_SOC_GCON_LARB1_CKEN>;
 		clock-names = "scp-vdec2", "vdec-soc-larb";
 		mediatek,smi-id = <5>;
 	};
@@ -4024,7 +4025,7 @@ page_owner=on";
 		mediatek,smi-id = <6>;
 	};
 
-	vdec_soc_gcon@1600f000 {
+	vdec_soc_gcon: vdec_soc_gcon@1600f000 {
 		compatible = "mediatek,vdec_soc_gcon", "syscon";
 		reg = <0 0x1600f000 0 0x10000>;
 		#clock-cells = <1>;
@@ -4041,7 +4042,8 @@ page_owner=on";
 		reg = <0 0x1602e000 0 0x1000>;
 		mediatek,larb-id = <4>;
 		interrupts = <GIC_SPI 428 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&scpsys SCP_SYS_VDEC>, <&vdec VDEC_GCON_LARB1_CKEN>;
+		clocks = <&scpsys SCP_SYS_VDEC>,
+			 <&vdec_gcon VDEC_GCON_LARB1_CKEN>;
 		clock-names = "scp-vdec", "vdec-larb";
 		mediatek,smi-id = <4>;
 	};
