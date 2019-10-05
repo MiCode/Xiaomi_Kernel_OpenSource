@@ -168,6 +168,7 @@ static void __iomem *ckgen_base;	/*ckgen*/
 #define DP_TX_PWR_CON		SPM_REG(0x3AC)
 #define DPY2_PWR_CON		SPM_REG(0x3C4)
 #define MD_EXT_BUCK_ISO_CON	SPM_REG(0x398)
+#define EXT_BUCK_ISO		SPM_REG(0x39C)
 
 #define SPM_CROSS_WAKE_M01_REQ	SPM_REG(0x670)	/* for MT6885 VPU wakeup src */
 #define APMCU_WAKEUP_APU	(0x1 << 0)
@@ -4182,6 +4183,9 @@ int spm_mtcmos_vpu(int state)
 		/* mt6885: no need to wait for power down.*/
 		INCREASE_STEPS;
 	} else {
+		spm_write(EXT_BUCK_ISO, spm_read(EXT_BUCK_ISO) &
+							~(0x00000021));
+
 		spm_write(SPM_CROSS_WAKE_M01_REQ,
 			spm_read(SPM_CROSS_WAKE_M01_REQ) |
 						APMCU_WAKEUP_APU);
