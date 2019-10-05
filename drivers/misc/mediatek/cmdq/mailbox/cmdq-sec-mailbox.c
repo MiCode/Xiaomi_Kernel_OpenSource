@@ -51,6 +51,7 @@ struct cmdq_sec_task {
 };
 
 struct cmdq_sec_thread {
+	/* following part sync with struct cmdq_thread */
 	struct mbox_chan	*chan;
 	void __iomem		*base;
 	phys_addr_t		gce_pa;
@@ -60,9 +61,10 @@ struct cmdq_sec_thread {
 	struct work_struct	timeout_work;
 	u32			priority;
 	u32			idx;
-	// bool			dirty;
 	bool			occupied;
+	// bool			dirty;
 
+	/* following part only secure ctrl */
 	u32			wait_cookie;
 	u32			next_cookie;
 	u32			task_cnt;

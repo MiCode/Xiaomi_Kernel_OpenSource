@@ -147,6 +147,8 @@ struct mdp_context {
 };
 static struct mdp_context mdp_ctx;
 static struct cmdq_buf_pool mdp_pool;
+atomic_t mdp_pool_cnt;
+static u32 mdp_pool_limit;
 
 static DEFINE_MUTEX(mdp_clock_mutex);
 static DEFINE_MUTEX(mdp_task_mutex);
@@ -1115,7 +1117,9 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	CMDQ_TRACE_FORCE_BEGIN("%s\n", __func__);
 
 	cmdq_task_create(desc->scenario, &handle);
-	handle->pkt->buf_pool = &mdp_pool;
+	handle->pkt->cur_pool.pool = mdp_pool.pool;
+	handle->pkt->cur_pool.cnt = mdp_pool.cnt;
+	handle->pkt->cur_pool.limit = mdp_pool.limit;
 
 	/* set secure data */
 	handle->secStatus = NULL;
@@ -1370,16 +1374,15 @@ static void cmdq_mdp_pool_create(void)
 
 	mdp_pool.pool = dma_pool_create("mdp", cmdq_dev_get(),
 		CMDQ_BUF_ALLOC_SIZE, 0, 0);
-	atomic_set(&mdp_pool.cnt, 0);
-	mdp_pool.limit = CMDQ_DMA_POOL_COUNT;
+	atomic_set(mdp_pool.cnt, 0);
 }
 
 static void cmdq_mdp_pool_clear(void)
 {
 	/* check pool still in use */
-	if (unlikely((atomic_read(&mdp_pool.cnt)))) {
+	if (unlikely((atomic_read(mdp_pool.cnt)))) {
 		cmdq_msg("mdp buffers still in use:%d",
-			atomic_read(&mdp_pool.cnt));
+			atomic_read(mdp_pool.cnt));
 		return;
 	}
 
@@ -1654,6 +1657,9 @@ void cmdq_mdp_init(void)
 	/* MDP initialization setting */
 	cmdq_mdp_get_func()->mdpInitialSet();
 	cmdq_mdp_init_pmqos();
+
+	mdp_pool.limit = &mdp_pool_limit;
+	mdp_pool.cnt = &mdp_pool_cnt;
 
 	cmdq_mdp_pool_create();
 }

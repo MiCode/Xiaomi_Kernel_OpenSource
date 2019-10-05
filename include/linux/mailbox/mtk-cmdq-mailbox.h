@@ -115,6 +115,12 @@ struct cmdq_pkt_buffer {
 	bool			map;
 };
 
+struct cmdq_buf_pool {
+	struct dma_pool *pool;
+	atomic_t *cnt;
+	u32 *limit;
+};
+
 struct cmdq_pkt {
 	struct list_head	buf;
 	size_t			avail_buf_size; /* available buf size */
@@ -128,11 +134,18 @@ struct cmdq_pkt {
 	struct device		*dev;	/* client assigned dev */
 	bool			loop;
 	void			*flush_item;
-	void			*buf_pool;
+	struct cmdq_buf_pool	cur_pool;
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+	u64			rec_submit;
+	u64			rec_trigger;
+	u64			rec_wait;
+	u64			rec_irq;
+
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	void			*sec_data;
 #endif
+#endif	/* end of CONFIG_MTK_CMDQ_MBOX_EXT */
 };
 
 struct cmdq_thread {
@@ -145,8 +158,8 @@ struct cmdq_thread {
 	struct work_struct	timeout_work;
 	u32			priority;
 	u32			idx;
-	bool			dirty;
 	bool			occupied;
+	bool			dirty;
 };
 
 extern int mtk_cmdq_log;

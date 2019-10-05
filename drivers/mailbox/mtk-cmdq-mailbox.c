@@ -150,6 +150,8 @@ struct cmdq_mmp_event {
 struct cmdq_mmp_event	cmdq_mmp;
 #endif
 
+static DEFINE_MUTEX(cmdq_wakelock_mutex);
+
 static inline void cmdq_mmp_init(void)
 {
 #if IS_ENABLED(CONFIG_MMPROFILE)
@@ -174,6 +176,8 @@ static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
 {
 	static bool is_locked;
 
+	mutex_lock(&cmdq_wakelock_mutex);
+
 	if (lock) {
 		if (!is_locked) {
 			__pm_stay_awake(&cmdq->wake_lock);
@@ -191,6 +195,8 @@ static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
 			cmdq_err("try unlock twice");
 		}
 	}
+
+	mutex_unlock(&cmdq_wakelock_mutex);
 }
 
 static s32 cmdq_clk_enable(struct cmdq *cmdq)
@@ -575,10 +581,17 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 			cmdq_thread_resume(thread);
 		}
 	}
+
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+	pkt->rec_trigger = sched_clock();
+#endif
 }
 
 static void cmdq_task_exec_done(struct cmdq_task *task, s32 err)
 {
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+	task->pkt->rec_irq = sched_clock();
+#endif
 	cmdq_task_callback(task->pkt, err);
 	cmdq_log("pkt:0x%p done err:%d", task->pkt, err);
 	list_del(&task->list_entry);

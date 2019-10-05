@@ -16,6 +16,7 @@
 #include <linux/timer.h>
 #include <linux/uaccess.h>
 
+#include "cmdq-util.h"
 #include "cmdq-sec.h"
 
 #define CMDQ_THR_SPR3(base, id)		((base) + (0x80 * (id)) + 0x16c)
@@ -74,13 +75,11 @@ static void cmdq_test_mbox_cb(struct cmdq_cb_data data)
 
 static void cmdq_test_mbox_cb_destroy(struct cmdq_cb_data data)
 {
-	struct cmdq_flush_completion	*cmplt = data.data;
+	struct cmdq_pkt *pkt = (struct cmdq_pkt *)data.data;
 
 	if (data.err < 0)
-		cmdq_err("pkt:%p err:%d", cmplt->pkt, data.err);
-	cmplt->err = !data.err ? false : true;
-	cmdq_pkt_destroy(cmplt->pkt);
-	complete(&cmplt->cmplt);
+		cmdq_err("pkt:%p err:%d", pkt, data.err);
+	cmdq_pkt_destroy(pkt);
 }
 
 static void cmdq_test_mbox_cb_dump(struct cmdq_cb_data data)
@@ -160,7 +159,7 @@ static void cmdq_test_mbox_gpr_sleep(struct cmdq_test *test, const bool sleep)
 			1 << CMDQ_DATA_REG_DEBUG, 1 << CMDQ_DATA_REG_DEBUG);
 		cmdq_pkt_clear_event(pkt, event);
 	} else
-		cmdq_pkt_wfe(pkt, CMDQ_SYNC_TOKEN_GPR_SET_4);
+		cmdq_pkt_acquire_event(pkt, CMDQ_SYNC_TOKEN_GPR_SET_4);
 
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 	out_pa = buf->pa_base + 3096;
@@ -179,7 +178,7 @@ static void cmdq_test_mbox_gpr_sleep(struct cmdq_test *test, const bool sleep)
 		cmdq_pkt_write_indriect(pkt, NULL, out_pa, CMDQ_TPR_ID, ~0);
 		cmdq_pkt_sleep(pkt, 100, CMDQ_DATA_REG_DEBUG);
 		cmdq_pkt_write_indriect(pkt, NULL, out_pa + 4, CMDQ_TPR_ID, ~0);
-		cmdq_pkt_set_event(pkt, CMDQ_SYNC_TOKEN_GPR_SET_4);
+		cmdq_pkt_clear_event(pkt, CMDQ_SYNC_TOKEN_GPR_SET_4);
 		cmdq_pkt_write_indriect(pkt, NULL, out_pa + 8,
 			CMDQ_GPR_CNT_ID + CMDQ_DATA_REG_DEBUG, ~0);
 	}
@@ -225,7 +224,7 @@ static void cmdq_test_mbox_cpr(struct cmdq_test *test)
 	buf = list_first_entry(&pkt->buf, typeof(*buf), list_entry);
 	buf_va = (u32 *)buf->va_base;
 
-	for (i = 0; i < 0; i++) { // CPR_CNT
+	for (i = 0; i < 272; i++) { // CPR_CNT
 		writel(0, (void *)va);
 		buf_va[1] = (buf_va[1] & 0xffff0000) | (CMDQ_CPR_STRAT_ID + i);
 		buf_va[4] =
@@ -243,6 +242,8 @@ static void cmdq_test_mbox_cpr(struct cmdq_test *test)
 	}
 	cmdq_pkt_destroy(pkt);
 	clk_disable_unprepare(test->gce.clk);
+
+	cmdq_msg("%s end", __func__);
 }
 
 u32 *cmdq_test_mbox_polling_timeout_unit(struct cmdq_pkt *pkt,
@@ -281,7 +282,6 @@ void cmdq_test_mbox_polling(
 
 	struct cmdq_client		*clt = secure ? test->sec : test->clt;
 	struct cmdq_pkt			*pkt[CMDQ_TEST_CNT];
-	struct cmdq_flush_completion	cmplt[CMDQ_TEST_CNT];
 	u64				cpu_time;
 	u32				i, val = 0, *out_va, gce_time;
 
@@ -313,17 +313,15 @@ void cmdq_test_mbox_polling(
 				mask[i], CMDQ_DATA_REG_DEBUG);
 
 		cmdq_pkt_set_event(pkt[i], CMDQ_SYNC_TOKEN_GPR_SET_4);
-		init_completion(&cmplt[i].cmplt);
-		cmplt[i].pkt = pkt[i];
 
 		cpu_time = sched_clock();
-		cmdq_pkt_flush_async(pkt[i], cmdq_test_mbox_cb, &cmplt[i]);
+		cmdq_pkt_flush_async(pkt[i], NULL, NULL);
 
 		if (!timeout) {
 			writel(pttn[i] & mask[i], (void *)va);
 			val = readl((void *)va);
 		}
-		wait_for_completion(&cmplt[i].cmplt);
+		cmdq_pkt_wait_complete(pkt[i]);
 		cpu_time = div_u64(sched_clock() - cpu_time, 1000000);
 
 		if (!timeout)
@@ -355,13 +353,21 @@ static void cmdq_test_mbox_large_cmd(struct cmdq_test *test)
 
 	struct cmdq_pkt		*pkt;
 	s32			i, val;
+	bool			perf_en = cmdq_util_is_feature_en((u8)
+		CMDQ_LOG_FEAT_PERF);
 
 	clk_prepare_enable(test->gce.clk);
 	writel(0xdeaddead, (void *)va);
 
 	pkt = cmdq_pkt_create(test->clt);
+	if (!perf_en) {
+		cmdq_pkt_timer_en(pkt);
+		cmdq_pkt_perf_begin(pkt);
+	}
 	for (i = 0; i < 64 * 1024 / 8; i++) // 64k instructions
 		cmdq_pkt_write(pkt, NULL, pa, i, ~0);
+	if (!perf_en)
+		cmdq_pkt_perf_end(pkt);
 	cmdq_pkt_flush(pkt);
 	cmdq_pkt_destroy(pkt);
 
@@ -503,7 +509,7 @@ static void cmdq_test_mbox_sync_token_flush(unsigned long data)
 
 	writel((1L << 16) | data, (void *)CMDQ_SYNC_TOKEN_UPD(gtest->gce.va));
 	val = readl((void *)CMDQ_SYNC_TOKEN_UPD(gtest->gce.va));
-	cmdq_err("data:%#lx event:%#x val:%#x", data, (1 << 16), val);
+	cmdq_log("data:%#lx event:%#x val:%#x", data, (1 << 16), val);
 
 	if (!gtest->tick)
 		del_timer(&gtest->timer);
@@ -516,10 +522,9 @@ void cmdq_test_mbox_flush(
 {
 	struct cmdq_client		*clt = secure ? test->sec : test->clt;
 	struct cmdq_pkt			*pkt[CMDQ_TEST_CNT] = {0};
-	struct cmdq_flush_completion	cmplt[CMDQ_TEST_CNT];
-	s32				i, ret;
+	s32				i, err;
 
-	cmdq_msg("sec:%d threaded:%d", secure, threaded);
+	cmdq_msg("%s sec:%d threaded:%d", __func__, secure, threaded);
 
 	test->tick = true;
 	setup_timer(&test->timer, &cmdq_test_mbox_sync_token_flush,
@@ -539,15 +544,12 @@ void cmdq_test_mbox_flush(
 
 		cmdq_pkt_wfe(pkt[i], CMDQ_SYNC_TOKEN_USER_0);
 		pkt[i]->priority = i;
-		init_completion(&cmplt[i].cmplt);
-		cmplt[i].pkt = pkt[i];
 
 		if (!threaded)
-			cmdq_pkt_flush_async(pkt[i],
-				cmdq_test_mbox_cb, &cmplt[i]);
+			cmdq_pkt_flush_async(pkt[i], NULL, NULL);
 		else
 			cmdq_pkt_flush_threaded(pkt[i],
-				cmdq_test_mbox_cb_destroy, &cmplt[i]);
+				cmdq_test_mbox_cb_destroy, (void *)pkt[i]);
 	}
 
 	for (i = 0; i < CMDQ_TEST_CNT; i++) {
@@ -556,11 +558,13 @@ void cmdq_test_mbox_flush(
 			continue;
 		}
 		msleep_interruptible(100);
-		ret = wait_for_completion_timeout(&cmplt[i].cmplt,
-			msecs_to_jiffies(CMDQ_TIMEOUT_DEFAULT));
-		if (!ret) {
-			cmdq_err("wait_for_completion_timeout pkt[%d]:%p",
-				i, pkt[i]);
+		if (!threaded)
+			err = cmdq_pkt_wait_complete(pkt[i]);
+		else
+			err = 0;
+		if (err < 0) {
+			cmdq_err("wait complete pkt[%d]:%p err:%d",
+				i, pkt[i], err);
 			continue;
 		}
 		if (!threaded)
@@ -572,6 +576,8 @@ void cmdq_test_mbox_flush(
 	clk_disable_unprepare(test->gce.clk);
 	test->tick = false;
 	del_timer(&test->timer);
+
+	cmdq_msg("%s end", __func__);
 }
 
 static void cmdq_test_mbox_write(
@@ -621,24 +627,34 @@ static void cmdq_test_trigger(struct cmdq_test *test, const s32 id)
 	case 0:
 		cmdq_test_mbox_write(test, false, false);
 		cmdq_test_mbox_write(test, false, true);
+#ifdef CMDQ_SECURE_SUPPORT
 		cmdq_test_mbox_write(test, true, false);
 		cmdq_test_mbox_write(test, true, true);
+#endif
 
 		cmdq_test_mbox_flush(test, false, false);
 		cmdq_test_mbox_flush(test, false, true);
+#ifdef CMDQ_SECURE_SUPPORT
 		cmdq_test_mbox_flush(test, true, false);
 		cmdq_test_mbox_flush(test, true, true);
+#endif
 
 		cmdq_test_mbox_polling(test, false, false);
 		cmdq_test_mbox_polling(test, false, true);
+#ifdef CMDQ_SECURE_SUPPORT
 		cmdq_test_mbox_polling(test, true, false);
 		cmdq_test_mbox_polling(test, true, true);
+#endif
 
 		cmdq_test_mbox_dma_access(test, false);
+#ifdef CMDQ_SECURE_SUPPORT
 		cmdq_test_mbox_dma_access(test, true);
+#endif
 
 		cmdq_test_mbox_gpr_sleep(test, false);
+#ifdef CMDQ_SECURE_SUPPORT
 		cmdq_test_mbox_gpr_sleep(test, true);
+#endif
 
 		cmdq_test_mbox_loop(test);
 		cmdq_test_mbox_large_cmd(test);
@@ -758,7 +774,7 @@ static int cmdq_test_probe(struct platform_device *pdev)
 		return PTR_ERR(test->gce.clk);
 	}
 
-	test->gce.clk_timer = devm_clk_get(&np_pdev->dev, "GCE_TIMER");
+	test->gce.clk_timer = devm_clk_get(&np_pdev->dev, "gce-timer");
 	if (IS_ERR(test->gce.clk_timer)) {
 		cmdq_err("devm_clk_get gce clk_timer failed:%d",
 			PTR_ERR(test->gce.clk_timer));

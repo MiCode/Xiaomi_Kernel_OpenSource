@@ -111,12 +111,6 @@ struct cmdq_client {
 	void *cl_priv;
 };
 
-struct cmdq_buf_pool {
-	struct dma_pool *pool;
-	atomic_t cnt;
-	u32 limit;
-};
-
 struct cmdq_operand {
 	/* register type */
 	bool reg;
@@ -306,6 +300,8 @@ s32 cmdq_pkt_poll_reg(struct cmdq_pkt *pkt, u32 value, u8 subsys,
  */
 s32 cmdq_pkt_poll(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	u32 value, u32 addr, u32 mask, u8 reg_gpr);
+
+int cmdq_pkt_timer_en(struct cmdq_pkt *pkt);
 
 /* cmdq_pkt_sleep() - append commands to wait a short time in microsecond
  * @pkt:	the CMDQ packet

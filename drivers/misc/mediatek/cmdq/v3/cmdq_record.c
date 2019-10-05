@@ -1233,7 +1233,12 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 		}
 	}
 #else
-	handle->pkt = cmdq_pkt_create(NULL);
+	if (handle->thread != CMDQ_INVALID_THREAD)
+		handle->pkt = cmdq_pkt_create(
+			cmdq_helper_mbox_client(handle->thread));
+	else {
+		handle->pkt = cmdq_pkt_create(NULL);
+	}
 	if (IS_ERR(handle->pkt)) {
 		err = PTR_ERR(handle->pkt);
 		CMDQ_ERR("creat pkt fail err:%d\n", err);
@@ -1241,11 +1246,9 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 		return err;
 	}
 
-	if (handle->thread != CMDQ_INVALID_THREAD)
-		handle->pkt->cl = cmdq_helper_mbox_client(handle->thread);
-
 	/* assign cmdq dev to pkt which may use in dma alloc */
-	handle->pkt->dev = cmdq_dev_get();
+	if (!handle->pkt->dev)
+		handle->pkt->dev = cmdq_dev_get();
 #endif
 
 	/* assign handle to pkt */
@@ -1273,9 +1276,12 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 
 s32 cmdq_task_set_secure(struct cmdqRecStruct *handle, const bool is_secure)
 {
+	bool reset;
+
 	if (handle == NULL)
 		return -EFAULT;
 
+	reset = handle->secData.is_secure != is_secure;
 	handle->secData.is_secure = is_secure;
 
 	if (handle->finalized) {

@@ -53,12 +53,16 @@ enum {
 			DB_OPT_CMDQ, tag, fmt, ##args); \
 	} while (0)
 
+struct cmdq_pkt;
+
 u32 cmdq_util_get_bit_feature(void);
+bool cmdq_util_is_feature_en(u8 feature);
 
 void cmdq_util_error_enable(void); // TODO : need be called
 void cmdq_util_error_disable(void);
 s32 cmdq_util_error_save(const char *str, ...);
 void cmdq_util_dump_dbg_reg(void *chan);
+void cmdq_util_track(struct cmdq_pkt *pkt);
 
 /* function support in platform */
 const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event);
