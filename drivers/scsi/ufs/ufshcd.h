@@ -294,6 +294,9 @@ enum ufs_scsi_dev_cfg {
 	UFS_SCSI_DEV_SLAVE_DESTROY
 };
 
+#define UFS_RESCTL_CMD_SEND        BIT(0)
+#define UFS_RESCTL_CMD_COMP        BIT(1)
+
 /**
  * struct ufs_hba_variant_ops - variant specific callbacks
  * @name: variant name
@@ -358,10 +361,9 @@ struct ufs_hba_variant_ops {
 
 	/*
 	 * MTK PATCH:
-	 * DeepIdle and SODI resource request vops
+	 * Resource control
 	 */
-	void	(*deepidle_resource_req)(struct ufs_hba *,
-					unsigned int resource);
+	void	(*res_ctrl)(struct ufs_hba *hba, unsigned int op);
 
 	/*
 	 * MTK PATCH: Lock for deepidle or SODI.
@@ -920,11 +922,10 @@ static inline void ufshcd_vops_auto_hibern8(struct ufs_hba *hba, bool enable)
 }
 
 /* MTK PATCH */
-static inline void ufshcd_vops_deepidle_resource_req(struct ufs_hba *hba,
-	unsigned int resource)
+static inline void ufshcd_vops_res_ctrl(struct ufs_hba *hba, unsigned int op)
 {
-	if (hba->vops && hba->vops->deepidle_resource_req)
-		hba->vops->deepidle_resource_req(hba, resource);
+	if (hba->vops && hba->vops->res_ctrl)
+		hba->vops->res_ctrl(hba, op);
 }
 
 /* MTK PATCH */
