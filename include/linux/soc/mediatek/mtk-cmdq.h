@@ -334,6 +334,8 @@ int cmdq_pkt_wfe(struct cmdq_pkt *pkt, u16 event);
 
 int cmdq_pkt_wait_no_clear(struct cmdq_pkt *pkt, u16 event);
 
+int cmdq_pkt_acquire_event(struct cmdq_pkt *pkt, u16 event);
+
 /**
  * cmdq_pkt_clear_event() - append clear event command to the CMDQ packet
  * @pkt:	the CMDQ packet

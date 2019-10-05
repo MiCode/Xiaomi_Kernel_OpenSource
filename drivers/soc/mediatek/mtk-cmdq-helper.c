@@ -1169,6 +1169,27 @@ int cmdq_pkt_wait_no_clear(struct cmdq_pkt *pkt, u16 event)
 }
 EXPORT_SYMBOL(cmdq_pkt_wait_no_clear);
 
+int cmdq_pkt_acquire_event(struct cmdq_pkt *pkt, u16 event)
+{
+	u32 arg_b;
+
+	if (event >= CMDQ_EVENT_MAX)
+		return -EINVAL;
+
+	/*
+	 * WFE arg_b
+	 * bit 0-11: wait value
+	 * bit 15: 1 - wait, 0 - no wait
+	 * bit 16-27: update value
+	 * bit 31: 1 - update, 0 - no update
+	 */
+	arg_b = CMDQ_WFE_UPDATE | CMDQ_WFE_UPDATE_VALUE | CMDQ_WFE_WAIT;
+	return cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(arg_b),
+		CMDQ_GET_ARG_B(arg_b), event,
+		0, 0, 0, 0, CMDQ_CODE_WFE);
+}
+EXPORT_SYMBOL(cmdq_pkt_acquire_event);
+
 s32 cmdq_pkt_clear_event(struct cmdq_pkt *pkt, u16 event)
 {
 	if (event >= CMDQ_EVENT_MAX)
