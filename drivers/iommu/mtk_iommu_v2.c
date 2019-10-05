@@ -1206,7 +1206,8 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		}
 #endif
 		if (enable_custom_tf_report()) {
-			report_custom_iommu_fault(data->base,
+			report_custom_iommu_fault(m4uid,
+						  data->base,
 						  int_state,
 						  fault_iova,
 						  fault_pa,

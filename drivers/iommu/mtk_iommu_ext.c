@@ -65,12 +65,13 @@ struct iommu_global_t {
 
 static struct iommu_global_t iommu_globals;
 
-static inline int mtk_iommu_get_tf_larb_port_idx(int tf_id)
+static inline int mtk_iommu_get_tf_larb_port_idx(unsigned int m4uid, int tf_id)
 {
 	int i;
 
 	for (i = 0; i < (M4U_PORT_NR + 1); i++) {
-		if (iommu_port[i].tf_id == tf_id)
+		if (iommu_port[i].tf_id == tf_id &&
+		    iommu_port[i].m4u_id == m4uid)
 			return i;
 	}
 	pr_notice("%s, %d err tf_id:0x%x", __func__, __LINE__, tf_id);
@@ -89,7 +90,7 @@ int mtk_iommu_get_larb_port(unsigned int tf_id, unsigned int m4uid,
 	}
 #endif
 
-	idx = mtk_iommu_get_tf_larb_port_idx(tf_id);
+	idx = mtk_iommu_get_tf_larb_port_idx(m4uid, tf_id);
 	if (idx == ERROR_LARB_PORT_ID) {
 		pr_notice("%s, %d err tf_id:0x%x", __func__, __LINE__, tf_id);
 		return -1;
@@ -101,13 +102,14 @@ int mtk_iommu_get_larb_port(unsigned int tf_id, unsigned int m4uid,
 	return MTK_M4U_ID(*larb, *port);
 }
 
-char *mtk_iommu_get_mm_port_name(unsigned int tf_id)
+char *mtk_iommu_get_mm_port_name(unsigned int m4uid, unsigned int tf_id)
 {
 	unsigned int idx;
 
-	idx = mtk_iommu_get_tf_larb_port_idx(tf_id);
+	idx = mtk_iommu_get_tf_larb_port_idx(m4uid, tf_id);
 	if (idx == ERROR_LARB_PORT_ID) {
-		pr_notice("%s, %d err tf_id:0x%x", __func__, __LINE__, tf_id);
+		pr_notice("%s, %d err tf_id:0x%x, m4u:%d",
+			  __func__, __LINE__, tf_id, m4uid);
 		return "m4u_port_unknown";
 	}
 
@@ -134,7 +136,7 @@ char *mtk_iommu_get_port_name(unsigned int m4u_id,
 		return mtk_iommu_get_vpu_port_name(tf_id);
 #endif
 
-	return mtk_iommu_get_mm_port_name(tf_id);
+	return mtk_iommu_get_mm_port_name(m4u_id, tf_id);
 }
 
 static inline int mtk_iommu_larb_port_idx(int id)
@@ -169,6 +171,7 @@ char *iommu_get_port_name(int port)
 }
 
 bool report_custom_iommu_fault(
+	unsigned int m4uid,
 	void __iomem	*base,
 	unsigned int	int_state,
 	unsigned long	fault_iova,
@@ -184,7 +187,7 @@ bool report_custom_iommu_fault(
 		idx = mtk_iommu_larb_port_idx(port);
 		name = mtk_iommu_get_vpu_port_name(fault_id);
 	} else {
-		idx = mtk_iommu_get_tf_larb_port_idx(fault_id);
+		idx = mtk_iommu_get_tf_larb_port_idx(m4uid, fault_id);
 		if (idx == ERROR_LARB_PORT_ID) {
 			pr_info("[MTK_IOMMU] fail,iova 0x%lx, port %d\n",
 				fault_iova, fault_id);

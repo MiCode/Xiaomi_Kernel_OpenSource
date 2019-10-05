@@ -97,6 +97,7 @@ int mtk_iommu_iova_to_va(struct device *dev,
 
 bool enable_custom_tf_report(void);
 bool report_custom_iommu_fault(
+	unsigned int m4uid,
 	void __iomem	*base,
 	unsigned int	int_state,
 	unsigned long	fault_iova,
@@ -191,7 +192,8 @@ int iommu_perf_monitor_stop(int m4u_id);
 void iommu_perf_print_counter(int m4u_index,
 		      int m4u_slave_id, const char *msg);
 char *mtk_iommu_get_vpu_port_name(unsigned int tf_id);
-char *mtk_iommu_get_mm_port_name(unsigned int tf_id);
+char *mtk_iommu_get_mm_port_name(unsigned int m4uid,
+		      unsigned int tf_id);
 int mtk_dump_main_tlb(int m4u_id, int m4u_slave_id);
 int mtk_dump_pfh_tlb(int m4u_id);
 int mtk_iommu_dump_reg(int m4u_index, unsigned int start,
