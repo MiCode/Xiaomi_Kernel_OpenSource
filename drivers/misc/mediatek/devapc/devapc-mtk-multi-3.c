@@ -294,21 +294,22 @@ static bool check_type2_vio_status(enum DEVAPC_SLAVE_TYPE slave_type)
 	}
 
 	/* check mm2nd */
-	mdp_vio = check_vio_status(slave_type, mdp_vio_idx) ==
-		VIOLATION_TRIGGERED;
-	disp2_vio = check_vio_status(slave_type, disp2_vio_idx) ==
-		VIOLATION_TRIGGERED;
-	mmsys_vio = check_vio_status(slave_type, mmsys_vio_idx) ==
-		VIOLATION_TRIGGERED;
+	if (slave_type == SLAVE_TYPE_PERI) {
+		mdp_vio = check_vio_status(slave_type, mdp_vio_idx) ==
+			VIOLATION_TRIGGERED;
+		disp2_vio = check_vio_status(slave_type, disp2_vio_idx) ==
+			VIOLATION_TRIGGERED;
+		mmsys_vio = check_vio_status(slave_type, mmsys_vio_idx) ==
+			VIOLATION_TRIGGERED;
 
-	if (slave_type == SLAVE_TYPE_PERI &&
-			(mdp_vio || disp2_vio || mmsys_vio)) {
+		if (mdp_vio || disp2_vio || mmsys_vio) {
 
-		mtk_devapc_ctx->soc->mm2nd_vio_handler(
-				mtk_devapc_ctx->infracfg_base,
-				mtk_devapc_ctx->soc->vio_info,
-				mdp_vio, disp2_vio, mmsys_vio);
-		return true;
+			mtk_devapc_ctx->soc->mm2nd_vio_handler(
+					mtk_devapc_ctx->infracfg_base,
+					mtk_devapc_ctx->soc->vio_info,
+					mdp_vio, disp2_vio, mmsys_vio);
+			return true;
+		}
 	}
 
 	return false;
@@ -410,7 +411,7 @@ static uint32_t sync_vio_dbg(enum DEVAPC_SLAVE_TYPE slave_type,
 	pd_vio_shift_sel_reg = mtk_devapc_pd_get(slave_type, VIO_SHIFT_SEL, 0);
 	pd_vio_shift_con_reg = mtk_devapc_pd_get(slave_type, VIO_SHIFT_CON, 0);
 
-	pr_info(PFX "%s:0x%x %s:0x%x\n",
+	pr_debug(PFX "%s:0x%x %s:0x%x\n",
 			"slave_type", slave_type,
 			"VIO_SHIFT_STA", readl(pd_vio_shift_sta_reg));
 
@@ -467,41 +468,31 @@ static const char *perm_to_string(uint8_t perm)
  * Returns the value of access permission
  */
 static uint8_t get_permission(enum DEVAPC_SLAVE_TYPE slave_type,
-			      int vio_index, int domain)
+			      int module_index, int domain)
 {
 	const struct mtk_device_info *device_info[SLAVE_TYPE_NUM];
 	uint32_t sys_index, ctrl_index, apc_set_index;
 	const struct mtk_device_num *ndevices;
 	struct arm_smccc_res res;
 	uint32_t ret;
-	int i;
 
 	ndevices = mtk_devapc_ctx->soc->ndevices;
 
 	if (slave_type >= SLAVE_TYPE_NUM ||
-			vio_index >= ndevices[slave_type].vio_slave_num) {
-		pr_err(PFX "%s: param check failed, %s:0x%x, %s:0x%xn",
+			module_index >= ndevices[slave_type].vio_slave_num) {
+		pr_err(PFX "%s: param check failed, %s:0x%x, %s:0x%x\n",
+				__func__,
 				"slave_type", slave_type,
-				"vio_index", vio_index);
+				"module_index", module_index);
 		return 0xFF;
 	}
 
 	device_info[SLAVE_TYPE_INFRA] = mtk_devapc_ctx->soc->device_info_infra;
 	device_info[SLAVE_TYPE_PERI] = mtk_devapc_ctx->soc->device_info_peri;
 	device_info[SLAVE_TYPE_PERI2] = mtk_devapc_ctx->soc->device_info_peri2;
-	sys_index = -1;
-	ctrl_index = -1;
 
-	for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
-
-		if (device_info[slave_type][i].vio_index == vio_index) {
-			sys_index =
-				device_info[slave_type][vio_index].sys_index;
-			ctrl_index =
-				device_info[slave_type][vio_index].ctrl_index;
-			break;
-		}
-	}
+	sys_index = device_info[slave_type][module_index].sys_index;
+	ctrl_index = device_info[slave_type][module_index].ctrl_index;
 
 	if (sys_index == -1 || ctrl_index == -1) {
 		pr_err(PFX "%s: cannot get sys_index & ctrl_index\n",
@@ -509,8 +500,8 @@ static uint8_t get_permission(enum DEVAPC_SLAVE_TYPE slave_type,
 		return 0xFF;
 	}
 
-	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_DUMP, slave_type, sys_index, domain,
-			ctrl_index, 0, 0, 0, &res);
+	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_PERM_GET, slave_type, sys_index,
+			domain, ctrl_index, 0, 0, 0, &res);
 	ret = res.a0;
 
 	if (ret == DEAD || ret == SIP_SVC_E_NOT_SUPPORTED) {
@@ -578,24 +569,29 @@ static void mtk_devapc_dump_vio_dbg(enum DEVAPC_SLAVE_TYPE slave_type)
 
 			vio_info->domain_id = (dbg0 & vio_dbgs->vio_dbg_dmnid)
 				>> vio_dbgs->vio_dbg_dmnid_start_bit;
-			vio_info->write = (bool)(dbg0 & vio_dbgs->vio_dbg_w_vio)
-				>> vio_dbgs->vio_dbg_w_vio_start_bit;
-			vio_info->read = (bool)(dbg0 & vio_dbgs->vio_dbg_r_vio)
-				>> vio_dbgs->vio_dbg_r_vio_start_bit;
+			vio_info->write = ((dbg0 & vio_dbgs->vio_dbg_w_vio)
+				>> vio_dbgs->vio_dbg_w_vio_start_bit) == 1;
+			vio_info->read = ((dbg0 & vio_dbgs->vio_dbg_r_vio)
+				>> vio_dbgs->vio_dbg_r_vio_start_bit) == 1;
 			vio_info->vio_addr_high =
 				(dbg0 & vio_dbgs->vio_addr_high)
 				>> vio_dbgs->vio_addr_high_start_bit;
 
 			/* Print violation information */
-			pr_info(PFX "%s(%s) %s:%x %s:%x, %s:%x, %:%x\n",
-					"Violation",
-					vio_info->read ? "R" : "W",
-					"Vio Addr:", vio_info->vio_addr,
-					"High:", vio_info->vio_addr_high,
+			if (vio_info->write)
+				pr_info(PFX "Write Violation\n");
+			else if (vio_info->read)
+				pr_info(PFX "Read Violation\n");
+			else
+				pr_err(PFX "R/W Violation are not raised\n");
+
+			pr_info(PFX "%s%x, %s%x, %s%x, %s%x\n",
+					"Vio Addr:0x", vio_info->vio_addr,
+					"High:0x", vio_info->vio_addr_high,
 					"Bus ID:0x", vio_info->master_id,
 					"Dom ID:0x", vio_info->domain_id);
 
-			pr_info(PFX "%s - %s%s, %s%i\n",
+			pr_info(PFX "%s - %s%s, %s%x\n",
 					"Violation",
 					"Current Process:", current->comm,
 					"PID:", current->pid);
@@ -702,9 +698,9 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	const struct mtk_device_info *device_info[SLAVE_TYPE_NUM];
 	const struct mtk_device_num *ndevices;
 	struct mtk_devapc_vio_info *vio_info;
+	int slave_type, i, vio_idx;
 	const char *vio_master;
 	unsigned long flags;
-	int slave_type, i;
 	uint8_t perm;
 
 	spin_lock_irqsave(&devapc_lock, flags);
@@ -728,12 +724,14 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 			if (!device_info[slave_type][i].enable_vio_irq)
 				continue;
 
-			if (!check_vio_status(slave_type, i))
+			vio_idx = device_info[slave_type][i].vio_index;
+
+			if (!check_vio_status(slave_type, vio_idx))
 				continue;
 
-			mask_module_irq(slave_type, i, true);
+			mask_module_irq(slave_type, vio_idx, true);
 
-			if (clear_vio_status(slave_type, i))
+			if (clear_vio_status(slave_type, vio_idx))
 				pr_warn(PFX "clear vio status failed\n");
 
 			perm = get_permission(slave_type, i,
@@ -748,23 +746,26 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 				vio_master = "UNKNOWN_MASTER";
 			}
 
-			pr_info(PFX "%s %s %s %s (%s:%d, %s:%d)\n",
-				"Violation master:", vio_master,
-				"access violation slave:",
-				device_info[slave_type][i].device,
-				"slave_type", slave_type,
-				"vio_idx", i);
+			pr_info(PFX "%s - %s:0x%x, %s:0x%x, %s:0x%x, %s:0x%x\n",
+					"Violation", "slave_type", slave_type,
+					"sys_index",
+					device_info[slave_type][i].sys_index,
+					"ctrl_index",
+					device_info[slave_type][i].ctrl_index,
+					"vio_index",
+					device_info[slave_type][i].vio_index);
 
-			if (vio_info->read ^ vio_info->write)
-				pr_info(PFX, "%s violation\n", vio_info->read ?
-						"Read" : "Write");
+			pr_info(PFX "%s %s %s %s\n",
+				"Violation - master:", vio_master,
+				"access violation slave:",
+				device_info[slave_type][i].device);
 
 			pr_info(PFX "Permission setting: %s\n",
 				perm_to_string(perm));
 
-			devapc_extra_handler(slave_type, vio_master, i);
+			devapc_extra_handler(slave_type, vio_master, vio_idx);
 
-			mask_module_irq(slave_type, i, false);
+			mask_module_irq(slave_type, vio_idx, false);
 
 			break;
 		}
@@ -980,8 +981,8 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 				"domain_id", domain,
 				"ctrl_index", ctrl_index);
 
-		arm_smccc_smc(MTK_SIP_KERNEL_DAPC_DUMP, slave_type, sys_index,
-				domain, ctrl_index, 0, 0, 0, &res);
+		arm_smccc_smc(MTK_SIP_KERNEL_DAPC_PERM_GET, slave_type,
+				sys_index, domain, ctrl_index, 0, 0, 0, &res);
 		ret = res.a0;
 
 		if (ret == DEAD || ret == SIP_SVC_E_NOT_SUPPORTED) {
@@ -1078,7 +1079,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 
 	ret = devm_request_irq(&pdev->dev, mtk_devapc_ctx->devapc_irq,
 			(irq_handler_t)devapc_violation_irq,
-			IRQF_TRIGGER_LOW, "devapc", NULL);
+			IRQF_TRIGGER_NONE, "devapc", NULL);
 	if (ret) {
 		pr_err(PFX "request devapc irq failed, ret:%d\n", ret);
 		return ret;
