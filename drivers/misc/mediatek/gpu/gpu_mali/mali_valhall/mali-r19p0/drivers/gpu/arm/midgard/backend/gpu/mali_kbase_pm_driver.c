@@ -67,6 +67,13 @@ module_param(platform_power_down_only, bool, 0444);
 MODULE_PARM_DESC(platform_power_down_only,
 		"Disable power down of individual cores.");
 
+#ifdef CONFIG_MACH_MT6885
+bool l2_always_on = true;
+module_param(l2_always_on, bool, 0444);
+MODULE_PARM_DESC(l2_always_on,
+		"Always keep L2 powered up.");
+#endif
+
 /**
  * enum kbasep_pm_action - Actions that can be performed on a core.
  *
@@ -658,7 +665,11 @@ static u64 kbase_pm_l2_update_state(struct kbase_device *kbdev)
 			break;
 
 		case KBASE_L2_POWER_DOWN:
+#ifdef CONFIG_MACH_MT6885
+			if (!platform_power_down_only && !l2_always_on)
+#else
 			if (!platform_power_down_only)
+#endif
 				/* Powering off the L2 will also power off the
 				 * tiler.
 				 */
@@ -681,7 +692,11 @@ static u64 kbase_pm_l2_update_state(struct kbase_device *kbdev)
 			break;
 
 		case KBASE_L2_PEND_OFF:
+#ifdef CONFIG_MACH_MT6885
+			if (!platform_power_down_only && !l2_always_on) {
+#else
 			if (!platform_power_down_only) {
+#endif
 				/* We only need to check the L2 here - if the L2
 				 * is off then the tiler is definitely also off.
 				 */
