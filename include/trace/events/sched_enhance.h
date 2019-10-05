@@ -656,6 +656,9 @@ TRACE_EVENT(sched_select_task_rq,
 		__field(int, boost)
 		__field(long, task_mask)
 		__field(bool, prefer)
+#ifdef CONFIG_MTK_SCHED_BOOST
+		__field(int, cpu_prefer)
+#endif
 		__field(int, wake_flags)
 		),
 
@@ -668,10 +671,13 @@ TRACE_EVENT(sched_select_task_rq,
 		__entry->boost		= boost;
 		__entry->task_mask	= tsk->cpus_allowed.bits[0];
 		__entry->prefer		= prefer;
+#ifdef CONFIG_MTK_SCHED_BOOST
+		__entry->cpu_prefer = tsk->cpu_prefer;
+#endif
 		__entry->wake_flags	= wake_flags;
 		),
 
-	TP_printk("pid=%4d policy=0x%08x pre-cpu=%d target=%d util=%d boost=%d mask=0x%lx prefer=%d flags=%d",
+	TP_printk("pid=%4d policy=0x%08x pre-cpu=%d target=%d util=%d boost=%d mask=0x%lx prefer=%d cpu_prefer=%d flags=%d",
 		__entry->pid,
 		__entry->policy,
 		__entry->prev_cpu,
@@ -680,7 +686,13 @@ TRACE_EVENT(sched_select_task_rq,
 		__entry->boost,
 		__entry->task_mask,
 		__entry->prefer,
+#ifdef CONFIG_MTK_SCHED_BOOST
+		__entry->cpu_prefer,
+#else
+		0,
+#endif
 		__entry->wake_flags)
+
 );
 
 /*
