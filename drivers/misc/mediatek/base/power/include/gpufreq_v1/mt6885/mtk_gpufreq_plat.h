@@ -18,7 +18,6 @@
 #include <linux/clk.h>
 
 #define MT_GPUFREQ_BRINGUP                      1
-#define MT_GPUFREQ_GED_READY                    0
 #define MT_GPUFREQ_KICKER_PBM_READY             0
 #define MT_GPUFREQ_STATIC_PWR_READY2USE         0
 #define MT_GPUFREQ_LOW_BATT_VOLT_PROTECT        0
