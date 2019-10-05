@@ -120,13 +120,18 @@ static int ion_fb_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		IONMSG("%s: Error. Invalid buffer.\n", __func__);
 		return -EFAULT;	/* Invalid buffer */
 	}
-	if (buffer_info->module_id == -1) {
-		IONMSG("%s: Error. Buffer not configured.\n", __func__);
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-		return -EFAULT;
-#endif
+	if (buffer_info->module_id == -1) {
+		IONMSG("%s: Error. Buffer not configured.\n", __func__);
+		return -EDOM;
 	}
+#endif
+
+#ifdef MTK_ION_DMABUF_SUPPORT
+	if (buffer_info->module_id == M4U_PORT_GPU)
+		return 0;
+#endif
 
 	memset((void *)&port_info, 0, sizeof(port_info));
 	port_info.emoduleid = buffer_info->module_id;
@@ -134,11 +139,6 @@ static int ion_fb_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	port_info.security = buffer_info->security;
 	port_info.buf_size = buffer->size;
 	port_info.flags = 0;
-
-#ifdef MTK_ION_DMABUF_SUPPORT
-	if (port_info.emoduleid == M4U_PORT_GPU)
-		return 0;
-#endif
 
 	/*Allocate MVA */
 	mutex_lock(&buffer_info->lock);

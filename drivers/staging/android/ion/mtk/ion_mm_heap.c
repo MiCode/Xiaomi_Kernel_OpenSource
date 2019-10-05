@@ -36,7 +36,6 @@
 #include "ion_priv.h"
 #include "mtk/ion_drv.h"
 #include "ion_sec_heap.h"
-#include "aee.h"
 
 //tablet
 #ifdef CONFIG_MTK_IOMMU
@@ -779,20 +778,16 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		return -EFAULT;	/* Invalid buffer */
 	}
 
-	if ((buffer_info->module_id == -1) &&
-	    (buffer_info->fix_module_id == -1)) {
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	if ((buffer_info->module_id == -1) &&
+	    (buffer_info->fix_module_id == -1)) {
 		IONMSG("[%s] warning. Buffer:0x%lx not configured.\n",
 		       __func__, buffer);
 		ion_buffer_dump(buffer, NULL);
-		aee_kernel_warning_api(__FILE__, __LINE__,
-				       DB_OPT_DEFAULT |
-				       DB_OPT_NATIVE_BACKTRACE,
-				       "port name not matched",
-				       "dump user backtrace");
-#endif
+		return -EDOM;
 	}
+#endif
 
 	memset((void *)&port_info, 0, sizeof(port_info));
 	port_info.cache_coherent = buffer_info->coherent;
@@ -868,9 +863,9 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	    (buffer_info->FIXED_MVA[domain_idx] == 0 &&
 	    port_info.flags > 0)) {
 		if (port_info.flags == 0 && buffer_info->module_id == -1) {
-			IONMSG("%s: warning not config buffer\n", __func__);
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+			IONMSG("%s: warning not config buffer\n", __func__);
 			ion_buffer_dump(buffer, NULL);
 #endif
 		}

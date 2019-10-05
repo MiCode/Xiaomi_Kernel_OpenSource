@@ -41,7 +41,7 @@
 #include "ion.h"
 #include "ion_priv.h"
 #include "compat_ion.h"
-
+#include "aee.h"
 #include "mtk/ion_profile.h"
 #include "mtk/mtk_ion.h"
 #include "mtk/ion_drv_priv.h"
@@ -1143,7 +1143,13 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 			mutex_unlock(&buffer->lock);
 			IONMSG("%s, failed at get phys, ret:%d\n",
 			       __func__, ret);
-			return ERR_PTR(-ENOMEM);
+			if (ret == -EDOM)
+				aee_kernel_warning_api(__FILE__, __LINE__,
+						       DB_OPT_DEFAULT |
+						       DB_OPT_NATIVE_BACKTRACE,
+						       "port name not matched",
+						       "dump user backtrace");
+			return ERR_PTR(ret);
 		}
 		table = a->table;
 		if (clone_sg_table(buffer->sg_table, table)) {
