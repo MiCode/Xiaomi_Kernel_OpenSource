@@ -14,6 +14,11 @@
 #ifndef __MTK_SWPM_PLATFORM_H__
 #define __MTK_SWPM_PLATFORM_H__
 
+#include <mtk_gpu_swpm_plat.h>
+#include <mtk_isp_swpm_plat.h>
+
+#define SWPM_TEST (0)
+
 #define MAX_RECORD_CNT                  (64)
 #define MAX_APHY_PWR                    (10)
 #define DEFAULT_LOG_INTERVAL_MS         (1000)
@@ -37,7 +42,7 @@ enum power_meter_type {
 	GPU_POWER_METER,
 	CORE_POWER_METER,
 	MEM_POWER_METER,
-	VPU_POWER_METER,
+	ISP_POWER_METER,
 
 	NR_POWER_METER
 };
@@ -51,7 +56,6 @@ enum power_rail {
 	VIO12_DDR,
 	VIO18_DDR,
 	VIO18_DRAM,
-	VVPU,
 
 	NR_POWER_RAIL
 };
@@ -92,20 +96,6 @@ enum cpu_lkg_type {
 	DSU_LKG,
 
 	NR_CPU_LKG_TYPE
-};
-
-enum gpu_power_counter {
-	gfreq,
-	gvolt,
-	galu_urate,
-	gtex_urate,
-	glsc_urate,
-	gl2c_urate,
-	gvary_urate,
-	gtiler_urate,
-	gloading,
-
-	GPU_POWER_COUNTER_LAST
 };
 
 struct aphy_pwr {
@@ -156,10 +146,12 @@ struct swpm_rec_data {
 	unsigned int cpu_lkg_pwr[NR_CPU_LKG_TYPE][NR_CPU_OPP];
 
 	/* 4(int) * 10 = 40 bytes */
-	unsigned int gpu_enable;
-	unsigned int gpu_counter[GPU_POWER_COUNTER_LAST];
+	unsigned int gpu_reserved[GPU_SWPM_RESERVED_SIZE];
 
-	/* remaining size = 1912 bytes */
+	/* 4(int) * 256 = 1024 bytes */
+	unsigned int isp_reserved[ISP_SWPM_RESERVED_SIZE];
+
+	/* remaining size = 888 bytes */
 };
 
 extern struct swpm_rec_data *swpm_info_ref;
@@ -167,8 +159,6 @@ extern struct swpm_rec_data *swpm_info_ref;
 #ifdef CONFIG_MTK_CACHE_CONTROL
 extern int ca_force_stop_set_in_kernel(int val);
 #endif
-extern void swpm_update_gpu_counter(unsigned int gpu_pmu[]);
-extern int swpm_get_gpu_enable(void);
 
 #endif
 

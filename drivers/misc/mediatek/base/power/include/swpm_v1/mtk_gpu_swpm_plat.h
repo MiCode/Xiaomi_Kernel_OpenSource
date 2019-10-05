@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,12 +11,12 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MTK_SWPM_H__
-#define __MTK_SWPM_H__
+#ifndef __MTK_GPU_SWPM_PLAT_H__
+#define __MTK_GPU_SWPM_PLAT_H__
 
+#if defined(CONFIG_MACH_MT6885)
+#include "subsys/mtk_gpu_swpm_mt6885.h"
+#endif
 
-extern unsigned int swpm_get_avg_power(unsigned int type,
-				unsigned int avg_window);
-
-#endif /* __MTK_SWPM_H__ */
+#endif
 

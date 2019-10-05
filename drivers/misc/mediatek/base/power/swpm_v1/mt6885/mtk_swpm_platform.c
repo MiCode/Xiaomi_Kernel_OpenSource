@@ -30,7 +30,7 @@
 #endif
 #include <mtk_swpm_common.h>
 #include <mtk_swpm_platform.h>
-#include <mtk_swpm.h>
+#include <mtk_swpm_interface.h>
 
 
 /****************************************************************************
@@ -44,6 +44,11 @@
 /****************************************************************************
  *  Local Variables
  ****************************************************************************/
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+static phys_addr_t rec_phys_addr, rec_virt_addr;
+static unsigned long long rec_size;
+#endif
+
 static DEFINE_PER_CPU(struct perf_event *, l3dc_events);
 static DEFINE_PER_CPU(struct perf_event *, inst_spec_events);
 static DEFINE_PER_CPU(struct perf_event *, cycle_events);
@@ -345,6 +350,15 @@ static struct dram_pwr_conf dram_def_pwr_conf[] = {
 	},
 };
 
+/* subsys share mem reference table */
+static struct swpm_mem_ref_tbl mem_ref_tbl[NR_POWER_METER] = {
+	[CPU_POWER_METER] = {0, NULL},
+	[GPU_POWER_METER] = {0, NULL},
+	[CORE_POWER_METER] = {0, NULL},
+	[MEM_POWER_METER] = {0, NULL},
+	[ISP_POWER_METER] = {0, NULL},
+};
+
 /****************************************************************************
  *  Global Variables
  ****************************************************************************/
@@ -543,9 +557,6 @@ char *swpm_power_rail_to_string(enum power_rail p)
 	case VIO18_DRAM:
 		s = "VIO18_DRAM";
 		break;
-	case VVPU:
-		s = "VVPU";
-		break;
 	default:
 		s = "None";
 		break;
@@ -554,27 +565,10 @@ char *swpm_power_rail_to_string(enum power_rail p)
 	return s;
 }
 
-int swpm_platform_init(void)
+static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
+			       unsigned int ch_num)
 {
-	/* copy pwr data */
-	memcpy(swpm_info_ref->aphy_pwr_tbl, aphy_def_pwr_tbl,
-		sizeof(aphy_def_pwr_tbl));
-	memcpy(swpm_info_ref->dram_conf, dram_def_pwr_conf,
-		sizeof(dram_def_pwr_conf));
-	memcpy(swpm_info_ref->ddr_opp_freq, ddr_opp_freq,
-		sizeof(ddr_opp_freq));
-
-	swpm_info("copy pwr data (size: aphy/dram = %ld/%ld) done!\n",
-		(unsigned long)sizeof(aphy_def_pwr_tbl),
-		(unsigned long)sizeof(dram_def_pwr_conf));
-
-	return 0;
-}
-
-void swpm_send_init_ipi(unsigned int addr, unsigned int size,
-	unsigned int ch_num)
-{
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) &&		\
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && \
 	defined(CONFIG_MTK_QOS_FRAMEWORK)
 	struct qos_ipi_data qos_d;
 
@@ -673,17 +667,124 @@ void swpm_update_lkg_table(void)
 	}
 }
 
-void swpm_update_gpu_counter(unsigned int gpu_pmu[])
+static inline void swpm_pass_to_sspm(void)
 {
-	memcpy(swpm_info_ref->gpu_counter, gpu_pmu,
-		sizeof(swpm_info_ref->gpu_counter));
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#ifdef CONFIG_MTK_DRAMC
+	swpm_send_init_ipi((unsigned int)(rec_phys_addr & 0xFFFFFFFF),
+		(unsigned int)(rec_size & 0xFFFFFFFF), get_emi_ch_num());
+#else
+	swpm_send_init_ipi((unsigned int)(rec_phys_addr & 0xFFFFFFFF),
+		(unsigned int)(rec_size & 0xFFFFFFFF), 2);
+#endif
+#endif
 }
 
-int swpm_get_gpu_enable(void)
+static inline int swpm_init_pwr_data(void)
 {
-	if (!swpm_info_ref)
-		return 0;
+	swpm_lock(&swpm_mutex);
 
-	return swpm_info_ref->gpu_enable;
+	/* copy pwr data */
+	memcpy(swpm_info_ref->aphy_pwr_tbl, aphy_def_pwr_tbl,
+		sizeof(aphy_def_pwr_tbl));
+	memcpy(swpm_info_ref->dram_conf, dram_def_pwr_conf,
+		sizeof(dram_def_pwr_conf));
+	memcpy(swpm_info_ref->ddr_opp_freq, ddr_opp_freq,
+		sizeof(ddr_opp_freq));
+
+	swpm_unlock(&swpm_mutex);
+
+	swpm_info("copy pwr data (size: aphy[%ld]/dram_conf[%ld]/dram_opp[%d])\n",
+		(unsigned long)sizeof(aphy_def_pwr_tbl),
+		(unsigned long)sizeof(dram_def_pwr_conf),
+		(unsigned short)sizeof(ddr_opp_freq));
+
+	return 0;
 }
+
+#if SWPM_TEST
+/* self value checking for mem reference table */
+static inline void swpm_interface_unit_test(void)
+{
+	int i, ret;
+	phys_addr_t *ptr = NULL;
+	struct isp_swpm_rec_data *isp_ptr;
+
+	for (i = 0; i < NR_SWPM_TYPE; i++) {
+		ret = swpm_mem_addr_request((enum swpm_type)i, &ptr);
+
+		if (!ret) {
+			swpm_err("swpm_mem_tbl[%d] = 0x%x\n", i, ptr);
+
+			/* data access test */
+			switch (i) {
+			case ISP_POWER_METER:
+				isp_ptr = (struct isp_swpm_rec_data *)ptr;
+				isp_ptr->isp_data[2] = 0x123;
+				break;
+			}
+		} else {
+			swpm_err("swpm_mem_tbl[%d] = NULL\n", i);
+		}
+	}
+}
+#endif
+
+/* init share mem reference table for subsys */
+static inline void swpm_subsys_data_ref_init(void)
+{
+	swpm_lock(&swpm_mutex);
+
+	mem_ref_tbl[GPU_POWER_METER].valid = true;
+	mem_ref_tbl[GPU_POWER_METER].virt =
+		(phys_addr_t *)&swpm_info_ref->gpu_reserved;
+	mem_ref_tbl[ISP_POWER_METER].valid = true;
+	mem_ref_tbl[ISP_POWER_METER].virt =
+		(phys_addr_t *)&swpm_info_ref->isp_reserved;
+
+	swpm_unlock(&swpm_mutex);
+}
+
+
+static int __init swpm_platform_init(void)
+{
+	int ret = 0;
+
+#ifdef BRINGUP_DISABLE
+	swpm_err("swpm is disabled\n");
+	goto end;
+#endif
+
+	ret = swpm_init();
+
+	swpm_get_rec_addr(&rec_phys_addr,
+			  &rec_virt_addr,
+			  &rec_size);
+
+	swpm_info_ref = (struct swpm_rec_data *)(uintptr_t)rec_virt_addr;
+
+	if (!swpm_info_ref) {
+		swpm_err("get sspm dram addr failed\n");
+		ret = -1;
+		goto end;
+	}
+
+	ret = swpm_reserve_mem_init(&rec_virt_addr, &rec_size);
+
+	swpm_subsys_data_ref_init();
+
+	swpm_init_pwr_data();
+
+	ret = swpm_interface_manager_init(mem_ref_tbl, NR_SWPM_TYPE);
+
+#if SWPM_TEST
+	swpm_interface_unit_test();
+#endif
+
+	swpm_pass_to_sspm();
+
+end:
+	return ret;
+}
+late_initcall_sync(swpm_platform_init);
 

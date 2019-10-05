@@ -33,7 +33,7 @@
 #endif
 #include <mtk_swpm_common.h>
 #include <mtk_swpm_platform.h>
-#include <mtk_swpm.h>
+#include <mtk_swpm_interface.h>
 
 /****************************************************************************
  *  Macro Definitions
@@ -80,14 +80,21 @@
 /****************************************************************************
  *  Type Definitions
  ****************************************************************************/
+struct swpm_manager {
+	bool initialize;
+	struct swpm_mem_ref_tbl *mem_ref_tbl;
+	unsigned int ref_tbl_size;
+};
 
 /****************************************************************************
  *  Local Variables
  ****************************************************************************/
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-static phys_addr_t rec_phys_addr, rec_virt_addr;
-static unsigned long long rec_size;
-#endif
+static struct swpm_manager swpm_m = {
+	.initialize = 0,
+	.mem_ref_tbl = NULL,
+	.ref_tbl_size = 0,
+};
+
 static unsigned char avg_window = DEFAULT_AVG_WINDOW;
 static struct timer_list log_timer;
 static unsigned int log_interval_ms = DEFAULT_LOG_INTERVAL_MS;
@@ -107,6 +114,56 @@ DEFINE_MUTEX(swpm_mutex);
 /****************************************************************************
  *  Static Function
  ****************************************************************************/
+static int log_loop(void)
+{
+	unsigned long expires;
+	char buf[256] = {0};
+	char *ptr = buf;
+	int i;
+#ifdef LOG_LOOP_TIME_PROFILE
+	ktime_t t1, t2;
+	unsigned long long diff, diff2;
+
+	t1 = ktime_get();
+#endif
+
+	for (i = 0; i < NR_POWER_RAIL; i++) {
+		if ((1 << i) & log_mask) {
+			ptr += snprintf(ptr, 256, "%s/",
+				swpm_power_rail_to_string((enum power_rail)i));
+		}
+	}
+	ptr--;
+	ptr += sprintf(ptr, " = ");
+
+	for (i = 0; i < NR_POWER_RAIL; i++) {
+		if ((1 << i) & log_mask) {
+			ptr += snprintf(ptr, 256, "%d/",
+				swpm_get_avg_power((enum power_rail)i, 50));
+		}
+	}
+	ptr--;
+	ptr += sprintf(ptr, " uA");
+
+	trace_swpm_power(buf);
+#ifdef LOG_LOOP_TIME_PROFILE
+	t2 = ktime_get();
+#endif
+
+	swpm_update_lkg_table();
+
+#ifdef LOG_LOOP_TIME_PROFILE
+	diff = ktime_to_us(ktime_sub(t2, t1));
+	diff2 = ktime_to_us(ktime_sub(ktime_get(), t2));
+	swpm_err("exe time = %llu/%lluus\n", diff, diff2);
+#endif
+
+	expires = jiffies + msecs_to_jiffies(log_interval_ms);
+	mod_timer(&log_timer, expires);
+
+	return 0;
+}
+
 static char *_copy_from_user_for_proc(const char __user *buffer, size_t count)
 {
 	static char buf[64];
@@ -564,121 +621,100 @@ static int create_procfs(void)
 	return 0;
 }
 
-static void get_rec_addr(void)
+/***************************************************************************
+ *  API
+ ***************************************************************************/
+void swpm_get_rec_addr(phys_addr_t *phys,
+		       phys_addr_t *virt,
+		       unsigned long long *size)
 {
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-	int i;
-	unsigned char *ptr;
-
 	/* get sspm reserved mem */
-	rec_phys_addr = sspm_reserve_mem_get_phys(SWPM_MEM_ID);
-	rec_virt_addr = sspm_reserve_mem_get_virt(SWPM_MEM_ID);
-	rec_size = sspm_reserve_mem_get_size(SWPM_MEM_ID);
+	*phys = sspm_reserve_mem_get_phys(SWPM_MEM_ID);
+	*virt = sspm_reserve_mem_get_virt(SWPM_MEM_ID);
+	*size = sspm_reserve_mem_get_size(SWPM_MEM_ID);
 
 	swpm_info("phy_addr = 0x%llx, virt_addr=0x%llx, size = %llu\n",
-		(unsigned long long)rec_phys_addr,
-		(unsigned long long)rec_virt_addr,
-		rec_size);
+		(unsigned long long) *phys,
+		(unsigned long long) *virt,
+		*size);
 
-	/* clear */
-	ptr = (unsigned char *)(uintptr_t)rec_virt_addr;
-	for (i = 0; i < rec_size; i++)
-		ptr[i] = 0x0;
-
-	swpm_info_ref = (struct swpm_rec_data *)(uintptr_t)rec_virt_addr;
 #endif
 }
 
-static int log_loop(void)
+int swpm_reserve_mem_init(phys_addr_t *virt,
+			   unsigned long long *size)
 {
-	unsigned long expires;
-	char buf[256] = {0};
-	char *ptr = buf;
 	int i;
-#ifdef LOG_LOOP_TIME_PROFILE
-	ktime_t t1, t2;
-	unsigned long long diff, diff2;
+	unsigned char *ptr;
 
-	t1 = ktime_get();
-#endif
+	if (!virt)
+		return -1;
 
-	for (i = 0; i < NR_POWER_RAIL; i++) {
-		if ((1 << i) & log_mask) {
-			ptr += snprintf(ptr, 256, "%s/",
-				swpm_power_rail_to_string((enum power_rail)i));
-		}
-	}
-	ptr--;
-	ptr += sprintf(ptr, " = ");
-
-	for (i = 0; i < NR_POWER_RAIL; i++) {
-		if ((1 << i) & log_mask) {
-			ptr += snprintf(ptr, 256, "%d/",
-				swpm_get_avg_power((enum power_rail)i, 50));
-		}
-	}
-	ptr--;
-	ptr += sprintf(ptr, " uA");
-
-	trace_swpm_power(buf);
-#ifdef LOG_LOOP_TIME_PROFILE
-	t2 = ktime_get();
-#endif
-
-	swpm_update_lkg_table();
-
-#ifdef LOG_LOOP_TIME_PROFILE
-	diff = ktime_to_us(ktime_sub(t2, t1));
-	diff2 = ktime_to_us(ktime_sub(ktime_get(), t2));
-	swpm_err("exe time = %llu/%lluus\n", diff, diff2);
-#endif
-
-	expires = jiffies + msecs_to_jiffies(log_interval_ms);
-	mod_timer(&log_timer, expires);
+	/* clear reserve mem */
+	ptr = (unsigned char *)(uintptr_t)*virt;
+	for (i = 0; i < *size; i++)
+		ptr[i] = 0x0;
 
 	return 0;
 }
 
-static int __init swpm_init(void)
+int swpm_interface_manager_init(struct swpm_mem_ref_tbl *ref_tbl,
+				unsigned int tbl_size)
 {
-#ifdef BRINGUP_DISABLE
-	swpm_err("swpm is disabled\n");
-	goto end;
-#endif
-	get_rec_addr();
-	if (!swpm_info_ref) {
-		swpm_err("get sspm dram addr failed\n");
-		goto end;
-	}
-	create_procfs();
+	if (!ref_tbl)
+		return -1;
 
-	swpm_platform_init();
+	swpm_lock(&swpm_mutex);
+	swpm_m.initialize = true;
+	swpm_m.mem_ref_tbl = ref_tbl;
+	swpm_m.ref_tbl_size = tbl_size;
+	swpm_unlock(&swpm_mutex);
 
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#ifdef CONFIG_MTK_DRAMC
-	swpm_send_init_ipi((unsigned int)(rec_phys_addr & 0xFFFFFFFF),
-		(unsigned int)(rec_size & 0xFFFFFFFF), get_emi_ch_num());
-#else
-	swpm_send_init_ipi((unsigned int)(rec_phys_addr & 0xFFFFFFFF),
-		(unsigned int)(rec_size & 0xFFFFFFFF), 2);
-#endif
-#endif
+	return 0;
+}
+
+int swpm_init(void)
+{
+	int ret = 0;
+
+	ret = create_procfs();
 
 	/* init log timer */
 	init_timer_deferrable(&log_timer);
 	log_timer.function = (void *)&log_loop;
 	log_timer.data = (unsigned long)&log_timer;
 
-	swpm_info("SWPM init done!\n");
+	return ret;
+}
+
+int swpm_mem_addr_request(enum swpm_type id, phys_addr_t **ptr)
+{
+	int ret = 0;
+
+	if (!swpm_m.initialize || !swpm_m.mem_ref_tbl) {
+		swpm_err("swpm not initialize\n");
+		ret = -1;
+		goto end;
+	} else if (id >= swpm_m.ref_tbl_size) {
+		swpm_err("swpm_type invalid\n");
+		ret = -2;
+		goto end;
+	} else if (!(swpm_m.mem_ref_tbl[id].valid)
+		   || !(swpm_m.mem_ref_tbl[id].virt)) {
+		ret = -3;
+		swpm_err("swpm_mem_ref id not initialize\n");
+		goto end;
+	}
+
+	swpm_lock(&swpm_mutex);
+	*ptr = (swpm_m.mem_ref_tbl[id].virt);
+	swpm_unlock(&swpm_mutex);
 
 end:
-	return 0;
+	return ret;
 }
-late_initcall(swpm_init);
 
-/***************************************************************************
- *  API
- ***************************************************************************/
 unsigned int swpm_get_avg_power(enum power_rail type, unsigned int avg_window)
 {
 	unsigned int *ptr;
