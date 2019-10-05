@@ -287,7 +287,7 @@ static struct clock_event_device gpt_clockevent = {
 
 static struct irqaction gpt_irq = {
 	.name = "mt-gpt",
-	.flags = IRQF_TIMER | IRQF_IRQPOLL | IRQF_TRIGGER_LOW | IRQF_PERCPU,
+	.flags = IRQF_TIMER | IRQF_IRQPOLL | IRQF_PERCPU,
 	.handler = gpt_handler,
 	.dev_id = &gpt_clockevent,
 };

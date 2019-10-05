@@ -2306,7 +2306,8 @@ static int __init musb_init_controller(struct device *dev, int nIrq, void __iome
 #endif
 
 	/* attach to the IRQ */
-	if (request_irq(nIrq, musb->isr, IRQF_TRIGGER_LOW, dev_name(dev), musb)) {
+	if (request_irq(nIrq, musb->isr, IRQF_TRIGGER_NONE,
+		dev_name(dev), musb)) {
 		dev_err(dev, "request_irq %d failed!\n", nIrq);
 		status = -ENODEV;
 		goto fail3;
