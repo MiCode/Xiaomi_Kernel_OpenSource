@@ -741,6 +741,7 @@ page_owner=on";
 		reg = <0 0x10017000 0 0x1000>;
 		reg-names = "sys_timer_base";
 		interrupts = <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&topckgen TOP_CLK13M>;
 	};
 
 	modem_temp_share@10018000 {
