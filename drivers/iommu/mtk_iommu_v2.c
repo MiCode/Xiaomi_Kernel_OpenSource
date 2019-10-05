@@ -3944,17 +3944,18 @@ static int mtk_iommu_suspend(struct device *dev)
 	 * for IOMMU of APU, power off is controlled by APU
 	 */
 #ifdef APU_IOMMU_INDEX
-	if (data->m4uid < APU_IOMMU_INDEX) {
-		ret = mtk_iommu_reg_backup(data);
-		if (ret)
-			pr_notice("%s, %d, iommu:%d, backup failed %d\n",
-				  __func__, __LINE__, data->m4uid, ret);
-
-		ret = mtk_iommu_power_switch(data, false, "iommu_suspend");
-		if (ret)
-			pr_notice("%s, failed to power switch off\n", __func__);
-	}
+	if (data->m4uid >= APU_IOMMU_INDEX)
+		return 0;
 #endif
+
+	ret = mtk_iommu_reg_backup(data);
+	if (ret)
+		pr_notice("%s, %d, iommu:%d, backup failed %d\n",
+			  __func__, __LINE__, data->m4uid, ret);
+
+	ret = mtk_iommu_power_switch(data, false, "iommu_suspend");
+	if (ret)
+		pr_notice("%s, failed to power switch off\n", __func__);
 
 	return ret;
 }
@@ -3969,17 +3970,18 @@ static int mtk_iommu_resume(struct device *dev)
 	 * for IOMMU of APU, power on is controlled by APU
 	 */
 #ifdef APU_IOMMU_INDEX
-	if (data->m4uid < APU_IOMMU_INDEX) {
-		ret = mtk_iommu_power_switch(data, true, "iommu_resume");
-		if (ret)
-			pr_notice("%s, failed to power switch on\n", __func__);
-
-		ret = mtk_iommu_reg_restore(data);
-		if (ret)
-			pr_notice("%s, %d, iommu:%d, restore failed %d\n",
-				  __func__, __LINE__, data->m4uid, ret);
-	}
+	if (data->m4uid >= APU_IOMMU_INDEX)
+		return 0;
 #endif
+
+	ret = mtk_iommu_power_switch(data, true, "iommu_resume");
+	if (ret)
+		pr_notice("%s, failed to power switch on\n", __func__);
+
+	ret = mtk_iommu_reg_restore(data);
+	if (ret)
+		pr_notice("%s, %d, iommu:%d, restore failed %d\n",
+			  __func__, __LINE__, data->m4uid, ret);
 
 	return ret;
 }
