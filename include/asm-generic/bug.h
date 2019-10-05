@@ -61,6 +61,7 @@ struct bug_entry {
 
 #ifdef __WARN_FLAGS
 #define __WARN_TAINT(taint)		__WARN_FLAGS(BUGFLAG_TAINT(taint))
+#undef __WARN_TAINT
 #define __WARN_ONCE_TAINT(taint)	__WARN_FLAGS(BUGFLAG_ONCE|BUGFLAG_TAINT(taint))
 
 #define WARN_ON_ONCE(condition) ({				\

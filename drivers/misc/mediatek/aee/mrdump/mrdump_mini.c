@@ -518,8 +518,12 @@ static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs,
 		top = (unsigned long *)ALIGN((unsigned long)bottom,
 					THREAD_SIZE);
 		p = (unsigned long *)((void *)ti + THREAD_SIZE);
-		if (!mrdump_virt_addr_valid(top)
-			|| !mrdump_virt_addr_valid(bottom)
+		if ((!mrdump_virt_addr_valid(top)
+				&& !(((unsigned long)top >= VMALLOC_START)
+				&& ((unsigned long)top <= VMALLOC_END)))
+			|| (!mrdump_virt_addr_valid(bottom)
+				&& !(((unsigned long)bottom >= VMALLOC_START)
+				&& ((unsigned long)bottom <= VMALLOC_END)))
 			|| top != p || bottom > top) {
 			LOGE(
 				"mrdump: unexpected case bottom:%p top:%p ti + THREAD_SIZE:%p\n"

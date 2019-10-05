@@ -35,6 +35,12 @@
 #include "mrdump_private.h"
 #include "mrdump_mini.h"
 
+#ifdef mrdump_virt_addr_valid
+#undef mrdump_virt_addr_valid
+#define mrdump_virt_addr_valid(kaddr) \
+	pfn_valid(virt_to_pfn(kaddr))
+#endif
+
 int __weak ipanic_atflog_buffer(void *data, unsigned char *buffer,
 		size_t sz_buf)
 {
@@ -94,12 +100,14 @@ int aee_dump_stack_top_binary(char *buf, int buf_len, unsigned long bottom,
 		return -1;
 	if (!((bottom >= (PAGE_OFFSET + THREAD_SIZE)) &&
 	      (bottom <= (PAGE_OFFSET + get_linear_memory_size())))) {
-		return -2;
+		if (!((bottom >= VMALLOC_START) && (bottom <= VMALLOC_END)))
+			return -2;
 	}
 
 	if (!((top >= (PAGE_OFFSET + THREAD_SIZE)) &&
 	      (top <= (PAGE_OFFSET + get_linear_memory_size())))) {
-		return -3;
+		if (!((top >= VMALLOC_START) && (top <= VMALLOC_END)))
+			return -3;
 	}
 
 	if (buf_len < top - bottom)

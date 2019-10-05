@@ -12,6 +12,7 @@ CFLAGS_REMOVE_insn.o = -pg
 CFLAGS_REMOVE_return_address.o = -pg
 
 CFLAGS_setup.o = -DUTS_MACHINE='"$(UTS_MACHINE)"'
+ccflags-y += -Idrivers/misc/mediatek/include/
 ccflags-y += -Idrivers/misc/mediatek/mtprof/
 
 # Object file lists.
