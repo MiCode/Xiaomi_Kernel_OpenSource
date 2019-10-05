@@ -6,16 +6,6 @@ config PINCTRL_MTK
 	select GPIOLIB
 	select OF_GPIO
 
-config EINT_MTK
-	bool "MediaTek External Interrupt based on PINCTRL_MTK"
-	depends on PINCTRL_MTK
-	select IRQ_DOMAIN
-	help
-	  Say yes here to enable support for MediaTek External Interrupt
-	  (EINT) driver.
-	  This driver is combined with MediaTek Pinctrl driver (V1) so
-	  PINCTRL_MTK shall be set first.
-
 config PINCTRL_MTK_V2
 	bool "MediaTek Pinctrl Support V2"
 	depends on OF
@@ -24,13 +14,13 @@ config PINCTRL_MTK_V2
 	select GPIOLIB
 	select OF_GPIO
 
-config EINT_MTK_V2
-	bool "MediaTek External Interrupt V2 that is based on PINCTRL_MTK_V2"
+config EINT_MTK
+	bool "MediaTek External Interrupt driver that is based on PINCTRL_MTK_V2"
 	depends on PINCTRL_MTK_MOORE || PINCTRL_MTK_PARIS
 	select IRQ_DOMAIN
 	help
 	  Say yes here to enable support for MediaTek External Interrupt
-	  (EINT) driver version 2.
+	  (EINT) driver based on PINCTRL_MTK version 2.
 	  This driver is combined with MediaTek Pinctrl driver version 2
 	  so PINCTRL_MTK_V2 shall be set first.
 
@@ -38,7 +28,7 @@ config PINCTRL_MTK_PARIS
 	bool "MediaTek Paris Core that implements vendor binding"
 	depends on OF
 	select PINCTRL_MTK_V2
-	select EINT_MTK_V2
+	select EINT_MTK
 
 config PINCTRL_MTK_MOORE
 	bool "MediaTek Moore Core that implements generic binding"
@@ -46,7 +36,7 @@ config PINCTRL_MTK_MOORE
 	select GENERIC_PINCTRL_GROUPS
 	select GENERIC_PINMUX_FUNCTIONS
 	select PINCTRL_MTK_V2
-	select EINT_MTK_V2
+	select EINT_MTK
 
 if ARCH_MEDIATEK || COMPILE_TEST
 

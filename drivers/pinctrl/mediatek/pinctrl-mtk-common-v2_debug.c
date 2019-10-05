@@ -338,26 +338,52 @@ out:
 	return count;
 }
 
-static DEVICE_ATTR(mt_gpio, 0664, mtk_gpio_show_pin, mtk_gpio_store_pin);
+static DEVICE_ATTR(mt_gpio, 0444, mtk_gpio_show_pin, mtk_gpio_store_pin);
 
 static struct device_attribute *gpio_attr_list[] = {
 	&dev_attr_mt_gpio,
 };
 
-int mtk_gpio_create_attr(struct device *dev)
+static int mtk_gpio_create_attr(void)
 {
+	struct device *dev;
 	int idx, err = 0;
 	int num = ARRAY_SIZE(gpio_attr_list);
+	struct gpio_device *gdev;
+	struct gpio_chip *chip = NULL;
+	struct mtk_pinctrl *hw = NULL;
+	unsigned long flags;
 
-	if (!dev)
+	spin_lock_irqsave(&gpio_lock, flags);
+	list_for_each_entry(gdev, &gpio_devices, list) {
+
+		chip = gdev->chip;
+		hw = gpiochip_get_data(chip);
+		break;
+	}
+
+	spin_unlock_irqrestore(&gpio_lock, flags);
+
+	if (!hw || !hw->soc || !hw->dev) {
+		pr_notice("invalid gpio chip\n");
 		return -EINVAL;
+	}
+	dev = hw->dev;
 
 	for (idx = 0; idx < num; idx++) {
 		err = device_create_file(dev, gpio_attr_list[idx]);
-		if (err)
+		if (err) {
+			pr_notice("[pinctrl]mtk_gpio create attribute error\n");
 			break;
+		}
 	}
 
 	return err;
 }
 
+static int __init pinctrl_mtk_debug_v2_init(void)
+{
+	return mtk_gpio_create_attr();
+}
+
+late_initcall(pinctrl_mtk_debug_v2_init);
