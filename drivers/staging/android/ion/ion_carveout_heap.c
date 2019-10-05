@@ -125,9 +125,12 @@ static int ion_carveout_heap_phys(struct ion_heap *heap,
 		sg_dma_address(sg) = sg_phys(sg);
 		*addr = sg_dma_address(sg);
 	}
+
 	*len = buffer->size;
+
 	return 0;
 }
+
 static struct ion_heap_ops carveout_heap_ops = {
 	.allocate = ion_carveout_heap_allocate,
 	.free = ion_carveout_heap_free,

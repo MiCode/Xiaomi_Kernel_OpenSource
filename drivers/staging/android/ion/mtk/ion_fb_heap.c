@@ -162,12 +162,7 @@ static int ion_fb_heap_allocate(struct ion_heap *heap,
 {
 	struct ion_fb_buffer_info *buffer_info = NULL;
 	ion_phys_addr_t paddr;
-#ifdef CONFIG_MTK_IOMMU_V2
-	ion_phys_addr_t iova = 0;
-	dma_addr_t offset = 0;
-	struct scatterlist *sg;
-	int i = 0;
-#endif
+
 	if (align > PAGE_SIZE)
 		return -EINVAL;
 
@@ -199,18 +194,6 @@ static int ion_fb_heap_allocate(struct ion_heap *heap,
 	buffer->size = size;
 	buffer->sg_table = ion_fb_heap_map_dma(heap, buffer);
 
-#ifdef CONFIG_MTK_IOMMU_V2
-	buffer_info->module_id = 0;
-	ion_fb_heap_phys(heap, buffer, &iova, &size);
-
-	sg = buffer->sg_table->sgl;
-	for_each_sg(buffer->sg_table->sgl, sg, buffer->sg_table->nents, i) {
-		sg_dma_address(sg) = iova + offset;
-		sg_dma_len(sg) = sg->length;
-		offset += sg->length;
-	}
-	buffer->priv_virt = buffer_info;
-#endif
 	return buffer_info->priv_phys == ION_FB_ALLOCATE_FAIL ? -ENOMEM : 0;
 }
 

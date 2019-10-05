@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016 MediaTek Inc.
+ * Copyright (c) 2019 MediaTek Inc.
  * Author: Honghui Zhang <honghui.zhang@mediatek.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -91,7 +91,6 @@ int mtk_iommu_iova_to_va(struct device *dev,
 			 dma_addr_t iova,
 			 unsigned long *map_va,
 			 size_t size);
-// int mtk_smi_larb_get_ext(struct device *larbdev);
 
 bool enable_custom_tf_report(void);
 bool report_custom_iommu_fault(
@@ -104,15 +103,27 @@ bool report_custom_iommu_fault(
 void mtk_iommu_debug_init(void);
 void mtk_iommu_debug_reset(void);
 
-#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-#define DOMAIN_NUM (4)
+#define DOMAIN_NUM (1 << \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT - 32))
+
 enum ION_M4U_DOMAIN {
 	DOMAIN_OF_4GB,
+#if (DOMAIN_NUM > 1)
 	DOMAIN_OF_8GB,
-	DOMAIN_OF_12GB,
-	DOMAIN_OF_16GB,
-};
 #endif
+#if (DOMAIN_NUM > 2)
+	DOMAIN_OF_12GB,
+#endif
+#if (DOMAIN_NUM > 3)
+	DOMAIN_OF_16GB,
+#endif
+#if (DOMAIN_NUM > 4)
+	DOMAIN_OF_32GB,
+#endif
+#if (DOMAIN_NUM > 5)
+	DOMAIN_OF_64GB,
+#endif
+};
 
 enum IOMMU_PROFILE_TYPE {
 	IOMMU_ALLOC = 0,
@@ -141,7 +152,7 @@ int mtk_iommu_port_clock_switch(unsigned int port, bool enable);
 int mtk_iommu_larb_clock_switch(unsigned int larb, bool enable);
 unsigned int mtk_get_iommu_index(unsigned int larb);
 char *iommu_get_port_name(int port);
-int mtk_iommu_get_larb_port(unsigned int tf_id,
+int mtk_iommu_get_larb_port(unsigned int tf_id, unsigned int m4uid,
 		unsigned int *larb, unsigned int *port);
 int mtk_iommu_switch_acp(struct device *dev,
 			  unsigned long iova, size_t size, bool is_acp);
