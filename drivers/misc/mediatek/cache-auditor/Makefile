@@ -12,7 +12,7 @@
 #
 
 LINUXINCLUDE += -include $(srctree)/kernel/sched/sched.h
-LINUXINCLUDE += -include $(srctree)/drivers/misc/mediatek/base/power/qos/mt6785/mtk_qos_bound.h
+LINUXINCLUDE += -include $(srctree)/drivers/misc/mediatek/base/power/qos/mt6885/mtk_qos_bound.h
 
 obj-y += ca_drv.o
 obj-y += pftch_qos.o
