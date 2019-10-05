@@ -436,7 +436,7 @@ int send_message_to_scp(const struct ipi_msg_t *p_ipi_msg)
 	int send_status = 0;
 	uint32_t wait_ms = 0;
 
-	uint32_t opendsp_id = 0;
+	uint32_t dsp_id = 0;
 	uint32_t ipi_id = 0;
 
 
@@ -451,11 +451,11 @@ int send_message_to_scp(const struct ipi_msg_t *p_ipi_msg)
 		  ? 0
 		  : ADSP_IPI_QUEUE_DEFAULT_WAIT_MS;
 
-	opendsp_id = audio_get_opendsp_id(p_ipi_msg->task_scene);
+	dsp_id = audio_get_dsp_id(p_ipi_msg->task_scene);
 	ipi_id = audio_get_ipi_id(p_ipi_msg->task_scene);
 
 	send_status = scp_send_msg_to_queue(
-			      opendsp_id,
+			      dsp_id,
 			      ipi_id,
 			      (void *)p_ipi_msg,
 			      get_message_buf_size(p_ipi_msg),
