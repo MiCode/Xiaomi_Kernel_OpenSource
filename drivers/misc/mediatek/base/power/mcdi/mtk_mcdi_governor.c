@@ -115,7 +115,7 @@ int __attribute__((weak)) mtk_idle_entrance(
 	struct mtk_idle_info *info, int *ChosenIdle, int IsSelectOnly)
 {
 	*ChosenIdle = mtk_idle_select(info->cpu);
-	return ((*ChosenIdle == IDLE_TYPE_RG) || (!*ChosenIdle)) ? -1 : 1;
+	return (*ChosenIdle == IDLE_TYPE_RG) ? -1 : 1;
 }
 
 unsigned int mcdi_get_boot_time_check(void)
@@ -552,7 +552,7 @@ int any_core_deepidle_sodi_check(int cpu)
 					MCDI_STATE_CLUSTER_OFF + 1 : -1;
 		/* support old path (idle mode select successfully) */
 		else if (pass == 1)
-			state = mtk_idle_mode;
+			state = mcdi_get_mcdi_idle_state(mtk_idle_mode);
 		/* If pass = -1, idle mode select fail, return CPU OFF state */
 		else
 			release_last_core_prot();
