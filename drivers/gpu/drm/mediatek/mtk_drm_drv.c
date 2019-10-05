@@ -1462,7 +1462,9 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	}
 #endif
 
+#ifdef CONFIG_DRM_MEDIATEK_DEBUG_FS
 	mtk_drm_debugfs_init(drm, private);
+#endif
 	disp_dbg_init(drm);
 
 	DDPINFO("%s-\n", __func__);
