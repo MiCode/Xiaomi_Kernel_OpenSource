@@ -24,7 +24,7 @@
 #include "smi_public.h"
 #include "slbc_ops.h"
 
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#if 0 //def CONFIG_MTK_PSEUDO_M4U
 #include <mach/mt_iommu.h>
 #endif
 
@@ -143,7 +143,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
 {
 	struct slbc_data enc_sram_data;
 	int ret;
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#if 0 // def CONFIG_MTK_PSEUDO_M4U
 	int i, larb_port_num, larb_id;
 	M4U_PORT_STRUCT port;
 #endif
@@ -171,7 +171,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
 
 	ret = slbc_power_on(&enc_sram_data);
 
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#if 0 //def CONFIG_MTK_PSEUDO_M4U
 	if (core_id == MTK_VENC_CORE_0) {
 		larb_port_num = SMI_LARB7_PORT_NUM;
 		larb_id = 7;
