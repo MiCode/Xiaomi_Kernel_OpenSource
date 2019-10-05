@@ -30,7 +30,8 @@ spinlock_t pmu_lock[MTK_MDLA_CORE];
 
 /* saved registers, used to restore config after pmu reset */
 u32 cfg_pmu_event[MTK_MDLA_CORE][MDLA_PMU_COUNTERS];
-static u32 cfg_pmu_clr_mode[MTK_MDLA_CORE];
+//static u32 cfg_pmu_clr_mode[MTK_MDLA_CORE];
+static u8 cfg_pmu_percmd_mode[MTK_MDLA_CORE];
 
 /* lastest register values, since last command end */
 static u16 l_cmd_cnt[MTK_MDLA_CORE];
@@ -202,8 +203,10 @@ void pmu_counter_read_all(u32 mdlaid, u32 out[MDLA_PMU_COUNTERS])
 	offset = PMU_CNT_OFFSET;
 	reg = pmu_reg_read_with_mdlaid(mdlaid, PMU_CFG_PMCR);
 
+#if 0//for counter latch, unused
 	if ((1<<PMU_CLR_CMDE_SHIFT) & reg)
 		offset = offset + 4;
+#endif
 
 	for (i = 0; i < MDLA_PMU_COUNTERS; i++)
 		out[i] = pmu_reg_read_with_mdlaid(mdlaid,
@@ -292,10 +295,9 @@ void pmu_reset_saved_cycle(u32 mdlaid)
 	pmu_reset_cycle(mdlaid);
 }
 
-/* 1: PMU cleary by each command end */
-static void pmu_clr_mode_write(u32 mdlaid, u32 mode)
+static void pmu_percmd_mode_write(u32 mdlaid, u32 mode)
 {
-	u32 mask = (1 << PMU_CLR_CMDE_SHIFT);
+	u32 mask = (1 << PMU_PERCMD_MODE_SHIFT);
 
 	if (!get_power_on_status(mdlaid))
 		return;
@@ -306,10 +308,10 @@ static void pmu_clr_mode_write(u32 mdlaid, u32 mode)
 		pmu_reg_clear_with_mdlaid(mdlaid, mask, PMU_CFG_PMCR);
 }
 
-void pmu_clr_mode_save(u32 mdlaid, u32 mode)
+void pmu_percmd_mode_save(u32 mdlaid, u32 mode)
 {
-	cfg_pmu_clr_mode[mdlaid] = mode;
-	pmu_clr_mode_write(mdlaid, mode);
+	cfg_pmu_percmd_mode[mdlaid] = mode;
+	pmu_percmd_mode_write(mdlaid, mode);
 }
 
 /* save pmu registers for query after power off */
@@ -346,7 +348,7 @@ void pmu_reset(u32 mdlaid)
 	for (i = 0; i < MDLA_PMU_COUNTERS; i++)
 		pmu_event_write(mdlaid, i, cfg_pmu_event[mdlaid][i]);
 
-	pmu_clr_mode_write(mdlaid, cfg_pmu_clr_mode[mdlaid]);
+	pmu_percmd_mode_write(mdlaid, cfg_pmu_percmd_mode[mdlaid]);
 
 	mdla_pmu_debug("mdla: %s, PMU_CFG_PMCR: 0x%x\n",
 		__func__, pmu_reg_read_with_mdlaid(mdlaid, PMU_CFG_PMCR));
@@ -355,22 +357,25 @@ void pmu_reset(u32 mdlaid)
 
 void pmu_init(u32 mdlaid)
 {
-	cfg_pmu_clr_mode[mdlaid] = 1;
+	cfg_pmu_percmd_mode[mdlaid] = CMD_MODE_MAX;
 	spin_lock_init(&pmu_lock[mdlaid]);
 }
 
-void pmu_cmd_handle(struct mdla_dev *mdla_info)
+int pmu_cmd_handle(struct mdla_dev *mdla_info)
 {
 	int i;
-	//TODO: Check if same graph id
+
+	if (mdla_info->pmu.pmu_mode >= CMD_MODE_MAX)
+		return -1;
 
 	pmu_reset_saved_counter(mdla_info->mdlaid);
 	pmu_reset_saved_cycle(mdla_info->mdlaid);
-	pmu_clr_mode_save(mdla_info->mdlaid, mdla_info->pmu.pmu_hnd->mode);
+	pmu_percmd_mode_save(mdla_info->mdlaid,
+		mdla_info->pmu.pmu_mode);
 
 	mdla_pmu_debug("PMU number_of_event:%d, mode: %d\n",
 		mdla_info->pmu.pmu_hnd->number_of_event,
-		mdla_info->pmu.pmu_hnd->mode);
+		mdla_info->pmu.pmu_mode);
 
 	for (i = 0; i < mdla_info->pmu.pmu_hnd->number_of_event; i++) {
 		pmu_event_handle[mdla_info->mdlaid][i] =
@@ -378,12 +383,24 @@ void pmu_cmd_handle(struct mdla_dev *mdla_info)
 			(mdla_info->pmu.pmu_hnd->event[i]&0xff00)>>8,
 			mdla_info->pmu.pmu_hnd->event[i]&0xff);
 	}
+	return 0;
 
 }
 
-void pmu_command_prepare(struct mdla_dev *mdla_info,
+int pmu_command_prepare(struct mdla_dev *mdla_info,
 	struct apusys_cmd_hnd *apusys_hd)
 {
+
+	/*mdla pmu mode switch from ioctl or apusys cmd*/
+	if (cfg_pmu_percmd_mode[mdla_info->mdlaid] < CMD_MODE_MAX)
+		mdla_info->pmu.pmu_mode =
+		cfg_pmu_percmd_mode[mdla_info->mdlaid];
+	else
+		mdla_info->pmu.pmu_mode = mdla_info->pmu.pmu_hnd->mode;
+
+	if (mdla_info->pmu.pmu_mode >= CMD_MODE_MAX)
+		return -1;
+
 	mdla_info->pmu.cmd_id = apusys_hd->cmd_id;
 	mdla_info->pmu.pmu_hnd = (struct mdla_pmu_hnd *)apusys_hd->pmu_kva;
 	mdla_info->pmu.PMU_res_buf_addr0 = apusys_hd->cmd_entry +
@@ -391,7 +408,7 @@ void pmu_command_prepare(struct mdla_dev *mdla_info,
 	mdla_info->pmu.PMU_res_buf_addr1 = apusys_hd->cmd_entry +
 		mdla_info->pmu.pmu_hnd->offset_to_PMU_res_buf1;
 
-	if (mdla_info->pmu.pmu_hnd->mode == PER_CMD)
+	if (mdla_info->pmu.pmu_mode == PER_CMD)
 		cfg_timer_en = 1;
 
 	mdla_pmu_debug("command entry:%08x, pmu kva: %08x, pmu addr0: %08x, pmu addr1: %08x\n",
@@ -399,6 +416,7 @@ void pmu_command_prepare(struct mdla_dev *mdla_info,
 		apusys_hd->pmu_kva,
 		mdla_info->pmu.PMU_res_buf_addr0,
 		mdla_info->pmu.PMU_res_buf_addr1);
+	return 0;
 }
 
 void pmu_command_counter_prt(struct mdla_dev *mdla_info)
@@ -430,7 +448,10 @@ void pmu_command_counter_prt(struct mdla_dev *mdla_info)
 		       mdla_info->pmu.pmu_hnd->mode,
 		       result.cmd_len, result.cmd_id, sz);
 
-	result.pmu_val[0] = pmu_get_perf_cycle(mdla_info->mdlaid);
+	if (mdla_info->pmu.pmu_mode == PER_CMD)
+		result.pmu_val[0] = pmu_get_perf_end(mdla_info->mdlaid);
+	else
+		result.pmu_val[0] = pmu_get_perf_cycle(mdla_info->mdlaid);
 
 	mdla_pmu_debug("global counter:%08x\n", result.pmu_val[0]);
 

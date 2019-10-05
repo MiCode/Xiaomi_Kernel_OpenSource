@@ -235,6 +235,7 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 	u32 id;
 	u64 deadline;
 	int core_id = 0;
+	int pmu_ret = 0;
 	/*forward compatibility temporary, This will be replaced by apusys*/
 	struct mdla_wait_cmd mdla_wt;
 	struct mdla_wait_cmd *wt = &mdla_wt;
@@ -251,7 +252,7 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 	mdla_run_command_prepare(cd, &ce);
 
 	if (apusys_hd != NULL)
-		pmu_command_prepare(mdla_info, apusys_hd);
+		pmu_ret = pmu_command_prepare(mdla_info, apusys_hd);
 #if 0
 process_command:
 #endif
@@ -271,8 +272,8 @@ process_command:
 	/* Trace start */
 	mdla_trace_begin(core_id, &ce);
 
-	if (apusys_hd != NULL)
-		pmu_cmd_handle(mdla_info);
+	if (apusys_hd != NULL && pmu_ret == 0)
+		pmu_ret = pmu_cmd_handle(mdla_info);
 
 	ce.poweron_t = sched_clock();
 	ce.req_start_t = sched_clock();
@@ -314,9 +315,7 @@ process_command:
 		__func__,
 		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN3));
 
-	/*MDLA-PMU Command Counter*/
-	mdla_cmd_debug("%s: PMU_CFG_PMCR: %8x, pmu_clk_cnt: %.8x\n",
-				__func__,
+	mdla_cmd_debug("PMU_CFG_PMCR: %8x, pmu_clk_cnt: %.8x\n",
 				pmu_reg_read_with_mdlaid(core_id, PMU_CFG_PMCR),
 				pmu_reg_read_with_mdlaid(core_id, PMU_CYCLE));
 
@@ -359,7 +358,7 @@ process_command:
 			wt->id, wt->result, wt->queue_time,
 			wt->busy_time, wt->bandwidth);
 
-	if (apusys_hd != NULL)
+	if (apusys_hd != NULL && pmu_ret == 0)
 		pmu_command_counter_prt(mdla_info);
 
 	return ret;

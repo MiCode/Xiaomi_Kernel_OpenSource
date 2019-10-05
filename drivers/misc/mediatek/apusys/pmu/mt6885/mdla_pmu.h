@@ -57,7 +57,7 @@ void pmu_counter_read_all(u32 mdlaid, u32 out[MDLA_PMU_COUNTERS]);
 unsigned int pmu_reg_read_with_mdlaid(u32 mdlaid, u32 offset);
 
 void pmu_reg_save(u32 mdlaid);
-void pmu_clr_mode_save(u32 mdlaid, u32 mode);
+void pmu_percmd_mode_save(u32 mdlaid, u32 mode);
 
 u32 pmu_get_perf_start(u32 mdlaid);
 u32 pmu_get_perf_end(u32 mdlaid);
@@ -68,9 +68,9 @@ void pmu_reset_saved_cycle(u32 mdlaid);
 
 void pmu_init(u32 mdlaid);
 void pmu_reset(u32 mdlaid);
-void pmu_command_prepare(struct mdla_dev *mdla_info,
+int pmu_command_prepare(struct mdla_dev *mdla_info,
 	struct apusys_cmd_hnd *apusys_hd);
-void pmu_cmd_handle(struct mdla_dev *mdla_info);
+int pmu_cmd_handle(struct mdla_dev *mdla_info);
 void pmu_command_counter_prt(struct mdla_dev *mdla_info);
 
 #endif

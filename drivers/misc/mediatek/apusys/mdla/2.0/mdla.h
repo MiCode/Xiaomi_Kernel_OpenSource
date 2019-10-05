@@ -149,6 +149,7 @@ struct mdla_pmu_info {
 	u64 cmd_id;
 	u64 PMU_res_buf_addr0;
 	u64 PMU_res_buf_addr1;
+	u8 pmu_mode;
 	struct mdla_pmu_hnd *pmu_hnd;
 };
 

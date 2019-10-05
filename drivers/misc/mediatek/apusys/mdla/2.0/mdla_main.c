@@ -716,7 +716,7 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		perf_data.handle = pmu_counter_alloc(0,
+		perf_data.handle = pmu_counter_alloc(perf_data.mdlaid,
 			perf_data.interface, perf_data.event);
 		if (copy_to_user((void *) arg, &perf_data, sizeof(perf_data)))
 			return -EFAULT;
@@ -726,7 +726,8 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		perf_data.event = pmu_counter_event_get(0, perf_data.handle);
+		perf_data.event = pmu_counter_event_get(perf_data.mdlaid,
+			perf_data.handle);
 		if (copy_to_user((void *) arg, &perf_data, sizeof(perf_data)))
 			return -EFAULT;
 		break;
@@ -735,7 +736,8 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		perf_data.counter = pmu_counter_get(0, perf_data.handle);
+		perf_data.counter = pmu_counter_get(perf_data.mdlaid,
+			perf_data.handle);
 
 		if (copy_to_user((void *) arg, &perf_data, sizeof(perf_data)))
 			return -EFAULT;
@@ -745,7 +747,7 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		pmu_counter_free(0, perf_data.handle);
+		pmu_counter_free(perf_data.mdlaid, perf_data.handle);
 
 		break;
 	case IOCTL_PERF_GET_START:
@@ -753,7 +755,7 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		perf_data.start = pmu_get_perf_start(0);
+		perf_data.start = pmu_get_perf_start(perf_data.mdlaid);
 		if (copy_to_user((void *) arg, &perf_data, sizeof(perf_data)))
 			return -EFAULT;
 		break;
@@ -762,7 +764,7 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		perf_data.end = pmu_get_perf_end(0);
+		perf_data.end = pmu_get_perf_end(perf_data.mdlaid);
 		if (copy_to_user((void *) arg, &perf_data, sizeof(perf_data)))
 			return -EFAULT;
 		break;
@@ -771,40 +773,53 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		perf_data.start = pmu_get_perf_cycle(0);
+		perf_data.start = pmu_get_perf_cycle(perf_data.mdlaid);
 		if (copy_to_user((void *) arg, &perf_data, sizeof(perf_data)))
 			return -EFAULT;
 		break;
 	case IOCTL_PERF_RESET_CNT:
-		mutex_lock(&mdla_devices[0].cmd_lock);
-		mutex_lock(&mdla_devices[0].power_lock);
 
-		pmu_reset_saved_counter(0);
 
-		mutex_unlock(&mdla_devices[0].power_lock);
-		mutex_unlock(&mdla_devices[0].cmd_lock);
+		if (copy_from_user(&perf_data, (void *) arg,
+				sizeof(perf_data))) {
+			return -EFAULT;
+		}
+
+		mutex_lock(&mdla_devices[perf_data.mdlaid].cmd_lock);
+		mutex_lock(&mdla_devices[perf_data.mdlaid].power_lock);
+
+		pmu_reset_saved_counter(perf_data.mdlaid);
+
+		mutex_unlock(&mdla_devices[perf_data.mdlaid].power_lock);
+		mutex_unlock(&mdla_devices[perf_data.mdlaid].cmd_lock);
 		break;
 	case IOCTL_PERF_RESET_CYCLE:
-		mutex_lock(&mdla_devices[0].cmd_lock);
-		mutex_lock(&mdla_devices[0].power_lock);
 
-		pmu_reset_saved_cycle(0);
+		if (copy_from_user(&perf_data, (void *) arg,
+				sizeof(perf_data))) {
+			return -EFAULT;
+		}
 
-		mutex_unlock(&mdla_devices[0].power_lock);
-		mutex_unlock(&mdla_devices[0].cmd_lock);
+		mutex_lock(&mdla_devices[perf_data.mdlaid].cmd_lock);
+		mutex_lock(&mdla_devices[perf_data.mdlaid].power_lock);
+
+		pmu_reset_saved_cycle(perf_data.mdlaid);
+
+		mutex_unlock(&mdla_devices[perf_data.mdlaid].power_lock);
+		mutex_unlock(&mdla_devices[perf_data.mdlaid].cmd_lock);
 		break;
 	case IOCTL_PERF_SET_MODE:
 		if (copy_from_user(&perf_data, (void *) arg,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		mutex_lock(&mdla_devices[0].cmd_lock);
-		mutex_lock(&mdla_devices[0].power_lock);
+		mutex_lock(&mdla_devices[perf_data.mdlaid].cmd_lock);
+		mutex_lock(&mdla_devices[perf_data.mdlaid].power_lock);
 
-		pmu_clr_mode_save(0, perf_data.mode);
+		pmu_percmd_mode_save(perf_data.mdlaid, perf_data.mode);
 
-		mutex_unlock(&mdla_devices[0].power_lock);
-		mutex_unlock(&mdla_devices[0].cmd_lock);
+		mutex_unlock(&mdla_devices[perf_data.mdlaid].power_lock);
+		mutex_unlock(&mdla_devices[perf_data.mdlaid].cmd_lock);
 		break;
 
 #ifdef CONFIG_MTK_MDLA_ION

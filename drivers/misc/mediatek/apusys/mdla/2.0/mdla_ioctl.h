@@ -126,6 +126,7 @@ struct ioctl_perf {
 	__u32 start;
 	__u32 end;
 	__u32 mode;
+	__u32 mdlaid;
 };
 
 struct ioctl_ion {
