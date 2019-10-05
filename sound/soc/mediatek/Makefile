@@ -33,6 +33,7 @@ obj-$(CONFIG_SND_SOC_MT8168) += mt8168/
 obj-$(CONFIG_SND_SOC_MT6785) += mt6785/
 obj-$(CONFIG_SND_SOC_MT8173) += mt8173/
 obj-$(CONFIG_SND_SOC_MT6885) += mt6885/
+obj-$(CONFIG_SND_SOC_MT8167) += mt8167/
 # adsp
 ifeq ($(CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT),y)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework/
