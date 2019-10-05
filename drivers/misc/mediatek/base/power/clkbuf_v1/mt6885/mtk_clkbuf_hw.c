@@ -1082,13 +1082,14 @@ u8 clk_buf_get_xo_en_sta(enum xo_id id)
 void clk_buf_show_status_info(void)
 {
 	int len;
-	char *buf, *str;
+	char *buf, *str, *str_sep;
 
 	buf = vmalloc(CLKBUF_STATUS_INFO_SIZE);
 	if (buf) {
 		len = clk_buf_show_status_info_internal(buf);
-		while ((str = strsep(&buf, ".")) != NULL)
-			pr_info("%s\n", str);
+		str = buf;
+		while ((str_sep = strsep(&str, ".")) != NULL)
+			pr_info("%s\n", str_sep);
 
 		vfree(buf);
 	} else
