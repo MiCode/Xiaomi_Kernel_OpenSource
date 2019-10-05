@@ -871,12 +871,19 @@ static void smi_subsys_before_off(enum subsys_id sys)
 	smi_subsys_sspm_ipi(false, subsys);
 	for (i = 0; i < SMI_DEV_NUM; i++)
 		if (subsys & (1 << i)) {
-			if (sys != SYS_DIS || !(smi_mm_first & subsys))
-				mtk_smi_clk_disable(smi_dev[i]);
 			smi_clk_record(i, false, NULL);
+			if ((smi_mm_first & subsys) && sys == SYS_DIS) {
+				smi_mm_first &= ~(1 << i);
+				continue;
+			}
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+			if ((smi_mm_first & subsys) && sys == SYS_MDP) {
+				smi_mm_first &= ~(1 << i);
+				continue;
+			}
+#endif
+			mtk_smi_clk_disable(smi_dev[i]);
 		}
-	if (sys == SYS_DIS && (smi_mm_first & subsys))
-		smi_mm_first &= ~subsys;
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log(smi_mmp_event[sys], MMPROFILE_FLAG_END);
 #endif
