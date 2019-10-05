@@ -4,6 +4,7 @@
  */
 
 #include <linux/seq_file.h>
+#include <linux/cpuidle.h>
 
 #include <mtk_lp_plat_reg.h>
 
@@ -65,7 +66,27 @@ static ssize_t idle_proc_info_write(struct file *filp,
 
 static int idle_proc_enable_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "%s()\n", __func__);
+	struct cpuidle_driver *drv;
+	int i, cpu, en = 0;
+
+	for_each_possible_cpu(cpu) {
+
+		drv = cpuidle_get_cpu_driver(per_cpu(cpuidle_devices, cpu));
+		if (!drv)
+			continue;
+
+		for (i = 1; i < drv->state_count; i++)
+			en += mtk_cpuidle_get_param(drv, i, IDLE_PARAM_EN);
+	}
+
+	if (en == 0) {
+		seq_puts(m, "MCDI: Disable\n");
+	} else {
+		seq_puts(m, "MCDI: Enable\n");
+		seq_puts(m,
+		"(cat /proc/cpuidle/state/enabled for more detail)\n");
+	}
+
 	return 0;
 }
 

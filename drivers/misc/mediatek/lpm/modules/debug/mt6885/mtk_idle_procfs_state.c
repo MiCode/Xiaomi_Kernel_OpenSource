@@ -13,8 +13,8 @@
 #define ALL_BIG_CPU_ID          (20)
 #define ALL_CPU_ID              (100)
 
-#define CPU_L_MASK              (0x3f)
-#define CPU_B_MASK              (0xc0)
+#define CPU_L_MASK              (0x0f)
+#define CPU_B_MASK              (0xf0)
 #define ALL_CPU_MASK            (0xff)
 
 static void idle_proc_state_uasge_print(struct seq_file *m, char *node_name)
