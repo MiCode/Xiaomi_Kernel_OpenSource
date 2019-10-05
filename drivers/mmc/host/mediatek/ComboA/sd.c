@@ -5443,7 +5443,7 @@ static int msdc_drv_remove(struct platform_device *pdev)
 		clk_unprepare(host->clk_ctl);
 	if (host->hclk_ctl)
 		clk_unprepare(host->hclk_ctl);
-#ifdef CONFIG_MTK_HW_FDE
+#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)
 	if (host->aes_clk_ctl)
 		clk_unprepare(host->aes_clk_ctl);
 #endif
