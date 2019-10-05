@@ -76,6 +76,8 @@ static int pwk_start_monitor;
 #define MAX_HANG_INFO_SIZE (2*1024*1024) /* 2M info */
 #endif
 
+/* #define BOOT_UP_HANG */
+
 static int MaxHangInfoSize = MAX_HANG_INFO_SIZE;
 #define MAX_STRING_SIZE 256
 char hang_buff[MAX_HANG_INFO_SIZE];
@@ -1583,6 +1585,7 @@ static void hang_dump_backtrace(void)
 			(strcmp(p->comm, "mmcqd/0") == 0) ||
 			(strcmp(p->comm, "debuggerd64") == 0) ||
 			(strcmp(p->comm, "mmcqd/1") == 0) ||
+			(strcmp(p->comm, "vdc") == 0) ||
 			(strcmp(p->comm, "debuggerd") == 0)) {
 			read_unlock(&tasklist_lock);
 			show_bt_by_pid(p->pid);
@@ -1738,14 +1741,25 @@ static int hang_detect_thread(void *arg)
 	reset_hang_info();
 	msleep(120 * 1000);
 	pr_debug("[Hang_Detect] hang_detect thread starts.\n");
+
+#ifdef BOOT_UP_HANG
+	hd_timeout = 9;
+	hang_detect_counter = 9;
+	hd_detect_enabled = 1;
+#endif
+
 	while (1) {
 		pr_info(
 			"[Hang_Detect] hang_detect thread counts down %d:%d, status %d.\n",
 			hang_detect_counter, hd_timeout, hd_detect_enabled);
+#ifdef BOOT_UP_HANG
+		if (reboot_flag || (hd_detect_enabled == 1))
+#else
 		system_server_pid = FindTaskByName("system_server");
-
 		if (reboot_flag || ((hd_detect_enabled == 1) &&
-			(system_server_pid != -1))) {
+			(system_server_pid != -1)))
+#endif
+		{
 #ifdef CONFIG_MTK_RAM_CONSOLE
 			aee_rr_rec_hang_detect_timeout_count(hd_timeout);
 #endif
