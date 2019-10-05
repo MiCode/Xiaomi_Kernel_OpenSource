@@ -19,9 +19,6 @@ mediatek-drm-y := mtk_disp_color.o \
 		  mtk_drm_plane.o \
 		  mtk_dsi.o \
 		  mtk_mipi_tx.o \
-		  mtk_dpi.o \
-		  mtk_lvds.o \
-		  mtk_lvds_phy.o \
 		  mtk_writeback.o \
 		  mtk_sync.o \
 		  mtk_fence.o \
@@ -56,7 +53,10 @@ mediatek-drm-hdmi-objs := mtk_cec.o \
 			  mtk_hdmi_ddc.o \
 			  mtk_mt8173_hdmi_phy.o
 
-obj-$(CONFIG_DRM_MEDIATEK_HDMI) += mediatek-drm-hdmi.o
+obj-$(CONFIG_DRM_MEDIATEK_HDMI) += mediatek-drm-hdmi.o \
+				  mtk_dpi.o \
+				  mtk_lvds.o \
+				  mtk_lvds_phy.o
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
              -I$(srctree)/drivers/misc/mediatek/smi/			\

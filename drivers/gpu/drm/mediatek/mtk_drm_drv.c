@@ -1962,15 +1962,25 @@ static struct platform_driver mtk_drm_platform_driver = {
 };
 
 static struct platform_driver *const mtk_drm_drivers[] = {
-	&mtk_ddp_driver,	  &mtk_disp_color_driver,
-	&mtk_disp_ccorr_driver,   &mtk_disp_gamma_driver,
-	&mtk_disp_aal_driver,     &mtk_disp_postmask_driver,
-	&mtk_disp_dither_driver,  &mtk_disp_ovl_driver,
-	&mtk_disp_rdma_driver,    &mtk_disp_wdma_driver,
-	&mtk_disp_rsz_driver,     &mtk_dpi_driver,
-	&mtk_drm_platform_driver, &mtk_dsi_driver,
-	&mtk_mipi_tx_driver,      &mtk_lvds_driver,
+	&mtk_ddp_driver,
+	&mtk_disp_color_driver,
+	&mtk_disp_ccorr_driver,
+	&mtk_disp_gamma_driver,
+	&mtk_disp_aal_driver,
+	&mtk_disp_postmask_driver,
+	&mtk_disp_dither_driver,
+	&mtk_disp_ovl_driver,
+	&mtk_disp_rdma_driver,
+	&mtk_disp_wdma_driver,
+	&mtk_disp_rsz_driver,
+	&mtk_drm_platform_driver,
+	&mtk_dsi_driver,
+	&mtk_mipi_tx_driver,
+#ifdef CONFIG_DRM_MEDIATEK_HDMI
+	&mtk_dpi_driver,
+	&mtk_lvds_driver,
 	&mtk_lvds_tx_driver,
+#endif
 	&mtk_disp_dsc_driver,
 };
 
