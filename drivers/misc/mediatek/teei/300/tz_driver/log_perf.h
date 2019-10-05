@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Microtrust, Inc.
+ * Copyright (c) 2015-2019, MICROTRUST Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and

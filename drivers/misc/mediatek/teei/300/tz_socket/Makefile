@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019, MICROTRUST Incorporated
+# Copyright (c) 2015-2017 MICROTRUST Incorporated
 # All Rights Reserved.
 #
 # This program is free software; you can redistribute it and/or
@@ -10,4 +10,5 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 
-obj-$(CONFIG_MICROTRUST_TUI_DRIVER) += utr_tui_main.o
+#obj-$(CONFIG_MICROTRUST_TZ_DRIVER) += socketFun.o
+ccflags-y += -D DEBUG_DO -fno-pic
