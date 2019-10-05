@@ -791,16 +791,17 @@ static int dpmaif_get_rx_frag(struct dpmaif_rx_queue *rxq,
 	unsigned long loop = 0;
 	unsigned long bid_cnt = 0;
 	unsigned long pkt_cnt = 0;
+	int frg_idx;
 
+	frg_idx = pkt_inf_t->buffer_id;
 	/*1.check btable alloc before or double release*/
 	/*error handler*/
-	if (bat_req->bid_btable[skb_idx] == 0) {
+	if (bat_req->bid_btable[frg_idx] == 0) {
 		dpmaif_dump_rxq_remain(dpmaif_ctrl, DPMAIF_RXQ_NUM, 1);
 		ret = DATA_CHECK_FAIL;
 		return ret;
 	}
-	/*2.Clear BAT btable for skb_idx*/
-	bat_req->bid_btable[skb_idx] = 0;
+
 	/*3.Check how much BAT can be re-alloc*/
 	bat_rel_rd_cur = bat_req->bat_rel_rd_idx;
 
@@ -809,6 +810,8 @@ static int dpmaif_get_rx_frag(struct dpmaif_rx_queue *rxq,
 	if (ret < 0)
 		return ret;
 
+	/*2.Clear BAT btable for skb_idx*/
+	bat_req->bid_btable[frg_idx] = 0;
 	while (1) {
 		if (bat_req->bid_btable[bat_rel_rd_cur] == 0)
 			bid_cnt++;

@@ -1096,6 +1096,8 @@ void drv_dpmaif_common_hw_init(void)
 void drv_dpmaif_md_hw_bus_remap(void)
 {
 	unsigned int value;
+	phys_addr_t md_base_at_ap;
+	unsigned int tmp_val;
 
 	/*DPMAIF MD Domain setting:MD domain:1,AP domain:0*/
 	value = (((DP_DOMAIN_ID&DPMAIF_AWDOMAIN_BIT_MSK)
@@ -1111,21 +1113,65 @@ void drv_dpmaif_md_hw_bus_remap(void)
 		<<DPMAIF_CACHE_BANK1_BIT_OFT));
 
 	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_CACHE, value);
+	get_md_resv_mem_info(MD_SYS1, &md_base_at_ap, NULL, NULL, NULL);
+	tmp_val = (unsigned int)md_base_at_ap;
+
 	/*Remap and Remap enable for address*/
-	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAPA, 0xe300e1);
-	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAPB, 0xe700e5);
-	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAPC, 0xeB00e9);
-	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAPD, 0xeF00eD);
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-A-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAPA, value);
+	tmp_val += 0x2000000 * 2;
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-B-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAPB, value);
+	tmp_val += 0x2000000 * 2;
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-C-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAPC, value);
+	tmp_val += 0x2000000 * 2;
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-D-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAPD, value);
 
-	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAPA, 0xf300f1);
-	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAPB, 0xf700f5);
-	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAPC, 0xfB00f9);
-	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAPD, 0xfF00fD);
+	tmp_val += 0x2000000 * 2;
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-1A-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAPA, value);
+	tmp_val += 0x2000000 * 2;
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-1B-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAPB, value);
+	tmp_val += 0x2000000 * 2;
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-1C-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAPC, value);
+	tmp_val += 0x2000000 * 2;
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-1D-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAPD, value);
 
+	/*
 	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK4_MAPA, 0xe300e1);
 	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK4_MAPB, 0xe700e5);
 	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK4_MAPC, 0xeB00e9);
 	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK4_MAPD, 0xeF00eD);
+	*/
 
 	/*Enable DPMAIF HW remap*/
 	value = DPMA_READ_AO_MD_DL(NRL2_DPMAIF_MISC_AO_CFG1);
