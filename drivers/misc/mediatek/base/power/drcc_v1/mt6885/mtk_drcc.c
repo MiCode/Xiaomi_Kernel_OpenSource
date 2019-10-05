@@ -529,7 +529,7 @@ static int drcc_trig_proc_show(struct seq_file *m, void *v)
 	}
 
 	seq_printf(m, "MCUSYS_RESERVED_REG1 : 0x%llx = 0x%x\n",
-		MCUSYS_RESERVED_REG1,
+		(unsigned long long)MCUSYS_RESERVED_REG1,
 		mt_secure_call_drcc(
 			MTK_SIP_KERNEL_DRCC_READ,
 			MCUSYS_RESERVED_REG1,
@@ -1097,7 +1097,7 @@ static int drcc_reg_dump_proc_show(struct seq_file *m, void *v)
 	}
 
 	seq_printf(m, "MCUSYS_RESERVED_REG1 : 0x%llx = 0x%x\n",
-		MCUSYS_RESERVED_REG1,
+		(unsigned long long)MCUSYS_RESERVED_REG1,
 		mt_secure_call_drcc(
 			MTK_SIP_KERNEL_DRCC_READ,
 			MCUSYS_RESERVED_REG1,
