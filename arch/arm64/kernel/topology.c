@@ -357,6 +357,22 @@ static void __init reset_cpu_topology(void)
 
 void __init init_cpu_topology(void)
 {
+	/*
+	 * sched_init
+	 *   |-> arch_build_cpu_topology_domain()
+	 *       |-> init_cpu_topology()
+	 *   |-> *scheduler_running = 1*
+	 * ...
+	 * rest_init
+	 *   ^ fork kernel_init
+	 *       |-> kernel_init_freeable
+	 *        ...
+	 *           |-> init_cpu_topology
+	 * Prevent re-enter init_cpu_topology again with static variable
+	 * cpu_topology_init.
+	 */
+	if (cpu_topology_init)
+		return;
 	reset_cpu_topology();
 
 	/*
