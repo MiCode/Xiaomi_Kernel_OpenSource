@@ -800,6 +800,19 @@ void cmdq_virtual_enable_common_clock_locked(bool enable)
 #endif				/* CMDQ_PWR_AWARE */
 }
 
+void cmdq_virtual_enable_gce_clock_locked(bool enable)
+{
+#ifdef CMDQ_PWR_AWARE
+	if (enable) {
+		CMDQ_VERBOSE("[CLOCK] Enable CMDQ(GCE) Clock\n");
+		cmdq_dev_enable_gce_clock(enable);
+	} else {
+		CMDQ_VERBOSE("[CLOCK] Disable CMDQ(GCE) Clock\n");
+		cmdq_dev_enable_gce_clock(enable);
+	}
+#endif
+}
+
 
 const char *cmdq_virtual_parse_handle_error_module_by_hwflag_impl(
 	const struct cmdqRecStruct *pHandle)
@@ -1065,6 +1078,7 @@ void cmdq_virtual_function_setting(void)
 	pFunc->moduleEntrySuspend = cmdq_virtual_can_module_entry_suspend;
 	pFunc->printStatusClock = cmdq_virtual_print_status_clock;
 	pFunc->printStatusSeqClock = cmdq_virtual_print_status_seq_clock;
+	pFunc->enableGCEClockLocked = cmdq_virtual_enable_gce_clock_locked;
 	pFunc->parseErrorModule =
 		cmdq_virtual_parse_error_module_by_hwflag_impl;
 	pFunc->parseHandleErrorModule =

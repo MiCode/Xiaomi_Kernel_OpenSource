@@ -2380,7 +2380,7 @@ void cmdq_core_reset_gce(void)
 	 * 1. clock-on
 	 * 2. reset all events
 	 */
-	//cmdq_get_func()->enableGCEClockLocked(true);
+	cmdq_get_func()->enableGCEClockLocked(true);
 	cmdq_core_reset_hw_events();
 	cmdq_core_config_prefetch_gsize();
 #ifdef CMDQ_ENABLE_BUS_ULTRA
@@ -3779,7 +3779,7 @@ static void cmdq_core_clk_disable(struct cmdqRecStruct *handle)
 		/* Backup event */
 		cmdq_get_func()->eventBackup();
 		/* clock-off */
-		//cmdq_get_func()->enableGCEClockLocked(false);
+		cmdq_get_func()->enableGCEClockLocked(false);
 	} else if (clock_count < 0) {
 		CMDQ_ERR(
 			"enable clock %s error usage:%d smi use:%d\n",

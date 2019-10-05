@@ -45,6 +45,7 @@ struct device *cmdq_dev_get(void);
 u32 cmdq_dev_get_irq_id(void);
 u32 cmdq_dev_get_irq_secure_id(void);
 /* GCE clock */
+void cmdq_dev_enable_gce_clock(bool enable);
 bool cmdq_dev_gce_clock_is_enable(void);
 bool cmdq_dev_mmsys_clock_is_enable(void);
 /* virtual address */

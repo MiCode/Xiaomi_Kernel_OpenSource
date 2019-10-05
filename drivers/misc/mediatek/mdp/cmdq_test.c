@@ -1046,7 +1046,7 @@ void testcase_clkmgr_impl(enum CMDQ_ENG_ENUM engine,
 	CMDQ_MSG("enable_clock\n");
 	if (engine == CMDQ_ENG_CMDQ) {
 		/* Turn on CMDQ engine */
-		//cmdq_dev_enable_gce_clock(true);
+		cmdq_dev_enable_gce_clock(true);
 	} else {
 		/* Turn on MDP engines */
 #ifdef CMDQ_CONFIG_SMI
@@ -1069,7 +1069,7 @@ void testcase_clkmgr_impl(enum CMDQ_ENG_ENUM engine,
 	CMDQ_MSG("disable_clock\n");
 	if (engine == CMDQ_ENG_CMDQ) {
 		/* Turn on CMDQ engine */
-		//cmdq_dev_enable_gce_clock(false);
+		cmdq_dev_enable_gce_clock(false);
 	} else {
 		/* Turn on MDP engines */
 #ifdef CMDQ_CONFIG_SMI
@@ -7866,7 +7866,9 @@ static void testcase_general_handling(s32 testID)
 		testcase_long_command();
 		break;
 	case 80:
+		cmdq_dev_enable_gce_clock(false);
 		testcase_clkmgr();
+		cmdq_dev_enable_gce_clock(true);
 		break;
 	case 79:
 		testcase_perisys_apb();
@@ -8003,7 +8005,7 @@ ssize_t cmdq_test_proc(struct file *fp, char __user *u, size_t s, loff_t *l)
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	/* Turn on GCE clock to make sure GPR is always alive */
-	//cmdq_dev_enable_gce_clock(true);
+	cmdq_dev_enable_gce_clock(true);
 	cmdq_mdp_get_func()->mdpEnableCommonClock(true);
 #else
 	cmdq_core_reset_gce();
@@ -8049,7 +8051,7 @@ ssize_t cmdq_test_proc(struct file *fp, char __user *u, size_t s, loff_t *l)
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	cmdq_mdp_get_func()->mdpEnableCommonClock(false);
 	/* Turn off GCE clock */
-	//cmdq_dev_enable_gce_clock(false);
+	cmdq_dev_enable_gce_clock(false);
 #endif
 
 	CMDQ_MSG("%s ended\n", __func__);

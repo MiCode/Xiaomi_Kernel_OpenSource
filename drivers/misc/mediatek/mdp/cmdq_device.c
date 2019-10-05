@@ -224,6 +224,14 @@ void cmdq_dev_init_module_clk(void)
 	cmdq_mdp_get_func()->initModuleCLK();
 }
 
+void cmdq_dev_enable_gce_clock(bool enable)
+{
+	cmdq_dev_enable_device_clock(enable, gCmdqDev.clk_gce, "gce-clk");
+	if (!IS_ERR(gCmdqDev.clk_gce_timer))
+		cmdq_dev_enable_device_clock(enable, gCmdqDev.clk_gce_timer,
+			"gce-clk-timer");
+}
+
 bool cmdq_dev_gce_clock_is_enable(void)
 {
 	return cmdq_dev_device_clock_is_enable(gCmdqDev.clk_gce);

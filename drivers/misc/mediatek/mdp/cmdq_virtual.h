@@ -123,6 +123,7 @@ struct cmdqCoreFuncStruct {
 	CmdqModuleEntrySuspend moduleEntrySuspend;
 	CmdqPrintStatusClock printStatusClock;
 	CmdqPrintStatusSeqClock printStatusSeqClock;
+	CmdqEnableGCEClockLocked enableGCEClockLocked;
 	CmdqParseErrorModule parseErrorModule;
 	CmdqParseHandleErrorModule parseHandleErrorModule;
 	CmdqDumpSMI dumpSMI;

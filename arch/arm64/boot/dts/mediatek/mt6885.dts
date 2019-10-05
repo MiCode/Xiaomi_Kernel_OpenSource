@@ -2773,8 +2773,10 @@ page_owner=on";
 		compatible = "mediatek,mdp_rdma0", "mediatek,mdp";
 		reg = <0 0x1f006000 0 0x1000>;
 		interrupts = <GIC_SPI 467 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&mdpsys_config MDP_MDP_RDMA0>;
-		clock-names = "MDP_RDMA0";
+		clocks = <&mdpsys_config MDP_MDP_RDMA0>,
+			<&infracfg_ao INFRACFG_AO_GCE2_CG>,
+			<&infracfg_ao INFRACFG_AO_GCE_26M>;
+		clock-names = "MDP_RDMA0", "GCE", "GCE_TIMER";
 		mmsys_config = <&mdpsys_config>;
 		mm_mutex   = <&mdp_mutex>;
 		mboxes = <&gce_mbox_m 12 0 CMDQ_THR_PRIO_1>,
