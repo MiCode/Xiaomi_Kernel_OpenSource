@@ -34,10 +34,8 @@
 #include "eara_job_usedext.h"
 #include "mtk_upower.h"
 
-#define API_READY 0
-#if !API_READY
+#ifndef API_READY
 #undef CONFIG_MTK_VPU_SUPPORT
-#undef CONFIG_MTK_MDLA_SUPPORT
 #endif
 
 #if defined(CONFIG_MTK_VPU_SUPPORT)
@@ -46,8 +44,6 @@
 #if defined(CONFIG_MTK_MDLA_SUPPORT)
 #include "mdla_dvfs.h"
 #endif
-
-#define API_READY 0
 
 #define MAX_DEVICE 2
 struct EARA_NN_JOB {
@@ -1110,9 +1106,7 @@ static void get_pwr_tbl(void)
 	unsigned int temp2;
 	int cluster_num = 2;
 
-#if API_READY
 	cobra_tbl = ppm_cobra_pass_tbl();
-#endif
 	if (!cobra_tbl)
 		return;
 
@@ -1151,7 +1145,6 @@ static void get_pwr_tbl(void)
 		sizeof(eara_cpu_table));
 
 #if defined(CONFIG_MTK_VPU_SUPPORT)
-#if API_READY
 	for (opp = 0; opp < VPU_OPP_NUM; opp++) {
 		eara_vpu_table.power[opp] =
 			vpu_power_table[opp].power;
@@ -1162,10 +1155,8 @@ static void get_pwr_tbl(void)
 			100 / get_vpu_opp_to_freq(0);
 	}
 #endif
-#endif
 
 #if defined(CONFIG_MTK_MDLA_SUPPORT)
-#if API_READY
 	for (opp = 0; opp < MDLA_OPP_NUM; opp++) {
 		eara_mdla_table.power[opp] =
 			mdla_power_table[opp].power;
@@ -1175,7 +1166,6 @@ static void get_pwr_tbl(void)
 			get_mdla_opp_to_freq(opp) *
 			100 / get_mdla_opp_to_freq(0);
 	}
-#endif
 #endif
 }
 

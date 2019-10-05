@@ -20,6 +20,7 @@ FBT_TOP = $(FPSGO_TOP)/fbt
 FSTB_TOP = $(FPSGO_TOP)/fstb
 COM_TOP = $(FPSGO_TOP)/composer
 EARA_JOB_TOP = $(FPSGO_TOP)/eara_job
+VIDEOX_TOP += $(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox
 
 obj-y += fpsgo_main.o
 obj-y += base/
@@ -38,3 +39,4 @@ ccflags-y += \
         -I$(FSTB_TOP)/ \
         -I$(COM_TOP)/include/ \
         -I$(EARA_JOB_TOP)/include/ \
+        -I$(VIDEOX_TOP)/ \
