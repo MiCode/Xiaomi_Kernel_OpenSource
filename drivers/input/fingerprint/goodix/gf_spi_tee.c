@@ -365,6 +365,8 @@ static int mtk_fingerprint_power_init(struct gf_device *gf_dev)
 		goto err;
 	}
 
+	return 0;
+
 err:
 	regulator_put(gf_dev->fp_reg);
 	return ret;
