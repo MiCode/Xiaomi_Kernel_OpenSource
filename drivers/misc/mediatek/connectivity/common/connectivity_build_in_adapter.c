@@ -92,6 +92,11 @@ EXPORT_SYMBOL(gWifiRsvMemPhyBase);
 unsigned long long gWifiRsvMemSize;
 EXPORT_SYMBOL(gWifiRsvMemSize);
 
+phys_addr_t gGpsRsvMemPhyBase;
+EXPORT_SYMBOL(gGpsRsvMemPhyBase);
+unsigned long long gGpsRsvMemSize;
+EXPORT_SYMBOL(gGpsRsvMemSize);
+
 /*Reserved memory by device tree!*/
 
 int reserve_memory_consys_fn(struct reserved_mem *rmem)
@@ -118,6 +123,18 @@ int reserve_memory_wifi_fn(struct reserved_mem *rmem)
 }
 RESERVEDMEM_OF_DECLARE(reserve_memory_wifi, "mediatek,wifi-reserve-memory",
 		       reserve_memory_wifi_fn);
+
+int reserve_memory_gps_fn(struct reserved_mem *rmem)
+{
+	pr_info(DFT_TAG "[W]%s: name: %s,base: 0x%llx,size: 0x%llx\n",
+		__func__, rmem->name, (unsigned long long)rmem->base,
+		(unsigned long long)rmem->size);
+	gGpsRsvMemPhyBase = rmem->base;
+	gGpsRsvMemSize = rmem->size;
+	return 0;
+}
+RESERVEDMEM_OF_DECLARE(reserve_memory_gps, "mediatek,gps-reserve-memory",
+			reserve_memory_gps_fn);
 
 void connectivity_export_show_stack(struct task_struct *tsk, unsigned long *sp)
 {

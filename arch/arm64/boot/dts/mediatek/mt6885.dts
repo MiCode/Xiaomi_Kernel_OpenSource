@@ -119,6 +119,14 @@ page_owner=on";
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
 
+		gps-reserve-memory {
+			compatible = "mediatek,gps-reserve-memory";
+			no-map;
+			size = <0 0x100000>;
+			alignment = <0 0x100000>;
+			alloc-ranges = <0 0x40000000 0 0x80000000>;
+		};
+
 #ifdef CONFIG_MICROTRUST_TEE_SUPPORT
 		soter-shared-mem {
 			compatible = "microtrust,shared_mem";
@@ -3858,9 +3866,13 @@ page_owner=on";
 	};
 
 	gps: gps@18C00000 {
-		compatible = "mediatek,mt6789-gps";
+		compatible = "mediatek,mt6885-gps";
 		reg = <0 0x18000000 0 0x100000>,
-			<0 0x18C00000 0 0x100000>;
+			<0 0x18C00000 0 0x100000>,
+			<0 0x10003304 0 0x4>,
+			<0 0x1001C018 0 0xC>;
+		reg-names = "conn_infra_base", "conn_gps_base",
+			"status_dummy_cr", "tia_gps";
 		interrupts = <GIC_SPI 383 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 384 IRQ_TYPE_EDGE_RISING>,
 			<GIC_SPI 385 IRQ_TYPE_LEVEL_HIGH>,
