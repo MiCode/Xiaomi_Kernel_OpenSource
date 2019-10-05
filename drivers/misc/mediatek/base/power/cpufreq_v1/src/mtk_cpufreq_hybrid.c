@@ -223,6 +223,8 @@ int Ripi_cpu_dvfs_thread(void *data)
 				t_diff =
 				log_box_parsed[num_log - 1].time_stamp -
 				log_box_parsed[0].time_stamp;
+				if (!t_diff)
+					t_diff = 1;
 #if defined(__LP64__) || defined(_LP64)
 				avg_f = tf_sum / t_diff;
 #else
