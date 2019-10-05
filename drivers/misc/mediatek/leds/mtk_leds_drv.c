@@ -41,6 +41,7 @@
  * variables
  ***************************************************************************/
 #define MT_LED_LEVEL_BIT 10
+#define MT_LED_DRIVER_BIT 8
 
 #ifndef CONFIG_MTK_PWM
 #define CLK_DIV1 0
@@ -68,6 +69,7 @@ static int debug_enable_led = 1;
 	} \
 } while (0)
 
+int led_bits = MT_LED_DRIVER_BIT;
 /******************************************************************************
  * for DISP backlight High resolution
  *****************************************************************************/
@@ -107,9 +109,9 @@ static DEFINE_MUTEX(bl_level_limit_mutex);
  ***************************************************************************/
 int setMaxbrightness(int max_level, int enable)
 {
-	struct cust_mt65xx_led *cust_led_list = mt_get_cust_led_list();
 
 #if !defined(CONFIG_MTK_AAL_SUPPORT)
+	struct cust_mt65xx_led *cust_led_list = mt_get_cust_led_list();
 
 	mutex_lock(&bl_level_limit_mutex);
 	if (enable == 1) {
@@ -142,8 +144,8 @@ int setMaxbrightness(int max_level, int enable)
 	LEDS_DRV_DEBUG("%s go through AAL\n", __func__);
 	max_level = ((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT)
 		- 1) * max_level +
-		(((1 << cust_led_list[TYPE_LCD].led_bits) - 1) / 2))
-		/ ((1 << cust_led_list[TYPE_LCD].led_bits) - 1));
+		(((1 << led_bits) - 1) / 2))
+		/ ((1 << led_bits) - 1));
 	disp_bls_set_max_backlight(max_level);
 #endif
 	return 0;
@@ -186,8 +188,8 @@ static int mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 	if (cust->mode == MT65XX_LED_MODE_CUST_BLS_PWM) {
 		level = ((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT)
 			- 1) * level +
-			(((1 << cust->led_bits) - 1) / 2))
-			/ ((1 << cust->led_bits) - 1));
+			(((1 << led_bits) - 1) / 2))
+			/ ((1 << led_bits) - 1));
 	}
 #endif
 	mt_mt65xx_led_set_cust(cust, level);
@@ -310,7 +312,7 @@ int mt65xx_leds_brightness_set(enum mt65xx_led_type type,
 		return -1;
 
 	level = min((int)level,
-		(1 << cust_led_list[TYPE_LCD].led_bits) - 1);
+		(1 << led_bits) - 1);
 	if (level < 0)
 		level = 0;
 
@@ -369,7 +371,7 @@ int backlight_brightness_set(int level)
 		mutex_lock(&bl_level_limit_mutex);
 		/* extend  pwm bits to led bits*/
 		current_level = (level
-			* ((1 << cust_led_list[TYPE_LCD].led_bits) - 1)
+			* ((1 << led_bits) - 1)
 			+ (((1 << MT_LED_LEVEL_BIT) - 1) / 2))
 			/ ((1 << MT_LED_LEVEL_BIT) - 1);
 		if (limit_flag == 0) {
@@ -378,9 +380,8 @@ int backlight_brightness_set(int level)
 			/* extend   led limit bits to pwm bits */
 			level = (limit
 				* ((1 << MT_LED_LEVEL_BIT) - 1)
-				+ (((1 << cust_led_list[TYPE_LCD].led_bits) - 1)
-				/ 2))
-				/ ((1 << cust_led_list[TYPE_LCD].led_bits) - 1);
+				+ (((1 << led_bits) - 1) / 2))
+				/ ((1 << led_bits) - 1);
 		}
 		mutex_unlock(&bl_level_limit_mutex);
 #endif
@@ -391,7 +392,7 @@ int backlight_brightness_set(int level)
 	} else {
 		return mt65xx_led_set_cust(&cust_led_list[TYPE_LCD],
 			(level
-			* ((1 << cust_led_list[TYPE_LCD].led_bits) - 1)
+			* ((1 << led_bits) - 1)
 			+ (((1 << MT_LED_LEVEL_BIT) - 1) / 2))
 			/ ((1 << MT_LED_LEVEL_BIT) - 1));
 	}
@@ -481,12 +482,12 @@ static int mt65xx_leds_probe(struct platform_device *pdev)
 
 		g_leds_data[i]->cdev.name = cust_led_list[i].name;
 		g_leds_data[i]->cust.config_data = cust_led_list[i].config_data;
-		g_leds_data[i]->cust.led_bits = cust_led_list[i].led_bits;
+		if (g_leds_data[i]->cust.led_bits)
+			led_bits = cust_led_list[i].led_bits;
 
 		g_leds_data[i]->cdev.brightness_set = mt65xx_led_set;
 		g_leds_data[i]->cdev.blink_set = mt65xx_blink_set;
-		g_leds_data[i]->cdev.max_brightness =
-			(1 << cust_led_list[i].led_bits) - 1;
+		g_leds_data[i]->cdev.max_brightness = (1 << led_bits) - 1;
 
 		INIT_WORK(&g_leds_data[i]->work, mt_mt65xx_led_work);
 
