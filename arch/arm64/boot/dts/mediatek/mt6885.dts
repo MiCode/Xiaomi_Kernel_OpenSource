@@ -3724,6 +3724,9 @@ page_owner=on";
 		interrupts = <GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH>;
 		mboxes = <&gce_mbox_m 16 0 CMDQ_THR_PRIO_1>;
 		EVENT_IPE_DVS_DONE = <CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_3>;
+#ifdef CONFIG_MTK_IOMMU_V2
+		iommus = <&iommu1 M4U_PORT_L9_IMG_IMGI_D1_MDP>;
+#endif
 		/* clocks = <&topckgen TOP_MUX_DPE>, */
 			/* <&ipesys_config IPE_DPE>; */
 		/* clock-names = "DPE_TOP_MUX", */
@@ -3735,6 +3738,9 @@ page_owner=on";
 		reg = <0 0x1b100000 0 0x1000>;
 		interrupts = <GIC_SPI 361 IRQ_TYPE_LEVEL_HIGH>;
 		EVENT_IPE_DVP_DONE = <CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_4>;
+#ifdef CONFIG_MTK_IOMMU_V2
+		iommus = <&iommu1 M4U_PORT_L9_IMG_IMGI_D1_MDP>;
+#endif
 		/* clocks = <&topckgen TOP_MUX_DPE>, */
 			/* <&ipesys_config IPE_DPE>; */
 		/* clock-names = "DPE_TOP_MUX", */

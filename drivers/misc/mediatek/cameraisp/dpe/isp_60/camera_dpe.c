@@ -44,6 +44,13 @@
 #include <media/videobuf2-v4l2.h>
 #include <media/v4l2-ioctl.h>
 
+#define KERNEL_DMA_BUFFER
+#ifdef KERNEL_DMA_BUFFER
+#include <media/videobuf2-memops.h>
+#include <linux/dma-mapping.h>
+#include <linux/dma-direction.h>
+#include <linux/dma-buf.h>
+#endif
 /*#include <linux/xlog.h>		 For xlog_printk(). */
 /*  */
 /*#include <mach/hardware.h>*/
@@ -67,7 +74,9 @@
 #include <m4u.h>
 #include <smi_public.h>
 #include "engine_request.h"
-
+#ifdef KERNEL_DMA_BUFFER
+#include "videobuf2-dma-contig.h"
+#endif
 /*#define DPE_PMQOS_EN*/
 #if defined(DPE_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
 #include <linux/pm_qos.h>
@@ -113,10 +122,6 @@ static unsigned long __read_mostly tracing_mark_write_addr;
 #include <linux/fs.h>
 #endif
 
-// GASPER ADD FOR EP
-#define MTK_M4U_ID(larb, port)	(((larb) << 5) | (port))
-#define M4U_PORT_L9_IMG_IMGI_D1_MDP	MTK_M4U_ID(9, 0)
-
 /*  #include "smi_common.h" */
 
 #include <linux/pm_wakeup.h>
@@ -149,7 +154,7 @@ struct DPE_CLK_STRUCT dpe_clk;
 
 #define LOG_VRB(format, args...) pr_debug(MyTag format, ##args)
 
-#define DPE_DEBUG_USE
+//#define DPE_DEBUG_USE
 #ifdef DPE_DEBUG_USE
 #define LOG_DBG(format, args...) pr_info(MyTag format, ##args)
 #else
@@ -289,37 +294,36 @@ static int nr_DPE_devs;
 
 #endif
 
-//#define USING_ION_MEMORY
+#ifdef KERNEL_DMA_BUFFER
+struct device *gdev;
 
-#ifdef USING_ION_MEMORY
-#include <ion.h>
-#include <mtk/ion_drv.h>
-#include <mtk/mtk_ion.h>
+struct dma_buf *dbuf;
+struct vb2_dc_buf {
+	struct device			*dev;
+	void				*vaddr;
+	unsigned long			size;
+	void				*cookie;
+	dma_addr_t			dma_addr;
+	unsigned long			attrs;
+	enum dma_data_direction		dma_dir;
+	struct sg_table			*dma_sgt;
+	struct frame_vector		*vec;
 
-struct dpe_imem_memory {
-	void *handle;
-	int ion_fd;
-	uint64_t va;
-	uint32_t pa;
-	uint32_t length;
+	/* MMAP related */
+	struct vb2_vmarea_handler	handler;
+	refcount_t			refcount;
+	struct sg_table			*sgt_base;
+
+	/* DMABUF related */
+	struct dma_buf_attachment	*db_attach;
 };
+struct vb2_dc_buf *dpebuf;
 
-static struct ion_client *dpe_ion_client;
-static struct dpe_imem_memory g_dpe_imem_buf;
-static bool g_bIonBufferAllocated;
-
-
-static unsigned int *g_dpewb_dvme_int_Buffer_pa;
-static unsigned int *g_dpewb_dvme_int_Buffer_va;
-static unsigned int *g_dpewb_cost_int_Buffer_pa;
-static unsigned int *g_dpewb_cost_int_Buffer_va;
-static unsigned int *g_dpewb_asfrm_Buffer_pa;
-static unsigned int *g_dpewb_asfrm_Buffer_va;
-static unsigned int *g_dpewb_asfrmext_Buffer_pa;
-static unsigned int *g_dpewb_asfrmext_Buffer_va;
-static unsigned int *g_dpewb_wmfhf_Buffer_pa;
-static unsigned int *g_dpewb_wmfhf_Buffer_va;
-
+unsigned int *g_dpewb_dvme_int_Buffer_pa;
+unsigned int *g_dpewb_cost_int_Buffer_pa;
+unsigned int *g_dpewb_asfrm_Buffer_pa;
+unsigned int *g_dpewb_asfrmext_Buffer_pa;
+unsigned int *g_dpewb_wmfhf_Buffer_pa;
 #endif
 
 static unsigned int g_u4EnableClockCount;
@@ -1202,100 +1206,6 @@ for (i = start; i <= end; i += 0x10) {                                     \
 /**************************************************************
  *
  **************************************************************/
-#ifdef USING_ION_MEMORY
-static signed int dpe_allocbuf(struct dpe_imem_memory *pMemInfo)
-{
-	int ret = 0;
-	struct ion_mm_data mm_data;
-	struct ion_sys_data sys_data;
-	struct ion_handle *handle = NULL;
-
-	if (pMemInfo == NULL) {
-		LOG_ERR("pMemInfo is NULL!!\n");
-		ret = -ENOMEM;
-		goto dpe_allocbuf_exit;
-	}
-
-	if (dpe_ion_client == NULL) {
-		LOG_ERR("dpe_ion_client is NULL!!\n");
-		ret = -ENOMEM;
-		goto dpe_allocbuf_exit;
-	}
-	LOG_DBG("[Gasper] Allocate ion buffer SUCCESS\n");
-	handle = ion_alloc(dpe_ion_client,
-		pMemInfo->length,
-		0,
-		ION_HEAP_MULTIMEDIA_MASK,
-		0);
-	if (handle == NULL) {
-		LOG_ERR("fail to alloc ion buffer, ret=%d\n", ret);
-		ret = -ENOMEM;
-		goto dpe_allocbuf_exit;
-	}
-	pMemInfo->handle = (void *) handle;
-
-	pMemInfo->va = (uintptr_t) ion_map_kernel(dpe_ion_client, handle);
-	if (pMemInfo->va == 0) {
-		LOG_ERR("fail to map va of buffer!\n");
-		ret = -ENOMEM;
-		goto dpe_allocbuf_exit;
-	}
-
-	LOG_DBG("[Gasper] Config ion buffer\n");
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.config_buffer_param.module_id = M4U_PORT_L9_IMG_IMGI_D1_MDP;
-	mm_data.config_buffer_param.security = 0;
-	mm_data.config_buffer_param.coherent = 1;
-	ret = ion_kernel_ioctl(dpe_ion_client,
-		ION_CMD_MULTIMEDIA,
-		(unsigned long)&mm_data);
-	if (ret) {
-		LOG_ERR("fail to config ion buffer, ret=%d\n", ret);
-		ret = -ENOMEM;
-		goto dpe_allocbuf_exit;
-	}
-
-	LOG_DBG("[Gasper] Map ion buffer\n");
-	sys_data.sys_cmd = ION_SYS_GET_PHYS;
-	sys_data.get_phys_param.kernel_handle = handle;
-	ret = ion_kernel_ioctl(dpe_ion_client,
-		ION_CMD_SYSTEM,
-		(unsigned long)&sys_data);
-	pMemInfo->pa = sys_data.get_phys_param.phy_addr;
-	LOG_DBG("[Gasper] Map ion buffer SUCCESS\n");
-
-dpe_allocbuf_exit:
-
-	if (ret < 0) {
-		if (handle)
-			ion_free(dpe_ion_client, handle);
-	}
-
-	return ret;
-}
-
-/**************************************************************
- *
- **************************************************************/
-static void dpe_freebuf(struct dpe_imem_memory *pMemInfo)
-{
-	struct ion_handle *handle;
-
-	if (pMemInfo == NULL) {
-		LOG_ERR("pMemInfo is NULL!!\n");
-		return;
-	}
-
-	handle = (struct ion_handle *) pMemInfo->handle;
-	if (handle != NULL) {
-		ion_unmap_kernel(dpe_ion_client, handle);
-		ion_free(dpe_ion_client, handle);
-	}
-
-}
-#endif
-
 signed int dpe_enque_cb(struct frame *frames, void *req)
 {
 	unsigned int f, fcnt, t, ucnt;
@@ -1620,16 +1530,16 @@ if (pDpeConfig->Dpe_engineSelect == MODE_DVS_DVP_BOTH) {
 	} else
 		LOG_ERR("No Right Valid Map!\n");
 
-
-//pConfigToKernel->DVS_SRC_21_INTER_MEDV =
-//((uintptr_t)g_dpewb_dvme_int_Buffer_pa & 0x00000000ffffffff);
-
+#ifdef KERNEL_DMA_BUFFER
+pConfigToKernel->DVS_SRC_21_INTER_MEDV =
+((uintptr_t)g_dpewb_dvme_int_Buffer_pa & 0xffffffff);
+#else
 	if (pDpeConfig->DVS_SRC_21_INTER_MEDV != 0x0) {
 		pConfigToKernel->DVS_SRC_21_INTER_MEDV =
 		pDpeConfig->DVS_SRC_21_INTER_MEDV;
 	} else
 		LOG_ERR("No DVS DVS_SRC_21_INTER_MEDV Buffer!\n");
-
+#endif
 	if (pDpeConfig->Dpe_OutBuf_OCC != 0x0) {
 		pConfigToKernel->DVS_SRC_26_OCCDV0 =
 		pDpeConfig->Dpe_OutBuf_OCC;
@@ -1642,15 +1552,16 @@ if (pDpeConfig->Dpe_engineSelect == MODE_DVS_DVP_BOTH) {
 	} else
 		LOG_ERR("No DVS CONF Output Buffer!\n");
 
+#ifdef KERNEL_DMA_BUFFER
+pConfigToKernel->DVS_SRC_34_DCV_L_FRM0 =
+((uintptr_t)g_dpewb_cost_int_Buffer_pa & 0xffffffff);
+#else
 	if (pDpeConfig->DVS_SRC_34_DCV_L_FRM0 != 0x0) {
 		pConfigToKernel->DVS_SRC_34_DCV_L_FRM0 =
 		pDpeConfig->DVS_SRC_34_DCV_L_FRM0;
 	} else
 		LOG_ERR("No DVS DVS_SRC_34_DCV_L_FRM0 Buffer!\n");
-
-//pConfigToKernel->DVS_SRC_34_DCV_L_FRM0 =
-//((uintptr_t)g_dpewb_cost_int_Buffer_pa & 0x00000000ffffffff);
-
+#endif
 
 	if (pDpeConfig->Dpe_is16BitMode != 0) {
 		if (pDpeConfig->Dpe_OutBuf_OCC_Ext != 0x0) {
@@ -1795,16 +1706,16 @@ pConfigToKernel->DVP_CTRL04 =
 	} else
 		LOG_ERR("No CRM Output Buffer!\n");
 
+#ifdef KERNEL_DMA_BUFFER
+pConfigToKernel->DVP_SRC_18_ASF_RMDV =
+((uintptr_t)g_dpewb_asfrm_Buffer_pa & 0xffffffff);
+#else
 	if (pDpeConfig->DVP_SRC_18_ASF_RMDV != 0x0) {
 		pConfigToKernel->DVP_SRC_18_ASF_RMDV =
 		pDpeConfig->DVP_SRC_18_ASF_RMDV;
 	} else
 		LOG_ERR("No DVS DVP_SRC_18_ASF_RMDV Buffer!\n");
-
-//pConfigToKernel->DVP_SRC_18_ASF_RMDV = (unsigned int)DPEWB_ASFRM_PA;
-
-//pConfigToKernel->DVP_SRC_18_ASF_RMDV =
-//((uintptr_t)g_dpewb_asfrm_Buffer_pa & 0x00000000ffffffff);
+#endif
 
 	if (pDpeConfig->Dpe_OutBuf_ASF_RD != 0x0) {
 		pConfigToKernel->DVP_SRC_19_ASF_RDDV =
@@ -1820,15 +1731,17 @@ pConfigToKernel->DVP_CTRL04 =
 		LOG_ERR("No ASF Output Buffer!\n");
 
 if (pDpeConfig->Dpe_is16BitMode == 0) {
+
+	#ifdef KERNEL_DMA_BUFFER
+	pConfigToKernel->DVP_SRC_24_WMF_HFDV =
+	((uintptr_t)g_dpewb_wmfhf_Buffer_pa & 0xffffffff);
+	#else
 	if (pDpeConfig->DVP_SRC_24_WMF_HFDV != 0x0) {
 		pConfigToKernel->DVP_SRC_24_WMF_HFDV =
 		pDpeConfig->DVP_SRC_24_WMF_HFDV;
 	} else
 		LOG_ERR("No DVS DVP_SRC_24_WMF_HFDV Buffer!\n");
-
-//pConfigToKernel->DVP_SRC_24_WMF_HFDV = (unsigned int)DPEWB_WMFHF_PA;
-//pConfigToKernel->DVP_SRC_24_WMF_HFDV =
-//((uintptr_t)g_dpewb_wmfhf_Buffer_pa & 0x00000000ffffffff);
+	#endif
 
 	if (pDpeConfig->Dpe_OutBuf_WMF_FILT != 0x0) {
 		pConfigToKernel->DVP_SRC_25_WMF_DV0 =
@@ -1844,19 +1757,16 @@ if (pDpeConfig->Dpe_is16BitMode == 0) {
 			(unsigned int)pDpeConfig->Dpe_InBuf_OCC_Ext;
 		} else
 			LOG_ERR("No DVP Ext OCC Input Buffer!\n");
-
+#ifdef KERNEL_DMA_BUFFER
+pConfigToKernel->DVP_EXT_SRC_18_ASF_RMDV =
+((uintptr_t)g_dpewb_asfrmext_Buffer_pa & 0xffffffff);
+#else
 		if (pDpeConfig->DVP_EXT_SRC_18_ASF_RMDV != 0x0) {
 			pConfigToKernel->DVP_EXT_SRC_18_ASF_RMDV =
 			pDpeConfig->DVP_EXT_SRC_18_ASF_RMDV;
 		} else
 			LOG_ERR("No DVS DVP_EXT_SRC_18_ASF_RMDV Buffer!\n");
-
-//pConfigToKernel->DVP_EXT_SRC_18_ASF_RMDV =
-//(unsigned int)DPEWB_ASFRMExt_PA;
-
-//pConfigToKernel->DVP_EXT_SRC_18_ASF_RMDV =
-//((uintptr_t)g_dpewb_asfrmext_Buffer_pa & 0x00000000ffffffff);
-
+#endif
 
 		if (pDpeConfig->Dpe_OutBuf_ASF_RD_Ext != 0x0) {
 			pConfigToKernel->DVP_EXT_SRC_19_ASF_RDDV =
@@ -3900,55 +3810,28 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	g_DPE_ReqRing.ReadIdx = 0x0;
 	g_DPE_ReqRing.HWProcessIdx = 0x0;
 
-#ifdef USING_ION_MEMORY
-	LOG_DBG("[Gasper] Allocate ION MEMORY\n");
-	g_dpe_imem_buf.handle = NULL;
-	g_dpe_imem_buf.ion_fd = 0;
-	g_dpe_imem_buf.va = 0;
-	g_dpe_imem_buf.pa = 0;
-	g_dpe_imem_buf.length = WB_TOTAL_SIZE;
-	dpe_ion_client = NULL;
-	if ((dpe_ion_client == NULL) && (g_ion_device))
-		dpe_ion_client = ion_client_create(g_ion_device, "dpe");
-	if (dpe_ion_client == NULL) {
-		LOG_ERR("invalid dpe_ion_client client!\n");
-	} else {
-		if (dpe_allocbuf(&g_dpe_imem_buf) >= 0)
-			g_bIonBufferAllocated = MTRUE;
-		else
-			LOG_ERR("Allocate Buffer Fail!");
-	}
-	LOG_DBG("[Gasper] Allocate BUFFER SUCCESS\n");
-if (g_bIonBufferAllocated == MTRUE) {
-	g_dpewb_dvme_int_Buffer_va =
-		(unsigned int *)(uintptr_t)(g_dpe_imem_buf.va);
-	g_dpewb_dvme_int_Buffer_pa =
-		(unsigned int *)(uintptr_t)(g_dpe_imem_buf.pa);
-	g_dpewb_cost_int_Buffer_va =
-		(unsigned int *)(((uintptr_t)g_dpewb_dvme_int_Buffer_va) +
-		WB_INT_MEDV_SIZE);
+#ifdef KERNEL_DMA_BUFFER
+	if (vb2_dc_map_dmabuf(dpebuf) != 0)
+		LOG_ERR("Allocate Buffer Fail!");
+
+	g_dpewb_dvme_int_Buffer_pa = (unsigned int *)dpebuf->dma_addr;
 	g_dpewb_cost_int_Buffer_pa =
 		(unsigned int *)(((uintptr_t)g_dpewb_dvme_int_Buffer_pa) +
 		WB_INT_MEDV_SIZE);
-	g_dpewb_asfrm_Buffer_va =
-		(unsigned int *)(((uintptr_t)g_dpewb_cost_int_Buffer_va) +
-		WB_DCV_L_SIZE);
 	g_dpewb_asfrm_Buffer_pa =
 		(unsigned int *)(((uintptr_t)g_dpewb_cost_int_Buffer_pa) +
 		WB_DCV_L_SIZE);
-	g_dpewb_asfrmext_Buffer_va =
-		(unsigned int *)(((uintptr_t)g_dpewb_asfrm_Buffer_va) +
-		WB_ASFRM_SIZE);
 	g_dpewb_asfrmext_Buffer_pa =
 		(unsigned int *)(((uintptr_t)g_dpewb_asfrm_Buffer_pa) +
 		WB_ASFRM_SIZE);
-	g_dpewb_wmfhf_Buffer_va =
-		(unsigned int *)(((uintptr_t)g_dpewb_asfrmext_Buffer_va) +
-		WB_ASFRMExt_SIZE);
 	g_dpewb_wmfhf_Buffer_pa =
 		(unsigned int *)(((uintptr_t)g_dpewb_asfrmext_Buffer_pa) +
 		WB_ASFRMExt_SIZE);
-}
+LOG_DBG("[g_dpewb_dvme_int_Buffer_pa] [0x%08X]\n", g_dpewb_dvme_int_Buffer_pa);
+LOG_DBG("[g_dpewb_cost_int_Buffer_pa] [0x%08X]\n", g_dpewb_cost_int_Buffer_pa);
+LOG_DBG("[g_dpewb_asfrm_Buffer_pa] [0x%08X]\n", g_dpewb_asfrm_Buffer_pa);
+LOG_DBG("[g_dpewb_asfrmext_Buffer_pa] [0x%08X]\n", g_dpewb_asfrmext_Buffer_pa);
+LOG_DBG("[g_dpewb_wmfhf_Buffer_pa] [0x%08X]\n", g_dpewb_wmfhf_Buffer_pa);
 #endif
 
 	/* Enable clock */
@@ -4020,33 +3903,8 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 	LOG_INF("Curr UsrCnt(%d), (process, pid, tgid)=(%s, %d, %d), last user",
 		DPEInfo.UserCount, current->comm, current->pid, current->tgid);
 
-#ifdef USING_ION_MEMORY
-	if (g_bIonBufferAllocated == MTRUE) {
-		dpe_freebuf(&g_dpe_imem_buf);
-		g_dpe_imem_buf.handle = NULL;
-		g_dpe_imem_buf.ion_fd = 0;
-		g_dpe_imem_buf.va = 0;
-		g_dpe_imem_buf.pa = 0;
-		g_bIonBufferAllocated = MFALSE;
-		g_dpewb_dvme_int_Buffer_pa = NULL;
-		g_dpewb_dvme_int_Buffer_va = NULL;
-		g_dpewb_cost_int_Buffer_pa = NULL;
-		g_dpewb_cost_int_Buffer_va = NULL;
-		g_dpewb_asfrm_Buffer_pa = NULL;
-		g_dpewb_asfrm_Buffer_va = NULL;
-		g_dpewb_asfrmext_Buffer_pa = NULL;
-		g_dpewb_asfrmext_Buffer_va = NULL;
-		g_dpewb_wmfhf_Buffer_pa = NULL;
-		g_dpewb_wmfhf_Buffer_va = NULL;
-	}
-
-	if (dpe_ion_client != NULL) {
-		ion_client_destroy(dpe_ion_client);
-			dpe_ion_client = NULL;
-	} else {
-		LOG_ERR("dpe_ion_client is NULL!!\n");
-	}
-
+#ifdef KERNEL_DMA_BUFFER
+	vb2_dc_unmap_dmabuf(dpebuf);
 #endif
 
 	/* Disable clock. */
@@ -4590,6 +4448,14 @@ if (DPE_dev->irq > 0) {
 			goto EXIT;
 		}
 
+#ifdef KERNEL_DMA_BUFFER
+gdev = &pDev->dev;
+dpebuf =
+vb2_dc_alloc(gdev, DMA_ATTR_WRITE_BARRIER, WB_TOTAL_SIZE, DMA_FROM_DEVICE, 0);
+dbuf = vb2_dc_get_dmabuf(dpebuf, O_RDWR);
+dpebuf = vb2_dc_attach_dmabuf(gdev, dbuf, WB_TOTAL_SIZE, DMA_FROM_DEVICE);
+#endif
+
 		/* Init spinlocks */
 		spin_lock_init(&(DPEInfo.SpinLockDPERef));
 		spin_lock_init(&(DPEInfo.SpinLockDPE));
@@ -4695,6 +4561,14 @@ static signed int DPE_remove(struct platform_device *pDev)
 	/* kill tasklet */
 	for (i = 0; i < DPE_IRQ_TYPE_AMOUNT; i++)
 		tasklet_kill(DPE_tasklet[i].pDPE_tkt);
+
+#ifdef KERNEL_DMA_BUFFER
+	vb2_dc_detach_dmabuf(dpebuf);
+	vb2_dc_put(dpebuf);
+	dbuf = NULL;
+	gdev = NULL;
+#endif
+
 #if 0
 	/* free all registered irq(child nodes) */
 	DPE_UnRegister_AllregIrq();
