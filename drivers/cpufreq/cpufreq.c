@@ -380,7 +380,6 @@ static void cpufreq_notify_post_transition(struct cpufreq_policy *policy,
 void cpufreq_freq_transition_begin(struct cpufreq_policy *policy,
 		struct cpufreq_freqs *freqs)
 {
-
 	/*
 	 * Catch double invocations of _begin() which lead to self-deadlock.
 	 * ASYNC_NOTIFICATION drivers are left out because the cpufreq core
@@ -406,6 +405,10 @@ wait:
 	policy->transition_task = current;
 
 	spin_unlock(&policy->transition_lock);
+
+	arch_set_freq_scale(policy->cpus, freqs->new, policy->cpuinfo.max_freq);
+	arch_set_max_freq_scale(policy->cpus, policy->max);
+	arch_set_min_freq_scale(policy->cpus, policy->min);
 
 	cpufreq_notify_transition(policy, freqs, CPUFREQ_PRECHANGE);
 }
@@ -2235,10 +2238,11 @@ static int cpufreq_set_policy(struct cpufreq_policy *policy,
 	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
 			CPUFREQ_NOTIFY, new_policy);
 
+	arch_set_max_freq_scale(policy->cpus, policy->max);
+	arch_set_min_freq_scale(policy->cpus, policy->min);
+
 	policy->min = new_policy->min;
 	policy->max = new_policy->max;
-
-	arch_set_max_freq_scale(policy->cpus, policy->max);
 
 	trace_cpu_frequency_limits(policy->max, policy->min, policy->cpu);
 
@@ -2456,6 +2460,11 @@ __weak void arch_set_max_freq_scale(struct cpumask *cpus,
 }
 EXPORT_SYMBOL_GPL(arch_set_max_freq_scale);
 
+__weak void arch_set_min_freq_scale(struct cpumask *cpus,
+				    unsigned long policy_min_freq)
+{
+}
+EXPORT_SYMBOL_GPL(arch_set_min_freq_scale);
 /*********************************************************************
  *               REGISTER / UNREGISTER CPUFREQ DRIVER                *
  *********************************************************************/
