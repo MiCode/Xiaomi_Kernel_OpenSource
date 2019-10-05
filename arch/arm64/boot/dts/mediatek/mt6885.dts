@@ -4089,7 +4089,9 @@ page_owner=on";
 			/* conn_top_therm_ctl */
 			<0 0x18002000 0 0x1000>,
 			/* IOCFG_RT */
-			<0 0x11ea0000 0 0x1000>;
+			<0 0x11ea0000 0 0x1000>,
+			/* debug_ctrl */
+			<0 0x1800f000 0 0x1000>;
 		clocks = <&scpsys SCP_SYS_CONN>;
 		clock-names = "conn";
 	};
