@@ -119,6 +119,7 @@ source "drivers/misc/mediatek/masp/Kconfig"
 endmenu  # Security
 
 menu "Other Peripherals"
+source "drivers/misc/mediatek/accdet/Kconfig"
 source "drivers/misc/mediatek/ext_gic/Kconfig"
 source "drivers/misc/mediatek/atf/Kconfig"
 endmenu # Other Peripheral
