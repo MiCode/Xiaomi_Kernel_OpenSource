@@ -276,12 +276,12 @@ mtk_atomic_calculate_plane_enabled_number(struct drm_device *dev,
 	struct drm_plane_state *old_plane_state;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
-	unsigned int cnt[MAX_CRTC];
+	unsigned int cnt[MAX_CRTC] = {0};
 
 	for_each_plane_in_state(old_state, plane, old_plane_state, i) {
 		if (plane->state->crtc) {
 			struct mtk_drm_crtc *mtk_crtc =
-				to_mtk_crtc(plane->state->crtc);
+					to_mtk_crtc(plane->state->crtc);
 			cnt[drm_crtc_index(&mtk_crtc->base)]++;
 		}
 	}
