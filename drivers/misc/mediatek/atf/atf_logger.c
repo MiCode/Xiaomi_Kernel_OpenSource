@@ -211,7 +211,7 @@ start:
 		/* pr_notice("atf_log_read: wait in wq\n"); */
 		wait_event_timeout(atf_log_wq,
 			(atf_buf_vir_ctrl->info.atf_write_offset !=
-			atf_buf_vir_ctrl->info.atf_read_offset), HZ*1000);
+			atf_buf_vir_ctrl->info.atf_read_offset), HZ);
 
 		write_pos = atf_buf_vir_ctrl->info.atf_write_offset;
 		read_pos = atf_buf_vir_ctrl->info.atf_read_offset;
