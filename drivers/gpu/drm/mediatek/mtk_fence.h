@@ -142,7 +142,7 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 void mtk_release_layer_fence(unsigned int session_id, unsigned int layer_id);
 int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx);
 int mtk_fence_get_output_timeline_id(void);
-int mtk_fence_get_output_interface_timeline_id(void);
+int mtk_fence_get_interface_timeline_id(void);
 
 struct mtk_fence_buf_info *
 mtk_fence_prepare_buf(struct drm_device *dev, struct drm_mtk_gem_submit *buf);

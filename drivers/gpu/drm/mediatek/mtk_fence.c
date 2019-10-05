@@ -547,7 +547,7 @@ int mtk_fence_get_output_timeline_id(void)
 	return MTK_TIMELINE_OUTPUT_TIMELINE_ID;
 }
 
-int mtk_fence_get_output_interface_timeline_id(void)
+int mtk_fence_get_interface_timeline_id(void)
 {
 	return MTK_TIMELINE_OUTPUT_INTERFACE_TIMELINE_ID;
 }

@@ -209,8 +209,18 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 
 	writel(~val, wdma->regs + DISP_REG_WDMA_INTSTA);
 
-	if (val & (1 << 0))
-		DDPIRQ("[IRQ] %s: frame complete!\n", mtk_dump_comp_str(wdma));
+	if (val & (1 << 0)) {
+		struct mtk_drm_crtc *mtk_crtc = wdma->mtk_crtc;
+
+		DDPIRQ("[IRQ] %s: frame complete!\n",
+			mtk_dump_comp_str(wdma));
+		if (mtk_crtc->dc_main_path_commit_task) {
+			atomic_set(
+				&mtk_crtc->dc_main_path_commit_event, 1);
+			wake_up_interruptible(
+				&mtk_crtc->dc_main_path_commit_wq);
+		}
+	}
 	if (val & (1 << 1))
 		DDPPR_ERR("[IRQ] %s: frame underrun!\n",
 			  mtk_dump_comp_str(wdma));
@@ -251,8 +261,10 @@ static void mtk_wdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	mtk_ddp_write(comp, 0x0, DISP_REG_WDMA_INTEN, handle);
 
 	if (data && data->sodi_config)
-		data->sodi_config(comp->mtk_crtc->base.dev, comp->id, handle,
-				  &en);
+		data->sodi_config(comp->mtk_crtc->base.dev,
+			comp->id, handle, &en);
+	mtk_ddp_write(comp, 0x01, DISP_REG_WDMA_RST, handle);
+	mtk_ddp_write(comp, 0x00, DISP_REG_WDMA_RST, handle);
 }
 
 static void mtk_wdma_prepare(struct mtk_ddp_comp *comp)

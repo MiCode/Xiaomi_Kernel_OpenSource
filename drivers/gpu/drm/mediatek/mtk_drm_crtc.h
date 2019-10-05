@@ -73,9 +73,11 @@ enum DISP_PMQOS_SLOT {
 #define DISP_SLOT_PMQOS_BW(n) (DISP_SLOT_PMQOS_BW_BASE + ((n)*0x4))
 #define DISP_SLOT_RDMA_FB_IDX_BASE (DISP_SLOT_PMQOS_BW(BW_MODULE))
 #define DISP_SLOT_RDMA_FB_IDX (DISP_SLOT_RDMA_FB_IDX_BASE + 0x4)
-#define DISP_SLOT_CUR_HRT_IDX (DISP_SLOT_RDMA_FB_IDX + 0x4)
+#define DISP_SLOT_RDMA_FB_ID (DISP_SLOT_RDMA_FB_IDX + 0x4)
+#define DISP_SLOT_CUR_HRT_IDX (DISP_SLOT_RDMA_FB_ID + 0x4)
 #define DISP_SLOT_CUR_HRT_LEVEL (DISP_SLOT_CUR_HRT_IDX + 0x4)
 #define DISP_SLOT_CUR_OUTPUT_FENCE (DISP_SLOT_CUR_HRT_LEVEL + 0x4)
+#define DISP_SLOT_CUR_INTERFACE_FENCE (DISP_SLOT_CUR_OUTPUT_FENCE + 0x4)
 
 /* TODO: figure out Display pipe which need report PMQOS BW */
 #define DISP_SLOT_SIZE (DISP_SLOT_CUR_HRT_LEVEL)
@@ -494,6 +496,11 @@ struct mtk_drm_crtc {
 	struct wakeup_source wk_lock;
 
 	struct mtk_drm_fake_vsync *fake_vsync;
+
+	/* DC mode - RDMA config thread*/
+	struct task_struct *dc_main_path_commit_task;
+	wait_queue_head_t dc_main_path_commit_wq;
+	atomic_t dc_main_path_commit_event;
 };
 
 struct mtk_crtc_state {
@@ -516,8 +523,9 @@ struct mtk_crtc_state {
 };
 
 struct mtk_cmdq_cb_data {
-	struct drm_crtc_state *state;
-	struct cmdq_pkt *cmdq_handle;
+	struct drm_crtc_state		*state;
+	struct cmdq_pkt			*cmdq_handle;
+	struct drm_crtc			*crtc;
 };
 
 struct mtk_golden_setting_arg {

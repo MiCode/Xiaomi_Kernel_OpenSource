@@ -471,7 +471,7 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 	const struct compress_info *compr_info = ovl->data->compr_info;
 
-	DDPINFO("%s+\n", __func__);
+	DDPINFO("%s+ %s\n", __func__, mtk_dump_comp_str(comp));
 
 	ret = pm_runtime_get_sync(comp->dev);
 	if (ret < 0)

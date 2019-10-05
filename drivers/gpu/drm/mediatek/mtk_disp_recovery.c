@@ -415,7 +415,8 @@ void mtk_disp_esd_check_switch(struct drm_crtc *crtc, bool enable)
 	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
 
 	if (unlikely(!esd_ctx)) {
-		DDPPR_ERR("%s:invalid ESD context\n", __func__);
+		DDPINFO("%s:invalid ESD context, crtc id:%d\n",
+			__func__, drm_crtc_index(crtc));
 		return;
 	}
 	esd_ctx->chk_active = enable;

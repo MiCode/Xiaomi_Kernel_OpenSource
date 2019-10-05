@@ -441,7 +441,7 @@ static void prepare_output_buffer(struct drm_device *dev,
 	}
 
 	/* create second fence for WDMA when decouple mirror mode */
-	buf->layer_id = mtk_fence_get_output_interface_timeline_id();
+	buf->layer_id = mtk_fence_get_interface_timeline_id();
 	output_buf = mtk_fence_prepare_buf(dev, buf);
 	if (output_buf) {
 		buf->interface_fence_fd = output_buf->fence;
