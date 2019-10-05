@@ -202,8 +202,8 @@ static int set_power_voltage(enum DVFS_USER user, void *param)
 
 	if (buck < APUSYS_BUCK_NUM) {
 		if (buck != VCORE_BUCK) {
-			LOG_DBG("%s set buck %d to %d\n", __func__,
-							buck, target_volt);
+			LOG_DBG("%s set buck %d to %d (%d)\n", __func__,
+						buck, target_volt, MARGIN_VOLT);
 
 			if (target_volt >= 0) {
 				ret = config_normal_regulator(

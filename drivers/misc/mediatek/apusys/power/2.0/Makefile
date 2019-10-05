@@ -34,6 +34,11 @@ apu_power-objs:= apusys_power_driver.o apusys_power_ctl.o apusys_power_debug.o \
 		$(PDIR)/apu_power_clock.o $(PDIR)/apusys_power_cust.o \
 		$(PDIR)/apu_power_table.o
 
+# AGING load
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885v1_64_aging")
+subdir-ccflags-y += -DAGING_MARGIN
+endif
+
 #obj-m += vpu_dummy_driver.o
 #vpu_dummy_driver-objs:= $(PDIR)/dummy_vpu_driver.o
 
