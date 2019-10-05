@@ -18,7 +18,9 @@
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#include "mtk_devinfo.h"
 #endif
+
 
 #include "apusys_power_ctl.h"
 #include "apusys_power_cust.h"
@@ -28,8 +30,37 @@
 #include "apu_log.h"
 
 
+
+
 struct apusys_dvfs_opps apusys_opps;
 bool is_power_debug_lock;
+
+bool dvfs_user_support(enum DVFS_USER user)
+{
+	uint32_t val = 0;
+	bool status = true;
+
+	val = get_devinfo_with_index(30);
+	if (val == 0x1) {
+		if (user == VPU2 || user == MDLA1)
+			status = false;
+	}
+	return status;
+}
+
+bool dvfs_power_domain_support(enum DVFS_VOLTAGE_DOMAIN domain)
+{
+	uint32_t val = 0;
+	bool status = true;
+
+	val = get_devinfo_with_index(30);
+	if (val == 0x1) {
+		if (domain == V_VPU2 || domain == V_MDLA1)
+			status = false;
+	}
+	return status;
+}
+
 
 int32_t apusys_thermal_en_throttle_cb(enum DVFS_USER user,
 					enum APU_OPP_INDEX opp)
@@ -142,6 +173,8 @@ void apusys_final_volt_check(void)
 for (buck_index = 0;
 buck_index < APUSYS_BUCK_NUM; buck_index++) {
 	for (user_index = 0; user_index < APUSYS_DVFS_USER_NUM; user_index++) {
+		if (dvfs_user_support(user_index) == false)
+			continue;
 		for (path_index = 0;
 		path_index < APUSYS_PATH_USER_NUM; path_index++) {
 			if (buck_shared[buck_index][user_index][path_index]
@@ -222,6 +255,8 @@ void apusys_pwr_efficiency_check(void)
 	for (buck_domain_index = 0;
 	buck_domain_index < APUSYS_BUCK_DOMAIN_NUM; buck_domain_index++) {
 		if (buck_domain_index == V_VCORE)
+			continue;
+		if (dvfs_power_domain_support(buck_domain_index) == false)
 			continue;
 		buck_index = apusys_buck_domain_to_buck[buck_domain_index];
 	for (opp_index = 0;	opp_index < APUSYS_MAX_NUM_OPPS; opp_index++) {
@@ -334,6 +369,8 @@ void apusys_frequency_check(void)
 	for (buck_domain_index = 0;
 	buck_domain_index < APUSYS_BUCK_DOMAIN_NUM;
 	buck_domain_index++) {
+		if (dvfs_power_domain_support(buck_domain_index) == false)
+			continue;
 		user = apusys_buck_domain_to_user[buck_domain_index];
 		cur_opp_index = apusys_opps.cur_opp_index[buck_domain_index];
 		prev_opp_index = apusys_opps.prev_opp_index[buck_domain_index];
@@ -441,6 +478,8 @@ void apusys_dvfs_info(void)
 	for (buck_domain_index = 0;
 	buck_domain_index < APUSYS_BUCK_DOMAIN_NUM;
 	buck_domain_index++) {
+		if (dvfs_power_domain_support(buck_domain_index) == false)
+			continue;
 		prev_opp = apusys_opps.prev_opp_index[buck_domain_index];
 		cur_opp = apusys_opps.cur_opp_index[buck_domain_index];
 
@@ -499,6 +538,8 @@ void apusys_dvfs_policy(uint64_t round_id)
 
 	if (is_power_debug_lock == false) {
 		for (user = 0; user < APUSYS_DVFS_USER_NUM; user++) {
+			if (dvfs_user_support(user) == false)
+				continue;
 			apusys_opps.driver_opp_index[user] =
 				apusys_opps.user_opp_index[user];
 			opp = apusys_opps.driver_opp_index[user];
@@ -524,6 +565,8 @@ void apusys_dvfs_policy(uint64_t round_id)
 		for (buck_domain_num = 0;
 		buck_domain_num < APUSYS_BUCK_DOMAIN_NUM;
 		buck_domain_num++) {
+			if (dvfs_power_domain_support(buck_domain_num) == false)
+				continue;
 			apusys_opps.prev_opp_index[buck_domain_num] =
 				apusys_opps.cur_opp_index[buck_domain_num];
 		}
@@ -550,6 +593,8 @@ bool apusys_check_opp_change(void)
 	uint8_t user;
 
 	for (user = 0; user < APUSYS_DVFS_USER_NUM; user++) {
+		if (dvfs_user_support(user) == false)
+			continue;
 		if (apusys_opps.user_opp_index[user] !=
 			apusys_opps.driver_opp_index[user])
 			return true;
@@ -588,8 +633,15 @@ void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 {
 	int i = 0, j = 0;
 
-	apusys_opps.opps = dvfs_table;
+	if (get_devinfo_with_index(30) == 0x1)
+		apusys_opps.opps = dvfs_table_0;
+	else if (get_devinfo_with_index(30) == 0x10)
+		apusys_opps.opps = dvfs_table_2;
+	else
+		apusys_opps.opps = dvfs_table_1;
 	for (i = 0; i < APUSYS_DVFS_USER_NUM; i++)	{
+		if (dvfs_user_support(user) == false)
+			continue;
 		apusys_opps.thermal_opp[i] = 0;
 		apusys_opps.user_opp_index[i] = APUSYS_DEFAULT_OPP;
 		apusys_opps.driver_opp_index[i] = APUSYS_DEFAULT_OPP;
@@ -598,10 +650,12 @@ void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 		apusys_opps.is_power_on[i] = false;
 		for (j = 0; j < APUSYS_PATH_USER_NUM; j++)
 			apusys_opps.user_path_volt[i][j] =
-			DVFS_VOLT_00_725000_V;
+			DVFS_VOLT_00_575000_V;
 	}
 
 	for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++) {
+		if (dvfs_power_domain_support(i) == false)
+			continue;
 		apusys_opps.cur_opp_index[i] = APUSYS_DEFAULT_OPP;
 		apusys_opps.prev_opp_index[i] = APUSYS_DEFAULT_OPP;
 	}

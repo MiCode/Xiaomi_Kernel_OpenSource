@@ -131,7 +131,10 @@ extern bool buck_shared[APUSYS_BUCK_NUM]
 extern struct apusys_dvfs_constraint dvfs_constraint_table
 					[APUSYS_DVFS_CONSTRAINT_NUM];
 extern enum DVFS_VOLTAGE vcore_opp_mapping[];
-extern struct apusys_dvfs_steps dvfs_table[APUSYS_MAX_NUM_OPPS]
+extern struct apusys_dvfs_steps dvfs_table_0[APUSYS_MAX_NUM_OPPS]
 						[APUSYS_BUCK_DOMAIN_NUM];
-
+extern struct apusys_dvfs_steps dvfs_table_1[APUSYS_MAX_NUM_OPPS]
+						[APUSYS_BUCK_DOMAIN_NUM];
+extern struct apusys_dvfs_steps dvfs_table_2[APUSYS_MAX_NUM_OPPS]
+						[APUSYS_BUCK_DOMAIN_NUM];
 #endif

@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define u32 unsigned int
+
 #define DVFS_TAG "[DVFS]"
 #define PWR_LOG_INF(format, args...)	printf(format, ##args)
 #define PWR_LOG_WRN(format, args...)	printf(format, ##args)
@@ -30,6 +32,9 @@
 #define LOG_DBG(format, args...)	printf(format, ##args)
 #define LOG_INF(format, args...)	printf(format, ##args)
 #define LOG_WRN(format, args...)	printf(format, ##args)
+
+
+extern u32 get_devinfo_with_index(unsigned int index);
 
 #endif
 #endif

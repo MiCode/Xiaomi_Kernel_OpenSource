@@ -12,11 +12,17 @@
  */
 
 #include <time.h>
+//#include <sync_write.h>
+
+
+#include "test.h"
 
 #include "apusys_power_ctl.h"
 #include "apusys_power_cust.h"
 #include "hal_config_power.h"
 #include "apu_log.h"
+
+
 
 
 #define VOLT_CONSTRAINTS_1	(225000)
@@ -71,6 +77,12 @@ enum DVFS_VOLTAGE sram_constraint[CONSTRAINTS_2_SIZE][3] = {
 
 struct hal_param_init_power init_power_data;
 
+u32 get_devinfo_with_index(unsigned int index)
+{
+	return 1;	// 5G-L
+}
+
+
 void apusys_power_hal_test(void)
 {
 	int i = 0;
@@ -122,6 +134,8 @@ void apusys_set_dfvs_debug_test(void)
 
 		// determine buck domain opp
 		for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++) {
+			if (dvfs_power_domain_support(i) == false)
+				continue;
 			for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
 				if ((i == V_APU_CONN ||	i == V_TOP_IOMMU) &&
 					(apusys_opps.opps[opp][i].voltage ==
@@ -247,7 +261,7 @@ void test_case(int power_on_round, int opp_change_round, int fail_stop)
 {
 	int i, j, k, opp;
 
-	apusys_power_hal_test();
+//	apusys_power_hal_test();
 //	apusys_set_dfvs_debug_test();
 
 	for (i = 1 ; i <= power_on_round ; i++) {
@@ -259,6 +273,8 @@ void test_case(int power_on_round, int opp_change_round, int fail_stop)
 			LOG_INF("## opp change round #%d start ##\n", j);
 
 			for (k = 0 ; k < APUSYS_DVFS_USER_NUM ; k++) {
+				//if (dvfs_user_support(k) == false)
+					//continue;
 				opp = rand() % APUSYS_MAX_NUM_OPPS;
 				apusys_set_opp(k, opp);
 			}

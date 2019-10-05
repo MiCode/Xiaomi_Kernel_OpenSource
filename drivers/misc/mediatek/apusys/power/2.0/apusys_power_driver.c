@@ -29,6 +29,7 @@
 #include "apusys_power_debug.h"
 #include "apu_platform_resource.h"
 #include "hal_config_power.h"
+#include "apu_power_api.h"
 
 #define APUSYS_POWER_ENABLE	(1)
 #define FOR_BRING_UP		(0)
@@ -626,8 +627,11 @@ int apu_power_power_stress(int type, int device, int opp)
 	switch (type) {
 	case 0: // config opp
 		if (device == 9) { // all devices
-			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++)
+			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
+				if (dvfs_power_domain_support(id) == false)
+					continue;
 				apusys_set_opp(id, opp);
+			}
 		} else {
 			apusys_set_opp(device, opp);
 		}
@@ -641,6 +645,8 @@ int apu_power_power_stress(int type, int device, int opp)
 
 		if (device == 9) { // all devices
 			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
+				if (dvfs_power_domain_support(id) == false)
+					continue;
 				if (!power_stress_dev_pwr_stat[id]) {
 					apusys_power_on(id);
 					power_stress_dev_pwr_stat[id] = 1;
@@ -658,6 +664,8 @@ int apu_power_power_stress(int type, int device, int opp)
 
 		if (device == 9) { // all devices
 			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
+				if (dvfs_power_domain_support(id) == false)
+					continue;
 				if (power_stress_dev_pwr_stat[id]) {
 					apusys_power_off(id);
 					power_stress_dev_pwr_stat[id] = 0;
@@ -683,6 +691,7 @@ int apu_power_power_stress(int type, int device, int opp)
 
 	return 0;
 }
+
 
 static int apu_power_remove(struct platform_device *pdev)
 {

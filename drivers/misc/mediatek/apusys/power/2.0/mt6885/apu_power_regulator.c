@@ -23,6 +23,10 @@
 
 #define EFUSE_INDEX 72	// 0x11C105D8
 
+#include "mtk_devinfo.h"
+
+#define EFUSE_INDEX 72	// 0x11C105D8
+#define BINNING_VOLTAGE_SUPPORT (1)
 #define FOR_HQA_TEST	(1)
 
 /* regulator id */
@@ -48,6 +52,8 @@ void pm_qos_register(void)
 	int i;
 
 	for (i = 0 ; i < APUSYS_DVFS_USER_NUM ; i++) {
+		if (dvfs_user_support(i) == false)
+			continue;
 		pm_qos_add_request(&pm_qos_vcore_request[i],
 						PM_QOS_VCORE_OPP,
 						PM_QOS_VCORE_OPP_DEFAULT_VALUE);
@@ -59,6 +65,8 @@ void pm_qos_unregister(void)
 	int i;
 
 	for (i = 0 ; i < APUSYS_DVFS_USER_NUM ; i++) {
+		if (dvfs_user_support(i) == false)
+			continue;
 		pm_qos_update_request(&pm_qos_vcore_request[i],
 					PM_QOS_VCORE_OPP_DEFAULT_VALUE);
 		pm_qos_remove_request(&pm_qos_vcore_request[i]);
@@ -274,6 +282,7 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	unsigned int vpu_efuse_val = 0;
 	unsigned int mdla_efuse_val = 0;
 
+#if BINNING_VOLTAGE_SUPPORT
 	vpu_efuse_val = (get_devinfo_with_index(EFUSE_INDEX) & 0x7);
 	mdla_efuse_val = (get_devinfo_with_index(EFUSE_INDEX) & 0x7);
 	if (buck == VPU_BUCK && voltage_mV == DVFS_VOLT_00_800000_V) {
@@ -287,12 +296,11 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 		else if (mdla_efuse_val == 3)
 			voltage_mV = DVFS_VOLT_00_775000_V;
 	}
-
-	LOG_WRN("%s try to config buck : %d to %d(max:%d)\n", __func__,
-						buck, voltage_mV, voltage_MAX);
-
 	LOG_WRN("vpu_efuse=%d, mdla_efuse=%d, buck=%d, vol=%d\n",
 					buck, voltage_mV, buck, voltage_mV);
+#endif
+	LOG_WRN("%s try to config buck : %d to %d(max:%d)\n", __func__,
+						buck, voltage_mV, voltage_MAX);
 
 	if (voltage_mV <= DVFS_VOLT_NOT_SUPPORT
 		|| voltage_mV >= DVFS_VOLT_MAX) {

@@ -34,7 +34,7 @@
 #include "apu_log.h"
 #include "apusys_power_debug.h"
 #include "apusys_power.h"
-
+#include "apu_power_api.h"
 
 static int apusys_debug_power_show(struct seq_file *s, void *unused)
 {
@@ -118,6 +118,8 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 
 		// determine buck domain opp
 		for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++) {
+			if (dvfs_power_domain_support(i) == false)
+				continue;
 			for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
 				if ((i == V_APU_CONN ||	i == V_TOP_IOMMU) &&
 					(apusys_opps.opps[opp][i].voltage ==

@@ -68,5 +68,8 @@ void disable_apu_conn_vcore_clksrc(void);
 void disable_apu_device_clksrc(enum DVFS_USER user);
 
 void reinit_iommu_apu_resource(void);
+bool dvfs_user_support(enum DVFS_USER user);
+bool dvfs_power_domain_support(enum DVFS_VOLTAGE_DOMAIN domain);
+
 
 #endif // _APU_POWER_API_H_

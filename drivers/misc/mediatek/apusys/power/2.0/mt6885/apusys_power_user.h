@@ -34,7 +34,8 @@ enum DVFS_USER {
 	MDLA0 = 3,
 	MDLA1 = 4,
 	APUSYS_DVFS_USER_NUM,
-	EDMA,
+
+	EDMA = 0x100,	// special user
 };
 
 
@@ -52,11 +53,12 @@ enum DVFS_VOLTAGE_DOMAIN {
 
 
 enum DVFS_BUCK {
-	SRAM_BUCK = -1,	// sepcial case for VSRAM constraint
 	VPU_BUCK = 0,
 	MDLA_BUCK = 1,
 	VCORE_BUCK = 2,
 	APUSYS_BUCK_NUM,
+
+	SRAM_BUCK = 0x100,	// sepcial case for VSRAM constraint
 };
 
 
