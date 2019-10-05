@@ -124,8 +124,9 @@ static uint8_t g_tfa98xx_firmware_status;
 
 int tfa98xx_send_data_to_dsp(int8_t *buffer, int16_t DataLength)
 {
-	struct ipi_msg_t ipi_msg;
 	int result = 0;
+#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
+	struct ipi_msg_t ipi_msg;
 
 	if (buffer == NULL)
 		return -EFAULT;
@@ -137,6 +138,7 @@ int tfa98xx_send_data_to_dsp(int8_t *buffer, int16_t DataLength)
 			buffer, DataLength);
 	pr_info("Exit result=%d\n", result);
 	/*msleep(50);*/
+#endif
 	return result;
 }
 
@@ -144,8 +146,9 @@ int tfa98xx_receive_data_from_dsp(int8_t *buffer,
 	int16_t size,
 	uint32_t *DataLength)
 {
-	struct ipi_msg_t ipi_msg;
 	int result = 0;
+#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
+	struct ipi_msg_t ipi_msg;
 
 	if ((buffer == NULL)  || (DataLength == NULL))
 		return -EFAULT;
@@ -157,6 +160,7 @@ int tfa98xx_receive_data_from_dsp(int8_t *buffer,
 		AUDIO_DSP_TASK_AURISYS_GET_BUF,
 		buffer, size, DataLength);
 	pr_info("Exit Result=%d  DataLength=%d\n", result, *DataLength);
+#endif
 	return result;
 }
 
