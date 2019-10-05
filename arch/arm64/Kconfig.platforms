@@ -111,6 +111,7 @@ config MACH_MT6785
 	select MTK_SYSIRQ
 	select MTK_SYS_CIRQ
 	select FAST_CIRQ_CLONE_FLUSH
+	select OVERLAY_FS
 	select EXT4_FS
 	select EXT4_FS_SECURITY
 	select EXT4_ENCRYPTION
@@ -403,6 +404,7 @@ config MACH_MT6885
 	select MTK_LPM_MT6885
 	select COMMON_CLK_MT6885
 	select DEVAPC_MT6885
+	select OVERLAY_FS
         select EXT4_FS
         select EXT4_FS_SECURITY
         select EXT4_ENCRYPTION
