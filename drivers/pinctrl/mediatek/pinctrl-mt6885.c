@@ -667,7 +667,7 @@ static const struct mtk_pin_reg_calc mt6885_reg_cals[PINCTRL_PIN_REG_MAX] = {
 static const struct mtk_eint_hw mt6885_eint_hw = {
 	.port_mask = 7,
 	.ports     = 7,
-	.ap_num    = 209,
+	.ap_num    = 223,
 	.db_cnt    = 32,
 };
 
