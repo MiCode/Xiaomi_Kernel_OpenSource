@@ -1052,7 +1052,8 @@ static int mtk_iommu_isr_pause(int delay, struct mtk_iommu_data *data)
 	mtk_iommu_intr_modify_all(0); /* disable all intr */
 	/* delay seconds */
 	data->iommu_isr_pause_timer.expires = jiffies + delay * HZ;
-	add_timer(&data->iommu_isr_pause_timer);
+	if (!timer_pending(&data->iommu_isr_pause_timer))
+		add_timer(&data->iommu_isr_pause_timer);
 	return 0;
 }
 
