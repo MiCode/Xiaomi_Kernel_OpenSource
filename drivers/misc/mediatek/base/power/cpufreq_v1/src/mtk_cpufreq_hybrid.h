@@ -54,6 +54,7 @@ enum cpu_dvfs_ipi_type {
 #endif
 	IPI_TURBO_MODE,
 	IPI_TIME_PROFILE,
+	IPI_SES_SET_VOLTAGE_DROP_RATIO,
 
 	NR_DVFS_IPI,
 };
