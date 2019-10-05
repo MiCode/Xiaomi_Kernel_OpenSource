@@ -28,7 +28,7 @@
 #define MC_LOG_VERSION			2
 
 /* Default length of the log ring buffer */
-#ifdef TEE_TRACING_ENABLED
+#if TEE_TRACING_ENABLED
 #define LOG_BUF_ORDER			7 /* 512 KB */
 #else
 #define LOG_BUF_ORDER			6 /* 256 KB */
@@ -86,7 +86,7 @@ static struct logging_ctx {
 	bool	dead;
 } log_ctx;
 
-#ifdef TEE_TRACING_ENABLED
+#if TEE_TRACING_ENABLED
 u64 boot_to_kernel_ns;
 
 static void set_boot_to_kernel_time(void)
@@ -122,11 +122,6 @@ static void convert_kernel_time(char *tee_timestamp, char *output,
 
 	boot_to_kernel_us = boot_to_kernel_ns / NSEC_PER_USEC;
 	kernel_time_us = tee_time_us - boot_to_kernel_us;
-
-	/* shrink the error due to jiffies & timer tick not sync problem
-	 * reduce half jiffies time as temp solution
-	 */
-	kernel_time_us -= USEC_PER_SEC / HZ / 2;
 
 	tee_time_us = kernel_time_us % USEC_PER_SEC;
 	tee_time_s = kernel_time_us / USEC_PER_SEC;
@@ -203,7 +198,7 @@ static inline void log_eol(u16 source, u32 cpuid)
 	if (!log_ctx.line_len)
 		return;
 
-#ifdef TEE_TRACING_ENABLED
+#if TEE_TRACING_ENABLED
 	if (!log_tracing(cpuid)) {
 		log_ctx.line[0] = '\0';
 		log_ctx.line_len = 0;
@@ -358,7 +353,7 @@ int logging_init(phys_addr_t *buffer, u32 *size)
 	debugfs_create_bool("swd_debug", 0600, g_ctx.debug_dir,
 			    &log_ctx.enabled);
 
-#ifdef TEE_TRACING_ENABLED
+#if TEE_TRACING_ENABLED
 	/* Init boot to kernel time */
 	set_boot_to_kernel_time();
 #endif
