@@ -161,7 +161,7 @@ struct mtk_dec_params {
 	unsigned int	nal_size_length;
 	unsigned int	svp_mode;
 	unsigned int	operating_rate;
-	unsigned int	timestamp;
+	u64	timestamp;
 	unsigned int	total_frame_bufq_count;
 	unsigned int	queued_frame_buf_count;
 };
@@ -262,7 +262,7 @@ struct venc_enc_param {
 struct venc_frm_buf {
 	struct mtk_vcodec_mem fb_addr[MTK_VCODEC_MAX_PLANES];
 	unsigned int num_planes;
-	unsigned long timestamp;
+	u64 timestamp;
 	unsigned int roimap;
 };
 
