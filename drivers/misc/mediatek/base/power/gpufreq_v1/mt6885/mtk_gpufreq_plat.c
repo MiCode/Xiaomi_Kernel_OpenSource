@@ -370,7 +370,7 @@ unsigned int mt_gpufreq_target(unsigned int request_idx,
 
 #ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
 	ged_log_buf_print2(gpufreq_ged_log, GED_LOG_ATTR_TIME,
-		"kicker: %d, target idx: %d (%d, %d)\n",
+			"kicker: %d, target_idx: %d (%d, %d)\n",
 		kicker, target_idx, request_idx, g_segment_max_opp_idx);
 #endif
 
@@ -2123,13 +2123,14 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	}
 
 	gpufreq_pr_debug(
-		"@%s: posdiv: %d, real_posdiv: %d, dds: 0x%lx, pll: 0x%08x, parking: %d\n",
-		__func__, posdiv_power, real_posdiv_power, dds, pll, parking);
+	"@%s: posdiv: %d, real_posdiv: %d, dds: 0x%lx, pll: 0x%08x, parking: %d\n",
+	__func__,
+	(1 << posdiv_power), (1 << real_posdiv_power), dds, pll, parking);
 
 #ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
 	ged_log_buf_print2(gpufreq_ged_log, GED_LOG_ATTR_TIME,
-		"posdiv: %d, real_posdiv: %d, dds: 0x%lx, pll: 0x%08x, parking: %d\n",
-		posdiv_power, real_posdiv_power, dds, pll, parking);
+	"posdiv: %d, real_posdiv: %d, dds: 0x%lx, pll: 0x%08x, parking: %d\n",
+	(1 << posdiv_power), (1 << real_posdiv_power), dds, pll, parking);
 #endif
 }
 
