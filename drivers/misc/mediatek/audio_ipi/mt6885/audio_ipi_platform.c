@@ -289,6 +289,7 @@ phys_addr_t get_reserve_mem_phys(const uint32_t dsp_id, const uint32_t mem_id)
 #endif
 		break;
 	case AUDIO_OPENDSP_USE_HIFI3_A:
+	case AUDIO_OPENDSP_USE_HIFI3_B:
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
 		addr_mem_phys = adsp_get_reserve_mem_phys(mem_id);
 #endif
@@ -312,6 +313,7 @@ uint8_t get_cache_aligned_order(const uint32_t dsp_id)
 		order = 5;
 		break;
 	case AUDIO_OPENDSP_USE_HIFI3_A:
+	case AUDIO_OPENDSP_USE_HIFI3_B:
 		order = 7;
 		break;
 	default:
