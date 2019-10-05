@@ -32,6 +32,10 @@
 #include <linux/arm-smccc.h>
 #include <mt-plat/mtk_secure_api.h>
 
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+#include "cmdq-util.h"
+#endif
+
 /* ddp main/sub, mdp path 0/1/2/3, general(misc) */
 #define CMDQ_OP_CODE_MASK		(0xff << CMDQ_OP_CODE_SHIFT)
 #define CMDQ_IRQ_MASK			GENMASK(CMDQ_THR_MAX_COUNT - 1, 0)
@@ -929,7 +933,7 @@ void cmdq_dump_core(struct mbox_chan *chan)
 
 	cmdq_util_msg("irq:%#x loaded:%#x cycle:%#x thd timer:%#x",
 		irq, loaded, cycle, thd_timer);
-#if IS_ENABLED(CONFIG_CMDQ_MBOX_EXT)
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	cmdq_util_dump_dbg_reg(chan);
 #endif
 }

@@ -18,9 +18,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 
-#if IS_ENABLED(CONFIG_CMDQ_MBOX_EXT)
-#include "../../../drivers/misc/mediatek/cmdq/mailbox/cmdq-util.h"
-#else
+#if !IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 #define cmdq_util_msg(f, args...) cmdq_msg(f, ##args)
 #define cmdq_util_err(f, args...) cmdq_dump(f, ##args)
 #endif

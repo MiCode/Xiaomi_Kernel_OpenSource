@@ -19,6 +19,10 @@
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
 
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+#include "cmdq-util.h"
+#endif
+
 #define CMDQ_ARG_A_WRITE_MASK	0xffff
 #define CMDQ_WRITE_ENABLE_MASK	BIT(0)
 #define CMDQ_EOC_IRQ_EN		BIT(0)
@@ -1314,7 +1318,7 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 
 void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 {
-#if IS_ENABLED(CONFIG_CMDQ_MBOX_EXT)
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 
 	static u32 err_num;
 	struct cmdq_pkt *pkt = (struct cmdq_pkt *)data.data;
