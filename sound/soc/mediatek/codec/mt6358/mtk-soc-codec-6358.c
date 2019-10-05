@@ -1652,6 +1652,7 @@ static int detect_impedance(void)
 	int detectsOffset[kDetectTimes];
 	int pick_impedance = 0, impedance = 0, phase_flag = 0;
 	int dcValue = 0;
+	int old_value_auxadc_con1 = Ana_Get_Reg(AUXADC_CON1);
 	struct mtk_hpdet_param hpdet_param;
 
 	if (enable_dc_compensation &&
@@ -1668,6 +1669,9 @@ static int detect_impedance(void)
 	mtk_read_hp_detection_parameter(&hpdet_param);
 
 	Ana_Set_Reg(AUXADC_CON10, AUXADC_AVG_64, 0x7);
+
+	/* Set AUXADC_SPL_NUM as 0xC for hp imp detect */
+	Ana_Set_Reg(AUXADC_CON1, 0xC << 6, 0xf << 6);
 
 	setOffsetTrimMux(AUDIO_OFFSET_TRIM_MUX_HPR);
 	setOffsetTrimBufferGain(3); /* HPDET trim. buffer gain : 18db */
@@ -1778,9 +1782,10 @@ static int detect_impedance(void)
 		usleep_range(1*200, 1*200);
 	}
 
-	pr_debug("%s(), phase %d [dc,detect]Sum %d times [%d,%d], hp_impedance %d, pick_impedance %d, AUXADC_CON10 0x%x\n",
+	pr_debug("%s(), phase %d [dc,detect]Sum %d times [%d,%d], hp_impedance %d, pick_impedance %d, AUXADC_CON1 0x%x, AUXADC_CON10 0x%x\n",
 		 __func__, phase_flag, kDetectTimes, dcSum, detectSum,
 		 impedance, pick_impedance,
+		 Ana_Get_Reg(AUXADC_CON1),
 		 Ana_Get_Reg(AUXADC_CON10));
 
 	/* Ramp-Down */
@@ -1797,6 +1802,9 @@ static int detect_impedance(void)
 	enable_dc_compensation(false);
 	setOffsetTrimMux(AUDIO_OFFSET_TRIM_MUX_GROUND);
 	EnableTrimbuffer(false);
+
+	/* Restore AUXADC_CON1 after hp imp detect */
+	Ana_Set_Reg(AUXADC_CON1, old_value_auxadc_con1, 0xffff);
 
 	return impedance;
 }
@@ -7658,8 +7666,10 @@ static void mt6358_codec_init_reg(struct snd_soc_codec *codec)
 	Ana_Set_Reg(AUDDEC_ANA_CON7, 0x1 << 4, 0x1 << 4);
 	/* gpio miso driving set to default 4mA */
 	Ana_Set_Reg(DRV_CON3, 0x8888, 0xffff);
+
 	/* Enable mtkaif gpio SMT mode */
 	Ana_Set_Reg(SMT_CON1, 0x0ff0, 0x0ff0);
+
 	/* set gpio */
 	set_playback_gpio(false);
 	set_capture_gpio(false);
