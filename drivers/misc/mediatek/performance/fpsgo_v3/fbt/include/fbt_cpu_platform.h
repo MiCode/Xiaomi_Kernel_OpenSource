@@ -32,5 +32,6 @@ void fbt_notify_CM_limit(int reach_limit);
 void fbt_reg_dram_request(int reg);
 void fbt_boost_dram(int boost);
 int fbt_get_default_boost_ta(void);
+int fbt_get_default_adj_loading(void);
 
 #endif

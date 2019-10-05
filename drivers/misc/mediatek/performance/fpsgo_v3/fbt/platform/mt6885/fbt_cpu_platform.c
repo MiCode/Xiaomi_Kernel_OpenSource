@@ -109,3 +109,9 @@ int fbt_get_default_boost_ta(void)
 {
 	return 0;
 }
+
+int fbt_get_default_adj_loading(void)
+{
+	return 1;
+}
+
