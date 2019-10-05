@@ -1320,12 +1320,12 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		cmdq_util_msg("curr inst: Not Available");
 
 	if (item->err_cb) {
-		struct cmdq_cb_data data = {
+		struct cmdq_cb_data cb_data = {
 			.data = item->err_data,
 			.err = data.err
 		};
 
-		item->err_cb(data);
+		item->err_cb(cb_data);
 	}
 
 	cmdq_dump_pkt(pkt, pc);
