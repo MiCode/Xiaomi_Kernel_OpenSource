@@ -353,10 +353,16 @@ process_command:
 	if (mdla_info->max_cmd_id >= id)
 		wt->result = 0;
 	else { // Command timeout
+#if 0
 		pr_info("%s: command: %d, max_cmd_id: %d deadline:%llu, jiffies: %lu\n",
 				__func__, id,
 				mdla_info->max_cmd_id,
 				deadline, jiffies);
+#else
+		pr_info("%s: command: %d, max_cmd_id: %d\n",
+				__func__, id,
+				mdla_info->max_cmd_id);
+#endif
 		mdla_dump_reg(core_id);
 		mdla_dump_ce(&ce);
 		mdla_reset_lock(mdla_info->mdlaid, REASON_TIMEOUT);
@@ -374,9 +380,11 @@ process_command:
 	/* Calculate all performance index */
 	mdla_performance_index(wt, &ce);
 
-	mdla_perf_debug("exec: id:%d, res:%u, que_t:%u, busy_t:%u,bandwidth: %u\n",
+#if 0
+	mdla_perf_debug("exec: id:%d, res:%u, que_t:%llu, busy_t:%llu,bandwidth: %lu\n",
 			wt->id, wt->result, wt->queue_time,
 			wt->busy_time, wt->bandwidth);
+#endif
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	if (apusys_hd != NULL && pmu_ret == 0)
 		pmu_command_counter_prt(mdla_info);
