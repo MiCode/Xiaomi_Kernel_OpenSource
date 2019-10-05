@@ -24,6 +24,7 @@ obj-$(CONFIG_MTK_PMIC_NEW_ARCH)	+= pmic/
 obj-$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) += trusted_mem/
 obj-y += atf/
 obj-y += devinfo/
+obj-y += sspm/
 obj-y += timer/
 obj-$(CONFIG_MTK_ACCDET) += accdet/
 obj-$(CONFIG_MTK_GIC_EXT) += ext_gic/
