@@ -40,7 +40,12 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
+#include <linux/dma-mapping.h>
 #include <mt-plat/sync_write.h> /* For mt65xx_reg_sync_writel(). */
+#ifdef CONFIG_MTK_IOMMU_V2
+#include "mtk_iommu_ext.h"
+#endif
+#include "mach/pseudo_m4u.h"
 
 /* MET: define to enable MET*/
 #define ISP_MET_READY
@@ -125,6 +130,9 @@
 #include <linux/workqueue.h>
 #endif
 
+#ifdef CONFIG_MTK_IOMMU_V2
+static int camP1mem_use_m4u = 1;
+#endif
 /* -------------------------------------------------------------------------- */
 
 #define MyTag "[ISP]"
@@ -1561,6 +1569,131 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 #endif
 }
 
+#ifdef CONFIG_MTK_IOMMU_V2
+static inline int m4u_control_iommu_port(void)
+{
+	struct M4U_PORT_STRUCT sPort;
+	int ret = 0;
+
+	/* LARB13 */
+	sPort.ePortID = M4U_PORT_L13_CAM_MRAWI_MDP;
+	sPort.Virtuality = camP1mem_use_m4u;
+	sPort.Security = 0;
+	sPort.domain = 2;
+	sPort.Distance = 1;
+	sPort.Direction = 0;
+
+#if defined(CONFIG_MTK_M4U)
+	ret = m4u_config_port(&sPort);
+#endif
+
+	if (ret == 0) {
+		LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L13_CAM_MRAWI_MDP),
+			camP1mem_use_m4u ? "virtual" : "physical");
+	} else {
+		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L13_CAM_MRAWI_MDP),
+			camP1mem_use_m4u ? "virtual" : "physical", ret);
+		ret = -1;
+	}
+
+	/* LARB14 */
+	sPort.ePortID = M4U_PORT_L14_CAM_MRAWI_DISP;
+	sPort.Virtuality = camP1mem_use_m4u;
+	sPort.Security = 0;
+	sPort.domain = 2;
+	sPort.Distance = 1;
+	sPort.Direction = 0;
+
+#if defined(CONFIG_MTK_M4U)
+	ret = m4u_config_port(&sPort);
+#endif
+
+	if (ret == 0) {
+		LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L14_CAM_MRAWI_DISP),
+			camP1mem_use_m4u ? "virtual" : "physical");
+	} else {
+		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L14_CAM_MRAWI_DISP),
+			camP1mem_use_m4u ? "virtual" : "physical", ret);
+		ret = -1;
+	}
+
+	/* LARB16 */
+	sPort.ePortID = M4U_PORT_L16_CAM_IMGO_R1_A_MDP;
+	sPort.Virtuality = camP1mem_use_m4u;
+	sPort.Security = 0;
+	sPort.domain = 2;
+	sPort.Distance = 1;
+	sPort.Direction = 0;
+
+#if defined(CONFIG_MTK_M4U)
+	ret = m4u_config_port(&sPort);
+#endif
+
+	if (ret == 0) {
+		LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L16_CAM_IMGO_R1_A_MDP),
+			camP1mem_use_m4u ? "virtual" : "physical");
+	} else {
+		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			 iommu_get_port_name(M4U_PORT_L16_CAM_IMGO_R1_A_MDP),
+			camP1mem_use_m4u ? "virtual" : "physical", ret);
+		ret = -1;
+	}
+
+	/* LARB17 */
+	sPort.ePortID = M4U_PORT_L17_CAM_IMGO_R1_B_DISP;
+	sPort.Virtuality = camP1mem_use_m4u;
+	sPort.Security = 0;
+	sPort.domain = 2;
+	sPort.Distance = 1;
+	sPort.Direction = 0;
+
+#if defined(CONFIG_MTK_M4U)
+	ret = m4u_config_port(&sPort);
+#endif
+
+	if (ret == 0) {
+		LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L17_CAM_IMGO_R1_B_DISP),
+			camP1mem_use_m4u ? "virtual" : "physical");
+	} else {
+		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L17_CAM_IMGO_R1_B_DISP),
+			camP1mem_use_m4u ? "virtual" : "physical", ret);
+		ret = -1;
+	}
+
+	/* LARB18 */
+	sPort.ePortID = M4U_PORT_L18_CAM_IMGO_R1_C_MDP;
+	sPort.Virtuality = camP1mem_use_m4u;
+	sPort.Security = 0;
+	sPort.domain = 2;
+	sPort.Distance = 1;
+	sPort.Direction = 0;
+
+#if defined(CONFIG_MTK_M4U)
+	ret = m4u_config_port(&sPort);
+#endif
+
+	if (ret == 0) {
+		LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L18_CAM_IMGO_R1_C_MDP),
+			camP1mem_use_m4u ? "virtual" : "physical");
+	} else {
+		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L18_CAM_IMGO_R1_C_MDP),
+			camP1mem_use_m4u ? "virtual" : "physical", ret);
+		ret = -1;
+	}
+
+	return ret;
+}
+#endif
+
 static inline void smi_control_clock_mtcmos(bool en)
 {
 /* reference smi_port.h */
@@ -1837,6 +1970,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 	ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSV3);
 	if (ret)
 		LOG_NOTICE("cannot pre-en ISP_CAM_CAMSV3 clock\n");
+
 }
 
 static inline void Disable_Unprepare_ccf_clock(void)
@@ -2076,8 +2210,9 @@ static void ISP_EnableClock(bool En)
 		int cg_con3 = 0, cg_con4 = 0;
 		int cg_con5 = 0, cg_con6 = 0;
 		int cg_con7 = 0, cg_con8 = 0;
-
-
+#ifdef CONFIG_MTK_IOMMU_V2
+		int cg_con9 = 0;
+#endif
 		spin_lock(&(IspInfo.SpinLockClock));
 		/* LOG_DBG("Camera clock enbled. G_u4EnableClockCount: %d.", */
 		/*      G_u4EnableClockCount); */
@@ -2114,12 +2249,23 @@ static void ISP_EnableClock(bool En)
 			cg_con1,
 			cg_con3, cg_con5, cg_con7, cg_con2,
 			cg_con4, cg_con6, cg_con8, G_u4EnableClockCount);
+#ifdef CONFIG_MTK_IOMMU_V2
+		if (G_u4EnableClockCount == 1) {
+			cg_con9 = m4u_control_iommu_port();
+			if (cg_con9)
+				LOG_INF("cannot config M4U IOMMU PORTS\n");
+		}
+#endif
 #else /*CCF*/
 		/*LOG_INF("CCF:prepare_enable clk"); */
 		spin_lock(&(IspInfo.SpinLockClock));
 		G_u4EnableClockCount++;
 		spin_unlock(&(IspInfo.SpinLockClock));
 		Prepare_Enable_ccf_clock(); /* !!cannot be used in spinlock!! */
+#ifdef CONFIG_MTK_IOMMU_V2
+		if (G_u4EnableClockCount == 1)
+			m4u_control_iommu_port();
+#endif
 #endif
 /* Disable CAMSYS_HALT1_EN: LSCI & BPCI, */
 /* To avoid ISP halt keep arise */
@@ -5946,6 +6092,12 @@ static int ISP_probe(struct platform_device *pDev)
 		return -ENOMEM;
 	}
 
+#ifdef CONFIG_MTK_IOMMU_PGTABLE_EXT
+#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	*(isp_dev->dev->dma_mask) = (u64)DMA_BIT_MASK(34);
+	isp_dev->dev->coherent_dma_mask = (u64)DMA_BIT_MASK(34);
+#endif
+#endif
 	LOG_INF("nr_isp_devs=%d, devnode(%s), map_addr=0x%lx\n", nr_isp_devs,
 		pDev->dev.of_node->name, (unsigned long)isp_dev->regs);
 
