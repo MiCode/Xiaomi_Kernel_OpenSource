@@ -931,38 +931,51 @@ static void cam_subsys_before_off(enum subsys_id sys_id)
 
 static void cam_subsys_debug_dump(enum subsys_id sys_id)
 {
-	int cg_con = ISP_RD32(CAMSYS_REG_CG_CON);
-	int cg_set = ISP_RD32(CAMSYS_REG_CG_SET);
-	int cg_clr = ISP_RD32(CAMSYS_REG_CG_CLR);
-
 	switch (sys_id) {
 	case SYS_CAM_RAWA:
 		LOG_INF("power on/off RAWA fail sys id=%d (%x/%x/%x)\n",
-			   sys_id, ISP_RD32(CAMSYS_RAWA_REG_CG_CON),
-			   ISP_RD32(CAMSYS_RAWA_REG_CG_SET),
-			   ISP_RD32(CAMSYS_RAWA_REG_CG_CLR));
+			sys_id,
+			ISP_RD32(CAMSYS_RAWA_REG_CG_CON),
+			ISP_RD32(CAMSYS_RAWA_REG_CG_SET),
+			ISP_RD32(CAMSYS_RAWA_REG_CG_CLR));
+		LOG_INF("CG_CON/SET/CLR (%x/%x/%x)\n",
+			ISP_RD32(CAMSYS_REG_CG_CON),
+			ISP_RD32(CAMSYS_REG_CG_SET),
+			ISP_RD32(CAMSYS_REG_CG_CLR));
 	break;
 	case SYS_CAM_RAWB:
 		LOG_INF("power on/off RAWB fail sys id=%d (%x/%x/%x)\n",
-			   sys_id, ISP_RD32(CAMSYS_RAWB_REG_CG_CON),
-			   ISP_RD32(CAMSYS_RAWB_REG_CG_SET),
-			   ISP_RD32(CAMSYS_RAWB_REG_CG_CLR));
-		break;
+			sys_id,
+			ISP_RD32(CAMSYS_RAWB_REG_CG_CON),
+			ISP_RD32(CAMSYS_RAWB_REG_CG_SET),
+			ISP_RD32(CAMSYS_RAWB_REG_CG_CLR));
+		LOG_INF("CG_CON/SET/CLR (%x/%x/%x)\n",
+			ISP_RD32(CAMSYS_REG_CG_CON),
+			ISP_RD32(CAMSYS_REG_CG_SET),
+			ISP_RD32(CAMSYS_REG_CG_CLR));
+	break;
 	case SYS_CAM_RAWC:
 		LOG_INF("power on/off RAWC fail sys id=%d (%x/%x/%x)\n",
-			   sys_id, ISP_RD32(CAMSYS_RAWC_REG_CG_CON),
-			   ISP_RD32(CAMSYS_RAWC_REG_CG_SET),
-			   ISP_RD32(CAMSYS_RAWC_REG_CG_CLR));
+			sys_id,
+			ISP_RD32(CAMSYS_RAWC_REG_CG_CON),
+			ISP_RD32(CAMSYS_RAWC_REG_CG_SET),
+			ISP_RD32(CAMSYS_RAWC_REG_CG_CLR));
+		LOG_INF("CG_CON/SET/CLR (%x/%x/%x)\n",
+			ISP_RD32(CAMSYS_REG_CG_CON),
+			ISP_RD32(CAMSYS_REG_CG_SET),
+			ISP_RD32(CAMSYS_REG_CG_CLR));
 	break;
 	case SYS_CAM:
-	default:
 		LOG_INF("power on/off fail sys id=%d (%x/%x/%x)\n",
-			   sys_id, cg_con,
-			   cg_set,
-			   cg_clr);
-
+			sys_id,
+			ISP_RD32(CAMSYS_REG_CG_CON),
+			ISP_RD32(CAMSYS_REG_CG_SET),
+			ISP_RD32(CAMSYS_REG_CG_CLR));
+	break;
+	default:
+		LOG_INF("sys id=%d no dump\n",
+			sys_id);
 	}
-
 }
 
 static struct pg_callbacks cam_clk_subsys_handle = {
