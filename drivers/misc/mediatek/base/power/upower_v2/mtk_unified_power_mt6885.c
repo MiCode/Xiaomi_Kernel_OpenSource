@@ -28,7 +28,7 @@
 #include <mt-plat/mtk_chip.h>
 
 /* local include */
-//#include "mach/mtk_cpufreq_api.h"
+#include "mach/mtk_cpufreq_api.h"
 #include "mtk_upower.h"
 #include "mtk_unified_power_data.h"
 #include "mtk_devinfo.h"
@@ -91,7 +91,45 @@ struct upower_tbl_info
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
 				upower_tbl_cci_6885),
 	},
-
+	/* 6885 (Turbo Mode) */
+	[1] = {
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
+				upower_tbl_l_6885T),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
+				upower_tbl_b_6885T),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
+				upower_tbl_cluster_l_6885T),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
+				upower_tbl_cluster_b_6885T),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
+				upower_tbl_cci_6885T),
+	},
+	/* 6885T */
+	[2] = {
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
+				upower_tbl_l_6885T),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
+				upower_tbl_b_6885T),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
+				upower_tbl_cluster_l_6885T),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
+				upower_tbl_cluster_b_6885T),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
+				upower_tbl_cci_6885T),
+	},
+	/* 6883 */
+	[3] = {
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
+				upower_tbl_l_6883),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
+				upower_tbl_b_6883),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
+				upower_tbl_cluster_l_6883),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
+				upower_tbl_cluster_b_6883),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
+				upower_tbl_cci_6883),
+	},
 };
 /* Upower will know how to apply voltage that comes from EEM */
 unsigned char upower_recognize_by_eem[NR_UPOWER_BANK] = {
@@ -190,7 +228,7 @@ void get_original_table(void)
 	unsigned short idx = 0; /* default use MT6771T_6785 */
 	int i, j;
 
-	//idx = mt_cpufreq_get_cpu_level();
+	idx = mt_cpufreq_get_cpu_level();
 
 	/* get location of reference table */
 	upower_tbl_infos = &upower_tbl_infos_list[idx][0];
