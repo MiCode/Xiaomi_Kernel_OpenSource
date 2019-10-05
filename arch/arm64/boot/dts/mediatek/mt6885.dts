@@ -4633,6 +4633,8 @@ page_owner=on";
 		clock-names = "pmif", "spmimst";
 		swinf_ch_start = <4>;
 		ap_swinf_no = <2>;
+		#address-cells = <2>;
+		#size-cells = <0>;
 	};
 
 	spmi_mpu@10027000 {
