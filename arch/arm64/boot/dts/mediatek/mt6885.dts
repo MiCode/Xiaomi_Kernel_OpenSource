@@ -448,6 +448,11 @@ page_owner=on";
 		spm_twam_last_sta3 = <0x1dc>;
 	};
 
+	srclken@10006500 {
+		compatible = "mediatek,srclken";
+		reg = <0 0x10006500 0 0x1000>;
+	};
+
 	toprgu@10007000 {
 		compatible = "mediatek,toprgu";
 		reg = <0 0x10007000 0 0x1000>;
@@ -5431,6 +5436,14 @@ page_owner=on";
 	};
 
 	subpmic_pmu_eint: mt6360_pmu_eint {
+	};
+
+	pmic_clock_buffer_ctrl: pmic_clock_buffer_ctrl {
+		compatible = "mediatek,pmic_clock_buffer";
+		mediatek,clkbuf-quantity = <7>;
+		mediatek,clkbuf-config = <2 1 1 2 0 0 1>;
+		mediatek,clkbuf-output-impedance = <6 6 4 6 0 0 4>;
+		mediatek,clkbuf-controls-for-desense = <0 4 0 4 0 0 0>;
 	};
 
 	brisket: brisket {
