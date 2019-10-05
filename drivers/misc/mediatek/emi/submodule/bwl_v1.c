@@ -23,7 +23,9 @@
 #include <mt_emi.h>
 #include <bwl_platform.h>
 #include "bwl_v1.h"
-
+#if DBG_INFO_READY
+#include <plat_dbg_info.h>
+#endif
 #ifdef DECS_ON_SSPM
 #include <dramc.h>
 #endif
