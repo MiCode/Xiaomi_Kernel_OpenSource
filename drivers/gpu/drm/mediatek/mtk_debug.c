@@ -934,6 +934,9 @@ static ssize_t debug_read(struct file *file, char __user *ubuf, size_t count,
 	n = debug_get_info(debug_buffer, debug_bufmax);
 
 out:
+	if (n < 0)
+		return -EINVAL;
+
 	return simple_read_from_buffer(ubuf, count, ppos, debug_buffer, n);
 }
 
