@@ -36,7 +36,7 @@ ENTRY(trusty_fiq_glue_arm64)
 	push	x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, \
 		x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, \
 		x26, x27, x28, x29
-	ldr	x0, =SMC_FC64_GET_FIQ_REGS
+	ldr	x0, =SMC_FC64_GZ_GET_FIQ_REGS
 	smc	#0
 	stp	x0, x1, [sp, #S_PC] /* original pc, cpsr */
 	tst	x1, PSR_MODE_MASK
@@ -49,11 +49,11 @@ ENTRY(trusty_fiq_glue_arm64)
 		x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, \
 		x26, x27, x28, x29
 	ldr	x30, [sp], #S_FRAME_SIZE - S_LR	/* load LR and restore SP */
-	ldr	x0, =SMC_FC_FIQ_EXIT
+	ldr	x0, =SMC_FC_GZ_FIQ_EXIT
 	smc	#0
 	b	.	/* should not get here */
 
 ENTRY(trusty_fiq_cpu_resume)
-	ldr	x0, =SMC_FC_FIQ_RESUME
+	ldr	x0, =SMC_FC_GZ_FIQ_RESUME
 	smc	#0
 	ret

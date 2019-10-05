@@ -652,22 +652,21 @@ int tz_system_nop_std32(uint32_t type, uint64_t value)
 	int ret;
 	uint32_t val_a = value;
 	uint32_t val_b = value >> 32;
+	uint32_t smcnr_nop = MTEE_SMCNR(SMCF_SC_NOP, tz_system_dev->dev.parent);
 
 	KREE_DEBUG("%s\n", __func__);
 
-	ret = trusty_std_call32(tz_system_dev->dev.parent, SMC_SC_NOP,
-							type, val_a, val_b);
+	ret = trusty_std_call32(tz_system_dev->dev.parent, smcnr_nop,
+				type, val_a, val_b);
 	while (ret == SM_ERR_NOP_INTERRUPTED || ret == SM_ERR_BUSY) {
 		if (ret == SM_ERR_BUSY) {
 			usleep_range(100, 200);
-			ret = trusty_std_call32(
-						tz_system_dev->dev.parent,
-						SMC_SC_NOP,
+			ret = trusty_std_call32(tz_system_dev->dev.parent,
+						smcnr_nop,
 						type, val_a, val_b);
 		} else {
-			ret = trusty_std_call32(
-						tz_system_dev->dev.parent,
-						SMC_SC_NOP,
+			ret = trusty_std_call32(tz_system_dev->dev.parent,
+						smcnr_nop,
 						0, 0, 0);
 		}
 	}
@@ -1256,5 +1255,4 @@ int tz_system_std_call32(u32 smcnr, u32 a0, u32 a1, u32 a2)
 	return trusty_std_call32(tz_system_dev->dev.parent,
 				smcnr, a0, a1, a2);
 }
-
 

@@ -1198,6 +1198,9 @@ static char *strdup_s(const char *str)
 	return tmp;
 }
 
+/* Search tipc_virtio_dev by first word of port name. See tee_routing_config.h
+ * for detail rules.
+ */
 static struct tipc_virtio_dev *port_lookup_vds(struct tipc_cdev_node *cdn,
 					       const char *port)
 {
@@ -1235,18 +1238,26 @@ static struct tipc_virtio_dev *port_lookup_vds(struct tipc_cdev_node *cdn,
 	hash_val = hashlen_hash(hashlen_string(HASH_SALT, token));
 
 	hash_for_each_possible(tee_routing_htable, tr_obj, node, hash_val) {
-		if (strcmp(token, tr_obj->srv_name) == 0) {
+		if (strcmp(token, tr_obj->srv_name) == 0 &&
+		    vdev_array[tr_obj->tee_id]) {
 			vds = vdev_array[tr_obj->tee_id]->priv;
 			break;
 		}
 	}
 
-	if (vds)
-		kref_get(&vds->refcount);
+	if (unlikely(!vds)) {
+		pr_info("[%s] Can't find available tipc_virtio_dev\n",
+			__func__);
+		goto err_nodev;
+	}
+
+	kref_get(&vds->refcount);
+
 err_port_name:
+err_nodev:
 	kfree(str);
 err_default:
-	return vds;
+	return vds ? vds : ERR_PTR(-ENODEV);
 }
 
 static int tipc_open_channel(struct tipc_cdev_node *cdn,
@@ -1838,7 +1849,8 @@ static int tipc_virtio_probe(struct virtio_device *vdev)
 	char *vq_names[2];
 	int tee_id = vdev->dev.id;
 
-	dev_dbg(&vdev->dev, "%s:\n", __func__);
+	dev_info(&vdev->dev, "--- init trusty-ipc for MTEE %d ---\n",
+		 tee_id);
 
 	vds = kzalloc(sizeof(*vds), GFP_KERNEL);
 	if (!vds)
@@ -2002,14 +2014,12 @@ static int __init tipc_init(void)
 		goto err_class_create;
 	}
 
-	pr_info("register virtio_tipc_driver\n");
 	ret = register_virtio_driver(&virtio_tipc_driver);
 	if (ret) {
 		pr_info("Register virtio driver failed: %d\n", ret);
 		goto err_register_virtio_drv;
 	}
 
-	pr_info("register virtio_nebula_driver\n");
 	ret = register_virtio_driver(&virtio_nebula_driver);
 	if (ret) {
 		pr_info("Register nebula virtio driver failed: %d\n", ret);
