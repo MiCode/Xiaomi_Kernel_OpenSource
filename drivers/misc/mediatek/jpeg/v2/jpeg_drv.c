@@ -366,6 +366,14 @@ void jpeg_drv_enc_power_on(void)
 
 		smi_bus_prepare_enable(SMI_LARB1_REG_INDX,
 			"JPEG", true);
+		#elif defined(PLATFORM_MT6739)
+
+		smi_bus_prepare_enable(SMI_LARB1, "JPEG");
+
+		#elif defined(PLATFORM_MT6771)
+
+		smi_bus_prepare_enable(SMI_LARB4, "JPEG");
+
 		#endif
 		if (clk_prepare_enable(gJpegClk.clk_venc_jpgEnc))
 			JPEG_ERR("enable clk_venc_jpgDec fail!");
@@ -430,6 +438,15 @@ void jpeg_drv_enc_power_off(void)
 
 		smi_bus_disable_unprepare(SMI_LARB1_REG_INDX,
 		"JPEG", true);
+
+		#elif defined(PLATFORM_MT6739)
+
+		smi_bus_disable_unprepare(SMI_LARB1, "JPEG");
+
+
+		#elif defined(PLATFORM_MT6771)
+
+		smi_bus_disable_unprepare(SMI_LARB4, "JPEG");
 
 		#endif
 		#else
