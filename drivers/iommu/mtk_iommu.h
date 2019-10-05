@@ -111,6 +111,7 @@ struct mtk_iommu_data {
 #ifdef CONFIG_MTK_IOMMU_V2
 	struct mtk_iommu_pgtable	*pgtable;
 	struct mtk_iommu_clks		*m4u_clks;
+	spinlock_t     reg_lock;
 #else
 	struct mtk_iommu_domain	*m4u_dom;
 	struct iommu_group *m4u_group;

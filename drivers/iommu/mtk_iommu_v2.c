@@ -738,12 +738,13 @@ static void __mtk_iommu_tlb_flush_all(const struct mtk_iommu_data *data)
 		   data->base + REG_MMU_INVLDT);
 	wmb(); /* Make sure the tlb flush all done */
 }
-unsigned int g_start;
-unsigned int g_end;
+static unsigned int g_start;
+static unsigned int g_end;
 static int __mtk_iommu_tlb_sync(struct mtk_iommu_data *data)
 {
 	int ret = 0;
 	u32 tmp;
+	unsigned long flags;
 	unsigned long long g_sync_start, g_sync_end;
 
 	/* Avoid timing out if there's nothing to wait for */
@@ -754,18 +755,21 @@ static int __mtk_iommu_tlb_sync(struct mtk_iommu_data *data)
 		return -EINVAL;
 	}
 
-	if (!data->tlb_flush_active) {
-		pr_debug("%s, %d, no need of flush\n",
-			  __func__, __LINE__);
-		return 0;
-	}
-
 #if 1 //ndef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
 		data->tlb_flush_active = false;
 		return 0;
 	}
 #endif
+
+	spin_lock_irqsave(&data->reg_lock, flags);
+	if (!data->tlb_flush_active) {
+		pr_debug("%s, %d, no need of flush\n",
+			  __func__, __LINE__);
+		spin_unlock_irqrestore(&data->reg_lock, flags);
+		return 0;
+	}
+
 	g_sync_start = sched_clock();
 	ret = readl_poll_timeout_atomic(data->base +
 					REG_MMU_CPE_DONE, //0x12c
@@ -782,12 +786,9 @@ static int __mtk_iommu_tlb_sync(struct mtk_iommu_data *data)
 
 	if (ret) {
 		dev_notice(data->dev,
-			 "Partial TLB flush time out, start=0x%x, end=0x%x, g_start=0x%x,g_end=0x%x\n",
-			 readl_relaxed(data->base + REG_MMU_INVLD_START_A),
-			 readl_relaxed(data->base + REG_MMU_INVLD_END_A),
+			 "Partial TLB flush time out, g_start=0x%x,g_end=0x%x\n",
 			 g_start, g_end);
 		mtk_dump_reg(data, REG_MMU_STA, 12);
-		WARN_ON(ret);
 		__mtk_iommu_tlb_flush_all(data);
 	}
 	/* Clear the CPE status */
@@ -795,7 +796,11 @@ static int __mtk_iommu_tlb_sync(struct mtk_iommu_data *data)
 	writel_relaxed(0, data->base + REG_MMU_INVLD_START_A);
 	writel_relaxed(0, data->base + REG_MMU_INVLD_END_A);
 	data->tlb_flush_active = false;
+	g_start = 0;
+	g_end = 0;
+	wmb(); /*make sure the TLB status has been cleared*/
 
+	spin_unlock_irqrestore(&data->reg_lock, flags);
 	return ret;
 }
 
@@ -805,7 +810,9 @@ static void __mtk_iommu_tlb_add_flush_nosync(
 					   unsigned long iova_end)
 {
 	unsigned int regval;
-	unsigned long start, end;
+	int ret = 0;
+	u32 tmp;
+	unsigned long start, end, flags;
 
 	if (!data->base  || IS_ERR(data->base)) {
 		pr_notice("%s, %d, invalid base addr\n",
@@ -818,6 +825,28 @@ static void __mtk_iommu_tlb_add_flush_nosync(
 		return;
 	}
 #endif
+	spin_lock_irqsave(&data->reg_lock, flags);
+	if (data->tlb_flush_active) {
+		ret = readl_poll_timeout_atomic(data->base +
+						REG_MMU_CPE_DONE, //0x12c
+						tmp, tmp != 0,
+						10, 10000);
+		if (ret) {
+			pr_notice("%s, %d, m4u:%d previous tlb sync from:0x%x to 0x%x is not finished yet\n",
+				  __func__, __LINE__, data->m4uid,
+				  g_start, g_end);
+			spin_unlock_irqrestore(&data->reg_lock, flags);
+			return;
+		}
+		writel_relaxed(0, data->base + REG_MMU_CPE_DONE);
+		writel_relaxed(0, data->base + REG_MMU_INVLD_START_A);
+		writel_relaxed(0, data->base + REG_MMU_INVLD_END_A);
+		data->tlb_flush_active = false;
+		g_start = 0;
+		g_end = 0;
+		wmb(); /*make sure the TLB status has been cleared*/
+	}
+
 	start = round_down(iova_start, SZ_4K);
 	end = round_up(iova_end, SZ_4K);
 
@@ -842,8 +871,10 @@ static void __mtk_iommu_tlb_add_flush_nosync(
 	writel(F_MMU_INVLDT_RNG, //0x20
 		   data->base + REG_MMU_INVLDT);
 	data->tlb_flush_active = true;
+	wmb(); /*make sure the TLB sync has been triggered*/
 	g_start = readl_relaxed(data->base + REG_MMU_INVLD_START_A);
 	g_end = readl_relaxed(data->base + REG_MMU_INVLD_END_A);
+	spin_unlock_irqrestore(&data->reg_lock, flags);
 }
 
 #if MTK_IOMMU_PAGE_TABLE_SHARE
@@ -1395,8 +1426,10 @@ int mtk_iommu_get_pgtable_base_addr(unsigned long *pgd_pa)
 	if (ret)
 		return ret;
 
-	*pgd_pa = ((pgd_reg_val & F_MMU_PT_BASE_ADDR_BIT32) << 32) |
-		   (pgd_reg_val & F_MMU_PT_BASE_ADDR_MSK);
+	*pgd_pa = ((unsigned long)(pgd_reg_val &
+		   F_MMU_PT_BASE_ADDR_BIT32) << 32) |
+		   (unsigned long)(pgd_reg_val &
+		   F_MMU_PT_BASE_ADDR_MSK);
 
 	return 0;
 }
@@ -2891,6 +2924,7 @@ int mau_start_monitor(unsigned int m4u_id, unsigned int slave,
 				F_MAU_BIT_VAL(1, mau),
 				F_MAU_BIT_VAL(vir, mau));
 
+	wmb(); /*make sure the MAU ops has been triggered*/
 	return 0;
 }
 
@@ -2993,6 +3027,7 @@ int __mau_dump_status(int m4u_id, int slave, int mau)
 		writel_relaxed((1 << mau), base +
 			   REG_MMU_MAU_CLR(slave));
 		writel_relaxed(0, base + REG_MMU_MAU_CLR(slave));
+		wmb(); /*make sure the MAU data is cleared*/
 
 		mau_cfg.m4u_id = m4u_id;
 		mau_cfg.slave = slave;
@@ -3241,6 +3276,7 @@ static int mau_reg_restore(const struct mtk_iommu_data *data)
 		writel_relaxed(*(p_reg++), base +
 			REG_MMU_MAU_VA(slave));
 	}
+	wmb(); /*make sure the MVA data is restored*/
 
 	/* check register size (to prevent overflow) */
 	real_size = (p_reg - p_reg_backup[data->m4uid]) * sizeof(unsigned int);
@@ -3333,6 +3369,7 @@ static int mtk_iommu_reg_restore(struct mtk_iommu_data *data)
 		   REG_MMU_TFRP_PADDR);
 	writel_relaxed(reg->dummy, base +
 		   REG_MMU_DUMMY);
+	wmb(); /*make sure the registers have been restored.*/
 	return 0;
 }
 
@@ -3451,6 +3488,9 @@ static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 		dev_err(data->dev, "Failed @ IRQ-%d Request\n", data->irq);
 		return -ENODEV;
 	}
+
+	wmb(); /*make sure the HW has been initialized*/
+	spin_lock_init(&data->reg_lock);
 
 	p_reg_backup[m4u_id] = kmalloc(IOMMU_REG_BACKUP_SIZE,
 		GFP_KERNEL | __GFP_ZERO);
