@@ -502,8 +502,8 @@ int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 	long MMSYS_SW0_RST_B_REG = MMSYS_CONFIG_BASE + (0x700);
 	long MMSYS_SW1_RST_B_REG = MMSYS_CONFIG_BASE + (0x704);
 	int i = 0;
-	uint32_t reset_bits0 = 0L;
-	uint32_t reset_bits1 = 0L;
+	uint64_t reset_bits0 = 0L;
+	uint64_t reset_bits1 = 0L;
 	int engineResetBit[48] = {
 		CMDQ_ENG_MDP_RDMA0,	/* bit  0 : MDP_RDMA0 */
 		CMDQ_ENG_MDP_FG0,	/* bit  1 : MDP_FG0 */
