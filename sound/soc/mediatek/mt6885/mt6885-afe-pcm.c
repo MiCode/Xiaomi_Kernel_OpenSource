@@ -3488,6 +3488,7 @@ skip_regmap:
 static int mt6885_afe_runtime_resume(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
+	struct mt6885_afe_private *afe_priv = afe->platform_priv;
 	int ret;
 
 	dev_info(afe->dev, "%s()\n", __func__);
@@ -3503,6 +3504,8 @@ static int mt6885_afe_runtime_resume(struct device *dev)
 	regcache_sync(afe->regmap);
 
 	/* enable audio sys DCM for power saving */
+	regmap_update_bits(afe_priv->infracfg_ao,
+			   PERI_BUS_DCM_CTRL, 0x1 << 29, 0x1 << 29);
 	regmap_update_bits(afe->regmap, AUDIO_TOP_CON0, 0x1 << 29, 0x1 << 29);
 
 	/* force cpu use 8_24 format when writing 32bit data */
@@ -3742,6 +3745,16 @@ static ssize_t mt6885_debugfs_read(struct file *file, char __user *buf,
 	regmap_read(afe_priv->apmixed, APLL2_TUNER_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "APLL2_TUNER_CON0 = 0x%x\n", value);
+
+	regmap_read(afe_priv->infracfg_ao, PERI_BUS_DCM_CTRL, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "PERI_BUS_DCM_CTRL = 0x%x\n", value);
+	regmap_read(afe_priv->infracfg_ao, MODULE_SW_CG_1_STA, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MODULE_SW_CG_1_STA = 0x%x\n", value);
+	regmap_read(afe_priv->infracfg_ao, MODULE_SW_CG_2_STA, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MODULE_SW_CG_2_STA = 0x%x\n", value);
 
 	regmap_read(afe->regmap, AUDIO_TOP_CON0, &value);
 	n += scnprintf(buffer + n, size - n,

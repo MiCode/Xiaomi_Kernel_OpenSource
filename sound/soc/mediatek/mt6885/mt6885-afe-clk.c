@@ -875,5 +875,14 @@ int mt6885_init_clock(struct mtk_base_afe *afe)
 		return PTR_ERR(afe_priv->topckgen);
 	}
 
+	afe_priv->infracfg_ao = syscon_regmap_lookup_by_phandle(
+				afe->dev->of_node,
+				"infracfg_ao");
+	if (IS_ERR(afe_priv->infracfg_ao)) {
+		dev_err(afe->dev, "%s() Cannot find infracfg_ao: %ld\n",
+			__func__, PTR_ERR(afe_priv->infracfg_ao));
+		return PTR_ERR(afe_priv->infracfg_ao);
+	}
+
 	return 0;
 }

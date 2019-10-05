@@ -1051,7 +1051,6 @@ static const struct snd_soc_dapm_widget mtk_dai_adda_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("STF_OUTPUT"),
 
 	/* clock */
-	SND_SOC_DAPM_CLOCK_SUPPLY("mtkaif_26m_clk"),
 	SND_SOC_DAPM_CLOCK_SUPPLY("top_mux_audio_h"),
 
 	SND_SOC_DAPM_CLOCK_SUPPLY("aud_dac_clk"),
@@ -1210,22 +1209,18 @@ static const struct snd_soc_dapm_route mtk_dai_adda_routes[] = {
 	{"ADDA CH34 Playback", NULL, "Sidetone Filter"},
 
 	/* clk */
-	{"ADDA Playback", NULL, "mtkaif_26m_clk"},
 	{"ADDA Playback", NULL, "aud_dac_clk"},
 	{"ADDA Playback", NULL, "aud_dac_predis_clk"},
 	{"ADDA Playback", NULL, "aud_dac_hires_clk", mtk_afe_dac_hires_connect},
 
-	{"ADDA CH34 Playback", NULL, "mtkaif_26m_clk"},
 	{"ADDA CH34 Playback", NULL, "aud_3rd_dac_clk"},
 	{"ADDA CH34 Playback", NULL, "aud_3rd_dac_predis_clk"},
 	{"ADDA CH34 Playback", NULL, "aud_3rd_dac_hires_clk",
 	 mtk_afe_dac_hires_connect},
 
-	{"ADDA Capture Enable", NULL, "mtkaif_26m_clk"},
 	{"ADDA Capture Enable", NULL, "aud_adc_clk"},
 	{"ADDA Capture Enable", NULL, "aud_adc_hires_clk",
 	 mtk_afe_adc_hires_connect},
-	{"ADDA CH34 Capture Enable", NULL, "mtkaif_26m_clk"},
 	{"ADDA CH34 Capture Enable", NULL, "aud_adda6_adc_clk"},
 	{"ADDA CH34 Capture Enable", NULL, "aud_adda6_adc_hires_clk",
 	 mtk_afe_adc_hires_connect},

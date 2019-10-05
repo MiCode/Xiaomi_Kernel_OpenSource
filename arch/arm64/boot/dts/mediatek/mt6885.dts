@@ -6314,6 +6314,7 @@ page_owner=on";
 		interrupts = <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>;
 		topckgen = <&topckgen>;
 		apmixed = <&apmixed>;
+		infracfg_ao = <&infracfg_ao>;
 		clocks = <&audio AUDIO_PDN_AFE>,
 			<&audio AUDIO_PDN_DAC>,
 			<&audio AUDIO_PDN_DAC_PREDIS>,

@@ -37,6 +37,10 @@
 #define CKSYS_AUD_TOP_CFG 0x032c
 #define CKSYS_AUD_TOP_MON 0x0330
 
+#define PERI_BUS_DCM_CTRL 0x0074
+#define MODULE_SW_CG_1_STA 0x0094
+#define MODULE_SW_CG_2_STA 0x00ac
+
 /* CLK_AUDDIV_0 */
 #define APLL_PDN_RESERVE0_SFT              0
 #define APLL_PDN_RESERVE0_MASK             0x1

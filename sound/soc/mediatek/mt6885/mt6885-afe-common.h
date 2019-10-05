@@ -176,6 +176,7 @@ struct mt6885_afe_private {
 	struct clk **clk;
 	struct regmap *topckgen;
 	struct regmap *apmixed;
+	struct regmap *infracfg_ao;
 	int irq_cnt[MT6885_MEMIF_NUM];
 	int stf_positive_gain_db;
 	int dram_resource_counter;
