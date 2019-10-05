@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2017 MediaTek Inc.
+# Copyright (C) 2019 MediaTek Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,32 +21,14 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/
 #workaround for include mmc/card/queue.h and mmc/core/core.h
 ccflags-y += -I$(srctree)/drivers
-ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
-ccflags-y += -I$(srctree)/drivers/mmc/host/mediatek/ComboA/mt6765
-else
 ccflags-y += -I$(srctree)/drivers/mmc/host/mediatek/ComboA/$(MTK_PLATFORM)
+
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6739")
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6357
 endif
+
 ifeq ($(CONFIG_MTK_PLATFORM), "mt6771")
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6358
-endif
-
-ifeq ($(CONFIG_MTK_PLATFORM), "mt3967")
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6358
-ccflags-y += -I$(srctree)/drivers/devfreq/
-endif
-
-ifeq ($(CONFIG_MTK_PLATFORM), "mt6765")
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6357
-ccflags-y += -I$(srctree)/drivers/devfreq
-endif
-
-ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6357
-ccflags-y += -I$(srctree)/drivers/devfreq
-endif
-
-ifeq ($(CONFIG_MTK_HW_FDE_AES),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/fde_aes/$(subst ",,$(CONFIG_MTK_PLATFORM))
 endif
 
 ccflags-y += -Wno-error=unused-function
@@ -58,17 +40,9 @@ msdc-y += dbg.o
 msdc-y += mtk_sd_misc.o
 msdc-y += msdc_tune.o
 msdc-y += msdc_partition.o
-ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
-msdc-y += mt6765/msdc_cust.o
-else
 msdc-y += $(MTK_PLATFORM)/msdc_cust.o
-endif
 msdc-y += autok.o
-ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
-msdc-y += mt6765/autok_dvfs.o
-else
 msdc-y += $(MTK_PLATFORM)/autok_dvfs.o
-endif
 
 ifeq ($(CONFIG_FPGA_EARLY_PORTING),y)
 msdc-y += $(MTK_PLATFORM)/msdc_fpga_io.o
