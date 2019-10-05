@@ -1,0 +1,9 @@
+config MTK_ATF_LOGGER
+	bool "atf logger kernel part"
+	depends on ARM_PSCI || ARM64
+	default y
+	help
+	  ATF (Arm Trusted Firmwear) that designed by Mediatek is a logger
+	  which can read log from ATF.
+	  It provide a /proc interface for user space process to read and
+	  can be dump in some special cases(eg. kernel exception)
