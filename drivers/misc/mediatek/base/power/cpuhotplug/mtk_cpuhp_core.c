@@ -182,7 +182,7 @@ static int __init cpuhp_init(void)
 	hotcpu_notifier(cpuhp_callback, 0);
 #endif /* obsolete */
 
-	cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN + 5,
+	cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN,
 				"hps/cpuhotplug",
 				cpuhp_cpu_up,
 				cpuhp_cpu_dead);
