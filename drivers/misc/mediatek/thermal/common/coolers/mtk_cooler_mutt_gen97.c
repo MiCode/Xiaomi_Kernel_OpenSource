@@ -436,7 +436,7 @@ static int clmutt_send_tmc_cmd(unsigned int cmd)
 			ID_THROTTLING_CFG, (char *) &cmd, 4);
 
 		mtk_cooler_mutt_dprintk_always(
-			"[%s] ret %d param 0x%08x bcnt %lul\n", __func__,
+			"[%s] ret %d param 0x%08x bcnt %lu\n", __func__,
 			ret, cmd, clmutt_data.last_md_boot_cnt);
 
 	} else if (cmd != MUTT_TMC_COOLER_LV_DISABLE) {
@@ -448,7 +448,7 @@ static int clmutt_send_tmc_cmd(unsigned int cmd)
 				ID_THROTTLING_CFG, (char *) &cmd, 4);
 
 			mtk_cooler_mutt_dprintk_always(
-				"[%s] mdrb ret %d param 0x%08x bcnt %lul\n",
+				"[%s] mdrb ret %d param 0x%08x bcnt %lu\n",
 				__func__, ret, cmd,
 				clmutt_data.last_md_boot_cnt);
 		}
@@ -1089,7 +1089,7 @@ static int mtk_cooler_mutt_register_ltf(void)
 		char temp[20] = { 0 };
 
 		if (i == MUTT_NR)
-			strcpy(postfix, "-nr");
+			strncpy(postfix, "-nr", sizeof("-nr"));
 
 		p_cooler = &clmutt_data.cooler_param[i];
 		for_each_mutt_cooler_instance(j) {
@@ -1219,7 +1219,7 @@ struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL || desc == NULL) {
+	if (data == NULL) {
 		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
 		return -EINVAL;
 	}
@@ -1265,7 +1265,7 @@ struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL || desc == NULL) {
+	if (data == NULL) {
 		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
 		return -EINVAL;
 	}
@@ -1298,7 +1298,7 @@ struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL || desc == NULL) {
+	if (data == NULL) {
 		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
 		return -EINVAL;
 	}
@@ -1330,7 +1330,7 @@ static ssize_t clmutt_klog_on_proc_write(struct file *filp,
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL || desc == NULL) {
+	if (data == NULL) {
 		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
 		return -EINVAL;
 	}
@@ -1372,7 +1372,7 @@ static ssize_t clmutt_duty_ctrl_proc_write(struct file *filp,
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL || desc == NULL) {
+	if (data == NULL) {
 		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
 		return -EINVAL;
 	}
@@ -1401,7 +1401,7 @@ static ssize_t clmutt_duty_ctrl_proc_write(struct file *filp,
 		ret = clmutt_send_tmc_cmd(limit);
 
 		mtk_cooler_mutt_dprintk_always(
-			"[%s] noims/a/s:%d/%d/%d(0x%08x). ret:%d, bcnt:%lul\n",
+			"[%s] noims/a/s:%d/%d/%d(0x%08x). ret:%d, bcnt:%lu\n",
 			__func__, no_ims, active, suspend, limit,
 			ret, clmutt_data.last_md_boot_cnt);
 
@@ -1441,7 +1441,7 @@ static ssize_t clmutt_ca_ctrl_proc_write(struct file *filp,
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL || desc == NULL) {
+	if (data == NULL) {
 		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
 		return -EINVAL;
 	}
@@ -1461,7 +1461,7 @@ static ssize_t clmutt_ca_ctrl_proc_write(struct file *filp,
 		ret = clmutt_send_tmc_cmd(limit);
 
 		mtk_cooler_mutt_dprintk_always(
-			"[%s] set CA ctrl:%d(0x%08x). ret:%d, bcnt:%lul\n",
+			"[%s] set CA ctrl:%d(0x%08x). ret:%d, bcnt:%lu\n",
 			__func__, ca_ctrl, limit,
 			ret, clmutt_data.last_md_boot_cnt);
 
@@ -1498,7 +1498,7 @@ static ssize_t clmutt_pa_ctrl_proc_write(struct file *filp,
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL || desc == NULL) {
+	if (data == NULL) {
 		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
 		return -EINVAL;
 	}
@@ -1519,7 +1519,7 @@ static ssize_t clmutt_pa_ctrl_proc_write(struct file *filp,
 		ret = clmutt_send_tmc_cmd(limit);
 
 		mtk_cooler_mutt_dprintk_always(
-			"[%s] set PA ctrl:%d(0x%08x). ret:%d, bcnt:%lul\n",
+			"[%s] set PA ctrl:%d(0x%08x). ret:%d, bcnt:%lu\n",
 			__func__, pa_ctrl, limit,
 			ret, clmutt_data.last_md_boot_cnt);
 
@@ -1563,7 +1563,7 @@ static ssize_t clmutt_cooler_lv_proc_write(struct file *filp,
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL || desc == NULL) {
+	if (data == NULL) {
 		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
 		return -EINVAL;
 	}
@@ -1590,7 +1590,7 @@ static ssize_t clmutt_cooler_lv_proc_write(struct file *filp,
 		}
 
 		mtk_cooler_mutt_dprintk_always(
-			"[%s] set %s cool_lv:%d(0x%08x). ret:%d, bcnt:%lul\n",
+			"[%s] set %s cool_lv:%d(0x%08x). ret:%d, bcnt:%lu\n",
 			__func__, clmutt_data.cooler_param[type].name, lv,
 			limit, ret, clmutt_data.last_md_boot_cnt);
 
@@ -1628,7 +1628,7 @@ static ssize_t clmutt_scg_off_proc_write(struct file *filp,
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL || desc == NULL) {
+	if (data == NULL) {
 		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
 		return -EINVAL;
 	}
@@ -1648,7 +1648,7 @@ static ssize_t clmutt_scg_off_proc_write(struct file *filp,
 		ret = clmutt_send_tmc_cmd(limit);
 
 		mtk_cooler_mutt_dprintk_always(
-			"[%s] set SCG off:%d(0x%08x). ret:%d, bcnt:%lul\n",
+			"[%s] set SCG off:%d(0x%08x). ret:%d, bcnt:%lu\n",
 			__func__, off, limit,
 			ret, clmutt_data.last_md_boot_cnt);
 
@@ -1692,7 +1692,7 @@ static ssize_t clmutt_tx_pwr_proc_write(struct file *filp,
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL || desc == NULL) {
+	if (data == NULL) {
 		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
 		return -EINVAL;
 	}
@@ -1716,7 +1716,7 @@ static ssize_t clmutt_tx_pwr_proc_write(struct file *filp,
 		ret = clmutt_send_tmc_cmd(limit);
 
 		mtk_cooler_mutt_dprintk_always(
-			"[%s] set %s tx_pwr:%d(0x%08x). ret:%d, bcnt:%lul\n",
+			"[%s] set %s tx_pwr:%d(0x%08x). ret:%d, bcnt:%lu\n",
 			__func__, clmutt_data.cooler_param[type].name, tx_pwr,
 			limit, ret, clmutt_data.last_md_boot_cnt);
 
