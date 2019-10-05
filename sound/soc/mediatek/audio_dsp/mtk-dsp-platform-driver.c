@@ -494,11 +494,11 @@ static int smartpa_swdsp_process_enable_get(struct snd_kcontrol *kcontrol,
 }
 
 static const struct snd_kcontrol_new dsp_platform_kcontrols[] = {
-	SOC_SINGLE_EXT("dsp_primary_default_en", SND_SOC_NOPM, 0, 0x1, 0,
+	SOC_SINGLE_EXT("dsp_primary_default_en", SND_SOC_NOPM, 0, 0xff, 0,
 		       dsp_primary_default_get, dsp_primary_default_set),
-	SOC_SINGLE_EXT("dsp_deepbuf_default_en", SND_SOC_NOPM, 0, 0x1, 0,
+	SOC_SINGLE_EXT("dsp_deepbuf_default_en", SND_SOC_NOPM, 0, 0xff, 0,
 		       dsp_deepbuf_default_get, dsp_deepbuf_default_set),
-	SOC_SINGLE_EXT("dsp_voipdl_default_en", SND_SOC_NOPM, 0, 0x1, 0,
+	SOC_SINGLE_EXT("dsp_voipdl_default_en", SND_SOC_NOPM, 0, 0xff, 0,
 		       dsp_voipdl_default_get, dsp_voipdl_default_set),
 	SOC_SINGLE_EXT("dsp_playback_default_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_playback_default_get, dsp_playback_default_set),
@@ -513,7 +513,7 @@ static const struct snd_kcontrol_new dsp_platform_kcontrols[] = {
 		       dsp_dataprovider_default_set),
 	SOC_SINGLE_EXT("dsp_call_final_default_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_call_final_default_get, dsp_call_final_default_set),
-	SOC_SINGLE_EXT("dsp_fast_default_en", SND_SOC_NOPM, 0, 0x1, 0,
+	SOC_SINGLE_EXT("dsp_fast_default_en", SND_SOC_NOPM, 0, 0xff, 0,
 		       dsp_fast_default_get, dsp_fast_default_set),
 	SOC_SINGLE_EXT("dsp_primary_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_primary_runtime_get, dsp_primary_runtime_set),
