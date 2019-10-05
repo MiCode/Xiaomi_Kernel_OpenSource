@@ -209,7 +209,6 @@ static irqreturn_t mnoc_isr(int irq, void *dev_id)
 }
 #endif
 
-
 static int mnoc_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -314,6 +313,8 @@ static int mnoc_remove(struct platform_device *pdev)
 
 	if (!apusys_power_check())
 		return 0;
+
+	apu_power_callback_device_unregister(MNOC);
 
 	remove_debugfs();
 	apu_qos_counter_destroy();

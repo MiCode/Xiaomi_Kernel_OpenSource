@@ -292,6 +292,7 @@ static void qos_work_func(struct work_struct *work)
 	}
 
 	for (i = 0; i < NR_APU_QOS_ENGINE; i++)	{
+		peak_bw = 0;
 		counter = &engine_pm_qos_counter[i];
 		qos_smi_idx = get_qosbound_enum(i);
 		/* find peak bandwidth consumption */
