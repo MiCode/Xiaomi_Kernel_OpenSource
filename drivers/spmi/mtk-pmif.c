@@ -533,7 +533,7 @@ static int mtk_spmi_ctrl_op_st(struct spmi_controller *ctrl,
 		pr_notice("pmif_ctrl_op_st 0x%x\r\n", rdata);
 
 		if (((rdata >> 0x1) & SPMI_OP_ST_NACK) == SPMI_OP_ST_NACK) {
-			spmi_dump_dbg_register();
+			spmi_dump_dbg_register(ctrl);
 			break;
 		}
 	} while ((rdata & SPMI_OP_ST_BUSY) == SPMI_OP_ST_BUSY);
@@ -1007,7 +1007,17 @@ static struct platform_driver pmif_driver = {
 		.of_match_table = of_match_ptr(pmif_match_table),
 	},
 };
-module_platform_driver(pmif_driver);
+
+static int __init mtk_pmif_init(void)
+{
+	int ret = 0;
+
+	ret = platform_driver_register(&pmif_driver);
+	if (ret)
+		return -ENODEV;
+	return 0;
+}
+postcore_initcall(mtk_pmif_init);
 
 /* Module information */
 MODULE_LICENSE("GPL v2");
