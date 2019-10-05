@@ -288,7 +288,7 @@ static int commit_data(struct helio_dvfsrc *dvfsrc, int type, int data)
 			pr_info("rc_level: 0x%x (last: %d -> %d)\n",
 				dvfsrc_read(dvfsrc, DVFSRC_LEVEL),
 				last_cnt, dvfsrc_read(dvfsrc, DVFSRC_LAST));
-			/* hh, temp fix build error */
+
 			/* aee_kernel_warning(NULL); */
 			/* goto out; */
 		}
@@ -347,9 +347,8 @@ static int commit_data(struct helio_dvfsrc *dvfsrc, int type, int data)
 			("[%s] wair not complete, class: %d, data: 0x%x\n",
 			__func__, type, data);
 			spm_vcorefs_dump_dvfs_regs(NULL);
-			/* hh, temp fix build error */
-			/* aee_kernel_warning("VCOREFS", */
-			/* "emi_opp cannot be done."); */
+			aee_kernel_warning("VCOREFS",
+			"emi_opp cannot be done.");
 		}
 
 		break;
@@ -382,9 +381,8 @@ static int commit_data(struct helio_dvfsrc *dvfsrc, int type, int data)
 			("[%s] not complete, class: %d, data: 0x%x\n",
 			__func__, type, data);
 			spm_vcorefs_dump_dvfs_regs(NULL);
-			/* hh, temp fix build error */
-			/* aee_kernel_warning("VCOREFS", */
-			/* "vcore_opp cannot be done."); */
+			aee_kernel_warning("VCOREFS",
+			"vcore_opp cannot be done.");
 		}
 		break;
 	case PM_QOS_VCORE_DVFS_FIXED_OPP:
@@ -422,9 +420,8 @@ static int commit_data(struct helio_dvfsrc *dvfsrc, int type, int data)
 				("[%s] not complete, class: %d, data: 0x%x\n",
 				__func__, type, data);
 				spm_vcorefs_dump_dvfs_regs(NULL);
-				/* hh, temp fix build error */
-				/* aee_kernel_exception("VCOREFS", */
-				/* "dvfsrc cannot be done."); */
+				aee_kernel_exception("VCOREFS",
+				"dvfsrc cannot be done.");
 			}
 
 		}
@@ -452,8 +449,7 @@ void dvfsrc_set_vcore_request(unsigned int mask, unsigned int vcore_level)
 		(is_dvfsrc_in_progress(dvfsrc) == 0, SPM_DVFS_TIMEOUT);
 	if (r < 0) {
 		spm_vcorefs_dump_dvfs_regs(NULL);
-		/* hh, temp fix build error */
-		/* aee_kernel_exception("VCOREFS", "dvfsrc cannot be idle."); */
+		aee_kernel_exception("VCOREFS", "dvfsrc cannot be idle.");
 		goto out;
 	}
 
@@ -465,8 +461,7 @@ void dvfsrc_set_vcore_request(unsigned int mask, unsigned int vcore_level)
 	SPM_DVFS_TIMEOUT);
 	if (r < 0) {
 		spm_vcorefs_dump_dvfs_regs(NULL);
-		/* hh, temp fix build error */
-		/* aee_kernel_exception("VCOREFS", "dvfsrc cannot be done."); */
+		aee_kernel_exception("VCOREFS", "dvfsrc cannot be done.");
 	}
 
 out:
