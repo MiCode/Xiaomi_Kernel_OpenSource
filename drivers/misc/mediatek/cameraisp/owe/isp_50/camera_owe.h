@@ -81,17 +81,34 @@ struct OWE_WAIT_IRQ_STRUCT {
 	enum OWE_IRQ_TYPE_ENUM   Type;
 	unsigned int	Status;		/* IRQ Status */
 	unsigned int	Timeout;
-	int		UserKey;    /* user key for doing interrupt operation */
-	int		ProcessID;  /* user ProcessID (will filled in kernel) */
-	unsigned int	bDumpReg;   /* check dump register or not*/
+	int		UserKey;	/* user key for interrupt operation */
+	int		ProcessID;	/* user ProcessID (filled in kernel) */
+	unsigned int	bDumpReg;	/* check dump register or not*/
 };
 
 struct OWE_CLEAR_IRQ_STRUCT {
 	enum OWE_IRQ_TYPE_ENUM	 Type;
 	int	UserKey;	/* user key for doing interrupt operation */
-	unsigned int	Status; /* Input */
+	unsigned int	Status;	/* Input */
 };
 
+enum OCC_DMA {
+	OCC_DMA_REF_VEC = 0x0,
+	OCC_DMA_REF_PXL = 0x1,
+	OCC_DMA_MAJ_VEC = 0x2,
+	OCC_DMA_MAJ_PXL = 0x3,
+	OCC_DMA_WDMA = 0x4,
+	OCC_DMA_NUM,
+};
+
+enum WMFE_DMA {
+	WMFE_DMA_IMGI = 0x0,
+	WMFE_DMA_DPI = 0x1,
+	WMFE_DMA_TBLI = 0x2,
+	WMFE_DMA_MASKI = 0x3,
+	WMFE_DMA_DPO = 0x4,
+	WMFE_DMA_NUM,
+};
 
 struct OWE_OCCConfig {
 	unsigned int	DPE_OCC_CTRL_0;		/* 0030, 0x1502C030 */
@@ -112,6 +129,8 @@ struct OWE_OCCConfig {
 	unsigned int	DPE_OCC_PQ_1;		/* 006C, 0x1502C06C */
 	unsigned int	DPE_OCC_SPARE;		/* 0070, 0x1502C070 */
 	unsigned int	DPE_OCC_DFT;		/* 0074, 0x1502C074 */
+	unsigned int	eng_secured;
+	unsigned int	dma_sec_size[OCC_DMA_NUM];
 };
 
 
@@ -128,6 +147,8 @@ struct OWE_WMFECtrl {
 	unsigned int	WMFE_MASKI_STRIDE;
 	unsigned int	WMFE_DPO_BASE_ADDR;
 	unsigned int	WMFE_DPO_STRIDE;
+	unsigned int	eng_secured;
+	unsigned int	dma_sec_size[WMFE_DMA_NUM];
 };
 
 
