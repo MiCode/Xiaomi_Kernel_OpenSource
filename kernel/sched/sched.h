@@ -912,6 +912,7 @@ struct rq {
 	struct cpuidle_state *idle_state;
 	int idle_state_idx;
 #endif
+	unsigned long rotate_flags;
 };
 
 static inline int cpu_of(struct rq *rq)
@@ -1090,8 +1091,8 @@ enum numa_faults_stats {
 };
 extern void sched_setnuma(struct task_struct *p, int node);
 extern int migrate_task_to(struct task_struct *p, int cpu);
-extern int migrate_swap(struct task_struct *, struct task_struct *);
 #endif /* CONFIG_NUMA_BALANCING */
+extern int migrate_swap(struct task_struct *src, struct task_struct *dst);
 
 #ifdef CONFIG_SMP
 
