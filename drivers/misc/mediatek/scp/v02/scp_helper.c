@@ -39,7 +39,6 @@
 //#include <mt-plat/aee.h>
 #include <linux/delay.h>
 #include "scp_feature_define.h"
-#include "scp_ipi.h"
 #include "scp_err_info.h"
 #include "scp_helper.h"
 #include "scp_excep.h"
@@ -55,6 +54,11 @@
 #if defined(CONFIG_MTK_EMI) && ENABLE_SCP_EMI_PROTECTION
 #include <mt_emi_api.h>
 #endif
+
+/* scp mbox/ipi related */
+#include <mt-plat/mtk-mbox.h>
+#include "scp_ipi_table.h"
+#include "scp_ipi.h"
 
 /* scp semaphore timeout count definition */
 #define SEMAPHORE_TIMEOUT 5000
@@ -454,10 +458,12 @@ static void scp_wait_ready_timeout(unsigned long data)
  * It is important to call scp_ram_dump_init() in this IPI handler. This
  * timing is necessary to ensure that the region_info has been initialized.
  * @param id:   ipi id
+ * @param prdata: ipi handler parameter
  * @param data: ipi data
  * @param len:  length of ipi data
  */
-static void scp_A_ready_ipi_handler(int id, void *data, unsigned int len)
+static void scp_A_ready_ipi_handler(int id, void *prdata, void *data,
+				    unsigned int len)
 {
 	unsigned int scp_image_size = *(unsigned int *)data;
 
@@ -480,10 +486,12 @@ static void scp_A_ready_ipi_handler(int id, void *data, unsigned int len)
  * Handle notification from scp.
  * Report error from SCP to other kernel driver.
  * @param id:   ipi id
+ * @param prdata: ipi handler parameter
  * @param data: ipi data
  * @param len:  length of ipi data
  */
-static void scp_err_info_handler(int id, void *data, unsigned int len)
+static void scp_err_info_handler(int id, void *prdata, void *data,
+				 unsigned int len)
 {
 	struct error_info *info = (struct error_info *)data;
 
@@ -531,7 +539,7 @@ EXPORT_SYMBOL_GPL(is_scp_ready);
  */
 int reset_scp(int reset)
 {
-	void __iomem *scp_reset_reg = scpreg.cfg;
+	void __iomem *scp_reset_reg = scpreg.cfg_core0;
 
 	if (((reset & 0xf0) != 0x10) && ((reset & 0xf0) != 0x00)) {
 		pr_debug("[SCP] %s: skipped!\n", __func__);
@@ -557,7 +565,7 @@ int reset_scp(int reset)
 			if (readl(SCP_GPR_CM4_A_REBOOT) == 0x34) {
 				if (readl(SCP_SLEEP_STATUS_REG) &
 					SCP_A_IS_SLEEP) {
-					writel(0, scp_reset_reg);  /* reset */
+					writel(1, scp_reset_reg + 0x4); //reset
 					scp_ready[SCP_A_ID] = 0;
 					writel(1, SCP_GPR_CM4_A_REBOOT);
 					/* lock pll for ulposc calibration */
@@ -568,7 +576,7 @@ int reset_scp(int reset)
 			}
 #else
 			if (readl(SCP_SLEEP_STATUS_REG) & SCP_A_IS_SLEEP) {
-				writel(0, scp_reset_reg);  /* reset */
+				writel(1, scp_reset_reg + 0x4);  /* reset */
 				scp_ready[SCP_A_ID] = 0;
 				dsb(SY);
 				break;
@@ -580,6 +588,12 @@ int reset_scp(int reset)
 	}
 
 	if (scp_enable[SCP_A_ID]) {
+		/* write scp reserved memory address/size to GRP1/GRP2
+		 * to let scp setup MPU
+		 */
+		writel((unsigned int)scp_mem_base_phys, DRAM_RESV_ADDR_REG);
+		writel((unsigned int)scp_mem_size, DRAM_RESV_SIZE_REG);
+
 		writel(1, scp_reset_reg);  /* release reset */
 		dsb(SY);
 #if SCP_BOOT_TIME_OUT_MONITOR
@@ -742,12 +756,11 @@ static inline ssize_t scp_ipi_test_show(struct device *kobj
 			, struct device_attribute *attr, char *buf)
 {
 	unsigned int value = 0x5A5A;
-	enum scp_ipi_status ret;
+	int ret;
 
 	if (scp_ready[SCP_A_ID]) {
-		scp_ipi_status_dump();
-		ret = scp_ipi_send(IPI_TEST1
-			, &value, sizeof(value), 0, SCP_A_ID);
+		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_TEST_0, 0, &value,
+				   PIN_OUT_SIZE_TEST_0, 0);
 		return scnprintf(buf, PAGE_SIZE
 			, "SCP A ipi send ret=%d\n", ret);
 	} else
@@ -852,24 +865,23 @@ DEVICE_ATTR(recovery_flag, 0600, scp_recovery_flag_r, scp_recovery_flag_w);
 static ssize_t scp_set_log_filter(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
-	enum scp_ipi_status ret;
+	int ret;
 	uint32_t filter;
-	const unsigned int len = sizeof(filter);
 
 	if (sscanf(buf, "0x%08x", &filter) != 1)
 		return -EINVAL;
 
-	ret = scp_ipi_send(IPI_SCP_LOG_FILTER, &filter, len, 0, SCP_A_ID);
+	ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_LOG_FILTER_0, 0, &filter,
+			   PIN_OUT_SIZE_SCP_LOG_FILTER_0, 0);
 	switch (ret) {
-	case SCP_IPI_DONE:
+	case IPI_ACTION_DONE:
 		pr_notice("[SCP] Set log filter to 0x%08x\n", filter);
 		return count;
 
-	case SCP_IPI_BUSY:
+	case IPI_PIN_BUSY:
 		pr_notice("[SCP] IPI busy. Set log filter failed!\n");
 		return -EBUSY;
 
-	case SCP_IPI_ERROR:
 	default:
 		pr_notice("[SCP] IPI error. Set log filter failed!\n");
 		return -EIO;
@@ -1382,7 +1394,7 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	struct scp_work_struct *sws = container_of(ws
 					, struct scp_work_struct, work);
 	unsigned int scp_reset_type = sws->flags;
-	void __iomem *scp_reset_reg = scpreg.cfg;
+	void __iomem *scp_reset_reg = scpreg.cfg_core0;
 	unsigned long spin_flags;
 	/* make sure scp is in idle state */
 	int timeout = 50; /* max wait 1s */
@@ -1453,7 +1465,7 @@ void scp_sys_reset_ws(struct work_struct *ws)
 		if (timeout == 0)
 			pr_notice("[SCP] reset timeout, still reset scp\n");
 
-		writel(0, scp_reset_reg);
+		writel(1, scp_reset_reg + 0x4);
 		writel(1, SCP_GPR_CM4_A_REBOOT);
 		dsb(SY);
 	}
@@ -1521,8 +1533,7 @@ int scp_check_resource(void)
 #if SCP_RECOVERY_SUPPORT
 void scp_region_info_init(void)
 {
-	int region_size = SCP_RTOS_START - SCP_REGION_INFO_OFFSET -
-		(SHARE_BUF_SIZE * 2);
+	int region_size = SCP_RTOS_START - SCP_REGION_INFO_OFFSET;
 	int struct_size = sizeof(scp_region_info_copy);
 
 	if (struct_size > region_size) {
@@ -1571,9 +1582,60 @@ void scp_recovery_init(void)
 #endif
 }
 
+void mbox_setup_pin_table(int mbox)
+{
+	int i, last_ofs = 0, last_idx = 0, last_slot = 0, last_sz = 0;
+
+	for (i = 0; i < SCP_TOTAL_SEND_PIN; i++) {
+		if (mbox == scp_mbox_pin_send[i].mbox) {
+			scp_mbox_pin_send[i].offset = last_ofs + last_slot;
+			scp_mbox_pin_send[i].pin_index = last_idx + last_sz;
+			last_idx = scp_mbox_pin_send[i].pin_index;
+			if (scp_mbox_info[mbox].is64d == 1) {
+				last_sz = DIV_ROUND_UP(
+					   scp_mbox_pin_send[i].msg_size, 2);
+				last_ofs = last_sz * 2;
+				last_slot = last_idx * 2;
+			} else {
+				last_sz = scp_mbox_pin_send[i].msg_size;
+				last_ofs = last_sz;
+				last_slot = last_idx;
+			}
+		} else if (mbox < scp_mbox_pin_send[i].mbox)
+			break; /* no need to search the rest ipi */
+	}
+
+	for (i = 0; i < SCP_TOTAL_RECV_PIN; i++) {
+		if (mbox == scp_mbox_pin_recv[i].mbox) {
+			scp_mbox_pin_recv[i].offset = last_ofs + last_slot;
+			scp_mbox_pin_recv[i].pin_index = last_idx + last_sz;
+			last_idx = scp_mbox_pin_recv[i].pin_index;
+			if (scp_mbox_info[mbox].is64d == 1) {
+				last_sz = DIV_ROUND_UP(
+					   scp_mbox_pin_recv[i].msg_size, 2);
+				last_ofs = last_sz * 2;
+				last_slot = last_idx * 2;
+			} else {
+				last_sz = scp_mbox_pin_recv[i].msg_size;
+				last_ofs = last_sz;
+				last_slot = last_idx;
+			}
+		} else if (mbox < scp_mbox_pin_recv[i].mbox)
+			break; /* no need to search the rest ipi */
+	}
+
+
+	if (last_idx > 32 ||
+	   (last_ofs + last_slot) > (scp_mbox_info[mbox].is64d + 1) * 32) {
+		pr_err("mbox%d ofs(%d)/slot(%d) exceed the maximum\n",
+			mbox, last_idx, last_ofs + last_slot);
+		WARN_ON(1);
+	}
+}
+
 static int scp_device_probe(struct platform_device *pdev)
 {
-	int ret = 0;
+	int ret = 0, i = 0;
 	struct resource *res;
 	const char *core_status = NULL;
 	struct device *dev = &pdev->dev;
@@ -1605,6 +1667,22 @@ static int scp_device_probe(struct platform_device *pdev)
 	pr_debug("[SCP] clkctrl base = 0x%p\n", scpreg.clkctrl);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 3);
+	scpreg.cfg_core0 = devm_ioremap_resource(dev, res);
+	if (IS_ERR((void const *) scpreg.cfg_core0)) {
+		pr_debug("[SCP] scpreg.cfg_core0 error\n");
+		return -1;
+	}
+	pr_debug("[SCP] cfg_core0 base = 0x%p\n", scpreg.cfg_core0);
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 4);
+	scpreg.cfg_core1 = devm_ioremap_resource(dev, res);
+	if (IS_ERR((void const *) scpreg.cfg_core1)) {
+		pr_debug("[SCP] scpreg.cfg_core1 error\n");
+		return -1;
+	}
+	pr_debug("[SCP] cfg_core1 base = 0x%p\n", scpreg.cfg_core1);
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 5);
 	scpreg.l1cctrl = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) scpreg.l1cctrl)) {
 		pr_debug("[SCP] scpreg.clkctrl error\n");
@@ -1620,12 +1698,12 @@ static int scp_device_probe(struct platform_device *pdev)
 	}
 	pr_debug("[SCP] scpreg.scp_tcmsize = %d\n", scpreg.scp_tcmsize);
 
-	/*scp core 1*/
-	of_property_read_string(pdev->dev.of_node, "core_1", &core_status);
+	/* scp core 0 */
+	of_property_read_string(pdev->dev.of_node, "core_0", &core_status);
 	if (strcmp(core_status, "enable") != 0)
-		pr_err("[SCP] core_1 not enable\n");
+		pr_err("[SCP] core_0 not enable\n");
 	else {
-		pr_debug("[SCP] core_1 enable\n");
+		pr_debug("[SCP] core_0 enable\n");
 		scp_enable[SCP_A_ID] = 1;
 	}
 	scpreg.irq = platform_get_irq_byname(pdev, "ipc0");
@@ -1635,6 +1713,7 @@ static int scp_device_probe(struct platform_device *pdev)
 		pr_err("[SCP]ipc0 require irq fail %d %d\n", scpreg.irq, ret);
 		//goto err;
 	}
+	pr_debug("ipc0 %d\n", scpreg.irq);
 	scpreg.irq = platform_get_irq_byname(pdev, "ipc1");
 	ret = request_irq(scpreg.irq, scp_A_irq_handler,
 		IRQF_TRIGGER_NONE, "SCP IPC1", NULL);
@@ -1642,41 +1721,21 @@ static int scp_device_probe(struct platform_device *pdev)
 		pr_err("[SCP]ipc1 require irq fail %d %d\n", scpreg.irq, ret);
 		//goto err;
 	}
-	scpreg.irq = platform_get_irq_byname(pdev, "mbox0");
-	ret = request_irq(scpreg.irq, scp_A_irq_handler,
-		IRQF_TRIGGER_NONE, "SCP IPC2", NULL);
-	if (ret) {
-		pr_err("[SCP]mobx0 require irq fail %d %d\n", scpreg.irq, ret);
-		//goto err;
+	pr_debug("ipc1 %d\n", scpreg.irq);
+
+	/* create mbox dev */
+	pr_debug("[SCP] mbox mbox probe\n");
+	for (i = 0; i < SCP_MBOX_TOTAL; i++) {
+		scp_mbox_info[i].mbdev = &scp_mboxdev;
+		mtk_mbox_probe(pdev, scp_mbox_info[i].mbdev, i);
+		mbox_setup_pin_table(i);
 	}
-	scpreg.irq = platform_get_irq_byname(pdev, "mbox1");
-	ret = request_irq(scpreg.irq, scp_A_irq_handler,
-		IRQF_TRIGGER_NONE, "SCP A IPC2HOST", NULL);
-	if (ret) {
-		pr_err("[SCP]mbox1 require irq fail %d %d\n", scpreg.irq, ret);
-		//goto err;
-	}
-	scpreg.irq = platform_get_irq_byname(pdev, "mbox2");
-	ret = request_irq(scpreg.irq, scp_A_irq_handler,
-		IRQF_TRIGGER_NONE, "SCP A IPC2HOST", NULL);
-	if (ret) {
-		pr_err("[SCP]mbox2 require irq fail %d %d\n", scpreg.irq, ret);
-		//goto err;
-	}
-	scpreg.irq = platform_get_irq_byname(pdev, "mbox3");
-	ret = request_irq(scpreg.irq, scp_A_irq_handler,
-		IRQF_TRIGGER_NONE, "SCP A IPC2HOST", NULL);
-	if (ret) {
-		pr_err("[SCP]mbox3 require irq fail %d %d\n", scpreg.irq, ret);
-		//goto err;
-	}
-	scpreg.irq = platform_get_irq_byname(pdev, "mbox4");
-	ret = request_irq(scpreg.irq, scp_A_irq_handler,
-		IRQF_TRIGGER_NONE, "SCP A IPC2HOST", NULL);
-	if (ret) {
-		pr_err("[SCP]mbox4 require irq fail %d %d\n", scpreg.irq, ret);
-		//goto err;
-	}
+
+	ret = mtk_ipi_device_register(&scp_ipidev, pdev, &scp_mboxdev,
+				      SCP_IPI_COUNT);
+	if (ret)
+		pr_err("[SCP] ipi_dev_register fail, ret %d\n", ret);
+
 	return ret;
 }
 
@@ -1804,20 +1863,9 @@ static int __init scp_init(void)
 		goto err;
 	}
 
-	/* scp ipi initialise */
-	scp_send_buff[SCP_A_ID] = kmalloc((size_t) SHARE_BUF_SIZE, GFP_KERNEL);
-	if (!scp_send_buff[SCP_A_ID])
-		goto err;
-
-	scp_recv_buff[SCP_A_ID] = kmalloc((size_t) SHARE_BUF_SIZE, GFP_KERNEL);
-	if (!scp_recv_buff[SCP_A_ID])
-		goto err;
-
 	INIT_WORK(&scp_A_notify_work.work, scp_A_notify_ws);
 
-
 	scp_A_irq_init();
-	scp_A_ipi_init();
 
 	scp_ipi_registration(IPI_SCP_A_READY,
 			 scp_A_ready_ipi_handler, "scp_A_ready");

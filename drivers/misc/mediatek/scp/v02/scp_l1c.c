@@ -21,7 +21,6 @@
 #include <mt-plat/sync_write.h>
 #include <linux/sched_clock.h>
 #include <linux/ratelimit.h>
-#include "scp_ipi.h"
 #include "scp_helper.h"
 #include "scp_excep.h"
 #include "scp_feature_define.h"
