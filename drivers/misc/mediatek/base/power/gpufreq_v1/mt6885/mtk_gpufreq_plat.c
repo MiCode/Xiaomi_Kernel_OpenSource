@@ -1257,6 +1257,8 @@ static int mt_gpufreq_opp_dump_proc_show(struct seq_file *m, void *v)
 				g_opp_table[i].gpufreq_volt);
 		seq_printf(m, "vsram = %d, ",
 				g_opp_table[i].gpufreq_vsram);
+		seq_printf(m, "posdiv = %d, ",
+				(1 << g_opp_table[i].gpufreq_post_divider));
 		seq_printf(m, "gpu_power = %d\n",
 				g_power_table[i].gpufreq_power);
 	}
@@ -2677,6 +2679,8 @@ static void __mt_gpufreq_init_table(void)
 		g_opp_table[i].gpufreq_khz = opp_table[i].gpufreq_khz;
 		g_opp_table[i].gpufreq_volt = opp_table[i].gpufreq_volt;
 		g_opp_table[i].gpufreq_vsram = opp_table[i].gpufreq_vsram;
+		g_opp_table[i].gpufreq_post_divider =
+					opp_table[i].gpufreq_post_divider;
 
 		gpufreq_pr_debug("@%s: idx = %u, freq_khz = %u, volt = %u, vsram = %u\n",
 				__func__,
