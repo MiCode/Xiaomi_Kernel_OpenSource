@@ -22,6 +22,11 @@
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
 #include "smi_public.h"
+#include "slbc_ops.h"
+
+#ifdef CONFIG_MTK_PSEUDO_M4U
+#include <mach/mt_iommu.h>
+#endif
 
 #if ENC_DVFS
 #include <linux/pm_qos.h>
@@ -44,7 +49,16 @@ struct pm_qos_request venc_qos_req_bw;
 
 void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
+	struct slbc_data enc_sram_data;
+
 	ctx->use_gce = 1;
+
+	enc_sram_data.uid = UID_MM_VENC;
+	enc_sram_data.type = TP_BUFFER;
+	enc_sram_data.size = 0;
+	enc_sram_data.flag = FG_POWER;
+	slbc_request(&enc_sram_data);
+	slbc_power_off(&enc_sram_data);
 }
 
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
@@ -114,23 +128,107 @@ void mtk_vcodec_release_enc_pm(struct mtk_vcodec_dev *mtkdev)
 #endif
 }
 
+void mtk_venc_deinit_ctx_pm(struct mtk_vcodec_ctx *ctx)
+{
+	struct slbc_data enc_sram_data;
+
+	enc_sram_data.uid = UID_MM_VENC;
+	enc_sram_data.type = TP_BUFFER;
+	enc_sram_data.size = 0;
+	enc_sram_data.flag = FG_POWER;
+	slbc_release(&enc_sram_data);
+}
+
 void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
 {
-#ifndef FPGA_PWRCLK_API_DISABLE
+	struct slbc_data enc_sram_data;
 	int ret;
-
-	smi_bus_prepare_enable(SMI_LARB4, "VENC");
-	ret = clk_prepare_enable(pm->clk_MT_CG_VENC0);
-	if (ret)
-		mtk_v4l2_err("clk_prepare_enable CG_VENC fail %d", ret);
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	int i, larb_port_num, larb_id;
+	M4U_PORT_STRUCT port;
 #endif
+
+#ifndef FPGA_PWRCLK_API_DISABLE
+	if (core_id == MTK_VENC_CORE_0 ||
+		core_id == MTK_VENC_CORE_1) {
+		smi_bus_prepare_enable(SMI_LARB7, "VENC0");
+		ret = clk_prepare_enable(pm->clk_MT_CG_VENC0);
+		if (ret)
+			mtk_v4l2_err("clk_prepare_enable CG_VENC fail %d", ret);
+
+		smi_bus_prepare_enable(SMI_LARB8, "VENC1");
+		ret = clk_prepare_enable(pm->clk_MT_CG_VENC1);
+		if (ret)
+			mtk_v4l2_err("clk_prepare_enable CG_VENC fail %d", ret);
+	} else
+		mtk_v4l2_err("invalid core_id %d", core_id);
+
+#endif
+	enc_sram_data.uid = UID_MM_VENC;
+	enc_sram_data.type = TP_BUFFER;
+	enc_sram_data.size = 0;
+	enc_sram_data.flag = FG_POWER;
+
+	ret = slbc_power_on(&enc_sram_data);
+
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	if (core_id == MTK_VENC_CORE_0) {
+		larb_port_num = SMI_LARB7_PORT_NUM;
+		larb_id = 7;
+	} else if (core_id == MTK_VENC_CORE_1) {
+		larb_port_num = SMI_LARB8_PORT_NUM;
+		larb_id = 8;
+	} else {
+		larb_port_num = 0;
+		larb_id = 0;
+		mtk_v4l2_err("invalid core_id %d", core_id);
+	}
+
+
+	//enable 34bits port configs & sram settings
+	for (i = 0; i < larb_port_num; i++) {
+		if (i == 6 || i == 7 || i == 8 ||
+			i == 19 || i == 20 || i == 21) {
+			ret = smi_sysram_enable(MTK_M4U_ID(larb_id, i),
+				true, "LARB_VENC");
+			if (ret)
+				mtk_v4l2_err("%#x is not ready err: %#x\n",
+					i, err);
+		} else {
+			port.ePortID = MTK_M4U_ID(larb_id, i);
+			port.Direction = 0;
+			port.Distance = 1;
+			port.domain = 0;
+			port.Security = 0;
+			port.Virtuality = 1;
+			m4u_config_port(&port);
+		}
+	}
+#endif
+
 }
 
 void mtk_vcodec_enc_clock_off(struct mtk_vcodec_pm *pm, int core_id)
 {
+	struct slbc_data enc_sram_data;
+
+	enc_sram_data.uid = UID_MM_VENC;
+	enc_sram_data.type = TP_BUFFER;
+	enc_sram_data.size = 0;
+	enc_sram_data.flag = FG_POWER;
+	slbc_power_off(&enc_sram_data);
+
 #ifndef FPGA_PWRCLK_API_DISABLE
-	clk_disable_unprepare(pm->clk_MT_CG_VENC0);
-	smi_bus_disable_unprepare(SMI_LARB4, "VENC");
+	if (core_id == MTK_VENC_CORE_0 ||
+		core_id == MTK_VENC_CORE_1) {
+		clk_disable_unprepare(pm->clk_MT_CG_VENC0);
+		smi_bus_disable_unprepare(SMI_LARB7, "VENC0");
+
+		clk_disable_unprepare(pm->clk_MT_CG_VENC1);
+		smi_bus_disable_unprepare(SMI_LARB8, "VENC1");
+	} else
+		mtk_v4l2_err("invalid core_id %d", core_id);
+
 #endif
 }
 

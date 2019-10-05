@@ -23,6 +23,7 @@
 void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx);
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *dev);
 void mtk_vcodec_release_enc_pm(struct mtk_vcodec_dev *dev);
+void mtk_venc_deinit_ctx_pm(struct mtk_vcodec_ctx *ctx);
 
 void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id);
 void mtk_vcodec_enc_clock_off(struct mtk_vcodec_pm *pm, int core_id);

@@ -16,6 +16,8 @@
 #define _MTK_VCODEC_PM_H_
 
 #define MTK_PLATFORM_STR        "platform:mt6885"
+#define MTK_VDEC_RACING_INFO_OFFSET  0x100
+#define MTK_VDEC_RACING_INFO_SIZE 68
 
 /**
  * struct mtk_vcodec_pm - Power management data structure
@@ -49,12 +51,15 @@ struct mtk_vcodec_pm {
 	struct clk *clk_MT_SCP_SYS_VEN;          /* SCP_SYS_VEN */
 	struct clk *clk_MT_SCP_SYS_DIS;          /* SCP_SYS_DIS */
 
+	atomic_t dec_active_cnt;
+	__u32 vdec_racing_info[MTK_VDEC_RACING_INFO_SIZE];
 };
 
 enum mtk_dec_dtsi_reg_idx {
 	VDEC_SYS,
 	VDEC_MISC,
 	VDEC_LAT_MISC,
+	VDEC_RACING_CTRL,
 	NUM_MAX_VDEC_REG_BASE,
 };
 

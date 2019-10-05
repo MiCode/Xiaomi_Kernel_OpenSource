@@ -23,6 +23,10 @@
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
 
+#ifdef CONFIG_MTK_PSEUDO_M4U
+#include <mach/mt_iommu.h>
+#endif
+
 #if DEC_DVFS
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
@@ -109,6 +113,9 @@ int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
 
 	} else
 		mtk_v4l2_err("[VCODEC][ERROR] DTS went wrong...");
+
+	atomic_set(&pm->dec_active_cnt, 0);
+	memset(pm->vdec_racing_info, 0, sizeof(pm->vdec_racing_info));
 #endif
 	return ret;
 }
@@ -132,21 +139,95 @@ void mtk_vcodec_dec_pw_off(struct mtk_vcodec_pm *pm, int hw_id)
 
 void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 {
+
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	int i, larb_port_num, larb_id;
+	M4U_PORT_STRUCT port;
+#endif
+
 #ifndef FPGA_PWRCLK_API_DISABLE
 	int ret;
+	struct mtk_vcodec_dev *dev;
+	void __iomem *vdec_racing_addr;
 
-	smi_bus_prepare_enable(SMI_LARB1, "VDEC");
-	ret = clk_prepare_enable(pm->clk_MT_CG_VDEC0);
-	if (ret)
-		mtk_v4l2_err("clk_prepare_enable CG_VDEC fail %d", ret);
+	if (hw_id == MTK_VDEC_CORE) {
+		smi_bus_prepare_enable(SMI_LARB4, "VDEC_CORE");
+		ret = clk_prepare_enable(pm->clk_MT_CG_VDEC0);
+		if (ret)
+			mtk_v4l2_err("clk_prepare_enable VDEC_CORE fail %d",
+				ret);
+	} else if (hw_id == MTK_VDEC_LAT) {
+		smi_bus_prepare_enable(SMI_LARB5, "VDEC_LAT");
+		ret = clk_prepare_enable(pm->clk_MT_CG_VDEC1);
+		if (ret)
+			mtk_v4l2_err("clk_prepare_enable VDEC_LAT fail %d",
+				ret);
+	} else
+		mtk_v4l2_err("invalid hw_id %d", hw_id);
+
+	if (atomic_inc_return(&pm->dec_active_cnt) == 1) {
+		/* restore racing info read/write ptr */
+		dev = container_of(pm, struct mtk_vcodec_dev, pm);
+		vdec_racing_addr =
+			dev->dec_reg_base[VDEC_RACING_CTRL] +
+				MTK_VDEC_RACING_INFO_OFFSET;
+		memcpy(vdec_racing_addr, pm->vdec_racing_info,
+			sizeof(pm->vdec_racing_info));
+	}
 #endif
+
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	if (hw_id == MTK_VDEC_CORE) {
+		larb_port_num = SMI_LARB4_PORT_NUM;
+		larb_id = 4;
+	} else if (hw_id == MTK_VDEC_LAT) {
+		larb_port_num = SMI_LARB5_PORT_NUM;
+		larb_id = 5;
+	} else {
+		larb_port_num = 0;
+		larb_id = 0;
+		mtk_v4l2_err("invalid hw_id %d", hw_id);
+	}
+
+	//enable 34bits port configs & sram settings
+	for (i = 0; i < larb_port_num; i++) {
+		port.ePortID = MTK_M4U_ID(larb_id, i);
+		port.Direction = 0;
+		port.Distance = 1;
+		port.domain = 0;
+		port.Security = 0;
+		port.Virtuality = 1;
+		m4u_config_port(&port);
+	}
+#endif
+
 }
 
 void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 {
 #ifndef FPGA_PWRCLK_API_DISABLE
-	clk_disable_unprepare(pm->clk_MT_CG_VDEC0);
-	smi_bus_disable_unprepare(SMI_LARB1, "VDEC");
+	struct mtk_vcodec_dev *dev;
+	void __iomem *vdec_racing_addr;
+
+	if (atomic_dec_and_test(&pm->dec_active_cnt)) {
+		/* backup racing info read/write ptr */
+		dev = container_of(pm, struct mtk_vcodec_dev, pm);
+		vdec_racing_addr =
+			dev->dec_reg_base[VDEC_RACING_CTRL] +
+				MTK_VDEC_RACING_INFO_OFFSET;
+		memcpy(pm->vdec_racing_info, vdec_racing_addr,
+			sizeof(pm->vdec_racing_info));
+	}
+
+	if (hw_id == MTK_VDEC_CORE) {
+		clk_disable_unprepare(pm->clk_MT_CG_VDEC0);
+		smi_bus_disable_unprepare(SMI_LARB4, "VDEC_CORE");
+	} else if (hw_id == MTK_VDEC_LAT) {
+		clk_disable_unprepare(pm->clk_MT_CG_VDEC1);
+		smi_bus_disable_unprepare(SMI_LARB5, "VDEC_LAT");
+	} else
+		mtk_v4l2_err("invalid hw_id %d", hw_id);
+
 #endif
 }
 
