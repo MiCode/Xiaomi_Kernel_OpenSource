@@ -115,7 +115,6 @@ static struct KREE_SHM_RUNLENGTH_ENTRY *shmem_param_run_length_encoding(
 
 		if (size == 1)
 			start = now;
-		next = ary[i + 1];
 
 		if ((i + 1) < arySize) {
 
