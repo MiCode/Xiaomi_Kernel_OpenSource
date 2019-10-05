@@ -579,7 +579,7 @@ u32 smi_scen_pair_num[SMI_DEV_NUM] = {
 	SMI_COMM_MASTER_NUM, SMI_COMM_MASTER_NUM, SMI_COMM_MASTER_NUM,
 	SMI_COMM_MASTER_NUM, SMI_COMM_MASTER_NUM, SMI_COMM_MASTER_NUM,
 	SMI_COMM_MASTER_NUM, SMI_COMM_MASTER_NUM, SMI_COMM_MASTER_NUM,
-	SMI_COMM_MASTER_NUM,
+	SMI_COMM_MASTER_NUM, SMI_COMM_MASTER_NUM,
 };
 
 struct mtk_smi_pair **smi_scen_pair[SMI_DEV_NUM] = {
@@ -594,6 +594,6 @@ struct mtk_smi_pair **smi_scen_pair[SMI_DEV_NUM] = {
 	smi_comm_scen_pair, smi_mdp_comm_scen_pair, smi_sram_comm_scen_pair,
 	smi_sub_comm_scen_pair, smi_sub_comm_scen_pair, smi_sub_comm_scen_pair,
 	smi_sub_comm_scen_pair, smi_sub_comm_scen_pair, smi_sub_comm_scen_pair,
-	smi_sub_comm_scen_pair,
+	smi_sub_comm_scen_pair, smi_sub_comm_scen_pair,
 };
 #endif

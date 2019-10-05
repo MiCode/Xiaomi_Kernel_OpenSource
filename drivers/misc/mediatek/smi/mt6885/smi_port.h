@@ -46,7 +46,7 @@
 #define SMI_LARB18_PORT_NUM	(17)	/* SYS_CAM4 */
 #define SMI_LARB19_PORT_NUM	(4)	/* SYS_IPE */
 #define SMI_LARB20_PORT_NUM	(6)	/* SYS_IPE */
-#define SMI_COMM_NUM		(3 + 7)
+#define SMI_COMM_NUM		(3 + 8)
 #define SMI_DEV_NUM		((SMI_LARB_NUM) + (SMI_COMM_NUM))
 
 #define SMI_LARB_CCU0		(13)
