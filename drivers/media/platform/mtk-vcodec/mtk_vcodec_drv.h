@@ -410,7 +410,8 @@ struct mtk_vcodec_dev {
 	struct platform_device *vcu_plat_dev;
 	struct list_head ctx_list;
 	spinlock_t irqlock;
-	struct mtk_vcodec_ctx *curr_ctx;
+	struct mtk_vcodec_ctx *curr_dec_ctx[MTK_VDEC_HW_NUM];
+	struct mtk_vcodec_ctx *curr_enc_ctx[MTK_VENC_HW_NUM];
 	void __iomem *dec_reg_base[NUM_MAX_VDEC_REG_BASE];
 	void __iomem *enc_reg_base[NUM_MAX_VENC_REG_BASE];
 

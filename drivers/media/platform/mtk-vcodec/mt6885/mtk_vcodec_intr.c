@@ -79,7 +79,7 @@ irqreturn_t mtk_vcodec_dec_irq_handler(int irq, void *priv)
 	void __iomem *vdec_misc_addr = dev->dec_reg_base[VDEC_MISC] +
 		MTK_VDEC_IRQ_CFG_REG;
 
-	ctx = mtk_vcodec_get_curr_ctx(dev);
+	ctx = mtk_vcodec_get_curr_ctx(dev, MTK_VDEC_CORE);
 
 	/* check if HW active or not */
 	cg_status = readl(dev->dec_reg_base[0]);
@@ -121,7 +121,7 @@ irqreturn_t mtk_vcodec_lat_dec_irq_handler(int irq, void *priv)
 	void __iomem *vdec_misc_addr = dev->dec_reg_base[VDEC_LAT_MISC] +
 		MTK_VDEC_IRQ_CFG_REG;
 
-	ctx = mtk_vcodec_get_curr_ctx(dev);
+	ctx = mtk_vcodec_get_curr_ctx(dev, MTK_VDEC_LAT);
 
 	/* check if HW active or not */
 	cg_status = readl(dev->dec_reg_base[0]);
@@ -196,7 +196,7 @@ irqreturn_t mtk_vcodec_enc_irq_handler(int irq, void *priv)
 	void __iomem *addr;
 
 	spin_lock_irqsave(&dev->irqlock, flags);
-	ctx = dev->curr_ctx;
+	ctx = dev->curr_enc_ctx[0];
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
 	mtk_v4l2_debug(1, "id=%d", ctx->id);

@@ -197,7 +197,7 @@ void vdec_decode_prepare(void *ctx_prepare,
 	mtk_vdec_lock(ctx, hw_id);
 	mtk_vdec_pmqos_begin_frame(ctx);
 
-	mtk_vcodec_set_curr_ctx(ctx->dev, ctx);
+	mtk_vcodec_set_curr_ctx(ctx->dev, ctx, hw_id);
 	mtk_vcodec_dec_clock_on(&ctx->dev->pm, hw_id);
 	enable_irq(ctx->dev->dec_irq[hw_id]);
 }
@@ -216,7 +216,7 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 
 	disable_irq(ctx->dev->dec_irq[hw_id]);
 	mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
-	mtk_vcodec_set_curr_ctx(ctx->dev, NULL);
+	mtk_vcodec_set_curr_ctx(ctx->dev, NULL, hw_id);
 
 	mtk_vdec_pmqos_end_frame(ctx);
 	mtk_vdec_unlock(ctx, hw_id);
