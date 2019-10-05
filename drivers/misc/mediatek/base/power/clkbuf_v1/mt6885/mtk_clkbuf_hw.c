@@ -862,12 +862,16 @@ void clk_buf_dump_clkbuf_log(void)
 	u32 pmic_cw00 = 0, pmic_cw09 = 0, pmic_cw12 = 0, pmic_cw13 = 0,
 	    pmic_cw15 = 0, pmic_cw19 = 0, top_spi_con1 = 0,
 	    ldo_vrfck_op = 0, ldo_vbbck_op = 0, ldo_vrfck_en = 0,
-	    ldo_vbbck_en = 0, vrfck_hv_en = 0;
+	    ldo_vbbck_en = 0, vrfck_hv_en = 0, pmic_cw08 = 0, pmic_cw10 = 0;
 
 	pmic_read_interface(PMIC_XO_EXTBUF1_MODE_ADDR, &pmic_cw00,
 		PMIC_REG_MASK, PMIC_REG_SHIFT);
+	pmic_read_interface(PMIC_DCXO_CW08, &pmic_cw08,
+			    PMIC_REG_MASK, PMIC_REG_SHIFT);
 	pmic_read_interface(PMIC_XO_EXTBUF7_MODE_ADDR, &pmic_cw09,
 		PMIC_REG_MASK, PMIC_REG_SHIFT);
+	pmic_read_interface(PMIC_DCXO_CW10, &pmic_cw10,
+			    PMIC_REG_MASK, PMIC_REG_SHIFT);
 	pmic_read_interface(PMIC_XO_EXTBUF2_CLKSEL_MAN_ADDR, &pmic_cw12,
 		PMIC_REG_MASK, PMIC_REG_SHIFT);
 	pmic_read_interface(PMIC_RG_XO_EXTBUF2_SRSEL_ADDR, &pmic_cw13,
@@ -891,9 +895,9 @@ void clk_buf_dump_clkbuf_log(void)
 	pmic_read_interface(PMIC_RG_VRFCK_HV_EN_ADDR, &vrfck_hv_en,
 				PMIC_RG_VRFCK_HV_EN_MASK,
 				PMIC_RG_VRFCK_HV_EN_SHIFT);
-	pr_info("%s DCXO_CW00/09/12/13/15/19=0x%x %x %x %x %x %x\n",
-		     __func__, pmic_cw00, pmic_cw09, pmic_cw12, pmic_cw13,
-		     pmic_cw15, pmic_cw19);
+	pr_info("%s DCXO_CW00/08/09/10/12/13/15/19=0x%x %x %x %x %x %x %x %x\n",
+		     __func__, pmic_cw00, pmic_cw08, pmic_cw09, pmic_cw10,
+		     pmic_cw12, pmic_cw13, pmic_cw15, pmic_cw19);
 	pr_info("%s in3_en/rf_op/bb_op/rf_en/bb_en=0x%x %x %x %x %x\n",
 		     __func__, top_spi_con1, ldo_vrfck_op, ldo_vbbck_op,
 		     ldo_vrfck_en, ldo_vbbck_en);
@@ -992,7 +996,7 @@ static ssize_t clk_buf_show_status_info_internal(char *buf)
 {
 	int len = 0;
 	u32 pmic_cw00 = 0, pmic_cw09 = 0, pmic_cw12 = 0, pmic_cw13 = 0,
-	    pmic_cw15 = 0, pmic_cw19 = 0;
+	    pmic_cw15 = 0, pmic_cw19 = 0, pmic_cw08 = 0, pmic_cw10 = 0;
 	u32 top_spi_con1, ldo_vrfck_op_en, ldo_vrfck_en,
 		ldo_vbbck_op_en, ldo_vbbck_en;
 	u32 buf2_mode, buf3_mode, buf4_mode, buf6_mode, buf7_mode;
@@ -1039,7 +1043,11 @@ static ssize_t clk_buf_show_status_info_internal(char *buf)
 
 	pmic_read_interface_nolock(PMIC_DCXO_CW00, &pmic_cw00,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
+	pmic_read_interface_nolock(PMIC_DCXO_CW08, &pmic_cw08,
+			    PMIC_REG_MASK, PMIC_REG_SHIFT);
 	pmic_read_interface_nolock(PMIC_DCXO_CW09, &pmic_cw09,
+			    PMIC_REG_MASK, PMIC_REG_SHIFT);
+	pmic_read_interface_nolock(PMIC_DCXO_CW10, &pmic_cw10,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
 	pmic_read_interface_nolock(PMIC_DCXO_CW12, &pmic_cw12,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
@@ -1064,9 +1072,9 @@ static ssize_t clk_buf_show_status_info_internal(char *buf)
 			    PMIC_RG_LDO_VBBCK_EN_MASK,
 			    PMIC_RG_LDO_VBBCK_EN_SHIFT);
 	len += snprintf(buf+len, PAGE_SIZE-len,
-		"DCXO_CW00/09/12/13/15/19=0x%x %x %x %x %x %x\n",
-		pmic_cw00, pmic_cw09, pmic_cw12, pmic_cw13, pmic_cw15,
-		pmic_cw19);
+		"DCXO_CW00/08/09/10/12/13/15/19=0x%x %x %x %x %x %x %x %x\n",
+		pmic_cw00, pmic_cw08, pmic_cw09, pmic_cw10, pmic_cw12,
+		pmic_cw13, pmic_cw15, pmic_cw19);
 	len += snprintf(buf+len, PAGE_SIZE-len,
 		"LDO vrfck_op/en=%x %x vbb_en/ldo_bb_en=%x %x\n",
 		ldo_vrfck_op_en, ldo_vrfck_en, ldo_vbbck_op_en, ldo_vbbck_en);
@@ -1544,8 +1552,8 @@ void pwrap_clk_buf_inf(void)
 
 void clk_buf_post_init(void)
 {
-#if defined(CONFIG_MTK_UFS_SUPPORT)
 #if 0
+#if defined(CONFIG_MTK_UFS_SUPPORT)
 	int boot_type;
 
 	boot_type = get_boot_type();
@@ -1554,10 +1562,10 @@ void clk_buf_post_init(void)
 		clk_buf_ctrl_internal(CLK_BUF_UFS, CLK_BUF_FORCE_OFF);
 		CLK_BUF7_STATUS = CLOCK_BUFFER_DISABLE;
 	}
-#endif
 #else
 	clk_buf_ctrl_internal(CLK_BUF_UFS, CLK_BUF_FORCE_OFF);
 	CLK_BUF7_STATUS = CLOCK_BUFFER_DISABLE;
+#endif
 #endif
 
 #ifndef CONFIG_NFC_CHIP_SUPPORT
