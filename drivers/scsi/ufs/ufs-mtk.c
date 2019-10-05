@@ -2051,6 +2051,11 @@ void ufs_mtk_runtime_pm_init(struct scsi_device *sdev)
 	}
 }
 
+static void ufs_mtk_device_reset(struct ufs_hba *hba)
+{
+	(void)ufs_mtk_pltfrm_ufs_device_reset(hba);
+}
+
 static void ufs_mtk_auto_hibern8(struct ufs_hba *hba, bool enable)
 {
 	/* if auto-hibern8 is not enabled by device tree, return */
@@ -2372,6 +2377,7 @@ static struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	ufs_mtk_resume,               /* resume */
 	ufs_mtk_dbg_register_dump,    /* dbg_register_dump */
 	NULL,			 /* phy_initialization */
+	ufs_mtk_device_reset,         /* device_reset */
 	ufs_mtk_auto_hibern8,         /* auto_hibern8 */
 	ufs_mtk_res_ctrl, /* resource contorl */
 	ufs_mtk_pltfrm_deepidle_lock, /* deepidle_lock */

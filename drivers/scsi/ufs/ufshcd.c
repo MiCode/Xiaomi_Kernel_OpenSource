@@ -6729,13 +6729,10 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 	int retries = MAX_HOST_RESET_RETRIES;
 
 	do {
-		/* MTK PATCH */
-		err = ufs_mtk_pltfrm_ufs_device_reset(hba);
-		/* may need ufs_mtk_pltfrm_host_sw_rst? */
+		/* Reset the attached device */
+		ufshcd_vops_device_reset(hba);
+
 		ufshcd_device_reset_log(hba);
-		if (err)
-			dev_warn(hba->dev, "%s: device reset failed. err %d\n",
-				 __func__, err);
 
 		err = ufshcd_host_reset_and_restore(hba);
 	} while (err && --retries);
@@ -9661,6 +9658,9 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 		dev_err(hba->dev, "scsi_add_host failed\n");
 		goto exit_gating;
 	}
+
+	/* Reset the attached device */
+	ufshcd_vops_device_reset(hba);
 
 	/* Host controller enable */
 	err = ufshcd_hba_enable(hba);
