@@ -17,6 +17,8 @@
 #include "apusys_device.h"
 #include "scheduler.h"
 
+#define APUSYS_SETPOWER_TIMEOUT (3*1000)
+
 #define APUSYS_DEV_TABLE_MAX 16 //max number device supported
 
 enum {
@@ -97,7 +99,7 @@ struct apusys_res_mgr {
 	struct mutex mtx;
 };
 
-struct apusys_res_mgr *resource_get_mgr(void);
+struct apusys_res_mgr *res_get_mgr(void);
 
 int insert_subcmd(void *isc, int priority);
 int insert_subcmd_lock(void *isc, int priority);
@@ -107,23 +109,25 @@ int delete_subcmd_lock(void *isc);
 
 int get_apusys_device(int dev_type, uint64_t owner, struct apusys_device **dev);
 
-int acquire_device_try(struct apusys_dev_aquire *acq);
-int acquire_device_async(struct apusys_dev_aquire *acq);
-int acquire_device_sync(struct apusys_dev_aquire *acq);
-int acquire_device_check(struct apusys_dev_aquire **iacq);
+int acq_device_try(struct apusys_dev_aquire *acq);
+int acq_device_async(struct apusys_dev_aquire *acq);
+int acq_device_sync(struct apusys_dev_aquire *acq);
+int acq_device_check(struct apusys_dev_aquire **iacq);
 
 int put_device_lock(struct apusys_device *dev);
 int put_apusys_device(struct apusys_device *dev);
 
-int resource_set_power(int dev_type, uint32_t idx, uint32_t boost_val);
-int resource_load_fw(int dev_type, uint32_t magic, const char *name,
+int res_set_power(int dev_type, uint32_t idx, uint32_t boost_val);
+int res_load_firmware(int dev_type, uint32_t magic, const char *name,
 	int idx, uint64_t kva, uint32_t iova, uint32_t size, int op);
+int res_send_ucmd(int dev_type, int idx,
+	uint64_t kva, uint32_t iova, uint32_t size);
 
-int resource_get_device_num(int dev_type);
-uint64_t resource_get_dev_support(void);
+int res_get_device_num(int dev_type);
+uint64_t res_get_dev_support(void);
 
-void resource_mgt_dump(void *s_file);
-int resource_mgt_init(void);
-int resource_mgt_destroy(void);
+void res_mgt_dump(void *s_file);
+int res_mgt_init(void);
+int res_mgt_destroy(void);
 
 #endif

@@ -19,38 +19,22 @@
 #include "apusys_cmn.h"
 #include "apusys_drv.h"
 #include "cmd_parser.h"
-#include "cmd_format.h"
 
 /* specific subgratph information */
-
-#define TYPE_SUBGRAPH_PMU_OFFSET uint32_t
-
-#define OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET1 \
-	(OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET +\
-	SIZE_SUBGRAPH_CODEBUF_INFO_OFFSET)
-#define OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET2 \
-	(OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET1 +\
-	SIZE_SUBGRAPH_CODEBUF_INFO_OFFSET)
-#define OFFSET_SUBGRAPH_PMU_OFFSET \
-	(OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET2 +\
-	SIZE_SUBGRAPH_CODEBUF_INFO_OFFSET)
-
-static uint32_t _get_pmu_offset_from_subcmd(uint64_t subcmd)
+int parse_mdla_sg(struct apusys_subcmd *sc, struct apusys_cmd_hnd *hnd)
 {
-	return *(TYPE_SUBGRAPH_PMU_OFFSET *)
-		(subcmd + OFFSET_SUBGRAPH_PMU_OFFSET);
-}
+	struct apusys_sc_hdr_mdla *mdla_hdr = NULL;
+	struct apusys_cmd *cmd = NULL;
 
-int parse_mdla_sg(struct apusys_cmd *cmd,
-	struct apusys_subcmd *sc, struct apusys_cmd_hnd *hnd)
-{
-	uint32_t pmu_offset = _get_pmu_offset_from_subcmd((uint64_t)sc->entry);
+	if (sc->d_hdr == NULL ||
+		sc->type != APUSYS_DEVICE_MDLA ||
+		sc->par_cmd == NULL) {
+		return -EINVAL;
+	}
 
-	LOG_DEBUG("cmd entry(%p/%p), pmu offset(0x%x)\n",
-		cmd->entry, (TYPE_SUBGRAPH_PMU_OFFSET *)((uint64_t)sc->entry +
-		OFFSET_SUBGRAPH_PMU_OFFSET), pmu_offset);
-
-	hnd->pmu_kva = (uint64_t)cmd->entry + (uint64_t)pmu_offset;
+	cmd = sc->par_cmd;
+	mdla_hdr = (struct apusys_sc_hdr_mdla *)sc->d_hdr;
+	hnd->pmu_kva = (uint64_t)cmd->hdr + mdla_hdr->ofs_pmu_info;
 
 	return 0;
 }

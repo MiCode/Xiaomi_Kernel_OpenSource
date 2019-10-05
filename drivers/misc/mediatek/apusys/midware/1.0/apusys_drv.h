@@ -90,7 +90,6 @@ enum {
 	APUSYS_MEM_MAX,
 };
 
-
 struct apusys_cache_param {
 	int cache_type;
 };
@@ -112,7 +111,6 @@ struct apusys_ion_info {
 	unsigned long long ion_khandle;
 	int ion_uhandle;
 };
-
 
 struct apusys_mem {
 	unsigned long long uva;
@@ -168,6 +166,14 @@ struct apusys_ioctl_fw {
 	unsigned int size;
 };
 
+struct apusys_ioctl_ucmd {
+	int dev_type;
+	int idx;
+	int mem_fd; //  memory buffer fd
+	unsigned int offset;
+	unsigned int size;
+};
+
 #define APUSYS_MAGICNO 'A'
 #define APUSYS_IOCTL_HANDSHAKE \
 	_IOWR(APUSYS_MAGICNO, 0, struct apusys_ioctl_hs)
@@ -193,5 +199,7 @@ struct apusys_ioctl_fw {
 	_IOW(APUSYS_MAGICNO, 10, struct apusys_ioctl_fw)
 #define APUSYS_IOCTL_FW_UNLOAD \
 	_IOW(APUSYS_MAGICNO, 11, struct apusys_ioctl_fw)
+#define APUSYS_IOCTL_USER_CMD \
+	_IOW(APUSYS_MAGICNO, 12, struct apusys_ioctl_ucmd)
 
 #endif

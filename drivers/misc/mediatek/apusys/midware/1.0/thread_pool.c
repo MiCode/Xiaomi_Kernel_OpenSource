@@ -72,7 +72,6 @@ static int tp_service_routine(void *arg)
 
 	while (!kthread_should_stop() && !inst->stop) {
 		ret = wait_for_completion_interruptible(&g_pool_mgr.comp);
-		DEBUG_TAG;
 		if (ret) {
 			switch (ret) {
 			case -ERESTARTSYS:
@@ -87,7 +86,6 @@ static int tp_service_routine(void *arg)
 			}
 			continue;
 		}
-		DEBUG_TAG;
 
 		/* 1. get cmd from job_list */
 		mutex_lock(&g_pool_mgr.job_mtx);
@@ -107,8 +105,6 @@ static int tp_service_routine(void *arg)
 		list_del(&job_arg->list);
 		mutex_unlock(&g_pool_mgr.job_mtx);
 
-		DEBUG_TAG;
-
 		LOG_DEBUG("thread(%d) execute sc(%p)\n",
 			inst->idx, job_arg->sc);
 
@@ -123,7 +119,6 @@ static int tp_service_routine(void *arg)
 				job_arg->sc, ret);
 		}
 
-		DEBUG_TAG;
 		kfree(job_arg);
 		inst->sc = NULL;
 		inst->status = APUSYS_THREAD_STATUS_IDLE;
@@ -152,7 +147,7 @@ void thread_pool_dump(void)
 		sc = (struct apusys_subcmd *)inst->sc;
 		if (sc == NULL)
 			continue;
-		cmd = (struct apusys_cmd *)sc->parent_cmd;
+		cmd = sc->par_cmd;
 
 		LOG_INFO(" thread idx = %d\n", i);
 		LOG_INFO(" status     = %d\n", inst->status);
@@ -190,7 +185,6 @@ int thread_pool_trigger(void *sc, void *dev)
 
 	/* 2. hint thread pool dispatch one thread to service */
 	complete(&g_pool_mgr.comp);
-	DEBUG_TAG;
 
 	return 0;
 }
@@ -280,7 +274,7 @@ int thread_pool_init(routine_func func_ptr)
 
 int thread_pool_destroy(void)
 {
-	/* delete all thread */
+	/* TODO delete all thread */
 
 	return 0;
 }

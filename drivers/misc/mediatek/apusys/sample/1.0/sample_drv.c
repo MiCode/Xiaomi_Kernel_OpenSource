@@ -79,7 +79,6 @@ static int sample_probe(struct platform_device *pdev)
 	/* Attatch file operation. */
 	cdev_init(sample_cdev, &sample_fops);
 	sample_cdev->owner = THIS_MODULE;
-	DEBUG_TAG;
 
 	/* Add to system */
 	ret = cdev_add(sample_cdev, sample_devt, 1);
@@ -88,7 +87,6 @@ static int sample_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	DEBUG_TAG;
 	sample_device_init();
 
 	return 0;

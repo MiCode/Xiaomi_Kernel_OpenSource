@@ -24,254 +24,91 @@
 #include "apusys_drv.h"
 #include "scheduler.h"
 #include "cmd_parser.h"
-#include "cmd_format.h"
 #include "memory_mgt.h"
 #include "resource_mgt.h"
 
 //----------------------------------------------
-// parser function
-static uint64_t _get_magic(void *ce)
+static void _print_cmd_info(const struct apusys_cmd *cmd)
 {
-	return *(TYPE_APUSYS_MAGIC *)(ce + OFFSET_APUSYS_MAGIC);
-}
+	struct apusys_cmd_hdr *hdr = cmd->hdr;
 
-static uint64_t _get_cmdid(void *ce)
-{
-	return *(TYPE_APUSYS_CMD_ID *)(ce + OFFSET_APUSYS_CMD_ID);
-}
-
-static uint8_t _get_cmdversion(void *ce)
-{
-	return *(TYPE_APUSYS_CMD_VERSION *)(ce + OFFSET_APUSYS_CMD_VERSION);
-}
-
-static uint8_t _get_priority(void *ce)
-{
-	return *(TYPE_PRIORITY *)(ce + OFFSET_PRIORITY);
-}
-
-static uint16_t _get_hardlimit(void *ce)
-{
-	return *(TYPE_HARDLIMIT *)(ce + OFFSET_HARDLIMIT);
-}
-
-static uint16_t _get_softlimit(void *ce)
-{
-	return *(TYPE_SOFTLIMIT *)(ce + OFFSET_SOFTLIMIT);
-}
-
-static uint64_t _get_flag_bitmap(void *ce)
-{
-	return *(TYPE_FLAG *)(ce + OFFSET_FLAG);
-}
-
-static TYPE_NUM_OF_SUBGRAPH _get_numofsc(void *ce)
-{
-	return *(TYPE_NUM_OF_SUBGRAPH *)(ce + OFFSET_NUM_OF_SUBGRAPH);
-}
-
-static uint64_t _get_dp_entry(void *ce)
-{
-	uint32_t offset = *(TYPE_OFFSET_TO_DEPENDENCY_INFO_LIST *)
-		(ce + OFFSET_OFFSET_TO_DEPENDENCY_INFO_LIST);
-	return (uint64_t)(ce + (uint64_t)offset);
-}
-
-static uint64_t _get_sc_list_entry(void *ce)
-{
-	return (uint64_t)(ce + OFFSET_SUBGRAPH_INFO_OFFSET_LIST);
-}
-
-static void _print_header(void *ce)
-{
 	LOG_DEBUG("=====================================\n");
-	LOG_DEBUG(" apusys header(%p)\n", ce);
+	LOG_DEBUG(" apusys header(0x%llx)\n", (uint64_t)hdr);
 	LOG_DEBUG("-------------------------------------\n");
-	LOG_DEBUG(" entry                = 0x%llx\n", (uint64_t)ce);
-	LOG_DEBUG(" cmd magic            = 0x%llx\n", _get_magic(ce));
-	LOG_DEBUG(" cmd id               = 0x%llx\n", _get_cmdid(ce));
-	LOG_DEBUG(" version              = %d\n", _get_cmdversion(ce));
-	LOG_DEBUG(" priority             = %d\n", _get_priority(ce));
-	LOG_DEBUG(" hardlimit            = %hu\n", _get_hardlimit(ce));
-	LOG_DEBUG(" softlimit            = %hu\n", _get_softlimit(ce));
-	LOG_DEBUG(" flag                 = 0x%llx\n", _get_flag_bitmap(ce));
-	LOG_DEBUG(" #subcmd              = %d\n", _get_numofsc(ce));
-	LOG_DEBUG(" dependency list entry= 0x%llx\n", _get_dp_entry(ce));
-	LOG_DEBUG(" subcmd list entry    = 0x%llx\n", _get_sc_list_entry(ce));
+	LOG_DEBUG(" cmd magic             = 0x%llx\n", hdr->magic);
+	LOG_DEBUG(" cmd uid               = 0x%llx\n", hdr->uid);
+	LOG_DEBUG(" version               = %d\n", hdr->version);
+	LOG_DEBUG(" priority              = %d\n", hdr->priority);
+	LOG_DEBUG(" hardlimit             = %hu\n", hdr->hard_limit);
+	LOG_DEBUG(" softlimit             = %hu\n", hdr->soft_limit);
+	LOG_DEBUG(" flag                  = 0x%llx\n", hdr->flag_bitmap);
+	LOG_DEBUG(" #subcmd               = %d\n", hdr->num_sc);
+	LOG_DEBUG(" dependency list offset= 0x%x\n", hdr->ofs_scr_list);
+	LOG_DEBUG(" depend cnt list offset= 0x%x\n", hdr->ofs_pdr_cnt_list);
+	LOG_DEBUG(" subcmd list offset    = 0x%x\n", hdr->scofs_list_entry);
+	LOG_DEBUG("-------------------------------------\n");
+	LOG_DEBUG(" cmd id                = 0x%llx\n", cmd->cmd_id);
 	LOG_DEBUG("=====================================\n");
 }
 
-void _print_sc_info(struct apusys_subcmd *sc)
+void _print_sc_info(const struct apusys_subcmd *sc)
 {
+	struct apusys_sc_hdr_cmn *hdr = sc->c_hdr;
+
 	LOG_DEBUG("=====================================\n");
-	LOG_DEBUG(" apusys sc info(%p)\n", sc);
+	LOG_DEBUG(" apusys sc info(0x%llx)\n", (uint64_t)hdr);
 	LOG_DEBUG("-------------------------------------\n");
-	LOG_DEBUG(" type                 = %d\n", sc->type);
-	LOG_DEBUG(" sc entry             = 0x%llx\n", (uint64_t)sc->entry);
-	LOG_DEBUG(" parent cmd           = %p\n", sc->parent_cmd);
+	LOG_DEBUG(" type                 = %u\n", hdr->dev_type);
+	LOG_DEBUG(" driver time          = %llu\n", hdr->driver_time);
+	LOG_DEBUG(" suggest time         = %u\n", hdr->suggest_time);
+	LOG_DEBUG(" bandwidth            = %u\n", hdr->bandwidth);
+	LOG_DEBUG(" tcm usage            = %d\n", hdr->tcm_usage);
+	LOG_DEBUG(" tcm force            = %d\n", hdr->tcm_force);
+	LOG_DEBUG(" boost value          = %d\n", hdr->boost_val);
+	LOG_DEBUG(" reserved             = %d\n", hdr->reserved);
+	LOG_DEBUG(" memory context       = %u\n", hdr->mem_ctx);
+	LOG_DEBUG(" codebuf info size    = %d\n", hdr->cb_info_size);
+	LOG_DEBUG(" codebuf info offset  = 0x%x\n", hdr->ofs_cb_info);
+	LOG_DEBUG("-------------------------------------\n");
+	LOG_DEBUG(" parent cmd           = 0x%llx\n", (uint64_t)sc->par_cmd);
+	LOG_DEBUG(" successor num        = %d\n", sc->scr_num);
 	LOG_DEBUG(" idx                  = %d\n", sc->idx);
-	LOG_DEBUG(" estimate time        = %llu\n", sc->d_time);
-	LOG_DEBUG(" codebuf info         = %p\n", sc->codebuf);
-	LOG_DEBUG(" codebuf size         = %u\n", sc->codebuf_size);
+	LOG_DEBUG(" codebuf info         = 0x%llx\n", (uint64_t)sc->codebuf);
 	LOG_DEBUG(" codebuf fd           = %d\n", sc->codebuf_fd);
-	LOG_DEBUG(" boost val            = %u\n", sc->boost_val);
-	LOG_DEBUG(" bandwidth            = %u\n", sc->bw);
-	LOG_DEBUG(" suggest time         = %u\n", sc->suggest_time);
-	LOG_DEBUG(" tcm force            = %u\n", sc->tcm_force);
-	LOG_DEBUG(" pack id              = 0x%x\n", sc->pack_idx);
-	LOG_DEBUG(" ctx group            = %u\n", sc->ctx_group);
+	LOG_DEBUG(" codebuf mem hnd      = 0x%llx\n", sc->codebuf_mem_hnd);
+	LOG_DEBUG(" boost val            = %u/%u\n",
+		sc->boost_val,
+		hdr->boost_val);
 	LOG_DEBUG("=====================================\n");
 }
 
-uint64_t get_time_from_system(void)
+static unsigned long long _get_dp_entry(const struct apusys_cmd *cmd)
 {
-	struct timeval now;
-
-	do_gettimeofday(&now);
-
-	return (uint64_t)now.tv_usec;
+	LOG_DEBUG("offset successor list %u\n", cmd->hdr->ofs_scr_list);
+	return (uint64_t)((void *)cmd->hdr + cmd->hdr->ofs_scr_list);
 }
 
-uint64_t get_subcmd_by_idx(struct apusys_cmd *cmd, int idx)
+static unsigned long long _get_dp_cnt_entry(const struct apusys_cmd *cmd)
 {
-	/* check argument valid */
-	if (cmd == NULL) {
-		LOG_ERR("invalid argument\n");
-		return 0;
-	}
-
-	if (idx > cmd->sc_num) {
-		LOG_ERR("idx too big(%d/%d)\n", idx, cmd->sc_num);
-		return 0;
-	}
-
-	return (uint64_t)(cmd->entry) +
-		(uint64_t)(*(TYPE_SUBGRAPH_INFO_POINTER *)
-		(cmd->sc_list_entry + SIZE_SUBGRAPH_INFO_POINTER * idx));
+	return (uint64_t)((void *)cmd->hdr + cmd->hdr->ofs_pdr_cnt_list);
 }
 
-uint32_t get_type_from_subcmd(void *sc_entry)
+static int _set_data_to_cmdbuf(struct apusys_subcmd *sc)
 {
-	if (sc_entry == NULL) {
-		LOG_ERR("invalid argument\n");
-		return 0;
-	}
-
-	return *(TYPE_SUBGRAPH_TYPE *)
-	(sc_entry + OFFSET_SUBGRAPH_TYPE);
-}
-
-uint64_t get_dtime_from_subcmd(void *sc_entry)
-{
-	if (sc_entry == NULL) {
-		LOG_ERR("invalid argument\n");
-		return 0;
-	}
-	return *(TYPE_SUBGRAPH_DRIVER_TURNAROUND *)
-		(sc_entry + OFFSET_SUBGRAPH_DRIVER_TURNAROUND);
-}
-
-int set_dtime_to_subcmd(void *sc_entry, uint64_t us)
-{
-	if (sc_entry == NULL) {
+	if (sc == NULL) {
 		LOG_ERR("invalid argument\n");
 		return -EINVAL;
 	}
-	*(TYPE_SUBGRAPH_DRIVER_TURNAROUND *)
-		(sc_entry + OFFSET_SUBGRAPH_DRIVER_TURNAROUND) = us;
+
+	/* execution time */
+	sc->c_hdr->driver_time = (sc->duration.tv_sec * 1000000) +
+		sc->duration.tv_usec;
+	/* bandwidth */
+	sc->c_hdr->bandwidth = sc->bw;
+	/* tcm usage */
+	sc->c_hdr->bandwidth = sc->tcm_usage;
+
 	return 0;
-}
-
-static uint32_t get_suggesttime_from_subcmd(void *sc_entry)
-{
-	if (sc_entry == NULL) {
-		LOG_ERR("invalid argument\n");
-		return 0;
-	}
-	return *(TYPE_SUBGRAPH_SUGGEST_TIME *)
-		(sc_entry + OFFSET_SUBGRAPH_SUGGEST_TIME);
-}
-
-static uint32_t get_bandwidth_from_subcmd(void *sc_entry)
-{
-	if (sc_entry == NULL) {
-		LOG_ERR("invalid argument\n");
-		return 0;
-	}
-	return *(TYPE_SUBGRAPH_BANDWIDTH *)
-		(sc_entry + OFFSET_SUBGRAPH_BANDWIDTH);
-}
-
-int set_bandwidth_to_subcmd(void *sc_entry, uint32_t bandwidth)
-{
-	if (sc_entry == NULL) {
-		LOG_ERR("invalid argument\n");
-		return -EINVAL;
-	}
-	*(TYPE_SUBGRAPH_BANDWIDTH *)
-		(sc_entry + OFFSET_SUBGRAPH_BANDWIDTH) = bandwidth;
-	return 0;
-}
-
-int set_tcmusage_from_subcmd(void *sc_entry, uint32_t tcm_usage)
-{
-	if (sc_entry == NULL) {
-		LOG_ERR("invalid argument\n");
-		return 0;
-	}
-	*(TYPE_SUBGRAPH_TCM_USAGE *)
-		(sc_entry + OFFSET_SUBGRAPH_TCM_USAGE) = tcm_usage;
-	return 0;
-}
-
-static uint8_t get_tcmforce_from_subcmd(void *sc_entry)
-{
-	if (sc_entry == NULL) {
-		LOG_ERR("invalid argument\n");
-		return 0;
-	}
-	return *(TYPE_SUBGRAPH_TCM_FORCE *)
-		(sc_entry + OFFSET_SUBGRAPH_TCM_FORCE);
-}
-
-static uint8_t get_boostval_from_subcmd(void *sc_entry)
-{
-	if (sc_entry == NULL) {
-		LOG_ERR("invalid argument\n");
-		return 0;
-	}
-	return *(TYPE_SUBGRAPH_BANDWIDTH *)
-		(sc_entry + OFFSET_SUBGRAPH_BOOST_VAL);
-}
-
-static uint32_t get_ctxid_from_subcmd(void *sc_entry)
-{
-	if (sc_entry == NULL) {
-		LOG_ERR("invalid argument\n");
-		return 0;
-	}
-	return *(TYPE_SUBGRAPH_CTX_ID *)
-		(sc_entry + OFFSET_SUBGRAPH_CTX_ID);
-}
-
-uint32_t get_codebuf_size_from_subcmd(void *sc_entry)
-{
-	if (sc_entry == NULL) {
-		LOG_ERR("invalid argument\n");
-		return 0;
-	}
-	return *(TYPE_SUBGRAPH_CODEBUF_INFO_SIZE *)
-		(sc_entry + OFFSET_SUBGRAPH_CODEBUF_INFO_SIZE);
-}
-
-uint32_t get_codebuf_offset_from_subcmd(void *sc_entry)
-{
-	if (sc_entry == NULL) {
-		LOG_ERR("invalid argument\n");
-		return 0;
-	}
-	return *(TYPE_SUBGRAPH_CODEBUF_INFO_OFFSET *)
-		(sc_entry + OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET);
 }
 
 static int check_fd_from_codebuf_offset(unsigned int codebuf_offset)
@@ -282,15 +119,144 @@ static int check_fd_from_codebuf_offset(unsigned int codebuf_offset)
 	return 0;
 }
 
-static uint32_t get_packid_from_subcmd(void *sc_entry, int type)
+unsigned int get_pack_idx(const struct apusys_subcmd *sc)
 {
-	if (sc_entry == NULL || (type != APUSYS_DEVICE_SAMPLE &&
-		type != APUSYS_DEVICE_VPU)) {
-		//LOG_ERR("invalid argument\n");
-		return VALUE_SUBGAPH_PACK_ID_NONE;
+	struct apusys_sc_hdr_vpu *vpu_hdr = NULL;
+	struct apusys_sc_hdr_sample *sample_hdr = NULL;
+	unsigned int pack_idx = VALUE_SUBGRAPH_PACK_ID_NONE;
+
+	if (sc == NULL) {
+		LOG_ERR("invalid subcmd(%p)\n", sc);
+		return VALUE_SUBGRAPH_PACK_ID_NONE;
 	}
-	return *(TYPE_SUBGRAPH_PACK *)
-		(sc_entry + OFFSET_SUBGRAPH_PACK);
+
+	if (sc->c_hdr == NULL || sc->d_hdr == NULL) {
+		LOG_ERR("invalid header(%p/%p)\n", sc->c_hdr, sc->d_hdr);
+		return VALUE_SUBGRAPH_PACK_ID_NONE;
+	}
+
+	switch (sc->type) {
+	case APUSYS_DEVICE_VPU:
+		vpu_hdr = (struct apusys_sc_hdr_vpu *)sc->d_hdr;
+		pack_idx = vpu_hdr->pack_idx;
+		break;
+	case APUSYS_DEVICE_SAMPLE:
+		sample_hdr = (struct apusys_sc_hdr_sample *)sc->d_hdr;
+		pack_idx = sample_hdr->pack_idx;
+		break;
+	default:
+		LOG_DEBUG("dev type(%d) not support pack id\n", sc->type);
+		return VALUE_SUBGRAPH_PACK_ID_NONE;
+	}
+
+	return pack_idx;
+}
+
+void get_time_from_system(struct timeval *duration)
+{
+	struct timeval now;
+
+	do_gettimeofday(&now);
+	duration->tv_sec = now.tv_sec - duration->tv_sec;
+	duration->tv_usec = now.tv_usec - duration->tv_usec;
+
+	return;
+}
+
+int check_sc_ready(const struct apusys_cmd *cmd, int idx)
+{
+	/* check argument valid */
+	if (cmd == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -1;
+	}
+
+	if (idx >= cmd->hdr->num_sc) {
+		LOG_ERR("idx too big(%d/%d)\n", idx, cmd->hdr->num_sc);
+		return -1;
+	}
+
+	if (cmd->sc_list[idx] == NULL)
+		return -1;
+
+	if (cmd->pdr_cnt_list[idx] == 0 &&
+		cmd->sc_list[idx]->state == CMD_STATE_IDLE) {
+		LOG_DEBUG("0x%llx-#%d pdr cnt(%d)\n",
+			cmd->cmd_id,
+			idx,
+			cmd->pdr_cnt_list[idx]);
+		return 0;
+	}
+
+	LOG_DEBUG("0x%llx-#%d pdr cnt(%d)\n",
+		cmd->cmd_id,
+		idx,
+		cmd->pdr_cnt_list[idx]);
+	return -1;
+}
+
+int check_cmd_done(struct apusys_cmd *cmd)
+{
+	if (cmd == NULL)
+		return -EINVAL;
+
+	if (bitmap_empty(cmd->sc_status, cmd->hdr->num_sc)) {
+		LOG_DEBUG("apusys cmd(0%llx) done\n", cmd->cmd_id);
+		cmd->state = CMD_STATE_DONE;
+		return 0;
+	}
+
+	return -EBUSY;
+}
+
+void decrease_pdr_cnt(struct apusys_cmd *cmd, int idx)
+{
+	/* check argument valid */
+	if (cmd == NULL) {
+		LOG_ERR("invalid argument\n");
+		return;
+	}
+
+	if (idx >= cmd->hdr->num_sc) {
+		LOG_ERR("idx too big(%d/%d)\n",
+			idx,
+			cmd->hdr->num_sc);
+		return;
+	}
+
+	if (cmd->pdr_cnt_list[idx] <= 0) {
+		LOG_ERR("0x%llx-#%d pdr(%d) warning\n",
+			cmd->cmd_id,
+			idx,
+			cmd->pdr_cnt_list[idx]);
+	}
+
+	cmd->pdr_cnt_list[idx]--;
+	LOG_DEBUG("0x%llx-#%d pdr cnt(%d)\n",
+		cmd->cmd_id,
+		idx,
+		cmd->pdr_cnt_list[idx]);
+}
+
+uint64_t get_subcmd_by_idx(const struct apusys_cmd *cmd, int idx)
+{
+	uint32_t sc_hdr_ofs = 0;
+
+	/* check argument valid */
+	if (cmd == NULL) {
+		LOG_ERR("invalid argument\n");
+		return 0;
+	}
+
+	if (idx >= cmd->hdr->num_sc) {
+		LOG_ERR("idx too big(%d/%d)\n", idx, cmd->hdr->num_sc);
+		return 0;
+	}
+
+	sc_hdr_ofs = *(uint32_t *)((void *)&cmd->hdr->scofs_list_entry +
+		SIZE_SUBGRAPH_SCOFS_ELEMENT * idx);
+
+	return (uint64_t)cmd->hdr + sc_hdr_ofs;
 }
 
 //----------------------------------------------
@@ -304,146 +270,230 @@ uint64_t get_cmdformat_magic(void)
 	return APUSYS_MAGIC_NUMBER;
 }
 
-int apusys_subcmd_create(void *sc_entry,
-	struct apusys_cmd *cmd, struct apusys_subcmd **isc)
+int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
+	struct apusys_subcmd **isc, unsigned int scr_ofs)
 {
-	int type = 0;
-	unsigned int codebuf_offset = 0;
 	struct apusys_mem mem;
+	struct apusys_sc_hdr_cmn *sc_hdr;
 	struct apusys_subcmd *sc = NULL;
+	unsigned int scr_num = 0, i = 0;
+	void *sc_entry = NULL;
+	int ret = 0;
 
-	if (sc_entry == NULL || isc == NULL || cmd == NULL) {
-		LOG_ERR("invalid arguments(%p/%p)\n", sc_entry, isc);
+	if (isc == NULL || cmd == NULL) {
+		LOG_ERR("invalid arguments(%p)\n", isc);
 		return -EINVAL;
 	}
 
-	/* get type */
-	type = (int)get_type_from_subcmd(sc_entry);
-	if (type <= APUSYS_DEVICE_NONE || type >= APUSYS_DEVICE_MAX) {
+	/* get subcmd info from cmd entry */
+	sc_entry = (void *)get_subcmd_by_idx(cmd, idx);
+	if (sc_entry == 0) {
+		LOG_ERR("get 0x%llx-#%d sc) fail\n",
+			cmd->cmd_id,
+			i);
+		return -EINVAL;
+	}
+	sc_hdr = (struct apusys_sc_hdr_cmn *)sc_entry;
+
+	/* check device type */
+	if (sc_hdr->dev_type <= APUSYS_DEVICE_NONE ||
+		sc_hdr->dev_type >= APUSYS_DEVICE_MAX) {
 		LOG_ERR("invalid device type(%d/%d)\n",
-			type, APUSYS_DEVICE_MAX);
+			sc_hdr->dev_type, APUSYS_DEVICE_MAX);
 		return -EINVAL;
 	}
 
 	/* allocate subcmd struct */
 	sc = kzalloc(sizeof(struct apusys_subcmd), GFP_KERNEL);
-	sc->entry = sc_entry;
-	sc->type = type;
-	sc->parent_cmd = cmd;
-	sc->codebuf_size = get_codebuf_size_from_subcmd(sc_entry);
-	if (sc->codebuf_size == 0) {
+	if (sc == NULL) {
+		LOG_ERR("alloc sc fail\n");
+		ret = -ENOMEM;
+		goto alloc_sc_fail;
+	}
+	sc->c_hdr = sc_hdr;
+	sc->d_hdr = (void *)sc_hdr + sizeof(struct apusys_sc_hdr_cmn);
+	sc->type = sc->c_hdr->dev_type;
+	sc->c_hdr->tcm_usage = 0;
+	sc->par_cmd = cmd;
+	sc->idx = idx;
+	sc->ctx_id = VALUE_SUBGRAPH_CTX_ID_NONE;
+	sc->state = CMD_STATE_IDLE;
+
+	/* check codebuf info size */
+	if (sc->c_hdr->cb_info_size == 0) {
 		LOG_ERR("codebuf size = 0, error\n");
 		kfree(sc);
 		return -EINVAL;
 	}
-	codebuf_offset = get_codebuf_offset_from_subcmd(sc_entry);
-	LOG_DEBUG("codebuf_offset = 0x%x\n", codebuf_offset);
-	if (check_fd_from_codebuf_offset(codebuf_offset)) {
+
+	/* check codebuf type, fd or offset */
+	LOG_DEBUG("cb offset = 0x%x\n", sc->c_hdr->ofs_cb_info);
+	if (check_fd_from_codebuf_offset(sc->c_hdr->ofs_cb_info)) {
 		/* from lib, fd need to map */
 		LOG_DEBUG("codebuf is fd, need to map\n");
-		sc->codebuf_fd = codebuf_offset &
+		sc->codebuf_fd = sc->c_hdr->ofs_cb_info &
 			~(1UL << SUBGRAPH_CODEBUF_INFO_BIT_FD);
 		memset(&mem, 0, sizeof(struct apusys_mem));
-		mem.size = sc->codebuf_size;
+		mem.size = sc->c_hdr->cb_info_size;
 		mem.ion_data.ion_share_fd = sc->codebuf_fd;
+
 		if (apusys_mem_map_kva(&mem)) {
 			LOG_ERR("map sc fail\n");
-			kfree(sc);
-			return -EINVAL;
+			ret = -ENOMEM;
+			goto map_kva_fail;
 		}
+		if (apusys_mem_map_iova(&mem)) {
+			if (apusys_mem_unmap_kva(&mem))
+				LOG_ERR("map sc io fail\n");
+			ret = -ENOMEM;
+			goto map_iova_fail;
+		}
+
+		sc->codebuf_iosize = (int)mem.size;
 		sc->codebuf = (void *)mem.kva;
 		sc->codebuf_mem_hnd = mem.ion_data.ion_khandle;
 		LOG_DEBUG("map sc codebuf from fd(%d/%p/%u)\n",
 			sc->codebuf_fd,
 			sc->codebuf,
-			sc->codebuf_size);
+			sc->c_hdr->cb_info_size);
+
+		/* check offset and size */
+		if (sc->c_hdr->cb_info_size > sc->codebuf_iosize) {
+			LOG_ERR("check sc cb size(%u/%u) fail",
+				sc->c_hdr->cb_info_size,
+				sc->codebuf_iosize);
+			ret = -EINVAL;
+			goto check_size_fail;
+		}
 	} else {
 		/* from neuron, kva need offset */
 		sc->codebuf_fd = -1;
-		sc->codebuf = (void *)((uint64_t)cmd->entry + codebuf_offset);
-		LOG_DEBUG("calc sc codebuf from offset(%d/%p/%p/%u)\n",
+		sc->codebuf = (void *)((void *)cmd->hdr +
+			sc->c_hdr->ofs_cb_info);
+		LOG_DEBUG("calc sc codebuf from offset(%d/%p/%u)\n",
 			sc->codebuf_fd,
-			cmd->entry,
 			sc->codebuf,
-			sc->codebuf_size);
+			sc->c_hdr->cb_info_size);
 	}
 
-	sc->d_time = get_dtime_from_subcmd(sc_entry);
-	sc->boost_val = get_boostval_from_subcmd(sc_entry);
-	if (sc->boost_val > 100) {
+	/* check boost value */
+	if (sc->c_hdr->boost_val > 100) {
 		LOG_DEBUG("boost_val over 100, set\n");
 		sc->boost_val = 100;
-	}
-	sc->suggest_time = get_suggesttime_from_subcmd(sc_entry);
-	sc->bw = get_bandwidth_from_subcmd(sc_entry);
-	sc->tcm_force = get_tcmforce_from_subcmd(sc_entry);
-	sc->tcm_usage = 0;
-	sc->pack_idx = get_packid_from_subcmd(sc_entry, sc->type);
-	sc->ctx_group = get_ctxid_from_subcmd(sc_entry);
-	if (sc->ctx_group != VALUE_SUBGAPH_CTX_ID_NONE &&
-		sc->ctx_group > cmd->sc_num) {
+	} else {
+		sc->boost_val = sc->c_hdr->boost_val;
+	};
+
+	/* check mem context */
+	if (sc->c_hdr->mem_ctx != VALUE_SUBGRAPH_CTX_ID_NONE &&
+		sc->c_hdr->mem_ctx > cmd->hdr->num_sc) {
 		LOG_ERR("invalid ctx group(%d/%d)\n",
-			sc->ctx_group, cmd->sc_num);
-		kfree(sc);
-		return -EINVAL;
+			sc->c_hdr->mem_ctx,
+			cmd->hdr->num_sc);
+		ret = -EINVAL;
+		goto check_size_fail;
 	}
-	sc->ctx_id = VALUE_SUBGAPH_CTX_ID_NONE;
-	sc->state = CMD_STATE_IDLE;
+
+	LOG_DEBUG("successor offset = %u\n", scr_ofs);
+	/* check successor */
+	scr_num = *(TYPE_SUBGRAPH_SCOFS_ELEMENT *)(cmd->dp_entry + scr_ofs);
+	scr_ofs += SIZE_CMD_SUCCESSOR_ELEMENT;
+	if (scr_num >= cmd->hdr->num_sc) {
+		LOG_ERR("scr num too much(%u/%u)\n", scr_num, cmd->hdr->num_sc);
+		ret = -EINVAL;
+		goto check_size_fail;
+	}
+	sc->scr_list = kcalloc(scr_num, SIZE_CMD_SUCCESSOR_ELEMENT, GFP_KERNEL);
+	if (sc->scr_list == NULL) {
+		LOG_ERR("alloc scr list fail\n");
+		ret = -EINVAL;
+		goto check_size_fail;
+	}
+	sc->scr_num = scr_num;
+	for (i = 0; i < scr_num; i++) {
+		sc->scr_list[i] = *(TYPE_SUBGRAPH_SCOFS_ELEMENT *)
+			(cmd->dp_entry + scr_ofs);
+		scr_ofs += SIZE_CMD_SUCCESSOR_ELEMENT;
+		LOG_DEBUG("0x%llx-#%d sc: scr(%d)\n",
+			cmd->cmd_id,
+			sc->idx,
+			sc->scr_list[i]);
+	}
+
 	INIT_LIST_HEAD(&sc->q_list);
-	INIT_LIST_HEAD(&sc->ce_list);
 	mutex_init(&sc->mtx);
-	sc->dp_status = kcalloc(BITS_TO_LONGS(cmd->sc_num),
-		sizeof(unsigned long), GFP_KERNEL);
 
+	cmd->sc_list[sc->idx] = sc;
 	*isc = sc;
-
 	_print_sc_info(sc);
 
 	return 0;
+
+check_size_fail:
+	if (!sc->codebuf_fd) {
+		if (apusys_mem_unmap_iova(&mem))
+			LOG_ERR("map sc iova fail\n");
+	}
+map_iova_fail:
+	if (!sc->codebuf_fd) {
+		if (apusys_mem_unmap_kva(&mem))
+			LOG_ERR("unmap sc kva fail\n");
+	}
+map_kva_fail:
+	kfree(sc);
+alloc_sc_fail:
+	return ret;
 }
 
 int apusys_subcmd_delete(struct apusys_subcmd *sc)
 {
 	struct apusys_mem mem;
-	struct apusys_cmd *cmd = NULL;
 
 	if (sc == NULL)
 		return -EINVAL;
 
-	cmd = (struct apusys_cmd *)sc->parent_cmd;
-	if (cmd == NULL)
-		return -EINVAL;
-
 	/* write time back to cmdbuf */
-	set_dtime_to_subcmd(sc->entry, sc->d_time);
-	set_bandwidth_to_subcmd(sc->entry, sc->bw);
-	LOG_DEBUG("0x%llx-#%d sc: time(%llu) bw(%u)\n",
-		cmd->cmd_id, sc->idx, sc->d_time, sc->bw);
+	LOG_DEBUG("0x%llx-#%d sc: time(%llu) bw(%u) st(%d)\n",
+		sc->par_cmd->cmd_id,
+		sc->idx,
+		sc->c_hdr->driver_time,
+		sc->c_hdr->bandwidth,
+		sc->state);
+	_set_data_to_cmdbuf(sc);
 
-	DEBUG_TAG;
 	if (sc->codebuf_fd >= 0) {
 		memset(&mem, 0, sizeof(struct apusys_mem));
 		mem.kva = (unsigned long long)sc->codebuf;
-		mem.size = sc->codebuf_size;
+		mem.size = sc->c_hdr->cb_info_size;
 		mem.ion_data.ion_share_fd = sc->codebuf_fd;
 		mem.ion_data.ion_khandle = sc->codebuf_mem_hnd;
+
+		if (apusys_mem_unmap_iova(&mem)) {
+			LOG_ERR("unmap codebuf iova fd(%d) fail\n",
+				sc->codebuf_fd);
+		}
 		if (apusys_mem_unmap_kva(&mem)) {
-			LOG_ERR("unmap codebuf fd(%d) fail\n",
+			LOG_ERR("unmap codebuf kva fd(%d) fail\n",
 				sc->codebuf_fd);
 		}
 	}
 
-	if (sc->state <= CMD_STATE_READY) {
-		list_del(&sc->ce_list);
-		sc->parent_cmd = NULL;
+	DEBUG_TAG;
+	if (sc->state < CMD_STATE_RUN) {
+		LOG_WARN("0x%llx-#%d sc not done, st(%d)\n",
+			sc->par_cmd->cmd_id,
+			sc->idx,
+			sc->state);
 		delete_subcmd_lock((void *)sc);
-		if (sc->dp_status != NULL) {
-			DEBUG_TAG;
-			kfree(sc->dp_status);
-		}
 	}
+	DEBUG_TAG;
 
+	sc->par_cmd->sc_list[sc->idx] = NULL;
+	bitmap_clear(sc->par_cmd->sc_status, sc->idx, 1);
+	sc->par_cmd = NULL;
+	kfree(sc->scr_list);
 	kfree(sc);
+	DEBUG_TAG;
 
 	return 0;
 }
@@ -451,49 +501,56 @@ int apusys_subcmd_delete(struct apusys_subcmd *sc)
 int apusys_cmd_create(int mem_fd, uint32_t offset,
 	struct apusys_cmd **icmd)
 {
-	struct apusys_cmd *cmd;
+	struct apusys_cmd *cmd = NULL;
+	struct apusys_cmd_hdr *cmd_hdr = NULL;
+	struct apusys_sc_hdr_cmn *subcmd_hdr = NULL;
 	struct apusys_mem mem;
-	void *cmd_entry = NULL;
-	uint8_t cmd_version = 0;
-	uint64_t cmd_magic = 0;
-	int ret = 0, i = 0, ctx_idx = 0;
-	uint32_t sc_num = 0;
+	int ret = 0, i = 0;
 
 	/* map kva */
 	memset(&mem, 0, sizeof(struct apusys_mem));
 	mem.ion_data.ion_share_fd = mem_fd;
 	if (apusys_mem_map_kva(&mem)) {
-		LOG_ERR("map cmd buffer kva from fd(%d)fail\n",
+		LOG_ERR("map cmdbuf kva from fd(%d)fail\n",
 			mem_fd);
 		return -ENOMEM;
 	}
 
-	cmd_entry = (void *)(mem.kva + offset);
-	LOG_DEBUG("cmd entry = 0x%llx/%u/%p\n",
-		mem.kva, offset, cmd_entry);
+	if (apusys_mem_map_iova(&mem)) {
+		LOG_ERR("map cmdbuf iova from fd(%d)fail\n",
+			mem_fd);
+		if (apusys_mem_unmap_kva(&mem)) {
+			LOG_ERR("unmap cmdbuf kva fd(%d) fail\n",
+				mem_fd);
+		}
+		return -ENOMEM;
+	}
 
-	_print_header(cmd_entry);
+	/* verify offset and size */
+	if ((offset + sizeof(struct apusys_cmd_hdr) > mem.iova_size)) {
+		LOG_ERR("check cmdbuf offset(%d/%u) fail",
+			offset, mem.iova_size);
+		goto ce_fail;
+	}
+	cmd_hdr = (struct apusys_cmd_hdr *)(mem.kva + offset);
 
-	/* check magic */
-	cmd_magic = _get_magic(cmd_entry);
-	if (cmd_magic != APUSYS_MAGIC_NUMBER) {
+	/* check parameters */
+	if (cmd_hdr->magic != APUSYS_MAGIC_NUMBER) {
 		LOG_ERR("cmd magic mismatch(0x%llx)\n",
-			cmd_magic);
+			cmd_hdr->magic);
 		return -EINVAL;
 	}
 
 	/* check version */
-	cmd_version = _get_cmdversion(cmd_entry);
-	if (cmd_version != APUSYS_CMD_VERSION) {
+	if (cmd_hdr->version != APUSYS_CMD_VERSION) {
 		LOG_ERR("cmd version mismatch(%d/%d)\n",
-			cmd_version, APUSYS_CMD_VERSION);
+			cmd_hdr->version, APUSYS_CMD_VERSION);
 		return -EINVAL;
 	}
 
 	/* check subcmd num */
-	sc_num = _get_numofsc(cmd_entry);
-	if (sc_num == 0) {
-		LOG_ERR("subcmd num(%d), nothing to do\n", sc_num);
+	if (cmd_hdr->num_sc == 0) {
+		LOG_ERR("subcmd num(%d), nothing to do\n", cmd_hdr->num_sc);
 		return -EINVAL;
 	}
 
@@ -506,25 +563,22 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	}
 
 	/* assign value */
+	cmd->hdr = cmd_hdr;
 	cmd->mem_fd = mem_fd;
 	cmd->mem_hnd = mem.ion_data.ion_khandle;
-
-	cmd->entry = (void *)cmd_entry;
-	cmd->cmd_uid = _get_cmdid(cmd->entry);
 	cmd->cmd_id = (uint64_t)(cmd);
-	cmd->sc_num = sc_num;
-	cmd->sc_list_entry = (void *)_get_sc_list_entry(cmd->entry);
-	cmd->dp_entry = (void *)_get_dp_entry(cmd->entry);
-	cmd->priority = _get_priority(cmd->entry);
-	cmd->hard_limit = _get_hardlimit(cmd->entry);
-	cmd->soft_limit = _get_softlimit(cmd->entry);
-	cmd->power_save = (_get_flag_bitmap(cmd->entry) &
+	cmd->power_save = (cmd->hdr->flag_bitmap &
 		1UL << CMD_FLAG_BITMAP_POWERSAVE) ? 1 : 0;
-
+	cmd->force_dual = (cmd->hdr->flag_bitmap &
+		1UL << CMD_FLAG_BITMAP_FORCEDUAL) ? 1 : 0;
+	cmd->dp_entry = (void *)_get_dp_entry(cmd);
+	cmd->dp_cnt_entry = (void *)_get_dp_cnt_entry(cmd);
 	cmd->state = CMD_STATE_READY;
 
+	_print_cmd_info(cmd);
+
 	/* allocate subcmd bitmap for tracing status */
-	cmd->sc_status = kcalloc(BITS_TO_LONGS(cmd->sc_num),
+	cmd->sc_status = kcalloc(BITS_TO_LONGS(cmd->hdr->num_sc),
 	sizeof(unsigned long), GFP_KERNEL);
 	if (cmd->sc_status == NULL) {
 		LOG_ERR("alloc bitmap for subcmd status fail\n");
@@ -532,21 +586,29 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 		goto sc_status_fail;
 	}
 
+	cmd->pdr_cnt_list = kcalloc(cmd->hdr->num_sc,
+		sizeof(int), GFP_KERNEL);
+	if (cmd->pdr_cnt_list == NULL) {
+		LOG_ERR("alloc pdr cnt list fail\n");
+		ret = -ENOMEM;
+		goto sc_ctx_fail;
+	}
+
 	/* allocate ctx ref and list */
-	cmd->ctx_ref = kcalloc(cmd->sc_num, sizeof(uint32_t), GFP_KERNEL);
+	cmd->ctx_ref = kcalloc(cmd->hdr->num_sc, sizeof(uint32_t), GFP_KERNEL);
 	if (cmd->ctx_ref == NULL) {
 		LOG_ERR("alloc ctx ref count for ctx fail\n");
 		ret = -ENOMEM;
 		goto sc_ctx_fail;
 	}
-	cmd->ctx_list = kcalloc(cmd->sc_num, sizeof(uint32_t), GFP_KERNEL);
+	cmd->ctx_list = kcalloc(cmd->hdr->num_sc, sizeof(uint32_t), GFP_KERNEL);
 	if (cmd->ctx_list == NULL) {
 		LOG_ERR("alloc ctx list count for ctx fail\n");
 		ret = -ENOMEM;
 		goto sc_ctx_list_fail;
 	}
 	cmd->pc_col.pack_status = kzalloc(sizeof(unsigned long) *
-		cmd->sc_num, GFP_KERNEL);
+		cmd->hdr->num_sc, GFP_KERNEL);
 	if (cmd->pc_col.pack_status == NULL) {
 		LOG_ERR("alloc pack status fail\n");
 		ret = -ENOMEM;
@@ -554,37 +616,50 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	}
 
 	/* set subcmd status */
-	bitmap_set(cmd->sc_status, 0, cmd->sc_num);
+	bitmap_set(cmd->sc_status, 0, cmd->hdr->num_sc);
 
-	/* set memory ctx ref count */
-	for (i = 0; i < cmd->sc_num; i++) {
-		ctx_idx = get_ctxid_from_subcmd
-			((void *)get_subcmd_by_idx(cmd, i));
-		if (ctx_idx == VALUE_SUBGAPH_CTX_ID_NONE)
+	/* set memory ctx ref count & pdr cnt*/
+	for (i = 0; i < cmd->hdr->num_sc; i++) {
+		/* TODO: check scr list valid */
+		subcmd_hdr = (struct apusys_sc_hdr_cmn *)
+			get_subcmd_by_idx(cmd, i);
+		if (subcmd_hdr->mem_ctx == VALUE_SUBGRAPH_CTX_ID_NONE)
 			continue;
-		if (ctx_idx >= cmd->sc_num) {
+		if (subcmd_hdr->mem_ctx >= cmd->hdr->num_sc) {
 			LOG_ERR("cmd(0x%llx) #%d subcmd's ctx_id(%d) invalid\n",
-				cmd->cmd_id, i, ctx_idx);
+				cmd->cmd_id, i, subcmd_hdr->mem_ctx);
 			goto count_ctx_fail;
 		}
-		cmd->ctx_ref[ctx_idx]++;
+		cmd->ctx_ref[subcmd_hdr->mem_ctx]++;
+		/* set pdr cnt */
+		cmd->pdr_cnt_list[i] = *(TYPE_CMD_PREDECCESSOR_CMNT_ELEMENT *)
+			(cmd->dp_cnt_entry +
+			(i * SIZE_CMD_PREDECCESSOR_CMNT_ELEMENT));
 	}
-	memset(cmd->ctx_list, VALUE_SUBGAPH_CTX_ID_NONE,
-		sizeof(uint32_t) * cmd->sc_num);
+
+	memset(cmd->ctx_list, VALUE_SUBGRAPH_CTX_ID_NONE,
+		sizeof(uint32_t) * cmd->hdr->num_sc);
+
+	cmd->sc_list = kcalloc(cmd->hdr->num_sc,
+		sizeof(struct apusys_subcmd *), GFP_KERNEL);
+	if (cmd->sc_list == NULL) {
+		LOG_ERR("alloc sc list fail\n");
+		ret = -ENOMEM;
+		goto sc_ctx_list_fail;
+	}
 
 	mutex_init(&cmd->sc_mtx);
 	mutex_init(&cmd->mtx);
 	INIT_LIST_HEAD(&cmd->pc_col.sc_list);
-	INIT_LIST_HEAD(&cmd->sc_list);
 	INIT_LIST_HEAD(&cmd->u_list);
 	init_completion(&cmd->comp);
 
 	*icmd = cmd;
 
-	LOG_INFO("create cmd (0x%llx/0x%llx/%u)(%u/%u/%u)(%u)\n",
-		cmd->cmd_uid, cmd->cmd_id,
-		cmd->sc_num, cmd->priority,
-		cmd->hard_limit, cmd->soft_limit,
+	LOG_INFO("create 0x%llx/0x%llx cmd(%u)(%u/%u/%u)(%u)\n",
+		cmd->hdr->uid, cmd->cmd_id,
+		cmd->hdr->num_sc, cmd->hdr->priority,
+		cmd->hdr->hard_limit, cmd->hdr->soft_limit,
 		cmd->power_save);
 
 	return ret;
@@ -600,6 +675,15 @@ sc_ctx_fail:
 sc_status_fail:
 	kfree(cmd);
 ce_fail:
+	if (apusys_mem_unmap_iova(&mem)) {
+		LOG_ERR("unmap cmdbuf iova fd(%d) fail\n",
+			mem_fd);
+	}
+	if (apusys_mem_unmap_kva(&mem)) {
+		LOG_ERR("unmap cmdbuf kva fd(%d) fail\n",
+			mem_fd);
+	}
+
 	return ret;
 }
 
@@ -607,7 +691,7 @@ int apusys_cmd_delete(struct apusys_cmd *cmd)
 {
 	struct apusys_subcmd *sc = NULL;
 	struct apusys_mem mem;
-	struct list_head *tmp = NULL, *list_ptr = NULL;
+	int i = 0;
 
 	if (cmd == NULL)
 		return -EINVAL;
@@ -615,28 +699,31 @@ int apusys_cmd_delete(struct apusys_cmd *cmd)
 	mutex_lock(&cmd->mtx);
 	mutex_lock(&cmd->sc_mtx);
 
-	DEBUG_TAG;
-	list_for_each_safe(list_ptr, tmp, &cmd->sc_list) {
-		DEBUG_TAG;
-		sc = list_entry(list_ptr, struct apusys_subcmd, ce_list);
-		DEBUG_TAG;
+	for (i = 0; i < cmd->hdr->num_sc; i++) {
+		sc = cmd->sc_list[i];
 		if (sc != NULL) {
+			LOG_WARN("0x%llx-#%d not deleted\n",
+				cmd->cmd_id, i);
 			if (apusys_subcmd_delete(sc))
 				LOG_ERR("delete subcmd fail(%p)\n", sc);
 		}
 	}
-	DEBUG_TAG;
 
 	mutex_unlock(&cmd->sc_mtx);
 
-	/* map kva */
+	/* unmap iova/kva */
 	memset(&mem, 0, sizeof(struct apusys_mem));
 	mem.ion_data.ion_share_fd = cmd->mem_fd;
 	mem.ion_data.ion_khandle = cmd->mem_hnd;
-	if (apusys_mem_unmap_kva(&mem)) {
-		LOG_ERR("map cmd buffer kva from fd(%d)fail\n",
+	if (apusys_mem_unmap_iova(&mem)) {
+		LOG_ERR("unmap cmdbuf iova fd(%d) fail\n",
 			cmd->mem_fd);
 	}
+	if (apusys_mem_unmap_kva(&mem)) {
+		LOG_ERR("map cmdbuf kva from fd(%d)fail\n",
+			cmd->mem_fd);
+	}
+
 	mutex_unlock(&cmd->mtx);
 	kfree(cmd->pc_col.pack_status);
 	kfree(cmd->ctx_list);

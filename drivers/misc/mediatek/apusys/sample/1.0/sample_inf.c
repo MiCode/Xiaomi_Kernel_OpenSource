@@ -28,6 +28,9 @@
 #define SAMPLE_FW_MAGIC 0x35904
 #define SAMPLE_FW_PTN 0x8A
 
+#define SAMPLE_USERCMD_IDX 0x66
+#define SAMPLE_USERCMD_MAGIC 0x15556
+
 struct sample_fw {
 	char name[32];
 
@@ -47,6 +50,13 @@ struct sample_dev_info {
 	int run;
 
 	struct mutex mtx;
+};
+
+struct sample_usercmd {
+	unsigned long long magic;
+	int cmd_idx;
+
+	int u_write;
 };
 
 static struct sample_dev_info *sample_private[SAMPLE_DEVICE_NUM];
@@ -77,6 +87,7 @@ static void _print_hnd(int type, void *hnd)
 	struct apusys_power_hnd *pwr = NULL;
 	struct apusys_preempt_hnd *pmt = NULL;
 	struct apusys_firmware_hnd *fw = NULL;
+	struct apusys_usercmd_hnd *u = NULL;
 
 	/* check argument */
 	if (hnd == NULL) {
@@ -102,7 +113,7 @@ static void _print_hnd(int type, void *hnd)
 		LOG_INFO("--------------------------------");
 		LOG_INFO("| kva      = 0x%-16llx|\n", cmd->kva);
 		LOG_INFO("| iova     = 0x%-16x|\n", cmd->iova);
-		LOG_INFO("| size     = %-18d|\n", cmd->iova);
+		LOG_INFO("| size     = %-18u|\n", cmd->iova);
 		LOG_INFO("| boostval = %-18d|\n", cmd->boost_val);
 		break;
 
@@ -118,7 +129,7 @@ static void _print_hnd(int type, void *hnd)
 		LOG_INFO("| <old cmd>                    |\n");
 		LOG_INFO("| kva      = 0x%-16llx|\n", pmt->old_cmd->kva);
 		LOG_INFO("| iova     = 0x%-16x|\n", pmt->old_cmd->iova);
-		LOG_INFO("| size     = %-18d|\n", pmt->old_cmd->size);
+		LOG_INFO("| size     = %-18u|\n", pmt->old_cmd->size);
 		LOG_INFO("| boostval = %-18d|\n", pmt->old_cmd->boost_val);
 		break;
 
@@ -130,10 +141,18 @@ static void _print_hnd(int type, void *hnd)
 		LOG_INFO("| magic    = 0x%-16x|\n", fw->magic);
 		LOG_INFO("| kva      = 0x%-16llx|\n", fw->kva);
 		LOG_INFO("| iova     = 0x%-16x|\n", fw->iova);
-		LOG_INFO("| size     = 0x%-16x|\n", fw->size);
+		LOG_INFO("| size     = %-18u|\n", fw->size);
 		LOG_INFO("| idx      = %-18d|\n", fw->idx);
 		LOG_INFO("| op       = %-18d|\n", fw->op);
 		break;
+
+	case APUSYS_CMD_USER:
+		u = (struct apusys_usercmd_hnd *)hnd;
+		LOG_INFO("| user hnd                      |\n");
+		LOG_INFO("--------------------------------");
+		LOG_INFO("| kva      = 0x%-16llx|\n", u->kva);
+		LOG_INFO("| iova     = 0x%-16x|\n", u->iova);
+		LOG_INFO("| size     = %-18u|\n", u->size);
 
 	default:
 		LOG_INFO("| not support type(%-2d) hnd    |\n", type);
@@ -166,11 +185,15 @@ static int _sample_powerdown(void)
 
 static int _sample_resume(void)
 {
+	LOG_INFO("sample resume done\n");
+
 	return 0;
 }
 
 static int _sample_suspend(void)
 {
+	LOG_INFO("sample suspend done\n");
+
 	return 0;
 }
 
@@ -180,12 +203,8 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 	struct sample_request *req = NULL;
 	struct sample_dev_info *info = NULL;
 
-	DEBUG_TAG;
-
 	if (hnd == NULL || dev == NULL)
 		return -EINVAL;
-
-	DEBUG_TAG;
 
 	/* check cmd */
 	if (hnd->kva == 0 || hnd->size == 0 ||
@@ -196,7 +215,6 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 			(int)sizeof(struct sample_request));
 		return -EINVAL;
 	};
-
 
 	req = (struct sample_request *)hnd->kva;
 	info = (struct sample_dev_info *)dev->private;
@@ -284,6 +302,51 @@ static int _sample_firmware(struct apusys_firmware_hnd *hnd,
 	return ret;
 }
 
+static int _sample_usercmd(void *hnd,
+	struct sample_dev_info *info)
+{
+	struct apusys_usercmd_hnd *u = NULL;
+	struct sample_usercmd *s = NULL;
+	int ret = 0;
+
+	if (hnd == NULL || info == NULL)
+		return -EINVAL;
+
+	u = (struct apusys_usercmd_hnd *)hnd;
+
+	/* check hnd */
+	if (u->kva == 0 || u->iova == 0 || u->size == 0) {
+		LOG_ERR("invalid argument(0x%llx/0x%x/%u)\n",
+			u->kva, u->iova, u->size);
+		return -EINVAL;
+	}
+
+	/* check cmd size */
+	if (u->size != sizeof(struct sample_usercmd)) {
+		LOG_ERR("sample handle size not match(%u/%lu)\n",
+			u->size, sizeof(struct sample_usercmd));
+		return -EINVAL;
+	}
+
+	/* verify param sent from user space */
+	s = (struct sample_usercmd *)u->kva;
+	if (s->cmd_idx != SAMPLE_USERCMD_IDX ||
+		s->magic != SAMPLE_USERCMD_MAGIC) {
+		LOG_ERR("sample user cmd param not match(%d/0x%llx)\n",
+			s->cmd_idx, s->magic);
+		return -EINVAL;
+	}
+
+	if (info->idx != s->u_write) {
+		LOG_ERR("user write error (%d/%d)\n", s->u_write, info->idx);
+		return -EINVAL;
+	}
+
+	LOG_INFO("get user cmd: %d ok\n", s->u_write);
+
+	return ret;
+}
+
 //----------------------------------------------
 int sample_send_cmd(int type, void *hnd, struct apusys_device *dev)
 {
@@ -328,6 +391,11 @@ int sample_send_cmd(int type, void *hnd, struct apusys_device *dev)
 	case APUSYS_CMD_FIRMWARE:
 		LOG_INFO("cmd firmware\n");
 		ret = _sample_firmware(hnd,
+			(struct sample_dev_info *)dev->private);
+		break;
+
+	case APUSYS_CMD_USER:
+		ret = _sample_usercmd(hnd,
 			(struct sample_dev_info *)dev->private);
 		break;
 

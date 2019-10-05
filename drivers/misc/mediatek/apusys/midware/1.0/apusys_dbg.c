@@ -28,6 +28,7 @@
 struct dentry *apusys_dbg_root;
 struct dentry *apusys_dbg_user;
 struct dentry *apusys_dbg_device;
+struct dentry *apusys_dbg_queue;
 struct dentry *apusys_dbg_trace;
 struct dentry *apusys_dbg_fo;
 struct dentry *apusys_dbg_log;
@@ -73,7 +74,7 @@ static const struct file_operations apusys_dbg_fops_user = {
 // device table dump
 static int apusys_dbg_dump_dev(struct seq_file *s, void *unused)
 {
-	resource_mgt_dump(s);
+	res_mgt_dump(s);
 	return 0;
 }
 
@@ -89,6 +90,28 @@ static const struct file_operations apusys_dbg_fops_device = {
 	.release = seq_release,
 	//.write = seq_write,
 };
+
+//----------------------------------------------
+// device table dump
+// device table dump
+static int apusys_dbg_dump_queue(struct seq_file *s, void *unused)
+{
+	return 0;
+}
+
+static int apusys_dbg_queue_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, apusys_dbg_dump_queue, inode->i_private);
+}
+
+static const struct file_operations apusys_dbg_fops_queue = {
+	.open = apusys_dbg_queue_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = seq_release,
+	//.write = seq_write,
+};
+
 //----------------------------------------------
 static int apusys_dbg_fo_dump(struct seq_file *s, void *unused)
 {
@@ -194,6 +217,15 @@ int apusys_dbg_init(void)
 	apusys_dbg_device = debugfs_create_file("device", 0644,
 		apusys_dbg_root, NULL, &apusys_dbg_fops_device);
 	ret = IS_ERR_OR_NULL(apusys_dbg_device);
+	if (ret) {
+		LOG_ERR("failed to create debug node(device).\n");
+		goto out;
+	}
+
+	/* create device queue info */
+	apusys_dbg_queue = debugfs_create_file("normal_q", 0644,
+		apusys_dbg_root, NULL, &apusys_dbg_fops_queue);
+	ret = IS_ERR_OR_NULL(apusys_dbg_queue);
 	if (ret) {
 		LOG_ERR("failed to create debug node(device).\n");
 		goto out;

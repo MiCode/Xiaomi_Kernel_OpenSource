@@ -17,166 +17,73 @@
 #define APUSYS_MAGIC_NUMBER 0x3d2070ece309c231
 #define APUSYS_CMD_VERSION 0x1
 
-/* header column size */
-#define TYPE_APUSYS_MAGIC                   unsigned long long
-#define TYPE_APUSYS_CMD_ID                  unsigned long long
-#define TYPE_APUSYS_CMD_VERSION             unsigned char
-#define TYPE_PRIORITY                       unsigned char
-#define TYPE_HARDLIMIT                      unsigned short
-#define TYPE_SOFTLIMIT                      unsigned short
-#define TYPE_PRESERVED                      unsigned short
-#define TYPE_FLAG                           unsigned long long
-#define TYPE_NUM_OF_SUBGRAPH                unsigned int
-#define TYPE_OFFSET_TO_DEPENDENCY_INFO_LIST unsigned int
-#define TYPE_SUBGRAPH_INFO_POINTER          unsigned int
-
-#define TYPE_DEPENDENCY_ELEMENT             unsigned int
-
-#define SIZE_APUSYS_MAGIC \
-	(sizeof(TYPE_APUSYS_MAGIC))
-#define SIZE_APUSYS_CMD_ID \
-	(sizeof(TYPE_APUSYS_CMD_ID))
-#define SIZE_APUSYS_CMD_VERSION \
-	(sizeof(TYPE_APUSYS_CMD_VERSION))
-#define SIZE_PRIORITY \
-	(sizeof(TYPE_PRIORITY))
-#define SIZE_HARDLIMIT \
-	(sizeof(TYPE_HARDLIMIT))
-#define SIZE_SOFTLIMIT \
-	(sizeof(TYPE_SOFTLIMIT))
-#define SIZE_PRESERVED \
-	(sizeof(TYPE_PRESERVED))
-#define SIZE_FLAG \
-	(sizeof(TYPE_FLAG))
-#define SIZE_NUM_OF_SUBGRAPH \
-	(sizeof(TYPE_NUM_OF_SUBGRAPH))
-#define SIZE_OFFSET_TO_DEPENDENCY_INFO_LIST \
-	(sizeof(TYPE_OFFSET_TO_DEPENDENCY_INFO_LIST))
-
-#define SIZE_APUSYS_HEADER \
-	(SIZE_APUSYS_MAGIC + SIZE_APUSYS_CMD_ID + SIZE_APUSYS_CMD_VERSION +\
-	SIZE_PRIORITY + SIZE_HARDLIMIT + SIZE_SOFTLIMIT +\
-	SIZE_PRESERVED + SIZE_FLAG +\
-	SIZE_NUM_OF_SUBGRAPH + SIZE_OFFSET_TO_DEPENDENCY_INFO_LIST)
-
-#define SIZE_DEPENDENCY_ELEMENT \
-	(sizeof(TYPE_DEPENDENCY_ELEMENT))
-#define SIZE_SUBGRAPH_INFO_POINTER \
-	(sizeof(TYPE_SUBGRAPH_INFO_POINTER))
-
-/* header offset */
-#define OFFSET_APUSYS_MAGIC \
-	(0)
-#define OFFSET_APUSYS_CMD_ID \
-	(OFFSET_APUSYS_MAGIC + SIZE_APUSYS_MAGIC)
-#define OFFSET_APUSYS_CMD_VERSION \
-	(OFFSET_APUSYS_CMD_ID + SIZE_APUSYS_CMD_ID)
-#define OFFSET_PRIORITY \
-	(OFFSET_APUSYS_CMD_VERSION + SIZE_APUSYS_CMD_VERSION)
-#define OFFSET_HARDLIMIT \
-	(OFFSET_PRIORITY + SIZE_PRIORITY)
-#define OFFSET_SOFTLIMIT \
-	(OFFSET_HARDLIMIT + SIZE_HARDLIMIT)
-#define OFFSET_PRESERVED \
-	(OFFSET_SOFTLIMIT + SIZE_SOFTLIMIT)
-#define OFFSET_FLAG \
-	(OFFSET_PRESERVED + SIZE_PRESERVED)
-#define OFFSET_NUM_OF_SUBGRAPH \
-	(OFFSET_FLAG + SIZE_FLAG)
-#define OFFSET_OFFSET_TO_DEPENDENCY_INFO_LIST \
-	(OFFSET_NUM_OF_SUBGRAPH + SIZE_NUM_OF_SUBGRAPH)
-#define OFFSET_SUBGRAPH_INFO_OFFSET_LIST \
-	(OFFSET_OFFSET_TO_DEPENDENCY_INFO_LIST +\
-	SIZE_OFFSET_TO_DEPENDENCY_INFO_LIST)
-
-/* bitmap of apusys cmd */
-enum {
-	CMD_FLAG_BITMAP_POWERSAVE = 0,
-};
-
-/* specific subgratph size */
-#define TYPE_SUBGRAPH_TYPE                unsigned int
-#define TYPE_SUBGRAPH_DRIVER_TURNAROUND   unsigned long long
-#define TYPE_SUBGRAPH_SUGGEST_TIME        unsigned int
-#define TYPE_SUBGRAPH_BANDWIDTH           unsigned int
-#define TYPE_SUBGRAPH_TCM_USAGE           unsigned int
-#define TYPE_SUBGRAPH_TCM_FORCE           unsigned char
-#define TYPE_SUBGRAPH_BOOST_VAL           unsigned char
-#define TYPE_SUBGRAPH_RESERVED            unsigned short
-#define TYPE_SUBGRAPH_CTX_ID              unsigned int
-#define TYPE_SUBGRAPH_CODEBUF_INFO_SIZE   unsigned int
-#define TYPE_SUBGRAPH_CODEBUF_INFO_OFFSET unsigned int
-/* vpu/sample specific */
-#define TYPE_SUBGRAPH_PACK              unsigned int
-
-#define VALUE_SUBGAPH_PACK_ID_NONE      0xFFFFFFFF
-#define VALUE_SUBGAPH_CTX_ID_NONE       0xFFFFFFFF
+#define VALUE_SUBGRAPH_PACK_ID_NONE      0xFFFFFFFF
+#define VALUE_SUBGRAPH_CTX_ID_NONE       0xFFFFFFFF
 #define VALUE_SUBGRAPH_BOOST_NONE       0xFF
 
-#define SIZE_SUBGRAPH_TYPE \
-	(sizeof(TYPE_SUBGRAPH_TYPE))
-#define SIZE_SUBGRAPH_DRIVER_TURNAROUND \
-	(sizeof(TYPE_SUBGRAPH_DRIVER_TURNAROUND))
-#define SIZE_SUBGRAPH_SUGGEST_TIME \
-	(sizeof(TYPE_SUBGRAPH_SUGGEST_TIME))
-#define SIZE_SUBGRAPH_BANDWIDTH \
-	(sizeof(TYPE_SUBGRAPH_BANDWIDTH))
-#define SIZE_SUBGRAPH_TCM_USAGE \
-	(sizeof(TYPE_SUBGRAPH_TCM_USAGE))
-#define SIZE_SUBGRAPH_TCM_FORCE \
-	(sizeof(TYPE_SUBGRAPH_TCM_FORCE))
-#define SIZE_SUBGRAPH_BOOST_VAL \
-	(sizeof(TYPE_SUBGRAPH_BOOST_VAL))
-#define SIZE_SUBGRAPH_RESERVED \
-	(sizeof(TYPE_SUBGRAPH_RESERVED))
-#define SIZE_SUBGRAPH_CTX_ID \
-	(sizeof(TYPE_SUBGRAPH_CTX_ID))
-#define SIZE_SUBGRAPH_CODEBUF_INFO_SIZE \
-	(sizeof(TYPE_SUBGRAPH_CODEBUF_INFO_SIZE))
-#define SIZE_SUBGRAPH_CODEBUF_INFO_OFFSET \
-	(sizeof(TYPE_SUBGRAPH_CODEBUF_INFO_OFFSET))
-/* vpu/sample specific */
-#define SIZE_SUBGRAPH_PACK \
-	(sizeof(TYPE_SUBGRAPH_PACK))
+#define TYPE_SUBGRAPH_SCOFS_ELEMENT unsigned int
+#define TYPE_CMD_SUCCESSOR_ELEMENT unsigned int
+#define TYPE_CMD_PREDECCESSOR_CMNT_ELEMENT unsigned int
 
-#define SIZE_SUBGRAPH_ELEMENT \
-	(SIZE_SUBGRAPH_TYPE + SIZE_SUBGRAPH_DRIVER_TURNAROUND +\
-	SIZE_SUBGRAPH_SUGGEST_TIME + SIZE_SUBGRAPH_BANDWIDTH +\
-	SIZE_SUBGRAPH_TCM_USAGE + SIZE_SUBGRAPH_TCM_FORCE +\
-	SIZE_SUBGRAPH_BOOST_VAL + SIZE_SUBGRAPH_RESERVED +\
-	SIZE_SUBGRAPH_CTX_ID + SIZE_SUBGRAPH_CODEBUF_INFO_SIZE +\
-	SIZE_SUBGRAPH_CODEBUF_INFO_OFFSET)
+#define SIZE_SUBGRAPH_SCOFS_ELEMENT \
+	sizeof(TYPE_SUBGRAPH_SCOFS_ELEMENT)
+#define SIZE_CMD_SUCCESSOR_ELEMENT \
+	sizeof(TYPE_CMD_SUCCESSOR_ELEMENT)
+#define SIZE_CMD_PREDECCESSOR_CMNT_ELEMENT \
+	sizeof(TYPE_CMD_PREDECCESSOR_CMNT_ELEMENT)
 
-/* spcific subgraph offset */
-#define OFFSET_SUBGRAPH_TYPE \
-	(0)
-#define OFFSET_SUBGRAPH_DRIVER_TURNAROUND \
-	(OFFSET_SUBGRAPH_TYPE + SIZE_SUBGRAPH_TYPE)
-#define OFFSET_SUBGRAPH_SUGGEST_TIME \
-	(OFFSET_SUBGRAPH_DRIVER_TURNAROUND + SIZE_SUBGRAPH_DRIVER_TURNAROUND)
-#define OFFSET_SUBGRAPH_BANDWIDTH \
-	(OFFSET_SUBGRAPH_SUGGEST_TIME + SIZE_SUBGRAPH_SUGGEST_TIME)
-#define OFFSET_SUBGRAPH_TCM_USAGE \
-	(OFFSET_SUBGRAPH_BANDWIDTH + SIZE_SUBGRAPH_BANDWIDTH)
-#define OFFSET_SUBGRAPH_TCM_FORCE \
-	(OFFSET_SUBGRAPH_TCM_USAGE + SIZE_SUBGRAPH_TCM_USAGE)
-#define OFFSET_SUBGRAPH_BOOST_VAL \
-	(OFFSET_SUBGRAPH_TCM_FORCE + SIZE_SUBGRAPH_TCM_FORCE)
-#define OFFSET_SUBGRAPH_RESERVED \
-	(OFFSET_SUBGRAPH_BOOST_VAL + SIZE_SUBGRAPH_BOOST_VAL)
-#define OFFSET_SUBGRAPH_CTX_ID \
-	(OFFSET_SUBGRAPH_RESERVED + SIZE_SUBGRAPH_RESERVED)
-#define OFFSET_SUBGRAPH_CODEBUF_INFO_SIZE \
-	(OFFSET_SUBGRAPH_CTX_ID + SIZE_SUBGRAPH_CTX_ID)
-#define OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET \
-	(OFFSET_SUBGRAPH_CODEBUF_INFO_SIZE + SIZE_SUBGRAPH_CODEBUF_INFO_SIZE)
-	/* vpu/sample specific */
-#define OFFSET_SUBGRAPH_PACK \
-	(OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET +\
-	SIZE_SUBGRAPH_CODEBUF_INFO_OFFSET)
+/* flag bitmap of apusys cmd */
+enum {
+	CMD_FLAG_BITMAP_POWERSAVE = 0,
+	CMD_FLAG_BITMAP_FORCEDUAL = 63,
+};
 
+/* fd flag of codebuf info offset */
 enum {
 	SUBGRAPH_CODEBUF_INFO_BIT_FD = 31,
 };
+
+struct apusys_cmd_hdr {
+	unsigned long long magic;
+	unsigned long long uid;
+	unsigned char version;
+	unsigned char priority;
+	unsigned short hard_limit;
+	unsigned short soft_limit;
+	unsigned short preserved;
+	unsigned long long flag_bitmap;
+	unsigned int num_sc;
+	unsigned int ofs_scr_list;     // successor list offset
+	unsigned int ofs_pdr_cnt_list; // predecessor count list offset
+	unsigned int scofs_list_entry; // subcmd offset's list offset
+} __attribute__((__packed__));
+
+struct apusys_sc_hdr_cmn {
+	unsigned int dev_type;
+	unsigned long long driver_time;
+	unsigned int suggest_time;
+	unsigned int bandwidth;
+	unsigned int tcm_usage;
+	unsigned char tcm_force;
+	unsigned char boost_val;
+	unsigned short reserved;
+	unsigned int mem_ctx;
+	unsigned int cb_info_size; // codebuf info size
+	unsigned int ofs_cb_info;  // codebuf info offset
+} __attribute__((__packed__));
+
+struct apusys_sc_hdr_sample {
+	unsigned int pack_idx;
+} __attribute__((__packed__));
+
+struct apusys_sc_hdr_mdla {
+	unsigned int ofs_cb_info_dual0;
+	unsigned int ofs_cb_info_dual1;
+	unsigned int ofs_pmu_info;
+} __attribute__((__packed__));
+
+struct apusys_sc_hdr_vpu {
+	unsigned int pack_idx;
+} __attribute__((__packed__));
 
 #endif

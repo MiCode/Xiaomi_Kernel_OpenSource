@@ -21,9 +21,9 @@
 /* total 32 priority, 16 for user, 16 reserved for system */
 enum {
 	/* user used */
-	APUSYS_PRIORITY_LOW = 0x0,
 	APUSYS_PRIORITY_NORMAL = 0x1,
 	APUSYS_PRIORITY_HIGH = 0x2,
+	APUSYS_PRIORITY_ULTRA = 0x0,
 
 	/* system used */
 	APUSYS_PRIORITY_SYSTEM_0 = 0x10,

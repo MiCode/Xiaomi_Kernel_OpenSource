@@ -17,6 +17,7 @@
 #include "apusys_cmn.h"
 #include "apusys_user.h"
 #include "apusys_drv.h"
+#include "cmd_parser.h"
 #include "memory_mgt.h"
 #include "resource_mgt.h"
 
@@ -41,58 +42,119 @@ void apusys_user_dump(void *s_file)
 {
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_user *user = NULL;
+	struct apusys_cmd *cmd = NULL;
+	struct apusys_user_mem *u_mem = NULL;
 	struct list_head *d_tmp = NULL, *d_list_ptr = NULL;
-	struct apusys_user_dev *user_dev = NULL;
+	struct list_head *c_tmp = NULL, *c_list_ptr = NULL;
+	struct list_head *m_tmp = NULL, *m_list_ptr = NULL;
+	struct apusys_user_dev *u_dev = NULL;
 	struct seq_file *s = (struct seq_file *)s_file;
-	int i = 0, j = 0;
+	int u_count = 0;
+	int d_count = 0;
+	int m_count = 0;
+	int c_count = 0;
 
 #define LINEBAR \
-	"|----------------------------------------------------------|\n"
+	"|-------------------------------------------"\
+	"-------------------------------------------|\n"
 
 	LOG_CON(s, LINEBAR);
-	LOG_CON(s, "| %-57s|\n",
-		"apusys user table");
-	LOG_CON(s, LINEBAR);
-	LOG_CON(s, "| %-4s| %-9s| %-9s| %-29s|\n",
-		"idx",
-		"pid",
-		"tgid",
-		"alloc dev");
+	LOG_CON(s, "|%-86s|\n",
+		" apusys user table");
 	LOG_CON(s, LINEBAR);
 
 	mutex_lock(&g_user_mgr.mtx);
-
 	list_for_each_safe(list_ptr, tmp, &g_user_mgr.list) {
 		user = list_entry(list_ptr, struct apusys_user, list);
-		LOG_CON(s, "| %-4d| %-9d| %-9d|",
-			i,
-			user->open_pid,
+
+		LOG_CON(s, "| user (#%-3d)%74s|\n",
+			u_count,
+			"");
+		LOG_CON(s, "| id   = 0x%-76llx|\n",
+			user->id);
+		LOG_CON(s, "| pid  = %-78d|\n",
+			user->open_pid);
+		LOG_CON(s, "| tgid = %-78d|\n",
 			user->open_tgid);
-		/* print alloc dev */
-		j = 0;
-		list_for_each_safe(d_list_ptr, d_tmp, &user->dev_list) {
-			user_dev = list_entry(d_list_ptr,
-				struct apusys_user_dev, list);
-			if (j == 0) {
-				LOG_CON(s, " %-29p\n",
-					user_dev->dev);
-			} else {
-				LOG_CON(s, "|%5s|%10s|%10s| %-29p|\n",
-					"",
-					"",
-					"",
-					user_dev->dev);
-			}
-			j++;
-		}
-		if (j == 0)
-			LOG_CON(s, " %-29s|\n",
-			"none");
-
 		LOG_CON(s, LINEBAR);
-		i++;
-	}
 
+		c_count = 0;
+		d_count = 0;
+		m_count = 0;
+
+		/* cmd */
+		LOG_CON(s, "|%-10s|%-20s|%-20s|%-20s|%-12s|\n",
+			" cmd",
+			" priority",
+			" uid",
+			" id",
+			" sc num");
+		LOG_CON(s, LINEBAR);
+		list_for_each_safe(c_list_ptr, c_tmp, &user->cmd_list) {
+			cmd = list_entry(c_list_ptr,
+				struct apusys_cmd, u_list);
+			mutex_lock(&cmd->mtx);
+
+			LOG_CON(s,
+			"| #%-8d| %-19d| 0x%-17llx| 0x%-17llx| %-11u|\n",
+				c_count,
+				cmd->hdr->priority,
+				cmd->hdr->uid,
+				cmd->cmd_id,
+				cmd->hdr->num_sc);
+			mutex_unlock(&cmd->mtx);
+			c_count++;
+		}
+		LOG_CON(s, LINEBAR);
+
+		/* mem */
+		LOG_CON(s,
+		"|%-10s|%-6s|%-6s|%-6s|%-20s|%-20s|%-12s|\n",
+			" mem",
+			" type",
+			" fd",
+			" size",
+			" uva",
+			" kva",
+			" iova");
+		LOG_CON(s, LINEBAR);
+		list_for_each_safe(m_list_ptr, m_tmp, &user->mem_list) {
+			u_mem = list_entry(m_list_ptr,
+				struct apusys_user_mem, list);
+
+			LOG_CON(s,
+			"| #%-8d| %-5u| %-5u| %-5d| 0x%-17llx| 0x%-17llx| 0x%-9x|\n",
+				m_count,
+				u_mem->mem.mem_type,
+				u_mem->mem.ion_data.ion_share_fd,
+				u_mem->mem.size,
+				u_mem->mem.uva,
+				u_mem->mem.kva,
+				u_mem->mem.iova);
+			m_count++;
+		}
+		LOG_CON(s, LINEBAR);
+
+		/* device */
+		LOG_CON(s, "|%-10s|%-6s|%-6s|%-61s|\n",
+			" dev",
+			" type",
+			" idx",
+			" devptr");
+		LOG_CON(s, LINEBAR);
+		list_for_each_safe(d_list_ptr, d_tmp, &user->dev_list) {
+			u_dev = list_entry(d_list_ptr,
+				struct apusys_user_dev, list);
+			LOG_CON(s, "| %-9d| %-5d| %-5d| %-60p|\n",
+				d_count,
+				u_dev->dev->dev_type,
+				u_dev->dev->idx,
+				u_dev->dev);
+			d_count++;
+		}
+		LOG_CON(s, LINEBAR);
+		u_count++;
+	}
 	mutex_unlock(&g_user_mgr.mtx);
 
 #undef LINEBAR
@@ -105,7 +167,6 @@ int apusys_user_insert_cmd(struct apusys_user *user, void *icmd)
 	if (user == NULL || icmd == NULL)
 		return -EINVAL;
 
-	DEBUG_TAG;
 	/* add to user's list */
 	mutex_lock(&user->cmd_mtx);
 	list_add_tail(&cmd->u_list, &user->cmd_list);
@@ -116,9 +177,9 @@ int apusys_user_insert_cmd(struct apusys_user *user, void *icmd)
 
 int apusys_user_delete_cmd(struct apusys_user *user, void *icmd)
 {
-	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_cmd *cmd = (struct apusys_cmd *) icmd;
 	struct apusys_subcmd *sc = NULL;
+	int i = 0;
 
 	if (user == NULL || icmd == NULL)
 		return -EINVAL;
@@ -127,14 +188,14 @@ int apusys_user_delete_cmd(struct apusys_user *user, void *icmd)
 
 	/* delete all sc */
 	mutex_lock(&cmd->sc_mtx);
-	DEBUG_TAG;
-	list_for_each_safe(list_ptr, tmp, &cmd->sc_list) {
-		sc = list_entry(list_ptr, struct apusys_subcmd, ce_list);
-		if (sc != NULL) {
-			if (apusys_subcmd_delete(sc))
+	for (i = 0; i < cmd->hdr->num_sc; i++) {
+		if (cmd->sc_list[i] != NULL) {
+			if (apusys_subcmd_delete(cmd->sc_list[i]))
 				LOG_ERR("delete subcmd fail(%p)\n", sc);
+			cmd->sc_list[i] = NULL;
 		}
 	}
+
 	list_del(&cmd->u_list);
 	mutex_unlock(&cmd->sc_mtx);
 	mutex_unlock(&user->cmd_mtx);

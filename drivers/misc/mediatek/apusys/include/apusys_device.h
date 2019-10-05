@@ -16,15 +16,16 @@
 
 /* device type */
 enum {
-	APUSYS_DEVICE_NONE,
-	APUSYS_DEVICE_SAMPLE,
+	APUSYS_DEVICE_NONE   = 0,
+	APUSYS_DEVICE_SAMPLE = 1,
 
-	APUSYS_DEVICE_MDLA,
-	APUSYS_DEVICE_VPU,
-	APUSYS_DEVICE_EDMA,
-	APUSYS_DEVICE_WAIT, // subgraph mean wait event
+	APUSYS_DEVICE_MDLA   = 2,
+	APUSYS_DEVICE_VPU    = 3,
+	APUSYS_DEVICE_EDMA   = 4,
 
-	APUSYS_DEVICE_MAX, //total support 64 different devices
+	APUSYS_DEVICE_WAIT   = 63, // subgraph mean wait event
+
+	APUSYS_DEVICE_MAX    = 64, //total support 64 different devices
 };
 
 /* device cmd type */
@@ -37,6 +38,7 @@ enum {
 	APUSYS_CMD_PREEMPT,
 
 	APUSYS_CMD_FIRMWARE, // setup firmware
+	APUSYS_CMD_USER, //user defined
 
 	APUSYS_CMD_MAX,
 };
@@ -62,6 +64,8 @@ enum {
 struct apusys_power_hnd {
 	uint32_t opp;
 	int boost_val;
+
+	uint32_t timeout;
 };
 
 struct apusys_pmu_info {
@@ -100,6 +104,12 @@ struct apusys_firmware_hnd {
 	int idx;
 
 	int op;
+};
+
+struct apusys_usercmd_hnd {
+	uint64_t kva;
+	uint32_t iova;
+	uint32_t size;
 };
 
 struct apusys_preempt_hnd {

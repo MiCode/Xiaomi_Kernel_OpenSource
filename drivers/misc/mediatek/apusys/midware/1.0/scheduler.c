@@ -27,7 +27,6 @@
 #include "cmd_parser_mdla.h"
 #include "thread_pool.h"
 #include "midware_trace.h"
-#include "cmd_format.h"
 
 #include "mnoc_api.h"
 
@@ -85,7 +84,7 @@ static int mem_alloc_ctx(void)
 
 static int mem_free_ctx(int ctx)
 {
-	if (ctx == VALUE_SUBGAPH_CTX_ID_NONE)
+	if (ctx == VALUE_SUBGRAPH_CTX_ID_NONE)
 		return 0;
 
 	mutex_lock(&g_ctx_mgr.mtx);
@@ -102,31 +101,33 @@ static int alloc_ctx(struct apusys_subcmd *sc, struct apusys_cmd *cmd)
 {
 	int ctx_id = -1;
 
-	if (sc->ctx_group == VALUE_SUBGAPH_CTX_ID_NONE) {
+	if (sc->c_hdr->mem_ctx == VALUE_SUBGRAPH_CTX_ID_NONE) {
 		ctx_id = mem_alloc_ctx();
 		if (ctx_id < 0)
 			return -EINVAL;
 		sc->ctx_id = ctx_id;
 		LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) ctx(%d)\n",
 			cmd->cmd_id, sc->idx,
-			sc->ctx_group, sc->ctx_id);
+			sc->c_hdr->mem_ctx, sc->ctx_id);
 	} else {
-		if (cmd->ctx_list[sc->ctx_group] == VALUE_SUBGAPH_CTX_ID_NONE) {
+		if (cmd->ctx_list[sc->c_hdr->mem_ctx] ==
+			VALUE_SUBGRAPH_CTX_ID_NONE) {
 			ctx_id = mem_alloc_ctx();
 			if (ctx_id < 0)
 				return -EINVAL;
 
-			cmd->ctx_list[sc->ctx_group] = ctx_id;
+			cmd->ctx_list[sc->c_hdr->mem_ctx] = ctx_id;
 			LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) ctx(%d)\n",
 				cmd->cmd_id, sc->idx,
-				sc->ctx_group, cmd->ctx_list[sc->ctx_group]);
+				sc->c_hdr->mem_ctx,
+				cmd->ctx_list[sc->c_hdr->mem_ctx]);
 		}
-		sc->ctx_id = cmd->ctx_list[sc->ctx_group];
+		sc->ctx_id = cmd->ctx_list[sc->c_hdr->mem_ctx];
 	}
 
 	LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) id(%d)\n",
 		cmd->cmd_id, sc->idx,
-		sc->ctx_group, sc->ctx_id);
+		sc->c_hdr->mem_ctx, sc->ctx_id);
 
 	return 0;
 }
@@ -135,21 +136,21 @@ static int free_ctx(struct apusys_subcmd *sc, struct apusys_cmd *cmd)
 {
 	int ret = 0;
 
-	if (sc->ctx_group == VALUE_SUBGAPH_CTX_ID_NONE) {
+	if (sc->c_hdr->mem_ctx == VALUE_SUBGRAPH_CTX_ID_NONE) {
 		LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) free id(%d)\n",
 			cmd->cmd_id, sc->idx,
-			sc->ctx_group, sc->ctx_id);
+			sc->c_hdr->mem_ctx, sc->ctx_id);
 		mem_free_ctx(sc->ctx_id);
-		sc->ctx_id = VALUE_SUBGAPH_CTX_ID_NONE;
+		sc->ctx_id = VALUE_SUBGRAPH_CTX_ID_NONE;
 	} else {
-		cmd->ctx_ref[sc->ctx_group]--;
-		if (cmd->ctx_ref[sc->ctx_group] == 0) {
+		cmd->ctx_ref[sc->c_hdr->mem_ctx]--;
+		if (cmd->ctx_ref[sc->c_hdr->mem_ctx] == 0) {
 			LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) free id(%d)\n",
 				cmd->cmd_id, sc->idx,
-				sc->ctx_group, sc->ctx_id);
-			mem_free_ctx(cmd->ctx_list[sc->ctx_group]);
+				sc->c_hdr->mem_ctx, sc->ctx_id);
+			mem_free_ctx(cmd->ctx_list[sc->c_hdr->mem_ctx]);
 		}
-		sc->ctx_id = VALUE_SUBGAPH_CTX_ID_NONE;
+		sc->ctx_id = VALUE_SUBGRAPH_CTX_ID_NONE;
 	}
 
 	return ret;
@@ -157,41 +158,39 @@ static int free_ctx(struct apusys_subcmd *sc, struct apusys_cmd *cmd)
 
 static int insert_pack_cmd(struct apusys_subcmd *sc, struct pack_cmd **ipc)
 {
-	struct apusys_cmd *cmd = NULL;
 	struct pack_cmd *pc = NULL;
 	struct apusys_subcmd *tmp_sc = NULL;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	int next_idx = 0, ret = 0, bit0 = 0, bit1 = 0;
+	unsigned int pack_idx = VALUE_SUBGRAPH_PACK_ID_NONE;
 
 	if (sc == NULL)
 		return -EINVAL;
 
-	cmd = (struct apusys_cmd *)sc->parent_cmd;
+	pack_idx = get_pack_idx(sc);
 
-	LOG_DEBUG("pack sc(0x%llx/%d/%d)", cmd->cmd_id, sc->idx, sc->pack_idx);
+	LOG_DEBUG("0x%llx-#%d sc: before pack(%u)(%d/%d)\n",
+		sc->par_cmd->cmd_id,
+		sc->idx,
+		pack_idx,
+		test_bit(sc->idx, sc->par_cmd->pc_col.pack_status),
+		test_bit(pack_idx, sc->par_cmd->pc_col.pack_status));
 
-	list_add_tail(&sc->pc_list, &cmd->pc_col.sc_list);
-	DEBUG_TAG;
+	list_add_tail(&sc->pc_list, &sc->par_cmd->pc_col.sc_list);
 
 	/* packed cmd collect done */
-
-	LOG_DEBUG("before : pack bit check(%d/%d)(%d/%d)\n",
-		sc->idx, sc->pack_idx,
-		test_bit(sc->idx, cmd->pc_col.pack_status),
-		test_bit(sc->pack_idx, cmd->pc_col.pack_status));
-
-	bit0 = test_and_change_bit(sc->idx, cmd->pc_col.pack_status);
-	DEBUG_TAG;
-	bit1 = test_and_change_bit(sc->pack_idx, cmd->pc_col.pack_status);
-	DEBUG_TAG;
+	bit0 = test_and_change_bit(sc->idx, sc->par_cmd->pc_col.pack_status);
+	bit1 = test_and_change_bit(pack_idx, sc->par_cmd->pc_col.pack_status);
 	if (bit0 && bit1) {
 		LOG_INFO("pack cmd satified(0x%llx/0x%llx)(%d/%d)\n",
-			cmd->cmd_uid, cmd->cmd_id,
-			sc->idx, sc->pack_idx);
+			sc->par_cmd->hdr->uid,
+			sc->par_cmd->cmd_id,
+			sc->idx,
+			pack_idx);
 		pc = kzalloc(sizeof(struct pack_cmd), GFP_KERNEL);
 		if (pc == NULL) {
 			LOG_ERR("alloc packcmd(0x%llx/%d) for execute fail\n",
-				cmd->cmd_id, sc->idx);
+				sc->par_cmd->cmd_id, sc->idx);
 			/* TODO, error handling for cmd list added already */
 			return -ENOMEM;
 		}
@@ -203,23 +202,26 @@ static int insert_pack_cmd(struct apusys_subcmd *sc, struct pack_cmd **ipc)
 		/* find all packed subcmd id */
 		/* TODO, guarntee can find all packed cmd*/
 		/* now just query one round, user must set in order */
-		next_idx = sc->pack_idx;
-		list_for_each_safe(list_ptr, tmp, &cmd->pc_col.sc_list) {
+		next_idx = pack_idx;
+		list_for_each_safe(list_ptr, tmp,
+			&sc->par_cmd->pc_col.sc_list) {
 			tmp_sc = list_entry(list_ptr,
 				struct apusys_subcmd, pc_list);
 			LOG_DEBUG("find pack idx(%d/%d)\n",
 				next_idx, tmp_sc->idx);
 			if (tmp_sc->idx == next_idx) {
-				next_idx = tmp_sc->pack_idx;
+				next_idx = get_pack_idx(tmp_sc);
 				list_del(&tmp_sc->pc_list);
 				list_add_tail(&tmp_sc->pc_list, &pc->sc_list);
+				tmp_sc->state = CMD_STATE_RUN;
 				pc->sc_num++;
 			}
 		}
 
-		if (tmp_sc->idx != sc->pack_idx) {
-			LOG_WARN("pack idx error, (%d->%d)\n",
-				tmp_sc->idx, sc->pack_idx);
+		/* TODO: don't show fake error msg */
+		if (tmp_sc->idx != pack_idx) {
+			LOG_WARN("pack idx, (%d->%d)\n",
+				tmp_sc->idx, pack_idx);
 		}
 
 		/* return pack cmd after all packed sc ready */
@@ -227,10 +229,12 @@ static int insert_pack_cmd(struct apusys_subcmd *sc, struct pack_cmd **ipc)
 		ret = pc->sc_num;
 	}
 
-	LOG_DEBUG("after : pack bit check(%d/%d)(%d/%d)\n",
-		sc->idx, sc->pack_idx,
-		test_bit(sc->idx, cmd->pc_col.pack_status),
-		test_bit(sc->pack_idx, cmd->pc_col.pack_status));
+	LOG_DEBUG("0x%llx-#%d sc: after pack(%u)(%d/%d)\n",
+		sc->par_cmd->cmd_id,
+		sc->idx,
+		pack_idx,
+		test_bit(sc->idx, sc->par_cmd->pc_col.pack_status),
+		test_bit(pack_idx, sc->par_cmd->pc_col.pack_status));
 
 	return ret;
 }
@@ -239,7 +243,6 @@ static int exec_pack_cmd(void *iacq)
 {
 	struct apusys_dev_aquire *acq = NULL;
 	struct pack_cmd *pc = NULL;
-	struct apusys_cmd *cmd = NULL;
 	struct apusys_subcmd *sc = NULL;
 	struct apusys_dev_info *info = NULL;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
@@ -267,14 +270,13 @@ static int exec_pack_cmd(void *iacq)
 			sc = (struct apusys_subcmd *)list_first_entry
 				(&pc->sc_list, struct apusys_subcmd, pc_list);
 			list_del(&sc->pc_list);
-			cmd = (struct apusys_cmd *)sc->parent_cmd;
 			count++;
-			DEBUG_TAG;
-			info->cmd_id = cmd->cmd_id;
+			info->cmd_id = sc->par_cmd->cmd_id;
 			info->sc_idx = sc->idx;
+			sc->state = CMD_STATE_RUN;
 			if (thread_pool_trigger(sc, info->dev)) {
 				LOG_ERR("tp cmd(0x%llx/%d)dev(%d/%d) fail\n",
-					cmd->cmd_id, sc->idx,
+					sc->par_cmd->cmd_id, sc->idx,
 					info->dev->dev_type, info->dev->idx);
 			}
 		}
@@ -291,14 +293,33 @@ static int exec_pack_cmd(void *iacq)
 	return 0;
 }
 
+static int clear_pack_cmd(struct apusys_cmd *cmd)
+{
+	//struct list_head *tmp = NULL, *list_ptr = NULL;
+	//struct pack_cmd *pc = NULL;
+
+	if (cmd == NULL)
+		return -EINVAL;
+
+	LOG_INFO("0x%llx cmd clear pack list\n",
+		cmd->cmd_id);
+
+	//list_del(&tmp_sc->pc_list);
+	//list_add_tail(&tmp_sc->pc_list, &pc->sc_list);
+
+	bitmap_clear(cmd->pc_col.pack_status, 0, cmd->hdr->num_sc);
+	INIT_LIST_HEAD(&cmd->pc_col.sc_list);
+
+	return 0;
+}
+
 static void subcmd_done(void *isc)
 {
 	struct apusys_subcmd *sc = NULL;
+	struct apusys_subcmd *scr = NULL;
 	struct apusys_cmd *cmd = NULL;
-	struct list_head *tmp = NULL, *list_ptr = NULL;
-	struct apusys_subcmd *sc_node = NULL;
-	int ret = 0, done_idx = 0, state = 0;
-	struct apusys_res_mgr *res_mgr = resource_get_mgr();
+	int ret = 0, done_idx = 0, state = 0, i = 0;
+	struct apusys_res_mgr *res_mgr = res_get_mgr();
 
 	sc = (struct apusys_subcmd *)isc;
 	if (sc == NULL) {
@@ -306,75 +327,74 @@ static void subcmd_done(void *isc)
 		return;
 	}
 
-	cmd = (struct apusys_cmd *)sc->parent_cmd;
+	cmd = sc->par_cmd;
 	if (cmd == NULL) {
-		LOG_ERR("invalid apusys cmd\n");
+		LOG_ERR("invalid cmd(%p)\n", cmd);
 		return;
 	}
-	DEBUG_TAG;
 
 	mutex_lock(&cmd->mtx);
 
-	if (free_ctx(sc, cmd))
-		LOG_ERR("free memory ctx id fail\n");
-	DEBUG_TAG;
-
 	/* check sc state and delete */
 	mutex_lock(&sc->mtx);
+	if (free_ctx(sc, cmd))
+		LOG_ERR("free memory ctx id fail\n");
 	done_idx = sc->idx;
 	sc->state = CMD_STATE_DONE;
-	kfree(sc->dp_status);
 	mutex_unlock(&sc->mtx);
 
-	DEBUG_TAG;
+	mutex_lock(&cmd->sc_mtx);
+	/* should insert subcmd which dependency satisfied */
+	for (i = 0; i < sc->scr_num; i++) {
+		/* decreate pdr count of sc */
+		decrease_pdr_cnt(cmd, sc->scr_list[i]);
+
+		if (check_sc_ready(cmd, sc->scr_list[i]) != 0)
+			continue;
+
+		scr = cmd->sc_list[sc->scr_list[i]];
+		if (scr != NULL) {
+			LOG_DEBUG("0x%llx-#%d sc: dp satified, ins q(%d-#%d)\n",
+				cmd->cmd_id,
+				scr->idx,
+				scr->type,
+				cmd->hdr->priority);
+
+			mutex_lock(&res_mgr->mtx);
+			mutex_lock(&scr->mtx);
+			ret = insert_subcmd(scr, cmd->hdr->priority);
+			if (ret) {
+				LOG_ERR("ins 0x%llx-#%d sc to q(%d-#%d) fail\n",
+					cmd->cmd_id,
+					scr->idx,
+					scr->type,
+					cmd->hdr->priority);
+			}
+			mutex_unlock(&scr->mtx);
+			mutex_unlock(&res_mgr->mtx);
+		}
+	}
+
 	if (apusys_subcmd_delete(sc)) {
 		LOG_ERR("delete sc(0x%llx/%d) fail\n",
-			cmd->cmd_id, sc->idx);
-	}
-	DEBUG_TAG;
-
-	mutex_lock(&cmd->sc_mtx);
-
-	/* should insert subcmd which dependency satisfied */
-	list_for_each_safe(list_ptr, tmp, &cmd->sc_list) {
-		sc_node = list_entry(list_ptr, struct apusys_subcmd, ce_list);
-		LOG_DEBUG("check dependency satified(0x%lx/%d)\n",
-			(unsigned long)*sc_node->dp_status, done_idx);
-		mutex_lock(&res_mgr->mtx);
-		mutex_lock(&sc_node->mtx);
-		bitmap_clear(sc_node->dp_status, done_idx, 1);
-
-		if (bitmap_empty(sc_node->dp_status, cmd->sc_num)) {
-			LOG_DEBUG("sc(%d/%p) dp satified, insert to queue(%d)n",
-				sc_node->idx, sc_node, cmd->priority);
-			list_del(&sc_node->ce_list);
-			ret = insert_subcmd(sc_node, cmd->priority);
-			if (ret) {
-				LOG_ERR("insert sc(%p/%p) to q(%d/%d) fail\n",
-					sc_node->entry, sc_node,
-					sc_node->type, cmd->priority);
-			}
-		}
-		mutex_unlock(&sc_node->mtx);
-		mutex_unlock(&res_mgr->mtx);
+			cmd->cmd_id,
+			sc->idx);
 	}
 	mutex_unlock(&cmd->sc_mtx);
 
 	/* clear subcmd bit in cmd entry's status */
-	bitmap_clear(cmd->sc_status, done_idx, 1);
-	if (bitmap_empty(cmd->sc_status, cmd->sc_num)) {
-		cmd->state = CMD_STATE_DONE;
+	if (check_cmd_done(cmd) == 0)
 		state = cmd->state;
-	}
 
 	/* if whole apusys cmd done, wakeup user context thread */
 	if (state == CMD_STATE_DONE) {
-		LOG_DEBUG("apusys cmd(%p/0x%llx) done\n", cmd, cmd->cmd_id);
+		LOG_DEBUG("apusys cmd(0x%llx) done\n",
+			cmd->cmd_id);
+		LOG_DEBUG("wakeup user context thread\n");
 		complete(&cmd->comp);
 	}
 
 	mutex_unlock(&cmd->mtx);
-	DEBUG_TAG;
 }
 
 static int exec_cmd_func(void *isc, void *idev)
@@ -383,7 +403,6 @@ static int exec_cmd_func(void *isc, void *idev)
 	struct apusys_device *dev = (struct apusys_device *)idev;
 	struct apusys_cmd_hnd cmd_hnd;
 	struct apusys_subcmd *sc = (struct apusys_subcmd *)isc;
-	struct apusys_cmd *cmd = NULL;
 	int i = 0, ret = 0;
 
 	if (isc == NULL || idev == NULL) {
@@ -391,18 +410,16 @@ static int exec_cmd_func(void *isc, void *idev)
 		goto out;
 	}
 
-	LOG_DEBUG("execute routine sc(%p/%p)\n", sc, sc->entry);
-	cmd = (struct apusys_cmd *)sc->parent_cmd;
 	memset(&cmd_hnd, 0, sizeof(cmd_hnd));
 
 	/* get subcmd information */
 	cmd_hnd.kva = (uint64_t)sc->codebuf;
-	cmd_hnd.size = sc->codebuf_size;
+	cmd_hnd.size = sc->c_hdr->cb_info_size;
 	cmd_hnd.boost_val = sc->boost_val;
-	cmd_hnd.cmd_id = cmd->cmd_id;
+	cmd_hnd.cmd_id = sc->par_cmd->cmd_id;
 	cmd_hnd.subcmd_idx = sc->idx;
-	cmd_hnd.priority = cmd->priority;
-	cmd_hnd.cmd_entry = (uint64_t)cmd->entry;
+	cmd_hnd.priority = sc->par_cmd->hdr->priority;
+	cmd_hnd.cmd_entry = (uint64_t)sc->par_cmd->hdr;
 	if (cmd_hnd.kva == 0 || cmd_hnd.size == 0) {
 		LOG_ERR("invalid sc(%d)(0x%llx/%d)\n",
 			i, cmd_hnd.kva, cmd_hnd.size);
@@ -412,82 +429,89 @@ static int exec_cmd_func(void *isc, void *idev)
 
 	/* fill specific subcmd info */
 	if (sc->type == APUSYS_DEVICE_MDLA) {
-		if (parse_mdla_sg((struct apusys_cmd *)sc->parent_cmd,
-			(void *)sc, &cmd_hnd))
+		if (parse_mdla_sg(sc, &cmd_hnd))
 			LOG_ERR("fill mdla specific info fail\n");
 	}
 
 	/* call execute */
-	 midware_trace_begin("apusys_scheduler|dev: %d_%d, cmd_id: 0x%08llx",
-			     dev->dev_type, dev->idx, cmd->cmd_id);
+	midware_trace_begin("apusys_scheduler|dev: %d_%d, cmd_id: 0x%08llx",
+			dev->dev_type,
+			dev->idx,
+			sc->par_cmd->cmd_id);
 
-	LOG_DEBUG("execute cmd hnd (%d/0x%llx/%d) boost(%d)\n",
-		sc->type, cmd_hnd.kva,
-		cmd_hnd.size, cmd_hnd.boost_val);
+	LOG_DEBUG("0x%llx-#%d sc: exec hnd(%d/0x%llx/%d) boost(%d)\n",
+		sc->par_cmd->cmd_id,
+		sc->idx,
+		sc->type,
+		cmd_hnd.kva,
+		cmd_hnd.size,
+		cmd_hnd.boost_val);
 
 	/* 1. allocate memory ctx id*/
-	mutex_lock(&cmd->mtx);
-	if (alloc_ctx(sc, cmd))
+	mutex_lock(&sc->par_cmd->mtx);
+	if (alloc_ctx(sc, sc->par_cmd))
 		LOG_ERR("allocate memory ctx id(%d) fail\n", sc->ctx_id);
-	mutex_unlock(&cmd->mtx);
+	mutex_unlock(&sc->par_cmd->mtx);
 
 	mutex_lock(&sc->mtx);
-	sc->state = CMD_STATE_RUN;
 
 	/* 2. get driver time start */
-	LOG_INFO("exec cmd(0x%llx/0x%llx) sc(%d/%d) dev(%d/%d) boost(%u)\n",
-		cmd->cmd_uid, cmd->cmd_id,
+	LOG_INFO("exec 0x%llx/0x%llx-#%d(%d) sc: dev(%d/%d) boost(%u)\n",
+		sc->par_cmd->hdr->uid,
+		sc->par_cmd->cmd_id,
 		sc->idx, sc->type,
 		dev->dev_type, dev->idx,
 		cmd_hnd.boost_val);
 
-	sc->d_time = get_time_from_system();
+	get_time_from_system(&sc->duration);
 
 #ifdef APUSYS_OPTIONS_INF_MNOC
 	/* 3. start count cmd qos */
-	LOG_DEBUG("mnoc: cmd qos start(0x%llx/%d/%d/%d)\n",
-		cmd->cmd_id, sc->idx,
+	LOG_DEBUG("mnoc: cmd qos start 0x%llx-#%d dev(%d/%d)\n",
+		sc->par_cmd->cmd_id, sc->idx,
 		sc->type, dev->idx);
 
 	/* count qos start */
-	if (apu_cmd_qos_start(cmd->cmd_id, sc->idx, sc->type, dev->idx)) {
-		LOG_ERR("start qos for cmd(0x%llx/%d) fail\n",
-			cmd->cmd_id, sc->idx);
+	if (apu_cmd_qos_start(sc->par_cmd->cmd_id, sc->idx,
+		sc->type, dev->idx)) {
+		LOG_ERR("start qos for 0x%llx-#%d sc fail\n",
+			sc->par_cmd->cmd_id, sc->idx);
 	}
 #endif
 
 	/* 4. execute subcmd */
 	ret = dev->send_cmd(APUSYS_CMD_EXECUTE, (void *)&cmd_hnd, dev);
-
-	LOG_INFO("cmd(0x%llx/0x%llx) sc(%d/%d) dev(%d/%d) done\n",
-		cmd->cmd_uid, cmd->cmd_id,
-		sc->idx, sc->type,
-		dev->dev_type, dev->idx);
+	LOG_INFO("exec 0x%llx/0x%llx-#%d(%d) sc: dev(%d/%d) done\n",
+		sc->par_cmd->hdr->uid,
+		sc->par_cmd->cmd_id,
+		sc->idx,
+		sc->type,
+		dev->dev_type,
+		dev->idx);
 
 #ifdef APUSYS_OPTIONS_INF_MNOC
 	/* count qos end */
-	sc->bw = apu_cmd_qos_end(cmd->cmd_id, sc->idx);
-	LOG_DEBUG("mnoc: cmd qos end(0x%llx/%d/%d/%d), bw(%d)\n",
-		cmd->cmd_id, dev->idx, sc->type,
+	sc->bw = apu_cmd_qos_end(sc->par_cmd->cmd_id, sc->idx);
+	LOG_DEBUG("mnoc: cmd qos end 0x%llx-#%d dev(%d/%d) bw(%d)\n",
+		sc->par_cmd->cmd_id, dev->idx, sc->type,
 		dev->idx, sc->bw);
 #endif
 
-	sc->d_time = get_time_from_system() - sc->d_time;
+	get_time_from_system(&sc->duration);
 
 	if (ret) {
-		LOG_ERR("execute cmd(0x%llx/%d) on devfail[%d/%d/%p]\n",
-			cmd->cmd_id,
+		LOG_ERR("exec 0x%llx/0x%llx-%d sc on dev(%d-#%d) fail\n",
+			sc->par_cmd->hdr->uid,
+			sc->par_cmd->cmd_id,
 			sc->idx,
 			dev_type,
-			dev->idx,
-			dev);
-		cmd->cmd_ret = ret;
+			dev->idx);
+		sc->par_cmd->cmd_ret = ret;
 		mutex_unlock(&sc->mtx);
 		if (put_device_lock(dev)) {
-			LOG_ERR("return device(%d/%d/%p) fail\n",
+			LOG_ERR("return dev(%d-#%d) fail\n",
 				dev->dev_type,
-				dev->idx,
-				dev);
+				dev->idx);
 			ret = -EINVAL;
 			goto out;
 		}
@@ -499,19 +523,17 @@ static int exec_cmd_func(void *isc, void *idev)
 
 	/* 5. put back device */
 	if (put_device_lock(dev)) {
-		LOG_ERR("return device(%d/%d/%p) fail\n",
+		LOG_ERR("return dev(%d-#%d) fail\n",
 			dev->dev_type,
-			dev->idx,
-			dev);
+			dev->idx);
 		ret = -EINVAL;
 		goto out;
 	}
 
 out:
 	midware_trace_end("apusys_scheduler|dev: %d_%d, cmd_id: 0x%08llx, ret:%d",
-			  dev->dev_type, dev->idx, cmd->cmd_id, ret);
+			dev->dev_type, dev->idx, sc->par_cmd->cmd_id, ret);
 
-	LOG_DEBUG("wakeup user context thread\n");
 	subcmd_done(sc);
 
 	return ret;
@@ -527,7 +549,6 @@ int sche_routine(void *arg)
 	struct apusys_device *dev = NULL;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_dev_info *info = NULL;
-	struct apusys_cmd *cmd = NULL;
 	struct pack_cmd *pc = NULL;
 
 	res_mgr = (struct apusys_res_mgr *)arg;
@@ -537,7 +558,6 @@ int sche_routine(void *arg)
 		if (ret)
 			LOG_WARN("sched thread(%d)\n", ret);
 
-		DEBUG_TAG;
 		if (get_fo_from_list(APUSYS_FO_SCHED) == 0 ||
 			res_mgr->sched_pause != 0) {
 			LOG_DEBUG("sched pause(%d/%d)\n",
@@ -549,11 +569,10 @@ int sche_routine(void *arg)
 		memset(&available, 0, sizeof(available));
 		bitmap_and(available, res_mgr->cmd_exist,
 			res_mgr->dev_exist, APUSYS_DEV_TABLE_MAX);
-		/* if dev/cmd available or  */
+		/* if dev/cmd available or */
 		while (!bitmap_empty(available, APUSYS_DEV_TABLE_MAX)
-			|| acquire_device_check(&acq_async) == 0) {
+			|| acq_device_check(&acq_async) == 0) {
 
-			DEBUG_TAG;
 			mutex_lock(&res_mgr->mtx);
 
 			/* check any device acq ready for packcmd */
@@ -586,11 +605,8 @@ int sche_routine(void *arg)
 				goto sched_retrigger;
 			}
 
-			cmd = (struct apusys_cmd *)sc->parent_cmd;
-
-			LOG_DEBUG("pack_idx = 0x%x\n", sc->pack_idx);
 			/* if sc is packed, collect all packed cmd and send */
-			if (sc->pack_idx != VALUE_SUBGAPH_PACK_ID_NONE) {
+			if (get_pack_idx(sc) != VALUE_SUBGRAPH_PACK_ID_NONE) {
 				if (insert_pack_cmd(sc, &pc) <= 0)
 					goto sched_retrigger;
 
@@ -602,7 +618,7 @@ int sche_routine(void *arg)
 				pc->acq.dev_type = pc->dev_type;
 				pc->acq.user = (void *)pc;
 				pc->acq.is_done = 0;
-				ret = acquire_device_async(&pc->acq);
+				ret = acq_device_async(&pc->acq);
 				if (ret < 0) {
 					LOG_ERR("acq dev(%d/%d) fail\n",
 						pc->acq.dev_type,
@@ -617,7 +633,6 @@ int sche_routine(void *arg)
 				goto sched_retrigger;
 			}
 
-			DEBUG_TAG;
 			/* get device */
 			dev_num = 1;
 			memset(&acq, 0, sizeof(acq));
@@ -626,29 +641,32 @@ int sche_routine(void *arg)
 			acq.owner = APUSYS_DEV_OWNER_SCHEDULER;
 			INIT_LIST_HEAD(&acq.dev_info_list);
 			INIT_LIST_HEAD(&acq.tab_list);
-			ret = acquire_device_try(&acq);
+			ret = acq_device_try(&acq);
 			if (ret < 0 || acq.acq_num <= 0) {
-				LOG_ERR("no dev(%d) available\n", type);
+				LOG_WARN("no dev(%d) available\n", type);
 				mutex_lock(&sc->mtx);
 				/* can't get device, insert sc back */
-				if (insert_subcmd(sc, cmd->priority)) {
-					LOG_ERR("re sc(%p) devq(%d/%d) fail\n",
-						sc,
+				if (insert_subcmd(sc,
+					sc->par_cmd->hdr->priority)) {
+					LOG_ERR("re 0x%llx-#%d sc q(%d-#%d)\n",
+						sc->par_cmd->cmd_id,
+						sc->idx,
 						type,
-						cmd->priority);
+						sc->par_cmd->hdr->priority);
 				}
 				mutex_unlock(&sc->mtx);
 				goto sched_retrigger;
 			}
 
-			DEBUG_TAG;
-
 			list_for_each_safe(list_ptr, tmp, &acq.dev_info_list) {
 				info = list_entry(list_ptr,
 					struct apusys_dev_info, acq_list);
 				dev = info->dev;
-				info->cmd_id = cmd->cmd_id;
+				info->cmd_id = sc->par_cmd->cmd_id;
 				info->sc_idx = sc->idx;
+				mutex_lock(&sc->mtx);
+				sc->state = CMD_STATE_RUN;
+				mutex_unlock(&sc->mtx);
 				ret = thread_pool_trigger(sc, dev);
 				if (ret)
 					LOG_ERR("trigger thread pool fail\n");
@@ -670,8 +688,7 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 {
 	int ret = 0, state = -1, i = 0;
 	struct apusys_subcmd *sc = NULL;
-	struct list_head *tmp = NULL, *list_ptr = NULL;
-	struct apusys_res_mgr *res_mgr = resource_get_mgr();
+	struct apusys_res_mgr *res_mgr = res_get_mgr();
 
 	if (cmd == NULL)
 		return -EINVAL;
@@ -694,36 +711,37 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 		/* delete all subcmd in cmd */
 		mutex_lock(&cmd->mtx);
 		mutex_lock(&cmd->sc_mtx);
-		list_for_each_safe(list_ptr, tmp, &cmd->sc_list) {
-			sc = list_entry(list_ptr,
-				struct apusys_subcmd, ce_list);
+		if (clear_pack_cmd(cmd))
+			LOG_WARN("clear pack cmd list fail\n");
+
+		for (i = 0; i < cmd->hdr->num_sc; i++) {
+			sc = cmd->sc_list[i];
+			if (sc == NULL)
+				continue;
 
 			mutex_lock(&res_mgr->mtx);
 			mutex_lock(&sc->mtx);
 			if (sc->state < CMD_STATE_RUN) {
-				/* delete from cmd */
-				//list_del(&sc->ce_list);
-				bitmap_clear(cmd->sc_status, sc->idx, 1);
-
-				/* delete subcmd from priority q */
-				//if (delete_subcmd((void *)sc)) {
-				//	LOG_ERR("delete sc(0x%llx/%d) fail\n",
-				//		cmd->cmd_id, sc->idx);
-				//}
 				if (free_ctx(sc, cmd))
 					LOG_ERR("free memory ctx id fail\n");
 
-				//if (sc->dp_status) {
-				//	DEBUG_TAG;
-				//	kfree(sc->dp_status);
-				//	sc->dp_status = NULL;
-				//}
+				if (sc->state == CMD_STATE_READY) {
+					/* delete subcmd from q */
+					if (delete_subcmd(sc)) {
+						LOG_ERR(
+						"delete 0x%llx-#%d from q fail\n",
+						sc->par_cmd->cmd_id,
+						sc->idx);
+					} else {
+						sc->state = CMD_STATE_DONE;
+					}
+				}
 
 				mutex_unlock(&sc->mtx);
 				mutex_unlock(&res_mgr->mtx);
 
 				if (apusys_subcmd_delete(sc)) {
-					LOG_ERR("delete sc(0x%llx/%d) fail\n",
+					LOG_ERR("delete 0x%llx-#%d sc fail\n",
 						cmd->cmd_id, sc->idx);
 				}
 			} else {
@@ -735,25 +753,23 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 		mutex_unlock(&cmd->mtx);
 
 		for (i = 0; i < 30; i++) {
-			if (bitmap_empty(cmd->sc_status, cmd->sc_num)) {
+			if (check_cmd_done(cmd) == 0) {
 				LOG_INFO("delete cmd safely\n");
 				break;
 			}
-			LOG_INFO("sleep 200ms to wait sc done\n");
+			LOG_WARN("sleep 200ms to wait sc done\n");
 			msleep(200);
 		}
 	}
-	DEBUG_TAG;
 
 	return ret;
 }
 
 int apusys_sched_add_list(struct apusys_cmd *cmd)
 {
-	int ret = 0, i = 0, type = 0, j = 0;
-	void *sc_entry = NULL;
+	int ret = 0, i = 0;
 	struct apusys_subcmd *sc = NULL;
-	uint32_t *dp_ptr = NULL;
+	uint32_t dp_ofs = 0;
 	uint32_t dp_num = 0;
 
 	if (cmd == NULL) {
@@ -761,67 +777,29 @@ int apusys_sched_add_list(struct apusys_cmd *cmd)
 		goto out;
 	}
 
-	dp_ptr = (uint32_t *)cmd->dp_entry;
-
 	/* 1. add all independent subcmd to corresponding queue */
-	while (i < cmd->sc_num) {
-		dp_num = *dp_ptr;
-
-		LOG_DEBUG("0x%llx-#%d sc (%p/%d)\n",
-			cmd->cmd_id, i, dp_ptr, dp_num);
-		/* get subcmd */
-		sc_entry = (void *)get_subcmd_by_idx(cmd, i);
-		if (sc_entry == 0) {
-			LOG_ERR("get #%d subcmd from cmd(0x%llx) fail\n",
-				i, cmd->cmd_id);
-			ret = -EINVAL;
-			break;
-		}
-
-		/* get type */
-		type = (int)get_type_from_subcmd(sc_entry);
+	while (i < cmd->hdr->num_sc) {
+		dp_num = *(uint32_t *)(cmd->dp_entry + dp_ofs);
 
 		/* allocate subcmd struct */
-		if (apusys_subcmd_create(sc_entry, cmd, &sc)) {
+		if (apusys_subcmd_create(i, cmd, &sc, dp_ofs)) {
 			LOG_ERR("create sc for cmd(%d/%p) fail\n", i, cmd);
 			ret = -EINVAL;
 			break;
 		}
-		sc->idx = i;
-		LOG_DEBUG("0x%llx-#%d sc(%p)dp(%p/%d)set(%u/%u/%u/%u/%d)\n",
-			cmd->cmd_id,
-			sc->idx,
-			sc,
-			dp_ptr,
-			dp_num,
-			sc->boost_val,
-			sc->suggest_time,
-			sc->bw,
-			sc->tcm_force,
-			sc->state);
-
-		/* setup subcmd's dependency */
-		for (j = 0; j < dp_num; j++) {
-			dp_ptr += 1;
-			LOG_DEBUG("mark sc(%d) dp(%d) entry(%p)\n",
-				i, *dp_ptr, sc_entry);
-			bitmap_set(sc->dp_status, *dp_ptr, 1);
-		}
 
 		mutex_lock(&cmd->sc_mtx);
 
-		bitmap_and(sc->dp_status, sc->dp_status,
-			cmd->sc_status, cmd->sc_num);
-
 		/* add sc to cmd's sc_list*/
-		list_add_tail(&sc->ce_list, &cmd->sc_list);
-
-		if (bitmap_empty(sc->dp_status, cmd->sc_num)) {
-			/* insert to type priority queue */
-			ret = insert_subcmd_lock(sc, cmd->priority);
+		if (check_sc_ready(cmd, i) == 0) {
+			ret = insert_subcmd_lock(sc, cmd->hdr->priority);
 			if (ret) {
-				LOG_ERR("insert sc(%p/%p) to q(%d/%d) fail\n",
-					sc->entry, sc, type, cmd->priority);
+				LOG_ERR("ins 0x%llx-#%d sc(%p) q(%d-#%d)\n",
+					cmd->cmd_id,
+					sc->idx,
+					sc,
+					sc->type,
+					cmd->hdr->priority);
 				mutex_unlock(&cmd->sc_mtx);
 				goto out;
 			}
@@ -829,11 +807,10 @@ int apusys_sched_add_list(struct apusys_cmd *cmd)
 
 		mutex_unlock(&cmd->sc_mtx);
 
-		dp_ptr += 1;
+		dp_ofs += (SIZE_CMD_PREDECCESSOR_CMNT_ELEMENT *
+			(dp_num + 1));
 		i++;
 	}
-
-	DEBUG_TAG;
 
 out:
 	return ret;
@@ -861,7 +838,7 @@ int apusys_sched_init(void)
 	}
 
 	sche_task = kthread_run(sche_routine,
-		(void *)resource_get_mgr(), "apusys_sched");
+		(void *)res_get_mgr(), "apusys_sched");
 	if (sche_task == NULL) {
 		LOG_ERR("create kthread(sched) fail\n");
 		return -ENOMEM;
@@ -874,13 +851,13 @@ int apusys_sched_init(void)
 int apusys_sched_destroy(void)
 {
 	int ret = 0;
+	LOG_INFO("%s +\n", __func__);
 
 	/* destroy thread pool */
 	ret = thread_pool_destroy();
 	if (ret)
 		LOG_ERR("destroy thread pool fail(%d)\n", ret);
 
-	LOG_INFO("%s +\n", __func__);
 	LOG_INFO("%s done -\n", __func__);
 	return 0;
 }
