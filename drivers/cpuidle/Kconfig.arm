@@ -82,3 +82,9 @@ config ARM_MTK_CPUIDLE
 	select CPU_IDLE_MULTIPLE_DRIVERS
 	help
 	  Select this to enable cpuidle for Mediatek processors
+
+config ARM_MTK_81XX_CPUIDLE
+	bool "CPU Idle drivers for Mediatek MT81xx series"
+	select CPU_IDLE_MULTIPLE_DRIVERS
+	help
+	Select this to enable cpuidle for Mediatek MT81xx series
