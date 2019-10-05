@@ -68,11 +68,11 @@ int hie_debug_ino(unsigned long ino)
 #endif
 }
 
-int hie_is_ready(void)
+bool hie_is_capable(const struct super_block *sb)
 {
-	return (!IS_ERR_OR_NULL(hie_default_dev));
+	return blk_queue_inline_crypt(bdev_get_queue(sb->s_bdev));
 }
-EXPORT_SYMBOL_GPL(hie_is_ready);
+EXPORT_SYMBOL_GPL(hie_is_capable);
 
 int hie_is_dummy(void)
 {
@@ -514,7 +514,7 @@ static int hie_req_key_act(struct hie_dev *dev, struct request *req,
 	int key_size = 0;
 	int ret;
 
-	if (!hie_is_ready())
+	if (!hie_is_capable(bio_bc_sb(bio)))
 		return -ENODEV;
 
 	if (!hie_request_crypted(req))

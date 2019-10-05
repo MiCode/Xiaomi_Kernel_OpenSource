@@ -458,12 +458,13 @@ void __exit fscrypt_essiv_cleanup(void)
 	crypto_free_shash(essiv_hash_tfm);
 }
 
-u8 fscrypt_data_crypt_mode(u8 mode)
+u8 fscrypt_data_crypt_mode(const struct inode *inode, u8 mode)
 {
 	if (mode == FS_ENCRYPTION_MODE_INVALID)
 		return FS_ENCRYPTION_MODE_INVALID;
 
-	return hie_is_ready() ? FS_ENCRYPTION_MODE_PRIVATE : mode;
+	return hie_is_capable(inode->i_sb) ?
+		FS_ENCRYPTION_MODE_PRIVATE : mode;
 }
 /*
  * Given the encryption mode and key (normally the derived key, but for
@@ -566,7 +567,7 @@ int fscrypt_get_encryption_info(struct inode *inode)
 
 	crypt_info->ci_flags = ctx.flags;
 	crypt_info->ci_data_mode =
-		fscrypt_data_crypt_mode(ctx.contents_encryption_mode);
+		fscrypt_data_crypt_mode(inode, ctx.contents_encryption_mode);
 	crypt_info->ci_filename_mode = ctx.filenames_encryption_mode;
 	memcpy(crypt_info->ci_master_key_descriptor, ctx.master_key_descriptor,
 	       FS_KEY_DESCRIPTOR_SIZE);

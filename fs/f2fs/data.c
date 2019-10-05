@@ -487,7 +487,7 @@ static int f2fs_crypt_bio_not_mergeable(struct bio *bio, struct page *nxt)
 	struct address_space *nxt_mapping;
 	struct page *p;
 
-	if (!hie_is_ready() || !bio || !nxt)
+	if (!bio || !nxt)
 		return 0;
 
 	p = bio_page(bio);
