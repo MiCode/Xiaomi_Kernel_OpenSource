@@ -2778,6 +2778,12 @@ page_owner=on";
 			"TOP_ULPOSC1_D8";
 	};
 
+	disp_pwm0@1100e000 {
+		compatible = "mediatek,disp_pwm0";
+		reg = <0 0x1100e000 0 0x1000>;
+		interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_LOW>;
+	};
+
 	disp_ovl0@14000000 {
 		compatible = "mediatek,disp_ovl0";
 		reg = <0 0x14000000 0 0x1000>;
