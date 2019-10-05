@@ -94,11 +94,11 @@ unsigned long create_tui_buff(int buff_size, unsigned int fdrv_type)
 	/* Call the smc_fast_call */
 	/* get_online_cpus(); */
 
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 	down(&(smc_lock));
 	invoke_fastcall();
 	down(&(boot_sema));
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 
 	/* put_online_cpus(); */
 
@@ -239,7 +239,7 @@ int send_tui_display_command(unsigned long type)
 	int retVal = 0;
 
 	down(&fdrv_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	down(&smc_lock);
 
@@ -258,7 +258,7 @@ int send_tui_display_command(unsigned long type)
 
 	if (retVal != 0) {
 		up(&smc_lock);
-		ut_pm_mutex_unlock(&pm_mutex);
+		unlock_system_sleep();
 		up(&fdrv_lock);
 		return retVal;
 	}
@@ -277,7 +277,7 @@ int send_tui_display_command(unsigned long type)
 			(unsigned long)tui_display_message_buff,
 			tui_display_message_buff + TUI_DISPLAY_BUFFER);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&fdrv_lock);
 
 	return fdrv_ent.retVal;
@@ -290,7 +290,7 @@ int send_tui_notice_command(unsigned long share_memory_size)
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	down(&smc_lock);
 
@@ -308,7 +308,7 @@ int send_tui_notice_command(unsigned long share_memory_size)
 	retVal = add_work_entry(FDRV_CALL, (unsigned long)(&fdrv_ent));
 	if (retVal != 0) {
 		up(&smc_lock);
-		ut_pm_mutex_unlock(&pm_mutex);
+		unlock_system_sleep();
 		up(&api_lock);
 		return retVal;
 	}
@@ -321,7 +321,7 @@ int send_tui_notice_command(unsigned long share_memory_size)
 	Invalidate_Dcache_By_Area((unsigned long)tui_notice_message_buff,
 				tui_notice_message_buff + TUI_NOTICE_BUFFER);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return fdrv_ent.retVal;
@@ -331,13 +331,13 @@ int send_power_down_cmd(void)
 {
 	int retVal = 0;
 
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	down(&smc_lock);
 	retVal = add_work_entry(POWER_DOWN_CALL, 0);
 	up(&smc_lock);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 
 	return retVal;
 }
