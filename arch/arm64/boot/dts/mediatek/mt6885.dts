@@ -3333,11 +3333,16 @@ page_owner=on";
 			"TOP_OSC_D16";
 	};
 
-	disp_pwm0@1100e000 {
+	disp_pwm: disp_pwm0@1100e000 {
 		compatible = "mediatek,disp_pwm0",
-					"mediatek,mt6885-disp-pwm";
+				"mediatek,mt6885-disp-pwm";
 		reg = <0 0x1100e000 0 0x1000>;
 		interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_LOW>;
+		#pwm-cells = <2>;
+		clocks = <&infracfg_ao INFRACFG_AO_DISP_PWM_CG>,
+			<&topckgen TOP_MUX_DISP_PWM>,
+			<&topckgen TOP_OSC_D4>;
+		clock-names = "main", "mm", "pwm_src";
 	};
 
 	disp_ovl0: disp_ovl@14000000 {
