@@ -107,6 +107,10 @@
 #define DISP_REG_OVL_SRCKEY(n) (0x0034 + 0x20 * (n))
 #define DISP_REG_OVL_SRC_SIZE(n) (0x0038 + 0x20 * (n))
 #define DISP_REG_OVL_OFFSET(n) (0x003c + 0x20 * (n))
+#define DISP_REG_OVL_PITCH_MSB(n) (0x0040 + 0x20 * (n))
+#define L_PITCH_MSB_FLD_YUV_TRANS REG_FLD_MSB_LSB(20, 20)
+#define L_PITCH_MSB_FLD_2ND_SUBBUF REG_FLD_MSB_LSB(16, 16)
+#define L_PITCH_MSB_FLD_SRC_PITCH_MSB REG_FLD_MSB_LSB(3, 0)
 #define DISP_REG_OVL_PITCH(n) (0x0044 + 0x20 * (n))
 #define DISP_REG_OVL_CLIP(n) (0x04CUL + 0x20 * (n))
 #define OVL_L_CLIP_FLD_LEFT REG_FLD_MSB_LSB(7, 0)
@@ -169,6 +173,7 @@
 #define DISP_REG_OVL_EL_SRC_SIZE(n) (0x338UL + 0x20 * (n))
 #define DISP_REG_OVL_EL_OFFSET(n) (0x33CUL + 0x20 * (n))
 #define DISP_REG_OVL_EL_ADDR(n) (0xFB0UL + 0x04 * (n))
+#define DISP_REG_OVL_EL_PITCH_MSB(n) (0x340U + 0x20 * (n))
 #define DISP_REG_OVL_EL_PITCH(n) (0x344U + 0x20 * (n))
 #define DISP_REG_OVL_EL_TILE(n) (0x348UL + 0x20 * (n))
 #define DISP_REG_OVL_EL_CLIP(n) (0x34CUL + 0x20 * (n))
@@ -251,6 +256,12 @@
 #define M4U_PORT_DISP_OVL0 3
 #define M4U_PORT_DISP_OVL0_2L_HDR ((1 << 5) + 0)
 #define M4U_PORT_DISP_OVL0_2L ((1 << 5) + 2)
+
+/* define for AFBC_V1_2 */
+#define AFBC_V1_2_TILE_W (32)
+#define AFBC_V1_2_TILE_H (8)
+#define AFBC_V1_2_HEADER_ALIGN_BYTES (1024)
+#define AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES (16)
 
 enum GS_OVL_FLD {
 	GS_OVL_RDMA_ULTRA_TH = 0,
@@ -980,6 +991,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned int addr = pending->addr;
 	unsigned int fmt = pending->format;
 	unsigned int pitch = pending->pitch & 0xffff;
+	unsigned int pitch_msb = ((pending->pitch >> 16) & 0xf);
 	unsigned int dst_h = pending->height;
 	unsigned int dst_w = pending->width;
 	unsigned int src_x = pending->src_x;
@@ -1027,30 +1039,36 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		unsigned int id = ext_lye_idx - 1;
 
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_EL_PITCH(id), pitch,
-			       ~0);
+			comp->regs_pa + DISP_REG_OVL_EL_PITCH_MSB(id),
+			pitch_msb, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_EL_ADDR(id), addr,
-			       ~0);
+			comp->regs_pa + DISP_REG_OVL_EL_PITCH(id),
+			pitch, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_EL_SRC_SIZE(id),
-			       src_size, ~0);
+			comp->regs_pa + DISP_REG_OVL_EL_ADDR(id), addr,
+			~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_EL_CLIP(id), clip,
-			       ~0);
+			comp->regs_pa + DISP_REG_OVL_EL_SRC_SIZE(id),
+			src_size, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_EL_CLIP(id), clip,
+			~0);
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_PITCH(lye_idx),
-			       pitch, ~0);
+			comp->regs_pa + DISP_REG_OVL_PITCH_MSB(lye_idx),
+			pitch_msb, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_ADDR(ovl, lye_idx),
-			       addr, ~0);
+			comp->regs_pa + DISP_REG_OVL_PITCH(lye_idx),
+			pitch, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_SRC_SIZE(lye_idx),
-			       src_size, ~0);
+			comp->regs_pa + DISP_REG_OVL_ADDR(ovl, lye_idx),
+			addr, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_CLIP(lye_idx), clip,
-			       ~0);
+			comp->regs_pa + DISP_REG_OVL_SRC_SIZE(lye_idx),
+			src_size, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_CLIP(lye_idx), clip,
+			~0);
 	}
 }
 
@@ -1368,6 +1386,219 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 			       comp->regs_pa +
 				       DISP_REG_OVL_LX_HDR_PITCH(lye_idx),
 			       lx_hdr_pitch, ~0);
+	}
+
+	return 0;
+}
+
+static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
+			unsigned int idx, struct mtk_plane_state *state,
+			struct cmdq_pkt *handle)
+{
+	/* input config */
+	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+	struct mtk_plane_pending_state *pending = &state->pending;
+	unsigned int addr = pending->addr;
+	unsigned int pitch = pending->pitch & 0xffff;
+	unsigned int vpitch = pending->prop_val[PLANE_PROP_VPITCH];
+	unsigned int src_x = pending->src_x, src_y = pending->src_y;
+	unsigned int src_w = pending->width, src_h = pending->height;
+	unsigned int fmt = pending->format;
+	unsigned int Bpp = drm_format_plane_cpp(fmt, 0);
+	unsigned int lye_idx = 0, ext_lye_idx = 0;
+	unsigned int compress = pending->prop_val[PLANE_PROP_COMPRESS];
+	int rotate = 0;
+
+	/* variable to do calculation */
+	unsigned int tile_w = AFBC_V1_2_TILE_W;
+	unsigned int tile_h = AFBC_V1_2_TILE_H;
+	unsigned int tile_body_size = tile_w * tile_h * Bpp;
+	unsigned int src_x_align, src_w_align;
+	unsigned int src_y_align, src_y_half_align;
+	unsigned int src_y_end_align, src_y_end_half_align;
+	unsigned int src_h_align, src_h_half_align = 0;
+	unsigned int header_offset, tile_offset;
+	unsigned int buf_addr;
+
+
+	/* variable to config into register */
+	unsigned int lx_fbdc_en;
+	unsigned int lx_addr, lx_pitch;
+	unsigned int lx_hdr_addr, lx_hdr_pitch;
+	unsigned int lx_clip, lx_src_size;
+	unsigned int lx_2nd_subbuf = 0;
+	unsigned int lx_pitch_msb = 0;
+
+#ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
+	if (drm_crtc_index(&comp->mtk_crtc->base) == 0)
+		rotate = 1;
+#endif
+
+	if (state->comp_state.comp_id) {
+		lye_idx = state->comp_state.lye_id;
+		ext_lye_idx = state->comp_state.ext_lye_id;
+	} else
+		lye_idx = idx;
+
+	/* 1. cal & set OVL_LX_FBDC_EN */
+	lx_fbdc_en = (compress != 0);
+	if (ext_lye_idx != LYE_NORMAL)
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_DATAPATH_EXT_CON,
+			lx_fbdc_en << (ext_lye_idx + 3),
+			BIT(ext_lye_idx + 3));
+	else
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
+			lx_fbdc_en << (lye_idx + 4), BIT(lye_idx + 4));
+
+	/* if no compress, do common config and return */
+	if (compress == 0) {
+		_ovl_common_config(comp, idx, state, handle);
+		return 0;
+	}
+
+	/* 2. pre-calculation */
+	header_offset = ALIGN_TO(pitch / Bpp, tile_w) *
+	    ALIGN_TO(vpitch, tile_h);
+	header_offset /= (tile_w * tile_h);
+	header_offset = ALIGN_TO(
+		header_offset * AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES,
+		AFBC_V1_2_HEADER_ALIGN_BYTES);
+	buf_addr = addr + header_offset;
+
+	/* calculate for alignment */
+	src_x_align = (src_x / tile_w) * tile_w;
+	src_w_align = (1 + (src_x + src_w - 1) / tile_w) * tile_w - src_x_align;
+
+	/* src_y_half_align, src_y_end_half_align,
+	 * the start y offset and  stop y offset if half tile align
+	 * such as 0 and 3, then the src_h_align is 4
+	 */
+	src_y_align = (src_y / tile_h) * tile_h;
+	src_y_end_align = (1 + (src_y + src_h - 1) / tile_h) * tile_h - 1;
+	src_h_align = src_y_end_align - src_y_align + 1;
+
+	src_y_half_align = (src_y / (tile_h >> 1)) * (tile_h >> 1);
+	src_y_end_half_align =
+		(1 + (src_y + src_h - 1) / (tile_h >> 1)) * (tile_h >> 1) - 1;
+	src_h_half_align = src_y_end_half_align - src_y_half_align + 1;
+
+	if (rotate)
+		tile_offset = (src_x_align + src_w_align - tile_w) / tile_w +
+			(pitch / tile_w / Bpp) *
+			(src_y_align + src_h_align - tile_h) /
+			tile_h;
+		if (src_y_end_align == src_y_end_half_align)
+			lx_2nd_subbuf = 1;
+	else {
+		tile_offset = src_x_align / tile_w +
+			(pitch / tile_w / Bpp) * src_y_align / tile_h;
+		if (src_y_align != src_y_half_align)
+			lx_2nd_subbuf = 1;
+	}
+
+	/* 3. cal OVL_LX_ADDR * OVL_LX_PITCH */
+	lx_addr = buf_addr + tile_offset * tile_body_size;
+	lx_pitch = ((pitch * tile_h) & 0xFFFF);
+	lx_pitch_msb = (REG_FLD_VAL((L_PITCH_MSB_FLD_YUV_TRANS), (1)) |
+		REG_FLD_VAL((L_PITCH_MSB_FLD_2ND_SUBBUF), (lx_2nd_subbuf)) |
+		REG_FLD_VAL((L_PITCH_MSB_FLD_SRC_PITCH_MSB),
+		((pitch * tile_h) >> 16) & 0xF));
+
+	/* 4. cal OVL_LX_HDR_ADDR, OVL_LX_HDR_PITCH */
+	lx_hdr_addr = addr + tile_offset *
+	    AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES;
+	lx_hdr_pitch = pitch / tile_w / Bpp *
+	    AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES;
+
+	/* 5. calculate OVL_LX_SRC_SIZE */
+	lx_src_size = (src_h_align << 16) | src_w_align;
+
+	/* 6. calculate OVL_LX_CLIP */
+	lx_clip = 0;
+	if (rotate) {
+		if (src_x > src_x_align)
+			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_RIGHT,
+				src_x - src_x_align);
+		if (src_x + src_w < src_x_align + src_w_align)
+			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_LEFT,
+				src_x_align + src_w_align - src_x - src_w);
+		if (src_y > src_y_half_align)
+			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_BOTTOM,
+				src_y - src_y_half_align);
+		if (src_y + src_h < src_y_half_align + src_h_half_align)
+			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_TOP,
+				src_y_half_align + src_h_half_align -
+				src_y - src_h);
+	} else {
+		if (src_x > src_x_align)
+			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_LEFT,
+				src_x - src_x_align);
+		if (src_x + src_w < src_x_align + src_w_align)
+			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_RIGHT,
+				src_x_align + src_w_align - src_x - src_w);
+		if (src_y > src_y_half_align)
+			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_TOP,
+				src_y - src_y_half_align);
+		if (src_y + src_h < src_y_half_align + src_h_half_align)
+			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_BOTTOM,
+				src_y_half_align + src_h_half_align -
+				src_y - src_h);
+	}
+
+	/* 7. config register */
+	if (ext_lye_idx != LYE_NORMAL) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa +
+			DISP_REG_OVL_EL_ADDR(ext_lye_idx-1),
+			lx_addr, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa +
+			DISP_REG_OVL_EL_PITCH_MSB(ext_lye_idx-1),
+			lx_pitch_msb, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa +
+			DISP_REG_OVL_EL_PITCH(ext_lye_idx-1),
+			lx_pitch, 0xffff);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa +
+			DISP_REG_OVL_EL_SRC_SIZE(ext_lye_idx-1),
+			lx_src_size, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa +
+			DISP_REG_OVL_EL_CLIP(ext_lye_idx-1),
+			lx_clip, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa +
+			DISP_REG_OVL_ELX_HDR_ADDR(ext_lye_idx-1),
+			lx_hdr_addr, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa +
+			DISP_REG_OVL_ELX_HDR_PITCH(ext_lye_idx-1),
+			lx_hdr_pitch, ~0);
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_ADDR(ovl, lye_idx),
+			lx_addr, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_PITCH_MSB(lye_idx),
+			lx_pitch_msb, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_PITCH(lye_idx),
+			lx_pitch, 0xffff);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_SRC_SIZE(lye_idx),
+			lx_src_size, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_CLIP(lye_idx),
+			lx_clip, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_LX_HDR_ADDR(lye_idx),
+			lx_hdr_addr, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_LX_HDR_PITCH(lye_idx),
+			lx_hdr_pitch, ~0);
 	}
 
 	return 0;
@@ -2340,6 +2571,15 @@ static const struct mtk_disp_ovl_data mt6779_ovl_driver_data = {
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6779,
+};
+
+static const struct compress_info compr_info_mt6885  = {
+	.name = "AFBC_V1_2_MTK_1",
+	.l_config = &compr_l_config_AFBC_V1_2,
+};
+
+static const struct mtk_disp_ovl_data mt6885_ovl_driver_data = {
+	.compr_info = &compr_info_mt6885,
 };
 
 static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
