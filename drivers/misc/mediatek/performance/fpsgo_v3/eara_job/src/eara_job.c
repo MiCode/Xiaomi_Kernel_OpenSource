@@ -33,6 +33,13 @@
 #include "fstb.h"
 #include "eara_job_usedext.h"
 #include "mtk_upower.h"
+
+#define API_READY 0
+#if !API_READY
+#undef CONFIG_MTK_VPU_SUPPORT
+#undef CONFIG_MTK_MDLA_SUPPORT
+#endif
+
 #if defined(CONFIG_MTK_VPU_SUPPORT)
 #include "vpu_dvfs.h"
 #endif

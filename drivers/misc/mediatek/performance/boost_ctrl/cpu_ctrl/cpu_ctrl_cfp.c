@@ -30,6 +30,7 @@
 #endif
 
 #define MAX_NR_FREQ 16
+#define API_READY 0
 
 /* Configurable */
 static int __cfp_enable;
@@ -444,6 +445,10 @@ int cpu_ctrl_cfp_init(struct proc_dir_entry *parent)
 		ret = -ENOMEM;
 		goto out_freq_tbl_alloc_err;
 	}
+
+#if !API_READY
+	return -ENOMEM;
+#endif
 
 	for_each_perfmgr_clusters(clu_idx) {
 		freq_tbl[clu_idx] = kcalloc(MAX_NR_FREQ,
