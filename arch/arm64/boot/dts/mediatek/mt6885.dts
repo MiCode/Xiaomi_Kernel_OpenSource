@@ -528,20 +528,18 @@
 			<GIC_SPI 452 IRQ_TYPE_LEVEL_LOW>,
 			<GIC_SPI 453 IRQ_TYPE_LEVEL_LOW>,
 			<GIC_SPI 454 IRQ_TYPE_LEVEL_LOW>;
-#ifndef CONFIG_FPGA_EARLY_PORTING
-		clocks = <&infracfg_ao INFRACFG_AO_FADSP_CG>,
-				<&topckgen TOP_MUX_ADSP>,
-				<&clk26m>,
-				<&topckgen TOP_MMPLL_D4>,
-				<&topckgen TOP_ADSPPLL_D4>,
-				<&topckgen TOP_ADSPPLL_D6>;
-		clock-names = "clk_adsp_infra",
-				"clk_top_adsp_sel",
-				"clk_adsp_clk26m",
-				"clk_top_mmpll_d4",
-				"clk_top_adsppll_d4",
-				"clk_top_adsppll_d6";
-#endif
+		/* clocks = <&infracfg_ao INFRACFG_AO_FADSP_CG>, */
+				/* <&topckgen TOP_MUX_ADSP>, */
+				/* <&clk26m>, */
+				/* <&topckgen TOP_MMPLL_D4>, */
+				/* <&topckgen TOP_ADSPPLL_D4>, */
+				/* <&topckgen TOP_ADSPPLL_D6>; */
+		/* clock-names = "clk_adsp_infra", */
+				/* "clk_top_adsp_sel", */
+				/* "clk_adsp_clk26m", */
+				/* "clk_top_mmpll_d4", */
+				/* "clk_top_adsppll_d4", */
+				/* "clk_top_adsppll_d6"; */
 	};
 
 	adsp_core0: adsp_core0@10820000 {
@@ -572,13 +570,6 @@
 		sysram = /bits/ 64 <0x56300000 0x700000>;  /* mem layout */
 #endif
 	};
-
-
-
-
-
-
-
 
 	sys_cirq@10204000 {
 		compatible = "mediatek,sys_cirq";
