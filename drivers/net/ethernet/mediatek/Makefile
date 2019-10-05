@@ -1,5 +1,5 @@
 #
-# Makefile for the Mediatek SoCs built-in ethernet macs
+# Makefile for the mediatek network device drivers.
 #
 
-obj-$(CONFIG_NET_MEDIATEK_SOC)			+= mtk_eth_soc.o
+obj-$(CONFIG_MEDIATEK_STAR) += star/
