@@ -1451,7 +1451,9 @@ static void gadget_stop(struct musb *musb)
 			DBG(0, "musb->gadget_driver->disconnect:%p\n",
 					musb->gadget_driver->disconnect);
 			/* align musb_g_disconnect */
+			#ifndef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
 			spin_unlock(&musb->lock);
+			#endif
 
 			musb->gadget_driver->disconnect(&musb->g);
 
