@@ -3934,42 +3934,46 @@ page_owner=on";
 		max_ostd_larb = <0 1>;
 		max_ostd = <40>;
 		comm_freq = "disp_freq", "mdp_freq";
-		disp_step0 = <546 1 0 9>;
-		disp_step1 = <416 1 0 10>;
-		disp_step2 = <312 1 0 11>;
-		disp_step3 = <249 1 0 12>;
-		mdp_step0 = <594 1 1 13>;
-		mdp_step1 = <416 1 1 10>;
-		mdp_step2 = <312 1 1 11>;
-		mdp_step3 = <273 1 1 14>;
-		cam_step0 = <624 1 2 15>;
-		cam_step1 = <499 1 2 16>;
-		cam_step2 = <392 1 2 17>;
-		cam_step3 = <312 1 2 11>;
-		img1_step0 = <624 1 3 15>;
-		img1_step1 = <416 1 3 10>;
-		img1_step2 = <343 1 3 18>;
-		img1_step3 = <273 1 3 14>;
-		img2_step0 = <624 1 4 15>;
-		img2_step1 = <416 1 4 10>;
-		img2_step2 = <343 1 4 18>;
-		img2_step3 = <273 1 4 14>;
-		venc_step0 = <624 1 5 15>;
-		venc_step1 = <416 1 5 10>;
-		venc_step2 = <312 1 5 11>;
-		venc_step3 = <273 1 5 14>;
-		vdec_step0 = <546 1 6 9>;
-		vdec_step1 = <416 1 6 10>;
-		vdec_step2 = <312 1 6 11>;
-		vdec_step3 = <249 1 6 12>;
-		dpe_step0 = <546 1 7 9>;
-		dpe_step1 = <458 1 7 19>;
-		dpe_step2 = <364 1 7 20>;
-		dpe_step3 = <312 1 7 11>;
-		ipe_step0 = <546 1 8 9>;
-		ipe_step1 = <416 1 8 10>;
-		ipe_step2 = <312 1 8 11>;
-		ipe_step3 = <273 1 8 14>;
+		disp_step0 = <546 1 0 10>;
+		disp_step1 = <416 1 0 11>;
+		disp_step2 = <312 1 0 12>;
+		disp_step3 = <249 1 0 13>;
+		mdp_step0 = <594 1 1 14>;
+		mdp_step1 = <416 1 1 11>;
+		mdp_step2 = <312 1 1 12>;
+		mdp_step3 = <273 1 1 15>;
+		cam_step0 = <624 1 2 16>;
+		cam_step1 = <499 1 2 17>;
+		cam_step2 = <392 1 2 18>;
+		cam_step3 = <312 1 2 12>;
+		img1_step0 = <624 1 3 16>;
+		img1_step1 = <416 1 3 11>;
+		img1_step2 = <343 1 3 19>;
+		img1_step3 = <273 1 3 15>;
+		img2_step0 = <624 1 4 16>;
+		img2_step1 = <416 1 4 11>;
+		img2_step2 = <343 1 4 19>;
+		img2_step3 = <273 1 4 15>;
+		venc_step0 = <624 1 5 16>;
+		venc_step1 = <416 1 5 11>;
+		venc_step2 = <312 1 5 12>;
+		venc_step3 = <273 1 5 15>;
+		vdec_step0 = <546 1 6 10>;
+		vdec_step1 = <416 1 6 11>;
+		vdec_step2 = <312 1 6 12>;
+		vdec_step3 = <249 1 6 13>;
+		dpe_step0 = <546 1 7 10>;
+		dpe_step1 = <458 1 7 20>;
+		dpe_step2 = <364 1 7 21>;
+		dpe_step3 = <312 1 7 12>;
+		ipe_step0 = <546 1 8 10>;
+		ipe_step1 = <416 1 8 11>;
+		ipe_step2 = <312 1 8 12>;
+		ipe_step3 = <273 1 8 15>;
+		ccu_step0 = <499 1 9 17>;
+		ccu_step1 = <392 1 9 18>;
+		ccu_step2 = <364 1 9 21>;
+		ccu_step3 = <312 1 9 12>;
 		/* fmeter_mux_ids: Mapping to mux sequence in clocks */
 		fmeter_mux_ids = <5 6 11 7 8 56 57 10 9>;
 		vopp_steps = <0 1 2 3>;
@@ -3991,6 +3995,8 @@ page_owner=on";
 				"dpe_step2", "dpe_step3";
 		ipe_freq = "ipe_step0", "ipe_step1",
 				"ipe_step2", "ipe_step3";
+		ccu_freq = "ccu_step0", "ccu_step1",
+				"ccu_step2", "ccu_step3";
 		clocks = <&topckgen TOP_MUX_DISP>,		/* 0 */
 			<&topckgen TOP_MUX_MDP>,		/* 1 */
 			<&topckgen TOP_MUX_CAM>,		/* 2 */
@@ -4000,18 +4006,19 @@ page_owner=on";
 			<&topckgen TOP_MUX_VDEC>,		/* 6 */
 			<&topckgen TOP_MUX_DPE>,		/* 7 */
 			<&topckgen TOP_MUX_IPE>,		/* 8 */
-			<&topckgen TOP_MAINPLL_D4>,		/* 9 */
-			<&topckgen TOP_UNIVPLL_D6>,		/* 10 */
-			<&topckgen TOP_UNIVPLL_D4_D2>,		/* 11 */
-			<&topckgen TOP_UNIVPLL_D5_D2>,		/* 12 */
-			<&topckgen TOP_TVDPLL_CK>,		/* 13 */
-			<&topckgen TOP_MAINPLL_D4_D2>,		/* 14 */
-			<&topckgen TOP_UNIVPLL_D4>,		/* 15 */
-			<&topckgen TOP_UNIVPLL_D5>,		/* 16 */
-			<&topckgen TOP_MMPLL_D7>,		/* 17 */
-			<&topckgen TOP_MMPLL_D4_D2>,		/* 18 */
-			<&topckgen TOP_MMPLL_D6>,		/* 19 */
-			<&topckgen TOP_MAINPLL_D6>;		/* 20 */
+			<&topckgen TOP_MUX_CCU>,		/* 9 */
+			<&topckgen TOP_MAINPLL_D4>,		/* 10 */
+			<&topckgen TOP_UNIVPLL_D6>,		/* 11 */
+			<&topckgen TOP_UNIVPLL_D4_D2>,		/* 12 */
+			<&topckgen TOP_UNIVPLL_D5_D2>,		/* 13 */
+			<&topckgen TOP_TVDPLL_CK>,		/* 14 */
+			<&topckgen TOP_MAINPLL_D4_D2>,		/* 15 */
+			<&topckgen TOP_UNIVPLL_D4>,		/* 16 */
+			<&topckgen TOP_UNIVPLL_D5>,		/* 17 */
+			<&topckgen TOP_MMPLL_D7>,		/* 18 */
+			<&topckgen TOP_MMPLL_D4_D2>,		/* 19 */
+			<&topckgen TOP_MMPLL_D6>,		/* 20 */
+			<&topckgen TOP_MAINPLL_D6>;		/* 21 */
 		clock-names = "TOP_MUX_DISP",	/* 0 */
 			"TOP_MUX_MDP",		/* 1 */
 			"TOP_MUX_CAM",		/* 2 */
@@ -4021,18 +4028,19 @@ page_owner=on";
 			"TOP_MUX_VDEC",		/* 6 */
 			"TOP_MUX_DPE",		/* 7 */
 			"TOP_MUX_IPE",		/* 8 */
-			"TOP_MAINPLL_D4",	/* 9 */
-			"TOP_UNIVPLL_D6",	/* 10 */
-			"TOP_UNIVPLL_D4_D2",	/* 11 */
-			"TOP_UNIVPLL_D5_D2",	/* 12 */
-			"TOP_TVDPLL_CK",	/* 13 */
-			"TOP_MAINPLL_D4_D2",	/* 14 */
-			"TOP_UNIVPLL_D4",	/* 15 */
-			"TOP_UNIVPLL_D5",	/* 16 */
-			"TOP_MMPLL_D7",		/* 17 */
-			"TOP_MMPLL_D4_D2",	/* 18 */
-			"TOP_MMPLL_D6",		/* 19 */
-			"TOP_MAINPLL_D6";	/* 20 */
+			"TOP_MUX_CCU",		/* 9 */
+			"TOP_MAINPLL_D4",	/* 10 */
+			"TOP_UNIVPLL_D6",	/* 11 */
+			"TOP_UNIVPLL_D4_D2",	/* 12 */
+			"TOP_UNIVPLL_D5_D2",	/* 13 */
+			"TOP_TVDPLL_CK",	/* 14 */
+			"TOP_MAINPLL_D4_D2",	/* 15 */
+			"TOP_UNIVPLL_D4",	/* 16 */
+			"TOP_UNIVPLL_D5",	/* 17 */
+			"TOP_MMPLL_D7",		/* 18 */
+			"TOP_MMPLL_D4_D2",	/* 19 */
+			"TOP_MMPLL_D6",		/* 20 */
+			"TOP_MAINPLL_D6";	/* 21 */
 	};
 
 

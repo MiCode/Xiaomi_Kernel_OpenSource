@@ -105,7 +105,7 @@ inline u32 mmdvfs_get_ccu_smi_common_port(u32 master_id)
 	if (master_id == get_virtual_port(VIRTUAL_CCU_COMMON2))
 		return 6;
 	else
-		return ((1 << 16) | (5));
+		return ((1 << 16) | (6));
 }
 
 s32 get_ccu_hrt_bw(struct mm_larb_request larb_req[])
