@@ -207,6 +207,17 @@ static int mtu3_prepare_tx_gpd(struct mtu3_ep *mep, struct mtu3_request *mreq)
 		mep->epnum, gpd, enq);
 
 	enq->flag &= ~GPD_FLAGS_HWO;
+
+	if (mep->mtu->is_36bit) {
+		u32 hiaddr;
+		/* next GPD high addr */
+		hiaddr = upper_32_bits(gpd_virt_to_dma(ring, enq));
+		gpd->data_buf_len |= QMU_GPD_NEXT_HI(hiaddr);
+		/* buffer high addr */
+		hiaddr = upper_32_bits(req->dma);
+		gpd->data_buf_len |= QMU_GPD_BUF_HI(hiaddr);
+	}
+
 	gpd->next_gpd = cpu_to_le32((u32)gpd_virt_to_dma(ring, enq));
 
 	if (req->zero)
@@ -240,6 +251,16 @@ static int mtu3_prepare_rx_gpd(struct mtu3_ep *mep, struct mtu3_request *mreq)
 		mep->epnum, gpd, enq);
 
 	enq->flag &= ~GPD_FLAGS_HWO;
+	if (mep->mtu->is_36bit) {
+		u32 hiaddr;
+		/* next GPD high addr */
+		hiaddr = upper_32_bits(gpd_virt_to_dma(ring, enq));
+		gpd->ext_len |= QMU_GPD_NEXT_HI(hiaddr);
+		/* buffer high addr */
+		hiaddr = upper_32_bits(req->dma);
+		gpd->ext_len |= QMU_GPD_BUF_HI(hiaddr);
+	}
+
 	gpd->next_gpd = cpu_to_le32((u32)gpd_virt_to_dma(ring, enq));
 	gpd->chksum = qmu_calc_checksum((u8 *)gpd);
 	gpd->flag |= GPD_FLAGS_HWO;

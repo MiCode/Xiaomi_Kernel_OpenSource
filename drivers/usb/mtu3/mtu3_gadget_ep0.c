@@ -72,8 +72,10 @@ __acquires(mtu->lock)
 {
 	int ret;
 
-	if (!mtu->gadget_driver)
+	if (!mtu->gadget_driver || !mtu->softconnect) {
+		pr_info("%s !softconnect\n", __func__);
 		return -EOPNOTSUPP;
+	}
 
 	spin_unlock(&mtu->lock);
 	ret = mtu->gadget_driver->setup(&mtu->g, setup);
@@ -333,6 +335,9 @@ static int ep0_handle_feature_dev(struct mtu3 *mtu,
 			mtu->g.state != USB_STATE_CONFIGURED)
 			break;
 
+		if (mtu->ssusb->u1u2_disable)
+			break;
+
 		lpc = mtu3_readl(mbase, U3D_LINK_POWER_CONTROL);
 		if (set)
 			lpc |= SW_U1_REQUEST_ENABLE;
@@ -346,6 +351,9 @@ static int ep0_handle_feature_dev(struct mtu3 *mtu,
 	case USB_DEVICE_U2_ENABLE:
 		if (mtu->g.speed != USB_SPEED_SUPER ||
 			mtu->g.state != USB_STATE_CONFIGURED)
+			break;
+
+		if (mtu->ssusb->u1u2_disable)
 			break;
 
 		lpc = mtu3_readl(mbase, U3D_LINK_POWER_CONTROL);
