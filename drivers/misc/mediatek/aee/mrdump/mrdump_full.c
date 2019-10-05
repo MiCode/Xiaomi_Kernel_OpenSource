@@ -159,6 +159,7 @@ static void mrdump_stop_noncore_cpu(void *unused)
 	void *creg;
 	int cpu = get_HW_cpuid();
 
+	atomic_dec(&waiting_for_crash_ipi);
 	if (cpu >= 0) {
 		mrdump_save_current_backtrace(&regs);
 
@@ -194,9 +195,11 @@ static void __mrdump_reboot_stop_all(struct mrdump_crash_record *crash_record)
 	if (atomic_read(&waiting_for_crash_ipi) > 0) {
 		if (aee_in_nested_panic())
 			aee_nested_printf(
-				"Non-crashing CPUs did not react to IPI\n");
+				"Non-crashing %d CPUs did not react to IPI\n",
+				atomic_read(&waiting_for_crash_ipi));
 		else
-			pr_notice("Non-crashing CPUs did not react to IPI\n");
+			pr_notice("Non-crashing %d CPUs did not react to IPI\n",
+				atomic_read(&waiting_for_crash_ipi));
 	}
 }
 
