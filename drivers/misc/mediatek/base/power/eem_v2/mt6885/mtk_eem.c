@@ -114,6 +114,12 @@ static unsigned long long eem_pTime_us, eem_cTime_us, eem_diff_us;
 struct regulator *eem_regulator_vproc1;
 struct regulator *eem_regulator_vproc2;
 
+#if EN_EEM_THERM_CLK
+#if !defined(CONFIG_MTK_CLKMGR)
+struct clk *eem_therm_main;		/* main clock for Thermal */
+#endif
+#endif
+
 static int create_procfs(void);
 static void eem_set_eem_volt(struct eem_det *det);
 static void eem_restore_eem_volt(struct eem_det *det);
@@ -158,12 +164,12 @@ static struct hrtimer eem_log_timer;
 static DEFINE_SPINLOCK(eem_spinlock);
 DEFINE_SPINLOCK(record_spinlock);
 
+#define WAIT_TIME	(2500000)
+#define FALL_NUM        (3)
+#if 0
 #define PI_MDES_BDES_MASK	(0xFFFF)
 #define PI_MTDES_MASK		(0xFF)
 #define PI_DVTFIXED_MASK	(0xF)
-#define WAIT_TIME	(2500000)
-#define FALL_NUM        (3)
-
 struct pi_efuse_index {
 	enum eem_det_id det_id;
 
@@ -188,7 +194,7 @@ struct pi_efuse_index {
 		};
 	};
 };
-
+#endif
 /******************************************
  * common variables for legacy ptp
  *******************************************
@@ -197,34 +203,23 @@ static int eem_log_en;
 static unsigned int eem_checkEfuse = 1;
 static unsigned int informEEMisReady;
 static int time_val = 1;
-static struct pi_efuse_index pi_efuse_idx[] = {
-	/* Without LOO enabled */
-	{EEM_DET_CCI, 3, 0, 4, 16, 0, 16, 0, 0, {0} },
-	{EEM_DET_L, 8, 0, 9, 16, 0, 16, 0, 0, {0} },
-	{EEM_DET_B, 2, 0, 1,  0, 0,  0, 0, 0, {0} },
-#if ENABLE_LOO_B
-	/* With LOO enabled */
-	{EEM_DET_B_HI,  6, 0,  7, 16, 0, 0, 1, 0, {0} },
-	{EEM_DET_B,  2, 0,  1, 0, 0, 0, 1, 0, {0} },
-#endif
-	{0},
-};
 
 /* Global variable for slow idle*/
 unsigned int ptp_data[3] = {0, 0, 0};
-#if ENABLE_GPU
-unsigned int gpu_opp0_t_volt[6] = {
-	105000, 105000, 102500, 100000, 97500, 95000
+static char *cpu_name[3] = {
+	"L",
+	"BIG",
+	"CCI"
 };
-#endif
+
 #ifdef CONFIG_OF
 void __iomem *eem_base;
 void __iomem *infra_base;
 static u32 eem_irq_number;
 #endif
 #define INFRA_AO_NODE		"mediatek,infracfg_ao"
-#define INFRA_EEM_RST		(infra_base + 0x150)
-#define INFRA_EEM_CLR		(infra_base + 0x154)
+#define INFRA_EEM_RST		(infra_base + 0x730)
+#define INFRA_EEM_CLR		(infra_base + 0x734)
 
 /*=============================================================
  * common functions for both ap and eem
@@ -327,7 +322,7 @@ static int get_devinfo(void)
 	val[17] = DEVINFO_17;
 #endif
 
-	for (i = 0; i <= NR_HW_RES_FOR_BANK; i++)
+	for (i = 0; i < NR_HW_RES_FOR_BANK; i++)
 		eem_debug("[CPU][EEM][PTP_DUMP] RES%d: 0x%X\n",
 			i, val[i]);
 
@@ -441,7 +436,7 @@ static int get_devinfo(void)
 
 
 	/* NR_HW_RES_FOR_BANK =  10 for 5 banks efuse */
-	for (i = 1; i < NR_HW_RES_FOR_BANK - 1; i++) {
+	for (i = 1; i < NR_HW_RES_FOR_BANK; i++) {
 		if ((i == 5) || (i == 6) ||
 			(i == 11) ||  (i == 12) ||  (i == 15))
 			continue;
@@ -915,12 +910,8 @@ void dump_register(void)
 void base_ops_set_phase(struct eem_det *det, enum eem_phase phase)
 {
 	unsigned int i, filter, val;
-	/* unsigned long flags; */
 
 	FUNC_ENTER(FUNC_LV_HELP);
-
-	/* mt_ptp_lock(&flags); */
-
 	det->ops->switch_bank(det, phase);
 
 	/* config EEM register */
@@ -1356,7 +1347,9 @@ static void eem_save_final_volt_aee(struct eem_det *ndet)
 static void get_volt_table_in_thread(struct eem_det *det)
 {
 #if ENABLE_LOO
+#if UPDATE_TO_UPOWER
 	unsigned int init2chk = 0;
+#endif
 	struct eem_det *highdet;
 #endif
 	struct eem_det *ndet = det;
@@ -2272,7 +2265,7 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 		eem_debug("[%s]: Unknown det_id %d\n", __func__, det_id);
 		break;
 	}
-
+#if 0
 #if DVT
 	det->VBOOT = 0x30;
 	det->VMAX = 0xFF;
@@ -2292,6 +2285,7 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 	det->DCMDET = SEC_DCMDET;
 	det->DCBDET = SEC_DCBDET;
 	det->MTDES	= SEC_MTDES;
+#endif
 #endif
 #endif
 #endif
@@ -3340,7 +3334,8 @@ void eem_init01(void)
 #endif
 			}
 			timeout = 0;
-
+//test by Angus
+#if 0
 			while (det->real_vboot != det->VBOOT) {
 				eem_debug
 			("@%s():%d, get_volt(%s) = 0x%08X, VBOOT = 0x%08X\n",
@@ -3360,7 +3355,7 @@ __func__, __LINE__, det->name, det->real_vboot, det->VBOOT);
 			("@@!%s():%d, get_volt(%s) = 0x%08X, VBOOT = 0x%08X\n",
 			__func__, __LINE__, det->name, det->real_vboot,
 			det->VBOOT);
-
+#endif
 			mt_ptp_lock(&flag); /* <-XXX */
 			det->ops->init01(det);
 			mt_ptp_unlock(&flag); /* <-XXX */
@@ -3567,6 +3562,20 @@ static void eem_dconfig_set_det(struct eem_det *det, struct device_node *node)
 
 }
 #endif
+
+#if EN_EEM_THERM_CLK
+int eem_thermal_clock_on(void)
+{
+	int ret = -1;
+
+	ret = clk_prepare_enable(eem_therm_main);
+	if (ret)
+		eem_error("Cannot enable thermal clock.\n");
+
+	return ret;
+}
+#endif
+
 static int eem_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -3618,22 +3627,34 @@ static int eem_probe(struct platform_device *pdev)
 	eem_irq_number = irq_of_parse_and_map(node, 0);
 	eem_debug("[THERM_CTRL] eem_irq_number=%d\n", eem_irq_number);
 	if (!eem_irq_number) {
-		eem_debug("[EEM] get irqnr failed=0x%x\n", eem_irq_number);
+		eem_error("[EEM] get irqnr failed=0x%x\n", eem_irq_number);
 		return 0;
 	}
 
 	/* infra_ao */
 	node_infra = of_find_compatible_node(NULL, NULL, INFRA_AO_NODE);
 	if (!node_infra) {
-		eem_debug("INFRA_AO_NODE Not Found\n")
+		eem_debug("INFRA_AO_NODE Not Found\n");
 		return 0;
 	}
 
 	infra_base = of_iomap(node_infra, 0);
 	if (!infra_base) {
-		eem_debug("infra_ao Map Failed\n")
+		eem_debug("infra_ao Map Failed\n");
 		return 0;
 	}
+#endif
+
+#if EN_EEM_THERM_CLK
+#if !defined(CONFIG_MTK_CLKMGR)
+	eem_therm_main = devm_clk_get(&pdev->dev, "therm-main");
+	if (IS_ERR(eem_therm_main)) {
+		eem_error("cannot get thermal clock.\n");
+		return 0;
+	}
+	eem_debug("eem_therm_main Ptr=%p", eem_therm_main);
+	eem_thermal_clock_on();
+#endif
 #endif
 
 	create_procfs();
@@ -3641,7 +3662,7 @@ static int eem_probe(struct platform_device *pdev)
 
 	/* set EEM IRQ */
 	ret = request_irq(eem_irq_number, eem_isr,
-			IRQF_TRIGGER_LOW, "eem", NULL);
+			IRQF_TRIGGER_HIGH, "eem", NULL);
 	if (ret) {
 		eem_error("EEM IRQ register failed (%d)\n", ret);
 		WARN_ON(1);
@@ -3749,8 +3770,8 @@ static int eem_resume(void)
 	if (ctrl_EEM_Enable) {
 		eem_error("Start EEM resume\n");
 		/* Reset EEM */
-		eem_write(INFRA_EEM_RST, (1 << 5));
-		eem_write(INFRA_EEM_CLR, (1 << 5));
+		eem_write(INFRA_EEM_RST, (1 << 9));
+		eem_write(INFRA_EEM_CLR, (1 << 9));
 		eem_init02(__func__);
 	}
 	return 0;
@@ -4122,9 +4143,8 @@ void eem_dump_reg_by_det(struct eem_det *det, struct seq_file *m)
 static int eem_dump_proc_show(struct seq_file *m, void *v)
 {
 	int *val = (int *)&eem_devinfo;
-	struct pi_efuse_index *p;
 	struct eem_det *det;
-	int i;
+	unsigned int i;
 
 	FUNC_ENTER(FUNC_LV_HELP);
 
@@ -4133,14 +4153,6 @@ static int eem_dump_proc_show(struct seq_file *m, void *v)
 		i++)
 		seq_printf(m, "M_HW_RES%d\t= 0x%08X\n", i, val[i]);
 
-	for (p = &pi_efuse_idx[0]; p->mdes_bdes_index != 0; p++) {
-		seq_printf(m, "ORIG_M_HW_RES%d\t= 0x%08X\n",
-			p->mdes_bdes_index, p->orig_mdes_bdes);
-
-		seq_printf(m, "ORIG_M_HW_RES%d\t= 0x%08X\n",
-			p->mtdes_index, p->orig_mtdes);
-	}
-
 	for_each_det(det) {
 		eem_dump_reg_by_det(det, m);
 	}
@@ -4148,6 +4160,99 @@ static int eem_dump_proc_show(struct seq_file *m, void *v)
 	FUNC_EXIT(FUNC_LV_HELP);
 	return 0;
 }
+
+static int eem_hrid_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int i;
+
+	FUNC_ENTER(FUNC_LV_HELP);
+	for (i = 0; i < 4; i++)
+		seq_printf(m, "%s[HRID][%d]: 0x%x\n", EEM_TAG, i,
+			get_devinfo_with_index(DEVINFO_HRID_0 + i));
+
+	FUNC_EXIT(FUNC_LV_HELP);
+	return 0;
+}
+
+static int eem_efuse_proc_show(struct seq_file *m, void *v)
+{
+	int *val = (int *)&eem_devinfo;
+	unsigned int i;
+
+	FUNC_ENTER(FUNC_LV_HELP);
+	for (i = 0; i < 24; i++)
+		seq_printf(m, "%s[PTP_DUMP] ORIG_RES%d: 0x%X\n", EEM_TAG, i,
+			get_devinfo_with_index(DEVINFO_IDX_0 + i));
+
+	/* Depend on EFUSE location */
+	for (i = 0; i < sizeof(struct eem_devinfo) / sizeof(unsigned int);
+		i++)
+		seq_printf(m, "%s[PTP_DUMP] RES%d: 0x%X\n", EEM_TAG, i, val[i]);
+
+	for (i = NR_HW_RES_FOR_BANK; i <= 24; i++)
+		seq_printf(m, "%s[PTP_DUMP] RES%d: 0x%X\n", EEM_TAG, i,
+			get_devinfo_with_index(DEVINFO_IDX_0 + i));
+
+	FUNC_EXIT(FUNC_LV_HELP);
+	return 0;
+}
+
+static int eem_freq_proc_show(struct seq_file *m, void *v)
+{
+	struct eem_det *det;
+	unsigned int i;
+	enum mt_cpu_dvfs_id cpudvfsindex;
+
+	FUNC_ENTER(FUNC_LV_HELP);
+	for_each_det(det) {
+		cpudvfsindex = detid_to_dvfsid(det);
+		for (i = 0; i < NR_FREQ_CPU; i++) {
+			if (det->ctrl_id <= EEM_CTRL_CCI) {
+				seq_printf(m,
+					"%s[DVFS][CPU_%s][OPP%d] volt:%d, freq:%d\n",
+					EEM_TAG, cpu_name[cpudvfsindex], i,
+					det->ops->pmic_2_volt(det,
+					det->volt_tbl_orig[i]) * 10,
+#if SET_PMIC_VOLT_TO_DVFS
+					mt_cpufreq_get_freq_by_idx(cpudvfsindex,
+									i)
+					/ 1000
+#else
+					0
+#endif
+					);
+			}
+		}
+	}
+
+	FUNC_EXIT(FUNC_LV_HELP);
+	return 0;
+}
+
+static int eem_mar_proc_show(struct seq_file *m, void *v)
+{
+	FUNC_ENTER(FUNC_LV_HELP);
+
+	seq_printf(m, "%s[CPU_BIG][HIGH] 1:%d, 2:%d, 3:%d, 5:%d\n",
+			EEM_TAG, LOW_TEMP_OFF_B, 0,
+			HIGH_TEMP_OFF_B, AGING_VAL_CPU_B);
+
+	seq_printf(m, "%s[CPU_BIG][MID] 1:%d, 2:%d, 3:%d, 5:%d\n",
+			EEM_TAG, LOW_TEMP_OFF_B, 0,
+			HIGH_TEMP_OFF_B, AGING_VAL_CPU_B);
+
+	seq_printf(m, "%s[CPU_L][HIGH] 1:%d, 2:%d, 3:%d, 5:%d\n",
+			EEM_TAG, LOW_TEMP_OFF_L, 0,
+			HIGH_TEMP_OFF_L, AGING_VAL_CPU);
+
+	seq_printf(m, "%s[CPU_CCI][HIGH] 1:%d, 2:%d, 3:%d, 5:%d\n",
+			EEM_TAG, LOW_TEMP_OFF_L, 0,
+			HIGH_TEMP_OFF_L, AGING_VAL_CPU);
+
+	FUNC_EXIT(FUNC_LV_HELP);
+	return 0;
+}
+
 
 /*
  * show current voltage
@@ -4451,6 +4556,10 @@ PROC_FOPS_RO(eem_status);
 PROC_FOPS_RO(eem_cur_volt);
 PROC_FOPS_RW(eem_offset);
 PROC_FOPS_RO(eem_dump);
+PROC_FOPS_RO(eem_hrid);
+PROC_FOPS_RO(eem_efuse);
+PROC_FOPS_RO(eem_freq);
+PROC_FOPS_RO(eem_mar);
 PROC_FOPS_RW(eem_log_en);
 PROC_FOPS_RW(eem_setmargin);
 #if ENABLE_INIT1_STRESS
@@ -4479,6 +4588,10 @@ static int create_procfs(void)
 
 	struct pentry eem_entries[] = {
 		PROC_ENTRY(eem_dump),
+		PROC_ENTRY(eem_hrid),
+		PROC_ENTRY(eem_efuse),
+		PROC_ENTRY(eem_freq),
+		PROC_ENTRY(eem_mar),
 		PROC_ENTRY(eem_log_en),
 #if ENABLE_INIT1_STRESS
 		PROC_ENTRY(eem_init1stress_en),

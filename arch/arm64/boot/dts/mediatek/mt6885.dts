@@ -2449,8 +2449,10 @@ page_owner=on";
 
 	eem_fsm: eem_fsm@11278000 {
 		compatible = "mediatek,eem_fsm";
-		reg = <0 0x1100b000 0 0x1000>;
+		reg = <0 0x11278000 0 0x1000>;
 		interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&infracfg_ao INFRACFG_AO_THERM_CG>;
+		clock-names = "therm-main";
 		eem-status = <1>;
 		eem-initmon-little = <0xf>;
 		eem-initmon-big = <0xf>;
@@ -2466,7 +2468,7 @@ page_owner=on";
 		eem-offset-gpu = <0xff>;
 	};
 
-	eemg_fsm: eemgpu_fsm@1100b000 {
+	eemgpu_fsm: eemgpu_fsm@1100b000 {
 		compatible = "mediatek,eemgpu_fsm";
 		reg = <0 0x1100b000 0 0x1000>;
 		interrupts = <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>;

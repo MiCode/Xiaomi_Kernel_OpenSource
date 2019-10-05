@@ -44,7 +44,7 @@
 /*
  * LOG
  */
-#define EEM_TAG	 "[xxxxEEM] "
+#define EEM_TAG	 "[CPU][EEM]"
 #if 1
 	#define eem_error(fmt, args...)		pr_notice(EEM_TAG fmt, ##args)
 	#define eem_warning(fmt, args...)
@@ -206,4 +206,6 @@ extern int base_ops_volt_2_pmic(struct eem_det *det, int volt);
 extern int base_ops_volt_2_eem(struct eem_det *det, int volt);
 extern int base_ops_pmic_2_volt(struct eem_det *det, int pmic_val);
 extern int base_ops_eem_2_pmic(struct eem_det *det, int eev_val);
+extern unsigned int detid_to_dvfsid(struct eem_det *det);
+
 #endif

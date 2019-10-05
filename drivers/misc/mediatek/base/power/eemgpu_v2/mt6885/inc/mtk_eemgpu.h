@@ -65,6 +65,7 @@ enum eemg_det_id {
 	NR_EEMG_DET,
 };
 
+#if ENABLE_CPU
 enum mt_eemg_cpu_id {
 	MT_EEMG_CPU_LL,
 	MT_EEMG_CPU_L,
@@ -72,6 +73,7 @@ enum mt_eemg_cpu_id {
 
 	NR_MT_EEMG_CPU,
 };
+#endif
 
 enum mt_eemg_add_extra_mode {
 	NO_EXTRA,

@@ -14,23 +14,24 @@
 #define _MTK_EEM_CONFIG_H_
 
 /* CONFIG (SW related) */
-#define EEM_NOT_READY		(1)
-#define CONFIG_EEM_SHOWLOG	(1)
-#define EN_ISR_LOG		(1)
-#define EEM_BANK_SOC		(1) /* use voltage bin, so disable it */
+/* #define EEM_NOT_READY		(1) */
+#define CONFIG_EEM_SHOWLOG	(0)
+#define EN_ISR_LOG		(0)
+#define EEM_BANK_SOC		(0) /* use voltage bin, so disable it */
 #define EARLY_PORTING		(1) /* for detecting real vboot in eem_init01 */
 #define DUMP_DATA_TO_DE		(1)
 #define EEM_ENABLE		(1) /* enable; after pass HPT mini-SQC */
 #define EEM_FAKE_EFUSE		(1)
 
 /* FIX ME */
-#define UPDATE_TO_UPOWER	(1)
+#define UPDATE_TO_UPOWER	(0)
 #define EEM_LOCKTIME_LIMIT	(3000)
 #define ENABLE_LOO		(1)
 #define ENABLE_LOO_B		(1)
 #define ENABLE_LOO_G		(0)
-#define ENABLE_CPU		(1)
-#define ENABLE_GPU              (0)
+#define ENABLE_CPU			(1)
+#define ENABLE_GPU			(0)
+#define EN_EEM_THERM_CLK	(1)
 
 
 #ifdef CORN_LOAD
@@ -44,10 +45,10 @@
 #define ENABLE_INIT1_STRESS	(0)
 
 #define EEM_OFFSET
-#define SET_PMIC_VOLT		(1)
-#define SET_PMIC_VOLT_TO_DVFS	(1)
+#define SET_PMIC_VOLT		(0)
+#define SET_PMIC_VOLT_TO_DVFS	(0)
 #define LOG_INTERVAL		(2LL * NSEC_PER_SEC)
-#define DVT			(0)
+#define DVT			(1)
 #define SUPPORT_DCONFIG		(1)
 #define ENABLE_HT_FT		(1)
 //#define EARLY_PORTING_VPU
@@ -68,6 +69,9 @@ enum mt_cpu_dvfs_id {
 
 	NR_MT_CPU_DVFS,
 };
+
+#define DEVINFO_HRID_0 12
+#define DEVINFO_SEG_IDX 30
 
 #define DEVINFO_IDX_0 50
 #define DEVINFO_IDX_1 51
@@ -230,19 +234,19 @@ enum mt_cpu_dvfs_id {
 /* MC99 Safe EFUSE */
 #define DEVINFO_0 0x0
 /* L_LO */
-#define DEVINFO_1 0x7A150028
+#define DEVINFO_1 0x67130025
 /* B_LO + L_LO */
-#define DEVINFO_2 0x4A1B0028
+#define DEVINFO_2 0x9DEB0025
 /* B_LO */
-#define DEVINFO_3 0x49120041
+#define DEVINFO_3 0x43150046
 /* CCI */
-#define DEVINFO_4 0x7A150028
+#define DEVINFO_4 0x61120027
 /* GPU_LO + CCI */
 #define DEVINFO_5 0x0
 /* GPU_LO */
 #define DEVINFO_6 0x0
 /* APU */
-#define DEVINFO_7 0x7A150028
+#define DEVINFO_7 0x91EC0027
 /* L_HI + APU */
 #define DEVINFO_8 0x56100076
 /* L_HI */
@@ -252,7 +256,7 @@ enum mt_cpu_dvfs_id {
 /* MODEM + B_HI */
 #define DEVINFO_11 0xCB6F0083
 /* MODEM */
-#define DEVINFO_12 0x356A00A5
+#define DEVINFO_12 0x186A00A5
 /* MODEM */
 #define DEVINFO_13 0x1B031B03
 /* MODEM */
@@ -265,6 +269,7 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_17 0x1B031B03
 
 
+
 #endif
 #endif
 
@@ -273,7 +278,7 @@ enum mt_cpu_dvfs_id {
  * eem sw setting
  ******************************************
  */
-#define NR_HW_RES_FOR_BANK	(17) /* real eem banks for efuse */
+#define NR_HW_RES_FOR_BANK	(18) /* real eem banks for efuse */
 #if ENABLE_GPU
 #define EEM_INIT01_FLAG (0x0f) /* 0x0f=> [3]:GPU, [2]:CCI, [1]:B, [0]:L */
 #else
@@ -298,7 +303,7 @@ enum mt_cpu_dvfs_id {
 #define NR_FREQ_CPU 16
 
 #define L_FREQ_BASE			2000000
-#define B_FREQ_BASE			2202000
+#define B_FREQ_BASE			2300000
 #define	CCI_FREQ_BASE		1540000
 #define GPU_FREQ_BASE		806000
 #define B_M_FREQ_BASE		1750000
@@ -444,11 +449,11 @@ enum mt_cpu_dvfs_id {
 
 
 /* for EEMCTL0's setting */
-#define EEM_CTL0_L			(0x06540007)
-#define EEM_CTL0_B			(0x00100003)
-#define EEM_CTL0_CCI		(0x06540007)
-#define EEM_CTL0_GPU		(0x00980003)
-#define EEM_CTL0_VPU		(0x000C0001)
+#define EEM_CTL0_L			(0xBA98000F)
+#define EEM_CTL0_B			(0x00210003)
+#define EEM_CTL0_CCI		(0xBA98000F)
+#define EEM_CTL0_GPU		(0x00740003)
+#define EEM_CTL0_VPU		(0x00210003)
 
 
 #define AGING_VAL_CPU		(0x0) /* CPU aging margin : 31mv*/

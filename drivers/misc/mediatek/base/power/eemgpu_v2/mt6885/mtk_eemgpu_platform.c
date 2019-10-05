@@ -223,7 +223,7 @@ void get_freq_table_cpu1(struct eemg_det *det)
 	for (i = 0; i < NR_FREQ_CPU; i++) {
 
 #if DVT
-		det->freq_tbl[i] = dvtfreq[i];
+		det->freq_tbl[i] = dvtgpufreq[i];
 #else
 		curfreq = mt_cpufreq_get_freq_by_idx
 			(cpudvfsindex, i);
@@ -356,7 +356,7 @@ void get_freq_table_gpu(struct eemg_det *det)
 
 	for (i = 0; i < NR_FREQ_GPU; i++) {
 #if DVT
-		det->freq_tbl[i] = dvtfreq[i];
+		det->freq_tbl[i] = dvtgpufreq[i];
 #else
 		curfreq = mt_gpufreq_get_freq_by_real_idx
 				(mt_gpufreq_get_ori_opp_idx(i));
@@ -371,6 +371,7 @@ void get_freq_table_gpu(struct eemg_det *det)
 		mt_gpufreq_get_ori_opp_idx(i),
 		mt_gpufreq_get_freq_by_real_idx(mt_gpufreq_get_ori_opp_idx(i)));
 #endif
+
 		if (det->freq_tbl[i] == 0)
 			break;
 	}
@@ -386,6 +387,9 @@ void get_freq_table_gpu(struct eemg_det *det)
 			break;
 		}
 	}
+#if DVT
+	det->turn_pt = 6;
+#endif
 #endif
 
 	eemg_debug("[%s] freq_num:%d, max_freq=%d, turn_pt:%d\n",

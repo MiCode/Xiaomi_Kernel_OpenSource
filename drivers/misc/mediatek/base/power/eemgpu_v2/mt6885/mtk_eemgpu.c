@@ -153,9 +153,7 @@ static struct hrtimer eemg_log_timer;
 static DEFINE_SPINLOCK(eemg_spinlock);
 //DEFINE_SPINLOCK(gpu_record_spinlock);
 
-#define PI_MDES_BDES_MASK	(0xFFFF)
-#define PI_MTDES_MASK		(0xFF)
-#define PI_DVTFIXED_MASK	(0xF)
+
 #define WAIT_TIME	(2500000)
 
 /******************************************
@@ -166,11 +164,6 @@ static int eemg_log_en;
 static unsigned int eemg_checkEfuse = 1;
 static unsigned int informEEMisReady;
 
-
-/* Global variable for slow idle*/
-unsigned int gpu_opp0_t_volt[6] = {
-	105000, 105000, 102500, 100000, 97500, 95000
-};
 
 #ifdef CONFIG_OF
 void __iomem *eemg_base;
@@ -249,7 +242,7 @@ static int get_devinfo(void)
 	val[17] = DEVINFO_17;
 #endif
 
-	for (i = 0; i <= NR_HW_RES_FOR_BANK; i++)
+	for (i = 0; i < NR_HW_RES_FOR_BANK; i++)
 		eemg_debug("[CPU][EEM][PTP_DUMP] RES%d: 0x%X\n",
 			i, val[i]);
 
@@ -267,7 +260,7 @@ static int get_devinfo(void)
 #endif
 
 	/* NR_HW_RES_FOR_BANK =  10 for 5 banks efuse */
-	for (i = 1; i < NR_HW_RES_FOR_BANK - 1; i++) {
+	for (i = 1; i < NR_HW_RES_FOR_BANK; i++) {
 		if ((i == 5) || (i == 6) ||
 			(i == 11) ||  (i == 12) ||  (i == 15))
 			continue;
@@ -746,12 +739,8 @@ void dump_register_gpu(void)
 void base_ops_set_phase_gpu(struct eemg_det *det, enum eemg_phase phase)
 {
 	unsigned int i, filter, val;
-	/* unsigned long flags; */
 
 	FUNC_ENTER(FUNC_LV_HELP);
-
-	/* mt_ptpgpu_lock(&flags); */
-
 	det->ops->switch_bank_gpu(det, phase);
 
 	/* config EEM register */
@@ -1947,6 +1936,7 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 		eemg_debug("[%s]: Unknown det_id %d\n", __func__, det_id);
 		break;
 	}
+#if 0
 #if DVT
 	det->VBOOT = 0x30;
 	det->VMAX = 0xFF;
@@ -1966,6 +1956,7 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 	det->DCMDET = SEC_DCMDET;
 	det->DCBDET = SEC_DCBDET;
 	det->MTDES	= SEC_MTDES;
+#endif
 #endif
 #endif
 #endif
@@ -2234,7 +2225,6 @@ static void eemg_fill_freq_table(struct eemg_det *det)
 #if ENABLE_LOO
 	}
 #endif
-
 	eemg_write(EEMG_FREQPCT30, tmpfreq30);
 	eemg_write(EEMG_FREQPCT74, tmpfreq74);
 
@@ -3022,6 +3012,8 @@ void eemg_init01_gpu(void)
 #endif
 			}
 			timeout = 0;
+//test by Angus
+#if 0
 
 			while (det->real_vboot != det->VBOOT) {
 				eemg_debug
@@ -3042,7 +3034,7 @@ __func__, __LINE__, det->name, det->real_vboot, det->VBOOT);
 			("%s():%d, get_volt_gpu(%s) = 0x%08X, VBOOT = 0x%08X\n",
 			__func__, __LINE__, det->name, det->real_vboot,
 			det->VBOOT);
-
+#endif
 			mt_ptpgpu_lock(&flag); /* <-XXX */
 			det->ops->init01_gpu(det);
 			mt_ptpgpu_unlock(&flag); /* <-XXX */
@@ -3250,9 +3242,9 @@ static int eemg_probe(struct platform_device *pdev)
 #if SUPPORT_DCONFIG
 	if (of_property_read_u32(node, "eemg-status",
 		&doe_status) < 0) {
-		eemg_error("[DCONFIG] eemg-status read error!\n");
+		eemg_debug("[DCONFIG] eemg-status read error!\n");
 	} else {
-		eemg_error("[DCONFIG] success-> status:%d, EEMG_Enable:%d\n",
+		eemg_debug("[DCONFIG] success-> status:%d, EEMG_Enable:%d\n",
 			doe_status, ctrl_EEMG_Enable);
 		if (((doe_status == 1) || (doe_status == 0)) &&
 			(ctrl_EEMG_Enable != doe_status)) {
@@ -3275,7 +3267,7 @@ static int eemg_probe(struct platform_device *pdev)
 	eemg_irq_number = irq_of_parse_and_map(node, 0);
 	eemg_debug("[THERM_CTRL] eemg_irq_number=%d\n", eemg_irq_number);
 	if (!eemg_irq_number) {
-		eemg_debug("[EEMG] get irqnr failed=0x%x\n", eemg_irq_number);
+		eemg_error("[EEMG] get irqnr failed=0x%x\n", eemg_irq_number);
 		return 0;
 	}
 
@@ -3298,7 +3290,7 @@ static int eemg_probe(struct platform_device *pdev)
 
 	/* set EEM IRQ */
 	ret = request_irq(eemg_irq_number, eemg_isr,
-			IRQF_TRIGGER_LOW, "eemg", NULL);
+			IRQF_TRIGGER_HIGH, "eemg", NULL);
 	if (ret) {
 		eemg_error("EEMG IRQ register failed (%d)\n", ret);
 		WARN_ON(1);
