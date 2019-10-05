@@ -1,25 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2016 MediaTek Inc.
- * Author: Ming Hsiu Tsai <minghsiu.tsai@mediatek.com>
- *         Rick Chang <rick.chang@mediatek.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #include <linux/kernel.h>
 #include <linux/videodev2.h>
 
-#include "mtk_jpeg_parse.h"
+#include "mtk_jpeg_dec_parse.h"
 
 #define TEM	0x01
 #define SOF0	0xc0
+#define DHT     0xc4
 #define RST	0xd0
 #define SOI	0xd8
 #define EOI	0xd9
@@ -66,13 +57,14 @@ static bool mtk_jpeg_do_parse(struct mtk_jpeg_dec_param *param, u8 *src_addr_va,
 			      u32 src_size)
 {
 	bool notfound = true;
+	bool fileend = false;
 	struct mtk_jpeg_stream stream;
 
 	stream.addr = src_addr_va;
 	stream.size = src_size;
 	stream.curr = 0;
-
-	while (notfound) {
+	/* need check huffman for hardware enhance */
+	while (!fileend && (!param->huffman_exist || notfound)) {
 		int i, length, byte;
 		u32 word;
 
@@ -133,9 +125,13 @@ static bool mtk_jpeg_do_parse(struct mtk_jpeg_dec_param *param, u8 *src_addr_va,
 			break;
 		case RST ... RST + 7:
 		case SOI:
-		case EOI:
 		case TEM:
 			break;
+		case EOI:
+			fileend = true;
+			break;
+		case DHT:
+			param->huffman_exist = 1;
 		default:
 			if (read_word_be(&stream, &word))
 				break;

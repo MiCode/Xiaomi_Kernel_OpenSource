@@ -4110,7 +4110,10 @@ page_owner=on";
 	jpgenc@17030000 {
 		compatible = "mediatek,jpgenc";
 		reg = <0 0x17030000 0 0x10000>;
+		mediatek,larb = <&smi_larb7>;
 		interrupts = <GIC_SPI 309 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&venc_gcon VENC_GCON_SET2_JPGENC>;
+		clock-names = "jpgenc";
 	};
 
 	jpgdec@17040000 {
