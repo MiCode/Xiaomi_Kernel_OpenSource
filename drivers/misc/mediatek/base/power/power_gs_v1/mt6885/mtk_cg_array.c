@@ -90,8 +90,6 @@ const unsigned int AP_CG_Golden_Setting_tcl_gs_dpidle_data[] = {
 	0x102280F0, 0x00010000, 0x00010000,/* GCE_CTL_INT0 */
 	0x1022D468, 0x0000003F, 0x00000000,/* CG_EN */
 	0x103180F0, 0x00010000, 0x00010000,/* GCE_CTL_INT0 */
-	0x10443000, 0x001FEBFE, 0x00004000,/* SSPM_CK_EN */
-	0x10443010, 0x00000001, 0x00000000,/* SSPM_UART_CTRL */
 	0x10801000, 0x0000003B, 0x00000000,/* ADSP_CK_EN */
 	0x10801010, 0x00000001, 0x00000000,/* ADSP_UART_CTRL */
 	0x10943000, 0x00001000, 0x00000000,/* SSPM_CK_EN */
@@ -169,7 +167,7 @@ const unsigned int AP_CG_Golden_Setting_tcl_gs_dpidle_data[] = {
 const unsigned int *AP_CG_Golden_Setting_tcl_gs_dpidle =
 		AP_CG_Golden_Setting_tcl_gs_dpidle_data;
 
-unsigned int AP_CG_Golden_Setting_tcl_gs_dpidle_len = 435;
+unsigned int AP_CG_Golden_Setting_tcl_gs_dpidle_len = 429;
 
 const unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_data[] = {
 /*	Address		Mask		Golden Setting Value */
@@ -244,8 +242,6 @@ const unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_data[] = {
 	0x102280F0, 0x00010000, 0x00010000,/* GCE_CTL_INT0 */
 	0x1022D468, 0x0000003F, 0x00000000,/* CG_EN */
 	0x103180F0, 0x00010000, 0x00010000,/* GCE_CTL_INT0 */
-	0x10443000, 0x001FEBFE, 0x00004000,/* SSPM_CK_EN */
-	0x10443010, 0x00000001, 0x00000000,/* SSPM_UART_CTRL */
 	0x10801000, 0x0000003B, 0x00000000,/* ADSP_CK_EN */
 	0x10801010, 0x00000001, 0x00000000,/* ADSP_UART_CTRL */
 	0x10943000, 0x00001000, 0x00000000,/* SSPM_CK_EN */
@@ -327,7 +323,7 @@ const unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_data[] = {
 const unsigned int *AP_CG_Golden_Setting_tcl_gs_suspend =
 		AP_CG_Golden_Setting_tcl_gs_suspend_data;
 
-unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_len = 447;
+unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_len = 441;
 
 const unsigned int AP_CG_Golden_Setting_tcl_gs_sodi_data[] = {
 /*	Address		Mask		Golden Setting Value */

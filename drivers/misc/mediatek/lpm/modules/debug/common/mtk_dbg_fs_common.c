@@ -83,7 +83,7 @@ static struct syscore_ops spm_block_syscore_ops = {
 };
 
 static unsigned int mtk_suspend_debug_flag;
-static unsigned int power_golden_dump_type = GS_PMIC;
+static unsigned int power_golden_dump_type = GS_ALL;
 
 /* debugfs for debug in syscore callback */
 static int spm_syscore_dbg_suspend(void)
@@ -161,7 +161,7 @@ static ssize_t mtk_dbg_suspend_state_write(char *FromUser,
 			else
 				mtk_suspend_debug_flag &= ~(MTK_DUMP_LP_GOLDEN);
 		} else if (!strcmp(cmd, "golden_type"))
-			power_golden_dump_type = (param & 0x7);
+			power_golden_dump_type = (param & 0xf);
 
 		return sz;
 	}

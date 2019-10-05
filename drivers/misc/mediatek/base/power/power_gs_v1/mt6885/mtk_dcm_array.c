@@ -73,7 +73,6 @@ const unsigned int AP_DCM_Golden_Setting_tcl_gs_dpidle_data[] = {
 	0x10002164, 0xFFFFFFFF, 0x0C00007E,/* INFRA_EMI_SRAM_IDLE_BIT_EN_1 */
 	0x10002168, 0xFFFFFFFF, 0x80050006,/* INFRA_EMI_SRAM_IDLE_BIT_EN_2 */
 	0x1000216C, 0xFFFFFFFF, 0x00000000,/* INFRA_EMI_SRAM_IDLE_BIT_EN_3 */
-	0x1000A000, 0x80000000, 0x80000000,/* SEJ_CON */
 	0x1001A208, 0x0000FFFF, 0x0000FFFF,/* DXCC_NEW_HWDCM_CFG */
 	0x10022038, 0x00000003, 0x00000003,
 	/* VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_0 */
@@ -164,8 +163,6 @@ const unsigned int AP_DCM_Golden_Setting_tcl_gs_dpidle_data[] = {
 	0x1030E238, 0xFFFFFFFF, 0x00000000,/* SUB_INFRA_EMI_VPU_IDLE_BIT_EN_0 */
 	0x1030E23C, 0xFFFFFFFF, 0x00000000,/* SUB_INFRA_EMI_VPU_IDLE_BIT_EN_1 */
 	0x103180F0, 0x00000007, 0x00000007,/* GCE_CTL_INT0 */
-	0x10443004, 0x00000100, 0x00000100,/* SSPM_MCLK_DIV */
-	0x10443008, 0x001FFFFF, 0x001FBFFF,/* SSPM_DCM_CTRL */
 	0x10728F88, 0x00000007, 0x00000007,/* I3C0_CHN_HW_CG_EN */
 	0x10729F88, 0x00000007, 0x00000007,/* I2C1_CHN_HW_CG_EN */
 	0x10943008, 0x00000FFF, 0x000005FC,/* SSPM_DCM_CTRL */
@@ -269,7 +266,7 @@ const unsigned int AP_DCM_Golden_Setting_tcl_gs_dpidle_data[] = {
 const unsigned int *AP_DCM_Golden_Setting_tcl_gs_dpidle =
 		AP_DCM_Golden_Setting_tcl_gs_dpidle_data;
 
-unsigned int AP_DCM_Golden_Setting_tcl_gs_dpidle_len = 705;
+unsigned int AP_DCM_Golden_Setting_tcl_gs_dpidle_len = 696;
 
 const unsigned int AP_DCM_Golden_Setting_tcl_gs_suspend_data[] = {
 /*	Address		Mask		Golden Setting Value */
@@ -327,7 +324,6 @@ const unsigned int AP_DCM_Golden_Setting_tcl_gs_suspend_data[] = {
 	0x10002164, 0xFFFFFFFF, 0x0C00007E,/* INFRA_EMI_SRAM_IDLE_BIT_EN_1 */
 	0x10002168, 0xFFFFFFFF, 0x80050006,/* INFRA_EMI_SRAM_IDLE_BIT_EN_2 */
 	0x1000216C, 0xFFFFFFFF, 0x00000000,/* INFRA_EMI_SRAM_IDLE_BIT_EN_3 */
-	0x1000A000, 0x80000000, 0x80000000,/* SEJ_CON */
 	0x1001A208, 0x0000FFFF, 0x0000FFFF,/* DXCC_NEW_HWDCM_CFG */
 	0x10022038, 0x00000003, 0x00000003,
 	/* VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_0 */
@@ -420,8 +416,6 @@ const unsigned int AP_DCM_Golden_Setting_tcl_gs_suspend_data[] = {
 	0x1030E23C, 0xFFFFFFFF, 0x00000000,
 	/* SUB_INFRA_EMI_VPU_IDLE_BIT_EN_1 */
 	0x103180F0, 0x00000007, 0x00000007,/* GCE_CTL_INT0 */
-	0x10443004, 0x00000100, 0x00000100,/* SSPM_MCLK_DIV */
-	0x10443008, 0x001FFFFF, 0x001FBFFF,/* SSPM_DCM_CTRL */
 	0x10728F88, 0x00000007, 0x00000007,/* I3C0_CHN_HW_CG_EN */
 	0x10729F88, 0x00000007, 0x00000007,/* I2C1_CHN_HW_CG_EN */
 	0x10943008, 0x00000FFF, 0x000005FC,/* SSPM_DCM_CTRL */
@@ -525,7 +519,7 @@ const unsigned int AP_DCM_Golden_Setting_tcl_gs_suspend_data[] = {
 const unsigned int *AP_DCM_Golden_Setting_tcl_gs_suspend =
 		AP_DCM_Golden_Setting_tcl_gs_suspend_data;
 
-unsigned int AP_DCM_Golden_Setting_tcl_gs_suspend_len = 705;
+unsigned int AP_DCM_Golden_Setting_tcl_gs_suspend_len = 696;
 
 const unsigned int AP_DCM_Golden_Setting_tcl_gs_sodi_data[] = {
 /*	Address		Mask		Golden Setting Value */
