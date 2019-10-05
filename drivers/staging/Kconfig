@@ -116,6 +116,8 @@ source "drivers/staging/typec/Kconfig"
 
 source "drivers/staging/vboxvideo/Kconfig"
 
+source "drivers/staging/nanohub/Kconfig"
+
 source "drivers/staging/pi433/Kconfig"
 
 endif # STAGING
