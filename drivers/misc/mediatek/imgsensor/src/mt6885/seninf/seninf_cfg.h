@@ -14,7 +14,7 @@
 #ifndef __SENINF_CFG_H__
 #define __SENINF_CFG_H__
 
-#define SENINF_MAX_NUM 5
+#define SENINF_MAX_NUM 8
 
 #define SENINF_MAP_BASE_REG  0x1A004000
 #define SENINF_MAP_BASE_ANA  0x11C80000
