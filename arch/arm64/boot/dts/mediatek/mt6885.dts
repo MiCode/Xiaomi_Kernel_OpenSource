@@ -600,8 +600,11 @@ page_owner=on";
 		reg = <0 0x10026000 0 0x1000>;
 		reg-names = "pwrap";
 		interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clk26m>, <&clk26m>;
-		clock-names = "spi", "wrap";
+		clocks = <&infracfg_ao INFRACFG_AO_PMIC_CG_AP>,
+			 <&infracfg_ao INFRACFG_AO_PMIC_CG_TMR>,
+			 <&topckgen TOP_MUX_PWRAP_ULPOSC>,
+			 <&topckgen TOP_OSC_D10>;
+		clock-names = "spi", "wrap", "ulposc", "ulposc_osc";
 
 		main_pmic: mt6359-pmic {
 			compatible = "mediatek,mt6359-pmic";
