@@ -52,10 +52,8 @@
 #endif
 
 #include "mdla.h"
-#ifdef __MDLA_DVFS_UT__
 #include <linux/random.h>
 #include "apusys_power_cust.h"
-#endif
 #include "mdla_trace.h"
 #include "mdla_debug.h"
 #include "mdla_plat_api.h"
@@ -257,9 +255,7 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	int pmu_ret = 0;
 #endif
-#ifdef __MDLA_DVFS_UT__
 	int opp_rand = 0;
-#endif
 	long status = 0;
 	/*forward compatibility temporary, This will be replaced by apusys*/
 	struct mdla_wait_cmd mdla_wt;
@@ -280,12 +276,10 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 #endif
 
 	mdla_run_command_prepare(cd, &ce);
-
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	if (apusys_hd != NULL)
 		pmu_ret = pmu_command_prepare(mdla_info, apusys_hd);
 #endif
-
 	/* Compute deadline */
 	deadline = get_jiffies_64() + msecs_to_jiffies(mdla_timeout);
 
@@ -300,12 +294,13 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 
 	if (apusys_hd != NULL)
 		mdla_set_opp(core_id, apusys_hd->boost_val);
-#ifdef __MDLA_DVFS_UT__//for MDLA DVFS UT Only
-	opp_rand = get_random_int() % APUSYS_MAX_NUM_OPPS;
-	mdla_cmd_debug("core: %d, rand opp: %d\n",
-		core_id, opp_rand);
-	apu_device_set_opp(MDLA0+core_id, opp_rand);
-#endif
+
+	if (mdla_dvfs_rand) {
+		opp_rand = get_random_int() % APUSYS_MAX_NUM_OPPS;
+		mdla_cmd_debug("core: %d, rand opp: %d\n",
+			core_id, opp_rand);
+		apu_device_set_opp(MDLA0+core_id, opp_rand);
+	}
 
 	/* Trace start */
 	mdla_trace_begin(core_id, &ce);
@@ -416,7 +411,6 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	if (apusys_hd != NULL && pmu_ret == 0)
 		pmu_command_counter_prt(mdla_info);
 #endif
-
 	return ret;
 }
 #endif

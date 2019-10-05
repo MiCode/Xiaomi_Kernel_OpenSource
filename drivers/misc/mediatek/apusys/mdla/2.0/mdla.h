@@ -34,7 +34,6 @@
 #endif
 
 #define __APUSYS_MDLA_UT__ //TODO remove after UT issue fixed
-//#define __MDLA_DVFS_UT__
 //#define __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 
 //#define __APUSYS_PREEMPTION__
@@ -55,6 +54,7 @@ extern u32 mdla_timeout;
 extern u32 mdla_poweroff_time;
 extern u32 mdla_e1_detect_timeout;
 extern u32 mdla_max_num_core;
+extern u32 mdla_dvfs_rand;
 
 enum CMD_MODE {
 	NORMAL = 0,

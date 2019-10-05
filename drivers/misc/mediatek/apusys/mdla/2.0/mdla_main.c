@@ -102,6 +102,7 @@ static irqreturn_t mdla_irq1_handler(int irq, void *dev_id);
 u32 mdla_timeout = MDLA_TIMEOUT_DEFAULT;
 u32 mdla_e1_detect_timeout = MDLA_POLLING_LATENCY;
 u32 mdla_poweroff_time = MDLA_POWEROFF_TIME_DEFAULT;
+u32 mdla_dvfs_rand;
 
 /*MDLA Multi-Core or per command info*/
 struct mdla_dev mdla_devices[] = {

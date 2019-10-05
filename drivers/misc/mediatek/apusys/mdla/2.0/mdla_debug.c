@@ -219,6 +219,7 @@ static const struct file_operations mdla_debug_prof_fops = {
 
 	DEFINE_MDLA_DEBUGFS(root);
 	DEFINE_MDLA_DEBUGFS(timeout);
+	DEFINE_MDLA_DEBUGFS(dvfs_rand);
 #if 0
 	DEFINE_MDLA_DEBUGFS(e1_detect_timeout);
 	DEFINE_MDLA_DEBUGFS(e1_detect_count);
@@ -269,6 +270,7 @@ void mdla_debugfs_init(void)
 #else
 	mdla_klog = 0x40; /* print timeout info by default */
 #endif
+	mdla_dvfs_rand = 0;
 
 	mdla_droot = debugfs_create_dir("mdla", NULL);
 
@@ -280,6 +282,9 @@ void mdla_debugfs_init(void)
 
 	mdla_dtimeout = debugfs_create_u32("timeout", 0660, mdla_droot,
 		&mdla_timeout);
+
+	mdla_ddvfs_rand = debugfs_create_u32("dvfs_rand", 0660, mdla_droot,
+		&mdla_dvfs_rand);
 #if 0
 	mdla_de1_detect_timeout = debugfs_create_u32("e1_detect_timeout",
 			0660, mdla_droot, &mdla_e1_detect_timeout);
