@@ -55,12 +55,19 @@
 
 /*MM Bus*/
 #ifdef CONFIG_OF
-void __iomem *clk_mmsys_config_base;
-void __iomem *clk_imgsys_base;
-void __iomem *clk_ipesys_base;
+void __iomem *clk_mdp_base;
+void __iomem *clk_disp_base;
+void __iomem *clk_img1_base;
+void __iomem *clk_img2_base;
+void __iomem *clk_ipe_base;
+void __iomem *clk_vdec_soc_gcon_base;
 void __iomem *clk_vdec_gcon_base;
 void __iomem *clk_venc_gcon_base;
-void __iomem *clk_camsys_base;
+void __iomem *clk_venc_c1_gcon_base;
+void __iomem *clk_cam_base;
+void __iomem *clk_cam_rawa_base;
+void __iomem *clk_cam_rawb_base;
+void __iomem *clk_cam_rawc_base;
 #endif
 
 /*
@@ -958,6 +965,9 @@ static void ram_console_update(void)
 		k = 0;
 
 		print_enabled_clks_once();
+
+		for (i = 0; i < 8; i++)
+			pr_notice("%s: data[%i]=%08x\n", __func__, i, data[i]);
 
 		pr_notice("%s: TOPAXI_PROTECTEN = 0x%08x\n",
 			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN));
@@ -4653,6 +4663,9 @@ static int enable_subsys(enum subsys_id id)
 	r = sys->ops->enable(sys);
 	WARN_ON(r);
 
+	/* for MT6885 preclks CGs. */
+	enable_subsys_hwcg(id);
+
 	mtk_clk_unlock(flags);
 
 	list_for_each_entry(pgcb, &pgcb_list, list) {
@@ -4881,7 +4894,7 @@ struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_VENC, "PG_VENC", "PG_DIS", "venc_sel", SYS_VEN),
 	PGATE(SCP_SYS_VENC_CORE1, "PG_VENC_C1", "PG_DIS", "venc_sel",
 								SYS_VEN_CORE1),
-	PGATE(SCP_SYS_AUDIO, "PG_AUDIO", NULL, "audio_sel", SYS_AUDIO),
+	PGATE(SCP_SYS_AUDIO, "PG_AUDIO", NULL, "aud_intbus_sel", SYS_AUDIO),
 	PGATE(SCP_SYS_ADSP, "PG_ADSP", NULL, "adsp_sel", SYS_ADSP),
 	PGATE(SCP_SYS_CAM, "PG_CAM", "PG_DIS", "cam_sel", SYS_CAM),
 	PGATE(SCP_SYS_CAM_RAWA, "PG_CAM_RAWA", "PG_CAM", NULL, SYS_CAM_RAWA),
@@ -4964,61 +4977,141 @@ static void __iomem *get_reg(struct device_node *np, int index)
 
 
 #ifdef CONFIG_OF
-void iomap_mm(void)
+static void __iomem *find_and_iomap(char *comp_str)
 {
-	struct device_node *node;
+	void __iomem *ret;
+	struct device_node *node = of_find_compatible_node(NULL, NULL,
+								comp_str);
 
-	/*mmsys_config*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,dispsys_config");
-	if (!node)
-		pr_debug("[CLK_MMSYS] find node failed\n");
-	clk_mmsys_config_base = of_iomap(node, 0);
-	if (!clk_mmsys_config_base)
-		pr_debug("[CLK_MMSYS] base failed\n");
+	if (!node) {
+		pr_debug("[CCF] PG: find node %s failed\n", comp_str);
+		return NULL;
+	}
+	ret = of_iomap(node, 0);
+	if (!ret) {
+		pr_debug("[CCF] iomap base %s failed\n", comp_str);
+		return NULL;
+	}
+	return ret;
+}
 
-	/*imgsys*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,imgsys");
-	if (!node)
-		pr_debug("[CLK_IMGSYS_CONFIG] find node failed\n");
-	clk_imgsys_base = of_iomap(node, 0);
-	if (!clk_imgsys_base)
-		pr_debug("[CLK_IMGSYS_CONFIG] base failed\n");
-
-	/*ipesys*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,ipesys_config");
-	if (!node)
-		pr_debug("[CLK_IPESYS_CONFIG] find node failed\n");
-	clk_ipesys_base = of_iomap(node, 0);
-	if (!clk_ipesys_base)
-		pr_debug("[CLK_IPESYS_CONFIG] base failed\n");
-
-	/*vdec_gcon*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,vdec_gcon");
-	if (!node)
-		pr_debug("[CLK_VDEC_GCON] find node failed\n");
-	clk_vdec_gcon_base = of_iomap(node, 0);
+static void iomap_mm(void)
+{
+	clk_mdp_base = find_and_iomap("mediatek,mdpsys_config");
+	if (!clk_mdp_base)
+		return;
+	clk_disp_base = find_and_iomap("mediatek,dispsys_config");
+	if (!clk_disp_base)
+		return;
+	clk_img1_base = find_and_iomap("mediatek,imgsys");
+	if (!clk_img1_base)
+		return;
+	clk_img2_base = find_and_iomap("mediatek,imgsys2");
+	if (!clk_img2_base)
+		return;
+	clk_ipe_base = find_and_iomap("mediatek,ipesys_config");
+	if (!clk_ipe_base)
+		return;
+	clk_vdec_soc_gcon_base = find_and_iomap("mediatek,vdec_soc_gcon");
+	if (!clk_vdec_soc_gcon_base)
+		return;
+	clk_vdec_gcon_base = find_and_iomap("mediatek,vdec_gcon");
 	if (!clk_vdec_gcon_base)
-		pr_debug("[CLK_VDEC_GCON] base failed\n");
-
-	/*venc_gcon*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,venc_gcon");
-	if (!node)
-		pr_debug("[CLK_VENC_GCON] find node failed\n");
-	clk_venc_gcon_base = of_iomap(node, 0);
+		return;
+	clk_venc_gcon_base = find_and_iomap("mediatek,venc_gcon");
 	if (!clk_venc_gcon_base)
-		pr_debug("[CLK_VENC_GCON] base failed\n");
-
-	/*cam*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,camsys");
-	if (!node)
-		pr_debug("[CLK_CAM] find node failed\n");
-	clk_camsys_base = of_iomap(node, 0);
-	if (!clk_camsys_base)
-		pr_debug("[CLK_CAM] base failed\n");
-
+		return;
+	clk_venc_c1_gcon_base = find_and_iomap("mediatek,venc_c1_gcon");
+	if (!clk_venc_c1_gcon_base)
+		return;
+	clk_cam_base = find_and_iomap("mediatek,camsys");
+	if (!clk_cam_base)
+		return;
+	clk_cam_rawa_base = find_and_iomap("mediatek,camsys_rawa");
+	if (!clk_cam_rawa_base)
+		return;
+	clk_cam_rawb_base = find_and_iomap("mediatek,camsys_rawb");
+	if (!clk_cam_rawb_base)
+		return;
+	clk_cam_rawc_base = find_and_iomap("mediatek,camsys_rawc");
+	if (!clk_cam_rawc_base)
+		return;
 }
 #endif
 
+#define MDP_CG_CLR1		(clk_mdp_base + 0x118)
+#define DISP_CG_CLR1		(clk_disp_base + 0x118)
+
+#define IMG1_CG_CLR		(clk_img1_base + 0x0008)
+#define IMG2_CG_CLR		(clk_img2_base + 0x0008)
+
+#define IPE_CG_CLR		(clk_ipe_base + 0x0008)
+
+#define VDEC_CKEN_SET		(clk_vdec_gcon_base + 0x0000)
+#define VDEC_LARB1_CKEN_SET	(clk_vdec_gcon_base + 0x0008)
+#define VDEC_LAT_CKEN_SET	(clk_vdec_gcon_base + 0x0200)
+
+#define VDEC_SOC_CKEN_SET	(clk_vdec_soc_gcon_base + 0x0000)
+#define VDEC_SOC_LARB1_CKEN_SET	(clk_vdec_soc_gcon_base + 0x0008)
+#define VDEC_SOC_LAT_CKEN_SET	(clk_vdec_soc_gcon_base + 0x0200)
+
+#define VENC_CG_SET		(clk_venc_gcon_base + 0x0004)
+
+#define VENC_C1_CG_SET		(clk_venc_c1_gcon_base + 0x0004)
+
+#define CAMSYS_CG_CLR		(clk_cam_base + 0x0008)
+
+#define CAMSYS_RAWA_CG_CLR	(clk_cam_rawa_base + 0x0008)
+#define CAMSYS_RAWB_CG_CLR	(clk_cam_rawb_base + 0x0008)
+#define CAMSYS_RAWC_CG_CLR	(clk_cam_rawc_base + 0x0008)
+void enable_subsys_hwcg(enum subsys_id id)
+{
+	if (id == SYS_MDP) {
+		/* SMI0, SMI1, SMI2 */
+		clk_writel(MDP_CG_CLR1, 0x1110);
+	} else if (id == SYS_DIS) {
+		/* SMI_COMMON, SMI_GALS, SMI_INFRA, SMI_IOMMU */
+		clk_writel(DISP_CG_CLR1, 0x88880000);
+	} else if (id == SYS_ISP) {
+		/* LARB9_CGPDN */
+		clk_writel(IMG1_CG_CLR, 0x1);
+	} else if (id == SYS_ISP2) {
+		/* LARB11_CGPDN */
+		clk_writel(IMG2_CG_CLR, 0x1);
+	} else if (id == SYS_IPE) {
+		/* LARB19_CGPDN, LARB20_CGPDN, IPE_SMI_SUBCOM_CGPDN */
+		clk_writel(IPE_CG_CLR, 0x7);
+	} else if (id == SYS_VDE) {
+		/* VDEC_CKEN, LAT_CKEN */
+		/* LARB1_CKEN */
+		clk_writel(VDEC_SOC_CKEN_SET, 0x1);
+		clk_writel(VDEC_SOC_LAT_CKEN_SET, 0x1);
+		clk_writel(VDEC_SOC_LARB1_CKEN_SET, 0x1);
+	} else if (id == SYS_VDE2) {
+		/* VDEC_CKEN, LAT_CKEN */
+		clk_writel(VDEC_CKEN_SET, 0x1);
+		clk_writel(VDEC_LAT_CKEN_SET, 0x1);
+		clk_writel(VDEC_LARB1_CKEN_SET, 0x1);
+	} else if (id == SYS_VEN) {
+		/* SET1_VENC */
+		clk_writel(VENC_CG_SET, 0x4);
+	} else if (id == SYS_VEN_CORE1) {
+		/* SET1_VENC */
+		clk_writel(VENC_C1_CG_SET, 0x4);
+	} else if (id == SYS_CAM) {
+		/* LARB13_CGPDN, LARB14_CGPDN, LARB15_CGPDN */
+		clk_writel(CAMSYS_CG_CLR, 0xD);
+	} else if (id == SYS_CAM_RAWA) {
+		/* LARBX_CGPDN */
+		clk_writel(CAMSYS_RAWA_CG_CLR, 0x1);
+	} else if (id == SYS_CAM_RAWB) {
+		/* LARBX_CGPDN */
+		clk_writel(CAMSYS_RAWB_CG_CLR, 0x1);
+	} else if (id == SYS_CAM_RAWC) {
+		/* LARBX_CGPDN */
+		clk_writel(CAMSYS_RAWC_CG_CLR, 0x1);
+	}
+}
 
 static void __init mt_scpsys_init(struct device_node *node)
 {
@@ -5373,24 +5466,31 @@ void subsys_if_on(void)
 #if 1 /*only use for suspend test*/
 void mtcmos_force_off(void)
 {
+	pr_notice("suspend test: dp_tx\n");
 	spm_mtcmos_ctrl_dp_tx(STA_POWER_DOWN);
 
+	pr_notice("suspend test: cam\n");
 	spm_mtcmos_ctrl_cam_rawa(STA_POWER_DOWN);
 	spm_mtcmos_ctrl_cam_rawb(STA_POWER_DOWN);
 	spm_mtcmos_ctrl_cam_rawc(STA_POWER_DOWN);
 	spm_mtcmos_ctrl_cam(STA_POWER_DOWN);
 
+	pr_notice("suspend test: ven\n");
 	spm_mtcmos_ctrl_ven_core1(STA_POWER_DOWN);
 	spm_mtcmos_ctrl_ven(STA_POWER_DOWN);
 
+	pr_notice("suspend test: vde\n");
 	spm_mtcmos_ctrl_vde2(STA_POWER_DOWN);
 	spm_mtcmos_ctrl_vde(STA_POWER_DOWN);
 
+	pr_notice("suspend test: ipe\n");
 	spm_mtcmos_ctrl_ipe(STA_POWER_DOWN);
 
+	pr_notice("suspend test: isp\n");
 	spm_mtcmos_ctrl_isp2(STA_POWER_DOWN);
 	spm_mtcmos_ctrl_isp(STA_POWER_DOWN);
 
+	pr_notice("suspend test: mfg\n");
 	spm_mtcmos_ctrl_mfg6(STA_POWER_DOWN);
 	spm_mtcmos_ctrl_mfg5(STA_POWER_DOWN);
 	spm_mtcmos_ctrl_mfg4(STA_POWER_DOWN);
@@ -5399,14 +5499,22 @@ void mtcmos_force_off(void)
 	spm_mtcmos_ctrl_mfg1(STA_POWER_DOWN);
 	spm_mtcmos_ctrl_mfg0(STA_POWER_DOWN);
 
+	pr_notice("suspend test: dis\n");
 	spm_mtcmos_ctrl_dis(STA_POWER_DOWN);
 
+	pr_notice("suspend test: mdp\n");
 	spm_mtcmos_ctrl_mdp(STA_POWER_DOWN);
 
+	pr_notice("suspend test: md1\n");
 	spm_mtcmos_ctrl_md1(STA_POWER_DOWN);
+
+	pr_notice("suspend test: conn\n");
 	spm_mtcmos_ctrl_conn(STA_POWER_DOWN);
 
+	pr_notice("suspend test: audio\n");
 	spm_mtcmos_ctrl_audio(STA_POWER_DOWN);
+
+	pr_notice("suspend test: adsp\n");
 	/* spm_mtcmos_ctrl_adsp_shut_down(STA_POWER_DOWN); */
 	spm_mtcmos_ctrl_adsp_dormant(STA_POWER_DOWN);
 }

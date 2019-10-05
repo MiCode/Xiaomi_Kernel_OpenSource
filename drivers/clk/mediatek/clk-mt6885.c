@@ -2441,14 +2441,14 @@ static struct mtk_gate_regs camsys_main_camsys_cg_regs = {
 };
 static struct mtk_gate camsys_main_clks[] __initdata = {
 	/* CAMSYS_CG */
-	GATE(CAMSYS_MAIN_LARB13_CGPDN, "camsys_main_larb13_cgpdn", "cam_sel",
-			 camsys_main_camsys_cg_regs, 0, 0),
+	GATE_DUMMY(CAMSYS_MAIN_LARB13_CGPDN, "camsys_main_larb13_cgpdn",
+			"cam_sel", camsys_main_camsys_cg_regs, 0, 0),
 	GATE(CAMSYS_MAIN_DFP_VAD_CGPDN, "camsys_main_dfp_vad_cgpdn", "cam_sel",
 			 camsys_main_camsys_cg_regs, 1, 0),
-	GATE(CAMSYS_MAIN_LARB14_CGPDN, "camsys_main_larb14_cgpdn", "cam_sel",
-			 camsys_main_camsys_cg_regs, 2, 0),
-	GATE(CAMSYS_MAIN_LARB15_CGPDN, "camsys_main_larb15_cgpdn", "cam_sel",
-			 camsys_main_camsys_cg_regs, 3, 0),
+	GATE_DUMMY(CAMSYS_MAIN_LARB14_CGPDN, "camsys_main_larb14_cgpdn",
+			"cam_sel", camsys_main_camsys_cg_regs, 2, 0),
+	GATE_DUMMY(CAMSYS_MAIN_LARB15_CGPDN, "camsys_main_larb15_cgpdn",
+			"cam_sel", camsys_main_camsys_cg_regs, 3, 0),
 
 	GATE(CAMSYS_MAIN_CAM_CGPDN, "camsys_main_cam_cgpdn", "cam_sel",
 			 camsys_main_camsys_cg_regs, 6, 0),
@@ -2501,8 +2501,8 @@ static struct mtk_gate_regs camsys_rawa_camsys_cg_regs = {
 };
 static struct mtk_gate camsys_rawa_clks[] __initdata = {
 	/* CAMSYS_CG */
-	GATE(CAMSYS_RAWA_LARBX_CGPDN, "camsys_rawa_larbx_cgpdn", "cam_sel",
-			 camsys_rawa_camsys_cg_regs, 0, 0),
+	GATE_DUMMY(CAMSYS_RAWA_LARBX_CGPDN, "camsys_rawa_larbx_cgpdn",
+			"cam_sel", camsys_rawa_camsys_cg_regs, 0, 0),
 	GATE(CAMSYS_RAWA_CAM_CGPDN, "camsys_rawa_cam_cgpdn", "cam_sel",
 			 camsys_rawa_camsys_cg_regs, 1, 0),
 	GATE(CAMSYS_RAWA_CAMTG_CGPDN, "camsys_rawa_camtg_cgpdn", "cam_sel",
@@ -2534,8 +2534,8 @@ static struct mtk_gate_regs camsys_rawb_camsys_cg_regs = {
 };
 static struct mtk_gate camsys_rawb_clks[] __initdata = {
 	/* CAMSYS_CG */
-	GATE(CAMSYS_RAWB_LARBX_CGPDN, "camsys_rawb_larbx_cgpdn", "cam_sel",
-			 camsys_rawb_camsys_cg_regs, 0, 0),
+	GATE_DUMMY(CAMSYS_RAWB_LARBX_CGPDN, "camsys_rawb_larbx_cgpdn",
+			"cam_sel", camsys_rawb_camsys_cg_regs, 0, 0),
 	GATE(CAMSYS_RAWB_CAM_CGPDN, "camsys_rawb_cam_cgpdn", "cam_sel",
 			 camsys_rawb_camsys_cg_regs, 1, 0),
 	GATE(CAMSYS_RAWB_CAMTG_CGPDN, "camsys_rawb_camtg_cgpdn", "cam_sel",
@@ -2567,8 +2567,8 @@ static struct mtk_gate_regs camsys_rawc_camsys_cg_regs = {
 };
 static struct mtk_gate camsys_rawc_clks[] __initdata = {
 	/* CAMSYS_CG */
-	GATE(CAMSYS_RAWC_LARBX_CGPDN, "camsys_rawc_larbx_cgpdn", "cam_sel",
-			 camsys_rawc_camsys_cg_regs, 0, 0),
+	GATE_DUMMY(CAMSYS_RAWC_LARBX_CGPDN, "camsys_rawc_larbx_cgpdn",
+			"cam_sel", camsys_rawc_camsys_cg_regs, 0, 0),
 	GATE(CAMSYS_RAWC_CAM_CGPDN, "camsys_rawc_cam_cgpdn", "cam_sel",
 			 camsys_rawc_camsys_cg_regs, 1, 0),
 	GATE(CAMSYS_RAWC_CAMTG_CGPDN, "camsys_rawc_camtg_cgpdn", "cam_sel",
@@ -2627,7 +2627,7 @@ static struct mtk_gate_regs imgsys1_img_cg_regs = {
 };
 static struct mtk_gate imgsys1_clks[] __initdata = {
 	/* IMG_CG */
-	GATE(IMGSYS1_LARB9_CGPDN, "imgsys1_larb9_cgpdn", "img1_sel",
+	GATE_DUMMY(IMGSYS1_LARB9_CGPDN, "imgsys1_larb9_cgpdn", "img1_sel",
 			 imgsys1_img_cg_regs, 0, 0),
 	GATE(IMGSYS1_LARB10_CGPDN, "imgsys1_larb10_cgpdn", "img1_sel",
 			 imgsys1_img_cg_regs, 1, 0),
@@ -2664,7 +2664,7 @@ static struct mtk_gate_regs imgsys2_img_cg_regs = {
 };
 static struct mtk_gate imgsys2_clks[] __initdata = {
 	/* IMG_CG */
-	GATE(IMGSYS2_LARB11_CGPDN, "imgsys2_larb11_cgpdn", "img2_sel",
+	GATE_DUMMY(IMGSYS2_LARB11_CGPDN, "imgsys2_larb11_cgpdn", "img2_sel",
 			 imgsys2_img_cg_regs, 0, 0),
 	GATE(IMGSYS2_LARB12_CGPDN, "imgsys2_larb12_cgpdn", "img2_sel",
 			 imgsys2_img_cg_regs, 1, 0),
@@ -3177,11 +3177,11 @@ static struct mtk_gate_regs ipesys_img_cg_regs = {
 };
 static struct mtk_gate ipesys_clks[] __initdata = {
 	/* IMG_CG */
-	GATE(IPESYS_LARB19_CGPDN, "ipesys_larb19_cgpdn", "ipe_sel",
+	GATE_DUMMY(IPESYS_LARB19_CGPDN, "ipesys_larb19_cgpdn", "ipe_sel",
 			 ipesys_img_cg_regs, 0, 0),
-	GATE(IPESYS_LARB20_CGPDN, "ipesys_larb20_cgpdn", "ipe_sel",
+	GATE_DUMMY(IPESYS_LARB20_CGPDN, "ipesys_larb20_cgpdn", "ipe_sel",
 			 ipesys_img_cg_regs, 1, 0),
-	GATE(IPESYS_IPE_SMI_SUBCOM_CGPDN, "ipesys_ipe_smi_subcom_cgpdn",
+	GATE_DUMMY(IPESYS_IPE_SMI_SUBCOM_CGPDN, "ipesys_ipe_smi_subcom_cgpdn",
 			"ipe_sel", ipesys_img_cg_regs, 2, 0),
 	GATE(IPESYS_FD_CGPDN, "ipesys_fd_cgpdn", "ipe_sel",
 			 ipesys_img_cg_regs, 3, 0),
@@ -3377,13 +3377,13 @@ static struct mtk_gate mmsys_config_clks[] __initdata = {
 			 mmsys_config_mmsys_cg_con1_regs, 14, 0),
 	GATE(MM_DISP_MERGE1, "MM_DISP_MERGE1", "disp_sel",
 			 mmsys_config_mmsys_cg_con1_regs, 15, 0),
-	GATE(MM_SMI_COMMON, "MM_SMI_COMMON", "disp_sel",
+	GATE_DUMMY(MM_SMI_COMMON, "MM_SMI_COMMON", "disp_sel",
 			 mmsys_config_mmsys_cg_con1_regs, 19, 0),
-	GATE(MM_SMI_GALS, "MM_SMI_GALS", "disp_sel",
+	GATE_DUMMY(MM_SMI_GALS, "MM_SMI_GALS", "disp_sel",
 			 mmsys_config_mmsys_cg_con1_regs, 23, 0),
-	GATE(MM_SMI_INFRA, "MM_SMI_INFRA", "disp_sel",
+	GATE_DUMMY(MM_SMI_INFRA, "MM_SMI_INFRA", "disp_sel",
 			 mmsys_config_mmsys_cg_con1_regs, 27, 0),
-	GATE(MM_SMI_IOMMU, "MM_SMI_IOMMU", "disp_sel",
+	GATE_DUMMY(MM_SMI_IOMMU, "MM_SMI_IOMMU", "disp_sel",
 			 mmsys_config_mmsys_cg_con1_regs, 31, 0),
 	/* MMSYS_CG_CON2 */
 	GATE(MM_DSI_DSI0, "MM_DSI_DSI0", "disp_sel",
@@ -3585,17 +3585,17 @@ static struct mtk_gate_regs vdec_gcon_vdec_cken_regs = {
 };
 static struct mtk_gate vdec_gcon_clks[] __initdata = {
 	/* LARB_CKEN_CON */
-	GATE_INV(VDEC_GCON_LARB1_CKEN, "vdec_gcon_larb1_cken", "vdec_sel",
-			 vdec_gcon_larb_cken_con_regs, 0, 1),
+	GATE_INV_DUMMY(VDEC_GCON_LARB1_CKEN, "vdec_gcon_larb1_cken",
+			"vdec_sel", vdec_gcon_larb_cken_con_regs, 0, 1),
 	/* LAT_CKEN */
-	GATE_INV(VDEC_GCON_LAT_CKEN, "vdec_gcon_lat_cken", "vdec_sel",
+	GATE_INV_DUMMY(VDEC_GCON_LAT_CKEN, "vdec_gcon_lat_cken", "vdec_sel",
 			 vdec_gcon_lat_cken_regs, 0, 1),
 	GATE_INV(VDEC_GCON_LAT_ACTIVE, "vdec_gcon_lat_active", "vdec_sel",
 			 vdec_gcon_lat_cken_regs, 4, 1),
 	GATE_INV(VDEC_GCON_LAT_CKEN_ENG, "vdec_gcon_lat_cken_eng", "vdec_sel",
 			 vdec_gcon_lat_cken_regs, 8, 1),
 	/* VDEC_CKEN */
-	GATE_INV(VDEC_GCON_VDEC_CKEN, "vdec_gcon_vdec_cken", "vdec_sel",
+	GATE_INV_DUMMY(VDEC_GCON_VDEC_CKEN, "vdec_gcon_vdec_cken", "vdec_sel",
 			 vdec_gcon_vdec_cken_regs, 0, 1),
 	GATE_INV(VDEC_GCON_VDEC_ACTIVE, "vdec_gcon_vdec_active", "vdec_sel",
 			 vdec_gcon_vdec_cken_regs, 4, 1),
@@ -3641,11 +3641,11 @@ static struct mtk_gate_regs vdec_soc_gcon_vdec_cken_regs = {
 };
 static struct mtk_gate vdec_soc_gcon_clks[] __initdata = {
 	/* LARB_CKEN_CON */
-	GATE_INV(VDEC_SOC_GCON_LARB1_CKEN, "vdec_soc_gcon_larb1_cken",
+	GATE_INV_DUMMY(VDEC_SOC_GCON_LARB1_CKEN, "vdec_soc_gcon_larb1_cken",
 			"vdec_sel",
 			 vdec_soc_gcon_larb_cken_con_regs, 0, 1),
 	/* LAT_CKEN */
-	GATE_INV(VDEC_SOC_GCON_LAT_CKEN, "vdec_soc_gcon_lat_cken",
+	GATE_INV_DUMMY(VDEC_SOC_GCON_LAT_CKEN, "vdec_soc_gcon_lat_cken",
 			"vdec_sel",
 			 vdec_soc_gcon_lat_cken_regs, 0, 1),
 	GATE_INV(VDEC_SOC_GCON_LAT_ACTIVE, "vdec_soc_gcon_lat_active",
@@ -3655,7 +3655,7 @@ static struct mtk_gate vdec_soc_gcon_clks[] __initdata = {
 			"vdec_sel",
 			 vdec_soc_gcon_lat_cken_regs, 8, 1),
 	/* VDEC_CKEN */
-	GATE_INV(VDEC_SOC_GCON_VDEC_CKEN, "vdec_soc_gcon_vdec_cken",
+	GATE_INV_DUMMY(VDEC_SOC_GCON_VDEC_CKEN, "vdec_soc_gcon_vdec_cken",
 			"vdec_sel",
 			 vdec_soc_gcon_vdec_cken_regs, 0, 1),
 	GATE_INV(VDEC_SOC_GCON_VDEC_ACTIVE, "vdec_soc_gcon_vdec_active",
@@ -3697,8 +3697,8 @@ static struct mtk_gate venc_c1_gcon_clks[] __initdata = {
 	/* VENCSYS_CG */
 	GATE_INV(VENC_C1_GCON_SET0_LARB, "venc_c1_gcon_set0_larb", "venc_sel",
 			 venc_c1_gcon_vencsys_cg_regs, 0, 1),
-	GATE_INV(VENC_C1_GCON_SET1_VENC, "venc_c1_gcon_set1_venc", "venc_sel",
-			 venc_c1_gcon_vencsys_cg_regs, 4, 1),
+	GATE_INV_DUMMY(VENC_C1_GCON_SET1_VENC, "venc_c1_gcon_set1_venc",
+			"venc_sel", venc_c1_gcon_vencsys_cg_regs, 4, 1),
 	GATE_INV(VENC_C1_GCON_SET2_JPGENC, "venc_c1_gcon_set2_jpgenc",
 			"venc_sel",
 			 venc_c1_gcon_vencsys_cg_regs, 8, 1),
@@ -3740,7 +3740,7 @@ static struct mtk_gate venc_gcon_clks[] __initdata = {
 	/* VENCSYS_CG */
 	GATE_INV(VENC_GCON_SET0_LARB, "venc_gcon_set0_larb", "venc_sel",
 			 venc_gcon_vencsys_cg_regs, 0, 1),
-	GATE_INV(VENC_GCON_SET1_VENC, "venc_gcon_set1_venc", "venc_sel",
+	GATE_INV_DUMMY(VENC_GCON_SET1_VENC, "venc_gcon_set1_venc", "venc_sel",
 			 venc_gcon_vencsys_cg_regs, 4, 1),
 	GATE_INV(VENC_GCON_SET2_JPGENC, "venc_gcon_set2_jpgenc", "venc_sel",
 			 venc_gcon_vencsys_cg_regs, 8, 1),
@@ -3825,17 +3825,17 @@ static struct mtk_gate mdpsys_config_clks[] __initdata = {
 		mdp_cg1, 2, 0),
 	GATE(MDP_MDP_FAKE_ENG1, "MDP_MDP_FAKE_ENG1", "mdp_sel",
 		mdp_cg1, 3, 0),
-	GATE(MDP_SMI0, "MDP_SMI0", "mdp_sel", mdp_cg1, 4, 0),
+	GATE_DUMMY(MDP_SMI0, "MDP_SMI0", "mdp_sel", mdp_cg1, 4, 0),
 	GATE(MDP_IMG_DL_ASYNC0, "MDP_IMG_DL_ASYNC0", "mdp_sel",
 		mdp_cg1, 5, 0),
 	GATE(MDP_IMG_DL_ASYNC1, "MDP_IMG_DL_ASYNC1", "mdp_sel",
 		mdp_cg1, 6, 0),
 	GATE(MDP_IMG_DL_ASYNC2, "MDP_IMG_DL_ASYNC2", "mdp_sel",
 		mdp_cg1, 7, 0),
-	GATE(MDP_SMI1, "MDP_SMI1", "mdp_sel", mdp_cg1, 8, 0),
+	GATE_DUMMY(MDP_SMI1, "MDP_SMI1", "mdp_sel", mdp_cg1, 8, 0),
 	GATE(MDP_IMG_DL_ASYNC3, "MDP_IMG_DL_ASYNC3", "mdp_sel",
 		mdp_cg1, 9, 0),
-	GATE(MDP_SMI2, "MDP_SMI2", "mdp_sel", mdp_cg1, 12, 0),
+	GATE_DUMMY(MDP_SMI2, "MDP_SMI2", "mdp_sel", mdp_cg1, 12, 0),
 	/* MDPSYS_CG_CON2 */
 	GATE(MDP_IMG0_IMG_DL_ASYNC0, "MDP_IMG0_IMG_DL_ASYNC0", "mdp_sel",
 		mdp_cg2, 0, 0),
