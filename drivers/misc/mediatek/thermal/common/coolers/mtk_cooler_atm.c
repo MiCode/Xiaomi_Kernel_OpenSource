@@ -2184,6 +2184,15 @@ static int tscpu_read_atm_setting(struct seq_file *m, void *v)
 		seq_printf(m, " M gpu = %d\n", MAXIMUM_GPU_POWERS[i]);
 	}
 
+#if defined(THERMAL_VPU_SUPPORT)
+	seq_printf(m, " m vpu = %d\n", MINIMUM_VPU_POWER);
+	seq_printf(m, " M vpu = %d\n", MAXIMUM_VPU_POWER);
+#endif
+#if defined(THERMAL_MDLA_SUPPORT)
+	seq_printf(m, " m mdla = %d\n", MINIMUM_MDLA_POWER);
+	seq_printf(m, " M mdla = %d\n", MAXIMUM_MDLA_POWER);
+#endif
+
 	return 0;
 }
 
