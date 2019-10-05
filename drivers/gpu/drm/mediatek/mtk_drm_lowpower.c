@@ -379,8 +379,10 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	mtk_crtc_ddp_prepare(mtk_crtc);
 
 	/* 3. start trigger loop first to keep gce alive */
-	if (drm_crtc_index(&mtk_crtc->base) == 0)
+	if (drm_crtc_index(&mtk_crtc->base) == 0) {
 		mtk_crtc_start_trig_loop(mtk_crtc);
+		mtk_crtc_hw_block_ready(&mtk_crtc->base);
+	}
 
 	/* 4. connect path */
 	mtk_crtc_connect_default_path(mtk_crtc);
