@@ -29,7 +29,8 @@
 #include "mtk_thermal_timer.h"
 #include <linux/uidgid.h>
 #include <linux/slab.h>
-
+#include <linux/sched/task.h>
+extern int send_sig_info(int sig, struct siginfo *info, struct task_struct *p);
 /*=============================================================
  *Weak functions
  *=============================================================
