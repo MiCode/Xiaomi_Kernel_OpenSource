@@ -72,6 +72,7 @@
 #define I2C_FS_START_CON			0x1800
 #define I2C_TIME_CLR_VALUE			0x0000
 #define I2C_TIME_DEFAULT_VALUE		0x0003
+#define I2C_HS_SPEED			0x0080
 #define I2C_TIMEOUT_EN				0x0001
 #define I2C_ROLLBACK				0x0001
 #define I2C_SHADOW_REG_MODE		0x0002
@@ -85,6 +86,10 @@
 #define I2C_DMA_CLR_FLAG		0x0000
 #define I2C_DMA_WARM_RST		0x0001
 #define I2C_DMA_4G_MODE		0x0001
+
+#define I2C_DMA_DIR_CHANGE              (0x1 << 9)
+#define I2C_DMA_SKIP_CONFIG             (0x1 << 4)
+#define I2C_DMA_ASYNC_MODE              (0x1 << 2)
 
 #define I2C_DEFAUT_SPEED		100000/* hz */
 #define MAX_FS_MODE_SPEED		400000/* hz */
@@ -119,6 +124,13 @@
 
 #define I2C_DRV_NAME		"mt-i2c"
 #define I2CTAG					"[I2C]"
+
+enum {
+	DMA_HW_VERSION0 = 0,
+	DMA_HW_VERSION1 = 1,
+	MDA_SUPPORT_8G  = 2,
+	DMA_SUPPORT_64G = 3,
+};
 
 enum DMA_REGS_OFFSET {
 	OFFSET_INT_FLAG = 0x0,
@@ -323,6 +335,7 @@ struct mtk_i2c_compatible {
 	unsigned char set_ltiming;/* need to set LTIMING */
 	unsigned char set_aed;/* need to set AED */
 	unsigned char ver;/* controller version */
+	unsigned char dma_ver;/* dma controller version */
 	/* for constraint of SAMPLE_CNT_DIV and STEP_CNT_DIV of mt6765 */
 	/* 1, has-a-constraint; 0, no constraint */
 	unsigned char cnt_constraint;
@@ -341,8 +354,16 @@ struct mt_i2c {
 	/* set in i2c probe */
 	void __iomem *base;/* i2c base addr */
 	void __iomem *pdmabase;/* dma base address*/
+	void __iomem *gpiobase;/* gpio base address */
 	int irqnr;	/* i2c interrupt number */
 	int id;
+	int scl_gpio_id; /* SCL GPIO number */
+	int sda_gpio_id; /* SDA GPIO number */
+	unsigned int gpio_start;
+	unsigned int mem_len;
+	unsigned int offset_eh_cfg;
+	unsigned int offset_pu_cfg;
+	unsigned int offset_rsel_cfg;
 	struct i2c_dma_buf dma_buf;/* memory alloc for DMA mode */
 	struct clk *clk_main;/* main clock for i2c bus */
 	struct clk *clk_dma;/* DMA clock for i2c via DMA */
@@ -404,7 +425,7 @@ struct mt_i2c {
 /* Hz for FPGA I2C work frequency */
 #endif
 
-
+extern void gpio_dump_regs_range(int start, int end);
 extern void i2c_dump_info(struct mt_i2c *i2c);
 #if defined(CONFIG_MTK_GIC_EXT)
 extern void mt_irq_dump_status(unsigned int irq);
