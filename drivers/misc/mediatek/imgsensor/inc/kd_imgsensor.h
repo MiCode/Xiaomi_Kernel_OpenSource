@@ -123,6 +123,7 @@
  ************************************************************************/
 /* SENSOR CHIP VERSION */
 /*IMX*/
+#define IMX519_SENSOR_ID                        0x0519
 #define IMX576_SENSOR_ID                        0x0576
 #define IMX350_SENSOR_ID                        0x0350
 #define IMX398_SENSOR_ID                        0x0398
@@ -200,6 +201,7 @@
 #define OV20880MIPI_SENSOR_ID                   0x20880
 /*S5K*/
 #define S5K3P8SP_SENSOR_ID                      0x3108
+#define S5K2T7SP_SENSOR_ID                      0x2147
 #define S5K3P8SX_SENSOR_ID                      0x3108
 #define S5K2L7_SENSOR_ID                        0x20C7
 #define S5K3L8_SENSOR_ID                        0x30C8
@@ -326,6 +328,7 @@
 #define CAMERA_HW_DEVNAME                       "kd_camera_hw"
 /* SENSOR DEVICE DRIVER NAME */
 /*IMX*/
+#define SENSOR_DRVNAME_IMX519_MIPI_RAW          "imx519_mipi_raw"
 #define SENSOR_DRVNAME_IMX576_MIPI_RAW          "imx576_mipi_raw"
 #define SENSOR_DRVNAME_IMX350_MIPI_RAW          "imx350_mipi_raw"
 #define SENSOR_DRVNAME_IMX398_MIPI_RAW          "imx398_mipi_raw"
@@ -404,6 +407,8 @@
 #define SENSOR_DRVNAME_OV20880_MIPI_RAW         "ov20880_mipi_raw"
 /*S5K*/
 #define SENSOR_DRVNAME_S5K3P8SP_MIPI_RAW        "s5k3p8sp_mipi_raw"
+#define SENSOR_DRVNAME_S5K2T7SP_MIPI_RAW        "s5k2t7sp_mipi_raw"
+#define SENSOR_DRVNAME_S5K2T7SP_MIPI_RAW_5M     "s5k2t7sp_mipi_raw_5m"
 #define SENSOR_DRVNAME_S5K3P8SX_MIPI_RAW        "s5k3p8sx_mipi_raw"
 #define SENSOR_DRVNAME_S5K2L7_MIPI_RAW          "s5k2l7_mipi_raw"
 #define SENSOR_DRVNAME_S5K3L8_MIPI_RAW          "s5k3l8_mipi_raw"
