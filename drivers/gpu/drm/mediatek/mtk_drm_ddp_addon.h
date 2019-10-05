@@ -31,6 +31,7 @@ enum addon_scenario {
 
 enum addon_module {
 	DISP_RSZ,
+	DISP_RSZ_v2,
 	DMDP_PQ_WITH_RDMA,
 	ADDON_MODULE_NUM,
 };

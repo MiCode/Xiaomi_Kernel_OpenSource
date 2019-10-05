@@ -37,7 +37,7 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_WDMA1:
 		mtk_wdma_dump(comp);
 		break;
-	case DDP_COMPONENT_RSZ:
+	case DDP_COMPONENT_RSZ0:
 		mtk_rsz_dump(comp);
 		break;
 	case DDP_COMPONENT_DSI0:
@@ -46,19 +46,19 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_COLOR0:
 		mtk_color_dump(comp);
 		break;
-	case DDP_COMPONENT_CCORR:
+	case DDP_COMPONENT_CCORR0:
 		mtk_ccorr_dump(comp);
 		break;
-	case DDP_COMPONENT_AAL:
+	case DDP_COMPONENT_AAL0:
 		mtk_aal_dump(comp);
 		break;
-	case DDP_COMPONENT_DITHER:
+	case DDP_COMPONENT_DITHER0:
 		mtk_dither_dump(comp);
 		break;
-	case DDP_COMPONENT_GAMMA:
+	case DDP_COMPONENT_GAMMA0:
 		mtk_gamma_dump(comp);
 		break;
-	case DDP_COMPONENT_POSTMASK:
+	case DDP_COMPONENT_POSTMASK0:
 		mtk_postmask_dump(comp);
 		break;
 	default:
@@ -84,13 +84,13 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_WDMA1:
 		mtk_wdma_analysis(comp);
 		break;
-	case DDP_COMPONENT_RSZ:
+	case DDP_COMPONENT_RSZ0:
 		mtk_rsz_analysis(comp);
 		break;
 	case DDP_COMPONENT_DSI0:
 		mtk_dsi_analysis(comp);
 		break;
-	case DDP_COMPONENT_POSTMASK:
+	case DDP_COMPONENT_POSTMASK0:
 		mtk_postmask_analysis(comp);
 		break;
 	default:

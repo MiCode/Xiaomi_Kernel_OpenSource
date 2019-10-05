@@ -19,7 +19,12 @@
 #include "mtk_drm_crtc.h"
 
 static const int disp_rsz_path[] = {
-	DDP_COMPONENT_RSZ,
+	DDP_COMPONENT_RSZ0,
+};
+
+static const int disp_rsz_path_v2[] = {
+	DDP_COMPONENT_OVL0_2L_VIRTUAL0,
+	DDP_COMPONENT_RSZ0,
 };
 
 static const int dmdp_pq_with_rdma_path[] = {
@@ -30,11 +35,13 @@ static const int dmdp_pq_with_rdma_path[] = {
 
 static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 		[DISP_RSZ] = {
-
 				.path = disp_rsz_path,
 				.path_len = ARRAY_SIZE(disp_rsz_path),
 			},
-
+		[DISP_RSZ_v2] = {
+				.path = disp_rsz_path_v2,
+				.path_len = ARRAY_SIZE(disp_rsz_path_v2),
+			},
 		[DMDP_PQ_WITH_RDMA] = {
 
 				.path = dmdp_pq_with_rdma_path,

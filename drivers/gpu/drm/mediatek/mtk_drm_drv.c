@@ -599,7 +599,7 @@ static const enum mtk_ddp_comp_id mt2701_mtk_ddp_ext[] = {
 };
 
 static const enum mtk_ddp_comp_id mt2712_mtk_ddp_main[] = {
-	DDP_COMPONENT_OVL0,  DDP_COMPONENT_COLOR0, DDP_COMPONENT_AAL,
+	DDP_COMPONENT_OVL0,  DDP_COMPONENT_COLOR0, DDP_COMPONENT_AAL0,
 	DDP_COMPONENT_OD,    DDP_COMPONENT_RDMA0,  DDP_COMPONENT_DPI0,
 	DDP_COMPONENT_WDMA0, DDP_COMPONENT_PWM0,
 };
@@ -611,22 +611,22 @@ static const enum mtk_ddp_comp_id mt2712_mtk_ddp_ext[] = {
 };
 
 static enum mtk_ddp_comp_id mt8173_mtk_ddp_main[] = {
-	DDP_COMPONENT_OVL0, DDP_COMPONENT_COLOR0, DDP_COMPONENT_AAL,
+	DDP_COMPONENT_OVL0, DDP_COMPONENT_COLOR0, DDP_COMPONENT_AAL0,
 	DDP_COMPONENT_OD,   DDP_COMPONENT_RDMA0,  DDP_COMPONENT_UFOE,
 	DDP_COMPONENT_DSI0, DDP_COMPONENT_PWM0,
 };
 
 static const enum mtk_ddp_comp_id mt8173_mtk_ddp_ext[] = {
-	DDP_COMPONENT_OVL1,  DDP_COMPONENT_COLOR1, DDP_COMPONENT_GAMMA,
+	DDP_COMPONENT_OVL1,  DDP_COMPONENT_COLOR1, DDP_COMPONENT_GAMMA0,
 	DDP_COMPONENT_RDMA1, DDP_COMPONENT_DPI0,
 };
 
 static const enum mtk_ddp_comp_id mt6779_mtk_ddp_main[] = {
 	DDP_COMPONENT_OVL0_2L,  DDP_COMPONENT_OVL0,
-	DDP_COMPONENT_RDMA0,    DDP_COMPONENT_RDMA_VIRTUAL0,
-	DDP_COMPONENT_COLOR0,   DDP_COMPONENT_CCORR,
-	DDP_COMPONENT_AAL,      DDP_COMPONENT_GAMMA,
-	DDP_COMPONENT_POSTMASK, DDP_COMPONENT_DITHER,
+	DDP_COMPONENT_RDMA0,    DDP_COMPONENT_RDMA0_VIRTUAL0,
+	DDP_COMPONENT_COLOR0,   DDP_COMPONENT_CCORR0,
+	DDP_COMPONENT_AAL0,      DDP_COMPONENT_GAMMA0,
+	DDP_COMPONENT_POSTMASK0, DDP_COMPONENT_DITHER0,
 	DDP_COMPONENT_DSI0,     DDP_COMPONENT_PWM0,
 };
 
@@ -654,10 +654,10 @@ static const enum mtk_ddp_comp_id mt6779_mtk_ddp_main_minor[] = {
 };
 
 static const enum mtk_ddp_comp_id mt6779_mtk_ddp_main_minor_sub[] = {
-	DDP_COMPONENT_RDMA0,    DDP_COMPONENT_RDMA_VIRTUAL0,
-	DDP_COMPONENT_COLOR0,   DDP_COMPONENT_CCORR,
-	DDP_COMPONENT_AAL,      DDP_COMPONENT_GAMMA,
-	DDP_COMPONENT_POSTMASK, DDP_COMPONENT_DITHER,
+	DDP_COMPONENT_RDMA0,    DDP_COMPONENT_RDMA0_VIRTUAL0,
+	DDP_COMPONENT_COLOR0,   DDP_COMPONENT_CCORR0,
+	DDP_COMPONENT_AAL0,      DDP_COMPONENT_GAMMA0,
+	DDP_COMPONENT_POSTMASK0, DDP_COMPONENT_DITHER0,
 	DDP_COMPONENT_DSI0,     DDP_COMPONENT_PWM0,
 };
 
@@ -666,8 +666,43 @@ static const enum mtk_ddp_comp_id mt6779_mtk_ddp_main_wb_path[] = {
 	DDP_COMPONENT_WDMA_VIRTUAL1, DDP_COMPONENT_WDMA0,
 };
 
+
+static const enum mtk_ddp_comp_id mt6885_mtk_ddp_main[] = {
+	DDP_COMPONENT_OVL0_2L,		DDP_COMPONENT_OVL0,
+	DDP_COMPONENT_OVL0_VIRTUAL0,	DDP_COMPONENT_RDMA0,
+	DDP_COMPONENT_RDMA0_VIRTUAL0,	DDP_COMPONENT_COLOR0,
+	DDP_COMPONENT_CCORR0,		DDP_COMPONENT_AAL0,
+	DDP_COMPONENT_GAMMA0,		DDP_COMPONENT_POSTMASK0,
+	DDP_COMPONENT_DITHER0,		DDP_COMPONENT_DSI0,
+	DDP_COMPONENT_PWM0,
+};
+
+static const enum mtk_ddp_comp_id mt6885_mtk_ddp_main_wb_path[] = {
+	DDP_COMPONENT_OVL0,	DDP_COMPONENT_OVL0_VIRTUAL0,
+	DDP_COMPONENT_WDMA0,
+};
+
+
+static const enum mtk_ddp_comp_id mt6885_mtk_ddp_main_minor[] = {
+	DDP_COMPONENT_OVL0_2L,		DDP_COMPONENT_OVL0,
+	DDP_COMPONENT_OVL0_VIRTUAL0,	DDP_COMPONENT_WDMA0,
+};
+
+
+static const enum mtk_ddp_comp_id mt6885_mtk_ddp_main_minor_sub[] = {
+	DDP_COMPONENT_RDMA0,    DDP_COMPONENT_RDMA0_VIRTUAL0,
+	DDP_COMPONENT_COLOR0,   DDP_COMPONENT_CCORR0,
+	DDP_COMPONENT_AAL0,      DDP_COMPONENT_GAMMA0,
+	DDP_COMPONENT_POSTMASK0, DDP_COMPONENT_DITHER0,
+	DDP_COMPONENT_DSI0,     DDP_COMPONENT_PWM0,
+};
+
 static const struct mtk_addon_module_data addon_rsz_data[] = {
 	{DISP_RSZ, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
+};
+
+static const struct mtk_addon_module_data addon_rsz_data_v2[] = {
+	{DISP_RSZ_v2, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
 };
 
 static const struct mtk_addon_scenario_data mt6779_addon_main[ADDON_SCN_NR] = {
@@ -701,6 +736,23 @@ static const struct mtk_addon_scenario_data mt6779_addon_ext[ADDON_SCN_NR] = {
 	},
 };
 
+static const struct mtk_addon_scenario_data mt6885_addon_main[ADDON_SCN_NR] = {
+		[NONE] = {
+				.module_num = 0,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[ONE_SCALING] = {
+				.module_num = ARRAY_SIZE(addon_rsz_data_v2),
+				.module_data = addon_rsz_data_v2,
+				.hrt_type = HRT_TB_TYPE_RPO_L0,
+			},
+		[TWO_SCALING] = {
+				.module_num = ARRAY_SIZE(addon_rsz_data_v2),
+				.module_data = addon_rsz_data_v2,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+};
+
 static const struct mtk_crtc_path_data mt6779_mtk_main_path_data = {
 	.path[DDP_MAJOR][0] = mt6779_mtk_ddp_main,
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6779_mtk_ddp_main),
@@ -727,6 +779,21 @@ static const struct mtk_crtc_path_data mt6779_mtk_third_path_data = {
 	.path[DDP_MAJOR][0] = mt6779_mtk_ddp_third,
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6779_mtk_ddp_third),
 	.addon_data = mt6779_addon_ext,
+};
+
+static const struct mtk_crtc_path_data mt6885_mtk_main_path_data = {
+	.path[DDP_MAJOR][0] = mt6885_mtk_ddp_main,
+	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6885_mtk_ddp_main),
+	.path_req_hrt[DDP_MAJOR][0] = true,
+	.wb_path[DDP_MAJOR] = mt6885_mtk_ddp_main_wb_path,
+	.wb_path_len[DDP_MAJOR] = ARRAY_SIZE(mt6885_mtk_ddp_main_wb_path),
+	.path[DDP_MINOR][0] = mt6885_mtk_ddp_main_minor,
+	.path_len[DDP_MINOR][0] = ARRAY_SIZE(mt6885_mtk_ddp_main_minor),
+	.path_req_hrt[DDP_MINOR][0] = false,
+	.path[DDP_MINOR][1] = mt6885_mtk_ddp_main_minor_sub,
+	.path_len[DDP_MINOR][1] = ARRAY_SIZE(mt6885_mtk_ddp_main_minor_sub),
+	.path_req_hrt[DDP_MINOR][1] = true,
+	.addon_data = mt6885_addon_main,
 };
 
 static const struct mtk_crtc_path_data mt2701_mtk_main_path_data = {
@@ -798,6 +865,16 @@ static const struct mtk_fake_eng_data mt6779_fake_eng_data = {
 	.fake_eng_reg = mt6779_fake_eng_reg,
 };
 
+static const struct mtk_fake_eng_reg mt6885_fake_eng_reg[] = {
+		{.CG_idx = 0, .CG_bit = 14, .share_port = true},
+		{.CG_idx = 0, .CG_bit = 15, .share_port = true},
+};
+
+static const struct mtk_fake_eng_data mt6885_fake_eng_data = {
+	.fake_eng_num =  ARRAY_SIZE(mt6885_fake_eng_reg),
+	.fake_eng_reg = mt6885_fake_eng_reg,
+};
+
 static const struct mtk_mmsys_driver_data mt2701_mmsys_driver_data = {
 	.main_path_data = &mt2701_mtk_main_path_data,
 	.ext_path_data = &mt2701_mtk_ext_path_data,
@@ -825,6 +902,11 @@ static const struct mtk_mmsys_driver_data mt6779_mmsys_driver_data = {
 	.mode_tb = mt6779_mode_tb,
 	.sodi_config = mt6779_mtk_sodi_config,
 	.fake_eng_data = &mt6779_fake_eng_data,
+};
+
+static const struct mtk_mmsys_driver_data mt6885_mmsys_driver_data = {
+	.main_path_data = &mt6885_mtk_main_path_data,
+	.fake_eng_data = &mt6885_fake_eng_data,
 };
 
 #ifdef MTK_DRM_FENCE_SUPPORT

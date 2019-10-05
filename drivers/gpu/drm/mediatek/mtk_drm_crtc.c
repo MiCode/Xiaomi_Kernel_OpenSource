@@ -1773,7 +1773,7 @@ void mtk_crtc_config_round_corner(struct drm_crtc *crtc,
 	cfg.h = crtc->mode.vdisplay;
 	for_each_comp_in_cur_crtc_path(
 		comp, mtk_crtc, i, j)
-		if (comp->id == DDP_COMPONENT_POSTMASK) {
+		if (comp->id == DDP_COMPONENT_POSTMASK0) {
 			if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 				cur_path_idx = DDP_SECOND_PATH;
 			else
