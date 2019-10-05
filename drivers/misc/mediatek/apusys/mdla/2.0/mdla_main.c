@@ -195,15 +195,11 @@ static const struct file_operations fops = {
 
 void mdla_reset_lock(int core, int res)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&mdla_devices[core].hw_lock, flags);
 	mdla_reset(core, res);
 
 	if (res == REASON_TIMEOUT)
 		mdla_devices[core].last_reset_id = cmd_id;
 
-	spin_unlock_irqrestore(&mdla_devices[core].hw_lock, flags);
 }
 
 #ifdef __APUSYS_MDLA_UT__
@@ -348,6 +344,7 @@ static int mdla_probe(struct platform_device *pdev)
 	if (mdla_scheduler_init(&pdev->dev) < 0)
 		return -ENOMEM;
 #endif
+	dev_info(dev, "%s: done\n", __func__);
 
 	return 0;
 
@@ -540,11 +537,9 @@ int apusys_mdla_handler(int type,
 		mdla_start_power_off(mdla_info->mdlaid);
 		break;
 	case APUSYS_CMD_RESUME:
-		//mutex_unlock(&mdla_info->cmd_lock);
 		break;
 	case APUSYS_CMD_SUSPEND:
-		//mutex_lock(&mdla_info->cmd_lock);
-		//mdla_pwr_off(mdla_info->mdlaid);
+		mdla_pwr_off(mdla_info->mdlaid);
 		break;
 	case APUSYS_CMD_EXECUTE:
 	{

@@ -49,9 +49,6 @@
 #include "mdla_util.h"
 #include "mdla_power_ctrl.h"
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-#define __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-#endif
-#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 #include "apusys_power.h"
 #endif
 
@@ -129,6 +126,9 @@ int mdla_pwr_off(int core_id)
 		del_timer(&mdla_devices[core_id].power_timer);
 
 	pmu_reg_save(core_id);
+
+	mdla_drv_debug("%s: MDLA %d start power on\n",
+			__func__, core_id);
 
 	ret = apu_device_power_off(register_user);
 	if (!ret) {

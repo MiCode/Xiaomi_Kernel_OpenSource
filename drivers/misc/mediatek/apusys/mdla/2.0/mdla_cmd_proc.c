@@ -60,6 +60,7 @@
 #include "mdla_cmd_proc.h"
 #include "mdla_hw_reg.h"
 #include "mdla_pmu.h"
+#include "apusys_power.h"
 
 #ifdef CONFIG_PM_WAKELOCKS
 static struct wakeup_source *mdla_ws;
@@ -368,8 +369,9 @@ process_command:
 
 	cd->id = id;
 
-	if (mdla_info->max_cmd_id >= id)
+	if (mdla_info->max_cmd_id >= id) {
 		wt->result = 0;
+	}
 	else { // Command timeout
 #if 0
 		pr_info("%s: command: %d, max_cmd_id: %d deadline:%llu, jiffies: %lu\n",
@@ -383,10 +385,15 @@ process_command:
 #endif
 		mdla_dump_reg(core_id);
 		mdla_dump_ce(&ce);
+
+		// Enable & Relase bus protect
+		apu_device_power_off(MDLA0+core_id);
+		apu_device_power_on(MDLA0+core_id);
 		mdla_reset_lock(mdla_info->mdlaid, REASON_TIMEOUT);
 		wt->result = 1;
 		ret = -1;
 	}
+
 
 	/* Start power off timer */
 	mdla_command_done(core_id);

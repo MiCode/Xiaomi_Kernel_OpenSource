@@ -256,45 +256,32 @@ int mdla_dts_map(struct platform_device *pdev)
 void mdla_reset(int core, int res)
 {
 	const char *str = mdla_get_reason_str(res);
+	unsigned long flags;
 
 	/*use power down==>power on apis insted bus protect init*/
 	pr_info("%s: MDLA RESET: %s(%d)\n", __func__,
 		str, res);
 
-#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	// Enable & Relase bus protect
-	apu_device_power_off(MDLA0+core);
-	apu_device_power_on(MDLA0+core);
-#endif
-
+	spin_lock_irqsave(&mdla_devices[core].hw_lock, flags);
 	mdla_cfg_write_with_mdlaid(core, 0xffffffff, MDLA_CG_CLR);
 
 	mdla_reg_write_with_mdlaid(core, MDLA_IRQ_MASK & ~(MDLA_IRQ_SWCMD_DONE),
 		MREG_TOP_G_INTP2);
 
 	/* for DCM and CG */
-	//mdla_reg_write_with_mdlaid(core, cfg_eng0, MREG_TOP_ENG0);
-	//mdla_reg_write_with_mdlaid(core, cfg_eng1, MREG_TOP_ENG1);
-	//mdla_reg_write_with_mdlaid(core, cfg_eng2, MREG_TOP_ENG2);
+	mdla_reg_write_with_mdlaid(core, cfg_eng0, MREG_TOP_ENG0);
+	mdla_reg_write_with_mdlaid(core, cfg_eng1, MREG_TOP_ENG1);
+	mdla_reg_write_with_mdlaid(core, cfg_eng2, MREG_TOP_ENG2);
 	/*TODO, 0x0 after verification*/
-	//mdla_reg_write_with_mdlaid(core, cfg_eng11, MREG_TOP_ENG11);
+	mdla_reg_write_with_mdlaid(core, cfg_eng11, MREG_TOP_ENG11);
 
 #ifdef CONFIG_MTK_MDLA_ION
 	mdla_cfg_set_with_mdlaid(core, MDLA_AXI_CTRL_MASK, MDLA_AXI_CTRL);
 	mdla_cfg_set_with_mdlaid(core, MDLA_AXI_CTRL_MASK, MDLA_AXI1_CTRL);
 #endif
-
-#if 0
-	/*clear mdla swcmd int*/
-	mdla_reg_write_with_mdlaid(core, mdla_reg_read_with_mdlaid(
-		core, MREG_TOP_G_INTP1)|MDLA_IRQ_SWCMD_DONE, MREG_TOP_G_INTP1);
-	/*enable mdla swcmd int*/
-	mdla_reg_write_with_mdlaid(core, mdla_reg_read_with_mdlaid(
-		core, MREG_TOP_G_INTP0)|MDLA_IRQ_SWCMD_DONE, MREG_TOP_G_INTP0);
-#endif
+	spin_unlock_irqrestore(&mdla_devices[core].hw_lock, flags);
 
 	mdla_profile_reset(core, str);//TODO, to confirm multi mdla settings
-
 
 }
 
