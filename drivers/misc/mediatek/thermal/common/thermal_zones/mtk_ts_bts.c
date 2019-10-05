@@ -33,11 +33,14 @@
 #include <linux/uidgid.h>
 #include <tmp_bts.h>
 #include <linux/slab.h>
-
+#if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
+#include <linux/iio/consumer.h>
+#endif
 /*=============================================================
  *Weak functions
  *=============================================================
  */
+#if !defined(CONFIG_MEDIATEK_MT6577_AUXADC)
 int __attribute__ ((weak))
 IMM_IsAdcInitReady(void)
 {
@@ -50,17 +53,20 @@ IMM_GetOneChannelValue(int dwChannel, int data[4], int *rawdata)
 	pr_notice("E_WF: %s doesn't exist\n", __func__);
 	return -1;
 }
+
 int __attribute__ ((weak))
 tsdctm_thermal_get_ttj_on(void)
 {
 	return 0;
 }
+#endif
+
 /*=============================================================*/
 static kuid_t uid = KUIDT_INIT(0);
 static kgid_t gid = KGIDT_INIT(1000);
 static DEFINE_SEMAPHORE(sem_mutex);
 
-static unsigned int interval;	/* seconds, 0 : no auto polling */
+static unsigned int interval = 1;	/* seconds, 0 : no auto polling */
 static int trip_temp[10] = { 120000, 110000, 100000, 90000, 80000,
 				70000, 65000, 60000, 55000, 50000 };
 
@@ -70,7 +76,7 @@ static int kernelmode;
 static int g_THERMAL_TRIP[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 static int num_trip;
-static char g_bind0[20] = { 0 };
+static char g_bind0[20] = {"mtktsAP-sysrst"};
 static char g_bind1[20] = { 0 };
 static char g_bind2[20] = { 0 };
 static char g_bind3[20] = { 0 };
@@ -108,7 +114,9 @@ do {                                    \
 #define mtkts_bts_printk(fmt, args...) \
 pr_debug("[Thermal/TZ/BTS]" fmt, ##args)
 
-
+#if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
+struct iio_channel *thermistor_ch0;
+#endif
 /* #define INPUT_PARAM_FROM_USER_AP */
 
 /*
@@ -601,9 +609,26 @@ static __s16 mtk_ts_bts_volt_to_temp(__u32 dwVolt)
 static int get_hw_bts_temp(void)
 {
 
+
+#if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
+	int val = 0;
+	int ret = 0, output;
+#else
 	int ret = 0, data[4], i, ret_value = 0, ret_temp = 0, output;
 	int times = 1, Channel = g_RAP_ADC_channel; /* 6752=0(AUX_IN0_NTC) */
 	static int valid_temp;
+#endif
+
+#if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
+	ret = iio_read_channel_processed(thermistor_ch0, &val);
+	if (ret < 0) {
+		mtkts_bts_printk("Busy/Timeout, IIO ch read failed %d\n", ret);
+		return ret;
+	}
+
+	/*val * 1500 / 4096*/
+	ret = (val * 1500) >> 12;
+#else
 #if defined(APPLY_AUXADC_CALI_DATA)
 	int auxadc_cali_temp;
 #endif
@@ -664,6 +689,8 @@ static int get_hw_bts_temp(void)
 #else
 	ret = ret * 1500 / 4096;
 #endif
+#endif /*CONFIG_MEDIATEK_MT6577_AUXADC*/
+
 	/* ret = ret*1800/4096;//82's ADC power */
 	mtkts_bts_dprintk("APtery output mV = %d\n", ret);
 	output = mtk_ts_bts_volt_to_temp(ret);
@@ -1365,12 +1392,79 @@ static const struct file_operations mtkts_AP_param_fops = {
 	.release = single_release,
 };
 
+#if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
+static int mtkts_bts_probe(struct platform_device *pdev)
+{
+	int err = 0;
+	int ret = 0;
+
+	mtkts_bts_dprintk("[%s]\n", __func__);
+
+	if (!pdev->dev.of_node) {
+		mtkts_bts_printk("[%s] Only DT based supported\n",
+			__func__);
+		return -ENODEV;
+	}
+
+	thermistor_ch0 = devm_kzalloc(&pdev->dev, sizeof(*thermistor_ch0),
+		GFP_KERNEL);
+	if (!thermistor_ch0)
+		return -ENOMEM;
+
+
+	thermistor_ch0 = iio_channel_get(&pdev->dev, "thermistor-ch0");
+	ret = IS_ERR(thermistor_ch0);
+	if (ret) {
+		mtkts_bts_printk("[%s] fail to get auxadc iio ch0: %d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	return err;
+}
+
+#ifdef CONFIG_OF
+const struct of_device_id mt_thermistor_of_match[2] = {
+	{.compatible = "mediatek,mtboard-thermistor1",},
+	{},
+};
+#endif
+
+#define THERMAL_THERMISTOR_NAME    "mtboard-thermistor1"
+static struct platform_driver mtk_thermal_bts_driver = {
+	.remove = NULL,
+	.shutdown = NULL,
+	.probe = mtkts_bts_probe,
+	.suspend = NULL,
+	.resume = NULL,
+	.driver = {
+		.name = THERMAL_THERMISTOR_NAME,
+#ifdef CONFIG_OF
+		.of_match_table = mt_thermistor_of_match,
+#endif
+	},
+};
+#endif /*CONFIG_MEDIATEK_MT6577_AUXADC*/
+
+
 static int __init mtkts_bts_init(void)
 {
 	struct proc_dir_entry *entry = NULL;
 	struct proc_dir_entry *mtkts_AP_dir = NULL;
+#if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
+	int err = 0;
+#endif
 
 	mtkts_bts_dprintk("[%s]\n", __func__);
+
+
+#if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
+	err = platform_driver_register(&mtk_thermal_bts_driver);
+	if (err) {
+		mtkts_bts_printk("thermal driver callback register failed.\n");
+		return err;
+	}
+#endif
 
 	/* setup default table */
 	mtkts_bts_prepare_table(g_RAP_ntc_table);
@@ -1391,6 +1485,8 @@ static int __init mtkts_bts_init(void)
 			proc_set_user(entry, uid, gid);
 
 	}
+
+	mtkts_bts_register_thermal();
 #if 0
 	mtkTTimer_register("mtktsAP", mtkts_bts_start_thermal_timer,
 					mtkts_bts_cancel_thermal_timer);
