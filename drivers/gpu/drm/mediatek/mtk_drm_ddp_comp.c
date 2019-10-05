@@ -24,8 +24,10 @@
 #include <drm/drmP.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <soc/mediatek/smi.h>
+#ifdef CONFIG_MTK_IOMMU
 #include "mt_iommu.h"
 #include "mtk_iommu_ext.h"
+#endif
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_plane.h"
@@ -488,8 +490,10 @@ void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)
 	if (comp == NULL)
 		return;
 
+#ifdef CONFIG_MTK_SMI_EXT
 	if (comp->larb_dev)
 		mtk_smi_larb_get(comp->larb_dev);
+#endif
 
 	if (comp->clk)
 		clk_prepare_enable(comp->clk);
@@ -503,10 +507,13 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 	if (comp->clk)
 		clk_disable_unprepare(comp->clk);
 
+#ifdef CONFIG_MTK_SMI_EXT
 	if (comp->larb_dev)
 		mtk_smi_larb_put(comp->larb_dev);
+#endif
 }
 
+#ifdef CONFIG_MTK_IOMMU
 static int mtk_ddp_m4u_callback(int port, unsigned long mva, void *data)
 {
 	struct mtk_ddp_comp *comp = data;
@@ -521,6 +528,7 @@ static int mtk_ddp_m4u_callback(int port, unsigned long mva, void *data)
 
 	return 0;
 }
+#endif
 
 #define GET_M4U_PORT 0x1F
 void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
@@ -543,9 +551,11 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 		if (ret < 0)
 			break;
 
+#ifdef CONFIG_MTK_IOMMU
 		mtk_iommu_register_fault_callback(
 			port, (mtk_iommu_fault_callback_t)mtk_ddp_m4u_callback,
 			comp);
+#endif
 
 		port &= GET_M4U_PORT;
 		if (of_address_to_resource(comp->larb_dev->of_node, 0, &res) !=

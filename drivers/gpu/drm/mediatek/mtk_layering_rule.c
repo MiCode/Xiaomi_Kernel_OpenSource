@@ -28,8 +28,10 @@
 #include "mtk_dramc.h"
 #endif
 #include "mtk_layering_rule.h"
+#ifdef MTK_FB_MMDVFS_SUPPORT
 #include "mmdvfs_mgr.h"
 #include "mmdvfs_pmqos.h"
+#endif
 #include "mtk_log.h"
 #include "mtk_rect.h"
 #include "mtk_drm_drv.h"
@@ -421,7 +423,8 @@ unsigned long long _layering_get_frame_bw(int width, int height)
 
 static int layering_get_valid_hrt(int width, int height)
 {
-	unsigned long long dvfs_bw;
+	unsigned long long dvfs_bw = 0;
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	unsigned long long tmp;
 
 	dvfs_bw = mm_hrt_get_available_hrt_bw(PORT_VIRTUAL_DISP);
@@ -440,6 +443,7 @@ static int layering_get_valid_hrt(int width, int height)
 
 	DDPINFO("get avail HRT BW:%u : %llu %llu\n",
 		mm_hrt_get_available_hrt_bw(PORT_VIRTUAL_DISP), dvfs_bw, tmp);
+#endif
 
 	return dvfs_bw;
 }

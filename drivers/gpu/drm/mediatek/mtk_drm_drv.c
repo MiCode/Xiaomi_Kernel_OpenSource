@@ -25,6 +25,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/kthread.h>
 
+#include "drm_internal.h"
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp.h"
 #include "mtk_drm_ddp_comp.h"
@@ -1301,6 +1302,19 @@ static void mtk_drm_kms_deinit(struct drm_device *drm)
 	disp_dbg_deinit();
 }
 
+/********************** Legacy DISP API ****************************/
+unsigned int DISP_GetScreenWidth(void)
+{
+	/* TO-DO */
+	return 0;
+}
+
+unsigned int DISP_GetScreenHeight(void)
+{
+	/* TO-DO */
+	return 0;
+}
+
 static const struct drm_ioctl_desc mtk_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MTK_GEM_CREATE, mtk_gem_create_ioctl,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
@@ -1343,7 +1357,7 @@ static struct drm_driver mtk_drm_driver = {
 	.driver_features =
 		DRIVER_MODESET | DRIVER_GEM | DRIVER_PRIME | DRIVER_ATOMIC,
 
-	.get_vblank_counter = drm_vblank_no_hw_counter,
+	/* .get_vblank_counter = drm_vblank_no_hw_counter, */
 	.enable_vblank = mtk_drm_crtc_enable_vblank,
 	.disable_vblank = mtk_drm_crtc_disable_vblank,
 
@@ -1544,10 +1558,12 @@ static int mtk_drm_probe(struct platform_device *pdev)
 
 	private->config_regs_pa = mem->start;
 
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	plist_head_init(&private->bw_request_list);
 	plist_head_init(&private->hrt_request_list);
 	mm_qos_add_request(&private->hrt_request_list, &private->hrt_bw_request,
 			   PORT_VIRTUAL_DISP);
+#endif
 
 	/* Iterate over sibling DISP function blocks */
 	for_each_child_of_node(dev->of_node->parent, node) {

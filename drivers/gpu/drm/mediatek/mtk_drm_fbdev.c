@@ -157,7 +157,7 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 	info->flags = FBINFO_FLAG_DEFAULT;
 	info->fbops = &mtk_fbdev_ops;
 
-	drm_fb_helper_fill_fix(info, fb->pitches[0], fb->depth);
+	drm_fb_helper_fill_fix(info, fb->pitches[0], fb->format->depth);
 	drm_fb_helper_fill_var(info, helper, sizes->fb_width, sizes->fb_height);
 
 	dev->mode_config.fb_base = fb_base;
@@ -170,7 +170,7 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 			       sizes->surface_width, sizes->surface_height);
 
 	DRM_DEBUG_KMS("FB [%ux%u]-%u offset=%lu size=%zd\n", fb->width,
-		      fb->height, fb->depth, offset, size);
+		      fb->height, fb->format->depth, offset, size);
 
 	info->skip_vt_switch = true;
 	return 0;
@@ -197,7 +197,7 @@ int mtk_fbdev_init(struct drm_device *dev)
 
 	drm_fb_helper_prepare(dev, helper, &mtk_drm_fb_helper_funcs);
 
-	ret = drm_fb_helper_init(dev, helper, dev->mode_config.num_connector,
+	ret = drm_fb_helper_init(dev, helper,
 				 dev->mode_config.num_connector);
 	if (ret) {
 		dev_err(dev->dev, "failed to initialize DRM FB helper, %d\n",

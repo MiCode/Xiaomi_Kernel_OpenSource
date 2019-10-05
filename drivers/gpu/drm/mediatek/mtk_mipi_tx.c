@@ -522,7 +522,7 @@ static unsigned long mtk_mipi_tx_pll_recalc_rate(struct clk_hw *hw,
 	return mipi_tx->data_rate;
 }
 
-static const struct clk_ops mtk_mipi_tx_pll_ops = {
+static struct clk_ops mtk_mipi_tx_pll_ops = {
 	.unprepare = mtk_mipi_tx_pll_unprepare,
 	.round_rate = mtk_mipi_tx_pll_round_rate,
 	.set_rate = mtk_mipi_tx_pll_set_rate,

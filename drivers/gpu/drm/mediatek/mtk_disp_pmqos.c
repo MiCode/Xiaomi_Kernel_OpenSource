@@ -19,6 +19,7 @@
 
 static struct drm_crtc *dev_crtc;
 
+#ifdef MTK_FB_MMDVFS_SUPPORT
 int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode)
 {
 	switch (comp_id) {
@@ -192,6 +193,7 @@ int mtk_disp_hrt_bw_dbg(void)
 
 	return 0;
 }
+#endif
 
 int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 {

@@ -432,7 +432,8 @@ int mtk_plane_init(struct drm_device *dev, struct mtk_drm_plane *plane,
 
 	err = drm_universal_plane_init(dev, &plane->base, possible_crtcs,
 				       &mtk_plane_funcs, formats,
-				       ARRAY_SIZE(formats), type, NULL);
+				       ARRAY_SIZE(formats), NULL,
+				       type, NULL);
 	if (err) {
 		DRM_ERROR("%s:%d failed to initialize plane\n", __func__,
 			  __LINE__);

@@ -56,7 +56,6 @@ enum mtk_ddp_comp_type {
 };
 
 #define DECLARE_DDP_COMP(EXPR)                                                 \
-	{                                                                      \
 	EXPR(DDP_COMPONENT_AAL)                                                \
 	EXPR(DDP_COMPONENT_AAL1)                                               \
 	EXPR(DDP_COMPONENT_BLS)                                                \
@@ -96,8 +95,7 @@ enum mtk_ddp_comp_type {
 	EXPR(DDP_COMPONENT_DMDP_AAL0)                                          \
 	EXPR(DDP_COMPONENT_DMDP_RSZ0)                                          \
 	EXPR(DDP_COMPONENT_DMDP_TDSHP0)                                        \
-	EXPR(DDP_COMPONENT_ID_MAX)                                             \
-	}
+	EXPR(DDP_COMPONENT_ID_MAX)
 
 #define DECLARE_NUM(ENUM) ENUM,
 #define DECLARE_STR(STR) #STR,
@@ -253,9 +251,11 @@ struct mtk_ddp_comp {
 	struct cmdq_base *cmdq_base;
 	u8 cmdq_subsys;
 	unsigned int qos_attr;
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	struct mm_qos_request qos_req;
 	struct mm_qos_request fbdc_qos_req;
 	struct mm_qos_request hrt_qos_req;
+#endif
 	u32 qos_bw;
 	u32 fbdc_bw;
 	u32 hrt_bw;

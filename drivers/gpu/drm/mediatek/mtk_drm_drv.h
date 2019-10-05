@@ -28,8 +28,8 @@
 #define MAX_CRTC 3
 #define MAX_CONNECTOR 3
 
-#define MTK_DRM_FENCE_SUPPORT
-#define CONFIG_MTK_DISPLAY_CMDQ
+/* #define MTK_DRM_FENCE_SUPPORT */
+/* #define CONFIG_MTK_DISPLAY_CMDQ */
 
 struct device;
 struct device_node;
@@ -118,11 +118,13 @@ struct mtk_drm_private {
 	/* for rpo caps info */
 	unsigned int rsz_in_max[2];
 
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	struct plist_head bw_request_list;
 	struct plist_head hrt_request_list;
 	struct pm_qos_request ddr_opp_request;
 	struct pm_qos_request mm_freq_request;
 	struct mm_qos_request hrt_bw_request;
+#endif
 };
 
 struct mtk_drm_property {
@@ -166,5 +168,9 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm);
 struct mtk_panel_params *mtk_drm_get_lcm_ext_params(struct drm_crtc *crtc);
 bool mtk_drm_session_mode_is_decouple_mode(struct drm_device *dev);
 bool mtk_drm_session_mode_is_mirror_mode(struct drm_device *dev);
+
+/********************** Legacy DISP API ****************************/
+unsigned int DISP_GetScreenWidth(void);
+unsigned int DISP_GetScreenHeight(void);
 
 #endif /* MTK_DRM_DRV_H */

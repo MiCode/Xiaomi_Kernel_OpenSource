@@ -640,7 +640,7 @@ static int mtk_dpi_bind(struct device *dev, struct device *master, void *data)
 	dpi->encoder.possible_crtcs = BIT(0) | BIT(1);
 
 	dpi->encoder.bridge->encoder = &dpi->encoder;
-	ret = drm_bridge_attach(dpi->encoder.dev, dpi->encoder.bridge);
+	ret = drm_bridge_attach(&(dpi->encoder), dpi->encoder.bridge, NULL);
 	if (ret) {
 		dev_err(dev, "Failed to attach bridge: %d\n", ret);
 		goto err_cleanup;

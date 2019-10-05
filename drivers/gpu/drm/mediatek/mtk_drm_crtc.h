@@ -353,12 +353,10 @@ enum mtk_dst_module_type {
 };
 
 #define DECLARE_GCE_CLIENT(EXPR)                                               \
-	{                                                                      \
 	EXPR(CLIENT_CFG)                                                       \
 	EXPR(CLIENT_TRIG_LOOP)                                                 \
 	EXPR(CLIENT_SUB_CFG)                                                   \
-	EXPR(CLIENT_TYPE_MAX)                                                  \
-	}
+	EXPR(CLIENT_TYPE_MAX)
 
 enum CRTC_GCE_CLIENT_TYPE { DECLARE_GCE_CLIENT(DECLARE_NUM) };
 

@@ -23,10 +23,12 @@
 #include "mtk_drm_session.h"
 #include "ion_drv.h"
 #include <ion_priv.h>
-#include "mt_iommu.h"
 #include <soc/mediatek/smi.h>
+#ifdef CONFIG_MTK_IOMMU
+#include "mt_iommu.h"
 #include "mtk_iommu_ext.h"
 #include "mtk/mtk_ion.h"
+#endif
 
 static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 						unsigned long size)
@@ -85,6 +87,7 @@ static void mtk_gem_vmap_pa(phys_addr_t pa, uint size, int cached,
 static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 				   struct mtk_drm_gem_obj *mtk_gem)
 {
+#ifdef CONFIG_MTK_IOMMU
 	struct ion_client *ion_display_client = NULL;
 	struct ion_handle *ion_display_handle = NULL;
 	struct ion_mm_data mm_data;
@@ -104,7 +107,6 @@ static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 		DDPPR_ERR("%s error 0x%p\n", __func__, ion_display_handle);
 		return;
 	}
-
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
 	mm_data.config_buffer_param.module_id = M4U_PORT_DISP_OVL0;
 	mm_data.config_buffer_param.kernel_handle = ion_display_handle;
@@ -119,6 +121,7 @@ static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 
 	ion_phys(ion_display_client, ion_display_handle, &phy_addr, &mva_size);
 	mtk_gem->dma_addr = (unsigned int)phy_addr;
+#endif
 }
 
 struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,

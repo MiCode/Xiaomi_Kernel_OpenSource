@@ -15,6 +15,7 @@
 #include <linux/wait.h>
 #include <linux/mutex.h>
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <drm/mediatek_drm.h>
 #include "mtk_drm_lowpower.h"
 #include "mtk_drm_crtc.h"
@@ -336,7 +337,9 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	mtk_crtc_disconnect_addon_module(crtc);
 
 	/* 3. set HRT BW to 0 */
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	mtk_disp_set_hrt_bw(mtk_crtc, 0);
+#endif
 
 	/* 4. disconnect path */
 	mtk_crtc_disconnect_default_path(mtk_crtc);
@@ -379,7 +382,9 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	mtk_crtc_connect_addon_module(crtc);
 
 	/* 7. restore HRT BW */
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	mtk_disp_set_hrt_bw(mtk_crtc, mtk_crtc->qos_ctx->last_hrt_req);
+#endif
 
 	/* 8. set vblank */
 	drm_crtc_vblank_on(crtc);

@@ -719,6 +719,7 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			       inten);
 		break;
 	}
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	case PMQOS_SET_HRT_BW: {
 		bool *rdma_memory_mode = comp->comp_mode;
 		u32 bw_val = *(unsigned int *)params;
@@ -734,6 +735,7 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		break;
 	}
+#endif
 	case BACKUP_INFO_CMP: {
 		mtk_rdma_backup_info_cmp(comp, params);
 		break;
@@ -989,14 +991,15 @@ static const struct mtk_ddp_comp_funcs mtk_disp_rdma_funcs = {
 static int mtk_disp_rdma_bind(struct device *dev, struct device *master,
 			      void *data)
 {
+	int ret;
 	struct mtk_disp_rdma *priv = dev_get_drvdata(dev);
 	struct mtk_ddp_comp *comp = &priv->ddp_comp;
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 	struct drm_device *drm_dev = data;
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	struct mtk_drm_private *drm_priv = drm_dev->dev_private;
-
-	int ret;
 	int qos_req_port;
+#endif
 
 	DDPINFO("%s\n", __func__);
 	ret = mtk_ddp_comp_register(drm_dev, &priv->ddp_comp);
@@ -1010,6 +1013,7 @@ static int mtk_disp_rdma_bind(struct device *dev, struct device *master,
 
 	comp->comp_mode = &priv->rdma_memory_mode;
 
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	qos_req_port = __mtk_disp_pmqos_port_look_up(priv->ddp_comp.id);
 	if (qos_req_port < 0) {
 		DDPPR_ERR("Failed to request QOS port\n");
@@ -1019,6 +1023,7 @@ static int mtk_disp_rdma_bind(struct device *dev, struct device *master,
 		mm_qos_add_request(&drm_priv->hrt_request_list,
 				   &priv->ddp_comp.hrt_qos_req, qos_req_port);
 	}
+#endif
 
 	return 0;
 }

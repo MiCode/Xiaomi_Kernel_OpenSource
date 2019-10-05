@@ -18,6 +18,7 @@
 
 #include <linux/wait.h>
 #include <linux/file.h>
+#include <linux/sched/clock.h>
 
 #include <drm/mediatek_drm.h>
 

@@ -233,7 +233,6 @@ struct DSI_T0_INS {
 };
 
 #define DECLARE_DSI_PORCH(EXPR)                                                \
-	{                                                                      \
 	EXPR(DSI_VFP)                                                          \
 	EXPR(DSI_VSA)                                                          \
 	EXPR(DSI_VBP)                                                          \
@@ -242,8 +241,7 @@ struct DSI_T0_INS {
 	EXPR(DSI_HSA)                                                          \
 	EXPR(DSI_HBP)                                                          \
 	EXPR(DSI_BLLP)                                                         \
-	EXPR(DSI_PORCH_NUM)                                                    \
-	}
+	EXPR(DSI_PORCH_NUM)
 
 enum dsi_porch_type { DECLARE_DSI_PORCH(DECLARE_NUM) };
 
@@ -1191,7 +1189,7 @@ static const struct drm_encoder_helper_funcs mtk_dsi_encoder_helper_funcs = {
 };
 
 static const struct drm_connector_funcs mtk_dsi_connector_funcs = {
-	.dpms = drm_atomic_helper_connector_dpms,
+	/* .dpms = drm_atomic_helper_connector_dpms, */
 	.detect = mtk_dsi_connector_detect,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy = drm_connector_cleanup,
@@ -1214,7 +1212,7 @@ static int mtk_drm_attach_bridge(struct drm_bridge *bridge,
 
 	encoder->bridge = bridge;
 	bridge->encoder = encoder;
-	ret = drm_bridge_attach(encoder->dev, bridge);
+	ret = drm_bridge_attach(encoder, bridge, NULL);
 	if (ret) {
 		DRM_ERROR("Failed to attach bridge to drm\n");
 		encoder->bridge = NULL;
@@ -1395,7 +1393,7 @@ int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, uintptr_t slot)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DSI_START, 0x1, ~0);
 
-		cmdq_pkt_poll_timeout(handle, comp->cmdq_base, 0x1,
+		cmdq_pkt_poll_timeout(handle, (u32)comp->cmdq_base, 0x1,
 				      comp->regs_pa + DSI_INTSTA, 0x1, 400,
 				      CMDQ_GPR_R08);
 
@@ -1607,7 +1605,9 @@ static const char *mtk_dsi_mode_spy(enum DSI_MODE_CON mode)
 
 int mtk_dsi_analysis(struct mtk_ddp_comp *comp)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+#endif
 	void __iomem *baddr = comp->regs;
 	unsigned int reg_val;
 

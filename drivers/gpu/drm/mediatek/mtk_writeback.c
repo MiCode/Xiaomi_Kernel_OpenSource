@@ -82,7 +82,7 @@ static const struct drm_encoder_helper_funcs mtk_wb_encoder_helper_funcs = {
 };
 
 static const struct drm_connector_funcs mtk_wb_connector_funcs = {
-	.dpms = drm_atomic_helper_connector_dpms,
+	/* .dpms = drm_atomic_helper_connector_dpms, */
 	.detect = mtk_wb_connector_detect,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy = drm_connector_cleanup,

@@ -25,9 +25,9 @@
 
 /* ---------------------------------------------------------------- */
 
-static const struct fence_ops mtk_sync_timeline_fence_ops;
+static struct dma_fence_ops mtk_sync_timeline_fence_ops;
 
-static inline struct sync_pt *fence_to_sync_pt(struct fence *fence)
+static inline struct sync_pt *fence_to_sync_pt(struct dma_fence *fence)
 {
 	if (fence->ops != &mtk_sync_timeline_fence_ops)
 		return NULL;
@@ -75,12 +75,12 @@ static struct sync_pt *mtk_sync_pt_create(struct sync_timeline *obj,
 		return NULL;
 
 	mtk_sync_timeline_get(obj);
-	fence_init(&pt->base, &mtk_sync_timeline_fence_ops, &obj->lock,
+	dma_fence_init(&pt->base, &mtk_sync_timeline_fence_ops, &obj->lock,
 		   obj->context, value);
 	INIT_LIST_HEAD(&pt->link);
 
 	spin_lock_irq(&obj->lock);
-	if (!fence_is_signaled_locked(&pt->base)) {
+	if (!dma_fence_is_signaled_locked(&pt->base)) {
 		struct rb_node **p = &obj->pt_tree.rb_node;
 		struct rb_node *parent = NULL;
 
@@ -96,8 +96,8 @@ static struct sync_pt *mtk_sync_pt_create(struct sync_timeline *obj,
 			} else if (cmp < 0) {
 				p = &parent->rb_left;
 			} else {
-				if (fence_get_rcu(&other->base)) {
-					fence_put(&pt->base);
+				if (dma_fence_get_rcu(&other->base)) {
+					dma_fence_put(&pt->base);
 					pt = other;
 					goto unlock;
 				}
@@ -119,23 +119,24 @@ unlock:
 	return pt;
 }
 
-static const char *mtk_sync_timeline_fence_get_driver_name(struct fence *fence)
+static const char *
+mtk_sync_timeline_fence_get_driver_name(struct dma_fence *fence)
 {
 	return "mtk_sync";
 }
 
 static const char *
-mtk_sync_timeline_fence_get_timeline_name(struct fence *fence)
+mtk_sync_timeline_fence_get_timeline_name(struct dma_fence *fence)
 {
-	struct sync_timeline *parent = fence_parent(fence);
+	struct sync_timeline *parent = dma_fence_parent(fence);
 
 	return parent->name;
 }
 
-static void mtk_sync_timeline_fence_release(struct fence *fence)
+static void mtk_sync_timeline_fence_release(struct dma_fence *fence)
 {
 	struct sync_pt *pt = fence_to_sync_pt(fence);
-	struct sync_timeline *parent = fence_parent(fence);
+	struct sync_timeline *parent = dma_fence_parent(fence);
 
 	if (!list_empty(&pt->link)) {
 		unsigned long flags;
@@ -149,41 +150,43 @@ static void mtk_sync_timeline_fence_release(struct fence *fence)
 	}
 
 	mtk_sync_timeline_put(parent);
-	fence_free(fence);
+	dma_fence_free(fence);
 }
 
-static bool mtk_sync_timeline_fence_signaled(struct fence *fence)
+static bool mtk_sync_timeline_fence_signaled(struct dma_fence *fence)
 {
-	struct sync_timeline *parent = fence_parent(fence);
+	struct sync_timeline *parent = dma_fence_parent(fence);
 
-	return !__fence_is_later(fence->seqno, parent->value);
+	return !__dma_fence_is_later(fence->seqno, parent->value);
 }
 
-static bool mtk_sync_timeline_fence_enable_signaling(struct fence *fence)
+static bool mtk_sync_timeline_fence_enable_signaling(struct dma_fence *fence)
 {
 	return true;
 }
 
-static void mtk_sync_timeline_fence_value_str(struct fence *fence, char *str,
+static void mtk_sync_timeline_fence_value_str(
+					      struct dma_fence *fence,
+					      char *str,
 					      int size)
 {
 	snprintf(str, size, "%d", fence->seqno);
 }
 
-static void mtk_sync_timeline_fence_timeline_value_str(struct fence *fence,
+static void mtk_sync_timeline_fence_timeline_value_str(struct dma_fence *fence,
 						       char *str, int size)
 {
-	struct sync_timeline *parent = fence_parent(fence);
+	struct sync_timeline *parent = dma_fence_parent(fence);
 
 	snprintf(str, size, "%d", parent->value);
 }
 
-static const struct fence_ops mtk_sync_timeline_fence_ops = {
+static struct dma_fence_ops mtk_sync_timeline_fence_ops = {
 	.get_driver_name = mtk_sync_timeline_fence_get_driver_name,
 	.get_timeline_name = mtk_sync_timeline_fence_get_timeline_name,
 	.enable_signaling = mtk_sync_timeline_fence_enable_signaling,
 	.signaled = mtk_sync_timeline_fence_signaled,
-	.wait = fence_default_wait,
+	.wait = dma_fence_default_wait,
 	.release = mtk_sync_timeline_fence_release,
 	.fence_value_str = mtk_sync_timeline_fence_value_str,
 	.timeline_value_str = mtk_sync_timeline_fence_timeline_value_str,
@@ -223,7 +226,7 @@ static void mtk_sync_timeline_signal(struct sync_timeline *obj,
 		 * prevent deadlocking on timeline->lock inside
 		 * timeline_fence_release().
 		 */
-		fence_signal_locked(&pt->base);
+		dma_fence_signal_locked(&pt->base);
 	}
 
 	spin_unlock_irq(&obj->lock);
@@ -261,7 +264,7 @@ int mtk_sync_fence_create(struct sync_timeline *obj, struct fence_data *data)
 	}
 
 	sync_file = sync_file_create(&pt->base);
-	fence_put(&pt->base);
+	dma_fence_put(&pt->base);
 	if (!sync_file) {
 		err = -ENOMEM;
 		goto err;

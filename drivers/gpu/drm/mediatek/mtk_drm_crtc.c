@@ -648,7 +648,9 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 
 	/* Only update HRT information on path with HRT comp */
 	if (frame_weight > mtk_crtc->qos_ctx->last_hrt_req) {
+#ifdef MTK_FB_MMDVFS_SUPPORT
 		mtk_disp_set_hrt_bw(mtk_crtc, frame_weight);
+#endif
 		mtk_crtc->qos_ctx->last_hrt_req = frame_weight;
 		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 			       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_LEVEL,
@@ -906,7 +908,9 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		if (cur_hrt != NO_PENDING_HRT) {
 			DDPINFO("release HRT %u %u\n", cur_hrt,
 				mtk_crtc->qos_ctx->last_hrt_req);
+#ifdef MTK_FB_MMDVFS_SUPPORT
 			mtk_disp_set_hrt_bw(mtk_crtc, cur_hrt);
+#endif
 			mtk_crtc->qos_ctx->last_hrt_req = cur_hrt;
 			*(unsigned int *)(cmdq_buf->va_base +
 					  DISP_SLOT_CUR_HRT_LEVEL) =
@@ -1870,8 +1874,10 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 	struct drm_crtc_state *crtc_state = crtc->state;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
 	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(crtc, 0, 0);
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	unsigned int v = crtc->state->adjusted_mode.vdisplay;
 	unsigned int h = crtc->state->adjusted_mode.hdisplay;
+#endif
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	unsigned int last_fence, cur_fence, sub;
@@ -1885,7 +1891,11 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 
 		mtk_ddp_comp_layer_config(comp, plane_index, plane_state,
 					  cmdq_handle);
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 		mtk_wb_atomic_commit(mtk_crtc, v, h, state->cmdq_handle);
+#else
+		mtk_wb_atomic_commit(mtk_crtc);
+#endif
 	}
 	last_fence = *(unsigned int *)(cmdq_buf->va_base +
 				       DISP_SLOT_CUR_CONFIG_FENCE(plane_index));
@@ -2108,7 +2118,7 @@ static const struct drm_crtc_funcs mtk_crtc_funcs = {
 static const struct drm_crtc_helper_funcs mtk_crtc_helper_funcs = {
 	.mode_fixup = mtk_drm_crtc_mode_fixup,
 	.mode_set_nofb = mtk_drm_crtc_mode_set_nofb,
-	.enable = mtk_drm_crtc_resume,
+	/* .enable = mtk_drm_crtc_resume, */
 	.disable = mtk_drm_crtc_suspend,
 	.atomic_begin = mtk_drm_crtc_atomic_begin,
 	.atomic_flush = mtk_drm_crtc_atomic_flush,
@@ -2573,7 +2583,7 @@ int mtk_drm_crtc_getfence_ioctl(struct drm_device *dev, void *data,
 	struct mtk_fence_info *l_info = NULL;
 	int tl;
 
-	crtc = drm_crtc_find(dev, args->crtc_id);
+	crtc = drm_crtc_find(dev, file_priv, args->crtc_id);
 	if (!crtc) {
 		DDPPR_ERR("Unknown CRTC ID %d\n", args->crtc_id);
 		ret = -ENOENT;

@@ -15,6 +15,7 @@
 #include <linux/time.h>
 #include <linux/wait.h>
 #include <linux/debugfs.h>
+#include <linux/sched/clock.h>
 #include <drm/drmP.h>
 #include "mtk_dump.h"
 #include "mtk_debug.h"
@@ -429,7 +430,9 @@ static void process_dbg_opt(const char *opt)
 		       idle_check_interval);
 	} else if (strncmp(opt, "hrt_bw", 6) == 0) {
 		DDPINFO("HRT test+\n");
+#ifdef MTK_FB_MMDVFS_SUPPORT
 		mtk_disp_hrt_bw_dbg();
+#endif
 		DDPINFO("HRT test-\n");
 	} else if (strncmp(opt, "lcm0_reset", 10) == 0) {
 		struct mtk_ddp_comp *comp;

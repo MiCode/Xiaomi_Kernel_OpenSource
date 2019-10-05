@@ -138,7 +138,7 @@ static enum drm_connector_status mtk_lvds_connector_detect(
 }
 
 static const struct drm_connector_funcs mtk_lvds_connector_funcs = {
-	.dpms = drm_atomic_helper_connector_dpms,
+	/* .dpms = drm_atomic_helper_connector_dpms, */
 	.detect = mtk_lvds_connector_detect,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy = drm_connector_cleanup,

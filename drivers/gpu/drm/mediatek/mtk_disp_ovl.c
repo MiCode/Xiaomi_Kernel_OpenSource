@@ -32,7 +32,9 @@
 #include "mtk_drm_helper.h"
 #include "mtk_drm_drv.h"
 #include "mtk_disp_pmqos.h"
+#ifdef CONFIG_MTK_IOMMU
 #include "mtk_iommu_ext.h"
+#endif
 
 #define REG_FLD(width, shift)                                                  \
 	((unsigned int)((((width)&0xFF) << 16) | ((shift)&0xFF)))
@@ -283,12 +285,10 @@ static u32 DCI_P3_to_sRGB[CSC_COEF_NUM] = {
 	321111, -58967, 0, -11025, 273169, 0, -5148, -20614, 287906};
 
 #define DECLARE_MTK_OVL_COLORSPACE(EXPR)                                       \
-	{                                                                      \
 	EXPR(OVL_SRGB)                                                         \
 	EXPR(OVL_P3)                                                           \
 	EXPR(OVL_CS_NUM)                                                       \
-	EXPR(OVL_CS_UNKNOWN)                                                   \
-	}
+	EXPR(OVL_CS_UNKNOWN)
 
 enum mtk_ovl_colorspace { DECLARE_MTK_OVL_COLORSPACE(DECLARE_NUM) };
 
@@ -296,13 +296,11 @@ static const char * const mtk_ovl_colorspace_str[] = {
 	DECLARE_MTK_OVL_COLORSPACE(DECLARE_STR)};
 
 #define DECLARE_MTK_OVL_TRANSFER(EXPR)                                         \
-	{                                                                      \
 	EXPR(OVL_GAMMA2)                                                       \
 	EXPR(OVL_GAMMA2_2)                                                     \
 	EXPR(OVL_LINEAR)                                                       \
 	EXPR(OVL_GAMMA_NUM)                                                    \
-	EXPR(OVL_GAMMA_UNKNOWN)                                                \
-	}
+	EXPR(OVL_GAMMA_UNKNOWN)
 
 enum mtk_ovl_transfer { DECLARE_MTK_OVL_TRANSFER(DECLARE_NUM) };
 
@@ -679,7 +677,7 @@ mtk_ovl_get_colorspace_str(enum mtk_ovl_colorspace colorspace)
 	return mtk_ovl_colorspace_str[colorspace];
 }
 
-static enum mtk_drm_dataspace mtk_ovl_map_cs(enum mtk_drm_dataspace ds)
+static enum mtk_ovl_colorspace mtk_ovl_map_cs(enum mtk_drm_dataspace ds)
 {
 	enum mtk_ovl_colorspace cs = OVL_SRGB;
 
@@ -1769,6 +1767,7 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			       comp->regs_pa + DISP_REG_OVL_INTEN, 0, inten);
 		break;
 	}
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	case PMQOS_SET_BW: {
 		struct mtk_drm_crtc *mtk_crtc;
 		struct cmdq_pkt_buffer *cmdq_buf;
@@ -1817,6 +1816,7 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			       comp->qos_bw, ~0);
 		break;
 	}
+#endif
 	case OVL_REPLACE_BOOTUP_MVA: {
 		struct mtk_ddp_fb_info *fb_info =
 			(struct mtk_ddp_fb_info *)params;
@@ -2183,8 +2183,10 @@ static int mtk_disp_ovl_bind(struct device *dev, struct device *master,
 {
 	struct mtk_disp_ovl *priv = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = data;
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	struct mtk_drm_private *drm_priv = drm_dev->dev_private;
 	int qos_req_port;
+#endif
 	int ret;
 	unsigned int bg_h, bg_w;
 	void __iomem *baddr;
@@ -2196,6 +2198,7 @@ static int mtk_disp_ovl_bind(struct device *dev, struct device *master,
 		return ret;
 	}
 
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	qos_req_port = __mtk_disp_pmqos_port_look_up(priv->ddp_comp.id);
 	if (qos_req_port < 0) {
 		DDPPR_ERR("Failed to request QOS port\n");
@@ -2205,7 +2208,9 @@ static int mtk_disp_ovl_bind(struct device *dev, struct device *master,
 		mm_qos_add_request(&drm_priv->hrt_request_list,
 				   &priv->ddp_comp.hrt_qos_req, qos_req_port);
 	}
+#endif
 
+#ifdef CONFIG_MTK_IOMMU
 	if (priv->ddp_comp.id == DDP_COMPONENT_OVL0) {
 		mtk_iommu_register_fault_callback(
 			M4U_PORT_DISP_OVL0_HDR,
@@ -2221,6 +2226,7 @@ static int mtk_disp_ovl_bind(struct device *dev, struct device *master,
 			M4U_PORT_DISP_OVL0_2L_HDR,
 			(mtk_iommu_fault_callback_t)drm_ovl_tf_cb, priv);
 	}
+#endif
 
 	baddr = priv->ddp_comp.regs;
 	bg_w = readl(DISP_REG_OVL_ROI_SIZE + baddr) & 0xfff,

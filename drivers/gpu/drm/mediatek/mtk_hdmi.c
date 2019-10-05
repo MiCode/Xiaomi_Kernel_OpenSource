@@ -1260,7 +1260,7 @@ static struct drm_encoder *mtk_hdmi_conn_best_enc(struct drm_connector *conn)
 }
 
 static const struct drm_connector_funcs mtk_hdmi_connector_funcs = {
-	.dpms = drm_atomic_helper_connector_dpms,
+	/* .dpms = drm_atomic_helper_connector_dpms, */
 	.detect = hdmi_conn_detect,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy = hdmi_conn_destroy,
@@ -1316,7 +1316,7 @@ static int mtk_hdmi_bridge_attach(struct drm_bridge *bridge)
 
 	if (bridge->next) {
 		bridge->next->encoder = bridge->encoder;
-		ret = drm_bridge_attach(bridge->encoder->dev, bridge->next);
+		ret = drm_bridge_attach(bridge->encoder, bridge->next, NULL);
 		if (ret) {
 			dev_err(hdmi->dev,
 				"Failed to attach external bridge: %d\n", ret);
