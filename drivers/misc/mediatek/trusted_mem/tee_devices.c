@@ -198,7 +198,7 @@ static int __init tee_smem_devs_init(void)
 	int idx = 0;
 
 	pr_info("%s:%d (%d)\n", __func__, __LINE__,
-		TEE_SECURE_MEM_DEVICE_COUNT);
+		(int)TEE_SECURE_MEM_DEVICE_COUNT);
 
 	for (idx = 0; idx < TEE_SECURE_MEM_DEVICE_COUNT; idx++) {
 		t_device = create_tee_smem_device(
