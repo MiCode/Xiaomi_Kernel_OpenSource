@@ -126,6 +126,17 @@ char *mtk_iommu_get_vpu_port_name(unsigned int tf_id)
 	return "APU_UNKNOWN";
 }
 
+char *mtk_iommu_get_port_name(unsigned int m4u_id,
+		unsigned int tf_id)
+{
+#ifdef APU_IOMMU_INDEX
+	if (m4u_id >= APU_IOMMU_INDEX)
+		return mtk_iommu_get_vpu_port_name(tf_id);
+#endif
+
+	return mtk_iommu_get_mm_port_name(tf_id);
+}
+
 static inline int mtk_iommu_larb_port_idx(int id)
 {
 	unsigned int larb, port;

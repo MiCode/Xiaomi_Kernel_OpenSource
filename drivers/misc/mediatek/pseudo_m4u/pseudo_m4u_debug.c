@@ -501,14 +501,14 @@ static int m4u_debug_set(void *data, u64 val)
 
 	switch (val) {
 	case 1:
-	{                   /* map4kpageonly */
+	{ /* map4kpageonly */
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
 		int i;
 		struct page *page;
 		int page_num = 512;
-		unsigned int id = M4U_PORT_UNKNOWN;
+		unsigned int id = M4U_PORT_BOUNDARY0_DEBUG;
 		unsigned long size = page_num * PAGE_SIZE;
 
 		page = alloc_pages(GFP_KERNEL, get_order(page_num));
@@ -523,14 +523,14 @@ static int m4u_debug_set(void *data, u64 val)
 	}
 	break;
 	case 2:
-	{                   /* map64kpageonly */
+	{ /* map64kpageonly */
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
 		int i;
 		int page_num = 51;
 		unsigned long page_size = SZ_64K;
-		unsigned int id = M4U_PORT_APU;
+		unsigned int id = M4U_PORT_BOUNDARY1_DEBUG;
 		unsigned long size = page_num * page_size;
 		struct page *page;
 
@@ -539,7 +539,7 @@ static int m4u_debug_set(void *data, u64 val)
 			sg_dma_address(sg) = page_size * (i + 1);
 			sg_dma_len(sg) = page_size;
 			page = phys_to_page(page_size * (i + 1));
-			sg_set_page(sg, page, size, 0);
+			sg_set_page(sg, page, page_size, 0);
 		}
 
 		pseudo_test_alloc_dealloc(id, 0, size, sg_table);
@@ -547,14 +547,14 @@ static int m4u_debug_set(void *data, u64 val)
 	}
 	break;
 	case 3:
-	{                   /* map1Mpageonly */
+	{ /* map1Mpageonly */
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
 		int i;
 		int page_num = 37;
 		unsigned long page_size = SZ_1M;
-		unsigned int id = M4U_PORT_CCU;
+		unsigned int id = M4U_PORT_BOUNDARY2_DEBUG;
 		unsigned long size = page_num * page_size;
 		struct page *page;
 
@@ -564,7 +564,7 @@ static int m4u_debug_set(void *data, u64 val)
 			sg_dma_address(sg) = page_size * (i + 1);
 			sg_dma_len(sg) = page_size;
 			page = phys_to_page(page_size * (i + 1));
-			sg_set_page(sg, page, size, 0);
+			sg_set_page(sg, page, page_size, 0);
 		}
 		pseudo_test_alloc_dealloc(id, 0, size, sg_table);
 
@@ -572,14 +572,14 @@ static int m4u_debug_set(void *data, u64 val)
 	}
 	break;
 	case 4:
-	{                   /* map16Mpageonly */
+	{ /* map16Mpageonly */
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
 		int i;
 		int page_num = 2;
 		unsigned long page_size = SZ_16M;
-		unsigned int id = M4U_PORT_UNKNOWN;
+		unsigned int id = M4U_PORT_BOUNDARY3_DEBUG;
 		unsigned long size = page_num * page_size;
 		struct page *page;
 
@@ -588,19 +588,19 @@ static int m4u_debug_set(void *data, u64 val)
 			sg_dma_address(sg) = page_size * (i + 1);
 			sg_dma_len(sg) = page_size;
 			page = phys_to_page(page_size * (i + 1));
-			sg_set_page(sg, page, size, 0);
+			sg_set_page(sg, page, page_size, 0);
 		}
 		pseudo_test_alloc_dealloc(id, 0, size, sg_table);
 		sg_free_table(sg_table);
 	}
 	break;
 	case 5:
-	{                   /* mapmiscpages */
+	{ /* mapmiscpages */
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
 		unsigned int size = SZ_16M * 2;
-		unsigned int id = M4U_PORT_APU;
+		unsigned int id = M4U_PORT_UNKNOWN;
 		struct page *page;
 
 		sg_alloc_table(sg_table, 1, GFP_KERNEL);
@@ -624,8 +624,48 @@ static int m4u_debug_set(void *data, u64 val)
 		m4u_test_alloc_dealloc(3, SZ_4M);
 	break;
 	case 9:                /* m4u_alloc_mvausingkmallocbuffer */
+	{ /* map4kpageonly */
+		struct sg_table table;
+		struct sg_table *sg_table = &table;
+		struct scatterlist *sg;
+		int i;
+		struct page *page;
+		int page_num = 512;
+		unsigned int id = M4U_PORT_CCU;
+		unsigned long size = page_num * PAGE_SIZE;
+
+		page = alloc_pages(GFP_KERNEL, get_order(page_num));
+		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
+		for_each_sg(sg_table->sgl, sg, sg_table->nents, i)
+			sg_set_page(sg, page + i, PAGE_SIZE, 0);
+
+		pseudo_test_alloc_dealloc(id, 0, size, sg_table);
+
+		sg_free_table(sg_table);
+		__free_pages(page, get_order(page_num));
+	}
 	break;
 	case 10:
+	{ /* map4kpageonly */
+		struct sg_table table;
+		struct sg_table *sg_table = &table;
+		struct scatterlist *sg;
+		int i;
+		struct page *page;
+		int page_num = 512;
+		unsigned int id = M4U_PORT_APU_CODE;
+		unsigned long size = page_num * PAGE_SIZE;
+
+		page = alloc_pages(GFP_KERNEL, get_order(page_num));
+		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
+		for_each_sg(sg_table->sgl, sg, sg_table->nents, i)
+			sg_set_page(sg, page + i, PAGE_SIZE, 0);
+
+		pseudo_test_alloc_dealloc(id, 0, size, sg_table);
+
+		sg_free_table(sg_table);
+		__free_pages(page, get_order(page_num));
+	}
 	break;
 	case 11:    /* map unmap kernel */
 		m4u_test_map_kernel();
@@ -861,21 +901,25 @@ DEFINE_SIMPLE_ATTRIBUTE(m4u_log_level_fops,
 int m4u_debug_help_show(struct seq_file *s, void *unused)
 {
 	M4U_PRINT_SEQ(s,
-		      "echo 1 > /d/m4u/debug:	UNKNOWN map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
+		      "echo 1 > /d/m4u/debug:	boundary0 domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 2 > /d/m4u/debug:	APU map/unmap the sg table(51 count of 64KB pages) to IOVA(aligned of 0x10000)\n");
+		      "echo 2 > /d/m4u/debug:	boundary1 domain: map/unmap the sg table(51 count of 64KB pages) to IOVA(aligned of 0x10000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 3 > /d/m4u/debug:	CCU map/unmap the sg table(37 count of 1MB pages) to IOVA(aligned of 0x100000)\n");
+		      "echo 3 > /d/m4u/debug:	boundary2 domain: map/unmap the sg table(37 count of 1MB pages) to IOVA(aligned of 0x100000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 4 > /d/m4u/debug:	UNKNOWN map/unmap the sg table(2 count of 16MB pages) to IOVA(aligned of 0x1000000)\n");
+		      "echo 4 > /d/m4u/debug:	boundary3 domain: map/unmap the sg table(2 count of 16MB pages) to IOVA(aligned of 0x1000000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 5 > /d/m4u/debug:	APU map/unmap the sg table(1 count of 32MB pages) to IOVA(aligned of 0x4000)\n");
+		      "echo 5 > /d/m4u/debug:	unknown domain: map/unmap the sg table(1 count of 32MB pages) to IOVA(aligned of 0x4000)\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 6 > /d/m4u/debug:	map/unmap 4MB kernel space virtual buffer(kmalloc) to IOVA\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 7 > /d/m4u/debug:	map/unmap 4MB kernel space virtual buffer(vmalloc) to IOVA\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 8 > /d/m4u/debug:	map/unmap 4MB user space virtual buffer(do_mmap_pgoff) to IOVA\n");
+	M4U_PRINT_SEQ(s,
+		      "echo 9 > /d/m4u/debug:	CCU domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
+	M4U_PRINT_SEQ(s,
+		      "echo 10 > /d/m4u/debug:	APU CODE domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 11 > /d/m4u/debug:	map userspace VA to IOVA / map IOVA to kernel VA / unmap kernel VA / unmap IOVA / unmap userspace VA\n");
 	M4U_PRINT_SEQ(s,

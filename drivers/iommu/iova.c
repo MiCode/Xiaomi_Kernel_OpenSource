@@ -242,6 +242,9 @@ move_left:
 	new_pfn = (limit_pfn - size) & align_mask;
 	if (limit_pfn < size || new_pfn < iovad->start_pfn) {
 		spin_unlock_irqrestore(&iovad->iova_rbtree_lock, flags);
+		pr_notice("%s, %d, limit:0x%lx, size:0x%lx, new:0x%lx, start:0x%lx, align_mask:0x%lx\n",
+			__func__, __LINE__, limit_pfn, size,
+			new_pfn, iovad->start_pfn, align_mask);
 		return -ENOMEM;
 	}
 
@@ -254,7 +257,6 @@ move_left:
 	__cached_rbnode_insert_update(iovad, saved_pfn, new);
 
 	spin_unlock_irqrestore(&iovad->iova_rbtree_lock, flags);
-
 
 	return 0;
 }
@@ -330,13 +332,16 @@ alloc_iova(struct iova_domain *iovad, unsigned long size,
 	int ret;
 
 	new_iova = alloc_iova_mem();
-	if (!new_iova)
+	if (!new_iova) {
+		pr_notice("%s, %d\n", __func__, __LINE__);
 		return NULL;
+	}
 
 	ret = __alloc_and_insert_iova_range(iovad, size, limit_pfn + 1,
 			new_iova, size_aligned);
 
 	if (ret) {
+		pr_notice("%s, %d, ret:%d\n", __func__, __LINE__, ret);
 		free_iova_mem(new_iova);
 		return NULL;
 	}
@@ -466,6 +471,8 @@ retry:
 	if (!new_iova) {
 		unsigned int cpu;
 
+		pr_notice("%s, %d, limit:0x%lx, size:0x%lx\n",
+			  __func__, __LINE__, limit_pfn, size);
 		if (flushed_rcache)
 			return 0;
 
