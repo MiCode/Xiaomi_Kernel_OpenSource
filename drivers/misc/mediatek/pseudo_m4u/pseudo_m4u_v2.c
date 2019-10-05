@@ -1675,11 +1675,29 @@ struct m4u_client_t *pseudo_get_m4u_client(void)
 			ion_m4u_client = NULL;
 			return NULL;
 		}
+		ion_m4u_client->count++;
 	}
 
+	//M4U_MSG("user count:%d\n", ion_m4u_client->count);
 	return ion_m4u_client;
 }
 EXPORT_SYMBOL(pseudo_get_m4u_client);
+
+void pseudo_put_m4u_client(void)
+{
+	if (IS_ERR_OR_NULL(ion_m4u_client)) {
+		M4U_ERR("err client\n");
+		return;
+	}
+	if (ion_m4u_client->count <= 0) {
+		M4U_ERR("client count(%ld) not match\n",
+			ion_m4u_client->count);
+		return;
+	}
+	ion_m4u_client->count--;
+	//M4U_MSG("user count:%d\n", ion_m4u_client->count);
+}
+EXPORT_SYMBOL(pseudo_put_m4u_client);
 
 int pseudo_alloc_mva_sg(struct port_mva_info_t *port_info,
 				struct sg_table *sg_table)
@@ -1693,7 +1711,7 @@ int pseudo_alloc_mva_sg(struct port_mva_info_t *port_info,
 	unsigned long size_align = port_info->buf_size;
 	struct m4u_client_t *client;
 
-	client = pseudo_get_m4u_client();
+	client = ion_m4u_client;
 	if (!client) {
 		M4U_ERR("failed to get ion_m4u_client\n");
 		return -1;
@@ -1929,10 +1947,10 @@ int pseudo_destroy_client(struct m4u_client_t *client)
 					link);
 #ifdef IOMMU_DEBUG_ENABLED
 		M4U_MSG
-			("warn: clean garbage: %s,va=0x%lx,mva=0x%lx,size=%lu\n",
+			("warn:clean,%s,va=0x%lx,mva=0x%lx,s=%lu,c:%ld\n",
 			 iommu_get_port_name(pMvaInfo->port), pMvaInfo->va,
-			 pMvaInfo->mva,
-			 pMvaInfo->size);
+			 pMvaInfo->mva, pMvaInfo->size,
+			 ion_m4u_client->count);
 #endif
 		port = pMvaInfo->port;
 		mva = pMvaInfo->mva;
@@ -1945,6 +1963,7 @@ int pseudo_destroy_client(struct m4u_client_t *client)
 	}
 
 	kfree(client);
+	M4U_MSG("client has been destroyed\n");
 
 	return 0;
 }
@@ -2268,10 +2287,7 @@ int m4u_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 
 static int pseudo_release(struct inode *inode, struct file *file)
 {
-	struct m4u_client_t *client = file->private_data;
-
-	M4U_DBG("%s process : %s\n", __func__, current->comm);
-	pseudo_destroy_client(client);
+	pseudo_put_m4u_client();
 	return 0;
 }
 
@@ -3176,6 +3192,11 @@ static int pseudo_probe(struct platform_device *pdev)
 	else
 		M4U_MSG("m4u register fb_notifier OK!\n");
 #endif
+	pseudo_get_m4u_client();
+	if (IS_ERR_OR_NULL(ion_m4u_client)) {
+		M4U_MSG("createclientfail\n");
+		return -ENOMEM;
+	}
 
 	M4U_MSG("%s done\n", __func__);
 	return 0;
@@ -3348,6 +3369,9 @@ static int pseudo_remove(struct platform_device *pdev)
 {
 	if (pseudo_mmu_dev->m4u_dev_proc_entry)
 		proc_remove(pseudo_mmu_dev->m4u_dev_proc_entry);
+	pseudo_put_m4u_client();
+	M4U_MSG("client user count:%ld\n", ion_m4u_client->count);
+	pseudo_destroy_client(ion_m4u_client);
 	return 0;
 }
 

@@ -126,6 +126,7 @@ struct m4u_client_t {
 	pid_t open_pid;
 	pid_t open_tgid;
 	struct list_head mvaList;
+	unsigned long count;
 };
 
 struct port_mva_info_t {

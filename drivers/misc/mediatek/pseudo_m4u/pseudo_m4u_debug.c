@@ -56,6 +56,7 @@ int pseudo_test_alloc_dealloc(int port, unsigned long va,
 	if (ret) {
 		M4U_MSG("alloc mva fail:va=0x%lx,size=0x%x,ret=%d\n",
 			va, size, ret);
+		pseudo_put_m4u_client();
 		return ret;
 	}
 	__m4u_dump_pgtable(NULL, 1, true, 0);
@@ -68,6 +69,7 @@ int pseudo_test_alloc_dealloc(int port, unsigned long va,
 	}
 	ret = pseudo_dealloc_mva(client, port, mva);
 	__m4u_dump_pgtable(NULL, 1, true, 0);
+	pseudo_put_m4u_client();
 
 	return 0;
 }
@@ -151,12 +153,14 @@ static int m4u_test_map_kernel(void)
 	if (ret) {
 		M4U_MSG("alloc using kmalloc fail:va=0x%lx,size=0x%x\n",
 			va, size);
+		pseudo_put_m4u_client();
 		return -1;
 	}
 
 	ret = m4u_mva_map_kernel(mva, size, &kernel_va, &kernel_size);
 	if (ret) {
 		M4U_MSG("map kernel fail!\n");
+		pseudo_put_m4u_client();
 		return -1;
 	}
 	for (i = 0; i < size; i += 4) {
@@ -174,6 +178,7 @@ static int m4u_test_map_kernel(void)
 	up_read(&current->mm->mmap_sem);
 	if (ret)
 		M4U_MSG("do_munmap failed\n");
+	pseudo_put_m4u_client();
 
 	return 0;
 }
@@ -193,6 +198,7 @@ int m4u_test_fake_engine(void)
 	pSrc = vmalloc(allocated_size);
 	if (!pSrc) {
 		M4U_MSG("vmalloc failed!\n");
+		pseudo_put_m4u_client();
 		return -1;
 	}
 	memset(pSrc, 0xFF, allocated_size);
@@ -202,6 +208,7 @@ int m4u_test_fake_engine(void)
 	if (!pDst) {
 		M4U_MSG("vmalloc failed!\n");
 		vfree(pSrc);
+		pseudo_put_m4u_client();
 		return -1;
 	}
 	memset(pDst, 0xFF, allocated_size);
@@ -239,6 +246,7 @@ int m4u_test_fake_engine(void)
 				*(pDst+i));
 			vfree(pSrc);
 			vfree(pDst);
+			pseudo_put_m4u_client();
 			return -2;
 		}
 	}
@@ -249,6 +257,7 @@ int m4u_test_fake_engine(void)
 	vfree(pDst);
 
 	iommu_perf_monitor_stop(0);
+	pseudo_put_m4u_client();
 	return 0;
 }
 
@@ -265,6 +274,7 @@ int m4u_test_ddp(void)
 	pSrc = vmalloc(size);
 	if (!pSrc) {
 		M4U_MSG("vmalloc failed!\n");
+		pseudo_put_m4u_client();
 		return -1;
 	}
 
@@ -272,6 +282,7 @@ int m4u_test_ddp(void)
 	if (!pDst) {
 		M4U_MSG("vmalloc failed!\n");
 		vfree(pSrc);
+		pseudo_put_m4u_client();
 		return -1;
 	}
 
@@ -301,6 +312,7 @@ int m4u_test_ddp(void)
 
 	vfree(pSrc);
 	vfree(pDst);
+	pseudo_put_m4u_client();
 
 	return 0;
 }
@@ -340,6 +352,7 @@ int m4u_test_tf(void)
 	pSrc = vmalloc(size);
 	if (!pSrc) {
 		M4U_MSG("vmalloc failed!\n");
+		pseudo_put_m4u_client();
 		return -1;
 	}
 
@@ -347,6 +360,7 @@ int m4u_test_tf(void)
 	if (!pDst) {
 		M4U_MSG("vmalloc failed!\n");
 		vfree(pSrc);
+		pseudo_put_m4u_client();
 		return -1;
 	}
 
@@ -379,6 +393,7 @@ int m4u_test_tf(void)
 
 	vfree(pSrc);
 	vfree(pDst);
+	pseudo_put_m4u_client();
 
 	return 0;
 }
@@ -780,6 +795,7 @@ static int m4u_debug_set(void *data, u64 val)
 		pSrc = vmalloc(128);
 		if (!pSrc) {
 			M4U_MSG("vmalloc failed!\n");
+			pseudo_put_m4u_client();
 			return -1;
 		}
 

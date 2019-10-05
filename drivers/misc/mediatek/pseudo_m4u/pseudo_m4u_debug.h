@@ -27,6 +27,7 @@ extern int m4u_config_port_tee(struct M4U_PORT_STRUCT *pM4uPort);
 #endif
 
 struct m4u_client_t *pseudo_get_m4u_client(void);
+void pseudo_put_m4u_client(void);
 int __pseudo_alloc_mva(struct m4u_client_t *client,
 	int port, unsigned long va, unsigned long size,
 	struct sg_table *sg_table, unsigned int flags,
