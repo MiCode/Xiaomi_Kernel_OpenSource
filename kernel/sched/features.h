@@ -92,6 +92,16 @@ SCHED_FEAT(WA_BIAS, true)
 SCHED_FEAT(UTIL_EST, true)
 
 /*
+ * HMP scheduling. Use dynamic threshold depends on system load and
+ * CPU capacity to make schedule decisions.
+ */
+#ifdef CONFIG_SCHED_HMP
+SCHED_FEAT(SCHED_HMP, true)
+#else
+SCHED_FEAT(SCHED_HMP, false)
+#endif
+
+/*
  * Energy aware scheduling. Use platform energy model to guide scheduling
  * decisions optimizing for energy efficiency.
  */
