@@ -537,7 +537,7 @@ void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 		} else if ((cmd == 46 || cmd == 47) && !type) {
 			tag = (arg >> 16) & 0x1f;
 			SPREAD_PRINTF(buff, size, m,
-				"%03d [%5llu.%06llu]%3d %2d %08x id=%02d\n",
+				"%03d [%5llu.%06llu]%2d %3d %08x id=%02d\n",
 				j, time_sec, time_usec,
 				type, cmd, arg, tag);
 		} else

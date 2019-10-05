@@ -1179,8 +1179,9 @@ static int mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 		return err;
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (mmc_card_cmdq(host->card) &&
-			mrq->done == mmc_wait_cmdq_done) {
+	if (host->card
+		&& mmc_card_cmdq(host->card)
+		&& mrq->done == mmc_wait_cmdq_done) {
 		mmc_enqueue_queue(host, mrq);
 		wake_up_process(host->cmdq_thread);
 		led_trigger_event(host->led, LED_FULL);
@@ -1290,7 +1291,7 @@ static int __mmc_start_data_req(struct mmc_host *host, struct mmc_request *mrq)
 	mmc_wait_ongoing_tfr_cmd(host);
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (mmc_card_cmdq(host->card))
+	if (host->card && mmc_card_cmdq(host->card))
 		mrq->done = mmc_wait_cmdq_done;
 	else
 #endif

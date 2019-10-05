@@ -3568,7 +3568,7 @@ int msdc_error_tuning(struct mmc_host *mmc,  struct mmc_request *mrq)
 	u32 status;
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (mmc_card_cmdq(mmc->card)) {
+	if (mmc->card && mmc_card_cmdq(mmc->card)) {
 		pr_notice("msdc%d waiting data transfer done3\n", host->id);
 		if (msdc_cq_cmd_wait_xfr_done(host)) {
 			pr_notice("msdc%d waiting data transfer done3 TMO\n",
@@ -3665,7 +3665,7 @@ start_tune:
 				host->id, ++host->reautok_times);
 #if defined(CONFIG_MTK_EMMC_CQ_SUPPORT) || defined(CONFIG_MTK_EMMC_HW_CQ)
 			/* CQ DAT tune in MMC layer, here tune CMD13 CRC */
-			if (mmc_card_cmdq(mmc->card))
+			if (mmc->card && mmc_card_cmdq(mmc->card))
 				emmc_execute_dvfs_autok(host, MMC_SEND_STATUS);
 			else
 #endif
@@ -4041,7 +4041,7 @@ static void msdc_ops_request_legacy(struct mmc_host *mmc,
 	}
 
 	/* only CMD0/12/13 can be send when non-empty queue @ CMDQ on */
-	if (mmc_card_cmdq(mmc->card)
+	if (mmc->card && mmc_card_cmdq(mmc->card)
 		&& atomic_read(&mmc->areq_cnt)
 		&& !check_mmc_cmd001213(cmd->opcode)
 		&& !check_mmc_cmd48(cmd->opcode)) {
@@ -4141,7 +4141,7 @@ int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	autok_msdc_tx_setting(host, &mmc->ios);
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (mmc_card_cmdq(mmc->card)) {
+	if (mmc->card && mmc_card_cmdq(mmc->card)) {
 		if (msdc_cq_cmd_wait_xfr_done(host)) {
 			pr_notice("msdc%d waiting data transfer done4 TMO\n",
 				host->id);
@@ -4725,7 +4725,8 @@ skip_non_FDE_ERROR_HANDLING:
 			atomic_set(&host->mmc->is_data_dma, 0);
 
 			/* CQ mode:just set data->error & let mmc layer tune */
-			if (mmc_card_cmdq(host->mmc->card)) {
+			if (host->mmc->card
+				&& mmc_card_cmdq(host->mmc->card)) {
 				if (mrq->data->flags & MMC_DATA_WRITE)
 					atomic_set(&host->cq_error_need_stop,
 						1);
@@ -4831,8 +4832,9 @@ static irqreturn_t msdc_irq(int irq, void *dev_id)
 		intsts &= inten;
 
 #ifdef CONFIG_MTK_EMMC_HW_CQ
-	if (mmc_card_cmdq(host->mmc->card) &&
-		(intsts & MSDC_INT_CMDQ)) {
+	if (host->mmc->card
+		&& mmc_card_cmdq(host->mmc->card)
+		&& (intsts & MSDC_INT_CMDQ)) {
 		msdc_cmdq_irq(host, intsts);
 		MSDC_WRITE32(MSDC_INT, intsts); /* clear interrupts */
 
