@@ -697,6 +697,9 @@ static void __mtk_iommu_tlb_flush_all(const struct mtk_iommu_data *data)
 		return;
 	}
 
+	if (data->m4uid >= 2) { // fix me, @cui zhang
+		return;
+	}
 	writel_relaxed(F_MMU_INV_EN_L2 | F_MMU_INV_EN_L1,
 		   data->base + REG_INVLID_SEL);
 	writel_relaxed(F_MMU_INVLDT_ALL,
@@ -725,6 +728,10 @@ static int __mtk_iommu_tlb_sync(struct mtk_iommu_data *data)
 		return 0;
 	}
 
+	if (data->m4uid >= 2) { // fix me, @cui zhang
+		data->tlb_flush_active = false;
+		return 0;
+	}
 	g_sync_start = sched_clock();
 	ret = readl_poll_timeout_atomic(data->base +
 					REG_MMU_CPE_DONE, //0x12c
@@ -772,6 +779,9 @@ static void __mtk_iommu_tlb_add_flush_nosync(
 		return;
 	}
 
+	if (data->m4uid >= 2) { // fix me, @cui zhang
+		return;
+	}
 	start = round_down(iova_start, SZ_4K);
 	end = round_up(iova_end, SZ_4K);
 
