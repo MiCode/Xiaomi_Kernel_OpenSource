@@ -42,7 +42,7 @@
 /* Required for kbase_mem_evictable_unmake */
 #include "mali_kbase_mem_linux.h"
 
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+#ifdef CONFIG_MTK_IOMMU_V2
 #include <mtk/ion_drv.h>
 #include <mtk/mtk_ion.h>
 #include <ion.h>
@@ -152,9 +152,10 @@ struct kbase_mem_phy_alloc {
 			struct dma_buf_attachment *dma_attachment;
 			unsigned int current_mapping_usage_count;
 			struct sg_table *sgt;
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+#ifdef CONFIG_MTK_IOMMU_V2
 			struct ion_client *ion_client;
 			struct ion_handle *ion_handle;
+			u32 is_iommu;
 #endif
 		} umm;
 		struct {
