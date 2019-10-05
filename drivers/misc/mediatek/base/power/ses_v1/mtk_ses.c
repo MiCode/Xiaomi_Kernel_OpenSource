@@ -138,7 +138,7 @@ struct drp_ratio_type {
 
 struct drp_ratio_type drp_ratio[sesNum];
 
-static unsigned int ses_ByteSel = 1;
+static unsigned int ses_ByteSel = 4;
 
 #if MTK_SES_ON
 static unsigned int state;
@@ -283,26 +283,24 @@ unsigned int mtk_ses_status(unsigned int value)
 	return res.a0;
 }
 
-int mtk_ses_volt_ratio(unsigned int HiRatio,
+int mtk_ses_volt_ratio_eb(unsigned int HiRatio,
 				unsigned int LoRatio,
 				unsigned int ses_node)
 {
 	struct cdvfs_data cdvfs_d;
 	int ret = 0;
 
-	/* cdvfs_d.cmd = IPI_SES_SET_VOLTAGE_DROP_RATIO; TBD */
+	cdvfs_d.cmd = IPI_SES_SET_VOLTAGE_DROP_RATIO;
 	cdvfs_d.u.set_fv.arg[0] = ses_node;
 	cdvfs_d.u.set_fv.arg[1] = HiRatio;
 	cdvfs_d.u.set_fv.arg[2] = LoRatio;
 
-/* ret = mtk_ipi_send_compl(&mcupm_ipidev,
- *		CH_S_CPU_DVFS,
- *		IPI_SEND_WAIT,
- *		&cdvfs_d,
- *		sizeof(cdvfs_d) / MCUPM_MBOX_SLOT_SIZE,
- *		10);
- */
-
+	ret = mtk_ipi_send_compl(&mcupm_ipidev,
+		CH_S_CPU_DVFS,
+		IPI_SEND_POLLING,
+		&cdvfs_d,
+		sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE,
+		10);
 	return ret;
 }
 
@@ -763,9 +761,6 @@ static ssize_t ses_volt_ratio_proc_write(struct file *file,
 	}
 
 	if (atf != 2) {
-		if (HiRatio > 99 || LoRatio > 99)
-			goto out;
-
 		drp_ratio[ses_node].HiCodeRatio = HiRatio;
 		drp_ratio[ses_node].LoCodeRatio = LoRatio;
 		drp_ratio[ses_node].HiCodeVolt = 0;
@@ -778,12 +773,14 @@ static ssize_t ses_volt_ratio_proc_write(struct file *file,
 	}
 
 	if (atf == 2) {
-		mtk_ses_volt_ratio_atf(HiRatio, 0, 100, ses_node);
+		mtk_ses_volt_ratio_eb(100, 100, ses_node);
+		mtk_ses_volt_ratio_atf(HiRatio, 0, 0, ses_node);
 		mtk_ses_volt_ratio_atf(LoRatio, 100, 0, ses_node);
-	} else if (atf == 1)
+	} else if (atf == 1) {
+		mtk_ses_volt_ratio_eb(100, 100, ses_node);
 		mtk_ses_volt_ratio_atf(Volt, HiRatio, LoRatio, ses_node);
-	else
-		mtk_ses_volt_ratio(HiRatio, LoRatio, ses_node);
+	} else
+		mtk_ses_volt_ratio_eb(HiRatio, LoRatio, ses_node);
 
 out:
 	free_page((unsigned long)buf);
@@ -1181,7 +1178,7 @@ static int ses_probe(struct platform_device *pdev)
 			rc, ses0_drphipct, ses0_drplopct);
 
 		if (ses0_drphipct != 0 && ses0_drplopct != 0)
-			mtk_ses_volt_ratio(ses0_drphipct, ses0_drplopct, 0);
+			mtk_ses_volt_ratio_eb(ses0_drphipct, ses0_drplopct, 0);
 	}
 
 	rc = of_property_read_u32(node, "ses1_drphipct", &ses1_drphipct);
@@ -1193,7 +1190,7 @@ static int ses_probe(struct platform_device *pdev)
 			rc, ses1_drphipct, ses1_drplopct);
 
 		if (ses1_drphipct != 0 && ses1_drplopct != 0)
-			mtk_ses_volt_ratio(ses1_drphipct, ses1_drplopct, 1);
+			mtk_ses_volt_ratio_eb(ses1_drphipct, ses1_drplopct, 1);
 	}
 
 	rc = of_property_read_u32(node, "ses2_drphipct", &ses2_drphipct);
@@ -1205,7 +1202,7 @@ static int ses_probe(struct platform_device *pdev)
 			rc, ses2_drphipct, ses2_drplopct);
 
 		if (ses2_drphipct != 0 && ses2_drplopct != 0)
-			mtk_ses_volt_ratio(ses2_drphipct, ses2_drplopct, 2);
+			mtk_ses_volt_ratio_eb(ses2_drphipct, ses2_drplopct, 2);
 	}
 
 	rc = of_property_read_u32(node, "ses3_drphipct", &ses3_drphipct);
@@ -1217,7 +1214,7 @@ static int ses_probe(struct platform_device *pdev)
 			rc, ses3_drphipct, ses3_drplopct);
 
 		if (ses3_drphipct != 0 && ses3_drplopct != 0)
-			mtk_ses_volt_ratio(ses3_drphipct, ses3_drplopct, 3);
+			mtk_ses_volt_ratio_eb(ses3_drphipct, ses3_drplopct, 3);
 	}
 
 	rc = of_property_read_u32(node, "ses4_drphipct", &ses4_drphipct);
@@ -1229,7 +1226,7 @@ static int ses_probe(struct platform_device *pdev)
 			rc, ses4_drphipct, ses4_drplopct);
 
 		if (ses4_drphipct != 0 && ses4_drplopct != 0)
-			mtk_ses_volt_ratio(ses4_drphipct, ses4_drplopct, 4);
+			mtk_ses_volt_ratio_eb(ses4_drphipct, ses4_drplopct, 4);
 	}
 
 	rc = of_property_read_u32(node, "ses5_drphipct", &ses5_drphipct);
@@ -1241,7 +1238,7 @@ static int ses_probe(struct platform_device *pdev)
 			rc, ses5_drphipct, ses5_drplopct);
 
 		if (ses5_drphipct != 0 && ses5_drplopct != 0)
-			mtk_ses_volt_ratio(ses5_drphipct, ses5_drplopct, 5);
+			mtk_ses_volt_ratio_eb(ses5_drphipct, ses5_drplopct, 5);
 	}
 
 	rc = of_property_read_u32(node, "ses6_drphipct", &ses6_drphipct);
@@ -1253,7 +1250,7 @@ static int ses_probe(struct platform_device *pdev)
 			rc, ses6_drphipct, ses6_drplopct);
 
 		if (ses6_drphipct != 0 && ses6_drplopct != 0)
-			mtk_ses_volt_ratio(ses6_drphipct, ses6_drplopct, 6);
+			mtk_ses_volt_ratio_eb(ses6_drphipct, ses6_drplopct, 6);
 	}
 
 	rc = of_property_read_u32(node, "ses7_drphipct", &ses7_drphipct);
@@ -1265,7 +1262,7 @@ static int ses_probe(struct platform_device *pdev)
 			rc, ses7_drphipct, ses7_drplopct);
 
 		if (ses7_drphipct != 0 && ses7_drplopct != 0)
-			mtk_ses_volt_ratio(ses7_drphipct, ses7_drplopct, 7);
+			mtk_ses_volt_ratio_eb(ses7_drphipct, ses7_drplopct, 7);
 	}
 
 	rc = of_property_read_u32(node, "ses8_drphipct", &ses8_drphipct);
@@ -1277,7 +1274,7 @@ static int ses_probe(struct platform_device *pdev)
 			rc, ses8_drphipct, ses8_drplopct);
 
 		if (ses8_drphipct != 0 && ses8_drplopct != 0)
-			mtk_ses_volt_ratio(ses8_drphipct, ses8_drplopct, 8);
+			mtk_ses_volt_ratio_eb(ses8_drphipct, ses8_drplopct, 8);
 	}
 
 #endif
