@@ -900,11 +900,12 @@ static int arm_v7s_switch_acp(struct io_pgtable_ops *ops,
 	arm_v7s_iopte pte;
 	unsigned long iova_start = iova;
 	unsigned long iova_end = iova + size - 1;
-	u32 sz, lvl;
+	u32 sz;
+	int lvl;
 
 	while (iova < iova_end) {
 		lvl = arm_v7s_set_acp(data, iova, &pte, is_acp);
-		if (lvl < 0)
+		if (lvl < 0 || lvl > 2)
 			return -1;
 
 		sz = ARM_V7S_BLOCK_SIZE(lvl);
@@ -996,12 +997,13 @@ static struct io_pgtable *arm_v7s_alloc_pgtable(struct io_pgtable_cfg *cfg,
 						void *cookie)
 {
 	struct arm_v7s_io_pgtable *data;
+#ifdef CONFIG_MTK_IOMMU_V2
+	unsigned long base = 0;
+#endif
 
 	if (cfg->ias > ARM_V7S_ADDR_BITS || cfg->oas > ARM_V7S_PHYS_ADDR_BITS) {
-#ifdef MTK_PGTABLE_DEBUG_ENABLED
 		pr_notice("%s, %d, err ias=0x%lx, oas=0x%lx\n",
 			  __func__, __LINE__, cfg->ias, cfg->oas);
-#endif
 		return NULL;
 	}
 
@@ -1092,30 +1094,31 @@ static struct io_pgtable *arm_v7s_alloc_pgtable(struct io_pgtable_cfg *cfg,
 	/* Looking good; allocate a pgd */
 	data->pgd = __arm_v7s_alloc_table(1, GFP_KERNEL, data);
 	if (!data->pgd) {
-#ifdef MTK_PGTABLE_DEBUG_ENABLED
 		pr_notice("%s, %d, err pgd\n", __func__, __LINE__);
-#endif
 		goto out_free_data;
 	}
 
 #ifdef CONFIG_MTK_IOMMU_V2
 	if (mtk_pgtable_align(data->pgd)) {
-#ifdef MTK_PGTABLE_DEBUG_ENABLED
 		pr_notice("%s, %d, err align\n", __func__, __LINE__);
-#endif
 		goto out_free_data;
 	}
+	base = (unsigned long)virt_to_phys(data->pgd);
 
 #endif
 	/* Ensure the empty pgd is visible before any actual TTBR write */
 	wmb();
 
 	/* TTBRs */
-	cfg->arm_v7s_cfg.ttbr[0] = virt_to_phys(data->pgd) |
+	cfg->arm_v7s_cfg.ttbr[0] = (unsigned int)base |
 				   ARM_V7S_TTBR_S | ARM_V7S_TTBR_NOS |
 				   ARM_V7S_TTBR_IRGN_ATTR(ARM_V7S_RGN_WBWA) |
 				   ARM_V7S_TTBR_ORGN_ATTR(ARM_V7S_RGN_WBWA);
+#ifdef CONFIG_MTK_IOMMU_V2
+	cfg->arm_v7s_cfg.ttbr[1] = base >> 32;
+#else
 	cfg->arm_v7s_cfg.ttbr[1] = 0;
+#endif
 #ifdef MTK_PGTABLE_DEBUG_ENABLED
 	pr_notice("%s, %d, pgd=0x%lx, cf.ttbr=0x%lx,pgd_pa=0x%lx\n",
 		  __func__, __LINE__, data->pgd,

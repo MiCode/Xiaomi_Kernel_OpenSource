@@ -333,7 +333,7 @@ void mtk_iommu_atf_test(unsigned int m4u_id)
 
 int mtk_switch_secure_debug_func(unsigned int m4u_id, bool enable)
 {
-	int ret;
+	int ret = 0;
 
 	if (enable && g_secure_status == 0)
 		ret = mtk_iommu_atf_call(IOMMU_ATF_SECURITY_DEBUG_ENABLE,
@@ -466,7 +466,7 @@ int mtk_dump_reg_for_hang_issue(unsigned int m4u_id)
 
 int mtk_iommu_dump_reg(int m4u_id, unsigned int start, unsigned int end)
 {
-	int ret;
+	int ret = 0;
 	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
 
 	pr_notice("====== dump reg of iommu:%d from 0x%x to 0x%x =======>\n",
@@ -628,7 +628,7 @@ unsigned int g_start;
 unsigned int g_end;
 static int __mtk_iommu_tlb_sync(struct mtk_iommu_data *data)
 {
-	int ret;
+	int ret = 0;
 	u32 tmp;
 
 	/* Avoid timing out if there's nothing to wait for */
@@ -947,7 +947,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		MMU_INT_REPORT(m4uid, 0, F_INT_L2_MULTI_HIT_FAULT);
 
 	if (int_state_l2 & F_INT_L2_TABLE_WALK_FAULT) {
-		unsigned int fault_va, layer;
+		unsigned int layer;
 
 		MMU_INT_REPORT(m4uid, 0, F_INT_L2_TABLE_WALK_FAULT);
 		regval = readl_relaxed(data->base +
@@ -961,7 +961,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		layer = regval & 1;
 		mmu_aee_print(
 				"L2 table walk fault: iova=0x%lx, layer=%d\n",
-				fault_va, layer);
+				fault_iova, layer);
 	}
 
 	if (int_state_l2 & F_INT_L2_PFH_DMA_FIFO_OVERFLOW)
@@ -1010,13 +1010,17 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		port_id = mtk_iommu_get_larb_port(
 				int_id, m4uid, &fault_larb,
 				&fault_port);
-		if (WARN_ON(port_id < 0))
+		if (port_id < 0) {
+			WARN_ON(1);
 			return 0;
+		}
 
 		domain = __mtk_iommu_get_domain(data,
 					fault_larb, fault_port);
-		if (WARN_ON(!domain))
+		if (!domain) {
+			WARN_ON(1);
 			return 0;
+		}
 
 		regval = readl_relaxed(data->base +
 					REG_MMU_FAULT_STATUS(slave_id));
@@ -1034,8 +1038,8 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 
 		fault_pa = readl_relaxed(data->base +
 					REG_MMU_INVLD_PA(slave_id));
-		fault_pa |= (u64)((regval &
-					F_MMU_FAULT_PA_BIT32) << 26);
+		fault_pa |= (u64)(regval &
+					F_MMU_FAULT_PA_BIT32) << 26;
 		pr_notice("fault_pa=%llx\n", fault_pa);
 #ifdef APU_IOMMU_INDEX
 		if (m4uid >= APU_IOMMU_INDEX) {
@@ -1165,7 +1169,8 @@ static void mtk_iommu_config(struct mtk_iommu_data *data,
 		larbid = MTK_IOMMU_TO_LARB(fwspec->ids[i]);
 		portid = MTK_IOMMU_TO_PORT(fwspec->ids[i]);
 
-		if (WARN_ON(larbid >= MTK_LARB_NR_MAX)) {
+		if (larbid >= MTK_LARB_NR_MAX) {
+			WARN_ON(1);
 			dev_notice(dev, "%d(%d) exceed the max larb ID\n",
 				   larbid, fwspec->ids[i]);
 			break;
@@ -1196,11 +1201,17 @@ int __mtk_iommu_get_pgtable_base_addr(
 		return -1;
 	}
 	*pgd_pa = pgtable->cfg.arm_v7s_cfg.ttbr[0] & F_MMU_PT_BASE_ADDR_MSK;
-	if (pgtable->cfg.arm_v7s_cfg.ttbr[0] > 0xffffffff)
-		*pgd_pa |=
-			  ((unsigned long)(pgtable->cfg.arm_v7s_cfg.ttbr[0]) >>
-			  32) &
+	if (pgtable->cfg.arm_v7s_cfg.ttbr[1] <
+	    (1 << (CONFIG_MTK_IOMMU_PGTABLE_EXT - 32))) {
+		*pgd_pa |= pgtable->cfg.arm_v7s_cfg.ttbr[1] &
 			  F_MMU_PT_BASE_ADDR_BIT32;
+	} else {
+		pr_notice("%s, %d, invalid pgtable base addr, 0x%x_%x\n",
+			  __func__, __LINE__,
+			  pgtable->cfg.arm_v7s_cfg.ttbr[1],
+			  pgtable->cfg.arm_v7s_cfg.ttbr[0]);
+		return -2;
+	}
 
 	return 0;
 }
@@ -1388,10 +1399,12 @@ static int mtk_iova_reserve_iommu_regions(struct mtk_iommu_domain *dom,
 	if (dom->resv_status)
 		return 0;
 
-	if (WARN_ON(!domain->ops->pgsize_bitmap))
+	if (!domain->ops->pgsize_bitmap) {
+		WARN_ON(1);
 		pg_off = PAGE_SHIFT;
-	else
+	} else {
 		pg_off = __ffs(domain->ops->pgsize_bitmap);
+	}
 	pg_size = 1UL << pg_off;
 	iommu_get_resv_regions(dev, &resv_regions);
 
@@ -1440,7 +1453,7 @@ static int mtk_iommu_create_mapping(struct device *dev)
 {
 	struct dma_iommu_mapping *mapping;
 	unsigned long start, end, size;
-	int ret;
+	int ret = 0;
 	struct mtk_iommu_domain *dom;
 
 	dom = __mtk_iommu_get_mtk_domain(dev);
@@ -1592,7 +1605,7 @@ static int mtk_iommu_map(struct iommu_domain *domain, unsigned long iova,
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 	struct mtk_iommu_pgtable *pgtable = dom->pgtable;
 	unsigned long flags;
-	int ret;
+	int ret = 0;
 
 	spin_lock_irqsave(&pgtable->pgtlock, flags);
 	ret = pgtable->iop->map(pgtable->iop, iova, paddr, size, prot);
@@ -1637,7 +1650,7 @@ int mtk_iommu_switch_acp(struct device *dev,
 	struct mtk_iommu_domain *dom = __mtk_iommu_get_mtk_domain(dev);
 	struct mtk_iommu_pgtable *pgtable = dom->pgtable;
 	unsigned long flags;
-	int ret;
+	int ret = 0;
 
 	spin_lock_irqsave(&pgtable->pgtlock, flags);
 	ret = pgtable->iop->switch_acp(pgtable->iop, iova, size, is_acp);
@@ -1690,7 +1703,7 @@ static struct iommu_group *mtk_iommu_create_iova_space(
 		spin_unlock_irqrestore(&pgtable->domain_lock, flags);
 		pr_notice("%s, %d, too many domain, count=%d\n",
 			  __func__, __LINE__, pgtable->domain_count);
-		return NULL;
+		goto free_group;
 	}
 	pgtable->init_domain_id = dom->id;
 	pgtable->domain_count++;
@@ -1870,8 +1883,10 @@ static int mtk_iommu_of_xlate(struct device *dev, struct of_phandle_args *args)
 		/* Get the m4u device */
 		m4updev = of_find_device_by_node(args->np);
 		of_node_put(args->np);
-		if (WARN_ON(!m4updev))
+		if (!m4updev) {
+			WARN_ON(1);
 			return -EINVAL;
+		}
 
 		dev->iommu_fwspec->iommu_priv = platform_get_drvdata(m4updev);
 	}
@@ -1888,8 +1903,10 @@ static void mtk_iommu_get_resv_region(
 	unsigned int i;
 
 	dom = __mtk_iommu_get_mtk_domain(dev);
-	if (WARN_ON(!dom))
+	if (!dom) {
+		WARN_ON(1);
 		return;
+	}
 
 	dom_data = &mtk_domain_array[dom->id];
 	switch (dom_data->resv_type) {
@@ -3092,7 +3109,8 @@ static s32 mtk_iommu_larbs_get(struct mtk_iommu_data *data)
 				  __func__, id);
 		}
 
-		if (WARN_ON(id >= MTK_LARB_NR_MAX)) {
+		if (id >= MTK_LARB_NR_MAX) {
+			WARN_ON(1);
 			dev_notice(dev, "%d exceed the max larb ID\n",
 				   id);
 			return -EINVAL;
@@ -3133,7 +3151,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	resource_size_t ioaddr;
 	void *protect;
 	unsigned long protect_va;
-	int ret;
+	int ret = 0;
 	unsigned int id, slave, mau;
 
 	pr_notice("%s, %d,+\n",
@@ -3540,7 +3558,7 @@ static struct platform_driver mtk_iommu_driver = {
 static int mtk_iommu_init_fn(struct device_node *np)
 {
 	static bool init_done;
-	int ret;
+	int ret = 0;
 	struct platform_device *pdev;
 
 	if (!np)
@@ -3568,7 +3586,7 @@ static int mtk_iommu_init_fn(struct device_node *np)
 #else
 static int mtk_iommu_init_fn(struct device_node *np)
 {
-	int ret;
+	int ret = 0;
 
 	dma_debug_init(PREALLOC_DMA_DEBUG_ENTRIES);
 	ret = platform_driver_register(&mtk_iommu_driver);
@@ -3585,7 +3603,7 @@ IOMMU_OF_DECLARE(mtk_iommu, "mediatek,iommu_v0", mtk_iommu_init_fn);
 
 static int __init mtk_iommu_init(void)
 {
-	int ret;
+	int ret = 0;
 
 	pr_notice("%s, %d\n",
 		  __func__, __LINE__);
