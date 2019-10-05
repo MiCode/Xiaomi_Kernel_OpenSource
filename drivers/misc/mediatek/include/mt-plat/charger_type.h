@@ -27,7 +27,7 @@ enum charger_type {
 };
 
 #if defined(CONFIG_USB_MTK_HDRC) || defined(CONFIG_USB_MU3D_DRV) \
-	|| defined(CONFIG_USB_MTK_EXTCON)
+	|| defined(CONFIG_EXTCON_MTK_USB)
 extern void mt_usb_connect(void);
 extern void mt_usb_disconnect(void);
 #else
