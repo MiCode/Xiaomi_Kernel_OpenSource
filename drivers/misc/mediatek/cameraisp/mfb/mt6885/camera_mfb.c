@@ -60,8 +60,8 @@
 #include <m4u.h>
 #endif /* CONFIG_MTK_IOMMU_V2 */
 
-#include <cmdq_core.h>
-#include <cmdq_record.h>
+//#include <cmdq_core.h>
+//#include <cmdq_record.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>/*YWtodo*/
 #include <smi_public.h>
 
@@ -919,7 +919,7 @@ signed int CmdqMSSHW(struct frame *frame)/*YWtodo*/
 	/*if (pMssConfig->eng_secured == 1)*//*YWtodo*/
 		/*cmdq_engine_secured(handle, CMDQ_ENG_MSS);*/
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_acquire_event(handle, CMDQ_SYNC_TOKEN_MSS);
+	cmdq_pkt_acquire_event(handle, CMDQ_TOKEN_MSS);
 #endif
 #define TPIPE_MODE_PREVIEW
 #ifdef TPIPE_MODE_PREVIEW
@@ -944,7 +944,7 @@ signed int CmdqMSSHW(struct frame *frame)/*YWtodo*/
 #endif
 #endif
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSS);
+	cmdq_pkt_clear_event(handle, CMDQ_TOKEN_MSS);
 #endif
 	cmdq_pkt_flush_threaded(handle, mss_norm_sirq, (void *)handle);
 
@@ -1063,11 +1063,11 @@ signed int vCmdqMSSHW(struct frame *frame)/*YWtodo*/
 	handle = cmdq_pkt_create(mss_clt);
 	handle->priority = 0;
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_acquire_event(handle, CMDQ_SYNC_TOKEN_MSS);
+	cmdq_pkt_acquire_event(handle, CMDQ_TOKEN_MSS);
 #endif
 	mss_pkt_tcmds(handle, pMssConfig);
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSS);
+	cmdq_pkt_clear_event(handle, CMDQ_TOKEN_MSS);
 #endif
 	cmdq_pkt_flush_threaded(handle, mss_vss_sirq, (void *)handle);
 
@@ -1203,7 +1203,7 @@ signed int CmdqMSFHW(struct frame *frame)
 		/*cmdq_engine_secured(handle, CMDQ_ENG_MSS);*/
 	handle->priority = 20;
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_acquire_event(handle, CMDQ_SYNC_TOKEN_MSF);
+	cmdq_pkt_acquire_event(handle, CMDQ_TOKEN_MSF);
 #endif
 #ifdef TPIPE_MODE_PREVIEW
 	msf_pkt_tcmds(handle, pMsfConfig);
@@ -1228,7 +1228,7 @@ signed int CmdqMSFHW(struct frame *frame)
 #endif
 #endif
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSF);
+	cmdq_pkt_clear_event(handle, CMDQ_TOKEN_MSF);
 #endif
 	cmdq_pkt_flush_threaded(handle, msf_norm_sirq, (void *)handle);
 
@@ -1346,11 +1346,11 @@ signed int vCmdqMSFHW(struct frame *frame)/*YWtodo*/
 	handle = cmdq_pkt_create(msf_clt);
 	handle->priority = 0;
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_acquire_event(handle, CMDQ_SYNC_TOKEN_MSF);
+	cmdq_pkt_acquire_event(handle, CMDQ_TOKEN_MSF);
 #endif
 	msf_pkt_tcmds(handle, pMsfConfig);
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSF);
+	cmdq_pkt_clear_event(handle, CMDQ_TOKEN_MSF);
 #endif
 	cmdq_pkt_flush_threaded(handle, msf_vss_sirq, (void *)handle);
 

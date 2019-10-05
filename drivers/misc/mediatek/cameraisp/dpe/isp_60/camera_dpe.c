@@ -69,8 +69,10 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 
-#include <cmdq_core.h>
-#include <cmdq_record.h>
+//#include <cmdq_core.h>
+//#include <cmdq_record.h>
+#include <linux/soc/mediatek/mtk-cmdq.h>
+
 #ifdef CONFIG_MTK_IOMMU_V2
 #include <mach/mt_iommu.h>
 #else /* CONFIG_MTK_IOMMU_V2 */
