@@ -97,6 +97,9 @@ static int ncp_file_mmap_fault(struct vm_fault *vmf)
 static const struct vm_operations_struct ncp_file_mmap =
 {
 	.fault = ncp_file_mmap_fault,
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	.suitable_for_spf = true,
+#endif
 };
 
 
