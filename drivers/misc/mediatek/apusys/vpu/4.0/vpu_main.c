@@ -187,7 +187,7 @@ static int vpu_init_bin(void)
 
 	pr_info("%s: mapped vpu firmware: pa: 0x%lx, size: 0x%x, kva: 0x%lx\n",
 		__func__, vpu_drv->bin_pa, vpu_drv->bin_size,
-		(unsigned long)vpu_drv->bin_va);  // debug
+		(unsigned long)vpu_drv->bin_va);
 
 	return 0;
 }
@@ -361,8 +361,6 @@ static int vpu_probe(struct platform_device *pdev)
 	struct rproc *rproc;
 	int ret;
 
-	vpu_drv_debug("%s:\n", __func__);
-
 	rproc = rproc_alloc(&pdev->dev, pdev->name, &vpu_ops,
 		VPU_FIRMWARE_NAME, sizeof(*vd));
 
@@ -379,7 +377,7 @@ static int vpu_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, vd);
 
 	if (of_property_read_u32(pdev->dev.of_node, "id", &vd->id)) {
-		pr_info("%s: unable to get core id from dts\n", __func__);
+		dev_info(&pdev->dev, "unable to get core id from dts\n");
 		ret = -ENODEV;
 		goto free_rproc;
 	}
@@ -416,15 +414,18 @@ static int vpu_probe(struct platform_device *pdev)
 	} else {
 //		ret = apu_power_device_register(VPU0 + vd->id, pdev);
 	}
-	vpu_drv_debug("%s: apu_power_device_register = %d\n", __func__, ret);
-	if (ret)
+	if (ret) {
+		dev_info(&pdev->dev, "apu_power_device_register: %d\n",
+			ret);
 		goto free_rproc;
+	}
 
 	vpu_drv_debug("%s: apu_device_power_on call\n", __func__);
 //	ret = apu_device_power_on((VPU0 + vd->id));
-	vpu_drv_debug("%s: apu_device_power_on = %d\n", __func__, ret);
-	if (ret)
+	if (ret) {
+		dev_info(&pdev->dev, "apu_device_power_on: %d\n", ret);
 		goto free_rproc;
+	}
 
 	/* device algo initialization */
 	INIT_LIST_HEAD(&vd->algo);
@@ -437,19 +438,25 @@ static int vpu_probe(struct platform_device *pdev)
 	vd->adev.preempt_type = APUSYS_PREEMPT_WAITCOMPLETED;
 	vd->adev.private = vd;
 	vd->adev.send_cmd = vpu_send_cmd;
-	ret = apusys_register_device(&vd->adev);
-	if (ret)
-		goto free_rproc;
 
-	/* add to remoteproc */
-	ret = rproc_add(rproc);
-	if (ret)
+	ret = apusys_register_device(&vd->adev);
+	if (ret) {
+		dev_info(&pdev->dev, "apusys_register_device: %d\n",
+			ret);
 		goto free_rproc;
+	}
 
 	/* register debugfs nodes */
 	ret = vpu_init_dev_debug(pdev, vd);
 	if (ret)
 		goto free_rproc;
+
+	/* add to remoteproc */
+	ret = rproc_add(rproc);
+	if (ret) {
+		dev_info(&pdev->dev, "rproc_add: %d\n", ret);
+		goto free_rproc;
+	}
 
 	/* add to vd list */
 	mutex_lock(&vpu_drv->lock);
@@ -457,13 +464,14 @@ static int vpu_probe(struct platform_device *pdev)
 	list_add_tail(&vd->list, &vpu_drv->devs);
 	mutex_unlock(&vpu_drv->lock);
 
+	dev_info(&pdev->dev, "%s: succeed\n", __func__);
 	return 0;
 
 	// TODO: add error handling free algo
 
 free_rproc:
 	rproc_free(rproc);
-	dev_info(&pdev->dev, "failed to probing\n");
+	dev_info(&pdev->dev, "%s: failed\n", __func__);
 	return ret;
 }
 
@@ -543,11 +551,11 @@ static struct platform_driver vpu_plat_drv = {
 	.suspend = vpu_suspend,
 	.resume  = vpu_resume,
 	.driver  = {
-		.name = "vpu",
-		.owner = THIS_MODULE,
-		.of_match_table = vpu_of_ids,
+	.name = "vpu",
+	.owner = THIS_MODULE,
+	.of_match_table = vpu_of_ids,
 #ifdef CONFIG_PM
-		.pm = &vpu_pm_ops,
+	.pm = &vpu_pm_ops,
 #endif
 	}
 };
@@ -556,7 +564,6 @@ static int __init vpu_init(void)
 {
 	int ret;
 
-	vpu_drv_debug("%s: allocate vpu_drv\n", __func__);  // debug
 	vpu_drv = kzalloc(sizeof(struct vpu_driver), GFP_KERNEL);
 
 	if (!vpu_drv)
@@ -564,17 +571,14 @@ static int __init vpu_init(void)
 
 	kref_init(&vpu_drv->ref);
 
-	vpu_drv_debug("%s: vpu_init_bin\n", __func__);  // debug
 	ret = vpu_init_bin();
 	if (ret)
 		goto error_out;
 
-	vpu_drv_debug("%s: vpu_init_algo\n", __func__);  // debug
 	ret = vpu_init_algo();
 	if (ret)
 		goto error_out;
 
-	vpu_drv_debug("%s: vpu_init_debug\n", __func__);  // debug
 	vpu_init_debug();
 
 	INIT_LIST_HEAD(&vpu_drv->devs);
@@ -583,10 +587,8 @@ static int __init vpu_init(void)
 	vpu_drv->mva_algo = 0;
 	vpu_drv->mva_share = 0;
 
-	vpu_drv_debug("%s: vpu_init_drv_hw\n", __func__);  // debug
 	vpu_init_drv_hw();
 
-	vpu_drv_debug("%s: platform_driver_register\n", __func__); // debug
 	ret = platform_driver_register(&vpu_plat_drv);
 
 	return ret;
@@ -632,7 +634,8 @@ static void __exit vpu_exit(void)
 	platform_driver_unregister(&vpu_plat_drv);
 }
 
-module_init(vpu_init);
+// module_init(vpu_init);
+late_initcall(vpu_init);
 module_exit(vpu_exit);
 MODULE_DESCRIPTION("Mediatek VPU Driver");
 MODULE_LICENSE("GPL");

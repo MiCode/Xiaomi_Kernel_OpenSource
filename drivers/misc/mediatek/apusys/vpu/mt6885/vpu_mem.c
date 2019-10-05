@@ -18,6 +18,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/scatterlist.h>
 #include <linux/highmem.h>
+#include <mt-plat/aee.h>
 
 #include "vpu_mem.h"
 #include "vpu_drv.h"
@@ -75,19 +76,20 @@ vpu_mem_alloc(struct platform_device *pdev,
 		goto out;
 	}
 
-	pr_info("%s: size: 0x%lx, given iova: 0x%lx (%s alloc)\n",
+	vpu_mem_debug("%s: size: 0x%lx, given iova: 0x%lx (%s alloc)\n",
 		__func__, i->size, (unsigned long)given_iova,
 		(given_iova == VPU_IOVA_END) ? "dynamic" : "static");
 
 	kva = kvmalloc(i->size, GFP_KERNEL);
 
 	if (!kva) {
-		pr_info("%s: kvmalloc: failed\n", __func__);
+		dev_info(&pdev->dev, "%s: kvmalloc: failed\n",
+			__func__);
 		ret = -ENOMEM;
 		goto error;
 	}
 
-	pr_info("%s: kvmalloc: %p\n", __func__, kva);
+	vpu_mem_debug("%s: kvmalloc: %p\n", __func__, kva);
 
 	i->pages = vpu_map_kva_to_sgt(kva, i->size, &i->sgt);
 
@@ -129,7 +131,7 @@ vpu_map_kva_to_sgt(const char *buf, size_t len, struct sg_table *sgt)
 	const char *p;
 	int ret;
 
-	pr_info("%s: buf: %p, len: %lx, sgt: %p\n",
+	vpu_mem_debug("%s: buf: %p, len: %lx, sgt: %p\n",
 		__func__, buf, len, sgt);
 
 	nr_pages = DIV_ROUND_UP((unsigned long)buf + len, PAGE_SIZE)
@@ -148,13 +150,13 @@ vpu_map_kva_to_sgt(const char *buf, size_t len, struct sg_table *sgt)
 			pages[index] = kmap_to_page((void *)p);
 		if (!pages[index]) {
 			kfree(pages);
-			pr_info("%s: map failed.\n", __func__);
+			pr_info("%s: map failed\n", __func__);
 			return ERR_PTR(-EFAULT);
 		}
 		p += PAGE_SIZE;
 	}
 
-	pr_info("%s: nr_pages: %d\n", __func__, nr_pages);
+	vpu_mem_debug("%s: nr_pages: %d\n", __func__, nr_pages);
 
 	ret = sg_alloc_table_from_pages(sgt, pages, index,
 		offset_in_page(buf), len, GFP_KERNEL);
@@ -182,12 +184,12 @@ vpu_map_sg_to_iova(
 
 	if (given_iova >= VPU_IOVA_END) {
 		mask = VPU_IOVA_END - 1;
-		pr_info("%s: dev: %p, len: %lx, given_iova mask: %lx (dynamic alloc)\n",
+		vpu_mem_debug("%s: dev: %p, len: %lx, given_iova mask: %lx (dynamic alloc)\n",
 			__func__, &pdev->dev,
 			(unsigned long)len, (unsigned long)given_iova);
 	} else {
 		mask = given_iova + len - 1; // Eq. desired iova end
-		pr_info("%s: dev: %p, len: %lx, given_iova start ~ end(mask): %lx ~ %lx\n",
+		vpu_mem_debug("%s: dev: %p, len: %lx, given_iova start ~ end(mask): %lx ~ %lx\n",
 			__func__, &pdev->dev,
 			(unsigned long)len, (unsigned long)given_iova,
 			(unsigned long)mask);
@@ -199,20 +201,22 @@ vpu_map_sg_to_iova(
 		DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
 
 	if (ret <= 0) {
-		pr_info("%s: dma_map_sg_attrs: failed with %d\n",
+		dev_info(&pdev->dev,
+			"%s: dma_map_sg_attrs: failed with %d\n",
 			__func__, ret);
 		return 0;
 	}
 
 	iova = sg_dma_address(&sg[0]);
 
-	pr_info("%s: sg_dma_address: mapped iova address: %lx %s\n",
-		__func__, (unsigned long)iova,
+	dev_info(&pdev->dev,
+		"%s: sg_dma_address: size: %lx, mapped iova: %lx %s\n",
+		__func__, len, (unsigned long)iova,
 		(given_iova == VPU_IOVA_END) ? "(dynamic alloc)" :
 		((iova == given_iova) ? "(static alloc)" : "(unexpected)"));
 
-	// TODO: replace with aee
-	// WARN_ON((given_iova != VPU_IOVA_END) && (given_iova != iova));
+	if ((given_iova != VPU_IOVA_END) && (given_iova != iova))
+		aee_kernel_warning("VPU", "iova mapping error");
 
 	return iova;
 
@@ -268,22 +272,15 @@ dma_addr_t vpu_iova_alloc(struct platform_device *pdev,
 
 	/* allocate kvm and map */
 	if (i->bin == VPU_MEM_ALLOC) {
-		dev_info(&pdev->dev, // TODO: remove debug log
-			"%s: vpu_mem_alloc(%x, %x)\n",
-			__func__, i->size, (unsigned long)iova);
 		ret = vpu_mem_alloc(pdev, i, iova);
 		iova = i->m.pa;
 	/* map from vpu firmware loaded at bootloader */
 	} else if (i->size) {
-		dev_info(&pdev->dev, // TODO: remove debug log
-			"%s: vpu_map_to_iova(%lx, %x, %lx)\n",
-			__func__, (base + i->bin), i->size,
-			(unsigned long)iova);
 		iova = vpu_map_to_iova(pdev,
 			(void *)(base + i->bin), i->size, iova,
 			&i->sgt, &i->pages);
 	} else {
-		dev_info(&pdev->dev, // TODO: remove debug log
+		dev_info(&pdev->dev,
 			"%s: unknown setting (%x, %x, %x)\n",
 			__func__, i->addr, i->bin, i->size);
 		iova = 0;
