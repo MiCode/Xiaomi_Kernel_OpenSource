@@ -39,11 +39,11 @@ static void vpu_pwr_release(struct kref *ref)
 		= container_of(ref, struct vpu_device, pw_ref);
 	unsigned long t = (unsigned long)vd->pw_off_latency;
 
-	vpu_pwr_debug("%s: vpu%d: apu_device_power_off\n",
-		__func__, vd->id);
-
-	if (t)
+	if (t) {
+		vpu_pwr_debug("%s: vpu%d: vpu_pwr_off_timer: %ld ms\n",
+			__func__, vd->id, t);
 		vpu_pwr_off_timer(vd, t /* ms */);
+	}
 }
 
 static void vpu_pwr_param(struct vpu_device *vd, uint8_t boost)
@@ -185,7 +185,8 @@ void vpu_pwr_down(struct vpu_device *vd)
 
 static void vpu_pwr_off_locked(struct vpu_device *vd)
 {
-	vpu_pwr_debug("%s: vpu%d\n", __func__, vd->id);
+	vpu_pwr_debug("%s: vpu%d: apu_device_power_off\n",
+		__func__, vd->id);
 	vpu_alg_unload(vd);
 	apu_device_power_off(adu(vd->id));
 	vd->state = VS_DOWN;
