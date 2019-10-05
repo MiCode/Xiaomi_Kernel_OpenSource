@@ -270,6 +270,9 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 			return ret;
 		break;
 	}
+
+	if (id == 4)
+		smi_unit_prepare_enable(5);
 #else // !CONFIG_MACH_MT6885
 	ret = smi_unit_prepare_enable(SMI_LARB_NUM);
 	if (ret || id == SMI_LARB_NUM)
@@ -303,6 +306,9 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 	smi_unit_disable_unprepare(id);
 
 #if IS_ENABLED(CONFIG_MACH_MT6885)
+	if (id == 4)
+		smi_unit_disable_unprepare(5);
+
 	switch (id) {
 	case 0:
 	case 1:

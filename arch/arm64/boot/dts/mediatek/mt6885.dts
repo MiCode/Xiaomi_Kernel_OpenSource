@@ -4920,9 +4920,8 @@ page_owner=on";
 		mediatek,larb-id = <4>;
 		interrupts = <GIC_SPI 428 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&scpsys SCP_SYS_VDEC2>,
-			 <&scpsys SCP_SYS_VDEC>,
 			 <&vdec_gcon VDEC_GCON_LARB1_CKEN>;
-		clock-names = "scp-vdec2", "scp-vdec", "vdec-larb";
+		clock-names = "scp-vdec2", "vdec-larb";
 		mediatek,smi-id = <4>;
 	};
 
