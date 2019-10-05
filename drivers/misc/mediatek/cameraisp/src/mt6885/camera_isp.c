@@ -1652,120 +1652,138 @@ static inline int m4u_control_iommu_port(void)
 {
 	struct M4U_PORT_STRUCT sPort;
 	int ret = 0;
+	int count_of_ports = 0;
+	int i = 0;
 
-	/* LARB13 */
-	sPort.ePortID = M4U_PORT_L13_CAM_MRAWI_MDP;
-	sPort.Virtuality = camP1mem_use_m4u;
-	sPort.Security = 0;
-	sPort.domain = 2;
-	sPort.Distance = 1;
-	sPort.Direction = 0;
-
-#if defined(CONFIG_MTK_M4U)
-	ret = m4u_config_port(&sPort);
+	/* LARB13 config all ports */
+	count_of_ports = M4U_PORT_L13_CAM_CAMSV6_MDP -
+		M4U_PORT_L13_CAM_MRAWI_MDP + 1;
+	for (i = 0; i < count_of_ports; i++) {
+		sPort.ePortID = M4U_PORT_L13_CAM_MRAWI_MDP+i;
+		sPort.Virtuality = camP1mem_use_m4u;
+		sPort.Security = 0;
+		sPort.domain = 2;
+		sPort.Distance = 1;
+		sPort.Direction = 0;
+#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
+		ret = m4u_config_port(&sPort);
 #endif
 
-	if (ret == 0) {
-		LOG_INF("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L13_CAM_MRAWI_MDP),
+		if (ret == 0) {
+			LOG_VRB("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L13_CAM_MRAWI_MDP+i),
 			camP1mem_use_m4u ? "virtual" : "physical");
-	} else {
-		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
-			iommu_get_port_name(M4U_PORT_L13_CAM_MRAWI_MDP),
+		} else {
+			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L13_CAM_MRAWI_MDP+i),
 			camP1mem_use_m4u ? "virtual" : "physical", ret);
-		ret = -1;
+			ret = -1;
+		}
 	}
 
-	/* LARB14 */
-	sPort.ePortID = M4U_PORT_L14_CAM_MRAWI_DISP;
-	sPort.Virtuality = camP1mem_use_m4u;
-	sPort.Security = 0;
-	sPort.domain = 2;
-	sPort.Distance = 1;
-	sPort.Direction = 0;
-
-#if defined(CONFIG_MTK_M4U)
-	ret = m4u_config_port(&sPort);
+	/* LARB14 config all ports */
+	count_of_ports = M4U_PORT_L14_CAM_CAMSV0_DISP -
+		M4U_PORT_L14_CAM_MRAWI_DISP + 1;
+	for (i = 0; i < count_of_ports; i++) {
+		sPort.ePortID = M4U_PORT_L14_CAM_MRAWI_DISP+i;
+		sPort.Virtuality = camP1mem_use_m4u;
+		sPort.Security = 0;
+		sPort.domain = 2;
+		sPort.Distance = 1;
+		sPort.Direction = 0;
+#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
+		ret = m4u_config_port(&sPort);
 #endif
 
-	if (ret == 0) {
-		LOG_INF("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L14_CAM_MRAWI_DISP),
+		if (ret == 0) {
+			LOG_VRB("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L14_CAM_MRAWI_DISP+i),
 			camP1mem_use_m4u ? "virtual" : "physical");
-	} else {
-		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
-			iommu_get_port_name(M4U_PORT_L14_CAM_MRAWI_DISP),
+		} else {
+			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L14_CAM_MRAWI_DISP+i),
 			camP1mem_use_m4u ? "virtual" : "physical", ret);
-		ret = -1;
+			ret = -1;
+		}
 	}
 
-	/* LARB16 */
-	sPort.ePortID = M4U_PORT_L16_CAM_IMGO_R1_A_MDP;
-	sPort.Virtuality = camP1mem_use_m4u;
-	sPort.Security = 0;
-	sPort.domain = 2;
-	sPort.Distance = 1;
-	sPort.Direction = 0;
-
-#if defined(CONFIG_MTK_M4U)
-	ret = m4u_config_port(&sPort);
+	/* LARB15 no iommu user */
+	/* LARB16 config all ports */
+	count_of_ports = M4U_PORT_L16_CAM_LSCI_R1_A_MDP -
+	M4U_PORT_L16_CAM_IMGO_R1_A_MDP + 1;
+	for (i = 0; i < count_of_ports; i++) {
+		sPort.ePortID = M4U_PORT_L16_CAM_IMGO_R1_A_MDP+i;
+		sPort.Virtuality = camP1mem_use_m4u;
+		sPort.Security = 0;
+		sPort.domain = 2;
+		sPort.Distance = 1;
+		sPort.Direction = 0;
+#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
+		ret = m4u_config_port(&sPort);
 #endif
 
-	if (ret == 0) {
-		LOG_INF("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L16_CAM_IMGO_R1_A_MDP),
+		if (ret == 0) {
+			LOG_VRB("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L16_CAM_IMGO_R1_A_MDP+i),
 			camP1mem_use_m4u ? "virtual" : "physical");
-	} else {
-		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
-			 iommu_get_port_name(M4U_PORT_L16_CAM_IMGO_R1_A_MDP),
+		} else {
+			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L16_CAM_IMGO_R1_A_MDP+i),
 			camP1mem_use_m4u ? "virtual" : "physical", ret);
-		ret = -1;
+			ret = -1;
+		}
 	}
 
-	/* LARB17 */
-	sPort.ePortID = M4U_PORT_L17_CAM_IMGO_R1_B_DISP;
-	sPort.Virtuality = camP1mem_use_m4u;
-	sPort.Security = 0;
-	sPort.domain = 2;
-	sPort.Distance = 1;
-	sPort.Direction = 0;
-
-#if defined(CONFIG_MTK_M4U)
-	ret = m4u_config_port(&sPort);
+	/* LARB17 config all ports */
+	count_of_ports = M4U_PORT_L17_CAM_LSCI_R1_B_DISP -
+		M4U_PORT_L17_CAM_IMGO_R1_B_DISP + 1;
+	for (i = 0; i < count_of_ports; i++) {
+		sPort.ePortID = M4U_PORT_L17_CAM_IMGO_R1_B_DISP+i;
+		sPort.Virtuality = camP1mem_use_m4u;
+		sPort.Security = 0;
+		sPort.domain = 2;
+		sPort.Distance = 1;
+		sPort.Direction = 0;
+#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
+		ret = m4u_config_port(&sPort);
 #endif
 
-	if (ret == 0) {
-		LOG_INF("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L17_CAM_IMGO_R1_B_DISP),
+		if (ret == 0) {
+			LOG_VRB("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L17_CAM_IMGO_R1_B_DISP+i),
 			camP1mem_use_m4u ? "virtual" : "physical");
-	} else {
-		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
-			iommu_get_port_name(M4U_PORT_L17_CAM_IMGO_R1_B_DISP),
+		} else {
+			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L17_CAM_IMGO_R1_B_DISP+i),
 			camP1mem_use_m4u ? "virtual" : "physical", ret);
-		ret = -1;
+			ret = -1;
+		}
 	}
 
-	/* LARB18 */
-	sPort.ePortID = M4U_PORT_L18_CAM_IMGO_R1_C_MDP;
-	sPort.Virtuality = camP1mem_use_m4u;
-	sPort.Security = 0;
-	sPort.domain = 2;
-	sPort.Distance = 1;
-	sPort.Direction = 0;
-
-#if defined(CONFIG_MTK_M4U)
-	ret = m4u_config_port(&sPort);
+	/* LARB18 config all ports */
+	count_of_ports = M4U_PORT_L18_CAM_LSCI_R1_C_MDP -
+		M4U_PORT_L18_CAM_IMGO_R1_C_MDP + 1;
+	for (i = 0; i < count_of_ports; i++) {
+		sPort.ePortID = M4U_PORT_L18_CAM_IMGO_R1_C_MDP+i;
+		sPort.Virtuality = camP1mem_use_m4u;
+		sPort.Security = 0;
+		sPort.domain = 2;
+		sPort.Distance = 1;
+		sPort.Direction = 0;
+#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
+		ret = m4u_config_port(&sPort);
 #endif
 
-	if (ret == 0) {
-		LOG_INF("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L18_CAM_IMGO_R1_C_MDP),
+		if (ret == 0) {
+			LOG_VRB("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L18_CAM_IMGO_R1_C_MDP+i),
 			camP1mem_use_m4u ? "virtual" : "physical");
-	} else {
-		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
-			iommu_get_port_name(M4U_PORT_L18_CAM_IMGO_R1_C_MDP),
+		} else {
+			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L18_CAM_IMGO_R1_C_MDP+i),
 			camP1mem_use_m4u ? "virtual" : "physical", ret);
-		ret = -1;
+			ret = -1;
+		}
 	}
 
 	return ret;
