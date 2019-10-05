@@ -4852,7 +4852,7 @@ if (DPE_dev->irq > 0) {
 		 */
 		vfd->lock = &DPE_dev->mutex;
 		video_set_drvdata(vfd, DPE_dev);
-		Ret = video_register_device(vfd, VFL_TYPE_GRABBER, 5);
+		Ret = video_register_device(vfd, VFL_TYPE_GRABBER, -1);
 
 		if (Ret < 0) {
 			video_unregister_device(vfd);
