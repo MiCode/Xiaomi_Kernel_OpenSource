@@ -152,13 +152,12 @@ page_owner=on";
 			no-map;
 #ifdef CONFIG_FPGA_EARLY_PORTING
 			size = <0 0x1000000>;
-			alignment = <0 0x1000>;
 			alloc-ranges = <0 0x40000000 0 0x20000000>;
 #else
 			size = <0 0x2000000>;
-			alignment = <0 0x1000>;
 			alloc-ranges = <0 0x40000000 0 0x40000000>;
 #endif
+			alignment = <0 0x10000>; //EMI 64KB Align
 		};
 		reserve-memory-scp_share {
 			compatible = "mediatek,reserve-memory-scp_share";
@@ -861,14 +860,14 @@ page_owner=on";
 			"mbox2",
 			"mbox3";
 		#mbox-cells = <1>;
-#ifndef CONFIG_FPGA_EARLY_PORTING
-		clocks = <&topckgen TOP_MUX_ADSP>,
-			<&topckgen TOP_MMPLL_D4>,
-			<&clk26m>;
-		clock-names = "clk_top_adsp_sel",
-			"clk_top_mmpll_d4",
-			"clk_adsp_clk26m";
-#endif
+		clocks = <&scpsys SCP_SYS_ADSP>, /* add ck cg later */
+			<&topckgen TOP_MUX_ADSP>,
+			<&clk26m>,
+			<&topckgen TOP_ADSPPLL_CK>;
+		clock-names = "scp_sys_adsp", /* add ck cg later */
+			"clk_top_adsp_sel",
+			"clk_top_clk26m",
+			"clk_top_adsppll";
 	};
 
 	adsp_core0: adsp_core0@10820000 {
