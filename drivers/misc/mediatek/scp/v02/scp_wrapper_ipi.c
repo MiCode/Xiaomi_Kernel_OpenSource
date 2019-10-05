@@ -187,7 +187,7 @@ enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 	ptr = pkt;
 
 	if (scp_ipi_legacy_id[tmp_id].out_id_0 != IPI_NO_USE
-	    && scp_id == SCP_CORE0_ID) {
+	    && scp_id == (enum scp_core_id)SCP_CORE0_ID) {
 		ret =
 		   mtk_ipi_send(&scp_ipidev, scp_ipi_legacy_id[tmp_id].out_id_0,
 				0, ptr, scp_ipi_legacy_id[tmp_id].out_size,
@@ -198,7 +198,7 @@ enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 	}
 
 	if (scp_ipi_legacy_id[tmp_id].out_id_1 != IPI_NO_USE
-	    && scp_id == SCP_CORE1_ID) {
+	    && scp_id == (enum scp_core_id)SCP_CORE1_ID) {
 		ret =
 		   mtk_ipi_send(&scp_ipidev, scp_ipi_legacy_id[tmp_id].out_id_1,
 				0, ptr, scp_ipi_legacy_id[tmp_id].out_size,
