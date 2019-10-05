@@ -218,10 +218,9 @@ extern int get_cpu_target_tj(void);
 
 extern int get_cpu_target_offset(void);
 
-#if 0
 extern int mtk_gpufreq_register(
 	struct mt_gpufreq_power_table_info *freqs, int num);
-#endif
+
 
 extern int get_target_tj(void);
 
