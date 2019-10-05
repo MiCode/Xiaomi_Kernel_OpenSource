@@ -117,11 +117,15 @@
 
 #define SCP_GPR_CORE1_REBOOT		(scpreg.cfg_core1 + 0x54)
 
+#define SCP_SEMAPHORE			(scpreg.cfg  + 0x0018)
+#define SCP_SCP2SPM_VOL_LV		 (scpreg.cfg + 0x0020)
+
 /* clk reg*/
 #define SCP_A_SLEEP_DEBUG_REG		(scpreg.clkctrl + 0x0028)
-#define SCP_SRAM_PDN			(scpreg.clkctrl + 0x002C)
+#define SCP_CLK_CTRL_L1_SRAM_PD		(scpreg.clkctrl + 0x002C)
 #define SCP_CLK_HIGH_CORE_CG		(scpreg.clkctrl + 0x005C)
-#define SCP_CLK_CTRL_L1_SRAM_PD		(scpreg.clkctrl + 0x0080)
+#define SCP_CPU0_SRAM_PD		(scpreg.clkctrl + 0x0080)
+#define SCP_CPU1_SRAM_PD		(scpreg.clkctrl + 0x0084)
 #define SCP_CLK_CTRL_TCM_TAIL_SRAM_PD	(scpreg.clkctrl + 0x0094)
 
 #define R_SEC_CTRL			(scpreg.cfg_sec + 0x0000)

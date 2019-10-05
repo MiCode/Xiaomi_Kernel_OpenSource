@@ -121,29 +121,25 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 {
 	int ret = 0;
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
-	unsigned int ret_vc = 0, ret_vs = 0;
+	unsigned int ret_vc = 0;
 	int get_vcore_val = 0;
 
 	if (cur_freq == CLK_OPP0) {
 		get_vcore_val = get_vcore_uv_table(VCORE_OPP_3);
 		pr_debug("get_vcore_val = %d\n", get_vcore_val);
 		ret_vc = pmic_scp_set_vcore(get_vcore_val);
-		ret_vs = pmic_scp_set_vsram_vcore(750000);
 	} else if (cur_freq == CLK_OPP1) {
 		get_vcore_val = get_vcore_uv_table(VCORE_OPP_2);
 		pr_debug("get_vcore_val = %d\n", get_vcore_val);
 		ret_vc = pmic_scp_set_vcore(get_vcore_val);
-		ret_vs = pmic_scp_set_vsram_vcore(750000);
 	} else if (cur_freq == CLK_OPP2) {
 		get_vcore_val = get_vcore_uv_table(VCORE_OPP_1);
 		pr_debug("get_vcore_val = %d\n", get_vcore_val);
 		ret_vc = pmic_scp_set_vcore(get_vcore_val);
-		ret_vs = pmic_scp_set_vsram_vcore(750000);
 	}  else if (cur_freq == CLK_OPP3 || cur_freq == CLK_OPP4) {
 		get_vcore_val = get_vcore_uv_table(VCORE_OPP_0);
 		pr_debug("get_vcore_val = %d\n", get_vcore_val);
 		ret_vc = pmic_scp_set_vcore(get_vcore_val);
-		ret_vs = pmic_scp_set_vsram_vcore(750000);
 	} else {
 		ret = -2;
 		pr_err("ERROR: %s: cur_freq=%d is not supported\n",
@@ -151,10 +147,10 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 		WARN_ON(1);
 	}
 
-	if (ret_vc != 0 || ret_vs != 0) {
+	if (ret_vc) {
 		ret = -1;
-		pr_err("ERROR: %s: scp vcore/vsram setting error, (%d, %d)\n",
-					__func__, ret_vc, ret_vs);
+		pr_err("ERROR: %s: scp vcore setting error, (%d)\n",
+					__func__, ret_vc);
 		WARN_ON(1);
 	}
 
@@ -162,11 +158,9 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 	if (cur_freq == CLK_OPP0 || cur_freq == CLK_OPP1) {
 		/* enable VOW low power mode */
 		pmic_buck_vgpu11_lp(SRCLKEN11, 0, 1, HW_LP);
-		pmic_ldo_vsram_others_lp(SRCLKEN11, 0, 1, HW_LP);
 	} else {
 		/* disable VOW low power mode */
 		pmic_buck_vgpu11_lp(SRCLKEN11, 0, 1, HW_OFF);
-		pmic_ldo_vsram_others_lp(SRCLKEN11, 0, 1, HW_OFF);
 	}
 #endif
 
@@ -901,24 +895,18 @@ void mt_pmic_sshub_init(void)
 	if (pmic_scp_set_vcore(575000) != 0)
 		pr_notice("Set wrong vcore voltage\n");
 
-	/* set SCP VSRAM voltage */
-	if (pmic_scp_set_vsram_vcore(750000) != 0)
-		pr_notice("Set wrong vsram voltage\n");
-
 #if SCP_VOW_LOW_POWER_MODE
 	/* enable VOW low power mode */
 	pmic_buck_vgpu11_lp(SRCLKEN11, 0, 1, HW_LP);
-	pmic_ldo_vsram_others_lp(SRCLKEN11, 0, 1, HW_LP);
 #else
 	/* disable VOW low power mode */
 	pmic_buck_vgpu11_lp(SRCLKEN11, 0, 1, HW_OFF);
-	pmic_ldo_vsram_others_lp(SRCLKEN11, 0, 1, HW_OFF);
 #endif
 
 	/* BUCK_VCORE_SSHUB_EN: ON */
-	/* LDO_VSRAM_OTHERS_SSHUB_EN: ON */
+	/* LDO_VSRAM_OTHERS_SSHUB_EN: OFF */
 	/* pmrc_mode: OFF */
-	pmic_scp_ctrl_enable(true, true, false);
+	pmic_scp_ctrl_enable(true, false, false);
 
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 }

@@ -205,7 +205,8 @@ void scp_enable_sram(void)
 	/*enable sram, enable 1 block per time*/
 	for (reg_temp = 0xffffffff; reg_temp != 0;) {
 		reg_temp = reg_temp >> 1;
-		writel(reg_temp, SCP_SRAM_PDN);
+		writel(reg_temp, SCP_CPU0_SRAM_PD);
+		writel(reg_temp, SCP_CPU1_SRAM_PD);
 	}
 	/*enable scp all TCM*/
 	writel(0, SCP_CLK_CTRL_L1_SRAM_PD);
