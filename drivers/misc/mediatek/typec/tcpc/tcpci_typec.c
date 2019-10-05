@@ -393,8 +393,18 @@ static bool typec_try_exit_norp_src(struct tcpc_device *tcpc_dev)
 static inline int typec_norp_src_attached_entry(struct tcpc_device *tcpc_dev)
 {
 #ifdef CONFIG_WATER_DETECTION
+#ifdef CONFIG_WD_POLLING_ONLY
+	if (!tcpc_dev->typec_power_ctrl) {
+		if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT ||
+		    get_boot_mode() == LOW_POWER_OFF_CHARGING_BOOT)
+			typec_check_water_status(tcpc_dev);
+
+		tcpci_set_usbid_polling(tcpc_dev, false);
+	}
+#else
 	if (!tcpc_dev->typec_power_ctrl && typec_check_water_status(tcpc_dev))
 		return 0;
+#endif /* CONFIG_WD_POLLING_ONLY */
 #endif /* CONFIG_WATER_DETECTION */
 
 	TYPEC_NEW_STATE(typec_attached_norp_src);
@@ -2011,8 +2021,15 @@ int tcpc_typec_handle_cc_change(struct tcpc_device *tcpc_dev)
 		typec_attach_wait_entry(tcpc_dev);
 #ifdef CONFIG_WATER_DETECTION
 		if (typec_state_old == typec_unattached_snk ||
-		    typec_state_old == typec_unattached_src)
+		    typec_state_old == typec_unattached_src) {
+#ifdef CONFIG_WD_POLLING_ONLY
+			if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT
+			    || get_boot_mode() == LOW_POWER_OFF_CHARGING_BOOT)
+				typec_check_water_status(tcpc_dev);
+#else
 			typec_check_water_status(tcpc_dev);
+#endif /* CONFIG_WD_POLLING_ONLY */
+		}
 #endif /* CONFIG_WATER_DETECTION */
 	} else
 		typec_detach_wait_entry(tcpc_dev);
