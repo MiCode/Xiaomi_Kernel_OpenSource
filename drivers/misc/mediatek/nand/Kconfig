@@ -1,0 +1,44 @@
+#nand
+menuconfig MTK_MTD_NAND
+	bool "Nand support based on Mediatek nand controller"
+	depends on MTD
+	help
+	  NAND flash memory, a type of non-volatile storage device,
+	  introduced by Toshiba in 1989. With formal commands,
+	  controller can access data via devices.
+	  This configuration enable Mediatek NAND controller to perform
+	  operations on NAND devices of verious vendors.
+	  For products choosing raw NAND as booting device,this configuration
+	  must say y.
+	  Since kernel using MTD as storage device common driver,
+	  this configuration depends on MTD_NAND config.
+	  Please visit JEDEC sites for more information.
+
+config MTK_TLC_NAND_SUPPORT
+	bool "Support TLC Nand based on Mediatek nand controller"
+	depends on MTK_MTD_NAND
+	help
+	  In electronics, TLC is a memory element capable of
+	  storing more than a single bit of information.
+	  TLC NAND flash is a flash memory technology using multiple levels per
+	  cell to allow more bits to be stored using the same number of
+	  transistors.
+	  The primary benefit of TLC flash memory is its lower cost per unit of
+	  storage due to the higher data density, and memory-reading software
+	  can compensate for a larger bit error rate.
+	  Thus,firmware and driver to support TLC devices need to take care of
+	  data robustness, and TLC features with extend command and storage
+	  methods.
+	  Compatible with SLC, MLC and TLC, Mediatek controller driver and
+	  firmware have implement various method to enhance data robustness.
+	  While using TLC devices as booting device, please set this
+	  configuration as y to enable TLC features.
+
+config MNTL_SUPPORT
+	bool "Mediatek MNTL driver"
+	depends on MTK_MTD_NAND
+	help
+	  MNTL designed by Mediatek own FTL for block device support,
+	  And It is Mediatek Nand Translation Layer.
+	  For mlc or tlc nand support this feature need to be opened.
+	  Enable this feature if want to use MNTL handle nand management.
