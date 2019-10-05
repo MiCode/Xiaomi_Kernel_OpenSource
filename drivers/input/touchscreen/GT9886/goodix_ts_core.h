@@ -754,7 +754,8 @@ int goodix_generic_noti_callback(struct notifier_block *self,
 
 int goodix_ts_fb_notifier_callback(struct notifier_block *self,
 			unsigned long event, void *data);
-
+int goodix_ts_irq_enable(struct goodix_ts_core *core_data,
+			bool enable);
 extern void goodix_msg_printf(const char *fmt, ...);
 extern int i2c_touch_resume(void);
 extern int i2c_touch_suspend(void);

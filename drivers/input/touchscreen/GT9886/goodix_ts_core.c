@@ -26,6 +26,7 @@
 #include <linux/completion.h>
 #include <linux/debugfs.h>
 #include <linux/of_irq.h>
+#include <uapi/linux/sched/types.h>
 #ifdef CONFIG_FB
 #include <linux/notifier.h>
 #include <linux/fb.h>
@@ -39,6 +40,10 @@
 #endif
 
 #define GOOIDX_INPUT_PHYS		"goodix_ts/input0"
+
+static struct goodix_ts_core *resume_core_data;
+static struct task_struct *gt9886_polling_thread;
+static int goodix_ts_event_polling(void *arg);
 
 struct goodix_module goodix_modules;
 
@@ -471,6 +476,51 @@ static ssize_t goodix_ts_report_rate_change_store(
 	return count;
 }
 
+static ssize_t goodix_ts_report_mode_change_store(
+		struct device *dev,
+		struct device_attribute *attr,
+		const char *buf,
+		size_t count)
+{
+	struct goodix_ts_core *core_data =
+		dev_get_drvdata(dev);
+	int ret = 0;
+	u32 en = 0;
+
+	if (!buf) {
+		ts_err("%s() buf is NULL.Exit!\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = kstrtou32(buf, 0, &en);
+	if (ret)
+		return -EINVAL;
+
+	if (en == 1 || en == 0) {
+		ret = goodix_ts_irq_enable(core_data, en);
+		if (ret)
+			return -EINVAL;
+		if (en == 0 && gt9886_polling_thread == NULL) {
+			gt9886_polling_thread =
+				kthread_run(goodix_ts_event_polling,
+				0, GOODIX_CORE_DRIVER_NAME);
+			if (IS_ERR(gt9886_polling_thread)) {
+				ret = PTR_ERR(gt9886_polling_thread);
+				ts_err(" failed to create kernel thread: %d\n",
+					ret);
+			}
+		} else if (en == 1) {
+			if (gt9886_polling_thread) {
+				kthread_stop(gt9886_polling_thread);
+				gt9886_polling_thread = NULL;
+			}
+		}
+	} else
+		return -EINVAL;
+
+	return count;
+}
+
 /* show chip configuration data */
 static ssize_t goodix_ts_config_data_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -754,6 +804,8 @@ static DEVICE_ATTR(driver_info, 0444, goodix_ts_driver_info_show, NULL);
 static DEVICE_ATTR(chip_info, 0444, goodix_ts_chip_info_show, NULL);
 static DEVICE_ATTR(change_rate, 0220, NULL,
 				goodix_ts_report_rate_change_store);
+static DEVICE_ATTR(change_mode, 0220, NULL,
+				goodix_ts_report_mode_change_store);
 static DEVICE_ATTR(config_data, 0444, goodix_ts_config_data_show, NULL);
 static DEVICE_ATTR(reset, 0220, NULL, goodix_ts_reset_store);
 static DEVICE_ATTR(send_cfg, 0220, NULL, goodix_ts_send_cfg_store);
@@ -766,6 +818,7 @@ static struct attribute *sysfs_attrs[] = {
 	&dev_attr_driver_info.attr,
 	&dev_attr_chip_info.attr,
 	&dev_attr_change_rate.attr,
+	&dev_attr_change_mode.attr,
 	&dev_attr_config_data.attr,
 	&dev_attr_reset.attr,
 	&dev_attr_send_cfg.attr,
@@ -1038,6 +1091,34 @@ int goodix_ts_irq_enable(struct goodix_ts_core *core_data,
 	return 0;
 }
 EXPORT_SYMBOL(goodix_ts_irq_enable);
+
+/**
+ * goodix_ts_event_polling used for bring up
+ */
+static int goodix_ts_event_polling(void *arg)
+{
+	struct goodix_ts_event *ts_event = &resume_core_data->ts_event;
+	struct goodix_ts_device *ts_dev =  resume_core_data->ts_dev;
+	struct sched_param param = { .sched_priority = 4 };
+	int ret;
+
+	sched_setscheduler(current, SCHED_RR, &param);
+	do {
+		usleep_range(30000, 35100);
+		/* read touch data from touch device */
+		ret = ts_dev->hw_ops->event_handler(ts_dev, ts_event);
+		if (likely(ret >= 0)) {
+			if (ts_event->event_type == EVENT_TOUCH) {
+				/* report touch */
+				goodix_ts_input_report(
+					resume_core_data->input_dev,
+					&ts_event->event_data.touch_data);
+			}
+		}
+	} while (!kthread_should_stop());
+	return 0;
+}
+
 /**
  * goodix_ts_power_init - Get regulator for touch device
  * @core_data: pointer to touch core data
@@ -1770,7 +1851,6 @@ out:
 	return 0;
 }
 
-static struct goodix_ts_core *resume_core_data;
 /* resume work queue callback */
 static void resume_workqueue_callback(struct work_struct *work)
 {
