@@ -379,7 +379,7 @@ long port_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 						SMEM_USER_MD_WIFI_PROXY);
 		sub_smem->size &= ~(PAGE_SIZE - 1);
 		CCCI_NORMAL_LOG(port->md_id, TAG, "wifi smem size =%lx(%d)\n",
-			(unsigned long)sub_smem->size, PAGE_SIZE);
+			(unsigned long)sub_smem->size, (int)PAGE_SIZE);
 		ret = put_user((unsigned int)sub_smem->size,
 				(unsigned int __user *)arg);
 		break;
