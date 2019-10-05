@@ -47,6 +47,8 @@
 #include "SCP_power_monitor.h"
 #include <asm/arch_timer.h>
 #include <linux/math64.h>
+#include <uapi/linux/sched/types.h>
+
 
 /* ALGIN TO SCP SENSOR_IPI_SIZE AT FILE CONTEXTHUB_FW.H, ALGIN
  * TO SCP_SENSOR_HUB_DATA UNION, ALGIN TO STRUCT DATA_UNIT_T
@@ -2232,7 +2234,7 @@ static int sensorHub_resume(struct platform_device *pdev)
 	return 0;
 }
 
-static ssize_t nanohub_show_trace(struct device_driver *ddri, char *buf)
+static ssize_t nanohub_trace_show(struct device_driver *ddri, char *buf)
 {
 	struct SCP_sensorHub_data *obj = obj_data;
 	int i;
@@ -2244,7 +2246,7 @@ static ssize_t nanohub_show_trace(struct device_driver *ddri, char *buf)
 	return res;
 }
 
-static ssize_t nanohub_store_trace(struct device_driver *ddri,
+static ssize_t nanohub_trace_store(struct device_driver *ddri,
 	const char *buf, size_t count)
 {
 	struct SCP_sensorHub_data *obj = obj_data;
@@ -2280,10 +2282,10 @@ err_out:
 	return count;
 }
 
-static DRIVER_ATTR(trace, 0644, nanohub_show_trace, nanohub_store_trace);
+static DRIVER_ATTR_RW(nanohub_trace);
 
 static struct driver_attribute *nanohub_attr_list[] = {
-	&driver_attr_trace,	/*trace log */
+	&driver_attr_nanohub_trace,	/*trace log */
 };
 
 static int nanohub_create_attr(struct device_driver *driver)
