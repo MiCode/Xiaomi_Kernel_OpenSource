@@ -14,6 +14,9 @@
 #include <generated/autoconf.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#if defined(CONFIG_REGULATOR_MT6315)
+#include <linux/regulator/mt6315-misc.h>
+#endif
 
 #include <mt-plat/mtk_devinfo.h>
 #include <mt-plat/upmu_common.h>
@@ -33,6 +36,9 @@ void record_md_vosel(void)
 /* [Export API] */
 void vmd1_pmic_setting_on(void)
 {
+#if defined(CONFIG_REGULATOR_MT6315)
+	mt6315_vmd1_pmic_setting_on();
+#endif
 	/* 1.Call PMIC driver API configure VMODEM voltage */
 	if (g_vrfdig_vosel != 0) {
 		pmic_set_register_value(PMIC_RG_BUCK_VPU_VOSEL,

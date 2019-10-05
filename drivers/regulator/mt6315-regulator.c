@@ -9,6 +9,7 @@
 #include <linux/regmap.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
+#include <linux/regulator/mt6315-misc.h>
 #include <linux/regulator/mt6315-regulator.h>
 #include <linux/regulator/of_regulator.h>
 
@@ -54,6 +55,12 @@ struct mt_regulator_init_data {
 	u32 id;
 	u32 size;
 	struct mt6315_regulator_info *regulator_info;
+};
+
+struct mt_regulator_drv_data {
+	struct mutex lock;
+	u32 reg_value;
+	u32 slave_id;
 };
 
 #define MT_BUCK_EN		(REGULATOR_CHANGE_STATUS)
@@ -299,19 +306,19 @@ static struct mt6315_regulator_info mt6315_3_regulators[] = {
 };
 
 static const struct mt_regulator_init_data mt6315_6_regulator_init_data = {
-	.id = 6,
+	.id = MT6315_SLAVE_ID_6,
 	.size = MT6315_ID_6_MAX,
 	.regulator_info = &mt6315_6_regulators[0],
 };
 
 static const struct mt_regulator_init_data mt6315_7_regulator_init_data = {
-	.id = 7,
+	.id = MT6315_SLAVE_ID_7,
 	.size = MT6315_ID_7_MAX,
 	.regulator_info = &mt6315_7_regulators[0],
 };
 
 static const struct mt_regulator_init_data mt6315_3_regulator_init_data = {
-	.id = 3,
+	.id = MT6315_SLAVE_ID_3,
 	.size = MT6315_ID_3_MAX,
 	.regulator_info = &mt6315_3_regulators[0],
 };
@@ -332,6 +339,69 @@ static const struct of_device_id mt6315_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, mt6315_of_match);
 
+static ssize_t show_extbuck_access(struct device *dev,
+				   struct device_attribute *attr,
+				   char *buf)
+{
+	struct mt_regulator_drv_data *drvdata = dev_get_drvdata(dev);
+
+	pr_info("[%s] 0x%x\n", __func__, drvdata->reg_value);
+
+	return sprintf(buf, "0x%x\n", drvdata->reg_value);
+}
+
+static ssize_t store_extbuck_access(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf,
+				    size_t size)
+{
+	struct mt_regulator_drv_data *drvdata;
+	struct regmap *regmap;
+	int ret = 0;
+	char *pvalue = NULL, *addr, *val;
+	unsigned int sid = 0;
+	unsigned int reg_val = 0;
+	unsigned int reg_adr = 0;
+
+	pr_info("[%s]\n", __func__);
+
+	if (dev && dev->parent) {
+		drvdata = dev_get_drvdata(dev);
+		regmap = dev_get_regmap(dev->parent, NULL);
+		if (!drvdata || !regmap)
+			return -ENODEV;
+	}
+
+	if (buf != NULL && size != 0) {
+		pr_info("[%s] size is %d, buf is %s\n"
+			, __func__, (int)size, buf);
+
+		pvalue = (char *)buf;
+		addr = strsep(&pvalue, " ");
+		val = strsep(&pvalue, " ");
+		sid = drvdata->slave_id;
+		if (addr)
+			ret = kstrtou32(addr, 16, (unsigned int *)&reg_adr);
+		if (val) {
+			ret = kstrtou32(val, 16, (unsigned int *)&reg_val);
+
+			pr_info("[%s] write MT6315_S%d reg 0x%x with value 0x%x !\n"
+				, __func__, sid, reg_adr, reg_val);
+			ret = regmap_write(regmap, reg_adr, reg_val);
+		} else {
+			mutex_lock(&drvdata->lock);
+			ret = regmap_read(regmap, reg_adr, &drvdata->reg_value);
+			mutex_unlock(&drvdata->lock);
+			pr_info("[%s] read MT6315_S%d reg 0x%x with value 0x%x !\n"
+				, __func__, sid, reg_adr, drvdata->reg_value);
+		}
+	}
+	return size;
+}
+
+static DEVICE_ATTR(extbuck_access, 0664,
+		   show_extbuck_access, store_extbuck_access);
+
 static int mt6315_regulator_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id;
@@ -339,6 +409,7 @@ static int mt6315_regulator_probe(struct platform_device *pdev)
 	struct regmap *regmap;
 	struct mt6315_regulator_info *mt_regulators;
 	struct mt_regulator_init_data *regulator_init_data;
+	struct mt_regulator_drv_data *drvdata;
 	struct regulator_config config = {};
 	struct regulator_dev *rdev;
 	struct regulation_constraints *c;
@@ -349,13 +420,22 @@ static int mt6315_regulator_probe(struct platform_device *pdev)
 	if (!regmap)
 		return -ENODEV;
 
+	drvdata = devm_kzalloc(&pdev->dev, sizeof(struct mt_regulator_drv_data),
+			       GFP_KERNEL);
+	if (!drvdata)
+		return -ENOMEM;
+
 	of_id = of_match_device(mt6315_of_match, &pdev->dev);
 	if (!of_id || !of_id->data)
 		return -ENODEV;
+
 	regulator_init_data = (struct mt_regulator_init_data *)of_id->data;
 	mt_regulators = regulator_init_data->regulator_info;
+	drvdata->slave_id = regulator_init_data->id;
+	mutex_init(&drvdata->lock);
+	platform_set_drvdata(pdev, drvdata);
 
-	/* Read PMIC chip revision to update constraints and voltage table */
+	/* Read chip revision to update constraints */
 	if (regmap_read(regmap, MT6315_SWCID_H, &reg_value) < 0) {
 		dev_notice(&pdev->dev, "Failed to read Chip ID\n");
 		return -EIO;
@@ -381,6 +461,41 @@ static int mt6315_regulator_probe(struct platform_device *pdev)
 			(mt_regulators + i)->constraints.valid_modes_mask;
 	}
 
+	mt6315_misc_init(regulator_init_data->id, regmap);
+	/* Create sysfs entry */
+	device_create_file(&pdev->dev, &dev_attr_extbuck_access);
+
+	return 0;
+}
+
+static void mt6315_regulator_shutdown(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct regmap *regmap;
+	int ret = 0;
+
+	dev_info(&pdev->dev, "%s\n", __func__);
+	regmap = dev_get_regmap(dev->parent, NULL);
+	if (!regmap) {
+		dev_notice(&pdev->dev, "%s: invalid regmap.\n", __func__);
+		return;
+	}
+
+	ret = regmap_update_bits(regmap,
+		MT6315_PMIC_RG_SEQ_OFF_ADDR,
+		0x1 << MT6315_PMIC_RG_SEQ_OFF_SHIFT,
+		0x1 << MT6315_PMIC_RG_SEQ_OFF_SHIFT);
+	if (ret < 0) {
+		dev_notice(&pdev->dev, "%s: enable power off sequence failed.\n"
+			   , __func__);
+		return;
+	}
+}
+
+static int mt6315_regulator_remove(struct platform_device *pdev)
+{
+	device_remove_file(&pdev->dev, &dev_attr_extbuck_access);
+
 	return 0;
 }
 
@@ -390,6 +505,8 @@ static struct platform_driver mt6315_regulator_driver = {
 		.of_match_table = of_match_ptr(mt6315_of_match),
 	},
 	.probe = mt6315_regulator_probe,
+	.shutdown = mt6315_regulator_shutdown,
+	.remove = mt6315_regulator_remove,
 };
 
 module_platform_driver(mt6315_regulator_driver);
