@@ -11,13 +11,17 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _MTK_SWPM_H_
-#define _MTK_SWPM_H_
+#ifndef __MTK_MDPM_H__
+#define __MTK_MDPM_H__
 
-#if defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6785)
-
-#include "swpm_v1/mtk_swpm.h"
-
+#if defined(CONFIG_MACH_MT6765)
+#include "mt6765/mtk_mdpm_platform.h"
+#elif defined(CONFIG_MACH_MT6761)
+#include "mt6761/mtk_mdpm_platform.h"
+#elif defined(CONFIG_MACH_MT3967)
+#include "mt3967/mtk_mdpm_platform.h"
+#elif defined(CONFIG_MACH_MT6768)
+#include "mt6768/mtk_mdpm_platform.h"
 #endif
 
-#endif /* __MTK_SWPM_H__ */
+#endif /* __MTK_MDPM_H__ */
