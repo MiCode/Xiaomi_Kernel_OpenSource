@@ -494,6 +494,7 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 	larb = m4u_get_larbid(pM4uPort->ePortID);
 	larb_port = m4u_port_2_larb_port(pM4uPort->ePortID);
 	name = iommu_get_port_name(pM4uPort->ePortID);
+#if 0
 	if (is_user && strcmp(name, pM4uPort->name)) {
 		M4U_MSG("port name(%s) not matched(%s)\n",
 			pM4uPort->name, name);
@@ -504,7 +505,7 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 				       "dump user backtrace");
 		return -1;
 	}
-
+#endif
 	if (pM4uPort->Virtuality) {
 		bit32 = m4u_get_boundary(pM4uPort->ePortID);
 		if (bit32 < 0 ||
@@ -556,9 +557,9 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 		ret = -4;
 	}
 
-	M4U_MSG("%s, l%d-p%d, switch fr %d to %d, bd:%d\n",
+	M4U_MSG("%s, l%d-p%d, userspace:%d switch fr %d to %d, bd:%d\n",
 		m4u_get_module_name(pM4uPort->ePortID),
-		larb, larb_port, old_value, value, bit32);
+		larb, larb_port, is_user, old_value, value, bit32);
 
 out:
 	larb_clock_off(larb, 1);
@@ -1347,6 +1348,75 @@ int m4u_switch_acp(unsigned int port,
 }
 EXPORT_SYMBOL(m4u_switch_acp);
 
+/*
+ * dump the current status of pgtable
+ * this is the runtime mapping result of IOVA and PA
+ */
+void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
+	bool lock)
+{
+	struct m4u_client_t *client = ion_m4u_client;
+	struct list_head *pListHead;
+	struct m4u_buf_info_t *pList = NULL;
+	unsigned long p_start = 0, p_end = 0;
+	unsigned long start = 0, end = 0;
+	struct device *dev = NULL;
+
+	if (!client)
+		return;
+
+	M4U_PRINT_SEQ(s,
+		      "======== pseudo_m4u IOVA List ==========\n");
+	if (s)
+		pr_notice("======== pseudo_m4u IOVA List ==========\n");
+	M4U_PRINT_SEQ(s,
+		      " IOVA_start ~ IOVA_end	PA_start ~ PA_end	size(Byte)	port(larb-port)	name	time(ms)	process(pid)\n");
+	if (s)
+		pr_notice(" IOVA_start ~ IOVA_end	PA_start ~ PA_end	size(Byte)	port(larb-port)	name	time(ms)	process(pid)\n");
+	if (lock)
+		mutex_lock(&(client->dataMutex));
+	list_for_each(pListHead, &(client->mvaList)) {
+		pList = container_of(pListHead, struct m4u_buf_info_t, link);
+		dev = pseudo_get_larbdev(pList->port);
+		start = pList->mva,
+		end = pList->mva + pList->size - 1,
+		mtk_iommu_iova_to_pa(dev, start, &p_start);
+		mtk_iommu_iova_to_pa(dev, end, &p_end);
+		M4U_PRINT_SEQ(s,
+			      " 0x%lx~0x%lx, 0x%lx~0x%lx, 0x%lx, 0x%x(%d-%d), %s, %llu,  %s(%d)\n",
+			      start, end,
+			      p_start, p_end,
+			      pList->size, pList->port,
+			      m4u_get_larbid(pList->port),
+			      m4u_port_2_larb_port(pList->port),
+			      iommu_get_port_name(pList->port),
+			      pList->timestamp,
+			      pList->task_comm, pList->pid);
+		if (s)
+			pr_notice(">>> 0x%lx~0x%lx, 0x%lx~0x%lx, 0x%lx, 0x%x(%d-%d), %s, %llu,  %s(%d)\n",
+			      start, end,
+				  p_start, p_end,
+				  pList->size, pList->port,
+				  m4u_get_larbid(pList->port),
+				  m4u_port_2_larb_port(pList->port),
+				  iommu_get_port_name(pList->port),
+				  pList->timestamp,
+				  pList->task_comm, pList->pid);
+	}
+	if (lock)
+		mutex_unlock(&(client->dataMutex));
+
+	if (level > 0)
+		mtk_iommu_dump_iova_space();
+}
+EXPORT_SYMBOL(__m4u_dump_pgtable);
+
+void m4u_dump_pgtable(unsigned int level)
+{
+	__m4u_dump_pgtable(NULL, level, false);
+}
+EXPORT_SYMBOL(m4u_dump_pgtable);
+
 int __pseudo_alloc_mva(struct m4u_client_t *client,
 			   int port, unsigned long va, unsigned long size,
 			   struct sg_table *sg_table, unsigned int flags,
@@ -1463,6 +1533,7 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 			&dma_addr, size,
 			&paddr,
 			flags, table->nents, table->orig_nents);
+		__m4u_dump_pgtable(NULL, 1, false);
 		goto ERR_EXIT;
 	}
 	if (sg_table) {
@@ -3226,75 +3297,6 @@ int pseudo_dump_iova_reserved_region(struct seq_file *s)
 	return 0;
 }
 EXPORT_SYMBOL(pseudo_dump_iova_reserved_region);
-
-/*
- * dump the current status of pgtable
- * this is the runtime mapping result of IOVA and PA
- */
-void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
-	bool lock)
-{
-	struct m4u_client_t *client = ion_m4u_client;
-	struct list_head *pListHead;
-	struct m4u_buf_info_t *pList = NULL;
-	unsigned long p_start = 0, p_end = 0;
-	unsigned long start = 0, end = 0;
-	struct device *dev = NULL;
-
-	if (!client)
-		return;
-
-	M4U_PRINT_SEQ(s,
-		      "======== pseudo_m4u IOVA List ==========\n");
-	if (s)
-		pr_notice("======== pseudo_m4u IOVA List ==========\n");
-	M4U_PRINT_SEQ(s,
-		      " IOVA_start ~ IOVA_end	PA_start ~ PA_end	size(Byte)	port(larb-port)	name	time(ms)	process(pid)\n");
-	if (s)
-		pr_notice(" IOVA_start ~ IOVA_end	PA_start ~ PA_end	size(Byte)	port(larb-port)	name	time(ms)	process(pid)\n");
-	if (lock)
-		mutex_lock(&(client->dataMutex));
-	list_for_each(pListHead, &(client->mvaList)) {
-		pList = container_of(pListHead, struct m4u_buf_info_t, link);
-		dev = pseudo_get_larbdev(pList->port);
-		start = pList->mva,
-		end = pList->mva + pList->size - 1,
-		mtk_iommu_iova_to_pa(dev, start, &p_start);
-		mtk_iommu_iova_to_pa(dev, end, &p_end);
-		M4U_PRINT_SEQ(s,
-			      " 0x%lx~0x%lx, 0x%lx~0x%lx, 0x%lx, 0x%x(%d-%d), %s, %llu,  %s(%d)\n",
-			      start, end,
-			      p_start, p_end,
-			      pList->size, pList->port,
-			      m4u_get_larbid(pList->port),
-			      m4u_port_2_larb_port(pList->port),
-			      iommu_get_port_name(pList->port),
-			      pList->timestamp,
-			      pList->task_comm, pList->pid);
-		if (s)
-			pr_notice(">>> 0x%lx~0x%lx, 0x%lx~0x%lx, 0x%lx, 0x%x(%d-%d), %s, %llu,  %s(%d)\n",
-			      start, end,
-				  p_start, p_end,
-				  pList->size, pList->port,
-				  m4u_get_larbid(pList->port),
-				  m4u_port_2_larb_port(pList->port),
-				  iommu_get_port_name(pList->port),
-				  pList->timestamp,
-				  pList->task_comm, pList->pid);
-	}
-	if (lock)
-		mutex_unlock(&(client->dataMutex));
-
-	if (level > 0)
-		mtk_iommu_dump_iova_space();
-}
-EXPORT_SYMBOL(__m4u_dump_pgtable);
-
-void m4u_dump_pgtable(unsigned int level)
-{
-	__m4u_dump_pgtable(NULL, level, false);
-}
-EXPORT_SYMBOL(m4u_dump_pgtable);
 
 static int pseudo_remove(struct platform_device *pdev)
 {
