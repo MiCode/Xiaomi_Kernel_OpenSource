@@ -44,9 +44,7 @@ CFLAGS_KASAN += $(call cc-option, -Wno-uninitialized)
 CFLAGS_KASAN += $(call cc-option, -Wno-return-type)
 CFLAGS_KASAN += $(call cc-option, -Wno-implicit-int)
 CFLAGS_KASAN += $(call cc-option, -Wno-pointer-to-int-cast)
-CFLAGS_KASAN += $(call cc-option, -mno-implicit-float)
 CFLAGS_KASAN += $(call cc-option, -Wno-enum-compare)
 CFLAGS_KASAN += $(call cc-option, -Wno-unused-result)
-CFLAGS_KASAN += $(call cc-option, -Wn-strict-prototypes)
 
 endif
