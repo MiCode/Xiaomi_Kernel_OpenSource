@@ -206,6 +206,7 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 			/* wait decoder done interrupt */
 			do_gettimeofday(&t_s);
 			mtk_vcodec_wait_for_done_ctx(vcu->ctx,
+				msg->status,
 				MTK_INST_IRQ_RECEIVED,
 				WAIT_INTR_TIMEOUT_MS);
 			do_gettimeofday(&t_e);
@@ -274,7 +275,7 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 				vsi->dec.vdec_fb_va,
 				vsi->dec.fb_dma[0], vsi->dec.fb_dma[1]);
 
-#ifdef SVP_NORMAL_SUPPORT
+#if 0
 			if (vcu->ctx->dec_params.svp_mode == 0 &&
 				vcu->ctx->dev->dec_irq != 0) {
 				ret = devm_request_irq(

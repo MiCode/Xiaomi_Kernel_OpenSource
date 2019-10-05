@@ -498,7 +498,8 @@ static int vdec_vp8_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 	}
 
 	/* wait decoder done interrupt */
-	mtk_vcodec_wait_for_done_ctx(inst->ctx, MTK_INST_IRQ_RECEIVED,
+	mtk_vcodec_wait_for_done_ctx(inst->ctx, 0,
+		MTK_INST_IRQ_RECEIVED,
 		WAIT_INTR_TIMEOUT_MS);
 
 	if (inst->vsi->load_data)

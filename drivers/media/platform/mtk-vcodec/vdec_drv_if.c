@@ -199,7 +199,7 @@ void vdec_decode_prepare(void *ctx_prepare,
 
 	mtk_vcodec_set_curr_ctx(ctx->dev, ctx);
 	mtk_vcodec_dec_clock_on(&ctx->dev->pm, hw_id);
-	enable_irq(ctx->dev->dec_irq);
+	enable_irq(ctx->dev->dec_irq[hw_id]);
 }
 EXPORT_SYMBOL_GPL(vdec_decode_prepare);
 
@@ -208,7 +208,7 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_unprepare;
 
-	disable_irq(ctx->dev->dec_irq);
+	disable_irq(ctx->dev->dec_irq[hw_id]);
 	mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
 	mtk_vcodec_set_curr_ctx(ctx->dev, NULL);
 

@@ -408,7 +408,7 @@ static int vdec_h264_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 
 	if (nal_type == NAL_NON_IDR_SLICE || nal_type == NAL_IDR_SLICE) {
 		/* wait decoder done interrupt */
-		err = mtk_vcodec_wait_for_done_ctx(inst->ctx,
+		err = mtk_vcodec_wait_for_done_ctx(inst->ctx, 0,
 			MTK_INST_IRQ_RECEIVED,
 			WAIT_INTR_TIMEOUT_MS);
 		if (err)
