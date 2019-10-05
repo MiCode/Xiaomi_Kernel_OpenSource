@@ -298,6 +298,8 @@ static int __init mtk_dbg_common_fs_init(void)
 {
 	/* wakeup source init for suspend enable and disable */
 	wakeup_source_init(&mtk_suspend_lock, "mtk_suspend_wakelock");
+	/* default hold wakelock to avoid enter suspend flow */
+	__pm_stay_awake(&mtk_suspend_lock);
 
 	/* backup and disable suspend console (enable log print) */
 	mtk_system_console_suspend = console_suspend_enabled;
