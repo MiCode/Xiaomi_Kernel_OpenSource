@@ -731,12 +731,8 @@ unsigned int mt_gpufreq_update_volt(
 			int interpolation;
 
 			if (target_idx == 0 ||
-				target_idx == 3 ||
-				target_idx == 24 ||
-				target_idx == 27 ||
-				target_idx == 30 ||
-				target_idx == 33) {
-				/* After opp 20, 2 opps need intepolation */
+				target_idx == 3) {
+				/* 2 opps need intepolation */
 				interpolation =	((larger << 1) + smaller) / 3;
 				g_opp_table[target_idx + 1].gpufreq_volt =
 				VOLT_NORMALIZATION(interpolation);
@@ -751,6 +747,7 @@ unsigned int mt_gpufreq_update_volt(
 				__mt_gpufreq_get_vsram_gpu_by_vgpu(
 				g_opp_table[target_idx + 2].gpufreq_volt);
 			} else {
+				/* 1 opps need intepolation */
 				interpolation =	(larger + smaller) >> 1;
 				g_opp_table[target_idx + 1].gpufreq_volt =
 				VOLT_NORMALIZATION(interpolation);
@@ -2439,13 +2436,14 @@ out:
 
 /*
  * calculate vsram_gpu via given vgpu
+ * PTPOD only change vgpu, so we need change vsram by vgpu.
  */
 static unsigned int __mt_gpufreq_get_vsram_gpu_by_vgpu(unsigned int vgpu)
 {
 	unsigned int vsram_gpu;
 
 	if (vgpu > FIXED_VSRAM_VOLT_THSRESHOLD)
-		vsram_gpu = vgpu + 10000;
+		vsram_gpu = vgpu + FIXED_VSRAM_VOLT_DIFF;
 	else
 		vsram_gpu = FIXED_VSRAM_VOLT;
 

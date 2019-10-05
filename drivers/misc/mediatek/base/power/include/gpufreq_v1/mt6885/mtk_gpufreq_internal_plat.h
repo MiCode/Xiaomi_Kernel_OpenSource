@@ -36,14 +36,33 @@
  **************************************************/
 #define NUM_OF_OPP_IDX (sizeof(g_opp_table_segment) / \
 			sizeof(g_opp_table_segment[0]))
+
+/* On opp table, low vgpu will use the same vsram.
+ * And hgih vgpu will have the same diff with vsram.
+ * ex:
+ * vgpu  vsram
+ * 76875 86875 (diff = 10000)
+ * 75625 85625 (diff = 10000)
+ * 75000 74375 (below [vgpu 75000], all vsram is 74735
+ * 74375 74375
+ * 73750 74375
+ *
+ * FIXED_VSRAM_VOLT = 74375
+ * FIXED_VSRAM_VOLT_THSRESHOLD = 75000
+ * FIXED_VSRAM_VOLT_DIFF = 10000
+ *
+ */
 #define FIXED_VSRAM_VOLT                (75000)
-#define FIXED_VSRAM_VOLT_THSRESHOLD     (65000)
+#define FIXED_VSRAM_VOLT_THSRESHOLD     (75000)
+#define FIXED_VSRAM_VOLT_DIFF           (0)
 
 /**************************************************
  * PMIC Setting
  **************************************************/
-/*vgpu      0.3 ~ 1.19375 V*/
-/*vsram_gpu 0.5 ~ 1.29375 V*/
+/* PMIC hardware range:
+ * vgpu      0.3 ~ 1.19375 V
+ * vsram_gpu 0.5 ~ 1.29375 V
+ */
 #define VGPU_MAX_VOLT                   (119375)        /* mV x 100 */
 #define VGPU_MIN_VOLT                   (30000)         /* mV x 100 */
 #define VSRAM_GPU_MAX_VOLT              (129375)        /* mV x 100 */
