@@ -343,7 +343,7 @@ void md_cd_lock_modem_clock_src(int locked)
 				MD_REG_AP_MDSRC_ACK, 0, 0, 0, 0, 0);
 
 		CCCI_NOTICE_LOG(-1, TAG,
-				"settle = %d; ret = %u\n", settle, ret);
+				"settle = %d; ret = %lu\n", settle, ret);
 	}
 }
 
