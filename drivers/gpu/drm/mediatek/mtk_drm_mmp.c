@@ -34,8 +34,16 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "OVL");
 	g_DRM_MMP_Events.ovl0 =
 		mmprofile_register_event(g_DRM_MMP_Events.ovl, "OVL0");
+	g_DRM_MMP_Events.ovl1 =
+		mmprofile_register_event(g_DRM_MMP_Events.ovl, "OVL1");
 	g_DRM_MMP_Events.ovl0_2l =
 		mmprofile_register_event(g_DRM_MMP_Events.ovl, "OVL0_2L");
+	g_DRM_MMP_Events.ovl1_2l =
+		mmprofile_register_event(g_DRM_MMP_Events.ovl, "OVL1_2L");
+	g_DRM_MMP_Events.ovl2_2l =
+		mmprofile_register_event(g_DRM_MMP_Events.ovl, "OVL2_2L");
+	g_DRM_MMP_Events.ovl3_2l =
+		mmprofile_register_event(g_DRM_MMP_Events.ovl, "OVL3_2L");
 	g_DRM_MMP_Events.rdma =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "RDMA");
 	g_DRM_MMP_Events.rdma0 =
@@ -50,6 +58,8 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "DSI");
 	g_DRM_MMP_Events.dsi0 =
 		mmprofile_register_event(g_DRM_MMP_Events.dsi, "DSI0");
+	g_DRM_MMP_Events.dsi1 =
+		mmprofile_register_event(g_DRM_MMP_Events.dsi, "DSI1");
 	g_DRM_MMP_Events.pmqos =
 		mmprofile_register_event(g_DRM_MMP_Events.pmqos, "PMQOS");
 	g_DRM_MMP_Events.hrt_bw =

@@ -28,6 +28,11 @@ int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode)
 			return DISP_PMQOS_OVL0_FBDC_BW;
 		else
 			return DISP_PMQOS_OVL0_BW;
+	case DDP_COMPONENT_OVL1:
+		if (mode == DISP_BW_FBDC_MODE)
+			return DISP_PMQOS_OVL1_FBDC_BW;
+		else
+			return DISP_PMQOS_OVL1_BW;
 	case DDP_COMPONENT_OVL0_2L:
 		if (mode == DISP_BW_FBDC_MODE)
 			return DISP_PMQOS_OVL0_2L_FBDC_BW;
@@ -38,6 +43,16 @@ int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode)
 			return DISP_PMQOS_OVL1_2L_FBDC_BW;
 		else
 			return DISP_PMQOS_OVL1_2L_BW;
+	case DDP_COMPONENT_OVL2_2L:
+		if (mode == DISP_BW_FBDC_MODE)
+			return DISP_PMQOS_OVL2_2L_FBDC_BW;
+		else
+			return DISP_PMQOS_OVL2_2L_BW;
+	case DDP_COMPONENT_OVL3_2L:
+		if (mode == DISP_BW_FBDC_MODE)
+			return DISP_PMQOS_OVL3_2L_FBDC_BW;
+		else
+			return DISP_PMQOS_OVL3_2L_BW;
 	case DDP_COMPONENT_RDMA0:
 		return DISP_PMQOS_RDMA0_BW;
 	case DDP_COMPONENT_RDMA1:
@@ -62,10 +77,16 @@ int __mtk_disp_pmqos_port_look_up(int comp_id)
 #if defined(CONFIG_MACH_MT6779)
 	case DDP_COMPONENT_OVL0:
 		return SMI_PORT_DISP_OVL0;
+	case DDP_COMPONENT_OVL1:
+		return SMI_PORT_DISP_OVL1;
 	case DDP_COMPONENT_OVL0_2L:
 		return SMI_PORT_DISP_OVL0_2L;
 	case DDP_COMPONENT_OVL1_2L:
 		return SMI_PORT_DISP_OVL1_2L;
+	case DDP_COMPONENT_OVL2_2L:
+		return SMI_PORT_DISP_OVL2;
+	case DDP_COMPONENT_OVL3_2L:
+		return SMI_PORT_DISP_OVL3;
 	case DDP_COMPONENT_RDMA0:
 		return SMI_PORT_DISP_RDMA0;
 	case DDP_COMPONENT_RDMA1:

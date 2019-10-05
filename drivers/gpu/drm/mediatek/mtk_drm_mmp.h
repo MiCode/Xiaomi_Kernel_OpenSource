@@ -29,7 +29,11 @@ struct DRM_MMP_Events {
 	mmp_event IRQ;
 	mmp_event ovl;
 	mmp_event ovl0;
+	mmp_event ovl1;
 	mmp_event ovl0_2l;
+	mmp_event ovl1_2l;
+	mmp_event ovl2_2l;
+	mmp_event ovl3_2l;
 	mmp_event rdma;
 	mmp_event rdma0;
 	mmp_event rdma1;
@@ -37,6 +41,7 @@ struct DRM_MMP_Events {
 	mmp_event wdma0;
 	mmp_event dsi;
 	mmp_event dsi0;
+	mmp_event dsi1;
 	mmp_event ddp;
 	mmp_event mutex[DISP_MUTEX_DDP_COUNT];
 	mmp_event postmask;

@@ -732,8 +732,8 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	addr = (u32)mtk_fb_get_dma(comp->fb);
 	addr += comp->fb->offsets[0];
 	con = wdma_fmt_convert(comp->fb->format->format);
-	DDPMSG("%s fmt:0x%x, con:0x%x\n", __func__,
-		comp->fb->pixel_format, con);
+	DDPINFO("%s fmt:0x%x, con:0x%x\n", __func__,
+		comp->fb->format->format, con);
 	if (!addr) {
 		DDPPR_ERR("%s wdma dst addr is zero\n", __func__);
 		return;
@@ -748,8 +748,8 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	mtk_ddp_write_mask(comp, con, DISP_REG_WDMA_CFG,
 		WDMA_OUT_FMT | WDMA_CON_SWAP, handle);
 
-	if (drm_format_num_planes(comp->fb->pixel_format) != 1) {
-		wdma_config_yuv420(comp, comp->fb->pixel_format,
+	if (drm_format_num_planes(comp->fb->format->format) != 1) {
+		wdma_config_yuv420(comp, comp->fb->format->format,
 				comp->fb->pitches[0], cfg->h, addr, handle);
 		mtk_ddp_write_mask(comp, 0,
 				DISP_REG_WDMA_CFG, WDMA_UFO_DCP_ENABLE, handle);

@@ -892,6 +892,8 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 
 	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0)
 		DRM_MMP_MARK(dsi0, status, 0);
+	else if (dsi->ddp_comp.id == DDP_COMPONENT_DSI1)
+		DRM_MMP_MARK(dsi1, status, 0);
 
 	DDPIRQ("%s irq, val:0x%x\n", mtk_dump_comp_str(&dsi->ddp_comp), status);
 

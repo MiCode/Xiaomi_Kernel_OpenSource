@@ -2004,7 +2004,8 @@ void mtk_crtc_config_round_corner(struct drm_crtc *crtc,
 	cfg.h = crtc->mode.vdisplay;
 	for_each_comp_in_cur_crtc_path(
 		comp, mtk_crtc, i, j)
-		if (comp->id == DDP_COMPONENT_POSTMASK0) {
+		if (comp->id == DDP_COMPONENT_POSTMASK0 ||
+			comp->id == DDP_COMPONENT_POSTAMSK1) {
 			if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 				cur_path_idx = DDP_SECOND_PATH;
 			else
@@ -3170,7 +3171,10 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		if ((j == 0) && (p_mode == DDP_MAJOR) &&
 		    (comp_id == DDP_COMPONENT_RDMA0 ||
 		     comp_id == DDP_COMPONENT_RDMA1 ||
-		     comp_id == DDP_COMPONENT_RDMA2)) {
+		     comp_id == DDP_COMPONENT_RDMA2 ||
+		     comp_id == DDP_COMPONENT_RDMA3 ||
+		     comp_id == DDP_COMPONENT_RDMA4 ||
+		     comp_id == DDP_COMPONENT_RDMA5)) {
 			rdma_memory_mode = comp->comp_mode;
 			*rdma_memory_mode = true;
 			mtk_crtc->layer_nr = RDMA_LAYER_NR;
@@ -3442,7 +3446,9 @@ static void mtk_crtc_config_single_path_cmdq(struct drm_crtc *crtc,
 
 		if (comp->id == DDP_COMPONENT_RDMA0 ||
 		    comp->id == DDP_COMPONENT_RDMA1 ||
-		    comp->id == DDP_COMPONENT_RDMA2) {
+		    comp->id == DDP_COMPONENT_RDMA2 ||
+		    comp->id == DDP_COMPONENT_RDMA4 ||
+		    comp->id == DDP_COMPONENT_RDMA5) {
 			bool *rdma_memory_mode =
 				ddp_ctx->ddp_comp[path_idx][i]->comp_mode;
 

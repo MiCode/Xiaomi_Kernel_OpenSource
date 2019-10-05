@@ -415,10 +415,12 @@ int mtk_ovl_layer_num(struct mtk_ddp_comp *comp)
 {
 	switch (comp->id) {
 	case DDP_COMPONENT_OVL0:
+	case DDP_COMPONENT_OVL1:
 		return 4;
 	case DDP_COMPONENT_OVL0_2L:
-		return 2;
 	case DDP_COMPONENT_OVL1_2L:
+	case DDP_COMPONENT_OVL2_2L:
+	case DDP_COMPONENT_OVL3_2L:
 		return 2;
 	default:
 		DDPPR_ERR("invalid ovl module=%d\n", comp->id);
@@ -439,8 +441,16 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 
 	if (ovl->id == DDP_COMPONENT_OVL0)
 		DRM_MMP_MARK(ovl0, val, 0);
+	else if (ovl->id == DDP_COMPONENT_OVL1)
+		DRM_MMP_MARK(ovl1, val, 0);
 	else if (ovl->id == DDP_COMPONENT_OVL0_2L)
 		DRM_MMP_MARK(ovl0_2l, val, 0);
+	else if (ovl->id == DDP_COMPONENT_OVL1_2L)
+		DRM_MMP_MARK(ovl1_2l, val, 0);
+	else if (ovl->id == DDP_COMPONENT_OVL2_2L)
+		DRM_MMP_MARK(ovl2_2l, val, 0);
+	else if (ovl->id == DDP_COMPONENT_OVL3_2L)
+		DRM_MMP_MARK(ovl3_2l, val, 0);
 
 	if (val & 0x1e0)
 		DRM_MMP_MARK(abnormal_irq, val, ovl->id);
@@ -1709,7 +1719,8 @@ mtk_ovl_addon_rsz_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 			 enum mtk_ddp_comp_id next, struct mtk_rect rsz_src_roi,
 			 struct mtk_rect rsz_dst_roi, struct cmdq_pkt *handle)
 {
-	if (prev == DDP_COMPONENT_RSZ0) {
+	if (prev == DDP_COMPONENT_RSZ0 ||
+		prev == DDP_COMPONENT_RSZ1) {
 		int lc_x = rsz_dst_roi.x, lc_y = rsz_dst_roi.y;
 		int lc_w = rsz_dst_roi.width, lc_h = rsz_dst_roi.height;
 
@@ -1732,7 +1743,8 @@ mtk_ovl_addon_rsz_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 	} else
 		_ovl_UFOd_in(comp, 0, handle);
 
-	if (prev == DDP_COMPONENT_OVL0 || prev == DDP_COMPONENT_OVL0_2L)
+	if (prev == DDP_COMPONENT_OVL0 || prev == DDP_COMPONENT_OVL0_2L ||
+		prev == DDP_COMPONENT_OVL1 || prev == DDP_COMPONENT_OVL1_2L)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
 			       DISP_OVL_BGCLR_IN_SEL, DISP_OVL_BGCLR_IN_SEL);
@@ -1771,7 +1783,8 @@ static void mtk_ovl_connect(struct mtk_ddp_comp *comp,
 			    enum mtk_ddp_comp_id prev,
 			    enum mtk_ddp_comp_id next)
 {
-	if (prev == DDP_COMPONENT_OVL0 || prev == DDP_COMPONENT_OVL0_2L)
+	if (prev == DDP_COMPONENT_OVL0 || prev == DDP_COMPONENT_OVL0_2L ||
+		prev == DDP_COMPONENT_OVL1 || prev == DDP_COMPONENT_OVL1_2L)
 		mtk_ddp_cpu_mask_write(comp, DISP_REG_OVL_DATAPATH_CON,
 				       DISP_OVL_BGCLR_IN_SEL,
 				       DISP_OVL_BGCLR_IN_SEL);
@@ -2698,24 +2711,6 @@ static int mtk_disp_ovl_bind(struct device *dev, struct device *master,
 				   &priv->ddp_comp.qos_req, qos_req_port);
 		mm_qos_add_request(&drm_priv->hrt_request_list,
 				   &priv->ddp_comp.hrt_qos_req, qos_req_port);
-	}
-#endif
-
-#ifdef CONFIG_MTK_IOMMU_V2
-	if (priv->ddp_comp.id == DDP_COMPONENT_OVL0) {
-		mtk_iommu_register_fault_callback(
-			M4U_PORT_DISP_OVL0_HDR,
-			(mtk_iommu_fault_callback_t)drm_ovl_tf_cb, priv);
-		mtk_iommu_register_fault_callback(
-			M4U_PORT_DISP_OVL0,
-			(mtk_iommu_fault_callback_t)drm_ovl_tf_cb, priv);
-	} else if (priv->ddp_comp.id == DDP_COMPONENT_OVL0_2L) {
-		mtk_iommu_register_fault_callback(
-			M4U_PORT_DISP_OVL0_2L,
-			(mtk_iommu_fault_callback_t)drm_ovl_tf_cb, priv);
-		mtk_iommu_register_fault_callback(
-			M4U_PORT_DISP_OVL0_2L_HDR,
-			(mtk_iommu_fault_callback_t)drm_ovl_tf_cb, priv);
 	}
 #endif
 

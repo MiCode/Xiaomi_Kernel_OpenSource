@@ -1502,7 +1502,7 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 		else
 			return DDP_COMPONENT_OVL0;
 	} else
-		return DDP_COMPONENT_OVL1_2L;
+		return DDP_COMPONENT_OVL2_2L;
 }
 
 static int mtk_lye_get_lye_id(int disp_idx, struct drm_device *drm_dev,
