@@ -103,6 +103,20 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event)
 }
 EXPORT_SYMBOL(cmdq_event_module_dispatch);
 
+u32 cmdq_util_hw_id(u32 pa)
+{
+	switch (pa) {
+	case 0x10228000:
+		return 0;
+	case 0x10318000:
+		return 1;
+	default:
+		cmdq_err("unknown addr:%x", pa);
+	}
+
+	return 0;
+}
+
 u32 cmdq_test_get_subsys_list(u32 **regs_out)
 {
 	static u32 regs[] = {

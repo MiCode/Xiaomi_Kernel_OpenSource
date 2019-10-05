@@ -83,5 +83,6 @@ void cmdq_util_dump_smi(void);
 
 /* function support in platform */
 const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event);
+u32 cmdq_util_hw_id(u32 pa);
 
 #endif

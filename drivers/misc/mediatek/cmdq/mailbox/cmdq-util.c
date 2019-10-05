@@ -309,9 +309,10 @@ void cmdq_util_dump_dbg_reg(void *chan)
 
 	if (atomic_cmpxchg(&cmdq_dbg_ctrl, 0, 1) == 0) {
 		struct arm_smccc_res res;
+		u32 id = cmdq_util_hw_id((u32)cmdq_mbox_get_base_pa(chan));
 
-		arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_DEBUG,
-			0, 0, 0, 0, 0, 0, &res);
+		arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_DEBUG, id,
+			0, 0, 0, 0, 0, &res);
 	}
 
 	/* debug select */
