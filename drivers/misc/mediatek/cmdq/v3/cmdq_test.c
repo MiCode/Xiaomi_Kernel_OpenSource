@@ -6907,7 +6907,7 @@ void testcase_stress_reorder(void)
 	testcase_gen_random_case(true, policy);
 }
 
-#define TESTMBOX_CLT_IDX 15
+#define TESTMBOX_CLT_IDX 14
 #define TESTMBOX_CLT_IDX_LOOP 7
 
 void testmbox_write(unsigned long dummy_va, unsigned long dummy_pa,
