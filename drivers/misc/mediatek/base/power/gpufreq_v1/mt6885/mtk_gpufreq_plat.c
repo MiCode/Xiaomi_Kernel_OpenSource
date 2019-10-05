@@ -631,7 +631,7 @@ void mt_gpufreq_disable_by_ptpod(void)
 	struct opp_table_info *opp_table = g_opp_table_segment;
 	int num = ARRAY_SIZE(g_opp_table_segment);
 	unsigned int i = 0;
-	unsigned int target_idx;
+	unsigned int target_idx = 0;
 
 	/* fix VGPU @ 0.8V */
 	for (i = 0; i < num; i++) {
@@ -2757,16 +2757,15 @@ static void __mt_gpufreq_init_volt_by_freq(void)
 	 *  freq need to check lower/upper bound
 	 *  because get real mfg will not correct
 	 */
-	if (freq > opp_table[0].gpufreq_khz) {
+	if (freq >= opp_table[0].gpufreq_khz) {
 		/* get Maximum opp */
 		idx = 0;
-	} else if (freq < opp_table[num-1].gpufreq_khz) {
+	} else if (freq <= opp_table[num - 1].gpufreq_khz) {
 		/* get Minimum opp */
-		idx = num-1;
+		idx = num - 1;
 	} else {
-		for (idx = 0; idx < num; idx++) {
+		for (idx = 1; idx < num; idx++) {
 			if (opp_table[idx].gpufreq_khz <= freq) {
-
 				/* find the idx with closest freq */
 				if ((freq - opp_table[idx].gpufreq_khz) >
 					opp_table[idx-1].gpufreq_khz - freq)
