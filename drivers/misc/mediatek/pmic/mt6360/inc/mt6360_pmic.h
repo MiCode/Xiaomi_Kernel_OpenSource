@@ -57,7 +57,6 @@ struct mt6360_pmic_info {
 	struct rt_regmap_device *regmap;
 	struct regulator_dev *rdev[MT6360_PMIC_MAX];
 	struct mutex io_lock;
-	struct semaphore suspend_lock;
 	u8 crc8_table[CRC8_TABLE_SIZE];
 	struct charger_device *chg_dev;
 	u8 chip_rev;

@@ -265,7 +265,6 @@ struct mt6360_pmu_info {
 	struct irq_domain *irq_domain;
 	u8 cache_irq_masks[MT6360_PMU_IRQ_REGNUM];
 	struct mutex io_lock;
-	struct semaphore suspend_lock;
 	int irq;
 	u8 chip_rev;
 };

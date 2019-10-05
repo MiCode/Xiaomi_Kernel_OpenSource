@@ -34,33 +34,13 @@ static const struct mt6360_pmu_platform_data def_platform_data = {
 
 static int mt6360_pmu_read_device(void *client, u32 addr, int len, void *dst)
 {
-	int ret = 0;
-	struct mt6360_pmu_info *mpi =
-		i2c_get_clientdata((const struct i2c_client *)client);
-
-	pm_stay_awake(mpi->dev);
-	down(&mpi->suspend_lock);
-	ret = i2c_smbus_read_i2c_block_data(client, addr, len, dst);
-	up(&mpi->suspend_lock);
-	pm_relax(mpi->dev);
-
-	return ret;
+	return i2c_smbus_read_i2c_block_data(client, addr, len, dst);
 }
 
 static int mt6360_pmu_write_device(void *client, u32 addr,
 				   int len, const void *src)
 {
-	int ret = 0;
-	struct mt6360_pmu_info *mpi =
-		i2c_get_clientdata((const struct i2c_client *)client);
-
-	pm_stay_awake(mpi->dev);
-	down(&mpi->suspend_lock);
-	ret = i2c_smbus_write_i2c_block_data(client, addr, len, src);
-	up(&mpi->suspend_lock);
-	pm_relax(mpi->dev);
-
-	return ret;
+	return i2c_smbus_write_i2c_block_data(client, addr, len, src);
 }
 
 static struct rt_regmap_fops mt6360_pmu_regmap_fops = {
@@ -316,7 +296,6 @@ static int mt6360_pmu_i2c_probe(struct i2c_client *client,
 	mpi->irq = -1;
 	mpi->chip_rev = chip_rev;
 	mutex_init(&mpi->io_lock);
-	sema_init(&mpi->suspend_lock, 1);
 	i2c_set_clientdata(client, mpi);
 	dev_info(&client->dev, "chip_rev [%02x]\n", mpi->chip_rev);
 
@@ -346,7 +325,6 @@ static int mt6360_pmu_i2c_probe(struct i2c_client *client,
 		goto out_irq;
 	}
 	pm_runtime_enable(mpi->dev);
-	device_init_wakeup(mpi->dev, true);
 	dev_info(&client->dev, "%s: successfully probed\n", __func__);
 	return 0;
 out_irq:
@@ -372,11 +350,13 @@ static int mt6360_pmu_i2c_remove(struct i2c_client *client)
 
 static int __maybe_unused mt6360_pmu_i2c_suspend(struct device *dev)
 {
+	int ret = 0;
 	struct mt6360_pmu_info *mpi = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "%s\n", __func__);
-	down(&mpi->suspend_lock);
-	return mt6360_pmu_irq_suspend(mpi);
+	ret = mt6360_pmu_irq_suspend(mpi);
+	disable_irq(mpi->irq);
+	return ret;
 }
 
 static int __maybe_unused mt6360_pmu_i2c_resume(struct device *dev)
@@ -384,7 +364,7 @@ static int __maybe_unused mt6360_pmu_i2c_resume(struct device *dev)
 	struct mt6360_pmu_info *mpi = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "%s\n", __func__);
-	up(&mpi->suspend_lock);
+	enable_irq(mpi->irq);
 	return mt6360_pmu_irq_resume(mpi);
 }
 
@@ -420,4 +400,4 @@ module_i2c_driver(mt6360_pmu_i2c_driver);
 MODULE_AUTHOR("CY_Huang <cy_huang@richtek.com>");
 MODULE_DESCRIPTION("MT6360 PMU I2C Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("1.0.1");
+MODULE_VERSION("1.0.2");
