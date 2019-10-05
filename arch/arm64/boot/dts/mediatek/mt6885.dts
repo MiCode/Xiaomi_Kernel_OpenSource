@@ -51,6 +51,7 @@ page_owner=on";
 			reg = <0x0000>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu1: cpu@001 {
@@ -59,6 +60,7 @@ page_owner=on";
 			reg = <0x0100>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu2: cpu@002 {
@@ -67,6 +69,7 @@ page_owner=on";
 			reg = <0x0200>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu3: cpu@003 {
@@ -75,6 +78,7 @@ page_owner=on";
 			reg = <0x0300>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu4: cpu@100 {
@@ -83,6 +87,7 @@ page_owner=on";
 			reg = <0x0400>;
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
 		cpu5: cpu@101 {
@@ -91,6 +96,7 @@ page_owner=on";
 			reg = <0x0500>;
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
 		cpu6: cpu@102 {
@@ -99,6 +105,7 @@ page_owner=on";
 			reg = <0x0600>;
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
 		cpu7: cpu@103 {
@@ -107,6 +114,7 @@ page_owner=on";
 			reg = <0x0700>;
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
 		cpu-map {
@@ -146,8 +154,73 @@ page_owner=on";
 			};
 
 		};
+		idle-states {
+			entry-method = "arm,psci";
+			cpuoff_l: cpuoff_l {
+				compatible = "mediatek,idle-state";
+				arm,psci-suspend-param = <0x00010001>;
+				local-timer-stop;
+				entry-latency-us = <50>;
+				exit-latency-us = <100>;
+				min-residency-us = <1600>;
+			};
+			cpuoff_b: cpuoff_b {
+				compatible = "mediatek,idle-state";
+				arm,psci-suspend-param = <0x00010001>;
+				local-timer-stop;
+				entry-latency-us = <50>;
+				exit-latency-us = <100>;
+				min-residency-us = <1400>;
+			};
+			clusteroff_l: clusteroff_l {
+				compatible = "mediatek,idle-state";
+				arm,psci-suspend-param = <0x01010001>;
+				local-timer-stop;
+				entry-latency-us = <100>;
+				exit-latency-us = <250>;
+				min-residency-us = <2100>;
+			};
+			clusteroff_b: clusteroff_b {
+				compatible = "mediatek,idle-state";
+				arm,psci-suspend-param = <0x01010001>;
+				local-timer-stop;
+				entry-latency-us = <100>;
+				exit-latency-us = <250>;
+				min-residency-us = <1900>;
+			};
+			mcusysoff: mcusysoff {
+				compatible = "mediatek,idle-state";
+				arm,psci-suspend-param = <0x01010002>;
+				local-timer-stop;
+				entry-latency-us = <300>;
+				exit-latency-us = <1200>;
+				min-residency-us = <2600>;
+			};
+		};
 	};
 
+	mtk_lpm: mtk_lpm {
+		compatible = "mediatek,mtk-lpm";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		suspend-method = "system";
+		irq-remain = <&edge_keypad>;
+		irq-remain-list {
+			edge_keypad: edge_keypad {
+				target = <&keypad>;
+				value = <1 0 0 0x40>;
+			};
+		};
+	};
+	cpupm_sysram: cpupm-sysram@0011b000 {
+			compatible = "mediatek,cpupm-sysram";
+			reg = <0 0x0011b000 0 0x500>;
+	};
+	mcusys_ctrl: mcusys-ctrl@0c53a000 {
+			compatible = "mediatek,mcusys-ctrl";
+			reg = <0 0x0c53a000 0 0x1000>;
+	};
 	pmu {
 		compatible = "arm,armv8-pmuv3";
 		interrupt-parent = <&gic>;
