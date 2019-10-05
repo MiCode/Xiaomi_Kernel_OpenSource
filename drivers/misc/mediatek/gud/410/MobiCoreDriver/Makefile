@@ -46,3 +46,6 @@ ccflags-$(CONFIG_TRUSTONIC_TEE_DEBUG) += -DDEBUG
 
 # MobiCore Driver includes
 ccflags-y += -I$(GUD_ROOT_FOLDER)/MobiCoreDriver
+
+# timesync to get boot time
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/timer/timesync/
