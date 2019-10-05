@@ -5005,6 +5005,7 @@ page_owner=on";
 		reg-names = "pmif", "pmifmpu", "spmimst";
 		interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "pmif_irq";
+		irq_event_en = <0x0 0x0 0x00300000 0x00000100 0x0>;
 		clocks = <&infracfg_ao INFRACFG_AO_PMIC_CG_AP>,
 			<&infracfg_ao INFRACFG_AO_PMIC_CG_TMR>,
 			<&topckgen TOP_MUX_PWRAP_ULPOSC>,

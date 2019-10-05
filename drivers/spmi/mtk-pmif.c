@@ -21,11 +21,17 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/sched/clock.h>
+#include <linux/kthread.h>
+#include <linux/mutex.h>
+#include <linux/pm_wakeup.h>
 #include <linux/spmi.h>
 #include <linux/pmif.h>
 #include <spmi_sw.h>
 #include <dt-bindings/spmi/spmi.h>
+#include <mt-plat/aee.h>
 
+static struct wakeup_source *pmifThread_lock;
+static struct mutex pmif_mutex;
 /*
  * marco
  */
@@ -64,6 +70,22 @@ enum pmif_regs {
 	PMIF_IRQ_EVENT_EN_0,
 	PMIF_IRQ_FLAG_0,
 	PMIF_IRQ_CLR_0,
+	PMIF_IRQ_EVENT_EN_1,
+	PMIF_IRQ_FLAG_1,
+	PMIF_IRQ_CLR_1,
+	PMIF_IRQ_EVENT_EN_2,
+	PMIF_IRQ_FLAG_2,
+	PMIF_IRQ_CLR_2,
+	PMIF_IRQ_EVENT_EN_3,
+	PMIF_IRQ_FLAG_3,
+	PMIF_IRQ_CLR_3,
+	PMIF_IRQ_EVENT_EN_4,
+	PMIF_IRQ_FLAG_4,
+	PMIF_IRQ_CLR_4,
+	PMIF_WDT_EVENT_EN_0,
+	PMIF_WDT_FLAG_0,
+	PMIF_WDT_EVENT_EN_1,
+	PMIF_WDT_FLAG_1,
 	PMIF_SWINF_0_STA,
 	PMIF_SWINF_0_WDATA_31_0,
 	PMIF_SWINF_0_RDATA_31_0,
@@ -96,6 +118,22 @@ static const u32 mt6885_regs[] = {
 	[PMIF_IRQ_EVENT_EN_0] =                 0x0418,
 	[PMIF_IRQ_FLAG_0] =                     0x0420,
 	[PMIF_IRQ_CLR_0] =                      0x0424,
+	[PMIF_IRQ_EVENT_EN_1] =                 0x0428,
+	[PMIF_IRQ_FLAG_1] =                     0x0430,
+	[PMIF_IRQ_CLR_1] =                      0x0434,
+	[PMIF_IRQ_EVENT_EN_2] =                 0x0438,
+	[PMIF_IRQ_FLAG_2] =                     0x0440,
+	[PMIF_IRQ_CLR_2] =                      0x0444,
+	[PMIF_IRQ_EVENT_EN_3] =                 0x0448,
+	[PMIF_IRQ_FLAG_3] =                     0x0450,
+	[PMIF_IRQ_CLR_3] =                      0x0454,
+	[PMIF_IRQ_EVENT_EN_4] =                 0x0458,
+	[PMIF_IRQ_FLAG_4] =                     0x0460,
+	[PMIF_IRQ_CLR_4] =                      0x0464,
+	[PMIF_WDT_EVENT_EN_0] =			0x046C,
+	[PMIF_WDT_FLAG_0] =			0x0470,
+	[PMIF_WDT_EVENT_EN_1] =			0x0474,
+	[PMIF_WDT_FLAG_1] =			0x0478,
 	[PMIF_SWINF_0_ACC] =			0x0C00,
 	[PMIF_SWINF_0_WDATA_31_0] =		0x0C04,
 	[PMIF_SWINF_0_RDATA_31_0] =		0x0C14,
@@ -187,12 +225,28 @@ static const u32 mt6xxx_topckgen_regs[] = {
 	[CLK_CFG_16_CLR] =			0x0118,
 };
 
+enum {
+	IRQ_PMIC_CMD_ERR_PARITY_ERR = 17,
+	IRQ_PMIF_ACC_VIO = 20,
+	IRQ_PMIC_ACC_VIO = 21,
+	IRQ_LAT_LIMIT_REACHED = 6,
+	IRQ_HW_MONITOR = 7,
+	IRQ_WDT = 8
+};
+struct pmif_irq_desc {
+	const char *name;
+	irq_handler_t irq_handler;
+	int irq;
+};
+
+#define PMIF_IRQDESC(name) { #name, pmif_##name##_irq_handler, -1}
+
 /*
  * pmif internal API declaration
  */
 int __attribute__((weak)) spmi_pmif_create_attr(struct device_driver *driver);
 int __attribute__((weak)) spmi_pmif_dbg_init(struct spmi_controller *ctrl);
-void __attribute__((weak)) spmi_dump_mst_record_reg(struct pmif *arb);
+void __attribute__((weak)) spmi_dump_spmimst_record_reg(struct pmif *arb);
 static int pmif_timeout_ns(struct spmi_controller *ctrl,
 	unsigned long long start_time_ns, unsigned long long timeout_time_ns);
 static void pmif_enable_soft_reset(struct pmif *arb);
@@ -491,7 +545,7 @@ static int mtk_spmi_ctrl_op_st(struct spmi_controller *ctrl,
 		pr_notice("[SPMIMST]:pmif_ctrl_op_st 0x%x\r\n", rdata);
 
 		if (((rdata >> 0x1) & SPMI_OP_ST_NACK) == SPMI_OP_ST_NACK) {
-			spmi_dump_mst_record_reg(arb);
+			spmi_dump_spmimst_record_reg(arb);
 			break;
 		}
 	} while ((rdata & SPMI_OP_ST_BUSY) == SPMI_OP_ST_BUSY);
@@ -651,7 +705,8 @@ int is_pmif_spmi_init_done(struct pmif *arb)
 }
 
 #if SPMI_RCS_SUPPORT
-static int mtk_spmi_enable_rcs(struct spmi_controller *ctrl, unsigned int mstid)
+static int mtk_spmi_enable_rcs(struct spmi_controller *ctrl,
+				unsigned int mstid)
 {
 	u8 wdata = 0, rdata = 0, i = 0;
 
@@ -774,6 +829,269 @@ static int mtk_spmi_cali_rd_clock_polarity(struct pmif *arb,
 	mtk_spmi_writel(arb, (dly << 0x1) | pol, SPMI_MST_SAMPL);
 
 	return 0;
+}
+
+/*
+ * PMIF Exception IRQ Handler
+ */
+static void pmif_cmd_err_parity_err_irq_handler(int irq, void *data)
+{
+	spmi_dump_spmimst_all_reg();
+	spmi_dump_pmif_record_reg();
+	aee_kernel_warning("PMIF:parity error", "PMIF");
+}
+
+static void pmif_pmif_acc_vio_irq_handler(int irq, void *data)
+{
+	spmi_dump_pmif_acc_vio_reg();
+	aee_kernel_warning("PMIF:pmif_acc_vio", "PMIF");
+}
+
+static void pmif_pmic_acc_vio_irq_handler(int irq, void *data)
+{
+	spmi_dump_pmic_acc_vio_reg();
+	aee_kernel_warning("PMIF:pmic_acc_vio", "PMIF");
+}
+
+static void pmif_lat_limit_reached_irq_handler(int irq, void *data)
+{
+	spmi_dump_pmif_busy_reg();
+	spmi_dump_pmif_record_reg();
+}
+
+static void pmif_hw_monitor_irq_handler(int irq, void *data)
+{
+	spmi_dump_pmif_record_reg();
+	aee_kernel_warning("PMIF:pmif_hw_monitor_match", "PMIF");
+}
+
+static void pmif_wdt_irq_handler(int irq, void *data)
+{
+	spmi_dump_pmif_busy_reg();
+	spmi_dump_pmif_record_reg();
+	spmi_dump_wdt_reg();
+}
+
+static irqreturn_t pmif_event_0_irq_handler(int irq, void *data)
+{
+	struct pmif *arb = data;
+	int irq_f = 0, idx = 0;
+
+	__pm_stay_awake(pmifThread_lock);
+	mutex_lock(&pmif_mutex);
+	irq_f = pmif_readl(arb, PMIF_IRQ_FLAG_0);
+	if (irq_f == 0) {
+		mutex_unlock(&pmif_mutex);
+		__pm_relax(pmifThread_lock);
+		return IRQ_NONE;
+	}
+
+	for (idx = 0; idx < 31; idx++) {
+		if ((irq_f & (0x1 << idx)) != 0) {
+			switch (idx) {
+			default:
+				pr_notice("%s IRQ[%d] triggered\n",
+					__func__, idx);
+				spmi_dump_pmif_record_reg();
+			break;
+			}
+			pmif_writel(arb, irq_f, PMIF_IRQ_CLR_0);
+			break;
+		}
+	}
+	mutex_unlock(&pmif_mutex);
+	__pm_relax(pmifThread_lock);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t pmif_event_1_irq_handler(int irq, void *data)
+{
+	struct pmif *arb = data;
+	int irq_f = 0, idx = 0;
+
+	__pm_stay_awake(pmifThread_lock);
+	mutex_lock(&pmif_mutex);
+	irq_f = pmif_readl(arb, PMIF_IRQ_FLAG_1);
+	if (irq_f == 0) {
+		mutex_unlock(&pmif_mutex);
+		__pm_relax(pmifThread_lock);
+		return IRQ_NONE;
+	}
+
+	for (idx = 0; idx < 31; idx++) {
+		if ((irq_f & (0x1 << idx)) != 0) {
+			switch (idx) {
+			default:
+				pr_notice("%s IRQ[%d] triggered\n",
+					__func__, idx);
+				spmi_dump_pmif_record_reg();
+			break;
+			}
+			pmif_writel(arb, irq_f, PMIF_IRQ_CLR_1);
+			break;
+		}
+	}
+	mutex_unlock(&pmif_mutex);
+	__pm_relax(pmifThread_lock);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t pmif_event_2_irq_handler(int irq, void *data)
+{
+	struct pmif *arb = data;
+	int irq_f = 0, idx = 0;
+
+	__pm_stay_awake(pmifThread_lock);
+	mutex_lock(&pmif_mutex);
+	irq_f = pmif_readl(arb, PMIF_IRQ_FLAG_2);
+	if (irq_f == 0) {
+		mutex_unlock(&pmif_mutex);
+		__pm_relax(pmifThread_lock);
+		return IRQ_NONE;
+	}
+
+	for (idx = 0; idx < 31; idx++) {
+		if ((irq_f & (0x1 << idx)) != 0) {
+			switch (idx) {
+			case IRQ_PMIC_CMD_ERR_PARITY_ERR:
+				pmif_cmd_err_parity_err_irq_handler(irq, data);
+			break;
+			case IRQ_PMIF_ACC_VIO:
+				pmif_pmif_acc_vio_irq_handler(irq, data);
+			break;
+			case IRQ_PMIC_ACC_VIO:
+				pmif_pmic_acc_vio_irq_handler(irq, data);
+			break;
+			default:
+				pr_notice("%s IRQ[%d] triggered\n",
+					__func__, idx);
+				spmi_dump_pmif_record_reg();
+			break;
+			}
+			pmif_writel(arb, irq_f, PMIF_IRQ_CLR_2);
+			break;
+		}
+	}
+	mutex_unlock(&pmif_mutex);
+	__pm_relax(pmifThread_lock);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t pmif_event_3_irq_handler(int irq, void *data)
+{
+	struct pmif *arb = data;
+	int irq_f = 0, idx = 0;
+
+	__pm_stay_awake(pmifThread_lock);
+	mutex_lock(&pmif_mutex);
+	irq_f = pmif_readl(arb, PMIF_IRQ_FLAG_3);
+	if (irq_f == 0) {
+		mutex_unlock(&pmif_mutex);
+		__pm_relax(pmifThread_lock);
+		return IRQ_NONE;
+	}
+
+	for (idx = 0; idx < 31; idx++) {
+		if ((irq_f & (0x1 << idx)) != 0) {
+			switch (idx) {
+			case IRQ_LAT_LIMIT_REACHED:
+				pmif_lat_limit_reached_irq_handler(irq, data);
+			break;
+			case IRQ_HW_MONITOR:
+				pmif_hw_monitor_irq_handler(irq, data);
+			break;
+			case IRQ_WDT:
+				pmif_wdt_irq_handler(irq, data);
+			break;
+			default:
+				pr_notice("%s IRQ[%d] triggered\n",
+					__func__, idx);
+				spmi_dump_pmif_record_reg();
+			break;
+			}
+			pmif_writel(arb, irq_f, PMIF_IRQ_CLR_3);
+			break;
+		}
+	}
+	mutex_unlock(&pmif_mutex);
+	__pm_relax(pmifThread_lock);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t pmif_event_4_irq_handler(int irq, void *data)
+{
+	struct pmif *arb = data;
+	int irq_f = 0, idx = 0;
+
+	__pm_stay_awake(pmifThread_lock);
+	mutex_lock(&pmif_mutex);
+	irq_f = pmif_readl(arb, PMIF_IRQ_FLAG_4);
+	if (irq_f == 0) {
+		mutex_unlock(&pmif_mutex);
+		__pm_relax(pmifThread_lock);
+		return IRQ_NONE;
+	}
+
+	for (idx = 0; idx < 31; idx++) {
+		if ((irq_f & (0x1 << idx)) != 0) {
+			switch (idx) {
+			default:
+				pr_notice("%s IRQ[%d] triggered\n",
+					__func__, idx);
+				spmi_dump_pmif_record_reg();
+			break;
+			}
+			pmif_writel(arb, irq_f, PMIF_IRQ_CLR_4);
+			break;
+		}
+	}
+	mutex_unlock(&pmif_mutex);
+	__pm_relax(pmifThread_lock);
+
+	return IRQ_HANDLED;
+}
+
+static struct pmif_irq_desc pmif_event_irq[] = {
+	PMIF_IRQDESC(event_0),
+	PMIF_IRQDESC(event_1),
+	PMIF_IRQDESC(event_2),
+	PMIF_IRQDESC(event_3),
+	PMIF_IRQDESC(event_4),
+};
+
+static void pmif_irq_register(struct platform_device *pdev,
+		struct pmif *arb, int irq)
+{
+	int i = 0, ret = 0, err = 0;
+	u32 irq_event_en[5] = {0};
+
+	for (i = 0; i < ARRAY_SIZE(pmif_event_irq); i++) {
+		if (!pmif_event_irq[i].name)
+			continue;
+		ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
+				pmif_event_irq[i].irq_handler,
+				IRQF_TRIGGER_HIGH | IRQF_ONESHOT | IRQF_SHARED,
+				pmif_event_irq[i].name, arb);
+		if (ret < 0) {
+			dev_dbg(&pdev->dev, "request %s irq fail\n",
+				pmif_event_irq[i].name);
+			continue;
+		}
+		pmif_event_irq[i].irq = irq;
+	}
+
+	ret = of_property_read_u32_array(pdev->dev.of_node, "irq_event_en",
+		irq_event_en, ARRAY_SIZE(irq_event_en));
+
+	pmif_writel(arb, irq_event_en[0], PMIF_IRQ_EVENT_EN_0);
+	pmif_writel(arb, irq_event_en[1], PMIF_IRQ_EVENT_EN_1);
+	pmif_writel(arb, irq_event_en[2], PMIF_IRQ_EVENT_EN_2);
+	pmif_writel(arb, irq_event_en[3], PMIF_IRQ_EVENT_EN_3);
+	pmif_writel(arb, irq_event_en[4], PMIF_IRQ_EVENT_EN_4);
 }
 
 static int mtk_spmimst_init(struct platform_device *pdev, struct pmif *arb)
@@ -999,6 +1317,9 @@ static int pmif_probe(struct platform_device *pdev)
 	}
 
 	raw_spin_lock_init(&arb->lock);
+	pmifThread_lock =
+		wakeup_source_register("pmif wakelock");
+	mutex_init(&pmif_mutex);
 
 	ctrl->cmd = pmif_arb_cmd;
 	ctrl->read_cmd = pmif_spmi_read_cmd;
@@ -1019,6 +1340,9 @@ static int pmif_probe(struct platform_device *pdev)
 		err = arb->irq;
 		goto err_put_ctrl;
 	}
+
+	pmif_irq_register(pdev, arb, arb->irq);
+
 	platform_set_drvdata(pdev, ctrl);
 
 	err = spmi_controller_add(ctrl);
@@ -1029,7 +1353,6 @@ static int pmif_probe(struct platform_device *pdev)
 
 err_domain_remove:
 	clk_disable_unprepare(arb->spmimst_clk_mux);
-err_put_clk:
 	if ((pmif_clk26m & 0x1) == 0x1)
 		clk_disable_unprepare(arb->pmif_clk26m);
 	else
