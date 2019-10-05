@@ -20,6 +20,7 @@
 #include <dt-bindings/gce/mt6885-gce.h>
 #include <dt-bindings/pinctrl/mt6885-pinfunc.h>
 #include <dt-bindings/clock/mt6885-clk.h>
+#include <dt-bindings/mmc/mt6885-msdc.h>
 #include <generated/autoconf.h>
 
 / {
@@ -227,6 +228,18 @@
 		gpio-ranges = <&pio 0 0 219>;
 		#gpio-cells = <2>;
 		#interrupt-cells = <4>;
+	};
+
+	msdc0: msdc@11230000 {
+		compatible = "mediatek,msdc";
+		reg = <0 0x11230000 0 0x10000>;
+		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	msdc1: msdc@11240000{
+		compatible = "mediatek,msdc";
+		reg = <0 0x11240000 0 0x1000>;
+		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_LOW>;
 	};
 
 	sleep@10006000 {
@@ -3244,3 +3257,4 @@
 
 #endif
 };
+#include "cust_mt6885_msdc.dtsi"
