@@ -798,7 +798,7 @@ static signed int DIP_DumpDIPReg(void)
 	signed int Ret = 0;
 	unsigned int loop = 0;
 #if 1 /*YW TODO*/
-	unsigned int i, cmdqidx = 0, dipdmacmd = 0;
+	unsigned int i, cmdqidx = 0, dipdmacmd = 0, mfbcmd = 0;
 	unsigned int dbg_rgb = 0x1, dbg_yuv = 0x2;
 	unsigned int dbg_sel = 0, dbg_out = 0, dd = 0;
 	unsigned int smidmacmd = 0, dmaidx = 0;
@@ -827,7 +827,7 @@ static signed int DIP_DumpDIPReg(void)
 	CMDQ_ERR("0x15020220(0x%x)-0x15020224(0x%x)\n",
 		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x220),
 		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x224));
-	CMDQ_ERR("0x15020230(0x%x)-0x15020234(0x%x)\n",
+	CMDQ_ERR("0x15020228(0x%x)-0x15020230(0x%x)\n",
 		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x228),
 		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x230));
 	CMDQ_ERR("0x15020234(0x%x)-0x15020238(0x%x)\n",
@@ -1574,7 +1574,21 @@ static signed int DIP_DumpDIPReg(void)
 	CMDQ_ERR("smt4i: 0x150212EC(0x%x)-0x150212F0(0x%x)\n",
 		DIP_RD32(DIP_A_BASE + 0x02EC), DIP_RD32(DIP_A_BASE + 0x02F0));
 
+	DIP_WR32(DIP_A_BASE + 0xA8, dipdmacmd);
+	CMDQ_ERR("0x%x : dip: 0x15022194(0x%x)\n",
+	dipdmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
 	CMDQ_ERR("MSS Config Info\n");
+	CMDQ_ERR("MSSTOP_DBG: 15012438(0x%x)-15012448(0x%x)\n",
+		DIP_RD32(MSS_BASE + 0x438), DIP_RD32(MSS_BASE + 0x448));
+
+	DIP_WR32(MSS_BASE + 0x888, 0x8);
+
+	for (i = 0; i < 24; i++) {
+		mfbcmd = i << 8;
+		DIP_WR32(MSS_BASE + 0x888, (mfbcmd | 0x8));
+		CMDQ_ERR("idx:%d cmd:0x%x debug0(0x%x)\n",
+				i, mfbcmd, DIP_RD32(MSS_BASE + 0x440));
+	}
 	CMDQ_ERR("CRSP: 0x15012200(0x%x)-0x15012204(0x%x)\n",
 		DIP_RD32(MSS_BASE + 0x200), DIP_RD32(MSS_BASE + 0x204));
 	CMDQ_ERR("CRSP: 0x15012208(0x%x)-0x1501220C(0x%x)\n",
@@ -1687,7 +1701,7 @@ static signed int DIP_DumpDIPReg(void)
 	CMDQ_ERR("MSSDMW_3: 0x150129C0(0x%x)-0x150129C4(0x%x)\n",
 		DIP_RD32(MSS_BASE + 0x9C0), DIP_RD32(MSS_BASE + 0x9C4));
 	CMDQ_ERR("MSSDMW_3: 0x150129C8(0x%x)-0x150129CC(0x%x)\n",
-		DIP_RD32(MSS_BASE + 0x9C8), DIP_RD32(MSS_BASE + 0x9C8C));
+		DIP_RD32(MSS_BASE + 0x9C8), DIP_RD32(MSS_BASE + 0x9CC));
 	CMDQ_ERR("MSSDMW_3: 0x150129D0(0x%x)-0x150129D4(0x%x)\n",
 		DIP_RD32(MSS_BASE + 0x9D0), DIP_RD32(MSS_BASE + 0x9D4));
 	CMDQ_ERR("MSSDMW_3: 0x150129D8(0x%x)-0x150129DC(0x%x)\n",
@@ -1714,6 +1728,20 @@ static signed int DIP_DumpDIPReg(void)
 	CMDQ_ERR("MSS Config Info End\n");
 
 	CMDQ_ERR("MSF Config Info\n");
+	for (i = 0; i < 32 ; i++) {
+		mfbcmd = i << 24;
+		DIP_WR32(MSF_BASE + 0x4d0, mfbcmd);
+		CMDQ_ERR("idx:%d cmd:0x%x debug0(0x%x)\n",
+				i, mfbcmd, DIP_RD32(MSF_BASE + 0x4d4));
+	}
+
+	DIP_WR32(MSF_BASE + 0x4d0, 0x0);
+	for (i = 0; i < 59 ; i++) {
+		mfbcmd = i << 8;
+		DIP_WR32(MSF_BASE + 0x888, mfbcmd);
+		CMDQ_ERR("idx:%d cmd:0x%x debug0(0x%x)\n",
+				i, mfbcmd, DIP_RD32(MSF_BASE + 0x4d4));
+	}
 
 	for (loop = 0; loop < (0x73C/0x4); loop++) {
 		CMDQ_ERR("MSFREG: 0x%08X 0x%08X\n",
