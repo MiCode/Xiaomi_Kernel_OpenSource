@@ -27,7 +27,7 @@
 #include "sample_inf.h"
 
 /* define */
-#define APUSYS_DEV_NAME "apusys_sample"
+#define APUSYS_SAMPLE_DEV_NAME "apusys_sample"
 
 /* global variable */
 static dev_t sample_devt;
@@ -58,60 +58,10 @@ static int sample_release(struct inode *inode, struct file *file)
 
 static int sample_probe(struct platform_device *pdev)
 {
-	DEBUG_TAG;
-	sample_device_init();
-
-	return 0;
-}
-
-static int sample_remove(struct platform_device *pdev)
-{
-	sample_device_destroy();
-	return 0;
-}
-
-static int sample_suspend(struct platform_device *pdev, pm_message_t mesg)
-{
-	return 0;
-}
-
-static int sample_resume(struct platform_device *pdev)
-{
-	return 0;
-}
-
-static long sample_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
-{
-	return 0;
-}
-
-static const struct of_device_id sample_of_match[] = {
-	{ .compatible = "mediatek,apusys_sample", },
-	{/* end of list */},
-};
-
-static struct platform_driver sample_driver = {
-	.probe = sample_probe,
-	.remove = sample_remove,
-	.suspend = sample_suspend,
-	.resume  = sample_resume,
-	//.pm = apusys_pm_qos,
-	.driver = {
-		.name = APUSYS_DEV_NAME,
-		.owner = THIS_MODULE,
-		.of_match_table = sample_of_match,
-	},
-};
-
-static int __init sample_init(void)
-{
 	int ret = 0;
-	//struct device *dev = NULL;
-
-	DEBUG_TAG;
 
 	/* get major */
-	ret = alloc_chrdev_region(&sample_devt, 0, 1, APUSYS_DEV_NAME);
+	ret = alloc_chrdev_region(&sample_devt, 0, 1, APUSYS_SAMPLE_DEV_NAME);
 	if (ret < 0) {
 		LOG_ERR("alloc_chrdev_region failed, %d\n", ret);
 		return ret;
@@ -138,12 +88,9 @@ static int __init sample_init(void)
 	}
 
 	DEBUG_TAG;
+	sample_device_init();
 
-	if (platform_driver_register(&sample_driver)) {
-		LOG_ERR("failed to register APUSYS driver");
-		goto out;
-	}
-
+	return 0;
 out:
 	/* Release char driver */
 	if (sample_cdev != NULL) {
@@ -151,19 +98,75 @@ out:
 		sample_cdev = NULL;
 	}
 	unregister_chrdev_region(sample_devt, 1);
-
-	return ret;
+	return 0;
 }
 
-static void __exit sample_destroy(void)
+static int sample_remove(struct platform_device *pdev)
 {
+	sample_device_destroy();
+
 	/* Release char driver */
 	if (sample_cdev != NULL) {
 		cdev_del(sample_cdev);
 		sample_cdev = NULL;
 	}
 	unregister_chrdev_region(sample_devt, 1);
+
+	return 0;
+}
+
+static int sample_suspend(struct platform_device *pdev, pm_message_t mesg)
+{
+	return 0;
+}
+
+static int sample_resume(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static long sample_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	return 0;
+}
+
+static struct platform_driver sample_driver = {
+	.probe = sample_probe,
+	.remove = sample_remove,
+	.suspend = sample_suspend,
+	.resume  = sample_resume,
+	//.pm = apusys_pm_qos,
+	.driver = {
+		.name = APUSYS_SAMPLE_DEV_NAME,
+		.owner = THIS_MODULE,
+	},
+};
+
+static struct platform_device sample_device = {
+	.name = APUSYS_SAMPLE_DEV_NAME,
+	.id = 0,
+};
+
+static int __init sample_init(void)
+{
+	if (platform_driver_register(&sample_driver)) {
+		LOG_ERR("failed to register apusys sample driver)\n");
+		return -ENODEV;
+	}
+
+	if (platform_device_register(&sample_device)) {
+		LOG_ERR("failed to register apusys sample device\n");
+		platform_driver_unregister(&sample_driver);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static void __exit sample_destroy(void)
+{
 	platform_driver_unregister(&sample_driver);
+	platform_device_unregister(&sample_device);
 }
 
 module_init(sample_init);

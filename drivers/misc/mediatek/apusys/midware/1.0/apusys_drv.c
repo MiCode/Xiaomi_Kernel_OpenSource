@@ -797,12 +797,7 @@ static long apusys_compat_ioctl(struct file *flip, unsigned int cmd,
 	return 0;
 }
 
-static const struct of_device_id apusys_of_match[] = {
-	{.compatible = "mediatek,apusys",},
-	{/* end of list */},
-};
-
-static struct platform_driver apusys_driver = {
+static struct platform_driver midware_driver = {
 	.probe = apusys_probe,
 	.remove = apusys_remove,
 	.suspend = apusys_suspend,
@@ -811,27 +806,34 @@ static struct platform_driver apusys_driver = {
 	.driver = {
 		.name = APUSYS_DEV_NAME,
 		.owner = THIS_MODULE,
-		.of_match_table = apusys_of_match,
 	},
+};
+
+static struct platform_device midware_device = {
+	.name = APUSYS_DEV_NAME,
+	.id = 0,
 };
 
 static int __init apusys_init(void)
 {
-	int ret = 0;
-
-	DEBUG_TAG;
-
-	if (platform_driver_register(&apusys_driver)) {
-		LOG_ERR("failed to register APUSYS driver");
+	if (platform_driver_register(&midware_driver)) {
+		LOG_ERR("failed to register apusys midware driver");
 		return -ENODEV;
 	}
 
-	return ret;
+	if (platform_device_register(&midware_device)) {
+		LOG_ERR("failed to register apusys midware device");
+		platform_driver_unregister(&midware_driver);
+		return -ENODEV;
+	}
+
+	return 0;
 }
 
 static void __exit apusys_destroy(void)
 {
-	platform_driver_unregister(&apusys_driver);
+	platform_driver_unregister(&midware_driver);
+	platform_device_unregister(&midware_device);
 }
 
 module_init(apusys_init);

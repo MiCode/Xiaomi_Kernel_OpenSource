@@ -36,16 +36,17 @@ u8 g_log_level = APUSYS_LOG_INFO;
 u8 cfg_apusys_trace;
 EXPORT_SYMBOL(cfg_apusys_trace);
 
-/* feature option */
-enum {
-	APUSYS_FO_MULTICORE,
-	APUSYS_FO_DEADLINE,
-	APUSYS_FO_PREEMPTION,
-
-	APUSYS_FO_MAX,
-};
 
 uint8_t apusys_fo_list[APUSYS_FO_MAX];
+
+//----------------------------------------------
+int get_fo_from_list(int idx)
+{
+	if (idx >= APUSYS_FO_MAX)
+		return -EINVAL;
+
+	return (int)apusys_fo_list[idx];
+}
 
 //----------------------------------------------
 // user table dump
@@ -100,6 +101,8 @@ static int apusys_dbg_fo_dump(struct seq_file *s, void *unused)
 		apusys_fo_list[APUSYS_FO_DEADLINE]);
 	LOG_CON(s, "| preemption = %-3d                |\n",
 		apusys_fo_list[APUSYS_FO_PREEMPTION]);
+	LOG_CON(s, "| timerecord = %-3d                |\n",
+		apusys_fo_list[APUSYS_FO_TIMERECORD]);
 	LOG_CON(s, "|---------------------------------|\n");
 
 	return 0;
@@ -140,6 +143,8 @@ static ssize_t apusys_dbg_fo_write(struct file *flip,
 		fo = APUSYS_FO_DEADLINE;
 	else if (strcmp(token, "preemption") == 0)
 		fo = APUSYS_FO_PREEMPTION;
+	else if (strcmp(token, "timerecord") == 0)
+		fo = APUSYS_FO_TIMERECORD;
 	else {
 		ret = -EINVAL;
 		LOG_ERR("no power param[%s]!\n", token);
@@ -231,6 +236,7 @@ int apusys_dbg_init(void)
 	apusys_fo_list[APUSYS_FO_MULTICORE] = 0;
 	apusys_fo_list[APUSYS_FO_DEADLINE] = 0;
 	apusys_fo_list[APUSYS_FO_PREEMPTION] = 0;
+	apusys_fo_list[APUSYS_FO_TIMERECORD] = 0;
 
 out:
 	return ret;

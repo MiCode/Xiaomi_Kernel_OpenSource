@@ -16,6 +16,17 @@
 
 #define APUSYS_DBG_DIR "apusys"
 
+/* feature option */
+enum {
+	APUSYS_FO_MULTICORE,
+	APUSYS_FO_DEADLINE,
+	APUSYS_FO_PREEMPTION,
+	APUSYS_FO_TIMERECORD,
+
+	APUSYS_FO_MAX,
+};
+
+int get_fo_from_list(int idx);
 int apusys_dbg_init(void);
 int apusys_dbg_destroy(void);
 

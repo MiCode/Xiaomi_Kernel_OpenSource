@@ -283,7 +283,7 @@ static void subcmd_done(struct apusys_subcmd *sc)
 	struct apusys_cmd *cmd = (struct apusys_cmd *)sc->parent_cmd;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_subcmd *sc_node = NULL;
-	int ret = 0, done_idx = 0;
+	int ret = 0, done_idx = 0, state = 0;
 	struct apusys_res_mgr *res_mgr = resource_get_mgr();
 
 	if (sc == NULL) {
@@ -318,9 +318,10 @@ static void subcmd_done(struct apusys_subcmd *sc)
 
 	/* clear subcmd bit in cmd entry's status */
 	bitmap_clear(cmd->sc_status, done_idx, 1);
-	if (bitmap_empty(cmd->sc_status, cmd->sc_num))
+	if (bitmap_empty(cmd->sc_status, cmd->sc_num)) {
 		cmd->state = CMD_STATE_DONE;
-
+		state = cmd->state;
+	}
 	mutex_lock(&cmd->sc_mtx);
 
 	/* should insert subcmd which dependency satisfied */
@@ -351,7 +352,7 @@ static void subcmd_done(struct apusys_subcmd *sc)
 	DEBUG_TAG;
 
 	/* if whole apusys cmd done, wakeup user context thread */
-	if (cmd->state == CMD_STATE_DONE) {
+	if (state == CMD_STATE_DONE) {
 		LOG_DEBUG("apusys cmd(%p/0x%llx) done\n", cmd, cmd->cmd_id);
 		complete(&cmd->comp);
 	}
