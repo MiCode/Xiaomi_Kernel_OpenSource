@@ -277,6 +277,8 @@ static DEFINE_MUTEX(gDipMutex);
 struct DIP_CLK_STRUCT {
 	struct clk *DIP_IMG_LARB9;
 	struct clk *DIP_IMG_DIP;
+	struct clk *DIP_IMG_DIP_MSS;
+	struct clk *DIP_IMG_MFB_DIP;
 #if (MTK_DIP_COUNT == 2)
 	struct clk *DIP_IMG_LARB11;
 	struct clk *DIP_IMG_DIP2;
@@ -2001,6 +2003,15 @@ static inline void Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_ERR("cannot prepare and enable DIP_IMG_DIP clock\n");
 
+	ret = clk_prepare_enable(dip_clk.DIP_IMG_DIP_MSS);
+	if (ret)
+		LOG_ERR("cannot prepare and enable DIP_IMG_DIP_MSS clock\n");
+
+	ret = clk_prepare_enable(dip_clk.DIP_IMG_MFB_DIP);
+	if (ret)
+		LOG_ERR("cannot prepare and enable DIP_IMG_MFB_DIP clock\n");
+
+
 #if (MTK_DIP_COUNT == 2)
 	smi_bus_prepare_enable(SMI_LARB11, DIP_DEV_NAME);
 
@@ -2016,6 +2027,8 @@ static inline void Prepare_Enable_ccf_clock(void)
 
 static inline void Disable_Unprepare_ccf_clock(void)
 {
+	clk_disable_unprepare(dip_clk.DIP_IMG_MFB_DIP);
+	clk_disable_unprepare(dip_clk.DIP_IMG_DIP_MSS);
 	clk_disable_unprepare(dip_clk.DIP_IMG_DIP);
 	clk_disable_unprepare(dip_clk.DIP_IMG_LARB9);
 
@@ -4899,6 +4912,10 @@ static signed int DIP_probe(struct platform_device *pDev)
 			devm_clk_get(&pDev->dev, "DIP_CG_IMG_LARB9");
 		dip_clk.DIP_IMG_DIP =
 			devm_clk_get(&pDev->dev, "DIP_CG_IMG_DIP");
+		dip_clk.DIP_IMG_DIP_MSS =
+			devm_clk_get(&pDev->dev, "DIP_CG_IMG_DIP_MSS");
+		dip_clk.DIP_IMG_MFB_DIP =
+			devm_clk_get(&pDev->dev, "DIP_CG_IMG_MFB_DIP");
 
 		if (IS_ERR(dip_clk.DIP_IMG_LARB9)) {
 			LOG_ERR("cannot get DIP_IMG_LARB9 clock\n");
@@ -4907,6 +4924,14 @@ static signed int DIP_probe(struct platform_device *pDev)
 		if (IS_ERR(dip_clk.DIP_IMG_DIP)) {
 			LOG_ERR("cannot get DIP_IMG_DIP clock\n");
 			return PTR_ERR(dip_clk.DIP_IMG_DIP);
+		}
+		if (IS_ERR(dip_clk.DIP_IMG_DIP_MSS)) {
+			LOG_ERR("cannot get DIP_IMG_DIP_MSS clock\n");
+			return PTR_ERR(dip_clk.DIP_IMG_DIP_MSS);
+		}
+		if (IS_ERR(dip_clk.DIP_IMG_MFB_DIP)) {
+			LOG_ERR("cannot get DIP_IMG_MFB_DIP clock\n");
+			return PTR_ERR(dip_clk.DIP_IMG_MFB_DIP);
 		}
 
 #if (MTK_DIP_COUNT == 2)

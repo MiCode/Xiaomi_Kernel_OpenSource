@@ -3871,12 +3871,16 @@ page_owner=on";
 				<&imgsys_config IMGSYS1_LARB9_CGPDN>,
 				<&imgsys_config IMGSYS1_DIP_CGPDN>,
 				<&imgsys2_config IMGSYS2_LARB11_CGPDN>,
-				<&imgsys2_config IMGSYS2_DIP_CGPDN>;
+				<&imgsys2_config IMGSYS2_DIP_CGPDN>,
+				<&imgsys_config IMGSYS1_MSS_CGPDN>,
+				<&imgsys_config IMGSYS1_MFB_CGPDN>;
 		clock-names =
 				"DIP_CG_IMG_LARB9",
 				"DIP_CG_IMG_DIP",
 				"DIP_CG_IMG_LARB11",
-				"DIP_CG_IMG_DIP2";
+				"DIP_CG_IMG_DIP2",
+				"DIP_CG_IMG_DIP_MSS",
+				"DIP_CG_IMG_MFB_DIP";
 	};
 
 	dip_a0@15021000 {
