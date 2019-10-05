@@ -23,3 +23,7 @@ obj-$(CONFIG_SND_SOC_MTK_BTCVSD) += mtk-btcvsd.o
 
 subdir-ccflags-y += -I$(srctree)/drivers/staging/android/ion
 subdir-ccflags-y += -I$(srctree)/drivers/staging/android/ion/mtk
+
+ifeq ($(CONFIG_SND_SOC_MTK_AUDIO_DSP),y)
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework/
+endif

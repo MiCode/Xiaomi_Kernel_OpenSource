@@ -11,6 +11,12 @@
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
 
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+#include "audio_task.h"
+#include "../audio_dsp/mtk-dsp-common_define.h"
+#include "audio_messenger_ipi.h"
+#endif
+
 #include "mtk-sp-common.h"
 #include "mtk-sp-spk-amp.h"
 #if defined(CONFIG_SND_SOC_RT5509)
@@ -248,6 +254,46 @@ int mtk_spk_update_dai_link(struct snd_soc_card *card,
 }
 EXPORT_SYMBOL(mtk_spk_update_dai_link);
 
+int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size)
+{
+	int result = 0;
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	struct ipi_msg_t ipi_msg;
+	int task_scene;
+
+	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
+	task_scene = mtk_get_speech_status() ?
+		     TASK_SCENE_CALL_FINAL : TASK_SCENE_AUDPLAYBACK;
+
+	result = audio_send_ipi_buf_to_dsp(&ipi_msg, task_scene,
+					   AUDIO_DSP_TASK_AURISYS_SET_BUF,
+					   data_buffer, data_size);
+#endif
+	return result;
+}
+EXPORT_SYMBOL(mtk_spk_send_ipi_buf_to_dsp);
+
+int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
+				  int16_t size,
+				  uint32_t *buf_len)
+{
+	int result = 0;
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	struct ipi_msg_t ipi_msg;
+	int task_scene;
+
+	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
+	task_scene = mtk_get_speech_status() ?
+		     TASK_SCENE_CALL_FINAL : TASK_SCENE_AUDPLAYBACK;
+
+	result = audio_recv_ipi_buf_from_dsp(&ipi_msg,
+					     task_scene,
+					     AUDIO_DSP_TASK_AURISYS_GET_BUF,
+					     buffer, size, buf_len);
+#endif
+	return result;
+}
+EXPORT_SYMBOL(mtk_spk_recv_ipi_buf_from_dsp);
 
 static const struct i2c_device_id mtk_spk_i2c_id[] = {
 	{ "tfa98xx", 0},

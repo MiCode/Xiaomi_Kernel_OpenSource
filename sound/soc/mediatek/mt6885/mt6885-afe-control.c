@@ -313,3 +313,11 @@ bool mtk_audio_condition_enter_suspend(void)
 	return true;
 }
 EXPORT_SYMBOL(mtk_audio_condition_enter_suspend);
+
+bool mtk_get_speech_status(void)
+{
+	struct mt6885_afe_private *afe_priv = local_afe->platform_priv;
+
+	return afe_priv->speech_en ? true : false;
+}
+EXPORT_SYMBOL(mtk_get_speech_status);

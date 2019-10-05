@@ -25,9 +25,7 @@
 #include "tfa.h"
 #include "tfa_dsp_fw.h"
 /* MTK platform header file. */
-#include <audio_messenger_ipi.h>
-#include <audio_playback_msg_id.h>
-#include <audio_task.h>
+#include <mtk-sp-spk-amp.h>
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -125,20 +123,14 @@ static uint8_t g_tfa98xx_firmware_status;
 int tfa98xx_send_data_to_dsp(int8_t *buffer, int16_t DataLength)
 {
 	int result = 0;
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-	struct ipi_msg_t ipi_msg;
 
 	if (buffer == NULL)
 		return -EFAULT;
 
-	pr_info("Entry DataLength=%d\n", DataLength);
-	memset((void *)&ipi_msg, 0x00, sizeof(struct ipi_msg_t));
-	result = audio_send_ipi_buf_to_dsp(&ipi_msg, TASK_SCENE_AUDPLAYBACK,
-			AUDIO_DSP_TASK_AURISYS_SET_BUF,
-			buffer, DataLength);
-	pr_info("Exit result=%d\n", result);
+	result = mtk_spk_send_ipi_buf_to_dsp(buffer, DataLength);
+
 	/*msleep(50);*/
-#endif
+
 	return result;
 }
 
@@ -147,20 +139,9 @@ int tfa98xx_receive_data_from_dsp(int8_t *buffer,
 	uint32_t *DataLength)
 {
 	int result = 0;
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-	struct ipi_msg_t ipi_msg;
 
-	if ((buffer == NULL)  || (DataLength == NULL))
-		return -EFAULT;
+	result = mtk_spk_recv_ipi_buf_from_dsp(buffer, size, DataLength);
 
-	pr_info("Entry size=%d\n", size);
-	memset((void *)&ipi_msg, 0x00, sizeof(struct ipi_msg_t));
-	memset(buffer, 0x00, size);
-	result = audio_recv_ipi_buf_from_dsp(&ipi_msg, TASK_SCENE_AUDPLAYBACK,
-		AUDIO_DSP_TASK_AURISYS_GET_BUF,
-		buffer, size, DataLength);
-	pr_info("Exit Result=%d  DataLength=%d\n", result, *DataLength);
-#endif
 	return result;
 }
 

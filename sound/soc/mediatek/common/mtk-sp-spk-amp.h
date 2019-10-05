@@ -69,6 +69,10 @@ int mtk_spk_get_i2s_in_type(void);
 int mtk_spk_update_dai_link(struct snd_soc_card *card,
 			    struct platform_device *pdev,
 			    const struct snd_soc_ops *i2s_ops);
+int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size);
+int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
+				  int16_t size,
+				  uint32_t *buf_len);
 
 #endif
 
