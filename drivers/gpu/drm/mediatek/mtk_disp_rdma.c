@@ -251,7 +251,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	if (val & (1 << 3)) {
 		DDPPR_ERR("[IRQ] %s: abnormal! cnt=%d\n",
 			  mtk_dump_comp_str(rdma), priv->abnormal_cnt);
-		priv->abnormal_cnt;
+		priv->abnormal_cnt++;
 	}
 	if (val & (1 << 4)) {
 		DDPPR_ERR("[IRQ] %s: underflow! cnt=%d\n",

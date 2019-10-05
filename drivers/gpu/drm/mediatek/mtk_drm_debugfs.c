@@ -433,6 +433,7 @@ void mtk_drm_debugfs_init(struct drm_device *dev, struct mtk_drm_private *priv)
 	struct resource res;
 	int i;
 	enum mtk_ddp_comp_id comp_id;
+	const struct mtk_crtc_path_data *main_path_data;
 	const struct mtk_crtc_path_data *ext_path_data;
 	int ret;
 
@@ -443,8 +444,10 @@ void mtk_drm_debugfs_init(struct drm_device *dev, struct mtk_drm_private *priv)
 	/* TODO: The debugfs_init would be different in latest kernel version,
 	 * so we will refine the debugfs with multiple path in latest verion.
 	 */
+	main_path_data = priv->data->main_path_data;
 	for (i = 0; i < priv->data->main_path_data->path_len[DDP_MAJOR][0] - 1;
 	     i++) {
+		comp_id = main_path_data->path[DDP_MAJOR][0][i];
 		np = priv->comp_node[comp_id];
 		if (!priv->ddp_comp[comp_id])
 			continue;
@@ -474,6 +477,7 @@ void mtk_drm_debugfs_init(struct drm_device *dev, struct mtk_drm_private *priv)
 	if (ext_path_data) {
 		for (i = 0; i < ext_path_data->path_len[DDP_MAJOR][0] - 1;
 		     i++) {
+			comp_id = ext_path_data->path[DDP_MAJOR][0][i];
 			np = priv->comp_node[comp_id];
 			if (!priv->ddp_comp[comp_id])
 				continue;

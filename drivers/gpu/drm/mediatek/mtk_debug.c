@@ -522,7 +522,7 @@ void fake_engine(struct drm_crtc *crtc, unsigned int idx, unsigned int en,
 							1024*1024, true);
 				mtk_fake_engine_iommu_enable(crtc->dev, i);
 				DDPMSG("fake_engine_%d va=0x%08x, pa=0x%08x\n",
-					i, (unsigned int)gem[i]->kvaddr,
+					i, (unsigned long)gem[i]->kvaddr,
 					(unsigned int)gem[i]->dma_addr);
 			}
 		}

@@ -224,6 +224,7 @@ void mtk_addon_connect_between(struct drm_crtc *crtc, unsigned int ddp_mode,
 	prev_comp_id = mtk_crtc_find_prev_comp(crtc, ddp_mode, attach_comp_id);
 	cur_comp_id = comp->id;
 
+	next_comp_id = path_data->path[0];
 	for (i = 0; i < path_data->path_len; i++)
 		if (mtk_ddp_comp_get_type(path_data->path[i]) !=
 		    MTK_DISP_VIRTUAL) {
@@ -234,6 +235,7 @@ void mtk_addon_connect_between(struct drm_crtc *crtc, unsigned int ddp_mode,
 	mtk_ddp_comp_addon_config(comp, prev_comp_id, next_comp_id,
 				  addon_config, cmdq_handle);
 
+	addon_idx = i;
 	for (; i < path_data->path_len; i++) {
 		if (mtk_ddp_comp_get_type(path_data->path[i]) ==
 		    MTK_DISP_VIRTUAL)
@@ -375,6 +377,7 @@ void mtk_addon_connect_before(struct drm_crtc *crtc, unsigned int ddp_mode,
 		next_attach_comp_id, cmdq_handle);
 
 	/* 3. config module */
+	addon_idx = 0;
 	cur_comp_id = -1;
 	for (i = 0; i < path_data->path_len; i++) {
 		if (mtk_ddp_comp_get_type(path_data->path[i]) ==

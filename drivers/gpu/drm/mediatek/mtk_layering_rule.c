@@ -346,7 +346,7 @@ static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 	int i;
 	int cnt = 0;
 	struct drm_crtc *crtc;
-	const struct mtk_addon_scenario_data *addon_data;
+	const struct mtk_addon_scenario_data *addon_data = NULL;
 
 	drm_for_each_crtc(crtc, dev) {
 		if (drm_crtc_index(crtc) == disp_idx) {

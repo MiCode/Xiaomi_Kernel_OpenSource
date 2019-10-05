@@ -175,7 +175,7 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 {
 	struct drm_plane *plane;
 	struct drm_plane_state *old_plane_state;
-	struct drm_crtc *crtc;
+	struct drm_crtc *crtc = NULL;
 	struct drm_crtc_state *old_crtc_state;
 	int i;
 	struct mtk_rect dst_layer_roi = {0};
@@ -529,7 +529,12 @@ static int mtk_atomic_check(struct drm_device *dev,
 		DDPINFO("[CRTC:%d:%s] doze active changed\n", crtc->base.id,
 			crtc->name, new_state->prop_val[CRTC_PROP_DOZE_ACTIVE]);
 		new_state->doze_changed = true;
-		drm_atomic_add_affected_connectors(state, crtc);
+		ret = drm_atomic_add_affected_connectors(state, crtc);
+		if (ret) {
+			DDPPR_ERR("DRM add conn failed! state:%d, ret:%d\n",
+					state, ret);
+			return ret;
+		}
 	}
 
 	return ret;
@@ -563,7 +568,12 @@ static int mtk_atomic_commit(struct drm_device *drm,
 		mutex_lock_nested(&mtk_crtc->lock, i);
 	}
 
-	drm_atomic_helper_swap_state(state, 0);
+	ret = drm_atomic_helper_swap_state(state, 0);
+	if (ret) {
+		DDPPR_ERR("DRM swap state failed! state:%d, ret:%d\n",
+				state, ret);
+		return ret;
+	}
 
 	mtk_atomic_state_get(state);
 	if (async)

@@ -133,7 +133,7 @@ struct DRM_MMP_Events *get_drm_mmp_events(void)
 	return &g_DRM_MMP_Events;
 }
 
-struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned int id)
+struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned long id)
 {
 	return &g_CRTC_MMP_Events[id];
 }

@@ -61,7 +61,7 @@ struct CRTC_MMP_Events {
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);
-struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned int id);
+struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned long id);
 void drm_mmp_init(void);
 
 /* print mmp log for DRM_MMP_Events */

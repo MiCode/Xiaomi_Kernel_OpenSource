@@ -1488,7 +1488,7 @@ int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, uintptr_t slot)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DSI_START, 0x1, ~0);
 
-		cmdq_pkt_poll_timeout(handle, (u32)comp->cmdq_base, 0x1,
+		cmdq_pkt_poll_timeout(handle, 0x1, SUBSYS_NO_SUPPORT,
 				      comp->regs_pa + DSI_INTSTA, 0x1, 400,
 				      CMDQ_GPR_R06);
 

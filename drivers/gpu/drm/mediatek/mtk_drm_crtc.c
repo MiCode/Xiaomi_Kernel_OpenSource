@@ -1300,7 +1300,7 @@ static void mtk_crtc_comp_trigger(struct mtk_drm_crtc *mtk_crtc,
 /* TODO: need to remove this in vdo mode for lowpower */
 static void trig_done_cb(struct cmdq_cb_data data)
 {
-	CRTC_MMP_MARK((unsigned int)data.data, trig_loop_done, 0, 0);
+	CRTC_MMP_MARK((unsigned long)data.data, trig_loop_done, 0, 0);
 }
 
 void mtk_crtc_start_trig_loop(struct mtk_drm_crtc *mtk_crtc)
@@ -1511,6 +1511,13 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 	if (panel_ext->output_mode == MTK_PANEL_DSC_SINGLE_PORT) {
 		struct mtk_ddp_config cfg;
 
+		comp = mtk_ddp_comp_request_output(mtk_crtc);
+		output_comp_id = mtk_crtc_find_comp(crtc, mtk_crtc->ddp_mode,
+						comp->id);
+		prev_comp_id = mtk_crtc_find_prev_comp(crtc,
+			mtk_crtc->ddp_mode, output_comp_id);
+		dsc_comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_DSC0);
+
 		cfg.w = crtc->state->adjusted_mode.hdisplay;
 		cfg.h = crtc->state->adjusted_mode.vdisplay;
 		cfg.vrefresh = crtc->state->adjusted_mode.vrefresh;
@@ -1519,12 +1526,6 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 				__get_golden_setting_context(mtk_crtc);
 		dsc_comp->mtk_crtc = mtk_crtc;
 
-		comp = mtk_ddp_comp_request_output(mtk_crtc);
-		output_comp_id = mtk_crtc_find_comp(crtc, mtk_crtc->ddp_mode,
-						comp->id);
-		prev_comp_id = mtk_crtc_find_prev_comp(crtc,
-			mtk_crtc->ddp_mode, output_comp_id);
-		dsc_comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_DSC0);
 		mtk_ddp_remove_comp_from_path_with_cmdq(mtk_crtc, prev_comp_id,
 			output_comp_id, handle);
 		mtk_ddp_add_comp_to_path_with_cmdq(mtk_crtc,
@@ -2369,7 +2370,7 @@ static void mtk_crtc_wb_comp_config(struct drm_crtc *crtc,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct mtk_ddp_comp *comp = NULL;
-	struct mtk_crtc_ddp_ctx *ddp_ctx;
+	struct mtk_crtc_ddp_ctx *ddp_ctx = NULL;
 	struct mtk_ddp_config cfg;
 	dma_addr_t addr;
 	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
@@ -3554,7 +3555,7 @@ static void mtk_crtc_config_wb_path_cmdq(struct drm_crtc *crtc,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_ddp_ctx *ddp_ctx;
 	struct mtk_plane_state plane_state;
-	struct drm_framebuffer *fb;
+	struct drm_framebuffer *fb = NULL;
 	struct mtk_ddp_comp *comp;
 	int i;
 

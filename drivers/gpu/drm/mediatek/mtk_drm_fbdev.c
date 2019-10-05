@@ -131,7 +131,6 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 	struct fb_info *info;
 	struct drm_framebuffer *fb;
 	unsigned int bytes_per_pixel, vramsize, fps;
-	unsigned long offset;
 	size_t size;
 	int err;
 	phys_addr_t fb_base;
@@ -195,8 +194,8 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 	mtk_drm_assert_fb_init(mtk_gem->kvaddr, mtk_gem->dma_addr,
 			       sizes->surface_width, sizes->surface_height);
 
-	DRM_DEBUG_KMS("FB [%ux%u]-%u offset=%lu size=%zd\n", fb->width,
-		      fb->height, fb->format->depth, offset, size);
+	DRM_DEBUG_KMS("FB [%ux%u]-%u size=%zd\n", fb->width,
+		      fb->height, fb->format->depth, size);
 
 	info->skip_vt_switch = true;
 	return 0;

@@ -2354,6 +2354,7 @@ void mtk_disp_mutex_src_set(struct mtk_drm_crtc *mtk_crtc, bool is_cmd_mode)
 		return;
 	}
 
+	id = DDP_COMPONENT_DSI0;
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
 		id = comp->id;
 		type = mtk_ddp_comp_get_type(id);
@@ -2390,6 +2391,7 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 
 	WARN_ON(&ddp->mutex[mutex->id] != mutex);
 
+	reg = DDP_MUTEX_SOF_SINGLE_MODE;
 	switch (id) {
 	case DDP_COMPONENT_DSI0:
 		if (is_cmd_mode)
