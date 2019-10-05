@@ -21,10 +21,12 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/sched/topology.h>
+#include <linux/sched/energy.h>
 #include <linux/cpuset.h>
-#include <linux/sched_energy.h>
 
 DEFINE_PER_CPU(unsigned long, freq_scale) = SCHED_CAPACITY_SCALE;
+DEFINE_PER_CPU(unsigned long, max_cpu_freq);
+DEFINE_PER_CPU(unsigned long, max_freq_scale) = SCHED_CAPACITY_SCALE;
 
 void arch_set_freq_scale(struct cpumask *cpus, unsigned long cur_freq,
 			 unsigned long max_freq)
@@ -34,8 +36,29 @@ void arch_set_freq_scale(struct cpumask *cpus, unsigned long cur_freq,
 
 	scale = (cur_freq << SCHED_CAPACITY_SHIFT) / max_freq;
 
-	for_each_cpu(i, cpus)
+	for_each_cpu(i, cpus) {
 		per_cpu(freq_scale, i) = scale;
+		per_cpu(max_cpu_freq, i) = max_freq;
+	}
+}
+
+void arch_set_max_freq_scale(struct cpumask *cpus,
+			     unsigned long policy_max_freq)
+{
+	unsigned long scale, max_freq;
+	int cpu = cpumask_first(cpus);
+
+	if (cpu > nr_cpu_ids)
+		return;
+
+	max_freq = per_cpu(max_cpu_freq, cpu);
+	if (!max_freq)
+		return;
+
+	scale = (policy_max_freq << SCHED_CAPACITY_SHIFT) / max_freq;
+
+	for_each_cpu(cpu, cpus)
+		per_cpu(max_freq_scale, cpu) = scale;
 }
 
 static DEFINE_MUTEX(cpu_scale_mutex);
@@ -72,10 +95,6 @@ static ssize_t cpu_capacity_store(struct device *dev,
 
 	if (!count)
 		return 0;
-
-	/* don't allow changes if sched-group-energy is installed */
-	if(sched_energy_installed(this_cpu))
-		return -EINVAL;
 
 	ret = kstrtoul(buf, 0, &new_capacity);
 	if (ret)
@@ -357,19 +376,14 @@ void topology_normalize_cpu_scale(void)
 bool __init topology_parse_cpu_capacity(struct device_node *cpu_node, int cpu)
 {
 	static bool cap_parsing_failed;
-	int ret = 0;
+	int ret;
 	u32 cpu_capacity;
 
 	if (cap_parsing_failed)
 		return false;
 
-	/* override capacity-dmips-mhz if we have sched-energy-costs */
-	if (of_find_property(cpu_node, "sched-energy-costs", NULL))
-		cpu_capacity = topology_get_cpu_scale(NULL, cpu);
-	else
-		ret = of_property_read_u32(cpu_node, "capacity-dmips-mhz",
+	ret = of_property_read_u32(cpu_node, "capacity-dmips-mhz",
 				   &cpu_capacity);
-
 	if (!ret) {
 		if (!raw_capacity) {
 			raw_capacity = kcalloc(num_possible_cpus(),
@@ -431,6 +445,7 @@ init_cpu_capacity_callback(struct notifier_block *nb,
 
 	if (cpumask_empty(cpus_to_visit)) {
 		topology_normalize_cpu_scale();
+		init_sched_energy_costs();
 		if (topology_detect_flags())
 			schedule_work(&update_topology_flags_work);
 		free_raw_capacity();
