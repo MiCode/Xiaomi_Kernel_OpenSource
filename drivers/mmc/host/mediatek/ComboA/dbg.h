@@ -154,10 +154,13 @@ do { \
 
 void msdc_dump_gpd_bd(int id);
 int msdc_debug_proc_init(void);
+
+#ifdef MTK_MMC_SDIO_DEBUG
 void msdc_performance(u32 opcode, u32 sizes, u32 bRx, u32 ticks);
 
 void sdio_get_time(struct mmc_request *mrq, struct timespec *time_now);
 void sdio_calc_time(struct mmc_request *mrq, struct timespec *time_start);
+#endif
 
 void msdc_error_tune_debug1(struct msdc_host *host,
 	struct mmc_command *cmd, struct mmc_command *sbc, u32 *intsts);

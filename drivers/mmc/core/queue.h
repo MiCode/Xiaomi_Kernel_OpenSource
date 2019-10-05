@@ -25,8 +25,14 @@ struct mmc_blk_data;
 struct mmc_blk_ioc_data;
 
 struct mmc_blk_request {
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	struct mmc_request	mrq_que;
+#endif
 	struct mmc_request	mrq;
 	struct mmc_command	sbc;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	struct mmc_command	que;
+#endif
 	struct mmc_command	cmd;
 	struct mmc_command	stop;
 	struct mmc_data		data;
@@ -48,6 +54,9 @@ enum mmc_drv_op {
 };
 
 struct mmc_queue_req {
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	struct request		*req;
+#endif
 	struct mmc_blk_request	brq;
 	struct scatterlist	*sg;
 	struct mmc_async_req	areq;
@@ -55,6 +64,9 @@ struct mmc_queue_req {
 	int			drv_op_result;
 	void			*drv_op_data;
 	unsigned int		ioc_count;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	atomic_t		index;
+#endif
 };
 
 struct mmc_queue {
@@ -65,6 +77,9 @@ struct mmc_queue {
 	bool			asleep;
 	struct mmc_blk_data	*blkdata;
 	struct request_queue	*queue;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	struct mmc_queue_req	mqrq[EMMC_MAX_QUEUE_DEPTH];
+#endif
 	/*
 	 * FIXME: this counter is not a very reliable way of keeping
 	 * track of how many requests that are ongoing. Switch to just
@@ -74,6 +89,11 @@ struct mmc_queue {
 	int			qcnt;
 };
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+#define IS_RT_CLASS_REQ(x)	\
+	(IOPRIO_PRIO_CLASS(req_get_ioprio(x)) == IOPRIO_CLASS_RT)
+#endif
+
 extern int mmc_init_queue(struct mmc_queue *, struct mmc_card *, spinlock_t *,
 			  const char *);
 extern void mmc_cleanup_queue(struct mmc_queue *);
@@ -82,6 +102,10 @@ extern void mmc_queue_resume(struct mmc_queue *);
 extern unsigned int mmc_queue_map_sg(struct mmc_queue *,
 				     struct mmc_queue_req *);
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+extern void mmc_wait_cmdq_empty(struct mmc_host *host);
+#endif
+extern bool mmc_blk_part_cmdq_en(struct mmc_queue *mq);
 extern int mmc_access_rpmb(struct mmc_queue *);
 
 #endif

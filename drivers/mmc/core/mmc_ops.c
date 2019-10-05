@@ -1038,12 +1038,20 @@ static int mmc_cmdq_switch(struct mmc_card *card, bool enable)
 	int err;
 
 	if (!card->ext_csd.cmdq_support)
-		return -EOPNOTSUPP;
+		return 0;
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (!enable)
+		mmc_wait_cmdq_empty(card->host);
+#endif
 
 	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_CMDQ_MODE_EN,
 			 val, card->ext_csd.generic_cmd6_time);
 	if (!err)
 		card->ext_csd.cmdq_en = enable;
+	else
+		pr_notice("%s:cmdq switch error %d\n",
+					mmc_hostname(card->host), err);
 
 	return err;
 }

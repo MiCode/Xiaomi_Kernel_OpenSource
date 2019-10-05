@@ -92,6 +92,15 @@ void mmc_remove_card_debugfs(struct mmc_card *card);
 
 void mmc_init_context_info(struct mmc_host *host);
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+void mmc_wait_cmdq_empty(struct mmc_host *host);
+void mmc_do_check(struct mmc_host *host);
+void mmc_do_stop(struct mmc_host *host);
+void mmc_do_status(struct mmc_host *host);
+void mmc_wait_cmdq_done(struct mmc_request *mrq);
+int mmc_run_queue_thread(void *data);
+#endif
+
 int mmc_execute_tuning(struct mmc_card *card);
 int mmc_hs200_to_hs400(struct mmc_card *card);
 int mmc_hs400_to_hs200(struct mmc_card *card);
@@ -132,6 +141,10 @@ int __mmc_claim_host(struct mmc_host *host, atomic_t *abort);
 void mmc_release_host(struct mmc_host *host);
 void mmc_get_card(struct mmc_card *card);
 void mmc_put_card(struct mmc_card *card);
+
+#if defined(CONFIG_MMC_FFU)
+extern int mmc_reinit_oldcard(struct mmc_host *host);
+#endif
 
 /**
  *	mmc_claim_host - exclusively claim a host
