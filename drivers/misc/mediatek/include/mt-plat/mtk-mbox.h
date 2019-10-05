@@ -167,6 +167,7 @@ struct mtk_mbox_device {
 	mbox_rx_cb_t pre_cb;
 	mbox_rx_cb_t post_cb;
 	void *prdata;
+	bool log_enable;
 };
 
 /*
@@ -316,5 +317,7 @@ void mtk_mbox_dump_recv_pin(struct mtk_mbox_device *mbdev,
 	struct mtk_mbox_pin_recv *pin_recv);
 void mtk_mbox_dump_send(struct mtk_mbox_device *mbdev, unsigned int pin);
 void mtk_mbox_dump(struct mtk_mbox_device *mbdev, unsigned int mbox);
+int mtk_mbox_log_enable(struct mtk_mbox_device *mbdev, bool enable);
+void mtk_mbox_reset_record(struct mtk_mbox_device *mbdev);
 #endif
 

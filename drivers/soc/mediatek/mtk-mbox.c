@@ -19,7 +19,6 @@
 #include <linux/sched/clock.h>
 #include <mt-plat/mtk-mbox.h>
 
-#define MTK_MBOX_DEBUGGIN 0
 /*
  * memory copy to tiny
  * @param dest: dest address
@@ -582,9 +581,8 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 				pin_recv->recv_record.notify_count++;
 			}
 		}
-#if MTK_MBOX_DEBUGGIN
-		mtk_mbox_dump_recv(mbdev, i);
-#endif
+		if (mbdev->log_enable)
+			mtk_mbox_dump_recv(mbdev, i);
 	}
 
 	if (ret != MBOX_DONE)
@@ -600,6 +598,9 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 	/*release pin*/
 	mtk_mbox_set_lock(mbdev, MBOX_DONE);
 	spin_unlock_irqrestore(&minfo->mbox_lock, flags);
+
+	if (irq_temp == 0)
+		pr_err("[MBOX ISR]dev=%s pin table err", mbdev->name);
 
 	return IRQ_HANDLED;
 }
@@ -901,3 +902,47 @@ void mtk_mbox_dump(struct mtk_mbox_device *mbdev, unsigned int mbox)
 		}
 	}
 }
+
+/*
+ *mbox log enable function
+ */
+int mtk_mbox_log_enable(struct mtk_mbox_device *mbdev, bool enable)
+{
+	if (!mbdev)
+		return MBOX_PLT_ERR;
+
+	mbdev->log_enable = enable;
+	return MBOX_DONE;
+}
+
+/*
+ *mbox reset record
+ */
+void mtk_mbox_reset_record(struct mtk_mbox_device *mbdev)
+{
+	struct mtk_mbox_pin_recv *pin_recv;
+	struct mtk_mbox_info *minfo;
+	int i;
+
+	if (!mbdev)
+		return;
+
+	for (i = 0; i < mbdev->recv_count; i++) {
+		pin_recv = &(mbdev->pin_recv_table[i]);
+		pin_recv->recv_record.poll_count = 0;
+		pin_recv->recv_record.recv_irq_count = 0;
+		pin_recv->recv_record.notify_count = 0;
+		pin_recv->recv_record.cb_count = 0;
+		pin_recv->recv_record.pre_timestamp = 0;
+		pin_recv->recv_record.post_timestamp = 0;
+	}
+
+	for (i = 0; i < mbdev->count; i++) {
+		minfo = &(mbdev->info_table[i]);
+		minfo->record.write_count = 0;
+		minfo->record.busy_count = 0;
+		minfo->record.trig_irq_count = 0;
+	}
+
+}
+
