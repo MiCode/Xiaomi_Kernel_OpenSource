@@ -2659,9 +2659,9 @@ static struct mtk_gate_regs imgsys2_img_cg_regs = {
 };
 static struct mtk_gate imgsys2_clks[] __initdata = {
 	/* IMG_CG */
-	GATE(IMGSYS2_LARB9_CGPDN, "imgsys2_larb9_cgpdn", "img2_sel",
+	GATE(IMGSYS2_LARB11_CGPDN, "imgsys2_larb11_cgpdn", "img2_sel",
 			 imgsys2_img_cg_regs, 0, 0),
-	GATE(IMGSYS2_LARB10_CGPDN, "imgsys2_larb10_cgpdn", "img2_sel",
+	GATE(IMGSYS2_LARB12_CGPDN, "imgsys2_larb12_cgpdn", "img2_sel",
 			 imgsys2_img_cg_regs, 1, 0),
 	GATE(IMGSYS2_DIP_CGPDN, "imgsys2_dip_cgpdn", "img2_sel",
 			 imgsys2_img_cg_regs, 2, 0),

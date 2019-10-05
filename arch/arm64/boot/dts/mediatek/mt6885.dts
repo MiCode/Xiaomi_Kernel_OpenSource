@@ -570,6 +570,7 @@ page_owner=on";
 	apmixed: apmixed@1000c000 {
 		compatible = "mediatek,apmixed", "syscon";
 		reg = <0 0x1000c000 0 0xe00>;
+		#clock-cells = <1>;
 	};
 
 	fhctl@1000ce00 {
@@ -3914,8 +3915,8 @@ page_owner=on";
 		mediatek,larb-id = <11>;
 		interrupts = <GIC_SPI 350 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&scpsys SCP_SYS_ISP2>,
-			 <&imgsys2_config IMGSYS2_LARB9_CGPDN>;
-		clock-names = "scp-isp2", "img2-larb9";
+			 <&imgsys2_config IMGSYS2_LARB11_CGPDN>;
+		clock-names = "scp-isp2", "img2-larb11";
 		mediatek,smi-id = <11>;
 	};
 
