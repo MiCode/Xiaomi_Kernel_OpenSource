@@ -23,6 +23,11 @@ struct mtk_dsi;
 struct cmdq_pkt;
 typedef void (*dcs_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 				  const void *data, size_t len);
+enum MTK_PANEL_OUTPUT_MODE {
+	MTK_PANEL_SINGLE_PORT = 0x0,
+	MTK_PANEL_DSC_SINGLE_PORT,
+	MTK_PANEL_DUAL_PORT,
+};
 
 struct esd_check_item {
 	unsigned char cmd;
@@ -105,6 +110,7 @@ struct mtk_panel_params {
 	enum MIPITX_PHY_LANE_SWAP
 		lane_swap[MIPITX_PHY_PORT_NUM][MIPITX_PHY_LANE_NUM];
 	struct mtk_panel_dsc_params dsc_params;
+	unsigned int output_mode;
 };
 
 struct mtk_panel_ext {
