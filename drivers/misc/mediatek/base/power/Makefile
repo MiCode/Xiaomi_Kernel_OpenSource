@@ -31,3 +31,4 @@ obj-$(CONFIG_MTK_SWPM) += swpm_v1/
 
 obj-$(CONFIG_MACH_MT6771) += mcdi/
 obj-$(CONFIG_MACH_MT6771) += cpuhotplug/
+obj-$(CONFIG_MACH_MT6771) += ppm_v3/
