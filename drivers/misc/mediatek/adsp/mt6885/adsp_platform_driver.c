@@ -9,10 +9,12 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/interrupt.h>
 #include "adsp_clk.h"
 #include "adsp_mbox.h"
 #include "adsp_reserved_mem.h"
 #include "adsp_logger.h"
+#include "adsp_excep.h"
 #include "adsp_reg.h"
 #include "adsp_platform.h"
 #include "adsp_platform_driver.h"
@@ -102,10 +104,15 @@ int adsp_core0_init(struct adsp_priv *pdata)
 	adsp_update_mpu_memory_info(pdata);
 	/* TODO: driver init */
 	//adsp_awake_init();
-	//adsp_excep_init(pdata);
+
 	//adsp_suspend_init();
 	if (ADSP_CORE_TOTAL > 1)
 		adsp_update_c2c_memory_info(pdata);
+
+	/* exception init & irq */
+	init_adsp_exception_control(adsp_wq);
+	request_irq(pdata->irq[ADSP_IRQ_WDT_ID], adsp_wdt_handler,
+		    IRQF_TRIGGER_HIGH, "ADSP A WDT", pdata);
 
 	/* logger */
 	pdata->log_ctrl = adsp_logger_init(ADSP_A_LOGGER_MEM_ID);
@@ -132,6 +139,10 @@ int adsp_core1_init(struct adsp_priv *pdata)
 
 	adsp_update_mpu_memory_info(pdata);
 
+	/* exception irq */
+	request_irq(pdata->irq[ADSP_IRQ_WDT_ID], adsp_wdt_handler,
+		    IRQF_TRIGGER_HIGH, "ADSP B WDT", pdata);
+
 	/* logger */
 	pdata->log_ctrl = adsp_logger_init(ADSP_B_LOGGER_MEM_ID);
 	INIT_WORK(&pdata->log_ctrl->work, adsp_logger_init1_cb);
@@ -140,6 +151,10 @@ int adsp_core1_init(struct adsp_priv *pdata)
 	mutex_init(&pdata->send_mbox->mutex_send);
 	pdata->recv_mbox->pin_buf = vmalloc(SHARE_BUF_SIZE);
 	pdata->recv_mbox->prdata = &pdata->id;
+
+	/* core 1 use core 0 remapping cfg address */
+	pdata->cfg = adsp_cores[ADSP_A_ID]->cfg;
+	pdata->cfg_size = adsp_cores[ADSP_A_ID]->cfg_size;
 	return ret;
 }
 
@@ -197,6 +212,7 @@ int adsp_core0_suspend(void)
 	return 0;
 ERROR:
 	pr_warn("%s(), can't going to suspend, ret(%d)\n", __func__, ret);
+	adsp_aed_dispatch(EXCEP_KERNEL, pdata);
 	return ret;
 }
 
@@ -216,6 +232,7 @@ int adsp_core0_resume(void)
 
 		if (get_adsp_state(pdata) != ADSP_RUNNING) {
 			pr_warn("%s, can't going to resume\n", __func__);
+			adsp_aed_dispatch(EXCEP_KERNEL, pdata);
 			return -ETIME;
 		}
 	}
@@ -247,12 +264,13 @@ int adsp_core1_suspend(void)
 		}
 
 		adsp_mt_stop(pdata->id);
-		switch_adsp_clk_cg(false, ADSP_CLK_CORE_1_EN);
+		switch_adsp_clk_ctrl_cg(false, ADSP_CLK_CORE_1_EN);
 		set_adsp_state(pdata, ADSP_SUSPEND);
 	}
 	return 0;
 ERROR:
 	pr_warn("%s(), can't going to suspend, ret(%d)\n", __func__, ret);
+	adsp_aed_dispatch(EXCEP_KERNEL, pdata);
 	return ret;
 }
 
@@ -262,7 +280,7 @@ int adsp_core1_resume(void)
 	struct adsp_priv *pdata = adsp_cores[ADSP_B_ID];
 
 	if (get_adsp_state(pdata) == ADSP_SUSPEND) {
-		switch_adsp_clk_cg(true, ADSP_CLK_CORE_1_EN);
+		switch_adsp_clk_ctrl_cg(true, ADSP_CLK_CORE_1_EN);
 		adsp_mt_sw_reset(pdata->id);
 
 		reinit_completion(&pdata->done);
@@ -272,6 +290,7 @@ int adsp_core1_resume(void)
 
 		if (get_adsp_state(pdata) != ADSP_RUNNING) {
 			pr_warn("%s, can't going to resume\n", __func__);
+			adsp_aed_dispatch(EXCEP_KERNEL, pdata);
 			return -ETIME;
 		}
 	}
@@ -292,7 +311,7 @@ void adsp_logger_init0_cb(struct work_struct *ws)
 
 	_adsp_register_feature(ADSP_A_ID, ADSP_LOGGER_FEATURE_ID, 0);
 
-	ret = adsp_send_message(ADSP_IPI_LOGGER_INIT, (void *)info,
+	ret = adsp_push_message(ADSP_IPI_LOGGER_INIT, (void *)info,
 		sizeof(info), 1, ADSP_A_ID);
 
 	_adsp_deregister_feature(ADSP_A_ID, ADSP_LOGGER_FEATURE_ID, 0);
@@ -315,7 +334,7 @@ void adsp_logger_init1_cb(struct work_struct *ws)
 
 	_adsp_register_feature(ADSP_B_ID, ADSP_LOGGER_FEATURE_ID, 0);
 
-	ret = adsp_send_message(ADSP_IPI_LOGGER_INIT, (void *)info,
+	ret = adsp_push_message(ADSP_IPI_LOGGER_INIT, (void *)info,
 		sizeof(info), 1, ADSP_B_ID);
 
 	_adsp_deregister_feature(ADSP_B_ID, ADSP_LOGGER_FEATURE_ID, 0);
@@ -336,6 +355,22 @@ static const struct of_device_id adsp_common_of_ids[] = {
 	{}
 };
 
+const struct attribute_group *adsp_common_attr_groups[] = {
+	&adsp_excep_attr_group,
+	NULL,
+};
+
+const struct attribute_group *adsp_core_attr_groups[] = {
+	&adsp_default_attr_group,
+	NULL,
+};
+
+static struct miscdevice adsp_common_device = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "adsp",
+	.groups = adsp_common_attr_groups,
+};
+
 static int adsp_common_drv_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -351,6 +386,13 @@ static int adsp_common_drv_probe(struct platform_device *pdev)
 		pr_warn("%s(), mbox probe fail, %d\n", __func__, ret);
 		goto ERROR;
 	}
+
+	ret = misc_register(&adsp_common_device);
+	if (ret) {
+		pr_warn("%s(), misc_register fail, %d\n", __func__, ret);
+		goto ERROR;
+	}
+
 	pr_info("%s, success\n", __func__);
 ERROR:
 	return ret;
@@ -435,7 +477,7 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 	pdata->mdev.minor = MISC_DYNAMIC_MINOR;
 	pdata->mdev.name = desc->name;
 	pdata->mdev.fops = &adsp_file_ops;
-	pdata->mdev.groups = adsp_attr_groups;
+	pdata->mdev.groups = adsp_core_attr_groups;
 
 	ret = misc_register(&pdata->mdev);
 	if (unlikely(ret != 0))

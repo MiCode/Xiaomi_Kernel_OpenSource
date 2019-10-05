@@ -83,21 +83,34 @@ void adsp_mt_stop(int cid)
 
 void adsp_mt_clear(void)
 {
-#if 0
-	writel(0, CREG_BOOTUP_MARK);
+	writel(0xC0001002, ADSP_HIFI3_IO_CONFIG);
+	writel(0xdf, ADSP_CLK_CTRL_BASE);
 	writel(0x0, ADSP_A_IRQ_EN);
-	DRV_ClrReg32(ADSP_A_WDT_REG, WDT_EN_BIT);
-
-	/** TCM back to initial state **/
-	adsp_sram_reset_init();
-
-	dsb(SY);
-#endif
+	writel(0x0, ADSP_B_IRQ_EN);
+	writel(0x0, ADSP_A_WDT_REG);
+	writel(0x0, ADSP_B_WDT_REG);
 }
 
-void adsp_mt_clr_spm(void)
+void adsp_mt_clr_spm(int cid)
 {
-	//CLR_BITS(ADSP_A_SPM_WAKEUPSRC, ADSP_WAKEUP_SPM);
+	if (unlikely(cid >= ADSP_CORE_TOTAL))
+		return;
+
+	if (cid == ADSP_A_ID)
+		CLR_BITS(ADSP_A_SPM_WAKEUPSRC, ADSP_WAKEUP_SPM);
+	else
+		CLR_BITS(ADSP_B_SPM_WAKEUPSRC, ADSP_WAKEUP_SPM);
+}
+
+void adsp_mt_disable_wdt(int cid)
+{
+	if (unlikely(cid >= ADSP_CORE_TOTAL))
+		return;
+
+	if (cid == ADSP_A_ID)
+		CLR_BITS(ADSP_A_WDT_REG, WDT_EN_BIT);
+	else
+		CLR_BITS(ADSP_B_WDT_REG, WDT_EN_BIT);
 }
 
 bool check_hifi_status(int mask)
@@ -105,12 +118,28 @@ bool check_hifi_status(int mask)
 	return !!(readl(ADSP_SLEEP_STATUS_REG) & mask);
 }
 
-void switch_adsp_clk_cg(bool en, int mask)
+u32 switch_adsp_clk_ctrl_cg(bool en, int mask)
 {
+	u32 retval = readl(ADSP_CLK_CTRL_BASE);
+
 	if (en)
 		SET_BITS(ADSP_CLK_CTRL_BASE, mask);
 	else
 		CLR_BITS(ADSP_CLK_CTRL_BASE, mask);
+
+	return retval;
+}
+
+u32 switch_adsp_uart_ctrl_cg(bool en, int mask)
+{
+	u32 retval = readl(ADSP_UART_CTRL);
+
+	if (en)
+		SET_BITS(ADSP_UART_CTRL, mask);
+	else
+		CLR_BITS(ADSP_UART_CTRL, mask);
+
+	return retval;
 }
 
 void adsp_platform_init(void *base)

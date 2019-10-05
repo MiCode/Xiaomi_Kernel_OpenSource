@@ -13,6 +13,7 @@
 #include "adsp_reserved_mem.h"
 #include "adsp_platform_driver.h"
 #include "adsp_logger.h"
+#include "adsp_excep.h"
 #include "adsp_core.h"
 
 /* ----------------------------- sys fs ------------------------------------ */
@@ -145,7 +146,7 @@ static inline ssize_t log_enable_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count)
 {
-	unsigned int enable;
+	unsigned int enable = 0;
 	struct adsp_priv *pdata = container_of(dev_get_drvdata(dev),
 					struct adsp_priv, mdev);
 
@@ -165,13 +166,8 @@ static struct attribute *adsp_default_attrs[] = {
 	NULL,
 };
 
-static struct attribute_group adsp_default_attr_group = {
+struct attribute_group adsp_default_attr_group = {
 	.attrs = adsp_default_attrs,
-};
-
-const struct attribute_group *adsp_attr_groups[] = {
-	&adsp_default_attr_group,
-	NULL,
 };
 
 /* ---------------------------- debug fs ----------------------------------- */

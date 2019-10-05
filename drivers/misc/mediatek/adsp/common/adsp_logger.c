@@ -163,6 +163,9 @@ struct log_ctrl_s *adsp_logger_init(int mem_id)
 	mutex_init(&ctrl->lock);
 	ctrl->inited = true;
 
+	pr_debug("%s, init done, check:[0x%x, 0x%x, 0x%x, 0x%x]", __func__,
+		 ctrl->base, ctrl->size, ctrl->info_ofs, ctrl->buff_ofs);
+
 	return ctrl;
 }
 

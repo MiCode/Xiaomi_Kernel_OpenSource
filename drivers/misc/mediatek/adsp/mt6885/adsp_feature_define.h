@@ -15,7 +15,6 @@
 #define ADSP_BUS_MONITOR_INIT_ENABLE     (1)
 
 /* adsp aed definition*/
-#define ADSP_AED_STR_LEN                (512)
 #define ADSP_RESERVED_DRAM_SIZE         (0x1000000)
 
 /* emi mpu define*/

@@ -113,11 +113,13 @@ enum adsp_ipi_status adsp_push_message(enum adsp_ipi_id id, void *buf,
 			unsigned int len, unsigned int wait, int core_id)
 {
 	int ret = 0;
-	uint32_t wait_ms = (wait) ? ADSP_IPI_QUEUE_DEFAULT_WAIT_MS : 0;
+	int queue_id = core_id + AUDIO_OPENDSP_USE_HIFI3_A;
+	u32 wait_ms = (wait) ? ADSP_IPI_QUEUE_DEFAULT_WAIT_MS : 0;
 
-	/* wait until IPC done */
-	ret = scp_send_msg_to_queue(core_id + AUDIO_OPENDSP_USE_HIFI3_A,
-				    id, buf, len, wait_ms);
+	if (is_scp_ipi_queue_init(queue_id))
+		ret = scp_send_msg_to_queue(queue_id, id, buf, len, wait_ms);
+	else
+		ret = adsp_send_message(id, buf, len, wait, core_id);
 
 	return (ret == 0) ? ADSP_IPI_DONE : ADSP_IPI_ERROR;
 }
@@ -165,6 +167,73 @@ void switch_adsp_power(bool on)
 		adsp_disable_clock();
 	}
 }
+
+void adsp_sram_restore_snapshot(struct adsp_priv *pdata)
+{
+	if (!pdata->itcm || !pdata->itcm_snapshot || !pdata->itcm_size ||
+	    !pdata->dtcm || !pdata->dtcm_snapshot || !pdata->dtcm_size)
+		return;
+
+	memcpy_toio(pdata->itcm, pdata->itcm_snapshot, pdata->itcm_size);
+	memcpy_toio(pdata->dtcm, pdata->dtcm_snapshot, pdata->dtcm_size);
+}
+
+void adsp_sram_provide_snapshot(struct adsp_priv *pdata)
+{
+	if (!pdata->itcm || !pdata->dtcm)
+		return;
+
+	if (!pdata->itcm_snapshot)
+		pdata->itcm_snapshot = vmalloc(pdata->itcm_size);
+
+	if (!pdata->dtcm_snapshot)
+		pdata->dtcm_snapshot = vmalloc(pdata->dtcm_size);
+
+	memcpy_fromio(pdata->itcm_snapshot, pdata->itcm, pdata->itcm_size);
+	memcpy_fromio(pdata->dtcm_snapshot, pdata->dtcm, pdata->dtcm_size);
+}
+
+int adsp_reset(void)
+{
+	int ret = 0, cid = 0;
+	struct adsp_priv *pdata;
+
+	switch_adsp_power(true);
+
+	/* clear adsp cfg */
+	adsp_mt_clear();
+
+	/* restore tcm to initial state */
+	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
+		pdata = adsp_cores[cid];
+		adsp_sram_restore_snapshot(pdata);
+	}
+
+	/* restart adsp */
+	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
+		pdata = adsp_cores[cid];
+
+		adsp_mt_sw_reset(cid);
+		reinit_completion(&pdata->done);
+
+		adsp_mt_run(cid);
+
+		ret = wait_for_completion_timeout(&pdata->done,
+					    msecs_to_jiffies(1000));
+
+		if (unlikely(ret == 0)) {
+			pr_warn("%s, core %d reset timeout\n", __func__, cid);
+			ret = -ETIME;
+			goto ERROR;
+		}
+	}
+
+	pr_info("[ADSP] reset adsp done\n");
+ERROR:
+	switch_adsp_power(false);
+	return ret;
+}
+
 
 static void adsp_ready_ipi_handler(int id, void *data, unsigned int len)
 {
@@ -238,6 +307,7 @@ static int __init adsp_module_init(void)
 			goto ERROR;
 		}
 
+		adsp_sram_provide_snapshot(pdata);
 		adsp_mt_run(cid);
 
 		ret = wait_for_completion_timeout(&pdata->done,

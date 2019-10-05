@@ -9,6 +9,7 @@
 #include <linux/of_reserved_mem.h>
 #endif
 #include "adsp_reserved_mem.h"
+#include "adsp_platform.h"
 #include "adsp_core.h"
 
 #define ADSP_RESERVE_MEMORY_BLOCK(xsize) {.phys_addr = 0x0, .virt_addr = NULL, \

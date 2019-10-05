@@ -55,10 +55,12 @@ void adsp_mt_sw_reset(int cid);
 void adsp_mt_run(int cid);
 void adsp_mt_stop(int cid);
 void adsp_mt_clear(void);
-void adsp_mt_clr_spm(void);
+void adsp_mt_clr_spm(int cid);
+void adsp_mt_disable_wdt(int cid);
 
 bool check_hifi_status(int mask);
-void switch_adsp_clk_cg(bool en, int mask);
+u32 switch_adsp_clk_ctrl_cg(bool en, int mask);
+u32 switch_adsp_uart_ctrl_cg(bool en, int mask);
 void adsp_platform_init(void *base);
 
 #endif

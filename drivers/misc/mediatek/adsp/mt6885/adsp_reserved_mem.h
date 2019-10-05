@@ -6,8 +6,6 @@
 #ifndef __ADSP_RESERVEDMEM_DEFINE_H__
 #define __ADSP_RESERVEDMEM_DEFINE_H__
 
-#include "adsp_platform_driver.h"
-
 /* adsp reserve memory ID definition*/
 enum adsp_reserve_mem_id_t {
 	ADSP_IPI_DMA_MEM_ID,
@@ -37,6 +35,8 @@ struct adsp_mpu_info_t {
 	u32 share_dram_addr;
 	u32 share_dram_size;
 };
+
+struct adsp_priv;
 
 /* Reserved Memory Method */
 phys_addr_t adsp_get_reserve_mem_phys(enum adsp_reserve_mem_id_t id);

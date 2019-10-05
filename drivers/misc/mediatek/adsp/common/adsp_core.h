@@ -33,6 +33,7 @@ int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst,
 			int count);
 
 void switch_adsp_power(bool on);
+int adsp_reset(void);
 
 /* semaphore */
 int get_adsp_semaphore(unsigned int flags);
