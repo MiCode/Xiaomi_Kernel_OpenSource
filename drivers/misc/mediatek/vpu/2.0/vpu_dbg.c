@@ -32,6 +32,7 @@
 
 /* global variables */
 int g_vpu_log_level = 1;
+int g_vpu_internal_log_level;
 unsigned int g_func_mask;
 
 #ifdef MTK_VPU_DVT
@@ -586,6 +587,27 @@ static int vpu_log_level_get(void *data, u64 *val)
 
 DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_log_level_fops, vpu_log_level_get,
 				vpu_log_level_set, "%llu\n");
+
+static int vpu_internal_log_level_set(void *data, u64 val)
+{
+	g_vpu_internal_log_level = val;
+	LOG_INF("g_vpu_internal_log_level: %d\n", g_vpu_internal_log_level);
+
+	return 0;
+}
+
+static int vpu_internal_log_level_get(void *data, u64 *val)
+{
+	*val = g_vpu_internal_log_level;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_internal_log_level_fops,
+	vpu_internal_log_level_get,
+	vpu_internal_log_level_set,
+	"%llu\n");
+
 
 static int vpu_func_mask_set(void *data, u64 val)
 {

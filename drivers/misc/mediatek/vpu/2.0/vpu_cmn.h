@@ -19,8 +19,8 @@
 #include <linux/interrupt.h>
 #include "vpu_drv.h"
 
-#define VPU_MET_READY
-#define VPU_PORT_OF_IOMMU M4U_PORT_VPU
+/* #define VPU_MET_READY */
+#define VPU_PORT_OF_IOMMU M4U_PORT_VPU1
 
 /* Common Structure */
 struct vpu_device {
@@ -492,10 +492,12 @@ int vpu_init_profile(int core, struct vpu_device *vpu_dev);
 int vpu_uninit_profile(void);
 int vpu_profile_state_set(int core, int val);
 int vpu_profile_state_get(void);
-void vpu_met_event_enter(int core, int algo_id, int vcore_opp,
-	int dsp_freq, int ipu_if_freq, int dsp1_freq, int dsp2_freq);
+void vpu_met_event_enter(int core, int algo_id, int dsp_freq);
 void vpu_met_event_leave(int core, int algo_id);
-
+void vpu_met_packet(long long wclk, char action, int core, int pid,
+	int sessid, char *str_desc, int val);
+void vpu_met_event_dvfs(int vcore_opp,
+	int dsp_freq, int ipu_if_freq, int dsp1_freq, int dsp2_freq);
 
 /* LOG & AEE */
 #define VPU_TAG "[vpu]"
@@ -561,9 +563,18 @@ static unsigned long __read_mostly vpu_tracing_writer;
 	event_trace_printk(vpu_tracing_writer, "E\n"); \
 	preempt_enable(); \
 }
+
+#define vpu_trace_dump(format, args...) \
+	{ \
+		preempt_disable(); \
+		event_trace_printk(vpu_tracing_writer, \
+			"MET_DUMP|" format "\n", ##args); \
+		preempt_enable(); \
+	}
 #else
 #define vpu_trace_begin(...)
 #define vpu_trace_end()
+#define vpu_trace_dump(...)
 #endif
 
 #endif
