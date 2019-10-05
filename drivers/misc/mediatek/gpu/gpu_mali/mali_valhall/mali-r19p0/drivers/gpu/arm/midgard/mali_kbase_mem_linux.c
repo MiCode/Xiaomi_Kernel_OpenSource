@@ -68,11 +68,6 @@
 #define KBASE_MEM_ION_SYNC_WORKAROUND
 #endif
 
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-#include <mtk/ion_drv.h>
-#include <mtk/mtk_ion.h>
-#include <ion.h>
-#endif
 
 static int kbase_vmap_phy_pages(struct kbase_context *kctx,
 		struct kbase_va_region *reg, u64 offset_bytes, size_t size,
@@ -1339,13 +1334,20 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 	if ((client == NULL) && (g_ion_device))
 		client = ion_client_create(g_ion_device, "mali_kbase");
 
-	if (client == NULL)
+	if (client == NULL) {
 		dev_warn(kctx->kbdev->dev, "invalid ion client!\n");
+		goto skip_ion_buf_config;
+	}
 
 	handle = ion_import_dma_buf_fd(client, fd);
 
-	if (IS_ERR(handle))
+	if (IS_ERR(handle)) {
+		ion_client_destroy(client);
+		client = NULL;
+
 		dev_warn(kctx->kbdev->dev, "import ion handle failed!\n");
+		goto skip_ion_buf_config;
+	}
 
 	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
 	mm_data.config_buffer_param.kernel_handle = handle;
@@ -1357,10 +1359,20 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 		ION_CMD_MULTIMEDIA,
 		(unsigned long)&mm_data);
 
-	if (err)
+	if (err) {
+		ion_free(client, handle);
+		ion_client_destroy(client);
+		handle = NULL;
+		client = NULL;
+
 		dev_warn(kctx->kbdev->dev,
 			"fail to config ion buffer, err=%d\n",
 			err);
+		goto skip_ion_buf_config;
+	}
+
+/* If not ion_buf, then skip it. */
+skip_ion_buf_config:
 #endif
 
 	dma_buf = dma_buf_get(fd);
@@ -1452,6 +1464,12 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 	reg->gpu_alloc->imported.umm.dma_buf = dma_buf;
 	reg->gpu_alloc->imported.umm.dma_attachment = dma_attachment;
 	reg->gpu_alloc->imported.umm.current_mapping_usage_count = 0;
+
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	reg->gpu_alloc->imported.umm.ion_client = client;
+	reg->gpu_alloc->imported.umm.ion_handle = handle;
+#endif
+
 	reg->extent = 0;
 
 	if (!IS_ENABLED(CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND)) {
