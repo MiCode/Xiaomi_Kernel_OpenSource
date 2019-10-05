@@ -917,35 +917,51 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 			dbg_stat->enable_ut ? "enable" : "disable");
 		return count;
 
+	} else if (!strncmp(cmd_str, "devapc_ut", sizeof("devapc_ut"))) {
+		if (dbg_stat->enable_ut)
+			devapc_ut(param);
+		else
+			pr_info(PFX "devapc_ut is not enabled\n");
+
+		return count;
+
 	} else if (!strncmp(cmd_str, "enable_KE", sizeof("enable_KE"))) {
-		dbg_stat->enable_KE = (param != 0);
-		pr_info(PFX "debapc_dbg_stat->enable_KE = %s\n",
-			dbg_stat->enable_KE ? "enable" : "disable");
+		if (dbg_stat->enable_ut) {
+			dbg_stat->enable_KE = (param != 0);
+			pr_info(PFX "debapc_dbg_stat->enable_KE = %s\n",
+					dbg_stat->enable_KE ?
+					"enable" : "disable");
+		} else
+			pr_info(PFX "devapc_ut is not enabled\n");
+
 		return count;
 
 	} else if (!strncmp(cmd_str, "enable_AEE", sizeof("enable_AEE"))) {
-		dbg_stat->enable_AEE = (param != 0);
-		pr_info(PFX "debapc_dbg_stat->enable_AEE = %s\n",
-			dbg_stat->enable_AEE ? "enable" : "disable");
+		if (dbg_stat->enable_ut) {
+			dbg_stat->enable_AEE = (param != 0);
+			pr_info(PFX "debapc_dbg_stat->enable_AEE = %s\n",
+					dbg_stat->enable_AEE ?
+					"enable" : "disable");
+		} else
+			pr_info(PFX "devapc_ut is not enabled\n");
+
 		return count;
 
 	} else if (!strncmp(cmd_str, "enable_WARN", sizeof("enable_WARN"))) {
-		dbg_stat->enable_WARN = (param != 0);
-		pr_info(PFX "debapc_dbg_stat->enable_WARN = %s\n",
-			dbg_stat->enable_WARN ? "enable" : "disable");
+		if (dbg_stat->enable_ut) {
+			dbg_stat->enable_WARN = (param != 0);
+			pr_info(PFX "debapc_dbg_stat->enable_WARN = %s\n",
+					dbg_stat->enable_WARN ?
+					"enable" : "disable");
+		} else
+			pr_info(PFX "devapc_ut is not enabled\n");
+
 		return count;
 
 	} else if (!strncmp(cmd_str, "enable_dapc", sizeof("enable_dapc"))) {
 		dbg_stat->enable_dapc = (param != 0);
 		pr_info(PFX "debapc_dbg_stat->enable_dapc = %s\n",
 			dbg_stat->enable_dapc ? "enable" : "disable");
-		return count;
-
-	} else if (!strncmp(cmd_str, "devapc_ut", sizeof("devapc_ut"))) {
-		if (dbg_stat->enable_ut)
-			devapc_ut(param);
-		else
-			pr_info(PFX "devapc_ut is not enabled\n");
 
 		return count;
 
