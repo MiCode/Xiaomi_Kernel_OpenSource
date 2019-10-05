@@ -1,4 +1,6 @@
+ifeq ($(cc-name),clang)
 ccflags-y += -Wno-error=self-assign
+endif
 obj-$(CONFIG_PHY_TEGRA_XUSB) += phy-tegra-xusb.o
 
 phy-tegra-xusb-y += xusb.o
