@@ -4856,17 +4856,17 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 
 	if (handle->profile_exec) {
 		u32 *va = cmdq_pkt_get_perf_ret(handle->pkt);
-		u32 exec;
+		u64 exec;
 
 		if (va[1] > va[0])
 			exec = 0xffffffff - va[0] + va[1];
 		else
 			exec = va[1] - va[0];
 
-		exec = CMDQ_TICK_TO_NS(exec) / 1000;
+		exec = (u32)CMDQ_TICK_TO_US(exec);
 
 		CMDQ_LOG(
-			"task profile thread:%d handle:0x%p execute time:%uus begin:%u end:%u\n",
+			"task profile thread:%d handle:0x%p execute time:%lluus begin:%u end:%u\n",
 			handle->thread, handle, exec, va[0], va[1]);
 
 		CMDQ_PROF_MMP(cmdq_mmp_get_event()->task_exec,
