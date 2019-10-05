@@ -3,6 +3,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach
 ccflags-y += -I$(srctree)/drivers/iommu/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(MTK_PLATFORM)
 
 
 ccflags-y += -I$(obj)/../$(MTK_PLATFORM)

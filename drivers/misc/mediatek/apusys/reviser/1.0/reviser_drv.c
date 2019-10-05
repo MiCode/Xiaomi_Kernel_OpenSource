@@ -30,7 +30,7 @@
 #include "reviser_hw.h"
 #include "reviser_dbg.h"
 #include "reviser_mem_mgt.h"
-
+#include "apusys_power.h"
 
 /* define */
 #define APUSYS_DRV_NAME "apusys_drv_reviser"
@@ -675,6 +675,11 @@ static int __init reviser_init(void)
 
 
 	DEBUG_TAG;
+
+	if (!apusys_power_check()) {
+		LOG_ERR("reviser is disabled by apusys\n");
+		return -ENODEV;
+	}
 
 	if (platform_driver_register(&reviser_driver)) {
 		LOG_ERR("failed to register APUSYS driver");
