@@ -30,6 +30,9 @@
 #include <linux/pci.h>
 #include <linux/scatterlist.h>
 #include <linux/vmalloc.h>
+#ifdef CONFIG_MTK_IOMMU_V2
+#include "mtk_iommu_ext.h"
+#endif
 
 #define IOMMU_MAPPING_ERROR	0
 
@@ -369,6 +372,7 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 	struct iommu_dma_cookie *cookie = domain->iova_cookie;
 	struct iova_domain *iovad = &cookie->iovad;
 	unsigned long shift, iova_len, iova = 0;
+	bool size_align = true;
 
 	if (cookie->type == IOMMU_DMA_MSI_COOKIE) {
 		cookie->msi_iova += size;
@@ -396,17 +400,28 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 		 * and the size limit is totally decided by the
 		 * limit_pfn send from user.
 		 */
-		WARN_ON(dma_limit != domain->geometry.aperture_end);
+		WARN_ON(dma_limit <= domain->geometry.aperture_start);
 #endif
 	}
 
 	/* Try to get PCI devices a SAC address */
+#ifdef CONFIG_MTK_IOMMU_V2
+	size_align = mtk_dev_is_size_alignment(dev);
+
+	if (dma_limit > DMA_BIT_MASK(32) && dev_is_pci(dev))
+		iova = alloc_iova_fast(iovad, iova_len,
+				DMA_BIT_MASK(32) >> shift, size_align);
+
+	if (!iova)
+		iova = alloc_iova_fast(iovad, iova_len,
+				dma_limit >> shift, size_align);
+#else
 	if (dma_limit > DMA_BIT_MASK(32) && dev_is_pci(dev))
 		iova = alloc_iova_fast(iovad, iova_len, DMA_BIT_MASK(32) >> shift);
 
 	if (!iova)
 		iova = alloc_iova_fast(iovad, iova_len, dma_limit >> shift);
-
+#endif
 	return (dma_addr_t)iova << shift;
 }
 
@@ -981,18 +996,43 @@ void iommu_dma_map_msi_msg(int irq, struct msi_msg *msg)
 }
 
 #ifdef CONFIG_MTK_IOMMU_V2
-void iommu_dma_dump_iova(void *domain, unsigned long iova)
+void iommu_dma_dump_iova(void *domain, unsigned long start,
+	unsigned long end, unsigned long size)
 {
-	phys_addr_t pa;
+	phys_addr_t p_start, p_end;
+	struct iommu_dma_cookie *cookie =
+			((struct iommu_domain *)domain)->iova_cookie;
+	struct iova_domain *iovad = &cookie->iovad;
 
-	pa = iommu_iova_to_phys((struct iommu_domain *)domain, iova);
-	pr_notice("    iova:0x%lx, pa:0x%lx\n", iova, pa);
+	p_start = iommu_iova_to_phys((struct iommu_domain *)domain, start);
+	p_end = iommu_iova_to_phys((struct iommu_domain *)domain, end);
+
+	// free_iova_fast() did not remove the RB node of small size
+	if (!p_start && !p_end &&
+	    (order_base_2(size >> iova_shift(iovad)) <
+	    IOVA_RANGE_CACHE_MAX_SIZE))
+		return;
+	// the reserved region will not be managed in current domain
+	else if (!p_start)
+		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%lx/0x%lx, size:0x%lx (reserved region, check the other domain?)\n",
+		  start, end, p_start, p_end, size);
+	else if (!p_end)
+		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%lx/0x%lx, size:0x%lx (size not aligned, check IOVA list)\n",
+		  start, end, p_start, p_end, size);
+	else
+		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%lx/0x%lx, size:0x%lx\n",
+			  start, end, p_start, p_end, size);
 }
 
 void iommu_dma_dump_iovad(struct iommu_domain *domain)
 {
 	struct iommu_dma_cookie *cookie = domain->iova_cookie;
 	struct iova_domain *iovad = &cookie->iovad;
+	unsigned long base = iovad->start_pfn << iova_shift(iovad);
+	unsigned long max = domain->geometry.aperture_end;
+
+	pr_notice("(0x%lx, 0x%lx) size:0x%lx\n",
+		  base, max, max - base + 1);
 
 	iovad_scan_reserved_iova((void *)domain, iovad,
 		iommu_dma_dump_iova);
@@ -1006,8 +1046,8 @@ int iommu_dma_get_iovad_info(struct device *dev,
 	struct iommu_dma_cookie *cookie = domain->iova_cookie;
 	struct iova_domain *iovad = &cookie->iovad;
 
-	*base = iovad->start_pfn >> iova_shift(iovad);
-	*max = iovad->dma_32bit_pfn >> iova_shift(iovad);
+	*base = iovad->start_pfn << iova_shift(iovad);
+	*max = domain->geometry.aperture_end;
 
 	return 0;
 }

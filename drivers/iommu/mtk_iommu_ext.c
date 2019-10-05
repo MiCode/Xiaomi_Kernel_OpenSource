@@ -30,8 +30,8 @@
 #define mmu_translation_log_format \
 	"\nCRDISPATCH_KEY:M4U_%s\ntranslation fault:port=%s,mva=0x%x,pa=0x%x\n"
 
-#define ERROR_LARB_PORT_ID 0xFF
 
+#define ERROR_LARB_PORT_ID M4U_PORT_NR
 
 #define IOMMU_MAX_EVENT_COUNT 1024
 struct dentry *iomu_dbgfs;
@@ -85,7 +85,7 @@ int mtk_iommu_get_larb_port(unsigned int tf_id, unsigned int m4uid,
 	if (m4uid >= APU_IOMMU_INDEX) {
 		*larb = MTK_IOMMU_TO_LARB(M4U_PORT_APU);
 		*port = MTK_IOMMU_TO_PORT(M4U_PORT_APU);
-		return 0;
+		return M4U_PORT_APU;
 	}
 #endif
 
@@ -98,7 +98,7 @@ int mtk_iommu_get_larb_port(unsigned int tf_id, unsigned int m4uid,
 	*larb = iommu_port[idx].larb_id;
 	*port = iommu_port[idx].larb_port;
 
-	return 0;
+	return MTK_M4U_ID(*larb, *port);
 }
 
 char *mtk_iommu_get_mm_port_name(unsigned int tf_id)
@@ -174,7 +174,7 @@ bool report_custom_iommu_fault(
 		name = mtk_iommu_get_vpu_port_name(fault_id);
 	} else {
 		idx = mtk_iommu_get_tf_larb_port_idx(fault_id);
-		if (idx >= M4U_PORT_NR) {
+		if (idx == ERROR_LARB_PORT_ID) {
 			pr_info("[MTK_IOMMU] fail,iova 0x%x, port %d\n",
 				fault_iova, fault_id);
 			return false;
@@ -208,7 +208,7 @@ int mtk_iommu_register_fault_callback(int port,
 {
 	int idx = mtk_iommu_larb_port_idx(port);
 
-	if (idx >= (M4U_PORT_NR + 1)) {
+	if (idx >= M4U_PORT_UNKNOWN) {
 		pr_info("[MTK_IOMMU] %s fail, port=%d\n", __func__, port);
 		return -1;
 	}
@@ -221,7 +221,7 @@ int mtk_iommu_unregister_fault_callback(int port)
 {
 	int idx = mtk_iommu_larb_port_idx(port);
 
-	if (idx >= (M4U_PORT_NR + 1)) {
+	if (idx >= M4U_PORT_UNKNOWN) {
 		pr_info("[MTK_IOMMU] %s fail, port=%d\n", __func__, port);
 		return -1;
 	}
@@ -234,7 +234,7 @@ int mtk_iommu_enable_tf(int port, bool fgenable)
 {
 	int idx = mtk_iommu_larb_port_idx(port);
 
-	if (idx >= (M4U_PORT_NR + 1)) {
+	if (idx >= M4U_PORT_UNKNOWN) {
 		pr_info("[MTK_IOMMU] %s fail, port=%d\n", __func__, port);
 		return -1;
 	}
@@ -560,4 +560,12 @@ unsigned int mtk_get_iommu_index(unsigned int larb)
 	pr_notice("[MTK_IOMMU] do not find index for larb %d\n", larb);
 
 	return (unsigned int)-1;
+}
+
+unsigned int mtk_iommu_get_larb_port_count(unsigned int larb)
+{
+	if (larb >= MTK_IOMMU_LARB_NR)
+		return 0;
+
+	return mtk_iommu_larb_port_count[larb];
 }
