@@ -314,33 +314,30 @@ enum ISP_WRDMA_ENUM {
 	_dma_cq0i_    = 0,        /* SW trigger */
 	_dma_cq0i_vir,
 	_dma_cq1i_,               /* run after p1_done */
-	_dma_cq2i_,               /* rrzo              */
-	_dma_cq3i_,               /* imgo              */
-	_dma_cq4i_,        /*5*/  /* aao               */
-	_dma_cq5i_,               /* afo               */
-	_dma_cq6i_,               /* lceso             */
-	_dma_cq7i_,               /* pdo               */
-	_dma_cq8i_,               /* flko              */
-	_dma_cq9i_,        /*10*/ /* lmvo              */
-	_dma_cq10i_,              /* rsso              */
-	_dma_cq11i_,              /* yuvo              */
-	_dma_cq12i_,              /* tsfso             */
-	_dma_cq13i_,              /* ufeo              */
-	_dma_cq14i_,       /*15*/ /* ufgo              */
-	_dma_cq15i_,              /* ltmso             */
-	_dma_cq16i_,              /* yuvbo             */
-	_dma_cq17i_,              /* yuvco             */
-	_dma_cq18i_,              /* no use            */
-	_dma_cq19i_,       /*20*/ /* no use            */
-	_dma_cq20i_,              /* no use            */
-	_dma_cq21i_,              /* no use            */
-	_dma_cq22i_,              /* no use            */
-	_dma_cq23i_,              /* crzo              */
-	_dma_cq24i_,       /*25*/ /* crzbo             */
-	_dma_cq25i_,              /* crzo_r2           */
-	_dma_cq26i_,              /* crzbo_r2          */
-	_dma_cq27i_,              /* rsso_r2           */
-	_dma_cq28i_,              /* TG N3D            */
+	_dma_cq2i_,               /* imgo              */
+	_dma_cq3i_,               /* ufeo              */
+	_dma_cq4i_,        /*5*/  /* rrzo              */
+	_dma_cq5i_,               /* ufgo              */
+	_dma_cq6i_,               /* yuvo              */
+	_dma_cq7i_,               /* yuvbo             */
+	_dma_cq8i_,               /* yuvco             */
+	_dma_cq9i_,        /*10*/ /* tsfso             */
+	_dma_cq10i_,              /* aao               */
+	_dma_cq11i_,              /* aaho              */
+	_dma_cq12i_,              /* afo               */
+	_dma_cq13i_,              /* pdo               */
+	_dma_cq14i_,       /*15*/ /* flko              */
+	_dma_cq15i_,              /* lceso             */
+	_dma_cq16i_,              /* lcehso            */
+	_dma_cq17i_,              /* ltmso             */
+	_dma_cq18i_,              /* lmvo              */
+	_dma_cq19i_,       /*20*/ /* rsso              */
+	_dma_cq20i_,              /* rsso_r2           */
+	_dma_cq21i_,              /* crzo              */
+	_dma_cq22i_,              /* crzbo             */
+	_dma_cq23i_,              /* crzo_r2           */
+	_dma_cq24i_,       /*25*/ /* reserve           */
+
 	/* dmai */
 	_dma_rawi_r2_,     /*30*/
 	_dma_bpci_,
@@ -390,6 +387,7 @@ enum ISP_WRDMA_ENUM {
 	_dma_yuvco_fh_,
 	_dma_aaho_,
 	_dma_aaho_fh_,	   /*75*/
+	_dma_bpci_r3_,
 
 	/* dmao_2 */
 	_dma_crzo_r2_fh_,
