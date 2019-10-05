@@ -29,7 +29,8 @@ struct scp_ipi_wrapper {
 	uint8_t in_id_1;
 	uint32_t out_size;
 	uint32_t in_size;
-	void *msg;
+	void *msg_0;
+	void *msg_1;
 };
 
 extern enum scp_ipi_status scp_ipi_registration(enum ipi_id id,
@@ -38,5 +39,6 @@ extern enum scp_ipi_status scp_ipi_registration(enum ipi_id id,
 extern enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 	unsigned int len, unsigned int wait, enum scp_core_id scp_id);
 extern enum scp_ipi_status scp_ipi_unregistration(enum ipi_id id);
+extern enum scp_ipi_status scp_legacy_ipi_init(void);
 
 #endif

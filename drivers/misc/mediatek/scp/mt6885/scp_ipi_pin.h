@@ -24,6 +24,12 @@ enum scp_core_id {
 	SCP_CORE_TOTAL = 1,
 };
 
+/* this is only for ipi to distinguish core0 and core1 */
+enum {
+	SCP_CORE0_ID = 0,
+	SCP_CORE1_ID = 1,
+};
+
 enum {
 /* core0 */
 	/* the following will use mbox0 */
@@ -41,26 +47,32 @@ enum {
 	IPI_IN_SCP_ERROR_INFO_0	   = 10,
 	IPI_IN_SCP_READY_0	   = 11,
 	IPI_IN_SCP_RAM_DUMP_0	   = 12,
+	/* the following will use mbox2 */
+	IPI_OUT_SCP_MPOOL_0	   = 13,
+	IPI_IN_SCP_MPOOL_0	   = 14,
 
 /* core1 */
 	/* the following will use mbox3 */
-	IPI_OUT_AUDIO_VOW_1	   = 13,
-	IPI_OUT_AUDIO_ULTRA_SND_1  = 14,
-	IPI_OUT_DVFS_SLEEP_1	   = 15,
-	IPI_OUT_DVFS_SET_FREQ_1	   = 16,
-	IPI_OUT_TEST_1		   = 17,
-	IPI_OUT_LOGGER_ENABLE_1    = 18,
-	IPI_OUT_LOGGER_WAKEUP_1    = 19,
-	IPI_OUT_LOGGER_INIT_1	   = 20,
-	IPI_OUT_SCPCTL_1	   = 21,
-	IPI_OUT_SCP_LOG_FILTER_1   = 22,
-	IPI_IN_AUDIO_VOW_1	   = 23,
-	IPI_IN_AUDIO_ULTRA_SND_1   = 24,
-	IPI_IN_SCP_ERROR_INFO_1	   = 25,
-	IPI_IN_LOGGER_WAKEUP_1	   = 26,
-	IPI_IN_LOGGER_INIT_1	   = 27,
-	IPI_IN_SCP_READY_1	   = 28,
-	IPI_IN_SCP_RAM_DUMP_1	   = 29,
+	IPI_OUT_AUDIO_VOW_1	   = 15,
+	IPI_OUT_AUDIO_ULTRA_SND_1  = 16,
+	IPI_OUT_DVFS_SLEEP_1	   = 17,
+	IPI_OUT_DVFS_SET_FREQ_1	   = 18,
+	IPI_OUT_TEST_1		   = 19,
+	IPI_OUT_LOGGER_ENABLE_1    = 20,
+	IPI_OUT_LOGGER_WAKEUP_1    = 21,
+	IPI_OUT_LOGGER_INIT_1	   = 22,
+	IPI_OUT_SCPCTL_1	   = 23,
+	IPI_OUT_SCP_LOG_FILTER_1   = 24,
+	IPI_IN_AUDIO_VOW_1	   = 25,
+	IPI_IN_AUDIO_ULTRA_SND_1   = 26,
+	IPI_IN_SCP_ERROR_INFO_1	   = 27,
+	IPI_IN_LOGGER_WAKEUP_1	   = 28,
+	IPI_IN_LOGGER_INIT_1	   = 29,
+	IPI_IN_SCP_READY_1	   = 30,
+	IPI_IN_SCP_RAM_DUMP_1	   = 31,
+	/* the following will use mbox4 */
+	IPI_OUT_SCP_MPOOL_1	   = 32,
+	IPI_IN_SCP_MPOOL_1	   = 33,
 	SCP_IPI_COUNT
 };
 

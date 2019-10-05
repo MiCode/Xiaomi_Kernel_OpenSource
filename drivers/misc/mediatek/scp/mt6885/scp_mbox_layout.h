@@ -56,5 +56,10 @@
 #define PIN_IN_SIZE_LOGGER_INIT_1	 5 /* the following will use mbox 3 */
 #define PIN_IN_SIZE_SCP_READY_1		 1 /* the following will use mbox 3 */
 #define PIN_IN_SIZE_SCP_RAM_DUMP_1	 2 /* the following will use mbox 3 */
+/* ============================================================ */
+
+/* this is mbox pool for 2 cores */
+#define PIN_OUT_SIZE_SCP_MPOOL		32 /* the following will use mbox 2,4 */
+#define PIN_IN_SIZE_SCP_MPOOL		32 /* the following will use mbox 2,4 */
 
 #endif

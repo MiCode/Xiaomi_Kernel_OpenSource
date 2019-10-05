@@ -13,12 +13,10 @@
 
 #include "scp_ipi.h"
 
-#define SCP_IPI_LEGACY_OUT_VAR(id) ((1 << id) & SCP_OUT_WRAPPER_VAR)
-#define SCP_IPI_LEGACY_IN_VAR(id) ((1 << id) & SCP_IN_WRAPPER_VAR)
-
-
+struct scp_ipi_desc mpool[SCP_NR_IPI - IPI_MPOOL - 1];
 static struct scp_ipi_wrapper scp_ipi_legacy_id[] = SCP_IPI_LEGACY_GROUP;
 struct scp_ipi_legacy_pkt {
+	unsigned int id;
 	unsigned int len;
 	void *data;
 };
@@ -35,16 +33,16 @@ static void scp_legacy_handler(int id, void *prdata, void *data,
 	/* variation length will only support chre, chrex and sensor for
 	 * reducing slot and cpu time cost by memcpy.
 	 */
-	if (SCP_IPI_LEGACY_IN_VAR(id)) {
-		pkt.len = *(unsigned int *)data;
-		pkt.data = (void *)(data + 4);
-	} else {
-		pkt.len = len;
-		pkt.data = data;
-	}
+	pkt.id = *(unsigned int *)data;
+	pkt.len = *(unsigned int *)(data + 4);
+	pkt.data = (void *)(data + 8);
 
-	handler = prdata;
-	handler(id, pkt.data, pkt.len);
+	if (pkt.id > IPI_MPOOL)
+		handler = mpool[pkt.id - IPI_MPOOL - 1].handler;
+	else
+		handler = prdata;
+
+	handler(pkt.id, pkt.data, pkt.len);
 }
 
 /*
@@ -59,18 +57,22 @@ enum scp_ipi_status scp_ipi_registration(enum ipi_id id,
 {
 	int ret;
 
-	if (id >= SCP_NR_IPI)
+	if (id >= SCP_NR_IPI || id == IPI_MPOOL)
 		return SCP_IPI_ERROR;
 
 	if (ipi_handler == NULL)
 		return SCP_IPI_ERROR;
 
+	if (id > IPI_MPOOL) {
+		mpool[id - IPI_MPOOL - 1].handler = ipi_handler;
+		return SCP_IPI_DONE;
+	}
 
 	if (scp_ipi_legacy_id[id].in_id_0 != 0) {
 		ret =
 		    mtk_ipi_register(&scp_ipidev, scp_ipi_legacy_id[id].in_id_0,
 				    (void *)scp_legacy_handler, ipi_handler,
-				    &scp_ipi_legacy_id[id].msg);
+				    &scp_ipi_legacy_id[id].msg_0);
 
 		if (ret != IPI_ACTION_DONE)
 			return SCP_IPI_ERROR;
@@ -80,7 +82,7 @@ enum scp_ipi_status scp_ipi_registration(enum ipi_id id,
 		ret =
 		    mtk_ipi_register(&scp_ipidev, scp_ipi_legacy_id[id].in_id_1,
 				    (void *)scp_legacy_handler, ipi_handler,
-				    &scp_ipi_legacy_id[id].msg);
+				    &scp_ipi_legacy_id[id].msg_1);
 
 		if (ret != IPI_ACTION_DONE)
 			return SCP_IPI_ERROR;
@@ -98,8 +100,14 @@ enum scp_ipi_status scp_ipi_unregistration(enum ipi_id id)
 {
 	int ret;
 
-	if (id >= SCP_NR_IPI)
+	if (id >= SCP_NR_IPI || id == IPI_MPOOL)
 		return SCP_IPI_ERROR;
+
+	if (id > IPI_MPOOL) {
+		/* if ipi id belongs to mbox pool, remove handler only */
+		mpool[id - IPI_MPOOL - 1].handler = NULL;
+		return SCP_IPI_DONE;
+	}
 
 	if (scp_ipi_legacy_id[id].in_id_0 != 0) {
 		ret = mtk_ipi_unregister(&scp_ipidev,
@@ -132,21 +140,20 @@ EXPORT_SYMBOL_GPL(scp_ipi_unregistration);
 enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 	unsigned int  len, unsigned int wait, enum scp_core_id scp_id)
 {
-	int ret = 0;
-	char pkt[scp_ipi_legacy_id[id].out_size * MBOX_SLOT_SIZE];
+	/* declare pkt with a mbox maximum size for re-structing data */
+	char pkt[256];
+	int ret = 0, tmp_id;
 	void *ptr;
-	unsigned int mbox_len;
 
-	if (id >= SCP_NR_IPI)
+	if (id >= SCP_NR_IPI || id == IPI_MPOOL)
 		return SCP_IPI_ERROR;
 
-	if (SCP_IPI_LEGACY_OUT_VAR(id))
-		mbox_len =
-			(scp_ipi_legacy_id[id].out_size - 1) * MBOX_SLOT_SIZE;
+	if (id > IPI_MPOOL)
+		tmp_id = IPI_MPOOL;
 	else
-		mbox_len = scp_ipi_legacy_id[id].out_size * MBOX_SLOT_SIZE;
+		tmp_id = id;
 
-	if (len > mbox_len) {
+	if (len > (scp_ipi_legacy_id[tmp_id].out_size - 2) * MBOX_SLOT_SIZE) {
 		pr_err("%s: len overflow\n", __func__);
 		return SCP_IPI_ERROR;
 	}
@@ -154,27 +161,26 @@ enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 	/* variation length will only support chre and sensor for reducing slot
 	 * and cpu time cost by memcpy.
 	 */
-	if (SCP_IPI_LEGACY_OUT_VAR(id)) {
-		memcpy((void *)pkt, (void *)&len, sizeof(uint32_t));
-		memcpy((void *)(pkt + 4), buf, len);
-		ptr = pkt;
-	} else
-		ptr = buf;
+	memcpy((void *)pkt, (void *)&id, sizeof(uint32_t));
+	memcpy((void *)(pkt + 4), (void *)&len, sizeof(uint32_t));
+	memcpy((void *)(pkt + 8), buf, len);
+	ptr = pkt;
 
-
-	if (scp_ipi_legacy_id[id].out_id_0 != 0) {
-		ret = mtk_ipi_send(&scp_ipidev, scp_ipi_legacy_id[id].out_id_0,
-				   0, ptr, scp_ipi_legacy_id[id].out_size,
-				   wait * SCP_IPI_LEGACY_WAIT);
+	if (scp_ipi_legacy_id[tmp_id].out_id_0 != 0 && scp_id == SCP_CORE0_ID) {
+		ret =
+		   mtk_ipi_send(&scp_ipidev, scp_ipi_legacy_id[tmp_id].out_id_0,
+				0, ptr, scp_ipi_legacy_id[tmp_id].out_size,
+				wait * SCP_IPI_LEGACY_WAIT);
 
 		if (ret == IPI_ACTION_DONE)
 			return SCP_IPI_DONE;
 	}
 
-	if (scp_ipi_legacy_id[id].out_id_1 != 0) {
-		ret = mtk_ipi_send(&scp_ipidev, scp_ipi_legacy_id[id].out_id_1,
-				   0, ptr, scp_ipi_legacy_id[id].out_size,
-				   wait * SCP_IPI_LEGACY_WAIT);
+	if (scp_ipi_legacy_id[tmp_id].out_id_1 != 0 && scp_id == SCP_CORE1_ID) {
+		ret =
+		   mtk_ipi_send(&scp_ipidev, scp_ipi_legacy_id[tmp_id].out_id_1,
+				0, ptr, scp_ipi_legacy_id[tmp_id].out_size,
+				wait * SCP_IPI_LEGACY_WAIT);
 
 		if (ret == IPI_ACTION_DONE)
 			return SCP_IPI_DONE;
@@ -184,3 +190,23 @@ enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 }
 EXPORT_SYMBOL_GPL(scp_ipi_send);
 
+enum scp_ipi_status scp_legacy_ipi_init(void)
+{
+	int ret = 0;
+
+	ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_MPOOL_0,
+			      (void *)scp_legacy_handler, 0,
+			      msg_legacy_ipi_mpool_0);
+
+	if (ret != IPI_ACTION_DONE)
+		return SCP_IPI_ERROR;
+
+	ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_MPOOL_1,
+			      (void *)scp_legacy_handler, 0,
+			      msg_legacy_ipi_mpool_1);
+
+	if (ret != IPI_ACTION_DONE)
+		return SCP_IPI_ERROR;
+
+	return SCP_IPI_DONE;
+}

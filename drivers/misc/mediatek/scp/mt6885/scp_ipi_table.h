@@ -72,6 +72,8 @@ struct mtk_mbox_pin_recv scp_mbox_pin_recv[] = {
 	 IPI_IN_SCP_READY_0, { 0 }, 0, 0, 0, { { { { 0 } } } } },
 	{1, 0, 0, 0, 1, 0, PIN_IN_SIZE_SCP_RAM_DUMP_0, 0,
 	 IPI_IN_SCP_RAM_DUMP_0, { 0 }, 0, 0, 0, { { { { 0 } } } } },
+	{2, 0, 0, 0, 1, 0, PIN_IN_SIZE_SCP_MPOOL, 0,
+	 IPI_IN_SCP_MPOOL_0, { 0 }, 0, 0, 0, { { { { 0 } } } } },
 	{3, 0, 0, 0, 1, 0, PIN_IN_SIZE_AUDIO_VOW_1, 0,
 	 IPI_IN_AUDIO_VOW_1, { 0 }, 0, 0, 0, { { { { 0 } } } } },
 	{3, 0, 0, 0, 1, 0, PIN_IN_SIZE_AUDIO_ULTRA_SND_1, 0,
@@ -86,6 +88,8 @@ struct mtk_mbox_pin_recv scp_mbox_pin_recv[] = {
 	 IPI_IN_SCP_READY_1, { 0 }, 0, 0, 0, { { { { 0 } } } } },
 	{3, 0, 0, 0, 1, 0, PIN_IN_SIZE_SCP_RAM_DUMP_1, 0,
 	 IPI_IN_SCP_RAM_DUMP_1, { 0 }, 0, 0, 0, { { { { 0 } } } } },
+	{4, 0, 0, 0, 1, 0, PIN_IN_SIZE_SCP_MPOOL, 0,
+	 IPI_IN_SCP_MPOOL_1, { 0 }, 0, 0, 0, { { { { 0 } } } } },
 };
 
 /*
@@ -117,6 +121,8 @@ struct mtk_mbox_pin_send scp_mbox_pin_send[] = {
 	 IPI_OUT_DVFS_SET_FREQ_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
 	{1, 0, 0, 0, PIN_OUT_SIZE_TEST_0, 0,
 	 IPI_OUT_TEST_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
+	{2, 0, 0, 0, PIN_OUT_SIZE_SCP_MPOOL, 0,
+	 IPI_OUT_SCP_MPOOL_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
 	{3, 0, 0, 0, PIN_OUT_SIZE_AUDIO_VOW_1, 0,
 	 IPI_OUT_AUDIO_VOW_1, { { 0 } }, { 0 }, { { { { 0 } } } } },
 	{3, 0, 0, 0, PIN_OUT_SIZE_AUDIO_ULTRA_SND_1, 0,
@@ -137,6 +143,8 @@ struct mtk_mbox_pin_send scp_mbox_pin_send[] = {
 	 IPI_OUT_SCPCTL_1, { { 0 } }, { 0 }, { { { { 0 } } } } },
 	{3, 0, 0, 0, PIN_OUT_SIZE_SCP_LOG_FILTER_1, 0,
 	 IPI_OUT_SCP_LOG_FILTER_1, { { 0 } }, { 0 }, { { { { 0 } } } } },
+	{4, 0, 0, 0, PIN_OUT_SIZE_SCP_MPOOL, 0,
+	 IPI_OUT_SCP_MPOOL_1, { { 0 } }, { 0 }, { { { { 0 } } } } },
 };
 
 #define SCP_TOTAL_RECV_PIN	(sizeof(scp_mbox_pin_recv) \

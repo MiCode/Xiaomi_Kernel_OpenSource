@@ -1735,6 +1735,7 @@ static int scp_device_probe(struct platform_device *pdev)
 				      SCP_IPI_COUNT);
 	if (ret)
 		pr_err("[SCP] ipi_dev_register fail, ret %d\n", ret);
+
 	return ret;
 }
 
@@ -1863,6 +1864,8 @@ static int __init scp_init(void)
 	}
 
 	INIT_WORK(&scp_A_notify_work.work, scp_A_notify_ws);
+
+	scp_legacy_ipi_init();
 
 	mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_READY_0,
 			(void *)scp_A_ready_ipi_handler, NULL, &msg_scp_ready0);
