@@ -14,5 +14,6 @@ endif
 obj-$(CONFIG_REGULATOR_ISL91302A) += isl91302a-regulator.o
 obj-$(CONFIG_REGULATOR_RT5734) += rt5734-spi.o rt5734-regulator.o
 obj-$(CONFIG_REGULATOR_RT5738) += rt5738-regulator.o
+obj-$(CONFIG_REGULATOR_MT6691) += mt6691-regulator.o
 obj-$(CONFIG_EXTBUCK_MT6311) += mt6311-i2c.o mt6311-regulator.o mt6311_api.o
 obj-$(CONFIG_MTK_EXTBUCK) += extbuck.o
