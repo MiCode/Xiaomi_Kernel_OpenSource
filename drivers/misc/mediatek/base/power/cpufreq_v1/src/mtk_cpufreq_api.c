@@ -253,6 +253,25 @@ unsigned int mt_cpufreq_get_cur_freq_idx(enum mt_cpu_dvfs_id id)
 }
 EXPORT_SYMBOL(mt_cpufreq_get_cur_freq_idx);
 
+unsigned int mt_cpufreq_get_cur_cci_freq_idx(void)
+{
+#ifdef CPU_DVFS_NOT_READY
+	return 0;
+#else
+#ifdef CONFIG_HYBRID_CPU_DVFS
+	if (!dvfs_init_flag)
+		return 7;
+	else
+		return mt_cpufreq_get_cur_freq_idx(MT_CPU_DVFS_CCI);
+
+#endif
+	/* Not Support */
+	return 0;
+#endif
+}
+EXPORT_SYMBOL(mt_cpufreq_get_cur_cci_freq_idx);
+
+
 unsigned int mt_cpufreq_get_freq_by_idx(enum mt_cpu_dvfs_id id, int idx)
 {
 #ifdef CPU_DVFS_NOT_READY
