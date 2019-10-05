@@ -67,7 +67,7 @@ static void zram_slot_unlock(struct zram *zram, u32 index)
 
 static inline bool init_done(struct zram *zram)
 {
-	return zram->disksize;
+	return zram ? zram->disksize : 0;
 }
 
 static inline bool zram_allocated(struct zram *zram, u32 index)
@@ -1648,9 +1648,6 @@ static int zram_add(void)
 	if (!zram)
 		return -ENOMEM;
 
-	if (!zram_devices)
-		zram_devices = zram;
-
 	ret = idr_alloc(&zram_index_idr, zram, 0, 0, GFP_KERNEL);
 	if (ret < 0)
 		goto out_free_dev;
@@ -1724,6 +1721,10 @@ static int zram_add(void)
 	strlcpy(zram->compressor, default_compressor, sizeof(zram->compressor));
 
 	zram_debugfs_register(zram);
+
+	if (!zram_devices)
+		zram_devices = zram;
+
 	pr_info("Added device: %s\n", zram->disk->disk_name);
 	return device_id;
 
@@ -1732,7 +1733,6 @@ out_free_queue:
 out_free_idr:
 	idr_remove(&zram_index_idr, device_id);
 out_free_dev:
-	zram_devices = NULL;
 	kfree(zram);
 	return ret;
 }
@@ -1767,7 +1767,8 @@ static int zram_remove(struct zram *zram)
 	del_gendisk(zram->disk);
 	blk_cleanup_queue(zram->disk->queue);
 	put_disk(zram->disk);
-	zram_devices = NULL;
+	if (zram_devices == zram)
+		zram_devices = NULL;
 	kfree(zram);
 	return 0;
 }
