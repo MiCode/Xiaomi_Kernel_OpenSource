@@ -23,6 +23,8 @@
 #include <linux/mailbox_controller.h>
 #include <soc/mediatek/smi.h>
 #include <linux/kthread.h>
+#include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_crtc.h"

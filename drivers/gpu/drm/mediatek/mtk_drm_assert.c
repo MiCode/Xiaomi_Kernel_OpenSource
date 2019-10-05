@@ -34,7 +34,6 @@
 #define DAL_STR_BUF_LEN (1024)
 #define DAL_BPP (2)
 
-#define ALIGN_TO(x, n) (((x) + ((n)-1)) & ~((n)-1))
 #define MTK_FB_ALIGNMENT 32
 
 static DEFINE_SEMAPHORE(dal_sem);

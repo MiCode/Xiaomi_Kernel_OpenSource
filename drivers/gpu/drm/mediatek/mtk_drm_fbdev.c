@@ -23,7 +23,6 @@
 #include "mtk_drm_assert.h"
 
 #define to_drm_private(x) container_of(x, struct mtk_drm_private, fb_helper)
-#define ALIGN_TO(x, n) (((x) + ((n)-1)) & ~((n)-1))
 #define ALIGN_TO_32(x) ALIGN_TO(x, 32)
 
 #define MTK_LEGACY_FB_MAP

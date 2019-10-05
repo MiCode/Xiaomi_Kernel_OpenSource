@@ -724,6 +724,7 @@ static void process_dbg_opt(const char *opt)
 		comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
 	} else if (strncmp(opt, "backlight:", 10) == 0) {
 		unsigned int level;
+		int ret;
 
 		ret = sscanf(opt, "backlight:%u\n", &level);
 		if (ret != 1) {

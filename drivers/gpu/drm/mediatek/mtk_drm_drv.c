@@ -24,6 +24,8 @@
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
 #include <linux/kthread.h>
+#include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 
 #include "drm_internal.h"
 #include "mtk_drm_crtc.h"
