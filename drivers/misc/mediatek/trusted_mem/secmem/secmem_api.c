@@ -137,3 +137,13 @@ int secmem_force_hw_protection(void)
 	cmd_params.cmd = CMD_SEC_MEM_FORCE_HW_PROTECTION;
 	return tee_directly_invoke_cmd(&cmd_params);
 }
+
+#if defined(CONFIG_MTK_WFD_SMEM_SUPPORT)
+int wfd_smem_dump_info(void)
+{
+	struct trusted_driver_cmd_params cmd_params = {0};
+
+	cmd_params.cmd = CMD_WFD_SMEM_DUMP_MEM_INFO;
+	return tee_directly_invoke_cmd(&cmd_params);
+}
+#endif
