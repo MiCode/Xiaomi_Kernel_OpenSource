@@ -262,7 +262,8 @@ CONFIG_HIGHMEM,PLATFORM,,,X,y,X,y,X,y,X,y,X,y,X,y,X
 CONFIG_HIGHPTE,COMMON,miles.chen,,N,N,N,N,N,N,N,N,N,N,N,N,N
 CONFIG_HIGHPTE,PLATFORM,miles.chen,,X,N,X,N,X,N,X,N,X,N,X,N,X
 CONFIG_HMP_FREQUENCY_INVARIANT_SCALE,PLATFORM,michael.jiang,,X,X,X,X,X,X,X,X,X,X,X,X,X
-CONFIG_HW_RANDOM,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_HW_RANDOM,COMMON,neal.liu,,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_HW_RANDOM_MT67XX,COMMON,neal.liu,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_HWMON,COMMON,,,N,N,N,N,N,N,N,N,N,N,N,N,N
 CONFIG_HWZRAM_DRV,PROJECT,Chinwen.Chang,,,,,,,,,,,,,,
 CONFIG_HWZRAM_IMPL,PROJECT,Chinwen.Chang,,,,,,,,,,,,,,
