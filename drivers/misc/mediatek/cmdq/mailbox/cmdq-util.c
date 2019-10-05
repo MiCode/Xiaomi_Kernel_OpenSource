@@ -4,7 +4,6 @@
  */
 
 #include <linux/debugfs.h>
-#include <linux/module.h>
 #include <linux/sched/clock.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 
@@ -140,5 +139,3 @@ static int __init cmdq_util_init(void)
 	return 0;
 }
 late_initcall(cmdq_util_init);
-
-MODULE_LICENSE("GPL v2");
