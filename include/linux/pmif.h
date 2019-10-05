@@ -6,6 +6,8 @@
 #ifndef __PMIF_H__
 #define __PMIF_H__
 
+#include <linux/clk.h>
+
 enum {
 	SPMI_MASTER_0 = 0,
 	SPMI_MASTER_1,
@@ -21,14 +23,17 @@ enum {
  * @infra_regs:	infra register offset table.
  * @topckgen_base:	topckgen base address.
  * @topckgen_regs:	topckgen register offset table.
+ * @dbgregs:	pmif debug register offset table.
  * @swinf_ch_start:	indicate sw channel start number, lower is hw channel.
  * @ap_swinf_no:	indicate ap sw channel number.
  * @write:	indicate write cmd.
  * @pmifid:	indicate pmifid.
  * @irq:	indicate irq number.
- * @grpiden:	bitmask indicates which group id we used.
+ * @grpid:	indicates which group id we used.
  * @lock:	indicate lock key.
  * @spmic:	indicate spmi controller.
+ * @clk_pmif_arb:	indicate pmif clock source, be as consumer.
+ * @clk_spmimst:	indicate spmimst clock source, be as consumer.
  * @cmd:	sends a non-data command sequence on the SPMI bus.
  * @read_cmd:	sends a register read command sequence on the SPMI bus.
  * @write_cmd:	sends a register write command sequence on the SPMI bus.
@@ -48,14 +53,17 @@ struct pmif {
 	const u32               *infra_regs;
 	void __iomem		*topckgen_base;
 	const u32               *topckgen_regs;
+	const u32		*dbgregs;
 	u32                     swinf_ch_start;
 	u32                     ap_swinf_no;
 	int                     write;
 	int                     pmifid;
 	int			irq;
-	int			grpiden;
+	int			grpid;
 	raw_spinlock_t          lock;
 	struct spmi_controller  *spmic;
+	struct clk *clk_pmif_arb;
+	struct clk *clk_spmimst;
 	int (*cmd)(struct spmi_controller *ctrl, unsigned int opcode);
 	int (*read_cmd)(struct spmi_controller *ctrl, u8 opc, u8 sid,
 			u16 addr, u8 *buf, size_t len);
@@ -69,7 +77,4 @@ struct pmif {
 	void (*pmif_enable)(struct pmif *arb);
 	int (*is_pmif_init_done)(struct pmif *arb);
 };
-
-extern int mtk_spmi_enable_group_id(struct spmi_controller *ctrl,
-			unsigned int grpiden);
 #endif /*__PMIF_H__*/

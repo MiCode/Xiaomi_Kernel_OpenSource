@@ -3,6 +3,7 @@
  * Copyright (C) 2019 MediaTek Inc.
  * Author: Argus Lin <argus.lin@mediatek.com>
  */
+/* #define DEBUG */
 
 #include <linux/clk.h>
 #include <linux/interrupt.h>
@@ -28,16 +29,7 @@
 /*
  * marco
  */
-#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
-	#define PMIF_NO_PMIC
-	#define PMIF_TIMEOUT
-#else
-	#define PMIF_TIMEOUT
-#endif
-
-#define PMIF_DEBUG
-#define PMIF_MONITOR_SUPPORT
-/* #define PMIF_MATCH_SUPPORT */
+#define PMIF_TIMEOUT    0
 
 /* macro for PMIF SWINF FSM */
 #define PMIF_SWINF_FSM_IDLE		0x00
@@ -55,13 +47,11 @@
 #define PMIF_CMD_EXT_REG		2
 #define PMIF_CMD_EXT_REG_LONG		3
 /* 0: SPI, 1: SPMI */
-#define PMIF_PMIFID			1
-
-#define PMIF_CHAN_NUM			17
-/* indicate which number SW channel start, by project */
-#define PMIF_SWINF_0_CHAN_NO		4
-/* MD: 0, security domain: 1, AP: 2 */
-#define PMIF_AP_SWINF_NO		2
+#define PMIF_PMIFID_SPI			0
+#define PMIF_PMIFID_SPMI0		0
+#define PMIF_PMIFID_SPMI1		1
+#define PMIF_PMIFID_SPMI2		2
+#define PMIF_PMIFID_SPMI3		3
 
 enum pmif_regs {
 	PMIF_INIT_DONE,
@@ -125,30 +115,6 @@ static const u32 mt6885_regs[] = {
 	[PMIF_SWINF_3_RDATA_31_0] =		0x0CD4,
 	[PMIF_SWINF_3_VLD_CLR] =		0x0CE4,
 	[PMIF_SWINF_3_STA] =			0x0CE8,
-};
-
-enum spmi_regs {
-	SPMI_OP_ST_CTRL,
-	SPMI_GRP_ID_EN,
-	SPMI_OP_ST_STA,
-	SPMI_MST_SAMPL,
-	SPMI_MST_REQ_EN,
-	SPMI_REC_CTRL,
-	SPMI_REC0,
-	SPMI_REC1,
-	SPMI_REC2,
-	SPMI_REC3,
-	SPMI_REC4,
-	SPMI_MST_DBG,
-	/* RCS support */
-	SPMI_MST_RCS_CTRL,
-	SPMI_MST_IRQ,
-	SPMI_SLV_3_0_EINT,
-	SPMI_SLV_7_4_EINT,
-	SPMI_SLV_B_8_EINT,
-	SPMI_SLV_F_C_EINT,
-	SPMI_TIA,
-	SPMI_DEC_DBG,
 };
 
 static const u32 mt6885_spmi_regs[] = {
@@ -217,12 +183,12 @@ static const u32 mt6885_topckgen_regs[] = {
 };
 #endif
 
-#if !defined PMIF_NO_PMIC
 /*
  * pmif internal API declaration
  */
-int __attribute__((weak)) pmif_probe_rw_test(struct spmi_controller *ctrl);
-int __attribute__((weak)) spmi_dump_dbg_register(struct spmi_controller *ctrl);
+int __attribute__((weak)) spmi_pmif_create_attr(struct device_driver *driver);
+int __attribute__((weak)) spmi_pmif_dbg_init(struct spmi_controller *ctrl);
+void __attribute__((weak)) spmi_dump_mst_record_reg(struct pmif *arb);
 static int pmif_timeout_ns(struct spmi_controller *ctrl,
 	unsigned long long start_time_ns, unsigned long long timeout_time_ns);
 static void pmif_enable_soft_reset(struct pmif *arb);
@@ -241,13 +207,14 @@ static int mtk_spmi_config_master(struct pmif *arb,
 		unsigned int mstid, bool en);
 static int mtk_spmi_cali_rd_clock_polarity(struct pmif *arb,
 			unsigned int mstid);
-#ifdef SPMI_RCS_SUPPORT
+#if SPMI_RCS_SUPPORT
 static int mtk_spmi_enable_rcs(struct spmi_controller *ctrl,
 			unsigned int mstid);
 static int mtk_spmi_read_eint_sta(u8 *slv_eint_sta);
 #endif
 static int mtk_spmi_ctrl_op_st(struct spmi_controller *ctrl,
-			unsigned int grpiden, u8 sid, unsigned int opc);
+			u8 opc, u8 sid);
+static int mtk_spmi_enable_group_id(struct pmif *arb, u8 grpid);
 
 static struct pmif mt6885_pmif_arb[] = {
 	{
@@ -259,10 +226,10 @@ static struct pmif mt6885_pmif_arb[] = {
 		.infra_regs = mt6885_infra_regs,
 		.topckgen_base = 0x0,
 		.topckgen_regs = mt6885_topckgen_regs,
-		.swinf_ch_start = PMIF_SWINF_0_CHAN_NO,
-		.ap_swinf_no = PMIF_AP_SWINF_NO,
+		.swinf_ch_start = 0,
+		.ap_swinf_no = 0,
 		.write = 0x0,
-		.pmifid = PMIF_PMIFID,
+		.pmifid = PMIF_PMIFID_SPMI1,
 		.spmic = 0x0,
 		.read_cmd = pmif_spmi_read_cmd,
 		.write_cmd = pmif_spmi_write_cmd,
@@ -284,11 +251,12 @@ static const struct of_device_id pmif_match_table[] = {
 	},
 };
 MODULE_DEVICE_TABLE(of, pmif_match_table);
+static struct platform_driver pmif_driver;
 
 /*
  * pmif timeout
  */
-#ifdef PMIF_TIMEOUT
+#if PMIF_TIMEOUT
 static int pmif_timeout_ns(struct spmi_controller *ctrl,
 	unsigned long long start_time_ns, unsigned long long timeout_time_ns)
 {
@@ -319,8 +287,8 @@ static int pmif_timeout_ns(struct spmi_controller *ctrl,
 	return 0;
 }
 #else
-static int pmif_timeout_ns(unsigned long long start_time_ns,
-		unsigned long long timeout_time_ns)
+static int pmif_timeout_ns(struct spmi_controller *ctrl,
+	unsigned long long start_time_ns, unsigned long long timeout_time_ns)
 {
 	return 0;
 }
@@ -405,7 +373,7 @@ static void pmif_writel(struct pmif *arb, u32 val, enum pmif_regs reg)
  * Parameter :
  * Return :
  */
-static u32 mtk_spmi_readl(struct pmif *arb, enum spmi_regs reg)
+u32 mtk_spmi_readl(struct pmif *arb, enum spmi_regs reg)
 {
 	return readl(arb->spmimst_base + arb->spmimst_regs[reg]);
 }
@@ -416,7 +384,7 @@ static u32 mtk_spmi_readl(struct pmif *arb, enum spmi_regs reg)
  * Parameter :
  * Return :
  */
-static void mtk_spmi_writel(struct pmif *arb, u32 val,
+void mtk_spmi_writel(struct pmif *arb, u32 val,
 		enum spmi_regs reg)
 {
 	writel(val, arb->spmimst_base + arb->spmimst_regs[reg]);
@@ -497,7 +465,7 @@ static void pmif_spmi_enable(struct pmif *arb)
 }
 
 static int mtk_spmi_ctrl_op_st(struct spmi_controller *ctrl,
-		unsigned int grpiden, u8 sid, unsigned int opc)
+			u8 opc, u8 sid)
 {
 	struct pmif *arb = spmi_controller_get_drvdata(ctrl);
 	u32 rdata = 0x0;
@@ -513,17 +481,7 @@ static int mtk_spmi_ctrl_op_st(struct spmi_controller *ctrl,
 	else if (opc == SPMI_CMD_WAKEUP)
 		cmd = 3;
 
-	/* gid is 0x800 */
-	mtk_spmi_writel(arb, grpiden, SPMI_GRP_ID_EN);
-#if MT6315_EVB
-	if (grpiden == 0x800)
-		mtk_spmi_writel(arb, (cmd << 0x4) | 0xB, SPMI_OP_ST_CTRL);
-#else
-	if (grpiden == 0x100)
-		mtk_spmi_writel(arb, (cmd << 0x4) | 0x8, SPMI_OP_ST_CTRL);
-#endif
-	else
-		mtk_spmi_writel(arb, (cmd << 0x4) | sid, SPMI_OP_ST_CTRL);
+	mtk_spmi_writel(arb, (cmd << 0x4) | sid, SPMI_OP_ST_CTRL);
 
 	rdata = mtk_spmi_readl(arb, SPMI_OP_ST_CTRL);
 	pr_notice("pmif_ctrl_op_st 0x%x\r\n", rdata);
@@ -533,7 +491,7 @@ static int mtk_spmi_ctrl_op_st(struct spmi_controller *ctrl,
 		pr_notice("pmif_ctrl_op_st 0x%x\r\n", rdata);
 
 		if (((rdata >> 0x1) & SPMI_OP_ST_NACK) == SPMI_OP_ST_NACK) {
-			spmi_dump_dbg_register(ctrl);
+			spmi_dump_mst_record_reg(arb);
 			break;
 		}
 	} while ((rdata & SPMI_OP_ST_BUSY) == SPMI_OP_ST_BUSY);
@@ -544,25 +502,12 @@ static int mtk_spmi_ctrl_op_st(struct spmi_controller *ctrl,
 /* Non-data command */
 static int pmif_arb_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid)
 {
-	u8 usid = 0;
-	struct pmif *arb = spmi_controller_get_drvdata(ctrl);
-
-#if MT6315_EVB
-	if (arb->grpiden != 0x800)
-		usid = arb->grpiden;
-#else
-	if (arb->grpiden != 0x100)
-		usid = arb->grpiden;
-#endif
-	return mtk_spmi_ctrl_op_st(ctrl, arb->grpiden, usid, opc);
+	return mtk_spmi_ctrl_op_st(ctrl, opc, sid);
 }
 
-int mtk_spmi_enable_group_id(struct spmi_controller *ctrl,
-			unsigned int grpiden)
+static int mtk_spmi_enable_group_id(struct pmif *arb, u8 grpid)
 {
-	struct pmif *arb = spmi_controller_get_drvdata(ctrl);
-
-	mtk_spmi_writel(arb, arb->grpiden, SPMI_GRP_ID_EN);
+	mtk_spmi_writel(arb, 0x1 << grpid, SPMI_GRP_ID_EN);
 
 	return 0;
 }
@@ -717,7 +662,7 @@ int is_pmif_spmi_init_done(struct pmif *arb)
 	return -1;
 }
 
-#ifdef SPMI_RCS_SUPPORT
+#if SPMI_RCS_SUPPORT
 static int mtk_spmi_enable_rcs(struct spmi_controller *ctrl, unsigned int mstid)
 {
 	u8 wdata = 0, rdata = 0, i = 0;
@@ -844,11 +789,10 @@ static int mtk_spmi_cali_rd_clock_polarity(struct pmif *arb,
 	return 0;
 }
 
-static int mtk_spmi_init(struct platform_device *pdev, struct pmif *arb)
+static int mtk_spmimst_init(struct platform_device *pdev, struct pmif *arb)
 {
 	struct resource *res;
-	int err, i;
-	u32 grpid = 0;
+	int err = 0, i = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "spmimst");
 	arb->spmimst_base = devm_ioremap_resource(&pdev->dev, res);
@@ -857,23 +801,28 @@ static int mtk_spmi_init(struct platform_device *pdev, struct pmif *arb)
 		return err;
 	}
 
-	err = of_property_read_u32(pdev->dev.of_node, "grpid", &grpid);
+	err = of_property_read_u32(pdev->dev.of_node, "grpid", &arb->grpid);
 	if (err) {
 		dev_dbg(&pdev->dev, "grpid unspecified.\n");
 		return -EINVAL;
 	}
-	arb->grpiden = 1<<grpid;
+	/* set group id */
+	mtk_spmi_enable_group_id(arb, arb->grpid);
+
+	if (mtk_spmi_readl(arb, SPMI_MST_REQ_EN) == 1)
+		goto spmimst_init_done;
 
 	mtk_spmi_config_master(arb, SPMI_MASTER_0, true);
 	for (i = 0; i < 3; i++) {
 		mtk_spmi_cali_rd_clock_polarity(arb, SPMI_MASTER_0);
-#ifdef SPMI_RCS_SUPPORT
+#if SPMI_RCS_SUPPORT
 		/* enable master rcs support */
 		mtk_spmi_writel(arb, 0x4, SPMI_MST_RCS_CTRL);
 		mtk_spmi_enable_rcs(&spmi_dev[i], SPMI_MASTER_0);
 #endif
 
 	}
+spmimst_init_done:
 	pr_notice("%s done\n", __func__);
 
 	return 0;
@@ -912,6 +861,42 @@ static int pmif_probe(struct platform_device *pdev)
 		err = PTR_ERR(arb->base);
 		goto err_put_ctrl;
 	}
+	/* pmif is not initialized, just init once */
+#if defined(CONFIG_FPGA_EARLY_PORTING)
+		node = of_find_compatible_node(NULL, NULL,
+				"mediatek,infracfg_ao");
+		arb->infra_base = of_iomap(node, 0);
+		dev_dbg(&pdev->dev, "mtk-pmif arb infra ao base:0x%x\n",
+				arb->infra_base);
+
+		node = of_find_compatible_node(NULL, NULL,
+				"mediatek,topckgen");
+		arb->topckgen_base = of_iomap(node, 0);
+		dev_dbg(&pdev->dev, "mtk-pmif arb topckgen base:0x%x\n",
+				arb->topckgen_base);
+#endif
+	/* get pmif/spmimst clock */
+	arb->clk_pmif_arb = devm_clk_get(&pdev->dev, "pmif");
+	if (IS_ERR(arb->clk_pmif_arb)) {
+		dev_dbg(&pdev->dev, "failed to get clock: %ld\n",
+			PTR_ERR(arb->clk_pmif_arb));
+		return PTR_ERR(arb->clk_pmif_arb);
+	}
+
+	arb->clk_spmimst = devm_clk_get(&pdev->dev, "spmimst");
+	if (IS_ERR(arb->clk_spmimst)) {
+		dev_dbg(&pdev->dev, "failed to get clock: %ld\n",
+			PTR_ERR(arb->clk_spmimst));
+		return PTR_ERR(arb->clk_spmimst);
+	}
+	err = clk_prepare_enable(arb->clk_pmif_arb);
+	if (err)
+		return err;
+
+	err = clk_prepare_enable(arb->clk_spmimst);
+	if (err)
+		goto err_put_clk;
+
 	err = of_property_read_u32(pdev->dev.of_node,
 			"swinf_ch_start", &swinf_ch_start);
 	if (err) {
@@ -929,20 +914,6 @@ static int pmif_probe(struct platform_device *pdev)
 	arb->ap_swinf_no = ap_swinf_no;
 
 	if (arb->is_pmif_init_done(arb) != 0) {
-		/* pmif is not initialized, just init once */
-#if defined(CONFIG_FPGA_EARLY_PORTING)
-		node = of_find_compatible_node(NULL, NULL,
-				"mediatek,infracfg_ao");
-		arb->infra_base = of_iomap(node, 0);
-		dev_dbg(&pdev->dev, "mtk-pmif arb infra ao base:0x%x\n",
-				arb->infra_base);
-
-		node = of_find_compatible_node(NULL, NULL,
-				"mediatek,topckgen");
-		arb->topckgen_base = of_iomap(node, 0);
-		dev_dbg(&pdev->dev, "mtk-pmif arb topckgen base:0x%x\n",
-				arb->topckgen_base);
-#endif
 		/* pmif initialize start */
 		arb->pmif_enable_clk_set(arb);
 		arb->pmif_force_normal_mode(arb);
@@ -964,12 +935,13 @@ static int pmif_probe(struct platform_device *pdev)
 
 	if (arb->is_pmif_init_done(arb) == 0) {
 		/* pmif already done, call spmi master driver init */
-		err = mtk_spmi_init(pdev, arb);
+		err = mtk_spmimst_init(pdev, arb);
 		if (err)
 			goto err_put_ctrl;
 	}
-
-	pmif_probe_rw_test(ctrl);
+	/* enable debugger */
+	spmi_pmif_dbg_init(ctrl);
+	spmi_pmif_create_attr(&pmif_driver.driver);
 
 	arb->irq = platform_get_irq_byname(pdev, "pmif_irq");
 	if (arb->irq < 0) {
@@ -985,6 +957,9 @@ static int pmif_probe(struct platform_device *pdev)
 	return 0;
 
 err_domain_remove:
+	clk_disable_unprepare(arb->clk_spmimst);
+err_put_clk:
+	clk_disable_unprepare(arb->clk_pmif_arb);
 err_put_ctrl:
 	spmi_controller_put(ctrl);
 	return err;
@@ -1024,4 +999,3 @@ MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("PMIF module");
 MODULE_AUTHOR("Argus Lin <argus.lin@mediatek.com>");
 MODULE_ALIAS("platform:pmif");
-#endif /* endif SPMI_NO_PMIC */
