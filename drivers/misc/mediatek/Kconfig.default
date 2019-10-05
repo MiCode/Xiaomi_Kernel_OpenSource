@@ -213,6 +213,9 @@ config ANDROID_DEFAULT_SETTING
 	select XFRM_STATISTICS
 	select XFRM_SUB_POLICY
 	select XFRM_USER
+	select HID_PLANTRONICS
+	select HID_MULTITOUCH
+	select HID_SONY
 	help
 	  Select the android base and recommended config by default
 	  to avoid missing basic or common setting
