@@ -20,12 +20,9 @@
 #endif
 
 #include <dt-bindings/mmc/mt6885-msdc.h>
-#define CONFIG_MTK_MSDC_BRING_UP_BYPASS
+//#define CONFIG_MTK_MSDC_BRING_UP_BYPASS
 #if !defined(FPGA_PLATFORM)
 #include <dt-bindings/clock/mt6885-clk.h>
-#endif
-#ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
-#include <spm_v4/mtk_spm_resource_req.h>
 #endif
 /**************************************************************/
 /* Section 1: Device Tree                                     */

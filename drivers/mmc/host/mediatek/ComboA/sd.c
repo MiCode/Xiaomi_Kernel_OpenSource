@@ -5470,7 +5470,7 @@ static int msdc_drv_remove(struct platform_device *pdev)
 static int msdc_runtime_suspend(struct device *dev)
 {
 	struct msdc_host *host = dev_get_drvdata(dev);
-#ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
+#ifndef CONFIG_MACH_MT6885
 	unsigned long flags;
 #endif
 
@@ -5484,7 +5484,7 @@ static int msdc_runtime_suspend(struct device *dev)
 	if (host->hclk_ctl)
 		clk_unprepare(host->hclk_ctl);
 
-#ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
+#ifndef CONFIG_MACH_MT6885
 	spin_lock_irqsave(&msdc_cg_lock, flags);
 	msdc_cg_cnt--;
 	if (msdc_cg_cnt == 0)
@@ -5499,7 +5499,7 @@ static int msdc_runtime_resume(struct device *dev)
 {
 	struct msdc_host *host = dev_get_drvdata(dev);
 
-#ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
+#ifndef CONFIG_MACH_MT6885
 	unsigned long flags;
 
 	spin_lock_irqsave(&msdc_cg_lock, flags);
