@@ -43,13 +43,15 @@
 #include <mmdvfs_mgr.h>
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
-#if IS_ENABLED(CONFIG_MACH_MT6885)
-#include <sspm_ipi_id.h>
-#else
-#include <v1/sspm_ipi.h>
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && IS_ENABLED(SMI_SSPM)
 #include <sspm_define.h>
 #include <sspm_reservedmem_define.h>
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+#include <sspm_ipi_id.h>
+#include <sspm_reservedmem.h>
+static bool smi_sspm_ipi_register;
+#else
+#include <v1/sspm_ipi.h>
 #endif
 #endif
 
@@ -822,7 +824,7 @@ static inline void smi_subsys_sspm_ipi(const bool ena, const u32 subsys)
 {
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && IS_ENABLED(SMI_SSPM)
 	struct smi_ipi_data_s ipi_data;
-	s32 ackdata;
+	s32 ret;
 
 	spin_lock(&(smi_drv.lock));
 	smi_subsys_on = ena ?
@@ -832,15 +834,19 @@ static inline void smi_subsys_sspm_ipi(const bool ena, const u32 subsys)
 	ipi_data.cmd = SMI_IPI_ENABLE;
 	ipi_data.u.logger.enable = smi_subsys_on;
 #if IS_ENABLED(CONFIG_MACH_MT6885)
+	if (!smi_sspm_ipi_register)
+		return;
+
 	do {
-		mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI, IPI_SEND_POLLING,
-			&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 10);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI,
+			IPI_SEND_POLLING, &ipi_data,
+			sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 10);
 	} while (smi_dram.ackdata);
 #else
 	do {
-		sspm_ipi_send_sync(IPI_ID_SMI, IPI_OPT_POLLING, &ipi_data,
-			sizeof(ipi_data) / MBOX_SLOT_SIZE, &ackdata, 1);
-	} while (ackdata);
+		ret = sspm_ipi_send_sync(IPI_ID_SMI, IPI_OPT_POLLING, &ipi_data,
+		sizeof(ipi_data) / MBOX_SLOT_SIZE, &smi_dram.ackdata, 1);
+	} while (smi_dram.ackdata);
 #endif
 #endif
 }
@@ -878,18 +884,15 @@ static void smi_subsys_before_off(enum subsys_id sys)
 	for (i = 0; i < SMI_DEV_NUM; i++)
 		if (subsys & (1 << i)) {
 			smi_clk_record(i, false, NULL);
-			if ((smi_mm_first & subsys) && sys == SYS_DIS) {
-				smi_mm_first &= ~(1 << i);
+			if ((smi_mm_first & subsys) && sys == SYS_DIS)
 				continue;
-			}
 #if IS_ENABLED(CONFIG_MACH_MT6885)
-			if ((smi_mm_first & subsys) && sys == SYS_MDP) {
-				smi_mm_first &= ~(1 << i);
+			if ((smi_mm_first & subsys) && sys == SYS_MDP)
 				continue;
-			}
 #endif
 			mtk_smi_clk_disable(smi_dev[i]);
 		}
+	smi_mm_first &= ~subsys;
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log(smi_mmp_event[sys], MMPROFILE_FLAG_END);
 #endif
@@ -1057,15 +1060,16 @@ static inline void smi_dram_init(void)
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && IS_ENABLED(SMI_SSPM)
 	phys_addr_t phys = sspm_reserve_mem_get_phys(SMI_MEM_ID);
 	struct smi_ipi_data_s ipi_data;
-	s32 ackdata, ret;
+	s32 ret;
 
 #if IS_ENABLED(CONFIG_MACH_MT6885)
-	ret = mtk_ipi_register(
-		&sspm_ipidev, IPIS_C_SMI, NULL, NULL, (void *)smi_dram.ackdata);
+	ret = mtk_ipi_register(&sspm_ipidev, IPIS_C_SMI, NULL, NULL,
+		(void *)&smi_dram.ackdata);
 	if (ret) {
 		SMIERR("mtk_ipi_register:%d failed:%d\n", IPIS_C_SMI, ret);
-		return ret;
+		return;
 	}
+	smi_sspm_ipi_register = true;
 #endif
 	smi_dram.size = sspm_reserve_mem_get_size(SMI_MEM_ID);
 	smi_dram.virt = ioremap_wc(phys, smi_dram.size);
@@ -1080,8 +1084,8 @@ static inline void smi_dram_init(void)
 	ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI, IPI_SEND_POLLING,
 		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 10);
 #else
-	ret = sspm_ipi_send_sync(IPI_ID_SMI, IPI_OPT_POLLING,
-		&ipi_data, sizeof(ipi_data) / MBOX_SLOT_SIZE, &ackdata, 1);
+	ret = sspm_ipi_send_sync(IPI_ID_SMI, IPI_OPT_POLLING, &ipi_data,
+		sizeof(ipi_data) / MBOX_SLOT_SIZE, &smi_dram.ackdata, 1);
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_ENG_BUILD)
@@ -1093,8 +1097,8 @@ static inline void smi_dram_init(void)
 	ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI, IPI_SEND_POLLING,
 		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 10);
 #else
-	ret = sspm_ipi_send_sync(IPI_ID_SMI, IPI_OPT_POLLING,
-		&ipi_data, sizeof(ipi_data) / MBOX_SLOT_SIZE, &ackdata, 1);
+	ret = sspm_ipi_send_sync(IPI_ID_SMI, IPI_OPT_POLLING, &ipi_data,
+		sizeof(ipi_data) / MBOX_SLOT_SIZE, &smi_dram.ackdata, 1);
 #endif
 #endif
 	smi_dram.node = debugfs_create_file(

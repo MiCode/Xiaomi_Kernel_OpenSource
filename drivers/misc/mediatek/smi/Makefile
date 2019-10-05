@@ -27,6 +27,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/ # qos/$(MTK_
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/
@@ -41,5 +42,6 @@ obj-y += mmdvfs_profile_adaptor.o
 obj-y += mmdvfs_mgr_util.o
 endif
 
+ccflags-$(CONFIG_MACH_MT6885) += -DSMI_SSPM
 obj-y += smi_drv.o
 endif
