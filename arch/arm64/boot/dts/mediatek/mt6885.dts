@@ -1631,6 +1631,7 @@ page_owner=on";
 		clocks = <&infracfg_ao INFRACFG_AO_AP_DMA_CG>;
 		clock-names = "apdma";
 		#dma-cells = <1>;
+		dma-bits = <34>;
 	};
 
 	apuart0: serial@11002000 {
