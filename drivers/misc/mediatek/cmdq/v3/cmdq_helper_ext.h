@@ -681,6 +681,7 @@ struct cmdqRecStruct {
 	void *running_task;
 	bool jump_replace;	/* jump replace or not */
 	bool finalized;		/* set to true after flush() or startLoop() */
+	bool force_inorder;
 	CmdqInterruptCB loop_cb;
 	unsigned long loop_user_data;
 	CmdqAsyncFlushCB async_callback;
