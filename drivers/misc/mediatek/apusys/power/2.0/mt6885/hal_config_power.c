@@ -13,6 +13,7 @@
 
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <sync_write.h>
 #include "hal_config_power.h"
 #include "apu_power_api.h"
 #include "apusys_power_cust.h"
@@ -22,10 +23,14 @@
 
 static int is_apu_power_initilized;
 
+
 /************************************
  * platform related power APIs
  ************************************/
+
 static int init_power_resource(enum DVFS_USER, void *param);
+static int set_power_boot_up(enum DVFS_USER, void *param);
+static int set_power_shut_down(enum DVFS_USER, void *param);
 static int set_power_voltage(enum DVFS_USER, void *param);
 static int set_power_regulator_mode(enum DVFS_USER, void *param);
 static int set_power_mtcmos(enum DVFS_USER, void *param);
@@ -33,21 +38,13 @@ static int set_power_clock(enum DVFS_USER, void *param);
 static int set_power_frequency(enum DVFS_USER, void *param);
 static void get_current_power_info(enum DVFS_USER user, void *param);
 static int uninit_power_resource(enum DVFS_USER, void *param);
+
 static void hw_init_setting(void);
+
 
 /************************************
  * common power hal command
  ************************************/
-
-static void DRV_WriteReg32(u32 addr, u32 value)
-{
-	iowrite32(value, addr);
-}
-
-static u32 DRV_Reg32(u32 addr)
-{
-	return ioread32(addr);
-}
 
 int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 {
@@ -59,6 +56,12 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 	case PWR_CMD_INIT_POWER:
 		ret = init_power_resource(user, param);
 		hw_init_setting();
+		break;
+	case PWR_CMD_SET_BOOT_UP:
+		ret = set_power_boot_up(user, param);
+		break;
+	case PWR_CMD_SET_SHUT_DOWN:
+		ret = set_power_shut_down(user, param);
 		break;
 	case PWR_CMD_SET_VOLT:
 		ret = set_power_voltage(user, param);
@@ -94,24 +97,8 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
  * utility function
  ************************************/
 
-// normal opp to frequency
-int opp_to_frequency(int target_opp, enum DVFS_VOLTAGE_DOMAIN domain)
-{
-	int frequency = 0;
-
-	frequency = dvfs_table[target_opp][domain].freq;
-
-	if (frequency >= DVFS_FREQ_MAX) {
-		LOG_ERR("%s failed, force change freq to %d\n",
-						__func__, frequency);
-		return -1;
-	}
-
-	return frequency;
-}
-
 // normal opp to voltage
-int opp_to_voltage(int target_opp, enum DVFS_VOLTAGE_DOMAIN domain)
+static int opp_to_voltage(int target_opp, enum DVFS_VOLTAGE_DOMAIN domain)
 {
 	int voltage = 0;
 
@@ -127,7 +114,7 @@ int opp_to_voltage(int target_opp, enum DVFS_VOLTAGE_DOMAIN domain)
 }
 
 // normal opp to vcore opp
-int opp_to_vcore_opp(int target_opp)
+static int opp_to_vcore_opp(int target_opp)
 {
 	int vcore_opp = 0;
 
@@ -142,7 +129,7 @@ int opp_to_vcore_opp(int target_opp)
 	return vcore_opp;
 }
 
-void prepare_apu_regulator(struct device *dev, int prepare)
+static void prepare_apu_regulator(struct device *dev, int prepare)
 {
 	if (prepare) {
 		prepare_regulator(VCORE_BUCK, dev);
@@ -165,7 +152,26 @@ void prepare_apu_regulator(struct device *dev, int prepare)
 /******************************************
  * hal cmd corresponding platform function
  ******************************************/
-void hw_init_setting(void)
+
+static void DRV_WriteReg32(void *addr, uint32_t value)
+{
+	mt_reg_sync_writel(value, addr);
+}
+
+static u32 DRV_Reg32(void *addr)
+{
+	return ioread32(addr);
+}
+
+static void DRV_SetBitReg32(void *addr, uint32_t bit_mask)
+{
+	u32 tmp = ioread32(addr);
+
+	tmp |= bit_mask;
+	mt_reg_sync_writel(tmp, addr);
+}
+
+static void hw_init_setting(void)
 {
 	uint32_t regValue = 0;
 
@@ -184,29 +190,32 @@ void hw_init_setting(void)
 	DRV_WriteReg32(APU_RPC_SW_TYPE4, 0x2);
 
 	// mask RPC IRQ and bypass WFI
-	regValue = DRV_Reg32(APU_RPC_SW_FIFO_WE);
+	regValue = DRV_Reg32(APU_RPC_TOP_SEL);
 	regValue |= 0x9E;
-	DRV_WriteReg32(APU_RPC_SW_FIFO_WE, regValue);
+	DRV_WriteReg32(APU_RPC_TOP_SEL, regValue);
 }
 
 
-int init_power_resource(enum DVFS_USER user, void *param)
+static int init_power_resource(enum DVFS_USER user, void *param)
 {
 	struct device *dev = ((struct hal_param_init_power *)param)->dev;
 
 	if (!is_apu_power_initilized) {
 		prepare_apu_regulator(dev, 1);
+#ifndef MTK_FPGA_PORTING
 		vpu_prepare_clock(dev);
 		mdla_prepare_clock(dev);
+#endif
 		is_apu_power_initilized = 1;
 	}
 
 	return 0;
 }
 
-void vsram_check(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
-{
 // FIXME: implement this function
+#if 0
+static void vsram_check(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
+{
 /*
  *	// read vsarm_volatge
  *	if (vsarm_voltage == 0.85V) {
@@ -216,8 +225,9 @@ void vsram_check(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
  *	}
  */
 }
+#endif
 
-int set_power_voltage(enum DVFS_USER user, void *param)
+static int set_power_voltage(enum DVFS_USER user, void *param)
 {
 	enum DVFS_VOLTAGE_DOMAIN domain = 0;
 	enum DVFS_BUCK buck = 0;
@@ -251,7 +261,7 @@ int set_power_voltage(enum DVFS_USER user, void *param)
 	return ret;
 }
 
-int set_power_regulator_mode(enum DVFS_USER user, void *param)
+static int set_power_regulator_mode(enum DVFS_USER user, void *param)
 {
 	enum DVFS_BUCK buck = 0;
 	int is_normal = 0;
@@ -265,7 +275,7 @@ int set_power_regulator_mode(enum DVFS_USER user, void *param)
 }
 
 
-void rpc_fifo_check(void)
+static void rpc_fifo_check(void)
 {
 	unsigned int regValue = 0;
 	unsigned int finished = 0;
@@ -280,7 +290,7 @@ void rpc_fifo_check(void)
 }
 
 
-void rpc_power_status_check(int domain_idx, unsigned int enable)
+static void rpc_power_status_check(int domain_idx, unsigned int enable)
 {
 	unsigned int regValue = 0;
 	unsigned int finished = 0;
@@ -297,7 +307,7 @@ void rpc_power_status_check(int domain_idx, unsigned int enable)
 }
 
 
-int set_power_mtcmos(enum DVFS_USER user, void *param)
+static int set_power_mtcmos(enum DVFS_USER user, void *param)
 {
 	unsigned int enable = ((struct hal_param_mtcmos *)param)->enable;
 	unsigned int domain_idx;
@@ -320,9 +330,10 @@ int set_power_mtcmos(enum DVFS_USER user, void *param)
 
 	if (enable) {
 		// call spm api to enable wake up signal for apu_conn/apu_vcore
-		if (DRV_Reg32(APU_RPC_INTF_PWR_RDY) == 0)
+		if (DRV_Reg32(APU_RPC_INTF_PWR_RDY) == 0) {
 			LOG_WRN("%s enable wakeup signal\n", __func__);
-			// FIXME: implement code
+			DRV_SetBitReg32(APU_RPC_TOP_CON, REG_WAKEUP_SET);
+		}
 
 		rpc_fifo_check();
 		DRV_WriteReg32(APU_RPC_SW_FIFO_WE, (domain_idx | (1 << 4)));
@@ -347,8 +358,9 @@ int set_power_mtcmos(enum DVFS_USER user, void *param)
 	return 0;
 }
 
-int set_power_clock(enum DVFS_USER user, void *param)
+static int set_power_clock(enum DVFS_USER user, void *param)
 {
+#ifndef MTK_FPGA_PORTING
 	int enable = ((struct hal_param_clk *)param)->enable;
 
 	LOG_INF("%s , user: %d , enable: %d\n", __func__, user, enable);
@@ -368,11 +380,11 @@ int set_power_clock(enum DVFS_USER user, void *param)
 		else
 			LOG_ERR("%s not support user : %d\n", __func__, user);
 	}
-
+#endif
 	return 0;
 }
 
-int set_power_frequency(enum DVFS_USER user, void *param)
+static int set_power_frequency(enum DVFS_USER user, void *param)
 {
 	enum DVFS_VOLTAGE_DOMAIN domain = 0;
 	int target_opp = 0;
@@ -407,7 +419,7 @@ int set_power_frequency(enum DVFS_USER user, void *param)
 	return ret;
 }
 
-void get_current_power_info(enum DVFS_USER user, void *param)
+static void get_current_power_info(enum DVFS_USER user, void *param)
 {
 	struct apu_power_info info;
 	char log_str[60];
@@ -433,14 +445,118 @@ void get_current_power_info(enum DVFS_USER user, void *param)
 	LOG_INF("%s\n", log_str);
 }
 
-int uninit_power_resource(enum DVFS_USER user, void *param)
+static int uninit_power_resource(enum DVFS_USER user, void *param)
 {
 	if (is_apu_power_initilized) {
+#ifndef MTK_FPGA_PORTING
 		vpu_unprepare_clock();
 		mdla_unprepare_clock();
+#endif
 		prepare_apu_regulator(NULL, 0);
 		is_apu_power_initilized = 0;
 	}
 
 	return 0;
+}
+
+static int set_power_boot_up(enum DVFS_USER user, void *param)
+{
+	struct hal_param_mtcmos mtcmos_data;
+	struct hal_param_clk clk_data;
+	struct hal_param_volt vpu_volt_data;
+	struct hal_param_volt mdla_volt_data;
+	struct hal_param_volt vcore_volt_data;
+	uint8_t power_bit_mask = 0;
+	int ret = 0;
+
+	power_bit_mask = ((struct hal_param_pwr_mask *)param)->power_bit_mask;
+
+	if (power_bit_mask == 0) {
+		vcore_volt_data.target_volt_domain = V_VCORE;
+		vcore_volt_data.target_buck = VCORE_BUCK;
+		vcore_volt_data.target_opp = APUSYS_DEFAULT_OPP;
+		ret |= set_power_voltage(user, (void *)&vcore_volt_data);
+
+		vpu_volt_data.target_volt_domain = V_VPU0;
+		vpu_volt_data.target_buck = VPU_BUCK;
+		vpu_volt_data.target_opp = APUSYS_DEFAULT_OPP;
+		ret |= set_power_voltage(VPU0, (void *)&vpu_volt_data);
+
+		mdla_volt_data.target_volt_domain = V_MDLA0;
+		mdla_volt_data.target_buck = MDLA_BUCK;
+		mdla_volt_data.target_opp = APUSYS_DEFAULT_OPP;
+		ret |= set_power_voltage(MDLA0, (void *)&mdla_volt_data);
+	}
+
+// FIXME
+#if 0
+	struct hal_param_regulator_mode mode_data;
+
+	// Set regulator mode
+	vcore_mode_data.target_buck = apusys_user_to_buck[user];
+	vcore_mode_data.target_mode = 1;
+	hal_config_power(PWR_CMD_SET_REGULATOR_MODE, user, (void *)&mode_data);
+	udelay(POWER_ON_DELAY);
+#endif
+
+	// Set mtcmos enable
+	mtcmos_data.enable = 1;
+	ret |= set_power_mtcmos(user, (void *)&mtcmos_data);
+
+	// Set cg disable
+	clk_data.enable = 1;
+	ret |= set_power_clock(user, (void *)&clk_data);
+
+	return ret;
+}
+
+
+static int set_power_shut_down(enum DVFS_USER user, void *param)
+{
+	struct hal_param_mtcmos mtcmos_data;
+	struct hal_param_clk clk_data;
+	struct hal_param_volt vpu_volt_data;
+	struct hal_param_volt mdla_volt_data;
+	struct hal_param_volt vcore_volt_data;
+	uint8_t power_bit_mask = 0;
+	int ret = 0;
+
+	power_bit_mask = ((struct hal_param_pwr_mask *)param)->power_bit_mask;
+
+// FIXME
+#if 0
+	struct hal_param_regulator_mode mode_data;
+
+	// Set regulator voltage
+	vcore_mode_data.target_buck = apusys_user_to_buck[user];
+	vcore_mode_data.target_mode = 0;
+	hal_config_power(PWR_CMD_SET_REGULATOR_MODE, user, (void *)&mode_data);
+	udelay(POWER_ON_DELAY);
+#endif
+	// Set mtcmos disable
+	mtcmos_data.enable = 0;
+	ret |= set_power_mtcmos(user, (void *)&mtcmos_data);
+
+	// Set cg disable
+	clk_data.enable = 0;
+	ret |= set_power_clock(user, (void *)&clk_data);
+
+	if (power_bit_mask == 0) {
+		mdla_volt_data.target_volt_domain = V_MDLA0;
+		mdla_volt_data.target_buck = MDLA_BUCK;
+		mdla_volt_data.target_opp = APUSYS_DEFAULT_OPP;
+		ret |= set_power_voltage(MDLA0, (void *)&mdla_volt_data);
+
+		vpu_volt_data.target_volt_domain = V_VPU0;
+		vpu_volt_data.target_buck = VPU_BUCK;
+		vpu_volt_data.target_opp = APUSYS_DEFAULT_OPP;
+		ret |= set_power_voltage(VPU0, (void *)&vpu_volt_data);
+
+		vcore_volt_data.target_volt_domain = V_VCORE;
+		vcore_volt_data.target_buck = VCORE_BUCK;
+		vcore_volt_data.target_opp = APUSYS_DEFAULT_OPP;
+		ret |= set_power_voltage(user, (void *)&vcore_volt_data);
+	}
+
+	return ret;
 }
