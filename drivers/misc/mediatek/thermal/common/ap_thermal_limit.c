@@ -43,6 +43,7 @@
 #endif
 #endif
 
+
 /*=============================================================
  * Local variable definition
  *=============================================================
@@ -368,11 +369,23 @@ unsigned int apthermolmt_get_cpu_power_limit(void)
 }
 EXPORT_SYMBOL(apthermolmt_get_cpu_power_limit);
 
+unsigned int apthermolmt_get_cpu_min_power(void)
+{
+	return tscpu_get_min_cpu_pwr();
+}
+EXPORT_SYMBOL(apthermolmt_get_cpu_min_power);
+
 unsigned int apthermolmt_get_gpu_power_limit(void)
 {
 	return apthermolmt_curr_gpu_pwr_lim;
 }
 EXPORT_SYMBOL(apthermolmt_get_gpu_power_limit);
+
+unsigned int apthermolmt_get_gpu_min_power(void)
+{
+	return tscpu_get_min_gpu_pwr();
+}
+EXPORT_SYMBOL(apthermolmt_get_gpu_min_power);
 
 #if defined(THERMAL_VPU_SUPPORT)
 unsigned int apthermolmt_get_vpu_power_limit(void)
@@ -380,6 +393,12 @@ unsigned int apthermolmt_get_vpu_power_limit(void)
 	return apthermolmt_curr_vpu_pwr_lim;
 }
 EXPORT_SYMBOL(apthermolmt_get_vpu_power_limit);
+
+unsigned int apthermolmt_get_vpu_min_power(void)
+{
+	return tscpu_get_min_vpu_pwr();
+}
+EXPORT_SYMBOL(apthermolmt_get_vpu_min_power);
 #endif
 
 #if defined(THERMAL_MDLA_SUPPORT)
@@ -388,5 +407,11 @@ unsigned int apthermolmt_get_mdla_power_limit(void)
 	return apthermolmt_curr_mdla_pwr_lim;
 }
 EXPORT_SYMBOL(apthermolmt_get_mdla_power_limit);
+
+unsigned int apthermolmt_get_mdla_min_power(void)
+{
+	return tscpu_get_min_mdla_pwr();
+}
+EXPORT_SYMBOL(apthermolmt_get_mdla_min_power);
 #endif
 
