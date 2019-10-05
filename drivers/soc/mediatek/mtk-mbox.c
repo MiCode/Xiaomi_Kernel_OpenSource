@@ -600,7 +600,7 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 	mtk_mbox_set_lock(mbdev, MBOX_DONE);
 	spin_unlock_irqrestore(&minfo->mbox_lock, flags);
 
-	if (irq_temp == 0)
+	if (irq_temp == 0 && irq_status != 0)
 		pr_err("[MBOX ISR]dev=%s pin table err", mbdev->name);
 
 	return IRQ_HANDLED;
