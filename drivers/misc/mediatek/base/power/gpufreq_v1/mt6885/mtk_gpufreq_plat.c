@@ -2328,15 +2328,15 @@ static unsigned int __calculate_vgpu_settletime(bool mode, int deltaV)
 {
 	unsigned int settleTime;
 	/* [MT6315][VGPU]
-	 * DVFS Rising : delta(V) / 10mV + 4us + 5us
+	 * DVFS Rising : delta(V) / 12.5mV + 4us + 5us
 	 * DVFS Falling: delta(V) / 5mV + 4us + 5us
 	 */
 
 	if (mode) {
-		/* rising */
-		settleTime = deltaV / (10 * 100) + 9;
+		/* rising 12.5mv/us*/
+		settleTime = deltaV / (125 * 10) + 9;
 	} else {
-		/* falling */
+		/* falling 5mv/us*/
 		settleTime = deltaV / (5 * 100) + 9;
 	}
 	return settleTime;
