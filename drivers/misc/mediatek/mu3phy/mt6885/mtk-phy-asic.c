@@ -24,7 +24,7 @@
 #endif
 
 #include <mt-plat/upmu_common.h>
-//#include "mtk_spm_resource_req.h"
+/*#include "mtk_spm_resource_req.h"*/
 #include "musb_core.h"
 
 #include <linux/module.h>
@@ -83,7 +83,6 @@ static void VA09_operation(int op, bool force)
 	}
 }
 
-#if 0
 static int dpidle_status = USB_DPIDLE_ALLOWED;
 static DEFINE_SPINLOCK(usb_hal_dpidle_lock);
 #define DPIDLE_TIMER_INTERVAL_MS 30
@@ -139,11 +138,14 @@ void usb_hal_dpidle_request(int mode)
 
 	switch (mode) {
 	case USB_DPIDLE_ALLOWED:
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB, SPM_RESOURCE_RELEASE);
+		/* spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+		 *		SPM_RESOURCE_RELEASE);
+		 */
 		os_printk(K_INFO, "USB_DPIDLE_ALLOWED\n");
 		break;
 	case USB_DPIDLE_FORBIDDEN:
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB, SPM_RESOURCE_ALL);
+		/* spm_resource_req(SPM_RESOURCE_USER_SSUSB, SPM_RESOURCE_ALL);
+		 */
 		{
 			static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 3);
 
@@ -152,8 +154,9 @@ void usb_hal_dpidle_request(int mode)
 		}
 		break;
 	case USB_DPIDLE_SRAM:
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB,
-				SPM_RESOURCE_CK_26M | SPM_RESOURCE_MAINPLL);
+		/* spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+		 *		SPM_RESOURCE_CK_26M | SPM_RESOURCE_MAINPLL);
+		 */
 		{
 			static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 3);
 			static int skip_cnt;
@@ -166,8 +169,9 @@ void usb_hal_dpidle_request(int mode)
 		}
 		break;
 	case USB_DPIDLE_TIMER:
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB,
-				SPM_RESOURCE_CK_26M | SPM_RESOURCE_MAINPLL);
+		/* spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+		 *		SPM_RESOURCE_CK_26M | SPM_RESOURCE_MAINPLL);
+		 */
 		os_printk(K_INFO, "USB_DPIDLE_TIMER\n");
 		issue_dpidle_timer();
 		break;
@@ -178,7 +182,6 @@ void usb_hal_dpidle_request(int mode)
 
 	spin_unlock_irqrestore(&usb_hal_dpidle_lock, flags);
 }
-#endif
 
 static bool usb_enable_clock(bool enable)
 {
@@ -199,7 +202,7 @@ static bool usb_enable_clock(bool enable)
 	os_printk(K_INFO, "CG, enable<%d>, count<%d>\n", enable, count);
 
 	if (enable && count == 0) {
-		//usb_hal_dpidle_request(USB_DPIDLE_FORBIDDEN);
+		usb_hal_dpidle_request(USB_DPIDLE_FORBIDDEN);
 		if (clk_enable(ssusb_clk) != 0)
 			pr_notice("ssusb_ref_clk enable fail\n");
 		if (clk_enable(sys_ck) != 0)
@@ -207,7 +210,7 @@ static bool usb_enable_clock(bool enable)
 	} else if (!enable && count == 1) {
 		clk_disable(ssusb_clk);
 		clk_disable(sys_ck);
-		//usb_hal_dpidle_request(USB_DPIDLE_ALLOWED);
+		usb_hal_dpidle_request(USB_DPIDLE_ALLOWED);
 	}
 
 	if (enable)
