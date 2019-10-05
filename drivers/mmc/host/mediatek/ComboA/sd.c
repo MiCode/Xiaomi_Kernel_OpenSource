@@ -3647,7 +3647,6 @@ int msdc_error_tuning(struct mmc_host *mmc,  struct mmc_request *mrq)
 		goto recovery;
 
 start_tune:
-	msdc_pmic_force_vcore_pwm(true);
 
 	switch (mmc->ios.timing) {
 	case MMC_TIMING_UHS_SDR104:
@@ -3682,8 +3681,6 @@ start_tune:
 		autok_low_speed_switch_edge(host, &mmc->ios, autok_err_type);
 		break;
 	}
-
-	msdc_pmic_force_vcore_pwm(false);
 
 	if (ret) {
 		/* FIX ME, consider to use msdc_dump_info() to replace all */
@@ -4151,8 +4148,6 @@ int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 
 	host->tuning_in_progress = true;
 
-	msdc_pmic_force_vcore_pwm(true);
-
 	if (host->hw->host_function == MSDC_SD)
 		ret = sd_execute_dvfs_autok(host, opcode);
 	else if (host->hw->host_function == MSDC_EMMC)
@@ -4160,7 +4155,6 @@ int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	else if (host->hw->host_function == MSDC_SDIO)
 		sdio_execute_dvfs_autok(host);
 
-	msdc_pmic_force_vcore_pwm(false);
 	host->tuning_in_progress = false;
 	if (ret)
 		msdc_dump_info(NULL, 0, NULL, host->id);
