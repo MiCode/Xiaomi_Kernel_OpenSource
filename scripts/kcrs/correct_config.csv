@@ -761,7 +761,7 @@ CONFIG_MTK_TILTDETECTHUB,PROJECT,weiqi.fu,,,,,,,,,,,,,,
 CONFIG_MTK_TIMER_TIMESYNC,COMMON,chang-an.chen,timer,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_TINYSYS_SCP_SUPPORT,PROJECT,ts.kuo,new config in this commit a093c6e6d759ab57ff80b7553294c2a02c04a522,,,,,,,,,,,,,
 CONFIG_MTK_TINYSYS_SSPM_SUPPORT,PLATFORM,jiachiam.liu,new config in this commit 0882fbfb410389a677423c4418d05ccf72744111,y,X,y,y,y,y,y,y,y,y,y,y,y
-CONFIG_MTK_TINYSYS_MCUPM_SUPPORT,PLATFORM,rogercl.yang,new config in this commit a71f48f842e99476badeb8ff6699fb54062f5f54,X,X,X,X,X,X,X,X,X,y,y,X,X
+CONFIG_MTK_TINYSYS_MCUPM_SUPPORT,PROJECT,rogercl.yang,new config in this commit a71f48f842e99476badeb8ff6699fb54062f5f54,X,X,X,X,X,X,X,X,X,O,O,X,X
 CONFIG_MTK_TLC_NAND_SUPPORT,PROJECT,chienwei.chang,TLC nand project only,,,,,,,,,,,,,
 CONFIG_MTK_TRUSTONIC_TEE_DEBUGFS,USER;PROJECT,tryout.chen,,,,,,,,,,,,,,
 CONFIG_MTK_TRUSTY_DEBUGFS,USER;PROJECT,vink.shen,,,,,,,,,,,,,,
