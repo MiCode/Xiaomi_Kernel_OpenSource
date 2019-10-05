@@ -257,7 +257,7 @@ page_owner=on";
 			no-map;
 			size = <0 0x00300000>; /*3 MB share mem size */
 			alignment = <0 0x1000000>;
-			alloc-ranges = <0 0x40000000 0 0x50000000>;
+			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
 		reserve-memory-mcupm_share {
 			compatible = "mediatek,reserve-memory-mcupm_share";
