@@ -700,7 +700,7 @@ static bool nanohub_os_log(char *buffer, int len)
 	    OS_LOG_EVENTID) {
 		char *mtype, *mdata = &buffer[5];
 
-		buffer[len] = 0x00;
+		buffer[len - 1] = '\0';
 
 		switch (buffer[4]) {
 		case 'E':
