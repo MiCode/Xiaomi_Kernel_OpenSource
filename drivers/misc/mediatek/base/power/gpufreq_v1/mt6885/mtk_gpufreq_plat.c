@@ -2876,9 +2876,10 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	g_mfg_base = __mt_gpufreq_of_ioremap("mediatek,mfgcfg", 0);
+	g_mfg_base = __mt_gpufreq_of_ioremap("mediatek,g3d_config", 0);
 	if (!g_mfg_base) {
-		gpufreq_pr_info("@%s: ioremap failed at mfgcfg", __func__);
+		gpufreq_pr_info("@%s: ioremap failed at g3d_config",
+			__func__);
 		return -ENOENT;
 	}
 
