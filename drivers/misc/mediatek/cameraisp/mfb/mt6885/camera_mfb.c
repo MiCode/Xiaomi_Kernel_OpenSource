@@ -849,6 +849,7 @@ static void mss_norm_sirq(struct cmdq_cb_data data)
 
 	pkt = (struct cmdq_pkt *) data.data;
 	if (data.err < 0) {
+		request_dump(&mss_reqs);
 		MSS_DumpReg();
 		LOG_ERR("%s_mss: call back error(%d)", __func__, data.err);
 		goto EXIT;
@@ -996,6 +997,7 @@ static void mss_vss_sirq(struct cmdq_cb_data data)
 
 	pkt = (struct cmdq_pkt *) data.data;
 	if (data.err < 0) {
+		request_dump(&vmss_reqs);
 		MSS_DumpReg();
 		LOG_ERR("%s_mss: call back error(%d)", __func__, data.err);
 		goto EXIT;
@@ -1132,6 +1134,7 @@ static void msf_norm_sirq(struct cmdq_cb_data data)
 
 	pkt = (struct cmdq_pkt *) data.data;
 	if (data.err < 0) {
+		request_dump(&msf_reqs);
 		MSF_DumpReg();
 		LOG_ERR("%s: call back error(%d)", __func__, data.err);
 		goto EXIT;
@@ -1276,6 +1279,7 @@ static void msf_vss_sirq(struct cmdq_cb_data data)
 
 	pkt = (struct cmdq_pkt *) data.data;
 	if (data.err < 0) {
+		request_dump(&vmsf_reqs);
 		MSF_DumpReg();
 		LOG_ERR("%s: call back error(%d)", __func__, data.err);
 		goto EXIT;

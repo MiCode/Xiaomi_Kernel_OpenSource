@@ -303,7 +303,7 @@ struct mss_dma {
 	unsigned int MSSDMT_OC_BASE;
 };
 
-#define TPIPE_NUM_PER_FRAME (40)
+#define TPIPE_NUM_PER_FRAME (64)
 struct MFB_MSSConfig {
 	unsigned int MSSCMDQ_ENABLE[TPIPE_NUM_PER_FRAME];
 	unsigned int MSSCMDQ_BASE[TPIPE_NUM_PER_FRAME];

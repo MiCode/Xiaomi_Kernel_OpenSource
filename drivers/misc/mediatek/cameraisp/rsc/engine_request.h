@@ -17,7 +17,7 @@
 #define _ENGINE_REQUESTS_H_
 
 #define MAX_REQUEST_SIZE_PER_ENGINE 4
-#define MAX_FRAMES_PER_REQUEST 6
+#define MAX_FRAMES_PER_REQUEST 16
 
 /* Regulation Options */
 #define FRAME_BASE_REGULATION 0
