@@ -52,10 +52,28 @@
 #define DISP_REG_RDMA_MEM_CON 0x0024
 #define DISP_REG_RDMA_MEM_START_ADDR 0x0f00
 #define DISP_REG_RDMA_MEM_SRC_PITCH 0x002c
-#define DISP_REG_RDMA_MEM_GMC_SETTING_0 0x0030
-#define DISP_REG_RDMA_MEM_GMC_SETTING_1 0x0034
+#define DISP_REG_RDMA_MEM_GMC_S0 0x0030
+#define MEM_GMC_S0_FLD_PRE_ULTRA_THRESHOLD_LOW \
+					REG_FLD_MSB_LSB(13, 0)
+#define MEM_GMC_S0_FLD_PRE_ULTRA_THRESHOLD_HIGH \
+					REG_FLD_MSB_LSB(29, 16)
+#define MEM_GMC_S0_FLD_RG_VALID_THRESHOLD_FORCE_PREULTRA \
+					REG_FLD_MSB_LSB(30, 30)
+#define MEM_GMC_S0_FLD_RG_VDE_FORCE_PREULTRA \
+					REG_FLD_MSB_LSB(31, 31)
+#define DISP_REG_RDMA_MEM_GMC_S1 0x0034
+#define MEM_GMC_S1_FLD_ULTRA_THRESHOLD_LOW \
+					REG_FLD_MSB_LSB(13, 0)
+#define MEM_GMC_S1_FLD_ULTRA_THRESHOLD_HIGH \
+					REG_FLD_MSB_LSB(29, 16)
+#define MEM_GMC_S1_FLD_RG_VALID_THRESHOLD_BLOCK_ULTRA \
+					REG_FLD_MSB_LSB(30, 30)
+#define MEM_GMC_S1_FLD_RG_VDE_BLOCK_ULTRA \
+					REG_FLD_MSB_LSB(31, 31)
+
 #define DISP_REG_RDMA_MEM_SLOW_CON 0x0038
-#define DISP_REG_RDMA_MEM_GMC_SETTING_2 0x003c
+#define DISP_REG_RDMA_MEM_GMC_S2 0x003c
+#define MEM_GMC_S2_FLD_ISSUE_REQ_THRESHOLD REG_FLD_MSB_LSB(13, 0)
 #define DISP_REG_RDMA_FIFO_LOG 0x0044
 #define DISP_REG_RDMA_PRE_ADD_0 0x0078
 #define DISP_REG_RDMA_PRE_ADD_1 0x007c
@@ -68,7 +86,11 @@
 #define DISP_REG_RDMA_BG_CON_0 0x00a0
 #define DISP_REG_RDMA_BG_CON_1 0x00a4
 #define DISP_REG_RDMA_THRESHOLD_FOR_SODI 0x00a8
+#define RDMA_THRESHOLD_FOR_SODI_FLD_LOW	REG_FLD_MSB_LSB(13, 0)
+#define RDMA_THRESHOLD_FOR_SODI_FLD_HIGH REG_FLD_MSB_LSB(29, 16)
 #define DISP_REG_RDMA_THRESHOLD_FOR_DVFS 0x00ac
+#define RDMA_THRESHOLD_FOR_DVFS_FLD_LOW REG_FLD_MSB_LSB(13, 0)
+#define RDMA_THRESHOLD_FOR_DVFS_FLD_HIGH REG_FLD_MSB_LSB(29, 16)
 #define DISP_REG_RDMA_SRAM_SEL 0x00b0
 #define DISP_REG_RDMA_STALL_CG_CON 0x00b4
 #define DISP_REG_RDMA_SHADOW_UPDATE 0x00b8
@@ -96,7 +118,7 @@
 #define DISP_REG_RDMA_CROP_CON_1 0x00e4
 #define CROP_CON_0_FLD_CROP_TOP REG_FLD_MSB_LSB(12, 0)
 #define CROP_CON_0_FLD_CROP_BOTTOM REG_FLD_MSB_LSB(28, 16)
-#define DISP_REG_RDMA_MEM_GMC_SETTING_3 0x00e8
+#define DISP_REG_RDMA_MEM_GMC_S3 0x00e8
 #define FLD_LOW_FOR_URGENT REG_FLD_MSB_LSB(13, 0)
 #define FLD_HIGH_FOR_URGENT REG_FLD_MSB_LSB(29, 16)
 #define FLD_RG_VALID_THRESHOLD_BLOCK_URGENT REG_FLD_MSB_LSB(30, 30)
@@ -119,6 +141,9 @@
 #define DISP_RDMA_MEM_SRC_PITCH 0x002c
 #define DISP_RDMA_MEM_GMC_SETTING_0 0x0030
 #define DISP_REG_RDMA_FIFO_CON 0x0040
+#define FIFO_CON_FLD_OUTPUT_VALID_FIFO_THRESHOLD REG_FLD_MSB_LSB(13, 0)
+#define FIFO_CON_FLD_FIFO_PSEUDO_SIZE	REG_FLD_MSB_LSB(29, 16)
+#define FIFO_CON_FLD_FIFO_UNDERFLOW_EN	REG_FLD_MSB_LSB(31, 31)
 #define RDMA_FIFO_UNDERFLOW_EN BIT(31)
 #define RDMA_FIFO_PSEUDO_SIZE(bytes) (((bytes) / 16UL) << 16)
 #define RDMA_OUTPUT_VALID_FIFO_THRESHOLD(bytes) ((bytes) / 16)
@@ -140,8 +165,6 @@
 #define GLOBAL_CON_FLD_ENGINE_EN REG_FLD_MSB_LSB(0, 0)
 #define GLOBAL_CON_FLD_MODE_SEL REG_FLD_MSB_LSB(1, 1)
 #define GLOBAL_CON_FLD_SMI_BUSY REG_FLD_MSB_LSB(12, 12)
-#define FIFO_CON_FLD_FIFO_PSEUDO_SIZE REG_FLD_MSB_LSB(29, 16)
-#define FIFO_CON_FLD_OUTPUT_VALID_FIFO_THRESHOLD REG_FLD_MSB_LSB(13, 0)
 #define RDMA_BG_CON_0_LEFT REG_FLD_MSB_LSB(12, 0)
 #define RDMA_BG_CON_0_RIGHT REG_FLD_MSB_LSB(28, 16)
 #define RDMA_BG_CON_1_TOP REG_FLD_MSB_LSB(12, 0)
@@ -550,19 +573,17 @@ static void mtk_rdma_set_ultra_l(struct mtk_ddp_comp *comp,
 	      (gs[GS_RDMA_VALID_TH_FORCE_PRE_ULTRA] << 30) +
 	      (gs[GS_RDMA_VDE_FORCE_PRE_ULTRA] << 31);
 	cmdq_pkt_write(handle, comp->cmdq_base,
-		       comp->regs_pa + DISP_REG_RDMA_MEM_GMC_SETTING_0, val,
-		       ~0);
+		       comp->regs_pa + DISP_REG_RDMA_MEM_GMC_S0, val, ~0);
 
 	val = gs[GS_RDMA_ULTRA_TH_LOW] + (gs[GS_RDMA_ULTRA_TH_HIGH] << 16) +
 	      (gs[GS_RDMA_VALID_TH_BLOCK_ULTRA] << 30) +
 	      (gs[GS_RDMA_VDE_BLOCK_ULTRA] << 31);
 	cmdq_pkt_write(handle, comp->cmdq_base,
-		       comp->regs_pa + DISP_REG_RDMA_MEM_GMC_SETTING_1, val,
-		       ~0);
+		       comp->regs_pa + DISP_REG_RDMA_MEM_GMC_S1, val, ~0);
 
 	val = gs[GS_RDMA_ISSUE_REQ_TH];
 	cmdq_pkt_write(handle, comp->cmdq_base,
-		       comp->regs_pa + DISP_REG_RDMA_MEM_GMC_SETTING_2, val,
+		       comp->regs_pa + DISP_REG_RDMA_MEM_GMC_S2, val,
 		       ~0);
 
 	val = gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] + (gs[GS_RDMA_FIFO_SIZE] << 16) +
@@ -611,7 +632,7 @@ static void mtk_rdma_set_ultra_l(struct mtk_ddp_comp *comp,
 
 	val = gs[GS_RDMA_URGENT_TH_LOW] + (gs[GS_RDMA_URGENT_TH_HIGH] << 16);
 	cmdq_pkt_write(handle, comp->cmdq_base,
-		       comp->regs_pa + DISP_REG_RDMA_MEM_GMC_SETTING_3, val,
+		       comp->regs_pa + DISP_REG_RDMA_MEM_GMC_S3, val,
 		       ~0);
 
 	val = gs[GS_RDMA_SELF_FIFO_SIZE] + (gs[GS_RDMA_RSZ_FIFO_SIZE] << 16);
@@ -747,6 +768,107 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	return ret;
 }
 
+void mtk_rdma_dump_golden_setting(struct mtk_ddp_comp *comp)
+{
+	void __iomem *baddr = comp->regs;
+	unsigned int value;
+
+	DDPDUMP("-- %s Golden Setting --\n", mtk_dump_comp_str(comp));
+	DDPDUMP("0x%03x:0x%08x 0x%03x:0x%08x 0x%03x:0x%08x 0x%03x:0x%08x\n",
+		0x30, readl(DISP_REG_RDMA_MEM_GMC_S0 + baddr),
+		0x34, readl(DISP_REG_RDMA_MEM_GMC_S1 + baddr),
+		0x3c, readl(DISP_REG_RDMA_MEM_GMC_S2 + baddr),
+		0x40, readl(DISP_REG_RDMA_FIFO_CON + baddr));
+	DDPDUMP("0x%03x:0x%08x 0x%03x:0x%08x 0x%03x:0x%08x 0x%03x:0x%08x\n",
+		0xa8, readl(DISP_REG_RDMA_THRESHOLD_FOR_SODI + baddr),
+		0xac, readl(DISP_REG_RDMA_THRESHOLD_FOR_DVFS + baddr),
+		0xb0, readl(DISP_REG_RDMA_SRAM_SEL + baddr),
+		0xc8, readl(DISP_RDMA_SRAM_CASCADE + baddr));
+	DDPDUMP("0x%03x:0x%08x 0x%08x 0x%08x 0x%08x\n",
+		0xd0, readl(DISP_REG_RDMA_DVFS_SETTING_PRE + baddr),
+		readl(DISP_REG_RDMA_DVFS_SETTING_ULTRA + baddr),
+		readl(DISP_REG_RDMA_LEAVE_DRS_SETTING + baddr),
+		readl(DISP_REG_RDMA_ENTER_DRS_SETTING + baddr));
+	DDPDUMP("0x%03x:0x%08x\n",
+		0xe8, readl(DISP_REG_RDMA_MEM_GMC_S3 + baddr));
+
+
+	value = readl(DISP_REG_RDMA_MEM_GMC_S0 + baddr);
+	DDPDUMP("GMC_SETTING_0 [11:0]:%u [27:16]:%u [30]:%u [31]:%u\n",
+		REG_FLD_VAL_GET(
+			MEM_GMC_S0_FLD_PRE_ULTRA_THRESHOLD_LOW, value),
+		REG_FLD_VAL_GET(
+			MEM_GMC_S0_FLD_PRE_ULTRA_THRESHOLD_HIGH, value),
+		REG_FLD_VAL_GET(
+			MEM_GMC_S0_FLD_RG_VALID_THRESHOLD_FORCE_PREULTRA,
+			value),
+		REG_FLD_VAL_GET(
+			MEM_GMC_S0_FLD_RG_VDE_FORCE_PREULTRA, value));
+
+	value = readl(DISP_REG_RDMA_MEM_GMC_S1 + baddr);
+	DDPDUMP("GMC_SETTING_1 [11:0]:%u [27:16]:%u [30]:%u [31]:%u\n",
+		REG_FLD_VAL_GET(MEM_GMC_S1_FLD_ULTRA_THRESHOLD_LOW, value),
+		REG_FLD_VAL_GET(MEM_GMC_S1_FLD_ULTRA_THRESHOLD_HIGH, value),
+		REG_FLD_VAL_GET(
+			MEM_GMC_S1_FLD_RG_VALID_THRESHOLD_BLOCK_ULTRA, value),
+		REG_FLD_VAL_GET(
+			MEM_GMC_S1_FLD_RG_VDE_BLOCK_ULTRA, value));
+
+	value = readl(DISP_REG_RDMA_MEM_GMC_S2 + baddr);
+	DDPDUMP("GMC_SETTING_2 [11:0]:%u\n",
+		REG_FLD_VAL_GET(MEM_GMC_S2_FLD_ISSUE_REQ_THRESHOLD, value));
+
+	value = readl(DISP_REG_RDMA_FIFO_CON + baddr);
+	DDPDUMP("FIFO_CON [11:0]:%u [27:16]:%d [31]:%u\n",
+		REG_FLD_VAL_GET(
+			FIFO_CON_FLD_OUTPUT_VALID_FIFO_THRESHOLD, value),
+		REG_FLD_VAL_GET(FIFO_CON_FLD_FIFO_PSEUDO_SIZE, value),
+		REG_FLD_VAL_GET(FIFO_CON_FLD_FIFO_UNDERFLOW_EN, value));
+
+	value = readl(DISP_REG_RDMA_THRESHOLD_FOR_SODI + baddr);
+	DDPDUMP("THRSHOLD_SODI [11:0]:%u [27:16]:%u\n",
+		REG_FLD_VAL_GET(RDMA_THRESHOLD_FOR_SODI_FLD_LOW, value),
+		REG_FLD_VAL_GET(RDMA_THRESHOLD_FOR_SODI_FLD_HIGH, value));
+
+	value = readl(DISP_REG_RDMA_THRESHOLD_FOR_DVFS + baddr);
+	DDPDUMP("THRSHOLD_DVFS [11:0]:%u [27:16]:%u\n",
+		REG_FLD_VAL_GET(RDMA_THRESHOLD_FOR_DVFS_FLD_LOW, value),
+		REG_FLD_VAL_GET(RDMA_THRESHOLD_FOR_DVFS_FLD_HIGH, value));
+
+	DDPDUMP("SRAM_SEL [0]:%u\n", readl(DISP_REG_RDMA_SRAM_SEL + baddr));
+
+
+	value = readl(DISP_RDMA_SRAM_CASCADE + baddr);
+	DDPDUMP("SRAM_CASCADE [13:0]:%u [27:16]:%u\n",
+		REG_FLD_VAL_GET(RG_DISP_RDMA_FIFO_SIZE, value),
+		REG_FLD_VAL_GET(RG_DISP_RDMA_RSZ_FIFO_SIZE, value));
+
+	value = readl(DISP_REG_RDMA_DVFS_SETTING_PRE + baddr);
+	DDPDUMP("DVFS_SETTING_PREULTRA [11:0]:%u [27:16]:%u\n",
+		REG_FLD_VAL_GET(RG_DVFS_PRE_ULTRA_THRESHOLD_LOW, value),
+		REG_FLD_VAL_GET(RG_DVFS_PRE_ULTRA_THRESHOLD_HIGH, value));
+
+	value = readl(DISP_REG_RDMA_DVFS_SETTING_ULTRA + baddr);
+	DDPDUMP("DVFS_SETTING_ULTRA [11:0]:%u [27:16]:%u\n",
+		REG_FLD_VAL_GET(RG_DVFS_ULTRA_THRESHOLD_LOW, value),
+		REG_FLD_VAL_GET(RG_DVFS_ULTRA_THRESHOLD_HIGH, value));
+
+	value = readl(DISP_REG_RDMA_LEAVE_DRS_SETTING + baddr);
+	DDPDUMP("LEAVE_DRS_SETTING [11:0]:%u [27:16]:%u\n",
+		REG_FLD_VAL_GET(RG_IS_DRS_STATUS_THRESHOLD_LOW, value),
+		REG_FLD_VAL_GET(RG_IS_DRS_STATUS_THRESHOLD_HIGH, value));
+
+	value = readl(DISP_REG_RDMA_ENTER_DRS_SETTING + baddr);
+	DDPDUMP("ENTER_DRS_SETTING [11:0]:%u [27:16]:%u\n",
+		REG_FLD_VAL_GET(RG_NOT_DRS_STATUS_THRESHOLD_LOW, value),
+		REG_FLD_VAL_GET(RG_NOT_DRS_STATUS_THRESHOLD_HIGH, value));
+
+	value = readl(DISP_REG_RDMA_MEM_GMC_S3 + baddr);
+	DDPDUMP("GMC_SETTING_3 [11:0]:%u [27:16]:%u\n",
+		REG_FLD_VAL_GET(FLD_LOW_FOR_URGENT, value),
+		REG_FLD_VAL_GET(FLD_HIGH_FOR_URGENT, value));
+}
+
 int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
@@ -778,13 +900,13 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 		DDPDUMP("(0x02c)R_M_SRC_PITCH=0x%x\n",
 			readl(DISP_REG_RDMA_MEM_SRC_PITCH + baddr));
 		DDPDUMP("(0x030)R_M_GMC_SET0=0x%x\n",
-			readl(DISP_REG_RDMA_MEM_GMC_SETTING_0 + baddr));
+			readl(DISP_REG_RDMA_MEM_GMC_S0 + baddr));
 		DDPDUMP("(0x034)R_M_GMC_SET1=0x%x\n",
-			readl(DISP_REG_RDMA_MEM_GMC_SETTING_1 + baddr));
+			readl(DISP_REG_RDMA_MEM_GMC_S1 + baddr));
 		DDPDUMP("(0x038)R_M_SLOW_CON=0x%x\n",
 			readl(DISP_REG_RDMA_MEM_SLOW_CON + baddr));
 		DDPDUMP("(0x03c)R_M_GMC_SET2=0x%x\n",
-			readl(DISP_REG_RDMA_MEM_GMC_SETTING_2 + baddr));
+			readl(DISP_REG_RDMA_MEM_GMC_S2 + baddr));
 		DDPDUMP("(0x040)R_FIFO_CON=0x%x\n",
 			readl(DISP_REG_RDMA_FIFO_CON + baddr));
 		DDPDUMP("(0x044)R_FIFO_LOG=0x%x\n",
@@ -836,7 +958,7 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 		DDPDUMP("(0x0e4)DISP_REG_RDMA_CROP_CON_1=0x%x\n",
 			readl(DISP_REG_RDMA_CROP_CON_0 + baddr));
 		DDPDUMP("(0x0e8)DISP_REG_RDMA_MEM_GMC_SETTING_3=0x%x\n",
-			readl(DISP_REG_RDMA_MEM_GMC_SETTING_3 + baddr));
+			readl(DISP_REG_RDMA_MEM_GMC_S3 + baddr));
 		DDPDUMP("(0x0f0)R_IN_PXL_CNT=0x%x\n",
 			readl(DISP_REG_RDMA_IN_P_CNT + baddr));
 		DDPDUMP("(0x0f4)R_IN_LINE_CNT=0x%x\n",
@@ -852,6 +974,9 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 		DDPDUMP("(0x118)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT4 + baddr));
 		DDPDUMP("(0x11c)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT5 + baddr));
 	}
+
+	mtk_rdma_dump_golden_setting(comp);
+
 	return 0;
 }
 

@@ -71,14 +71,20 @@
 #define INTEN_FLD_START_INTEN REG_FLD_MSB_LSB(14, 14)
 
 #define DISP_REG_OVL_INTSTA 0x0008
-#define DISP_REG_OVL_EN 0x000c
+#define DISP_REG_OVL_EN (0x000CUL)
+#define EN_FLD_BLOCK_EXT_ULTRA			REG_FLD_MSB_LSB(18, 18)
+#define EN_FLD_BLOCK_EXT_PREULTRA		REG_FLD_MSB_LSB(19, 19)
 #define DISP_REG_OVL_TRIG (0x010UL)
 
 #define DISP_REG_OVL_RST 0x0014
 #define DISP_REG_OVL_ROI_SIZE 0x0020
-#define DISP_REG_OVL_DATAPATH_CON 0x024UL
+#define DISP_REG_OVL_DATAPATH_CON	(0x024UL)
 #define DISP_OVL_BGCLR_IN_SEL BIT(2)
 #define DISP_OVL_OUTPUT_CLAMP BIT(26)
+#define DATAPATH_CON_FLD_LAYER_SMI_ID_EN	REG_FLD_MSB_LSB(0, 0)
+#define DATAPATH_CON_FLD_GCLAST_EN		REG_FLD_MSB_LSB(24, 24)
+#define DATAPATH_CON_FLD_HDR_GCLAST_EN		REG_FLD_MSB_LSB(25, 25)
+#define DATAPATH_CON_FLD_OUTPUT_CLAMP		REG_FLD_MSB_LSB(26, 26)
 
 #define DISP_REG_OVL_ROI_BGCLR 0x0028
 #define DISP_REG_OVL_SRC_CON 0x002c
@@ -121,9 +127,16 @@
 #define DISP_REG_OVL_RDMA_GMC(n) (0x00c8 + 0x20 * (n))
 #define DISP_REG_OVL_RDMA_FIFO_CTRL(n) (0x00d0 + 0x20 * (n))
 #define DISP_REG_OVL_RDMA0_MEM_GMC_S2 (0x1E0UL)
+#define FLD_OVL_RDMA_MEM_GMC2_ISSUE_REQ_THRES	REG_FLD_MSB_LSB(11, 0)
+#define FLD_OVL_RDMA_MEM_GMC2_ISSUE_REQ_THRES_URG	REG_FLD_MSB_LSB(27, 16)
+#define FLD_OVL_RDMA_MEM_GMC2_REQ_THRES_PREULTRA REG_FLD_MSB_LSB(28, 28)
+#define FLD_OVL_RDMA_MEM_GMC2_REQ_THRES_ULTRA	REG_FLD_MSB_LSB(29, 29)
+#define FLD_OVL_RDMA_MEM_GMC2_FORCE_REQ_THRES	REG_FLD_MSB_LSB(30, 30)
 #define DISP_REG_OVL_RDMA1_MEM_GMC_S2 (0x1E4UL)
 #define DISP_REG_OVL_RDMA2_MEM_GMC_S2 (0x1E8UL)
 #define DISP_REG_OVL_RDMA3_MEM_GMC_S2 (0x1ECUL)
+#define DISP_REG_OVL_RDMA_BURST_CON1	(0x1F4UL)
+#define FLD_RDMA_BURST_CON1_BURST16_EN		REG_FLD_MSB_LSB(28, 28)
 
 #define DISP_REG_OVL_RDMA0_DBG (0x24CUL)
 #define DISP_REG_OVL_RDMA1_DBG (0x250UL)
@@ -139,10 +152,38 @@
 #define DISP_REG_OVL_BANK_CON (0x29cUL)
 #define DISP_REG_OVL_DEBUG_MON_SEL (0x1D4UL)
 #define DISP_REG_OVL_RDMA_GREQ_NUM (0x1F8UL)
+#define FLD_OVL_RDMA_GREQ_LAYER0_GREQ_NUM	REG_FLD_MSB_LSB(3, 0)
+#define FLD_OVL_RDMA_GREQ_LAYER1_GREQ_NUM	REG_FLD_MSB_LSB(7, 4)
+#define FLD_OVL_RDMA_GREQ_LAYER2_GREQ_NUM	REG_FLD_MSB_LSB(11, 8)
+#define FLD_OVL_RDMA_GREQ_LAYER3_GREQ_NUM	REG_FLD_MSB_LSB(15, 12)
+#define FLD_OVL_RDMA_GREQ_OSTD_GREQ_NUM		REG_FLD_MSB_LSB(23, 16)
+#define FLD_OVL_RDMA_GREQ_GREQ_DIS_CNT		REG_FLD_MSB_LSB(26, 24)
+#define FLD_OVL_RDMA_GREQ_STOP_EN		REG_FLD_MSB_LSB(27, 27)
+#define FLD_OVL_RDMA_GREQ_GRP_END_STOP		REG_FLD_MSB_LSB(28, 28)
+#define FLD_OVL_RDMA_GREQ_GRP_BRK_STOP		REG_FLD_MSB_LSB(29, 29)
+#define FLD_OVL_RDMA_GREQ_IOBUF_FLUSH_PREULTRA	REG_FLD_MSB_LSB(30, 30)
+#define FLD_OVL_RDMA_GREQ_IOBUF_FLUSH_ULTRA	REG_FLD_MSB_LSB(31, 31)
 #define DISP_REG_OVL_RDMA_GREQ_URG_NUM (0x1FCUL)
+#define FLD_OVL_RDMA_GREQ_LAYER0_GREQ_URG_NUM	REG_FLD_MSB_LSB(3, 0)
+#define FLD_OVL_RDMA_GREQ_LAYER1_GREQ_URG_NUM	REG_FLD_MSB_LSB(7, 4)
+#define FLD_OVL_RDMA_GREQ_LAYER2_GREQ_URG_NUM	REG_FLD_MSB_LSB(11, 8)
+#define FLD_OVL_RDMA_GREQ_LAYER3_GREQ_URG_NUM	REG_FLD_MSB_LSB(15, 12)
+#define FLD_OVL_RDMA_GREQ_ARG_GREQ_URG_TH	REG_FLD_MSB_LSB(25, 16)
+#define FLD_OVL_RDMA_GREQ_ARG_URG_BIAS		REG_FLD_MSB_LSB(28, 28)
+#define FLD_OVL_RDMA_GREQ_NUM_SHT_VAL		REG_FLD_MSB_LSB(29, 29)
 #define DISP_REG_OVL_DUMMY_REG (0x200UL)
 #define DISP_REG_OVL_RDMA_ULTRA_SRC (0x20CUL)
+#define FLD_OVL_RDMA_PREULTRA_BUF_SRC		REG_FLD_MSB_LSB(1, 0)
+#define FLD_OVL_RDMA_PREULTRA_SMI_SRC		REG_FLD_MSB_LSB(3, 2)
+#define FLD_OVL_RDMA_PREULTRA_ROI_END_SRC	REG_FLD_MSB_LSB(5, 4)
+#define FLD_OVL_RDMA_PREULTRA_RDMA_SRC		REG_FLD_MSB_LSB(7, 6)
+#define FLD_OVL_RDMA_ULTRA_BUF_SRC		REG_FLD_MSB_LSB(9, 8)
+#define FLD_OVL_RDMA_ULTRA_SMI_SRC		REG_FLD_MSB_LSB(11, 10)
+#define FLD_OVL_RDMA_ULTRA_ROI_END_SRC		REG_FLD_MSB_LSB(13, 12)
+#define FLD_OVL_RDMA_ULTRA_RDMA_SRC		REG_FLD_MSB_LSB(15, 14)
 #define DISP_REG_OVL_RDMAn_BUF_LOW(layer) (0x210UL + ((layer) << 2))
+#define FLD_OVL_RDMA_BUF_LOW_ULTRA_TH		REG_FLD_MSB_LSB(11, 0)
+#define FLD_OVL_RDMA_BUF_LOW_PREULTRA_TH	REG_FLD_MSB_LSB(23, 12)
 #define DISP_REG_OVL_RDMAn_BUF_HIGH(layer) (0x220UL + ((layer) << 2))
 #define FLD_OVL_RDMA_BUF_HIGH_PREULTRA_TH REG_FLD_MSB_LSB(23, 12)
 #define FLD_OVL_RDMA_BUF_HIGH_PREULTRA_DIS REG_FLD_MSB_LSB(31, 31)
@@ -226,6 +267,8 @@
 #define DISP_REG_OVL_Ln_R2R_PARA(n) (0x500UL + 0x40 * (n))
 #define DISP_REG_OVL_ELn_R2R_PARA(n) (0x600UL + 0x40 * (n))
 #define DISP_REG_OVL_FBDC_CFG1 (0x804UL)
+#define FLD_FBDC_8XE_MODE			REG_FLD_MSB_LSB(24, 24)
+#define FLD_FBDC_FILTER_EN			REG_FLD_MSB_LSB(28, 28)
 #define FBDC_8XE_MODE BIT(24)
 #define FBDC_FILTER_EN BIT(28)
 
@@ -473,6 +516,7 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	unsigned int val;
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 	const struct compress_info *compr_info = ovl->data->compr_info;
+	unsigned int value = 0, mask = 0;
 
 	DDPINFO("%s+ %s\n", __func__, mtk_dump_comp_str(comp));
 
@@ -496,9 +540,20 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		       comp->regs_pa + DISP_REG_OVL_SRC_CON,
 		       DISP_OVL_FORCE_RELAY_MODE, DISP_OVL_FORCE_RELAY_MODE);
 
+
+	SET_VAL_MASK(value, mask, 1, FLD_RDMA_BURST_CON1_BURST16_EN);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_OVL_RDMA_BURST_CON1,
+		       value, mask);
+
+	value = 0;
+	mask = 0;
+	SET_VAL_MASK(value, mask, 1, DATAPATH_CON_FLD_LAYER_SMI_ID_EN);
+	SET_VAL_MASK(value, mask, 1, DATAPATH_CON_FLD_GCLAST_EN);
+	SET_VAL_MASK(value, mask, 1, DATAPATH_CON_FLD_OUTPUT_CLAMP);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
-		       DISP_OVL_OUTPUT_CLAMP, DISP_OVL_OUTPUT_CLAMP);
+		       value, mask);
 
 	DDPINFO("%s-\n", __func__);
 }
@@ -2094,6 +2149,154 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	return ret;
 }
 
+void mtk_ovl_dump_golden_setting(struct mtk_ddp_comp *comp)
+{
+	void __iomem *baddr = comp->regs;
+	unsigned long rg0 = 0, rg1 = 0, rg2 = 0, rg3 = 0, rg4 = 0;
+	int i = 0;
+	unsigned int value;
+
+	DDPDUMP("-- %s Golden Setting --\n", mtk_dump_comp_str(comp));
+	for (i = 0; i < mtk_ovl_layer_num(comp); i++) {
+		rg0 = DISP_REG_OVL_RDMA0_MEM_GMC_SETTING
+			+ i * OVL_LAYER_OFFSET;
+		rg1 = DISP_REG_OVL_RDMA0_FIFO_CTRL + i * OVL_LAYER_OFFSET;
+		rg2 = DISP_REG_OVL_RDMA0_MEM_GMC_S2 + i * 0x4;
+		rg3 = DISP_REG_OVL_RDMAn_BUF_LOW(i);
+		rg4 = DISP_REG_OVL_RDMAn_BUF_HIGH(i);
+		DDPDUMP("0x%03lx:0x%08x 0x%03lx:0x%08x 0x%03lx:0x%08x\n",
+			rg0, readl(rg0 + baddr), rg1, readl(rg1 + baddr),
+			rg2, readl(rg2 + baddr));
+		DDPDUMP("0x%03lx:0x%08x 0x%03lx:0x%08x\n",
+			rg3, readl(rg3 + baddr),
+			rg4, readl(rg4 + baddr));
+	}
+
+	rg0 = DISP_REG_OVL_RDMA_BURST_CON1;
+	DDPDUMP("0x%03lx:0x%08x\n", rg0, readl(rg0 + baddr));
+
+	rg0 = DISP_REG_OVL_RDMA_GREQ_NUM;
+	rg1 = DISP_REG_OVL_RDMA_GREQ_URG_NUM;
+	rg2 = DISP_REG_OVL_RDMA_ULTRA_SRC;
+	DDPDUMP("0x%03lx:0x%08x 0x%03lx:0x%08x 0x%03lx:0x%08x\n",
+		rg0, readl(rg0 + baddr),
+		rg1, readl(rg1 + baddr),
+		rg2, readl(rg2 + baddr));
+
+	rg0 = DISP_REG_OVL_EN;
+	rg1 = DISP_REG_OVL_DATAPATH_CON;
+	rg2 = DISP_REG_OVL_FBDC_CFG1;
+	DDPDUMP("0x%03lx:0x%08x 0x%03lx:0x%08x 0x%03lx:0x%08x\n",
+		rg0, readl(rg0 + baddr),
+		rg1, readl(rg1 + baddr),
+		rg2, readl(rg2 + baddr));
+
+	value = readl(DISP_REG_OVL_RDMA0_MEM_GMC_SETTING + baddr);
+	DDPDUMP("RDMA0_MEM_GMC_SETTING1\n");
+	DDPDUMP("[9:0]:%x [25:16]:%x [28]:%x [31]:%x\n",
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_MEM_GMC_ULTRA_THRESHOLD, value),
+		REG_FLD_VAL_GET(
+			FLD_OVL_RDMA_MEM_GMC_PRE_ULTRA_THRESHOLD, value),
+		REG_FLD_VAL_GET(
+			FLD_OVL_RDMA_MEM_GMC_ULTRA_THRESHOLD_HIGH_OFS, value),
+		REG_FLD_VAL_GET(
+			FLD_OVL_RDMA_MEM_GMC_PRE_ULTRA_THRESHOLD_HIGH_OFS,
+			value));
+
+	value = readl(DISP_REG_OVL_RDMA0_FIFO_CTRL + baddr);
+	DDPDUMP("RDMA0_FIFO_CTRL\n");
+	DDPDUMP("[9:0]:%u [25:16]:%u\n",
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_FIFO_THRD, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_FIFO_SIZE, value));
+
+	value = readl(DISP_REG_OVL_RDMA0_MEM_GMC_S2 + baddr);
+	DDPDUMP("RDMA0_MEM_GMC_SETTING2\n");
+	DDPDUMP("[11:0]:%u [27:16]:%u [28]:%u [29]:%u [30]:%u\n",
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_MEM_GMC2_ISSUE_REQ_THRES, value),
+		REG_FLD_VAL_GET(
+			FLD_OVL_RDMA_MEM_GMC2_ISSUE_REQ_THRES_URG, value),
+		REG_FLD_VAL_GET(
+			FLD_OVL_RDMA_MEM_GMC2_REQ_THRES_PREULTRA, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_MEM_GMC2_REQ_THRES_ULTRA, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_MEM_GMC2_FORCE_REQ_THRES, value));
+
+	value = readl(DISP_REG_OVL_RDMA_BURST_CON1 + baddr);
+	DDPDUMP("OVL_RDMA_BURST_CON1\n");
+	DDPDUMP("[28]:%u\n",
+		REG_FLD_VAL_GET(FLD_RDMA_BURST_CON1_BURST16_EN, value));
+
+	value = readl(DISP_REG_OVL_RDMA_GREQ_NUM + baddr);
+	DDPDUMP("RDMA_GREQ_NUM\n");
+	DDPDUMP("[3:0]%u [7:4]%u [11:8]%u [15:12]%u [23:16]%x [26:24]%u\n",
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_LAYER0_GREQ_NUM, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_LAYER1_GREQ_NUM, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_LAYER2_GREQ_NUM, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_LAYER3_GREQ_NUM, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_OSTD_GREQ_NUM, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_GREQ_DIS_CNT, value));
+	DDPDUMP("[27]%u [28]%u [29]%u [30]%u [31]%u\n",
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_STOP_EN, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_GRP_END_STOP, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_GRP_BRK_STOP, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_IOBUF_FLUSH_PREULTRA, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_IOBUF_FLUSH_ULTRA, value));
+
+	value = readl(DISP_REG_OVL_RDMA_GREQ_URG_NUM + baddr);
+	DDPDUMP("RDMA_GREQ_URG_NUM\n");
+	DDPDUMP("[3:0]:%u [7:4]:%u [11:8]:%u [15:12]:%u [25:16]:%u [28]:%u\n",
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_LAYER0_GREQ_URG_NUM, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_LAYER1_GREQ_URG_NUM, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_LAYER2_GREQ_URG_NUM, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_LAYER3_GREQ_URG_NUM, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_ARG_GREQ_URG_TH, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_GREQ_ARG_URG_BIAS, value));
+
+	value = readl(DISP_REG_OVL_RDMA_ULTRA_SRC + baddr);
+	DDPDUMP("RDMA_ULTRA_SRC\n");
+	DDPDUMP("[1:0]%u [3:2]%u [5:4]%u [7:6]%u [9:8]%u\n",
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_PREULTRA_BUF_SRC, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_PREULTRA_SMI_SRC, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_PREULTRA_ROI_END_SRC, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_PREULTRA_RDMA_SRC, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_ULTRA_BUF_SRC, value));
+	DDPDUMP("[11:10]%u [13:12]%u [15:14]%u\n",
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_ULTRA_SMI_SRC, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_ULTRA_ROI_END_SRC, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_ULTRA_RDMA_SRC, value));
+
+	value = readl(DISP_REG_OVL_RDMAn_BUF_LOW(0) + baddr);
+	DDPDUMP("RDMA0_BUF_LOW\n");
+	DDPDUMP("[11:0]:%x [23:12]:%x\n",
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_BUF_LOW_ULTRA_TH, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_BUF_LOW_PREULTRA_TH, value));
+
+	value = readl(DISP_REG_OVL_RDMAn_BUF_HIGH(0) + baddr);
+	DDPDUMP("RDMA0_BUF_HIGH\n");
+	DDPDUMP("[23:12]:%x [31]:%x\n",
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_BUF_HIGH_PREULTRA_TH, value),
+		REG_FLD_VAL_GET(FLD_OVL_RDMA_BUF_HIGH_PREULTRA_DIS, value));
+
+	value = readl(DISP_REG_OVL_EN + baddr);
+	DDPDUMP("OVL_EN\n");
+	DDPDUMP("[18]:%x [19]:%x\n",
+		REG_FLD_VAL_GET(EN_FLD_BLOCK_EXT_ULTRA, value),
+		REG_FLD_VAL_GET(EN_FLD_BLOCK_EXT_PREULTRA, value));
+
+	value = readl(DISP_REG_OVL_DATAPATH_CON + baddr);
+	DDPDUMP("DATAPATH_CON\n");
+	DDPDUMP("[0]:%u, [24]:%u [25]:%u [26]:%u\n",
+		REG_FLD_VAL_GET(DATAPATH_CON_FLD_LAYER_SMI_ID_EN, value),
+		REG_FLD_VAL_GET(DATAPATH_CON_FLD_GCLAST_EN, value),
+		REG_FLD_VAL_GET(DATAPATH_CON_FLD_HDR_GCLAST_EN, value),
+		REG_FLD_VAL_GET(DATAPATH_CON_FLD_OUTPUT_CLAMP, value));
+
+	value = readl(DISP_REG_OVL_FBDC_CFG1 + baddr);
+	DDPDUMP("OVL_FBDC_CFG1\n");
+	DDPDUMP("[24]:%u, [28]:%u\n",
+		REG_FLD_VAL_GET(FLD_FBDC_8XE_MODE, value),
+		REG_FLD_VAL_GET(FLD_FBDC_FILTER_EN, value));
+}
+
 int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
@@ -2180,6 +2383,9 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 		for (i = 0; i < 3; i++)
 			mtk_serial_dump_reg(baddr, 0xFD0 + i * 0x8, 2);
 	}
+
+	mtk_ovl_dump_golden_setting(comp);
+
 	return 0;
 }
 
