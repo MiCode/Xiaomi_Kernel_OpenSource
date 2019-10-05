@@ -2223,6 +2223,9 @@ static struct mtk_gate apu_mdla0_clks[] __initdata = {
 			 apu_mdla0_mdla_cg_regs, 12, 0),
 	GATE(APU_MDLA0_APB_CG, "apu_mdla0_apb_cg", "dsp6_sel",
 			 apu_mdla0_mdla_cg_regs, 13, 0),
+	GATE(APU_MDLA0_AXI_M_CG, "apu_mdla0_axim_cg", "dsp6_sel",
+			 apu_mdla0_mdla_cg_regs, 14, 0),
+
 };
 
 static void __iomem *apu_mdla0_base;
@@ -2277,6 +2280,8 @@ static struct mtk_gate apu_mdla1_clks[] __initdata = {
 			 apu_mdla1_mdla_cg_regs, 12, 0),
 	GATE(APU_MDLA1_APB_CG, "apu_mdla1_apb_cg", "dsp6_sel",
 			 apu_mdla1_mdla_cg_regs, 13, 0),
+	GATE(APU_MDLA1_AXI_M_CG, "apu_mdla1_axim_cg", "dsp6_sel",
+			 apu_mdla1_mdla_cg_regs, 14, 0),
 };
 
 static void __iomem *apu_mdla1_base;
