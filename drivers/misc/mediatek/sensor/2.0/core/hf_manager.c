@@ -715,7 +715,7 @@ static int hf_manager_open(struct inode *inode, struct file *filp)
 	nonseekable_open(inode, filp);
 	return 0;
 err_free:
-	kfree(hf_fifo);
+	kfree(client);
 err_out:
 	return err;
 }

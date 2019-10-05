@@ -240,8 +240,10 @@ int nanohub_ipi_probe(struct platform_device *pdev)
 	if (!nano_dev)
 		return -ENOMEM;
 	ipi_data = kzalloc(sizeof(*ipi_data), GFP_KERNEL);
-	if (!ipi_data)
+	if (!ipi_data) {
+		kfree(nano_dev);
 		return -ENOMEM;
+	}
 	nanohub_dev = nano_dev;
 	nano_dev->drv_data = ipi_data;
 	nanohub_probe(&nanohub_ipi_pdev.dev, nano_dev);
