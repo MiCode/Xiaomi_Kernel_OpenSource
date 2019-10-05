@@ -489,6 +489,12 @@ void fg_custom_init_from_header(void)
 	fg_cust_data.aging_one_en = AGING_ONE_EN;
 	fg_cust_data.aging1_update_soc = UNIT_TRANS_100 * AGING1_UPDATE_SOC;
 	fg_cust_data.aging1_load_soc = UNIT_TRANS_100 * AGING1_LOAD_SOC;
+	fg_cust_data.aging4_update_soc = UNIT_TRANS_100 * AGING4_UPDATE_SOC;
+	fg_cust_data.aging4_load_soc = UNIT_TRANS_100 * AGING4_LOAD_SOC;
+	fg_cust_data.aging5_update_soc = UNIT_TRANS_100 * AGING5_UPDATE_SOC;
+	fg_cust_data.aging5_load_soc = UNIT_TRANS_100 * AGING5_LOAD_SOC;
+	fg_cust_data.aging6_update_soc = UNIT_TRANS_100 * AGING6_UPDATE_SOC;
+	fg_cust_data.aging6_load_soc = UNIT_TRANS_100 * AGING6_LOAD_SOC;
 	fg_cust_data.aging_temp_diff = AGING_TEMP_DIFF;
 	fg_cust_data.aging_temp_low_limit = AGING_TEMP_LOW_LIMIT;
 	fg_cust_data.aging_temp_high_limit = AGING_TEMP_HIGH_LIMIT;
@@ -500,6 +506,10 @@ void fg_custom_init_from_header(void)
 	fg_cust_data.aging_two_en = AGING_TWO_EN;
 	/* Aging Compensation 3*/
 	fg_cust_data.aging_third_en = AGING_THIRD_EN;
+	fg_cust_data.aging_4_en = AGING_4_EN;
+	fg_cust_data.aging_5_en = AGING_5_EN;
+	fg_cust_data.aging_6_en = AGING_6_EN;
+
 
 	/* ui_soc related */
 	fg_cust_data.diff_soc_setting = DIFF_SOC_SETTING;
@@ -969,6 +979,22 @@ void fg_custom_init_from_dts(struct platform_device *dev)
 		&(fg_cust_data.aging1_update_soc), UNIT_TRANS_100);
 	fg_read_dts_val(np, "AGING1_LOAD_SOC",
 		&(fg_cust_data.aging1_load_soc), UNIT_TRANS_100);
+
+	fg_read_dts_val(np, "AGING4_UPDATE_SOC",
+		&(fg_cust_data.aging4_update_soc), UNIT_TRANS_100);
+	fg_read_dts_val(np, "AGING4_LOAD_SOC",
+		&(fg_cust_data.aging4_load_soc), UNIT_TRANS_100);
+	fg_read_dts_val(np, "AGING5_UPDATE_SOC",
+		&(fg_cust_data.aging5_update_soc), UNIT_TRANS_100);
+	fg_read_dts_val(np, "AGING5_LOAD_SOC",
+		&(fg_cust_data.aging5_load_soc), UNIT_TRANS_100);
+	fg_read_dts_val(np, "AGING6_UPDATE_SOC",
+		&(fg_cust_data.aging6_update_soc), UNIT_TRANS_100);
+	fg_read_dts_val(np, "AGING6_LOAD_SOC",
+		&(fg_cust_data.aging6_load_soc), UNIT_TRANS_100);
+
+
+
 	fg_read_dts_val(np, "AGING_TEMP_DIFF",
 		&(fg_cust_data.aging_temp_diff), 1);
 	fg_read_dts_val(np, "AGING_TEMP_LOW_LIMIT",
@@ -1945,6 +1971,12 @@ void fg_charger_in_handler(void)
 		if (chr_type == CHARGER_UNKNOWN)
 			wakeup_fg_algo_atomic(FG_INTR_CHARGER_IN);
 	}
+
+	if (current_chr_type == CHARGER_UNKNOWN) {
+		if (chr_type != CHARGER_UNKNOWN)
+			wakeup_fg_algo_atomic(FG_INTR_CHARGER_OUT);
+	}
+
 	chr_type = current_chr_type;
 }
 
