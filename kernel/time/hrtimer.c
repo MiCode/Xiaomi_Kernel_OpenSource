@@ -60,10 +60,6 @@
 
 #include "tick-internal.h"
 
-#ifdef CONFIG_MTK_SCHED_MONITOR
-#include "mtk_sched_mon.h"
-#endif
-
 #ifdef CONFIG_DEBUG_OBJECTS_TIMERS
 #include <mt-plat/aee.h>
 
@@ -1283,6 +1279,7 @@ static void __run_hrtimer(struct hrtimer_cpu_base *cpu_base,
 {
 	enum hrtimer_restart (*fn)(struct hrtimer *);
 	int restart;
+	unsigned long long ts;
 
 	lockdep_assert_held(&cpu_base->lock);
 
@@ -1315,15 +1312,11 @@ static void __run_hrtimer(struct hrtimer_cpu_base *cpu_base,
 	 * the timer base.
 	 */
 	raw_spin_unlock(&cpu_base->lock);
+	check_start_time(ts);
 	trace_hrtimer_expire_entry(timer, now);
-#ifdef CONFIG_MTK_SCHED_MONITOR
-	mt_trace_hrt_start(fn);
-#endif
 	restart = fn(timer);
-#ifdef CONFIG_MTK_SCHED_MONITOR
-	mt_trace_hrt_end(fn);
-#endif
 	trace_hrtimer_expire_exit(timer);
+	check_process_time("hrtimer %ps", ts, fn);
 	raw_spin_lock(&cpu_base->lock);
 
 	/*

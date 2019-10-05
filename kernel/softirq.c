@@ -30,10 +30,6 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/irq.h>
 
-#ifdef CONFIG_MTK_SCHED_MONITOR
-#include "mtk_sched_mon.h"
-#endif
-
 /*
    - No shared variables, all the data are CPU local.
    - If a softirq needs serialization, let it serialize itself
@@ -138,9 +134,6 @@ void __local_bh_disable_ip(unsigned long ip, unsigned int cnt)
 		current->preempt_disable_ip = get_lock_parent_ip();
 #endif
 		trace_preempt_off(CALLER_ADDR0, get_lock_parent_ip());
-#ifdef CONFIG_PREEMPT_MONITOR
-		MT_trace_preempt_off();
-#endif
 	}
 }
 EXPORT_SYMBOL(__local_bh_disable_ip);
@@ -282,7 +275,8 @@ restart:
 
 	while ((softirq_bit = ffs(pending))) {
 		unsigned int vec_nr;
-		int prev_count;
+		int prev_count, count;
+		unsigned long long ts;
 
 		h += softirq_bit - 1;
 
@@ -291,15 +285,14 @@ restart:
 
 		kstat_incr_softirqs_this_cpu(vec_nr);
 
+		check_start_time_preempt(softirq_note, count, ts, vec_nr);
 		trace_softirq_entry(vec_nr);
-#ifdef CONFIG_MTK_SCHED_MONITOR
-		mt_trace_SoftIRQ_start(vec_nr);
-#endif
 		h->action(h);
-#ifdef CONFIG_MTK_SCHED_MONITOR
-		mt_trace_SoftIRQ_end(vec_nr);
-#endif
 		trace_softirq_exit(vec_nr);
+		check_process_time_preempt(softirq_note, count,
+					   "softirq %u %s %ps", ts, vec_nr,
+					   softirq_to_name[vec_nr], h->action);
+
 		if (unlikely(prev_count != preempt_count())) {
 			pr_err("huh, entered softirq %u %s %p with preempt_count %08x, exited with %08x?\n",
 			       vec_nr, softirq_to_name[vec_nr], h->action,
@@ -506,6 +499,7 @@ EXPORT_SYMBOL(__tasklet_hi_schedule);
 static __latent_entropy void tasklet_action(struct softirq_action *a)
 {
 	struct tasklet_struct *list;
+	unsigned long long ts;
 
 	local_irq_disable();
 	list = __this_cpu_read(tasklet_vec.head);
@@ -523,13 +517,9 @@ static __latent_entropy void tasklet_action(struct softirq_action *a)
 				if (!test_and_clear_bit(TASKLET_STATE_SCHED,
 							&t->state))
 					BUG();
-#ifdef CONFIG_MTK_SCHED_MONITOR
-				mt_trace_tasklet_start(t->func);
-#endif
+				check_start_time(ts);
 				t->func(t->data);
-#ifdef CONFIG_MTK_SCHED_MONITOR
-				mt_trace_tasklet_end(t->func);
-#endif
+				check_process_time("tasklet %ps", ts, t->func);
 				tasklet_unlock(t);
 				continue;
 			}

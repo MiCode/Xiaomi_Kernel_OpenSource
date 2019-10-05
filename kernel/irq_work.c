@@ -17,10 +17,8 @@
 #include <linux/cpu.h>
 #include <linux/notifier.h>
 #include <linux/smp.h>
+#include <linux/interrupt.h>
 #include <asm/processor.h>
-#ifdef CONFIG_MTK_SCHED_MONITOR
-#include "mtk_sched_mon.h"
-#endif
 
 static DEFINE_PER_CPU(struct llist_head, raised_list);
 static DEFINE_PER_CPU(struct llist_head, lazy_list);
@@ -133,6 +131,7 @@ static void irq_work_run_list(struct llist_head *list)
 	unsigned long flags;
 	struct irq_work *work;
 	struct llist_node *llnode;
+	unsigned long long ts;
 
 	BUG_ON(!irqs_disabled());
 
@@ -155,13 +154,9 @@ static void irq_work_run_list(struct llist_head *list)
 		flags = work->flags & ~IRQ_WORK_PENDING;
 		xchg(&work->flags, flags);
 
-#ifdef CONFIG_MTK_SCHED_MONITOR
-		mt_trace_irq_work_start(work->func);
-#endif
+		check_start_time(ts);
 		work->func(work);
-#ifdef CONFIG_MTK_SCHED_MONITOR
-		mt_trace_irq_work_end(work->func);
-#endif
+		check_process_time("irq_work %ps", ts, work->func);
 		/*
 		 * Clear the BUSY bit and return to the free state if
 		 * no-one else claimed it meanwhile.

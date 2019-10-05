@@ -6195,6 +6195,77 @@ page_owner=on";
 		drcc6_Code = <255>;
 		drcc7_Code = <255>;
 	};
+
+#ifdef CONFIG_MTK_SCHED_MONITOR
+	sched_mon: sched_mon {
+		compatible = "mediatek,sched_mon";
+
+		/* irq time tracer */
+#ifdef CONFIG_MTK_ENG_BUILD
+		irq_time_tracer = <1>;
+		irq_time_th1_ms = <100>;
+		irq_time_th2_ms = <500>;
+		irq_time_aee_limit = <0>;
+#else
+		irq_time_tracer = <0>;
+		irq_time_th1_ms = <5>;
+		irq_time_th2_ms = <5>;
+		irq_time_aee_limit = <0>;
+#endif
+		/* irq count tracer */
+#ifdef CONFIG_MTK_IRQ_COUNT_TRACER
+#ifdef CONFIG_MTK_ENG_BUILD
+		irq_count_tracer = <1>;
+		irq_period_th1_ns = <200000>;
+		irq_period_th2_ns = <200000>;
+		irq_count_aee_limit = <1>;
+#else
+		irq_count_tracer = <0>;
+		irq_period_th1_ns = <200000>;
+		irq_period_th2_ns = <200000>;
+		irq_count_aee_limit = <0>;
+#endif
+#endif
+		/* irq off tracer */
+#ifdef CONFIG_MTK_IRQ_OFF_TRACER
+#ifdef CONFIG_MTK_ENG_BUILD
+		irq_off_tracer = <1>;
+		irq_off_tracer_trace = <1>;
+		irq_off_th1_ms = <50>;
+		irq_off_th2_ms = <500>;
+		irq_off_th3_ms = <500>;
+		irq_off_aee_limit = <0>;
+		irq_off_aee_debounce_ms = <60000>;
+#else
+		irq_off_tracer = <0>;
+		irq_off_tracer_trace = <1>;
+		irq_off_th1_ms = <5>;
+		irq_off_th2_ms = <5>;
+		irq_off_th3_ms = <5>;
+		irq_off_aee_limit = <0>;
+		irq_off_aee_debounce_ms = <30000>;
+#endif
+#endif
+		/* preempt off tracer */
+#ifdef CONFIG_MTK_PREEMPT_TRACER
+#ifdef CONFIG_MTK_ENG_BUILD
+		preempt_tracer = <0>;
+		preempt_tracer_trace = <0>;
+		preempt_th1_ms = <60000>;
+		preempt_th2_ms = <180000>;
+		preempt_th3_ms = <180000>;
+		preempt_aee_limit = <0>;
+#else
+		preempt_tracer = <0>;
+		preempt_tracer_trace = <0>;
+		preempt_th1_ms = <30000>;
+		preempt_th2_ms = <90000>;
+		preempt_th3_ms = <90000>;
+		preempt_aee_limit = <0>;
+#endif
+#endif
+	};
+#endif
 };
 
 &mt6360_pmic {

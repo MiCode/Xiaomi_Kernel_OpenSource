@@ -53,9 +53,6 @@
 #include <asm/sections.h>
 
 #include "lockdep_internals.h"
-#ifdef CONFIG_PREEMPT_MONITOR
-#include "mtk_sched_mon.h"
-#endif
 #ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
 #endif
@@ -200,10 +197,14 @@ static unsigned long sec_low(unsigned long long nsec)
 	return do_div(nsec, 1000000000)/1000;
 }
 
+#ifndef TO_KERNEL_LOG
 #define TO_KERNEL_LOG  0x1
 #define TO_FTRACE      0x2
-#define TO_SRAM        0x4
-#define TO_BOTH  (TO_KERNEL_LOG|TO_FTRACE)
+#define TO_DEFERRED    0x4
+#define TO_SRAM        0x8
+#define TO_BOTH       (TO_KERNEL_LOG | TO_FTRACE)
+#define TO_BOTH_SAVE  (TO_DEFERRED | TO_FTRACE)
+#endif
 
 static void lock_dbg(const char *msg, ...)
 {
@@ -3197,9 +3198,7 @@ EXPORT_SYMBOL(trace_hardirqs_on_caller);
 
 void trace_hardirqs_on(void)
 {
-#ifdef CONFIG_PREEMPT_MONITOR
-	MT_trace_hardirqs_on();
-#endif
+	trace_hardirqs_on_time();
 	trace_hardirqs_on_caller(CALLER_ADDR0);
 }
 EXPORT_SYMBOL(trace_hardirqs_on);
@@ -3238,9 +3237,7 @@ EXPORT_SYMBOL(trace_hardirqs_off_caller);
 
 void trace_hardirqs_off(void)
 {
-#ifdef CONFIG_PREEMPT_MONITOR
-	MT_trace_hardirqs_off();
-#endif
+	trace_hardirqs_off_time();
 	trace_hardirqs_off_caller(CALLER_ADDR0);
 }
 EXPORT_SYMBOL(trace_hardirqs_off);
