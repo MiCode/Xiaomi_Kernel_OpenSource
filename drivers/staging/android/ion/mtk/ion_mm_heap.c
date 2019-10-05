@@ -36,6 +36,7 @@
 #include "ion_priv.h"
 #include "mtk/ion_drv.h"
 #include "ion_sec_heap.h"
+#include "aee.h"
 
 //tablet
 #ifdef CONFIG_MTK_IOMMU
@@ -908,11 +909,7 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 				       ret, sg_phys(buffer->sg_table->sgl));
 #endif
 				ion_buffer_dump(buffer, NULL);
-				aee_kernel_warning_api(__FILE__, __LINE__,
-						       DB_OPT_DEFAULT |
-						       DB_OPT_NATIVE_BACKTRACE,
-						       "pa out of range",
-						       "dump user backtrace");
+				ret = -EDOM;
 			}
 			goto out;
 		}
