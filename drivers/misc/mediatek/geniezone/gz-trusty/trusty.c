@@ -869,8 +869,10 @@ void trusty_dequeue_nop(struct device *dev, struct trusty_nop *nop)
 		return;
 
 	spin_lock_irqsave(&s->nop_lock, flags);
-	if (!list_empty(&nop->node))
-		list_del_init(&nop->node);
+	if (nop) {
+		if (!list_empty(&nop->node))
+			list_del_init(&nop->node);
+	}
 	spin_unlock_irqrestore(&s->nop_lock, flags);
 }
 EXPORT_SYMBOL(trusty_dequeue_nop);
