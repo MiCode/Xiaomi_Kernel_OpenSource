@@ -169,7 +169,7 @@
 #define MSDC_GPIO_BASE          gpio_base
 /*0x11F3_0000*/
 #define MSDC0_IO_PAD_BASE       (msdc_io_cfg_bases[0])
-/*0x11C2_0000*/
+/*0x11E2_0000*/
 #define MSDC1_IO_PAD_BASE       (msdc_io_cfg_bases[1])
 
 /*--------------------------------------------------------------------------*/
@@ -219,10 +219,10 @@
 /*
  * MSDC0 GPIO and PAD register and bitfields definition
  */
-/* MSDC0_GPIO_MODE20, 001b is msdc mode*/
+/* MSDC0_GPIO_MODE22, 001b is msdc mode*/
 #define MSDC0_MODE_CMD_MASK			(0x7 << 28)
 
-/* MSDC0_GPIO_MODE21, 001b is msdc mode */
+/* MSDC0_GPIO_MODE23, 001b is msdc mode */
 #define MSDC0_MODE_DSL_MASK			(0x7 << 28)
 #define MSDC0_MODE_DAT7_MASK		(0x7 << 24)
 #define MSDC0_MODE_DAT5_MASK		(0x7 << 20)
@@ -232,7 +232,7 @@
 #define MSDC0_MODE_DAT2_MASK		(0x7 << 4)
 #define MSDC0_MODE_DAT0_MASK		(0x7 << 0)
 
-/* MSDC0_GPIO_MODE22, 001b is msdc mode */
+/* MSDC0_GPIO_MODE24, 001b is msdc mode */
 #define MSDC0_MODE_RSTB_MASK		(0x7 << 8)
 #define MSDC0_MODE_DAT3_MASK		(0x7 << 4)
 #define MSDC0_MODE_CLK_MASK			(0x7 << 0)
@@ -318,10 +318,10 @@
 /*
  * MSDC1 GPIO and PAD register and bitfields definition
  */
-/* MSDC1_GPIO_MODE16, 0001b is msdc mode */
+/* MSDC1_GPIO_MODE6, 0001b is msdc mode */
 #define MSDC1_MODE_CMD_MASK			(0x7 << 16)
 #define MSDC1_MODE_CLK_MASK			(0x7 << 12)
-/* MSDC1_GPIO_MODE17, 0001b is msdc mode */
+/* MSDC1_GPIO_MODE7, 0001b is msdc mode */
 #define MSDC1_MODE_DAT1_MASK		(0x7 << 0)
 #define MSDC1_MODE_DAT2_MASK		(0x7 << 28)
 #define MSDC1_MODE_DAT0_MASK		(0x7 << 24)
@@ -506,7 +506,7 @@
 /* power reset sdcard when sdcard hang from esd */
 #define SDCARD_ESD_RECOVERY
 
-//#define MSDC_HQA
+/* #define MSDC_HQA */
 /* #define SDIO_HQA */
 
 /**************************************************************/

@@ -57,13 +57,6 @@
                 <sensitive_level>Edge</sensitive_level>
                 <debounce_en>Disable</debounce_en>
             </eint21>
-            <eint23>
-                <varName>MSDC1_INS</varName>
-                <debounce_time>0</debounce_time>
-                <polarity>Low</polarity>
-                <sensitive_level>Level</sensitive_level>
-                <debounce_en>Disable</debounce_en>
-            </eint23>
             <eint24>
                 <varName>SUBPMIC_PMU_EINT</varName>
                 <debounce_time>0</debounce_time>
