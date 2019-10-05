@@ -1483,12 +1483,12 @@ static int __init mtkts_btsnrpa_init(void)
 		mtkts_btsnrpa_dprintk(
 			"[%s]: mkdir /proc/driver/thermal failed\n", __func__);
 	} else {
-		entry = proc_create("tzbtspa", 0664, mtkts_btsnrpa_dir,
+		entry = proc_create("tzbtsnrpa", 0664, mtkts_btsnrpa_dir,
 				&mtkts_btsnrpa_fops);
 		if (entry)
 			proc_set_user(entry, uid, gid);
 
-		entry = proc_create("tzbtspa_param", 0664, mtkts_btsnrpa_dir,
+		entry = proc_create("tzbtsnrpa_param", 0664, mtkts_btsnrpa_dir,
 				&mtkts_btsnrpa_param_fops);
 		if (entry)
 			proc_set_user(entry, uid, gid);
