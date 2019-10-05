@@ -36,6 +36,7 @@
 #include "private/tmem_device.h"
 #include "private/tmem_error.h"
 #include "private/tmem_utils.h"
+#include "private/tmem_dev_desc.h"
 #ifdef TCORE_UT_TESTS_SUPPORT
 #include "tests/ut_common.h"
 #endif
@@ -52,10 +53,14 @@ static DEFINE_MUTEX(mtee_lock);
 static struct trusted_driver_operations *mtee_ops;
 static void *mtee_session_data;
 
-static struct mtee_peer_ops_data mtee_ops_data = {
-	.mem_type = TRUSTED_MEM_INVALID,
-	.service_name = NULL,
+/* clang-format off */
+static struct tmem_device_description mtee_dev_desc = {
+	.u_ops_data.mtee = {
+		.mem_type = TRUSTED_MEM_INVALID,
+		.service_name = NULL,
+	}
 };
+/* clang-format on */
 
 static inline int
 mtee_directly_invoke_cmd_locked(struct trusted_driver_cmd_params *invoke_params)
@@ -68,15 +73,15 @@ mtee_directly_invoke_cmd_locked(struct trusted_driver_cmd_params *invoke_params)
 	if (unlikely(INVALID(mtee_ops)))
 		get_mtee_peer_ops(&mtee_ops);
 
-	if (mtee_ops->session_open(&mtee_session_data, &mtee_ops_data)) {
+	if (mtee_ops->session_open(&mtee_session_data, &mtee_dev_desc)) {
 		pr_err("%s:%d mtee open session failed!\n", __func__, __LINE__);
 		return TMEM_MTEE_CREATE_SESSION_FAILED;
 	}
 
 	ret = mtee_ops->invoke_cmd(invoke_params, mtee_session_data,
-				   &mtee_ops_data);
+				   &mtee_dev_desc);
 
-	if (mtee_ops->session_close(mtee_session_data, &mtee_ops_data))
+	if (mtee_ops->session_close(mtee_session_data, &mtee_dev_desc))
 		pr_err("%s:%d mtee close session failed!\n", __func__,
 		       __LINE__);
 
