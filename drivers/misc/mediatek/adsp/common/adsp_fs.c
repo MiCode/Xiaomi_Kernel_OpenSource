@@ -177,9 +177,11 @@ static ssize_t adsp_debug_read(struct file *filp, char __user *buf,
 {
 	char *buffer = NULL;
 	size_t n = 0, max_size;
+	struct adsp_priv *pdata = filp->private_data;
+	u32 memid = pdata->id + ADSP_A_DEBUG_DUMP_MEM_ID;
 
-	buffer = adsp_get_reserve_mem_virt(ADSP_A_DEBUG_DUMP_MEM_ID);
-	max_size = adsp_get_reserve_mem_size(ADSP_A_DEBUG_DUMP_MEM_ID);
+	buffer = adsp_get_reserve_mem_virt(memid);
+	max_size = adsp_get_reserve_mem_size(memid);
 
 	n = strnlen(buffer, max_size);
 
