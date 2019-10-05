@@ -3142,10 +3142,8 @@ static int autok_write_param(struct msdc_host *host,
 int autok_path_sel(struct msdc_host *host)
 {
 	void __iomem *base = host->base;
-	void __iomem *base_top = NULL;
-#if !defined(FPGA_PLATFORM)
-	base_top = host->base_top;
-#endif
+	void __iomem *base_top = host->base_top;
+
 	struct AUTOK_PLAT_PARA_TX platform_para_tx;
 	struct AUTOK_PLAT_PARA_RX platform_para_rx;
 	struct AUTOK_PLAT_FUNC platform_para_func;
@@ -3636,7 +3634,7 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 		AUTOK_RAWPRINT("[AUTOK]CMD err while check device status\r\n");
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	/* check QSR status when CQ on */
-	if (host->mmc->card && host->mmc->card->ext_csd.cmdq_en) {
+	if (mmc_card_cmdq(host->mmc->card)) {
 		ret = autok_send_tune_cmd(host, CHECK_QSR,
 			TUNE_CMD, &autok_host_para);
 		if (ret == E_RES_PASS) {
@@ -3811,19 +3809,19 @@ int execute_cmd_online_tuning(struct msdc_host *host, u8 *res)
 		kfree(pBdInfo);
 		return 0;
 #endif
-	} else {
-		MSDC_GET_FIELD(MSDC_PAD_TUNE0,
-		    MSDC_PAD_TUNE0_CMDRDLY,
-		    p_autok_tune_res[1]);
-		MSDC_GET_FIELD(MSDC_PAD_TUNE0,
-		    MSDC_PAD_TUNE0_CMDRRDLYSEL,
-		    p_autok_tune_res[2]);
-		MSDC_GET_FIELD(MSDC_PAD_TUNE1,
-		    MSDC_PAD_TUNE1_CMDRDLY2,
-		    p_autok_tune_res[3]);
-		MSDC_GET_FIELD(MSDC_PAD_TUNE1,
-		    MSDC_PAD_TUNE1_CMDRRDLY2SEL,
-		    p_autok_tune_res[4]);
+		} else {
+			MSDC_GET_FIELD(MSDC_PAD_TUNE0,
+			    MSDC_PAD_TUNE0_CMDRDLY,
+			    p_autok_tune_res[1]);
+			MSDC_GET_FIELD(MSDC_PAD_TUNE0,
+			    MSDC_PAD_TUNE0_CMDRRDLYSEL,
+			    p_autok_tune_res[2]);
+			MSDC_GET_FIELD(MSDC_PAD_TUNE1,
+			    MSDC_PAD_TUNE1_CMDRDLY2,
+			    p_autok_tune_res[3]);
+			MSDC_GET_FIELD(MSDC_PAD_TUNE1,
+			    MSDC_PAD_TUNE1_CMDRRDLY2SEL,
+			    p_autok_tune_res[4]);
 	}
 
 	AUTOK_RAWPRINT("[AUTOK]CMD [EDGE:%d DLY1:%d DLY2:%d]\r\n",
@@ -3835,9 +3833,7 @@ int execute_cmd_online_tuning(struct msdc_host *host, u8 *res)
 	}
 
 	kfree(pBdInfo);
-	/* must return ret for emmc reset when error happen */
 	return 0;
-
 fail:
 	kfree(pBdInfo);
 	return -1;
@@ -4115,7 +4111,7 @@ int execute_online_tuning_hs200(struct msdc_host *host, u8 *res)
 	return 0;
 fail:
 	kfree(pBdInfo);
-	return -1;
+	return err;
 }
 
 /* online tuning for SDIO3.0 plus */

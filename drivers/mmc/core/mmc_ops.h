@@ -40,6 +40,12 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 		bool use_busy_signal, bool send_status,	bool retry_crc_err);
 int mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 		unsigned int timeout_ms);
+#ifdef CONFIG_MTK_EMMC_HW_CQ
+int __mmc_switch_cmdq_mode(struct mmc_command *cmd, u8 set, u8 index,
+				  u8 value, unsigned int timeout_ms,
+				  bool use_busy_signal, bool ignore_timeout);
+int mmc_discard_queue(struct mmc_host *host, u32 tasks);
+#endif
 int mmc_stop_bkops(struct mmc_card *card);
 void mmc_start_bkops(struct mmc_card *card, bool from_exception);
 int mmc_flush_cache(struct mmc_card *card);
