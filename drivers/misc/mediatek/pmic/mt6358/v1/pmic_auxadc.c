@@ -12,6 +12,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/kthread.h>
 #include <linux/mutex.h>
 #include <linux/device.h>
 #include <linux/pm_wakeup.h>
@@ -35,6 +36,9 @@
 #include <mach/mtk_pmic_wrap.h>
 #endif
 
+#ifndef CONFIG_MTK_GAUGE_VERSION
+#define CONFIG_MTK_GAUGE_VERSION 0
+#endif
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 #include <mt-plat/mtk_battery.h>
 #include <mtk_battery_internal.h>
