@@ -137,6 +137,10 @@ s32 cmdq_task_secure_enable_port_security(struct cmdqRecStruct *handle,
 s32 cmdqRecSecureEnablePortSecurity(struct cmdqRecStruct *handle,
 	const u64 engineFlag);
 
+/* Assign secure metadata for client driver */
+s32 cmdq_task_set_secure_meta(struct cmdqRecStruct *handle,
+	enum cmdq_sec_rec_meta_type type, void *meta, u32 size);
+
 /* Append mark command to the recorder
  * Parameter:
  *     handle: the command queue recorder handle
@@ -357,8 +361,13 @@ s32 cmdq_op_write_mem(struct cmdqRecStruct *handle,
 s32 cmdqRecBackupUpdateSlot(struct cmdqRecStruct *handle,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 value);
 
+s32 cmdq_op_finalize_command(struct cmdqRecStruct *handle, bool loop);
+
 void cmdq_task_prepare(struct cmdqRecStruct *handle);
 void cmdq_task_unprepare(struct cmdqRecStruct *handle);
+
+s32 cmdq_task_update_property(struct cmdqRecStruct *handle,
+	void *prop_addr, u32 prop_size);
 
 /* Trigger CMDQ to execute the recorded commands
  * Parameter:
@@ -397,6 +406,7 @@ s32 cmdqRecFlushAsync(struct cmdqRecStruct *handle);
 
 s32 cmdq_task_flush_async_callback(struct cmdqRecStruct *handle,
 	CmdqAsyncFlushCB callback, u64 user_data);
+s32 cmdq_task_flush_async_destroy(struct cmdqRecStruct *handle);
 s32 cmdqRecFlushAsyncCallback(struct cmdqRecStruct *handle,
 	CmdqAsyncFlushCB callback, u64 user_data);
 

@@ -12,7 +12,6 @@
  */
 
 #include "cmdq_sec_trustonic.h"
-#include "mobicore_driver_api.h"
 
 void cmdq_sec_setup_tee_context(struct cmdq_sec_tee_context *tee)
 {

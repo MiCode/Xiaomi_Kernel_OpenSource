@@ -80,6 +80,8 @@ typedef void (*CmdqMdpEnableCommonClock) (bool enable);
 
 typedef void (*CmdqCheckHwStatus) (struct cmdqRecStruct *handle);
 
+typedef u64(*CmdqMdpGetSecEngine) (u64 engine_flag);
+
 struct cmdqMDPFuncStruct {
 	CmdqDumpMMSYSConfig dumpMMSYSConfig;
 	CmdqVEncDumpInfo vEncDumpInfo;
@@ -111,6 +113,7 @@ struct cmdqMDPFuncStruct {
 	CmdqBeginTaskCB beginISPTask;
 	CmdqEndTaskCB endISPTask;
 	CmdqCheckHwStatus CheckHwStatus;
+	CmdqMdpGetSecEngine mdpGetSecEngine;
 };
 
 struct mdp_pmqos_record {
@@ -129,6 +132,11 @@ struct mdp_pmqos_record {
 /* dispatch key format is MDP_(ThreadName) */
 #define MDP_DISPATCH_KEY_STR_LEN (TASK_COMM_LEN + 5)
 #define MDP_TOTAL_THREAD 8
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+#define MDP_THREAD_START (CMDQ_MIN_SECURE_THREAD_ID + 2)
+#else
+#define MDP_THREAD_START CMDQ_DYNAMIC_THREAD_ID_START
+#endif
 
 /* MDP common kernel logic */
 
@@ -137,9 +145,12 @@ void cmdq_mdp_fix_command_scenario_for_user_space(
 bool cmdq_mdp_is_request_from_user_space(
 	const enum CMDQ_SCENARIO_ENUM scenario);
 s32 cmdq_mdp_query_usage(s32 *counters);
+s32 cmdq_mdp_get_smi_usage(void);
 
 void cmdq_mdp_reset_resource(void);
-void cmdq_mdp_dump_resource(void);
+void cmdq_mdp_dump_thread_usage(void);
+void cmdq_mdp_dump_engine_usage(void);
+void cmdq_mdp_dump_resource(u32 event);
 void cmdq_mdp_init_resource(u32 engine_id,
 	enum cmdq_event res_event);
 void cmdq_mdp_enable_res(u64 engine_flag, bool enable);
