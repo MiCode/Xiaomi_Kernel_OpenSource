@@ -3668,8 +3668,9 @@ page_owner=on";
 				<&smi_larb1 M4U_PORT_L1_DISP_FAKE1>;
 
 		clocks = <&scpsys SCP_SYS_DIS>,
-				<&dispsys_config MM_26MHZ>;
-		clock-num = <2>;
+				<&dispsys_config MM_26MHZ>,
+				<&dispsys_config MM_DISP_MUTEX0>;
+		clock-num = <3>;
 
 		/* define threads, see mt6885-gce.h */
 		mediatek,mailbox-gce = <&gce_mbox>;
