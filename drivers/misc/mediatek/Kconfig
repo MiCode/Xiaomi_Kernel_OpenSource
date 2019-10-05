@@ -85,9 +85,17 @@ menu "Storage: EMMC, NAND, partition"
 
 endmenu  # Storage
 
-menu "Power, PMIC, Battery & Low Power"
+menu "Power, PMIC, Battery & Low Power related configs"
 
 source "drivers/misc/mediatek/pmic/Kconfig"
+
+config MTK_BASE_POWER
+	bool "MediaTek power management"
+	help
+	For MediaTek power management features, such as CPU idle,
+	CPU suspend, CPU DVFS, GPU DVFS,
+	Select if you want to enable MediaTek power
+	management feature.
 
 config MTK_MEMORY_LOWPOWER
 	bool "Support Mediatek memory lowpower technology"
