@@ -215,10 +215,12 @@ struct mtk_mbox_device sspm_mboxdev = {
 	.send_count = SSPM_TOTAL_SEND_PIN,
 };
 
+extern void sspm_ipi_timeout_cb(int ipi_id);
 struct mtk_ipi_device sspm_ipidev = {
 	.name = "sspm_ipidev",
 	.id = IPI_DEV_SSPM,
 	.mbdev = &sspm_mboxdev,
+	.timeout_handler = sspm_ipi_timeout_cb,
 };
 
 #endif /* __SSPM_IPI_TABLE_H__ */
