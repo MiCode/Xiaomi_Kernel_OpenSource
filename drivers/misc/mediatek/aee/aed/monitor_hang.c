@@ -1516,6 +1516,7 @@ static void hang_dump_backtrace(void)
 			(strcmp(p->comm, "debuggerd64") == 0) ||
 			(strcmp(p->comm, "mmcqd/1") == 0) ||
 			(strcmp(p->comm, "vdc") == 0) ||
+			(strcmp(p->comm, "vold") == 0) ||
 			(strcmp(p->comm, "debuggerd") == 0)) {
 			read_unlock(&tasklist_lock);
 			show_bt_by_pid(p->pid);
