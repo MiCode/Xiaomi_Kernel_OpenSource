@@ -16,39 +16,58 @@
 #include <linux/regulator/consumer.h>
 
 #ifdef CONFIG_MTK_FREQ_HOPPING
-#include "mtk_freqhopping_drv.h"
+#include <mtk_freqhopping_drv.h>
 #else
-#define FH_PLL0 0
-#define FH_PLL1 1
-#define FH_PLL3 3
+#define FH_PLL0 0 /* LL : ARMPLL */
+#define FH_PLL1 1 /* L : ARMPLL_L */
+#define FH_PLL3 3 /* CCI : CCIPLL */
 #endif
 
-#include <mt-plat/upmu_common.h>
 #include "mtk_cpufreq_platform.h"
 #include "../../mtk_cpufreq_hybrid.h"
 #include "mtk_devinfo.h"
 
-static struct regulator *regulator_proc11;
-static struct regulator *regulator_proc12;
-static struct regulator *regulator_sram11;
-static struct regulator *regulator_sram12;
+static struct regulator *regulator_proc1;
+static struct regulator *regulator_proc2;
+static struct regulator *regulator_sram1;
+static struct regulator *regulator_sram2;
 
 static unsigned long apmixed_base	= 0x1000c000;
 static unsigned long mcucfg_base	= 0x0c530000;
-/* static unsigned long topckgen_base	= 0x10000000; */
 
 #define APMIXED_NODE		"mediatek,apmixed"
 #define MCUCFG_NODE		"mediatek,mcucfg"
-/* #define TOPCKGEN_NODE		"mediatek,topckgen" */
 
 #define ARMPLL_LL_CON1		(apmixed_base + 0x204)	/* ARMPLL1 */
 #define ARMPLL_L_CON1		(apmixed_base + 0x214)	/* ARMPLL2 */
-#define CCIPLL_CON1		(apmixed_base + 0x294)
+#define CCIPLL_CON1			(apmixed_base + 0x2a4)
 
-#define CKDIV1_LL_CFG		(mcucfg_base + 0x7a0)	/* MP0_PLL_DIVIDER */
-#define CKDIV1_L_CFG		(mcucfg_base + 0x7a8)	/* MP1_PLL_DIVIDER */
-#define CKDIV1_CCI_CFG		(mcucfg_base + 0x7c0)	/* BUS_PLL_DIVIDER */
+#define CKDIV1_LL_CFG		(mcucfg_base + 0xa2a0)	/* MP0_PLL_DIVIDER */
+#define CKDIV1_L_CFG		(mcucfg_base + 0xa2a4)	/* MP1_PLL_DIVIDER */
+#define CKDIV1_CCI_CFG		(mcucfg_base + 0xa2e0)	/* BUS_PLL_DIVIDER */
 
+#define MPMM_EN                 (mcucfg_base + 0xcd10)
+#define mcucfg                  0x0c530000
+
+#ifdef IMAX_ENABLE
+static unsigned int imax_reg_addr[REG_LEN] = {
+	0xcd10,
+	0xce0c,
+	0xce10,
+	0xce14,
+};
+#endif
+
+struct cpudvfs_doe dvfs_doe = {
+		.doe_flag = 0,
+		.dtsn = {"L-table", "B-table", "CCI-table"},
+		.state = 1,
+		.change_flag = 0,
+		.lt_rs_t = UP_SRATE,
+		.lt_dw_t = DOWN_SRATE,
+		.bg_rs_t = UP_SRATE,
+		.bg_dw_t = DOWN_SRATE,
+};
 struct mt_cpu_dvfs cpu_dvfs[NR_MT_CPU_DVFS] = {
 	[MT_CPU_DVFS_LL] = {
 		.name		= __stringify(MT_CPU_DVFS_LL),
@@ -57,20 +76,20 @@ struct mt_cpu_dvfs cpu_dvfs[NR_MT_CPU_DVFS] = {
 		.idx_normal_max_opp = -1,
 		.idx_opp_ppm_base = 15,
 		.idx_opp_ppm_limit = 0,
-		.Vproc_buck_id	= CPU_DVFS_VPROC12,
-		.Vsram_buck_id	= CPU_DVFS_VSRAM12,
+		.Vproc_buck_id	= CPU_DVFS_VPROC2,
+		.Vsram_buck_id	= CPU_DVFS_VSRAM2,
 		.Pll_id		= PLL_LL_CLUSTER,
 	},
 
 	[MT_CPU_DVFS_L] = {
 		.name		= __stringify(MT_CPU_DVFS_L),
 		.id		= MT_CPU_DVFS_L,
-		.cpu_id		= 4,
+		.cpu_id		= 6,
 		.idx_normal_max_opp = -1,
 		.idx_opp_ppm_base = 15,
 		.idx_opp_ppm_limit = 0,
-		.Vproc_buck_id	= CPU_DVFS_VPROC11,
-		.Vsram_buck_id	= CPU_DVFS_VSRAM11,
+		.Vproc_buck_id	= CPU_DVFS_VPROC1,
+		.Vsram_buck_id	= CPU_DVFS_VSRAM1,
 		.Pll_id		= PLL_L_CLUSTER,
 	},
 
@@ -82,8 +101,8 @@ struct mt_cpu_dvfs cpu_dvfs[NR_MT_CPU_DVFS] = {
 		.idx_normal_max_opp = -1,
 		.idx_opp_ppm_base = 15,
 		.idx_opp_ppm_limit = 0,
-		.Vproc_buck_id	= CPU_DVFS_VPROC12,
-		.Vsram_buck_id	= CPU_DVFS_VSRAM12,
+		.Vproc_buck_id	= CPU_DVFS_VPROC2,
+		.Vsram_buck_id	= CPU_DVFS_VSRAM2,
 		.Pll_id		= PLL_CCI_CLUSTER,
 	},
 };
@@ -93,11 +112,11 @@ static int set_cur_volt_proc_cpu(struct buck_ctrl_t *buck_p,
 {
 	unsigned int max_volt = MAX_VPROC_VOLT + 625;
 
-	if (buck_p->buck_id == CPU_DVFS_VPROC12)
-		return regulator_set_voltage(regulator_proc12, volt * 10,
+	if (buck_p->buck_id == CPU_DVFS_VPROC2)
+		return regulator_set_voltage(regulator_proc2, volt * 10,
 		max_volt * 10);
 	else
-		return regulator_set_voltage(regulator_proc11, volt * 10,
+		return regulator_set_voltage(regulator_proc1, volt * 10,
 		max_volt * 10);
 }
 
@@ -105,25 +124,35 @@ static unsigned int get_cur_volt_proc_cpu(struct buck_ctrl_t *buck_p)
 {
 	unsigned int rdata;
 
-	if (buck_p->buck_id == CPU_DVFS_VPROC12)
-		rdata = regulator_get_voltage(regulator_proc12) / 10;
+	if (buck_p->buck_id == CPU_DVFS_VPROC2)
+		rdata = regulator_get_voltage(regulator_proc2) / 10;
 	else
-		rdata = regulator_get_voltage(regulator_proc11) / 10;
+		rdata = regulator_get_voltage(regulator_proc1) / 10;
 
 	return rdata;
 }
 
-static unsigned int mt6358_transfer2pmicval(unsigned int volt)
+static unsigned int mt6359_vsram_transfer2pmicval(unsigned int volt)
 {
 	return ((volt - 50000) + 625 - 1) / 625;
 }
 
-static unsigned int mt6358_transfer2volt(unsigned int val)
+static unsigned int mt6359_vsram_transfer2volt(unsigned int val)
 {
 	return val * 625 + 50000;
 }
 
-static unsigned int mt6358_vproc_settletime(unsigned int old_volt,
+static unsigned int mt6359_vproc_transfer2pmicval(unsigned int volt)
+{
+	return ((volt - 40000) + 625 - 1) / 625;
+}
+
+static unsigned int mt6359_vproc_transfer2volt(unsigned int val)
+{
+	return val * 625 + 40000;
+}
+
+static unsigned int mt6359_vproc_settletime(unsigned int old_volt,
 	unsigned int new_volt)
 {
 	/* UP:10mv/us DOWN:7.5mv/us */
@@ -142,11 +171,11 @@ static int set_cur_volt_sram_cpu(struct buck_ctrl_t *buck_p,
 #if 0
 	unsigned int max_volt = MAX_VSRAM_VOLT + 625;
 
-	if (buck_p->buck_id == CPU_DVFS_VSRAM12)
-		return regulator_set_voltage(regulator_sram12, volt * 10,
+	if (buck_p->buck_id == CPU_DVFS_VSRAM2)
+		return regulator_set_voltage(regulator_sram2, volt * 10,
 		max_volt * 10);
 	else
-		return regulator_set_voltage(regulator_sram11, volt * 10,
+		return regulator_set_voltage(regulator_sram1, volt * 10,
 		max_volt * 10);
 #endif
 	return 0;
@@ -156,15 +185,15 @@ static unsigned int get_cur_volt_sram_cpu(struct buck_ctrl_t *buck_p)
 {
 	unsigned int rdata;
 
-	if (buck_p->buck_id == CPU_DVFS_VSRAM12)
-		rdata = regulator_get_voltage(regulator_sram12) / 10;
+	if (buck_p->buck_id == CPU_DVFS_VSRAM2)
+		rdata = regulator_get_voltage(regulator_sram2) / 10;
 	else
-		rdata = regulator_get_voltage(regulator_sram11) / 10;
+		rdata = regulator_get_voltage(regulator_sram1) / 10;
 
 	return rdata;
 }
 
-static unsigned int mt6358_vsram_settletime(unsigned int old_volt,
+static unsigned int mt6359_vsram_settletime(unsigned int old_volt,
 	unsigned int new_volt)
 {
 	/* UP:10mv/us DOWN:7.5mv/us */
@@ -177,45 +206,45 @@ static unsigned int mt6358_vsram_settletime(unsigned int old_volt,
 }
 
 /* upper layer CANNOT use 'set' function in secure path */
-static struct buck_ctrl_ops buck_ops_mt6358_vproc = {
+static struct buck_ctrl_ops buck_ops_mt6359_vproc = {
 	.get_cur_volt		= get_cur_volt_proc_cpu,
 	.set_cur_volt		= set_cur_volt_proc_cpu,
-	.transfer2pmicval	= mt6358_transfer2pmicval,
-	.transfer2volt		= mt6358_transfer2volt,
-	.settletime		= mt6358_vproc_settletime,
+	.transfer2pmicval	= mt6359_vproc_transfer2pmicval,
+	.transfer2volt		= mt6359_vproc_transfer2volt,
+	.settletime		= mt6359_vproc_settletime,
 };
 
-static struct buck_ctrl_ops buck_ops_mt6358_vsram = {
+static struct buck_ctrl_ops buck_ops_mt6359_vsram = {
 	.get_cur_volt		= get_cur_volt_sram_cpu,
 	.set_cur_volt		= set_cur_volt_sram_cpu,
-	.transfer2pmicval	= mt6358_transfer2pmicval,
-	.transfer2volt		= mt6358_transfer2volt,
-	.settletime		= mt6358_vsram_settletime,
+	.transfer2pmicval	= mt6359_vsram_transfer2pmicval,
+	.transfer2volt		= mt6359_vsram_transfer2volt,
+	.settletime		= mt6359_vsram_settletime,
 };
 
 struct buck_ctrl_t buck_ctrl[NR_MT_BUCK] = {
-	[CPU_DVFS_VPROC12] = {
-		.name		= __stringify(BUCK_MT6358_VPROC),
-		.buck_id	= CPU_DVFS_VPROC12,
-		.buck_ops	= &buck_ops_mt6358_vproc,
+	[CPU_DVFS_VPROC2] = {
+		.name		= __stringify(BUCK_mt6359_VPROC),
+		.buck_id	= CPU_DVFS_VPROC2,
+		.buck_ops	= &buck_ops_mt6359_vproc,
 	},
 
-	[CPU_DVFS_VPROC11] = {
-		.name		= __stringify(BUCK_MT6358_VPROC),
-		.buck_id	= CPU_DVFS_VPROC11,
-		.buck_ops	= &buck_ops_mt6358_vproc,
+	[CPU_DVFS_VPROC1] = {
+		.name		= __stringify(BUCK_mt6359_VPROC),
+		.buck_id	= CPU_DVFS_VPROC1,
+		.buck_ops	= &buck_ops_mt6359_vproc,
 	},
 
-	[CPU_DVFS_VSRAM12] = {
-		.name		= __stringify(BUCK_MT6358_VSRAM),
-		.buck_id	= CPU_DVFS_VSRAM12,
-		.buck_ops	= &buck_ops_mt6358_vsram,
+	[CPU_DVFS_VSRAM2] = {
+		.name		= __stringify(BUCK_mt6359_VSRAM),
+		.buck_id	= CPU_DVFS_VSRAM2,
+		.buck_ops	= &buck_ops_mt6359_vsram,
 	},
 
-	[CPU_DVFS_VSRAM11] = {
-		.name		= __stringify(BUCK_MT6358_VSRAM),
-		.buck_id	= CPU_DVFS_VSRAM11,
-		.buck_ops	= &buck_ops_mt6358_vsram,
+	[CPU_DVFS_VSRAM1] = {
+		.name		= __stringify(BUCK_mt6359_VSRAM),
+		.buck_id	= CPU_DVFS_VSRAM1,
+		.buck_ops	= &buck_ops_mt6359_vsram,
 	},
 };
 
@@ -430,13 +459,12 @@ unsigned int get_cur_phy_freq(struct pll_ctrl_t *pll_p)
 	con1 = cpufreq_read(pll_p->armpll_addr);
 	ckdiv1 = cpufreq_read(pll_p->armpll_div_addr);
 	ckdiv1 = _GET_BITS_VAL_(21:17, ckdiv1);
-
 	cur_khz = _cpu_freq_calc(con1, ckdiv1);
-
+#if 0
 	cpufreq_ver
 	("@%s: (%s) = cur_khz = %u, con1[0x%p] = 0x%x, ckdiv1_val = 0x%x\n",
 	__func__, pll_p->name, cur_khz, pll_p->armpll_addr, con1, ckdiv1);
-
+#endif
 	return cur_khz;
 }
 
@@ -540,10 +568,21 @@ int mt_cpufreq_turbo_config(enum mt_cpu_dvfs_id id,
 
 int mt_cpufreq_regulator_map(struct platform_device *pdev)
 {
-	regulator_proc11 = regulator_get(&pdev->dev, "vproc11");
-	regulator_proc12 = regulator_get(&pdev->dev, "vproc12");
-	regulator_sram11 = regulator_get(&pdev->dev, "vsram_proc11");
-	regulator_sram12 = regulator_get(&pdev->dev, "vsram_proc12");
+	regulator_proc1 = regulator_get(&pdev->dev, "vproc1");
+	if (GEN_DB_ON(IS_ERR(regulator_proc1), "vproc1 Get Failed"))
+		return -ENODEV;
+
+	regulator_proc2 = regulator_get(&pdev->dev, "vproc2");
+	if (GEN_DB_ON(IS_ERR(regulator_proc2), "vproc2 Get Failed"))
+		return -ENODEV;
+
+	regulator_sram1 = regulator_get(&pdev->dev, "vsram_proc1");
+	if (GEN_DB_ON(IS_ERR(regulator_sram1), "vsram_proc1 Get Failed"))
+		return -ENODEV;
+
+	regulator_sram2 = regulator_get(&pdev->dev, "vsram_proc2");
+	if (GEN_DB_ON(IS_ERR(regulator_sram2), "vsram_proc2 Get Failed"))
+		return -ENODEV;
 
 	return 0;
 }
@@ -554,66 +593,49 @@ int mt_cpufreq_dts_map(void)
 
 	/* apmixed */
 	node = of_find_compatible_node(NULL, NULL, APMIXED_NODE);
+	if (GEN_DB_ON(!node, "APMIXED Not Found"))
+		return -ENODEV;
+
 	apmixed_base = (unsigned long)of_iomap(node, 0);
+	if (GEN_DB_ON(!apmixed_base, "APMIXED Map Failed"))
+		return -ENOMEM;
 
 	/* mcucfg */
 	node = of_find_compatible_node(NULL, NULL, MCUCFG_NODE);
+	if (GEN_DB_ON(!node, "MCUCFG Not Found"))
+		return -ENODEV;
+
 	mcucfg_base = (unsigned long)of_iomap(node, 0);
+
+	if (GEN_DB_ON(!mcucfg_base, "MCUCFG Map Failed"))
+		return -ENOMEM;
 
 	return 0;
 }
 
-#define CPUFREQ_EFUSE_IDX_0 50
-#define CPUFREQ_SEG_CODE_IDX_0 7
-#define CPUFREQ_BIN_CODE_IDX_0 120
-
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
-	unsigned int lv = CPU_LEVEL_0;
-	unsigned int temp = 0;
-	unsigned int segcode = 0;
-	unsigned int bincode = 0;
-	unsigned int turbocode = 0;
-	unsigned int a_code = 0;
-#if 0
-	temp = get_devinfo_with_index(CPUFREQ_EFUSE_IDX_0);
-	segcode = (get_devinfo_with_index(CPUFREQ_SEG_CODE_IDX_0) >> 5) & 0x1;
-	bincode = (get_devinfo_with_index(CPUFREQ_BIN_CODE_IDX_0) >> 4) & 0x7;
-	turbocode = (get_devinfo_with_index(CPUFREQ_SEG_CODE_IDX_0) >> 3) & 0x1;
-	a_code = (get_devinfo_with_index(CPUFREQ_SEG_CODE_IDX_0) >> 1) & 0x1;
-#endif
-	if (temp > 0x40) {
-		if (segcode == 1)
-			lv = CPU_LEVEL_5;	/* V6 */
-		else {
-			if (bincode == 0)
-				lv = CPU_LEVEL_2;	/* V5_1 */
-			else if (bincode == 1)
-				lv = CPU_LEVEL_3;	/* V5_2 */
-			else if (bincode == 2)
-				lv = CPU_LEVEL_4;	/* V5_3 */
-			else
-				lv = CPU_LEVEL_4;	/* V5_3 */
-		}
-	} else if (temp == 0x40) {
-		if (segcode == 1)
-			lv = CPU_LEVEL_5;	/* V6 */
-		else
-			lv = CPU_LEVEL_1;	/* V4 */
-	} else
-		lv = CPU_LEVEL_0;	/* V3 */
+	unsigned int lv = CPU_LEVEL_1;
+	int val = (get_devinfo_with_index(7) & 0xFF);
+	int efuse_ver = (get_devinfo_with_index(4));
 
-	if (a_code == 1)
-		lv = CPU_LEVEL_7;	/* V5_4 */
+	if ((val == 0xA0) || (val == 0x05) || (val == 0x60) || (val == 0x06))
+		lv = CPU_LEVEL_1;
+	else if ((val == 0xC0) || (val == 0x03) || (val == 0x20)
+		|| (val == 0x04))
+		lv = CPU_LEVEL_0;
 
-	if (turbocode == 1)
-		lv = CPU_LEVEL_6;	/* V5_T */
+	else if ((val == 0x80) || (val == 0x01) || (val == 0x40)
+		|| (val == 0x02))
+		lv = CPU_LEVEL_2;
 
 	turbo_flag = 0;
 
-	tag_pr_info("%d, %d, (%d, %d)\n",
-		lv, turbo_flag, UP_SRATE, DOWN_SRATE);
+	if (efuse_ver == 0x5200)
+		lv = CPU_LEVEL_0;
 
+	tag_pr_info("%d, %d, (%d, %d) efuse_val = 0x%x\n",
+		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val);
 	return lv;
 }
 
@@ -626,14 +648,10 @@ void cpufreq_get_cluster_cpus(struct cpumask *cpu_mask, unsigned int cid)
 {
 	if (cid == 0) {
 		cpumask_setall(cpu_mask);
-		cpumask_clear_cpu(4, cpu_mask);
-		cpumask_clear_cpu(5, cpu_mask);
 		cpumask_clear_cpu(6, cpu_mask);
 		cpumask_clear_cpu(7, cpu_mask);
 	} else if (cid == 1) {
 		cpumask_clear(cpu_mask);
-		cpumask_set_cpu(4, cpu_mask);
-		cpumask_set_cpu(5, cpu_mask);
 		cpumask_set_cpu(6, cpu_mask);
 		cpumask_set_cpu(7, cpu_mask);
 	}
@@ -658,3 +676,13 @@ unsigned int cpufreq_get_cluster_id(unsigned int cpu_id)
 
 	return 0;
 }
+
+#ifdef IMAX_ENABLE
+void cpufreq_get_imax_reg(unsigned int *imax_addr, unsigned int *reg_val)
+{
+	int i;
+
+	for (i = 0; i < REG_LEN; i++)
+		reg_val[i] = cpufreq_read(mcucfg_base + imax_reg_addr[i]);
+}
+#endif
