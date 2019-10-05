@@ -842,7 +842,7 @@ static signed int DIP_DumpDIPReg(void)
 	CMDQ_ERR("- E.");
 	CMDQ_ERR("g_bDumpPhyDIPBuf:(0x%x), g_pPhyDIPBuffer:(0x%p)\n",
 		g_bDumpPhyDIPBuf, g_pPhyDIPBuffer);
-	CMDQ_ERR("g_pPhyMFBBuffer:(0x%x), g_pPhyMSSBuffer:(0x%p)\n",
+	CMDQ_ERR("g_pPhyMFBBuffer:(0x%p), g_pPhyMSSBuffer:(0x%p)\n",
 		g_pPhyMFBBuffer, g_pPhyMSSBuffer);
 	CMDQ_ERR("g_bIonBuf:(0x%x)\n", g_bIonBufferAllocated);
 
@@ -914,12 +914,17 @@ static signed int DIP_DumpDIPReg(void)
 		DIP_RD32(DIP_A_BASE + 0x1158), DIP_RD32(DIP_A_BASE + 0x115C));
 	CMDQ_ERR("dip: 0x15022160(0x%x)-0x15022164(0x%x)\n",
 		DIP_RD32(DIP_A_BASE + 0x1160), DIP_RD32(DIP_A_BASE + 0x1164));
+	CMDQ_ERR("dip: 0x15022168(0x%x)-0x1502216C(0x%x)\n",
+		DIP_RD32(DIP_A_BASE + 0x1168), DIP_RD32(DIP_A_BASE + 0x116C));
 	CMDQ_ERR("dip: 0x15022170(0x%x)-0x15022174(0x%x)\n",
 		DIP_RD32(DIP_A_BASE + 0x1170), DIP_RD32(DIP_A_BASE + 0x1174));
 	CMDQ_ERR("dip: 0x15022178(0x%x)-0x1502217C(0x%x)\n",
 		DIP_RD32(DIP_A_BASE + 0x1178), DIP_RD32(DIP_A_BASE + 0x117C));
 	CMDQ_ERR("dip: 0x15022180(0x%x)-0x15022184(0x%x)\n",
 		DIP_RD32(DIP_A_BASE + 0x1180), DIP_RD32(DIP_A_BASE + 0x1184));
+	CMDQ_ERR("dip: 0x1502218C(0x%x)-0x15022190(0x%x)\n",
+		DIP_RD32(DIP_A_BASE + 0x118C), DIP_RD32(DIP_A_BASE + 0x1190));
+
 	/*CQ_THR info*/
 	CMDQ_ERR("dip: 0x15022204(0x%x)-0x15022208(0x%x)-0x15022210(0x%x)\n",
 		DIP_RD32(DIP_A_BASE + 0x1204), DIP_RD32(DIP_A_BASE + 0x1208),
@@ -1801,7 +1806,6 @@ static signed int DIP_DumpDIPReg(void)
 
 
 	CMDQ_ERR("MSF Config Info End\n");
-
 
 #ifdef AEE_DUMP_REDUCE_MEMORY
 	if (g_bDumpPhyDIPBuf == MFALSE) {
@@ -5470,6 +5474,7 @@ LOG_INF("dip p2 g_bDumpPhyB:%d, tdriadd:0x%x, imgiadd:0x%x,dmgiadd:0x%x\n",
 	} else {
 		LOG_INF("g_pPhyMSSBuffer:(0x%pK)\n", g_pPhyMSSBuffer);
 	}
+
 	seq_puts(m, "===dip p2 tpipe buffer Info===\n");
 	if (g_pTpipeBuffer != NULL) {
 		for (i = 0; i < (MAX_ISP_TILE_TDR_HEX_NO >> 2); i = i + 4) {
