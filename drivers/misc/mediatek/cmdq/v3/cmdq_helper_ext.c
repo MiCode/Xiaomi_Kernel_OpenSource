@@ -3753,8 +3753,7 @@ bool cmdq_thread_in_use(void)
 	return (bool)(atomic_read(&cmdq_thread_usage) > 0);
 }
 
-static void cmdq_core_clk_enable(struct cmdqRecStruct *handle,
-	struct cmdq_client *cl)
+static void cmdq_core_clk_enable(struct cmdqRecStruct *handle)
 {
 	s32 clock_count;
 
@@ -3763,10 +3762,8 @@ static void cmdq_core_clk_enable(struct cmdqRecStruct *handle,
 	CMDQ_MSG("[CLOCK]enable usage:%d scenario:%d\n",
 		clock_count, handle->scenario);
 
-	if (clock_count == 1) {
-		cmdq_mbox_enable(cl->chan);
+	if (clock_count == 1)
 		cmdq_core_reset_gce();
-	}
 
 	cmdq_core_group_clk_cb(true, handle->engineFlag, handle->engine_clk);
 }
@@ -3782,13 +3779,10 @@ static void cmdq_core_clk_disable(struct cmdqRecStruct *handle)
 	CMDQ_MSG("[CLOCK]disable usage:%d\n", clock_count);
 
 	if (clock_count == 0) {
-		struct cmdq_client *cl = handle->pkt->cl;
 		/* Backup event */
 		cmdq_get_func()->eventBackup();
 		/* clock-off */
 		cmdq_get_func()->enableGCEClockLocked(false);
-
-		cmdq_mbox_disable(cl->chan);
 	} else if (clock_count < 0) {
 		CMDQ_ERR(
 			"enable clock %s error usage:%d smi use:%d\n",
@@ -4557,7 +4551,7 @@ static s32 cmdq_pkt_lock_handle(struct cmdqRecStruct *handle,
 	handle->prepare(handle);
 
 	/* task and thread dispatched, increase usage */
-	cmdq_core_clk_enable(handle, client);
+	cmdq_core_clk_enable(handle);
 	mutex_unlock(&cmdq_clock_mutex);
 
 	mutex_lock(&cmdq_handle_list_mutex);

@@ -275,11 +275,8 @@ dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread)
 {
 	struct cmdq *cmdq = container_of(thread->chan->mbox, struct cmdq, mbox);
 
-	if (atomic_read(&cmdq->usage) <= 0) {
-		cmdq_err("dump pc with cmdq off");
-		dump_stack();
+	if (atomic_read(&cmdq->usage) <= 0)
 		return 0;
-	}
 
 	return CMDQ_REG_REVERT_ADDR(readl(thread->base + CMDQ_THR_CURR_ADDR));
 }
