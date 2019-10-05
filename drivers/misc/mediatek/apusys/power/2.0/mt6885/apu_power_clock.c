@@ -127,19 +127,30 @@ static struct clk *clk_top_tvdpll_ck;		// 594
 static struct clk *clk_top_tvdpll_mainpll_d2_ck;// 594
 static struct clk *clk_top_apupll_ck;		// 850
 
-// FIXME: check this is required or not
-/* display mtcmos */
-static struct clk *mtcmos_dis;
+static struct clk *clk_apmixed_apupll_rate;	// apupll ck for set rate
+static struct clk *mtcmos_scp_sys_vpu;		// mtcmos for apu conn/vcore
+
 
 /**************************************************
- * The following functions are vpu dedicated usate
+ * The following functions are apu dedicated usate
  **************************************************/
+
+void enable_apu_mtcmos(int enable)
+{
+	LOG_DBG("%s enable var = %d", __func__, enable);
+
+	if (enable) {
+		ENABLE_MTCMOS(mtcmos_scp_sys_vpu);
+	} else {
+		DISABLE_MTCMOS(mtcmos_scp_sys_vpu);
+	}
+}
 
 int prepare_apu_clock(struct device *dev)
 {
 	int ret = 0;
 
-	PREPARE_MTCMOS(mtcmos_dis);
+	GET_MTCMOS(mtcmos_scp_sys_vpu);
 
 	PREPARE_CLK(clk_apusys_vcore_ahb_cg);
 	PREPARE_CLK(clk_apusys_vcore_axi_cg);
@@ -234,6 +245,8 @@ int prepare_apu_clock(struct device *dev)
 	PREPARE_CLK(clk_top_tvdpll_ck);
 	PREPARE_CLK(clk_top_tvdpll_mainpll_d2_ck);
 	PREPARE_CLK(clk_top_apupll_ck);
+
+	PREPARE_CLK(clk_apmixed_apupll_rate);
 
 	return ret;
 }
@@ -333,6 +346,8 @@ void unprepare_apu_clock(void)
 	UNPREPARE_CLK(clk_top_tvdpll_ck);
 	UNPREPARE_CLK(clk_top_tvdpll_mainpll_d2_ck);
 	UNPREPARE_CLK(clk_top_apupll_ck);
+
+	UNPREPARE_CLK(clk_apmixed_apupll_rate);
 }
 
 //per user
@@ -356,12 +371,9 @@ void enable_apu_clock(enum DVFS_USER user)
 	case MDLA0:
 	case MDLA1:
 		ENABLE_CLK(clk_top_dsp6_sel);
+		ENABLE_CLK(clk_apmixed_apupll_rate);
 		break;
 	}
-
-	ENABLE_MTCMOS(mtcmos_dis);
-
-	udelay(100);
 
 	ENABLE_CLK(clk_apusys_vcore_ahb_cg);
 	ENABLE_CLK(clk_apusys_vcore_axi_cg);
@@ -517,8 +529,6 @@ void disable_apu_clock(enum DVFS_USER user)
 	DISABLE_CLK(clk_apusys_vcore_adl_cg);
 	DISABLE_CLK(clk_apusys_vcore_qos_cg);
 
-	DISABLE_MTCMOS(mtcmos_dis);
-
 	DISABLE_CLK(clk_top_dsp_sel);
 	DISABLE_CLK(clk_top_ipu_if_sel);
 	DISABLE_CLK(clk_top_dsp7_sel);
@@ -537,6 +547,7 @@ void disable_apu_clock(enum DVFS_USER user)
 	case MDLA0:
 	case MDLA1:
 		DISABLE_CLK(clk_top_dsp6_sel);
+		DISABLE_CLK(clk_apmixed_apupll_rate);
 		break;
 	}
 
@@ -688,7 +699,14 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	return clk_set_parent(find_clk_by_domain(domain), clk_src);
 }
 
-// FIXME: check clk id to support 3 core VPU and 2 core MDLA
+int config_apupll(enum DVFS_FREQ freq)
+{
+	int scaled_freq = freq * 1000;
+
+	LOG_DBG("%s to freq %d", __func__, scaled_freq);
+	return clk_set_rate(clk_apmixed_apupll_rate, scaled_freq);
+}
+
 // dump related frequencies of APUsys
 void dump_frequency(struct apu_power_info *info)
 {
@@ -696,45 +714,59 @@ void dump_frequency(struct apu_power_info *info)
 	int dsp1_freq = 0;
 	int dsp2_freq = 0;
 	int dsp3_freq = 0;
+	int dsp6_freq = 0;
+	int dsp7_freq = 0;
 	int ipuif_freq = 0;
 	int dump_div = 1;
-#if 0
+	int temp_id = 1;
 	int temp_freq = 0;
 
-	temp_freq = mt_get_ckgen_freq(1);
+	temp_freq = mt_get_ckgen_freq(temp_id);
 
-	dsp_freq = mt_get_ckgen_freq(10);
+	dsp_freq = mt_get_ckgen_freq(13);
 	if (dsp_freq == 0) {
-		temp_freq = mt_get_ckgen_freq(1);
-		dsp_freq = mt_get_ckgen_freq(10);
+		temp_freq = mt_get_ckgen_freq(temp_id);
+		dsp_freq = mt_get_ckgen_freq(13);
 	}
 
-	dsp1_freq = mt_get_ckgen_freq(11);
+	dsp1_freq = mt_get_ckgen_freq(14);
 	if (dsp1_freq == 0) {
-		temp_freq = mt_get_ckgen_freq(1);
-		dsp1_freq = mt_get_ckgen_freq(11);
+		temp_freq = mt_get_ckgen_freq(temp_id);
+		dsp1_freq = mt_get_ckgen_freq(14);
 	}
 
-	dsp2_freq = mt_get_ckgen_freq(12);
+	dsp2_freq = mt_get_ckgen_freq(15);
 	if (dsp2_freq == 0) {
-		temp_freq = mt_get_ckgen_freq(1);
-		dsp2_freq = mt_get_ckgen_freq(12);
+		temp_freq = mt_get_ckgen_freq(temp_id);
+		dsp2_freq = mt_get_ckgen_freq(15);
 	}
 
-	dsp3_freq = mt_get_ckgen_freq(13);
+	dsp3_freq = mt_get_ckgen_freq(16);
 	if (dsp3_freq == 0) {
-		temp_freq = mt_get_ckgen_freq(1);
-		dsp3_freq = mt_get_ckgen_freq(13);
+		temp_freq = mt_get_ckgen_freq(temp_id);
+		dsp3_freq = mt_get_ckgen_freq(16);
 	}
 
-	ipuif_freq = mt_get_ckgen_freq(14);
+	dsp6_freq = mt_get_ckgen_freq(19);
+	if (dsp6_freq == 0) {
+		temp_freq = mt_get_ckgen_freq(temp_id);
+		dsp6_freq = mt_get_ckgen_freq(19);
+	}
+
+	dsp7_freq = mt_get_ckgen_freq(20);
+	if (dsp7_freq == 0) {
+		temp_freq = mt_get_ckgen_freq(temp_id);
+		dsp7_freq = mt_get_ckgen_freq(20);
+	}
+
+	ipuif_freq = mt_get_ckgen_freq(21);
 	if (ipuif_freq == 0) {
-		temp_freq = mt_get_ckgen_freq(1);
-		ipuif_freq = mt_get_ckgen_freq(14);
+		temp_freq = mt_get_ckgen_freq(temp_id);
+		ipuif_freq = mt_get_ckgen_freq(21);
 	}
 
 	check_vpu_clk_sts();
-#endif
+
 	if (info->dump_div > 0)
 		dump_div = info->dump_div;
 
@@ -742,11 +774,15 @@ void dump_frequency(struct apu_power_info *info)
 	info->dsp1_freq = dsp1_freq / dump_div;
 	info->dsp2_freq = dsp2_freq / dump_div;
 	info->dsp3_freq = dsp3_freq / dump_div;
+	info->dsp6_freq = dsp6_freq / dump_div;
+	info->dsp7_freq = dsp7_freq / dump_div;
 	info->ipuif_freq = ipuif_freq / dump_div;
 
 	LOG_DBG("dsp_freq = %d\n", dsp_freq);
 	LOG_DBG("dsp1_freq = %d\n", dsp1_freq);
 	LOG_DBG("dsp2_freq = %d\n", dsp2_freq);
 	LOG_DBG("dsp3_freq = %d\n", dsp3_freq);
+	LOG_DBG("dsp6_freq = %d\n", dsp6_freq);
+	LOG_DBG("dsp7_freq = %d\n", dsp7_freq);
 	LOG_DBG("ipuif_freq = %d\n", ipuif_freq);
 }

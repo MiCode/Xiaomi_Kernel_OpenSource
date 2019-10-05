@@ -15,31 +15,29 @@
 #define _POWER_CLOCK_API_H_
 
 #include <linux/clk.h>
-#include <mt-plat/mtk_secure_api.h>
 
 #include "apu_log.h"
 
-extern unsigned int mt_get_ckgen_freq(unsigned int ID);
-extern void check_vpu_clk_sts(void);
+// FIXME: add it back when ccf ready
+// extern unsigned int mt_get_ckgen_freq(unsigned int ID);
+// extern void check_vpu_clk_sts(void);
+
+static inline unsigned int mt_get_ckgen_freq(unsigned int ID) { return 0; }
+static inline void check_vpu_clk_sts(void) { }
+
 
 /**********************************************
  * macro for clock management operation
  **********************************************/
 
-#if 0
-/*move vcore cg ctl to atf*/
-#define vcore_cg_ctl(poweron) \
-	mt_secure_call(MTK_APU_VCORE_CG_CTL, poweron, 0, 0, 0)
-#endif
-
-#define PREPARE_MTCMOS(clk) \
-	{ \
+#define GET_MTCMOS(clk) \
+	do { \
 		clk = devm_clk_get(dev, #clk); \
 		if (IS_ERR(clk)) { \
 			ret = -ENOENT; \
 			LOG_ERR("can not find mtcmos: %s\n", #clk); \
 		} \
-	}
+	} while (0)
 
 #define PREPARE_CLK(clk) \
 	{ \

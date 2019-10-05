@@ -16,7 +16,6 @@
 
 #include "apusys_power_cust.h"
 
-// FIXME: should match config of 6885
 struct apu_power_info {
 	unsigned int dump_div;
 	unsigned int vvpu;
@@ -26,8 +25,10 @@ struct apu_power_info {
 	unsigned int dsp_freq;		// dsp conn
 	unsigned int dsp1_freq;		// vpu core0
 	unsigned int dsp2_freq;		// vpu core1
-	unsigned int dsp3_freq;		// mdla core
-	unsigned int ipuif_freq;	// ipu intf.
+	unsigned int dsp3_freq;		// vpu core2
+	unsigned int dsp6_freq;		// mdla core0 & core1
+	unsigned int dsp7_freq;		// iommu
+	unsigned int ipuif_freq;	// ipu interface
 	unsigned int max_opp_limit;
 	unsigned int min_opp_limit;
 	unsigned int thermal_cond;
@@ -50,5 +51,7 @@ int prepare_apu_clock(struct device *dev);
 void unprepare_apu_clock(void);
 void disable_apu_clock(enum DVFS_USER);
 void enable_apu_clock(enum DVFS_USER);
+void enable_apu_mtcmos(int enable);
+int config_apupll(enum DVFS_FREQ freq);
 
 #endif // _APU_POWER_API_H_

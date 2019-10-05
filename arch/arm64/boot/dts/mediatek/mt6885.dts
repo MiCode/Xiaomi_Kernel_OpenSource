@@ -4601,6 +4601,10 @@ page_owner=on";
 		reg-names = "apusys_rpc",
 			    "apusys_pcu";
 
+		vvpu-supply = <&mt_pmic_vproc1_buck_reg>;
+		vmdla-supply = <&mt_pmic_vproc2_buck_reg>;
+		vsram_apu-supply = <&mt_pmic_vsram_md_ldo_reg>;
+
 		clocks = <&topckgen TOP_MUX_DSP>,	/* CONN */
 			<&topckgen TOP_MUX_DSP1>,	/* VPU_CORE0 */
 			<&topckgen TOP_MUX_DSP2>,	/* VPU_CORE1 */
@@ -4686,7 +4690,8 @@ page_owner=on";
 			<&topckgen TOP_TVDPLL_CK>,
 			<&topckgen TOP_TVDPLL_MAINPLL_D2_CK>,
 			<&topckgen TOP_APUPLL_CK>,
-			<&scpsys SCP_SYS_DIS>;
+			<&apmixed APMIXED_APUPLL>,
+			<&scpsys SCP_SYS_VPU>;
 
 		clock-names = "clk_top_dsp_sel",
 			"clk_top_dsp1_sel",
@@ -4773,7 +4778,8 @@ page_owner=on";
 			"clk_top_tvdpll_ck",
 			"clk_top_tvdpll_mainpll_d2_ck",
 			"clk_top_apupll_ck",
-			"mtcmos_dis";
+			"clk_apmixed_apupll_rate",
+			"mtcmos_scp_sys_vpu";
 	};
 
 	edma0: edma0@19027000 {

@@ -165,6 +165,7 @@ static void hw_init_setting(void)
 	// mask RPC IRQ and bypass WFI
 	regValue = DRV_Reg32(APU_RPC_TOP_SEL);
 	regValue |= 0x9E;
+	regValue |= BIT(10);
 	DRV_WriteReg32(APU_RPC_TOP_SEL, regValue);
 }
 
@@ -245,7 +246,7 @@ static void rpc_fifo_check(void)
 	do {
 		udelay(10);
 		regValue = DRV_Reg32(APU_RPC_TOP_CON);
-		finished = (regValue & (1 << 31));
+		finished = (regValue & BIT(31));
 	} while (finished);
 }
 
@@ -292,11 +293,12 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 		// call spm api to enable wake up signal for apu_conn/apu_vcore
 		if (DRV_Reg32(APU_RPC_INTF_PWR_RDY) == 0) {
 			LOG_WRN("%s enable wakeup signal\n", __func__);
-			DRV_SetBitReg32(APU_RPC_TOP_CON, REG_WAKEUP_SET);
+			// DRV_SetBitReg32(APU_RPC_TOP_CON, REG_WAKEUP_SET);
+			enable_apu_mtcmos(1);
 		}
 
 		rpc_fifo_check();
-		DRV_WriteReg32(APU_RPC_SW_FIFO_WE, (domain_idx | (1 << 4)));
+		DRV_WriteReg32(APU_RPC_SW_FIFO_WE, (domain_idx | BIT(4)));
 		rpc_power_status_check(domain_idx, enable);
 	} else {
 		DRV_WriteReg32(APU_RPC_SW_FIFO_WE, domain_idx);
@@ -308,6 +310,8 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 		 * call spm api to disable wake up signal
 		 * for apu_conn/apu_vcore
 		 */
+			LOG_WRN("%s disable wakeup signal\n", __func__);
+			enable_apu_mtcmos(0);
 		}
 		// sleep request enable
 		regValue = DRV_Reg32(APU_RPC_TOP_CON);
@@ -342,10 +346,14 @@ static int set_power_frequency(enum DVFS_USER user, void *param)
 	freq = ((struct hal_param_freq *)param)->target_freq;
 	domain = ((struct hal_param_freq *)param)->target_volt_domain;
 
-	if (domain < APUSYS_BUCK_DOMAIN_NUM)
-		ret = set_apu_clock_source(freq, domain);
-	else
+	if (domain < APUSYS_BUCK_DOMAIN_NUM) {
+		if (domain == V_MDLA0 || domain == V_MDLA1)
+			ret = config_apupll(freq);
+		else
+			ret = set_apu_clock_source(freq, domain);
+	} else {
 		LOG_ERR("%s not support power domain : %d\n", __func__, domain);
+	}
 
 	return ret;
 }
@@ -364,12 +372,12 @@ static void get_current_power_info(enum DVFS_USER user, void *param)
 	// including APUsys related freq
 	dump_frequency(&info);
 
-	// FIXME: should match config of 6885
 	snprintf(log_str, sizeof(log_str),
-				"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u]%llu",
+				"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]%llu",
 				info.vvpu, info.vmdla, info.vcore, info.vsram,
 				info.dsp_freq, info.dsp1_freq, info.dsp2_freq,
-				info.dsp3_freq, info.ipuif_freq, info.id);
+				info.dsp3_freq, info.dsp6_freq, info.dsp7_freq,
+				info.ipuif_freq, info.id);
 
 	// TODO: return value to MET
 

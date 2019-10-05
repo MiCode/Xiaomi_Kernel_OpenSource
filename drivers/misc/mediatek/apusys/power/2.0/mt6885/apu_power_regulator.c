@@ -69,7 +69,7 @@ int prepare_regulator(enum DVFS_BUCK buck, struct device *dev)
 	int ret = 0;
 
 	if (buck == VPU_BUCK) {
-		vvpu_reg_id = regulator_get(dev, "vpu");
+		vvpu_reg_id = regulator_get(dev, "vvpu");
 		if (!vvpu_reg_id) {
 			ret = -ENOENT;
 			LOG_ERR("regulator_get vvpu_reg_id failed\n");
@@ -83,7 +83,7 @@ int prepare_regulator(enum DVFS_BUCK buck, struct device *dev)
 		}
 
 	} else if (buck == MDLA_BUCK) {
-		vmdla_reg_id = regulator_get(dev, "VMDLA");
+		vmdla_reg_id = regulator_get(dev, "vmdla");
 		if (!vmdla_reg_id) {
 			ret = -ENOENT;
 			LOG_ERR("regulator_get vmdla_reg_id failed\n");
@@ -107,7 +107,7 @@ int prepare_regulator(enum DVFS_BUCK buck, struct device *dev)
 
 
 	} else if (buck == SRAM_BUCK) {
-		vsram_reg_id = regulator_get(dev, "vsram_md");
+		vsram_reg_id = regulator_get(dev, "vsram_apu");
 		if (!vsram_reg_id) {
 			ret = -ENOENT;
 			LOG_ERR("regulator_get vsram_reg_id failed\n");
