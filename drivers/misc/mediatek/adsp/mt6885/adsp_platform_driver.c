@@ -395,6 +395,8 @@ static int adsp_common_drv_probe(struct platform_device *pdev)
 		goto ERROR;
 	}
 
+	adsp_register_notify(&adsp_uevent_notifier);
+
 	pr_info("%s, success\n", __func__);
 ERROR:
 	return ret;

@@ -15,13 +15,15 @@
 #include "adsp_mbox.h"
 #include "adsp_core.h"
 
+/* protect access tcm if set reset flag */
 static rwlock_t access_rwlock;
+
+/* timesync */
 struct timesync_t adsp_timesync_dram;
 void *adsp_timesync_ptr = &adsp_timesync_dram; /* extern to adsp_help.h */
 
-void adsp_A_register_notify(struct notifier_block *nb) {}
-void adsp_A_unregister_notify(struct notifier_block *nb) {}
-void reset_hal_feature_table(void) {}
+/* notifier */
+static BLOCKING_NOTIFIER_HEAD(adsp_notifier_list);
 
 struct adsp_priv *_get_adsp_core(void *ptr, int id)
 {
@@ -151,12 +153,21 @@ enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 	return adsp_mbox_send(pdata->send_mbox, &msg, wait);
 }
 
-void enable_adsp(bool en)
+void adsp_register_notify(struct notifier_block *nb)
 {
-	if (en)
-		adsp_enable_clock();
-	else
-		adsp_disable_clock();
+	blocking_notifier_chain_register(&adsp_notifier_list, nb);
+}
+
+void adsp_unregister_notify(struct notifier_block *nb)
+{
+	blocking_notifier_chain_unregister(&adsp_notifier_list, nb);
+}
+
+void adsp_extern_notify_chain(enum ADSP_NOTIFY_EVENT event)
+{
+#ifdef CFG_RECOVERY_SUPPORT
+	blocking_notifier_call_chain(&adsp_notifier_list, event, NULL);
+#endif
 }
 
 void switch_adsp_power(bool on)
@@ -206,13 +217,21 @@ void adsp_sram_provide_snapshot(struct adsp_priv *pdata)
 
 int adsp_reset(void)
 {
+#ifdef CFG_RECOVERY_SUPPORT
 	int ret = 0, cid = 0;
 	struct adsp_priv *pdata;
 
-	switch_adsp_power(true);
+	if (!is_adsp_axibus_idle()) {
+		pr_info("%s, adsp_axibus busy try again", __func__);
+		return -EAGAIN;
+	}
 
 	/* clear adsp cfg */
 	adsp_mt_clear();
+
+	/* choose default clk mux */
+	adsp_set_clock_freq(CLK_TOP_CLK26M);
+	adsp_set_clock_freq(CLK_DEFAULT_INIT_CK);
 
 	/* restore tcm to initial state */
 	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
@@ -235,15 +254,13 @@ int adsp_reset(void)
 
 		if (unlikely(ret == 0)) {
 			pr_warn("%s, core %d reset timeout\n", __func__, cid);
-			ret = -ETIME;
-			goto ERROR;
+			return -ETIME;
 		}
 	}
 
 	pr_info("[ADSP] reset adsp done\n");
-ERROR:
-	switch_adsp_power(false);
-	return ret;
+#endif
+	return 0;
 }
 
 

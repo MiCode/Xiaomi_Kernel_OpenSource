@@ -9,12 +9,13 @@
 #include <linux/device.h>       /* needed by device_* */
 #include <linux/workqueue.h>
 #include <linux/mutex.h>
+#include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/pm_wakeup.h>
 #include <mt-plat/aee.h>
-
 #include "adsp_reg.h"
 #include "adsp_core.h"
+#include "adsp_clk.h"
 #include "adsp_platform_driver.h"
 #include "adsp_excep.h"
 
@@ -64,7 +65,7 @@ static u32 dump_adsp_internal_mem(struct adsp_priv *pdata,
 		       ADSP_CLK_CORE_1_EN;
 	u32 uart_mask = ADSP_UART_RST_N | ADSP_UART_BCLK_CG;
 
-	switch_adsp_power(true);
+	adsp_enable_clock();
 	//mutex_lock(&adsp_sw_reset_mutex);
 
 	clk_cfg = switch_adsp_clk_ctrl_cg(true, clk_mask);
@@ -81,7 +82,7 @@ static u32 dump_adsp_internal_mem(struct adsp_priv *pdata,
 	switch_adsp_uart_ctrl_cg(false, (~uart_cfg) & uart_mask);
 
 	//mutex_unlock(&adsp_sw_reset_mutex);
-	switch_adsp_power(false);
+	adsp_disable_clock();
 	return n;
 }
 
@@ -200,7 +201,7 @@ void adsp_aed_worker(struct work_struct *ws)
 						struct adsp_exception_control,
 						aed_work);
 	struct adsp_priv *pdata = NULL;
-	int cid = 0;
+	int cid = 0, ret = 0, retry = 0;
 
 	/* wake lock AP*/
 	__pm_stay_awake(&ctrl->wakeup_lock);
@@ -213,19 +214,34 @@ void adsp_aed_worker(struct work_struct *ws)
 	}
 
 	adsp_register_feature(SYSTEM_FEATURE_ID);
+	adsp_extern_notify_chain(ADSP_EVENT_STOP);
 
-#ifdef CFG_RECOVERY_SUPPORT
-	adsp_extern_notify(ADSP_EVENT_STOP);
-#endif
 	/* exception dump */
 	adsp_exception_dump(ctrl);
 
-#ifdef CFG_RECOVERY_SUPPORT
 	/* reset adsp */
-	adsp_reset();
+	for (retry = 0; retry < ADSP_RESET_RETRY_MAXTIME; retry++) {
+		ret = adsp_reset();
 
-	adsp_extern_notify(ADSP_EVENT_READY);
-#endif
+		if (ret == 0)
+			break;
+
+		/* reset fail & retry */
+		pr_info("%s, reset retry.... (%d)", __func__, retry);
+		msleep(20);
+	}
+
+	if (ret) {
+		aee_kernel_exception_api(__FILE__,
+					 __LINE__,
+					 DB_OPT_DEFAULT,
+					 "[ADSP]",
+					 "ASSERT: ADSP DEAD! Recovery Fail");
+		__pm_relax(&ctrl->wakeup_lock);
+		return;
+	}
+
+	adsp_extern_notify_chain(ADSP_EVENT_READY);
 	adsp_deregister_feature(SYSTEM_FEATURE_ID);
 
 	__pm_relax(&ctrl->wakeup_lock);
@@ -293,7 +309,7 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	u32 len = ADSP_KE_DUMP_LEN;
 
 	memset(buf, 0, len);
-	switch_adsp_power(true);
+	adsp_enable_clock();
 	//mutex_lock(&adsp_sw_reset_mutex);
 
 	clk_cfg = switch_adsp_clk_ctrl_cg(true, clk_mask);
@@ -315,7 +331,7 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	switch_adsp_uart_ctrl_cg(false, (~uart_cfg) & uart_mask);
 
 	//mutex_unlock(&adsp_sw_reset_mutex);
-	switch_adsp_power(false);
+	adsp_disable_clock();
 
 	/* last adsp_log */
 	//n += dump_adsp_partial_log(buf + n, len - n);

@@ -244,7 +244,6 @@ static void usip_send_emi_info_to_dsp(void)
 		pr_debug("%s(), scp_ipi send succeed\n", __func__);
 }
 
-#ifdef CFG_RECOVERY_SUPPORT
 static int audio_call_event_receive(struct notifier_block *this,
 				    unsigned long event,
 				    void *ptr)
@@ -265,7 +264,6 @@ static struct notifier_block audio_call_notifier = {
 	.notifier_call = audio_call_event_receive,
 	.priority = VOICE_CALL_FEATURE_PRI,
 };
-#endif /* end of CFG_RECOVERY_SUPPORT */
 #endif /* end of CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT */
 
 static int __init usip_init(void)
@@ -318,9 +316,7 @@ static int __init usip_init(void)
 	usip.memory_ready = true;
 
 #ifdef CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT
-#ifdef CFG_RECOVERY_SUPPORT
-	adsp_A_register_notify(&audio_call_notifier);
-#endif
+	adsp_register_notify(&audio_call_notifier);
 	usip_send_emi_info_to_dsp();
 #endif
 

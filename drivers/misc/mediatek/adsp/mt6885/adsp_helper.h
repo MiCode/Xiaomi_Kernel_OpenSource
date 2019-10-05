@@ -78,8 +78,8 @@ extern int adsp_feature_in_which_core(enum adsp_feature_id fid);
 extern int adsp_register_feature(enum adsp_feature_id fid);
 extern int adsp_deregister_feature(enum adsp_feature_id fid);
 
-extern void adsp_A_register_notify(struct notifier_block *nb);
-extern void adsp_A_unregister_notify(struct notifier_block *nb);
+extern void adsp_register_notify(struct notifier_block *nb);
+extern void adsp_unregister_notify(struct notifier_block *nb);
 extern void reset_hal_feature_table(void);
 
 #endif

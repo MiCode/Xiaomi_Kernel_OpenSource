@@ -77,6 +77,7 @@ struct adsp_c2c_share_dram_info_t {
 
 int create_adsp_drivers(void);
 
+extern struct notifier_block adsp_uevent_notifier;
 extern struct attribute_group adsp_default_attr_group;
 extern struct attribute_group adsp_excep_attr_group;
 extern const struct file_operations adsp_debug_ops;

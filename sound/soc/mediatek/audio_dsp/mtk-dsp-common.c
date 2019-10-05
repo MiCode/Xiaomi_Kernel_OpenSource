@@ -448,7 +448,7 @@ int mtk_dsp_deregister_feature(int id)
 }
 #endif
 
-#ifdef CFG_RECOVERY_SUPPORT
+#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
 static int mtk_audio_dsp_event_receive(
 	struct notifier_block *this,
 	unsigned long event,
@@ -470,15 +470,13 @@ static struct notifier_block mtk_audio_dsp_notifier = {
 	.notifier_call = mtk_audio_dsp_event_receive,
 	.priority = AUDIO_PLAYBACK_FEATURE_PRI,
 };
-#endif /* end of CFG_RECOVERY_SUPPORT */
+#endif
 
 int mtk_audio_register_notify(void)
 {
-#ifdef CFG_RECOVERY_SUPPORT
-	adsp_A_register_notify(&mtk_audio_dsp_notifier);
+#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
+	adsp_register_notify(&mtk_audio_dsp_notifier);
 #endif
 	return 0;
 }
-
-
 

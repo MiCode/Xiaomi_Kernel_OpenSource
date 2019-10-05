@@ -59,6 +59,7 @@ void adsp_mt_clr_spm(int cid);
 void adsp_mt_disable_wdt(int cid);
 
 bool check_hifi_status(int mask);
+bool is_adsp_axibus_idle(void);
 u32 switch_adsp_clk_ctrl_cg(bool en, int mask);
 u32 switch_adsp_uart_ctrl_cg(bool en, int mask);
 void adsp_platform_init(void *base);

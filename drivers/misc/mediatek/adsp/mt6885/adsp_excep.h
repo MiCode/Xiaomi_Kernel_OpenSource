@@ -11,6 +11,7 @@
 #define ADSP_AED_STR_LEN    (512)
 #define ADSP_WDT_TIMEOUT    (60 * HZ)    /* 60 seconds*/
 #define ADSP_KE_DUMP_LEN    (256 * 1024)
+#define ADSP_RESET_RETRY_MAXTIME  (7)
 
 enum adsp_excep_id {
 	EXCEP_LOAD_FIRMWARE = 0,

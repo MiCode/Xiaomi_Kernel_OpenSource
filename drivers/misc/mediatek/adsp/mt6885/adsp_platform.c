@@ -44,7 +44,7 @@ void adsp_mt_sw_reset(int cid)
 
 void adsp_mt_run(int cid)
 {
-	//int timeout = 1000;
+	int timeout = 1000;
 	if (unlikely(cid >= ADSP_CORE_TOTAL))
 		return;
 
@@ -55,7 +55,6 @@ void adsp_mt_run(int cid)
 		SET_BITS(ADSP_B_DDREN_REQ, ADSP_SPM_SRC_BITS);
 
 	/* make sure SPM return ack */
-#if 0
 	while (readl(ADSP_SPM_ACK) != ADSP_SPM_SRC_BITS) {
 		udelay(10);
 		if (--timeout == 0) {
@@ -63,7 +62,7 @@ void adsp_mt_run(int cid)
 			break;
 		}
 	}
-#endif
+
 	if (cid == ADSP_A_ID)
 		CLR_BITS(ADSP_HIFI3_IO_CONFIG, ADSP_A_RUNSTALL);
 	else
@@ -116,6 +115,12 @@ void adsp_mt_disable_wdt(int cid)
 bool check_hifi_status(int mask)
 {
 	return !!(readl(ADSP_SLEEP_STATUS_REG) & mask);
+}
+
+bool is_adsp_axibus_idle(void)
+{
+	/* only one transation currently: AP read pending counter */
+	return (readl(ADSP_DBG_PEND_CNT) == 0x000100);
 }
 
 u32 switch_adsp_clk_ctrl_cg(bool en, int mask)

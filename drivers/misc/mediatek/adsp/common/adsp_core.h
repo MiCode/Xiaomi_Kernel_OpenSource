@@ -47,7 +47,9 @@ int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst,
 			int count);
 void timesync_to_adsp(struct adsp_priv *pdata, u32 fz);
 void switch_adsp_power(bool on);
+
 int adsp_reset(void);
+void adsp_extern_notify_chain(enum ADSP_NOTIFY_EVENT event);
 
 /* semaphore */
 int get_adsp_semaphore(unsigned int flags);
