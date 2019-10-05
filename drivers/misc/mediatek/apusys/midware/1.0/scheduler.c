@@ -181,7 +181,9 @@ static int insert_pack_cmd(struct apusys_subcmd *sc, struct pack_cmd **ipc)
 		test_bit(sc->pack_idx, cmd->pc_col.pack_status));
 
 	bit0 = test_and_change_bit(sc->idx, cmd->pc_col.pack_status);
+	DEBUG_TAG;
 	bit1 = test_and_change_bit(sc->pack_idx, cmd->pc_col.pack_status);
+	DEBUG_TAG;
 	if (bit0 && bit1) {
 		LOG_INFO("pack cmd satified(0x%llx/0x%llx)(%d/%d)\n",
 			cmd->cmd_uid, cmd->cmd_id,
@@ -323,13 +325,12 @@ static void subcmd_done(void *isc)
 	sc->state = CMD_STATE_DONE;
 	kfree(sc->dp_status);
 	mutex_unlock(&sc->mtx);
-	/* write time back to cmdbuf */
-	set_dtime_to_subcmd(sc->entry, sc->d_time);
-	set_bandwidth_to_subcmd(sc->entry, sc->bw);
-	LOG_DEBUG("0x%llx-#%d sc: time(%llu) bw(%u)\n",
-		cmd->cmd_id, sc->idx, sc->d_time, sc->bw);
 
-	kfree(sc);
+	DEBUG_TAG;
+	if (apusys_subcmd_delete(sc)) {
+		LOG_ERR("delete sc(0x%llx/%d) fail\n",
+			cmd->cmd_id, sc->idx);
+	}
 	DEBUG_TAG;
 
 	mutex_lock(&cmd->sc_mtx);
@@ -395,11 +396,13 @@ static int exec_cmd_func(void *isc, void *idev)
 	memset(&cmd_hnd, 0, sizeof(cmd_hnd));
 
 	/* get subcmd information */
-	cmd_hnd.kva = get_addr_from_subcmd(sc->entry);
-	cmd_hnd.size = get_size_from_subcmd(sc->entry);
+	cmd_hnd.kva = (uint64_t)sc->codebuf;
+	cmd_hnd.size = sc->codebuf_size;
 	cmd_hnd.boost_val = sc->boost_val;
 	cmd_hnd.cmd_id = cmd->cmd_id;
-	cmd_hnd.cmd_entry = (uint64_t)cmd->kva;
+	cmd_hnd.subcmd_idx = sc->idx;
+	cmd_hnd.priority = cmd->priority;
+	cmd_hnd.cmd_entry = (uint64_t)cmd->entry;
 	if (cmd_hnd.kva == 0 || cmd_hnd.size == 0) {
 		LOG_ERR("invalid sc(%d)(0x%llx/%d)\n",
 			i, cmd_hnd.kva, cmd_hnd.size);
@@ -585,6 +588,7 @@ int sche_routine(void *arg)
 
 			cmd = (struct apusys_cmd *)sc->parent_cmd;
 
+			LOG_DEBUG("pack_idx = 0x%x\n", sc->pack_idx);
 			/* if sc is packed, collect all packed cmd and send */
 			if (sc->pack_idx != VALUE_SUBGAPH_PACK_ID_NONE) {
 				if (insert_pack_cmd(sc, &pc) <= 0)
@@ -698,26 +702,30 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 			mutex_lock(&sc->mtx);
 			if (sc->state < CMD_STATE_RUN) {
 				/* delete from cmd */
-				list_del(&sc->ce_list);
+				//list_del(&sc->ce_list);
 				bitmap_clear(cmd->sc_status, sc->idx, 1);
 
 				/* delete subcmd from priority q */
-				if (delete_subcmd((void *)sc)) {
-					LOG_ERR("delete sc(0x%llx/%d) fail\n",
-						cmd->cmd_id, sc->idx);
-				}
+				//if (delete_subcmd((void *)sc)) {
+				//	LOG_ERR("delete sc(0x%llx/%d) fail\n",
+				//		cmd->cmd_id, sc->idx);
+				//}
 				if (free_ctx(sc, cmd))
 					LOG_ERR("free memory ctx id fail\n");
 
-				if (sc->dp_status) {
-					DEBUG_TAG;
-					kfree(sc->dp_status);
-				}
+				//if (sc->dp_status) {
+				//	DEBUG_TAG;
+				//	kfree(sc->dp_status);
+				//	sc->dp_status = NULL;
+				//}
 
 				mutex_unlock(&sc->mtx);
 				mutex_unlock(&res_mgr->mtx);
 
-				kfree(sc);
+				if (apusys_subcmd_delete(sc)) {
+					LOG_ERR("delete sc(0x%llx/%d) fail\n",
+						cmd->cmd_id, sc->idx);
+				}
 			} else {
 				mutex_unlock(&sc->mtx);
 				mutex_unlock(&res_mgr->mtx);
@@ -802,15 +810,8 @@ int apusys_sched_add_list(struct apusys_cmd *cmd)
 
 		mutex_lock(&cmd->sc_mtx);
 
-		if (bitmap_and(sc->dp_status, sc->dp_status,
-			cmd->sc_status, cmd->sc_num)) {
-			LOG_ERR("AND sc status fail(%p/%p)(%u)(0x%lx/0x%lx)\n",
-				sc,
-				cmd,
-				cmd->sc_num,
-				(unsigned long)*sc->dp_status,
-				(unsigned long)*cmd->sc_status);
-		}
+		bitmap_and(sc->dp_status, sc->dp_status,
+			cmd->sc_status, cmd->sc_num);
 
 		/* add sc to cmd's sc_list*/
 		list_add_tail(&sc->ce_list, &cmd->sc_list);

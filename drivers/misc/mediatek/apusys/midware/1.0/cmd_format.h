@@ -95,17 +95,17 @@ enum {
 };
 
 /* specific subgratph size */
-#define TYPE_SUBGRAPH_TYPE              unsigned int
-#define TYPE_SUBGRAPH_DRIVER_TURNAROUND unsigned long long
-#define TYPE_SUBGRAPH_SUGGEST_TIME      unsigned int
-#define TYPE_SUBGRAPH_BANDWIDTH         unsigned int
-#define TYPE_SUBGRAPH_TCM_USAGE         unsigned int
-#define TYPE_SUBGRAPH_TCM_FORCE         unsigned char
-#define TYPE_SUBGRAPH_BOOST_VAL         unsigned char
-#define TYPE_SUBGRAPH_RESERVED          unsigned short
-#define TYPE_SUBGRAPH_CTX_ID            unsigned int
-#define TYPE_SUBGRAPH_SIZE              unsigned int
-#define TYPE_SUBGRAPH_ADDR              unsigned long long
+#define TYPE_SUBGRAPH_TYPE                unsigned int
+#define TYPE_SUBGRAPH_DRIVER_TURNAROUND   unsigned long long
+#define TYPE_SUBGRAPH_SUGGEST_TIME        unsigned int
+#define TYPE_SUBGRAPH_BANDWIDTH           unsigned int
+#define TYPE_SUBGRAPH_TCM_USAGE           unsigned int
+#define TYPE_SUBGRAPH_TCM_FORCE           unsigned char
+#define TYPE_SUBGRAPH_BOOST_VAL           unsigned char
+#define TYPE_SUBGRAPH_RESERVED            unsigned short
+#define TYPE_SUBGRAPH_CTX_ID              unsigned int
+#define TYPE_SUBGRAPH_CODEBUF_INFO_SIZE   unsigned int
+#define TYPE_SUBGRAPH_CODEBUF_INFO_OFFSET unsigned int
 /* vpu/sample specific */
 #define TYPE_SUBGRAPH_PACK              unsigned int
 
@@ -131,10 +131,10 @@ enum {
 	(sizeof(TYPE_SUBGRAPH_RESERVED))
 #define SIZE_SUBGRAPH_CTX_ID \
 	(sizeof(TYPE_SUBGRAPH_CTX_ID))
-#define SIZE_SUBGRAPH_SIZE \
-	(sizeof(TYPE_SUBGRAPH_SIZE))
-#define SIZE_SUBGRAPH_ADDR \
-	(sizeof(TYPE_SUBGRAPH_ADDR))
+#define SIZE_SUBGRAPH_CODEBUF_INFO_SIZE \
+	(sizeof(TYPE_SUBGRAPH_CODEBUF_INFO_SIZE))
+#define SIZE_SUBGRAPH_CODEBUF_INFO_OFFSET \
+	(sizeof(TYPE_SUBGRAPH_CODEBUF_INFO_OFFSET))
 /* vpu/sample specific */
 #define SIZE_SUBGRAPH_PACK \
 	(sizeof(TYPE_SUBGRAPH_PACK))
@@ -144,7 +144,8 @@ enum {
 	SIZE_SUBGRAPH_SUGGEST_TIME + SIZE_SUBGRAPH_BANDWIDTH +\
 	SIZE_SUBGRAPH_TCM_USAGE + SIZE_SUBGRAPH_TCM_FORCE +\
 	SIZE_SUBGRAPH_BOOST_VAL + SIZE_SUBGRAPH_RESERVED +\
-	SIZE_SUBGRAPH_CTX_ID + SIZE_SUBGRAPH_SIZE + SIZE_SUBGRAPH_ADDR)
+	SIZE_SUBGRAPH_CTX_ID + SIZE_SUBGRAPH_CODEBUF_INFO_SIZE +\
+	SIZE_SUBGRAPH_CODEBUF_INFO_OFFSET)
 
 /* spcific subgraph offset */
 #define OFFSET_SUBGRAPH_TYPE \
@@ -165,12 +166,17 @@ enum {
 	(OFFSET_SUBGRAPH_BOOST_VAL + SIZE_SUBGRAPH_BOOST_VAL)
 #define OFFSET_SUBGRAPH_CTX_ID \
 	(OFFSET_SUBGRAPH_RESERVED + SIZE_SUBGRAPH_RESERVED)
-#define OFFSET_SUBGRAPH_SIZE \
+#define OFFSET_SUBGRAPH_CODEBUF_INFO_SIZE \
 	(OFFSET_SUBGRAPH_CTX_ID + SIZE_SUBGRAPH_CTX_ID)
-#define OFFSET_SUBGRAPH_ADDR \
-	(OFFSET_SUBGRAPH_SIZE + SIZE_SUBGRAPH_SIZE)
+#define OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET \
+	(OFFSET_SUBGRAPH_CODEBUF_INFO_SIZE + SIZE_SUBGRAPH_CODEBUF_INFO_SIZE)
 	/* vpu/sample specific */
 #define OFFSET_SUBGRAPH_PACK \
-	(OFFSET_SUBGRAPH_ADDR + SIZE_SUBGRAPH_ADDR)
+	(OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET +\
+	SIZE_SUBGRAPH_CODEBUF_INFO_OFFSET)
+
+enum {
+	SUBGRAPH_CODEBUF_INFO_BIT_FD = 31,
+};
 
 #endif

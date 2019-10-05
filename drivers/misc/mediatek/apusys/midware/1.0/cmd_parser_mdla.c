@@ -25,9 +25,15 @@
 
 #define TYPE_SUBGRAPH_PMU_OFFSET uint32_t
 
-#define OFFSET_SUBGRAPH_ADDR1       (OFFSET_SUBGRAPH_ADDR + SIZE_SUBGRAPH_ADDR)
-#define OFFSET_SUBGRAPH_ADDR2       (OFFSET_SUBGRAPH_ADDR1 + SIZE_SUBGRAPH_ADDR)
-#define OFFSET_SUBGRAPH_PMU_OFFSET  (OFFSET_SUBGRAPH_ADDR2 + SIZE_SUBGRAPH_ADDR)
+#define OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET1 \
+	(OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET +\
+	SIZE_SUBGRAPH_CODEBUF_INFO_OFFSET)
+#define OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET2 \
+	(OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET1 +\
+	SIZE_SUBGRAPH_CODEBUF_INFO_OFFSET)
+#define OFFSET_SUBGRAPH_PMU_OFFSET \
+	(OFFSET_SUBGRAPH_CODEBUF_INFO_OFFSET2 +\
+	SIZE_SUBGRAPH_CODEBUF_INFO_OFFSET)
 
 static uint32_t _get_pmu_offset_from_subcmd(uint64_t subcmd)
 {
@@ -41,10 +47,10 @@ int parse_mdla_sg(struct apusys_cmd *cmd,
 	uint32_t pmu_offset = _get_pmu_offset_from_subcmd((uint64_t)sc->entry);
 
 	LOG_DEBUG("cmd entry(%p/%p), pmu offset(0x%x)\n",
-		cmd->kva, (TYPE_SUBGRAPH_PMU_OFFSET *)((uint64_t)sc->entry +
+		cmd->entry, (TYPE_SUBGRAPH_PMU_OFFSET *)((uint64_t)sc->entry +
 		OFFSET_SUBGRAPH_PMU_OFFSET), pmu_offset);
 
-	hnd->pmu_kva = (uint64_t)cmd->kva + (uint64_t)pmu_offset;
+	hnd->pmu_kva = (uint64_t)cmd->entry + (uint64_t)pmu_offset;
 
 	return 0;
 }

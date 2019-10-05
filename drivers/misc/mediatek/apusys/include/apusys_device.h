@@ -72,11 +72,17 @@ struct apusys_pmu_info {
 
 /* cmd handle */
 struct apusys_cmd_hnd {
+	/* cmd info */
 	uint64_t kva;
 	uint32_t iova;
 	uint32_t size;
 
+	uint8_t priority;
+
 	uint64_t cmd_id;
+	uint32_t subcmd_idx;
+
+	/* mdla specific */
 	uint64_t pmu_kva;
 	uint64_t cmd_entry;
 

@@ -43,7 +43,7 @@ struct apusys_cmd {
 	int mem_fd;
 	uint64_t mem_hnd;
 
-	void *kva;           // apusys cmd kernel va entry
+	void *entry;         // apusys cmd kernel va entry
 	uint64_t cmd_uid;    // cmd id from user
 	uint64_t cmd_id;     // cmd unique id
 	uint32_t size;       // total apusys cmd size
@@ -95,6 +95,11 @@ struct apusys_subcmd {
 	unsigned long *dp_status; // dependency status
 	uint64_t d_time;          // (us)driver turnaround time
 
+	int codebuf_fd;
+	void *codebuf;
+	uint32_t codebuf_size;
+	uint64_t codebuf_mem_hnd;
+
 	uint32_t boost_val;       // boost value
 	uint32_t suggest_time;    // (ms)suggest time
 	uint32_t bw;              // (MB/s)bandwidth
@@ -129,8 +134,6 @@ uint64_t get_dtime_from_subcmd(void *sc_entry);
 int set_dtime_to_subcmd(void *sc_entry, uint64_t us);
 int set_bandwidth_to_subcmd(void *sc_entry, uint32_t bandwidth);
 int set_tcmusage_from_subcmd(void *sc_entry, uint32_t tcm_usage);
-uint32_t get_size_from_subcmd(void *sc_entry);
-uint64_t get_addr_from_subcmd(void *sc_entry);
 
 int apusys_subcmd_create(void *sc_entry,
 	struct apusys_cmd *cmd, struct apusys_subcmd **isc);

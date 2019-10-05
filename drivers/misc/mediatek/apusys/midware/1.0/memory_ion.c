@@ -334,6 +334,11 @@ int ion_mem_unmap_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 		mem->iova, mem->uva, mem->kva, mem->size,
 		mem->ion_data.ion_share_fd, ion_hnd);
 
+	if (ion_hnd == NULL) {
+		LOG_ERR("ion handle null\n");
+		return -EINVAL;
+	}
+
 	ion_unmap_kernel(mem_mgr->client, ion_hnd);
 
 	//ion_hnd = (struct ion_handle *) mem->ion_khandle;
