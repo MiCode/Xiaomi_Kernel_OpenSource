@@ -87,6 +87,9 @@ enum CMDQ_SEC_ENG_ENUM {
 	CMDQ_SEC_WPEO,		/* 27 */
 	CMDQ_SEC_WPEI2,		/* 28 */
 	CMDQ_SEC_WPEO2,		/* 29 */
+	CMDQ_SEC_FDVT,		/* 30 */
+	CMDQ_SEC_ISP_UFBCI,	/* 31 */
+	CMDQ_SEC_ISP_UFBCO,	/* 32 */
 
 	CMDQ_SEC_MAX_ENG_COUNT	/* ALWAYS keep at the end */
 };
