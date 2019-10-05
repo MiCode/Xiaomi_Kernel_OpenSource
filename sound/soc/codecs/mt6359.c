@@ -308,6 +308,22 @@ int mt6359_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
 	return 0;
 }
 
+static void gpio_smt_set(struct mt6359_priv *priv)
+{
+	/* set gpio SMT mode */
+	regmap_update_bits(priv->regmap, MT6359_SMT_CON1, 0x3ff0, 0x3ff0);
+}
+
+static void gpio_driving_set(struct mt6359_priv *priv)
+{
+	/* 8:4mA(default), a:8mA, c:12mA, e:16mA */
+#if 0 // enable when need it
+	regmap_update_bits(priv->regmap, MT6359_DRV_CON2, 0xffff, 0xaaaa);
+	regmap_update_bits(priv->regmap, MT6359_DRV_CON3, 0xffff, 0xaaaa);
+	regmap_update_bits(priv->regmap, MT6359_DRV_CON4, 0x00ff, 0xaa);
+#endif
+}
+
 static void playback_gpio_set(struct mt6359_priv *priv)
 {
 	/* set gpio mosi mode, clk / data mosi */
@@ -6047,6 +6063,8 @@ static int mt6359_codec_debug_set(struct snd_kcontrol *kcontrol,
 	regmap_read(priv->regmap, MT6359_ZCD_CON5, &value);
 	dev_info(priv->dev, "MT6359_ZCD_CON5 = 0x%x\n", value);
 
+	regmap_read(priv->regmap, MT6359_SMT_CON1, &value);
+	dev_info(priv->dev, "MT6359_SMT_CON1 = 0x%x\n", value);
 	regmap_read(priv->regmap, MT6359_GPIO_DIR0, &value);
 	dev_info(priv->dev, "MT6359_GPIO_DIR0 = 0x%x\n", value);
 	regmap_read(priv->regmap, MT6359_GPIO_DIR1, &value);
@@ -6334,6 +6352,8 @@ static int mt6359_codec_init_reg(struct mt6359_priv *priv)
 			   0x1 << RG_AUDLOLSCDISABLE_VAUDP32_SFT);
 
 	/* set gpio */
+	gpio_smt_set(priv);
+	gpio_driving_set(priv);
 	playback_gpio_reset(priv);
 	capture_gpio_reset(priv);
 
@@ -6588,6 +6608,10 @@ static ssize_t mt6359_debugfs_read(struct file *file, char __user *buf,
 		       priv->hp_impedance);
 	n += scnprintf(buffer + n, size - n, "hp_current_calibrate_val = %d\n",
 		       priv->hp_current_calibrate_val);
+
+	regmap_read(priv->regmap, MT6359_SMT_CON1, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6359_SMT_CON1 = 0x%x\n", value);
 
 	regmap_read(priv->regmap, MT6359_GPIO_DIR0, &value);
 	n += scnprintf(buffer + n, size - n,
@@ -7479,6 +7503,7 @@ static bool is_readable_reg(struct device *dev, unsigned int reg)
 	case MT6359_DRV_CON2:
 	case MT6359_DRV_CON3:
 	case MT6359_DRV_CON4:
+	case MT6359_SMT_CON1:
 	case MT6359_GPIO_DIR0:
 	case MT6359_GPIO_DIR1:
 	case MT6359_GPIO_MODE2:

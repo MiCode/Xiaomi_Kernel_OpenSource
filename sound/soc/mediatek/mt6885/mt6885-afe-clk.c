@@ -45,7 +45,7 @@ enum {
 	/*CLK_MTKAIF_26M,*/
 	CLK_MUX_AUDIO,
 	CLK_MUX_AUDIOINTBUS,
-	CLK_TOP_MAINPLL_D2_D4,
+	CLK_TOP_MAINPLL_D4_D4,
 	/* apll related mux */
 	CLK_TOP_MUX_AUD_1,
 	CLK_TOP_APLL1_CK,
@@ -97,7 +97,7 @@ static const char *aud_clks[CLK_NUM] = {
 	/*[CLK_MTKAIF_26M] = "mtkaif_26m_clk",*/
 	[CLK_MUX_AUDIO] = "top_mux_audio",
 	[CLK_MUX_AUDIOINTBUS] = "top_mux_audio_int",
-	[CLK_TOP_MAINPLL_D2_D4] = "top_mainpll_d2_d4",
+	[CLK_TOP_MAINPLL_D4_D4] = "top_mainpll_d4_d4",
 	[CLK_TOP_MUX_AUD_1] = "top_mux_aud_1",
 	[CLK_TOP_APLL1_CK] = "top_apll1_ck",
 	[CLK_TOP_MUX_AUD_2] = "top_mux_aud_2",
@@ -317,7 +317,7 @@ int mt6885_afe_enable_clock(struct mtk_base_afe *afe)
 		goto CLK_MUX_AUDIO_INTBUS_ERR;
 	}
 	ret = mt6885_set_audio_int_bus_parent(afe,
-					      CLK_TOP_MAINPLL_D2_D4);
+					      CLK_TOP_MAINPLL_D4_D4);
 	if (ret)
 		goto CLK_MUX_AUDIO_INTBUS_PARENT_ERR;
 
@@ -394,7 +394,7 @@ int mt6885_afe_suspend_clock(struct mtk_base_afe *afe)
 	return 0;
 
 CLK_MUX_AUDIO_INTBUS_PARENT_ERR:
-	mt6885_set_audio_int_bus_parent(afe, CLK_TOP_MAINPLL_D2_D4);
+	mt6885_set_audio_int_bus_parent(afe, CLK_TOP_MAINPLL_D4_D4);
 CLK_MUX_AUDIO_INTBUS_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 	return ret;
@@ -413,7 +413,7 @@ int mt6885_afe_resume_clock(struct mtk_base_afe *afe)
 		goto CLK_MUX_AUDIO_INTBUS_ERR;
 	}
 	ret = mt6885_set_audio_int_bus_parent(afe,
-					      CLK_TOP_MAINPLL_D2_D4);
+					      CLK_TOP_MAINPLL_D4_D4);
 	if (ret)
 		goto CLK_MUX_AUDIO_INTBUS_PARENT_ERR;
 
