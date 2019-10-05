@@ -22,6 +22,12 @@
 
 #define AF_MAGIC 'A'
 
+#ifdef CONFIG_MACH_MT6761
+#define SUPPORT_GETTING_LENS_FOLDER_NAME 0
+#else
+#define SUPPORT_GETTING_LENS_FOLDER_NAME 1
+#endif
+
 /* AFDRV_XXXX be the same as AF_DRVNAME in (*af).c */
 #define AFDRV_AD5820AF "AD5820AF"
 #define AFDRV_AD5823 "AD5823"
