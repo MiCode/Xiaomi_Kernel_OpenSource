@@ -413,6 +413,7 @@ config MACH_MT6885
         select F2FS_FS_SECURITY
         select F2FS_FS_XATTR
 	select MTK_SYSTRACKER_V2
+	select MTK_SECURITY_SW_SUPPORT
         help
           This enables support for MediaTek MT6885
           Support for aarch64 Architecture
