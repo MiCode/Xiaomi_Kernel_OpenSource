@@ -13,7 +13,6 @@
 
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <mt-plat/aee.h>
 #include <linux/utsname.h>
 #include <linux/sched.h>
 #include <linux/list.h>
@@ -41,13 +40,13 @@
 #include <mtk_wd_api.h>
 #include <ext_wd_drv.h>
 #endif
-#include <mrdump_panic.h>
 #include <mt-plat/mtk_secure_api.h>
 #ifdef CONFIG_MTK_EIC_HISTORY_DUMP
 #include <linux/irqchip/mtk-eic.h>
 #endif
 #include <mrdump_private.h>
 #include <mt-plat/upmu_common.h>
+#include <mt-plat/mtk_ram_console.h>
 
 #define THREAD_INFO(sp) ((struct thread_info *) \
 				((unsigned long)(sp) & ~(THREAD_SIZE - 1)))

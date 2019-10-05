@@ -44,7 +44,6 @@
 #include "aed.h"
 #include "../common/aee-common.h"
 #include "../mrdump/mrdump_mini.h"
-#include "../mrdump/mrdump_panic.h"
 #include <linux/pid.h>
 #ifdef CONFIG_MTK_BOOT
 #include <mt-plat/mtk_boot_common.h>

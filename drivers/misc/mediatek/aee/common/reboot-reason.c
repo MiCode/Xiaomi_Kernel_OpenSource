@@ -22,7 +22,6 @@
 #include <linux/mm.h>
 #include <linux/sched.h>
 #include <asm/memory.h>
-#include <linux/elf.h>
 #ifdef CONFIG_MTK_WATCHDOG
 #include <mtk_wd_api.h>
 #endif
@@ -30,7 +29,6 @@
 #include <mt-plat/mtk_ram_console.h>
 #endif
 #include <mt-plat/aee.h>
-#include <mrdump.h>
 #include "aee-common.h"
 
 #define RR_PROC_NAME "reboot-reason"
