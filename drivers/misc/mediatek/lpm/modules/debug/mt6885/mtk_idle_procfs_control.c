@@ -5,6 +5,8 @@
 
 #include <linux/seq_file.h>
 
+#include <mtk_lp_plat_apmcu_mbox.h>
+
 #include "mtk_cpuidle_status.h"
 #include "mtk_idle_procfs.h"
 
@@ -157,11 +159,136 @@ free:
 	return ret;
 }
 
+static int idle_proc_buck_mode_show(struct seq_file *m, void *v)
+{
+	int mode;
+	struct mode_param {
+		int id;
+		char *str;
+	};
+
+	const struct mode_param table[] = {
+		{MCUPM_BUCK_NORMAL_MODE, "on"},
+		{MCUPM_BUCK_LP_MODE, "low power"},
+		{MCUPM_BUCK_OFF_MODE, "off"},
+		{NF_MCUPM_BUCK_MODE, "unknown"},
+	};
+
+	mode = mtk_get_mcupm_buck_mode();
+
+	if (mode < 0 || mode > NF_MCUPM_BUCK_MODE)
+		mode = NF_MCUPM_BUCK_MODE;
+
+	seq_printf(m, "Vproc/Vproc_sram buck mode : %s\n",
+		table[mode].str);
+
+
+	seq_puts(m, "\n======== Command Usage ========\n");
+	seq_puts(m, "echo [mode] > /proc/cpuidle/control/buck_mode\n");
+	seq_puts(m, "mode:\n");
+
+	for (mode = 0; mode < NF_MCUPM_BUCK_MODE; mode++)
+		seq_printf(m, "\t%d: %s\n",
+				table[mode].id,
+				table[mode].str);
+
+	return 0;
+}
+
+static ssize_t idle_proc_buck_mode_write(struct file *filp,
+		const char __user *userbuf, size_t count, loff_t *f_pos)
+{
+	ssize_t ret = count;
+	unsigned int mode;
+	char *buf;
+
+	mtk_idle_procfs_alloc_from_user(buf, userbuf, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (kstrtouint(buf, 10, &mode) != 0) {
+		ret = -EINVAL;
+		goto free;
+	}
+
+	if (mode < NF_MCUPM_BUCK_MODE)
+		mtk_set_mcupm_buck_mode(mode);
+
+free:
+	mtk_idle_procfs_free(buf);
+
+	return ret;
+}
+
+static int idle_proc_armpll_mode_show(struct seq_file *m, void *v)
+{
+	int mode;
+	struct mode_param {
+		int id;
+		char *str;
+	};
+
+	const struct mode_param table[] = {
+		{MCUPM_ARMPLL_ON, "on"},
+		{MCUPM_ARMPLL_GATING, "gating"},
+		{MCUPM_ARMPLL_OFF, "off"},
+		{NF_MCUPM_ARMPLL_MODE, "unknown"},
+	};
+
+	mode = mtk_get_mcupm_pll_mode();
+
+	if (mode < 0 || mode > NF_MCUPM_ARMPLL_MODE)
+		mode = NF_MCUPM_ARMPLL_MODE;
+
+	seq_printf(m, "armpll mode : %s\n",
+		table[mode].str);
+
+
+	seq_puts(m, "\n======== Command Usage ========\n");
+	seq_puts(m, "echo [mode] > /proc/cpuidle/control/armpll_mode\n");
+	seq_puts(m, "mode:\n");
+
+	for (mode = 0; mode < NF_MCUPM_ARMPLL_MODE; mode++)
+		seq_printf(m, "\t%d: %s\n",
+				table[mode].id,
+				table[mode].str);
+
+	return 0;
+}
+
+static ssize_t idle_proc_armpll_mode_write(struct file *filp,
+		const char __user *userbuf, size_t count, loff_t *f_pos)
+{
+	ssize_t ret = count;
+	unsigned int mode;
+	char *buf;
+
+	mtk_idle_procfs_alloc_from_user(buf, userbuf, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (kstrtouint(buf, 10, &mode) != 0) {
+		ret = -EINVAL;
+		goto free;
+	}
+
+	if (mode < NF_MCUPM_ARMPLL_MODE)
+		mtk_set_mcupm_pll_mode(mode);
+
+free:
+	mtk_idle_procfs_free(buf);
+
+	return ret;
+}
 
 PROC_FOPS(log);
 PROC_FOPS(timer);
 PROC_FOPS(stress);
 PROC_FOPS(stress_time);
+PROC_FOPS(buck_mode);
+PROC_FOPS(armpll_mode);
 void __init mtk_idle_procfs_control_dir_init(struct proc_dir_entry *parent)
 {
 	int i;
@@ -171,7 +298,9 @@ void __init mtk_idle_procfs_control_dir_init(struct proc_dir_entry *parent)
 		PROC_ENTRY(log),
 		PROC_ENTRY(timer),
 		PROC_ENTRY(stress),
-		PROC_ENTRY(stress_time)
+		PROC_ENTRY(stress_time),
+		PROC_ENTRY(buck_mode),
+		PROC_ENTRY(armpll_mode)
 	};
 
 	dir = proc_mkdir("control", parent);

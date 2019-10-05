@@ -3,13 +3,11 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <linux/kernel.h>
 #include <linux/seq_file.h>
-#include <linux/module.h>
 
 #include <mtk_lp_plat_reg.h>
-#include <mtk_lp_plat_apmcu.h>
 
+#include "mtk_cpupm_dbg.h"
 #include "mtk_cpuidle_status.h"
 #include "mtk_idle_procfs.h"
 
@@ -20,9 +18,8 @@ static int idle_proc_info_show(struct seq_file *m, void *v)
 	int cpu;
 	unsigned long long ts, rem;
 
-	ts = mtk_lpm_syssram_read(SYSRAM_RECENT_CNT_TS_H);
-	ts = ts << 32;
-	ts |= mtk_lpm_syssram_read(SYSRAM_RECENT_CNT_TS_L);
+	ts = mtk_cpupm_syssram_read(SYSRAM_RECENT_CNT_TS_H);
+	ts = (ts << 32) | mtk_cpupm_syssram_read(SYSRAM_RECENT_CNT_TS_L);
 	ts = div64_u64_rem(ts, 1000 * 1000 * 1000, &rem);
 
 	seq_puts(m, "\n========= Power off count =========\n");
@@ -33,30 +30,30 @@ static int idle_proc_info_show(struct seq_file *m, void *v)
 
 	seq_printf(m, "%8s", "cpu:");
 	for_each_possible_cpu(cpu)
-		seq_printf(m, " %d", mtk_lpm_syssram_read(
+		seq_printf(m, " %d", mtk_cpupm_syssram_read(
 					SYSRAM_RECENT_CPU_CNT(cpu)));
 	seq_puts(m, "\n");
 
 	seq_printf(m, "%8s %d\n",
 			"cluster:",
-			mtk_lpm_syssram_read(SYSRAM_RECENT_CPUSYS_CNT));
+			mtk_cpupm_syssram_read(SYSRAM_RECENT_CPUSYS_CNT));
 	seq_printf(m, "%8s %d\n",
 			"mcusys:",
-			mtk_lpm_syssram_read(SYSRAM_RECENT_MCUSYS_CNT));
+			mtk_cpupm_syssram_read(SYSRAM_RECENT_MCUSYS_CNT));
 
 	seq_printf(m, "%8s 0x%x\n",
 			"online:",
-			mtk_lpm_syssram_read(SYSRAM_CPU_ONLINE));
+			mtk_cpupm_syssram_read(SYSRAM_CPU_ONLINE));
 
 	seq_puts(m, "\n---- Total ----\n");
 	seq_printf(m, "%8s %d\n",
 			"cluster:",
-			mtk_lpm_syssram_read(SYSRAM_CPUSYS_CNT)
-			+ mtk_lpm_syssram_read(SYSRAM_RECENT_CPUSYS_CNT));
+			mtk_cpupm_syssram_read(SYSRAM_CPUSYS_CNT)
+			+ mtk_cpupm_syssram_read(SYSRAM_RECENT_CPUSYS_CNT));
 	seq_printf(m, "%8s %d\n",
 			"mcusys:",
-			mtk_lpm_syssram_read(SYSRAM_MCUSYS_CNT)
-			+ mtk_lpm_syssram_read(SYSRAM_RECENT_MCUSYS_CNT));
+			mtk_cpupm_syssram_read(SYSRAM_MCUSYS_CNT)
+			+ mtk_cpupm_syssram_read(SYSRAM_RECENT_MCUSYS_CNT));
 	return 0;
 }
 
@@ -99,7 +96,7 @@ free:
 
 PROC_FOPS(info);
 PROC_FOPS(enable);
-static int __init mtk_idle_procfs_init(void)
+int __init mtk_idle_procfs_init(void)
 {
 	int i;
 	struct proc_dir_entry *dir = NULL;
@@ -127,15 +124,7 @@ static int __init mtk_idle_procfs_init(void)
 	return 0;
 }
 
-
-static void __exit mtk_idle_procfs_exit(void)
+void __exit mtk_idle_procfs_exit(void)
 {
 	remove_proc_subtree(MTK_IDLE_PROC_FS_NAME, NULL);
 }
-
-module_init(mtk_idle_procfs_init);
-module_exit(mtk_idle_procfs_exit);
-
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek CPU Idle FileSystem");
-MODULE_AUTHOR("MediaTek Inc.");

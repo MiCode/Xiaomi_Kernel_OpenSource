@@ -11,8 +11,12 @@ obj-y += mt6885_dbg_idle_fs.o
 obj-y += mt6885_dbg_spm_fs.o
 obj-y += mt6885_logger.o
 
-obj-y += mtk_cpuidle_status.o
-obj-y += mtk_cpuidle_cpc.o
-
-obj-y += mtk_cpuidle_procfs.o
-mtk_cpuidle_procfs-y += mtk_idle_procfs.o mtk_idle_procfs_state.o mtk_idle_procfs_cpc.o mtk_idle_procfs_profile.o  mtk_idle_procfs_control.o
+obj-y += mt6885_cpupm_dbg.o
+mt6885_cpupm_dbg-y += mtk_cpupm_dbg.o
+mt6885_cpupm_dbg-y += mtk_cpuidle_status.o
+mt6885_cpupm_dbg-y += mtk_cpuidle_cpc.o
+mt6885_cpupm_dbg-y += mtk_idle_procfs.o
+mt6885_cpupm_dbg-y += mtk_idle_procfs_state.o
+mt6885_cpupm_dbg-y += mtk_idle_procfs_cpc.o
+mt6885_cpupm_dbg-y += mtk_idle_procfs_profile.o
+mt6885_cpupm_dbg-y += mtk_idle_procfs_control.o

@@ -89,4 +89,7 @@ void mtk_cpc_prof_start(void);
 void mtk_cpc_prof_stop(void);
 void mtk_cpc_prof_lat_dump(struct seq_file *m);
 
-#endif /* __MTK_CPC_H__ */
+int __init mtk_cpc_init(void);
+void __exit mtk_cpc_exit(void);
+
+#endif /* __MTK_CPUIDLE_CPC_H__ */

@@ -69,4 +69,7 @@ void __init mtk_idle_procfs_state_dir_init(struct proc_dir_entry *parent);
 void __init mtk_idle_procfs_profile_dir_init(struct proc_dir_entry *parent);
 void __init mtk_idle_procfs_control_dir_init(struct proc_dir_entry *parent);
 
-#endif
+int __init mtk_idle_procfs_init(void);
+void __exit mtk_idle_procfs_exit(void);
+
+#endif /* __MTK_IDLE_PROCFS__ */
