@@ -580,9 +580,10 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 				mbdev->ipi_cb(pin_recv, mbdev->ipi_priv);
 				pin_recv->recv_record.notify_count++;
 			}
+			/*dump recv info*/
+			if (mbdev->log_enable)
+				mtk_mbox_dump_recv(mbdev, i);
 		}
-		if (mbdev->log_enable)
-			mtk_mbox_dump_recv(mbdev, i);
 	}
 
 	if (ret != MBOX_DONE)
@@ -757,8 +758,9 @@ void mtk_mbox_print_recv(struct mtk_mbox_device *mbdev,
 		, pin_recv->pin_index
 		, pin_recv->chan_id);
 
-	pr_notice("[MBOX]dev=%s recv poll=%u cv_irq=%u noti=%u cb=%u pre=%lld po=%lld\n"
+	pr_notice("[MBOX]dev=%s recv id=%u poll=%u cv_irq=%u noti=%u cb=%u pre=%lld po=%lld\n"
 		, mbdev->name
+		, pin_recv->chan_id
 		, pin_recv->recv_record.poll_count
 		, pin_recv->recv_record.recv_irq_count
 		, pin_recv->recv_record.notify_count
