@@ -5488,73 +5488,35 @@ static signed int __init DIP_Init(void)
 		(DIP_BeginGCECallback, DIP_EndGCECallback);
 #endif
 	/* m4u_enable_tf(M4U_PORT_CAM_IMGI, 0);*/
-#ifdef CONFIG_MTK_IOMMU_V2
-	mtk_iommu_register_fault_callback(M4U_PORT_L9_IMG_IMGI_D1_MDP,
-					  ISP_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L9_IMG_IMGBI_D1_MDP,
-					  ISP_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L9_IMG_DMGI_D1_MDP,
-					  ISP_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L9_IMG_DEPI_D1_MDP,
-					  ISP_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L9_IMG_ICE_D1_MDP,
-					  ISP_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L9_IMG_SMTI_D1_MDP,
-					  ISP_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L9_IMG_SMTO_D1_MDP,
-					  ISP_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L9_IMG_SMTO_D2_MDP,
-					  ISP_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L9_IMG_CRZO_D1_MDP,
-					  ISP_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L9_IMG_IMG3O_D1_MDP,
-					  ISP_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L9_IMG_VIPI_D1_MDP,
-					  ISP_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L9_IMG_SMTI_D5_MDP,
-					  ISP_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L9_IMG_TIMGO_D1_MDP,
+#if 0 //def CONFIG_MTK_IOMMU_V2
+	mtk_iommu_register_fault_callback(M4U_PORT_IMGI_D1,
 					  ISP_M4U_TranslationFault_callback,
 					  NULL);
 #else
   #ifndef CONFIG_FPGA_EARLY_PORTING   //Todo: Justin EP, mt6789 porting
-	m4u_register_fault_callback(M4U_PORT_L9_IMG_IMGI_D1_MDP,
+	m4u_register_fault_callback(M4U_PORT_IMGI_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L9_IMG_IMGBI_D1_MDP,
+	m4u_register_fault_callback(M4U_PORT_IMGBI_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L9_IMG_DMGI_D1_MDP,
+	m4u_register_fault_callback(M4U_PORT_DMGI_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L9_IMG_DEPI_D1_MDP,
+	m4u_register_fault_callback(M4U_PORT_DEPI_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L9_IMG_ICE_D1_MDP,
+	m4u_register_fault_callback(M4U_PORT_LCEI_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L9_IMG_SMTI_D1_MDP,
+	m4u_register_fault_callback(M4U_PORT_SMTI_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L9_IMG_SMTO_D1_MDP,
+	m4u_register_fault_callback(M4U_PORT_SMTO_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L9_IMG_SMTO_D2_MDP,
+	m4u_register_fault_callback(M4U_PORT_SMTO_D2,
 			ISP_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L9_IMG_CRZO_D1_MDP,
+	m4u_register_fault_callback(M4U_PORT_CRZO_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L9_IMG_IMG3O_D1_MDP,
+	m4u_register_fault_callback(M4U_PORT_IMG3O_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L9_IMG_VIPI_D1_MDP,
+	m4u_register_fault_callback(M4U_PORT_VIPI_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L9_IMG_SMTI_D5_MDP,
-			ISP_M4U_TranslationFault_callback, NULL);
-	m4u_register_fault_callback(M4U_PORT_L9_IMG_TIMGO_D1_MDP,
+	m4u_register_fault_callback(M4U_PORT_TIMGO_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
  #endif
 #endif
