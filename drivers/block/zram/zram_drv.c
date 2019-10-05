@@ -30,6 +30,7 @@
 #include <linux/vmalloc.h>
 #include <linux/err.h>
 #include <linux/idr.h>
+#include <linux/proc_fs.h>
 #include <linux/sysfs.h>
 #include <linux/debugfs.h>
 #include <linux/cpuhotplug.h>
@@ -1865,6 +1866,70 @@ unsigned long zram_mlog(void)
 	return 0;
 }
 
+#ifdef CONFIG_PROC_FS
+static int zraminfo_proc_show(struct seq_file *m, void *v)
+{
+	struct zs_pool_stats pool_stats;
+
+	if (num_devices == 0 && init_done(zram_devices)) {
+
+		memset(&pool_stats, 0x00, sizeof(struct zs_pool_stats));
+
+		down_read(&zram_devices->init_lock);
+		zs_pool_stats(zram_devices->mem_pool, &pool_stats);
+		up_read(&zram_devices->init_lock);
+
+#define P2K(x) (((unsigned long)x) << (PAGE_SHIFT - 10))
+#define B2K(x) (((unsigned long)x) >> (10))
+		seq_printf(m,
+		"DiskSize:       %8lu kB\n"
+		"OrigSize:       %8lu kB\n"
+		"ComprSize:      %8lu kB\n"
+		"MemUsed:        %8lu kB\n"
+		"ZeroPage:       %8lu kB\n"
+		"NotifyFree:     %8lu kB\n"
+		"FailReads:      %8lu kB\n"
+		"FailWrites:     %8lu kB\n"
+		"NumReads:       %8lu kB\n"
+		"NumWrites:      %8lu kB\n"
+		"InvalidIO:      %8lu kB\n"
+		"MaxUsedPages:   %8lu kB\n"
+		"PageMigrated:	 %8lu kB\n"
+		,
+		B2K(zram_devices->disksize),
+		P2K(atomic64_read(&zram_devices->stats.pages_stored)),
+		B2K(atomic64_read(&zram_devices->stats.compr_data_size)),
+		P2K(zs_get_total_pages(zram_devices->mem_pool)),
+		P2K(atomic64_read(&zram_devices->stats.same_pages)),
+		P2K(atomic64_read(&zram_devices->stats.notify_free)),
+		P2K(atomic64_read(&zram_devices->stats.failed_reads)),
+		P2K(atomic64_read(&zram_devices->stats.failed_writes)),
+		P2K(atomic64_read(&zram_devices->stats.num_reads)),
+		P2K(atomic64_read(&zram_devices->stats.num_writes)),
+		P2K(atomic64_read(&zram_devices->stats.invalid_io)),
+		P2K(atomic_long_read(&zram_devices->stats.max_used_pages)),
+		P2K(pool_stats.pages_compacted));
+#undef P2K
+#undef B2K
+		seq_printf(m, "Algorithm: [%s]\n", zram_devices->compressor);
+	}
+
+	return 0;
+}
+
+static int zraminfo_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, zraminfo_proc_show, NULL);
+}
+
+static const struct file_operations zraminfo_proc_fops = {
+	.open		= zraminfo_proc_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+#endif
+
 static int __init zram_init(void)
 {
 	int ret;
@@ -1898,6 +1963,10 @@ static int __init zram_init(void)
 			goto out_error;
 		num_devices--;
 	}
+
+#ifdef CONFIG_PROC_FS
+	proc_create("zraminfo", 0644, NULL, &zraminfo_proc_fops);
+#endif
 
 	return 0;
 
