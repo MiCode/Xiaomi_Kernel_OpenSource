@@ -33,7 +33,6 @@
 #include <linux/syscalls.h>
 #include <linux/time.h>
 #include <linux/uaccess.h>
-#include <linux/wakelock.h>
 #include <linux/writeback.h>
 
 #include <mach/upmu_hw.h>

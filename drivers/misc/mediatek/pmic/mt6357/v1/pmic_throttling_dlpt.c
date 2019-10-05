@@ -31,7 +31,11 @@
 #include <mt-plat/upmu_common.h>
 #include <mtk_idle.h>
 
-#if defined(CONFIG_MTK_SMART_BATTERY)
+
+#ifndef CONFIG_MTK_GAUGE_VERSION
+#define CONFIG_MTK_GAUGE_VERSION 0
+#endif
+
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 #include <linux/reboot.h>
 #include <mach/mtk_battery_property.h>
@@ -41,7 +45,6 @@
 #include <mach/mtk_battery_meter.h>
 #include <mt-plat/battery_common.h>
 #include <mt-plat/battery_meter.h>
-#endif
 #endif
 
 /*****************************************************************************
@@ -203,7 +206,6 @@ void low_battery_protect_init(void)
 #endif
 
 #ifdef BATTERY_OC_PROTECT
-#if defined(CONFIG_MTK_SMART_BATTERY)
 
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 /*I(0.1mA)=reg *UNIT_FGCURRENT /100000 *100 /fg_cust_data.r_fg_value
@@ -235,10 +237,6 @@ void low_battery_protect_init(void)
 
 #define bat_oc_l_thd(cur) bat_oc_h_thd(cur)
 
-#else /* not defined(CONFIG_MTK_SMART_BATTERY) */
-#define bat_oc_h_thd(cur) 0xc047
-#define bat_oc_l_thd(cur) 0xb4f4
-#endif /* end of #if defined(CONFIG_MTK_SMART_BATTERY) */
 int g_battery_oc_level;
 int g_battery_oc_stop;
 int g_battery_oc_h_thd;
@@ -447,7 +445,7 @@ int bat_percent_notify_handler(void *unused)
 		pmic_wake_lock(&bat_percent_notify_lock);
 		mutex_lock(&bat_percent_notify_mutex);
 
-#if defined(CONFIG_MTK_SMART_BATTERY)
+#if (CONFIG_MTK_GAUGE_VERSION == 30)
 		bat_per_val = battery_get_uisoc();
 #endif
 #if defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
@@ -566,7 +564,7 @@ int do_ptim_internal(bool isSuspend, unsigned int *bat, signed int *cur,
 	pmic_set_hk_reg_value(PMIC_RG_AUXADC_IMP_CK_SW_EN, 1);
 
 	*bat = (vbat_reg * 3 * 18000) / 32768;
-#if defined(CONFIG_MTK_SMART_BATTERY)
+#if (CONFIG_MTK_GAUGE_VERSION == 30)
 	/*fgauge_read_IM_current((void *)cur);*/
 	gauge_get_ptim_current(cur, is_charging);
 #else
@@ -739,7 +737,7 @@ void exec_dlpt_callback(unsigned int dlpt_val)
 		}
 	}
 }
-
+#if (CONFIG_MTK_GAUGE_VERSION == 30)
 static int get_rac_val(void)
 {
 	int volt_1 = 0;
@@ -810,10 +808,10 @@ static int get_rac_val(void)
 
 	return ret;
 }
-
+#endif
 int get_dlpt_imix_spm(void)
 {
-#if defined(CONFIG_MTK_SMART_BATTERY)
+#if (CONFIG_MTK_GAUGE_VERSION == 30)
 	int rac_val[5], rac_val_avg;
 	int i;
 	static unsigned int pre_ui_soc = 101;
@@ -842,7 +840,7 @@ int get_dlpt_imix_spm(void)
 	if (rac_val_avg > 100)
 		ptim_rac_val_avg = rac_val_avg;
 
-#endif /* end of #if defined(CONFIG_MTK_SMART_BATTERY) */
+#endif
 	return 0;
 }
 
@@ -942,7 +940,7 @@ int get_dlpt_imix(void)
 	imix =
 	    (curr_avg + (volt_avg - g_lbatInt1) * 1000 / ptim_rac_val_avg) / 10;
 
-#if defined(CONFIG_MTK_SMART_BATTERY)
+#if (CONFIG_MTK_GAUGE_VERSION == 30)
 	pr_info("[%s] %d,%d,%d,%d,%d,%d,%d\n",
 		__func__, volt_avg, curr_avg,
 		g_lbatInt1, ptim_rac_val_avg, imix, battery_get_soc(),
@@ -1027,7 +1025,7 @@ int dlpt_notify_handler(void *unused)
 	int cur_ui_soc = 0;
 	int diff_ui_soc = 1;
 
-#if defined(CONFIG_MTK_SMART_BATTERY)
+#if (CONFIG_MTK_GAUGE_VERSION == 30)
 	pre_ui_soc = battery_get_uisoc();
 #endif
 	cur_ui_soc = pre_ui_soc;
@@ -1045,7 +1043,7 @@ int dlpt_notify_handler(void *unused)
 		mutex_lock(&dlpt_notify_mutex);
 /*---------------------------------*/
 
-#if defined(CONFIG_MTK_SMART_BATTERY)
+#if (CONFIG_MTK_GAUGE_VERSION == 30)
 		cur_ui_soc = battery_get_uisoc();
 #endif
 
@@ -1088,7 +1086,6 @@ int dlpt_notify_handler(void *unused)
 		g_dlpt_start = 1;
 		dlpt_notify_flag = false;
 
-#if defined(CONFIG_MTK_SMART_BATTERY)
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 		if (cur_ui_soc <= DLPT_POWER_OFF_THD) {
 			static unsigned char cnt = 0xff;
@@ -1116,13 +1113,11 @@ int dlpt_notify_handler(void *unused)
 				cur_ui_soc);
 		}
 #endif
-#endif
 
 		/*---------------------------------*/
 		mutex_unlock(&dlpt_notify_mutex);
 		pmic_wake_unlock(&dlpt_notify_lock);
 
-		set_timer_slack(&dlpt_notify_timer, HZ / 2);
 		mod_timer(&dlpt_notify_timer, jiffies + dlpt_notify_interval);
 
 	} while (!kthread_should_stop());
@@ -1145,7 +1140,7 @@ void dlpt_notify_init(void)
 	init_timer_deferrable(&dlpt_notify_timer);
 	dlpt_notify_timer.function = dlpt_notify_task;
 	dlpt_notify_timer.data = (unsigned long)&dlpt_notify_timer;
-	set_timer_slack(&dlpt_notify_timer, HZ / 2);
+
 	mod_timer(&dlpt_notify_timer, jiffies + dlpt_notify_interval);
 
 	dlpt_notify_thread =
@@ -1926,12 +1921,11 @@ static void pmic_uvlo_init(void)
 
 int pmic_throttling_dlpt_init(void)
 {
-#if defined(CONFIG_MTK_SMART_BATTERY)
+#if (CONFIG_MTK_GAUGE_VERSION == 30)
 	struct device_node *np;
 	u32 val;
 	char *path;
 
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
 	path = "/bat_gm30";
 	np = of_find_node_by_path(path);
 	if (of_property_read_u32(np, "CAR_TUNE_VALUE", &val) == 0) {
@@ -1964,7 +1958,6 @@ int pmic_throttling_dlpt_init(void)
 		batt_meter_cust_data.car_tune_value = CAR_TUNE_VALUE;
 		PMICLOG("Get car_tune_value from cust header\n");
 	}
-#endif
 #endif
 
 	pmic_init_wake_lock(&bat_percent_notify_lock,

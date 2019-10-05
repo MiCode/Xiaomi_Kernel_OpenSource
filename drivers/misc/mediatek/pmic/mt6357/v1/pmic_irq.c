@@ -765,9 +765,9 @@ static void enable_pmic_irqs(void)
 	pmic_enable_interrupt(INT_CHRDET_EDGE, 1, "PMIC");
 }
 
-void PMIC_EINT_SETTING(void)
+void PMIC_EINT_SETTING(struct platform_device *pdev)
 {
-	struct device_node *node = NULL;
+	struct device_node *node = pdev->dev.of_node;
 	int ret = 0;
 	unsigned int spNo, sp_conNo;
 	unsigned int enable_reg;
@@ -799,7 +799,7 @@ void PMIC_EINT_SETTING(void)
 	register_irq_handlers();
 	enable_pmic_irqs();
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,pmic-eint");
+	/*node = of_find_compatible_node(NULL, NULL, "mediatek,pmic-eint");*/
 	if (node) {
 		/* no debounce setting */
 		g_pmic_irq = irq_of_parse_and_map(node, 0);
