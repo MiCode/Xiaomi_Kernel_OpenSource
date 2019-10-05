@@ -44,6 +44,7 @@
 #include "tests/ut_api.h"
 #include "tests/ut_common.h"
 #include "tee_impl/tee_invoke.h"
+#include "tee_impl/tee_regions.h"
 
 #ifdef CONFIG_MTK_ENG_BUILD
 #define UT_SATURATION_STRESS_ROUNDS (1)
@@ -343,29 +344,34 @@ static enum UT_RET_STATE config_tee_prot_region_test(struct ut_params *params,
 	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
 		     "FR region state off check");
 	ret = secmem_fr_set_prot_shared_region(PROT_TEST_PA_ADDR64_START,
-					       PROT_TEST_POOL_SIZE_NORMAL);
+					       PROT_TEST_POOL_SIZE_NORMAL,
+					       TEE_SMEM_PROT);
 	ASSERT_EQ(0, ret, "set valid pa region check");
 	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
 		     "FR region state off check");
 	ret = secmem_fr_set_prot_shared_region(
-		PROT_TEST_PA_ADDR64_START, PROT_TEST_POOL_SIZE_MINIMAL_ALLOW);
+		PROT_TEST_PA_ADDR64_START, PROT_TEST_POOL_SIZE_MINIMAL_ALLOW,
+		TEE_SMEM_PROT);
 	ASSERT_EQ(0, ret, "set valid pa region size check");
 	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
 		     "FR region state off check");
 
 	ret = secmem_fr_set_prot_shared_region(PROT_TEST_PA_ADDR64_START,
-					       PROT_TEST_POOL_SIZE_INVALID);
+					       PROT_TEST_POOL_SIZE_INVALID,
+					       TEE_SMEM_PROT);
 	ASSERT_NE(0, ret, "set invalid region size check");
 	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
 		     "FR region state off check");
 	ret = secmem_fr_set_prot_shared_region(PROT_TEST_PA_ADDR64_ZERO,
-					       PROT_TEST_POOL_SIZE_NORMAL);
+					       PROT_TEST_POOL_SIZE_NORMAL,
+					       TEE_SMEM_PROT);
 	ASSERT_NE(0, ret, "set invalid pa start addr check");
 	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
 		     "FR region state off check");
 
 	ret = secmem_fr_set_prot_shared_region(PROT_TEST_PA_ADDR64_ZERO,
-					       PROT_TEST_POOL_SIZE_ZERO);
+					       PROT_TEST_POOL_SIZE_ZERO,
+					       TEE_SMEM_PROT);
 	ASSERT_EQ(0, ret, "clean pa region check");
 	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
 		     "FR region state off check");

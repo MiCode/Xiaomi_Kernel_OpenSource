@@ -45,21 +45,21 @@ static int trusted_mem_region_poweron(struct trusted_mem_device *mem_device)
 		mem_device->configs.session_keep_alive_enable;
 
 	ret = ssmr_ops->offline(&region_pa, &region_size, ssmr_feature_id,
-				mem_device->peer_priv);
+				mem_device->dev_desc);
 	if (ret) {
 		pr_err("SSMR offline failed!\n");
 		goto err_get_ssmr_failed;
 	}
 
 	ret = peer_mgr->mgr_sess_open(drv_ops, peer_mgr_data,
-				      mem_device->peer_priv);
+				      mem_device->dev_desc);
 	if (ret && (ret != TMEM_MGR_SESSION_IS_ALREADY_OPEN)) {
 		pr_err("open trusted mem session failed!\n");
 		goto err_open_mtee_failed;
 	}
 
 	ret = peer_mgr->mgr_sess_mem_add(region_pa, region_size, drv_ops,
-					 peer_mgr_data, mem_device->peer_priv);
+					 peer_mgr_data, mem_device->dev_desc);
 	if (ret) {
 		pr_err("add memory to trusted mem failed!\n");
 		goto err_add_mem_failed;
@@ -69,9 +69,9 @@ static int trusted_mem_region_poweron(struct trusted_mem_device *mem_device)
 
 err_add_mem_failed:
 	peer_mgr->mgr_sess_close(is_session_keep_alive, drv_ops, peer_mgr_data,
-				 mem_device->peer_priv);
+				 mem_device->dev_desc);
 err_open_mtee_failed:
-	ssmr_ops->online(ssmr_feature_id, mem_device->peer_priv);
+	ssmr_ops->online(ssmr_feature_id, mem_device->dev_desc);
 err_get_ssmr_failed:
 
 	return ret;
@@ -89,20 +89,20 @@ static int trusted_mem_region_poweroff(struct trusted_mem_device *mem_device)
 		mem_device->configs.session_keep_alive_enable;
 
 	ret = peer_mgr->mgr_sess_mem_remove(drv_ops, peer_mgr_data,
-					    mem_device->peer_priv);
+					    mem_device->dev_desc);
 	if (ret) {
 		pr_err("reclaim memory from trusted mem failed!\n");
 		return ret;
 	}
 
 	ret = peer_mgr->mgr_sess_close(is_session_keep_alive, drv_ops,
-				       peer_mgr_data, mem_device->peer_priv);
+				       peer_mgr_data, mem_device->dev_desc);
 	if (ret && (ret != TMEM_MGR_SESSION_IS_ALREADY_CLOSE)) {
 		pr_err("close trusted mem session failed!\n");
 		return ret;
 	}
 
-	ret = ssmr_ops->online(ssmr_feature_id, mem_device->peer_priv);
+	ret = ssmr_ops->online(ssmr_feature_id, mem_device->dev_desc);
 	if (ret) {
 		pr_err("SSMR online failed!\n");
 		return ret;

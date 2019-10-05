@@ -175,8 +175,8 @@ static void install_profiler(struct trusted_mem_device *tmem_device)
 		 tmem_device->profile_mgr->profiled_ssmr_ops);
 	PTR_SWAP(tmem_device->peer_ops,
 		 tmem_device->profile_mgr->profiled_peer_ops);
-	PTR_SWAP(tmem_device->peer_priv,
-		 tmem_device->profile_mgr->profiled_peer_priv);
+	PTR_SWAP(tmem_device->dev_desc,
+		 tmem_device->profile_mgr->profiled_dev_desc);
 }
 #endif
 
