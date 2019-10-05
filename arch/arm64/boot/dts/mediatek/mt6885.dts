@@ -1012,12 +1012,6 @@ page_owner=on";
 		feature_control_bits = <0x0f0f>;
 	};
 
-	sys_cirq@10204000 {
-		compatible = "mediatek,sys_cirq";
-		reg = <0 0x10204000 0 0x1000>;
-		interrupts = <GIC_SPI 563 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
 	mcucfg: mcucfg@0c530000 {
 		compatible = "mediatek,mcucfg";
 		reg = <0 0x0c530000 0 0x10000>;
