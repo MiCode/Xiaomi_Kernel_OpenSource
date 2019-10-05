@@ -1326,6 +1326,7 @@ s32 cmdq_pkt_finalize_loop(struct cmdq_pkt *pkt)
 }
 EXPORT_SYMBOL(cmdq_pkt_finalize_loop);
 
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 static struct cmdq_flush_item *cmdq_prepare_flush_tiem(struct cmdq_pkt *pkt)
 {
 	struct cmdq_flush_item *item;
@@ -1341,7 +1342,9 @@ static struct cmdq_flush_item *cmdq_prepare_flush_tiem(struct cmdq_pkt *pkt)
 
 	return item;
 }
+#endif
 
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 static void cmdq_flush_async_cb(struct cmdq_cb_data data)
 {
 	struct cmdq_pkt *pkt = (struct cmdq_pkt *)data.data;
@@ -1353,7 +1356,9 @@ static void cmdq_flush_async_cb(struct cmdq_cb_data data)
 		item->cb(user_data);
 	complete(&item->cmplt);
 }
+#endif
 
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 	struct cmdq_instruction *inst)
 {
@@ -1364,6 +1369,7 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 	cmdq_util_msg("curr inst: %s value:%u",
 		text, cmdq_get_event(chan, inst->arg_a));
 }
+#endif
 
 void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 {
