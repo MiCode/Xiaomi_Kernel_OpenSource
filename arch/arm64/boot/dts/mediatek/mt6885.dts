@@ -1875,7 +1875,7 @@ page_owner=on";
 		reg = <0 0x10318000 0 0x4000>;
 		mmsys_config = <&mdpsys_config>;
 		thread_count = <24>;
-		mediatek,mailbox-gce = <&gce_mbox_m>;
+		mediatek,mailbox-gce = <&gce_mbox>;
 		mboxes = <&gce_mbox 0 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 1 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 2 0 CMDQ_THR_PRIO_5>,

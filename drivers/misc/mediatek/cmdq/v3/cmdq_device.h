@@ -57,6 +57,10 @@ u32 cmdq_dev_get_mmsys_dummy_reg_offset(void);
 /* physical address */
 phys_addr_t cmdq_dev_get_reference_PA(const char *ref_name, int index);
 phys_addr_t cmdq_dev_get_module_base_PA_GCE(void);
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+unsigned long cmdq_dev_get_va2(void);
+phys_addr_t cmdq_dev_get_pa2(void);
+#endif
 /* GCE event */
 void cmdq_dev_init_event_table(struct device_node *node);
 void cmdq_dev_test_dts_correctness(void);

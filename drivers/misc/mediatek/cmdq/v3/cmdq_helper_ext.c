@@ -1369,6 +1369,14 @@ static void cmdq_core_dump_thread(const struct cmdqRecStruct *handle,
 	if (thread == CMDQ_INVALID_THREAD)
 		return;
 
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	if (thread <= 7) {
+		cmdq_thread_dump(cmdq_clients[thread]->chan, handle->pkt,
+			NULL, NULL);
+		return;
+	}
+#endif
+
 	/* normal thread */
 	value[0] = cmdq_core_get_pc(thread);
 	value[1] = cmdq_core_get_end(thread);
@@ -2224,40 +2232,121 @@ const char *cmdq_core_get_event_name(u32 hw_event)
 	return cmdq_core_get_event_name_enum(event_enum);
 }
 
+#define CMDQ_SYNC_TOKEN_ID_OFF		0x60
+#define CMDQ_SYNC_TOKEN_VAL_OFF		0x64
+#define CMDQ_SYNC_TOKEN_UPD_OFF		0x68
+
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+static unsigned long cmdq_get_gce_by_evt(u16 event)
+{
+	switch (event) {
+	case CMDQ_EVENT_DISP_RDMA0_SOF:
+	case CMDQ_EVENT_DISP_WDMA0_SOF:
+	case CMDQ_EVENT_DISP_DSI0_EOF:
+	case CMDQ_EVENT_DISP_WDMA1_EOF:
+	case CMDQ_EVENT_DISP_WDMA0_EOF:
+	case CMDQ_EVENT_DISP_RDMA0_EOF:
+	case CMDQ_EVENT_MUTEX0_STREAM_EOF:
+	case CMDQ_EVENT_DSI_TE:
+	case CMDQ_EVENT_DSI0_DONE_EVENT:
+	case CMDQ_SYNC_DISP_OVL0_2NONSEC_END:
+	case CMDQ_SYNC_DISP_2LOVL0_2NONSEC_END:
+	case CMDQ_SYNC_DISP_RDMA0_2NONSEC_END:
+	case CMDQ_SYNC_DISP_EXT_STREAM_EOF:
+	case CMDQ_SYNC_DISP_WDMA0_2NONSEC_END:
+	case CMDQ_SYNC_DISP_WDMA1_2NONSEC_END:
+	case CMDQ_SYNC_TOKEN_STREAM_EOF:
+	case CMDQ_SYNC_TOKEN_CONFIG_DIRTY:
+	case CMDQ_SYNC_TOKEN_ESD_EOF:
+	case CMDQ_SYNC_TOKEN_CABC_EOF:
+		return cmdq_dev_get_va2();
+	default:
+		return cmdq_dev_get_module_base_VA_GCE();
+	}
+}
+#endif
+
 void cmdqCoreClearEvent(enum cmdq_event event)
 {
 	s32 eventValue = cmdq_core_get_event_value(event);
+	unsigned long va;
+
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	if (event > CMDQ_MAX_HW_EVENT_COUNT) {
+		CMDQ_REG_SET32(cmdq_dev_get_va2() + CMDQ_SYNC_TOKEN_UPD_OFF,
+			eventValue);
+		va = cmdq_dev_get_module_base_VA_GCE();
+	} else
+		va = cmdq_get_gce_by_evt(event);
+#else
+	va = cmdq_dev_get_module_base_VA_GCE();
+#endif
 
 	CMDQ_MSG("clear event %d\n", eventValue);
-	CMDQ_REG_SET32(CMDQ_SYNC_TOKEN_UPD, eventValue);
+	CMDQ_REG_SET32(va + CMDQ_SYNC_TOKEN_UPD_OFF, eventValue);
 }
 
 void cmdqCoreSetEvent(enum cmdq_event event)
 {
 	s32 eventValue = cmdq_core_get_event_value(event);
+	unsigned long va;
 
-	CMDQ_REG_SET32(CMDQ_SYNC_TOKEN_UPD, (1L << 16) | eventValue);
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	if (event > CMDQ_MAX_HW_EVENT_COUNT) {
+		CMDQ_REG_SET32(cmdq_dev_get_va2() +
+			CMDQ_SYNC_TOKEN_UPD_OFF, (1L << 16) | eventValue);
+		va = cmdq_dev_get_module_base_VA_GCE();
+	} else
+		va = cmdq_get_gce_by_evt(event);
+#else
+	va = cmdq_dev_get_module_base_VA_GCE();
+#endif
+
+	CMDQ_REG_SET32(va + CMDQ_SYNC_TOKEN_UPD_OFF, (1L << 16) | eventValue);
 }
 
 u32 cmdqCoreGetEvent(enum cmdq_event event)
 {
 	u32 regValue = 0;
 	s32 eventValue = cmdq_core_get_event_value(event);
+	unsigned long va;
 
-	CMDQ_REG_SET32(CMDQ_SYNC_TOKEN_ID, (0x3FF & eventValue));
-	regValue = CMDQ_REG_GET32(CMDQ_SYNC_TOKEN_VAL);
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	if (event > CMDQ_MAX_HW_EVENT_COUNT) {
+		va = cmdq_dev_get_va2();
+		CMDQ_REG_SET32(va + CMDQ_SYNC_TOKEN_ID_OFF,
+			(0x3FF & eventValue));
+		regValue = CMDQ_REG_GET32(va + CMDQ_SYNC_TOKEN_VAL_OFF);
+		va = cmdq_dev_get_module_base_VA_GCE();
+	} else
+		va = cmdq_get_gce_by_evt(event);
+#else
+	va = cmdq_dev_get_module_base_VA_GCE();
+#endif
+
+	CMDQ_REG_SET32(va + CMDQ_SYNC_TOKEN_ID_OFF, (0x3FF & eventValue));
+	regValue = CMDQ_REG_GET32(va + CMDQ_SYNC_TOKEN_VAL_OFF);
 	return regValue;
 }
 
 static void cmdq_core_reset_hw_events_impl(enum cmdq_event event)
 {
 	s32 value = cmdq_core_get_event_value(event);
+	unsigned long va;
 
-	if (value > 0) {
-		/* Reset GCE event */
-		CMDQ_REG_SET32(CMDQ_SYNC_TOKEN_UPD,
-			CMDQ_SYNC_TOKEN_MAX & value);
-	}
+	if (value <= 0)
+		return;
+
+	/* Reset GCE event */
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	va = cmdq_dev_get_va2();
+	CMDQ_REG_SET32(va + CMDQ_SYNC_TOKEN_UPD_OFF,
+		CMDQ_SYNC_TOKEN_MAX & value);
+#endif
+
+	va = cmdq_get_gce_by_evt(event);
+	CMDQ_REG_SET32(va + CMDQ_SYNC_TOKEN_UPD_OFF,
+		CMDQ_SYNC_TOKEN_MAX & value);
 }
 
 static void cmdq_core_reset_hw_events(void)

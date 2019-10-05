@@ -23,6 +23,7 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
+#include <linux/of_platform.h>
 #include <linux/io.h>
 #include <linux/dma-mapping.h>
 #include <mt-plat/mtk_lpae.h>
@@ -40,6 +41,13 @@ struct CmdqDeviceStruct {
 	u32 irqId;
 	u32 irqSecId;
 	s32 dma_mask_result;
+
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	struct device *pdev2;
+	unsigned long va2;
+	phys_addr_t pa2;
+	u32 irqId2;
+#endif
 };
 static struct CmdqDeviceStruct gCmdqDev;
 static u32 gThreadCount;
@@ -69,6 +77,18 @@ phys_addr_t cmdq_dev_get_module_base_PA_GCE(void)
 {
 	return gCmdqDev.regBasePA;
 }
+
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+unsigned long cmdq_dev_get_va2(void)
+{
+	return gCmdqDev.va2;
+}
+
+phys_addr_t cmdq_dev_get_pa2(void)
+{
+	return gCmdqDev.pa2;
+}
+#endif
 
 s32 cmdq_dev_get_dma_mask_result(void)
 {
@@ -510,6 +530,11 @@ void cmdq_dev_init(struct platform_device *pDevice)
 	struct device_node *node = pDevice->dev.of_node;
 	u32 dma_mask_bit = 0;
 	s32 ret;
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	struct device_node *node2;
+	struct platform_device	*pdevice2;
+	struct resource res;
+#endif
 
 	/* init cmdq device dependent data */
 	do {
@@ -531,6 +556,32 @@ void cmdq_dev_init(struct platform_device *pDevice)
 			gCmdqDev.pDev, &gCmdqDev.regBasePA,
 			gCmdqDev.regBaseVA, gCmdqDev.irqId,
 			gCmdqDev.irqSecId);
+
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+		node2 = of_parse_phandle(pDevice->dev.of_node,
+			"mediatek,mailbox-gce", 0);
+		if (!node2)
+			break;
+		pdevice2 = of_find_device_by_node(node2);
+		gCmdqDev.pdev2 = &pdevice2->dev;
+		of_node_put(node2);
+		if (!gCmdqDev.pdev2)
+			break;
+		gCmdqDev.va2 = (unsigned long)of_iomap(
+			pdevice2->dev.of_node, 0);
+		if (!gCmdqDev.va2)
+			break;
+		if (of_address_to_resource(pdevice2->dev.of_node, 0,
+			&res))
+			break;
+		gCmdqDev.pa2 = res.start;
+		gCmdqDev.irqId2 = irq_of_parse_and_map(node, 2);
+
+		CMDQ_LOG(
+			"[CMDQ] 2nd dev:%p PA:%pa VA:%lx irqId:%d\n",
+			gCmdqDev.pdev2, &gCmdqDev.pa2,
+			gCmdqDev.va2, gCmdqDev.irqId2);
+#endif
 	} while (0);
 
 	ret = of_property_read_u32(gCmdqDev.pDev->of_node, "dma_mask_bit",
