@@ -190,6 +190,10 @@ struct cmdqSecDataStruct {
 
 	/* ISP metadata for secure camera */
 	struct cmdqSecIspMeta ispMeta;
+
+	enum cmdq_sec_meta_type client_meta_type;
+	u32 client_meta_size;
+	u32 *client_meta;
 };
 
 /*
@@ -211,7 +215,9 @@ enum CMDQ_SEC_ADDR_METADATA_TYPE {
 };
 
 s32 cmdq_sec_pkt_set_data(struct cmdq_pkt *pkt, const u64 dapc_engine,
-	const u64 port_sec_engine, const enum CMDQ_SCENARIO_ENUM scenario);
+	const u64 port_sec_engine, const enum CMDQ_SCENARIO_ENUM scenario,
+	const enum cmdq_sec_meta_type meta_type,
+	const u32 meta_size, u32 *meta);
 s32 cmdq_sec_pkt_write_reg(struct cmdq_pkt *pkt, u32 addr, u64 base,
 	const enum CMDQ_SEC_ADDR_METADATA_TYPE type,
 	const u32 offset, const u32 size, const u32 port);

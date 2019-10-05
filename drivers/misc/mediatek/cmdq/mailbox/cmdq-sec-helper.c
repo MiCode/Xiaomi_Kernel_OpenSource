@@ -97,12 +97,18 @@ static s32 cmdq_sec_append_metadata(
 }
 
 s32 cmdq_sec_pkt_set_data(struct cmdq_pkt *pkt, const u64 dapc_engine,
-	const u64 port_sec_engine, const enum CMDQ_SCENARIO_ENUM scenario)
+	const u64 port_sec_engine, const enum CMDQ_SCENARIO_ENUM scenario,
+	const enum cmdq_sec_meta_type meta_type, const u32 meta_size, u32 *meta)
 {
 	struct cmdqSecDataStruct *sec_data;
 
 	if (!pkt) {
 		cmdq_err("invalid pkt:%p", pkt);
+		return -EINVAL;
+	}
+	if (meta_size > CMDQ_SEC_ISP_META_MAX) {
+		cmdq_err("invalid meta_size:%#lx MAX:%#x",
+			meta_size, CMDQ_SEC_ISP_META_MAX);
 		return -EINVAL;
 	}
 	if (!pkt->sec_data) {
@@ -111,13 +117,19 @@ s32 cmdq_sec_pkt_set_data(struct cmdq_pkt *pkt, const u64 dapc_engine,
 			return -ENOMEM;
 		pkt->sec_data = (void *)sec_data;
 	}
-	cmdq_msg("pkt:%p sec_data:%p dapc:%llu port_sec:%llu scen:%u",
-		pkt, pkt->sec_data, dapc_engine, port_sec_engine, scenario);
+	cmdq_msg(
+		"pkt:%p sec_data:%p dapc:%llu port_sec:%llu scen:%u size:%#lx meta:%p",
+		pkt, pkt->sec_data, dapc_engine, port_sec_engine, scenario,
+		meta_size, meta);
 
 	sec_data = (struct cmdqSecDataStruct *)pkt->sec_data;
 	sec_data->enginesNeedDAPC |= dapc_engine;
 	sec_data->enginesNeedPortSecurity |= port_sec_engine;
 	sec_data->scenario = scenario;
+
+	sec_data->client_meta_type = meta_type;
+	sec_data->client_meta_size = meta_size;
+	sec_data->client_meta = (meta_size && meta ? meta : NULL);
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_sec_pkt_set_data);

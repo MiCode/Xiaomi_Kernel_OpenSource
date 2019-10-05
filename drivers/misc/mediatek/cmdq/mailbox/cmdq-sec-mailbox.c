@@ -310,7 +310,7 @@ static void cmdq_sec_irq_notify_start(struct cmdq_sec *cmdq)
 
 	cmdq_pkt_wfe(cmdq->clt_pkt, CMDQ_SYNC_TOKEN_SEC_DONE);
 	cmdq_pkt_finalize_loop(cmdq->clt_pkt);
-	// TODO: cmdqCoreClearEvent(CMDQ_SYNC_TOKEN_SEC_DONE);
+	cmdq_clear_event(cmdq->clt_pkt->cl, CMDQ_SYNC_TOKEN_SEC_DONE);
 
 	err = cmdq_pkt_flush_async(cmdq->clt_pkt,
 		cmdq_sec_irq_notify_callback, (void *)cmdq);
@@ -369,10 +369,8 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdqSecContextStruct *context,
 {
 	struct iwcCmdqMessage_t *iwc_msg =
 		(struct iwcCmdqMessage_t *)context->iwcMessage;
-#if 0
 	struct iwcCmdqMessageEx_t *iwc_msg_ex =
 		(struct iwcCmdqMessageEx_t *)context->iwcMessageEx;
-#endif
 	struct cmdqSecDataStruct *data =
 		(struct cmdqSecDataStruct *)task->pkt->sec_data;
 	struct cmdq_pkt_buffer *buf, *last;
@@ -436,7 +434,16 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdqSecContextStruct *context,
 	iwc_msg->command.metadata.enginesNeedDAPC = data->enginesNeedDAPC;
 	iwc_msg->command.metadata.enginesNeedPortSecurity =
 		data->enginesNeedPortSecurity;
-	// TODO: cmdq_sec_fill_isp_meta
+
+	// cmdq_sec_fill_client_meta
+	iwc_msg->iwcMegExAvailable = true;
+	iwc_msg->metaex_type = data->client_meta_type;
+
+	memset(iwc_msg_ex, 0, sizeof(*iwc_msg_ex));
+	iwc_msg_ex->meta.size = data->client_meta_size;
+	if (data->client_meta)
+		memcpy(iwc_msg_ex->meta.data,
+			data->client_meta, data->client_meta_size);
 
 	iwc_msg->command.hNormalTask = (unsigned long)task;
 	return 0;
@@ -621,9 +628,6 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 		exit = sched_clock();
 		// log: cmdq_sec_track_task_record
 		cmdq_sec_task_attach_status(cmdq, iwc_cmd, err, &dispatch);
-
-		// TODO: cmdq_sec_teardown_context_session >>
-		// TODO: cmdq_sec_deinit_session_unlocked
 	} while (0);
 
 	if (err == -ETIMEDOUT) // log
