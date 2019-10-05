@@ -43,6 +43,7 @@
 #include <linux/iopoll.h>
 #include <linux/notifier.h>
 #include <linux/sched/clock.h>
+#include <linux/dmapool.h>
 
 #ifdef MDP_MMPATH
 #include "mmpath.h"
@@ -145,6 +146,7 @@ struct mdp_context {
 	atomic_t mdp_smi_usage;
 };
 static struct mdp_context mdp_ctx;
+static struct cmdq_buf_pool mdp_pool;
 
 static DEFINE_MUTEX(mdp_clock_mutex);
 static DEFINE_MUTEX(mdp_task_mutex);
@@ -631,6 +633,9 @@ static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 	mdp_ctx.thread[thread].allow_dispatch = true;
 	mdp_ctx.thread[thread].task_count++;
 
+	/* assign client since mdp acquire thread after create pkt */
+	handle->pkt->cl = cmdq_helper_mbox_client(thread);
+
 	CMDQ_PROF_END(current->pid, __func__);
 }
 
@@ -1110,6 +1115,7 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	CMDQ_TRACE_FORCE_BEGIN("%s\n", __func__);
 
 	cmdq_task_create(desc->scenario, &handle);
+	handle->pkt->buf_pool = &mdp_pool;
 
 	/* set secure data */
 	handle->secStatus = NULL;
@@ -1355,6 +1361,32 @@ s32 cmdq_mdp_flush(struct cmdqCommandStruct *desc, bool user_space)
 	return status;
 }
 
+static void cmdq_mdp_pool_create(void)
+{
+	if (unlikely(mdp_pool.pool)) {
+		cmdq_msg("mdp buffer pool already created");
+		return;
+	}
+
+	mdp_pool.pool = dma_pool_create("mdp", cmdq_dev_get(),
+		CMDQ_BUF_ALLOC_SIZE, 0, 0);
+	atomic_set(&mdp_pool.cnt, 0);
+	mdp_pool.limit = CMDQ_DMA_POOL_COUNT;
+}
+
+static void cmdq_mdp_pool_clear(void)
+{
+	/* check pool still in use */
+	if (unlikely((atomic_read(&mdp_pool.cnt)))) {
+		cmdq_msg("mdp buffers still in use:%d",
+			atomic_read(&mdp_pool.cnt));
+		return;
+	}
+
+	dma_pool_destroy(mdp_pool.pool);
+	mdp_pool.pool = NULL;
+}
+
 void cmdq_mdp_suspend(void)
 {
 	if (atomic_read(&mdp_ctx.mdp_smi_usage)) {
@@ -1363,10 +1395,14 @@ void cmdq_mdp_suspend(void)
 		cmdq_mdp_dump_thread_usage();
 		cmdq_mdp_dump_engine_usage();
 	}
+
+	cmdq_mdp_pool_clear();
 }
 
 void cmdq_mdp_resume(void)
 {
+	cmdq_mdp_pool_create();
+
 	/* during suspending, there may be queued tasks.
 	 * we should process them if any.
 	 */
@@ -1618,6 +1654,8 @@ void cmdq_mdp_init(void)
 	/* MDP initialization setting */
 	cmdq_mdp_get_func()->mdpInitialSet();
 	cmdq_mdp_init_pmqos();
+
+	cmdq_mdp_pool_create();
 }
 
 void cmdq_mdp_deinit(void)
@@ -1637,6 +1675,8 @@ void cmdq_mdp_deinit(void)
 		pm_qos_remove_request(&isp_clk_qos_request[i]);
 		pm_qos_remove_request(&mdp_clk_qos_request[i]);
 	}
+
+	cmdq_mdp_pool_clear();
 }
 
 /* Platform dependent function */
