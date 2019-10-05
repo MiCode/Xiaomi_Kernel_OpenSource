@@ -23,6 +23,9 @@
 
 static int is_multi_cluster(void)
 {
+#if defined(CONFIG_MACH_MT6885)
+	return 0;
+#else
 	struct device_node *cn, *map;
 
 	cn = of_find_node_by_path("/cpus");
@@ -41,6 +44,7 @@ static int is_multi_cluster(void)
 	}
 
 	return 0;
+#endif
 }
 
 static int get_cpu_topology(int cpu, int *isalone)
