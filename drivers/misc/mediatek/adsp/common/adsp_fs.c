@@ -254,8 +254,6 @@ static int adsp_driver_open(struct inode *inode, struct file *file)
 static long adsp_driver_ioctl(
 	struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	struct adsp_priv *pdata = container_of(filp->private_data,
-					struct adsp_priv, mdev);
 	int ret = 0;
 	union ioctl_param t;
 
@@ -283,7 +281,11 @@ static long adsp_driver_ioctl(
 		break;
 	}
 	case AUDIO_DSP_IOCTL_ADSP_QUERY_STATUS: {
-		t.cmd1.cid = pdata->id;
+		if (copy_from_user(&t, (void *)arg, sizeof(t))) {
+			ret = -EFAULT;
+			break;
+		}
+
 		t.cmd1.flag = is_adsp_ready(t.cmd1.cid);
 
 		if (copy_to_user((void __user *)arg, &t, sizeof(t))) {
@@ -312,12 +314,18 @@ static long adsp_driver_compat_ioctl(
 	return file->f_op->unlocked_ioctl(file, cmd, arg);
 }
 
-const struct file_operations adsp_file_ops = {
+const struct file_operations adsp_common_file_ops = {
 	.owner = THIS_MODULE,
-	.read = adsp_driver_read,
 	.open = adsp_driver_open,
 	.unlocked_ioctl = adsp_driver_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl   = adsp_driver_compat_ioctl,
 #endif
 };
+
+const struct file_operations adsp_core_file_ops = {
+	.owner = THIS_MODULE,
+	.read = adsp_driver_read,
+	.open = adsp_driver_open,
+};
+

@@ -369,6 +369,7 @@ static struct miscdevice adsp_common_device = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "adsp",
 	.groups = adsp_common_attr_groups,
+	.fops = &adsp_common_file_ops,
 };
 
 static int adsp_common_drv_probe(struct platform_device *pdev)
@@ -476,7 +477,7 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 	/* register misc device */
 	pdata->mdev.minor = MISC_DYNAMIC_MINOR;
 	pdata->mdev.name = desc->name;
-	pdata->mdev.fops = &adsp_file_ops;
+	pdata->mdev.fops = &adsp_core_file_ops;
 	pdata->mdev.groups = adsp_core_attr_groups;
 
 	ret = misc_register(&pdata->mdev);

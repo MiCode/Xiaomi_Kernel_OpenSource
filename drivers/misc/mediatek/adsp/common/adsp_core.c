@@ -42,7 +42,7 @@ int get_adsp_state(struct adsp_priv *pdata)
 	return pdata->state;
 }
 
-int is_adsp_ready(int cid)
+int is_adsp_ready(u32 cid)
 {
 	if (unlikely(cid >= ADSP_CORE_TOTAL))
 		return 0;
