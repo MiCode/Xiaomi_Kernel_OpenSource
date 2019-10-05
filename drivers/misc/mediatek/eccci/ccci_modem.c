@@ -1128,7 +1128,8 @@ static void config_ap_side_feature(struct ccci_modem *md,
 #if (MD_GENERATION >= 6293)
 	md_feature->feature_set[CCISM_SHARE_MEMORY_EXP].support_mask
 		= CCCI_FEATURE_MUST_SUPPORT;
-	if ((md->index == MD_SYS1) && (get_md_resv_phy_cap_size(MD_SYS1) > 0))
+	if ((md->index == MD_SYS1) && ((get_md_resv_phy_cap_size(MD_SYS1) > 0)
+		|| (get_md_resv_sib_size(MD_SYS1) > 0)))
 		md_feature->feature_set[MD_PHY_CAPTURE].support_mask
 			= CCCI_FEATURE_MUST_SUPPORT;
 	else
@@ -1300,6 +1301,24 @@ unsigned int align_to_2_power(unsigned int n)
 
 	return n;
 }
+
+#if (MD_GENERATION >= 6297)
+static void ccci_sib_region_set_runtime(struct ccci_runtime_feature *rt_feature,
+	struct ccci_runtime_share_memory *rt_shm)
+{
+	phys_addr_t md_sib_mem_addr;
+	unsigned int md_sib_mem_size;
+
+	get_md_sib_mem_info(&md_sib_mem_addr, &md_sib_mem_size);
+	rt_feature->data_len =
+		sizeof(struct ccci_runtime_share_memory);
+	rt_shm->addr = 0;
+	if (md_sib_mem_addr)
+		rt_shm->size = md_sib_mem_size;
+	else
+		rt_shm->size = 0;
+}
+#endif
 
 static void ccci_smem_region_set_runtime(unsigned char md_id, unsigned int id,
 	struct ccci_runtime_feature *rt_feature,
@@ -1691,9 +1710,14 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				&rt_shm);
 				break;
 			case MD_PHY_CAPTURE:
+#if (MD_GENERATION >= 6297)
+				ccci_sib_region_set_runtime(&rt_feature,
+					&rt_shm);
+#else
 				ccci_smem_region_set_runtime(md_id,
 					SMEM_USER_RAW_PHY_CAP,
 					&rt_feature, &rt_shm);
+#endif
 				append_runtime_feature(&rt_data, &rt_feature,
 				&rt_shm);
 				break;

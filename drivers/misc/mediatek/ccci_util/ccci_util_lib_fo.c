@@ -626,6 +626,13 @@ struct _csmem_item {
 static struct _csmem_item csmem_info;
 static struct _csmem_item *csmem_layout;
 
+struct _sib_item {
+	unsigned long long md1_sib_addr;
+	unsigned int md1_sib_size;
+};
+
+static struct _sib_item sib_info;
+
 static unsigned int md_mtee_support;
 
 static void cshare_memory_info_parsing(void)
@@ -711,6 +718,16 @@ static void share_memory_info_parsing(void)
 	CCCI_UTIL_INF_MSG(
 		"ccci_util get udc: cache_size:0x%x noncache_size:0x%x\n",
 		udc_size.cache_size, udc_size.noncache_size);
+
+	/*Get sib info */
+	if (find_ccci_tag_inf("md1_sib_info",
+						  (char *)&sib_info,
+						  sizeof(sib_info))
+			!= sizeof(sib_info))
+		CCCI_UTIL_ERR_MSG("get sib info fail\n");
+
+	CCCI_UTIL_INF_MSG("ccci_util get sib addr: 0x%llx size: %d\n",
+			sib_info.md1_sib_addr, sib_info.md1_sib_size);
 
 	/* Get md1_phy_cap_size  */
 	if (find_ccci_tag_inf("md1_phy_cap",
@@ -1410,6 +1427,14 @@ unsigned int get_md_resv_phy_cap_size(int md_id)
 	return 0;
 }
 
+unsigned int get_md_resv_sib_size(int md_id)
+{
+	if (md_id == MD_SYS1)
+		return sib_info.md1_sib_size;
+
+	return 0;
+}
+
 int get_md_smem_dfd_size(int md_id)
 {
 	if (md_id == MD_SYS1)
@@ -1468,6 +1493,18 @@ int get_md_cache_region_info(int region_id, unsigned int *buf_base,
 			break;
 		}
 	}
+	return 0;
+}
+
+int get_md_sib_mem_info(phys_addr_t *rw_base,
+	unsigned int *rw_size)
+{
+	if (rw_base != NULL)
+		*rw_base = sib_info.md1_sib_addr;
+
+	if (rw_size != NULL)
+		*rw_size = sib_info.md1_sib_size;
+
 	return 0;
 }
 
