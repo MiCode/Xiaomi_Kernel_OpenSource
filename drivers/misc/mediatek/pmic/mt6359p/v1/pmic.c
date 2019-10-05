@@ -26,21 +26,17 @@ static unsigned int g_vrfdig_vosel;
 
 void record_md_vosel(void)
 {
-	g_vmodem_vosel = pmic_get_register_value(PMIC_RG_BUCK_VMODEM_VOSEL);
 	g_vrfdig_vosel = pmic_get_register_value(PMIC_RG_BUCK_VPU_VOSEL);
-	pr_info("[%s] vmodem=0x%x, vrfdig=0x%x\n", __func__,
-		g_vmodem_vosel, g_vrfdig_vosel);
+	pr_info("[%s] vrfdig=0x%x\n", __func__,	g_vrfdig_vosel);
 }
 
 /* [Export API] */
 void vmd1_pmic_setting_on(void)
 {
 	/* 1.Call PMIC driver API configure VMODEM voltage */
-	if (g_vmodem_vosel != 0) {
-		pmic_set_register_value(PMIC_RG_BUCK_VMODEM_VOSEL,
-			g_vmodem_vosel);
+	if (g_vrfdig_vosel != 0) {
 		pmic_set_register_value(PMIC_RG_BUCK_VPU_VOSEL,
-			g_vrfdig_vosel);
+					g_vrfdig_vosel);
 	} else {
 		pr_notice("[%s] vmodem vosel has not recorded!\n", __func__);
 		record_md_vosel();
