@@ -683,7 +683,8 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	buff->cmdq_buff.cmds_user_ptr = (u64)(unsigned long)cmds;
 	core_id = buff->cmdq_buff.core_id;
 
-	if (core_id >=
+	if (buff->cmdq_buff.codec_type >= VCU_CODEC_MAX ||
+		core_id >=
 		vcu->gce_th_num[buff->cmdq_buff.codec_type]) {
 		pr_info("[VCU] %s invalid core(th) id %d\n",
 			__func__, core_id);
