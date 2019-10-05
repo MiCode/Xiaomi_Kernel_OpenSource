@@ -25,9 +25,13 @@
  */
 #define MBOX_SLOT_SIZE 4
 
+struct mtk_mbox_pin_send;
+struct mtk_mbox_pin_recv;
+
 typedef int (*mbox_rx_cb_t)(void *);
 typedef int (*mbox_pin_cb_t)(unsigned int ipi_id, void *prdata, void *data,
 	unsigned int len);
+typedef void (*mbox_ipi_cb_t)(struct mtk_mbox_pin_recv *, void *);
 
 /*
  * mbox pin structure, this is for send defination,
@@ -97,6 +101,8 @@ struct mtk_mbox_pin_recv {
  * 1) a share memory tightly coupled to the tinysys
  * 2) several IRQs
  *
+ * @ipi_cb: the callback handler for synchronization layer
+ * @ipi_priv: private data for synchronization layer
  * @pre_cb: the callback handler in the begin of mbox receiving ipi
  * @post_cb: the callback handler in the end of mbox receiving ipi
  * @prdata: private data for the callback use
@@ -112,11 +118,12 @@ struct mtk_mbox_device {
 	unsigned int count;
 	unsigned int recv_count;
 	unsigned int send_count;
-	void (*ipi_cb)(struct mtk_mbox_pin_recv *pin_recv);
-	mbox_rx_cb_t pre_cb;
-	mbox_rx_cb_t post_cb;
 	void (*memcpy_to_tiny)(void __iomem *dest, const void *src, int size);
 	void (*memcpy_from_tiny)(void *dest, const void __iomem *src, int size);
+	mbox_ipi_cb_t ipi_cb;
+	void *ipi_priv;
+	mbox_rx_cb_t pre_cb;
+	mbox_rx_cb_t post_cb;
 	void *prdata;
 };
 

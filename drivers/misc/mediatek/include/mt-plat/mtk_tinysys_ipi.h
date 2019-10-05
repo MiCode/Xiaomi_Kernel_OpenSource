@@ -30,7 +30,22 @@ enum mtk_ipi_dev {
 	IPI_DEV_TOTAL,
 };
 
+enum ipi_stage {
+	SEND_MSG,
+	ISR_RECV_MSGV,
+	RECV_MSG,
+	SEND_ACK,
+	ISR_RECV_ACK,
+	RECV_ACK,
+	UNUSED = 0xF,
+};
+
 typedef int (*ipi_tx_cb_t)(void *);
+
+struct ipimon_s {
+	unsigned short idx;
+	unsigned long long ts;
+};
 
 /**
  * struct mtk_ipi_chan_table - channel table that belong to mtk_ipi_device
@@ -39,6 +54,10 @@ typedef int (*ipi_tx_cb_t)(void *);
  * @pin_send: the mbox send pin table address of this channel
  * @pin_recv: the mbox receive pin table address of this channel
  *
+ * @ipi_stage: transmission stage for t0~t5 (default is 0xF)
+ * @ipi_seqno: sequence count of the IPI pin processed
+ * @ipi_record: timestamp of each ipi transmission stage
+ *
  * All of these data should be initialized by mtk_ipi_device_register()
  */
 struct mtk_ipi_chan_table {
@@ -46,7 +65,9 @@ struct mtk_ipi_chan_table {
 	struct mtk_rpmsg_channel_info *rpchan;
 	struct mtk_mbox_pin_send *pin_send;
 	struct mtk_mbox_pin_recv *pin_recv;
-	// TODO: ipi_monitor[]
+	unsigned int ipi_stage: 4,
+		 ipi_seqno : 28;
+	struct ipimon_s ipi_record[3];
 };
 
 /**
@@ -62,6 +83,9 @@ struct mtk_ipi_chan_table {
  * @prdata: private data for the callback use
  * @ipi_inited: set when mtk_ipi_device_register() done
  *
+ * @lock_monitor: the lock for dump ipi timestamp
+ * @ipi_last_done: the last processed ipi transmission
+ *
  * The value of mrpdev, table, mutex_ipi_reg, ipi_inited would be initialized by
  * mtk_ipi_device_register(), others should be declared by tinysys platform.
  */
@@ -75,6 +99,9 @@ struct mtk_ipi_device  {
 	ipi_tx_cb_t pre_cb;
 	ipi_tx_cb_t post_cb;
 	void *prdata;
+	void (*timeout_handler)(int id);
+	spinlock_t lock_monitor;
+	int ipi_last_done;
 	int ipi_inited;
 };
 
@@ -95,7 +122,7 @@ int mtk_ipi_device_register(struct mtk_ipi_device *ipidev,
 		unsigned int ipi_chan_count);
 int mtk_ipi_unregister(struct mtk_ipi_device *ipidev, int ipi_id);
 int mtk_ipi_register(struct mtk_ipi_device *ipidev, int ipi_id,
-		void *cb, void *prdata, void *msg);
+		mbox_pin_cb_t cb, void *prdata, void *msg);
 int mtk_ipi_send(struct mtk_ipi_device *ipidev, int ipi_id,
 		int opt, void *data, int len, int retry_timeout);
 int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,

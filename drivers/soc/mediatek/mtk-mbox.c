@@ -509,7 +509,7 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 			}
 			/*notify task*/
 			if (ret == MBOX_DONE && mbdev->ipi_cb)
-				mbdev->ipi_cb(pin_recv);
+				mbdev->ipi_cb(pin_recv, mbdev->ipi_priv);
 		}
 	}
 
