@@ -16,8 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
-#include <linux/reboot.h>
-#include <linux/notifier.h>
+#include <linux/delay.h>
 
 #include "inc/mt6370_pmu.h"
 #include "inc/mt6370_pmu_core.h"
@@ -25,28 +24,7 @@
 struct mt6370_pmu_core_data {
 	struct mt6370_pmu_chip *chip;
 	struct device *dev;
-	struct notifier_block nb;
 };
-
-static int mt6370_pmu_core_notifier_call(struct notifier_block *this,
-	unsigned long code, void *unused)
-{
-	struct mt6370_pmu_core_data *core_data =
-			container_of(this, struct mt6370_pmu_core_data, nb);
-	int ret = 0;
-
-	dev_dbg(core_data->dev, "%s: code %lu\n", __func__, code);
-	switch (code) {
-	case SYS_RESTART:
-	case SYS_HALT:
-	case SYS_POWER_OFF:
-		break;
-	default:
-		ret = -EINVAL;
-		break;
-	}
-	return (ret < 0 ? ret : NOTIFY_DONE);
-}
 
 static irqreturn_t mt6370_pmu_otp_irq_handler(int irq, void *data)
 {
@@ -166,6 +144,44 @@ static inline int mt_parse_dt(struct device *dev)
 	return 0;
 }
 
+static int mt6370_pmu_core_reset(struct mt6370_pmu_core_data *core_data)
+{
+	const u8 pascode[2] = {0xC5, 0x7E};
+	int ret = 0;
+
+	dev_info(core_data->dev, "%s\n", __func__);
+	ret = mt6370_pmu_reg_write(core_data->chip,
+				   MT6370_PMU_REG_RSTPASCODE1, 0xA9);
+	if (ret < 0)
+		dev_err(core_data->dev, "set passcode1 fail\n");
+	ret = mt6370_pmu_reg_write(core_data->chip,
+				   MT6370_PMU_REG_RSTPASCODE2, 0x96);
+	if (ret < 0)
+		dev_err(core_data->dev, "set passcode2 fail\n");
+	/* reset all fled/ldo/rgb/bl/db reg and logic, without chg */
+	ret = mt6370_pmu_reg_write(core_data->chip,
+				   MT6370_PMU_REG_CORECTRL2, 0x7E);
+	if (ret < 0)
+		dev_err(core_data->dev, "reset all reg/logic fail\n");
+	mdelay(1);
+	ret = rt_regmap_cache_reload(core_data->chip->rd);
+	if (ret < 0)
+		dev_err(core_data->dev, "cache reload fail\n");
+	ret = mt6370_pmu_reg_block_write(core_data->chip,
+					 MT6370_PMU_REG_RSTPASCODE1,
+					 2, pascode);
+	if (ret < 0)
+		dev_err(core_data->dev, "excute reset pascode fail\n");
+	/* disable i2c&mrstb reset */
+	ret = mt6370_pmu_reg_write(core_data->chip,
+				   MT6370_PMU_REG_CORECTRL1, 0x06);
+	if (ret < 0)
+		dev_err(core_data->dev, "en i2c reset fail\n");
+	/* add dsvp discharge bit */
+	return mt6370_pmu_reg_write(core_data->chip,
+				    MT6370_PMU_REG_DBCTRL2, 0x32);
+}
+
 static int mt6370_pmu_core_probe(struct platform_device *pdev)
 {
 	struct mt6370_pmu_core_platdata *pdata = dev_get_platdata(&pdev->dev);
@@ -203,16 +219,9 @@ static int mt6370_pmu_core_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto out_init_reg;
 
-	/* register reboot/shutdown/halt related notifier */
-	core_data->nb.notifier_call = mt6370_pmu_core_notifier_call;
-	ret = register_reboot_notifier(&core_data->nb);
-	if (ret < 0)
-		goto out_notifier;
-
 	mt6370_pmu_core_irq_register(pdev);
 	dev_info(&pdev->dev, "%s successfully\n", __func__);
 	return 0;
-out_notifier:
 out_init_reg:
 out_pdata:
 	devm_kfree(&pdev->dev, core_data);
@@ -223,9 +232,18 @@ static int mt6370_pmu_core_remove(struct platform_device *pdev)
 {
 	struct mt6370_pmu_core_data *core_data = platform_get_drvdata(pdev);
 
-	unregister_reboot_notifier(&core_data->nb);
 	dev_info(core_data->dev, "%s successfully\n", __func__);
 	return 0;
+}
+
+static void mt6370_pmu_core_shutdown(struct platform_device *pdev)
+{
+	struct mt6370_pmu_core_data *core_data = platform_get_drvdata(pdev);
+	int ret;
+
+	ret = mt6370_pmu_core_reset(core_data);
+	if (ret < 0)
+		dev_err(core_data->dev, "pmu core reset fail\n");
 }
 
 static const struct of_device_id mt_ofid_table[] = {
@@ -248,6 +266,7 @@ static struct platform_driver mt6370_pmu_core = {
 	},
 	.probe = mt6370_pmu_core_probe,
 	.remove = mt6370_pmu_core_remove,
+	.shutdown = mt6370_pmu_core_shutdown,
 	.id_table = mt_id_table,
 };
 module_platform_driver(mt6370_pmu_core);
