@@ -29,9 +29,9 @@
  * @gem_obj: array of gem objects.
  */
 struct mtk_drm_fb {
-	struct drm_framebuffer	base;
+	struct drm_framebuffer base;
 	/* For now we only support a single plane */
-	struct drm_gem_object	*gem_obj;
+	struct drm_gem_object *gem_obj;
 };
 
 #define to_mtk_fb(x) container_of(x, struct mtk_drm_fb, base)
@@ -41,6 +41,18 @@ struct drm_gem_object *mtk_fb_get_gem_obj(struct drm_framebuffer *fb)
 	struct mtk_drm_fb *mtk_fb = to_mtk_fb(fb);
 
 	return mtk_fb->gem_obj;
+}
+
+dma_addr_t mtk_fb_get_dma(struct drm_framebuffer *fb)
+{
+	struct mtk_drm_fb *mtk_fb = to_mtk_fb(fb);
+	struct mtk_drm_gem_obj *mtk_gem;
+
+	if (!mtk_fb->gem_obj)
+		return 0;
+
+	mtk_gem = to_mtk_gem_obj(mtk_fb->gem_obj);
+	return mtk_gem->dma_addr;
 }
 
 static int mtk_drm_fb_create_handle(struct drm_framebuffer *fb,
@@ -58,7 +70,7 @@ static void mtk_drm_fb_destroy(struct drm_framebuffer *fb)
 
 	drm_framebuffer_cleanup(fb);
 
-	drm_gem_object_put_unlocked(mtk_fb->gem_obj);
+	drm_gem_object_unreference_unlocked(mtk_fb->gem_obj);
 
 	kfree(mtk_fb);
 }
@@ -68,9 +80,10 @@ static const struct drm_framebuffer_funcs mtk_drm_fb_funcs = {
 	.destroy = mtk_drm_fb_destroy,
 };
 
-static struct mtk_drm_fb *mtk_drm_framebuffer_init(struct drm_device *dev,
-					const struct drm_mode_fb_cmd2 *mode,
-					struct drm_gem_object *obj)
+static struct mtk_drm_fb *
+mtk_drm_framebuffer_init(struct drm_device *dev,
+			 const struct drm_mode_fb_cmd2 *mode,
+			 struct drm_gem_object *obj)
 {
 	struct mtk_drm_fb *mtk_fb;
 	int ret;
@@ -82,7 +95,7 @@ static struct mtk_drm_fb *mtk_drm_framebuffer_init(struct drm_device *dev,
 	if (!mtk_fb)
 		return ERR_PTR(-ENOMEM);
 
-	drm_helper_mode_fill_fb_struct(dev, &mtk_fb->base, mode);
+	drm_helper_mode_fill_fb_struct(&mtk_fb->base, mode);
 
 	mtk_fb->gem_obj = obj;
 
@@ -96,9 +109,10 @@ static struct mtk_drm_fb *mtk_drm_framebuffer_init(struct drm_device *dev,
 	return mtk_fb;
 }
 
-struct drm_framebuffer *mtk_drm_framebuffer_create(struct drm_device *dev,
-		const struct drm_mode_fb_cmd2 *mode,
-		struct drm_gem_object *obj)
+struct drm_framebuffer *
+mtk_drm_framebuffer_create(struct drm_device *dev,
+			   const struct drm_mode_fb_cmd2 *mode,
+			   struct drm_gem_object *obj)
 {
 	struct mtk_drm_fb *mtk_fb;
 
@@ -137,12 +151,12 @@ int mtk_fb_wait(struct drm_framebuffer *fb)
 	return 0;
 }
 
-struct drm_framebuffer *mtk_drm_mode_fb_create(struct drm_device *dev,
-					       struct drm_file *file,
-					       const struct drm_mode_fb_cmd2 *cmd)
+struct drm_framebuffer *
+mtk_drm_mode_fb_create(struct drm_device *dev, struct drm_file *file,
+		       const struct drm_mode_fb_cmd2 *cmd)
 {
 	struct mtk_drm_fb *mtk_fb;
-	struct drm_gem_object *gem;
+	struct drm_gem_object *gem = NULL;
 	unsigned int width = cmd->width;
 	unsigned int height = cmd->height;
 	unsigned int size, bpp;
@@ -150,6 +164,9 @@ struct drm_framebuffer *mtk_drm_mode_fb_create(struct drm_device *dev,
 
 	if (drm_format_num_planes(cmd->pixel_format) != 1)
 		return ERR_PTR(-EINVAL);
+
+	if (cmd->pixel_format == DRM_FORMAT_C8)
+		goto fb_init;
 
 	gem = drm_gem_object_lookup(file, cmd->handles[0]);
 	if (!gem)
@@ -164,6 +181,7 @@ struct drm_framebuffer *mtk_drm_mode_fb_create(struct drm_device *dev,
 		goto unreference;
 	}
 
+fb_init:
 	mtk_fb = mtk_drm_framebuffer_init(dev, cmd, gem);
 	if (IS_ERR(mtk_fb)) {
 		ret = PTR_ERR(mtk_fb);
@@ -173,6 +191,6 @@ struct drm_framebuffer *mtk_drm_mode_fb_create(struct drm_device *dev,
 	return &mtk_fb->base;
 
 unreference:
-	drm_gem_object_put_unlocked(gem);
+	drm_gem_object_unreference_unlocked(gem);
 	return ERR_PTR(ret);
 }

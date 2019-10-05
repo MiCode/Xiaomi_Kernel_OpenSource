@@ -15,12 +15,13 @@
 #define MTK_DRM_FB_H
 
 struct drm_gem_object *mtk_fb_get_gem_obj(struct drm_framebuffer *fb);
+dma_addr_t mtk_fb_get_dma(struct drm_framebuffer *fb);
 int mtk_fb_wait(struct drm_framebuffer *fb);
-struct drm_framebuffer *mtk_drm_mode_fb_create(struct drm_device *dev,
-					       struct drm_file *file,
-					       const struct drm_mode_fb_cmd2 *cmd);
-struct drm_framebuffer *mtk_drm_framebuffer_create(struct drm_device *dev,
-		const struct drm_mode_fb_cmd2 *mode,
-		struct drm_gem_object *obj);
-
+struct drm_framebuffer *
+mtk_drm_mode_fb_create(struct drm_device *dev, struct drm_file *file,
+		       const struct drm_mode_fb_cmd2 *cmd);
+struct drm_framebuffer *
+mtk_drm_framebuffer_create(struct drm_device *dev,
+			   const struct drm_mode_fb_cmd2 *mode,
+			   struct drm_gem_object *obj);
 #endif /* MTK_DRM_FB_H */

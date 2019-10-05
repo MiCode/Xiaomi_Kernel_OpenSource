@@ -1,0 +1,139 @@
+/*
+ * Copyright (C) 2019 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+#include "mtk_drm_ddp_comp.h"
+#include "mtk_dump.h"
+
+static const char * const ddp_comp_str[] = {DECLARE_DDP_COMP(DECLARE_STR)};
+
+const char *mtk_dump_comp_str(struct mtk_ddp_comp *comp)
+{
+	return ddp_comp_str[comp->id];
+}
+
+int mtk_dump_reg(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_OVL0:
+	case DDP_COMPONENT_OVL0_2L:
+	case DDP_COMPONENT_OVL1_2L:
+		mtk_ovl_dump(comp);
+		break;
+	case DDP_COMPONENT_RDMA0:
+	case DDP_COMPONENT_RDMA1:
+		mtk_rdma_dump(comp);
+		break;
+	case DDP_COMPONENT_WDMA0:
+	case DDP_COMPONENT_WDMA1:
+		mtk_wdma_dump(comp);
+		break;
+	case DDP_COMPONENT_RSZ:
+		mtk_rsz_dump(comp);
+		break;
+	case DDP_COMPONENT_DSI0:
+		mtk_dsi_dump(comp);
+		break;
+	case DDP_COMPONENT_COLOR0:
+		mtk_color_dump(comp);
+		break;
+	case DDP_COMPONENT_CCORR:
+		mtk_ccorr_dump(comp);
+		break;
+	case DDP_COMPONENT_AAL:
+		mtk_aal_dump(comp);
+		break;
+	case DDP_COMPONENT_DITHER:
+		mtk_dither_dump(comp);
+		break;
+	case DDP_COMPONENT_GAMMA:
+		mtk_gamma_dump(comp);
+		break;
+	case DDP_COMPONENT_POSTMASK:
+		mtk_postmask_dump(comp);
+		break;
+	default:
+		return 0;
+	}
+
+	return 0;
+}
+
+int mtk_dump_analysis(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_OVL0:
+	case DDP_COMPONENT_OVL0_2L:
+	case DDP_COMPONENT_OVL1_2L:
+		mtk_ovl_analysis(comp);
+		break;
+	case DDP_COMPONENT_RDMA0:
+	case DDP_COMPONENT_RDMA1:
+		mtk_rdma_analysis(comp);
+		break;
+	case DDP_COMPONENT_WDMA0:
+	case DDP_COMPONENT_WDMA1:
+		mtk_wdma_analysis(comp);
+		break;
+	case DDP_COMPONENT_RSZ:
+		mtk_rsz_analysis(comp);
+		break;
+	case DDP_COMPONENT_DSI0:
+		mtk_dsi_analysis(comp);
+		break;
+	case DDP_COMPONENT_POSTMASK:
+		mtk_postmask_analysis(comp);
+		break;
+	default:
+		return 0;
+	}
+
+	return 0;
+}
+
+void mtk_serial_dump_reg(void __iomem *base, unsigned int offset,
+			 unsigned int num)
+{
+	unsigned int max_size = 54, i = 0, s = 0, l = 0;
+	char buf[max_size];
+
+	if (num > 4)
+		num = 4;
+
+	l = snprintf(buf, max_size, "0x%03x:", offset);
+
+	for (i = 0; i < num; i++) {
+		s = snprintf(buf + l, max_size, "0x%08x ",
+			     readl(base + offset + i * 0x4));
+		l += s;
+	}
+
+	DDPDUMP("%s\n", buf);
+}
+
+void mtk_cust_dump_reg(void __iomem *base, int off1, int off2, int off3,
+		       int off4)
+{
+	unsigned int max_size = 84, i = 0, s = 0, l = 0;
+	int off[] = {off1, off2, off3, off4};
+	char buf[max_size];
+
+	for (i = 0; i < 4; i++) {
+		if (off[i] < 0)
+			break;
+		s = snprintf(buf + l, max_size, "0x%03x:0x%08x ", off[i],
+			     readl(base + off[i]));
+		l += s;
+	}
+
+	DDPDUMP("%s\n", buf);
+}

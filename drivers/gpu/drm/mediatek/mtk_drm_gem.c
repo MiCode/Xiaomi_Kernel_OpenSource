@@ -14,9 +14,19 @@
 #include <drm/drmP.h>
 #include <drm/drm_gem.h>
 #include <linux/dma-buf.h>
+#include <linux/dma-mapping.h>
+#include <drm/mediatek_drm.h>
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_gem.h"
+#include "mtk_fence.h"
+#include "mtk_drm_session.h"
+#include "ion_drv.h"
+#include <ion_priv.h>
+#include "mt_iommu.h"
+#include <soc/mediatek/smi.h>
+#include "mtk_iommu_ext.h"
+#include "mtk/mtk_ion.h"
 
 static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 						unsigned long size)
@@ -40,8 +50,117 @@ static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 	return mtk_gem_obj;
 }
 
-struct mtk_drm_gem_obj *mtk_drm_gem_create(struct drm_device *dev,
-					   size_t size, bool alloc_kmap)
+static void mtk_gem_vmap_pa(phys_addr_t pa, uint size, int cached,
+			    struct device *dev, unsigned long *fb_pa)
+{
+	phys_addr_t pa_align;
+	uint sz_align, npages, i;
+	struct page **pages;
+	pgprot_t pgprot;
+	void *va_align;
+	struct sg_table *sgt;
+	unsigned long attrs;
+
+	pa_align = round_down(pa, PAGE_SIZE);
+	sz_align = ALIGN(pa + size - pa_align, PAGE_SIZE);
+	npages = sz_align / PAGE_SIZE;
+
+	pages = kmalloc_array(npages, sizeof(struct page *), GFP_KERNEL);
+	if (!pages)
+		return;
+
+	pgprot = cached ? PAGE_KERNEL : pgprot_writecombine(PAGE_KERNEL);
+	for (i = 0; i < npages; i++)
+		pages[i] = phys_to_page(pa_align + i * PAGE_SIZE);
+
+	va_align = vmap(pages, npages, VM_MAP, pgprot);
+
+	sgt = kzalloc(sizeof(*sgt), GFP_KERNEL);
+	sg_alloc_table_from_pages(sgt, pages, npages, 0, size, GFP_KERNEL);
+	attrs = DMA_ATTR_SKIP_CPU_SYNC;
+	dma_map_sg_attrs(dev, sgt->sgl, sgt->nents, 0, attrs);
+	*fb_pa = sg_dma_address(sgt->sgl);
+}
+
+static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
+				   struct mtk_drm_gem_obj *mtk_gem)
+{
+	struct ion_client *ion_display_client = NULL;
+	struct ion_handle *ion_display_handle = NULL;
+	struct ion_mm_data mm_data;
+	size_t mva_size;
+	ion_phys_addr_t phy_addr = 0;
+
+	mtk_gem->cookie = (void *)ioremap_nocache(pa, size);
+	mtk_gem->kvaddr = mtk_gem->cookie;
+	ion_display_client = ion_client_create(g_ion_device, "disp_fb0");
+	if (ion_display_client == NULL)
+		DDPPR_ERR("%s: fail to create ion\n", __func__);
+
+	ion_display_handle =
+		ion_alloc(ion_display_client, size, (size_t)mtk_gem->kvaddr,
+			  ION_HEAP_MULTIMEDIA_MAP_MVA_MASK, 0);
+	if (IS_ERR(ion_display_client)) {
+		DDPPR_ERR("%s error 0x%p\n", __func__, ion_display_handle);
+		return;
+	}
+
+	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
+	mm_data.config_buffer_param.module_id = M4U_PORT_DISP_OVL0;
+	mm_data.config_buffer_param.kernel_handle = ion_display_handle;
+	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	if (ion_kernel_ioctl(ion_display_client, ION_CMD_MULTIMEDIA,
+			     (unsigned long)&mm_data) < 0) {
+		DDPPR_ERR("%s: config buffer failed.0x%p -0x%p\n", __func__,
+			  ion_display_client, ion_display_handle);
+		ion_free(ion_display_client, ion_display_handle);
+		return;
+	}
+
+	ion_phys(ion_display_client, ion_display_handle, &phy_addr, &mva_size);
+	mtk_gem->dma_addr = (unsigned int)phy_addr;
+}
+
+struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
+					      size_t size, phys_addr_t fb_base,
+					      unsigned int vramsize)
+{
+	struct mtk_drm_private *priv = dev->dev_private;
+	struct mtk_drm_gem_obj *mtk_gem;
+	struct drm_gem_object *obj;
+	unsigned long fb_pa;
+
+	DDPINFO("%s+\n", __func__);
+	mtk_gem = mtk_drm_gem_init(dev, vramsize);
+	if (IS_ERR(mtk_gem))
+		return ERR_CAST(mtk_gem);
+
+	obj = &mtk_gem->base;
+	if (1) {
+		/* TODO: This is a temporary workaorund for get
+		 * MVA for LK pre-allocated buffer. The get MVA API of
+		 * iommu version return the wrong MVA value. Once the
+		 * issue fixed, remove this workaround
+		 */
+		mtk_gem_vmap_pa_legacy(fb_base, vramsize, mtk_gem);
+	} else {
+		mtk_gem->dma_attrs = DMA_ATTR_WRITE_COMBINE;
+		mtk_gem_vmap_pa(fb_base, vramsize, 0, dev->dev, &fb_pa);
+
+		mtk_gem->dma_addr = (dma_addr_t)fb_pa;
+		mtk_gem->cookie =
+			dma_alloc_attrs(priv->dma_dev, size, &mtk_gem->dma_addr,
+					GFP_KERNEL, mtk_gem->dma_attrs);
+		mtk_gem->kvaddr = mtk_gem->cookie;
+	}
+
+	DDPINFO("%s cookie = %p dma_addr = %pad size = %zu\n", __func__,
+		mtk_gem->cookie, &mtk_gem->dma_addr, size);
+	return mtk_gem;
+}
+
+struct mtk_drm_gem_obj *mtk_drm_gem_create(struct drm_device *dev, size_t size,
+					   bool alloc_kmap)
 {
 	struct mtk_drm_private *priv = dev->dev_private;
 	struct mtk_drm_gem_obj *mtk_gem;
@@ -58,10 +177,10 @@ struct mtk_drm_gem_obj *mtk_drm_gem_create(struct drm_device *dev,
 
 	if (!alloc_kmap)
 		mtk_gem->dma_attrs |= DMA_ATTR_NO_KERNEL_MAPPING;
-
-	mtk_gem->cookie = dma_alloc_attrs(priv->dma_dev, obj->size,
-					  &mtk_gem->dma_addr, GFP_KERNEL,
-					  mtk_gem->dma_attrs);
+	//	mtk_gem->dma_attrs |= DMA_ATTR_NO_WARN;
+	mtk_gem->cookie =
+		dma_alloc_attrs(priv->dma_dev, obj->size, &mtk_gem->dma_addr,
+				GFP_KERNEL, mtk_gem->dma_attrs);
 	if (!mtk_gem->cookie) {
 		DRM_ERROR("failed to allocate %zx byte dma buffer", obj->size);
 		ret = -ENOMEM;
@@ -72,8 +191,7 @@ struct mtk_drm_gem_obj *mtk_drm_gem_create(struct drm_device *dev,
 		mtk_gem->kvaddr = mtk_gem->cookie;
 
 	DRM_DEBUG_DRIVER("cookie = %p dma_addr = %pad size = %zu\n",
-			 mtk_gem->cookie, &mtk_gem->dma_addr,
-			 size);
+			 mtk_gem->cookie, &mtk_gem->dma_addr, size);
 
 	return mtk_gem;
 
@@ -122,12 +240,37 @@ int mtk_drm_gem_dumb_create(struct drm_file *file_priv, struct drm_device *dev,
 		goto err_handle_create;
 
 	/* drop reference from allocate - handle holds it now. */
-	drm_gem_object_put_unlocked(&mtk_gem->base);
+	drm_gem_object_unreference_unlocked(&mtk_gem->base);
 
 	return 0;
 
 err_handle_create:
 	mtk_drm_gem_free_object(&mtk_gem->base);
+	return ret;
+}
+
+int mtk_drm_gem_dumb_map_offset(struct drm_file *file_priv,
+				struct drm_device *dev, uint32_t handle,
+				uint64_t *offset)
+{
+	struct drm_gem_object *obj;
+	int ret;
+
+	obj = drm_gem_object_lookup(file_priv, handle);
+	if (!obj) {
+		DRM_ERROR("failed to lookup gem object.\n");
+		return -EINVAL;
+	}
+
+	ret = drm_gem_create_mmap_offset(obj);
+	if (ret)
+		goto out;
+
+	*offset = drm_vma_node_offset_addr(&obj->vma_node);
+	DRM_DEBUG_KMS("offset = 0x%llx\n", *offset);
+
+out:
+	drm_gem_object_unreference_unlocked(obj);
 	return ret;
 }
 
@@ -208,8 +351,10 @@ struct sg_table *mtk_gem_prime_get_sg_table(struct drm_gem_object *obj)
 	return sgt;
 }
 
-struct drm_gem_object *mtk_gem_prime_import_sg_table(struct drm_device *dev,
-			struct dma_buf_attachment *attach, struct sg_table *sg)
+struct drm_gem_object *
+mtk_gem_prime_import_sg_table(struct drm_device *dev,
+			      struct dma_buf_attachment *attach,
+			      struct sg_table *sg)
 {
 	struct mtk_drm_gem_obj *mtk_gem;
 	int ret;
@@ -240,4 +385,109 @@ struct drm_gem_object *mtk_gem_prime_import_sg_table(struct drm_device *dev,
 err_gem_free:
 	kfree(mtk_gem);
 	return ERR_PTR(ret);
+}
+
+int mtk_gem_map_offset_ioctl(struct drm_device *drm, void *data,
+			     struct drm_file *file_priv)
+{
+	struct drm_mtk_gem_map_off *args = data;
+
+	return mtk_drm_gem_dumb_map_offset(file_priv, drm, args->handle,
+					   &args->offset);
+}
+
+int mtk_gem_create_ioctl(struct drm_device *dev, void *data,
+			 struct drm_file *file_priv)
+{
+	struct mtk_drm_gem_obj *mtk_gem;
+	struct drm_mtk_gem_create *args = data;
+	int ret;
+
+	mtk_gem = mtk_drm_gem_create(dev, args->size, false);
+	if (IS_ERR(mtk_gem))
+		return PTR_ERR(mtk_gem);
+
+	/*
+	 * allocate a id of idr table where the obj is registered
+	 * and handle has the id what user can see.
+	 */
+	ret = drm_gem_handle_create(file_priv, &mtk_gem->base, &args->handle);
+	if (ret)
+		goto err_handle_create;
+
+	/* drop reference from allocate - handle holds it now. */
+	drm_gem_object_unreference_unlocked(&mtk_gem->base);
+
+	return 0;
+
+err_handle_create:
+	mtk_drm_gem_free_object(&mtk_gem->base);
+	return ret;
+}
+
+static void prepare_output_buffer(struct drm_device *dev,
+				  struct drm_mtk_gem_submit *buf,
+				  struct mtk_fence_buf_info *output_buf)
+{
+
+	if (!(mtk_drm_session_mode_is_decouple_mode(dev) &&
+	      mtk_drm_session_mode_is_mirror_mode(dev))) {
+		buf->interface_fence_fd = MTK_INVALID_FENCE_FD;
+		buf->interface_index = 0;
+		return;
+	}
+
+	/* create second fence for WDMA when decouple mirror mode */
+	buf->layer_id = mtk_fence_get_output_interface_timeline_id();
+	output_buf = mtk_fence_prepare_buf(dev, buf);
+	if (output_buf) {
+		buf->interface_fence_fd = output_buf->fence;
+		buf->interface_index = output_buf->idx;
+	} else {
+		DDPPR_ERR("P+ FAIL /%s%d/L%d/e%d/fd%d/id%d/ffd%d\n",
+			  mtk_fence_session_mode_spy(buf->session_id),
+			  MTK_SESSION_DEV(buf->session_id), buf->layer_id,
+			  buf->layer_en, buf->index, buf->fb_id, buf->fence_fd);
+		buf->interface_fence_fd = MTK_INVALID_FENCE_FD;
+		buf->interface_index = 0;
+	}
+}
+
+int mtk_gem_submit_ioctl(struct drm_device *dev, void *data,
+			 struct drm_file *file_priv)
+{
+	int ret = 0;
+	struct drm_mtk_gem_submit *args = data;
+	struct mtk_fence_buf_info *buf, *buf2;
+
+	if (args->type == MTK_SUBMIT_OUT_FENCE)
+		args->layer_id = mtk_fence_get_output_timeline_id();
+
+	if (args->layer_en) {
+		buf = mtk_fence_prepare_buf(dev, args);
+		if (buf != NULL) {
+			args->fence_fd = buf->fence;
+			args->index = buf->idx;
+		} else {
+			DDPPR_ERR("P+ FAIL /%s%d/L%d/e%d/fd%d/id%d/ffd%d\n",
+				  mtk_fence_session_mode_spy(args->session_id),
+				  MTK_SESSION_DEV(args->session_id),
+				  args->layer_id, args->layer_en, args->fb_id,
+				  args->index, args->fence_fd);
+			args->fence_fd = MTK_INVALID_FENCE_FD; /* invalid fd */
+			args->index = 0;
+		}
+		if (args->type == MTK_SUBMIT_OUT_FENCE)
+			prepare_output_buffer(dev, args, buf2);
+	} else {
+		DDPPR_ERR("P+ FAIL /%s%d/l%d/e%d/fd%d/id%d/ffd%d\n",
+			  mtk_fence_session_mode_spy(args->session_id),
+			  MTK_SESSION_DEV(args->session_id), args->layer_id,
+			  args->layer_en, args->fb_id, args->index,
+			  args->fence_fd);
+		args->fence_fd = MTK_INVALID_FENCE_FD; /* invalid fd */
+		args->index = 0;
+	}
+
+	return ret;
 }

@@ -14,6 +14,14 @@
 #ifndef MTK_DRM_FBDEV_H
 #define MTK_DRM_FBDEV_H
 
+struct tag_videolfb {
+	u64 fb_base;
+	u32 islcmfound;
+	u32 fps;
+	u32 vram;
+	char lcmname[1]; /* this is the minimum size */
+};
+
 #ifdef CONFIG_DRM_FBDEV_EMULATION
 int mtk_fbdev_init(struct drm_device *dev);
 void mtk_fbdev_fini(struct drm_device *dev);
@@ -25,8 +33,10 @@ int mtk_fbdev_init(struct drm_device *dev)
 
 void mtk_fbdev_fini(struct drm_device *dev)
 {
-
 }
 #endif /* CONFIG_DRM_FBDEV_EMULATION */
+
+int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
+			unsigned int *fps);
 
 #endif /* MTK_DRM_FBDEV_H */

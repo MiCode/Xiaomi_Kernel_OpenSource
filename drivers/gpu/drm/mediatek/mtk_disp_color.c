@@ -17,19 +17,24 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
+#include <linux/soc/mediatek/mtk-cmdq.h>
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
+#include "mtk_drm_drv.h"
+#include "mtk_dump.h"
 
-#define DISP_COLOR_CFG_MAIN			0x0400
-#define DISP_COLOR_START_MT2701			0x0f00
-#define DISP_COLOR_START_MT8173			0x0c00
-#define DISP_COLOR_START(comp)			((comp)->data->color_offset)
-#define DISP_COLOR_WIDTH(comp)			(DISP_COLOR_START(comp) + 0x50)
-#define DISP_COLOR_HEIGHT(comp)			(DISP_COLOR_START(comp) + 0x54)
+#define DISP_COLOR_CFG_MAIN 0x0400
+#define DISP_COLOR_START_MT2701 0x0f00
+#define DISP_COLOR_START_MT6779 0x0c00
+#define DISP_COLOR_START_MT8173 0x0c00
+#define DISP_COLOR_START(module) ((module)->data->color_offset)
+#define DISP_COLOR_WIDTH(reg) (DISP_COLOR_START(reg) + 0x50UL)
+#define DISP_COLOR_HEIGHT(reg) (DISP_COLOR_START(reg) + 0x54UL)
 
-#define COLOR_BYPASS_ALL			BIT(7)
-#define COLOR_SEQ_SEL				BIT(13)
+#define COLOR_BYPASS_ALL BIT(7)
+#define COLOR_SEQ_SEL BIT(13)
 
 struct mtk_disp_color_data {
 	unsigned int color_offset;
@@ -41,9 +46,9 @@ struct mtk_disp_color_data {
  * @crtc - associated crtc to report irq events to
  */
 struct mtk_disp_color {
-	struct mtk_ddp_comp			ddp_comp;
-	struct drm_crtc				*crtc;
-	const struct mtk_disp_color_data	*data;
+	struct mtk_ddp_comp ddp_comp;
+	struct drm_crtc *crtc;
+	const struct mtk_disp_color_data *data;
 };
 
 static inline struct mtk_disp_color *comp_to_color(struct mtk_ddp_comp *comp)
@@ -51,29 +56,77 @@ static inline struct mtk_disp_color *comp_to_color(struct mtk_ddp_comp *comp)
 	return container_of(comp, struct mtk_disp_color, ddp_comp);
 }
 
-static void mtk_color_config(struct mtk_ddp_comp *comp, unsigned int w,
-			     unsigned int h, unsigned int vrefresh,
-			     unsigned int bpc)
+static void mtk_color_config(struct mtk_ddp_comp *comp,
+			     struct mtk_ddp_config *cfg,
+			     struct cmdq_pkt *handle)
 {
 	struct mtk_disp_color *color = comp_to_color(comp);
 
-	writel(w, comp->regs + DISP_COLOR_WIDTH(color));
-	writel(h, comp->regs + DISP_COLOR_HEIGHT(color));
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_COLOR_WIDTH(color), cfg->w, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_COLOR_HEIGHT(color), cfg->h, ~0);
 }
 
-static void mtk_color_start(struct mtk_ddp_comp *comp)
+static void mtk_color_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	struct mtk_disp_color *color = comp_to_color(comp);
+	int ret;
 
-	writel(COLOR_BYPASS_ALL | COLOR_SEQ_SEL,
-	       comp->regs + DISP_COLOR_CFG_MAIN);
-	writel(0x1, comp->regs + DISP_COLOR_START(color));
+	ret = pm_runtime_get_sync(comp->dev);
+	if (ret < 0)
+		DRM_ERROR("Failed to enable power domain: %d\n", ret);
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_COLOR_CFG_MAIN,
+		       COLOR_BYPASS_ALL | COLOR_SEQ_SEL, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_COLOR_START(color), 0x1, ~0);
+}
+
+static void mtk_color_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
+{
+	int ret;
+
+	ret = pm_runtime_put(comp->dev);
+	if (ret < 0)
+		DRM_ERROR("Failed to disable power domain: %d\n", ret);
+}
+
+static void mtk_color_bypass(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
+{
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_COLOR_CFG_MAIN,
+		       COLOR_BYPASS_ALL | COLOR_SEQ_SEL, ~0);
+}
+
+static void mtk_color_prepare(struct mtk_ddp_comp *comp)
+{
+	mtk_ddp_comp_clk_prepare(comp);
+}
+
+static void mtk_color_unprepare(struct mtk_ddp_comp *comp)
+{
+	mtk_ddp_comp_clk_unprepare(comp);
 }
 
 static const struct mtk_ddp_comp_funcs mtk_disp_color_funcs = {
 	.config = mtk_color_config,
 	.start = mtk_color_start,
+	.stop = mtk_color_stop,
+	.bypass = mtk_color_bypass,
+	.prepare = mtk_color_prepare,
+	.unprepare = mtk_color_unprepare,
 };
+
+void mtk_color_dump(struct mtk_ddp_comp *comp)
+{
+	void __iomem *baddr = comp->regs;
+
+	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	mtk_serial_dump_reg(baddr, 0x400, 3);
+	mtk_serial_dump_reg(baddr, 0xC50, 2);
+}
 
 static int mtk_disp_color_bind(struct device *dev, struct device *master,
 			       void *data)
@@ -84,8 +137,8 @@ static int mtk_disp_color_bind(struct device *dev, struct device *master,
 
 	ret = mtk_ddp_comp_register(drm_dev, &priv->ddp_comp);
 	if (ret < 0) {
-		dev_err(dev, "Failed to register component %pOF: %d\n",
-			dev->of_node, ret);
+		dev_err(dev, "Failed to register component %s: %d\n",
+			dev->of_node->full_name, ret);
 		return ret;
 	}
 
@@ -102,30 +155,29 @@ static void mtk_disp_color_unbind(struct device *dev, struct device *master,
 }
 
 static const struct component_ops mtk_disp_color_component_ops = {
-	.bind	= mtk_disp_color_bind,
-	.unbind = mtk_disp_color_unbind,
+	.bind = mtk_disp_color_bind, .unbind = mtk_disp_color_unbind,
 };
 
 static int mtk_disp_color_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_disp_color *priv;
-	int comp_id;
+	enum mtk_ddp_comp_id comp_id;
 	int ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
-	if (!priv)
+	if (priv == NULL)
 		return -ENOMEM;
 
 	comp_id = mtk_ddp_comp_get_id(dev->of_node, MTK_DISP_COLOR);
-	if (comp_id < 0) {
+	if ((int)comp_id < 0) {
 		dev_err(dev, "Failed to identify by alias: %d\n", comp_id);
 		return comp_id;
 	}
 
 	ret = mtk_ddp_comp_init(dev, dev->of_node, &priv->ddp_comp, comp_id,
 				&mtk_disp_color_funcs);
-	if (ret) {
+	if (ret != 0) {
 		dev_err(dev, "Failed to initialize component: %d\n", ret);
 		return ret;
 	}
@@ -134,9 +186,13 @@ static int mtk_disp_color_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv);
 
+	pm_runtime_enable(dev);
+
 	ret = component_add(dev, &mtk_disp_color_component_ops);
-	if (ret)
+	if (ret != 0) {
 		dev_err(dev, "Failed to add component: %d\n", ret);
+		pm_runtime_disable(dev);
+	}
 
 	return ret;
 }
@@ -145,6 +201,7 @@ static int mtk_disp_color_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &mtk_disp_color_component_ops);
 
+	pm_runtime_disable(&pdev->dev);
 	return 0;
 }
 
@@ -152,25 +209,32 @@ static const struct mtk_disp_color_data mt2701_color_driver_data = {
 	.color_offset = DISP_COLOR_START_MT2701,
 };
 
+static const struct mtk_disp_color_data mt6779_color_driver_data = {
+	.color_offset = DISP_COLOR_START_MT6779,
+};
+
 static const struct mtk_disp_color_data mt8173_color_driver_data = {
 	.color_offset = DISP_COLOR_START_MT8173,
 };
 
 static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
-	{ .compatible = "mediatek,mt2701-disp-color",
-	  .data = &mt2701_color_driver_data},
-	{ .compatible = "mediatek,mt8173-disp-color",
-	  .data = &mt8173_color_driver_data},
+	{.compatible = "mediatek,mt2701-disp-color",
+	 .data = &mt2701_color_driver_data},
+	{.compatible = "mediatek,mt6779-disp-color",
+	 .data = &mt6779_color_driver_data},
+	{.compatible = "mediatek,mt8173-disp-color",
+	 .data = &mt8173_color_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_color_driver_dt_match);
 
 struct platform_driver mtk_disp_color_driver = {
-	.probe		= mtk_disp_color_probe,
-	.remove		= mtk_disp_color_remove,
-	.driver		= {
-		.name	= "mediatek-disp-color",
-		.owner	= THIS_MODULE,
-		.of_match_table = mtk_disp_color_driver_dt_match,
-	},
+	.probe = mtk_disp_color_probe,
+	.remove = mtk_disp_color_remove,
+	.driver = {
+
+			.name = "mediatek-disp-color",
+			.owner = THIS_MODULE,
+			.of_match_table = mtk_disp_color_driver_dt_match,
+		},
 };

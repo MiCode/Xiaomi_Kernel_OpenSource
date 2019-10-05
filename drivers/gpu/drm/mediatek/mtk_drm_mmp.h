@@ -1,0 +1,98 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+#ifndef __MTK_DRM_MMP_H__
+#define __MTK_DRM_MMP_H__
+
+#include "mmprofile.h"
+#include "mmprofile_function.h"
+#include "mtk_drm_ddp.h"
+
+#define MMP_CRTC_NUM 3
+
+/* if changed, need to update init_drm_mmp_event() */
+struct DRM_MMP_Events {
+	mmp_event drm;
+	mmp_event crtc[MMP_CRTC_NUM];
+
+	/* define for IRQ */
+	mmp_event IRQ;
+	mmp_event ovl;
+	mmp_event ovl0;
+	mmp_event ovl0_2l;
+	mmp_event rdma;
+	mmp_event rdma0;
+	mmp_event rdma1;
+	mmp_event wdma;
+	mmp_event wdma0;
+	mmp_event dsi;
+	mmp_event dsi0;
+	mmp_event ddp;
+	mmp_event mutex[DISP_MUTEX_DDP_COUNT];
+	mmp_event postmask;
+	mmp_event postmask0;
+	mmp_event abnormal_irq;
+	mmp_event pmqos;
+	mmp_event hrt_bw;
+};
+
+/* if changed, need to update init_crtc_mmp_event() */
+struct CRTC_MMP_Events {
+	mmp_event trig_loop_done;
+	mmp_event enable;
+	mmp_event disable;
+	mmp_event release_fence;
+	mmp_event esd_check;
+	mmp_event esd_recovery;
+};
+
+struct DRM_MMP_Events *get_drm_mmp_events(void);
+struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned int id);
+void drm_mmp_init(void);
+
+/* print mmp log for DRM_MMP_Events */
+#define DRM_MMP_MARK(event, v1, v2)                                            \
+	mmprofile_log_ex(get_drm_mmp_events()->event,                  \
+			 MMPROFILE_FLAG_PULSE, v1, v2)
+
+#define DRM_MMP_EVENT_START(event, v1, v2)                                     \
+	mmprofile_log_ex(get_drm_mmp_events()->event,                  \
+			 MMPROFILE_FLAG_START, v1, v2)
+
+#define DRM_MMP_EVENT_END(event, v1, v2)                                       \
+	mmprofile_log_ex(get_drm_mmp_events()->event,                  \
+			 MMPROFILE_FLAG_END, v1, v2)
+
+/* print mmp log for CRTC_MMP_Events */
+#define CRTC_MMP_MARK(id, event, v1, v2)                                       \
+	do {								\
+		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+			mmprofile_log_ex(get_crtc_mmp_events(id)->event,       \
+					 MMPROFILE_FLAG_PULSE, v1, v2);       \
+	} while (0)
+
+#define CRTC_MMP_EVENT_START(id, event, v1, v2)                                \
+	do {								\
+		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+			mmprofile_log_ex(get_crtc_mmp_events(id)->event,       \
+					 MMPROFILE_FLAG_START, v1, v2);       \
+	} while (0)
+
+#define CRTC_MMP_EVENT_END(id, event, v1, v2)                                  \
+	do {								\
+		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+			mmprofile_log_ex(get_crtc_mmp_events(id)->event,       \
+					 MMPROFILE_FLAG_END, v1, v2);       \
+	} while (0)
+
+#endif
