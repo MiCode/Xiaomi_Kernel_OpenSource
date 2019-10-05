@@ -24,9 +24,6 @@
 #include <linux/sched/clock.h>
 #include <linux/sched/task.h>
 #include <linux/sched/cputime.h>
-#if defined(CONFIG_CPU_FREQ) && !defined(CONFIG_MTK_CPU_CTRL_CFP)
-#include <linux/cpufreq.h>
-#endif
 
 #include <trace/events/fpsgo.h>
 #include <mt-plat/fpsgo_common.h>
@@ -50,16 +47,6 @@ static int __minitop_n;
 static int __warmup_order;
 static int __cooldn_order;
 static int __thrs_heavy;
-#if defined(CONFIG_CPU_FREQ) && !defined(CONFIG_MTK_CPU_CTRL_CFP)
-static int __thrs_cpu_heavy;
-static int __thrs_cpu_unheavy;
-
-/* System-Wise CPU loading tracking */
-static int debnc_cpu_loading;
-static int pre_alive;
-u64 *prev_idle_time;
-u64 *prev_wall_time;
-#endif
 
 static DEFINE_MUTEX(minitop_mlock);
 static struct dentry *debugfs_minitop_dir;
@@ -473,107 +460,6 @@ static int minitop_has_heavy(void)
 	return !!heavy;
 }
 
-#if defined(CONFIG_CPU_FREQ) && !defined(CONFIG_MTK_CPU_CTRL_CFP)
-static int get_thrs_cpu_heavy(void)
-{
-	int ret;
-
-	minitop_lock(__func__);
-	ret = __thrs_cpu_heavy;
-	minitop_unlock(__func__);
-
-	return ret;
-}
-
-static int get_thrs_cpu_unheavy(void)
-{
-	int ret;
-
-	minitop_lock(__func__);
-	ret = __thrs_cpu_unheavy;
-	minitop_unlock(__func__);
-
-	return ret;
-}
-
-static int minitop_update_cpu_loading(void)
-{
-	int ret = -1;
-	int cpu;
-	u64 cur_idle_time_i, cur_wall_time_i;
-	u64 cpu_idle_time = 0, cpu_wall_time = 0;
-
-	minitop_lockprove(__func__);
-
-	if (unlikely(!prev_idle_time || !prev_wall_time))
-		goto end_minitop_update_cpu_loading;
-
-	for_each_possible_cpu(cpu) {
-		cur_idle_time_i = get_cpu_idle_time(cpu, &cur_wall_time_i, 1);
-		cpu_idle_time += cur_idle_time_i - prev_idle_time[cpu];
-		cpu_wall_time += cur_wall_time_i - prev_wall_time[cpu];
-		prev_idle_time[cpu] = cur_idle_time_i;
-		prev_wall_time[cpu] = cur_wall_time_i;
-	}
-
-	if (cpu_wall_time > 0 && cpu_wall_time >= cpu_idle_time)
-		ret =
-			div_u64((cpu_wall_time - cpu_idle_time) * 100,
-				cpu_wall_time);
-
-end_minitop_update_cpu_loading:
-	return ret;
-}
-
-static int minitop_cpu_heavy(int alive)
-{
-	int release_ceiling = 0;
-	int loading = 0;
-
-	minitop_lockprove(__func__);
-
-	minitop_trace("%s alive %d pre_alive %d",
-		      __func__, alive, pre_alive);
-
-	loading = minitop_update_cpu_loading();
-	if (!pre_alive || !alive)
-		loading = -1;
-	pre_alive = alive;
-
-	/* loading < 0 means
-	 * 1. from NOHZ to ALIVE
-	 * 2. cpu_wall_time <= 0
-	 * 3. cpu_wall_time < cpu_idle_time
-	 * 4. prev_idle_time or prev_idle_time is NULL
-	 */
-	if (unlikely(loading < 0))
-		goto end_minitop_cpu_loading;
-
-	if (loading >= __thrs_cpu_heavy) {
-		debnc_cpu_loading = (int)(0x1 << __cooldn_order);
-		release_ceiling = 1;
-		goto end_minitop_cpu_loading;
-	}
-
-	if (debnc_cpu_loading > 0)
-		release_ceiling = 1;
-	else
-		minitop_trace("end debnc cpu loading");
-
-	if (loading < __thrs_cpu_unheavy && debnc_cpu_loading > 0)
-		debnc_cpu_loading--;
-
-end_minitop_cpu_loading:
-	minitop_trace("minitop switch ceiling %s by loading=%d",
-		      release_ceiling ? "off" : "on", loading);
-	return release_ceiling;
-}
-#else
-static inline int minitop_cpu_heavy(int alive)
-{
-	return 0;
-}
-#endif
 
 static inline int minitop_fpsgo_active(void)
 {
@@ -684,13 +570,8 @@ static void minitop_nominate_work(struct work_struct *work)
 	kfree(tu);
 
 	/* Per-window warm up, @ret is either 0 or 1 */
-	if ((minitop_life & __warmup_mask()) == 0) {
-		int a, b;
-
-		a = minitop_has_heavy();
-		b = minitop_cpu_heavy(alive);
-		ret = a || b;
-	}
+	if ((minitop_life & __warmup_mask()) == 0)
+		ret = minitop_has_heavy();
 
 	minitop_unlock(__func__);
 
@@ -1078,31 +959,6 @@ MINITOP_DEBUGFS_WRITE(thrs_heavy, 0, 100)
 
 MINITOP_DEBUGFS_ENTRY(thrs_heavy);
 
-#if defined(CONFIG_CPU_FREQ) && !defined(CONFIG_MTK_CPU_CTRL_CFP)
-static int minitop_thrs_cpu_heavy_show(struct seq_file *m, void *unused)
-{
-	minitop_lock(__func__);
-	seq_printf(m, " Threshold of cpu heavy is %d\n", __thrs_cpu_heavy);
-	minitop_unlock(__func__);
-	return 0;
-}
-
-MINITOP_DEBUGFS_WRITE(thrs_cpu_heavy, get_thrs_cpu_unheavy(), 100)
-
-MINITOP_DEBUGFS_ENTRY(thrs_cpu_heavy);
-
-static int minitop_thrs_cpu_unheavy_show(struct seq_file *m, void *unused)
-{
-	minitop_lock(__func__);
-	seq_printf(m, " Threshold of cpu unheavy is %d\n", __thrs_cpu_unheavy);
-	minitop_unlock(__func__);
-	return 0;
-}
-
-MINITOP_DEBUGFS_WRITE(thrs_cpu_unheavy, 0, get_thrs_cpu_heavy())
-
-MINITOP_DEBUGFS_ENTRY(thrs_cpu_unheavy);
-#endif
 
 static int minitop_enable_show(struct seq_file *m, void *unused)
 {
@@ -1160,10 +1016,6 @@ int __init minitop_init(void)
 	__warmup_order = 3;
 	__cooldn_order = 2;
 	__thrs_heavy   = 70;
-#if defined(CONFIG_CPU_FREQ) && !defined(CONFIG_MTK_CPU_CTRL_CFP)
-	__thrs_cpu_heavy = 90;
-	__thrs_cpu_unheavy = 80;
-#endif
 
 
 	nr_cpus        = num_possible_cpus();
@@ -1175,10 +1027,6 @@ int __init minitop_init(void)
 		list_add_tail(&mwa[i].link, &minitop_mws);
 	}
 
-#if defined(CONFIG_CPU_FREQ) && !defined(CONFIG_MTK_CPU_CTRL_CFP)
-	prev_idle_time = kcalloc(nr_cpus, sizeof(u64), GFP_KERNEL);
-	prev_wall_time = kcalloc(nr_cpus, sizeof(u64), GFP_KERNEL);
-#endif
 
 	debugfs_create_file("list",
 			    0664,
@@ -1210,19 +1058,6 @@ int __init minitop_init(void)
 			    NULL,
 			    &minitop_thrs_heavy_fops);
 
-#if defined(CONFIG_CPU_FREQ) && !defined(CONFIG_MTK_CPU_CTRL_CFP)
-	debugfs_create_file("thrs_cpu_heavy",
-			    0664,
-			    debugfs_minitop_dir,
-			    NULL,
-			    &minitop_thrs_cpu_heavy_fops);
-
-	debugfs_create_file("thrs_cpu_unheavy",
-			    0664,
-			    debugfs_minitop_dir,
-			    NULL,
-			    &minitop_thrs_cpu_unheavy_fops);
-#endif
 
 	debugfs_create_file("enable",
 			    0664,
