@@ -62,37 +62,44 @@ void mdla_trace_begin(int core_id, struct command_entry *ce)
 	cmd_num = ce->count;
 
 	len = snprintf(buf, sizeof(buf),
-		"mdla-%d,tid:%d,mdla_cmd_id:%d,mdla_cmd_num:%d",
+		"mdla-%d|tid:%d,fin_cid:%d,total_cmd_num:%d",
 		core_id,
 		task_pid_nr(current),
-		1,
+		ce->fin_cid,
 		cmd_num);
 
 	if (len >= TRACE_LEN)
 		len = TRACE_LEN - 1;
 
 	mdla_perf_debug("%s\n", __func__);
-	//trace_tag_begin(buf);
+
+	trace_async_tag(1, buf);
 }
 
-void mdla_trace_end(struct command_entry *ce)
+void mdla_trace_end(int core, int status, struct command_entry *ce)
 {
 	u64 end = ce->req_end_t;
+	char buf[64];
+	int len;
 
 	if ((!cfg_apusys_trace) || (!end))
 		return;
 
 	mdla_perf_debug("%s\n", __func__);
-	//trace_tag_end();
-}
 
+	len = snprintf(buf, sizeof(buf),
+		"mdla-%d|tid:%d,fin_id:%d,preempted:%d",
+		core, task_pid_nr(current), ce->fin_cid, status);
+
+	trace_async_tag(0, buf);
+}
 /* MET: define to enable MET */
 #if defined(MDLA_MET_READY)
 #define CREATE_TRACE_POINTS
 #include "met_mdlasys_events.h"
 #endif
 
-void mdla_dump_prof(struct seq_file *s)
+void mdla_dump_prof(int coreid, struct seq_file *s)
 {
 	int i;
 	u32 c[MDLA_PMU_COUNTERS];
@@ -104,7 +111,7 @@ void mdla_dump_prof(struct seq_file *s)
 	_SHOW_VAL(op_trace);
 	_SHOW_VAL(pmu_int);
 
-	pmu_counter_event_get_all(c);
+	pmu_counter_event_get_all(coreid, c);
 
 	for (i = 0; i < MDLA_PMU_COUNTERS; i++)
 		mdla_print_seq(s, "c%d=0x%x\n", (i+1), c[i]);
@@ -113,16 +120,16 @@ void mdla_dump_prof(struct seq_file *s)
 /*
  * MDLA PMU counter reader
  */
-static void mdla_profile_pmu_counter(int core)
+static void mdla_profile_pmu_counter(int core_id)
 {
 	u32 c[MDLA_PMU_COUNTERS];
 
-	pmu_counter_read_all(c);
+	pmu_counter_read_all(core_id, c);
 	mdla_perf_debug("_id=c%d, c1=%u, c2=%u, c3=%u, c4=%u, c5=%u, c6=%u, c7=%u, c8=%u, c9=%u, c10=%u, c11=%u, c12=%u, c13=%u, c14=%u, c15=%u\n",
-		core,
+		core_id,
 		c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7],
 		c[8], c[9], c[10], c[11], c[12], c[13], c[14]);
-	trace_mdla_polling(core, c);
+	trace_mdla_polling(core_id, c);
 }
 
 static void mdla_profile_register_read(void)
@@ -131,9 +138,7 @@ static void mdla_profile_register_read(void)
 
 	if (!get_power_on_status(0))
 		return;
-
-	for (i = 0 ; i < MTK_MDLA_CORE; i++)
-		mdla_profile_pmu_counter(i);
+	mdla_profile_pmu_counter(i);
 }
 
 void mdla_trace_iter(int core_id)
@@ -230,9 +235,9 @@ static int mdla_profile_timer_stop(int wait)
 }
 
 /* protected by cmd_list_lock @ mdla_main.c */
-int mdla_profile_start(void)
+int mdla_profile_start(u32 mdlaid)
 {
-	pmu_reset();
+	pmu_reset(mdlaid);
 	if (!cfg_timer_en)
 		return 0;
 	if (!timer_started) {

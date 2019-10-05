@@ -61,10 +61,6 @@
 #include "mdla_hw_reg.h"
 #include "mdla_pmu.h"
 
-/* internal function prototypes */
-int mdla_run_command_sync(struct mdla_run_cmd *cd,
-	struct mdla_wait_cmd *wt, struct mdla_dev *mdla_info);
-
 /* if there's no more reqeusts
  * 1. delete command timeout timer
  * 2. setup delay power off timer
@@ -229,16 +225,21 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_wait_cmd *wt,
 	return 0;
 }
 #else
-int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_wait_cmd *wt,
-			  struct mdla_dev *mdla_info)
+//int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_wait_cmd *wt,
+//			  struct mdla_dev *mdla_info)
+int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
+			  struct apusys_cmd_hnd *apusys_hd)
 {
 	int ret = 0;
 	struct command_entry ce;
 	u32 id;
 	u64 deadline;
 	int core_id = 0;
+	/*forward compatibility temporary, This will be replaced by apusys*/
+	struct mdla_wait_cmd mdla_wt;
+	struct mdla_wait_cmd *wt = &mdla_wt;
 
-	if (!cd || !wt || !mdla_info)
+	if (!cd || !mdla_info)
 		return -EINVAL;
 
 	core_id = mdla_info->mdlaid;
@@ -248,6 +249,9 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_wait_cmd *wt,
 	mutex_lock(&mdla_info->cmd_lock);
 
 	mdla_run_command_prepare(cd, &ce);
+
+	if (apusys_hd != NULL)
+		pmu_command_prepare(mdla_info, apusys_hd);
 
 process_command:
 	/* Compute deadline */
@@ -269,6 +273,9 @@ process_command:
 
 	/* Trace start */
 	mdla_trace_begin(core_id, &ce);
+
+	if (apusys_hd != NULL)
+		pmu_cmd_handle(mdla_info);
 
 	ce.poweron_t = sched_clock();
 	ce.req_start_t = sched_clock();
@@ -311,8 +318,8 @@ process_command:
 	/*MDLA-PMU Command Counter*/
 	mdla_cmd_debug("%s: PMU_CFG_PMCR: %8x, pmu_clk_cnt: %.8x\n",
 				__func__,
-				pmu_reg_read(PMU_CFG_PMCR),
-				pmu_reg_read(PMU_CYCLE));
+				pmu_reg_read_with_mdlaid(core_id, PMU_CFG_PMCR),
+				pmu_reg_read_with_mdlaid(core_id, PMU_CYCLE));
 
 #endif
 
@@ -321,7 +328,7 @@ process_command:
 	mdla_trace_iter(core_id);
 
 	/* Trace stop */
-	mdla_trace_end(&ce);
+	mdla_trace_end(core_id, 0, &ce);
 
 	wt->id = id;
 
@@ -336,6 +343,7 @@ process_command:
 		mdla_dump_ce(&ce);
 		mdla_reset_lock(mdla_info->mdlaid, REASON_TIMEOUT);
 		wt->result = 1;
+		ret = -1;
 	}
 
 	/* Start power off timer */
@@ -352,6 +360,9 @@ process_command:
 	mdla_perf_debug("exec: id:%d, res:%u, que_t:%u, busy_t:%u,bandwidth: %u\n",
 			wt->id, wt->result, wt->queue_time,
 			wt->busy_time, wt->bandwidth);
+
+	if (apusys_hd != NULL)
+		pmu_command_counter_prt(mdla_info);
 #endif
 
 	return ret;
@@ -359,6 +370,7 @@ process_command:
 #endif
 
 #ifndef __APUSYS_MIDDLEWARE__
+static LIST_HEAD(cmd_list);
 void mdla_wait_command(struct ioctl_wait_cmd *wt)
 {
 	struct list_head *ele, *next;
@@ -366,7 +378,7 @@ void mdla_wait_command(struct ioctl_wait_cmd *wt)
 
 	wt->result = -1;
 	mdla_cmd_debug("%s: id: %u\n", __func__, wt->id);
-	mutex_lock(&cmd_list_lock);
+	mutex_lock(&mdla_devices[0].cmd_list_lock);
 	list_for_each_safe(ele, next, &cmd_list) {
 		mdla_cmd_debug("%s: loop id: %u\n", __func__, wt->id);
 		we = list_entry(ele, struct wait_entry, list);
@@ -378,7 +390,7 @@ void mdla_wait_command(struct ioctl_wait_cmd *wt)
 			break;
 		}
 	}
-	mutex_unlock(&cmd_list_lock);
+	mutex_unlock(&mdla_devices[0].cmd_list_lock);
 }
 
 

@@ -82,7 +82,7 @@ unsigned int cmd, unsigned long arg);
 static int mdla_mmap(struct file *filp, struct vm_area_struct *vma);
 #endif
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-int apusys_mdla_handler(APUSYS_DEVICE_CMD_E type,
+int apusys_mdla_handler(int type,
 		void *hnd, struct apusys_device *dev);
 #endif
 static irqreturn_t mdla_irq0_handler(int irq, void *dev_id);
@@ -175,8 +175,6 @@ static struct class *mdlactlClass;
 static struct device *mdlactlDevice;
 static u32 cmd_id;
 
-
-static LIST_HEAD(cmd_list);
 
 static const struct file_operations fops = {
 	.open = mdla_open,
@@ -288,6 +286,7 @@ static int mdla_sw_multi_devices_init(void)
 		INIT_WORK(&mdla_devices[i].power_off_work,
 				mdla_devices[i].power_pdn_work);
 		mdla_devices[i].mdla_power_status = 0;
+		pmu_init(i);
 	}
 	return 0;
 }
@@ -298,9 +297,7 @@ static int mdla_probe(struct platform_device *pdev)
 	struct apusys_device *apusys_mdla_ptr = NULL;
 	struct mdla_dev *apusys_mdla_dev_ptr = NULL;
 #endif
-#if defined(CONFIG_FPGA_EARLY_PORTING)
 	int i;
-#endif
 
 	if (mdla_dts_map(pdev)) {
 		dev_info(dev, "%s: failed due to DTS failed\n", __func__);
@@ -468,7 +465,6 @@ static int mdlactl_init(void)
 
 	mdla_debugfs_init();
 	mdla_profile_init();
-	pmu_init();
 	mdla_drv_debug("%s done!\n", __func__);
 
 	return 0;
@@ -490,7 +486,7 @@ static int mdla_release(struct inode *inodep, struct file *filep)
 	return 0;
 }
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-int apusys_mdla_handler(APUSYS_DEVICE_CMD_E type,
+int apusys_mdla_handler(int type,
 	void *hnd, struct apusys_device *dev)//struct apusys_run_cmd *acd)
 {
 	long retval = 0;
@@ -518,15 +514,15 @@ int apusys_mdla_handler(APUSYS_DEVICE_CMD_E type,
 	{
 		struct mdla_run_cmd_sync *cmd_data =
 			(struct mdla_run_cmd_sync *)cmd_hnd->kva;
-
-		mdla_run_command_sync(
+		//struct mdla_pmu_hnd *pmu_hnd =
+		//	(struct mdla_pmu_hnd *)cmd_hnd->pmu_kva;
+		retval = mdla_run_command_sync(
 			&cmd_data->req,
-			&cmd_data->res,
-			mdla_info);
+			mdla_info,
+			cmd_hnd);
 		break;
 	}
 	case APUSYS_CMD_PREEMPT:
-		//FIXME: Must consider multi core command
 		return -EINVAL;
 	default:
 		return -EINVAL;
@@ -612,7 +608,7 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 {
 	long retval = 0;
 	struct ioctl_malloc malloc_data;
-#if 0
+#if 1
 	struct ioctl_perf perf_data;
 #endif
 
@@ -678,8 +674,8 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 			phys_to_virt(cmd_data.req.mva));
 		retval = mdla_run_command_sync(
 			&cmd_data.req,
-			&cmd_data.res,
-			&mdla_devices[0]);//modify this to UT mdla0/1
+			&mdla_devices[0],//modify this to UT mdla0/1
+			NULL);
 		if (copy_to_user((void *) arg, &cmd_data, sizeof(cmd_data)))
 			return -EFAULT;
 		break;
@@ -714,13 +710,13 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 		break;
 
 	}
-
+#endif
 	case IOCTL_PERF_SET_EVENT:
 		if (copy_from_user(&perf_data, (void *) arg,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		perf_data.handle = pmu_counter_alloc(
+		perf_data.handle = pmu_counter_alloc(0,
 			perf_data.interface, perf_data.event);
 		if (copy_to_user((void *) arg, &perf_data, sizeof(perf_data)))
 			return -EFAULT;
@@ -730,7 +726,7 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		perf_data.event = pmu_counter_event_get(perf_data.handle);
+		perf_data.event = pmu_counter_event_get(0, perf_data.handle);
 		if (copy_to_user((void *) arg, &perf_data, sizeof(perf_data)))
 			return -EFAULT;
 		break;
@@ -739,7 +735,7 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		perf_data.counter = pmu_counter_get(perf_data.handle);
+		perf_data.counter = pmu_counter_get(0, perf_data.handle);
 
 		if (copy_to_user((void *) arg, &perf_data, sizeof(perf_data)))
 			return -EFAULT;
@@ -749,7 +745,7 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		pmu_counter_free(perf_data.handle);
+		pmu_counter_free(0, perf_data.handle);
 
 		break;
 	case IOCTL_PERF_GET_START:
@@ -757,7 +753,7 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		perf_data.start = pmu_get_perf_start();
+		perf_data.start = pmu_get_perf_start(0);
 		if (copy_to_user((void *) arg, &perf_data, sizeof(perf_data)))
 			return -EFAULT;
 		break;
@@ -766,7 +762,7 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		perf_data.end = pmu_get_perf_end();
+		perf_data.end = pmu_get_perf_end(0);
 		if (copy_to_user((void *) arg, &perf_data, sizeof(perf_data)))
 			return -EFAULT;
 		break;
@@ -775,42 +771,42 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		perf_data.start = pmu_get_perf_cycle();
+		perf_data.start = pmu_get_perf_cycle(0);
 		if (copy_to_user((void *) arg, &perf_data, sizeof(perf_data)))
 			return -EFAULT;
 		break;
 	case IOCTL_PERF_RESET_CNT:
-		mutex_lock(&cmd_lock);
-		mutex_lock(&power_lock);
+		mutex_lock(&mdla_devices[0].cmd_lock);
+		mutex_lock(&mdla_devices[0].power_lock);
 
-		pmu_reset_saved_counter();
+		pmu_reset_saved_counter(0);
 
-		mutex_unlock(&power_lock);
-		mutex_unlock(&cmd_lock);
+		mutex_unlock(&mdla_devices[0].power_lock);
+		mutex_unlock(&mdla_devices[0].cmd_lock);
 		break;
 	case IOCTL_PERF_RESET_CYCLE:
-		mutex_lock(&cmd_lock);
-		mutex_lock(&power_lock);
+		mutex_lock(&mdla_devices[0].cmd_lock);
+		mutex_lock(&mdla_devices[0].power_lock);
 
-		pmu_reset_saved_cycle();
+		pmu_reset_saved_cycle(0);
 
-		mutex_unlock(&power_lock);
-		mutex_unlock(&cmd_lock);
+		mutex_unlock(&mdla_devices[0].power_lock);
+		mutex_unlock(&mdla_devices[0].cmd_lock);
 		break;
 	case IOCTL_PERF_SET_MODE:
 		if (copy_from_user(&perf_data, (void *) arg,
 				sizeof(perf_data))) {
 			return -EFAULT;
 		}
-		mutex_lock(&cmd_lock);
-		mutex_lock(&power_lock);
+		mutex_lock(&mdla_devices[0].cmd_lock);
+		mutex_lock(&mdla_devices[0].power_lock);
 
-		pmu_clr_mode_save(perf_data.mode);
+		pmu_clr_mode_save(0, perf_data.mode);
 
-		mutex_unlock(&power_lock);
-		mutex_unlock(&cmd_lock);
+		mutex_unlock(&mdla_devices[0].power_lock);
+		mutex_unlock(&mdla_devices[0].cmd_lock);
 		break;
-#endif
+
 #ifdef CONFIG_MTK_MDLA_ION
 	case IOCTL_ION_KMAP:
 		return mdla_ion_kmap(arg);

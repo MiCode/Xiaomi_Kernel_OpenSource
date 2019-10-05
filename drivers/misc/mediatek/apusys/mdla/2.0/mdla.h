@@ -33,7 +33,7 @@
 
 #define __APUSYS_MIDDLEWARE__ //TODO remove after APUSYS Trial run done
 #define __APUSYS_MDLA_UT__ //TODO remove after UT issue fixed
-#define __APUSYS_MDLA_SW_PORTING_WORKAROUND__
+//#define __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 
 //#define __APUSYS_PREEMPTION__
 extern unsigned long long notrace sched_clock(void);
@@ -42,6 +42,7 @@ extern int mdla_uninit_hw(void);
 extern long mdla_dvfs_ioctl(struct file *filp, unsigned int command,
 		unsigned long arg);
 extern int mdla_dvfs_cmd_end_shutdown(void);
+extern void mdla_wait_command(struct ioctl_wait_cmd *wt);
 
 extern void *apu_mdla_gsm_top;
 extern void *apu_mdla_gsm_base;
@@ -138,6 +139,12 @@ struct mdla_run_cmd_sync {
 };
 
 #define MTK_MDLA_MAX_NUM 2 // shift to dts later
+struct mdla_pmu_info {
+	u64 cmd_id;
+	u64 PMU_res_buf_addr0;
+	u64 PMU_res_buf_addr1;
+	struct mdla_pmu_hnd *pmu_hnd;
+};
 
 /*mdla dev info, register to apusys callback*/
 struct mdla_dev {
@@ -158,6 +165,7 @@ struct mdla_dev {
 #ifdef __APUSYS_PREEMPTION__
 	struct mdla_scheduler *scheduler;
 #endif
+	struct mdla_pmu_info pmu;
 };
 
 struct mdla_irq_desc {
@@ -259,7 +267,6 @@ unsigned int mdla_process_ce(unsigned int core_id);
 void mdla_issue_ce(unsigned int core_id);
 void mdla_complete_ce(unsigned int core_id);
 void mdla_preempt_ce(unsigned int core_id);
-void mdla_command_done(int core_id);
 #endif // __APUSYS_PREEMPTION__
 
 #endif

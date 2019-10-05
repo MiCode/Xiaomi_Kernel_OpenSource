@@ -10,7 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-#ifdef CONFIG_MTK_MDLA_ION
+
 #include <linux/types.h>
 #include <ion.h>
 #include <mtk/ion_drv.h>
@@ -23,7 +23,7 @@
 #include "mdla_ion.h"
 #include "mdla_debug.h"
 #include "mdla.h"
-
+#ifdef CONFIG_MTK_MDLA_ION
 
 static struct ion_client *ion_client;
 

@@ -188,7 +188,7 @@ static const struct file_operations mdla_debug_power_fops = {
 
 static int mdla_debug_prof_show(struct seq_file *s, void *unused)
 {
-	mdla_dump_prof(s);
+	mdla_dump_prof(0, s);
 	return 0;
 }
 
@@ -201,7 +201,7 @@ static ssize_t mdla_debug_prof_write(struct file *flip,
 		const char __user *buffer,
 		size_t count, loff_t *f_pos)
 {
-	pmu_reset_saved_counter();
+	pmu_reset_saved_counter(0);
 	return count;
 }
 

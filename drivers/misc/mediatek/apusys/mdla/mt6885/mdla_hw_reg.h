@@ -19,7 +19,7 @@
 #define MDLA_IRQ_SWCMD_DONE        (1 << 2)
 #define MDLA_IRQ_PMU_INTE  (1 << 9)
 #define MDLA_IRQ_MASK      (0x1FFFFF)
-#define MDLA_AXI_CTRL_MASK ((1 << 7) | (1 << 16))
+#define MDLA_AXI_CTRL_MASK ((1 << 1) | (1 << 10))
 
 #if 0
 /* Infra TOPAXI */

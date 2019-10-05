@@ -109,7 +109,7 @@ enum MDLA_CMD_RESULT {
 	((void *)((unsigned long)(a)))
 
 #define MDLA_WAIT_CMD_ARRAY_SIZE 6
-#ifndef __APUSYS_MIDDLEWARE__
+
 struct ioctl_wait_cmd {
 	__u32 id;              /* [in] command id */
 	int  result;           /* [out] success(0), timeout(1) */
@@ -117,7 +117,7 @@ struct ioctl_wait_cmd {
 	uint64_t busy_time;    /* [out] mdla execution time (ns) */
 	uint32_t bandwidth;    /* [out] mdla bandwidth */
 };
-
+#ifndef __APUSYS_MIDDLEWARE__
 struct ioctl_run_cmd_sync {
 	struct ioctl_run_cmd req;
 	struct ioctl_wait_cmd res;

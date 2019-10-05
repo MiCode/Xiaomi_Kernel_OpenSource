@@ -73,7 +73,7 @@ int mdla_pwr_on(int core_id)
 	u64 poweron_t;   /*power on start time */
 	#endif
 
-	enum DVFS_USER register_user = MDLA;
+	enum DVFS_USER register_user = MDLA0+core_id;
 
 	mutex_lock(&mdla_devices[core_id].power_lock);
 
@@ -105,12 +105,12 @@ int mdla_pwr_on(int core_id)
 	mdla_reset_lock(core_id, REASON_DRVINIT);
 
 power_on_done:
-	mdla_profile_start();
+	mdla_profile_start(core_id);
 	mutex_unlock(&mdla_devices[core_id].power_lock);
 #else//CONFIG_FPGA_EARLY_PORTING
 
 	mdla_reset_lock(core_id, REASON_DRVINIT);
-	mdla_profile_start();
+	mdla_profile_start(core_id);
 
 #endif
 	return ret;
@@ -120,7 +120,7 @@ int mdla_pwr_off(int core_id)
 {
 	int ret = 0;
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	enum DVFS_USER register_user = MDLA;
+	enum DVFS_USER register_user = MDLA0+core_id;
 
 	mutex_lock(&mdla_devices[core_id].power_lock);
 
@@ -131,7 +131,7 @@ int mdla_pwr_off(int core_id)
 	if (timer_pending(&mdla_devices[core_id].power_timer))
 		del_timer(&mdla_devices[core_id].power_timer);
 
-	pmu_reg_save();
+	pmu_reg_save(core_id);
 
 	ret = apu_device_power_off(register_user);
 	if (!ret) {
@@ -173,10 +173,6 @@ void mdla_power_timeup(unsigned long data)
 
 void mdla_setup_power_down(int core_id)
 {
-	/*
-	 * XXX: this function might be reentrant,
-	 * so we should check the timer status here
-	 */
 	if (mdla_poweroff_time) {
 		mdla_drv_debug("%s: MDLA %d start power_timer\n",
 				__func__, core_id);
@@ -188,21 +184,26 @@ void mdla_setup_power_down(int core_id)
 int mdla_register_power(struct platform_device *pdev)
 {
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	int ret = 0;
-	enum DVFS_USER register_user = MDLA;
+	int i, ret = 0;
+	enum DVFS_USER register_user;
 
 	mdla_cmd_debug("probe 0, pdev id = %d name = %s, name = %s\n",
 						pdev->id, pdev->name,
 						pdev->dev.of_node->name);
 
-	ret = apu_power_device_register(register_user, pdev);
-	if (!ret) {
-		mdla_cmd_debug("%s register power device %d success\n",
-						__func__, register_user);
-	} else {
-		mdla_cmd_debug("%s register power device %d fail\n",
-						__func__, register_user);
-		return -1;
+	for (i = 0; i < mdla_max_num_core; i++) {
+		register_user = MDLA0+i;
+		ret = apu_power_device_register(register_user, pdev);
+		if (!ret) {
+			mdla_cmd_debug("%s register power device %d success\n",
+							__func__,
+							register_user);
+		} else {
+			mdla_cmd_debug("%s register power device %d fail\n",
+							__func__,
+							register_user);
+			return -1;
+		}
 	}
 #endif
 	return 0;
@@ -212,13 +213,16 @@ int mdla_register_power(struct platform_device *pdev)
 int mdla_unregister_power(struct platform_device *pdev)
 {
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	enum DVFS_USER register_user = MDLA;
+	enum DVFS_USER register_user;
 	int i;
 
 	for (i = 0; i < mdla_max_num_core; i++)
 		mdla_start_power_off(i);
 
-	apu_power_device_unregister(register_user);
+	for (i = 0; i < mdla_max_num_core; i++) {
+		register_user = MDLA0+i;
+		apu_power_device_unregister(register_user);
+	}
 #endif
 	return 0;
 
