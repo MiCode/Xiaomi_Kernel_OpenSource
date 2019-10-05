@@ -1614,7 +1614,7 @@ int drm_fb_helper_check_var(struct fb_var_screeninfo *var,
 	    !var->blue.msb_right && !var->transp.msb_right) {
 		drm_fb_helper_fill_pixel_fmt(var, fb->format->depth);
 	}
-
+#if 0
 	/*
 	 * drm fbdev emulation doesn't support changing the pixel format at all,
 	 * so reject all pixel format changing requests.
@@ -1623,7 +1623,7 @@ int drm_fb_helper_check_var(struct fb_var_screeninfo *var,
 		DRM_DEBUG("fbdev emulation doesn't support changing the pixel format\n");
 		return -EINVAL;
 	}
-
+#endif
 	return 0;
 }
 EXPORT_SYMBOL(drm_fb_helper_check_var);
@@ -1731,11 +1731,12 @@ int drm_fb_helper_pan_display(struct fb_var_screeninfo *var,
 		return -EBUSY;
 
 	mutex_lock(&fb_helper->lock);
+#if 0
 	if (!drm_fb_helper_is_bound(fb_helper)) {
 		mutex_unlock(&fb_helper->lock);
 		return -EBUSY;
 	}
-
+#endif
 	if (drm_drv_uses_atomic_modeset(dev))
 		ret = pan_display_atomic(var, info);
 	else
