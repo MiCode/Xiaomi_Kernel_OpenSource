@@ -40,19 +40,19 @@ struct flashlight_device;
 typedef int (*flashlight_charge_event_cb)(void *data, int remains);
 
 struct flashlight_ops {
-	int (*set_torch_brightness)(struct flashlight_device *, int);
-	int (*set_strobe_brightness)(struct flashlight_device *, int);
-	int (*set_strobe_timeout)(struct flashlight_device *, int);
-	int (*list_strobe_timeout)(struct flashlight_device *, int);
-	int (*set_mode)(struct flashlight_device *, int);
-	int (*set_color_temperature)(struct flashlight_device *, int);
-	int (*list_color_temperature)(struct flashlight_device *, int);
-	int (*strobe_charge)(struct flashlight_device *,
-				flashlight_charge_event_cb, void *, int);
-	int (*strobe)(struct flashlight_device *);
-	int (*is_ready)(struct flashlight_device *);
-	int (*suspend)(struct flashlight_device *, pm_message_t);
-	int (*resume)(struct flashlight_device *);
+	int (*set_torch_brightness)(struct flashlight_device *dev, int level);
+	int (*set_strobe_brightness)(struct flashlight_device *dev, int level);
+	int (*set_strobe_timeout)(struct flashlight_device *dev, int timeout);
+	int (*list_strobe_timeout)(struct flashlight_device *dev, int selector);
+	int (*set_mode)(struct flashlight_device *dev, int mode);
+	int (*set_color_temperature)(struct flashlight_device *dev, int temp);
+	int (*list_color_temperature)(struct flashlight_device *dev, int temp);
+	int (*strobe_charge)(struct flashlight_device *dev,
+			flashlight_charge_event_cb cb, void *data, int start);
+	int (*strobe)(struct flashlight_device *dev);
+	int (*is_ready)(struct flashlight_device *dev);
+	int (*suspend)(struct flashlight_device *dev, pm_message_t state);
+	int (*resume)(struct flashlight_device *dev);
 };
 
 struct flashlight_properties {
