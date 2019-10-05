@@ -73,8 +73,6 @@
 #define TMC_COOLER_LV_CTRL08 (MUTT_TMC_COOLER_LV_ENABLE | TMC_COOLER_LV8 << 16)
 #define TMC_COOLER_LV_RAT_LTE	(TMC_OVERHEATED_LTE << 24)
 #define TMC_COOLER_LV_RAT_NR	(TMC_OVERHEATED_NR << 24)
-#define TMC_SCG_OFF (TMC_CTRL_CMD_SCG_OFF | 1 << 8)
-#define TMC_SCG_ON  (TMC_CTRL_CMD_SCG_OFF)
 #define TMC_REDUCE_OTHER_MAX_TX_POWER(pwr) \
 	(TMC_CTRL_CMD_TX_POWER \
 	| (TMC_TW_PWR_REDUCE_OTHER_MAX_TX_EVENT << 16)	\
@@ -150,8 +148,8 @@ static const struct file_operations clmutt_ ## name ## _proc_fops = {         \
 }
 
 enum mutt_type {
-	MUTT_NR,
 	MUTT_LTE,
+	MUTT_NR,
 
 	NR_MUTT_TYPE,
 };
@@ -162,8 +160,16 @@ enum tmc_ctrl_cmd_enum {
 	TMC_CTRL_CMD_CA_CTRL,
 	TMC_CTRL_CMD_PA_CTRL,
 	TMC_CTRL_CMD_COOLER_LV,
-	TMC_CTRL_CMD_SCG_OFF,
+	/* MD internal use start */
+	TMC_CTRL_CMD_CELL,            /* refer as del_cell */
+	TMC_CTRL_CMD_BAND,            /* refer as del_band */
+	TMC_CTRL_CMD_INTER_BAND_OFF,  /* similar to PA_OFF on Gen95 */
+	TMC_CTRL_CMD_CA_OFF,          /* similar to CA_OFF on Gen95 */
+	/* MD internal use end */
+	TMC_CTRL_CMD_SCG_OFF,         /* Fall back to 4G */
+	TMC_CTRL_CMD_SCG_ON,          /* Enabled 5G */
 	TMC_CTRL_CMD_TX_POWER,
+	TMC_CTRL_CMD_DEFAULT,
 };
 
 enum tmc_throt_ctrl_enum {
@@ -257,6 +263,7 @@ struct clmutt_adaptive_algo_param {
 struct clmutt_cooler {
 	enum mutt_type type;
 	char *name;
+	int target_level;
 #if FEATURE_ADAPTIVE_MUTT
 	int adp_level;
 	struct clmutt_adaptive_algo_param adp_param;
@@ -312,9 +319,10 @@ static struct clmutt_param clmutt_data = {
 	.cur_limit = MUTT_TMC_COOLER_LV_DISABLE,
 	.cur_level = -1,
 	.cooler_param = {
-		[MUTT_NR] = {
-			.type = MUTT_NR,
-			.name = __stringify(MUTT_NR),
+		[MUTT_LTE] = {
+			.type = MUTT_LTE,
+			.name = __stringify(MUTT_LTE),
+			.target_level = -1,
 #if FEATURE_ADAPTIVE_MUTT
 			.adp_level = -1,
 			.adp_param = {0, 58000, 1000, 50, 50, 0},
@@ -322,9 +330,10 @@ static struct clmutt_param clmutt_data = {
 			.dev = { 0 },
 			.state = { 0 },
 		},
-		[MUTT_LTE] = {
-			.type = MUTT_LTE,
-			.name = __stringify(MUTT_LTE),
+		[MUTT_NR] = {
+			.type = MUTT_NR,
+			.name = __stringify(MUTT_NR),
+			.target_level = -1,
 #if FEATURE_ADAPTIVE_MUTT
 			.adp_level = -1,
 			.adp_param = {0, 58000, 1000, 50, 50, 0},
@@ -358,17 +367,30 @@ int md_id, unsigned int id, char *buf, unsigned int len)
 /****************************************************************************
  *  Static Function
  ****************************************************************************/
+static int clmutt_decide_final_level(enum mutt_type type, int lv)
+{
+	int i, final_lv = -1;
+
+	for_each_mutt_type(i) {
+		if (i == (int)type)
+			final_lv = MAX(final_lv, lv);
+		else
+			final_lv = MAX(final_lv,
+				clmutt_data.cooler_param[i].target_level);
+	}
+
+	return final_lv;
+}
+
 static void clmutt_cooler_param_reset(int mdoff_state)
 {
 	int i, j;
 
-	clmutt_data.cur_level = TMC_MD_OFF_LEVEL;
 	clmutt_data.cur_limit = 0;
 	for_each_mutt_type(i) {
-		clmutt_data.cooler_param[i].adp_level = -1;
-		clmutt_data.cooler_param[i].mdoff_state = mdoff_state;
 		clmutt_data.cooler_param[i].noIMS_state = 0;
 #if FEATURE_ADAPTIVE_MUTT
+		/* clmutt_data.cooler_param[i].adp_level = -1; */
 		clmutt_data.cooler_param[i].adp_state = 0;
 #endif
 		for_each_mutt_cooler_instance(j)
@@ -507,24 +529,40 @@ static int clmutt_send_tmd_signal(int level)
 }
 #endif
 
-static int clmutt_send_tm_signal(enum mutt_type type, int level)
+static int clmutt_send_tm_signal(enum mutt_type type, int state)
 {
 	int ret = 0;
+	int target_lv;
 
 	if (!IS_MUTT_TYPE_VALID(type))
 		return ret;
 
-	if (clmutt_data.cooler_param[type].mdoff_state == level)
+	if (clmutt_data.cooler_param[type].mdoff_state == state)
 		return ret;
+
+	target_lv = (state) ? TMC_MD_OFF_LEVEL : TMC_NO_IMS_LEVEL;
+	if (!state && clmutt_decide_final_level(type, target_lv)
+		== TMC_MD_OFF_LEVEL) {
+		mtk_cooler_mutt_dprintk_always(
+			"[%s] %s:MD off by others, skip!\n", __func__,
+			clmutt_data.cooler_param[type].name);
+		clmutt_data.cooler_param[type].mdoff_state = state;
+		clmutt_data.cooler_param[type].target_level = target_lv;
+		return ret;
+	} else if (target_lv == clmutt_data.cur_level) {
+		clmutt_data.cooler_param[type].mdoff_state = state;
+		clmutt_data.cooler_param[type].target_level = target_lv;
+		return ret;
+	}
 
 	if (clmutt_data.tm_input_pid == 0) {
 		mtk_cooler_mutt_dprintk("[%s] pid is empty\n", __func__);
 		ret = -1;
 	}
 
-	mtk_cooler_mutt_dprintk_always("[%s] pid is %d, %d; MD off: %d\n",
-					__func__, clmutt_data.tm_pid,
-					clmutt_data.tm_input_pid, level);
+	mtk_cooler_mutt_dprintk_always("[%s] %s:pid is %d, %d; MD off=%d\n",
+		__func__, clmutt_data.cooler_param[type].name,
+		clmutt_data.tm_pid, clmutt_data.tm_input_pid, state);
 
 	if (ret == 0 && clmutt_data.tm_input_pid != clmutt_data.tm_pid) {
 		clmutt_data.tm_pid = clmutt_data.tm_input_pid;
@@ -540,7 +578,7 @@ static int clmutt_send_tm_signal(enum mutt_type type, int level)
 
 		info.si_signo = SIGIO;
 		info.si_errno = TM_CLIENT_clmutt;
-		info.si_code = level; /* Toggle MD ON: 0 OFF: 1*/
+		info.si_code = state; /* Toggle MD ON: 0 OFF: 1*/
 		info.si_addr = NULL;
 		ret = send_sig_info(SIGIO, &info, clmutt_data.pg_task);
 	}
@@ -548,13 +586,24 @@ static int clmutt_send_tm_signal(enum mutt_type type, int level)
 	if (ret != 0)
 		mtk_cooler_mutt_dprintk_always("[%s] ret=%d\n", __func__, ret);
 	else {
-		if (level == 1) {
-			clmutt_cooler_param_reset(level);
+		clmutt_data.cooler_param[type].mdoff_state = state;
+		clmutt_data.cooler_param[type].target_level = target_lv;
+		if (state == 1) {
+			clmutt_cooler_param_reset(state);
+			clmutt_data.cur_level = target_lv;
+			mtk_cooler_mutt_dprintk_always(
+				"[%s] MD off by %s!\n", __func__,
+				clmutt_data.cooler_param[type].name);
 		} else {
 			clmutt_data.cooler_param[type].mdoff_state = 0;
+			clmutt_data.cooler_param[type].target_level =
+				target_lv;
 			clmutt_data.cur_level = -1;
 			clmutt_data.cur_limit =
 				MUTT_TMC_COOLER_LV_DISABLE;
+			mtk_cooler_mutt_dprintk_always(
+				"[%s] MD on by %s!\n", __func__,
+				clmutt_data.cooler_param[type].name);
 		}
 	}
 	return ret;
@@ -563,6 +612,9 @@ static int clmutt_send_tm_signal(enum mutt_type type, int level)
 static int clmutt_disable_cooler_lv_ctrl(void)
 {
 	int ret;
+
+	if (clmutt_data.cur_level == -1)
+		return 0;
 
 	ret = clmutt_send_tmc_cmd(MUTT_TMC_COOLER_LV_DISABLE);
 	if (!ret) {
@@ -638,15 +690,8 @@ static int mtk_cl_mdoff_set_cur_state(struct thermal_cooling_device *cdev,
 
 	mutex_lock(&clmutt_data.lock);
 
-	if (IS_MD_OFF(clmutt_data.cur_level)) {
-		mtk_cooler_mutt_dprintk(
-			"%s():  MD already OFF!!\n", __func__);
-		goto end;
-	}
-
 	clmutt_send_tm_signal(type, state);
 
-end:
 	mutex_unlock(&clmutt_data.lock);
 
 	return 0;
@@ -660,7 +705,7 @@ static struct thermal_cooling_device_ops mtk_cl_mdoff_ops = {
 
 static void mtk_cl_mutt_set_onIMS(enum mutt_type type, unsigned int state)
 {
-	int ret = 0, level;
+	int ret = 0, target_lv;
 
 	if (!IS_MUTT_TYPE_VALID(type))
 		return;
@@ -668,20 +713,34 @@ static void mtk_cl_mutt_set_onIMS(enum mutt_type type, unsigned int state)
 	if (clmutt_data.cooler_param[type].noIMS_state == state)
 		return;
 
-	level = (state) ? TMC_NO_IMS_LEVEL : TMC_IMS_ONLY_LEVEL;
-	level = MAX(level, clmutt_data.cur_level);
-	if (level != clmutt_data.cur_level)
+	target_lv = (state) ? TMC_NO_IMS_LEVEL : TMC_IMS_ONLY_LEVEL;
+	if (!state && clmutt_decide_final_level(type, target_lv)
+		== TMC_NO_IMS_LEVEL) {
+		mtk_cooler_mutt_dprintk_always(
+			"[%s] %s:IMS off by others, skip!\n", __func__,
+			clmutt_data.cooler_param[type].name);
+		clmutt_data.cooler_param[type].noIMS_state = state;
+		clmutt_data.cooler_param[type].target_level = target_lv;
+		return;
+	}
+
+	if (target_lv != clmutt_data.cur_level)
 		/* update lv to MD */
-		ret = clmutt_send_tmc_cmd(clmutt_level_selection(level, type));
+		ret = clmutt_send_tmc_cmd(
+			clmutt_level_selection(target_lv, type));
 	else
 		/* just re-send if MD has been rebooted */
 		ret = clmutt_send_tmc_cmd(clmutt_data.cur_limit);
 	if (ret != 0) {
 		clmutt_data.cur_limit = 0;
-		mtk_cooler_mutt_dprintk_always("[%s] ret=%d\n", __func__, ret);
+		mtk_cooler_mutt_dprintk_always("[%s] %s:ret=%d\n", __func__,
+			clmutt_data.cooler_param[type].name, ret);
 	} else {
 		clmutt_data.cooler_param[type].noIMS_state = state;
-		clmutt_data.cur_level = level;
+		clmutt_data.cooler_param[type].target_level = target_lv;
+		clmutt_data.cur_level = target_lv;
+		mtk_cooler_mutt_dprintk_always("[%s] %s:set noIMS state=%d\n",
+			__func__, clmutt_data.cooler_param[type].name, state);
 	}
 }
 
@@ -747,7 +806,7 @@ static int mtk_cl_noIMS_set_cur_state(struct thermal_cooling_device *cdev,
 
 	if (IS_MD_OFF(clmutt_data.cur_level)) {
 		mtk_cooler_mutt_dprintk(
-			"%s():  MD STILL OFF!!\n", __func__);
+			"%s(): MD STILL OFF!!\n", __func__);
 		goto end;
 	}
 
@@ -768,8 +827,8 @@ static struct thermal_cooling_device_ops mtk_cl_noIMS_ops = {
 /* MUST in lock! */
 static void mtk_cl_mutt_set_mutt_limit(enum mutt_type type)
 {
-	int i, ret = 0;
-	unsigned int level = 0;
+	int i, final_lv, ret = 0;
+	int target_lv = -1;
 
 	if (!IS_MUTT_TYPE_VALID(type))
 		return;
@@ -781,20 +840,36 @@ static void mtk_cl_mutt_set_mutt_limit(enum mutt_type type)
 			clmutt_data.cooler_param[type].state[i]);
 
 		if (curr_state == 1)
-			level = i;
+			target_lv = i;
 	}
 
 #if FEATURE_ADAPTIVE_MUTT
-	if (clmutt_data.cooler_param[type].adp_level > level)
-		level = clmutt_data.cooler_param[type].adp_level;
+	if (clmutt_data.cooler_param[type].adp_level > target_lv)
+		target_lv = clmutt_data.cooler_param[type].adp_level;
 #endif
-	level = MAX(level, clmutt_data.cur_level);
-	if (level != clmutt_data.cur_level)
+
+	final_lv = clmutt_decide_final_level(type, target_lv);
+	if (target_lv != -1 && target_lv < final_lv) {
+		mtk_cooler_mutt_dprintk_always(
+			"[%s] %s:target_lv(%d) < final_lv(%d), skip...\n",
+			__func__, clmutt_data.cooler_param[type].name,
+			target_lv, final_lv);
+		clmutt_data.cooler_param[type].target_level = target_lv;
+		return;
+	}
+
+	if (target_lv != clmutt_data.cur_level) {
 		/* update lv to MD */
-		ret = clmutt_send_tmc_cmd(clmutt_level_selection(level, type));
-	else
+		ret = clmutt_send_tmc_cmd(
+			clmutt_level_selection(target_lv, type));
+		mtk_cooler_mutt_dprintk_always("[%s]set %s lv to %d, ret=%d\n",
+			__func__, clmutt_data.cooler_param[type].name,
+			target_lv, ret);
+	} else {
 		/* just re-send if MD has been rebooted */
 		ret = clmutt_send_tmc_cmd(clmutt_data.cur_limit);
+	}
+
 	if (ret != 0) {
 		/* force to send again at next time */
 		clmutt_data.cur_limit = 0;
@@ -810,7 +885,8 @@ static void mtk_cl_mutt_set_mutt_limit(enum mutt_type type)
 		return;
 	}
 
-	clmutt_data.cur_level = level;
+	clmutt_data.cur_level = target_lv;
+	clmutt_data.cooler_param[type].target_level = target_lv;
 #if FEATURE_THERMAL_DIAG
 	if (IS_IMS_ONLY(clmutt_data.cur_level))
 		clmutt_send_tmd_signal(TMD_Alert_NOULdata);
@@ -1182,16 +1258,22 @@ static int clmutt_setting_proc_read(struct seq_file *m, void *v)
 {
 	int i, j;
 
-	seq_printf(m, "cur_limit: %d, cur_level: %d\n",
+	seq_printf(m, "cur_limit: 0x%08x, cur_level: %d\n",
 		clmutt_data.cur_limit, clmutt_data.cur_level);
 
 	for_each_mutt_type(i) {
 		seq_printf(m, "[%d][%s]\n",
 			clmutt_data.cooler_param[i].type,
 			clmutt_data.cooler_param[i].name);
+		seq_printf(m, "\ttarget_level:%d\n",
+			clmutt_data.cooler_param[i].target_level);
 #if FEATURE_ADAPTIVE_MUTT
 		seq_printf(m, "\ttarget_t:%d\n",
 			clmutt_data.cooler_param[i].adp_param.target_t);
+		seq_printf(m, "\tadp_level:%d\n",
+			clmutt_data.cooler_param[i].adp_level);
+		seq_printf(m, "\tadp_state:%lu\n",
+			clmutt_data.cooler_param[i].adp_state);
 #endif
 		seq_printf(m, "\tmdoff_state:%d\n",
 			clmutt_data.cooler_param[i].mdoff_state);
@@ -1390,9 +1472,12 @@ static ssize_t clmutt_duty_ctrl_proc_write(struct file *filp,
 			goto end;
 
 		if (no_ims)
-			limit = MUTT_THROTTLING_IMS_DISABLE;
+			/* set active/suspend=1/255 for no IMS case */
+			limit = (1 << MUTT_ACTIVATED_OFFSET)
+				| (255 << MUTT_SUSPEND_OFFSET)
+				| MUTT_THROTTLING_IMS_DISABLE;
 		else if (active >= 1 && active <= 255
-			&& suspend >= 100 && suspend <= 25500)
+			&& suspend >= 1 && suspend <= 255)
 			limit = (active << MUTT_ACTIVATED_OFFSET)
 				| (suspend << MUTT_SUSPEND_OFFSET)
 				| MUTT_THROTTLING_IMS_ENABLE;
@@ -1453,6 +1538,9 @@ static ssize_t clmutt_ca_ctrl_proc_write(struct file *filp,
 
 		mutex_lock(&clmutt_data.lock);
 
+		if (ca_ctrl == clmutt_data.ca_ctrl)
+			goto end;
+
 		ret = clmutt_disable_cooler_lv_ctrl();
 		if (ret)
 			goto end;
@@ -1509,6 +1597,9 @@ static ssize_t clmutt_pa_ctrl_proc_write(struct file *filp,
 			"[%s] pa_ctrl:%d\n", __func__, pa_ctrl);
 
 		mutex_lock(&clmutt_data.lock);
+
+		if (pa_ctrl == clmutt_data.pa_ctrl)
+			goto end;
 
 		ret = clmutt_disable_cooler_lv_ctrl();
 		if (ret)
@@ -1640,11 +1731,14 @@ static ssize_t clmutt_scg_off_proc_write(struct file *filp,
 
 		mutex_lock(&clmutt_data.lock);
 
+		if (off == clmutt_data.scg_off)
+			goto end;
+
 		ret = clmutt_disable_cooler_lv_ctrl();
 		if (ret)
 			goto end;
 
-		limit = (off) ? TMC_SCG_OFF : TMC_SCG_ON;
+		limit = (off) ? TMC_CTRL_CMD_SCG_OFF : TMC_CTRL_CMD_SCG_ON;
 		ret = clmutt_send_tmc_cmd(limit);
 
 		mtk_cooler_mutt_dprintk_always(
@@ -1709,6 +1803,9 @@ static ssize_t clmutt_tx_pwr_proc_write(struct file *filp,
 		}
 
 		mutex_lock(&clmutt_data.lock);
+
+		if (tx_pwr <= 0)
+			tx_pwr = 0xFF;
 
 		limit = (type == MUTT_NR)
 			? TMC_REDUCE_NR_MAX_TX_POWER(tx_pwr)
@@ -1794,7 +1891,7 @@ static int __init mtk_cooler_mutt_init(void)
 			int i;
 
 			for (i = 0; i < ARRAY_SIZE(entries); i++) {
-				proc_create(entries[i].name, 0664,
+				entry = proc_create(entries[i].name, 0664,
 					dir_entry, entries[i].fops);
 				if (entry)
 					proc_set_user(entry, uid, gid);
