@@ -64,6 +64,8 @@
 #include <cmdq_core.h>
 #include <cmdq_record.h>
 #include <smi_public.h>
+#include <linux/dma-mapping.h>
+#include "mach/pseudo_m4u.h"
 
 /* Measure the kernel performance
  * #define __FDVT_KERNEL_PERFORMANCE_MEASURE__
@@ -302,6 +304,10 @@ static int nr_fdvt_devs;
 
 static unsigned int clock_enable_count;
 static unsigned int fdvt_count;
+
+#ifdef CONFIG_MTK_IOMMU_V2
+static int FD_MEM_USE_VIRTUL = 1;
+#endif
 
 /* maximum number for supporting user to do interrupt operation */
 /* index 0 is for all the user that do not do register irq first */
@@ -1379,7 +1385,9 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 #ifdef FDVT_USE_GCE
 	struct cmdqRecStruct *handle;
 	int64_t engineFlag = (uint64_t)(1LL << CMDQ_ENG_FDVT);
+#if 0
 	int i = 0;
+#endif
 #endif /* FDVT_USE_GCE */
 	if (FDVT_DBG_DBGLOG == (FDVT_DBG_DBGLOG & fdvt_info.debug_mask)) {
 		log_dbg("config_fdvt_hw Start!\n");
@@ -1430,6 +1438,7 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 	cmdqRecWrite(handle, IPESYS_BASE + IPESYS_IMG_CG_CLR, 0xFFFFFFFF,
 		     CMDQ_REG_MASK);
 	/*FDVT at port0 to port3 */
+#if 0
 	for (i = 0; i < 4; i++) {
 		cmdqRecWrite(handle,
 			     SMI_LARB8_BASE + SMI_LARB_NON_SEC_CON + 4 * i,
@@ -1438,6 +1447,7 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 			     SMI_LARB8_BASE + SMI_LARB_SEC_CON + 4 * i,
 			     0x00000000, CMDQ_REG_MASK);
 	}
+#endif
 #endif
 	if (basic_config->FD_MODE == 0) {
 		cmdqRecWrite(handle, FDVT_ENABLE_HW, 0x00000111,
@@ -1707,6 +1717,37 @@ static inline void fdvt_disable_unprepare_ccf_clock(void)
 }
 #endif
 
+#ifdef CONFIG_MTK_IOMMU_V2
+static inline int m4u_control_iommu_port(void)
+{
+	struct M4U_PORT_STRUCT sPort;
+	int ret = 0;
+
+	/* LARB20 */
+	sPort.ePortID = M4U_PORT_L20_IPE_FDVT_RDA_DISP;
+	sPort.Virtuality = FD_MEM_USE_VIRTUL;
+
+#if defined(CONFIG_MTK_M4U)
+	ret = m4u_config_port(&sPort);
+#endif
+
+	if (ret == 0) {
+		log_inf("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L20_IPE_FDVT_RDA_DISP),
+			FD_MEM_USE_VIRTUL ? "virtual" : "physical");
+	} else {
+		log_inf("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L20_IPE_FDVT_RDA_DISP),
+			FD_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
+		ret = -1;
+	}
+
+	return ret;
+}
+#endif
+
+
+
 /*****************************************************************************
  *
  *****************************************************************************/
@@ -1714,6 +1755,9 @@ static void fdvt_enable_clock(bool En)
 {
 #if defined(EP_NO_CLKMGR)
 	unsigned int set_reg;
+#endif
+#ifdef CONFIG_MTK_IOMMU_V2
+	int ret = 0;
 #endif
 
 	if (En) { /* Enable clock. */
@@ -1751,6 +1795,13 @@ static void fdvt_enable_clock(bool En)
 		spin_lock(&fdvt_info.spinlock_fdvt);
 		clock_enable_count++;
 		spin_unlock(&fdvt_info.spinlock_fdvt);
+#ifdef CONFIG_MTK_IOMMU_V2
+		if (clock_enable_count == 1) {
+			ret = m4u_control_iommu_port();
+			if (ret)
+				log_err("cannot config M4U IOMMU PORTS\n");
+		}
+#endif
 	} else { /* Disable clock. */
 
 		/* log_dbg("Dpe clock disabled. clock_enable_count: %d.",
@@ -3233,6 +3284,14 @@ static signed int FDVT_probe(struct platform_device *pDev)
 			nr_fdvt_devs, pDev->dev.of_node->name);
 		return -ENOMEM;
 	}
+
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		*(FDVT_dev->dev->dma_mask) =
+			(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
+		FDVT_dev->dev->coherent_dma_mask =
+			(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
+#endif
 
 	log_inf("nr_fdvt_devs=%d, devnode(%s), map_addr=0x%lx\n", nr_fdvt_devs,
 		pDev->dev.of_node->name, (unsigned long)FDVT_dev->regs);
