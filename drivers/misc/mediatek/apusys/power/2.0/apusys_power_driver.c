@@ -149,6 +149,19 @@ uint64_t get_current_time_us(void)
 	return ((t.tv_sec & 0xFFF) * 1000000 + t.tv_usec);
 }
 
+void apu_get_power_info(void)
+{
+	struct hal_param_pwr_info info;
+
+	info.id = timestamp;
+
+	if (apu_power_counter != 0)
+		hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
+	else
+		LOG_WRN("%s apu_power_counter = 0 , bypss\n", __func__);
+}
+EXPORT_SYMBOL(apu_get_power_info);
+
 static int apusys_power_task(void *arg)
 {
 	int keep_loop = 0;
@@ -176,6 +189,7 @@ static int apusys_power_task(void *arg)
 							__func__, timestamp);
 			// call dvfs API and bring timestamp to id
 			apusys_dvfs_policy(timestamp);
+			apu_get_power_info();
 		} else {
 			LOG_INF("%s enter sleep\n", __func__);
 			set_current_state(TASK_INTERRUPTIBLE);
@@ -187,20 +201,6 @@ static int apusys_power_task(void *arg)
 	LOG_INF("%s task stop\n", __func__);
 	return 0;
 }
-
-void apu_get_power_info(void)
-{
-	struct hal_param_pwr_info info;
-
-	info.id = timestamp;
-
-	if (apu_power_counter != 0)
-		hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
-	else
-		LOG_WRN("%s apu_power_counter = 0 , bypss\n", __func__);
-}
-EXPORT_SYMBOL(apu_get_power_info);
-
 
 void apu_power_reg_dump(void)
 {
@@ -423,11 +423,13 @@ int apu_power_device_register(enum DVFS_USER user, struct platform_device *pdev)
 	mutex_lock(&power_device_list_mtx);
 
 	list_add_tail(&pwr_dev->list, &power_device_list);
-
+// call apusys_power_init in probe
+#if 0
 	if (apu_power_counter == 0) {
 		// prepare clock and get regulator handle
 		apusys_power_init(user, (void *)&init_power_data);
 	}
+#endif
 	apu_power_counter++;
 
 	mutex_unlock(&power_device_list_mtx);
@@ -542,7 +544,7 @@ static int apu_power_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_exit;
 
-//	apusys_power_init(VPU0, (void *)&init_power_data);
+	apusys_power_init(VPU0, (void *)&init_power_data);
 //	d_work_func();
 
 #if !FOR_BRING_UP
@@ -622,9 +624,11 @@ int apu_power_power_stress(int type, int device, int opp)
 	mutex_lock(&power_stress_mtx);
 
 	if (apu_power_counter == 0) {
+		// call apusys_power_init in probe
 		// prepare clock and get regulator handle
-		apusys_power_init(VPU0, (void *)&init_power_data);
+		// apusys_power_init(VPU0, (void *)&init_power_data);
 		apu_power_counter++;
+		LOG_WRN("%s apu_power_counter++ for debug\n", __func__);
 	}
 
 	switch (type) {

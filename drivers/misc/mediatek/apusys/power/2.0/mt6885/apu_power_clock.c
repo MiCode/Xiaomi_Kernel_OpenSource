@@ -404,7 +404,6 @@ void enable_apu_device_clock(enum DVFS_USER user)
 		ENABLE_CLK(clk_apu_mdla0_cg_b12);
 		ENABLE_CLK(clk_apu_mdla0_apb_cg);
 		ENABLE_CLK(clk_apu_mdla0_axi_m_cg);
-		ENABLE_CLK(clk_top_apupll_ck);
 		break;
 	case MDLA1:
 		ENABLE_CLK(clk_apu_mdla1_cg_b0);
@@ -422,7 +421,6 @@ void enable_apu_device_clock(enum DVFS_USER user)
 		ENABLE_CLK(clk_apu_mdla1_cg_b12);
 		ENABLE_CLK(clk_apu_mdla1_apb_cg);
 		ENABLE_CLK(clk_apu_mdla1_axi_m_cg);
-		ENABLE_CLK(clk_top_apupll_ck);
 		break;
 	}
 
@@ -492,7 +490,6 @@ void disable_apu_device_clock(enum DVFS_USER user)
 		DISABLE_CLK(clk_apu_mdla0_cg_b12);
 		DISABLE_CLK(clk_apu_mdla0_apb_cg);
 		DISABLE_CLK(clk_apu_mdla0_axi_m_cg);
-		DISABLE_CLK(clk_top_apupll_ck);
 		break;
 	case MDLA1:
 		DISABLE_CLK(clk_apu_mdla1_cg_b0);
@@ -510,7 +507,6 @@ void disable_apu_device_clock(enum DVFS_USER user)
 		DISABLE_CLK(clk_apu_mdla1_cg_b12);
 		DISABLE_CLK(clk_apu_mdla1_apb_cg);
 		DISABLE_CLK(clk_apu_mdla1_axi_m_cg);
-		DISABLE_CLK(clk_top_apupll_ck);
 		break;
 	}
 	LOG_DBG("%s for DVFS_USER: %d\n", __func__, user);
@@ -693,8 +689,12 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		LOG_ERR("%s wrong freq : %d, force assign 26M\n",
 							__func__, freq);
 	}
-
+#if APUSYS_SETTLE_TIME_TEST
+	LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
+								domain, freq);
+#else
 	LOG_WRN("%s config domain %d to freq %d\n", __func__, domain, freq);
+#endif
 	return clk_set_parent(find_clk_by_domain(domain), clk_src);
 }
 
@@ -704,7 +704,12 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 
 	clk_set_parent(find_clk_by_domain(domain), clk_top_apupll_ck);
 
+#if APUSYS_SETTLE_TIME_TEST
+	LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
+								domain, freq);
+#else
 	LOG_WRN("%s config domain %d to freq %d\n", __func__, domain, freq);
+#endif
 	return clk_set_rate(clk_top_apupll_ck, scaled_freq);
 }
 

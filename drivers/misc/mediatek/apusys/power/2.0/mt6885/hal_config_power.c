@@ -194,6 +194,15 @@ static void hw_init_setting(void)
 	regValue |= 0x9E;
 	regValue |= BIT(10);
 	DRV_WriteReg32(APU_RPC_TOP_SEL, regValue);
+
+	udelay(100);
+
+	// sleep request enable
+	regValue = DRV_Reg32(APU_RPC_TOP_CON);
+	regValue |= 0x1;
+	DRV_WriteReg32(APU_RPC_TOP_CON, regValue);
+
+	LOG_WRN("%s done and request to enter sleep\n", __func__);
 }
 
 static void config_to_low_power(void)

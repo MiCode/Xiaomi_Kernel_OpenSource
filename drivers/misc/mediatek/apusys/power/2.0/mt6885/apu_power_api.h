@@ -16,6 +16,8 @@
 
 #include "apusys_power_cust.h"
 
+#define APUSYS_SETTLE_TIME_TEST	(1)
+
 struct apu_power_info {
 	unsigned int dump_div;
 	unsigned int vvpu;

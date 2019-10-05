@@ -21,13 +21,10 @@
 #include "apu_log.h"
 #include "mtk_devinfo.h"
 
-#define EFUSE_INDEX 72	// 0x11C105D8
-
-#include "mtk_devinfo.h"
 
 #define EFUSE_INDEX 72	// 0x11C105D8
 #define BINNING_VOLTAGE_SUPPORT (1)
-#define FOR_HQA_TEST	(1)
+#define FOR_HQA_TEST		(1)
 
 /* regulator id */
 static struct regulator *vvpu_reg_id;
@@ -365,7 +362,13 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 #else
 	config_regulator_mode(buck, 1);	// auto normal for HQA
 #endif
+
 	settle_time = settle_time_check(buck, voltage_mV);
+
+#if APUSYS_SETTLE_TIME_TEST
+	LOG_WRN("APUSYS_SETTLE_TIME_TEST buck_id:%d, volt:%d, settle_time:%d\n",
+						buck, voltage_mV, settle_time);
+#endif
 	udelay(settle_time);
 
 	return ret;
