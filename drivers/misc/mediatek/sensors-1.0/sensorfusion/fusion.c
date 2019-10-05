@@ -67,6 +67,9 @@ static int handle_to_index(int handle)
 	case ID_GRAVITY:
 		index = grav;
 		break;
+	case ID_ACCELEROMETER_UNCALIBRATED:
+		index = unacc;
+		break;
 	case ID_GYROSCOPE_UNCALIBRATED:
 		index = ungyro;
 		break;
@@ -213,10 +216,10 @@ static ssize_t fusion_show_active(struct device *dev,
 			index, vendor_div[index]);
 	}
 
-	return snprintf(buf, PAGE_SIZE, "%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+	return snprintf(buf, PAGE_SIZE, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
 		vendor_div[orientation], vendor_div[grv],
 		vendor_div[gmrv], vendor_div[rv],
-		vendor_div[la], vendor_div[grav],
+		vendor_div[la], vendor_div[grav], vendor_div[unacc],
 		vendor_div[ungyro], vendor_div[unmag], vendor_div[pdr]);
 }
 
@@ -586,6 +589,15 @@ int orientation_data_report(int x, int y, int z, int status, int64_t nt)
 int orientation_flush_report(void)
 {
 	return fusion_flush_report(ID_ORIENTATION);
+}
+int uncali_acc_data_report(int *data, int status, int64_t nt)
+{
+	return uncali_sensor_data_report(data,
+		status, nt, ID_ACCELEROMETER_UNCALIBRATED);
+}
+int uncali_acc_flush_report(void)
+{
+	return uncali_sensor_flush_report(ID_ACCELEROMETER_UNCALIBRATED);
 }
 int uncali_gyro_data_report(int *data, int status, int64_t nt)
 {
