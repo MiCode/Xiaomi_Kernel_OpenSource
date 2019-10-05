@@ -913,14 +913,14 @@ static int cmdq_test_probe(struct platform_device *pdev)
 
 	test->gce.clk = devm_clk_get(&np_pdev->dev, "gce");
 	if (IS_ERR(test->gce.clk)) {
-		cmdq_err("devm_clk_get gce clk failed:%d",
+		cmdq_err("devm_clk_get gce clk failed:%ld",
 			PTR_ERR(test->gce.clk));
 		test->gce.clk = NULL;
 	}
 
 	test->gce.clk_timer = devm_clk_get(&np_pdev->dev, "gce-timer");
 	if (IS_ERR(test->gce.clk_timer)) {
-		cmdq_err("devm_clk_get gce clk_timer failed:%d",
+		cmdq_err("devm_clk_get gce clk_timer failed:%ld",
 			PTR_ERR(test->gce.clk_timer));
 		test->gce.clk_timer = NULL;
 	}
@@ -960,20 +960,20 @@ static int cmdq_test_probe(struct platform_device *pdev)
 	// clt
 	test->clt = cmdq_mbox_create(&pdev->dev, 0);
 	if (IS_ERR(test->clt)) {
-		cmdq_err("cmdq_mbox_create failed:%d", PTR_ERR(test->clt));
+		cmdq_err("cmdq_mbox_create failed:%ld", PTR_ERR(test->clt));
 		return PTR_ERR(test->clt);
 	}
 
 	test->loop = cmdq_mbox_create(&pdev->dev, 1);
 	if (IS_ERR(test->loop)) {
-		cmdq_err("cmdq_mbox_create failed:%d", PTR_ERR(test->loop));
+		cmdq_err("cmdq_mbox_create failed:%ld", PTR_ERR(test->loop));
 		return PTR_ERR(test->loop);
 	}
 
 #ifdef CMDQ_SECURE_SUPPORT
 	test->sec = cmdq_mbox_create(&pdev->dev, 2);
 	if (IS_ERR(test->sec)) {
-		cmdq_err("cmdq_mbox_create failed:%d", PTR_ERR(test->sec));
+		cmdq_err("cmdq_mbox_create failed:%ld", PTR_ERR(test->sec));
 		return PTR_ERR(test->sec);
 	}
 #endif
@@ -1016,14 +1016,14 @@ static int cmdq_test_probe(struct platform_device *pdev)
 	// fs
 	dir = debugfs_create_dir("cmdq", NULL);
 	if (IS_ERR(dir) && PTR_ERR(dir) != -EEXIST) {
-		cmdq_err("debugfs_create_dir cmdq failed:%d", PTR_ERR(dir));
+		cmdq_err("debugfs_create_dir cmdq failed:%ld", PTR_ERR(dir));
 		return PTR_ERR(dir);
 	}
 
 	test->fs = debugfs_create_file(
 		"cmdq-test", 0444, dir, test, &cmdq_test_fops);
 	if (IS_ERR(test->fs)) {
-		cmdq_err("debugfs_create_file cmdq-test failed:%d",
+		cmdq_err("debugfs_create_file cmdq-test failed:%ld",
 			PTR_ERR(test->fs));
 		return PTR_ERR(test->fs);
 	}
