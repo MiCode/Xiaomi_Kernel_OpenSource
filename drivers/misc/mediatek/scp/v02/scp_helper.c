@@ -1000,7 +1000,7 @@ static int create_files(void)
 #define SCP_MEM_RESERVED_KEY "mediatek,reserve-memory-scp_share"
 int scp_reserve_mem_of_init(struct reserved_mem *rmem)
 {
-	pr_notice("[SCP]%s %x %x\n", __func__, rmem->base, rmem->size);
+	pr_notice("[SCP]%s %pa %pa\n", __func__, &rmem->base, &rmem->size);
 	scp_mem_base_phys = (phys_addr_t) rmem->base;
 	scp_mem_size = (phys_addr_t) rmem->size;
 
