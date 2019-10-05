@@ -1147,11 +1147,6 @@ page_owner=on";
 		compatible = "mediatek,mt67xx-rng";
 	};
 
-	bus_dbg@10208000 {
-		compatible = "mediatek,bus_dbg";
-		reg = <0 0x10208000 0 0x1000>;
-	};
-
 	ap_ccif0@10209000 {
 		compatible = "mediatek,ap_ccif0";
 		reg = <0 0x10209000 0 0x1000>;
