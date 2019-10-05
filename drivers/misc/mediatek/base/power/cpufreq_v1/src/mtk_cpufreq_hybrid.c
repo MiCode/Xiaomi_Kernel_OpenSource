@@ -755,7 +755,7 @@ int cpuhvfs_set_init_sta(void)
 	struct cdvfs_data cdvfs_d;
 
 	/* seg code */
-	cdvfs_d.u.set_fv.arg[0] = 0;
+	cdvfs_d.u.set_fv.arg[0] = _mt_cpufreq_get_cpu_level();
 	dvfs_to_mcupm_command(IPI_DVFS_INIT, &cdvfs_d);
 
 	return 0;
