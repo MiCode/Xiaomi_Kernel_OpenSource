@@ -351,11 +351,11 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 	{4656, 3496, 0000, 0000, 4656, 3496, 4656, 3496,
 	 0000, 0000, 4656, 3496, 0000, 0000, 4656, 3496},/* capture */
 	{4656, 3496, 0000, 0000, 4656, 3496, 4656, 3496,
-	 0000, 0000, 4656, 3496, 0000, 0000, 4656, 3496},/* video */
-	{4656, 3496, 0000, 648, 4656, 2199, 1922, 722,
-	 0000, 0000, 1922, 722, 0000, 0000, 1920, 720},/* hs video */
+	 0000, 0000, 4656, 3496, 0000, 0000, 4656, 2608},/* video */
 	{4656, 3496, 0000, 492, 4656, 2500, 2216, 834,
-	 0000, 0000, 2216, 834, 0000, 0000, 1476, 834},/* slim video */
+	 0000, 0000, 2216, 834, 370, 0000, 1476, 834},/* hs video */
+	{4656, 3496, 0000, 492, 4656, 2500, 2216, 834,
+	 0000, 0000, 2216, 834, 370, 0000, 1476, 834},/* slim video */
 	{4656, 3496, 0000, 0000, 4656, 3496, 2328, 1748,
 	 0000, 0000, 2328, 1748, 0000, 0000, 2328, 1748},/* Custom1 */
 	{4656, 3496, 0000, 0000, 4656, 3496, 2328, 1748,
@@ -412,10 +412,13 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
 
 	/* 0:IMAGE_NORMAL,1:IMAGE_H_MIRROR,2:IMAGE_V_MIRROR,3:IMAGE_HV_MIRROR */
 	.iMirrorFlip = 0,
+
+	.i4BlockNumX = 140,
+	.i4BlockNumY = 104
 };
 
 
-struct  SENSOR_ATR_INFO {
+struct SENSOR_ATR_INFO {
 	MUINT16 DarkLimit_H;
 	MUINT16 DarkLimit_L;
 	MUINT16 OverExp_Min_H;
@@ -857,8 +860,8 @@ static void set_shutter(kal_uint16 shutter)
 		imgsensor.frame_length = imgsensor_info.max_frame_length;
 	spin_unlock(&imgsensor_drv_lock);
 
-	shutter =
-(shutter < imgsensor_info.min_shutter) ? imgsensor_info.min_shutter : shutter;
+	shutter = (shutter < imgsensor_info.min_shutter)
+		? imgsensor_info.min_shutter : shutter;
 
 	shutter =
 	  (shutter > (imgsensor_info.max_frame_length - imgsensor_info.margin))
@@ -3470,6 +3473,32 @@ static kal_uint32 get_resolution(
 		imgsensor_info.slim_video.grabwindow_width;
 	sensor_resolution->SensorSlimVideoHeight =
 		imgsensor_info.slim_video.grabwindow_height;
+
+	sensor_resolution->SensorCustom1Width =
+		imgsensor_info.custom1.grabwindow_width;
+	sensor_resolution->SensorCustom1Height =
+		imgsensor_info.custom1.grabwindow_height;
+
+	sensor_resolution->SensorCustom2Width =
+		imgsensor_info.custom2.grabwindow_width;
+	sensor_resolution->SensorCustom2Height =
+		imgsensor_info.custom2.grabwindow_height;
+
+	sensor_resolution->SensorCustom3Width =
+		imgsensor_info.custom3.grabwindow_width;
+	sensor_resolution->SensorCustom3Height =
+		imgsensor_info.custom3.grabwindow_height;
+
+	sensor_resolution->SensorCustom4Width =
+		imgsensor_info.custom4.grabwindow_width;
+	sensor_resolution->SensorCustom4Height =
+		imgsensor_info.custom4.grabwindow_height;
+
+	sensor_resolution->SensorCustom5Width =
+		imgsensor_info.custom5.grabwindow_width;
+	sensor_resolution->SensorCustom5Height =
+		imgsensor_info.custom5.grabwindow_height;
+
 	return ERROR_NONE;
 }				/*    get_resolution    */
 
@@ -3912,6 +3941,9 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 
 	LOG_INF("feature_id = %d\n", feature_id);
 	switch (feature_id) {
+	case SENSOR_FEATURE_GET_OFFSET_TO_START_OF_EXPOSURE:
+		*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 0;
+		break;
 	case SENSOR_FEATURE_GET_PERIOD:
 		*feature_return_para_16++ = imgsensor.line_length;
 		*feature_return_para_16 = imgsensor.frame_length;
