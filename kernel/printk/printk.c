@@ -67,7 +67,10 @@
  * 2: uart printk always enable
  */
 int printk_disable_uart;
-
+#ifdef CONFIG_PRINTK_MT_PREFIX
+/* declare a variable for save the status of irqs_disabled() */
+static int isIrqsDisabled;
+#endif
 module_param_named(disable_uart, printk_disable_uart, int, 0644);
 
 bool mt_get_uartlog_status(void)
@@ -2155,7 +2158,8 @@ int vprintk_store(int facility, int level,
 
 	/* MTK_prefix */
 #ifdef CONFIG_PRINTK_MT_PREFIX
-	if (irqs_disabled())
+	/* if irqs_disabled() is true*/
+	if (isIrqsDisabled)
 		this_cpu_write(printk_state, '-');
 #ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
 	/* if uart printk enabled */
@@ -2177,7 +2181,10 @@ asmlinkage int vprintk_emit(int facility, int level,
 	int printed_len;
 	bool in_sched = false;
 	unsigned long flags;
-
+#ifdef CONFIG_PRINTK_MT_PREFIX
+	/* save the status of irqs_disabled() */
+	isIrqsDisabled = irqs_disabled();
+#endif
 	if (level == LOGLEVEL_SCHED) {
 		level = LOGLEVEL_DEFAULT;
 		in_sched = true;
