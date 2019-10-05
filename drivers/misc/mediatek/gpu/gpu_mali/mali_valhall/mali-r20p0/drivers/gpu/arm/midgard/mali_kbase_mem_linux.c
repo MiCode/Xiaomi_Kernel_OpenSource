@@ -1009,7 +1009,18 @@ int kbase_mem_do_sync_imported(struct kbase_context *kctx,
 			struct dma_buf_attachment *attachment = reg->gpu_alloc->imported.umm.dma_attachment;
 			struct sg_table *sgt = reg->gpu_alloc->imported.umm.sgt;
 
-			dma_sync_sg_for_cpu(attachment->dev, sgt->sgl,
+#ifdef CONFIG_MTK_IOMMU_V2
+			struct scatterlist *s;
+			int i;
+			u32 is_iommu = reg->gpu_alloc->imported.umm.is_iommu;
+
+			if (is_iommu) {
+				for_each_sg(sgt->sgl, s, sgt->nents, i) {
+					__dma_map_area(sg_virt(s), s->length, dir);
+				}
+			} else
+#endif
+				dma_sync_sg_for_cpu(attachment->dev, sgt->sgl,
 					sgt->nents, dir);
 			ret = 0;
 		}
