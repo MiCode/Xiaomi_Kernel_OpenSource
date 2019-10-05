@@ -414,6 +414,8 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 		DDPPR_ERR("[IRQ] %s: frame underflow! cnt=%d\n",
 			  mtk_dump_comp_str(ovl), priv->underflow_cnt);
 		priv->underflow_cnt++;
+		mtk_ovl_dump(ovl);
+		mtk_ovl_analysis(ovl);
 	}
 	if (val & (1 << 3))
 		DDPIRQ("[IRQ] %s: sw reset done!\n", mtk_dump_comp_str(ovl));
@@ -1531,7 +1533,7 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	    AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES;
 
 	/* 5. calculate OVL_LX_SRC_SIZE */
-	lx_src_size = (src_h_align << 16) | src_w_align;
+	lx_src_size = (src_h_half_align << 16) | src_w_align;
 
 	/* 6. calculate OVL_LX_CLIP */
 	lx_clip = 0;
@@ -2254,7 +2256,7 @@ static void ovl_print_ovl_rdma_status(unsigned int status)
 static void ovl_dump_layer_info_compress(struct mtk_ddp_comp *comp, int layer,
 					 bool is_ext_layer)
 {
-	unsigned int compr_en = 0;
+	unsigned int compr_en = 0, pitch_msb;
 	void __iomem *baddr = comp->regs;
 	void __iomem *Lx_PVRIC_hdr_base;
 
@@ -2267,6 +2269,7 @@ static void ovl_dump_layer_info_compress(struct mtk_ddp_comp *comp, int layer,
 					     DISP_REG_OVL_EL0_HDR_ADDR);
 		Lx_PVRIC_hdr_base +=
 			(DISP_REG_OVL_EL0_HDR_ADDR - DISP_REG_OVL_L0_HDR_ADDR);
+		pitch_msb = readl(baddr + DISP_REG_OVL_EL_PITCH_MSB(layer));
 	} else {
 		compr_en =
 			DISP_REG_GET_FIELD(REG_FLD(1, layer + 4),
@@ -2274,6 +2277,7 @@ static void ovl_dump_layer_info_compress(struct mtk_ddp_comp *comp, int layer,
 		Lx_PVRIC_hdr_base = baddr +
 				    layer * (DISP_REG_OVL_L1_HDR_ADDR -
 					     DISP_REG_OVL_L0_HDR_ADDR);
+		pitch_msb = readl(baddr + DISP_REG_OVL_PITCH_MSB(layer));
 	}
 
 	if (compr_en == 0) {
@@ -2281,7 +2285,8 @@ static void ovl_dump_layer_info_compress(struct mtk_ddp_comp *comp, int layer,
 		return;
 	}
 
-	DDPDUMP("compr_en:%u, hdr_addr:0x%x, hdr_pitch:0x%x\n", compr_en,
+	DDPDUMP("compr_en:%u, pitch_msb:0x%x, hdr_addr:0x%x, hdr_pitch:0x%x\n",
+		compr_en, pitch_msb,
 		readl(DISP_REG_OVL_L0_HDR_ADDR + Lx_PVRIC_hdr_base),
 		readl(DISP_REG_OVL_L0_HDR_PITCH + Lx_PVRIC_hdr_base));
 }
@@ -2289,7 +2294,7 @@ static void ovl_dump_layer_info_compress(struct mtk_ddp_comp *comp, int layer,
 static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 				bool is_ext_layer)
 {
-	unsigned int con, src_size, offset, pitch, addr;
+	unsigned int con, src_size, offset, pitch, addr, clip;
 	/*  enum UNIFIED_COLOR_FMT fmt; */
 	void __iomem *baddr = comp->regs;
 	void __iomem *Lx_base;
@@ -2312,6 +2317,7 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 	src_size = readl(DISP_REG_OVL_L0_SRC_SIZE + Lx_base);
 	pitch = readl(DISP_REG_OVL_L0_PITCH + Lx_base);
 	addr = readl(DISP_REG_OVL_ADDR_MT6885 + Lx_addr_base);
+	clip = readl(DISP_REG_OVL_CLIP(0) + Lx_base);
 
 	/* TODO
 	 * fmt = display_fmt_reg_to_unified_fmt(
@@ -2323,13 +2329,14 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 		is_ext_layer ? "ext" : "phy", layer, offset & 0xfff,
 		(offset >> 16) & 0xfff, src_size & 0xfff,
 		(src_size >> 16) & 0xfff);
-	DDPDUMP("pitch=%u,addr=0x%08x,source=%s,aen=%u,alpha=%u\n",
+	DDPDUMP("pitch=%u,addr=0x%08x,source=%s,aen=%u,alpha=%u,cl=0x%x\n",
 		pitch & 0xffff,
 		addr, /* unified_color_fmt_name(fmt),*/
 		(REG_FLD_VAL_GET(L_CON_FLD_LSRC, con) == 0) ? "mem"
 							    : "constant_color",
 		REG_FLD_VAL_GET(L_CON_FLD_AEN, con),
-		REG_FLD_VAL_GET(L_CON_FLD_APHA, con));
+		REG_FLD_VAL_GET(L_CON_FLD_APHA, con),
+		clip);
 
 	ovl_dump_layer_info_compress(comp, layer, is_ext_layer);
 }
@@ -2624,7 +2631,7 @@ static const struct mtk_disp_ovl_data mt6885_ovl_driver_data = {
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
-	.compr_info = NULL,  // &compr_info_mt6885,
+	.compr_info = &compr_info_mt6885,
 };
 
 static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
