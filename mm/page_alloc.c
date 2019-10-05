@@ -6226,6 +6226,9 @@ static void __ref alloc_node_mem_map(struct pglist_data *pgdat)
 			map = memblock_virt_alloc_node_nopanic(size,
 							       pgdat->node_id);
 		pgdat->node_mem_map = map + offset;
+#if defined(CONFIG_MTK_MEMCFG) && defined(CONFIG_FLATMEM)
+		mem_map_size = size;
+#endif
 	}
 #ifndef CONFIG_NEED_MULTIPLE_NODES
 	/*
