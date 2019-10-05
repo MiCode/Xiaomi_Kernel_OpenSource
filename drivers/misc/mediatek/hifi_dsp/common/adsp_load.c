@@ -24,9 +24,18 @@
 #include "adsp_helper.h"
 
 
-#define BIT_DSP_BOOT_FROM_DRAM  BIT(0)
+#define LEN_BIN_MAGIC            (8)
+#define LEN_BIN_TOTAL_SZ         (4)
+#define LEN_IMG_BIN_INF_TB_SZ    (4)
+#define LEN_TB_INF               (8) /* Field0 in IMG_BIN_INF_TB */
+#define LEN_TB_LD_ADR            (4) /* Field1 in IMG_BIN_INF_TB */
+#define LEN_BOOT_ADR_NO          (4) /* Field2 in IMG_BIN_INF_TB */
+/* #define ... */
+#define LEN_IMG_BINS_SZ          (4)
+
+#define HIFIXDSP_BIN_MAGIC   ((unsigned long long)(0x4D495053444B544D))
 #define HIFIXDSP_IMAGE_NAME  "hifi4dsp_load.bin"
-#define HIFIXDSP_BIN_MAGIC  ((unsigned long long)(0x4D495053444B544D))
+#define BIT_DSP_BOOT_FROM_DRAM  BIT(0)
 
 static callback_fn user_callback_fn;
 static void *callback_arg;
@@ -115,6 +124,9 @@ static u32 firmware_adsp_load(void *src, size_t size,
 	u8 *fw_data;
 	u8 *data;
 	int signature;
+	u32 bin_total_sz;
+	u32 img_bin_inf_tb_sz;
+	u32 total_hdr_len;
 	u64 img_bin_tb_inf;
 	int boot_adr_num;
 	u32 dsp_boot_adr;
@@ -123,6 +135,7 @@ static u32 firmware_adsp_load(void *src, size_t size,
 	u32 section_len;
 	u32 section_ldr;
 	u32 cpu_view_dram_base_paddr;
+	u32 offset;
 	u32 fix_offset;
 
 	fw_data = src;
@@ -141,21 +154,49 @@ static u32 firmware_adsp_load(void *src, size_t size,
 	 * 3), 28bytes =
 	 * |BIN_MAGIC|BIN_TOTAL_SZ|IMG_BIN_INF_TB_SZ|TB_INF|TB_LD_ADR|
 	 */
-	img_bin_tb_inf = *(u8 *)(fw_data + 16);
-	signature = img_bin_tb_inf ? 1 : 0;
-	if (signature)
+	offset = LEN_BIN_MAGIC;
+	bin_total_sz = *(u32 *)(fw_data + offset);
+	offset += LEN_BIN_TOTAL_SZ;
+	img_bin_inf_tb_sz = *(u32 *)(fw_data + offset);
+	offset += LEN_IMG_BIN_INF_TB_SZ;
+	img_bin_tb_inf = *(u64 *)(fw_data + offset);
+	/*
+	 * sizeof (TB_INF) = 8bytes.
+	 * TB_INF[7]: authentication type for IMG_BIN_INF_TB
+	 * TB_INF[6]: authentication type for IMG_BIN
+	 * TB_INF[5]: encryption type for IMG_BIN
+	 * TB_INF[4:2]: reserved
+	 * TB_INF[1]:
+	 * bit0: indicate if enabling authentication (1) or not (0)
+	 *	for IMG_BIN_INF_TB
+	 * TB_INF[0]: version of IMG_BIN_INF_TB
+	 */
+	signature = (img_bin_tb_inf) ? 1 : 0;
+	if (signature) {
+		pr_err("TB_INF = 0x%llx, decryption is not supported!\n",
+				img_bin_tb_inf);
 		goto ERROR;
+	}
+
+	/*
+	 * #0x00000814 = total_hdr_len
+	 *	= 8(BIN_MAGIC) + 4(BIN_TOTAL_SZ) + 4(IMG_BIN_INF_TB_SZ)
+	 *	+ 0x800(IMG_BIN_INF_TB) + 4(IMG_BINS_SZ)
+	 */
+	total_hdr_len = offset + img_bin_inf_tb_sz + LEN_IMG_BINS_SZ;
 
 	/* BOOT_ADR_NO(M) */
-	boot_adr_num = *(u32 *)(fw_data + 28);
+	offset += (LEN_TB_INF + LEN_TB_LD_ADR);
+	boot_adr_num = *(u32 *)(fw_data + offset);
 	/* DSP_1_ADR for DSP bootup entry */
-	dsp_boot_adr = *(u32 *)(fw_data + 28 + 4);
+	offset += LEN_BOOT_ADR_NO;
+	dsp_boot_adr = *(u32 *)(fw_data + offset);
 	/* IMG_BIN_INF_NO(N) */
-	img_bin_inf_num = *(u32 *)(fw_data + 32 + 4 * boot_adr_num);
+	img_bin_inf_num = *(u32 *)(fw_data + offset + 4 * boot_adr_num);
 
 	/* IMG_BIN_INF_X (20bytes, loop read info) */
 	for (loop = 0; loop < img_bin_inf_num; loop++) {
-		fix_offset = 32 + (4 * boot_adr_num) + 8 + (20 * loop);
+		fix_offset = offset + (4 * boot_adr_num) + 8 + (20 * loop);
 		/* IMG_BIN_OFST */
 		section_off = *(u32 *)(fw_data + fix_offset + 4);
 		/* IMG_SZ */
@@ -163,9 +204,9 @@ static u32 firmware_adsp_load(void *src, size_t size,
 		/* LD_ADR */
 		section_ldr = *(u32 *)(fw_data + fix_offset + 16);
 
-		pr_debug(
+		pr_info(
 			"section%d: load_addr = 0x%08X, offset = 0x%08X, len = %u\n",
-			loop, section_ldr, section_off, section_len);
+			(loop + 1), section_ldr, section_off, section_len);
 
 		/*
 		 * The shared DRAM physical base(reserved) for CPU view
@@ -176,8 +217,8 @@ static u32 firmware_adsp_load(void *src, size_t size,
 		if (section_ldr & BIT_DSP_BOOT_FROM_DRAM)
 			section_ldr = cpu_view_dram_base_paddr;
 
-		/* data offset from total header */
-		data = fw_data + section_off;
+		/* IMG_BIN_OFST: start from beginning of IMG_BINS */
+		data = fw_data + total_hdr_len + section_off;
 		err = load_image_hifixdsp(section_ldr, data, section_len);
 		if (err) {
 			pr_err("%s write section%d.bin (%d bytes) fail!\n",
