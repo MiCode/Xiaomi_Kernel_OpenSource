@@ -21,26 +21,10 @@
 #include <mtk_udi.h>
 #include <mt-plat/mtk_secure_api.h>
 
-#if defined(CONFIG_ARM_PSCI) || defined(CONFIG_MTK_PSCI)
-#define mt_secure_call_udi	mt_secure_call
-#else
-/* This is workaround for idvfs use */
-static noinline int mt_secure_call_udi
-(u64 function_id, u64 arg0, u64 arg1, u64 arg2, u64 arg3)
-{
-	register u64 reg0 __asm__("x0") = function_id;
-	register u64 reg1 __asm__("x1") = arg0;
-	register u64 reg2 __asm__("x2") = arg1;
-	register u64 reg3 __asm__("x3") = arg2;
-	register u64 reg4 __asm__("x4") = arg3;
-	int ret = 0;
-
-	asm volatile ("smc    #0\n" : "+r" (reg0) :
-		"r"(reg1), "r"(reg2), "r"(reg3), "r"(reg4));
-
-	ret = (int)reg0;
-	return ret;
-}
+#ifdef __KERNEL__
+#include <linux/arm-smccc.h>
+#include <linux/kernel.h>
+#include <mt-plat/sync_write.h>
 #endif
 
 
@@ -82,34 +66,26 @@ static noinline int mt_secure_call_udi
 /* BITS(MSB:LSB, value) => Set value at MSB:LSB  */
 #define BITS_UDI(r, val)	((val << LSB_UDI(r)) & BITMASK_UDI(r))
 
-/* define for UDI register service */
-
-#define udi_reg_read(addr)	\
-	mt_secure_call_udi(MTK_SIP_KERNEL_UDI_READ, addr, 0, 0, 0)
-#define udi_reg_write(addr, val)	\
-	mt_secure_call_udi(MTK_SIP_KERNEL_UDI_WRITE, addr, val, 0, 0)
 #define udi_reg_field(addr, range, val)	\
 	udi_reg_write(addr, (udi_reg_read(addr) & ~(BITMASK_UDI(range)))\
 					| BITS_UDI(range, val))
 
-#define udi_jtag_clock(sw_tck, i_trst, i_tms, i_tdi, count)	\
-	mt_secure_call_udi(MTK_SIP_KERNEL_UDI_JTAG_CLOCK,	\
-			(((1 << (sw_tck & 0x03)) << 3) |	\
-			((i_trst & 0x01) << 2) |	\
-			((i_tms & 0x01) << 1) |	\
-			(i_tdi & 0x01)),	\
-			count, (sw_tck & 0x04), 0)
-
-#define udi_bit_ctrl(sw_tck, i_tdi, i_tms, i_trst)	\
-	mt_secure_call_udi(MTK_SIP_KERNEL_UDI_BIT_CTRL,	\
-			((sw_tck & 0x0f) << 3) |	\
-			((i_trst & 0x01) << 2) |	\
-			((i_tms & 0x01) << 1) |	\
-			(i_tdi & 0x01), (sw_tck & 0x04), 0, 0)
-
-
 /* receive string for temp  */
 /* #define UDI_FIFOSIZE 16384  */
 #define UDI_FIFOSIZE 256
+
+extern unsigned int udi_reg_read(unsigned int addr);
+extern void udi_reg_write(unsigned int addr,
+				unsigned int val);
+extern unsigned int udi_jtag_clock(unsigned int sw_tck,
+				unsigned int i_trst,
+				unsigned int i_tms,
+				unsigned int i_tdi,
+				unsigned int count);
+extern unsigned int udi_bit_ctrl(unsigned int sw_tck,
+				unsigned int i_tdi,
+				unsigned int i_tms,
+				unsigned int i_trst);
+
 
 #endif /* __MTK_UDI_INTERNAL_H__ */

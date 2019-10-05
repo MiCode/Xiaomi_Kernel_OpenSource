@@ -73,6 +73,7 @@ obj-$(CONFIG_MACH_MT6768) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6768) += cpuidle_v3/
 obj-$(CONFIG_MACH_MT6768) += udi_v2/
 obj-$(CONFIG_MACH_MT6785) += udi_v2/
+obj-$(CONFIG_MACH_MT6885) += udi_v2/
 obj-$(CONFIG_MACH_MT6885) += ses_v1/
 obj-$(CONFIG_MACH_MT6785) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6885) += ppm_v3/

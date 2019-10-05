@@ -293,6 +293,24 @@ int mtk_ses_volt_ratio(unsigned int HiRatio,
 	return ret;
 }
 
+int mtk_ses_volt_ratio_atf(unsigned int Volt,
+				unsigned int HiRatio,
+				unsigned int LoRatio,
+				unsigned int ses_node)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_SES_CONTROL,
+		MTK_SES_VOLT_RATIO,
+		Volt,
+		HiRatio,
+		LoRatio,
+		ses_node,
+		0, 0, &res);
+	return res.a0;
+
+}
+
 
 /************************************************
  * set SES status by procfs interface
@@ -646,6 +664,7 @@ static ssize_t ses_volt_ratio_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
 	unsigned int HiRatio = 0, LoRatio = 0, ses_node = 0;
+	unsigned int atf = 0, Volt = 0;
 	char *buf = (char *) __get_free_page(GFP_USER);
 
 	if (!buf)
@@ -659,21 +678,24 @@ static ssize_t ses_volt_ratio_proc_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%u %u %u", &HiRatio, &LoRatio, &ses_node) != 3) {
-		ses_debug("bad argument!! Should input 3 arguments.\n");
+	if (sscanf(buf, "%u %u %u %u %u", &HiRatio,
+			&LoRatio, &ses_node, &atf, &Volt) != 5) {
+		ses_debug("bad argument!! Should input 5 arguments.\n");
 		goto out;
 	}
 
 	drp_ratio[ses_node].HiCodeRatio = HiRatio;
 	drp_ratio[ses_node].LoCodeRatio = LoRatio;
-	mtk_ses_volt_ratio(HiRatio, LoRatio, ses_node);
+
+	if (atf)
+		mtk_ses_volt_ratio_atf(Volt, HiRatio, LoRatio, ses_node);
+	else
+		mtk_ses_volt_ratio(HiRatio, LoRatio, ses_node);
 
 out:
 	free_page((unsigned long)buf);
 	return count;
 }
-
-
 
 static int ses_status_dump_proc_show(struct seq_file *m, void *v)
 {

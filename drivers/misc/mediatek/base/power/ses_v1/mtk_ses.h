@@ -36,7 +36,7 @@
 #define MTK_SES_STEPTIME		5
 #define MTK_SES_DLYFILT			6
 #define MTK_SES_STATUS			7
-
+#define MTK_SES_VOLT_RATIO		8
 
 #define SES_STATUS_ADDR		(0x0C530000)
 #define SESV6_BG_CTRL		(SES_STATUS_ADDR + 0xAC40)
@@ -69,6 +69,10 @@ extern void mtk_ses_hwgatepct(unsigned int HwGateSel,
 						unsigned int value,
 						unsigned int ses_node);
 extern int mtk_ses_volt_ratio(unsigned int HiRatio,
+						unsigned int LoRatio,
+						unsigned int ses_node);
+extern int mtk_ses_volt_ratio_atf(unsigned int Volt,
+						unsigned int HiRatio,
 						unsigned int LoRatio,
 						unsigned int ses_node);
 extern unsigned int mtk_ses_status(unsigned int value);
