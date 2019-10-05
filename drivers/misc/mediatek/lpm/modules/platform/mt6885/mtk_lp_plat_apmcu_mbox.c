@@ -12,6 +12,9 @@
 #endif
 
 #include "mtk_lp_plat_apmcu_mbox.h"
+#ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
+#include "mcupm_driver.h"
+#endif
 
 struct mbox_ops {
 	void (*write)(int id, int *buf, unsigned int len);
