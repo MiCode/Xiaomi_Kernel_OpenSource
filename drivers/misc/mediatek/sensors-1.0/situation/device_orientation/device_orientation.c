@@ -83,12 +83,14 @@ static int device_orientation_flush(void)
 static int device_orientation_recv_data(struct data_unit_t *event,
 	void *reserved)
 {
+	int err = 0;
+
 	if (event->flush_action == FLUSH_ACTION)
-		situation_flush_report(ID_DEVICE_ORIENTATION);
+		err = situation_flush_report(ID_DEVICE_ORIENTATION);
 	else if (event->flush_action == DATA_ACTION)
-		situation_data_report(ID_DEVICE_ORIENTATION,
+		err = situation_data_report(ID_DEVICE_ORIENTATION,
 			event->tilt_event.state);
-	return 0;
+	return err;
 }
 
 static int device_orientation_local_init(void)

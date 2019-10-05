@@ -66,12 +66,14 @@ static int sar_flush(void)
 
 static int sar_recv_data(struct data_unit_t *event, void *reserved)
 {
+	int err = 0;
+
 	if (event->flush_action == FLUSH_ACTION)
-		situation_flush_report(ID_SAR);
+		err = situation_flush_report(ID_SAR);
 	else if (event->flush_action == DATA_ACTION)
-		situation_data_report(ID_SAR,
+		err = situation_data_report(ID_SAR,
 			event->sar_event.state);
-	return 0;
+	return err;
 }
 
 static int sarhub_local_init(void)

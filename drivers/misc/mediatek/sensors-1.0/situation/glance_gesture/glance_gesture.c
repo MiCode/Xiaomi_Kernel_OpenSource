@@ -82,11 +82,13 @@ static int glance_gesture_batch(int flag,
 static int glance_gesture_recv_data(struct data_unit_t *event,
 	void *reserved)
 {
+	int err = 0;
+
 	if (event->flush_action == FLUSH_ACTION)
 		pr_debug("glance_gesture do not support flush\n");
 	else if (event->flush_action == DATA_ACTION)
-		situation_notify(ID_GLANCE_GESTURE);
-	return 0;
+		err = situation_notify(ID_GLANCE_GESTURE);
+	return err;
 }
 
 static int glghub_local_init(void)
