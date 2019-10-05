@@ -95,6 +95,18 @@ static void clear_violation(void)
 	}
 }
 
+#ifdef CONFIG_MTK_AEE_FEATURE
+#ifndef ID_MD_MPU_ASSERT
+#define ID_MD_MPU_ASSERT 8
+#endif
+int __weak exec_ccci_kern_func_by_md_id(int md_id, unsigned int id,
+		char *buf, unsigned int len)
+{
+	pr_info("%s: weak function\n", __func__);
+	return -1;
+}
+#endif
+
 static void check_violation(void)
 {
 	unsigned int mpus, mput, mput_2nd;

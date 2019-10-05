@@ -7,7 +7,7 @@ config MTK_AEE_FEATURE
 	  AEE (Android Exception Engine) that designed by  Mediatek is an
 	  exception catching and debugging information generation mechanism.
 	  It can collect and dump information to filesystem
-	  (/sdcard/mtklog/aee_exp)  when fatel occur(E.g. kernel
+	  (/sdcard/mtklog/aee_exp)  when exceptions occur(E.g. kernel
 	  panic/android system server crash and ..)
 
 config MTK_AEE_AED
@@ -25,17 +25,17 @@ config MTK_AEE_IPANIC
 	default n
 	help
 	  MTK_AEE_IPANIC is the kernel config of ipanic feature designed by
-	  MTK, which is the enhancement of kernel defaut panic flow, and combine
-	  with aee. It do some hook function and get some kernel panic
-	  information for debug.
+	  MTK, which is the enhancement of kernel defaut panic flow, and
+	  combined with aee. It will do some hook function and get some
+	  kernel panic information for debug.
 
 config MTK_AEE_POWERKEY_HANG_DETECT
 	bool "powerkey monitor"
 	default n
 	help
 	  MTK_AEE_POWERKEY_HANG_DETECT is the kernel config of hang feature
-	  designed by MTK, which is a debug feature for detect device hang.
-	  When the device hang and can detect by this mechanism, it will notice
+	  designed by MTK, which is a debug feature for detecting device hang.
+	  When the device hang is detected by this mechanism, it will notice
 	  user space aee and get some debug information.
 
 config MTK_AEE_MRDUMP

@@ -412,8 +412,10 @@ static void md_oc_int_handler(enum PMIC_IRQ_ENUM intNo, const char *int_name)
 {
 	int ret = 0;
 	int data_int32 = 0;
+#ifdef CONFIG_MTK_CCCI_DEVICES
 #ifdef CONFIG_MTK_AEE_FEATURE
 	char oc_str[30] = "";
+#endif
 #endif
 
 	switch (intNo) {

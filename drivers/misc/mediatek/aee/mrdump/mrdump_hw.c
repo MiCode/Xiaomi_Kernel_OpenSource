@@ -14,7 +14,9 @@
 #include <linux/kconfig.h>
 #include <linux/module.h>
 #include <linux/string.h>
+#ifdef CONFIG_MTK_DFD_INTERNAL_DUMP
 #include <mtk_platform_debug.h>
+#endif
 
 #ifdef CONFIG_MTK_WATCHDOG
 #include <mtk_wd_api.h>
@@ -92,6 +94,9 @@ static void mrdump_wd_dram_reserved_mode(bool enabled)
 					else
 						pr_notice("%s: DFD enabled\n",
 								__func__);
+#else
+			pr_notice("%s: config is not enabled yet\n",
+					__func__);
 #endif
 				} else {
 					pr_notice("%s: DDR reserved mode disabled(%d)\n",
