@@ -305,15 +305,25 @@ enum mtk_ovl_transfer { DECLARE_MTK_OVL_TRANSFER(DECLARE_NUM) };
 static const char * const mtk_ovl_transfer_str[] = {
 	DECLARE_MTK_OVL_TRANSFER(DECLARE_STR)};
 
+struct compress_info {
+	/* naming rule: tech_version_MTK_sub-version,
+	 * i.e.: PVRIC_V3_1_MTK_1
+	 * sub-version is used when compression version is the same
+	 * but mtk decoder is different among platforms.
+	 */
+	const char name[25];
+
+	bool (*l_config)(struct mtk_ddp_comp *comp,
+			unsigned int idx, struct mtk_plane_state *state,
+			struct cmdq_pkt *handle);
+};
+
 struct mtk_disp_ovl_data {
 	unsigned int addr;
 	bool fmt_rgb565_is_0;
 	unsigned int fmt_uyvy;
 	unsigned int fmt_yuyv;
-
-	bool (*mtk_ovl_fbdc_config)(struct mtk_ddp_comp *comp, unsigned int idx,
-				    struct mtk_plane_state *state,
-				    struct cmdq_pkt *handle);
+	const struct compress_info *compr_info;
 };
 
 #define MAX_LAYER_NUM 4
@@ -340,11 +350,6 @@ struct mtk_disp_ovl {
 	struct clk *fbdc_clk;
 	struct mtk_ovl_backup_info backup_info[MAX_LAYER_NUM];
 };
-
-static bool mtk_ovl_fbdc_config_mt6779(struct mtk_ddp_comp *comp,
-				       unsigned int idx,
-				       struct mtk_plane_state *state,
-				       struct cmdq_pkt *handle);
 
 static inline struct mtk_disp_ovl *comp_to_ovl(struct mtk_ddp_comp *comp)
 {
@@ -452,6 +457,8 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	int ret;
 	unsigned int val;
+	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+	const struct compress_info *compr_info = ovl->data->compr_info;
 
 	DDPINFO("%s+\n", __func__);
 
@@ -464,11 +471,13 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_EN,
 		       0x1, ~0);
 
-	val = FBDC_8XE_MODE | FBDC_FILTER_EN;
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		       comp->regs_pa + DISP_REG_OVL_FBDC_CFG1, val, val);
-
 	/* In 6779 we need to set DISP_OVL_FORCE_RELAY_MODE */
+	if (compr_info && strncmp(compr_info->name, "PVRIC_V3_1", 10) == 0) {
+		val = FBDC_8XE_MODE | FBDC_FILTER_EN;
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_FBDC_CFG1, val, val);
+	}
+
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_SRC_CON,
 		       DISP_OVL_FORCE_RELAY_MODE, DISP_OVL_FORCE_RELAY_MODE);
@@ -1061,8 +1070,9 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned long long temp_bw;
 
 	/* handle buffer de-compression */
-	if (ovl->data->mtk_ovl_fbdc_config) {
-		if (ovl->data->mtk_ovl_fbdc_config(comp, idx, state, handle)) {
+	if (ovl->data->compr_info && ovl->data->compr_info->l_config) {
+		if (ovl->data->compr_info->l_config(comp,
+			    idx, state, handle)) {
 			DDPPR_ERR("wrong fbdc input config\n");
 			return;
 		}
@@ -1179,11 +1189,9 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	}
 }
 
-/* TODO: 180 rotation */
-static bool mtk_ovl_fbdc_config_mt6779(struct mtk_ddp_comp *comp,
-				       unsigned int idx,
-				       struct mtk_plane_state *state,
-				       struct cmdq_pkt *handle)
+static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
+			unsigned int idx, struct mtk_plane_state *state,
+			struct cmdq_pkt *handle)
 {
 	/* input config */
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
@@ -2321,12 +2329,17 @@ static const struct mtk_disp_ovl_data mt2701_ovl_driver_data = {
 	.fmt_yuyv = 8U << 12,
 };
 
+static const struct compress_info compr_info_mt6779  = {
+	.name = "PVRIC_V3_1_MTK_1",
+	.l_config = &compr_l_config_PVRIC_V3_1,
+};
+
 static const struct mtk_disp_ovl_data mt6779_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_MT6779,
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
-	.mtk_ovl_fbdc_config = mtk_ovl_fbdc_config_mt6779,
+	.compr_info = &compr_info_mt6779,
 };
 
 static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
