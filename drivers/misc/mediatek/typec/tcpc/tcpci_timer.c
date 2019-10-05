@@ -1402,12 +1402,14 @@ int tcpci_timer_deinit(struct tcpc_device *tcpc_dev)
 	mask = tcpc_get_timer_enable_mask(tcpc_dev);
 
 	mutex_lock(&tcpc_dev->timer_lock);
+	tcpc_dev->timer_thead_stop = true;
 	wake_up_interruptible(&tcpc_dev->timer_wait_que);
 	kthread_stop(tcpc_dev->timer_task);
 	for (i = 0; i < PD_TIMER_NR; i++) {
 		if (mask & RT_MASK64(i))
 			hrtimer_try_to_cancel(&tcpc_dev->tcpc_timer[i]);
 	}
+	wakeup_source_trash(&tcpc_dev->wakeup_wake_lock);
 
 	pr_info("%s : de init OK\n", __func__);
 	mutex_unlock(&tcpc_dev->timer_lock);

@@ -351,7 +351,6 @@ static void tcpc_device_release(struct device *dev)
 	tcpci_timer_deinit(tcpc_dev);
 	/* Un-init Mutex */
 	/* Do initialization */
-	devm_kfree(dev, tcpc_dev);
 }
 
 static void tcpc_init_work(struct work_struct *work);
@@ -782,6 +781,9 @@ void tcpc_device_unregister(struct device *dev, struct tcpc_device *tcpc)
 
 	tcpc_typec_deinit(tcpc);
 
+#ifdef CONFIG_USB_POWER_DELIVERY
+	wakeup_source_trash(&tcpc->pd_port.pps_request_wake_lock);
+#endif /* CONFIG_USB_POWER_DELIVERY */
 	wakeup_source_trash(&tcpc->dettach_temp_wake_lock);
 	wakeup_source_trash(&tcpc->attach_wake_lock);
 
