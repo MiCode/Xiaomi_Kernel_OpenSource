@@ -900,7 +900,8 @@ static s32 cmdq_driver_ioctl_alloc_write_address(unsigned long param)
 		return -EFAULT;
 	}
 
-	status = cmdqCoreAllocWriteAddress(addrReq.count, &paStart);
+	status = cmdqCoreAllocWriteAddress(addrReq.count, &paStart,
+		CMDQ_CLT_MDP);
 	if (status != 0) {
 		CMDQ_ERR("%s alloc write address failed\n", __func__);
 		return status;
@@ -928,7 +929,7 @@ static s32 cmdq_driver_ioctl_free_write_address(unsigned long param)
 		return -EFAULT;
 	}
 
-	return cmdqCoreFreeWriteAddress(freeReq.startPA);
+	return cmdqCoreFreeWriteAddress(freeReq.startPA, CMDQ_CLT_MDP);
 }
 
 static s32 cmdq_driver_ioctl_read_address_value(unsigned long param)
