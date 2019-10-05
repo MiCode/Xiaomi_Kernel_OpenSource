@@ -440,8 +440,9 @@ void md_cldma_clear(unsigned char hif_id);
 void cldma_reset(unsigned char hif_id);
 void md_cd_clear_all_queue(unsigned char hif_id, enum DIRECTION dir);
 void md_cd_ccif_allQreset_work(unsigned char hif_id);
-
+#ifdef CONFIG_MTK_GIC_V3_EXT
 extern void mt_irq_dump_status(int irq);
+#endif
 extern unsigned int ccci_get_md_debug_mode(struct ccci_modem *md);
 
 /* used for throttling feature - start */
