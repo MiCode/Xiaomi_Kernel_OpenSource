@@ -1,17 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2011-2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License version 2 as published by the
- * Free Software Foundation.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY;
- * without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program.
- * If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #include <linux/spinlock.h>
@@ -41,6 +30,20 @@ static struct timer_list adsp_wdt_timer;
 unsigned int wdt_counter;
 #endif
 
+irqreturn_t adsp_wdt_dispatch(int irq, void *dev_id)
+{
+	if (irq == adsp_core[ADSP_A_ID].wdt_irq) {
+		adsp_A_wdt_handler(irq, dev_id);
+		writel(readl(ADSP_A_SPM_WAKEUPSRC) & ~ADSP_WAKEUP_SPM,
+			ADSP_A_SPM_WAKEUPSRC);
+	} else {
+//		adsp_A_wdt_handler(irq, dev_id);
+		writel(readl(ADSP_B_SPM_WAKEUPSRC) & ~ADSP_WAKEUP_SPM,
+			ADSP_B_SPM_WAKEUPSRC);
+	}
+	return IRQ_HANDLED;
+}
+
 irqreturn_t  adsp_A_wdt_handler(int irq, void *dev_id)
 {
 	/*  disable wdt  */
@@ -65,9 +68,6 @@ irqreturn_t  adsp_A_wdt_handler(int irq, void *dev_id)
 	adsp_aed_reset(EXCEP_RUNTIME, ADSP_A_ID);
 #endif
 
-	/* clear spm wakeup src */
-	writel(0x0, ADSP_TO_SPM_REG);
-
 	return IRQ_HANDLED;
 }
 
@@ -86,12 +86,22 @@ static void adsp_wdt_counter_reset(unsigned long data)
  * @param irq:      irq id
  * @param dev_id:   should be NULL
  */
-irqreturn_t adsp_A_irq_handler(int irq, void *dev_id)
+irqreturn_t adsp_ipc_dispatch(int irq, void *dev_id)
 {
-	adsp_A_ipi_handler();
-	/* write 1 clear */
-	writel(ADSP_IRQ_ADSP2HOST, ADSP_A_TO_HOST_REG);
-	dsb(SY);
+	if (irq == adsp_core[ADSP_A_ID].ipc_irq) {
+		/* write 1 clear */
+		writel(ADSP_A_2HOST_IRQ_BIT, ADSP_GENERAL_IRQ_CLR);
+		adsp_A_ipi_handler();
+		writel(readl(ADSP_A_SPM_WAKEUPSRC) & ~ADSP_WAKEUP_SPM,
+			ADSP_A_SPM_WAKEUPSRC);
+	} else if (irq == adsp_core[ADSP_B_ID].ipc_irq) {
+		/* write 1 clear */
+		writel(ADSP_B_2HOST_IRQ_BIT, ADSP_GENERAL_IRQ_CLR);
+		/*FIXME: specify handler for ADSP_B ? */
+//		adsp_A_ipi_handler();
+		writel(readl(ADSP_B_SPM_WAKEUPSRC) & ~ADSP_WAKEUP_SPM,
+			ADSP_B_SPM_WAKEUPSRC);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -101,8 +111,26 @@ irqreturn_t adsp_A_irq_handler(int irq, void *dev_id)
  */
 void adsp_A_irq_init(void)
 {
-	writel(ADSP_IRQ_ADSP2HOST, ADSP_A_TO_HOST_REG); /* clear adsp irq */
+	writel(ADSP_GENERAL_IRQ_INUSED, ADSP_GENERAL_IRQ_CLR); // clear adsp irq
 #ifdef CFG_RECOVERY_SUPPORT
 	setup_timer(&adsp_wdt_timer, adsp_wdt_counter_reset, 0);
 #endif
+}
+
+irqreturn_t adsp_audioipc_dispatch(int irq, void *dev_id)
+{
+	/* separate core0/1 from IRQ ID */
+	if (irq == adsp_core[ADSP_A_ID].audioipc_irq) {
+		writel(ADSP_A_AFE2HOST_IRQ_BIT, ADSP_GENERAL_IRQ_CLR);
+		/* call adsp a handler */
+		writel(readl(ADSP_A_SPM_WAKEUPSRC) & ~ADSP_WAKEUP_SPM,
+			ADSP_A_SPM_WAKEUPSRC);
+	} else if (irq == adsp_core[ADSP_B_ID].audioipc_irq) {
+		writel(ADSP_B_AFE2HOST_IRQ_BIT, ADSP_GENERAL_IRQ_CLR);
+		/* call adsp b handler */
+		writel(readl(ADSP_B_SPM_WAKEUPSRC) & ~ADSP_WAKEUP_SPM,
+			ADSP_B_SPM_WAKEUPSRC);
+	}
+
+	return IRQ_HANDLED;
 }

@@ -1,6 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0
+
 obj-y += adsp.o
-adsp-y := adsp_helper.o adsp_excep.o adsp_excep.o adsp_ipi.o adsp_irq.o adsp_logger.o adsp_service.o
+#adsp-y := adsp_helper.o adsp_excep.o adsp_excep.o adsp_ipi.o adsp_irq.o adsp_logger.o adsp_service.o
 #adsp-y += adsp_timesync.o adsp_trace.o
+adsp-y := adsp_core.o adsp_fs.o adsp_semaphore.o adsp_logger.o
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(CONFIG_MTK_PLATFORM)
@@ -18,6 +21,7 @@ CFLAGS_adsp_helper.o += -DDEBUG
 CFLAGS_adsp_excep.o += -DDEBUG
 CFLAGS_adsp_ipi.o += -DDEBUG
 CFLAGS_adsp_irq.o += -DDEBUG
+CFLAGS_adsp_semaphore.o += -DDEBUG
 CFLAGS_adsp_dvfs.o += -DDEBUG
 CFLAGS_adsp_clk.o += -DDEBUG
 CFLAGS_adsp_service.o += -DDEBUG

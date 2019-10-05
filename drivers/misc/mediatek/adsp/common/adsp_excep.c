@@ -1,17 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2011-2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License version 2 as published by the
- * Free Software Foundation.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY;
- * without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program.
- * If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #include <linux/vmalloc.h>         /* needed by vmalloc */
@@ -278,7 +267,7 @@ static u32 adsp_crash_dump(struct MemoryDump *pMemoryDump,
 			       CRASH_CFG_REG_SIZE);
 
 	if (n != sizeof(struct MemoryDump))
-		pr_info("%s(), size not match n(%x) != MemoryDump(%zd)",
+		pr_info("%s(), size not match n(%x) != MemoryDump(%d)",
 			__func__, n, sizeof(struct MemoryDump));
 
 	mutex_unlock(&adsp_sw_reset_mutex);
@@ -419,40 +408,6 @@ void adsp_aed_reset(enum adsp_excep_id type, enum adsp_core_id id)
 	adsp_aed_work.id = (unsigned int) id;
 	queue_work(adsp_workqueue, &adsp_aed_work.work);
 }
-
-#if ADSP_TRAX
-static ssize_t adsp_A_trax_show(struct file *filep, struct kobject *kobj,
-				struct bin_attribute *attr,
-				char *buf, loff_t offset, size_t size)
-{
-	unsigned int length = 0;
-	void *trax_addr = adsp_get_reserve_mem_virt(ADSP_A_TRAX_MEM_ID);
-
-	pr_debug("[ADSP] trax initiated=%d, done=%d, length=%d, offset=%lld\n",
-		adsp_get_trax_initiated(), adsp_get_trax_done(),
-		adsp_get_trax_length(), offset);
-
-	if (adsp_get_trax_initiated() && adsp_get_trax_done()) {
-		if (offset >= 0 && offset < adsp_get_trax_length()) {
-			if ((offset + size) > adsp_get_trax_length())
-				size = adsp_get_trax_length() - offset;
-
-			memcpy(buf, trax_addr + offset, size);
-			length = size;
-		}
-	}
-	return length;
-}
-
-struct bin_attribute bin_attr_adsp_trax = {
-	.attr = {
-		.name = "adsp_trax",
-		.mode = 0444,
-	},
-	.size = 0,
-	.read = adsp_A_trax_show,
-};
-#endif
 
 static int adsp_A_dram_dump(void)
 {
@@ -598,9 +553,6 @@ static struct bin_attribute bin_attr_adsp_dump_ke = {
 static struct bin_attribute *adsp_excep_bin_attrs[] = {
 	&bin_attr_adsp_dump,
 	&bin_attr_adsp_dump_ke,
-#if ADSP_TRAX
-	&bin_attr_adsp_trax,
-#endif
 	NULL,
 };
 

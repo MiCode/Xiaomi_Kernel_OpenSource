@@ -1,135 +1,195 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2011-2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License version 2 as published by the
- * Free Software Foundation.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY;
- * without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program.
- * If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #include <linux/mutex.h>
-#include <mt-plat/sync_write.h>
-
 #include <linux/io.h>
-#include <linux/hrtimer.h>
 #include <linux/ktime.h>
+#include <linux/interrupt.h>
+#include <linux/slab.h>
 
-#include <audio_ipi_platform.h>
+//#include <audio_ipi_platform.h>
+//#include <audio_messenger_ipi.h>
+//#include <adsp_ipi_queue.h>
 
+#include "adsp_platform.h"
+#include "adsp_reg.h"
+#include "adsp_core.h"
 #include "adsp_ipi.h"
-#include "adsp_helper.h"
-#include "adsp_excep.h"
 
-
-#include <adsp_ipi_queue.h>
-#include <audio_messenger_ipi.h>
-
-
-
-/*
- * =============================================================================
- *                     log
- * =============================================================================
- */
-
-#ifdef pr_fmt
-#undef pr_fmt
+#ifdef ADSP_BASE
+#undef ADSP_BASE
 #endif
-#define pr_fmt(fmt) "[IPI][IPC] %s(), " fmt "\n", __func__
+#define ADSP_BASE       ipi_base
 
+/* ipi common member */
+static void __iomem *ipi_base;
+struct adsp_ipi_desc adsp_ipi_descs[ADSP_NR_IPI];
 
-
-#define PRINT_THRESHOLD 10000
-enum adsp_ipi_id adsp_ipi_mutex_owner[ADSP_CORE_TOTAL];
-enum adsp_ipi_id adsp_ipi_owner[ADSP_CORE_TOTAL];
-
-struct adsp_ipi_desc adsp_ipi_desc[ADSP_NR_IPI];
-struct adsp_share_obj *adsp_send_obj[ADSP_CORE_TOTAL];
-struct adsp_share_obj *adsp_rcv_obj[ADSP_CORE_TOTAL];
-struct mutex adsp_ipi_mutex[ADSP_CORE_TOTAL];
-
-/*
- * find an ipi handler and invoke it
- */
-void adsp_A_ipi_handler(void)
+/* platform implement */
+bool adsp_check0_swi(void)
 {
+	return (readl(ADSP_SW_INT_SET) & ADSP_A_SW_INT) > 0;
+}
+
+void adsp_write0_swi(void)
+{
+	writel(ADSP_A_SW_INT, ADSP_SW_INT_SET);
+}
+
+void adsp_clr0_irq(void)
+{
+	writel(ADSP_A_2HOST_IRQ_BIT, ADSP_GENERAL_IRQ_CLR);
+}
+
+bool adsp_check1_swi(void)
+{
+	return (readl(ADSP_SW_INT_SET) & ADSP_B_SW_INT) > 0;
+}
+
+void adsp_write1_swi(void)
+{
+	writel(ADSP_B_SW_INT, ADSP_SW_INT_SET);
+}
+
+void adsp_clr1_irq(void)
+{
+	writel(ADSP_B_2HOST_IRQ_BIT, ADSP_GENERAL_IRQ_CLR);
+}
+
+irqreturn_t adsp_ipi_handler(int irq, void *data)
+{
+	struct ipi_ctrl *ipi_c = (struct ipi_ctrl *)data;
+
 	enum adsp_ipi_id ipi_id;
-	struct ipi_msg_t *ipi_msg = NULL;
 	u8 share_buf[SHARE_BUF_SIZE - 16];
 	u32 len;
 
-	ktime_t start_time;
-	s64 stop_time;
+	ipi_id = ipi_c->recv_obj->id;
+	len = ipi_c->recv_obj->len;
+	memcpy_fromio(share_buf, (void *)ipi_c->recv_obj->share_buf, len);
 
-	start_time = ktime_get();
+	ipi_c->clr_irq();
 
-	ipi_id = adsp_rcv_obj[ADSP_A_ID]->id;
-	len = adsp_rcv_obj[ADSP_A_ID]->len;
-
-	if (ipi_id >= ADSP_NR_IPI)
-		pr_debug("[ADSP] A ipi handler id abnormal, id=%d", ipi_id);
-	else if (adsp_ipi_desc[ipi_id].handler) {
-		memcpy_fromio(share_buf,
-			(void *)adsp_rcv_obj[ADSP_A_ID]->share_buf, len);
-
-		if (ipi_id == ADSP_IPI_ADSP_A_READY ||
-		    ipi_id == ADSP_IPI_LOGGER_INIT_A) {
-			/*
-			 * adsp_ready & logger init ipi bypass send to ipi
-			 * queue and do callback directly. (which will in isr)
-			 * Must ensure the callback can do in isr
-			 */
-			adsp_ipi_desc[ipi_id].handler(ipi_id, share_buf, len);
-		} else if (is_scp_ipi_queue_init(AUDIO_OPENDSP_USE_HIFI3)) {
-			scp_dispatch_ipi_hanlder_to_queue(
-				AUDIO_OPENDSP_USE_HIFI3,
-				ipi_id, share_buf, len,
-				adsp_ipi_desc[ipi_id].handler);
-		} else {
-			ipi_msg = (struct ipi_msg_t *)share_buf;
-			if (ipi_msg->magic == IPI_MSG_MAGIC_NUMBER)
-				DUMP_IPI_MSG("ipi queue not ready!", ipi_msg);
-			else
-				pr_info("ipi queue not ready!! opendsp_id: %u, ipi_id: %u, buf: %p, len: %u, ipi_handler: %p",
-					AUDIO_OPENDSP_USE_HIFI3,
-					ipi_id, share_buf, len,
-					adsp_ipi_desc[ipi_id].handler);
-			WARN_ON(1);
-		}
-	} else {
-		pr_debug("[ADSP] A ipi handler is null or abnormal, id=%d",
-			 ipi_id);
+	if (ipi_id >= ADSP_NR_IPI) {
+		pr_info("%s(), ipi_id:%d invalid", __func__, ipi_id);
+		return IRQ_HANDLED;
 	}
 
-	/* ADSP side write 1 to assert SPM wakeup src,
-	 * while AP side write 0 to clear wakeup src.
-	 */
-	writel(0x0, ADSP_TO_SPM_REG);
+	if (adsp_ipi_descs[ipi_id].handler == NULL) {
+		pr_info("%s(), ipi_handle[%d] is null", __func__, ipi_id);
+		return IRQ_HANDLED;
+	}
 
-	stop_time = ktime_us_delta(ktime_get(), start_time);
-	if (stop_time > 1000) /* 1 ms */
-		pr_notice("IPC ISR %lld us too long!!", stop_time);
+	if (ipi_id == ADSP_IPI_ADSP_A_READY ||
+	    ipi_id == ADSP_IPI_LOGGER_INIT_A) {
+		/*
+		 * adsp_ready & logger init ipi bypass send to ipi
+		 * queue and do callback directly. (which will in isr)
+		 * Must ensure the callback can do in isr
+		 */
+		adsp_ipi_descs[ipi_id].handler(ipi_id, share_buf, len);
+		return IRQ_HANDLED;
+	}
+
+	return IRQ_HANDLED;
 }
 
-/*
- * ipi initialize
- */
-void adsp_A_ipi_init(void)
+struct ipi_ctrl *adsp_ipi_init0(void *sharedmem, int irq, void *base)
 {
-	mutex_init(&adsp_ipi_mutex[ADSP_A_ID]);
-	adsp_rcv_obj[ADSP_A_ID] = ADSP_A_IPC_BUFFER;
-	adsp_send_obj[ADSP_A_ID] = adsp_rcv_obj[ADSP_A_ID] + 1;
-	pr_debug("adsp_rcv_obj[ADSP_A_ID] = 0x%p", adsp_rcv_obj[ADSP_A_ID]);
-	pr_debug("adsp_send_obj[ADSP_A_ID] = 0x%p", adsp_send_obj[ADSP_A_ID]);
+	int ret = 0;
+	struct ipi_ctrl *ipi_c;
+
+	/* init ipi ctrl */
+	ipi_c = kzalloc(sizeof(*ipi_c), GFP_KERNEL);
+	if (!ipi_c)
+		return ERR_PTR(-ENOMEM);
+
+	if (!sharedmem)
+		return ERR_PTR(-EINVAL);
+
+
+	mutex_init(&ipi_c->s_mutex);
+	ipi_c->recv_obj = (struct adsp_share_obj *)sharedmem;
+	ipi_c->send_obj = ipi_c->recv_obj + 1;
+	if (!ipi_base)
+		ipi_base = base;
+
+	/* request irq */
+	ret = request_irq(irq, adsp_ipi_handler, IRQF_TRIGGER_LOW,
+			"ADSP A IPC2HOST", ipi_c);
+
+	ipi_c->clr_irq = adsp_clr0_irq;
+	ipi_c->check_swi = adsp_check0_swi;
+	ipi_c->write_swi = adsp_write0_swi;
+
+	return ipi_c;
 }
 
+struct ipi_ctrl *adsp_ipi_init1(void *sharedmem, int irq, void *base)
+{
+	int ret = 0;
+	struct ipi_ctrl *ipi_c;
+
+	/* init ipi ctrl */
+	ipi_c = kzalloc(sizeof(*ipi_c), GFP_KERNEL);
+	if (!ipi_c)
+		return ERR_PTR(-ENOMEM);
+
+	if (!sharedmem)
+		return ERR_PTR(-EINVAL);
+
+
+	mutex_init(&ipi_c->s_mutex);
+	ipi_c->recv_obj = (struct adsp_share_obj *)sharedmem;
+	ipi_c->send_obj = ipi_c->recv_obj + 1;
+
+	/* request irq */
+	ret = request_irq(irq, adsp_ipi_handler, IRQF_TRIGGER_LOW,
+			"ADSP B IPC2HOST", ipi_c);
+
+	ipi_c->clr_irq = adsp_clr1_irq;
+	ipi_c->check_swi = adsp_check1_swi;
+	ipi_c->write_swi = adsp_write1_swi;
+
+	return ipi_c;
+}
+
+enum adsp_ipi_status adsp_ipi_send_ipc(struct ipi_ctrl *ipi_c, void *buf,
+				       unsigned int len, unsigned int wait)
+{
+	ktime_t start_time;
+	s64     time_ipc_us;
+
+	if (mutex_trylock(&ipi_c->s_mutex) == 0) {
+		pr_info("%s(), mutex_trylock busy", __func__);
+		return ADSP_IPI_BUSY;
+	}
+
+	if (ipi_c->check_swi()) {
+		mutex_unlock(&ipi_c->s_mutex);
+		return ADSP_IPI_BUSY;
+	}
+
+	memcpy_toio((void *)ipi_c->send_obj, buf, len);
+	dsb(SY);
+
+	/* send host to adsp ipi */
+	ipi_c->write_swi();
+
+	if (wait) {
+		start_time = ktime_get();
+		while (ipi_c->check_swi()) {
+			time_ipc_us = ktime_us_delta(ktime_get(), start_time);
+			if (time_ipc_us > 2000) /* 1 ms */
+				break;
+		}
+	}
+
+	mutex_unlock(&ipi_c->s_mutex);
+	return ADSP_IPI_DONE;
+}
 
 /*
  * API let apps can register an ipi handler to receive IPI
@@ -143,12 +203,12 @@ enum adsp_ipi_status adsp_ipi_registration(
 	const char *name)
 {
 	if (id < ADSP_NR_IPI) {
-		adsp_ipi_desc[id].name = name;
+		adsp_ipi_descs[id].name = name;
 
 		if (ipi_handler == NULL)
 			return ADSP_IPI_ERROR;
 
-		adsp_ipi_desc[id].handler = ipi_handler;
+		adsp_ipi_descs[id].handler = ipi_handler;
 		return ADSP_IPI_DONE;
 	} else
 		return ADSP_IPI_ERROR;
@@ -162,120 +222,10 @@ EXPORT_SYMBOL_GPL(adsp_ipi_registration);
 enum adsp_ipi_status adsp_ipi_unregistration(enum adsp_ipi_id id)
 {
 	if (id < ADSP_NR_IPI) {
-		adsp_ipi_desc[id].name = "";
-		adsp_ipi_desc[id].handler = NULL;
+		adsp_ipi_descs[id].name = "";
+		adsp_ipi_descs[id].handler = NULL;
 		return ADSP_IPI_DONE;
 	} else
 		return ADSP_IPI_ERROR;
 }
 EXPORT_SYMBOL_GPL(adsp_ipi_unregistration);
-
-/*
- * API for apps to send an IPI to adsp
- * @param id:   IPI ID
- * @param buf:  the pointer of data
- * @param len:  data length
- * @param wait: If true, wait (atomically) until data have been gotten by Host
- * @param len:  data length
- */
-enum adsp_ipi_status adsp_ipi_send(enum adsp_ipi_id id, void *buf,
-				   unsigned int  len, unsigned int wait,
-				   enum adsp_core_id adsp_id)
-{
-	int retval = 0;
-	uint32_t wait_ms = (wait) ? ADSP_IPI_QUEUE_DEFAULT_WAIT_MS : 0;
-
-	/* wait until IPC done */
-	retval = scp_send_msg_to_queue(
-			 AUDIO_OPENDSP_USE_HIFI3, id, buf, len, wait_ms);
-
-	return (retval == 0) ? ADSP_IPI_DONE : ADSP_IPI_ERROR;
-}
-
-
-enum adsp_ipi_status adsp_ipi_send_ipc(enum adsp_ipi_id id, void *buf,
-				       unsigned int  len, unsigned int wait,
-				       enum adsp_core_id adsp_id)
-{
-	struct ipi_msg_t *p_ipi_msg = NULL;
-	ktime_t start_time;
-	s64     time_ipc_us;
-	static bool busy_log_flag;
-	static u8 share_buf[SHARE_BUF_SIZE - 16];
-
-	if (in_interrupt() && wait) {
-		pr_info("adsp_ipi_send: cannot use in isr");
-		return ADSP_IPI_ERROR;
-	}
-	if (is_adsp_ready(adsp_id) != 1) {
-		pr_notice("adsp_ipi_send: %s not enabled, id=%d",
-			  adsp_core_ids[adsp_id], id);
-		return ADSP_IPI_ERROR;
-	}
-
-	if (len > sizeof(adsp_send_obj[adsp_id]->share_buf) || buf == NULL) {
-		pr_info("adsp_ipi_send: %s buffer error",
-			adsp_core_ids[adsp_id]);
-		return ADSP_IPI_ERROR;
-	}
-
-	if (mutex_trylock(&adsp_ipi_mutex[adsp_id]) == 0) {
-		pr_info("adsp_ipi_send:%s %d mutex_trylock busy,owner=%d",
-			adsp_core_ids[adsp_id], id,
-			adsp_ipi_mutex_owner[adsp_id]);
-		return ADSP_IPI_BUSY;
-	}
-
-	/* get adsp ipi mutex owner */
-	adsp_ipi_mutex_owner[adsp_id] = id;
-
-	if ((readl(ADSP_SWINT_REG) & (1 << adsp_id)) > 0) {
-		if (busy_log_flag == false) {
-			busy_log_flag = true;
-			p_ipi_msg = (struct ipi_msg_t *)share_buf;
-			if (p_ipi_msg->magic == IPI_MSG_MAGIC_NUMBER)
-				DUMP_IPI_MSG("busy. ipc owner", p_ipi_msg);
-			else
-				pr_info("adsp_ipi_send: %s %d host to adsp busy, ipi last time = %d",
-					adsp_core_ids[adsp_id], id,
-					adsp_ipi_owner[adsp_id]);
-		}
-		mutex_unlock(&adsp_ipi_mutex[adsp_id]);
-		return ADSP_IPI_BUSY;
-	}
-	busy_log_flag = false;
-
-	/* get adsp ipi send owner */
-	adsp_ipi_owner[adsp_id] = id;
-
-	memcpy(share_buf, buf, len);
-	memcpy_toio((void *)adsp_send_obj[adsp_id]->share_buf, buf, len);
-
-	adsp_send_obj[adsp_id]->len = len;
-	adsp_send_obj[adsp_id]->id = id;
-	dsb(SY);
-
-	/* send host to adsp ipi */
-	writel((1 << adsp_id), ADSP_SWINT_REG);
-
-	if (wait) {
-		start_time = ktime_get();
-		while ((readl(ADSP_SWINT_REG) & (1 << adsp_id)) > 0) {
-			time_ipc_us = ktime_us_delta(ktime_get(), start_time);
-			if (time_ipc_us > 1000) /* 1 ms */
-				break;
-		}
-	}
-
-#ifdef Liang_Check
-	if (adsp_awake_unlock(adsp_id) == -1)
-		pr_debug("adsp_ipi_send: awake unlock fail");
-#endif
-	mutex_unlock(&adsp_ipi_mutex[adsp_id]);
-
-	return ADSP_IPI_DONE;
-}
-EXPORT_SYMBOL_GPL(adsp_ipi_send);
-
-
-

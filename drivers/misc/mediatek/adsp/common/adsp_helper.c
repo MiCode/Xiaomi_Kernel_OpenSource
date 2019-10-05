@@ -1,17 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2011-2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License version 2 as published by the
- * Free Software Foundation.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY;
- * without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program.
- * If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #include <linux/module.h>       /* needed by all modules */
@@ -48,13 +37,17 @@
 #include <mt-plat/sync_write.h>
 #include <mt-plat/aee.h>
 #ifdef CONFIG_MTK_TIMER_TIMESYNC
+#ifndef ADSP_EARLY_PORTING_BYPASS
 #include <mtk_sys_timer.h>
 #include <mtk_sys_timer_typedefs.h>
 #endif
-#include <mtk_spm_sleep.h>
-#ifdef CONFIG_MTK_EMI
-#include <plat_debug_api.h>
 #endif
+/* FIXME: ADSP has own mtcmos in mt6789 */
+#ifndef ADSP_EARLY_PORTING_BYPASS
+#include <mtk_spm_sleep.h>
+#endif
+#include <plat_debug_api.h>
+
 #include "adsp_helper.h"
 #include "adsp_excep.h"
 #include "adsp_dvfs.h"
@@ -62,10 +55,13 @@
 #include "adsp_service.h"
 #include "adsp_logger.h"
 #include "adsp_bus_monitor.h"
+#include "adsp_mbox.h"
 
 #define ADSP_READY_TIMEOUT (40 * HZ) /* 40 seconds*/
 
-struct adsp_regs adspreg;
+//struct adsp_regs adspreg;
+struct adsp_common_t adsp_common;
+struct adsp_core_t adsp_core[ADSP_CORE_TOTAL];
 char *adsp_core_ids[ADSP_CORE_TOTAL] = {"ADSP A"};
 unsigned int adsp_ready[ADSP_CORE_TOTAL];
 static struct dentry *adsp_debugfs;
@@ -206,10 +202,8 @@ void adsp_sys_reset_ws(struct work_struct *ws)
 	/* dump bus status if has bus hang*/
 	if (is_adsp_bus_monitor_alert()) {
 #ifdef CONFIG_MTK_EMI
-#ifdef CONFIG_MTK_LASTBUS_INTERFACE
 		dump_emi_outstanding(); /* check infra, dump all info*/
 		lastbus_timeout_dump(); /* check infra/peri, dump both info */
-#endif
 #endif
 		adsp_bus_monitor_dump();
 	}
@@ -332,7 +326,9 @@ void adsp_A_ready_ipi_handler(int id, void *data, unsigned int len)
 #endif
 		/* set adsp ready flag and clear SPM interrupt */
 		adsp_ready[ADSP_A_ID] = 1;
-		writel(0x0, ADSP_TO_SPM_REG);
+
+		if (adsp_is_suspend)
+			complete(&adsp_resume_cp);
 
 #ifdef CFG_RECOVERY_SUPPORT
 		adsp_timeout_times = 0;
@@ -341,7 +337,7 @@ void adsp_A_ready_ipi_handler(int id, void *data, unsigned int len)
 	}
 	/* verify adsp image size */
 	if (adsp_image_size != ADSP_A_TCM_SIZE) {
-		pr_info("[ADSP]image size ERROR! AP=0x%zx,ADSP=0x%x\n",
+		pr_info("[ADSP]image size ERROR! AP=0x%x,ADSP=0x%x\n",
 			ADSP_A_TCM_SIZE, adsp_image_size);
 		WARN_ON(1);
 	}
@@ -372,7 +368,8 @@ uint32_t adsp_power_on(uint32_t enable)
 {
 	if (enable) {
 		adsp_enable_clock();
-		adsp_sw_reset();
+		adsp_sw_reset(ADSP_A_ID);
+		adsp_sw_reset(ADSP_B_ID);
 		adsp_set_clock_freq(CLK_DEFAULT_INIT_CK);
 		adsp_A_send_spm_request(true);
 	} else {
@@ -624,8 +621,8 @@ void adsp_update_memory_protect_info(void)
 	mpu_info = (struct adsp_mpu_info_t *)ADSP_A_MPUINFO_BUFFER;
 	mpu_info->data_non_cache_addr = nc_addr;
 	mpu_info->data_non_cache_size =
-			  adsp_get_reserve_mem_phys(ADSP_A_SHARED_MEM_END)
-			  + adsp_get_reserve_mem_size(ADSP_A_SHARED_MEM_END)
+			  adsp_get_reserve_mem_phys(ADSP_SHARED_MEM_END)
+			  + adsp_get_reserve_mem_size(ADSP_SHARED_MEM_END)
 			  - nc_addr;
 }
 
@@ -645,7 +642,10 @@ static int adsp_system_sleep_suspend(struct device *dev)
 	mutex_lock(&adsp_suspend_mutex);
 	if ((is_adsp_ready(ADSP_A_ID) == 1) || adsp_feature_is_active()) {
 #ifdef CONFIG_MTK_TIMER_TIMESYNC
+#ifndef ADSP_EARLY_PORTING_BYPASS
+	/* FIXME: build error */
 		sys_timer_timesync_sync_adsp(SYS_TIMER_TIMESYNC_FLAG_FREEZE);
+#endif
 #endif
 		adsp_awake_unlock_adsppll(ADSP_A_ID, 1);
 	}
@@ -660,9 +660,12 @@ static int adsp_system_sleep_resume(struct device *dev)
 		/*wake adsp up*/
 		adsp_awake_unlock_adsppll(ADSP_A_ID, 0);
 #ifdef CONFIG_MTK_TIMER_TIMESYNC
+#ifndef ADSP_EARLY_PORTING_BYPASS
+		/* FIXME: build error */
 		sys_timer_timesync_sync_adsp(SYS_TIMER_TIMESYNC_FLAG_UNFREEZE);
 #endif
-	}
+#endif
+}
 	mutex_unlock(&adsp_suspend_mutex);
 
 	return 0;
@@ -671,8 +674,11 @@ static int adsp_system_sleep_resume(struct device *dev)
 static int adsp_syscore_suspend(void)
 {
 	if ((is_adsp_ready(ADSP_A_ID) != 1) && !adsp_feature_is_active()) {
+		/* FIXME: adsp has own mtcmos in mt6789 */
+#ifndef ADSP_EARLY_PORTING_BYPASS
 		adsp_bus_sleep_protect(true);
 		spm_adsp_mem_protect();
+#endif
 	}
 	return 0;
 }
@@ -680,18 +686,25 @@ static int adsp_syscore_suspend(void)
 static void adsp_syscore_resume(void)
 {
 	if ((is_adsp_ready(ADSP_A_ID) != 1) && !adsp_feature_is_active()) {
+		/* FIXME: adsp has own mtcmos in mt6789 */
+#ifndef ADSP_EARLY_PORTING_BYPASS
 		spm_adsp_mem_unprotect();
 		adsp_bus_sleep_protect(false);
+#endif
 		/* release adsp sw_reset,
 		 * let ap is able to write adsp cfg/dtcm
 		 * no matter adsp is suspend.
 		 */
 		adsp_enable_clock();
-		writel((ADSP_A_SW_RSTN | ADSP_A_SW_DBG_RSTN), ADSP_A_REBOOT);
+		writel((ADSP_A_SW_RSTN | ADSP_A_SW_DBG_RSTN),
+		      ADSP_CFGREG_SW_RSTN);
 		udelay(1);
-		writel(0, ADSP_A_REBOOT);
+		writel(0, ADSP_CFGREG_SW_RSTN);
 #ifdef CONFIG_MTK_TIMER_TIMESYNC
+#ifndef ADSP_EARLY_PORTING_BYPASS
+		/* FIXME: build error */
 		sys_timer_timesync_sync_adsp(SYS_TIMER_TIMESYNC_FLAG_UNFREEZE);
+#endif
 #endif
 #if ADSP_BUS_MONITOR_INIT_ENABLE
 		adsp_bus_monitor_init(); /* reinit bus monitor hw */
@@ -703,60 +716,35 @@ static void adsp_syscore_resume(void)
 static int adsp_device_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	u64	sysram[2] = {0, 0};
 	struct device *dev = &pdev->dev;
 
+	/* adsp_common */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	adspreg.cfg = devm_ioremap_resource(dev, res);
-	adspreg.cfgregsize = resource_size(res);
-	if (IS_ERR(adspreg.cfg))
+	adsp_common.cfg = devm_ioremap_resource(dev, res);
+	adsp_common.cfg_size = resource_size(res);
+	if (IS_ERR(adsp_common.cfg))
 		goto ERROR;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	adspreg.iram = devm_ioremap_resource(dev, res);
-	adspreg.i_tcmsize = resource_size(res);
-	if (IS_ERR(adspreg.iram))
+	adsp_common.cfg_secure = devm_ioremap_resource(dev, res);
+	adsp_common.cfgsec_size = resource_size(res);
+	if (IS_ERR(adsp_common.cfg_secure))
 		goto ERROR;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-	adspreg.dram = devm_ioremap_resource(dev, res);
-	adspreg.d_tcmsize = resource_size(res);
-	if (IS_ERR(adspreg.dram))
-		goto ERROR;
+	adsp_reserve_memory_ioremap(adsp_common.sharedram,
+				    adsp_common.shared_size);
 
-	adspreg.total_tcmsize = adspreg.i_tcmsize + adspreg.d_tcmsize;
-
-	adspreg.wdt_irq = platform_get_irq(pdev, 0);
-	if (request_irq(adspreg.wdt_irq, adsp_A_wdt_handler,
-			IRQF_TRIGGER_LOW, "ADSP A WDT", NULL))
-		goto ERROR;
-
-	adspreg.ipc_irq = platform_get_irq(pdev, 1);
-	if (request_irq(adspreg.ipc_irq, adsp_A_irq_handler,
-			IRQF_TRIGGER_LOW, "ADSP A IPC2HOST", NULL))
-		goto ERROR;
-
-	of_property_read_u64_array(pdev->dev.of_node, "sysram",
-			sysram, ARRAY_SIZE(sysram));
-
-	adspreg.sysram = ioremap_wc(sysram[0], sysram[1]);
-	adspreg.sysram_size = sysram[1];
-	if (IS_ERR(adspreg.sysram))
-		goto ERROR;
-	adsp_set_reserve_mblock(ADSP_A_SYSTEM_MEM_ID, sysram[0],
-				adspreg.sysram, adspreg.sysram_size);
-	adsp_reserve_memory_ioremap(adspreg.sharedram, adspreg.shared_size);
-
-	adspreg.clkctrl = adspreg.cfg + ADSP_CLK_CTRL_OFFSET;
+	adsp_common.clkctrl = adsp_common.cfg + ADSP_CLK_CTRL_OFFSET;
 	adsp_clk_device_probe(&pdev->dev);
 
 #if ENABLE_ADSP_EMI_PROTECTION
-	set_adsp_mpu(adspreg.sharedram, adspreg.shared_size);
+	set_adsp_mpu(adsp_common.sharedram, adsp_common.shared_size);
 #endif
 	adsp_dts_mapping();
 
 	return 0;
 ERROR:
+	pr_err("%s() error\n", __func__);
 	return -ENODEV;
 }
 
@@ -766,8 +754,75 @@ static int adsp_device_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int adsp_core_device_probe(struct platform_device *pdev)
+{
+	struct resource *res;
+	struct device *dev = &pdev->dev;
+	u32 core_id;
+#ifndef FPGA_EARLY_DEVELOPMENT
+	int ret;
+	u32 sysram[2] = {0, 0};
+#endif
+	of_property_read_u32(pdev->dev.of_node, "core_id", &core_id);
+
+	/* memory */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	adsp_core[core_id].iram = devm_ioremap_resource(dev, res);
+	adsp_core[core_id].i_tcmsize = resource_size(res);
+	if (IS_ERR(adsp_core[core_id].iram))
+		goto ERROR;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	adsp_core[core_id].dram = devm_ioremap_resource(dev, res);
+	adsp_core[core_id].d_tcmsize = resource_size(res);
+	if (IS_ERR(adsp_core[core_id].dram))
+		goto ERROR;
+
+	adsp_core[core_id].total_tcmsize = adsp_core[core_id].i_tcmsize
+					   + adsp_core[core_id].d_tcmsize;
+#ifndef FPGA_EARLY_DEVELOPMENT
+	ret = of_property_read_u32(pdev->dev.of_node,
+			"sysram", &sysram[0]);
+	if (ret)
+		goto ERROR;
+	ret = of_property_read_u32(pdev->dev.of_node,
+			"sysram_size", &sysram[1]);
+	if (ret)
+		goto ERROR;
+	adsp_core[core_id].sysram = ioremap_wc(sysram[0], sysram[1]);
+	adsp_core[core_id].sysram_size = sysram[1];
+#endif
+	/* irq */
+	adsp_core[core_id].ipc_irq = platform_get_irq(pdev, 0);
+	if (request_irq(adsp_core[core_id].ipc_irq, adsp_ipc_dispatch,
+			IRQF_TRIGGER_LOW, "ADSP A IPC2HOST", NULL))
+		goto ERROR;
+
+	adsp_core[core_id].wdt_irq = platform_get_irq(pdev, 1);
+	if (request_irq(adsp_core[core_id].wdt_irq, adsp_wdt_dispatch,
+			IRQF_TRIGGER_LOW, "ADSP A WDT", NULL))
+		goto ERROR;
+
+	adsp_core[core_id].audioipc_irq = platform_get_irq(pdev, 2);
+	if (request_irq(adsp_core[core_id].audioipc_irq, adsp_audioipc_dispatch,
+			IRQF_TRIGGER_LOW, "ADSP A AUDIOIPC", NULL))
+		goto ERROR;
+
+	return 0;
+
+ERROR:
+	pr_err("%s()error\n", __func__);
+	return -ENODEV;
+
+}
+
+static int adsp_core_device_remove(struct platform_device *pdev)
+{
+	return 0;
+}
+
 static const struct of_device_id adsp_of_ids[] = {
-	{ .compatible = "mediatek,audio_dsp", },
+	{ .compatible = "mediatek,adsp_common", },
 	{}
 };
 
@@ -785,7 +840,7 @@ static struct platform_driver mtk_adsp_device = {
 	.probe = adsp_device_probe,
 	.remove = adsp_device_remove,
 	.driver = {
-		.name = "adsp",
+		.name = "adsp_common",
 		.owner = THIS_MODULE,
 #ifdef CONFIG_OF
 		.of_match_table = adsp_of_ids,
@@ -795,6 +850,46 @@ static struct platform_driver mtk_adsp_device = {
 #endif
 	},
 };
+
+
+static const struct of_device_id adsp_core0_of_ids[] = {
+	{ .compatible = "mediatek,adsp_core_0", },
+};
+
+static struct platform_driver mtk_adsp_core0_device = {
+	.probe = adsp_core_device_probe,
+	.remove = adsp_core_device_remove,
+	.driver = {
+		.name = "adsp_core0",
+		.owner = THIS_MODULE,
+#ifdef CONFIG_OF
+		.of_match_table = adsp_core0_of_ids,
+#endif
+	},
+};
+
+static const struct of_device_id adsp_core1_of_ids[] = {
+	{ .compatible = "mediatek,adsp_core_1", },
+};
+
+static struct platform_driver mtk_adsp_core1_device = {
+	.probe = adsp_core_device_probe,
+	.remove = adsp_core_device_remove,
+	.driver = {
+		.name = "adsp_core1",
+		.owner = THIS_MODULE,
+#ifdef CONFIG_OF
+		.of_match_table = adsp_core1_of_ids,
+#endif
+	},
+};
+
+static struct platform_driver * const drivers[] = {
+	&mtk_adsp_device,
+	&mtk_adsp_core0_device,
+	&mtk_adsp_core1_device,
+};
+
 /*
  * driver initialization entry point
  */
@@ -802,7 +897,7 @@ static int __init adsp_init(void)
 {
 	int ret = 0;
 
-	ret = platform_driver_register(&mtk_adsp_device);
+	ret = platform_register_drivers(drivers, ARRAY_SIZE(drivers));
 	if (unlikely(ret != 0)) {
 		pr_err("[ADSP] platform driver register fail\n");
 		return ret;
@@ -841,17 +936,12 @@ static int __init adsp_module_init(void)
 
 	adsp_suspend_init();
 	adsp_A_irq_init();
-	adsp_A_ipi_init();
+	adsp_ipi_init();
 	adsp_ipi_registration(ADSP_IPI_ADSP_A_READY, adsp_A_ready_ipi_handler,
 			      "adsp_A_ready");
 
 #if ADSP_LOGGER_ENABLE
 	ret = adsp_logger_init();
-	if (ret)
-		goto ERROR;
-#endif
-#if ADSP_TRAX
-	ret = adsp_trax_init();
 	if (ret)
 		goto ERROR;
 #endif
@@ -862,7 +952,7 @@ static int __init adsp_module_init(void)
 #if ADSP_BUS_MONITOR_INIT_ENABLE
 	adsp_bus_monitor_init();
 #endif
-	adsp_release_runstall(true);
+	adsp_release_runstall(ADSP_A_ID, true);
 
 #if ADSP_BOOT_TIME_OUT_MONITOR
 	queue_delayed_work(adsp_workqueue, &adsp_timeout_work,
@@ -879,8 +969,7 @@ ERROR:
  */
 static void __exit adsp_exit(void)
 {
-	free_irq(adspreg.wdt_irq, NULL);
-	free_irq(adspreg.ipc_irq, NULL);
+	free_irq(adsp_core[ADSP_A_ID].wdt_irq, NULL);
 
 	misc_deregister(&adsp_device);
 	debugfs_remove(adsp_debugfs);

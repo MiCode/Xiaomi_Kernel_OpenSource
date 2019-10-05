@@ -1,0 +1,390 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+#include <linux/sysfs.h>
+#include <linux/debugfs.h>
+#include <linux/of.h>
+#include <linux/io.h>
+#include <linux/platform_device.h>
+
+#include "adsp_clk.h"
+#include "adsp_mbox.h"
+#include "adsp_reserved_mem.h"
+#include "adsp_logger.h"
+#include "adsp_platform.h"
+#include "adsp_platform_driver.h"
+#include "adsp_core.h"
+
+struct workqueue_struct *adsp_wq;
+struct adsp_priv *adsp_cores[ADSP_CORE_TOTAL];
+
+static int adsp_core0_init(struct adsp_priv *pdata);
+static int adsp_core0_suspend(void);
+static int adsp_core0_resume(void);
+static void adsp_logger_init0_cb(struct work_struct *ws);
+
+static int adsp_core1_init(struct adsp_priv *pdata);
+static int adsp_core1_suspend(void);
+static int adsp_core1_resume(void);
+static void adsp_logger_init1_cb(struct work_struct *ws);
+
+static const struct adsp_description adsp_c0_desc = {
+	.id = 0,
+	.name = "adsp_0",
+	.sharedmems = {
+		[ADSP_SHAREDMEM_BOOTUP_MARK] = {0x0004, 0x0004},
+		[ADSP_SHAREDMEM_SYS_STATUS] = {0x0008, 0x0004},
+		[ADSP_SHAREDMEM_MPUINFO] = {0x0018, 0x0010},
+		[ADSP_SHAREDMEM_WAKELOCK] = {0x001C, 0x0004},
+		[ADSP_SHAREDMEM_IPCBUF] = {0x0300, 0x0200},
+		[ADSP_SHAREDMEM_C2C_0_BUF] = {0x2508, 0x2208}, //common begin
+		[ADSP_SHAREDMEM_C2C_BUFINFO] = {0x2510, 0x0008},
+		[ADSP_SHAREDMEM_TIMESYNC] = {0x2530, 0x0020},
+		[ADSP_SHAREDMEM_DVFSSYNC] = {0x253C, 0x000C},
+		[ADSP_SHAREDMEM_SLEEPSYNC] = {0x2540, 0x0004},
+		[ADSP_SHAREDMEM_BUS_MON_DUMP] = {0x25FC, 0x00BC},
+		[ADSP_SHAREDMEM_INFRA_BUS_DUMP] = {0x269C, 0x00A0},
+		[ADSP_SHAREDMEM_LATMON_DUMP] = {0x26B8, 0x001C},
+	},
+	.ops = {
+		.initialize = adsp_core0_init,
+	}
+};
+
+static const struct adsp_description adsp_c1_desc = {
+
+	.id = 1,
+	.name = "adsp_1",
+	.sharedmems = {
+		[ADSP_SHAREDMEM_BOOTUP_MARK] = {0x0004, 0x0004},
+		[ADSP_SHAREDMEM_SYS_STATUS] = {0x0008, 0x0004},
+		[ADSP_SHAREDMEM_MPUINFO] = {0x0020, 0x0010},
+		[ADSP_SHAREDMEM_WAKELOCK] = {0x0024, 0x0004},
+		[ADSP_SHAREDMEM_IPCBUF] = {0x0300, 0x0200},
+		[ADSP_SHAREDMEM_C2C_1_BUF] = {0x2508, 0x2208}, //common begin
+	},
+	.ops = {
+		.initialize = adsp_core1_init,
+	}
+};
+
+/*------------------------------------------------------------*/
+/* adsp operation */
+
+void adsp_update_c2c_memory_info(struct adsp_priv *pdata)
+{
+	struct adsp_c2c_share_dram_info_t c2c_info;
+
+	c2c_info.share_dram_addr = adsp_get_reserve_mem_phys(ADSP_C2C_MEM_ID);
+	c2c_info.share_dram_size = adsp_get_reserve_mem_size(ADSP_C2C_MEM_ID);
+
+	adsp_copy_to_sharedmem(pdata, ADSP_SHAREDMEM_C2C_BUFINFO,
+		&c2c_info, sizeof(struct adsp_c2c_share_dram_info_t));
+}
+
+int adsp_core0_init(struct adsp_priv *pdata)
+{
+	int ret = 0;
+
+	pdata->debugfs = debugfs_create_file("audiodsp0", S_IFREG | 0644, NULL,
+					     pdata, &adsp_debug_ops);
+
+	adsp_wq = alloc_workqueue("adsp_wq", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
+	pdata->wq = adsp_wq;
+	init_adsp_feature_control(pdata->id, pdata->feature_set, 1000,
+				adsp_wq,
+				adsp_core0_suspend,
+				adsp_core0_resume);
+
+	adsp_update_mpu_memory_info(pdata);
+	/* TODO: driver init */
+	//adsp_awake_init();
+	//adsp_excep_init(pdata);
+	//adsp_suspend_init();
+	if (ADSP_CORE_TOTAL > 1)
+		adsp_update_c2c_memory_info(pdata);
+
+	/* logger */
+	pdata->log_ctrl = adsp_logger_init(ADSP_A_LOGGER_MEM_ID);
+	INIT_WORK(&pdata->log_ctrl->work, adsp_logger_init0_cb);
+
+	/* mailbox */
+	mutex_init(&pdata->send_mbox->mutex_send);
+	pdata->recv_mbox->pin_buf = vmalloc(SHARE_BUF_SIZE);
+	pdata->recv_mbox->prdata = &pdata->id;
+	return ret;
+}
+
+int adsp_core1_init(struct adsp_priv *pdata)
+{
+	int ret = 0;
+
+	pdata->debugfs = debugfs_create_file("audiodsp1", S_IFREG | 0644, NULL,
+					     pdata, &adsp_debug_ops);
+	pdata->wq = adsp_wq;
+	init_adsp_feature_control(pdata->id, pdata->feature_set, 1000,
+				adsp_wq,
+				adsp_core1_suspend,
+				adsp_core1_resume);
+
+	adsp_update_mpu_memory_info(pdata);
+
+	/* logger */
+	pdata->log_ctrl = adsp_logger_init(ADSP_B_LOGGER_MEM_ID);
+	INIT_WORK(&pdata->log_ctrl->work, adsp_logger_init1_cb);
+
+	/* mailbox */
+	mutex_init(&pdata->send_mbox->mutex_send);
+	pdata->recv_mbox->pin_buf = vmalloc(SHARE_BUF_SIZE);
+	pdata->recv_mbox->prdata = &pdata->id;
+	return ret;
+}
+
+int adsp_core0_suspend(void)
+{
+	pr_info("%s()", __func__);
+	return 0;
+}
+int adsp_core0_resume(void)
+{
+	pr_info("%s()", __func__);
+	return 0;
+}
+int adsp_core1_suspend(void)
+{
+	pr_info("%s()", __func__);
+	return 0;
+}
+int adsp_core1_resume(void)
+{
+	pr_info("%s()", __func__);
+	return 0;
+}
+
+void adsp_logger_init0_cb(struct work_struct *ws)
+{
+	int ret;
+	unsigned int info[6];
+
+	info[0] = adsp_get_reserve_mem_phys(ADSP_A_LOGGER_MEM_ID);
+	info[1] = adsp_get_reserve_mem_size(ADSP_A_LOGGER_MEM_ID);
+	info[2] = adsp_get_reserve_mem_phys(ADSP_A_CORE_DUMP_MEM_ID);
+	info[3] = adsp_get_reserve_mem_size(ADSP_A_CORE_DUMP_MEM_ID);
+	info[4] = adsp_get_reserve_mem_phys(ADSP_A_DEBUG_DUMP_MEM_ID);
+	info[5] = adsp_get_reserve_mem_size(ADSP_A_DEBUG_DUMP_MEM_ID);
+
+	_adsp_register_feature(ADSP_A_ID, ADSP_LOGGER_FEATURE_ID, 0);
+
+	ret = adsp_send_message(ADSP_IPI_LOGGER_INIT, (void *)info,
+		sizeof(info), 1, ADSP_A_ID);
+
+	_adsp_deregister_feature(ADSP_A_ID, ADSP_LOGGER_FEATURE_ID, 0);
+
+	if (ret != ADSP_IPI_DONE)
+		pr_err("[ADSP]logger initial fail, ipi ret=%d\n", ret);
+}
+
+void adsp_logger_init1_cb(struct work_struct *ws)
+{
+	int ret;
+	unsigned int info[6];
+
+	info[0] = adsp_get_reserve_mem_phys(ADSP_B_LOGGER_MEM_ID);
+	info[1] = adsp_get_reserve_mem_size(ADSP_B_LOGGER_MEM_ID);
+	info[2] = adsp_get_reserve_mem_phys(ADSP_B_CORE_DUMP_MEM_ID);
+	info[3] = adsp_get_reserve_mem_size(ADSP_B_CORE_DUMP_MEM_ID);
+	info[4] = adsp_get_reserve_mem_phys(ADSP_B_DEBUG_DUMP_MEM_ID);
+	info[5] = adsp_get_reserve_mem_size(ADSP_B_DEBUG_DUMP_MEM_ID);
+
+	_adsp_register_feature(ADSP_B_ID, ADSP_LOGGER_FEATURE_ID, 0);
+
+	ret = adsp_send_message(ADSP_IPI_LOGGER_INIT, (void *)info,
+		sizeof(info), 1, ADSP_B_ID);
+
+	_adsp_deregister_feature(ADSP_B_ID, ADSP_LOGGER_FEATURE_ID, 0);
+
+	if (ret != ADSP_IPI_DONE)
+		pr_err("[ADSP]logger initial fail, ipi ret=%d\n", ret);
+}
+
+/*---------------------------------------------------------------------------*/
+static const struct of_device_id adsp_of_ids[] = {
+	{ .compatible = "mediatek,adsp_core_0", .data = &adsp_c0_desc},
+	{ .compatible = "mediatek,adsp_core_1", .data = &adsp_c1_desc},
+	{}
+};
+
+static const struct of_device_id adsp_common_of_ids[] = {
+	{ .compatible = "mediatek,adsp_common"},
+	{}
+};
+
+static int adsp_common_drv_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct device *dev = &pdev->dev;
+
+	ret = adsp_clk_device_probe(dev);
+	if (ret) {
+		pr_warn("%s(), clk probe fail, %d\n", __func__, ret);
+		goto ERROR;
+	}
+
+	ret = adsp_mbox_probe(pdev);
+	if (ret) {
+		pr_warn("%s(), mbox probe fail, %d\n", __func__, ret);
+		goto ERROR;
+	}
+	pr_info("%s, success\n", __func__);
+ERROR:
+	return ret;
+}
+
+static int adsp_common_drv_remove(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static int adsp_core_drv_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct resource *res;
+	struct device *dev = &pdev->dev;
+	struct adsp_priv *pdata;
+	const struct adsp_description *desc;
+	const struct of_device_id *match;
+	struct of_phandle_args spec;
+	u32 temp[2];
+
+	/* create private data */
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return -ENOMEM;
+
+	match = of_match_node(adsp_of_ids, dev->of_node);
+	if (!match)
+		return -ENODEV;
+
+	desc = (struct adsp_description *)match->data;
+
+	pdata->id = desc->id;
+	pdata->name = desc->name;
+	pdata->ops = &desc->ops;
+	pdata->mapping_table = desc->sharedmems;
+
+	pdata->dev = dev;
+	init_completion(&pdata->done);
+
+	/* get resource from platform_device */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	pdata->cfg = devm_ioremap_resource(dev, res);
+	pdata->cfg_size = resource_size(res);
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	pdata->itcm = devm_ioremap_resource(dev, res);
+	pdata->itcm_size = resource_size(res);
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	pdata->dtcm = devm_ioremap_resource(dev, res);
+	pdata->dtcm_size = resource_size(res);
+
+	pdata->irq[ADSP_IRQ_IPC_ID] = platform_get_irq(pdev, 0);
+	pdata->irq[ADSP_IRQ_WDT_ID] = platform_get_irq(pdev, 1);
+	pdata->irq[ADSP_IRQ_AUDIO_ID] = platform_get_irq(pdev, 2);
+
+	of_property_read_u32(dev->of_node, "sysram", &temp[0]);
+	of_property_read_u32(dev->of_node, "sysram_size", &temp[1]);
+	pdata->sysram = ioremap_wc(temp[0], temp[1]);
+	pdata->sysram_size = temp[1];
+
+	of_property_read_u32(dev->of_node, "feature_control_bits",
+			     &pdata->feature_set);
+
+	/* mailbox channel parsing */
+	if (of_parse_phandle_with_args(dev->of_node, "mboxes",
+				       "#mbox-cells", 0, &spec)) {
+		dev_dbg(dev, "%s: can't parse \"mboxes\" property\n", __func__);
+		return -ENODEV;
+	}
+	pdata->send_mbox = get_adsp_mbox_pin_send(spec.args[0]);
+
+	if (of_parse_phandle_with_args(dev->of_node, "mboxes",
+				       "#mbox-cells", 1, &spec)) {
+		dev_dbg(dev, "%s: can't parse \"mboxes\" property\n", __func__);
+		return -ENODEV;
+	}
+	pdata->recv_mbox = get_adsp_mbox_pin_recv(spec.args[0]);
+
+	/* register misc device */
+	pdata->mdev.minor = MISC_DYNAMIC_MINOR;
+	pdata->mdev.name = desc->name;
+	pdata->mdev.fops = &adsp_file_ops;
+	pdata->mdev.groups = adsp_attr_groups;
+
+	ret = misc_register(&pdata->mdev);
+	if (unlikely(ret != 0))
+		goto ERROR;
+
+	/* add to adsp_core list */
+	adsp_cores[desc->id] = pdata;
+
+	pr_info("%s, id:%d success\n", __func__, pdata->id);
+	return 0;
+ERROR:
+	return ret;
+}
+
+static int adsp_core_drv_remove(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static struct platform_driver adsp_common_driver = {
+	.probe = adsp_common_drv_probe,
+	.remove = adsp_common_drv_remove,
+	.driver = {
+		.name = "adsp_common",
+		.owner = THIS_MODULE,
+#ifdef CONFIG_OF
+		.of_match_table = adsp_common_of_ids,
+#endif
+	},
+};
+
+static struct platform_driver adsp_core0_driver = {
+	.probe = adsp_core_drv_probe,
+	.remove = adsp_core_drv_remove,
+	.driver = {
+		.name = "adsp_core0",
+		.owner = THIS_MODULE,
+#ifdef CONFIG_OF
+		.of_match_table = adsp_of_ids,
+#endif
+	},
+};
+
+static struct platform_driver adsp_core1_driver = {
+	.probe = adsp_core_drv_probe,
+	.remove = adsp_core_drv_remove,
+	.driver = {
+		.name = "adsp_core1",
+		.owner = THIS_MODULE,
+#ifdef CONFIG_OF
+		.of_match_table = adsp_of_ids,
+#endif
+	},
+};
+
+static struct platform_driver * const drivers[] = {
+	&adsp_common_driver,
+	&adsp_core0_driver,
+	&adsp_core1_driver,
+};
+
+int create_adsp_drivers(void)
+{
+	return platform_register_drivers(drivers, ARRAY_SIZE(drivers));
+}
+

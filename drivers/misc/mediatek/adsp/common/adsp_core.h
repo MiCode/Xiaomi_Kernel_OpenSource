@@ -1,0 +1,38 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+#ifndef __ADSP_CORE_H__
+#define __ADSP_CORE_H__
+
+#include "adsp_helper.h"
+
+enum ADSP_CORE_STATE {
+	ADSP_INIT      = 0,
+	ADSP_RUNNING   = 1,
+	ADSP_SUSPEND   = 2,
+	ADSP_RESET     = 3,
+};
+
+struct adsp_priv;
+
+/* core api */
+#define get_adsp_core_by_ptr(ptr)  _get_adsp_core(ptr, 0)
+#define get_adsp_core_by_id(id)    _get_adsp_core(NULL, id)
+
+struct adsp_priv *_get_adsp_core(void *ptr, int id);
+
+void set_adsp_state(struct adsp_priv *pdata, int state);
+int get_adsp_state(struct adsp_priv *pdata);
+bool is_adsp_system_running(void);
+
+int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, void *src,
+			int count);
+int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst,
+			int count);
+
+/* semaphore */
+int get_adsp_semaphore(unsigned int flags);
+int release_adsp_semaphore(unsigned int flags);
+#endif
