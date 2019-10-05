@@ -260,8 +260,4 @@ extern void aud_intbus_mux_sel(unsigned int aud_idx);
 int mt6885_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate);
 void mt6885_mck_disable(struct mtk_base_afe *afe, int mck_id);
 
-unsigned int get_cksys_reg(unsigned int offset);
-void set_cksys_reg(unsigned int offset, unsigned int value, unsigned int mask);
-
-unsigned int get_apmixed_reg(unsigned int offset);
 #endif

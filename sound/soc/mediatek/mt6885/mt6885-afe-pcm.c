@@ -3678,35 +3678,35 @@ static ssize_t mt6885_debugfs_read(struct file *file, char __user *buf,
 
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_CFG_6 = 0x%x\n",
-		       get_cksys_reg(CLK_CFG_6));
+		       regmap_read(afe_priv->topckgen, CLK_CFG_6, &value));
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_AUDDIV_0 = 0x%x\n",
-		       get_cksys_reg(CLK_AUDDIV_0));
+		       regmap_read(afe_priv->topckgen, CLK_AUDDIV_0, &value));
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_AUDDIV_1 = 0x%x\n",
-		       get_cksys_reg(CLK_AUDDIV_1));
+		       regmap_read(afe_priv->topckgen, CLK_AUDDIV_1, &value));
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_AUDDIV_2 = 0x%x\n",
-		       get_cksys_reg(CLK_AUDDIV_2));
+		       regmap_read(afe_priv->topckgen, CLK_AUDDIV_2, &value));
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_AUDDIV_3 = 0x%x\n",
-		       get_cksys_reg(CLK_AUDDIV_3));
+		       regmap_read(afe_priv->topckgen, CLK_AUDDIV_3, &value));
 
 	n += scnprintf(buffer + n, size - n,
 		       "AP_PLL_CON5 = 0x%x\n",
-		       get_apmixed_reg(AP_PLL_CON5));
+		       regmap_read(afe_priv->apmixed, AP_PLL_CON5, &value));
 	n += scnprintf(buffer + n, size - n,
 		       "APLL1_CON1 = 0x%x\n",
-		       get_apmixed_reg(APLL1_CON1));
+		       regmap_read(afe_priv->apmixed, APLL1_CON1, &value));
 	n += scnprintf(buffer + n, size - n,
 		       "APLL1_CON2 = 0x%x\n",
-		       get_apmixed_reg(APLL1_CON2));
+		       regmap_read(afe_priv->apmixed, APLL1_CON2, &value));
 	n += scnprintf(buffer + n, size - n,
 		       "APLL2_CON1 = 0x%x\n",
-		       get_apmixed_reg(APLL2_CON1));
+		       regmap_read(afe_priv->apmixed, APLL2_CON1, &value));
 	n += scnprintf(buffer + n, size - n,
 		       "APLL2_CON2 = 0x%x\n",
-		       get_apmixed_reg(APLL2_CON2));
+		       regmap_read(afe_priv->apmixed, APLL2_CON2, &value));
 
 	regmap_read(afe->regmap, AUDIO_TOP_CON0, &value);
 	n += scnprintf(buffer + n, size - n,

@@ -8,6 +8,7 @@
 
 #include <linux/clk.h>
 #include <linux/regmap.h>
+#include <linux/mfd/syscon.h>
 
 #include "mt6885-afe-common.h"
 #include "mt6885-afe-clk.h"
@@ -16,16 +17,6 @@
 #include <mtk_idle.h>
 #include <mtk_spm_resource_req.h>
 #endif
-
-/* for apmixed / cksys access */
-#include <mt-plat/sync_write.h>
-
-void *APMIXEDSYS_ADDRESS;
-void *CKSYS_ADDRESS;
-
-#define APMIXEDSYS_BASE (0x1000C000L)
-
-#define CKSYS_BASE (0x10000000L)
 
 static DEFINE_MUTEX(mutex_request_dram);
 
@@ -470,76 +461,6 @@ int mt6885_afe_dram_release(struct device *dev)
 	return 0;
 }
 
-static struct mtk_base_afe *local_afe;
-static bool check_apmixed_offset(unsigned int offset)
-{
-	return offset <= APMIXEDSYS_MAX_LENGTH;
-}
-
-unsigned int get_apmixed_reg(unsigned int offset)
-{
-	long address = (long)((char *)APMIXEDSYS_ADDRESS + offset);
-	unsigned int *value = (unsigned int *)(address);
-
-	if (!check_apmixed_offset(offset)) {
-		dev_warn(local_afe->dev, "%s(), offset 0x%x invalid\n",
-			 __func__, offset);
-		return 0xffffffff;
-	}
-
-	return *value;
-}
-
-void set_apmixed_reg(unsigned int offset, unsigned int mask, unsigned int value)
-{
-	long address = (long)((char *)APMIXEDSYS_ADDRESS + offset);
-	unsigned int *AFE_Register = (unsigned int *)address;
-	unsigned int val_tmp;
-
-	if (check_apmixed_offset(offset)) {
-		val_tmp = get_apmixed_reg(offset);
-		val_tmp &= (~mask);
-		val_tmp |= (value & mask);
-		mt_reg_sync_writel(val_tmp, AFE_Register);
-	} else {
-		dev_warn(local_afe->dev, "%s(), offset 0x%x invalid, value 0x%x\n",
-			 __func__, offset, value);
-	}
-}
-
-static bool check_cksys_offset(unsigned int offset)
-{
-	return offset <= CLK_MAX_LENGTH;
-}
-
-unsigned int get_cksys_reg(unsigned int offset)
-{
-	long address = (long)((char *)CKSYS_ADDRESS + offset);
-	unsigned int *value = (unsigned int *)(address);
-
-	if (!check_cksys_offset(offset)) {
-		dev_warn(local_afe->dev, "%s(), offset 0x%x invalid\n",
-			 __func__, offset);
-		return 0xffffffff;
-	}
-
-	return *value;
-}
-
-void set_cksys_reg(unsigned int offset, unsigned int mask, unsigned int value)
-{
-	long address = (long)((char *)CKSYS_ADDRESS + offset);
-	unsigned int *AFE_Register = (unsigned int *)address;
-	unsigned int val_tmp;
-
-	if (check_cksys_offset(offset)) {
-		val_tmp = get_cksys_reg(offset);
-		val_tmp &= (~mask);
-		val_tmp |= (value & mask);
-		mt_reg_sync_writel(val_tmp, AFE_Register);
-	}
-}
-
 int mt6885_apll1_enable(struct mtk_base_afe *afe)
 {
 	struct mt6885_afe_private *afe_priv = afe->platform_priv;
@@ -930,27 +851,31 @@ int mt6885_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate)
 		AUDIO_AEE("mclk_div not valid");
 		return -EINVAL;
 	}
-	set_cksys_reg(mck_div[mck_id].div_reg,
-		      mck_div[mck_id].div_mask_sft,
-		      div << mck_div[mck_id].div_sft);
+	regmap_update_bits(afe_priv->topckgen, mck_div[mck_id].div_reg,
+			   mck_div[mck_id].div_mask_sft,
+			   div << mck_div[mck_id].div_sft);
 
 	if (mck_div[mck_id].div_msb_mask)
-		set_cksys_reg(mck_div[mck_id].div_msb_reg,
-			      mck_div[mck_id].div_msb_mask_sft,
-			      (div >> msb_sft) <<
-			      mck_div[mck_id].div_msb_sft);
+		regmap_update_bits(afe_priv->topckgen,
+				   mck_div[mck_id].div_msb_reg,
+				   mck_div[mck_id].div_msb_mask_sft,
+				   (div >> msb_sft) <<
+				   mck_div[mck_id].div_msb_sft);
 	/* select apll */
 	if (mck_div[mck_id].div_apll_sel_mask_sft)
-		set_cksys_reg(mck_div[mck_id].div_apll_sel_reg,
-			      mck_div[mck_id].div_apll_sel_mask_sft,
-			      apll <<
-			      mck_div[mck_id].div_apll_sel_sft);
+		regmap_update_bits(afe_priv->topckgen,
+				   mck_div[mck_id].div_apll_sel_reg,
+				   mck_div[mck_id].div_apll_sel_mask_sft,
+				   apll <<
+				   mck_div[mck_id].div_apll_sel_sft);
 	/* reset inverse */
-	set_cksys_reg(mck_div[mck_id].div_inv_reg,
-		      mck_div[mck_id].div_inv_mask_sft, 0);
+	regmap_update_bits(afe_priv->topckgen,
+			   mck_div[mck_id].div_inv_reg,
+			   mck_div[mck_id].div_inv_mask_sft, 0);
 	/* enable div */
-	set_cksys_reg(mck_div[mck_id].div_pdn_reg,
-		      mck_div[mck_id].div_pdn_mask_sft, 0);
+	regmap_update_bits(afe_priv->topckgen,
+			   mck_div[mck_id].div_pdn_reg,
+			   mck_div[mck_id].div_pdn_mask_sft, 0);
 
 	return 0;
 }
@@ -1021,9 +946,21 @@ int mt6885_init_clock(struct mtk_base_afe *afe)
 		}
 	}
 
-	/* TODO: change to use syscon */
-	APMIXEDSYS_ADDRESS = ioremap_nocache(APMIXEDSYS_BASE, 0x1000);
-	CKSYS_ADDRESS = ioremap_nocache(CKSYS_BASE, 0x1000);
+	afe_priv->apmixed = syscon_regmap_lookup_by_phandle(afe->dev->of_node,
+							    "apmixed");
+	if (IS_ERR(afe_priv->apmixed)) {
+		dev_err(afe->dev, "%s() Cannot find apmixed controller: %ld\n",
+			__func__, PTR_ERR(afe_priv->apmixed));
+		return PTR_ERR(afe_priv->apmixed);
+	}
+
+	afe_priv->topckgen = syscon_regmap_lookup_by_phandle(afe->dev->of_node,
+							     "topckgen");
+	if (IS_ERR(afe_priv->topckgen)) {
+		dev_err(afe->dev, "%s() Cannot find topckgen controller: %ld\n",
+			__func__, PTR_ERR(afe_priv->topckgen));
+		return PTR_ERR(afe_priv->topckgen);
+	}
 
 #if 0 // temporarily comment it for big-sw change
 	local_afe = afe;
