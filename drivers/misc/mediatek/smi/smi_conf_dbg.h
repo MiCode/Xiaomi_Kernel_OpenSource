@@ -19,7 +19,7 @@
 void __iomem *smi_mmsys_base;
 
 #define SMI_MMSYS_DEBUG_NUM	((SMI_LARB_NUM_MAX) * 1 + 5)
-unsigned int smi_mmsys_debug_offset[SMI_MMSYS_DEBUG_NUM] = {
+u32 smi_mmsys_debug_offset[SMI_MMSYS_DEBUG_NUM] = {
 	MMSYS_CG_CON0, MMSYS_CG_CON1,
 	MMSYS_HW_DCM_1ST_DIS0, MMSYS_HW_DCM_2ND_DIS0, MMSYS_SW0_RST_B,
 	MMSYS_GALS_DBG(0), MMSYS_GALS_DBG(1), MMSYS_GALS_DBG(2),
@@ -28,7 +28,7 @@ unsigned int smi_mmsys_debug_offset[SMI_MMSYS_DEBUG_NUM] = {
 };
 
 #define SMI_COMM_DEBUG_NUM	((SMI_LARB_NUM_MAX) * 3 + 20)
-unsigned int smi_comm_debug_offset[SMI_COMM_DEBUG_NUM] = {
+u32 smi_comm_debug_offset[SMI_COMM_DEBUG_NUM] = {
 	SMI_L1LEN,
 	SMI_L1ARB(0), SMI_L1ARB(1), SMI_L1ARB(2), SMI_L1ARB(3),
 	SMI_L1ARB(4), SMI_L1ARB(5), SMI_L1ARB(6), SMI_L1ARB(7),
@@ -47,7 +47,7 @@ unsigned int smi_comm_debug_offset[SMI_COMM_DEBUG_NUM] = {
 };
 
 #define SMI_LARB_DEBUG_NUM	((SMI_PORT_NUM_MAX) * 5 + 26)
-unsigned int smi_larb_debug_offset[SMI_LARB_DEBUG_NUM] = {
+u32 smi_larb_debug_offset[SMI_LARB_DEBUG_NUM] = {
 	SMI_LARB_STAT, SMI_LARB_IRQ_STATUS, SMI_LARB_SLP_CON,
 	SMI_LARB_CON, SMI_LARB_CON_SET, SMI_LARB_CMD_THRT_CON,
 	SMI_LARB_SW_FLAG, SMI_LARB_BWL_EN, SMI_LARB_OSTDL_EN,
