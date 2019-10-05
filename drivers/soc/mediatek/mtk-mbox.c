@@ -463,9 +463,13 @@ int mtk_mbox_polling(struct mtk_mbox_device *mbdev, unsigned int mbox,
 
 	spin_unlock_irqrestore(&mbdev->info_table[mbox].mbox_lock, flags);
 	/*copy data*/
-	mtk_mbox_read(mbdev, mbox, pin_recv->offset, data,
+	ret = mtk_mbox_read(mbdev, mbox, pin_recv->offset, data,
 		pin_recv->msg_size * MBOX_SLOT_SIZE);
 
+	if (ret != MBOX_DONE)
+		return ret;
+
+	pin_recv->recv_record.poll_count++;
 	return MBOX_DONE;
 }
 
@@ -522,12 +526,11 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 		/*recv irq trigger*/
 		if (((0x1 << pin_recv->pin_index) & irq_status) > 0x0) {
 			pin_recv->recv_record.recv_irq_count++;
-			pin_recv->recv_record.irq_reg_value = irq_status;
 			irq_temp = irq_temp | (0x1 << pin_recv->pin_index);
 			/*check user buf*/
 			if (!pin_recv->pin_buf) {
-				pr_err("[MBOX Error]null ptr mbox_dev=%d ipi_id=%d",
-					mbdev->id, pin_recv->chan_id);
+				pr_err("[MBOX Error]null ptr dev=%s ipi_id=%d",
+					mbdev->name, pin_recv->chan_id);
 				BUG_ON(1);
 			}
 			if (minfo->opt == MBOX_OPT_QUEUE_DIR ||
@@ -578,7 +581,6 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 				mbdev->ipi_cb(pin_recv, mbdev->ipi_priv);
 				pin_recv->recv_record.notify_count++;
 			}
-
 		}
 #if MTK_MBOX_DEBUGGIN
 		mtk_mbox_dump_recv(mbdev, i);
@@ -586,8 +588,8 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 	}
 
 	if (ret != MBOX_DONE)
-		pr_notice("[MBOX ISR]read fail,dev=%d chan=%d ret=%d",
-			mbdev->id, pin_recv->chan_id, ret);
+		pr_err("[MBOX ISR]read fail,dev=%s chan=%d ret=%d",
+			mbdev->name, pin_recv->chan_id, ret);
 
 	if (mbdev->post_cb)
 		mbdev->post_cb(mbdev->prdata);
@@ -744,16 +746,19 @@ mtk_mbox_probe_fail:
 void mtk_mbox_print_recv(struct mtk_mbox_device *mbdev,
 	struct mtk_mbox_pin_recv *pin_recv)
 {
-	pr_notice("[MBOX]dev=%u recv mbox=%u off=%u cv_opt=%u ctx_opt=%u mg_sz=%u p_idx=%u id=%u irq_reg=%u cv_irq=%u noti=%u cb=%u pre_ts=%llu po_ts%llu\n"
-		, mbdev->id
+	pr_notice("[MBOX]dev=%s recv mbox=%u off=%u cv_opt=%u ctx_opt=%u mg_sz=%u p_idx=%u id=%u\n"
+		, mbdev->name
 		, pin_recv->mbox
 		, pin_recv->offset
 		, pin_recv->recv_opt
 		, pin_recv->cb_ctx_opt
 		, pin_recv->msg_size
 		, pin_recv->pin_index
-		, pin_recv->chan_id
-		, pin_recv->recv_record.irq_reg_value
+		, pin_recv->chan_id);
+
+	pr_notice("[MBOX]dev=%s recv poll=%u cv_irq=%u noti=%u cb=%u pre=%lld po=%lld\n"
+		, mbdev->name
+		, pin_recv->recv_record.poll_count
 		, pin_recv->recv_record.recv_irq_count
 		, pin_recv->recv_record.notify_count
 		, pin_recv->recv_record.cb_count
@@ -767,8 +772,8 @@ void mtk_mbox_print_recv(struct mtk_mbox_device *mbdev,
 void mtk_mbox_print_send(struct mtk_mbox_device *mbdev,
 	struct mtk_mbox_pin_send *pin_send)
 {
-	pr_notice("[MBOX]dev=%u send mbox=%u off=%u s_opt=%u mg_sz=%u p_idx=%u id=%u\n"
-		, mbdev->id
+	pr_notice("[MBOX]dev=%s send mbox=%u off=%u s_opt=%u mg_sz=%u p_idx=%u id=%u\n"
+		, mbdev->name
 		, pin_send->mbox
 		, pin_send->offset
 		, pin_send->send_opt
@@ -783,8 +788,8 @@ void mtk_mbox_print_send(struct mtk_mbox_device *mbdev,
 void mtk_mbox_print_minfo(struct mtk_mbox_device *mbdev,
 	struct mtk_mbox_info *minfo)
 {
-	pr_notice("[MBOX]dev=%u mbox id=%u slot=%u opt=%u base=%p set_irq=%p clr_irq=%p init_base=%p send_status=%p recv_status=%p write=%u busy=%u tri_irq=%u"
-		, mbdev->id
+	pr_notice("[MBOX]dev=%s mbox id=%u slot=%u opt=%u base=%p set_reg=%p clr_reg=%p init_reg=%p s_sta=%p cv_sta=%p\n"
+		, mbdev->name
 		, minfo->id
 		, minfo->slot
 		, minfo->opt
@@ -793,7 +798,10 @@ void mtk_mbox_print_minfo(struct mtk_mbox_device *mbdev,
 		, minfo->clr_irq_reg
 		, minfo->init_base_reg
 		, minfo->send_status_reg
-		, minfo->recv_status_reg
+		, minfo->recv_status_reg);
+
+	pr_notice("[MBOX]dev=%s write=%u busy=%u tri_irq=%u\n"
+		, mbdev->name
 		, minfo->record.write_count
 		, minfo->record.busy_count
 		, minfo->record.trig_irq_count);
@@ -813,8 +821,8 @@ void mtk_mbox_dump_all(struct mtk_mbox_device *mbdev)
 	if (!mbdev)
 		return;
 
-	pr_notice("[MBOX]dev=%u recv count=%u send count=%u\n",
-		mbdev->id, mbdev->recv_count, mbdev->send_count);
+	pr_notice("[MBOX]dev=%s recv count=%u send count=%u\n",
+		mbdev->name, mbdev->recv_count, mbdev->send_count);
 
 	for (i = 0; i < mbdev->recv_count; i++) {
 		pin_recv = &(mbdev->pin_recv_table[i]);
@@ -854,8 +862,14 @@ void mtk_mbox_dump_recv(struct mtk_mbox_device *mbdev, unsigned int pin)
 void mtk_mbox_dump_recv_pin(struct mtk_mbox_device *mbdev,
 	struct mtk_mbox_pin_recv *pin_recv)
 {
-	if (mbdev && pin_recv)
+	unsigned int irq_reg;
+
+	if (mbdev && pin_recv) {
+		irq_reg = mtk_mbox_read_recv_irq(mbdev, pin_recv->mbox);
+		pr_err("[MBOX]dev=%s mbox=%u recv irq status=%x\n",
+			mbdev->name, pin_recv->mbox, irq_reg);
 		mtk_mbox_print_recv(mbdev, pin_recv);
+	}
 }
 
 /*

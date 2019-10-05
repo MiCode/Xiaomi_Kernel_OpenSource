@@ -35,7 +35,7 @@ typedef void (*mbox_ipi_cb_t)(struct mtk_mbox_pin_recv *, void *);
 /*
  * mbox receive information
  *
- * irq_reg_value  :mbox irq register status
+ * poll_count  :mbox polling success count
  * recv_irq_count :mbox receive irq count
  * notify_count   :mbox irq notify count
  * cb_count :mbox execute callback function count
@@ -43,7 +43,7 @@ typedef void (*mbox_ipi_cb_t)(struct mtk_mbox_pin_recv *, void *);
  * post_timestamp :time stamp after callback function
  */
 struct mtk_mbox_recv_record {
-	uint32_t irq_reg_value;
+	uint32_t poll_count;
 	uint32_t recv_irq_count;
 	uint32_t notify_count;
 	uint32_t cb_count;
