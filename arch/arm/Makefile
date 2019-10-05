@@ -349,7 +349,7 @@ $(INSTALL_TARGETS):
 
 PHONY += dtbs dtbs_install
 
-dtbs: prepare scripts $(DRVGEN_FILE_LIST)
+dtbs: prepare scripts $(DRVGEN_FILE_LIST) dtbo_check
 	$(Q)$(MAKE) $(build)=$(boot)/dts
 
 dtbs_install:
@@ -361,7 +361,7 @@ ifeq ($(CONFIG_VDSO),y)
 	$(Q)$(MAKE) $(build)=arch/arm/vdso $@
 endif
 
-zImage-dtb: vmlinux scripts dtbs apply_dtbo_check
+zImage-dtb: vmlinux scripts dtbs
 	$(Q)$(MAKE) $(build)=$(boot) MACHINE=$(MACHINE) $(boot)/$@
 
 # We use MRPROPER_FILES and CLEAN_FILES now
