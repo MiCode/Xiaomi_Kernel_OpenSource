@@ -4416,6 +4416,24 @@ page_owner=on";
 			"mtcmos_dis";
 	};
 
+	edma0: edma0@19027000 {
+		compatible = "mtk,edma";
+		reg = <0x0 0x19027000 0x0 0x1000>;
+		interrupts = <GIC_SPI 23 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	edma1: edma1@19028000 {
+		compatible = "mtk,edma";
+		reg = <0x0 0x19028000 0x0 0x1000>;
+		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	edma: edma {
+		compatible = "mtk,edma";
+		sub_nr = <2>;
+		mediatek,edma-sub = <&edma0>, <&edma1>;
+	};
+
 	vpu_core0@19030000 {
 		compatible = "mediatek,vpu_core0";
 		reg = <0 19030000 0 0x1000>;
