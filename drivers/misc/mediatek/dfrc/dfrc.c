@@ -1132,7 +1132,7 @@ static void dfrc_dump_info(void)
 			g_hwc_info.num_display, g_hwc_info.single_layer);
 	dfrc_idump("Force window pid[%d]\n", g_input_window_info.pid);
 	dfrc_idump("Foreground window pid[%d]\n", g_fg_window_info.pid);
-	dfrc_idump("Window state[%08x]\n", g_window_state);
+	dfrc_idump("Window state[%08x]\n", g_window_state.window_flag);
 	dfrc_idump("Forbid adjusting VSync[%d]\n", g_forbid_vsync);
 	dfrc_idump("Allow RRC policy[0x%x]\n", g_allow_rrc_policy);
 	dfrc_idump("Use video mode[%d]\n", g_use_video_mode);
