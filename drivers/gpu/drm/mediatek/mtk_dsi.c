@@ -1034,8 +1034,10 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi)
 
 	DDPINFO("%s +\n", __func__);
 
-	if (dsi->output_en)
+	if (dsi->output_en) {
+		DDPINFO("dsi is initialized\n");
 		return;
+	}
 
 	ret = mtk_dsi_poweron(dsi);
 	if (ret < 0) {
@@ -1059,7 +1061,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi)
 
 	if (dsi->panel) {
 		if (drm_panel_prepare(dsi->panel)) {
-			pr_err("failed to prepare the panel\n");
+			DDPPR_ERR("failed to prepare the panel\n");
 			return;
 		}
 	}
@@ -1081,7 +1083,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi)
 
 	if (dsi->panel) {
 		if (drm_panel_enable(dsi->panel)) {
-			DRM_ERROR("failed to enable the panel\n");
+			DDPPR_ERR("failed to enable the panel\n");
 			goto err_dsi_power_off;
 		}
 	}
@@ -1723,6 +1725,16 @@ int mtk_dsi_analysis(struct mtk_ddp_comp *comp)
 			DISP_REG_GET_FIELD(STATE_DBG6_FLD_REG_CMCTL_STATE,
 					   baddr + DSI_STATE_DBG6)));
 
+	reg_val = readl(DSI_INTEN + baddr);
+	DDPDUMP("IRQ_EN,RD_RDY:%d,CMD_DONE:%d,SLEEPOUT_DONE:%d\n",
+		REG_FLD_VAL_GET(INTSTA_FLD_REG_RD_RDY, reg_val),
+		REG_FLD_VAL_GET(INTSTA_FLD_REG_CMD_DONE, reg_val),
+		REG_FLD_VAL_GET(INTSTA_FLD_REG_SLEEPOUT_DONE, reg_val));
+	DDPDUMP("TE_RDY:%d,VM_CMD_DONE:%d,VM_DONE:%d\n",
+		REG_FLD_VAL_GET(INTSTA_FLD_REG_TE_RDY, reg_val),
+		REG_FLD_VAL_GET(INTSTA_FLD_REG_VM_CMD_DONE, reg_val),
+		REG_FLD_VAL_GET(INTSTA_FLD_REG_VM_DONE, reg_val));
+
 	reg_val = readl(DSI_INTSTA + baddr);
 	DDPDUMP("IRQ,RD_RDY:%d,CMD_DONE:%d,SLEEPOUT_DONE:%d\n",
 		REG_FLD_VAL_GET(INTSTA_FLD_REG_RD_RDY, reg_val),
@@ -2227,8 +2239,20 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	{
 		unsigned int inten;
 
-		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && handle) {
-			inten = FRAME_DONE_INT_FLAG;
+		if (!handle) {
+			DDPPR_ERR("GCE handle is NULL\n");
+			return 0;
+		}
+
+		inten = LPRX_RD_RDY_INT_FLAG | CMD_DONE_INT_FLAG |
+			BUFFER_UNDERRUN_INT_FLAG | INP_UNFINISH_INT_EN;
+
+		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+			inten |= VM_DONE_INT_FLAG | FRAME_DONE_INT_FLAG;
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DSI_INTEN, inten, inten);
+		} else {
+			inten |= TE_RDY_INT_FLAG;
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DSI_INTEN, inten, inten);
 		}

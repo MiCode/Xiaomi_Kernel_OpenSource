@@ -52,6 +52,10 @@ struct CRTC_MMP_Events {
 	mmp_event enable;
 	mmp_event disable;
 	mmp_event release_fence;
+	mmp_event atomic_begin;
+	mmp_event atomic_flush;
+	mmp_event enable_vblank;
+	mmp_event disable_vblank;
 	mmp_event esd_check;
 	mmp_event esd_recovery;
 };

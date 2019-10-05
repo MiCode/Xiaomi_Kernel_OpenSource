@@ -97,6 +97,14 @@ void init_crtc_mmp_event(void)
 			mmprofile_register_event(crtc_mmp_root, "disable");
 		g_CRTC_MMP_Events[i].release_fence = mmprofile_register_event(
 			crtc_mmp_root, "release_fence");
+		g_CRTC_MMP_Events[i].atomic_begin = mmprofile_register_event(
+			crtc_mmp_root, "atomic_begin");
+		g_CRTC_MMP_Events[i].atomic_flush = mmprofile_register_event(
+			crtc_mmp_root, "atomic_flush");
+		g_CRTC_MMP_Events[i].enable_vblank = mmprofile_register_event(
+			crtc_mmp_root, "enable_vblank");
+		g_CRTC_MMP_Events[i].disable_vblank = mmprofile_register_event(
+			crtc_mmp_root, "disable_vblank");
 		g_CRTC_MMP_Events[i].esd_check =
 			mmprofile_register_event(crtc_mmp_root, "ESD check");
 		g_CRTC_MMP_Events[i].esd_recovery =

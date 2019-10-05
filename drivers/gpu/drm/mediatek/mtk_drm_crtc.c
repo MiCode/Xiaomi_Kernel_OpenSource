@@ -385,6 +385,8 @@ int mtk_drm_crtc_enable_vblank(struct drm_device *drm, unsigned int pipe)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(priv->crtc[pipe]);
 	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(&mtk_crtc->base, 0, 0);
 
+	CRTC_MMP_EVENT_START(pipe, enable_vblank, (unsigned long)comp,
+			(unsigned long)&mtk_crtc->base);
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_IDLE_MGR) &&
 	    drm_crtc_index(&mtk_crtc->base) == 0) {
 		/* The enable vblank is called in spinlock, so we create another
@@ -397,6 +399,8 @@ int mtk_drm_crtc_enable_vblank(struct drm_device *drm, unsigned int pipe)
 		mtk_ddp_comp_enable_vblank(comp, &mtk_crtc->base, NULL);
 	}
 
+	CRTC_MMP_EVENT_END(pipe, enable_vblank, (unsigned long)comp,
+			(unsigned long)&mtk_crtc->base);
 	return 0;
 }
 
@@ -465,9 +469,13 @@ void mtk_drm_crtc_disable_vblank(struct drm_device *drm, unsigned int pipe)
 	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(&mtk_crtc->base, 0, 0);
 
 	DDPINFO("%s\n", __func__);
+	CRTC_MMP_EVENT_START(pipe, disable_vblank, (unsigned long)comp,
+			(unsigned long)&mtk_crtc->base);
 	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_IDLE_MGR) &&
 	    drm_crtc_index(&mtk_crtc->base) == 0)
 		mtk_ddp_comp_disable_vblank(comp, NULL);
+	CRTC_MMP_EVENT_END(pipe, disable_vblank, (unsigned long)comp,
+			(unsigned long)&mtk_crtc->base);
 }
 
 /* power on all modules on this CRTC */
@@ -2258,14 +2266,20 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 {
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	int index = drm_crtc_index(crtc);
 	struct mtk_ddp_comp *comp;
 	int i, j;
 
+	CRTC_MMP_EVENT_START(index, atomic_begin,
+			(unsigned long)mtk_crtc->event,
+			(unsigned long)state->base.event);
 	if (mtk_crtc->event && state->base.event)
 		DRM_ERROR("new event while there is still a pending event\n");
 
-	if (mtk_crtc->ddp_mode == DDP_NO_USE)
+	if (mtk_crtc->ddp_mode == DDP_NO_USE) {
+		CRTC_MMP_EVENT_END(index, atomic_begin, 0, 0);
 		return;
+	}
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
@@ -2292,6 +2306,10 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 		comp->fbdc_bw = 0;
 		comp->hrt_bw = 0;
 	}
+
+	CRTC_MMP_EVENT_END(index, atomic_begin,
+			(unsigned long)mtk_crtc->event,
+			(unsigned long)state->base.event);
 }
 
 void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
@@ -2605,6 +2623,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	int index = drm_crtc_index(crtc);
 	unsigned int pending_planes = 0;
 	unsigned int i, j;
 	struct drm_crtc_state *crtc_state = crtc->state;
@@ -2613,8 +2632,12 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct mtk_cmdq_cb_data *cb_data;
 	struct mtk_ddp_comp *comp;
 
-	if (mtk_crtc->ddp_mode == DDP_NO_USE)
+	CRTC_MMP_EVENT_START(index, atomic_flush, (unsigned long)crtc_state,
+			(unsigned long)old_crtc_state);
+	if (mtk_crtc->ddp_mode == DDP_NO_USE) {
+		CRTC_MMP_EVENT_END(index, atomic_flush, 0, 0);
 		return;
+	}
 
 	if (mtk_crtc->event)
 		mtk_crtc->pending_needs_vblank = true;
@@ -2669,6 +2692,8 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	if (state->prop_val[CRTC_PROP_PRES_FENCE_IDX] != (unsigned int)-1)
 		mtk_drm_fence_update(state->prop_val[CRTC_PROP_PRES_FENCE_IDX]);
 #endif
+	CRTC_MMP_EVENT_END(index, atomic_flush, (unsigned long)crtc_state,
+			(unsigned long)old_crtc_state);
 }
 
 static const struct drm_crtc_funcs mtk_crtc_funcs = {
