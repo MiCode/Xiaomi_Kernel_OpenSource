@@ -804,6 +804,11 @@ static int dpmaif_get_rx_frag(struct dpmaif_rx_queue *rxq,
 	/*3.Check how much BAT can be re-alloc*/
 	bat_rel_rd_cur = bat_req->bat_rel_rd_idx;
 
+	/* 2. set frag data to skb_shinfo->frag_list */
+	ret = dpmaif_set_rx_frag_to_skb(rxq, skb_idx, pkt_inf_t);
+	if (ret < 0)
+		return ret;
+
 	while (1) {
 		if (bat_req->bid_btable[bat_rel_rd_cur] == 0)
 			bid_cnt++;
@@ -830,7 +835,7 @@ static int dpmaif_get_rx_frag(struct dpmaif_rx_queue *rxq,
 		bat_rel_rd_bak = bat_req->bat_rel_rd_idx;
 		bat_req->bat_rel_rd_idx =
 			ringbuf_get_next_idx(bat_req->bat_size_cnt,
-			pkt_inf_t->buffer_id, 1);
+				bat_req->bat_rel_rd_idx, 1);
 		ret = dpmaif_alloc_rx_frag(bat_req, rxq->index, 1, blocking);
 		if (ret < 0) {
 #ifdef DPMAIF_DEBUG_LOG
@@ -839,10 +844,6 @@ static int dpmaif_get_rx_frag(struct dpmaif_rx_queue *rxq,
 			bat_req->bat_rel_rd_idx = bat_rel_rd_bak;
 			break;
 		}
-		/* 2. set frag data to skb_shinfo->frag_list */
-		ret = dpmaif_set_rx_frag_to_skb(rxq, skb_idx, pkt_inf_t);
-		if (ret < 0)
-			return ret;
 		pkt_cnt++;
 
 	}
@@ -925,7 +926,7 @@ static int BAT_cur_bid_check(struct dpmaif_bat_request *bat_req,
 		return ret;
 	}
 	/*2.Clear BAT btable for skb_idx*/
-	bat_req->bid_btable[skb_idx] = 0;
+	/* bat_req->bid_btable[skb_idx] = 0; */
 	/*3.Check how much BAT can be re-alloc*/
 	bat_rel_rd_cur = bat_req->bat_rel_rd_idx;
 
@@ -1143,6 +1144,10 @@ static int dpmaif_get_rx_pkt(struct dpmaif_rx_queue *rxq,
 	unsigned long pkt_cnt = 0;
 	unsigned long loop = 0;
 
+	ret = dpmaif_rx_set_data_to_skb(rxq, pkt_inf_t);
+	if (ret < 0)
+		return ret;
+
 	/* check bid */
 	bid_cnt = BAT_cur_bid_check(bat_req, rxq->pit_rd_idx, skb_idx);
 	if (bid_cnt <= 0) {
@@ -1157,7 +1162,7 @@ static int dpmaif_get_rx_pkt(struct dpmaif_rx_queue *rxq,
 		bat_rel_rd_bak = bat_req->bat_rel_rd_idx;
 		bat_req->bat_rel_rd_idx =
 			ringbuf_get_next_idx(bat_req->bat_size_cnt,
-		skb_idx, 1);
+		bat_req->bat_rel_rd_idx, 1);
 		/*
 		 * bid_cnt = ringbuf_writeable(bat_req->bat_size_cnt,
 		 * bat_req->bat_rel_rd_idx, bat_req->bat_wr_idx);
@@ -1172,11 +1177,6 @@ static int dpmaif_get_rx_pkt(struct dpmaif_rx_queue *rxq,
 			bat_req->bat_rel_rd_idx = bat_rel_rd_bak;
 			break;
 		}
-		/* 2. set data to skb->data. */
-		ret = dpmaif_rx_set_data_to_skb(rxq, pkt_inf_t);
-		if (ret < 0)
-			return ret;
-
 		pkt_cnt++;
 	}
 
@@ -1270,6 +1270,7 @@ static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
 		return ret;
 
 	cur_skb->skb = NULL;
+	rxq->bat_req.bid_btable[skb_idx] = 0;
 	return ret;
 }
 
@@ -3465,6 +3466,7 @@ int ccci_dpmaif_hif_init(unsigned char hif_id, unsigned char md_id)
 		goto DPMAIF_INIT_FAIL;
 	}
 	hif_ctrl->dpmaif_ao_dl_base = hif_ctrl->dpmaif_ao_ul_base + 0x400;
+	hif_ctrl->dpmaif_ao_md_dl_base = hif_ctrl->dpmaif_ao_ul_base + 0x800;
 
 	hif_ctrl->dpmaif_pd_ul_base = of_iomap(node, 1);
 	if (hif_ctrl->dpmaif_pd_ul_base == 0) {

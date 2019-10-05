@@ -115,6 +115,7 @@ void drv_dpmaif_dl_set_performance(void);
 void drv_dpmaif_dl_set_wdma(void);
 void drv_dpmaif_dl_set_chk_rbnum(unsigned char q_num, unsigned int cnt);
 void drv_dpmaif_common_hw_init(void);
+void drv_dpmaif_md_hw_bus_remap(void);
 #endif
 
 #endif

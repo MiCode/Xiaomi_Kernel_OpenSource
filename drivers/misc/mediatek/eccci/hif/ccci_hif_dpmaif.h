@@ -365,6 +365,7 @@ struct hif_dpmaif_ctrl {
 	void __iomem *dpmaif_pd_sram_base;
 	void __iomem *dpmaif_pd_rdma_base;
 	void __iomem *dpmaif_pd_wdma_base;
+	void __iomem *dpmaif_ao_md_dl_base;
 
 	unsigned int dpmaif_irq_id;
 	unsigned long dpmaif_irq_flags;
