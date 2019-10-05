@@ -35,7 +35,7 @@
 #define FOR_BRING_UP		(0)
 #define SUPPORT_DVFS		(1)
 
-#if APUSYS_POWER_ENABLE
+#if APUSYS_POWER_ENABLE || FOR_BRING_UP
 static struct hal_param_init_power init_power_data;
 #endif
 
@@ -133,6 +133,7 @@ struct power_callback_device {
 static LIST_HEAD(power_device_list);
 static LIST_HEAD(power_callback_device_list);
 static struct mutex power_device_list_mtx;
+static struct mutex power_ctl_mtx;
 static struct mutex power_opp_mtx;
 static int power_callback_counter;
 static struct task_struct *power_task_handle;
@@ -191,28 +192,20 @@ void apu_get_power_info(void)
 
 	info.id = timestamp;
 
-	mutex_lock(&power_device_list_mtx);
-
 	if (apu_power_counter != 0)
 		hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
 	else
 		LOG_WRN("%s apu_power_counter = 0 , bypss\n", __func__);
-
-	mutex_unlock(&power_device_list_mtx);
 }
 EXPORT_SYMBOL(apu_get_power_info);
 
 
 void apu_power_reg_dump(void)
 {
-	mutex_lock(&power_device_list_mtx);
-
 	if (apu_power_counter != 0)
 		hal_config_power(PWR_CMD_REG_DUMP, VPU0, NULL);
 	else
 		LOG_WRN("%s apu_power_counter = 0 , bypss\n", __func__);
-
-	mutex_unlock(&power_device_list_mtx);
 }
 EXPORT_SYMBOL(apu_power_reg_dump);
 
@@ -221,15 +214,12 @@ static struct power_device *find_out_device_by_user(enum DVFS_USER user)
 {
 	struct power_device *pwr_dev = NULL;
 
-	mutex_lock(&power_device_list_mtx);
-
 	if (!list_empty(&power_device_list)) {
 
 		list_for_each_entry(pwr_dev,
 				&power_device_list, list) {
 
 			if (pwr_dev && pwr_dev->dev_usr == user) {
-				mutex_unlock(&power_device_list_mtx);
 				return pwr_dev;
 			}
 		}
@@ -238,7 +228,6 @@ static struct power_device *find_out_device_by_user(enum DVFS_USER user)
 		LOG_ERR("%s empty list\n", __func__);
 	}
 
-	mutex_unlock(&power_device_list_mtx);
 	return NULL;
 }
 
@@ -248,11 +237,9 @@ bool apu_get_power_on_status(enum DVFS_USER user)
 	bool power_on_status;
 	struct power_device *pwr_dev = find_out_device_by_user(user);
 
-	mutex_lock(&power_device_list_mtx);
-
+	mutex_lock(&power_ctl_mtx);
 	power_on_status = pwr_dev->is_power_on;
-
-	mutex_unlock(&power_device_list_mtx);
+	mutex_unlock(&power_ctl_mtx);
 
 	return power_on_status;
 }
@@ -289,15 +276,12 @@ find_out_callback_device_by_user(enum POWER_CALLBACK_USER user)
 {
 	struct power_callback_device *pwr_dev = NULL;
 
-	mutex_lock(&power_device_list_mtx);
-
 	if (!list_empty(&power_callback_device_list)) {
 
 		list_for_each_entry(pwr_dev,
 				&power_callback_device_list, list) {
 
 			if (pwr_dev && pwr_dev->power_callback_usr == user) {
-				mutex_unlock(&power_device_list_mtx);
 				return pwr_dev;
 			}
 		}
@@ -306,7 +290,6 @@ find_out_callback_device_by_user(enum POWER_CALLBACK_USER user)
 		LOG_ERR("%s empty list\n", __func__);
 	}
 
-	mutex_unlock(&power_device_list_mtx);
 	return NULL;
 }
 
@@ -319,7 +302,8 @@ int apu_device_power_off(enum DVFS_USER user)
 		return -1;
 	}
 
-	mutex_lock(&power_device_list_mtx);
+	LOG_WRN("%s waiting for lock, user = %d\n", __func__, user);
+	mutex_lock(&power_ctl_mtx);
 
 	if (pwr_dev->is_power_on) {
 		LOG_INF("%s for user : %d, cnt : %d\n", __func__,
@@ -330,8 +314,9 @@ int apu_device_power_off(enum DVFS_USER user)
 			power_callback_caller(0);
 		}
 
+		udelay(100);
 		// for debug
-		dump_stack();
+		// dump_stack();
 		// disable clock and set regulator mode to idle (lowest volt)
 		apusys_power_off(user);
 		pwr_dev->is_power_on = 0;
@@ -341,7 +326,7 @@ int apu_device_power_off(enum DVFS_USER user)
 							__func__, user);
 	}
 
-	mutex_unlock(&power_device_list_mtx);
+	mutex_unlock(&power_ctl_mtx);
 
 	return 0;
 }
@@ -356,13 +341,14 @@ int apu_device_power_on(enum DVFS_USER user)
 		return -1;
 	}
 
-	mutex_lock(&power_device_list_mtx);
+	LOG_WRN("%s waiting for lock, user = %d\n", __func__, user);
+	mutex_lock(&power_ctl_mtx);
 
 	if (!pwr_dev->is_power_on) {
 		LOG_INF("%s for user : %d, cnt : %d\n", __func__,
 						user, apu_power_counter);
 		// for debug
-		dump_stack();
+		// dump_stack();
 		// enable clock and set regulator mode to normal
 		apusys_power_on(user);
 		pwr_dev->is_power_on = 1;
@@ -377,7 +363,7 @@ int apu_device_power_on(enum DVFS_USER user)
 		LOG_INF("%s user %d has already power on, bypass this time!\n",
 								__func__, user);
 	}
-	mutex_unlock(&power_device_list_mtx);
+	mutex_unlock(&power_ctl_mtx);
 
 	return 0;
 }
@@ -567,6 +553,7 @@ static int apu_power_probe(struct platform_device *pdev)
 
 	wake_up_process(power_task_handle);
 	mutex_init(&power_device_list_mtx);
+	mutex_init(&power_ctl_mtx);
 	mutex_init(&power_opp_mtx);
 
 	apu_power_reg_dump();
@@ -679,6 +666,12 @@ int apu_power_power_stress(int type, int device, int opp)
 		}
 		break;
 
+	case 3: // config conn mtcmos on
+		hal_config_power(PWR_CMD_DEBUG_MTCMOS_ON, VPU0, NULL);
+		break;
+	case 4: // config conn mtcmos off
+		hal_config_power(PWR_CMD_DEBUG_MTCMOS_OFF, VPU0, NULL);
+		break;
 	default:
 		LOG_WRN("%s invalid type %d !\n", __func__, type);
 	}
@@ -702,6 +695,7 @@ static int apu_power_remove(struct platform_device *pdev)
 		kthread_stop(power_task_handle);
 
 	mutex_destroy(&power_opp_mtx);
+	mutex_destroy(&power_ctl_mtx);
 	mutex_destroy(&power_device_list_mtx);
 #endif
 

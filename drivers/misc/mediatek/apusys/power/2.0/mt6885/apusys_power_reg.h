@@ -53,7 +53,7 @@ extern void *g_APU_VPU2_BASE;
 extern void *g_APU_MDLA0_BASE;
 extern void *g_APU_MDLA1_BASE;
 
-#define REG_POLLING_TIMEOUT_ROUNDS	(10) // 10 * 10us = 100us
+#define REG_POLLING_TIMEOUT_ROUNDS	(50) // 50 * 10us = 500us
 
 /**************************************************
  * APU_RPC related register

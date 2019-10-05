@@ -143,9 +143,9 @@ void enable_apu_mtcmos(int enable)
 	LOG_DBG("%s enable var = %d\n", __func__, enable);
 
 	if (enable) {
-		ENABLE_MTCMOS(mtcmos_scp_sys_vpu);
+		ENABLE_CLK(mtcmos_scp_sys_vpu);
 	} else {
-		DISABLE_MTCMOS(mtcmos_scp_sys_vpu);
+		DISABLE_CLK(mtcmos_scp_sys_vpu);
 	}
 }
 
@@ -153,7 +153,7 @@ int prepare_apu_clock(struct device *dev)
 {
 	int ret = 0;
 
-	GET_MTCMOS(mtcmos_scp_sys_vpu);
+	PREPARE_CLK(mtcmos_scp_sys_vpu);
 
 	PREPARE_CLK(clk_apusys_vcore_ahb_cg);
 	PREPARE_CLK(clk_apusys_vcore_axi_cg);
@@ -205,7 +205,6 @@ int prepare_apu_clock(struct device *dev)
 	PREPARE_CLK(clk_apu_mdla0_cg_b12);
 	PREPARE_CLK(clk_apu_mdla0_apb_cg);
 	PREPARE_CLK(clk_apu_mdla0_axi_m_cg);
-
 	PREPARE_CLK(clk_apu_mdla1_cg_b0);
 	PREPARE_CLK(clk_apu_mdla1_cg_b1);
 	PREPARE_CLK(clk_apu_mdla1_cg_b2);
@@ -252,109 +251,62 @@ int prepare_apu_clock(struct device *dev)
 	PREPARE_CLK(clk_top_apupll_ck);
 
 	PREPARE_CLK(clk_apmixed_apupll_rate);
-
 	return ret;
 }
 
 void unprepare_apu_clock(void)
 {
-	UNPREPARE_CLK(clk_apu_core0_jtag_cg);
-	UNPREPARE_CLK(clk_apu_core0_axi_m_cg);
-	UNPREPARE_CLK(clk_apu_core0_apu_cg);
+	LOG_DBG("%s bypass\n", __func__);
+}
 
-	UNPREPARE_CLK(clk_apu_core1_jtag_cg);
-	UNPREPARE_CLK(clk_apu_core1_axi_m_cg);
-	UNPREPARE_CLK(clk_apu_core1_apu_cg);
+static void enable_pll(void)
+{
+	ENABLE_CLK(clk_top_clk26m);
+	ENABLE_CLK(clk_top_mainpll_d4_d2);
+	ENABLE_CLK(clk_top_mainpll_d4_d4);
+	ENABLE_CLK(clk_top_univpll_d4_d2);
+	ENABLE_CLK(clk_top_univpll_d6_d2);
+	ENABLE_CLK(clk_top_univpll_d6_d4);
+	ENABLE_CLK(clk_top_mmpll_d7);
+	ENABLE_CLK(clk_top_mmpll_d6);
+	ENABLE_CLK(clk_top_mmpll_d5);
+	ENABLE_CLK(clk_top_mmpll_d4);
+	ENABLE_CLK(clk_top_univpll_d6);
+	ENABLE_CLK(clk_top_univpll_d5);
+	ENABLE_CLK(clk_top_univpll_d4);
+	ENABLE_CLK(clk_top_univpll_d3);
+	ENABLE_CLK(clk_top_mainpll_d6);
+	ENABLE_CLK(clk_top_mainpll_d4);
+	ENABLE_CLK(clk_top_mainpll_d3);
+	ENABLE_CLK(clk_top_tvdpll_ck);
+	ENABLE_CLK(clk_top_tvdpll_mainpll_d2_ck);
+	ENABLE_CLK(clk_top_apupll_ck);
+	ENABLE_CLK(clk_apmixed_apupll_rate);
+}
 
-	UNPREPARE_CLK(clk_apu_core2_jtag_cg);
-	UNPREPARE_CLK(clk_apu_core2_axi_m_cg);
-	UNPREPARE_CLK(clk_apu_core2_apu_cg);
-
-	UNPREPARE_CLK(clk_apu_mdla0_cg_b0);
-	UNPREPARE_CLK(clk_apu_mdla0_cg_b1);
-	UNPREPARE_CLK(clk_apu_mdla0_cg_b2);
-	UNPREPARE_CLK(clk_apu_mdla0_cg_b3);
-	UNPREPARE_CLK(clk_apu_mdla0_cg_b4);
-	UNPREPARE_CLK(clk_apu_mdla0_cg_b5);
-	UNPREPARE_CLK(clk_apu_mdla0_cg_b6);
-	UNPREPARE_CLK(clk_apu_mdla0_cg_b7);
-	UNPREPARE_CLK(clk_apu_mdla0_cg_b8);
-	UNPREPARE_CLK(clk_apu_mdla0_cg_b9);
-	UNPREPARE_CLK(clk_apu_mdla0_cg_b10);
-	UNPREPARE_CLK(clk_apu_mdla0_cg_b11);
-	UNPREPARE_CLK(clk_apu_mdla0_cg_b12);
-	UNPREPARE_CLK(clk_apu_mdla0_apb_cg);
-	UNPREPARE_CLK(clk_apu_mdla0_axi_m_cg);
-
-	UNPREPARE_CLK(clk_apu_mdla1_cg_b0);
-	UNPREPARE_CLK(clk_apu_mdla1_cg_b1);
-	UNPREPARE_CLK(clk_apu_mdla1_cg_b2);
-	UNPREPARE_CLK(clk_apu_mdla1_cg_b3);
-	UNPREPARE_CLK(clk_apu_mdla1_cg_b4);
-	UNPREPARE_CLK(clk_apu_mdla1_cg_b5);
-	UNPREPARE_CLK(clk_apu_mdla1_cg_b6);
-	UNPREPARE_CLK(clk_apu_mdla1_cg_b7);
-	UNPREPARE_CLK(clk_apu_mdla1_cg_b8);
-	UNPREPARE_CLK(clk_apu_mdla1_cg_b9);
-	UNPREPARE_CLK(clk_apu_mdla1_cg_b10);
-	UNPREPARE_CLK(clk_apu_mdla1_cg_b11);
-	UNPREPARE_CLK(clk_apu_mdla1_cg_b12);
-	UNPREPARE_CLK(clk_apu_mdla1_apb_cg);
-	UNPREPARE_CLK(clk_apu_mdla1_axi_m_cg);
-
-	UNPREPARE_CLK(clk_apu_conn_ahb_cg);
-	UNPREPARE_CLK(clk_apu_conn_axi_cg);
-	UNPREPARE_CLK(clk_apu_conn_isp_cg);
-	UNPREPARE_CLK(clk_apu_conn_cam_adl_cg);
-	UNPREPARE_CLK(clk_apu_conn_img_adl_cg);
-	UNPREPARE_CLK(clk_apu_conn_emi_26m_cg);
-	UNPREPARE_CLK(clk_apu_conn_vpu_udi_cg);
-	UNPREPARE_CLK(clk_apu_conn_edma_0_cg);
-	UNPREPARE_CLK(clk_apu_conn_edma_1_cg);
-	UNPREPARE_CLK(clk_apu_conn_edmal_0_cg);
-	UNPREPARE_CLK(clk_apu_conn_edmal_1_cg);
-	UNPREPARE_CLK(clk_apu_conn_mnoc_cg);
-	UNPREPARE_CLK(clk_apu_conn_tcm_cg);
-	UNPREPARE_CLK(clk_apu_conn_md32_cg);
-	UNPREPARE_CLK(clk_apu_conn_iommu_0_cg);
-	UNPREPARE_CLK(clk_apu_conn_iommu_1_cg);
-	UNPREPARE_CLK(clk_apu_conn_md32_32k_cg);
-
-	UNPREPARE_CLK(clk_apusys_vcore_ahb_cg);
-	UNPREPARE_CLK(clk_apusys_vcore_axi_cg);
-	UNPREPARE_CLK(clk_apusys_vcore_adl_cg);
-	UNPREPARE_CLK(clk_apusys_vcore_qos_cg);
-
-	UNPREPARE_CLK(clk_top_dsp_sel);
-	UNPREPARE_CLK(clk_top_dsp1_sel);
-	UNPREPARE_CLK(clk_top_dsp2_sel);
-	UNPREPARE_CLK(clk_top_dsp3_sel);
-	UNPREPARE_CLK(clk_top_dsp6_sel);
-	UNPREPARE_CLK(clk_top_dsp7_sel);
-	UNPREPARE_CLK(clk_top_ipu_if_sel);
-
-	UNPREPARE_CLK(clk_top_clk26m);
-	UNPREPARE_CLK(clk_top_mainpll_d4_d2);
-	UNPREPARE_CLK(clk_top_mainpll_d4_d4);
-	UNPREPARE_CLK(clk_top_univpll_d4_d2);
-	UNPREPARE_CLK(clk_top_univpll_d6_d2);
-	UNPREPARE_CLK(clk_top_univpll_d6_d4);
-	UNPREPARE_CLK(clk_top_mmpll_d7);
-	UNPREPARE_CLK(clk_top_mmpll_d6);
-	UNPREPARE_CLK(clk_top_mmpll_d5);
-	UNPREPARE_CLK(clk_top_mmpll_d4);
-	UNPREPARE_CLK(clk_top_univpll_d6);
-	UNPREPARE_CLK(clk_top_univpll_d5);
-	UNPREPARE_CLK(clk_top_univpll_d4);
-	UNPREPARE_CLK(clk_top_univpll_d3);
-	UNPREPARE_CLK(clk_top_mainpll_d6);
-	UNPREPARE_CLK(clk_top_mainpll_d4);
-	UNPREPARE_CLK(clk_top_mainpll_d3);
-	UNPREPARE_CLK(clk_top_tvdpll_ck);
-	UNPREPARE_CLK(clk_top_tvdpll_mainpll_d2_ck);
-	UNPREPARE_CLK(clk_top_apupll_ck);
-
-	UNPREPARE_CLK(clk_apmixed_apupll_rate);
+static void disable_pll(void)
+{
+	DISABLE_CLK(clk_top_clk26m);
+	DISABLE_CLK(clk_top_mainpll_d4_d2);
+	DISABLE_CLK(clk_top_mainpll_d4_d4);
+	DISABLE_CLK(clk_top_univpll_d4_d2);
+	DISABLE_CLK(clk_top_univpll_d6_d2);
+	DISABLE_CLK(clk_top_univpll_d6_d4);
+	DISABLE_CLK(clk_top_mmpll_d7);
+	DISABLE_CLK(clk_top_mmpll_d6);
+	DISABLE_CLK(clk_top_mmpll_d5);
+	DISABLE_CLK(clk_top_mmpll_d4);
+	DISABLE_CLK(clk_top_univpll_d6);
+	DISABLE_CLK(clk_top_univpll_d5);
+	DISABLE_CLK(clk_top_univpll_d4);
+	DISABLE_CLK(clk_top_univpll_d3);
+	DISABLE_CLK(clk_top_mainpll_d6);
+	DISABLE_CLK(clk_top_mainpll_d4);
+	DISABLE_CLK(clk_top_mainpll_d3);
+	DISABLE_CLK(clk_top_tvdpll_ck);
+	DISABLE_CLK(clk_top_tvdpll_mainpll_d2_ck);
+	DISABLE_CLK(clk_top_apupll_ck);
+	DISABLE_CLK(clk_apmixed_apupll_rate);
 }
 
 void enable_apu_conn_vcore_clksrc(void)
@@ -362,6 +314,9 @@ void enable_apu_conn_vcore_clksrc(void)
 	ENABLE_CLK(clk_top_dsp_sel);
 	ENABLE_CLK(clk_top_dsp7_sel);
 	ENABLE_CLK(clk_top_ipu_if_sel);
+
+	enable_pll();
+
 	LOG_DBG("%s\n", __func__);
 }
 
@@ -563,6 +518,8 @@ void disable_apu_device_clock(enum DVFS_USER user)
 
 void disable_apu_conn_vcore_clksrc(void)
 {
+	disable_pll();
+
 	DISABLE_CLK(clk_top_dsp_sel);
 	DISABLE_CLK(clk_top_ipu_if_sel);
 	DISABLE_CLK(clk_top_dsp7_sel);
@@ -737,7 +694,7 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 							__func__, freq);
 	}
 
-	LOG_DBG("%s config domain %d to opp %d\n", __func__, domain, freq);
+	LOG_WRN("%s config domain %d to freq %d\n", __func__, domain, freq);
 	return clk_set_parent(find_clk_by_domain(domain), clk_src);
 }
 
@@ -747,23 +704,21 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 
 	clk_set_parent(find_clk_by_domain(domain), clk_top_apupll_ck);
 
+	LOG_WRN("%s config domain %d to freq %d\n", __func__, domain, freq);
 	return clk_set_rate(clk_top_apupll_ck, scaled_freq);
 }
 
 void reinit_iommu_apu_resource(void)
 {
+#if 0
 	LOG_WRN("%s\n", __func__);
 
 	DISABLE_CLK(clk_apu_conn_iommu_0_cg);
 	DISABLE_CLK(clk_apu_conn_iommu_1_cg);
 
-	enable_apu_conn_vcore_clock();
 	enable_apu_mtcmos(0);
-	disable_apu_conn_vcore_clock();
-
-	enable_apu_conn_vcore_clock();
 	enable_apu_mtcmos(0);
-	disable_apu_conn_vcore_clock();
+#endif
 }
 
 // dump related frequencies of APUsys

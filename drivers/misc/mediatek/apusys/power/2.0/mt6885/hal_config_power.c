@@ -21,7 +21,7 @@
 
 static int is_apu_power_initilized;
 static int force_pwr_on = 1;
-static int force_pwr_off = 1;
+static int force_pwr_off;
 static int reinit_apu_down;
 
 void *g_APU_RPCTOP_BASE;
@@ -51,7 +51,8 @@ static int set_power_frequency(void *param);
 static void get_current_power_info(void *param);
 static int uninit_power_resource(void);
 static void apusys_power_reg_dump(void);
-
+static void debug_power_mtcmos_on(void);
+static void debug_power_mtcmos_off(void);
 static void hw_init_setting(void);
 
 /************************************
@@ -106,6 +107,12 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 		break;
 	case PWR_CMD_UNINIT_POWER:
 		ret = uninit_power_resource();
+		break;
+	case PWR_CMD_DEBUG_MTCMOS_ON:
+		debug_power_mtcmos_on();
+		break;
+	case PWR_CMD_DEBUG_MTCMOS_OFF:
+		debug_power_mtcmos_off();
 		break;
 	default:
 		LOG_ERR("%s unknown power command : %d\n", __func__, cmd);
@@ -315,7 +322,7 @@ static void rpc_fifo_check(void)
 }
 
 
-static void rpc_power_status_check(int domain_idx, unsigned int enable)
+static int rpc_power_status_check(int domain_idx, unsigned int enable)
 {
 	unsigned int regValue = 0;
 #if 1
@@ -332,8 +339,9 @@ static void rpc_power_status_check(int domain_idx, unsigned int enable)
 			finished = (regValue >> domain_idx) & 0x1;
 
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
-			LOG_WRN("%s timeout !\n", __func__);
-			break;
+			LOG_WRN("%s APU_RPC_INTF_PWR_RDY = 0x%x, timeout !\n",
+							__func__, regValue);
+			return -1;
 		}
 
 	} while (finished);
@@ -342,6 +350,7 @@ static void rpc_power_status_check(int domain_idx, unsigned int enable)
 	regValue = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
 #endif
 	LOG_WRN("%s APU_RPC_INTF_PWR_RDY = 0x%x\n", __func__, regValue);
+	return 0;
 }
 
 static int check_mtcmos_all_power_state(void)
@@ -430,6 +439,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 	unsigned int enable = ((struct hal_param_mtcmos *)param)->enable;
 	unsigned int domain_idx = 0;
 	unsigned int regValue = 0;
+	int retry = 0;
 
 	LOG_INF("%s , user: %d , enable: %d\n", __func__, user, enable);
 
@@ -456,46 +466,70 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 		//	DRV_SetBitReg32(APU_RPC_TOP_CON, REG_WAKEUP_SET);
 		//	LOG_WRN("%s ON check wakeup signal 0x%x\n", __func__,
 		//				DRV_Reg32(APU_RPC_TOP_CON));
+
+			// CCF API assist to enable clock source of apu conn
 			enable_apu_mtcmos(1);
+
+			// clear inner dummy CG (true enable but bypass disable)
 			enable_apu_conn_vcore_clock();
+
 			enable_infra2apu(1);
 			force_pwr_on = 0;
 		}
 
 		// EDMA do not need to control mtcmos by rpc
 		if (user != EDMA) {
+			// enable clock source of this device first
 			enable_apu_device_clksrc(user);
-			rpc_fifo_check();
-			// BIT(4) to Power on
-			DRV_WriteReg32(APU_RPC_SW_FIFO_WE,
+
+			do {
+				rpc_fifo_check();
+				// BIT(4) to Power on
+				DRV_WriteReg32(APU_RPC_SW_FIFO_WE,
 					(domain_idx | BIT(4)));
-			LOG_WRN("%s APU_RPC_SW_FIFO_WE write 0x%lx\n", __func__,
-						(domain_idx | BIT(4)));
-			rpc_power_status_check(domain_idx, enable);
+				LOG_WRN("%s APU_RPC_SW_FIFO_WE write 0x%lx\n",
+					__func__, (domain_idx | BIT(4)));
+
+				if (retry >= 3) {
+					LOG_ERR("%s fail (user:%d, mode:%d)\n",
+							__func__, user, enable);
+					disable_apu_device_clksrc(user);
+					return -1;
+				}
+				retry++;
+			} while (rpc_power_status_check(domain_idx, enable));
 		}
 
 	} else {
 
 		// EDMA do not need to control mtcmos by rpc
 		if (user != EDMA) {
-			rpc_fifo_check();
-			DRV_WriteReg32(APU_RPC_SW_FIFO_WE, domain_idx);
-			rpc_power_status_check(domain_idx, enable);
+			do {
+				rpc_fifo_check();
+				DRV_WriteReg32(APU_RPC_SW_FIFO_WE, domain_idx);
+				LOG_WRN("%s APU_RPC_SW_FIFO_WE write %u\n",
+					__func__, domain_idx);
 
-			// FIXME: remove this after dummy cg is ready
-			disable_apu_device_clock(user);
+				if (retry >= 3) {
+					LOG_ERR("%s fail (user:%d, mode:%d)\n",
+							__func__, user, enable);
+					return -1;
+				}
+				retry++;
+			} while (rpc_power_status_check(domain_idx, enable));
 
+			// disable clock source of this device
 			disable_apu_device_clksrc(user);
 		}
 
-		// only apu_top power on
+		// only remained apu_top is power on
 		if (force_pwr_off || check_mtcmos_all_power_state()) {
 		/*
 		 * call spm api to disable wake up signal
 		 * for apu_conn/apu_vcore
 		 */
-			// FIXME: add back this after dummy cg ready
-			//disable_apu_conn_vcore_clock();
+			// inner dummy cg won't be gated when you call disable
+			disable_apu_conn_vcore_clock();
 
 		//	DRV_WriteReg32(APU_RPC_TOP_CON, REG_WAKEUP_CLR);
 		//	LOG_WRN("%s disable wakeup signal = 0x%x\n",
@@ -503,10 +537,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			enable_apu_mtcmos(0);
 			//udelay(100);
 
-			// FIXME: remove this after dummy cg is ready
-			disable_apu_conn_vcore_clock();
-
-			// FIXME: auto clear ?
+			// FIXME: auto clear by CCF API ?
 			//disable_apu_conn_vcore_clksrc();
 
 			// mask RPC IRQ and bypass WFI
@@ -538,6 +569,7 @@ static int set_power_clock(enum DVFS_USER user, void *param)
 	if (enable)
 		enable_apu_device_clock(user);
 	else
+		// inner dummy cg won't be gated when you call disable
 		disable_apu_device_clock(user);
 #endif
 	return 0;
@@ -603,20 +635,15 @@ static int uninit_power_resource(void)
 	return 0;
 }
 
-static int set_power_boot_up(enum DVFS_USER user, void *param)
+static int buck_control(enum DVFS_USER user, int up)
 {
-	struct hal_param_mtcmos mtcmos_data;
-	struct hal_param_clk clk_data;
 	struct hal_param_volt vpu_volt_data;
 	struct hal_param_volt mdla_volt_data;
 	struct hal_param_volt vcore_volt_data;
 	struct hal_param_volt sram_volt_data;
-	uint8_t power_bit_mask = 0;
 	int ret = 0;
 
-	power_bit_mask = ((struct hal_param_pwr_mask *)param)->power_bit_mask;
-
-	if (power_bit_mask == 0) {
+	if (up) {
 		vcore_volt_data.target_buck = VCORE_BUCK;
 		vcore_volt_data.target_volt = VCORE_DEFAULT_VOLT;
 		ret |= set_power_voltage(user, (void *)&vcore_volt_data);
@@ -633,54 +660,7 @@ static int set_power_boot_up(enum DVFS_USER user, void *param)
 		mdla_volt_data.target_volt = VMDLA_DEFAULT_VOLT;
 		ret |= set_power_voltage(user, (void *)&mdla_volt_data);
 
-		// FIXME: Set mtcmos disable first to avoid conflict with iommu
-		force_pwr_on = 1;
-
-		// FIXME: remove this feature after iommu owner handle this job.
-		if (!reinit_apu_down) {
-			reinit_iommu_apu_resource();
-			reinit_apu_down = 1;
-		}
-	}
-
-	// Set mtcmos enable
-	mtcmos_data.enable = 1;
-	ret |= set_power_mtcmos(user, (void *)&mtcmos_data);
-
-	// Set cg enable
-	clk_data.enable = 1;
-	ret |= set_power_clock(user, (void *)&clk_data);
-
-	return ret;
-}
-
-
-static int set_power_shut_down(enum DVFS_USER user, void *param)
-{
-	struct hal_param_mtcmos mtcmos_data;
-	//struct hal_param_clk clk_data;
-	struct hal_param_volt vpu_volt_data;
-	struct hal_param_volt mdla_volt_data;
-	struct hal_param_volt vcore_volt_data;
-	struct hal_param_volt sram_volt_data;
-	uint8_t power_bit_mask = 0;
-	int ret = 0;
-
-	power_bit_mask = ((struct hal_param_pwr_mask *)param)->power_bit_mask;
-
-	// FIXME: add back this after dummy cg is ready
-	// Set cg disable
-	// clk_data.enable = 0;
-	// ret |= set_power_clock(user, (void *)&clk_data);
-
-	if (power_bit_mask == 0)
-		force_pwr_off = 1;
-
-	// Set mtcmos disable
-	mtcmos_data.enable = 0;
-	ret |= set_power_mtcmos(user, (void *)&mtcmos_data);
-
-	if (power_bit_mask == 0) {
+	} else {
 		/*
 		 * to avoid vmdla/vvpu constraint,
 		 * adjust to transition voltage first.
@@ -712,6 +692,69 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 		vcore_volt_data.target_volt = VCORE_SHUTDOWN_VOLT;
 		ret |= set_power_voltage(user, (void *)&vcore_volt_data);
 	}
+
+	return ret;
+}
+
+static int set_power_boot_up(enum DVFS_USER user, void *param)
+{
+	struct hal_param_mtcmos mtcmos_data;
+	struct hal_param_clk clk_data;
+	uint8_t power_bit_mask = 0;
+	int ret = 0;
+
+	power_bit_mask = ((struct hal_param_pwr_mask *)param)->power_bit_mask;
+
+	if (power_bit_mask == 0) {
+
+		buck_control(user, 1);
+
+		// FIXME: Set mtcmos disable first to avoid conflict with iommu
+		force_pwr_on = 1;
+
+		// FIXME: remove this feature after iommu owner handle this job.
+		if (!reinit_apu_down) {
+			reinit_iommu_apu_resource();
+			reinit_apu_down = 1;
+		}
+	}
+
+	// Set mtcmos enable
+	mtcmos_data.enable = 1;
+	ret = set_power_mtcmos(user, (void *)&mtcmos_data);
+
+	if (!ret) {
+		// Set cg enable
+		clk_data.enable = 1;
+		ret = set_power_clock(user, (void *)&clk_data);
+	}
+
+	return ret;
+}
+
+
+static int set_power_shut_down(enum DVFS_USER user, void *param)
+{
+	struct hal_param_mtcmos mtcmos_data;
+	struct hal_param_clk clk_data;
+	uint8_t power_bit_mask = 0;
+	int ret = 0;
+
+	power_bit_mask = ((struct hal_param_pwr_mask *)param)->power_bit_mask;
+
+	// inner dummy cg won't be gated when you call disable
+	clk_data.enable = 0;
+	ret = set_power_clock(user, (void *)&clk_data);
+
+	if (power_bit_mask == 0)
+		force_pwr_off = 1;
+
+	// Set mtcmos disable
+	mtcmos_data.enable = 0;
+	ret = set_power_mtcmos(user, (void *)&mtcmos_data);
+
+	if (power_bit_mask == 0)
+		buck_control(user, 0);
 
 	return ret;
 }
@@ -775,3 +818,40 @@ static void apusys_power_reg_dump(void)
 		LOG_WRN("APUREG mdla1 mtcmos not ready, bypass CG dump\n");
 }
 
+static void debug_power_mtcmos_on(void)
+{
+	LOG_WRN("%s begin +++\n", __func__);
+
+	buck_control(VPU0, 1);
+
+	enable_apu_mtcmos(1);
+	enable_apu_conn_vcore_clock();
+	enable_infra2apu(1);
+
+	LOG_WRN("%s end ---\n", __func__);
+}
+
+static void debug_power_mtcmos_off(void)
+{
+	unsigned int regValue = 0;
+
+	LOG_WRN("%s begin +++\n", __func__);
+
+	disable_apu_conn_vcore_clock();
+	enable_apu_mtcmos(0);
+
+	// mask RPC IRQ and bypass WFI
+	regValue = DRV_Reg32(APU_RPC_TOP_SEL);
+	regValue |= 0x9E;
+	DRV_WriteReg32(APU_RPC_TOP_SEL, regValue);
+
+	enable_infra2apu(0);
+	// sleep request enable
+	regValue = DRV_Reg32(APU_RPC_TOP_CON);
+	regValue |= 0x1;
+	DRV_WriteReg32(APU_RPC_TOP_CON, regValue);
+
+	buck_control(VPU0, 0);
+
+	LOG_WRN("%s end ---\n", __func__);
+}

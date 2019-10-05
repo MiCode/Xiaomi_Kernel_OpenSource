@@ -32,73 +32,31 @@ static inline void check_vpu_clk_sts(void) { }
  * macro for clock management operation
  **********************************************/
 
-#define GET_MTCMOS(clk) \
-	do { \
-		clk = devm_clk_get(dev, #clk); \
-		if (IS_ERR(clk)) { \
-			ret = -ENOENT; \
-			LOG_ERR("can not find mtcmos: %s\n", #clk); \
-		} \
-	} while (0)
-
 #define PREPARE_CLK(clk) \
 	{ \
 		clk = devm_clk_get(dev, #clk); \
 		if (IS_ERR(clk)) { \
 			ret = -ENOENT; \
-			LOG_ERR("can not find clock: %s\n", #clk); \
-		} else if (clk_prepare(clk)) { \
-			ret = -EBADE; \
-			LOG_ERR("fail to prepare clock: %s\n", #clk); \
+			LOG_ERR("can not find clk: %s\n", #clk); \
 		} \
 	}
-
 
 #define UNPREPARE_CLK(clk) \
 	{ \
-		if (clk != NULL) { \
-			clk_unprepare(clk); \
+		if (clk != NULL) \
 			clk = NULL; \
-		} \
 	}
 
-#define ENABLE_MTCMOS(clk) \
-	{ \
-		if (clk != NULL) { \
-			if (clk_prepare_enable(clk)) \
-				LOG_ERR("fail to prepare&enable mtcmos:%s\n", \
-									#clk); \
-		} else { \
-			LOG_WRN("mtcmos not existed: %s\n", #clk); \
-		} \
-	}
 
 #define ENABLE_CLK(clk) \
 	{ \
-		if (clk != NULL) { \
-			if (clk_enable(clk)) \
-				LOG_ERR("fail to enable clock: %s\n", #clk); \
-		} else { \
-			LOG_WRN("clk not existed: %s\n", #clk); \
-		} \
+		if (clk_prepare_enable(clk)) \
+			LOG_ERR("fail to prepare&enable clk:%s\n", #clk); \
 	}
 
 #define DISABLE_CLK(clk) \
 	{ \
-		if (clk != NULL) { \
-			clk_disable(clk); \
-		} else { \
-			LOG_WRN("clk not existed: %s\n", #clk); \
-		} \
-	}
-
-#define DISABLE_MTCMOS(clk) \
-	{ \
-		if (clk != NULL) { \
-			clk_disable_unprepare(clk); \
-		} else { \
-			LOG_WRN("mtcmos not existed: %s\n", #clk); \
-		} \
+		clk_disable_unprepare(clk); \
 	}
 
 #endif // _POWER_CLOCK_API_H_
