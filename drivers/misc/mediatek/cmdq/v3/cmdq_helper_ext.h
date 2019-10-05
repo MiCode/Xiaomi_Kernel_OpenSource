@@ -25,8 +25,6 @@
 #include <mt-plat/aee.h>
 #endif
 
-/* #define CMDQ_TIMER_ENABLE */
-
 #define CMDQ_EVENT_ENUM cmdq_event
 
 #define CMDQ_PHYS_TO_AREG(addr) ((addr) & 0xFFFFFFFF) /* truncate directly */
