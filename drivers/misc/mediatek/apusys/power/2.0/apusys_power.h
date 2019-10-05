@@ -37,5 +37,6 @@ extern int apu_power_callback_device_register(enum POWER_CALLBACK_USER user,
 extern void apu_power_callback_device_unregister(enum POWER_CALLBACK_USER user);
 extern void apu_power_reg_dump(void);
 extern int apu_power_power_stress(int type, int device, int opp);
+extern bool apusys_power_check(void);
 
 #endif

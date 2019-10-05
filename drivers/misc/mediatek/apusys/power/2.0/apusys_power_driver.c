@@ -20,6 +20,7 @@
 #include <linux/jiffies.h>
 #include <linux/sched.h>
 #include <linux/kthread.h>
+#include <linux/init.h>
 
 #include "apu_log.h"
 #include "apusys_power_ctl.h"
@@ -28,13 +29,31 @@
 #include "apu_platform_resource.h"
 #include "hal_config_power.h"
 
-#define APUSYS_POWER_ENABLE	(0)
+#define APUSYS_POWER_ENABLE	(1)
 #define FOR_BRING_UP		(1)
 #define SUPPORT_DVFS		(0)
 
 
 struct hal_param_init_power init_power_data;
 static int apu_power_counter;
+
+bool apusys_power_check(void)
+{
+	char *pwr_ptr;
+	bool pwr_status = true;
+
+	pwr_ptr = strstr(saved_command_line,
+				"apusys_status=normal");
+	if (pwr_ptr == 0) {
+		pwr_status = false;
+		LOG_ERR("apusys power disable !!, pwr_status=%d\n",
+			pwr_status);
+	}
+	LOG_INF("apusys power check pass!!, pwr_status=%d\n",
+			pwr_status);
+	return pwr_status;
+}
+EXPORT_SYMBOL(apusys_power_check);
 
 #if FOR_BRING_UP
 
@@ -501,6 +520,9 @@ static int apu_power_probe(struct platform_device *pdev)
 #if APUSYS_POWER_ENABLE
 	int ret = 0;
 	int err;
+
+	if (!apusys_power_check())
+		return 0;
 
 	ret = init_platform_resource(pdev, &init_power_data);
 
