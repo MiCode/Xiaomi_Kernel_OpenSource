@@ -93,7 +93,7 @@ struct rsz_tile_params {
 
 struct mtk_rsz_config_struct {
 	struct rsz_tile_params tw[2];
-	struct rsz_tile_params th;
+	struct rsz_tile_params th[1];
 	enum mtk_rsz_color_format fmt;
 	u32 frm_in_w;
 	u32 frm_in_h;
@@ -144,7 +144,7 @@ static void mtk_rsz_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 }
 
 int mtk_rsz_calc_tile_params(u32 frm_in_len, u32 frm_out_len, bool tile_mode,
-			     struct rsz_tile_params *t)
+			     struct rsz_tile_params t[])
 {
 	u32 tile_loss = 0;
 	u32 step = 0;
@@ -294,12 +294,12 @@ static void mtk_rsz_addon_config(struct mtk_ddp_comp *comp,
 	mtk_rsz_calc_tile_params(rsz_config->frm_in_w, rsz_config->frm_out_w,
 				 tile_mode, rsz_config->tw);
 	mtk_rsz_calc_tile_params(rsz_config->frm_in_h, rsz_config->frm_out_h,
-				 tile_mode, &rsz_config->th);
+				 tile_mode, rsz_config->th);
 
 	in_w = rsz_config->tw[tile_idx].in_len;
-	in_h = rsz_config->th.in_len;
+	in_h = rsz_config->th[0].in_len;
 	out_w = rsz_config->tw[tile_idx].out_len;
-	out_h = rsz_config->th.out_len;
+	out_h = rsz_config->th[0].out_len;
 
 	if (in_w > out_w || in_h > out_h) {
 		DDPPR_ERR("DISP_RSZ only supports scale-up,(%ux%u)->(%ux%u)\n",
@@ -334,7 +334,7 @@ static void mtk_rsz_addon_config(struct mtk_ddp_comp *comp,
 		       rsz_config->tw[tile_idx].step, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_RSZ_VERTICAL_COEFF_STEP,
-		       rsz_config->th.step, ~0);
+		       rsz_config->th[0].step, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa +
 			       DISP_REG_RSZ_LUMA_HORIZONTAL_INTEGER_OFFSET,
@@ -346,11 +346,11 @@ static void mtk_rsz_addon_config(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa +
 			       DISP_REG_RSZ_LUMA_VERTICAL_INTEGER_OFFSET,
-		       rsz_config->th.int_offset, ~0);
+		       rsz_config->th[0].int_offset, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa +
 			       DISP_REG_RSZ_LUMA_VERTICAL_SUBPIXEL_OFFSET,
-		       rsz_config->th.sub_offset, ~0);
+		       rsz_config->th[0].sub_offset, ~0);
 
 	kfree(rsz_config);
 }
