@@ -22,8 +22,143 @@
 #include "m4u.h"
 #endif
 #ifdef CONFIG_MTK_SMI_EXT
+#include <mmdvfs_pmqos.h>
 #include "smi_public.h"
+#include "smi_port.h"
+
+/* mdp */
+struct mm_qos_request mdp_rdma0_request[MDP_TOTAL_THREAD];
+struct mm_qos_request mdp_rdma1_request[MDP_TOTAL_THREAD];
+struct mm_qos_request mdp_rdma2_request[MDP_TOTAL_THREAD];
+struct mm_qos_request mdp_rdma3_request[MDP_TOTAL_THREAD];
+struct mm_qos_request mdp_wrot0_request[MDP_TOTAL_THREAD];
+struct mm_qos_request mdp_wrot1_request[MDP_TOTAL_THREAD];
+struct mm_qos_request mdp_wrot2_request[MDP_TOTAL_THREAD];
+struct mm_qos_request mdp_wrot3_request[MDP_TOTAL_THREAD];
+/* isp */
+struct mm_qos_request imgi_request[MDP_TOTAL_THREAD];
+struct mm_qos_request img2o_request[MDP_TOTAL_THREAD];
+struct mm_qos_request img3o_request[MDP_TOTAL_THREAD];
+struct mm_qos_request vipi_request[MDP_TOTAL_THREAD];
+struct mm_qos_request lcei_request[MDP_TOTAL_THREAD];
+struct mm_qos_request smxi_request[MDP_TOTAL_THREAD];
+struct mm_qos_request smxo_request[MDP_TOTAL_THREAD];
+
+uint32_t cmdq_mdp_translate_port(uint32_t engineId)
+{
+	switch (engineId) {
+	case CMDQ_ENG_MDP_RDMA0:
+		return M4U_PORT_L2_MDP_RDMA0;
+	case CMDQ_ENG_MDP_RDMA1:
+		return M4U_PORT_L3_MDP_RDMA1;
+	case CMDQ_ENG_MDP_RDMA2:
+		return M4U_PORT_L2_MDP_RDMA2;
+	case CMDQ_ENG_MDP_RDMA3:
+		return M4U_PORT_L3_MDP_RDMA3;
+	case CMDQ_ENG_MDP_WROT0:
+		return M4U_PORT_L2_MDP_WROT0;
+	case CMDQ_ENG_MDP_WROT1:
+		return M4U_PORT_L3_MDP_WROT1;
+	case CMDQ_ENG_MDP_WROT2:
+		return M4U_PORT_L2_MDP_WROT2;
+	case CMDQ_ENG_MDP_WROT3:
+		return M4U_PORT_L3_MDP_WROT3;
+	}
+
+	if (engineId != CMDQ_ENG_MDP_CAMIN
+#ifdef CMDQ_ENG_MDP_CAMIN2
+		&& engineId != CMDQ_ENG_MDP_CAMIN2
 #endif
+		)
+		CMDQ_ERR("pmqos invalid engineId %d\n", engineId);
+	return 0;
+}
+
+struct mm_qos_request *cmdq_mdp_get_request(uint32_t thread_id, uint32_t port)
+{
+	if (!port)
+		return NULL;
+
+	switch (port) {
+	case M4U_PORT_L2_MDP_RDMA0:
+		return &mdp_rdma0_request[thread_id];
+	case M4U_PORT_L3_MDP_RDMA1:
+		return &mdp_rdma1_request[thread_id];
+	case M4U_PORT_L2_MDP_RDMA2:
+		return &mdp_rdma2_request[thread_id];
+	case M4U_PORT_L3_MDP_RDMA3:
+		return &mdp_rdma3_request[thread_id];
+	case M4U_PORT_L2_MDP_WROT0:
+		return &mdp_wrot0_request[thread_id];
+	case M4U_PORT_L3_MDP_WROT1:
+		return &mdp_wrot1_request[thread_id];
+	case M4U_PORT_L2_MDP_WROT2:
+		return &mdp_wrot2_request[thread_id];
+	case M4U_PORT_L3_MDP_WROT3:
+		return &mdp_wrot3_request[thread_id];
+/*
+ *	case SMI_IMGI:
+ *		return &imgi_request[thread_id];
+ *	case SMI_IMG2O:
+ *		return &img2o_request[thread_id];
+ *	case SMI_IMG3O:
+ *		return &img3o_request[thread_id];
+ *	case SMI_VIPI:
+ *		return &vipi_request[thread_id];
+ *	case SMI_LCEI:
+ *		return &lcei_request[thread_id];
+ *	case SMI_SMXI:
+ *		return &smxi_request[thread_id];
+ *	case SMI_SMXO:
+ *		return &smxo_request[thread_id];
+ */
+	}
+
+	CMDQ_ERR("pmqos invalid port%d\n", port);
+	return NULL;
+}
+
+void cmdq_mdp_init_pmqos_mdp(s32 index, struct plist_head *owner_list)
+{
+	mm_qos_add_request(&owner_list[index],
+		&mdp_rdma0_request[index], M4U_PORT_L2_MDP_RDMA0);
+	mm_qos_add_request(&owner_list[index],
+		&mdp_rdma1_request[index], M4U_PORT_L3_MDP_RDMA1);
+	mm_qos_add_request(&owner_list[index],
+		&mdp_rdma2_request[index], M4U_PORT_L2_MDP_RDMA2);
+	mm_qos_add_request(&owner_list[index],
+		&mdp_rdma3_request[index], M4U_PORT_L3_MDP_RDMA3);
+	mm_qos_add_request(&owner_list[index],
+		&mdp_wrot0_request[index], M4U_PORT_L2_MDP_WROT0);
+	mm_qos_add_request(&owner_list[index],
+		&mdp_wrot1_request[index], M4U_PORT_L3_MDP_WROT1);
+	mm_qos_add_request(&owner_list[index],
+		&mdp_wrot2_request[index], M4U_PORT_L2_MDP_WROT2);
+	mm_qos_add_request(&owner_list[index],
+		&mdp_wrot3_request[index], M4U_PORT_L3_MDP_WROT3);
+}
+
+void cmdq_mdp_init_pmqos_isp(s32 index, struct plist_head *owner_list)
+{
+/*
+ *	mm_qos_add_request(&owner_list[index],
+ *		&imgi_request[index], SMI_IMGI);
+ *	mm_qos_add_request(&owner_list[index],
+ *		&img2o_request[index], SMI_IMG2O);
+ *	mm_qos_add_request(&owner_list[index],
+ *		&img3o_request[index], SMI_IMG3O);
+ *	mm_qos_add_request(&owner_list[index],
+ *		&vipi_request[index], SMI_VIPI);
+ *	mm_qos_add_request(&owner_list[index],
+ *		&lcei_request[index], SMI_LCEI);
+ *	mm_qos_add_request(&owner_list[index],
+ *		&smxi_request[index], SMI_SMXI);
+ *	mm_qos_add_request(&owner_list[index],
+ *		&smxo_request[index], SMI_SMXO);
+ */
+}
+#endif	/* CONFIG_MTK_SMI_EXT */
+
 #ifdef CONFIG_MTK_IOMMU_V2
 #include <mach/mt_iommu.h>
 #include "mach/pseudo_m4u.h"
@@ -2123,6 +2258,12 @@ void cmdq_mdp_platform_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
 
+#ifdef CONFIG_MTK_SMI_EXT
+	pFunc->translatePort = cmdq_mdp_translate_port;
+	pFunc->getRequest = cmdq_mdp_get_request;
+	pFunc->initPmqosMdp = cmdq_mdp_init_pmqos_mdp;
+	pFunc->initPmqosIsp = cmdq_mdp_init_pmqos_isp;
+#endif	/* CONFIG_MTK_SMI_EXT */
 	pFunc->dumpMMSYSConfig = cmdq_mdp_dump_mmsys_config;
 
 	pFunc->vEncDumpInfo = cmdqVEncDumpInfo;
