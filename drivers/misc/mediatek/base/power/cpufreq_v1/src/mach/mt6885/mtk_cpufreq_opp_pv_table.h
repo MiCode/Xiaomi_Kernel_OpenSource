@@ -234,7 +234,6 @@ static unsigned char enratio_FYTbl[(NR_FREQ + 1) * IMAX_EN_RATIO_TBL_NUM] = {
 unsigned char *xrecord_IMAX_Tbl[NUM_CPU_LEVEL] = {
 	[CPU_LEVEL_0] = enratio_FYTbl,
 	[CPU_LEVEL_1] = enratio_FYTbl,
-	[CPU_LEVEL_2] = enratio_FYTbl,
 };
 unsigned char *xrecord_CCI_Tbl[NUM_CPU_LEVEL] = {
 	[CPU_LEVEL_0] = &CCI_6885Tbl[0][0],
