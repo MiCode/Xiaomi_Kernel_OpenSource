@@ -535,18 +535,17 @@ int apusys_mdla_handler(int type,
 		mdla_start_power_off(mdla_info->mdlaid);
 		break;
 	case APUSYS_CMD_RESUME:
-		mutex_unlock(&mdla_info->cmd_lock);
+		//mutex_unlock(&mdla_info->cmd_lock);
 		break;
 	case APUSYS_CMD_SUSPEND:
-		mutex_lock(&mdla_info->cmd_lock);
-		mdla_pwr_off(mdla_info->mdlaid);
+		//mutex_lock(&mdla_info->cmd_lock);
+		//mdla_pwr_off(mdla_info->mdlaid);
 		break;
 	case APUSYS_CMD_EXECUTE:
 	{
 		struct mdla_run_cmd_sync *cmd_data =
 			(struct mdla_run_cmd_sync *)cmd_hnd->kva;
-		//struct mdla_pmu_hnd *pmu_hnd =
-		//	(struct mdla_pmu_hnd *)cmd_hnd->pmu_kva;
+
 		retval = mdla_run_command_sync(
 			&cmd_data->req,
 			mdla_info,

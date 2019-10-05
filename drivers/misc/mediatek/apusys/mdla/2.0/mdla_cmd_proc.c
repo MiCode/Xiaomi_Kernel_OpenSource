@@ -292,8 +292,10 @@ process_command:
 	mdla_cmd_debug("%s: core: %d max_cmd_id: %d id: %d\n",
 			__func__, core_id, mdla_info->max_cmd_id, id);
 
-	//TODO:FIXME for power on MDLA
 	mdla_pwr_on(core_id);
+
+	if (apusys_hd != NULL)
+		mdla_set_opp(core_id, apusys_hd->boost_val);
 
 	/* Trace start */
 	mdla_trace_begin(core_id, &ce);

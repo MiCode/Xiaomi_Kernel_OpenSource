@@ -18,6 +18,7 @@
 
 int get_power_on_status(int core_id);
 int mdla_pwr_on(int core_id);
+void mdla_set_opp(int core_id, int bootst_val);
 void mdla_setup_power_down(int core_id);
 int mdla_register_power(struct platform_device *pdev);
 int mdla_unregister_power(struct platform_device *pdev);

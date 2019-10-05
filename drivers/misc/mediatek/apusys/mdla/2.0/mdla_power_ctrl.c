@@ -146,6 +146,17 @@ power_off_done:
 	return ret;
 }
 
+void mdla_set_opp(int core_id, int bootst_val)
+{
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
+	uint8_t mdla_opp = 0;
+	enum DVFS_USER register_user = MDLA0+core_id;
+
+	mdla_opp = apusys_boost_value_to_opp(register_user, bootst_val);
+	apu_device_set_opp(register_user, mdla_opp);
+#endif
+}
+
 void mdla0_start_power_off(struct work_struct *work)
 {
 	mdla_start_power_off(0);
