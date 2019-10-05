@@ -3019,9 +3019,9 @@ void mtk_drm_fake_vsync_init(struct drm_crtc *crtc)
 					crtc, name);
 	init_waitqueue_head(&fake_vsync->fvsync_wq);
 	atomic_set(&fake_vsync->fvsync_active, 1);
-	wake_up_process(fake_vsync->fvsync_task);
-
 	mtk_crtc->fake_vsync = fake_vsync;
+
+	wake_up_process(fake_vsync->fvsync_task);
 }
 
 static int dc_main_path_commit_thread(void *data)
