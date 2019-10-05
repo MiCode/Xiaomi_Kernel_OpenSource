@@ -60,7 +60,7 @@ extern "C" {
 /* but compiler will align to 40 bytes for computing more faster */
 /* if a table has 16 opps --> 40*16= 640 bytes*/
 struct upower_tbl_row {
-	unsigned long long cap;
+	unsigned long cap;
 	unsigned int volt; /* 10uv */
 	unsigned int dyn_pwr; /* uw */
 	unsigned int lkg_pwr[NR_UPOWER_DEGREE]; /* uw */
