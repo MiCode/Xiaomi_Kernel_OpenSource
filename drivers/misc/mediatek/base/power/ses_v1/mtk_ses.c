@@ -295,12 +295,15 @@ int mtk_ses_volt_ratio_eb(unsigned int HiRatio,
 	cdvfs_d.u.set_fv.arg[1] = HiRatio;
 	cdvfs_d.u.set_fv.arg[2] = LoRatio;
 
+#ifdef MTK_TINYSYS_MCUPM_SUPPORT
 	ret = mtk_ipi_send_compl(&mcupm_ipidev,
 		CH_S_CPU_DVFS,
 		IPI_SEND_POLLING,
 		&cdvfs_d,
 		sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE,
 		10);
+#endif
+
 	return ret;
 }
 
