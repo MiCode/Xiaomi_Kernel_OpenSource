@@ -1419,7 +1419,7 @@ static int vb2ops_venc_buf_prepare(struct vb2_buffer *vb)
 		// Check if need to proceed cache operations
 		vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
 		mtkbuf = container_of(vb2_v4l2, struct mtk_video_enc_buf, vb);
-
+#if 0
 		if (!(mtkbuf->flags & NO_CAHCE_CLEAN)) {
 			struct mtk_vcodec_mem src_mem;
 			struct dma_buf_attachment *buf_att;
@@ -1445,6 +1445,7 @@ static int vb2ops_venc_buf_prepare(struct vb2_buffer *vb)
 				(unsigned int)src_mem.size,
 				&ctx->dev->plat_dev->dev);
 		}
+#endif
 	}
 
 	return 0;
@@ -1463,7 +1464,7 @@ static void vb2ops_venc_buf_finish(struct vb2_buffer *vb)
 	if (!(mtkbuf->flags & NO_CAHCE_INVALIDATE)) {
 		if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 			struct mtk_vcodec_mem dst_mem;
-
+#if 0
 			struct dma_buf_attachment *buf_att;
 			struct sg_table *sgt;
 
@@ -1477,7 +1478,7 @@ static void vb2ops_venc_buf_finish(struct vb2_buffer *vb)
 			dst_mem.dma_addr = vb2_dma_contig_plane_dma_addr(vb, 0);
 			dst_mem.size = (size_t)vb->planes[0].bytesused;
 			dma_buf_detach(vb->planes[0].dbuf, buf_att);
-
+#endif
 			mtk_v4l2_debug(4,
 				"[%d] Cache sync FD for %p sz=%d dev %p",
 				ctx->id,
