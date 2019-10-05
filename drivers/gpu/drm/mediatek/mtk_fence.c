@@ -381,16 +381,6 @@ static struct mtk_fence_buf_info *mtk_get_buf_info(void)
 	return info;
 }
 
-#if defined(CONFIG_MTK_IOMMU_V2)
-void mtk_update_ion_info(struct ion_client *client, struct ion_handle *hnd)
-{
-	struct mtk_fence_buf_info *buf_info = mtk_get_buf_info();
-
-	buf_info->client = client;
-	buf_info->hnd = hnd;
-}
-#endif
-
 /**
  * signal fence and release buffer
  * layer: set layer
@@ -679,6 +669,9 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	struct fence_data data;
 	struct mtk_fence_info *layer_info = NULL;
 	struct mtk_fence_session_sync_info *session_info = NULL;
+#if defined(CONFIG_MTK_IOMMU_V2)
+	struct mtk_drm_private *priv = dev->dev_private;
+#endif
 
 	if (buf == NULL) {
 		DDPPR_ERR("Prepare Buffer, buf is NULL!!\n");
@@ -719,6 +712,15 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	}
 	buf_info->fence = data.fence;
 	buf_info->idx = data.value;
+
+#if defined(CONFIG_MTK_IOMMU_V2)
+	buf_info->client = priv->client;
+	if (buf->fence_fd >= 0)
+		buf_info->hnd = mtk_drm_gem_ion_import_handle(buf_info->client,
+				buf->fence_fd);
+	else
+		DDPPR_ERR("invalid fence fd:%d\n", buf->fence_fd);
+#endif
 
 	buf_info->mva_offset = 0;
 	buf_info->trigger_ticket = 0;

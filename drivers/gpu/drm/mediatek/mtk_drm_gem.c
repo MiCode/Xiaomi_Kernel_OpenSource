@@ -410,41 +410,6 @@ struct ion_handle *mtk_drm_gem_ion_import_handle(struct ion_client *client,
 }
 #endif
 
-struct drm_gem_object *
-mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
-{
-	struct drm_gem_object *obj;
-#if defined(CONFIG_MTK_IOMMU_V2)
-	struct mtk_drm_private *priv = dev->dev_private;
-	struct ion_client *client;
-	struct ion_handle *handle;
-	struct ion_mm_data mm_data;
-
-	client = priv->client;
-	handle = ion_import_dma_buf(client, dma_buf);
-	if (IS_ERR(handle)) {
-		DDPPR_ERR("ion import failed, client:0x%p, dmabuf:0x%p\n",
-				client, dma_buf);
-		return NULL;
-	}
-
-	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
-	mm_data.config_buffer_param.module_id = 0;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
-				 (unsigned long)&mm_data) < 0) {
-		DDPPR_ERR("ion config failed, handle:0x%p\n", handle);
-		ion_free(client, handle);
-		return NULL;
-	}
-	mtk_update_ion_info(client, handle);
-#endif
-
-	obj = drm_gem_prime_import(dev, dma_buf);
-
-	return obj;
-}
 
 /*
  * Allocate a sg_table for this GEM object.
