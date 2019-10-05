@@ -27,10 +27,17 @@
 #include "mtk/ion_drv.h"
 #include "mtk/mtk_ion.h"
 
-#ifdef CONFIG_MTK_PSEUDO_M4U
-#include <mach/pseudo_m4u.h>
-#elif defined(CONFIG_MTK_M4U)
+//tablet
+#ifdef CONFIG_MTK_IOMMU
+#include "pseudo_m4u.h"
+#endif
+//smart phone m4u
+#ifdef CONFIG_MTK_M4U
 #include <m4u.h>
+#endif
+//smart phone iommu
+#ifdef CONFIG_MTK_IOMMU_V2
+#include <mach/pseudo_m4u.h>
 #endif
 
 #define ION_FB_ALLOCATE_FAIL	-1

@@ -290,7 +290,7 @@ void ion_sec_heap_free(struct ion_buffer *buffer)
 	trusted_mem_api_unref(tmem_type, sec_handle,
 			      (uint8_t *)buffer->heap->name,
 			      buffer->heap->id);
-#elif defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)
+#elif defined(MTK_IN_HOUSE_SEC_ION_SUPPORT)
 	{
 		int ret = 0;
 
@@ -737,8 +737,9 @@ static int ion_sec_heap_debug_show(
 
 struct ion_heap *ion_sec_heap_create(struct ion_platform_heap *heap_data)
 {
-#if (defined(SECMEM_KERNEL_API) || defined(CONFIG_MTK_SECURE_MEM_SUPPORT)) || \
-	(defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT))
+#if (defined(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) || \
+	defined(CONFIG_MTK_SECURE_MEM_SUPPORT) || \
+	defined(MTK_IN_HOUSE_SEC_ION_SUPPORT))
 
 	struct ion_sec_heap *heap;
 
@@ -769,8 +770,8 @@ struct ion_heap *ion_sec_heap_create(struct ion_platform_heap *heap_data)
 void ion_sec_heap_destroy(struct ion_heap *heap)
 {
 #if (defined(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) || \
-	defined(CONFIG_MTK_SECURE_MEM_SUPPORT)) || \
-		(defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT))
+	defined(CONFIG_MTK_SECURE_MEM_SUPPORT) || \
+	defined(MTK_IN_HOUSE_SEC_ION_SUPPORT))
 
 		struct ion_sec_heap *sec_heap;
 

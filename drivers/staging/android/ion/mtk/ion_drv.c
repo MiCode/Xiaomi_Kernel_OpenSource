@@ -31,12 +31,20 @@
 #include "ion_drv_priv.h"
 #include "mtk/mtk_ion.h"
 #include "mtk/ion_drv.h"
+
+//tablet
+#ifdef CONFIG_MTK_IOMMU
+#include "pseudo_m4u.h"
+#endif
+//smart phone m4u
 #ifdef CONFIG_MTK_M4U
 #include "m4u_v2_ext.h"
 #endif
-#ifdef CONFIG_MTK_PSEUDO_M4U
+//smart phone iommu
+#ifdef CONFIG_MTK_IOMMU_V2
 #include <mach/pseudo_m4u.h>
 #endif
+
 #ifdef CONFIG_PM
 #include <linux/fb.h>
 #endif
