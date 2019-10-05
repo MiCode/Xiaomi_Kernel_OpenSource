@@ -41,6 +41,9 @@ enum m4u_callback_ret_t DIP_M4U_TranslationFault_callback
 /*Chip Dependent Constanct*/
 #define DIP_IMGSYS_BASE_HW   0x15020000
 #define DIP_A_BASE_HW   0x15021000
+#define MFB_BASE_HW   0x15010000
+#define MSS_BASE_HW   0x15012000
+
 #if (MTK_DIP_COUNT == 2)
 #define DIP_IMGSYS2_BASE_HW   0x15080000
 #define DIP_B_BASE_HW   0x15081000
@@ -50,6 +53,8 @@ enum m4u_callback_ret_t DIP_M4U_TranslationFault_callback
 #define MSF_BASE_HW   0x15010000
 /*PAGE_SIZE*6 = 4096*6 <=dependent on device tree setting */
 #define DIP_REG_RANGE           (0xC000)
+#define MFB_REG_RANGE           (0x1000)
+#define MSS_REG_RANGE           (0x1000)
 
 #define MAX_TILE_TOT_NO (256)
 #define MAX_ISP_DUMP_HEX_PER_TILE (256)

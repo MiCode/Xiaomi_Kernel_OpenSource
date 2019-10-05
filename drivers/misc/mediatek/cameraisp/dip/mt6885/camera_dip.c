@@ -327,6 +327,8 @@ static struct dip_imem_memory g_dip_p2_imem_buf;
 #endif
 static bool g_bIonBufferAllocated;
 static unsigned int *g_pPhyDIPBuffer;
+static unsigned int *g_pPhyMFBBuffer;
+static unsigned int *g_pPhyMSSBuffer;
 /* Kernel Warning */
 static unsigned int *g_pKWTpipeBuffer;
 static unsigned int *g_pKWCmdqBuffer;
@@ -840,6 +842,8 @@ static signed int DIP_DumpDIPReg(void)
 	CMDQ_ERR("- E.");
 	CMDQ_ERR("g_bDumpPhyDIPBuf:(0x%x), g_pPhyDIPBuffer:(0x%p)\n",
 		g_bDumpPhyDIPBuf, g_pPhyDIPBuffer);
+	CMDQ_ERR("g_pPhyMFBBuffer:(0x%x), g_pPhyMSSBuffer:(0x%p)\n",
+		g_pPhyMFBBuffer, g_pPhyMSSBuffer);
 	CMDQ_ERR("g_bIonBuf:(0x%x)\n", g_bIonBufferAllocated);
 
 	CMDQ_ERR("imgsys: 0x1502004C(0x%x)\n",
@@ -1813,6 +1817,26 @@ static signed int DIP_DumpDIPReg(void)
 			if (g_pPhyDIPBuffer == NULL)
 				CMDQ_ERR("g_pPhyDIPBuffer kmalloc failed\n");
 
+			if (g_pPhyMFBBuffer != NULL) {
+				CMDQ_ERR("g_pPhyMFBBuffer isn't NULL(0x%pK)\n",
+					g_pPhyMFBBuffer);
+				vfree(g_pPhyMFBBuffer);
+				g_pPhyMFBBuffer = NULL;
+			}
+			g_pPhyMFBBuffer = vmalloc(MFB_REG_RANGE);
+			if (g_pPhyMFBBuffer == NULL)
+				CMDQ_ERR("g_pPhyMFBBuffer kmalloc failed\n");
+
+			if (g_pPhyMSSBuffer != NULL) {
+				CMDQ_ERR("g_pPhyMFBBuffer isn't NULL(0x%pK)\n",
+					g_pPhyMSSBuffer);
+				vfree(g_pPhyMSSBuffer);
+				g_pPhyMSSBuffer = NULL;
+			}
+			g_pPhyMSSBuffer = vmalloc(MFB_REG_RANGE);
+			if (g_pPhyMSSBuffer == NULL)
+				CMDQ_ERR("g_pPhyMSSBuffer kmalloc failed\n");
+
 			if (g_pKWTpipeBuffer != NULL) {
 				CMDQ_ERR("g_pKWTpipeBuffer isn't NULL(0x%pK)\n",
 					g_pKWTpipeBuffer);
@@ -1857,6 +1881,34 @@ static signed int DIP_DumpDIPReg(void)
 			}
 		} else {
 			CMDQ_ERR("g_pPhyDIPBuffer:(0x%pK)\n", g_pPhyDIPBuffer);
+		}
+		if (g_pPhyMFBBuffer != NULL) {
+			for (i = 0; i < (MFB_REG_RANGE >> 2); i = i + 4) {
+				g_pPhyMFBBuffer[i] =
+					DIP_RD32(MSF_BASE + (i*4));
+				g_pPhyMFBBuffer[i+1] =
+					DIP_RD32(MSF_BASE + ((i+1)*4));
+				g_pPhyMFBBuffer[i+2] =
+					DIP_RD32(MSF_BASE + ((i+2)*4));
+				g_pPhyMFBBuffer[i+3] =
+					DIP_RD32(MSF_BASE + ((i+3)*4));
+			}
+		} else {
+			CMDQ_ERR("g_pPhyMFBBuffer:(0x%pK)\n", g_pPhyMFBBuffer);
+		}
+		if (g_pPhyMSSBuffer != NULL) {
+			for (i = 0; i < (MSS_REG_RANGE >> 2); i = i + 4) {
+				g_pPhyMSSBuffer[i] =
+					DIP_RD32(MSS_BASE + (i*4));
+				g_pPhyMSSBuffer[i+1] =
+					DIP_RD32(MSS_BASE + ((i+1)*4));
+				g_pPhyMSSBuffer[i+2] =
+					DIP_RD32(MSS_BASE + ((i+2)*4));
+				g_pPhyMSSBuffer[i+3] =
+					DIP_RD32(MSS_BASE + ((i+3)*4));
+			}
+		} else {
+			CMDQ_ERR("g_pPhyMSSBuffer:(0x%pK)\n", g_pPhyMSSBuffer);
 		}
 		g_dumpInfo.tdri_baseaddr = DIP_RD32(DIP_A_BASE + 0x4);
 		g_dumpInfo.imgi_baseaddr = DIP_RD32(DIP_A_BASE + 0x100);
@@ -4333,6 +4385,7 @@ static signed int DIP_open(
 	g_dip_p2_imem_buf.length = ((4*DIP_REG_RANGE) +
 		(2*MAX_ISP_TILE_TDR_HEX_NO) +
 		(2*MAX_DIP_CMDQ_BUFFER_SIZE) +
+		(MFB_REG_RANGE + MSS_REG_RANGE)
 		(8*0x400));
 	dip_p2_ion_client = NULL;
 	if ((dip_p2_ion_client == NULL) && (g_ion_device))
@@ -4373,6 +4426,13 @@ static signed int DIP_open(
 		g_pKWVirDIPBuffer =
 			(unsigned int *)(((uintptr_t)g_pKWCmdqBuffer) +
 			MAX_DIP_CMDQ_BUFFER_SIZE);
+		g_pPhyMFBBuffer =
+			(unsigned int *)(((uintptr_t)g_pKWVirDIPBuffer) +
+			DIP_REG_RANGE);
+		g_pPhyMSSBuffer =
+			(unsigned int *)(((uintptr_t)g_pPhyMFBBuffer) +
+			MFB_REG_RANGE);
+
 #endif
 	} else {
 
@@ -4386,6 +4446,8 @@ static signed int DIP_open(
 		g_pKWTpipeBuffer = NULL;
 		g_pKWCmdqBuffer = NULL;
 		g_pKWVirDIPBuffer = NULL;
+		g_pPhyMFBBuffer = NULL;
+		g_pPhyMSSBuffer = NULL;
 	}
 	g_bUserBufIsReady = MFALSE;
 	g_bDumpPhyDIPBuf = MFALSE;
@@ -4514,6 +4576,14 @@ static signed int DIP_release(
 			vfree(g_pPhyDIPBuffer);
 			g_pPhyDIPBuffer = NULL;
 		}
+		if (g_pPhyMFBBuffer != NULL) {
+			vfree(g_pPhyMFBBuffer);
+			g_pPhyMFBBuffer = NULL;
+		}
+		if (g_pPhyMSSBuffer != NULL) {
+			vfree(g_pPhyMSSBuffer);
+			g_pPhyMSSBuffer = NULL;
+		}
 		if (g_pTuningBuffer != NULL) {
 			vfree(g_pTuningBuffer);
 			g_pTuningBuffer = NULL;
@@ -4561,6 +4631,8 @@ static signed int DIP_release(
 		g_pKWTpipeBuffer = NULL;
 		g_pKWCmdqBuffer = NULL;
 		g_pKWVirDIPBuffer = NULL;
+		g_pPhyMFBBuffer = NULL;
+		g_pPhyMSSBuffer = NULL;
 #endif
 	}
 	/* mutex_unlock(&gDipMutex); */
@@ -5225,6 +5297,42 @@ static int dip_p2_ke_dump_read(struct seq_file *m, void *v)
 	} else {
 		LOG_INF("g_pPhyDIPBuffer:(0x%pK)\n", g_pPhyDIPBuffer);
 	}
+	seq_puts(m, "===msf hw physical register===\n");
+	if (g_pPhyMFBBuffer != NULL) {
+		for (i = 0; i < (MFB_REG_RANGE >> 2); i = i + 4) {
+			seq_printf(m, "(0x%08X,0x%08X)(0x%08X,0x%08X)",
+				MFB_BASE_HW+4*i,
+				(unsigned int)g_pPhyMFBBuffer[i],
+				MFB_BASE_HW+4*(i+1),
+				(unsigned int)g_pPhyMFBBuffer[i+1]);
+			seq_printf(m, "(0x%08X,0x%08X)(0x%08X,0x%08X)",
+				MFB_BASE_HW+4*(i+2),
+				(unsigned int)g_pPhyMFBBuffer[i+2],
+				MFB_BASE_HW+4*(i+3),
+				(unsigned int)g_pPhyMFBBuffer[i+3]);
+			seq_puts(m, "\n");
+		}
+	} else {
+		LOG_INF("g_pPhyMFBBuffer:(0x%pK)\n", g_pPhyMFBBuffer);
+	}
+	seq_puts(m, "===mss hw physical register===\n");
+	if (g_pPhyMSSBuffer != NULL) {
+		for (i = 0; i < (MSS_REG_RANGE >> 2); i = i + 4) {
+			seq_printf(m, "(0x%08X,0x%08X)(0x%08X,0x%08X)",
+				MSS_BASE_HW+4*i,
+				(unsigned int)g_pPhyMSSBuffer[i],
+				MSS_BASE_HW+4*(i+1),
+				(unsigned int)g_pPhyMSSBuffer[i+1]);
+			seq_printf(m, "(0x%08X,0x%08X)(0x%08X,0x%08X)",
+				MSS_BASE_HW+4*(i+2),
+				(unsigned int)g_pPhyMSSBuffer[i+2],
+				MSS_BASE_HW+4*(i+3),
+				(unsigned int)g_pPhyMSSBuffer[i+3]);
+			seq_puts(m, "\n");
+		}
+	} else {
+		LOG_INF("g_pPhyMSSBuffer:(0x%pK)\n", g_pPhyMSSBuffer);
+	}
 	seq_puts(m, "===dip p2 tpipe buffer Info===\n");
 	if (g_pKWTpipeBuffer != NULL) {
 		for (i = 0; i < (MAX_ISP_TILE_TDR_HEX_NO >> 2); i = i + 4) {
@@ -5325,6 +5433,42 @@ LOG_INF("dip p2 g_bDumpPhyB:%d, tdriadd:0x%x, imgiadd:0x%x,dmgiadd:0x%x\n",
 		}
 	} else {
 		LOG_INF("g_pPhyDIPBuffer:(0x%pK)\n", g_pPhyDIPBuffer);
+	}
+	seq_puts(m, "===mfb hw physical register===\n");
+	if (g_pPhyMFBBuffer != NULL) {
+		for (i = 0; i < (MFB_REG_RANGE >> 2); i = i + 4) {
+			seq_printf(m, "(0x%08X,0x%08X)(0x%08X,0x%08X)",
+				MFB_BASE_HW+4*i,
+				(unsigned int)g_pPhyMFBBuffer[i],
+				MFB_BASE_HW+4*(i+1),
+				(unsigned int)g_pPhyMFBBuffer[i+1]);
+			seq_printf(m, "(0x%08X,0x%08X)(0x%08X,0x%08X)",
+				MFB_BASE_HW+4*(i+2),
+				(unsigned int)g_pPhyMFBBuffer[i+2],
+				MFB_BASE_HW+4*(i+3),
+				(unsigned int)g_pPhyMFBBuffer[i+3]);
+			seq_puts(m, "\n");
+		}
+	} else {
+		LOG_INF("g_pPhyMFBBuffer:(0x%pK)\n", g_pPhyMFBBuffer);
+	}
+	seq_puts(m, "===mss hw physical register===\n");
+	if (g_pPhyMSSBuffer != NULL) {
+		for (i = 0; i < (MSS_REG_RANGE >> 2); i = i + 4) {
+			seq_printf(m, "(0x%08X,0x%08X)(0x%08X,0x%08X)",
+				MSS_BASE_HW+4*i,
+				(unsigned int)g_pPhyMSSBuffer[i],
+				MSS_BASE_HW+4*(i+1),
+				(unsigned int)g_pPhyMSSBuffer[i+1]);
+			seq_printf(m, "(0x%08X,0x%08X)(0x%08X,0x%08X)",
+				MSS_BASE_HW+4*(i+2),
+				(unsigned int)g_pPhyMSSBuffer[i+2],
+				MSS_BASE_HW+4*(i+3),
+				(unsigned int)g_pPhyMSSBuffer[i+3]);
+			seq_puts(m, "\n");
+		}
+	} else {
+		LOG_INF("g_pPhyMSSBuffer:(0x%pK)\n", g_pPhyMSSBuffer);
 	}
 	seq_puts(m, "===dip p2 tpipe buffer Info===\n");
 	if (g_pTpipeBuffer != NULL) {
