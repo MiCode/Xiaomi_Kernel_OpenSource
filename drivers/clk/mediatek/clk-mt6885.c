@@ -2400,9 +2400,9 @@ static void mtk_audio_init(struct device_node *node)
 	if (!audio_base)
 		return;
 #if MT_CCF_BRINGUP
-	clk_writel(AUDIO_TOP_CON0, AUDIO_CG0);
-	clk_writel(AUDIO_TOP_CON1, AUDIO_CG1);
-	clk_writel(AUDIO_TOP_CON2, AUDIO_CG2);
+	clk_writel(AUDIO_TOP_CON0, clk_readl(AUDIO_TOP_CON0) & ~AUDIO_CG0);
+	clk_writel(AUDIO_TOP_CON1, clk_readl(AUDIO_TOP_CON1) & ~AUDIO_CG1);
+	clk_writel(AUDIO_TOP_CON2, clk_readl(AUDIO_TOP_CON2) & ~AUDIO_CG2);
 	pr_notice("%s(): init done\n", __func__);
 #endif
 }
