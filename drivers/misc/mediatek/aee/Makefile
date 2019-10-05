@@ -13,8 +13,14 @@
 
 MTK_PLATFORM:= $(subst ",,$(CONFIG_MTK_PLATFORM))
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
+ifdef CONFIG_MTK_LCM
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox/
+endif
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mrdump
+
+ifdef CONFIG_DRM_MEDIATEK
+subdir-ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek/
+endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/watchdog/mediatek/include/
 
