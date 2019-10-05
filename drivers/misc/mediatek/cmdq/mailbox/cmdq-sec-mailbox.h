@@ -62,7 +62,7 @@ struct cmdqSecContextStruct {
 	void *iwcMessage;	/* message buffer */
 	void *iwcMessageEx;	/* message buffer extra */
 
-#if IS_ENABLED(CONFIG_MTK_TEE_GP_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 	struct cmdq_sec_tee_context tee;	/* trustzone parameters */
 #endif
 };
