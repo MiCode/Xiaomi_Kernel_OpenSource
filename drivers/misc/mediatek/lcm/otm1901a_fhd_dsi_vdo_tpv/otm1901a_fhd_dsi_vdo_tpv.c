@@ -406,7 +406,7 @@ static void push_table(struct LCM_setting_table *table, unsigned int count,
 		       unsigned char force_update)
 {
 	unsigned int i;
-	unsigned char cmd;
+	unsigned int cmd;
 
 	for (i = 0; i < count; i++) {
 		cmd = table[i].cmd;
