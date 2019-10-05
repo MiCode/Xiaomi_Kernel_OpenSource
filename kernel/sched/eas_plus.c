@@ -14,7 +14,7 @@
 static inline unsigned long task_util(struct task_struct *p);
 static int select_max_spare_capacity(struct task_struct *p, int target);
 int cpu_eff_tp = 1024;
-int tiny_thresh;
+unsigned long long big_cpu_eff_tp;
 
 #ifndef cpu_isolated
 #define cpu_isolated(cpu) 0
@@ -125,14 +125,6 @@ bool is_intra_domain(int prev, int target)
 	return (cpu_topology[prev].socket_id ==
 			cpu_topology[target].socket_id);
 #endif
-}
-
-static int is_tiny_task(struct task_struct *p)
-{
-	if (task_util(p) < tiny_thresh)
-		return 1;
-
-	return 0;
 }
 
 static int
@@ -288,40 +280,20 @@ static int init_cpu_info(void)
 }
 late_initcall_sync(init_cpu_info)
 
-static int __init parse_dt_eas(void)
+void set_sched_turn_point_cap(void)
 {
-	struct device_node *cn;
-	int ret = 0;
-	const u32 *tp;
+	//int turn_point_idx;
+	struct hmp_domain *domain;
+	int cpu;
+	const struct sched_group_energy *sge_core;
 
-	cn = of_find_node_by_path("/eas");
-	if (!cn) {
-		pr_info("No eas information found in DT\n");
-		return 0;
-	}
+	domain = list_entry(hmp_domains.prev, struct hmp_domain, hmp_domains);
+	cpu = cpumask_first(&domain->possible_cpus);
+	sge_core = cpu_core_energy(cpu);
 
-	/* turning point */
-	tp = of_get_property(cn, "eff_turn_point", &ret);
-	if (!tp)
-		pr_info("%s missing turning point property\n",
-			cn->full_name);
-	else
-		cpu_eff_tp = be32_to_cpup(tp);
-
-	/* tiny task */
-	tp = of_get_property(cn, "tiny", &ret);
-	if (!tp)
-		pr_info("%s missing turning point property\n",
-			cn->full_name);
-	else
-		tiny_thresh = be32_to_cpup(tp);
-
-	pr_info("eas: turning point=<%d> tiny=<%d>\n", cpu_eff_tp, tiny_thresh);
-
-	of_node_put(cn);
-	return ret;
+	// turn_point_idx = max(upower_get_turn_point() - 1, 0);
+	// cpu_eff_tp = sge_core->cap_states[turn_point_idx].cap;
 }
-core_initcall(parse_dt_eas)
 
 #if defined(CONFIG_SCHED_HMP) || defined(CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT)
 
@@ -555,6 +527,7 @@ hmp_fastest_idle_prefer_pull(int this_cpu, struct task_struct **p,
 	unsigned long flags;
 	int target_capacity;
 	int check_min_cap;
+	int turning;
 
 	hmp_domain = per_cpu(hmp_cpu_domain, this_cpu);
 
@@ -655,7 +628,9 @@ hmp_fastest_idle_prefer_pull(int this_cpu, struct task_struct **p,
 
 	/* 2. select a running task
 	 *     order: target->next to slow hmp domain
+	 * 3. turning = true, pick a runnable task from slower domain
 	 */
+	turning = check_freq_turning();
 	list_for_each(pos, &hmp_domain->hmp_domains) {
 		domain = list_entry(pos, struct hmp_domain, hmp_domains);
 
@@ -686,6 +661,8 @@ hmp_fastest_idle_prefer_pull(int this_cpu, struct task_struct **p,
 
 			target_capacity = capacity_orig_of(cpu);
 			if (se && entity_is_task(se) &&
+			     (task_uclamped_min(task_of(se)) >=
+				target_capacity) &&
 			     cpumask_test_cpu(this_cpu,
 					      &((task_of(se))->cpus_allowed))) {
 				selected = 1;
@@ -698,12 +675,45 @@ hmp_fastest_idle_prefer_pull(int this_cpu, struct task_struct **p,
 
 			raw_spin_unlock_irqrestore(&rq->lock, flags);
 
-			if (selected)
+			if (selected) {
+				/* To put task out of rq lock */
+				if (backup_task)
+					put_task_struct(backup_task);
 				return;
+			}
+
+			if (turning && !backup_task) {
+				const struct cpumask *hmp_target_mask = NULL;
+				struct cfs_rq *cfs_rq;
+				struct sched_entity *se;
+
+				raw_spin_lock_irqsave(&rq->lock, flags);
+
+				hmp_target_mask = cpumask_of(this_cpu);
+				cfs_rq = &rq->cfs;
+				se = __pick_first_entity(cfs_rq);
+				if (se && entity_is_task(se) &&
+					    cpumask_intersects(hmp_target_mask,
+					       tsk_cpus_allowed(task_of(se)))) {
+					backup_cpu = cpu;
+					/* get task and selection inside
+					 * rq lock
+					 */
+					backup_task = task_of(se);
+					get_task_struct(backup_task);
+				}
+				raw_spin_unlock_irqrestore(&rq->lock, flags);
+			}
 		}
 
 		if (list_is_last(pos, &hmp_domains))
 			break;
+	}
+
+	if (backup_task) {
+		*p = backup_task;
+		*target = cpu_rq(backup_cpu);
+		return;
 	}
 }
 
@@ -1348,6 +1358,48 @@ task_match_on_dst_cpu(struct task_struct *p, int src_cpu, int target_cpu)
 	target_tsk = rq->curr;
 	if (task_prefer_fit(target_tsk, target_cpu))
 		return 0;
+
+	return 1;
+}
+
+static int check_freq_turning(void)
+{
+	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
+	unsigned long capacity_curr_little, capacity_curr_big;
+
+	if (rd->min_cap_orig_cpu < 0 || rd->max_cap_orig_cpu < 0)
+		return false;
+
+	capacity_curr_little = capacity_curr_of(rd->min_cap_orig_cpu);
+	capacity_curr_big = capacity_curr_of(rd->max_cap_orig_cpu);
+
+	if ((capacity_curr_little > cpu_eff_tp) &&
+			(capacity_curr_big <=  big_cpu_eff_tp))
+		return true;
+
+	return false;
+}
+
+static int collect_cluster_info(int cpu, int *total_nr_running, int *cpu_count)
+{
+	struct sched_domain *sd;
+	struct sched_group *sg;
+	int i;
+
+	/* Find SD for the start CPU */
+	sd = rcu_dereference(per_cpu(sd_ea, cpu));
+	if (!sd)
+		return 0;
+
+	*total_nr_running = 0;
+	/* Scan CPUs in all SDs */
+	sg = sd->groups;
+
+	*cpu_count = cpumask_weight(sched_group_span(sg));
+	for_each_cpu(i, sched_group_span(sg)) {
+		struct rq *rq = cpu_rq(i);
+		*total_nr_running += rq->nr_running;
+	}
 
 	return 1;
 }
