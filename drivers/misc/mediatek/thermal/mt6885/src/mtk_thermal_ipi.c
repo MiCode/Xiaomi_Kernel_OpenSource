@@ -27,6 +27,24 @@
  * IPI_HW_ERROR -5
  */
 static DEFINE_MUTEX(thermo_sspm_mutex);
+static int is_thermal_ipi_registered;
+static int ack_data;
+
+static int register_thermal_ipi(void)
+{
+	int ret;
+
+	ret = mtk_ipi_register(&sspm_ipi_dev, IPIS_C_THERMAL, NULL, NULL,
+		(void *)&ack_data);
+	if (ret != 0) {
+		tscpu_printk("%s error ret:%d\n", __func__, ret);
+		return -1;
+	}
+
+	is_thermal_ipi_registered = 1;
+
+	return 0;
+}
 
 unsigned int thermal_to_sspm(
 	unsigned int cmd, struct thermal_ipi_data *thermal_data)
@@ -36,6 +54,11 @@ unsigned int thermal_to_sspm(
 
 	mutex_lock(&thermo_sspm_mutex);
 
+	if (!is_thermal_ipi_registered) {
+		if (register_thermal_ipi() != 0)
+			goto end;
+	}
+
 	switch (cmd) {
 	case THERMAL_IPI_INIT_GRP1:
 	case THERMAL_IPI_INIT_GRP2:
@@ -44,28 +67,32 @@ unsigned int thermal_to_sspm(
 	case THERMAL_IPI_INIT_GRP5:
 	case THERMAL_IPI_INIT_GRP6:
 		thermal_data->cmd = cmd;
-		ret = sspm_ipi_send_sync_new(IPI_ID_THERMAL,
-			IPI_OPT_WAIT, thermal_data,
-			THERMAL_SLOT_NUM, &ackData, 1);
+		ret = sspm_ipi_send_compl(&sspm_ipidev, IPIS_C_THERMAL,
+			IPI_SEND_WAIT, thermal_data, THERMAL_SLOT_NUM, 10);
 		if (ret != 0)
-			tscpu_printk("sspm_ipi_send_sync_new error(THERMAL_IPI_INIT) ret:%d - %d\n",
-					ret, ackData);
-		else if (ackData < 0)
+			tscpu_printk("send init cmd(%d) error ret:%d\n",
+				cmd, ret);
+		else if (ack_data < 0)
 			tscpu_printk("cmd(%d) return error(%d)\n",
-				cmd, ackData);
+				cmd, ack_data);
+
+		ackData = ack_data;
+
 		break;
 
 	case THERMAL_IPI_GET_TEMP:
 		thermal_data->cmd = cmd;
-		ret = sspm_ipi_send_sync_new(IPI_ID_THERMAL, IPI_OPT_WAIT,
-			thermal_data,
-			0, &ackData, 1);
+		ret = sspm_ipi_send_compl(&sspm_ipidev, IPIS_C_THERMAL,
+			IPI_SEND_WAIT, thermal_data, THERMAL_SLOT_NUM, 10);
 		if (ret != 0)
-			tscpu_printk("sspm_ipi_send_sync_new error(THERMAL_IPI_GET_TEMP) ret:%d - %d\n",
-					ret, ackData);
-		else if (ackData < 0)
+			tscpu_printk("send get_temp cmd(%d) error ret:%d\n",
+				cmd, ret);
+		else if (ack_data < 0)
 			tscpu_printk("cmd(%d) return error(%d)\n",
-				cmd, ackData);
+				cmd, ack_data);
+
+		ackData = ack_data;
+
 		break;
 
 	default:
@@ -73,6 +100,7 @@ unsigned int thermal_to_sspm(
 		break;
 	}
 
+end:
 	mutex_unlock(&thermo_sspm_mutex);
 
 	return ackData; /** It's weird here. What should be returned? */
@@ -99,6 +127,11 @@ struct thermal_ipi_data *thermal_data, int *ackData)
 
 	mutex_lock(&thermo_sspm_mutex);
 
+	if (!is_thermal_ipi_registered) {
+		if (register_thermal_ipi() != 0)
+			goto end;
+	}
+
 	switch (cmd) {
 	case THERMAL_IPI_SET_ATM_CFG_GRP1:
 	case THERMAL_IPI_SET_ATM_CFG_GRP2:
@@ -113,12 +146,14 @@ struct thermal_ipi_data *thermal_data, int *ackData)
 	case THERMAL_IPI_GET_ATM_CPU_LIMIT:
 	case THERMAL_IPI_GET_ATM_GPU_LIMIT:
 		thermal_data->cmd = cmd;
-		ret = sspm_ipi_send_sync_new(IPI_ID_THERMAL,
-			IPI_OPT_WAIT, thermal_data,
-			(data_len+1), ackData, 1);
-		if ((ret != 0) || (*ackData < 0))
+		ret = sspm_ipi_send_compl(&sspm_ipidev, IPIS_C_THERMAL,
+			IPI_SEND_WAIT, thermal_data, (data_len+1), 10);
+		if ((ret != 0) || (ack_data < 0))
 			tscpu_printk("%s cmd %d ret %d ack %d\n",
-				__func__, cmd, ret, *ackData);
+				__func__, cmd, ret, ack_data);
+
+		*ackData = ack_data;
+
 		break;
 
 	default:
@@ -126,6 +161,7 @@ struct thermal_ipi_data *thermal_data, int *ackData)
 		break;
 	}
 
+end:
 	mutex_unlock(&thermo_sspm_mutex);
 
 	return ret;
