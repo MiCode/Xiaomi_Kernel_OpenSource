@@ -109,7 +109,7 @@ page_owner=on";
 			clock-frequency = <2171000000>;
 		};
 
-		virtual-cpu-map {
+		cpu-map {
 			cluster0 {
 				core0 {
 					cpu = <&cpu0>;
