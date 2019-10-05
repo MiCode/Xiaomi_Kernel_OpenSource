@@ -5722,10 +5722,16 @@ static void ufshcd_err_handler(struct work_struct *work)
 	int err = 0;
 	int tag;
 	bool needs_reset = false;
+	bool rpm_put = false;
 
 	hba = container_of(work, struct ufs_hba, eh_work);
 
-	pm_runtime_get_sync(hba->dev);
+	/* Error is happened in suspend/resume, bypass rpm get else deadlock */
+	if (!hba->pm_op_in_progress) {
+		pm_runtime_get_sync(hba->dev);
+		rpm_put = true;
+	}
+
 	ufshcd_hold(hba, false);
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -5840,7 +5846,9 @@ out:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	ufshcd_scsi_unblock_requests(hba);
 	ufshcd_release(hba);
-	pm_runtime_put_sync(hba->dev);
+
+	if (rpm_put == true)
+		pm_runtime_put_sync(hba->dev);
 }
 
 static void ufshcd_rls_handler(struct work_struct *work)
@@ -8646,7 +8654,7 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	enum ufs_dev_pwr_mode req_dev_pwr_mode;
 	enum uic_link_state req_link_state;
 	u32 reg = 0; /* MTK PATCH */
-	int retry;  /* MTK PATCH */
+	unsigned long timeout; /* MTK PATCH */
 
 	/* MTK PATCH: Lock deepidle/SODI @enter UFS suspend callback */
 	ufshcd_vops_deepidle_lock(hba, true);
@@ -8725,7 +8733,7 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	 * 3. Manually enter h8.
 	 */
 	ufshcd_vops_auto_hibern8(hba, false);
-	retry = 5; /* 100ms wosrt case */
+	timeout = jiffies + msecs_to_jiffies(H8_POLL_TOUT_MS);
 	do {
 		ret = ufshcd_dme_get(hba, UIC_ARG_MIB(VENDOR_POWERSTATE), &reg);
 		if (ret != 0)
@@ -8733,19 +8741,31 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 				"ufshcd_dme_get_ 0x%x fail, ret = %d!\n",
 				VENDOR_POWERSTATE, ret);
 
-		if (reg == VENDOR_POWERSTATE_HIBERNATE) {
-			if (retry) {
-				retry--;
-			} else {
-				dev_err(hba->dev, "exit h8 state fail\n");
-				ufshcd_print_host_regs(hba);
-				ret = -ETIMEDOUT;
-				goto enable_gating;
-			}
-			msleep(20);
-		}
+		if (reg != VENDOR_POWERSTATE_HIBERNATE)
+			break;
 
-	} while (reg == VENDOR_POWERSTATE_HIBERNATE);
+		/* sleep for max. 200us */
+		usleep_range(100, 200);
+	} while (time_before(jiffies, timeout));
+
+	/* Device is stuck in H8 state */
+	if (reg == VENDOR_POWERSTATE_HIBERNATE) {
+		dev_err(hba->dev, "exit h8 state fail\n");
+		ufshcd_print_host_regs(hba);
+
+		/* block commands from scsi mid-layer */
+		ufshcd_scsi_block_requests(hba);
+		hba->ufshcd_state = UFSHCD_STATE_ERROR;
+		hba->force_host_reset = true;
+		schedule_work(&hba->eh_work);
+
+		ufshcd_update_reg_hist(&hba->ufs_stats.auto_hibern8_err,
+		       UIC_CMD_DME_HIBER_EXIT);
+
+		ret = -ETIMEDOUT;
+		goto enable_gating;
+	}
+
 
 	if ((req_dev_pwr_mode != hba->curr_dev_pwr_mode) &&
 	     ((ufshcd_is_runtime_pm(pm_op) && !hba->auto_bkops_enabled) ||

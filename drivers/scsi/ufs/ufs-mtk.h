@@ -88,6 +88,7 @@ enum {
 	UFS_H8                      = 0x0,
 	UFS_H8_SUSPEND              = 0x1,
 };
+#define H8_POLL_TOUT_MS             100
 
 struct ufs_cmd_str_struct {
 	char str[32];
