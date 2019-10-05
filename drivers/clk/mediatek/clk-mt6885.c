@@ -2669,24 +2669,31 @@ static void mtk_imgsys2_init(struct device_node *node)
 CLK_OF_DECLARE_DRIVER(mtk_imgsys2, "mediatek,imgsys2", mtk_imgsys2_init);
 
 /******************* IIC Central Subsys *******************************/
+/*
+ * For MT6885, we use traditional "infra_ao i2c CG" as the parent of "imp_iic"
+ * CGs, instead of the real i2c clkmux.
+ *
+ * So that "infra_ao i2c CG" and "imp_iic" can enable/disable simutanesouly,
+ * which meets the MT6885 idle condition.
+ */
 static struct mtk_gate_regs imp_iic_wrap_c_ap_clock_cg_ro_cen_regs = {
-	.set_ofs = 0xe04,
-	.clr_ofs = 0xe08,
+	.set_ofs = 0xe08,
+	.clr_ofs = 0xe04,
 	.sta_ofs = 0xe00,
 };
 static struct mtk_gate imp_iic_wrap_c_clks[] __initdata = {
 	/* AP_CLOCK_CG_RO_CEN */
 	GATE(IMP_IIC_WRAP_C_AP_I2C0_CG_RO, "imp_iic_wrap_c_ap_i2c0_cg_ro",
-			"i2c_sel",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_c_ap_clock_cg_ro_cen_regs, 0, 0),
 	GATE(IMP_IIC_WRAP_C_AP_I2C10_CG_RO, "imp_iic_wrap_c_ap_i2c10_cg_ro",
-			"i2c_sel",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_c_ap_clock_cg_ro_cen_regs, 1, 0),
 	GATE(IMP_IIC_WRAP_C_AP_I2C11_CG_RO, "imp_iic_wrap_c_ap_i2c11_cg_ro",
-			"i2c_sel",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_c_ap_clock_cg_ro_cen_regs, 2, 0),
 	GATE(IMP_IIC_WRAP_C_AP_I2C12_CG_RO, "imp_iic_wrap_c_ap_i2c12_cg_ro",
-			"i2c_sel",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_c_ap_clock_cg_ro_cen_regs, 3, 0),
 };
 
@@ -2709,17 +2716,17 @@ CLK_OF_DECLARE_DRIVER(mtk_imp_iic_wrap_c, "mediatek,imp_iic_wrap_c",
 
 /******************* IIC East Subsys *******************************/
 static struct mtk_gate_regs imp_iic_wrap_e_ap_clock_cg_ro_est_regs = {
-	.set_ofs = 0xe04,
-	.clr_ofs = 0xe08,
+	.set_ofs = 0xe08,
+	.clr_ofs = 0xe04,
 	.sta_ofs = 0xe00,
 };
 static struct mtk_gate imp_iic_wrap_e_clks[] __initdata = {
 	/* AP_CLOCK_CG_RO_EST */
 	GATE(IMP_IIC_WRAP_E_AP_I2C3_CG_RO, "imp_iic_wrap_e_ap_i2c3_cg_ro",
-			"i2c_sel",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_e_ap_clock_cg_ro_est_regs, 0, 0),
 	GATE(IMP_IIC_WRAP_E_AP_I2C9_CG_RO, "imp_iic_wrap_e_ap_i2c9_cg_ro",
-			"i2c_sel",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_e_ap_clock_cg_ro_est_regs, 1, 0),
 };
 
@@ -2743,17 +2750,17 @@ CLK_OF_DECLARE_DRIVER(mtk_imp_iic_wrap_e, "mediatek,imp_iic_wrap_e",
 
 /******************* IIC North Subsys *******************************/
 static struct mtk_gate_regs imp_iic_wrap_n_ap_clock_cg_ro_nor_regs = {
-	.set_ofs = 0xe04,
-	.clr_ofs = 0xe08,
+	.set_ofs = 0xe08,
+	.clr_ofs = 0xe04,
 	.sta_ofs = 0xe00,
 };
 static struct mtk_gate imp_iic_wrap_n_clks[] __initdata = {
 	/* AP_CLOCK_CG_RO_NOR */
 	GATE(IMP_IIC_WRAP_N_AP_I2C5_CG_RO, "imp_iic_wrap_n_ap_i2c5_cg_ro",
-			"i2c_sel",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_n_ap_clock_cg_ro_nor_regs, 0, 0),
 	GATE(IMP_IIC_WRAP_N_AP_I2C6_CG_RO, "imp_iic_wrap_n_ap_i2c6_cg_ro",
-			"i2c_sel",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_n_ap_clock_cg_ro_nor_regs, 1, 0),
 };
 
@@ -2776,26 +2783,26 @@ CLK_OF_DECLARE_DRIVER(mtk_imp_iic_wrap_n, "mediatek,imp_iic_wrap_n",
 						mtk_imp_iic_wrap_n_init);
 /******************* IIC South Subsys *******************************/
 static struct mtk_gate_regs imp_iic_wrap_s_ap_clock_cg_ro_sou_regs = {
-	.set_ofs = 0xe04,
-	.clr_ofs = 0xe08,
+	.set_ofs = 0xe08,
+	.clr_ofs = 0xe04,
 	.sta_ofs = 0xe00,
 };
 static struct mtk_gate imp_iic_wrap_s_clks[] __initdata = {
 	/* AP_CLOCK_CG_RO_SOU */
 	GATE(IMP_IIC_WRAP_S_AP_I2C1_CG_RO, "imp_iic_wrap_s_ap_i2c1_cg_ro",
-			"i2c_sel",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_s_ap_clock_cg_ro_sou_regs, 0, 0),
 	GATE(IMP_IIC_WRAP_S_AP_I2C2_CG_RO, "imp_iic_wrap_s_ap_i2c2_cg_ro",
-			"i2c_sel",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_s_ap_clock_cg_ro_sou_regs, 1, 0),
 	GATE(IMP_IIC_WRAP_S_AP_I2C4_CG_RO, "imp_iic_wrap_s_ap_i2c4_cg_ro",
-			"i2c_sel",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_s_ap_clock_cg_ro_sou_regs, 2, 0),
 	GATE(IMP_IIC_WRAP_S_AP_I2C7_CG_RO, "imp_iic_wrap_s_ap_i2c7_cg_ro",
-			"i2c_sel",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_s_ap_clock_cg_ro_sou_regs, 3, 0),
 	GATE(IMP_IIC_WRAP_S_AP_I2C8_CG_RO, "imp_iic_wrap_s_ap_i2c8_cg_ro",
-			"i2c_sel",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_s_ap_clock_cg_ro_sou_regs, 4, 0),
 };
 
