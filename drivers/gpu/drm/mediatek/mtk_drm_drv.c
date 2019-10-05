@@ -754,6 +754,16 @@ const struct mtk_session_mode_tb mt6779_mode_tb[MTK_DRM_SESSION_NUM] = {
 			},
 };
 
+static const struct mtk_fake_eng_reg mt6779_fake_eng_reg[] = {
+		{.CG = 0, .bit = 19},
+		{.CG = 1, .bit = 4},
+};
+
+static const struct mtk_fake_eng_data mt6779_fake_eng_data = {
+	.fake_eng_num =  ARRAY_SIZE(mt6779_fake_eng_reg),
+	.fake_eng_reg = mt6779_fake_eng_reg,
+};
+
 static const struct mtk_mmsys_driver_data mt2701_mmsys_driver_data = {
 	.main_path_data = &mt2701_mtk_main_path_data,
 	.ext_path_data = &mt2701_mtk_ext_path_data,
@@ -780,6 +790,7 @@ static const struct mtk_mmsys_driver_data mt6779_mmsys_driver_data = {
 	.mmsys_id = MMSYS_MT6779,
 	.mode_tb = mt6779_mode_tb,
 	.sodi_config = mt6779_mtk_sodi_config,
+	.fake_eng_data = &mt6779_fake_eng_data,
 };
 
 #ifdef MTK_DRM_FENCE_SUPPORT
@@ -1555,6 +1566,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	}
 
 	private->config_regs_pa = mem->start;
+	private->mmsys_dev = dev;
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	plist_head_init(&private->bw_request_list);

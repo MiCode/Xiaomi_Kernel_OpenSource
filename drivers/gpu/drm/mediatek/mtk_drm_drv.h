@@ -38,6 +38,16 @@ struct drm_device;
 struct drm_property;
 struct regmap;
 
+struct mtk_fake_eng_reg {
+	unsigned int CG;
+	unsigned int bit;
+};
+
+struct mtk_fake_eng_data {
+	int fake_eng_num;
+	const struct mtk_fake_eng_reg *fake_eng_reg;
+};
+
 struct mtk_mmsys_driver_data {
 	const struct mtk_crtc_path_data *main_path_data;
 	const struct mtk_crtc_path_data *ext_path_data;
@@ -46,7 +56,8 @@ struct mtk_mmsys_driver_data {
 	bool shadow_register;
 	const struct mtk_session_mode_tb *mode_tb;
 	void (*sodi_config)(struct drm_device *drm, enum mtk_ddp_comp_id id,
-			    struct cmdq_pkt *handle, void *data);
+			struct cmdq_pkt *handle, void *data);
+	const struct mtk_fake_eng_data *fake_eng_data;
 };
 
 struct mtk_drm_lyeblob_ids {
@@ -60,6 +71,7 @@ struct mtk_drm_lyeblob_ids {
 struct mtk_drm_private {
 	struct drm_device *drm;
 	struct device *dma_dev;
+	struct device *mmsys_dev;
 
 	struct drm_crtc *crtc[MAX_CRTC];
 	unsigned int num_pipes;

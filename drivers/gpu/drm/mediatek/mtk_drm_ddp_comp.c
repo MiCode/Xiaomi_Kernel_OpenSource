@@ -542,12 +542,8 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 
 	index = 0;
 	while (1) {
-		ret = of_property_read_u32_index(comp->dev->of_node, "iommus",
-						 index, &port);
-		if (ret < 0)
-			break;
-		ret = of_property_read_u32_index(comp->dev->of_node, "iommus",
-						 index, &port);
+		ret = of_property_read_u32_index(comp->dev->of_node,
+				"iommus", index * 2 + 1, &port);
 		if (ret < 0)
 			break;
 
