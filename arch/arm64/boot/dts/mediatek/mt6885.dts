@@ -5004,15 +5004,15 @@ page_owner=on";
 	};
 
 	edma0: edma0@19027000 {
-		compatible = "mtk,edma";
+		compatible = "mtk,edma-sub";
 		reg = <0x0 0x19027000 0x0 0x1000>;
-		interrupts = <GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 415 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	edma1: edma1@19028000 {
-		compatible = "mtk,edma";
+		compatible = "mtk,edma-sub";
 		reg = <0x0 0x19028000 0x0 0x1000>;
-		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 416 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	edma: edma {
