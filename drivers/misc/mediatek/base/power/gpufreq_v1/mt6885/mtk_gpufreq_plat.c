@@ -36,6 +36,8 @@
 #include "mtk_gpufreq.h"
 #include "mtk_gpufreq_internal.h"
 
+#include "clk-fmeter.h"
+
 #include "mtk_pmic_wrap.h"
 #include "mtk_devinfo.h"
 #include "upmu_common.h"
@@ -62,11 +64,6 @@
 /* adb pull "/d/ged/logbufs/gfreq" */
 extern GED_LOG_BUF_HANDLE gpufreq_ged_log;
 #endif
-
-unsigned int __attribute__((weak)) mt_get_ckgen_freq(unsigned int ID)
-{
-	return 0;
-}
 
 enum gpu_dvfs_vgpu_step {
 	GPU_DVFS_VGPU_STEP_1 = 0x1,
@@ -1301,7 +1298,7 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 			g_cur_opp_vgpu,
 			g_cur_opp_vsram_gpu);
 	seq_printf(m, "(real) freq: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
-			mt_get_ckgen_freq(22),
+			mt_get_ckgen_freq(hf_fmfg_ck),
 			__mt_gpufreq_get_cur_freq(),
 			__mt_gpufreq_get_cur_vgpu(),
 			__mt_gpufreq_get_cur_vsram_gpu());
@@ -1955,7 +1952,7 @@ static void __mt_gpufreq_set(
 	gpufreq_pr_logbuf(
 		"done idx: %d -> %d, clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
 		idx_old, idx_new,
-		mt_get_ckgen_freq(22),
+		mt_get_ckgen_freq(hf_fmfg_ck),
 		__mt_gpufreq_get_cur_freq(),
 		__mt_gpufreq_get_cur_vgpu(),
 		__mt_gpufreq_get_cur_vsram_gpu());
@@ -3030,8 +3027,7 @@ static int __init __mt_gpufreq_init(void)
 	int ret = 0;
 
 	if (mt_gpufreq_bringup()) {
-		/* skip driver init in bring up stage */
-		gpufreq_pr_info("init clk = %d\n", mt_get_ckgen_freq(22));
+		gpufreq_pr_info("skip driver init: clock ID: %d\n", hf_fmfg_ck);
 		return 0;
 	}
 
