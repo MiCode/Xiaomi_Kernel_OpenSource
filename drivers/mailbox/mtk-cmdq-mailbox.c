@@ -1042,7 +1042,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 			last_inst[0], last_inst[1]);
 
 		if (cl_pkt && cl_pkt != pkt) {
-			buf = list_first_entry(&pkt->buf, typeof(*buf),
+			buf = list_first_entry(&cl_pkt->buf, typeof(*buf),
 				list_entry);
 			cmdq_util_msg(
 				"expect pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",

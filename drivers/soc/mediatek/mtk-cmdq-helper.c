@@ -1432,6 +1432,8 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	phys_addr_t gce_pa = cmdq_mbox_get_base_pa(client->chan);
 	const char *mod = "CMDQ";
 
+	cmdq_util_dump_lock();
+
 	if (err_num == 0)
 		cmdq_util_error_enable();
 
@@ -1461,19 +1463,21 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	cmdq_util_err("End of Error %u", err_num);
 	err_num++;
 
+	cmdq_util_dump_unlock();
+
 	if (inst && inst->op == CMDQ_CODE_WFE) {
 		mod = cmdq_event_module_dispatch(gce_pa, inst->arg_a);
 		cmdq_util_aee(mod,
-			"%s inst:%#016llx OP:WAIT EVENT:%x",
+			"DISPATCH:%s inst:%#016llx OP:WAIT EVENT:%#x",
 			mod, *(u64 *)inst, inst->arg_a);
 	} else if (inst) {
 		/* not sync case, print raw */
 		cmdq_util_aee(mod,
-			"%s inst:%#016llx OP:%x",
+			"DISPATCH:%s inst:%#016llx OP:%#02x",
 			mod, *(u64 *)inst, inst->op);
 	} else {
 		/* no inst available */
-		cmdq_util_aee(mod, "%s unknown instruction", mod);
+		cmdq_util_aee(mod, "DISPATCH:%s unknown instruction", mod);
 	}
 
 #else
@@ -1553,6 +1557,8 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 		if (ret)
 			break;
 
+		cmdq_util_dump_lock();
+
 		cmdq_msg("===== SW timeout Pre-dump %u =====", cnt);
 		cnt++;
 
@@ -1565,6 +1571,8 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 				"curr inst:");
 		else
 			cmdq_util_msg("curr inst: Not Available");
+
+		cmdq_util_dump_unlock();
 	} while (1);
 
 	cmdq_mbox_disable(client->chan);
@@ -2036,9 +2044,9 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc)
 		return -EINVAL;
 
 	cmdq_util_msg(
-		"pkt:0x%p size:%zu avail size:%zu priority:%u loop:%s",
-		pkt, pkt->buf_size, pkt->avail_buf_size, pkt->priority,
-		pkt->loop ? "true" : "false");
+		"pkt:0x%p size:%zu/%zu avail size:%zu priority:%u loop:%s",
+		pkt, pkt->cmd_buf_size, pkt->buf_size, pkt->avail_buf_size,
+		pkt->priority, pkt->loop ? "true" : "false");
 	cmdq_pkt_dump_buf(pkt, pc);
 
 	return 0;

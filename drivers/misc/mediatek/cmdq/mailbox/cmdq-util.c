@@ -99,6 +99,7 @@ struct cmdq_util {
 static struct cmdq_util	util;
 
 static DEFINE_MUTEX(cmdq_record_mutex);
+static DEFINE_MUTEX(cmdq_dump_mutex);
 
 u32 cmdq_util_get_bit_feature(void)
 {
@@ -122,6 +123,18 @@ void cmdq_util_error_disable(void)
 	util.err.enable = false;
 }
 EXPORT_SYMBOL(cmdq_util_error_disable);
+
+void cmdq_util_dump_lock(void)
+{
+	mutex_lock(&cmdq_dump_mutex);
+}
+EXPORT_SYMBOL(cmdq_util_dump_lock);
+
+void cmdq_util_dump_unlock(void)
+{
+	mutex_unlock(&cmdq_dump_mutex);
+}
+EXPORT_SYMBOL(cmdq_util_dump_unlock);
 
 s32 cmdq_util_error_save(const char *str, ...)
 {
@@ -431,6 +444,8 @@ static int __init cmdq_util_init(void)
 
 	if (exists)
 		dput(dir);
+
+	cmdq_util_log_feature_set(NULL, CMDQ_LOG_FEAT_PERF);
 
 	return 0;
 }

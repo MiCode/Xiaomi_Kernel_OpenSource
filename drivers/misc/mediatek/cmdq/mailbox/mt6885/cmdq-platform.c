@@ -9,6 +9,19 @@
 
 const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event)
 {
+	switch (event) {
+	case CMDQ_SYNC_TOKEN_CONFIG_DIRTY:
+	case CMDQ_SYNC_TOKEN_STREAM_EOF:
+	case CMDQ_SYNC_TOKEN_ESD_EOF:
+	case CMDQ_SYNC_TOKEN_STREAM_BLOCK:
+	case CMDQ_SYNC_TOKEN_CABC_EOF:
+		return "DISP";
+	case CMDQ_SYNC_TOKEN_MSS:
+		return "MSS";
+	case CMDQ_SYNC_TOKEN_MSF:
+		return "MSF";
+	}
+
 	if (gce_pa == 0x10228000) // GCE-D
 		switch (event) {
 		case CMDQ_EVENT_DISP_OVL0_SOF ... CMDQ_EVENT_DP_INTF_SOF:
