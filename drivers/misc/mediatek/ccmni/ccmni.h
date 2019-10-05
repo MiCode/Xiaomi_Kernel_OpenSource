@@ -57,6 +57,10 @@
 #define  SIOCCCMNICFG           (SIOCDEVPRIVATE + 1)
 /* forward filter for ccmni tx packet */
 #define  SIOCFWDFILTER          (SIOCDEVPRIVATE + 2)
+/* disable ack first mechanism */
+#define  SIOCACKPRIO          (SIOCDEVPRIVATE + 3)
+
+
 
 #define  IS_CCMNI_LAN(dev)      \
 	(strncmp(dev->name, "ccmni-lan", 9) == 0)
@@ -113,6 +117,7 @@ struct ccmni_instance {
 	int                md_id;
 	struct ccmni_ch    ch;
 	int                net_if_off;
+	unsigned int	   ack_prio_en;
 	atomic_t           usage;
 	/* use pointer to keep these items unique,
 	 * while switching between CCMNI instances
