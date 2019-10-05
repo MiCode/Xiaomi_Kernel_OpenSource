@@ -249,8 +249,10 @@ static ssize_t proc_pid_cmdline_read(struct file *file, char __user *buf,
 	env_end = mm->env_end;
 	up_read(&mm->mmap_sem);
 
-	BUG_ON(arg_start > arg_end);
-	BUG_ON(env_start > env_end);
+	if ((arg_start > arg_end) || (env_start > env_end)) {
+		rv = 0;
+		goto out_mmput;
+	}
 
 	len1 = arg_end - arg_start;
 	len2 = env_end - env_start;
