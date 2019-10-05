@@ -18,7 +18,9 @@
 #include <linux/fs.h>
 #include <dt-bindings/memory/mt8168-larb-port.h>
 #include <linux/list.h>
+#ifdef CONFIG_ARM64
 #include <linux/iova.h>
+#endif
 #include <linux/iommu.h>
 
 #define M4U_PAGE_SIZE	0x1000
@@ -239,7 +241,7 @@ extern void dmac_unmap_area(const void *, size_t, int);
 
 #if ((defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)) &&\
 	(defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)))
-#define M4U_MTEE_SERVICE_ENABLE
+#define M4U_TEE_SERVICE_ENABLE
 #endif
 
 int m4u_config_port(struct M4U_PORT_STRUCT *pM4uPort);
@@ -280,13 +282,15 @@ int m4u_alloc_mva_sg(struct port_mva_info_t *port_info,
 
 int pseudo_config_port_tee(int kernelport);
 
-int m4u_mva_map_kernel(unsigned int mva, unsigned int size,
-		       unsigned long *map_va, unsigned int *map_size);
-int m4u_mva_unmap_kernel(unsigned int mva, unsigned int size,
-		       unsigned long va);
 extern void smp_inner_dcache_flush_all(void);
 extern phys_addr_t mtkfb_get_fb_base(void);
 extern size_t mtkfb_get_fb_size(void);
+
+#ifdef CONFIG_ARM64
+struct iova *__alloc_iova(struct iova_domain *iovad, size_t size,
+		dma_addr_t dma_limit);
+void __free_iova(struct iova_domain *iovad, struct iova *iova);
+#endif
 void __iommu_dma_unmap(struct iommu_domain *domain, dma_addr_t dma_addr);
 
 static inline int mtk_smi_vp_setting(bool osd_4k)
@@ -360,7 +364,7 @@ struct COMPAT_M4U_CACHE_STRUCT {
 #define COMPAT_MTK_M4U_T_CACHE_SYNC   _IOW(MTK_M4U_MAGICNO, 10, int)
 #endif
 
-#ifdef M4U_MTEE_SERVICE_ENABLE
+#ifdef M4U_TEE_SERVICE_ENABLE
 extern bool m4u_tee_en;
 int smi_reg_restore_sec(void);
 int smi_reg_backup_sec(void);
