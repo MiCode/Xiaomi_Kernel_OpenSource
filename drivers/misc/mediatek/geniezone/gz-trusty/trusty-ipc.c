@@ -1342,9 +1342,8 @@ int tipc_k_disconnect(struct tipc_k_handle *h)
 	/* and destroy it */
 	tipc_chan_destroy(dn->chan);
 	/* data is now be free in dn_handle_release(..) */
-#if 0
-	kfree(dn);
-#endif
+
+	/*kfree(dn);*/
 
 	return 0;
 }
