@@ -47,6 +47,9 @@ static void ipi_monitor(struct mtk_ipi_device *ipidev, int id, int stage)
 		chan->ipi_record[1].ts = 0;
 		chan->ipi_record[2].idx = 5;
 		chan->ipi_record[2].ts = 0;
+		if (ipidev->mbdev->log_enable)
+			pr_info("%s: IPI_%d send msg(#%d)\n",
+				ipidev->name, id, chan->ipi_seqno);
 		break;
 	case ISR_RECV_MSGV:
 		chan->ipi_seqno++;
@@ -56,6 +59,9 @@ static void ipi_monitor(struct mtk_ipi_device *ipidev, int id, int stage)
 		chan->ipi_record[1].ts = 0;
 		chan->ipi_record[2].idx = 3;
 		chan->ipi_record[2].ts = 0;
+		if (ipidev->mbdev->log_enable)
+			pr_info("%s: IPI_%d recv msg(#%d)\n",
+				ipidev->name, id, chan->ipi_seqno);
 		break;
 	case RECV_MSG:
 	case ISR_RECV_ACK:
@@ -190,6 +196,8 @@ int mtk_ipi_device_reset(struct mtk_ipi_device *ipidev)
 	ipidev->ipi_last_done = -1;
 
 	spin_unlock_irqrestore(&ipidev->lock_monitor, flags);
+
+	mtk_mbox_reset_record(ipidev->mbdev);
 
 	ipidev->ipi_inited = 1;
 
@@ -531,6 +539,12 @@ int mtk_ipi_recv_reply(struct mtk_ipi_device *ipidev, int ipi_id,
 }
 EXPORT_SYMBOL(mtk_ipi_recv_reply);
 
+void mtk_ipi_echo(struct mtk_ipi_device *ipidev, bool en)
+{
+	ipidev->mbdev->log_enable = en;
+	pr_info("%s IPI echo %s\n", ipidev->name, en ? "on" : "off");
+}
+
 static void ipi_isr_cb(struct mtk_mbox_pin_recv *pin, void *priv)
 {
 	struct mtk_ipi_device *ipidev = priv;
@@ -541,6 +555,9 @@ static void ipi_isr_cb(struct mtk_mbox_pin_recv *pin, void *priv)
 		complete(&pin->notify);
 		ipi_monitor(ipidev, ipi_id, ISR_RECV_MSGV);
 	} else if (atomic_read(&holder)) {
+		if (ipidev->mbdev->log_enable)
+			pr_info("%s: IPI_%d recv the reply\n",
+				ipidev->name, ipi_id);
 		complete(&pin->notify);
 		ipi_monitor(ipidev, ipi_id, ISR_RECV_ACK);
 	}
