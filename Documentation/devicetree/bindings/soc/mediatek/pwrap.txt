@@ -23,6 +23,7 @@ Required properties in pwrap device node.
 	"mediatek,mt6768-pwrap" for MT6768 SoCs
 	"mediatek,mt6771-pwrap" for MT6771 SoCs
 	"mediatek,mt6785-pwrap" for MT6785 SoCs
+	"mediatek,mt6885-pwrap" for MT6885 SoCs
 	"mediatek,mt8135-pwrap" for MT8135 SoCs
 	"mediatek,mt8173-pwrap" for MT8173 SoCs
 - interrupts: IRQ for pwrap in SOC
