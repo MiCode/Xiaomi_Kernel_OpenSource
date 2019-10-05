@@ -72,6 +72,8 @@
 
 #include <trace/events/sched.h>
 
+#include <mt-plat/mtk_pidmap.h>
+
 int suid_dumpable = 0;
 
 static LIST_HEAD(formats);
@@ -1237,6 +1239,7 @@ void __set_task_comm(struct task_struct *tsk, const char *buf, bool exec)
 	strlcpy(tsk->comm, buf, sizeof(tsk->comm));
 	task_unlock(tsk);
 	perf_event_comm(tsk, exec);
+	mtk_pidmap_update(tsk);
 }
 
 /*
