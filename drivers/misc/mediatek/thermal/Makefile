@@ -22,12 +22,8 @@ endif
 
 ccflags-y  += -I$(THERMAL_CHIP_DRIVER_DIR)/inc
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/fakeHeader/
-
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6759" "mt6799" "mt6763" "mt6739" "mt6758" "mt6775" "mt6771" "mt6765" "mt6761" "mt6768" "mt6785"))
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)/
-else
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/
-endif
 
 obj-$(CONFIG_THERMAL) += mtk_thermal_monitor.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_shutdown.o
