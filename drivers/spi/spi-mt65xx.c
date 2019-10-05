@@ -394,10 +394,14 @@ static int mtk_spi_prepare_message(struct spi_master *master,
 
 static void mtk_spi_set_cs(struct spi_device *spi, bool enable)
 {
-	u32 reg_val;
+	u32 reg_val, ret;
 	struct mtk_spi *mdata = spi_master_get_devdata(spi->master);
 
-	clk_prepare_enable(mdata->spi_clk);
+	ret = clk_prepare_enable(mdata->spi_clk);
+	if (ret < 0) {
+		pr_info("failed to enable spi_clk (%d)\n", ret);
+		return;
+	}
 	reg_val = readl(mdata->base + SPI_CMD_REG);
 	if (!enable) {
 		reg_val |= SPI_CMD_PAUSE_EN;
