@@ -39,6 +39,8 @@
 #define SMI_M4U_TH		(0x234)
 #define SMI_FIFO_TH1		(0x238)
 #define SMI_FIFO_TH2		(0x23c)
+#define SMI_PREULTRA_MASK0	(0x240)
+#define SMI_PREULTRA_MASK1	(0x244)
 
 #define SMI_DCM				(0x300)
 #define SMI_ELA				(0x304)
@@ -97,6 +99,6 @@
 #define SMI_LARB_MON_REQ_CNT		(0x414)
 #define SMI_LARB_MON_BEAT_CNT		(0x418)
 #define SMI_LARB_MON_BYTE_CNT		(0x41c)
-#define SMI_LARB_SEC_CON(p)		(0xf80 + ((p) << 2))
+#define INT_SMI_LARB_CMD_THRT_CON	(0x524)
 
 #endif
