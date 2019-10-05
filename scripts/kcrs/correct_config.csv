@@ -564,7 +564,7 @@ CONFIG_MTK_MET,COMMON,chengchang.wu,6755 32 bits not ready,y,y,y,y
 CONFIG_MTK_MET_PLF,COMMON,chengchang.wu,6755 32 bits not ready,y,y,y,y
 CONFIG_MTK_MJC_DRIVER,PLATFORM,easer.su,new config in this commit 669b19c5c1c997fe0e430fa5e7de77c0406acf41,X,X,X,X
 CONFIG_MTK_MLC_NAND_SUPPORT,PROJECT,chienwei.chang,,,,,
-CONFIG_MTK_MLOG,COMMON,yun.hsiang,,X,X,X,X
+CONFIG_MTK_MLOG,COMMON,chinwen.chang,,X,X,X,X
 CONFIG_MTK_MMPROFILE_SUPPORT,COMMON,,project config should be common,y,y,y,y
 CONFIG_MTK_MOTION_DETECT_HUB,PROJECT,jy.lan,,,,,
 CONFIG_MTK_MPU6515A,PLATFORM,lomen.wu,new config in this commit 4486d5ee565d38da91ef65fd3918a57aaa5263f2,,,,
