@@ -371,6 +371,18 @@ void cmdq_dev_init_event_table(struct device_node *node)
 		cmdq_dev_get_event_value_by_name(node, events[i].event,
 			events[i].dts_name);
 	}
+
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	cmdq_core_set_event_table(CMDQ_EVENT_DISP_RDMA0_SOF, 2);
+	cmdq_core_set_event_table(CMDQ_EVENT_DISP_WDMA0_SOF, 3);
+	cmdq_core_set_event_table(CMDQ_EVENT_DISP_DSI0_EOF, 57);
+	cmdq_core_set_event_table(CMDQ_EVENT_DISP_WDMA1_EOF, 59);
+	cmdq_core_set_event_table(CMDQ_EVENT_DISP_WDMA0_EOF, 60);
+	cmdq_core_set_event_table(CMDQ_EVENT_DISP_RDMA0_EOF, 68);
+	cmdq_core_set_event_table(CMDQ_EVENT_MUTEX0_STREAM_EOF, 128);
+	cmdq_core_set_event_table(CMDQ_EVENT_DSI_TE, 147);
+	cmdq_core_set_event_table(CMDQ_EVENT_DSI0_DONE_EVENT, 149);
+#endif
 }
 
 void cmdq_dev_test_dts_correctness(void)
