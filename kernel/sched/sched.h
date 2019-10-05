@@ -2309,6 +2309,11 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 static inline void cpufreq_update_util(struct rq *rq, unsigned int flags) {}
 #endif /* CONFIG_CPU_FREQ */
 
+extern unsigned int uclamp_task_effective_util(struct task_struct *p,
+					unsigned int clamp_id);
+extern unsigned int uclamp_task_util(struct task_struct *p,
+					unsigned int clamp_id);
+
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 extern void schedtune_init_uclamp(void);
 extern struct uclamp_se *task_schedtune_uclamp(struct task_struct *tsk,

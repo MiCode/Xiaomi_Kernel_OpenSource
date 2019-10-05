@@ -1043,6 +1043,18 @@ done:
 	return group_id;
 }
 
+unsigned int uclamp_task_effective_util(struct task_struct *p,
+					unsigned int clamp_id)
+{
+	uclamp_effective_group_id(p, clamp_id);
+	return p->uclamp[clamp_id].effective.value;
+}
+
+unsigned int uclamp_task_util(struct task_struct *p,
+					unsigned int clamp_id)
+{
+	return p->uclamp[clamp_id].value;
+}
 /**
  * uclamp_cpu_get_id(): increase reference count for a clamp group on a CPU
  * @p: the task being enqueued on a CPU
@@ -1605,6 +1617,16 @@ static void __init init_uclamp(void)
 }
 
 #else /* CONFIG_UCLAMP_TASK */
+unsigned int uclamp_task_effective_util(struct task_struct *p,
+					unsigned int clamp_id)
+{
+	return 0;
+}
+unsigned int uclamp_task_util(struct task_struct *p,
+					unsigned int clamp_id)
+{
+	return 0;
+}
 static inline void uclamp_fork(struct task_struct *p, bool reset) { }
 static inline void init_uclamp(void) { }
 static inline void uclamp_cpu_get(struct rq *rq, struct task_struct *p) { }

@@ -87,6 +87,47 @@ void calculate_default_stune_threshold(void)
 	rcu_read_unlock();
 }
 
+#if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
+int uclamp_min_for_perf_idx(int idx, int min_value)
+{
+	struct schedtune *st;
+	struct cgroup_subsys_state *css;
+	int ret = 0;
+
+	if (min_value > SCHED_CAPACITY_SCALE)
+		return -ERANGE;
+
+	st = allocated_group[idx];
+	if (!st)
+		return -EINVAL;
+
+	css = &st->css;
+
+	mutex_lock(&uclamp_mutex);
+	rcu_read_lock();
+
+	if (st->uclamp[UCLAMP_MIN].value == min_value)
+		goto out;
+	if (st->uclamp[UCLAMP_MAX].value < min_value) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/* Update ST's reference count */
+	uclamp_group_get(NULL, css, &st->uclamp[UCLAMP_MIN],
+			 UCLAMP_MIN, min_value);
+
+	/* Update effective clamps to track the most restrictive value */
+	cpu_util_update(css, UCLAMP_MIN, st->uclamp[UCLAMP_MIN].group_id,
+			     min_value);
+out:
+	rcu_read_unlock();
+	mutex_unlock(&uclamp_mutex);
+
+	return ret;
+}
+#endif
+
 int boost_write_for_perf_idx(int idx, int boost_value)
 {
 	struct schedtune *ct;
