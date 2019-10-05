@@ -270,6 +270,11 @@ static const struct regulator_linear_range mt_volt_range7[] = {
 	REGULATOR_LINEAR_RANGE(500000, 0, 0x60, 6250),
 };
 
+/* VCORE in MT6359+ */
+static const struct regulator_linear_range mt_volt_range8[] = {
+	REGULATOR_LINEAR_RANGE(506250, 0, 0x7f, 6250),
+};
+
 static const u32 vaud18_voltages[] = {
 	1800000,
 };
@@ -927,8 +932,8 @@ static struct mt6359_regulator_info mt6359_regulators[] = {
 		MT_BUCK_VOL_EN_MODE,
 		PMIC_RG_BUCK_VPU_LP_ADDR, PMIC_RG_BUCK_VPU_LP_SHIFT,
 		PMIC_RG_VPU_FCCM_ADDR, PMIC_RG_VPU_FCCM_SHIFT),
-	MT_BUCK("buck_vcore", VCORE, 400000, 1193750, 6250,
-		0, mt_volt_range2, PMIC_RG_BUCK_VCORE_EN_ADDR,
+	MT_BUCK("buck_vcore", VCORE, 506250, 1300000, 6250,
+		0, mt_volt_range8, PMIC_RG_BUCK_VCORE_EN_ADDR,
 		PMIC_DA_VCORE_EN_ADDR,
 		PMIC_DA_VCORE_VOSEL_ADDR,
 		PMIC_DA_VCORE_VOSEL_MASK,
