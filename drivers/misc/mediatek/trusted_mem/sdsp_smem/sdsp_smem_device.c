@@ -83,7 +83,6 @@ static int __init sdsp_smem_init(void)
 	t_device->ssmr_feature_id = SSMR_FEAT_SDSP_TEE_SHAREDMEM;
 #endif
 	t_device->mem_type = TRUSTED_MEM_SDSP_SHARED;
-	t_device->shared_trusted_mem_device = NULL;
 
 	ret = register_trusted_mem_device(TRUSTED_MEM_SDSP_SHARED, t_device);
 	if (ret) {

@@ -51,6 +51,7 @@ enum TEE_OP {
 
 enum TEE_MEM_TYPE {
 	TEE_MEM_SVP = 0,
+	TEE_MEM_2D_FR = TEE_MEM_SVP,
 	TEE_MEM_WFD = 1,
 	TEE_MEM_SDSP_SHARED = 2,
 };

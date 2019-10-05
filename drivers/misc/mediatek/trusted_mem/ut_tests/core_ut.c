@@ -142,14 +142,14 @@ static enum UT_RET_STATE device_virt_region_alloc(struct ut_params *params)
 	ASSERT_NE(0, secmem_handle, "svp handle check");
 	ret = fr_alloc_chunk(0, SIZE_64K, &fr_ref_count, &fr_handle, NULL, 0,
 			     0);
-	ASSERT_EQ(TMEM_SHARED_DEVICE_REGION_IS_BUSY, ret,
+	ASSERT_EQ(TMEM_REGION_POWER_ON_FAILED, ret,
 		  "fr alloc chunk memory fail check");
 
 	ret = secmem_unref_chunk(secmem_handle, NULL, 0);
 	ASSERT_EQ(0, ret, "svp free chunk memory check");
 	ret = fr_alloc_chunk(0, SIZE_64K, &fr_ref_count, &fr_handle, NULL, 0,
 			     0);
-	ASSERT_EQ(TMEM_SHARED_DEVICE_REGION_IS_BUSY, ret,
+	ASSERT_EQ(TMEM_REGION_POWER_ON_FAILED, ret,
 		  "fr alloc chunk memory check");
 
 	mdelay(REGMGR_REGION_DEFER_OFF_DONE_DELAY_MS);
@@ -163,13 +163,13 @@ static enum UT_RET_STATE device_virt_region_alloc(struct ut_params *params)
 	ASSERT_NE(0, fr_handle, "fr handle check");
 	ret = secmem_alloc_chunk(0, SIZE_64K, &secmem_ref_count, &secmem_handle,
 				 NULL, 0, 0);
-	ASSERT_EQ(TMEM_SHARED_DEVICE_REGION_IS_BUSY, ret,
+	ASSERT_EQ(TMEM_REGION_POWER_ON_FAILED, ret,
 		  "svp alloc chunk memory fail check");
 	ret = fr_unref_chunk(fr_handle, NULL, 0);
 	ASSERT_EQ(0, ret, "fr free chunk memory check");
 	ret = secmem_alloc_chunk(0, SIZE_64K, &secmem_ref_count, &secmem_handle,
 				 NULL, 0, 0);
-	ASSERT_EQ(TMEM_SHARED_DEVICE_REGION_IS_BUSY, ret,
+	ASSERT_EQ(TMEM_REGION_POWER_ON_FAILED, ret,
 		  "svp alloc chunk memory fail check");
 
 	mdelay(REGMGR_REGION_DEFER_OFF_DONE_DELAY_MS);

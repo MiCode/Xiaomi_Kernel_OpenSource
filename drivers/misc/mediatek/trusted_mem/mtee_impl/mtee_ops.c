@@ -238,8 +238,12 @@ static int mtee_mem_reg_cfg_notify_tee(enum TRUSTED_MEM_TYPE mem_type, u64 pa,
 		return TMEM_OK;
 #endif
 	case TRUSTED_MEM_SVP:
+	/* no need to notify */
 	case TRUSTED_MEM_WFD:
-	case TRUSTED_MEM_SVP_VIRT_2D_FR:
+	/* no need to notify */
+	case TRUSTED_MEM_2D_FR:
+		/* no need to notify */
+		return TMEM_OK;
 	default:
 		return TMEM_OK;
 	}
@@ -266,8 +270,12 @@ static int get_mchunks_id(enum TRUSTED_MEM_TYPE mem_type)
 		return MTEE_MCHUNKS_SDSP_SHARED_VPU_TEE;
 #endif
 	case TRUSTED_MEM_SVP:
+	/* this is not mchunk */
 	case TRUSTED_MEM_WFD:
-	case TRUSTED_MEM_SVP_VIRT_2D_FR:
+	/* this is not mchunk */
+	case TRUSTED_MEM_2D_FR:
+		/* this is not mchunk */
+		return MTEE_MCUHNKS_INVALID;
 	default:
 		return MTEE_MCUHNKS_INVALID;
 	}

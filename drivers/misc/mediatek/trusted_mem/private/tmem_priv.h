@@ -25,9 +25,6 @@ int register_trusted_mem_device(enum TRUSTED_MEM_TYPE register_type,
 void trusted_mem_ut_cmd_invoke(u64 cmd, u64 param1, u64 param2, u64 param3);
 struct trusted_mem_device *
 get_trusted_mem_device(enum TRUSTED_MEM_TYPE mem_type);
-struct trusted_mem_device *create_and_register_shared_trusted_mem_device(
-	enum TRUSTED_MEM_TYPE mem_type, struct trusted_mem_device *tmem_device,
-	char *dev_name);
 
 void get_ssmr_ops(struct ssmr_operations **ops);
 struct peer_mgr_desc *create_peer_mgr_desc(void);

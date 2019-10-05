@@ -44,6 +44,15 @@ static struct tee_op_cmd_mappings tee_svp_secmem_op_cmd_mappings = {
 	.tee_mem_type = TEE_MEM_SVP,
 };
 
+static struct tee_op_cmd_mappings tee_2dfr_smem_op_cmd_mappings = {
+	.tee_cmds[TEE_OP_ALLOC] = CMD_SEC_MEM_ALLOC,
+	.tee_cmds[TEE_OP_ALLOC_ZERO] = CMD_SEC_MEM_ALLOC_ZERO,
+	.tee_cmds[TEE_OP_FREE] = CMD_SEC_MEM_UNREF,
+	.tee_cmds[TEE_OP_REGION_ENABLE] = CMD_SEC_MEM_ENABLE,
+	.tee_cmds[TEE_OP_REGION_DISABLE] = CMD_SEC_MEM_DISABLE,
+	.tee_mem_type = TEE_MEM_2D_FR,
+};
+
 static struct tee_op_cmd_mappings tee_wfd_smem_op_cmd_mappings = {
 	.tee_cmds[TEE_OP_ALLOC] = CMD_WFD_SMEM_ALLOC,
 	.tee_cmds[TEE_OP_ALLOC_ZERO] = CMD_WFD_SMEM_ALLOC_ZERO,
@@ -89,6 +98,9 @@ void get_tee_peer_priv_data(enum TEE_MEM_TYPE tee_mem_type, void **peer_priv)
 	if (tee_mem_type == TEE_MEM_SVP) {
 		pr_info("TEE_MEM_SVP_PRIV_DATA\n");
 		*peer_priv = &tee_svp_secmem_op_cmd_mappings;
+	} else if (tee_mem_type == TEE_MEM_2D_FR) {
+		pr_info("TEE_MEM_2D_FR_PRIV_DATA\n");
+		*peer_priv = &tee_2dfr_smem_op_cmd_mappings;
 	} else if (tee_mem_type == TEE_MEM_WFD) {
 		pr_info("TEE_MEM_WFD_PRIV_DATA\n");
 		*peer_priv = &tee_wfd_smem_op_cmd_mappings;
