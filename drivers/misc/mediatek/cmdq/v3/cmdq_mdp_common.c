@@ -1176,8 +1176,7 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 		}
 	}
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_PATH_SUPPORT
 	if (handle->secData.is_secure) {
 		/* insert backup cookie cmd */
 		cmdq_sec_insert_backup_cookie_instr(handle, handle->thread);

@@ -1830,8 +1830,7 @@ s32 cmdq_op_finalize_command(struct cmdqRecStruct *handle, bool loop)
 		if (handle->scenario == CMDQ_SCENARIO_TIMER_LOOP)
 			arg_b = 0x0;
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_PATH_SUPPORT
 		if (handle->secData.is_secure) {
 			status = cmdq_sec_insert_backup_cookie_instr(handle,
 				handle->thread);

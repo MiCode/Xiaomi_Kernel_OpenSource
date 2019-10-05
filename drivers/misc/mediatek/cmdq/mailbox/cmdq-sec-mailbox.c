@@ -151,7 +151,7 @@ s32 cmdq_sec_mbox_chan_id(void *chan)
 // cmdq_sec_insert_backup_cookie_instr
 s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt)
 {
-	struct cmdq_client *cl = (struct cmdq_client *)pkt->priv;
+	struct cmdq_client *cl = (struct cmdq_client *)pkt->cl;
 	struct cmdq_sec_thread *thread =
 		((struct mbox_chan *)cl->chan)->con_priv;
 	struct cmdq_sec *cmdq =
@@ -307,7 +307,7 @@ static void cmdq_sec_irq_notify_start(struct cmdq_sec *cmdq)
 	cmdq_pkt_finalize_loop(cmdq->clt_pkt);
 	// TODO: cmdqCoreClearEvent(CMDQ_SYNC_TOKEN_SEC_DONE);
 
-	err = cmdq_pkt_flush_async(cmdq->clt, cmdq->clt_pkt,
+	err = cmdq_pkt_flush_async(cmdq->clt_pkt,
 		cmdq_sec_irq_notify_callback, (void *)cmdq);
 	if (err < 0) {
 		cmdq_err("irq cmdq_pkt_flush_async failed:%d", err);
