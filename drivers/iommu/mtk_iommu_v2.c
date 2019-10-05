@@ -1215,14 +1215,14 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		layer = regval & F_MMU_FAULT_VA_LAYER_BIT;
 		write = regval & F_MMU_FAULT_VA_WRITE_BIT;
 #if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-		fault_iova = (unsigned long)(regval & F_MMU_FAULT_VA_BIT31_12) |
-				(unsigned long)((regval &
+		fault_iova = ((unsigned long)regval & F_MMU_FAULT_VA_BIT31_12) |
+				(((unsigned long)regval &
 					F_MMU_FAULT_VA_BIT32) << 23);
 #else
 		fault_iova = (unsigned long)(regval);
 #endif
-		pr_notice("%s, %d, fault_iova=%lx\n",
-			  __func__, __LINE__, fault_iova);
+		pr_notice("%s, %d, fault_iova=%lx, regval=0x%x\n",
+			  __func__, __LINE__, fault_iova, regval);
 		m4u_dump_pgtable(1);
 		pseudo_dump_port(port_id, true);
 

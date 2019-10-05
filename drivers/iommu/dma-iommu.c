@@ -893,8 +893,9 @@ int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 	 * implementation - it knows better than we do.
 	 */
 	if (iommu_map_sg(domain, iova, sg, nents, prot) < iova_len) {
-		pr_notice("%s, %d, dev:%s domain:%p failed at map sg\n",
-			    __func__, __LINE__, dev_name(dev), domain);
+		pr_notice("%s, %d, dev:%s domain:%p failed at map sg, iova:0x%lx, len:%x\n",
+			    __func__, __LINE__, dev_name(dev),
+			    domain, iova, iova_len);
 		goto out_free_iova;
 	}
 

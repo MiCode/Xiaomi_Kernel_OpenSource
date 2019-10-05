@@ -478,8 +478,15 @@ static int arm_v7s_init_pte(struct arm_v7s_io_pgtable *data,
 				return -EINVAL;
 		} else if (ptep[i]) {
 			/* We require an unmap first */
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT == 34)
+			pr_notice("%s, %d, invalid ptep of %d, iova=0x%lx, paddr=0x%lx, ptep=0x%lx, size=0x%lx, level=%d\n",
+				__func__, __LINE__, i,
+				iova + i * sz, paddr, ptep[i], sz, lvl);
+#else
 			WARN_ON(!selftest_running);
 			return -EEXIST;
+#endif
 		}
 
 	pte = arm_v7s_prot_to_pte(prot, lvl, cfg, paddr);
