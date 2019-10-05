@@ -443,6 +443,7 @@ CONFIG_MTK_CM36652_NEW,PLATFORM,jy.lan,,,,,,,,,,,,,,
 CONFIG_MTK_CM36686_NEW,PLATFORM,jy.lan,,,,,,,,,,,,,,
 CONFIG_MTK_CMDQ,COMMON,dennis-yc.hsieh,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_CMDQ_MBOX,COMMON,dennis-yc.hsieh,,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_MTK_CMDQ_MBOX_EXT,PLATFORM,dennis-yc.hsieh,,X,X,X,X,X,X,X,X,X,y,y,y,y
 CONFIG_MTK_COMBO,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_COMBO_ANT,PROJECT,zhiguo.niu,new config in this commit 3413d51500ed33e5696cbfe6286d5b8617867b35,,,,,,,,,,,,,
 CONFIG_MTK_COMBO_BT,PLATFORM,yu-min.lin,going to phase out,y,y,X,y,y,X,X,X,X,y,y,X,X
