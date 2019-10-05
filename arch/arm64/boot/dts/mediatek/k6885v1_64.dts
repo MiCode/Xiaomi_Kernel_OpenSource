@@ -68,10 +68,6 @@
 	non-removable;
 };
 
-&timer {
-	clock-frequency = <150000000>;
-};
-
 &odm {
 	led0:led@0 {
 		compatible = "mediatek,red";
