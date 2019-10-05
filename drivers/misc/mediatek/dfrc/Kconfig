@@ -1,0 +1,8 @@
+config MTK_DYNAMIC_FPS_FRAMEWORK_SUPPORT
+	bool "enable framework of dynamic fps"
+	default n
+	help
+	  Define MTK_DYNAMIC_FPS_FRAMEWORK_SUPPORT to enable framework of
+	  Mediatek dynamic fps driver.
+	  If enable this config, basic modules can adjust refresh rate of
+	  system through SurfaceFlinger or display driver.
