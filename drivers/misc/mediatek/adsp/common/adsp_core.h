@@ -15,6 +15,20 @@ enum ADSP_CORE_STATE {
 	ADSP_RUNNING   = 3,
 };
 
+enum {
+	APTIME_UNFREEZE  = 0,
+	APTIME_FREEZE    = 1,
+};
+
+struct timesync_t {
+	u32 tick_h;
+	u32 tick_l;
+	u32 ts_h;
+	u32 ts_l;
+	u32 freeze;
+	u32 version;
+};
+
 struct adsp_priv;
 
 /* core api */
@@ -31,7 +45,7 @@ int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, void *src,
 			int count);
 int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst,
 			int count);
-
+void timesync_to_adsp(struct adsp_priv *pdata, u32 fz);
 void switch_adsp_power(bool on);
 int adsp_reset(void);
 

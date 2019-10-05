@@ -209,28 +209,24 @@ void adsp_aed_worker(struct work_struct *ws)
 	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
 		pdata = get_adsp_core_by_id(cid);
 		set_adsp_state(pdata, ADSP_RESET);
-
 		complete_all(&pdata->done);
-		_adsp_register_feature(cid, SYSTEM_FEATURE_ID, 0);
 	}
+
+	adsp_register_feature(SYSTEM_FEATURE_ID);
 
 #ifdef CFG_RECOVERY_SUPPORT
 	adsp_extern_notify(ADSP_EVENT_STOP);
 #endif
-
 	/* exception dump */
 	adsp_exception_dump(ctrl);
 
 #ifdef CFG_RECOVERY_SUPPORT
 	/* reset adsp */
 	adsp_reset();
-#endif
 
-#ifdef CFG_RECOVERY_SUPPORT
 	adsp_extern_notify(ADSP_EVENT_READY);
 #endif
-	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++)
-		_adsp_deregister_feature(cid, SYSTEM_FEATURE_ID, 0);
+	adsp_deregister_feature(SYSTEM_FEATURE_ID);
 
 	__pm_relax(&ctrl->wakeup_lock);
 }

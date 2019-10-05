@@ -16,6 +16,8 @@
 #include "adsp_core.h"
 
 static rwlock_t access_rwlock;
+struct timesync_t adsp_timesync_dram;
+void *adsp_timesync_ptr = &adsp_timesync_dram; /* extern to adsp_help.h */
 
 void adsp_A_register_notify(struct notifier_block *nb) {}
 void adsp_A_unregister_notify(struct notifier_block *nb) {}
@@ -168,6 +170,15 @@ void switch_adsp_power(bool on)
 	}
 }
 
+void timesync_to_adsp(struct adsp_priv *pdata, u32 fz)
+{
+	adsp_timesync_dram.freeze = fz;
+	adsp_timesync_dram.version++;
+	adsp_timesync_dram.version &= 0xff;
+	adsp_copy_to_sharedmem(pdata, ADSP_SHAREDMEM_TIMESYNC,
+			&adsp_timesync_dram, sizeof(adsp_timesync_dram));
+}
+
 void adsp_sram_restore_snapshot(struct adsp_priv *pdata)
 {
 	if (!pdata->itcm || !pdata->itcm_snapshot || !pdata->itcm_size ||
@@ -214,6 +225,7 @@ int adsp_reset(void)
 		pdata = adsp_cores[cid];
 
 		adsp_mt_sw_reset(cid);
+		timesync_to_adsp(pdata, APTIME_UNFREEZE);
 		reinit_completion(&pdata->done);
 
 		adsp_mt_run(cid);
@@ -320,6 +332,7 @@ static int __init adsp_module_init(void)
 		}
 	}
 
+	//adsp_deregister_feature(SYSTEM_FEATURE_ID); /* temp adsp always on */
 	pr_info("[ADSP] module_init_done\n");
 ERROR:
 	return ret;

@@ -59,6 +59,10 @@ enum ADSP_NOTIFY_EVENT {
 	ADSP_EVENT_READY,
 };
 
+#define ADSP_OSTIMER_BUFFER    (adsp_timesync_ptr)
+
+extern void *adsp_timesync_ptr;
+
 extern enum adsp_ipi_status adsp_ipi_registration(enum adsp_ipi_id id,
 						  void (*ipi_handler)(int id,
 						  void *data, unsigned int len),

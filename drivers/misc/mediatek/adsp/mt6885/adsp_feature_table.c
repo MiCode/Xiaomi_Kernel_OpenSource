@@ -85,7 +85,6 @@ bool adsp_feature_is_active(u32 cid)
 	return feature_ctrl[cid].total;
 }
 
-
 int _adsp_register_feature(u32 cid, u32 fid, u32 opt)
 {
 	int ret = 0;
@@ -244,6 +243,16 @@ static void suspend_work_ws(struct work_struct *work)
 	if (ctrl->total == 0 && ctrl->suspend)
 		ctrl->suspend();
 	mutex_unlock(&ctrl->lock);
+}
+
+bool flush_suspend_work(u32 cid)
+{
+	struct adsp_feature_control *ctrl = &feature_ctrl[cid];
+
+	if (ctrl->total == 0)
+		return flush_delayed_work(&ctrl->suspend_work);
+
+	return false;
 }
 
 int init_adsp_feature_control(u32 cid, u32 feature_set, int delay_ms,

@@ -224,6 +224,7 @@ int adsp_core0_resume(void)
 	if (get_adsp_state(pdata) == ADSP_SUSPEND) {
 		switch_adsp_power(true);
 		adsp_mt_sw_reset(pdata->id);
+		timesync_to_adsp(pdata, APTIME_UNFREEZE);
 
 		reinit_completion(&pdata->done);
 		adsp_mt_run(pdata->id);
@@ -498,6 +499,47 @@ static int adsp_core_drv_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int adsp_ap_suspend(struct device *dev)
+{
+	int cid = 0, ret = 0;
+	struct adsp_priv *pdata = NULL;
+
+	for (cid = ADSP_CORE_TOTAL - 1; cid >= 0; cid--) {
+		pdata = adsp_cores[cid];
+
+		if (pdata->state == ADSP_RUNNING) {
+			ret = flush_suspend_work(pdata->id);
+
+			pr_info("%s, flush_suspend_work ret %d, cid %d",
+				__func__, ret, cid);
+		}
+	}
+
+#ifdef CONFIG_MTK_TIMER_TIMESYNC
+	if (is_adsp_system_running()) {
+		timesync_to_adsp(adsp_cores[ADSP_A_ID], APTIME_FREEZE);
+		pr_info("%s, time sync freeze", __func__);
+	}
+#endif
+	return 0;
+}
+
+static int adsp_ap_resume(struct device *dev)
+{
+#ifdef CONFIG_MTK_TIMER_TIMESYNC
+	if (is_adsp_system_running()) {
+		timesync_to_adsp(adsp_cores[ADSP_A_ID], APTIME_UNFREEZE);
+		pr_info("%s, time sync unfreeze", __func__);
+	}
+#endif
+	return 0;
+}
+
+static const struct dev_pm_ops adsp_ap_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(adsp_ap_suspend,
+				adsp_ap_resume)
+};
+
 static struct platform_driver adsp_common_driver = {
 	.probe = adsp_common_drv_probe,
 	.remove = adsp_common_drv_remove,
@@ -506,6 +548,9 @@ static struct platform_driver adsp_common_driver = {
 		.owner = THIS_MODULE,
 #ifdef CONFIG_OF
 		.of_match_table = adsp_common_of_ids,
+#endif
+#ifdef CONFIG_PM
+		.pm = &adsp_ap_pm_ops,
 #endif
 	},
 };
