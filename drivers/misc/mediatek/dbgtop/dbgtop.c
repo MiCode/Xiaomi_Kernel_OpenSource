@@ -24,6 +24,7 @@
 #include <mt-plat/sync_write.h>
 #include <mt-plat/mtk_io.h>
 
+#include <mtk_dbgtop.h>
 #include <dbgtop.h>
 
 static void __iomem *DBGTOP_BASE;

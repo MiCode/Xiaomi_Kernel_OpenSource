@@ -50,12 +50,4 @@
 #define MTK_DBGTOP_DFD_TIMEOUT_MASK \
 	(0x1FFFF << MTK_DBGTOP_DFD_TIMEOUT_SHIFT)
 
-int mtk_dbgtop_dram_reserved(int enable);
-int mtk_dbgtop_cfg_dvfsrc(int enable);
-int mtk_dbgtop_pause_dvfsrc(int enable);
-int mtk_dbgtop_dfd_count_en(int value);
-int mtk_dbgtop_dfd_therm1_dis(int value);
-int mtk_dbgtop_dfd_therm2_dis(int value);
-int mtk_dbgtop_dfd_timeout(int value);
-
 #endif
