@@ -93,8 +93,8 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 
 		ret = args[0] >= APUSYS_MAX_NUM_OPPS;
 		if (ret) {
-			PWR_LOG_INF("opp step(%d) is out-of-bound,
-				max opp:%d\n",
+			PWR_LOG_INF(
+				"opp step(%d) is out-of-bound,	 max opp:%d\n",
 					(int)(args[0]), APUSYS_MAX_NUM_OPPS);
 			goto out;
 		}

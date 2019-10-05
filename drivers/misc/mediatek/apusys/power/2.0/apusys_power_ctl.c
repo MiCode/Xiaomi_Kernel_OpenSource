@@ -157,6 +157,10 @@ void apusys_clk_path_update_pwr(enum DVFS_USER user, enum DVFS_VOLTAGE voltage)
 	for (path_volt_index = 0;
 	path_volt_index < APUSYS_PATH_USER_NUM; path_volt_index++){
 		apusys_opps.user_path_volt[user][path_volt_index] = voltage;
+			(voltage >
+			dvfs_clk_path_max_vol[user][path_volt_index] ?
+			dvfs_clk_path_max_vol[user][path_volt_index] :
+			voltage);
 		PWR_LOG_INF("%s, user_path_volt[%s][%d]=%d\n",
 			__func__,
 			user_str[user],
@@ -217,18 +221,19 @@ if (apusys_opps.final_buck_volt[voltage_domain0] == voltage0 &&
 			if (apusys_opps.opps[opp_index][voltage_domain0].voltage
 	> voltage0) {
 				apusys_opps.final_buck_volt[voltage_domain0] =
-	apusys_opps.opps[opp_index][voltage_domain0].voltage;
-		PWR_LOG_INF("%s, %s from %d --> %d\n",
-		__func__,
-		buck_domain_str[voltage_domain0], voltage0,
-		apusys_opps.final_buck_volt[voltage_domain0]);
-		break;
-			}
+			apusys_opps.opps[opp_index][voltage_domain0].voltage;
+				PWR_LOG_INF("%s, %s from %d --> %d\n",
+				__func__,
+				buck_domain_str[voltage_domain0],
+				voltage0,
+			apusys_opps.final_buck_volt[voltage_domain0]);
+				break;
+				}
 		} else if (voltage0 > voltage1) {
 			if (apusys_opps.opps[opp_index][voltage_domain1].voltage
 			> voltage1) {
 				apusys_opps.final_buck_volt[voltage_domain1] =
-		apusys_opps.opps[opp_index][voltage_domain1].voltage;
+			apusys_opps.opps[opp_index][voltage_domain1].voltage;
 				PWR_LOG_INF("%s, %s from %d --> %d\n",
 				__func__,
 				buck_domain_str[voltage_domain1],
