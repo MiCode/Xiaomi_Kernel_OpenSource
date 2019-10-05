@@ -45,6 +45,7 @@ extern void kernel_dump_exception_reg(void);
 #ifdef CONFIG_MTK_PMIC_COMMON
 extern int pmic_debug_init(struct platform_device *dev);
 extern unsigned int pmic_dbg_level_set(unsigned int level);
+extern void pmic_cmp_register(struct seq_file *m);
 extern void pmic_dump_register(struct seq_file *m);
 extern void both_dump_exception_reg(struct seq_file *s);
 extern int pmic_dump_exception_reg(void);

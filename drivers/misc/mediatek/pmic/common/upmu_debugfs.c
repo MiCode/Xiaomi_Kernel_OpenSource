@@ -222,6 +222,32 @@ static const struct file_operations pmic_dbg_level_operations = {
 };
 
 /*
+ * PMIC reg cmp log
+ */
+/*----------------pmic reg cmp machanism-----------------------*/
+void __attribute__ ((weak)) pmic_cmp_register(struct seq_file *m)
+{
+}
+
+static int proc_cmp_register_show(struct seq_file *m, void *v)
+{
+	seq_puts(m, "*****Compare PMIC registers with initial setting*****\n");
+	pmic_cmp_register(m);
+
+	return 0;
+}
+
+static int proc_cmp_register_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_cmp_register_show, NULL);
+}
+
+static const struct file_operations pmic_cmp_register_proc_fops = {
+	.open = proc_cmp_register_open,
+	.read = seq_read,
+};
+
+/*
  * PMIC reg dump log
  */
 /*----------------pmic reg dump machanism-----------------------*/
@@ -263,6 +289,9 @@ int pmic_debug_init(struct platform_device *dev)
 	debugfs_create_file("dump_pmic_reg", 0644,
 				mtk_pmic_dir, NULL,
 				&pmic_dump_register_proc_fops);
+	debugfs_create_file("cmp_pmic_reg", 0644,
+				mtk_pmic_dir, NULL,
+				&pmic_cmp_register_proc_fops);
 	debugfs_create_file("pmic_dump_exception", (S_IFREG | 0444),
 				mtk_pmic_dir, NULL,
 				&pmic_dump_exception_operations);

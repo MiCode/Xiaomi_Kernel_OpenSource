@@ -23,11 +23,15 @@
 #elif defined(CONFIG_MTK_PMIC_CHIP_MT6358)
 #include <linux/mfd/mt6358/irq.h>
 #include <linux/mfd/mt6358/registers.h>
+#elif defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+#include <linux/mfd/mt6359/irq.h>
+#include <linux/mfd/mt6359/registers.h>
 #endif
 #include <linux/mfd/mt6358/core.h>
 
 #define MT6357_CID_CODE		0x5700
 #define MT6358_CID_CODE		0x5800
+#define MT6359_CID_CODE		0x5900
 
 static const struct mfd_cell mt6357_devs[] = {
 	{
@@ -55,6 +59,25 @@ static const struct mfd_cell mt6358_devs[] = {
 	}, {
 		.name = "mt6358-misc",
 		.of_compatible = "mediatek,mt6358-misc",
+	},
+};
+
+static const struct mfd_cell mt6359_devs[] = {
+	{
+		.name = "mt-pmic",
+		.of_compatible = "mediatek,mt-pmic",
+	}, {
+		.name = "mt635x-auxadc",
+		.of_compatible = "mediatek,mt6359-auxadc",
+	}, {
+		.name = "mt6359-regulator",
+		.of_compatible = "mediatek,mt6359-regulator",
+	}, {
+		.name = "mt6359-rtc",
+		.of_compatible = "mediatek,mt6359-rtc",
+	}, {
+		.name = "mt6359-misc",
+		.of_compatible = "mediatek,mt6359-misc",
 	},
 };
 
@@ -316,6 +339,17 @@ static int mt6358_irq_init(struct mt6358_chip *chip)
 	return ret;
 }
 
+static struct mt6358_chip *mt6358_pm_off;
+static void mt6358_power_off(void)
+{
+	pr_info("%s\n", __func__);
+	if (mt6358_pm_off)
+		regmap_update_bits(mt6358_pm_off->regmap,
+				PMIC_RG_PWRHOLD_ADDR,
+				PMIC_RG_PWRHOLD_MASK << PMIC_RG_PWRHOLD_SHIFT,
+				0 << PMIC_RG_PWRHOLD_SHIFT);
+}
+
 static int mt6358_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -345,6 +379,9 @@ static int mt6358_probe(struct platform_device *pdev)
 	dev_info(chip->dev, "PMIC irq=%d, PMIC HWCID=0x%x, ret=%d\n",
 		 chip->irq, id, ret);
 
+	mt6358_pm_off = chip;
+	pm_power_off = mt6358_power_off;
+
 	switch (id & 0xFF00) {
 	case MT6357_CID_CODE:
 		chip->top_int_status_reg = PMIC_INT_STATUS_TOP_RSV_ADDR;
@@ -363,6 +400,15 @@ static int mt6358_probe(struct platform_device *pdev)
 		ret = devm_mfd_add_devices(&pdev->dev, -1, mt6358_devs,
 					   ARRAY_SIZE(mt6358_devs), NULL,
 					   0, chip->irq_domain);
+		break;
+	case MT6359_CID_CODE:
+		chip->top_int_status_reg = PMIC_INT_STATUS_TOP_RSV_ADDR;
+		ret = mt6358_irq_init(chip);
+		if (ret)
+			return ret;
+		ret = devm_mfd_add_devices(&pdev->dev, -1, mt6359_devs,
+					   ARRAY_SIZE(mt6359_devs), NULL,
+					   0, NULL);
 		break;
 	default:
 		dev_notice(&pdev->dev, "unsupported chip: %d\n", id);
@@ -384,6 +430,8 @@ static const struct of_device_id mt6358_of_match[] = {
 		.compatible = "mediatek,mt6357-pmic",
 	}, {
 		.compatible = "mediatek,mt6358-pmic",
+	}, {
+		.compatible = "mediatek,mt6359-pmic",
 	}, {
 		/* sentinel */
 	}

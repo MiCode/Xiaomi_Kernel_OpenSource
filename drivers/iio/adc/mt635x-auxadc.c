@@ -28,6 +28,8 @@
 #include <linux/mfd/mt6357/registers.h>
 #elif defined(CONFIG_MTK_PMIC_CHIP_MT6358)
 #include <linux/mfd/mt6358/registers.h>
+#elif defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+#include <linux/mfd/mt6359/registers.h>
 #endif
 
 #define AUXADC_RDY_SHIFT		15
@@ -155,6 +157,24 @@ static const struct auxadc_regs mt6358_auxadc_regs_tbl[] = {
 #endif
 };
 
+static const struct auxadc_regs mt6359_auxadc_regs_tbl[] = {
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+	MT635x_AUXADC_REG(BATADC, MT6359, AUXADC_RQST0, 0, AUXADC_ADC0),
+	MT635x_AUXADC_REG(VCDT, MT6359, AUXADC_RQST0, 2, AUXADC_ADC2),
+	MT635x_AUXADC_REG(BAT_TEMP, MT6359, AUXADC_RQST0, 3, AUXADC_ADC3),
+	MT635x_AUXADC_REG(CHIP_TEMP, MT6359, AUXADC_RQST0, 4, AUXADC_ADC4),
+	MT635x_AUXADC_REG(VCORE_TEMP, MT6359, AUXADC_RQST1, 8, AUXADC_ADC38),
+	MT635x_AUXADC_REG(VPROC_TEMP, MT6359, AUXADC_RQST1, 9, AUXADC_ADC39),
+	MT635x_AUXADC_REG(VGPU_TEMP, MT6359, AUXADC_RQST1, 10, AUXADC_ADC40),
+	MT635x_AUXADC_REG(ACCDET, MT6359, AUXADC_RQST0, 5, AUXADC_ADC5),
+	MT635x_AUXADC_REG(VDCXO, MT6359, AUXADC_RQST0, 6, AUXADC_ADC6),
+	MT635x_AUXADC_REG(TSX_TEMP, MT6359, AUXADC_RQST0, 7, AUXADC_ADC7),
+	MT635x_AUXADC_REG(HPOFS_CAL, MT6359, AUXADC_RQST0, 9, AUXADC_ADC9),
+	MT635x_AUXADC_REG(DCXO_TEMP, MT6359, AUXADC_RQST0, 10, AUXADC_ADC10),
+	MT635x_AUXADC_REG(VBIF, MT6359, AUXADC_RQST0, 11, AUXADC_ADC11),
+#endif
+};
+
 static const unsigned int mt6357_dbg_regs[] = {
 #if defined(CONFIG_MTK_PMIC_CHIP_MT6357)
 	MT6357_AUXADC_STA0, MT6357_AUXADC_STA1, MT6357_AUXADC_STA2,
@@ -169,6 +189,24 @@ static const unsigned int mt6358_dbg_regs[] = {
 	MT6358_STRUP_CON6, MT6358_HK_TOP_RST_CON0,
 	MT6358_HK_TOP_CLK_CON0, MT6358_HK_TOP_CLK_CON1,
 	MT6358_AUXADC_CON20, /* check DATA_REUSE */
+#endif
+};
+
+static const unsigned int mt6359_dbg_regs[] = {
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+	MT6359_AUXADC_STA0, MT6359_AUXADC_STA1, MT6359_AUXADC_STA2,
+	MT6359_AUXADC_CON5, MT6359_AUXADC_CON9, MT6359_AUXADC_CON21,
+	MT6359_HK_TOP_LDO_STATUS,
+	MT6359_AUXADC_NAG_9, MT6359_AUXADC_NAG_10, MT6359_AUXADC_NAG_11,
+	MT6359_AUXADC_IMP3, MT6359_AUXADC_IMP4, MT6359_AUXADC_IMP5,
+	MT6359_AUXADC_LBAT6, MT6359_AUXADC_LBAT7, MT6359_AUXADC_LBAT8,
+	MT6359_AUXADC_BAT_TEMP_7, MT6359_AUXADC_BAT_TEMP_8,
+	MT6359_AUXADC_BAT_TEMP_9,
+	MT6359_AUXADC_LBAT2_6, MT6359_AUXADC_LBAT2_7, MT6359_AUXADC_LBAT2_8,
+	MT6359_AUXADC_MDRT_3, MT6359_AUXADC_MDRT_4, MT6359_AUXADC_MDRT_5,
+	MT6359_HK_TOP_STRUP, MT6359_HK_TOP_RST_CON0,
+	MT6359_HK_TOP_CLK_CON0, MT6359_HK_TOP_CLK_CON1,
+	MT6359_AUXADC_CON20, /* check DATA_REUSE */
 #endif
 };
 
@@ -196,6 +234,24 @@ static const unsigned int mt6358_rst_setting[][3] = {
 		MT6358_AUXADC_RQST0, 0x80, 0x80,
 	}, {
 		MT6358_AUXADC_RQST1, 0x40, 0x40,
+	}
+#endif
+};
+
+static const unsigned int mt6359_rst_setting[][3] = {
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+	{
+		MT6359_HK_TOP_WKEY, 0xFFFF, 0x6359,
+	}, {
+		MT6359_HK_TOP_RST_CON0, 0x9, 0x9,
+	}, {
+		MT6359_HK_TOP_RST_CON0, 0x9, 0,
+	}, {
+		MT6359_HK_TOP_WKEY, 0xFFFF, 0,
+	}, {
+		MT6359_AUXADC_RQST0, 0x80, 0x80,
+	}, {
+		MT6359_AUXADC_RQST1, 0x40, 0x40,
 	}
 #endif
 };
@@ -230,6 +286,13 @@ int auxadc_priv_read_channel(struct device *dev, int channel)
 	val = (val / auxadc_chan->r_ratio[1]) >> auxadc_chan->res;
 
 	return val;
+}
+
+unsigned char *auxadc_get_r_ratio(int channel)
+{
+	const struct auxadc_channels *auxadc_chan = &auxadc_chans[channel];
+
+	return (unsigned char *)auxadc_chan->r_ratio;
 }
 
 #define AUXADC_MAP(_adc_channel_label)				\
@@ -288,7 +351,7 @@ static void auxadc_timeout_handler(struct mt635x_auxadc_device *adc_dev,
 	for (i = 0; i < adc_dev->num_dbg_regs; i++) {
 		regmap_read(adc_dev->regmap,
 			    adc_dev->dbg_regs[i], &reg_val);
-		snprintf(reg_str, 20, "Reg[0x%x]=0x%x, ",
+		snprintf(reg_str, 20, "Reg[0x%x]=0x%x,",
 			adc_dev->dbg_regs[i], reg_val);
 		strncat(reg_log, reg_str, ARRAY_SIZE(reg_log) - 1);
 	}
@@ -523,6 +586,15 @@ static int mt635x_auxadc_probe(struct platform_device *pdev)
 		adc_dev->rst_setting = mt6358_rst_setting;
 		adc_dev->num_rst_setting = ARRAY_SIZE(mt6358_rst_setting);
 		break;
+	case 0x6359:
+		adc_dev->auxadc_regs_tbl = mt6359_auxadc_regs_tbl;
+		adc_dev->dbg_regs = mt6359_dbg_regs;
+		adc_dev->num_dbg_regs = ARRAY_SIZE(mt6359_dbg_regs);
+		adc_dev->rst_setting = mt6359_rst_setting;
+		adc_dev->num_rst_setting = ARRAY_SIZE(mt6359_rst_setting);
+		break;
+	default:
+		break;
 	}
 
 	ret = auxadc_parse_dt(adc_dev, node);
@@ -582,6 +654,9 @@ static const struct of_device_id mt635x_auxadc_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6358-auxadc",
 		.data = (void *)0x6358,
+	}, {
+		.compatible = "mediatek,mt6359-auxadc",
+		.data = (void *)0x6359,
 	}, {
 		/* sentinel */
 	}
