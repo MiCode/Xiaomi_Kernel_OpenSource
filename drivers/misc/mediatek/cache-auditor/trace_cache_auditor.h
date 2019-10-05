@@ -36,7 +36,7 @@ TRACE_EVENT(ca_pftch_mb,
 		__entry->counter = counter*16/1024/1024;
 	),
 
-	TP_printk("C|5566|cpu%d-%lx|%lu",
+	TP_printk("C|5566|cpu%d-%llx|%llu",
 		  __entry->cpu, __entry->config, __entry->counter)
 );
 
@@ -128,7 +128,7 @@ TRACE_EVENT(ca_set_throttle,
 		__entry->val = val;
 	),
 
-	TP_printk("val: %lu (%d)", __entry->val, __entry->val & 0x80)
+	TP_printk("val: %lu (%lu)", __entry->val, __entry->val & 0x80)
 );
 #endif /* _TRACE_CACHE_AUDITOR_H */
 
