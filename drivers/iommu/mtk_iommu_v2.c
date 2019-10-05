@@ -453,7 +453,7 @@ static int mtk_dump_reg(const struct mtk_iommu_data *data,
 				  start + 4 * (i + 1),
 				  readl_relaxed(base + start + 4 * (i + 1)));
 		else if (length - i == 3)
-			pr_notice("0x%x=0x%x, 0x%x=0x%x\n",
+			pr_notice("0x%x=0x%x, 0x%x=0x%x, 0x%x=0x%x\n",
 				  start + 4 * i,
 				  readl_relaxed(base + start + 4 * i),
 				  start + 4 * (i + 1),
@@ -3736,8 +3736,9 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 		return PTR_ERR(data->base);
 	}
 #ifdef MTK_IOMMU_DEBUG
-	pr_notice("%s, %d, base=0x%lx, protect_base=0x%lx\n",
-		  __func__, __LINE__, data->base, data->protect_base);
+	pr_notice("%s, %d, base=0x%lx, protect_base=0x%pa\n",
+		  __func__, __LINE__, (unsigned long)data->base,
+		  &data->protect_base);
 #endif
 	ioaddr = res->start;
 

@@ -262,8 +262,9 @@ static void *__arm_v7s_alloc_table(int lvl, gfp_t gfp,
 	if (phys != (arm_v7s_iopte)phys) {
 		/* Doesn't fit in PTE */
 #ifdef MTK_PGTABLE_DEBUG_ENABLED
-		pr_notice("%s, %d, l%d_table phys(0x%lx) > 32bit, virt=0x%lx\n",
-			  __func__, __LINE__, lvl, phys, table);
+		pr_notice("%s, %d, l%d_table phys(0x%pa) > 32bit, virt=0x%lx\n",
+			  __func__, __LINE__, lvl, &phys,
+			  (unsigned long)table);
 #endif
 #ifdef CONFIG_MTK_IOMMU_V2
 		if (lvl == 1)
@@ -471,9 +472,10 @@ static int arm_v7s_init_pte(struct arm_v7s_io_pgtable *data,
 
 			tblp = ptep - ARM_V7S_LVL_IDX(iova, lvl);
 #ifdef MTK_PGTABLE_DEBUG_ENABLED
-			pr_notice("%s, %d, unmap before over writing, iova=0x%lx, new paddr=0x%lx, ptep=0x%lx, size=0x%lx, level=%d\n",
+			pr_notice("%s, %d, unmap before over writing, iova=0x%lx, new paddr=0x%pa, ptep=0x%lx, size=0x%lx, level=%d\n",
 				__func__, __LINE__,
-				iova + i * sz, paddr, tblp, sz, lvl);
+				iova + i * sz, &paddr,
+				(unsigned long)tblp, sz, lvl);
 #endif
 			if (WARN_ON(__arm_v7s_unmap(data, iova + i * sz,
 						    sz, lvl, tblp) != sz))
@@ -620,15 +622,15 @@ static int arm_v7s_map(struct io_pgtable_ops *ops, unsigned long iova,
 	}
 
 	if (WARN_ON(paddr >= (1ULL << data->iop.cfg.oas))) {
-		pr_notice("%s, %d, err paddr:0x%lx, oas=%d, quirks=0x%x\n",
-			  __func__, __LINE__, paddr,
+		pr_notice("%s, %d, err paddr:0x%pa, oas=%d, quirks=0x%lx\n",
+			  __func__, __LINE__, &paddr,
 			  data->iop.cfg.oas, iop->cfg.quirks);
 		return -ERANGE;
 	}
 
 	if (WARN_ON(!PA_ALIGN(paddr))) {
-		pr_notice("%s, %d, err paddr:0x%lx\n",
-			  __func__, __LINE__, paddr);
+		pr_notice("%s, %d, err paddr:0x%pa\n",
+			  __func__, __LINE__, &paddr);
 		return -ERANGE;
 	}
 
@@ -720,7 +722,8 @@ static int arm_v7s_split_blk_unmap(struct arm_v7s_io_pgtable *data,
 
 #ifdef MTK_PGTABLE_DEBUG_ENABLED
 		pr_notice("%s, %d, iova=0x%lx, ptep=0x%lx, pte=0x%lx, num=%d\n",
-			__func__, __LINE__, iova, &tablep[i], pte, num_entries);
+			__func__, __LINE__, iova, (unsigned long)&tablep[i],
+			(unsigned long)pte, num_entries);
 #endif
 		__arm_v7s_set_pte(&tablep[i], pte, num_entries, cfg);
 	}
@@ -735,7 +738,7 @@ static int arm_v7s_split_blk_unmap(struct arm_v7s_io_pgtable *data,
 		tablep = iopte_deref(pte, 1);
 #ifdef MTK_PGTABLE_DEBUG_ENABLED
 		pr_notice("%s, %d, unmap when install failed, iova=0x%lx, ptep=0x%lx, size=0x%lx, level=2\n",
-			__func__, __LINE__, iova, tablep, size);
+			__func__, __LINE__, iova, (unsigned long)tablep, size);
 #endif
 		return __arm_v7s_unmap(data, iova, size, 2, tablep);
 	}
@@ -772,7 +775,8 @@ static int __arm_v7s_unmap(struct arm_v7s_io_pgtable *data,
 #ifdef MTK_PGTABLE_DEBUG_ENABLED
 			pr_notice("%s, %d, err pte, iova=0x%lx, ptep=0x%lx, i=%d, pte=0x%lx, lvl=%d\n",
 				__func__, __LINE__, iova_temp,
-				&ptep[i], i, pte[i], lvl);
+				(unsigned long)&ptep[i], i,
+				(unsigned long)pte[i], lvl);
 			iop->ops.iova_to_phys(&iop->ops, iova_temp);
 #endif
 			return 0;
@@ -862,6 +866,7 @@ static int arm_v7s_set_acp(struct arm_v7s_io_pgtable *data,
 	int lvl = 0;
 	unsigned int mask, enabled = 0;
 	arm_v7s_iopte *ptep_curr;
+	dma_addr_t dma_addr;
 
 	/* get target pte of iova */
 	do {
@@ -873,10 +878,11 @@ static int arm_v7s_set_acp(struct arm_v7s_io_pgtable *data,
 	} while (ARM_V7S_PTE_IS_TABLE(*pte, lvl));
 
 	if (!ARM_V7S_PTE_IS_VALID(*pte)) {
-		pr_notice("%s, %d, err pte, iova=0x%lx, ptep=0x%lx/0x%lx, pte=0x%lx, level=0x%lx\n",
+		dma_addr = __arm_v7s_dma_addr(ptep_curr);
+		pr_notice("%s, %d, err pte, iova=0x%lx, ptep=0x%pa/0x%lx, pte=0x%lx, level=0x%x\n",
 			  __func__, __LINE__, iova,
-			  __arm_v7s_dma_addr(ptep_curr),
-			  *ptep_curr, *pte, lvl);
+			  &dma_addr,
+			  (unsigned long)*ptep_curr, (unsigned long)*pte, lvl);
 		return -EINVAL;
 	}
 
@@ -890,20 +896,21 @@ static int arm_v7s_set_acp(struct arm_v7s_io_pgtable *data,
 		*pte &= ~mask;
 	} else {
 #if 1 //def MTK_PGTABLE_DEBUG_ENABLED
-		pr_notice("%s, %d, no need of acp switch, iova=0x%lx, ptep=0x%lx/0x%lx, pte=0x%lx, level=%d\n",
+		dma_addr = __arm_v7s_dma_addr(ptep_curr);
+		pr_notice("%s, %d, no need of acp switch, iova=0x%lx, ptep=0x%pa/0x%lx, pte=0x%lx, level=%d\n",
 			  __func__, __LINE__, iova,
-			  __arm_v7s_dma_addr(ptep_curr),
-			  *ptep_curr, *pte, lvl);
+			  &dma_addr,
+			  (unsigned long)*ptep_curr, (unsigned long)*pte, lvl);
 #endif
 		goto out;
 	}
 
 	__arm_v7s_set_pte(ptep_curr, *pte, 1, cfg);
 #if 1 //def MTK_PGTABLE_DEBUG_ENABLED
-	pr_notice("%s, %d, iova=0x%lx, mask=0x%x, ptep=0x%lx/0x%lx, pte=0x%lx, level=%d\n",
-		  __func__, __LINE__, iova, mask,
-		  __arm_v7s_dma_addr(ptep_curr),
-		  *ptep_curr, *pte, lvl);
+	dma_addr = __arm_v7s_dma_addr(ptep_curr);
+	pr_notice("%s, %d, iova=0x%lx, mask=0x%x, ptep=0x%pa/0x%lx, pte=0x%lx, level=%d\n",
+		  __func__, __LINE__, iova, mask, &dma_addr,
+		  (unsigned long)*ptep_curr, (unsigned long)*pte, lvl);
 #endif
 
 out:
@@ -1015,9 +1022,12 @@ static struct io_pgtable *arm_v7s_alloc_pgtable(struct io_pgtable_cfg *cfg,
 {
 	struct arm_v7s_io_pgtable *data;
 	unsigned long base = 0;
+#ifdef MTK_PGTABLE_DEBUG_ENABLED
+	phys_addr_t phys_addr;
+#endif
 
 	if (cfg->ias > ARM_V7S_ADDR_BITS || cfg->oas > ARM_V7S_PHYS_ADDR_BITS) {
-		pr_notice("%s, %d, err ias=0x%lx, oas=0x%lx\n",
+		pr_notice("%s, %d, err ias=0x%x, oas=0x%x\n",
 			  __func__, __LINE__, cfg->ias, cfg->oas);
 		return NULL;
 	}
@@ -1135,10 +1145,10 @@ static struct io_pgtable *arm_v7s_alloc_pgtable(struct io_pgtable_cfg *cfg,
 	cfg->arm_v7s_cfg.ttbr[1] = 0;
 #endif
 #ifdef MTK_PGTABLE_DEBUG_ENABLED
-	pr_notice("%s, %d, pgd=0x%lx, cf.ttbr=0x%lx,pgd_pa=0x%lx\n",
-		  __func__, __LINE__, data->pgd,
-		cfg->arm_v7s_cfg.ttbr[0],
-		virt_to_phys(data->pgd));
+	phys_addr = virt_to_phys(data->pgd);
+	pr_notice("%s, %d, pgd=0x%lx, cf.ttbr=0x%x,pgd_pa=0x%pa\n",
+		  __func__, __LINE__, (unsigned long)data->pgd,
+		cfg->arm_v7s_cfg.ttbr[0], &phys_addr);
 #endif
 	return &data->iop;
 

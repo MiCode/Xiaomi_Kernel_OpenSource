@@ -893,9 +893,9 @@ int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 	 * implementation - it knows better than we do.
 	 */
 	if (iommu_map_sg(domain, iova, sg, nents, prot) < iova_len) {
-		pr_notice("%s, %d, dev:%s domain:%p failed at map sg, iova:0x%lx, len:%x\n",
+		pr_notice("%s, %d, dev:%s domain:%p failed at map sg, iova:0x%pa, len:%lx\n",
 			    __func__, __LINE__, dev_name(dev),
-			    domain, iova, iova_len);
+			    domain, &iova, iova_len);
 		goto out_free_iova;
 	}
 
@@ -1038,14 +1038,14 @@ void iommu_dma_dump_iova(void *domain, unsigned long start,
 		return;
 	// the reserved region will not be managed in current domain
 	else if (!p_start)
-		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%lx/0x%lx, size:0x%lx (reserved region, check the other domain?)\n",
-		  start, end, p_start, p_end, size);
+		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%pa/0x%pa, size:0x%lx (reserved region, check the other domain?)\n",
+		  start, end, &p_start, &p_end, size);
 	else if (!p_end)
-		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%lx/0x%lx, size:0x%lx (size not aligned, check IOVA list)\n",
-		  start, end, p_start, p_end, size);
+		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%pa/0x%pa, size:0x%lx (size not aligned, check IOVA list)\n",
+		  start, end, &p_start, &p_end, size);
 	else
-		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%lx/0x%lx, size:0x%lx\n",
-			  start, end, p_start, p_end, size);
+		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%pa/0x%pa, size:0x%lx\n",
+			  start, end, &p_start, &p_end, size);
 }
 
 void iommu_dma_dump_iovad(struct iommu_domain *domain)
