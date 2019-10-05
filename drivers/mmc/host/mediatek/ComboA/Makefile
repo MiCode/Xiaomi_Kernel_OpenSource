@@ -66,7 +66,3 @@ msdc-y += $(MTK_PLATFORM)/autok_dvfs.o
 ifeq ($(CONFIG_FPGA_EARLY_PORTING),y)
 msdc-y += $(MTK_PLATFORM)/msdc_fpga_io.o
 endif
-
-ifeq ($(CONFIG_MTK_EMMC_HW_CQ),y)
-msdc-y += cmdq_hci.o
-endif
