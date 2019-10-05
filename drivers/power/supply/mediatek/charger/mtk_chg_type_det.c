@@ -360,14 +360,14 @@ static int chgdet_task_threadfn(void *data)
 	bool attach = false;
 	int ret = 0;
 	int i = 0;
-	int max_wait_cnt = 40;
+	int max_wait_cnt = 200;
 
 	for (i = 0; i < max_wait_cnt; i++) {
-		msleep(500);
+		msleep(100);
 
 		cti->tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
 		if (!cti->tcpc_dev) {
-			pr_info("%s get tcpc device type_c_port0 fail\n",
+			pr_debug("%s get tcpc device type_c_port0 fail\n",
 				__func__);
 			continue;
 		} else {
@@ -387,7 +387,8 @@ static int chgdet_task_threadfn(void *data)
 				__func__);
 		}
 
-		pr_info("%s: get tcpc and charger consumer done\n", __func__);
+		pr_info("%s: get tcpc and charger consumer done:%d\n",
+				__func__, i);
 		break;
 	}
 
