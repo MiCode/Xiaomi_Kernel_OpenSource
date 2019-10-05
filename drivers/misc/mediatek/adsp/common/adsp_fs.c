@@ -114,6 +114,9 @@ static inline ssize_t suspend_cmd_store(struct device *dev,
 	token1 = strsep(&pin, delim);
 	token2 = strsep(&pin, delim);
 
+	if (!token1 || !token2)
+		goto EXIT;
+
 	fid = adsp_get_feature_index(token2);
 
 	if ((strcmp(token1, "regi") == 0) && (fid >= 0))
@@ -122,6 +125,7 @@ static inline ssize_t suspend_cmd_store(struct device *dev,
 	if ((strcmp(token1, "deregi") == 0) && (fid >= 0))
 		_adsp_deregister_feature(pdata->id, fid, 0);
 
+EXIT:
 	kfree(temp);
 	return count;
 }

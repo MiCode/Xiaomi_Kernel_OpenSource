@@ -179,8 +179,8 @@ int adsp_core0_suspend(void)
 			ret = -EPIPE;
 			goto ERROR;
 		}
-		wait_for_completion_timeout(&pdata->done,
-					msecs_to_jiffies(2000));
+		ret = wait_for_completion_timeout(&pdata->done,
+						msecs_to_jiffies(2000));
 
 		while (--retry && !is_adsp_core_suspend(pdata))
 			usleep_range(100, 200);
@@ -202,6 +202,7 @@ ERROR:
 
 int adsp_core0_resume(void)
 {
+	int ret = 0;
 	struct adsp_priv *pdata = adsp_cores[ADSP_A_ID];
 
 	if (get_adsp_state(pdata) == ADSP_SUSPEND) {
@@ -210,8 +211,8 @@ int adsp_core0_resume(void)
 
 		reinit_completion(&pdata->done);
 		adsp_mt_run(pdata->id);
-		wait_for_completion_timeout(&pdata->done,
-					msecs_to_jiffies(2000));
+		ret = wait_for_completion_timeout(&pdata->done,
+						msecs_to_jiffies(2000));
 
 		if (get_adsp_state(pdata) != ADSP_RUNNING) {
 			pr_warn("%s, can't going to resume\n", __func__);
@@ -234,8 +235,8 @@ int adsp_core1_suspend(void)
 			ret = -EPIPE;
 			goto ERROR;
 		}
-		wait_for_completion_timeout(&pdata->done,
-					msecs_to_jiffies(2000));
+		ret = wait_for_completion_timeout(&pdata->done,
+						msecs_to_jiffies(2000));
 
 		while (--retry && !is_adsp_core_suspend(pdata))
 			usleep_range(100, 200);
@@ -266,15 +267,15 @@ int adsp_core1_resume(void)
 
 		reinit_completion(&pdata->done);
 		adsp_mt_run(pdata->id);
-		wait_for_completion_timeout(&pdata->done,
-					msecs_to_jiffies(2000));
+		ret = wait_for_completion_timeout(&pdata->done,
+						msecs_to_jiffies(2000));
 
 		if (get_adsp_state(pdata) != ADSP_RUNNING) {
 			pr_warn("%s, can't going to resume\n", __func__);
 			return -ETIME;
 		}
 	}
-	return ret;
+	return 0;
 }
 
 void adsp_logger_init0_cb(struct work_struct *ws)

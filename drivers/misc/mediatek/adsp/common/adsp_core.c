@@ -88,7 +88,7 @@ int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, void *src,
 int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst,
 			     int count)
 {
-	void __iomem *src;
+	void __iomem *src = NULL;
 	const struct sharedmem_info *item;
 
 	if (unlikely(id >= ADSP_SHAREDMEM_NUM))
