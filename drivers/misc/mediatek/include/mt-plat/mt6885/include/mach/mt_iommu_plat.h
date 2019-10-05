@@ -386,8 +386,6 @@ static inline unsigned int iommu_get_field_by_mask(
 #define REG_MMU_MAU_EA(MMU, MAU)	(0x908 + MMU * 0x100 + MAU * 0)
 #define REG_MMU_MAU_EA_EXT(MMU, MAU)	(0x90C + MMU * 0x100 + MAU * 0)
 #define REG_MMU_MAU_LARB_EN(MMU)	(0x910 + MMU * 0x100)
-#define F_MAU_LARB_VAL(mau, larb)	 ((larb)<<(mau*8))
-#define F_MAU_LARB_MSK(mau)	     (0xff<<(mau*8))
 #define REG_MMU_MAU_PORT_EN(MMU, MAU)	(0x914 + MMU * 0x100 + MAU * 0)
 #define REG_MMU_MAU_ASRT_ID(MMU, MAU)	(0x918 + MMU * 0x100 + MAU * 0)
 #define F_MMU_MAU_ASRT_ID_LARB(regval)    F_MSK_SHIFT(regval, 9, 5)
