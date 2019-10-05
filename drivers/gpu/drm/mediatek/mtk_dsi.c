@@ -435,6 +435,8 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 		goto err_refcount;
 	}
 
+	if (dsi->ext)
+		mtk_mipi_tx_lane_config(dsi->phy, dsi->ext);
 	phy_power_on(dsi->phy);
 
 	ret = clk_prepare_enable(dsi->engine_clk);

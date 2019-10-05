@@ -16,7 +16,10 @@
 
 #include <linux/phy/phy.h>
 
+struct mtk_panel_ext;
+
 int mtk_mipi_tx_dump(struct phy *phy);
 unsigned int mtk_mipi_tx_pll_get_rate(struct phy *phy);
+int mtk_mipi_tx_lane_config(struct phy *phy, struct mtk_panel_ext *mtk_panel);
 
 #endif

@@ -30,6 +30,22 @@ struct mtk_panel_funcs {
 	int (*reset)(struct drm_panel *panel, int on);
 };
 
+enum MIPITX_PHY_PORT {
+	MIPITX_PHY_PORT_0 = 0,
+	MIPITX_PHY_PORT_1,
+	MIPITX_PHY_PORT_NUM
+};
+
+enum MIPITX_PHY_LANE_SWAP {
+	MIPITX_PHY_LANE_0 = 0,
+	MIPITX_PHY_LANE_1,
+	MIPITX_PHY_LANE_2,
+	MIPITX_PHY_LANE_3,
+	MIPITX_PHY_LANE_CK,
+	MIPITX_PHY_LANE_RX,
+	MIPITX_PHY_LANE_NUM
+};
+
 struct mtk_panel_params {
 	unsigned int vfp_low_power;
 	unsigned int cust_esd_check;
@@ -48,6 +64,9 @@ struct mtk_panel_params {
 	void *corner_pattern_lt_addr;
 	unsigned int physical_width_um;
 	unsigned int physical_height_um;
+	unsigned int lane_swap_en;
+	enum MIPITX_PHY_LANE_SWAP
+		lane_swap[MIPITX_PHY_PORT_NUM][MIPITX_PHY_LANE_NUM];
 };
 
 struct mtk_panel_ext {
