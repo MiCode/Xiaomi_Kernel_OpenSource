@@ -902,6 +902,7 @@ static int fgauge_initial(struct gauge_device *gauge_dev)
 	int bat_flag = 0;
 	int is_charger_exist;
 	unsigned int temps = 0;
+	unsigned int slp_cur_th = 0;
 
 	temps = pmic_get_register_value(PMIC_RG_FG_OFFSET_SWAP);
 	pmic_set_register_value(PMIC_RG_FG_OFFSET_SWAP, 0);
@@ -916,12 +917,19 @@ static int fgauge_initial(struct gauge_device *gauge_dev)
 
 
 	pmic_set_register_value(PMIC_AUXADC_NAG_PRD, 10);
+
+	/* modify slp_cur_th, mt6358 only */
+	pmic_set_register_value(PMIC_FG_SOFF_SLP_CUR_TH, 0x7C);
+	mdelay(1);
+	slp_cur_th = pmic_get_register_value(PMIC_FG_SOFF_SLP_CUR_TH);
+
 	fgauge_get_info(gauge_dev, GAUGE_BAT_PLUG_STATUS, &bat_flag);
 	fgauge_get_info(gauge_dev, GAUGE_PL_CHARGING_STATUS, &is_charger_exist);
 
-	bm_err("bat_plug:%d chr:%d info:0x%x\n",
+	bm_err("bat_plug:%d chr:%d info:0x%x, slp_cur_th:%x\n",
 		bat_flag, is_charger_exist,
-		upmu_get_reg_value(PMIC_RG_SYSTEM_INFO_CON0_ADDR));
+		upmu_get_reg_value(PMIC_RG_SYSTEM_INFO_CON0_ADDR),
+		slp_cur_th);
 
 	get_mtk_battery()->hw_status.pl_charger_status = is_charger_exist;
 
