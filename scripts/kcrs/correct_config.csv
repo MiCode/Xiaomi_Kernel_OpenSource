@@ -1069,3 +1069,5 @@ CONFIG_ZRAM_LZ4_COMPRESS,PROJECT,Chinwen.Chang,,,,,,,,,,,,,,
 CONFIG_ZRAM_LZ4K_COMPRESS,PROJECT,Chinwen.Chang,,,,,,,,,,,,,,
 CONFIG_ZSM,PROJECT,Robbin.Chiu,new config 84a52cb60725192d8ae0c80b58c363c35484cfd4,,,,,,,,,,,,,
 CONFIG_ZSMALLOC,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_MTK_SLBC,PLATFORM,Morven-CF.Yeh,,X,X,X,X,X,X,X,X,X,y,y,y,y
+CONFIG_MTK_SLBC_MMSRAM,PLATFORM,Morven-CF.Yeh,,X,X,X,X,X,X,X,X,X,y,y,y,y
