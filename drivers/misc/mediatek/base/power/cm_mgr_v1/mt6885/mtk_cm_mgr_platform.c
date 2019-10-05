@@ -63,27 +63,6 @@
 #include "mtk_idle.h"
 #endif /* USE_IDLE_NOTIFY */
 
-/* todo: remove after DVFSRC compiled */
-__weak int is_dvfsrc_enabled(void)
-{
-	pr_info("todo: weak %s\n", __func__);
-	return 0;
-}
-__weak void dvfsrc_set_power_model_ddr_request(unsigned int level)
-{
-	pr_info("todo: weak %s\n", __func__);
-};
-__weak unsigned int get_cur_ddr_opp(void)
-{
-	pr_info("todo: weak %s\n", __func__);
-	return 0;
-}
-__weak unsigned int get_cur_vcore_opp(void)
-{
-	pr_info("todo: weak %s\n", __func__);
-	return 0;
-}
-
 #ifdef USE_CPU_TO_DRAM_MAP
 static struct delayed_work cm_mgr_work;
 static struct pm_qos_request ddr_opp_req_by_cpu_opp;
