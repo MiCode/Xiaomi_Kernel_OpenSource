@@ -274,6 +274,13 @@ int apusys_subcmd_create(void *sc_entry,
 	sc->parent_cmd = cmd;
 	sc->pack_idx = get_packid_from_subcmd(sc_entry, sc->type);
 	sc->ctx_group = get_ctxid_from_subcmd(sc_entry);
+	if (sc->ctx_group != VALUE_SUBGAPH_CTX_ID_NONE &&
+		sc->ctx_group > cmd->sc_num) {
+		LOG_ERR("invalid ctx group(%d/%d)\n",
+			sc->ctx_group, cmd->sc_num);
+		kfree(sc);
+		return -EINVAL;
+	}
 	sc->ctx_id = VALUE_SUBGAPH_CTX_ID_NONE;
 	sc->state = CMD_STATE_IDLE;
 	sc->d_time = get_dtime_from_subcmd(sc_entry);

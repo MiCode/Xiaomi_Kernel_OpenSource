@@ -107,7 +107,7 @@ static int alloc_ctx(struct apusys_subcmd *sc, struct apusys_cmd *cmd)
 		sc->ctx_id = ctx_id;
 		LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) ctx(%d)\n",
 			cmd->cmd_id, sc->idx,
-			sc->ctx_group, cmd->ctx_list[sc->ctx_group]);
+			sc->ctx_group, sc->ctx_id);
 	} else {
 		if (cmd->ctx_list[sc->ctx_group] == VALUE_SUBGAPH_CTX_ID_NONE) {
 			ctx_id = mem_alloc_ctx();
@@ -318,12 +318,6 @@ static void subcmd_done(void *isc)
 	kfree(sc);
 	DEBUG_TAG;
 
-	/* clear subcmd bit in cmd entry's status */
-	bitmap_clear(cmd->sc_status, done_idx, 1);
-	if (bitmap_empty(cmd->sc_status, cmd->sc_num)) {
-		cmd->state = CMD_STATE_DONE;
-		state = cmd->state;
-	}
 	mutex_lock(&cmd->sc_mtx);
 
 	/* should insert subcmd which dependency satisfied */
@@ -350,14 +344,22 @@ static void subcmd_done(void *isc)
 		mutex_unlock(&res_mgr->mtx);
 	}
 	mutex_unlock(&cmd->sc_mtx);
-	mutex_unlock(&cmd->mtx);
-	DEBUG_TAG;
+
+	/* clear subcmd bit in cmd entry's status */
+	bitmap_clear(cmd->sc_status, done_idx, 1);
+	if (bitmap_empty(cmd->sc_status, cmd->sc_num)) {
+		cmd->state = CMD_STATE_DONE;
+		state = cmd->state;
+	}
 
 	/* if whole apusys cmd done, wakeup user context thread */
 	if (state == CMD_STATE_DONE) {
 		LOG_DEBUG("apusys cmd(%p/0x%llx) done\n", cmd, cmd->cmd_id);
 		complete(&cmd->comp);
 	}
+
+	mutex_unlock(&cmd->mtx);
+	DEBUG_TAG;
 }
 
 static int exec_cmd_func(void *isc, void *idev)

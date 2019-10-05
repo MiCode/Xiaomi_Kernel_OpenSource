@@ -18,17 +18,17 @@
 #define APUSYS_CMD_VERSION 0x1
 
 /* header column size */
-#define TYPE_APUSYS_MAGIC                   uint64_t
-#define TYPE_APUSYS_CMD_ID                  uint64_t
-#define TYPE_APUSYS_CMD_VERSION             uint8_t
-#define TYPE_PRIORITY                       uint8_t
-#define TYPE_TARGET_TIME                    uint16_t
-#define TYPE_DEADLINE                       uint32_t
-#define TYPE_NUM_OF_SUBGRAPH                uint32_t
-#define TYPE_OFFSET_TO_DEPENDENCY_INFO_LIST uint32_t
-#define TYPE_SUBGRAPH_INFO_POINTER          uint32_t
+#define TYPE_APUSYS_MAGIC                   unsigned long long
+#define TYPE_APUSYS_CMD_ID                  unsigned long long
+#define TYPE_APUSYS_CMD_VERSION             unsigned char
+#define TYPE_PRIORITY                       unsigned char
+#define TYPE_TARGET_TIME                    unsigned short
+#define TYPE_DEADLINE                       unsigned int
+#define TYPE_NUM_OF_SUBGRAPH                unsigned int
+#define TYPE_OFFSET_TO_DEPENDENCY_INFO_LIST unsigned int
+#define TYPE_SUBGRAPH_INFO_POINTER          unsigned int
 
-#define TYPE_DEPENDENCY_ELEMENT             uint32_t
+#define TYPE_DEPENDENCY_ELEMENT             unsigned int
 
 #define SIZE_APUSYS_MAGIC \
 	(sizeof(TYPE_APUSYS_MAGIC))
@@ -48,10 +48,9 @@
 	(sizeof(TYPE_OFFSET_TO_DEPENDENCY_INFO_LIST))
 
 #define SIZE_APUSYS_HEADER \
-	(SIZE_APUSYS_MAGIC + SIZE_APUSYS_CMD_ID +\
-	SIZE_APUSYS_CMD_VERSION + SIZE_PRIORITY +\
-	SIZE_TARGET_TIME + SIZE_DEADLINE + SIZE_NUM_OF_SUBGRAPH +\
-	SIZE_OFFSET_TO_DEPENDENCY_INFO_LIST)
+	(SIZE_APUSYS_MAGIC + SIZE_APUSYS_CMD_ID + SIZE_APUSYS_CMD_VERSION +\
+	SIZE_PRIORITY + SIZE_TARGET_TIME + SIZE_DEADLINE +\
+	SIZE_NUM_OF_SUBGRAPH + SIZE_OFFSET_TO_DEPENDENCY_INFO_LIST)
 
 #define SIZE_DEPENDENCY_ELEMENT \
 	(sizeof(TYPE_DEPENDENCY_ELEMENT))
@@ -76,21 +75,21 @@
 #define OFFSET_OFFSET_TO_DEPENDENCY_INFO_LIST \
 	(OFFSET_NUM_OF_SUBGRAPH + SIZE_NUM_OF_SUBGRAPH)
 #define OFFSET_SUBGRAPH_INFO_OFFSET_LIST \
-	(OFFSET_OFFSET_TO_DEPENDENCY_INFO_LIST \
-	+ SIZE_OFFSET_TO_DEPENDENCY_INFO_LIST)
+	(OFFSET_OFFSET_TO_DEPENDENCY_INFO_LIST +\
+	SIZE_OFFSET_TO_DEPENDENCY_INFO_LIST)
 
 /* specific subgratph size */
-#define TYPE_SUBGRAPH_TYPE              uint32_t
-#define TYPE_SUBGRAPH_TARGET_TIME       uint32_t
-#define TYPE_SUBGRAPH_UP_TURNAROUND     uint64_t
-#define TYPE_SUBGRAPH_DRIVER_TURNAROUND uint64_t
-#define TYPE_SUBGRAPH_TCM_USAGE         uint32_t
-#define TYPE_SUBGRAPH_TCM_FORCE         uint32_t
-#define TYPE_SUBGRAPH_CTX_ID            uint32_t
-#define TYPE_SUBGRAPH_SIZE              uint32_t
-#define TYPE_SUBGRAPH_ADDR              uint64_t
+#define TYPE_SUBGRAPH_TYPE              unsigned int
+#define TYPE_SUBGRAPH_TARGET_TIME       unsigned int
+#define TYPE_SUBGRAPH_UP_TURNAROUND     unsigned long long
+#define TYPE_SUBGRAPH_DRIVER_TURNAROUND unsigned long long
+#define TYPE_SUBGRAPH_TCM_USAGE         unsigned int
+#define TYPE_SUBGRAPH_TCM_FORCE         unsigned int
+#define TYPE_SUBGRAPH_CTX_ID            unsigned int
+#define TYPE_SUBGRAPH_SIZE              unsigned int
+#define TYPE_SUBGRAPH_ADDR              unsigned long long
 /* vpu/sample specific */
-#define TYPE_SUBGRAPH_PACK              uint32_t
+#define TYPE_SUBGRAPH_PACK              unsigned int
 
 #define VALUE_SUBGAPH_PACK_ID_NONE      0xFFFFFFFF
 #define VALUE_SUBGAPH_CTX_ID_NONE       0xFFFFFFFF

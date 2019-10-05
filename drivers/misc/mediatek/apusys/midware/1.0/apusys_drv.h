@@ -31,20 +31,20 @@ enum {
 };
 
 struct hs_begin {
-	uint32_t mem_support; // bitmap
-	uint64_t dev_support; // bitmap
+	unsigned int mem_support; // bitmap
+	unsigned long long dev_support; // bitmap
 
-	uint32_t dev_type_max;
+	unsigned int dev_type_max;
 };
 
 struct hs_query_dev {
-	uint32_t type;
-	uint32_t num;
+	unsigned int type;
+	unsigned int num;
 };
 
 struct apusys_ioctl_hs {
-	uint64_t magic_num;
-	uint8_t cmd_version;
+	unsigned long long magic_num;
+	unsigned char cmd_version;
 
 	int type;
 
@@ -107,19 +107,19 @@ struct apusys_mem_ctl {
 
 struct apusys_ion_info {
 	int ion_share_fd;
-	uint64_t ion_khandle;
+	unsigned long long ion_khandle;
 	int ion_uhandle;
 };
 
 
 struct apusys_mem {
-	uint64_t uva;
-	uint64_t kva;
-	uint32_t iova;
-	uint32_t size;
+	unsigned long long uva;
+	unsigned long long kva;
+	unsigned int iova;
+	unsigned int size;
 
-	uint32_t align;
-	uint32_t cache;
+	unsigned int align;
+	unsigned int cache;
 
 	int mem_type;
 	struct apusys_ion_info ion_data;
@@ -128,28 +128,28 @@ struct apusys_mem {
 
 /* for APUSYS_IOCTL_RUN_CMD_SYNC */
 struct apusys_ioctl_cmd {
-	uint64_t cmd_id;
+	unsigned long long cmd_id;
 
 	int mem_fd; //  memory buffer fd
-	uint32_t offset;
-	uint32_t size;
+	unsigned int offset;
+	unsigned int size;
 };
 
 /* for APUSYS_IOCTL_SET_POWER */
 struct apusys_ioctl_power {
 	int dev_type;
-	uint32_t idx;
-	uint32_t boost_val;
+	unsigned int idx;
+	unsigned int boost_val;
 };
 
 /* for APUSYS_IOCTL_DEVICE */
 struct apusys_ioctl_dev {
 	int dev_type;
-	uint32_t num;
+	unsigned int num;
 
 	int dev_idx;
 
-	uint64_t handle;
+	unsigned long long handle;
 };
 
 /* for APUSYS_IOCTL_FW */
@@ -160,8 +160,8 @@ struct apusys_ioctl_fw {
 	char name[32];
 
 	int mem_fd;
-	uint32_t offset;
-	uint32_t size;
+	unsigned int offset;
+	unsigned int size;
 };
 
 #define APUSYS_MAGICNO 'A'
