@@ -1884,7 +1884,8 @@ SKIP:
 	spin_unlock_irqrestore(&loading_slock, flags);
 
 	if (adjust) {
-		loading_result = thr->boost_info.loading_weight *
+		loading_result = thr->boost_info.loading_weight;
+		loading_result = loading_result *
 					loading_cl[!(fbt_get_L_cluster_num())];
 		loading_result += (100 - thr->boost_info.loading_weight) *
 					loading_cl[fbt_get_L_cluster_num()];
