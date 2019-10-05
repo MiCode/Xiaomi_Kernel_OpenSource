@@ -134,7 +134,7 @@ err:
 
 int pe40_stop(void)
 {
-	if (pe4 == NULL || !pe40_is_ready())
+	if (pe4 == NULL)
 		return -1;
 
 	adapter_set_cap_end(5000, 2000);
@@ -288,7 +288,16 @@ int pe40_get_setting_by_watt(int *voltage,
 
 bool pe40_is_ready(void)
 {
-	return adapter_is_support_pd_pps();
+	int tmp;
+
+	tmp = battery_get_bat_temperature();
+
+	if (!adapter_is_support_pd_pps() ||
+		tmp > pe4->data.high_temp_to_enter_pe40 ||
+		tmp < pe4->data.low_temp_to_enter_pe40)
+		return false;
+
+	return true;
 }
 
 int pe40_get_init_watt(void)
@@ -560,6 +569,7 @@ int pe40_safety_check(void)
 	struct pps_status cap;
 	struct ta_status TAstatus;
 	int ret;
+	int tmp;
 	int i;
 	int high_tmp_cnt = 0;
 
@@ -644,6 +654,17 @@ int pe40_safety_check(void)
 			TAstatus.otp,
 			TAstatus.ovp,
 			TAstatus.temperature);
+	}
+
+	tmp = battery_get_bat_temperature();
+
+	if (tmp > pe4->data.high_temp_to_leave_pe40 ||
+		tmp < pe4->data.low_temp_to_leave_pe40) {
+
+		chr_err("[pe40_err]tmp:%d threshold:%d %d\n",
+			tmp, pe4->data.high_temp_to_leave_pe40,
+			pe4->data.low_temp_to_leave_pe40);
+		return 1;
 	}
 
 	return 0;
@@ -743,6 +764,9 @@ int pe40_cc_state(void)
 	}
 
 	ret = pe40_safety_check();
+	if (ret == 1)
+		goto retry;
+
 	if (ret == -1)
 		goto err;
 
@@ -750,6 +774,10 @@ int pe40_cc_state(void)
 		goto leave;
 
 	return 0;
+
+retry:
+	pe40_stop();
+	return 1;
 
 leave:
 err:
@@ -778,6 +806,10 @@ int pe40_init(void)
 		pe4->data.pe40_max_vbus = 11000;
 		pe4->data.pe40_max_ibus = 3000;
 		pe4->data.ibus_err = 14;
+		pe4->data.high_temp_to_enter_pe40 = 39;
+		pe4->data.low_temp_to_enter_pe40 = 16;
+		pe4->data.high_temp_to_leave_pe40 = 46;
+		pe4->data.low_temp_to_leave_pe40 = 10;
 		pe4->data.pe40_r_cable_3a_lower = 530;
 		pe4->data.pe40_r_cable_2a_lower = 394;
 		pe4->data.pe40_r_cable_1a_lower = 255;
