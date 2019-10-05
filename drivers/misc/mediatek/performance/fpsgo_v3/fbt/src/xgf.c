@@ -158,6 +158,12 @@ unsigned int xgf_cpumask_next(int cpu,  const struct cpumask *srcp)
 }
 EXPORT_SYMBOL(xgf_cpumask_next);
 
+int xgf_num_possible_cpus(void)
+{
+	return num_possible_cpus();
+}
+EXPORT_SYMBOL(xgf_num_possible_cpus);
+
 int xgf_get_task_wake_cpu(struct task_struct *t)
 {
 	return t->wake_cpu;
