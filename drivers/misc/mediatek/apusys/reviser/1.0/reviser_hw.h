@@ -28,15 +28,30 @@ enum REVISER_DEVICE_E {
 
 
 
-void reviser_print_private(void *private);
-void reviser_print_boundary(void *private);
-void reviser_print_context_ID(void *private);
-void reviser_print_remap_table(void *private);
-void reviser_set_context_boundary(void *private,
+void reviser_print_private(void *drvinfo);
+void reviser_print_boundary(void *drvinfo, void *s_file);
+void reviser_print_context_ID(void *drvinfo, void *s_file);
+void reviser_print_remap_table(void *drvinfo, void *s_file);
+void reviser_print_default_iova(void *drvinfo);
+int reviser_set_boundary(void *drvinfo,
 		enum REVISER_DEVICE_E type, int index, uint8_t boundary);
-void reviser_set_context_ID(void *private,
+int reviser_set_context_ID(void *drvinfo,
 		enum REVISER_DEVICE_E type, int index, uint8_t ID);
-void reviser_set_remap_talbe(void *private,
+int reviser_set_remap_talbe(void *drvinfo,
 		int index, uint8_t valid, uint8_t ID, uint8_t src_page,
 		uint8_t dst_page);
+int reviser_dram_remap_init(void *drvinfo);
+int reviser_dram_remap_destroy(void *drvinfo);
+void reviser_init_mem(void);
+void reviser_destroy_mem(void);
+int reviser_alloc_mem(void *usr);
+int reviser_free_mem(void *usr);
+
+uint32_t reviser_get_interrupt_offset(void *drvinfo);
+
+int reviser_boundary_init(void *drvinfo, uint8_t boundary);
+
+int reviser_alloc_tcm(void *drvinfo, void *usr);
+int reviser_free_tcm(void *drvinfo, void *usr);
+
 #endif

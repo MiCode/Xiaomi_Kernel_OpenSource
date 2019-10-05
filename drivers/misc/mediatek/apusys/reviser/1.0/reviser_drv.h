@@ -16,10 +16,36 @@
 
 #include <linux/ioctl.h>
 #include <linux/types.h>
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include <linux/wait.h>
 
 /* reviser driver's private structure */
 struct reviser_dev_info {
 	void *pctrl_top;
+	void *vlm_base;
+	void *tcm_base;
+
+	void *dram_base;
+
+	bool init_done;
+	struct device *dev;
+	bool power;
+	dev_t reviser_devt;
+	struct cdev reviser_cdev;
+	struct dentry *debug_root;
+
+	struct mutex mutex_tcm;
+	struct mutex mutex_ctxid;
+	struct mutex mutex_vlm_pgtable;
+	struct mutex mutex_remap;
+
+	struct vlm_pgtable *pvlm;
+
+	wait_queue_head_t wait_ctxid;
+	wait_queue_head_t wait_tcm;
 };
+
+
 
 #endif

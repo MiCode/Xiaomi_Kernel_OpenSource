@@ -4794,6 +4794,14 @@ page_owner=on";
 		interrupts = <GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	apusys_reviser@19021000 {
+		compatible = "mediatek,apusys_reviser";
+		reg = <0 0x19021000 0 0x1000>,		/* apu_sctrl_reviser  */
+			  <0 0x1d800000 0 0x200000>,	/* VLM          */
+			  <0 0x1d000000 0 0x100000>;	/* TCM          */
+		interrupts = <GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	apusys_power {
 		compatible = "mediatek,apusys_power";
 

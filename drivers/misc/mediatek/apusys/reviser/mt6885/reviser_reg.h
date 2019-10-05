@@ -16,9 +16,22 @@
 #include <linux/types.h>
 
 
-#define REVISER_BASE             (0x1902_1000)
+#define VLM_BASE                 (0x1D800000)
+#define TCM_BASE                 (0x1D000000)
+#define TCM_SIZE                 (0x100000)
+#define VLM_SIZE                 (0x200000)
+#define VLM_BANK_SIZE            (0x40000)
+#define REMAP_DRAM_SIZE          (0x4000000)
+#define VLM_DRAM_BANK_MAX        (8)
+#define VLM_TCM_BANK_MAX         (4)
+#define VLM_CTXT_DRAM_OFFSET     (0x200000)
+
+#define REVISER_BASE             (0x19021000)
+//Need to check boundary region with iommu team every project
+#define BOUNDARY_APUSYS          (0)
 
 #define REVISER_FAIL             (0xFFFFFFFF)
+#define REVISER_DEFAULT          (0xFFFFFFFF)
 
 #define VLM_REMAP_TABLE_BASE     (0x0200)
 #define VLM_DEFAULT_MVA          (VLM_REMAP_TABLE_BASE + 0x00)
@@ -39,13 +52,16 @@
 
 #define VLM_CTXT_BASE            (0x0300)
 
+#define VLM_CTXT_MDLA_MAX        (2)
 #define VLM_CTXT_MDLA_0          (VLM_CTXT_BASE + 0x08)
 #define VLM_CTXT_MDLA_1          (VLM_CTXT_BASE + 0x0C)
 
+#define VLM_CTXT_VPU_MAX         (3)
 #define VLM_CTXT_VPU_0           (VLM_CTXT_BASE + 0x10)
 #define VLM_CTXT_VPU_1           (VLM_CTXT_BASE + 0x14)
 #define VLM_CTXT_VPU_2           (VLM_CTXT_BASE + 0x18)
 
+#define VLM_CTXT_EDMA_MAX        (2)
 #define VLM_CTXT_EDMA_0          (VLM_CTXT_BASE + 0x1C)
 #define VLM_CTXT_EDMA_1          (VLM_CTXT_BASE + 0x20)
 
@@ -73,10 +89,12 @@
 
 #define VLM_CTXT_CTX_ID          (0x03E00000)
 #define VLM_CTXT_CTX_ID_OFFSET   (21)
-#define VLM_CTXT_CTX_ID_MAX      (31)
+#define VLM_CTXT_CTX_ID_MAX      (32)
+
 
 #define VLM_REMAP_TABLE_SRC_MAX  (7)
 #define VLM_REMAP_TABLE_DST_MAX  (0xC)
+#define VLM_REMAP_TABLE_MAX  (0xD)
 
 uint32_t  reviser_get_remap_offset(uint32_t index);
 uint32_t  reviser_get_contex_offset_MDLA(uint32_t index);

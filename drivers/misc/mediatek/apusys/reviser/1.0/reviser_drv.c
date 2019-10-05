@@ -28,24 +28,19 @@
 #include "reviser_ioctl.h"
 #include "reviser_cmn.h"
 #include "reviser_hw.h"
-//#include "reviser_inf.h"
+#include "reviser_dbg.h"
+#include "reviser_mem_mgt.h"
+
 
 /* define */
 #define APUSYS_DRV_NAME "apusys_drv_reviser"
 #define APUSYS_DEV_NAME "apusys_reviser"
 
 /* global variable */
-static dev_t reviser_devt;
-static struct cdev *reviser_cdev;
+
 static struct class *reviser_class;
 
-static struct reviser_dev_info g_reviser_info;
 
-#define REVISER_DTS 0
-
-#if REVISER_DTS
-static int g_irq_reviser;
-#endif
 
 /* function declaration */
 static int reviser_open(struct inode *, struct file *);
@@ -54,8 +49,13 @@ static long reviser_ioctl(struct file *filp,
 		unsigned int cmd, unsigned long arg);
 static long reviser_compat_ioctl(struct file *, unsigned int, unsigned long);
 
-irqreturn_t reviser_interrupt(int irq, void *dev_id)
+irqreturn_t reviser_interrupt(int irq, void *private_data)
 {
+	DEBUG_TAG;
+
+	reviser_get_interrupt_offset(private_data);
+	reviser_print_remap_table(private_data, NULL);
+	reviser_print_context_ID(private_data, NULL);
 	return IRQ_HANDLED;
 }
 
@@ -67,13 +67,21 @@ static const struct file_operations reviser_fops = {
 	.compat_ioctl = reviser_compat_ioctl,
 };
 
-static int reviser_open(struct inode *inode, struct file *file)
+static int reviser_open(struct inode *inode, struct file *filp)
 {
+	struct reviser_dev_info *reviser_device;
+
 	DEBUG_TAG;
+	reviser_device = container_of(inode->i_cdev,
+			struct reviser_dev_info, reviser_cdev);
+
+	filp->private_data = reviser_device;
+	LOG_DEBUG("reviser_device  %p\n", reviser_device);
+	LOG_DEBUG("filp->private_data  %p\n", filp->private_data);
 	return 0;
 }
 
-static int reviser_release(struct inode *inode, struct file *file)
+static int reviser_release(struct inode *inode, struct file *filp)
 {
 	DEBUG_TAG;
 	return 0;
@@ -83,38 +91,48 @@ static int reviser_probe(struct platform_device *pdev)
 {
 	//reviser_device_init();
 	int ret = 0;
-#if REVISER_DTS
-	struct resource *apusys_reviser_irq; /* Interrupt resources */
-#endif
+	int irq;
+
 	struct resource *apusys_reviser_ctl; /* IO mem resources */
+	struct resource *apusys_reviser_tcm; /* IO mem resources */
+	struct resource *apusys_reviser_vlm; /* IO mem resources */
 	struct device *dev = &pdev->dev;
 
+	struct reviser_dev_info *reviser_device;
+
+
 	DEBUG_TAG;
+	reviser_device = devm_kzalloc(dev, sizeof(*reviser_device), GFP_KERNEL);
+	if (!reviser_device)
+		return -ENOMEM;
 
+	reviser_device->init_done = false;
+	mutex_init(&reviser_device->mutex_ctxid);
+	mutex_init(&reviser_device->mutex_tcm);
+	mutex_init(&reviser_device->mutex_vlm_pgtable);
+	mutex_init(&reviser_device->mutex_remap);
+	init_waitqueue_head(&reviser_device->wait_ctxid);
+	init_waitqueue_head(&reviser_device->wait_tcm);
 
-	memset(&g_reviser_info, 0, sizeof(struct reviser_dev_info));
+	reviser_device->dev = &pdev->dev;
+
+	//memset(&g_reviser_info, 0, sizeof(struct reviser_dev_info));
 	/* get major */
-	ret = alloc_chrdev_region(&reviser_devt, 0, 1, APUSYS_DRV_NAME);
+	ret = alloc_chrdev_region(&reviser_device->reviser_devt,
+			0, 1, APUSYS_DRV_NAME);
 	if (ret < 0) {
 		LOG_ERR("alloc_chrdev_region failed, %d\n", ret);
 		goto out;
 	}
 
-	/* Allocate driver */
-	reviser_cdev = cdev_alloc();
-	if (reviser_cdev == NULL) {
-		LOG_ERR("cdev_alloc failed\n");
-		ret = -ENOMEM;
-		goto free_chrdev_region;
-	}
-
 	/* Attatch file operation. */
-	cdev_init(reviser_cdev, &reviser_fops);
-	reviser_cdev->owner = THIS_MODULE;
+	cdev_init(&reviser_device->reviser_cdev, &reviser_fops);
+	reviser_device->reviser_cdev.owner = THIS_MODULE;
 	DEBUG_TAG;
 
 	/* Add to system */
-	ret = cdev_add(reviser_cdev, reviser_devt, 1);
+	ret = cdev_add(&reviser_device->reviser_cdev,
+			reviser_device->reviser_devt, 1);
 	if (ret < 0) {
 		LOG_ERR("Attatch file operation failed, %d\n", ret);
 		goto free_chrdev_region;
@@ -128,7 +146,7 @@ static int reviser_probe(struct platform_device *pdev)
 		goto free_cdev_add;
 	}
 
-	dev = device_create(reviser_class, NULL, reviser_devt,
+	dev = device_create(reviser_class, NULL, reviser_device->reviser_devt,
 				NULL, APUSYS_DEV_NAME);
 	if (IS_ERR(dev)) {
 		ret = PTR_ERR(dev);
@@ -144,56 +162,125 @@ static int reviser_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto free_device;
 	}
+	apusys_reviser_vlm = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!apusys_reviser_vlm) {
+		LOG_ERR("invalid address\n");
+		ret = -ENODEV;
+		goto free_device;
+	}
+	apusys_reviser_tcm = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	if (!apusys_reviser_tcm) {
+		LOG_ERR("invalid address\n");
+		ret = -ENODEV;
+		goto free_device;
+	}
+
+
 	LOG_DEBUG("apusys_reviser_ctl->start = %p\n",
 			apusys_reviser_ctl->start);
-	g_reviser_info.pctrl_top = ioremap_nocache(apusys_reviser_ctl->start,
+	reviser_device->pctrl_top = ioremap_nocache(apusys_reviser_ctl->start,
 		apusys_reviser_ctl->end - apusys_reviser_ctl->start + 1);
-	if (!g_reviser_info.pctrl_top) {
+	if (!reviser_device->pctrl_top) {
 		LOG_ERR("Could not allocate iomem\n");
 		ret = -EIO;
 		goto free_device;
 	}
 
-	DEBUG_TAG;
-#if REVISER_DTS
-	/* Get IRQ for the device */
-	apusys_reviser_irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!apusys_reviser_irq) {
-		LOG_ERR("invalid IRQ\n");
+	LOG_DEBUG("apusys_reviser_vlm->start = %p\n",
+			apusys_reviser_vlm->start);
+	reviser_device->vlm_base =
+		ioremap_nocache(apusys_reviser_vlm->start,
+		apusys_reviser_vlm->end - apusys_reviser_vlm->start + 1);
+	if (!reviser_device->vlm_base) {
+		LOG_ERR("Could not allocate iomem\n");
+		ret = -EIO;
+		goto free_device;
+	}
+	LOG_DEBUG("apusys_reviser_tcm->start = %p\n",
+			apusys_reviser_tcm->start);
+	reviser_device->tcm_base =
+		ioremap_nocache(apusys_reviser_tcm->start,
+		apusys_reviser_tcm->end - apusys_reviser_tcm->start + 1);
+	if (!reviser_device->tcm_base) {
+		LOG_ERR("Could not allocate iomem\n");
+		ret = -EIO;
+		goto free_device;
+	}
+
+	if (reviser_dram_remap_init(reviser_device)) {
+		LOG_ERR("Could not set memory for reviser\n");
+		ret = -ENOMEM;
+		goto free_device;
+	}
+
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
+		ret = -ENODEV;
+		LOG_ERR("platform_get_irq Failed to request irq %d: %d\n",
+				irq, ret);
+		goto free_map;
+	}
+
+	ret = devm_request_irq(dev, irq, reviser_interrupt,
+			IRQF_TRIGGER_HIGH | IRQF_SHARED,
+			dev_name(dev),
+			reviser_device);
+	if (ret < 0) {
+		LOG_ERR("devm_request_irq Failed to request irq %d: %d\n",
+				irq, ret);
 		ret = -ENODEV;
 		goto free_map;
 	}
 
-	g_irq_reviser = apusys_reviser_irq->start;
-	ret = request_irq(g_irq_reviser, reviser_interrupt, IRQF_TRIGGER_LOW,
-			APUSYS_DRV_NAME, dev);
-	if (ret) {
-		LOG_ERR("invalid request IRQ\n");
+
+	if (reviser_boundary_init(reviser_device, BOUNDARY_APUSYS)) {
+		ret = -EINVAL;
 		goto free_map;
 	}
+	if (reviser_table_init_ctxID(reviser_device)) {
+		ret = -EINVAL;
+		goto free_map;
+	}
+	if (reviser_table_init_tcm(reviser_device)) {
+		ret = -EINVAL;
+		goto free_map;
+	}
+	if (reviser_table_init_vlm(reviser_device)) {
+		ret = -EINVAL;
+		goto free_map;
+	}
+	if (reviser_table_init_remap(reviser_device)) {
+		ret = -EINVAL;
+		goto free_map;
+	}
+	if (reviser_dbg_init(reviser_device)) {
+		ret = -EINVAL;
+		goto free_map;
+	}
+	reviser_device->init_done = true;
+	platform_set_drvdata(pdev, reviser_device);
+	dev_set_drvdata(dev, reviser_device);
 
-#endif
-	DEBUG_TAG;
+
 	return ret;
-#if REVISER_DTS
+
 free_map:
-	iounmap(reviser_ctrl_top);
-#endif
+	iounmap(reviser_device->pctrl_top);
+	iounmap(reviser_device->vlm_base);
+	iounmap(reviser_device->tcm_base);
 free_device:
 	/* Release device */
-	device_destroy(reviser_class, reviser_devt);
+	device_destroy(reviser_class, reviser_device->reviser_devt);
 
 free_class:
 	/* Release class */
 	class_destroy(reviser_class);
 free_cdev_add:
 	/* Release char driver */
-	if (reviser_cdev != NULL) {
-		cdev_del(reviser_cdev);
-		reviser_cdev = NULL;
-	}
+	cdev_del(&reviser_device->reviser_cdev);
+
 free_chrdev_region:
-	unregister_chrdev_region(reviser_devt, 1);
+	unregister_chrdev_region(reviser_device->reviser_devt, 1);
 
 out:
 	return ret;
@@ -201,34 +288,25 @@ out:
 
 static int reviser_remove(struct platform_device *pdev)
 {
+	struct reviser_dev_info *reviser_device = platform_get_drvdata(pdev);
 
 	DEBUG_TAG;
-#if REVISER_DTS
-	struct device *dev;
 
-	dev = &pdev->dev;
-
-	DEBUG_TAG;
-	//reviser_device_destroy();
-	free_irq(g_irq_reviser, dev);
-#endif
-	iounmap(g_reviser_info.pctrl_top);
-
-
+	reviser_dbg_destroy(reviser_device);
+	reviser_dram_remap_destroy(reviser_device);
+	iounmap(reviser_device->pctrl_top);
 
 	/* Release device */
-	device_destroy(reviser_class, reviser_devt);
+	device_destroy(reviser_class, reviser_device->reviser_devt);
 
 	/* Release class */
 	if (reviser_class != NULL)
 		class_destroy(reviser_class);
 
 	/* Release char driver */
-	if (reviser_cdev != NULL) {
-		cdev_del(reviser_cdev);
-		reviser_cdev = NULL;
-	}
-	unregister_chrdev_region(reviser_devt, 1);
+	cdev_del(&reviser_device->reviser_cdev);
+
+	unregister_chrdev_region(reviser_device->reviser_devt, 1);
 	return 0;
 }
 
@@ -246,18 +324,15 @@ static long reviser_ioctl(struct file *filp, unsigned int cmd,
 		unsigned long arg)
 {
 	int ret = 0;
+	struct reviser_dev_info *reviser_device = filp->private_data;
 	struct reviser_ioctl_info info;
+	unsigned long ctxID = 0;
+	struct table_tcm pg_table;
+	uint32_t tcm_page_num, tcm_size;
 
 	switch (cmd) {
-	case REVISER_IOCTL_PRINT:
-		DEBUG_TAG;
-		reviser_print_private((void *)&g_reviser_info);
-		reviser_print_boundary((void *)&g_reviser_info);
-		reviser_print_context_ID((void *)&g_reviser_info);
-		reviser_print_remap_table((void *)&g_reviser_info);
-		break;
 	case REVISER_IOCTL_SET_BOUNDARY:
-		DEBUG_TAG;
+
 		if (copy_from_user(&info,
 				(void *)arg,
 				sizeof(struct reviser_ioctl_info))) {
@@ -265,8 +340,8 @@ static long reviser_ioctl(struct file *filp, unsigned int cmd,
 			ret = -EINVAL;
 		}
 
-		reviser_set_context_boundary(
-				(void *)&g_reviser_info,
+		ret = reviser_set_boundary(
+				reviser_device,
 				info.bound.type,
 				info.bound.index,
 				info.bound.boundary);
@@ -280,15 +355,15 @@ static long reviser_ioctl(struct file *filp, unsigned int cmd,
 		}
 		break;
 	case REVISER_IOCTL_SET_CONTEXT_ID:
-		DEBUG_TAG;
+
 		if (copy_from_user(&info, (void *)arg,
 				sizeof(struct reviser_ioctl_info))) {
 			LOG_ERR("copy info struct fail\n");
 			ret = -EINVAL;
 		}
 
-		reviser_set_context_ID(
-			(void *) &g_reviser_info,
+		ret = reviser_set_context_ID(
+				reviser_device,
 			(enum REVISER_DEVICE_E) info.contex.type,
 			info.contex.index,
 			info.contex.ID);
@@ -301,17 +376,238 @@ static long reviser_ioctl(struct file *filp, unsigned int cmd,
 		}
 		break;
 	case REVISER_IOCTL_SET_REMAP_TABLE:
-		DEBUG_TAG;
+
 		if (copy_from_user(&info, (void *)arg,
 			sizeof(struct reviser_ioctl_info))) {
 			LOG_ERR("copy info struct fail\n");
 			ret = -EINVAL;
 		}
 
-		reviser_set_remap_talbe(
-			(void *)&g_reviser_info, info.table.index,
+		ret = reviser_set_remap_talbe(
+			reviser_device, info.table.index,
 			info.table.valid, info.table.ID,
 			info.table.src_page, info.table.dst_page);
+		if (ret == 0) {
+			if (copy_to_user(
+			(void *)arg, &info,
+			sizeof(struct reviser_ioctl_info))) {
+				LOG_ERR("copy info to user fail\n");
+				ret = -EINVAL;
+			}
+		}
+		break;
+	case REVISER_IOCTL_GET_CTXID:
+
+		if (copy_from_user(&info, (void *)arg,
+			sizeof(struct reviser_ioctl_info))) {
+			LOG_ERR("copy info struct fail\n");
+			ret = -EINVAL;
+		}
+
+		//if (!reviser_table_get_ctxID(reviser_device, &ctxID)) {
+		if (!reviser_table_get_ctxID_sync(reviser_device, &ctxID)) {
+			LOG_DEBUG("ctxID: %lu\n", ctxID);
+			info.contex.ID = ctxID;
+		} else {
+			ret = -EINVAL;
+		}
+
+
+		if (ret == 0) {
+			if (copy_to_user(
+			(void *)arg, &info,
+			sizeof(struct reviser_ioctl_info))) {
+				LOG_ERR("copy info to user fail\n");
+				ret = -EINVAL;
+			}
+		}
+		break;
+	case REVISER_IOCTL_FREE_CTXID:
+
+		if (copy_from_user(&info, (void *)arg,
+			sizeof(struct reviser_ioctl_info))) {
+			LOG_ERR("copy info struct fail\n");
+			ret = -EINVAL;
+		}
+		ctxID = info.contex.ID;
+		if (reviser_table_free_ctxID(reviser_device, ctxID)) {
+			LOG_DEBUG("ctxID: %lu Fail\n", ctxID);
+			ret = -EINVAL;
+		}
+
+		if (ret == 0) {
+			if (copy_to_user(
+			(void *)arg, &info,
+			sizeof(struct reviser_ioctl_info))) {
+				LOG_ERR("copy info to user fail\n");
+				ret = -EINVAL;
+			}
+		}
+		break;
+	case REVISER_IOCTL_GET_TCM:
+
+		if (copy_from_user(&info, (void *)arg,
+			sizeof(struct reviser_ioctl_info))) {
+			LOG_ERR("copy info struct fail\n");
+			ret = -EINVAL;
+		}
+		memset(&pg_table, 0, sizeof(struct table_tcm));
+
+		tcm_page_num = DIV_ROUND_UP(info.page.tcm_size, VLM_BANK_SIZE);
+		LOG_DEBUG("tcm_size: %lx tcm_page_num %d\n",
+				info.page.tcm_size, tcm_page_num);
+		if (!reviser_table_get_tcm_sync(reviser_device,
+				tcm_page_num, &pg_table)) {
+			LOG_DEBUG("page_num: %lu\n", pg_table.page_num);
+			LOG_DEBUG("table_tcm: %lx\n", pg_table.table_tcm[0]);
+
+			info.page.tcm_num = pg_table.page_num;
+			memcpy(info.page.table_tcm,
+					pg_table.table_tcm,
+					sizeof(unsigned long) *
+					BITS_TO_LONGS(TABLE_TCM_MAX));
+
+		} else {
+			LOG_DEBUG("Get TCM Fail\n");
+			ret = -EINVAL;
+		}
+
+
+		if (ret == 0) {
+			if (copy_to_user(
+			(void *)arg, &info,
+			sizeof(struct reviser_ioctl_info))) {
+				LOG_ERR("copy info to user fail\n");
+				ret = -EINVAL;
+			}
+		}
+		break;
+	case REVISER_IOCTL_FREE_TCM:
+
+		if (copy_from_user(&info, (void *)arg,
+			sizeof(struct reviser_ioctl_info))) {
+			LOG_ERR("copy info struct fail\n");
+			ret = -EINVAL;
+		}
+		if (info.page.tcm_num > VLM_TCM_BANK_MAX) {
+			LOG_ERR("tcm_num out of range %d\n", info.page.tcm_num);
+			ret = -EINVAL;
+		}
+		if (info.page.tcm_num !=
+				bitmap_weight(info.page.table_tcm,
+						VLM_TCM_BANK_MAX)) {
+			LOG_ERR("tcm_num %d is unequal to table tcm %x\n",
+					info.page.tcm_num,
+					info.page.table_tcm[0]);
+			ret = -EINVAL;
+		}
+
+		memset(&pg_table, 0, sizeof(struct table_tcm));
+		pg_table.page_num = info.page.tcm_num;
+
+		LOG_DEBUG("info.page.table_tcm: %lx\n", info.page.table_tcm[0]);
+		memcpy(pg_table.table_tcm, info.page.table_tcm,
+				sizeof(unsigned long) * BITS_TO_LONGS(4));
+		LOG_DEBUG("page_num: %lu\n", pg_table.page_num);
+		LOG_DEBUG("table_tcm: %lx\n", pg_table.table_tcm[0]);
+		if (reviser_table_free_tcm(reviser_device, &pg_table)) {
+			LOG_DEBUG("Free TCM Fail\n");
+			ret = -EINVAL;
+		}
+		if (ret == 0) {
+			if (copy_to_user(
+			(void *)arg, &info,
+			sizeof(struct reviser_ioctl_info))) {
+				LOG_ERR("copy info to user fail\n");
+				ret = -EINVAL;
+			}
+		}
+		break;
+	case REVISER_IOCTL_GET_VLM:
+
+		if (copy_from_user(&info, (void *)arg,
+			sizeof(struct reviser_ioctl_info))) {
+			LOG_ERR("copy info struct fail\n");
+			ret = -EINVAL;
+		}
+
+		if (!reviser_table_get_vlm(reviser_device,
+				info.page.tcm_size, info.page.force,
+				&ctxID, &tcm_size)) {
+			LOG_DEBUG("GET VLM : tcm_size: %lx\n", tcm_size);
+			LOG_DEBUG("GET VLM : ctxID: %lu\n", ctxID);
+			info.page.tcm_size = tcm_size;
+			info.page.ID = ctxID;
+		} else {
+			ret = -EINVAL;
+		}
+
+		if (ret == 0) {
+			if (copy_to_user(
+			(void *)arg, &info,
+			sizeof(struct reviser_ioctl_info))) {
+				LOG_ERR("copy info to user fail\n");
+				ret = -EINVAL;
+			}
+		}
+		break;
+	case REVISER_IOCTL_FREE_VLM:
+
+		if (copy_from_user(&info, (void *)arg,
+			sizeof(struct reviser_ioctl_info))) {
+			LOG_ERR("copy info struct fail\n");
+			ret = -EINVAL;
+		}
+
+		if (reviser_table_free_vlm(reviser_device, info.page.ID)) {
+			LOG_DEBUG("Free VLM : tcm_size: %lx\n", tcm_size);
+			LOG_DEBUG("Free VLM : ctxID: %lu\n", ctxID);
+			ret = -EINVAL;
+		}
+
+		if (ret == 0) {
+			if (copy_to_user(
+			(void *)arg, &info,
+			sizeof(struct reviser_ioctl_info))) {
+				LOG_ERR("copy info to user fail\n");
+				ret = -EINVAL;
+			}
+		}
+		break;
+	case REVISER_IOCTL_SWAPIN_VLM:
+
+		if (copy_from_user(&info, (void *)arg,
+			sizeof(struct reviser_ioctl_info))) {
+			LOG_ERR("copy info struct fail\n");
+			ret = -EINVAL;
+		}
+		if (reviser_table_swapin_vlm(reviser_device, info.page.ID)) {
+			LOG_DEBUG("Swapout ctxID Fail\n");
+			ret = -EINVAL;
+		}
+
+
+		if (ret == 0) {
+			if (copy_to_user(
+			(void *)arg, &info,
+			sizeof(struct reviser_ioctl_info))) {
+				LOG_ERR("copy info to user fail\n");
+				ret = -EINVAL;
+			}
+		}
+		break;
+	case REVISER_IOCTL_SWAPOUT_VLM:
+
+		if (copy_from_user(&info, (void *)arg,
+			sizeof(struct reviser_ioctl_info))) {
+			LOG_ERR("copy info struct fail\n");
+			ret = -EINVAL;
+		}
+		if (reviser_table_swapout_vlm(reviser_device, info.page.ID)) {
+			ret = -EINVAL;
+			LOG_DEBUG("Swapout ctxID Fail\n");
+		}
+
 		if (ret == 0) {
 			if (copy_to_user(
 			(void *)arg, &info,
@@ -332,8 +628,17 @@ static long reviser_compat_ioctl(struct file *flip, unsigned int cmd,
 {
 	DEBUG_TAG;
 	switch (cmd) {
-	case REVISER_IOCTL_PRINT:
 	case REVISER_IOCTL_SET_BOUNDARY:
+	case REVISER_IOCTL_SET_CONTEXT_ID:
+	case REVISER_IOCTL_SET_REMAP_TABLE:
+	case REVISER_IOCTL_GET_CTXID:
+	case REVISER_IOCTL_FREE_CTXID:
+	case REVISER_IOCTL_GET_TCM:
+	case REVISER_IOCTL_FREE_TCM:
+	case REVISER_IOCTL_GET_VLM:
+	case REVISER_IOCTL_FREE_VLM:
+	case REVISER_IOCTL_SWAPIN_VLM:
+	case REVISER_IOCTL_SWAPOUT_VLM:
 	{
 		return flip->f_op->unlocked_ioctl(flip, cmd,
 					(unsigned long)compat_ptr(arg));
@@ -388,5 +693,5 @@ static void __exit reviser_destroy(void)
 module_init(reviser_init);
 module_exit(reviser_destroy);
 MODULE_DESCRIPTION("MTK APUSYS REVISER Driver");
-MODULE_AUTHOR("SS5");
+MODULE_AUTHOR("Yu-Ren Wang");
 MODULE_LICENSE("GPL");
