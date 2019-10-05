@@ -521,7 +521,9 @@ static long ion_sys_ioctl(struct ion_client *client, unsigned int cmd,
 					param.get_phys_param.kernel_handle,
 					from_kernel);
 			if (IS_ERR(kernel_handle)) {
-				IONMSG("ion_get_phys fail!\n");
+				IONMSG("ION_PHYS:err handle %s(%s),%d, k:%d\n",
+				       client->name, client->dbg_name,
+				       client->pid, from_kernel);
 				ret = -EINVAL;
 				break;
 			}
