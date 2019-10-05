@@ -401,7 +401,7 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu, u64 time)
 		j_util = j_sg_cpu->util;
 		j_max = j_sg_cpu->max;
 
-		trace_uclamp_util_dvfs(j, j_util);
+		trace_schedutil_uclamp_util(j, j_util);
 
 		j_util = uclamp_util(cpu_rq(j), j_util);
 
