@@ -50,7 +50,6 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 #define UNUSED(x) ((void)x)
 	UNUSED(pw);
 	UNUSED(pmt);
-	UNUSED(fw);
 #undef UNUSED
 
 	vd = (struct vpu_device *)adev->private;
@@ -88,9 +87,9 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 		break;
 	case APUSYS_CMD_FIRMWARE:
 		fw = (struct apusys_firmware_hnd *)hnd;
-		vpu_cmd_debug("%s: APUSYS_CMD_FIRMWARE, kva: %llx\n",
-			__func__, fw->kva);
-		break;
+		vpu_cmd_debug("%s: APUSYS_CMD_FIRMWARE, op: %d, name: %s\n",
+			      __func__, fw->op, fw->name);
+		return vpu_firmware(vd, fw);
 	default:
 		vpu_cmd_debug("%s: unknown command: %d\n", __func__, op);
 		break;

@@ -262,6 +262,69 @@ struct __vpu_algo *vpu_alg_alloc(struct vpu_device *vd)
 	return algo;
 }
 
+/*
+ * vpu_alg_add - add fw to apusys
+ * @vd: vpu device.
+ * @fw: firmware pass to apusys
+ */
+int vpu_alg_add(struct vpu_device *vd, struct apusys_firmware_hnd *fw)
+{
+	struct __vpu_algo *alg;
+	int ret = 0;
+
+	alg = vpu_alg_alloc(vd);
+	if (!alg) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	alg->a.len = fw->size;
+	alg->a.mva = fw->iova;
+	/* make sure alg->a.name will full-filled null byte first */
+	memset(alg->a.name, 0, sizeof(alg->a.name));
+	strncpy(alg->a.name, fw->name,
+		min(sizeof(alg->a.name), sizeof(fw->name)) - 1);
+	vpu_alg_debug("%s: name %s, len %d, mva 0x%lx\n",
+		      __func__, alg->a.name, alg->a.len, alg->a.mva);
+
+	/* Add from tail, so that existing algorithm can be
+	 * overidden by dynamic loaded ones.
+	 */
+	spin_lock(&vd->algo_lock);
+	list_add_tail(&alg->list, &vd->algo);
+	vd->algo_cnt++;
+	spin_unlock(&vd->algo_lock);
+
+out:
+	return ret;
+}
+
+/*
+ * vpu_alg_del - remove fw from apusys
+ * @vd: vpu device.
+ * @fw: firmware pass to apusys
+ */
+int vpu_alg_del(struct vpu_device *vd, struct apusys_firmware_hnd *fw)
+{
+	struct __vpu_algo *alg;
+
+	/* search from tail, so that existing algorithm can be
+	 * overidden by dynamic loaded ones.
+	 */
+	list_for_each_entry_reverse(alg, &vd->algo, list) {
+		if (!strcmp(alg->a.name, fw->name)) {
+			/* found, reference count++ */
+			vpu_alg_debug("%s: name %s len %d mva 0x%lx\n",
+				      __func__, alg->a.name,
+				      alg->a.len, (unsigned long)alg->a.mva);
+			vpu_alg_put(alg);
+			return 0;
+		}
+	}
+	/* not found in vd->algo list */
+	return -ENOENT;
+}
+
 int vpu_alloc_request(struct vpu_request **rreq)
 {
 	struct vpu_request *req;
@@ -282,3 +345,13 @@ int vpu_free_request(struct vpu_request *req)
 	return 0;
 }
 
+int vpu_firmware(struct vpu_device *vd, struct apusys_firmware_hnd *fw)
+{
+	if (fw->op == APUSYS_FIRMWARE_LOAD)
+		return vpu_alg_add(vd, fw);
+	else if (fw->op == APUSYS_FIRMWARE_UNLOAD)
+		return vpu_alg_del(vd, fw);
+
+	vpu_cmd_debug("%s: unknown op: %d\n", __func__, fw->op);
+	return -EINVAL;
+}

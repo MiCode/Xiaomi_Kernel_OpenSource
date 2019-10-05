@@ -50,4 +50,11 @@ void vpu_exit_dev_algo(struct platform_device *pdev, struct vpu_device *vd);
 int vpu_hw_alg_init(struct vpu_device *vd, struct __vpu_algo *alg);
 int vpu_hw_alg_info(struct vpu_device *vd, struct __vpu_algo *alg);
 
+/* vpu_algo.c
+ * handleing dynamic load/unload algo
+ */
+int vpu_alg_add(struct vpu_device *vd, struct apusys_firmware_hnd *fw);
+int vpu_alg_del(struct vpu_device *vd, struct apusys_firmware_hnd *fw);
+int vpu_firmware(struct vpu_device *vd, struct apusys_firmware_hnd *fw);
+
 #endif
