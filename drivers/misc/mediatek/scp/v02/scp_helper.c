@@ -767,25 +767,23 @@ DEVICE_ATTR(wdt_reset, 0200, NULL, scp_wdt_trigger);
  * trigger scp reset manually (debug use)
  */
 static ssize_t scp_reset_trigger(struct device *dev
-		, struct device_attribute *attr, const char *buf, size_t count)
+		, struct device_attribute *attr, const char *buf, size_t n)
 {
-	unsigned int value = 0;
+	int magic, trigger, counts;
 
-	if (!buf || count == 0)
-		return count;
-	pr_debug("[SCP] %s: %8s\n", __func__, buf);
-	/* scp reset by cmdm set flag =1 */
-	if (kstrtouint(buf, 10, &value) == 0) {
-		if (value == 666) {
-			scp_reset_by_cmd = 1;
-			/* scp_wdt_reset(SCP_A_ID); */
-	/*fix me, watch dog may be refresh just after you set */
-			scp_send_reset_wq(RESET_TYPE_CMD);
-	/* use ipc force scp enter exception, not use watch dog */
-		}
+	if (sscanf(buf, "%d %d %d", &magic, &trigger, &counts) != 3)
+		return -EINVAL;
+	pr_notice("%s %d %d %d\n", __func__, magic, trigger, counts);
+
+	if (magic != 666)
+		return -EINVAL;
+
+	scp_reset_counts = counts;
+	if (trigger == 1) {
+		scp_reset_by_cmd = 1;
+		scp_send_reset_wq(RESET_TYPE_CMD);
 	}
-
-	return count;
+	return n;
 }
 
 DEVICE_ATTR(scp_reset, 0200, NULL, scp_reset_trigger);
@@ -1486,8 +1484,10 @@ void scp_send_reset_wq(enum SCP_RESET_TYPE type)
 {
 	scp_sys_reset_work.flags = (unsigned int) type;
 	scp_sys_reset_work.id = SCP_A_ID;
-	if (scp_ee_enable != 3646633)
+	if (scp_reset_counts > 0) {
+		scp_reset_counts--;
 		scp_schedule_reset_work(&scp_sys_reset_work);
+	}
 }
 #endif
 

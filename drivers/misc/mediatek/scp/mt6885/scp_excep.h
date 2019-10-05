@@ -52,6 +52,7 @@ extern void aed_scp_exception_api(const int *log, int log_size,
 extern void scp_excep_cleanup(void);
 enum { r0, r1, r2, r3, r12, lr, pc, psr};
 extern int scp_ee_enable;
+extern int scp_reset_counts;
 
 extern struct scp_status_reg c0_m;
 extern struct scp_status_reg c1_m;

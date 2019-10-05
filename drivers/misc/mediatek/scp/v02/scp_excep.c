@@ -66,6 +66,7 @@ struct scp_status_reg c1_m;
 
 static struct mutex scp_excep_mutex;
 int scp_ee_enable;
+int scp_reset_counts = 0x3fffffff;
 
 void scp_dump_last_regs(void)
 {
