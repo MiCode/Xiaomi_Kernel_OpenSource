@@ -33,9 +33,13 @@
 #include <mt-plat/sync_write.h>
 #include <mt-plat/mtk_sys_timer.h>
 #include <mtk_sys_timer_typedefs.h>
+#if defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT) || \
+defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+#include <mtk_sys_timer_mbox.h>
+#endif
+
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#include <mtk_sys_timer_mbox.h>
 #include <sspm_define.h>
 /* just for sspm v1
  * #include <sspm_ipi.h>
@@ -104,20 +108,6 @@ static void sys_timer_mbox_write(unsigned int id, unsigned int val)
 #endif
 }
 
-static void sys_timer_mbox_read(unsigned int id, unsigned int *val)
-{
-#ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
-	mcupm_mbox_read(SYS_TIMER_MCUPM_MBOX,
-			SYS_TIMER_MCUPM_MBOX_OFFSET_BASE + id,
-			val, 1);
-#endif
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-	mtk_mbox_read(&sspm_mboxdev, SYS_TIMER_MBOX,
-		      SYS_TIMER_MBOX_OFFSET_BASE + id,
-		      val, 1);
-#endif
-}
-
 static u8 sys_timer_timesync_inc_ver(void)
 {
 	u8 ver;
@@ -180,13 +170,27 @@ static void sys_timer_timesync_update_md32(int suspended,
 	mb();
 }
 #else
-#define sys_timer_mbox_read(id, val)
 #define sys_timer_mbox_write(id, val)
 #define sys_timer_timesync_inc_ver(void)
 #define sys_timer_timesync_update_md32(suspended, tick, ts)
 #endif
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+static void sys_timer_mbox_read(unsigned int id, unsigned int *val)
+{
+	/* #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
+	 *	mcupm_mbox_read(SYS_TIMER_MCUPM_MBOX,
+	 *			SYS_TIMER_MCUPM_MBOX_OFFSET_BASE + id,
+	 *			val, 1);
+	 *#endif
+	 */
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+	mtk_mbox_read(&sspm_mboxdev, SYS_TIMER_MBOX,
+		      SYS_TIMER_MBOX_OFFSET_BASE + id,
+		      val, 1);
+#endif
+}
+
 void sys_timer_timesync_verify_sspm(void)
 {
 	struct plt_ipi_data_s ipi_data;
