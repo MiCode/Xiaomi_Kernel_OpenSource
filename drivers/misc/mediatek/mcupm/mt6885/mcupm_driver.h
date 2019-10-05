@@ -51,14 +51,6 @@ struct mcupm_reserve_mblock {
 	u64 size;
 };
 
-static struct mcupm_reserve_mblock mcupm_reserve_mblock[NUMS_MCUPM_MEM_ID] = {
-	{
-		.num = MCUPM_MEM_ID,
-		.size = 0x100 + MCUPM_PLT_LOGGER_BUF_LEN,
-		/* logger header + 1M log buffer */
-	},
-};
-
 /* MCUPM LOGGER */
 #ifdef MCUPM_PLT_LOGGER_BUF_LEN
 /* use platform-defined buffer length */

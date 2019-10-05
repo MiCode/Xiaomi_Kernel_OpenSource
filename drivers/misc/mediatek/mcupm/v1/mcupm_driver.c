@@ -66,6 +66,14 @@ static struct buffer_info_s *buf_info, *lbuf_info;
 static struct timer_list mcupm_log_timer;
 static DEFINE_MUTEX(mcupm_log_mutex);
 
+static struct mcupm_reserve_mblock mcupm_reserve_mblock[NUMS_MCUPM_MEM_ID] = {
+	{
+		.num = MCUPM_MEM_ID,
+		.size = 0x100 + MCUPM_PLT_LOGGER_BUF_LEN,
+		/* logger header + 1M log buffer */
+	},
+};
+
 /* MCUPM RESERVED MEM */
 #ifdef CONFIG_OF_RESERVED_MEM
 static int __init mcupm_reserve_mem_of_init(struct reserved_mem *rmem)
