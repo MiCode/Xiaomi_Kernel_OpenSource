@@ -249,6 +249,8 @@ static unsigned long g_reg_pll_con1[FH_PLL_NUM];
 #define F2M_ACK_ERR_MSG \
 	"[Error]cmd(%x) return error(%d)\n"
 
+#define FHCTL_D_LEN (9)
+
 static int fhctl_to_mcupm_command(unsigned int cmd,
 		struct fhctl_ipi_data *ipi_data)
 {
@@ -272,8 +274,7 @@ static int fhctl_to_mcupm_command(unsigned int cmd,
 	case FH_DCTL_CMD_PLL_PAUSE:
 		ipi_data->cmd = cmd;
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_FHCTL,
-				IPI_SEND_WAIT, ipi_data,
-				sizeof(ipi_data)/MBOX_SLOT_SIZE, 0);
+		IPI_SEND_WAIT, ipi_data, FHCTL_D_LEN, 0);
 		if (ret != 0)
 			FH_MSG(F2M_CMD_ERR_MSG,
 					cmd, ret, ack_data);
