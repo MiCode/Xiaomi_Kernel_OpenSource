@@ -4796,6 +4796,15 @@ page_owner=on";
 		pu_cfg = <0x90>;
 		rsel_cfg = <0xE0>;
 		aed = <0x1a>;
+
+		ext_buck_vmddr_mtk:ext_buck_vmddr@51 {
+			compatible = "mediatek,ext_buck_vmddr";
+			reg = <0x51>;
+			regulator-name = "ext_buck_vmddr";
+			regulator-min-microvolt = <300000>;
+			regulator-max-microvolt = <1300000>;
+			status = "okay";
+		};
 	};
 
 	i2c7: i2c7@11D03000 {

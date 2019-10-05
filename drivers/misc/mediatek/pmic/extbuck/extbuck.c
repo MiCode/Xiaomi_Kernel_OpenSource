@@ -20,6 +20,9 @@
 #ifdef CONFIG_REGULATOR_RT5738
 #include "rt5738-regulator.h"
 #endif
+#ifdef CONFIG_REGULATOR_MT6691
+#include "mt6691-regulator.h"
+#endif
 
 int is_ext_buck_exist(void)
 {
@@ -64,8 +67,10 @@ int is_ext_buck2_exist(void)
 	#ifdef CONFIG_REGULATOR_RT5738
 	if ((is_rt5738_exist() == 1))
 		return 1;
-
 	#endif /* CONFIG_REGULATOR_RT5738 */
+	#ifdef CONFIG_REGULATOR_MT6691
+	return is_mt6691_exist();
+	#endif /* CONFIG_REGULATOR_MT6691 */
 	return 0;
 #endif /* if not CONIFG_MTK_EXTBUCK */
 }
