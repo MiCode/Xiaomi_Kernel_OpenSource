@@ -95,9 +95,9 @@ enum IMGSENSOR_HW_ID {
 
 #define IMGSENSOR_I2C_DRV_NAME_0  "kd_camera_hw"
 #define IMGSENSOR_I2C_DRV_NAME_1  "kd_camera_hw_bus2"
-#define IMGSENSOR_I2C_DRV_NAME_2  "kd_camera_hw_trigger"
-#define IMGSENSOR_I2C_DRV_NAME_3  "kd_camera_hw_3"
-#define IMGSENSOR_I2C_DRV_NAME_4  "kd_camera_hw_4"
+#define IMGSENSOR_I2C_DRV_NAME_2  "kd_camera_hw_bus3"
+#define IMGSENSOR_I2C_DRV_NAME_3  "kd_camera_hw_bus4"
+#define IMGSENSOR_I2C_DRV_NAME_4  "kd_camera_hw_trigger"
 
 #define IMGSENSOR_I2C_OF_DRV_NAME_0 "mediatek,camera_main"
 #define IMGSENSOR_I2C_OF_DRV_NAME_1 "mediatek,camera_sub"
