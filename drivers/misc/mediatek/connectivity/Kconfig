@@ -282,19 +282,8 @@ menuconfig GPS
 	---help---
 	  Say Y here for supporting GPS.
 
-config MTK_GPS
-	tristate "MediaTek GPS driver"
-	depends on GPS
-	default y
-	---help---
-	  MTK GPS driver
-	  To switch gps nmea port driver.
-	  Set "yes" to turn on.
-	  Set "no" to turn off.
-
 config MTK_GPS_SUPPORT
 	tristate "support MediaTek GPS driver"
-	select MTK_GPS
 	help
 	  to switch GPS feature on the platform.
 	  Set "yes" to turn on and set "no"
