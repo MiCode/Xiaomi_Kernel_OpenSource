@@ -70,8 +70,6 @@ int edma_initialize(struct edma_device *edma_device)
 		ret = edma_init_queue_task(edma_sub);
 	}
 
-	edma_device->edma_init_done = true;
-
 	return ret;
 }
 
@@ -83,14 +81,6 @@ static int edma_open(struct inode *inode, struct file *flip)
 
 	edma_device =
 	    container_of(inode->i_cdev, struct edma_device, edma_chardev);
-
-	if (!edma_device->edma_init_done) {
-		ret = edma_initialize(edma_device);
-		if (ret) {
-			pr_notice("fail to initialize edma");
-			return ret;
-		}
-	}
 
 	edma_create_user(&user, edma_device);
 	if (IS_ERR_OR_NULL(user)) {
@@ -176,16 +166,6 @@ int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
 
 	edma_sub = (struct edma_sub *)adev->private;
 
-	if (!edma_sub->edma_device->edma_init_done) {
-		int ret;
-
-		ret = edma_initialize(edma_sub->edma_device);
-		if (ret) {
-			pr_notice("fail to initialize edma");
-			return ret;
-		}
-	}
-
 	switch (cmd) {
 	case APUSYS_CMD_POWERON:
 		break;
@@ -226,7 +206,6 @@ static int mtk_edma_sub_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct edma_sub *edma_sub;
 	struct device *dev = &pdev->dev;
-	static int apusys_idx;
 
 	edma_sub = devm_kzalloc(dev, sizeof(*edma_sub), GFP_KERNEL);
 	if (!edma_sub)
@@ -250,19 +229,6 @@ static int mtk_edma_sub_probe(struct platform_device *pdev)
 			       edma_sub);
 	if (ret < 0) {
 		dev_notice(dev, "Failed to request irq %d: %d\n", irq, ret);
-		return ret;
-	}
-
-	/* register device to APUSYS */
-	edma_sub->adev.dev_type = APUSYS_DEVICE_EDMA;
-	edma_sub->adev.preempt_type = APUSYS_PREEMPT_NONE;
-	edma_sub->adev.preempt_level = 0;
-	edma_sub->adev.private = edma_sub;
-	edma_sub->adev.send_cmd = edma_send_cmd;
-	edma_sub->adev.idx = apusys_idx++;
-	ret = apusys_register_device(&edma_sub->adev);
-	if (ret) {
-		dev_notice(dev, "Failed to register apusys (%d)\n", ret);
 		return ret;
 	}
 
@@ -330,6 +296,20 @@ static int edma_setup_resource(struct platform_device *pdev,
 		of_node_put(sub_node);
 		/* attach edma_sub */
 		edma_device->edma_sub[i] = edma_sub;
+
+		/* register device to APUSYS */
+		edma_sub->adev.dev_type = APUSYS_DEVICE_EDMA;
+		edma_sub->adev.preempt_type = APUSYS_PREEMPT_NONE;
+		edma_sub->adev.preempt_level = 0;
+		edma_sub->adev.private = edma_sub;
+		edma_sub->adev.send_cmd = edma_send_cmd;
+		edma_sub->adev.idx = i;
+		ret = apusys_register_device(&edma_sub->adev);
+		if (ret) {
+			dev_notice(dev,
+				"Failed to register apusys (%d)\n", ret);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -349,12 +329,11 @@ static int edma_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	edma_device->edma_init_done = false;
-
 	INIT_LIST_HEAD(&edma_device->user_list);
 	mutex_init(&edma_device->user_mutex);
 	edma_device->edma_num_users = 0;
 	edma_device->dev = &pdev->dev;
+	edma_device->dbgfs_reg_core = 0;
 
 	if (edma_reg_chardev(edma_device) == 0) {
 		/* Create class register */
@@ -380,6 +359,7 @@ static int edma_probe(struct platform_device *pdev)
 		dev_set_drvdata(dev, edma_device);
 		edma_create_sysfs(dev);
 	}
+	edma_initialize(edma_device);
 	pr_notice("edma probe done\n");
 
 	return 0;

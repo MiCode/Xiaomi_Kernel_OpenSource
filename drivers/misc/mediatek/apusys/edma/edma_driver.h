@@ -56,7 +56,6 @@ struct edma_device {
 	struct edma_sub *edma_sub[EDMA_SUB_NUM];
 
 	unsigned int edma_sub_num;
-	bool edma_init_done;
 
 	/* notify enque thread */
 	wait_queue_head_t req_wait;
@@ -69,6 +68,8 @@ struct edma_device {
 	dev_t edma_devt;
 	struct cdev edma_chardev;
 	struct dentry *debug_root;
+
+	unsigned int dbgfs_reg_core;
 };
 
 struct edma_user {
