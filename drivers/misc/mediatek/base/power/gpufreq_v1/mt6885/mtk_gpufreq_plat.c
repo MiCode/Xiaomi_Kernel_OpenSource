@@ -430,6 +430,9 @@ static void mt_gpufreq_external_cg_control(void)
 {
 	u32 val;
 
+	if (mt_gpufreq_not_ready())
+		return;
+
 	gpufreq_pr_debug("@%s\n", __func__);
 
 	/* [F] MFG_ASYNC_CON 0x13FB_F020 [22] MEM0_MST_CG_ENABLE = 0x1 */
@@ -481,6 +484,9 @@ static void mt_gpufreq_external_cg_control(void)
 
 static void mt_gpufreq_cg_control(enum mt_power_state power)
 {
+	if (mt_gpufreq_not_ready())
+		return;
+
 	gpufreq_pr_debug("@%s: power = %d", __func__, power);
 
 	if (power == POWER_ON) {
@@ -498,6 +504,10 @@ static void mt_gpufreq_cg_control(enum mt_power_state power)
 static void mt_gpufreq_mtcmos_control(enum mt_power_state power)
 {
 	u64 shader_present = 0;
+
+	if (mt_gpufreq_not_ready())
+		return;
+
 	gpufreq_pr_debug("@%s: power = %d\n", __func__, power);
 
 	shader_present = mt_gpufreq_get_shader_present();
@@ -553,6 +563,9 @@ static void mt_gpufreq_mtcmos_control(enum mt_power_state power)
 
 static void mt_gpufreq_buck_control(enum mt_power_state power)
 {
+	if (mt_gpufreq_not_ready())
+		return;
+
 	gpufreq_pr_debug("@%s: power = %d", __func__, power);
 
 	if (power == POWER_ON) {
@@ -590,6 +603,9 @@ static void mt_gpufreq_buck_control(enum mt_power_state power)
 void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 			enum mt_mtcmos_state mtcmos, enum mt_buck_state buck)
 {
+	if (mt_gpufreq_not_ready())
+		return;
+
 	mutex_lock(&mt_gpufreq_lock);
 
 	gpufreq_pr_debug("power = %d (todo cg: %d, mtcmos: %d, buck: %d)\n",
@@ -668,12 +684,15 @@ void mt_gpufreq_enable_by_ptpod(void)
 /*
  * API : disable DVFS for PTPOD initializing
  */
-void mt_gpufreq_disable_by_ptpod(void)
+int mt_gpufreq_disable_by_ptpod(void)
 {
 	struct opp_table_info *opp_table = g_opp_table_segment;
 	int num = ARRAY_SIZE(g_opp_table_segment);
 	unsigned int i = 0;
 	unsigned int target_idx = 0;
+
+	if (mt_gpufreq_not_ready())
+		return -1;
 
 	/* fix VGPU @ 0.8V */
 	for (i = 0; i < num; i++) {
@@ -695,6 +714,8 @@ void mt_gpufreq_disable_by_ptpod(void)
 
 	/* set VGPU to enter PWM mode */
 	__mt_gpufreq_vgpu_set_mode(REGULATOR_MODE_FAST);
+
+	return 0;
 }
 
 /*
