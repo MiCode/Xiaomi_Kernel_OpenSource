@@ -1625,7 +1625,7 @@ int dpmgr_disable_event(disp_path_handle dp_handle, enum DISP_PATH_EVENT event)
 	struct ddp_path_handle *handle;
 	struct DPMGR_WQ_HANDLE *wq_handle;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 
 	DDPDBG("disable event %s on scenario %s\n",
