@@ -350,7 +350,9 @@ struct fuel_gauge_custom_data {
 	/* hw related */
 	int car_tune_value;
 	int fg_meter_resistance;
+	int com_fg_meter_resistance;
 	int r_fg_value;
+	int com_r_fg_value;
 	int mtk_chr_exist;
 
 	/* Aging Compensation 1*/

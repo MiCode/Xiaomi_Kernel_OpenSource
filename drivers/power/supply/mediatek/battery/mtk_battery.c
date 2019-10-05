@@ -524,6 +524,8 @@ static void proc_dump_dtsi(struct seq_file *m)
 		fg_cust_data.pmic_shutdown_current);
 	seq_printf(m, "FG_METER_RESISTANCE = %d\n",
 		fg_cust_data.fg_meter_resistance);
+	seq_printf(m, "COM_FG_METER_RESISTANCE = %d\n",
+		fg_cust_data.com_fg_meter_resistance);
 	seq_printf(m, "CAR_TUNE_VALUE = %d\n", fg_cust_data.car_tune_value);
 
 	seq_printf(m, "pl_two_sec_reboot = %d\n", gm.pl_two_sec_reboot);
@@ -1013,11 +1015,11 @@ unsigned int TempToBattVolt(int temp, int update)
 	int vbif28 = gm.rbat.rbat_pull_up_volt;
 	static int fg_current_temp;
 	static bool fg_current_state;
-	int fg_r_value = fg_cust_data.r_fg_value;
+	int fg_r_value = fg_cust_data.com_r_fg_value;
 	int fg_meter_res_value = 0;
 
 	if (NO_BAT_TEMP_COMPENSATE == 0)
-		fg_meter_res_value = fg_cust_data.fg_meter_resistance;
+		fg_meter_res_value = fg_cust_data.com_fg_meter_resistance;
 	else
 		fg_meter_res_value = 0;
 
@@ -1155,10 +1157,10 @@ int force_get_tbat_internal(bool update)
 		bat_temperature_volt = pmic_get_v_bat_temp();
 
 		if (bat_temperature_volt != 0) {
-			fg_r_value = fg_cust_data.r_fg_value;
+			fg_r_value = fg_cust_data.com_r_fg_value;
 			if (NO_BAT_TEMP_COMPENSATE == 0)
 				fg_meter_res_value =
-					fg_cust_data.fg_meter_resistance;
+					fg_cust_data.com_fg_meter_resistance;
 			else
 				fg_meter_res_value = 0;
 
@@ -1865,9 +1867,9 @@ void exec_BAT_EC(int cmd, int param)
 		break;
 	case 708:
 		{
-			fg_cust_data.fg_meter_resistance = param;
+			fg_cust_data.com_fg_meter_resistance = param;
 			bm_err(
-				"exe_BAT_EC cmd %d, param %d, fg_meter_resistance\n",
+				"exe_BAT_EC cmd %d, param %d, com_fg_meter_resistance\n",
 				cmd, param);
 		}
 		break;
@@ -2524,9 +2526,9 @@ static ssize_t show_FG_meter_resistance(
 	struct device *dev, struct device_attribute *attr, char *buf)
 {
 	bm_trace(
-		"[FG] show fg_meter_resistance : %d\n",
-		fg_cust_data.fg_meter_resistance);
-	return sprintf(buf, "%d\n", fg_cust_data.fg_meter_resistance);
+		"[FG] show com_fg_meter_resistance : %d\n",
+		fg_cust_data.com_fg_meter_resistance);
+	return sprintf(buf, "%d\n", fg_cust_data.com_fg_meter_resistance);
 }
 
 static ssize_t store_FG_meter_resistance(
@@ -2549,10 +2551,10 @@ static ssize_t store_FG_meter_resistance(
 				(int)val);
 			val = 0;
 		} else
-			fg_cust_data.fg_meter_resistance = val;
+			fg_cust_data.com_fg_meter_resistance = val;
 
 		bm_err(
-			"[%s] FG_meter_resistance = %d\n",
+			"[%s] com FG_meter_resistance = %d\n",
 			__func__,
 			(int)val);
 	}
@@ -2648,6 +2650,7 @@ static ssize_t store_FG_ntc_disable_nafg(
 			get_ec()->fixed_temp_value =
 				BATTERY_TMP_TO_DISABLE_NAFG;
 			gm.ntc_disable_nafg = true;
+			wakeup_fg_algo(FG_INTR_NAG_C_DLTV);
 		}
 
 		bm_err(
@@ -3634,7 +3637,6 @@ static int battery_resume(struct platform_device *dev)
 	}
 	/* reset nafg monitor time to avoid suspend for too long case */
 	get_monotonic_boottime(&gm.last_nafg_update_time);
-
 
 	fg_update_sw_iavg();
 	return 0;

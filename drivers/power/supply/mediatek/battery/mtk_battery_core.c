@@ -410,7 +410,9 @@ void fg_custom_init_from_header(void)
 	/*hw related */
 	fg_cust_data.car_tune_value = UNIT_TRANS_10 * CAR_TUNE_VALUE;
 	fg_cust_data.fg_meter_resistance = FG_METER_RESISTANCE;
+	fg_cust_data.com_fg_meter_resistance = FG_METER_RESISTANCE;
 	fg_cust_data.r_fg_value = UNIT_TRANS_10 * R_FG_VALUE;
+	fg_cust_data.com_r_fg_value = UNIT_TRANS_10 * R_FG_VALUE;
 
 	/* Aging Compensation */
 	fg_cust_data.aging_one_en = AGING_ONE_EN;
@@ -962,6 +964,14 @@ void fg_custom_init_from_dts(struct platform_device *dev)
 		bm_err("Get R_FG_VALUE failed\n");
 	}
 
+	if (!of_property_read_u32(np, "COM_R_FG_VALUE", &val)) {
+		fg_cust_data.com_r_fg_value = (int)val * UNIT_TRANS_10;
+		bm_debug("Get COM_R_FG_VALUE: %d\n",
+			 fg_cust_data.com_r_fg_value);
+	} else {
+		bm_err("Get COM_R_FG_VALUE failed\n");
+	}
+
 	if (ACTIVE_TABLE == 0) {
 		if (!of_property_read_u32(np, "TEMPERATURE_T0", &val)) {
 			fg_table_cust_data.fg_profile[0].temperature = (int)val;
@@ -1115,6 +1125,14 @@ void fg_custom_init_from_dts(struct platform_device *dev)
 			 fg_cust_data.fg_meter_resistance);
 	} else {
 		bm_err("Get FG_METER_RESISTANCE failed\n");
+	}
+
+	if (!of_property_read_u32(np, "COM_FG_METER_RESISTANCE", &val)) {
+		fg_cust_data.com_fg_meter_resistance = (int)val;
+		bm_debug("Get COM_FG_METER_RESISTANCE: %d\n",
+			 fg_cust_data.com_fg_meter_resistance);
+	} else {
+		bm_err("Get COM_FG_METER_RESISTANCE failed\n");
 	}
 
 	if (ACTIVE_TABLE == 0) {
