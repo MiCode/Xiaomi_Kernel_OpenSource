@@ -7519,7 +7519,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	unsigned long target_max_spare_cap = 0;
 	unsigned long target_util = ULONG_MAX;
 	unsigned long best_active_util = ULONG_MAX;
-	unsigned long task_clamped_util = task_uclamped_min_w_ceiling(p);
+	unsigned long max_capacity = cluster_max_capacity();
 	unsigned long min_cpu_util = ULONG_MAX;
 	unsigned long backup_min_cpu_util = ULONG_MAX;
 	unsigned long min_target_capacity = ULONG_MAX;
@@ -7596,6 +7596,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * The target CPU can be already at a capacity level higher
 			 * than the one required to boost the task.
 			 */
+			max_util = min(max_capacity, max_util);
 			new_util = clamp(new_util, min_util, max_util);
 			if (new_util > capacity)
 				continue;
@@ -7723,10 +7724,6 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				best_active_cpu = i;
 				continue;
 			}
-
-			new_util = max(task_clamped_util, new_util);
-			if (new_util > capacity)
-				continue;
 
 			/*
 			 * Enforce EAS mode
