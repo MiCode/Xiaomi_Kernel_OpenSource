@@ -34,13 +34,19 @@ static u32 smi_scen_map[SMI_BWC_SCEN_CNT] = {
 	SMI_ESL_ICFP, SMI_ESL_ICFP, SMI_ESL_ICFP, SMI_ESL_INIT
 };
 
-// TODO
 static u32 smi_larb_cmd_gp_en_port[SMI_LARB_NUM][2] = {
-	{0, 5}, {0, 0}, {0, 0},
+	{5, 8}, {5, 8}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+	{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+	{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
 };
 
 static u32 smi_larb_bw_thrt_en_port[SMI_LARB_NUM][2] = { /* non-HRT */
-	{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+	{0, 0}, {0, 0}, {0, SMI_LARB2_PORT_NUM}, {0, SMI_LARB3_PORT_NUM},
+	{0, SMI_LARB4_PORT_NUM}, {0, SMI_LARB5_PORT_NUM}, {0, 0},
+	{0, SMI_LARB7_PORT_NUM}, {0, SMI_LARB8_PORT_NUM},
+	{0, SMI_LARB9_PORT_NUM}, {0, 0}, {0, SMI_LARB11_PORT_NUM}, {0, 0},
+	{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+	{0, SMI_LARB19_PORT_NUM}, {0, SMI_LARB20_PORT_NUM},
 };
 
 /* conf */
@@ -71,24 +77,32 @@ struct mtk_smi_pair smi_larb0_conf_pair[SMI_LARB0_CONF_NUM] = {
 
 #define SMI_LARB4_CONF_NUM	(2)
 struct mtk_smi_pair smi_larb4_conf_pair[SMI_LARB4_CONF_NUM] = {
-	{SMI_LARB_SW_FLAG, 0x1}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	{SMI_LARB_CMD_THRT_CON, 0x300256}, {SMI_LARB_SW_FLAG, 0x1},
 };
 
 #define SMI_LARB6_CONF_NUM	(0)
 struct mtk_smi_pair smi_larb6_conf_pair[SMI_LARB6_CONF_NUM] = { };
 
-#define SMI_LARB15_CONF_NUM	(2)
-struct mtk_smi_pair smi_larb15_conf_pair[SMI_LARB15_CONF_NUM] = {
+#define SMI_LARB7_CONF_NUM	(3)
+struct mtk_smi_pair smi_larb7_conf_pair[SMI_LARB7_CONF_NUM] = {
 	{SMI_LARB_CMD_THRT_CON, 0x300256}, {SMI_LARB_SW_FLAG, 0x1},
+	{INT_SMI_LARB_CMD_THRT_CON, 0x300256},
+};
+
+#define SMI_LARB13_CONF_NUM	(5)
+struct mtk_smi_pair smi_larb13_conf_pair[SMI_LARB13_CONF_NUM] = {
+	{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_SW_FLAG, 0x1},
+	{SMI_LARB_DBG_CON, 0x1}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	{INT_SMI_LARB_DBG_CON, 0x1},
 };
 
 u32 smi_conf_pair_num[SMI_DEV_NUM] = {
 	SMI_LARB0_CONF_NUM, SMI_LARB0_CONF_NUM, SMI_LARB0_CONF_NUM,
 	SMI_LARB0_CONF_NUM, SMI_LARB4_CONF_NUM, SMI_LARB4_CONF_NUM,
-	SMI_LARB6_CONF_NUM, SMI_LARB0_CONF_NUM, SMI_LARB0_CONF_NUM,
+	SMI_LARB6_CONF_NUM, SMI_LARB7_CONF_NUM, SMI_LARB7_CONF_NUM,
 	SMI_LARB4_CONF_NUM, SMI_LARB6_CONF_NUM, SMI_LARB4_CONF_NUM,
-	SMI_LARB6_CONF_NUM, SMI_LARB0_CONF_NUM, SMI_LARB0_CONF_NUM,
-	SMI_LARB15_CONF_NUM, SMI_LARB0_CONF_NUM, SMI_LARB0_CONF_NUM,
+	SMI_LARB6_CONF_NUM, SMI_LARB13_CONF_NUM, SMI_LARB13_CONF_NUM,
+	SMI_LARB4_CONF_NUM, SMI_LARB0_CONF_NUM, SMI_LARB0_CONF_NUM,
 	SMI_LARB0_CONF_NUM, SMI_LARB4_CONF_NUM, SMI_LARB4_CONF_NUM,
 	SMI_COMM_CONF_NUM, SMI_COMM_CONF_NUM, SMI_SRAM_COMM_CONF_NUM,
 	SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM,
@@ -99,10 +113,10 @@ u32 smi_conf_pair_num[SMI_DEV_NUM] = {
 struct mtk_smi_pair *smi_conf_pair[SMI_DEV_NUM] = {
 	smi_larb0_conf_pair, smi_larb0_conf_pair, smi_larb0_conf_pair,
 	smi_larb0_conf_pair, smi_larb4_conf_pair, smi_larb4_conf_pair,
-	smi_larb6_conf_pair, smi_larb0_conf_pair, smi_larb0_conf_pair,
+	smi_larb6_conf_pair, smi_larb7_conf_pair, smi_larb7_conf_pair,
 	smi_larb4_conf_pair, smi_larb6_conf_pair, smi_larb4_conf_pair,
-	smi_larb6_conf_pair, smi_larb0_conf_pair, smi_larb0_conf_pair,
-	smi_larb15_conf_pair, smi_larb0_conf_pair, smi_larb0_conf_pair,
+	smi_larb6_conf_pair, smi_larb13_conf_pair, smi_larb13_conf_pair,
+	smi_larb4_conf_pair, smi_larb0_conf_pair, smi_larb0_conf_pair,
 	smi_larb0_conf_pair, smi_larb4_conf_pair, smi_larb4_conf_pair,
 	smi_comm_conf_pair, smi_comm_conf_pair, smi_sram_comm_conf_pair,
 	smi_sub_comm_conf_pair, smi_sub_comm_conf_pair, smi_sub_comm_conf_pair,
