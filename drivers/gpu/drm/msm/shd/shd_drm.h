@@ -49,6 +49,7 @@ struct shd_display_base {
 	int connector_type;
 	bool mst_port;
 	bool enabled;
+	bool enable_changed;
 };
 
 struct shd_display {
@@ -70,6 +71,7 @@ struct shd_display {
 	struct list_head head;
 
 	bool enabled;
+	bool enable_changed;
 };
 
 /* drm internal header */
