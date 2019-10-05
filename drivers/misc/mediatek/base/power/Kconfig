@@ -7,6 +7,33 @@ config MTK_CPU_FREQ
 	  changed which will depended on CPU FREQ governor.
 	  If unsure, say N.
 
+config MTK_PTPOD
+	bool "MTK PTPOD"
+	default n
+	---help---
+	  This kernel config can be used to enable PTPOD.
+	  When enable this option, voltage will be
+	  changed which will depended on chip.
+	  If unsure, say N.
+
+config MTK_STATIC_POWER
+	bool "MTK STATIC POWER"
+	default n
+	---help---
+	  This kernel config can be used to enable static power.
+	  This information can provide power data to someone who
+	  need it
+	  If unsure, say N.
+
+config MTK_UNIFY_POWER
+	bool "MTK UNIFY POWER"
+	default n
+	---help---
+	  This kernel config can be used to enable unified power table.
+	  This table can provide power data and capacity to someone who
+	  need it.
+	  If unsure, say Y.
+
 config MTK_CM_MGR
 	bool "MTK CM MGR"
 	default n
