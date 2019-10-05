@@ -1138,6 +1138,11 @@ unsigned int btif_dma_rx_data_receiver(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 #if 0
 	_btif_dump_memory("<DMA Rx>", p_buf, buf_len);
 #endif
+#ifdef CONFIG_ARM64
+	__dma_unmap_area((void *)p_buf, buf_len, DMA_FROM_DEVICE);
+#else
+	dma_unmap_area((void *)p_buf, buf_len, DMA_FROM_DEVICE);
+#endif
 
 	btif_bbs_write(&(p_btif->btif_buf), p_buf, buf_len);
 /*save DMA Rx packet here*/
