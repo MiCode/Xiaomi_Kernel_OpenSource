@@ -326,7 +326,7 @@ int mtk_dbgtop_dfd_therm1_dis(int value)
 	return 0;
 }
 
-mtk_dbgtop_dfd_therm2_dis(int value)
+int mtk_dbgtop_dfd_therm2_dis(int value)
 {
 	unsigned int tmp;
 
