@@ -47,6 +47,7 @@
 #include <linux/compat.h>
 #include <linux/uaccess.h>
 #include <linux/sysfs.h>
+#include <linux/notifier.h>  /* FOR SCP REVOCER */
 #ifdef SIGTEST
 #include <asm/siginfo.h>
 #endif
@@ -54,17 +55,18 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/kthread.h>
+#include <linux/sched/types.h>
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
 #include "scp_helper.h"
 #include "scp_ipi.h"
 #include "scp_excep.h"
 #include "audio_task_manager.h"
 #include "audio_ipi_queue.h"
-#endif
+#endif  /* #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT */
 #include "vow.h"
 #include "vow_hw.h"
 #include "vow_assert.h"
-#include <linux/sched/types.h>
+
 
 /*****************************************************************************
  * Variable Definition
@@ -78,23 +80,25 @@ static DEFINE_SPINLOCK(vowdrv_lock);
 static struct wakeup_source VOW_suspend_lock;
 static int init_flag = -1;
 
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
-#define DUMP_BARGEIN_PCM_DATA_PATH "/data/vendor/audiohal/audio_dump"
-static struct file *file_bargein_pcm_input;
-static struct file *file_bargein_echo_ref;
-static struct file *file_bargein_delay_info;
+static struct file *file_recog_data;
+static uint32_t recog_dump_data_routine_cnt_pass;
+static struct wakeup_source pcm_dump_wake_lock;
 static struct dump_queue_t *dump_queue;
-static struct task_struct *bargein_dump_task;
+static struct task_struct *pcm_dump_task;
 static bool b_enable_dump;
-static uint32_t dump_data_routine_cnt_pass;
 static struct dump_work_t dump_work[NUM_DUMP_DATA];
 static struct workqueue_struct *dump_workqueue[NUM_DUMP_DATA];
 static wait_queue_head_t wq_dump_pcm;
-static struct wakeup_source bargein_pcm_dump_wake_lock;
-static bool dump_info_flag;
 struct pcm_dump_t {
 	char decode_pcm[FRAME_BUF_SIZE];
 };
+#define DUMP_PCM_DATA_PATH "/data/vendor/audiohal/audio_dump"
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+static struct file *file_bargein_pcm_input;
+static struct file *file_bargein_echo_ref;
+static struct file *file_bargein_delay_info;
+static uint32_t bargein_dump_data_routine_cnt_pass;
+static bool bargein_dump_info_flag;
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
 /*****************************************************************************
@@ -112,20 +116,21 @@ static bool vow_IPICmd_Send(uint8_t data_type,
 static void vow_IPICmd_Received(struct ipi_msg_t *ipi_msg);
 static bool vow_IPICmd_ReceiveAck(struct ipi_msg_t *ipi_msg);
 static void vow_Task_Unloaded_Handling(void);
-#endif
+#endif  /* #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT */
 static bool VowDrv_SetFlag(int type, unsigned int set);
 static int VowDrv_GetHWStatus(void);
+static void vow_service_OpenDumpFile(void);
+static void vow_service_CloseDumpFile(void);
+static void vow_service_OpenDumpFile_internal(void);
+static void vow_service_CloseDumpFile_internal(void);
+static void vow_pcm_dump_init(void);
+static void vow_pcm_dump_deinit(void);
+static int vow_pcm_dump_kthread(void *data);
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
-static bool VowDrv_SetBargeIn(unsigned int set);
-static int vow_bargein_dump_kthread(void *data);
-static void bargein_dump_input_routine(struct work_struct *ws);
-static void bargein_dump_echo_routine(struct work_struct *ws);
-static void vow_bargein_dump_message(struct ipi_msg_t *ipi_msg);
-static void vow_bargein_dump_init(void);
-static void vow_bargein_dump_deinit(void);
-static void vow_service_BargeInOpenDumpFile(void);
-static void vow_service_BargeInCloseDumpFile(void);
+static bool VowDrv_SetBargeIn(unsigned int set, unsigned int irq_id);
+static void bargein_dump_routine(struct work_struct *ws);
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+static void recog_dump_routine(struct work_struct *ws);
 
 /*****************************************************************************
  * VOW SERVICES
@@ -170,16 +175,20 @@ static struct
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	unsigned int         dump_frm_cnt;
 	unsigned int         voice_sample_delay;
-	unsigned int         dbg_echo_cnt1;
-	unsigned int         dbg_echo_cnt2;
-	unsigned int         dbg_echo_cnt3;
-	unsigned int         dbg_mic_cnt1;
-	unsigned int         dbg_mic_cnt2;
-	unsigned int         dbg_mic_cnt3;
-	bool                 barge_in_status;
-	bool                 bargein_pcmdump;
-	bool                 bargein_wait;
+	unsigned int         bargein_dump_cnt1;
+	unsigned int         bargein_dump_cnt2;
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+	short                *interleave_pcmdata_ptr;
+#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+	bool                 dump_pcm_flag;
+	bool                 scp_vow_lch;
+	bool                 scp_recovering;
+	bool                 vow_recovering;
+	unsigned int         vow_cur_model_idx;
+	unsigned int         recog_dump_cnt1;
+	unsigned int         recog_dump_cnt2;
+	bool                 split_dumpfile_flag;
 } vowserv;
 
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
@@ -190,6 +199,13 @@ static struct
 	uint32_t      size;
 } bargein_resv_dram;
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+
+static struct
+{
+	dma_addr_t    phy_addr;
+	char          *vir_addr;
+	uint32_t      size;
+} recog_resv_dram;
 
 /*****************************************************************************
  * DSP IPI HANDELER
@@ -211,15 +227,14 @@ static bool vow_IPICmd_ReceiveAck(struct ipi_msg_t *ipi_msg)
 	case IPIMSG_VOW_SET_MODEL:
 	case IPIMSG_VOW_SET_SMART_DEVICE:
 	case IPIMSG_VOW_APREGDATA_ADDR:
-	case IPIMSG_VOW_DATAREADY_ACK:
+	case IPIMSG_VOW_PCM_DUMP_ON:
+	case IPIMSG_VOW_PCM_DUMP_OFF:
 		if (ipi_msg->param1 == VOW_IPI_SUCCESS)
 			result = true;
 		break;
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	case IPIMSG_VOW_SET_BARGEIN_ON:
 	case IPIMSG_VOW_SET_BARGEIN_OFF:
-	case IPIMSG_VOW_BARGEIN_DUMP_ON:
-	case IPIMSG_VOW_BARGEIN_DUMP_OFF:
 		if (ipi_msg->param1 == VOW_IPI_SUCCESS)
 			result = true;
 		break;
@@ -254,53 +269,105 @@ static bool vow_IPICmd_ReceiveAck(struct ipi_msg_t *ipi_msg)
 static void vow_IPICmd_Received(struct ipi_msg_t *ipi_msg)
 {
 	unsigned int *ptr32;
-	unsigned long long *ptr64;
-	/* result: ipi_msg->param1 */
-	/* return: ipi_msg->param2 */
-	/* VOWDRV_DEBUG("[VOW_Kernel]vow get ipi id:%x, */
-	/*       result: %x, ret data:%x\n", */
-	/*	 ipi_msg->msg_id, ipi_msg->param1, ipi_msg->param2); */
+
 	switch (ipi_msg->msg_id) {
-	case IPIMSG_VOW_DATAREADY: {
-		if (vowserv.recording_flag) {
+	case IPIMSG_VOW_COMBINED_INFO: {
+		struct vow_ipi_combined_info_t *ipi_ptr;
+		bool bypass_flag;
+
+		ipi_ptr = (struct vow_ipi_combined_info_t *)ipi_msg->payload;
+		/* IPIMSG_VOW_RECOGNIZE_OK */
+		/*VOWDRV_DEBUG("[vow] IPIMSG_VOW_COMBINED_INFO\n");*/
+		bypass_flag = false;
+		if (ipi_ptr->ipi_type_flag & RECOG_OK_IDX_MASK) {
+			if ((vowserv.recording_flag == true) &&
+			    (vowserv.tx_keyword_start == true)) {
+				VOWDRV_DEBUG("%s(), bypass this recog ok\n",
+					__func__);
+				bypass_flag = true;
+			}
+			if (bypass_flag == false) {
+				vowserv.ap_received_ipi_cycle =
+					get_cycles();
+				vowserv.scp_recognize_ok_cycle =
+					ipi_ptr->recog_ok_os_timer;
+				vowserv.enter_phase3_cnt++;
+				if (vowserv.bypass_enter_phase3 == false) {
+					vow_ipi_reg_ok(
+					    (short)ipi_ptr->recog_ret_info);
+				}
+			}
+		}
+		/* IPIMSG_VOW_DATAREADY */
+		if ((ipi_ptr->ipi_type_flag & DEBUG_DUMP_IDX_MASK) &&
+		    (vowserv.recording_flag)) {
 			ptr32 = (unsigned int *)ipi_msg->payload;
-			vowserv.voice_buf_offset = (*ptr32++);
-			vowserv.voice_length = (*ptr32);
+			vowserv.voice_buf_offset = ipi_ptr->voice_buf_offset;
+			vowserv.voice_length = ipi_ptr->voice_length;
 			if (vowserv.voice_length > 320)
 				VOWDRV_DEBUG("vow,v_len=%x\n",
 					     vowserv.voice_length);
 			vow_service_getVoiceData();
 		}
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+		/* IPIMSG_VOW_BARGEIN_DUMP_INFO */
+		if (ipi_ptr->ipi_type_flag & BARGEIN_DUMP_INFO_IDX_MASK) {
+			vowserv.dump_frm_cnt = ipi_ptr->dump_frm_cnt;
+			vowserv.voice_sample_delay =
+				ipi_ptr->voice_sample_delay;
+			VOWDRV_DEBUG("[BargeIn] dump write0 %d %d\n",
+				     vowserv.dump_frm_cnt,
+				     vowserv.voice_sample_delay);
+			bargein_dump_info_flag = true;
+		}
+		/* IPIMSG_VOW_BARGEIN_PCMDUMP_OK */
+		if ((ipi_ptr->ipi_type_flag & BARGEIN_DUMP_IDX_MASK) &&
+		    (vowserv.dump_pcm_flag)) {
+			int ret = 0;
+			uint8_t idx = 0; /* dump_data_t */
+
+			idx = DUMP_BARGEIN;
+			dump_work[idx].mic_data_size = ipi_ptr->mic_dump_size;
+			dump_work[idx].mic_offset = ipi_ptr->mic_offset;
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+			dump_work[idx].mic_data_size_R =
+					ipi_ptr->mic_dump_size_R;
+			dump_work[idx].mic_offset_R = ipi_ptr->mic_offset_R;
+#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+			dump_work[idx].echo_data_size = ipi_ptr->echo_dump_size;
+			dump_work[idx].echo_offset = ipi_ptr->echo_offset;
+
+			ret = queue_work(dump_workqueue[idx],
+					 &dump_work[idx].work);
+			if (ret == 0)
+				bargein_dump_data_routine_cnt_pass++;
+		}
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+		if ((ipi_ptr->ipi_type_flag & RECOG_DUMP_IDX_MASK) &&
+		    (vowserv.dump_pcm_flag)) {
+			int ret = 0;
+			uint8_t idx = 0; /* dump_data_t */
+
+			idx = DUMP_RECOG;
+			dump_work[idx].recog_data_size =
+				ipi_ptr->recog_dump_size;
+			dump_work[idx].recog_data_offset =
+				ipi_ptr->recog_dump_offset;
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+			dump_work[idx].recog_data_size_R =
+				ipi_ptr->recog_dump_size_R;
+			dump_work[idx].recog_data_offset_R =
+				ipi_ptr->recog_dump_offset_R;
+#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+
+			ret = queue_work(dump_workqueue[idx],
+					 &dump_work[idx].work);
+			if (ret == 0)
+				recog_dump_data_routine_cnt_pass++;
+		}
 		break;
 	}
-	case IPIMSG_VOW_RECOGNIZE_OK:
-		if ((vowserv.recording_flag == true)
-		 && (vowserv.tx_keyword_start == true)) {
-			VOWDRV_DEBUG("%s(), bypass this recog ok\n", __func__);
-			break;
-		}
-		vowserv.ap_received_ipi_cycle = arch_counter_get_cntvct();
-		ptr64 = (unsigned long long *)ipi_msg->payload;
-		vowserv.scp_recognize_ok_cycle = (*ptr64);
-		vowserv.enter_phase3_cnt++;
-		if (vowserv.bypass_enter_phase3 == false)
-			vow_ipi_reg_ok((short)ipi_msg->param2);
-		break;
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
-	case IPIMSG_VOW_BARGEIN_PCMDUMP_OK:
-		if (vowserv.bargein_pcmdump)
-			vow_bargein_dump_message(ipi_msg);
-		break;
-	/* receive once when start bargein */
-	case IPIMSG_VOW_BARGEIN_DUMP_INFO:
-		vowserv.dump_frm_cnt = ipi_msg->param1;
-		vowserv.voice_sample_delay = ipi_msg->param2;
-		VOWDRV_DEBUG("[BargeIn] dump write0 %d %d\n",
-			     vowserv.dump_frm_cnt,
-			     vowserv.voice_sample_delay);
-		dump_info_flag = true;
-		break;
-#endif
+
 	default:
 		break;
 	}
@@ -328,6 +395,10 @@ static bool vow_IPICmd_Send(uint8_t data_type,
 						payload);
 		if (ipi_result == 0)
 			break;
+		if (vowserv.scp_recovering == true) {
+			VOWDRV_DEBUG("scp is recovering, then break\n");
+			break;
+		}
 		VOW_ASSERT(retry_cnt != retry_time);
 		msleep(VOW_WAITCHECK_INTERVAL_MS);
 	}
@@ -348,7 +419,7 @@ static void vow_ipi_reg_ok(short id)
 	VowDrv_Wait_Queue_flag = 1;
 	wake_up_interruptible(&VowDrv_Wait_Queue);
 }
-#endif
+#endif  /* #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT */
 
 static void vow_service_getVoiceData(void)
 {
@@ -391,6 +462,9 @@ static void vow_service_Init(void)
 		vowserv.voice_buf_offset  = 0;
 		vowserv.bypass_enter_phase3 = false;
 		vowserv.enter_phase3_cnt  = 0;
+		vowserv.vow_cur_model_idx = 0xFF;
+		vowserv.scp_recovering    = false;
+		vowserv.vow_recovering    = false;
 		spin_lock(&vowdrv_lock);
 		vowserv.pwr_status        = VOW_PWR_OFF;
 		vowserv.eint_status       = VOW_EINT_DISABLE;
@@ -417,12 +491,14 @@ static void vow_service_Init(void)
 		vowserv.voicedata_idx = 0;
 		wakeup_source_init(&VOW_suspend_lock, "VOW wakelock");
 		init_flag = 1;
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+		vowserv.dump_pcm_flag = false;
+		vowserv.split_dumpfile_flag = false;
 		dump_queue = NULL;
-		dump_info_flag = false;
-		vowserv.bargein_pcmdump = false;
-		vow_bargein_dump_init();
+		vow_pcm_dump_init();
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+		bargein_dump_info_flag = false;
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+		vowserv.scp_vow_lch = true;
 	} else {
 		vow_ipi_buf[0] = vowserv.voicedata_scp_addr;
 		ret = vow_IPICmd_Send(AUDIO_IPI_PAYLOAD,
@@ -438,9 +514,9 @@ static void vow_service_Init(void)
 		VowDrv_SetFlag(VOW_FLAG_PRE_LEARN, true);
 #endif
 	}
-#else
+#else  /* #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT */
 	VOWDRV_DEBUG("%s():%x, SCP no support\n", __func__, init_flag);
-#endif
+#endif  /* #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT */
 }
 
 int vow_service_GetParameter(unsigned long arg)
@@ -476,10 +552,10 @@ static int vow_service_CopyModel(int slot)
 	}
 	vowserv.vow_speaker_model[slot].enabled = 1;
 	vowserv.vow_speaker_model[slot].id = vowserv.vow_info_apuser[0];
-
+	vowserv.vow_speaker_model[slot].model_size = vowserv.vow_info_apuser[2];
 	return 0;
 }
-#endif
+#endif  /* #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT */
 
 static int vow_service_FindFreeSpeakerModel(void)
 {
@@ -534,15 +610,47 @@ static bool vow_service_ReleaseSpeakerModel(int id)
 	vowserv.vow_speaker_model[I].model_ptr = NULL;
 	vowserv.vow_speaker_model[I].id        = -1;
 	vowserv.vow_speaker_model[I].enabled   = 0;
-
+	vowserv.vow_cur_model_idx = 0xFF;
 	return true;
+}
+
+static bool vow_service_SendSpeakerModel(int slot)
+{
+	bool ret = false;
+	unsigned int vow_ipi_buf[4];
+
+	if (slot >= MAX_VOW_SPEAKER_MODEL) {
+		VOWDRV_DEBUG("%s(), slot id=%d, over range\n", __func__, slot);
+		return ret;
+	}
+	if (!vowserv.vow_speaker_model[slot].enabled) {
+		VOWDRV_DEBUG("%s(), this speaker is not enable\n", __func__);
+		return ret;
+	}
+
+	vow_ipi_buf[0] = VOW_MODEL_SPEAKER;
+	vow_ipi_buf[1] = vowserv.vow_speaker_model[slot].id;
+	vow_ipi_buf[2] = scp_get_reserve_mem_phys(VOW_MEM_ID);
+	vow_ipi_buf[3] = vowserv.vow_speaker_model[slot].model_size;
+
+	VOWDRV_DEBUG("vow SetSpeakerModel:model_%x, addr_%x, id_%x, size_%x\n",
+		      vow_ipi_buf[0],
+		      vow_ipi_buf[2],
+		      vow_ipi_buf[1],
+		      vow_ipi_buf[3]);
+
+	ret = vow_IPICmd_Send(AUDIO_IPI_PAYLOAD,
+			      AUDIO_IPI_MSG_BYPASS_ACK,
+			      IPIMSG_VOW_SET_MODEL,
+			      sizeof(unsigned int) * 4, 0,
+			      (char *)&vow_ipi_buf[0]);
+	return ret;
 }
 
 static bool vow_service_SetSpeakerModel(unsigned long arg)
 {
 	bool ret = false;
 	int I;
-	unsigned int vow_ipi_buf[4];
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
 	char *ptr8;
 #endif
@@ -568,30 +676,20 @@ static bool vow_service_SetSpeakerModel(unsigned long arg)
 		      *(char *)&ptr8[0], *(char *)&ptr8[1],
 		      *(char *)&ptr8[2], *(char *)&ptr8[3],
 		      *(short *)&ptr8[160], *(int *)&ptr8[7960]);
-
-
-	vow_ipi_buf[0] = VOW_MODEL_SPEAKER;
-	vow_ipi_buf[1] = vowserv.vow_info_apuser[0];
-	vow_ipi_buf[2] = scp_get_reserve_mem_phys(VOW_MEM_ID);
-	vow_ipi_buf[3] = vowserv.vow_info_apuser[2];
-
-
-	VOWDRV_DEBUG("vow SetSpeakerModel:model_%x, addr_%x, id_%x, size_%x\n",
-		      vow_ipi_buf[0],
-		      vow_ipi_buf[2],
-		      vow_ipi_buf[1],
-		      vow_ipi_buf[3]);
-
-	ret = vow_IPICmd_Send(AUDIO_IPI_PAYLOAD,
-			      AUDIO_IPI_MSG_BYPASS_ACK,
-			      IPIMSG_VOW_SET_MODEL,
-			      sizeof(unsigned int) * 4, 0,
-			      (char *)&vow_ipi_buf[0]);
+	vowserv.vow_cur_model_idx = I;
+	ret = vow_service_SendSpeakerModel(I);
 #else
 	VOWDRV_DEBUG("vow:SCP no support\n\r");
 #endif
 	return ret;
 }
+
+/* length limitation sync by audio hal */
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+#define VOW_VBUF_LENGTH      (0x12E80 * 2)  /*(0x12480 + 0x0A00) * 2*/
+#else
+#define VOW_VBUF_LENGTH      (0x12E80)  /* 0x12480 + 0x0A00 */
+#endif
 
 static bool vow_service_SetVBufAddr(unsigned long arg)
 {
@@ -600,6 +698,13 @@ static bool vow_service_SetVBufAddr(unsigned long arg)
 	VOWDRV_DEBUG("vow SetVBufAddr:addr_%x, size_%x\n",
 		 (unsigned int)vowserv.vow_info_apuser[1],
 		 (unsigned int)vowserv.vow_info_apuser[2]);
+
+	/* add return condition */
+	if ((vowserv.vow_info_apuser[1] == 0) ||
+	    (vowserv.vow_info_apuser[2] != VOW_VBUF_LENGTH) ||
+	    (vowserv.vow_info_apuser[3] == 0))
+		return false;
+
 	if (vowserv.voicedata_kernel_ptr != NULL)
 		vfree(vowserv.voicedata_kernel_ptr);
 
@@ -668,45 +773,75 @@ static void vow_check_boundary(unsigned int copy_len, unsigned int bound_len)
 	}
 }
 
-static int vow_service_ReadVoiceData_Internal(void)
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+static void vow_interleaving(short *out_buf,
+			     short *l_sample,
+			     short *r_sample,
+			     unsigned int buf_length)
+{
+	int i;
+	int smpl_max;
+
+	smpl_max = buf_length / 2;
+	for (i = 0; i < smpl_max; i++) {
+		*out_buf++ = *l_sample++;
+		*out_buf++ = *r_sample++;
+	}
+}
+#endif
+
+static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
+					      unsigned int buf_length)
 {
 	int stop_condition = 0;
 
 	VOW_ASSERT(vowserv.voicedata_kernel_ptr != NULL);
 
-	/* VOWDRV_DEBUG("TX Leng:%d, %d, %d\n", vowserv.voicedata_idx, */
-	/*	      vowserv.voice_buf_offset, vowserv.voice_length); */
-	if ((vowserv.voicedata_idx + (vowserv.voice_length >> 1))
-	  > (vowserv.voicedata_user_size >> 1)) {
-		VOWDRV_DEBUG(
-		    "[vow check]data_idx=0x%x(W), voice_length=0x%x(B)\n",
-		    vowserv.voicedata_idx, vowserv.voice_length);
-		VOWDRV_DEBUG(
+	if (buf_length != 0) {
+		if ((vowserv.voicedata_idx + (buf_length >> 1))
+		  > (vowserv.voicedata_user_size >> 1)) {
+			VOWDRV_DEBUG(
+			    "[vow check]data_idx=0x%x(W),buf_length=0x%x(B)\n",
+			    vowserv.voicedata_idx, buf_length);
+			VOWDRV_DEBUG(
 		    "[vow check] user_size=0x%x(B), voice_buf_offset=0x%x(B)\n",
-		    (unsigned int)vowserv.voicedata_user_size,
-		    vowserv.voice_buf_offset);
-		/* VOW_ASSERT(0); */
-		vowserv.voicedata_idx = 0;
+			    (unsigned int)vowserv.voicedata_user_size,
+			    buf_offset);
+			/* VOW_ASSERT(0); */
+			vowserv.voicedata_idx = 0;
+		}
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+		/* start interleaving L+R */
+		vow_interleaving(
+			&vowserv.voicedata_kernel_ptr[vowserv.voicedata_idx],
+			(short *)(vowserv.voicddata_scp_ptr + buf_offset),
+			(short *)(vowserv.voicddata_scp_ptr + buf_offset +
+			    VOW_VOICEDATA_SIZE),
+			buf_length);
+		/* end interleaving*/
+#else  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+		memcpy(&vowserv.voicedata_kernel_ptr[vowserv.voicedata_idx],
+		       vowserv.voicddata_scp_ptr + buf_offset, buf_length);
+#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+
+		if (buf_length > VOW_VOICE_RECORD_BIG_THRESHOLD) {
+			/* means now is start to transfer */
+			/* keyword buffer(64kB) to AP */
+			VOWDRV_DEBUG("%s(), start tx keyword, 0x%x/0x%x\n",
+				     __func__,
+				     vowserv.voicedata_idx,
+				     buf_length);
+			vowserv.tx_keyword_start = true;
+		}
+
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+		/* 2 Channels */
+		vowserv.voicedata_idx += buf_length;
+#else
+		/* 1 Channel */
+		vowserv.voicedata_idx += (buf_length >> 1);
+#endif
 	}
-	memcpy(&vowserv.voicedata_kernel_ptr[vowserv.voicedata_idx],
-	       vowserv.voicddata_scp_ptr + vowserv.voice_buf_offset,
-	       vowserv.voice_length);
-	if (vowserv.voice_length > VOW_VOICE_RECORD_BIG_THRESHOLD) {
-		/* means now is start to transfer keyword buffer(64kB) to AP */
-		VOWDRV_DEBUG("%s(), start tx keyword, 0x%x/0x%x\n",
-			     __func__,
-			     vowserv.voicedata_idx,
-			     vowserv.voice_length);
-		vowserv.tx_keyword_start = true;
-	}
-
-	/* VOWDRV_DEBUG("TX Leng:%d, %d, %d\n",*/
-	/*		 vowserv.voicedata_idx,*/
-	/*		 vowserv.voice_buf_offset,*/
-	/*		 vowserv.voice_length);*/
-
-	vowserv.voicedata_idx += (vowserv.voice_length >> 1);
-
 	if (vowserv.voicedata_idx >= (VOW_VOICE_RECORD_BIG_THRESHOLD >> 1))
 		vowserv.transfer_length = VOW_VOICE_RECORD_BIG_THRESHOLD;
 	else
@@ -714,6 +849,11 @@ static int vow_service_ReadVoiceData_Internal(void)
 
 	if (vowserv.voicedata_idx >= (vowserv.transfer_length >> 1)) {
 		unsigned int ret;
+
+		/*VOWDRV_DEBUG("TX Leng:%d, %d, [%d]\n",*/
+		/*	     vowserv.voicedata_idx,*/
+		/*	     buf_length,*/
+		/*	     vowserv.transfer_length);*/
 
 		ret = copy_to_user(
 		      (void __user *)(vowserv.voicedata_user_return_size_addr),
@@ -740,6 +880,11 @@ static int vow_service_ReadVoiceData_Internal(void)
 			vowserv.voicedata_idx -= idx;
 		} else
 			vowserv.voicedata_idx = 0;
+
+		/* speed up voicedata transfer to hal */
+		if (vowserv.voicedata_idx >= VOW_VOICE_RECORD_THRESHOLD)
+			vow_service_getVoiceData();
+
 		stop_condition = 1;
 	}
 	if ((vowserv.tx_keyword_start == true)
@@ -777,7 +922,11 @@ static void vow_service_ReadVoiceData(void)
 			} else {
 				/* To Read Voice Data from Kernel to User */
 				stop_condition =
-				    vow_service_ReadVoiceData_Internal();
+				    vow_service_ReadVoiceData_Internal(
+					vowserv.voice_buf_offset,
+					vowserv.voice_length);
+				vowserv.voice_buf_offset = 0;
+				vowserv.voice_length = 0;
 			}
 			if (stop_condition == 1)
 				break;
@@ -785,32 +934,27 @@ static void vow_service_ReadVoiceData(void)
 	}
 }
 
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
-
-static bool vow_barge_in_stop_dump_wait(void)
+static bool vow_stop_dump_wait(void)
 {
 	int timeout = 0;
 
-	while (vowserv.bargein_wait) {
+	while (1) {
 		msleep(VOW_WAITCHECK_INTERVAL_MS);
-		if (timeout++ >= VOW_BARGEIN_WAIT) {
-			/* pr_debug("Error: IPI MSG timeout:id_%x\n", id); */
-			vowserv.bargein_wait = false;
+		if (timeout++ >= VOW_STOP_DUMP_WAIT)
 			return false;
-		}
 	}
 	return true;
 }
 
-int vow_barge_in_pcm_dump_set(bool enable)
+static int vow_pcm_dump_set(bool enable)
 {
 	bool ret;
-	unsigned int vow_ipi_buf[3];
+	unsigned int vow_ipi_buf[5] = {0};
 
 	VOWDRV_DEBUG("%s = %d, %d\n", __func__,
-		     vowserv.bargein_pcmdump,
+		     vowserv.dump_pcm_flag,
 		     (unsigned int)enable);
-
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	bargein_resv_dram.vir_addr =
 	    (char *)(scp_get_reserve_mem_virt(VOW_BARGEIN_MEM_ID))
 	    + VOW_BARGEIN_DUMP_OFFSET;
@@ -819,83 +963,185 @@ int vow_barge_in_pcm_dump_set(bool enable)
 	    + VOW_BARGEIN_DUMP_OFFSET;
 	bargein_resv_dram.size = VOW_BARGEIN_DUMP_SIZE;
 
-	VOWDRV_DEBUG("vir: %p, phys: 0x%x\n",
+	VOWDRV_DEBUG("[Barge]vir: %p, phys: 0x%x\n",
 		     bargein_resv_dram.vir_addr,
 		     (unsigned int)bargein_resv_dram.phy_addr);
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+	recog_resv_dram.vir_addr =
+	    (char *)(scp_get_reserve_mem_virt(VOW_MEM_ID))
+	    + VOW_RECOGDATA_OFFSET;
+	recog_resv_dram.phy_addr =
+	    scp_get_reserve_mem_phys(VOW_MEM_ID)
+	    + VOW_RECOGDATA_OFFSET;
+	recog_resv_dram.size = VOW_RECOGDATA_SIZE;
 
-	if ((vowserv.bargein_pcmdump == false) && (enable == true)) {
-		vowserv.bargein_pcmdump = true;
-		vow_service_BargeInOpenDumpFile();
+	VOWDRV_DEBUG("[Recog]vir: %p, phys: 0x%x\n",
+		     recog_resv_dram.vir_addr,
+		     (unsigned int)recog_resv_dram.phy_addr);
 
+	if ((vowserv.dump_pcm_flag == false) && (enable == true)) {
+		vowserv.dump_pcm_flag = true;
+		vow_service_OpenDumpFile();
+
+		/* dump flag */
+		vow_ipi_buf[1] = vowserv.dump_pcm_flag;
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 		/* TOTAL dram resrved size for barge in dump */
 		vow_ipi_buf[0] = bargein_resv_dram.size;
-		/* dump flag */
-		vow_ipi_buf[1] = vowserv.bargein_pcmdump;
-		/* address for SPC using */
+		/* address for SCP using */
 		vow_ipi_buf[2] = bargein_resv_dram.phy_addr;
 
 		VOWDRV_DEBUG(
-		"[BargeIn]dump on, resv sz:0x%x,dump flag:%d,phy addr:0x%x\n",
-			    vow_ipi_buf[0],
-			    vow_ipi_buf[1],
-			    vow_ipi_buf[2]);
-
-		ret = vow_IPICmd_Send(AUDIO_IPI_PAYLOAD,
-				      AUDIO_IPI_MSG_BYPASS_ACK,
-				      IPIMSG_VOW_BARGEIN_DUMP_ON,
-				      sizeof(unsigned int) * 3, 0,
-				      (char *)&vow_ipi_buf[0]);
-
-		if (ret == 0)
-			VOWDRV_DEBUG("BARGEIN_DUMP_ON ipi send error\n");
-
-		vowserv.bargein_wait = true;
-	} else if ((vowserv.bargein_pcmdump == true) && (enable == false)) {
-		vowserv.bargein_pcmdump = false;
-
-		/* TOTAL dram resrved size for barge in dump */
-		vow_ipi_buf[0] = bargein_resv_dram.size;
-		/* dump flag */
-		vow_ipi_buf[1] = vowserv.bargein_pcmdump;
-		/* address for SPC using */
-		vow_ipi_buf[2] = bargein_resv_dram.phy_addr;
-
-		VOWDRV_DEBUG(
-		"[BargeIn]dump off, resv sz:0x%x,dump flag:%d,phy addr:0x%x\n",
-			     vow_ipi_buf[0],
+		"[BargeIn]dump on, dump flag:%d, resv sz:0x%x, phy addr:0x%x\n",
 			     vow_ipi_buf[1],
+			     vow_ipi_buf[0],
 			     vow_ipi_buf[2]);
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+		/* TOTAL dram resrved size for recog data dump */
+		vow_ipi_buf[3] = recog_resv_dram.size;
+		/* address for SCP using */
+		vow_ipi_buf[4] = recog_resv_dram.phy_addr;
+
+		VOWDRV_DEBUG(
+		"[Recog]dump on, dump flag:%d, resv sz:0x%x, phy addr:0x%x\n",
+			    vow_ipi_buf[1],
+			    vow_ipi_buf[3],
+			    vow_ipi_buf[4]);
 
 		ret = vow_IPICmd_Send(AUDIO_IPI_PAYLOAD,
 				      AUDIO_IPI_MSG_BYPASS_ACK,
-				      IPIMSG_VOW_BARGEIN_DUMP_OFF,
-				      sizeof(unsigned int) * 3, 0,
+				      IPIMSG_VOW_PCM_DUMP_ON,
+				      sizeof(unsigned int) * 5, 0,
 				      (char *)&vow_ipi_buf[0]);
 
-		vow_barge_in_stop_dump_wait();
-		vow_service_BargeInCloseDumpFile();
 		if (ret == 0)
-			VOWDRV_DEBUG("BARGEIN_DUMP_OFF ipi send error\n");
+			VOWDRV_DEBUG("PCM_DUMP_ON ipi send error\n");
+
+	} else if ((vowserv.dump_pcm_flag == true) && (enable == false)) {
+		vowserv.dump_pcm_flag = false;
+
+		/* dump flag */
+		vow_ipi_buf[1] = vowserv.dump_pcm_flag;
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+		/* TOTAL dram resrved size for barge in dump */
+		vow_ipi_buf[0] = bargein_resv_dram.size;
+		/* address for SCP using */
+		vow_ipi_buf[2] = bargein_resv_dram.phy_addr;
+
+		VOWDRV_DEBUG(
+		"[BargeIn]dump off, dump flag:%d, resv sz:0x%x, phy addr:0x%x\n",
+			     vow_ipi_buf[1],
+			     vow_ipi_buf[0],
+			     vow_ipi_buf[2]);
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+		/* TOTAL dram resrved size for recog data dump */
+		vow_ipi_buf[3] = recog_resv_dram.size;
+		/* address for SCP using */
+		vow_ipi_buf[4] = recog_resv_dram.phy_addr;
+
+		VOWDRV_DEBUG(
+		"[Recog]dump off, dump flag:%d, resv sz:0x%x, phy addr:0x%x\n",
+			    vow_ipi_buf[1],
+			    vow_ipi_buf[3],
+			    vow_ipi_buf[4]);
+
+		ret = vow_IPICmd_Send(AUDIO_IPI_PAYLOAD,
+				      AUDIO_IPI_MSG_BYPASS_ACK,
+				      IPIMSG_VOW_PCM_DUMP_OFF,
+				      sizeof(unsigned int) * 5, 0,
+				      (char *)&vow_ipi_buf[0]);
+
+		if (ret == 0)
+			VOWDRV_DEBUG("PCM_DUMP_OFF ipi send error\n");
+		vow_stop_dump_wait();
+		vow_service_CloseDumpFile();
 	}
 	return 0;
 }
 
-static void vow_service_BargeInOpenDumpFile(void)
+static void vow_service_OpenDumpFile(void)
+{
+	VOWDRV_DEBUG("+%s() %d\n", __func__, b_enable_dump);
+	/* only enable when debug pcm dump on */
+	__pm_stay_awake(&pcm_dump_wake_lock);
+	vow_service_OpenDumpFile_internal();
+
+	if (dump_queue == NULL) {
+		dump_queue = kmalloc(sizeof(struct dump_queue_t), GFP_KERNEL);
+		if (dump_queue != NULL)
+			memset_io(dump_queue, 0, sizeof(struct dump_queue_t));
+	}
+	if (!pcm_dump_task) {
+		pcm_dump_task = kthread_create(vow_pcm_dump_kthread,
+					       NULL,
+					       "vow_pcm_dump_kthread");
+		if (IS_ERR(pcm_dump_task))
+			VOWDRV_DEBUG("can not create pcm dump kthread\n");
+
+		b_enable_dump = true;
+		wake_up_process(pcm_dump_task);
+	}
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+	bargein_dump_data_routine_cnt_pass = 0;
+	vowserv.bargein_dump_cnt1 = 0;
+	vowserv.bargein_dump_cnt2 = 0;
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+	recog_dump_data_routine_cnt_pass = 0;
+	vowserv.recog_dump_cnt1 = 0;
+	vowserv.recog_dump_cnt2 = 0;
+	VOWDRV_DEBUG("-%s() %d\n", __func__, b_enable_dump);
+}
+
+static void vow_service_CloseDumpFile(void)
+{
+	VOWDRV_DEBUG("+%s() %d\n", __func__, b_enable_dump);
+	if (b_enable_dump == false)
+		return;
+
+	b_enable_dump = false;
+	if (pcm_dump_task) {
+		kthread_stop(pcm_dump_task);
+		pcm_dump_task = NULL;
+	}
+	VOWDRV_DEBUG("[Recog] dump_queue = %p\n", dump_queue);
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+	VOWDRV_DEBUG("[BargeIn] bargein_pass: %d\n",
+		bargein_dump_data_routine_cnt_pass);
+	VOWDRV_DEBUG("[BargeIn] bargein dump cnt %d %d\n",
+		     vowserv.bargein_dump_cnt1,
+		     vowserv.bargein_dump_cnt2);
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+	VOWDRV_DEBUG("[Recog] recog_pass: %d\n",
+		recog_dump_data_routine_cnt_pass);
+	VOWDRV_DEBUG("[Recog] recog dump cnt %d %d\n",
+		     vowserv.recog_dump_cnt1,
+		     vowserv.recog_dump_cnt2);
+	kfree(dump_queue);
+	dump_queue = NULL;
+
+	vow_service_CloseDumpFile_internal();
+
+	__pm_relax(&pcm_dump_wake_lock);
+	VOWDRV_DEBUG("-%s() %d\n", __func__, b_enable_dump);
+}
+
+static void vow_service_OpenDumpFile_internal(void)
 {
 	struct timespec curr_tm;
 
 	char string_time[16];
-
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	char string_input_pcm[16] = "input_pcm.pcm";
 	char string_echo_pcm[16] = "echo_ref.pcm";
 	char string_delay_info[16] = "delay_info";
-
 	char path_input_pcm[64];
 	char path_echo_ref[64];
 	char path_delay_info[64];
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+	char string_recog[16] = "recog.pcm";
+	char path_recog[64];
 
-	/* only enable when debug pcm dump on */
-	__pm_stay_awake(&bargein_pcm_dump_wake_lock);
+	VOWDRV_DEBUG("+%s()\n", __func__);
 	getnstimeofday(&curr_tm);
 
 	memset(string_time, '\0', 16);
@@ -904,22 +1150,27 @@ static void vow_service_BargeInOpenDumpFile(void)
 		(curr_tm.tv_sec / 60) % (60),
 		(curr_tm.tv_sec % 60),
 		(curr_tm.tv_nsec % 1000));
-
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	sprintf(path_input_pcm, "%s/%s_%s",
-		DUMP_BARGEIN_PCM_DATA_PATH, string_time, string_input_pcm);
+		DUMP_PCM_DATA_PATH, string_time, string_input_pcm);
 	VOWDRV_DEBUG("[BargeIn] %s path_input_pcm= %s\n", __func__,
 		     path_input_pcm);
 	sprintf(path_echo_ref, "%s/%s_%s",
-		DUMP_BARGEIN_PCM_DATA_PATH, string_time, string_echo_pcm);
+		DUMP_PCM_DATA_PATH, string_time, string_echo_pcm);
 	VOWDRV_DEBUG("[BargeIn] %s path_input_pcm= %s\n", __func__,
 		     path_echo_ref);
 	sprintf(path_delay_info, "%s/%s_%s",
-		DUMP_BARGEIN_PCM_DATA_PATH, string_time, string_delay_info);
+		DUMP_PCM_DATA_PATH, string_time, string_delay_info);
 	VOWDRV_DEBUG("[BargeIn] %s path_input_pcm= %s\n", __func__,
 		     path_delay_info);
-
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+	sprintf(path_recog, "%s/%s_%s",
+		DUMP_PCM_DATA_PATH, string_time, string_recog);
+	VOWDRV_DEBUG("[Recog] %s path_recog= %s\n", __func__,
+		     path_recog);
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	file_bargein_pcm_input = filp_open(path_input_pcm,
-					   O_CREAT | O_WRONLY,
+					   O_CREAT | O_WRONLY | O_LARGEFILE,
 					   0);
 	if (IS_ERR(file_bargein_pcm_input)) {
 		VOWDRV_DEBUG("[BargeIn] pcm_input < 0,path_input_pcm=%s\n",
@@ -928,7 +1179,7 @@ static void vow_service_BargeInOpenDumpFile(void)
 	}
 
 	file_bargein_echo_ref = filp_open(path_echo_ref,
-					  O_CREAT | O_WRONLY,
+					  O_CREAT | O_WRONLY | O_LARGEFILE,
 					  0);
 	if (IS_ERR(file_bargein_echo_ref)) {
 		VOWDRV_DEBUG("[BargeIn] echo_ref < 0,path_echo_ref=%s\n",
@@ -937,7 +1188,7 @@ static void vow_service_BargeInOpenDumpFile(void)
 	}
 
 	file_bargein_delay_info = filp_open(path_delay_info,
-					    O_CREAT | O_WRONLY,
+					    O_CREAT | O_WRONLY | O_LARGEFILE,
 					    0);
 	if (IS_ERR(file_bargein_delay_info)) {
 		VOWDRV_DEBUG(
@@ -945,58 +1196,23 @@ static void vow_service_BargeInOpenDumpFile(void)
 		path_delay_info);
 		return;
 	}
-
-	if (dump_queue == NULL) {
-		dump_queue = kmalloc(sizeof(struct dump_queue_t), GFP_KERNEL);
-		if (dump_queue != NULL)
-			memset_io(dump_queue, 0, sizeof(struct dump_queue_t));
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+	file_recog_data = filp_open(path_recog,
+				    O_CREAT | O_WRONLY | O_LARGEFILE,
+				    0);
+	if (IS_ERR(file_recog_data)) {
+		VOWDRV_DEBUG(
+		"[BargeIn] file_recog_data < 0,path_recog = %s\n",
+		path_recog);
+		return;
 	}
-	if (!bargein_dump_task) {
-		bargein_dump_task = kthread_create(vow_bargein_dump_kthread,
-						   NULL,
-						   "vow_bargein_dump_kthread");
-		if (IS_ERR(bargein_dump_task))
-			VOWDRV_DEBUG("[BargeIn] can not create kthread\n");
-
-		b_enable_dump = true;
-		wake_up_process(bargein_dump_task);
-	}
-
-	dump_data_routine_cnt_pass = 0;
-	vowserv.dbg_echo_cnt1 = 0;
-	vowserv.dbg_echo_cnt2 = 0;
-	vowserv.dbg_echo_cnt3 = 0;
-	vowserv.dbg_mic_cnt1 = 0;
-	vowserv.dbg_mic_cnt2 = 0;
-	vowserv.dbg_mic_cnt3 = 0;
+	VOWDRV_DEBUG("-%s()\n", __func__);
 }
 
-
-static void vow_service_BargeInCloseDumpFile(void)
+static void vow_service_CloseDumpFile_internal(void)
 {
-	if (b_enable_dump == false)
-		return;
-
-	b_enable_dump = false;
-
-	VOWDRV_DEBUG("[BargeIn] pass: %d\n", dump_data_routine_cnt_pass);
-
-	if (bargein_dump_task) {
-		kthread_stop(bargein_dump_task);
-		bargein_dump_task = NULL;
-	}
-	VOWDRV_DEBUG("[BargeIn] dump_queue = %p\n", dump_queue);
-	VOWDRV_DEBUG("[BargeIn] echo cnt %d %d %d\n",
-		     vowserv.dbg_echo_cnt1,
-		     vowserv.dbg_echo_cnt2,
-		     vowserv.dbg_echo_cnt3);
-	VOWDRV_DEBUG("[BargeIn] mic cnt %d %d %d\n",
-		     vowserv.dbg_mic_cnt1,
-		     vowserv.dbg_mic_cnt2,
-		     vowserv.dbg_mic_cnt3);
-	kfree(dump_queue);
-	dump_queue = NULL;
-
+	VOWDRV_DEBUG("+%s()\n", __func__);
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	if (!IS_ERR(file_bargein_pcm_input)) {
 		filp_close(file_bargein_pcm_input, NULL);
 		file_bargein_pcm_input = NULL;
@@ -1009,59 +1225,27 @@ static void vow_service_BargeInCloseDumpFile(void)
 		filp_close(file_bargein_delay_info, NULL);
 		file_bargein_delay_info = NULL;
 	}
-	__pm_relax(&bargein_pcm_dump_wake_lock);
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+	if (!IS_ERR(file_recog_data)) {
+		filp_close(file_recog_data, NULL);
+		file_recog_data = NULL;
+	}
+	VOWDRV_DEBUG("-%s()\n", __func__);
 }
 
-static void vow_bargein_dump_message(struct ipi_msg_t *ipi_msg)
-{
-	int ret = 0;
-	unsigned int *ptr32;
-	uint8_t idx = 0; /* dump_data_t */
-
-	if (ipi_msg == NULL) {
-		VOWDRV_DEBUG("[BargeIn] %s(), err\n", __func__);
-		return;
-	} else if (ipi_msg->msg_id == IPIMSG_VOW_BARGEIN_PCMDUMP_OK) {
-
-		ptr32 = (unsigned int *)ipi_msg->payload;
-		idx = (*ptr32++);
-		if (idx == DUMP_INPUT_VOICE) {
-			dump_work[idx].data_size = (*ptr32++);
-			dump_work[idx].offset = (*ptr32);
-		} else if (idx == DUMP_ECHO_REF) {
-			ptr32 += 2;
-			dump_work[idx].data_size = (*ptr32++);
-			dump_work[idx].offset = (*ptr32);
-		}
-		VOWDRV_DEBUG("[BargeIn] %s,data type:%d,size:%d,offset:0x%x\n",
-			     __func__,
-			     idx,
-			     dump_work[idx].data_size,
-			     dump_work[idx].offset);
-		ret = queue_work(dump_workqueue[idx], &dump_work[idx].work);
-		if (ret == 0)
-			dump_data_routine_cnt_pass++;
-
-	} else
-		VOWDRV_DEBUG("[BargeIn] unknown command\n");
-
-}
-
-static int vow_bargein_dump_kthread(void *data)
+static int vow_pcm_dump_kthread(void *data)
 {
 	int ret = 0;
 	int size = 0, writedata = 0;
 	uint8_t current_idx = 0;
-	uint32_t *ptr32;
-
 	struct pcm_dump_t *pcm_dump = NULL;
 	struct dump_package_t *dump_package = NULL;
 	mm_segment_t old_fs;
 
-	struct sched_param param;
+	struct sched_param param = {.sched_priority = 85 };
+
 	sched_setscheduler(current, SCHED_RR, &param);
 
-	param.sched_priority = 85;
 	/* VOWDRV_DEBUG("[BargeIn] dump_queue = %p\n", dump_queue); */
 
 	while (b_enable_dump && !kthread_should_stop()) {
@@ -1087,17 +1271,59 @@ static int vow_bargein_dump_kthread(void *data)
 			dump_queue->idx_r++;
 		}
 
+		if (vowserv.split_dumpfile_flag) {
+			vow_service_CloseDumpFile_internal();
+			vow_service_OpenDumpFile_internal();
+			VOWDRV_DEBUG("Split audio dump done\n");
+			vowserv.split_dumpfile_flag = false;
+		}
+
 		dump_package = &dump_queue->dump_package[current_idx];
 
 		/* VOWDRV_DEBUG("[BargeIn] current_idx = %d\n", current_idx); */
 		switch (dump_package->dump_data_type) {
-		case DUMP_INPUT_VOICE: {
-			size = dump_package->data_size;
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+		case DUMP_BARGEIN: {
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+			short *out_buf;
+			/* DRAM to kernel buffer and sample interleaving */
+			vow_interleaving(
+				vowserv.interleave_pcmdata_ptr,
+				(short *)(bargein_resv_dram.vir_addr +
+				    dump_package->mic_offset),
+				(short *)(bargein_resv_dram.vir_addr +
+				    dump_package->mic_offset_R),
+				dump_package->mic_data_size);
+
+			size = (dump_package->mic_data_size) * 2;
+			writedata = size;
+
+			out_buf = vowserv.interleave_pcmdata_ptr;
+			while (size > 0) {
+				if (!IS_ERR(file_bargein_pcm_input)) {
+					old_fs = get_fs();
+					set_fs(KERNEL_DS);
+					ret = vfs_write(file_bargein_pcm_input,
+					    (char __user *)out_buf,
+					    writedata,
+					    &file_bargein_pcm_input->f_pos);
+					set_fs(old_fs);
+					if (!ret) {
+						VOWDRV_DEBUG(
+						"[Bargein]vfs write failed\n");
+					}
+				}
+				size -= writedata;
+				pcm_dump++;
+			}
+
+#else  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+			/* Bargein dump Mic input data */
+			size = dump_package->mic_data_size;
 			writedata = size;
 			pcm_dump = (struct pcm_dump_t *)
 				   (bargein_resv_dram.vir_addr
-				   + dump_package->offset);
-			vowserv.dbg_mic_cnt2++;
+				   + dump_package->mic_offset);
 			while (size > 0) {
 				if (!IS_ERR(file_bargein_pcm_input)) {
 					old_fs = get_fs();
@@ -1114,18 +1340,15 @@ static int vow_bargein_dump_kthread(void *data)
 				}
 				size -= writedata;
 				pcm_dump++;
-				vowserv.dbg_mic_cnt3++;
 			}
-
-			break;
-		}
-		case DUMP_ECHO_REF: {
-			size = dump_package->data_size;
+#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+			/* Bargein dump echo data */
+			size = dump_package->echo_data_size;
 			writedata = size;
 			pcm_dump = (struct pcm_dump_t *)
 				   (bargein_resv_dram.vir_addr
-				   + dump_package->offset);
-			vowserv.dbg_echo_cnt2++;
+				   + dump_package->echo_offset);
+			vowserv.bargein_dump_cnt2++;
 			while (size > 0) {
 				if (!IS_ERR(file_bargein_echo_ref)) {
 					old_fs = get_fs();
@@ -1142,18 +1365,10 @@ static int vow_bargein_dump_kthread(void *data)
 				}
 				size -= writedata;
 				pcm_dump++;
-				vowserv.dbg_echo_cnt3++;
 			}
-			break;
 		}
-		default: {
-			VOWDRV_DEBUG("[BargeIn] cur_idx=%d,type=%d\n",
-				     current_idx,
-				     dump_package->dump_data_type);
-			break;
-		}
-		}
-		if (dump_info_flag) {
+		if (bargein_dump_info_flag) {
+			uint32_t *ptr32;
 			old_fs = get_fs();
 			set_fs(KERNEL_DS);
 			ptr32 = &vowserv.dump_frm_cnt;
@@ -1172,95 +1387,209 @@ static int vow_bargein_dump_kthread(void *data)
 				VOWDRV_DEBUG("vfs write failed\n");
 			set_fs(old_fs);
 
-			dump_info_flag = false;
+			bargein_dump_info_flag = false;
+		}
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+			break;
+		case DUMP_RECOG: {
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+			short *out_buf;
+			/* DRAM to kernel buffer and sample interleaving */
+			vow_interleaving(
+				vowserv.interleave_pcmdata_ptr,
+				(short *)(recog_resv_dram.vir_addr +
+				    dump_package->recog_data_offset),
+				(short *)(recog_resv_dram.vir_addr +
+				    dump_package->recog_data_offset_R),
+				dump_package->recog_data_size);
+
+			size = (dump_package->recog_data_size) * 2;
+			writedata = size;
+
+			out_buf = vowserv.interleave_pcmdata_ptr;
+			while (size > 0) {
+				if (!IS_ERR(file_recog_data)) {
+					old_fs = get_fs();
+					set_fs(KERNEL_DS);
+					ret = vfs_write(file_recog_data,
+					    (char __user *)out_buf,
+					    writedata,
+					    &file_recog_data->f_pos);
+					set_fs(old_fs);
+					if (!ret) {
+						VOWDRV_DEBUG(
+						"[Recog]vfs write failed\n");
+					}
+				}
+				size -= writedata;
+				pcm_dump++;
+			}
+#else  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+			/* Recog dump data */
+			size = dump_package->recog_data_size;
+			writedata = size;
+			pcm_dump = (struct pcm_dump_t *)
+				   (recog_resv_dram.vir_addr
+				   + dump_package->recog_data_offset);
+			while (size > 0) {
+				if (!IS_ERR(file_recog_data)) {
+					old_fs = get_fs();
+					set_fs(KERNEL_DS);
+					ret = vfs_write(file_recog_data,
+					    (char __user *)pcm_dump->decode_pcm,
+					    writedata,
+					    &file_recog_data->f_pos);
+					set_fs(old_fs);
+					if (!ret) {
+						VOWDRV_DEBUG(
+						"[Recog]vfs write failed\n");
+					}
+				}
+				size -= writedata;
+				pcm_dump++;
+			}
+#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+		}
+			break;
+		default:
+			break;
 		}
 	}
-
-	VOWDRV_DEBUG("[BargeIn] %s, exit\n", __func__);
+	VOWDRV_DEBUG("%s, exit\n", __func__);
 	return 0;
 }
 
-static void bargein_dump_input_routine(struct work_struct *ws)
+static void recog_dump_routine(struct work_struct *ws)
 {
 	struct dump_work_t *dump_work = NULL;
 	uint32_t offset = 0;
 	uint32_t data_size = 0;
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+	uint32_t offset_R = 0;
+	uint32_t data_size_R = 0;
+#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 
 	dump_work = container_of(ws, struct dump_work_t, work);
 
-	offset = dump_work->offset;
-	data_size = dump_work->data_size;
+	offset = dump_work->recog_data_offset;
+	data_size = dump_work->recog_data_size;
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+	offset_R = dump_work->recog_data_offset_R;
+	data_size_R = dump_work->recog_data_size_R;
+#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 
 	spin_lock(&vowdrv_lock);
 	dump_queue->dump_package[dump_queue->idx_w].dump_data_type =
-	    DUMP_INPUT_VOICE;
-	dump_queue->dump_package[dump_queue->idx_w].offset = offset;
-	dump_queue->dump_package[dump_queue->idx_w].data_size = data_size;
+	    DUMP_RECOG;
+	dump_queue->dump_package[dump_queue->idx_w].recog_data_offset =
+	    offset;
+	dump_queue->dump_package[dump_queue->idx_w].recog_data_size =
+	    data_size;
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+	dump_queue->dump_package[dump_queue->idx_w].recog_data_offset_R =
+	    offset_R;
+	dump_queue->dump_package[dump_queue->idx_w].recog_data_size_R =
+	    data_size_R;
+#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 
 	dump_queue->idx_w++;
 	spin_unlock(&vowdrv_lock);
-	vowserv.dbg_mic_cnt1++;
+	vowserv.recog_dump_cnt1++;
 
 	wake_up_interruptible(&wq_dump_pcm);
 }
 
-static void bargein_dump_echo_routine(struct work_struct *ws)
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+static void bargein_dump_routine(struct work_struct *ws)
 {
 	struct dump_work_t *dump_work = NULL;
-	uint32_t offset = 0;
-	uint32_t data_size = 0;
+	uint32_t mic_offset = 0;
+	uint32_t mic_data_size = 0;
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+	uint32_t mic_offset_R = 0;
+	uint32_t mic_data_size_R = 0;
+#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+	uint32_t echo_offset = 0;
+	uint32_t echo_data_size = 0;
 
 	dump_work = container_of(ws, struct dump_work_t, work);
 
-	offset = dump_work->offset;
-	data_size = dump_work->data_size;
+	mic_offset = dump_work->mic_offset;
+	mic_data_size = dump_work->mic_data_size;
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+	mic_offset_R = dump_work->mic_offset_R;
+	mic_data_size_R = dump_work->mic_data_size_R;
+#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+	echo_offset = dump_work->echo_offset;
+	echo_data_size = dump_work->echo_data_size;
 
 	spin_lock(&vowdrv_lock);
 	dump_queue->dump_package[dump_queue->idx_w].dump_data_type =
-	    DUMP_ECHO_REF;
-	dump_queue->dump_package[dump_queue->idx_w].offset = offset;
-	dump_queue->dump_package[dump_queue->idx_w].data_size = data_size;
+	    DUMP_BARGEIN;
+	dump_queue->dump_package[dump_queue->idx_w].mic_offset =
+	    mic_offset;
+	dump_queue->dump_package[dump_queue->idx_w].mic_data_size =
+	    mic_data_size;
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+	dump_queue->dump_package[dump_queue->idx_w].mic_offset_R =
+	    mic_offset_R;
+	dump_queue->dump_package[dump_queue->idx_w].mic_data_size_R =
+	    mic_data_size_R;
+#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+	dump_queue->dump_package[dump_queue->idx_w].echo_offset =
+	    echo_offset;
+	dump_queue->dump_package[dump_queue->idx_w].echo_data_size =
+	    echo_data_size;
 
 	dump_queue->idx_w++;
 	spin_unlock(&vowdrv_lock);
-	vowserv.dbg_echo_cnt1++;
+	vowserv.bargein_dump_cnt1++;
 
 	wake_up_interruptible(&wq_dump_pcm);
 }
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
-static void vow_bargein_dump_init(void)
+static void vow_pcm_dump_init(void)
 {
-	VOWDRV_DEBUG("[BargeIn] %s()\n", __func__);
-	wakeup_source_init(&bargein_pcm_dump_wake_lock,
-			   "bargein_pcm_dump_wake_lock");
-	dump_workqueue[DUMP_INPUT_VOICE] =
-	    create_workqueue("dump_bargein_input_pcm");
-	if (dump_workqueue[DUMP_INPUT_VOICE] == NULL) {
-		VOWDRV_DEBUG("[BargeIn] dump_workqueue[input_pcm] = %p\n",
-			     dump_workqueue[DUMP_INPUT_VOICE]);
+	VOWDRV_DEBUG("[Recog] %s()\n", __func__);
+	wakeup_source_init(&pcm_dump_wake_lock,
+			   "pcm_dump_wake_lock");
+
+	dump_workqueue[DUMP_RECOG] =
+	    create_workqueue("dump_recog_data");
+	if (dump_workqueue[DUMP_RECOG] == NULL) {
+		VOWDRV_DEBUG("[Recog] dump_workqueue[DUMP_RECOG] = %p\n",
+			     dump_workqueue[DUMP_RECOG]);
 	}
-	VOW_ASSERT(dump_workqueue[DUMP_INPUT_VOICE] != NULL);
-
-	dump_workqueue[DUMP_ECHO_REF] =
+	VOW_ASSERT(dump_workqueue[DUMP_RECOG] != NULL);
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+	dump_workqueue[DUMP_BARGEIN] =
 	    create_workqueue("dump_bargein_recho_ref");
-	if (dump_workqueue[DUMP_ECHO_REF] == NULL) {
+	if (dump_workqueue[DUMP_BARGEIN] == NULL) {
 		VOWDRV_DEBUG("[BargeIn] dump_workqueue[recho_ref] = %p\n",
-			     dump_workqueue[DUMP_ECHO_REF]);
+			     dump_workqueue[DUMP_BARGEIN]);
 	}
-	VOW_ASSERT(dump_workqueue[DUMP_ECHO_REF] != NULL);
+	VOW_ASSERT(dump_workqueue[DUMP_BARGEIN] != NULL);
 
-	INIT_WORK(&dump_work[DUMP_INPUT_VOICE].work,
-		  bargein_dump_input_routine);
-	INIT_WORK(&dump_work[DUMP_ECHO_REF].work,
-		  bargein_dump_echo_routine);
+	INIT_WORK(&dump_work[DUMP_BARGEIN].work,
+		  bargein_dump_routine);
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+	INIT_WORK(&dump_work[DUMP_RECOG].work,
+		  recog_dump_routine);
 
 	init_waitqueue_head(&wq_dump_pcm);
 
-	bargein_dump_task = NULL;
+	pcm_dump_task = NULL;
+
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+	/* Temp buffer for doing DUALMIC L/R channels interleave */
+	vowserv.interleave_pcmdata_ptr =
+		vmalloc(VOW_PCM_DUMP_BYTE_SIZE << 1);
+#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 
 }
 
-static void vow_bargein_dump_deinit(void)
+static void vow_pcm_dump_deinit(void)
 {
 	int i = 0;
 
@@ -1273,9 +1602,12 @@ static void vow_bargein_dump_deinit(void)
 			dump_workqueue[i] = NULL;
 		}
 	}
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+	if (vowserv.interleave_pcmdata_ptr != NULL)
+		vfree(vowserv.interleave_pcmdata_ptr);
+#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 
 }
-#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
 /*****************************************************************************
  * VOW CONTROL FUNCTIONS
@@ -1566,21 +1898,76 @@ DEVICE_ATTR(vow_SetPhase2,
 	    VowDrv_GetPhase2Debug,
 	    VowDrv_SetPhase2Debug);
 
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
-static ssize_t VowDrv_GetBargeInDebug(struct device *kobj,
-				      struct device_attribute *attr,
-				      char *buf)
+static ssize_t VowDrv_GetDualMicDebug(struct device *kobj,
+				     struct device_attribute *attr,
+				     char *buf)
 {
 	unsigned int stat;
 	char cstr[35];
 	int size = sizeof(cstr);
 
-	stat = 1;  /* temp */
+	stat = (vowserv.scp_vow_lch == true) ? 1 : 0;
 
-	return snprintf(buf, size, "Barge In Setting = %s\n",
+	return snprintf(buf, size, "Dual mic L channel = %s\n",
 			(stat == 0x1) ? "YES" : "NO");
 }
 
+static ssize_t VowDrv_SetDualMicDebug(struct device *kobj,
+				     struct device_attribute *attr,
+				     const char *buf,
+				     size_t n)
+{
+	unsigned int enable;
+
+	if (kstrtouint(buf, 0, &enable) != 0)
+		return -EINVAL;
+
+	vowserv.scp_vow_lch = (enable == 1) ? true : false;
+
+	VowDrv_SetFlag(VOW_FLAG_DUAL_MIC_LCH, enable);
+	return n;
+}
+DEVICE_ATTR(vow_DualMicLch,
+	    0644, /*S_IWUSR | S_IRUGO*/
+	    VowDrv_GetDualMicDebug,
+	    VowDrv_SetDualMicDebug);
+
+static ssize_t VowDrv_GetSplitDumpFile(struct device *kobj,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	unsigned int stat;
+	char cstr[35];
+	int size = sizeof(cstr);
+
+	stat = (vowserv.split_dumpfile_flag == true) ? 1 : 0;
+
+	return snprintf(buf, size, "Split dump file = %s\n",
+			(stat == 0x1) ? "YES" : "NO");
+}
+
+static ssize_t VowDrv_SetSplitDumpFile(struct device *kobj,
+				     struct device_attribute *attr,
+				     const char *buf,
+				     size_t n)
+{
+	unsigned int enable;
+
+	if (kstrtouint(buf, 0, &enable) != 0)
+		return -EINVAL;
+
+	VOWDRV_DEBUG("%s(),enable=%d\n", __func__, enable);
+	vowserv.split_dumpfile_flag = (enable == 1) ? true : false;
+
+	return n;
+}
+DEVICE_ATTR(vow_SplitDumpFile,
+	    0644, /*S_IWUSR | S_IRUGO*/
+	    VowDrv_GetSplitDumpFile,
+	    VowDrv_SetSplitDumpFile);
+
+
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 static ssize_t VowDrv_SetBargeInDebug(struct device *kobj,
 				      struct device_attribute *attr,
 				      const char *buf,
@@ -1596,38 +1983,41 @@ static ssize_t VowDrv_SetBargeInDebug(struct device *kobj,
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
 
-	VowDrv_SetBargeIn(enable);
+	VowDrv_SetBargeIn(enable, 1); /* temp fix irq */
 	return n;
 }
 DEVICE_ATTR(vow_SetBargeIn,
-	    0644, /*S_IWUSR | S_IRUGO*/
-	    VowDrv_GetBargeInDebug,
+	    0200, /*S_IWUSR*/
+	    NULL,
 	    VowDrv_SetBargeInDebug);
 
-static bool VowDrv_SetBargeIn(unsigned int set)
+static bool VowDrv_SetBargeIn(unsigned int set, unsigned int irq_id)
 {
-	bool ret;
+	bool ret = false;
+	unsigned int vow_ipi_buf[1];
 
-	VOWDRV_DEBUG("VowDrv_Debug_SetBargeIn = %d\n", set);
+	vow_ipi_buf[0] = irq_id;
+
+	VOWDRV_DEBUG("VowDrv_Debug_SetBargeIn = %d, irq = %d\n", set, irq_id);
 	if (set == 1) {
 		scp_register_feature(VOW_BARGEIN_FEATURE_ID);
-		ret = vow_IPICmd_Send(AUDIO_IPI_MSG_ONLY,
+		ret = vow_IPICmd_Send(AUDIO_IPI_PAYLOAD,
 				      AUDIO_IPI_MSG_NEED_ACK,
 				      IPIMSG_VOW_SET_BARGEIN_ON,
-				      0, 0,
-				      NULL);
+				      sizeof(unsigned int) * 1, 0,
+				      (char *)&vow_ipi_buf[0]);
 	} else if (set == 0) {
-		ret = vow_IPICmd_Send(AUDIO_IPI_MSG_ONLY,
+		ret = vow_IPICmd_Send(AUDIO_IPI_PAYLOAD,
 				      AUDIO_IPI_MSG_NEED_ACK,
 				      IPIMSG_VOW_SET_BARGEIN_OFF,
-				      0, 0,
-				      NULL);
+				      sizeof(unsigned int) * 1, 0,
+				      (char *)&vow_ipi_buf[0]);
 		scp_deregister_feature(VOW_BARGEIN_FEATURE_ID);
 	} else {
 		VOWDRV_DEBUG("Adb comment error\n\r");
 	}
 	if (ret == 0)
-		VOWDRV_DEBUG("IPIMSG_BARGE_IN ipi send error\n\r");
+		VOWDRV_DEBUG("IPIMSG_BARGE_IN(%d) ipi send error\n", set);
 
 	return ret;
 }
@@ -1860,24 +2250,12 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			VOWDRV_DEBUG("VOW_SET_CONTROL EnableSeamlessRecord");
 			VowDrv_SetFlag(VOW_FLAG_SEAMLESS, true);
 			break;
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
-		case VOW_BARGEIN_ON:
-			VowDrv_SetBargeIn(1);
-			vowserv.barge_in_status = true;
-			VOWDRV_DEBUG("VOW_BARGEIN_ON(%lu)", arg);
+		case VOWControlCmd_EnableDump:
+			vow_pcm_dump_set(true);
 			break;
-		case VOW_BARGEIN_OFF:
-			VowDrv_SetBargeIn(0);
-			vowserv.barge_in_status = false;
-			VOWDRV_DEBUG("VOW_BARGEIN_OFF(%lu)", arg);
+		case VOWControlCmd_DisableDump:
+			vow_pcm_dump_set(false);
 			break;
-		case VOWControlCmd_EnableBargeinDump:
-			vow_barge_in_pcm_dump_set(true);
-			break;
-		case VOWControlCmd_DisableBargeinDump:
-			vow_barge_in_pcm_dump_set(false);
-			break;
-#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 		default:
 			VOWDRV_DEBUG("VOW_SET_CONTROL no such command = %lu",
 				     arg);
@@ -1899,6 +2277,18 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		if (!vow_service_SetVBufAddr(arg))
 			ret = -EFAULT;
 		break;
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+	case VOW_BARGEIN_ON:
+		VOWDRV_DEBUG("VOW_BARGEIN_ON, irq: %d", (unsigned int)arg);
+		if (!VowDrv_SetBargeIn(1, (unsigned int)arg))
+			ret = -EFAULT;
+		break;
+	case VOW_BARGEIN_OFF:
+		VOWDRV_DEBUG("VOW_BARGEIN_OFF, irq: %d", (unsigned int)arg);
+		if (!VowDrv_SetBargeIn(0, (unsigned int)arg))
+			ret = -EFAULT;
+		break;
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 	case VOW_CHECK_STATUS:
 		/* VOW disable already, then bypass second one */
 		VowDrv_ChangeStatus();
@@ -1946,6 +2336,8 @@ static long VowDrv_compat_ioctl(struct file *fp,
 	case VOW_CHECK_STATUS:
 	case VOW_RECOG_ENABLE:
 	case VOW_RECOG_DISABLE:
+	case VOW_BARGEIN_ON:
+	case VOW_BARGEIN_OFF:
 		ret = fp->f_op->unlocked_ioctl(fp, cmd, arg);
 		break;
 	case VOW_SET_SPEAKER_MODEL:
@@ -2017,7 +2409,7 @@ static ssize_t VowDrv_read(struct file *fp,
 		} else {
 			if (vowserv.scp_command_flag) {
 				VowDrv_SetVowEINTStatus(VOW_EINT_PASS);
-				vow_read_cycle = arch_counter_get_cntvct();
+				vow_read_cycle = get_cycles();
 				time_diff_scp_ipi =
 				    (unsigned int)CYCLE_TO_NS *
 				    (unsigned int)(vowserv.ap_received_ipi_cycle
@@ -2118,6 +2510,67 @@ int VowDrv_setup_smartdev_eint(struct platform_device *pdev)
 	}
 	return 0;
 }
+
+/*****************************************************************************
+ * SCP Recovery Register
+ *****************************************************************************/
+#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+static int vow_scp_recover_event(struct notifier_block *this,
+				 unsigned long event,
+				 void *ptr)
+{
+	switch (event) {
+	case SCP_EVENT_READY:
+		msleep(500);
+		vowserv.vow_recovering = true;
+		vowserv.scp_recovering = false;
+		VOWDRV_DEBUG("%s(), SCP_EVENT_READY\n", __func__);
+		if (!vow_check_scp_status()) {
+			VOWDRV_DEBUG("SCP is Off, don't recover VOW\n");
+			return NOTIFY_DONE;
+		}
+		if (vowserv.scp_recovering) {
+			vowserv.vow_recovering = false;
+			VOWDRV_DEBUG("fail: vow recover1\n");
+			break;
+		}
+		vow_service_Init();
+		if (vowserv.scp_recovering) {
+			vowserv.vow_recovering = false;
+			VOWDRV_DEBUG("fail: vow recover2\n");
+			break;
+		}
+		if (!vow_service_SendSpeakerModel(vowserv.vow_cur_model_idx))
+			VOWDRV_DEBUG("fail: SendSpeakerModel\n");
+
+		/* if vow is not enable, then return */
+		if (VowDrv_GetHWStatus() != VOW_PWR_ON) {
+			vowserv.vow_recovering = false;
+			break;
+		}
+		if (vowserv.scp_recovering) {
+			vowserv.vow_recovering = false;
+			VOWDRV_DEBUG("fail: vow recover3\n");
+			break;
+		}
+		if (!vow_service_Enable())
+			VOWDRV_DEBUG("fail: vow_service_Enable\n");
+
+		vowserv.vow_recovering = false;
+		break;
+	case SCP_EVENT_STOP:
+		vowserv.scp_recovering = true;
+		VOWDRV_DEBUG("%s(), SCP_EVENT_STOP\n", __func__);
+		/* Check if VOW is running phase2.5, then stop this */
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block vow_scp_recover_notifier = {
+	.notifier_call = vow_scp_recover_event,
+};
+#endif  /* #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT */
 
 /*****************************************************************************
  * VOW platform driver Registration
@@ -2259,9 +2712,21 @@ static int VowDrv_mod_init(void)
 	if (unlikely(ret != 0))
 		return ret;
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+	ret = device_create_file(VowDrv_misc_device.this_device,
+				 &dev_attr_vow_DualMicLch);
+	if (unlikely(ret != 0))
+		return ret;
+
+	ret = device_create_file(VowDrv_misc_device.this_device,
+				 &dev_attr_vow_SplitDumpFile);
+	if (unlikely(ret != 0))
+		return ret;
 
 	VOWDRV_DEBUG("vow_service_Init");
 	vow_service_Init();
+#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+	scp_A_register_notify(&vow_scp_recover_notifier);
+#endif
 	VOWDRV_DEBUG("-%s(): Init Audio WakeLock\n", __func__);
 
 	return 0;
@@ -2270,9 +2735,7 @@ static int VowDrv_mod_init(void)
 static void  VowDrv_mod_exit(void)
 {
 	VOWDRV_DEBUG("+%s()\n", __func__);
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
-	vow_bargein_dump_deinit();
-#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+	vow_pcm_dump_deinit();
 	VOWDRV_DEBUG("-%s()\n", __func__);
 }
 module_init(VowDrv_mod_init);

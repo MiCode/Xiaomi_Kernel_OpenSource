@@ -7,3 +7,11 @@ config MTK_VOW_SUPPORT
 	  wakeup phone by doing voice recognition. Using
 	  IPI interface to communicate with SCP side and
 	  be controlled by sound trigger HAL.
+
+config MTK_VOW_DUAL_MIC_SUPPORT
+	bool "MediaTek VOW dual mic support"
+	help
+	  For VOW kernel driver config. This config can
+	  open dual mic control path which can transfer
+	  two channels data into sound trigger HAL. This
+	  feature need to work with MTK_VOW_SUPPORT.
