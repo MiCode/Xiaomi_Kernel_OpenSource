@@ -12,6 +12,7 @@
  */
 
 #include <mt-plat/perf_tracker.h>
+#include "lowmem_hint.h"
 
 static u64 checked_timestamp;
 static bool long_trace_check_flag;
@@ -41,6 +42,8 @@ void perf_tracker(u64 wallclock)
 
 	if (!tracker_do_check(wallclock))
 		return;
+
+	trigger_lowmem_hint(&mm_available, &mm_free);
 
 	__perf_tracker(wallclock, mm_available, mm_free);
 }
