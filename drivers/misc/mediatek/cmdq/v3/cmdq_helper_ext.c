@@ -2272,6 +2272,9 @@ void cmdqCoreClearEvent(enum cmdq_event event)
 	s32 eventValue = cmdq_core_get_event_value(event);
 	unsigned long va;
 
+	if (eventValue < 0)
+		return;
+
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 	if (event > CMDQ_MAX_HW_EVENT_COUNT) {
 		CMDQ_REG_SET32(cmdq_dev_get_va2() + CMDQ_SYNC_TOKEN_UPD_OFF,
@@ -2312,24 +2315,13 @@ u32 cmdqCoreGetEvent(enum cmdq_event event)
 	s32 eventValue = cmdq_core_get_event_value(event);
 	unsigned long va;
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
-	if (event > CMDQ_MAX_HW_EVENT_COUNT) {
-		va = cmdq_dev_get_va2();
-		CMDQ_REG_SET32(va + CMDQ_SYNC_TOKEN_ID_OFF,
-			(0x3FF & eventValue));
-		regValue = CMDQ_REG_GET32(va + CMDQ_SYNC_TOKEN_VAL_OFF);
-		va = cmdq_dev_get_module_base_VA_GCE();
-	} else
-		va = cmdq_get_gce_by_evt(event);
-#else
 	va = cmdq_dev_get_module_base_VA_GCE();
-#endif
-
 	CMDQ_REG_SET32(va + CMDQ_SYNC_TOKEN_ID_OFF, (0x3FF & eventValue));
 	regValue = CMDQ_REG_GET32(va + CMDQ_SYNC_TOKEN_VAL_OFF);
 	return regValue;
 }
 
+#if !IS_ENABLED(CONFIG_MACH_MT6885)
 static void cmdq_core_reset_hw_events_impl(enum cmdq_event event)
 {
 	s32 value = cmdq_core_get_event_value(event);
@@ -2339,19 +2331,15 @@ static void cmdq_core_reset_hw_events_impl(enum cmdq_event event)
 		return;
 
 	/* Reset GCE event */
-#if IS_ENABLED(CONFIG_MACH_MT6885)
-	va = cmdq_dev_get_va2();
-	CMDQ_REG_SET32(va + CMDQ_SYNC_TOKEN_UPD_OFF,
-		CMDQ_SYNC_TOKEN_MAX & value);
-#endif
-
-	va = cmdq_get_gce_by_evt(event);
+	va = cmdq_dev_get_module_base_VA_GCE();
 	CMDQ_REG_SET32(va + CMDQ_SYNC_TOKEN_UPD_OFF,
 		CMDQ_SYNC_TOKEN_MAX & value);
 }
+#endif
 
 static void cmdq_core_reset_hw_events(void)
 {
+#if !IS_ENABLED(CONFIG_MACH_MT6885)
 	int index;
 	const u32 max_thread_count = cmdq_dev_get_thread_count();
 	struct cmdq_event_table *events = cmdq_event_get_table();
@@ -2386,6 +2374,7 @@ static void cmdq_core_reset_hw_events(void)
 	/* by default they should be 1. */
 	for (index = 0; index < max_thread_count; index++)
 		cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_APPEND_THR(index));
+#endif
 }
 
 void cmdq_core_reset_gce(void)

@@ -41,11 +41,69 @@
 #define CMDQ_BUF_ALLOC_SIZE		(PAGE_SIZE)
 #define CMDQ_NUM_CMD(cmd_size)		((cmd_size) / CMDQ_INST_SIZE)
 
-#define CMDQ_EVENT_MAX			0x3FF
 #define CMDQ_WFE_UPDATE			BIT(31)
 #define CMDQ_WFE_UPDATE_VALUE		BIT(16)
 #define CMDQ_WFE_WAIT			BIT(15)
 #define CMDQ_WFE_WAIT_VALUE		0x1
+
+/* CMDQ sw tokens
+ * Following definitions are gce sw token which may use by clients
+ * by event operation API.
+ * Note that token 512 to 639 may set secure
+ */
+
+/* end of hw event and begin of sw token */
+#define CMDQ_MAX_HW_EVENT			512
+
+/* Config thread notify trigger thread */
+#define CMDQ_TOKEN_CONFIG_DIRTY			640
+/* Trigger thread notify config thread */
+#define CMDQ_TOKEN_STREAM_EOF			641
+/* Block Trigger thread until the ESD check finishes. */
+#define CMDQ_TOKEN_ESD_EOF			642
+/* check CABC setup finish */
+#define CMDQ_TOKEN_CABC_EOF			643
+
+/* Notify normal CMDQ there are some secure task done */
+#define CMDQ_TOKEN_SECURE_THR_EOF		647
+
+/* CMDQ use sw token */
+#define CMDQ_TOKEN_USER_0			649
+#define CMDQ_TOKEN_USER_1			650
+#define CMDQ_TOKEN_POLL_MONITOR			651
+
+/* Secure video path notify SW token */
+#define CMDQ_TOKEN_DISP_OVL0_2NONSEC_END	655
+#define CMDQ_TOKEN_DISP_OVL1_2NONSEC_END	656
+#define CMDQ_TOKEN_DISP_2LOVL0_2NONSEC_END	657
+#define CMDQ_TOKEN_DISP_2LOVL1_2NONSEC_END	658
+#define CMDQ_TOKEN_DISP_RDMA0_2NONSEC_END	659
+#define CMDQ_TOKEN_DISP_RDMA1_2NONSEC_END	660
+#define CMDQ_TOKEN_DISP_WDMA0_2NONSEC_END	661
+#define CMDQ_TOKEN_DISP_WDMA1_2NONSEC_END	662
+#define CMDQ_TOKEN_DISP_EXT_STREAM_EOF		663
+
+/* ISP sw token */
+#define CMDQ_TOKEN_MSS				665
+#define CMDQ_TOKEN_MSF				666
+
+/* GPR access tokens (for HW register backup)
+ * There are 15 32-bit GPR, 3 GPR form a set
+ * (64-bit for address, 32-bit for value)
+ */
+#define CMDQ_TOKEN_GPR_SET_0			700
+#define CMDQ_TOKEN_GPR_SET_1			701
+#define CMDQ_TOKEN_GPR_SET_2			702
+#define CMDQ_TOKEN_GPR_SET_3			703
+#define CMDQ_TOKEN_GPR_SET_4			704
+
+/* Resource lock event to control resource in GCE thread */
+#define CMDQ_TOKEN_RESOURCE_WROT0		710
+#define CMDQ_TOKEN_RESOURCE_WROT1		711
+
+#define CMDQ_EVENT_MAX				0x3FF
+/* CMDQ sw tokens END */
+
 
 /*
  * CMDQ_CODE_MASK:

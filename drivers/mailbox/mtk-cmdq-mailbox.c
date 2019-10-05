@@ -159,6 +159,22 @@ static void cmdq_init(struct cmdq *cmdq)
 	writel(CMDQ_THR_ACTIVE_SLOT_CYCLES, cmdq->base + CMDQ_THR_SLOT_CYCLES);
 	for (i = 0; i <= CMDQ_EVENT_MAX; i++)
 		writel(i, cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+
+	/* some of events need default 1 */
+	writel(CMDQ_TOKEN_GPR_SET_0 | BIT(16),
+		cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+	writel(CMDQ_TOKEN_GPR_SET_1 | BIT(16),
+		cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+	writel(CMDQ_TOKEN_GPR_SET_2 | BIT(16),
+		cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+	writel(CMDQ_TOKEN_GPR_SET_3 | BIT(16),
+		cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+	writel(CMDQ_TOKEN_GPR_SET_4 | BIT(16),
+		cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+	writel(CMDQ_TOKEN_RESOURCE_WROT0 | BIT(16),
+		cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+	writel(CMDQ_TOKEN_RESOURCE_WROT1 | BIT(16),
+		cmdq->base + CMDQ_SYNC_TOKEN_UPD);
 }
 
 static inline void cmdq_mmp_init(void)

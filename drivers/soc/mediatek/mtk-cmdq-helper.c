@@ -1526,18 +1526,6 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 EXPORT_SYMBOL(cmdq_pkt_wait_complete);
 #endif
 
-static void cmdq_pkt_flush_q_cb_work(struct work_struct *w)
-{
-	struct cmdq_flush_item *item_q = container_of(w,
-		struct cmdq_flush_item, work);
-	struct cmdq_cb_data data;
-
-	data.data = item_q->data;
-	data.err = item_q->err;
-	item_q->cb(data);
-	kfree(item_q);
-}
-
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 static void cmdq_pkt_flush_q_wait_work(struct work_struct *w)
 {
@@ -1553,6 +1541,19 @@ static void cmdq_pkt_flush_q_wait_work(struct work_struct *w)
 	}
 	kfree(item_q);
 }
+#else
+static void cmdq_pkt_flush_q_cb_work(struct work_struct *w)
+{
+	struct cmdq_flush_item *item_q = container_of(w,
+		struct cmdq_flush_item, work);
+	struct cmdq_cb_data data;
+
+	data.data = item_q->data;
+	data.err = item_q->err;
+	item_q->cb(data);
+	kfree(item_q);
+}
+
 #endif
 
 static void cmdq_pkt_flush_q_cb(struct cmdq_cb_data data)
