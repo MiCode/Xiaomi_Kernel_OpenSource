@@ -326,6 +326,11 @@ enum CMDQ_CLT_ENUM {
 	CMDQ_CLT_MAX	/* ALWAYS keep at the end */
 };
 
+/* sync with request in atf */
+enum cmdq_smc_request {
+	CMDQ_ENABLE_DEBUG,
+};
+
 /* handle to gce life cycle callback */
 typedef void (*cmdq_core_handle_cb)(struct cmdqRecStruct *handle);
 

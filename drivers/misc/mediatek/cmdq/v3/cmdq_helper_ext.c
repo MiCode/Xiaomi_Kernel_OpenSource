@@ -25,6 +25,8 @@
 #ifdef CMDQ_DAPC_DEBUG
 #include <devapc_public.h>
 #endif
+#include <linux/arm-smccc.h>
+#include <mt-plat/mtk_secure_api.h>
 
 #include "cmdq_helper_ext.h"
 #include "cmdq_record.h"
@@ -3043,34 +3045,54 @@ static void cmdq_core_dump_handle_with_engine_flag(
 #endif
 }
 
+static atomic_t cmdq_sec_dbg_ctrl = ATOMIC_INIT(0);
+
+static void cmdq_core_dump_dbg(const char *tag)
+{
+	u32 dbg0[3], dbg2[6], i;
+
+	if (atomic_cmpxchg(&cmdq_sec_dbg_ctrl, 0, 1) == 0) {
+		struct arm_smccc_res res;
+
+		arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_DEBUG,
+			0, 0, 0, 0, 0, 0, &res);
+	}
+
+	/* debug select */
+	for (i = 0; i < 6; i++) {
+		if (i < 3) {
+			CMDQ_REG_SET32(GCE_DBG_CTL, (i << 8) | i);
+			dbg0[i] = CMDQ_REG_GET32(GCE_DBG0);
+		} else {
+			/* only other part */
+			CMDQ_REG_SET32(GCE_DBG_CTL, i << 8);
+		}
+		dbg2[i] = CMDQ_REG_GET32(GCE_DBG2);
+	}
+
+	CMDQ_LOG("[%s]dbg0:%#x %#x %#x dbg2:%#x %#x %#x %#x %#x %#x\n",
+		tag, dbg0[0], dbg0[1], dbg0[2],
+		dbg2[0], dbg2[1], dbg2[2], dbg2[3], dbg2[4], dbg2[5]);
+}
+
 static void cmdq_core_dump_status(const char *tag)
 {
 	s32 coreExecThread = CMDQ_INVALID_THREAD;
-	u32 value[6] = { 0 };
+	u32 value[4] = { 0 };
 
 	value[0] = CMDQ_REG_GET32(CMDQ_CURR_LOADED_THR);
 	value[1] = CMDQ_REG_GET32(CMDQ_THR_EXEC_CYCLES);
 	value[2] = CMDQ_REG_GET32(CMDQ_THR_TIMEOUT_TIMER);
-	value[3] = CMDQ_REG_GET32(GCE_DBG_CTL);
-	value[4] = CMDQ_REG_GET32(CMDQ_CURR_IRQ_STATUS);
-
-	/* debug gce hang */
-	CMDQ_REG_SET32(GCE_DBG_CTL, 0x500);
+	value[3] = CMDQ_REG_GET32(CMDQ_CURR_IRQ_STATUS);
 
 	/* this returns (1 + index of least bit set) or 0 if input is 0. */
 	coreExecThread = __builtin_ffs(value[0]) - 1;
 
 	CMDQ_LOG(
 		"[%s]IRQ:0x%08x Execing:%d Thread:%d CURR_LOADED_THR:0x%08x THR_EXEC_CYCLES:0x%08x\n",
-		tag, value[4], (0x80000000 & value[0]) ? 1 : 0,
+		tag, value[3], (0x80000000 & value[0]) ? 1 : 0,
 		 coreExecThread, value[0], value[1]);
-	CMDQ_LOG(
-		"[%s]THR_TIMER:0x%x DBG CTRL:0x%x DEBUG:0x%x 0x%x 0x%x 0x%x\n",
-		tag, value[2], value[3],
-		CMDQ_REG_GET32(GCE_DBG0),
-		CMDQ_REG_GET32(GCE_DBG1),
-		CMDQ_REG_GET32(GCE_DBG2),
-		CMDQ_REG_GET32(GCE_DBG3));
+	cmdq_core_dump_dbg(tag);
 }
 
 void cmdq_core_dump_handle_buffer(const struct cmdq_pkt *pkt,
@@ -4142,6 +4164,8 @@ s32 cmdq_core_suspend(void)
 			exec_thread, ref_count);
 		kill_task = true;
 	}
+
+	atomic_set(&cmdq_sec_dbg_ctrl, 0);
 
 	/* TODO:
 	 * We need to ensure the system is ready to suspend,
