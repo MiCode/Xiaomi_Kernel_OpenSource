@@ -792,7 +792,7 @@ int __m4u_get_user_pages(int eModuleID, struct task_struct *tsk,
 		}
 
 		do {
-			struct page *page;
+			struct page *page = NULL;
 			unsigned int foll_flags = gup_flags;
 			/*
 			 * If we have a pending SIGKILL, don't keep faulting
@@ -3243,8 +3243,9 @@ void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
 	struct m4u_client_t *client = ion_m4u_client;
 	struct list_head *pListHead;
 	struct m4u_buf_info_t *pList = NULL;
-	unsigned long p_start, p_end, start, end;
-	struct device *dev;
+	unsigned long p_start = 0, p_end = 0;
+	unsigned long start = 0, end = 0;
+	struct device *dev = NULL;
 
 	if (!client)
 		return;

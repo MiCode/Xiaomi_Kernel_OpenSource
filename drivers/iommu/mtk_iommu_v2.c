@@ -3586,7 +3586,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	void *protect;
 	unsigned long protect_va;
 	int ret = 0;
-	unsigned int id, slave, mau;
+	unsigned int id = 0, slave = 0, mau = 0;
 
 	pr_notice("%s, %d,+\n",
 		  __func__, __LINE__);

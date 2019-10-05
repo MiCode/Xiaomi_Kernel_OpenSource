@@ -41,9 +41,9 @@ unsigned int gM4U_seed_mva;
 int pseudo_test_alloc_dealloc(int port, unsigned long va,
 		unsigned int size, struct sg_table *sg_table)
 {
-	struct m4u_client_t *client;
-	unsigned long mva;
-	int ret;
+	struct m4u_client_t *client = NULL;
+	unsigned long mva = 0;
+	int ret = 0;
 
 	M4U_INFO("test va=0x%lx,size=0x%x\n", va, size);
 
@@ -75,8 +75,8 @@ int pseudo_test_alloc_dealloc(int port, unsigned long va,
 int m4u_test_alloc_dealloc(int id, unsigned int size)
 {
 	unsigned long va = 0;
-	int ret;
-	unsigned long populate;
+	int ret = 0;
+	unsigned long populate = 0;
 
 	if (id == 1) {
 		va = (unsigned long)kmalloc(size, GFP_KERNEL);
@@ -121,15 +121,15 @@ int m4u_test_alloc_dealloc(int id, unsigned int size)
 
 static int m4u_test_map_kernel(void)
 {
-	struct m4u_client_t *client;
-	unsigned long va;
+	struct m4u_client_t *client = NULL;
+	unsigned long va = 0;
 	unsigned int size = 1024 * 1024;
-	unsigned long mva;
-	unsigned long kernel_va;
-	unsigned long kernel_size;
-	int i;
-	int ret;
-	unsigned long populate;
+	unsigned long mva = 0;
+	unsigned long kernel_va = 0;
+	unsigned long kernel_size = 0;
+	int i = 0;
+	int ret = 0;
+	unsigned long populate = 0;
 
 	down_write(&current->mm->mmap_sem);
 	va = do_mmap_pgoff(NULL, 0, size,
@@ -182,10 +182,10 @@ int m4u_test_fake_engine(void)
 {
 	unsigned char *pSrc = NULL;
 	unsigned char *pDst = NULL;
-	unsigned long mva_rd;
-	unsigned long mva_wr;
+	unsigned long mva_rd = 0;
+	unsigned long mva_wr = 0;
 	unsigned int allocated_size = 1024;
-	unsigned int i;
+	unsigned int i = 0;
 	struct m4u_client_t *client = pseudo_get_m4u_client();
 
 	iommu_perf_monitor_start(0);
@@ -391,12 +391,12 @@ void m4u_test_ion(void)
 {
 	unsigned long *pSrc = NULL;
 	unsigned long *pDst = NULL;
-	unsigned long src_pa, dst_pa;
-	unsigned int size = 64 * 64 * 3, tmp_size;
+	unsigned long src_pa = 0, dst_pa = 0;
+	unsigned int size = 64 * 64 * 3, tmp_size = 0;
 	struct M4U_PORT_STRUCT port;
 	struct ion_mm_data mm_data;
-	struct ion_client *ion_client;
-	struct ion_handle *src_handle, *dst_handle;
+	struct ion_client *ion_client = NULL;
+	struct ion_handle *src_handle = NULL, *dst_handle = NULL;
 
 	/* FIX-ME: modified for linux-3.10 early porting */
 	/* ion_client = ion_client_create(g_ion_device, 0xffffffff, "test"); */
@@ -467,7 +467,7 @@ static int dma_buf_test_alloc_dealloc(int port, struct sg_table *table,
 	enum dma_data_direction dir)
 {
 	struct device *dev = pseudo_get_larbdev(port);
-	int ret;
+	int ret = 0;
 
 	if (!dev) {
 		pr_notice("%s, %d, invalid port:%d\n",
@@ -505,8 +505,8 @@ static int m4u_debug_set(void *data, u64 val)
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i;
-		struct page *page;
+		int i = 0;
+		struct page *page = NULL;
 		int page_num = 512;
 		unsigned int id = M4U_PORT_BOUNDARY0_DEBUG;
 		unsigned long size = page_num * PAGE_SIZE;
@@ -527,12 +527,12 @@ static int m4u_debug_set(void *data, u64 val)
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i;
+		int i = 0;
 		int page_num = 51;
 		unsigned long page_size = SZ_64K;
 		unsigned int id = M4U_PORT_BOUNDARY1_DEBUG;
 		unsigned long size = page_num * page_size;
-		struct page *page;
+		struct page *page = NULL;
 
 		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
 		for_each_sg(sg_table->sgl, sg, sg_table->nents, i) {
@@ -551,12 +551,12 @@ static int m4u_debug_set(void *data, u64 val)
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i;
+		int i = 0;
 		int page_num = 37;
 		unsigned long page_size = SZ_1M;
 		unsigned int id = M4U_PORT_BOUNDARY2_DEBUG;
 		unsigned long size = page_num * page_size;
-		struct page *page;
+		struct page *page = NULL;
 
 		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
 
@@ -576,12 +576,12 @@ static int m4u_debug_set(void *data, u64 val)
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i;
+		int i = 0;
 		int page_num = 2;
 		unsigned long page_size = SZ_16M;
 		unsigned int id = M4U_PORT_BOUNDARY3_DEBUG;
 		unsigned long size = page_num * page_size;
-		struct page *page;
+		struct page *page = NULL;
 
 		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
 		for_each_sg(sg_table->sgl, sg, sg_table->nents, i) {
@@ -601,7 +601,7 @@ static int m4u_debug_set(void *data, u64 val)
 		struct scatterlist *sg;
 		unsigned int size = SZ_16M * 2;
 		unsigned int id = M4U_PORT_UNKNOWN;
-		struct page *page;
+		struct page *page = NULL;
 
 		sg_alloc_table(sg_table, 1, GFP_KERNEL);
 		sg = sg_table->sgl;
@@ -628,8 +628,8 @@ static int m4u_debug_set(void *data, u64 val)
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i;
-		struct page *page;
+		int i = 0;
+		struct page *page = NULL;
 		int page_num = 512;
 		unsigned int id = M4U_PORT_CCU;
 		unsigned long size = page_num * PAGE_SIZE;
@@ -650,8 +650,8 @@ static int m4u_debug_set(void *data, u64 val)
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i;
-		struct page *page;
+		int i = 0;
+		struct page *page = NULL;
 		int page_num = 512;
 		unsigned int id = M4U_PORT_APU_CODE;
 		unsigned long size = page_num * PAGE_SIZE;
@@ -772,8 +772,8 @@ static int m4u_debug_set(void *data, u64 val)
 	case 24:
 	{
 		unsigned int *pSrc = NULL;
-		unsigned long mva;
-		unsigned long pa;
+		unsigned long mva = 0;
+		unsigned long pa = 0;
 		struct m4u_client_t *client = pseudo_get_m4u_client();
 		struct device *dev = pseudo_get_larbdev(M4U_PORT_UNKNOWN);
 
