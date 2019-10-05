@@ -272,6 +272,9 @@ int vpu_alg_add(struct vpu_device *vd, struct apusys_firmware_hnd *fw)
 	struct __vpu_algo *alg;
 	int ret = 0;
 
+	if (fw->magic != VPU_FW_MAGIC)
+		return -EINVAL;
+
 	alg = vpu_alg_alloc(vd);
 	if (!alg) {
 		ret = -ENOMEM;
@@ -307,6 +310,9 @@ out:
 int vpu_alg_del(struct vpu_device *vd, struct apusys_firmware_hnd *fw)
 {
 	struct __vpu_algo *alg;
+
+	if (fw->magic != VPU_FW_MAGIC)
+		return -EINVAL;
 
 	/* search from tail, so that existing algorithm can be
 	 * overidden by dynamic loaded ones.

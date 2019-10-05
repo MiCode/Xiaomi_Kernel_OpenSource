@@ -19,6 +19,12 @@
 #define VPU_MAX_NUM_CORES 3
 
 #define ALGO_NAMELEN 32
+/* for vpu4.0, apusys needs to input
+ * device magic while load/unload fw
+ * here we use magic as ascii code of
+ * "MTKV"
+ */
+#define VPU_FW_MAGIC      0x4D544B56
 
 typedef uint8_t vpu_id_t;
 
