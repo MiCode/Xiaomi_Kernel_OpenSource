@@ -16,6 +16,10 @@
 #include "mtk_ftrace.h"
 #include "trace.h"
 
+#ifdef CONFIG_MTK_PERF_TRACKER
+#include <mt-plat/perf_tracker.h>
+#endif
+
 #ifdef CONFIG_MTK_KERNEL_MARKER
 static unsigned long __read_mostly mark_addr;
 static bool kernel_marker_on = true;
@@ -229,11 +233,6 @@ static void ftrace_events_enable(int enable)
 		trace_set_clr_event(NULL, "sched_switch", 1);
 		trace_set_clr_event(NULL, "sched_wakeup", 1);
 		trace_set_clr_event(NULL, "sched_wakeup_new", 1);
-		trace_set_clr_event(NULL, "softirq_entry", 1);
-		trace_set_clr_event(NULL, "softirq_exit", 1);
-		trace_set_clr_event(NULL, "softirq_raise", 1);
-		trace_set_clr_event(NULL, "irq_handler_entry", 1);
-		trace_set_clr_event(NULL, "irq_handler_exit", 1);
 #ifdef CONFIG_SMP
 		trace_set_clr_event(NULL, "sched_migrate_task", 1);
 #endif
@@ -249,22 +248,29 @@ static void ftrace_events_enable(int enable)
 		trace_set_clr_event(NULL, "block_rq_requeue", 1);
 		trace_set_clr_event(NULL, "debug_allocate_large_pages", 1);
 		trace_set_clr_event(NULL, "dump_allocate_large_pages", 1);
-#ifdef CONFIG_MTK_SCHED_MONITOR
-		trace_set_clr_event(NULL, "sched_mon_msg", 1);
-#endif
-#ifdef CONFIG_LOCKDEP
-		trace_set_clr_event(NULL, "lock_dbg", 1);
-		trace_set_clr_event(NULL, "lock_monitor_msg", 1);
-#endif
 		trace_set_clr_event("mtk_events", NULL, 1);
+
 		if (boot_trace) {
 			trace_set_clr_event("android_fs", NULL, 1);
 			trace_set_clr_event(NULL, "sched_blocked_reason", 1);
+			/*trace_set_clr_event(NULL, "sched_waking", 1);*/
 		} else {
 			trace_set_clr_event("ipi", NULL, 1);
+			trace_set_clr_event(NULL, "softirq_entry", 1);
+			trace_set_clr_event(NULL, "softirq_exit", 1);
+			trace_set_clr_event(NULL, "softirq_raise", 1);
+			trace_set_clr_event(NULL, "irq_handler_entry", 1);
+			trace_set_clr_event(NULL, "irq_handler_exit", 1);
+#ifdef CONFIG_MTK_SCHED_MONITOR
+			trace_set_clr_event(NULL, "sched_mon_msg", 1);
+#endif
+#ifdef CONFIG_LOCKDEP
+			trace_set_clr_event(NULL, "lock_dbg", 1);
+			trace_set_clr_event(NULL, "lock_monitor_msg", 1);
+#endif
+			trace_set_clr_event("met_bio", NULL, 1);
+			trace_set_clr_event("met_fuse", NULL, 1);
 		}
-		trace_set_clr_event("met_bio", NULL, 1);
-		trace_set_clr_event("met_fuse", NULL, 1);
 
 		tracing_on();
 	} else {
@@ -279,6 +285,9 @@ static __init int boot_ftrace(void)
 	int ret;
 
 	if (boot_trace) {
+#ifdef CONFIG_MTK_PERF_TRACKER
+		perf_tracker_enable(1);
+#endif
 		tr = top_trace_array();
 		ret = tracing_update_buffers();
 		if (ret != 0)
