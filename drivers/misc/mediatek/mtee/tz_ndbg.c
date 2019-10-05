@@ -38,7 +38,7 @@
 
 int entropy_thread(void *arg)
 {
-	int ret;
+	int ret = 0;
 	KREE_SESSION_HANDLE ndbg_session;
 	KREE_SESSION_HANDLE mem_session;
 	KREE_SHAREDMEM_HANDLE shm_handle;
@@ -47,6 +47,8 @@ int entropy_thread(void *arg)
 	uint8_t *ptr;
 
 	ptr = kmalloc(NDBG_REE_ENTROPY_SZ, GFP_KERNEL);
+	if (!ptr)
+		return -ENOMEM;
 	memset(ptr, 0, NDBG_REE_ENTROPY_SZ);
 
 	while (!kthread_should_stop()) {
