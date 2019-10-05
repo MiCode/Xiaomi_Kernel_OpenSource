@@ -2459,7 +2459,7 @@
                 <address>0x50</address>
             </device20>
             <device21>
-                <varName>EXT_BUCK_LP4X</varName>
+                <varName>EXT_BUCK_VMDDR</varName>
                 <channel>I2C_CHANNEL_6</channel>
                 <address>0x51</address>
             </device21>
