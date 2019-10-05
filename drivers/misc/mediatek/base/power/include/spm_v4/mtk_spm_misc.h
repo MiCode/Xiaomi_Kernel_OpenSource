@@ -17,7 +17,10 @@
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
 #include <linux/irqchip/mtk-gic.h>
+#else
+#include <linux/irqchip/mtk-gic-extend.h>
 #endif
+
 
 /* AEE */
 #ifdef CONFIG_MTK_RAM_CONSOLE
