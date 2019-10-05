@@ -94,12 +94,118 @@ static struct LCM_UTIL_FUNCS lcm_util;
 #define FALSE 0
 #endif
 
-#include "disp_dts_gpio.h"
-#if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
-static struct regulator *disp_bias_pos;
-static struct regulator *disp_bias_neg;
-static int regulator_inited;
-#endif
+
+/* i2c control start */
+
+#define LCM_I2C_ADDR 0x3E
+#define LCM_I2C_BUSNUM  1	/* for I2C channel 0 */
+#define LCM_I2C_ID_NAME "I2C_LCD_BIAS"
+
+static struct i2c_client *_lcm_i2c_client;
+
+
+/*****************************************************************************
+ * Function Prototype
+ *****************************************************************************/
+static int _lcm_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *id);
+static int _lcm_i2c_remove(struct i2c_client *client);
+
+
+/*****************************************************************************
+ * Data Structure
+ *****************************************************************************/
+struct _lcm_i2c_dev {
+	struct i2c_client *client;
+
+};
+
+static const struct of_device_id _lcm_i2c_of_match[] = {
+	{ .compatible = "mediatek,I2C_LCD_BIAS", },
+	{},
+};
+
+static const struct i2c_device_id _lcm_i2c_id[] = {
+	{LCM_I2C_ID_NAME, 0},
+	{}
+};
+
+static struct i2c_driver _lcm_i2c_driver = {
+	.id_table = _lcm_i2c_id,
+	.probe = _lcm_i2c_probe,
+	.remove = _lcm_i2c_remove,
+	/* .detect               = _lcm_i2c_detect, */
+	.driver = {
+		   .owner = THIS_MODULE,
+		   .name = LCM_I2C_ID_NAME,
+		   .of_match_table = _lcm_i2c_of_match,
+		   },
+
+};
+
+/*****************************************************************************
+ * Function
+ *****************************************************************************/
+static int _lcm_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *id)
+{
+	pr_debug("[LCM][I2C] %s\n", __func__);
+	pr_debug("[LCM][I2C] NT: info==>name=%s addr=0x%x\n",
+		client->name, client->addr);
+	_lcm_i2c_client = client;
+	return 0;
+}
+
+
+static int _lcm_i2c_remove(struct i2c_client *client)
+{
+	pr_debug("[LCM][I2C] %s\n", __func__);
+	_lcm_i2c_client = NULL;
+	i2c_unregister_device(client);
+	return 0;
+}
+
+
+static int _lcm_i2c_write_bytes(unsigned char addr, unsigned char value)
+{
+	int ret = 0;
+	struct i2c_client *client = _lcm_i2c_client;
+	char write_data[2] = { 0 };
+
+	if (client == NULL) {
+		pr_debug("ERROR!! _lcm_i2c_client is null\n");
+		return 0;
+	}
+
+	write_data[0] = addr;
+	write_data[1] = value;
+	ret = i2c_master_send(client, write_data, 2);
+	if (ret < 0)
+		pr_info("[LCM][ERROR] _lcm_i2c write data fail !!\n");
+
+	return ret;
+}
+
+/*
+ * module load/unload record keeping
+ */
+static int __init _lcm_i2c_init(void)
+{
+	pr_debug("[LCM][I2C] %s\n", __func__);
+	i2c_add_driver(&_lcm_i2c_driver);
+	pr_debug("[LCM][I2C] %s success\n", __func__);
+	return 0;
+}
+
+static void __exit _lcm_i2c_exit(void)
+{
+	pr_debug("[LCM][I2C] %s\n", __func__);
+	i2c_del_driver(&_lcm_i2c_driver);
+}
+
+module_init(_lcm_i2c_init);
+module_exit(_lcm_i2c_exit);
+/* i2c control end */
 
 struct LCM_setting_table {
 	unsigned int cmd;
@@ -449,125 +555,26 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	params->dsi.lcm_esd_check_table[0].count = 1;
 	params->dsi.lcm_esd_check_table[0].para_list[0] = 0x9c;
 }
-#if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
-int lcm_bias_regulator_init(void)
-{
-	int ret = 0;
 
-	if (regulator_inited)
-		return ret;
-
-	/* please only get regulator once in a driver */
-	disp_bias_pos = regulator_get(NULL, "dsv_pos");
-	if (IS_ERR(disp_bias_pos)) { /* handle return value */
-		ret = PTR_ERR(disp_bias_pos);
-		pr_info("get dsv_pos fail, error: %d\n", ret);
-		return ret;
-	}
-
-	disp_bias_neg = regulator_get(NULL, "dsv_neg");
-	if (IS_ERR(disp_bias_neg)) { /* handle return value */
-		ret = PTR_ERR(disp_bias_neg);
-		pr_info("get dsv_neg fail, error: %d\n", ret);
-		return ret;
-	}
-
-	regulator_inited = 1;
-	return ret; /* must be 0 */
-}
-
-int lcm_bias_enable(void)
-{
-	int ret = 0;
-	int retval = 0;
-
-	lcm_bias_regulator_init();
-
-	/* set voltage with min & max*/
-	ret = regulator_set_voltage(disp_bias_pos, 5500000, 5500000);
-	if (ret < 0)
-		pr_info("set voltage disp_bias_pos fail, ret = %d\n", ret);
-	retval |= ret;
-
-	ret = regulator_set_voltage(disp_bias_neg, 5500000, 5500000);
-	if (ret < 0)
-		pr_info("set voltage disp_bias_neg fail, ret = %d\n", ret);
-	retval |= ret;
-
-#if 0
-	/* get voltage */
-	ret = mtk_regulator_get_voltage(&disp_bias_pos);
-	if (ret < 0)
-		pr_info("get voltage disp_bias_pos fail\n");
-	pr_debug("pos voltage = %d\n", ret);
-
-	ret = mtk_regulator_get_voltage(&disp_bias_neg);
-	if (ret < 0)
-		pr_info("get voltage disp_bias_neg fail\n");
-	pr_debug("neg voltage = %d\n", ret);
-#endif
-	/* enable regulator */
-	ret = regulator_enable(disp_bias_pos);
-	if (ret < 0)
-		pr_info("enable regulator disp_bias_pos fail, ret = %d\n", ret);
-	retval |= ret;
-
-	ret = regulator_enable(disp_bias_neg);
-	if (ret < 0)
-		pr_info("enable regulator disp_bias_neg fail, ret = %d\n", ret);
-	retval |= ret;
-
-	return retval;
-}
-
-int lcm_bias_disable(void)
-{
-	int ret = 0;
-	int retval = 0;
-
-	lcm_bias_regulator_init();
-
-	ret = regulator_disable(disp_bias_neg);
-	if (ret < 0)
-		pr_info("disable regulator disp_bias_neg fail, ret = %d\n",
-			ret);
-	retval |= ret;
-
-	ret = regulator_disable(disp_bias_pos);
-	if (ret < 0)
-		pr_info("disable regulator disp_bias_pos fail, ret = %d\n",
-			ret);
-	retval |= ret;
-
-	return retval;
-}
-
-#else
-int lcm_bias_regulator_init(void)
-{
-	return 0;
-}
-
-int lcm_bias_enable(void)
-{
-	return 0;
-}
-
-int lcm_bias_disable(void)
-{
-	return 0;
-}
-#endif
 /* turn on gate ic & control voltage to 5.5V */
 static void lcm_init_power(void)
 {
-	lcm_bias_enable();
+	if (lcm_util.set_gpio_lcd_enp_bias) {
+		lcm_util.set_gpio_lcd_enp_bias(1);
+
+		_lcm_i2c_write_bytes(0x0, 0xf);
+		_lcm_i2c_write_bytes(0x1, 0xf);
+	} else
+		LCM_LOGI("set_gpio_lcd_enp_bias not defined...\n");
 }
 
 static void lcm_suspend_power(void)
 {
 	SET_RESET_PIN(0);
-	lcm_bias_disable();
+	if (lcm_util.set_gpio_lcd_enp_bias)
+		lcm_util.set_gpio_lcd_enp_bias(0);
+	else
+		LCM_LOGI("set_gpio_lcd_enp_bias not defined...\n");
 }
 
 /* turn on gate ic & control voltage to 5.5V */
