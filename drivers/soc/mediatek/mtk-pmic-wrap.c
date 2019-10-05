@@ -2742,7 +2742,7 @@ static irqreturn_t pwrap_interrupt(int irqno, void *dev_id)
 				aee_kernel_warning("PWRAP:MPU Violation",
 						   "PWRAP:MPU Violation");
 			} else if ((int3_flg & (0x1 << 27)) != 0) {
-				dev_dbg(wrp->dev, "[PWRAP] HW Monitor match\n");
+				dev_notice(wrp->dev, "[PWRAP] HW Monitor match\n");
 			} else if ((int3_flg & (0x1 << 28)) != 0) {
 				dev_dbg(wrp->dev, "[PWRAP] WDT Timeout\n");
 			}
@@ -3240,10 +3240,11 @@ static int pwrap_probe(struct platform_device *pdev)
 	else
 		pwrap_writel(wrp, 0x1, PWRAP_TIMER_EN);
 
-	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB_V3))
-		pwrap_writel(wrp, wrp->master->int_en_all,
+	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB_V3)) {
+		rdata = pwrap_readl(wrp, PMIF_SPI_PMIF_IRQ_EVENT_EN_3);
+		pwrap_writel(wrp, wrp->master->int_en_all | rdata,
 				  PMIF_SPI_PMIF_IRQ_EVENT_EN_3);
-	else
+	} else
 		pwrap_writel(wrp, wrp->master->int_en_all, PWRAP_INT_EN);
 
 	/*
