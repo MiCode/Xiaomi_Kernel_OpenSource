@@ -27,6 +27,14 @@
 #include "mtk_jpeg_dec_parse.h"
 #include "smi_public.h"
 
+#include <mach/mt_iommu.h>
+#include "mach/pseudo_m4u.h"
+#include "smi_port.h"
+#include "ion.h"
+#include "ion_drv.h"
+
+
+
 
 static struct mtk_jpeg_fmt mtk_jpeg_formats[] = {
 	{
@@ -108,6 +116,8 @@ struct mtk_jpeg_src_buf {
 
 #define MTK_MAX_CTRLS_HINT	20
 static int debug;
+static struct ion_client *g_ion_client;
+
 module_param(debug, int, 0644);
 static inline struct mtk_jpeg_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 {
@@ -1075,6 +1085,30 @@ static void mtk_jpeg_set_enc_dst(struct mtk_jpeg_ctx *ctx,
 				 struct mtk_jpeg_enc_bs *bs)
 {
 	struct jpeg_enc_param *p = &ctx->jpeg_param;
+	struct ion_handle *handle;
+	struct ion_mm_data mm_data;
+
+
+	pr_info("%s call ion_import_dma_buf_fd  fd %d!\n", __func__,
+		 dst_buf->planes[0].m.fd);
+	handle = ion_import_dma_buf_fd(g_ion_client, dst_buf->planes[0].m.fd);
+	if (IS_ERR(handle))
+		pr_info("%s import ion handle failed!\n", __func__);
+
+	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	mm_data.config_buffer_param.kernel_handle = handle;
+	mm_data.config_buffer_param.module_id = 0;
+	mm_data.config_buffer_param.security = 0;
+	mm_data.config_buffer_param.coherent = 0;
+
+
+	pr_info("%s call ION_MM_CONFIG_BUFFER!\n", __func__);
+
+	if (ion_kernel_ioctl(g_ion_client, ION_CMD_MULTIMEDIA,
+		(unsigned long)&mm_data))
+		pr_info("%s configure ion buffer failed!\n", __func__);
+
+
 	bs->dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0) &
 				(~JPEG_ENC_DST_ADDR_OFFSET_MASK);
 
@@ -1088,6 +1122,30 @@ static int mtk_jpeg_set_enc_src(struct mtk_jpeg_ctx *ctx,
 				struct mtk_jpeg_enc_fb *fb)
 {
 	int i;
+	struct ion_handle *handle;
+	struct ion_mm_data mm_data;
+
+
+	for (i = 0; i < src_buf->num_planes; i++) {
+		pr_info("%s call ion_import_dma_buf_fd  fd %d!\n", __func__,
+			 src_buf->planes[i].m.fd);
+		handle = ion_import_dma_buf_fd(g_ion_client,
+			 src_buf->planes[i].m.fd);
+
+		if (IS_ERR(handle))
+			pr_info("%s import ion handle failed!\n", __func__);
+
+		mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+		mm_data.config_buffer_param.kernel_handle = handle;
+		mm_data.config_buffer_param.module_id = 0;
+		mm_data.config_buffer_param.security = 0;
+		mm_data.config_buffer_param.coherent = 0;
+
+		pr_info("%s call ION_MM_CONFIG_BUFFER!\n", __func__);
+		if (ion_kernel_ioctl(g_ion_client, ION_CMD_MULTIMEDIA,
+			(unsigned long)&mm_data))
+			pr_info("%s configure ion buffer failed!\n", __func__);
+	}
 
 	for (i = 0; i < src_buf->num_planes; i++)
 		fb->fb_addr[i].dma_addr =
@@ -1249,7 +1307,8 @@ static void mtk_jpeg_clk_off(struct mtk_jpeg_dev *jpeg)
 
 static void mtk_jpeg_clk_on_ctx(struct mtk_jpeg_ctx *ctx)
 {
-	int ret;
+	int ret, larb_port_num, larb_id, i;
+	struct M4U_PORT_STRUCT port;
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
 
 	pr_info("%s +", __func__);
@@ -1266,7 +1325,24 @@ static void mtk_jpeg_clk_on_ctx(struct mtk_jpeg_ctx *ctx)
 			pr_info("clk_prepare_enable  failed");
 		else
 			pr_info("clk_prepare_enable  pass");
+
+
+		larb_port_num = SMI_LARB_PORT_NUM[jpeg->larb_id[ctx->coreid]];
+		larb_id = jpeg->larb_id[ctx->coreid];
+
+		pr_info("port num %d  larb %d\n", larb_port_num, larb_id);
+		//enable 34bits port configs & sram settings
+		for (i = 0; i < larb_port_num; i++) {
+			port.ePortID = MTK_M4U_ID(larb_id, i);
+			port.Direction = 0;
+			port.Distance = 1;
+			port.domain = 0;
+			port.Security = 0;
+			port.Virtuality = 1;
+			m4u_config_port(&port);
+		}
 	}
+
 	pr_info("%s -", __func__);
 }
 
@@ -1767,6 +1843,10 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 
+	g_ion_client = ion_client_create(g_ion_device, "jpegenc");
+	if (!g_ion_client)
+		pr_info("%s create ion client fail\n", __func__);
+
 	return 0;
 
 err_vfd_jpeg_register:
@@ -1796,6 +1876,8 @@ static int mtk_jpeg_remove(struct platform_device *pdev)
 	video_device_release(jpeg->vfd_jpeg);
 	v4l2_m2m_release(jpeg->m2m_dev);
 	v4l2_device_unregister(&jpeg->v4l2_dev);
+	if (g_ion_client)
+		ion_client_destroy(g_ion_client);
 
 	return 0;
 }

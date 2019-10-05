@@ -4743,6 +4743,9 @@ page_owner=on";
 			<0 0x17830000 0 0x10000>;
 		mediatek,larb = <&smi_larb7>,
 				<&smi_larb8>;
+#ifdef CONFIG_MTK_IOMMU_V2
+		iommus = <&iommu0 M4U_PORT_L7_JPGENC_Y_RDMA_DISP>;
+#endif
 		interrupts = <GIC_SPI 309 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 314 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&venc_gcon VENC_GCON_SET2_JPGENC>,
