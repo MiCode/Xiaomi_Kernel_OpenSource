@@ -240,12 +240,17 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-		if (!rsz_enable[i]) {
+		if (!rsz_enable[i] || mtk_crtc->fake_layer.fake_layer_mask) {
+			src_total_roi[i].x = 0;
+			src_total_roi[i].y = 0;
 			src_total_roi[i].width =
 				crtc->state->adjusted_mode.hdisplay;
 			src_total_roi[i].height =
-				crtc->state->adjusted_mode.vdisplay;
+					crtc->state->adjusted_mode.vdisplay;
+			dst_total_roi[i].x = 0;
+			dst_total_roi[i].y = 0;
 			dst_total_roi[i].width =
 				crtc->state->adjusted_mode.hdisplay;
 			dst_total_roi[i].height =

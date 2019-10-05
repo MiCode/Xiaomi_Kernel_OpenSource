@@ -30,6 +30,7 @@
 #include "mt_iommu.h"
 #include "mtk_iommu_ext.h"
 #include "mtk_drm_gem.h"
+#include "mtk_drm_fb.h"
 
 #define DISP_REG_CONFIG_MMSYS_CG_SET(idx) (0x104 + 0x10 * (idx))
 #define DISP_REG_CONFIG_MMSYS_CG_CLR(idx) (0x108 + 0x10 * (idx))
@@ -77,6 +78,61 @@ static struct logger_buffer dprec_logger_buffer[DPREC_LOGGER_PR_NUM] = {
 };
 static bool is_buffer_init;
 static char *debug_buffer;
+
+static int draw_RGBA8888_buffer(char *va, int w, int h,
+		       char r, char g, char b, char a)
+{
+	int i, j;
+	int Bpp =  mtk_get_format_bpp(DRM_FORMAT_RGBA8888);
+
+	for (i = 0; i < h; i++)
+		for (j = 0; j < w; j++) {
+			int x = j * Bpp + i * w * Bpp;
+
+			va[x++] = a;
+			va[x++] = b;
+			va[x++] = g;
+			va[x++] = r;
+		}
+
+	return 0;
+}
+
+static int prepare_fake_layer_buffer(struct drm_crtc *crtc)
+{
+	unsigned int i;
+	size_t size;
+	struct mtk_drm_gem_obj *mtk_gem;
+	struct drm_mode_fb_cmd2 mode = { 0 };
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_fake_layer *fake_layer = &mtk_crtc->fake_layer;
+
+	if (fake_layer->init)
+		return 0;
+
+	mode.width = crtc->state->adjusted_mode.hdisplay;
+	mode.height = crtc->state->adjusted_mode.vdisplay;
+	mode.pixel_format = DRM_FORMAT_RGBA8888;
+	mode.pitches[0] = mode.width
+			* mtk_get_format_bpp(mode.pixel_format);
+	size = mode.width * mode.height
+		* mtk_get_format_bpp(mode.pixel_format);
+
+	for (i = 0; i < PRIMARY_OVL_PHY_LAYER_NR; i++) {
+		mtk_gem = mtk_drm_gem_create(crtc->dev, size, true);
+		draw_RGBA8888_buffer(mtk_gem->kvaddr, mode.width, mode.height,
+			(!((i + 0) % 3)) * 255 / (i / 3 + 1),
+			(!((i + 1) % 3)) * 255 / (i / 3 + 1),
+			(!((i + 2) % 3)) * 255 / (i / 3 + 1), 100);
+		fake_layer->fake_layer_buf[i] =
+			mtk_drm_framebuffer_create(crtc->dev, &mode,
+						&mtk_gem->base);
+	}
+	fake_layer->init = true;
+	DDPMSG("%s init done\n", __func__);
+
+	return 0;
+}
 
 static unsigned long long get_current_time_us(void)
 {
@@ -803,6 +859,37 @@ static void process_dbg_opt(const char *opt)
 
 		mtk_crtc = to_mtk_crtc(crtc);
 		mtk_crtc_check_trigger(mtk_crtc, 1);
+	} else if (!strncmp(opt, "fake_layer:", 11)) {
+		unsigned int mask;
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		int ret = 0;
+
+		ret = sscanf(opt, "fake_layer:0x%x\n", &mask);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+
+		mtk_drm_idlemgr_kick(__func__, crtc, 1);
+		mtk_drm_set_idlemgr(crtc, 0, 1);
+
+		prepare_fake_layer_buffer(crtc);
+
+		mtk_crtc = to_mtk_crtc(crtc);
+		if (!mask && mtk_crtc->fake_layer.fake_layer_mask)
+			mtk_crtc->fake_layer.first_dis = true;
+		mtk_crtc->fake_layer.fake_layer_mask = mask;
+
+		DDPINFO("fake_layer:0x%x enable\n", mask);
 	}
 }
 

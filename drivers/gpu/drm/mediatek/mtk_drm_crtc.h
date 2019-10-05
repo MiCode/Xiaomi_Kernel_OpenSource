@@ -43,6 +43,10 @@
 #define MTK_MAX_BPC 10
 #define MTK_MIN_BPC 3
 #define BW_MODULE 11
+
+#define PRIMARY_OVL_PHY_LAYER_NR 6L
+#define PRIMARY_OVL_EXT_LAYER_NR 6L
+
 /* TODO: BW report module should not hardcode */
 enum DISP_PMQOS_SLOT {
 	DISP_PMQOS_OVL0_BW = 0,
@@ -435,6 +439,13 @@ struct mtk_drm_fake_vsync {
 	atomic_t fvsync_active;
 };
 
+struct mtk_drm_fake_layer {
+	unsigned int fake_layer_mask;
+	struct drm_framebuffer *fake_layer_buf[PRIMARY_OVL_PHY_LAYER_NR];
+	bool init;
+	bool first_dis;
+};
+
 /**
  * struct mtk_drm_crtc - MediaTek specific crtc structure.
  * @base: crtc object.
@@ -496,6 +507,7 @@ struct mtk_drm_crtc {
 	struct wakeup_source wk_lock;
 
 	struct mtk_drm_fake_vsync *fake_vsync;
+	struct mtk_drm_fake_layer fake_layer;
 
 	/* DC mode - RDMA config thread*/
 	struct task_struct *dc_main_path_commit_task;
