@@ -129,6 +129,7 @@ static void __iomem *ckgen_base;	/*ckgen*/
 #define POWERON_CONFIG_EN	SPM_REG(0x0000)
 #define PWR_STATUS		SPM_REG(0x016C)
 #define PWR_STATUS_2ND		SPM_REG(0x0170)
+#define OTHER_PWR_STATUS	SPM_REG(0x0178)	/* for MT6885 VPU only */
 
 #define MD1_PWR_CON		SPM_REG(0x300)
 #define CONN_PWR_CON		SPM_REG(0x304)
@@ -160,6 +161,11 @@ static void __iomem *ckgen_base;	/*ckgen*/
 #define DP_TX_PWR_CON		SPM_REG(0x3AC)
 #define DPY2_PWR_CON		SPM_REG(0x3C4)
 #define MD_EXT_BUCK_ISO_CON	SPM_REG(0x398)
+
+#define SPM_CROSS_WAKE_M00_REQ	SPM_REG(0x66C)
+#define SPM_CROSS_WAKE_M01_REQ	SPM_REG(0x670)	/* for MT6885 VPU wakeup src */
+#define APMCU_WAKEUP_APU	(0x1 << 0)
+#define APMCU_WAKEUP_APU_CHK	(0x1 << 4)
 
 
 /* for MT6885 DISP/MDP MTCMOS on/off APIs  */
@@ -848,7 +854,8 @@ static struct subsys syss[] =	/* NR_SYSS */
 			},
 	[SYS_VPU] = {
 			.name = __stringify(SYS_VPU),
-			.sta_mask = 0, /* MT6885: todo VPU_PWR_STA_MASK  */
+			 /* MT6885: fixme: resident in OTHER_PWR_STATUS */
+			.sta_mask = 0,
 			/* .ctl_addr = NULL,  */
 			.sram_pdn_bits = 0,
 			.sram_pdn_ack_bits = 0,
@@ -3961,6 +3968,24 @@ int spm_mtcmos_vpu(int state)
 	DBG_STA = state;
 	DBG_STEP = 0;
 
+	if (state == STA_POWER_DOWN) {
+		spm_write(SPM_CROSS_WAKE_M01_REQ,
+			spm_read(SPM_CROSS_WAKE_M01_REQ) &
+						~APMCU_WAKEUP_APU);
+		/* mt6885: no need to wait for power down.*/
+		INCREASE_STEPS;
+	} else {
+		spm_write(SPM_CROSS_WAKE_M01_REQ,
+			spm_read(SPM_CROSS_WAKE_M01_REQ) |
+						APMCU_WAKEUP_APU);
+
+		while (!(spm_read(SPM_CROSS_WAKE_M01_REQ) &
+						APMCU_WAKEUP_APU_CHK)) {
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+	}
+
 	return err;
 }
 
@@ -4186,10 +4211,11 @@ static int sys_get_state_op(struct subsys *sys)
 	return (sta & sys->sta_mask) && (sta_s & sys->sta_mask);
 }
 
-/* MT6885 todo: VPU */
 static int vpu_get_state_op(struct subsys *sys)
 {
-	return 0;
+	unsigned int sta = clk_readl(OTHER_PWR_STATUS);
+
+	return (sta & sys->sta_mask);
 }
 
 static struct subsys_ops MD1_sys_ops = {
@@ -4636,8 +4662,8 @@ struct mtk_power_gate {
 struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_MD1, "PG_MD1", NULL, NULL, SYS_MD1),
 	PGATE(SCP_SYS_CONN, "PG_CONN", NULL, NULL, SYS_CONN),
-	PGATE(SCP_SYS_MDP, "PG_MDP", NULL, NULL, SYS_MDP),
-	PGATE(SCP_SYS_DIS, "PG_DIS", NULL, NULL, SYS_DIS),
+	PGATE(SCP_SYS_MDP, "PG_MDP", NULL, "mdp_sel", SYS_MDP),
+	PGATE(SCP_SYS_DIS, "PG_DIS", NULL, "disp_sel", SYS_DIS),
 	PGATE(SCP_SYS_MFG0, "PG_MFG0", NULL, "mfg_sel", SYS_MFG0),
 	PGATE(SCP_SYS_MFG1, "PG_MFG1", "PG_MFG0", NULL, SYS_MFG1),
 	PGATE(SCP_SYS_MFG2, "PG_MFG2", "PG_MFG1", NULL, SYS_MFG2),
@@ -4645,21 +4671,24 @@ struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_MFG4, "PG_MFG4", "PG_MFG1", NULL, SYS_MFG4),
 	PGATE(SCP_SYS_MFG5, "PG_MFG5", "PG_MFG1", NULL, SYS_MFG5),
 	PGATE(SCP_SYS_MFG6, "PG_MFG6", "PG_MFG1", NULL, SYS_MFG6),
-	PGATE(SCP_SYS_ISP, "PG_ISP", "PG_DIS", NULL, SYS_ISP),
-	PGATE(SCP_SYS_ISP2, "PG_ISP2", "PG_DIS", NULL, SYS_ISP2), /* MDP */
-	PGATE(SCP_SYS_IPE, "PG_IPE", "PG_DIS", NULL, SYS_IPE), /* MDP */
-	PGATE(SCP_SYS_VDEC, "PG_VDEC", "PG_DIS", NULL, SYS_VDE),
-	PGATE(SCP_SYS_VDEC2, "PG_VDEC2", "PG_DIS", NULL, SYS_VDE2),
-	PGATE(SCP_SYS_VENC, "PG_VENC", "PG_DIS", NULL, SYS_VEN),
-	PGATE(SCP_SYS_VENC_CORE1, "PG_VENC_C1", "PG_DIS", NULL, SYS_VEN_CORE1),
+	PGATE(SCP_SYS_ISP, "PG_ISP", "PG_DIS", "img1_sel", SYS_ISP),
+	PGATE(SCP_SYS_ISP2, "PG_ISP2", "PG_DIS", "img2_sel", SYS_ISP2), /* MDP*/
+	PGATE(SCP_SYS_IPE, "PG_IPE", "PG_DIS", "ipe_sel", SYS_IPE), /* MDP */
+	PGATE(SCP_SYS_VDEC, "PG_VDEC", "PG_DIS", "vdec_sel", SYS_VDE),
+	PGATE(SCP_SYS_VDEC2, "PG_VDEC2", "PG_DIS", "vdec_sel", SYS_VDE2),
+	PGATE(SCP_SYS_VENC, "PG_VENC", "PG_DIS", "venc_sel", SYS_VEN),
+	PGATE(SCP_SYS_VENC_CORE1, "PG_VENC_C1", "PG_DIS", "venc_sel",
+								SYS_VEN_CORE1),
 	PGATE(SCP_SYS_AUDIO, "PG_AUDIO", NULL, NULL, SYS_AUDIO),
 	PGATE(SCP_SYS_ADSP, "PG_ADSP", NULL, NULL, SYS_ADSP),
-	PGATE(SCP_SYS_CAM, "PG_CAM", "PG_DIS", NULL, SYS_CAM),
+	PGATE(SCP_SYS_CAM, "PG_CAM", "PG_DIS", "cam_sel", SYS_CAM),
 	PGATE(SCP_SYS_CAM_RAWA, "PG_CAM_RAWA", "PG_CAM", NULL, SYS_CAM_RAWA),
 	PGATE(SCP_SYS_CAM_RAWB, "PG_CAM_RAWB", "PG_CAM", NULL, SYS_CAM_RAWB),
 	PGATE(SCP_SYS_CAM_RAWC, "PG_CAM_RAWC", "PG_CAM", NULL, SYS_CAM_RAWC),
 	PGATE(SCP_SYS_DP_TX, "PG_DP_TX", "PG_DIS", NULL, SYS_DP_TX),
+	/* Gary Wang: no need to turn of disp mtcmos*/
 	PGATE(SCP_SYS_VPU, "PG_VPU", NULL, NULL, SYS_VPU),
+
 };
 
 static void __init init_clk_scpsys(void __iomem *infracfg_reg,
@@ -4827,6 +4856,7 @@ static void __init mt_scpsys_init(struct device_node *node)
 	/* subsys init: per modem owner request, disable modem power first */
 	disable_subsys(SYS_MD1);
 #else				/*power on all subsys for bring up */
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	pr_notice("MTCMOS AO begin\n");
 
 	spm_mtcmos_ctrl_md1(STA_POWER_DOWN);
@@ -4870,6 +4900,7 @@ static void __init mt_scpsys_init(struct device_node *node)
 	spm_mtcmos_ctrl_dp_tx(STA_POWER_ON);
 
 	pr_notice("MTCMOS AO end\n");
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 #endif /* !MT_CCF_BRINGUP */
 }
 CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,scpsys", mt_scpsys_init);

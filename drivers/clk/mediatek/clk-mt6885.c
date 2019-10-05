@@ -259,6 +259,7 @@ static DEFINE_SPINLOCK(mt6885_clk_lock);
 #define APU_MDLA1_CG_CLR	(apu_mdla1_base + 0x0008)
 
 #define GCE_CG_CON		(gce_base + 0xF0)
+#define MDP_GCE_CG_CON		(mdp_gce_base + 0xF0)
 
 /* MT6885 Subsys CG init settings */
 
@@ -280,6 +281,7 @@ static DEFINE_SPINLOCK(mt6885_clk_lock);
 #define CAMRAWC_CG	0x7
 
 #define GCE_CG		0x00010000
+#define MDP_GCE_CG	0x00010000
 
 #define IMG1_CG		0x1c7
 #define IMG2_CG		0x1c7
@@ -1965,6 +1967,9 @@ static void __iomem *mtk_gate_common_init(struct device_node *node,
 	void __iomem *base;
 	int r;
 
+#if MT_CCF_BRINGUP
+	pr_notice("CCF %s: init\n", name);
+#endif
 	base = of_iomap(node, 0);
 	if (!base) {
 		pr_notice("%s(): ioremap failed\n", name);
@@ -1982,6 +1987,10 @@ static void __iomem *mtk_gate_common_init(struct device_node *node,
 						name, r);
 		return NULL;
 	}
+
+#if MT_CCF_BRINGUP
+	pr_notice("CCF %s: init done\n", name);
+#endif
 	return base;
 }
 
@@ -2010,12 +2019,14 @@ static struct mtk_gate apu0_clks[] __initdata = {
 static void __iomem *apu0_base;
 static void mtk_apu0_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	apu0_base = mtk_gate_common_init(node, "apu0", apu0_clks,
 					ARRAY_SIZE(apu0_clks), APU0_NR_CLK);
 	if (!apu0_base)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(APU_CORE0_CG_CLR, APU_CORE0_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_apu0, "mediatek,apu0", mtk_apu0_init);
@@ -2040,12 +2051,14 @@ static struct mtk_gate apu1_clks[] __initdata = {
 static void __iomem *apu1_base;
 static void mtk_apu1_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	apu1_base = mtk_gate_common_init(node, "apu1", apu1_clks,
 					ARRAY_SIZE(apu1_clks), APU1_NR_CLK);
 	if (!apu1_base)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(APU_CORE1_CG_CLR, APU_CORE1_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_apu1, "mediatek,apu1", mtk_apu1_init);
@@ -2069,12 +2082,14 @@ static struct mtk_gate apu2_clks[] __initdata = {
 static void __iomem *apu2_base;
 static void mtk_apu2_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	apu2_base = mtk_gate_common_init(node, "apu2", apu2_clks,
 					ARRAY_SIZE(apu2_clks), APU2_NR_CLK);
 	if (!apu2_base)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(APU_CORE2_CG_CLR, APU_CORE2_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_apu2, "mediatek,apu2", mtk_apu2_init);
@@ -2100,6 +2115,7 @@ static struct mtk_gate apusys_vcore_clks[] __initdata = {
 static void __iomem *apu_vcore_base;
 static void mtk_apu_vcore_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	apu_vcore_base = mtk_gate_common_init(node, "vpuvcore",
 			apusys_vcore_clks, ARRAY_SIZE(apusys_vcore_clks),
 			APUSYS_VCORE_NR_CLK);
@@ -2107,6 +2123,7 @@ static void mtk_apu_vcore_init(struct device_node *node)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(APU_VCORE_CG_CLR, APU_VCORE_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_apu_vcore, "mediatek,apu_vcore", mtk_apu_vcore_init);
@@ -2158,12 +2175,14 @@ static struct mtk_gate apu_conn_clks[] __initdata = {
 static void __iomem *apu_conn_base;
 static void mtk_apu_conn_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	apu_conn_base = mtk_gate_common_init(node, "vpuconn", apu_conn_clks,
 				ARRAY_SIZE(apu_conn_clks), APU_CONN_NR_CLK);
 	if (!apu_conn_base)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(APU_CONN_CG_CLR, APU_CONN_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_apu_conn, "mediatek,apu_conn", mtk_apu_conn_init);
@@ -2209,6 +2228,7 @@ static struct mtk_gate apu_mdla0_clks[] __initdata = {
 static void __iomem *apu_mdla0_base;
 static void mtk_apu_mdla0_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	apu_mdla0_base = mtk_gate_common_init(node, "vpu_mdla0",
 			apu_mdla0_clks, ARRAY_SIZE(apu_mdla0_clks),
 			APU_MDLA0_NR_CLK);
@@ -2216,6 +2236,7 @@ static void mtk_apu_mdla0_init(struct device_node *node)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(APU_MDLA0_CG_CLR, APU_MDLA0_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_apu_mdla0, "mediatek,apu_mdla0", mtk_apu_mdla0_init);
@@ -2261,6 +2282,7 @@ static struct mtk_gate apu_mdla1_clks[] __initdata = {
 static void __iomem *apu_mdla1_base;
 static void mtk_apu_mdla1_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	apu_mdla1_base = mtk_gate_common_init(node, "vpu_mdla1",
 			apu_mdla1_clks, ARRAY_SIZE(apu_mdla1_clks),
 			APU_MDLA1_NR_CLK);
@@ -2268,6 +2290,7 @@ static void mtk_apu_mdla1_init(struct device_node *node)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(APU_MDLA1_CG_CLR, APU_MDLA1_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_apu_mdla1, "mediatek,apu_mdla1", mtk_apu_mdla1_init);
@@ -2371,6 +2394,7 @@ static struct mtk_gate audio_clks[] __initdata = {
 static void __iomem *audio_base;
 static void mtk_audio_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	audio_base = mtk_gate_common_init(node, "audio", audio_clks,
 					ARRAY_SIZE(audio_clks), AUDIO_NR_CLK);
 	if (!audio_base)
@@ -2379,6 +2403,7 @@ static void mtk_audio_init(struct device_node *node)
 	clk_writel(AUDIO_TOP_CON0, AUDIO_CG0);
 	clk_writel(AUDIO_TOP_CON1, AUDIO_CG1);
 	clk_writel(AUDIO_TOP_CON2, AUDIO_CG2);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_audio, "mediatek,audio", mtk_audio_init);
@@ -2431,12 +2456,14 @@ static struct mtk_gate camsys_main_clks[] __initdata = {
 static void __iomem *cam_base;
 static void mtk_camsys_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	cam_base = mtk_gate_common_init(node, "cam", camsys_main_clks,
 			ARRAY_SIZE(camsys_main_clks), CAMSYS_MAIN_NR_CLK);
 	if (!cam_base)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(CAMSYS_CG_CLR, CAMSYS_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_camsys, "mediatek,camsys", mtk_camsys_init);
@@ -2460,6 +2487,7 @@ static struct mtk_gate camsys_rawa_clks[] __initdata = {
 static void __iomem *cam_rawa_base;
 static void mtk_camsys_rawa_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	cam_rawa_base = mtk_gate_common_init(node, "cam_rawa",
 				camsys_rawa_clks, ARRAY_SIZE(camsys_rawa_clks),
 				CAMSYS_RAWA_NR_CLK);
@@ -2467,6 +2495,7 @@ static void mtk_camsys_rawa_init(struct device_node *node)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(CAMSYS_RAWA_CG_CLR, CAMRAWA_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_camsys_rawa, "mediatek,camsys_rawa",
@@ -2491,6 +2520,7 @@ static struct mtk_gate camsys_rawb_clks[] __initdata = {
 static void __iomem *cam_rawb_base;
 static void mtk_camsys_rawb_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	cam_rawb_base = mtk_gate_common_init(node, "cam_rawb",
 				camsys_rawb_clks, ARRAY_SIZE(camsys_rawb_clks),
 				CAMSYS_RAWB_NR_CLK);
@@ -2498,6 +2528,7 @@ static void mtk_camsys_rawb_init(struct device_node *node)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(CAMSYS_RAWB_CG_CLR, CAMRAWB_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_camsys_rawb, "mediatek,camsys_rawb",
@@ -2522,6 +2553,7 @@ static struct mtk_gate camsys_rawc_clks[] __initdata = {
 static void __iomem *cam_rawc_base;
 static void mtk_camsys_rawc_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	cam_rawc_base = mtk_gate_common_init(node, "cam_rawc",
 				camsys_rawc_clks, ARRAY_SIZE(camsys_rawc_clks),
 				CAMSYS_RAWC_NR_CLK);
@@ -2529,6 +2561,7 @@ static void mtk_camsys_rawc_init(struct device_node *node)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(CAMSYS_RAWC_CG_CLR, CAMRAWC_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_camsys_rawc, "mediatek,camsys_rawc",
@@ -2549,15 +2582,17 @@ static struct mtk_gate gce_clks[] __initdata = {
 static void __iomem *gce_base;
 static void mtk_gcesys_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	gce_base = mtk_gate_common_init(node, "gce", gce_clks,
 					ARRAY_SIZE(gce_clks), GCE_NR_CLK);
 	if (!gce_base)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(GCE_CG_CON, clk_readl(GCE_CG_CON) & ~(GCE_CG));
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
-CLK_OF_DECLARE_DRIVER(mtk_gcesys, "mediatek,gce", mtk_gcesys_init);
+CLK_OF_DECLARE_DRIVER(mtk_gcesys, "mediatek,gce_clock", mtk_gcesys_init);
 
 /******************* IMG1 Subsys *******************************/
 static struct mtk_gate_regs imgsys1_img_cg_regs = {
@@ -2584,12 +2619,14 @@ static struct mtk_gate imgsys1_clks[] __initdata = {
 static void __iomem *img1_base;
 static void mtk_imgsys1_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	img1_base = mtk_gate_common_init(node, "imgsys1", imgsys1_clks,
 				ARRAY_SIZE(imgsys1_clks), IMGSYS1_NR_CLK);
 	if (!img1_base)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(IMG1_CG_CLR, IMG1_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_imgsys1, "mediatek,imgsys", mtk_imgsys1_init);
@@ -2619,12 +2656,14 @@ static struct mtk_gate imgsys2_clks[] __initdata = {
 static void __iomem *img2_base;
 static void mtk_imgsys2_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	img2_base = mtk_gate_common_init(node, "imgsys2", imgsys2_clks,
 				ARRAY_SIZE(imgsys2_clks), IMGSYS2_NR_CLK);
 	if (!img2_base)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(IMG2_CG_CLR, IMG2_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_imgsys2, "mediatek,imgsys2", mtk_imgsys2_init);
@@ -2654,6 +2693,7 @@ static struct mtk_gate imp_iic_wrap_c_clks[] __initdata = {
 static void __iomem *iic_wrap_c_base;
 static void mtk_imp_iic_wrap_c_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	iic_wrap_c_base = mtk_gate_common_init(node, "iic_c",
 			imp_iic_wrap_c_clks, ARRAY_SIZE(imp_iic_wrap_c_clks),
 			IMP_IIC_WRAP_C_NR_CLK);
@@ -2661,6 +2701,7 @@ static void mtk_imp_iic_wrap_c_init(struct device_node *node)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(IIC_WRAP_C_CG_CLR, IIC_WRAP_C_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_imp_iic_wrap_c, "mediatek,imp_iic_wrap_c",
@@ -2685,6 +2726,7 @@ static struct mtk_gate imp_iic_wrap_e_clks[] __initdata = {
 static void __iomem *iic_wrap_e_base;
 static void mtk_imp_iic_wrap_e_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	iic_wrap_e_base = mtk_gate_common_init(node, "iic_e",
 				imp_iic_wrap_e_clks,
 				ARRAY_SIZE(imp_iic_wrap_e_clks),
@@ -2693,6 +2735,7 @@ static void mtk_imp_iic_wrap_e_init(struct device_node *node)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(IIC_WRAP_E_CG_CLR, IIC_WRAP_E_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_imp_iic_wrap_e, "mediatek,imp_iic_wrap_e",
@@ -2717,6 +2760,7 @@ static struct mtk_gate imp_iic_wrap_n_clks[] __initdata = {
 static void __iomem *iic_wrap_n_base;
 static void mtk_imp_iic_wrap_n_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	iic_wrap_n_base = mtk_gate_common_init(node, "iic_n",
 					imp_iic_wrap_n_clks,
 					ARRAY_SIZE(imp_iic_wrap_n_clks),
@@ -2725,6 +2769,7 @@ static void mtk_imp_iic_wrap_n_init(struct device_node *node)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(IIC_WRAP_N_CG_CLR, IIC_WRAP_N_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_imp_iic_wrap_n, "mediatek,imp_iic_wrap_n",
@@ -2757,6 +2802,7 @@ static struct mtk_gate imp_iic_wrap_s_clks[] __initdata = {
 static void __iomem *iic_wrap_s_base;
 static void mtk_imp_iic_wrap_s_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	iic_wrap_s_base = mtk_gate_common_init(node, "iic_s",
 					imp_iic_wrap_s_clks,
 					ARRAY_SIZE(imp_iic_wrap_s_clks),
@@ -2765,6 +2811,7 @@ static void mtk_imp_iic_wrap_s_init(struct device_node *node)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(IIC_WRAP_S_CG_CLR, IIC_WRAP_S_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_imp_iic_wrap_s, "mediatek,imp_iic_wrap_s",
@@ -3072,11 +3119,13 @@ static const struct mtk_gate infra_clks[] __initconst = {
 static void __iomem *infracfg_base;
 static void mtk_infracfg_ao_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	infracfg_base = mtk_gate_common_init(node, "infracfg_ao", infra_clks,
 				ARRAY_SIZE(infra_clks), INFRACFG_AO_NR_CLK);
 	if (!infracfg_base)
 		return;
 #if MT_CCF_BRINGUP
+	pr_notice("%s(): init done\n", __func__);
 	/* do nothing */
 #else
 	clk_writel(INFRA_PDN_SET0, INFRA_CG0);
@@ -3116,18 +3165,20 @@ static struct mtk_gate ipesys_clks[] __initdata = {
 static void __iomem *ipe_base;
 static void mtk_ipesys_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	ipe_base = mtk_gate_common_init(node, "ipe", ipesys_clks,
 				ARRAY_SIZE(ipesys_clks), IPESYS_NR_CLK);
 	if (!ipe_base)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(IPE_CG_CLR, IPE_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_ipesys, "mediatek,ipesys_config", mtk_ipesys_init);
 
 /******************* MDP GCE Subsys *******************************/
-#if 0 /* TODO: no mdp gce device node in dts */
+
 static struct mtk_gate_regs mdp_gce_gce_ctl_int0_regs = {
 	.set_ofs = 0xf0,
 	.clr_ofs = 0xf0,
@@ -3138,7 +3189,22 @@ static struct mtk_gate mdp_gce_clks[] __initdata = {
 	GATE_STA(MDP_GCE_SW_CG_0, "mdp_gce_sw_cg_0", "axi_sel",
 			 mdp_gce_gce_ctl_int0_regs, 16, 0),
 };
+
+static void __iomem *mdp_gce_base;
+static void mtk_mdp_gcesys_init(struct device_node *node)
+{
+	pr_notice("%s(): init begin\n", __func__);
+	mdp_gce_base = mtk_gate_common_init(node, "mdp_gce", mdp_gce_clks,
+				ARRAY_SIZE(mdp_gce_clks), MDP_GCE_NR_CLK);
+	if (!mdp_gce_base)
+		return;
+#if MT_CCF_BRINGUP
+	clk_writel(MDP_GCE_CG_CON, clk_readl(MDP_GCE_CG_CON) & ~(MDP_GCE_CG));
+	pr_notice("%s(): init done\n", __func__);
 #endif
+}
+CLK_OF_DECLARE_DRIVER(mtk_mdp_gcesys, "mediatek,mdp_gce_clock",
+							mtk_mdp_gcesys_init);
 
 /******************* MFG Subsys *******************************/
 static struct mtk_gate_regs mfgcfg_mfg_cg_regs = {
@@ -3156,12 +3222,14 @@ static struct mtk_gate mfgcfg_clks[] __initdata = {
 static void __iomem *mfgcfg_base;
 static void mtk_mfg_cfg_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	mfgcfg_base = mtk_gate_common_init(node, "mfg", mfgcfg_clks,
 				ARRAY_SIZE(mfgcfg_clks), MFGCFG_NR_CLK);
 	if (!mfgcfg_base)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(MFG_CG_CLR, MFG_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_mfg_cfg, "mediatek,g3d_config", mtk_mfg_cfg_init);
@@ -3303,11 +3371,13 @@ static struct mtk_gate mmsys_config_clks[] __initdata = {
 static void __iomem *mmsys_config_base;
 static void mtk_mmsys_config_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	mmsys_config_base = mtk_gate_common_init(node, "mm", mmsys_config_clks,
 				ARRAY_SIZE(mmsys_config_clks), MM_NR_CLK);
 	if (!mmsys_config_base)
 		return;
 #if MT_CCF_BRINGUP
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_mmsys_config, "mediatek,dispsys_config",
@@ -3329,12 +3399,14 @@ static struct mtk_gate msdc0_clks[] __initdata = {
 static void __iomem *msdc0_base;
 static void mtk_msdcsys_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	msdc0_base = mtk_gate_common_init(node, "msdc", msdc0_clks,
 				ARRAY_SIZE(msdc0_clks), MSDC0_NR_CLK);
 	if (!msdc0_base)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(MSDC0_CG_CON0, clk_readl(MSDC0_CG_CON0) | MSDC0_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_msdcsys, "mediatek,msdc", mtk_msdcsys_init);
@@ -3354,12 +3426,14 @@ static struct mtk_gate pericfg_clks[] __initdata = {
 static void __iomem *pericfg_base;
 static void mtk_perisys_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
 	pericfg_base = mtk_gate_common_init(node, "pericfg", pericfg_clks,
 				ARRAY_SIZE(pericfg_clks), PERICFG_NR_CLK);
 	if (!pericfg_base)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(PERICFG_CG_CON0, clk_readl(PERICFG_CG_CON0) | PERICFG_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_perisys, "mediatek,pericfg", mtk_perisys_init);
@@ -3372,6 +3446,7 @@ static void __init mtk_topckgen_init(struct device_node *node)
 	void __iomem *base;
 	int r;
 
+	pr_notice("%s(): init begin\n", __func__);
 	base = of_iomap(node, 0);
 	if (!base) {
 		pr_notice("%s(): ioremap failed\n", __func__);
@@ -3446,6 +3521,7 @@ static void __init mtk_topckgen_init(struct device_node *node)
 	clk_writel(cksys_base + CK_CFG_13_CLR, 0x80008080);/*busaximem*/
 	clk_writel(cksys_base + CK_CFG_13_SET, 0x80008080);
 #endif
+	pr_notice("%s(): init done\n", __func__);
 }
 CLK_OF_DECLARE_DRIVER(mtk_topckgen, "mediatek,topckgen", mtk_topckgen_init);
 
@@ -3490,6 +3566,8 @@ static struct mtk_gate vdec_gcon_clks[] __initdata = {
 static void __iomem *vdec_gcon_base;
 static void mtk_vdec_top_global_con_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
+
 	vdec_gcon_base = mtk_gate_common_init(node, "vdec", vdec_gcon_clks,
 					ARRAY_SIZE(vdec_gcon_clks),
 					VDEC_GCON_NR_CLK);
@@ -3499,6 +3577,7 @@ static void mtk_vdec_top_global_con_init(struct device_node *node)
 	clk_writel(VDEC_CKEN_SET, VDEC_CKEN_CG);
 	clk_writel(VDEC_LARB1_CKEN_SET, VDEC_LARB1_CKEN_CG);
 	clk_writel(VDEC_LAT_CKEN_SET, VDEC_LAT_CKEN_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_vdec_top_global_con, "mediatek,vdec_gcon",
@@ -3549,6 +3628,8 @@ static struct mtk_gate vdec_soc_gcon_clks[] __initdata = {
 static void __iomem *vdec_soc_gcon_base;
 static void mtk_vdec_soc_global_con_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
+
 	vdec_soc_gcon_base = mtk_gate_common_init(node, "vdec_soc",
 				vdec_soc_gcon_clks,
 				ARRAY_SIZE(vdec_soc_gcon_clks),
@@ -3559,6 +3640,7 @@ static void mtk_vdec_soc_global_con_init(struct device_node *node)
 	clk_writel(VDEC_SOC_CKEN_SET, VDEC_SOC_CKEN_CG);
 	clk_writel(VDEC_SOC_LARB1_CKEN_SET, VDEC_SOC_LARB1_CKEN_CG);
 	clk_writel(VDEC_SOC_LAT_CKEN_SET, VDEC_SOC_LAT_CKEN_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_vdec_soc_global_con, "mediatek,vdec_soc_gcon",
@@ -3591,6 +3673,8 @@ static struct mtk_gate venc_c1_gcon_clks[] __initdata = {
 static void __iomem *venc_c1_gcon_base;
 static void mtk_venc_c1_global_con_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
+
 	venc_c1_gcon_base = mtk_gate_common_init(node, "venc_c1",
 					venc_c1_gcon_clks,
 					ARRAY_SIZE(venc_c1_gcon_clks),
@@ -3601,6 +3685,7 @@ static void mtk_venc_c1_global_con_init(struct device_node *node)
 	clk_writel(VDEC_SOC_CKEN_SET, VDEC_SOC_CKEN_CG);
 	clk_writel(VDEC_SOC_LARB1_CKEN_SET, VDEC_SOC_LARB1_CKEN_CG);
 	clk_writel(VDEC_SOC_LAT_CKEN_SET, VDEC_SOC_LAT_CKEN_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_venc_c1_global_con, "mediatek,venc_c1_gcon",
@@ -3631,12 +3716,15 @@ static struct mtk_gate venc_gcon_clks[] __initdata = {
 static void __iomem *venc_gcon_base;
 static void mtk_venc_global_con_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
+
 	venc_gcon_base = mtk_gate_common_init(node, "venc", venc_gcon_clks,
 				ARRAY_SIZE(venc_gcon_clks), VENC_GCON_NR_CLK);
 	if (!venc_gcon_base)
 		return;
 #if MT_CCF_BRINGUP
 	clk_writel(VENC_CG_SET, VENC_CG);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_venc_global_con, "mediatek,venc_gcon",
@@ -3723,6 +3811,8 @@ static struct mtk_gate mdpsys_config_clks[] __initdata = {
 static void __iomem *mdp_base;
 static void mtk_mdpsys_init(struct device_node *node)
 {
+	pr_notice("%s(): init begin\n", __func__);
+
 	mdp_base = mtk_gate_common_init(node, "mdp", mdpsys_config_clks,
 				ARRAY_SIZE(mdpsys_config_clks), MDP_NR_CLK);
 	if (!mdp_base)
@@ -3731,6 +3821,7 @@ static void mtk_mdpsys_init(struct device_node *node)
 	clk_writel(MDP_CG_CLR0, MDP_CG0);
 	clk_writel(MDP_CG_CLR1, MDP_CG1);
 	clk_writel(MDP_CG_CLR2, MDP_CG2);
+	pr_notice("%s(): init done\n", __func__);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_mdpsys, "mediatek,mdpsys_config", mtk_mdpsys_init);
@@ -3750,7 +3841,6 @@ static const struct mtk_gate apmixed_clks[] __initconst = {
 };
 
 
-/* FIXME: modify FMAX */
 #define MT6885_PLL_FMAX		(3800UL * MHZ)
 #define MT6885_PLL_FMIN		(1500UL * MHZ)
 #define MT6885_INTEGER_BITS	8
@@ -3834,10 +3924,12 @@ static const struct mtk_pll_data plls[] = {
 static void __iomem *apmixed_base;
 static void __init mtk_apmixedsys_init(struct device_node *node)
 {
+
 	struct clk_onecell_data *clk_data;
 	void __iomem *base;
 	int r;
 
+	pr_notice("%s(): init begin\n", __func__);
 	base = of_iomap(node, 0);
 	if (!base) {
 		pr_notice("%s(): ioremap failed\n", __func__);
@@ -3861,14 +3953,13 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 			__func__, r);
 	apmixed_base = base;
 
-	/* MT6885, should porting to CTP also, TODO */
+	/* MT6885, should porting to CTP also */
 	clk_writel(PLLON_CON0, 0x07EFF7FB);
 	clk_writel(PLLON_CON1, 0x07EFF7FB);
 
 #define PLL_EN  (0x1 << 0)
 #define PLL_PWR_ON  (0x1 << 0)
 #define PLL_ISO_EN  (0x1 << 1)
-#define ADSPPLL_DIV_RSTB  (0x1 << 23)
 
 #if 0
 /*MMPLL*/
@@ -3892,7 +3983,7 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	clk_clrl(TVDPLL_CON0, PLL_EN);
 	clk_setl(TVDPLL_CON3, PLL_ISO_EN);
 	clk_clrl(TVDPLL_CON3, PLL_PWR_ON);
-#endif
+
 /*APLL1*/
 	clk_clrl(APLL1_CON0, PLL_EN);
 	clk_setl(APLL1_CON4, PLL_ISO_EN);
@@ -3905,6 +3996,8 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	clk_clrl(ADSPPLL_CON0, PLL_EN);
 	clk_setl(ADSPPLL_CON3, PLL_ISO_EN);
 	clk_clrl(ADSPPLL_CON3, PLL_PWR_ON);
+#endif
+	pr_notice("%s(): init done\n", __func__);
 }
 CLK_OF_DECLARE_DRIVER(mtk_apmixedsys, "mediatek,apmixed",
 		mtk_apmixedsys_init);
