@@ -563,6 +563,12 @@ static struct platform_driver vpu_plat_drv = {
 static int __init vpu_init(void)
 {
 	int ret;
+	vpu_drv = NULL;
+
+	if (!apusys_power_check()) {
+		pr_info("%s: vpu is disabled by apusys\n", __func__);
+		return -ENODEV;
+	}
 
 	vpu_drv = kzalloc(sizeof(struct vpu_driver), GFP_KERNEL);
 
