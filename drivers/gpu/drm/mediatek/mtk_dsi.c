@@ -797,7 +797,7 @@ static void mtk_dsi_cmdq_poll(struct mtk_ddp_comp *comp,
 	cmdq_pkt_poll_reg(handle, val, comp->cmdq_subsys, reg & 0xFFFF, mask);
 #else
 	cmdq_pkt_poll_timeout(handle, val, SUBSYS_NO_SUPPORT,
-				  reg & 0xFFFF, mask, 0xFFFF,
+				  reg, mask, 0xFFFF,
 				  CMDQ_GPR_R07);
 #endif
 }
