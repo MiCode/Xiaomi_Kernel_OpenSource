@@ -111,7 +111,7 @@ static int gamerotvechub_local_init(void)
 	ctl.is_support_batch = false;
 #elif defined CONFIG_NANOHUB
 	ctl.is_report_input_direct = true;
-	ctl.is_support_batch = false;
+	ctl.is_support_batch = true;
 #else
 #endif
 	err = fusion_register_control_path(&ctl, ID_GAME_ROTATION_VECTOR);
