@@ -5969,6 +5969,11 @@ static unsigned long cpu_util_wake(int cpu, struct task_struct *p)
 	return min_t(unsigned long, util, capacity_orig_of(cpu));
 }
 
+unsigned long get_cpu_util(int cpu)
+{
+	return cpu_util_freq(cpu);
+}
+
 #ifndef CONFIG_MTK_SCHED_EAS_POWER_SUPPORT
 static unsigned long group_max_util(struct energy_env *eenv, int cpu_idx)
 {
