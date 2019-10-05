@@ -771,6 +771,145 @@ static void set_load_weight(struct task_struct *p)
 	load->inv_weight = sched_prio_to_wmult[prio];
 }
 
+#ifdef CONFIG_UCLAMP_MAP_OPP
+#include <linux/sort.h>
+#include <linux/cpufreq.h>
+int total_opp_count;
+int opp_capacity_tbl_ready;
+unsigned int *opp_capacity_tbl;
+
+static int cap_compare(const void *lhs, const void *rhs)
+{
+	unsigned int lhs_cap = *(const unsigned int *)(lhs);
+	unsigned int rhs_cap = *(const unsigned int *)(rhs);
+
+	if (lhs_cap < rhs_cap)
+		return -1;
+	if (lhs_cap > rhs_cap)
+		return 1;
+	return 0;
+}
+
+static int system_opp_count(void)
+{
+	int cpu, cid, prev_cid = -1;
+	int count = 0;
+	struct sched_domain *sd;
+	struct sched_group *sg;
+	const struct sched_group_energy *sge;
+
+	rcu_read_lock();
+	for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
+		cid = arch_get_cluster_id(cpu);
+		if (cid == prev_cid)
+			continue;
+
+		sd = rcu_dereference_check_sched_domain(cpu_rq(cpu)->sd);
+		if (sd) {
+			sg = sd->groups;
+			sge = sg->sge;
+		} else {
+			rcu_read_unlock();
+			pr_info("sched: %s no sd\n", __func__);
+			return -1;
+		}
+		count += sge->nr_cap_states;
+		prev_cid = cid;
+	}
+	rcu_read_unlock();
+	return count;
+}
+
+void init_opp_capacity_tbl(void)
+{
+	int cpu, cid, prev_cid = -1;
+	int count = 0;
+	int i, idx = 0;
+	unsigned int cap, orig_cap;
+	unsigned long freq, max_freq;
+	struct sched_domain *sd;
+	struct sched_group *sg;
+	const struct sched_group_energy *sge;
+	struct cpufreq_policy *policy;
+
+	count = system_opp_count();
+	if (count < 0)
+		return;
+
+	opp_capacity_tbl =
+		kmalloc_array(count, sizeof(unsigned int), GFP_KERNEL);
+	if (!opp_capacity_tbl)
+		return;
+
+	rcu_read_lock();
+	for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
+		cid = arch_get_cluster_id(cpu);
+		if (cid == prev_cid)
+			continue;
+
+		sd = rcu_dereference_check_sched_domain(cpu_rq(cpu)->sd);
+		if (sd) {
+			sg = sd->groups;
+			sge = sg->sge;
+		} else {
+			pr_info("sched: %s no sd\n", __func__);
+			goto free_unlock;
+		}
+
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy) {
+			pr_info("policy not ready\n");
+			goto free_unlock;
+		}
+
+		max_freq = arch_max_cpu_freq(NULL, cpu);
+		orig_cap = capacity_orig_of(cpu);
+
+		for (i = 0; i < sge->nr_cap_states; i++) {
+			freq = policy->freq_table[i].frequency;
+			cap = orig_cap * freq / max_freq;
+			opp_capacity_tbl[idx++] = cap;
+		}
+		cpufreq_cpu_put(policy);
+		prev_cid = cid;
+	}
+	rcu_read_unlock();
+
+	sort(opp_capacity_tbl, count, sizeof(unsigned int),
+			&cap_compare, NULL);
+	total_opp_count = count;
+	opp_capacity_tbl_ready = 1;
+	return;
+free_unlock:
+	rcu_read_unlock();
+	kfree(opp_capacity_tbl);
+}
+
+unsigned int find_fit_capacity(unsigned int cap)
+{
+	int i;
+
+	if (unlikely(!opp_capacity_tbl_ready))
+		return cap;
+
+	if (cap == 0)
+		return cap;
+
+	for (i = 0; i < total_opp_count; i++) {
+		if (opp_capacity_tbl[i] >= cap)
+			return opp_capacity_tbl[i];
+	}
+	return SCHED_CAPACITY_SCALE;
+}
+#else
+int opp_capacity_tbl_ready = 1;
+void init_opp_capacity_tbl(void) {}
+unsigned int find_fit_capacity(unsigned int cap)
+{
+	return cap;
+}
+#endif
+
 #ifdef CONFIG_UCLAMP_TASK
 /**
  * uclamp_mutex: serializes updates of utilization clamp values
@@ -1328,7 +1467,11 @@ void uclamp_group_get(struct task_struct *p,
 	unsigned long res;
 	int cpu;
 
+#ifdef CONFIG_UCLAMP_MAP_OPP
+	group_value = clamp_value;
+#else
 	group_value = uclamp_group_value(clamp_value);
+#endif
 
 retry:
 
@@ -1423,6 +1566,11 @@ int sched_uclamp_handler(struct ctl_table *table, int write,
 		result = -EINVAL;
 		goto undo;
 	}
+
+	sysctl_sched_uclamp_util_min =
+		find_fit_capacity(sysctl_sched_uclamp_util_min);
+	sysctl_sched_uclamp_util_max =
+		find_fit_capacity(sysctl_sched_uclamp_util_max);
 
 	if (old_min != sysctl_sched_uclamp_util_min) {
 		uclamp_group_get(NULL, NULL, &uclamp_default[UCLAMP_MIN],
@@ -1550,6 +1698,11 @@ int set_task_util_min(pid_t pid, unsigned int util_min)
 {
 	unsigned int upper_bound;
 	struct task_struct *p;
+
+	if (!opp_capacity_tbl_ready)
+		init_opp_capacity_tbl();
+
+	util_min = find_fit_capacity(util_min);
 
 	rcu_read_lock();
 	p = find_process_by_pid(pid);
@@ -7490,6 +7643,11 @@ static int cpu_util_min_write_u64(struct cgroup_subsys_state *css,
 	if (min_value > SCHED_CAPACITY_SCALE)
 		return -ERANGE;
 
+	if (!opp_capacity_tbl_ready)
+		init_opp_capacity_tbl();
+
+	min_value = find_fit_capacity(min_value);
+
 	mutex_lock(&uclamp_mutex);
 	rcu_read_lock();
 
@@ -7524,6 +7682,11 @@ static int cpu_util_max_write_u64(struct cgroup_subsys_state *css,
 
 	if (max_value > SCHED_CAPACITY_SCALE)
 		return -ERANGE;
+
+	if (!opp_capacity_tbl_ready)
+		init_opp_capacity_tbl();
+
+	max_value = find_fit_capacity(max_value);
 
 	mutex_lock(&uclamp_mutex);
 	rcu_read_lock();
