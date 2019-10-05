@@ -48,6 +48,7 @@ static unsigned int gVENCFrmTRAVC[3] = {6, 12, 6};
 static unsigned int gVENCFrmTRHEVC[3] = {6, 12, 6};
 struct pm_qos_request venc_qos_req_bw;
 #endif
+static struct ion_client *ion_venc_client;
 
 void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
@@ -107,6 +108,8 @@ int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 		ret = PTR_ERR(pm->clk_MT_CG_VENC1);
 	}
 #endif
+	ion_venc_client = NULL;
+
 	return ret;
 }
 
@@ -397,3 +400,34 @@ void mtk_venc_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
 	mtk_venc_dvfs_end(ctx);
 	mtk_venc_emi_bw_end(ctx);
 }
+
+int mtk_venc_ion_config_buff(struct dma_buf *dmabuf)
+{
+	struct ion_handle *handle = NULL;
+	struct ion_mm_data mm_data;
+
+	mtk_v4l2_debug(4, "%p", dmabuf);
+
+	if (!ion_venc_client)
+		ion_venc_client = ion_client_create(g_ion_device, "venc");
+
+	handle = ion_import_dma_buf(ion_venc_client, dmabuf);
+	if (IS_ERR(handle)) {
+		mtk_v4l2_err("import ion handle failed!\n");
+		return -1;
+	}
+	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	mm_data.config_buffer_param.kernel_handle = handle;
+	mm_data.config_buffer_param.module_id = M4U_PORT_L7_VENC_RD_COMV_DISP;
+	mm_data.config_buffer_param.security = 0;
+	mm_data.config_buffer_param.coherent = 0;
+
+	if (ion_kernel_ioctl(ion_venc_client, ION_CMD_MULTIMEDIA,
+		(unsigned long)&mm_data)) {
+		mtk_v4l2_err("configure ion buffer failed!\n");
+		return -1;
+	}
+
+	return 0;
+}
+

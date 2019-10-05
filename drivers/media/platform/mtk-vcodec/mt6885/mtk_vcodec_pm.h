@@ -15,6 +15,11 @@
 #ifndef _MTK_VCODEC_PM_H_
 #define _MTK_VCODEC_PM_H_
 
+#include "ion_drv.h"
+#include "mach/mt_iommu.h"
+
+extern struct ion_device *g_ion_device;
+
 #define MTK_PLATFORM_STR        "platform:mt6885"
 #define MTK_VDEC_RACING_INFO_OFFSET  0x100
 #define MTK_VDEC_RACING_INFO_SIZE 68

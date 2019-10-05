@@ -36,4 +36,6 @@ void mtk_unprepare_venc_emi_bw(void);
 void mtk_venc_pmqos_prelock(struct mtk_vcodec_ctx *ctx, int core_id);
 void mtk_venc_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx);
 void mtk_venc_pmqos_end_frame(struct mtk_vcodec_ctx *ctx);
+int mtk_venc_ion_config_buff(struct dma_buf *dmabuf);
+
 #endif /* _MTK_VCODEC_ENC_PM_H_ */

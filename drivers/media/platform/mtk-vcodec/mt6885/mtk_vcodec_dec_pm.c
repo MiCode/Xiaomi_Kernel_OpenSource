@@ -52,6 +52,7 @@ static unsigned int mp24_frm_scale[5] = {16, 20, 32, 50, 16};
 
 struct pm_qos_request vdec_qos_req_bw;
 #endif
+static struct ion_client *ion_vdec_client;
 
 void mtk_dec_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
@@ -110,6 +111,8 @@ int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
 	atomic_set(&pm->dec_active_cnt, 0);
 	memset(pm->vdec_racing_info, 0, sizeof(pm->vdec_racing_info));
 #endif
+	ion_vdec_client = NULL;
+
 	return ret;
 }
 
@@ -412,4 +415,33 @@ void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
 	mtk_vdec_emi_bw_end();
 }
 
+int mtk_vdec_ion_config_buff(struct dma_buf *dmabuf)
+{
+	struct ion_handle *handle = NULL;
+	struct ion_mm_data mm_data;
+
+	mtk_v4l2_debug(4, "%p", dmabuf);
+
+	if (!ion_vdec_client)
+		ion_vdec_client = ion_client_create(g_ion_device, "vdec");
+
+	handle = ion_import_dma_buf(ion_vdec_client, dmabuf);
+	if (IS_ERR(handle)) {
+		mtk_v4l2_err("import ion handle failed!\n");
+		return -1;
+	}
+	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	mm_data.config_buffer_param.kernel_handle = handle;
+	mm_data.config_buffer_param.module_id = M4U_PORT_L4_VDEC_MC_EXT_MDP;
+	mm_data.config_buffer_param.security = 0;
+	mm_data.config_buffer_param.coherent = 0;
+
+	if (ion_kernel_ioctl(ion_vdec_client, ION_CMD_MULTIMEDIA,
+		(unsigned long)&mm_data)) {
+		mtk_v4l2_err("configure ion buffer failed!\n");
+		return -1;
+	}
+
+	return 0;
+}
 
