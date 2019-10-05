@@ -1563,7 +1563,9 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 			vio_index < VIO_SLAVE_NUM_PERI2) {
 
 		/* check violation address */
-		if (vio_addr >= GCE_PA_START && vio_addr <= GCE_PA_END)
+		if ((vio_addr >= GCE_PA_START && vio_addr <= GCE_PA_END) ||
+				(vio_addr >= GCE_M2_PA_START &&
+				 vio_addr <= GCE_M2_PA_END))
 			return "GCE";
 
 		return mt6885_devices_peri2[vio_index].device;
