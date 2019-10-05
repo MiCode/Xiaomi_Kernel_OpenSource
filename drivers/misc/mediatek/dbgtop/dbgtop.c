@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
+#include <linux/of_address.h>
 #include <linux/printk.h>
 #include <linux/delay.h>
 #include <linux/io.h>
@@ -56,6 +57,11 @@ static struct platform_driver mtk_dbgtop = {
 static int mtk_dbgtop_probe(struct platform_device *pdev)
 {
 	struct resource *res;
+
+	if (DBGTOP_BASE) {
+		pr_info("%s: already got the base addr\n", __func__);
+		return 0;
+	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	DBGTOP_BASE = devm_ioremap_resource(&pdev->dev, res);
@@ -253,6 +259,115 @@ int mtk_dbgtop_pause_dvfsrc(int enable)
 }
 EXPORT_SYMBOL(mtk_dbgtop_pause_dvfsrc);
 
+static int __init mtk_dbgtop_get_base_addr(void)
+{
+	struct device_node *np_dbgtop;
+
+	for_each_matching_node(np_dbgtop, mtk_dbgtop_of_ids) {
+		pr_info("%s: compatible node found: %s\n",
+			__func__, np_dbgtop->name);
+		break;
+	}
+
+	if (!DBGTOP_BASE) {
+		DBGTOP_BASE = of_iomap(np_dbgtop, 0);
+		if (!DBGTOP_BASE)
+			pr_info("%s: dbgtop iomap failed\n", __func__);
+	}
+
+	return 0;
+}
+
+int mtk_dbgtop_dfd_count_en(int value)
+{
+	unsigned int tmp;
+
+	/* dfd_count_en is obsolete, enable dfd_en only here */
+
+	if (value == 1) {
+		/* enable dfd_en */
+		tmp = readl(IOMEM(MTK_DBGTOP_LATCH_CTL2));
+		tmp |= (MTK_DBGTOP_DFD_EN | MTK_DBGTOP_LATCH_CTL2_KEY);
+		mt_reg_sync_writel(tmp, MTK_DBGTOP_LATCH_CTL2);
+	} else if (value == 0) {
+		/* disable dfd_en */
+		tmp = readl(IOMEM(MTK_DBGTOP_LATCH_CTL2));
+		tmp &= ~MTK_DBGTOP_DFD_EN;
+		tmp |= MTK_DBGTOP_LATCH_CTL2_KEY;
+		mt_reg_sync_writel(tmp, MTK_DBGTOP_LATCH_CTL2);
+	}
+
+	pr_debug("%s: MTK_DBGTOP_LATCH_CTL2(0x%x)\n", __func__,
+		readl(IOMEM(MTK_DBGTOP_LATCH_CTL2)));
+
+	return 0;
+}
+
+int mtk_dbgtop_dfd_therm1_dis(int value)
+{
+	unsigned int tmp;
+
+	if (value == 1) {
+		/* enable dfd count */
+		tmp = readl(IOMEM(MTK_DBGTOP_LATCH_CTL2));
+		tmp |= MTK_DBGTOP_DFD_THERM1_DIS | MTK_DBGTOP_LATCH_CTL2_KEY;
+		mt_reg_sync_writel(tmp, MTK_DBGTOP_LATCH_CTL2);
+	} else if (value == 0) {
+		/* disable dfd count */
+		tmp = readl(IOMEM(MTK_DBGTOP_LATCH_CTL2));
+		tmp &= ~MTK_DBGTOP_DFD_THERM1_DIS;
+		tmp |= MTK_DBGTOP_LATCH_CTL2_KEY;
+		mt_reg_sync_writel(tmp, MTK_DBGTOP_LATCH_CTL2);
+	}
+
+	pr_debug("%s: MTK_DBGTOP_LATCH_CTL2(0x%x)\n", __func__,
+		readl(IOMEM(MTK_DBGTOP_LATCH_CTL2)));
+
+	return 0;
+}
+
+mtk_dbgtop_dfd_therm2_dis(int value)
+{
+	unsigned int tmp;
+
+	if (value == 1) {
+		/* enable dfd count */
+		tmp = readl(IOMEM(MTK_DBGTOP_LATCH_CTL2));
+		tmp |= MTK_DBGTOP_DFD_THERM2_DIS | MTK_DBGTOP_LATCH_CTL2_KEY;
+		mt_reg_sync_writel(tmp, MTK_DBGTOP_LATCH_CTL2);
+	} else if (value == 0) {
+		tmp = readl(IOMEM(MTK_DBGTOP_LATCH_CTL2));
+		tmp &= ~MTK_DBGTOP_DFD_THERM2_DIS;
+		tmp |= MTK_DBGTOP_LATCH_CTL2_KEY;
+		mt_reg_sync_writel(tmp, MTK_DBGTOP_LATCH_CTL2);
+	}
+
+	pr_debug("%s: MTK_DBGTOP_LATCH_CTL2(0x%x)\n", __func__,
+		readl(IOMEM(MTK_DBGTOP_LATCH_CTL2)));
+
+	return 0;
+}
+
+int mtk_dbgtop_wdt_dfd_timeout(int value)
+{
+	unsigned int tmp;
+
+	value <<= MTK_DBGTOP_DFD_TIMEOUT_SHIFT;
+	value &= MTK_DBGTOP_DFD_TIMEOUT_MASK;
+
+	/* enable dfd count */
+	tmp = readl(IOMEM(MTK_DBGTOP_LATCH_CTL2));
+	tmp &= ~MTK_DBGTOP_DFD_TIMEOUT_MASK;
+	tmp |= value | MTK_DBGTOP_LATCH_CTL2_KEY;
+	mt_reg_sync_writel(tmp, MTK_DBGTOP_LATCH_CTL2);
+
+	pr_debug("%s: MTK_DBGTOP_LATCH_CTL2(0x%x)\n", __func__,
+		readl(IOMEM(MTK_DBGTOP_LATCH_CTL2)));
+
+	return 0;
+}
+
+core_initcall(mtk_dbgtop_get_base_addr);
 module_init(mtk_dbgtop_init);
 module_exit(mtk_dbgtop_exit);
 
