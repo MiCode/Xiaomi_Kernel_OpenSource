@@ -1644,7 +1644,6 @@ page_owner=on";
 		reg = <0 0x11270000 0 0x2300>;
 		interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>;
 
-		#if 0
 		clocks =
 			<&infracfg_ao INFRACFG_AO_UFS_CG>,
 			<&infracfg_ao INFRACFG_AO_UNIPRO_SYSCLK_CG>,
@@ -1669,7 +1668,6 @@ page_owner=on";
 			<0 0>,
 			<0 0>,
 			<0 0>;
-		#endif
 
 		/* Regulators */
 		/* In MT67xx, only VCC is available to be controlled by UFS */
