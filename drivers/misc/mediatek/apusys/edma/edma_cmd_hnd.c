@@ -86,7 +86,7 @@ irqreturn_t edma_isr_handler(int irq, void *edma_sub_info)
 	desp4_intr = status & EXT_DESP_DONE_INT_STATUS;
 
 	edma_sub->is_cmd_done = true;
-	if (desp0_done | desp1_done | desp2_done | desp3_done)
+	if (desp0_done | desp1_done | desp2_done | desp3_done | desp4_done)
 		wake_up_interruptible(&edma_sub->cmd_wait);
 
 	if (desp0_intr)
