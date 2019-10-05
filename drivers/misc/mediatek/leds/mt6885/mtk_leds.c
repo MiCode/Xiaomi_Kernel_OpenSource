@@ -100,7 +100,6 @@ static int debug_enable_led_hal = 1;
 		pr_debug("[LED]"format, ##args);\
 	} \
 } while (0)
-
 /*****************PWM *************************************************/
 #define PWM_DIV_NUM 8
 #ifdef CONFIG_MTK_PWM
@@ -222,7 +221,7 @@ struct cust_mt65xx_led *get_cust_led_dtsi(void)
 			     pled_dtsi[i].name, pled_dtsi[i].led_bits);
 		} else {
 			pled_dtsi[i].led_bits = 8;
-			LEDS_DEBUG("led dts can not get %s led led_bits\n",
+			pr_info("[LED]led dts can not get %s led led_bits\n",
 			    pled_dtsi[i].name);
 		}
 		ret = of_property_read_u32_array(led_node, "pwm_config",
@@ -841,6 +840,7 @@ int mt_mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 		if (enable_met_backlight_tag())
 			output_met_backlight_tag(level);
 #endif
+		pr_info("[LED] disp_bls_set_backlight: %d", level);
 		return ((cust_set_brightness) (cust->data)) (level);
 
 	case MT65XX_LED_MODE_NONE:
@@ -890,10 +890,12 @@ void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 
 	backlight_debug_log(led_data->level, level);
 	trans_level = ((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT)
-				    - 1) * level +
-				    (((1 << led_data->cust.led_bits) - 1) / 2))
-				    / ((1 << led_data->cust.led_bits) - 1));
+				- 1) * level +
+				(((1 << led_data->cust.led_bits) - 1) / 2))
+				/ ((1 << led_data->cust.led_bits) - 1));
 
+	pr_info("[LED] disp_pq_notify_backlight_changed: %d-%d()",
+			level, trans_level, led_data->cust.led_bits);
 	disp_pq_notify_backlight_changed(trans_level);
 #ifdef CONFIG_MTK_AAL_SUPPORT
 	disp_aal_notify_backlight_changed(trans_level);
