@@ -4039,7 +4039,10 @@ static int __ext4_block_zero_page_range(handle_t *handle,
 
 	if (!buffer_uptodate(bh)) {
 		err = -EIO;
-		ll_rw_block(REQ_OP_READ, 0, 1, &bh);
+		if (fscrypt_is_hw_encrypt(inode))
+			ll_rw_block_crypt(inode, REQ_OP_READ, 0, 1, &bh);
+		else
+			ll_rw_block(REQ_OP_READ, 0, 1, &bh);
 		wait_on_buffer(bh);
 		/* Uhhuh. Read error. Complain and punt. */
 		if (!buffer_uptodate(bh))
