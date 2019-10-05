@@ -515,7 +515,7 @@ static void kwdt_process_kick(int local_bit, int cpu, char msg_buf[])
 	 *	    using printk_deferred to ensure being printed.
 	 */
 	if (msg_buf[5] != 'k')
-		pr_debug("%s", msg_buf);
+		pr_info("%s", msg_buf);
 	else
 		printk_deferred("%s", msg_buf);
 
