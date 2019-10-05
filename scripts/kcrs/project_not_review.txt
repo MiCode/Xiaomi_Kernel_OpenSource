@@ -1,6 +1,7 @@
-evb*
-tb*
-fpga*
-*_pre_*
-*_schem*
-*_vulscan_*
+evb.*
+tb.*
+cv.*
+fpga.*
+.*_pre_.*
+.*_schem.*
+.*_vulscan_.*
