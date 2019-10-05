@@ -1506,7 +1506,58 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 
 		}
 		break;
+	case SENSOR_FEATURE_GET_ANA_GAIN_TABLE:
+		{
+#define GAIN_TBL_SIZE 4096
 
+			char *pGain_tbl = NULL;
+			unsigned long long *pFeaturePara_64 =
+				(unsigned long long *)pFeaturePara;
+
+			kal_uint32 buf_sz =
+					(kal_uint32) (*(pFeaturePara_64));
+			void *usr_ptr =
+				(void *)(uintptr_t) (*(pFeaturePara_64 + 1));
+			if (buf_sz == 0 || usr_ptr == NULL) {
+				ret = imgsensor_sensor_feature_control(psensor,
+					pFeatureCtrl->FeatureId,
+					(unsigned char *)pFeaturePara,
+					(unsigned int *)&FeatureParaLen);
+			} else {
+				if (buf_sz > GAIN_TBL_SIZE) {
+					kfree(pFeaturePara);
+					PK_PR_ERR(
+					"gain tbl size (%u) can't larger than %d bytes\n",
+					buf_sz, GAIN_TBL_SIZE);
+					return -EINVAL;
+				}
+				pGain_tbl = kmalloc(
+				sizeof(char) * buf_sz, GFP_KERNEL);
+				if (pGain_tbl == NULL) {
+					kfree(pFeaturePara);
+					PK_PR_ERR(
+						"ioctl allocate mem failed\n");
+					return -ENOMEM;
+				}
+				memset(pGain_tbl, 0x0, sizeof(char) * buf_sz);
+				if (pFeaturePara_64 != NULL) {
+					*(pFeaturePara_64 + 1)
+						= (uintptr_t) pGain_tbl;
+				}
+				ret = imgsensor_sensor_feature_control(psensor,
+					pFeatureCtrl->FeatureId,
+					(unsigned char *)pFeaturePara,
+					(unsigned int *)&FeatureParaLen);
+
+				if (copy_to_user((void __user *)usr_ptr,
+						 (void *)pGain_tbl, buf_sz)) {
+					PK_DBG("copy_to_user fail\n");
+				}
+				kfree(pGain_tbl);
+				*(pFeaturePara_64 + 1) = (uintptr_t) usr_ptr;
+			}
+		}
+		break;
 	case SENSOR_FEATURE_GET_PDAF_DATA:
 	case SENSOR_FEATURE_GET_4CELL_DATA:
 		{
