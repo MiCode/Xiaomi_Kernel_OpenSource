@@ -53,7 +53,6 @@ extern void *apu_mdla_gsm_base;
 extern u32 mdla_timeout;
 extern u32 mdla_poweroff_time;
 extern u32 mdla_e1_detect_timeout;
-extern u32 mdla_e1_detect_count;
 extern u32 mdla_max_num_core;
 
 enum CMD_MODE {
@@ -157,6 +156,7 @@ struct mdla_pmu_info {
 /*mdla dev info, register to apusys callback*/
 struct mdla_dev {
 	u32 mdlaid;
+	u32 mdla_dde_zero_skip_count;
 	u32 mdla_e1_detect_count;
 	u32 async_cmd_id;
 	u32 max_cmd_id;

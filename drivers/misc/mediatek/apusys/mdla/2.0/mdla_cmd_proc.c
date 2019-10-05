@@ -236,6 +236,7 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 	u64 deadline;
 	int core_id = 0;
 	int pmu_ret = 0;
+	long status;
 	/*forward compatibility temporary, This will be replaced by apusys*/
 	struct mdla_wait_cmd mdla_wt;
 	struct mdla_wait_cmd *wt = &mdla_wt;
@@ -293,8 +294,20 @@ process_command:
 		else
 			wait_event_timeouts =
 				msecs_to_jiffies(mdla_e1_detect_timeout);
-		wait_for_completion_interruptible_timeout(
+		status = wait_for_completion_interruptible_timeout(
 			&mdla_info->command_done, wait_event_timeouts);
+
+		/*
+		 * check the Command completed or timeout
+		 * case 1 (status == 0): timeout, reason: HW timeout issue
+		 */
+		if (status == 0) {
+			/* check Zero Skip  timeout here */
+			if (mdla_zero_skip_detect(core_id) != 0) {
+				/* case 1: Zero Skip timeout */
+				break;
+			}
+		}
 #if 0//remove this latter
 		/* E1 HW timeout check here */
 		if (hw_e1_timeout_detect(core_id) != 0) {

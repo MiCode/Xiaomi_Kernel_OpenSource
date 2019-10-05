@@ -105,6 +105,7 @@ u32 mdla_poweroff_time = MDLA_POWEROFF_TIME_DEFAULT;
 struct mdla_dev mdla_devices[] = {
 	{
 		.mdlaid = 0,
+		.mdla_dde_zero_skip_count = 0,
 		.mdla_e1_detect_count = 0,
 		.async_cmd_id = 0,
 		.cmd_lock = __MUTEX_INITIALIZER(mdla_devices[0].cmd_lock),
@@ -116,6 +117,7 @@ struct mdla_dev mdla_devices[] = {
 	},
 	{
 		.mdlaid = 1,
+		.mdla_dde_zero_skip_count = 0,
 		.mdla_e1_detect_count = 0,
 		.async_cmd_id = 0,
 		.cmd_lock = __MUTEX_INITIALIZER(mdla_devices[1].cmd_lock),

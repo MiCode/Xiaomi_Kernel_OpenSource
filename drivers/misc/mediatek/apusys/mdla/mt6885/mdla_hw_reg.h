@@ -156,4 +156,8 @@
 /* MDLA Debug Reg*/
 #define MREG_STE_DEBUG_IF_1  (0x0ED8)
 
+#define MREG_DDE_IT_FRONT_C_INVALID  (0x0D74)
+#define MREG_DDE_DEBUG_IF_0  (0x0DB0)
+#define MREG_DDE_DEBUG_IF_2  (0x0DB8)
+
 #endif

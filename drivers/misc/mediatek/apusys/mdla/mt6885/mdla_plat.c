@@ -383,6 +383,28 @@ int hw_e1_timeout_detect(int core_id)
 	return 0;
 }
 #endif
+int mdla_zero_skip_detect(int core_id)
+{
+	u32 dde_debug_if_0, dde_debug_if_2, dde_it_front_c_invalid;
+
+	dde_debug_if_0 =
+		mdla_reg_read_with_mdlaid(core_id, MREG_DDE_DEBUG_IF_0);
+	dde_debug_if_2 =
+		mdla_reg_read_with_mdlaid(core_id, MREG_DDE_DEBUG_IF_2);
+	dde_it_front_c_invalid =
+		mdla_reg_read_with_mdlaid(core_id, MREG_DDE_IT_FRONT_C_INVALID);
+
+	if (dde_debug_if_0 == 0x6) {
+		if ((dde_debug_if_2 == dde_it_front_c_invalid) ||
+			(dde_debug_if_2 == (dde_it_front_c_invalid/2))) {
+			mdla_timeout_debug("%s: match zero skip issue\n",
+				__func__);
+			mdla_devices[core_id].mdla_dde_zero_skip_count++;
+			return -1;
+		}
+	}
+	return 0;
+}
 
 #ifdef __APUSYS_PREEMPTION__
 static inline struct mdla_scheduler *mdla_get_scheduler(unsigned int core_id)
