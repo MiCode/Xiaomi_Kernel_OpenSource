@@ -770,10 +770,10 @@ static int __mtk_iommu_tlb_sync(struct mtk_iommu_data *data)
 	ret = readl_poll_timeout_atomic(data->base +
 					REG_MMU_CPE_DONE, //0x12c
 					tmp, tmp != 0,
-					10, 100000);
+					10, 8000);
 	g_sync_end = sched_clock();
 
-	if (g_sync_end - g_sync_start > 10000000ULL) {/* unit is ns */
+	if (g_sync_end - g_sync_start > 3000000ULL) {/* unit is ns */
 		pr_notice("warn: tlb sync from:0x%lx to:0x%lx, time:%lldns (%lld ~ %lld)\n",
 		       g_start, g_end,
 		       g_sync_end - g_sync_start,
@@ -839,7 +839,7 @@ static void __mtk_iommu_tlb_add_flush_nosync(
 #endif
 	writel_relaxed(regval, //0x28
 		   data->base + REG_MMU_INVLD_END_A);
-	writel_relaxed(F_MMU_INVLDT_RNG, //0x20
+	writel(F_MMU_INVLDT_RNG, //0x20
 		   data->base + REG_MMU_INVLDT);
 	data->tlb_flush_active = true;
 	g_start = readl_relaxed(data->base + REG_MMU_INVLD_START_A);
