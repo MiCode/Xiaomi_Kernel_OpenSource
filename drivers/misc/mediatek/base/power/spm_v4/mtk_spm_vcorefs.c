@@ -56,11 +56,12 @@
 /*
  * only for internal debug
  */
-#define SPM_VCOREFS_TAG	"[VcoreFS] "
+#define SPM_VCOREFS_TAG	"[name:spm&][VcoreFS] "
 #define spm_vcorefs_err spm_vcorefs_info
 #define spm_vcorefs_warn spm_vcorefs_info
 #define spm_vcorefs_debug spm_vcorefs_info
-#define spm_vcorefs_info(fmt, args...)	pr_notice(SPM_VCOREFS_TAG fmt, ##args)
+#define spm_vcorefs_info(fmt, args...)	\
+	printk_deferred(SPM_VCOREFS_TAG fmt, ##args)
 
 void __iomem *dvfsrc_base;
 

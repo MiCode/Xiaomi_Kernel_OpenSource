@@ -72,8 +72,8 @@
 /*
  * only for internal debug
  */
-#define DPIDLE_TAG     "[DP] "
-#define dpidle_dbg(fmt, args...)	pr_debug(DPIDLE_TAG fmt, ##args)
+#define DPIDLE_TAG     "[name:spm&][DP] "
+#define dpidle_dbg(fmt, args...)	printk_deferred(DPIDLE_TAG fmt, ##args)
 
 #define SPM_PWAKE_EN            1
 #define SPM_PCMWDT_EN           1
@@ -258,7 +258,8 @@ static void spm_trigger_wfi_for_dpidle(struct pwr_ctrl *pwrctrl)
 	}
 
 	if (spm_dormant_sta < 0)
-		pr_err("dpidle spm_dormant_sta(%d) < 0\n", spm_dormant_sta);
+		printk_deferred("[name:spm&]dpidle spm_dormant_sta(%d) < 0\n",
+				spm_dormant_sta);
 }
 
 static void spm_dpidle_pcm_setup_after_wfi(bool sleep_dpidle,
@@ -309,7 +310,7 @@ static unsigned int spm_output_wake_reason(struct wake_status *wakesta,
 	if (log_cond & DEEPIDLE_LOG_FULL) {
 		wr = __spm_output_wake_reason(wakesta, pcmdesc,
 					      false, "dpidle");
-		pr_info("oper_cond = %x\n", operation_cond);
+		printk_deferred("[name:spm&]oper_cond = %x\n", operation_cond);
 
 		if (log_cond & DEEPIDLE_LOG_RESOURCE_USAGE)
 			spm_resource_req_dump();
