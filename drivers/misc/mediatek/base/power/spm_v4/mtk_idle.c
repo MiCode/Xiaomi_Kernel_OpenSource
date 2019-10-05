@@ -39,7 +39,7 @@
 #include <mtk_spm_dpidle.h>
 #include <mtk_spm_idle.h>
 #ifdef CONFIG_THERMAL
-//#include <mach/mtk_thermal.h>
+#include <mach/mtk_thermal.h>
 #endif
 #include <mtk_idle.h>
 #include <mtk_idle_internal.h>

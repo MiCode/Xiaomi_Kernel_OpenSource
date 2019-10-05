@@ -103,6 +103,9 @@ int mtk_lp_sysfs_entry_func_node_add(const char *name
 		, struct mtk_lp_sysfs_handle *parent
 		, struct mtk_lp_sysfs_handle *node);
 
+int mtk_lp_sysfs_entry_func_node_remove(
+		struct mtk_lp_sysfs_handle *node);
+
 int mtk_lp_sysfs_entry_func_group_create(const char *name
 		, int mode, struct mtk_lp_sysfs_group *_group
 		, struct mtk_lp_sysfs_handle *parent

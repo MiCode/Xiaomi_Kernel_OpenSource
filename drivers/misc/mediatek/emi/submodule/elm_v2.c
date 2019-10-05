@@ -25,7 +25,9 @@
 
 #include <mt-plat/mtk_io.h>
 #include <mt-plat/sync_write.h>
-
+#if defined(CONFIG_MTK_PLAT_SRAM_FLAG)
+#include <plat_dbg_info.h>
+#endif
 #include <mt_emi.h>
 
 static struct dentry *emi_mbw_dir;

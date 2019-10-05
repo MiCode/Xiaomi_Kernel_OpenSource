@@ -39,6 +39,8 @@
 	#define BUS_DBG_BUS_MHZ             (135)
 #elif defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761)
 	#define BUS_DBG_BUS_MHZ             (156)
+#elif defined(CONFIG_MACH_MT6785)
+	#define BUS_DBG_BUS_MHZ             (156)
 #elif defined(CONFIG_MACH_MT6779)
 	#define BUS_DBG_BUS_MHZ             (273)
 #else
@@ -59,6 +61,7 @@
 #define BUS_DBG_CON_IRQ_AR_STA0     (0x00000100)
 #define BUS_DBG_CON_IRQ_AW_STA0     (0x00000200)
 #define BUS_DBG_CON_IRQ_WP_STA      (0x00000400)
+#define BUS_DBG_CON_IRQ_WP_RD_STA   (0x00000800)
 #define BUS_DBG_CON_WDT_RST_EN      (0x00001000)
 #define BUS_DBG_CON_HALT_ON_EN      (0x00002000)
 #define BUS_DBG_CON_BUS_OT_EN       (0x00004000)

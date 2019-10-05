@@ -14,8 +14,7 @@
 #include <mtk_swpm_platform.h>
 #include <mtk_swpm.h>
 
-unsigned int swpm_get_avg_power(enum power_rail type,
-					unsigned int avg_window)
+unsigned int swpm_get_avg_power(enum power_rail type, unsigned int avg_window)
 {
 	return 0;
 }
