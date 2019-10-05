@@ -706,6 +706,11 @@ static inline ssize_t scp_A_awake_unlock_show(struct device *kobj
 
 DEVICE_ATTR(scp_A_awake_unlock, 0444, scp_A_awake_unlock_show, NULL);
 
+enum ipi_debug_opt {
+	IPI_TRACKING_OFF,
+	IPI_TRACKING_ON,
+	IPIMON_SHOW,
+};
 
 static inline ssize_t scp_ipi_test_show(struct device *kobj
 			, struct device_attribute *attr, char *buf)
@@ -722,7 +727,31 @@ static inline ssize_t scp_ipi_test_show(struct device *kobj
 		return scnprintf(buf, PAGE_SIZE, "SCP A is not ready\n");
 }
 
-DEVICE_ATTR(scp_ipi_test, 0444, scp_ipi_test_show, NULL);
+static inline ssize_t scp_ipi_debug(struct device *kobj
+		, struct device_attribute *attr, const char *buf, size_t n)
+{
+	unsigned int opt;
+
+	if (kstrtouint(buf, 10, &opt) != 0)
+		return -EINVAL;
+
+	switch (opt) {
+	case IPI_TRACKING_ON:
+	case IPI_TRACKING_OFF:
+		mtk_ipi_tracking(&scp_ipidev, opt);
+		break;
+	case IPIMON_SHOW:
+		ipi_monitor_dump(&scp_ipidev);
+		break;
+	default:
+		pr_info("cmd '%d' is not supported.\n", opt);
+		break;
+	}
+
+	return n;
+}
+
+DEVICE_ATTR(scp_ipi_test, 0644, scp_ipi_test_show, scp_ipi_debug);
 
 #endif
 
