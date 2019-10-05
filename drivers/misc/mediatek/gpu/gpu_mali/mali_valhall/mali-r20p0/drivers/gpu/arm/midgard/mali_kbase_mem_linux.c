@@ -1276,7 +1276,6 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 	int group_id;
 
 #ifdef CONFIG_MTK_IOMMU_V2
-	struct ion_client *client = NULL;
 	struct ion_handle *handle = NULL;
 	u32 is_iommu = 0;
 
@@ -1291,20 +1290,15 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 		return NULL;
 
 #ifdef CONFIG_MTK_IOMMU_V2
-	if ((client == NULL) && (g_ion_device))
-		client = ion_client_create(g_ion_device, "mali_kbase");
-
-	if (client == NULL) {
+	if (kctx->kbdev->client == NULL) {
 		dev_warn(kctx->kbdev->dev, "invalid ion client!\n");
 		goto skip_ion_buf_config;
 	}
 
-	handle = ion_import_dma_buf_fd(client, fd);
+	handle = ion_import_dma_buf_fd(kctx->kbdev->client, fd);
 
 	if (IS_ERR(handle)) {
 		is_iommu = 0;
-		ion_client_destroy(client);
-		client = NULL;
 
 		dev_warn(kctx->kbdev->dev, "import ion handle failed!\n");
 		goto skip_ion_buf_config;
@@ -1319,15 +1313,13 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 	mm_data.config_buffer_param.security = 0;
 	mm_data.config_buffer_param.coherent = 0;
 
-	err = ion_kernel_ioctl(client,
+	err = ion_kernel_ioctl(kctx->kbdev->client,
 		ION_CMD_MULTIMEDIA,
 		(unsigned long)&mm_data);
 
 	if (err) {
-		ion_free(client, handle);
-		ion_client_destroy(client);
+		ion_free(kctx->kbdev->client, handle);
 		handle = NULL;
-		client = NULL;
 
 		dev_warn(kctx->kbdev->dev,
 			"fail to config ion buffer, err=%d\n",
@@ -1431,7 +1423,7 @@ skip_ion_buf_config:
 	reg->gpu_alloc->imported.umm.current_mapping_usage_count = 0;
 
 #ifdef CONFIG_MTK_IOMMU_V2
-	reg->gpu_alloc->imported.umm.ion_client = client;
+	reg->gpu_alloc->imported.umm.ion_client = kctx->kbdev->client;
 	reg->gpu_alloc->imported.umm.ion_handle = handle;
 	reg->gpu_alloc->imported.umm.is_iommu = is_iommu;
 #endif

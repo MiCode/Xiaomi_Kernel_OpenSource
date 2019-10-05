@@ -4075,6 +4075,11 @@ static int kbase_platform_device_remove(struct platform_device *pdev)
 	if (kbdev->inited_subsys != 0)
 		dev_err(kbdev->dev, "Missing sub system termination\n");
 
+#ifdef CONFIG_MTK_IOMMU_V2
+	if (kbdev->client != NULL)
+		ion_client_destroy(kbdev->client);
+#endif
+
 	kbase_device_free(kbdev);
 
 	return 0;
@@ -4417,6 +4422,15 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 
 	kbase_dev_nr++;
 #endif /* MALI_KBASE_BUILD */
+
+#ifdef CONFIG_MTK_IOMMU_V2
+	if (g_ion_device)
+		kbdev->client = ion_client_create(g_ion_device, "mali_kbase");
+
+	if (kbdev->client == NULL) {
+		dev_warn(&pdev->dev, "create ion client failed!\n");
+	}
+#endif
 
 	return err;
 }

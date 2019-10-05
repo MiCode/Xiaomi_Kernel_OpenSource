@@ -1750,6 +1750,10 @@ struct kbase_device {
 
 	const struct kbase_pm_policy *policy_list[KBASE_PM_MAX_NUM_POLICIES];
 	int policy_count;
+
+#ifdef CONFIG_MTK_IOMMU_V2
+	struct ion_client *client;
+#endif
 };
 
 /**

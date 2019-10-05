@@ -2520,7 +2520,6 @@ void kbase_mem_kref_free(struct kref *kref)
 		if (alloc->imported.umm.ion_client != NULL &&
 			alloc->imported.umm.ion_handle != NULL) {
 			ion_free(alloc->imported.umm.ion_client, alloc->imported.umm.ion_handle);
-			ion_client_destroy(alloc->imported.umm.ion_client);
 		}
 #endif
 
