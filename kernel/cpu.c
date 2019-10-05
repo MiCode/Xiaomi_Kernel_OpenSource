@@ -36,6 +36,10 @@
 
 #include "smpboot.h"
 
+#ifdef CONFIG_MTK_SCHED_MONITOR
+#include "mtk_sched_mon.h"
+#endif
+
 /**
  * cpuhp_cpu_state - Per cpu hotplug state storage
  * @state:	The current cpu state
@@ -793,6 +797,9 @@ static int takedown_cpu(unsigned int cpu)
 	irq_unlock_sparse();
 
 	hotplug_cpu__broadcast_tick_pull(cpu);
+#ifdef CONFIG_MTK_SCHED_MONITOR
+	mt_save_irq_counts(CPU_DOWN);
+#endif
 	/* This actually kills the CPU. */
 	__cpu_die(cpu);
 

@@ -205,6 +205,7 @@ config NORMALKERNEL_PAGES
 endmenu  # Memory
 menu "Misc configs"
 
+source "drivers/misc/mediatek/mtprof/Kconfig"
 source "drivers/misc/mediatek/Kconfig.default"
 source "drivers/misc/mediatek/timer/Kconfig"
 config MTK_DM_VERITY_OFF

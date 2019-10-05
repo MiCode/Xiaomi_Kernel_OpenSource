@@ -19,6 +19,10 @@
 
 #include "internals.h"
 
+#ifdef CONFIG_MTK_SCHED_MONITOR
+#include "mtk_sched_mon.h"
+#endif
+
 /*
  * lockdep: we want to handle all irq_desc locks as a single lock-class:
  */
@@ -640,6 +644,9 @@ int __handle_domain_irq(struct irq_domain *domain, unsigned int hwirq,
 	trace_irq_entry(irq, (desc && desc->action && desc->action->name) ?
 			desc->action->name : "-");
 #endif
+#ifdef CONFIG_MTK_SCHED_MONITOR
+	mt_trace_ISR_start(irq);
+#endif
 	/*
 	 * Some hardware gives randomly wrong interrupts.  Rather
 	 * than crashing, do something sensible.
@@ -650,6 +657,9 @@ int __handle_domain_irq(struct irq_domain *domain, unsigned int hwirq,
 	} else {
 		generic_handle_irq(irq);
 	}
+#ifdef CONFIG_MTK_SCHED_MONITOR
+	mt_trace_ISR_end(irq);
+#endif
 #ifdef CONFIG_MTK_SCHED_TRACERS
 	trace_irq_exit(irq);
 #endif
