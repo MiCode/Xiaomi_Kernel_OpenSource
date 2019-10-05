@@ -380,7 +380,7 @@ CONFIG_MTD_UBI_WL_THRESHOLD,PROJECT,linger.lee,,,,,,,,,,,,,,
 CONFIG_MTK_AAL_SUPPORT,PROJECT,yiruei.wu,,,,,,,,,,,,,,
 CONFIG_MTK_AB_OTA_UPDATER,PROJECT,haohsiang.hsu,,X,,X,,X,,X,,X,,X,,X
 CONFIG_MTK_ACAO_SUPPORT,PROJECT,aaron.tian,,y,y,y,y,y,y,y,y,y,y,y,y,y
-CONFIG_MTK_ACCDET,COMMON,darren.liao,,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_MTK_ACCDET,COMMON,argus.lin,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_ACCELHUB,PROJECT,weiqi.fu,new config in this commit ddc5d59450d236e7d3732ebd43a19c5056787cc0,,,,,,,,,,,,,
 CONFIG_MTK_ACTIVITYHUB,PROJECT,hongxu.zhao,new config in this commit c432a63a513fc50d10e28c1c65b6bba2903ac29c,,,,,,,,,,,,,
 CONFIG_MTK_ADDITIONAL_BATTERY_TABLE,PLATFORM,wy.chuang,battery,X,X,X,X,X,X,X,X,X,X,X,X,X
