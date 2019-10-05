@@ -321,6 +321,7 @@ struct vb2_dc_buf {
 	/* DMABUF related */
 	struct dma_buf_attachment	*db_attach;
 };
+struct vb2_dc_buf *kernel_dpebuf;
 struct vb2_dc_buf *dpebuf;
 
 unsigned int *g_dpewb_dvme_int_Buffer_pa;
@@ -3816,6 +3817,12 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	g_DPE_ReqRing.HWProcessIdx = 0x0;
 
 #ifdef KERNEL_DMA_BUFFER
+kernel_dpebuf =
+vb2_dc_alloc(gdev, DMA_ATTR_WRITE_BARRIER, WB_TOTAL_SIZE, DMA_FROM_DEVICE, 0);
+dbuf = vb2_dc_get_dmabuf(kernel_dpebuf, O_RDWR);
+refcount_dec(&kernel_dpebuf->refcount);
+dpebuf = vb2_dc_attach_dmabuf(gdev, dbuf, WB_TOTAL_SIZE, DMA_FROM_DEVICE);
+
 	if (vb2_dc_map_dmabuf(dpebuf) != 0)
 		LOG_ERR("Allocate Buffer Fail!");
 
@@ -3910,6 +3917,9 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 
 #ifdef KERNEL_DMA_BUFFER
 	vb2_dc_unmap_dmabuf(dpebuf);
+	vb2_dc_detach_dmabuf(dpebuf);
+	vb2_dc_put(kernel_dpebuf);
+	dbuf = NULL;
 #endif
 
 	/* Disable clock. */
@@ -4454,11 +4464,7 @@ if (DPE_dev->irq > 0) {
 		}
 
 #ifdef KERNEL_DMA_BUFFER
-gdev = &pDev->dev;
-dpebuf =
-vb2_dc_alloc(gdev, DMA_ATTR_WRITE_BARRIER, WB_TOTAL_SIZE, DMA_FROM_DEVICE, 0);
-dbuf = vb2_dc_get_dmabuf(dpebuf, O_RDWR);
-dpebuf = vb2_dc_attach_dmabuf(gdev, dbuf, WB_TOTAL_SIZE, DMA_FROM_DEVICE);
+		gdev = &pDev->dev;
 #endif
 
 		/* Init spinlocks */
@@ -4568,9 +4574,6 @@ static signed int DPE_remove(struct platform_device *pDev)
 		tasklet_kill(DPE_tasklet[i].pDPE_tkt);
 
 #ifdef KERNEL_DMA_BUFFER
-	vb2_dc_detach_dmabuf(dpebuf);
-	vb2_dc_put(dpebuf);
-	dbuf = NULL;
 	gdev = NULL;
 #endif
 
