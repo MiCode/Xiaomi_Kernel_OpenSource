@@ -311,7 +311,6 @@ int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 	LOG_DEBUG("mem iova(0x%x/%d)\n",
 		mem->iova, mem->iova_size);
 
-	return ret;
 
 free_import:
 	ion_free(mem_mgr->client, ion_hnd);
