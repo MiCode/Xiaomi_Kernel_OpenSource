@@ -18,7 +18,7 @@
 #include <linux/kthread.h>
 #include <linux/mutex.h>
 
-#include <mtk_ppm_api.h>
+/* TODO: wait for PPM ready #include <mtk_ppm_api.h> */
 
 #include "mtk_cpuhp_private.h"
 
@@ -67,6 +67,7 @@ static int ppm_thread_fn(void *data)
 	return 0;
 }
 
+#if 0 /* TODO: wait for PPM ready */
 static void ppm_limit_callback(struct ppm_client_req req)
 {
 	mutex_lock(&ppm_mutex);
@@ -75,14 +76,17 @@ static void ppm_limit_callback(struct ppm_client_req req)
 
 	wake_up_process(ppm_kthread);
 }
+#endif
 
 
 void ppm_notifier(void)
 {
 	cpumask_copy(&ppm_online_cpus, cpu_online_mask);
 
+#if 0 /* TODO: wait for PPM ready */
 	/* register PPM callback */
 	mt_ppm_register_client(PPM_CLIENT_HOTPLUG, &ppm_limit_callback);
+#endif
 
 	/* create a kthread to serve the requests from PPM */
 	ppm_kthread = kthread_create(ppm_thread_fn, NULL, "cpuhp-ppm");
