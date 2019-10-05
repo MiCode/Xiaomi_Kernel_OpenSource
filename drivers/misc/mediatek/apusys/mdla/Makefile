@@ -36,6 +36,7 @@ ccflags-y += -I$(obj)/$(POWER_DIR)/$(POWER_VDIR)
 ccflags-y += -I$(obj)/$(POWER_DIR)/$(POWER_VDIR)/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/staging/android/ion
+ccflags-y += -I$(srctree)/arch/arm64/include/asm/
 
 
 obj-m += mdla.o
