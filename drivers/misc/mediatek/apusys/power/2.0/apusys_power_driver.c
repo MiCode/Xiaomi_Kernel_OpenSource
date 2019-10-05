@@ -54,7 +54,7 @@ bool apusys_power_check(void)
 		LOG_ERR("apusys power disable !!, pwr_status=%d\n",
 			pwr_status);
 	}
-	LOG_INF("apusys power check pass!!, pwr_status=%d\n",
+	LOG_INF("apusys power check, pwr_status=%d\n",
 			pwr_status);
 	return pwr_status;
 }
@@ -170,7 +170,7 @@ static int apusys_power_task(void *arg)
 #endif
 		if (keep_loop) {
 			timestamp = get_current_time_us();
-			LOG_INF("%s call DVFS handler, id:%lu\n",
+			LOG_INF("%s call DVFS handler, id:%llu\n",
 							__func__, timestamp);
 			// call dvfs API and bring timestamp to id
 			apusys_dvfs_policy(timestamp);
@@ -563,7 +563,7 @@ static int apu_power_probe(struct platform_device *pdev)
 	power_task_handle = kthread_create(apusys_power_task,
 						(void *)NULL, "apusys_power");
 	if (IS_ERR(power_task_handle)) {
-		LOG_ERR("%s create power task fail\n");
+		LOG_ERR("%s create power task fail\n", __func__);
 		goto err_exit;
 	}
 
