@@ -563,8 +563,10 @@ static bool soidle3_can_enter(int cpu, int reason)
 			reason = BY_BOOT;
 			goto out;
 		} else {
+			#if !defined(CONFIG_MACH_MT6739)
 			idle_warn("SODI3: blocking by uptime, count = %d\n",
 				  sodi3_by_uptime_count);
+			#endif
 			sodi3_by_uptime_count = -1;
 		}
 	}
@@ -629,8 +631,10 @@ static bool soidle_can_enter(int cpu, int reason)
 			reason = BY_BOOT;
 			goto out;
 		} else {
+			#if !defined(CONFIG_MACH_MT6739)
 			idle_warn("SODI: blocking by uptime, count = %d\n",
 				  sodi_by_uptime_count);
+			#endif
 			sodi_by_uptime_count = -1;
 		}
 	}
@@ -1190,8 +1194,9 @@ int dpidle_enter(int cpu)
 
 		if ((current_ts - dpidle_gs_dump_req_ts) >=
 			dpidle_gs_dump_delay_ms) {
+			#if !defined(CONFIG_MACH_MT6739)
 			idle_warn("dpidle dump LP golden\n");
-
+			#endif
 			dpidle_gs_dump_req = 0;
 			operation_cond |= DEEPIDLE_OPT_DUMP_LP_GOLDEN;
 		}
@@ -1985,7 +1990,9 @@ static int mtk_cpuidle_debugfs_init(void)
 	/* Initialize debugfs */
 	root_entry = debugfs_create_dir("cpuidle", NULL);
 	if (!root_entry) {
+		#if !defined(CONFIG_MACH_MT6739)
 		idle_err("Can not create debugfs `dpidle_state`\n");
+		#endif
 		return 1;
 	}
 
@@ -2078,7 +2085,9 @@ void mtk_idle_set_clkmux_addr(void)
 
 void __init mtk_cpuidle_framework_init(void)
 {
+	#if !defined(CONFIG_MACH_MT6739)
 	idle_ver("[%s]entry!!\n", __func__);
+	#endif
 
 #if defined(CONFIG_MACH_MT6763)
 #ifdef CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES

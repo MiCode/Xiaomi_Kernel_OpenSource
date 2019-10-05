@@ -441,7 +441,9 @@ void mtk_idle_dump_cnt_in_interval(void)
 	mtk_idle_dump_cnt(IDLE_TYPE_SO);
 
 	/* dump log */
+	#if !defined(CONFIG_MACH_MT6739)
 	idle_prof_warn("%s\n", get_log());
+	#endif
 
 	/* dump idle ratio */
 	if (idle_ratio_en) {
@@ -459,7 +461,9 @@ void mtk_idle_dump_cnt_in_interval(void)
 			idle_prof[i].ratio.value = 0;
 		}
 		append_log("--- (ms)\n");
+		#if !defined(CONFIG_MACH_MT6739)
 		idle_prof_warn("%s\n", get_log());
+		#endif
 		idle_ratio_profile_start_time = idle_get_current_time_ms();
 	}
 
@@ -519,8 +523,9 @@ bool mtk_idle_select_state(int type, int reason)
 			idle_buf_append(idle_state_log, "[%d] = (%lu,%lu), ",
 				i, p_idle->cnt[i],
 				idle_prof[IDLE_TYPE_RG].block.cnt[i]);
+		#if !defined(CONFIG_MACH_MT6739)
 		idle_prof_warn("%s\n", get_idle_buf(idle_state_log));
-
+		#endif
 		/* block category */
 		reset_idle_buf(idle_state_log);
 
@@ -530,7 +535,9 @@ bool mtk_idle_select_state(int type, int reason)
 					"[%s] = %lu, ",
 					mtk_get_reason_name(i),
 					p_idle->block_cnt[i]);
+		#if !defined(CONFIG_MACH_MT6739)
 		idle_prof_warn("%s\n", get_idle_buf(idle_state_log));
+		#endif
 
 		reset_idle_buf(idle_state_log);
 
@@ -539,7 +546,9 @@ bool mtk_idle_select_state(int type, int reason)
 		for (i = 0; i < NR_GRPS; i++)
 			idle_buf_append(idle_state_log, "0x%08x, ",
 					p_idle->block_mask[i]);
+		#if !defined(CONFIG_MACH_MT6739)
 		idle_prof_warn("%s\n", get_idle_buf(idle_state_log));
+		#endif
 
 		memset(p_idle->block_cnt, 0,
 		       NR_REASONS * sizeof(p_idle->block_cnt[0]));
@@ -567,9 +576,12 @@ void mtk_idle_block_setting(int type, unsigned long *cnt,
 
 	if (cnt && block_cnt && block_mask)
 		p_idle->init = true;
-	else
+	else {
+		#if !defined(CONFIG_MACH_MT6739)
 		idle_prof_err("IDLE BLOCKING INFO SETTING FAIL (type:%d)\n",
 			      type);
+		#endif
+	}
 }
 
 void mtk_idle_recent_ratio_get(int *window_length_ms,
@@ -686,8 +698,9 @@ void dpidle_show_profile_time(void)
 			mt_cpufreq_get_cur_freq(0));
 #endif
 #endif
-
+		#if !defined(CONFIG_MACH_MT6739)
 		idle_prof_crit("%s", get_idle_buf(latency_profile_log));
+		#endif
 	}
 }
 
