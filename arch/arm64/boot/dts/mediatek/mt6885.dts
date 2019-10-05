@@ -282,7 +282,7 @@
 		reg = <0 0x1000ce00 0 0x200>;
 	};
 
-	pwrap@1000d000 {
+	pwrap: pwrap@1000d000 {
 		compatible = "mediatek,pwrap";
 		reg = <0 0x1000d000 0 0x1000>;
 	};
@@ -3279,5 +3279,43 @@
 	};
 
 #endif
+
+	audio: audio@11210000 {
+		compatible = "mediatek,audio", "syscon";
+		reg = <0 0x11210000 0 0x2000>;
+		#clock-cells = <1>;
+	};
+
+	afe: mt6885-afe-pcm@11210000 {
+		compatible = "mediatek,mt6885-sound";
+		reg = <0 0x11210000 0 0x2000>;
+		interrupts = <GIC_SPI 202 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	mt6359_snd: mt6359_snd {
+		compatible = "mediatek,mt6359-sound";
+		mediatek,pwrap-regmap = <&pwrap>;
+	};
+
+	sound: sound {
+		compatible = "mediatek,mt6885-mt6359-sound";
+		mediatek,audio-codec = <&mt6359_snd>;
+		mediatek,platform = <&afe>;
+		mtk_spk_i2s_out = <3>;
+		mtk_spk_i2s_in = <0>;
+		/* mtk_spk_i2s_mck = <3>; */
+	};
+
+	audio_sram@11212000 {
+		compatible = "mediatek,audio_sram";
+		reg = <0 0x11212000 0 0x18000>;
+		prefer_mode = <0>;
+		mode_size = <0x12000 0x18000>;
+		block_size = <0x1000>;
+	};
+
+	mt_soc_playback_offload {
+		compatible = "mediatek,mt_soc_offload_common";
+	};
 };
 #include "cust_mt6885_msdc.dtsi"
