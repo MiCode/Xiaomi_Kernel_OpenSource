@@ -241,13 +241,13 @@ static int ion_get_domain_id(int from_kernel, int *port)
 	unsigned int port_id = *port;
 
 	if (port_id >= M4U_PORT_UNKNOWN) {
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 #ifdef MTK_ION_DMABUF_SUPPORT
 		if (port_id == M4U_PORT_GPU)
 			return MTK_GET_DOMAIN_IGNORE;
 #endif
 
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		IONMSG("invalid port%d\n", *port);
 		return -EFAULT;
 #else
