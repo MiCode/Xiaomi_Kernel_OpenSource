@@ -52,6 +52,12 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 
 	LOG_INF("%s power command : %d, by user : %d\n", __func__, cmd, user);
 
+	if (cmd != PWR_CMD_INIT_POWER && is_apu_power_initilized == 0) {
+		LOG_ERR("%s apu power state : %d, force return!\n",
+					__func__, is_apu_power_initilized);
+		return -1;
+	}
+
 	switch (cmd) {
 	case PWR_CMD_INIT_POWER:
 		ret = init_power_resource(user, param);
@@ -198,7 +204,14 @@ static void hw_init_setting(void)
 
 static int init_power_resource(enum DVFS_USER user, void *param)
 {
-	struct device *dev = ((struct hal_param_init_power *)param)->dev;
+	struct hal_param_init_power *init_data = NULL;
+	struct device *dev = NULL;
+
+	init_data = (struct hal_param_init_power *)param;
+
+	dev = init_data->dev;
+	g_APU_RPCTOP_BASE = init_data->rpc_base_addr;
+	g_APU_PCUTOP_BASE = init_data->pcu_base_addr;
 
 	if (!is_apu_power_initilized) {
 		prepare_apu_regulator(dev, 1);

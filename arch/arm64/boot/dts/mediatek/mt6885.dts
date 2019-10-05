@@ -3105,6 +3105,16 @@
 			     <GIC_SPI 414 IRQ_TYPE_LEVEL_LOW>;
 	};
 
+	apusys_power {
+		compatible = "mediatek,apusys_power";
+
+		reg = <0 0x190f0000 0 0x1000>,
+		      <0 0x190f1000 0 0x1000>;
+
+		reg-names = "apusys_rpc",
+			    "apusys_pcu";
+	};
+
 #ifdef CONFIG_MTK_IOMMU_V2
 	ion: iommu {
 		compatible = "mediatek,ion";
