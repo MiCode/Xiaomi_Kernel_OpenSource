@@ -151,6 +151,7 @@
 #define PMU_END_TSTAMP     (0x0E0C)
 #define PMU_EVENT_OFFSET   (0x0E10)
 #define PMU_CNT_OFFSET     (0x0E14)
+#define PMU_CMDID_LATCH    (0x0F00)
 
 /* MDLA Debug Reg*/
 #define MREG_STE_DEBUG_IF_1  (0x0ED8)

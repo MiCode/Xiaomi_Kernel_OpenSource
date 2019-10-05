@@ -31,7 +31,6 @@
 //#define CONFIG_MTK_MDLA_ION //move to dts latter
 //#endif
 
-#define __APUSYS_MIDDLEWARE__ //TODO remove after APUSYS Trial run done
 #define __APUSYS_MDLA_UT__ //TODO remove after UT issue fixed
 //#define __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 
@@ -54,6 +53,13 @@ extern u32 mdla_poweroff_time;
 extern u32 mdla_e1_detect_timeout;
 extern u32 mdla_e1_detect_count;
 extern u32 mdla_max_num_core;
+
+enum CMD_MODE {
+	NORMAL = 0,
+	PER_CMD = 1,
+	INTERRUPT = 2,
+	CMD_MODE_MAX
+};
 
 enum REASON_ENUM {
 	REASON_OTHERS = 0,

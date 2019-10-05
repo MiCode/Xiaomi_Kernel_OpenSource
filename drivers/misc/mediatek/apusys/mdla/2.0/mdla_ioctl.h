@@ -117,12 +117,6 @@ struct ioctl_wait_cmd {
 	uint64_t busy_time;    /* [out] mdla execution time (ns) */
 	uint32_t bandwidth;    /* [out] mdla bandwidth */
 };
-#ifndef __APUSYS_MIDDLEWARE__
-struct ioctl_run_cmd_sync {
-	struct ioctl_run_cmd req;
-	struct ioctl_wait_cmd res;
-};
-#endif
 
 struct ioctl_perf {
 	int handle;
@@ -184,10 +178,6 @@ struct mdla_lock_power {
 #define IOCTL_MALLOC              _IOWR(IOC_MDLA, 0, struct ioctl_malloc)
 #define IOCTL_FREE                _IOWR(IOC_MDLA, 1, struct ioctl_malloc)
 #define IOCTL_RUN_CMD_SYNC        _IOWR(IOC_MDLA, 2, struct ioctl_run_cmd)
-#ifndef __APUSYS_MIDDLEWARE__
-#define IOCTL_RUN_CMD_ASYNC       _IOWR(IOC_MDLA, 3, struct ioctl_run_cmd_sync)
-#define IOCTL_WAIT_CMD            _IOWR(IOC_MDLA, 4, struct ioctl_wait_cmd)
-#endif
 #define IOCTL_PERF_SET_EVENT      _IOWR(IOC_MDLA, 5, struct ioctl_perf)
 #define IOCTL_PERF_GET_EVENT      _IOWR(IOC_MDLA, 6, struct ioctl_perf)
 #define IOCTL_PERF_GET_CNT        _IOWR(IOC_MDLA, 7, struct ioctl_perf)

@@ -13,7 +13,6 @@
 
 #ifndef __MDLA_TRACE_H__
 #define __MDLA_TRACE_H__
-#include "mdla_qos.h"
 #include "mdla_pmu.h"
 extern u64 cfg_period;
 extern int cfg_op_trace;
@@ -24,7 +23,6 @@ extern u32 cfg_eng2;
 extern u32 cfg_eng11;
 extern int get_power_on_status(int core_id);
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-/* TODO, wait for apusys mid porting done */
 extern u8 cfg_apusys_trace;
 extern void trace_tag_customer(const char *fmt, ...);
 #endif

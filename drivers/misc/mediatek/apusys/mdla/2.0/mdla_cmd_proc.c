@@ -103,7 +103,7 @@ mdla_run_command_prepare(struct mdla_run_cmd *cd, struct command_entry *ce)
 	ce->bandwidth = 0;
 	ce->result = MDLA_CMD_SUCCESS;
 	ce->count = cd->count;
-#ifndef __APUSYS_MIDDLEWARE__
+#if 0
 	ce->khandle = cd->buf.ion_khandle;
 #endif
 	//ce->type = cd->buf.type;
@@ -265,12 +265,8 @@ process_command:
 	mdla_cmd_debug("%s: core: %d max_cmd_id: %d id: %d\n",
 			__func__, core_id, mdla_info->max_cmd_id, id);
 
-#ifdef __APUSYS_MIDDLEWARE__
 	//TODO:FIXME for power on MDLA
 	mdla_pwr_on(core_id);
-#else
-	mdla_power_on(&ce);
-#endif
 
 	/* Trace start */
 	mdla_trace_begin(core_id, &ce);
@@ -359,63 +355,13 @@ process_command:
 	/* Calculate all performance index */
 	mdla_performance_index(wt, &ce);
 
-#ifdef __APUSYS_MDLA_UT__
 	mdla_perf_debug("exec: id:%d, res:%u, que_t:%u, busy_t:%u,bandwidth: %u\n",
 			wt->id, wt->result, wt->queue_time,
 			wt->busy_time, wt->bandwidth);
 
 	if (apusys_hd != NULL)
 		pmu_command_counter_prt(mdla_info);
-#endif
 
 	return ret;
-}
-#endif
-
-#ifndef __APUSYS_MIDDLEWARE__
-static LIST_HEAD(cmd_list);
-void mdla_wait_command(struct ioctl_wait_cmd *wt)
-{
-	struct list_head *ele, *next;
-	struct wait_entry *we;
-
-	wt->result = -1;
-	mdla_cmd_debug("%s: id: %u\n", __func__, wt->id);
-	mutex_lock(&mdla_devices[0].cmd_list_lock);
-	list_for_each_safe(ele, next, &cmd_list) {
-		mdla_cmd_debug("%s: loop id: %u\n", __func__, wt->id);
-		we = list_entry(ele, struct wait_entry, list);
-		if (wt->id == we->async_id) {
-			mdla_cmd_debug("%s: found id: %u\n", __func__, wt->id);
-			memcpy(wt, &we->wt, sizeof(struct ioctl_wait_cmd));
-			list_del(&we->list);
-			kfree(we);
-			break;
-		}
-	}
-	mutex_unlock(&mdla_devices[0].cmd_list_lock);
-}
-
-
-
-static int mdla_run_command_async(struct ioctl_run_cmd *cd)
-{
-	struct wait_entry *we = kmalloc(sizeof(struct wait_entry),
-			GFP_KERNEL);
-
-	if (we == NULL)
-		return -1;
-
-	mdla_run_command_sync(cd, &we->wt);
-	if (we->wt.result != 0) {
-		kfree(we);
-		return -1;
-	}
-	mutex_lock(&cmd_list_lock);
-	we->async_id = async_cmd_id++;
-	list_add_tail(&we->list, &cmd_list);
-	mutex_unlock(&cmd_list_lock);
-	mdla_cmd_debug("%s: %d\n", __func__, we->async_id);
-	return we->async_id;
 }
 #endif

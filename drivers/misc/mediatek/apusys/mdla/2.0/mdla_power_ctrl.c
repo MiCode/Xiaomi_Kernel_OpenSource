@@ -69,9 +69,7 @@ int mdla_pwr_on(int core_id)
 
 	int ret = 0;
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	#ifdef __APUSYS_MDLA_UT__
 	u64 poweron_t;   /*power on start time */
-	#endif
 
 	enum DVFS_USER register_user = MDLA0+core_id;
 
@@ -83,9 +81,7 @@ int mdla_pwr_on(int core_id)
 	if (get_power_on_status(core_id) == PWR_ON)
 		goto power_on_done;
 
-	#ifdef __APUSYS_MDLA_UT__
 	poweron_t = sched_clock();
-	#endif
 
 	ret = apu_device_power_on(register_user);
 	if (!ret) {
@@ -97,10 +93,8 @@ int mdla_pwr_on(int core_id)
 						__func__, register_user);
 	}
 
-	#ifdef __APUSYS_MDLA_UT__
-		mdla_perf_debug("mdla %d: power on info: apu_device_power_on_time: %u\n",
-				core_id, sched_clock()-poweron_t);
-	#endif
+	mdla_perf_debug("mdla %d: power on info: apu_device_power_on_time: %u\n",
+			core_id, sched_clock()-poweron_t);
 
 	mdla_reset_lock(core_id, REASON_DRVINIT);
 
