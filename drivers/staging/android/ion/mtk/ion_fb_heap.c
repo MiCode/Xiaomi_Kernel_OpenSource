@@ -199,7 +199,7 @@ static int ion_fb_heap_allocate(struct ion_heap *heap,
 	buffer->size = size;
 	buffer->sg_table = ion_fb_heap_map_dma(heap, buffer);
 
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_IOMMU_V2
 	buffer_info->module_id = 0;
 	ion_fb_heap_phys(heap, buffer, &iova, &size);
 

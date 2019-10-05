@@ -207,7 +207,7 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	 */
 	for_each_sg(buffer->sg_table->sgl, sg, buffer->sg_table->nents, i) {
 		if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA &&
-		    align < PAGE_OFFSET) {
+		    align < PAGE_OFFSET && sg_dma_len(sg) != 0) {
 			if (align < VMALLOC_START || align > VMALLOC_END) {
 				/*native va without vmalloc and no page struct*/
 				sg->length = sg_dma_len(sg);
