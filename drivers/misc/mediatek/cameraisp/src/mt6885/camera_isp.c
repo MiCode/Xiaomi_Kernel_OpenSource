@@ -3756,18 +3756,18 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					((cam_dmao & 0x4) ? (MTRUE) : (MFALSE));
 
 				pstRTBuf[module]->ring_buf[_lcso_].active =
-					((cam_dmao & 0x10) ? (MTRUE)
+					((cam_dmao & 0x2000) ? (MTRUE)
 							   : (MFALSE));
 
 				pstRTBuf[module]->ring_buf[_lcesho_].active =
-					((cam_dmao & 0x10) ? (MTRUE)
+					((cam_dmao & 0x4000) ? (MTRUE)
 							   : (MFALSE));
 				pstRTBuf[module]->ring_buf[_lmvo_].active =
-					((cam_dmao & 0x4000) ? (MTRUE)
+					((cam_dmao & 0x10000) ? (MTRUE)
 							     : (MFALSE));
 
 				pstRTBuf[module]->ring_buf[_rsso_].active =
-					((cam_dmao & 0x8000) ? (MTRUE)
+					((cam_dmao & 0x20000) ? (MTRUE)
 							     : (MFALSE));
 
 				/*reset 1st sof flag when vf is enabled */
