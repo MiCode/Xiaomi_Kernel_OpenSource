@@ -73,7 +73,7 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 		break;
 	case APUSYS_CMD_EXECUTE:
 		cmd = (struct apusys_cmd_hnd *)hnd;
-		vpu_trace_begin("%s|cmd execute cmd_id: 0x%08x",
+		vpu_trace_begin("%s|cmd execute cmd_id: 0x%08llx",
 				__func__, cmd->cmd_id);
 		vpu_cmd_debug("%s: APUSYS_CMD_EXECUTE, kva: %lx\n",
 			__func__, (unsigned long)cmd->kva);
