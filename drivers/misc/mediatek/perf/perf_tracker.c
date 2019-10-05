@@ -39,6 +39,7 @@
 
 #include <mt-plat/perf_tracker.h>
 #include <linux/arch_topology.h>
+#include <perf_tracker_internal.h>
 
 static int perf_tracker_on, perf_tracker_init;
 static DEFINE_MUTEX(perf_ctl_mutex);
