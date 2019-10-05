@@ -36,7 +36,7 @@ static unsigned int mnoc_addr_phy;
 static int mnoc_reg_rw_show(struct seq_file *m, void *v)
 {
 	void *addr = 0;
-	unsigned int val;
+	unsigned int val = 0;
 	unsigned long flags;
 
 	if (mnoc_addr_phy < APU_NOC_TOP_ADDR ||
@@ -62,7 +62,7 @@ static ssize_t mnoc_reg_rw_write(struct file *file,
 {
 	void *addr = 0;
 	unsigned long flags;
-	unsigned int val;
+	unsigned int val = 0;
 	char *buf = (char *) __get_free_page(GFP_USER);
 	unsigned int mnoc_value = 0;
 	unsigned char mnoc_rw[5] = {0, 0, 0, 0, 0};

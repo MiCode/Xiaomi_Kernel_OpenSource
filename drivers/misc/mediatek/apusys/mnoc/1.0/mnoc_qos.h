@@ -23,8 +23,8 @@ void apu_qos_counter_destroy(void);
 void print_cmd_qos_list(struct seq_file *m);
 
 #if MNOC_TIME_PROFILE
-extern unsigned long sum_start, sum_suspend, sum_end;
-extern unsigned int cnt_start, cnt_suspend, cnt_end;
+extern unsigned long sum_start, sum_suspend, sum_end, sum_work_func;
+extern unsigned int cnt_start, cnt_suspend, cnt_end, cnt_work_func;
 #endif
 
 #endif

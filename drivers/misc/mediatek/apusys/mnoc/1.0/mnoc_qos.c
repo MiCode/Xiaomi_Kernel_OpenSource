@@ -42,8 +42,8 @@
 #define get_qosbound_enum(x) (APUSYS_QOSBOUND_START + x)
 
 #if MNOC_TIME_PROFILE
-unsigned long sum_start, sum_suspend, sum_end;
-unsigned int cnt_start, cnt_suspend, cnt_end;
+unsigned long sum_start, sum_suspend, sum_end, sum_work_func;
+unsigned int cnt_start, cnt_suspend, cnt_end, cnt_work_func;
 #endif
 
 enum apu_qos_cmd_status {
@@ -340,7 +340,9 @@ static void qos_work_func(struct work_struct *work)
 	do_gettimeofday(&end);
 	val = (end.tv_sec - begin.tv_sec) * 1000000;
 	val += (end.tv_usec - begin.tv_usec);
-	LOG_DEBUG("val = %d us\n", val);
+	/* LOG_DEBUG("val = %d us\n", val); */
+	sum_work_func += val;
+	cnt_work_func += 1;
 #endif
 
 	LOG_DEBUG("-\n");
@@ -432,7 +434,7 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 	struct qos_counter *counter = &qos_counter;
 	struct cmd_qos *cmd_qos = NULL, *pos;
 	struct qos_bound *qos_info = NULL;
-	int core = -1, cnt = 0;
+	int core, cnt = 0;
 #if MNOC_TIME_PROFILE
 	struct timeval begin, end;
 	unsigned long val;
@@ -711,9 +713,11 @@ void apu_qos_counter_init(void)
 	sum_start = 0;
 	sum_suspend = 0;
 	sum_end = 0;
+	sum_work_func = 0;
 	cnt_start = 0;
 	cnt_suspend = 0;
 	cnt_end = 0;
+	cnt_work_func = 0;
 #endif
 
 	LOG_DEBUG("-\n");
