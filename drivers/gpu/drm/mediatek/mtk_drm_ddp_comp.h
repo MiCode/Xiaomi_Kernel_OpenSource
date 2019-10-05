@@ -27,6 +27,7 @@ struct drm_crtc;
 struct drm_device;
 struct mtk_plane_state;
 struct drm_crtc_state;
+struct mm_qos_request;
 
 #define ALIGN_TO(x, n)  (((x) + ((n) - 1)) & ~((n) - 1))
 
@@ -266,11 +267,9 @@ struct mtk_ddp_comp {
 	u8 cmdq_subsys;
 #endif
 	unsigned int qos_attr;
-#ifdef MTK_FB_MMDVFS_SUPPORT
 	struct mm_qos_request qos_req;
 	struct mm_qos_request fbdc_qos_req;
 	struct mm_qos_request hrt_qos_req;
-#endif
 	u32 qos_bw;
 	u32 fbdc_bw;
 	u32 hrt_bw;

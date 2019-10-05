@@ -444,7 +444,7 @@ static int layering_get_valid_hrt(int width, int height)
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	unsigned long long tmp;
 
-	dvfs_bw = mm_hrt_get_available_hrt_bw(PORT_VIRTUAL_DISP);
+	dvfs_bw = mm_hrt_get_available_hrt_bw(get_virtual_port(VIRTUAL_DISP));
 	dvfs_bw *= 10000;
 
 	tmp = _layering_get_frame_bw(width, height);
@@ -459,7 +459,8 @@ static int layering_get_valid_hrt(int width, int height)
 	}
 
 	DDPINFO("get avail HRT BW:%u : %llu %llu\n",
-		mm_hrt_get_available_hrt_bw(PORT_VIRTUAL_DISP), dvfs_bw, tmp);
+		mm_hrt_get_available_hrt_bw(get_virtual_port(VIRTUAL_DISP)),
+		dvfs_bw, tmp);
 #else
 	dvfs_bw = 600;
 #endif

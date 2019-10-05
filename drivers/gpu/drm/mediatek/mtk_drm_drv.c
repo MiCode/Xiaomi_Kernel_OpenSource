@@ -1772,7 +1772,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	plist_head_init(&private->bw_request_list);
 	plist_head_init(&private->hrt_request_list);
 	mm_qos_add_request(&private->hrt_request_list, &private->hrt_bw_request,
-			   PORT_VIRTUAL_DISP);
+			   get_virtual_port(VIRTUAL_DISP));
 #endif
 
 	/* Iterate over sibling DISP function blocks */

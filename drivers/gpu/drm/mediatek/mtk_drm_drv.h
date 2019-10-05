@@ -32,6 +32,7 @@
 #define MTK_DRM_ESD_SUPPORT
 #define MTK_DRM_CMDQ_ASYNC
 #define CONFIG_MTK_DISPLAY_CMDQ
+#define MTK_FB_MMDVFS_SUPPORT
 
 struct device;
 struct device_node;
@@ -39,6 +40,8 @@ struct drm_crtc;
 struct drm_device;
 struct drm_property;
 struct regmap;
+struct mm_qos_request;
+struct pm_qos_request;
 
 struct mtk_fake_eng_reg {
 	unsigned int CG_idx;

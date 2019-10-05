@@ -1081,9 +1081,11 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc)
 	struct mtk_ddp_comp *comp;
 	unsigned int cur_hrt, hrt_idx;
 	int i, j;
+	u32 bw_mode = DISP_BW_NORMAL_MODE;
 
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
-		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
+		mtk_ddp_comp_io_cmd(comp,
+				NULL, PMQOS_SET_BW, &bw_mode);
 
 	if (drm_crtc_index(crtc) != 0)
 		return;
@@ -1829,6 +1831,7 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc)
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_ddp_comp *comp;
 	int i, j;
+	u32 bw_mode = DISP_BW_NORMAL_MODE;
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -1859,7 +1862,7 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc)
 
 	/* 3.Reset QOS BW after CRTC stop */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
-		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
+		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, &bw_mode);
 
 	/* 4. stop trig loop  */
 	if (mtk_crtc_with_trigger_loop(&mtk_crtc->base))
@@ -2649,6 +2652,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 	struct mtk_cmdq_cb_data *cb_data;
 	struct mtk_ddp_comp *comp;
+	u32 bw_mode = DISP_BW_NORMAL_MODE;
 
 	CRTC_MMP_EVENT_START(index, atomic_flush, (unsigned long)crtc_state,
 			(unsigned long)old_crtc_state);
@@ -2684,7 +2688,8 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
 		if (crtc->state->color_mgmt_changed)
 			mtk_ddp_gamma_set(comp, crtc->state, cmdq_handle);
-		mtk_ddp_comp_io_cmd(comp, cmdq_handle, PMQOS_UPDATE_BW, NULL);
+		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+				PMQOS_UPDATE_BW, &bw_mode);
 	}
 
 	if ((priv->data->shadow_register) == true) {

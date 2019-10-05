@@ -59,6 +59,7 @@ int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode)
 int __mtk_disp_pmqos_port_look_up(int comp_id)
 {
 	switch (comp_id) {
+#if defined(CONFIG_MACH_MT6779)
 	case DDP_COMPONENT_OVL0:
 		return SMI_PORT_DISP_OVL0;
 	case DDP_COMPONENT_OVL0_2L:
@@ -69,14 +70,25 @@ int __mtk_disp_pmqos_port_look_up(int comp_id)
 		return SMI_PORT_DISP_RDMA0;
 	case DDP_COMPONENT_RDMA1:
 		return SMI_PORT_DISP_RDMA1;
-	case DDP_COMPONENT_RDMA2:
-		/* 6779 does not exist RDMA2 */
-		return SMI_PORT_DISP_RDMA1;
 	case DDP_COMPONENT_WDMA0:
 		return SMI_PORT_DISP_WDMA0;
+#endif
+#if defined(CONFIG_MACH_MT6885)
+	case DDP_COMPONENT_OVL0:
+		return M4U_PORT_L0_OVL_RDMA0;
+	case DDP_COMPONENT_OVL0_2L:
+		return M4U_PORT_L1_OVL_2L_RDMA0;
+	case DDP_COMPONENT_OVL1_2L:
+		return M4U_PORT_L0_OVL_2L_RDMA1;
+	case DDP_COMPONENT_RDMA0:
+		return M4U_PORT_L0_DISP_RDMA0;
+	case DDP_COMPONENT_RDMA1:
+		return M4U_PORT_L1_DISP_RDMA1;
+	case DDP_COMPONENT_WDMA0:
+		return M4U_PORT_L0_DISP_WDMA0;
 	case DDP_COMPONENT_WDMA1:
-		/* 6779 does not exist WDMA1 */
-		return SMI_PORT_DISP_WDMA0;
+		return M4U_PORT_L1_DISP_WDMA1;
+#endif
 	default:
 		DDPPR_ERR("%s, unknown comp %d\n", __func__, comp_id);
 		break;

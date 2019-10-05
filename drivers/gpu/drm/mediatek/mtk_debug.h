@@ -30,9 +30,7 @@
 #define DEBUG_BUFFER_SIZE 10240
 #endif
 
-#ifdef MTK_FB_MMDVFS_SUPPORT
 extern int mtk_disp_hrt_bw_dbg(void);
-#endif
 
 #ifdef _DRM_P_H_
 void disp_dbg_probe(void);

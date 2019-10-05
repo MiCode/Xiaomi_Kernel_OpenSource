@@ -2027,9 +2027,10 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case PMQOS_SET_BW: {
 		struct mtk_drm_crtc *mtk_crtc;
 		struct cmdq_pkt_buffer *cmdq_buf;
-		u32 ovl_bw, slot_num, bw_mode;
+		u32 ovl_bw, slot_num;
+		u32 bw_mode;
 
-		bw_mode = (u32)params;
+		bw_mode = *(u32 *)params;
 		mtk_crtc = comp->mtk_crtc;
 		cmdq_buf = &(mtk_crtc->gce_obj.buf);
 
@@ -2058,7 +2059,7 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		struct cmdq_pkt_buffer *cmdq_buf;
 		u32 slot_num, bw_mode;
 
-		bw_mode = (u32)params;
+		bw_mode = *(u32 *)params;
 		mtk_crtc = comp->mtk_crtc;
 		crtc = &mtk_crtc->base;
 		cmdq_buf = &(mtk_crtc->gce_obj.buf);

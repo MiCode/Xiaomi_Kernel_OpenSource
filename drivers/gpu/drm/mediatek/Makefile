@@ -61,6 +61,7 @@ obj-$(CONFIG_DRM_MEDIATEK_HDMI) += mediatek-drm-hdmi.o \
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
              -I$(srctree)/drivers/misc/mediatek/smi/			\
              -I$(srctree)/drivers/misc/mediatek/mmp/			\
+             -I$(srctree)/drivers/misc/mediatek/mmdvfs/			\
              -I$(srctree)/drivers/iommu/				\
              -I$(srctree)/drivers/devfreq/				\
              -I$(srctree)/drivers/gpu/drm/				\
