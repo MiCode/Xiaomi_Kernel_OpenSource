@@ -261,11 +261,40 @@ static void mt6315_lp_set(unsigned char slave_id, unsigned char buck_id,
 	else
 		pr_info("%s invalid buck_id=%d.\n", __func__, buck_id);
 }
+
+/* enable VDIG18 SRCLKEN low power mode */
+static void mt6315_vdig18_hw_op_set(unsigned char slave_id, unsigned char en)
+{
+	struct mt6315_chip *chip;
+	struct regmap *regmap;
+
+	chip = mt6315_find_chip_sid(slave_id);
+	if (!chip) {
+		pr_info("%s MT6315S%d not ready\n", __func__, slave_id);
+		return;
+	}
+
+	regmap = chip->regmap;
+	if (!regmap) {
+		pr_info("%s null regmap.\n", __func__);
+		return;
+	}
+
+	regmap_write(regmap, MT6315_PMIC_DIG_WPK_KEY_H_ADDR, 0x63);
+	regmap_write(regmap, MT6315_PMIC_DIG_WPK_KEY_ADDR, 0x15);
+	regmap_update_bits(regmap,
+		   MT6315_PMIC_RG_LDO_VDIG18_HW_OP_EN_ADDR,
+		   0x1 << MT6315_PMIC_RG_LDO_VDIG18_HW_OP_EN_SHIFT,
+		   en << MT6315_PMIC_RG_LDO_VDIG18_HW_OP_EN_SHIFT);
+	regmap_write(regmap, MT6315_PMIC_DIG_WPK_KEY_ADDR, 0x0);
+	regmap_write(regmap, MT6315_PMIC_DIG_WPK_KEY_H_ADDR, 0x0);
+}
 #endif /* End of LP_INIT_SETTING_VERIFIED */
 
 static void mt6315_S3_lp_initial_setting(void)
 {
 #if LP_INIT_SETTING_VERIFIED
+	mt6315_vdig18_hw_op_set(MT6315_SLAVE_ID_3, 1);
 	/* vmodem/vnr/vsram_md */
 	mt6315_lp_set(MT6315_SLAVE_ID_3, 1, MT6315_SRCLKEN0, 1, 1, HW_LP);
 	mt6315_lp_set(MT6315_SLAVE_ID_3, 3, MT6315_SRCLKEN0, 1, 1, HW_LP);
@@ -276,13 +305,14 @@ static void mt6315_S3_lp_initial_setting(void)
 static void mt6315_S6_lp_initial_setting(void)
 {
 #if LP_INIT_SETTING_VERIFIED
-	/* DO NOTHING */
+	mt6315_vdig18_hw_op_set(MT6315_SLAVE_ID_6, 1);
 #endif
 }
 
 static void mt6315_S7_lp_initial_setting(void)
 {
 #if LP_INIT_SETTING_VERIFIED
+	mt6315_vdig18_hw_op_set(MT6315_SLAVE_ID_7, 1);
 	/* vsram_core */
 	mt6315_lp_set(MT6315_SLAVE_ID_7, 3, MT6315_SRCLKEN0, 1, 1, HW_LP);
 #endif
