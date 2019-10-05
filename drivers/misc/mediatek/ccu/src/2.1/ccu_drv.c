@@ -82,7 +82,7 @@
 
 #define CCU_DEV_NAME            "ccu"
 
-#define CCU_CLK_NUM 1 /* [0]: Camsys, [1]: Mmsys, [2]: TopMux */
+#define CCU_CLK_NUM 2 /* [0]: Camsys, [1]: Mmsys, [2]: TopMux */
 struct clk *ccu_clk_ctrl[CCU_CLK_NUM];
 
 struct ccu_device_s *g_ccu_device;
@@ -592,8 +592,8 @@ int ccu_clock_enable(void)
 	ccu_qos_init();
 #endif
 #ifndef CCU_LDVT
-	ret = (clk_prepare_enable(ccu_clk_ctrl[0])/* |
-		clk_prepare_enable(ccu_clk_ctrl[1]) |
+	ret = (clk_prepare_enable(ccu_clk_ctrl[0]) |
+		clk_prepare_enable(ccu_clk_ctrl[1])/* |
 		clk_prepare_enable(ccu_clk_ctrl[2])*/);
 #endif
 	if (ret)
@@ -606,7 +606,7 @@ void ccu_clock_disable(void)
 	LOG_DBG_MUST("%s.\n", __func__);
 #ifndef CCU_LDVT
 	clk_disable_unprepare(ccu_clk_ctrl[0]);
-	//clk_disable_unprepare(ccu_clk_ctrl[1]);
+	clk_disable_unprepare(ccu_clk_ctrl[1]);
 	//clk_disable_unprepare(ccu_clk_ctrl[2]);
 #endif
 
@@ -1280,7 +1280,7 @@ if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 		(unsigned long)ioremap_wc(phy_addr, phy_size);
 #else
 	g_ccu_device->camsys_base =
-		(unsigned long)ioremap_wc(phy_addr, phy_size);
+		(unsigned long)ioremap(phy_addr, phy_size);
 #endif
 	LOG_INF("camsys_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
 	LOG_INF("camsys_base va: 0x%lx\n", g_ccu_device->camsys_base);
@@ -1293,7 +1293,7 @@ if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 		(unsigned long)ioremap_wc(phy_addr, phy_size);
 #else
 	g_ccu_device->n3d_a_base =
-		(unsigned long)ioremap_wc(phy_addr, phy_size);
+		(unsigned long)ioremap(phy_addr, phy_size);
 #endif
 	LOG_INF("n3d_a_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
 	LOG_INF("n3d_a_base va: 0x%lx\n", g_ccu_device->n3d_a_base);
@@ -1309,11 +1309,12 @@ if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 		"CCU_CLK_MMSYS_CCU");
 	if (ccu_clk_ctrl[1] == NULL)
 		LOG_ERR("Get ccu clock ctrl mmsys fail.\n");
-	ccu_clk_ctrl[2] = devm_clk_get(g_ccu_device->dev,
-		"CCU_CLK_TOP_MUX");
-	if (ccu_clk_ctrl[2] == NULL)
-		LOG_ERR("Get ccu clock ctrl mmsys fail.\n");
 #endif
+	ccu_clk_ctrl[1] = devm_clk_get(g_ccu_device->dev,
+		"CCU_CLK_TOP_MUX");
+	if (ccu_clk_ctrl[1] == NULL)
+		LOG_ERR("Get ccu clock ctrl mmsys fail.\n");
+
 	g_ccu_device->irq_num = irq_of_parse_and_map(node, 0);
 	LOG_DBG("probe 1, ccu_base: 0x%lx, bin_base: 0x%lx,",
 		g_ccu_device->ccu_base, g_ccu_device->bin_base);

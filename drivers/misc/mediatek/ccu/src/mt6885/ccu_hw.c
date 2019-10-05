@@ -824,8 +824,8 @@ int ccu_waitirq(struct CCU_WAIT_IRQ_STRUCT *WaitIrq)
 {
 	signed int ret = 0, Timeout = WaitIrq->EventInfo.Timeout;
 
-	LOG_DBG("Clear(%d),bWaitCond(%d),Timeout(%d)\n",
-		WaitIrq->EventInfo.Clear, bWaitCond, Timeout);
+	LOG_DBG("Clear(%d),bWaitCond(%d),Timeout(%d)(%d)\n",
+		WaitIrq->EventInfo.Clear, bWaitCond, Timeout, ccu_dev->irq_num);
 	LOG_DBG("arg is struct CCU_WAIT_IRQ_STRUCT, size:%zu\n",
 		sizeof(struct CCU_WAIT_IRQ_STRUCT));
 
