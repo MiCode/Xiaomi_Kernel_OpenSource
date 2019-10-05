@@ -18,6 +18,7 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion \
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/timer/timesync/
+ccflags-y += -I$(srctree)/include/dt-bindings/memory/
 
 obj-y += camera_isp.o
 obj-y += cam_qos.o
