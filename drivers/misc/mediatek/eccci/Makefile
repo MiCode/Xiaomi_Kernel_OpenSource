@@ -25,6 +25,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(MTK_PLATFORM)
 # common services
 ccci-y := ccci_core.o ccci_bm.o ccci_modem.o modem_sys1.o
 
+ifeq  ($(CONFIG_MEDIATEK_MT6577_AUXADC), y)
+ccci-y += ccci_auxadc.o
+endif
+
 # sub modules
 obj-y += fsm/
 obj-y += hif/

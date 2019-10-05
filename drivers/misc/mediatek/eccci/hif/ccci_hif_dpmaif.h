@@ -37,13 +37,20 @@
 
 /*Default DPMAIF DL common setting*/
 #define DPMAIF_HW_BAT_REMAIN       64
-#define DPMAIF_HW_BAT_PKTBUF       (128*28) /* SKB_4K */
-#define DPMAIF_HW_BAT_RSVLEN       0 /* 88 */
-#define DPMAIF_HW_PKT_BIDCNT       1  /* 3-->1 should be 1 in E1 */
-#define DPMAIF_HW_PKT_ALIGN        64
+#ifndef DPMAIF_PKT_SIZE
+#define DPMAIF_PKT_SIZE      (128*28) /* 3584 ==SKB_4K */
+#define DPMAIF_FRG_SIZE      (128) /* ==, no used */
+#endif
+#define DPMAIF_HW_BAT_PKTBUF      DPMAIF_PKT_SIZE
+#define DPMAIF_HW_FRG_PKTBUF      DPMAIF_FRG_SIZE
+
+#define DPMAIF_HW_BAT_RSVLEN      0 /* 88 */
+#define DPMAIF_HW_PKT_BIDCNT      1  /* 3-->1 should be 1 in E1 */
+#define DPMAIF_HW_PKT_ALIGN       64
 #define DPMAIF_HW_MTU_SIZE        (3*1024 + 8)
 
-#define DPMAIF_BUF_PKT_SIZE     NET_RX_BUF
+#define DPMAIF_BUF_PKT_SIZE     DPMAIF_PKT_SIZE
+#define DPMAIF_BUF_FRAG_SIZE    DPMAIF_FRG_SIZE
 
 #define DPMAIF_HW_CHK_PIT_NUM      2
 #define DPMAIF_HW_CHK_BAT_NUM      1
@@ -74,7 +81,7 @@ unsigned int buf_len;
 struct dpmaifq_normal_pit {
 	unsigned int    packet_type:1; /* 0-payload packet; 1-message packet */
 	unsigned int    c_bit:1;/* 1-1/n; 0-the last one */
-	unsigned int    buffer_type:1;
+	unsigned int    buffer_type:1; /* 0-pkt bat buffer; 1-frag bat buffer */
 	unsigned int    buffer_id:13; /* BAT index */
 	unsigned int    data_len:16;
 	unsigned int    p_data_addr;
@@ -84,6 +91,10 @@ struct dpmaifq_normal_pit {
 /* packet_type */
 #define DES_PT_PD            0x00
 #define DES_PT_MSG           0x01
+/* c_bit */
+#define PKT_LAST_ONE    0x0
+/* buffer_type */
+#define PKT_BUF_FRAG    0x1
 
 struct dpmaifq_msg_pit {
 	unsigned int    packet_type:1;
@@ -116,6 +127,13 @@ struct dpmaif_bat_skb_t {
 	unsigned int data_len;
 };
 
+struct dpmaif_bat_page_t {
+	struct page *page;
+	dma_addr_t data_phy_addr;
+	unsigned long offset;
+	unsigned int data_len;
+};
+
 #define MAX_BD_NUM (MAX_SKB_FRAGS + 1)
 #define DPMAIF_TRAFFIC_MONITOR_INTERVAL 10
 #define SKB_RX_LIST_MAX_LEN 0xFFFFFFFF
@@ -130,6 +148,8 @@ struct dpmaif_bat_request {
 	void *bat_skb_ptr;/* collect skb linked to bat */
 	unsigned int     skb_pkt_cnt;
 	unsigned int pkt_buf_sz;
+	/* for debug */
+	int check_bid_fail_cnt;
 };
 
 enum error_num {
@@ -162,7 +182,9 @@ struct dpmaif_rx_queue {
 	unsigned int reg_int_mask_bak;
 
 	struct dpmaif_bat_request bat_req;
-
+#ifdef HW_FRG_FEATURE_ENABLE
+	struct dpmaif_bat_request bat_frag;
+#endif
 	struct tasklet_struct dpmaif_rxq0_task;
 	wait_queue_head_t rx_wq;
 	struct task_struct *rx_thread;
@@ -171,9 +193,11 @@ struct dpmaif_rx_queue {
 	spinlock_t rx_lock;
 	atomic_t rx_processing;
 
-	int  cur_chn_idx;
+	unsigned int  cur_chn_idx:8;
+	unsigned int check_sum:2;
+	int skb_idx;
+
 	struct ccci_skb_queue skb_list;
-	int check_bid_fail_cnt;
 };
 
 /****************************************************************************

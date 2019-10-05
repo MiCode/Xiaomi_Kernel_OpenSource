@@ -17,6 +17,11 @@
 #include "dpmaif_reg.h"
 
 /* == RX part == */
+#ifdef HW_FRG_FEATURE_ENABLE
+unsigned short drv_dpmaif_dl_get_frg_bat_ridx(unsigned char q_num);
+int drv_dpmaif_dl_add_frg_bat_cnt(unsigned char q_num,
+	unsigned short frg_entry_cnt);
+#endif
 unsigned short drv_dpmaif_dl_get_bat_ridx(unsigned char q_num);
 int drv_dpmaif_dl_add_bat_cnt(unsigned char q_num,
 		unsigned short bat_entry_cnt);
@@ -71,6 +76,17 @@ void drv_dpmaif_dl_set_bat_rsv_len(unsigned char q_num, unsigned int length);
 void drv_dpmaif_dl_set_pkt_align(unsigned char q_num, bool enable,
 	unsigned int mode);
 void drv_dpmaif_dl_set_bat_chk_thres(unsigned char q_num, unsigned int size);
+#ifdef HW_FRG_FEATURE_ENABLE
+void drv_dpmaif_dl_set_ao_frag_check_thres(unsigned char q_num,
+	unsigned int size);
+void drv_dpmaif_dl_set_ao_frg_bat_feature(unsigned char q_num, bool enable);
+void drv_dpmaif_dl_set_ao_frg_bat_bufsz(unsigned char q_num,
+	unsigned int buf_sz);
+void drv_dpmaif_dl_all_frg_queue_en(bool enable);
+#endif
+#ifdef HW_CHECK_SUM_ENABLE
+void drv_dpmaif_dl_set_ao_chksum_en(unsigned char q_num, bool enable);
+#endif
 /* init: tx init */
 
 void drv_dpmaif_init_ul_intr(void);
@@ -89,11 +105,9 @@ void drv_dpmaif_dl_restore(unsigned int mask);
 #ifdef _E1_SB_SW_WORKAROUND_
 unsigned int drv_dpmaif_dl_get_pit_ridx(unsigned char q_num);
 unsigned int drv_dpmaif_dl_get_bat_wridx(unsigned char q_num);
-#ifdef _E1_SB_SW_WORKAROUND_1
 void drv_dpmaif_unmask_dl_full_intr(unsigned char q_num);
 void dpmaif_mask_pitcnt_len_error_intr(unsigned char q_num);
 void dpmaif_mask_batcnt_len_error_intr(unsigned char q_num);
-#endif
 #endif
 
 #endif
