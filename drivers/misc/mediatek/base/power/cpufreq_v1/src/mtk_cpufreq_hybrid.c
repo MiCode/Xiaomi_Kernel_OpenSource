@@ -777,6 +777,8 @@ int cpuhvfs_set_init_sta(void)
 
 int cpuhvfs_set_cluster_on_off(int cluster_id, int state)
 {
+#ifdef BYPASS_CLUSTER_ONOFF
+#else
 	struct cdvfs_data cdvfs_d;
 
 	/* Cluster, ON:1/OFF:0 */
@@ -785,7 +787,7 @@ int cpuhvfs_set_cluster_on_off(int cluster_id, int state)
 
 	aee_record_cpu_dvfs_cb(5);
 	dvfs_to_mcupm_command(IPI_SET_CLUSTER_ON_OFF, &cdvfs_d);
-
+#endif
 	return 0;
 }
 
