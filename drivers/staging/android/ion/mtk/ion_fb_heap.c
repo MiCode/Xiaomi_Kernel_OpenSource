@@ -132,6 +132,11 @@ static int ion_fb_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	port_info.buf_size = buffer->size;
 	port_info.flags = 0;
 
+#ifdef MTK_ION_DMABUF_SUPPORT
+	if (port_info.emoduleid == M4U_PORT_GPU)
+		return 0;
+#endif
+
 	/*Allocate MVA */
 	mutex_lock(&buffer_info->lock);
 	if (buffer_info->MVA == 0) {

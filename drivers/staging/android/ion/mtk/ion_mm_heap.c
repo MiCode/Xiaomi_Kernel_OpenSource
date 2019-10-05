@@ -233,6 +233,7 @@ static int ion_mm_pool_total(struct ion_system_heap *heap,
 	return count;
 }
 
+#define MTK_GET_DOMAIN_IGNORE DOMAIN_NUM
 static int ion_get_domain_id(int from_kernel, int *port)
 {
 	int domain_idx = 0;
@@ -242,6 +243,11 @@ static int ion_get_domain_id(int from_kernel, int *port)
 	if (port_id >= M4U_PORT_UNKNOWN) {
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+#ifdef MTK_ION_DMABUF_SUPPORT
+		if (port_id == M4U_PORT_GPU)
+			return MTK_GET_DOMAIN_IGNORE;
+#endif
+
 		IONMSG("invalid port%d\n", *port);
 		return -EFAULT;
 #else
@@ -780,13 +786,11 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		ion_buffer_dump(buffer, NULL);
-#if 1 //def ION_DEBUG_IOMMU_34BIT_BUFFER
 		aee_kernel_warning_api(__FILE__, __LINE__,
 				       DB_OPT_DEFAULT |
 				       DB_OPT_NATIVE_BACKTRACE,
 				       "port name not matched",
 				       "dump user backtrace");
-#endif
 #endif
 	}
 
@@ -803,6 +807,17 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 
 		domain_idx = ion_get_domain_id(1,
 					       &port_info.emoduleid);
+		/*ignore the iova mapping request from GPU*/
+		if (domain_idx == MTK_GET_DOMAIN_IGNORE) {
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+			buffer->sg_table = buffer_info->table_orig;
+#endif
+			*addr = 0;
+			ret = 0;
+			goto out;
+		}
+
 		if (domain_idx < 0 ||
 		    domain_idx >= DOMAIN_NUM) {
 			IONMSG("%s, err, %d(%d)-%d\n",
@@ -822,6 +837,18 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		domain_idx =
 			ion_get_domain_id(1,
 					  &port_info.emoduleid);
+
+		/*ignore the iova mapping request from GPU*/
+		if (domain_idx == MTK_GET_DOMAIN_IGNORE) {
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+			buffer->sg_table = buffer_info->table_orig;
+#endif
+			*addr = 0;
+			ret = 0;
+			goto out;
+		}
+
 		if (domain_idx < 0 ||
 		    domain_idx >= DOMAIN_NUM) {
 			IONMSG("%s, err, %d(%d)-%d\n",
@@ -997,7 +1024,10 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 	struct ion_buffer *buffer;
 	struct ion_mm_buffer_info *bug_info;
 	unsigned int block_nr[DOMAIN_NUM] = {0};
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	int port[DOMAIN_NUM] = {0};
+#endif
 	unsigned long mva[DOMAIN_NUM] = {0};
 	unsigned long mva_fix[DOMAIN_NUM] = {0};
 	unsigned int i;
@@ -1676,6 +1706,82 @@ int ion_mm_cp_sf_buf_info(struct ion_mm_sf_buf_info *src,
 	return 0;
 }
 
+static void mtk_ion_copy_param(unsigned int type,
+			       unsigned int domain_idx,
+			       enum ION_MM_CMDS mm_cmd,
+			       struct ion_mm_data param,
+			       struct ion_mm_buffer_info *buffer_info)
+{
+	switch (type) {
+	case 1:
+		if (domain_idx == MTK_GET_DOMAIN_IGNORE) {
+			if (mm_cmd == ION_MM_CONFIG_BUFFER_EXT)
+				buffer_info->fix_module_id =
+					param.config_buffer_param.module_id;
+			else
+				buffer_info->module_id =
+				    param.config_buffer_param.module_id;
+			break;
+		}
+#ifndef CONFIG_MTK_IOMMU_V2
+		if ((buffer_info->MVA[domain_idx] == 0 &&
+		     mm_cmd == ION_MM_CONFIG_BUFFER) ||
+		    (buffer_info->FIXED_MVA[domain_idx] == 0 &&
+			mm_cmd == ION_MM_CONFIG_BUFFER_EXT)) {
+#endif
+			buffer_info->security =
+			    param.config_buffer_param.security;
+			buffer_info->coherent =
+			    param.config_buffer_param.coherent;
+			if (mm_cmd == ION_MM_CONFIG_BUFFER_EXT) {
+				buffer_info->iova_start[domain_idx] =
+				param.config_buffer_param.reserve_iova_start;
+				buffer_info->iova_end[domain_idx] =
+				param.config_buffer_param.reserve_iova_end;
+				buffer_info->fix_module_id =
+					param.config_buffer_param.module_id;
+			} else if (mm_cmd == ION_MM_CONFIG_BUFFER) {
+				buffer_info->module_id =
+				    param.config_buffer_param.module_id;
+			}
+#ifndef CONFIG_MTK_IOMMU_V2
+		}
+#endif
+		break;
+	case 2:
+		if (domain_idx == MTK_GET_DOMAIN_IGNORE) {
+			if (mm_cmd == ION_MM_GET_IOVA_EXT)
+				buffer_info->fix_module_id =
+				    param.get_phys_param.module_id;
+			else
+				buffer_info->module_id =
+				    param.get_phys_param.module_id;
+		} else if ((buffer_info->MVA[domain_idx] == 0 &&
+		     mm_cmd == ION_MM_GET_IOVA) ||
+		    (buffer_info->FIXED_MVA[domain_idx] == 0 &&
+			mm_cmd == ION_MM_GET_IOVA_EXT)) {
+			buffer_info->security =
+			    param.get_phys_param.security;
+			buffer_info->coherent =
+			    param.get_phys_param.coherent;
+			if (mm_cmd == ION_MM_GET_IOVA_EXT) {
+				buffer_info->iova_start[domain_idx] =
+					param.get_phys_param.reserve_iova_start;
+				buffer_info->iova_end[domain_idx] =
+					param.get_phys_param.reserve_iova_end;
+				buffer_info->fix_module_id =
+				    param.get_phys_param.module_id;
+			} else if (mm_cmd == ION_MM_GET_IOVA) {
+				buffer_info->module_id =
+				    param.get_phys_param.module_id;
+			}
+		}
+		break;
+	default:
+		break;
+	}
+}
+
 long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 		  unsigned long arg, int from_kernel)
 {
@@ -1727,8 +1833,9 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 		domain_idx =
 			ion_get_domain_id(from_kernel,
 					  &param.config_buffer_param.module_id);
-		if (domain_idx < 0 ||
-		    domain_idx >= DOMAIN_NUM) {
+		if ((domain_idx < 0 ||
+		     domain_idx >= DOMAIN_NUM) &&
+		    domain_idx != MTK_GET_DOMAIN_IGNORE) {
 			IONMSG("config err:%d(%d)-%d,%16.s\n",
 			       param.config_buffer_param.module_id,
 			       domain_idx,
@@ -1774,36 +1881,14 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				return -EFAULT;
 			}
 
-#ifndef CONFIG_MTK_IOMMU_V2
-			if ((buffer_info->MVA[domain_idx] == 0 &&
-			     mm_cmd == ION_MM_CONFIG_BUFFER) ||
-			    (buffer_info->FIXED_MVA[domain_idx] == 0 &&
-				mm_cmd == ION_MM_CONFIG_BUFFER_EXT)) {
-#endif
-				buffer_info->security =
-				    param.config_buffer_param.security;
-				buffer_info->coherent =
-				    param.config_buffer_param.coherent;
-				if (mm_cmd == ION_MM_CONFIG_BUFFER_EXT) {
-					buffer_info->iova_start[domain_idx] =
-				param.config_buffer_param.reserve_iova_start;
-					buffer_info->iova_end[domain_idx] =
-				param.config_buffer_param.reserve_iova_end;
-					buffer_info->fix_module_id =
-				param.config_buffer_param.module_id;
-				} else {
-					buffer_info->module_id =
-					    param.config_buffer_param.module_id;
-				}
+			mtk_ion_copy_param(1, domain_idx,
+					   mm_cmd, param, buffer_info);
 			IONDBG(
 			       "config, bf:0x%lx pt%d, dom:%d, tp:%d, clt:%16.s\n",
 			       buffer,
 			       param.config_buffer_param.module_id,
 			       domain_idx,
 			       buffer->heap->type, client->name);
-#ifndef CONFIG_MTK_IOMMU_V2
-			}
-#endif
 		} else if ((int)buffer->heap->type == ION_HEAP_TYPE_FB) {
 			struct ion_fb_buffer_info *buffer_info =
 			    buffer->priv_virt;
@@ -1888,8 +1973,9 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 		domain_idx =
 			ion_get_domain_id(from_kernel,
 					  &param.config_buffer_param.module_id);
-		if (domain_idx < 0 ||
-		    domain_idx >= DOMAIN_NUM) {
+		if ((domain_idx < 0 ||
+		     domain_idx >= DOMAIN_NUM) &&
+		    domain_idx != MTK_GET_DOMAIN_IGNORE) {
 			IONMSG("get err:%d(%d)-%d,%16.s\n",
 			       param.config_buffer_param.module_id,
 			       domain_idx,
@@ -1916,26 +2002,8 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				return -EFAULT;
 			}
 
-			if ((buffer_info->MVA[domain_idx] == 0 &&
-			     mm_cmd == ION_MM_GET_IOVA) ||
-			    (buffer_info->FIXED_MVA[domain_idx] == 0 &&
-				mm_cmd == ION_MM_GET_IOVA_EXT)) {
-				buffer_info->security =
-				    param.get_phys_param.security;
-				buffer_info->coherent =
-				    param.get_phys_param.coherent;
-				if (mm_cmd == ION_MM_GET_IOVA_EXT) {
-					buffer_info->iova_start[domain_idx] =
-				param.get_phys_param.reserve_iova_start;
-					buffer_info->iova_end[domain_idx] =
-				param.get_phys_param.reserve_iova_end;
-					buffer_info->fix_module_id =
-					    param.get_phys_param.module_id;
-				} else {
-					buffer_info->module_id =
-					    param.get_phys_param.module_id;
-				}
-			}
+			mtk_ion_copy_param(2, domain_idx,
+					   mm_cmd, param, buffer_info);
 
 			/* get mva */
 			phy_addr = param.get_phys_param.phy_addr;
