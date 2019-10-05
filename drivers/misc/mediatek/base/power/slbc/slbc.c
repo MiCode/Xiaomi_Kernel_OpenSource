@@ -746,6 +746,64 @@ int slbc_power_off(struct slbc_data *d)
 }
 EXPORT_SYMBOL_GPL(slbc_power_off);
 
+int slbc_secure_on(struct slbc_data *d)
+{
+	int uid;
+
+	if (slbc_enable == 0)
+		return -EDISABLED;
+
+	if (d == 0)
+		return -EINVAL;
+
+	if (d->uid == 0)
+		return -EINVAL;
+
+	uid = d->uid;
+
+	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+	slbc_debug_log("%s: %s flag %x", __func__, slbc_uid_str[uid], d->flag);
+
+#ifdef CONFIG_MTK_SLBC_MMSRAM
+	if (IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM) &&
+			SLBC_TRY_FLAG_BIT(d, FG_SECURE)) {
+		mmsram_set_secure(true);
+	}
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(slbc_secure_on);
+
+int slbc_secure_off(struct slbc_data *d)
+{
+	int uid;
+
+	if (slbc_enable == 0)
+		return -EDISABLED;
+
+	if (d == 0)
+		return -EINVAL;
+
+	if (d->uid == 0)
+		return -EINVAL;
+
+	uid = d->uid;
+
+	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+	slbc_debug_log("%s: %s flag %x", __func__, slbc_uid_str[uid], d->flag);
+
+#ifdef CONFIG_MTK_SLBC_MMSRAM
+	if (IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM) &&
+			SLBC_TRY_FLAG_BIT(d, FG_SECURE)) {
+		mmsram_set_secure(false);
+	}
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(slbc_secure_off);
+
 static void slbc_dump_data(struct seq_file *m, struct slbc_data *d)
 {
 	int uid = d->uid;

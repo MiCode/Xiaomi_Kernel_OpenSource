@@ -93,6 +93,8 @@ extern int slbc_request(struct slbc_data *data);
 extern int slbc_release(struct slbc_data *data);
 extern int slbc_power_on(struct slbc_data *data);
 extern int slbc_power_off(struct slbc_data *data);
+extern int slbc_secure_on(struct slbc_data *data);
+extern int slbc_secure_off(struct slbc_data *data);
 #else
 int register_slbc_ops(struct slbc_ops *ops)
 {
@@ -115,6 +117,14 @@ int slbc_power_on(struct slbc_data *data)
 	return -EDISABLED;
 };
 int slbc_power_off(struct slbc_data *data)
+{
+	return -EDISABLED;
+};
+int slbc_secure_on(struct slbc_data *data)
+{
+	return -EDISABLED;
+};
+int slbc_secure_off(struct slbc_data *data)
 {
 	return -EDISABLED;
 };
