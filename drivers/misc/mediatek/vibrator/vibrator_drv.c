@@ -29,8 +29,11 @@
 #include <vibrator_hal.h>
 #include <mt-plat/upmu_common.h>
 
-#define VIB_DEVICE				"mtk_vibrator"
-#define VIB_TAG                                 "[vibrator]"
+#define VIB_DEVICE	"mtk_vibrator"
+#define VIB_TAG     "[vibrator]"
+#undef pr_fmt
+#define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
+
 
 struct mt_vibr {
 	struct workqueue_struct *vibr_queue;
@@ -265,7 +268,7 @@ static int vib_probe(struct platform_device *pdev)
 	init_cust_vibrator_dtsi(pdev);
 	vibr_power_set();
 
-	pr_debug(VIB_TAG "probe done\n");
+	pr_info("probe done!\n");
 
 	return 0;
 }
@@ -286,13 +289,13 @@ static void vib_shutdown(struct platform_device *pdev)
 	unsigned long flags;
 	struct mt_vibr *vibr = dev_get_drvdata(&pdev->dev);
 
-	pr_debug(VIB_TAG "shutdown: enter!\n");
+	pr_info("shutdown: enter!\n");
 	spin_lock_irqsave(&vibr->vibr_lock, flags);
 	vibr->shutdown_flag = 1;
 	if (atomic_read(&vibr->vibr_state)) {
 		atomic_set(&vibr->vibr_state, 0);
 		spin_unlock_irqrestore(&vibr->vibr_lock, flags);
-		pr_debug(VIB_TAG "%s: vibrator will disable\n", __func__);
+		pr_info("vibrator will disable!\n");
 		vibr_Disable();
 	} else {
 		spin_unlock_irqrestore(&vibr->vibr_lock, flags);
