@@ -1456,6 +1456,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	}
 
 	cmdq_dump_pkt(pkt, pc);
+	cmdq_util_dump_smi();
 
 	cmdq_util_err("End of Error %u", err_num);
 	err_num++;

@@ -77,6 +77,7 @@ void cmdq_util_error_disable(void);
 s32 cmdq_util_error_save(const char *str, ...);
 void cmdq_util_dump_dbg_reg(void *chan);
 void cmdq_util_track(struct cmdq_pkt *pkt);
+void cmdq_util_dump_smi(void);
 
 /* function support in platform */
 const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event);

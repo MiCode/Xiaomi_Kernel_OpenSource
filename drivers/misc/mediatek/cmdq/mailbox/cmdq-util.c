@@ -13,6 +13,10 @@
 
 #include "cmdq-util.h"
 
+#ifdef CONFIG_MTK_SMI_EXT
+#include "smi_public.h"
+#endif
+
 #define CMDQ_RECORD_NUM			128
 
 #define CMDQ_CURR_IRQ_STATUS		0x10
@@ -364,6 +368,19 @@ void cmdq_util_track(struct cmdq_pkt *pkt)
 	}
 
 	mutex_unlock(&cmdq_record_mutex);
+}
+
+void cmdq_util_dump_smi(void)
+{
+#if defined(CONFIG_MTK_SMI_EXT) && !defined(CONFIG_FPGA_EARLY_PORTING) && \
+	!defined(CONFIG_MTK_SMI_VARIANT)
+	int smi_hang;
+
+	smi_hang = smi_debug_bus_hang_detect(1, "CMDQ");
+	cmdq_util_err("smi hang:%d", smi_hang);
+#else
+	cmdq_util_err("[WARNING]not enable SMI dump now");
+#endif
 }
 
 static int __init cmdq_util_init(void)
