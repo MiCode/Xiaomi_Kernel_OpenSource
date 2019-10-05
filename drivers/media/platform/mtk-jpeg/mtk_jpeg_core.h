@@ -165,6 +165,7 @@ struct jpeg_enc_param {
 	u32 enable_exif;
 	u32 enc_quality;
 	u32 restart_interval;
+	u32 dst_offset;
 };
 
 /**

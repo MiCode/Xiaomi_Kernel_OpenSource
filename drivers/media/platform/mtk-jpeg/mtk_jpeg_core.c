@@ -159,6 +159,11 @@ static int vidioc_jpeg_s_ctrl(struct v4l2_ctrl *ctrl)
 			       ctrl->val);
 		p->enable_exif = ctrl->val;
 		break;
+	case V4L2_CID_JPEG_DST_OFFSET:
+		v4l2_dbg(2, debug, &jpeg->v4l2_dev, "V4L2_CID_JPEG_DST_OFFSET val = %d",
+			       ctrl->val);
+		p->dst_offset = ctrl->val;
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -193,6 +198,13 @@ int mtk_jpeg_ctrls_setup(struct mtk_jpeg_ctx *ctx)
 			0, 1, 1, 0);
 	if (handler->error) {
 		v4l2_err(&jpeg->v4l2_dev, "V4L2_CID_JPEG_ACTIVE_MARKER Init control handler fail %d\n",
+				handler->error);
+		return handler->error;
+	}
+	v4l2_ctrl_new_std(handler, ops, V4L2_CID_JPEG_DST_OFFSET,
+			0, 0x0FFFFFF0, 1, 0);
+	if (handler->error) {
+		v4l2_err(&jpeg->v4l2_dev, "V4L2_CID_JPEG_DST_OFFSET Init control handler fail %d\n",
 				handler->error);
 		return handler->error;
 	}
@@ -1062,8 +1074,11 @@ static void mtk_jpeg_set_enc_dst(struct mtk_jpeg_ctx *ctx,
 				 struct vb2_buffer *dst_buf,
 				 struct mtk_jpeg_enc_bs *bs)
 {
+	struct jpeg_enc_param *p = &ctx->jpeg_param;
 	bs->dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0) &
 				(~JPEG_ENC_DST_ADDR_OFFSET_MASK);
+
+	bs->dma_addr += p->dst_offset;
 	bs->dma_addr_offset = 0;
 	bs->dma_addr_offsetmask = bs->dma_addr & JPEG_ENC_DST_ADDR_OFFSET_MASK;
 	bs->size = mtk_jpeg_align(vb2_plane_size(dst_buf, 0), 128);
