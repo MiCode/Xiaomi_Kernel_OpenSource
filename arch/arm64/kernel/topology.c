@@ -305,19 +305,21 @@ static int cpu_flags(void)
 	return topology_cpu_flags();
 }
 
-static inline
+#ifndef CONFIG_MTK_UNIFY_POWER
+inline
 const struct sched_group_energy * const cpu_core_energy(int cpu)
 {
 	return sge_array[cpu][SD_LEVEL0];
 }
 
-static inline
+inline
 const struct sched_group_energy * const cpu_cluster_energy(int cpu)
 {
 	return sge_array[cpu][SD_LEVEL1];
 }
+#endif
 
-static inline
+inline
 const struct sched_group_energy * const cpu_system_energy(int cpu)
 {
 	return sge_array[cpu][SD_LEVEL2];

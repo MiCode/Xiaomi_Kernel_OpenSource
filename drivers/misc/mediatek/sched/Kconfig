@@ -1,3 +1,36 @@
+menu "MTK load balance and schedule enhancement"
+config MTK_SCHED_TRACE
+	bool "mtk scheduling trace, output mtk schedule trace into FTRACE"
+	default n
+	help
+	  MTK scheduling trace, output schedule trace into FTRACE
+	  the ftrace api for scheduling is mt_sched_printf and
+	  used for scheduling module to output info to ftrace
+	  Say Y to enable mtk scheduling trace
+
+config MTK_SCHED_DEBUG
+	bool "mtk scheduling log, also output the scheduling log into Kernel log"
+	depends on MTK_SCHED_TRACE
+	default n
+	help
+	  MTK scheduling log, add scheduling log into Kernel log.
+	  Including print scheduler debug information at KE and print load balance
+	  information at kernel log.
+	  Say no if not sure.
+
+endmenu
+menu "MTK Energy Aware Scheduler Plus"
+config MTK_SCHED_EAS_POWER_SUPPORT
+	bool "Enable MTK power calculation for EAS"
+	depends on MTK_UNIFY_POWER
+	default n
+	help
+	  Power calculation for mtk Soc.
+	  According to platform characters(share-buck..etc),
+	  return correct power of core and cluster for
+	  scheduler to refer.
+
+endmenu
 
 menu "MTK Heterogenous MultiProcessor Scheduler"
 
