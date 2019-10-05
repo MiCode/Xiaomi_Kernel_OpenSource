@@ -774,6 +774,7 @@ CONFIG_MTK_SWCHR_SUPPORT,PLATFORM,elvin.lin,,y,y,X,y,y,X,X,X,X,X,X,X,X
 CONFIG_MTK_SWPM,PLATFORM,brian-sy.yang,,X,X,y,X,X,y,y,y,y,y,y,y,y
 CONFIG_MTK_SYNC,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_SYSENV,PROJECT,ying.jiang,,,,,,,,,,,,,,
+CONFIG_MTK_TASK_TURBO,PROJECT,Jian-Min Liu,new config in this commit 40c03ca963d9e33a1c54a57f50239a80bc2ca766,X,X,X,X,X,X,X,X,X,y,y,y,y
 CONFIG_MTK_TC1_FEATURE,PROJECT,teddy.seo,,,,,,,,,,,,,,
 CONFIG_MTK_TEE_GP_SUPPORT,PROJECT,fy.yang,,,,,,,,,,,,,,
 CONFIG_MTK_THERMAL_PA_VIA_ATCMD,PROJECT,ethan.chang,,,,,,,,,,,,,,
