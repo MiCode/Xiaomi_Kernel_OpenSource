@@ -13,17 +13,17 @@
 
 /*
  * This file is generated.
- * From 20181114_Latife_MDReg_remap.xlsx
+ * From 20190808_Petrus_MDReg_remap.xlsx
  * With ap_md_reg_dump_code_gentool.py v0.1
- * Date 2018-11-14 13:02:08.887000
+ * Date 2019-08-09 11:53:08.547335
  */
 enum MD_REG_ID {
 	MD_REG_AP_MDSRC_REQ = 0,
 	MD_REG_PC_MONITOR,
 	MD_REG_PLL_REG,
 	MD_REG_BUS,
-	MD_REG_MDMCU_BUSMON,
-	MD_REG_MDINFRA_BUSMON,
+	MD_REG_BUSMON__0,
+	MD_REG_BUSMON__1,
 	MD_REG_ECT,
 	MD_REG_TOPSM_REG,
 	MD_REG_MD_RGU_REG,
@@ -31,6 +31,7 @@ enum MD_REG_ID {
 	MD_REG_CSC_REG,
 	MD_REG_ELM_REG,
 	MD_REG_USIP,
+	MD_REG_SONIC,
 };
 
 void internal_md_dump_debug_register(unsigned int md_index);
