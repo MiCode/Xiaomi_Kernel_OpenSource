@@ -99,13 +99,19 @@
 #define MTK_SIP_KERNEL_CHECK_SECURE_CG \
 	(0x8200022D | MTK_SIP_SMC_AARCH_BIT)
 
+/* Low power Misc. 1 SMC call,
+ * 0x82000230 -	0x8200023F &	0xC2000230 -	0xC200023F
+ */
 /* DCM SMC call */
 #define MTK_SIP_KERNEL_DCM \
 	(0x82000230 | MTK_SIP_SMC_AARCH_BIT)
-
 /* MCDI related SMC call */
 #define MTK_SIP_KERNEL_MCDI_ARGS \
 	(0x82000240 | MTK_SIP_SMC_AARCH_BIT)
+/* SCP DVFS related SMC call */
+#define MTK_SIP_KERNEL_SCP_DVFS_CTRL \
+	(0x82000232 | MTK_SIP_SMC_AARCH_BIT)
+
 
 /* AMMS related SMC call */
 #define MTK_SIP_KERNEL_AMMS_GET_FREE_ADDR \
@@ -139,16 +145,15 @@
 /* UFS generic SMC call */
 #define MTK_SIP_KERNEL_UFS_CTL \
 	(0x82000276 | MTK_SIP_SMC_AARCH_BIT)
-/* Cache related SMC call */
+
+/* Platform related SMC call */
 #define MTK_SIP_KERNEL_CACHE_FLUSH_FIQ \
 	(0x82000280 | MTK_SIP_SMC_AARCH_BIT)
-
 #define MTK_SIP_KERNEL_CACHE_FLUSH_INIT \
 	(0x82000281 | MTK_SIP_SMC_AARCH_BIT)
 
-/* SCP DVFS related SMC call */
-#define MTK_SIP_KERNEL_SCP_DVFS_CTRL \
-	(0x82000290 | MTK_SIP_SMC_AARCH_BIT)
+#define MTK_SIP_KERNEL_CACHE_FLUSH_BY_SF \
+	(0x82000283 | MTK_SIP_SMC_AARCH_BIT)
 
 /* Pheripheral related SMC call */
 #define MTK_SIP_KERNEL_I2C_SEC_WRITE \
