@@ -787,7 +787,7 @@ static void mrdump_mini_build_elf_misc(void)
 	} else {
 		LOGE("minirdump: unexpected addr:0x%x, size:0x%x(0x%x)\n",
 			mrdump_mini_addr, mrdump_mini_size,
-			MRDUMP_MINI_HEADER_SIZE);
+			(unsigned int)MRDUMP_MINI_HEADER_SIZE);
 		mrdump_mini_fatal("illegal addr size");
 	}
 	mrdump_mini_add_misc_pa(task_info_va, task_info_pa,
