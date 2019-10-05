@@ -216,7 +216,7 @@ int larb_clock_on(int larb, bool config_mtcmos)
 	if (larb < ARRAY_SIZE(pseudo_larb_clk_name))
 		ret = smi_bus_prepare_enable(larb,
 						 pseudo_larb_clk_name[larb]);
-	if (ret != 0) {
+	if (ret) {
 		M4U_ERR("err larb %d\n", larb);
 		ret = -1;
 	}
@@ -225,22 +225,17 @@ int larb_clock_on(int larb, bool config_mtcmos)
 	return ret;
 }
 
-
-int larb_clock_off(int larb, bool config_mtcmos)
+void larb_clock_off(int larb, bool config_mtcmos)
 {
+#ifdef CONFIG_MTK_SMI_EXT
 	int ret = 0;
 
-#ifdef CONFIG_MTK_SMI_EXT
 	if (larb < ARRAY_SIZE(pseudo_larb_clk_name))
 		ret = smi_bus_disable_unprepare(larb,
 						pseudo_larb_clk_name[larb]);
-	if (ret != 0) {
-		M4U_MSG("larb_clock_on error: larb %d\n", larb);
-		ret = -1;
-	}
+	if (ret)
+		M4U_MSG("err: larb %d\n", larb);
 #endif
-
-	return ret;
 }
 
 #ifdef M4U_MTEE_SERVICE_ENABLE
@@ -594,9 +589,8 @@ int pseudo_dump_port(int port)
 		regval, regval & F_SMI_MMU_EN,
 		F_SMI_ADDR_BIT32_VAL(regval));
 
-	ret = larb_clock_off(larb, 1);
-	if (ret < 0)
-		M4U_MSG("disable larb%d fail\n", larb);
+	larb_clock_off(larb, 1);
+
 	return ret;
 }
 
@@ -636,10 +630,7 @@ int pseudo_dump_all_port_status(struct seq_file *s)
 					regval, regval & F_SMI_MMU_EN,
 					F_SMI_ADDR_BIT32_VAL(regval));
 		}
-		ret = larb_clock_off(larb, 1);
-		if (ret < 0)
-			M4U_ERR("err disable larb%d\n",
-				larb);
+		larb_clock_off(larb, 1);
 	}
 	return ret;
 }
@@ -1354,6 +1345,7 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	struct m4u_buf_info_t *pbuf_info;
 	unsigned long long current_ts = 0;
 	struct task_struct *task;
+	bool free_table = true;
 
 	if (!dev) {
 		M4U_MSG("dev NULL!\n");
@@ -1402,9 +1394,10 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 				M4U_ERR("err sg, please set page\n");
 				goto ERR_EXIT;
 			}
-		} else
+		} else {
 			table = sg_table;
-
+			free_table = false;
+		}
 	}
 
 	if (!table && va && size)
@@ -1492,7 +1485,7 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	return 0;
 
 ERR_EXIT:
-	if (table) {
+	if (table && free_table) {
 		sg_free_table(table);
 		kfree(table);
 	}
@@ -3024,11 +3017,7 @@ static int pseudo_probe(struct platform_device *pdev)
 #else
 		j = 0;
 #endif
-		ret = larb_clock_off(i, 1);
-		if (ret < 0) {
-			M4U_MSG("larb%d clock off fail\n", i);
-			continue;
-		}
+		larb_clock_off(i, 1);
 
 		M4U_MSG("init larb%d=0x%lx\n", i, pseudo_larbbase[i]);
 	}
@@ -3150,7 +3139,7 @@ static int __pseudo_dump_iova_reserved_region(struct device *dev,
 
 	list_for_each_entry(region, &resv_regions, list)
 		M4U_PRINT_SEQ(s,
-			      ">> reserved: 0x%lx ~ 0x%lx\n",
+			      ">> reserved: 0x%llx ~ 0x%llx\n",
 			      region->start,
 			      region->start + region->length - 1);
 
