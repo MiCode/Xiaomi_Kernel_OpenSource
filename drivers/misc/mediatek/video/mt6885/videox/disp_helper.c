@@ -344,7 +344,7 @@ const char *disp_helper_stage_spy(void)
 
 void disp_helper_option_init(void)
 {
-	disp_helper_set_option(DISP_OPT_USE_CMDQ, 0);
+	disp_helper_set_option(DISP_OPT_USE_CMDQ, 1);
 #ifdef CONFIG_MTK_IOMMU_V2
 	disp_helper_set_option(DISP_OPT_USE_M4U, 1);
 #else
