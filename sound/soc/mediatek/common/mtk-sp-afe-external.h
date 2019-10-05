@@ -16,6 +16,4 @@ int mtk_audio_request_sram(dma_addr_t *phys_addr,
 			   void *user);
 void mtk_audio_free_sram(void *user);
 
-/* conditional enter suspend */
-bool mtk_audio_condition_enter_suspend(void);
 #endif

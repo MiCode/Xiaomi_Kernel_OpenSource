@@ -300,20 +300,6 @@ void mtk_audio_free_sram(void *user)
 }
 EXPORT_SYMBOL(mtk_audio_free_sram);
 
-bool mtk_audio_condition_enter_suspend(void)
-{
-	struct mt6885_afe_private *afe_priv = local_afe->platform_priv;
-
-	if (afe_priv->dai_on[MT6885_DAI_CONNSYS_I2S])
-		return false;
-
-	if (request_sram_count)
-		return false;
-
-	return true;
-}
-EXPORT_SYMBOL(mtk_audio_condition_enter_suspend);
-
 bool mtk_get_speech_status(void)
 {
 	int speech_en = 0;
