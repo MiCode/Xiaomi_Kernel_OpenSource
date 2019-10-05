@@ -3989,6 +3989,25 @@ page_owner=on";
 		#clock-cells = <1>;
 	};
 
+	venc@17000000 {
+		compatible = "mediatek,mt6885-vcodec-enc";
+		reg = <0 0x17000000 0 0x10000>,
+			<0 0x17020000 0 0x1000>;
+		mediatek,larb = <&smi_larb7>;
+		interrupts = <GIC_SPI 308 IRQ_TYPE_LEVEL_HIGH>;
+		mediatek,vcu = <&vcu>;
+		clocks =
+			<&scpsys SCP_SYS_DIS>,
+			<&scpsys SCP_SYS_VENC>,
+			<&venc_gcon VENC_GCON_SET1_VENC>,
+			<&venc_c1_gcon VENC_C1_GCON_SET1_VENC>;
+		clock-names =
+			"MT_SCP_SYS_DIS",
+			"MT_SCP_SYS_VEN",
+			"MT_CG_VENC0",
+			"MT_CG_VENC1";
+	};
+
 	smi_larb7: smi_larb7@17010000 {
 		compatible = "mediatek,smi_larb7", "mediatek,smi_larb";
 		reg = <0 0x17010000 0 0x1000>;
@@ -4087,6 +4106,53 @@ page_owner=on";
 	mbist@17860000 {
 		compatible = "mediatek,mbist";
 		reg = <0 0x17860000 0 0x10000>;
+	};
+
+	vcu: vcu@16000000 {
+		compatible = "mediatek-vcu";
+		mediatek,vcuid = <0>;
+		mediatek,vcuname = "vcu";
+		reg = <0 0x16000000 0 0x40000>,	    /* VDEC_BASE */
+			 <0 0x17020000 0 0x10000>,  /* VENC_BASE */
+			 <0 0x17820000 0 0x10000>;  /* VENC_C1_BASE */
+		mediatek,mailbox-gce = <&gce_mbox>;
+		mediatek,dec_gce_th_num = <1>;
+		mediatek,enc_gce_th_num = <2>;
+		mboxes = <&gce_mbox 16 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox 17 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox 18 0 CMDQ_THR_PRIO_1>;
+		gce-event-names = "venc_eof",
+			"venc_eof_c1", "venc_wp_2nd_done", "venc_wp_3nd_done";
+
+		gce-events =  <&gce_mbox CMDQ_EVENT_VENC_CMDQ_FRAME_DONE>,
+			<&gce_mbox CMDQ_EVENT_VENC_CMDQ_FRAME_DONE_C1>,
+			<&gce_mbox CMDQ_EVENT_VENC_C0_CMDQ_WP_2ND_STAGE_DONE>,
+			<&gce_mbox CMDQ_EVENT_VENC_C0_CMDQ_WP_3RD_STAGE_DONE>;
+
+	};
+
+	vdec@16000000 {
+		compatible = "mediatek,mt6885-vcodec-dec";
+		reg = <0 0x16000000 0 0x1000>,		/* VDEC_SYS */
+			 <0 0x16025000 0 0x1000>,		/* VDEC_MISC */
+			 <0 0x16010000 0 0x1000>, /* VDEC_LAT_MISC */
+			 <0 0x16004000 0 0x1000>; /* VDEC_RACING_CTRL */
+		mediatek,larb = <&smi_larb1>;
+		interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>;
+		mediatek,vcu = <&vcu>;
+		clocks =
+			<&scpsys SCP_SYS_DIS>,
+			<&scpsys SCP_SYS_VDEC>,
+			<&vdec_soc_gcon VDEC_SOC_GCON_VDEC_CKEN>,
+			<&vdec_gcon VDEC_GCON_VDEC_CKEN>,
+			<&vdec_soc_gcon VDEC_SOC_GCON_LAT_CKEN>;
+		clock-names =
+			"MT_SCP_SYS_DIS",
+			"MT_SCP_SYS_VDE",
+			"MT_CG_SOC",
+			"MT_CG_VDEC0",
+			"MT_CG_VDEC1";
 	};
 
 	vdec_gcon: vdec_gcon@1602f000 {

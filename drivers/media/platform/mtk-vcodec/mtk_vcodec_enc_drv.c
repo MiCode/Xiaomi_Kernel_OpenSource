@@ -265,7 +265,7 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 
 	pm = &dev->pm;
 	pm->chip_node = of_find_compatible_node(NULL,
-		NULL, "mediatek,venc_gcon");
+		NULL, "mediatek,mt6885-vcodec-enc");
 	if (pm->chip_node) {
 		for (i = VENC_SYS; i < NUM_MAX_VENC_REG_BASE; i++) {
 			res = platform_get_resource(pdev, IORESOURCE_MEM, i);
@@ -405,7 +405,7 @@ static const struct of_device_id mtk_vcodec_enc_match[] = {
 	{.compatible = "mediatek,mt2712-vcodec-enc",},
 	{.compatible = "mediatek,mt8167-vcodec-enc",},
 	{.compatible = "mediatek,mt6771-vcodec-enc",},
-	{.compatible = "mediatek,venc_gcon",},
+	{.compatible = "mediatek,mt6885-vcodec-enc",},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_vcodec_enc_match);
