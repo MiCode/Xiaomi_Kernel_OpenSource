@@ -86,7 +86,7 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 			__func__, fw->kva);
 		break;
 	default:
-		vpu_cmd_debug("%s: unknown command: %d\n", __func__, cmd);
+		vpu_cmd_debug("%s: unknown command: %d\n", __func__, op);
 		break;
 	}
 
