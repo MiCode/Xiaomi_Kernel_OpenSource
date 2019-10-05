@@ -21,27 +21,29 @@ static const struct of_device_id pmic_spmi_id_table[] = {
 	{ }
 };
 
-static void pmic_spmi_rw_test(struct regmap *map, struct device *dev)
+static int pmic_spmi_rw_test(struct regmap *map, struct device *dev)
 {
-	unsigned int rdata = 0, addr = 0;
+	unsigned int rdata = 0;
 	u8 wdata = 0;
 	int ret;
 
 	ret = regmap_read(map, MT6315_PMIC_TOP_MDB_RSV1_ADDR, &rdata);
-	if (ret < 0)
-		return;
+	if (ret)
+		return -EIO;
 
 	wdata = 0xab;
 	ret = regmap_write(map, MT6315_PMIC_TOP_MDB_RSV1_ADDR, wdata);
 	ret = regmap_read(map, MT6315_PMIC_TOP_MDB_RSV1_ADDR, &rdata);
-	if (ret < 0)
-		return;
+	if (ret)
+		return -EIO;
 
 	wdata = 0xcd;
-	ret = regmap_write(map, addr, wdata);
+	ret = regmap_write(map, MT6315_PMIC_TOP_MDB_RSV1_ADDR, wdata);
 	ret = regmap_read(map, MT6315_PMIC_TOP_MDB_RSV1_ADDR, &rdata);
-	if (ret < 0)
-		return;
+	if (ret)
+		return -EIO;
+
+	return 0;
 }
 
 static const struct regmap_config spmi_regmap_config = {
@@ -54,13 +56,16 @@ static const struct regmap_config spmi_regmap_config = {
 static int pmic_spmi_probe(struct spmi_device *sdev)
 {
 	struct regmap *regmap;
+	int ret;
 
 	regmap = devm_regmap_init_spmi_ext(sdev, &spmi_regmap_config);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
 	/* Only the first slave id for a PMIC contains this information */
-	pmic_spmi_rw_test(regmap, &sdev->dev);
+	ret = pmic_spmi_rw_test(regmap, &sdev->dev);
+	if (ret)
+		return ret;
 
 	return devm_of_platform_populate(&sdev->dev);
 }

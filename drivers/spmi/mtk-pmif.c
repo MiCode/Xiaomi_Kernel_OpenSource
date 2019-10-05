@@ -30,7 +30,7 @@
  * marco
  */
 #define PMIF_TIMEOUT    0
-#define PMIF_BRINGUP    1
+#define PMIF_BRINGUP    0
 
 /* macro for PMIF SWINF FSM */
 #define PMIF_SWINF_FSM_IDLE		0x00
@@ -541,7 +541,7 @@ static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 	if (opc >= 0x60 && opc <= 0x7F)
 		opc = PMIF_CMD_REG;
 	else if (opc >= 0x20 && opc <= 0x2F)
-		opc = PMIF_CMD_EXT_REG;
+		opc = PMIF_CMD_EXT_REG_LONG; /* wk1 opc = PMIF_CMD_EXT_REG; */
 	else if (opc >= 0x38 && opc <= 0x3F)
 		opc = PMIF_CMD_EXT_REG_LONG;
 	else
@@ -612,7 +612,7 @@ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 	if (opc >= 0x40 && opc <= 0x5F)
 		opc = PMIF_CMD_REG;
 	else if (opc <= 0x0F)
-		opc = PMIF_CMD_EXT_REG;
+		opc = PMIF_CMD_EXT_REG_LONG; /* wk1 opc = PMIF_CMD_EXT_REG; */
 	else if (opc >= 0x30 && opc <= 0x37)
 		opc = PMIF_CMD_EXT_REG_LONG;
 	else if (opc >= 0x80)
