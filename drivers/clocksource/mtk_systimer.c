@@ -32,6 +32,8 @@
 
 #ifdef CONFIG_MTK_TIMER_SYSTIMER
 
+static DEFINE_SPINLOCK(systimer_lock);
+
 #define MTK_TIMER_DBG_AEE_DUMP
 
 #ifdef MTK_TIMER_DBG_AEE_DUMP
@@ -49,8 +51,6 @@ static uint64_t     t_setevt_out;
 static uint64_t     t_hdl_in;
 static uint64_t     t_hdl_out;
 static uint64_t     t_setevt_ticks;
-
-static DEFINE_SPINLOCK(systimer_lock);
 
 #define aee_log(fmt, ...) \
 do { \
