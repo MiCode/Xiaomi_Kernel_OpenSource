@@ -746,7 +746,7 @@ static const struct file_operations debug_client_fops = {
 	.release = single_release,
 };
 
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_IOMMU_V2
 struct device *g_iommu_device;
 #endif
 static int ion_drv_probe(struct platform_device *pdev)
@@ -754,7 +754,7 @@ static int ion_drv_probe(struct platform_device *pdev)
 	int i;
 	struct ion_platform_data *pdata;
 	unsigned int num_heaps;
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_IOMMU_V2
 	struct device *dev = &pdev->dev;
 
 	if (!iommu_get_domain_for_dev(dev)) {
@@ -794,7 +794,7 @@ static int ion_drv_probe(struct platform_device *pdev)
 		ion_device_add_heap(g_ion_device, heap);
 	}
 
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_IOMMU_V2
 	g_iommu_device = dev;
 #endif
 	platform_set_drvdata(pdev, g_ion_device);
@@ -959,7 +959,7 @@ struct ion_platform_data ion_drv_platform_data = {
 	.heaps = ion_drv_platform_heaps,
 };
 
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_IOMMU_V2
 static const struct of_device_id mtk_ion_match_table[] = {
 	{.compatible = "mediatek,ion", .data = &ion_drv_platform_data},
 	{},
@@ -970,13 +970,13 @@ static struct platform_driver ion_driver = {
 	.remove = ion_drv_remove,
 	.driver = {
 		.name = "ion-drv",
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_IOMMU_V2
 		.of_match_table = mtk_ion_match_table,
 #endif
 	}
 };
 
-#ifndef CONFIG_MTK_PSEUDO_M4U
+#ifndef CONFIG_MTK_IOMMU_V2
 static struct platform_device ion_device = {
 	.name = "ion-drv",
 	.id = 0,
@@ -1015,14 +1015,14 @@ RESERVEDMEM_OF_DECLARE(ion_camera_reserve,
 static int __init ion_init(void)
 {
 	IONMSG("%s()\n", __func__);
-#ifndef CONFIG_MTK_PSEUDO_M4U
+#ifndef CONFIG_MTK_IOMMU_V2
 	if (platform_device_register(&ion_device)) {
 		IONMSG("%s platform device register failed.\n", __func__);
 		return -ENODEV;
 	}
 #endif
 	if (platform_driver_register(&ion_driver)) {
-#ifndef CONFIG_MTK_PSEUDO_M4U
+#ifndef CONFIG_MTK_IOMMU_V2
 		platform_device_unregister(&ion_device);
 #endif
 		IONMSG("%s platform driver register failed.\n", __func__);
@@ -1040,7 +1040,7 @@ static void __exit ion_exit(void)
 {
 	IONMSG("%s()\n", __func__);
 	platform_driver_unregister(&ion_driver);
-#ifndef CONFIG_MTK_PSEUDO_M4U
+#ifndef CONFIG_MTK_IOMMU_V2
 	platform_device_unregister(&ion_device);
 #endif
 }
