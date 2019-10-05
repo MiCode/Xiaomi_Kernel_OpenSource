@@ -28,7 +28,7 @@
 #include <linux/sched/clock.h>
 #include <uapi/linux/sched/types.h>
 #include "disp_drv_platform.h"
-#ifdef MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 #include "mtk_ion.h"
 #include "ion_drv.h"
 #endif
@@ -142,7 +142,7 @@ static ktime_t cmd_mode_update_timer_period;
 static int is_fake_timer_inited;
 
 static struct task_struct *primary_display_switch_dst_mode_task;
-#ifdef MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 static struct task_struct *present_fence_release_worker_task;
 #endif
 static struct task_struct *primary_path_aal_task;
@@ -1840,7 +1840,7 @@ void disp_enable_emi_force_on(unsigned int enable, void *cmdq_handle)
 {
 }
 
-#ifdef MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 static struct ion_client *ion_client;
 static struct ion_handle *sec_ion_handle;
 #endif
@@ -1848,7 +1848,7 @@ static u32 sec_mva;
 
 static int sec_buf_ion_alloc(int buf_size)
 {
-#ifdef MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 	size_t mva_size = 0;
 	unsigned long int sec_hnd = 0;
 	/* ion_phys_addr_t sec_hnd = 0; */
@@ -1915,7 +1915,7 @@ static int sec_buf_ion_alloc(int buf_size)
 
 static int sec_buf_ion_free(void)
 {
-#ifdef MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 	ion_free(ion_client, sec_ion_handle);
 	ion_client_destroy(ion_client);
 #endif
@@ -2508,7 +2508,7 @@ static int rdma_mode_switch_to_DL(struct cmdqRecStruct *handle, int block)
 static struct disp_internal_buffer_info *allocat_decouple_buffer(int size)
 {
 	struct disp_internal_buffer_info *buf_info = NULL;
-#ifdef MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 	void *buffer_va = NULL;
 	size_t mva_size = 0;
 	ion_phys_addr_t buffer_mva = 0;
@@ -3543,7 +3543,7 @@ static int primary_display_frame_update_kthread(void *data)
 	return 0;
 }
 
-#ifdef MTK_FB_ION_SUPPORT /* FIXME: remove when ION ready */
+#ifdef CONFIG_MTK_IOMMU_V2 /* FIXME: remove when ION ready */
 static int _present_fence_release_worker_thread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87 };
@@ -3692,17 +3692,22 @@ static void replace_fb_addr_to_mva(void)
 #if (defined CONFIG_MTK_M4U) || (defined CONFIG_MTK_IOMMU_V2)
 	struct ddp_fb_info fb_info;
 	int i;
+#ifdef CONFIG_MTK_IOMMU_V2
+	int mode = 0x1;
+#else
+	int mode = 0x0;
+#endif
 
 	fb_info.fb_mva = pgc->framebuffer_mva;
 	fb_info.fb_pa = pgc->framebuffer_pa;
 	fb_info.fb_size = DISP_GetFBRamSize();
 	dpmgr_path_ioctl(pgc->dpmgr_handle, pgc->cmdq_handle_config,
 		DDP_OVL_MVA_REPLACEMENT, &fb_info);
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < 15; i++) {
 		DISP_REG_SET_FIELD(pgc->cmdq_handle_config, REG_FLD_MMU_EN,
-			DISP_REG_SMI_LARB0_NON_SEC_CON + i * 4, 0x0);
+			DISP_REG_SMI_LARB0_NON_SEC_CON + i * 4, mode);
 		DISP_REG_SET_FIELD(pgc->cmdq_handle_config, REG_FLD_MMU_EN,
-			DISP_REG_SMI_LARB1_NON_SEC_CON + i * 4, 0x0);
+			DISP_REG_SMI_LARB1_NON_SEC_CON + i * 4, mode);
 	}
 #endif
 }
@@ -4039,7 +4044,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 		wake_up_process(primary_od_trigger_task);
 	}
 
-#ifdef MTK_FB_ION_SUPPORT /* FIXME: remove when ION ready */
+#ifdef CONFIG_MTK_IOMMU_V2 /* FIXME: remove when ION ready */
 	if (disp_helper_get_option(DISP_OPT_PRESENT_FENCE)) {
 		init_waitqueue_head(&primary_display_present_fence_wq);
 		present_fence_release_worker_task =

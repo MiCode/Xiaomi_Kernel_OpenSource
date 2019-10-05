@@ -187,7 +187,7 @@ struct ion_client *disp_ion_create(const char *name)
 {
 	struct ion_client *disp_ion_client = NULL;
 
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 	if (g_ion_device)
 		disp_ion_client = ion_client_create(g_ion_device, name);
 	else
@@ -207,7 +207,7 @@ struct ion_handle *disp_ion_alloc(struct ion_client *client,
 {
 	struct ion_handle *disp_handle = NULL;
 
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 	disp_handle = ion_alloc(client, size, align, heap_id_mask, 0);
 	if (IS_ERR(disp_handle)) {
 		DISPERR("disp_ion_alloc error %p\n", disp_handle);
@@ -222,7 +222,7 @@ struct ion_handle *disp_ion_alloc(struct ion_client *client,
 int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 	unsigned long *mva, unsigned long fixed_mva, int port)
 {
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 	struct ion_mm_data mm_data;
 	//struct ion_sys_data sys_data;
 	size_t mva_size;
@@ -275,7 +275,7 @@ int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 struct ion_handle *disp_ion_import_handle(struct ion_client *client, int fd)
 {
 	struct ion_handle *handle = NULL;
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 	struct ion_mm_data mm_data;
 
 	/* If no need Ion support, do nothing! */
@@ -311,7 +311,7 @@ struct ion_handle *disp_ion_import_handle(struct ion_client *client, int fd)
 
 void disp_ion_free_handle(struct ion_client *client, struct ion_handle *handle)
 {
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 	if (!client) {
 		DDPERR("invalid ion client!\n");
 		return;
@@ -327,7 +327,7 @@ void disp_ion_free_handle(struct ion_client *client, struct ion_handle *handle)
 
 void disp_ion_destroy(struct ion_client *client)
 {
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 	if (client && g_ion_device)
 		ion_client_destroy(client);
 #endif
@@ -336,14 +336,14 @@ void disp_ion_destroy(struct ion_client *client)
 void disp_ion_cache_flush(struct ion_client *client,
 	struct ion_handle *handle, enum ION_CACHE_SYNC_TYPE sync_type)
 {
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 	struct ion_sys_data sys_data;
 	void *buffer_va;
 
 	if (!client || !handle)
 		return;
 
-	if (sync_type > ION_CACHE_FLUSH_BY_RANGE_USE_PA) {
+	if (sync_type > ION_CACHE_FLUSH_BY_RANGE_USE_VA) {
 		pr_info("Cannot use ion cache flush anymore\n");
 		return;
 	}

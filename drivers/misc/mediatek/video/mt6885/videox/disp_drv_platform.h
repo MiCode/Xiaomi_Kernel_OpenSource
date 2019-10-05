@@ -43,7 +43,9 @@
 /* #define MTK_FB_SHARE_WDMA0_SUPPORT */
 
 /* #define SUPPORT_MMPROFILE */
-//#define MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMNMU_V2
+#define MTK_FB_ION_SUPPORT
+#endif
 //#define FPGA_DEBUG_PAN
 //#define DISP_SYNC_ENABLE
 #define VIDEO_LAYER_COUNT            (3)

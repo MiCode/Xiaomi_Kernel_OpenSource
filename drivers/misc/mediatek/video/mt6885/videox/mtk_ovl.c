@@ -646,7 +646,7 @@ static int ovl2mem_frame_cfg_output(struct disp_frame_cfg_t *cfg)
 	data_config->rdma_dirty = 0;
 	data_config->wdma_dirty = 1;
 	/* set_overlay will not use fence+ion handle */
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 	if (cfg->output_cfg.pa != NULL)
 		data_config->wdma_config.dstAddress =
 			(unsigned long)(cfg->output_cfg.pa);

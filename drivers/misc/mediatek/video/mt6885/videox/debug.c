@@ -59,7 +59,7 @@
 #include "disp_recovery.h"
 #include "disp_partial.h"
 #include "disp_drv_platform.h"
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 #include "mtk_ion.h"
 #include "ion_drv.h"
 #include "ion.h"
@@ -410,7 +410,7 @@ struct test_buf_info {
 
 static int alloc_buffer_from_ion(size_t size, struct test_buf_info *buf_info)
 {
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 	struct ion_client *client;
 	struct ion_mm_data mm_data;
 	struct ion_handle *handle;
@@ -544,7 +544,7 @@ out:
 
 static int release_test_buf(struct test_buf_info *buf_info)
 {
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 	if (disp_helper_get_option(DISP_OPT_USE_M4U)) {
 		/* ion buffer */
 		if (buf_info->handle)
