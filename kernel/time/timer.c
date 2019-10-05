@@ -1202,7 +1202,7 @@ int try_to_del_timer_sync(struct timer_list *timer)
 	 * to promise that other CPU can see correct lock value to avoid
 	 * starvation or unfair spinlock competition.
 	 */
-#ifndef __dma_flush_range
+#ifdef CONFIG_ARM64
 		__dma_flush_area((void *)&base->lock,
 				   sizeof(raw_spinlock_t));
 #else

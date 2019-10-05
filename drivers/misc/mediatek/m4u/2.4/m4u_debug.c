@@ -376,8 +376,7 @@ void m4u_test_ion(void)
 	ion_phys(ion_client, src_handle, &src_pa, (size_t *)&tmp_size);
 	ion_phys(ion_client, dst_handle, &dst_pa, (size_t *)&tmp_size);
 
-	M4UMSG("ion alloced: pSrc=0x%p,
-		pDst=0x%p, src_pa=%lu, dst_pa=%lu\n",
+	M4UMSG("ion alloced: pSrc=0x%p,	pDst=0x%p, src_pa=%lu, dst_pa=%lu\n",
 		pSrc, pDst, src_pa, dst_pa);
 
 	port.ePortID = M4U_PORT_DISP_OVL0;
@@ -742,16 +741,14 @@ static int m4u_debug_set(void *data, u64 val)
 
 		for (i = 0; i < 128; i++) {
 			if (*(pDst+i) != 0) {
-				M4UMSG("(4) [Error] pDst check
-					fail !!VA 0x%p: 0x%x\n",
+				M4UMSG("(4) [Error] pDst check fail !!VA 0x%p: 0x%x\n",
 					pDst+i*sizeof(unsigned char),
 					*(pDst+i));
 				break;
 			}
 		}
 		if (i == 128)
-			M4UMSG("(4) m4u_display_fake_engine_test
-				R/W 128 bytes PASS!!\n ");
+			M4UMSG("(4) m4u_display_fake_engine_test R/W 128 bytes PASS!!\n ");
 
 		vfree(pSrc);
 		vfree(pDst);

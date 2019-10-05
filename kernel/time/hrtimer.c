@@ -1053,7 +1053,7 @@ int hrtimer_try_to_cancel(struct hrtimer *timer)
 	 * starvation or unfair spinlock competition.
 	 */
 	if (ret == -1 && irqs_disabled()) {
-#ifndef __dma_flush_range
+#ifdef CONFIG_ARM64
 		__dma_flush_area((void *)&base->cpu_base->lock,
 				   sizeof(raw_spinlock_t));
 #else
