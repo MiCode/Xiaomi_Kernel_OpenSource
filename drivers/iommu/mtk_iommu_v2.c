@@ -1224,7 +1224,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		pr_notice("%s, %d, fault_iova=%lx\n",
 			  __func__, __LINE__, fault_iova);
 		m4u_dump_pgtable(1);
-		pseudo_dump_port(port_id);
+		/*pseudo_dump_port(port_id);*/
 
 		domain = __mtk_iommu_get_domain(data,
 					fault_larb, fault_port);
