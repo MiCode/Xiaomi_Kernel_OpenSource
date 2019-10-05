@@ -204,7 +204,7 @@ int ccci_platform_init(struct ccci_modem *md)
 	}
 	CCCI_INIT_LOG(-1, TAG, "infra_ao_base:0x%p\n", (void *)infra_ao_base);
 #ifdef FEATURE_LOW_BATTERY_SUPPORT
-	register_low_battery_notify(
+	register_low_battery_notify_ext(
 		&ccci_md_low_battery_cb, LOW_BATTERY_PRIO_MD);
 	register_battery_oc_notify(
 		&ccci_md_over_current_cb, BATTERY_OC_PRIO_MD);
