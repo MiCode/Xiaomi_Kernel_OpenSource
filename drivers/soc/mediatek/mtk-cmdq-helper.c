@@ -20,6 +20,9 @@
 #include <linux/dmapool.h>
 #include <linux/sched/clock.h>
 
+#ifdef CONFIG_MTK_GIC_V3_EXT
+#include <linux/irqchip/mtk-gic-extend.h>
+#endif
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 #include "cmdq-util.h"
 #endif
@@ -1381,7 +1384,7 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	if (inst) {
 		/* not sync case, print raw */
 		cmdq_util_aee(mod,
-			"%s inst:%#016llx OP:%x",
+			"%s inst:%#016llx OP:%#x",
 			mod, *(u64 *)inst, inst->op);
 	} else {
 		/* no inst available */

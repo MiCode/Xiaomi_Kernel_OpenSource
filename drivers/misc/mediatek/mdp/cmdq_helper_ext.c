@@ -3033,7 +3033,7 @@ static void cmdq_core_dump_dbg(const char *tag)
 		struct arm_smccc_res res;
 
 		arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_DEBUG,
-			0, 0, 0, 0, 0, 0, &res);
+			1, 0, 0, 0, 0, 0, &res);
 	}
 
 	/* debug select */

@@ -502,6 +502,15 @@ static dma_addr_t cmdq_task_get_end_pa(struct cmdq_pkt *pkt)
 	return buf->pa_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
 }
 
+static void *cmdq_task_get_end_va(struct cmdq_pkt *pkt)
+{
+	struct cmdq_pkt_buffer *buf;
+
+	/* let previous task jump to this task */
+	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
+	return buf->va_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
+}
+
 static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 {
 	struct cmdq *cmdq;
@@ -978,6 +987,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	u64 **inst_out, dma_addr_t *pc_out)
 {
 	struct cmdq_thread *thread = (struct cmdq_thread *)chan->con_priv;
+	struct cmdq *cmdq = container_of(thread->chan->mbox, struct cmdq, mbox);
 	unsigned long flags;
 	struct cmdq_task *task;
 	struct cmdq_pkt_buffer *buf;
@@ -989,6 +999,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	u64 *end_va, *curr_va = NULL, inst = 0, last_inst[2] = {0};
 	void *va_base = NULL;
 	dma_addr_t pa_base;
+	bool empty = true;
 
 	/* lock channel and get info */
 	spin_lock_irqsave(&chan->lock, flags);
@@ -1007,7 +1018,13 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	prefetch = readl(thread->base + CMDQ_THR_PREFETCH);
 
 	list_for_each_entry(task, &thread->task_busy_list, list_entry) {
-		curr_va = (u64 *)cmdq_task_current_va(curr_pa, task->pkt);
+		empty = false;
+
+		if (curr_pa == cmdq_task_get_end_pa(task->pkt))
+			curr_va = (u64 *)cmdq_task_get_end_va(task->pkt);
+		else
+			curr_va = (u64 *)cmdq_task_current_va(curr_pa,
+				task->pkt);
 		if (!curr_va)
 			continue;
 		inst = *curr_va;
@@ -1049,7 +1066,20 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 				cl_pkt, cl_pkt->cmd_buf_size, buf->va_base,
 				&buf->pa_base, cl_pkt->priority);
 		}
+	} else {
+		/* empty or not found case is critical */
+		cmdq_util_msg("pkt not available (%s)",
+			empty ? "thread empty" : "pc not match");
 	}
+
+/* if pc match end and irq flag on, dump irq status */
+	if (curr_pa == end_pa && irq)
+#ifdef CONFIG_MTK_GIC_V3_EXT
+		mt_irq_dump_status(cmdq->irq);
+#else
+		cmdq_util_msg("gic dump not support irq id:%u\n",
+			cmdq->irq);
+#endif
 
 	if (inst_out)
 		*inst_out = curr_va;
@@ -1057,6 +1087,33 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 		*pc_out = curr_pa;
 }
 EXPORT_SYMBOL(cmdq_thread_dump);
+
+void cmdq_thread_dump_all(void *mbox_cmdq)
+{
+	struct cmdq *cmdq = mbox_cmdq;
+	u32 i;
+	u32 en, curr_pa, end_pa;
+	unsigned long flags;
+
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
+		struct cmdq_thread *thread = &cmdq->thread[i];
+
+		if (!thread->occupied || list_empty(&thread->task_busy_list))
+			continue;
+
+		en = readl(thread->base + CMDQ_THR_ENABLE_TASK);
+		if (!en)
+			continue;
+
+		curr_pa = cmdq_thread_get_pc(thread);
+		end_pa = cmdq_thread_get_end(thread);
+
+		cmdq_util_err("thd idx:%u pc:%#x end:%#x",
+			thread->idx, curr_pa, end_pa);
+	}
+
+}
+EXPORT_SYMBOL(cmdq_thread_dump_all);
 
 void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 	struct cmdq_pkt *pkt)
@@ -1478,6 +1535,10 @@ static int cmdq_probe(struct platform_device *pdev)
 	clk_disable(cmdq->clock);
 
 	cmdq_mmp_init();
+
+#ifdef CONFIG_MTK_CMDQ_EXT
+	cmdq_util_track_ctrl(cmdq);
+#endif
 	return 0;
 }
 
@@ -1530,6 +1591,14 @@ void cmdq_mbox_disable(void *chan)
 		typeof(*cmdq), mbox);
 
 	cmdq_clk_disable(cmdq);
+}
+
+s32 cmdq_mbox_get_usage(void *chan)
+{
+	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
+		typeof(*cmdq), mbox);
+
+	return atomic_read(&cmdq->usage);
 }
 
 void *cmdq_mbox_get_base(void *chan)

@@ -16,6 +16,9 @@
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
 #endif
+#ifdef CONFIG_MTK_DEVAPC
+#include <devapc_public.h>
+#endif
 
 #define CMDQ_RECORD_NUM			128
 
@@ -95,6 +98,8 @@ struct cmdq_util {
 	struct cmdq_util_dentry	fs;
 	struct cmdq_record record[CMDQ_RECORD_NUM];
 	u8 record_idx;
+	void *cmdq_mbox[4];
+	u32 mbox_cnt;
 };
 static struct cmdq_util	util;
 
@@ -397,6 +402,32 @@ void cmdq_util_dump_smi(void)
 #endif
 }
 
+#ifdef CONFIG_MTK_DEVAPC
+static void cmdq_util_handle_devapc_vio(void)
+{
+	u32 i;
+
+	for (i = 0; i < util.mbox_cnt; i++) {
+		s32 usage = cmdq_mbox_get_usage(util.cmdq_mbox[i]);
+
+		cmdq_dump("GCE devapc vio usage:%d", usage);
+		cmdq_thread_dump_all(util.cmdq_mbox[i]);
+	}
+
+	cmdq_util_dump_smi();
+}
+
+static struct devapc_vio_callbacks devapc_vio_handle = {
+	.id = INFRA_SUBSYS_GCE,
+	.debug_dump = cmdq_util_handle_devapc_vio,
+};
+#endif
+
+void cmdq_util_track_ctrl(void *cmdq)
+{
+	util.cmdq_mbox[util.mbox_cnt++] = cmdq;
+}
+
 static int __init cmdq_util_init(void)
 {
 	struct dentry	*dir;
@@ -447,6 +478,10 @@ static int __init cmdq_util_init(void)
 		dput(dir);
 
 	cmdq_util_log_feature_set(NULL, CMDQ_LOG_FEAT_PERF);
+
+#ifdef CONFIG_MTK_DEVAPC
+	register_devapc_vio_callback(&devapc_vio_handle);
+#endif
 
 	return 0;
 }

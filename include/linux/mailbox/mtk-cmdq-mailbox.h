@@ -204,10 +204,12 @@ void cmdq_mbox_channel_stop(struct mbox_chan *chan);
 void cmdq_dump_core(struct mbox_chan *chan);
 void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	u64 **inst_out, dma_addr_t *pc_out);
+void cmdq_thread_dump_all(void *mbox_cmdq);
 void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 	struct cmdq_pkt *pkt);
 void cmdq_mbox_enable(void *chan);
 void cmdq_mbox_disable(void *chan);
+s32 cmdq_mbox_get_usage(void *chan);
 void *cmdq_mbox_get_base(void *chan);
 phys_addr_t cmdq_mbox_get_base_pa(void *chan);
 s32 cmdq_mbox_thread_reset(void *chan);

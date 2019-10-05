@@ -762,6 +762,20 @@ static void cmdq_test_err_irq(struct cmdq_test *test)
 	cmdq_msg("%s end", __func__);
 }
 
+static void cmdq_test_devapc_vio(struct cmdq_test *test)
+{
+	struct cmdq_pkt *pkt;
+	int ret;
+
+	cmdq_msg("%s", __func__);
+
+	pkt = cmdq_pkt_create(test->clt);
+	cmdq_pkt_read(pkt, NULL, 0x14000000, CMDQ_THR_SPR_IDX3);
+	ret = cmdq_pkt_flush(pkt);
+
+	cmdq_msg("%s ret:%d end", __func__, ret);
+}
+
 static void
 cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 {
@@ -826,6 +840,9 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		break;
 	case 12:
 		cmdq_test_err_irq(test);
+		break;
+	case 13:
+		cmdq_test_devapc_vio(test);
 		break;
 	default:
 		break;
