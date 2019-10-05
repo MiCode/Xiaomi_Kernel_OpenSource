@@ -253,12 +253,16 @@ static void trusted_mem_create_proc_entry(void)
 #ifdef TCORE_UT_FWK_SUPPORT
 #ifdef CONFIG_MTK_ENG_BUILD
 #define UT_MULTITHREAD_TEST_DEFAULT_WAIT_COMPLETION_TIMEOUT_MS (300000)
+#define UT_SATURATION_STRESS_ROUNDS (1)
+#define UT_SATURATION_STRESS_PMEM_MIN_CHUNK_SIZE (SIZE_8M)
 #else
 #define UT_MULTITHREAD_TEST_DEFAULT_WAIT_COMPLETION_TIMEOUT_MS (5000)
+#define UT_SATURATION_STRESS_ROUNDS (5)
+#define UT_SATURATION_STRESS_PMEM_MIN_CHUNK_SIZE (SIZE_4K)
 #endif
+
 static unsigned int ut_multithread_wait_completion_timeout_ms =
 	UT_MULTITHREAD_TEST_DEFAULT_WAIT_COMPLETION_TIMEOUT_MS;
-
 int get_multithread_test_wait_completion_time(void)
 {
 	return ut_multithread_wait_completion_timeout_ms;
@@ -268,6 +272,28 @@ module_param_named(wait_comp_ms, ut_multithread_wait_completion_timeout_ms,
 		   uint, 0644);
 MODULE_PARM_DESC(ut_multithread_wait_completion_timeout_ms,
 		 "set wait completion timeout in ms for multithread UT tests");
+
+static unsigned int ut_saturation_stress_rounds = UT_SATURATION_STRESS_ROUNDS;
+int get_saturation_stress_test_rounds(void)
+{
+	return ut_saturation_stress_rounds;
+}
+
+module_param_named(stress_rounds, ut_saturation_stress_rounds, uint, 0644);
+MODULE_PARM_DESC(ut_saturation_stress_rounds,
+		 "set rounds in ms for saturation stress tests");
+
+static unsigned int ut_saturation_stress_pmem_min_chunk_size =
+	UT_SATURATION_STRESS_PMEM_MIN_CHUNK_SIZE;
+int get_saturation_stress_pmem_min_chunk_size(void)
+{
+	return ut_saturation_stress_pmem_min_chunk_size;
+}
+
+module_param_named(pmem_min_chunk_size,
+		   ut_saturation_stress_pmem_min_chunk_size, uint, 0644);
+MODULE_PARM_DESC(ut_saturation_stress_pmem_min_chunk_size,
+		 "set pmem minimal chunk size for saturation stress tests");
 #endif
 
 static int __init trusted_mem_init(void)

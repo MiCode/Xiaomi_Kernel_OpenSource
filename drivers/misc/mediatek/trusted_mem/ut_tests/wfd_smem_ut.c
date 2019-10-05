@@ -32,6 +32,7 @@
 
 #include "private/mld_helper.h"
 #include "private/tmem_error.h"
+#include "private/tmem_proc.h"
 #include "private/tmem_utils.h"
 #include "private/ut_entry.h"
 #include "private/ut_macros.h"
@@ -188,7 +189,7 @@ static enum UT_RET_STATE wfd_smem_regmgr_run_all(struct ut_params *params)
 	ASSERT_EQ(0, ret, "alloc un-ordered size test");
 
 	params->param1 = REGMGR_REGION_FINAL_STATE_ON;
-	params->param2 = MEM_SATURATION_STREE_ROUND;
+	params->param2 = get_saturation_stress_test_rounds();
 	ret = wfd_smem_alloc_saturation_test(params);
 	ASSERT_EQ(0, ret, "alloc saturation test");
 
@@ -231,7 +232,7 @@ DEFINE_TEST_CASE_PARAM2(WFD_SMEM_UT_PROC_SATURATION,
 DEFINE_TEST_CASE_PARAM2(WFD_SMEM_UT_PROC_SATURATION_STRESS,
 			wfd_smem_alloc_saturation_test,
 			REGMGR_REGION_FINAL_STATE_OFF,
-			MEM_SATURATION_STREE_ROUND)
+			get_saturation_stress_test_rounds())
 DEFINE_TEST_CASE_PARAM1(WFD_SMEM_UT_PROC_REGION_DEFER,
 			wfd_smem_regmgr_region_defer_off_test,
 			REGMGR_REGION_FINAL_STATE_OFF)

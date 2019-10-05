@@ -283,6 +283,14 @@ enum UT_RET_STATE mem_handle_list_deinit(void)
 	return UT_STATE_PASS;
 }
 
+static u32 get_saturation_test_min_chunk_size(enum TRUSTED_MEM_TYPE mem_type)
+{
+	if (mem_type == TRUSTED_MEM_PROT)
+		return get_saturation_stress_pmem_min_chunk_size();
+
+	return tmem_core_get_min_chunk_size(mem_type);
+}
+
 static enum UT_RET_STATE
 mem_alloc_saturation_variant(enum TRUSTED_MEM_TYPE mem_type, u8 *mem_owner,
 			     bool align, bool clean)
@@ -293,7 +301,7 @@ mem_alloc_saturation_variant(enum TRUSTED_MEM_TYPE mem_type, u8 *mem_owner,
 	u32 one_more_handle;
 	int max_pool_size = get_max_pool_size(mem_type);
 	int max_items;
-	u32 min_chunk_sz = tmem_core_get_min_chunk_size(mem_type);
+	u32 min_chunk_sz = get_saturation_test_min_chunk_size(mem_type);
 
 	for (chunk_size = min_chunk_sz; chunk_size <= SIZE_16M;
 	     chunk_size *= 2) {
