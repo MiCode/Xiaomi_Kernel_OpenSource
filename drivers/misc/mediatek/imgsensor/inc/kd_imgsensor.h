@@ -334,7 +334,11 @@
 /*Others*/
 #define SHARP3D_SENSOR_ID                       0x003d
 #define T8EV5_SENSOR_ID                         0x1011
-
+#define ALPHA_0_ID                              0x0586
+#define ALPHA_1_ID                              0x0841
+#define ALPHA_2_ID                              0x0846
+#define ALPHA_3_ID                              0x2345
+#define ALPHA_4_ID                              0x2509
 /* CAMERA DRIVER NAME */
 #define CAMERA_HW_DEVNAME                       "kd_camera_hw"
 /* SENSOR DEVICE DRIVER NAME */
@@ -524,6 +528,11 @@
 #define SENSOR_DRVNAME_IMX135_MIPI_RAW_8MP      "imx135_mipi_raw_8mp"
 #define SENSOR_DRVNAME_OV13870_MIPI_RAW_5MP     "ov13870_mipi_raw_5mp"
 #define SENSOR_DRVNAME_OV8856_MIPI_RAW_5MP      "ov8856_mipi_raw_5mp"
+#define SENSOR_DRVNAME_K6885V1_64_ALPHA_0       "alpha_0"
+#define SENSOR_DRVNAME_K6885V1_64_ALPHA_1       "alpha_1"
+#define SENSOR_DRVNAME_K6885V1_64_ALPHA_2       "alpha_2"
+#define SENSOR_DRVNAME_K6885V1_64_ALPHA_3       "alpha_3"
+#define SENSOR_DRVNAME_K6885V1_64_ALPHA_4       "alpha_4"
 
 /******************************************************************************
  *

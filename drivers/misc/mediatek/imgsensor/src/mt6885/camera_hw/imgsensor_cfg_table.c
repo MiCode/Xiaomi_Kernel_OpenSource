@@ -55,7 +55,7 @@ struct IMGSENSOR_HW_CFG imgsensor_custom_config[] = {
 	},
 	{
 		IMGSENSOR_SENSOR_IDX_MAIN2,
-		IMGSENSOR_I2C_DEV_1,
+		IMGSENSOR_I2C_DEV_2,
 		{
 			{IMGSENSOR_HW_PIN_MCLK,  IMGSENSOR_HW_ID_MCLK},
 			{IMGSENSOR_HW_PIN_AVDD,  IMGSENSOR_HW_ID_GPIO},
@@ -68,7 +68,7 @@ struct IMGSENSOR_HW_CFG imgsensor_custom_config[] = {
 	},
 	{
 		IMGSENSOR_SENSOR_IDX_SUB2,
-		IMGSENSOR_I2C_DEV_1,
+		IMGSENSOR_I2C_DEV_3,
 		{
 			{IMGSENSOR_HW_PIN_MCLK,  IMGSENSOR_HW_ID_MCLK},
 			{IMGSENSOR_HW_PIN_AVDD,  IMGSENSOR_HW_ID_GPIO},
@@ -81,7 +81,7 @@ struct IMGSENSOR_HW_CFG imgsensor_custom_config[] = {
 	},
 	{
 		IMGSENSOR_SENSOR_IDX_MAIN3,
-		IMGSENSOR_I2C_DEV_1,
+		IMGSENSOR_I2C_DEV_4,
 		{
 			{IMGSENSOR_HW_PIN_MCLK,  IMGSENSOR_HW_ID_MCLK},
 			{IMGSENSOR_HW_PIN_AVDD,  IMGSENSOR_HW_ID_GPIO},
@@ -899,6 +899,74 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 			{SensorMCLK, Vol_High, 2},
 			{PDN, Vol_High, 0},
 			{RST, Vol_High, 10}
+		},
+	},
+#endif
+#if defined(K6885V1_64_ALPHA_0)
+	{
+		SENSOR_DRVNAME_K6885V1_64_ALPHA_0,
+		{
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_2800, 0},
+		/*in alph.dts file, pin avdd controls two gpio pins*/
+			/*{AVDD_1, Vol_1800, 0},*/
+			{DVDD, Vol_1100, 0},
+			{DOVDD, Vol_1800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 1}
+		},
+	},
+#endif
+#if defined(K6885V1_64_ALPHA_1)
+	{
+		SENSOR_DRVNAME_K6885V1_64_ALPHA_1,
+		{
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_2800, 0},
+			{DVDD, Vol_1100, 0},
+			{DOVDD, Vol_1800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 2}
+		},
+	},
+#endif
+#if defined(K6885V1_64_ALPHA_2)
+	{
+		SENSOR_DRVNAME_K6885V1_64_ALPHA_2,
+		{
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_2800, 0},
+			{DVDD, Vol_1200, 0},
+			{DOVDD, Vol_1800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 2}
+		},
+	},
+#endif
+#if defined(K6885V1_64_ALPHA_3)
+	{
+		SENSOR_DRVNAME_K6885V1_64_ALPHA_3,
+		{
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_2800, 0},
+			{DVDD, Vol_1200, 0},
+			{DOVDD, Vol_1800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 2}
+		},
+	},
+#endif
+#if defined(K6885V1_64_ALPHA_4)
+	{
+		SENSOR_DRVNAME_K6885V1_64_ALPHA_4,
+		{
+			{RST, Vol_High, 1},
+			{AVDD, Vol_2800, 0},
+		/*main3 has no dvdd, compatible with sub2*/
+			{DVDD, Vol_1200, 0},
+			{DOVDD, Vol_1800, 0},
+			{SensorMCLK, Vol_High, 5},
+			{RST, Vol_Low, 9}
 		},
 	},
 #endif
