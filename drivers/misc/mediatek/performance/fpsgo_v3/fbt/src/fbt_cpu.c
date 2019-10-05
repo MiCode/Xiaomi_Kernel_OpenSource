@@ -750,6 +750,7 @@ static int fbt_is_light_loading(int loading)
 }
 
 #define MAX_PID_DIGIT 7
+#define MAIN_LOG_SIZE (256)
 static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 					int check, int jerk)
 {
@@ -822,7 +823,9 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			snprintf(temp, sizeof(temp), "%d", fl->pid);
 		else
 			snprintf(temp, sizeof(temp), ",%d", fl->pid);
-		strcat(dep_str, temp);
+
+		if (strlen(dep_str) + strlen(temp) < MAIN_LOG_SIZE)
+			strncat(dep_str, temp, strlen(temp));
 	}
 
 	fpsgo_main_trace("[%d] dep-list %s", thr->pid, dep_str);
