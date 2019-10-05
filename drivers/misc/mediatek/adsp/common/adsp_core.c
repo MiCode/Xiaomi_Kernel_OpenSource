@@ -349,7 +349,7 @@ static int __init adsp_module_init(void)
 		}
 	}
 
-	adsp_deregister_feature(SYSTEM_FEATURE_ID);
+	//adsp_deregister_feature(SYSTEM_FEATURE_ID);
 	pr_info("[ADSP] module_init_done\n");
 ERROR:
 	return ret;
