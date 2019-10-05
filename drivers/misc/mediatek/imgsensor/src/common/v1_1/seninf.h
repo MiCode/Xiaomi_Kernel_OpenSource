@@ -34,6 +34,7 @@ struct SENINF {
 	struct mutex seninf_mutex;
 	atomic_t seninf_open_cnt;
 };
+extern MINT32 seninf_dump_reg(void);
 
 #endif
 

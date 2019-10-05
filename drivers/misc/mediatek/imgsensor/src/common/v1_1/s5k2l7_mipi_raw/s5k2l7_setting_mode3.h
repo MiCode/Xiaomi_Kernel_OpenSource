@@ -49,6 +49,7 @@ static struct imgsensor_info_struct _imgsensor_info_m3 =                       \
 		.grabwindow_width = 2016,				       \
 	/* record different mode's height of grabwindow */		       \
 		.grabwindow_height = 1512,				       \
+		.mipi_pixel_rate = 281000000, /* unit , ns */               \
 		.mipi_data_lp2hs_settle_dc = 85, /* unit , ns */               \
 		.max_framerate = 300                                           \
 	},                                                                     \
@@ -62,6 +63,7 @@ static struct imgsensor_info_struct _imgsensor_info_m3 =                       \
 		.grabwindow_width = 4032,				       \
 		/* record different mode's height of grabwindow */	       \
 		.grabwindow_height = 3024,                                     \
+		.mipi_pixel_rate = 512000000, /* unit , ns */               \
 		.mipi_data_lp2hs_settle_dc = 85, /* unit , ns */               \
 		.max_framerate = 300                                           \
 	},                                                                     \
@@ -75,6 +77,7 @@ static struct imgsensor_info_struct _imgsensor_info_m3 =                       \
 		.grabwindow_width = 4032,                                      \
 	/* record different mode's height of grabwindow */		       \
 		.grabwindow_height = 3024,                                     \
+		.mipi_pixel_rate = 512000000, /* unit , ns */               \
 		.mipi_data_lp2hs_settle_dc = 85, /* unit , ns */               \
 		.max_framerate = 300                                           \
 	},                                                                     \
@@ -89,6 +92,7 @@ static struct imgsensor_info_struct _imgsensor_info_m3 =                       \
 	/* record different mode's height of grabwindow */                     \
 		.grabwindow_height = 3024,				       \
 		.mipi_data_lp2hs_settle_dc = 85, /* unit , ns */               \
+		.mipi_pixel_rate = 512000000,               \
 		.max_framerate = 300                                           \
 	},                                                                     \
 	.hs_video = {                                                          \
@@ -102,6 +106,7 @@ static struct imgsensor_info_struct _imgsensor_info_m3 =                       \
 		/* record different mode's height of grabwindow */             \
 		.grabwindow_height = 756,				       \
 		.mipi_data_lp2hs_settle_dc = 85, /* unit , ns */               \
+		.mipi_pixel_rate = 361000000,               \
 		.max_framerate = 1200,                                         \
 	},                                                                     \
 	.slim_video = {                                                        \
@@ -115,6 +120,7 @@ static struct imgsensor_info_struct _imgsensor_info_m3 =                       \
 	/* record different mode's height of grabwindow */                     \
 		.grabwindow_height = 756,				       \
 		.mipi_data_lp2hs_settle_dc = 85, /* unit , ns */               \
+		.mipi_pixel_rate = 361000000,               \
 		.max_framerate = 300,                                          \
 	},                                                                     \
 	.margin = 16,                                                          \
