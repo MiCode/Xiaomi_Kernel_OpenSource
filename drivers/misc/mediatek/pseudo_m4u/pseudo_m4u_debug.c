@@ -702,12 +702,16 @@ static int m4u_debug_set(void *data, u64 val)
 	case 18:
 	{
 		int i, j;
+		unsigned int wr = 1, vir = 1, io = 0, bit32 = 0;
+		unsigned int start = 0x1000, end = 0xffffffff;
+		unsigned int port_mask = 0xffffffff;
+		unsigned int larb_mask = 0xffffffff;
 
 		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
 			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
-				mau_start_monitor(i, j, 0, 0, 1, 0, 0,
-					0x1000, 0xffffffff,
-					0xffffffff, 0xffffffff);
+				mau_start_monitor(i, j, 0, wr, vir,
+					io, bit32, start, end,
+					port_mask, larb_mask);
 		}
 	}
 	break;
