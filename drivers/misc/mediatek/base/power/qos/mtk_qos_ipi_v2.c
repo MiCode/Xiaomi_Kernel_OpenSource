@@ -21,6 +21,7 @@
 #include "mtk_qos_ipi.h"
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+static int qos_sspm_ready;
 int qos_ipi_ackdata;
 struct qos_ipi_data qos_recv_ackdata;
 
@@ -35,29 +36,8 @@ static void qos_sspm_enable(void)
 static int qos_ipi_recv_thread(void *arg)
 {
 	struct qos_ipi_data *qos_ipi_d;
-	unsigned int rdata, ret;
-
-	/* for AP to SSPM */
-	ret = mtk_ipi_register(&sspm_ipidev, IPIS_C_QOS, NULL, NULL,
-				(void *) &qos_ipi_ackdata);
-	if (ret) {
-		pr_err("[SSPM] IPIS_C_QOS ipi_register fail, ret %d\n", ret);
-		return -1;
-	}
-
-	/* for SSPM to AP */
-	ret = mtk_ipi_register(&sspm_ipidev, IPIR_I_QOS, NULL, NULL,
-				(void *) &qos_recv_ackdata);
-	if (ret) {
-		pr_err("[SSPM] IPIR_I_QOS ipi_register fail, ret %d\n", ret);
-		return -1;
-	}
-	pr_info("SSPM is ready to service IPI\n");
-
-	qos_sspm_enable();
-
+	pr_info("qos_ipi_recv_thread start!\n");
 	do {
-		rdata = 0;
 		mtk_ipi_recv(&sspm_ipidev, IPIR_I_QOS);
 
 		qos_ipi_d = &qos_recv_ackdata;
@@ -81,6 +61,7 @@ int qos_ipi_to_sspm_command(void *buffer, int slot)
 {
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	int ret;
+	struct qos_ipi_data *qos_ipi_d = buffer;
 
 	qos_ipi_ackdata = 0;
 
@@ -88,19 +69,20 @@ int qos_ipi_to_sspm_command(void *buffer, int slot)
 		IPI_SEND_POLLING, buffer,
 		slot, 10);
 	if (ret) {
-		pr_err("SSPM: plt IPI fail ret=%d\n", ret);
+		pr_info("qos ipi cmd %d send fail,ret=%d\n",
+		qos_ipi_d->cmd, ret);
 		goto error;
 	}
 
 	if (!qos_ipi_ackdata) {
-		pr_err("SSPM: plt IPI init fail, ackdata=%d\n",
-		qos_ipi_ackdata);
+		pr_info("qos ipi cmd %d ack fail, ackdata=%d\n",
+		qos_ipi_d->cmd, qos_ipi_ackdata);
 		goto error;
 	}
 
 
 
-	return 0;
+	return qos_ipi_ackdata;
 error:
 #endif
 	return -1;
@@ -109,6 +91,36 @@ error:
 void qos_ipi_init(void)
 {
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+	unsigned int ret;
+	/* for AP to SSPM */
+	ret = mtk_ipi_register(&sspm_ipidev, IPIS_C_QOS, NULL, NULL,
+				(void *) &qos_ipi_ackdata);
+	if (ret) {
+		pr_info("qos IPIS_C_QOS ipi_register fail, ret %d\n", ret);
+		qos_sspm_ready = -1;
+		return;
+	}
+
+	/* for SSPM to AP */
+	ret = mtk_ipi_register(&sspm_ipidev, IPIR_I_QOS, NULL, NULL,
+				(void *) &qos_recv_ackdata);
+	if (ret) {
+		pr_info("qos IPIR_I_QOS ipi_register fail, ret %d\n", ret);
+		qos_sspm_ready = -2;
+		return;
+	}
+	qos_sspm_enable();
+	qos_sspm_ready = 1;
+#endif
+}
+
+void qos_ipi_recv_init(void)
+{
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+	if (qos_sspm_ready != 1) {
+		pr_info("QOS SSPM not ready, recv thread not start!\n");
+		return;
+	}
 	kthread_run(qos_ipi_recv_thread, NULL, "qos_ipi_recv");
 #endif
 }
