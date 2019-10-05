@@ -2384,7 +2384,7 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	struct MFB_MSSRequest mfb_MssReq;
 	struct MFB_MSFRequest mfb_MsfReq;
 	struct MFB_USER_INFO_STRUCT *pUserInfo;
-	struct engine_requests *reqs;
+	struct engine_requests *reqs = NULL;
 	int dequeNum;
 	unsigned long flags; /* old: unsigned int flags;*/
 			     /* FIX to avoid build warning */

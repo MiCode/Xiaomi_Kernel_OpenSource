@@ -3144,8 +3144,7 @@ static signed int DIP_P2_BufQue_CTRL_FUNC(
 			P2_FrameUnit_List_Idx[property].end < 0) {
 #ifdef P2_DBG_LOG
 			IRQ_LOG_KEEPER(DIP_IRQ_TYPE_INT_DIP_A_ST, 0, _LOG_DBG,
-			"pty(%d) pD(0x%x_0x%x)MF/L(%d_%d %d) (%d %d)
-				RF/C/L(%d %d %d) (%d %d %d) cqmsk(0x%x)\n",
+			"pty(%d) pD(0x%x_0x%x)MF/L(%d_%d %d) (%d %d) RF/C/L(%d %d %d) (%d %d %d) cqmsk(0x%x)\n",
 			property,
 			param.processID,
 			param.callerID,
@@ -3167,8 +3166,7 @@ static signed int DIP_P2_BufQue_CTRL_FUNC(
 		} else {
 #ifdef P2_DBG_LOG
 			IRQ_LOG_KEEPER(DIP_IRQ_TYPE_INT_DIP_A_ST, 0, _LOG_DBG,
-			"pty(%d) pD(0x%x_0x%x) MF/L(%d_%d %d)(%d %d)
-				RF/C/L(%d %d %d) (%d %d %d) cqmsk(0x%x)\n",
+			"pty(%d) pD(0x%x_0x%x) MF/L(%d_%d %d)(%d %d) RF/C/L(%d %d %d) (%d %d %d) cqmsk(0x%x)\n",
 			property,
 			param.processID,
 			param.callerID,
