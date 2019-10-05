@@ -6856,15 +6856,17 @@ boosted_task_util(struct task_struct *task)
 {
 	unsigned long util = task_util_est(task);
 	long margin = schedtune_task_margin(task);
-	unsigned int util_min = uclamp_task_effective_util(task, UCLAMP_MIN);
+	unsigned long util_min = uclamp_task_effective_util(task, UCLAMP_MIN);
+	unsigned long util_max = uclamp_task_effective_util(task, UCLAMP_MAX);
 
 	trace_sched_boost_task(task, util, margin, util_min);
 
 	/* only boosted for heavy task */
 	if (util >= stune_task_threshold) {
-		return util + margin > util_min ? util + margin : util_min;
+		util = util + margin;
+		return clamp(util, util_min, util_max);
 	} else {
-		return util > util_min ? util : util_min;
+		return clamp(util, util_min, util_max);
 	}
 }
 
@@ -7474,7 +7476,8 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				   bool boosted, bool prefer_idle)
 {
 	unsigned long best_idle_min_cap_orig = ULONG_MAX;
-	unsigned long min_util = boosted_task_util(p);
+	unsigned long min_util = uclamp_task_effective_util(p, UCLAMP_MIN);
+	unsigned long max_util = uclamp_task_effective_util(p, UCLAMP_MAX);
 	unsigned long target_capacity = ULONG_MAX;
 	unsigned long min_wake_util = ULONG_MAX;
 	unsigned long target_max_spare_cap = 0;
@@ -7552,7 +7555,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * The target CPU can be already at a capacity level higher
 			 * than the one required to boost the task.
 			 */
-			new_util = max(min_util, new_util);
+			new_util = clamp(new_util, min_util, max_util);
 			if (new_util > capacity)
 				continue;
 
