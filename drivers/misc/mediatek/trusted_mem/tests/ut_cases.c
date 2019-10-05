@@ -131,6 +131,11 @@ static enum UT_RET_STATE tmem_alloc_saturation_test(struct ut_params *params,
 	if (ut_is_halt())
 		return UT_STATE_FAIL;
 
+	/* Make sure region online/offline is okay for single item tests */
+	ASSERT_EQ(0, tmem_core_regmgr_online(mem_type), "regmgr region online");
+	ASSERT_EQ(0, tmem_core_regmgr_offline(mem_type),
+		  "regmgr region offline");
+
 	ASSERT_EQ(0, mem_handle_list_init(mem_type), "alloc handle list check");
 	ret = mem_alloc_saturation_test(mem_type, NULL, reg_final_state, round);
 	mem_handle_list_deinit();
@@ -199,6 +204,11 @@ static enum UT_RET_STATE tmem_alloc_multithread_test(struct ut_params *params,
 	pr_info("%s:%d\n", __func__, __LINE__);
 	if (ut_is_halt())
 		return UT_STATE_FAIL;
+
+	/* Make sure region online/offline is okay for single item tests */
+	ASSERT_EQ(0, tmem_core_regmgr_online(mem_type), "regmgr region online");
+	ASSERT_EQ(0, tmem_core_regmgr_offline(mem_type),
+		  "regmgr region offline");
 
 	ASSERT_EQ(0, mem_alloc_multithread_test(mem_type), test_desc);
 	return UT_STATE_PASS;
