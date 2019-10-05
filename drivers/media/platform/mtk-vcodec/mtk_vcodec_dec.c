@@ -768,10 +768,18 @@ void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx)
 			      MTK_VDEC_MAX_W, 4, &q_data->coded_height,
 			      MTK_VDEC_MIN_H, MTK_VDEC_MAX_H, 5, 6);
 
-	q_data->sizeimage[0] = q_data->coded_width * q_data->coded_height;
-	q_data->bytesperline[0] = q_data->coded_width;
-	q_data->sizeimage[1] = q_data->sizeimage[0] / 2;
-	q_data->bytesperline[1] = q_data->coded_width;
+	if (q_data->fmt->num_planes == 1) {
+		q_data->sizeimage[0] =
+			q_data->coded_width * q_data->coded_height * 3/2;
+		q_data->bytesperline[0] = q_data->coded_width;
+
+	} else if (q_data->fmt->num_planes == 2) {
+		q_data->sizeimage[0] =
+			q_data->coded_width * q_data->coded_height;
+		q_data->bytesperline[0] = q_data->coded_width;
+		q_data->sizeimage[1] = q_data->sizeimage[0] / 2;
+		q_data->bytesperline[1] = q_data->coded_width;
+	}
 }
 
 static int mtk_vdec_set_param(struct mtk_vcodec_ctx *ctx)
