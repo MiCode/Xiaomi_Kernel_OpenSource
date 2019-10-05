@@ -17,17 +17,21 @@
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/mtk-cmdq-mailbox.h>
 
-#define CMDQ_SPR_FOR_TEMP		(0)
+#define CMDQ_SPR_FOR_TEMP		0
 #define CMDQ_THR_SPR_IDX0		0
 #define CMDQ_THR_SPR_IDX1		1
 #define CMDQ_THR_SPR_IDX2		2
 #define CMDQ_THR_SPR_IDX3		3
-#define CMDQ_THR_SPR_MAX		(4)
+#define CMDQ_THR_SPR_MAX		4
+#define CMDQ_TPR_ID			56
+#define CMDQ_HANDSHAKE_REG		59
 
-#define CMDQ_TPR_ID			(56)
-#define CMDQ_GPR_CNT_ID			(32)
-#define CMDQ_CPR_STRAT_ID		(0x8000)
+#define CMDQ_GPR_CNT_ID			32
+#define CMDQ_CPR_STRAT_ID		0x8000
 #define SUBSYS_NO_SUPPORT		99
+
+/* GCE handshake event 768~783 */
+#define CMDQ_EVENT_HANDSHAKE		768
 
 /* GCE provide 26M timer, thus each tick 1/26M second,
  * which is, 1 microsecond = 26 ticks
@@ -341,6 +345,8 @@ int cmdq_pkt_acquire_event(struct cmdq_pkt *pkt, u16 event);
 s32 cmdq_pkt_clear_event(struct cmdq_pkt *pkt, u16 event);
 
 s32 cmdq_pkt_set_event(struct cmdq_pkt *pkt, u16 event);
+
+s32 cmdq_pkt_handshake_event(struct cmdq_pkt *pkt, u16 event);
 
 s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt);
 

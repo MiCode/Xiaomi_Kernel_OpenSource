@@ -1259,6 +1259,14 @@ s32 cmdq_pkt_set_event(struct cmdq_pkt *pkt, u16 event)
 }
 EXPORT_SYMBOL(cmdq_pkt_set_event);
 
+s32 cmdq_pkt_handshake_event(struct cmdq_pkt *pkt, u16 event)
+{
+	u16 shake_bit = 1 << (event - CMDQ_EVENT_HANDSHAKE);
+
+	return cmdq_pkt_assign_command(pkt, CMDQ_HANDSHAKE_REG, shake_bit);
+}
+EXPORT_SYMBOL(cmdq_pkt_handshake_event);
+
 s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 {
 	int err;

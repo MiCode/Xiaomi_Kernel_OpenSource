@@ -1883,6 +1883,15 @@ page_owner=on";
 			<&infracfg_ao INFRACFG_AO_GCE_26M>;
 	};
 
+	cmdq-test {
+		compatible = "mediatek,cmdq-test";
+		mediatek,gce = <&gce_mbox>;
+		mmsys_config = <&mdpsys_config>;
+		mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
+		mboxes = <&gce_mbox 23 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox_m 23 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+	};
+
 	gce@10318000 {
 		compatible = "mediatek,gce";
 		reg = <0 0x10318000 0 0x4000>;
@@ -1897,11 +1906,11 @@ page_owner=on";
 			<&gce_mbox 5 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 6 0 CMDQ_THR_PRIO_3>,
 			<&gce_mbox 7 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
-			<&gce_mbox_m 19 0 CMDQ_THR_PRIO_1>,
-			<&gce_mbox_m 20 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox_m 12 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox_m 13 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox_m 14 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox_m 21 0 CMDQ_THR_PRIO_1>,
-			<&gce_mbox_m 22 0 CMDQ_THR_PRIO_1>,
-			<&gce_mbox_m 23 0 CMDQ_THR_PRIO_1>;
+			<&gce_mbox_m 22 0 CMDQ_THR_PRIO_1>;
 		disp_mutex_reg = <0x14120000 0x1000>;
 		g3d_config_base = <0x13000000 0 0xffff0000>;
 		mmsys_config_base = <0x14000000 1 0xffff0000>;

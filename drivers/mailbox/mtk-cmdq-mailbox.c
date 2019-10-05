@@ -134,6 +134,7 @@ struct cmdq {
 	atomic_t		usage;
 	struct workqueue_struct *timeout_wq;
 	struct wakeup_source	wake_lock;
+	bool			wake_locked;
 	spinlock_t		lock;
 };
 
@@ -182,24 +183,23 @@ static inline void cmdq_mmp_init(void)
 
 static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
 {
-	static bool is_locked;
 	unsigned long flags;
 	static DEFINE_SPINLOCK(cmdq_wake_lock);
 
 	spin_lock_irqsave(&cmdq_wake_lock, flags);
 
 	if (lock) {
-		if (!is_locked) {
+		if (!cmdq->wake_locked) {
 			__pm_stay_awake(&cmdq->wake_lock);
-			is_locked = true;
+			cmdq->wake_locked = true;
 		} else  {
 			/* should not reach here */
 			cmdq_err("try lock twice");
 		}
 	} else {
-		if (is_locked) {
+		if (cmdq->wake_locked) {
 			__pm_relax(&cmdq->wake_lock);
-			is_locked = false;
+			cmdq->wake_locked = false;
 		} else {
 			/* should not reach here */
 			cmdq_err("try unlock twice");
@@ -1035,7 +1035,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 		cmdq_util_msg("last inst %#016llx %#016llx",
 			last_inst[0], last_inst[1]);
 
-		if (cl_pkt != pkt) {
+		if (cl_pkt && cl_pkt != pkt) {
 			buf = list_first_entry(&pkt->buf, typeof(*buf),
 				list_entry);
 			cmdq_util_msg(
@@ -1045,8 +1045,10 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 		}
 	}
 
-	*inst_out = curr_va;
-	*pc_out = curr_pa;
+	if (inst_out)
+		*inst_out = curr_va;
+	if (pc_out)
+		*pc_out = curr_pa;
 }
 EXPORT_SYMBOL(cmdq_thread_dump);
 

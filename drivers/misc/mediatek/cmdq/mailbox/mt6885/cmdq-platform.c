@@ -89,3 +89,21 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event)
 	return "CMDQ";
 }
 EXPORT_SYMBOL(cmdq_event_module_dispatch);
+
+u32 cmdq_test_get_subsys_list(u32 **regs_out)
+{
+	static u32 regs[] = {
+		0x1f016f00,	/* VIDO_BASE_ADDR */
+		0x14116100,	/* MMSYS_CG_CON0 */
+		0x1602f10c,	/* VDEC_AXI_ASIF_CFG0 */
+		0x17000104,	/* Reserved (venc_top) */
+		0x17800104,	/* Reserved (venc_core1) */
+		0x1a000370,	/* CAMSYS_APB3_SPARE */
+		0x15020000,	/* IMGSYS1 */
+		0x15820000,	/* IMGSYS2 */
+		0x1B000000,	/* IPESYS */
+	};
+
+	*regs_out = regs;
+	return ARRAY_SIZE(regs);
+}

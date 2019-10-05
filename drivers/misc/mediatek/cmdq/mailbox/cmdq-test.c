@@ -621,6 +621,70 @@ static void cmdq_test_mbox_write(
 	clk_disable_unprepare(test->gce.clk);
 }
 
+static void cmdq_test_mbox_handshake_event(struct cmdq_test *test)
+{
+	struct cmdq_client *clt1 = test->clt, *clt2 = test->loop;
+	struct cmdq_pkt *pkt_wait, *pkt_shake;
+	int ret;
+
+	if (cmdq_mbox_get_base_pa(clt1->chan) ==
+		cmdq_mbox_get_base_pa(clt2->chan)) {
+		cmdq_msg("no handshake for 2 same client");
+		return;
+	}
+
+	pkt_wait = cmdq_pkt_create(clt1);
+	cmdq_pkt_wfe(pkt_wait, CMDQ_EVENT_HANDSHAKE);
+	cmdq_pkt_handshake_event(pkt_wait, CMDQ_EVENT_HANDSHAKE + 1);
+
+	pkt_shake = cmdq_pkt_create(clt2);
+	cmdq_pkt_handshake_event(pkt_shake, CMDQ_EVENT_HANDSHAKE);
+	cmdq_pkt_wfe(pkt_shake, CMDQ_EVENT_HANDSHAKE + 1);
+
+	cmdq_pkt_flush_async(pkt_wait, NULL, NULL);
+	ret = cmdq_pkt_flush(pkt_shake);
+
+	cmdq_pkt_wait_complete(pkt_wait);
+
+	if (ret < 0)
+		cmdq_err("shake event fail:%d", ret);
+
+	cmdq_msg("%s end", __func__);
+}
+
+u32 cmdq_test_get_subsys_list(u32 **regs_out);
+
+static void cmdq_test_mbox_subsys_access(struct cmdq_test *test)
+{
+	struct cmdq_pkt *pkt;
+	u32 *regs, count, *va, i;
+	dma_addr_t pa;
+	u8 swap_reg = CMDQ_THR_SPR_IDX1;
+	u32 pat_init = 0xdeaddead, pat_src = 0xbeefbeef;
+
+	va = cmdq_mbox_buf_alloc(test->clt->client.dev, &pa);
+	count = cmdq_test_get_subsys_list(&regs);
+
+	for (i = 0; i < count; i++) {
+		va[0] = pat_init;
+
+		pkt = cmdq_pkt_create(test->clt);
+		cmdq_pkt_write_value_addr(pkt, regs[i], pat_src, ~0);
+		cmdq_pkt_mem_move(pkt, NULL, regs[i], pa, swap_reg);
+		cmdq_pkt_flush(pkt);
+
+		if (va[0] != pat_src)
+			cmdq_err(
+				"access reg fail addr:%#x val:%#x should be:%#x",
+				regs[i], va[0], pat_src);
+
+		cmdq_pkt_destroy(pkt);
+	}
+
+	cmdq_mbox_buf_free(test->clt->client.dev, va, pa);
+	cmdq_msg("%s end", __func__);
+}
+
 static void cmdq_test_trigger(struct cmdq_test *test, const s32 id)
 {
 	switch (id < 0 ? -id : id) {
@@ -660,7 +724,6 @@ static void cmdq_test_trigger(struct cmdq_test *test, const s32 id)
 		cmdq_test_mbox_large_cmd(test);
 
 		cmdq_test_mbox_cpr(test);
-		cmdq_test_mbox_err_dump(test);
 		break;
 	case 1:
 		cmdq_test_mbox_write(test, id < 0 ? true : false, false);
@@ -692,6 +755,12 @@ static void cmdq_test_trigger(struct cmdq_test *test, const s32 id)
 		break;
 	case 9:
 		cmdq_test_mbox_err_dump(test);
+		break;
+	case 10:
+		cmdq_test_mbox_handshake_event(test);
+		break;
+	case 11:
+		cmdq_test_mbox_subsys_access(test);
 		break;
 	default:
 		break;

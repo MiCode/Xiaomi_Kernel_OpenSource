@@ -1371,7 +1371,8 @@ static void cmdq_core_dump_thread(const struct cmdqRecStruct *handle,
 
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 	if (thread <= 7) {
-		cmdq_thread_dump(cmdq_clients[thread]->chan, handle->pkt,
+		cmdq_thread_dump(cmdq_clients[thread]->chan,
+			handle ? handle->pkt : NULL,
 			NULL, NULL);
 		return;
 	}
