@@ -800,8 +800,14 @@ static int ufs_mtk_pre_pwr_change(struct ufs_hba *hba,
 	final->gear_rx = 1;
 	final->gear_tx = 1;
 #endif
-	final->lane_rx = 1;
-	final->lane_tx = 1;
+	/* Change by dts setting */
+	if (hba->lanes_per_direction == 2) {
+		final->lane_rx = 2;
+		final->lane_tx = 2;
+	} else {
+		final->lane_rx = 1;
+		final->lane_tx = 1;
+	}
 	final->hs_rate = PA_HS_MODE_B;
 	final->pwr_rx = FAST_MODE;
 	final->pwr_tx = FAST_MODE;
