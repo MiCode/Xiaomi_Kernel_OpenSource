@@ -117,13 +117,18 @@
 /* 1: mtk_tc.c supports LVTS; 0: o.w. */
 #define CFG_THERM_LVTS							(0)
 
+/* TODO: enable this */
 /* Thermal VPU throttling support */
-#define THERMAL_VPU_SUPPORT
+/* #define THERMAL_VPU_SUPPORT */
+/* Thermal MDLA throttling support */
+/* #define THERMAL_MDLA_SUPPORT */
+/* EARA_Thermal power budget allocation support */
+/* #define EARA_THERMAL_SUPPORT */
 
 /* Thermal workaround for DDR/stressapptest fail
  * 8core@OPP0 can't over 70 degreeC
  */
-#define DDR_STRESS_WORKAROUND
+/* #define DDR_STRESS_WORKAROUND */
 
 /* Perf 1st thermal config for turbo
  * Extend steady Tpcb
