@@ -45,7 +45,7 @@ static noinline int mt_secure_call_drcc(u64 function_id,
 #endif
 #endif
 
-#define SW_UDI 0
+#define SW_UDI 1
 #define DRCC_AO_REG_BASE 0x0C53B000
 #define DRCC_BASEADDR 0x0C530000
 #define DRCC_CONF0 (DRCC_BASEADDR + 0x280)
