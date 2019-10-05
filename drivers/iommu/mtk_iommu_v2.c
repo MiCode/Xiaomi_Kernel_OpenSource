@@ -692,9 +692,11 @@ int mtk_iommu_power_switch(const struct mtk_iommu_data *data,
 #ifdef IOMMU_POWER_CLK_SUPPORT
 	int ret = 0;
 
+#ifdef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
 		return 0;
 	}
+#endif
 	ret = mtk_iommu_hw_clock_power_switch(data, enable, master, !enable);
 	pr_notice("%s: %d: %s %s %s of iommu%d for %s, ret=%d\n",
 		  __func__, __LINE__,
@@ -727,7 +729,7 @@ static void __mtk_iommu_tlb_flush_all(const struct mtk_iommu_data *data)
 		return;
 	}
 
-#ifndef IOMMU_POWER_CLK_SUPPORT
+#ifdef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
 		return;
 	}
@@ -755,7 +757,7 @@ static int __mtk_iommu_tlb_sync(struct mtk_iommu_data *data)
 		return -EINVAL;
 	}
 
-#if 1 //ndef IOMMU_POWER_CLK_SUPPORT
+#ifdef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
 		data->tlb_flush_active = false;
 		return 0;
@@ -820,7 +822,7 @@ static void __mtk_iommu_tlb_add_flush_nosync(
 		return;
 	}
 
-#if 1 //ndef IOMMU_POWER_CLK_SUPPORT
+#ifdef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
 		return;
 	}
@@ -1028,8 +1030,10 @@ static inline void mtk_iommu_intr_modify_all(unsigned long enable)
 	unsigned int i = 0;
 
 	list_for_each_entry_safe(data, temp, &m4ulist, list) {
+#ifdef IOMMU_POWER_CLK_SUPPORT
 		if (data->m4uid >= IOMMU_REMOVE_POWER_ID) // fix me, @cui zhang
 			continue;
+#endif
 
 		if (!data->base  || IS_ERR(data->base)) {
 			pr_notice("%s, %d, invalid base addr\n",
@@ -1120,9 +1124,11 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		return 0;
 	}
 
+#ifdef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
 		return 0;
 	}
+#endif
 	/* Read error info from registers */
 	int_state_l2 = readl_relaxed(data->base + REG_MMU_L2_FAULT_ST);
 	int_state = readl_relaxed(data->base + REG_MMU_FAULT_ST1);
@@ -1508,9 +1514,11 @@ static int mtk_iommu_attach_pgtable(struct mtk_iommu_data *data,
 	// binding to pgtable
 	data->pgtable = pgtable;
 
+#ifdef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
 		return 0;
 	}
+#endif
 	// update HW settings
 	if (__mtk_iommu_get_pgtable_base_addr(pgtable, &pgd_pa_reg))
 		return -EFAULT;
@@ -2070,6 +2078,7 @@ static int mtk_iommu_add_device(struct device *dev)
 	// attach the device to domain before access it when create mapping
 	ret = iommu_group_add_device(group, dev);
 	iommu_group_put(group);
+	pr_notice("%s, %d\n", __func__, __LINE__);
 
 	if (ret < 0) {
 		dev_notice(dev, "%s, %d, Failed to add device to IPMMU group\n",
@@ -2088,8 +2097,11 @@ static int mtk_iommu_add_device(struct device *dev)
 		idx++;
 	}
 
-	if (!idx)
+	if (!idx) {
+		pr_notice("%s, %d invalid idx:%d\n",
+			  __func__, __LINE__, idx);
 		return -ENODEV;
+	}
 
 	data = dev->iommu_fwspec->iommu_priv;
 	iommu_device_link(&data->iommu, dev);
@@ -2869,9 +2881,11 @@ int mau_start_monitor(unsigned int m4u_id, unsigned int slave,
 		return -1;
 	}
 
+#ifdef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
 		return 0;
 	}
+#endif
 	base = data->base;
 
 	pr_notice(
@@ -2951,9 +2965,11 @@ int mau_get_config_info(struct mau_config_info *cfg)
 		return -1;
 	}
 
+#ifdef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
 		return 0;
 	}
+#endif
 	base = data->base;
 
 	cfg->start = readl_relaxed(base +
@@ -3186,9 +3202,11 @@ static int mau_reg_backup(const struct mtk_iommu_data *data)
 	int mau;
 	unsigned int real_size;
 
+#ifdef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
 		return 0;
 	}
+#endif
 	if (!g_secure_status[data->m4uid])
 		return 0;
 
@@ -3241,9 +3259,11 @@ static int mau_reg_restore(const struct mtk_iommu_data *data)
 	int mau;
 	unsigned int real_size;
 
+#ifdef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
 		return 0;
 	}
+#endif
 	if (!g_secure_status[data->m4uid])
 		return 0;
 
@@ -3294,9 +3314,11 @@ static int mtk_iommu_reg_backup(struct mtk_iommu_data *data)
 	void __iomem *base = data->base;
 	int ret = 0;
 
+#ifdef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
 		return 0;
 	}
+#endif
 	if (!base || IS_ERR((void *)(unsigned long)base)) {
 		pr_notice("%s, %d, invalid base addr\n",
 			  __func__, __LINE__);
@@ -3336,9 +3358,11 @@ static int mtk_iommu_reg_restore(struct mtk_iommu_data *data)
 	void __iomem *base = data->base;
 	int ret = 0;
 
+#ifdef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
 		return 0;
 	}
+#endif
 	if (!base || IS_ERR(base)) {
 		pr_notice("%s, %d, invalid base addr\n",
 			  __func__, __LINE__);
@@ -3432,9 +3456,11 @@ static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 	struct device_node *node = NULL;
 #endif
 
+#ifdef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4uid >= IOMMU_REMOVE_POWER_ID) { // fix me, @cui zhang
 		return 0;
 	}
+#endif
 	if (!data->base || IS_ERR(data->base)) {
 		pr_notice("%s, %d, invalid base addr\n",
 			  __func__, __LINE__);
