@@ -245,6 +245,18 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 	/* Only for SMT */
 	tpd_res_max_x = board_data->panel_max_x;
 	tpd_res_max_y = board_data->panel_max_y;
+
+	/* For unreal lcm test */
+	r = of_property_read_u32(node, "goodix,input-max-x",
+				 &board_data->input_max_x);
+	if (r)
+		err = -ENOENT;
+
+	r = of_property_read_u32(node, "goodix,input-max-y",
+				&board_data->input_max_y);
+	if (r)
+		err = -ENOENT;
+
 	r = of_property_read_u32(node, "goodix,panel-max-w",
 				&board_data->panel_max_w);
 	if (r)

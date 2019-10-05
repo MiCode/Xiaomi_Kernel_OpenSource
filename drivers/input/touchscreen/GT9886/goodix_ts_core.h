@@ -79,16 +79,11 @@
 #define GOODIX_HOTKNOT_EVENT	0x10
 
 /*touch rotate with lcm*/
-#ifndef LCM_UNREAR_RESOLUTION
-#define LCM_UNREAR_RESOLUTION
-#endif
 #ifndef TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM
 #define TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM
 #endif
 extern int tpd_res_max_x;
 extern int tpd_res_max_y;
-extern unsigned int DISP_GetScreenHeight(void);
-extern unsigned int DISP_GetScreenWidth(void);
 
 #ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
 #ifdef TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM
@@ -169,6 +164,8 @@ struct goodix_ts_board_data {
 	unsigned int power_off_delay_us;
 
 	unsigned int swap_axis;
+	unsigned int input_max_x;
+	unsigned int input_max_y;
 	unsigned int panel_max_id; /*max touch id*/
 	unsigned int panel_max_x;
 	unsigned int panel_max_y;

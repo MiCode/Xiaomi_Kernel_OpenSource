@@ -39,8 +39,6 @@
 #endif
 
 #define GOOIDX_INPUT_PHYS		"goodix_ts/input0"
-int LCM_RES_X;
-int LCM_RES_Y;
 
 struct goodix_module goodix_modules;
 
@@ -914,8 +912,10 @@ static int goodix_ts_input_report(struct input_dev *dev,
 			input_report_abs(dev, ABS_MT_TOOL_TYPE, MT_TOOL_FINGER);
 			//input_mt_report_slot_state(dev, MT_TOOL_FINGER, true);
 
-			coords->x = GTP_WARP_X(LCM_RES_X, coords->x);
-			coords->y = GTP_WARP_Y(LCM_RES_Y, coords->y);
+			coords->x = GTP_WARP_X(ts_bdata->input_max_x,
+				coords->x);
+			coords->y = GTP_WARP_Y(ts_bdata->input_max_y,
+				coords->y);
 			input_report_abs(dev, ABS_MT_POSITION_X, coords->x);
 			input_report_abs(dev, ABS_MT_POSITION_Y, coords->y);
 			input_report_abs(dev, ABS_MT_TOUCH_MAJOR, coords->w);
@@ -1307,18 +1307,11 @@ static void goodix_ts_set_input_params(struct input_dev *input_dev,
 
 	if (ts_bdata->swap_axis)
 		swap(ts_bdata->panel_max_x, ts_bdata->panel_max_y);
-#ifdef LCM_UNREAR_RESOLUTION
-		LCM_RES_X = (int)DISP_GetScreenWidth();
-		LCM_RES_Y = (int)DISP_GetScreenHeight();
-#else
-		LCM_RES_X = tpd_res_max_x;
-		LCM_RES_Y = tpd_res_max_y;
-#endif
 
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
-			0, LCM_RES_X, 0, 0);
+			0, ts_bdata->input_max_x, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
-			0, LCM_RES_Y, 0, 0);
+			0, ts_bdata->input_max_y, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
 			0, ts_bdata->panel_max_w, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_PRESSURE,
