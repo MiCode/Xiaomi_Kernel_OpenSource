@@ -4166,12 +4166,6 @@ static inline bool prepare_alloc_pages(gfp_t gfp_mask, unsigned int order,
 	ac->nodemask = nodemask;
 	ac->migratetype = gfpflags_to_migratetype(gfp_mask);
 
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-	/* No fast allocation gets into ZONE_MOVABLE */
-	if (ac->high_zoneidx == ZONE_MOVABLE)
-		ac->high_zoneidx -= 1;
-#endif
-
 	if (cpusets_enabled()) {
 		*alloc_mask |= __GFP_HARDWALL;
 		if (!ac->nodemask)
@@ -4229,6 +4223,37 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order, int preferred_nid,
 	alloc_mask = gfp_mask;
 	if (!prepare_alloc_pages(gfp_mask, order, preferred_nid, nodemask, &ac, &alloc_mask, &alloc_flags))
 		return NULL;
+
+#ifdef CONFIG_DMAUSER_PAGES
+	/*
+	 * in this test mode: (extend DMA zone to 8GB)
+	 * 1. allocate user pages from DMA zone (<4GB)
+	 * 2. allocate non-user pages from NORMAL zone to test if all h/w &
+	 * drivers work well with >4GB addresses
+	 */
+	if ((gfp_mask & GFP_HIGHUSER) == GFP_HIGHUSER)
+		gfp_mask |= GFP_DMA;
+#ifdef CONFIG_NORMALKERNEL_PAGES
+	else
+		gfp_mask &= ~GFP_DMA;
+#endif /* end CONFIG_NORMALKERNEL_PAGES */
+
+	alloc_mask = gfp_mask;
+	if (!prepare_alloc_pages(gfp_mask, order, preferred_nid,
+				nodemask, &ac, &alloc_mask, &alloc_flags))
+		return NULL;
+#endif /* end CONFIG_DMAUSER_PAGES */
+
+#ifdef CONFIG_ZONE_MOVABLE_CMA
+	/* No fast allocation gets into ZONE_MOVABLE */
+	if (ac.high_zoneidx == ZONE_MOVABLE) {
+		ac.high_zoneidx -= 1;
+		if (!prepare_alloc_pages(gfp_mask, order, preferred_nid,
+					nodemask, &ac, &alloc_mask,
+					&alloc_flags))
+			return NULL;
+	}
+#endif /* end CONFIG_ZONE_MOVABLE_CMA */
 
 	finalise_ac(gfp_mask, order, &ac);
 
