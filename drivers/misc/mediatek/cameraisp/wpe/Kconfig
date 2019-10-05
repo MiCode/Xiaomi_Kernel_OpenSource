@@ -3,7 +3,7 @@ config MTK_CAMERA_ISP_WPE_SUPPORT
 	default n
 	depends on MTK_CAMERA_ISP
 	help
-	  Warpning Engineis an important module to off-load CPU/GPU
-	  loading on te feature like Electronic Image Stabilization.
-	  The function of WPE is dedicated foe real-time image warping.
-
+	  Warpning Engineis an important module to off-load
+	  CPU/GPU loading on te feature like Electronic Image
+	  Stabilization. The function of WPE is dedicated for
+	  real-time image warping.
