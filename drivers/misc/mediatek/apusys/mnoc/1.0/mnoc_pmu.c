@@ -32,7 +32,7 @@
 /* in micro-seconds (us) */
 #define PERIOD_DEFAULT 1000
 bool cfg_timer_en;
-static cfg_timer_en_copy;
+static bool cfg_timer_en_copy;
 static u64 cfg_period;
 static struct hrtimer hr_timer;
 
