@@ -66,6 +66,7 @@ static unsigned int mt6370_timeout_ms[MT6370_CHANNEL_NUM];
 
 /* define usage count */
 static int use_count;
+static int fd_use_count;
 
 /* define RTK flashlight device */
 static struct flashlight_device *flashlight_dev_ch1;
@@ -540,12 +541,29 @@ static int mt6370_ioctl(unsigned int cmd, unsigned long arg)
 static int mt6370_open(void)
 {
 	/* Move to set driver for saving power */
+	mutex_lock(&mt6370_mutex);
+	fd_use_count++;
+	pr_debug("open driver: %d\n", fd_use_count);
+	mutex_unlock(&mt6370_mutex);
 	return 0;
 }
 
 static int mt6370_release(void)
 {
 	/* Move to set driver for saving power */
+	mutex_lock(&mt6370_mutex);
+	fd_use_count--;
+	pr_debug("close driver: %d\n", fd_use_count);
+	/* If camera NE, we need to enable pe by ourselves*/
+	if (fd_use_count == 0 && is_decrease_voltage) {
+#ifdef CONFIG_MTK_CHARGER
+		pr_info("Increase voltage level.\n");
+		charger_manager_enable_high_voltage_charging(
+				flashlight_charger_consumer, true);
+#endif
+		is_decrease_voltage = 0;
+	}
+	mutex_unlock(&mt6370_mutex);
 	return 0;
 }
 
@@ -576,7 +594,12 @@ static int mt6370_set_driver(int set)
 static ssize_t mt6370_strobe_store(struct flashlight_arg arg)
 {
 	mt6370_set_driver(1);
-	mt6370_set_scenario(
+	if (arg.decouple)
+		mt6370_set_scenario(
+			FLASHLIGHT_SCENARIO_CAMERA |
+			FLASHLIGHT_SCENARIO_DECOUPLE);
+	else
+		mt6370_set_scenario(
 			FLASHLIGHT_SCENARIO_CAMERA |
 			FLASHLIGHT_SCENARIO_COUPLE);
 	mt6370_set_level(arg.channel, arg.level);
@@ -588,7 +611,12 @@ static ssize_t mt6370_strobe_store(struct flashlight_arg arg)
 		mt6370_operate(arg.channel, MT6370_ENABLE);
 
 	msleep(arg.dur);
-	mt6370_set_scenario(
+	if (arg.decouple)
+		mt6370_set_scenario(
+			FLASHLIGHT_SCENARIO_FLASHLIGHT |
+			FLASHLIGHT_SCENARIO_DECOUPLE);
+	else
+		mt6370_set_scenario(
 			FLASHLIGHT_SCENARIO_FLASHLIGHT |
 			FLASHLIGHT_SCENARIO_COUPLE);
 	mt6370_operate(arg.channel, MT6370_DISABLE);
@@ -698,6 +726,7 @@ static int mt6370_probe(struct platform_device *pdev)
 
 	/* clear attributes */
 	use_count = 0;
+	fd_use_count = 0;
 	is_decrease_voltage = 0;
 
 	/* get RTK flashlight handler */
