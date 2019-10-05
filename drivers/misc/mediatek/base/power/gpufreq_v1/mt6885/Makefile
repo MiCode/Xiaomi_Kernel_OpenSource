@@ -15,6 +15,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/leakage_table
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)/inc/mach/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/$(CONFIG_MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
 
