@@ -65,7 +65,7 @@ static ssize_t set_edma_register(struct device *dev,
 
 	ret = kstrtouint(buf, 10, &core);
 	if (ret || core >= EDMA_SUB_NUM) {
-		dev_notice(dev, "input parameter is worng %u\n", core);
+		dev_notice(dev, "input parameter is worng\n");
 		return count;
 	}
 
