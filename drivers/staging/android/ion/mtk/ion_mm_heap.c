@@ -70,21 +70,14 @@ struct ion_mm_buffer_info {
 			printk(fmat, ##args);\
 	} while (0)
 
-#ifdef CONFIG_DMAUSER_PAGES
-static unsigned int order_gfp_flags[] = {
-	(__GFP_ZERO | __GFP_NOWARN | __GFP_NORETRY) & ~__GFP_RECLAIM,
-	(__GFP_ZERO | __GFP_NOWARN | __GFP_NORETRY) & ~__GFP_DIRECT_RECLAIM,
-	(__GFP_ZERO | __GFP_NOWARN)
-};
-#else
 static unsigned int order_gfp_flags[] = {
 	(GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN | __GFP_NORETRY) &
 	    ~__GFP_RECLAIM,
 	(GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN | __GFP_NORETRY) &
 	    ~__GFP_DIRECT_RECLAIM,
-	(GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN)
+	(GFP_HIGHUSER | __GFP_ZERO)
 };
-#endif
+
 static const unsigned int orders[] = { 4, 1, 0 };
 
 /* static const unsigned int orders[] = {8, 4, 0}; */
@@ -713,6 +706,10 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 	struct ion_mm_buf_debug_info *pdbg;
 	unsigned long long current_ts;
 
+	current_ts = sched_clock();
+	do_div(current_ts, 1000000);
+	seq_printf(s, "time 3 %lld ms\n", current_ts);
+
 	for (i = 0; i < num_orders; i++) {
 		struct ion_page_pool *pool = sys_heap->pools[i];
 
@@ -754,6 +751,11 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 			     "dbg_name");
 
 	mutex_lock(&dev->buffer_lock);
+
+	current_ts = sched_clock();
+	do_div(current_ts, 1000000);
+	seq_printf(s, "time 4 %lld ms\n", current_ts);
+
 	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
 		struct ion_buffer
 		*buffer = rb_entry(n, struct ion_buffer, node);
@@ -777,11 +779,19 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 			has_orphaned = true;
 	}
 
+	current_ts = sched_clock();
+	do_div(current_ts, 1000000);
+	seq_printf(s, "time 5 %lld ms\n", current_ts);
+
 	if (has_orphaned) {
 		ION_PRINT_LOG_OR_SEQ(s,
 				     "-----orphaned buffer list:------------------\n");
 		ion_dump_all_share_fds(s);
 	}
+
+	current_ts = sched_clock();
+	do_div(current_ts, 1000000);
+	seq_printf(s, "time 6 %lld ms\n", current_ts);
 
 	mutex_unlock(&dev->buffer_lock);
 
