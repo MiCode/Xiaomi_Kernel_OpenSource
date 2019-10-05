@@ -165,8 +165,7 @@ static bool trusty_virtio_notify(struct virtqueue *vq)
 		atomic_set(&tvr->needs_kick, 1);
 		queue_work(tctx->kick_wq, &tctx->kick_vqs);
 	} else {
-		trusty_enqueue_nop(tctx->dev->parent, &tvr->kick_nop,
-				   tctx->tee_id);
+		trusty_enqueue_nop(tctx->dev->parent, &tvr->kick_nop);
 	}
 
 	return true;
@@ -359,8 +358,8 @@ static struct virtqueue *_find_vq(struct virtio_device *vdev,
 	 */
 	tvr->vr_descr->pa = (u32) ((u64) pa >> 32);
 
-	dev_info(&vdev->dev, "vring%d: va(pa)  %p(%llx) qsz %d notifyid %d\n",
-		 id, tvr->vaddr, (u64) tvr->paddr, tvr->elem_num,
+	dev_info(&vdev->dev, "vr%d: [%s] va(pa)  %p(%llx) qsz %d notifyid %d\n",
+		 id, name, tvr->vaddr, (u64)tvr->paddr, tvr->elem_num,
 		 tvr->notifyid);
 
 	/* Linux API vring_new_virtqueue is different in kernel 4.14 and 4.9 */
@@ -496,6 +495,26 @@ err_register:
 	return ret;
 }
 
+static int trusty_set_tee_name(struct trusty_ctx *tctx,
+				  struct tipc_dev_config *cfg)
+{
+	struct device_node *node = tctx->dev->parent->of_node;
+	char *str;
+
+	if (!node) {
+		dev_info(tctx->dev, "[%s] of_node required\n", __func__);
+		return -EINVAL;
+	}
+
+	of_property_read_string(node, "tee_name", (const char **)&str);
+	strncpy(cfg->dev_name.tee_name, str, MAX_MINOR_NAME_LEN);
+	cfg->dev_name.tee_name[sizeof(str) - 1] = '\0';
+	pr_info("[%s] of read tee_name: %s\n",
+		__func__, cfg->dev_name.tee_name);
+
+	return 0;
+}
+
 static int trusty_parse_device_descr(struct trusty_ctx *tctx,
 				     void *descr_va, size_t descr_sz)
 {
@@ -576,6 +595,7 @@ static int trusty_parse_device_descr(struct trusty_ctx *tctx,
 		vr = (struct fw_rsc_vdev_vring *)vd->vring;
 		cfg = (void *)(vr + vd->num_of_vrings);
 
+		trusty_set_tee_name(tctx, cfg);
 		trusty_virtio_add_device(tctx, vd, vr, cfg);
 	}
 
@@ -684,7 +704,7 @@ err_load_descr:
 	return ret;
 }
 
-static struct workqueue_attrs *attrs[TEE_NUM];
+static struct workqueue_attrs *attrs[TEE_ID_END];
 
 /* parse dtsi to find big core and set to mask */
 static int bind_big_core(struct cpumask *mask)
