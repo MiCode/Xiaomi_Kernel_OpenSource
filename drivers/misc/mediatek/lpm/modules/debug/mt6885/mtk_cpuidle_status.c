@@ -13,7 +13,7 @@
 #include <linux/tick.h>
 #include <linux/timer.h>
 
-#include <mboot_params.h>
+//FIXME #include <mboot_params.h>
 #include <mtk_lpm.h>
 
 #include <mtk_lp_plat_reg.h>
@@ -546,9 +546,9 @@ static int mtk_cpuidle_status_update(struct notifier_block *nb,
 			mtk_cpuidle_dump_info();
 
 	} else if (action & MTK_LPM_NB_RESUME) {
-
-		aee_rr_rec_mcdi_val(nb_data->cpu,
-				(nb_data->index << 16) | 0x0);
+		//FIXME
+		//aee_rr_rec_mcdi_val(nb_data->cpu,
+		//		(nb_data->index << 16) | 0x0);
 		mtk_idle = &per_cpu(mtk_cpuidle_dev, nb_data->cpu);
 		mtk_idle->info.idle_index = -1;
 		mtk_idle->info.cnt[nb_data->index]++;
@@ -572,9 +572,9 @@ static int mtk_cpuidle_status_update(struct notifier_block *nb,
 		mtk_idle->info.enter_time_ns = sched_clock();
 
 		mtk_cpuidle_set_timer(mtk_idle);
-
-		aee_rr_rec_mcdi_val(nb_data->cpu,
-				(nb_data->index << 16) | 0xff);
+		//FIXME
+		//aee_rr_rec_mcdi_val(nb_data->cpu,
+		//		(nb_data->index << 16) | 0xff);
 	}
 
 	return NOTIFY_OK;
