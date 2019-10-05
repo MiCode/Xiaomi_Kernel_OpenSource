@@ -39,18 +39,12 @@
 
 /* On opp table, low vgpu will use the same vsram.
  * And hgih vgpu will have the same diff with vsram.
- * ex:
- * vgpu  vsram
- * 76875 86875 (diff = 10000)
- * 75625 85625 (diff = 10000)
- * 75000 74375 (below [vgpu 75000], all vsram is 74735
- * 74375 74375
- * 73750 74375
  *
- * FIXED_VSRAM_VOLT = 74375
- * FIXED_VSRAM_VOLT_THSRESHOLD = 75000
- * FIXED_VSRAM_VOLT_DIFF = 10000
- *
+ * if (vgpu <= FIXED_VSRAM_VOLT_THSRESHOLD) {
+ *     vsram = FIXED_VSRAM_VOLT;
+ * } else {
+ *     vsram = vgpu + FIXED_VSRAM_VOLT_DIFF;
+ * }
  */
 #define FIXED_VSRAM_VOLT                (75000)
 #define FIXED_VSRAM_VOLT_THSRESHOLD     (75000)

@@ -2800,14 +2800,14 @@ static int __mt_gpufreq_init_pmic(struct platform_device *pdev)
 		return -ENOMEM;
 
 	/* VGPU is MT6359's VGPU11 buck */
-	g_pmic->reg_vgpu = regulator_get(&pdev->dev, "vgpu11");
+	g_pmic->reg_vgpu = regulator_get(&pdev->dev, "vgpu");
 	if (IS_ERR(g_pmic->reg_vgpu)) {
 		gpufreq_pr_info("@%s: cannot get VGPU\n", __func__);
 		return PTR_ERR(g_pmic->reg_vgpu);
 	}
 
 	/* VSRAM_GPU is MT6359's VPU buck */
-	g_pmic->reg_vsram_gpu = regulator_get(&pdev->dev, "vpu");
+	g_pmic->reg_vsram_gpu = regulator_get(&pdev->dev, "vsram_gpu");
 	if (IS_ERR(g_pmic->reg_vsram_gpu)) {
 		gpufreq_pr_info("@%s: cannot get VSRAM_GPU\n", __func__);
 		return PTR_ERR(g_pmic->reg_vsram_gpu);
