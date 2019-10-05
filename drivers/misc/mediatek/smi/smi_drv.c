@@ -45,12 +45,12 @@
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #if IS_ENABLED(CONFIG_MACH_MT6885)
-#include <sspm_ipi_table.h>
+#include <sspm_ipi_id.h>
 #else
 #include <v1/sspm_ipi.h>
 #include <sspm_define.h>
-#endif
 #include <sspm_reservedmem_define.h>
+#endif
 #endif
 
 #define DEV_NAME "MTK_SMI"
