@@ -77,7 +77,7 @@ void eara_thrm_update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
 int eara_thrm_get_vpu_core_num(void)
 {
 #if defined(CONFIG_MTK_VPU_SUPPORT) || defined(CONFIG_MTK_APUSYS_SUPPORT)
-	return 0;
+	return 3;
 #else
 	return 0;
 #endif
@@ -86,7 +86,7 @@ int eara_thrm_get_vpu_core_num(void)
 int eara_thrm_get_mdla_core_num(void)
 {
 #if defined(CONFIG_MTK_MDLA_SUPPORT) || defined(CONFIG_MTK_APUSYS_SUPPORT)
-	return 0;
+	return 2;
 #else
 	return 0;
 #endif

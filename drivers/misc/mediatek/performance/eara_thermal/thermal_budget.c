@@ -51,7 +51,6 @@
 
 #include <tscpu_settings.h>
 
-#ifdef API_READY
 #ifdef THERMAL_VPU_SUPPORT
 #if defined(CONFIG_MTK_APUSYS_SUPPORT)
 #include "apu_power_table.h"
@@ -69,7 +68,6 @@
 #elif defined(CONFIG_MTK_MDLA_SUPPORT)
 #include "mdla_dvfs.h"
 #define EARA_THERMAL_MDLA_SUPPORT
-#endif
 #endif
 #endif
 
@@ -1996,10 +1994,10 @@ void eara_thrm_pb_enqueue_end(int pid, int gpu_time,
 		}
 	} else {
 #ifdef EARA_THERMAL_VPU_SUPPORT
-		temp_vpu_power = min_vpu_power;
+		temp_vpu_power = apthermolmt_get_vpu_min_power();
 #endif
 #ifdef EARA_THERMAL_MDLA_SUPPORT
-		temp_mdla_power = min_mdla_power;
+		temp_mdla_power = apthermolmt_get_mdla_min_power();
 #endif
 	}
 
@@ -2684,10 +2682,15 @@ static void update_vpu_info(void)
 
 	for (opp = 0; opp < g_vpu_opp_num; opp++) {
 		vpu_dvfs_tbl.power[opp] = vpu_power_table[opp].power;
+#ifdef API_READY
 		vpu_dvfs_tbl.freq[opp] = get_vpu_opp_to_freq(opp);
 		vpu_dvfs_tbl.cap[opp] =
 			get_vpu_opp_to_freq(opp) * 100 /
 			get_vpu_opp_to_freq(0);
+#else
+		vpu_dvfs_tbl.freq[opp] = 0;
+		vpu_dvfs_tbl.cap[opp] = 0;
+#endif
 	}
 
 	vpu_num = eara_thrm_get_vpu_core_num();
@@ -2696,6 +2699,7 @@ static void update_vpu_info(void)
 		for (i = 0; i < vpu_num; i++)
 			g_vpu_opp[i] = -1;
 	}
+
 	min_vpu_power = vpu_dvfs_tbl.power[g_vpu_opp_num - 1];
 #endif
 }
@@ -2729,10 +2733,15 @@ static void update_mdla_info(void)
 
 	for (opp = 0; opp < g_mdla_opp_num; opp++) {
 		mdla_dvfs_tbl.power[opp] = mdla_power_table[opp].power;
+#ifdef API_READY
 		mdla_dvfs_tbl.freq[opp] = get_mdla_opp_to_freq(opp);
 		mdla_dvfs_tbl.cap[opp] =
 			get_mdla_opp_to_freq(opp) * 100 /
 			get_mdla_opp_to_freq(0);
+#else
+		mdla_dvfs_tbl.freq[opp] = 0;
+		mdla_dvfs_tbl.cap[opp] = 0;
+#endif
 	}
 
 	mdla_num = eara_thrm_get_mdla_core_num();
@@ -2741,6 +2750,7 @@ static void update_mdla_info(void)
 		for (i = 0; i < mdla_num; i++)
 			g_mdla_opp[i] = -1;
 	}
+
 	min_mdla_power = mdla_dvfs_tbl.power[g_mdla_opp_num - 1];
 #endif
 }
