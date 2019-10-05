@@ -4430,6 +4430,8 @@ page_owner=on";
 		compatible = "mediatek,fdvt";
 		reg = <0 0x1b001000 0 0x1000>;
 		interrupts = <GIC_SPI 357 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&ipesys_config IPESYS_FD_CGPDN>;
+		clock-names = "FD_CLK_IPE_FD";
 	};
 
 	fe@1b002000 {

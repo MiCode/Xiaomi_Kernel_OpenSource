@@ -156,11 +156,11 @@ struct FDVT_CLK_STRUCT fdvt_clk;
 #endif
 
 #define FDVT_DEV_NAME "camera-fdvt"
-#define EP_NO_CLKMGR // GASPER ADD
+//#define EP_NO_CLKMGR // GASPER ADD
 #define BYPASS_REG (0)
 /* #define FDVT_WAITIRQ_LOG */
 #define FDVT_USE_GCE
-#define FDVT_DEBUG_USE
+//#define FDVT_DEBUG_USE
 #define DUMMY_FDVT (0)
 /* #define FDVT_MULTIPROCESS_TIMEING_ISSUE */
 /*I can' test the situation in FPGA due to slow FPGA. */
@@ -1429,7 +1429,7 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 	cmdqRecWrite(handle, FDVT_RDB_1_CON3_HW, 0x0, CMDQ_REG_MASK);
 #endif
 
-#if 1 //add for fpga
+#if 0 //add for fpga
 #define IPESYS_BASE           (0x1b000000)
 #define IPESYS_IMG_CG_CLR     ((int)(0x008))
 #define SMI_LARB8_BASE        (0x1b00F000)
@@ -1437,8 +1437,9 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 #define SMI_LARB_SEC_CON      ((int)(0xf80))
 	cmdqRecWrite(handle, IPESYS_BASE + IPESYS_IMG_CG_CLR, 0xFFFFFFFF,
 		     CMDQ_REG_MASK);
-	/*FDVT at port0 to port3 */
+#endif
 #if 0
+	/*FDVT at port0 to port3 */
 	for (i = 0; i < 4; i++) {
 		cmdqRecWrite(handle,
 			     SMI_LARB8_BASE + SMI_LARB_NON_SEC_CON + 4 * i,
@@ -1448,7 +1449,7 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 			     0x00000000, CMDQ_REG_MASK);
 	}
 #endif
-#endif
+
 	if (basic_config->FD_MODE == 0) {
 		cmdqRecWrite(handle, FDVT_ENABLE_HW, 0x00000111,
 			     CMDQ_REG_MASK);
@@ -1684,7 +1685,7 @@ static inline void fdvt_prepare_enable_ccf_clock(void)
 	if (ret)
 		log_err("cannot prepare and enable CG_IMGSYS_LARB clock\n");
 #else
-	smi_bus_prepare_enable(SMI_LARB8, "camera-fdvt");
+	smi_bus_prepare_enable(SMI_LARB20, "camera-fdvt");
 #endif
 	ret = clk_prepare_enable(fdvt_clk.CG_IPESYS_FD);
 	if (ret)
@@ -1712,7 +1713,7 @@ static inline void fdvt_disable_unprepare_ccf_clock(void)
 	clk_disable_unprepare(fdvt_clk.CG_MM_SMI_COMMON);
 	clk_disable_unprepare(fdvt_clk.CG_SCP_SYS_MM0);
 #else
-	smi_bus_disable_unprepare(SMI_LARB8, "camera-fdvt");
+	smi_bus_disable_unprepare(SMI_LARB20, "camera-fdvt");
 #endif
 }
 #endif
