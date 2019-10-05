@@ -127,6 +127,7 @@ struct cmdq_pkt {
 	struct cmdq_task_cb	err_cb;
 	void			*user_data;
 	void			*cl;
+	struct device		*dev;	/* client assigned dev */
 	bool			loop;
 	void			*flush_item;
 	void			*buf_pool;

@@ -379,7 +379,7 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 	if (buf->va_base)
 		buf->use_pool = true;
 	else	/* allocate directly */
-		buf->va_base = cmdq_mbox_buf_alloc(cl->chan->mbox->dev,
+		buf->va_base = cmdq_mbox_buf_alloc(pkt->dev,
 			&buf->pa_base);
 
 	if (!buf->va_base) {

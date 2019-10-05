@@ -1243,6 +1243,9 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 
 	if (handle->thread != CMDQ_INVALID_THREAD)
 		handle->pkt->cl = cmdq_helper_mbox_client(handle->thread);
+
+	/* assign cmdq dev to pkt which may use in dma alloc */
+	handle->pkt->dev = cmdq_dev_get();
 #endif
 
 	/* assign handle to pkt */
