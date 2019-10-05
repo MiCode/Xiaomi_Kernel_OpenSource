@@ -2625,10 +2625,9 @@ static int eemg_probe(struct platform_device *pdev)
 		return 0;
 	}
 
-	ret = mt_gpufreq_not_ready();
-	if (ret == EPROBE_DEFER) {
-		eemg_error("Check gpu status for EEMGPU:%d\n", ret);
-		return ret;
+	if (mt_gpufreq_not_ready()) {
+		eemg_error("Check gpu status for EEMGPU\n");
+		return EPROBE_DEFER;
 	}
 
 	/* Setup IO addresses */
