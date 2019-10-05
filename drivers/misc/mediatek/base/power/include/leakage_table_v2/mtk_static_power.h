@@ -53,32 +53,6 @@
 #include "mtk_static_power_mt6885.h"
 #endif
 
-/*
- * bit operation
- */
-#undef  BIT
-#define BIT(bit)	(1U << (bit))
-
-#define MSB(range)	(1 ? range)
-#define LSB(range)	(0 ? range)
-/**
- * Genearte a mask wher MSB to LSB are all 0b1
- * @r:	Range in the form of MSB:LSB
- */
-#define BITMASK(r)	\
-	(((unsigned int) -1 >> (31 - MSB(r))) & ~((1U << LSB(r)) - 1))
-
-/**
- * Set value at MSB:LSB. For example, BITS(7:3, 0x5A)
- * will return a value where bit 3 to bit 7 is 0x5A
- * @r:	Range in the form of MSB:LSB
- */
-/* BITS(MSB:LSB, value) => Set value at MSB:LSB  */
-#define BITS(r, val)	((val << LSB(r)) & BITMASK(r))
-
-#define GET_BITS_VAL(_bits_, _val_) \
-	(((_val_) & (BITMASK(_bits_))) >> ((0) ? _bits_))
-
 extern u32 get_devinfo_with_index(u32 index);
 
 /*

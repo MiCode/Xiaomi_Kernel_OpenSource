@@ -28,7 +28,7 @@
 #include <mt-plat/mtk_chip.h>
 
 /* local include */
-#include "mach/mtk_cpufreq_api.h"
+//#include "mach/mtk_cpufreq_api.h"
 #include "mtk_upower.h"
 #include "mtk_unified_power_data.h"
 #include "mtk_devinfo.h"
@@ -42,22 +42,22 @@
 #undef  BIT
 #define BIT(bit)	(1U << (bit))
 
-#define M6785T(range)	(1 ? range)
-#define L6785T(range)	(0 ? range)
+#define M6885T(range)	(1 ? range)
+#define L6885T(range)	(0 ? range)
 /**
- * Genearte a mask wher M6785T to L6785T are all 0b1
- * @r:	Range in the form of M6785T:L6785T
+ * Genearte a mask wher M6885T to L6885T are all 0b1
+ * @r:	Range in the form of M6885T:L6885T
  */
 #define BITMASK(r)	\
-	(((unsigned int) -1 >> (31 - M6785T(r))) & ~((1U << L6785T(r)) - 1))
+	(((unsigned int) -1 >> (31 - M6885T(r))) & ~((1U << L6885T(r)) - 1))
 
 /**
- * Set value at M6785T:L6785T. For example, BITS(7:3, 0x5A)
+ * Set value at M6885T:L6885T. For example, BITS(7:3, 0x5A)
  * will return a value where bit 3 to bit 7 is 0x5A
- * @r:	Range in the form of M6785T:L6785T
+ * @r:	Range in the form of M6885T:L6885T
  */
-/* BITS(M6785T:L6785T, value) => Set value at M6785T:L6785T  */
-#define BITS(r, val)	((val << L6785T(r)) & BITMASK(r))
+/* BITS(M6885T:L6885T, value) => Set value at M6885T:L6885T  */
+#define BITS(r, val)	((val << L6885T(r)) & BITMASK(r))
 
 #define GET_BITS_VAL(_bits_, _val_)   \
 	(((_val_) & (BITMASK(_bits_))) >> ((0) ? _bits_))
@@ -78,7 +78,7 @@ int degree_set[NR_UPOWER_DEGREE] = {
 #define INIT_UPOWER_TBL_INFOS(name, tbl) {__stringify(name), &tbl}
 struct upower_tbl_info
 	upower_tbl_infos_list[NR_UPOWER_TBL_LIST][NR_UPOWER_BANK] = {
-	/* 6785 */
+	/* 6885 */
 	[0] = {
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
 				upower_tbl_l_6885),
@@ -90,33 +90,6 @@ struct upower_tbl_info
 				upower_tbl_cluster_b_6885),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
 				upower_tbl_cci_6885),
-	},
-	/* 6785T */
-	[1] = {
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
-				upower_tbl_l_6885T),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
-				upower_tbl_b_6885T),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
-				upower_tbl_cluster_l_6885T),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
-				upower_tbl_cluster_b_6885T),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
-				upower_tbl_cci_6885T),
-	},
-
-	/* 6783 */
-	[2] = {
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
-				upower_tbl_l_6883),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
-				upower_tbl_b_6883),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
-				upower_tbl_cluster_l_6883),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
-				upower_tbl_cluster_b_6883),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
-				upower_tbl_cci_6883),
 	},
 
 };
@@ -217,7 +190,7 @@ void get_original_table(void)
 	unsigned short idx = 0; /* default use MT6771T_6785 */
 	int i, j;
 
-	idx = mt_cpufreq_get_cpu_level();
+	//idx = mt_cpufreq_get_cpu_level();
 
 	/* get location of reference table */
 	upower_tbl_infos = &upower_tbl_infos_list[idx][0];

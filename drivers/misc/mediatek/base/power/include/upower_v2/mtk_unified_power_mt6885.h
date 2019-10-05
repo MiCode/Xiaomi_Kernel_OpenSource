@@ -27,7 +27,7 @@
 extern "C" {
 #endif
 
-#define UPOWER_NOT_READY (1)
+/* #define UPOWER_NOT_READY (1) */
 #define EEM_NOT_SET_VOLT (1)
 #define UPOWER_ENABLE (1)
 #define EEM_DISABLE (1)
