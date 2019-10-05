@@ -73,12 +73,11 @@ enum DVFS_VOLTAGE_DOMAIN {
 
 
 enum DVFS_BUCK {
+	SRAM_BUCK = -1,	// sepcial case for VSRAM constraint
 	VPU_BUCK = 0,
 	MDLA_BUCK = 1,
 	VCORE_BUCK = 2,
 	APUSYS_BUCK_NUM,
-
-	SRAM_BUCK = 0x100,	// sepcial case for VSRAM constraint
 };
 
 
