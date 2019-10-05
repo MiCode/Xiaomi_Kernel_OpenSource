@@ -1376,7 +1376,8 @@ int cpuhvfs_module_init(void)
 
 	/* SW Governor Report */
 	spin_lock_init(&cpudvfs_lock);
-	Ripi_cpu_dvfs_task = kthread_run(Ripi_cpu_dvfs_thread, NULL,
+	if (0)
+		Ripi_cpu_dvfs_task = kthread_run(Ripi_cpu_dvfs_thread, NULL,
 						"ipi_cpu_dvfs_rtask");
 
 	return 0;
