@@ -56,7 +56,10 @@ enum MD_LOAD_TYPE {
 	modem_ultwcg,
 	modem_ulftg,
 	modem_ulfctg,
-	MAX_IMG_NUM = modem_ulfctg /* this enum starts from 1 */
+	modem_unlwg,
+	modem_unlwtg,
+	modem_unlwctg,
+	MAX_IMG_NUM = modem_unlwctg /* this enum starts from 1 */
 };
 
 /* MD logger configure file */
