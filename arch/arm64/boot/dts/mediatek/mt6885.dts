@@ -5914,7 +5914,7 @@ page_owner=on";
 
 	irtx_pwm:irtx_pwm {
 		compatible = "mediatek,irtx-pwm";
-		pwm_ch = <0>;
+		pwm_ch = <3>;
 		pwm_data_invert = <0>;
 	};
 
