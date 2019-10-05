@@ -202,7 +202,7 @@ static void mtk_dbg_suspend_fs_init(void)
 static ssize_t mtk_dbg_get_spm_last_wakeup_src(char *ToUserBuf,
 				size_t sz, void *priv)
 {
-	int bLen = snprintf(ToUserBuf, sz, "0x%x\n",
+	int bLen = snprintf(ToUserBuf, sz, "0x%lx\n",
 		mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_FS,
 				    MT_LPM_SMC_ACT_GET,
 				    WAKE_STA_R12, 0));
@@ -216,7 +216,7 @@ static const struct mtk_spm_sysfs_op mtk_dbg_spm_last_wakesrc_fops = {
 static ssize_t mtk_dbg_get_spm_last_debug_flag(char *ToUserBuf,
 				size_t sz, void *priv)
 {
-	int bLen = snprintf(ToUserBuf, sz, "0x%x\n",
+	int bLen = snprintf(ToUserBuf, sz, "0x%lx\n",
 		mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_FS,
 				    MT_LPM_SMC_ACT_GET,
 				    WAKE_STA_DEBUG_FLAG, 0));
@@ -248,7 +248,7 @@ static ssize_t mtk_dbg_get_spmfw_version(char *ToUserBuf,
 		index++;
 	}
 
-	mtk_dbg_log("spmfw index: %d\n",
+	mtk_dbg_log("spmfw index: %lu\n",
 		mtk_lpm_smc_spm(MT_SPM_SMC_UID_FW_TYPE,
 				MT_LPM_SMC_ACT_GET, 0, 0));
 	mtk_dbg_log("spmfw ready: %d\n",
