@@ -1245,9 +1245,9 @@ static int mtk_dsp_pcm_copy_ul(struct snd_pcm_substream *substream,
 			&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 
 	spin_lock_irqsave(&dsp_ringbuf_lock, flags);
-	availsize = RingBuf_getFreeSpace(ringbuf);
+	availsize = RingBuf_getDataCount(ringbuf);
 
-	if (availsize <= copy_size) {
+	if (availsize < copy_size) {
 		pr_info("%s fail copy_size = %d availsize = %d\n", __func__,
 			copy_size, RingBuf_getFreeSpace(ringbuf));
 		spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
