@@ -249,7 +249,9 @@ void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
 		local_fiq_disable();
 
 #if defined(CONFIG_SMP)
-		__mrdump_reboot_stop_all(crash_record);
+		if ((reboot_mode != AEE_REBOOT_MODE_WDT) &&
+		    (reboot_mode != AEE_REBOOT_MODE_GZ_WDT))
+			__mrdump_reboot_stop_all(crash_record);
 #endif
 
 		cpu = get_HW_cpuid();
@@ -276,7 +278,7 @@ void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
 		crash_record->fault_cpu = cpu;
 
 		/* FIXME: Check reboot_mode is valid */
-			crash_record->reboot_mode = reboot_mode;
+		crash_record->reboot_mode = reboot_mode;
 	}
 }
 
