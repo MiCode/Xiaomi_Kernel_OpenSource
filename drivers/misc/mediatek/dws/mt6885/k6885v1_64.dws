@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--dct_version="2.5" buid_sn="161102" dws_modification_time="08.02.2019.15:25:30"-->
+<!--dct_version="2.5" buid_sn="161102" dws_modification_time="08.25.2019.13:14:49"-->
 <dct_cfg>
     <general chip="MT6885">
         <proj>Internal phone</proj>
@@ -543,15 +543,7 @@
                 <ies>true</ies>
             </gpio43>
             <gpio44>
-                <eint_mode>false</eint_mode>
-                <def_mode>1</def_mode>
-                <inpull_en>true</inpull_en>
-                <inpull_selhigh>true</inpull_selhigh>
-                <def_dir>IN</def_dir>
-                <out_high>false</out_high>
-                <varName0>GPIO_SIM2_HOT_PLUG</varName0>
                 <smt>true</smt>
-                <ies>true</ies>
             </gpio44>
             <gpio45>
                 <eint_mode>false</eint_mode>
@@ -2511,16 +2503,6 @@
                 <srcPin ref_gpio="GPIO43">INT_SIM1_MODE1</srcPin>
                 <socketType>0</socketType>
             </eint0>
-            <eint1>
-                <varName>MD1_SIM2_HOT_PLUG_EINT</varName>
-                <debounce_time>10</debounce_time>
-                <polarity>High</polarity>
-                <sensitive_level>Level</sensitive_level>
-                <debounce_en>Enable</debounce_en>
-                <dedicated_en>Disable</dedicated_en>
-                <srcPin ref_gpio="GPIO44">INT_SIM2_MODE1</srcPin>
-                <socketType>0</socketType>
-            </eint1>
         </module>
         <module name="pmic">
             <chip>PMIC_MT6359PMUMP</chip>
