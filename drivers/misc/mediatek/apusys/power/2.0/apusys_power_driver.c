@@ -30,11 +30,13 @@
 #include "apu_platform_resource.h"
 #include "hal_config_power.h"
 #include "apu_power_api.h"
+#include "../../../pmic/include/pmic_api_buck.h"
 
 #define APUSYS_POWER_ENABLE	(1)
 #define FOR_BRING_UP		(0)
 #define SUPPORT_DVFS		(1)
-
+#define AUTO_BUCK_OFF_SUSPEND (1)
+#define AUTO_BUCK_OFF_DEEPIDLE (0)
 #if APUSYS_POWER_ENABLE || FOR_BRING_UP
 static struct hal_param_init_power init_power_data;
 #endif
@@ -555,6 +557,20 @@ static int apu_power_probe(struct platform_device *pdev)
 	mutex_init(&power_device_list_mtx);
 	mutex_init(&power_ctl_mtx);
 	mutex_init(&power_opp_mtx);
+
+	#if AUTO_BUCK_OFF_SUSPEND
+	// buck auto power off in suspend
+	pmic_buck_vproc1_lp(SRCLKEN0, 1, 1, HW_OFF);
+	pmic_buck_vproc2_lp(SRCLKEN0, 1, 1, HW_OFF);
+	pmic_ldo_vsram_md_lp(SRCLKEN0, 1, 1, HW_OFF);
+	#endif
+
+	#if AUTO_BUCK_OFF_DEEPIDLE
+	// buck auto power off in deeep idle
+	pmic_buck_vproc1_lp(SRCLKEN2, 1, 1, HW_OFF);
+	pmic_buck_vproc2_lp(SRCLKEN2, 1, 1, HW_OFF);
+	pmic_ldo_vsram_md_lp(SRCLKEN2, 1, 1, HW_OFF);
+	#endif
 
 	apu_power_reg_dump();
 #endif // !FOR_BRING_UP
