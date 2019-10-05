@@ -941,26 +941,26 @@ static void cam_subsys_debug_dump(enum subsys_id sys_id)
 
 	switch (sys_id) {
 	case SYS_CAM_RAWA:
-		LOG_INF("power on/off RAWA fail sys id=%d\n",
+		LOG_INF("power on/off RAWA fail sys id=%d (%x/%x/%x)\n",
 			   sys_id, ISP_RD32(CAMSYS_RAWA_REG_CG_CON),
 			   ISP_RD32(CAMSYS_RAWA_REG_CG_SET),
 			   ISP_RD32(CAMSYS_RAWA_REG_CG_CLR));
 	break;
 	case SYS_CAM_RAWB:
-		LOG_INF("power on/off RAWB fail sys id=%d\n",
+		LOG_INF("power on/off RAWB fail sys id=%d (%x/%x/%x)\n",
 			   sys_id, ISP_RD32(CAMSYS_RAWB_REG_CG_CON),
 			   ISP_RD32(CAMSYS_RAWB_REG_CG_SET),
 			   ISP_RD32(CAMSYS_RAWB_REG_CG_CLR));
 		break;
 	case SYS_CAM_RAWC:
-		LOG_INF("power on/off RAWC fail sys id=%d\n",
+		LOG_INF("power on/off RAWC fail sys id=%d (%x/%x/%x)\n",
 			   sys_id, ISP_RD32(CAMSYS_RAWC_REG_CG_CON),
 			   ISP_RD32(CAMSYS_RAWC_REG_CG_SET),
 			   ISP_RD32(CAMSYS_RAWC_REG_CG_CLR));
 	break;
 	case SYS_CAM:
 	default:
-		LOG_INF("power on/off fail sys id=%d\n",
+		LOG_INF("power on/off fail sys id=%d (%x/%x/%x)\n",
 			   sys_id, cg_con,
 			   cg_set,
 			   cg_clr);
@@ -5920,7 +5920,7 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 	if (IspInfo.UserCount > 0) {
 		spin_unlock(&(IspInfo.SpinLockIspRef));
 
-		LOG_DBG("Curr UserCount(%d), (process, pid, tgid)=",
+		LOG_DBG("Curr UserCount(%d), (process, pid, tgid)="
 			"(%s, %d, %d),	users exist",
 			IspInfo.UserCount, current->comm, current->pid,
 			current->tgid);
@@ -5935,7 +5935,7 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 	set_detect_count(pr_detect_count);
 #endif
 	/*      */
-	LOG_DBG("Curr UserCount(%d), (process, pid, tgid)=",
+	LOG_DBG("Curr UserCount(%d), (process, pid, tgid)="
 		"(%s, %d, %d), log_limit_line(%d),	last user",
 		IspInfo.UserCount, current->comm, current->pid, current->tgid,
 		pr_detect_count);

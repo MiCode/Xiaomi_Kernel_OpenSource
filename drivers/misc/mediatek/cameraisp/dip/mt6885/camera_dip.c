@@ -5487,7 +5487,7 @@ enum m4u_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
 #endif
 {
 
-	pr_info("[ISP_M4U]fault call port=%d, mva=0x%x", port, mva);
+	pr_info("[ISP_M4U]fault call port=%d, mva=0x%lx", port, mva);
 
 	switch (port) {
 #if 0

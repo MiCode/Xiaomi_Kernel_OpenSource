@@ -3875,14 +3875,14 @@ static signed int MFB_probe(struct platform_device *pDev)
 	MFB_cmdq_dev = &pDev->dev;
 	if (nr_MFB_devs == 1) {
 		mss_clt = cmdq_mbox_create(MFB_cmdq_dev, 0);
-		LOG_INF("mss_clt: 0x%x\n", mss_clt);
+		LOG_INF("mss_clt: 0x%p\n", mss_clt);
 		of_property_read_u16(MFB_cmdq_dev->of_node,
 				"mss_frame_done", &mss_done_event_id);
 
 	}
 	if (nr_MFB_devs == 2) {
 		msf_clt = cmdq_mbox_create(MFB_cmdq_dev, 0);
-		LOG_INF("msf_clt: 0x%x\n", msf_clt);
+		LOG_INF("msf_clt: 0x%p\n", msf_clt);
 		of_property_read_u16(MFB_cmdq_dev->of_node,
 				"msf_frame_done", &msf_done_event_id);
 	}
