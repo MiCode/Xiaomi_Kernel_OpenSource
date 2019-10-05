@@ -407,6 +407,11 @@ page_owner=on";
 		#clock-cells = <1>;
 	};
 
+	dbgtop@1000d000 {
+		compatible = "mediatek,dbgtop";
+		reg = <0 0x1000d000 0 0x1000>;
+	};
+
 	btif@1100c000 {
 		compatible = "mediatek,btif";
 		/*btif base*/
