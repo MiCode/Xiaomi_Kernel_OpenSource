@@ -667,7 +667,7 @@ CONFIG_MTK_PMIC_CHIP_MT6359,PLATFORM,jeter.chen,,X,X,y,X,X,X,X,y,y,y,y,y,y
 CONFIG_MTK_PMIC_COMMON,PLATFORM,jeter.chen,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_PMIC_NEW_ARCH,PROJECT,jimmy-yj.huang,,,,,,,,,,,,,,
 CONFIG_MTK_PMIC_WRAP,PLATFORM,brian-py.chen,pmic wrap upstream support option,X,X,y,y,y,y,y,y,y,y,y,y,y
-CONFIG_MTK_PMIC_WRAP_HAL,PLATFORM,brian-py.chen,pmic wrap support option,X,X,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_MTK_PMIC_WRAP_HAL,PLATFORM,brian-py.chen,pmic wrap support option,X,X,y,y,y,y,y,y,y,X,X,y,y
 CONFIG_MTK_PQ_COLOR_MODE,PROJECT,Yj.li, new config I1b7b0441f385f77703b529b6efe6b78d122676b1,,,,,,,,,,,,,
 CONFIG_MTK_PSCI,PLATFORM,scott.shu,,y,X,y,X,y,X,y,X,y,X,y,X,y
 CONFIG_MTK_PSEUDO_M4U,PROJECT,Cui.Zhang,,N,N,X,N,N,X,X,X,X,X,X,X,X
