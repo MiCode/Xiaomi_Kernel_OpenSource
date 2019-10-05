@@ -1541,26 +1541,31 @@ static inline int m4u_control_iommu_port(void)
 {
 	struct M4U_PORT_STRUCT sPort;
 	int ret = 0;
+	int count_of_ports = 0;
+	int i = 0;
 
 	/* LARB9 */
-	sPort.ePortID = M4U_PORT_L9_IMG_MFB_RDMA0_MDP;
-	sPort.Virtuality = MFB_MEM_USE_VIRTUL;
+	count_of_ports = M4U_PORT_L9_IMG_MFB_WDMA1_MDP -
+		M4U_PORT_L9_IMG_MFB_RDMA0_MDP + 1;
+	for (i = 0; i < count_of_ports; i++) {
+		sPort.ePortID = M4U_PORT_L9_IMG_MFB_RDMA0_MDP+i;
+		sPort.Virtuality = MFB_MEM_USE_VIRTUL;
+		LOG_INF("config M4U Port ePortID=%d\n", sPort.ePortID);
+#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
+		ret = m4u_config_port(&sPort);
 
-#if defined(CONFIG_MTK_M4U)
-	ret = m4u_config_port(&sPort);
-#endif
-
-	if (ret == 0) {
-		LOG_INF("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L9_IMG_MFB_RDMA0_MDP),
+		if (ret == 0) {
+			LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L9_IMG_MFB_RDMA0_MDP+i),
 			MFB_MEM_USE_VIRTUL ? "virtual" : "physical");
-	} else {
-		LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
-			iommu_get_port_name(M4U_PORT_L9_IMG_MFB_RDMA0_MDP),
+		} else {
+			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L9_IMG_MFB_RDMA0_MDP+i),
 			MFB_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
-		ret = -1;
+			ret = -1;
+		}
+#endif
 	}
-
 	return ret;
 }
 #endif
