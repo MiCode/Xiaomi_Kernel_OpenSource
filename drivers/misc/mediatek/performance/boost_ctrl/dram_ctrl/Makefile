@@ -12,6 +12,15 @@
 #
 
 #DRAM_CONTROLLER
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739" "mt6763"))
+	ccflags-y += \
+		-DVCORE_DVFS_OPP_SUPPORT
+else
+	ccflags-y += \
+		-DMTK_QOS_SUPPORT
+endif
+
 obj-y += dram_ctrl.o
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
