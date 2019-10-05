@@ -7,7 +7,7 @@
 #include <linux/delay.h>
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#include <sspm_common.h>
+#include <sspm_helper.h>
 #include <sspm_mbox.h>
 #endif
 
