@@ -378,7 +378,6 @@ struct mtu3 {
 	unsigned u2_enable:1;
 	unsigned is_u3_ip:1;
 	unsigned is_36bit:1;
-	unsigned delayed_status:1;
 	u8 address;
 	u8 test_mode_nr;
 	u32 hw_version;
