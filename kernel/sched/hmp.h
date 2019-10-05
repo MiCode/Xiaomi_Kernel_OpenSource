@@ -18,11 +18,21 @@ LIST_HEAD(hmp_domains);
  *  Consider EAS if only EAS enabled, but HMP
  *  if hybrid enabled and system is over-utilized.
  */
+static bool sd_overutilized(struct sched_domain *sd);
 static inline bool should_hmp(int cpu)
 {
 #ifdef CONFIG_MTK_SCHED_EAS_POWER_SUPPORT
-	if (sched_feat(ENERGY_AWARE) && !system_overutilized(cpu))
+	struct rq *rq = cpu_rq(cpu);
+	struct sched_domain *sd;
+
+	rcu_read_lock();
+	sd = rcu_dereference(rq->sd);
+	if (sched_feat(ENERGY_AWARE) && (sd && !sd_overutilized(sd))) {
+		rcu_read_unlock();
 		return false;
+	}
+
+	rcu_read_unlock();
 #endif
 	return sched_feat(SCHED_HMP);
 }
