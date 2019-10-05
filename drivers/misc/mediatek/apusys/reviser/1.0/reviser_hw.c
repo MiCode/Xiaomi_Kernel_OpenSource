@@ -781,6 +781,10 @@ int reviser_alloc_tcm(void *drvinfo, void *usr)
 int reviser_free_tcm(void *drvinfo, void *usr)
 {
 	struct reviser_mem *mem;
+	struct reviser_dev_info *info = NULL;
+
+	info = (struct reviser_dev_info *)drvinfo;
+	mem = (struct reviser_mem *) usr;
 
 	mem->kva = 0;
 	mem->iova = 0;

@@ -328,7 +328,7 @@ static long reviser_ioctl(struct file *filp, unsigned int cmd,
 	struct reviser_ioctl_info info;
 	unsigned long ctxID = 0;
 	struct table_tcm pg_table;
-	uint32_t tcm_page_num, tcm_size;
+	uint32_t tcm_page_num = 0, tcm_size = 0;
 
 	switch (cmd) {
 	case REVISER_IOCTL_SET_BOUNDARY:
@@ -560,7 +560,7 @@ static long reviser_ioctl(struct file *filp, unsigned int cmd,
 		}
 
 		if (reviser_table_free_vlm(reviser_device, info.page.ID)) {
-			LOG_DEBUG("Free VLM : tcm_size: %lx\n", tcm_size);
+
 			LOG_DEBUG("Free VLM : ctxID: %lu\n", ctxID);
 			ret = -EINVAL;
 		}

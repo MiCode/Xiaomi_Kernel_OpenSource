@@ -138,6 +138,11 @@ int reviser_table_free_ctxID(void *drvinfo, unsigned long ctxID)
 		LOG_ERR("invalid argument\n");
 		return -1;
 	}
+	if (ctxID >= TABLE_CTXID_MAX) {
+		LOG_ERR("invalid argument\n");
+		return -1;
+	}
+
 	reviser_device = (struct reviser_dev_info *)drvinfo;
 
 
@@ -184,7 +189,7 @@ void reviser_table_print_ctxID(void *drvinfo, void *s_file)
 	LOG_CON(s, "-----------------------------\n");
 
 	for (i = 0; i < BITS_TO_LONGS(TABLE_CTXID_MAX); i++)
-		LOG_CON(s, "%d: [%.8x]\n", i, table_ctxID[i]);
+		LOG_CON(s, "%d: [%lx]\n", i, table_ctxID[i]);
 
 	LOG_CON(s, "=============================\n");
 
@@ -397,7 +402,7 @@ void reviser_table_print_tcm(void *drvinfo, void *s_file)
 	LOG_CON(s, "-----------------------------\n");
 
 	for (i = 0; i < BITS_TO_LONGS(TABLE_TCM_MAX); i++)
-		LOG_CON(s, "%d: [%.8x]\n", i, table_tcm[i]);
+		LOG_CON(s, "%d: [%lx]\n", i, table_tcm[i]);
 
 	LOG_CON(s, "=============================\n");
 
@@ -613,7 +618,10 @@ int reviser_table_free_vlm(void *drvinfo, uint32_t ctxid)
 	struct table_tcm tcm_pgtable;
 
 	LOG_DEBUG("free ctxid: %lu\n", ctxid);
-
+	if (ctxid >= VLM_CTXT_CTX_ID_MAX) {
+		LOG_ERR("invalid argument\n");
+		return -1;
+	}
 	if (reviser_table_clear_remap(drvinfo, ctxid)) {
 		LOG_DEBUG("Clear Remap Fail\n");
 		return -1;
@@ -696,6 +704,11 @@ int reviser_table_set_remap(void *drvinfo, unsigned long ctxid)
 		index = find_next_zero_bit(g_table_remap.valid,
 				VLM_REMAP_TABLE_MAX, index);
 		//LOG_DEBUG("Find Zero Bit index %lu!!\n", index);
+		if (index == VLM_REMAP_TABLE_MAX) {
+			LOG_ERR("CanNot Find Zero Bit!!\n");
+			goto free_mutex;
+		}
+
 		g_table_remap.table_remap_mem[index].ctxid = ctxid;
 		g_table_remap.table_remap_mem[index].src = i;
 		g_table_remap.table_remap_mem[index].dst =
@@ -733,6 +746,10 @@ int reviser_table_clear_remap(void *drvinfo, unsigned long ctxid)
 
 	DEBUG_TAG;
 	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -1;
+	}
+	if (ctxid >= VLM_CTXT_CTX_ID_MAX) {
 		LOG_ERR("invalid argument\n");
 		return -1;
 	}
@@ -797,7 +814,7 @@ void reviser_table_print_vlm(void *drvinfo, uint32_t ctxid, void *s_file)
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " vlm [%d] page_num[%d]\n",
 			ctxid, g_vlm_pgtable[ctxid].page_num);
-	LOG_CON(s, " tcm [%x]\n", g_vlm_pgtable[ctxid].tcm);
+
 	LOG_CON(s, "-----------------------------\n");
 	for (i = 0; i < VLM_REMAP_TABLE_MAX; i++) {
 		switch (g_vlm_pgtable[ctxid].page[i].type) {
