@@ -373,9 +373,17 @@ static int mtk_jpeg_try_fmt_mplane(struct v4l2_format *f,
 					MTK_JPEG_MIN_WIDTH, MTK_JPEG_MAX_WIDTH,
 					5, &align_h, MTK_JPEG_MIN_HEIGHT,
 					MTK_JPEG_MAX_HEIGHT, 3);
+
 				pix_mp->plane_fmt[0].bytesperline = align_w;
 				pix_mp->plane_fmt[0].sizeimage =
 					align_w * align_h;
+
+				pr_info("bperline %d  imagesz %d align_w h %d %d\n",
+					 pix_mp->plane_fmt[0].bytesperline,
+					 pix_mp->plane_fmt[0].sizeimage,
+					 align_w,
+					 align_h);
+
 			} else if (pix_mp->num_planes == 2U) {
 				mtk_jpeg_bound_align_image(&align_w,
 					MTK_JPEG_MIN_WIDTH, MTK_JPEG_MAX_WIDTH,
@@ -387,6 +395,16 @@ static int mtk_jpeg_try_fmt_mplane(struct v4l2_format *f,
 				pix_mp->plane_fmt[1].bytesperline = align_w;
 				pix_mp->plane_fmt[1].sizeimage =
 					(align_w * align_h) / 2;
+
+				pr_info("bperline %d imagesz %d align_w h %d %d\n",
+					 pix_mp->plane_fmt[0].bytesperline,
+					 pix_mp->plane_fmt[0].sizeimage,
+					 align_w,
+					 align_h);
+				pr_info("bperline %d imagesz %d\n",
+					 pix_mp->plane_fmt[1].bytesperline,
+					 pix_mp->plane_fmt[1].sizeimage);
+
 			} else {
 				v4l2_err(&ctx->jpeg->v4l2_dev,
 					"Unsupport num planes = %d\n",
