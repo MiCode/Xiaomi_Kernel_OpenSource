@@ -544,8 +544,10 @@ int md_cd_soft_power_on(struct ccci_modem *md, unsigned int mode)
 	return 0;
 }
 
+#define BRINGUP_BYPASS_BROM
 int md_start_platform(struct ccci_modem *md)
 {
+#ifndef BRINGUP_BYPASS_BROM
 	struct device_node *node = NULL;
 	void __iomem *sec_ao_base = NULL;
 	int timeout = 100; /* 100 * 20ms = 2s */
@@ -601,12 +603,17 @@ int md_start_platform(struct ccci_modem *md)
 	}
 
 	return ret;
+#endif
+	return 0;
 }
 
 int md_cd_power_on(struct ccci_modem *md)
 {
 	int ret = 0;
 	unsigned int reg_value;
+#ifdef BRINGUP_BYPASS_BROM
+	void __iomem *md_peri_base;
+#endif
 
 	/* step 1: PMIC setting */
 	md1_pmic_setting_on();
@@ -642,7 +649,14 @@ int md_cd_power_on(struct ccci_modem *md)
 	/* notify NFC */
 	inform_nfc_vsim_change(md->index, 1, 0);
 #endif
-
+#ifdef BRINGUP_BYPASS_BROM
+	#define MDPERIMISC_BASE    (0x20060000)
+	md_peri_base = ioremap_nocache(MDPERIMISC_BASE, 0x200);
+	ccci_write32(md_peri_base, 0x10C, 0x5500);
+	ccci_write32(md_peri_base, 0x104, 0x0);
+	ccci_write32(md_peri_base, 0x108, 0x1);
+	iounmap(md_peri_base);
+#endif
 	return 0;
 }
 
