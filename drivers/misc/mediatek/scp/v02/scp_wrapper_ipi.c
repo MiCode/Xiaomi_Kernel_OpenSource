@@ -15,8 +15,25 @@
 
 #define IPI_NO_USE 0xFF
 
+static char msg_legacy_ipi_mpool_0[PIN_IN_SIZE_SCP_MPOOL * MBOX_SLOT_SIZE];
+static char msg_legacy_ipi_mpool_1[PIN_IN_SIZE_SCP_MPOOL * MBOX_SLOT_SIZE];
+
+#define SCP_IPI_LEGACY_GROUP				  \
+{							  \
+	{	.out_id_0 = IPI_OUT_SCP_MPOOL_0,	  \
+		.out_id_1 = IPI_OUT_SCP_MPOOL_1,	  \
+		.in_id_0 = IPI_IN_SCP_MPOOL_0,		  \
+		.in_id_1 = IPI_IN_SCP_MPOOL_1,		  \
+		.out_size = PIN_OUT_SIZE_SCP_MPOOL,	  \
+		.in_size = PIN_IN_SIZE_SCP_MPOOL,	  \
+		.msg_0 = msg_legacy_ipi_mpool_0,	  \
+		.msg_1 = msg_legacy_ipi_mpool_1,	  \
+	},						  \
+}
+
 struct scp_ipi_desc mpool[SCP_NR_IPI - IPI_MPOOL - 1];
 struct scp_ipi_wrapper scp_ipi_legacy_id[] = SCP_IPI_LEGACY_GROUP;
+
 
 struct scp_ipi_legacy_pkt {
 	unsigned int id;

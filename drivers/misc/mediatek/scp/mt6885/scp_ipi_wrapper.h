@@ -24,11 +24,6 @@ struct scp_ipi_desc {
 	void (*handler)(int id, void *data, unsigned int len);
 };
 
-static char msg_legacy_ipi_chre[PIN_IN_SIZE_CHRE_0 * MBOX_SLOT_SIZE];
-static char msg_legacy_ipi_sensor[PIN_IN_SIZE_SENSOR_0 * MBOX_SLOT_SIZE];
-static char msg_legacy_ipi_mpool_0[PIN_IN_SIZE_SCP_MPOOL * MBOX_SLOT_SIZE];
-static char msg_legacy_ipi_mpool_1[PIN_IN_SIZE_SCP_MPOOL * MBOX_SLOT_SIZE];
-
 /* the order of ipi_id should be consistent with IPI_LEGACY_GROUP */
 enum ipi_id {
 	IPI_MPOOL,
@@ -37,18 +32,5 @@ enum ipi_id {
 	IPI_SENSOR,
 	SCP_NR_IPI,
 };
-
-#define SCP_IPI_LEGACY_GROUP				  \
-{							  \
-	{	.out_id_0 = IPI_OUT_SCP_MPOOL_0,	  \
-		.out_id_1 = IPI_OUT_SCP_MPOOL_1,	  \
-		.in_id_0 = IPI_IN_SCP_MPOOL_0,		  \
-		.in_id_1 = IPI_IN_SCP_MPOOL_1,		  \
-		.out_size = PIN_OUT_SIZE_SCP_MPOOL,	  \
-		.in_size = PIN_IN_SIZE_SCP_MPOOL,	  \
-		.msg_0 = msg_legacy_ipi_mpool_0,	  \
-		.msg_1 = msg_legacy_ipi_mpool_1,	  \
-	},						  \
-}
 
 #endif
