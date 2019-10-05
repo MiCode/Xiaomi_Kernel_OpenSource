@@ -418,7 +418,7 @@ static int exec_cmd_func(void *isc, void *idev)
 	}
 
 	/* call execute */
-	 midware_trace_begin("apusys_scheduler|dev: %d_%d, cmd_id: 0x%08x",
+	 midware_trace_begin("apusys_scheduler|dev: %d_%d, cmd_id: 0x%08llx",
 			     dev->dev_type, dev->idx, cmd->cmd_id);
 
 	LOG_DEBUG("execute cmd hnd (%d/0x%llx/%d) boost(%d)\n",
@@ -508,7 +508,7 @@ static int exec_cmd_func(void *isc, void *idev)
 	}
 
 out:
-	midware_trace_end("apusys_scheduler|dev: %d_%d, cmd_id: 0x%08x, ret:%d",
+	midware_trace_end("apusys_scheduler|dev: %d_%d, cmd_id: 0x%08llx, ret:%d",
 			  dev->dev_type, dev->idx, cmd->cmd_id, ret);
 
 	LOG_DEBUG("wakeup user context thread\n");
