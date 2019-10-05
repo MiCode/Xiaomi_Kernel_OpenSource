@@ -17,7 +17,7 @@
 #define _ENGINE_REQUESTS_H_
 
 #define MAX_REQUEST_SIZE_PER_ENGINE 4
-#define MAX_FRAMES_PER_REQUEST 32
+#define MFB_MAX_FRAMES_PER_REQUEST 32
 
 /* Regulation Options */
 #define FRAME_BASE_REGULATION 0
@@ -46,7 +46,7 @@ struct ring_ctrl {
 	unsigned int icnt; /* IRQ ringing counter w/o reset */
 	unsigned int gcnt; /* GCE */
 	unsigned int size;
-	/* init MAX_REQUEST_SIZE_PER_ENGINE MAX_FRAMES_PER_REQUEST */
+	/* init MAX_REQUEST_SIZE_PER_ENGINE MFB_MAX_FRAMES_PER_REQUEST */
 };
 
 struct frame {
@@ -59,7 +59,7 @@ struct request {
 	enum REQUEST_STATE_ENUM state;
 	pid_t pid;
 	struct ring_ctrl fctl;
-	struct frame frames[MAX_FRAMES_PER_REQUEST];
+	struct frame frames[MFB_MAX_FRAMES_PER_REQUEST];
 	bool pending_run; /* pending frame in a running request */
 };
 

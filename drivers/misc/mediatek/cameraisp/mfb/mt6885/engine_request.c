@@ -110,9 +110,9 @@ signed int init_request(struct request *req)
 
 	req->state = REQUEST_STATE_EMPTY;
 	init_ring_ctl(&req->fctl);
-	set_ring_size(&req->fctl, MAX_FRAMES_PER_REQUEST);
+	set_ring_size(&req->fctl, MFB_MAX_FRAMES_PER_REQUEST);
 
-	for (f = 0; f < MAX_FRAMES_PER_REQUEST; f++)
+	for (f = 0; f < MFB_MAX_FRAMES_PER_REQUEST; f++)
 		init_frame(&req->frames[f]);
 
 	req->pending_run = false;
@@ -138,7 +138,7 @@ signed int set_frame_data(struct frame *f, void *engine)
 /*
  * TOP : per-sub-engine
  * Size Limitaion: eng_reqs : [MAX_REQUEST_SIZE_PER_ENGINE]
- *	     data : [MAX_REQUEST_SIZE_PER_ENGINE][MAX_FRAMES_PER_REQUEST]
+ *	     data : [MAX_REQUEST_SIZE_PER_ENGINE][MFB_MAX_FRAMES_PER_REQUEST]
  */
 signed int register_requests(struct engine_requests *eng, size_t size)
 {
@@ -153,7 +153,7 @@ signed int register_requests(struct engine_requests *eng, size_t size)
 	set_ring_size(&eng->req_ctl, MAX_REQUEST_SIZE_PER_ENGINE);
 
 	/* TODO: KE Risk : array out of bound */
-	len = (size * MAX_FRAMES_PER_REQUEST) * MAX_REQUEST_SIZE_PER_ENGINE;
+	len = (size * MFB_MAX_FRAMES_PER_REQUEST) * MAX_REQUEST_SIZE_PER_ENGINE;
 	_data = vmalloc(len);
 
 	if (_data == NULL) {
@@ -167,8 +167,8 @@ signed int register_requests(struct engine_requests *eng, size_t size)
 	for (r = 0; r < MAX_REQUEST_SIZE_PER_ENGINE; r++) {
 		init_request(&eng->reqs[r]);
 
-		for (f = 0; f < MAX_FRAMES_PER_REQUEST; f++) {
-			d = (r * MAX_FRAMES_PER_REQUEST + f) * size;
+		for (f = 0; f < MFB_MAX_FRAMES_PER_REQUEST; f++) {
+			d = (r * MFB_MAX_FRAMES_PER_REQUEST + f) * size;
 			set_frame_data(&eng->reqs[r].frames[f], &_data[d]);
 		}
 	}
@@ -199,7 +199,7 @@ signed int unregister_requests(struct engine_requests *eng)
 	for (r = 0; r < MAX_REQUEST_SIZE_PER_ENGINE; r++) {
 		init_request(&eng->reqs[r]);
 
-		for (f = 0; f < MAX_FRAMES_PER_REQUEST; f++)
+		for (f = 0; f < MFB_MAX_FRAMES_PER_REQUEST; f++)
 			set_frame_data(&eng->reqs[r].frames[f], NULL);
 	}
 
@@ -294,7 +294,7 @@ signed int enque_request(struct engine_requests *eng, unsigned int fcnt,
 	 * running frame count for frame base regulation
 	 */
 	for (r = 0; r < MAX_REQUEST_SIZE_PER_ENGINE; r++)
-		for (f = 0; f < MAX_FRAMES_PER_REQUEST; f++)
+		for (f = 0; f < MFB_MAX_FRAMES_PER_REQUEST; f++)
 			if (eng->reqs[r].frames[f].state ==
 							FRAME_STATUS_RUNNING)
 				enqnum++;
@@ -357,7 +357,7 @@ signed int request_handler(struct engine_requests *eng, spinlock_t *lock)
 	/* running request contains all running frames */
 	eng->reqs[r].state = REQUEST_STATE_RUNNING;
 
-	for (f = 0; f < MAX_FRAMES_PER_REQUEST; f++) {
+	for (f = 0; f < MFB_MAX_FRAMES_PER_REQUEST; f++) {
 		fstate = eng->reqs[r].frames[f].state;
 		if (fstate == FRAME_STATUS_ENQUE) {
 			LOG_DBG("[%s]Processing request(%d) of frame(%d)\n",
@@ -449,7 +449,7 @@ signed int request_handler(struct engine_requests *eng, spinlock_t *lock)
 		return 1;
 	}
 
-	fn = (f + 1) % MAX_FRAMES_PER_REQUEST;
+	fn = (f + 1) % MFB_MAX_FRAMES_PER_REQUEST;
 	fstate = eng->reqs[r].frames[fn].state;
 	if (fstate == FRAME_STATUS_EMPTY || fn == 0) {
 		eng->reqs[r].pending_run = false;
@@ -484,13 +484,13 @@ int update_request(struct engine_requests *eng, pid_t *pid)
 			continue;
 
 		/* find 1st running frame, f. */
-		for (f = 0; f < MAX_FRAMES_PER_REQUEST; f++) {
+		for (f = 0; f < MFB_MAX_FRAMES_PER_REQUEST; f++) {
 			if (eng->reqs[i].frames[f].state ==
 							FRAME_STATUS_RUNNING)
 				break;
 		}
 		/* TODO: no running frame in a running request */
-		if (f == MAX_FRAMES_PER_REQUEST) {
+		if (f == MFB_MAX_FRAMES_PER_REQUEST) {
 			LOG_ERR(
 			"[%s]No running frames in a running request(%d).",
 								__func__, i);
@@ -512,8 +512,8 @@ int update_request(struct engine_requests *eng, pid_t *pid)
 		}
 NO_FEEDBACK:
 		n = f + 1;
-		if ((n == MAX_FRAMES_PER_REQUEST) ||
-			((n < MAX_FRAMES_PER_REQUEST) &&
+		if ((n == MFB_MAX_FRAMES_PER_REQUEST) ||
+			((n < MFB_MAX_FRAMES_PER_REQUEST) &&
 			(eng->reqs[i].frames[n].state == FRAME_STATUS_EMPTY))) {
 
 			req_jobs = 0;
@@ -622,7 +622,7 @@ signed int request_dump(struct engine_requests *eng)
 					eng->reqs[r].fctl.icnt,
 					eng->reqs[r].fctl.rcnt);
 
-		for (f = 0; f < MAX_FRAMES_PER_REQUEST; f += 2) {
+		for (f = 0; f < MFB_MAX_FRAMES_PER_REQUEST; f += 2) {
 			LOG_ERR("F[%d].state:%d, F[%d].state:%d\n",
 			     f, eng->reqs[r].frames[f].state,
 			     f + 1, eng->reqs[r].frames[f + 1].state);
