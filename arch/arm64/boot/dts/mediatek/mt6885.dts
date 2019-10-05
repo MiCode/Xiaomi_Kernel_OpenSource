@@ -3174,6 +3174,15 @@
 			     <GIC_SPI 414 IRQ_TYPE_LEVEL_LOW>;
 	};
 
+	apusys_mnoc@1906e000 {
+		compatible = "mediatek,apusys_mnoc";
+		reg = <0 0x1906e000 0 0x2000>,	/* mnoc reg  */
+		      <0 0x19001000 0 0x1000>,	/* apusys int */
+		      <0 0x10001000 0 0x1000>,	/* slp prot 1  */
+		      <0 0x10215000 0 0x1000>;	/* slp prot 2 */
+		interrupts = <GIC_SPI 406 IRQ_TYPE_LEVEL_LOW>;
+	};
+
 	apusys_power {
 		compatible = "mediatek,apusys_power";
 
