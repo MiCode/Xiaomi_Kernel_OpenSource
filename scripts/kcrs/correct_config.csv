@@ -774,7 +774,7 @@ CONFIG_RT9465_PWR_EN_TO_MT6336,PROJECT,,,O,,,O
 CONFIG_RTC_SYSTOHC,COMMON,,,N,N,N,N
 CONFIG_RT_FLASHLIGHT,PROJECT,simon-tch.wang,,y,y,y,y
 CONFIG_RT_REGMAP,PROJECT,vend_jeff_chang001,new config at this commit ebc855c95fb2bdff04b66d63675dbac9387577a8,,,,
-CONFIG_SCHED_HMP,PLATFORM,lucas-sr.wei,new config in this commit 1d29c1469e7c1f7b410b1694eff82ee1376d3933,y,y,y,y
+CONFIG_SCHED_HMP,PLATFORM,lucas-sr.wei,new config in this commit 1d29c1469e7c1f7b410b1694eff82ee1376d3933,y,y,X,y
 CONFIG_SCHED_HMP_PLUS,PLATFORM,lucas-sr.wei,new config in this commit 1d29c1469e7c1f7b410b1694eff82ee1376d3933,y,y,y,y
 CONFIG_SCHED_HMP_PRIO_FILTER,PLATFORM,lucas-sr.wei,new config in this commit 0e2cffeb01092130458a18da72a2d8f205d0e278,y,y,y,y
 CONFIG_SCHED_MC,PLATFORM,yt.chang,,y,y,y,y
