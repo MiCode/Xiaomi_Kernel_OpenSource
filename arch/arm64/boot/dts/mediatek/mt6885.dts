@@ -1023,7 +1023,7 @@ page_owner=on";
 			<GIC_SPI 448 IRQ_TYPE_LEVEL_HIGH>;
 		mboxes = <&adsp_common 0>, /*channel 0*/
 			<&adsp_common 1>; /*channel 1*/
-		feature_control_bits = <0x00ff>;
+		feature_control_bits = <0x303FF>;
 	};
 
 	adsp_core1: adsp_core1@10850000 {
@@ -1036,7 +1036,7 @@ page_owner=on";
 			<GIC_SPI 449 IRQ_TYPE_LEVEL_HIGH>;
 		mboxes = <&adsp_common 2>, /*channel 2*/
 			<&adsp_common 3>; /*channel 3*/
-		feature_control_bits = <0x0f0f>;
+		feature_control_bits = <0x0F00F>;
 	};
 
 	mcucfg: mcucfg@0c530000 {

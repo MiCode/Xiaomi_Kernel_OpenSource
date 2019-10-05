@@ -98,7 +98,7 @@ int mtk_scp_ipi_send(int task_scene, int data_type, int ack_type,
 
 	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
 
-	if (is_adsp_ready(ADSP_A_ID) != 1) {
+	if (!is_audio_task_dsp_ready(task_scene)) {
 		pr_info("%s(), is_adsp_ready send false\n", __func__);
 		return send_result;
 	}
@@ -407,7 +407,7 @@ void mtk_dsp_pcm_ipi_recv(struct ipi_msg_t *ipi_msg)
 		return;
 	}
 
-	if (is_adsp_ready(ADSP_A_ID) != 1) {
+	if (!is_audio_task_dsp_ready(ipi_msg->task_scene)) {
 		pr_info("%s(), is_adsp_ready send false\n", __func__);
 		return;
 	}

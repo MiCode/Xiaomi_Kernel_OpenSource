@@ -842,7 +842,7 @@ void mtk_dsp_handler(struct mtk_base_dsp *dsp,
 	if (id < 0)
 		return;
 
-	if (is_adsp_ready(ADSP_A_ID) != 1) {
+	if (!is_audio_task_dsp_ready(ipi_msg->task_scene)) {
 		pr_info("%s(), is_adsp_ready send false\n", __func__);
 		return;
 	}
