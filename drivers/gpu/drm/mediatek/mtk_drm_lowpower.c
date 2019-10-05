@@ -358,6 +358,10 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 
 	/* 6. power off MTCMOS */
 	mtk_drm_top_clk_disable_unprepare(crtc->dev);
+
+	/* 7. disable fake vsync if need */
+	mtk_drm_fake_vsync_switch(crtc, false);
+
 	DDPINFO("crtc%d do %s-\n", crtc_id, __func__);
 }
 
@@ -396,5 +400,9 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 
 	/* 8. set vblank */
 	drm_crtc_vblank_on(crtc);
+
+	/* 9. enable fake vsync if need */
+	mtk_drm_fake_vsync_switch(crtc, true);
+
 	DDPINFO("crtc%d do %s-\n", crtc_id, __func__);
 }

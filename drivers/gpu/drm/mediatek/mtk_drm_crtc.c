@@ -1523,10 +1523,14 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	drm_crtc_vblank_on(crtc);
 
 	/* 9. enable ESD check */
-	mtk_disp_esd_check_switch(crtc, true);
+	if (mtk_drm_lcm_is_connect())
+		mtk_disp_esd_check_switch(crtc, true);
 
 	/* 10. set CRTC SW status */
 	mtk_crtc_set_status(crtc, true);
+
+	/* 11. enable fake vsync if need*/
+	mtk_drm_fake_vsync_switch(crtc, true);
 }
 
 void mtk_drm_crtc_resume(struct drm_crtc *crtc)
@@ -1717,16 +1721,12 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 	/* 7. set vblank*/
 	drm_crtc_vblank_on(crtc);
 
-	/* 8. enable ESD check */
-	mtk_disp_esd_check_switch(crtc, true);
-
-	/* 9. set CRTC SW status */
+	/* 8. set CRTC SW status */
 	mtk_crtc_set_status(crtc, true);
 }
 
 void mtk_drm_crtc_disable(struct drm_crtc *crtc)
 {
-
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
 
@@ -1764,6 +1764,9 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc)
 
 	/* 8. set CRTC SW status */
 	mtk_crtc_set_status(crtc, false);
+
+	/* 9. disable fake vsync if need */
+	mtk_drm_fake_vsync_switch(crtc, false);
 }
 
 #ifdef MTK_DRM_FENCE_SUPPORT
@@ -2323,6 +2326,70 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 	mtk_crtc->gce_obj.base = cmdq_register_device(dev);
 }
 
+void mtk_drm_fake_vsync_switch(struct drm_crtc *crtc, bool enable)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_fake_vsync *fake_vsync = mtk_crtc->fake_vsync;
+
+	if (drm_crtc_index(crtc) != 0 || mtk_drm_lcm_is_connect() ||
+		!mtk_crtc_is_frame_trigger_mode(crtc))
+		return;
+
+	if (unlikely(!fake_vsync)) {
+		DDPPR_ERR("%s:invalid fake_vsync pointer\n");
+		return;
+	}
+
+	atomic_set(&fake_vsync->fvsync_active, enable);
+	if (enable)
+		wake_up_interruptible(&fake_vsync->fvsync_wq);
+}
+
+static int mtk_drm_fake_vsync_kthread(void *data)
+{
+	struct sched_param param = {.sched_priority = 87 };
+	struct drm_crtc *crtc = (struct drm_crtc *)data;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_fake_vsync *fake_vsync = mtk_crtc->fake_vsync;
+	int ret = 0;
+
+	sched_setscheduler(current, SCHED_RR, &param);
+
+	while (1) {
+		ret = wait_event_interruptible(fake_vsync->fvsync_wq,
+				atomic_read(&fake_vsync->fvsync_active));
+
+		mtk_crtc_vblank_irq(crtc);
+		usleep_range(16700, 17700);
+
+		if (kthread_should_stop())
+			break;
+	}
+	return 0;
+}
+
+void mtk_drm_fake_vsync_init(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_fake_vsync *fake_vsync =
+		kzalloc(sizeof(struct mtk_drm_fake_vsync), GFP_KERNEL);
+	const int len = 50;
+	char name[len];
+
+	if (drm_crtc_index(crtc) != 0 || mtk_drm_lcm_is_connect() ||
+		!mtk_crtc_is_frame_trigger_mode(crtc))
+		return;
+
+	snprintf(name, len, "mtk_drm_fake_vsync:%d", drm_crtc_index(crtc));
+	fake_vsync->fvsync_task = kthread_create(mtk_drm_fake_vsync_kthread,
+					crtc, name);
+	init_waitqueue_head(&fake_vsync->fvsync_wq);
+	atomic_set(&fake_vsync->fvsync_active, 1);
+	wake_up_process(fake_vsync->fvsync_task);
+
+	mtk_crtc->fake_vsync = fake_vsync;
+}
+
 int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			const struct mtk_crtc_path_data *path_data)
 {
@@ -2542,6 +2609,8 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	}
 
 	mtk_disp_chk_recover_init(&mtk_crtc->base);
+
+	mtk_drm_fake_vsync_init(&mtk_crtc->base);
 
 	/* init wakelock resources */
 	{

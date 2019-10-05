@@ -38,5 +38,6 @@ void mtk_fbdev_fini(struct drm_device *dev)
 
 int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 			unsigned int *fps);
+bool mtk_drm_lcm_is_connect(void);
 
 #endif /* MTK_DRM_FBDEV_H */

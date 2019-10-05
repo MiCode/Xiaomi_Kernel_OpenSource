@@ -51,6 +51,33 @@ static struct fb_ops mtk_fbdev_ops = {
 #endif
 };
 
+bool mtk_drm_lcm_is_connect(void)
+{
+	struct device_node *chosen_node;
+
+	chosen_node = of_find_node_by_path("/chosen");
+	if (chosen_node) {
+		struct tag_videolfb *videolfb_tag = NULL;
+		unsigned long size = 0;
+
+		videolfb_tag = (struct tag_videolfb *)of_get_property(
+			chosen_node,
+			"atag,videolfb", (int *)&size);
+		if (videolfb_tag) {
+			DDPINFO("[DT][videolfb] islcmconnected = %d\n",
+				videolfb_tag->islcmfound);
+
+			return videolfb_tag->islcmfound;
+		}
+
+		DDPINFO("[DT][videolfb] videolfb_tag not found\n");
+	} else {
+		DDPINFO("[DT][videolfb] of_chosen not found\n");
+	}
+
+	return false;
+}
+
 int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 			unsigned int *fps)
 {
@@ -74,7 +101,7 @@ int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 				(unsigned long)*fb_base);
 			DDPINFO("[DT][videolfb] vram	  = 0x%x (%d)\n",
 				*vramsize, *vramsize);
-			DDPINFO("[DT][videolfb] fps        = %d\n", fps);
+			DDPINFO("[DT][videolfb] fps        = %d\n", *fps);
 
 			return 0;
 		}

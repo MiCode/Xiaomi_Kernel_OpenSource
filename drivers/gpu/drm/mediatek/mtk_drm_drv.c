@@ -392,6 +392,28 @@ static bool mtk_atomic_skip_plane_update(struct mtk_drm_private *private,
 	return true;
 }
 
+static void drm_atomic_esd_chk_first_enable(struct drm_device *dev,
+				     struct drm_atomic_state *old_state)
+{
+	static bool is_first = true;
+	int i;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *old_crtc_state;
+
+
+	if (is_first) {
+		for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
+			if (drm_crtc_index(crtc) == 0) {
+				if  (mtk_drm_lcm_is_connect())
+					mtk_disp_esd_check_switch(crtc, true);
+				break;
+			}
+		}
+
+		is_first = false;
+	}
+}
+
 static void mtk_atomic_complete(struct mtk_drm_private *private,
 				struct drm_atomic_state *state)
 {
@@ -426,9 +448,12 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 
 	mtk_atomic_calculate_plane_enabled_number(drm, state);
 
-	if (!mtk_atomic_skip_plane_update(private, state))
+	if (!mtk_atomic_skip_plane_update(private, state)) {
 		drm_atomic_helper_commit_planes(drm, state,
 						DRM_PLANE_COMMIT_ACTIVE_ONLY);
+
+		drm_atomic_esd_chk_first_enable(drm, state);
+	}
 
 	if (!mtk_drm_helper_get_opt(private->helper_opt,
 				    MTK_DRM_OPT_COMMIT_NO_WAIT_VBLANK))
@@ -437,6 +462,7 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 	drm_atomic_helper_cleanup_planes(drm, state);
 
 	mtk_atomic_state_put(state);
+
 }
 
 static void mtk_atomic_work(struct work_struct *work)

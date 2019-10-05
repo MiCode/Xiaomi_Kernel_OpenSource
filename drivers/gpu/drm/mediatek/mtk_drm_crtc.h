@@ -426,6 +426,12 @@ struct mtk_crtc_ddp_ctx {
 	unsigned int dc_fb_idx;
 };
 
+struct mtk_drm_fake_vsync {
+	struct task_struct *fvsync_task;
+	wait_queue_head_t fvsync_wq;
+	atomic_t fvsync_active;
+};
+
 /**
  * struct mtk_drm_crtc - MediaTek specific crtc structure.
  * @base: crtc object.
@@ -485,6 +491,8 @@ struct mtk_drm_crtc {
 
 	char *wk_lock_name;
 	struct wakeup_source wk_lock;
+
+	struct mtk_drm_fake_vsync *fake_vsync;
 };
 
 struct mtk_crtc_state {
