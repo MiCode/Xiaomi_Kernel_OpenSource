@@ -769,7 +769,7 @@ inline void spmi_dump_spmimst_reg(void)
 	pr_info("\n[SPMIMST] %s", wp);
 }
 
-inline void spmi_dump_mst_record_reg(struct pmif *arb)
+void spmi_dump_mst_record_reg(struct pmif *arb)
 {
 	unsigned int log_size = 0;
 

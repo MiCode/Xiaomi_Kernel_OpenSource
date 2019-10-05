@@ -45,7 +45,7 @@ extern inline void spmi_dump_pmif_swinf_reg(void);
 extern inline void spmi_dump_pmif_busy_reg(void);
 /* spmi debug API declaration */
 extern inline void spmi_dump_spmimst_reg(void);
-extern inline void spmi_dump_mst_record_reg(struct pmif *arb);
+extern void spmi_dump_mst_record_reg(struct pmif *arb);
 /* pmic debug API declaration */
 extern inline void spmi_dump_slv_record_reg(u8 sid);
 extern int spmi_pmif_create_attr(struct device_driver *driver);
