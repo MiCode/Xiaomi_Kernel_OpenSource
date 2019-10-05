@@ -472,7 +472,7 @@ int tswmt_get_WiFi_tx_tput(void)
 	return tx_throughput;
 }
 
-static int wmt_cal_stats(unsigned long data)
+static void wmt_cal_stats(unsigned long data)
 {
 	struct wmt_stats *stats_info = (struct wmt_stats *)data;
 	struct timeval cur_time;
@@ -525,7 +525,6 @@ static int wmt_cal_stats(unsigned long data)
 
 	wmt_stats_timer.expires = jiffies + 1 * HZ;
 	add_timer(&wmt_stats_timer);
-	return 0;
 }
 
 static int wmt_thz_bind(struct thermal_zone_device *thz_dev,
@@ -1961,7 +1960,7 @@ static int __init wmt_tm_init(void)
 	wmt_stats_info.pre_tx_bytes = 0;
 
 	init_timer_deferrable(&wmt_stats_timer);
-	wmt_stats_timer.function = (void *)&wmt_cal_stats;
+	wmt_stats_timer.function = &wmt_cal_stats;
 	wmt_stats_timer.data = (unsigned long)&wmt_stats_info;
 	wmt_stats_timer.expires = jiffies + 1 * HZ;
 	add_timer(&wmt_stats_timer);

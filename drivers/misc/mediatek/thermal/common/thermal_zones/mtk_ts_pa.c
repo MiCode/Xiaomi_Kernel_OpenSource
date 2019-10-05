@@ -133,7 +133,7 @@ int tspa_get_MD_tx_tput(void)
 	return tx_throughput;
 }
 
-static int pa_cal_stats(unsigned long data)
+static void pa_cal_stats(unsigned long data)
 {
 	struct pa_stats *stats_info = (struct pa_stats *) data;
 	struct timeval cur_time;
@@ -185,7 +185,6 @@ static int pa_cal_stats(unsigned long data)
 
 	pa_stats_timer.expires = jiffies + 1 * HZ;
 	add_timer(&pa_stats_timer);
-	return 0;
 }
 #endif
 
@@ -809,7 +808,7 @@ static int __init mtktspa_init(void)
 	pa_stats_info.pre_tx_bytes = 0;
 
 	init_timer_deferrable(&pa_stats_timer);
-	pa_stats_timer.function = (void *)&pa_cal_stats;
+	pa_stats_timer.function = &pa_cal_stats;
 	pa_stats_timer.data = (unsigned long) &pa_stats_info;
 	pa_stats_timer.expires = jiffies + 1 * HZ;
 	add_timer(&pa_stats_timer);
