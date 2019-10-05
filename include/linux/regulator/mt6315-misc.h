@@ -28,6 +28,7 @@ enum MT6315_BUCK_EN_USER {
 };
 
 extern void mt6315_vmd1_pmic_setting_on(void);
+extern int is_mt6315_exist(void);
 extern void mt6315_misc_init(u32 sid, struct regmap *regmap);
 
 #endif /* __LINUX_REGULATOR_MT6315_MISC_H */

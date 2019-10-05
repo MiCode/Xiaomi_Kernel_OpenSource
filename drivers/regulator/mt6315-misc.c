@@ -84,6 +84,63 @@ void mt6315_vmd1_pmic_setting_on(void)
 	mt6315_S3_default_vosel();
 }
 
+static int is_mt6315_S3_exist(void)
+{
+	int ret = 0;
+	struct regulator *reg;
+
+	reg = regulator_get_optional(NULL, "3_vbuck1");
+	if (IS_ERR(reg))
+		return 0;
+	if (regulator_is_enabled(reg))
+		ret = 1;
+	regulator_put(reg);
+
+	return ret;
+}
+
+static int is_mt6315_S6_exist(void)
+{
+	int ret = 0;
+	struct regulator *reg;
+
+	reg = regulator_get_optional(NULL, "6_vbuck1");
+	if (IS_ERR(reg))
+		return 0;
+	if (regulator_is_enabled(reg))
+		ret = 1;
+	regulator_put(reg);
+
+	return ret;
+}
+
+static int is_mt6315_S7_exist(void)
+{
+	int ret = 0;
+	struct regulator *reg;
+
+	reg = regulator_get_optional(NULL, "7_vbuck1");
+	if (IS_ERR(reg))
+		return 0;
+	if (regulator_is_enabled(reg))
+		ret = 1;
+	regulator_put(reg);
+
+	return ret;
+}
+
+int is_mt6315_exist(void)
+{
+#if defined(CONFIG_MACH_MT6885)
+	pr_info("%s S3:%d S6:%d S7:%d\n", __func__, is_mt6315_S3_exist()
+	       , is_mt6315_S6_exist(), is_mt6315_S7_exist());
+	if (is_mt6315_S3_exist() && is_mt6315_S6_exist() &&
+	    is_mt6315_S7_exist())
+		return 1;
+#endif
+	return 0;
+}
+
 #if LP_INIT_SETTING_VERIFIED
 static void mt6315_vbuck1_lp_setting(struct regmap *regmap,
 		enum MT6315_BUCK_EN_USER user, unsigned char mode,

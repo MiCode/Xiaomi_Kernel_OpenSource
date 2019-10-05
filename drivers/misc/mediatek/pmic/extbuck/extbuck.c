@@ -14,6 +14,9 @@
 
 #include <linux/regulator/consumer.h>
 #include <mt-plat/upmu_common.h>
+#if defined(CONFIG_REGULATOR_MT6315)
+#include <linux/regulator/mt6315-misc.h>
+#endif
 #ifdef CONFIG_REGULATOR_RT5738
 #include "rt5738-regulator.h"
 #endif
@@ -40,6 +43,10 @@ int is_ext_buck_exist(void)
 	if ((is_mt6313_exist() == 1))
 		return 1;
 	#endif /* CONFIG_MTK_PMIC_CHIP_MT6313 */
+	#if defined(CONFIG_REGULATOR_MT6315)
+	if ((is_mt6315_exist() == 1))
+		return 1;
+	#endif
 	#ifdef CONFIG_REGULATOR_RT5738
 	if ((is_rt5738_exist() == 1))
 		return 1;
