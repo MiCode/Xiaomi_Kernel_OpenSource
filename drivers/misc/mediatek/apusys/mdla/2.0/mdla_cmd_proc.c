@@ -353,7 +353,7 @@ process_command:
 	if (mdla_info->max_cmd_id >= id)
 		wt->result = 0;
 	else { // Command timeout
-		pr_info("%s: command: %u, max_cmd_id: %u deadline:%llu, jiffies: %lu\n",
+		pr_info("%s: command: %d, max_cmd_id: %d deadline:%llu, jiffies: %lu\n",
 				__func__, id,
 				mdla_info->max_cmd_id,
 				deadline, jiffies);
