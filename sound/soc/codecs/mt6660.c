@@ -755,8 +755,7 @@ int mt6660_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		dev_err(chip->dev, "regmap register fail\n");
 		goto probe_fail;
 	}
-	dev_set_name(chip->dev, "%s",
-		     kasprintf(GFP_KERNEL, "MT6660_MT_%d", chip->dev_cnt));
+	dev_set_name(chip->dev, "MT6660_MT_%d", chip->dev_cnt);
 	dev_info(chip->dev, "%s--\n", __func__);
 	return snd_soc_register_codec(chip->dev, &mt6660_codec_driver,
 				      &mt6660_codec_dai, 1);
