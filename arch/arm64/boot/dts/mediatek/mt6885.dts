@@ -2544,10 +2544,20 @@
 		interrupts = <GIC_SPI 356 IRQ_TYPE_LEVEL_LOW>;
 	};
 
-	mfb@15010000 {
-		compatible = "mediatek,mfb";
-		reg = <0 0x15010000 0 0x1000>;
-		interrupts = <GIC_SPI 346 IRQ_TYPE_LEVEL_LOW>;
+	mssdl@15012000 {
+		compatible = "mediatek,mssdl";
+		reg = <0 0x15012000 0 0x1000>;
+		interrupts = <GIC_SPI 349 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	mss@15012000 {
+		compatible = "mediatek,mss";
+		reg = <0 0x15012000 0 0x1000>;
+		interrupts = <GIC_SPI 349 IRQ_TYPE_LEVEL_LOW>;
+		mboxes = <&gce_mbox_m 19 0 CMDQ_THR_PRIO_1>;
+		gce-event-names = "MSS_FRAME_DONE_23";
+		gce-events =
+		<&gce_mbox_m CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_23>;
 	};
 
 	wpe_a@15011000 {
@@ -2556,9 +2566,20 @@
 		interrupts = <GIC_SPI 347 IRQ_TYPE_LEVEL_LOW>;
 	};
 
-	mfb@15012000 {
-		compatible = "mediatek,mfb";
-		reg = <0 0x15012000 0 0x1000>;
+	msfdl@15010000 {
+		compatible = "mediatek,msfdl";
+		reg = <0 0x15010000 0 0x1000>;
+		interrupts = <GIC_SPI 346 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	msf@15010000 {
+		compatible = "mediatek,msf";
+		reg = <0 0x15010000 0 0x1000>;
+		interrupts = <GIC_SPI 346 IRQ_TYPE_LEVEL_LOW>;
+		mboxes = <&gce_mbox_m 20 0 CMDQ_THR_PRIO_1>;
+		gce-event-names = "MSF_FRAME_DONE_21";
+		gce-events =
+		<&gce_mbox_m CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_21>;
 	};
 
 	imgsys2_config@15820000 {
