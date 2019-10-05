@@ -241,4 +241,12 @@ void connectivity_export_dump_gpio_info(int start, int end);
 
 int connectivity_export_gpio_get_tristate_input(unsigned int pin);
 
+#if defined(CONFIG_MACH_MT8167)
+#define CONNADP_HAS_UPMU_VCN_CTRL
+#define KERNEL_upmu_set_vcn35_on_ctrl_bt conn_upmu_set_vcn35_on_ctrl_bt
+#define KERNEL_upmu_set_vcn35_on_ctrl_wifi conn_upmu_set_vcn35_on_ctrl_wifi
+void conn_upmu_set_vcn35_on_ctrl_bt(unsigned int val);
+void conn_upmu_set_vcn35_on_ctrl_wifi(unsigned int val);
+#endif
+
 #endif /* CONNECTIVITY_BUILD_IN_ADAPTER_H */

@@ -218,13 +218,21 @@ EXPORT_SYMBOL(connectivity_export_pmic_read_interface);
 
 void connectivity_export_pmic_set_register_value(int flagname, unsigned int val)
 {
+#ifdef CONNADP_HAS_UPMU_VCN_CTRL
+	upmu_set_reg_value(flagname, val);
+#else
 	pmic_set_register_value(flagname, val);
+#endif
 }
 EXPORT_SYMBOL(connectivity_export_pmic_set_register_value);
 
 unsigned short connectivity_export_pmic_get_register_value(int flagname)
 {
+#ifdef CONNADP_HAS_UPMU_VCN_CTRL
+	return upmu_get_reg_value(flagname);
+#else
 	return pmic_get_register_value(flagname);
+#endif
 }
 EXPORT_SYMBOL(connectivity_export_pmic_get_register_value);
 
@@ -333,3 +341,17 @@ int connectivity_export_gpio_get_tristate_input(unsigned int pin)
 #endif
 }
 EXPORT_SYMBOL(connectivity_export_gpio_get_tristate_input);
+
+#ifdef CONNADP_HAS_UPMU_VCN_CTRL
+void conn_upmu_set_vcn35_on_ctrl_bt(unsigned int val)
+{
+	upmu_set_vcn35_on_ctrl_bt(val);
+}
+EXPORT_SYMBOL(conn_upmu_set_vcn35_on_ctrl_bt);
+
+void conn_upmu_set_vcn35_on_ctrl_wifi(unsigned int val)
+{
+	upmu_set_vcn35_on_ctrl_wifi(val);
+}
+EXPORT_SYMBOL(conn_upmu_set_vcn35_on_ctrl_wifi);
+#endif
