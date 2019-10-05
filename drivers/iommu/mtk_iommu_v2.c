@@ -3582,12 +3582,8 @@ static s32 mtk_iommu_clks_get(struct mtk_iommu_data *data)
 		goto free_clk;
 
 #ifdef APU_IOMMU_INDEX
-#if 1
-	if (data->m4uid >= APU_IOMMU_INDEX) {
-#else
 	if (data->m4uid >= APU_IOMMU_INDEX &&
 	    !apusys_power_check()) {
-#endif
 		m4u_clks->nr_powers = 0;
 		m4u_clks->nr_clks = 0;
 		pr_notice("%s, %d, apu power not support, power:%d, clk:%d\n",
