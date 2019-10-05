@@ -623,6 +623,8 @@ CONFIG_MTK_M4U,PROJECT,Cui.Zhang,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_MAGHUB,PROJECT,weiqi.fu,new config in this commit ddc5d59450d236e7d3732ebd43a19c5056787cc0,,,,,,,,,,,,,
 CONFIG_MTK_MC3410_I2C,PROJECT,ruixue.su,SS6,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_MTK_MC3410_NEW,PROJECT,jy.lan,,X,X,X,X,X,X,X,X,X,X,X,X,X
+CONFIG_MTK_MCIF_WIFI_SUPPORT,PLATFORM,cheng-dao.lee,MCIF connect WiFi driver,,,,,,,,,
+CONFIG_MTK_MDDP_WH_SUPPORT,PROJECT,tj.chang,MDDP WiFi Hostpot,,,,,,,,,
 CONFIG_MTK_MD_DIRECT_TETHERING_SUPPORT,PROJECT,jun-quan.chen,,,,,,,,,,,,,,
 CONFIG_MTK_MD1_SUPPORT,PROJECT,yanbin.ren,,,,,,,,,,,,,,
 CONFIG_MTK_MD3_SUPPORT,PROJECT,yanbin.ren,,,,,,,,,,,,,,
