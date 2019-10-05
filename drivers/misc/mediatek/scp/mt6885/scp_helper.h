@@ -80,6 +80,7 @@ enum SCP_RESET_TYPE {
 	RESET_TYPE_WDT = 0,
 	RESET_TYPE_AWAKE = 1,
 	RESET_TYPE_CMD = 2,
+	RESET_TYPE_TIMEOUT = 3,
 };
 
 struct scp_regs {
@@ -103,18 +104,22 @@ struct scp_work_struct {
 
 /* scp reserve memory ID definition*/
 enum scp_reserve_mem_id_t {
+#ifdef CONFIG_MTK_VOW_SUPPORT
 	VOW_MEM_ID,
-	SENS_MEM_ID,
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
-	MP3_MEM_ID,
 #endif
-	FLP_MEM_ID,
-	RTOS_MEM_ID,
-	SENS_MEM_DIRECT_ID,
+	SENS_MEM_ID,
 	SCP_A_LOGGER_MEM_ID,
+#if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA) || \
+	defined(CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT) || \
+	defined(CONFIG_MTK_AUDIO_TUNNELING_SUPPORT) || \
+	defined(CONFIG_MTK_VOW_SUPPORT)
 	AUDIO_IPI_MEM_ID,
-#ifdef CONFIG_SND_SOC_MTK_SCP_SMARTPA
-	SPK_PROTECT_MEM_ID,
+#endif
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+	VOW_BARGEIN_MEM_ID,
+#endif
+#ifdef SCP_PARAMS_TO_SCP_SUPPORT
+	SCP_DRV_PARAMS_MEM_ID,
 #endif
 	NUMS_MEM_ID,
 };
@@ -203,20 +208,17 @@ extern phys_addr_t scp_mem_base_virt;
 extern phys_addr_t scp_mem_size;
 extern atomic_t scp_reset_status;
 
-#if SCP_VCORE_TEST_ENABLE
-extern unsigned int mt_get_ckgen_freq(unsigned int ID);
-extern unsigned int mt_get_abist_freq(unsigned int ID);
-#endif
-
 /*extern scp notify*/
 extern void scp_send_reset_wq(enum SCP_RESET_TYPE type);
 extern void scp_extern_notify(enum SCP_NOTIFY_EVENT notify_status);
-extern struct completion scp_sys_reset_cp;
+
 extern void scp_status_set(unsigned int value);
 extern void scp_logger_init_set(unsigned int value);
 extern unsigned int scp_set_reset_status(void);
 extern void scp_enable_sram(void);
 extern int scp_sys_full_reset(void);
+extern void scp_reset_awake_counts(void);
+extern void scp_awake_init(void);
 #if SCP_RECOVERY_SUPPORT
 extern phys_addr_t scp_loader_base_virt;
 extern unsigned int scp_reset_by_cmd;

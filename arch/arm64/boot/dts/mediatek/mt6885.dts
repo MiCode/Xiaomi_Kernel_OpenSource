@@ -130,6 +130,13 @@
 			alloc-ranges = <0 0x40000000 0 0x40000000>;
 #endif
 		};
+		reserve-memory-scp_share {
+			compatible = "mediatek,reserve-memory-scp_share";
+			no-map;
+			size = <0 0x00300000>; /*3 MB share mem size */
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x40000000 0 0x50000000>;
+		};
 	};
 
 	gic: interrupt-controller {
@@ -1590,6 +1597,33 @@
 		mdp_tcc3   = <&mdp_tcc3>;
 	};
 
+	scp: scp@10700000 {
+		compatible = "mediatek,scp";
+		status = "okay";
+		reg = <0 0x10500000 0 0x100000>, /* tcm */
+		<0 0x10724000 0 0x1000>, /* cfg */
+		<0 0x10721000 0 0x1000>, /* clk*/
+		<0 0x10760000 0 0x40000>; /* llc */
+
+		interrupts = <GIC_SPI 434 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 437 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH>;
+
+		 interrupt-names = "ipc0",
+			"ipc1",
+			"mbox0",
+			"mbox1",
+			"mbox2",
+			"mbox3",
+			"mbox4";
+
+		core_1 = "enable";
+		scp_sramSize = <0x00100000>;
+	};
 	dramc_ch1_rsv@10900000 {
 		compatible = "mediatek,dramc_ch1_rsv";
 		reg = <0 0x10900000 0 0x40000>;

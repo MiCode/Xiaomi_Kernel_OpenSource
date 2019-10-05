@@ -107,6 +107,9 @@
 #define SCP_INTC_IRQ_STATUS		(scpreg.cfg + 0x2000)
 #define SCP_INTC_IRQ_ENABLE		(scpreg.cfg + 0x2004)
 #define SCP_INTC_IRQ_SLEEP		(scpreg.cfg + 0x200C)
+#define SCP_INTC_IRQ_STATUS_MSB		(scpreg.cfg + 0x2080)
+#define SCP_INTC_IRQ_ENABLE_MSB		(scpreg.cfg + 0x2084)
+#define SCP_INTC_IRQ_SLEEP_MSB		(scpreg.cfg + 0x208C)
 
 /* INFRA_IRQ (always on register) */
 #define INFRA_IRQ_SET			(scpreg.scpsys + 0x0B14)
