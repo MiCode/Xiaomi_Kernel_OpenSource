@@ -174,8 +174,8 @@ void mtk_wait_mbox_init_done(void)
 	mtk_set_mcupm_buck_mode(MCUPM_BUCK_OFF_MODE);
 
 	mtk_mcupm_pwr_ctrl_en(MCUPM_MCUSYS_CTRL);
-	/* mtk_mcupm_pwr_ctrl_en(MCUPM_BUCK_CTRL); */
-	/* mtk_mcupm_pwr_ctrl_en(MCUPM_ARMPLL_CTRL); */
+	mtk_mcupm_pwr_ctrl_en(MCUPM_BUCK_CTRL);
+	mtk_mcupm_pwr_ctrl_en(MCUPM_ARMPLL_CTRL);
 }
 
 void mtk_notify_subsys_ap_ready(void)
