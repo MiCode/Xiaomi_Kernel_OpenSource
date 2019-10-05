@@ -68,7 +68,7 @@
 #define SCP_A_TIMER 0
 
 /* scp ipi message buffer */
-void *msg_scp_ready0, *msg_scp_ready1, *msg_scp_err_info;
+void *msg_scp_ready0, *msg_scp_ready1, *msg_scp_err_info0, *msg_scp_err_info1;
 
 /* scp ready status for notify*/
 unsigned int scp_ready[SCP_CORE_TOTAL];
@@ -829,8 +829,8 @@ static ssize_t scp_set_log_filter(struct device *dev,
 	if (sscanf(buf, "0x%08x", &filter) != 1)
 		return -EINVAL;
 
-	ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_LOG_FILTER_0, 0, &filter,
-			   PIN_OUT_SIZE_SCP_LOG_FILTER_0, 0);
+	ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_LOG_FILTER_1, 0, &filter,
+			   PIN_OUT_SIZE_SCP_LOG_FILTER_1, 0);
 	switch (ret) {
 	case IPI_ACTION_DONE:
 		pr_notice("[SCP] Set log filter to 0x%08x\n", filter);
@@ -1871,7 +1871,10 @@ static int __init scp_init(void)
 			(void *)scp_A_ready_ipi_handler, NULL, &msg_scp_ready1);
 
 	mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_ERROR_INFO_0,
-			(void *)scp_err_info_handler, NULL, &msg_scp_err_info);
+			(void *)scp_err_info_handler, NULL, &msg_scp_err_info0);
+
+	mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_ERROR_INFO_1,
+			(void *)scp_err_info_handler, NULL, &msg_scp_err_info1);
 
 	ret = register_pm_notifier(&scp_pm_notifier_block);
 	if (ret)

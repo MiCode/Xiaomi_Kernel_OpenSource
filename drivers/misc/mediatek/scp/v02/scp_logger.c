@@ -318,8 +318,8 @@ static unsigned int scp_A_log_enable_set(unsigned int enable)
 		enable = (enable) ? SCP_LOGGER_ON : SCP_LOGGER_OFF;
 		retrytimes = SCP_IPI_RETRY_TIMES;
 		do {
-			ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_LOGGER_ENABLE_0,
-				0, &enable, PIN_OUT_SIZE_LOGGER_ENABLE_0, 0);
+			ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_LOGGER_ENABLE_1,
+				0, &enable, PIN_OUT_SIZE_LOGGER_ENABLE_1, 0);
 			if (ret == IPI_ACTION_DONE)
 				break;
 			retrytimes--;
@@ -360,8 +360,8 @@ static unsigned int scp_A_log_wakeup_set(unsigned int enable)
 		enable = (enable) ? 1 : 0;
 		retrytimes = SCP_IPI_RETRY_TIMES;
 		do {
-			ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_LOGGER_WAKEUP_0,
-				0, &enable, PIN_OUT_SIZE_LOGGER_WAKEUP_0, 0);
+			ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_LOGGER_WAKEUP_1,
+				0, &enable, PIN_OUT_SIZE_LOGGER_WAKEUP_1, 0);
 			if (ret == IPI_ACTION_DONE)
 				break;
 			retrytimes--;
@@ -587,7 +587,7 @@ static void scp_logger_notify_ws(struct work_struct *ws)
 	unsigned int scp_ipi_id;
 	unsigned int dram_info[2];
 
-	scp_ipi_id = IPI_OUT_LOGGER_INIT_0;
+	scp_ipi_id = IPI_OUT_LOGGER_INIT_1;
 	dram_info[0] = scp_get_reserve_mem_phys(SCP_A_LOGGER_MEM_ID);
 	dram_info[1] = scp_get_reserve_mem_size(SCP_A_LOGGER_MEM_ID);
 
@@ -598,7 +598,7 @@ static void scp_logger_notify_ws(struct work_struct *ws)
 	retrytimes = SCP_IPI_RETRY_TIMES;
 	do {
 		ret = mtk_ipi_send(&scp_ipidev, scp_ipi_id, 0, dram_info,
-				   PIN_OUT_SIZE_LOGGER_INIT_0, 0);
+				   PIN_OUT_SIZE_LOGGER_INIT_1, 0);
 		if ((retrytimes % 500) == 0)
 			pr_debug("[SCP] %s: ipi ret=%d\n", __func__, ret);
 		if (ret == IPI_ACTION_DONE)
@@ -675,11 +675,11 @@ int scp_logger_init(phys_addr_t start, phys_addr_t limit)
 	}
 
 	/* register logger ini IPI */
-	mtk_ipi_register(&scp_ipidev, IPI_IN_LOGGER_INIT_0,
+	mtk_ipi_register(&scp_ipidev, IPI_IN_LOGGER_INIT_1,
 			(void *)scp_logger_init_handler, NULL,
 			&msg_logger_init);
 	/* register log wakeup IPI */
-	mtk_ipi_register(&scp_ipidev, IPI_IN_LOGGER_WAKEUP_0,
+	mtk_ipi_register(&scp_ipidev, IPI_IN_LOGGER_WAKEUP_1,
 			(void *)scp_logger_wakeup_handler, NULL,
 			&msg_logger_wk);
 
