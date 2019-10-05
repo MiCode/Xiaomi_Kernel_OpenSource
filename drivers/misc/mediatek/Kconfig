@@ -274,6 +274,7 @@ menu "Other Peripherals"
 
 source "drivers/misc/mediatek/accdet/Kconfig"
 source "drivers/misc/mediatek/dramc/Kconfig"
+source "drivers/misc/mediatek/dbgtop/Kconfig"
 source "drivers/misc/mediatek/emi/Kconfig"
 source "drivers/misc/mediatek/emi_bwl/Kconfig"
 source "drivers/misc/mediatek/emi_mpu/Kconfig"
