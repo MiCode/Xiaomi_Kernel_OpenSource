@@ -277,6 +277,23 @@ int dcm_infra_preset(int on)
 	return 0;
 }
 
+bool dcm_infra_is_on(void)
+{
+	bool ret = true;
+
+	ret &= dcm_infracfg_ao_aximem_bus_dcm_is_on();
+	ret &= dcm_infracfg_ao_aximem_bus_dcm_is_on();
+	ret &= dcm_infracfg_ao_infra_bus_dcm_is_on();
+	/*ret &= dcm_infracfg_ao_infra_conn_bus_dcm_is_on();*/
+	ret &= dcm_infracfg_ao_infra_rx_p2p_dcm_is_on();
+	ret &= dcm_infracfg_ao_peri_bus_dcm_is_on();
+	ret &= dcm_infracfg_ao_peri_module_dcm_is_on();
+	ret &= dcm_infra_ao_bcrm_infra_bus_dcm_is_on();
+	ret &= dcm_infra_ao_bcrm_peri_bus_dcm_is_on();
+
+	return ret;
+}
+
 int dcm_infra(int on)
 {
 #ifdef DCM_6885
@@ -284,7 +301,7 @@ int dcm_infra(int on)
 	/* Review this group with PIC*/
 	dcm_infracfg_ao_aximem_bus_dcm(on);
 	dcm_infracfg_ao_infra_bus_dcm(on);
-	dcm_infracfg_ao_infra_conn_bus_dcm(on);
+	/*dcm_infracfg_ao_infra_conn_bus_dcm(on);*/
 	dcm_infracfg_ao_infra_rx_p2p_dcm(on);
 	dcm_infracfg_ao_peri_bus_dcm(on);
 	dcm_infracfg_ao_peri_module_dcm(on);
@@ -323,6 +340,20 @@ int dcm_peri(int on)
 	return 0;
 }
 
+bool dcm_armcore_is_on(void)
+{
+	bool ret = true;
+
+	ret &= dcm_mp_cpusys_top_bus_pll_div_dcm_is_on();
+	ret &= dcm_mp_cpusys_top_cpu_pll_div_0_dcm_is_on();
+	ret &= dcm_mp_cpusys_top_cpu_pll_div_1_dcm_is_on();
+	ret &= dcm_mp_cpusys_top_cpu_pll_div_2_dcm_is_on();
+	ret &= dcm_mp_cpusys_top_cpu_pll_div_3_dcm_is_on();
+	ret &= dcm_mp_cpusys_top_cpu_pll_div_4_dcm_is_on();
+
+	return ret;
+}
+
 int dcm_armcore(int mode)
 {
 #ifdef DCM_6885
@@ -339,6 +370,21 @@ int dcm_armcore(int mode)
 	dcm_mp_cpusys_top_cpu_pll_div_2_dcm(mode);
 #endif
 	return 0;
+}
+
+bool dcm_mcusys_is_on(void)
+{
+	bool ret = true;
+
+	ret &= dcm_mp_cpusys_top_adb_dcm_is_on();
+	ret &= dcm_mp_cpusys_top_apb_dcm_is_on();
+	ret &= dcm_mp_cpusys_top_cpubiu_dcm_is_on();
+	ret &= dcm_mp_cpusys_top_misc_dcm_is_on();
+	ret &= dcm_mp_cpusys_top_mp0_qdcm_is_on();
+	ret &= dcm_cpccfg_reg_emi_wfifo_is_on();
+	ret &= dcm_mp_cpusys_top_last_cor_idle_dcm_is_on();
+
+	return ret;
 }
 
 int dcm_mcusys(int on)
@@ -389,6 +435,16 @@ int dcm_big_core(int on)
 int dcm_stall_preset(int on)
 {
 	return 0;
+}
+
+bool dcm_stall_is_on(void)
+{
+	bool ret = true;
+
+	ret &= dcm_mp_cpusys_top_core_stall_dcm_is_on();
+	ret &= dcm_mp_cpusys_top_fcm_stall_dcm_is_on();
+
+	return ret;
 }
 
 int dcm_stall(int on)
@@ -504,6 +560,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = ARMCORE_DCM_TYPE,
 	 .name = "ARMCORE_DCM",
 	 .func = (DCM_FUNC) dcm_armcore,
+	 .func_is_on = (DCM_FUNC_IS_ON) dcm_armcore_is_on,
 	 .current_state = ARMCORE_DCM_MODE1,
 	 .default_state = ARMCORE_DCM_MODE1,
 	 .disable_refcnt = 0,
@@ -512,6 +569,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = MCUSYS_DCM_TYPE,
 	 .name = "MCUSYS_DCM",
 	 .func = (DCM_FUNC) dcm_mcusys,
+	 .func_is_on = (DCM_FUNC_IS_ON) dcm_mcusys_is_on,
 	 .current_state = MCUSYS_DCM_ON,
 	 .default_state = MCUSYS_DCM_ON,
 	 .disable_refcnt = 0,
@@ -520,6 +578,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = INFRA_DCM_TYPE,
 	 .name = "INFRA_DCM",
 	 .func = (DCM_FUNC) dcm_infra,
+	 .func_is_on = (DCM_FUNC_IS_ON) dcm_infra_is_on,
 	 .current_state = INFRA_DCM_ON,
 	 .default_state = INFRA_DCM_ON,
 	 .disable_refcnt = 0,
@@ -528,6 +587,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = PERI_DCM_TYPE,
 	 .name = "PERI_DCM",
 	 .func = (DCM_FUNC) dcm_peri,
+	 .func_is_on = NULL,
 	 .current_state = PERI_DCM_ON,
 	 .default_state = PERI_DCM_ON,
 	 .disable_refcnt = 0,
@@ -536,6 +596,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = EMI_DCM_TYPE,
 	 .name = "EMI_DCM",
 	 .func = (DCM_FUNC) dcm_emi,
+	 .func_is_on = NULL,
 	 .current_state = EMI_DCM_ON,
 	 .default_state = EMI_DCM_ON,
 	 .disable_refcnt = 0,
@@ -544,6 +605,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = DRAMC_DCM_TYPE,
 	 .name = "DRAMC_DCM",
 	 .func = (DCM_FUNC) dcm_dramc_ao,
+	 .func_is_on = NULL,
 	 .current_state = DRAMC_AO_DCM_ON,
 	 .default_state = DRAMC_AO_DCM_ON,
 	 .disable_refcnt = 0,
@@ -552,6 +614,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = DDRPHY_DCM_TYPE,
 	 .name = "DDRPHY_DCM",
 	 .func = (DCM_FUNC) dcm_ddrphy,
+	 //.func_is_on = NULL,
 	 .current_state = DDRPHY_DCM_ON,
 	 .default_state = DDRPHY_DCM_ON,
 	 .disable_refcnt = 0,
@@ -560,6 +623,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = STALL_DCM_TYPE,
 	 .name = "STALL_DCM",
 	 .func = (DCM_FUNC) dcm_stall,
+	 .func_is_on = (DCM_FUNC_IS_ON) dcm_stall_is_on,
 	 .current_state = STALL_DCM_ON,
 	 .default_state = STALL_DCM_ON,
 	 .disable_refcnt = 0,
@@ -568,6 +632,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = BIG_CORE_DCM_TYPE,
 	 .name = "BIG_CORE_DCM",
 	 .func = (DCM_FUNC) dcm_big_core,
+	 .func_is_on = NULL,
 	 .current_state = BIG_CORE_DCM_ON,
 	 .default_state = BIG_CORE_DCM_ON,
 	 .disable_refcnt = 0,
@@ -576,6 +641,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = GIC_SYNC_DCM_TYPE,
 	 .name = "GIC_SYNC_DCM",
 	 .func = (DCM_FUNC) dcm_gic_sync,
+	 .func_is_on = NULL,
 	 .current_state = GIC_SYNC_DCM_ON,
 	 .default_state = GIC_SYNC_DCM_ON,
 	 .disable_refcnt = 0,
@@ -584,6 +650,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = LAST_CORE_DCM_TYPE,
 	 .name = "LAST_CORE_DCM",
 	 .func = (DCM_FUNC) dcm_last_core,
+	 .func_is_on = NULL,
 	 .current_state = LAST_CORE_DCM_ON,
 	 .default_state = LAST_CORE_DCM_ON,
 	 .disable_refcnt = 0,
@@ -592,6 +659,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = RGU_DCM_TYPE,
 	 .name = "RGU_CORE_DCM",
 	 .func = (DCM_FUNC) dcm_rgu,
+	 .func_is_on = NULL,
 	 .current_state = RGU_DCM_ON,
 	 .default_state = RGU_DCM_ON,
 	 .disable_refcnt = 0,
@@ -600,6 +668,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = TOPCKG_DCM_TYPE,
 	 .name = "TOPCKG_DCM",
 	 .func = (DCM_FUNC) dcm_topckg,
+	 .func_is_on = NULL,
 	 .current_state = TOPCKG_DCM_ON,
 	 .default_state = TOPCKG_DCM_ON,
 	 .disable_refcnt = 0,
@@ -608,6 +677,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = LPDMA_DCM_TYPE,
 	 .name = "LPDMA_DCM",
 	 .func = (DCM_FUNC) dcm_lpdma,
+	 .func_is_on = NULL,
 	 .current_state = LPDMA_DCM_ON,
 	 .default_state = LPDMA_DCM_ON,
 	 .disable_refcnt = 0,
@@ -616,6 +686,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = MCSI_DCM_TYPE,
 	 .name = "MCSI_DCM",
 	 .func = (DCM_FUNC) dcm_mcsi,
+	 .func_is_on = NULL,
 	 .current_state = MCSI_DCM_ON,
 	 .default_state = MCSI_DCM_ON,
 	 .disable_refcnt = 0,
@@ -624,6 +695,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = BUSDVT_DCM_TYPE,
 	 .name = "MCSI_DCM",
 	 .func = (DCM_FUNC) dcm_busdvt,
+	 .func_is_on = NULL,
 	 .current_state = BUSDVT_DCM_ON,
 	 .default_state = BUSDVT_DCM_ON,
 	 .disable_refcnt = 0,
