@@ -14,6 +14,8 @@
 #ifndef _MTK_DRM_RECOVERY_H
 #define _MTK_DRM_RECOVERY_H
 
+struct mtk_drm_private;
+
 enum mtk_esd_chk_mode {
 	READ_EINT,
 	READ_LCM,
@@ -32,5 +34,6 @@ struct mtk_drm_esd_ctx {
 
 void mtk_disp_esd_check_switch(struct drm_crtc *crtc, bool enable);
 void mtk_disp_chk_recover_init(struct drm_crtc *crtc);
+long disp_dts_gpio_init(struct device *dev, struct mtk_drm_private *private);
 
 #endif

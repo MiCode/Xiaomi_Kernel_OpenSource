@@ -128,6 +128,17 @@ static void mtk_drm_idlemgr_leave_idle_nolock(struct drm_crtc *crtc)
 		mtk_drm_vdo_mode_leave_idle(crtc);
 }
 
+bool mtk_drm_is_idle(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_idlemgr *idlemgr = mtk_crtc->idlemgr;
+
+	if (!idlemgr)
+		return false;
+
+	return idlemgr->idlemgr_ctx->is_idle;
+}
+
 void mtk_drm_idlemgr_kick(const char *source, struct drm_crtc *crtc,
 			  int need_lock)
 {

@@ -3780,8 +3780,8 @@ page_owner=on";
 			<1>, /*MTK_DRM_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ*/
 			<0>, /*MTK_DRM_OPT_MET_LOG*/
 			<0>, /*MTK_DRM_OPT_USE_PQ*/
-			<0>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
-			<0>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
+			<1>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
+			<1>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
 			<1>, /*MTK_DRM_OPT_PRESENT_FENCE*/
 			<0>, /*MTK_DRM_OPT_RDMA_UNDERFLOW_AEE*/
 			<1>, /*MTK_DRM_OPT_HRT*/
@@ -6834,9 +6834,6 @@ page_owner=on";
 	};
 
 	smart_pa: smart_pa {
-	};
-
-	dsi_te: dsi_te {
 	};
 
 	md1_sim1_hot_plug_eint: md1_sim1_hot_plug_eint {

@@ -146,6 +146,7 @@ struct mtk_drm_private {
 	struct pm_qos_request mm_freq_request;
 	struct mm_qos_request hrt_bw_request;
 #endif
+	struct pinctrl *pctrl;
 };
 
 struct mtk_drm_property {

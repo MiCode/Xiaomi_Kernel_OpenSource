@@ -626,7 +626,7 @@ static struct mtk_panel_params ext_params = {
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
 		.count = 1,
-		.para_list[0] = 0x9c,
+		.para_list[0] = 0x1c,
 	},
 
 };

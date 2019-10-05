@@ -34,6 +34,8 @@ struct mtk_drm_idlemgr {
 
 void mtk_drm_idlemgr_kick(const char *source, struct drm_crtc *crtc,
 			  int need_lock);
+bool mtk_drm_is_idle(struct drm_crtc *crtc);
+
 int mtk_drm_idlemgr_init(struct drm_crtc *crtc, int index);
 unsigned int mtk_drm_set_idlemgr(struct drm_crtc *crtc, unsigned int flag,
 				 bool need_lock);

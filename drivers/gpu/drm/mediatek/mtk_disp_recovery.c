@@ -32,9 +32,57 @@
 #include "mtk_drm_helper.h"
 #include "mtk_drm_assert.h"
 #include "mtk_drm_mmp.h"
+#include "mtk_drm_fbdev.h"
 
 #define ESD_TRY_CNT 5
 #define ESD_CHECK_PERIOD 2000 /* ms */
+
+/* pinctrl implementation */
+long _set_state(struct drm_crtc *crtc, const char *name)
+{
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct pinctrl_state *pState = 0;
+	long ret = 0;
+
+	/* TODO: race condition issue for pctrl handle */
+	/* SO Far _set_state() only process once */
+	if (!priv->pctrl) {
+		DDPPR_ERR("this pctrl is null\n");
+		return -1;
+	}
+
+	pState = pinctrl_lookup_state(priv->pctrl, name);
+	if (IS_ERR(pState)) {
+		DDPPR_ERR("lookup state '%s' failed\n", name);
+		ret = PTR_ERR(pState);
+		goto exit;
+	}
+
+	/* select state! */
+	pinctrl_select_state(priv->pctrl, pState);
+
+exit:
+	return ret; /* Good! */
+}
+
+long disp_dts_gpio_init(struct device *dev, struct mtk_drm_private *private)
+{
+	long ret = 0;
+	struct pinctrl *pctrl;
+
+	/* retrieve */
+	pctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(pctrl)) {
+		DDPPR_ERR("Cannot find disp pinctrl!");
+		ret = PTR_ERR(pctrl);
+		goto exit;
+	}
+
+	private->pctrl = pctrl;
+
+exit:
+	return ret;
+}
 
 static inline int _can_switch_check_mode(struct drm_crtc *crtc,
 					 struct mtk_panel_ext *panel_ext)
@@ -55,8 +103,8 @@ static inline int _lcm_need_esd_check(struct mtk_panel_ext *panel_ext)
 {
 	int ret = 0;
 
-	if (panel_ext->params->esd_check_enable == 1) {
-		/* TODO: check islcmconnected == 1 */
+	if (panel_ext->params->esd_check_enable == 1 &&
+		mtk_drm_lcm_is_connect()) {
 		ret = 1;
 	}
 
@@ -86,27 +134,29 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *output_comp;
 	struct mtk_panel_ext *panel_ext;
-	struct cmdq_pkt *cmdq_handle;
+	struct cmdq_pkt *cmdq_handle, *cmdq_handle2;
 	int ret = 0;
 
 	DDPINFO("[ESD]ESD read panel\n");
-
-	/* TODO: ESD read panel have trouble so far, would skip process until
-	 * solved
-	 */
-	return 0;
 
 	mutex_lock(&mtk_crtc->lock);
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (unlikely(!output_comp)) {
 		DDPPR_ERR("%s:invalid output comp\n", __func__);
+		mutex_unlock(&mtk_crtc->lock);
 		return -EINVAL;
+	}
+
+	if (mtk_drm_is_idle(crtc) && mtk_dsi_is_cmd_mode(output_comp)) {
+		mutex_unlock(&mtk_crtc->lock);
+		return 0;
 	}
 
 	mtk_ddp_comp_io_cmd(output_comp, NULL, REQ_PANEL_EXT, &panel_ext);
 	if (unlikely(!(panel_ext && panel_ext->params))) {
 		DDPPR_ERR("%s:can't find panel_ext handle\n", __func__);
+		mutex_unlock(&mtk_crtc->lock);
 		return -EINVAL;
 	}
 
@@ -143,25 +193,25 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 				    NULL);
 	}
 
-	mutex_unlock(&mtk_crtc->lock);
 	ret = cmdq_pkt_flush(cmdq_handle);
-
-	cmdq_pkt_destroy(cmdq_handle);
-
 	if (ret) {
 		if (need_wait_esd_eof(crtc, panel_ext)) {
 			/* TODO: set ESD_EOF event through CPU is better */
-			mtk_crtc_pkt_create(&cmdq_handle, crtc,
+			mtk_crtc_pkt_create(&cmdq_handle2, crtc,
 				mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 			cmdq_pkt_set_event(
-				cmdq_handle,
+				cmdq_handle2,
 				mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
-			cmdq_pkt_flush(cmdq_handle);
-			cmdq_pkt_destroy(cmdq_handle);
+			cmdq_pkt_flush(cmdq_handle2);
+			cmdq_pkt_destroy(cmdq_handle2);
 		}
+		mutex_unlock(&mtk_crtc->lock);
 		goto done;
 	}
+	mutex_unlock(&mtk_crtc->lock);
+
+	cmdq_pkt_destroy(cmdq_handle);
 
 	ret = mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_CHECK_CMP,
 				  (void *)mtk_crtc->gce_obj.buf.va_base +
@@ -251,7 +301,7 @@ static int mtk_drm_request_eint(struct drm_crtc *crtc)
 
 	disable_irq(esd_ctx->eint_irq);
 
-	/* TODO: change DSI_TE GPIO to TE MODE */
+	_set_state(crtc, "mode_te_te");
 
 	return ret;
 }
@@ -332,6 +382,8 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 3);
 
 	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_PANEL_ENABLE, NULL);
+
+	mtk_crtc_hw_block_ready(crtc);
 
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 4);
 

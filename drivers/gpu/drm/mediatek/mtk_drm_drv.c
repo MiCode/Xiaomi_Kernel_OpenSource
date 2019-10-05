@@ -47,6 +47,7 @@
 #include "mtk_panel_ext.h"
 #include <linux/clk.h>
 #include "mtk_disp_pmqos.h"
+#include "mtk_disp_recovery.h"
 
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
@@ -1862,6 +1863,8 @@ static int mtk_drm_probe(struct platform_device *pdev)
 
 	mtk_fence_init();
 	mtk_drm_helper_init(dev, &private->helper_opt);
+
+	disp_dts_gpio_init(dev, private);
 
 	return 0;
 
