@@ -4517,6 +4517,11 @@ page_owner=on";
 		compatible = "mediatek,rsc";
 		reg = <0 0x1b003000 0 0x1000>;
 		interrupts = <GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH>;
+		mboxes = <&gce_mbox_m 18 0 CMDQ_THR_PRIO_1>;
+		gce-event-names = "rsc_eof";
+		gce-events = <&gce_mbox_m CMDQ_EVENT_RSC_EOF>;
+		clocks = <&ipesys_config IPESYS_RSC_CGPDN>;
+		clock-names = "RSC_CLK_IPE_RSC";
 	};
 
 	ipe_smi_subcom@1b00e000 {
