@@ -320,7 +320,7 @@ static int rtc_field_read(unsigned int reg,
 		       unsigned int mask, unsigned int shift, unsigned int *val)
 {
 	int ret;
-	unsigned int reg_val;
+	unsigned int reg_val = 0;
 
 	ret = rtc_read(reg, &reg_val);
 	if (ret != 0)
