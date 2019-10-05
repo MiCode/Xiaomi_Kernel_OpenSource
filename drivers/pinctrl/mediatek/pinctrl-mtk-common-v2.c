@@ -1,14 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2018 MediaTek Inc.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Author: Sean Wang <sean.wang@mediatek.com>
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #include <linux/device.h>
@@ -42,7 +37,7 @@ struct mtk_drive_desc {
 };
 
 /* The groups of drive strength */
-const struct mtk_drive_desc mtk_drive[] = {
+static const struct mtk_drive_desc mtk_drive[] = {
 	[DRV_GRP0] = { 4, 16, 4, 1 },
 	[DRV_GRP1] = { 4, 16, 4, 2 },
 	[DRV_GRP2] = { 2, 8, 2, 1 },
@@ -106,7 +101,7 @@ static int mtk_hw_pin_field_lookup(struct mtk_pinctrl *hw,
 	}
 
 	if (!found) {
-		dev_notice(hw->dev, "Not support field %d for pin = %d (%s)\n",
+		dev_dbg(hw->dev, "Not support field %d for pin = %d (%s)\n",
 			field, desc->number, desc->name);
 		return -ENOTSUPP;
 	}
@@ -191,8 +186,6 @@ static void mtk_hw_read_cross_field(struct mtk_pinctrl *hw,
 	*value = (h << nbits_l) | l;
 }
 
-/* #define ENABLE_VIRTUAL_GPIO_WORKAROUND */
-
 int mtk_hw_set_value(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 		     int field, int value)
 {
@@ -200,15 +193,8 @@ int mtk_hw_set_value(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 	int err;
 
 	err = mtk_hw_pin_field_get(hw, desc, field, &pf);
-
-#ifdef ENABLE_VIRTUAL_GPIO_WORKAROUND
-	/* Temporarily for virtual GPIO */
-	if (err == -ENOTSUPP)
-		return 0;
-#else
 	if (err)
 		return err;
-#endif
 
 	if (value < 0 || value > pf.mask)
 		return -EINVAL;
@@ -680,18 +666,6 @@ int mtk_pinconf_bias_set_pupd_r1_r0(struct mtk_pinctrl *hw,
 	if (err)
 		goto out;
 	mtk_hw_set_value_no_lookup(hw, desc, r1, &pf);
-
-{
-	err = mtk_hw_pin_field_lookup(hw, desc, PINCTRL_PIN_REG_R0, &pf);
-	if (err)
-		goto out;
-	mtk_hw_get_value_no_lookup(hw, desc, &r0, &pf);
-
-	err = mtk_hw_pin_field_lookup(hw, desc, PINCTRL_PIN_REG_R1, &pf);
-	if (err)
-		goto out;
-	mtk_hw_get_value_no_lookup(hw, desc, &r1, &pf);
-}
 
 out:
 	return err;

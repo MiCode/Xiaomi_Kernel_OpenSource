@@ -272,8 +272,8 @@ static ssize_t mtk_gpio_store_pin(struct device *dev,
 	} else if ((!strncmp(buf, "smt", 3))
 		&& (sscanf(buf+3, "%d %d", &gpio, &val) == 2)) {
 		mtk_pctrl_set_smt(hw, gpio, val);
-	} else if ((sscanf(buf+7, "%d %d", &gpio, &val) == 2)
-		&& (!strncmp(buf, "driving", 7))) {
+	} else if ((!strncmp(buf, "driving", 7))
+		&& (sscanf(buf+7, "%d %d", &gpio, &val) == 2)) {
 		if (gpio < 0 || gpio > hw->soc->npins) {
 			pr_notice("invalid pin number\n");
 			goto out;

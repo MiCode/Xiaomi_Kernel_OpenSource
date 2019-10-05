@@ -1,18 +1,15 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (C) 2018 MediaTek Inc.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Author: Sean Wang <sean.wang@mediatek.com>
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #ifndef __PINCTRL_MTK_COMMON_V2_H
 #define __PINCTRL_MTK_COMMON_V2_H
+
+#include <linux/gpio/driver.h>
 
 #define MTK_INPUT      0
 #define MTK_OUTPUT     1
@@ -21,9 +18,9 @@
 #define MTK_PULLDOWN   0
 #define MTK_PULLUP     1
 
-#define EINT_NA        -1
+#define EINT_NA        U16_MAX
+#define NO_EINT_SUPPORT EINT_NA
 #define EINT_NO_GPIO   9999
-#define NO_EINT_SUPPORT -1
 
 #define PIN_FIELD_CALC(_s_pin, _e_pin, _i_base, _s_addr, _x_addrs,      \
 		       _s_bit, _x_bits, _sz_reg, _fixed) {              \
@@ -158,7 +155,7 @@ struct mtk_func_desc {
  * @eitn_n:             the eint number for this pin
  */
 struct mtk_eint_desc {
-	u8 eint_m;
+	u16 eint_m;
 	u16 eint_n;
 };
 
