@@ -1914,20 +1914,15 @@ const char *cmdq_mdp_parse_handle_error_module_by_hwflag_virtual(
 	const struct cmdqRecStruct *handle)
 {
 	const char *module = NULL;
-	const u32 ISP_ONLY[2] = {
+	const u64 ISP_ONLY[2] = {
 		((1LL << CMDQ_ENG_ISP_IMGI) | (1LL << CMDQ_ENG_ISP_IMG2O)),
-		((1LL << CMDQ_ENG_ISP_IMGI) | (1LL << CMDQ_ENG_ISP_IMG2O) |
-		 (1LL << CMDQ_ENG_ISP_IMGO))
+		((1LL << CMDQ_ENG_ISP_IMGI2) | (1LL << CMDQ_ENG_ISP_IMG2O2))
 	};
 
 	/* common part for both normal and secure path
 	 * for JPEG scenario, use HW flag is sufficient
 	 */
-	if (handle->engineFlag & (1LL << CMDQ_ENG_JPEG_ENC))
-		module = "JPGENC";
-	else if (handle->engineFlag & (1LL << CMDQ_ENG_JPEG_DEC))
-		module = "JPGDEC";
-	else if ((ISP_ONLY[0] == handle->engineFlag) ||
+	if ((ISP_ONLY[0] == handle->engineFlag) ||
 		(ISP_ONLY[1] == handle->engineFlag))
 		module = "DIP_ONLY";
 
@@ -1965,20 +1960,15 @@ const char *cmdq_mdp_parse_error_module_by_hwflag_virtual(
 	const struct cmdqRecStruct *task)
 {
 	const char *module = NULL;
-	const u32 ISP_ONLY[2] = {
+	const u64 ISP_ONLY[2] = {
 		((1LL << CMDQ_ENG_ISP_IMGI) | (1LL << CMDQ_ENG_ISP_IMG2O)),
-		((1LL << CMDQ_ENG_ISP_IMGI) | (1LL << CMDQ_ENG_ISP_IMG2O) |
-		 (1LL << CMDQ_ENG_ISP_IMGO))
+		((1LL << CMDQ_ENG_ISP_IMGI2) | (1LL << CMDQ_ENG_ISP_IMG2O2))
 	};
 
 	/* common part for both normal and secure path
 	 * for JPEG scenario, use HW flag is sufficient
 	 */
-	if (task->engineFlag & (1LL << CMDQ_ENG_JPEG_ENC))
-		module = "JPGENC";
-	else if (task->engineFlag & (1LL << CMDQ_ENG_JPEG_DEC))
-		module = "JPGDEC";
-	else if ((ISP_ONLY[0] == task->engineFlag) ||
+	if ((ISP_ONLY[0] == task->engineFlag) ||
 		(ISP_ONLY[1] == task->engineFlag))
 		module = "DIP_ONLY";
 

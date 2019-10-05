@@ -30,15 +30,6 @@ u64 cmdq_virtual_flag_from_scenario_default(enum CMDQ_SCENARIO_ENUM scn)
 	u64 flag = 0;
 
 	switch (scn) {
-	case CMDQ_SCENARIO_JPEG_DEC:
-		flag = (1LL << CMDQ_ENG_JPEG_DEC);
-		break;
-
-	case CMDQ_SCENARIO_SUB_MEMOUT:
-		flag = ((1LL << CMDQ_ENG_DISP_OVL1) |
-			(1LL << CMDQ_ENG_DISP_WDMA1));
-		break;
-
 	case CMDQ_SCENARIO_KERNEL_CONFIG_GENERAL:
 		flag = 0LL;
 		break;
@@ -487,11 +478,7 @@ void cmdq_virtual_get_reg_id_from_hwflag(u64 hwflag,
 {
 	*regAccessToken = CMDQ_SYNC_TOKEN_INVALID;
 
-	if (hwflag & (1LL << CMDQ_ENG_JPEG_ENC)) {
-		*valueRegId = CMDQ_DATA_REG_JPEG;
-		*destRegId = CMDQ_DATA_REG_JPEG_DST;
-		*regAccessToken = CMDQ_SYNC_TOKEN_GPR_SET_0;
-	} else if (hwflag & (1LL << CMDQ_ENG_MDP_TDSHP0)) {
+	if (hwflag & (1LL << CMDQ_ENG_MDP_TDSHP0)) {
 		*valueRegId = CMDQ_DATA_REG_2D_SHARPNESS_0;
 		*destRegId = CMDQ_DATA_REG_2D_SHARPNESS_0_DST;
 		*regAccessToken = CMDQ_SYNC_TOKEN_GPR_SET_1;
@@ -499,10 +486,6 @@ void cmdq_virtual_get_reg_id_from_hwflag(u64 hwflag,
 		*valueRegId = CMDQ_DATA_REG_2D_SHARPNESS_1;
 		*destRegId = CMDQ_DATA_REG_2D_SHARPNESS_1_DST;
 		*regAccessToken = CMDQ_SYNC_TOKEN_GPR_SET_2;
-	} else if (hwflag & (1LL << CMDQ_ENG_DISP_COLOR0)) {
-		*valueRegId = CMDQ_DATA_REG_PQ_COLOR;
-		*destRegId = CMDQ_DATA_REG_PQ_COLOR_DST;
-		*regAccessToken = CMDQ_SYNC_TOKEN_GPR_SET_3;
 	} else {
 		/* assume others are debug cases */
 		*valueRegId = CMDQ_DATA_REG_DEBUG;
@@ -518,65 +501,6 @@ const char *cmdq_virtual_module_from_event_id(const s32 event,
 	enum CMDQ_GROUP_ENUM group = CMDQ_MAX_GROUP_COUNT;
 
 	switch (event) {
-	case CMDQ_EVENT_DISP_RDMA0_SOF:
-	case CMDQ_EVENT_DISP_RDMA1_SOF:
-	case CMDQ_EVENT_DISP_RDMA2_SOF:
-	case CMDQ_EVENT_DISP_RDMA0_EOF:
-	case CMDQ_EVENT_DISP_RDMA1_EOF:
-	case CMDQ_EVENT_DISP_RDMA2_EOF:
-	case CMDQ_EVENT_DISP_RDMA0_UNDERRUN:
-	case CMDQ_EVENT_DISP_RDMA1_UNDERRUN:
-	case CMDQ_EVENT_DISP_RDMA2_UNDERRUN:
-		module = "DISP_RDMA";
-		group = CMDQ_GROUP_DISP;
-		break;
-
-	case CMDQ_EVENT_DISP_WDMA0_SOF:
-	case CMDQ_EVENT_DISP_WDMA1_SOF:
-	case CMDQ_EVENT_DISP_WDMA0_EOF:
-	case CMDQ_EVENT_DISP_WDMA1_EOF:
-		module = "DISP_WDMA";
-		group = CMDQ_GROUP_DISP;
-		break;
-
-	case CMDQ_EVENT_DISP_OVL0_SOF:
-	case CMDQ_EVENT_DISP_OVL1_SOF:
-	case CMDQ_EVENT_DISP_2L_OVL0_SOF:
-	case CMDQ_EVENT_DISP_2L_OVL1_SOF:
-	case CMDQ_EVENT_DISP_OVL0_EOF:
-	case CMDQ_EVENT_DISP_OVL1_EOF:
-	case CMDQ_EVENT_DISP_2L_OVL0_EOF:
-	case CMDQ_EVENT_DISP_2L_OVL1_EOF:
-		module = "DISP_OVL";
-		group = CMDQ_GROUP_DISP;
-		break;
-
-	case CMDQ_EVENT_UFOD_RAMA0_L0_SOF ... CMDQ_EVENT_UFOD_RAMA1_L3_SOF:
-	case CMDQ_EVENT_UFOD_RAMA0_L0_EOF ... CMDQ_EVENT_UFOD_RAMA1_L3_EOF:
-		module = "DISP_UFOD";
-		group = CMDQ_GROUP_DISP;
-		break;
-
-	case CMDQ_EVENT_DSI_TE:
-	case CMDQ_EVENT_DSI0_TE:
-	case CMDQ_EVENT_DSI1_TE:
-	case CMDQ_EVENT_MDP_DSI0_TE_SOF:
-	case CMDQ_EVENT_MDP_DSI1_TE_SOF:
-	case CMDQ_EVENT_DISP_DSI0_EOF:
-	case CMDQ_EVENT_DISP_DSI1_EOF:
-	case CMDQ_EVENT_DISP_DPI0_EOF:
-	case CMDQ_EVENT_DISP_COLOR_SOF ... CMDQ_EVENT_DISP_DSC_SOF:
-	case CMDQ_EVENT_DISP_COLOR_EOF ... CMDQ_EVENT_DISP_DSC_EOF:
-	case CMDQ_EVENT_MUTEX0_STREAM_EOF ... CMDQ_EVENT_MUTEX4_STREAM_EOF:
-		module = "DISP";
-		group = CMDQ_GROUP_DISP;
-		break;
-	case CMDQ_SYNC_TOKEN_CONFIG_DIRTY:
-	case CMDQ_SYNC_TOKEN_STREAM_EOF:
-		module = "DISP";
-		group = CMDQ_GROUP_DISP;
-		break;
-
 	case CMDQ_EVENT_MDP_RDMA0_SOF ... CMDQ_EVENT_MDP_CROP_SOF:
 	case CMDQ_EVENT_MDP_RDMA0_EOF ... CMDQ_EVENT_MDP_CROP_EOF:
 	case CMDQ_EVENT_MUTEX5_STREAM_EOF ... CMDQ_EVENT_MUTEX9_STREAM_EOF:
@@ -635,21 +559,6 @@ const char *cmdq_virtual_module_from_event_id(const s32 event,
 	case CMDQ_EVENT_EAF_EOF:
 		module = "DIP";
 		group = CMDQ_GROUP_ISP;
-		break;
-
-	case CMDQ_EVENT_JPEG_ENC_EOF:
-	case CMDQ_EVENT_JPEG_ENC_PASS2_EOF:
-	case CMDQ_EVENT_JPEG_ENC_PASS1_EOF:
-	case CMDQ_EVENT_JPEG_DEC_EOF:
-		module = "JPGE";
-		group = CMDQ_GROUP_JPEG;
-		break;
-
-	case CMDQ_EVENT_VENC_EOF:
-	case CMDQ_EVENT_VENC_MB_DONE:
-	case CMDQ_EVENT_VENC_128BYTE_CNT_DONE:
-		module = "VENC";
-		group = CMDQ_GROUP_VENC;
 		break;
 
 	default:
@@ -890,50 +799,10 @@ u64 cmdq_virtual_flag_from_scenario(enum CMDQ_SCENARIO_ENUM scn)
 	cmdq_virtual_flag_from_scenario_legacy(scn);
 #else
 	switch (scn) {
-	case CMDQ_SCENARIO_PRIMARY_DISP:
-		flag = (1LL << CMDQ_ENG_DISP_OVL0) |
-		    (1LL << CMDQ_ENG_DISP_COLOR0) |
-		    (1LL << CMDQ_ENG_DISP_AAL) |
-		    (1LL << CMDQ_ENG_DISP_GAMMA) |
-		    (1LL << CMDQ_ENG_DISP_RDMA0) |
-		    (1LL << CMDQ_ENG_DISP_DSI0);
-		break;
 	case CMDQ_SCENARIO_PRIMARY_MEMOUT:
 		flag = 0LL;
 		break;
-	case CMDQ_SCENARIO_PRIMARY_ALL:
-		flag = ((1LL << CMDQ_ENG_DISP_OVL0) |
-			(1LL << CMDQ_ENG_DISP_WDMA0) |
-			(1LL << CMDQ_ENG_DISP_COLOR0) |
-			(1LL << CMDQ_ENG_DISP_AAL) |
-			(1LL << CMDQ_ENG_DISP_GAMMA) |
-			(1LL << CMDQ_ENG_DISP_RDMA0) |
-			(1LL << CMDQ_ENG_DISP_DSI0));
-		break;
-	case CMDQ_SCENARIO_SUB_DISP:
-		flag = ((1LL << CMDQ_ENG_DISP_OVL1) |
-			(1LL << CMDQ_ENG_DISP_RDMA1));
-		break;
-	case CMDQ_SCENARIO_SUB_ALL:
-		flag = ((1LL << CMDQ_ENG_DISP_OVL1) |
-			(1LL << CMDQ_ENG_DISP_WDMA1) |
-			(1LL << CMDQ_ENG_DISP_RDMA1));
-		break;
-	case CMDQ_SCENARIO_RDMA0_DISP:
-		flag = ((1LL << CMDQ_ENG_DISP_RDMA0) |
-			(1LL << CMDQ_ENG_DISP_DSI0));
-		break;
-	case CMDQ_SCENARIO_RDMA0_COLOR0_DISP:
-		flag = ((1LL << CMDQ_ENG_DISP_RDMA0) |
-			(1LL << CMDQ_ENG_DISP_COLOR0) |
-			(1LL << CMDQ_ENG_DISP_AAL) |
-			(1LL << CMDQ_ENG_DISP_GAMMA) |
-			(1LL << CMDQ_ENG_DISP_DSI0));
-		break;
 	case CMDQ_SCENARIO_MHL_DISP:
-	case CMDQ_SCENARIO_RDMA1_DISP:
-		flag = ((1LL << CMDQ_ENG_DISP_RDMA1));
-		break;
 	default:
 		flag = 0LL;
 		break;

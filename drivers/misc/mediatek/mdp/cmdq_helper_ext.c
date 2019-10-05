@@ -3337,7 +3337,6 @@ static void cmdq_core_attach_engine_error(
 	s32 index = 0;
 	bool disp_scn = false;
 	u64 print_eng_flag = 0;
-	u64 engine_bit = 0;
 	CmdqMdpGetEngineGroupBits get_engine_group_bit = NULL;
 	CmdqIsDispScenario is_disp_scen = NULL;
 	struct CmdqCBkStruct *callback = NULL;
@@ -3363,8 +3362,7 @@ static void cmdq_core_attach_engine_error(
 		print_eng_flag |= nginfo->engine_flag;
 
 	/* Dump MMSYS configuration */
-	if ((handle->engineFlag & CMDQ_ENG_MDP_GROUP_BITS) ||
-		(handle->engineFlag & CMDQ_ENG_DISP_GROUP_BITS)) {
+	if ((handle->engineFlag & CMDQ_ENG_MDP_GROUP_BITS)) {
 		CMDQ_ERR("============ [CMDQ] MMSYS_CONFIG ============\n");
 		cmdq_mdp_get_func()->dumpMMSYSConfig();
 	}
@@ -3395,17 +3393,6 @@ static void cmdq_core_attach_engine_error(
 
 	if (nginfo)
 		disp_scn = disp_scn | is_disp_scen(nginfo->scenario);
-
-	if (disp_scn) {
-		index = CMDQ_GROUP_DISP;
-		if (callback[index].dumpInfo) {
-			engine_bit =
-				get_engine_group_bit(index) & print_eng_flag;
-
-			callback[index].dumpInfo(engine_bit,
-				cmdq_ctx.logLevel);
-		}
-	}
 
 	for (index = 0; index < CMDQ_MAX_GROUP_COUNT; ++index) {
 		if (!cmdq_core_is_group_flag((enum CMDQ_GROUP_ENUM) index,
@@ -3724,10 +3711,6 @@ static void cmdq_core_group_clk_cb(bool enable,
 	}
 
 	for (index = CMDQ_MAX_GROUP_COUNT - 1; index >= 0; index--) {
-		/* note that DISPSYS controls their own clock on/off */
-		if (index == CMDQ_GROUP_DISP)
-			continue;
-
 		/* note that ISP is per-task on/off, not per HW flag */
 		if (index == CMDQ_GROUP_ISP)
 			continue;

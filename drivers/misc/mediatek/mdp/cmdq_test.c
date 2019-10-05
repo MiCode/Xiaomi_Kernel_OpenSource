@@ -1044,16 +1044,11 @@ void testcase_clkmgr_impl(enum CMDQ_ENG_ENUM engine,
 
 	/* turn on CLK, function should work */
 	CMDQ_MSG("enable_clock\n");
-	if (engine == CMDQ_ENG_CMDQ) {
-		/* Turn on CMDQ engine */
-		cmdq_dev_enable_gce_clock(true);
-	} else {
 		/* Turn on MDP engines */
 #ifdef CMDQ_CONFIG_SMI
-		smi_bus_prepare_enable(SMI_LARB0, "CMDQ");
+	smi_bus_prepare_enable(SMI_LARB0, "CMDQ");
 #endif
-		cmdq_mdp_get_func()->enableMdpClock(true, engine);
-	}
+	cmdq_mdp_get_func()->enableMdpClock(true, engine);
 
 	CMDQ_REG_SET32(testWriteReg, testWriteValue);
 	value = CMDQ_REG_GET32(testReadReg);
@@ -1067,16 +1062,11 @@ void testcase_clkmgr_impl(enum CMDQ_ENG_ENUM engine,
 	 * not cause hang
 	 */
 	CMDQ_MSG("disable_clock\n");
-	if (engine == CMDQ_ENG_CMDQ) {
-		/* Turn on CMDQ engine */
-		cmdq_dev_enable_gce_clock(false);
-	} else {
-		/* Turn on MDP engines */
+	/* Turn on MDP engines */
 #ifdef CMDQ_CONFIG_SMI
-		smi_bus_disable_unprepare(SMI_LARB0, "CMDQ");
+	smi_bus_disable_unprepare(SMI_LARB0, "CMDQ");
 #endif
-		cmdq_mdp_get_func()->enableMdpClock(false, engine);
-	}
+	cmdq_mdp_get_func()->enableMdpClock(false, engine);
 
 
 	CMDQ_REG_SET32(testWriteReg, testWriteValue);
@@ -1093,9 +1083,6 @@ static void testcase_clkmgr(void)
 {
 	CMDQ_LOG("%s\n", __func__);
 #ifdef CMDQ_PWR_AWARE
-	testcase_clkmgr_impl(CMDQ_ENG_CMDQ,
-		"CMDQ_TEST", CMDQ_GPR_R32(CMDQ_DATA_REG_DEBUG),
-		0xFFFFDEAD, CMDQ_GPR_R32(CMDQ_DATA_REG_DEBUG), true);
 	cmdq_mdp_get_func()->testcaseClkmgrMdp();
 #endif				/* defined(CMDQ_PWR_AWARE) */
 
@@ -2213,10 +2200,10 @@ static void testcase_thread_dispatch(void)
 	char threadName[20];
 	struct task_struct *pKThread1;
 	struct task_struct *pKThread2;
-	const long long engineFlag1 = (0x1 << CMDQ_ENG_MDP_RSZ0) |
-		(0x1 << CMDQ_ENG_MDP_CAMIN);
-	const long long engineFlag2 = (0x1 << CMDQ_ENG_MDP_RDMA0) |
-		(0x1 << CMDQ_ENG_MDP_WROT0);
+	const long long engineFlag1 = (0x1LL << CMDQ_ENG_MDP_RSZ0) |
+		(0x1LL << CMDQ_ENG_MDP_CAMIN);
+	const long long engineFlag2 = (0x1LL << CMDQ_ENG_MDP_RDMA0) |
+		(0x1LL << CMDQ_ENG_MDP_WROT0);
 
 	CMDQ_LOG("%s\n", __func__);
 	CMDQ_MSG(
@@ -2332,7 +2319,7 @@ static void testcase_module_full_dump(void)
 	cmdqCoreClearEvent(CMDQ_SYNC_TOKEN_USER_0);
 
 	/* turn on ALL except DISP engine flag to test dump */
-	handle->engineFlag = ~(CMDQ_ENG_DISP_GROUP_BITS);
+	handle->engineFlag = CMDQ_ENG_MDP_GROUP_BITS;
 
 	CMDQ_LOG("%s, engine:0x%llx it's a timeout case\n",
 		__func__, handle->engineFlag);
@@ -2482,31 +2469,6 @@ void testcase_secure_meta_data(void)
 		/* test fail */
 		CMDQ_ERR("TEST FAIL: wrote value is 0x%08x not 0x%08x\n",
 			value, PATTERN_MDP);
-	}
-
-	CMDQ_MSG("=========== DISP case ===========\n");
-	cmdq_task_create(CMDQ_SCENARIO_SUB_DISP, &hReqDISP);
-	cmdq_task_reset(hReqDISP);
-	cmdq_task_set_secure(hReqDISP, true);
-
-	/* enable secure test */
-	cmdq_task_secure_enable_dapc(hReqDISP, (1LL << CMDQ_ENG_DISP_WDMA1));
-	cmdq_task_secure_enable_port_security(hReqDISP,
-		(1LL << CMDQ_ENG_DISP_WDMA1));
-
-	/* record command */
-	cmdq_op_write_reg(hReqDISP, CMDQ_TEST_MMSYS_DUMMY_PA, PATTERN_DISP,
-		~0);
-
-	cmdq_task_flush(hReqDISP);
-	cmdq_task_destroy(hReqDISP);
-
-	/* value check */
-	value = CMDQ_REG_GET32(CMDQ_TEST_MMSYS_DUMMY_VA);
-	if (value != PATTERN_DISP) {
-		/* test fail */
-		CMDQ_ERR("TEST FAIL: wrote value is 0x%08x not 0x%08x\n",
-			value, PATTERN_DISP);
 	}
 
 	CMDQ_LOG("%s END\n", __func__);
@@ -2740,7 +2702,7 @@ static void testcase_module_full_mdp_engine(void)
 	cmdq_task_create(CMDQ_SCENARIO_DEBUG, &handle);
 
 	/* turn on ALL except DISP engine flag to test clock operation */
-	handle->engineFlag = ~(CMDQ_ENG_DISP_GROUP_BITS);
+	handle->engineFlag = CMDQ_ENG_MDP_GROUP_BITS;
 
 	CMDQ_LOG("%s, engine:0x%llx it's a engine clock test case\n",
 		 __func__, handle->engineFlag);
@@ -6256,9 +6218,9 @@ void _testcase_on_exec_suspend(struct cmdqRecStruct *task, s32 thread)
 #define MAX_RELEASE_QUEUE 4
 static const u32 stress_engines[] = {CMDQ_ENG_MDP_CAMIN, CMDQ_ENG_MDP_RDMA0,
 	CMDQ_ENG_MDP_RDMA1, CMDQ_ENG_MDP_WROT0, CMDQ_ENG_MDP_WROT1};
-static const u32 stress_engines_disp[] = {CMDQ_ENG_DISP_AAL,
+/*static const u32 stress_engines_disp[] = {CMDQ_ENG_DISP_AAL,
 	CMDQ_ENG_DISP_OVL0, CMDQ_ENG_DISP_COLOR0, CMDQ_ENG_DISP_RDMA0};
-
+*/
 static const enum CMDQ_SCENARIO_ENUM stress_scene[] = {
 	CMDQ_SCENARIO_DEBUG_MDP, CMDQ_SCENARIO_DEBUG_MDP,
 	CMDQ_SCENARIO_DEBUG_MDP, CMDQ_SCENARIO_DEBUG,
@@ -6307,8 +6269,9 @@ static s32 _testcase_gen_task_thread_each(void *data, u32 task_count,
 		curr_eng = stress_engines;
 		engine_cnt = ARRAY_SIZE(stress_engines);
 	} else {
-		curr_eng = stress_engines_disp;
+/*		curr_eng = stress_engines_disp;
 		engine_cnt = ARRAY_SIZE(stress_engines_disp);
+*/
 	}
 
 	cmdq_alloc_mem(&random_context->slot, total_slot);

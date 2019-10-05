@@ -1278,17 +1278,12 @@ static struct platform_driver gCmdqDriver = {
 static int __init cmdq_init(void)
 {
 	int status;
-	struct cmdqMDPFuncStruct *mdp_func = cmdq_mdp_get_func();
 
 	CMDQ_LOG("%s CMDQ driver init begin\n", __func__);
 
 	/* MDP function link */
 	cmdq_mdp_virtual_function_setting();
 	cmdq_mdp_platform_function_setting();
-
-	/* Register VENC callback */
-	cmdqCoreRegisterCB(CMDQ_GROUP_VENC, NULL, mdp_func->vEncDumpInfo,
-		NULL, NULL);
 
 	/* Register PMQoS */
 	cmdq_core_register_task_cycle_cb(CMDQ_GROUP_MDP,
@@ -1340,9 +1335,6 @@ static void __exit cmdq_exit(void)
 
 	/* Unregister MDP callback */
 	cmdqCoreRegisterCB(CMDQ_GROUP_MDP, NULL, NULL, NULL, NULL);
-
-	/* Unregister VENC callback */
-	cmdqCoreRegisterCB(CMDQ_GROUP_VENC, NULL, NULL, NULL, NULL);
 
 	/* De-Initialize group callback */
 	cmdq_core_deinit_group_cb();
