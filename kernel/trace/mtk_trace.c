@@ -169,6 +169,8 @@ bool boot_ftrace_check(unsigned long trace_en)
 #include <linux/rtc.h>
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
+#include <linux/sched/stat.h>
+
 
 void print_enabled_events(struct trace_buffer *buf, struct seq_file *m)
 {
@@ -251,8 +253,12 @@ static void ftrace_events_enable(int enable)
 		trace_set_clr_event(NULL, "sched_mon_msg", 1);
 #endif
 		trace_set_clr_event("mtk_events", NULL, 1);
-		trace_set_clr_event("ipi", NULL, 1);
-
+		if (boot_trace) {
+			trace_set_clr_event("android_fs", NULL, 1);
+			trace_set_clr_event(NULL, "sched_blocked_reason", 1);
+		} else {
+			trace_set_clr_event("ipi", NULL, 1);
+		}
 		trace_set_clr_event("met_bio", NULL, 1);
 		trace_set_clr_event("met_fuse", NULL, 1);
 
@@ -273,6 +279,10 @@ static __init int boot_ftrace(void)
 		ret = tracing_update_buffers();
 		if (ret != 0)
 			pr_debug("unable to expand buffer, ret=%d\n", ret);
+#ifdef CONFIG_SCHEDSTATS
+		force_schedstat_enabled();
+#endif
+
 		ftrace_events_enable(1);
 		set_tracer_flag(tr, TRACE_ITER_OVERWRITE, 0);
 		pr_debug("[ftrace]boot-time profiling...\n");
