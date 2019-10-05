@@ -1732,7 +1732,6 @@ static int hang_detect_thread(void *arg)
 		.sched_priority = 99
 	};
 	struct task_struct *hd_thread;
-	struct pt_regs saved_regs;
 #ifdef HANG_LOW_MEM
 	char *buf = NULL;
 #endif
@@ -1820,16 +1819,15 @@ static int hang_detect_thread(void *arg)
 						(unsigned long)Hang_Info,
 							MaxHangInfoSize);
 						mrdump_mini_add_extra_misc();
-					mrdump_mini_save_regs(&saved_regs);
 #ifdef CONFIG_MTK_RAM_CONSOLE
 						mrdump_common_die(
 						AEE_FIQ_STEP_HANG_DETECT,
 						AEE_REBOOT_MODE_HANG_DETECT,
-						"Hang Detect", &saved_regs);
+						"Hang Detect", NULL);
 #else
 					mrdump_common_die(0,
 						AEE_REBOOT_MODE_HANG_DETECT,
-						"Hang Detect", &saved_regs);
+						"Hang Detect", NULL);
 #endif
 #ifdef CONFIG_MTK_ENG_BUILD
 					}
