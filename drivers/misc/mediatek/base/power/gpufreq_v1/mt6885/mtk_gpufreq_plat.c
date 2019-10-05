@@ -54,6 +54,15 @@
 #if MT_GPUFREQ_STATIC_PWR_READY2USE
 #include "mtk_static_power.h"
 #endif
+#ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
+#include "ged_log.h"
+#include "ged_base.h"
+#endif
+
+#ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
+/* adb pull "/d/ged/logbufs/gfreq" */
+extern GED_LOG_BUF_HANDLE gpufreq_ged_log;
+#endif
 
 unsigned int __attribute__((weak)) mt_get_ckgen_freq(unsigned int ID)
 {
@@ -242,14 +251,6 @@ static bool g_limited_ignore_array[NUMBER_OF_LIMITED_IDX] = { false };
 static void __iomem *g_apmixed_base;
 static void __iomem *g_mfg_base;
 
-#include "ged_log.h"
-#include "ged_base.h"
-
-#ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
-/* the debugging logs are at /d/ged/logbufs/gfreq */
-extern GED_LOG_BUF_HANDLE gpufreq_ged_log;
-#endif
-
 u64 mt_gpufreq_get_shader_present(void)
 {
 	return MT_GPU_SHADER_PRESENT_9;
@@ -285,12 +286,7 @@ static unsigned int mt_gpufreq_return_by_condition(
 			g_cur_opp_vgpu == g_opp_table[limit_idx].gpufreq_volt)
 		ret |= (1 << 4);
 
-	gpufreq_pr_debug("return_by_condition: 0x%x\n", ret);
-
-#ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
-	ged_log_buf_print2(gpufreq_ged_log, GED_LOG_ATTR_TIME,
-		"return_by_condition: 0x%x\n", ret);
-#endif
+	gpufreq_pr_logbuf("return_by_condition: 0x%x\n", ret);
 
 	return ret;
 }
@@ -334,12 +330,8 @@ static unsigned int mt_gpufreq_limit_idx_by_condition(unsigned int t_idx)
 		index = t_idx;
 	}
 
-	gpufreq_pr_debug("limit_idx_by_condition: 0x%x, idx: %d\n", ret, index);
-
-#ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
-	ged_log_buf_print2(gpufreq_ged_log, GED_LOG_ATTR_TIME,
-		"limit_idx_by_condition: 0x%x, idx: %d\n", ret, index);
-#endif
+	gpufreq_pr_logbuf("limit_idx_by_condition: 0x%x, idx: %d\n",
+								ret, index);
 
 	return index;
 }
@@ -363,14 +355,8 @@ unsigned int mt_gpufreq_target(unsigned int request_idx,
 	else
 		target_idx = request_idx;
 
-	gpufreq_pr_debug("kicker: %d, target_idx: %d (%d, %d)\n",
+	gpufreq_pr_logbuf("kicker: %d, target_idx: %d (%d, %d)\n",
 		kicker, target_idx, request_idx, g_segment_max_opp_idx);
-
-#ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
-	ged_log_buf_print2(gpufreq_ged_log, GED_LOG_ATTR_TIME,
-			"kicker: %d, target_idx: %d (%d, %d)\n",
-		kicker, target_idx, request_idx, g_segment_max_opp_idx);
-#endif
 
 	limit_idx = mt_gpufreq_limit_idx_by_condition(target_idx);
 
@@ -1913,22 +1899,12 @@ static void __mt_gpufreq_set(
 {
 	unsigned int sb_idx = 0;
 
-	gpufreq_pr_debug(
-		"@%s: begin idx: %d -> %d, freq: %d -> %d, vgpu: %d -> %d, vsram_gpu: %d -> %d\n",
-		__func__,
-		idx_old, idx_new,
-		freq_old, freq_new,
-		vgpu_old, vgpu_new,
-		vsram_gpu_old, vsram_gpu_new);
-
-#ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
-	ged_log_buf_print2(gpufreq_ged_log, GED_LOG_ATTR_TIME,
+	gpufreq_pr_logbuf(
 		"begin idx: %d -> %d, freq: %d -> %d, vgpu: %d -> %d, vsram_gpu: %d -> %d\n",
 		idx_old, idx_new,
 		freq_old, freq_new,
 		vgpu_old, vgpu_new,
 		vsram_gpu_old, vsram_gpu_new);
-#endif
 
 	if (freq_new == freq_old) {
 		__mt_gpufreq_volt_switch(
@@ -1977,24 +1953,13 @@ static void __mt_gpufreq_set(
 
 	gpu_dvfs_oppidx_footprint(idx_new);
 
-	gpufreq_pr_debug(
-		"@%s: done idx: %d -> %d, clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
-		__func__,
-		idx_old, idx_new,
-		mt_get_ckgen_freq(22),
-		__mt_gpufreq_get_cur_freq(),
-		__mt_gpufreq_get_cur_vgpu(),
-		__mt_gpufreq_get_cur_vsram_gpu());
-
-#ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
-	ged_log_buf_print2(gpufreq_ged_log, GED_LOG_ATTR_TIME,
+	gpufreq_pr_logbuf(
 		"done idx: %d -> %d, clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
 		idx_old, idx_new,
 		mt_get_ckgen_freq(22),
 		__mt_gpufreq_get_cur_freq(),
 		__mt_gpufreq_get_cur_vgpu(),
 		__mt_gpufreq_get_cur_vsram_gpu());
-#endif
 
 	__mt_gpufreq_kick_pbm(1);
 }
@@ -2132,16 +2097,9 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 #endif
 	}
 
-	gpufreq_pr_debug(
-	"@%s: posdiv: %d, real_posdiv: %d, dds: 0x%lx, pll: 0x%08x, parking: %d\n",
-	__func__,
-	(1 << posdiv_power), (1 << real_posdiv_power), dds, pll, parking);
-
-#ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
-	ged_log_buf_print2(gpufreq_ged_log, GED_LOG_ATTR_TIME,
+	gpufreq_pr_logbuf(
 	"posdiv: %d, real_posdiv: %d, dds: 0x%lx, pll: 0x%08x, parking: %d\n",
 	(1 << posdiv_power), (1 << real_posdiv_power), dds, pll, parking);
-#endif
 }
 
 /*
@@ -2213,17 +2171,9 @@ static void __mt_gpufreq_volt_switch(
 		vgpu_settle_time : vsram_settle_time;
 	udelay(final_settle_time);
 
-	gpufreq_pr_debug("@%s: Vgpu: %d, Vsram_gpu: %d, udelay: %d\n",
-		__func__,
+	gpufreq_pr_logbuf("Vgpu: %d, Vsram_gpu: %d, udelay: %d\n",
 		__mt_gpufreq_get_cur_vgpu(), __mt_gpufreq_get_cur_vsram_gpu(),
 		final_settle_time);
-
-#ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
-	ged_log_buf_print2(gpufreq_ged_log, GED_LOG_ATTR_TIME,
-		"Vgpu: %d, Vsram_gpu: %d, udelay: %d\n",
-		__mt_gpufreq_get_cur_vgpu(), __mt_gpufreq_get_cur_vsram_gpu(),
-		final_settle_time);
-#endif
 }
 
 /*
