@@ -43,8 +43,6 @@
 
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
 #include <adsp_helper.h>
-#include <adsp_ipi.h>
-#include <adsp_service.h>
 #endif
 
 
@@ -364,7 +362,7 @@ static int audio_ctrl_event_receive(
 	case ADSP_EVENT_STOP:
 		for (scene = 0; scene < TASK_SCENE_SIZE; scene++) {
 			if (audio_get_opendsp_id(scene) ==
-			    AUDIO_OPENDSP_USE_HIFI3) {
+			    AUDIO_OPENDSP_USE_HIFI3_A) {
 				handler = get_ipi_queue_handler(scene);
 				if (handler != NULL)
 					flush_ipi_queue_handler(handler);
@@ -428,7 +426,7 @@ static int audio_ipi_init_dsp_hifi3(void)
 		      NULL);
 
 	/* release DMA */
-	audio_ipi_dma_free_region_all_task(AUDIO_OPENDSP_USE_HIFI3);
+	audio_ipi_dma_free_region_all_task(AUDIO_OPENDSP_USE_HIFI3_A);
 
 
 	/* allow adsp to sleep */

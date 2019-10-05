@@ -1125,7 +1125,8 @@ static int scp_send_msg_to_scp(
 		retval = -ENODEV;
 #endif
 		break;
-	case AUDIO_OPENDSP_USE_HIFI3:
+	case AUDIO_OPENDSP_USE_HIFI3_A:
+	case AUDIO_OPENDSP_USE_HIFI3_B:
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
 		audio_ipi_id = (uint32_t)ADSP_IPI_AUDIO;
 		ipi_error_val = ADSP_IPI_ERROR;
@@ -1157,15 +1158,16 @@ static int scp_send_msg_to_scp(
 					 0, /* avoid busy waiting */
 					 (enum scp_core_id)dsp_id);
 #endif
-		} else if ((enum opendsp_id)dsp_id == AUDIO_OPENDSP_USE_HIFI3) {
+		} else if (dsp_id == AUDIO_OPENDSP_USE_HIFI3_A ||
+			   dsp_id == AUDIO_OPENDSP_USE_HIFI3_B) {
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
 			the_adsp_ipi_id = (enum adsp_ipi_id)p_scp_msg->ipi_id;
-			retval = adsp_ipi_send_ipc(
+			retval = adsp_send_message(
 					 the_adsp_ipi_id,
 					 p_scp_msg->buf,
 					 p_scp_msg->len,
 					 1, /* wait until sent or timeout */
-					 ADSP_A_ID);
+					 dsp_id - AUDIO_OPENDSP_USE_HIFI3_A);
 #endif
 		}
 

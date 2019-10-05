@@ -23,6 +23,7 @@
 
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
 #include <adsp_ipi.h>
+#include <adsp_helper.h>
 #endif
 
 #include <adsp_ipi_queue.h>

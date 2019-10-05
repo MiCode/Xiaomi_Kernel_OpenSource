@@ -12,9 +12,6 @@
 #include "../common/mtk-sp-afe-external.h"
 #include "../common/mtk-sram-manager.h"
 
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-#include "../audio_dsp/mtk-dsp-core.h"
-#endif
 
 /* don't use this directly if not necessary */
 static struct mtk_base_afe *local_afe;
@@ -309,11 +306,6 @@ bool mtk_audio_condition_enter_suspend(void)
 
 	if (afe_priv->dai_on[MT6885_DAI_CONNSYS_I2S])
 		return false;
-
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-	if (is_adsp_feature_registered() || is_adsp_core_ready())
-		return false;
-#endif
 
 	if (request_sram_count)
 		return false;

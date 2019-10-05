@@ -391,7 +391,7 @@ int audio_ipi_dma_init_dsp(const uint8_t task)
 	}
 
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3)
+	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3_A)
 		adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
 
@@ -407,7 +407,7 @@ int audio_ipi_dma_init_dsp(const uint8_t task)
 		      NULL);
 
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3)
+	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3_A)
 		adsp_deregister_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
 	pr_info("opendsp_id: %d, task: %d, ret: %d", opendsp_id, task, ret);
@@ -606,12 +606,12 @@ int audio_ipi_dma_alloc_region(const uint8_t task,
 
 		if (opendsp_id == AUDIO_OPENDSP_USE_CM4_A)
 			task_audio_controller = TASK_SCENE_AUDIO_CONTROLLER_CM4;
-		else if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3)
+		else if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3_A)
 			task_audio_controller =
 				TASK_SCENE_AUDIO_CONTROLLER_HIFI3;
 
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3)
+	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3_A)
 		adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
 		audio_send_ipi_msg(
@@ -626,7 +626,7 @@ int audio_ipi_dma_alloc_region(const uint8_t task,
 			NULL);
 	}
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3)
+	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3_A)
 		adsp_deregister_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
 
@@ -702,7 +702,7 @@ int audio_ipi_dma_free_region(const uint8_t task)
 			g_dma[opendsp_id]->region[task][1].offset);
 
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3)
+	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3_A)
 		adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
 		audio_send_ipi_msg(
@@ -717,7 +717,7 @@ int audio_ipi_dma_free_region(const uint8_t task)
 			NULL);
 	}
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3)
+	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3_A)
 		adsp_deregister_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
 	return 0;
