@@ -728,6 +728,39 @@ void mt_gpufreq_restore_default_volt(void)
 }
 
 /*
+ * interpolation none PTPOP.
+ *
+ * step = (large - small) / range
+ * vnew = large - step * j
+ */
+void __mt_gpufreq_update_volt_interpolation(void)
+{
+	int i, j, largeOppIndex, smallOppIndex;
+	int step, large, small, range, vnew;
+	unsigned int ptpod_opp_idx_num;
+
+	ptpod_opp_idx_num = ARRAY_SIZE(g_ptpod_opp_idx_table_segment);
+
+	for (i = 1; i < ptpod_opp_idx_num; i++) {
+		largeOppIndex = mt_gpufreq_get_ori_opp_idx(i - 1);
+		smallOppIndex = mt_gpufreq_get_ori_opp_idx(i);
+
+		large = g_opp_table[largeOppIndex].gpufreq_volt;
+		small = g_opp_table[smallOppIndex].gpufreq_volt;
+		range = smallOppIndex - largeOppIndex;
+		step = (large - small) / range;
+		step = VOLT_NORMALIZATION(step);
+
+		for (j = 1; j < range; j++) {
+			vnew = large - (step * j);
+			g_opp_table[largeOppIndex + j].gpufreq_volt = vnew;
+			g_opp_table[largeOppIndex + j].gpufreq_vsram =
+				__mt_gpufreq_get_vsram_gpu_by_vgpu(vnew);
+		}
+	}
+}
+
+/*
  * API : update OPP and set voltage
  * because PTPOD modified voltage table by PMIC wrapper
  */
@@ -746,41 +779,10 @@ unsigned int mt_gpufreq_update_volt(
 		target_idx = mt_gpufreq_get_ori_opp_idx(i);
 		g_opp_table[target_idx].gpufreq_volt = pmic_volt[i];
 		g_opp_table[target_idx].gpufreq_vsram =
-		__mt_gpufreq_get_vsram_gpu_by_vgpu(pmic_volt[i]);
-
-		if (i < array_size - 1) {
-			/* interpolation for opps not for ptpod */
-			int larger = pmic_volt[i];
-			int smaller = pmic_volt[i + 1];
-			int interpolation;
-
-			if (target_idx == 0 ||
-				target_idx == 3) {
-				/* 2 opps need intepolation */
-				interpolation =	((larger << 1) + smaller) / 3;
-				g_opp_table[target_idx + 1].gpufreq_volt =
-				VOLT_NORMALIZATION(interpolation);
-				g_opp_table[target_idx + 1].gpufreq_vsram =
-				__mt_gpufreq_get_vsram_gpu_by_vgpu(
-				g_opp_table[target_idx + 1].gpufreq_volt);
-
-				interpolation =	(larger + (smaller << 1)) / 3;
-				g_opp_table[target_idx + 2].gpufreq_volt =
-				VOLT_NORMALIZATION(interpolation);
-				g_opp_table[target_idx + 2].gpufreq_vsram =
-				__mt_gpufreq_get_vsram_gpu_by_vgpu(
-				g_opp_table[target_idx + 2].gpufreq_volt);
-			} else {
-				/* 1 opps need intepolation */
-				interpolation =	(larger + smaller) >> 1;
-				g_opp_table[target_idx + 1].gpufreq_volt =
-				VOLT_NORMALIZATION(interpolation);
-				g_opp_table[target_idx + 1].gpufreq_vsram =
-				__mt_gpufreq_get_vsram_gpu_by_vgpu(
-				g_opp_table[target_idx + 1].gpufreq_volt);
-			}
-		}
+			__mt_gpufreq_get_vsram_gpu_by_vgpu(pmic_volt[i]);
 	}
+	// update none PTP
+	__mt_gpufreq_update_volt_interpolation();
 
 	if (g_enable_aging_test)
 		__mt_gpufreq_update_aging(true);
