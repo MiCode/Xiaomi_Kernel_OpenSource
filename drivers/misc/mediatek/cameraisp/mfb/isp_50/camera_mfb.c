@@ -1794,7 +1794,7 @@ static inline void MFB_Prepare_Enable_ccf_clock(void)
 	if (ret)
 		log_err("cannot prepare and enable CG_IMGSYS_LARB clock\n");
 #else
-	smi_bus_enable(SMI_LARB_IMGSYS1, "camera_mfb");
+	smi_bus_prepare_enable(SMI_LARB5, "camera_mfb");
 #endif
 
 	ret = clk_prepare_enable(mfb_clk.CG_IMGSYS_MFB);
@@ -1823,7 +1823,7 @@ static inline void MFB_Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(mfb_clk.CG_MM_SMI_COMMON);
 	clk_disable_unprepare(mfb_clk.CG_SCP_SYS_MM0);
 #else
-	smi_bus_disable(SMI_LARB_IMGSYS1, "camera_mfb");
+	smi_bus_disable_unprepare(SMI_LARB5, "camera_mfb");
 #endif
 }
 #endif
