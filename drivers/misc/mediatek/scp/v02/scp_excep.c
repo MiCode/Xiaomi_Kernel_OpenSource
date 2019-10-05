@@ -109,8 +109,8 @@ void scp_do_regdump(uint32_t *out, uint32_t *out_end)
 	int size_limit = sizeof(reg_save_list) / sizeof(struct reg_save_st);
 
 	for (i = 0; i < size_limit; i++) {
-		if (((uint32_t)buf + reg_save_list[i].size
-			+ sizeof(struct reg_save_st)) > (uint32_t)out_end) {
+		if (((void *)buf + reg_save_list[i].size
+			+ sizeof(struct reg_save_st)) > (void *)out_end) {
 			pr_notice("[SCP] %s overflow\n", __func__);
 			break;
 		}
@@ -132,7 +132,7 @@ void scp_do_l1cdump(uint32_t *out, uint32_t *out_end)
 	tmp = readl(R_SEC_CTRL);
 	/* enable cache debug */
 	writel(tmp | B_CORE0_CACHE_DBG_EN | B_CORE1_CACHE_DBG_EN, R_SEC_CTRL);
-	if ((uint32_t)buf + MDUMP_L1C_SIZE > (uint32_t)out_end) {
+	if ((void *)buf + MDUMP_L1C_SIZE > (void *)out_end) {
 		pr_notice("[SCP] %s overflow\n", __func__);
 		return;
 	}
@@ -276,7 +276,7 @@ static void scp_prepare_aed_dump(char *aed_str,
  */
 void scp_aed(enum SCP_RESET_TYPE type, enum scp_core_id id)
 {
-	char *scp_aed_title;
+	char *scp_aed_title = NULL;
 
 	if (!scp_ee_enable) {
 		pr_debug("[SCP]ee disable value=%d\n", scp_ee_enable);
