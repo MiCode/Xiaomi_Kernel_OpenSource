@@ -198,6 +198,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.ae_ispGain_delay_frame = 2,	/* isp gain delay frame for AE cycle */
 	.ihdr_support = 0,	/* 1, support; 0,not support */
 	.ihdr_le_firstline = 0,	/* 1,le first ; 0, se first */
+	.temperature_support = 1,/* 1, support; 0,not support */
 	.sensor_mode_num = 9,	/* support sensor mode num */
 
 	.cap_delay_frame = 2,	/* enter capture delay frame num */
@@ -2071,6 +2072,8 @@ static void sensor_init(void)
 	write_cmos_sensor_8(0xE2A6, 0x32);
 	write_cmos_sensor_8(0xE2C6, 0x33);
 	#endif
+	/*enable temperature sensor, TEMP_SEN_CTL:*/
+	write_cmos_sensor_8(0x0138, 0x01);
 
 	set_mirror_flip(imgsensor.mirror);
 	pr_debug("[%s] End\n", __func__);
@@ -3611,6 +3614,7 @@ static kal_uint32 get_info(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 	sensor_info->SensorModeNum = imgsensor_info.sensor_mode_num;
 	sensor_info->PDAF_Support = 2;
 	sensor_info->SensorMIPILaneNumber = imgsensor_info.mipi_lane_num;
+	sensor_info->TEMPERATURE_SUPPORT = imgsensor_info.temperature_support;
 	sensor_info->SensorClockFreq = imgsensor_info.mclk;
 	sensor_info->SensorClockDividCount = 3; /* not use */
 	sensor_info->SensorClockRisingCount = 0;
@@ -4030,6 +4034,29 @@ static kal_uint32 set_test_pattern_mode(kal_bool enable)
 	spin_unlock(&imgsensor_drv_lock);
 	return ERROR_NONE;
 }
+
+static kal_uint32 get_sensor_temperature(void)
+{
+	UINT8 temperature;
+	INT32 temperature_convert;
+
+	temperature = read_cmos_sensor_8(0x013a);
+
+	if (temperature >= 0x0 && temperature <= 0x4F)
+		temperature_convert = temperature;
+	else if (temperature >= 0x50 && temperature <= 0x7F)
+		temperature_convert = 80;
+	else if (temperature >= 0x80 && temperature <= 0xEC)
+		temperature_convert = -20;
+	else
+		temperature_convert = (INT8) temperature;
+
+	/* LOG_INF("temp_c(%d), read_reg(%d)\n", */
+	/* temperature_convert, temperature); */
+
+	return temperature_convert;
+}
+
 static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 				 UINT8 *feature_para, UINT32 *feature_para_len)
 {
@@ -4178,6 +4205,10 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	case SENSOR_FEATURE_SET_AUTO_FLICKER_MODE:
 		set_auto_flicker_mode((BOOL)*feature_data_16,
 				      *(feature_data_16+1));
+		break;
+	case SENSOR_FEATURE_GET_TEMPERATURE_VALUE:
+		*feature_return_para_32 = get_sensor_temperature();
+		*feature_para_len = 4;
 		break;
 	case SENSOR_FEATURE_SET_MAX_FRAME_RATE_BY_SCENARIO:
 		 set_max_framerate_by_scenario(
