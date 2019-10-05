@@ -74,13 +74,9 @@
 	MVA_GRAPH_BLOCK_NR_ALIGNED(VPU_FIX_MVA_SIZE)
 
 /*reserved ccu mva region*/
-#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT)
 #define CCU_FIX_MVA_START			0x40000000
 #define CCU_FIX_MVA_END				0x48000000
-#else
-#define CCU_FIX_MVA_START			0x2f800000
-#define CCU_FIX_MVA_END				0x35800000
-#endif
+
 #define MVA_COMMON_CONTIG_RETGION_START          0x80000000
 
 int check_reserved_region_integrity(unsigned int start, unsigned int nr);
