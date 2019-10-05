@@ -161,6 +161,9 @@ static void __mt_gpufreq_update_max_limited_idx(void);
 static void __mt_gpufreq_setup_opp_power_table(int num);
 static void __mt_gpufreq_cal_sb_opp_index(void);
 
+static unsigned int __calculate_vgpu_settletime(bool mode, int deltaV);
+static unsigned int __calculate_vsram_settletime(bool mode, int deltaV);
+
 /**
  * ===============================================
  * SECTION : Local variables definition
@@ -209,10 +212,6 @@ static unsigned int g_fixed_vgpu;
 static unsigned int g_max_limited_idx;
 static unsigned int g_pbm_limited_power;
 static unsigned int g_thermal_protect_power;
-static unsigned int g_vgpu_sfchg_rrate;
-static unsigned int g_vgpu_sfchg_frate;
-static unsigned int g_vsram_sfchg_rrate;
-static unsigned int g_vsram_sfchg_frate;
 static int g_opp_sb_idx_up[NUM_OF_OPP_IDX] = { 0 };
 static int g_opp_sb_idx_down[NUM_OF_OPP_IDX] = { 0 };
 #if MT_GPUFREQ_BATT_OC_PROTECT
@@ -524,32 +523,22 @@ static void mt_gpufreq_buck_control(enum mt_power_state power)
 	gpufreq_pr_debug("@%s: power = %d", __func__, power);
 
 	if (power == POWER_ON) {
-		if (regulator_is_enabled(g_pmic->reg_vsram_gpu) == 0) {
-			if (regulator_enable(g_pmic->reg_vsram_gpu)) {
-				gpufreq_pr_info("enable VSRAM_GPU failed\n");
-				return;
-			}
+		if (regulator_enable(g_pmic->reg_vsram_gpu)) {
+			gpufreq_pr_info("enable VSRAM_GPU failed\n");
+			return;
 		}
-
-		if (regulator_is_enabled(g_pmic->reg_vgpu) == 0) {
-			if (regulator_enable(g_pmic->reg_vgpu)) {
-				gpufreq_pr_info("enable VGPU failed\n");
-				return;
-			}
+		if (regulator_enable(g_pmic->reg_vgpu)) {
+			gpufreq_pr_info("enable VGPU failed\n");
+			return;
 		}
 	} else {
-		if (regulator_is_enabled(g_pmic->reg_vgpu) > 0) {
-			if (regulator_disable(g_pmic->reg_vgpu)) {
-				gpufreq_pr_info("disable VGPU failed\n");
-				return;
-			}
+		if (regulator_disable(g_pmic->reg_vgpu)) {
+			gpufreq_pr_info("disable VGPU failed\n");
+			return;
 		}
-
-		if (regulator_is_enabled(g_pmic->reg_vsram_gpu) > 0) {
-			if (regulator_disable(g_pmic->reg_vsram_gpu)) {
-				gpufreq_pr_info("disable VSRAM_GPU failed\n");
-				return;
-			}
+		if (regulator_disable(g_pmic->reg_vsram_gpu)) {
+			gpufreq_pr_info("disable VSRAM_GPU failed\n");
+			return;
 		}
 	}
 
@@ -1912,7 +1901,7 @@ static void __mt_gpufreq_set(
 			sb_idx = g_opp_sb_idx_up[g_cur_opp_idx] < idx_new ?
 				idx_new : g_opp_sb_idx_up[g_cur_opp_idx];
 
-		__mt_gpufreq_volt_switch(
+			__mt_gpufreq_volt_switch(
 			g_cur_opp_vgpu, g_opp_table[sb_idx].gpufreq_volt,
 			g_cur_opp_vsram_gpu,
 			g_opp_table[sb_idx].gpufreq_vsram);
@@ -2154,12 +2143,14 @@ static void __mt_gpufreq_volt_switch(
 		unsigned int vgpu_old, unsigned int vgpu_new,
 		unsigned int vsram_gpu_old, unsigned int vsram_gpu_new)
 {
-	unsigned int vgpu_steps, vsram_steps, final_steps;
-	unsigned int sfchg_rate;
+	unsigned int vgpu_settle_time, vsram_settle_time, final_settle_time;
 
 	if (vgpu_new > vgpu_old) {
-		vgpu_steps = ((vgpu_new - vgpu_old) / PMIC_STEP) + 1;
-		vsram_steps = ((vsram_gpu_new - vsram_gpu_old) / PMIC_STEP) + 1;
+		/* rising */
+		vgpu_settle_time = __calculate_vgpu_settletime(
+			true, (vgpu_new - vgpu_old));
+		vsram_settle_time = __calculate_vsram_settletime(
+			true, (vsram_gpu_new - vsram_gpu_old));
 
 		regulator_set_voltage(
 				g_pmic->reg_vsram_gpu,
@@ -2170,11 +2161,12 @@ static void __mt_gpufreq_volt_switch(
 				vgpu_new * 10,
 				VGPU_MAX_VOLT * 10 + 125);
 
-		sfchg_rate = (g_vgpu_sfchg_rrate > g_vsram_sfchg_rrate) ?
-				g_vgpu_sfchg_rrate : g_vsram_sfchg_rrate;
 	} else if (vgpu_new < vgpu_old) {
-		vgpu_steps = ((vgpu_old - vgpu_new) / PMIC_STEP) + 1;
-		vsram_steps = ((vsram_gpu_old - vsram_gpu_new) / PMIC_STEP) + 1;
+		/* falling */
+		vgpu_settle_time = __calculate_vgpu_settletime(
+			false, (vgpu_old - vgpu_new));
+		vsram_settle_time = __calculate_vsram_settletime(
+			false, (vsram_gpu_old - vsram_gpu_new));
 
 		regulator_set_voltage(
 				g_pmic->reg_vgpu,
@@ -2184,29 +2176,25 @@ static void __mt_gpufreq_volt_switch(
 				g_pmic->reg_vsram_gpu,
 				vsram_gpu_new * 10,
 				VSRAM_GPU_MAX_VOLT * 10 + 125);
-
-		sfchg_rate = (g_vgpu_sfchg_frate > g_vsram_sfchg_frate) ?
-				g_vgpu_sfchg_frate : g_vsram_sfchg_frate;
 	} else {
 		/* voltage no change */
 		return;
 	}
 
-	final_steps = (vgpu_steps > vsram_steps) ? vgpu_steps : vsram_steps;
-	udelay(final_steps * sfchg_rate + BUCK_UDELAY_BUFFER);
+	final_settle_time = (vgpu_settle_time > vsram_settle_time) ?
+		vgpu_settle_time : vsram_settle_time;
+	udelay(final_settle_time);
 
-	gpufreq_pr_debug("@%s: Vgpu: %d, Vsram_gpu: %d, udelay: %d(%d * %d + %d)\n",
+	gpufreq_pr_debug("@%s: Vgpu: %d, Vsram_gpu: %d, udelay: %d\n",
 		__func__,
 		__mt_gpufreq_get_cur_vgpu(), __mt_gpufreq_get_cur_vsram_gpu(),
-		(final_steps * sfchg_rate + BUCK_UDELAY_BUFFER),
-		final_steps, sfchg_rate, BUCK_UDELAY_BUFFER);
+		final_settle_time);
 
 #if MT_GPUFREQ_GED_READY
 	ged_log_buf_print2(gpufreq_ged_log, GED_LOG_ATTR_TIME,
-		"Vgpu: %d, Vsram_gpu: %d, udelay: %d(%d * %d + %d)\n",
+		"Vgpu: %d, Vsram_gpu: %d, udelay: %d\n",
 		__mt_gpufreq_get_cur_vgpu(), __mt_gpufreq_get_cur_vsram_gpu(),
-		(final_steps * sfchg_rate + BUCK_UDELAY_BUFFER),
-		final_steps, sfchg_rate, BUCK_UDELAY_BUFFER);
+		final_settle_time);
 #endif
 }
 
@@ -2311,59 +2299,53 @@ static void __mt_gpufreq_calculate_power(
 }
 
 /*
- * VGPU slew rate calculation
- * mode(false) : falling rate per step
- * mode(true) : rising rate per step
+ * VGPU settle time calculation
+ * mode(false) : falling
+ * mode(true) : rising
+ * deltaV : voltage diff(100mv)
+ * return : settle time(us)
  */
-static unsigned int __calculate_vgpu_sfchg_rate(bool mode)
+static unsigned int __calculate_vgpu_settletime(bool mode, int deltaV)
 {
-	unsigned int sfchg_rate_vgpu;
-
-	/* [MT6359][VGPU]
-	 * resoulation : 6.25 mV/step
-	 * dvfs ramp up spec (soft change) : slew rate 8 mV/us +- 20%
-	 * dvfs ramp down spec (soft change) : slew rate 4 mV/us +- 20%
-	 * rising rate per step : 6.25 (mV/step) / (9.6 ~ 6.4 (mV/us))
-	 * falling rate per step : 6.25 (mV/step) / (4.8 ~ 3.2 (mV/us))
+	unsigned int settleTime;
+	/* [MT6315][VGPU]
+	 * DVFS Rising : delta(V) / 10mV + 4us + 5us
+	 * DVFS Falling: delta(V) / 5mV + 4us + 5us
 	 */
 
 	if (mode) {
-		/* rising rate per step = 0.651 ~ 0.977 (us/step) */
-		sfchg_rate_vgpu = 1;
+		/* rising */
+		settleTime = deltaV / (10 * 100) + 9;
 	} else {
-		/* falling rate per step = 1.302 ~ 1.953 (us/step) */
-		sfchg_rate_vgpu = 2;
+		/* falling */
+		settleTime = deltaV / (5 * 100) + 9;
 	}
-
-	return sfchg_rate_vgpu;
+	return settleTime;
 }
 
 /*
- * VSRAM_GPU slew rate calculation
- * mode(false) : falling rate per step
- * mode(true) : rising rate per step
+ * VSRAM_GPU settle time calculation
+ * mode(false) : falling
+ * mode(true) : rising
+ * deltaV : voltage diff(100mv)
+ * return : settle time(us)
  */
-static unsigned int __calculate_vsram_sfchg_rate(bool mode)
+static unsigned int __calculate_vsram_settletime(bool mode, int deltaV)
 {
-	unsigned int sfchg_rate_vsram;
-
-	/* [MT6359][VSRAM_GPU] (belong to MT6359's VPU)
-	 * resoulation : 6.25 mV/step
-	 * dvfs ramp up spec (soft change) : slew rate 8 mV/us +- 20%
-	 * dvfs ramp down spec (soft change) : slew rate 4 mV/us +- 20%
-	 * rising rate per step : 6.25 (mV/step) / (9.6 ~ 6.4 (mV/us))
-	 * falling rate per step : 6.25 (mV/step) / (4.8 ~ 3.2 (mV/us))
+	unsigned int settleTime;
+	/* [MT6359][VSRAM_GPU]
+	 * DVFS Rising : delta(V) / 10mV + 3us + 5us
+	 * DVFS Falling: delta(V) / 5mV + 3us + 5us
 	 */
 
 	if (mode) {
-		/* rising rate per step = 0.651 ~ 0.977 (us/step) */
-		sfchg_rate_vsram = 1;
+		/* rising */
+		settleTime = deltaV / (10 * 100) + 8;
 	} else {
-		/* falling rate per step = 1.302 ~ 1.953 (us/step) */
-		sfchg_rate_vsram = 2;
+		/* falling */
+		settleTime = deltaV / (5 * 100) + 8;
 	}
-
-	return sfchg_rate_vsram;
+	return settleTime;
 }
 
 /*
@@ -2848,12 +2830,6 @@ static int __mt_gpufreq_init_pmic(struct platform_device *pdev)
 		gpufreq_pr_info("@%s: enable VGPU failed\n", __func__);
 
 	g_buck_on = true;
-
-	/* setup PMIC init value */
-	g_vgpu_sfchg_rrate = __calculate_vgpu_sfchg_rate(true);
-	g_vgpu_sfchg_frate = __calculate_vgpu_sfchg_rate(false);
-	g_vsram_sfchg_rrate = __calculate_vsram_sfchg_rate(true);
-	g_vsram_sfchg_frate = __calculate_vsram_sfchg_rate(false);
 
 	gpufreq_pr_info("@%s: vgpu: %d(enabled=%d), vsram_gpu: %d(enabled=%d)\n",
 			__func__,

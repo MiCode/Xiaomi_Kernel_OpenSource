@@ -68,9 +68,11 @@
 #define VSRAM_GPU_MAX_VOLT              (129375)        /* mV x 100 */
 #define VSRAM_GPU_MIN_VOLT              (50000)         /* mV x 100 */
 #define PMIC_STEP                       (625)           /* mV x 100 */
-#define BUCK_DIFF_MAX                   (35000)         /* mV x 100 */
-#define BUCK_DIFF_MIN                   (00000)         /* mV x 100 */
-#define BUCK_UDELAY_BUFFER              (52)            /* us */
+/*
+ * (-100)mv <= (VSRAM - VGPU) <= (300)mV
+ */
+#define BUCK_DIFF_MAX                   (30000)         /* mV x 100 */
+#define BUCK_DIFF_MIN                   (-10000)        /* mV x 100 */
 
 /**************************************************
  * Clock Setting
