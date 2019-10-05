@@ -3207,10 +3207,18 @@ static int sd_revalidate_disk(struct gendisk *disk)
 	dev_max = min_not_zero(dev_max, sdkp->max_xfer_blocks);
 	q->limits.max_dev_sectors = logical_to_sectors(sdp, dev_max);
 
-	if (sd_validate_opt_xfer_size(sdkp, dev_max)) {
-		q->limits.io_opt = logical_to_bytes(sdp, sdkp->opt_xfer_blocks);
-		rw_max = logical_to_sectors(sdp, sdkp->opt_xfer_blocks);
-	} else
+	/*
+	 * Determine the device's preferred I/O size for reads and writes
+	 * unless the reported value is unreasonably small, large, or
+	 * garbage.
+	 */
+	if (sdkp->opt_xfer_blocks &&
+	    sdkp->opt_xfer_blocks <= dev_max &&
+	    sdkp->opt_xfer_blocks <= SD_DEF_XFER_BLOCKS &&
+	    sdkp->opt_xfer_blocks * sdp->sector_size >= PAGE_SIZE)
+		rw_max = q->limits.io_opt =
+			sdkp->opt_xfer_blocks * sdp->sector_size;
+	else
 		rw_max = min_not_zero(logical_to_sectors(sdp, dev_max),
 				      (sector_t)BLK_DEF_MAX_SECTORS);
 
