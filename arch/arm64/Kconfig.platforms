@@ -391,7 +391,6 @@ config MACH_MT6885
         select MTK_CQDMA
         select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
         select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
-        select MTK_TIMER_TIMESYNC
         select MTK_TIMER_SYSTIMER
 	select MTK_BASE_POWER
 	select ARM_MTK_NEW_ARCH_CPUIDLE
