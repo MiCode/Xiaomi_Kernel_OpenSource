@@ -226,8 +226,8 @@ static void slbc_deactivate_timer_fn(unsigned long data)
 	struct slbc_ops *ops;
 	int ref = 0;
 
-	slbc_debug_log("%s: slbc_status %x", __func__, slbc_status);
-	slbc_debug_log("%s: slbc_release_status %x", __func__,
+	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
+	slbc_debug_log("%s: slbc_release_status %lx", __func__,
 			slbc_release_status);
 
 	list_for_each_entry(ops, &slbc_ops_list, node) {
@@ -246,7 +246,7 @@ static void slbc_deactivate_timer_fn(unsigned long data)
 						slbc_uid_str[uid]);
 			} else {
 				clear_bit(uid, &slbc_release_status);
-				slbc_debug_log("%s: slbc_release_status %x",
+				slbc_debug_log("%s: slbc_release_status %lx",
 						__func__, slbc_release_status);
 
 				pr_info("#@# %s(%d) %s released !!!\n",
@@ -337,7 +337,7 @@ int slbc_deactivate(struct slbc_data *d)
 				"done");
 
 		set_bit(uid, &slbc_release_status);
-		slbc_debug_log("%s: slbc_release_status %x", __func__,
+		slbc_debug_log("%s: slbc_release_status %lx", __func__,
 				slbc_release_status);
 		expires = jiffies + SLBC_CHECK_TIME;
 		mod_timer(&slbc_deactivate_timer, expires);
@@ -433,7 +433,7 @@ int slbc_deactivate(struct slbc_data *d)
 					"done");
 
 			set_bit(uid_new, &slbc_release_status);
-			slbc_debug_log("%s: slbc_release_status %x",
+			slbc_debug_log("%s: slbc_release_status %lx",
 					__func__, slbc_release_status);
 			expires = jiffies + SLBC_CHECK_TIME;
 			mod_timer(&slbc_deactivate_timer, expires);
@@ -459,7 +459,7 @@ static struct slbc_data *slbc_find_next_low_used(struct slbc_data *d_old)
 	unsigned int res_old = config_old->res_slot;
 	struct slbc_data *d_used = NULL;
 
-	slbc_debug_log("%s: slbc_status %x", __func__, slbc_status);
+	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
 
 	list_for_each_entry(ops, &slbc_ops_list, node) {
 		struct slbc_data *d = ops->data;
@@ -493,7 +493,7 @@ static struct slbc_data *slbc_find_next_high_req(struct slbc_data *d_old)
 	unsigned int res_old = config_old->res_slot;
 	struct slbc_data *d_req = NULL;
 
-	slbc_debug_log("%s: slbc_req_status %x", __func__, slbc_req_status);
+	slbc_debug_log("%s: slbc_req_status %lx", __func__, slbc_req_status);
 
 	list_for_each_entry(ops, &slbc_ops_list, node) {
 		struct slbc_data *d = ops->data;
@@ -574,7 +574,7 @@ static int find_slbc_slot_by_data(struct slbc_data *d)
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
-	slbc_debug_log("%s: slbc_slot_status %x", __func__, slbc_slot_status);
+	slbc_debug_log("%s: slbc_slot_status %lx", __func__, slbc_slot_status);
 	if (!(slbc_slot_status & d->slot_used))
 		return SLOT_AVAILABLE;
 
@@ -584,13 +584,13 @@ static int find_slbc_slot_by_data(struct slbc_data *d)
 static void set_slbc_slot_by_data(struct slbc_data *d)
 {
 	slbc_slot_status |= d->slot_used;
-	slbc_debug_log("%s: slbc_slot_status %x", __func__, slbc_slot_status);
+	slbc_debug_log("%s: slbc_slot_status %lx", __func__, slbc_slot_status);
 }
 
 static void clr_slbc_slot_by_data(struct slbc_data *d)
 {
 	slbc_slot_status &= ~d->slot_used;
-	slbc_debug_log("%s: slbc_slot_status %x", __func__, slbc_slot_status);
+	slbc_debug_log("%s: slbc_slot_status %lx", __func__, slbc_slot_status);
 }
 
 int slbc_request(struct slbc_data *d)
@@ -612,15 +612,15 @@ int slbc_request(struct slbc_data *d)
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
-	slbc_debug_log("%s: slbc_mask_status %x", __func__, slbc_mask_status);
+	slbc_debug_log("%s: slbc_mask_status %lx", __func__, slbc_mask_status);
 	ret = test_bit(uid, &slbc_mask_status);
 	if (ret == 1)
 		return -EREQ_MASKED;
 
 	set_bit(uid, &slbc_req_status);
-	slbc_debug_log("%s: slbc_req_status %x", __func__, slbc_req_status);
+	slbc_debug_log("%s: slbc_req_status %lx", __func__, slbc_req_status);
 
-	slbc_debug_log("%s: slbc_status %x", __func__, slbc_status);
+	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
 	ret = test_bit(uid, &slbc_status);
 	if (ret == 1) {
 		slbc_set_mmsram_data(d);
@@ -683,9 +683,9 @@ request_done:
 	d->ref++;
 
 	set_bit(uid, &slbc_status);
-	slbc_debug_log("%s: slbc_status %x", __func__, slbc_status);
+	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
 	clear_bit(uid, &slbc_req_status);
-	slbc_debug_log("%s: slbc_req_status %x", __func__, slbc_req_status);
+	slbc_debug_log("%s: slbc_req_status %lx", __func__, slbc_req_status);
 
 	return ret;
 }
@@ -711,12 +711,12 @@ int slbc_release(struct slbc_data *d)
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
-	slbc_debug_log("%s: slbc_mask_status %x", __func__, slbc_mask_status);
+	slbc_debug_log("%s: slbc_mask_status %lx", __func__, slbc_mask_status);
 	ret = test_bit(uid, &slbc_mask_status);
 	if (ret == 1)
 		return -EREQ_MASKED;
 
-	slbc_debug_log("%s: slbc_status %x", __func__, slbc_status);
+	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
 	ret = test_bit(uid, &slbc_status);
 	if (ret == 1) {
 		slbc_clr_mmsram_data(d);
@@ -725,7 +725,7 @@ int slbc_release(struct slbc_data *d)
 	}
 
 	if (BIT_IN_MM_BITS_1(BIT(uid)) &&
-			!BIT_IN_MM_BITS_1(slbc_status & !BIT(uid))) {
+			!BIT_IN_MM_BITS_1(slbc_status & ~BIT(uid))) {
 		slbc_clr_mmsram_data(d);
 
 		goto release_done;
@@ -774,7 +774,7 @@ release_done:
 			__func__, slbc_uid_str[uid]);
 
 	clear_bit(uid, &slbc_status);
-	slbc_debug_log("%s: slbc_status %x", __func__, slbc_status);
+	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
 
 	return 0;
 }
@@ -827,7 +827,7 @@ static void slbc_dump_data(struct seq_file *m, struct slbc_data *d)
 
 	seq_printf(m, "\t%d\t", uid);
 	seq_printf(m, "%x\t", d->type);
-	seq_printf(m, "%d\n", d->size);
+	seq_printf(m, "%ld\n", d->size);
 	seq_printf(m, "%p\t", d->paddr);
 	seq_printf(m, "%p\t", d->vaddr);
 	seq_printf(m, "%d\t", d->sid);
@@ -843,9 +843,9 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "slbc_enable %x\n", slbc_enable);
 	seq_printf(m, "slbc_status %lx\n", slbc_status);
 	seq_printf(m, "slbc_mask_status %lx\n", slbc_mask_status);
-	seq_printf(m, "slbc_req_status %x\n", slbc_req_status);
-	seq_printf(m, "slbc_release_status %x\n", slbc_release_status);
-	seq_printf(m, "slbc_slot_status %x\n", slbc_slot_status);
+	seq_printf(m, "slbc_req_status %lx\n", slbc_req_status);
+	seq_printf(m, "slbc_release_status %lx\n", slbc_release_status);
+	seq_printf(m, "slbc_slot_status %lx\n", slbc_slot_status);
 	seq_printf(m, "buffer_ref %x\n", buffer_ref);
 	seq_printf(m, "cache_ref %x\n", cache_ref);
 
