@@ -38,6 +38,8 @@
 #include "sspm_sysfs.h"
 #include "sspm_logger.h"
 
+#if SSPM_PLT_SERV_SUPPORT
+
 #ifdef SSPM_PLT_LOGGER_BUF_LEN
 /* use platform-defined buffer length */
 #define BUF_LEN				SSPM_PLT_LOGGER_BUF_LEN
@@ -348,3 +350,5 @@ int __init sspm_logger_init_done(void)
 
 	return 0;
 }
+
+#endif
