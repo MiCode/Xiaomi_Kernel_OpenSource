@@ -477,29 +477,11 @@ void apusys_dvfs_info(void)
 
 void apusys_dvfs_state_machine(void)
 {
-	uint8_t buck_domain_num = 0;
-	uint8_t buck_index;
-
 	apusys_buck_up_check();
 
 	apusys_frequency_check();
 
 	apusys_buck_down_check();
-
-	apusys_dvfs_info();
-
-	for (buck_domain_num = 0;
-	buck_domain_num < APUSYS_BUCK_DOMAIN_NUM;
-	buck_domain_num++) {
-		buck_index = apusys_buck_domain_to_buck[buck_domain_num];
-		apusys_opps.prev_opp_index[buck_domain_num] =
-			apusys_opps.cur_opp_index[buck_domain_num];
-		apusys_opps.prev_buck_volt[buck_index] =
-			apusys_opps.cur_buck_volt[buck_index];
-	}
-
-	for (buck_index = 0; buck_index < APUSYS_BUCK_NUM; buck_index++)
-		apusys_opps.cur_buck_volt[buck_index] = 0;
 }
 
 
@@ -510,6 +492,8 @@ void apusys_dvfs_policy(uint64_t round_id)
 	uint8_t use_opp;
 	enum DVFS_VOLTAGE_DOMAIN buck_domain;
 	enum DVFS_VOLTAGE voltage;
+	uint8_t buck_domain_num = 0;
+	uint8_t buck_index;
 
 	apusys_opps.id = round_id;
 
@@ -533,6 +517,24 @@ void apusys_dvfs_policy(uint64_t round_id)
 	}
 
 	apusys_dvfs_state_machine();
+
+	apusys_dvfs_info();
+
+	if (is_power_debug_lock == false) {
+		for (buck_domain_num = 0;
+		buck_domain_num < APUSYS_BUCK_DOMAIN_NUM;
+		buck_domain_num++) {
+			apusys_opps.prev_opp_index[buck_domain_num] =
+				apusys_opps.cur_opp_index[buck_domain_num];
+		}
+
+		for (buck_index = 0; buck_index < APUSYS_BUCK_NUM;
+		buck_index++) {
+			apusys_opps.prev_buck_volt[buck_index] =
+				apusys_opps.cur_buck_volt[buck_index];
+			apusys_opps.cur_buck_volt[buck_index] = 0;
+		}
+	}
 
 }
 

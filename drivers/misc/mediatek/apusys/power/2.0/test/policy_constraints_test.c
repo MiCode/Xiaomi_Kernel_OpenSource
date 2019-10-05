@@ -71,11 +71,47 @@ enum DVFS_VOLTAGE sram_constraint[CONSTRAINTS_2_SIZE][3] = {
 
 struct hal_param_init_power init_power_data;
 
-void apusys_set_power_parameter(void)
+void apusys_power_hal_test(void)
+{
+	int i = 0;
+	int args[3] = {3, 40, 60};
+
+	if ((args[0] == VPU0 || args[0] == VPU1 || args[0] == VPU2)
+		&& APUSYS_VPU_NUM != 0) {
+		for (i = VPU0; i < VPU0 + APUSYS_VPU_NUM; i++) {
+			apusys_opps.power_lock_max_opp[i] =
+				apusys_boost_value_to_opp(i, args[1]);
+			apusys_opps.power_lock_min_opp[i] =
+				apusys_boost_value_to_opp(i, args[2]);
+		}
+	}
+
+	if ((args[0] == MDLA0 || args[0] == MDLA1)
+		&& APUSYS_MDLA_NUM != 0) {
+		for (i = MDLA0; i < MDLA0 + APUSYS_MDLA_NUM; i++) {
+			apusys_opps.power_lock_max_opp[i] =
+				apusys_boost_value_to_opp(i, args[1]);
+			apusys_opps.power_lock_min_opp[i] =
+				apusys_boost_value_to_opp(i, args[2]);
+		}
+	}
+
+
+}
+
+void apusys_set_dfvs_debug_test(void)
 {
 	int i = 0, j = 0;
-	int args[1] = {4};
+	int args[1] = {6};
 	int opp = 0;
+
+	LOG_INF("lock opp = %d\n", (int)args[0]);
+
+	for (i = VPU0; i < VPU0 + APUSYS_VPU_NUM; i++)
+		apusys_opps.cur_opp_index[i] = args[0];
+
+	for (i = MDLA0; i < MDLA0 + APUSYS_MDLA_NUM; i++)
+		apusys_opps.cur_opp_index[i] = args[0];
 
 	apusys_opps.cur_buck_volt[VPU_BUCK] =
 			apusys_opps.opps[args[0]][V_VPU0].voltage;
@@ -87,16 +123,9 @@ void apusys_set_power_parameter(void)
 		// determine buck domain opp
 		for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++) {
 			for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
-				if ((i == V_VPU0 || i == V_VPU1 ||
-					i == V_VPU2 || i == V_APU_CONN ||
-					i == V_TOP_IOMMU) &&
+				if ((i == V_APU_CONN ||	i == V_TOP_IOMMU) &&
 					(apusys_opps.opps[opp][i].voltage ==
 					apusys_opps.cur_buck_volt[VPU_BUCK])) {
-					apusys_opps.cur_opp_index[i] = opp;
-					break;
-				} else if ((i == V_MDLA0 || i == V_MDLA1) &&
-					(apusys_opps.opps[opp][i].voltage ==
-					apusys_opps.cur_buck_volt[MDLA_BUCK])) {
 					apusys_opps.cur_opp_index[i] = opp;
 					break;
 				} else if (i == V_VCORE &&
@@ -109,7 +138,7 @@ void apusys_set_power_parameter(void)
 		}
 
 		is_power_debug_lock = true;
-		apusys_dvfs_policy(0);
+	//	apusys_dvfs_policy(0);
 }
 
 
@@ -218,6 +247,8 @@ void test_case(int power_on_round, int opp_change_round, int fail_stop)
 {
 	int i, j, k, opp;
 
+	apusys_power_hal_test();
+//	apusys_set_dfvs_debug_test();
 
 	for (i = 1 ; i <= power_on_round ; i++) {
 		LOG_INF("### power on round #%d start ###\n", i);
@@ -242,10 +273,10 @@ void test_case(int power_on_round, int opp_change_round, int fail_stop)
 				}
 			}
 
+			is_power_debug_lock = false;
 			LOG_INF("## opp change round #%d end ##\n", j);
 		}
 
-		//apusys_set_power_parameter();
 
 		apusys_power_off(VPU0);
 		apusys_power_off(MDLA0);

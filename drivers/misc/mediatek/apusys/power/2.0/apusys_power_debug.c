@@ -99,6 +99,14 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			goto out;
 		}
 		PWR_LOG_INF("@@test%d\n", argc);
+		PWR_LOG_INF("lock opp=%d\n", (int)(args[0]));
+
+
+		for (i = VPU0; i < VPU0 + APUSYS_VPU_NUM; i++)
+			apusys_opps.cur_opp_index[i] = args[0];
+
+		for (i = MDLA0; i < MDLA0 + APUSYS_MDLA_NUM; i++)
+			apusys_opps.cur_opp_index[i] = args[0];
 
 		// determine vpu / mdla / vcore voltage
 		apusys_opps.cur_buck_volt[VPU_BUCK] =
@@ -111,16 +119,9 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		// determine buck domain opp
 		for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++) {
 			for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
-				if ((i == V_VPU0 || i == V_VPU1 ||
-					i == V_VPU2 || i == V_APU_CONN ||
-					i == V_TOP_IOMMU) &&
+				if ((i == V_APU_CONN ||	i == V_TOP_IOMMU) &&
 					(apusys_opps.opps[opp][i].voltage ==
 					apusys_opps.cur_buck_volt[VPU_BUCK])) {
-					apusys_opps.cur_opp_index[i] = opp;
-					break;
-				} else if ((i == V_MDLA0 || i == V_MDLA1) &&
-					(apusys_opps.opps[opp][i].voltage ==
-					apusys_opps.cur_buck_volt[MDLA_BUCK])) {
 					apusys_opps.cur_opp_index[i] = opp;
 					break;
 				} else if (i == V_VCORE &&
@@ -209,7 +210,7 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			goto out;
 		}
 
-		if (args[0] < 0 || args[0] > 1) {
+		if (args[0] < 0 || args[0] >= APUSYS_DVFS_USER_NUM) {
 			PWR_LOG_INF("user(%d) is invalid\n",
 					(int)(args[0]));
 			goto out;
@@ -225,7 +226,8 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			goto out;
 		}
 
-		if (args[0] == 0 && APUSYS_VPU_NUM != 0) {
+		if ((args[0] == VPU0 || args[0] == VPU1 || args[0] == VPU2)
+			&& APUSYS_VPU_NUM != 0) {
 			for (i = VPU0; i < VPU0 + APUSYS_VPU_NUM; i++) {
 				apusys_opps.power_lock_max_opp[i] =
 					apusys_boost_value_to_opp(i, args[1]);
@@ -234,7 +236,8 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			}
 		}
 
-		if (args[0] == 1 && APUSYS_MDLA_NUM != 0) {
+		if ((args[0] == MDLA0 || args[0] == MDLA1)
+			&& APUSYS_MDLA_NUM != 0) {
 			for (i = MDLA0; i < MDLA0 + APUSYS_MDLA_NUM; i++) {
 				apusys_opps.power_lock_max_opp[i] =
 					apusys_boost_value_to_opp(i, args[1]);
