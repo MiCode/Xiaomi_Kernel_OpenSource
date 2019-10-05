@@ -1,7 +1,7 @@
 config MTK_DEVMPU
 	bool "Enable MTK Device MPU driver"
 	depends on (MTK_EMI) && (MTK_ENABLE_GENIEZONE)
-	default y
+	default y if (MACH_MT6779)
 	help
 	  Device MPU is a kernel driver providing
 	  non-continuous memory protection in the
