@@ -25,6 +25,8 @@
 #include <linux/interrupt.h>
 #include "goodix_ts_core.h"
 #include "goodix_cfg_bin.h"
+#include <linux/uaccess.h>
+#include <linux/miscdevice.h>
 
 #define TS_DT_COMPATIBLE "goodix,gt9886"
 #define TS_DRIVER_NAME "GT9886"
@@ -88,6 +90,127 @@ module_param(tpd_res_max_y, int, 0664);
 /***********for config & firmware*************/
 const char *gt9886_firmware_buf;
 const char *gt9886_config_buf;
+
+/* for touch-filter */
+struct tpd_filter_t {
+	int enable; /*0: disable, 1: enable*/
+	int pixel_density; /*XXX pixel/cm*/
+	int W_W[3][4];/*filter custom setting prameters*/
+	unsigned int VECLOCITY_THRESHOLD[3];/*filter speed custom settings*/
+};
+
+struct tpd_filter_t tpd_filter;
+#define TOUCH_IOC_MAGIC 'A'
+#define TPD_GET_FILTER_PARA _IOWR(TOUCH_IOC_MAGIC, 2, struct tpd_filter_t)
+#ifdef CONFIG_COMPAT
+#define COMPAT_TPD_GET_FILTER_PARA _IOWR(TOUCH_IOC_MAGIC, \
+				2, struct tpd_filter_t)
+#endif
+static int tpd_misc_open(struct inode *inode, struct file *file)
+{
+	return nonseekable_open(inode, file);
+}
+
+static int tpd_misc_release(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+#ifdef CONFIG_COMPAT
+static long tpd_compat_ioctl(
+			struct file *file, unsigned int cmd,
+			unsigned long arg)
+{
+	long ret;
+	void __user *arg32 = compat_ptr(arg);
+
+	if (!file->f_op || !file->f_op->unlocked_ioctl)
+		return -ENOTTY;
+	switch (cmd) {
+	case COMPAT_TPD_GET_FILTER_PARA:
+		if (arg32 == NULL) {
+			ts_err("invalid argument.");
+			return -EINVAL;
+		}
+		ret = file->f_op->unlocked_ioctl(file, TPD_GET_FILTER_PARA,
+					   (unsigned long)arg32);
+		if (ret) {
+			ts_err("TPD_GET_FILTER_PARA unlocked_ioctl failed.");
+			return ret;
+		}
+		break;
+	default:
+		ts_err("tpd: unknown IOCTL: 0x%08x\n", cmd);
+		ret = -ENOIOCTLCMD;
+		break;
+	}
+	return ret;
+}
+#endif
+
+static long tpd_unlocked_ioctl(struct file *file,
+			unsigned int cmd, unsigned long arg)
+{
+	/* char strbuf[256]; */
+	void __user *data;
+
+	long err = 0;
+
+	if (_IOC_DIR(cmd) & _IOC_READ)
+		err = !access_ok(VERIFY_WRITE,
+			(void __user *)arg, _IOC_SIZE(cmd));
+	else if (_IOC_DIR(cmd) & _IOC_WRITE)
+		err = !access_ok(VERIFY_READ,
+			(void __user *)arg, _IOC_SIZE(cmd));
+	if (err) {
+		pr_info("tpd: access error: %08X, (%2d, %2d)\n",
+			cmd, _IOC_DIR(cmd), _IOC_SIZE(cmd));
+		return -EFAULT;
+	}
+
+	switch (cmd) {
+	case TPD_GET_FILTER_PARA:
+			data = (void __user *) arg;
+
+			if (data == NULL) {
+				err = -EINVAL;
+				ts_err("GET_FILTER_PARA: data is null\n");
+				break;
+			}
+
+			if (copy_to_user(data, &tpd_filter,
+					sizeof(struct tpd_filter_t))) {
+				ts_err("GET_FILTER_PARA: copy data error\n");
+				err = -EFAULT;
+				break;
+			}
+			break;
+	default:
+		pr_info("tpd: unknown IOCTL: 0x%08x\n", cmd);
+		err = -ENOIOCTLCMD;
+		break;
+
+	}
+
+	return err;
+}
+
+static const struct file_operations gt9886_fops = {
+/* .owner = THIS_MODULE, */
+	.open = tpd_misc_open,
+	.release = tpd_misc_release,
+	.unlocked_ioctl = tpd_unlocked_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = tpd_compat_ioctl,
+#endif
+};
+
+/*---------------------------------------------------------------------------*/
+static struct miscdevice tpd_misc_device = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "touch",
+	.fops = &gt9886_fops,
+};
 
 #ifdef CONFIG_OF
 /**
@@ -265,6 +388,26 @@ static int goodix_parse_dt(struct device_node *node,
 						(prop->length / sizeof(u32));
 		}
 	}
+	/* for touch filter */
+	of_property_read_u32(node, "tpd-filter-enable",
+			&(tpd_filter.enable));
+	if (tpd_filter.enable) {
+		of_property_read_u32(node, "tpd-filter-pixel-density",
+			&(tpd_filter.pixel_density));
+		if (of_property_read_u32_array(node,
+			"tpd-filter-custom-prameters",
+			(u32 *)tpd_filter.W_W,
+			ARRAY_SIZE(tpd_filter.W_W)))
+			ts_info("get tpd-filter-custom-parameters");
+		if (of_property_read_u32_array(node,
+			"tpd-filter-custom-speed",
+			tpd_filter.VECLOCITY_THRESHOLD,
+			ARRAY_SIZE(tpd_filter.VECLOCITY_THRESHOLD)))
+			ts_info("get tpd-filter-custom-speed");
+	}
+	ts_info("[tpd]tpd-filter-enable = %d, pixel_density = %d\n",
+		tpd_filter.enable, tpd_filter.pixel_density);
+
 	ts_info("***key:%d, %d, %d, %d, %d",
 			board_data->panel_key_map[0],
 			board_data->panel_key_map[1],
