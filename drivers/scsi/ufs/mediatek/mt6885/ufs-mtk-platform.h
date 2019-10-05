@@ -89,11 +89,8 @@ int  ufs_mtk_pltfrm_bootrom_deputy(struct ufs_hba *hba);
 int  ufs_mtk_pltfrm_deepidle_check_h8(void);
 void ufs_mtk_pltfrm_deepidle_leave(void);
 void ufs_mtk_pltfrm_deepidle_lock(struct ufs_hba *hba, bool lock);
-void ufs_mtk_pltfrm_deepidle_resource_req(struct ufs_hba *hba,
-	unsigned int resource);
 int  ufs_mtk_pltfrm_init(void);
 int  ufs_mtk_pltfrm_parse_dt(struct ufs_hba *hba);
-int  ufs_mtk_pltfrm_res_req(struct ufs_hba *hba, u32 option);
 int  ufs_mtk_pltfrm_resume(struct ufs_hba *hba);
 int  ufs_mtk_pltfrm_suspend(struct ufs_hba *hba);
 void ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(struct ufs_hba *hba);
