@@ -419,7 +419,7 @@ static int credit_didt_en_proc_show(struct seq_file *m, void *v)
 
 				credit_didt_debug("Get cpu=%d ls_vx=%d cfg=%d value=%d\n",
 					cpu, ls_vx, cfg,
-					credit_didt_info[cpu][ls_vx][cfg]);
+					credit_didt_info[cpu_tmp][ls_vx][cfg]);
 			}
 		}
 	}
