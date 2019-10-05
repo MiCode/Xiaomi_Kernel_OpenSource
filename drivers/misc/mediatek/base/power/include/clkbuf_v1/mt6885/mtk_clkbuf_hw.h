@@ -123,6 +123,12 @@ enum {
 	EXT_BUF247_EN,
 };
 
+enum {
+	INF_ERROR = 0,
+	INF_RC,
+	INF_DCXO,
+};
+
 /*#define CLKBUF_USE_BBLPM*/
 
 void clk_buf_post_init(void);

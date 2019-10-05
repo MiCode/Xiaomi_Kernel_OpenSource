@@ -35,6 +35,7 @@ static void __iomem *gpio_base;
 #endif
 
 #define SRCLKEN_REG(ofs)			(srclken_base + ofs)
+#define SRCLKEN_STA_REG(ofs)		(srclken_base + ofs + 0x900)
 #define SCP_REG(ofs)				(scp_base + ofs)
 #if RC_GPIO_DBG_ENABLE
 #define GPIO_REG(ofs)				(gpio_base + ofs)
@@ -44,21 +45,25 @@ static void __iomem *gpio_base;
 #define RC_CENTRAL_CFG1				SRCLKEN_REG(0x004)
 #define RC_CENTRAL_CFG2				SRCLKEN_REG(0x008)
 #define RC_CMD_ARB_CFG				SRCLKEN_REG(0x00C)
-#define RC_PMIC_RCEN_SET_CLR_ADDR		SRCLKEN_REG(0x014)
+#define RC_PMIC_RCEN_ADDR			SRCLKEN_REG(0x010)
+#define RC_PMIC_RCEN_SET_CLR_ADDR	SRCLKEN_REG(0x014)
 #define RC_DCXO_FPM_CFG				SRCLKEN_REG(0x018)
 #define RC_CENTRAL_CFG3				SRCLKEN_REG(0x01C)
 #define RC_M00_SRCLKEN_CFG			SRCLKEN_REG(0x020)
-#define RC_FSM_STA_0				SRCLKEN_REG(0x060)
-#define RC_CMD_STA_0				SRCLKEN_REG(0x064)
-#define RC_CMD_STA_1				SRCLKEN_REG(0x068)
-#define RC_SPI_STA_0				SRCLKEN_REG(0x06C)
-#define RC_PI_PO_STA_0				SRCLKEN_REG(0x070)
-#define RC_M00_REQ_STA_0			SRCLKEN_REG(0x080)
+#define RC_CENTRAL_CFG4				SRCLKEN_REG(0x058)
+#define RC_FSM_STA_0				SRCLKEN_STA_REG(0x000)
+#define RC_CMD_STA_0				SRCLKEN_STA_REG(0x004)
+#define RC_CMD_STA_1				SRCLKEN_STA_REG(0x008)
+#define RC_SPI_STA_0				SRCLKEN_STA_REG(0x00C)
+#define RC_PI_PO_STA_0				SRCLKEN_STA_REG(0x010)
+#define RC_M00_REQ_STA_0			SRCLKEN_STA_REG(0x014)
 #define RC_MISC_0				SRCLKEN_REG(0x0B4)
 #define RC_SPM_CTL				SRCLKEN_REG(0x0B8)
 #define SUBSYS_INTF_CFG				SRCLKEN_REG(0x0BC)
-#define DBG_TRACE_0_LSB				SRCLKEN_REG(0x0C0)
-#define DBG_TRACE_0_MSB				SRCLKEN_REG(0x0C4)
+#define DBG_TRACE_0_LSB				SRCLKEN_STA_REG(0x050)
+#define DBG_TRACE_0_MSB				SRCLKEN_STA_REG(0x054)
+#define TIMER_LATCH_0_LSB				SRCLKEN_STA_REG(0x098)
+#define TIMER_LATCH_0_MSB				SRCLKEN_STA_REG(0x09C)
 #endif	/* CONFIG_OF */
 
 /* TODO: marked this after driver is ready */
@@ -323,10 +328,15 @@ static int __srclken_dump_cfg(char *buf)
 	len += snprintf(buf+len, PAGE_SIZE-len,
 		"centrol 3: 0x%x\n", srclken_read(RC_CENTRAL_CFG3));
 	len += snprintf(buf+len, PAGE_SIZE-len,
+		"centrol 4: 0x%x\n", srclken_read(RC_CENTRAL_CFG4));
+	len += snprintf(buf+len, PAGE_SIZE-len,
 		"cmd cfg: 0x%x\n", srclken_read(RC_CMD_ARB_CFG));
 
 	len += snprintf(buf+len, PAGE_SIZE-len,
 		"subsys cfg: = 0x%x\n", srclken_read(SUBSYS_INTF_CFG));
+	len += snprintf(buf+len, PAGE_SIZE-len,
+		"pmrc_rc: 0x%x\n",
+		srclken_read(RC_PMIC_RCEN_ADDR));
 	len += snprintf(buf+len, PAGE_SIZE-len,
 		"pmrc setclr: 0x%x\n",
 		srclken_read(RC_PMIC_RCEN_SET_CLR_ADDR));
@@ -355,6 +365,13 @@ static int __srclken_dump_last_sta(char *buf, u8 idx)
 	len += snprintf(buf+len, PAGE_SIZE-len,
 		"TRACE%d MSB : 0x%x\n", idx,
 		srclken_read(DBG_TRACE_0_MSB + (idx * 8)));
+
+	len += snprintf(buf+len, PAGE_SIZE-len,
+		"TIME%d LSB : 0x%x, ", idx,
+		srclken_read(TIMER_LATCH_0_LSB + (idx * 8)));
+	len += snprintf(buf+len, PAGE_SIZE-len,
+		"TIME%d MSB : 0x%x\n", idx,
+		srclken_read(TIMER_LATCH_0_MSB + (idx * 8)));
 
 	return len;
 }
@@ -932,7 +949,7 @@ int srclken_dts_map(void)
 		return -1;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6779-pwrap");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6885-pwrap");
 	if (node) {
 		pwrap_base = of_iomap(node, 0);
 		if (!pwrap_base) {
@@ -1026,6 +1043,28 @@ void srclken_stage_init(void)
 
 		if (i == (MAX_SYS_NUM - 1)) {
 			srclken_dbg("%s: rc bt only mode\n", __func__);
+			rc_stage = SRCLKEN_BT_ONLY;
+			goto RC_STAGE_DONE;
+		}
+	}
+
+	for (i = 0; i < MAX_SYS_NUM; i++) {
+		cfg = srclken_read(RC_M00_SRCLKEN_CFG + i * 4);
+
+		if (i == SYS_COANT) {
+			if ((cfg & (0x7 << SW_SRCLKEN_RC_SHFT)) != 0)
+				break;
+		} else {
+			if ((cfg & (SW_MODE | OFF_REQ))
+					!= (SW_MODE | OFF_REQ)) {
+				srclken_dbg("%s: [COANT-Only]M-%d check fail.\n",
+						__func__, i);
+				break;
+			}
+		}
+
+		if (i == (MAX_SYS_NUM - 1)) {
+			srclken_dbg("%s: rc coant only mode\n", __func__);
 			rc_stage = SRCLKEN_BT_ONLY;
 			goto RC_STAGE_DONE;
 		}
