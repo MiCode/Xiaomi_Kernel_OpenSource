@@ -488,6 +488,7 @@ static int mdlactl_init(void)
 
 	mdla_debugfs_init();
 	mdla_profile_init();
+	mdla_wakeup_source_init();
 	mdla_drv_debug("%s done!\n", __func__);
 
 	return 0;

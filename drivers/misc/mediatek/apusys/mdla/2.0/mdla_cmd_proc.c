@@ -61,6 +61,17 @@
 #include "mdla_hw_reg.h"
 #include "mdla_pmu.h"
 
+#ifdef CONFIG_PM_WAKELOCKS
+static struct wakeup_source *mdla_ws;
+#endif
+
+void mdla_wakeup_source_init(void)
+{
+	mdla_ws = wakeup_source_register("mdla");
+	if (!mdla_ws)
+		pr_debug("mdla wakelock register fail!\n");
+}
+
 /* if there's no more reqeusts
  * 1. delete command timeout timer
  * 2. setup delay power off timer
@@ -257,6 +268,11 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	/* The critical region of command enqueue */
 	mutex_lock(&mdla_info->cmd_lock);
 
+#ifdef CONFIG_PM_WAKELOCKS
+	if (mdla_ws)
+		__pm_stay_awake(mdla_ws);
+#endif
+
 	mdla_run_command_prepare(cd, &ce);
 
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
@@ -376,6 +392,11 @@ process_command:
 	mdla_command_done(core_id);
 
 	ce.wait_t = sched_clock();
+
+#ifdef CONFIG_PM_WAKELOCKS
+	if (mdla_ws)
+		__pm_relax(mdla_ws);
+#endif
 
 	mutex_unlock(&mdla_info->cmd_lock);
 
