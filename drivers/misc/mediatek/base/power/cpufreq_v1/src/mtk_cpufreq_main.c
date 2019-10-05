@@ -122,14 +122,14 @@ static int _cpufreq_set_locked_secure(struct cpufreq_policy *policy,
 	}
 
 	cpuhvfs_set_dvfs(cpufreq_get_cluster_id(p->cpu_id), target_khz);
-
+#if 0
 	if (policy->cpu < 4)
 		met_tag_oneshot(0, "LL", target_khz);
 	else if (policy->cpu >= 4)
 		met_tag_oneshot(0, "L", target_khz);
 	else if (policy->cpu >= 8)
 		met_tag_oneshot(0, "B", target_khz);
-
+#endif
 	return 0;
 
 out:

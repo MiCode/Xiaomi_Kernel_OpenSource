@@ -248,7 +248,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 					p->idx_opp_ppm_limit);
 				cid =
 	cpufreq_get_cluster_id(p->mt_policy->cpu);
-
+#if 0
 				if (cid == 0) {
 					met_tag_oneshot(0, "sched_dvfs_max_c0",
 							p->mt_policy->max);
@@ -265,7 +265,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 					met_tag_oneshot(0, "sched_dvfs_min_c2",
 						p->mt_policy->min);
 				}
-
+#endif
 				/* Policy notification */
 				if (p->idx_opp_tbl != j ||
 				(p->idx_opp_ppm_limit != previous_limit) ||
