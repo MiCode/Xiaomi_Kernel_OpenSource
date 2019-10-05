@@ -1,0 +1,10 @@
+config MTK_BMI160_SPI
+	bool "MTK_BMI160 for MediaTek package"
+	default n
+	help
+	  The BMI160 is a highly integrated,
+	  low power internal measurement unit
+	  that provides precise acceleration
+	  and angular rate (gyroscopic) measurement.
+	  this config will turn on accelerometer feature.
+
