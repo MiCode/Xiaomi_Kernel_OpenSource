@@ -65,7 +65,7 @@ enum SMEM_TYPE {
 	SMEM_PROT = 1,
 	SMEM_2D_FR = 2,
 	SMEM_WFD = 3,
-	SMEM_SDSP_TEE = 4,
+	SMEM_SDSP_SHARED = 4,
 	SMEM_SDSP_FIRMWARE = 5,
 	SMEM_HAPP_ELF = 6,
 	SMEM_HAPP_EXTRA = 7,
@@ -86,7 +86,7 @@ static int get_smem_type(enum TRUSTED_MEM_TYPE mem_type)
 	case TRUSTED_MEM_SDSP:
 		return SMEM_SDSP_FIRMWARE;
 	case TRUSTED_MEM_SDSP_SHARED:
-		return SMEM_SDSP_TEE;
+		return SMEM_SDSP_SHARED;
 	case TRUSTED_MEM_SVP_VIRT_2D_FR:
 		return SMEM_2D_FR;
 	default:

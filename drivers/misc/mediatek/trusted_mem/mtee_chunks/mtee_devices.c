@@ -91,7 +91,9 @@ static struct mtee_chunk_memory_configs mtee_mchunks[] = {
 		.dev_name = "SDSP",
 	},
 #endif
-#ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
+#if defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                                \
+	&& (defined(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)                      \
+	    || defined(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
 	{
 		.mem_type = TRUSTED_MEM_SDSP_SHARED,
 		.ssmr_feature_id = SSMR_FEAT_SDSP_TEE_SHAREDMEM,

@@ -1695,3 +1695,48 @@ TZ_RESULT KREE_GetTEETotalSize(KREE_SESSION_HANDLE session, uint32_t *size)
 
 	return TZ_RESULT_SUCCESS;
 }
+
+TZ_RESULT KREE_ConfigSecureMultiChunkMemInfo(KREE_SESSION_HANDLE session,
+					     uint64_t pa, uint32_t size,
+					     uint32_t region_id)
+{
+	TZ_RESULT ret;
+	union MTEEC_PARAM p[4];
+#ifdef CONFIG_GZ_VPU_WITH_M4U
+	bool is_region_on = ((size == 0x0) ? false : true);
+#endif
+
+	p[0].value.a = (pa >> 32);
+	p[0].value.b = (pa & 0xFFFFFFFF);
+	p[1].value.a = size;
+	p[1].value.b = region_id;
+
+	ret = KREE_TeeServiceCall(session, TZCMD_MEM_CONFIG_CHUNKMEM_INFO_ION,
+				  TZ_ParamTypes3(TZPT_VALUE_INPUT,
+						 TZPT_VALUE_INPUT,
+						 TZPT_VALUE_OUTPUT), p);
+	if (ret != TZ_RESULT_SUCCESS) {
+		pr_err("[%s] service call failed=0x%x\n", __func__, ret);
+		return ret;
+	}
+
+	ret = p[2].value.a;
+	if (ret != TZ_RESULT_SUCCESS) {
+		pr_err("[%s] config memory info failed=0x%x\n", __func__, ret);
+		return ret;
+	}
+
+#ifdef CONFIG_GZ_VPU_WITH_M4U
+	if (is_region_on)
+		ret = gz_do_m4u_map(session, (void *)pa, size, region_id);
+	else
+		ret = gz_do_m4u_umap(session);
+
+	if (ret != TZ_RESULT_SUCCESS) {
+		pr_err("[%s] do m4u map/unmap failed=%d\n", __func__, ret);
+		return ret;
+	}
+#endif
+
+	return TZ_RESULT_SUCCESS;
+}

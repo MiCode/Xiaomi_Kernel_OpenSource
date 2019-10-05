@@ -53,6 +53,15 @@ static struct tee_op_cmd_mappings tee_wfd_smem_op_cmd_mappings = {
 	.tee_mem_type = TEE_MEM_WFD,
 };
 
+static struct tee_op_cmd_mappings tee_sdsp_smem_op_cmd_mappings = {
+	.tee_cmds[TEE_OP_ALLOC] = CMD_SDSP_SMEM_ALLOC,
+	.tee_cmds[TEE_OP_ALLOC_ZERO] = CMD_SDSP_SMEM_ALLOC_ZERO,
+	.tee_cmds[TEE_OP_FREE] = CMD_SDSP_SMEM_UNREF,
+	.tee_cmds[TEE_OP_REGION_ENABLE] = CMD_SDSP_SMEM_ENABLE,
+	.tee_cmds[TEE_OP_REGION_DISABLE] = CMD_SDSP_SMEM_DISABLE,
+	.tee_mem_type = TEE_MEM_SDSP_SHARED,
+};
+
 u32 get_tee_cmd(enum TEE_OP op, void *peer_priv)
 {
 	struct tee_op_cmd_mappings *op_map =
@@ -64,6 +73,17 @@ u32 get_tee_cmd(enum TEE_OP op, void *peer_priv)
 	return op_map->tee_cmds[op];
 }
 
+u32 get_tee_mem_type(void *peer_priv)
+{
+	struct tee_op_cmd_mappings *op_map =
+		(struct tee_op_cmd_mappings *)peer_priv;
+
+	if (unlikely(INVALID(peer_priv)))
+		return -1;
+
+	return op_map->tee_mem_type;
+}
+
 void get_tee_peer_priv_data(enum TEE_MEM_TYPE tee_mem_type, void **peer_priv)
 {
 	if (tee_mem_type == TEE_MEM_SVP) {
@@ -72,6 +92,9 @@ void get_tee_peer_priv_data(enum TEE_MEM_TYPE tee_mem_type, void **peer_priv)
 	} else if (tee_mem_type == TEE_MEM_WFD) {
 		pr_info("TEE_MEM_WFD_PRIV_DATA\n");
 		*peer_priv = &tee_wfd_smem_op_cmd_mappings;
+	} else if (tee_mem_type == TEE_MEM_SDSP_SHARED) {
+		pr_info("TEE_MEM_SDSP_PRIV_DATA\n");
+		*peer_priv = &tee_sdsp_smem_op_cmd_mappings;
 	} else {
 		pr_err("invalid tee memory type\n");
 	}
