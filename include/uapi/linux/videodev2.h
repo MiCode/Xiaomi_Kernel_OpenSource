@@ -567,6 +567,8 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_YUV420  v4l2_fourcc('Y', 'U', '1', '2') /* 12  YUV 4:2:0     */
 #define V4L2_PIX_FMT_YVU420  v4l2_fourcc('Y', 'V', '1', '2') /* 12  YVU 4:2:0     */
 #define V4L2_PIX_FMT_YUV422P v4l2_fourcc('4', '2', '2', 'P') /* 16  YVU422 planar */
+/* 10-bit; each pixel needs 2 bytes, and LSB 6-bit is not used */
+#define V4L2_PIX_FMT_P010M   v4l2_fourcc('P', '0', '1', '0')
 
 /* three non contiguous planes - Y, Cb, Cr */
 #define V4L2_PIX_FMT_YUV420M v4l2_fourcc('Y', 'M', '1', '2') /* 12  YUV420 planar */
@@ -718,6 +720,8 @@ struct v4l2_pix_format {
 	/* MTK 10-bit tile compressed block jump mode, two contiguous planes */
 #define V4L2_PIX_FMT_MT21CS10RJ   v4l2_fourcc('J', 'C', 'S', 'R')
 	/* MTK 10-bit raster compressed block jump mode, two cont. planes */
+#define V4L2_PIX_FMT_MT10     v4l2_fourcc('M', 'T', '1', '0')
+	/* MTK 10-bit compressed block mode, three non-contiguous planes */
 
 /* SDR formats - used only for Software Defined Radio devices */
 #define V4L2_SDR_FMT_CU8          v4l2_fourcc('C', 'U', '0', '8') /* IQ u8 */
