@@ -496,6 +496,7 @@ page_owner=on";
 		compatible = "mediatek,msdc", "syscon";
 		reg = <0 0x11230000 0 0x10000>;
 		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>;
+		#clock-cells = <1>;
 	};
 
 	msdc1: msdc@11240000{
@@ -3916,8 +3917,8 @@ page_owner=on";
 		reg = <0 0x17060000 0 0x10000>;
 	};
 
-	venc_c1_gcon: venc_gcon@17800000 {
-		compatible = "mediatek,venc_gcon", "syscon";
+	venc_c1_gcon: venc_c1_gcon@17800000 {
+		compatible = "mediatek,venc_c1_gcon", "syscon";
 		reg = <0 0x17800000 0 0x10000>;
 		#clock-cells = <1>;
 	};

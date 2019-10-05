@@ -2121,7 +2121,7 @@ static void mtk_apu_vcore_init(struct device_node *node)
 			APUSYS_VCORE_NR_CLK);
 	if (!apu_vcore_base)
 		return;
-#if 0
+#if MT_CCF_BRINGUP
 	clk_writel(APU_VCORE_CG_CLR, APU_VCORE_CG);
 	pr_notice("%s(): init done\n", __func__);
 #endif
@@ -2180,7 +2180,7 @@ static void mtk_apu_conn_init(struct device_node *node)
 				ARRAY_SIZE(apu_conn_clks), APU_CONN_NR_CLK);
 	if (!apu_conn_base)
 		return;
-#if 0
+#if MT_CCF_BRINGUP
 	clk_writel(APU_CONN_CG_CLR, APU_CONN_CG);
 	pr_notice("%s(): init done\n", __func__);
 #endif
@@ -3029,7 +3029,7 @@ static const struct mtk_gate infra_clks[] __initconst = {
 			 infracfg_ao_module_sw_cg_2_regs, 27, 0),
 	GATE(INFRACFG_AO_UFS_CG, "infracfg_ao_ufs_cg", "ufs_sel",
 			 infracfg_ao_module_sw_cg_2_regs, 28, 0),
-	GATE(INFRACFG_AO_AES_CG, "infracfg_ao_aes_cg", "aes_ufsfde_sel",
+	GATE(INFRACFG_AO_AES_UFSFDE_CG, "infracfg_ao_aes_cg", "aes_ufsfde_sel",
 			 infracfg_ao_module_sw_cg_2_regs, 29, 0),
 	GATE(INFRACFG_AO_UFS_TICK_CG, "infracfg_ao_ufs_tick_cg", "ufs_sel",
 			 infracfg_ao_module_sw_cg_2_regs, 30, 0),
@@ -3682,9 +3682,7 @@ static void mtk_venc_c1_global_con_init(struct device_node *node)
 	if (!venc_c1_gcon_base)
 		return;
 #if MT_CCF_BRINGUP
-	clk_writel(VDEC_SOC_CKEN_SET, VDEC_SOC_CKEN_CG);
-	clk_writel(VDEC_SOC_LARB1_CKEN_SET, VDEC_SOC_LARB1_CKEN_CG);
-	clk_writel(VDEC_SOC_LAT_CKEN_SET, VDEC_SOC_LAT_CKEN_CG);
+	clk_writel(VENC_C1_CG_SET, VENC_C1_CG);
 	pr_notice("%s(): init done\n", __func__);
 #endif
 }
