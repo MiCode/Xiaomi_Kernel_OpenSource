@@ -2469,7 +2469,7 @@ page_owner=on";
 	};
 
 	gpufreq {
-		compatible = "mediatek,mt6885-gpufreq";
+		compatible = "mediatek,gpufreq";
 		clocks =
 			<&topckgen TOP_MUX_MFG>,
 			/* mfgpll_ck(1150MHz) */

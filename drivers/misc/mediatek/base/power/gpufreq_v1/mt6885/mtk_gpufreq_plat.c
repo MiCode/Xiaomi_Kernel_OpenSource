@@ -176,7 +176,7 @@ static struct g_clk_info *g_clk;
 
 
 static const struct of_device_id g_gpufreq_of_match[] = {
-	{ .compatible = "mediatek,mt6885-gpufreq" },
+	{ .compatible = "mediatek,gpufreq" },
 	{ /* sentinel */ }
 };
 static struct platform_driver g_gpufreq_pdrv = {
