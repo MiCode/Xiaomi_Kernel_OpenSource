@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
-ifeq ($(cc-name),clang)
 ccflags-y += -Wno-error=implicit-function-declaration
 ccflags-y += -Wno-error=strict-prototypes
-endif
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include
 obj-$(CONFIG_TIMER_OF)		+= timer-of.o
 obj-$(CONFIG_TIMER_PROBE)	+= timer-probe.o
