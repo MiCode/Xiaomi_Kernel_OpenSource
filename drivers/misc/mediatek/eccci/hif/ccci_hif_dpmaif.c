@@ -2893,6 +2893,7 @@ int dpmaif_start(unsigned char hif_id)
 #endif
 	/* cg set */
 	ccci_set_clk_by_id(1, 1);
+	ccci_set_clk_by_id(2, 1);
 
 	#ifdef MT6297
 	drv_dpmaif_common_hw_init();
@@ -3313,6 +3314,7 @@ int dpmaif_stop(unsigned char hif_id)
 	dpmaif_hw_reset(dpmaif_ctrl->md_id);
 	/* todo: CG set */
 	ccci_set_clk_by_id(1, 0);
+	ccci_set_clk_by_id(2, 0);
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_LOG(-1, TAG, "dpmaif:stop end\n");
 #endif

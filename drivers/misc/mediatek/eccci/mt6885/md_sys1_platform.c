@@ -241,7 +241,7 @@ void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 	if (!on)
 		ccif_write32(infra_ao_base, 0x22C, 0x0);
 
-	for (idx = 2; idx < ARRAY_SIZE(clk_table); idx++) {
+	for (idx = 3; idx < ARRAY_SIZE(clk_table); idx++) {
 		if (clk_table[idx].clk_ref == NULL)
 			continue;
 		if (on) {
