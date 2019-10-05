@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -41,37 +41,18 @@
 
 #include "mtk_eem.h"
 
-#if ENABLE_LOO
 /*
- * Little cluster: L = 2, CCI = 1
- * Big cluster: Big = 1
+ * Little cluster: L = 2, CCI = 2
+ * Big cluster: Big = 2
  */
-#define NR_EEM_EFUSE_PER_VPROC	(3)
-#else
-/*
- * Little cluster: L = 1, CCI = 1
- * Big cluster: Big = 1
- */
-#define NR_EEM_EFUSE_PER_VPROC	(2)
-#endif
-
-#define PICACHU_SIGNATURE		(0xA5)
-#define PICACHU_PTP1_EFUSE_MASK		(0xFFFFFF)
+#define NR_EEM_EFUSE_PER_VPROC		(4)
+#define PICACHU_SIG			(0xA5)
 #define PICACHU_SIGNATURE_SHIFT_BIT     (24)
-
-#define EEM_BASEADDR		(0x1100B000)
-#define EEM_SIZE		(0x1000)
-#define TEMPSPARE0_OFFSET	(0x0F0)
-#define TEMPSPARE2_OFFSET	(0x0F8)
-#define EEMSPARE0_OFFSET	(0xF20)
 
 #undef TAG
 #define TAG     "[Picachu] "
 
-#define PICACHU_PR_ERR(fmt, args...)		\
-	pr_err(TAG"[ERROR]"fmt, ##args)
-#define PICACHU_INFO(fmt, args...)		\
-	pr_info(TAG""fmt, ##args)
+#define picachu_pr_notice(fmt, args...)	pr_notice(TAG fmt, ##args)
 
 #define picachu_read(addr)		__raw_readl((void __iomem *)(addr))
 #define picachu_write(addr, val)	mt_reg_sync_writel(val, addr)
@@ -109,28 +90,38 @@
 
 #define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
 
-#define PICACHU_PROC_ENTRY_ATTR (S_IRUGO | S_IWUSR | S_IWGRP)
+#define PICACHU_PROC_ENTRY_ATTR (0664)
 
 struct picachu_info {
-	unsigned int vmin : 16;
+	union {
+		unsigned int priv[6];
 
-	unsigned int pi_offset : 8;
+		struct {
+			/*
+			 * Bit[7:0]: MTDES
+			 * Bit[15:8]: BDES
+			 * Bit[23:16]: MDES
+			 */
+			unsigned int ptp1_efuse[NR_EEM_EFUSE_PER_VPROC];
 
-	unsigned int dvfs_low_b_l : 4;
-	unsigned int dvfs_low_cci : 4;
+			/*
+			 * Bit[7:0]: vmin@opp0
+			 * Bit[15:8]: vmin@mid_opp
+			 * Bit[23:16]: pi_offset@opp0
+			 * Bit[31:24]: pi_offset@mid_opp
+			 */
+			unsigned int pi_offset_n_vmin;
 
-	/*
-	 * Bit[7:0]: MTDES
-	 * Bit[15:8]: BDES
-	 * Bit[23:16]: MDES
-	 */
-	unsigned int ptp1_efuse[NR_EEM_EFUSE_PER_VPROC];
+			unsigned int pi_dvtfixed : 4;
+			unsigned int loo_enabled : 1;
+			unsigned int reserved : 27;
+		};
+	};
 };
 
 struct picachu_proc {
 	char *name;
 	int vproc_id;
-	unsigned int spare_reg_offset;
 	umode_t mode;
 };
 
@@ -140,37 +131,71 @@ struct pentry {
 };
 
 enum mt_picachu_vproc_id {
-	MT_PICACHU_LITTLE_VPROC,	/* Little + CCI */
-	MT_PICACHU_BIG_VPROC,		/* B */
-	MT_PICACHU_GPU,
+	MT_PICACHU_L_VPROC,	/* Little + CCI */
+	MT_PICACHU_B_VPROC,	/* B */
 
 	NR_PICACHU_VPROC,
 };
 
 static struct picachu_info picachu_data[NR_PICACHU_VPROC];
-static void __iomem *eem_base_addr;
 
 static struct picachu_proc picachu_proc_list[] = {
-	{"little", MT_PICACHU_LITTLE_VPROC, EEMSPARE0_OFFSET,
-	 PICACHU_PROC_ENTRY_ATTR},
-	{"big", MT_PICACHU_BIG_VPROC, TEMPSPARE0_OFFSET,
-	 PICACHU_PROC_ENTRY_ATTR},
-	{"gpu", MT_PICACHU_GPU, TEMPSPARE2_OFFSET,
-	 PICACHU_PROC_ENTRY_ATTR},
+	{"little", MT_PICACHU_L_VPROC, PICACHU_PROC_ENTRY_ATTR},
+	{"big", MT_PICACHU_B_VPROC, PICACHU_PROC_ENTRY_ATTR},
 	{0},
 };
 
+phys_addr_t picachu_mem_base_phys;
+phys_addr_t picachu_mem_size;
+phys_addr_t picachu_mem_base_virt;
+
+#define EEM_TEMPSPARE0		0x1100B8F0
+static void get_picachu_mem_addr(void)
+{
+	void __iomem *virt_addr;
+
+	virt_addr = ioremap(EEM_TEMPSPARE0, 0);
+	picachu_mem_base_phys = picachu_read(virt_addr);
+	picachu_mem_size = 0x80000;
+	picachu_mem_base_virt =
+		(phys_addr_t)(uintptr_t)ioremap_wc(
+		picachu_mem_base_phys,
+		picachu_mem_size);
+
+	picachu_pr_notice("[PICACHU] phys:0x%llx, size:0x%llx, virt:0x%llx\n",
+		(unsigned long long)picachu_mem_base_phys,
+		(unsigned long long)picachu_mem_size,
+		(unsigned long long)picachu_mem_base_virt);
+
+}
+
+#define MCUCFG_SPARE_REG	0x0C53FFEC
 static void dump_picachu_info(struct seq_file *m, struct picachu_info *info)
 {
-	unsigned int i;
+	unsigned int i, cnt, sig, val;
+	void __iomem *addr_ptr;
 
-	seq_printf(m, "0x%X\n", info->vmin);
-	seq_printf(m, "0x%X\n", info->pi_offset);
-	seq_printf(m, "0x%X\n", info->dvfs_low_b_l);
-	seq_printf(m, "0x%X\n", info->dvfs_low_cci);
+	/* 0x60000 was reserved for eem efuse using */
+	addr_ptr = (void __iomem *)(picachu_mem_base_virt+0x60000);
 
-	for (i = 0; i < NR_EEM_EFUSE_PER_VPROC; i++)
-		seq_printf(m, "0x%X\n", info->ptp1_efuse[i]);
+	if (addr_ptr != NULL) {
+		/* Get signature */
+		sig = (picachu_read(addr_ptr) >> PICACHU_SIGNATURE_SHIFT_BIT);
+		sig = sig & 0xff;
+		if (sig == PICACHU_SIG) {
+			cnt = picachu_read(addr_ptr) & 0xff;
+			seq_printf(m, "0x%X\n", cnt);
+			addr_ptr += 4;
+			for (i = 1; i < cnt; i++, addr_ptr += 4) {
+				val = picachu_read(addr_ptr);
+				seq_printf(m, "0x%X\n", val);
+			}
+		}
+	}
+
+	addr_ptr = ioremap(MCUCFG_SPARE_REG, 0);
+	val = picachu_read(addr_ptr);
+	seq_printf(m, "\naging counter value: 0x%08x\n", val);
 }
 
 static int picachu_dump_proc_show(struct seq_file *m, void *v)
@@ -197,8 +222,8 @@ static int create_procfs_entries(struct proc_dir_entry *dir,
 		if (!proc_create_data(entries[i].name, proc->mode, dir,
 				entries[i].fops,
 				(void *) &picachu_data[proc->vproc_id])) {
-			PICACHU_INFO("[%s]: create /proc/picachu/%s failed\n",
-					__func__, entries[i].name);
+			picachu_pr_notice("create /proc/picachu/%s failed\n",
+					entries[i].name);
 			return -ENOMEM;
 		}
 	}
@@ -213,17 +238,16 @@ static int create_procfs(void)
 	int ret;
 
 	root = proc_mkdir("picachu", NULL);
-
 	if (!root) {
-		PICACHU_PR_ERR("[%s]: mkdir /proc/picachu failed\n", __func__);
+		picachu_pr_notice("mkdir /proc/picachu failed\n");
 		return -ENOMEM;
 	}
 
 	for (proc = picachu_proc_list; proc->name; proc++) {
 		dir = proc_mkdir(proc->name, root);
 		if (!dir) {
-			PICACHU_INFO("[%s]: mkdir /proc/picachu/%s failed\n",
-					__func__, proc->name);
+			picachu_pr_notice("mkdir /proc/picachu/%s failed\n",
+							proc->name);
 			return -ENOMEM;
 		}
 
@@ -235,131 +259,21 @@ static int create_procfs(void)
 	return 0;
 }
 
-static void picachu_get_data(enum mt_picachu_vproc_id vproc_id)
-{
-	struct picachu_proc *proc;
-	unsigned int i, val, tmp;
-	struct picachu_info *p;
-	void __iomem *reg;
-
-	if (vproc_id >= NR_PICACHU_VPROC)
-		return;
-
-	p = &picachu_data[vproc_id];
-
-	for (proc = picachu_proc_list; proc->name; proc++) {
-		if (proc->vproc_id == vproc_id)
-			break;
-	}
-
-	reg = eem_base_addr + proc->spare_reg_offset;
-
-	if (vproc_id == MT_PICACHU_GPU) {
-		/* GPU has only one register to be retrieved. */
-		val = picachu_read(reg);
-
-		tmp = (val >> PICACHU_SIGNATURE_SHIFT_BIT) & 0xff;
-		if (tmp != PICACHU_SIGNATURE)
-			return;
-
-		p->ptp1_efuse[0] = val & PICACHU_PTP1_EFUSE_MASK;
-
-		return;
-	}
-
-	for (i = 0; i < NR_EEM_EFUSE_PER_VPROC - 1; i++, reg += 4) {
-		val = picachu_read(reg);
-
-		tmp = (val >> PICACHU_SIGNATURE_SHIFT_BIT) & 0xff;
-		if (tmp != PICACHU_SIGNATURE)
-			continue;
-
-		p->ptp1_efuse[i] = val & PICACHU_PTP1_EFUSE_MASK;
-	}
-
-	val = picachu_read(reg);
-
-	p->vmin = val & 0xFFFF;
-	p->pi_offset = (val >> 16) & 0xFF;
-	p->dvfs_low_b_l = (val >> 24) & 0xF;
-	p->dvfs_low_cci = (val >> 28) & 0xF;
-
-	if (vproc_id != MT_PICACHU_LITTLE_VPROC)
-		return;
-
-	/* Read CCI PTP1 efuse */
-	val = picachu_read(reg + 4);
-	tmp = (val >> PICACHU_SIGNATURE_SHIFT_BIT) & 0xff;
-	if (tmp != PICACHU_SIGNATURE)
-		return;
-
-	p->ptp1_efuse[NR_EEM_EFUSE_PER_VPROC - 1] =
-				val & PICACHU_PTP1_EFUSE_MASK;
-}
-
-static int eem_ctrl_id[NR_PICACHU_VPROC][NR_EEM_EFUSE_PER_VPROC] = {
-#if ENABLE_LOO
-	[MT_PICACHU_LITTLE_VPROC] = {EEM_CTRL_2L_HI, EEM_CTRL_2L, EEM_CTRL_CCI},
-	[MT_PICACHU_BIG_VPROC] = {EEM_CTRL_L_HI, EEM_CTRL_L, -1},
-	[MT_PICACHU_GPU] = {EEM_CTRL_GPU, -1, -1},
-#else
-	[MT_PICACHU_LITTLE_VPROC] = {EEM_CTRL_2L, EEM_CTRL_CCI},
-	[MT_PICACHU_BIG_VPROC] = {EEM_CTRL_L, -1},
-	[MT_PICACHU_GPU] = {EEM_CTRL_GPU, -1},
-#endif
-};
-
-#if !EEM_FAKE_EFUSE
-static void picachu_apply_efuse_to_eem(enum mt_picachu_vproc_id id,
-				       struct picachu_info *p)
-{
-	int i;
-
-	for (i = 0; i < NR_EEM_EFUSE_PER_VPROC; i++) {
-
-		if (!p->ptp1_efuse[i] || eem_ctrl_id[id][i] == -1)
-			continue;
-
-		eem_set_pi_efuse(eem_ctrl_id[id][i], p->ptp1_efuse[i]);
-	}
-}
-#else
-static void picachu_apply_efuse_to_eem(enum mt_picachu_vproc_id id,
-				       struct picachu_info *p)
-{
-}
-#endif
-
-
 static int __init picachu_init(void)
 {
 	struct picachu_info *p;
 	unsigned int i;
-
-	eem_base_addr = ioremap(EEM_BASEADDR, EEM_SIZE);
-
-	if (!eem_base_addr) {
-		PICACHU_PR_ERR("ioremap failed!\n");
-		return -ENOMEM;
-	}
-
-
-	/* Update Picachu calibration data if the data is valid. */
-	for (i = 0; i < NR_PICACHU_VPROC; i++) {
-		picachu_get_data(i);
-
-		picachu_apply_efuse_to_eem(i, &picachu_data[i]);
-	}
+	unsigned int j;
 
 	create_procfs();
+	get_picachu_mem_addr();
 
 	return 0;
 }
 
 static void __exit picachu_exit(void)
 {
-	if (eem_base_addr)
-		iounmap(eem_base_addr);
+	return;
 }
 
 subsys_initcall(picachu_init);
