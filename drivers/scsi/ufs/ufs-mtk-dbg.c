@@ -17,6 +17,7 @@
 
 #define pr_fmt(fmt) "["KBUILD_MODNAME"]" fmt
 
+#include <linux/atomic.h>
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
@@ -49,6 +50,7 @@ int ufs_cmd_ptr = MAX_UFS_CMD_HLIST_ENTRY_CNT - 1;
 int ufs_cmd_cnt;
 static spinlock_t ufs_mtk_cmd_dump_lock;
 static int ufs_mtk_is_cmd_dump_lock_init;
+static atomic_t cmd_hist_enabled;
 char ufs_aee_buffer[UFS_AEE_BUFFER_SIZE];
 
 static void ufs_mtk_dbg_dump_feature(struct ufs_hba *hba, struct seq_file *m)
@@ -80,7 +82,12 @@ void ufs_mtk_dbg_add_trace(struct ufs_hba *hba,
 	if (!ufs_mtk_is_cmd_dump_lock_init) {
 		spin_lock_init(&ufs_mtk_cmd_dump_lock);
 		ufs_mtk_is_cmd_dump_lock_init = 1;
+
+		atomic_set(&cmd_hist_enabled, 1);
 	}
+
+	if (!atomic_read(&cmd_hist_enabled))
+		return;
 
 	spin_lock_irqsave(&ufs_mtk_cmd_dump_lock, flags);
 
@@ -460,8 +467,14 @@ static int ufs_debug_proc_show(struct seq_file *m, void *v)
 			ufs_mtk_hba->pwr_info.lane_tx,
 			ufs_mtk_hba->pwr_info.lane_rx);
 	} else if (cmd == UFS_DUMP_HEALTH_DESCRIPTOR) {
+		/* dump health information */
 		ufsdbg_dump_health_desc(m);
-
+	} else if (cmd == UFS_CMD_HIST_BEGIN) {
+		/* enable command history */
+		atomic_set(&cmd_hist_enabled, 1);
+	} else if (cmd == UFS_CMD_HIST_STOP) {
+		/* disable command history */
+		atomic_set(&cmd_hist_enabled, 0);
 	} else {
 		/*
 		 * Default print cmd history for aee:
