@@ -926,6 +926,7 @@ CONFIG_SECURITY_NETWORK,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_SECURITY_PERF_EVENTS_RESTRICT,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_SECURITY_SELINUX,COMMON,sam-ky.lin,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_SECURITY_SELINUX_BOOTPARAM,COMMON,sam-ky.lin,,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_SECURITY_SELINUX_DEVELOP,COMMON,pierre.lee,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_SERIAL_8250,PLATFORM,huihui.wang,,N,N,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_SERIAL_8250_CONSOLE,PLATFORM,huihui.wang,,N,N,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_SERIAL_8250_MT6577,PLATFORM,huihui.wang,,N,N,y,y,y,y,y,y,y,y,y,y,y
