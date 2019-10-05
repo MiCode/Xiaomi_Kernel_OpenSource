@@ -63,7 +63,7 @@
 #define DPMAIF_HW_CHK_FRG_NUM      1
 #endif
 
-#define DPMAIF_DL_BAT_ENTRY_SIZE  1024 /* 128 */
+#define DPMAIF_DL_BAT_ENTRY_SIZE  8192 /* <- 1024 <- 128 */
 /* 2048*/ /* 256, 100pkts*2*10ms=2000*12B=>24k */
 #define DPMAIF_DL_PIT_ENTRY_SIZE  (DPMAIF_DL_BAT_ENTRY_SIZE * 2)
 #define DPMAIF_UL_DRB_ENTRY_SIZE  2048 /* from 512 */
