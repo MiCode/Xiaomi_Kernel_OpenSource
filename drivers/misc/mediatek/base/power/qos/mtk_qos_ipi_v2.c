@@ -97,9 +97,10 @@ int qos_ipi_to_sspm_command(void *buffer, int slot)
 	}
 
 
-#endif
+
 	return 0;
 error:
+#endif
 	return -1;
 }
 
