@@ -40,7 +40,7 @@ unsigned int gM4U_seed_mva;
 
 int m4u_test_alloc_dealloc(int id, unsigned int size)
 {
-	m4u_client_t *client;
+	struct m4u_client_t *client;
 	unsigned long va = 0;
 	unsigned int mva;
 	int ret;
@@ -52,7 +52,10 @@ int m4u_test_alloc_dealloc(int id, unsigned int size)
 		va = (unsigned long)vmalloc(size);
 	else if (id == 3) {
 		down_write(&current->mm->mmap_sem);
-		va = do_mmap_pgoff(NULL, 0, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_LOCKED, 0, &populate);
+		va = do_mmap_pgoff(NULL, 0, size,
+				PROT_READ | PROT_WRITE,
+				MAP_SHARED | MAP_LOCKED,
+				0, &populate, NULL);
 		up_write(&current->mm->mmap_sem);
 	}
 
@@ -79,7 +82,7 @@ int m4u_test_alloc_dealloc(int id, unsigned int size)
 		vfree((void *)va);
 	else if (id == 3) {
 		down_read(&current->mm->mmap_sem);
-		ret = do_munmap(current->mm, va, size);
+		ret = do_munmap(current->mm, va, size, NULL);
 		up_read(&current->mm->mmap_sem);
 		if (ret)
 			M4UMSG("do_munmap failed\n");
@@ -103,7 +106,7 @@ m4u_callback_ret_t m4u_test_callback(int alloc_port, unsigned int mva,
 
 int m4u_test_reclaim(unsigned int size)
 {
-	m4u_client_t *client;
+	struct m4u_client_t *client;
 	unsigned int *va[10];
 	unsigned int buf_size;
 	unsigned int mva;
@@ -146,7 +149,7 @@ int m4u_test_reclaim(unsigned int size)
 
 static int m4u_test_map_kernel(void)
 {
-	m4u_client_t *client;
+	struct m4u_client_t *client;
 	unsigned long va;
 	unsigned int size = 1024 * 1024;
 	unsigned int mva;
@@ -157,7 +160,10 @@ static int m4u_test_map_kernel(void)
 	unsigned long populate;
 
 	down_write(&current->mm->mmap_sem);
-	va = do_mmap_pgoff(NULL, 0, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_LOCKED, 0, &populate);
+	va = do_mmap_pgoff(NULL, 0, size,
+			PROT_READ | PROT_WRITE,
+			MAP_SHARED | MAP_LOCKED,
+			0, &populate, NULL);
 	up_write(&current->mm->mmap_sem);
 
 	M4UINFO("test va=0x%lx,size=0x%x\n", va, size);
@@ -191,7 +197,7 @@ static int m4u_test_map_kernel(void)
 
 	ret = m4u_dealloc_mva(client, M4U_PORT_DISP_OVL0, mva);
 	down_read(&current->mm->mmap_sem);
-	ret = do_munmap(current->mm, va, size);
+	ret = do_munmap(current->mm, va, size, NULL);
 	up_read(&current->mm->mmap_sem);
 	if (ret)
 		M4UMSG("do_munmap failed\n");
@@ -206,7 +212,7 @@ int m4u_test_ddp(unsigned int prot)
 	unsigned int src_pa, dst_pa;
 	unsigned int size = 64 * 64 * 3;
 	M4U_PORT_STRUCT port;
-	m4u_client_t *client = m4u_create_client();
+	struct m4u_client_t *client = m4u_create_client();
 
 	pSrc = vmalloc(size);
 	pDst = vmalloc(size);
@@ -261,7 +267,7 @@ int m4u_test_tf(unsigned int prot)
 	unsigned int src_pa, dst_pa;
 	unsigned int size = 64 * 64 * 3;
 	M4U_PORT_STRUCT port;
-	m4u_client_t *client = m4u_create_client();
+	struct m4u_client_t *client = m4u_create_client();
 	int data = 88;
 
 	m4u_register_fault_callback(M4U_PORT_DISP_OVL0, test_fault_callback, &data);
@@ -629,7 +635,7 @@ static int m4u_debug_set(void *data, u64 val)
 		unsigned int *pSrc;
 		unsigned int mva;
 		unsigned long pa;
-		m4u_client_t *client = m4u_create_client();
+		struct m4u_client_t *client = m4u_create_client();
 
 		pSrc = vmalloc(128);
 		m4u_alloc_mva(client, M4U_PORT_DISP_OVL0, (unsigned long)pSrc, NULL, 128, 0, 0, &mva);
@@ -662,7 +668,7 @@ static int m4u_debug_set(void *data, u64 val)
 		unsigned int mva_wr;
 		unsigned int allocated_size = 1024;
 		unsigned int i;
-		m4u_client_t *client = m4u_create_client();
+		struct m4u_client_t *client = m4u_create_client();
 
 		m4u_monitor_start(0);
 

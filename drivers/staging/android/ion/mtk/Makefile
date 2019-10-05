@@ -14,7 +14,11 @@
 obj-$(CONFIG_MTK_ION) += ion_drv.o ion_mm_heap.o ion_fb_heap.o ion_sec_heap.o ion_profile.o
 ccflags-$(CONFIG_MTK_ION)  += -I$(srctree)/drivers/staging/android/ion #fro kernel-3.10 ion
 ccflags-$(CONFIG_MTK_M4U) += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/
+ifeq ($(CONFIG_MACH_MT6739), y)
+ccflags-$(CONFIG_MTK_M4U) += -I$(srctree)/drivers/misc/mediatek/m4u/2.0/
+else
 ccflags-$(CONFIG_MTK_M4U) += -I$(srctree)/drivers/misc/mediatek/m4u/2.4/
+endif
 ccflags-$(CONFIG_MTK_PSEUDO_M4U) += -I$(srctree)/drivers/misc/mediatek/pseudo_m4u/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat

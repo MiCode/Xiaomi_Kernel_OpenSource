@@ -1106,6 +1106,9 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(NT36672_FHDP_DSI_VDO_AUO_LANESWAP)
 	&nt36672_fhdp_dsi_vdo_auo_laneswap_lcm_drv,
 #endif
+#if defined(NT35521_HD_DSI_VDO_TRULY_NT50358)
+	&nt35521_hd_dsi_vdo_truly_nt50358_lcm_drv,
+#endif
 };
 
 unsigned char lcm_name_list[][128] = {
