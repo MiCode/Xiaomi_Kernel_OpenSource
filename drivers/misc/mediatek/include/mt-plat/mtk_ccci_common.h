@@ -552,10 +552,14 @@ enum SMEM_USER_ID {
 	SMEM_USER_RAW_MD_CONSYS,
 	SMEM_USER_RAW_PHY_CAP,
 	SMEM_USER_RAW_USIP,
+	SMEM_USER_RESV_0, /* Sync to MT6779 SMEM_USER_MAX_K */
+	SMEM_USER_ALIGN_PADDING, /* Sync to MT6779 SMEM_USER_NON_PADDING */
 	SMEM_USER_RAW_UDC_DATA,
 	SMEM_USER_RAW_UDC_DESCTAB,
 	SMEM_USER_RAW_AMMS_POS,
-	SMEM_USER_RAW_ALIGN_PADDING,
+	SMEM_USER_RAW_ALIGN_PADDING, /* = SMEM_USER_RAW_AMMS_ALIGN_PADDING */
+	SMEM_USER_MD_WIFI_PROXY,
+	SMEM_USER_MD_NVRAM_CACHE,
 	SMEM_USER_MAX,
 };
 
@@ -693,6 +697,8 @@ int get_md_img_type(int md_id);
 int get_legacy_md_type(int md_id);
 int check_md_type(int data);
 
+int get_nc_smem_region_info(unsigned int id, unsigned int *ap_off,
+				unsigned int *md_off, unsigned int *size);
 int get_md_resv_csmem_info(int md_id, phys_addr_t *buf_base,
 	unsigned int *buf_size);
 int get_md_cache_region_info(int region_id, unsigned int *buf_base,

@@ -161,5 +161,6 @@ long port_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 long port_dev_compat_ioctl(struct file *filp, unsigned int cmd,
 	unsigned long arg);
 #endif
+int port_dev_mmap(struct file *fp, struct vm_area_struct *vma);
 
 #endif /* __PORT_T_H__ */

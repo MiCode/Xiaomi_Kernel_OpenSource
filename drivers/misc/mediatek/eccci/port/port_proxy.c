@@ -352,6 +352,7 @@ long port_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	long ret = 0;
 	struct port_t *port = file->private_data;
+	struct ccci_smem_region *sub_smem;
 
 	switch (cmd) {
 	case CCCI_IOC_SET_HEADER:
@@ -359,6 +360,28 @@ long port_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case CCCI_IOC_CLR_HEADER:
 		port->flags &= ~PORT_F_USER_HEADER;
+		break;
+	case CCCI_IOC_SMEM_BASE:
+		if (port->rx_ch != CCCI_WIFI_RX)
+			return -EFAULT;
+		sub_smem = ccci_md_get_smem_by_user_id(port->md_id,
+						SMEM_USER_MD_WIFI_PROXY);
+
+		CCCI_NORMAL_LOG(port->md_id, TAG, "wifi smem phy =%lx\n",
+			(unsigned long)sub_smem->base_ap_view_phy);
+		ret = put_user((unsigned int)sub_smem->base_ap_view_phy,
+				(unsigned int __user *)arg);
+		break;
+	case CCCI_IOC_SMEM_LEN:
+		if (port->rx_ch != CCCI_WIFI_RX)
+			return -EFAULT;
+		sub_smem = ccci_md_get_smem_by_user_id(port->md_id,
+						SMEM_USER_MD_WIFI_PROXY);
+		sub_smem->size &= ~(PAGE_SIZE - 1);
+		CCCI_NORMAL_LOG(port->md_id, TAG, "wifi smem size =%lx(%d)\n",
+			(unsigned long)sub_smem->size, PAGE_SIZE);
+		ret = put_user((unsigned int)sub_smem->size,
+				(unsigned int __user *)arg);
 		break;
 	default:
 		ret = -1;
@@ -398,6 +421,59 @@ long port_dev_compat_ioctl(struct file *filp, unsigned int cmd,
 	}
 }
 #endif
+
+
+int port_dev_mmap(struct file *fp, struct vm_area_struct *vma)
+{
+	struct port_t *port = fp->private_data;
+	int md_id = port->md_id;
+	int len, ret;
+	unsigned long pfn;
+	struct ccci_smem_region *wifi_smem;
+
+	if (port->rx_ch != CCCI_WIFI_RX)
+		return -EFAULT;
+
+	wifi_smem = ccci_md_get_smem_by_user_id(md_id,
+						SMEM_USER_MD_WIFI_PROXY);
+	wifi_smem->size &= ~(PAGE_SIZE - 1);
+	CCCI_NORMAL_LOG(md_id, CHAR,
+			"remap wifi smem addr:0x%llx len:%d  map-len:%lu\n",
+			(unsigned long long)wifi_smem->base_ap_view_phy,
+			wifi_smem->size, vma->vm_end - vma->vm_start);
+	if ((vma->vm_end - vma->vm_start) > wifi_smem->size) {
+		CCCI_ERROR_LOG(md_id, CHAR,
+			"invalid mm size request from %s\n",
+			port->name);
+		return -EINVAL;
+	}
+
+	len = (vma->vm_end - vma->vm_start) < wifi_smem->size ?
+		vma->vm_end - vma->vm_start : wifi_smem->size;
+	pfn = wifi_smem->base_ap_view_phy;
+	pfn >>= PAGE_SHIFT;
+	/* ensure that memory does not get swapped to disk */
+	vma->vm_flags |= VM_IO;
+	/* ensure non-cacheable */
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	ret = remap_pfn_range(vma, vma->vm_start, pfn,
+				len, vma->vm_page_prot);
+	if (ret) {
+		CCCI_ERROR_LOG(md_id, CHAR,
+			"wifi smem remap failed %d/%lx, 0x%llx -> 0x%llx\n",
+			ret, pfn,
+			(unsigned long long)wifi_smem->base_ap_view_phy,
+			(unsigned long long)vma->vm_start);
+		return -EAGAIN;
+	}
+
+	CCCI_NORMAL_LOG(md_id, CHAR,
+		"wifi smem remap succeed %lx, 0x%llx -> 0x%llx\n", pfn,
+		(unsigned long long)wifi_smem->base_ap_view_phy,
+		(unsigned long long)vma->vm_start);
+
+	return 0;
+}
 
 /**************************************************************************/
 /* REGION: port common API implementation,

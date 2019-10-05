@@ -204,9 +204,21 @@ static struct port_t md1_ccci_ports[] = {
 	{CCCI_BIP_TX, CCCI_BIP_RX, 1, 1, 0xFF, 0xFF,
 		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
 		&char_port_ops, 27, "ccci_bip",},
+	{CCCI_TCHE_TX, CCCI_TCHE_RX, DATA_TCHE, DATA_TCHE, 0xFF, 0xFF,
+		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
+		&char_port_ops, 28, "ttyC5",},
+	{CCCI_DISP_TX, CCCI_DISP_RX, 1, 1, 0xFF, 0xFF,
+		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
+		&char_port_ops, 29, "ttyC6",},
 	{CCCI_UDC_TX, CCCI_UDC_RX, 1, 1, 0xFF, 0xFF,
 		MD1_NORMAL_HIF, 0,
-		&ccci_udc_port_ops, 0, "ccci_udc",},
+		&ccci_udc_port_ops, 30, "ccci_udc",},
+	{CCCI_WIFI_TX, CCCI_WIFI_RX, 1, 1, 0xFF, 0xFF,
+		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
+		&char_port_ops, 31, "ccci_wifi_proxy",},
+	{CCCI_VTS_TX, CCCI_VTS_RX, 3, 3, 0xFF, 0xFF,
+		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
+		&char_port_ops, 32, "ccci_vts",},
 
 /* IPC char port minor= minor idx + CCCI_IPC_MINOR_BASE(100) */
 	{CCCI_IPC_TX, CCCI_IPC_RX, 1, 1, 0xFF, 0xFF,
@@ -280,12 +292,6 @@ static struct port_t md1_ccci_ports[] = {
 	{CCCI_SMEM_CH, CCCI_SMEM_CH, SMEM_Q, SMEM_Q, SMEM_Q, SMEM_Q,
 		CCIF_HIF_ID, PORT_F_WITH_CHAR_NODE,
 		&smem_port_ops, SMEM_USER_CCB_META, "ccci_ccb_meta",},
-	{CCCI_TCHE_TX, CCCI_TCHE_RX, DATA_TCHE, DATA_TCHE, 0xFF, 0xFF,
-		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
-		&char_port_ops, 28, "ttyC5",},
-	{CCCI_DISP_TX, CCCI_DISP_RX, 1, 1, 0xFF, 0xFF,
-		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
-		&char_port_ops, 29, "ttyC6",},
 };
 
 #ifdef CONFIG_MTK_ECCCI_C2K

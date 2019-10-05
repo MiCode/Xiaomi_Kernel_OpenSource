@@ -616,6 +616,16 @@ struct _udc_info {
 };
 static struct _udc_info udc_size;
 
+/* non-cacheable share memory */
+struct nc_smem_node {
+	unsigned int ap_offset;
+	unsigned int md_offset;
+	unsigned int size;
+	unsigned int id;
+};
+static struct nc_smem_node *s_nc_layout;
+static unsigned int s_nc_smem_ext_num;
+
 /* cacheable share memory */
 struct _csmem_item {
 	unsigned long long csmem_buffer_addr;
@@ -634,6 +644,61 @@ struct _sib_item {
 static struct _sib_item sib_info;
 
 static unsigned int md_mtee_support;
+
+static void nc_smem_info_parsing(void)
+{
+	unsigned int size, num, i;
+
+	if (find_ccci_tag_inf("nc_smem_info_ext_num", (char *)&num,
+		sizeof(unsigned int)) != sizeof(unsigned int)) {
+		CCCI_UTIL_ERR_MSG("nc_smem_info_ext_num get fail\n");
+		s_nc_smem_ext_num = 0;
+		return;
+	}
+
+	s_nc_smem_ext_num = num;
+	size = num * sizeof(struct nc_smem_node);
+	s_nc_layout = kzalloc(size, GFP_KERNEL);
+	if (s_nc_layout == NULL) {
+		CCCI_UTIL_ERR_MSG("nc_layout:alloc nc_layout fail\n");
+		return;
+	}
+
+	if (find_ccci_tag_inf("nc_smem_info_ext", (char *)s_nc_layout,
+		size) != size) {
+		CCCI_UTIL_ERR_MSG("Invalid nc_layout from tag\n");
+		return;
+	}
+
+	for (i = 0; i < num; i++) {
+		CCCI_UTIL_INF_MSG("nc_smem<%d>: ap:0x%08x md:0x%08x[0x%08x]\n",
+			s_nc_layout[i].id, s_nc_layout[i].ap_offset,
+			s_nc_layout[i].md_offset, s_nc_layout[i].size);
+	}
+}
+
+
+int get_nc_smem_region_info(unsigned int id, unsigned int *ap_off,
+				unsigned int *md_off, unsigned int *size)
+{
+	int i;
+
+	if (s_nc_layout == NULL || s_nc_smem_ext_num == 0)
+		return 0;
+
+	for (i = 0; i < s_nc_smem_ext_num; i++) {
+		if (s_nc_layout[i].id == id) {
+			if (ap_off)
+				*ap_off = s_nc_layout[i].ap_offset;
+			if (md_off)
+				*md_off = s_nc_layout[i].md_offset;
+			if (size)
+				*size = s_nc_layout[i].size;
+			return 1;
+		}
+	}
+	return 0;
+}
 
 static void cshare_memory_info_parsing(void)
 {
@@ -828,6 +893,13 @@ static void share_memory_info_parsing(void)
 		CCCI_UTIL_ERR_MSG("using 0 as MTEE support\n");
 	else
 		CCCI_UTIL_INF_MSG("MTEE support: 0x%x\n", md_mtee_support);
+
+	nc_smem_info_parsing();
+
+	/* DFD test */
+	get_nc_smem_region_info(SMEM_USER_RAW_DFD, NULL, NULL,
+					(unsigned int *)&md1_smem_dfd_size);
+	CCCI_UTIL_INF_MSG("change dfd to: 0x%x\n", md1_smem_dfd_size);
 
 	cshare_memory_info_parsing();
 {
