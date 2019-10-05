@@ -27,7 +27,7 @@
 #include "edma_queue.h"
 #include "edma_api.h"
 
-#define NO_INTERRUPT		1
+#define NO_INTERRUPT		0
 
 
 static inline void lock_command(struct edma_sub *edma_sub)

@@ -160,7 +160,7 @@ out:
 }
 
 static const struct of_device_id mtk_edma_sub_of_ids[] = {
-	{.compatible = "mtk,edma",    NULL},
+	{.compatible = "mtk,edma-sub",    NULL},
 	{}
 };
 
@@ -188,7 +188,7 @@ static int mtk_edma_sub_probe(struct platform_device *pdev)
 		return irq;
 
 	ret = devm_request_irq(dev, irq, edma_isr_handler,
-			       IRQF_TRIGGER_RISING,
+			       IRQF_TRIGGER_NONE,
 			       dev_name(dev),
 			       edma_sub);
 	if (ret < 0) {
