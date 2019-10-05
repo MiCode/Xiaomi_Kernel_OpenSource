@@ -3649,17 +3649,23 @@ page_owner=on";
 		compatible = "mediatek,imgsys", "syscon";
 		reg = <0 0x15020000 0 0x1000>;
 		#clock-cells = <1>;
+		clocks =
+				<&imgsys_config IMGSYS1_LARB9_CGPDN>,
+				<&imgsys_config IMGSYS1_DIP_CGPDN>;
+		clock-names =
+				"DIP_CG_IMG_LARB9",
+				"DIP_CG_IMG_DIP";
 	};
 
 	dip_a0@15021000 {
 		compatible = "mediatek,dip1";
-		reg = <0 0x15021000 0 0x1000>;
+		reg = <0 0x15021000 0 0xc000>;
 		interrupts = <GIC_SPI 344 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	dip_a1@15022000 {
 		compatible = "mediatek,dip_a1";
-		reg = <0 0x15022000 0 0xc000>;
+		reg = <0 0x15022000 0 0x1000>;
 	};
 
 	dip_a2@15023000 {

@@ -36,6 +36,7 @@
 #include <linux/mm.h>
 #include <linux/vmalloc.h>
 #include <linux/seq_file.h>
+#include <linux/dma-mapping.h>
 
 /*#include <mach/irqs.h>*/
 /* For clock mgr APIS. enable_clock()/disable_clock(). */
@@ -54,7 +55,6 @@
 #include <m4u.h>
 #endif
 
-//#define EP_CODE_MARK_CMDQ /*YWopen*/
 #ifndef EP_CODE_MARK_CMDQ
 #include <cmdq_core.h>
 #endif
@@ -266,7 +266,7 @@ static DEFINE_MUTEX(gDipMutex);
 #ifndef CONFIG_MTK_CLKMGR /*CCF*/
 #include <linux/clk.h>
 struct DIP_CLK_STRUCT {
-	struct clk *DIP_IMG_LARB5;
+	struct clk *DIP_IMG_LARB9;
 	struct clk *DIP_IMG_DIP;
 };
 struct DIP_CLK_STRUCT dip_clk;
@@ -284,9 +284,9 @@ static struct dip_device *dip_devs;
 static int nr_dip_devs;
 #endif
 
-/*#define AEE_DUMP_BY_USING_ION_MEMORY YWclose*/
+
 #ifndef CONFIG_FPGA_EARLY_PORTING
-#define AEE_DUMP_BY_USING_ION_MEMORY
+/*#define AEE_DUMP_BY_USING_ION_MEMORY MH close for IOMMU*/
 #endif
 
 
@@ -443,7 +443,6 @@ static void *pBuf_kmalloc[DIP_IRQ_TYPE_AMOUNT];
 
 static unsigned int G_u4DipEnClkCnt;
 static unsigned int g_u4DipCnt;
-
 
 int DIP_pr_detect_count;
 
@@ -1967,11 +1966,11 @@ static inline void Prepare_Enable_ccf_clock(void)
 {
 	int ret;
 	/* enable through smi API */
-//	smi_bus_prepare_enable(SMI_LARB5_REG_INDX, DIP_DEV_NAME, true);
+	smi_bus_prepare_enable(SMI_LARB9, DIP_DEV_NAME);
 
-	ret = clk_prepare_enable(dip_clk.DIP_IMG_LARB5);
+	ret = clk_prepare_enable(dip_clk.DIP_IMG_LARB9);
 	if (ret)
-		LOG_ERR("cannot prepare and enable DIP_IMG_LARB5 clock\n");
+		LOG_ERR("cannot prepare and enable DIP_IMG_LARB9 clock\n");
 
 	ret = clk_prepare_enable(dip_clk.DIP_IMG_DIP);
 	if (ret)
@@ -1982,11 +1981,10 @@ static inline void Prepare_Enable_ccf_clock(void)
 static inline void Disable_Unprepare_ccf_clock(void)
 {
 	clk_disable_unprepare(dip_clk.DIP_IMG_DIP);
-	clk_disable_unprepare(dip_clk.DIP_IMG_LARB5);
+	clk_disable_unprepare(dip_clk.DIP_IMG_LARB9);
 
-	//smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, DIP_DEV_NAME, true);
+	smi_bus_disable_unprepare(SMI_LARB9, DIP_DEV_NAME);
 }
-
 
 #endif
 
@@ -1997,12 +1995,11 @@ static void DIP_EnableClock(bool En)
 {
 #if defined(EP_NO_CLKMGR)
 	unsigned int setReg;
-
-	LOG_ERR("[Debug] It's LDVT load, EP_NO_CLKMGR");
 #endif
 
 	if (En) {
 #if defined(EP_NO_CLKMGR)
+		LOG_ERR("[Debug] It's LDVT load, EP_NO_CLKMGR");
 		spin_lock(&(IspInfo.SpinLockClock));
 		/* LOG_DBG("Camera clock enbled. G_u4DipEnClkCnt: %d.", */
 		/* G_u4DipEnClkCnt); */
@@ -2018,6 +2015,7 @@ static void DIP_EnableClock(bool En)
 		}
 		G_u4DipEnClkCnt++;
 		spin_unlock(&(IspInfo.SpinLockClock));
+
 #else/*CCF*/
 		/*LOG_INF("CCF:prepare_enable clk");*/
 		spin_lock(&(IspInfo.SpinLockClock));
@@ -4773,14 +4771,14 @@ static signed int DIP_probe(struct platform_device *pDev)
 
 #else
 		/*CCF: Grab clock pointer (struct clk*) */
-		dip_clk.DIP_IMG_LARB5 =
-			devm_clk_get(&pDev->dev, "DIP_CG_IMG_LARB5");
+		dip_clk.DIP_IMG_LARB9 =
+			devm_clk_get(&pDev->dev, "DIP_CG_IMG_LARB9");
 		dip_clk.DIP_IMG_DIP =
 			devm_clk_get(&pDev->dev, "DIP_CG_IMG_DIP");
 
-		if (IS_ERR(dip_clk.DIP_IMG_LARB5)) {
-			LOG_ERR("cannot get DIP_IMG_LARB5 clock\n");
-			return PTR_ERR(dip_clk.DIP_IMG_LARB5);
+		if (IS_ERR(dip_clk.DIP_IMG_LARB9)) {
+			LOG_ERR("cannot get DIP_IMG_LARB9 clock\n");
+			return PTR_ERR(dip_clk.DIP_IMG_LARB9);
 		}
 		if (IS_ERR(dip_clk.DIP_IMG_DIP)) {
 			LOG_ERR("cannot get DIP_IMG_DIP clock\n");
