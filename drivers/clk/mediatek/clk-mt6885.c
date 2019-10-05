@@ -1757,12 +1757,10 @@ static const struct mtk_composite top_audmuxes[] __initconst = {
 		0x334, 23, 0x338, 8, 24),
 };
 
-/* TODO: remove audio clocks after audio driver ready */
-
 static int mtk_cg_bit_is_cleared(struct clk_hw *hw)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
-	u32 val = 0;
+	u32 val;
 
 	regmap_read(cg->regmap, cg->sta_ofs, &val);
 
@@ -1770,11 +1768,11 @@ static int mtk_cg_bit_is_cleared(struct clk_hw *hw)
 
 	return val == 0;
 }
-
+/* copy from clk-gate.c */
 static int mtk_cg_bit_is_set(struct clk_hw *hw)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
-	u32 val = 0;
+	u32 val;
 
 	regmap_read(cg->regmap, cg->sta_ofs, &val);
 
@@ -1787,20 +1785,36 @@ static void mtk_cg_set_bit(struct clk_hw *hw)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 
-	regmap_update_bits(cg->regmap, cg->sta_ofs, BIT(cg->bit),
-							BIT(cg->bit));
+	regmap_write(cg->regmap, cg->set_ofs, BIT(cg->bit));
 }
 
 static void mtk_cg_clr_bit(struct clk_hw *hw)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 
-	regmap_update_bits(cg->regmap, cg->sta_ofs, BIT(cg->bit), 0);
+	regmap_write(cg->regmap, cg->clr_ofs, BIT(cg->bit));
+}
+
+static void mtk_cg_set_bit_no_setclr(struct clk_hw *hw)
+{
+	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
+	u32 cgbit = BIT(cg->bit);
+
+	regmap_update_bits(cg->regmap, cg->sta_ofs, cgbit, cgbit);
+}
+
+static void mtk_cg_clr_bit_no_setclr(struct clk_hw *hw)
+{
+	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
+	u32 cgbit = BIT(cg->bit);
+
+	regmap_update_bits(cg->regmap, cg->sta_ofs, cgbit, 0);
 }
 
 static int mtk_cg_enable(struct clk_hw *hw)
 {
 	mtk_cg_clr_bit(hw);
+
 	return 0;
 }
 
@@ -1809,24 +1823,10 @@ static void mtk_cg_disable(struct clk_hw *hw)
 	mtk_cg_set_bit(hw);
 }
 
-static int mtk_cg_bit_is_cleared_dummy(struct clk_hw *hw)
-{
-	return 0;
-}
-
-static int mtk_cg_enable_dummy(struct clk_hw *hw)
-{
-	return 0;
-}
-
-static void mtk_cg_disable_dummy(struct clk_hw *hw)
-{
-
-}
-
 static int mtk_cg_enable_inv(struct clk_hw *hw)
 {
 	mtk_cg_set_bit(hw);
+
 	return 0;
 }
 
@@ -1835,46 +1835,61 @@ static void mtk_cg_disable_inv(struct clk_hw *hw)
 	mtk_cg_clr_bit(hw);
 }
 
-static void mtk_cg_disable_inv_dummy(struct clk_hw *hw)
-{
 
+static int mtk_cg_enable_no_setclr(struct clk_hw *hw)
+{
+	mtk_cg_clr_bit_no_setclr(hw);
+
+	return 0;
 }
 
-const struct clk_ops mtk_clk_gate_ops = {
-	.is_enabled	= mtk_cg_bit_is_cleared,
-	.enable		= mtk_cg_enable,
-	.disable	= mtk_cg_disable,
-};
+static void mtk_cg_disable_no_setclr(struct clk_hw *hw)
+{
+	mtk_cg_set_bit_no_setclr(hw);
+}
 
-const struct clk_ops mtk_clk_gate_ops_dummy = {
+static int mtk_cg_enable_inv_no_setclr(struct clk_hw *hw)
+{
+	mtk_cg_set_bit_no_setclr(hw);
+
+	return 0;
+}
+
+static void mtk_cg_disable_inv_no_setclr(struct clk_hw *hw)
+{
+	mtk_cg_clr_bit_no_setclr(hw);
+}
+/* copy from clk-gate.c */
+
+static void mtk_cg_disable_dummy(struct clk_hw *hw)
+{
+	/* do nothing */
+}
+
+const struct clk_ops mtk_clk_gate_ops_setclr_dummy = {
 	.is_enabled	= mtk_cg_bit_is_cleared,
 	.enable		= mtk_cg_enable,
 	.disable	= mtk_cg_disable_dummy,
-};
-
-const struct clk_ops mtk_clk_gate_ops_dummy_all = {
-	.is_enabled	= mtk_cg_bit_is_cleared_dummy,
-	.enable		= mtk_cg_enable_dummy,
-	.disable	= mtk_cg_disable_dummy,
-};
-
-const struct clk_ops mtk_clk_gate_ops_inv = {
-	.is_enabled	= mtk_cg_bit_is_set,
-	.enable		= mtk_cg_enable_inv,
-	.disable	= mtk_cg_disable_inv,
-};
-
-const struct clk_ops mtk_clk_gate_ops_inv_dummy = {
-	.is_enabled	= mtk_cg_bit_is_set,
-	.enable		= mtk_cg_enable_inv,
-	.disable	= mtk_cg_disable_inv_dummy,
 };
 
 const struct clk_ops mtk_clk_gate_ops_setclr_inv_dummy = {
 	.is_enabled	= mtk_cg_bit_is_set,
 	.enable		= mtk_cg_enable_inv,
-	.disable	= mtk_cg_disable_inv_dummy,
+	.disable	= mtk_cg_disable_dummy,
 };
+
+const struct clk_ops mtk_clk_gate_ops_no_setclr_dummy = {
+	.is_enabled	= mtk_cg_bit_is_cleared,
+	.enable		= mtk_cg_enable_no_setclr,
+	.disable	= mtk_cg_disable_dummy,
+};
+
+const struct clk_ops mtk_clk_gate_ops_no_setclr_inv_dummy = {
+	.is_enabled	= mtk_cg_bit_is_set,
+	.enable		= mtk_cg_enable_inv_no_setclr,
+	.disable	= mtk_cg_disable_dummy,
+};
+
 
 #if MT_CCF_BRINGUP
 #define GATE		GATE_DUMMY		/* set/clr */
@@ -1908,7 +1923,7 @@ const struct clk_ops mtk_clk_gate_ops_setclr_inv_dummy = {
 		.regs = &_regs,					\
 		.shift = _shift,				\
 		.flags = _flags,				\
-		.ops = &mtk_clk_gate_ops,			\
+		.ops = &mtk_clk_gate_ops_no_setclr,		\
 	}
 #define GATE_STA_INV(_id, _name, _parent, _regs, _shift, _flags) {\
 		.id = _id,					\
@@ -1917,7 +1932,7 @@ const struct clk_ops mtk_clk_gate_ops_setclr_inv_dummy = {
 		.regs = &_regs,					\
 		.shift = _shift,				\
 		.flags = _flags,				\
-		.ops = &mtk_clk_gate_ops_inv,			\
+		.ops = &mtk_clk_gate_ops_no_setclr_inv,		\
 	}
 
 #endif /* MT_CCF_BRINGUP */
@@ -1929,7 +1944,7 @@ const struct clk_ops mtk_clk_gate_ops_setclr_inv_dummy = {
 		.regs = &_regs,					\
 		.shift = _shift,				\
 		.flags = _flags,				\
-		.ops = &mtk_clk_gate_ops_dummy,			\
+		.ops = &mtk_clk_gate_ops_setclr_dummy,		\
 	}
 #define GATE_INV_DUMMY(_id, _name, _parent, _regs, _shift, _flags) {\
 		.id = _id,					\
@@ -1947,7 +1962,7 @@ const struct clk_ops mtk_clk_gate_ops_setclr_inv_dummy = {
 		.regs = &_regs,					\
 		.shift = _shift,				\
 		.flags = _flags,				\
-		.ops = &mtk_clk_gate_ops_dummy,			\
+		.ops = &mtk_clk_gate_ops_no_setclr_dummy,	\
 	}
 #define GATE_STA_INV_DUMMY(_id, _name, _parent, _regs, _shift, _flags) {\
 		.id = _id,					\
@@ -1956,7 +1971,7 @@ const struct clk_ops mtk_clk_gate_ops_setclr_inv_dummy = {
 		.regs = &_regs,					\
 		.shift = _shift,				\
 		.flags = _flags,				\
-		.ops = &mtk_clk_gate_ops_inv_dummy,		\
+		.ops = &mtk_clk_gate_ops_no_setclr_inv_dummy,	\
 	}
 
 static void __iomem *mtk_gate_common_init(struct device_node *node,
