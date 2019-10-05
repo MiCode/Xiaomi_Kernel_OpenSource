@@ -81,7 +81,7 @@ static int conn_md_dbg_write(struct file *file, const char *buffer,
 	char buf[256];
 	char *pBuf;
 	unsigned long len = count;
-	long x = 0;
+	unsigned long x = 0;
 	long y = 0;
 	long z = 0;
 	long i;
