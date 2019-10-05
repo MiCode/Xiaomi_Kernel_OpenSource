@@ -28,13 +28,15 @@ struct nanohub_ipi_rx_st {
 
 struct nanohub_ipi_rx_st nanohub_ipi_rx;
 
-struct nanohub_device *nanohub_dev;
 struct semaphore scp_nano_ipi_sem;
 
 struct nanohub_ipi_data {
 	struct nanohub_data data;
+	struct nanohub_device *nanohub_dev;
 	/* todo */
 };
+
+static struct nanohub_ipi_data *g_nanohub_ipi_data;
 
 /* scp_nano_ipi_status: 1 :ready to ipi  0:not ready*/
 int scp_nano_ipi_status;
@@ -142,7 +144,7 @@ int nanohub_ipi_read(void *data, u8 *rx, int max_length, int timeout)
 		ret = 0;	/* return as empty packet */
 	} else {
 		ret = nanohub_ipi_rx.copy_size;
-		memcpy(rx, g_nanohub_data_p->comms.rx_buffer, ret);
+		memcpy(rx, g_nanohub_ipi_data->data.comms.rx_buffer, ret);
 		/* send back isr sim */
 		mtk_ipi_scp_isr_sim(ret);
 	}
@@ -194,7 +196,7 @@ int nanohub_ipi_suspend(struct platform_device *dev, pm_message_t state)
 	int ret = 0;
 
 	if (READ_ONCE(scp_nano_ipi_status) == 1)
-		ret = nanohub_suspend(nanohub_dev);
+		ret = nanohub_suspend(g_nanohub_ipi_data->nanohub_dev);
 	else
 		ret = 0;
 
@@ -206,7 +208,7 @@ int nanohub_ipi_resume(struct platform_device *dev)
 	int ret = 0;
 
 	if (READ_ONCE(scp_nano_ipi_status) == 1)
-		ret = nanohub_resume(nanohub_dev);
+		ret = nanohub_resume(g_nanohub_ipi_data->nanohub_dev);
 	else
 		ret = 0;
 
@@ -225,7 +227,7 @@ void scp_to_ap_ipi_handler(int id, void *data, unsigned int len)
 	pr_debug("\n");
 #endif
 	nanohub_ipi_rx.copy_size = len;
-	memcpy(g_nanohub_data_p->comms.rx_buffer, data, len);
+	memcpy(g_nanohub_ipi_data->data.comms.rx_buffer, data, len);
 	/*todo: check size ? */
 	complete(&nanohub_ipi_rx.isr_comp);
 }
@@ -244,10 +246,11 @@ int nanohub_ipi_probe(struct platform_device *pdev)
 		kfree(nano_dev);
 		return -ENOMEM;
 	}
-	nanohub_dev = nano_dev;
-	nano_dev->drv_data = ipi_data;
-	nanohub_probe(&nanohub_ipi_pdev.dev, nano_dev);
-	ipi_data = nano_dev->drv_data;
+	ipi_data->nanohub_dev = nano_dev;
+	nano_dev->drv_data = &ipi_data->data;
+	nanohub_probe(&pdev->dev, nano_dev);
+	platform_set_drvdata(pdev, &ipi_data->data.free_pool);
+	g_nanohub_ipi_data = ipi_data;
 
 	nanohub_ipi_comms_init(ipi_data);
 	init_completion(&nanohub_ipi_rx.isr_comp);
@@ -277,7 +280,7 @@ static struct platform_driver nanohub_ipi_pdrv = {
 	},
 };
 
-int __init nanohub_ipi_init(void)
+int nanohub_ipi_init(void)
 {
 	int ret = 0;
 
@@ -293,7 +296,6 @@ int __init nanohub_ipi_init(void)
 		platform_device_unregister(&nanohub_ipi_pdev);
 		goto _nanohub_ipi_init_exit;
 	}
-	platform_set_drvdata(&nanohub_ipi_pdev, g_nanohub_data_p);
 
 _nanohub_ipi_init_exit:
 	return ret;

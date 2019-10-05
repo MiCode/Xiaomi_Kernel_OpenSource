@@ -316,6 +316,7 @@ int nanohub_comms_rx_retrans_boottime(struct nanohub_data *data,
 	if (!pad)
 		return ERROR_NACK;
 
+	mutex_lock(&data->comms_lock);
 	seq = data->comms.seq++;
 
 	do {
@@ -348,6 +349,7 @@ int nanohub_comms_rx_retrans_boottime(struct nanohub_data *data,
 	} while ((ret == ERROR_BUSY) ||
 		(ret == ERROR_NACK && retrans_cnt >= 0));
 
+	mutex_unlock(&data->comms_lock);
 	packet_free(pad);
 
 	return ret;
@@ -366,6 +368,8 @@ int nanohub_comms_tx_rx_retrans(struct nanohub_data *data, u32 cmd,
 
 	if (!pad)
 		return ERROR_NACK;
+
+	mutex_lock(&data->comms_lock);
 	seq = data->comms.seq++;
 
 	do {
@@ -395,6 +399,7 @@ int nanohub_comms_tx_rx_retrans(struct nanohub_data *data, u32 cmd,
 	} while ((ret == ERROR_BUSY) ||
 		(ret == ERROR_NACK && retrans_cnt >= 0));
 
+	mutex_unlock(&data->comms_lock);
 	packet_free(pad);
 
 	return ret;

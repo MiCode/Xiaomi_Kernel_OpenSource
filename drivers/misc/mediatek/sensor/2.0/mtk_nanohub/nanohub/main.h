@@ -89,6 +89,8 @@ struct nanohub_data {
 	int err_cnt;
 	void *vbuf;
 	struct task_struct *thread;
+
+	struct mutex comms_lock;
 };
 
 enum {

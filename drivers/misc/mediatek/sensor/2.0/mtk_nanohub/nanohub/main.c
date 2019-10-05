@@ -48,7 +48,7 @@
 #define WAKEUP_TIMEOUT_MS	1000
 #define SUSPEND_TIMEOUT_MS	100
 
-struct nanohub_data *g_nanohub_data_p;
+static struct nanohub_data *g_nanohub_data_p;
 
 /**
  * struct gpio_config - this is a binding between platform data and driver data
@@ -995,6 +995,8 @@ nanohub_probe(struct device *dev, struct nanohub_device *nano_dev)
 		goto fail_dev;
 	data->thread = kthread_run(nanohub_kthread, data, "nanohub");
 
+	mutex_init(&data->comms_lock);
+
 	usleep_range(25, 30);
 
 	return nano_dev;
@@ -1070,22 +1072,7 @@ static int __init nanohub_init(void)
 	return ret;
 }
 
-static void __exit nanohub_cleanup(void)
-{
-#ifdef CONFIG_NANOHUB_I2C
-	nanohub_i2c_cleanup();
-#endif
-#ifdef CONFIG_NANOHUB_SPI
-	nanohub_spi_cleanup();
-#endif
-	__unregister_chrdev(major, 0, ID_NANOHUB_MAX, "nanohub");
-	class_destroy(sensor_class);
-	major = 0;
-	sensor_class = 0;
-}
-
-module_init(nanohub_init);
-module_exit(nanohub_cleanup);
+subsys_initcall(nanohub_init);
 
 MODULE_AUTHOR("Ben Fennema");
 MODULE_LICENSE("GPL");

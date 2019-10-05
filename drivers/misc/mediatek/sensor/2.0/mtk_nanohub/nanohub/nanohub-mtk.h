@@ -15,8 +15,7 @@
 #include <scp_helper.h>
 #include <linux/notifier.h>
 
-int __init nanohub_ipi_init(void);
-extern struct nanohub_data *g_nanohub_data_p;
+int nanohub_ipi_init(void);
 void scp_wdt_reset(enum scp_core_id cpu_id);
 
 #endif
