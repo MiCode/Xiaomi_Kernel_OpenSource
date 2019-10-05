@@ -118,7 +118,6 @@ struct mtk_iommu_data {
 #endif
 	struct mtk_smi_iommu smi_imu; /* SMI larb iommu info */
 	bool enable_4GB;   /* Dram is over 4gb */
-	bool tlb_flush_active;
 
 	struct iommu_device iommu;
 	const struct mtk_iommu_plat_data *plat_data;

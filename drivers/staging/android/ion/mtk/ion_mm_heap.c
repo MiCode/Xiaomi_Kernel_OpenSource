@@ -872,9 +872,6 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 			ion_buffer_dump(buffer, NULL);
-#else
-			//ret = -EFAULT;
-			//goto out;
 #endif
 		}
 

@@ -122,7 +122,10 @@ static int ion_fb_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	}
 	if (buffer_info->module_id == -1) {
 		IONMSG("%s: Error. Buffer not configured.\n", __func__);
-		return -EFAULT;	/* Buffer not configured. */
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		return -EFAULT;
+#endif
 	}
 
 	memset((void *)&port_info, 0, sizeof(port_info));
