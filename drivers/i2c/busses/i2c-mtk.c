@@ -590,22 +590,20 @@ static int i2c_set_speed(struct mt_i2c *i2c, unsigned int clk_src_in_hz)
 		if (ret < 0)
 			return ret;
 
-		i2c->high_speed_reg = I2C_HS_HOLD_TIME |
-			I2C_TIME_DEFAULT_VALUE | I2C_HS_SPEED |
+		i2c->high_speed_reg = I2C_TIME_DEFAULT_VALUE |
 			(sample_cnt & I2C_TIMING_SAMPLE_COUNT_MASK) << 12 |
-			((step_cnt - 1) & I2C_TIMING_SAMPLE_COUNT_MASK) << 8;
+			(step_cnt & I2C_TIMING_SAMPLE_COUNT_MASK) << 8;
 
 		i2c->timing_reg =
 			(l_sample_cnt & I2C_TIMING_SAMPLE_COUNT_MASK) << 8 |
 			(l_step_cnt & I2C_TIMING_STEP_DIV_MASK) << 0;
 
 		if (i2c->dev_comp->set_ltiming) {
-			i2c->ltiming_reg = I2C_HS_HOLD_SEL | (l_sample_cnt << 6)
-				| (l_step_cnt << 0) |
+			i2c->ltiming_reg = (l_sample_cnt << 6) |
+				(l_step_cnt << 0) |
 				(sample_cnt &
 					I2C_TIMING_SAMPLE_COUNT_MASK) << 12 |
-				((step_cnt + 1) &
-					I2C_TIMING_SAMPLE_COUNT_MASK) << 9;
+				(step_cnt & I2C_TIMING_SAMPLE_COUNT_MASK) << 9;
 		}
 	} else {
 		if (speed_hz > I2C_DEFAUT_SPEED
@@ -976,15 +974,6 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 					I2C_IO_CONFIG_AED_MASK);
 	}
 	i2c_writew(ioconfig_reg, i2c, OFFSET_IO_CONFIG);
-
-	/* set i3c high speed master code */
-	i2c->i3c_en = (i2c_readw(i2c, OFFSET_DMA_FSM_DEBUG)) & I3C_EN;
-	if (i2c->i3c_en && (i2c->speed_hz >= MAX_FS_PLUS_MODE_SPEED)
-		&& (!i2c->hs_only)) {
-		i2c_writew(I2C_HFIFO_ADDR_CLR, i2c, OFFSET_FIFO_ADDR_CLR);
-		i2c_writew(I3C_UNLOCK_HFIFO | I3C_NINTH_BIT | MASTER_CODE,
-			i2c, OFFSET_HFIFO_DATA);
-	}
 
 	if (i2c->dev_comp->ver != 0x2)
 		i2c_writew(i2c->timing_reg, i2c, OFFSET_TIMING);
