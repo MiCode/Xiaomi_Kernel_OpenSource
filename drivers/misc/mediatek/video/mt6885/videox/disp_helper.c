@@ -378,7 +378,7 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_MET_LOG, 0);
 	/* =================End: lowpower option setting=================== */
 
-	disp_helper_set_option(DISP_OPT_PRESENT_FENCE, 0);
+	disp_helper_set_option(DISP_OPT_PRESENT_FENCE, 1);
 
 	/* use fake vsync timer for low power measurement */
 	disp_helper_set_option(DISP_OPT_NO_LCM_FOR_LOW_POWER_MEASUREMENT, 0);
@@ -399,7 +399,7 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_FPS_EXT_INTERVAL, 1000);
 	disp_helper_set_option(DISP_OPT_SMART_OVL, 0);
 	disp_helper_set_option(DISP_OPT_DYNAMIC_DEBUG, 0);
-	disp_helper_set_option(DISP_OPT_HRT, 0);
+	disp_helper_set_option(DISP_OPT_HRT, 1);
 
 	/* display partial update */
 	disp_helper_set_option(DISP_OPT_PARTIAL_UPDATE, 0);
@@ -410,7 +410,7 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_SHADOW_MODE, 0);
 
 	/* smart layer OVL*/
-	disp_helper_set_option(DISP_OPT_OVL_EXT_LAYER, 0);
+	disp_helper_set_option(DISP_OPT_OVL_EXT_LAYER, 1);
 
 	disp_helper_set_option(DISP_OPT_REG_PARSER_RAW_DUMP, 0);
 
