@@ -311,8 +311,8 @@ static DEFINE_SPINLOCK(mt6885_clk_lock);
 #define MDP_CG1		0x13FF
 #define MDP_CG2		0x303
 
-#define INFRA_CG0	0x0
-#define INFRA_CG1	0x0
+#define INFRA_CG0	0x032F8000	/* pwm: 21~15, uart:24,25 */
+#define INFRA_CG1	0x00000800	/* cpum: 11 */
 #define INFRA_CG2	0x0
 #define INFRA_CG3	0x0
 
@@ -400,7 +400,7 @@ static const struct mtk_fixed_factor top_divs[] __initconst = {
 	FACTOR(TOP_MMPLL_D6_D2, "mmpll_d6_d2", "mmpll", 1, 12),
 	FACTOR(TOP_MMPLL_D7, "mmpll_d7", "mmpll", 1, 7),
 	FACTOR(TOP_MMPLL_D9, "mmpll_d9", "mmpll", 1, 9),
-	FACTOR(TOP_APUPLL_CK, "apupll_ck", "apupll", 1, 1),
+	FACTOR(TOP_APUPLL_CK, "apupll_ck", "apupll", 1, 2),
 	FACTOR(TOP_TVDPLL_CK, "tvdpll_ck", "tvdpll", 1, 1),
 	FACTOR(TOP_TVDPLL_D2, "tvdpll_d2", "tvdpll", 1, 2),
 	FACTOR(TOP_TVDPLL_D4, "tvdpll_d4", "tvdpll", 1, 4),
@@ -2941,9 +2941,9 @@ static const struct mtk_gate infra_clks[] __initconst = {
 	/* MODULE_SW_CG_1 */
 	GATE(INFRACFG_AO_SPI0_CG, "infracfg_ao_spi0_cg", "spi_sel",
 			 infracfg_ao_module_sw_cg_1_regs, 1, 0),
-	GATE(INFRACFG_AO_MSDC0_CG, "infracfg_ao_msdc0_cg", "axi_sel",
+	GATE(INFRACFG_AO_MSDC0_CG, "infracfg_ao_msdc0_cg", "msdc50_0_hclk_sel",
 			 infracfg_ao_module_sw_cg_1_regs, 2, 0),
-	GATE(INFRACFG_AO_MSDC1_CG, "infracfg_ao_msdc1_cg", "axi_sel",
+	GATE(INFRACFG_AO_MSDC1_CG, "infracfg_ao_msdc1_cg", "msdc50_0_hclk_sel",
 			 infracfg_ao_module_sw_cg_1_regs, 4, 0),
 	GATE(INFRACFG_AO_MSDC0_SRC_CLK_CG, "infracfg_ao_msdc0_src_clk_cg",
 			"msdc50_0_sel",
@@ -4145,9 +4145,9 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 
 	/* wait frequency meter finish */
 	while (clk_readl(CLK26CALI_0) & 0x10) {
-		mdelay(10);
+		udelay(10);
 		i++;
-		if (i > 10)
+		if (i > 20)
 			break;
 	}
 
@@ -4187,9 +4187,9 @@ unsigned int mt_get_abist_freq(unsigned int ID)
 
 	/* wait frequency meter finish */
 	while (clk_readl(CLK26CALI_0) & 0x10) {
-		mdelay(10);
+		udelay(10);
 		i++;
-		if (i > 10)
+		if (i > 20)
 			break;
 	}
 
