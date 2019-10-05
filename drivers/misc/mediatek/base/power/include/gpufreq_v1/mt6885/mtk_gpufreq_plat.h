@@ -30,11 +30,22 @@
 #define gpufreq_pr_info(fmt, args...)	pr_info(GPUFERQ_TAG fmt, ##args)
 #define gpufreq_pr_debug(fmt, args...)	pr_debug(GPUFERQ_TAG fmt, ##args)
 
-#define MT_GPU_CORE_MASK_0       (1 <<  0)
-#define MT_GPU_CORE_MASK_1_2    ((1 <<  1) | (1 <<  2))
-#define MT_GPU_CORE_MASK_3_4    ((1 <<  5) | (1 <<  6))
-#define MT_GPU_CORE_MASK_5_6    ((1 << 17) | (1 << 18))
-#define MT_GPU_CORE_MASK_7_8    ((1 << 21) | (1 << 22))
+/* TxCy: Stack x, Core y */
+#define T0C0  (1 <<  0)
+#define T1C0  (1 <<  1)
+#define T1C1  (1 <<  5)
+#define T2C0  (1 <<  2)
+#define T2C1  (1 <<  6)
+#define T5C0  (1 << 17)
+#define T5C1  (1 << 21)
+#define T6C0  (1 << 18)
+#define T6C1  (1 << 22)
+
+#define MT_GPU_CORE_MASK_0    (T0C0)           /* Stack 0 */
+#define MT_GPU_CORE_MASK_1_2  (T1C0 | T1C1)    /* Stack 1 */
+#define MT_GPU_CORE_MASK_3_4  (T2C0 | T2C1)    /* Stack 2 */
+#define MT_GPU_CORE_MASK_5_6  (T5C0 | T5C1)    /* Stack 5 */
+#define MT_GPU_CORE_MASK_7_8  (T6C0 | T6C1)    /* Stack 6 */
 
 #define MT_GPU_SHADER_PRESENT_1    (MT_GPU_CORE_MASK_0)          /* 1 core */
 #define MT_GPU_SHADER_PRESENT_2    (MT_GPU_CORE_MASK_1_2)        /* 2 core */
