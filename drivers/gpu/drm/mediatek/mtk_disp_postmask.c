@@ -525,9 +525,8 @@ static int mtk_disp_postmask_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mtk_disp_postmask_driver_dt_match[] = {
-	{
-		.compatible = "mediatek,mt6779-disp-postmask",
-	},
+	{.compatible = "mediatek,mt6779-disp-postmask",},
+	{.compatible = "mediatek,mt6885-disp-postmask",},
 	{},
 };
 

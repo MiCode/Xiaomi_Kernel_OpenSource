@@ -29,6 +29,7 @@
 #define DISP_COLOR_START_MT2701 0x0f00
 #define DISP_COLOR_START_MT6779 0x0c00
 #define DISP_COLOR_START_MT8173 0x0c00
+#define DISP_COLOR_START_MT6885 0x0c00
 #define DISP_COLOR_START(module) ((module)->data->color_offset)
 #define DISP_COLOR_WIDTH(reg) (DISP_COLOR_START(reg) + 0x50UL)
 #define DISP_COLOR_HEIGHT(reg) (DISP_COLOR_START(reg) + 0x54UL)
@@ -217,6 +218,10 @@ static const struct mtk_disp_color_data mt8173_color_driver_data = {
 	.color_offset = DISP_COLOR_START_MT8173,
 };
 
+static const struct mtk_disp_color_data mt6885_color_driver_data = {
+	.color_offset = DISP_COLOR_START_MT6885,
+};
+
 static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-color",
 	 .data = &mt2701_color_driver_data},
@@ -224,6 +229,8 @@ static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
 	 .data = &mt6779_color_driver_data},
 	{.compatible = "mediatek,mt8173-disp-color",
 	 .data = &mt8173_color_driver_data},
+	{.compatible = "mediatek,mt6885-disp-color",
+	 .data = &mt6885_color_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_color_driver_dt_match);

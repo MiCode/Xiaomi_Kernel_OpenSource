@@ -169,9 +169,8 @@ static int mtk_disp_ccorr_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mtk_disp_ccorr_driver_dt_match[] = {
-	{
-		.compatible = "mediatek,mt6779-disp-ccorr",
-	},
+	{.compatible = "mediatek,mt6779-disp-ccorr",},
+	{.compatible = "mediatek,mt6885-disp-ccorr",},
 	{},
 };
 

@@ -180,6 +180,7 @@
 #define DISP_REG_OVL_EL0_CLR(n) (0x390UL + 0x4 * (n))
 #define DISP_REG_OVL_ADDR_MT2701 0x0040
 #define DISP_REG_OVL_ADDR_MT6779 0x0f40
+#define DISP_REG_OVL_ADDR_MT6885 0x0f40
 #define DISP_REG_OVL_ADDR_MT8173 0x0f40
 #define DISP_REG_OVL_ADDR(module, n) ((module)->data->addr + 0x20 * (n))
 
@@ -2579,6 +2580,10 @@ static const struct compress_info compr_info_mt6885  = {
 };
 
 static const struct mtk_disp_ovl_data mt6885_ovl_driver_data = {
+	.addr = DISP_REG_OVL_ADDR_MT6885,
+	.fmt_rgb565_is_0 = true,
+	.fmt_uyvy = 4U << 12,
+	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6885,
 };
 
@@ -2596,6 +2601,8 @@ static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {
 	 .data = &mt6779_ovl_driver_data},
 	{.compatible = "mediatek,mt8173-disp-ovl",
 	 .data = &mt8173_ovl_driver_data},
+	{.compatible = "mediatek,mt6885-disp-ovl",
+	 .data = &mt6885_ovl_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_ovl_driver_dt_match);

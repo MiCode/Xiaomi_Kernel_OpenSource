@@ -562,9 +562,15 @@ static const struct mtk_disp_rsz_data mt6779_rsz_driver_data = {
 	.tile_length = 1080, .alignment_margin = 6, .in_max_height = 4096,
 };
 
+static const struct mtk_disp_rsz_data mt6885_rsz_driver_data = {
+	.tile_length = 1080, .alignment_margin = 6, .in_max_height = 4096,
+};
+
 static const struct of_device_id mtk_disp_rsz_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6779-disp-rsz",
 	 .data = &mt6779_rsz_driver_data},
+	{.compatible = "mediatek,mt6885-disp-rsz",
+	 .data = &mt6885_rsz_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_rsz_driver_dt_match);

@@ -1864,6 +1864,8 @@ static const struct of_device_id mtk_drm_of_ids[] = {
 	 .data = &mt6779_mmsys_driver_data},
 	{.compatible = "mediatek,mt8173-mmsys",
 	 .data = &mt8173_mmsys_driver_data},
+	{.compatible = "mediatek,mt6885-mmsys",
+	 .data = &mt6885_mmsys_driver_data},
 	{} };
 
 static struct platform_driver mtk_drm_platform_driver = {

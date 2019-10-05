@@ -1120,6 +1120,10 @@ static const struct mtk_disp_rdma_data mt8173_rdma_driver_data = {
 	.fifo_size = SZ_8K,
 };
 
+static const struct mtk_disp_rdma_data mt6885_rdma_driver_data = {
+	.fifo_size = SZ_8K + SZ_16K,
+};
+
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-rdma",
 	 .data = &mt2701_rdma_driver_data},
@@ -1127,6 +1131,8 @@ static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	 .data = &mt6779_rdma_driver_data},
 	{.compatible = "mediatek,mt8173-disp-rdma",
 	 .data = &mt8173_rdma_driver_data},
+	{.compatible = "mediatek,mt6885-disp-rdma",
+	 .data = &mt6885_rdma_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_rdma_driver_dt_match);
