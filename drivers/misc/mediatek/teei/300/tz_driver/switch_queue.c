@@ -342,6 +342,8 @@ static void switch_fn(struct kthread_work *work)
 	int retVal = 0;
 	struct tz_driver_state *s = get_tz_drv_state();
 
+	KATRACE_BEGIN("teei_switch_fn");
+
 	switch_work = container_of(work, struct ut_smc_call_work, work);
 
 	switch_ent = (struct switch_call_struct *)switch_work->data;
@@ -433,4 +435,6 @@ static void switch_fn(struct kthread_work *work)
 	if (retVal != 0)
 		IMSG_ERROR("[%s][%d] destroy_switch_call_struct failed %d!\n",
 						__func__, __LINE__, retVal);
+
+	KATRACE_END("teei_switch_fn");
 }

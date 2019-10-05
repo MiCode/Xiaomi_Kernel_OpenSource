@@ -106,6 +106,8 @@ int teei_forward_call(u32 cmd, unsigned long cmd_addr, int size)
 		.size = size,
 	};
 
+	KATRACE_BEGIN("teei_forward_call");
+
 	lock_system_sleep();
 
 	down(&capi_mutex);
@@ -119,6 +121,7 @@ int teei_forward_call(u32 cmd, unsigned long cmd_addr, int size)
 		up(&smc_lock);
 		up(&capi_mutex);
 		unlock_system_sleep();
+		KATRACE_END("teei_forward_call");
 		return ret;
 	}
 
@@ -127,6 +130,8 @@ int teei_forward_call(u32 cmd, unsigned long cmd_addr, int size)
 	up(&capi_mutex);
 
 	unlock_system_sleep();
+
+	KATRACE_END("teei_forward_call");
 
 	return 0;
 }
