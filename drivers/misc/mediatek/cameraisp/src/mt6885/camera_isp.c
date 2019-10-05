@@ -345,6 +345,7 @@ struct ISP_CLK_STRUCT {
 	struct clk *ISP_CAM_LARB18_RAWC;
 	struct clk *ISP_CAM_SUBSYS_RAWC;
 	struct clk *ISP_CAM_TG_RAWC;
+	struct clk *ISP_TOP_MUX_CAMTM;
 };
 struct ISP_CLK_STRUCT isp_clk;
 
@@ -2087,6 +2088,9 @@ static inline void Prepare_Enable_ccf_clock(void)
 	ret = clk_prepare_enable(isp_clk.ISP_CAM_TG_RAWC);
 	if (ret)
 		LOG_NOTICE("cannot pre-en ISP_CAM_TG_RAWC clock\n");
+	ret = clk_prepare_enable(isp_clk.ISP_TOP_MUX_CAMTM);
+	if (ret)
+		LOG_NOTICE("cannot pre-en ISP_TOP_MUX_CAMTM clock\n");
 
 }
 
@@ -2095,6 +2099,7 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	/* must keep this clk close order: */
 	/* CAMTG/CAMSV clock -> CG_SCP_SYS_CAM -> */
 	/* CG_SCP_SYS_DIS -> CG_DISP0_SMI_COMMON */
+	clk_disable_unprepare(isp_clk.ISP_TOP_MUX_CAMTM);
 	clk_disable_unprepare(isp_clk.ISP_CAM_TG_RAWC);
 	clk_disable_unprepare(isp_clk.ISP_CAM_SUBSYS_RAWC);
 	clk_disable_unprepare(isp_clk.ISP_CAM_LARB18_RAWC);
@@ -6395,6 +6400,8 @@ static int ISP_probe(struct platform_device *pDev)
 			devm_clk_get(&pDev->dev, "CAMSYS_RAWCCAM_CGPDN");
 		isp_clk.ISP_CAM_TG_RAWC =
 			devm_clk_get(&pDev->dev, "CAMSYS_RAWCTG_CGPDN");
+		isp_clk.ISP_TOP_MUX_CAMTM =
+			devm_clk_get(&pDev->dev, "TOPCKGEN_TOP_MUX_CAMTM");
 
 		if (IS_ERR(isp_clk.ISP_SCP_SYS_MDP)) {
 			LOG_NOTICE("cannot get ISP_SCP_SYS_MDP clock\n");
@@ -6487,6 +6494,10 @@ static int ISP_probe(struct platform_device *pDev)
 		if (IS_ERR(isp_clk.ISP_CAM_TG_RAWC)) {
 			LOG_NOTICE("cannot get ISP_CAM_TG_RAWC clock\n");
 			return PTR_ERR(isp_clk.ISP_CAM_TG_RAWC);
+		}
+		if (IS_ERR(isp_clk.ISP_TOP_MUX_CAMTM)) {
+			LOG_NOTICE("cannot get ISP_TOP_MUX_CAMTM clock\n");
+			return PTR_ERR(isp_clk.ISP_TOP_MUX_CAMTM);
 		}
 
 		register_pg_callback(&cam_clk_subsys_handle);

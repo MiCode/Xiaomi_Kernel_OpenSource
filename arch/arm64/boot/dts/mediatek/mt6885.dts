@@ -3655,7 +3655,8 @@ page_owner=on";
 				<&camsys_rawb CAMSYS_RAWB_CAMTG_CGPDN>,
 				<&camsys_rawc CAMSYS_RAWC_LARBX_CGPDN>,
 				<&camsys_rawc CAMSYS_RAWC_CAM_CGPDN>,
-				<&camsys_rawc CAMSYS_RAWC_CAMTG_CGPDN>;
+				<&camsys_rawc CAMSYS_RAWC_CAMTG_CGPDN>,
+				<&topckgen TOP_MUX_CAMTM>;
 		clock-names = "ISP_SCP_SYS_MDP",
 				"ISP_SCP_SYS_CAM",
 				"ISP_SCP_SYS_RAWA",
@@ -3678,7 +3679,8 @@ page_owner=on";
 				"CAMSYS_RAWBTG_CGPDN",
 				"CAMSYS_RAWCLARB18_CGPDN",
 				"CAMSYS_RAWCCAM_CGPDN",
-				"CAMSYS_RAWCTG_CGPDN";
+				"CAMSYS_RAWCTG_CGPDN",
+				"TOPCKGEN_TOP_MUX_CAMTM";
 	};
 
 	smi_larb13: smi_larb13@1a001000 {
