@@ -849,13 +849,13 @@ void fgr_construct_battery_profile(int table_idx)
 
 	if (temp_profile_p == NULL) {
 		bm_err(
-			"[FGADC] fg_get_profile : create table fail !\r\n");
+			"[FGADC] fg_get_profile : create table fail !\n");
 		return;
 	}
 
 	if (fg_check_temperature_order(&is_ascending, &is_descending)) {
 		bm_err(
-			"[FGADC] fg_check_temperature_order : t0~t3 setting error !\r\n");
+			"[FGADC] fg_check_temperature_order : t0~t3 setting error !\n");
 		return;
 	}
 
@@ -1512,12 +1512,12 @@ void fg_construct_battery_profile_by_vboot(int _vboot, int table_index)
 	}
 
 	if (table_index == ptable->temperature_tb1) {
-		bm_err("[%s]index %d idx:%d _vboot:%d %d qmax_t_0ma_tb1:%d\r\n",
+		bm_err("[%s]index %d idx:%d _vboot:%d %d qmax_t_0ma_tb1:%d\n",
 			__func__,
 			table_index, j, _vboot,
 			profile_p[j].voltage, qmax_t_0ma_tb1);
 	} else {
-		bm_err("[%s]index %d idx:%d _vboot:%d %d qmax_t_0ma:%d\r\n",
+		bm_err("[%s]index %d idx:%d _vboot:%d %d qmax_t_0ma:%d\n",
 			__func__,
 			table_index, j, _vboot,
 			profile_p[j].voltage, qmax_t_0ma);
@@ -1534,7 +1534,7 @@ static int fg_compensate_battery_voltage_from_low(
 
 	profile_p = fg_get_profile(tablei);
 	if (profile_p == NULL) {
-		bm_err("[FG_ERR][%s] fail ,profile_p=null!\r\n",
+		bm_err("[FG_ERR][%s] fail ,profile_p=null!\n",
 			__func__);
 		return 0;
 	}
@@ -1722,11 +1722,11 @@ void fgr_dump_table(int idx)
 	profile_p = fg_get_profile(idx);
 
 	bm_err(
-		"[fg_dump_table]table idx:%d (i,mah,voltage,resistance,percentage)\r\n",
+		"[fg_dump_table]table idx:%d (i,mah,voltage,resistance,percentage)\n",
 		idx);
 	for (i = 0; i < fg_get_saddles(); i = i + 5) {
 		bm_err(
-		"(%2d,%5d,%5d,%5d,%3d)(%2d,%5d,%5d,%5d,%3d)(%2d,%5d,%5d,%5d,%3d)(%2d,%5d,%5d,%5d,%3d)(%2d,%5d,%5d,%5d,%3d)\r\n",
+		"(%2d,%5d,%5d,%5d,%3d)(%2d,%5d,%5d,%5d,%3d)(%2d,%5d,%5d,%5d,%3d)(%2d,%5d,%5d,%5d,%3d)(%2d,%5d,%5d,%5d,%3d)\n",
 		i, profile_p[i].mah, profile_p[i].voltage,
 		profile_p[i].resistance, profile_p[i].percentage,
 		i+1, profile_p[i+1].mah, profile_p[i+1].voltage,
@@ -1764,7 +1764,7 @@ int SOC_to_OCV_c(int _soc)
 
 	profile_p = fg_get_profile(ptable->temperature_tb1);
 	if (profile_p == NULL) {
-		bm_err("[FGADC] fgauge get c table: fail !\r\n");
+		bm_err("[FGADC] fgauge get c table: fail !\n");
 		return 0;
 	}
 
@@ -1791,7 +1791,7 @@ int SOC_to_OCV_c(int _soc)
 			profile_p[high].voltage,
 			_dod);
 	}
-	bm_err("[FGADC] %s: soc:%d dod:%d! voltage:%d highidx:%d\r\n",
+	bm_err("[FGADC] %s: soc:%d dod:%d! voltage:%d highidx:%d\n",
 		__func__,
 		_soc, _dod, ret_vol, high);
 
@@ -1806,7 +1806,7 @@ int DOD_to_OCV_c(int _dod)
 
 	profile_p = fg_get_profile(ptable->temperature_tb1);
 	if (profile_p == NULL) {
-		bm_err("[FGADC] fgauge get c table fail !\r\n");
+		bm_err("[FGADC] fgauge get c table fail !\n");
 		return 0;
 	}
 
@@ -1833,7 +1833,7 @@ int DOD_to_OCV_c(int _dod)
 			profile_p[high].voltage,
 			_dod);
 	}
-	bm_err("[FGADC] DOD_to_OCV: dod:%d vol:%d highidx:%d\r\n",
+	bm_err("[FGADC] DOD_to_OCV: dod:%d vol:%d highidx:%d\n",
 		_dod, ret_vol, high);
 
 	return ret_vol;
@@ -1847,7 +1847,7 @@ int OCV_to_SOC_c(int _ocv)
 
 	profile_p = fg_get_profile(ptable->temperature_tb1);
 	if (profile_p == NULL) {
-		bm_err("[FGADC]OCV_to_SOC_cfgauge can't get c table: fail !\r\n");
+		bm_err("[FGADC]OCV_to_SOC_cfgauge can't get c table: fail !\n");
 		return 0;
 	}
 
@@ -1878,7 +1878,7 @@ int OCV_to_SOC_c(int _ocv)
 
 		ret_vol = 10000 - ret_vol;
 	}
-	bm_err("[FGADC] OCV_to_DOD: voltage:%d dod:%d highidx:%d\r\n",
+	bm_err("[FGADC] OCV_to_DOD: voltage:%d dod:%d highidx:%d\n",
 		_ocv, ret_vol, high);
 
 	return ret_vol;
@@ -1894,7 +1894,7 @@ int OCV_to_DOD_c(int _ocv)
 
 	profile_p = fg_get_profile(ptable->temperature_tb1);
 	if (profile_p == NULL) {
-		bm_err("[FGADC] fgauge can't get c table: fail !\r\n");
+		bm_err("[FGADC] fgauge can't get c table: fail !\n");
 		return 0;
 	}
 
@@ -1922,7 +1922,7 @@ int OCV_to_DOD_c(int _ocv)
 			_ocv);
 	}
 
-	bm_err("[FGADC] OCV_to_DOD: voltage:%d dod:%d highidx:%d\r\n",
+	bm_err("[FGADC] OCV_to_DOD: voltage:%d dod:%d highidx:%d\n",
 		_ocv, ret_vol, high);
 
 	return ret_vol;
