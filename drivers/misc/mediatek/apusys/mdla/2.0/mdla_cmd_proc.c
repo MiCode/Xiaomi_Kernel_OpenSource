@@ -252,8 +252,9 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 
 	if (apusys_hd != NULL)
 		pmu_command_prepare(mdla_info, apusys_hd);
-
+#if 0
 process_command:
+#endif
 	/* Compute deadline */
 	deadline = get_jiffies_64() + msecs_to_jiffies(mdla_timeout);
 
@@ -297,11 +298,13 @@ process_command:
 				msecs_to_jiffies(mdla_e1_detect_timeout);
 		wait_for_completion_interruptible_timeout(
 			&mdla_info->command_done, wait_event_timeouts);
+#if 0//remove this latter
 		/* E1 HW timeout check here */
 		if (hw_e1_timeout_detect(core_id) != 0) {
 			mdla_reset_lock(mdla_info->mdlaid, REASON_TIMEOUT);
 			goto process_command;
 		}
+#endif
 	}
 
 #ifdef __APUSYS_MDLA_UT__

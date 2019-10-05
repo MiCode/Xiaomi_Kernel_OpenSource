@@ -28,6 +28,9 @@
 #include "mdla_debug.h"
 #include "mdla_util.h"
 #include "mdla_power_ctrl.h"
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
+#include "apusys_power.h"
+#endif
 
 
 static struct platform_device *mdlactlPlatformDevice;
@@ -253,24 +256,10 @@ void mdla_reset(int core, int res)
 	pr_info("%s: MDLA RESET: %s(%d)\n", __func__,
 		str, res);
 
-#if 0//TODO MDLA Rst by RPC power control
-	// Enable Bus prot, start to turn off, set bus protect - step 1:0
-	reg_write(infracfg_ao_top,
-		INFRA_TOPAXI_PROTECTEN_MCU_SET,
-		VPU_CORE2_PROT_STEP1_0_MASK);
-
-	while ((reg_read(infracfg_ao_top, INFRA_TOPAXI_PROTECTEN_MCU_STA1) &
-		VPU_CORE2_PROT_STEP1_0_ACK_MASK) !=
-		VPU_CORE2_PROT_STEP1_0_ACK_MASK) {
-	}
-
-	// Reset
-	reg_set(apu_conn_top, APU_CONN_SW_RST, APU_CORE2_RSTB);
-	reg_clr(apu_conn_top, APU_CONN_SW_RST, APU_CORE2_RSTB);
-
-	// Release Bus Prot
-	reg_write(infracfg_ao_top, INFRA_TOPAXI_PROTECTEN_MCU_CLR,
-		VPU_CORE2_PROT_STEP1_0_MASK);
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
+	// Enable & Relase bus protect
+	apu_device_power_off(MDLA0+core);
+	apu_device_power_on(MDLA0+core);
 #endif
 
 	mdla_cfg_write_with_mdlaid(core, 0xffffffff, MDLA_CG_CLR);
@@ -288,9 +277,6 @@ void mdla_reset(int core, int res)
 #ifdef CONFIG_MTK_MDLA_ION
 	mdla_cfg_set_with_mdlaid(core, MDLA_AXI_CTRL_MASK, MDLA_AXI_CTRL);
 	mdla_cfg_set_with_mdlaid(core, MDLA_AXI_CTRL_MASK, MDLA_AXI1_CTRL);
-
-	//mdla_cfg_set(MDLA_AXI_CTRL_MASK, MDLA_AXI_CTRL);
-	//mdla_cfg_set(MDLA_AXI_CTRL_MASK, MDLA_AXI1_CTRL);
 #endif
 
 #if 0
@@ -380,7 +366,7 @@ int mdla_process_command(int core_id, struct command_entry *ce)
 	return ret;
 }
 #endif
-
+#if 0//6779 only, remove latter
 int hw_e1_timeout_detect(int core_id)
 {
 	u32 ste_debug_if_1;
@@ -396,6 +382,7 @@ int hw_e1_timeout_detect(int core_id)
 	}
 	return 0;
 }
+#endif
 
 #ifdef __APUSYS_PREEMPTION__
 static inline struct mdla_scheduler *mdla_get_scheduler(unsigned int core_id)

@@ -17,7 +17,9 @@
 #include <linux/device.h>
 void mdla_reset(int core, int res);
 int mdla_process_command(int core_id, struct command_entry *ce);
+#if 0//remove this latter
 int hw_e1_timeout_detect(int core_id);
+#endif
 int mdla_dts_map(struct platform_device *pdev);
 irqreturn_t mdla_interrupt(u32 mdlaid);
 void mdla_dump_reg(int core_id);

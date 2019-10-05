@@ -395,7 +395,7 @@ static struct platform_driver mdla_driver = {
 		.of_match_table = mdla_of_match,
 	},
 	.probe = mdla_probe,
-#ifndef __APUSYS_MIDDLEWARE__
+#if 0
 	.suspend = mdla_suspend,
 	.resume = mdla_resume,
 #endif
