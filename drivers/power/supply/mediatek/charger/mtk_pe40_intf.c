@@ -55,7 +55,7 @@ int mtk_pe40_set_mivr(struct charger_manager *pinfo, int uV)
 int mtk_pe40_pd_1st_request(struct charger_manager *pinfo,
 	int adapter_mv, int adapter_ma, int ma)
 {
-	unsigned int oldmA;
+	unsigned int oldmA = 3000000;
 	int ret;
 	int mivr;
 	bool chg2_enable = false;
@@ -111,8 +111,8 @@ int mtk_pe40_pd_1st_request(struct charger_manager *pinfo,
 int mtk_pe40_pd_request(struct charger_manager *pinfo,
 	int *adapter_vbus, int *adapter_ibus, int ma)
 {
-	unsigned int oldmA;
-	unsigned int oldmivr;
+	unsigned int oldmA = 3000000;
+	unsigned int oldmivr = 4600;
 	int ret;
 	int mivr;
 	int adapter_mv, adapter_ma;
@@ -855,6 +855,11 @@ int mtk_pe40_safety_check(struct charger_manager *pinfo)
 
 	pe40 = &pinfo->pe4;
 
+	TAstatus.ocp = 0;
+	TAstatus.otp = 0;
+	TAstatus.ovp = 0;
+	TAstatus.temperature = 0;
+
 	/* vbus ov */
 	vbus = battery_get_vbus();
 	if (vbus - pe40->avbus >= 2000) {
@@ -949,7 +954,7 @@ err:
 
 int mtk_pe40_cc_state(struct charger_manager *pinfo)
 {
-	int ibus = 0, vbat, ibat, vbus, compare_ibus;
+	int ibus = 0, vbat, ibat, vbus, compare_ibus = 0;
 	int icl, ccl, ccl2, cv, max_icl;
 	struct mtk_pe40 *pe40;
 	int ret;
