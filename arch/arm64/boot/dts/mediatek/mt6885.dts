@@ -2948,6 +2948,7 @@ page_owner=on";
 	mdp_aal4@14010000 {
 		compatible = "mediatek,mdp_aal4";
 		reg = <0 0x14010000 0 0x1000>;
+		interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	mdp_hdr4@14011000 {

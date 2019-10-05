@@ -43,6 +43,9 @@ unsigned int rdma_index(enum DISP_MODULE_ENUM module)
 	case DISP_MODULE_RDMA0:
 		idx = 0;
 		break;
+	case DISP_MODULE_RDMA1:
+		idx = 1;
+		break;
 	default:
 		DDPERR("invalid rdma module=%d\n", module); /* invalid module */
 		ASSERT(0);

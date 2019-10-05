@@ -312,14 +312,14 @@ static int assign_default_irqs_table(enum DDP_SCENARIO_ENUM scenario,
 	switch (scenario) {
 	case DDP_SCENARIO_PRIMARY_DISP:
 	case DDP_SCENARIO_PRIMARY_BYPASS_PQ_DISP:
-	case DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP:
+	case DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP0:
 	case DDP_SCENARIO_PRIMARY_RDMA0_DISP:
 	case DDP_SCENARIO_PRIMARY_ALL:
 		idx = 0;
 		break;
 	case DDP_SCENARIO_SUB_DISP:
 	case DDP_SCENARIO_SUB_RDMA1_DISP:
-	case DDP_SCENARIO_SUB_OVL_MEMOUT:
+	case DDP_SCENARIO_SUB_OVL2_2L_MEMOUT:
 	case DDP_SCENARIO_SUB_ALL:
 		idx = 1;
 		break;
@@ -745,7 +745,7 @@ int dpmgr_path_remove_memout(disp_path_handle dp_handle, void *cmdq_handle)
 		dis_scn = DDP_SCENARIO_PRIMARY_OVL_MEMOUT;
 		new_scn = DDP_SCENARIO_PRIMARY_DISP;
 	} else if (handle->scenario == DDP_SCENARIO_SUB_ALL) {
-		dis_scn = DDP_SCENARIO_SUB_OVL_MEMOUT;
+		dis_scn = DDP_SCENARIO_SUB_OVL2_2L_MEMOUT;
 		new_scn = DDP_SCENARIO_SUB_DISP;
 	} else {
 		pr_info("%s: error scenario =%d\n",

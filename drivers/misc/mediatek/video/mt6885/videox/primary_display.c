@@ -1998,7 +1998,7 @@ static int _DL_switch_to_DC_fast(int block)
 
 	/* 3.modify interface path handle to new scenario(rdma->dsi) */
 	old_scenario = dpmgr_get_scenario(pgc->dpmgr_handle);
-	new_scenario = DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP;
+	new_scenario = DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP0;
 
 	dpmgr_modify_path_power_on_new_modules(pgc->dpmgr_handle,
 		new_scenario, 0);
@@ -2411,7 +2411,7 @@ static int DL_switch_to_rdma_mode(struct cmdqRecStruct *handle, int block)
 	}
 
 	old_scenario = dpmgr_get_scenario(pgc->dpmgr_handle);
-	new_scenario = DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP;
+	new_scenario = DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP0;
 	dpmgr_modify_path_power_on_new_modules(pgc->dpmgr_handle,
 		new_scenario, 0);
 	dpmgr_modify_path(pgc->dpmgr_handle, new_scenario, handle,
@@ -3685,7 +3685,7 @@ static int update_primary_intferface_module(void)
 
 	interface_module = _get_dst_module_by_lcm(pgc->plcm);
 	ddp_set_dst_module(DDP_SCENARIO_PRIMARY_DISP, interface_module);
-	ddp_set_dst_module(DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP,
+	ddp_set_dst_module(DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP0,
 		interface_module);
 	ddp_set_dst_module(DDP_SCENARIO_PRIMARY_RDMA0_DISP, interface_module);
 
@@ -4898,7 +4898,7 @@ int primary_display_resume(void)
 		 * in primary_display_switch_mode()
 		 */
 		ddp_disconnect_path(DDP_SCENARIO_PRIMARY_ALL, NULL);
-		ddp_disconnect_path(DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP,
+		ddp_disconnect_path(DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP0,
 			NULL);
 		DISPCHECK("cmd/video mode=%d\n",
 			primary_display_is_video_mode());

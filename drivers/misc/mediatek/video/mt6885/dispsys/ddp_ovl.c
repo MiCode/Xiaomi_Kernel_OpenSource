@@ -43,7 +43,9 @@ struct OVL_REG {
 };
 
 static enum DISP_MODULE_ENUM ovl_index_module[OVL_NUM] = {
-	DISP_MODULE_OVL0, DISP_MODULE_OVL0_2L
+	DISP_MODULE_OVL0, DISP_MODULE_OVL0_2L,
+	DISP_MODULE_OVL1, DISP_MODULE_OVL1_2L,
+	DISP_MODULE_OVL2_2L, DISP_MODULE_OVL3_2L,
 };
 
 unsigned int gOVLBackground = 0xFF000000;
@@ -75,8 +77,16 @@ unsigned long ovl_base_addr(enum DISP_MODULE_ENUM module)
 	switch (module) {
 	case DISP_MODULE_OVL0:
 		return DISPSYS_OVL0_BASE;
+	case DISP_MODULE_OVL1:
+		return DISPSYS_OVL1_BASE;
 	case DISP_MODULE_OVL0_2L:
 		return DISPSYS_OVL0_2L_BASE;
+	case DISP_MODULE_OVL1_2L:
+		return DISPSYS_OVL1_2L_BASE;
+	case DISP_MODULE_OVL2_2L:
+		return DISPSYS_OVL2_2L_BASE;
+	case DISP_MODULE_OVL3_2L:
+		return DISPSYS_OVL3_2L_BASE;
 	default:
 		DDPERR("invalid ovl module=%d\n", module);
 		return -1;
@@ -88,12 +98,16 @@ static inline unsigned long ovl_layer_num(enum DISP_MODULE_ENUM module)
 {
 	switch (module) {
 	case DISP_MODULE_OVL0:
+	case DISP_MODULE_OVL1:
 #ifndef CONFIG_MTK_ROUND_CORNER_SUPPORT
 		return 4;
 #else
 		return 3;
 #endif
 	case DISP_MODULE_OVL0_2L:
+	case DISP_MODULE_OVL1_2L:
+	case DISP_MODULE_OVL2_2L:
+	case DISP_MODULE_OVL3_2L:
 		return 2;
 	default:
 		DDPERR("invalid ovl module=%d\n", module);
@@ -771,8 +785,22 @@ int ovl_connect(enum DISP_MODULE_ENUM module, enum DISP_MODULE_ENUM prev,
 			DISP_REG_SET_FIELD(handle, FLD_CON_OVL0_2L,
 				DISP_REG_CONFIG_MMSYS_OVL_CON, 0x2);
 			break;
+		case DISP_MODULE_OVL1:
+			DISP_REG_SET_FIELD(handle, FLD_CON_OVL1,
+				DISP_REG_CONFIG_MMSYS_OVL_CON, 0x2);
+			break;
+		case DISP_MODULE_OVL1_2L:
+			DISP_REG_SET_FIELD(handle, FLD_CON_OVL1_2L,
+				DISP_REG_CONFIG_MMSYS_OVL_CON, 0x2);
+			break;
+		case DISP_MODULE_OVL2_2L:
+			break;
+		case DISP_MODULE_OVL3_2L:
+			DISP_REG_SET_FIELD(handle, FLD_CON_OVL3_2L,
+				DISP_REG_CONFIG_MMSYS_OVL_CON, 0x2);
+			break;
 		default:
-			DDPERR("invalid module=%d\n", module);// invalid module
+			DDPERR("invalid module2=%d\n", module);// invalid module
 			ASSERT(0);
 		}
 	} else {
@@ -785,8 +813,23 @@ int ovl_connect(enum DISP_MODULE_ENUM module, enum DISP_MODULE_ENUM prev,
 			DISP_REG_SET_FIELD(handle, FLD_CON_OVL0_2L,
 				DISP_REG_CONFIG_MMSYS_OVL_CON, 0x1);
 			break;
+		case DISP_MODULE_OVL1:
+			DISP_REG_SET_FIELD(handle, FLD_CON_OVL1,
+				DISP_REG_CONFIG_MMSYS_OVL_CON, 0x1);
+			break;
+		case DISP_MODULE_OVL1_2L:
+			DISP_REG_SET_FIELD(handle, FLD_CON_OVL1_2L,
+				DISP_REG_CONFIG_MMSYS_OVL_CON, 0x1);
+			break;
+		case DISP_MODULE_OVL2_2L:
+			break;
+		case DISP_MODULE_OVL3_2L:
+			DISP_REG_SET_FIELD(handle, FLD_CON_OVL3_2L,
+				DISP_REG_CONFIG_MMSYS_OVL_CON, 0x1);
+			break;
+
 		default:
-			DDPERR("invalid module=%d\n", module);// invalid module
+			DDPERR("invalid module2=%d\n", module);// invalid module
 			ASSERT(0);
 		}
 	}

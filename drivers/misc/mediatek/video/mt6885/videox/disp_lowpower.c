@@ -660,7 +660,7 @@ void _primary_display_enable_mmsys_clk(void)
 	 * BUT session mode may change in primary_display_switch_mode()
 	 */
 	ddp_disconnect_path(DDP_SCENARIO_PRIMARY_ALL, NULL);
-	ddp_disconnect_path(DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP, NULL);
+	ddp_disconnect_path(DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP0, NULL);
 
 	dpmgr_path_connect(primary_get_dpmgr_handle(), CMDQ_DISABLE);
 	if (primary_display_is_decouple_mode())

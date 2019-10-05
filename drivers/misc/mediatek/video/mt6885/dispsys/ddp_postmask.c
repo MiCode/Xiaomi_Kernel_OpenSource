@@ -37,7 +37,7 @@ unsigned long postmask_base_addr(enum DISP_MODULE_ENUM module)
 {
 	switch (module) {
 	case DISP_MODULE_POSTMASK0:
-		return DISPSYS_POSTMASK_BASE;
+		return DISPSYS_POSTMASK0_BASE;
 	default:
 		DDPERR("invalid postmask module=%d\n", module);
 		return -1;
