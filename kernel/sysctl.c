@@ -509,6 +509,15 @@ static struct ctl_table kern_table[] = {
 		.extra1		= &one,
 	},
 #endif
+#ifdef CONFIG_SCHED_TUNE
+	{
+		.procname	= "sched_stune_task_threshold",
+		.data		= &stune_task_threshold,
+		.maxlen		= sizeof(stune_task_threshold),
+		.mode		= 0644,
+		.proc_handler   = &sched_stune_task_threshold_handler,
+	},
+#endif
 #ifdef CONFIG_PROVE_LOCKING
 	{
 		.procname	= "prove_locking",
