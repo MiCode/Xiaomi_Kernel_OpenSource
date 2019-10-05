@@ -70,11 +70,44 @@ enum apu_qos_engine {
 	NR_APU_QOS_ENGINE
 };
 
+enum mni_int_sta {
+	MNOC_INT_MNI_QOS_IRQ_FLAG,
+	MNOC_INT_ADDR_DEC_ERR_FLAG,
+	MNOC_INT_MST_PARITY_ERR_FLAG,
+	MNOC_INT_MST_MISRO_ERR_FLAG,
+	MNOC_INT_MST_CRDT_ERR_FLAG,
+
+	NR_MNI_INT_STA
+};
+
+enum sni_int_sta {
+	MNOC_INT_SLV_PARITY_ERR_FLA,
+	MNOC_INT_SLV_MISRO_ERR_FLAG,
+	MNOC_INT_SLV_CRDT_ERR_FLAG,
+
+	NR_SNI_INT_STA
+};
+
+enum rt_int_sta {
+	MNOC_INT_REQRT_MISRO_ERR_FLAG,
+	MNOC_INT_RSPRT_MISRO_ERR_FLAG,
+	MNOC_INT_REQRT_TO_ERR_FLAG,
+	MNOC_INT_RSPRT_TO_ERR_FLAG,
+	MNOC_INT_REQRT_CBUF_ERR_FLAG,
+	MNOC_INT_RSPRT_CBUF_ERR_FLAG,
+	MNOC_INT_REQRT_CRDT_ERR_FLAG,
+	MNOC_INT_RSPRT_CRDT_ERR_FLAG,
+
+	NR_RT_INT_STA
+};
+
 #define NR_APU_ENGINE_VPU (3)
 #define NR_APU_ENGINE_MDLA (2)
 #define NR_APU_ENGINE_EDMA (2)
 
 #define NR_MNOC_RT (5)
+#define NR_MNOC_MNI (16)
+#define NR_MNOC_SNI (16)
 #define NR_MNOC_PMU_CNTR (16)
 
 /* 0x1906E000 */
@@ -98,6 +131,9 @@ enum apu_qos_engine {
 #define APU_NOC_TOP_ADDR			(0x1906E000)
 #define APU_NOC_TOP_RANGE			(0x2000)
 
+#define APU_NOC_PMU_ADDR			(0x1906E200)
+#define APU_NOC_PMU_RANGE			(0x48C)
+
 #define MNI_QOS_CTRL_BASE (APU_NOC_TOP_BASEADDR + 0x1000)
 #define MNI_QOS_INFO_BASE (APU_NOC_TOP_BASEADDR + 0x1800)
 #define MNI_QOS_REG(base, reg_num, mni_offset) \
@@ -107,30 +143,34 @@ enum apu_qos_engine {
 #define RSP_RT_PMU_BASE (APU_NOC_TOP_BASEADDR + 0x600)
 #define MNOC_RT_PMU_REG(base, reg_num, rt_num)	(base + reg_num*5*4 + rt_num*4)
 
-#define MNI_QOS_IRQ_FLAG (APU_NOC_TOP_BASEADDR + 0x18)
-#define ADDR_DEC_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x30)
-#define MST_PARITY_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x38)
-#define SLV_PARITY_ERR_FLA (APU_NOC_TOP_BASEADDR + 0x3C)
-#define MST_MISRO_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x40)
-#define SLV_MISRO_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x44)
-#define REQRT_MISRO_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x48)
-#define RSPRT_MISRO_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x4C)
-#define REQRT_TO_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x50)
-#define RSPRT_TO_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x54)
-#define REQRT_CBUF_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x188)
-#define RSPRT_CBUF_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x18C)
-#define MST_CRDT_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x190)
-#define SLV_CRDT_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x194)
-#define REQRT_CRDT_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x198)
-#define RSPRT_CRDT_ERR_FLAG (APU_NOC_TOP_BASEADDR + 0x19C)
+#define MNI_QOS_IRQ_FLAG (0x18)
+#define ADDR_DEC_ERR_FLAG (0x30)
+#define MST_PARITY_ERR_FLAG (0x38)
+#define SLV_PARITY_ERR_FLA (0x3C)
+#define MST_MISRO_ERR_FLAG (0x40)
+#define SLV_MISRO_ERR_FLAG (0x44)
+#define REQRT_MISRO_ERR_FLAG (0x48)
+#define RSPRT_MISRO_ERR_FLAG (0x4C)
+#define REQRT_TO_ERR_FLAG (0x50)
+#define RSPRT_TO_ERR_FLAG (0x54)
+#define REQRT_CBUF_ERR_FLAG (0x188)
+#define RSPRT_CBUF_ERR_FLAG (0x18C)
+#define MST_CRDT_ERR_FLAG (0x190)
+#define SLV_CRDT_ERR_FLAG (0x194)
+#define REQRT_CRDT_ERR_FLAG (0x198)
+#define RSPRT_CRDT_ERR_FLAG (0x19C)
+
+#define MNOC_INT_STA_REG(offset) (APU_NOC_TOP_BASEADDR + offset)
 
 #define PMU_COUNTER0_OUT (APU_NOC_TOP_BASEADDR + 0x240)
 
-void mnoc_qos_reg_init(void);
-void mnoc_reg_init(void);
+#define QG_LT_THL_PRE_ULTRA (0x1FFF)
+#define QG_LT_THH_PRE_ULTRA (0x1FFF)
+
 bool mnoc_check_int_status(void);
 int apusys_dev_to_core_id(int dev_type, int dev_core);
 void mnoc_get_pmu_counter(unsigned int *buf);
 void mnoc_tcm_hash_set(unsigned int sel, unsigned int en0, unsigned int en1);
+void mnoc_hw_reinit(void);
 
 #endif

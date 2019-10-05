@@ -159,10 +159,9 @@ static void mnoc_apusys_top_after_pwr_on(void *para)
 
 	LOG_DEBUG("+\n");
 
-	infra2apu_sram_en();
-	mnoc_reg_init();
-	mnoc_qos_reg_init();
 	mnoc_pmu_reg_init();
+	infra2apu_sram_en();
+	mnoc_hw_reinit();
 	notify_sspm_apusys_on();
 
 	spin_lock_irqsave(&mnoc_spinlock, flags);
@@ -220,7 +219,13 @@ static int mnoc_probe(struct platform_device *pdev)
 	struct device_node *node, *sub_node;
 	struct platform_device *sub_pdev;
 
+	mnoc_reg_valid = false;
+	mnoc_log_level = 0;
+
 	LOG_DEBUG("+\n");
+
+	if (!apusys_power_check())
+		return 0;
 
 	/* make sure apusys_power driver initiallized before
 	 * calling apu_power_callback_device_register
@@ -238,9 +243,6 @@ static int mnoc_probe(struct platform_device *pdev)
 			 sub_node->full_name);
 		return -EPROBE_DEFER;
 	}
-
-	mnoc_reg_valid = false;
-	mnoc_log_level = 0;
 
 	create_debugfs();
 	spin_lock_init(&mnoc_spinlock);
@@ -289,15 +291,15 @@ static int mnoc_probe(struct platform_device *pdev)
 
 static int mnoc_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	apu_qos_suspend();
-	mnoc_pmu_suspend();
+	/* apu_qos_suspend(); */
+	/* mnoc_pmu_suspend(); */
 	return 0;
 }
 
 static int mnoc_resume(struct platform_device *pdev)
 {
-	apu_qos_resume();
-	mnoc_pmu_resume();
+	/* apu_qos_resume(); */
+	/* mnoc_pmu_resume(); */
 	return 0;
 }
 
@@ -309,6 +311,9 @@ static int mnoc_remove(struct platform_device *pdev)
 	struct device_node *node = NULL;
 
 	LOG_DEBUG("+\n");
+
+	if (!apusys_power_check())
+		return 0;
 
 	remove_debugfs();
 	apu_qos_counter_destroy();

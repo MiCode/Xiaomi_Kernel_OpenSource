@@ -46,5 +46,7 @@ extern bool mnoc_reg_valid;
 
 extern int mnoc_log_level;
 
+void infra2apu_sram_en(void);
+void infra2apu_sram_dis(void);
 
 #endif

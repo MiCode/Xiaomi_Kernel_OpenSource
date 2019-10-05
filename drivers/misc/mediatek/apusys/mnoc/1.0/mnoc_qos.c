@@ -70,8 +70,8 @@ struct engine_pm_qos_counter {
 };
 
 struct cmd_qos {
-	unsigned long long cmd_id;
-	unsigned long long sub_cmd_id;
+	uint64_t cmd_id;
+	uint64_t sub_cmd_id;
 	unsigned int core;
 	unsigned int status; /* running/blocked */
 
@@ -188,8 +188,8 @@ static int update_cmd_qos_list(struct qos_bound *qos_info)
 	return 0;
 }
 
-static int enque_cmd_qos(unsigned long long cmd_id,
-	unsigned long long sub_cmd_id, int core)
+static int enque_cmd_qos(uint64_t cmd_id,
+	uint64_t sub_cmd_id, int core)
 {
 	struct qos_counter *counter = &qos_counter;
 	struct qos_bound *qos_info = NULL;
@@ -409,13 +409,94 @@ static void apu_qos_timer_end(void)
 }
 
 /*
+ * called when apusys enter suspend
+ */
+void apu_qos_suspend(void)
+{
+	struct qos_counter *counter = &qos_counter;
+	struct cmd_qos *pos;
+	struct qos_bound *qos_info = NULL;
+
+	LOG_DEBUG("+\n");
+
+	/* get qos information */
+	qos_info = get_qos_bound();
+	if (qos_info == NULL) {
+		LOG_ERR("get info fail\n");
+		return;
+	}
+
+	mutex_lock(&counter->list_mtx);
+
+	/* no need to do suspend if no cmd exist */
+	if (list_empty(&counter->list)) {
+		mutex_unlock(&counter->list_mtx);
+		return;
+	}
+
+	apu_qos_timer_end();
+
+	list_for_each_entry(pos, &counter->list, list) {
+		/* update running cmd to latest state before enter suspend */
+		if (pos->status == CMD_RUNNING)
+			update_cmd_qos(qos_info, pos);
+	}
+
+	mutex_unlock(&counter->list_mtx);
+
+	LOG_DEBUG("-\n");
+}
+
+/*
+ * called when apusys resume
+ */
+void apu_qos_resume(void)
+{
+	struct qos_counter *counter = &qos_counter;
+	struct cmd_qos *pos;
+	struct qos_bound *qos_info = NULL;
+
+	LOG_DEBUG("+\n");
+
+	/* get qos information */
+	qos_info = get_qos_bound();
+	if (qos_info == NULL) {
+		LOG_ERR("get info fail\n");
+		return;
+	}
+
+	mutex_lock(&counter->list_mtx);
+
+	/* no need to do suspend if no cmd exist */
+	if (list_empty(&counter->list)) {
+		mutex_unlock(&counter->list_mtx);
+		return;
+	}
+
+	list_for_each_entry(pos, &counter->list, list) {
+		if (pos->status == CMD_RUNNING) {
+			/* update last_idx to current pm qos idx */
+			mutex_lock(&pos->mtx);
+			pos->last_idx = qos_info->idx;
+			mutex_unlock(&pos->mtx);
+		}
+	}
+
+	apu_qos_timer_start();
+
+	mutex_unlock(&counter->list_mtx);
+
+	LOG_DEBUG("-\n");
+}
+
+/*
  * enque cmd to qos_counter's linked list
  * assume maximum preemption level = 1
  * 1. if list is empty before enqueue, start qos timer
  * 2. if core already running cmd means preemption happen
  *    -> status from CMD_RUNNING to CMD_BLOCKED
  */
-int apu_cmd_qos_start(unsigned long long cmd_id, unsigned long long sub_cmd_id,
+int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 	int dev_type, int dev_core)
 {
 	struct qos_counter *counter = &qos_counter;
@@ -512,92 +593,11 @@ int apu_cmd_qos_start(unsigned long long cmd_id, unsigned long long sub_cmd_id,
 EXPORT_SYMBOL(apu_cmd_qos_start);
 
 /*
- * called when apusys enter suspend
- */
-void apu_qos_suspend(void)
-{
-	struct qos_counter *counter = &qos_counter;
-	struct cmd_qos *pos;
-	struct qos_bound *qos_info = NULL;
-
-	LOG_DEBUG("+\n");
-
-	/* get qos information */
-	qos_info = get_qos_bound();
-	if (qos_info == NULL) {
-		LOG_ERR("get info fail\n");
-		return;
-	}
-
-	mutex_lock(&counter->list_mtx);
-
-	/* no need to do suspend if no cmd exist */
-	if (list_empty(&counter->list)) {
-		mutex_unlock(&counter->list_mtx);
-		return;
-	}
-
-	apu_qos_timer_end();
-
-	list_for_each_entry(pos, &counter->list, list) {
-		/* update running cmd to latest state before enter suspend */
-		if (pos->status == CMD_RUNNING)
-			update_cmd_qos(qos_info, pos);
-	}
-
-	mutex_unlock(&counter->list_mtx);
-
-	LOG_DEBUG("-\n");
-}
-
-/*
- * called when apusys resume
- */
-void apu_qos_resume(void)
-{
-	struct qos_counter *counter = &qos_counter;
-	struct cmd_qos *pos;
-	struct qos_bound *qos_info = NULL;
-
-	LOG_DEBUG("+\n");
-
-	/* get qos information */
-	qos_info = get_qos_bound();
-	if (qos_info == NULL) {
-		LOG_ERR("get info fail\n");
-		return;
-	}
-
-	mutex_lock(&counter->list_mtx);
-
-	/* no need to do suspend if no cmd exist */
-	if (list_empty(&counter->list)) {
-		mutex_unlock(&counter->list_mtx);
-		return;
-	}
-
-	list_for_each_entry(pos, &counter->list, list) {
-		if (pos->status == CMD_RUNNING) {
-			/* update last_idx to current pm qos idx */
-			mutex_lock(&pos->mtx);
-			pos->last_idx = qos_info->idx;
-			mutex_unlock(&pos->mtx);
-		}
-	}
-
-	apu_qos_timer_start();
-
-	mutex_unlock(&counter->list_mtx);
-
-	LOG_DEBUG("-\n");
-}
-
-/*
  * suspend cmd due to preemption
  * set cmd status from CMD_RUNNING to CMD_BLOCKED
  */
-int apu_cmd_qos_suspend(unsigned long long cmd_id,
-	unsigned long long sub_cmd_id)
+int apu_cmd_qos_suspend(uint64_t cmd_id,
+	uint64_t sub_cmd_id)
 {
 	struct qos_counter *counter = &qos_counter;
 	struct cmd_qos *cmd_qos = NULL, *pos;
@@ -670,7 +670,7 @@ EXPORT_SYMBOL(apu_cmd_qos_suspend);
  * 2. if core has bloked cmd means cmd's going to resume
  *    -> status from CMD_BLOCKED to CMD_RUNNING
  */
-int apu_cmd_qos_end(unsigned long long cmd_id, unsigned long long sub_cmd_id)
+int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 {
 	struct qos_counter *counter = &qos_counter;
 	struct cmd_qos *cmd_qos = NULL, *pos;
@@ -872,13 +872,6 @@ void notify_sspm_apusys_off(void)
 {
 }
 
-int apu_cmd_qos_start(unsigned long long cmd_id, unsigned long long sub_cmd_id,
-	int dev_type, int dev_core)
-{
-	return 0;
-}
-EXPORT_SYMBOL(apu_cmd_qos_start);
-
 void apu_qos_suspend(void)
 {
 }
@@ -887,14 +880,21 @@ void apu_qos_resume(void)
 {
 }
 
-int apu_cmd_qos_suspend(unsigned long long cmd_id,
-	unsigned long long sub_cmd_id)
+int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
+	int dev_type, int dev_core)
+{
+	return 0;
+}
+EXPORT_SYMBOL(apu_cmd_qos_start);
+
+int apu_cmd_qos_suspend(uint64_t cmd_id,
+	uint64_t sub_cmd_id)
 {
 	return 0;
 }
 EXPORT_SYMBOL(apu_cmd_qos_suspend);
 
-int apu_cmd_qos_end(unsigned long long cmd_id, unsigned long long sub_cmd_id)
+int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 {
 	return 0;
 }

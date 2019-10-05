@@ -26,32 +26,93 @@
 #include "mnoc_hw.h"
 #include "mnoc_drv.h"
 
+static const char * const mni_int_sta_string[] = {
+	"MNI_QOS_IRQ_FLAG",
+	"ADDR_DEC_ERR_FLAG",
+	"MST_PARITY_ERR_FLAG",
+	"MST_MISRO_ERR_FLAG",
+	"MST_CRDT_ERR_FLAG",
+};
 
-int apusys_dev_to_core_id(int dev_type, int dev_core)
-{
-	int ret = -1;
+static const char * const sni_int_sta_string[] = {
+	"SLV_PARITY_ERR_FLA",
+	"SLV_MISRO_ERR_FLAG",
+	"SLV_CRDT_ERR_FLAG",
+};
 
-	switch (dev_type) {
-	case APUSYS_DEVICE_VPU:
-		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_VPU)
-			ret = dev_core;
-		break;
-	case APUSYS_DEVICE_MDLA:
-		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_MDLA)
-			ret = NR_APU_ENGINE_VPU + dev_core;
-		break;
-	case APUSYS_DEVICE_EDMA:
-		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_EDMA)
-			ret = NR_APU_ENGINE_VPU + NR_APU_ENGINE_MDLA + dev_core;
-		break;
-	default:
-		ret = -1;
-		break;
-	}
+static const char * const rt_int_sta_string[] = {
+	"REQRT_MISRO_ERR_FLAG",
+	"RSPRT_MISRO_ERR_FLAG",
+	"REQRT_TO_ERR_FLAG",
+	"RSPRT_TO_ERR_FLAG",
+	"REQRT_CBUF_ERR_FLAG",
+	"RSPRT_CBUF_ERR_FLAG",
+	"REQRT_CRDT_ERR_FLAG",
+	"RSPRT_CRDT_ERR_FLAG",
+};
 
-	return ret;
-}
+static const char * const mni_map_string[] = {
+	"MNI_MDLA0_0",
+	"MNI_MDLA0_1",
+	"MNI_MDLA1_0",
+	"MNI_MDLA1_1",
+	"MNI_ADL",
+	"MNI_XPU",
+	"MNI_VPU0",
+	"MNI_EDMA_0",
+	"MNI_EDMA_1",
+	"MNI_NONE",
+	"MNI_VPU1",
+	"MNI_VPU2",
+	"MNI_MD32",
+	"MNI_NONE",
+	"MNI_NONE",
+	"MNI_NONE",
+};
 
+static const char * const sni_map_string[] = {
+	"SNI_TCM0",
+	"SNI_TCM1",
+	"SNI_TCM2",
+	"SNI_TCM3",
+	"SNI_EMI2",
+	"SNI_EMI3",
+	"SNI_EMI0",
+	"SNI_EMI1",
+	"SNI_VPU0",
+	"SNI_EXT",
+	"SNI_VPU1",
+	"SNI_VPU2",
+	"SNI_NONE",
+	"SNI_MD32",
+	"SNI_NONE",
+	"SNI_NONE",
+};
+
+static const unsigned int mni_int_sta_offset[NR_MNI_INT_STA] = {
+	MNI_QOS_IRQ_FLAG,
+	ADDR_DEC_ERR_FLAG,
+	MST_PARITY_ERR_FLAG,
+	MST_MISRO_ERR_FLAG,
+	MST_CRDT_ERR_FLAG,
+};
+
+static const unsigned int sni_int_sta_offset[NR_SNI_INT_STA] = {
+	SLV_PARITY_ERR_FLA,
+	SLV_MISRO_ERR_FLAG,
+	SLV_CRDT_ERR_FLAG,
+};
+
+static const unsigned int rt_int_sta_offset[NR_RT_INT_STA] = {
+	REQRT_MISRO_ERR_FLAG,
+	RSPRT_MISRO_ERR_FLAG,
+	REQRT_TO_ERR_FLAG,
+	RSPRT_TO_ERR_FLAG,
+	REQRT_CBUF_ERR_FLAG,
+	RSPRT_CBUF_ERR_FLAG,
+	REQRT_CRDT_ERR_FLAG,
+	RSPRT_CRDT_ERR_FLAG,
+};
 
 /**
  * MNI offset 0 -> MNI05_QOS_CTRL0
@@ -83,14 +144,42 @@ int apusys_dev_to_core_id(int dev_type, int dev_core)
  */
 static char mni_map[NR_APU_QOS_MNI] = {6, 10, 11, 0, 1, 2, 3, 7, 8, 12};
 
+static bool arr_mni_pre_ultra[NR_APU_QOS_MNI] = {0};
+static bool arr_mni_lt_guardian_pre_ultra[NR_APU_QOS_MNI] = {0};
+
+
+int apusys_dev_to_core_id(int dev_type, int dev_core)
+{
+	int ret = -1;
+
+	switch (dev_type) {
+	case APUSYS_DEVICE_VPU:
+		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_VPU)
+			ret = dev_core;
+		break;
+	case APUSYS_DEVICE_MDLA:
+		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_MDLA)
+			ret = NR_APU_ENGINE_VPU + dev_core;
+		break;
+	case APUSYS_DEVICE_EDMA:
+		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_EDMA)
+			ret = NR_APU_ENGINE_VPU + NR_APU_ENGINE_MDLA + dev_core;
+		break;
+	default:
+		ret = -1;
+		break;
+	}
+
+	return ret;
+}
 
 /* register to apusys power on callback */
-void mnoc_qos_reg_init(void)
+static void mnoc_qos_reg_init(void)
 {
 	int i;
 	unsigned long flags;
 
-	LOG_DEBUG("%s enter\n", __func__);
+	LOG_DEBUG("+\n");
 
 	spin_lock_irqsave(&mnoc_spinlock, flags);
 
@@ -140,11 +229,11 @@ void mnoc_qos_reg_init(void)
 
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
-	LOG_DEBUG("%s exit\n", __func__);
+	LOG_DEBUG("-\n");
 }
 
 /* register to apusys power on callback */
-void mnoc_reg_init(void)
+static void mnoc_reg_init(void)
 {
 	int i;
 	unsigned long flags;
@@ -196,128 +285,64 @@ bool mnoc_check_int_status(void)
 {
 	unsigned long flags;
 	bool mnoc_irq_triggered = false;
+	unsigned int val;
+	int int_idx, ni_idx;
 
 	LOG_DEBUG("+\n");
 
 	spin_lock_irqsave(&mnoc_spinlock, flags);
 
 	/* prevent register access if apusys power off */
-	if (!mnoc_reg_valid)
+	if (!mnoc_reg_valid) {
+		spin_unlock_irqrestore(&mnoc_spinlock, flags);
 		return mnoc_irq_triggered;
-
-	if (mnoc_read_field(MNI_QOS_IRQ_FLAG, 15:0) != 0) {
-		LOG_ERR("MNI_QOS_IRQ_FLAG = 0x%x\n",
-			mnoc_read(MNI_QOS_IRQ_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(MNI_QOS_IRQ_FLAG, 15:0, 0xFFFF);
-		mnoc_irq_triggered = true;
-	}
-	if (mnoc_read_field(ADDR_DEC_ERR_FLAG, 15:0) != 0) {
-		LOG_ERR("ADDR_DEC_ERR_FLAG = 0x%x\n",
-			mnoc_read(ADDR_DEC_ERR_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(ADDR_DEC_ERR_FLAG, 15:0, 0xFFFF);
-		mnoc_irq_triggered = true;
-	}
-	if (mnoc_read_field(MST_PARITY_ERR_FLAG, 15:0) != 0) {
-		LOG_ERR("MST_PARITY_ERR_FLAG = 0x%x\n",
-			mnoc_read(MST_PARITY_ERR_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(MST_PARITY_ERR_FLAG, 15:0, 0xFFFF);
-		mnoc_irq_triggered = true;
-	}
-	if (mnoc_read_field(SLV_PARITY_ERR_FLA, 15:0) != 0) {
-		LOG_ERR("SLV_PARITY_ERR_FLA = 0x%x\n",
-			mnoc_read(SLV_PARITY_ERR_FLA));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(SLV_PARITY_ERR_FLA, 15:0, 0xFFFF);
-		mnoc_irq_triggered = true;
-	}
-	if (mnoc_read_field(MST_MISRO_ERR_FLAG, 15:0) != 0) {
-		LOG_ERR("MST_MISRO_ERR_FLAG = 0x%x\n",
-			mnoc_read(MST_MISRO_ERR_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(MST_MISRO_ERR_FLAG, 15:0, 0xFFFF);
-		mnoc_irq_triggered = true;
-	}
-	if (mnoc_read_field(SLV_MISRO_ERR_FLAG, 15:0) != 0) {
-		LOG_ERR("SLV_MISRO_ERR_FLAG = 0x%x\n",
-			mnoc_read(SLV_MISRO_ERR_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(SLV_MISRO_ERR_FLAG, 15:0, 0xFFFF);
-		mnoc_irq_triggered = true;
 	}
 
-	if (mnoc_read_field(REQRT_MISRO_ERR_FLAG, 4:0) != 0) {
-		LOG_ERR("REQRT_MISRO_ERR_FLAG = 0x%x\n",
-			mnoc_read(REQRT_MISRO_ERR_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(REQRT_MISRO_ERR_FLAG, 4:0, 0x1F);
-		mnoc_irq_triggered = true;
-	}
-	if (mnoc_read_field(RSPRT_MISRO_ERR_FLAG, 4:0) != 0) {
-		LOG_ERR("RSPRT_MISRO_ERR_FLAG = 0x%x\n",
-			mnoc_read(RSPRT_MISRO_ERR_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(RSPRT_MISRO_ERR_FLAG, 4:0, 0x1F);
-		mnoc_irq_triggered = true;
-	}
-	if (mnoc_read_field(REQRT_TO_ERR_FLAG, 4:0) != 0) {
-		LOG_ERR("REQRT_TO_ERR_FLAG = 0x%x\n",
-			mnoc_read(REQRT_TO_ERR_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(REQRT_TO_ERR_FLAG, 4:0, 0x1F);
-		mnoc_irq_triggered = true;
-	}
-	if (mnoc_read_field(RSPRT_TO_ERR_FLAG, 4:0) != 0) {
-		LOG_ERR("RSPRT_TO_ERR_FLAG = 0x%x\n",
-			mnoc_read(RSPRT_TO_ERR_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(RSPRT_TO_ERR_FLAG, 4:0, 0x1F);
-		mnoc_irq_triggered = true;
+	for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
+		val = mnoc_read(MNOC_INT_STA_REG(mni_int_sta_offset[int_idx]));
+		if ((val & 0xFFFF) != 0) {
+			LOG_ERR("%s = 0x%x\n",
+				mni_int_sta_string[int_idx], val);
+			for (ni_idx = 0; ni_idx < NR_MNOC_MNI; ni_idx++)
+				if ((val & (1 << ni_idx)) != 0)
+					LOG_ERR("From %s\n",
+						mni_map_string[ni_idx]);
+			mnoc_write_field(
+				MNOC_INT_STA_REG(mni_int_sta_offset[int_idx]),
+				15:0, 0xFFFF);
+			mnoc_irq_triggered = true;
+		}
 	}
 
-	if (mnoc_read_field(REQRT_CBUF_ERR_FLAG, 4:0) != 0) {
-		LOG_ERR("REQRT_CBUF_ERR_FLAG = 0x%x\n",
-			mnoc_read(REQRT_CBUF_ERR_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(REQRT_CBUF_ERR_FLAG, 4:0, 0x1F);
-		mnoc_irq_triggered = true;
+	for (int_idx = 0; int_idx < NR_SNI_INT_STA; int_idx++) {
+		val = mnoc_read(MNOC_INT_STA_REG(sni_int_sta_offset[int_idx]));
+		if ((val & 0xFFFF) != 0) {
+			LOG_ERR("%s = 0x%x\n",
+				sni_int_sta_string[int_idx], val);
+			for (ni_idx = 0; ni_idx < NR_MNOC_SNI; ni_idx++)
+				if ((val & (1 << ni_idx)) != 0)
+					LOG_ERR("From %s\n",
+						sni_map_string[ni_idx]);
+			mnoc_write_field(
+				MNOC_INT_STA_REG(sni_int_sta_offset[int_idx]),
+				15:0, 0xFFFF);
+			mnoc_irq_triggered = true;
+		}
 	}
-	if (mnoc_read_field(RSPRT_CBUF_ERR_FLAG, 4:0) != 0) {
-		LOG_ERR("RSPRT_CBUF_ERR_FLAG = 0x%x\n",
-			mnoc_read(RSPRT_CBUF_ERR_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(RSPRT_CBUF_ERR_FLAG, 4:0, 0x1F);
-		mnoc_irq_triggered = true;
-	}
-	if (mnoc_read_field(MST_CRDT_ERR_FLAG, 15:0) != 0) {
-		LOG_ERR("MST_CRDT_ERR_FLAG = 0x%x\n",
-			mnoc_read(MST_CRDT_ERR_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(MST_CRDT_ERR_FLAG, 15:0, 0xFFFF);
-		mnoc_irq_triggered = true;
-	}
-	if (mnoc_read_field(SLV_CRDT_ERR_FLAG, 15:0) != 0) {
-		LOG_ERR("SLV_CRDT_ERR_FLAG = 0x%x\n",
-			mnoc_read(SLV_CRDT_ERR_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(SLV_CRDT_ERR_FLAG, 15:0, 0xFFFF);
-		mnoc_irq_triggered = true;
-	}
-	if (mnoc_read_field(REQRT_CRDT_ERR_FLAG, 4:0) != 0) {
-		LOG_ERR("REQRT_CRDT_ERR_FLAG = 0x%x\n",
-			mnoc_read(REQRT_CRDT_ERR_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(REQRT_CRDT_ERR_FLAG, 4:0, 0x1F);
-		mnoc_irq_triggered = true;
-	}
-	if (mnoc_read_field(RSPRT_CRDT_ERR_FLAG, 4:0) != 0) {
-		LOG_ERR("RSPRT_CRDT_ERR_FLAG = 0x%x\n",
-			mnoc_read(RSPRT_CRDT_ERR_FLAG));
-		/* clear interrupt (W1C) */
-		mnoc_write_field(RSPRT_CRDT_ERR_FLAG, 4:0, 0x1F);
-		mnoc_irq_triggered = true;
+
+	for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
+		val = mnoc_read(MNOC_INT_STA_REG(rt_int_sta_offset[int_idx]));
+		if ((val & 0x1F) != 0) {
+			LOG_ERR("%s = 0x%x\n",
+				rt_int_sta_string[int_idx], val);
+			for (ni_idx = 0; ni_idx < NR_MNOC_RT; ni_idx++)
+				if ((val & (1 << ni_idx)) != 0)
+					LOG_ERR("From RT %d\n", ni_idx);
+			mnoc_write_field(
+				MNOC_INT_STA_REG(rt_int_sta_offset[int_idx]),
+				4:0, 0x1F);
+			mnoc_irq_triggered = true;
+		}
 	}
 
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
@@ -360,4 +385,206 @@ void mnoc_tcm_hash_set(unsigned int sel, unsigned int en0, unsigned int en1)
 		mnoc_read(APU_TCM_HASH_TRUNCATE_CTRL0));
 
 	LOG_DEBUG("-\n");
+}
+
+static void set_mni_pre_ultra_locked(unsigned int idx, bool endis)
+{
+	unsigned int map, val;
+
+	LOG_DEBUG("+\n");
+
+	/* bit 24 : force AW urgent enable
+	 * bit 25 : force AR urgent enable
+	 * bit 29 : AW pre-urgent value
+	 * bit 31 : AR pre-urgent value
+	 */
+	map = (1 << 24) | (1 << 25) | (1 << 29) | (1 << 31);
+
+	val = mnoc_read(MNI_QOS_REG(MNI_QOS_CTRL_BASE,
+		15, mni_map[idx]));
+	if (endis)
+		mnoc_write(MNI_QOS_REG(MNI_QOS_CTRL_BASE,
+			15, mni_map[idx]), (val | map));
+	else
+		mnoc_write(MNI_QOS_REG(MNI_QOS_CTRL_BASE,
+			15, mni_map[idx]), (val & (~map)));
+
+	LOG_DEBUG("-\n");
+}
+
+void mnoc_set_mni_pre_ultra(int dev_type, int dev_core, bool endis)
+{
+	unsigned long flags;
+	unsigned int idx;
+	int core;
+
+	LOG_DEBUG("+\n");
+
+	core = apusys_dev_to_core_id(dev_type, dev_core);
+
+	if (core == -1) {
+		LOG_ERR("illegal dev_type(%d), dev_core(%d)\n",
+			dev_type, dev_core);
+		return;
+	}
+
+	spin_lock_irqsave(&mnoc_spinlock, flags);
+
+	switch (core) {
+	case APU_QOS_ENGINE_VPU0:
+	case APU_QOS_ENGINE_VPU1:
+	case APU_QOS_ENGINE_VPU2:
+		idx = core;
+		arr_mni_pre_ultra[idx] = endis;
+		if (mnoc_reg_valid)
+			set_mni_pre_ultra_locked(idx, endis);
+		break;
+	case APU_QOS_ENGINE_MDLA0:
+	case APU_QOS_ENGINE_MDLA1:
+		idx = (core - APU_QOS_ENGINE_MDLA0) * 2 + MNI_MDLA0_0;
+		arr_mni_pre_ultra[idx] = endis;
+		arr_mni_pre_ultra[idx+1] = endis;
+		if (mnoc_reg_valid) {
+			set_mni_pre_ultra_locked(idx, endis);
+			set_mni_pre_ultra_locked(idx+1, endis);
+		}
+		break;
+	case APU_QOS_ENGINE_EDMA0:
+	case APU_QOS_ENGINE_EDMA1:
+	case APU_QOS_ENGINE_MD32:
+		idx = core - APU_QOS_ENGINE_EDMA0 + MNI_EDMA0;
+		arr_mni_pre_ultra[idx] = endis;
+		if (mnoc_reg_valid)
+			set_mni_pre_ultra_locked(idx, endis);
+		break;
+	default:
+		break;
+	}
+
+	spin_unlock_irqrestore(&mnoc_spinlock, flags);
+
+	LOG_DEBUG("-\n");
+}
+
+static void set_lt_guardian_pre_ultra_locked(unsigned int idx, bool endis)
+{
+	LOG_DEBUG("+\n");
+
+	if (endis) {
+		/* set QG_LT_THH */
+		mnoc_write_field(
+			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 20, mni_map[idx]),
+			12:0, QG_LT_THH_PRE_ULTRA);
+		/* set QG_LT_THL */
+		mnoc_write_field(
+			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 20, mni_map[idx]),
+			28:16, QG_LT_THL_PRE_ULTRA);
+		/* set QCC_LT_LV_DIS[3:0] = 4’b0001 */
+		mnoc_write_field(
+			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 29, mni_map[idx]),
+			11:8, 0x1);
+		/* set STM mode QCC_LT_TH_MODE = 1 */
+		mnoc_write_field(
+			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 29, mni_map[idx]),
+			16:16, 0x1);
+		/* set QCC_TOP_URGENT_EN = 0 */
+		mnoc_write_field(
+			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 29, mni_map[idx]),
+			19:19, 0x0);
+	} else {
+		/* set QG_LT_THH */
+		mnoc_write_field(
+			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 20, mni_map[idx]),
+			12:0, 0x0);
+		/* set QG_LT_THL */
+		mnoc_write_field(
+			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 20, mni_map[idx]),
+			28:16, 0x0);
+		/* set QCC_LT_LV_DIS[3:0] = 4’b0001 */
+		mnoc_write_field(
+			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 29, mni_map[idx]),
+			11:8, 0x0);
+		/* set STM mode QCC_LT_TH_MODE = 1 */
+		mnoc_write_field(
+			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 29, mni_map[idx]),
+			16:16, 0x0);
+		/* set QCC_TOP_URGENT_EN = 0 */
+		mnoc_write_field(
+			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 29, mni_map[idx]),
+			19:19, 0x1);
+	}
+
+	LOG_DEBUG("-\n");
+}
+
+void mnoc_set_lt_guardian_pre_ultra(int dev_type, int dev_core, bool endis)
+{
+	unsigned long flags;
+	unsigned int idx;
+	int core;
+
+	LOG_DEBUG("+\n");
+
+	core = apusys_dev_to_core_id(dev_type, dev_core);
+
+	if (core == -1) {
+		LOG_ERR("illegal dev_type(%d), dev_core(%d)\n",
+			dev_type, dev_core);
+		return;
+	}
+
+	spin_lock_irqsave(&mnoc_spinlock, flags);
+
+	switch (core) {
+	case APU_QOS_ENGINE_VPU0:
+	case APU_QOS_ENGINE_VPU1:
+	case APU_QOS_ENGINE_VPU2:
+		idx = core;
+		arr_mni_lt_guardian_pre_ultra[idx] = endis;
+		if (mnoc_reg_valid)
+			set_lt_guardian_pre_ultra_locked(idx, endis);
+		break;
+	case APU_QOS_ENGINE_MDLA0:
+	case APU_QOS_ENGINE_MDLA1:
+		idx = (core - APU_QOS_ENGINE_MDLA0) * 2 + MNI_MDLA0_0;
+		arr_mni_lt_guardian_pre_ultra[idx] = endis;
+		arr_mni_lt_guardian_pre_ultra[idx+1] = endis;
+		if (mnoc_reg_valid) {
+			set_lt_guardian_pre_ultra_locked(idx, endis);
+			set_lt_guardian_pre_ultra_locked(idx+1, endis);
+		}
+		break;
+	case APU_QOS_ENGINE_EDMA0:
+	case APU_QOS_ENGINE_EDMA1:
+	case APU_QOS_ENGINE_MD32:
+		idx = core - APU_QOS_ENGINE_EDMA0 + MNI_EDMA0;
+		arr_mni_lt_guardian_pre_ultra[idx] = endis;
+		if (mnoc_reg_valid)
+			set_lt_guardian_pre_ultra_locked(idx, endis);
+		break;
+	default:
+		break;
+	}
+
+	spin_unlock_irqrestore(&mnoc_spinlock, flags);
+
+	LOG_DEBUG("-\n");
+}
+
+void mnoc_hw_reinit(void)
+{
+	unsigned long flags;
+	int idx;
+
+	mnoc_qos_reg_init();
+	mnoc_reg_init();
+
+	spin_lock_irqsave(&mnoc_spinlock, flags);
+	for (idx = 0; idx < NR_APU_QOS_MNI; idx++) {
+		if (arr_mni_pre_ultra[idx])
+			set_mni_pre_ultra_locked(idx, 1);
+		if (arr_mni_lt_guardian_pre_ultra[idx])
+			set_lt_guardian_pre_ultra_locked(idx, 1);
+	}
+	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 }

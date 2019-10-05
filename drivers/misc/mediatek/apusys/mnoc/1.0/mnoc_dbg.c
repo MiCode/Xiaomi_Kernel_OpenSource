@@ -187,10 +187,10 @@ static ssize_t mnoc_pmu_reg_write(struct file *file,
 		&mnoc_value) == 3) {
 		if (mnoc_rw != 'w' && mnoc_rw != 'W')
 			goto out;
-		if (mnoc_addr_phy < APU_NOC_TOP_ADDR ||
+		if (mnoc_addr_phy < APU_NOC_PMU_ADDR ||
 			mnoc_addr_phy >=
-			(APU_NOC_TOP_ADDR + APU_NOC_TOP_RANGE)) {
-			LOG_DEBUG("Reg[%08X] not in mnoc reg map\n",
+			(APU_NOC_PMU_ADDR + APU_NOC_PMU_RANGE)) {
+			LOG_DEBUG("Reg[%08X] not in pmu reg map\n",
 				mnoc_addr_phy);
 		} else {
 			addr = (void *) ((uintptr_t) mnoc_base +
@@ -279,8 +279,8 @@ static ssize_t mnoc_cmd_qos_start_write(struct file *file,
 
 	if (sscanf(buf, "%d %d %d %d", &cmd_id, &sub_cmd_id,
 		&dev_type, &devcore) == 4)
-		apu_cmd_qos_start((unsigned long long) cmd_id,
-			(unsigned long long) sub_cmd_id, dev_type, devcore);
+		apu_cmd_qos_start((uint64_t) cmd_id,
+			(uint64_t) sub_cmd_id, dev_type, devcore);
 
 out:
 	free_page((unsigned long)buf);
@@ -314,8 +314,8 @@ static ssize_t mnoc_cmd_qos_suspend_write(struct file *file,
 	buf[count] = '\0';
 
 	if (sscanf(buf, "%d %d", &cmd_id, &sub_cmd_id) == 2)
-		apu_cmd_qos_suspend((unsigned long long) cmd_id,
-			(unsigned long long) sub_cmd_id);
+		apu_cmd_qos_suspend((uint64_t) cmd_id,
+			(uint64_t) sub_cmd_id);
 
 out:
 	free_page((unsigned long)buf);
@@ -349,8 +349,47 @@ static ssize_t mnoc_cmd_qos_end_write(struct file *file,
 	buf[count] = '\0';
 
 	if (sscanf(buf, "%d %d", &cmd_id, &sub_cmd_id) == 2)
-		apu_cmd_qos_end((unsigned long long) cmd_id,
-			(unsigned long long) sub_cmd_id);
+		apu_cmd_qos_end((uint64_t) cmd_id,
+			(uint64_t) sub_cmd_id);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+}
+
+static int mnoc_tcm_endis_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "0x10001E98 = 0x%08X\n",
+		mnoc_read(mnoc_slp_prot_base1 + 0xE98));
+	return 0;
+}
+
+static ssize_t mnoc_tcm_endis_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	char *buf = (char *) __get_free_page(GFP_USER);
+	unsigned int endis;
+	unsigned char mnoc_tcm;
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
+
+	if (sscanf(buf, "%1s %d", &mnoc_tcm, &endis) == 2) {
+		if (mnoc_tcm != 't' && mnoc_tcm != 'T')
+			goto out;
+		if (endis == 1)
+			infra2apu_sram_en();
+		else if (endis == 0)
+			infra2apu_sram_dis();
+	}
 
 out:
 	free_page((unsigned long)buf);
@@ -417,6 +456,7 @@ DBG_FOPS_RW(mnoc_pmu_timer_en);
 DBG_FOPS_RW(mnoc_cmd_qos_start);
 DBG_FOPS_RW(mnoc_cmd_qos_suspend);
 DBG_FOPS_RW(mnoc_cmd_qos_end);
+DBG_FOPS_RW(mnoc_tcm_endis);
 #endif
 DBG_FOPS_RO(mnoc_cmd_qos_dump);
 
@@ -443,6 +483,7 @@ int create_debugfs(void)
 	CREATE_DBGFS(mnoc_cmd_qos_start);
 	CREATE_DBGFS(mnoc_cmd_qos_suspend);
 	CREATE_DBGFS(mnoc_cmd_qos_end);
+	CREATE_DBGFS(mnoc_tcm_endis);
 #endif
 	CREATE_DBGFS(mnoc_cmd_qos_dump);
 
