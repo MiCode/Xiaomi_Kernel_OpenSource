@@ -467,6 +467,28 @@ config MTK_TIMER
 	help
 	  Support for Mediatek timer driver.
 
+config MTK_TIMER_SYSTIMER
+	bool "Mediatek sys-timer driver" if COMPILE_TEST
+	depends on GENERIC_CLOCKEVENTS && HAS_IOMEM && !MTK_TIEMR
+	select CLKSRC_OF
+	select CLKSRC_MMIO
+	help
+	  This enables support for
+	  Mediatek sys-timer driver used
+	  as clock event for tick broadcast.
+	  Only sys-timer0 will be activated.
+
+config MTK_TIMER_V1
+	bool "Mediatek timer driver v1" if COMPILE_TEST
+	depends on GENERIC_CLOCKEVENTS && HAS_IOMEM && !MTK_TIEMR
+	select CLKSRC_OF
+	select CLKSRC_MMIO
+	help
+	  Support for Mediatek gpt timer driver.
+	  used for tick broadcast.
+	  resolve some issue that gpt interrupt masked.
+	  add important debug info.
+
 config SYS_SUPPORTS_SH_MTU2
         bool
 
