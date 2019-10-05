@@ -2638,6 +2638,7 @@ static void __mt_gpufreq_init_table(void)
 		g_segment_max_opp_idx = 3;
 	*/
 	g_segment_max_opp_idx = 0;
+	g_segment_min_opp_idx = num - 1;
 
 	g_opp_table = kzalloc((num) * sizeof(*opp_table), GFP_KERNEL);
 
@@ -2656,9 +2657,6 @@ static void __mt_gpufreq_init_table(void)
 				opp_table[i].gpufreq_volt,
 				opp_table[i].gpufreq_vsram);
 	}
-
-	//FIXME
-	g_segment_min_opp_idx = 36;
 
 	g_max_opp_idx_num = num;
 	g_max_limited_idx = g_segment_max_opp_idx;
