@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -10,3 +10,18 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
+
+#ifdef CONFIG_MTK_SCHED_BOOST
+/* For multi-scheduling boost support */
+enum {
+	SCHED_NO_BOOST = 0,
+	SCHED_ALL_BOOST,
+	SCHED_FG_BOOST,
+	SCHED_UNKNOWN_BOOST
+};
+
+extern void set_user_space_global_cpuset
+		(struct cpumask *global_cpus, int cgroup_id);
+extern void unset_user_space_global_cpuset(int cgroup_id);
+extern int sched_scheduler_switch(enum SCHED_LB_TYPE new_sched);
+#endif

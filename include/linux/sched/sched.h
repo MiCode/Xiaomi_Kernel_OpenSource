@@ -102,4 +102,21 @@ static inline unsigned int hmp_cpu_is_slowest(int cpu) { return false; }
 
 extern unsigned long capacity_curr_of(int cpu);
 
+/* For multi-scheudling support */
+enum SCHED_LB_TYPE {
+	SCHED_HMP_LB = 0,
+	SCHED_EAS_LB,
+	SCHED_HYBRID_LB,
+	SCHED_UNKNOWN_LB
+};
+
+#ifdef CONFIG_MTK_SCHED_BOOST
+extern bool sched_boost(void);
+#else
+static inline bool sched_boost(void)
+{
+	return 0;
+}
+#endif
+
 #endif
