@@ -22,7 +22,11 @@
 long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 		  unsigned long arg, int from_kernel);
 
+#if 0 /* workaround */
 void smp_inner_dcache_flush_all(void);
+#else
+#define smp_inner_dcache_flush_all(...)
+#endif
 
 #ifdef CONFIG_MTK_CACHE_FLUSH_RANGE_PARALLEL
 int mt_smp_cache_flush(struct sg_table *table,
