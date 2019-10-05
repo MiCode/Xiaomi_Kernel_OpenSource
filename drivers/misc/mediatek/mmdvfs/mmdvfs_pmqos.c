@@ -1548,6 +1548,12 @@ static void mmdvfs_get_larb_node(struct device *dev, u32 larb_id)
 	struct property *prop;
 	char larb_name[MAX_LARB_NAME];
 
+	if (larb_id >= MAX_LARB_COUNT) {
+		pr_notice("larb_id:%d is over MAX_LARB_COUNT:%d\n",
+			larb_id, MAX_LARB_COUNT);
+		return;
+	}
+
 	snprintf(larb_name, MAX_LARB_NAME, "larb%d", larb_id);
 	of_property_for_each_u32(dev->of_node, larb_name, prop, p, value) {
 		if (count >= MAX_PORT_COUNT) {
