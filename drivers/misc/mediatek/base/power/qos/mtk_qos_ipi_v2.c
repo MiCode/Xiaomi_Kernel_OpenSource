@@ -15,6 +15,7 @@
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #include <sspm_ipi_id.h>
+#include <sspm_define.h>
 #endif
 
 #include "mtk_qos_bound.h"
@@ -62,12 +63,19 @@ int qos_ipi_to_sspm_command(void *buffer, int slot)
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	int ret;
 	struct qos_ipi_data *qos_ipi_d = buffer;
+	int slot_num = sizeof(struct qos_ipi_data)/SSPM_MBOX_SLOT_SIZE;
 
 	qos_ipi_ackdata = 0;
 
+	if (slot > slot_num) {
+		pr_info("qos ipi cmd %d req slot error(%d > %d)\n",
+			qos_ipi_d->cmd, slot, slot_num);
+		goto error;
+	}
+
 	ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_QOS,
 		IPI_SEND_POLLING, buffer,
-		slot, 10);
+		slot_num, 10);
 	if (ret) {
 		pr_info("qos ipi cmd %d send fail,ret=%d\n",
 		qos_ipi_d->cmd, ret);
