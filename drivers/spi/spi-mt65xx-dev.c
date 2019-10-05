@@ -61,8 +61,6 @@ static struct mtk_chip_config mtk_test_chip_info = {
 	.cs_setuptime = 0,
 	.cs_holdtime = 0,
 	.cs_idletime = 0,
-	.cs_hightime = 0,
-	.cs_lowtime = 0,
 };
 
 #define SPI_CFG0_REG                      0x0000
