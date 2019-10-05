@@ -134,7 +134,7 @@ CONFIG_CUSTOM_KERNEL_SIGNIFICANT_MOTION,PROJECT,weiqi.fu,new config in this comm
 CONFIG_CUSTOM_KERNEL_SITUATION,PROJECT,jy.lan,,,,,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_STEP_COUNTER,PROJECT,yucong.xiong,new config in this commit a1a78f1763fbee529159f277816c062515ac238e,,,,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_TILT_DETECTOR_SENSOR,PROJECT,qiangming.xia,,,,,,,,,,,,,,
-CONFIG_MTK_SENSOR_ARCHITECTURE,PROJECT,hongxu.zhao,,,,,,,,,
+CONFIG_MTK_SENSOR_ARCHITECTURE,PROJECT,hongxu.zhao,,,,,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_UNCALI_ACC_SENSOR,PROJECT,zhichao.liu,,,,,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_UNCALI_GYRO_SENSOR,PROJECT,weiqi.fu,new config in this commit 6cf72299191fe832dffff96cd9233bcf981b52a0,,,,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_UNCALI_MAG_SENSOR,PROJECT,weiqi.fu,new config in this commit 6cf72299191fe832dffff96cd9233bcf981b52a0,,,,,,,,,,,,,
@@ -1071,3 +1071,4 @@ CONFIG_ZSM,PROJECT,Robbin.Chiu,new config 84a52cb60725192d8ae0c80b58c363c35484cf
 CONFIG_ZSMALLOC,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_SLBC,PLATFORM,Morven-CF.Yeh,,X,X,X,X,X,X,X,X,X,y,y,y,y
 CONFIG_MTK_SLBC_MMSRAM,PLATFORM,Morven-CF.Yeh,,X,X,X,X,X,X,X,X,X,y,y,y,y
+CONFIG_MTK_QOS_V2,PROJECT,Howard.Hsu,,,,,,,,,,,,,,
