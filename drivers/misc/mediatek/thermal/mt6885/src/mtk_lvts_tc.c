@@ -280,11 +280,11 @@ int diff_error_count;
 
 #if CFG_THERM_LVTS
 #define DEFAULT_EFUSE_GOLDEN_TEMP		(50)
-#define DEFAULT_EFUSE_COUNT			(350000)
-#define DEFAULT_EFUSE_COUNT_RC			(350000)
+#define DEFAULT_EFUSE_COUNT			(35000)
+#define DEFAULT_EFUSE_COUNT_RC			(2750)
 #define FAKE_EFUSE_VALUE			0x2B048500
-#define LVTS_COEFF_A_X_1000			(-212830)
-#define LVTS_COEFF_B_X_1000			 (212830)
+#define LVTS_COEFF_A_X_1000			(-252500)
+#define LVTS_COEFF_B_X_1000			 (252500)
 #endif
 
 /*=============================================================

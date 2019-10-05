@@ -929,12 +929,12 @@ int get_io_reg_base(void)
 
 	/*get thermal irq num */
 	thermal_mcu_irq_number = irq_of_parse_and_map(node, 1);
-	tscpu_printk("[THERM_CTRL] mcu_irq_num = %d, irq_num = %d\n",
-				thermal_mcu_irq_number, thermal_irq_number);
-	if (!thermal_irq_number) {
+	tscpu_printk("[THERM_CTRL] mcu_irq_num = %d\n",
+				thermal_mcu_irq_number);
+	if (!thermal_mcu_irq_number) {
 		/*TODO: need check "irq number"*/
 		tscpu_printk("[THERM_CTRL] get irqnr failed=%d\n",
-				thermal_irq_number);
+				thermal_mcu_irq_number);
 		return 0;
 	}
 
