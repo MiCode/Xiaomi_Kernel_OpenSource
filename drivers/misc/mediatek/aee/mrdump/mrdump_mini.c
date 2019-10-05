@@ -960,6 +960,7 @@ static void __init mrdump_mini_elf_header_init(void)
 	if (mrdump_mini_ehdr == NULL) {
 		LOGE("mrdump mini reserve buffer fail");
 		mrdump_mini_fatal("header null pointer");
+		return;
 	}
 	memset_io(mrdump_mini_ehdr, 0, MRDUMP_MINI_HEADER_SIZE +
 			sizeof(struct aee_process_info));
