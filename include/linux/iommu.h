@@ -26,11 +26,18 @@
 #include <linux/err.h>
 #include <linux/of.h>
 
+#ifdef CONFIG_MTK_IOMMU_V2
+#define IOMMU_DEBUG_ENABLED
+#endif
+
 #define IOMMU_READ	(1 << 0)
 #define IOMMU_WRITE	(1 << 1)
 #define IOMMU_CACHE	(1 << 2) /* DMA cache coherency */
 #define IOMMU_NOEXEC	(1 << 3)
 #define IOMMU_MMIO	(1 << 4) /* e.g. things like MSI doorbells */
+#ifdef CONFIG_MTK_IOMMU_V2
+#define IOMMU_ACP	(1 << 5)
+#endif
 /*
  * Where the bus hardware includes a privilege level as part of its access type
  * markings, and certain devices are capable of issuing transactions marked as

@@ -15,9 +15,9 @@
 #define MTK_M4U_ID(larb, port)	(((larb) << 5) | (port))
 
 /* Local arbiter ID */
-#define MTK_M4U_TO_LARB(id)	(((id) >> 5) & 0xf)
+#define MTK_IOMMU_TO_LARB(id)	(((id) >> 5) & 0xf)
 /* PortID within the local arbiter */
-#define MTK_M4U_TO_PORT(id)	((id) & 0x1f)
+#define MTK_IOMMU_TO_PORT(id)	((id) & 0x1f)
 
 /* larb0 -- 13*/
 #define M4U_PORT_L0_DISP_POSTMASK0	MTK_M4U_ID(0, 0)
@@ -288,17 +288,18 @@
 #define M4U_PORT_L22_CCU_DISP  MTK_M4U_ID(22, 0)
 #define M4U_PORT_L23_CCU_MDP  MTK_M4U_ID(23, 0)
 #define M4U_PORT_UNKNOWN	(M4U_PORT_L23_CCU_MDP + 1)
+#define M4U_PORT_APU	(M4U_PORT_L21_APU_FAKE_DATA)
+#define M4U_PORT_CCU	(M4U_PORT_L23_CCU_MDP)
 #define M4U_PORT_NR (246)
 
 /* 6, 10, 12, 15 is not applied for IOMMU*/
 #define MTK_IOMMU_LARB_NR	(24)
 /* for pusedo ccu device */
-#define MISC_PSEUDO_LARBID_MDP (MTK_IOMMU_LARB_NR + 1)
-#define MISC_PSEUDO_LARBID_DISP (MTK_IOMMU_LARB_NR + 2)
+#define CCU_PSEUDO_LARBID_DISP (MTK_IOMMU_LARB_NR + 1)
+#define CCU_PSEUDO_LARBID_MDP (MTK_IOMMU_LARB_NR + 2)
 #define APU_PSEUDO_LARBID_CODE (MTK_IOMMU_LARB_NR + 3)
 #define APU_PSEUDO_LARBID_DATA (MTK_IOMMU_LARB_NR + 4)
-#define CCU_PSEUDO_LARBID_MDP (MTK_IOMMU_LARB_NR + 5)
-#define CCU_PSEUDO_LARBID_DISP (MTK_IOMMU_LARB_NR + 6)
+#define MISC_PSEUDO_LARBID_DISP (MTK_IOMMU_LARB_NR + 5)
 
 #ifdef CONFIG_MTK_IOMMU_PGTABLE_EXT
 #define MTK_IOVA_ADDR_BITS 34
@@ -307,5 +308,25 @@
 #define MTK_IOVA_ADDR_BITS 32
 #define MTK_PHYS_ADDR_BITS 34
 #endif
+
+#ifdef CONFIG_FPGA_EARLY_PORTING
+#define MTK_IOMMU_M4U_COUNT (1)
+#else
+#define MTK_IOMMU_M4U_COUNT (4)
+#endif
+#define MTK_IOMMU_DEBUG_REG_NR   (6)
+#define MTK_IOMMU_WAY_NR   (4)
+#define MTK_IOMMU_RS_COUNT	(16)
+#define MTK_IOMMU_MMU_COUNT	(2)
+#define MTK_IOMMU_TAG_COUNT	(64)
+#define MTK_IOMMU_BANK_COUNT	(5)
+#define MTK_IOMMU_MAU_COUNT	(1)
+#define MTK_MMU_NUM_OF_IOMMU(m4u_id)	MTK_IOMMU_MMU_COUNT
+#define MTK_MAU_NUM_OF_MMU(mmu_id)	MTK_IOMMU_MAU_COUNT
+#define MMU_PAGE_PER_LINE     (8)
+#define MTK_IOMMU_LARB_CODEC_MIN (4)
+#define MTK_IOMMU_LARB_CODEC_MAX (11)
+#define MTK_IOMMU_IOVA_BOUNDARY_COUNT \
+(1 << (CONFIG_MTK_IOMMU_PGTABLE_EXT - 32))
 
 #endif

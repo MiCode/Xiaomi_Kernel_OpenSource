@@ -22,7 +22,11 @@
 #include <linux/kthread.h>
 #include <linux/uaccess.h>
 
+#ifdef CONFIG_MTK_M4U
 #include <m4u.h>
+#else
+#include "mach/mt_iommu.h"
+#endif
 
 #include "vpu_dbg.h"
 #include "vpu_drv.h"

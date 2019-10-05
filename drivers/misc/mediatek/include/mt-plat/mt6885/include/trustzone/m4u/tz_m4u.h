@@ -14,7 +14,11 @@
 #define __TZ_M4U_H__
 
 /* #include "drStd.h" */
+#ifdef CONFIG_MTK_PSEUDO_M4U
+#include "mach/mt_iommu.h"
+#else
 #include "m4u_port.h"
+#endif
 
 #if defined(__cplusplus)
 extern "C" {

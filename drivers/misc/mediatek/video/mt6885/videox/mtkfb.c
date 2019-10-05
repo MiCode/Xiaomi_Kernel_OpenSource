@@ -197,7 +197,6 @@ static void mtkfb_late_resume(void);
 static void mtkfb_early_suspend(void);
 #endif
 
-
 void mtkfb_log_enable(int enable)
 {
 	mtkfb_log_on = enable;
@@ -2710,7 +2709,7 @@ static int mtkfb_probe(struct platform_device *pdev)
 #endif
 
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
-		primary_display_diagnose();
+		primary_display_diagnose(__func__, __LINE__);
 
 
 	/* this function will get fb_heap base address to ion

@@ -50,8 +50,10 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
-#ifdef COFNIG_MTK_IOMMU
+#ifdef CONFIG_MTK_IOMMU
 #include <mtk_iommu.h>
+#elif defined(CONFIG_MTK_IOMMU_V2)
+#include <mach/mt_iommu.h>
 #else
 #include <m4u.h>
 #endif

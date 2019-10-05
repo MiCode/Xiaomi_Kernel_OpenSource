@@ -32,8 +32,11 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
+#ifdef CONFIG_MTK_M4U
 #include <m4u.h>
-
+#else
+#include "mach/mt_iommu.h"
+#endif
 #include <ion.h>
 #include <mtk/ion_drv.h>
 #include <mtk/mtk_ion.h>
@@ -166,13 +169,21 @@ static const struct file_operations vpu_fops = {
 /*---------------------------------------------------------------------------*/
 /* M4U: fault callback                                                       */
 /*---------------------------------------------------------------------------*/
+#ifdef CONFIG_MTK_M4U
 enum m4u_callback_ret_t vpu_m4u_fault_callback(int port,
 	unsigned int mva, void *data)
 {
 	LOG_DBG("[m4u] fault callback: port=%d, mva=0x%x", port, mva);
 	return M4U_CALLBACK_HANDLED;
 }
-
+#else
+enum mtk_iommu_callback_ret_t vpu_m4u_fault_callback(int port, unsigned int mva,
+	void *data)
+{
+	LOG_DBG("[m4u] fault callback: port=%d, mva=0x%x", port, mva);
+	return MTK_IOMMU_CALLBACK_HANDLED;
+}
+#endif
 /*---------------------------------------------------------------------------*/
 /*                                                                           */
 /*---------------------------------------------------------------------------*/
@@ -1532,8 +1543,14 @@ static int __init VPU_INIT(void)
 
 	/* Register M4U callback */
 	LOG_DBG("register m4u callback");
+#ifdef CONFIG_MTK_M4U
 	m4u_register_fault_callback(VPU_PORT_OF_IOMMU,
 				vpu_m4u_fault_callback, NULL);
+#else
+	mtk_iommu_register_fault_callback(VPU_PORT_OF_IOMMU,
+			vpu_m4u_fault_callback,
+			NULL);
+#endif
 
 	LOG_DBG("platform_driver_register start\n");
 	if (platform_driver_register(&vpu_driver)) {
@@ -1553,7 +1570,11 @@ static void __exit VPU_EXIT(void)
 	kfree(vpu_device);
 	/* Un-Register M4U callback */
 	LOG_DBG("un-register m4u callback");
+#ifdef CONFIG_MTK_M4U
 	m4u_unregister_fault_callback(VPU_PORT_OF_IOMMU);
+#else
+	mtk_iommu_unregister_fault_callback(VPU_PORT_OF_IOMMU);
+#endif
 }
 
 module_init(VPU_INIT);
