@@ -157,11 +157,11 @@ struct drm_mtk_layer_config {
 };
 
 struct drm_mtk_layering_info {
-	struct drm_mtk_layer_config *input_config[2];
-	int disp_mode[2];
-	int layer_num[2];
-	int gles_head[2];
-	int gles_tail[2];
+	struct drm_mtk_layer_config *input_config[3];
+	int disp_mode[3];
+	int layer_num[3];
+	int gles_head[3];
+	int gles_tail[3];
 	int hrt_num;
 	/* res_idx: SF/HWC selects which resolution to use */
 	int res_idx;

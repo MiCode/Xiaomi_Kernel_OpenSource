@@ -60,19 +60,23 @@ static int larb_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
  * primary and secondary display.Each table has 16 elements which
  * represent the layer mapping rule by the number of input layers.
  */
-static uint16_t layer_mapping_table[HRT_TB_NUM] = {0x0003, 0x007E, 0x007A};
+static uint16_t layer_mapping_table[HRT_TB_NUM] = {
+	0x0003, 0x007E, 0x007A, 0x0001
+};
 
 /**
  * The larb mapping table represent the relation between LARB and OVL.
  */
-static uint16_t larb_mapping_table[HRT_TB_NUM] = {0x0001, 0x0010, 0x0010};
+static uint16_t larb_mapping_table[HRT_TB_NUM] = {
+	0x0001, 0x0010, 0x0010, 0x0001
+};
 
 /**
  * The OVL mapping table is used to get the OVL index of correcponding layer.
  * The bit value 1 means the position of the last layer in OVL engine.
  */
 static uint16_t ovl_mapping_table[HRT_TB_NUM] = {
-	0x0002, 0x0045, 0x0045,
+	0x0002, 0x0045, 0x0045, 0x0001
 };
 
 #define GET_SYS_STATE(sys_state)                                               \
@@ -84,26 +88,34 @@ static void layering_rule_senario_decision(unsigned int scn_decision_flag,
 /*TODO: need MMP support*/
 #if 0
 	mmprofile_log_ex(ddp_mmp_get_events()->hrt, MMPROFILE_FLAG_START,
-			 l_rule_info.addon_scn, l_rule_info.layer_tb_idx |
+			 l_rule_info.addon_scn[0], l_rule_info.layer_tb_idx |
 			 (l_rule_info.bound_tb_idx << 16));
 #endif
 	l_rule_info.primary_fps = 60;
 	l_rule_info.bound_tb_idx = HRT_BOUND_TYPE_LP4;
 
-	if (scn_decision_flag & NEED_GAME_PQ)
-		l_rule_info.addon_scn = GAME_PQ;
-	else if (scn_decision_flag & NEED_VP_PQ)
-		l_rule_info.addon_scn = VP_PQ;
+	if (scn_decision_flag & SCN_NEED_GAME_PQ)
+		l_rule_info.addon_scn[HRT_PRIMARY] = GAME_PQ;
+	else if (scn_decision_flag & SCN_NEED_VP_PQ)
+		l_rule_info.addon_scn[HRT_PRIMARY] = VP_PQ;
 	else if (scale_num == 1)
-		l_rule_info.addon_scn = ONE_SCALING;
+		l_rule_info.addon_scn[HRT_PRIMARY] = ONE_SCALING;
 	else if (scale_num == 2)
-		l_rule_info.addon_scn = TWO_SCALING;
+		l_rule_info.addon_scn[HRT_PRIMARY] = TWO_SCALING;
 	else
-		l_rule_info.addon_scn = NONE;
+		l_rule_info.addon_scn[HRT_PRIMARY] = NONE;
+
+	if (scn_decision_flag & SCN_TRIPLE_DISP) {
+		l_rule_info.addon_scn[HRT_SECONDARY] = TRIPLE_DISP;
+		l_rule_info.addon_scn[HRT_THIRD] = TRIPLE_DISP;
+	} else {
+		l_rule_info.addon_scn[HRT_SECONDARY] = NONE;
+		l_rule_info.addon_scn[HRT_THIRD] = NONE;
+	}
 /*TODO: need MMP support*/
 #if 0
 	mmprofile_log_ex(ddp_mmp_get_events()->hrt, MMPROFILE_FLAG_END,
-			 l_rule_info.addon_scn, l_rule_info.layer_tb_idx |
+			 l_rule_info.addon_scn[0], l_rule_info.layer_tb_idx |
 			 (l_rule_info.bound_tb_idx << 16));
 #endif
 }
@@ -116,7 +128,7 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 	unsigned int yuv_cnt;
 
 	/* ovl support total 2 yuv layer */
-	for (disp_idx = 0; disp_idx < 2; disp_idx++) {
+	for (disp_idx = 0 ; disp_idx < HRT_TYPE_NUM ; disp_idx++) {
 		yuv_cnt = 0;
 		for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
 			info = &(disp_info->input_config[disp_idx][i]);
@@ -132,23 +144,24 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 	}
 }
 
-static bool filter_by_sec_display(struct drm_mtk_layering_info *disp_info)
+static void filter_2nd_display(struct drm_mtk_layering_info *disp_info)
 {
-	bool flag = false;
-	unsigned int i, layer_cnt = 0;
+	unsigned int i, j, layer_cnt = 0;
 
-	for (i = 0; i < disp_info->layer_num[HRT_SECONDARY]; i++) {
-		if (mtk_is_gles_layer(disp_info, HRT_SECONDARY, i))
-			continue;
+	for (i = HRT_SECONDARY; i < HRT_TYPE_NUM; i++) {
+		unsigned int max_layer_cnt = SECONDARY_OVL_LAYER_NUM;
 
-		layer_cnt++;
-		if (layer_cnt > SECONDARY_OVL_LAYER_NUM) {
-			mtk_rollback_layer_to_GPU(disp_info, HRT_SECONDARY, i);
-			flag = false;
+		if (is_triple_disp(disp_info) && i == HRT_SECONDARY)
+			max_layer_cnt = 1;
+		for (j = 0; j < disp_info->layer_num[i]; j++) {
+			if (mtk_is_gles_layer(disp_info, i, j))
+				continue;
+
+			layer_cnt++;
+			if (layer_cnt > max_layer_cnt)
+				mtk_rollback_layer_to_GPU(disp_info, i, j);
 		}
 	}
-
-	return flag;
 }
 
 static bool is_ovl_wcg(enum mtk_drm_dataspace ds)
@@ -194,7 +207,7 @@ static bool is_ovl_standard(struct drm_device *dev, enum mtk_drm_dataspace ds)
 static void filter_by_wcg(struct drm_device *dev,
 			  struct drm_mtk_layering_info *disp_info)
 {
-	unsigned int i = 0;
+	unsigned int i, j;
 	struct drm_mtk_layer_config *c;
 
 	for (i = 0; i < disp_info->layer_num[HRT_PRIMARY]; i++) {
@@ -206,15 +219,16 @@ static void filter_by_wcg(struct drm_device *dev,
 		mtk_rollback_layer_to_GPU(disp_info, HRT_PRIMARY, i);
 	}
 
-	for (i = 0; i < disp_info->layer_num[HRT_SECONDARY]; i++) {
-		c = &disp_info->input_config[HRT_SECONDARY][i];
-		if (!is_ovl_wcg(c->dataspace) &&
-		    (is_ovl_standard(dev, c->dataspace) ||
-		     mtk_has_layer_cap(c, MTK_MDP_HDR_LAYER)))
-			continue;
+	for (i = HRT_SECONDARY; i < HRT_TYPE_NUM; i++)
+		for (j = 0; j < disp_info->layer_num[i]; j++) {
+			c = &disp_info->input_config[i][j];
+			if (!is_ovl_wcg(c->dataspace) &&
+			    (is_ovl_standard(dev, c->dataspace) ||
+			     mtk_has_layer_cap(c, MTK_MDP_HDR_LAYER)))
+				continue;
 
-		mtk_rollback_layer_to_GPU(disp_info, HRT_SECONDARY, i);
-	}
+			mtk_rollback_layer_to_GPU(disp_info, i, j);
+		}
 }
 
 static bool can_be_compress(uint32_t format)
@@ -227,7 +241,7 @@ static bool can_be_compress(uint32_t format)
 
 static void filter_by_fbdc(struct drm_mtk_layering_info *disp_info)
 {
-	unsigned int i = 0;
+	unsigned int i, j;
 	struct drm_mtk_layer_config *c;
 
 	/* primary: check fmt */
@@ -243,19 +257,19 @@ static void filter_by_fbdc(struct drm_mtk_layering_info *disp_info)
 	}
 
 	/* secondary: rollback all */
-	for (i = 0; i < disp_info->layer_num[HRT_SECONDARY]; i++) {
-		c = &(disp_info->input_config[HRT_SECONDARY][i]);
+	for (i = HRT_SECONDARY; i < HRT_TYPE_NUM; i++)
+		for (j = 0; j < disp_info->layer_num[i]; j++) {
+			c = &(disp_info->input_config[i][j]);
 
-		if (!c->compress)
-			continue;
+			if (!c->compress ||
+				mtk_is_gles_layer(disp_info, i, j))
+				continue;
 
-		/* if the layer is already gles layer, do not set NO_FBDC to
-		 * reduce BW access
-		 */
-		if (mtk_is_gles_layer(disp_info, HRT_SECONDARY, i) == false)
-			mtk_rollback_compress_layer_to_GPU(disp_info,
-							   HRT_SECONDARY, i);
-	}
+			/* if the layer is already gles layer,
+			 * do not set NO_FBDC to reduce BW access
+			 */
+			mtk_rollback_compress_layer_to_GPU(disp_info, i, j);
+		}
 }
 
 static bool filter_by_hw_limitation(struct drm_device *dev,
@@ -267,7 +281,8 @@ static bool filter_by_hw_limitation(struct drm_device *dev,
 
 	filter_by_yuv_layers(disp_info);
 
-	flag |= filter_by_sec_display(disp_info);
+	/* Is this nessasary? */
+	filter_2nd_display(disp_info);
 
 	return flag;
 }
@@ -335,8 +350,10 @@ static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 
 	drm_for_each_crtc(crtc, dev) {
 		if (drm_crtc_index(crtc) == disp_idx) {
-			addon_data = mtk_addon_get_scenario_data(
-				__func__, crtc, l_rule_info.addon_scn);
+			addon_data =
+				mtk_addon_get_scenario_data(__func__,
+					crtc,
+					l_rule_info.addon_scn[disp_idx]);
 			break;
 		}
 	}

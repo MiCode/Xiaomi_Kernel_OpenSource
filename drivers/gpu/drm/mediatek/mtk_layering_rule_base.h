@@ -60,6 +60,8 @@
 enum HRT_DISP_TYPE {
 	HRT_PRIMARY = 0,
 	HRT_SECONDARY,
+	HRT_THIRD,
+	HRT_TYPE_NUM,
 };
 
 enum HRT_DEBUG_LAYER_DATA {
@@ -128,7 +130,7 @@ struct hrt_sort_entry {
 
 struct layering_rule_info_t {
 	int bound_tb_idx;
-	int addon_scn;
+	int addon_scn[HRT_TYPE_NUM];
 	int dal_enable;
 	int primary_fps;
 	int hrt_sys_state;
@@ -137,8 +139,9 @@ struct layering_rule_info_t {
 };
 
 enum SCN_FACTOR {
-	NEED_VP_PQ = 0x00000001,
-	NEED_GAME_PQ = 0x00000002,
+	SCN_NEED_VP_PQ = 0x00000001,
+	SCN_NEED_GAME_PQ = 0x00000002,
+	SCN_TRIPLE_DISP =  0x00000004,
 };
 
 struct layering_rule_ops {
@@ -178,9 +181,6 @@ struct layering_rule_ops {
 #define HRT_GET_WROT_SRAM_FLAG(hrt_num) ((hrt_num & 0x600) >> 9)
 #define HRT_SET_WROT_SRAM_FLAG(hrt_num, value)                                 \
 	(hrt_num = ((hrt_num & ~(0x600)) | ((value & 0x3) << 9)))
-#define HRT_GET_PATH_SCENARIO(hrt_num) ((hrt_num & 0xFFFF0000) >> 16)
-#define HRT_SET_PATH_SCENARIO(hrt_num, value)                                  \
-	(hrt_num = ((hrt_num & ~(0xFFFF0000)) | ((value & 0xFFFF) << 16)))
 #define HRT_GET_PATH_ID(hrt_path) (hrt_path & 0x1F)
 
 // int layering_rule_start(struct drm_mtk_layering_info *disp_info, int
@@ -215,5 +215,7 @@ void mtk_rollback_compress_layer_to_GPU(struct drm_mtk_layering_info *disp_info,
 bool mtk_is_layer_id_valid(struct drm_mtk_layering_info *disp_info,
 			   int disp_idx, int i);
 int mtk_layering_rule_ioctl(struct drm_device *drm, void *data,
-			    struct drm_file *file_priv);
+	struct drm_file *file_priv);
+
+bool is_triple_disp(struct drm_mtk_layering_info *disp_info);
 #endif

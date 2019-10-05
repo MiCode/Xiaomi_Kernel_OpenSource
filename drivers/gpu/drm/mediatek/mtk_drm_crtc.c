@@ -122,6 +122,7 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	const struct mtk_addon_path_data *addon_path;
 	enum addon_module module;
 	struct mtk_ddp_comp *comp;
+	int crtc_id = drm_crtc_index(crtc);
 
 	DDPINFO("%s\n", __func__);
 
@@ -130,7 +131,7 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) mtk_dump_reg(comp);
 
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
-						 state->lye_state.scn);
+						state->lye_state.scn[crtc_id]);
 	if (!addon_data)
 		return;
 
@@ -155,6 +156,7 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	const struct mtk_addon_path_data *addon_path;
 	enum addon_module module;
 	struct mtk_ddp_comp *comp;
+	int crtc_id = drm_crtc_index(crtc);
 
 	DDPINFO("%s\n", __func__);
 
@@ -164,7 +166,7 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 		mtk_dump_analysis(comp);
 
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
-						 state->lye_state.scn);
+					state->lye_state.scn[crtc_id]);
 	if (!addon_data)
 		return;
 
@@ -545,8 +547,8 @@ static void _mtk_crtc_atmoic_addon_module_disconnect(
 	const struct mtk_addon_module_data *addon_module;
 	union mtk_addon_config addon_config;
 
-	addon_data =
-		mtk_addon_get_scenario_data(__func__, crtc, lye_state->scn);
+	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
+					lye_state->scn[drm_crtc_index(crtc)]);
 	if (!addon_data)
 		return;
 
@@ -587,8 +589,8 @@ _mtk_crtc_atmoic_addon_module_connect(
 	const struct mtk_addon_module_data *addon_module;
 	union mtk_addon_config addon_config;
 
-	addon_data =
-		mtk_addon_get_scenario_data(__func__, crtc, lye_state->scn);
+	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
+					lye_state->scn[drm_crtc_index(crtc)]);
 	if (!addon_data)
 		return;
 

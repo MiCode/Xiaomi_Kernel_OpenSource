@@ -686,11 +686,14 @@ static const struct mtk_addon_scenario_data mt6779_addon_main[ADDON_SCN_NR] = {
 };
 
 static const struct mtk_addon_scenario_data mt6779_addon_ext[ADDON_SCN_NR] = {
-		[NONE] = {
-
-				.module_num = 0,
-				.hrt_type = HRT_TB_TYPE_GENERAL0,
-			},
+	[NONE] = {
+		.module_num = 0,
+		.hrt_type = HRT_TB_TYPE_GENERAL0,
+	},
+	[TRIPLE_DISP] = {
+		.module_num = 0,
+		.hrt_type = HRT_TB_TYPE_GENERAL0,
+	},
 };
 
 static const struct mtk_crtc_path_data mt6779_mtk_main_path_data = {

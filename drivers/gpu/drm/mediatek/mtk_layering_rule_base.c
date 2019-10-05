@@ -249,8 +249,17 @@ static int is_continuous_ext_layer_overlap(struct drm_mtk_layer_config *configs,
 	return overlapped;
 }
 
+bool is_triple_disp(struct drm_mtk_layering_info *disp_info)
+{
+	if (disp_info->layer_num[HRT_PRIMARY] &&
+		disp_info->layer_num[HRT_SECONDARY] &&
+		disp_info->layer_num[HRT_THIRD])
+		return true;
+	return false;
+}
+
 static int get_phy_ovl_layer_cnt(struct drm_mtk_layering_info *info,
-				 int disp_idx)
+				int disp_idx)
 {
 	int total_cnt = 0;
 	int i;
@@ -363,17 +372,22 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 	int i, j;
 	struct drm_mtk_layer_config *layer_info;
 
-#define _HRT_FMT "HRT hrt_num:0x%x/fps:%d/dal:%d/p:%d/bd_tb:%d/i:%d\n"
-#define _L_FMT                                                                 \
+#define _HRT_FMT \
+	"HRT hrt_num:0x%x/fps:%d/dal:%d/addon_scn:(%d, %d, %d)/bd_tb:%d/i:%d\n"
+#define _L_FMT \
 	"L%d->%d/(%d,%d,%d,%d)/(%d,%d,%d,%d)/f0x%x/ds%d/e%d/cap0x%x/compr%d\n"
 
 	if (debug_level < DISP_DEBUG_LEVEL_INFO) {
-		DDPMSG(_HRT_FMT, disp_info->hrt_num, l_rule_info->primary_fps,
-		       l_rule_info->dal_enable,
-		       HRT_GET_PATH_ID(l_rule_info->addon_scn),
-		       l_rule_info->bound_tb_idx, roll_gpu_for_idle);
+		DDPMSG(_HRT_FMT,
+			disp_info->hrt_num, l_rule_info->primary_fps,
+			l_rule_info->dal_enable,
+			l_rule_info->addon_scn[HRT_PRIMARY],
+			l_rule_info->addon_scn[HRT_SECONDARY],
+			l_rule_info->addon_scn[HRT_THIRD],
+			l_rule_info->bound_tb_idx,
+			roll_gpu_for_idle);
 
-		for (i = 0; i < 2; i++) {
+		for (i = 0; i < HRT_TYPE_NUM; i++) {
 			if (disp_info->layer_num[i] <= 0)
 				continue;
 
@@ -403,10 +417,13 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 	} else {
 		DDPINFO(_HRT_FMT, disp_info->hrt_num, l_rule_info->primary_fps,
 			l_rule_info->dal_enable,
-			HRT_GET_PATH_ID(l_rule_info->addon_scn),
-			l_rule_info->bound_tb_idx, roll_gpu_for_idle);
+			l_rule_info->addon_scn[HRT_PRIMARY],
+			l_rule_info->addon_scn[HRT_SECONDARY],
+			l_rule_info->addon_scn[HRT_THIRD],
+			l_rule_info->bound_tb_idx,
+			roll_gpu_for_idle);
 
-		for (i = 0; i < 2; i++) {
+		for (i = 0; i < HRT_TYPE_NUM; i++) {
 			if (disp_info->layer_num[i] <= 0)
 				continue;
 
@@ -543,9 +560,6 @@ int mtk_rollback_resize_layer_to_GPU_range(
 			lc->ext_sel_layer = -1;
 		}
 	}
-
-	if (disp_idx == HRT_SECONDARY)
-		return 0;
 
 	return 0;
 }
@@ -688,13 +702,14 @@ static int rollback_to_GPU(struct drm_mtk_layering_info *info, int disp,
 static bool unset_disp_rsz_attr(struct drm_mtk_layering_info *disp_info,
 				int disp_idx)
 {
-	struct drm_mtk_layer_config *c = &disp_info->input_config[disp_idx][0];
+	struct drm_mtk_layer_config *c =
+		&disp_info->input_config[disp_idx][HRT_PRIMARY];
 
-	if (l_rule_info->addon_scn == ONE_SCALING &&
+	if (l_rule_info->addon_scn[HRT_PRIMARY] == ONE_SCALING &&
 	    mtk_has_layer_cap(c, MTK_MDP_RSZ_LAYER) &&
 	    mtk_has_layer_cap(c, MTK_DISP_RSZ_LAYER)) {
 		c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
-		l_rule_info->addon_scn = NONE;
+		l_rule_info->addon_scn[HRT_PRIMARY] = NONE;
 		return true;
 	}
 	return false;
@@ -843,7 +858,7 @@ static int filter_by_ovl_cnt(struct drm_device *dev,
 	int ret, disp_idx;
 
 	/* 0->primary display, 1->secondary display */
-	for (disp_idx = 0; disp_idx < 2; disp_idx++) {
+	for (disp_idx = 0; disp_idx < HRT_TYPE_NUM; disp_idx++) {
 		if (get_layering_opt(LYE_OPT_EXT_LAYER))
 			ret = ext_id_tuning(dev, disp_info, disp_idx);
 		else
@@ -1111,6 +1126,17 @@ static bool has_hrt_limit(struct drm_mtk_layering_info *disp_info, int disp_idx)
 	return true;
 }
 
+static int get_hrt_disp_num(struct drm_mtk_layering_info *disp_info)
+{
+	int cnt = 0, i;
+
+	for (i = 0; i < HRT_TYPE_NUM; i++)
+		if (has_hrt_limit(disp_info, i))
+			cnt++;
+
+	return cnt;
+}
+
 /**
  * Return the HRT layer weight.
  * If the layer_info is NULL, return GLES layer weight.
@@ -1275,6 +1301,8 @@ static int calc_larb_hrt_level(struct drm_device *dev,
 					      true, l_rule_info->dal_enable);
 		sum_overlap_w += _calc_hrt_num(dev, disp_info, HRT_SECONDARY, i,
 					       true, false);
+		sum_overlap_w += _calc_hrt_num(dev, disp_info, HRT_THIRD, i,
+					       true, false);
 		tmp_hrt_level = get_hrt_level(sum_overlap_w, true);
 		if (tmp_hrt_level > larb_hrt_level)
 			larb_hrt_level = tmp_hrt_level;
@@ -1307,6 +1335,11 @@ static int calc_hrt_num(struct drm_device *dev,
 		sum_overlap_w +=
 			_calc_hrt_num(dev, disp_info, HRT_SECONDARY,
 				      HRT_TYPE_EMI, scan_overlap, false);
+	}
+	if (has_hrt_limit(disp_info, HRT_THIRD)) {
+		sum_overlap_w += _calc_hrt_num(dev, disp_info, HRT_THIRD,
+					       HRT_TYPE_EMI, scan_overlap,
+					       false);
 	}
 
 	emi_hrt_level = get_hrt_level(sum_overlap_w, false);
@@ -1356,7 +1389,7 @@ static int ext_layer_grouping(struct drm_device *dev,
 	struct drm_mtk_layer_config *src_info, *dst_info;
 	int available_layers = 0, phy_layer_cnt = 0;
 
-	for (disp_idx = 0; disp_idx < 2; disp_idx++) {
+	for (disp_idx = 0; disp_idx < HRT_TYPE_NUM; disp_idx++) {
 		/* initialize ext layer info */
 		for (i = 0; i < disp_info->layer_num[disp_idx]; i++)
 			disp_info->input_config[disp_idx][i].ext_sel_layer = -1;
@@ -1365,7 +1398,7 @@ static int ext_layer_grouping(struct drm_device *dev,
 			continue;
 
 #ifndef LAYERING_SUPPORT_EXT_LAYER_ON_2ND_DISP
-		if (disp_idx == HRT_SECONDARY)
+		if (disp_idx != HRT_PRIMARY)
 			continue;
 #endif
 
@@ -1549,19 +1582,22 @@ static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
 	if (disp_info->hrt_num > HRT_LEVEL_NUM - 1) {
 		int max_ovl_cnt = g_emi_bound_table[HRT_LEVEL_NUM - 1];
 		int valid_ovl_cnt = max_ovl_cnt;
+		int hrt_disp_num = get_hrt_disp_num(disp_info);
 
 		if (l_rule_info->dal_enable)
 			valid_ovl_cnt -= (HRT_AEE_WEIGHT / HRT_UINT_BOUND_BPP);
-
 		valid_ovl_cnt /= HRT_UINT_WEIGHT;
-		if (has_hrt_limit(disp_info, HRT_SECONDARY))
-			valid_ovl_cnt =
-				rollback_to_GPU(disp_info, HRT_SECONDARY,
-						valid_ovl_cnt - 1) +
-				1;
 
-		if (has_hrt_limit(disp_info, HRT_PRIMARY))
-			rollback_to_GPU(disp_info, HRT_PRIMARY, valid_ovl_cnt);
+		hrt_disp_num--;
+		for (disp_idx = HRT_TYPE_NUM - 1; disp_idx >= 0; disp_idx--) {
+			if (!has_hrt_limit(disp_info, disp_idx))
+				continue;
+			valid_ovl_cnt =
+				rollback_to_GPU(disp_info, disp_idx,
+					valid_ovl_cnt - hrt_disp_num);
+			valid_ovl_cnt += hrt_disp_num;
+			hrt_disp_num--;
+		}
 
 		/* ajust hrt_num */
 		disp_info->hrt_num =
@@ -1570,7 +1606,7 @@ static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
 	}
 
 	/* Dispatch OVL id */
-	for (disp_idx = 0; disp_idx < 2; disp_idx++) {
+	for (disp_idx = 0; disp_idx < HRT_TYPE_NUM; disp_idx++) {
 		int ovl_cnt;
 		uint16_t layer_map;
 
@@ -1586,9 +1622,8 @@ static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
 				MAX_PHY_OVL_CNT);
 			layer_map &= HRT_AEE_LAYER_MASK;
 		}
-
-		_dispatch_lye_blob_idx(disp_info, layer_map, disp_idx,
-				       lyeblob_ids, drm_dev);
+		_dispatch_lye_blob_idx(disp_info, layer_map,
+			disp_idx, lyeblob_ids, drm_dev);
 	}
 	return 0;
 }
@@ -1600,7 +1635,7 @@ static int check_layering_result(struct drm_mtk_layering_info *info)
 	if (info->layer_num[0] <= 0 && info->layer_num[1] <= 0)
 		return 0;
 
-	for (disp_idx = 0; disp_idx < 2; disp_idx++) {
+	for (disp_idx = 0; disp_idx < HRT_TYPE_NUM; disp_idx++) {
 		int layer_num, max_ovl_id, ovl_layer_num;
 
 		if (info->layer_num[disp_idx] <= 0)
@@ -1630,7 +1665,7 @@ static int check_disp_info(struct drm_mtk_layering_info *disp_info)
 		return -1;
 	}
 
-	for (disp_idx = 0; disp_idx < 2; disp_idx++) {
+	for (disp_idx = 0; disp_idx < HRT_TYPE_NUM; disp_idx++) {
 		if (disp_info->layer_num[disp_idx] > 0 &&
 		    disp_info->input_config[disp_idx] == NULL) {
 			DDPPR_ERR(
@@ -1690,13 +1725,15 @@ _copy_layer_info_from_disp(struct drm_mtk_layering_info *disp_info_user,
 static int set_disp_info(struct drm_mtk_layering_info *disp_info_user,
 			 int debug_mode)
 {
+	int i;
+
 	memcpy(&layering_info, disp_info_user,
-	       sizeof(struct drm_mtk_layering_info));
+		sizeof(struct drm_mtk_layering_info));
 
-	_copy_layer_info_from_disp(disp_info_user, debug_mode, 0);
-	_copy_layer_info_from_disp(disp_info_user, debug_mode, 1);
+	for (i = 0; i < HRT_TYPE_NUM; i++)
+		_copy_layer_info_from_disp(disp_info_user, debug_mode, i);
 
-	l_rule_info->addon_scn = NONE;
+	memset(l_rule_info->addon_scn, 0x0, sizeof(l_rule_info->addon_scn));
 	return 0;
 }
 
@@ -1736,14 +1773,14 @@ _copy_layer_info_by_disp(struct drm_mtk_layering_info *disp_info_user,
 static int copy_layer_info_to_user(struct drm_mtk_layering_info *disp_info_user,
 				   int debug_mode)
 {
-	int ret = 0;
+	int ret = 0, i;
 	struct drm_mtk_layering_info *l_info = &layering_info;
 
 	disp_info_user->hrt_num = l_info->hrt_num;
 	disp_info_user->hrt_idx = l_info->hrt_idx;
 	disp_info_user->hrt_weight = l_info->hrt_weight;
-	_copy_layer_info_by_disp(disp_info_user, debug_mode, 0);
-	_copy_layer_info_by_disp(disp_info_user, debug_mode, 1);
+	for (i = 0; i < HRT_TYPE_NUM; i++)
+		_copy_layer_info_by_disp(disp_info_user, debug_mode, i);
 
 	return ret;
 }
@@ -1795,7 +1832,7 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 	struct mtk_lye_ddp_state lye_state;
 	struct mtk_drm_private *mtk_drm = drm_dev->dev_private;
 
-	lye_state.scn = l_rule_info->addon_scn;
+	memcpy(lye_state.scn, l_rule_info->addon_scn, sizeof(lye_state.scn));
 	lye_state.lc_tgt_layer = 0;
 
 	blob = drm_property_create_blob(
@@ -1886,7 +1923,8 @@ static int RPO_rule(struct drm_mtk_layering_info *disp_info, int disp_idx,
 		goto done;
 	}
 
-	for (i = 0; i < disp_info->layer_num[disp_idx] && i < 2; i++) {
+	for (i = 0; i < disp_info->layer_num[disp_idx] &&
+		i < HRT_TYPE_NUM; i++) {
 		c = &disp_info->input_config[disp_idx][i];
 
 		/*if (i == 0 && c->src_fmt == MTK_DRM_FORMAT_DIM)
@@ -1944,6 +1982,8 @@ static unsigned int resizing_rule(struct drm_mtk_layering_info *disp_info,
 	/*RPO only support primary*/
 	if (disp_info->layer_num[HRT_SECONDARY] > 0)
 		mtk_rollback_all_resize_layer_to_GPU(disp_info, HRT_SECONDARY);
+	if (disp_info->layer_num[HRT_THIRD] > 0)
+		mtk_rollback_all_resize_layer_to_GPU(disp_info, HRT_THIRD);
 
 	if (disp_info->layer_num[HRT_PRIMARY] > 0) {
 		scale_num = RPO_rule(disp_info, HRT_PRIMARY, has_pq);
@@ -1953,6 +1993,16 @@ static unsigned int resizing_rule(struct drm_mtk_layering_info *disp_info,
 	}
 
 	return scale_num;
+}
+
+static unsigned int get_scn_decision_flag(
+	struct drm_mtk_layering_info *disp_info)
+{
+	unsigned int scn_decision_flag = 0;
+
+	if (is_triple_disp(disp_info))
+		scn_decision_flag |= SCN_TRIPLE_DISP;
+	return scn_decision_flag;
 }
 
 static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
@@ -1997,16 +2047,19 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 		ret = l_rule_ops->rollback_to_gpu_by_hw_limitation(
 			dev, &layering_info);
 
+	scn_decision_flag = get_scn_decision_flag(&layering_info);
 	/* Check and choose the Resize Scenario */
 	if (get_layering_opt(LYE_OPT_RPO)) {
-		bool has_pq = (scn_decision_flag & NEED_VP_PQ) |
-			      (scn_decision_flag & NEED_GAME_PQ);
+		bool has_pq = (scn_decision_flag & SCN_NEED_VP_PQ)
+				| (scn_decision_flag & SCN_NEED_GAME_PQ);
 		scale_num = resizing_rule(&layering_info, has_pq);
 	} else {
 		mtk_rollback_all_resize_layer_to_GPU(&layering_info,
 						     HRT_PRIMARY);
 		mtk_rollback_all_resize_layer_to_GPU(&layering_info,
-						     HRT_SECONDARY);
+			HRT_SECONDARY);
+		mtk_rollback_all_resize_layer_to_GPU(&layering_info,
+			HRT_THIRD);
 	}
 
 	/* fbdc_rule should be after resizing_rule
@@ -2073,7 +2126,6 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	check_layering_result(&layering_info);
 
 	layering_info.hrt_idx = l_rule_info->hrt_idx;
-	HRT_SET_PATH_SCENARIO(layering_info.hrt_num, l_rule_info->addon_scn);
 	HRT_SET_AEE_FLAG(layering_info.hrt_num, l_rule_info->dal_enable);
 	HRT_SET_WROT_SRAM_FLAG(layering_info.hrt_num, l_rule_info->wrot_sram);
 	dump_disp_info(&layering_info, DISP_DEBUG_LEVEL_INFO);
@@ -2176,7 +2228,7 @@ static void print_hrt_result(struct drm_mtk_layering_info *disp_info)
 {
 	unsigned int i = 0, j = 0;
 
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < HRT_TYPE_NUM; i++) {
 		DDPMSG("### DISP%d ###\n", i);
 		DDPMSG("[head]%d[tail]%d\n", disp_info->gles_head[i],
 		       disp_info->gles_tail[i]);
@@ -2240,7 +2292,7 @@ static int load_hrt_test_data(struct drm_mtk_layering_info *disp_info,
 				goto end;
 			tok = parse_hrt_data_value(tok, &disp_id);
 
-			if (disp_id > HRT_SECONDARY)
+			if (disp_id >= HRT_TYPE_NUM)
 				goto end;
 
 			if (layer_num != 0) {

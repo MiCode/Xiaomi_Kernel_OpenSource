@@ -25,6 +25,7 @@ enum addon_scenario {
 	TWO_SCALING,
 	GAME_PQ,
 	VP_PQ,
+	TRIPLE_DISP,
 	ADDON_SCN_NR,
 };
 
@@ -40,9 +41,9 @@ enum addon_type {
 };
 
 struct mtk_lye_ddp_state {
-	enum addon_scenario scn;
-	uint8_t lc_tgt_layer;
-	uint8_t dmdp_tgt_layer;
+	 enum addon_scenario scn[HRT_TYPE_NUM];
+	 uint8_t lc_tgt_layer;
+	 uint8_t dmdp_tgt_layer;
 };
 
 struct mtk_addon_path_data {
