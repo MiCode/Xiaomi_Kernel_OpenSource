@@ -103,6 +103,7 @@ config MTK_BASE_POWER
 	management feature.
 
 source "drivers/misc/mediatek/base/power/Kconfig"
+source "drivers/misc/mediatek/thermal/Kconfig"
 
 config MTK_MEMORY_LOWPOWER
 	bool "Support Mediatek memory lowpower technology"
