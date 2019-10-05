@@ -18,7 +18,7 @@
 #include "mtk_qos_ipi.h"
 
 #include <sspm_define.h>
-#include <sspm_reservedmem.h>
+#include <v1/sspm_reservedmem.h>
 
 #ifdef CONFIG_MTK_DRAMC
 #include <mtk_dramc.h>

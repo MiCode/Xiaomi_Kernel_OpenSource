@@ -34,7 +34,6 @@ enum SEMAPHORE_FLAG {
 extern struct sspm_regs sspmreg;
 
 extern int sspm_plt_init(void);
-extern int sspm_irq_init(unsigned int irq);
 
 /* @group_id: the group want to swap in tcm and run. */
 extern void memcpy_to_sspm(void __iomem *trg, const void *src, int size);
