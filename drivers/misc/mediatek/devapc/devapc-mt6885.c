@@ -1645,6 +1645,21 @@ static void mm2nd_vio_handler(void __iomem *infracfg,
 	vio_info->write = (rw == 1);
 }
 
+void devapc_catch_illegal_range(phys_addr_t phys_addr, size_t size)
+{
+	/*
+	 * Catch BROM addr mapped
+	 */
+	if (phys_addr >= 0x0 && phys_addr < SRAM_START_ADDR) {
+		pr_err(PFX "%s: %s %s:(%pa), %s:(0x%lx)\n",
+				"catch BROM address mapped!",
+				__func__, "phys_addr", &phys_addr,
+				"size", size);
+		BUG_ON(1);
+	}
+}
+EXPORT_SYMBOL(devapc_catch_illegal_range);
+
 static struct mtk_devapc_dbg_status mt6885_devapc_dbg_stat = {
 	.enable_ut = PLAT_DBG_UT_DEFAULT,
 	.enable_KE = PLAT_DBG_KE_DEFAULT,
