@@ -128,7 +128,7 @@ const char * const *get_mt6885_all_clk_names(void)
 		"aud_2_sel",
 		"adsp_sel",
 		"dpmaif_main_sel",
-		"venc_sel"
+		"venc_sel",
 
 		"vdec_sel",
 		"vdec_lat_sel",
