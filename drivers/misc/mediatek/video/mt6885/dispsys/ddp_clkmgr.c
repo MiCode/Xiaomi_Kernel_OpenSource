@@ -501,6 +501,13 @@ int ddp_clk_enable_by_module(enum DISP_MODULE_ENUM module)
 	case DISP_MODULE_RSZ0:
 		ddp_clk_prepare_enable(CLK_DISP_RSZ0);
 		break;
+	case DISP_MODULE_POSTMASK0:
+		ddp_clk_prepare_enable(CLK_DISP_POSTMASK0);
+		break;
+	case DISP_MODULE_DSI0:
+		ddp_clk_prepare_enable(CLK_DSI0_MM_CLK);
+		ddp_clk_prepare_enable(CLK_DSI0_IF_CLK);
+		break;
 	default:
 		DDPERR("invalid module id=%d\n", module);
 		ret = -1;
@@ -543,6 +550,13 @@ int ddp_clk_disable_by_module(enum DISP_MODULE_ENUM module)
 		break;
 	case DISP_MODULE_RSZ0:
 		ddp_clk_disable_unprepare(CLK_DISP_RSZ0);
+		break;
+	case DISP_MODULE_POSTMASK0:
+		ddp_clk_disable_unprepare(CLK_DISP_POSTMASK0);
+		break;
+	case DISP_MODULE_DSI0:
+		ddp_clk_disable_unprepare(CLK_DSI0_IF_CLK);
+		ddp_clk_disable_unprepare(CLK_DSI0_MM_CLK);
 		break;
 	default:
 		DDPERR("invalid module id=%d\n", module);

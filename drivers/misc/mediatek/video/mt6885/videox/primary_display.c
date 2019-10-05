@@ -2779,8 +2779,15 @@ int _trigger_display_interface(int blocking, void *callback,
 		dynamic_fps_changed = 0;
 	}
 
-	dpmgr_path_trigger(pgc->dpmgr_handle, NULL,
-		primary_display_cmdq_enabled());
+	if (_should_trigger_path()) {
+#ifndef CONFIG_FPGA_EARLY_PORTING /* fpga has no vsync */
+		if (islcmconnected)
+			dpmgr_wait_event(pgc->dpmgr_handle,
+				DISP_PATH_EVENT_IF_VSYNC);
+#endif
+		dpmgr_path_trigger(pgc->dpmgr_handle, NULL,
+			primary_display_cmdq_enabled());
+	}
 
 	if (_should_set_cmdq_dirty())
 		_cmdq_set_config_handle_dirty();

@@ -88,7 +88,7 @@ static bool ddp_valid_engine[DISP_MODULE_NUM] = {
 	1, /* DISP_MODULE_CCORR0 */
 
 	1, /* DISP_MODULE_AAL0 */
-	1, /* DISP_MODULE_MDP_AAL4 */
+	0, /* DISP_MODULE_MDP_AAL4 */
 	1, /* DISP_MODULE_GAMMA0 */
 	1, /* DISP_MODULE_POSTMASK0 */
 	1, /* DISP_MODULE_DITHER0 */

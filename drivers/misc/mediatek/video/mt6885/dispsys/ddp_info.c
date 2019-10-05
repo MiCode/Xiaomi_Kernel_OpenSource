@@ -44,7 +44,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_ovl,
 	 {"mediatek,disp_ovl0",
 	  0x14000000,
-	  253,
+	  285,
 	  14,
 	  0,
 	  0}
@@ -57,7 +57,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_ovl,
 	 {"mediatek,disp_ovl0_2l",
 	  0x14001000,
-	  254,
+	  286,
 	  14,
 	  0,
 	  0}
@@ -94,7 +94,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_rdma,
 	 {"mediatek,disp_rdma0",
 	  0x14003000,
-	  255,
+	  287,
 	  7,
 	  0,
 	  0}
@@ -115,7 +115,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_wdma,
 	 {"mediatek,disp_wdma0",
 	  0x14006000,
-	  256,
+	  288,
 	  1,
 	  0,
 	  0}
@@ -128,7 +128,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_color,
 	 {"mediatek,disp_color0",
 	  0x14007000,
-	  257,
+	  289,
 	  0,
 	  0,
 	  0}
@@ -141,7 +141,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_ccorr,
 	 {"mediatek,disp_ccorr0",
 	  0x14008000,
-	  258,
+	  290,
 	  1,
 	  0,
 	  0}
@@ -154,7 +154,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_aal,
 	 {"mediatek,disp_aal0",
 	  0x14009000,
-	  259,
+	  291,
 	  1,
 	  0,
 	  0}
@@ -175,7 +175,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_gamma,
 	 {"mediatek,disp_gamma0",
 	  0x1400a000,
-	  260,
+	  292,
 	  0,
 	  0,
 	  0}
@@ -188,7 +188,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_postmask,
 	 {"mediatek,disp_postmask0",
 	  0x1400d000,
-	  277,
+	  309,
 	  13,
 	  0,
 	  0}
@@ -201,7 +201,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_dither,
 	 {"mediatek,disp_dither0",
 	  0x1400b000,
-	  261,
+	  293,
 	  0,
 	  0,
 	  0}
@@ -222,7 +222,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_dsi0,
 	 {"mediatek,dsi0",
 	  0x1400e000,
-	  262,
+	  294,
 	  15,
 	  0,
 	  0}
@@ -277,7 +277,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 NULL,
 	 {"mediatek,disp_mutex0",
 	  0x14117000,
-	  251,
+	  283,
 	  21,
 	  0,
 	  0}
