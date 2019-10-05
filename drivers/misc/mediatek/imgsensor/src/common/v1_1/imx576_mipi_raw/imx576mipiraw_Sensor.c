@@ -188,6 +188,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.ae_ispGain_delay_frame = 2,
 	.ihdr_support = 0,	  /* 1, support; 0,not support */
 	.ihdr_le_firstline = 0,  /* 1,le first ; 0, se first */
+	.temperature_support = 1,/* 1, support; 0,not support */
 	.sensor_mode_num = 5,	  /* support sensor mode num */
 
 	.cap_delay_frame = 2,
@@ -804,6 +805,9 @@ static void sensor_init(void)
 	write_cmos_sensor_8(0x9870, 0x00);
 	write_cmos_sensor_8(0x9953, 0x06);
 	write_cmos_sensor_8(0x9954, 0x06);
+
+	/*enable temperature sensor, TEMP_SEN_CTL:*/
+	write_cmos_sensor_8(0x0138, 0x01);
 }	/*	sensor_init  */
 
 static void sensor_init_for_MP0(void)
@@ -2123,6 +2127,7 @@ static kal_uint32 get_info(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 	}
 
 	sensor_info->SensorMIPILaneNumber = imgsensor_info.mipi_lane_num;
+	sensor_info->TEMPERATURE_SUPPORT = imgsensor_info.temperature_support;
 	sensor_info->SensorClockFreq = imgsensor_info.mclk;
 	sensor_info->SensorClockDividCount = 3; /* not use */
 	sensor_info->SensorClockRisingCount = 0;
@@ -2754,6 +2759,30 @@ static kal_uint32 streaming_control(kal_bool enable)
 	return ERROR_NONE;
 }
 
+static kal_uint32 get_sensor_temperature(void)
+{
+	UINT8 temperature;
+	INT32 temperature_convert;
+
+	temperature = read_cmos_sensor_8(0x013a);
+
+	if (temperature >= 0x0 && temperature <= 0x4F)
+		temperature_convert = temperature;
+	else if (temperature >= 0x50 && temperature <= 0x7F)
+		temperature_convert = 80;
+	else if (temperature >= 0x80 && temperature <= 0xEC)
+		temperature_convert = -20;
+	else
+		temperature_convert = (INT8) temperature;
+
+	/*
+	 * LOG_INF("temp_c(%d), read_reg(%d)\n",
+	 * temperature_convert, temperature);
+	 */
+
+	return temperature_convert;
+}
+
 static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 				  UINT8 *feature_para,
 				  UINT32 *feature_para_len)
@@ -2910,6 +2939,10 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	case SENSOR_FEATURE_SET_AUTO_FLICKER_MODE:
 		set_auto_flicker_mode((BOOL)*feature_data_16,
 				      *(feature_data_16+1));
+		break;
+	case SENSOR_FEATURE_GET_TEMPERATURE_VALUE:
+		*feature_return_para_32 = get_sensor_temperature();
+		*feature_para_len = 4;
 		break;
 	case SENSOR_FEATURE_SET_MAX_FRAME_RATE_BY_SCENARIO:
 		set_max_framerate_by_scenario(
